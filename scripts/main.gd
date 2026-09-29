@@ -142,7 +142,7 @@ func _load_system(id: String, arrival: String) -> void:
 	space.player_destroyed.connect(_on_destroyed)
 	space.message.connect(func(t): hud.flash_message(t))
 	space.system_used.connect(func(sid, txt): hud.flash_message(txt); hud.pulse(sid))
-	space.hail.connect(func(from, line, hostile): if not hud.comms_open or hud.comms_mode == "incoming": hud.open_comms(from, line, "incoming", hostile))
+	space.hail.connect(_on_hail)
 	hud.space = space
 
 func _on_gs_changed() -> void:
@@ -155,7 +155,13 @@ func _process(_dt: float) -> void:
 		var t := Time.get_ticks_msec() / 1000.0
 		space.cam.global_position = space.station.global_position + Vector3(cos(t * 0.08) * 330, 90, sin(t * 0.08) * 330)
 		space.cam.look_at(space.station.global_position, Vector3.UP)
-	if state == "flight": hud.objective = _objective()
+	if state == "flight":
+		hud.objective = _objective()
+		if not ("rennick" in GS.met) and GS.system_id == "solara" and not hud.comms_open:
+			for tr in space.traffic:
+				if tr["node"].global_position.distance_to(space.player.global_position) < 600.0:
+					_meet("rennick", "friendly")
+					break
 	_web_state()
 
 var _web_t := 0.0
@@ -228,10 +234,9 @@ func _on_hud(id: String) -> void:
 				"cancelled": hud.flash_message("Warp charge cancelled.")
 				"off": hud.flash_message("Dropped out of warp. Weapons unlocked.")
 		"call":
-			_contact_list = _contacts()
-			hud.open_picker(_contact_list)
+			_call_target()
 		"log":
-			if hud.comms_mode == "log": hud.close_comms()
+			if hud.comms_mode == "roster": hud.close_comms()
 			else: hud.open_log()
 		"hangup":
 			if hud.comms_open:
@@ -253,33 +258,39 @@ func _on_hud(id: String) -> void:
 		"jump":
 			if space.gate_in_range(): jump()
 		_:
-			if id.begins_with("contact_"):
-				var k := int(id.substr(8))
-				if k < _contact_list.size(): _place_call(_contact_list[k])
+			if id.begins_with("met_"):
+				var k := int(id.substr(4))
+				if k < GS.met.size(): call_character(GS.met[k])
 
-var _contact_list: Array = []
-## People you can call from the intercom: local control, the planet port, and whatever you have targeted.
-func _contacts() -> Array:
-	var out: Array = []
-	out.append([space.sys["station"]["name"] + " Control", "STATION", false, "station"])
-	out.append([space.sys["planet"]["name"] + " Port", "PLANET", false, "planet"])
+## CALL: hail whatever you have targeted, otherwise the local station controller.
+func _call_target() -> void:
 	var tgt: Node3D = space.target
 	if tgt and is_instance_valid(tgt) and tgt.get_meta("kind", "") == "enemy":
-		out.append([tgt.name + " pilot", "HOSTILE · TARGET", true, "enemy"])
-	else:
-		for tr in space.traffic:
-			out.append([tr["node"].name, "CARGO SHIP", false, "cargo"])
-			break
-	return out
+		var leader: String = Data.ENEMY_LEADER[space.sys["enemy"]]
+		if leader in GS.met: call_character(leader)
+		else: hud.open_comms(tgt.name + " pilot", space.TAUNTS[randi() % space.TAUNTS.size()], "talk", true)
+		return
+	if tgt and is_instance_valid(tgt) and tgt == space.planet and GS.system_id == "solara":
+		call_character("oduya")
+		return
+	for tr in space.traffic:
+		if tgt == tr["node"]:
+			call_character("rennick")
+			return
+	call_character("vale" if GS.system_id == "solara" else "amari")
 
-func _place_call(c: Array) -> void:
-	var line := ""
-	match c[3]:
-		"station": line = _comms_line()
-		"planet": line = "Port Authority here. Landing beacon is lit — fly into the green ring and hit DOCK. Repairs are free for Unity pilots."
-		"enemy": line = space.TAUNTS[randi() % space.TAUNTS.size()]
-		"cargo": line = "Cargo run to %s. Appreciate the company out here, pilot — raiders have been bold lately." % space.sys["planet"]["name"]
-	hud.open_comms(c[0], line, "talk", c[2])
+func call_character(id: String, incoming := false) -> void:
+	var c: Dictionary = Data.CHARACTERS[id]
+	if not (id in GS.met): GS.meet(id, "enraged" if c["lines"].has("enraged") else "friendly")
+	var m: String = GS.mood.get(id, "friendly")
+	var pool: Array = c["lines"].get(m, c["lines"].values()[0])
+	var line: String = pool[randi() % pool.size()]
+	if (id == "vale" or id == "amari") and not incoming: line = _comms_line()
+	hud.open_comms("%s — %s" % [c["name"], c["role"]], line, "incoming" if incoming else "talk", m == "enraged")
+
+## First meetings: they join the LOG roster and usually call you.
+func _meet(id: String, m: String, call := true) -> void:
+	if GS.meet(id, m) and call: call_character(id, true)
 
 func _comms_line() -> String:
 	var n := space.hostiles_near(900.0)
@@ -315,10 +326,18 @@ func _unhandled_input(e: InputEvent) -> void:
 		space.autopilot = null
 		hud.flash_message("Autopilot off.")
 
+func _on_hail(from: String, line: String, hostile: bool) -> void:
+	if hud.comms_open and hud.comms_mode != "incoming": return
+	var leader: String = Data.ENEMY_LEADER[space.sys["enemy"]]
+	if hostile and leader in GS.met: call_character(leader, true)
+	else: hud.open_comms(from, line, "incoming", hostile)
+
 func _on_kill(reward: int, who: String) -> void:
 	GS.kills += 1
 	GS.add_credits(reward)
 	hud.flash_message("%s destroyed. +%d credits." % [who, reward])
+	var leader: String = Data.ENEMY_LEADER[space.sys["enemy"]]
+	if not (leader in GS.met): _meet.call_deferred(leader, "enraged")
 
 # ---------------------------------------------------------------- docking / hub / launch
 func dock(n: Node3D) -> void:
@@ -345,6 +364,8 @@ func dock(n: Node3D) -> void:
 	GS.restore_full()
 	GS.last_base = info["id"]
 	visited[info["id"]] = true
+	if info["id"] == "new_terra": GS.meet("oduya", "friendly")
+	if info["id"] == "frontier_exchange": GS.meet("amari", "friendly")
 	if info["id"] == "liberty_hub" and GS.kills > 0: visited["liberty_hub_2"] = true
 	hub.open(info)
 	state = "hub"
@@ -403,7 +424,9 @@ func _launch_sequence(where: String) -> void:
 	hud.visible = true
 	state = "flight"
 	hud.flash_message("Launch complete. %s system." % Data.SYSTEMS[GS.system_id]["name"])
-	hud.open_comms(space.sys["station"]["name"] + " Control", "You're clear, pilot. " + _comms_line(), "incoming")
+	var ctl := "vale" if GS.system_id == "solara" else "amari"
+	if ctl in GS.met: hud.open_comms("%s — %s" % [Data.CHARACTERS[ctl]["name"], Data.CHARACTERS[ctl]["role"]], "You're clear, pilot. " + _comms_line(), "incoming")
+	else: _meet(ctl, "friendly")
 
 # ---------------------------------------------------------------- jump gates
 func jump() -> void:

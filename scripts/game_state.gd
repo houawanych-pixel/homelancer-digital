@@ -22,6 +22,8 @@ var system_id := "solara"
 var discovered := ["solara"]
 var last_base := "liberty_hub"
 var kills := 0
+var met: Array = [] # character ids, most recent first
+var mood := {} # id -> friendly | neutral | enraged
 var god_mode := false # only used by the automated route test
 
 func ship() -> Dictionary: return Data.SHIPS[ship_id]
@@ -31,6 +33,15 @@ func max_shield() -> float: return float(ship()["shield"])
 func max_missiles() -> int: return int(ship()["missiles"])
 func max_mines() -> int: return int(ship()["mines"])
 func is_auto(id: String) -> bool: return modes.get(id, "auto") == "auto"
+
+## Adds a character to the contacts roster (or updates their mood). Returns true the first time.
+func meet(id: String, m := "friendly") -> bool:
+	var first := not (id in met)
+	met.erase(id)
+	met.push_front(id)
+	mood[id] = m
+	changed.emit()
+	return first
 
 func restore_full() -> void:
 	hull = max_hull()

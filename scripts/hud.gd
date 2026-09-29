@@ -41,6 +41,7 @@ var comms_hostile := false
 var comms_timer := 0.0
 var contacts: Array = []
 var history: Array = [] # recent messages and calls for LOG
+var roster_t := 1.0 # pull-out animation
 var S := Vector2(1280, 720)
 var stick_r := 92.0
 var col_w := 140.0
@@ -83,9 +84,16 @@ func open_picker(list: Array) -> void:
 	comms_hostile = false
 
 func open_log() -> void:
+	# LOG = pull-out tab of the people you've met; tap one to call them
 	comms_open = true
-	comms_mode = "log"
+	comms_mode = "roster"
 	comms_hostile = false
+	roster_t = 0.0
+
+func roster_rect() -> Rect2:
+	var w := minf(400.0, S.x * 0.34)
+	var slide := (1.0 - ease(roster_t, 0.4)) * w * 0.35 # slides out from the left column
+	return Rect2(col_w + 14 - slide, 64, w, S.y - 64 - 170)
 
 func close_comms() -> void:
 	comms_open = false
@@ -127,7 +135,7 @@ func _layout() -> void:
 		buttons["mode_%s_manual" % id] = Rect2(r.position.x + r.size.x * 0.5 + 2, r.end.y - 36, r.size.x * 0.5 - 8, 30)
 	var sq := Vector2(col_w * 0.72, 74)
 	var y0 := 8 + 3 * (card_h + gap) + 4
-	var lids := ["warp", "call", "log", "hangup"]
+	var lids := ["log", "call", "warp", "hangup"]
 	for k in lids.size(): buttons[lids[k]] = Rect2(Vector2(8, y0 + k * (sq.y + 6)), sq)
 	var rids := ["stop", "kill", "thrust"]
 	for k in rids.size(): buttons[rids[k]] = Rect2(Vector2(S.x - 8 - sq.x, y0 + k * (sq.y + 6)), sq)
@@ -141,10 +149,12 @@ func _layout() -> void:
 		var db := Rect2(S.x * 0.5 - 130, 150, 260, 60)
 		if space.dock_candidate() != null: buttons["dock"] = db
 		elif space.gate_in_range(): buttons["jump"] = db
-	if comms_open and comms_mode == "picker":
-		var cp := _comms_rect()
-		for k in contacts.size():
-			buttons["contact_%d" % k] = Rect2(cp.position.x + 20, cp.position.y + 64 + k * 56, cp.size.x - 40, 48)
+	if comms_open and comms_mode == "roster":
+		var rr := roster_rect()
+		var rows := mini(GS.met.size(), 6)
+		var rh := minf(64.0, (rr.size.y - 110) / 6.0 - 4.0)
+		for k in rows:
+			buttons["met_%d" % k] = Rect2(rr.position.x + 10, rr.position.y + 50 + k * (rh + 4), rr.size.x - 20, rh)
 
 # ---------------------------------------------------------------- input
 func _input(e: InputEvent) -> void:
@@ -159,7 +169,10 @@ func _input(e: InputEvent) -> void:
 					if id != "sys_guns" and id != "thrust": pressed.emit(id)
 					get_viewport().set_input_as_handled()
 					return
-			if comms_open and _comms_rect().has_point(e.position):
+			if comms_open and comms_mode == "roster" and roster_rect().has_point(e.position):
+				owners[e.index] = "comms_body"
+				return
+			if comms_open and comms_mode != "roster" and _comms_rect().has_point(e.position):
 				owners[e.index] = "comms_body"
 				return
 			if e.position.y > S.y * 0.35 and e.position.x > col_w + 10 and e.position.x < S.x - col_w - 10:
@@ -198,6 +211,7 @@ func _process(dt: float) -> void:
 	space.aim = a * a.length()
 	space.fire_held = held.has("sys_guns") or Input.is_action_pressed("fire")
 	space.thrust_held = held.has("thrust") or Input.is_key_pressed(KEY_SHIFT)
+	if comms_mode == "roster": roster_t = minf(1.0, roster_t + dt * 5.0)
 	if comms_mode == "incoming":
 		comms_timer -= dt
 		if comms_timer <= 0.0: close_comms()
@@ -465,8 +479,8 @@ func _draw() -> void:
 	if space.warp_state == "charging":
 		var wr: Rect2 = buttons["warp"]
 		draw_rect(Rect2(wr.position + Vector2(6, wr.size.y - 4), Vector2((wr.size.x - 12) * space.warp_t / Data.WARP_CHARGE, 3)), Color(0.8, 0.75, 1.0))
-	_square("call", "CALL", comms_mode == "picker", GREEN)
-	_square("log", "LOG", comms_mode == "log", CYAN)
+	_square("call", "CALL", comms_mode == "talk", GREEN)
+	_square("log", "LOG", comms_mode == "roster", CYAN, "CONTACTS")
 	_square("hangup", "HANG UP", false, RED)
 	_square("stop", "STOP", space.braking, CYAN)
 	_square("kill", "KILL", space.engine_kill, GOLD, "DRIFTING" if space.engine_kill else "")
@@ -580,23 +594,14 @@ func _dashboard() -> void:
 
 # ---------------------------------------------------------------- intercom panel
 func _comms() -> void:
+	if comms_mode == "roster":
+		_roster()
+		return
 	var r := _comms_rect()
 	var accent := RED if comms_hostile else CYAN_HI
 	_box(r, Color(0.02, 0.08, 0.16, 0.94), accent, 14, 3)
-	if comms_mode == "picker":
-		_text(r.position + Vector2(20, 40), "INTERCOM — WHO DO YOU WANT TO CALL?", 20, WHITE)
-		for k in contacts.size():
-			var br: Rect2 = buttons["contact_%d" % k]
-			var hostile: bool = contacts[k][2]
-			_box(br, Color(0.05, 0.15, 0.26, 1.0), Color(RED if hostile else GREEN, 0.85), 10, 2)
-			_text(br.position + Vector2(16, 31), contacts[k][0], 19, WHITE)
-			_text(br.position + Vector2(0, 31), contacts[k][1], 13, Color(RED if hostile else GREEN, 0.9), HORIZONTAL_ALIGNMENT_RIGHT, br.size.x - 14)
-		_text(Vector2(r.position.x, r.end.y - 14), "Tap a name · HANG UP to close", 13, Color(1, 1, 1, 0.6), HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
-		return
-	if comms_mode == "log":
-		_text(r.position + Vector2(20, 38), "COMMS LOG", 20, WHITE)
-		for k in mini(history.size(), 7):
-			_text(r.position + Vector2(20, 68 + k * 24), history[k], 14, Color(1, 1, 1, 1.0 - k * 0.1), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 40)
+	if comms_mode == "roster":
+		_roster()
 		return
 	var card := Rect2(r.position + Vector2(14, 14), Vector2(r.size.y - 28, r.size.y - 28))
 	_box(card, Color(0.18, 0.04, 0.05, 1.0) if comms_hostile else Color(0.05, 0.14, 0.24, 1.0), Color(accent, 0.5), 12, 2)
@@ -621,3 +626,38 @@ func _comms() -> void:
 
 func _dist(d: float) -> String:
 	return "%.1f km" % (d / 1000.0) if d >= 1000.0 else "%d m" % int(d)
+
+## LOG pull-out: everyone you've met, with their mood; tap to call. Recent messages underneath.
+func _roster() -> void:
+	var r := roster_rect()
+	_box(r, Color(0.02, 0.07, 0.14, 0.96), CYAN_HI, 12, 3)
+	# pull tab on the edge
+	var tab := Rect2(r.end.x - 2, r.position.y + 20, 16, 60)
+	_box(tab, Color(0.05, 0.16, 0.28, 1.0), CYAN_HI, 5, 2)
+	_text(r.position + Vector2(16, 32), "CONTACTS", 20, WHITE)
+	_text(r.position + Vector2(0, 32), "TAP TO CALL", 12, CYAN_HI, HORIZONTAL_ALIGNMENT_RIGHT, r.size.x - 16)
+	if GS.met.is_empty():
+		_text(r.position + Vector2(16, 80), "Nobody yet — people you meet appear here.", 14, Color(1, 1, 1, 0.7))
+	for k in mini(GS.met.size(), 6):
+		var id: String = GS.met[k]
+		var c: Dictionary = Data.CHARACTERS[id]
+		var br: Rect2 = buttons["met_%d" % k]
+		var m: String = GS.mood.get(id, "neutral")
+		var mc: Color = {"friendly": GREEN, "neutral": CYAN_HI, "enraged": RED}[m]
+		var down := held.has("met_%d" % k)
+		_box(br, Color(mc, 0.25) if down else Color(0.05, 0.13, 0.23, 1.0), Color(mc, 0.8), 10, 2)
+		# portrait placeholder: coloured badge with initials
+		var pc := br.position + Vector2(br.size.y * 0.5 + 4, br.size.y * 0.5)
+		draw_circle(pc, br.size.y * 0.38, Color(c["color"], 0.9))
+		draw_arc(pc, br.size.y * 0.38, 0, TAU, 32, WHITE, 2.0, true)
+		var parts: PackedStringArray = (c["name"] as String).replace(".", "").split(" ")
+		var ini := (parts[0].substr(0, 1) + parts[parts.size() - 1].substr(0, 1)).to_upper()
+		_text(pc + Vector2(-20, 6), ini, 15, Color(0.02, 0.05, 0.1), HORIZONTAL_ALIGNMENT_CENTER, 40)
+		var tx := br.position.x + br.size.y + 12
+		_text(Vector2(tx, br.position.y + br.size.y * 0.45), c["name"], 17, WHITE)
+		_text(Vector2(tx, br.position.y + br.size.y * 0.45 + 18), c["role"], 12, Color(0.8, 0.88, 0.95))
+		_text(Vector2(br.position.x, br.position.y + br.size.y * 0.45), m.to_upper(), 12, mc, HORIZONTAL_ALIGNMENT_RIGHT, br.size.x - 12)
+	var y := r.end.y - 44
+	_text(Vector2(r.position.x + 16, y), "RECENT", 11, CYAN_HI)
+	for k in mini(history.size(), 2):
+		_text(Vector2(r.position.x + 16, y + 16 + k * 14), history[k], 11, Color(1, 1, 1, 0.7), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 32)

@@ -13,7 +13,7 @@ and missiles → buy/switch ships → launch → fly to the Aquila Jump Gate →
 Exchange or Eden Prime → fight corsairs → jump back to Solara.
 
 ## Controls (phone, landscape) — cockpit HUD (owner mockup)
-- **Left column:** SHIELD, REPAIR, ENERGY cards (icon, count, AUTO | MAN), then WARP, CALL, LOG, HANG UP.
+- **Left column:** SHIELD, REPAIR, ENERGY cards (icon, count, AUTO | MAN), then LOG, CALL, WARP, HANG UP.
 - **Right column:** WEAPONS, MISSILE, MINE cards, then STOP, KILL (engine kill), THRUST.
 - Tap a card's top half to use it now (hold WEAPONS to fire); AUTO | MAN at the bottom of each card.
   Counts: shield charges 5, repair kits 5, energy cells 5, weapons unlimited, missiles and mines per ship.
@@ -27,7 +27,9 @@ Exchange or Eden Prime → fight corsairs → jump back to Solara.
   on your heading while turning freely.
 - **WARP** only from a full stop; charges 3 s with booster particles; 6x speed; weapons lock; hits or WARP drop you out.
 - **Calls:** incoming calls (station control, enemy pilots) pop up over the dashboard and close by themselves.
-  CALL opens the intercom (station, planet port, targeted ship). HANG UP ends a call. LOG shows recent messages.
+  CALL hails your target (or the local controller). HANG UP ends a call. **LOG** pulls out a CONTACTS tab of up to six
+  people you've met (friendly or ENRAGED enemies you've fought) — tap one to call them; recent messages underneath.
+  Characters are original placeholders in `scripts/data.gd` until the Homelancer bible names canon ones.
 - Every finger belongs to what it first touched, so dragging a stick never presses a button.
 - Desktop: W/S thrust, A/D strafe, arrows or Q/E aim, Space fire, Shift thrust, mouse clicks act as touches.
 
@@ -49,7 +51,7 @@ assets/ships/{player,enemy,civilian}/   drop-in slots for real GLB ships (see do
 ```
 
 ## Test
-`godot --headless --path . -- --autotest --quit-after-test` runs the full route and prints `RESULT 32/32 PASS`.
+`godot --headless --path . -- --autotest --quit-after-test` runs the full route and prints `RESULT 36/36 PASS`.
 The GitHub workflow runs the same test before every Web export.
 
 See `docs/V1.2_BUILD.md` for the build report, asset status and known issues.
