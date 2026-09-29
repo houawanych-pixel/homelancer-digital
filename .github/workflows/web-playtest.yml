@@ -28,7 +28,7 @@ jobs:
           G=/tmp/godot/Godot_v4.3-stable_linux.x86_64
           $G --headless --path . --editor --import --quit
           $G --headless --path . -- --autotest --quit-after-test | tee route.log
-          grep -q "RESULT 20/20 PASS" route.log
+          grep -qE "RESULT ([0-9]+)/\1 PASS" route.log
           mkdir -p build/web
           $G --headless --path . --export-release Web
           printf 'Homelancer Digital v1.2\nCommit: %s\nGodot 4.3\n' "$GITHUB_SHA" > build/web/version.txt

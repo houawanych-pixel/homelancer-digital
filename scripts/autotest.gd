@@ -68,7 +68,7 @@ func _fight(label: String) -> bool:
 		for p in s.sys["patrols"]: s._spawn_group(p, 2)
 	var e: Node3D = s.enemies[0]["node"]
 	_tp(e.global_position + Vector3(0, 20, 300), e.global_position)
-	s.auto_fire = true
+	GS.modes["guns"] = "auto"
 	var shot_taken := false
 	var t := 0.0
 	while t < 45.0 and GS.kills == before:
@@ -117,10 +117,28 @@ func _run() -> void:
 	main.start_game()
 	_check("Godot boot + START", await _until(func(): return main.state == "flight", 10.0))
 	await _wait(1.0)
-	_check("Mobile HUD shown", main.hud.visible and main.hud.buttons.has("fire") and main.hud.buttons.has("missile"))
+	_check("Mobile HUD shown", main.hud.visible and main.hud.buttons.has("sys_missile") and main.hud.buttons.has("mode_guns_auto") and main.hud.buttons.has("comms"))
 	await _shot("solara_flight")
 	var s := _sp()
 	_check("Real/placeholder player ship", is_instance_valid(s.model), "placeholder=%s" % s.model.get_meta("placeholder", true))
+	# ---- first-person cockpit, comms and the AUTO/MANUAL system panels
+	_press("view")
+	await _wait(0.5)
+	_check("First-person cockpit view", GS.view == "cockpit" and not s.model.visible)
+	await _shot("cockpit_view")
+	_press("comms")
+	await _wait(0.4)
+	_check("Comms panel", main.hud.comms_open)
+	await _shot("comms")
+	_press("comms_close")
+	_press("mode_mine_manual")
+	var mines0 := GS.mines
+	_press("sys_mine")
+	await _wait(0.3)
+	_check("System panels: manual mine + mode toggle", GS.modes["mine"] == "manual" and GS.mines == mines0 - 1, "mines %d -> %d" % [mines0, GS.mines])
+	_press("mode_mine_auto")
+	_press("view")
+	await _wait(0.3)
 	# ---- combat
 	var credits0 := GS.credits
 	var won := await _fight("combat")
@@ -206,7 +224,9 @@ func _run() -> void:
 	await _shot("hub_vega")
 	_check("Vega launch", await _launch())
 	s = _sp()
-	_check("Vega combat", await _fight("vega_combat"), "kills=%d" % GS.kills)
+	_press("view")
+	_check("Vega combat (cockpit view)", await _fight("vega_combat_cockpit"), "kills=%d" % GS.kills)
+	_press("view")
 	main.open_map()
 	await _wait(0.4)
 	await _shot("navigation_map")

@@ -161,7 +161,7 @@ func _hub_page() -> void:
 	v.add_child(l)
 	var s := GS.ship()
 	var info := _label(18, CYAN)
-	info.text = "Your ship: %s (%s)   ·   Weapon: %s ×%d   ·   Missiles %d/%d   ·   Hull %d/%d" % [s["name"], s["class"], GS.weapon()["name"], s["guns"], GS.missiles, GS.max_missiles(), int(GS.hull), int(GS.max_hull())]
+	info.text = "Your ship: %s (%s)   ·   Weapon: %s ×%d   ·   Missiles %d/%d   ·   Mines %d/%d   ·   Hull %d/%d" % [s["name"], s["class"], GS.weapon()["name"], s["guns"], GS.missiles, GS.max_missiles(), GS.mines, GS.max_mines(), int(GS.hull), int(GS.max_hull())]
 	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(info)
 	var tips := _label(17, Color(0.85, 0.9, 0.95))
@@ -209,6 +209,21 @@ func _equipment_page() -> void:
 		b2.pressed.connect(func(): status.text = GS.buy_missiles(n); show_screen("equipment"))
 		row2.add_child(b2)
 	v.add_child(row2)
+	var row3 := HBoxContainer.new()
+	row3.add_theme_constant_override("separation", 14)
+	var nl := _label(18, Color(1, 1, 1))
+	nl.text = "Proximity mines   ·   %d/%d loaded   ·   %d cr each   ·   dmg %d" % [GS.mines, GS.max_mines(), Data.MINE_PRICE, int(Data.MINE_DAMAGE)]
+	nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row3.add_child(nl)
+	for n in [1, 99]:
+		var b3 := Button.new()
+		b3.text = "+1" if n == 1 else "FILL"
+		b3.name = "Mine_" + str(n)
+		b3.custom_minimum_size = Vector2(110, 54)
+		b3.disabled = GS.mines >= GS.max_mines()
+		b3.pressed.connect(func(): status.text = GS.buy_mines(n); show_screen("equipment"))
+		row3.add_child(b3)
+	v.add_child(row3)
 
 func _ships_page() -> void:
 	var h := HBoxContainer.new()
@@ -230,7 +245,7 @@ func _ships_page() -> void:
 		l.text = "%s  —  %s%s" % [s["name"].to_upper(), s["class"], "   (CURRENT)" if id == GS.ship_id else ""]
 		card.add_child(l)
 		var st := _label(15, CYAN)
-		st.text = "Hull %d · Shield %d · Speed %d · Turn %.2f · Guns %d · Missiles %d" % [s["hull"], s["shield"], s["speed"], s["turn"], s["guns"], s["missiles"]]
+		st.text = "Hull %d · Shield %d · Speed %d · Turn %.2f · Guns %d · Missiles %d · Mines %d" % [s["hull"], s["shield"], s["speed"], s["turn"], s["guns"], s["missiles"], s["mines"]]
 		card.add_child(st)
 		var row := HBoxContainer.new()
 		var b := Button.new()
@@ -289,7 +304,7 @@ func _repair_page() -> void:
 	var v := _page_box()
 	var l := _label(20, Color(1, 1, 1))
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.text = "Hull %d/%d  ·  Shield %d/%d  ·  Repair kits %d/%d  ·  Missiles %d/%d\n\nDocking crews repair and resupply every ship that lands here, free of charge for Unity-registered pilots." % [int(GS.hull), int(GS.max_hull()), int(GS.shield), int(GS.max_shield()), GS.repairs, Data.MAX_REPAIRS, GS.missiles, GS.max_missiles()]
+	l.text = "Hull %d/%d  ·  Shield %d/%d  ·  Repair kits %d/%d  ·  Missiles %d/%d  ·  Mines %d/%d  ·  Energy full\n\nDocking crews repair and resupply every ship that lands here, free of charge for Unity-registered pilots." % [int(GS.hull), int(GS.max_hull()), int(GS.shield), int(GS.max_shield()), GS.repairs, Data.MAX_REPAIRS, GS.missiles, GS.max_missiles(), GS.mines, GS.max_mines()]
 	v.add_child(l)
 	var b := Button.new()
 	b.text = "REPAIR AND RESUPPLY NOW"

@@ -1,15 +1,21 @@
 extends Control
-## Flight HUD and multi-touch controls. Each finger is owned by whatever it first touched (a stick or a
-## button), so dragging the aim stick can never press a button and several buttons work at once.
+## Unified flight HUD (chase and cockpit views) with multi-touch controls.
+## Layout follows the owner's mockup: six AUTO/MANUAL system panels (top), SHIELD/HULL/ENERGY readout (top centre),
+## FLIGHT and AIM sticks (bottom corners), radar on the centre console with MAP · COMMS · VIEW beneath it.
+## Each finger belongs to whatever it first touched, so dragging a stick never presses a button.
 
 signal pressed(id: String)
 
-const CYAN := Color(0.4, 0.86, 1.0)
-const INK := Color(0.02, 0.06, 0.11, 0.72)
-const WHITE := Color(0.92, 0.96, 1.0)
-const RED := Color(1.0, 0.36, 0.3)
-const GOLD := Color(1.0, 0.82, 0.4)
-const GREEN := Color(0.45, 1.0, 0.6)
+const CYAN := Color(0.33, 0.8, 1.0)
+const CYAN_HI := Color(0.55, 0.9, 1.0)
+const BLUE := Color(0.13, 0.55, 1.0)
+const PANEL := Color(0.03, 0.09, 0.17, 0.82)
+const EDGE := Color(0.33, 0.75, 1.0, 0.65)
+const WHITE := Color(0.93, 0.97, 1.0)
+const RED := Color(1.0, 0.3, 0.25)
+const GOLD := Color(1.0, 0.84, 0.3)
+const GREEN := Color(0.45, 1.0, 0.55)
+const YELLOW := Color(1.0, 0.92, 0.3)
 
 var space: SpaceSystem
 var font: Font = ThemeDB.fallback_font
@@ -17,64 +23,114 @@ var owners := {} # touch index -> "move" | "aim" | button id
 var origins := {}
 var move_vec := Vector2.ZERO
 var aim_vec := Vector2.ZERO
-var move_origin := Vector2.ZERO
-var aim_origin := Vector2.ZERO
 var buttons := {} # id -> Rect2
 var held := {}
 var msg := ""
 var msg_t := 0.0
 var damage_flash := 0.0
 var objective := ""
+var comms_open := false
+var comms_line := ""
+var comms_from := ""
 var S := Vector2(1280, 720)
-const STICK_R := 92.0
+var stick_r := 100.0
+var flash := {} # system id -> seconds of highlight
+var t := 0.0
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	GS.changed.connect(queue_redraw)
 
-func flash_message(t: String) -> void:
-	msg = t
+func flash_message(txt: String) -> void:
+	msg = txt
 	msg_t = 4.0
 
 func hurt() -> void:
 	damage_flash = 0.6
 
+func pulse(id: String) -> void:
+	flash[id] = 0.6
+
+func open_comms(from: String, line: String) -> void:
+	comms_open = true
+	comms_from = from
+	comms_line = line
+
+# ---------------------------------------------------------------- layout
+func _home(which: String) -> Vector2:
+	return Vector2(stick_r + 70, S.y - stick_r - 50) if which == "move" else Vector2(S.x - stick_r - 70, S.y - stick_r - 50)
+
+func _radar_center() -> Vector2:
+	return Vector2(S.x * 0.5, S.y - 168) if GS.view == "cockpit" else Vector2(S.x * 0.5, S.y - 136)
+
+func _panel_w() -> float:
+	return clampf(S.x * 0.27, 330.0, 430.0)
+
 func _layout() -> void:
 	S = get_viewport_rect().size
+	stick_r = clampf(S.y * 0.14, 84.0, 110.0)
 	buttons.clear()
-	var r := S.x
-	var b := S.y
-	buttons["fire"] = Rect2(r - 176, b - 196, 150, 150)
-	buttons["missile"] = Rect2(r - 330, b - 112, 138, 76)
-	buttons["repair"] = Rect2(r - 176, b - 292, 150, 76)
-	buttons["target"] = Rect2(r - 330, b - 204, 138, 76)
-	buttons["auto"] = Rect2(r - 330, b - 292, 138, 76)
-	buttons["nav"] = Rect2(r - 300, 112, 92, 58)
-	buttons["cruise"] = Rect2(S.x * 0.5 - 250, b - 84, 150, 62)
-	buttons["goto"] = Rect2(S.x * 0.5 + 100, b - 84, 150, 62)
+	var pw := _panel_w()
+	var i := 0
+	for sysd in Data.SYSTEMS_UI:
+		var left: bool = sysd["side"] == "left"
+		var row := i % 3
+		var r := Rect2(10 if left else S.x - pw - 10, 12 + row * 80, pw, 70)
+		var id: String = sysd["id"]
+		var has_count := id == "missile" or id == "mine"
+		var chips_right := r.end.x - (62 if has_count else 12)
+		buttons["mode_%s_manual" % id] = Rect2(chips_right - 96, r.position.y + 14, 96, 42)
+		buttons["mode_%s_auto" % id] = Rect2(chips_right - 96 - 8 - 84, r.position.y + 14, 84, 42)
+		buttons["sys_" + id] = Rect2(r.position, Vector2(chips_right - 96 - 8 - 84 - 8 - r.position.x, r.size.y))
+		i += 1
+	var rc := _radar_center()
+	buttons["comms"] = Rect2(rc.x - 90, S.y - 58, 180, 48)
+	buttons["map"] = Rect2(rc.x - 90 - 12 - 120, S.y - 58, 120, 48)
+	buttons["view"] = Rect2(rc.x + 90 + 12, S.y - 58, 120, 48)
+	var col_top := 262.0
+	buttons["target"] = Rect2(S.x - 10 - 150, col_top, 150, 50)
+	buttons["goto"] = Rect2(S.x - 10 - 150, col_top + 58, 150, 50)
+	buttons["cruise"] = Rect2(S.x - 10 - 150, col_top + 116, 150, 50)
+	if not GS.is_auto("guns"):
+		var ah := _home("aim")
+		buttons["fire"] = Rect2(ah.x - stick_r - 190, ah.y - 70, 140, 140)
 	if space and space.controls:
-		if space.dock_candidate() != null: buttons["dock"] = Rect2(S.x * 0.5 - 90, b - 170, 180, 70)
-		elif space.gate_in_range(): buttons["jump"] = Rect2(S.x * 0.5 - 90, b - 170, 180, 70)
-	move_origin = origins.get("move", Vector2(170, b - 170))
-	aim_origin = origins.get("aim", Vector2(r - 470, b - 170))
+		if space.dock_candidate() != null: buttons["dock"] = Rect2(10, 344, 250, 64)
+		elif space.gate_in_range(): buttons["jump"] = Rect2(10, 344, 250, 64)
+	if comms_open:
+		var cp := _comms_rect()
+		buttons["comms_close"] = Rect2(cp.end.x - 150, cp.end.y - 58, 132, 44)
 
+func _comms_rect() -> Rect2:
+	var w := minf(760.0, S.x * 0.52)
+	return Rect2(S.x * 0.5 - w * 0.5, S.y * 0.5 - 20, w, 250)
+
+# ---------------------------------------------------------------- input
 func _input(e: InputEvent) -> void:
 	if not visible or space == null: return
 	if e is InputEventScreenTouch:
 		_layout()
 		if e.pressed:
+			if comms_open and _comms_rect().has_point(e.position) and not (buttons["comms_close"] as Rect2).has_point(e.position):
+				owners[e.index] = "comms_body"
+				get_viewport().set_input_as_handled()
+				return
+			var hit := ""
 			for id in buttons:
-				if (buttons[id] as Rect2).grow(6).has_point(e.position):
-					owners[e.index] = id
-					held[id] = true
-					if id != "fire": pressed.emit(id)
-					get_viewport().set_input_as_handled()
-					return
-			if e.position.x < S.x * 0.42 and not owners.values().has("move"):
+				if (buttons[id] as Rect2).grow(4).has_point(e.position):
+					hit = id
+					break
+			if hit != "":
+				owners[e.index] = hit
+				held[hit] = true
+				if hit != "fire": pressed.emit(hit)
+				get_viewport().set_input_as_handled()
+				return
+			if e.position.x < S.x * 0.45 and e.position.y > 250 and not owners.values().has("move"):
 				owners[e.index] = "move"
 				origins["move"] = e.position
-			elif not owners.values().has("aim"):
+			elif e.position.x >= S.x * 0.45 and e.position.y > 250 and not owners.values().has("aim"):
 				owners[e.index] = "aim"
 				origins["aim"] = e.position
 		else:
@@ -90,194 +146,324 @@ func _input(e: InputEvent) -> void:
 				held.erase(o)
 	elif e is InputEventScreenDrag:
 		var o2: String = owners.get(e.index, "")
-		if o2 == "move": move_vec = ((e.position - origins["move"]) / STICK_R).limit_length(1.0)
-		elif o2 == "aim": aim_vec = ((e.position - origins["aim"]) / STICK_R).limit_length(1.0)
+		if o2 == "move": move_vec = ((e.position - origins["move"]) / stick_r).limit_length(1.0)
+		elif o2 == "aim": aim_vec = ((e.position - origins["aim"]) / stick_r).limit_length(1.0)
 
 func _process(dt: float) -> void:
 	if space == null: return
+	t += dt
 	msg_t = maxf(0.0, msg_t - dt)
 	damage_flash = maxf(0.0, damage_flash - dt)
-	# keyboard fallback for desktop testing
-	var k := Vector2(Input.get_axis("strafe_left", "strafe_right"), Input.get_axis("back", "forward"))
+	for k in flash.keys():
+		flash[k] = maxf(0.0, float(flash[k]) - dt)
+	var kb := Vector2(Input.get_axis("strafe_left", "strafe_right"), Input.get_axis("back", "forward"))
 	var ka := Vector2(Input.get_axis("yaw_left", "yaw_right"), Input.get_axis("pitch_up", "pitch_down"))
-	space.move = Vector2(move_vec.x, -move_vec.y) if k == Vector2.ZERO else k
+	space.move = Vector2(move_vec.x, -move_vec.y) if kb == Vector2.ZERO else kb
 	var a := aim_vec if ka == Vector2.ZERO else ka
-	# soft response curve for precise aiming
 	space.aim = a * a.length()
 	space.fire_held = held.has("fire") or Input.is_action_pressed("fire")
 	queue_redraw()
 
 # ---------------------------------------------------------------- drawing helpers
-func _panel(r: Rect2, bg := INK, edge := Color(CYAN, 0.55), radius := 10) -> void:
+func _box(r: Rect2, bg := PANEL, edge := EDGE, radius := 12, bw := 2) -> void:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = bg
 	sb.border_color = edge
-	sb.set_border_width_all(2)
+	sb.set_border_width_all(bw)
 	sb.set_corner_radius_all(radius)
+	sb.shadow_color = Color(CYAN, 0.12)
+	sb.shadow_size = 6
 	draw_style_box(sb, r)
 
-func _text(p: Vector2, t: String, size := 18, col := WHITE, align := HORIZONTAL_ALIGNMENT_LEFT, width := -1.0) -> void:
-	draw_string_outline(font, p, t, align, width, size, 4, Color(0, 0, 0, 0.7))
-	draw_string(font, p, t, align, width, size, col)
+func _text(p: Vector2, txt: String, size := 18, col := WHITE, align := HORIZONTAL_ALIGNMENT_LEFT, width := -1.0) -> void:
+	draw_string_outline(font, p, txt, align, width, size, 5, Color(0, 0.03, 0.08, 0.75))
+	draw_string(font, p, txt, align, width, size, col)
 
-func _bar(p: Vector2, w: float, v: float, col: Color, label: String) -> void:
-	_text(p + Vector2(0, -4), label, 13, Color(col, 0.9))
-	draw_rect(Rect2(p + Vector2(0, 2), Vector2(w, 12)), Color(0, 0, 0, 0.5))
-	draw_rect(Rect2(p + Vector2(0, 2), Vector2(w * clampf(v, 0.0, 1.0), 12)), col)
+func _chip(id: String, label: String, on: bool) -> void:
+	if not buttons.has(id): return
+	var r: Rect2 = buttons[id]
+	if on: _box(r, Color(BLUE, 0.95), Color(CYAN_HI, 0.95), 9, 2)
+	else: _box(r, Color(0.06, 0.12, 0.2, 0.9), Color(1, 1, 1, 0.16), 9, 2)
+	_text(r.position + Vector2(0, r.size.y * 0.5 + 6), label, 16, WHITE if on else Color(0.75, 0.83, 0.9), HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
 
-func _button(id: String, label: String, active := false, accent := CYAN, sub := "") -> void:
+func _pill(id: String, label: String, active := false, col := CYAN, sub := "") -> void:
 	if not buttons.has(id): return
 	var r: Rect2 = buttons[id]
 	var on := held.has(id) or active
-	_panel(r, Color(accent, 0.38) if on else INK, Color(accent, 0.9), 14)
-	var fs := 20 if r.size.x > 140 else 17
-	_text(r.position + Vector2(0, r.size.y * 0.5 + (0 if sub == "" else -4) + 7), label, fs, WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
-	if sub != "": _text(r.position + Vector2(0, r.size.y * 0.5 + 24), sub, 12, Color(accent, 0.95), HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
+	_box(r, Color(col, 0.35) if on else Color(0.03, 0.09, 0.17, 0.78), Color(col, 0.95 if on else 0.6), 12, 2)
+	var y := r.size.y * 0.5 + (6.0 if sub == "" else 1.0)
+	_text(r.position + Vector2(0, y), label, 18 if r.size.y >= 48 else 16, WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
+	if sub != "": _text(r.position + Vector2(0, y + 17), sub, 12, Color(col.lightened(0.2), 0.95), HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
 
-func _stick(center: Vector2, v: Vector2, label: String, active: bool) -> void:
-	draw_circle(center, STICK_R, Color(0.02, 0.08, 0.14, 0.45 if active else 0.28))
-	draw_arc(center, STICK_R, 0, TAU, 48, Color(CYAN, 0.7 if active else 0.35), 2.0, true)
-	draw_circle(center + v * STICK_R, 34, Color(0.55, 0.8, 0.95, 0.8 if active else 0.4))
-	_text(center + Vector2(-60, STICK_R + 22), label, 14, Color(CYAN, 0.9), HORIZONTAL_ALIGNMENT_CENTER, 120)
+func _icon(id: String, c: Vector2, s: float, col: Color) -> void:
+	match id:
+		"shield":
+			var pts := PackedVector2Array([c + Vector2(0, -s), c + Vector2(s * 0.85, -s * 0.62), c + Vector2(s * 0.72, s * 0.25), c + Vector2(0, s), c + Vector2(-s * 0.72, s * 0.25), c + Vector2(-s * 0.85, -s * 0.62), c + Vector2(0, -s)])
+			draw_polyline(pts, col, 3.0, true)
+			draw_polyline(PackedVector2Array([c + Vector2(0, -s * 0.62), c + Vector2(s * 0.5, -s * 0.38), c + Vector2(s * 0.42, s * 0.14), c + Vector2(0, s * 0.62)]), Color(col, 0.6), 2.0, true)
+		"hull":
+			draw_line(c + Vector2(-s * 0.7, s * 0.7), c + Vector2(s * 0.25, -s * 0.25), col, s * 0.28)
+			draw_arc(c + Vector2(s * 0.45, -s * 0.45), s * 0.42, deg_to_rad(-20), deg_to_rad(250), 16, col, s * 0.2)
+		"energy":
+			draw_rect(Rect2(c + Vector2(-s * 0.45, -s * 0.8), Vector2(s * 0.9, s * 1.7)), col, false, 3.0)
+			draw_rect(Rect2(c + Vector2(-s * 0.2, -s * 0.98), Vector2(s * 0.4, s * 0.18)), col)
+			draw_colored_polygon(PackedVector2Array([c + Vector2(s * 0.12, -s * 0.6), c + Vector2(-s * 0.25, s * 0.08), c + Vector2(0, s * 0.08), c + Vector2(-s * 0.12, s * 0.62), c + Vector2(s * 0.25, -s * 0.08), c + Vector2(0, -s * 0.08)]), col)
+		"guns":
+			for dx in [-s * 0.3, s * 0.3]:
+				draw_rect(Rect2(c + Vector2(dx - s * 0.13, -s * 0.9), Vector2(s * 0.26, s * 1.35)), col)
+				draw_circle(c + Vector2(dx, s * 0.62), s * 0.22, col)
+		"missile":
+			var dir := Vector2(1, -1).normalized()
+			var perp := Vector2(-dir.y, dir.x)
+			draw_line(c - dir * s * 0.8, c + dir * s * 0.55, col, s * 0.36)
+			draw_colored_polygon(PackedVector2Array([c + dir * s * 0.95, c + dir * s * 0.5 + perp * s * 0.19, c + dir * s * 0.5 - perp * s * 0.19]), col)
+			draw_colored_polygon(PackedVector2Array([c - dir * s * 0.55 + perp * s * 0.45, c - dir * s * 0.9, c - dir * s * 0.55 - perp * s * 0.45]), col)
+		"mine":
+			draw_circle(c, s * 0.55, col)
+			draw_rect(Rect2(c + Vector2(-s * 0.95, -s * 0.12), Vector2(s * 1.9, s * 0.24)), col)
+			draw_circle(c + Vector2(0, -s * 0.2), s * 0.18, Color(0.05, 0.1, 0.18))
+
+func _system_panel(sysd: Dictionary) -> void:
+	var id: String = sysd["id"]
+	var body: Rect2 = buttons["sys_" + id]
+	var right_edge: float = (buttons["mode_%s_manual" % id] as Rect2).end.x + (62.0 if (id == "missile" or id == "mine") else 12.0)
+	var r := Rect2(body.position, Vector2(right_edge - body.position.x, body.size.y))
+	var lit := float(flash.get(id, 0.0)) > 0.0 or held.has("sys_" + id)
+	_box(r, Color(0.08, 0.24, 0.4, 0.9) if lit else PANEL, CYAN_HI if lit else EDGE, 12, 2)
+	_icon(id, r.position + Vector2(40, 35), 20.0, CYAN_HI)
+	var lines: PackedStringArray = (sysd["label"] as String).split("\n")
+	_text(r.position + Vector2(78, 30), lines[0], 17, WHITE)
+	_text(r.position + Vector2(78, 52), lines[1], 17, WHITE)
+	var cd := 0.0
+	match id:
+		"shield": cd = space.shield_cd / Data.SHIELD_BOOST_COOLDOWN
+		"energy": cd = space.energy_cd / Data.ENERGY_BOOST_COOLDOWN
+	if cd > 0.0:
+		draw_rect(Rect2(r.position + Vector2(78, 60), Vector2(96, 4)), Color(1, 1, 1, 0.15))
+		draw_rect(Rect2(r.position + Vector2(78, 60), Vector2(96 * (1.0 - cd), 4)), CYAN)
+	if id == "hull":
+		for k in Data.MAX_REPAIRS:
+			draw_rect(Rect2(r.position + Vector2(78 + k * 14, 60), Vector2(10, 5)), GREEN if k < GS.repairs else Color(1, 1, 1, 0.15))
+	_chip("mode_%s_auto" % id, "AUTO", GS.is_auto(id))
+	_chip("mode_%s_manual" % id, "MANUAL", not GS.is_auto(id))
+	if id == "missile" or id == "mine":
+		var n := GS.missiles if id == "missile" else GS.mines
+		draw_line(Vector2(r.end.x - 56, r.position.y + 12), Vector2(r.end.x - 56, r.end.y - 12), Color(1, 1, 1, 0.25), 2)
+		_text(Vector2(r.end.x - 54, r.position.y + 47), "%02d" % n, 30, WHITE if n > 0 else RED, HORIZONTAL_ALIGNMENT_CENTER, 50)
+
+func _stick(which: String, label: String) -> void:
+	var active := owners.values().has(which)
+	var c: Vector2 = origins.get(which, _home(which))
+	var v := move_vec if which == "move" else aim_vec
+	draw_circle(c, stick_r, Color(0.02, 0.1, 0.2, 0.55 if active else 0.42))
+	draw_arc(c, stick_r, 0, TAU, 64, Color(CYAN, 0.95), 3.0, true)
+	draw_arc(c, stick_r - 7, 0, TAU, 64, Color(CYAN, 0.25), 2.0, true)
+	var a := stick_r * 0.78
+	for d in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
+		var tip: Vector2 = c + d * a
+		var perp := Vector2(-d.y, d.x)
+		draw_colored_polygon(PackedVector2Array([tip + d * 9, tip - d * 5 + perp * 9, tip - d * 5 - perp * 9]), Color(CYAN_HI, 0.9))
+	var knob := c + v * stick_r * 0.62
+	draw_circle(knob, stick_r * 0.36, Color(0.62, 0.8, 0.97, 0.95 if active else 0.8))
+	draw_arc(knob, stick_r * 0.36, 0, TAU, 40, WHITE, 3.0, true)
+	_text(c + Vector2(-60, stick_r * 0.72), label, 17, WHITE, HORIZONTAL_ALIGNMENT_CENTER, 120)
 
 func _screen(p3: Vector3) -> Variant:
 	var cam: Camera3D = space.cam
 	if cam.is_position_behind(p3): return null
 	return cam.unproject_position(p3)
 
+# ---------------------------------------------------------------- cockpit frame (first-person view)
+func _cockpit() -> void:
+	var w := S.x
+	var h := S.y
+	var shell := Color(0.86, 0.88, 0.9)
+	var shell_dk := Color(0.55, 0.6, 0.66)
+	var metal := Color(0.16, 0.19, 0.24)
+	var orange := Color(1.0, 0.55, 0.15)
+	for side in [-1.0, 1.0]:
+		var x0: float = w * 0.5 + side * w * 0.5
+		var strut := PackedVector2Array([Vector2(x0, 0), Vector2(x0 - side * w * 0.035, 0), Vector2(x0 - side * w * 0.2, h * 0.64), Vector2(x0 - side * w * 0.15, h * 0.66), Vector2(x0, h * 0.2)])
+		draw_colored_polygon(strut, shell)
+		draw_line(Vector2(x0 - side * w * 0.03, h * 0.05), Vector2(x0 - side * w * 0.18, h * 0.62), Color(orange, 0.95), 6)
+		draw_line(Vector2(x0 - side * w * 0.012, h * 0.1), Vector2(x0 - side * w * 0.155, h * 0.64), shell_dk, 3)
+	var dash := PackedVector2Array([Vector2(0, h * 0.7), Vector2(w * 0.2, h * 0.62), Vector2(w * 0.38, h * 0.585), Vector2(w * 0.62, h * 0.585), Vector2(w * 0.8, h * 0.62), Vector2(w, h * 0.7), Vector2(w, h), Vector2(0, h)])
+	draw_colored_polygon(dash, shell)
+	var inner := PackedVector2Array([Vector2(w * 0.05, h * 0.76), Vector2(w * 0.22, h * 0.69), Vector2(w * 0.36, h * 0.66), Vector2(w * 0.64, h * 0.66), Vector2(w * 0.78, h * 0.69), Vector2(w * 0.95, h * 0.76), Vector2(w * 0.95, h), Vector2(w * 0.05, h)])
+	draw_colored_polygon(inner, metal)
+	for side in [-1.0, 1.0]:
+		var cx: float = w * 0.5 + side * w * 0.2
+		draw_colored_polygon(PackedVector2Array([Vector2(cx - w * 0.05, h * 0.69), Vector2(cx + w * 0.05, h * 0.67), Vector2(cx + w * 0.06, h * 0.74), Vector2(cx - w * 0.04, h * 0.76)]), Color(0.2, 0.62, 1.0, 0.85))
+		draw_line(Vector2(w * 0.5 + side * w * 0.3, h * 0.72), Vector2(w * 0.5 + side * w * 0.42, h * 0.8), orange, 8)
+		draw_line(Vector2(w * 0.5 + side * w * 0.13, h * 0.8), Vector2(w * 0.5 + side * w * 0.1, h), shell_dk, 5)
+	var rc := _radar_center()
+	draw_circle(rc, 138, shell_dk)
+	draw_circle(rc, 128, metal)
+
+# ---------------------------------------------------------------- main draw
 func _draw() -> void:
 	if space == null or not is_instance_valid(space.player): return
 	_layout()
 	var cam: Camera3D = space.cam
-	# nebula haze + damage vignette
+	var cockpit := GS.view == "cockpit"
 	if space.in_nebula > 0.0:
-		draw_rect(Rect2(Vector2.ZERO, S), Color(space.nebula_color, 0.38 * space.in_nebula))
-	if damage_flash > 0.0:
-		for i in 6:
-			var w := 60.0 - i * 9.0
-			draw_rect(Rect2(Vector2.ZERO, S), Color(RED, damage_flash * 0.08), false, w)
-	# world markers: station, planet, gate
+		draw_rect(Rect2(Vector2.ZERO, S), Color(space.nebula_color, 0.36 * space.in_nebula))
 	for n in [space.station, space.planet, space.gate]:
 		var pos: Vector3 = space.dock_point(n) if n != space.gate else n.global_position
 		var sp = _screen(pos)
 		var col := GOLD if n == space.gate else GREEN
 		if sp != null and Rect2(Vector2.ZERO, S).has_point(sp):
-			draw_arc(sp, 16, 0, TAU, 4, Color(col, 0.8), 2.0)
-			_text(sp + Vector2(22, 6), "%s  %s" % [n.name, _dist(space.distance_to(n))], 14, Color(col, 0.95))
-	# target brackets + off-screen arrow
-	var t: Node3D = space.target
-	if t and is_instance_valid(t):
-		var tp = _screen(t.global_position)
-		var tcol := RED if t.get_meta("kind", "") == "enemy" else GOLD
+			draw_arc(sp, 14, 0, TAU, 4, Color(col, 0.85), 2.0)
+			_text(sp + Vector2(20, 6), "%s  %s" % [n.name, _dist(space.distance_to(n))], 14, Color(col, 0.95))
+	for tr in space.traffic:
+		var tp0 = _screen(tr["node"].global_position)
+		if tp0 != null and space.player.global_position.distance_to(tr["node"].global_position) < 900.0:
+			_brackets(tp0, 18.0, Color(GREEN, 0.8))
+	var tgt: Node3D = space.target
+	if tgt and is_instance_valid(tgt):
+		var tp = _screen(tgt.global_position)
+		var tcol := RED if tgt.get_meta("kind", "") == "enemy" else GOLD
 		if tp != null and Rect2(Vector2(40, 40), S - Vector2(80, 80)).has_point(tp):
-			var s := 26.0
-			for c in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
-				var corner: Vector2 = tp + c * s
-				draw_line(corner, corner - Vector2(c.x * 11, 0), tcol, 3)
-				draw_line(corner, corner - Vector2(0, c.y * 11), tcol, 3)
-			if t.get_meta("kind", "") == "enemy":
+			_brackets(tp, 30.0, tcol)
+			if tgt.get_meta("kind", "") == "enemy":
 				var hv: float = space.target_health()
-				draw_rect(Rect2(tp + Vector2(-26, 32), Vector2(52, 6)), Color(0, 0, 0, 0.6))
-				draw_rect(Rect2(tp + Vector2(-26, 32), Vector2(52 * hv, 6)), RED)
-				# lead indicator
-				var e: Dictionary = space._enemy_entry(t)
+				draw_rect(Rect2(tp + Vector2(-30, 38), Vector2(60, 6)), Color(0, 0, 0, 0.6))
+				draw_rect(Rect2(tp + Vector2(-30, 38), Vector2(60 * hv, 6)), RED)
+				var e: Dictionary = space._enemy_entry(tgt)
 				if not e.is_empty():
-					var d: float = space.player.global_position.distance_to(t.global_position)
-					var lead: Vector3 = t.global_position + (e["vel"] as Vector3) * (d / float(GS.weapon()["speed"]))
-					var lp = _screen(lead)
+					var d: float = space.player.global_position.distance_to(tgt.global_position)
+					var lp = _screen(tgt.global_position + (e["vel"] as Vector3) * (d / float(GS.weapon()["speed"])))
 					if lp != null:
-						draw_circle(lp, 6, Color(RED, 0.9))
-						draw_line(tp, lp, Color(RED, 0.4), 1.0)
+						draw_arc(lp, 11, 0, TAU, 24, Color(RED, 0.95), 2.0)
+						draw_line(lp + Vector2(-5, 0), lp + Vector2(5, 0), RED, 2)
+						draw_line(lp + Vector2(0, -5), lp + Vector2(0, 5), RED, 2)
 		else:
-			var v: Vector3 = cam.global_basis.inverse() * (t.global_position - cam.global_position)
+			var v: Vector3 = cam.global_basis.inverse() * (tgt.global_position - cam.global_position)
 			var dir := Vector2(v.x, -v.y).normalized()
 			if dir == Vector2.ZERO: dir = Vector2.DOWN
-			var c2 := S * 0.5
-			var edge := c2 + dir * minf(S.x, S.y) * 0.4
+			var edge := S * 0.5 + dir * Vector2(S.x * 0.47, S.y * 0.4)
 			var perp := Vector2(-dir.y, dir.x)
-			draw_colored_polygon(PackedVector2Array([edge + dir * 20, edge - dir * 8 + perp * 13, edge - dir * 8 - perp * 13]), tcol)
-	# crosshair
+			draw_colored_polygon(PackedVector2Array([edge + dir * 22, edge - dir * 10 + perp * 16, edge - dir * 10 - perp * 16]), tcol)
+	if cockpit: _cockpit()
 	var c := S * 0.5
 	var locked: bool = space._in_fire_cone(space.target)
-	var cc := GOLD if locked else Color(WHITE, 0.85)
-	draw_arc(c, 22, 0, TAU, 40, cc, 2.0, true)
+	var rc2 := RED if locked else WHITE
+	draw_arc(c, 34, 0, TAU, 48, Color(rc2, 0.95), 2.0, true)
 	for d in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
-		draw_line(c + d * 14, c + d * 30, cc, 2.0)
-	if locked: _text(c + Vector2(-40, -36), "IN RANGE", 13, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 80)
-	# status panel (top-left)
-	_panel(Rect2(14, 12, 318, 150))
-	_bar(Vector2(28, 36), 180, GS.hull / GS.max_hull(), Color(0.55, 1.0, 0.55), "HULL %d" % int(GS.hull))
-	_bar(Vector2(28, 70), 180, GS.shield / GS.max_shield(), CYAN, "SHIELD %d" % int(GS.shield))
-	_text(Vector2(222, 38), "REPAIR", 13, Color(GREEN, 0.9))
-	for i in Data.MAX_REPAIRS:
-		draw_rect(Rect2(Vector2(222 + i * 19, 46), Vector2(14, 14)), GREEN if i < GS.repairs else Color(1, 1, 1, 0.15))
-	_text(Vector2(222, 86), "MISSILES %d/%d" % [GS.missiles, GS.max_missiles()], 13, GOLD)
-	_text(Vector2(28, 112), "%s  ·  %s" % [GS.ship()["name"].to_upper(), GS.weapon()["name"]], 15, WHITE)
-	_text(Vector2(28, 140), "CREDITS  %s" % _money(GS.credits), 17, GOLD)
-	# location / objective / messages (top-centre)
+		draw_line(c + d * 22, c + d * 52, Color(rc2, 0.95), 2.0)
+	draw_circle(c, 3, rc2)
+	# top centre: title + SHIELD / HULL / ENERGY
+	_text(Vector2(0, 32), "HOMELANCER", 24, WHITE, HORIZONTAL_ALIGNMENT_CENTER, S.x)
+	for side in [-1.0, 1.0]:
+		for k in 3:
+			var y := 22.0 + k * 5
+			var x0: float = S.x * 0.5 + side * (96 + k * 4)
+			draw_line(Vector2(x0, y), Vector2(x0 + side * (44 - k * 10), y), Color(CYAN_HI, 0.9), 3)
+	var vals := [["SHIELD", GS.shield / GS.max_shield(), CYAN], ["HULL", GS.hull / GS.max_hull(), GREEN], ["ENERGY", GS.energy / Data.ENERGY_MAX, YELLOW]]
+	for k in 3:
+		var x: float = S.x * 0.5 + (k - 1) * 150.0 - 75.0
+		_text(Vector2(x, 60), vals[k][0], 17, WHITE, HORIZONTAL_ALIGNMENT_CENTER, 150)
+		var pct := int(round(clampf(vals[k][1], 0.0, 1.0) * 100.0))
+		var col: Color = vals[k][2] if pct > 25 else RED
+		_text(Vector2(x, 98), "%d%%" % pct, 36, col, HORIZONTAL_ALIGNMENT_CENTER, 150)
 	var sysname: String = Data.SYSTEMS[GS.system_id]["name"].to_upper()
 	var zone := ""
 	if space.in_nebula > 0.0: zone = "  ·  %s NEBULA — SENSORS DEGRADED" % Data.SYSTEMS[GS.system_id]["nebula"]["name"].to_upper()
 	elif space.in_belt: zone = "  ·  %s — WATCH FOR ROCKS" % Data.SYSTEMS[GS.system_id]["asteroids"]["name"].to_upper()
-	_text(Vector2(0, 34), "%s SYSTEM%s" % [sysname, zone], 18, CYAN, HORIZONTAL_ALIGNMENT_CENTER, S.x)
-	if objective != "": _text(Vector2(0, 60), objective, 16, WHITE, HORIZONTAL_ALIGNMENT_CENTER, S.x)
-	if msg_t > 0.0: _text(Vector2(0, 88), msg, 17, GOLD, HORIZONTAL_ALIGNMENT_CENTER, S.x)
-	var spd := "SPEED %d" % int(space.speed_now)
-	if space.cruise: spd += "  CRUISE %s" % ("ENGAGED" if space.cruise_charge >= 1.0 else "CHARGING %d%%" % int(space.cruise_charge * 100))
-	if space.autopilot != null: spd += "  ·  AUTOPILOT > %s" % space.autopilot.name
-	_text(Vector2(0, S.y * 0.5 + 64), spd, 15, Color(CYAN, 0.95), HORIZONTAL_ALIGNMENT_CENTER, S.x)
-	# radar (top-right)
-	_radar(Vector2(S.x - 100, 100), 80.0)
-	# target panel under radar
-	if t and is_instance_valid(t):
-		var tr := Rect2(S.x - 252, 212, 236, 74)
-		_panel(tr)
-		_text(tr.position + Vector2(12, 26), "TARGET", 12, Color(CYAN, 0.9))
-		_text(tr.position + Vector2(12, 48), t.name, 17, RED if t.get_meta("kind", "") == "enemy" else GOLD)
-		_text(tr.position + Vector2(12, 67), _dist(space.distance_to(t)), 13, WHITE)
+	_text(Vector2(0, 124), "%s SYSTEM%s   ·   %s   ·   %s" % [sysname, zone, GS.ship()["name"].to_upper(), _money(GS.credits)], 14, CYAN_HI, HORIZONTAL_ALIGNMENT_CENTER, S.x)
+	if objective != "": _text(Vector2(0, 148), objective, 15, WHITE, HORIZONTAL_ALIGNMENT_CENTER, S.x)
+	if msg_t > 0.0: _text(Vector2(0, 172), msg, 16, GOLD, HORIZONTAL_ALIGNMENT_CENTER, S.x)
+	for sysd in Data.SYSTEMS_UI: _system_panel(sysd)
+	if tgt and is_instance_valid(tgt):
+		var tr := Rect2(10, 262, 250, 72)
+		_box(tr)
+		_text(tr.position + Vector2(14, 24), "TARGET", 12, CYAN_HI)
+		_text(tr.position + Vector2(14, 47), tgt.name, 18, RED if tgt.get_meta("kind", "") == "enemy" else GOLD)
+		_text(tr.position + Vector2(14, 66), _dist(space.distance_to(tgt)), 13, WHITE)
 		var th: float = space.target_health()
 		if th >= 0.0:
-			draw_rect(Rect2(tr.position + Vector2(96, 58), Vector2(116, 8)), Color(0, 0, 0, 0.6))
-			draw_rect(Rect2(tr.position + Vector2(96, 58), Vector2(116 * th, 8)), RED)
-	# controls
-	_stick(move_origin, move_vec, "THRUST / STRAFE", owners.values().has("move"))
-	_stick(aim_origin, aim_vec, "AIM", owners.values().has("aim"))
-	_button("fire", "FIRE", false, RED, "HOLD")
-	_button("missile", "MISSILE", false, GOLD, "%d LEFT" % GS.missiles)
-	_button("repair", "REPAIR", false, GREEN, "%d/5" % GS.repairs)
-	_button("target", "TARGET", false, CYAN, "NEXT")
-	_button("auto", "AUTO" if space.auto_fire else "MANUAL", space.auto_fire, CYAN, "FIRE MODE")
-	_button("nav", "MAP", false, CYAN)
-	_button("cruise", "CRUISE", space.cruise, CYAN, "ON" if space.cruise else "OFF")
-	_button("goto", "GO TO", space.autopilot != null, CYAN, "TARGET")
-	if buttons.has("dock"):
-		var dn: Node3D = space.dock_candidate()
-		_button("dock", "DOCK", true, GREEN, dn.name.to_upper())
-	if buttons.has("jump"): _button("jump", "JUMP", true, GOLD, "TO %s" % Data.SYSTEMS[space.sys["gate"]["to"]]["name"].to_upper())
+			draw_rect(Rect2(tr.position + Vector2(110, 58), Vector2(126, 7)), Color(0, 0, 0, 0.6))
+			draw_rect(Rect2(tr.position + Vector2(110, 58), Vector2(126 * th, 7)), RED)
+	var spd := "SPEED %d" % int(space.speed_now)
+	if space.cruise: spd += "   CRUISE %s" % ("ENGAGED" if space.cruise_charge >= 1.0 else "CHARGING %d%%" % int(space.cruise_charge * 100))
+	if space.autopilot != null: spd += "   ·   AUTOPILOT > %s" % space.autopilot.name
+	_text(Vector2(0, c.y + 84), spd, 15, Color(CYAN_HI, 0.95), HORIZONTAL_ALIGNMENT_CENTER, S.x)
+	_radar(_radar_center(), 104.0 if cockpit else 70.0)
+	_pill("map", "MAP")
+	_pill("comms", "COMMS", comms_open)
+	_pill("view", "COCKPIT" if not cockpit else "CHASE", false, CYAN, "VIEW")
+	_pill("target", "TARGET", false, CYAN, "NEXT")
+	_pill("goto", "GO TO", space.autopilot != null, CYAN, "AUTOPILOT")
+	_pill("cruise", "CRUISE", space.cruise, CYAN, "ON" if space.cruise else "OFF")
+	if buttons.has("fire"):
+		var fr: Rect2 = buttons["fire"]
+		draw_circle(fr.get_center(), fr.size.x * 0.5, Color(RED, 0.45 if held.has("fire") else 0.22))
+		draw_arc(fr.get_center(), fr.size.x * 0.5, 0, TAU, 48, RED, 3.0, true)
+		_text(fr.get_center() + Vector2(-60, 8), "FIRE", 24, WHITE, HORIZONTAL_ALIGNMENT_CENTER, 120)
+	if buttons.has("dock"): _pill("dock", "DOCK", true, GREEN, space.dock_candidate().name.to_upper())
+	if buttons.has("jump"): _pill("jump", "JUMP", true, GOLD, "TO %s" % Data.SYSTEMS[space.sys["gate"]["to"]]["name"].to_upper())
+	_stick("move", "FLIGHT")
+	_stick("aim", "AIM")
+	if comms_open: _comms()
+	if damage_flash > 0.0:
+		for i in 6:
+			draw_rect(Rect2(Vector2.ZERO, S), Color(RED, damage_flash * 0.08), false, 60.0 - i * 9.0)
+
+func _brackets(p: Vector2, s: float, col: Color) -> void:
+	for cr in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
+		var corner: Vector2 = p + cr * s
+		draw_line(corner, corner - Vector2(cr.x * s * 0.45, 0), col, 3)
+		draw_line(corner, corner - Vector2(0, cr.y * s * 0.45), col, 3)
+
+func _comms() -> void:
+	var r := _comms_rect()
+	_box(r, Color(0.02, 0.08, 0.16, 0.93), CYAN_HI, 16, 3)
+	var card := Rect2(r.position + Vector2(16, 16), Vector2(r.size.y - 32, r.size.y - 32))
+	_box(card, Color(0.05, 0.14, 0.24, 1.0), Color(CYAN, 0.5), 12, 2)
+	var cc := card.get_center()
+	draw_arc(cc, card.size.x * 0.34, 0, TAU, 48, Color(CYAN, 0.5), 2.0, true)
+	for i in 21:
+		var hgt := 8.0 + 30.0 * absf(sin(t * 7.0 + i * 0.9)) * (0.4 + 0.6 * absf(sin(i * 0.45)))
+		var x := cc.x - 60 + i * 6
+		draw_line(Vector2(x, cc.y - hgt * 0.5), Vector2(x, cc.y + hgt * 0.5), CYAN_HI, 3)
+	var tx := card.end.x + 22
+	_text(Vector2(tx, r.position.y + 50), comms_from.to_upper(), 30, WHITE)
+	draw_circle(Vector2(tx + 8, r.position.y + 78), 6, GREEN)
+	_text(Vector2(tx + 22, r.position.y + 85), "COMMS · LIVE", 17, CYAN_HI)
+	var line_r := Rect2(Vector2(tx - 4, r.position.y + 104), Vector2(r.end.x - tx - 14, 70))
+	_box(line_r, Color(0.03, 0.1, 0.2, 1.0), Color(CYAN, 0.5), 10, 2)
+	draw_multiline_string_outline(font, line_r.position + Vector2(16, 28), comms_line, HORIZONTAL_ALIGNMENT_LEFT, line_r.size.x - 28, 17, 2, 4, Color(0, 0.03, 0.08, 0.75))
+	draw_multiline_string(font, line_r.position + Vector2(16, 28), comms_line, HORIZONTAL_ALIGNMENT_LEFT, line_r.size.x - 28, 17, 2, WHITE)
+	_pill("comms_close", "CLOSE  X")
 
 func _radar(c: Vector2, r: float) -> void:
-	draw_circle(c, r, Color(0.02, 0.07, 0.12, 0.78))
-	draw_arc(c, r, 0, TAU, 48, Color(CYAN, 0.7), 2.0, true)
-	draw_arc(c, r * 0.5, 0, TAU, 36, Color(CYAN, 0.2), 1.0, true)
-	draw_line(c + Vector2(0, -r), c + Vector2(0, r), Color(CYAN, 0.15))
-	draw_line(c + Vector2(-r, 0), c + Vector2(r, 0), Color(CYAN, 0.15))
+	draw_circle(c, r, Color(0.02, 0.1, 0.18, 0.9))
+	draw_arc(c, r, 0, TAU, 64, Color(CYAN, 0.9), 3.0, true)
+	for k in [0.33, 0.66]:
+		draw_arc(c, r * k, 0, TAU, 48, Color(CYAN, 0.22), 1.0, true)
+	draw_line(c + Vector2(0, -r), c + Vector2(0, r), Color(CYAN, 0.2))
+	draw_line(c + Vector2(-r, 0), c + Vector2(r, 0), Color(CYAN, 0.2))
+	var sweep := fmod(t * 1.4, TAU)
+	draw_line(c, c + Vector2(cos(sweep), sin(sweep)) * r, Color(CYAN, 0.35), 2.0)
 	var rng := 1600.0 * (1.0 - 0.6 * space.in_nebula)
-	var inv: Basis = Basis(Vector3.UP, -space.yaw)
+	var inv := Basis(Vector3.UP, -space.yaw)
 	var pp: Vector3 = space.player.global_position
 	var items: Array = []
-	for e in space.enemies: items.append([e["node"].global_position, RED, 3.5])
-	for tr in space.traffic: items.append([tr["node"].global_position, Color(0.7, 0.8, 1.0), 3.0])
-	items.append([space.station.global_position, GREEN, 5.0])
-	items.append([space.planet.global_position, Color(0.5, 0.8, 1.0), 7.0])
-	items.append([space.gate.global_position, GOLD, 5.0])
+	for e in space.enemies: items.append([e["node"].global_position, RED, "tri"])
+	for tr in space.traffic: items.append([tr["node"].global_position, GREEN, "tri"])
+	items.append([space.station.global_position, GREEN, "dot"])
+	items.append([space.planet.global_position, Color(0.5, 0.8, 1.0), "big"])
+	items.append([space.gate.global_position, GOLD, "dot"])
 	for it in items:
 		var rel: Vector3 = inv * (it[0] - pp)
 		var v := Vector2(rel.x, rel.z) / rng * r
-		var edge := v.length() > r
-		if edge: v = v.normalized() * r
-		draw_circle(c + v, it[2] * (0.7 if edge else 1.0), Color(it[1], 0.5 if edge else 1.0))
-	draw_colored_polygon(PackedVector2Array([c + Vector2(0, -8), c + Vector2(6, 6), c + Vector2(-6, 6)]), WHITE)
-	_text(c + Vector2(-r, r + 18), "RADAR %s" % _dist(rng), 11, Color(CYAN, 0.8), HORIZONTAL_ALIGNMENT_CENTER, r * 2)
+		var at_edge := v.length() > r - 6
+		if at_edge: v = v.normalized() * (r - 6)
+		var p := c + v
+		var col: Color = Color(it[1], 0.55 if at_edge else 1.0)
+		if it[2] == "tri": draw_colored_polygon(PackedVector2Array([p + Vector2(0, -7), p + Vector2(6, 5), p + Vector2(-6, 5)]), col)
+		else: draw_circle(p, 7.0 if it[2] == "big" else 4.5, col)
+	draw_colored_polygon(PackedVector2Array([c + Vector2(0, -13), c + Vector2(9, 9), c + Vector2(0, 4), c + Vector2(-9, 9)]), WHITE)
 
 func _dist(d: float) -> String:
 	return "%.1f km" % (d / 1000.0) if d >= 1000.0 else "%d m" % int(d)

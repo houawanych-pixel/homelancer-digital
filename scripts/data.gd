@@ -8,11 +8,11 @@ const VERSION := "v1.2"
 # model: key understood by ShipFactory. "cadet_glb" etc. load real GLBs when present under assets/ships/.
 const SHIPS := {
 	"cadet": {"name": "Cadet", "class": "Starter fighter", "price": 0, "hull": 100, "shield": 60, "speed": 46.0,
-		"turn": 1.7, "guns": 2, "missiles": 6, "model": "cadet", "desc": "Unity-issue trainer. Light, nimble, forgiving."},
+		"turn": 1.7, "guns": 2, "missiles": 6, "mines": 3, "model": "cadet", "desc": "Unity-issue trainer. Light, nimble, forgiving."},
 	"ranger": {"name": "Ranger", "class": "Patrol fighter", "price": 1500, "hull": 160, "shield": 95, "speed": 50.0,
-		"turn": 1.55, "guns": 2, "missiles": 10, "model": "ranger", "desc": "Faster frame with thicker plating and a bigger rack."},
+		"turn": 1.55, "guns": 2, "missiles": 10, "mines": 4, "model": "ranger", "desc": "Faster frame with thicker plating and a bigger rack."},
 	"lancer": {"name": "Lancer", "class": "Heavy fighter", "price": 4000, "hull": 240, "shield": 140, "speed": 42.0,
-		"turn": 1.25, "guns": 3, "missiles": 14, "model": "lancer", "desc": "Three hardpoints and a heavy shield. Slow to turn."},
+		"turn": 1.25, "guns": 3, "missiles": 14, "mines": 6, "model": "lancer", "desc": "Three hardpoints and a heavy shield. Slow to turn."},
 }
 const SHIP_ORDER := ["cadet", "ranger", "lancer"]
 
@@ -26,6 +26,23 @@ const WEAPONS := {
 const WEAPON_ORDER := ["pulse1", "pulse2", "ion", "plasma"]
 const MISSILE_PRICE := 40
 const MISSILE_DAMAGE := 45.0
+const MINE_PRICE := 60
+const MINE_DAMAGE := 70.0
+const MINE_RADIUS := 45.0
+const ENERGY_MAX := 100.0
+const ENERGY_REGEN := 9.0 # per second
+const ENERGY_PER_GUN := 1.5 # per shot per gun
+const SHIELD_BOOST_COOLDOWN := 20.0
+const ENERGY_BOOST_COOLDOWN := 15.0
+# The six cockpit systems. AUTO = the ship triggers it when needed; MANUAL = tap the panel.
+const SYSTEMS_UI := [
+	{"id": "shield", "label": "SHIELD\nRECHARGE", "side": "left"},
+	{"id": "hull", "label": "HULL\nREPAIR", "side": "left"},
+	{"id": "energy", "label": "ENERGY\nRECHARGE", "side": "left"},
+	{"id": "guns", "label": "FIRE\nWEAPONS", "side": "right"},
+	{"id": "missile", "label": "FIRE\nMISSILE", "side": "right"},
+	{"id": "mine", "label": "DEPLOY\nMINE", "side": "right"},
+]
 const MAX_REPAIRS := 5
 const REPAIR_AMOUNT := 0.4 # fraction of max hull
 

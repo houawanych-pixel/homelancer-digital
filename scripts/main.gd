@@ -141,6 +141,7 @@ func _load_system(id: String, arrival: String) -> void:
 	space.enemy_killed.connect(_on_kill)
 	space.player_destroyed.connect(_on_destroyed)
 	space.message.connect(func(t): hud.flash_message(t))
+	space.system_used.connect(func(sid, txt): hud.flash_message(txt); hud.pulse(sid))
 	hud.space = space
 
 func _on_gs_changed() -> void:
@@ -169,7 +170,8 @@ func _web_state() -> void:
 		d["yaw"] = snappedf(space.yaw, 0.001)
 		d["pitch"] = snappedf(space.pitch, 0.001)
 		d["strafe"] = snappedf(space.move.x, 0.01)
-		d["auto"] = space.auto_fire
+		d["auto"] = GS.is_auto("guns")
+		d["view"] = GS.view
 	JavaScriptBridge.eval("window.__hlstate = %s;" % JSON.stringify(d), true)
 
 func _objective() -> String:
@@ -188,16 +190,33 @@ func _objective() -> String:
 # ---------------------------------------------------------------- HUD buttons
 func _on_hud(id: String) -> void:
 	if state != "flight": return
+	if id.begins_with("sys_"):
+		var sid := id.substr(4)
+		if sid == "guns":
+			hud.flash_message("Weapons fire automatically on target (AUTO) or with the FIRE button (MANUAL).")
+		else:
+			space.trigger_system(sid)
+		return
+	if id.begins_with("mode_"):
+		var parts := id.split("_")
+		GS.modes[parts[1]] = parts[2]
+		GS.changed.emit()
+		var labels := {"shield": "Shield recharge", "hull": "Hull repair", "energy": "Energy recharge", "guns": "Weapons", "missile": "Missiles", "mine": "Mines"}
+		var how := {"shield": "boosts when shields drop to zero", "hull": "uses a kit below 35% hull", "energy": "refills below 15% energy",
+			"guns": "fire when a hostile is in the reticle", "missile": "launch after a 1.5 s lock", "mine": "drop when a hostile is on your tail"}
+		hud.flash_message("%s: %s" % [labels[parts[1]], ("AUTO — " + how[parts[1]]) if parts[2] == "auto" else "MANUAL — tap the panel"])
+		return
 	match id:
-		"missile":
-			if space.fire_missile(): hud.flash_message("Missile away.")
-		"repair":
-			if GS.use_repair(): hud.flash_message("Repair kit used: hull +40%%. %d left." % GS.repairs)
-			else: hud.flash_message("No repair needed." if GS.repairs > 0 else "No repair kits left — dock to restock.")
+		"missile": space.trigger_system("missile")
+		"repair": space.trigger_system("hull")
 		"target": space.cycle_target()
-		"auto":
-			space.auto_fire = not space.auto_fire
-			hud.flash_message("Fire mode: %s" % ("AUTO — guns fire when a hostile is in the reticle" if space.auto_fire else "MANUAL — hold FIRE"))
+		"view":
+			space.set_view("cockpit" if GS.view == "chase" else "chase")
+			hud.flash_message("View: %s" % ("first-person cockpit" if GS.view == "cockpit" else "chase camera"))
+		"comms":
+			if hud.comms_open: hud.comms_open = false
+			else: hud.open_comms(space.sys["station"]["name"] + " Control", _comms_line())
+		"comms_close": hud.comms_open = false
 		"cruise":
 			space.set_cruise(not space.cruise)
 			hud.flash_message("Cruise engines charging…" if space.cruise else "Cruise off.")
@@ -217,8 +236,18 @@ func _on_hud(id: String) -> void:
 		"jump":
 			if space.gate_in_range(): jump()
 
+func _comms_line() -> String:
+	var n := space.hostiles_near(900.0)
+	if n > 0: return "Pilot, %d hostile%s on your scope. Weapons free — stay sharp." % [n, "" if n == 1 else "s"]
+	if space.in_nebula > 0.0: return "We're losing your signal in the nebula. Sensors will be short-ranged in there."
+	if space.in_belt: return "Rocks everywhere out there. Throttle down and watch your hull."
+	if GS.hull < GS.max_hull() * 0.5: return "You're leaking plasma. Dock with us for free repairs."
+	var o := _objective().replace("OBJECTIVE: ", "")
+	return "Traffic control here. Recommended: %s." % o.to_lower()
+
 func open_map() -> void:
 	state = "map"
+	hud.comms_open = false
 	space.process_mode = Node.PROCESS_MODE_DISABLED
 	hud.visible = false
 	navmap.open(space)

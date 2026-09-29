@@ -25,7 +25,14 @@ var vel := Vector3.ZERO
 var move := Vector2.ZERO # x strafe, y forward(+)/back(-)
 var aim := Vector2.ZERO # stick deflection -1..1
 var fire_held := false
-var auto_fire := true
+var shield_cd := 0.0
+var energy_cd := 0.0
+var repair_cd := 0.0
+var missile_cd := 0.0
+var mine_cd := 0.0
+var lock_time := 0.0
+var mines_live: Array = []
+signal system_used(id: String, text: String)
 var cruise := false
 var cruise_charge := 0.0
 var gun_cd := 0.0
@@ -477,6 +484,7 @@ func set_player_model() -> void:
 	if is_instance_valid(model): model.queue_free()
 	model = ShipFactory.build(Data.SHIPS[GS.ship_id]["model"])
 	player.add_child(model)
+	model.visible = GS.view != "cockpit"
 
 func _spawn_group(center: Vector3, count: int) -> void:
 	var e: Dictionary = Data.ENEMIES[sys["enemy"]]
@@ -513,6 +521,7 @@ func _process(dt: float) -> void:
 	_update_traffic(dt)
 	_update_bolts(dt)
 	_update_missiles(dt)
+	_update_mines(dt)
 	_update_effects(dt)
 	_collisions(dt)
 	_update_camera(dt, false)
@@ -534,6 +543,8 @@ func _update_player(dt: float) -> void:
 	gun_cd = maxf(0.0, gun_cd - dt)
 	shield_delay = maxf(0.0, shield_delay - dt)
 	hit_shake = maxf(0.0, hit_shake - dt * 2.5)
+	GS.energy = minf(Data.ENERGY_MAX, GS.energy + Data.ENERGY_REGEN * dt)
+	for k in ["shield_cd", "energy_cd", "repair_cd", "missile_cd", "mine_cd"]: set(k, maxf(0.0, float(get(k)) - dt))
 	if shield_delay <= 0.0 and GS.shield < GS.max_shield():
 		GS.shield = minf(GS.max_shield(), GS.shield + GS.max_shield() * 0.12 * dt)
 	var steer := aim if controls else Vector2.ZERO
@@ -567,10 +578,13 @@ func _update_player(dt: float) -> void:
 	# weapons
 	if controls:
 		var want := fire_held
-		if auto_fire and _in_fire_cone(target): want = true
-		if want and gun_cd <= 0.0:
+		if GS.is_auto("guns") and _in_fire_cone(target): want = true
+		var cost := Data.ENERGY_PER_GUN * float(GS.ship()["guns"])
+		if want and gun_cd <= 0.0 and GS.energy >= cost:
+			GS.energy -= cost
 			_fire_guns()
 			if cruise: set_cruise(false)
+		_auto_systems(dt)
 
 func _autopilot_input() -> Array:
 	var goal: Vector3 = autopilot.global_position
@@ -694,7 +708,8 @@ func _update_missiles(dt: float) -> void:
 	for i in range(missiles_live.size() - 1, -1, -1):
 		var m: Dictionary = missiles_live[i]
 		var n: MeshInstance3D = m["node"]
-		var t: Node3D = m["target"]
+		var tv = m["target"]
+		var t: Node3D = tv if is_instance_valid(tv) else null
 		var v: Vector3 = m["vel"]
 		if is_instance_valid(t):
 			var want := (t.global_position - n.global_position).normalized() * 190.0
@@ -817,11 +832,19 @@ func _collisions(dt: float) -> void:
 	in_nebula = clampf((nebula_radius - nd) / (nebula_radius * 0.35), 0.0, 1.0)
 
 func _update_camera(dt: float, snap: bool) -> void:
+	if GS.view == "cockpit":
+		# pilot's eye: fixed to the hull, tiny lag-free shake on hits
+		cam.global_position = player.global_position + player.global_basis * Vector3(0, 0.9, -1.2)
+		var ahead := player.global_position - player.global_basis.z * 60.0
+		if hit_shake > 0.0: ahead += Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), 0) * hit_shake * 1.2
+		cam.look_at(ahead, player.global_basis.y)
+		cam.fov = lerpf(cam.fov, 88.0 if (cruise and cruise_charge >= 1.0) else 76.0, minf(1.0, dt * 2.0))
+		return
 	var back := 15.0 + (4.0 if cruise and cruise_charge >= 1.0 else 0.0)
-	var want := player.global_position + player.global_basis * Vector3(0, 3.6, back)
+	var want := player.global_position + player.global_basis * Vector3(0, 2.2, back)
 	if snap: cam.global_position = want
 	else: cam.global_position = cam.global_position.lerp(want, minf(1.0, dt * 6.0))
-	var look := player.global_position - player.global_basis.z * 30.0 + player.global_basis.y * 1.5
+	var look := player.global_position - player.global_basis.z * 30.0 + player.global_basis.y * 2.6
 	if hit_shake > 0.0: look += Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), 0) * hit_shake * 0.8
 	cam.look_at(look, player.global_basis.y)
 	cam.fov = lerpf(cam.fov, 84.0 if (cruise and cruise_charge >= 1.0) else 70.0, minf(1.0, dt * 2.0))
@@ -873,6 +896,127 @@ func _update_effects(dt: float) -> void:
 		if f["life"] <= 0.0:
 			n.queue_free()
 			effects.remove_at(i)
+
+# ---------------------------------------------------------------- cockpit systems (AUTO / MANUAL)
+## Manually trigger one of the six systems. Returns false when it could not run.
+func trigger_system(id: String) -> bool:
+	match id:
+		"shield":
+			if shield_cd > 0.0: return _say(id, "Shield capacitor recharging (%ds)." % ceili(shield_cd))
+			if GS.shield >= GS.max_shield() - 0.5: return _say(id, "Shields already full.")
+			GS.shield = minf(GS.max_shield(), GS.shield + GS.max_shield() * 0.5)
+			shield_cd = Data.SHIELD_BOOST_COOLDOWN
+			GS.changed.emit()
+			system_used.emit(id, "Shield recharge: +50%.")
+			return true
+		"hull":
+			if repair_cd > 0.0: return false
+			if GS.repairs <= 0: return _say(id, "No repair kits left — dock to restock.")
+			if not GS.use_repair(): return _say(id, "Hull is intact.")
+			repair_cd = 1.5
+			system_used.emit(id, "Hull repair: +40%%. %d kit%s left." % [GS.repairs, "" if GS.repairs == 1 else "s"])
+			return true
+		"energy":
+			if energy_cd > 0.0: return _say(id, "Energy capacitor recharging (%ds)." % ceili(energy_cd))
+			GS.energy = Data.ENERGY_MAX
+			energy_cd = Data.ENERGY_BOOST_COOLDOWN
+			GS.changed.emit()
+			system_used.emit(id, "Energy recharged.")
+			return true
+		"missile":
+			if missile_cd > 0.0: return false
+			if fire_missile():
+				missile_cd = 1.2
+				system_used.emit(id, "Missile away.")
+				return true
+			return false
+		"mine":
+			return deploy_mine()
+	return false
+
+func _say(id: String, t: String) -> bool:
+	system_used.emit(id, t)
+	return false
+
+func _auto_systems(_dt: float) -> void:
+	if GS.is_auto("shield") and GS.shield <= 0.5 and shield_cd <= 0.0 and shield_delay > 0.0: trigger_system("shield")
+	if GS.is_auto("hull") and GS.hull < GS.max_hull() * 0.35 and GS.repairs > 0 and repair_cd <= 0.0: trigger_system("hull")
+	if GS.is_auto("energy") and GS.energy < Data.ENERGY_MAX * 0.15 and energy_cd <= 0.0: trigger_system("energy")
+	# missiles: after holding a hostile in the reticle for 1.5 s
+	if _in_fire_cone(target) or (target and target.get_meta("kind", "") == "enemy" and _cone(target, 15.0, 800.0)):
+		lock_time += _dt
+	else:
+		lock_time = 0.0
+	if GS.is_auto("missile") and lock_time > 1.5 and GS.missiles > 0 and missile_cd <= 0.0:
+		if trigger_system("missile"): missile_cd = 5.0
+	# mines: drop one when a hostile is chasing close behind
+	if GS.is_auto("mine") and GS.mines > 0 and mine_cd <= 0.0:
+		for e in enemies:
+			var to: Vector3 = e["node"].global_position - player.global_position
+			if to.length() < 160.0 and (-player.global_basis.z).dot(to.normalized()) < -0.5:
+				deploy_mine()
+				break
+
+func _cone(t: Node3D, deg: float, rng: float) -> bool:
+	if t == null or not is_instance_valid(t): return false
+	var to := t.global_position - player.global_position
+	return to.length() < rng and (-player.global_basis.z).dot(to.normalized()) > cos(deg_to_rad(deg))
+
+func deploy_mine() -> bool:
+	if mine_cd > 0.0: return false
+	if GS.mines <= 0: return _say("mine", "No mines left — buy more at a dealer.")
+	GS.mines -= 1
+	GS.changed.emit()
+	mine_cd = 2.5
+	var mi := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = 1.4
+	sm.height = 2.8
+	sm.radial_segments = 10
+	sm.rings = 5
+	mi.mesh = sm
+	mi.material_override = ShipFactory.mat(Color(0.25, 0.27, 0.3), false, 0.7)
+	var light := MeshInstance3D.new()
+	var lb := BoxMesh.new()
+	lb.size = Vector3(0.7, 0.7, 0.7)
+	light.mesh = lb
+	light.position = Vector3(0, 1.3, 0)
+	light.material_override = ShipFactory.mat(Color(1.0, 0.3, 0.2), true)
+	mi.add_child(light)
+	add_child(mi)
+	mi.global_position = player.global_position + player.global_basis.z * 10.0
+	mines_live.append({"node": mi, "arm": 1.0, "life": 60.0, "vel": vel * 0.2})
+	system_used.emit("mine", "Mine deployed. %d left." % GS.mines)
+	return true
+
+func _update_mines(dt: float) -> void:
+	for i in range(mines_live.size() - 1, -1, -1):
+		var m: Dictionary = mines_live[i]
+		var n: MeshInstance3D = m["node"]
+		m["arm"] -= dt
+		m["life"] -= dt
+		m["vel"] = (m["vel"] as Vector3) * (1.0 - minf(1.0, dt * 0.8))
+		n.global_position += m["vel"] * dt
+		n.rotate_y(dt * 1.5)
+		var boom: bool = m["life"] <= 0.0
+		if m["arm"] <= 0.0:
+			for e in enemies:
+				if e["node"].global_position.distance_to(n.global_position) < 22.0:
+					boom = true
+					break
+		if boom:
+			_explode(n.global_position)
+			for e in enemies.duplicate():
+				var d: float = e["node"].global_position.distance_to(n.global_position)
+				if d < Data.MINE_RADIUS: _damage_enemy(e, Data.MINE_DAMAGE * (1.0 - d / Data.MINE_RADIUS * 0.5))
+			n.queue_free()
+			mines_live.remove_at(i)
+
+## Chase camera or first-person cockpit.
+func set_view(v: String) -> void:
+	GS.view = v
+	if is_instance_valid(model): model.visible = v != "cockpit"
+	_update_camera(1.0, true)
 
 # ---------------------------------------------------------------- targeting / queries
 func _nearest_enemy(max_d: float) -> Node3D:

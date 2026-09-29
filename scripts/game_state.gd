@@ -12,6 +12,10 @@ var hull := 100.0
 var shield := 60.0
 var repairs := Data.MAX_REPAIRS
 var missiles := 6
+var mines := 3
+var energy := Data.ENERGY_MAX
+var modes := {"shield": "auto", "hull": "auto", "energy": "auto", "guns": "auto", "missile": "auto", "mine": "auto"}
+var view := "chase" # "chase" or "cockpit"
 var system_id := "solara"
 var discovered := ["solara"]
 var last_base := "liberty_hub"
@@ -23,12 +27,16 @@ func weapon() -> Dictionary: return Data.WEAPONS[weapon_id]
 func max_hull() -> float: return float(ship()["hull"])
 func max_shield() -> float: return float(ship()["shield"])
 func max_missiles() -> int: return int(ship()["missiles"])
+func max_mines() -> int: return int(ship()["mines"])
+func is_auto(id: String) -> bool: return modes.get(id, "auto") == "auto"
 
 func restore_full() -> void:
 	hull = max_hull()
 	shield = max_shield()
 	repairs = Data.MAX_REPAIRS
 	missiles = max_missiles()
+	mines = max_mines()
+	energy = Data.ENERGY_MAX
 	changed.emit()
 
 func add_credits(n: int) -> void:
@@ -62,6 +70,20 @@ func buy_missiles(n: int) -> String:
 	missiles += n
 	changed.emit()
 	return "Loaded %d missile%s for %d credits." % [n, "" if n == 1 else "s", cost]
+
+func buy_mines(n: int) -> String:
+	var room := max_mines() - mines
+	n = mini(n, room)
+	if n <= 0: return "Mine rack is full."
+	var cost := n * Data.MINE_PRICE
+	if credits < cost:
+		n = credits / Data.MINE_PRICE
+		if n <= 0: return "Not enough credits."
+		cost = n * Data.MINE_PRICE
+	credits -= cost
+	mines += n
+	changed.emit()
+	return "Loaded %d mine%s for %d credits." % [n, "" if n == 1 else "s", cost]
 
 func buy_ship(id: String) -> String:
 	var s: Dictionary = Data.SHIPS[id]
