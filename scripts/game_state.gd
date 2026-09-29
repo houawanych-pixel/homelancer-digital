@@ -1,0 +1,89 @@
+extends Node
+## Session state (autoload "GS"). Credits, ship, equipment and discovery persist for the whole play session.
+
+signal changed
+
+var credits := 500
+var ship_id := "cadet"
+var owned_ships := ["cadet"]
+var weapon_id := "pulse1"
+var owned_weapons := ["pulse1"]
+var hull := 100.0
+var shield := 60.0
+var repairs := Data.MAX_REPAIRS
+var missiles := 6
+var system_id := "solara"
+var discovered := ["solara"]
+var last_base := "liberty_hub"
+var kills := 0
+var god_mode := false # only used by the automated route test
+
+func ship() -> Dictionary: return Data.SHIPS[ship_id]
+func weapon() -> Dictionary: return Data.WEAPONS[weapon_id]
+func max_hull() -> float: return float(ship()["hull"])
+func max_shield() -> float: return float(ship()["shield"])
+func max_missiles() -> int: return int(ship()["missiles"])
+
+func restore_full() -> void:
+	hull = max_hull()
+	shield = max_shield()
+	repairs = Data.MAX_REPAIRS
+	missiles = max_missiles()
+	changed.emit()
+
+func add_credits(n: int) -> void:
+	credits += n
+	changed.emit()
+
+func buy_weapon(id: String) -> String:
+	var w: Dictionary = Data.WEAPONS[id]
+	if id == weapon_id: return "Already equipped."
+	if id in owned_weapons:
+		weapon_id = id
+		changed.emit()
+		return "Equipped %s." % w["name"]
+	if credits < int(w["price"]): return "Not enough credits (%d needed)." % int(w["price"])
+	credits -= int(w["price"])
+	owned_weapons.append(id)
+	weapon_id = id
+	changed.emit()
+	return "Bought and equipped %s." % w["name"]
+
+func buy_missiles(n: int) -> String:
+	var room := max_missiles() - missiles
+	n = mini(n, room)
+	if n <= 0: return "Missile rack is full."
+	var cost := n * Data.MISSILE_PRICE
+	if credits < cost:
+		n = credits / Data.MISSILE_PRICE
+		if n <= 0: return "Not enough credits."
+		cost = n * Data.MISSILE_PRICE
+	credits -= cost
+	missiles += n
+	changed.emit()
+	return "Loaded %d missile%s for %d credits." % [n, "" if n == 1 else "s", cost]
+
+func buy_ship(id: String) -> String:
+	var s: Dictionary = Data.SHIPS[id]
+	if id == ship_id: return "You are flying the %s." % s["name"]
+	if not (id in owned_ships):
+		if credits < int(s["price"]): return "Not enough credits (%d needed)." % int(s["price"])
+		credits -= int(s["price"])
+		owned_ships.append(id)
+	ship_id = id
+	restore_full()
+	return "The %s is fuelled, armed and ready." % s["name"]
+
+func damage(amount: float) -> void:
+	if god_mode: amount *= 0.0
+	var absorbed := minf(shield, amount)
+	shield -= absorbed
+	hull = maxf(0.0, hull - (amount - absorbed))
+	changed.emit()
+
+func use_repair() -> bool:
+	if repairs <= 0 or hull >= max_hull(): return false
+	repairs -= 1
+	hull = minf(max_hull(), hull + max_hull() * Data.REPAIR_AMOUNT)
+	changed.emit()
+	return true

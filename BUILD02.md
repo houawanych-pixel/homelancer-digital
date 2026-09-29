@@ -1,15 +1,5 @@
-# Homelancer Digital — Build 02
+# LEGACY — Build 02 notes (superseded by v1.2)
 
-Playable vertical slice target for Godot 4.3/mobile landscape.
-
-## Systems
-- Solara: New Terra, Liberty Hub, asteroid belt, Violet Reach nebula, Aquila Jump Gate.
-- Vega: Eden Prime, Frontier Exchange, ice/asteroid belt, Azure Veil nebula, Solara Jump Gate.
-
-## Test loop
-Launch, fly, fight, earn credits, dock at planet/station, repair/resupply, buy weapon upgrades, buy Ranger/Lancer ships, launch, reach jump gate, jump systems, and dock in the destination system.
-
-## Mobile
-Left touch = thrust/strafe. Right touch = aim/turn. Buttons = auto/manual, dock, jump gate, missile, repair. Docked hub buttons = buy weapon, buy ship, launch.
-
-This branch is a prototype and requires runtime verification in Godot before merging to main.
+This file described the earlier single-screen prototype (commits 873c7e3, 96c53b2, 827f4eb). That code drew its
+HUD from a 3D node and could not run as written. v1.2 replaces it while keeping its systems, names and ship
+progression (Cadet, Ranger, Lancer). See README.md and docs/V1.2_BUILD.md.
