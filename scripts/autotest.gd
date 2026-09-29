@@ -61,8 +61,10 @@ func _tp(pos: Vector3, look: Vector3) -> void:
 func _press(id: String) -> void:
 	main._on_hud(id)
 
+var got_hail := false
 func _fight(label: String) -> bool:
 	var s := _sp()
+	if not s.hail.is_connected(_on_hail): s.hail.connect(_on_hail)
 	var before := GS.kills
 	if s.enemies.is_empty():
 		for p in s.sys["patrols"]: s._spawn_group(p, 2)
@@ -92,6 +94,9 @@ func _fight(label: String) -> bool:
 	s.move = Vector2.ZERO
 	return GS.kills > before
 
+func _on_hail(_from: String, _line: String, hostile: bool) -> void:
+	if hostile: got_hail = true
+
 func _dock_at(n: Node3D) -> bool:
 	var s := _sp()
 	var dp: Vector3 = s.dock_point(n)
@@ -117,7 +122,7 @@ func _run() -> void:
 	main.start_game()
 	_check("Godot boot + START", await _until(func(): return main.state == "flight", 10.0))
 	await _wait(1.0)
-	_check("Mobile HUD shown", main.hud.visible and main.hud.buttons.has("sys_missile") and main.hud.buttons.has("mode_guns_auto") and main.hud.buttons.has("comms"))
+	_check("Mobile HUD shown", main.hud.visible and main.hud.buttons.has("sys_missile") and main.hud.buttons.has("mode_guns_auto") and main.hud.buttons.has("thrust") and main.hud.buttons.has("warp") and main.hud.buttons.has("call"))
 	await _shot("solara_flight")
 	var s := _sp()
 	_check("Real/placeholder player ship", is_instance_valid(s.model), "placeholder=%s" % s.model.get_meta("placeholder", true))
@@ -126,11 +131,17 @@ func _run() -> void:
 	await _wait(0.5)
 	_check("First-person cockpit view", GS.view == "cockpit" and not s.model.visible)
 	await _shot("cockpit_view")
-	_press("comms")
+	_press("call")
+	await _wait(0.3)
+	var picker_ok: bool = main.hud.comms_mode == "picker" and main.hud.buttons.has("contact_0")
+	await _shot("intercom_contacts")
+	_press("contact_0")
 	await _wait(0.4)
-	_check("Comms panel", main.hud.comms_open)
-	await _shot("comms")
-	_press("comms_close")
+	_check("Intercom: call and hang up", picker_ok and main.hud.comms_mode == "talk")
+	await _shot("intercom_call")
+	_press("hangup")
+	await _wait(0.2)
+	_check("Hang up", not main.hud.comms_open)
 	_press("mode_mine_manual")
 	var mines0 := GS.mines
 	_press("sys_mine")
@@ -139,11 +150,48 @@ func _run() -> void:
 	_press("mode_mine_auto")
 	_press("view")
 	await _wait(0.3)
+	# ---- THRUST / STOP / ENGINE KILL / WARP
+	main.hud.held["thrust"] = true
+	await _wait(2.0)
+	var boost_speed := s.speed_now
+	_check("Thrust (afterburner)", s.boosting and boost_speed > float(GS.ship()["speed"]) * 1.3, "speed %d" % int(boost_speed))
+	main.hud.held.erase("thrust")
+	var early: String = s.request_warp()
+	_check("Warp refused while moving", early == "moving" and s.warp_state == "off")
+	_press("stop")
+	var stopped := await _until(func(): return s.speed_now < 0.7 and not s.braking, 8.0)
+	_check("STOP to full stop", stopped, "speed %.1f" % s.speed_now)
+	s.vel = -s.player.global_basis.z * 30.0
+	_press("kill")
+	var v0: Vector3 = s.vel
+	var y0: float = s.yaw
+	main.hud.aim_vec = Vector2(1, 0)
+	await _wait(1.0)
+	main.hud.aim_vec = Vector2.ZERO
+	_check("Engine kill: drift while turning", s.engine_kill and s.vel.distance_to(v0) < 0.5 and absf(s.yaw - y0) > 0.5, "yaw %.2f -> %.2f" % [y0, s.yaw])
+	await _shot("engine_kill_drift", 0.2)
+	_press("kill")
+	_press("stop")
+	await _until(func(): return s.speed_now < 0.7 and not s.braking, 8.0)
+	_press("warp")
+	await _wait(1.6)
+	var charging: bool = s.warp_state == "charging"
+	await _shot("warp_charging", 0.0)
+	await _until(func(): return s.warp_state == "on", 4.0)
+	await _wait(1.2)
+	var m_before := GS.missiles
+	var locked := not s.trigger_system("missile") and GS.missiles == m_before
+	_check("Warp: 3 s charge from stop, weapons locked", charging and s.warp_state == "on" and locked and s.speed_now > float(GS.ship()["speed"]) * 3.0, "speed %d" % int(s.speed_now))
+	await _shot("warp_travel", 0.2)
+	_press("warp")
+	await _wait(0.4)
+	_check("Drop out of warp", s.warp_state == "off")
 	# ---- combat
 	var credits0 := GS.credits
 	var won := await _fight("combat")
 	_check("Combat: enemy destroyed", won, "kills=%d" % GS.kills)
 	_check("Credits earned", GS.credits > credits0, "%d -> %d" % [credits0, GS.credits])
+	_check("Enemy called you on the intercom", got_hail)
 	_press("missile")
 	await _wait(0.3)
 	# ---- dock at station
@@ -176,7 +224,7 @@ func _run() -> void:
 	s.target = s.planet
 	_press("goto")
 	var arrived := await _until(func(): return s.dock_candidate() == s.planet or s.autopilot == null, 70.0)
-	_check("Autopilot + cruise to planet", arrived and s.dock_candidate() == s.planet, "dist=%d" % int(s.distance_to(s.planet)))
+	_check("Autopilot + warp to planet", arrived and s.dock_candidate() == s.planet, "dist=%d" % int(s.distance_to(s.planet)))
 	_check("Planet docking", await _dock_at(s.planet), s.planet.name)
 	await _wait(0.6)
 	await _shot("hub_planet")

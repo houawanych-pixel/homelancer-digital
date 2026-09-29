@@ -32,9 +32,14 @@ var objective := ""
 var comms_open := false
 var comms_line := ""
 var comms_from := ""
+var comms_mode := "" # incoming | picker | talk
+var comms_hostile := false
+var comms_timer := 0.0
+var contacts: Array = [] # [[name, subtitle], ...] shown by the CALL picker
 var S := Vector2(1280, 720)
 var stick_r := 100.0
 var flash := {} # system id -> seconds of highlight
+var panels := {} # system id -> panel rect
 var t := 0.0
 
 func _ready() -> void:
@@ -52,10 +57,25 @@ func hurt() -> void:
 func pulse(id: String) -> void:
 	flash[id] = 0.6
 
-func open_comms(from: String, line: String) -> void:
+func open_comms(from: String, line: String, mode := "talk", hostile := false) -> void:
 	comms_open = true
 	comms_from = from
 	comms_line = line
+	comms_mode = mode
+	comms_hostile = hostile
+	comms_timer = 7.0 if mode == "incoming" else 0.0
+
+func open_picker(list: Array) -> void:
+	contacts = list
+	comms_open = true
+	comms_mode = "picker"
+	comms_from = "Intercom"
+	comms_line = ""
+	comms_hostile = false
+
+func close_comms() -> void:
+	comms_open = false
+	comms_mode = ""
 
 # ---------------------------------------------------------------- layout
 func _home(which: String) -> Vector2:
@@ -78,33 +98,38 @@ func _layout() -> void:
 		var row := i % 3
 		var r := Rect2(10 if left else S.x - pw - 10, 12 + row * 80, pw, 70)
 		var id: String = sysd["id"]
-		var has_count := id == "missile" or id == "mine"
-		var chips_right := r.end.x - (62 if has_count else 12)
-		buttons["mode_%s_manual" % id] = Rect2(chips_right - 96, r.position.y + 14, 96, 42)
-		buttons["mode_%s_auto" % id] = Rect2(chips_right - 96 - 8 - 84, r.position.y + 14, 84, 42)
-		buttons["sys_" + id] = Rect2(r.position, Vector2(chips_right - 96 - 8 - 84 - 8 - r.position.x, r.size.y))
+		panels[id] = r
+		buttons["mode_%s_manual" % id] = Rect2(r.end.x - 10 - 92, r.position.y + 14, 92, 42)
+		buttons["mode_%s_auto" % id] = Rect2(r.end.x - 10 - 92 - 6 - 78, r.position.y + 14, 78, 42)
+		# the icon itself is the manual action button (count printed on it)
+		buttons["sys_" + id] = Rect2(r.position + Vector2(6, 5), Vector2(64, 60))
 		i += 1
 	var rc := _radar_center()
-	buttons["comms"] = Rect2(rc.x - 90, S.y - 58, 180, 48)
-	buttons["map"] = Rect2(rc.x - 90 - 12 - 120, S.y - 58, 120, 48)
-	buttons["view"] = Rect2(rc.x + 90 + 12, S.y - 58, 120, 48)
-	var col_top := 262.0
-	buttons["target"] = Rect2(S.x - 10 - 150, col_top, 150, 50)
-	buttons["goto"] = Rect2(S.x - 10 - 150, col_top + 58, 150, 50)
-	buttons["cruise"] = Rect2(S.x - 10 - 150, col_top + 116, 150, 50)
-	if not GS.is_auto("guns"):
-		var ah := _home("aim")
-		buttons["fire"] = Rect2(ah.x - stick_r - 190, ah.y - 70, 140, 140)
+	buttons["map"] = Rect2(rc.x - 6 - 120, S.y - 58, 120, 48)
+	buttons["view"] = Rect2(rc.x + 6, S.y - 58, 120, 48)
+	buttons["target"] = Rect2(S.x - 10 - 150, 262, 150, 52)
+	buttons["goto"] = Rect2(S.x - 10 - 150, 322, 150, 52)
+	# action rows above the sticks: right hand = THRUST · STOP · ENGINE KILL, left hand = WARP · CALL · HANG UP
+	var row_h := 64.0
+	var row_y := _home("aim").y - stick_r - 14 - row_h
+	var bw := 128.0
+	buttons["thrust"] = Rect2(S.x - 14 - 150, row_y, 150, row_h)
+	buttons["stop"] = Rect2(S.x - 14 - 150 - 10 - bw, row_y, bw, row_h)
+	buttons["kill"] = Rect2(S.x - 14 - 150 - 20 - bw * 2, row_y, bw, row_h)
+	buttons["warp"] = Rect2(14, row_y, 150, row_h)
+	buttons["call"] = Rect2(14 + 150 + 10, row_y, bw, row_h)
+	buttons["hangup"] = Rect2(14 + 150 + 20 + bw, row_y, bw, row_h)
 	if space and space.controls:
-		if space.dock_candidate() != null: buttons["dock"] = Rect2(10, 344, 250, 64)
-		elif space.gate_in_range(): buttons["jump"] = Rect2(10, 344, 250, 64)
-	if comms_open:
+		if space.dock_candidate() != null: buttons["dock"] = Rect2(10, 300, 250, 64)
+		elif space.gate_in_range(): buttons["jump"] = Rect2(10, 300, 250, 64)
+	if comms_open and comms_mode == "picker":
 		var cp := _comms_rect()
-		buttons["comms_close"] = Rect2(cp.end.x - 150, cp.end.y - 58, 132, 44)
+		for k in contacts.size():
+			buttons["contact_%d" % k] = Rect2(cp.position.x + 230, cp.position.y + 66 + k * 56, cp.size.x - 250, 48)
 
 func _comms_rect() -> Rect2:
-	var w := minf(760.0, S.x * 0.52)
-	return Rect2(S.x * 0.5 - w * 0.5, S.y * 0.5 - 20, w, 250)
+	var w := minf(700.0, S.x * 0.5)
+	return Rect2(S.x * 0.5 - w * 0.5, 190, w, 240)
 
 # ---------------------------------------------------------------- input
 func _input(e: InputEvent) -> void:
@@ -112,10 +137,6 @@ func _input(e: InputEvent) -> void:
 	if e is InputEventScreenTouch:
 		_layout()
 		if e.pressed:
-			if comms_open and _comms_rect().has_point(e.position) and not (buttons["comms_close"] as Rect2).has_point(e.position):
-				owners[e.index] = "comms_body"
-				get_viewport().set_input_as_handled()
-				return
 			var hit := ""
 			for id in buttons:
 				if (buttons[id] as Rect2).grow(4).has_point(e.position):
@@ -124,8 +145,11 @@ func _input(e: InputEvent) -> void:
 			if hit != "":
 				owners[e.index] = hit
 				held[hit] = true
-				if hit != "fire": pressed.emit(hit)
+				if hit != "sys_guns" and hit != "thrust": pressed.emit(hit)
 				get_viewport().set_input_as_handled()
+				return
+			if comms_open and _comms_rect().has_point(e.position):
+				owners[e.index] = "comms_body"
 				return
 			if e.position.x < S.x * 0.45 and e.position.y > 250 and not owners.values().has("move"):
 				owners[e.index] = "move"
@@ -161,7 +185,11 @@ func _process(dt: float) -> void:
 	space.move = Vector2(move_vec.x, -move_vec.y) if kb == Vector2.ZERO else kb
 	var a := aim_vec if ka == Vector2.ZERO else ka
 	space.aim = a * a.length()
-	space.fire_held = held.has("fire") or Input.is_action_pressed("fire")
+	space.fire_held = held.has("sys_guns") or Input.is_action_pressed("fire")
+	space.thrust_held = held.has("thrust") or Input.is_key_pressed(KEY_SHIFT)
+	if comms_mode == "incoming":
+		comms_timer -= dt
+		if comms_timer <= 0.0: close_comms()
 	queue_redraw()
 
 # ---------------------------------------------------------------- drawing helpers
@@ -225,31 +253,41 @@ func _icon(id: String, c: Vector2, s: float, col: Color) -> void:
 
 func _system_panel(sysd: Dictionary) -> void:
 	var id: String = sysd["id"]
-	var body: Rect2 = buttons["sys_" + id]
-	var right_edge: float = (buttons["mode_%s_manual" % id] as Rect2).end.x + (62.0 if (id == "missile" or id == "mine") else 12.0)
-	var r := Rect2(body.position, Vector2(right_edge - body.position.x, body.size.y))
-	var lit := float(flash.get(id, 0.0)) > 0.0 or held.has("sys_" + id)
+	var r: Rect2 = panels[id]
+	var lit := float(flash.get(id, 0.0)) > 0.0
+	var locked: bool = space.warp_active() and id in ["guns", "missile", "mine"]
 	_box(r, Color(0.08, 0.24, 0.4, 0.9) if lit else PANEL, CYAN_HI if lit else EDGE, 12, 2)
-	_icon(id, r.position + Vector2(40, 35), 20.0, CYAN_HI)
-	var lines: PackedStringArray = (sysd["label"] as String).split("\n")
-	_text(r.position + Vector2(78, 30), lines[0], 17, WHITE)
-	_text(r.position + Vector2(78, 52), lines[1], 17, WHITE)
+	# icon button — tap (or hold, for weapons) to use it now
+	var b: Rect2 = buttons["sys_" + id]
+	var down := held.has("sys_" + id)
+	_box(b, Color(BLUE, 0.85) if down else Color(0.07, 0.2, 0.34, 0.95), Color(CYAN_HI, 0.95), 10, 2)
+	_icon(id, b.get_center() + Vector2(0, -4), 17.0, WHITE if down else CYAN_HI)
+	var badge := ""
 	var cd := 0.0
 	match id:
 		"shield": cd = space.shield_cd / Data.SHIELD_BOOST_COOLDOWN
 		"energy": cd = space.energy_cd / Data.ENERGY_BOOST_COOLDOWN
+		"hull": badge = str(GS.repairs)
+		"missile": badge = "%02d" % GS.missiles
+		"mine": badge = "%02d" % GS.mines
+		"guns": badge = "%d%%" % int(GS.energy)
 	if cd > 0.0:
-		draw_rect(Rect2(r.position + Vector2(78, 60), Vector2(96, 4)), Color(1, 1, 1, 0.15))
-		draw_rect(Rect2(r.position + Vector2(78, 60), Vector2(96 * (1.0 - cd), 4)), CYAN)
-	if id == "hull":
-		for k in Data.MAX_REPAIRS:
-			draw_rect(Rect2(r.position + Vector2(78 + k * 14, 60), Vector2(10, 5)), GREEN if k < GS.repairs else Color(1, 1, 1, 0.15))
+		draw_rect(b, Color(0, 0, 0, 0.45))
+		draw_arc(b.get_center(), 24, -PI / 2, -PI / 2 + TAU * (1.0 - cd), 32, CYAN_HI, 4.0)
+		badge = "%ds" % ceili(cd * (Data.SHIELD_BOOST_COOLDOWN if id == "shield" else Data.ENERGY_BOOST_COOLDOWN))
+	if badge != "":
+		var empty := (id == "missile" and GS.missiles == 0) or (id == "mine" and GS.mines == 0) or (id == "hull" and GS.repairs == 0)
+		_text(Vector2(b.position.x, b.end.y - 5), badge, 15, RED if empty else WHITE, HORIZONTAL_ALIGNMENT_CENTER, b.size.x)
+	var lines: PackedStringArray = (sysd["label"] as String).split("\n")
+	_text(r.position + Vector2(82, 30), lines[0], 17, WHITE)
+	_text(r.position + Vector2(82, 52), lines[1], 17, WHITE)
 	_chip("mode_%s_auto" % id, "AUTO", GS.is_auto(id))
 	_chip("mode_%s_manual" % id, "MANUAL", not GS.is_auto(id))
-	if id == "missile" or id == "mine":
-		var n := GS.missiles if id == "missile" else GS.mines
-		draw_line(Vector2(r.end.x - 56, r.position.y + 12), Vector2(r.end.x - 56, r.end.y - 12), Color(1, 1, 1, 0.25), 2)
-		_text(Vector2(r.end.x - 54, r.position.y + 47), "%02d" % n, 30, WHITE if n > 0 else RED, HORIZONTAL_ALIGNMENT_CENTER, 50)
+	if locked:
+		var chips: Rect2 = (buttons["mode_%s_auto" % id] as Rect2).merge(buttons["mode_%s_manual" % id])
+		draw_rect(b, Color(0, 0, 0, 0.55))
+		_box(chips, Color(0.1, 0.07, 0.02, 0.95), Color(GOLD, 0.9), 9, 2)
+		_text(Vector2(chips.position.x, chips.position.y + 28), "LOCKED · WARP", 16, GOLD, HORIZONTAL_ALIGNMENT_CENTER, chips.size.x)
 
 func _stick(which: String, label: String) -> void:
 	var active := owners.values().has(which)
@@ -344,6 +382,14 @@ func _draw() -> void:
 			var edge := S * 0.5 + dir * Vector2(S.x * 0.47, S.y * 0.4)
 			var perp := Vector2(-dir.y, dir.x)
 			draw_colored_polygon(PackedVector2Array([edge + dir * 22, edge - dir * 10 + perp * 16, edge - dir * 10 - perp * 16]), tcol)
+	if space.warp_state == "on":
+		var cc0 := S * 0.5
+		for i in 48:
+			var a := i * 2.399 + t * 0.4
+			var ph := fmod(i * 0.137 + t * 1.8, 1.0)
+			var d0 := Vector2(cos(a), sin(a))
+			var r0 := 60.0 + ph * ph * S.x * 0.6
+			draw_line(cc0 + d0 * r0, cc0 + d0 * (r0 + 30 + 160 * ph), Color(0.75, 0.85, 1.0, 0.55 * ph), 1.5 + 2.0 * ph)
 	if cockpit: _cockpit()
 	var c := S * 0.5
 	var locked: bool = space._in_fire_cone(space.target)
@@ -375,7 +421,7 @@ func _draw() -> void:
 	if msg_t > 0.0: _text(Vector2(0, 172), msg, 16, GOLD, HORIZONTAL_ALIGNMENT_CENTER, S.x)
 	for sysd in Data.SYSTEMS_UI: _system_panel(sysd)
 	if tgt and is_instance_valid(tgt):
-		var tr := Rect2(10, 262, 250, 72)
+		var tr := Rect2(S.x * 0.5 - 125, 184, 250, 72)
 		_box(tr)
 		_text(tr.position + Vector2(14, 24), "TARGET", 12, CYAN_HI)
 		_text(tr.position + Vector2(14, 47), tgt.name, 18, RED if tgt.get_meta("kind", "") == "enemy" else GOLD)
@@ -385,26 +431,24 @@ func _draw() -> void:
 			draw_rect(Rect2(tr.position + Vector2(110, 58), Vector2(126, 7)), Color(0, 0, 0, 0.6))
 			draw_rect(Rect2(tr.position + Vector2(110, 58), Vector2(126 * th, 7)), RED)
 	var spd := "SPEED %d" % int(space.speed_now)
-	if space.cruise: spd += "   CRUISE %s" % ("ENGAGED" if space.cruise_charge >= 1.0 else "CHARGING %d%%" % int(space.cruise_charge * 100))
+	if space.warp_state == "on": spd += "   ·   WARP"
+	elif space.warp_state == "charging": spd += "   ·   WARP CHARGING %d%%" % int(space.warp_t / Data.WARP_CHARGE * 100)
+	elif space.engine_kill: spd += "   ·   ENGINES OFF — DRIFTING"
+	elif space.braking: spd += "   ·   STOPPING"
+	elif space.boosting: spd += "   ·   THRUST"
 	if space.autopilot != null: spd += "   ·   AUTOPILOT > %s" % space.autopilot.name
 	_text(Vector2(0, c.y + 84), spd, 15, Color(CYAN_HI, 0.95), HORIZONTAL_ALIGNMENT_CENTER, S.x)
 	_radar(_radar_center(), 104.0 if cockpit else 70.0)
 	_pill("map", "MAP")
-	_pill("comms", "COMMS", comms_open)
 	_pill("view", "COCKPIT" if not cockpit else "CHASE", false, CYAN, "VIEW")
 	_pill("target", "TARGET", false, CYAN, "NEXT")
 	_pill("goto", "GO TO", space.autopilot != null, CYAN, "AUTOPILOT")
-	_pill("cruise", "CRUISE", space.cruise, CYAN, "ON" if space.cruise else "OFF")
-	if buttons.has("fire"):
-		var fr: Rect2 = buttons["fire"]
-		draw_circle(fr.get_center(), fr.size.x * 0.5, Color(RED, 0.45 if held.has("fire") else 0.22))
-		draw_arc(fr.get_center(), fr.size.x * 0.5, 0, TAU, 48, RED, 3.0, true)
-		_text(fr.get_center() + Vector2(-60, 8), "FIRE", 24, WHITE, HORIZONTAL_ALIGNMENT_CENTER, 120)
 	if buttons.has("dock"): _pill("dock", "DOCK", true, GREEN, space.dock_candidate().name.to_upper())
 	if buttons.has("jump"): _pill("jump", "JUMP", true, GOLD, "TO %s" % Data.SYSTEMS[space.sys["gate"]["to"]]["name"].to_upper())
 	_stick("move", "FLIGHT")
 	_stick("aim", "AIM")
 	if comms_open: _comms()
+	_rows()
 	if damage_flash > 0.0:
 		for i in 6:
 			draw_rect(Rect2(Vector2.ZERO, S), Color(RED, damage_flash * 0.08), false, 60.0 - i * 9.0)
@@ -417,24 +461,40 @@ func _brackets(p: Vector2, s: float, col: Color) -> void:
 
 func _comms() -> void:
 	var r := _comms_rect()
-	_box(r, Color(0.02, 0.08, 0.16, 0.93), CYAN_HI, 16, 3)
+	var accent := RED if comms_hostile else CYAN_HI
+	_box(r, Color(0.02, 0.08, 0.16, 0.93), accent, 16, 3)
+	if comms_mode == "picker":
+		_text(r.position + Vector2(24, 44), "INTERCOM — WHO DO YOU WANT TO CALL?", 22, WHITE)
+		for k in contacts.size():
+			var br: Rect2 = buttons["contact_%d" % k]
+			var hostile: bool = contacts[k][2]
+			_box(br, Color(0.05, 0.15, 0.26, 1.0), Color(RED if hostile else GREEN, 0.8), 10, 2)
+			_text(br.position + Vector2(16, 32), contacts[k][0], 19, WHITE)
+			_text(br.position + Vector2(0, 32), contacts[k][1], 13, Color(RED if hostile else GREEN, 0.9), HORIZONTAL_ALIGNMENT_RIGHT, br.size.x - 14)
+		var hc := Vector2(r.position.x + 110, r.position.y + 150)
+		draw_arc(hc, 60, 0, TAU, 40, Color(GREEN, 0.5), 3.0)
+		_text(hc + Vector2(-80, 8), "TAP A NAME", 16, GREEN, HORIZONTAL_ALIGNMENT_CENTER, 160)
+		return
 	var card := Rect2(r.position + Vector2(16, 16), Vector2(r.size.y - 32, r.size.y - 32))
-	_box(card, Color(0.05, 0.14, 0.24, 1.0), Color(CYAN, 0.5), 12, 2)
+	_box(card, Color(0.18, 0.04, 0.05, 1.0) if comms_hostile else Color(0.05, 0.14, 0.24, 1.0), Color(accent, 0.5), 12, 2)
 	var cc := card.get_center()
 	draw_arc(cc, card.size.x * 0.34, 0, TAU, 48, Color(CYAN, 0.5), 2.0, true)
 	for i in 21:
 		var hgt := 8.0 + 30.0 * absf(sin(t * 7.0 + i * 0.9)) * (0.4 + 0.6 * absf(sin(i * 0.45)))
 		var x := cc.x - 60 + i * 6
-		draw_line(Vector2(x, cc.y - hgt * 0.5), Vector2(x, cc.y + hgt * 0.5), CYAN_HI, 3)
+		draw_line(Vector2(x, cc.y - hgt * 0.5), Vector2(x, cc.y + hgt * 0.5), accent, 3)
 	var tx := card.end.x + 22
 	_text(Vector2(tx, r.position.y + 50), comms_from.to_upper(), 30, WHITE)
-	draw_circle(Vector2(tx + 8, r.position.y + 78), 6, GREEN)
-	_text(Vector2(tx + 22, r.position.y + 85), "COMMS · LIVE", 17, CYAN_HI)
+	draw_circle(Vector2(tx + 8, r.position.y + 78), 6, RED if comms_hostile else GREEN)
+	var status := "INCOMING CALL" if comms_mode == "incoming" else "COMMS · LIVE"
+	if comms_hostile: status += " · HOSTILE"
+	_text(Vector2(tx + 22, r.position.y + 85), status, 17, accent)
 	var line_r := Rect2(Vector2(tx - 4, r.position.y + 104), Vector2(r.end.x - tx - 14, 70))
 	_box(line_r, Color(0.03, 0.1, 0.2, 1.0), Color(CYAN, 0.5), 10, 2)
 	draw_multiline_string_outline(font, line_r.position + Vector2(16, 28), comms_line, HORIZONTAL_ALIGNMENT_LEFT, line_r.size.x - 28, 17, 2, 4, Color(0, 0.03, 0.08, 0.75))
 	draw_multiline_string(font, line_r.position + Vector2(16, 28), comms_line, HORIZONTAL_ALIGNMENT_LEFT, line_r.size.x - 28, 17, 2, WHITE)
-	_pill("comms_close", "CLOSE  X")
+	if comms_mode == "incoming":
+		_text(Vector2(line_r.position.x, r.end.y - 22), "Closes by itself · HANG UP to end now", 13, Color(1, 1, 1, 0.6))
 
 func _radar(c: Vector2, r: float) -> void:
 	draw_circle(c, r, Color(0.02, 0.1, 0.18, 0.9))
@@ -475,3 +535,18 @@ func _money(n: int) -> String:
 		out = "," + s.substr(s.length() - 3) + out
 		s = s.substr(0, s.length() - 3)
 	return s + out + " cr"
+
+func _rows() -> void:
+	var ORANGE := Color(1.0, 0.6, 0.2)
+	_pill("thrust", "THRUST", space.boosting, ORANGE, "HOLD")
+	_pill("stop", "STOP", space.braking, CYAN, "FULL STOP")
+	_pill("kill", "ENGINE", space.engine_kill, GOLD, "KILL" if not space.engine_kill else "RESTART")
+	var wsub := "FROM STOP"
+	if space.warp_state == "charging": wsub = "CHARGING %d%%" % int(space.warp_t / Data.WARP_CHARGE * 100)
+	elif space.warp_state == "on": wsub = "DROP OUT"
+	_pill("warp", "WARP", space.warp_state != "off", Color(0.6, 0.55, 1.0), wsub)
+	if space.warp_state == "charging":
+		var wr: Rect2 = buttons["warp"]
+		draw_rect(Rect2(wr.position + Vector2(8, wr.size.y - 7), Vector2((wr.size.x - 16) * space.warp_t / Data.WARP_CHARGE, 4)), Color(0.75, 0.7, 1.0))
+	_pill("call", "CALL", comms_mode == "picker", GREEN, "INTERCOM")
+	_pill("hangup", "HANG UP", false, RED, "END CALL")

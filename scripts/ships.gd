@@ -7,7 +7,8 @@ extends RefCounted
 const GLB := {
 	"cadet": ["res://assets/ships/player/cadet_ship.glb", 9.0, 0.0],
 	"enemy": ["res://assets/ships/enemy/enemy_fleet.glb", 10.0, 0.0],
-	"fleet": ["res://assets/ships/civilian/regular_fleet.glb", 16.0, 0.0],
+	"fleet": ["res://assets/ships/civilian/cargo_ship.glb", 16.0, 0.0],
+	"carrier": ["res://assets/ships/civilian/carrier.glb", 130.0, 0.0],
 }
 
 static var _cache := {}
@@ -37,6 +38,7 @@ static func build(key: String) -> Node3D:
 		"lancer": _heavy(root, Color(0.3, 0.32, 0.36), Color(1.0, 0.35, 0.3))
 		"enemy": _raider(root, Color(0.35, 0.08, 0.08), Color(1.0, 0.3, 0.15))
 		"fleet": _freighter(root, Color(0.6, 0.64, 0.7), Color(0.4, 0.8, 1.0))
+		"carrier": _carrier(root, Color(0.62, 0.66, 0.72), Color(0.35, 0.8, 1.0))
 		_: _fighter(root, Color.WHITE, Color.CYAN, 1.0, 2)
 	return root
 
@@ -159,3 +161,18 @@ static func _freighter(root: Node3D, body: Color, accent: Color) -> void:
 		_part(root, _box, Vector3(0, -1.9, -2.5 + i * 3.0), Vector3(3.6, 1.4, 2.4), Color(0.55, 0.42, 0.25))
 	_part(root, _box, Vector3(0, 1.6, -4.2), Vector3(1.6, 0.8, 1.8), Color(0.1, 0.2, 0.3))
 	for side in [-1.0, 1.0]: _engine(root, Vector3(side * 0.9, 0, 5.8), 0.8, accent)
+
+static func _carrier(root: Node3D, body: Color, accent: Color) -> void:
+	_meshes()
+	var dark := Color(0.25, 0.28, 0.33)
+	_part(root, _box, Vector3(0, 0, 0), Vector3(26, 12, 110), body)
+	_part(root, _prism, Vector3(0, -1, -66), Vector3(26, 22, 12), body, Vector3(-90, 0, 0))
+	_part(root, _box, Vector3(0, 8, 10), Vector3(34, 3, 86), dark) # flight deck
+	for i in 8:
+		_part(root, _box, Vector3(0, 9.7, -28 + i * 10), Vector3(1.5, 0.4, 5), accent, Vector3.ZERO, true)
+	_part(root, _box, Vector3(12, 18, 22), Vector3(7, 16, 18), body) # island tower
+	_part(root, _box, Vector3(12, 27, 20), Vector3(5, 3, 10), Color(0.1, 0.2, 0.3))
+	for side in [-1.0, 1.0]:
+		_part(root, _box, Vector3(side * 16, -2, 8), Vector3(8, 9, 70), dark)
+		for j in 3:
+			_engine(root, Vector3(side * (4 + j * 5.5), -1, 57), 2.4, accent)

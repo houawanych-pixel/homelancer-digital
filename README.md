@@ -23,7 +23,17 @@ Exchange or Eden Prime → fight corsairs → jump back to Solara.
   - FIRE MISSILE (count shown): AUTO launches after a 1.5 s lock.
   - DEPLOY MINE (count shown): AUTO drops one when a hostile is on your tail.
 - SHIELD / HULL / ENERGY percentages top centre; radar on the centre console with MAP · COMMS · VIEW.
-- TARGET, GO TO (autopilot), CRUISE on the right; DOCK / JUMP appear on the left when in range.
+- Each panel's **icon is a button** with its count printed on it (repair kits, missiles, mines, energy %, cooldown
+  seconds). Tap it to use now; hold the weapons icon to fire manually. AUTO and MANUAL both still allow tapping.
+- Right hand, above the AIM stick: **THRUST** (hold, afterburner, uses energy) · **STOP** (brake to a full stop) ·
+  **ENGINE KILL** (engines off — drift on your current heading while turning and shooting freely).
+- Left hand, above the FLIGHT stick: **WARP** · **CALL** · **HANG UP**.
+  - WARP only engages from a full stop, charges for 3 s with booster particles, then flies at 6× speed. All weapons
+    lock while warping; taking fire or tapping WARP again drops you out.
+  - Incoming calls (station control, enemy pilots taunting you) pop up and close by themselves; HANG UP ends them.
+    CALL opens the intercom to call the station, the planet port, or whoever you have targeted.
+- TARGET and GO TO (autopilot — it stops, warps and drops out on its own) on the right; DOCK / JUMP on the left when
+  in range; MAP and VIEW under the radar.
 - Every finger belongs to what it first touched, so dragging a stick never presses a button.
 - Desktop: W/S thrust, A/D strafe, arrows or Q/E aim, Space fire, mouse clicks act as touches.
 
@@ -45,7 +55,7 @@ assets/ships/{player,enemy,civilian}/   drop-in slots for real GLB ships (see do
 ```
 
 ## Test
-`godot --headless --path . -- --autotest --quit-after-test` runs the full route and prints `RESULT 23/23 PASS`.
+`godot --headless --path . -- --autotest --quit-after-test` runs the full route and prints `RESULT 31/31 PASS`.
 The GitHub workflow runs the same test before every Web export.
 
 See `docs/V1.2_BUILD.md` for the build report, asset status and known issues.

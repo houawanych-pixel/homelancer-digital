@@ -142,6 +142,7 @@ func _load_system(id: String, arrival: String) -> void:
 	space.player_destroyed.connect(_on_destroyed)
 	space.message.connect(func(t): hud.flash_message(t))
 	space.system_used.connect(func(sid, txt): hud.flash_message(txt); hud.pulse(sid))
+	space.hail.connect(func(from, line, hostile): if not hud.comms_open or hud.comms_mode == "incoming": hud.open_comms(from, line, "incoming", hostile))
 	hud.space = space
 
 func _on_gs_changed() -> void:
@@ -213,13 +214,26 @@ func _on_hud(id: String) -> void:
 		"view":
 			space.set_view("cockpit" if GS.view == "chase" else "chase")
 			hud.flash_message("View: %s" % ("first-person cockpit" if GS.view == "cockpit" else "chase camera"))
-		"comms":
-			if hud.comms_open: hud.comms_open = false
-			else: hud.open_comms(space.sys["station"]["name"] + " Control", _comms_line())
-		"comms_close": hud.comms_open = false
-		"cruise":
-			space.set_cruise(not space.cruise)
-			hud.flash_message("Cruise engines charging…" if space.cruise else "Cruise off.")
+		"stop":
+			space.full_stop()
+			hud.flash_message("Braking to a full stop.")
+		"kill":
+			if space.warp_active(): hud.flash_message("Drop out of warp first.")
+			else: hud.flash_message("Engines OFF — drifting. You can still turn and shoot." if space.toggle_engine_kill() else "Engines restarted.")
+		"warp":
+			match space.request_warp():
+				"charging": hud.flash_message("Warp drive charging… (3 s) Weapons will lock.")
+				"moving": hud.flash_message("Warp needs a full stop — tap STOP first.")
+				"stopping": hud.flash_message("Still braking — warp when stopped.")
+				"cancelled": hud.flash_message("Warp charge cancelled.")
+				"off": hud.flash_message("Dropped out of warp. Weapons unlocked.")
+		"call":
+			_contact_list = _contacts()
+			hud.open_picker(_contact_list)
+		"hangup":
+			if hud.comms_open:
+				hud.close_comms()
+				hud.flash_message("Call ended.")
 		"goto":
 			if space.target and is_instance_valid(space.target) and space.target.get_meta("kind", "") != "enemy":
 				space.autopilot = space.target
@@ -235,6 +249,34 @@ func _on_hud(id: String) -> void:
 			if n: dock(n)
 		"jump":
 			if space.gate_in_range(): jump()
+		_:
+			if id.begins_with("contact_"):
+				var k := int(id.substr(8))
+				if k < _contact_list.size(): _place_call(_contact_list[k])
+
+var _contact_list: Array = []
+## People you can call from the intercom: local control, the planet port, and whatever you have targeted.
+func _contacts() -> Array:
+	var out: Array = []
+	out.append([space.sys["station"]["name"] + " Control", "STATION", false, "station"])
+	out.append([space.sys["planet"]["name"] + " Port", "PLANET", false, "planet"])
+	var tgt: Node3D = space.target
+	if tgt and is_instance_valid(tgt) and tgt.get_meta("kind", "") == "enemy":
+		out.append([tgt.name + " pilot", "HOSTILE · TARGET", true, "enemy"])
+	else:
+		for tr in space.traffic:
+			out.append([tr["node"].name, "CARGO SHIP", false, "cargo"])
+			break
+	return out
+
+func _place_call(c: Array) -> void:
+	var line := ""
+	match c[3]:
+		"station": line = _comms_line()
+		"planet": line = "Port Authority here. Landing beacon is lit — fly into the green ring and hit DOCK. Repairs are free for Unity pilots."
+		"enemy": line = space.TAUNTS[randi() % space.TAUNTS.size()]
+		"cargo": line = "Cargo run to %s. Appreciate the company out here, pilot — raiders have been bold lately." % space.sys["planet"]["name"]
+	hud.open_comms(c[0], line, "talk", c[2])
 
 func _comms_line() -> String:
 	var n := space.hostiles_near(900.0)
@@ -247,7 +289,7 @@ func _comms_line() -> String:
 
 func open_map() -> void:
 	state = "map"
-	hud.comms_open = false
+	hud.close_comms()
 	space.process_mode = Node.PROCESS_MODE_DISABLED
 	hud.visible = false
 	navmap.open(space)
@@ -281,7 +323,7 @@ func dock(n: Node3D) -> void:
 	state = "docking"
 	space.controls = false
 	space.autopilot = null
-	space.set_cruise(false)
+	space.drop_warp()
 	hud.visible = false
 	var info: Dictionary = n.get_meta("info")
 	docked_node_kind = info["kind"]
@@ -358,6 +400,7 @@ func _launch_sequence(where: String) -> void:
 	hud.visible = true
 	state = "flight"
 	hud.flash_message("Launch complete. %s system." % Data.SYSTEMS[GS.system_id]["name"])
+	hud.open_comms(space.sys["station"]["name"] + " Control", "You're clear, pilot. " + _comms_line(), "incoming")
 
 # ---------------------------------------------------------------- jump gates
 func jump() -> void:
@@ -365,7 +408,7 @@ func jump() -> void:
 	state = "jumping"
 	space.controls = false
 	space.autopilot = null
-	space.set_cruise(false)
+	space.drop_warp()
 	hud.visible = false
 	var to: String = space.sys["gate"]["to"]
 	var gate: Node3D = space.gate

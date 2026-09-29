@@ -33,8 +33,20 @@ var mine_cd := 0.0
 var lock_time := 0.0
 var mines_live: Array = []
 signal system_used(id: String, text: String)
-var cruise := false
-var cruise_charge := 0.0
+var warp_state := "off" # off | charging | on
+var warp_t := 0.0
+var engine_kill := false
+var braking := false
+var thrust_held := false
+var boosting := false
+var call_cd := 0.0
+var _particle_acc := 0.0
+signal hail(from: String, line: String, hostile: bool)
+const TAUNTS := ["Give up, cadet. Power down and we might let you drift home.",
+	"Nice ship. It'll look better in our colours.",
+	"You're a long way from your patrol, little lancer.",
+	"Turn around now and nobody has to hear about this.",
+	"Your escort isn't coming. It's just you and us."]
 var gun_cd := 0.0
 var shield_delay := 0.0
 var hit_shake := 0.0
@@ -43,6 +55,7 @@ var speed_now := 0.0
 
 # world objects
 var station: Node3D
+var carrier: Node3D
 var planet: Node3D
 var gate: Node3D
 var gate_portal: MeshInstance3D
@@ -83,6 +96,7 @@ func setup(id: String, arrival: String) -> void:
 	_build_player()
 	for p in sys["patrols"]: _spawn_group(p, 2)
 	_build_traffic()
+	_build_carrier()
 	place_player(arrival)
 
 func place_player(arrival: String) -> void:
@@ -512,6 +526,17 @@ func _build_traffic() -> void:
 			add_child(node)
 			traffic.append({"node": node, "t": 0.5 * k, "dir": 1.0 if k == 0 else -1.0})
 
+func _build_carrier() -> void:
+	carrier = Node3D.new()
+	carrier.name = "%s Carrier" % ("Unity" if sys_id == "solara" else "Frontier")
+	carrier.add_child(ShipFactory.build("carrier"))
+	carrier.set_meta("kind", "traffic")
+	carrier.set_meta("radius", 60.0)
+	add_child(carrier)
+	var st: Vector3 = station.global_position
+	carrier.global_position = st + Vector3(-420, 60, -180)
+	carrier.look_at(carrier.global_position + Vector3(1, 0, 0.3), Vector3.UP)
+
 # ---------------------------------------------------------------- per frame
 func _process(dt: float) -> void:
 	time += dt
@@ -543,6 +568,7 @@ func _update_player(dt: float) -> void:
 	gun_cd = maxf(0.0, gun_cd - dt)
 	shield_delay = maxf(0.0, shield_delay - dt)
 	hit_shake = maxf(0.0, hit_shake - dt * 2.5)
+	call_cd = maxf(0.0, call_cd - dt)
 	GS.energy = minf(Data.ENERGY_MAX, GS.energy + Data.ENERGY_REGEN * dt)
 	for k in ["shield_cd", "energy_cd", "repair_cd", "missile_cd", "mine_cd"]: set(k, maxf(0.0, float(get(k)) - dt))
 	if shield_delay <= 0.0 and GS.shield < GS.max_shield():
@@ -553,38 +579,109 @@ func _update_player(dt: float) -> void:
 		var ap := _autopilot_input()
 		steer = ap[0]
 		thrust = ap[1]
+	if warp_state == "on": steer *= 0.35 # heavy steering at warp speed
+	if warp_state == "charging": steer = Vector2.ZERO # hold still while the drive spools up
 	yaw -= steer.x * turn * dt
 	pitch = clampf(pitch - steer.y * turn * 0.8 * dt, deg_to_rad(-75), deg_to_rad(75))
 	player.basis = Basis.from_euler(Vector3(pitch, yaw, 0))
-	# visual bank
 	if is_instance_valid(model):
 		model.rotation.z = lerpf(model.rotation.z, -steer.x * 0.55, minf(1.0, dt * 4.0))
 		model.rotation.x = lerpf(model.rotation.x, -steer.y * 0.12, minf(1.0, dt * 4.0))
 	var fwd := -player.global_basis.z
 	var right := player.global_basis.x
-	if cruise and controls:
-		cruise_charge = minf(1.0, cruise_charge + dt / 1.6)
-	else:
-		cruise_charge = 0.0
-	var desired: Vector3
-	if cruise and cruise_charge >= 1.0 and controls:
-		desired = fwd * base_speed * 5.0
+	boosting = false
+	var rate := 1.8
+	if warp_state == "charging":
+		vel = Vector3.ZERO
+		warp_t += dt
+		_booster_particles(dt, clampf(warp_t / Data.WARP_CHARGE, 0.0, 1.0))
+		if warp_t >= Data.WARP_CHARGE:
+			warp_state = "on"
+			message.emit("Warp drive engaged. Weapons locked.")
+		player.global_position += vel * dt
+		speed_now = 0.0
+		return
+	if warp_state == "on":
+		vel = vel.lerp(fwd * base_speed * Data.WARP_MULT, minf(1.0, dt * 1.2))
+		_booster_particles(dt, 0.5)
+	elif engine_kill:
+		pass # engines off: keep drifting on the current vector while the nose turns freely
+	elif braking:
+		vel = vel.lerp(Vector3.ZERO, minf(1.0, dt * 3.0))
+		if vel.length() < 0.6:
+			vel = Vector3.ZERO
+			braking = false
+			message.emit("Full stop.")
 	else:
 		var f := thrust.y if thrust.y >= 0.0 else thrust.y * 0.5
-		desired = fwd * base_speed * f + right * base_speed * 0.6 * thrust.x
-	vel = vel.lerp(desired, minf(1.0, dt * (0.9 if cruise else 1.8)))
+		var desired := fwd * base_speed * f + right * base_speed * 0.6 * thrust.x
+		if thrust_held and controls and GS.energy > 1.0:
+			boosting = true
+			GS.energy = maxf(0.0, GS.energy - Data.THRUST_ENERGY * dt)
+			desired = fwd * base_speed * Data.THRUST_MULT + right * base_speed * 0.6 * thrust.x
+			rate = 2.4
+			_booster_particles(dt, 0.25)
+		vel = vel.lerp(desired, minf(1.0, dt * rate))
 	player.global_position += vel * dt
 	speed_now = vel.length()
-	# weapons
-	if controls:
+	if controls and warp_state == "off":
 		var want := fire_held
 		if GS.is_auto("guns") and _in_fire_cone(target): want = true
 		var cost := Data.ENERGY_PER_GUN * float(GS.ship()["guns"])
 		if want and gun_cd <= 0.0 and GS.energy >= cost:
 			GS.energy -= cost
 			_fire_guns()
-			if cruise: set_cruise(false)
 		_auto_systems(dt)
+
+# ---------------------------------------------------------------- engine controls
+func full_stop() -> void:
+	if warp_state != "off": drop_warp("Dropping out of warp.")
+	engine_kill = false
+	braking = true
+	autopilot = null
+
+func toggle_engine_kill() -> bool:
+	if warp_state != "off": return false
+	engine_kill = not engine_kill
+	braking = false
+	return engine_kill
+
+## Warp only engages from a full stop, then charges for WARP_CHARGE seconds.
+func request_warp() -> String:
+	if warp_state == "on":
+		drop_warp("Warp disengaged.")
+		return "off"
+	if warp_state == "charging":
+		warp_state = "off"
+		warp_t = 0.0
+		return "cancelled"
+	if speed_now > 2.0 and not braking: return "moving"
+	if speed_now > 2.0: return "stopping"
+	engine_kill = false
+	braking = false
+	warp_state = "charging"
+	warp_t = 0.0
+	return "charging"
+
+func drop_warp(why := "") -> void:
+	if warp_state == "off": return
+	warp_state = "off"
+	warp_t = 0.0
+	vel = vel.normalized() * GS.ship()["speed"]
+	if why != "": message.emit(why)
+
+func warp_active() -> bool:
+	return warp_state != "off"
+
+func _booster_particles(dt: float, k: float) -> void:
+	_particle_acc += dt * (8.0 + 40.0 * k)
+	var back := player.global_basis.z
+	while _particle_acc >= 1.0:
+		_particle_acc -= 1.0
+		var side := player.global_basis.x * _rng.randf_range(-1.2, 1.2) + player.global_basis.y * _rng.randf_range(-0.6, 0.6)
+		var at := player.global_position + back * 4.5 + side
+		var col := Color(0.4, 0.8, 1.0).lerp(Color(1.0, 1.0, 1.0), k)
+		_spark_v(at, back * (6.0 + 16.0 * k) + side * 2.0 + vel, col, 0.6 + 1.2 * k, 0.25 + 0.15 * k)
 
 func _autopilot_input() -> Array:
 	var goal: Vector3 = autopilot.global_position
@@ -595,21 +692,20 @@ func _autopilot_input() -> Array:
 	var local := player.global_basis.inverse() * to.normalized()
 	var steer := Vector2(clampf(local.x * 3.0, -1, 1), clampf(-local.y * 3.0, -1, 1))
 	var dist := to.length()
-	var arrive := 170.0
-	if dist < arrive:
+	if dist < 170.0:
 		autopilot = null
-		set_cruise(false)
+		drop_warp()
 		message.emit("Autopilot: arrived.")
 		return [Vector2.ZERO, Vector2.ZERO]
-	var aligned := local.z < -0.9
-	if aligned and dist > 900.0 and not cruise: set_cruise(true)
-	if dist < 600.0 and cruise: set_cruise(false)
+	var aligned := local.z < -0.97
+	# long legs: stop, charge the warp drive, warp, drop out near the destination
+	if warp_state == "off" and aligned and dist > 1100.0:
+		if speed_now > 2.0: braking = true
+		else: request_warp()
+		return [steer, Vector2.ZERO]
+	if warp_state == "on" and dist < 650.0: drop_warp("Autopilot: dropping out of warp.")
 	var th := 1.0 if local.z < -0.3 else 0.2
 	return [steer, Vector2(0, th)]
-
-func set_cruise(on: bool) -> void:
-	cruise = on
-	if not on: cruise_charge = 0.0
 
 func _in_fire_cone(t: Node3D) -> bool:
 	if t == null or not is_instance_valid(t) or t.get_meta("kind", "") != "enemy": return false
@@ -751,7 +847,7 @@ func _player_hit(dmg: float) -> void:
 	shield_delay = 3.0
 	hit_shake = 1.0
 	GS.damage(dmg)
-	if cruise: set_cruise(false)
+	if warp_state != "off": drop_warp("Warp drive disrupted by weapons fire!")
 	if GS.hull <= 0.0 and controls:
 		_explode(player.global_position)
 		controls = false
@@ -764,7 +860,11 @@ func _update_enemies(dt: float) -> void:
 		var d: Dictionary = e["def"]
 		var to := ppos - n.global_position
 		var dist := to.length()
+		var was: bool = e["aggro"]
 		if dist < 650.0 or e["aggro"]: e["aggro"] = dist < 1400.0
+		if e["aggro"] and not was and call_cd <= 0.0 and controls and warp_state == "off":
+			call_cd = 30.0
+			hail.emit("%s pilot" % d["name"], TAUNTS[_rng.randi() % TAUNTS.size()], true)
 		var goal: Vector3
 		if e["aggro"] and controls:
 			# attack run: approach, then peel off to the side and come back around
@@ -838,16 +938,16 @@ func _update_camera(dt: float, snap: bool) -> void:
 		var ahead := player.global_position - player.global_basis.z * 60.0
 		if hit_shake > 0.0: ahead += Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), 0) * hit_shake * 1.2
 		cam.look_at(ahead, player.global_basis.y)
-		cam.fov = lerpf(cam.fov, 88.0 if (cruise and cruise_charge >= 1.0) else 76.0, minf(1.0, dt * 2.0))
+		cam.fov = lerpf(cam.fov, 92.0 if warp_state == "on" else (82.0 if boosting else 76.0), minf(1.0, dt * 2.0))
 		return
-	var back := 15.0 + (4.0 if cruise and cruise_charge >= 1.0 else 0.0)
+	var back := 15.0 + (4.0 if warp_state == "on" else (1.5 if boosting else 0.0))
 	var want := player.global_position + player.global_basis * Vector3(0, 2.2, back)
 	if snap: cam.global_position = want
 	else: cam.global_position = cam.global_position.lerp(want, minf(1.0, dt * 6.0))
 	var look := player.global_position - player.global_basis.z * 30.0 + player.global_basis.y * 2.6
 	if hit_shake > 0.0: look += Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), 0) * hit_shake * 0.8
 	cam.look_at(look, player.global_basis.y)
-	cam.fov = lerpf(cam.fov, 84.0 if (cruise and cruise_charge >= 1.0) else 70.0, minf(1.0, dt * 2.0))
+	cam.fov = lerpf(cam.fov, 88.0 if warp_state == "on" else (76.0 if boosting else 70.0), minf(1.0, dt * 2.0))
 
 func _ambient_anim(dt: float) -> void:
 	if is_instance_valid(gate_portal):
@@ -874,6 +974,10 @@ func _spark(at: Vector3, col: Color, size: float, life := 0.3) -> void:
 	mi.global_position = at
 	effects.append({"node": mi, "life": life, "max": life, "grow": size * 0.5})
 
+func _spark_v(at: Vector3, v: Vector3, col: Color, size: float, life: float) -> void:
+	_spark(at, col, size, life)
+	effects[effects.size() - 1]["vel"] = v
+
 static var _spark_texture: ImageTexture
 func _spark_tex() -> ImageTexture:
 	if _spark_texture == null: _spark_texture = _radial_texture(Color.WHITE, 0.08)
@@ -890,6 +994,7 @@ func _update_effects(dt: float) -> void:
 		var f: Dictionary = effects[i]
 		f["life"] -= dt
 		var n: MeshInstance3D = f["node"]
+		if f.has("vel"): n.global_position += (f["vel"] as Vector3) * dt
 		var k: float = clampf(f["life"] / f["max"], 0.0, 1.0)
 		n.scale = Vector3.ONE * (1.0 + (1.0 - k) * 1.5)
 		(n.material_override as StandardMaterial3D).albedo_color.a = k
@@ -900,6 +1005,8 @@ func _update_effects(dt: float) -> void:
 # ---------------------------------------------------------------- cockpit systems (AUTO / MANUAL)
 ## Manually trigger one of the six systems. Returns false when it could not run.
 func trigger_system(id: String) -> bool:
+	if warp_state != "off" and id in ["guns", "missile", "mine"]:
+		return _say(id, "Weapons are locked while the warp drive is active.")
 	match id:
 		"shield":
 			if shield_cd > 0.0: return _say(id, "Shield capacitor recharging (%ds)." % ceili(shield_cd))
