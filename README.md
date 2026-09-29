@@ -12,30 +12,24 @@ through the Violet Reach nebula → approach New Terra or Liberty Hub → DOCK �
 and missiles → buy/switch ships → launch → fly to the Aquila Jump Gate → JUMP (warp) → Vega → dock at Frontier
 Exchange or Eden Prime → fight corsairs → jump back to Solara.
 
-## Controls (phone, landscape) — unified cockpit HUD
-- **VIEW** switches between the chase camera and a **first-person cockpit** (canopy, dashboard, radar console).
-- Left thumb: **FLIGHT** stick — thrust forward/back and strafe. Right thumb: **AIM** stick — yaw/pitch.
-- Six system panels, each with **AUTO / MANUAL** (tap the panel itself to trigger it manually):
-  - SHIELD RECHARGE: +50 % shield boost (20 s cooldown); AUTO fires it when shields hit zero.
-  - HULL REPAIR: uses a repair kit (+40 % hull, 5 kits); AUTO below 35 % hull.
-  - ENERGY RECHARGE: refills weapon energy (15 s cooldown); AUTO below 15 %. Guns use energy.
-  - FIRE WEAPONS: AUTO fires when a hostile is in the reticle; MANUAL shows a FIRE button.
-  - FIRE MISSILE (count shown): AUTO launches after a 1.5 s lock.
-  - DEPLOY MINE (count shown): AUTO drops one when a hostile is on your tail.
-- SHIELD / HULL / ENERGY percentages top centre; radar on the centre console with MAP · COMMS · VIEW.
-- Each panel's **icon is a button** with its count printed on it (repair kits, missiles, mines, energy %, cooldown
-  seconds). Tap it to use now; hold the weapons icon to fire manually. AUTO and MANUAL both still allow tapping.
-- Right hand, above the AIM stick: **THRUST** (hold, afterburner, uses energy) · **STOP** (brake to a full stop) ·
-  **ENGINE KILL** (engines off — drift on your current heading while turning and shooting freely).
-- Left hand, above the FLIGHT stick: **WARP** · **CALL** · **HANG UP**.
-  - WARP only engages from a full stop, charges for 3 s with booster particles, then flies at 6× speed. All weapons
-    lock while warping; taking fire or tapping WARP again drops you out.
-  - Incoming calls (station control, enemy pilots taunting you) pop up and close by themselves; HANG UP ends them.
-    CALL opens the intercom to call the station, the planet port, or whoever you have targeted.
-- TARGET and GO TO (autopilot — it stops, warps and drops out on its own) on the right; DOCK / JUMP on the left when
-  in range; MAP and VIEW under the radar.
+## Controls (phone, landscape) — cockpit HUD (owner mockup)
+- **Left column:** SHIELD, REPAIR, ENERGY cards (icon, count, AUTO | MAN), then WARP, CALL, LOG, HANG UP.
+- **Right column:** WEAPONS, MISSILE, MINE cards, then STOP, KILL (engine kill), THRUST.
+- Tap a card's top half to use it now (hold WEAPONS to fire); AUTO | MAN at the bottom of each card.
+  Counts: shield charges 5, repair kits 5, energy cells 5, weapons unlimited, missiles and mines per ship.
+  Docking refills everything.
+- **FLIGHT** stick (left thumb) thrust/strafe; **AIM** stick (right thumb) yaw/pitch.
+- **Dashboard:** SPEED, radar/ship-status screen (ship tint shows hull damage), WAYPOINT (autopilot destination or
+  target, distance, health) with SCAN (normal / hostiles / degraded in nebulae).
+- **Top:** SHIELD / HULL / ENERGY %, MAP · VIEW (chase or first-person cockpit), TARGET · GO TO (autopilot).
+  DOCK / JUMP appears under the readout when in range.
+- **THRUST** hold for afterburner (uses energy). **STOP** brakes to a full stop. **KILL** cuts engines so you drift
+  on your heading while turning freely.
+- **WARP** only from a full stop; charges 3 s with booster particles; 6x speed; weapons lock; hits or WARP drop you out.
+- **Calls:** incoming calls (station control, enemy pilots) pop up over the dashboard and close by themselves.
+  CALL opens the intercom (station, planet port, targeted ship). HANG UP ends a call. LOG shows recent messages.
 - Every finger belongs to what it first touched, so dragging a stick never presses a button.
-- Desktop: W/S thrust, A/D strafe, arrows or Q/E aim, Space fire, mouse clicks act as touches.
+- Desktop: W/S thrust, A/D strafe, arrows or Q/E aim, Space fire, Shift thrust, mouse clicks act as touches.
 
 ## Structure
 ```
@@ -55,7 +49,7 @@ assets/ships/{player,enemy,civilian}/   drop-in slots for real GLB ships (see do
 ```
 
 ## Test
-`godot --headless --path . -- --autotest --quit-after-test` runs the full route and prints `RESULT 31/31 PASS`.
+`godot --headless --path . -- --autotest --quit-after-test` runs the full route and prints `RESULT 32/32 PASS`.
 The GitHub workflow runs the same test before every Web export.
 
 See `docs/V1.2_BUILD.md` for the build report, asset status and known issues.

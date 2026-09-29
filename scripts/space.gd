@@ -1009,12 +1009,14 @@ func trigger_system(id: String) -> bool:
 		return _say(id, "Weapons are locked while the warp drive is active.")
 	match id:
 		"shield":
-			if shield_cd > 0.0: return _say(id, "Shield capacitor recharging (%ds)." % ceili(shield_cd))
+			if shield_cd > 0.0: return false
+			if GS.shield_charges <= 0: return _say(id, "No shield charges left — dock to recharge.")
 			if GS.shield >= GS.max_shield() - 0.5: return _say(id, "Shields already full.")
+			GS.shield_charges -= 1
 			GS.shield = minf(GS.max_shield(), GS.shield + GS.max_shield() * 0.5)
 			shield_cd = Data.SHIELD_BOOST_COOLDOWN
 			GS.changed.emit()
-			system_used.emit(id, "Shield recharge: +50%.")
+			system_used.emit(id, "Shield recharge: +50%%. %d charge%s left." % [GS.shield_charges, "" if GS.shield_charges == 1 else "s"])
 			return true
 		"hull":
 			if repair_cd > 0.0: return false
@@ -1024,11 +1026,14 @@ func trigger_system(id: String) -> bool:
 			system_used.emit(id, "Hull repair: +40%%. %d kit%s left." % [GS.repairs, "" if GS.repairs == 1 else "s"])
 			return true
 		"energy":
-			if energy_cd > 0.0: return _say(id, "Energy capacitor recharging (%ds)." % ceili(energy_cd))
+			if energy_cd > 0.0: return false
+			if GS.energy_cells <= 0: return _say(id, "No energy cells left — dock to recharge.")
+			if GS.energy >= Data.ENERGY_MAX - 1.0: return _say(id, "Energy already full.")
+			GS.energy_cells -= 1
 			GS.energy = Data.ENERGY_MAX
 			energy_cd = Data.ENERGY_BOOST_COOLDOWN
 			GS.changed.emit()
-			system_used.emit(id, "Energy recharged.")
+			system_used.emit(id, "Energy cell used. %d left." % GS.energy_cells)
 			return true
 		"missile":
 			if missile_cd > 0.0: return false
@@ -1046,9 +1051,9 @@ func _say(id: String, t: String) -> bool:
 	return false
 
 func _auto_systems(_dt: float) -> void:
-	if GS.is_auto("shield") and GS.shield <= 0.5 and shield_cd <= 0.0 and shield_delay > 0.0: trigger_system("shield")
+	if GS.is_auto("shield") and GS.shield <= 0.5 and GS.shield_charges > 0 and shield_cd <= 0.0 and shield_delay > 0.0: trigger_system("shield")
 	if GS.is_auto("hull") and GS.hull < GS.max_hull() * 0.35 and GS.repairs > 0 and repair_cd <= 0.0: trigger_system("hull")
-	if GS.is_auto("energy") and GS.energy < Data.ENERGY_MAX * 0.15 and energy_cd <= 0.0: trigger_system("energy")
+	if GS.is_auto("energy") and GS.energy < Data.ENERGY_MAX * 0.15 and GS.energy_cells > 0 and energy_cd <= 0.0: trigger_system("energy")
 	# missiles: after holding a hostile in the reticle for 1.5 s
 	if _in_fire_cone(target) or (target and target.get_meta("kind", "") == "enemy" and _cone(target, 15.0, 800.0)):
 		lock_time += _dt

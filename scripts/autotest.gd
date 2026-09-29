@@ -142,6 +142,11 @@ func _run() -> void:
 	_press("hangup")
 	await _wait(0.2)
 	_check("Hang up", not main.hud.comms_open)
+	_press("log")
+	await _wait(0.3)
+	_check("Comms log", main.hud.comms_mode == "log" and main.hud.history.size() > 0)
+	await _shot("comms_log")
+	_press("log")
 	_press("mode_mine_manual")
 	var mines0 := GS.mines
 	_press("sys_mine")

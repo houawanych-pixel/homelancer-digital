@@ -230,6 +230,9 @@ func _on_hud(id: String) -> void:
 		"call":
 			_contact_list = _contacts()
 			hud.open_picker(_contact_list)
+		"log":
+			if hud.comms_mode == "log": hud.close_comms()
+			else: hud.open_log()
 		"hangup":
 			if hud.comms_open:
 				hud.close_comms()

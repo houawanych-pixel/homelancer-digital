@@ -304,7 +304,7 @@ func _repair_page() -> void:
 	var v := _page_box()
 	var l := _label(20, Color(1, 1, 1))
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.text = "Hull %d/%d  ·  Shield %d/%d  ·  Repair kits %d/%d  ·  Missiles %d/%d  ·  Mines %d/%d  ·  Energy full\n\nDocking crews repair and resupply every ship that lands here, free of charge for Unity-registered pilots." % [int(GS.hull), int(GS.max_hull()), int(GS.shield), int(GS.max_shield()), GS.repairs, Data.MAX_REPAIRS, GS.missiles, GS.max_missiles(), GS.mines, GS.max_mines()]
+	l.text = "Hull %d/%d  ·  Shield %d/%d  ·  Repair kits %d/%d  ·  Shield charges %d/%d  ·  Energy cells %d/%d  ·  Missiles %d/%d  ·  Mines %d/%d\n\nDocking crews repair and resupply every ship that lands here, free of charge for Unity-registered pilots." % [int(GS.hull), int(GS.max_hull()), int(GS.shield), int(GS.max_shield()), GS.repairs, Data.MAX_REPAIRS, GS.shield_charges, Data.MAX_SHIELD_CHARGES, GS.energy_cells, Data.MAX_ENERGY_CELLS, GS.missiles, GS.max_missiles(), GS.mines, GS.max_mines()]
 	v.add_child(l)
 	var b := Button.new()
 	b.text = "REPAIR AND RESUPPLY NOW"

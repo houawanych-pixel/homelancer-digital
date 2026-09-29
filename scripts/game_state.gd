@@ -13,6 +13,8 @@ var shield := 60.0
 var repairs := Data.MAX_REPAIRS
 var missiles := 6
 var mines := 3
+var shield_charges := Data.MAX_SHIELD_CHARGES
+var energy_cells := Data.MAX_ENERGY_CELLS
 var energy := Data.ENERGY_MAX
 var modes := {"shield": "auto", "hull": "auto", "energy": "auto", "guns": "auto", "missile": "auto", "mine": "auto"}
 var view := "chase" # "chase" or "cockpit"
@@ -37,6 +39,8 @@ func restore_full() -> void:
 	missiles = max_missiles()
 	mines = max_mines()
 	energy = Data.ENERGY_MAX
+	shield_charges = Data.MAX_SHIELD_CHARGES
+	energy_cells = Data.MAX_ENERGY_CELLS
 	changed.emit()
 
 func add_credits(n: int) -> void:

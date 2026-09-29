@@ -32,12 +32,14 @@ const MINE_RADIUS := 45.0
 const ENERGY_MAX := 100.0
 const ENERGY_REGEN := 9.0 # per second
 const ENERGY_PER_GUN := 1.5 # per shot per gun
-const SHIELD_BOOST_COOLDOWN := 20.0
+const SHIELD_BOOST_COOLDOWN := 3.0
+const MAX_SHIELD_CHARGES := 5
+const MAX_ENERGY_CELLS := 5
 const WARP_CHARGE := 3.0 # seconds, from a full stop
 const WARP_MULT := 6.0 # x ship speed
 const THRUST_MULT := 2.0 # afterburner x ship speed
 const THRUST_ENERGY := 14.0 # per second
-const ENERGY_BOOST_COOLDOWN := 15.0
+const ENERGY_BOOST_COOLDOWN := 3.0
 # The six cockpit systems. AUTO = the ship triggers it when needed; MANUAL = tap the panel.
 const SYSTEMS_UI := [
 	{"id": "shield", "label": "SHIELD\nRECHARGE", "side": "left"},
