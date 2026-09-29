@@ -41,7 +41,9 @@ var comms_hostile := false
 var comms_timer := 0.0
 var contacts: Array = []
 var history: Array = [] # recent messages and calls for LOG
-var roster_t := 1.0 # pull-out animation
+var roster_t := 1.0 # drop-down animation 0..1
+var roster_closing := false
+var roster_idle := 0.0
 var S := Vector2(1280, 720)
 var stick_r := 92.0
 var col_w := 140.0
@@ -89,11 +91,17 @@ func open_log() -> void:
 	comms_mode = "roster"
 	comms_hostile = false
 	roster_t = 0.0
+	roster_closing = false
+	roster_idle = 0.0
 
+## Compact drop-down: only as tall as the contact list, pulls down from under MAP and rolls back up.
 func roster_rect() -> Rect2:
-	var w := minf(400.0, S.x * 0.34)
-	var slide := (1.0 - ease(roster_t, 0.4)) * w * 0.35 # slides out from the left column
-	return Rect2(col_w + 14 - slide, 64, w, S.y - 64 - 170)
+	var n := clampi(GS.met.size(), 1, 6)
+	var full_h := 40.0 + n * 48.0 + 6.0
+	return Rect2(col_w + 14, 62, 290, maxf(8.0, full_h * ease(roster_t, 0.35)))
+
+func close_roster() -> void:
+	roster_closing = true
 
 func close_comms() -> void:
 	comms_open = false
@@ -130,12 +138,12 @@ func _layout() -> void:
 		var r := Rect2(8 if left else S.x - col_w - 8, 8 + (i % 3) * (card_h + gap), col_w, card_h)
 		var id: String = sysd["id"]
 		cards[id] = r
-		buttons["sys_" + id] = Rect2(r.position, Vector2(r.size.x, r.size.y - 38))
+		buttons["sys_" + id] = Rect2(r.position + Vector2(6, 6), Vector2(60, 58)) # the icon push-button
 		buttons["mode_%s_auto" % id] = Rect2(r.position.x + 6, r.end.y - 36, r.size.x * 0.5 - 8, 30)
 		buttons["mode_%s_manual" % id] = Rect2(r.position.x + r.size.x * 0.5 + 2, r.end.y - 36, r.size.x * 0.5 - 8, 30)
 	var sq := Vector2(col_w * 0.72, 74)
 	var y0 := 8 + 3 * (card_h + gap) + 4
-	var lids := ["log", "call", "warp", "hangup"]
+	var lids := ["log", "call", "hangup", "warp"] # phone buttons together, WARP at the bottom
 	for k in lids.size(): buttons[lids[k]] = Rect2(Vector2(8, y0 + k * (sq.y + 6)), sq)
 	var rids := ["stop", "kill", "thrust"]
 	for k in rids.size(): buttons[rids[k]] = Rect2(Vector2(S.x - 8 - sq.x, y0 + k * (sq.y + 6)), sq)
@@ -151,10 +159,9 @@ func _layout() -> void:
 		elif space.gate_in_range(): buttons["jump"] = db
 	if comms_open and comms_mode == "roster":
 		var rr := roster_rect()
-		var rows := mini(GS.met.size(), 6)
-		var rh := minf(64.0, (rr.size.y - 110) / 6.0 - 4.0)
-		for k in rows:
-			buttons["met_%d" % k] = Rect2(rr.position.x + 10, rr.position.y + 50 + k * (rh + 4), rr.size.x - 20, rh)
+		if roster_t > 0.95 and not roster_closing:
+			for k in mini(GS.met.size(), 6):
+				buttons["met_%d" % k] = Rect2(rr.position.x + 8, rr.position.y + 40 + k * 48, rr.size.x - 16, 44)
 
 # ---------------------------------------------------------------- input
 func _input(e: InputEvent) -> void:
@@ -169,9 +176,11 @@ func _input(e: InputEvent) -> void:
 					if id != "sys_guns" and id != "thrust": pressed.emit(id)
 					get_viewport().set_input_as_handled()
 					return
-			if comms_open and comms_mode == "roster" and roster_rect().has_point(e.position):
-				owners[e.index] = "comms_body"
-				return
+			if comms_open and comms_mode == "roster":
+				if roster_rect().has_point(e.position):
+					owners[e.index] = "comms_body"
+					return
+				close_roster()
 			if comms_open and comms_mode != "roster" and _comms_rect().has_point(e.position):
 				owners[e.index] = "comms_body"
 				return
@@ -211,7 +220,14 @@ func _process(dt: float) -> void:
 	space.aim = a * a.length()
 	space.fire_held = held.has("sys_guns") or Input.is_action_pressed("fire")
 	space.thrust_held = held.has("thrust") or Input.is_key_pressed(KEY_SHIFT)
-	if comms_mode == "roster": roster_t = minf(1.0, roster_t + dt * 5.0)
+	if comms_mode == "roster":
+		if roster_closing:
+			roster_t = maxf(0.0, roster_t - dt * 6.0)
+			if roster_t <= 0.0: close_comms()
+		else:
+			roster_t = minf(1.0, roster_t + dt * 6.0)
+			roster_idle += dt
+			if roster_idle > 8.0: close_roster() # rolls itself back up if you don't pick anyone
 	if comms_mode == "incoming":
 		comms_timer -= dt
 		if comms_timer <= 0.0: close_comms()
@@ -292,7 +308,15 @@ func _card(id: String) -> void:
 	var lit := float(flash.get(id, 0.0)) > 0.0 or held.has("sys_" + id)
 	var locked: bool = space.warp_active() and id in ["guns", "missile", "mine"]
 	_box(r, Color(0.07, 0.22, 0.38, 0.95) if lit else PANEL, CYAN_HI if lit else EDGE, 12, 2)
-	_icon(id, r.position + Vector2(34, 36), 20.0, CYAN_HI)
+	# icon push-button: raised face, darker when pressed — tap to use now (hold for weapons)
+	var ib: Rect2 = buttons["sys_" + id]
+	var down := held.has("sys_" + id)
+	if not down: _box(Rect2(ib.position + Vector2(0, 3), ib.size), Color(0.0, 0.03, 0.07, 1.0), Color(0, 0, 0, 0), 9, 0)
+	var face := Rect2(ib.position + (Vector2(0, 3) if down else Vector2.ZERO), ib.size)
+	_box(face, Color(BLUE, 0.9) if down else Color(0.1, 0.3, 0.5, 1.0), CYAN_HI, 9, 2)
+	draw_rect(Rect2(face.position + Vector2(4, 3), Vector2(face.size.x - 8, 2)), Color(1, 1, 1, 0.25))
+	_icon(id, face.get_center() + Vector2(0, -3), 17.0, WHITE)
+	_text(Vector2(face.position.x, face.end.y - 4), "HOLD" if id == "guns" else "PUSH", 9, Color(CYAN_HI, 0.9), HORIZONTAL_ALIGNMENT_CENTER, face.size.x)
 	var count := ""
 	var label: String = {"shield": "SHIELD", "hull": "REPAIR", "energy": "ENERGY", "guns": "WEAPONS", "missile": "MISSILE", "mine": "MINE"}[id]
 	var n := 0
@@ -303,7 +327,7 @@ func _card(id: String) -> void:
 		"guns": n = 1; count = "∞"
 		"missile": n = GS.missiles; count = "%02d" % n
 		"mine": n = GS.mines; count = "%02d" % n
-	var cx := r.position.x + r.size.x * 0.68
+	var cx := r.position.x + 68.0 + (r.size.x - 68.0) * 0.5
 	if id == "guns":
 		# infinity sign drawn (the default font lacks the glyph)
 		var ic := Vector2(cx, r.position.y + 26)
@@ -311,7 +335,7 @@ func _card(id: String) -> void:
 		draw_arc(ic + Vector2(9, 0), 9, 0, TAU, 20, WHITE, 3.0, true)
 	else:
 		_text(Vector2(cx - 40, r.position.y + 38), count, 32, WHITE if n > 0 else RED, HORIZONTAL_ALIGNMENT_CENTER, 80)
-	_text(Vector2(cx - 50, r.position.y + 60), label, 14, WHITE, HORIZONTAL_ALIGNMENT_CENTER, 100)
+	_text(Vector2(cx - 40, r.position.y + 60), label, 12 if label.length() > 6 else 14, WHITE, HORIZONTAL_ALIGNMENT_CENTER, 80)
 	# AUTO | MAN split toggle
 	var ra: Rect2 = buttons["mode_%s_auto" % id]
 	var rm: Rect2 = buttons["mode_%s_manual" % id]
@@ -326,7 +350,7 @@ func _card(id: String) -> void:
 	var cd := 0.0
 	if id == "shield": cd = space.shield_cd / Data.SHIELD_BOOST_COOLDOWN
 	if id == "energy": cd = space.energy_cd / Data.ENERGY_BOOST_COOLDOWN
-	if cd > 0.0: draw_arc(r.position + Vector2(34, 36), 27, -PI / 2, -PI / 2 + TAU * (1.0 - cd), 28, CYAN_HI, 3.0)
+	if cd > 0.0: draw_arc((buttons["sys_" + id] as Rect2).get_center(), 27, -PI / 2, -PI / 2 + TAU * (1.0 - cd), 28, CYAN_HI, 3.0)
 	if locked:
 		draw_rect(r, Color(0, 0, 0, 0.6))
 		_text(Vector2(r.position.x, r.position.y + 58), "LOCKED", 18, GOLD, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
@@ -627,37 +651,30 @@ func _comms() -> void:
 func _dist(d: float) -> String:
 	return "%.1f km" % (d / 1000.0) if d >= 1000.0 else "%d m" % int(d)
 
-## LOG pull-out: everyone you've met, with their mood; tap to call. Recent messages underneath.
+## LOG drop-down: everyone you've met, with their mood; tap to call.
 func _roster() -> void:
 	var r := roster_rect()
-	_box(r, Color(0.02, 0.07, 0.14, 0.96), CYAN_HI, 12, 3)
-	# pull tab on the edge
-	var tab := Rect2(r.end.x - 2, r.position.y + 20, 16, 60)
-	_box(tab, Color(0.05, 0.16, 0.28, 1.0), CYAN_HI, 5, 2)
-	_text(r.position + Vector2(16, 32), "CONTACTS", 20, WHITE)
-	_text(r.position + Vector2(0, 32), "TAP TO CALL", 12, CYAN_HI, HORIZONTAL_ALIGNMENT_RIGHT, r.size.x - 16)
+	_box(r, Color(0.02, 0.07, 0.14, 0.94), CYAN_HI, 10, 2)
+	if r.size.y < 36.0: return
+	_text(r.position + Vector2(12, 26), "CONTACTS", 16, WHITE)
+	_text(r.position + Vector2(0, 26), "TAP TO CALL", 11, CYAN_HI, HORIZONTAL_ALIGNMENT_RIGHT, r.size.x - 12)
 	if GS.met.is_empty():
-		_text(r.position + Vector2(16, 80), "Nobody yet — people you meet appear here.", 14, Color(1, 1, 1, 0.7))
+		if r.size.y > 70: _text(r.position + Vector2(12, 64), "Nobody yet — people you meet appear here.", 12, Color(1, 1, 1, 0.7))
+		return
 	for k in mini(GS.met.size(), 6):
+		var br := Rect2(r.position.x + 8, r.position.y + 40 + k * 48, r.size.x - 16, 44)
+		if br.end.y > r.end.y: break
 		var id: String = GS.met[k]
 		var c: Dictionary = Data.CHARACTERS[id]
-		var br: Rect2 = buttons["met_%d" % k]
 		var m: String = GS.mood.get(id, "neutral")
 		var mc: Color = {"friendly": GREEN, "neutral": CYAN_HI, "enraged": RED}[m]
 		var down := held.has("met_%d" % k)
-		_box(br, Color(mc, 0.25) if down else Color(0.05, 0.13, 0.23, 1.0), Color(mc, 0.8), 10, 2)
-		# portrait placeholder: coloured badge with initials
-		var pc := br.position + Vector2(br.size.y * 0.5 + 4, br.size.y * 0.5)
-		draw_circle(pc, br.size.y * 0.38, Color(c["color"], 0.9))
-		draw_arc(pc, br.size.y * 0.38, 0, TAU, 32, WHITE, 2.0, true)
+		_box(br, Color(mc, 0.25) if down else Color(0.05, 0.13, 0.23, 1.0), Color(mc, 0.7), 8, 1)
+		var pc := br.position + Vector2(24, 22)
+		draw_circle(pc, 16, Color(c["color"], 0.9))
 		var parts: PackedStringArray = (c["name"] as String).replace(".", "").split(" ")
 		var ini := (parts[0].substr(0, 1) + parts[parts.size() - 1].substr(0, 1)).to_upper()
-		_text(pc + Vector2(-20, 6), ini, 15, Color(0.02, 0.05, 0.1), HORIZONTAL_ALIGNMENT_CENTER, 40)
-		var tx := br.position.x + br.size.y + 12
-		_text(Vector2(tx, br.position.y + br.size.y * 0.45), c["name"], 17, WHITE)
-		_text(Vector2(tx, br.position.y + br.size.y * 0.45 + 18), c["role"], 12, Color(0.8, 0.88, 0.95))
-		_text(Vector2(br.position.x, br.position.y + br.size.y * 0.45), m.to_upper(), 12, mc, HORIZONTAL_ALIGNMENT_RIGHT, br.size.x - 12)
-	var y := r.end.y - 44
-	_text(Vector2(r.position.x + 16, y), "RECENT", 11, CYAN_HI)
-	for k in mini(history.size(), 2):
-		_text(Vector2(r.position.x + 16, y + 16 + k * 14), history[k], 11, Color(1, 1, 1, 0.7), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 32)
+		_text(pc + Vector2(-20, 5), ini, 13, Color(0.02, 0.05, 0.1), HORIZONTAL_ALIGNMENT_CENTER, 40)
+		_text(Vector2(br.position.x + 48, br.position.y + 20), c["name"], 15, WHITE)
+		_text(Vector2(br.position.x + 48, br.position.y + 37), c["role"], 11, Color(0.8, 0.88, 0.95))
+		_text(Vector2(br.position.x, br.position.y + 20), m.to_upper(), 10, mc, HORIZONTAL_ALIGNMENT_RIGHT, br.size.x - 8)

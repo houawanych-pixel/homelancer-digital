@@ -13,9 +13,9 @@ and missiles → buy/switch ships → launch → fly to the Aquila Jump Gate →
 Exchange or Eden Prime → fight corsairs → jump back to Solara.
 
 ## Controls (phone, landscape) — cockpit HUD (owner mockup)
-- **Left column:** SHIELD, REPAIR, ENERGY cards (icon, count, AUTO | MAN), then LOG, CALL, WARP, HANG UP.
+- **Left column:** SHIELD, REPAIR, ENERGY cards (icon, count, AUTO | MAN), then LOG, CALL, HANG UP, WARP (phone buttons together, WARP at the bottom).
 - **Right column:** WEAPONS, MISSILE, MINE cards, then STOP, KILL (engine kill), THRUST.
-- Tap a card's top half to use it now (hold WEAPONS to fire); AUTO | MAN at the bottom of each card.
+- Each card has a raised **icon push-button** (PUSH, or HOLD for weapons) to use it right now, and an AUTO | MAN switch underneath.
   Counts: shield charges 5, repair kits 5, energy cells 5, weapons unlimited, missiles and mines per ship.
   Docking refills everything.
 - **FLIGHT** stick (left thumb) thrust/strafe; **AIM** stick (right thumb) yaw/pitch.
@@ -27,7 +27,7 @@ Exchange or Eden Prime → fight corsairs → jump back to Solara.
   on your heading while turning freely.
 - **WARP** only from a full stop; charges 3 s with booster particles; 6x speed; weapons lock; hits or WARP drop you out.
 - **Calls:** incoming calls (station control, enemy pilots) pop up over the dashboard and close by themselves.
-  CALL hails your target (or the local controller). HANG UP ends a call. **LOG** pulls out a CONTACTS tab of up to six
+  CALL hails your target (or the local controller). HANG UP ends a call. **LOG** drops down a compact CONTACTS list of up to six
   people you've met (friendly or ENRAGED enemies you've fought) — tap one to call them; recent messages underneath.
   Characters are original placeholders in `scripts/data.gd` until the Homelancer bible names canon ones.
 - Every finger belongs to what it first touched, so dragging a stick never presses a button.

@@ -236,7 +236,7 @@ func _on_hud(id: String) -> void:
 		"call":
 			_call_target()
 		"log":
-			if hud.comms_mode == "roster": hud.close_comms()
+			if hud.comms_mode == "roster": hud.close_roster()
 			else: hud.open_log()
 		"hangup":
 			if hud.comms_open:
