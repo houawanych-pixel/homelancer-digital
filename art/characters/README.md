@@ -18,5 +18,8 @@ Checked but not in the repo (too large, source files stay in Drive):
 - White mecha v2 (`60a8d7f7…glb`, unrigged): rigged as `white_mecha_rigged.glb` — 22-bone humanoid with `--mech`
   stiff joints (armour plates stay rigid), 30,600 tris, 3 m tall, Idle + Walk. Twin back cannon kept as a
   separate object (`Weapon` node) mounted on UpperChest.
+- Minigun mecha (`242c5c2b…glb`, unrigged): rigged as `minigun_mecha_rigged.glb` — 22-bone humanoid, `--mech`,
+  24,334 tris, 3 m, Idle + Walk. Minigun is fused into the right forearm in the source mesh, so it is weighted
+  100 % to RightLowerArm (moves with the arm). Arm/thigh overlap separated with rigfix rules.
 - Blue mecha (`c4d26433…fire.glb`) and white mecha (`ba9dc517…dance_03.glb`): Tripo rigs misplaced (skeleton off-centre,
   left-arm bones on the rocket pods, arms bleeding into thighs). Need a re-rig — see owner notes.
