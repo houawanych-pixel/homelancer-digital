@@ -751,11 +751,24 @@ func fire_missile() -> bool:
 		return false
 	GS.missiles -= 1
 	GS.changed.emit()
-	var mi := MeshInstance3D.new()
-	var bm := BoxMesh.new()
-	bm.size = Vector3(0.6, 0.6, 2.6)
-	mi.mesh = bm
-	mi.material_override = ShipFactory.mat(Color(1.0, 0.8, 0.4), true)
+	var mi: Node3D
+	if ShipFactory.has_real_model("missile"):
+		mi = ShipFactory.build("missile")
+		var flare := MeshInstance3D.new()   # engine glow at the tail (+Z)
+		var fm := SphereMesh.new()
+		fm.radius = 0.35
+		fm.height = 0.7
+		flare.mesh = fm
+		flare.position = Vector3(0, 0, 1.8)
+		flare.material_override = ShipFactory.mat(Color(1.0, 0.75, 0.35), true)
+		mi.add_child(flare)
+	else:
+		var box := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(0.6, 0.6, 2.6)
+		box.mesh = bm
+		box.material_override = ShipFactory.mat(Color(1.0, 0.8, 0.4), true)
+		mi = box
 	add_child(mi)
 	mi.global_position = player.global_position - player.global_basis.y * 1.5
 	missiles_live.append({"node": mi, "vel": -player.global_basis.z * 90.0 + vel, "target": t, "life": 7.0})
@@ -803,7 +816,7 @@ func _seg_hit(a: Vector3, b: Vector3, c: Vector3, r: float) -> bool:
 func _update_missiles(dt: float) -> void:
 	for i in range(missiles_live.size() - 1, -1, -1):
 		var m: Dictionary = missiles_live[i]
-		var n: MeshInstance3D = m["node"]
+		var n: Node3D = m["node"]
 		var tv = m["target"]
 		var t: Node3D = tv if is_instance_valid(tv) else null
 		var v: Vector3 = m["vel"]
@@ -1080,19 +1093,24 @@ func deploy_mine() -> bool:
 	GS.mines -= 1
 	GS.changed.emit()
 	mine_cd = 2.5
-	var mi := MeshInstance3D.new()
-	var sm := SphereMesh.new()
-	sm.radius = 1.4
-	sm.height = 2.8
-	sm.radial_segments = 10
-	sm.rings = 5
-	mi.mesh = sm
-	mi.material_override = ShipFactory.mat(Color(0.25, 0.27, 0.3), false, 0.7)
+	var mi: Node3D
+	if ShipFactory.has_real_model("mine"):
+		mi = ShipFactory.build("mine")
+	else:
+		var ball := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = 1.4
+		sm.height = 2.8
+		sm.radial_segments = 10
+		sm.rings = 5
+		ball.mesh = sm
+		ball.material_override = ShipFactory.mat(Color(0.25, 0.27, 0.3), false, 0.7)
+		mi = ball
 	var light := MeshInstance3D.new()
 	var lb := BoxMesh.new()
-	lb.size = Vector3(0.7, 0.7, 0.7)
+	lb.size = Vector3(0.5, 0.5, 0.5)
 	light.mesh = lb
-	light.position = Vector3(0, 1.3, 0)
+	light.position = Vector3(0, 1.5, 0)
 	light.material_override = ShipFactory.mat(Color(1.0, 0.3, 0.2), true)
 	mi.add_child(light)
 	add_child(mi)
@@ -1104,7 +1122,7 @@ func deploy_mine() -> bool:
 func _update_mines(dt: float) -> void:
 	for i in range(mines_live.size() - 1, -1, -1):
 		var m: Dictionary = mines_live[i]
-		var n: MeshInstance3D = m["node"]
+		var n: Node3D = m["node"]
 		m["arm"] -= dt
 		m["life"] -= dt
 		m["vel"] = (m["vel"] as Vector3) * (1.0 - minf(1.0, dt * 0.8))

@@ -527,7 +527,7 @@ def piece_clusters(g, min_frac=0.02):
 
 def pick(g, a):
     if getattr(a, "pieces", False):
-        return piece_clusters(g)
+        return piece_clusters(g, getattr(a, "min_frac", 0.02))
     if getattr(a, "grid", None):
         r, c = (int(x) for x in a.grid.lower().split("x"))
         return grid_clusters(g, r, c)
@@ -621,9 +621,10 @@ def main():
     i.add_argument("--margin", type=float, default=0.01); i.add_argument("--min-tris", type=int, default=200)
     i.add_argument("--preview-tris", type=int, default=150000); i.add_argument("--grid", help="e.g. 4x4 for a sheet of ships")
     i.add_argument("--pieces", action="store_true", help="each separate piece is one ship")
+    i.add_argument("--min-frac", type=float, default=0.02, help="pieces smaller than this share of the biggest join a neighbour")
     e = sp.add_parser("export"); e.add_argument("glb"); e.add_argument("--cluster", required=True)
     e.add_argument("--name", default="ship"); e.add_argument("--out", required=True)
-    e.add_argument("--margin", type=float, default=0.01); e.add_argument("--grid"); e.add_argument("--pieces", action="store_true")
+    e.add_argument("--margin", type=float, default=0.01); e.add_argument("--grid"); e.add_argument("--pieces", action="store_true"); e.add_argument("--min-frac", type=float, default=0.02)
     e.add_argument("--taper", type=float, default=0.65); e.add_argument("--nose-frac", type=float, default=0.35)
     e.add_argument("--flip", action="store_true"); e.add_argument("--axis", choices=list("xyz"))
     e.add_argument("--tex", type=int, default=1024); e.add_argument("--preview")

@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bga3s27s7gwbm"
-path="res://.godot/imported/carrier_2.jpg-523a36de68c1302636381292217bdc91.ctex"
+uid="uid://bcho76vq5e8ml"
+path="res://.godot/imported/missile_0.jpg-fe6231a99bd142589b979526d7e8e65f.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "dea733228378532208b4d63747a5d0cf"
+"md5": "cb51507468ba9e2163e5cec4e65ef7e1"
 }
 
 [deps]
 
-source_file="res://assets/ships/civilian/carrier_2.jpg"
-dest_files=["res://.godot/imported/carrier_2.jpg-523a36de68c1302636381292217bdc91.ctex"]
+source_file="res://assets/weapons/missile_0.jpg"
+dest_files=["res://.godot/imported/missile_0.jpg-fe6231a99bd142589b979526d7e8e65f.ctex"]
 
 [params]
 

@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bga3s27s7gwbm"
-path="res://.godot/imported/carrier_2.jpg-523a36de68c1302636381292217bdc91.ctex"
+uid="uid://xmkfl4p4ljl4"
+path="res://.godot/imported/cadet_ship_0.jpg-3f176b21a69f9fb47fe25d5d515e9a46.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "dea733228378532208b4d63747a5d0cf"
+"md5": "779d19b6726705b052c905401a706f23"
 }
 
 [deps]
 
-source_file="res://assets/ships/civilian/carrier_2.jpg"
-dest_files=["res://.godot/imported/carrier_2.jpg-523a36de68c1302636381292217bdc91.ctex"]
+source_file="res://assets/ships/player/cadet_ship_0.jpg"
+dest_files=["res://.godot/imported/cadet_ship_0.jpg-3f176b21a69f9fb47fe25d5d515e9a46.ctex"]
 
 [params]
 
