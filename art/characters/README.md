@@ -27,5 +27,7 @@ Checked but not in the repo (too large, source files stay in Drive):
   3 m. Long hip blades follow each thigh. Thin black back fins removed; replaced with a procedural back-booster
   (`tools/shipkit/make_booster.py`: core pack, twin down-angled nacelles with glowing nozzles, swept wing-vanes with
   verniers) as a separate object on UpperChest.
+- Hooded dark figure (`1a37ead1…angry_02.glb`): Tripo rig good; long tattered cloak was split between legs and
+  sleeves. Fixed with the same rigfix `--blend` as the coat officer (cloak hangs from Hip → Spine02). Delivered to owner.
 - Blue mecha (`c4d26433…fire.glb`) and white mecha (`ba9dc517…dance_03.glb`): Tripo rigs misplaced (skeleton off-centre,
   left-arm bones on the rocket pods, arms bleeding into thighs). Need a re-rig — see owner notes.
