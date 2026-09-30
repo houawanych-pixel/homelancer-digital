@@ -6,11 +6,14 @@ extends RefCounted
 # key -> [glb path, target length, extra yaw degrees applied after import]
 const GLB := {
 	"cadet": ["res://assets/ships/player/cadet_ship.glb", 9.0, 0.0],
+	"lancer": ["res://assets/ships/player/lancer.glb", 12.0, 0.0],
 	"enemy": ["res://assets/ships/enemy/enemy_fleet.glb", 10.0, 0.0],
 	"fleet": ["res://assets/ships/civilian/cargo_ship.glb", 16.0, 0.0],
 	"carrier": ["res://assets/ships/civilian/carrier.glb", 130.0, 0.0],
 	"missile": ["res://assets/weapons/missile.glb", 3.4, 0.0],
 	"mine": ["res://assets/weapons/mine.glb", 3.2, 0.0],
+	"gatling": ["res://assets/weapons/gatling.glb", 3.0, 0.0],
+	"rocket_pod": ["res://assets/weapons/rocket_pod.glb", 3.0, 0.0],
 }
 
 static var _cache := {}

@@ -1,0 +1,37 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://bgnvwu54j72fp"
+path="res://.godot/imported/lancer_1.jpg-adf1b51190b9e4ad179eb4ea315c97bd.ctex"
+metadata={
+"vram_texture": false
+}
+generator_parameters={
+"md5": "18625bef7b7d1340c056c28160e1f4c2"
+}
+
+[deps]
+
+source_file="res://assets/ships/player/lancer_1.jpg"
+dest_files=["res://.godot/imported/lancer_1.jpg-adf1b51190b9e4ad179eb4ea315c97bd.ctex"]
+
+[params]
+
+compress/mode=1
+compress/high_quality=false
+compress/lossy_quality=0.8
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=1

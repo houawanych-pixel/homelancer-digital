@@ -605,13 +605,21 @@ def cmd_export(a):
 
 
 def cmd_repack(a):
-    """Geometry from the reduced GLB + the compact textures/materials from the full-detail export."""
-    g, _, _ = load_geometry(a.glb)
+    """Geometry from the reduced GLB + the compact textures/materials from the full-detail export.
+    Materials are matched by name, so multi-material ships (hull, plating, glass) keep every surface."""
+    g, lj, _ = load_geometry(a.glb)
     fj, fb = read_glb(a.textures_from)
-    mats, images, _ = remap_materials(fj, fb, list(range(len(fj.get("materials", [])))), a.tex)
-    pos, nrm, uv, tri = compact(g["pos"], g["nrm"], g["uv"], g["tri"])
-    write_glb(a.out, [(pos, nrm, uv, tri, 0 if mats else -1)], mats, images, a.name)
-    print(json.dumps({"tris": int(len(tri)), "bytes": os.path.getsize(a.out)}))
+    fmats = fj.get("materials", [])
+    mats, images, mmap = remap_materials(fj, fb, list(range(len(fmats))), a.tex)
+    by_name = {m.get("name"): i for i, m in enumerate(fmats)}
+    surfaces = []
+    for mi in sorted(set(int(x) for x in g["tmat"])):
+        name = lj["materials"][mi].get("name") if mi >= 0 and lj.get("materials") else None
+        target = mmap.get(by_name.get(name, 0), 0) if mats else -1
+        pos, nrm, uv, tri = compact(g["pos"], g["nrm"], g["uv"], g["tri"][g["tmat"] == mi])
+        surfaces.append((pos, nrm, uv, tri, target))
+    write_glb(a.out, surfaces, mats, images, a.name)
+    print(json.dumps({"tris": int(sum(len(x[3]) for x in surfaces)), "surfaces": len(surfaces), "bytes": os.path.getsize(a.out)}))
 
 
 def main():

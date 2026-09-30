@@ -37,18 +37,38 @@ func _run() -> void:
 	rim.light_color = Color(0.55, 0.7, 1.0)
 	rim.rotation_degrees = Vector3(-10, 150, 0)
 	world.add_child(rim)
+	var under := DirectionalLight3D.new()   # soft fill from below so undersides are readable
+	under.light_energy = 0.55
+	under.rotation_degrees = Vector3(80, 20, 0)
+	world.add_child(under)
 	# frame the model
 	var box := _aabb(model, Transform3D.IDENTITY)
 	var c := box.get_center()
 	var r := box.size.length() * 0.5
+	var tgt := OS.get_environment("STUDIO_TARGET")   # "x,y,z,radius" in model units to zoom on a detail
+	if tgt != "":
+		var f := tgt.split(",")
+		c = Vector3(float(f[0]), float(f[1]), float(f[2]))
+		r = float(f[3])
 	var cam := Camera3D.new()
 	cam.fov = 35.0
 	world.add_child(cam)
 	cam.current = true
+	var ortho := OS.get_environment("STUDIO_ORTHO")   # visible height in model units -> measurable orthographic views
+	if ortho != "":
+		cam.projection = Camera3D.PROJECTION_ORTHOGONAL
+		cam.size = float(ortho)
+		cam.near = 0.001
 	await process_frame
 	var shots: Array[Image] = []
 	# front-quarter, side, top, rear-quarter  (nose is -Z)
 	var dirs := [Vector3(-0.9, 0.55, -1.0), Vector3(-1, 0.05, 0), Vector3(0, 1, 0.001), Vector3(0.9, 0.45, 1.0)]
+	var custom := OS.get_environment("STUDIO_VIEWS")   # e.g. "0,-1,0.001;-1,-0.3,0;1,-0.3,0"
+	if custom != "":
+		dirs = []
+		for part in custom.split(";"):
+			var f := part.split(",")
+			dirs.append(Vector3(float(f[0]), float(f[1]), float(f[2])))
 	for d in dirs:
 		var dist := r / sin(deg_to_rad(cam.fov * 0.5)) * float(OS.get_environment("STUDIO_ZOOM") if OS.get_environment("STUDIO_ZOOM") != "" else "0.8")
 		cam.look_at_from_position(c + (d as Vector3).normalized() * dist, c, Vector3.UP if absf((d as Vector3).normalized().y) < 0.99 else Vector3(0, 0, -1))
