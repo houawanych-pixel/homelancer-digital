@@ -40,3 +40,6 @@ Checked but not in the repo (too large, source files stay in Drive):
 - Black/gold mecha (`8ce67750…glb`, unrigged, twin shoulder cannons, gold hip plates): rigged as
   `black_gold_mecha_rigged.glb` — 22-bone, `--mech`, 18,096 tris, 3 m, Idle + Walk. Head + antennas on Head;
   shoulder cannons locked to UpperChest. Joints: `black_gold_mecha_joints.json` (1 m units; rig with `--height 3.0`).
+- Grey/orange mecha (`a831affe…glb`, unrigged, four shoulder cannons, rifle in left hand): rigged as
+  `orange_cannon_mecha_rigged.glb` — 22-bone, `--mech`, 16,358 tris, 3 m, Idle + Walk. Whole rifle locked to
+  LeftHand; cannon block on UpperChest; head + antennas on Head. Joints: `orange_cannon_mecha_joints.json` (1 m units).
