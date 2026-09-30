@@ -15,5 +15,8 @@ Checked but not in the repo (too large, source files stay in Drive):
 - Coat character (`243f0048…agree.glb`): Tripo split the long coat between both legs (and its back between the arms),
   so it tore when she moved. Fixed with `rigfix.py --blend`: coat vertices that sit away from the leg/arm bones now hang
   from Hip, blending up to Spine02 by height. Fixed file delivered to the owner.
+- White mecha v2 (`60a8d7f7…glb`, unrigged): rigged as `white_mecha_rigged.glb` — 22-bone humanoid with `--mech`
+  stiff joints (armour plates stay rigid), 30,600 tris, 3 m tall, Idle + Walk. Twin back cannon kept as a
+  separate object (`Weapon` node) mounted on UpperChest.
 - Blue mecha (`c4d26433…fire.glb`) and white mecha (`ba9dc517…dance_03.glb`): Tripo rigs misplaced (skeleton off-centre,
   left-arm bones on the rocket pods, arms bleeding into thighs). Need a re-rig — see owner notes.

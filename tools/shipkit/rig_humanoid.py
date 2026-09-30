@@ -37,12 +37,12 @@ def seg_dist(p, a, b):
     return np.linalg.norm(p - (a + t[:, None] * ab), axis=1)
 
 
-def skin_weights(P, J):
+def skin_weights(P, J, sharp=6.0, zone=1.6):
     dn = np.stack([seg_dist(P, np.array(J[n]), np.array(J[e])) / r for n, _, e, r in BONES], 1)
     order = np.argsort(dn, 1)[:, :4]
     best = np.take_along_axis(dn, order, 1)
-    w = np.maximum(best, 1e-4) ** -6.0
-    w[best > best[:, :1] * 1.6] = 0.0          # only blend bones that are nearly as close (joint zones)
+    w = np.maximum(best, 1e-4) ** -sharp
+    w[best > best[:, :1] * zone] = 0.0         # only blend bones that are nearly as close (joint zones)
     w /= w.sum(1, keepdims=True)
     return order.astype(np.uint16), w.astype(np.float32)
 
@@ -97,12 +97,13 @@ def main():
     ap.add_argument("--weapon-at", help="x,y,z where the weapon grip sits, in body coordinates")
     ap.add_argument("--height", type=float, default=1.8)
     ap.add_argument("--shift-x", type=float, default=0.0)
+    ap.add_argument("--mech", action="store_true", help="stiff joints: armour plates stay rigid (mechs, robots)")
     a = ap.parse_args()
     H = a.height
     J = {k: (np.array(v) + [a.shift_x, 0, 0]).tolist() for k, v in json.load(open(a.joints)).items()}
     g, js, binc = sk.load_geometry(a.body)
     P = g["pos"] + [a.shift_x, 0, 0]
-    joints_idx, weights = skin_weights(P, J)
+    joints_idx, weights = skin_weights(P, J, *( (16.0, 1.15) if a.mech else (6.0, 1.6) ))
     # ---------------- build glTF
     buf = bytearray(); views = []; accs = []
 
