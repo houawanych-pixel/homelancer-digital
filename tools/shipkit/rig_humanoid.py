@@ -173,12 +173,15 @@ def main():
     if a.weapon:
         wg, wjs, wb = sk.load_geometry(a.weapon)
         mm_w = import_mats(wjs, wb)
-        wprim = {"attributes": {"POSITION": add((wg["pos"] * H).astype(np.float32), 5126, "VEC3", 34962, True),
-                                "NORMAL": add(wg["nrm"].astype(np.float32), 5126, "VEC3", 34962),
-                                "TEXCOORD_0": add(wg["uv"].astype(np.float32), 5126, "VEC2", 34962)},
-                 "indices": add(wg["tri"].reshape(-1).astype(np.uint32), 5125, "SCALAR", 34963),
-                 "material": mm_w.get(0, 0)}
-        meshes.append({"name": "Weapon", "primitives": [wprim]})
+        wprims = []
+        for mi in sorted(set(int(v) for v in wg["tmat"])):
+            wp, wn, wu, wt = sk.compact(wg["pos"], wg["nrm"], wg["uv"], wg["tri"][wg["tmat"] == mi])
+            wprims.append({"attributes": {"POSITION": add((wp * H).astype(np.float32), 5126, "VEC3", 34962, True),
+                                          "NORMAL": add(wn.astype(np.float32), 5126, "VEC3", 34962),
+                                          "TEXCOORD_0": add(wu.astype(np.float32), 5126, "VEC2", 34962)},
+                           "indices": add(wt.reshape(-1).astype(np.uint32), 5125, "SCALAR", 34963),
+                           "material": mm_w.get(mi, 0)})
+        meshes.append({"name": "Weapon", "primitives": wprims})
         at = np.array([float(v) for v in a.weapon_at.split(",")]) + [a.shift_x, 0, 0]
         hb = jnode[a.weapon_bone]
         wn = len(nodes)

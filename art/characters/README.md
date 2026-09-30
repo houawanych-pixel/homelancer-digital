@@ -23,5 +23,9 @@ Checked but not in the repo (too large, source files stay in Drive):
   100 % to RightLowerArm (moves with the arm). Arm/thigh overlap separated with rigfix rules.
 - Headless mecha (`3ecb169a…glb`, unrigged, cockpit in chest): rigged as `headless_mecha_rigged.glb` — 22-bone
   humanoid, `--mech`, 11,860 tris, 3 m, Idle + Walk. Hip skirt plates follow the thighs so strides don't stretch.
+- Red mecha (`ffb9ef73…glb`, unrigged): rigged as `red_mecha_rigged_booster.glb` — 22-bone, `--mech`, 44,870 tris,
+  3 m. Long hip blades follow each thigh. Thin black back fins removed; replaced with a procedural back-booster
+  (`tools/shipkit/make_booster.py`: core pack, twin down-angled nacelles with glowing nozzles, swept wing-vanes with
+  verniers) as a separate object on UpperChest.
 - Blue mecha (`c4d26433…fire.glb`) and white mecha (`ba9dc517…dance_03.glb`): Tripo rigs misplaced (skeleton off-centre,
   left-arm bones on the rocket pods, arms bleeding into thighs). Need a re-rig — see owner notes.
