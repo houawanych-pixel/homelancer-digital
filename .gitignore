@@ -2,3 +2,4 @@
 build/
 *.import.tmp
 shipkit_out/
+__pycache__/

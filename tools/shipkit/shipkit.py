@@ -205,8 +205,72 @@ def clusters(g, margin_frac=0.01):
     return remap[tcl], out
 
 
+def _kmeans1d(x, w, k):
+    c = np.quantile(x, (np.arange(k) + 0.5) / k)
+    for _ in range(50):
+        lab = np.argmin(np.abs(x[:, None] - c[None]), 1)
+        nc = np.array([np.average(x[lab == j], weights=w[lab == j]) if (lab == j).any() else c[j] for j in range(k)])
+        if np.allclose(nc, c):
+            break
+        c = nc
+    o = np.argsort(c)
+    return np.argsort(o)[lab]
+
+
+def _centres(x, k):
+    """Grid lines: sort the piece centres and cut at the k-1 widest gaps."""
+    xs = np.sort(x)
+    if len(xs) <= k:
+        return xs
+    cuts = np.sort(np.argsort(-np.diff(xs))[:k - 1])
+    return np.array([g.mean() for g in np.split(xs, cuts + 1)])
+
+
+def grid_clusters(g, rows, cols):
+    """For sheets of ships laid out in a grid (typical of image-to-3D 'fleet' models): each connected piece
+    goes to its grid cell; loose wing/engine pieces join the ship in the same cell.
+    Numbering: row by row from the top, left to right."""
+    tcomp, nc = components(g)
+    pos, tri = g["pos"], g["tri"]
+    cen = pos[tri].mean(1)
+    ext = pos.max(0) - pos.min(0)
+    ax = np.argsort(-ext)[:2]            # the two big axes of the sheet
+    h, v = sorted(ax) if ax[0] != 1 and ax[1] != 1 else ((ax[0] if ax[0] != 1 else ax[1]), 1)
+    cnt = np.bincount(tcomp, minlength=nc).astype(float)
+    cc = np.array([cen[tcomp == k].mean(0) for k in range(nc)])
+    big = cnt >= 0.3 * np.median(cnt)
+    rc = np.sort(_centres(-cc[big, v], rows))
+    colc = np.sort(_centres(cc[big, h], cols))
+    r = np.argmin(np.abs(-cc[:, v][:, None] - rc[None]), 1)
+    col = np.argmin(np.abs(cc[:, h][:, None] - colc[None]), 1)
+    cl = r * cols + col
+    tcl = cl[tcomp]
+    info = []
+    for c in range(rows * cols):
+        sel = tcl == c
+        if not sel.any():
+            continue
+        pts = pos[tri[sel]].reshape(-1, 3)
+        info.append(dict(id=c, tris=int(sel.sum()), lo=pts.min(0), hi=pts.max(0)))
+    return tcl, info
+
+
 # ------------------------------------------------------------------ preview renderer (painter's algorithm)
-def render(pos, tri, view, size=900, label_pts=None, labels=None, title=None, bg=(14, 18, 30)):
+def tri_colours(g, js, binc, tri):
+    """Average base-colour texture sample at each triangle's UV centre (for previews)."""
+    from PIL import Image
+    try:
+        m = js["materials"][0]["pbrMetallicRoughness"]["baseColorTexture"]["index"]
+        im = js["images"][js["textures"][m]["source"]]
+        raw, _ = bv_bytes(js, binc, im["bufferView"])
+        tex = np.asarray(Image.open(io.BytesIO(raw)).convert("RGB").resize((512, 512)), float)
+    except Exception:
+        return None
+    uv = g["uv"][tri].mean(1) % 1.0
+    return tex[(uv[:, 1] * 511).astype(int), (uv[:, 0] * 511).astype(int)]
+
+
+def render(pos, tri, view, size=900, label_pts=None, labels=None, title=None, bg=(14, 18, 30), colours=None, frame=None):
     from PIL import Image, ImageDraw
     axes = {"top": (0, 2, 1, (1, 1)), "side": (2, 1, 0, (-1, -1)), "front": (0, 1, 2, (1, -1)),
             "persp": None}
@@ -226,7 +290,8 @@ def render(pos, tri, view, size=900, label_pts=None, labels=None, title=None, bg
         else:
             D = -pos[:, 2]
     pts2 = np.stack([X, Y], 1)
-    lo, hi = pts2.min(0), pts2.max(0)
+    used = np.unique(tri) if frame is None else frame
+    lo, hi = pts2[used].min(0), pts2[used].max(0)
     sc = (size * 0.9) / max(hi - lo)
     off = (size - (hi - lo) * sc) / 2
     s2 = (pts2 - lo) * sc + off
@@ -239,8 +304,12 @@ def render(pos, tri, view, size=900, label_pts=None, labels=None, title=None, bg
     shade = 0.35 + 0.65 * np.abs(fn @ light)
     depth = D[t].mean(1)
     for k in np.argsort(depth):
-        c = int(60 + 170 * shade[k])
-        dr.polygon([tuple(s2[i]) for i in t[k]], fill=(c, c, min(255, c + 18)))
+        if colours is not None:
+            c = colours[k] * (0.45 + 0.75 * shade[k])
+            fill = tuple(int(min(255, x)) for x in c)
+        else:
+            c = int(60 + 170 * shade[k]); fill = (c, c, min(255, c + 18))
+        dr.polygon([tuple(s2[i]) for i in t[k]], fill=fill)
     if label_pts is not None:
         lp = np.stack([label_pts[:, axes[view][0]] * axes[view][3][0], label_pts[:, axes[view][1]] * axes[view][3][1]], 1) if view != "persp" else None
         if lp is not None:
@@ -352,7 +421,8 @@ def remap_materials(js, binc, used, tex_size):
                                          (max(1, pil.size[0] * tex_size // max(pil.size)), max(1, pil.size[1] * tex_size // max(pil.size))),
                                          Image.LANCZOS)
                     buf = io.BytesIO()
-                    if key == "baseColorTexture" and pil.mode in ("RGB", "L", "P") or (mime == "image/jpeg"):
+                    opaque = pil.mode in ("RGB", "L", "P") or (pil.mode == "RGBA" and np.asarray(pil)[..., 3].min() > 250)
+                    if opaque:
                         pil.convert("RGB").save(buf, "JPEG", quality=88); mime = "image/jpeg"
                     else:
                         pil.save(buf, "PNG", optimize=True); mime = "image/png"
@@ -420,9 +490,53 @@ def compact(pos, nrm, uv, tri):
 
 
 # ------------------------------------------------------------------ commands
+def piece_clusters(g, min_frac=0.02):
+    """Every connected piece is its own ship; crumbs (< min_frac of the biggest) join the nearest ship.
+    Numbered in reading order (top row first, left to right)."""
+    tcomp, nc = components(g)
+    pos, tri = g["pos"], g["tri"]
+    cnt = np.bincount(tcomp, minlength=nc)
+    tp = pos[tri]
+    lo = np.full((nc, 3), np.inf); hi = np.full((nc, 3), -np.inf)
+    np.minimum.at(lo, tcomp, tp.min(1)); np.maximum.at(hi, tcomp, tp.max(1))
+    ce = (lo + hi) / 2
+    ext = pos.max(0) - pos.min(0)
+    v = 1 if np.argsort(-ext)[:2].tolist().count(1) else int(np.argsort(-ext)[1])
+    h = [k for k in np.argsort(-ext)[:2] if k != v][0]
+    big = np.nonzero(cnt >= min_frac * cnt.max())[0]
+    owner = np.array([k if k in set(big) else big[np.argmin(np.linalg.norm(ce[big] - ce[k], axis=1))] for k in range(nc)])
+    # reading order: a new row starts when a ship's top is below the previous row's centre
+    order = sorted(big, key=lambda k: -ce[k, v])
+    rows, cur = [], [order[0]]
+    for k in order[1:]:
+        if hi[k, v] < np.mean([ce[j, v] for j in cur]):
+            rows.append(cur); cur = [k]
+        else:
+            cur.append(k)
+    rows.append(cur)
+    seq = [k for r in rows for k in sorted(r, key=lambda j: ce[j, h])]
+    num = {k: i for i, k in enumerate(seq)}
+    tcl = np.array([num[owner[k]] for k in range(nc)])[tcomp]
+    info = []
+    for i, k in enumerate(seq):
+        sel = tcl == i
+        pts = tp[sel].reshape(-1, 3)
+        info.append(dict(id=i, tris=int(sel.sum()), lo=pts.min(0), hi=pts.max(0)))
+    return tcl, info
+
+
+def pick(g, a):
+    if getattr(a, "pieces", False):
+        return piece_clusters(g)
+    if getattr(a, "grid", None):
+        r, c = (int(x) for x in a.grid.lower().split("x"))
+        return grid_clusters(g, r, c)
+    return clusters(g, a.margin)
+
+
 def cmd_inspect(a):
     g, js, binc = load_geometry(a.glb)
-    tcl, info = clusters(g, a.margin)
+    tcl, info = pick(g, a)
     os.makedirs(a.out, exist_ok=True)
     print("file: %s  triangles: %d  vertices: %d  materials: %d  images: %d" % (
         a.glb, len(g["tri"]), len(g["pos"]), len(js.get("materials", [])), len(js.get("images", []))))
@@ -438,7 +552,8 @@ def cmd_inspect(a):
     if len(tri) > a.preview_tris:
         tri = tri[np.random.default_rng(0).choice(len(tri), a.preview_tris, replace=False)]
     cent = np.array([(d["hi"] + d["lo"]) / 2 for d in info]); labs = [str(d["id"]) for d in info]
-    imgs = [render(g["pos"], tri, v, 800, cent, labs, v.upper()) for v in ("top", "side", "front")]
+    col = tri_colours(g, js, binc, tri)
+    imgs = [render(g["pos"], tri, v, 800, cent, labs, v.upper(), colours=col) for v in ("top", "side", "front")]
     sheet(imgs, os.path.join(a.out, "overview.png"))
     # one thumbnail per big cluster
     big = [d for d in info if d["tris"] >= a.min_tris]
@@ -447,7 +562,10 @@ def cmd_inspect(a):
         sel = tri_sel = g["tri"][tcl == d["id"]]
         if len(sel) > 40000:
             sel = sel[np.random.default_rng(1).choice(len(sel), 40000, replace=False)]
-        thumbs.append(render(g["pos"], sel, "persp", 360, title="#%d  %d tris" % (d["id"], d["tris"])))
+        col = tri_colours(g, js, binc, sel)
+        ext = d["hi"] - d["lo"]; thin = int(np.argmin(ext))
+        view = {1: "top", 2: "front", 0: "side"}[thin]
+        thumbs.append(render(g["pos"], sel, view, 360, title="#%d  %d tris" % (d["id"], d["tris"]), colours=col))
     if thumbs:
         from PIL import Image
         cols = 6; rws = (len(thumbs) + cols - 1) // cols
@@ -460,7 +578,7 @@ def cmd_inspect(a):
 
 def cmd_export(a):
     g, js, binc = load_geometry(a.glb)
-    tcl, info = clusters(g, a.margin)
+    tcl, info = pick(g, a)
     want = [int(x) for x in a.cluster.split(",")]
     sel = np.isin(tcl, want)
     if not sel.any():
@@ -486,20 +604,34 @@ def cmd_export(a):
         sheet([render(pos, t, v, 520, title="%s %s" % (a.name, v)) for v in ("top", "side", "persp")], a.preview)
 
 
+def cmd_repack(a):
+    """Geometry from the reduced GLB + the compact textures/materials from the full-detail export."""
+    g, _, _ = load_geometry(a.glb)
+    fj, fb = read_glb(a.textures_from)
+    mats, images, _ = remap_materials(fj, fb, list(range(len(fj.get("materials", [])))), a.tex)
+    pos, nrm, uv, tri = compact(g["pos"], g["nrm"], g["uv"], g["tri"])
+    write_glb(a.out, [(pos, nrm, uv, tri, 0 if mats else -1)], mats, images, a.name)
+    print(json.dumps({"tris": int(len(tri)), "bytes": os.path.getsize(a.out)}))
+
+
 def main():
     ap = argparse.ArgumentParser()
     sp = ap.add_subparsers(dest="cmd", required=True)
     i = sp.add_parser("inspect"); i.add_argument("glb"); i.add_argument("--out", default="shipkit_out")
     i.add_argument("--margin", type=float, default=0.01); i.add_argument("--min-tris", type=int, default=200)
-    i.add_argument("--preview-tris", type=int, default=150000)
+    i.add_argument("--preview-tris", type=int, default=150000); i.add_argument("--grid", help="e.g. 4x4 for a sheet of ships")
+    i.add_argument("--pieces", action="store_true", help="each separate piece is one ship")
     e = sp.add_parser("export"); e.add_argument("glb"); e.add_argument("--cluster", required=True)
     e.add_argument("--name", default="ship"); e.add_argument("--out", required=True)
-    e.add_argument("--margin", type=float, default=0.01)
+    e.add_argument("--margin", type=float, default=0.01); e.add_argument("--grid"); e.add_argument("--pieces", action="store_true")
     e.add_argument("--taper", type=float, default=0.65); e.add_argument("--nose-frac", type=float, default=0.35)
     e.add_argument("--flip", action="store_true"); e.add_argument("--axis", choices=list("xyz"))
     e.add_argument("--tex", type=int, default=1024); e.add_argument("--preview")
+    r = sp.add_parser("repack"); r.add_argument("glb"); r.add_argument("--textures-from", required=True)
+    r.add_argument("--out", required=True); r.add_argument("--name", default="ship")
+    r.add_argument("--tex", type=int, default=0, help="shrink textures to this size (0 = keep)")
     a = ap.parse_args()
-    {"inspect": cmd_inspect, "export": cmd_export}[a.cmd](a)
+    {"inspect": cmd_inspect, "export": cmd_export, "repack": cmd_repack}[a.cmd](a)
 
 
 if __name__ == "__main__":

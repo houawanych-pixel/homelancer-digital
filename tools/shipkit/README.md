@@ -9,3 +9,14 @@ override with `TRIS_CARGO=` etc.). Results land in the slots `ShipFactory` alrea
 `assets/ships/civilian/cargo_ship.glb`, `assets/ships/enemy/enemy_fleet.glb`, `assets/ships/civilian/carrier.glb`.
 A ship facing backwards: rerun with `FLIP_ENEMY=1` (or CARGO / CARRIER).
 Needs only python3 + numpy/scipy/Pillow and the Godot 4.3 binary (`GODOT=` path).
+
+## v1.2 ships (reproduce)
+```
+tools/shipkit/make_ships.sh look  Enemy_Fleet.glb   --grid 4x4      # 16 alien ships
+tools/shipkit/make_ships.sh look  Regular_Fleet.glb --pieces        # 24 ships
+tools/shipkit/make_ships.sh build enemy   Enemy_Fleet.glb   --grid=4x4 11
+tools/shipkit/make_ships.sh build cargo   Regular_Fleet.glb --pieces   16 flip
+tools/shipkit/make_ships.sh build carrier Regular_Fleet.glb --pieces   22
+```
+Sheets are laid out flat with noses toward +Y and the detailed side toward +Z; `--axis y` is always used.
+`flip` turns a ship around when the automatic nose guess picks the tail (it did for cargo #16).
