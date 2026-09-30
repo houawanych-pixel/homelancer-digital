@@ -31,5 +31,7 @@ Checked but not in the repo (too large, source files stay in Drive):
   sleeves. Fixed with the same rigfix `--blend` as the coat officer (cloak hangs from Hip → Spine02). Delivered to owner.
 - Teal/white mecha (`d48f6eab…glb`, unrigged, chest cockpit + shoulder pods): rigged as `teal_mecha_rigged.glb` —
   22-bone, `--mech`, 29,936 tris, 3 m, Idle + Walk. Arm/thigh overlap and hip plates sorted with rigfix rules.
+- Minigun mecha 2 (`d37b295a…glb`, teal/white, minigun on right forearm): rigged as `minigun_mecha_2_rigged.glb` —
+  22-bone, `--mech`, 20,864 tris, 3 m. Arm-vs-thigh parts assigned by nearest bone (dseg) so side pads don't spike.
 - Blue mecha (`c4d26433…fire.glb`) and white mecha (`ba9dc517…dance_03.glb`): Tripo rigs misplaced (skeleton off-centre,
   left-arm bones on the rocket pods, arms bleeding into thighs). Need a re-rig — see owner notes.
