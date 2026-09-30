@@ -45,6 +45,8 @@ var tile_root: Node3D
 var surf_busy := false   # a tile / atmosphere transition is running
 var entering := false    # atmosphere entry from space is running
 var altitude := 0.0
+var _water := false
+var _edge_warned := false
 var _sky: ProceduralSkyMaterial
 var player_vis := {} # the player ship's wing sections (Sections handle)
 var player_spark := 3.0
@@ -1667,7 +1669,7 @@ func _build_surface_env() -> void:
 	e.fog_enabled = true
 	e.fog_mode = Environment.FOG_MODE_DEPTH
 	e.fog_density = 1.0
-	e.fog_depth_begin = 1100.0
+	e.fog_depth_begin = 1300.0
 	e.fog_depth_end = 4300.0
 	e.fog_depth_curve = 1.6
 	e.fog_sky_affect = 0.0
@@ -1695,12 +1697,14 @@ func load_tile(t: int) -> void:
 	autopilot = null
 	if is_instance_valid(tile_root): tile_root.queue_free()
 	tile_root = Surface.build_tile(planet_id, t)
+	_water = Surface.has_water(planet_id, t)
+	_edge_warned = false
 	add_child(tile_root)
 	var b := Surface.biome(planet_id, t)
 	_sky.sky_top_color = b["sky"]
 	_sky.sky_horizon_color = b["horizon"]
-	_sky.ground_horizon_color = b["horizon"]
-	_sky.ground_bottom_color = (b["low"] as Color).darkened(0.3)
+	_sky.ground_horizon_color = b["fog"]      # below the horizon the sky matches the fog, so the far edge melts away
+	_sky.ground_bottom_color = b["fog"]
 	env.environment.fog_light_color = b["fog"]
 	env.environment.ambient_light_color = b["horizon"]
 	if is_instance_valid(station) and station.get_meta("kind", "") == "station": station.queue_free()
@@ -1726,8 +1730,7 @@ func load_tile(t: int) -> void:
 
 func _ground(x: float, z: float) -> float:
 	var h := Surface.height(planet_id, tile, x, z)
-	var b := Surface.biome(planet_id, tile)
-	if b["sea"] != null: h = maxf(h, float(b["sea"]))
+	if _water: h = maxf(h, 0.0)
 	return h
 
 ## Ground contact, tile edges (wrap to the next tile) and the ceiling (back to orbit).
@@ -1747,6 +1750,11 @@ func _surface_update(_dt: float) -> void:
 		var ef := _ground(n.global_position.x, n.global_position.z) + 30.0
 		if n.global_position.y < ef: n.global_position.y = ef
 	if surf_busy or not controls: return
+	var near := maxf(absf(p.x), absf(p.z)) > Surface.EDGE - 350.0
+	if near and not _edge_warned:
+		_edge_warned = true
+		message.emit("Weather front ahead — crossing into the next sector.")
+	elif not near: _edge_warned = false
 	if p.x > Surface.EDGE: tile_edge.emit(Vector2i(1, 0))
 	elif p.x < -Surface.EDGE: tile_edge.emit(Vector2i(-1, 0))
 	elif p.z > Surface.EDGE: tile_edge.emit(Vector2i(0, 1))

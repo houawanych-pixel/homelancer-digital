@@ -133,7 +133,13 @@ func _planet_surface() -> void:
 	var wrapped := await _until(func(): return s.tile == 3, 6.0)
 	await _wait(1.0)
 	main.hud.move_vec = Vector2.ZERO
-	_check("World wrap (east edge of sector 6 -> sector 4)", wrapped and g == 3, "tile %d" % s.tile)
+	# terrain must meet at every border, including the wrap-around one
+	var worst := 0.0
+	for zz in range(-2400, 2401, 300):
+		for pair in [[5, 3], [4, 5], [8, 6]]:   # east edge of the left tile == west edge of the right tile
+			worst = maxf(worst, absf(Surface.height("new_terra", pair[0], Surface.EDGE, zz) - Surface.height("new_terra", pair[1], -Surface.EDGE, zz)))
+		worst = maxf(worst, absf(Surface.height("new_terra", 7, zz, Surface.EDGE) - Surface.height("new_terra", 1, zz, -Surface.EDGE)))  # south of row 3 wraps to row 1
+	_check("World wrap (east edge of sector 6 -> sector 4), seamless ground", wrapped and g == 3 and worst < 0.5, "tile %d, worst seam step %.2f m" % [s.tile, worst])
 	# climb above the ceiling: back in space above New Terra
 	_tp(Vector3(0, Surface.CEILING - 30.0, 0), Vector3(0, Surface.CEILING + 400.0, -100.0))
 	main.hud.move_vec = Vector2(0, -1)

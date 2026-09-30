@@ -594,8 +594,12 @@ func _on_tile_edge(dir: Vector2i) -> void:
 	space.surf_busy = true
 	var pid: String = space.planet_id
 	var nt := Surface.neighbour(pid, space.tile, dir)
-	fx.cloud_tint = Surface.biome(pid, nt)["horizon"].lerp(Color.WHITE, 0.6)
-	fx.warp_color = Color(0.85, 0.9, 1.0)
+	# the border is hidden inside a weather front that suits where you're going
+	var front := _weather_front(Surface.PLANETS[pid]["tiles"][nt])
+	fx.cloud_tint = front[1]
+	fx.warp_color = front[1].lightened(0.3)
+	fx.caption = front[0]
+	fx.sub = Surface.tile_name(pid, nt)
 	Sfx.play("whoosh", -4.0)
 	var tw := create_tween()
 	tw.tween_property(fx, "clouds", 1.0, 0.35)
@@ -606,8 +610,18 @@ func _on_tile_edge(dir: Vector2i) -> void:
 	tw2.tween_property(fx, "clouds", 0.0, 0.6)
 	tw2.parallel().tween_property(fx, "warp", 0.0, 0.6)
 	await tw2.finished
+	fx.caption = ""
 	space.surf_busy = false
 	hud.flash_message(Surface.tile_name(pid, space.tile).capitalize())
+
+func _weather_front(biome_id: String) -> Array:
+	match biome_id:
+		"desert", "canyon", "wasteland": return ["SANDSTORM", Color(0.86, 0.66, 0.44)]
+		"ice": return ["SNOW SQUALL", Color(0.9, 0.94, 1.0)]
+		"volcanic": return ["ASH CLOUD", Color(0.42, 0.36, 0.34)]
+		"mountains": return ["TURBULENCE", Color(0.82, 0.86, 0.92)]
+		"industrial": return ["SMOG BANK", Color(0.62, 0.6, 0.55)]
+	return ["RAIN SQUALL", Color(0.66, 0.72, 0.8)]
 
 ## Climbing past the ceiling: clouds, then space above the same part of the planet.
 func leave_atmosphere() -> void:
