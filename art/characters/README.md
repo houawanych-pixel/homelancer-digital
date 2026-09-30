@@ -24,7 +24,7 @@ Checked but not in the repo (too large, source files stay in Drive):
 - Headless mecha (`3ecb169a…glb`, unrigged, cockpit in chest): rigged as `headless_mecha_rigged.glb` — 22-bone
   humanoid, `--mech`, 11,860 tris, 3 m, Idle + Walk. Hip skirt plates follow the thighs so strides don't stretch.
 - Red mecha (`ffb9ef73…glb`, unrigged): rigged as `red_mecha_rigged_booster.glb` — 22-bone, `--mech`, 44,870 tris,
-  3 m. Long hip blades follow each thigh. Thin black back fins removed; replaced with a procedural back-booster
+  3 m. Long hip blades follow each thigh. Thin black back fins removed; replaced with the white mecha's backpack (twin cannons + booster blocks) repainted to the red mecha's red (was: procedural back-booster
   (`tools/shipkit/make_booster.py`: core pack, twin down-angled nacelles with glowing nozzles, swept wing-vanes with
   verniers) as a separate object on UpperChest.
 - Hooded dark figure (`1a37ead1…angry_02.glb`): Tripo rig good; long tattered cloak was split between legs and
