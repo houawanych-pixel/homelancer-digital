@@ -61,6 +61,8 @@ const SLOT_ITEMS := {
 }
 const DEFAULT_SLOTS := ["light_missile", "heavy_missile", "mine"]
 # Loot pods dropped by destroyed ships; the tractor beam pulls them in.
+# Three-part damage: each side section (wing / arm) has this share of the unit's hull as its own health.
+const SECTION_SHARE := 0.4
 const LOOT_RANGE := 700.0
 const TRACTOR_TIME := 4.0
 const REPAIR_AMOUNT := 0.4 # fraction of max hull
@@ -69,6 +71,8 @@ const REPAIR_AMOUNT := 0.4 # fraction of max hull
 const ENEMIES := {
 	"raider": {"name": "Raider", "hull": 60.0, "shield": 30.0, "speed": 44.0, "turn": 1.3, "damage": 5.0, "rate": 1.6, "reward": 150},
 	"corsair": {"name": "Corsair", "hull": 90.0, "shield": 50.0, "speed": 48.0, "turn": 1.4, "damage": 6.0, "rate": 1.9, "reward": 220},
+	# assault mech: two arm guns + a chest cannon; flies with the raiders/corsairs
+	"mech": {"name": "Assault Mech", "hull": 120.0, "shield": 40.0, "speed": 40.0, "turn": 1.2, "damage": 6.0, "rate": 1.4, "reward": 280, "model": "mech_tan", "mech": true},
 }
 
 # ---------------------------------------------------------------- star systems

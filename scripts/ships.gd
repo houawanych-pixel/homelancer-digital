@@ -15,6 +15,8 @@ const GLB := {
 	"mine": ["res://assets/weapons/mine.glb", 3.2, 0.0],
 	"gatling": ["res://assets/weapons/gatling.glb", 3.0, 0.0],
 	"rocket_pod": ["res://assets/weapons/rocket_pod.glb", 3.0, 0.0],
+	# mechs: rigged 3 m models scaled to small-ship size; yaw 180 so the mech faces -Z like the ships
+	"mech_tan": ["res://assets/mechs/tan_navy_mecha.glb", 11.0, 180.0],
 }
 
 static var _cache := {}

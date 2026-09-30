@@ -66,6 +66,37 @@ func _tp(pos: Vector3, look: Vector3) -> void:
 func _press(id: String) -> void:
 	main._on_hud(id)
 
+## Owner's first-pass loop: spawn a mech, shoot off its left arm (explosion, arm hidden, that gun offline),
+## wait for a damage spark, then kill the core. Also shoots the right wing off a ship.
+func _section_loop() -> void:
+	var s := _sp()
+	var fwd := -s.player.global_basis.z
+	var e: Dictionary = s.spawn_unit("mech", s.player.global_position + fwd * 40.0 + s.player.global_basis.y * 2.0, s.player.global_position)
+	var n: Node3D = e["node"]
+	n.look_at(s.player.global_position, Vector3.UP)
+	e["sh"] = 0.0
+	e["aggro"] = false
+	s.target = n
+	await _shot("mech_intact", 0.4)
+	var guns0: Array = s.unit_guns(e)
+	s._damage_enemy(e, 999.0, n.global_position - n.global_basis.x * 4.0)
+	var arm_hidden: bool = e["vis"].get("gone_l", false)
+	var guns1: Array = s.unit_guns(e)
+	await _shot("mech_arm_destroyed", 0.35)
+	await _until(func(): return int(e["sparks"]) > 0, 6.0)
+	var sparked: bool = int(e["sparks"]) > 0
+	var r2: Dictionary = s.spawn_unit("raider", s.player.global_position + fwd * 60.0 + s.player.global_basis.x * 25.0, s.player.global_position)
+	r2["sh"] = 0.0
+	s._damage_enemy(r2, 999.0, r2["node"].global_position + r2["node"].global_basis.x * 4.0)
+	var wing_hidden: bool = not r2["vis"]["r"].is_empty() and r2["vis"]["r"].all(func(w): return not w.visible)
+	s._damage_enemy(e, 999.0)
+	var gone := not s.enemies.has(e)
+	await _shot("mech_core_destroyed", 0.15)
+	s._damage_enemy(r2, 999.0)
+	await _wait(0.6)
+	_check("Three-part damage: arm/wing off, gun offline, sparks, core kill", guns0 == ["l", "r"] and arm_hidden and guns1 == ["r"] and sparked and wing_hidden and gone and not s.player_vis.get("l", []).is_empty(),
+		"guns %s -> %s, arm hidden %s, sparks %d, wing hidden %s, destroyed %s" % [guns0, guns1, arm_hidden, int(e["sparks"]), wing_hidden, gone])
+
 var got_hail := false
 func _fight(label: String) -> bool:
 	var s := _sp()
@@ -249,6 +280,7 @@ func _run() -> void:
 	_check("Enemy called you on the intercom", got_hail)
 	await _wait(0.5)
 	_check("Enraged raider leader joins contacts", GS.mood.get("voss", "") == "enraged")
+	await _section_loop()
 	# ---- dock at station
 	_check("Station docking", await _dock_at(s.station), s.station.name)
 	await _wait(0.8)

@@ -9,6 +9,8 @@ var owned_ships := ["cadet"]
 var weapon_id := "pulse1"
 var owned_weapons := ["pulse1"]
 var hull := 100.0
+var wing_l := 40.0 # left and right wing sections (own health; a destroyed wing takes its guns with it)
+var wing_r := 40.0
 var shield := 60.0
 var repairs := Data.MAX_REPAIRS
 var missiles := 6
@@ -32,6 +34,7 @@ var god_mode := false # only used by the automated route test
 func ship() -> Dictionary: return Data.SHIPS[ship_id]
 func weapon() -> Dictionary: return Data.WEAPONS[weapon_id]
 func max_hull() -> float: return float(ship()["hull"])
+func wing_max() -> float: return max_hull() * Data.SECTION_SHARE
 func max_shield() -> float: return float(ship()["shield"])
 func max_missiles() -> int: return int(ship()["missiles"])
 func max_mines() -> int: return int(ship()["mines"])
@@ -49,6 +52,8 @@ func meet(id: String, m := "friendly") -> bool:
 
 func restore_full() -> void:
 	hull = max_hull()
+	wing_l = wing_max()
+	wing_r = wing_max()
 	shield = max_shield()
 	repairs = Data.MAX_REPAIRS
 	missiles = max_missiles()
@@ -138,12 +143,28 @@ func buy_ship(id: String) -> String:
 	restore_full()
 	return "The %s is fuelled, armed and ready." % s["name"]
 
-func damage(amount: float) -> void:
+## Shield first; then the wing on the side that was hit (if it is still there), else the core hull.
+## Returns "l"/"r" when that hit just destroyed a wing, else "".
+func damage(amount: float, side := "") -> String:
 	if god_mode: amount *= 0.0
 	var absorbed := minf(shield, amount)
 	shield -= absorbed
-	hull = maxf(0.0, hull - (amount - absorbed))
+	var rest := amount - absorbed
+	var broke := ""
+	if rest > 0.0 and side == "l" and wing_l > 0.0:
+		wing_l -= rest
+		if wing_l <= 0.0:
+			wing_l = 0.0
+			broke = "l"
+	elif rest > 0.0 and side == "r" and wing_r > 0.0:
+		wing_r -= rest
+		if wing_r <= 0.0:
+			wing_r = 0.0
+			broke = "r"
+	else:
+		hull = maxf(0.0, hull - rest)
 	changed.emit()
+	return broke
 
 func use_repair() -> bool:
 	if repairs <= 0 or hull >= max_hull(): return false

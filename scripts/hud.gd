@@ -389,6 +389,9 @@ func _status_bars() -> void:
 		var col: Color = rows[k][2]
 		var low := v < 0.25 and k < 2 and fmod(t, 0.6) < 0.3
 		_icon(rows[k][0], Vector2(x - 18, y + 7), 7.0, RED if low else col)
+		if k == 1:
+			_three_part(Rect2(Vector2(x, y + 2), Vector2(w - 8, 11)), GS.wing_l / GS.wing_max(), v, GS.wing_r / GS.wing_max(), low)
+			continue
 		var segs := 20
 		var sw := (w - 8) / segs
 		for i in segs:
@@ -489,7 +492,7 @@ func _draw() -> void:
 		var pp = _screen(pu["pos"])
 		if pp != null:
 			var a: float = clampf(pu["life"] / 0.9, 0.0, 1.0)
-			_text(pp - Vector2(30, 0), pu["text"], 18, Color(pu["col"], a), HORIZONTAL_ALIGNMENT_CENTER, 60)
+			_text(pp - Vector2(110, 0), pu["text"], 18, Color(pu["col"], a), HORIZONTAL_ALIGNMENT_CENTER, 220)
 	var tgt: Node3D = space.target
 	if tgt and is_instance_valid(tgt):
 		var tp = _screen(tgt.global_position)
@@ -574,6 +577,25 @@ func _draw() -> void:
 func _hull_col(k: float) -> Color:
 	return GREEN.lerp(YELLOW, clampf((0.75 - k) / 0.35, 0, 1)).lerp(RED, clampf((0.4 - k) / 0.3, 0, 1))
 
+## [ LEFT ] [ CORE ] [ RIGHT ]: side sections are short bars at each end, the core is the long middle bar.
+## A destroyed side shows as a dark red box with an X.
+func _three_part(r: Rect2, lk: float, ck: float, rk: float, blink := false) -> void:
+	var gap := maxf(2.0, r.size.x * 0.02)
+	var sw := r.size.x * 0.2
+	var parts := [[Rect2(r.position, Vector2(sw, r.size.y)), lk], [Rect2(r.position + Vector2(sw + gap, 0), Vector2(r.size.x - sw * 2 - gap * 2, r.size.y)), ck],
+		[Rect2(r.position + Vector2(r.size.x - sw, 0), Vector2(sw, r.size.y)), rk]]
+	for i in 3:
+		var pr: Rect2 = parts[i][0]
+		var k: float = clampf(parts[i][1], 0.0, 1.0)
+		draw_rect(pr, Color(0, 0, 0, 0.55))
+		if i != 1 and k <= 0.0:
+			draw_rect(pr, Color(0.45, 0.05, 0.05, 0.9))
+			draw_line(pr.position, pr.end, RED, 1.5)
+			draw_line(Vector2(pr.position.x, pr.end.y), Vector2(pr.end.x, pr.position.y), RED, 1.5)
+			continue
+		var c := RED if (blink and i == 1) else _hull_col(k)
+		draw_rect(Rect2(pr.position, Vector2(pr.size.x * k, pr.size.y)), c)
+
 ## Shield (cyan) over hull (green -> red) bars for one enemy.
 func _enemy_bars(p: Vector2, w: float, h: float, e: Dictionary, labels := false) -> void:
 	var shk: float = float(e["sh"]) / maxf(1.0, float(e["sh_max"]))
@@ -581,10 +603,14 @@ func _enemy_bars(p: Vector2, w: float, h: float, e: Dictionary, labels := false)
 	draw_rect(Rect2(p - Vector2(1, 1), Vector2(w + 2, h * 2 + 5)), Color(0, 0, 0, 0.55))
 	if float(e["sh_max"]) > 0.0:
 		draw_rect(Rect2(p, Vector2(w * shk, h)), CYAN_HI)
-	draw_rect(Rect2(p + Vector2(0, h + 2), Vector2(w * hk, h)), _hull_col(hk))
+	var sm: float = maxf(1.0, float(e.get("side_max", 1.0)))
+	_three_part(Rect2(p + Vector2(0, h + 2), Vector2(w, h)), float(e.get("l", sm)) / sm, hk, float(e.get("r", sm)) / sm)
 	if labels:
 		_text(p + Vector2(w + 6, h + 1), "SH %d" % roundi(float(e["sh"])), 12, CYAN_HI)
-		_text(p + Vector2(w + 6, h * 2 + 12), "HULL %d" % roundi(float(e["hp"])), 12, _hull_col(hk))
+		_text(p + Vector2(w + 6, h * 2 + 12), "CORE %d" % roundi(float(e["hp"])), 12, _hull_col(hk))
+		var lab := "ARM" if e.get("mech", false) else "WING"
+		_text(p + Vector2(0, h * 2 + 16), "L " + lab, 10, Color(1, 1, 1, 0.75))
+		_text(p + Vector2(0, h * 2 + 16), "R " + lab, 10, Color(1, 1, 1, 0.75), HORIZONTAL_ALIGNMENT_RIGHT, w)
 
 func _edge_arrow(p3: Vector3, col: Color, view: Rect2, big: bool) -> void:
 	var sp = _screen(p3)

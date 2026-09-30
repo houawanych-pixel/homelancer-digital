@@ -34,6 +34,8 @@ var lock_time := 0.0
 var mines_live: Array = []
 var loot: Array = [] # {node, vel, value, life}
 var tractor_t := 0.0
+var player_vis := {} # the player ship's wing sections (Sections handle)
+var player_spark := 3.0
 signal system_used(id: String, text: String)
 var warp_state := "off" # off | charging | on
 var warp_t := 0.0
@@ -516,24 +518,47 @@ func set_player_model() -> void:
 	model = ShipFactory.build(Data.SHIPS[GS.ship_id]["model"])
 	player.add_child(model)
 	model.visible = GS.view != "cockpit"
+	player_vis = Sections.setup(model, false)
+	Sections.set_side_visible(player_vis, "l", GS.wing_l > 0.0)
+	Sections.set_side_visible(player_vis, "r", GS.wing_r > 0.0)
 
 func _spawn_group(center: Vector3, count: int) -> void:
-	var e: Dictionary = Data.ENEMIES[sys["enemy"]]
 	for i in count:
-		var n := ShipFactory.build("enemy")
-		var node := Node3D.new()
-		_enemy_serial += 1
-		node.name = "%s %d" % [e["name"], _enemy_serial]
-		node.add_child(n)
-		node.position = center + Vector3(_rng.randf_range(-60, 60), _rng.randf_range(-20, 20), _rng.randf_range(-60, 60))
-		node.set_meta("kind", "enemy")
-		node.set_meta("radius", 7.0)
-		var pilots: Array = Data.PILOTS.get(sys["enemy"], [])
-		if not pilots.is_empty(): node.set_meta("pilot", pilots[_enemy_serial % pilots.size()])
-		add_child(node, true)
-		enemies.append({"node": node, "hp": e["hull"], "max": e["hull"], "sh": e.get("shield", 0.0), "sh_max": e.get("shield", 0.0), "sh_cd": 0.0,
-			"def": e, "vel": Vector3.ZERO, "home": center,
-			"cd": _rng.randf_range(0.5, 2.0), "orbit": _rng.randf() * TAU, "aggro": false, "strafe": _rng.randf_range(-1, 1)})
+		# the last ship of a pair or bigger group is sometimes an assault mech
+		var kind: String = sys["enemy"]
+		if count >= 2 and i == count - 1 and _rng.randf() < 0.5: kind = "mech"
+		spawn_unit(kind, center + Vector3(_rng.randf_range(-60, 60), _rng.randf_range(-20, 20), _rng.randf_range(-60, 60)), center)
+
+## Spawn one hostile ship or mech with three sections (left / core / right).
+func spawn_unit(kind: String, pos: Vector3, home: Vector3) -> Dictionary:
+	var e: Dictionary = Data.ENEMIES[kind]
+	var is_mech: bool = e.get("mech", false)
+	var n := ShipFactory.build(e.get("model", "enemy"))
+	var node := Node3D.new()
+	_enemy_serial += 1
+	node.name = "%s %d" % [e["name"], _enemy_serial]
+	node.add_child(n)
+	node.position = pos
+	node.set_meta("kind", "enemy")
+	node.set_meta("radius", 7.0)
+	var pilots: Array = Data.PILOTS.get(sys["enemy"], [])
+	if not pilots.is_empty() and not is_mech: node.set_meta("pilot", pilots[_enemy_serial % pilots.size()])
+	add_child(node, true)
+	var side_hp: float = float(e["hull"]) * Data.SECTION_SHARE
+	var ent := {"node": node, "model": n, "hp": e["hull"], "max": e["hull"], "sh": e.get("shield", 0.0), "sh_max": e.get("shield", 0.0), "sh_cd": 0.0,
+		"def": e, "vel": Vector3.ZERO, "home": home, "mech": is_mech,
+		"l": side_hp, "r": side_hp, "side_max": side_hp, "vis": Sections.setup(n, is_mech),
+		"spark_l": 0.0, "spark_r": 0.0, "sparks": 0, "gun": 0, "core_cd": _rng.randf_range(1.5, 3.0),
+		"cd": _rng.randf_range(0.5, 2.0), "orbit": _rng.randf() * TAU, "aggro": false, "strafe": _rng.randf_range(-1, 1), "prev_fwd": Vector3.FORWARD}
+	enemies.append(ent)
+	return ent
+
+## Weapon mounts still working: "l"/"r" arm or wing guns, plus "core" for a mech's chest cannon.
+func unit_guns(e: Dictionary) -> Array:
+	var g: Array = []
+	if float(e["l"]) > 0.0: g.append("l")
+	if float(e["r"]) > 0.0: g.append("r")
+	return g
 
 func _build_traffic() -> void:
 	for pair in sys["traffic"]:
@@ -592,6 +617,12 @@ func _update_player(dt: float) -> void:
 	call_cd = maxf(0.0, call_cd - dt)
 	GS.energy = minf(Data.ENERGY_MAX, GS.energy + Data.ENERGY_REGEN * dt)
 	for k in ["shield_cd", "energy_cd", "repair_cd", "missile_cd", "mine_cd"]: set(k, maxf(0.0, float(get(k)) - dt))
+	if GS.wing_l <= 0.0 or GS.wing_r <= 0.0:
+		player_spark -= dt
+		if player_spark <= 0.0 and model.visible:
+			player_spark = _rng.randf_range(3.0, 5.0)
+			var ps := Sections.side_point(player_vis, "l" if GS.wing_l <= 0.0 else "r", model)
+			_spark_v(ps, Vector3(_rng.randfn(0, 5), _rng.randfn(0, 5), _rng.randfn(0, 5)), Color(1.0, 0.85, 0.5), 1.8, 0.15)
 	if shield_delay <= 0.0 and GS.shield < GS.max_shield():
 		GS.shield = minf(GS.max_shield(), GS.shield + GS.max_shield() * 0.12 * dt)
 	var steer := aim if controls else Vector2.ZERO
@@ -750,6 +781,8 @@ func _fire_guns() -> void:
 			aim_dir = (lead - player.global_position).normalized()
 	for g in guns:
 		var off := (g - (guns - 1) / 2.0) * 2.4
+		if off < -0.1 and GS.wing_l <= 0.0: continue   # left wing gone: its guns are gone
+		if off > 0.1 and GS.wing_r <= 0.0: continue
 		var from := player.global_position + player.global_basis.x * off + fwd * 5.0
 		_spawn_bolt(from, aim_dir * float(w["speed"]) + vel, float(w["damage"]), w["color"], "player", float(w["range"]) / float(w["speed"]))
 		_spark(from + fwd * 1.5, (w["color"] as Color).lightened(0.4), 3.2, 0.09)
@@ -879,12 +912,12 @@ func _update_bolts(dt: float) -> void:
 		if b["owner"] == "player":
 			for e in enemies:
 				if _seg_hit(from, to, e["node"].global_position, 7.5):
-					_damage_enemy(e, b["dmg"])
+					_damage_enemy(e, b["dmg"], _seg_closest(from, to, e["node"].global_position))
 					hit = true
 					break
 		else:
 			if _seg_hit(from, to, player.global_position, 5.0):
-				_player_hit(b["dmg"])
+				_player_hit(b["dmg"], _seg_closest(from, to, player.global_position))
 				hit = true
 		if not hit and in_belt_region(to):
 			for r in rocks:
@@ -898,6 +931,13 @@ func _update_bolts(dt: float) -> void:
 
 func in_belt_region(p: Vector3) -> bool:
 	return p.distance_to(belt_center) < belt_radius + 60.0
+
+func _seg_closest(a: Vector3, b: Vector3, c: Vector3) -> Vector3:
+	var ab := b - a
+	var l2 := ab.length_squared()
+	var t := 0.0
+	if l2 > 0.0: t = clampf((c - a).dot(ab) / l2, 0.0, 1.0)
+	return a + ab * t
 
 func _seg_hit(a: Vector3, b: Vector3, c: Vector3, r: float) -> bool:
 	var ab := b - a
@@ -943,41 +983,84 @@ func _enemy_entry(n: Node3D) -> Dictionary:
 		if e["node"] == n: return e
 	return {}
 
-func _damage_enemy(e: Dictionary, dmg: float) -> void:
+## Shields soak damage first. What gets through hits the section under the hit point: a wing/arm if the shot
+## landed on that side (and it is still there), otherwise the core. Missiles and mines (no hit point) hit the core.
+func _damage_enemy(e: Dictionary, dmg: float, hit := Vector3.INF) -> void:
 	e["aggro"] = true
 	e["sh_cd"] = 4.0
-	var at: Vector3 = e["node"].global_position
+	var at: Vector3 = e["node"].global_position if hit == Vector3.INF else hit
 	var to_shield := minf(dmg, float(e["sh"]))
 	e["sh"] = float(e["sh"]) - to_shield
 	var to_hull := dmg - to_shield
-	e["hp"] -= to_hull
 	if to_shield > 0.0:
 		_spark(at, Color(0.4, 0.8, 1.0), 9.0, 0.22)   # shield flare
 		_popup(at, "-%d" % roundi(to_shield), Color(0.45, 0.85, 1.0))
 		Sfx.play("shield_hit", -14.0, 1.2)
-	if to_hull > 0.0:
+	if to_hull <= 0.0: return
+	var side := "core"
+	if hit != Vector3.INF: side = Sections.side_of_hit(e["vis"], e["node"], hit, 7.5)
+	if side != "core" and float(e[side]) > 0.0:
+		e[side] = float(e[side]) - to_hull
 		_spark(at, Color(1.0, 0.6, 0.25), 3.5, 0.3)
-		_popup(at + Vector3(0, 2, 0), "-%d" % roundi(to_hull), Color(1.0, 0.62, 0.3))
+		_popup(at + Vector3(0, 2, 0), "-%d" % roundi(to_hull), Color(1.0, 0.75, 0.3))
 		Sfx.play("hull_hit", -12.0, 1.3)
-	if e["hp"] <= 0.0:
-		var n: Node3D = e["node"]
-		_explode(n.global_position)
-		enemies.erase(e)
-		var reward: int = e["def"]["reward"]
-		_drop_loot(n.global_position, reward)
-		enemy_killed.emit(reward, n.name)
-		if target == n: target = null
-		n.queue_free()
+		if float(e[side]) <= 0.0: _break_section(e, side)
+		return
+	e["hp"] -= to_hull
+	_spark(at, Color(1.0, 0.6, 0.25), 3.5, 0.3)
+	_popup(at + Vector3(0, 2, 0), "-%d" % roundi(to_hull), Color(1.0, 0.62, 0.3))
+	Sfx.play("hull_hit", -12.0, 1.3)
+	if e["hp"] <= 0.0: _destroy_unit(e)
+
+## A wing or arm reaches zero: one sharp explosion at that side, the part vanishes, its weapon stops.
+func _break_section(e: Dictionary, side: String) -> void:
+	e[side] = 0.0
+	var model: Node3D = e["model"]
+	var p := Sections.side_point(e["vis"], side, model)
+	var dd := p.distance_to(player.global_position)
+	if dd < 1500.0: Sfx.play("explosion", -6.0 - dd / 90.0, 1.35)
+	_spark(p, Color(1.0, 0.95, 0.8), 16.0, 0.25)       # flash
+	_spark(p, Color(1.0, 0.55, 0.2), 11.0, 0.6)        # fireball
+	_spark_v(p, Vector3(_rng.randfn(0, 3), 4, _rng.randfn(0, 3)), Color(0.45, 0.45, 0.5), 9.0, 1.0)  # smoke puff
+	Sections.set_side_visible(e["vis"], side, false)
+	e["spark_" + side] = _rng.randf_range(3.0, 5.0)
+	var part := ("LEFT " if side == "l" else "RIGHT ") + ("ARM" if e["mech"] else "WING")
+	_popup(p + Vector3(0, 4, 0), part + " DOWN", Color(1.0, 0.85, 0.3))
+	if e["node"] == target: message.emit("%s %s destroyed — that weapon is offline." % [e["node"].name, part.to_lower()])
+
+## Core reaches zero: a much bigger blast, then the unit shrinks away inside the flash and is removed.
+func _destroy_unit(e: Dictionary) -> void:
+	var n: Node3D = e["node"]
+	_explode(n.global_position)
+	_spark(n.global_position, Color(1.0, 0.95, 0.85), 40.0, 0.35)
+	enemies.erase(e)
+	var reward: int = e["def"]["reward"]
+	_drop_loot(n.global_position, reward)
+	enemy_killed.emit(reward, n.name)
+	if target == n: target = null
+	n.set_meta("kind", "wreck")
+	var tw := n.create_tween()
+	tw.tween_property(n, "scale", Vector3.ONE * 0.05, 0.35).set_ease(Tween.EASE_IN)
+	tw.tween_callback(n.queue_free)
 
 func _popup(at: Vector3, txt: String, col: Color) -> void:
 	popups.append({"pos": at + Vector3(_rng.randf_range(-2, 2), 4, 0), "text": txt, "col": col, "life": 0.9})
 	if popups.size() > 24: popups.pop_front()
 
-func _player_hit(dmg: float) -> void:
+func _player_hit(dmg: float, hit := Vector3.INF) -> void:
 	Sfx.play("shield_hit" if GS.shield > 0.0 else "hull_hit", -6.0)
 	shield_delay = 3.0
 	hit_shake = 1.0
-	GS.damage(dmg)
+	var side := "core"
+	if hit != Vector3.INF: side = Sections.side_of_hit(player_vis, player, hit, 5.0)
+	var broke := GS.damage(dmg, side)
+	if broke != "":
+		var p := Sections.side_point(player_vis, broke, model)
+		Sfx.play("explosion", -4.0, 1.35)
+		_spark(p, Color(1.0, 0.95, 0.8), 12.0, 0.25)
+		_spark(p, Color(1.0, 0.55, 0.2), 8.0, 0.6)
+		Sections.set_side_visible(player_vis, broke, false)
+		message.emit("%s wing destroyed — its guns are offline. Dock for repairs." % ("Left" if broke == "l" else "Right"))
 	if warp_state != "off": drop_warp("Warp drive disrupted by weapons fire!")
 	if GS.hull <= 0.0 and controls:
 		_explode(player.global_position)
@@ -1022,13 +1105,52 @@ func _update_enemies(dt: float) -> void:
 		n.global_position += e["vel"] * dt
 		# shooting
 		e["cd"] -= dt
-		if e["aggro"] and controls and dist < 420.0 and e["cd"] <= 0.0:
-			if (-n.global_basis.z).dot(to.normalized()) > cos(deg_to_rad(12.0)):
-				e["cd"] = 1.0 / float(d["rate"])
-				var lead := ppos + vel * (dist / 300.0)
+		e["core_cd"] -= dt
+		var facing: bool = (-n.global_basis.z).dot(to.normalized()) > cos(deg_to_rad(12.0))
+		if e["aggro"] and controls and dist < 420.0 and facing:
+			var lead := ppos + vel * (dist / 300.0)
+			var guns := unit_guns(e)
+			if e["cd"] <= 0.0 and not guns.is_empty():
+				# alternate between the arm/wing guns that are still attached
+				e["cd"] = 1.0 / float(d["rate"]) * (2.0 / guns.size())
+				e["gun"] = (int(e["gun"]) + 1) % guns.size()
+				var sx := -1.0 if guns[e["gun"]] == "l" else 1.0
+				var from: Vector3 = n.global_position + n.global_basis.x * sx * 3.0 - n.global_basis.z * 5.0
 				var jitter := Vector3(_rng.randfn(0, 4), _rng.randfn(0, 4), _rng.randfn(0, 4))
-				_spawn_bolt(n.global_position - n.global_basis.z * 5.0, (lead + jitter - n.global_position).normalized() * 300.0, d["damage"], Color(1.0, 0.35, 0.25), "enemy", 1.6)
+				_spawn_bolt(from, (lead + jitter - from).normalized() * 300.0, d["damage"], Color(1.0, 0.35, 0.25), "enemy", 1.6)
 				if dist < 450.0: Sfx.play("laser_enemy", -12.0 - dist / 60.0)
+			if e["mech"] and e["core_cd"] <= 0.0:
+				# chest cannon: slower, heavier, keeps working when both arms are gone
+				e["core_cd"] = 2.6
+				var cf: Vector3 = n.global_position + n.global_basis.y * 2.0 - n.global_basis.z * 5.0
+				_spawn_bolt(cf, (lead - cf).normalized() * 260.0, float(d["damage"]) * 1.8, Color(1.0, 0.6, 0.2), "enemy", 1.8)
+				if dist < 450.0: Sfx.play("laser_enemy", -9.0 - dist / 60.0, 0.7)
+		_unit_fx(e, dt, dist)
+
+## Cheap after-effects: a destroyed side gives one tiny spark (and a wisp of smoke) every 3–5 s, only near the
+## player. Mechs lean into their flight and swing their arms back with speed.
+func _unit_fx(e: Dictionary, dt: float, dist: float) -> void:
+	if dist > 1400.0: return
+	var n: Node3D = e["node"]
+	for side in ["l", "r"]:
+		if float(e[side]) > 0.0: continue
+		e["spark_" + side] = float(e["spark_" + side]) - dt
+		if e["spark_" + side] <= 0.0:
+			e["spark_" + side] = _rng.randf_range(3.0, 5.0)
+			e["sparks"] = int(e["sparks"]) + 1
+			var p := Sections.side_point(e["vis"], side, e["model"])
+			_spark_v(p, Vector3(_rng.randfn(0, 6), _rng.randfn(0, 6), _rng.randfn(0, 6)), Color(1.0, 0.85, 0.5), 2.2, 0.16)
+			if _rng.randf() < 0.5: _spark_v(p, Vector3(0, 2.5, 0), Color(0.4, 0.4, 0.45), 3.5, 0.6)
+	if e["mech"]:
+		var model: Node3D = e["model"]
+		var sp: float = (e["vel"] as Vector3).length() / maxf(1.0, float(e["def"]["speed"]))
+		# forward flight posture + arms back with speed; lean into turns
+		var fwd := -n.global_basis.z
+		var turn: float = (e["prev_fwd"] as Vector3).cross(fwd).y / maxf(dt, 0.001)
+		e["prev_fwd"] = fwd
+		model.rotation.x = lerpf(model.rotation.x, -deg_to_rad(10.0 + 12.0 * sp), minf(1.0, dt * 2.0))
+		model.rotation.z = lerpf(model.rotation.z, clampf(-turn * 0.6, -0.35, 0.35), minf(1.0, dt * 2.0))
+		Sections.pose_mech(e["vis"], 10.0 + 25.0 * sp, dt)
 
 func _update_traffic(dt: float) -> void:
 	var a := dock_point(station)
@@ -1096,23 +1218,34 @@ func _ambient_anim(dt: float) -> void:
 		pm.albedo_color.a = 0.4 + 0.15 * sin(time * 2.0)
 
 # ---------------------------------------------------------------- effects
+var _spark_pool: Array = []
+static var _unit_quad: QuadMesh
+
+## Short-lived glow sprite. Sprites are pooled (hidden and reused), so big fights don't allocate every frame.
 func _spark(at: Vector3, col: Color, size: float, life := 0.3) -> void:
-	var mi := MeshInstance3D.new()
-	var q := QuadMesh.new()
-	q.size = Vector2(size, size)
-	mi.mesh = q
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	m.albedo_texture = _spark_tex()
-	m.albedo_color = col
-	mi.material_override = m
-	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(mi)
+	var mi: MeshInstance3D
+	if not _spark_pool.is_empty():
+		mi = _spark_pool.pop_back()
+		mi.visible = true
+	else:
+		if _unit_quad == null:
+			_unit_quad = QuadMesh.new()
+			_unit_quad.size = Vector2.ONE
+		mi = MeshInstance3D.new()
+		mi.mesh = _unit_quad
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+		m.albedo_texture = _spark_tex()
+		mi.material_override = m
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(mi)
+	(mi.material_override as StandardMaterial3D).albedo_color = col
 	mi.global_position = at
-	effects.append({"node": mi, "life": life, "max": life, "grow": size * 0.5})
+	mi.scale = Vector3.ONE * size
+	effects.append({"node": mi, "life": life, "max": life, "size": size})
 
 func _spark_v(at: Vector3, v: Vector3, col: Color, size: float, life: float) -> void:
 	_spark(at, col, size, life)
@@ -1138,11 +1271,16 @@ func _update_effects(dt: float) -> void:
 		var n: MeshInstance3D = f["node"]
 		if f.has("vel"): n.global_position += (f["vel"] as Vector3) * dt
 		var k: float = clampf(f["life"] / f["max"], 0.0, 1.0)
-		n.scale = Vector3.ONE * (1.0 + (1.0 - k) * 1.5)
+		n.scale = Vector3.ONE * float(f.get("size", 1.0)) * (1.0 + (1.0 - k) * 1.5)
 		(n.material_override as StandardMaterial3D).albedo_color.a = k
 		if f["life"] <= 0.0:
-			n.queue_free()
 			effects.remove_at(i)
+			if f.has("size") and _spark_pool.size() < 160:
+				n.visible = false
+				f.erase("vel")
+				_spark_pool.append(n)
+			else:
+				n.queue_free()
 
 # ---------------------------------------------------------------- cockpit systems (AUTO / MANUAL)
 ## Manually trigger one of the six systems. Returns false when it could not run.
