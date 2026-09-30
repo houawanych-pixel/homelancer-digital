@@ -70,6 +70,7 @@ var got_hail := false
 func _fight(label: String) -> bool:
 	var s := _sp()
 	if not s.hail.is_connected(_on_hail): s.hail.connect(_on_hail)
+	if not s.enemy_hail.is_connected(_on_enemy_hail): s.enemy_hail.connect(_on_enemy_hail)
 	var before := GS.kills
 	if s.enemies.is_empty():
 		for p in s.sys["patrols"]: s._spawn_group(p, 2)
@@ -99,6 +100,9 @@ func _fight(label: String) -> bool:
 	s.move = Vector2.ZERO
 	return GS.kills > before
 
+func _on_enemy_hail(_p: Dictionary) -> void:
+	got_hail = true
+
 func _on_hail(_from: String, _line: String, hostile: bool) -> void:
 	if hostile: got_hail = true
 
@@ -120,7 +124,42 @@ func _launch() -> bool:
 	main.launch()
 	return await _until(func(): return main.state == "flight", 8.0)
 
+## HL_SHOWCASE=1: short scripted fight for reviewing combat visuals (laser bolts, missile flame, enemy bars, pilot call).
+func _showcase() -> void:
+	await _wait(1.0)
+	main.start_game()
+	await _until(func(): return main.state == "flight", 10.0)
+	await _wait(1.0)
+	var s := _sp()
+	var p: Node3D = s.player
+	s.player.global_position += -p.global_basis.z * 250.0
+	await _wait(0.3)
+	s._spawn_group(p.global_position - p.global_basis.z * 220.0, 1)
+	var e: Dictionary = s.enemies[s.enemies.size() - 1]
+	s.target = e["node"]
+	for i in 5:
+		s._fire_guns()
+		await _wait(0.1)
+	await _capture("showcase_lasers")
+	s.set_view("cockpit")
+	for i in 5:
+		s._fire_guns()
+		await _wait(0.1)
+	await _capture("showcase_lasers_cockpit")
+	s.set_view("chase")
+	s.fire_missile()
+	await _wait(0.3)
+	await _capture("showcase_missile")
+	await _wait(0.6)
+	main._pilot_call(Data.PILOTS["raider"][0], true)
+	await _wait(0.5)
+	await _capture("showcase_call")
+	get_tree().quit()
+
 func _run() -> void:
+	if OS.get_environment("HL_SHOWCASE") != "":
+		await _showcase()
+		return
 	await _wait(1.5)
 	_publish("title")
 	await _shot("title", 1.0)

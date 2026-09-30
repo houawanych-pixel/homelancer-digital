@@ -54,8 +54,8 @@ const REPAIR_AMOUNT := 0.4 # fraction of max hull
 
 # ---------------------------------------------------------------- enemies
 const ENEMIES := {
-	"raider": {"name": "Raider", "hull": 60.0, "speed": 44.0, "turn": 1.3, "damage": 5.0, "rate": 1.6, "reward": 150},
-	"corsair": {"name": "Corsair", "hull": 90.0, "speed": 48.0, "turn": 1.4, "damage": 6.0, "rate": 1.9, "reward": 220},
+	"raider": {"name": "Raider", "hull": 60.0, "shield": 30.0, "speed": 44.0, "turn": 1.3, "damage": 5.0, "rate": 1.6, "reward": 150},
+	"corsair": {"name": "Corsair", "hull": 90.0, "shield": 50.0, "speed": 48.0, "turn": 1.4, "damage": 6.0, "rate": 1.9, "reward": 220},
 }
 
 # ---------------------------------------------------------------- star systems
@@ -94,18 +94,41 @@ const SYSTEM_LINKS := [["solara", "vega"]]
 
 # ---------------------------------------------------------------- people you meet (placeholder original characters)
 # mood: friendly | neutral | enraged. Names/lines are stand-ins until the Homelancer bible assigns canon characters.
+# Radio contacts. "face" = portrait set in assets/portraits/<face>_<expression>.png (normal, serious, angry, sad, smile);
+# "voice" = mumble pitch (higher = lighter voice). A line may start with [expression] to pick the face for that line.
 const CHARACTERS := {
 	"vale": {"name": "Cmdr. Vale", "role": "Liberty Hub Control", "system": "solara", "color": Color(0.35, 0.8, 1.0),
-		"lines": {"friendly": ["Vale here. Keep your shields up and your credits spent.", "Liberty Hub is always open to you, pilot."]}},
+		"face": "vale", "voice": 1.3, "female": true,
+		"lines": {"friendly": ["[smile]Vale here. Keep your shields up and your credits spent.", "[normal]Liberty Hub is always open to you, pilot."]}},
 	"oduya": {"name": "Port Master Oduya", "role": "New Terra Port", "system": "solara", "color": Color(0.45, 1.0, 0.6),
-		"lines": {"friendly": ["Landing beacon's lit whenever you need it. Repairs are on the house.", "New Terra thanks you for keeping the lanes clear."]}},
+		"face": "oduya", "voice": 1.4, "female": true,
+		"lines": {"friendly": ["[smile]Landing beacon's lit whenever you need it. Repairs are on the house.", "[normal]New Terra thanks you for keeping the lanes clear."]}},
 	"rennick": {"name": "Capt. Rennick", "role": "Cargo hauler Bright Margin", "system": "solara", "color": Color(1.0, 0.8, 0.4),
-		"lines": {"friendly": ["Rennick here. Appreciate the escort — raiders have been bold lately.", "If you hear of work on the Vega run, I'm hauling."]}},
-	"voss": {"name": "Scarlet Voss", "role": "Raider wing leader", "system": "solara", "color": Color(1.0, 0.3, 0.3),
-		"lines": {"enraged": ["You killed my wingmate. I'll be waiting in the belt, cadet.", "Every raider in Solara knows your ship now.", "Call me again and I'll trace the signal to your hull."]}},
+		"face": "rennick", "voice": 0.85, "female": false,
+		"lines": {"friendly": ["[serious]Rennick here. Appreciate the escort — raiders have been bold lately.", "[smile]If you hear of work on the Vega run, I'm hauling."]}},
+	"voss": {"name": "Shade", "role": "Hoard's lieutenant · Raiders", "system": "solara", "color": Color(1.0, 0.3, 0.3),
+		"face": "voss", "voice": 0.72, "female": false,
+		"lines": {"enraged": ["[angry]You killed my wingmate. I'll be waiting in the belt, cadet.", "[smile]Every raider in Solara knows your ship now.", "[serious]Call me again and I'll trace the signal to your hull."]}},
 	"amari": {"name": "Chief Amari", "role": "Frontier Exchange", "system": "vega", "color": Color(1.0, 0.72, 0.35),
-		"lines": {"friendly": ["Welcome to the frontier. Out here, we pay for what you bring back.", "Corsairs run the ice field. Watch your flank."]}},
-	"kessler": {"name": "Dray Kessler", "role": "Corsair captain", "system": "vega", "color": Color(1.0, 0.35, 0.2),
-		"lines": {"enraged": ["That was my crew, Unity dog. Vega will be your grave.", "Run back through your gate while you still can.", "I've put a price on your ship. A good one."]}},
+		"face": "amari", "voice": 1.35, "female": true,
+		"lines": {"friendly": ["[smile]Welcome to the frontier. Out here, we pay for what you bring back.", "[serious]Corsairs run the ice field. Watch your flank."]}},
+	"kessler": {"name": "Hoard", "role": "Corsair warlord of Vega", "system": "vega", "color": Color(0.75, 0.4, 1.0),
+		"face": "kessler", "voice": 0.62, "female": false,
+		"lines": {"enraged": ["[angry]That was my crew, Unity dog. Vega will be your grave.", "[smile]Run back through your gate while you still can.", "[serious]Some secrets should never die. Neither should grudges. There's a price on your ship."]}},
+}
+# Enemy pilots who hail you (faces from the enemy dossiers). Each enemy ship gets one of its faction's pilots.
+const PILOTS := {
+	"raider": [
+		{"name": "Scar Jackal", "unit": "R-11", "face": "jackal", "voice": 0.85, "female": true,
+			"lines": ["[serious]Hunt. Dismantle. Leave nothing.", "[angry]Target acquired. Your hull will be scrap.", "[smile]Pursue. Isolate. Terminate. Repeat."]},
+		{"name": "Ember Wraith", "unit": "A-21", "face": "wraith", "voice": 1.25, "female": true,
+			"lines": ["[smile]Beauty is just another weapon.", "[angry]Silence is a kinder world. Let me show you.", "[serious]Turn around, pilot. Last warning."]},
+	],
+	"corsair": [
+		{"name": "Iron Revenant", "unit": "X-12", "face": "revenant", "voice": 0.55, "female": false,
+			"lines": ["[serious]Death remains the most efficient protocol.", "[angry]Those who resist become data.", "[smile]Steel remembers what you forget."]},
+		{"name": "Frost Banshee", "unit": "W-09", "face": "banshee", "voice": 1.3, "female": true,
+			"lines": ["[serious]Silence finds you before the cold does.", "[smile]Cold erases louder than bullets.", "[angry]You won't hear me coming."]},
+	],
 }
 const ENEMY_LEADER := {"raider": "voss", "corsair": "kessler"}

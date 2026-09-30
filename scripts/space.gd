@@ -42,6 +42,7 @@ var boosting := false
 var call_cd := 0.0
 var _particle_acc := 0.0
 signal hail(from: String, line: String, hostile: bool)
+signal enemy_hail(pilot: Dictionary)
 const TAUNTS := ["Give up, cadet. Power down and we might let you drift home.",
 	"Nice ship. It'll look better in our colours.",
 	"You're a long way from your patrol, little lancer.",
@@ -70,6 +71,7 @@ var traffic: Array = []
 var bolts: Array = []
 var missiles_live: Array = []
 var effects: Array = []
+var popups: Array = [] # floating damage numbers: {pos, text, col, life}
 var target: Node3D = null
 var respawn_timer := 0.0
 var in_nebula := 0.0 # 0..1 how deep inside
@@ -78,6 +80,8 @@ var time := 0.0
 var _enemy_serial := 0
 
 var _bolt_mesh: BoxMesh
+var _bolt_halo: BoxMesh
+var _laser_sfx_cd := 0.0
 var _rng := RandomNumberGenerator.new()
 
 # ---------------------------------------------------------------- build
@@ -86,7 +90,9 @@ func setup(id: String, arrival: String) -> void:
 	sys = Data.SYSTEMS[id]
 	_rng.seed = hash(id)
 	_bolt_mesh = BoxMesh.new()
-	_bolt_mesh.size = Vector3(0.25, 0.25, 5.0)
+	_bolt_mesh.size = Vector3(0.6, 0.6, 14.0)   # bright core
+	_bolt_halo = BoxMesh.new()
+	_bolt_halo.size = Vector3(2.2, 2.2, 18.0)    # soft glow around it, so bolts read at range and on phones
 	_build_environment()
 	_build_station(sys["station"])
 	_build_planet(sys["planet"])
@@ -520,8 +526,11 @@ func _spawn_group(center: Vector3, count: int) -> void:
 		node.position = center + Vector3(_rng.randf_range(-60, 60), _rng.randf_range(-20, 20), _rng.randf_range(-60, 60))
 		node.set_meta("kind", "enemy")
 		node.set_meta("radius", 7.0)
+		var pilots: Array = Data.PILOTS.get(sys["enemy"], [])
+		if not pilots.is_empty(): node.set_meta("pilot", pilots[_enemy_serial % pilots.size()])
 		add_child(node, true)
-		enemies.append({"node": node, "hp": e["hull"], "max": e["hull"], "def": e, "vel": Vector3.ZERO, "home": center,
+		enemies.append({"node": node, "hp": e["hull"], "max": e["hull"], "sh": e.get("shield", 0.0), "sh_max": e.get("shield", 0.0), "sh_cd": 0.0,
+			"def": e, "vel": Vector3.ZERO, "home": center,
 			"cd": _rng.randf_range(0.5, 2.0), "orbit": _rng.randf() * TAU, "aggro": false, "strafe": _rng.randf_range(-1, 1)})
 
 func _build_traffic() -> void:
@@ -740,6 +749,10 @@ func _fire_guns() -> void:
 		var off := (g - (guns - 1) / 2.0) * 2.4
 		var from := player.global_position + player.global_basis.x * off + fwd * 5.0
 		_spawn_bolt(from, aim_dir * float(w["speed"]) + vel, float(w["damage"]), w["color"], "player", float(w["range"]) / float(w["speed"]))
+		_spark(from + fwd * 1.5, (w["color"] as Color).lightened(0.4), 3.2, 0.09)
+	if _laser_sfx_cd <= 0.0:
+		Sfx.play("laser", -9.0)
+		_laser_sfx_cd = 0.07
 
 func _spawn_bolt(from: Vector3, v: Vector3, dmg: float, col: Color, owner: String, life: float) -> void:
 	var mi := MeshInstance3D.new()
@@ -749,7 +762,51 @@ func _spawn_bolt(from: Vector3, v: Vector3, dmg: float, col: Color, owner: Strin
 	add_child(mi)
 	mi.global_position = from
 	mi.look_at(from + v, Vector3.UP)
+	var halo := MeshInstance3D.new()
+	halo.mesh = _bolt_halo
+	halo.material_override = _glow_mat(col)
+	halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.add_child(halo)
+	var head := MeshInstance3D.new()   # glowing head: keeps bolts readable when they fly straight away from the camera
+	head.mesh = _bolt_head_mesh()
+	head.material_override = _head_mat(col)
+	head.position = Vector3(0, 0, -6.0)
+	head.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.add_child(head)
 	bolts.append({"node": mi, "vel": v, "life": life, "dmg": dmg, "owner": owner})
+
+static var _head_q: QuadMesh
+static var _head_mats := {}
+func _bolt_head_mesh() -> QuadMesh:
+	if _head_q == null:
+		_head_q = QuadMesh.new()
+		_head_q.size = Vector2(5.5, 5.5)
+	return _head_q
+func _head_mat(col: Color) -> StandardMaterial3D:
+	var k := col.to_html()
+	if _head_mats.has(k): return _head_mats[k]
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	m.albedo_texture = _spark_tex()
+	m.albedo_color = col.lightened(0.35)
+	_head_mats[k] = m
+	return m
+
+static var _glow_mats := {}
+func _glow_mat(col: Color) -> StandardMaterial3D:
+	var k := col.to_html()
+	if _glow_mats.has(k): return _glow_mats[k]
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.albedo_color = Color(col, 0.33)
+	_glow_mats[k] = m
+	return m
 
 func fire_missile() -> bool:
 	if GS.missiles <= 0: return false
@@ -769,7 +826,7 @@ func fire_missile() -> bool:
 		fm.height = 0.7
 		flare.mesh = fm
 		flare.position = Vector3(0, 0, 1.8)
-		flare.material_override = ShipFactory.mat(Color(1.0, 0.75, 0.35), true)
+		flare.material_override = ShipFactory.mat(Color(1.0, 0.85, 0.55), true)
 		mi.add_child(flare)
 	else:
 		var box := MeshInstance3D.new()
@@ -778,10 +835,32 @@ func fire_missile() -> bool:
 		box.mesh = bm
 		box.material_override = ShipFactory.mat(Color(1.0, 0.8, 0.4), true)
 		mi = box
+	_add_missile_flame(mi)
 	add_child(mi)
 	mi.global_position = player.global_position - player.global_basis.y * 1.5
 	missiles_live.append({"node": mi, "vel": -player.global_basis.z * 90.0 + vel, "target": t, "life": 7.0})
+	Sfx.play("missile", -4.0)
 	return true
+
+## Exhaust flame out of the missile's tail (+Z): a hot inner cone and a wider outer cone that flicker.
+func _add_missile_flame(mi: Node3D) -> void:
+	for layer in [[0.45, 4.5, Color(1.0, 0.95, 0.7), 0.95], [0.9, 7.5, Color(1.0, 0.5, 0.15), 0.6]]:
+		var cone := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.top_radius = 0.0
+		cm.bottom_radius = layer[0]
+		cm.height = layer[1]
+		cm.radial_segments = 10
+		cm.rings = 1
+		cone.mesh = cm
+		var m := _glow_mat(layer[2]).duplicate() as StandardMaterial3D
+		m.albedo_color = Color(layer[2], layer[3])
+		cone.material_override = m
+		cone.rotation_degrees = Vector3(90, 0, 0)            # cone tip points back along +Z
+		cone.position = Vector3(0, 0, 1.7 + layer[1] * 0.5)
+		cone.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		cone.name = "Flame"
+		mi.add_child(cone)
 
 func _update_bolts(dt: float) -> void:
 	for i in range(bolts.size() - 1, -1, -1):
@@ -836,7 +915,12 @@ func _update_missiles(dt: float) -> void:
 		n.global_position += v * dt
 		if v.length() > 0.1: n.look_at(n.global_position + v, Vector3.UP)
 		m["life"] -= dt
-		if int(time * 30.0) % 2 == 0: _spark(n.global_position, Color(1, 0.7, 0.3), 1.2, 0.35)
+		for c in n.get_children():
+			if c.name.begins_with("Flame"): c.scale = Vector3(1.0, 0.8 + _rng.randf() * 0.45, 1.0)
+		# glowing exhaust trail that fades behind the missile, with a little grey smoke
+		var tail := n.global_position + n.global_basis.z * 2.2
+		_spark_v(tail, n.global_basis.z * 6.0, Color(1.0, 0.62, 0.25), 4.5, 0.55)
+		if int(time * 60.0) % 3 == 0: _spark_v(tail, n.global_basis.z * 3.0 + Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), _rng.randfn(0, 1)), Color(0.55, 0.55, 0.6), 5.0, 1.2)
 		var done: bool = m["life"] <= 0.0
 		if is_instance_valid(t) and n.global_position.distance_to(t.global_position) < 9.0:
 			var e := _enemy_entry(t)
@@ -853,9 +937,21 @@ func _enemy_entry(n: Node3D) -> Dictionary:
 	return {}
 
 func _damage_enemy(e: Dictionary, dmg: float) -> void:
-	e["hp"] -= dmg
 	e["aggro"] = true
-	_spark(e["node"].global_position, Color(0.6, 0.9, 1.0), 2.5, 0.25)
+	e["sh_cd"] = 4.0
+	var at: Vector3 = e["node"].global_position
+	var to_shield := minf(dmg, float(e["sh"]))
+	e["sh"] = float(e["sh"]) - to_shield
+	var to_hull := dmg - to_shield
+	e["hp"] -= to_hull
+	if to_shield > 0.0:
+		_spark(at, Color(0.4, 0.8, 1.0), 9.0, 0.22)   # shield flare
+		_popup(at, "-%d" % roundi(to_shield), Color(0.45, 0.85, 1.0))
+		Sfx.play("shield_hit", -14.0, 1.2)
+	if to_hull > 0.0:
+		_spark(at, Color(1.0, 0.6, 0.25), 3.5, 0.3)
+		_popup(at + Vector3(0, 2, 0), "-%d" % roundi(to_hull), Color(1.0, 0.62, 0.3))
+		Sfx.play("hull_hit", -12.0, 1.3)
 	if e["hp"] <= 0.0:
 		var n: Node3D = e["node"]
 		_explode(n.global_position)
@@ -865,7 +961,12 @@ func _damage_enemy(e: Dictionary, dmg: float) -> void:
 		if target == n: target = null
 		n.queue_free()
 
+func _popup(at: Vector3, txt: String, col: Color) -> void:
+	popups.append({"pos": at + Vector3(_rng.randf_range(-2, 2), 4, 0), "text": txt, "col": col, "life": 0.9})
+	if popups.size() > 24: popups.pop_front()
+
 func _player_hit(dmg: float) -> void:
+	Sfx.play("shield_hit" if GS.shield > 0.0 else "hull_hit", -6.0)
 	shield_delay = 3.0
 	hit_shake = 1.0
 	GS.damage(dmg)
@@ -877,16 +978,24 @@ func _player_hit(dmg: float) -> void:
 
 func _update_enemies(dt: float) -> void:
 	var ppos := player.global_position
+	_laser_sfx_cd -= dt
+	for pu in popups:
+		pu["life"] -= dt
+		pu["pos"] += Vector3(0, 9.0 * dt, 0)
+	popups = popups.filter(func(pu): return pu["life"] > 0.0)
 	for e in enemies:
 		var n: Node3D = e["node"]
 		var d: Dictionary = e["def"]
+		e["sh_cd"] = float(e["sh_cd"]) - dt
+		if e["sh_cd"] <= 0.0: e["sh"] = minf(float(e["sh_max"]), float(e["sh"]) + float(e["sh_max"]) * 0.15 * dt)
 		var to := ppos - n.global_position
 		var dist := to.length()
 		var was: bool = e["aggro"]
 		if dist < 650.0 or e["aggro"]: e["aggro"] = dist < 1400.0
 		if e["aggro"] and not was and call_cd <= 0.0 and controls and warp_state == "off":
 			call_cd = 30.0
-			hail.emit("%s pilot" % d["name"], TAUNTS[_rng.randi() % TAUNTS.size()], true)
+			if n.has_meta("pilot"): enemy_hail.emit(n.get_meta("pilot"))
+			else: hail.emit("%s pilot" % d["name"], TAUNTS[_rng.randi() % TAUNTS.size()], true)
 		var goal: Vector3
 		if e["aggro"] and controls:
 			# attack run: approach, then peel off to the side and come back around
@@ -911,6 +1020,7 @@ func _update_enemies(dt: float) -> void:
 				var lead := ppos + vel * (dist / 300.0)
 				var jitter := Vector3(_rng.randfn(0, 4), _rng.randfn(0, 4), _rng.randfn(0, 4))
 				_spawn_bolt(n.global_position - n.global_basis.z * 5.0, (lead + jitter - n.global_position).normalized() * 300.0, d["damage"], Color(1.0, 0.35, 0.25), "enemy", 1.6)
+				if dist < 450.0: Sfx.play("laser_enemy", -12.0 - dist / 60.0)
 
 func _update_traffic(dt: float) -> void:
 	var a := dock_point(station)
@@ -1006,6 +1116,8 @@ func _spark_tex() -> ImageTexture:
 	return _spark_texture
 
 func _explode(at: Vector3) -> void:
+	var dd := at.distance_to(player.global_position)
+	if dd < 1500.0: Sfx.play("explosion", -2.0 - dd / 90.0)
 	_spark(at, Color(1.0, 0.75, 0.35), 26.0, 0.9)
 	_spark(at, Color(1.0, 0.4, 0.15), 14.0, 1.3)
 	for i in 6:
@@ -1214,6 +1326,12 @@ func gate_in_range() -> bool:
 func distance_to(n: Node3D) -> float:
 	if n == planet: return maxf(0.0, player.global_position.distance_to(planet.global_position) - float(planet.get_meta("radius")))
 	return player.global_position.distance_to(n.global_position)
+
+func target_shield() -> float:
+	if target == null: return -1.0
+	var e := _enemy_entry(target)
+	if e.is_empty() or float(e["sh_max"]) <= 0.0: return -1.0
+	return float(e["sh"]) / float(e["sh_max"])
 
 func target_health() -> float:
 	if target == null: return -1.0

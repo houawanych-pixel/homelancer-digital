@@ -143,6 +143,7 @@ func _load_system(id: String, arrival: String) -> void:
 	space.message.connect(func(t): hud.flash_message(t))
 	space.system_used.connect(func(sid, txt): hud.flash_message(txt); hud.pulse(sid))
 	space.hail.connect(_on_hail)
+	space.enemy_hail.connect(_on_enemy_hail)
 	hud.space = space
 
 func _on_gs_changed() -> void:
@@ -238,6 +239,9 @@ func _on_hud(id: String) -> void:
 		"log":
 			if hud.comms_mode == "roster": hud.close_roster()
 			else: hud.open_log()
+		"voice":
+			hud.flash_message(Sfx.toggle_voice())
+			if hud.comms_open: Sfx.speak(hud.comms_line, hud.comms_voice, hud.comms_female)
 		"hangup":
 			if hud.comms_open:
 				hud.close_comms()
@@ -267,7 +271,8 @@ func _call_target() -> void:
 	var tgt: Node3D = space.target
 	if tgt and is_instance_valid(tgt) and tgt.get_meta("kind", "") == "enemy":
 		var leader: String = Data.ENEMY_LEADER[space.sys["enemy"]]
-		if leader in GS.met: call_character(leader)
+		if tgt.has_meta("pilot") and (not (leader in GS.met) or randf() < 0.6): _pilot_call(tgt.get_meta("pilot"), false)
+		elif leader in GS.met: call_character(leader)
 		else: hud.open_comms(tgt.name + " pilot", space.TAUNTS[randi() % space.TAUNTS.size()], "talk", true)
 		return
 	if tgt and is_instance_valid(tgt) and tgt == space.planet and GS.system_id == "solara":
@@ -286,7 +291,8 @@ func call_character(id: String, incoming := false) -> void:
 	var pool: Array = c["lines"].get(m, c["lines"].values()[0])
 	var line: String = pool[randi() % pool.size()]
 	if (id == "vale" or id == "amari") and not incoming: line = _comms_line()
-	hud.open_comms("%s — %s" % [c["name"], c["role"]], line, "incoming" if incoming else "talk", m == "enraged")
+	hud.open_comms("%s — %s" % [c["name"], c["role"]], line, "incoming" if incoming else "talk", m == "enraged",
+		c.get("face", ""), float(c.get("voice", 1.0)), bool(c.get("female", false)))
 
 ## First meetings: they join the LOG roster and usually call you.
 func _meet(id: String, m: String, call := true) -> void:
@@ -294,12 +300,12 @@ func _meet(id: String, m: String, call := true) -> void:
 
 func _comms_line() -> String:
 	var n := space.hostiles_near(900.0)
-	if n > 0: return "Pilot, %d hostile%s on your scope. Weapons free — stay sharp." % [n, "" if n == 1 else "s"]
-	if space.in_nebula > 0.0: return "We're losing your signal in the nebula. Sensors will be short-ranged in there."
-	if space.in_belt: return "Rocks everywhere out there. Throttle down and watch your hull."
-	if GS.hull < GS.max_hull() * 0.5: return "You're leaking plasma. Dock with us for free repairs."
+	if n > 0: return "[serious]Pilot, %d hostile%s on your scope. Weapons free — stay sharp." % [n, "" if n == 1 else "s"]
+	if space.in_nebula > 0.0: return "[serious]We're losing your signal in the nebula. Sensors will be short-ranged in there."
+	if space.in_belt: return "[serious]Rocks everywhere out there. Throttle down and watch your hull."
+	if GS.hull < GS.max_hull() * 0.5: return "[sad]You're leaking plasma. Dock with us for free repairs."
 	var o := _objective().replace("OBJECTIVE: ", "")
-	return "Traffic control here. Recommended: %s." % o.to_lower()
+	return "[normal]Traffic control here. Recommended: %s." % o.to_lower()
 
 func open_map() -> void:
 	state = "map"
@@ -325,6 +331,18 @@ func _unhandled_input(e: InputEvent) -> void:
 	if state == "flight" and space.autopilot != null and hud.aim_vec.length() > 0.35:
 		space.autopilot = null
 		hud.flash_message("Autopilot off.")
+
+## An enemy pilot (face from the enemy dossiers) taunts you over the radio.
+func _pilot_call(p: Dictionary, incoming := true) -> void:
+	var lines: Array = p["lines"]
+	hud.open_comms("%s — Unit %s" % [p["name"], p["unit"]], lines[randi() % lines.size()], "incoming" if incoming else "talk", true,
+		p["face"], float(p["voice"]), bool(p["female"]))
+
+func _on_enemy_hail(p: Dictionary) -> void:
+	if hud.comms_open and hud.comms_mode != "incoming": return
+	var leader: String = Data.ENEMY_LEADER[space.sys["enemy"]]
+	if leader in GS.met and randf() < 0.35: call_character(leader, true)
+	else: _pilot_call(p)
 
 func _on_hail(from: String, line: String, hostile: bool) -> void:
 	if hud.comms_open and hud.comms_mode != "incoming": return
@@ -425,7 +443,8 @@ func _launch_sequence(where: String) -> void:
 	state = "flight"
 	hud.flash_message("Launch complete. %s system." % Data.SYSTEMS[GS.system_id]["name"])
 	var ctl := "vale" if GS.system_id == "solara" else "amari"
-	if ctl in GS.met: hud.open_comms("%s — %s" % [Data.CHARACTERS[ctl]["name"], Data.CHARACTERS[ctl]["role"]], "You're clear, pilot. " + _comms_line(), "incoming")
+	if ctl in GS.met: hud.open_comms("%s — %s" % [Data.CHARACTERS[ctl]["name"], Data.CHARACTERS[ctl]["role"]], "[smile]You're clear, pilot. " + _comms_line().substr(_comms_line().find("]") + 1), "incoming", false,
+		Data.CHARACTERS[ctl].get("face", ""), float(Data.CHARACTERS[ctl].get("voice", 1.0)), bool(Data.CHARACTERS[ctl].get("female", false)))
 	else: _meet(ctl, "friendly")
 
 # ---------------------------------------------------------------- jump gates

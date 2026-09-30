@@ -39,6 +39,11 @@ var comms_from := ""
 var comms_mode := "" # incoming | picker | talk | log
 var comms_hostile := false
 var comms_timer := 0.0
+var comms_face := ""        # portrait set id (assets/portraits/<face>_<expr>.png), "" = no face (waveform)
+var comms_expr := "normal"
+var comms_voice := 1.0
+var comms_female := false
+var _faces := {}
 var contacts: Array = []
 var history: Array = [] # recent messages and calls for LOG
 var roster_t := 1.0 # drop-down animation 0..1
@@ -70,10 +75,18 @@ func hurt() -> void:
 func pulse(id: String) -> void:
 	flash[id] = 0.6
 
-func open_comms(from: String, line: String, mode := "talk", hostile := false) -> void:
+func open_comms(from: String, line: String, mode := "talk", hostile := false, face := "", voice := 1.0, female := false) -> void:
 	comms_open = true
 	comms_from = from
+	comms_expr = "angry" if hostile else "normal"
+	if line.begins_with("[") and line.find("]") > 0:   # "[smile]Text" picks the face for this line
+		comms_expr = line.substr(1, line.find("]") - 1)
+		line = line.substr(line.find("]") + 1).strip_edges()
+	comms_face = face
 	comms_line = line
+	comms_voice = voice if face != "" else (0.8 if hostile else 1.0)
+	comms_female = female
+	Sfx.speak(line, comms_voice, female)
 	comms_mode = mode
 	comms_hostile = hostile
 	comms_timer = 7.0 if mode == "incoming" else 0.0
@@ -103,7 +116,16 @@ func roster_rect() -> Rect2:
 func close_roster() -> void:
 	roster_closing = true
 
+func _face_tex(face: String, expr: String) -> Texture2D:
+	var k := face + "_" + expr
+	if not _faces.has(k):
+		var path := "res://assets/portraits/%s.png" % k
+		_faces[k] = load(path) if ResourceLoader.exists(path) else null
+		if _faces[k] == null and expr != "normal": _faces[k] = _face_tex(face, "normal")
+	return _faces[k]
+
 func close_comms() -> void:
+	if comms_open and comms_mode != "roster" and comms_mode != "picker": Sfx.hang_up()
 	comms_open = false
 	comms_mode = ""
 
@@ -157,6 +179,9 @@ func _layout() -> void:
 		var db := Rect2(S.x * 0.5 - 130, 150, 260, 60)
 		if space.dock_candidate() != null: buttons["dock"] = db
 		elif space.gate_in_range(): buttons["jump"] = db
+	if comms_open and comms_mode != "roster" and comms_mode != "picker":
+		var cr := _comms_rect()
+		buttons["voice"] = Rect2(cr.end.x - 128, cr.position.y + 10, 116, 34)
 	if comms_open and comms_mode == "roster":
 		var rr := roster_rect()
 		if roster_t > 0.95 and not roster_closing:
@@ -436,7 +461,18 @@ func _draw() -> void:
 			_brackets(tp0, 18.0, Color(GREEN, 0.85))
 	# off-screen hostiles: red arrows at the view edge; friendlies green
 	var view := Rect2(Vector2(col_w + 30, 40), Vector2(S.x - col_w * 2 - 60, S.y - 80))
-	for e in space.enemies: _edge_arrow(e["node"].global_position, RED, view, e["node"] == space.target)
+	for e in space.enemies:
+		_edge_arrow(e["node"].global_position, RED, view, e["node"] == space.target)
+		if e["node"] == space.target: continue
+		var ep = _screen(e["node"].global_position)
+		var edist: float = space.player.global_position.distance_to(e["node"].global_position)
+		if ep != null and view.has_point(ep) and edist < 900.0:
+			_enemy_bars(ep + Vector2(-22, -30), 44.0, 4.0, e)
+	for pu in space.popups:
+		var pp = _screen(pu["pos"])
+		if pp != null:
+			var a: float = clampf(pu["life"] / 0.9, 0.0, 1.0)
+			_text(pp - Vector2(30, 0), pu["text"], 18, Color(pu["col"], a), HORIZONTAL_ALIGNMENT_CENTER, 60)
 	var tgt: Node3D = space.target
 	if tgt and is_instance_valid(tgt):
 		var tp = _screen(tgt.global_position)
@@ -444,10 +480,8 @@ func _draw() -> void:
 		if tp != null and view.has_point(tp):
 			_brackets(tp, 30.0, tcol)
 			if tgt.get_meta("kind", "") == "enemy":
-				var hv: float = space.target_health()
-				draw_rect(Rect2(tp + Vector2(-30, 38), Vector2(60, 6)), Color(0, 0, 0, 0.6))
-				draw_rect(Rect2(tp + Vector2(-30, 38), Vector2(60 * hv, 6)), RED)
 				var e2: Dictionary = space._enemy_entry(tgt)
+				if not e2.is_empty(): _enemy_bars(tp + Vector2(-40, 38), 80.0, 7.0, e2, true)
 				if not e2.is_empty():
 					var d: float = space.player.global_position.distance_to(tgt.global_position)
 					var lp = _screen(tgt.global_position + (e2["vel"] as Vector3) * (d / float(GS.weapon()["speed"])))
@@ -521,6 +555,21 @@ func _draw() -> void:
 	if comms_open: _comms()
 	if damage_flash > 0.0:
 		for i in 6: draw_rect(Rect2(Vector2.ZERO, S), Color(RED, damage_flash * 0.08), false, 60.0 - i * 9.0)
+
+func _hull_col(k: float) -> Color:
+	return GREEN.lerp(YELLOW, clampf((0.75 - k) / 0.35, 0, 1)).lerp(RED, clampf((0.4 - k) / 0.3, 0, 1))
+
+## Shield (cyan) over hull (green -> red) bars for one enemy.
+func _enemy_bars(p: Vector2, w: float, h: float, e: Dictionary, labels := false) -> void:
+	var shk: float = float(e["sh"]) / maxf(1.0, float(e["sh_max"]))
+	var hk: float = clampf(float(e["hp"]) / float(e["max"]), 0.0, 1.0)
+	draw_rect(Rect2(p - Vector2(1, 1), Vector2(w + 2, h * 2 + 5)), Color(0, 0, 0, 0.55))
+	if float(e["sh_max"]) > 0.0:
+		draw_rect(Rect2(p, Vector2(w * shk, h)), CYAN_HI)
+	draw_rect(Rect2(p + Vector2(0, h + 2), Vector2(w * hk, h)), _hull_col(hk))
+	if labels:
+		_text(p + Vector2(w + 6, h + 1), "SH %d" % roundi(float(e["sh"])), 12, CYAN_HI)
+		_text(p + Vector2(w + 6, h * 2 + 12), "HULL %d" % roundi(float(e["hp"])), 12, _hull_col(hk))
 
 func _edge_arrow(p3: Vector3, col: Color, view: Rect2, big: bool) -> void:
 	var sp = _screen(p3)
@@ -602,8 +651,13 @@ func _dashboard() -> void:
 		_text(way_r.position + Vector2(12, 62), wp.name, 11, dcol, HORIZONTAL_ALIGNMENT_LEFT, way_r.size.x - 20)
 		var th: float = space.target_health()
 		if wp == space.target and th >= 0.0:
-			draw_rect(Rect2(way_r.position + Vector2(12, 66), Vector2(way_r.size.x - 24, 4)), Color(0, 0, 0, 0.6))
-			draw_rect(Rect2(way_r.position + Vector2(12, 66), Vector2((way_r.size.x - 24) * th, 4)), RED)
+			var ts: float = space.target_shield()
+			var bw := way_r.size.x - 24
+			if ts >= 0.0:
+				draw_rect(Rect2(way_r.position + Vector2(12, 64), Vector2(bw, 3)), Color(0, 0, 0, 0.6))
+				draw_rect(Rect2(way_r.position + Vector2(12, 64), Vector2(bw * ts, 3)), CYAN_HI)
+			draw_rect(Rect2(way_r.position + Vector2(12, 68), Vector2(bw, 4)), Color(0, 0, 0, 0.6))
+			draw_rect(Rect2(way_r.position + Vector2(12, 68), Vector2(bw * th, 4)), _hull_col(th))
 	else:
 		_text(way_r.position + Vector2(12, 34), "NO WAYPOINT", 13, Color(1, 1, 1, 0.6))
 	var scan := "NORMAL"
@@ -630,23 +684,49 @@ func _comms() -> void:
 	var card := Rect2(r.position + Vector2(14, 14), Vector2(r.size.y - 28, r.size.y - 28))
 	_box(card, Color(0.18, 0.04, 0.05, 1.0) if comms_hostile else Color(0.05, 0.14, 0.24, 1.0), Color(accent, 0.5), 12, 2)
 	var cc := card.get_center()
-	draw_arc(cc, card.size.x * 0.34, 0, TAU, 48, Color(accent, 0.5), 2.0, true)
-	for i in 21:
-		var hgt := 8.0 + 30.0 * absf(sin(t * 7.0 + i * 0.9)) * (0.4 + 0.6 * absf(sin(i * 0.45)))
-		var x := cc.x - 60 + i * 6
-		draw_line(Vector2(x, cc.y - hgt * 0.5), Vector2(x, cc.y + hgt * 0.5), accent, 3)
+	var tex: Texture2D = _face_tex(comms_face, comms_expr) if comms_face != "" else null
+	if tex:
+		# portrait: bobs and brightens with each spoken syllable, with a faint radio scanline
+		var talk: float = Sfx.talking
+		var inner := card.grow(-5)
+		var bob := Vector2(0, -2.0 * talk)
+		draw_texture_rect(tex, Rect2(inner.position + bob, inner.size), false, Color(1, 1, 1).lerp(Color(1.12, 1.12, 1.12), talk))
+		for k in int(inner.size.y / 4.0):
+			draw_line(Vector2(inner.position.x, inner.position.y + k * 4), Vector2(inner.end.x, inner.position.y + k * 4), Color(0, 0.1, 0.2, 0.12), 1)
+		var sy := fmod(t * 60.0, inner.size.y)
+		draw_line(Vector2(inner.position.x, inner.position.y + sy), Vector2(inner.end.x, inner.position.y + sy), Color(accent, 0.18), 3)
+		_box(Rect2(inner.position, inner.size), Color(0, 0, 0, 0), Color(accent, 0.7), 8, 2)
+		# little voice meter along the bottom of the portrait
+		for i in 14:
+			var hh := 3.0 + 12.0 * talk * absf(sin(t * 23.0 + i * 1.3))
+			var xx := inner.position.x + 10 + i * (inner.size.x - 20) / 13.0
+			draw_line(Vector2(xx, inner.end.y - 6 - hh), Vector2(xx, inner.end.y - 6), Color(accent, 0.9), 3)
+	else:
+		draw_arc(cc, card.size.x * 0.34, 0, TAU, 48, Color(accent, 0.5), 2.0, true)
+		for i in 21:
+			var hgt := 8.0 + 30.0 * absf(sin(t * 7.0 + i * 0.9)) * (0.4 + 0.6 * absf(sin(i * 0.45))) * (0.35 + 0.65 * Sfx.talking)
+			var x := cc.x - 60 + i * 6
+			draw_line(Vector2(x, cc.y - hgt * 0.5), Vector2(x, cc.y + hgt * 0.5), accent, 3)
 	var tx := card.end.x + 20
-	_text(Vector2(tx, r.position.y + 46), comms_from.to_upper(), 26, WHITE, HORIZONTAL_ALIGNMENT_LEFT, r.end.x - tx - 10)
-	draw_circle(Vector2(tx + 8, r.position.y + 72), 6, RED if comms_hostile else GREEN)
+	var parts := comms_from.split(" — ", true, 1)
+	var nm := parts[0].to_upper()
+	var name_w := r.end.x - tx - 140
+	var fs := 26
+	while fs > 15 and font.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > name_w: fs -= 1
+	_text(Vector2(tx, r.position.y + 42), nm, fs, WHITE)
+	if parts.size() > 1: _text(Vector2(tx, r.position.y + 61), parts[1], 13, Color(1, 1, 1, 0.7), HORIZONTAL_ALIGNMENT_LEFT, r.end.x - tx - 16)
+	draw_circle(Vector2(tx + 8, r.position.y + 78), 6, RED if comms_hostile else GREEN)
 	var status := "INCOMING CALL" if comms_mode == "incoming" else "COMMS · LIVE"
 	if comms_hostile: status += " · HOSTILE"
-	_text(Vector2(tx + 22, r.position.y + 79), status, 16, accent)
+	_text(Vector2(tx + 22, r.position.y + 85), status, 15, accent)
 	var line_r := Rect2(Vector2(tx - 4, r.position.y + 96), Vector2(r.end.x - tx - 12, 96))
 	_box(line_r, Color(0.03, 0.1, 0.2, 1.0), Color(accent, 0.5), 10, 2)
 	draw_multiline_string_outline(font, line_r.position + Vector2(14, 28), comms_line, HORIZONTAL_ALIGNMENT_LEFT, line_r.size.x - 24, 17, 3, 4, Color(0, 0.03, 0.08, 0.75))
 	draw_multiline_string(font, line_r.position + Vector2(14, 28), comms_line, HORIZONTAL_ALIGNMENT_LEFT, line_r.size.x - 24, 17, 3, WHITE)
 	if comms_mode == "incoming":
 		_text(Vector2(line_r.position.x, r.end.y - 18), "Closes by itself · HANG UP to end now", 13, Color(1, 1, 1, 0.6))
+	if buttons.has("voice"):
+		_pill("voice", "VOICE", false, accent, "READ ALOUD" if Sfx.voice_mode == "read" else "RADIO MUMBLE")
 
 func _dist(d: float) -> String:
 	return "%.1f km" % (d / 1000.0) if d >= 1000.0 else "%d m" % int(d)
