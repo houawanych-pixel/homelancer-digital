@@ -166,7 +166,7 @@ func _run() -> void:
 	main.start_game()
 	_check("Godot boot + START", await _until(func(): return main.state == "flight", 10.0))
 	await _wait(1.0)
-	_check("Mobile HUD shown", main.hud.visible and main.hud.buttons.has("sys_missile") and main.hud.buttons.has("mode_guns_auto") and main.hud.buttons.has("thrust") and main.hud.buttons.has("warp") and main.hud.buttons.has("call"))
+	_check("Mobile HUD shown", main.hud.visible and main.hud.buttons.has("slot_0") and main.hud.buttons.has("slot_2") and main.hud.buttons.has("shield") and main.hud.buttons.has("repair") and main.hud.buttons.has("tractor") and main.hud.buttons.has("stop") and main.hud.buttons.has("warp") and main.hud.buttons.has("thrust") and main.hud.buttons.has("kill") and main.hud.buttons.has("call"))
 	await _shot("solara_flight")
 	var s := _sp()
 	_check("Real/placeholder player ship", is_instance_valid(s.model), "placeholder=%s" % s.model.get_meta("placeholder", true))
@@ -191,12 +191,13 @@ func _run() -> void:
 	await _wait(0.3)
 	_check("Call a contact from LOG", main.hud.comms_mode == "talk")
 	_press("hangup")
-	_press("mode_mine_manual")
 	var mines0 := GS.mines
-	_press("sys_mine")
+	var sh0 := GS.shield_charges
+	GS.shield = GS.max_shield() * 0.3
+	_press("shield")
+	_press("slot_2")   # default slot 3 = mine
 	await _wait(0.3)
-	_check("System panels: manual mine + mode toggle", GS.modes["mine"] == "manual" and GS.mines == mines0 - 1, "mines %d -> %d" % [mines0, GS.mines])
-	_press("mode_mine_auto")
+	_check("Corner buttons: SHIELD charge + weapon slot mine", GS.mines == mines0 - 1 and GS.shield_charges == sh0 - 1, "mines %d -> %d, charges %d -> %d" % [mines0, GS.mines, sh0, GS.shield_charges])
 	_press("view")
 	await _wait(0.3)
 	# ---- THRUST / STOP / ENGINE KILL / WARP
@@ -239,12 +240,15 @@ func _run() -> void:
 	var credits0 := GS.credits
 	var won := await _fight("combat")
 	_check("Combat: enemy destroyed", won, "kills=%d" % GS.kills)
-	_check("Credits earned", GS.credits > credits0, "%d -> %d" % [credits0, GS.credits])
+	var pods := s.loot.size()
+	var credits1 := GS.credits
+	_press("tractor")
+	var pulled := await _until(func(): return s.loot.is_empty(), 8.0)
+	await _shot("tractor_loot", 0.0)
+	_check("Credits earned + TRACTOR pulls loot", GS.credits > credits0 and pods > 0 and pulled and GS.credits > credits1, "%d -> %d, pods %d" % [credits0, GS.credits, pods])
 	_check("Enemy called you on the intercom", got_hail)
 	await _wait(0.5)
 	_check("Enraged raider leader joins contacts", GS.mood.get("voss", "") == "enraged")
-	_press("missile")
-	await _wait(0.3)
 	# ---- dock at station
 	_check("Station docking", await _dock_at(s.station), s.station.name)
 	await _wait(0.8)

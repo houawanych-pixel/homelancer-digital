@@ -12,11 +12,14 @@ var hull := 100.0
 var shield := 60.0
 var repairs := Data.MAX_REPAIRS
 var missiles := 6
+var heavy_missiles := 2
 var mines := 3
+var slots: Array = Data.DEFAULT_SLOTS.duplicate()
 var shield_charges := Data.MAX_SHIELD_CHARGES
 var energy_cells := Data.MAX_ENERGY_CELLS
 var energy := Data.ENERGY_MAX
-var modes := {"shield": "auto", "hull": "auto", "energy": "auto", "guns": "auto", "missile": "auto", "mine": "auto"}
+# lasers fire themselves and energy cells top up on their own; shield, repair, missiles and mines are your buttons
+var modes := {"shield": "manual", "hull": "manual", "energy": "auto", "guns": "auto", "missile": "manual", "mine": "manual"}
 var view := "chase" # "chase" or "cockpit"
 var system_id := "solara"
 var discovered := ["solara"]
@@ -32,6 +35,7 @@ func max_hull() -> float: return float(ship()["hull"])
 func max_shield() -> float: return float(ship()["shield"])
 func max_missiles() -> int: return int(ship()["missiles"])
 func max_mines() -> int: return int(ship()["mines"])
+func max_heavy() -> int: return int(ship().get("heavy", 2))
 func is_auto(id: String) -> bool: return modes.get(id, "auto") == "auto"
 
 ## Adds a character to the contacts roster (or updates their mood). Returns true the first time.
@@ -49,6 +53,7 @@ func restore_full() -> void:
 	repairs = Data.MAX_REPAIRS
 	missiles = max_missiles()
 	mines = max_mines()
+	heavy_missiles = max_heavy()
 	energy = Data.ENERGY_MAX
 	shield_charges = Data.MAX_SHIELD_CHARGES
 	energy_cells = Data.MAX_ENERGY_CELLS
@@ -85,6 +90,28 @@ func buy_missiles(n: int) -> String:
 	missiles += n
 	changed.emit()
 	return "Loaded %d missile%s for %d credits." % [n, "" if n == 1 else "s", cost]
+
+func buy_heavy(n: int) -> String:
+	var room := max_heavy() - heavy_missiles
+	n = mini(n, room)
+	if n <= 0: return "Heavy missile rack is full."
+	var cost := n * Data.HEAVY_MISSILE_PRICE
+	if credits < cost:
+		n = credits / Data.HEAVY_MISSILE_PRICE
+		if n <= 0: return "Not enough credits."
+		cost = n * Data.HEAVY_MISSILE_PRICE
+	credits -= cost
+	heavy_missiles += n
+	changed.emit()
+	return "Loaded %d heavy missile%s for %d credits." % [n, "" if n == 1 else "s", cost]
+
+## Ammo left for whatever is fitted in a weapon slot.
+func slot_ammo(item: String) -> int:
+	match item:
+		"light_missile": return missiles
+		"heavy_missile": return heavy_missiles
+		"mine": return mines
+	return 0
 
 func buy_mines(n: int) -> String:
 	var room := max_mines() - mines

@@ -161,7 +161,7 @@ func _hub_page() -> void:
 	v.add_child(l)
 	var s := GS.ship()
 	var info := _label(18, CYAN)
-	info.text = "Your ship: %s (%s)   ·   Weapon: %s ×%d   ·   Missiles %d/%d   ·   Mines %d/%d   ·   Hull %d/%d" % [s["name"], s["class"], GS.weapon()["name"], s["guns"], GS.missiles, GS.max_missiles(), GS.mines, GS.max_mines(), int(GS.hull), int(GS.max_hull())]
+	info.text = "Your ship: %s (%s)   ·   Weapon: %s ×%d   ·   Missiles %d/%d + heavy %d/%d   ·   Mines %d/%d   ·   Hull %d/%d" % [s["name"], s["class"], GS.weapon()["name"], s["guns"], GS.missiles, GS.max_missiles(), GS.heavy_missiles, GS.max_heavy(), GS.mines, GS.max_mines(), int(GS.hull), int(GS.max_hull())]
 	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(info)
 	var tips := _label(17, Color(0.85, 0.9, 0.95))
@@ -197,7 +197,7 @@ func _equipment_page() -> void:
 	var row2 := HBoxContainer.new()
 	row2.add_theme_constant_override("separation", 14)
 	var ml := _label(18, Color(1, 1, 1))
-	ml.text = "Seeker missiles   ·   %d/%d loaded   ·   %d cr each   ·   dmg %d" % [GS.missiles, GS.max_missiles(), Data.MISSILE_PRICE, int(Data.MISSILE_DAMAGE)]
+	ml.text = "Light missiles   ·   %d/%d loaded   ·   %d cr each   ·   30%% of target hull" % [GS.missiles, GS.max_missiles(), Data.MISSILE_PRICE]
 	ml.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row2.add_child(ml)
 	for n in [1, 99]:
@@ -209,6 +209,21 @@ func _equipment_page() -> void:
 		b2.pressed.connect(func(): status.text = GS.buy_missiles(n); show_screen("equipment"))
 		row2.add_child(b2)
 	v.add_child(row2)
+	var rowh := HBoxContainer.new()
+	rowh.add_theme_constant_override("separation", 14)
+	var hl := _label(18, Color(1, 1, 1))
+	hl.text = "Heavy missiles   ·   %d/%d loaded   ·   %d cr each   ·   dmg %d" % [GS.heavy_missiles, GS.max_heavy(), Data.HEAVY_MISSILE_PRICE, int(Data.HEAVY_MISSILE_DAMAGE)]
+	hl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rowh.add_child(hl)
+	for n in [1, 99]:
+		var bh := Button.new()
+		bh.text = "+1" if n == 1 else "FILL"
+		bh.name = "Heavy_" + str(n)
+		bh.custom_minimum_size = Vector2(110, 54)
+		bh.disabled = GS.heavy_missiles >= GS.max_heavy()
+		bh.pressed.connect(func(): status.text = GS.buy_heavy(n); show_screen("equipment"))
+		rowh.add_child(bh)
+	v.add_child(rowh)
 	var row3 := HBoxContainer.new()
 	row3.add_theme_constant_override("separation", 14)
 	var nl := _label(18, Color(1, 1, 1))

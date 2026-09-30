@@ -33,6 +33,9 @@ rig_mech.sh (Tripo GLB -> rigged mech), auto_joints.py, rig_humanoid.py, rigfix.
 (in-engine renders), decimate.gd (polygon reduction), shipkit.py (inspect/export/repack fleet sheets), shipfix.py,
 make_ships.sh, make_booster.py. tools/setup_env.sh. See tools/shipkit/README.md.
 
+## Sky panoramas
+tools/sky/fix_pano.py makes any nebula image a seamless 360 sky (seam fold + pole blur + 4096x2048). See tools/sky/README.md.
+
 ## Limits learned
 - Drive connector downloads only files < 10 MB: ask the owner to attach bigger GLBs in chat.
 - Sending files back: max 30 MB each. pip/npm registries may be blocked; everything here needs only numpy + Pillow.
@@ -40,7 +43,10 @@ make_ships.sh, make_booster.py. tools/setup_env.sh. See tools/shipkit/README.md.
 
 ## Open items
 - Blue mecha (c4d26433…) needs a re-rig from a T-pose/unrigged version.
-- Starfield: layered sky wanted (Freelancer style); owner to supply 8192x4096 equirectangular nebula images per
-  system (clouds only, no stars); star layers to be built in code.
+- Starfield: layered sky wanted (Freelancer style). The owner sends nebula images (clouds only); run them through
+  tools/sky/fix_pano.py, then put one per system into the game; star layers to be built in code. First one: a
+  red/violet nebula (Sept 30), system not chosen yet.
+- Combat stage 2 (owner's spec): light missile ~1,000 cr and heavy ~5,000 cr (needs bigger rewards first), two mine
+  sizes, hub equip screen for the three weapon slots. Stage 3: waypoints with distance countdown.
 - Human characters (~480k tris) need a rig-preserving reducer before going in-game; no on-foot mode yet.
 - Spare portrait set art/portraits/homelancer_operative_* (black/white suit operative) not used yet.

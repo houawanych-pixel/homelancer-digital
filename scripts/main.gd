@@ -188,7 +188,7 @@ func _objective() -> String:
 	var pl: String = space.sys["planet"]["name"]
 	var gt: String = space.sys["gate"]["name"]
 	if GS.system_id == "solara":
-		if GS.kills == 0: return "OBJECTIVE: Destroy a %s (tap TARGET, aim, FIRE)" % enemy_name
+		if GS.kills == 0: return "OBJECTIVE: Destroy a %s (aim — lasers fire on their own, missiles finish it)" % enemy_name
 		if not visited.has("liberty_hub_2"): return "OBJECTIVE: Dock at %s to repair and spend your credits" % st
 		if not visited.has("new_terra"): return "OBJECTIVE: Land on %s — MAP > select planet > SET COURSE" % pl
 		return "OBJECTIVE: Cross the belt and nebula to the %s" % gt
@@ -214,9 +214,17 @@ func _on_hud(id: String) -> void:
 			"guns": "fire when a hostile is in the reticle", "missile": "launch after a 1.5 s lock", "mine": "drop when a hostile is on your tail"}
 		hud.flash_message("%s: %s" % [labels[parts[1]], ("AUTO — " + how[parts[1]]) if parts[2] == "auto" else "MANUAL — tap the panel"])
 		return
+	if id.begins_with("slot_"):
+		space.fire_slot(int(id.substr(5)))
+		return
 	match id:
 		"missile": space.trigger_system("missile")
+		"shield": space.trigger_system("shield")
 		"repair": space.trigger_system("hull")
+		"tractor":
+			var tm: String = space.tractor()
+			hud.flash_message(tm)
+			if space.tractor_t > 0.0: Sfx.play("tractor", -6.0)
 		"target": space.cycle_target()
 		"view":
 			space.set_view("cockpit" if GS.view == "chase" else "chase")

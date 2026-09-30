@@ -3,7 +3,7 @@ extends Node
 ## Radio calls: an open chirp, then 'mumble' syllables pitched per character while the line is on screen
 ## (Star Fox style). Voice mode "read" uses the device's text-to-speech instead, when it has one.
 
-const BANK := ["comm_open", "comm_close", "laser", "laser_enemy", "missile", "explosion", "shield_hit", "hull_hit"]
+const BANK := ["comm_open", "comm_close", "laser", "laser_enemy", "missile", "explosion", "shield_hit", "hull_hit", "tractor", "pickup", "mine_wake", "button"]
 const SYLLABLES := 8
 
 var streams := {}

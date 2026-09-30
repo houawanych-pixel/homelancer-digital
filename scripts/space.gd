@@ -32,6 +32,8 @@ var missile_cd := 0.0
 var mine_cd := 0.0
 var lock_time := 0.0
 var mines_live: Array = []
+var loot: Array = [] # {node, vel, value, life}
+var tractor_t := 0.0
 signal system_used(id: String, text: String)
 var warp_state := "off" # off | charging | on
 var warp_t := 0.0
@@ -565,6 +567,7 @@ func _process(dt: float) -> void:
 	_update_bolts(dt)
 	_update_missiles(dt)
 	_update_mines(dt)
+	_update_loot(dt)
 	_update_effects(dt)
 	_collisions(dt)
 	_update_camera(dt, false)
@@ -808,14 +811,15 @@ func _glow_mat(col: Color) -> StandardMaterial3D:
 	_glow_mats[k] = m
 	return m
 
-func fire_missile() -> bool:
-	if GS.missiles <= 0: return false
+func fire_missile(heavy := false) -> bool:
+	if (GS.heavy_missiles if heavy else GS.missiles) <= 0: return false
 	var t := target if (target and is_instance_valid(target) and target.get_meta("kind", "") == "enemy") else null
 	if t == null: t = _nearest_enemy(900.0)
 	if t == null:
 		message.emit("No hostile target for missile lock.")
 		return false
-	GS.missiles -= 1
+	if heavy: GS.heavy_missiles -= 1
+	else: GS.missiles -= 1
 	GS.changed.emit()
 	var mi: Node3D
 	if ShipFactory.has_real_model("missile"):
@@ -835,10 +839,11 @@ func fire_missile() -> bool:
 		box.mesh = bm
 		box.material_override = ShipFactory.mat(Color(1.0, 0.8, 0.4), true)
 		mi = box
+	if heavy: mi.scale = Vector3.ONE * 1.5
 	_add_missile_flame(mi)
 	add_child(mi)
 	mi.global_position = player.global_position - player.global_basis.y * 1.5
-	missiles_live.append({"node": mi, "vel": -player.global_basis.z * 90.0 + vel, "target": t, "life": 7.0})
+	missiles_live.append({"node": mi, "vel": -player.global_basis.z * 90.0 + vel, "target": t, "life": 7.0, "heavy": heavy})
 	Sfx.play("missile", -4.0)
 	return true
 
@@ -924,8 +929,10 @@ func _update_missiles(dt: float) -> void:
 		var done: bool = m["life"] <= 0.0
 		if is_instance_valid(t) and n.global_position.distance_to(t.global_position) < 9.0:
 			var e := _enemy_entry(t)
-			if not e.is_empty(): _damage_enemy(e, Data.MISSILE_DAMAGE)
-			_spark(n.global_position, Color(1, 0.6, 0.2), 8.0)
+			if not e.is_empty():
+				var dmg := Data.HEAVY_MISSILE_DAMAGE if m.get("heavy", false) else maxf(Data.MISSILE_DAMAGE, float(e["max"]) * Data.LIGHT_MISSILE_HULL_FRAC)
+				_damage_enemy(e, dmg)
+			_spark(n.global_position, Color(1, 0.6, 0.2), 12.0 if m.get("heavy", false) else 8.0)
 			done = true
 		if done:
 			n.queue_free()
@@ -957,6 +964,7 @@ func _damage_enemy(e: Dictionary, dmg: float) -> void:
 		_explode(n.global_position)
 		enemies.erase(e)
 		var reward: int = e["def"]["reward"]
+		_drop_loot(n.global_position, reward)
 		enemy_killed.emit(reward, n.name)
 		if target == n: target = null
 		n.queue_free()
@@ -1139,7 +1147,7 @@ func _update_effects(dt: float) -> void:
 # ---------------------------------------------------------------- cockpit systems (AUTO / MANUAL)
 ## Manually trigger one of the six systems. Returns false when it could not run.
 func trigger_system(id: String) -> bool:
-	if warp_state != "off" and id in ["guns", "missile", "mine"]:
+	if warp_state != "off" and id in ["guns", "missile", "light_missile", "heavy_missile", "mine"]:
 		return _say(id, "Weapons are locked while the warp drive is active.")
 	match id:
 		"shield":
@@ -1169,11 +1177,14 @@ func trigger_system(id: String) -> bool:
 			GS.changed.emit()
 			system_used.emit(id, "Energy cell used. %d left." % GS.energy_cells)
 			return true
-		"missile":
+		"missile", "light_missile", "heavy_missile":
 			if missile_cd > 0.0: return false
-			if fire_missile():
+			var heavy := id == "heavy_missile"
+			if (GS.heavy_missiles if heavy else GS.missiles) <= 0:
+				return _say(id, "No %s missiles left — buy more at Equipment." % ("heavy" if heavy else "light"))
+			if fire_missile(heavy):
 				missile_cd = 1.2
-				system_used.emit(id, "Missile away.")
+				system_used.emit(id, "%s missile away." % ("Heavy" if heavy else "Light"))
 				return true
 			return false
 		"mine":
@@ -1251,10 +1262,22 @@ func _update_mines(dt: float) -> void:
 		n.rotate_y(dt * 1.5)
 		var boom: bool = m["life"] <= 0.0
 		if m["arm"] <= 0.0:
+			# sits quietly until a hostile comes close, then wakes up and chases it
+			var prey: Node3D = null
+			var pd := 170.0
 			for e in enemies:
-				if e["node"].global_position.distance_to(n.global_position) < 22.0:
-					boom = true
-					break
+				var d0: float = e["node"].global_position.distance_to(n.global_position)
+				if d0 < pd:
+					pd = d0
+					prey = e["node"]
+			if prey != null:
+				if not m.get("awake", false):
+					m["awake"] = true
+					Sfx.play("mine_wake", -8.0)
+				var want := (prey.global_position - n.global_position).normalized() * 95.0
+				m["vel"] = (m["vel"] as Vector3).lerp(want, minf(1.0, dt * 3.0))
+				n.rotate_y(dt * 8.0)
+				if pd < 12.0: boom = true
 		if boom:
 			_explode(n.global_position)
 			for e in enemies.duplicate():
@@ -1262,6 +1285,71 @@ func _update_mines(dt: float) -> void:
 				if d < Data.MINE_RADIUS: _damage_enemy(e, Data.MINE_DAMAGE * (1.0 - d / Data.MINE_RADIUS * 0.5))
 			n.queue_free()
 			mines_live.remove_at(i)
+
+## Weapon slot button i: fires whatever is fitted there (light missile, heavy missile, mine).
+func fire_slot(i: int) -> bool:
+	if i < 0 or i >= GS.slots.size(): return false
+	var item: String = GS.slots[i]
+	if item == "mine": return trigger_system("mine")
+	return trigger_system(item)
+
+# ---------------------------------------------------------------- loot pods + tractor beam
+func _drop_loot(at: Vector3, reward: int) -> void:
+	var n := 1 + _rng.randi() % 2
+	for i in n:
+		var pod := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(2.2, 1.6, 3.0)
+		pod.mesh = bm
+		pod.material_override = ShipFactory.mat(Color(0.95, 0.75, 0.25), false, 0.4)
+		var glow := MeshInstance3D.new()
+		var gm := SphereMesh.new()
+		gm.radius = 2.6
+		gm.height = 5.2
+		glow.mesh = gm
+		glow.material_override = _glow_mat(Color(1.0, 0.8, 0.3))
+		pod.add_child(glow)
+		pod.name = "Loot"
+		add_child(pod)
+		pod.global_position = at
+		var dir := Vector3(_rng.randfn(0, 1), _rng.randfn(0, 0.5), _rng.randfn(0, 1)).normalized()
+		loot.append({"node": pod, "vel": dir * _rng.randf_range(8.0, 16.0), "value": maxi(10, int(reward * 0.4)), "life": 120.0})
+
+## Switch the tractor beam on for a few seconds: every pod in range flies to you.
+func tractor() -> String:
+	var inrange := 0
+	for l in loot:
+		if (l["node"] as Node3D).global_position.distance_to(player.global_position) < Data.LOOT_RANGE: inrange += 1
+	if inrange == 0: return "Tractor beam: no cargo in range."
+	tractor_t = Data.TRACTOR_TIME
+	return "Tractor beam on — pulling in %d pod%s." % [inrange, "" if inrange == 1 else "s"]
+
+func _update_loot(dt: float) -> void:
+	tractor_t = maxf(0.0, tractor_t - dt)
+	var pp := player.global_position
+	for i in range(loot.size() - 1, -1, -1):
+		var l: Dictionary = loot[i]
+		var n: Node3D = l["node"]
+		l["life"] -= dt
+		var to := pp - n.global_position
+		var d := to.length()
+		if tractor_t > 0.0 and d < Data.LOOT_RANGE:
+			l["vel"] = (l["vel"] as Vector3).lerp(to.normalized() * (60.0 + d * 0.6) + vel, minf(1.0, dt * 4.0))
+			if int(time * 30.0) % 2 == 0: _spark_v(n.global_position, Vector3.ZERO, Color(0.5, 0.9, 1.0), 2.0, 0.25)
+		else:
+			l["vel"] = (l["vel"] as Vector3) * (1.0 - minf(1.0, dt * 0.3))
+		n.global_position += l["vel"] * dt
+		n.rotate_y(dt * 0.9)
+		n.rotate_x(dt * 0.5)
+		if d < 14.0:
+			GS.add_credits(int(l["value"]))
+			_popup(n.global_position, "+%d cr" % int(l["value"]), Color(1.0, 0.85, 0.35))
+			Sfx.play("pickup", -6.0)
+			n.queue_free()
+			loot.remove_at(i)
+		elif l["life"] <= 0.0:
+			n.queue_free()
+			loot.remove_at(i)
 
 ## Chase camera or first-person cockpit.
 func set_view(v: String) -> void:

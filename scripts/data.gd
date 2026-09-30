@@ -8,11 +8,11 @@ const VERSION := "v1.2"
 # model: key understood by ShipFactory. "cadet_glb" etc. load real GLBs when present under assets/ships/.
 const SHIPS := {
 	"cadet": {"name": "Cadet", "class": "Starter fighter", "price": 0, "hull": 100, "shield": 60, "speed": 46.0,
-		"turn": 1.7, "guns": 2, "missiles": 6, "mines": 3, "model": "cadet", "desc": "Unity-issue trainer. Light, nimble, forgiving."},
+		"turn": 1.7, "guns": 2, "missiles": 6, "heavy": 2, "mines": 3, "model": "cadet", "desc": "Unity-issue trainer. Light, nimble, forgiving."},
 	"ranger": {"name": "Ranger", "class": "Patrol fighter", "price": 1500, "hull": 160, "shield": 95, "speed": 50.0,
-		"turn": 1.55, "guns": 2, "missiles": 10, "mines": 4, "model": "ranger", "desc": "Faster frame with thicker plating and a bigger rack."},
+		"turn": 1.55, "guns": 2, "missiles": 10, "heavy": 3, "mines": 4, "model": "ranger", "desc": "Faster frame with thicker plating and a bigger rack."},
 	"lancer": {"name": "Lancer", "class": "Heavy fighter", "price": 4000, "hull": 240, "shield": 140, "speed": 42.0,
-		"turn": 1.25, "guns": 3, "missiles": 14, "mines": 6, "model": "lancer", "desc": "Three hardpoints and a heavy shield. Slow to turn."},
+		"turn": 1.25, "guns": 3, "missiles": 14, "heavy": 4, "mines": 6, "model": "lancer", "desc": "Three hardpoints and a heavy shield. Slow to turn."},
 }
 const SHIP_ORDER := ["cadet", "ranger", "lancer"]
 
@@ -25,7 +25,10 @@ const WEAPONS := {
 }
 const WEAPON_ORDER := ["pulse1", "pulse2", "ion", "plasma"]
 const MISSILE_PRICE := 40
-const MISSILE_DAMAGE := 45.0
+const MISSILE_DAMAGE := 45.0 # light missile minimum; it does LIGHT_MISSILE_HULL_FRAC of the target's hull when bigger
+const LIGHT_MISSILE_HULL_FRAC := 0.3
+const HEAVY_MISSILE_PRICE := 200
+const HEAVY_MISSILE_DAMAGE := 75.0
 const MINE_PRICE := 60
 const MINE_DAMAGE := 70.0
 const MINE_RADIUS := 45.0
@@ -50,6 +53,16 @@ const SYSTEMS_UI := [
 	{"id": "mine", "label": "DEPLOY\nMINE", "side": "right"},
 ]
 const MAX_REPAIRS := 5
+# Weapon slots (top-right buttons). Later the hub lets you fit any of these into a slot.
+const SLOT_ITEMS := {
+	"light_missile": {"label": "LIGHT", "sub": "MISSILE", "icon": "missile"},
+	"heavy_missile": {"label": "HEAVY", "sub": "MISSILE", "icon": "heavy"},
+	"mine": {"label": "MINE", "sub": "", "icon": "mine"},
+}
+const DEFAULT_SLOTS := ["light_missile", "heavy_missile", "mine"]
+# Loot pods dropped by destroyed ships; the tractor beam pulls them in.
+const LOOT_RANGE := 700.0
+const TRACTOR_TIME := 4.0
 const REPAIR_AMOUNT := 0.4 # fraction of max hull
 
 # ---------------------------------------------------------------- enemies
