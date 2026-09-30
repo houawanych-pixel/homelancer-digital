@@ -1,0 +1,46 @@
+# Homelancer — working handoff (for a new Claude session)
+
+## Where things are
+- Repo: github.com/houawanych-pixel/homelancer-digital (public read). Work branch: `homelancer-v1.2`.
+  Never force-push, never merge to main, deploy only via GitHub Pages (workflow "Homelancer web playtest").
+- Claude cannot push (GitHub not linked). Changes go out as **chief jobs**: a git bundle + TASK.md zipped, the owner
+  uploads it to Drive "FOR THE CHIEF - uploads", the "Chief of Staff" bot pushes it and reports the hash.
+- Live game: https://houawanych-pixel.github.io/homelancer-digital/ (Godot 4.3 web, gl_compatibility, phone landscape).
+
+## Fresh session setup
+    git clone -b homelancer-v1.2 https://github.com/houawanych-pixel/homelancer-digital /home/claude/hl
+    bash /home/claude/hl/tools/setup_env.sh          # Godot 4.3 binary (+ --web for export templates)
+    export GODOT=/home/claude/godot/Godot_v4.3-stable_linux.x86_64
+    cd /home/claude/hl && $GODOT --headless --import --path .
+    xvfb-run -a $GODOT --audio-driver Dummy --rendering-driver opengl3 --resolution 1280x720 --path . -- --autotest --quit-after-test
+      -> must print RESULT 36/36 PASS  (HL_SHOT_DIR=/dir saves screenshots; HL_SHOWCASE=1 = short combat demo)
+
+## Game layout (scripts/)
+main.gd (states, calls, hub/map), space.gd (world, combat, enemies, missiles, stations), hud.gd (mobile HUD, call box
+with portraits, enemy bars), ships.gd (ShipFactory: GLB map key -> [path, length, yaw]), data.gd (systems, ships,
+weapons, ENEMIES with shields, CHARACTERS with face/voice, PILOTS), sfx.gd (autoload Sfx: chirp, mumble, combat SFX,
+optional text-to-speech), autotest.gd (route test + showcase), game_state.gd (autoload GS).
+
+## Assets
+- Ships/weapons/stations: assets/ships|weapons|stations/*.glb, textures imported as lossy WebP (compress/mode=1,
+  lossy_quality=0.8 in the .import files) to keep the web pck small (~12 MB now).
+- Portraits: assets/portraits/<face>_<normal|serious|angry|sad|smile>.png (256 px, cropped from character sheets).
+- Sounds: assets/audio/*.wav from tools/sfx/make_sfx.py (pure synthesis).
+- Source art (not in the build, folders have .gdignore): art/characters (rigged mechs/soldier), art/portraits.
+
+## Tools (tools/shipkit)
+rig_mech.sh (Tripo GLB -> rigged mech), auto_joints.py, rig_humanoid.py, rigfix.py, bonemap.py, grid.py, studio.sh/.gd
+(in-engine renders), decimate.gd (polygon reduction), shipkit.py (inspect/export/repack fleet sheets), shipfix.py,
+make_ships.sh, make_booster.py. tools/setup_env.sh. See tools/shipkit/README.md.
+
+## Limits learned
+- Drive connector downloads only files < 10 MB: ask the owner to attach bigger GLBs in chat.
+- Sending files back: max 30 MB each. pip/npm registries may be blocked; everything here needs only numpy + Pillow.
+- Tripo auto-rigs mis-weight coats/capes/ponytails and arms near thighs; unrigged mechs are rigged with rig_mech.sh.
+
+## Open items
+- Blue mecha (c4d26433…) needs a re-rig from a T-pose/unrigged version.
+- Starfield: layered sky wanted (Freelancer style); owner to supply 8192x4096 equirectangular nebula images per
+  system (clouds only, no stars); star layers to be built in code.
+- Human characters (~480k tris) need a rig-preserving reducer before going in-game; no on-foot mode yet.
+- Spare portrait set art/portraits/homelancer_operative_* (black/white suit operative) not used yet.
