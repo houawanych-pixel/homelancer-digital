@@ -41,6 +41,17 @@ func _run() -> void:
 	under.light_energy = 0.55
 	under.rotation_degrees = Vector3(80, 20, 0)
 	world.add_child(under)
+	var anim := OS.get_environment("STUDIO_ANIM")   # "name:seconds" poses a rigged model before shooting
+	if anim != "":
+		var ap := _find_player(model)
+		if ap:
+			var nm := anim.split(":")[0]
+			if not ap.has_animation(nm) and ap.get_animation_list().size() > 0:
+				nm = ap.get_animation_list()[0]
+			ap.play(nm)
+			ap.seek(float(anim.split(":")[1]), true)
+			ap.pause()
+			print("STUDIO anim ", nm, " length ", ap.get_animation(nm).length)
 	# frame the model
 	var box := _aabb(model, Transform3D.IDENTITY)
 	var c := box.get_center()
@@ -85,6 +96,13 @@ func _run() -> void:
 	sheet.save_png(a[1] + "_sheet.png")
 	print("STUDIO wrote ", a[1] + "_sheet.png")
 	quit(0)
+
+func _find_player(n: Node) -> AnimationPlayer:
+	if n is AnimationPlayer: return n
+	for c in n.get_children():
+		var r := _find_player(c)
+		if r: return r
+	return null
 
 func _aabb(n: Node, xf: Transform3D) -> AABB:
 	var out := AABB()
