@@ -37,3 +37,6 @@ Checked but not in the repo (too large, source files stay in Drive):
   22-bone, `--mech`, 23,456 tris, 3 m. Whole rifle (incl. rear stock) locked to RightHand; shoulder cannons on UpperChest.
 - Blue mecha (`c4d26433…fire.glb`) and white mecha (`ba9dc517…dance_03.glb`): Tripo rigs misplaced (skeleton off-centre,
   left-arm bones on the rocket pods, arms bleeding into thighs). Need a re-rig — see owner notes.
+- Black/gold mecha (`8ce67750…glb`, unrigged, twin shoulder cannons, gold hip plates): rigged as
+  `black_gold_mecha_rigged.glb` — 22-bone, `--mech`, 18,096 tris, 3 m, Idle + Walk. Head + antennas on Head;
+  shoulder cannons locked to UpperChest. Joints: `black_gold_mecha_joints.json` (1 m units; rig with `--height 3.0`).
