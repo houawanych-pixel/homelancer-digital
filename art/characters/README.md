@@ -29,5 +29,7 @@ Checked but not in the repo (too large, source files stay in Drive):
   verniers) as a separate object on UpperChest.
 - Hooded dark figure (`1a37ead1…angry_02.glb`): Tripo rig good; long tattered cloak was split between legs and
   sleeves. Fixed with the same rigfix `--blend` as the coat officer (cloak hangs from Hip → Spine02). Delivered to owner.
+- Teal/white mecha (`d48f6eab…glb`, unrigged, chest cockpit + shoulder pods): rigged as `teal_mecha_rigged.glb` —
+  22-bone, `--mech`, 29,936 tris, 3 m, Idle + Walk. Arm/thigh overlap and hip plates sorted with rigfix rules.
 - Blue mecha (`c4d26433…fire.glb`) and white mecha (`ba9dc517…dance_03.glb`): Tripo rigs misplaced (skeleton off-centre,
   left-arm bones on the rocket pods, arms bleeding into thighs). Need a re-rig — see owner notes.
