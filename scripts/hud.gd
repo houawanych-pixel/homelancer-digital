@@ -469,6 +469,8 @@ func _draw() -> void:
 	if space.in_nebula > 0.0:
 		draw_rect(Rect2(Vector2.ZERO, S), Color(space.nebula_color, 0.36 * space.in_nebula))
 	for n in [space.station, space.planet, space.gate]:
+		if not n.visible and n.get_meta("kind", "") != "station": continue
+		if n.get_meta("kind", "") == "none": continue
 		var pos: Vector3 = space.dock_point(n) if n != space.gate else n.global_position
 		var sp = _screen(pos)
 		var col := GOLD if n == space.gate else GREEN
@@ -533,7 +535,8 @@ func _draw() -> void:
 	if msg_t > 0.0: line2 = msg
 	_text(Vector2(col_w, 144), line2, 15, GOLD if msg_t > 0.0 else WHITE, HORIZONTAL_ALIGNMENT_CENTER, S.x - col_w * 2)
 	var zone := ""
-	if space.in_nebula > 0.0: zone = "%s NEBULA — SENSORS DEGRADED" % Data.SYSTEMS[GS.system_id]["nebula"]["name"].to_upper()
+	if space.surface_mode: zone = "%s  ·  ALT %d m" % [Surface.tile_name(space.planet_id, space.tile), int(space.altitude)]
+	elif space.in_nebula > 0.0: zone = "%s NEBULA — SENSORS DEGRADED" % Data.SYSTEMS[GS.system_id]["nebula"]["name"].to_upper()
 	elif space.in_belt: zone = "%s — WATCH FOR ROCKS" % Data.SYSTEMS[GS.system_id]["asteroids"]["name"].to_upper()
 	if zone != "": _text(Vector2(col_w, 164), zone, 14, CYAN_HI, HORIZONTAL_ALIGNMENT_CENTER, S.x - col_w * 2)
 	# top-left block
@@ -649,6 +652,7 @@ func _dashboard() -> void:
 	elif space.engine_kill: mode = "DRIFT"
 	elif space.braking: mode = "STOPPING"
 	elif space.boosting: mode = "THRUST"
+	if space.surface_mode and mode == "": mode = "ALT %d m" % int(space.altitude)
 	if mode != "": _text(Vector2(speed_r.position.x, speed_r.end.y + 16), mode, 13, GOLD, HORIZONTAL_ALIGNMENT_CENTER, speed_r.size.x)
 	# centre screen: radar with your ship silhouette
 	_box(screen_r, Color(0.01, 0.06, 0.12, 0.95), Color(CYAN, 0.9), 12, 2)
@@ -666,9 +670,10 @@ func _dashboard() -> void:
 	var items: Array = []
 	for e in space.enemies: items.append([e["node"].global_position, RED])
 	for tr in space.traffic: items.append([tr["node"].global_position, GREEN])
-	items.append([space.station.global_position, GREEN])
-	items.append([space.planet.global_position, Color(0.5, 0.8, 1.0)])
-	items.append([space.gate.global_position, GOLD])
+	if space.station.get_meta("kind", "") == "station": items.append([space.station.global_position, GREEN])
+	if not space.surface_mode:
+		items.append([space.planet.global_position, Color(0.5, 0.8, 1.0)])
+		items.append([space.gate.global_position, GOLD])
 	for it in items:
 		var rel: Vector3 = inv * (it[0] - pp)
 		var v := Vector2(rel.x, rel.z) / rng * rr

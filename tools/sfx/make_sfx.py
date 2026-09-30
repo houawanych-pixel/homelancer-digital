@@ -87,4 +87,10 @@ save("pickup", np.concatenate([a, b]), 0.5)
 bp = np.sin(2 * np.pi * 880 * t(0.07)) * env(int(SR * 0.07), 0.002, 0.05)
 save("mine_wake", np.concatenate([bp, np.zeros(int(SR * 0.05)), bp]), 0.5)
 save("button", sweep(1400, 900, 0.035) * env(int(SR * 0.035), 0.001, 0.03), 0.35)
+# --- travel
+n = rng.normal(0, 1, int(SR * 3.5)); tt = t(3.5)
+rum = lowpass(n, 260) * (0.4 + 0.6 * np.sin(np.pi * tt / 3.5)) + 0.5 * lowpass(n, 1800) * np.sin(np.pi * tt / 3.5) ** 3
+save("atmo", rum * env(len(n), 0.3, 0.8), 0.8)
+n = rng.normal(0, 1, int(SR * 0.9)); tt = t(0.9)
+save("whoosh", biquad_bp(n, 500, 0.8) * np.sin(np.pi * tt / 0.9) ** 2 + 0.4 * biquad_bp(n, 2400, 1.5) * np.sin(np.pi * tt / 0.9) ** 4, 0.6)
 print("wrote", sorted(os.listdir(OUT)))

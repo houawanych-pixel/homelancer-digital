@@ -97,6 +97,67 @@ func _section_loop() -> void:
 	_check("Three-part damage: arm/wing off, gun offline, sparks, core kill", guns0 == ["l", "r"] and arm_hidden and guns1 == ["r"] and sparked and wing_hidden and gone and not s.player_vis.get("l", []).is_empty(),
 		"guns %s -> %s, arm hidden %s, sparks %d, wing hidden %s, destroyed %s" % [guns0, guns1, arm_hidden, int(e["sparks"]), wing_hidden, gone])
 
+## Planet prototype: fly into New Terra (atmosphere entry -> tile), cross the east edge into the next tile,
+## cross the outer edge (wrap to the other side), climb back to orbit, then fast-travel from the planet hub.
+func _planet_surface() -> void:
+	var s := _sp()
+	var pc: Vector3 = s.planet.global_position
+	var pr: float = s.planet.get_meta("radius")
+	var d := (s.player.global_position - pc).normalized()
+	_tp(pc + d * (pr + 90.0), pc)
+	main.hud.move_vec = Vector2(0, -1)          # full forward thrust into the planet
+	await _until(func(): return main.state == "atmosphere", 6.0)
+	main.hud.move_vec = Vector2.ZERO
+	await _shot("atmosphere_entry", 0.7)
+	var entered := await _until(func(): return main.state == "flight" and _sp().surface_mode, 12.0)
+	s = _sp()
+	var t0: int = s.tile
+	_check("Atmosphere entry -> planet tile", entered and s.planet_id == "new_terra", "tile %d (%s)" % [t0, Surface.PLANETS["new_terra"]["tiles"][t0]])
+	await _shot("planet_tile", 0.4)
+	# east edge: into the neighbouring tile, heading and speed kept, now at the west edge
+	var g := Surface.grid("new_terra")
+	s.load_tile(3)                               # middle-left tile: its east neighbour is tile 4 (the capital)
+	_tp(Vector3(Surface.EDGE - 40.0, 900.0, 0.0), Vector3(Surface.EDGE + 500.0, 900.0, 0.0))
+	var yaw0: float = s.yaw
+	main.hud.move_vec = Vector2(0, -1)
+	var crossed := await _until(func(): return s.tile == 4, 6.0)
+	await _wait(1.0)
+	main.hud.move_vec = Vector2.ZERO
+	_check("Tile edge -> neighbouring tile", crossed and s.player.global_position.x < -Surface.EDGE + 300.0 and absf(s.yaw - yaw0) < 0.01 and s.vel.x > 10.0,
+		"tile %d, x %d, speed %d" % [s.tile, int(s.player.global_position.x), int(s.vel.length())])
+	await _shot("planet_capital_tile", 0.3)
+	# outer edge wraps around: east out of the last column comes back in column 0 of the same row
+	s.load_tile(5)
+	_tp(Vector3(Surface.EDGE - 40.0, 900.0, 0.0), Vector3(Surface.EDGE + 500.0, 900.0, 0.0))
+	main.hud.move_vec = Vector2(0, -1)
+	var wrapped := await _until(func(): return s.tile == 3, 6.0)
+	await _wait(1.0)
+	main.hud.move_vec = Vector2.ZERO
+	_check("World wrap (east edge of sector 6 -> sector 4)", wrapped and g == 3, "tile %d" % s.tile)
+	# climb above the ceiling: back in space above New Terra
+	_tp(Vector3(0, Surface.CEILING - 30.0, 0), Vector3(0, Surface.CEILING + 400.0, -100.0))
+	main.hud.move_vec = Vector2(0, -1)
+	var out := await _until(func(): return main.state == "flight" and not _sp().surface_mode, 8.0)
+	main.hud.move_vec = Vector2.ZERO
+	s = _sp()
+	_check("Climb to orbit", out and s.distance_to(s.planet) < 400.0, "alt above planet %d" % int(s.distance_to(s.planet)))
+	# Option B: dock at the planet, choose a surface destination, arrive there
+	var docked := await _dock_at(s.planet)
+	main.hub.show_screen("surface")
+	await _wait(0.4)
+	await _shot("surface_travel_menu")
+	var go: Button = main.hub.find_child("Go_iron_foundry", true, false)
+	if go: go.pressed.emit()
+	var arrived := await _until(func(): return main.state == "flight" and _sp().surface_mode, 10.0)
+	s = _sp()
+	_check("Planet hub fast travel -> chosen sector", docked and arrived and s.tile == 7 and s.station.name == "Iron Foundry", "tile %d at %s" % [s.tile, s.station.name])
+	await _shot("fast_travel_arrival", 0.8)
+	# back up to space for the rest of the route
+	_tp(Vector3(0, Surface.CEILING - 30.0, 0), Vector3(0, Surface.CEILING + 400.0, -100.0))
+	main.hud.move_vec = Vector2(0, -1)
+	await _until(func(): return main.state == "flight" and not _sp().surface_mode, 8.0)
+	main.hud.move_vec = Vector2.ZERO
+
 var got_hail := false
 func _fight(label: String) -> bool:
 	var s := _sp()
@@ -316,6 +377,7 @@ func _run() -> void:
 	await _wait(0.6)
 	await _shot("hub_planet")
 	_check("Planet launch", await _launch())
+	await _planet_surface()
 	s = _sp()
 	# ---- asteroid field
 	var bc: Vector3 = s.belt_center

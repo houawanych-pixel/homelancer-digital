@@ -13,7 +13,7 @@
     export GODOT=/home/claude/godot/Godot_v4.3-stable_linux.x86_64
     cd /home/claude/hl && $GODOT --headless --import --path .
     xvfb-run -a $GODOT --audio-driver Dummy --rendering-driver opengl3 --resolution 1280x720 --path . -- --autotest --quit-after-test
-      -> must print RESULT 37/37 PASS  (HL_SHOT_DIR=/dir saves screenshots; HL_SHOWCASE=1 = short combat demo)
+      -> must print RESULT 42/42 PASS  (HL_SHOT_DIR=/dir saves screenshots; HL_SHOWCASE=1 = short combat demo)
 
 ## Game layout (scripts/)
 main.gd (states, calls, hub/map), space.gd (world, combat, enemies, missiles, stations), hud.gd (mobile HUD, call box
@@ -48,6 +48,8 @@ tools/sky/fix_pano.py makes any nebula image a seamless 360 sky (seam fold + pol
   red/violet nebula (Sept 30), system not chosen yet.
 - Combat stage 2 (owner's spec): light missile ~1,000 cr and heavy ~5,000 cr (needs bigger rewards first), two mine
   sizes, hub equip screen for the three weapon slots. Stage 3: waypoints with distance countdown.
+- Planets, next steps: preload the neighbour tile in the background, weather (storms, rain), missions on tiles,
+  more landmark art, a moon (1 tile), ground-hugging enemies.
 - Mechs, next steps: player-flown mech, more mech types (all rigged mechs in art/characters share the 22-bone rig),
   big-battle test with 30–40 units.
 - Human characters (~480k tris) need a rig-preserving reducer before going in-game; no on-foot mode yet.

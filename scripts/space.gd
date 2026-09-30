@@ -5,6 +5,9 @@ extends Node3D
 signal enemy_killed(reward: int, name: String)
 signal player_destroyed
 signal message(text: String)
+signal atmosphere_entered(planet_node: Node3D) # flew into a planet that has a surface
+signal tile_edge(dir: Vector2i)                 # crossed the edge of a planet tile
+signal leave_atmosphere                         # climbed above the ceiling of a planet tile
 
 const DOCK_RANGE_STATION := 260.0
 const DOCK_RANGE_PLANET := 300.0 # measured from the planet surface
@@ -34,6 +37,15 @@ var lock_time := 0.0
 var mines_live: Array = []
 var loot: Array = [] # {node, vel, value, life}
 var tractor_t := 0.0
+# ---- planet surface mode (see surface.gd): one flat tile of a planet instead of a star system
+var surface_mode := false
+var planet_id := ""
+var tile := 0
+var tile_root: Node3D
+var surf_busy := false   # a tile / atmosphere transition is running
+var entering := false    # atmosphere entry from space is running
+var altitude := 0.0
+var _sky: ProceduralSkyMaterial
 var player_vis := {} # the player ship's wing sections (Sections handle)
 var player_spark := 3.0
 signal system_used(id: String, text: String)
@@ -112,6 +124,29 @@ func setup(id: String, arrival: String) -> void:
 func place_player(arrival: String) -> void:
 	var at: Vector3
 	var face: Vector3
+	if surface_mode:
+		if station.get_meta("kind", "") == "station":
+			at = dock_point(station)
+			face = Vector3(0, 0, 1)
+		else:
+			at = Vector3(0, 1200, 0)
+			face = Vector3(0, 0, -1)
+		player.global_position = at
+		_face(face)
+		vel = -player.global_basis.z * 10.0
+		_update_camera(1.0, true)
+		return
+	if arrival.begins_with("orbit:"):
+		# climbing out of a planet tile: appear above that part of the planet, facing away from it
+		var pid: String = planet.get_meta("info")["id"]
+		var d := Surface.direction_from_tile(pid, int(arrival.substr(6)))
+		at = planet.global_position + d * (float(planet.get_meta("radius")) + 160.0)
+		face = d
+		player.global_position = at
+		_face(face)
+		vel = -player.global_basis.z * 30.0
+		_update_camera(1.0, true)
+		return
 	if arrival == "gate":
 		at = gate.global_position + gate.global_basis.z * 90.0
 		face = gate.global_basis.z
@@ -380,6 +415,7 @@ func _build_planet(d: Dictionary) -> void:
 	beacon.look_at(planet.global_position, Vector3.UP)
 
 func dock_point(n: Node3D) -> Vector3:
+	if surface_mode and n == station: return station.global_position + Vector3(0, 90, 160)
 	if n == planet:
 		var toward: Vector3 = (station.global_position - planet.global_position).normalized()
 		return planet.global_position + toward * (float(planet.get_meta("radius")) + 60.0)
@@ -595,12 +631,13 @@ func _process(dt: float) -> void:
 	_update_loot(dt)
 	_update_effects(dt)
 	_collisions(dt)
+	if surface_mode: _surface_update(dt)
 	_update_camera(dt, false)
 	_ambient_anim(dt)
 	if not is_instance_valid(target): target = null
 	if target == null or target.get_meta("kind", "") != "enemy": _auto_target()
 	# respawn hostiles once a system is cleared
-	if enemies.is_empty():
+	if enemies.is_empty() and not surface_mode:
 		respawn_timer += dt
 		if respawn_timer > 40.0:
 			respawn_timer = 0.0
@@ -1183,15 +1220,22 @@ func _collisions(dt: float) -> void:
 					message.emit("Collision alert: asteroid impact.")
 				vel = vel - n * vel.dot(n) * 1.6
 	for body: Node3D in [station, planet]:
+		if surface_mode: break
 		var rad: float = body.get_meta("radius")
 		var hitr := rad + (6.0 if body == planet else 10.0)
 		var d2 := player.global_position.distance_to(body.global_position)
+		if body == planet and Surface.has_surface(planet.get_meta("info")["id"]):
+			# planets with a surface are not solid: crossing the atmosphere line starts the entry sequence
+			if d2 < rad + 14.0 and controls and not entering:
+				entering = true
+				atmosphere_entered.emit(planet)
+			continue
 		if d2 < hitr:
 			var n2 := (player.global_position - body.global_position).normalized()
 			player.global_position = body.global_position + n2 * hitr
 			vel = vel - n2 * vel.dot(n2) * 1.5
 	var nd := p.distance_to(nebula_center)
-	in_nebula = clampf((nebula_radius - nd) / (nebula_radius * 0.35), 0.0, 1.0)
+	in_nebula = 0.0 if nebula_radius <= 1.0 else clampf((nebula_radius - nd) / (nebula_radius * 0.35), 0.0, 1.0)
 
 func _update_camera(dt: float, snap: bool) -> void:
 	if GS.view == "cockpit":
@@ -1570,6 +1614,151 @@ func hostiles_near(r: float) -> int:
 	for e in enemies:
 		if e["node"].global_position.distance_to(player.global_position) < r: c += 1
 	return c
+
+# ---------------------------------------------------------------- planet surface mode
+## Build one planet tile as the play area. Reuses all of the flight, combat, HUD and docking code; only the world
+## around the player is different. planet/gate become hidden placeholders; the tile's town pad is the dockable "station".
+func setup_surface(pid: String, t: int) -> void:
+	surface_mode = true
+	planet_id = pid
+	sys_id = Surface.PLANETS[pid]["system"]
+	sys = Data.SYSTEMS[sys_id]
+	_rng.seed = hash(pid)
+	_bolt_mesh = BoxMesh.new()
+	_bolt_mesh.size = Vector3(0.6, 0.6, 14.0)
+	_bolt_halo = BoxMesh.new()
+	_bolt_halo.size = Vector3(2.2, 2.2, 18.0)
+	_build_surface_env()
+	var far := Vector3(0, -1000000, 0)
+	planet = _placeholder(sys["planet"]["name"], "planet", far, sys["planet"])
+	gate = _placeholder(sys["gate"]["name"], "gate", far, sys["gate"])
+	station = _placeholder("-", "none", far, {})
+	nebula_center = far
+	nebula_radius = 1.0
+	belt_center = far
+	belt_radius = 0.0
+	_build_player()
+	load_tile(t)
+	place_player("port")
+
+func _placeholder(nm: String, kind: String, at: Vector3, info: Dictionary) -> Node3D:
+	var n := Node3D.new()
+	n.name = nm
+	n.visible = false
+	n.set_meta("kind", kind)
+	n.set_meta("radius", 1.0)
+	n.set_meta("info", info)
+	add_child(n)
+	n.global_position = at
+	return n
+
+func _build_surface_env() -> void:
+	env = WorldEnvironment.new()
+	var e := Environment.new()
+	e.background_mode = Environment.BG_SKY
+	var sky := Sky.new()
+	_sky = ProceduralSkyMaterial.new()
+	sky.sky_material = _sky
+	e.sky = sky
+	e.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	e.ambient_light_energy = 0.8
+	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	# depth fog: clear up close, thick toward the tile edge so the end of the terrain is never seen
+	e.fog_enabled = true
+	e.fog_mode = Environment.FOG_MODE_DEPTH
+	e.fog_density = 1.0
+	e.fog_depth_begin = 1100.0
+	e.fog_depth_end = 4300.0
+	e.fog_depth_curve = 1.6
+	e.fog_sky_affect = 0.0
+	env.environment = e
+	add_child(env)
+	var sun := DirectionalLight3D.new()
+	sun.light_energy = 1.2
+	sun.rotation_degrees = Vector3(-50, -30, 0)
+	add_child(sun)
+	cam = Camera3D.new()
+	cam.far = 9000.0
+	cam.near = 0.5
+	cam.fov = 70.0
+	cam.current = true
+	add_child(cam)
+
+## Swap the loaded tile: frees the old tile, its enemies and effects, builds the new one. The player is untouched.
+func load_tile(t: int) -> void:
+	tile = t
+	for arr in [enemies, loot, missiles_live, mines_live, bolts]:
+		for d in arr:
+			if is_instance_valid(d["node"]): d["node"].queue_free()
+		arr.clear()
+	target = null
+	autopilot = null
+	if is_instance_valid(tile_root): tile_root.queue_free()
+	tile_root = Surface.build_tile(planet_id, t)
+	add_child(tile_root)
+	var b := Surface.biome(planet_id, t)
+	_sky.sky_top_color = b["sky"]
+	_sky.sky_horizon_color = b["horizon"]
+	_sky.ground_horizon_color = b["horizon"]
+	_sky.ground_bottom_color = (b["low"] as Color).darkened(0.3)
+	env.environment.fog_light_color = b["fog"]
+	env.environment.ambient_light_color = b["horizon"]
+	if is_instance_valid(station) and station.get_meta("kind", "") == "station": station.queue_free()
+	var locs := Surface.locations_in(planet_id, t)
+	if locs.is_empty():
+		station = _placeholder("-", "none", Vector3(0, -1000000, 0), {})
+	else:
+		var l: Dictionary = locs[0]
+		station = Node3D.new()
+		station.name = l["name"]
+		station.set_meta("kind", "station")
+		station.set_meta("info", l)
+		station.set_meta("radius", 40.0)
+		add_child(station)
+		station.global_position = Vector3(l["pos"].x, Surface.pad_height(planet_id, t) + 20.0, l["pos"].y)
+	# a patrol over this tile (ships, sometimes a mech)
+	var prng := RandomNumberGenerator.new()
+	prng.seed = hash("%s%d" % [planet_id, t])
+	var c := Vector3(prng.randf_range(-1400, 1400), 0, prng.randf_range(-1400, 1400))
+	c.y = _ground(c.x, c.z) + 260.0
+	_spawn_group(c, 2)
+	_update_camera(1.0, true)
+
+func _ground(x: float, z: float) -> float:
+	var h := Surface.height(planet_id, tile, x, z)
+	var b := Surface.biome(planet_id, tile)
+	if b["sea"] != null: h = maxf(h, float(b["sea"]))
+	return h
+
+## Ground contact, tile edges (wrap to the next tile) and the ceiling (back to orbit).
+func _surface_update(_dt: float) -> void:
+	var p := player.global_position
+	var floor_y := _ground(p.x, p.z) + 6.0
+	altitude = p.y - floor_y + 6.0
+	if p.y < floor_y:
+		var impact := -vel.y
+		player.global_position.y = floor_y
+		if vel.y < 0.0: vel.y = 0.0
+		if impact > 20.0 and controls:
+			_player_hit(impact * 0.25)
+			message.emit("Terrain impact! Pull up.")
+	for e in enemies:
+		var n: Node3D = e["node"]
+		var ef := _ground(n.global_position.x, n.global_position.z) + 30.0
+		if n.global_position.y < ef: n.global_position.y = ef
+	if surf_busy or not controls: return
+	if p.x > Surface.EDGE: tile_edge.emit(Vector2i(1, 0))
+	elif p.x < -Surface.EDGE: tile_edge.emit(Vector2i(-1, 0))
+	elif p.z > Surface.EDGE: tile_edge.emit(Vector2i(0, 1))
+	elif p.z < -Surface.EDGE: tile_edge.emit(Vector2i(0, -1))
+	elif p.y > Surface.CEILING: leave_atmosphere.emit()
+
+## Cross into the neighbouring tile: load it and move the player to the opposite edge, keeping heading and speed.
+func shift_tile(dir: Vector2i) -> void:
+	var t := Surface.neighbour(planet_id, tile, dir)
+	load_tile(t)
+	player.global_position -= Vector3(dir.x, 0, dir.y) * Surface.TILE
+	_update_camera(1.0, true)
 
 func pulse_lights(t: float) -> void:
 	pass

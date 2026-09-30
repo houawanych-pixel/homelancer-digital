@@ -35,6 +35,7 @@ func _ready() -> void:
 	hud.pressed.connect(_on_hud)
 	hub.launch_requested.connect(launch)
 	hub.map_requested.connect(func(): navmap.open(null))
+	hub.descend_requested.connect(descend_to)
 	navmap.closed.connect(_on_map_closed)
 	navmap.course_set.connect(_on_course)
 	GS.changed.connect(_on_gs_changed)
@@ -128,16 +129,32 @@ func start_game() -> void:
 
 # ---------------------------------------------------------------- systems
 func _load_system(id: String, arrival: String) -> void:
+	_new_space("Space_" + id)
+	GS.system_id = id
+	if not (id in GS.discovered): GS.discovered.append(id)
+	space.setup(id, arrival)
+	_connect_space()
+
+## Planet surface: the same flight scene, built as one tile of a planet (see surface.gd).
+func _load_surface(pid: String, t: int) -> void:
+	_new_space("Surface_%s_%d" % [pid, t])
+	space.setup_surface(pid, t)
+	GS.system_id = space.sys_id
+	_connect_space()
+
+func _new_space(nm: String) -> void:
 	if is_instance_valid(space):
 		space.queue_free()
 		remove_child(space)
-	GS.system_id = id
-	if not (id in GS.discovered): GS.discovered.append(id)
 	space = SpaceScript.new()
-	space.name = "Space_" + id
+	space.name = nm
 	add_child(space)
 	move_child(space, 0)
-	space.setup(id, arrival)
+
+func _connect_space() -> void:
+	space.atmosphere_entered.connect(enter_atmosphere)
+	space.tile_edge.connect(_on_tile_edge)
+	space.leave_atmosphere.connect(leave_atmosphere)
 	space.enemy_killed.connect(_on_kill)
 	space.player_destroyed.connect(_on_destroyed)
 	space.message.connect(func(t): hud.flash_message(t))
@@ -183,6 +200,9 @@ func _web_state() -> void:
 	JavaScriptBridge.eval("window.__hlstate = %s;" % JSON.stringify(d), true)
 
 func _objective() -> String:
+	if space.surface_mode:
+		var has_port: bool = space.station.get_meta("kind", "") == "station"
+		return "PLANET: %s  ·  climb above %d m for orbit" % [("dock at " + space.station.name) if has_port else "fly on — the planet wraps around", int(Surface.CEILING)]
 	var enemy_name: String = Data.ENEMIES[space.sys["enemy"]]["name"]
 	var st: String = space.sys["station"]["name"]
 	var pl: String = space.sys["planet"]["name"]
@@ -316,6 +336,9 @@ func _comms_line() -> String:
 	return "[normal]Traffic control here. Recommended: %s." % o.to_lower()
 
 func open_map() -> void:
+	if space.surface_mode:
+		hud.flash_message("%s — tiles wrap around the planet. Dock at a town for fast travel." % Surface.tile_name(space.planet_id, space.tile))
+		return
 	state = "map"
 	hud.close_comms()
 	space.process_mode = Node.PROCESS_MODE_DISABLED
@@ -504,6 +527,7 @@ func _on_destroyed() -> void:
 	var lost := int(GS.credits * 0.1)
 	GS.credits -= lost
 	GS.restore_full()
+	if space.surface_mode: _load_system(space.sys_id, "station")
 	space.visible = false
 	space.process_mode = Node.PROCESS_MODE_DISABLED
 	space.controls = true
@@ -516,3 +540,111 @@ func _on_destroyed() -> void:
 	tw2.tween_property(fx, "fade", 0.0, 0.6)
 	await tw2.finished
 	fx.caption = ""
+
+# ---------------------------------------------------------------- planets: atmosphere entry, tiles, fast travel
+## Option A: fly into a planet. Heat glow + clouds + shake + rumble hide the load; you come out over the tile
+## under the point where you hit the atmosphere, still heading the same way.
+func enter_atmosphere(planet_node: Node3D) -> void:
+	if state != "flight": return
+	state = "atmosphere"
+	var pid: String = planet_node.get_meta("info")["id"]
+	var d: Vector3 = (space.player.global_position - planet_node.global_position).normalized()
+	var t := Surface.tile_from_direction(pid, d)
+	var yaw: float = space.yaw
+	space.controls = false
+	space.autopilot = null
+	space.drop_warp()
+	hud.close_comms()
+	hud.visible = false
+	fx.caption = "ENTERING ATMOSPHERE"
+	fx.sub = Surface.PLANETS[pid]["name"].to_upper()
+	fx.cloud_tint = Surface.biome(pid, t)["horizon"].lerp(Color.WHITE, 0.6)
+	Sfx.play("atmo", -2.0)
+	var tw := create_tween()
+	tw.tween_property(fx, "heat", 1.0, 1.0)
+	tw.parallel().tween_property(fx, "clouds", 0.55, 1.2)
+	tw.parallel().tween_method(func(k: float): space.hit_shake = 0.35 + 0.4 * k, 0.0, 1.0, 1.4)
+	tw.tween_property(fx, "clouds", 1.0, 0.5)
+	await tw.finished
+	_load_surface(pid, t)            # loads while the screen is white
+	space.controls = false
+	var p: Node3D = space.player
+	p.global_position = Vector3(0, 1500, Surface.EDGE * 0.35)
+	space.yaw = yaw
+	space.pitch = deg_to_rad(-18.0)
+	p.basis = Basis.from_euler(Vector3(space.pitch, space.yaw, 0))
+	space.vel = -p.global_basis.z * 55.0
+	space._update_camera(1.0, true)
+	fx.caption = "ATMOSPHERE"
+	fx.sub = Surface.tile_name(pid, t)
+	var tw2 := create_tween()
+	tw2.tween_property(fx, "heat", 0.0, 0.9)
+	tw2.parallel().tween_method(func(k: float): space.hit_shake = 0.5 * (1.0 - k), 0.0, 1.0, 1.2)
+	tw2.parallel().tween_property(fx, "clouds", 0.0, 1.6).set_ease(Tween.EASE_IN)
+	await tw2.finished
+	fx.caption = ""
+	space.controls = true
+	hud.visible = true
+	state = "flight"
+	hud.flash_message("Welcome to %s." % Surface.tile_name(pid, t).capitalize())
+
+## Crossing a tile edge: a quick cloud pass with speed streaks while the next tile loads.
+func _on_tile_edge(dir: Vector2i) -> void:
+	if state != "flight" or space.surf_busy: return
+	space.surf_busy = true
+	var pid: String = space.planet_id
+	var nt := Surface.neighbour(pid, space.tile, dir)
+	fx.cloud_tint = Surface.biome(pid, nt)["horizon"].lerp(Color.WHITE, 0.6)
+	fx.warp_color = Color(0.85, 0.9, 1.0)
+	Sfx.play("whoosh", -4.0)
+	var tw := create_tween()
+	tw.tween_property(fx, "clouds", 1.0, 0.35)
+	tw.parallel().tween_property(fx, "warp", 0.45, 0.35)
+	await tw.finished
+	space.shift_tile(dir)
+	var tw2 := create_tween()
+	tw2.tween_property(fx, "clouds", 0.0, 0.6)
+	tw2.parallel().tween_property(fx, "warp", 0.0, 0.6)
+	await tw2.finished
+	space.surf_busy = false
+	hud.flash_message(Surface.tile_name(pid, space.tile).capitalize())
+
+## Climbing past the ceiling: clouds, then space above the same part of the planet.
+func leave_atmosphere() -> void:
+	if state != "flight": return
+	state = "atmosphere"
+	var pid: String = space.planet_id
+	var t: int = space.tile
+	space.controls = false
+	hud.visible = false
+	fx.caption = "LEAVING ATMOSPHERE"
+	fx.sub = Surface.PLANETS[pid]["name"].to_upper()
+	Sfx.play("whoosh", -2.0, 0.7)
+	var tw := create_tween()
+	tw.tween_property(fx, "clouds", 1.0, 0.8)
+	await tw.finished
+	_load_system(Surface.PLANETS[pid]["system"], "orbit:%d" % t)
+	space.controls = false
+	var tw2 := create_tween()
+	tw2.tween_property(fx, "clouds", 0.0, 1.0)
+	await tw2.finished
+	fx.caption = ""
+	space.controls = true
+	hud.visible = true
+	state = "flight"
+	hud.flash_message("Orbit reached above %s." % Surface.PLANETS[pid]["name"])
+
+## Option B: from a planet hub (orbital port or a town), pick a destination and go straight there.
+func descend_to(pid: String, loc_id: String) -> void:
+	if state != "hub": return
+	var l := Surface.location(pid, loc_id)
+	if l.is_empty(): return
+	state = "launching"
+	hub.visible = false
+	fx.fade = 1.0
+	fx.caption = "DESCENDING"
+	fx.sub = "%s  ·  %s" % [l["name"].to_upper(), l["role"].to_upper()]
+	_load_surface(pid, int(l["tile"]))
+	visited[loc_id] = true
+	await get_tree().create_timer(0.6).timeout
+	_launch_sequence(l["name"])

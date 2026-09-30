@@ -3,6 +3,7 @@ extends Control
 
 signal launch_requested
 signal map_requested
+signal descend_requested(planet_id: String, location_id: String)
 
 const CYAN := Color(0.4, 0.86, 1.0)
 const GOLD := Color(1.0, 0.82, 0.4)
@@ -115,12 +116,13 @@ func show_screen(s: String) -> void:
 	screen = s
 	_refresh_credits()
 	var sysname: String = Data.SYSTEMS[GS.system_id]["name"]
-	header.text = base["name"].to_upper() if s == "hub" else {"equipment": "EQUIPMENT DEALER", "ships": "SHIP DEALER", "repair": "REPAIR & RESUPPLY"}[s]
+	header.text = base["name"].to_upper() if s == "hub" else {"equipment": "EQUIPMENT DEALER", "ships": "SHIP DEALER", "repair": "REPAIR & RESUPPLY", "surface": "PLANET DESTINATIONS"}[s]
 	subheader.text = "%s  ·  %s SYSTEM  ·  %s" % ["ORBITAL STATION" if kind == "station" else "PLANET SURFACE", sysname.to_upper(), base["name"]]
 	for c in left.get_children(): c.queue_free()
 	for c in content.get_children(): c.queue_free()
 	preview_vp = null
 	var menu := [["hub", "HUB"], ["equipment", "EQUIPMENT"], ["ships", "SHIP DEALER"], ["repair", "REPAIR / RESUPPLY"], ["map", "NAVIGATION"], ["launch", "LAUNCH"]]
+	if _surface_planet() != "": menu.insert(4, ["surface", "SURFACE TRAVEL"])
 	for m in menu:
 		var b := Button.new()
 		b.text = m[1]
@@ -135,6 +137,7 @@ func show_screen(s: String) -> void:
 		"equipment": _equipment_page()
 		"ships": _ships_page()
 		"repair": _repair_page()
+		"surface": _surface_page()
 	queue_redraw()
 
 func _menu(id: String) -> void:
@@ -385,3 +388,42 @@ func _draw() -> void:
 	# darken behind UI
 	draw_rect(Rect2(Vector2.ZERO, Vector2(S.x, 118)), Color(0, 0, 0, 0.45))
 	draw_rect(Rect2(Vector2(0, 118), Vector2(326, S.y)), Color(0, 0, 0, 0.35))
+
+## Which planet this base belongs to, if that planet has a surface (orbital port or a town on it).
+func _surface_planet() -> String:
+	var id: String = base.get("id", "")
+	if Surface.has_surface(id): return id
+	for pid in Surface.PLANETS:
+		for l in Surface.PLANETS[pid]["locations"]:
+			if l["id"] == id: return pid
+	return ""
+
+## Fast travel: every landing site on the planet; pick one to fly straight there.
+func _surface_page() -> void:
+	var pid := _surface_planet()
+	var v := VBoxContainer.new()
+	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	v.offset_left = 18
+	v.offset_top = 14
+	v.offset_right = -18
+	v.add_theme_constant_override("separation", 8)
+	content.add_child(v)
+	var intro := _label(16, CYAN)
+	var g := Surface.grid(pid)
+	intro.text = "%s · %d×%d surface sectors, wrapping around the globe. Choose where to set down:" % [Surface.PLANETS[pid]["name"], g, g]
+	v.add_child(intro)
+	for l in Surface.PLANETS[pid]["locations"]:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 14)
+		var lab := _label(17, Color(1, 1, 1))
+		lab.text = "%s  ·  %s\n%s" % [l["name"], l["role"], Surface.tile_name(pid, int(l["tile"])).capitalize()]
+		lab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(lab)
+		var b := Button.new()
+		b.name = "Go_" + l["id"]
+		b.text = "HERE" if l["id"] == base.get("id", "") else "TRAVEL"
+		b.disabled = l["id"] == base.get("id", "")
+		b.custom_minimum_size = Vector2(150, 54)
+		b.pressed.connect(func(): descend_requested.emit(pid, l["id"]))
+		row.add_child(b)
+		v.add_child(row)
