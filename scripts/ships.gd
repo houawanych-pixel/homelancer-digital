@@ -10,6 +10,7 @@ const GLB := {
 	"enemy": ["res://assets/ships/enemy/enemy_fleet.glb", 10.0, 0.0],
 	"fleet": ["res://assets/ships/civilian/cargo_ship.glb", 16.0, 0.0],
 	"carrier": ["res://assets/ships/civilian/carrier.glb", 130.0, 0.0],
+	"station": ["res://assets/stations/station.glb", 150.0, 0.0],
 	"missile": ["res://assets/weapons/missile.glb", 3.4, 0.0],
 	"mine": ["res://assets/weapons/mine.glb", 3.2, 0.0],
 	"gatling": ["res://assets/weapons/gatling.glb", 3.0, 0.0],

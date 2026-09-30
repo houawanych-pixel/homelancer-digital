@@ -249,6 +249,15 @@ func _build_station(d: Dictionary) -> void:
 	torus.ring_segments = 8
 	var body := Node3D.new()
 	station.add_child(body)
+	if ShipFactory.has_real_model("station"):
+		# real station model: 150 units tall, round docking port facing +Z (front face at about z = 45)
+		body.add_child(ShipFactory.build("station"))
+		for i in 5:
+			for s in [-1.0, 1.0]:
+				var gl := _mesh(body, BoxMesh.new(), Vector3(s * 12, -6, 64 + i * 14), Color(0.3, 1.0, 0.6), Vector3(1.2, 1.2, 1.2), Vector3.ZERO, true)
+				gl.set_meta("blink", i * 0.12)
+		station.set_meta("body", body)
+		return
 	_mesh(body, cyl, Vector3.ZERO, c, Vector3(14, 70, 14))
 	_mesh(body, cyl, Vector3(0, 40, 0), c.darkened(0.3), Vector3(22, 10, 22))
 	_mesh(body, cyl, Vector3(0, -40, 0), c.darkened(0.3), Vector3(22, 10, 22))

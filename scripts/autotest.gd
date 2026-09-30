@@ -28,7 +28,12 @@ func _capture(name: String) -> void:
 	shot_index += 1
 	var key := "%02d_%s" % [shot_index, name]
 	_publish("shot:" + key)
-	if not web: return
+	if not web:
+		var dir := OS.get_environment("HL_SHOT_DIR")   # desktop: optional PNG dump for reviewing art in-game
+		if dir != "":
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(dir.path_join(key + ".png"))
+		return
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
 	var b64 := Marshalls.raw_to_base64(img.save_png_to_buffer())
