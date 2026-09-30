@@ -47,7 +47,8 @@ def main():
             J = sk.accessor(js, bytes(binc), at["JOINTS_0"]).astype(np.int64)
             W = sk.accessor(js, bytes(binc), at["WEIGHTS_0"])
             x, y, z = P[:, 0], P[:, 1], P[:, 2]
-            env = {"x": x, "y": y, "z": z, "np": np}
+            dom = np.array(names)[J[np.arange(len(J)), np.argmax(W, 1)]]   # current strongest bone per vertex
+            env = {"x": x, "y": y, "z": z, "np": np, "dom": dom}
             keep = np.zeros(len(P), bool)
             for k in a.keep:
                 keep |= eval(k, env)
