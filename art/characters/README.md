@@ -21,5 +21,7 @@ Checked but not in the repo (too large, source files stay in Drive):
 - Minigun mecha (`242c5c2b…glb`, unrigged): rigged as `minigun_mecha_rigged.glb` — 22-bone humanoid, `--mech`,
   24,334 tris, 3 m, Idle + Walk. Minigun is fused into the right forearm in the source mesh, so it is weighted
   100 % to RightLowerArm (moves with the arm). Arm/thigh overlap separated with rigfix rules.
+- Headless mecha (`3ecb169a…glb`, unrigged, cockpit in chest): rigged as `headless_mecha_rigged.glb` — 22-bone
+  humanoid, `--mech`, 11,860 tris, 3 m, Idle + Walk. Hip skirt plates follow the thighs so strides don't stretch.
 - Blue mecha (`c4d26433…fire.glb`) and white mecha (`ba9dc517…dance_03.glb`): Tripo rigs misplaced (skeleton off-centre,
   left-arm bones on the rocket pods, arms bleeding into thighs). Need a re-rig — see owner notes.
