@@ -43,3 +43,6 @@ Checked but not in the repo (too large, source files stay in Drive):
 - Grey/orange mecha (`a831affe…glb`, unrigged, four shoulder cannons, rifle in left hand): rigged as
   `orange_cannon_mecha_rigged.glb` — 22-bone, `--mech`, 16,358 tris, 3 m, Idle + Walk. Whole rifle locked to
   LeftHand; cannon block on UpperChest; head + antennas on Head. Joints: `orange_cannon_mecha_joints.json` (1 m units).
+- Tan/navy mecha (`93bc4f97…glb`, unrigged, twin shoulder cannons, gun pod on right forearm): rigged as
+  `tan_navy_mecha_rigged.glb` — 22-bone, `--mech`, 17,328 tris, 3 m, Idle + Walk. Head + antennas on Head; shoulder
+  cannons on UpperChest; forearm gun pod rides the right forearm. Joints: `tan_navy_mecha_joints.json` (1 m units).
