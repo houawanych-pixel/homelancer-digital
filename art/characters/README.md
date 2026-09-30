@@ -12,5 +12,8 @@ Because bones use Godot humanoid names, any humanoid animation (Mixamo etc.) can
 Checked but not in the repo (too large, source files stay in Drive):
 - Ponytail character (`acffb6ed…afraid.glb`): Tripo rig good except the ponytail + a front strand were weighted to the
   right upper arm; fixed with `rigfix.py` (moved to Head). Fixed file delivered to the owner.
+- Coat character (`243f0048…agree.glb`): Tripo split the long coat between both legs (and its back between the arms),
+  so it tore when she moved. Fixed with `rigfix.py --blend`: coat vertices that sit away from the leg/arm bones now hang
+  from Hip, blending up to Spine02 by height. Fixed file delivered to the owner.
 - Blue mecha (`c4d26433…fire.glb`) and white mecha (`ba9dc517…dance_03.glb`): Tripo rigs misplaced (skeleton off-centre,
   left-arm bones on the rocket pods, arms bleeding into thighs). Need a re-rig — see owner notes.

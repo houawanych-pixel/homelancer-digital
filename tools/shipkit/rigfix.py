@@ -34,10 +34,13 @@ def main():
     ap.add_argument("glb"); ap.add_argument("out")
     ap.add_argument("--rule", action="append", default=[])
     ap.add_argument("--keep", action="append", default=[])
+    ap.add_argument("--blend", action="append", default=[], help='"BoneA,BoneB : condition : t-expression" (t = share of BoneB, 0..1)')
     a = ap.parse_args()
     js, binc = sk.read_glb(a.glb)
     binc = bytearray(binc)
     names = [js["nodes"][j]["name"] for j in js["skins"][0]["joints"]]
+    ibm = sk.accessor(js, bytes(binc), js["skins"][0]["inverseBindMatrices"]).reshape(-1, 4, 4)
+    bpos = {n: np.linalg.inv(m.T)[:3, 3] for n, m in zip(names, ibm)}   # bind-pose joint positions
     report = {}
     for mesh in js["meshes"]:
         for pr in mesh["primitives"]:
@@ -48,7 +51,12 @@ def main():
             W = sk.accessor(js, bytes(binc), at["WEIGHTS_0"])
             x, y, z = P[:, 0], P[:, 1], P[:, 2]
             dom = np.array(names)[J[np.arange(len(J)), np.argmax(W, 1)]]   # current strongest bone per vertex
-            env = {"x": x, "y": y, "z": z, "np": np, "dom": dom}
+            def dseg(a_, b_):
+                """distance from every vertex to the bone segment a_ -> b_ (bind pose)"""
+                A = bpos[a_]; B = bpos[b_]; ab = B - A
+                t = np.clip(((P - A) @ ab) / max(ab @ ab, 1e-12), 0, 1)
+                return np.linalg.norm(P - (A + t[:, None] * ab), axis=1)
+            env = {"x": x, "y": y, "z": z, "np": np, "dom": dom, "dseg": dseg, "bone": bpos}
             keep = np.zeros(len(P), bool)
             for k in a.keep:
                 keep |= eval(k, env)
@@ -59,6 +67,14 @@ def main():
                 J[m] = [bi, 0, 0, 0]
                 W[m] = [1.0, 0.0, 0.0, 0.0]
                 report[bone + " <- " + cond] = int(m.sum())
+            for r in a.blend:
+                bones, cond, texpr = [s_.strip() for s_ in r.split(":", 2)]
+                ba, bb = [names.index(b_.strip()) for b_ in bones.split(",")]
+                m = eval(cond, env) & ~keep
+                t = np.clip(np.broadcast_to(eval(texpr, env), P.shape[:1]), 0, 1)
+                J[m] = np.stack([np.full(m.sum(), ba), np.full(m.sum(), bb), np.zeros(m.sum(), int), np.zeros(m.sum(), int)], 1)
+                W[m] = np.stack([1 - t[m], t[m], np.zeros(m.sum()), np.zeros(m.sum())], 1)
+                report["blend " + bones + " <- " + cond] = int(m.sum())
             wa = js["accessors"][at["WEIGHTS_0"]]
             if wa["componentType"] != 5126:
                 W = np.round(W * np.iinfo(np.dtype(sk.CT[wa["componentType"]])).max)
