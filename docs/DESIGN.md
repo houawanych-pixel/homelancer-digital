@@ -121,7 +121,46 @@ The current "Aquila / Solara Jump Gate" objects are technically warp gates (buil
   1.1 km), 201 collision boxes. `city` pack 37 KB, +1.8 MB GPU on the planet, nothing in the core download.
 - **Not done on purpose:** no more buildings, no hangar/comms/defence modules, no villain art. Waiting for review.
 
-## 11. Implementation order (from the master spec)
+## 12. Owner requests, Oct 1 voice call — PLANNED, not built yet
+**Flight controls**
+- **Full loops:** remove the pitch cap so the ship can loop continuously over the top and under; roll follows so
+  upside-down doesn't feel flipped. Check it in mech form too.
+- **Default cruise:** a centred left stick holds a default cruise speed (Freelancer style). Push = faster, pull = slower
+  or reverse. It no longer slows to a stop.
+- **STOP button removed;** its slot stays empty for now.
+- **Transform button moves** — the owner wants it "where the icon is". Which icon still needs confirming.
+
+**Missions (Freelancer-style)**
+- **Mission board, two types:** SEEK AND DESTROY (clear every wave) and BOUNTY (one wave hides a named face).
+- **Waypoints:** taking a mission spawns a waypoint. Arriving spawns a wave of 10–15 enemies. Clearing it lights the
+  next waypoint. Each mission sets its own wave count, wave size, and whether a bounty face is in it.
+- **Bounty targets are the named faces** (Scar Jackal etc.); the generic helmet pilots are the escort.
+- **Capture, not kill:** wear a named target down and force a surrender. Turn them in for ransom.
+  Delivered to a station they escape after ~30 min; to a planet, ~60 min. Then they're back on the board, so
+  the bounty cycle keeps turning.
+
+**Interface**
+- **Radar:** tap it to open the map; tap the map to set your own waypoint.
+- **Cockpit view toggle:** one button goes into the cockpit, tap again for third person. The owner will make a cockpit
+  overlay image (PNG, transparent glass, landscape phone size).
+- **Dynamic music:** the owner has 28 tracks (WAV). They play only for big moments — entering faction space, missions,
+  epic and boss fights — with fades between moods. Convert to OGG and put them in a music pack. Needs the files and a
+  rough mood for each.
+- **Character voices:** real per-character voices made ahead of time with Kokoro (free, 54 voices, commercial use OK),
+  shipped as a voices pack. Live speech isn't possible without a server.
+
+**Galaxy map — immersive (replaces the flat look in §8)**
+- **Style:** the white background with blue nodes and lines (reference: `art/reference/galaxy_map_white_network.png`).
+- **You are INSIDE it:** the network surrounds you like flying in space. The points are real 3D nodes close around the
+  viewer, not a far-away skybox, so they move with parallax as you look around. The reference image can be a faint
+  far backdrop behind them.
+- **Tap a star:** it highlights, shows its name, and lights the routes branching out to the next systems.
+- **Zoom in:** a system zooms in and opens up as its own blueprint.
+- **Story frame (idea):** the game may begin in this white "waiting room" (the Creator space in §8). A cinematic takes
+  you from the white into your first system. The same white space could be the final battle: flying in to fight the
+  Creator.
+
+## 13. Implementation order (from the master spec)
 1. Optimized public build (Job L) ✔
 2. Real Samsung loading test — **waiting for the report** (Copy details)
 3. Content-pack streaming ✔
