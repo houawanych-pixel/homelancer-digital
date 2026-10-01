@@ -145,6 +145,16 @@ The current "Aquila / Solara Jump Gate" objects are technically warp gates (buil
   overlay image (PNG, transparent glass, landscape phone size). Chosen: `art/cockpit/cockpit_B.png` (wider glass);
   `cockpit_A.png` is the spare. The dashboard screens are blank on purpose: the game draws radar, weapons and
   shield/hull on them (concept: `art/reference/cockpit_hud_concept.png`).
+- **Cockpit view crosshair:** like the concept image: a circle reticle with a centre dot, a heading tape across the
+  top (240 · 250 · 260 …), SPEED and ALTITUDE bars either side of the reticle.
+- **Comms redesign: side holo screens** (replaces the bottom call panel, so it stops covering the view):
+  - Screens slide in from the sides: **enemies on the LEFT, friendlies on the RIGHT**. Two people can talk at once
+    (for example an enemy taunt and a friendly reply).
+  - Each screen: the portrait, with the line written UNDER it on a white, see-through panel, so you still see the fight.
+  - Tap to pull up the comms console; tap again and it drops back down. It holds the chat log (what's been said) and
+    a box to type a message.
+  - Calling works like Metal Gear's codec, but with a CONTACT LIST instead of a frequency number. You can only call
+    someone who is in the same star system.
 - **Dynamic music:** the owner has 28 tracks (WAV). They play only for big moments — entering faction space, missions,
   epic and boss fights — with fades between moods. Convert to OGG and put them in a music pack. Needs the files and a
   rough mood for each.
