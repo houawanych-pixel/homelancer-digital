@@ -177,6 +177,17 @@ func _process(_dt: float) -> void:
 		space.cam.look_at(space.station.global_position, Vector3.UP)
 	if state == "flight":
 		hud.objective = _objective()
+		if space.surface_mode:
+			fx.clouds = space.corner_haze * 0.75   # inside the wrap-corner cloud bank
+			if space.corner_haze > 0.0: fx.cloud_tint = (Surface.biome(space.planet_id, space.tile)["fog"] as Color).lerp(Color.WHITE, 0.45)
+		else:
+			# outer atmosphere of a planet: haze thickens and the nose glows the deeper (and faster) you go
+			var k: float = space.atmo_depth
+			fx.clouds = k * 0.38
+			fx.heat = k * clampf(space.speed_now / 90.0, 0.25, 1.0) * 0.7
+			if k > 0.0 and is_instance_valid(space.planet):
+				var pid: String = space.planet.get_meta("info")["id"]
+				if Surface.has_surface(pid): fx.cloud_tint = Surface.biome(pid, 4 if Surface.grid(pid) == 3 else 0)["horizon"].lerp(Color.WHITE, 0.5)
 		if not ("rennick" in GS.met) and GS.system_id == "solara" and not hud.comms_open:
 			for tr in space.traffic:
 				if tr["node"].global_position.distance_to(space.player.global_position) < 600.0:
@@ -259,10 +270,9 @@ func _on_hud(id: String) -> void:
 			else: hud.flash_message("Engines OFF — drifting. You can still turn and shoot." if space.toggle_engine_kill() else "Engines restarted.")
 		"warp":
 			match space.request_warp():
-				"charging": hud.flash_message("Warp drive charging… (3 s) Weapons will lock.")
-				"moving": hud.flash_message("Warp needs a full stop — tap STOP first.")
-				"stopping": hud.flash_message("Still braking — warp when stopped.")
-				"cancelled": hud.flash_message("Warp charge cancelled.")
+				"charging": hud.flash_message("Warp spooling — 5 s. Weapons locked. Keep flying!")
+				"atmosphere": hud.flash_message("The warp drive can't run inside an atmosphere.")
+				"cancelled": hud.flash_message("Warp charge cancelled. Weapons unlocked.")
 				"off": hud.flash_message("Dropped out of warp. Weapons unlocked.")
 		"call":
 			_call_target()
@@ -553,6 +563,7 @@ func enter_atmosphere(planet_node: Node3D) -> void:
 	var d: Vector3 = (space.player.global_position - planet_node.global_position).normalized()
 	var t := Surface.tile_from_direction(pid, d)
 	var yaw: float = space.yaw
+	var entry_speed: float = space.speed_now
 	space.controls = false
 	space.autopilot = null
 	space.drop_warp()
@@ -575,11 +586,12 @@ func enter_atmosphere(planet_node: Node3D) -> void:
 	_load_surface(pid, t)            # loads while the screen is white
 	space.controls = false
 	var p: Node3D = space.player
-	p.global_position = Vector3(0, 1500, Surface.EDGE * 0.35)
+	var at := Surface.local_from_direction(pid, d)   # come out over the part of the planet you flew into
+	p.global_position = Vector3(at.x, maxf(1500.0, space._ground(at.x, at.y) + 900.0), at.y)
 	space.yaw = yaw
 	space.pitch = deg_to_rad(-18.0)
 	p.basis = Basis.from_euler(Vector3(space.pitch, space.yaw, 0))
-	space.vel = -p.global_basis.z * 55.0
+	space.vel = -p.global_basis.z * clampf(entry_speed, 40.0, 90.0)
 	space._update_camera(1.0, true)
 	fx.caption = "ATMOSPHERE"
 	fx.sub = Surface.tile_name(pid, t)
@@ -594,12 +606,18 @@ func enter_atmosphere(planet_node: Node3D) -> void:
 	state = "flight"
 	hud.flash_message("Welcome to %s." % Surface.tile_name(pid, t).capitalize())
 
-## Crossing a tile edge: a quick cloud pass with speed streaks while the next tile loads.
+## Crossing a tile edge. Normally seamless (SUPERSEDES the old "storm on every border"): the next sector was built
+## ahead of time, so the ground just continues. Only if it isn't ready yet (very fast flight) a quick cloud pass hides
+## the build.
 func _on_tile_edge(dir: Vector2i) -> void:
 	if state != "flight" or space.surf_busy: return
-	space.surf_busy = true
 	var pid: String = space.planet_id
 	var nt := Surface.neighbour(pid, space.tile, dir)
+	if Surface.is_ready(pid, nt):
+		space.shift_tile(dir)
+		hud.flash_message(Surface.tile_name(pid, nt).capitalize())
+		return
+	space.surf_busy = true
 	# the border is hidden inside a weather front that suits where you're going
 	var front := _weather_front(Surface.PLANETS[pid]["tiles"][nt])
 	fx.cloud_tint = front[1]

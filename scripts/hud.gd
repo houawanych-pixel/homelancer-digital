@@ -383,6 +383,7 @@ func _status_bars() -> void:
 		["hull", GS.hull / GS.max_hull(), _hull_col(GS.hull / GS.max_hull())],
 		["energy", GS.energy / Data.ENERGY_MAX, YELLOW]]
 	_box(Rect2(x - 38, 6, w + 44, 66), Color(0.01, 0.05, 0.1, 0.72), Color(CYAN, 0.45), 10, 1)
+	_damage_icon(Vector2(x - 38 - 36, 39), 31.0, GS.wing_l / GS.wing_max(), GS.hull / GS.max_hull(), GS.wing_r / GS.wing_max(), space.is_mech_form() if space.has_method("is_mech_form") else false)
 	for k in 3:
 		var y := 12.0 + k * 20.0
 		var v: float = clampf(rows[k][1], 0.0, 1.0)
@@ -522,6 +523,16 @@ func _draw() -> void:
 			var r0 := 60.0 + ph * ph * S.x * 0.6
 			draw_line(cc0 + d0 * r0, cc0 + d0 * (r0 + 30 + 160 * ph), Color(0.75, 0.85, 1.0, 0.55 * ph), 1.5 + 2.0 * ph)
 	if cockpit: _cockpit()
+	# warp spool countdown and the planet warning
+	if space.warp_state == "charging":
+		var left := int(ceil(Data.WARP_CHARGE - space.warp_t))
+		_text(Vector2(0, S.y * 0.5 - 62), str(maxi(1, left)), 60, Color(0.75, 0.85, 1.0), HORIZONTAL_ALIGNMENT_CENTER, S.x)
+		_text(Vector2(0, S.y * 0.5 - 44), "WARP SPOOLING · WEAPONS LOCKED", 15, Color(0.75, 0.85, 1.0), HORIZONTAL_ALIGNMENT_CENTER, S.x)
+	elif space.warp_flash > 0.0:
+		_text(Vector2(0, S.y * 0.5 - 62), "WARP", 64, Color(0.85, 0.92, 1.0, minf(1.0, space.warp_flash * 2.0)), HORIZONTAL_ALIGNMENT_CENTER, S.x)
+	if space.planet_hazard > 0 and fmod(t, 0.5) < 0.32:
+		_text(Vector2(0, S.y * 0.5 - 132), "PLANETARY MASS DETECTED", 34, RED, HORIZONTAL_ALIGNMENT_CENTER, S.x)
+		_text(Vector2(0, S.y * 0.5 - 100), "DROP WARP NOW", 24, RED, HORIZONTAL_ALIGNMENT_CENTER, S.x)
 	# reticle
 	var c := S * 0.5
 	var locked: bool = space._in_fire_cone(space.target)
@@ -546,7 +557,7 @@ func _draw() -> void:
 	_corner("tractor", "TRACTOR", "tractor", Color(0.45, 0.9, 1.0), space.tractor_t > 0.0, str(space.loot.size()) if space.loot.size() > 0 else "")
 	_corner("stop", "STOP", "stop", CYAN, space.braking)
 	var wsub := ""
-	if space.warp_state == "charging": wsub = "%d%%" % int(space.warp_t / Data.WARP_CHARGE * 100)
+	if space.warp_state == "charging": wsub = "%d s" % int(ceil(Data.WARP_CHARGE - space.warp_t))
 	elif space.warp_state == "on": wsub = "DROP OUT"
 	_corner("warp", "WARP", "warp", Color(0.62, 0.55, 1.0), space.warp_state != "off", "", 0.0, false, wsub)
 	if space.warp_state == "charging":
@@ -579,6 +590,34 @@ func _draw() -> void:
 
 func _hull_col(k: float) -> Color:
 	return GREEN.lerp(YELLOW, clampf((0.75 - k) / 0.35, 0, 1)).lerp(RED, clampf((0.4 - k) / 0.3, 0, 1))
+
+## Structural status: a circle split like a "Y" into three wedges — HULL (top, between the arms of the Y), LEFT and
+## RIGHT wing (or arm, for a mech) — each green > yellow > red, dark grey when destroyed, with the silhouette on top.
+func _damage_icon(c: Vector2, r: float, lk: float, ck: float, rk: float, mech := false) -> void:
+	var wedges := [[-150.0, -30.0, ck, false], [90.0, 210.0, lk, true], [-30.0, 90.0, rk, true]]   # degrees, screen y down
+	draw_circle(c, r + 3, Color(0.01, 0.05, 0.1, 0.85))
+	for wd in wedges:
+		var k: float = clampf(wd[2], 0.0, 1.0)
+		var col := Color(0.25, 0.27, 0.3) if (wd[3] and k <= 0.0) else _hull_col(k)
+		if not wd[3] and k <= 0.0: col = Color(0.25, 0.27, 0.3)
+		var pts := PackedVector2Array([c])
+		for i in 13:
+			var a := deg_to_rad(lerpf(wd[0], wd[1], i / 12.0))
+			pts.append(c + Vector2(cos(a), sin(a)) * r)
+		draw_colored_polygon(pts, Color(col, 0.85))
+	for a2 in [-150.0, -30.0, 90.0]:
+		draw_line(c, c + Vector2(cos(deg_to_rad(a2)), sin(deg_to_rad(a2))) * r, Color(0.01, 0.05, 0.1), 2.5)
+	draw_arc(c, r, 0, TAU, 40, Color(CYAN_HI, 0.9), 2.0, true)
+	var s := r / 28.0
+	var sil: PackedVector2Array
+	if mech:
+		sil = PackedVector2Array([Vector2(-5, -17), Vector2(5, -17), Vector2(6, -11), Vector2(16, -9), Vector2(18, 6), Vector2(12, 6), Vector2(10, -3), Vector2(7, -2),
+			Vector2(8, 18), Vector2(2, 18), Vector2(0, 6), Vector2(-2, 18), Vector2(-8, 18), Vector2(-7, -2), Vector2(-10, -3), Vector2(-12, 6), Vector2(-18, 6), Vector2(-16, -9), Vector2(-6, -11)])
+	else:
+		sil = PackedVector2Array([Vector2(0, -19), Vector2(4, -7), Vector2(19, 6), Vector2(19, 10), Vector2(5, 7), Vector2(4, 15), Vector2(-4, 15), Vector2(-5, 7), Vector2(-19, 10), Vector2(-19, 6), Vector2(-4, -7)])
+	for i in sil.size(): sil[i] = c + sil[i] * s
+	sil.append(sil[0])
+	draw_polyline(sil, WHITE, 2.0, true)
 
 ## [ LEFT ] [ CORE ] [ RIGHT ]: side sections are short bars at each end, the core is the long middle bar.
 ## A destroyed side shows as a dark red box with an X.

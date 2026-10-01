@@ -101,6 +101,15 @@ static func tile_from_direction(planet_id: String, d: Vector3) -> int:
 	var r := clampi(int(floor((0.5 - lat / PI) * g)), 0, g - 1)
 	return r * g + c
 
+## Where inside that tile (local x east, z south, metres) the entry point lies, so you come out over the same spot.
+static func local_from_direction(planet_id: String, d: Vector3) -> Vector2:
+	var g := grid(planet_id)
+	var lon := atan2(d.x, d.z)
+	var lat := asin(clampf(d.y, -1.0, 1.0))
+	var fx := clampf((lon + PI) / TAU * g, 0.0, g - 0.001)
+	var fz := clampf((0.5 - lat / PI) * g, 0.0, g - 0.001)
+	return Vector2((fx - floorf(fx) - 0.5) * TILE * 0.9, (fz - floorf(fz) - 0.5) * TILE * 0.9)
+
 ## The reverse: which way out of the planet a tile faces (for climbing back to orbit).
 static func direction_from_tile(planet_id: String, tile: int) -> Vector3:
 	var g := grid(planet_id)
@@ -259,9 +268,7 @@ static func build_tile(planet_id: String, tile: int) -> Node3D:
 	root.name = "Tile_%d" % tile
 	var b := biome(planet_id, tile)
 	var key := "%s|%d" % [planet_id, tile]
-	if not _mesh_cache.has(key):
-		_mesh_cache[key] = _terrain_mesh(planet_id, tile)
-		if _mesh_cache.size() > 6: _mesh_cache.erase(_mesh_cache.keys()[0])   # keep only recent sectors in memory
+	if not _mesh_cache.has(key): _terrain_mesh(planet_id, tile)
 	var terrain := MeshInstance3D.new()
 	terrain.mesh = _mesh_cache[key]
 	terrain.name = "Terrain"
@@ -285,41 +292,172 @@ static func build_tile(planet_id: String, tile: int) -> Node3D:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(key)
 	for l in locations_in(planet_id, tile): _settlement(root, planet_id, tile, l, rng)
+	for c in wrap_corners(planet_id, tile): _corner_cloud(root, planet_id, tile, c, rng)
 	if PLANETS[planet_id]["tiles"][tile] in ["desert", "mountains", "wasteland", "volcanic", "industrial", "ice"]:
 		_landmarks(root, planet_id, tile, rng)
 	return root
 
 static func _terrain_mesh(planet_id: String, tile: int) -> ArrayMesh:
-	var g := grid(planet_id)
-	var ox := float(tile % g) * TILE
-	var oz := float(tile / g) * TILE
+	while not prepare(planet_id, tile, GRID_N + 1): pass
+	return _mesh_cache["%s|%d" % [planet_id, tile]]
+
+static var _jobs := {}   # "planet|tile" -> {row, hs: PackedFloat32Array, cols: PackedColorArray}
+
+static func is_ready(planet_id: String, tile: int) -> bool:
+	return _mesh_cache.has("%s|%d" % [planet_id, tile])
+
+## Build a tile's terrain a few rows at a time (call every frame) so the next sector is ready before you reach it,
+## without a hitch. Returns true when the mesh is in the cache.
+static func prepare(planet_id: String, tile: int, rows: int) -> bool:
+	var key := "%s|%d" % [planet_id, tile]
+	if _mesh_cache.has(key): return true
 	var n := GRID_N
 	var size := TILE + MARGIN * 2.0
 	var step := size / n
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for j in n + 1:
+	var g := grid(planet_id)
+	var ox := float(tile % g) * TILE
+	var oz := float(tile / g) * TILE
+	if not _jobs.has(key):
+		var hs := PackedFloat32Array()
+		hs.resize((n + 1) * (n + 1))
+		var cols := PackedColorArray()
+		cols.resize((n + 1) * (n + 1))
+		_jobs[key] = {"row": 0, "hs": hs, "cols": cols}
+	var job: Dictionary = _jobs[key]
+	var hs2: PackedFloat32Array = job["hs"]
+	var cols2: PackedColorArray = job["cols"]
+	var j0: int = job["row"]
+	for j in range(j0, mini(j0 + rows, n + 1)):
 		for i in n + 1:
-			var x := -size * 0.5 + i * step
-			var z := -size * 0.5 + j * step
-			var hc := sample(planet_id, ox + x, oz + z)
+			var hc := sample(planet_id, ox - size * 0.5 + i * step, oz - size * 0.5 + j * step)
 			var c: Color = hc[1]
 			var jitter := 0.94 + 0.12 * fposmod(sin(i * 12.9898 + j * 78.233) * 43758.5453, 1.0)
-			st.set_color(Color(c.r * jitter, c.g * jitter, c.b * jitter, c.a))
-			st.set_uv(Vector2(x, z) * 0.014)
-			st.add_vertex(Vector3(x, hc[0], z))
+			hs2[j * (n + 1) + i] = hc[0]
+			cols2[j * (n + 1) + i] = Color(c.r * jitter, c.g * jitter, c.b * jitter, c.a)
+	job["row"] = mini(j0 + rows, n + 1)
+	job["hs"] = hs2
+	job["cols"] = cols2
+	if job["row"] <= n: return false
+	_jobs.erase(key)
+	_mesh_cache[key] = _assemble(hs2, cols2, n, size, step)
+	if _mesh_cache.size() > 6: _mesh_cache.erase(_mesh_cache.keys()[0])   # keep only recent sectors in memory
+	return true
+
+## Height grid -> mesh, with normals and tangents worked out from the grid directly (fast, no SurfaceTool).
+static func _assemble(hs: PackedFloat32Array, cols: PackedColorArray, n: int, size: float, step: float) -> ArrayMesh:
+	var w := n + 1
+	var verts := PackedVector3Array()
+	var nrm := PackedVector3Array()
+	var tan := PackedFloat32Array()
+	var uvs := PackedVector2Array()
+	verts.resize(w * w)
+	nrm.resize(w * w)
+	tan.resize(w * w * 4)
+	uvs.resize(w * w)
+	for j in w:
+		for i in w:
+			var k := j * w + i
+			var x := -size * 0.5 + i * step
+			var z := -size * 0.5 + j * step
+			verts[k] = Vector3(x, hs[k], z)
+			var hl := hs[j * w + maxi(i - 1, 0)]
+			var hr := hs[j * w + mini(i + 1, n)]
+			var hu := hs[maxi(j - 1, 0) * w + i]
+			var hd := hs[mini(j + 1, n) * w + i]
+			nrm[k] = Vector3(hl - hr, 2.0 * step, hu - hd).normalized()
+			var tg := Vector3(2.0 * step, hr - hl, 0.0).normalized()
+			tan[k * 4] = tg.x
+			tan[k * 4 + 1] = tg.y
+			tan[k * 4 + 2] = tg.z
+			tan[k * 4 + 3] = -1.0
+			uvs[k] = Vector2(x, z) * 0.014
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = verts
+	arr[Mesh.ARRAY_NORMAL] = nrm
+	arr[Mesh.ARRAY_TANGENT] = tan
+	arr[Mesh.ARRAY_COLOR] = cols
+	arr[Mesh.ARRAY_TEX_UV] = uvs
+	arr[Mesh.ARRAY_INDEX] = _indices(n)
+	var m := ArrayMesh.new()
+	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	return m
+
+static var _idx_cache: PackedInt32Array
+static func _indices(n: int) -> PackedInt32Array:
+	if _idx_cache.size() == n * n * 6: return _idx_cache
+	var idx := PackedInt32Array()
+	idx.resize(n * n * 6)
+	var c := 0
 	for j in n:
 		for i in n:
 			var a := j * (n + 1) + i
-			st.add_index(a)
-			st.add_index(a + 1)
-			st.add_index(a + n + 1)
-			st.add_index(a + 1)
-			st.add_index(a + n + 2)
-			st.add_index(a + n + 1)
-	st.generate_normals()
-	st.generate_tangents()
-	return st.commit()
+			idx[c] = a
+			idx[c + 1] = a + 1
+			idx[c + 2] = a + n + 1
+			idx[c + 3] = a + 1
+			idx[c + 4] = a + n + 2
+			idx[c + 5] = a + n + 1
+			c += 6
+	_idx_cache = idx
+	return idx
+
+## Corners of this tile that are the planet's wrap corner (where east/west and north/south wrapping meet).
+## That one logical spot shows up in up to four tiles' corners; a cloud bank sits on it to cover the awkward corner.
+static func wrap_corners(planet_id: String, tile: int) -> Array:
+	var g := grid(planet_id)
+	var c := tile % g
+	var r := tile / g
+	var out: Array = []
+	for sx in [-1, 1]:
+		for sz in [-1, 1]:
+			if ((sx < 0 and c == 0) or (sx > 0 and c == g - 1)) and ((sz < 0 and r == 0) or (sz > 0 and r == g - 1)):
+				out.append(Vector2(sx * EDGE, sz * EDGE))
+	return out
+
+static var _cloud_tex: ImageTexture
+## Cheap cloud bank: a few dozen soft billboards around a corner point (local coords), tinted by the biome.
+static func _corner_cloud(root: Node3D, planet_id: String, tile: int, at: Vector2, rng: RandomNumberGenerator) -> void:
+	if _cloud_tex == null:
+		var nz := FastNoiseLite.new()
+		nz.seed = 5
+		nz.frequency = 0.05
+		var img := Image.create(128, 128, false, Image.FORMAT_RGBA8)
+		for y in 128:
+			for x in 128:
+				var d := Vector2(x - 63.5, y - 63.5).length() / 64.0
+				var a := clampf(1.0 - d, 0.0, 1.0)
+				a = a * a * clampf(0.5 + nz.get_noise_2d(x, y), 0.0, 1.0)
+				img.set_pixel(x, y, Color(1, 1, 1, a))
+		_cloud_tex = ImageTexture.create_from_image(img)
+	var b := biome(planet_id, tile)
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	m.billboard_keep_scale = true
+	m.albedo_texture = _cloud_tex
+	m.albedo_color = Color((b["fog"] as Color).lerp(Color.WHITE, 0.45), 0.85)
+	m.disable_fog = true   # bright cloud bank stays visible through the distance fog
+	var q := QuadMesh.new()
+	q.size = Vector2.ONE
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = q
+	mm.instance_count = 70
+	var gy := maxf(height(planet_id, tile, clampf(at.x, -EDGE, EDGE), clampf(at.y, -EDGE, EDGE)), 0.0)
+	for i in 70:
+		var ang := rng.randf() * TAU
+		var r := sqrt(rng.randf()) * 1100.0
+		var sz := rng.randf_range(380.0, 760.0)
+		var p := Vector3(at.x + cos(ang) * r, gy + rng.randf_range(60.0, 750.0), at.y + sin(ang) * r)
+		mm.set_instance_transform(i, Transform3D(Basis().scaled(Vector3(sz, sz * 0.6, sz)), p))
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	mmi.material_override = m
+	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mmi.name = "CornerCloud"
+	root.add_child(mmi)
 
 static var _box: BoxMesh
 static var _cyl: CylinderMesh

@@ -38,7 +38,9 @@ const ENERGY_PER_GUN := 1.5 # per shot per gun
 const SHIELD_BOOST_COOLDOWN := 3.0
 const MAX_SHIELD_CHARGES := 5
 const MAX_ENERGY_CELLS := 5
-const WARP_CHARGE := 3.0 # seconds, from a full stop
+const WARP_CHARGE := 5.0 # seconds of spool; you can keep flying while it charges (SUPERSEDES: warp needed a full stop)
+const ATMO_OUTER := 1.3   # planet radius x: outer atmosphere (haze, glow, rumble, surface data starts loading)
+const ATMO_INNER := 1.02  # planet radius x: entry sphere (commits to the surface)
 const WARP_MULT := 6.0 # x ship speed
 const THRUST_MULT := 2.0 # afterburner x ship speed
 const THRUST_ENERGY := 14.0 # per second
@@ -83,7 +85,7 @@ const SYSTEMS := {
 		"sun_dir": Vector3(-0.4, -0.35, -1.0),
 		"station": {"id": "liberty_hub", "name": "Liberty Hub", "pos": Vector3(0, 0, -260), "kind": "station",
 			"desc": "Unity trade and patrol hub. Repairs, outfitting and a ship dealer.", "color": Color(0.72, 0.78, 0.9)},
-		"planet": {"id": "new_terra", "name": "New Terra", "pos": Vector3(1500, -260, -2500), "radius": 420.0, "kind": "planet",
+		"planet": {"id": "new_terra", "name": "New Terra", "pos": Vector3(1500, -260, -2500), "radius": 1000.0, "kind": "planet",
 			"desc": "Temperate colony world. Orbital landing field at Port Meridian.", "palette": "terran"},
 		"gate": {"id": "aquila_gate", "name": "Aquila Jump Gate", "pos": Vector3(-300, 40, -4200), "to": "vega"},
 		"asteroids": {"name": "Solara Belt", "center": Vector3(-950, 0, -1700), "radius": 380.0, "count": 150, "ice": false},
@@ -97,13 +99,13 @@ const SYSTEMS := {
 		"sun_dir": Vector3(0.5, -0.3, -1.0),
 		"station": {"id": "frontier_exchange", "name": "Frontier Exchange", "pos": Vector3(780, 0, -950), "kind": "station",
 			"desc": "Independent frontier market on the edge of charted space.", "color": Color(0.92, 0.72, 0.4)},
-		"planet": {"id": "eden_prime", "name": "Eden Prime", "pos": Vector3(-1700, 320, -2300), "radius": 480.0, "kind": "planet",
+		"planet": {"id": "eden_prime", "name": "Eden Prime", "pos": Vector3(-1700, 320, -2300), "radius": 880.0, "kind": "planet",
 			"desc": "Lush jungle world. Landing at the Verdant Terrace spaceport.", "palette": "jungle"},
 		"gate": {"id": "solara_gate", "name": "Solara Jump Gate", "pos": Vector3(0, 0, 0), "to": "solara"},
 		"asteroids": {"name": "Vega Ice Field", "center": Vector3(950, -40, -2650), "radius": 420.0, "count": 160, "ice": true},
 		"nebula": {"name": "Azure Veil", "center": Vector3(-350, 0, -1450), "radius": 440.0, "color": Color(0.2, 0.55, 0.95)},
 		"enemy": "corsair",
-		"patrols": [Vector3(250, 0, -1700), Vector3(900, -20, -2300), Vector3(-900, 150, -1900)],
+		"patrols": [Vector3(250, 0, -1700), Vector3(900, -20, -2300), Vector3(-450, 150, -800)],
 		"traffic": [["frontier_exchange", "eden_prime"]],
 	},
 }

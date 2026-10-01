@@ -195,6 +195,22 @@ func _planet_surface() -> void:
 	await _until(func(): return main.state == "flight" and not _sp().surface_mode, 8.0)
 	main.hud.move_vec = Vector2.ZERO
 
+## Warping at a planet: warning first, then the ship is destroyed at the atmosphere line (towed to the station).
+func _warp_into_planet() -> void:
+	var s := _sp()
+	var pc: Vector3 = s.planet.global_position
+	var outer: float = float(s.planet.get_meta("radius")) * Data.ATMO_OUTER
+	var d := (s.player.global_position - pc).normalized()
+	_tp(pc + d * (outer + 420.0), pc)
+	s.warp_state = "on"
+	s.vel = -s.player.global_basis.z * float(GS.ship()["speed"]) * Data.WARP_MULT
+	var warned := await _until(func(): return s.planet_hazard == 1, 2.0)
+	await _shot("planet_warp_warning", 0.0)
+	var dead := await _until(func(): return main.state == "dead" or main.state == "hub", 6.0)
+	await _until(func(): return main.state == "hub", 8.0)
+	_check("Warp into a planet: warning, then destroyed", warned and dead, "warned %s, state %s" % [warned, main.state])
+	await _launch()
+
 var got_hail := false
 func _fight(label: String) -> bool:
 	var s := _sp()
@@ -301,6 +317,8 @@ func _run() -> void:
 	_check("Mobile HUD shown", main.hud.visible and main.hud.buttons.has("slot_0") and main.hud.buttons.has("slot_2") and main.hud.buttons.has("shield") and main.hud.buttons.has("repair") and main.hud.buttons.has("tractor") and main.hud.buttons.has("stop") and main.hud.buttons.has("warp") and main.hud.buttons.has("thrust") and main.hud.buttons.has("kill") and main.hud.buttons.has("call"))
 	await _shot("solara_flight")
 	var s := _sp()
+	s.hail.connect(_on_hail)   # listen from the start: enemies may call as soon as they see you (e.g. a warp spool)
+	s.enemy_hail.connect(_on_enemy_hail)
 	_check("Real/placeholder player ship", is_instance_valid(s.model), "placeholder=%s" % s.model.get_meta("placeholder", true))
 	# ---- first-person cockpit, comms and the AUTO/MANUAL system panels
 	_press("view")
@@ -338,8 +356,17 @@ func _run() -> void:
 	var boost_speed := s.speed_now
 	_check("Thrust (afterburner)", s.boosting and boost_speed > float(GS.ship()["speed"]) * 1.3, "speed %d" % int(boost_speed))
 	main.hud.held.erase("thrust")
+	# warp now spools while you keep flying; weapons lock as soon as it starts
+	main.hud.move_vec = Vector2(0, -1)
 	var early: String = s.request_warp()
-	_check("Warp refused while moving", early == "moving" and s.warp_state == "off")
+	await _wait(1.2)
+	var m_lock := GS.missiles
+	var locked_early := not s.trigger_system("missile") and GS.missiles == m_lock
+	var flying: float = s.speed_now
+	_check("Warp spools while moving, weapons locked", early == "charging" and s.warp_state == "charging" and flying > 20.0 and locked_early, "speed %d during spool" % int(flying))
+	await _shot("warp_spool_moving", 0.0)
+	s.request_warp()   # cancel
+	main.hud.move_vec = Vector2.ZERO
 	_press("stop")
 	var stopped := await _until(func(): return s.speed_now < 0.7 and not s.braking, 8.0)
 	_check("STOP to full stop", stopped, "speed %.1f" % s.speed_now)
@@ -356,14 +383,16 @@ func _run() -> void:
 	_press("stop")
 	await _until(func(): return s.speed_now < 0.7 and not s.braking, 8.0)
 	_press("warp")
+	var t_spool := Time.get_ticks_msec()
 	await _wait(1.6)
 	var charging: bool = s.warp_state == "charging"
 	await _shot("warp_charging", 0.0)
-	await _until(func(): return s.warp_state == "on", 4.0)
-	await _wait(1.2)
+	await _until(func(): return s.warp_state == "on", 6.0)
+	var spool_s := (Time.get_ticks_msec() - t_spool) / 1000.0
+	await _wait(0.6)
 	var m_before := GS.missiles
 	var locked := not s.trigger_system("missile") and GS.missiles == m_before
-	_check("Warp: 3 s charge from stop, weapons locked", charging and s.warp_state == "on" and locked and s.speed_now > float(GS.ship()["speed"]) * 3.0, "speed %d" % int(s.speed_now))
+	_check("Warp: 5 s spool then shoots forward, weapons locked", charging and s.warp_state == "on" and locked and spool_s > 4.5 and s.speed_now > float(GS.ship()["speed"]) * 3.0, "spool %.1f s, speed %d" % [spool_s, int(s.speed_now)])
 	await _shot("warp_travel", 0.2)
 	_press("warp")
 	await _wait(0.4)
@@ -418,6 +447,7 @@ func _run() -> void:
 	await _shot("hub_planet")
 	_check("Planet launch", await _launch())
 	await _planet_surface()
+	await _warp_into_planet()
 	s = _sp()
 	# ---- asteroid field
 	var bc: Vector3 = s.belt_center

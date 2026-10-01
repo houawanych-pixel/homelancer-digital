@@ -13,7 +13,7 @@
     export GODOT=/home/claude/godot/Godot_v4.3-stable_linux.x86_64
     cd /home/claude/hl && $GODOT --headless --import --path .
     xvfb-run -a $GODOT --audio-driver Dummy --rendering-driver opengl3 --resolution 1280x720 --path . -- --autotest --quit-after-test
-      -> must print RESULT 42/42 PASS  (HL_SHOT_DIR=/dir saves screenshots; HL_SHOWCASE=1 = short combat demo)
+      -> must print RESULT 43/43 PASS  (HL_SHOT_DIR=/dir saves screenshots; HL_SHOWCASE=1 = short combat demo)
 
 ## Game layout (scripts/)
 main.gd (states, calls, hub/map), space.gd (world, combat, enemies, missiles, stations), hud.gd (mobile HUD, call box
@@ -35,6 +35,9 @@ make_ships.sh, make_booster.py. tools/setup_env.sh. See tools/shipkit/README.md.
 
 ## Sky panoramas
 tools/sky/fix_pano.py makes any nebula image a seamless 360 sky (seam fold + pole blur + 4096x2048). See tools/sky/README.md.
+
+## Design rules
+docs/DESIGN.md is the authoritative design (superseded rules are marked). Read it before changing gameplay.
 
 ## Loading / content packs (read docs/PERFORMANCE.md)
 Only what is needed to start is in the main download. Mechs, planet terrain and the Lancer are content packs

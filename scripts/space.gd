@@ -46,6 +46,9 @@ var surf_busy := false   # a tile / atmosphere transition is running
 var entering := false    # atmosphere entry from space is running
 var altitude := 0.0
 var _water := false
+var atmo_depth := 0.0     # 0 outside a planet's outer atmosphere .. 1 at the entry sphere
+var planet_hazard := 0    # 0 none, 1 warp near planet (warning), 2 warp impact
+var _atmo_rumbled := false
 var _edge_warned := false
 var _sky: ProceduralSkyMaterial
 var player_vis := {} # the player ship's wing sections (Sections handle)
@@ -166,7 +169,7 @@ func place_player(arrival: String) -> void:
 		# climbing out of a planet tile: appear above that part of the planet, facing away from it
 		var pid: String = planet.get_meta("info")["id"]
 		var d := Surface.direction_from_tile(pid, int(arrival.substr(6)))
-		at = planet.global_position + d * (float(planet.get_meta("radius")) + 160.0)
+		at = planet.global_position + d * (float(planet.get_meta("radius")) * Data.ATMO_OUTER + 60.0)
 		face = d
 		player.global_position = at
 		_face(face)
@@ -352,8 +355,8 @@ func _build_station(d: Dictionary) -> void:
 	station.set_meta("body", body)
 
 func _planet_texture(palette: String) -> ImageTexture:
-	var w := 384
-	var h := 192
+	var w := 512
+	var h := 256
 	var n := FastNoiseLite.new()
 	n.seed = hash(palette)
 	n.frequency = 0.012
@@ -398,8 +401,8 @@ func _build_planet(d: Dictionary) -> void:
 	var sm := SphereMesh.new()
 	sm.radius = r
 	sm.height = r * 2.0
-	sm.radial_segments = 48
-	sm.rings = 24
+	sm.radial_segments = 72
+	sm.rings = 36
 	var mi := MeshInstance3D.new()
 	mi.mesh = sm
 	var m := StandardMaterial3D.new()
@@ -412,8 +415,8 @@ func _build_planet(d: Dictionary) -> void:
 	# atmosphere rim
 	var atm := MeshInstance3D.new()
 	var am := SphereMesh.new()
-	am.radius = r * 1.06
-	am.height = r * 2.12
+	am.radius = r * 1.12   # upper atmosphere glow, visible well before you reach it
+	am.height = r * 2.24
 	am.radial_segments = 48
 	am.rings = 24
 	atm.mesh = am
@@ -648,6 +651,7 @@ func _build_carrier() -> void:
 var _mem_reported := false
 func _process(dt: float) -> void:
 	time += dt
+	warp_flash = maxf(0.0, warp_flash - dt)
 	if not _mem_reported and time > 3.0:
 		_mem_reported = true
 		if OS.has_feature("web") or OS.get_environment("HL_PROFILE") != "": print(memory_report())
@@ -699,7 +703,6 @@ func _update_player(dt: float) -> void:
 		steer = ap[0]
 		thrust = ap[1]
 	if warp_state == "on": steer *= 0.35 # heavy steering at warp speed
-	if warp_state == "charging": steer = Vector2.ZERO # hold still while the drive spools up
 	yaw -= steer.x * turn * dt
 	pitch = clampf(pitch - steer.y * turn * 0.8 * dt, deg_to_rad(-75), deg_to_rad(75))
 	player.basis = Basis.from_euler(Vector3(pitch, yaw, 0))
@@ -711,15 +714,19 @@ func _update_player(dt: float) -> void:
 	boosting = false
 	var rate := 1.8
 	if warp_state == "charging":
-		vel = Vector3.ZERO
+		# the drive spools while you keep flying (escape run): energy builds behind the ship, weapons stay locked
 		warp_t += dt
 		_booster_particles(dt, clampf(warp_t / Data.WARP_CHARGE, 0.0, 1.0))
+		_warp_bulge(clampf(warp_t / Data.WARP_CHARGE, 0.0, 1.0))
 		if warp_t >= Data.WARP_CHARGE:
 			warp_state = "on"
-			message.emit("Warp drive engaged. Weapons locked.")
-		player.global_position += vel * dt
-		speed_now = 0.0
-		return
+			warp_flash = 0.8
+			engine_kill = false
+			_warp_bulge(-1.0)
+			vel = fwd * base_speed * Data.WARP_MULT   # the ship shoots forward
+			_spark(player.global_position - fwd * 4.0, Color(0.8, 0.85, 1.0), 26.0, 0.4)
+			Sfx.play("warp_go", -2.0)
+			message.emit("Warp! Weapons locked until you drop out.")
 	if warp_state == "on":
 		vel = vel.lerp(fwd * base_speed * Data.WARP_MULT, minf(1.0, dt * 1.2))
 		_booster_particles(dt, 0.5)
@@ -760,12 +767,13 @@ func full_stop() -> void:
 	autopilot = null
 
 func toggle_engine_kill() -> bool:
-	if warp_state != "off": return false
+	if warp_state == "on": return false
 	engine_kill = not engine_kill
 	braking = false
 	return engine_kill
 
-## Warp only engages from a full stop, then charges for WARP_CHARGE seconds.
+## Warp spools for WARP_CHARGE seconds while you keep flying (no stop needed). Weapons lock from the first second;
+## nearby enemies see the charge and close in to stop you. Tap WARP again during the spool to cancel.
 func request_warp() -> String:
 	if warp_state == "on":
 		drop_warp("Warp disengaged.")
@@ -773,19 +781,45 @@ func request_warp() -> String:
 	if warp_state == "charging":
 		warp_state = "off"
 		warp_t = 0.0
+		_warp_bulge(-1.0)
 		return "cancelled"
-	if speed_now > 2.0 and not braking: return "moving"
-	if speed_now > 2.0: return "stopping"
-	engine_kill = false
+	if surface_mode: return "atmosphere"
 	braking = false
 	warp_state = "charging"
 	warp_t = 0.0
+	Sfx.play("warp_spool", -4.0)
 	return "charging"
+
+var warp_flash := 0.0   # seconds of "WARP" banner after engaging
+var _bulge: MeshInstance3D
+## Bright energy bulge behind the ship while the warp drive spools (k 0..1), hidden with k < 0.
+func _warp_bulge(k: float) -> void:
+	if k < 0.0:
+		if is_instance_valid(_bulge): _bulge.visible = false
+		return
+	if not is_instance_valid(_bulge):
+		_bulge = MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = 1.0
+		sm.height = 2.0
+		sm.radial_segments = 16
+		sm.rings = 8
+		_bulge.mesh = sm
+		var m := _glow_mat(Color(0.55, 0.7, 1.0)).duplicate() as StandardMaterial3D
+		_bulge.material_override = m
+		_bulge.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		player.add_child(_bulge)
+	_bulge.visible = true
+	var pulse := 1.0 + 0.12 * sin(time * (8.0 + 22.0 * k))
+	_bulge.position = Vector3(0, 0, 4.5 + k * 2.0)
+	_bulge.scale = Vector3(1.2 + 2.6 * k, 1.0 + 2.0 * k, 1.6 + 4.0 * k) * pulse
+	(_bulge.material_override as StandardMaterial3D).albedo_color = Color(0.55 + 0.4 * k, 0.7 + 0.25 * k, 1.0, 0.25 + 0.5 * k)
 
 func drop_warp(why := "") -> void:
 	if warp_state == "off": return
 	warp_state = "off"
 	warp_t = 0.0
+	if is_instance_valid(player): _warp_bulge(-1.0)
 	vel = vel.normalized() * GS.ship()["speed"]
 	if why != "": message.emit(why)
 
@@ -817,12 +851,9 @@ func _autopilot_input() -> Array:
 		message.emit("Autopilot: arrived.")
 		return [Vector2.ZERO, Vector2.ZERO]
 	var aligned := local.z < -0.97
-	# long legs: stop, charge the warp drive, warp, drop out near the destination
-	if warp_state == "off" and aligned and dist > 1100.0:
-		if speed_now > 2.0: braking = true
-		else: request_warp()
-		return [steer, Vector2.ZERO]
-	if warp_state == "on" and dist < 650.0: drop_warp("Autopilot: dropping out of warp.")
+	# long legs: spool the warp drive while flying on, warp, drop out near the destination (and before any atmosphere)
+	if warp_state == "off" and aligned and dist > 1500.0 and planet_hazard == 0: request_warp()
+	if warp_state == "on" and (dist < 650.0 or planet_hazard > 0): drop_warp("Autopilot: dropping out of warp.")
 	var th := 1.0 if local.z < -0.3 else 0.2
 	return [steer, Vector2(0, th)]
 
@@ -1149,8 +1180,9 @@ func _update_enemies(dt: float) -> void:
 		var to := ppos - n.global_position
 		var dist := to.length()
 		var was: bool = e["aggro"]
-		if dist < 650.0 or e["aggro"]: e["aggro"] = dist < 1400.0
-		if e["aggro"] and not was and call_cd <= 0.0 and controls and warp_state == "off":
+		var spotting := warp_state == "charging" and dist < 1600.0   # they see the warp charge and come to stop you
+		if dist < 650.0 or e["aggro"] or spotting: e["aggro"] = dist < (1600.0 if spotting else 1400.0)
+		if e["aggro"] and not was and call_cd <= 0.0 and controls and warp_state != "on":
 			call_cd = 30.0
 			if n.has_meta("pilot"): enemy_hail.emit(n.get_meta("pilot"))
 			else: hail.emit("%s pilot" % d["name"], TAUNTS[_rng.randi() % TAUNTS.size()], true)
@@ -1167,7 +1199,7 @@ func _update_enemies(dt: float) -> void:
 		var new_fwd := fwd.slerp(want, minf(1.0, dt * float(d["turn"])))
 		if new_fwd.length() > 0.01:
 			n.look_at(n.global_position + new_fwd, Vector3.UP)
-		var sp: float = d["speed"] * (1.0 if e["aggro"] else 0.5)
+		var sp: float = d["speed"] * (1.0 if e["aggro"] else 0.5) * (1.4 if warp_state == "charging" else 1.0)
 		e["vel"] = (e["vel"] as Vector3).lerp(-n.global_basis.z * sp, minf(1.0, dt * 1.5))
 		n.global_position += e["vel"] * dt
 		# shooting
@@ -1254,9 +1286,36 @@ func _collisions(dt: float) -> void:
 		var rad: float = body.get_meta("radius")
 		var hitr := rad + (6.0 if body == planet else 10.0)
 		var d2 := player.global_position.distance_to(body.global_position)
+		if body == planet:
+			# warp near a planet is deadly: warn inside 1.8x the outer atmosphere, destroy at the atmosphere line
+			var outer := rad * Data.ATMO_OUTER
+			planet_hazard = 0
+			if warp_state == "on" and d2 < outer * 1.8:
+				planet_hazard = 1
+				if d2 < outer and controls:
+					planet_hazard = 2
+					message.emit("Warp impact with planetary mass!")
+					_explode(player.global_position)
+					_spark(player.global_position, Color(1, 1, 1), 60.0, 0.6)
+					controls = false
+					drop_warp()
+					player_destroyed.emit()
+					continue
 		if body == planet and Surface.has_surface(planet.get_meta("info")["id"]):
-			# planets with a surface are not solid: crossing the atmosphere line starts the entry sequence
-			if d2 < rad + 14.0 and controls and not entering:
+			# planets with a surface are not solid. Outer atmosphere: haze, glow, rumble and the planet pack starts
+			# coming. Inner entry sphere (forgiving, any direction): commits to the surface.
+			var outer2 := rad * Data.ATMO_OUTER
+			var inner := rad * Data.ATMO_INNER
+			atmo_depth = clampf((outer2 - d2) / (outer2 - inner), 0.0, 1.0) if warp_state == "off" else 0.0
+			if atmo_depth > 0.0:
+				Packs.request("planets")
+				if not _atmo_rumbled:
+					_atmo_rumbled = true
+					Sfx.play("atmo", -10.0, 0.8)
+					message.emit("Entering upper atmosphere of %s." % planet.name)
+				hit_shake = maxf(hit_shake, atmo_depth * 0.18)
+			elif d2 > outer2 * 1.1: _atmo_rumbled = false
+			if d2 < inner and controls and not entering and warp_state == "off":
 				entering = true
 				atmosphere_entered.emit(planet)
 			continue
@@ -1715,13 +1774,21 @@ func _build_surface_env() -> void:
 	add_child(cam)
 
 ## Swap the loaded tile: frees the old tile, its enemies and effects, builds the new one. The player is untouched.
-func load_tile(t: int) -> void:
+## keep: offset to carry things near the player into the new tile (seamless border crossing); Vector3.INF = free all.
+func load_tile(t: int, keep := Vector3.INF) -> void:
 	tile = t
+	var pp := player.global_position if is_instance_valid(player) else Vector3.ZERO
 	for arr in [enemies, loot, missiles_live, mines_live, bolts]:
-		for d in arr:
-			if is_instance_valid(d["node"]): d["node"].queue_free()
-		arr.clear()
-	target = null
+		for i in range(arr.size() - 1, -1, -1):
+			var d: Dictionary = arr[i]
+			var nd: Node3D = d["node"]
+			if keep != Vector3.INF and is_instance_valid(nd) and nd.global_position.distance_to(pp) < 1800.0:
+				nd.global_position -= keep   # comes along across the border
+				if d.has("home"): d["home"] = (d["home"] as Vector3) - keep
+				continue
+			if is_instance_valid(nd): nd.queue_free()
+			arr.remove_at(i)
+	if keep == Vector3.INF or (target != null and not is_instance_valid(target)): target = null
 	autopilot = null
 	if is_instance_valid(tile_root): tile_root.queue_free()
 	tile_root = Surface.build_tile(planet_id, t)
@@ -1729,12 +1796,13 @@ func load_tile(t: int) -> void:
 	_edge_warned = false
 	add_child(tile_root)
 	var b := Surface.biome(planet_id, t)
-	_sky.sky_top_color = b["sky"]
-	_sky.sky_horizon_color = b["horizon"]
-	_sky.ground_horizon_color = b["fog"]      # below the horizon the sky matches the fog, so the far edge melts away
-	_sky.ground_bottom_color = b["fog"]
-	env.environment.fog_light_color = b["fog"]
-	env.environment.ambient_light_color = b["horizon"]
+	var cols := {"sky": b["sky"], "horizon": b["horizon"], "fog": b["fog"]}
+	if keep == Vector3.INF: _apply_sky(cols, 1.0)
+	else:
+		# seamless crossing: the sky and fog drift to the new biome's colours over a few seconds
+		var from := {"sky": _sky.sky_top_color, "horizon": _sky.sky_horizon_color, "fog": env.environment.fog_light_color}
+		var tw := create_tween()
+		tw.tween_method(func(k: float): _apply_sky({"sky": (from["sky"] as Color).lerp(cols["sky"], k), "horizon": (from["horizon"] as Color).lerp(cols["horizon"], k), "fog": (from["fog"] as Color).lerp(cols["fog"], k)}, 1.0), 0.0, 1.0, 3.0)
 	if is_instance_valid(station) and station.get_meta("kind", "") == "station": station.queue_free()
 	var locs := Surface.locations_in(planet_id, t)
 	if locs.is_empty():
@@ -1753,8 +1821,22 @@ func load_tile(t: int) -> void:
 	prng.seed = hash("%s%d" % [planet_id, t])
 	var c := Vector3(prng.randf_range(-1400, 1400), 0, prng.randf_range(-1400, 1400))
 	c.y = _ground(c.x, c.z) + 260.0
-	_spawn_group(c, 2)
-	_update_camera(1.0, true)
+	if enemies.size() < 4: _spawn_group(c, 2)
+	if keep == Vector3.INF: _update_camera(1.0, true)
+	_corners = Surface.wrap_corners(planet_id, t)
+	_prepared.clear()
+
+func _apply_sky(c: Dictionary, _k: float) -> void:
+	_sky.sky_top_color = c["sky"]
+	_sky.sky_horizon_color = c["horizon"]
+	_sky.ground_horizon_color = c["fog"]      # below the horizon the sky matches the fog, so the far edge melts away
+	_sky.ground_bottom_color = c["fog"]
+	env.environment.fog_light_color = c["fog"]
+	env.environment.ambient_light_color = c["horizon"]
+
+var _corners: Array = []
+var _prepared := {}
+var corner_haze := 0.0   # 0..1 inside the wrap-corner cloud bank
 
 func _ground(x: float, z: float) -> float:
 	var h := Surface.height(planet_id, tile, x, z)
@@ -1777,24 +1859,38 @@ func _surface_update(_dt: float) -> void:
 		var n: Node3D = e["node"]
 		var ef := _ground(n.global_position.x, n.global_position.z) + 30.0
 		if n.global_position.y < ef: n.global_position.y = ef
+	# build the sector(s) ahead a few rows per frame, so crossing the border needs no loading pause
+	var ahead: Array = []
+	if p.x > Surface.EDGE - 1600.0: ahead.append(Vector2i(1, 0))
+	if p.x < -Surface.EDGE + 1600.0: ahead.append(Vector2i(-1, 0))
+	if p.z > Surface.EDGE - 1600.0: ahead.append(Vector2i(0, 1))
+	if p.z < -Surface.EDGE + 1600.0: ahead.append(Vector2i(0, -1))
+	if ahead.size() == 2: ahead.append(ahead[0] + ahead[1])
+	for d in ahead:
+		var nt := Surface.neighbour(planet_id, tile, d)
+		if not _prepared.get(nt, false):
+			_prepared[nt] = Surface.prepare(planet_id, nt, 6)
+			break   # one sector's rows per frame
+	# the wrap-corner cloud bank: haze when you fly into it
+	corner_haze = 0.0
+	for c in _corners:
+		corner_haze = maxf(corner_haze, clampf((1100.0 - Vector2(p.x, p.z).distance_to(c)) / 600.0, 0.0, 1.0))
 	if surf_busy or not controls: return
-	var near := maxf(absf(p.x), absf(p.z)) > Surface.EDGE - 350.0
-	if near and not _edge_warned:
-		_edge_warned = true
-		message.emit("Weather front ahead — crossing into the next sector.")
-	elif not near: _edge_warned = false
 	if p.x > Surface.EDGE: tile_edge.emit(Vector2i(1, 0))
 	elif p.x < -Surface.EDGE: tile_edge.emit(Vector2i(-1, 0))
 	elif p.z > Surface.EDGE: tile_edge.emit(Vector2i(0, 1))
 	elif p.z < -Surface.EDGE: tile_edge.emit(Vector2i(0, -1))
 	elif p.y > Surface.CEILING: leave_atmosphere.emit()
 
-## Cross into the neighbouring tile: load it and move the player to the opposite edge, keeping heading and speed.
+## Cross into the neighbouring tile and move the player to the opposite edge, keeping heading and speed. The ground
+## is continuous across borders, so with the next sector already built this is seamless: nearby ships, shots and
+## loot come along, and the camera moves with the player instead of jumping.
 func shift_tile(dir: Vector2i) -> void:
 	var t := Surface.neighbour(planet_id, tile, dir)
-	load_tile(t)
-	player.global_position -= Vector3(dir.x, 0, dir.y) * Surface.TILE
-	_update_camera(1.0, true)
+	var off := Vector3(dir.x, 0, dir.y) * Surface.TILE
+	load_tile(t, off)
+	player.global_position -= off
+	cam.global_position -= off
 
 func pulse_lights(t: float) -> void:
 	pass

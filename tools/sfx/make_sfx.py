@@ -93,4 +93,12 @@ rum = lowpass(n, 260) * (0.4 + 0.6 * np.sin(np.pi * tt / 3.5)) + 0.5 * lowpass(n
 save("atmo", rum * env(len(n), 0.3, 0.8), 0.8)
 n = rng.normal(0, 1, int(SR * 0.9)); tt = t(0.9)
 save("whoosh", biquad_bp(n, 500, 0.8) * np.sin(np.pi * tt / 0.9) ** 2 + 0.4 * biquad_bp(n, 2400, 1.5) * np.sin(np.pi * tt / 0.9) ** 4, 0.6)
+# --- warp: 5 s rising spool, then the launch
+tt = t(5.0)
+spool = sweep(70, 520, 5.0) * (0.3 + 0.7 * tt / 5.0) + 0.5 * sweep(140, 1040, 5.0, "sq") * (tt / 5.0) ** 2
+spool *= 0.8 + 0.2 * np.sin(2 * np.pi * (4 + 18 * tt / 5.0) * tt)
+save("warp_spool", lowpass(spool, 3000) * env(len(tt), 0.2, 0.05), 0.6)
+n = rng.normal(0, 1, int(SR * 1.2)); tt = t(1.2)
+go = lowpass(n, 2500) * np.exp(-tt * 3.5) + 0.8 * sweep(900, 60, 1.2) * np.exp(-tt * 2.5)
+save("warp_go", go, 0.8)
 print("wrote", sorted(os.listdir(OUT)))
