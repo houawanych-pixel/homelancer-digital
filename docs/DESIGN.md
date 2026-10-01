@@ -142,7 +142,9 @@ The current "Aquila / Solara Jump Gate" objects are technically warp gates (buil
 **Interface**
 - **Radar:** tap it to open the map; tap the map to set your own waypoint.
 - **Cockpit view toggle:** one button goes into the cockpit, tap again for third person. The owner will make a cockpit
-  overlay image (PNG, transparent glass, landscape phone size).
+  overlay image (PNG, transparent glass, landscape phone size). Chosen: `art/cockpit/cockpit_B.png` (wider glass);
+  `cockpit_A.png` is the spare. The dashboard screens are blank on purpose: the game draws radar, weapons and
+  shield/hull on them (concept: `art/reference/cockpit_hud_concept.png`).
 - **Dynamic music:** the owner has 28 tracks (WAV). They play only for big moments — entering faction space, missions,
   epic and boss fights — with fades between moods. Convert to OGG and put them in a music pack. Needs the files and a
   rough mood for each.
