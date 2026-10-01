@@ -37,9 +37,20 @@ var objective := ""
 var comms_open := false
 var comms_line := ""
 var comms_from := ""
-var comms_mode := "" # incoming | picker | talk | log
+var comms_mode := "" # incoming | talk | roster (= comms console open) | picker
 var comms_hostile := false
-var comms_timer := 0.0
+## Side comms screens: "l" = enemies, "r" = friendlies. Both can be on at once. Each slot: from, line, face, expr,
+## voice, female, hostile, mode (incoming | talk), timer, generic, anim (slide-in 0..1). Empty = closed.
+var slots := {"l": {}, "r": {}}
+var _last := "r"
+var console_open := false
+signal typed(text: String)
+var _typer: LineEdit
+## Seconds left on the newest incoming line (kept as one value for older callers).
+var comms_timer: float:
+	get: return float(slots[_last].get("timer", 0.0)) if not slots[_last].is_empty() else 0.0
+	set(v):
+		if not slots[_last].is_empty(): slots[_last]["timer"] = v
 var comms_face := ""        # portrait set id (assets/portraits/<face>_<expr>.png), "" = no face (waveform)
 var comms_expr := "normal"
 var comms_voice := 1.0
@@ -61,10 +72,25 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	GS.changed.connect(queue_redraw)
+	# typing box for the comms console (phones get their on-screen keyboard)
+	_typer = LineEdit.new()
+	_typer.visible = false
+	_typer.placeholder_text = "Type a message…"
+	_typer.max_length = 120
+	_typer.add_theme_font_size_override("font_size", 18)
+	add_child(_typer)
+	_typer.text_submitted.connect(func(txt: String):
+		_typer.visible = false
+		_typer.release_focus()
+		txt = txt.strip_edges()
+		_typer.text = ""
+		if txt != "":
+			_log("YOU: " + txt)
+			typed.emit(txt))
 
 func _log(line: String) -> void:
 	history.push_front(line)
-	if history.size() > 8: history.pop_back()
+	if history.size() > 30: history.pop_back()
 
 func flash_message(txt: String) -> void:
 	msg = txt
@@ -77,23 +103,53 @@ func hurt() -> void:
 func pulse(id: String) -> void:
 	flash[id] = 0.6
 
+## A voice on the radio. Enemies appear on the LEFT side screen, friendlies on the RIGHT; one of each can be on
+## at the same time. Placing a call closes the comms console.
 func open_comms(from: String, line: String, mode := "talk", hostile := false, face := "", voice := 1.0, female := false) -> void:
-	comms_open = true
-	comms_from = from
-	comms_expr = "angry" if hostile else "normal"
+	var expr := "angry" if hostile else "normal"
 	if line.begins_with("[") and line.find("]") > 0:   # "[smile]Text" picks the face for this line
-		comms_expr = line.substr(1, line.find("]") - 1)
+		expr = line.substr(1, line.find("]") - 1)
 		line = line.substr(line.find("]") + 1).strip_edges()
+	var side := "l" if hostile else "r"
+	var old: Dictionary = slots[side]
+	var v := voice if face != "" else (0.8 if hostile else 1.0)
+	slots[side] = {"from": from, "line": line, "face": face, "expr": expr, "voice": v, "female": female, "hostile": hostile,
+		"mode": mode, "timer": 7.0 if mode == "incoming" else 0.0, "generic": face.begins_with("gp/"),
+		"anim": float(old.get("anim", 0.0)) if not old.is_empty() else 0.0}
+	_last = side
+	comms_from = from
+	comms_expr = expr
 	comms_face = face
 	comms_generic = face.begins_with("gp/")
 	comms_line = line
-	comms_voice = voice if face != "" else (0.8 if hostile else 1.0)
+	comms_voice = v
 	comms_female = female
-	Sfx.speak(line, comms_voice, female)
-	comms_mode = mode
 	comms_hostile = hostile
-	comms_timer = 7.0 if mode == "incoming" else 0.0
+	if mode == "talk": console_open = false
+	Sfx.speak(line, v, female)
+	_sync()
 	_log("%s: %s" % [from, line])
+
+## Is that side's screen busy with a call you placed (don't talk over it)?
+func side_busy(hostile: bool) -> bool:
+	return slots["l" if hostile else "r"].get("mode", "") == "talk"
+
+func slot(side: String) -> Dictionary:
+	return slots[side]
+
+func close_side(side: String) -> void:
+	slots[side] = {}
+	if slots[_last].is_empty(): _last = "l" if side == "r" else "r"
+	_sync()
+
+## Keep the old single-panel view of the state (comms_open / comms_mode) in step with the side screens + console.
+func _sync() -> void:
+	var any: bool = not slots["l"].is_empty() or not slots["r"].is_empty()
+	comms_open = any or console_open
+	if console_open: comms_mode = "roster"
+	elif not slots[_last].is_empty(): comms_mode = slots[_last]["mode"]
+	elif any: comms_mode = (slots["l"] if not slots["l"].is_empty() else slots["r"])["mode"]
+	else: comms_mode = ""
 
 func open_picker(list: Array) -> void:
 	contacts = list
@@ -101,21 +157,24 @@ func open_picker(list: Array) -> void:
 	comms_mode = "picker"
 	comms_hostile = false
 
+## LOG = the comms console: drops down under the centre buttons with your contacts (call anyone who is in THIS
+## star system, like a codec but with names instead of frequencies), the chat log, and a box to type in.
+## Tap LOG again (or wait) and it rolls back up.
 func open_log() -> void:
-	# LOG = pull-out tab of the people you've met; tap one to call them
-	comms_open = true
-	comms_mode = "roster"
-	comms_hostile = false
+	console_open = true
 	roster_t = 0.0
 	roster_closing = false
 	roster_idle = 0.0
+	_sync()
 
-## Compact drop-down: only as tall as the contact list, pulls down from under MAP and rolls back up.
 func roster_rect() -> Rect2:
-	var n := clampi(GS.met.size(), 1, 6)
-	var full_h := 40.0 + n * 48.0 + 6.0
-	var x := clampf(log_rect.position.x, 8.0, S.x - 298.0)
-	return Rect2(x, log_rect.end.y + 6, 290, maxf(8.0, full_h * ease(roster_t, 0.35)))
+	var w := clampf(S.x - (8 + _block_w()) * 2 - 40, 420.0, 640.0)
+	var full_h := 322.0
+	return Rect2(S.x * 0.5 - w * 0.5, 130, w, maxf(8.0, full_h * ease(roster_t, 0.35)))
+
+## Can you call this contact from here? Only people in the same star system answer.
+static func in_range(id: String) -> bool:
+	return Data.CHARACTERS[id].get("system", GS.system_id) == GS.system_id
 
 func close_roster() -> void:
 	roster_closing = true
@@ -133,9 +192,18 @@ func _face_tex(face: String, expr: String) -> Texture2D:
 	return _faces[k]
 
 func close_comms() -> void:
-	if comms_open and comms_mode != "roster" and comms_mode != "picker": Sfx.hang_up()
-	comms_open = false
-	comms_mode = ""
+	if not slots["l"].is_empty() or not slots["r"].is_empty(): Sfx.hang_up()
+	slots = {"l": {}, "r": {}}
+	console_open = false
+	if _typer: _typer.visible = false
+	_sync()
+
+## Where a side screen sits: under the corner buttons, clear of the sticks.
+func side_rect(side: String) -> Rect2:
+	var w := clampf(S.x * 0.14, 150.0, 190.0)
+	var top := 8.0 + btn * 2.0 + 8.0 + 14.0
+	var h := minf(w + 90.0, _home("move").y - stick_r - 10.0 - top)
+	return Rect2(8.0 if side == "l" else S.x - 8.0 - w, top, w, h)
 
 # ---------------------------------------------------------------- layout
 func _home(which: String) -> Vector2:
@@ -171,7 +239,7 @@ func _layout() -> void:
 	# top left: SHIELD · REPAIR · TRACTOR / STOP · WARP
 	var lids := ["shield", "repair", "tractor"]
 	for k in 3: buttons[lids[k]] = Rect2(Vector2(8 + k * (btn + g), y1), bs)
-	buttons["stop"] = Rect2(Vector2(8, y2), bs)
+	buttons["form"] = Rect2(Vector2(8, y2), bs)   # TRANSFORM sits where STOP used to be
 	buttons["warp"] = Rect2(Vector2(8 + btn + g, y2), bs)
 	# top right mirrors it: three weapon slots / THRUST · KILL (kill hard against the right edge)
 	for k in 3: buttons["slot_%d" % k] = Rect2(Vector2(S.x - 8 - (3 - k) * btn - (2 - k) * g, y1), bs)
@@ -180,24 +248,29 @@ func _layout() -> void:
 	# centre strip: MAP · VIEW · LOG · CALL · TARGET · GO TO under the status bars
 	var cl := 8 + _block_w() + 14
 	var avail := S.x - cl * 2
-	var pw := clampf((avail - 6 * 6) / 7.0, 66.0, 104.0)
-	var row := pw * 7 + 36
-	var ids := ["map", "view", "form", "log", "call", "target", "goto"]
-	for k in 7: buttons[ids[k]] = Rect2(Vector2(S.x * 0.5 - row * 0.5 + k * (pw + 6), 78), Vector2(pw, 44))
+	var pw := clampf((avail - 5 * 6) / 6.0, 66.0, 110.0)
+	var row := pw * 6 + 30
+	var ids := ["map", "view", "log", "call", "target", "goto"]
+	for k in 6: buttons[ids[k]] = Rect2(Vector2(S.x * 0.5 - row * 0.5 + k * (pw + 6), 78), Vector2(pw, 44))
 	log_rect = buttons["log"]
 	if space and space.controls:
 		var db := Rect2(S.x * 0.5 - 130, 176, 260, 60)
 		if space.dock_candidate() != null: buttons["dock"] = db
 		elif space.gate_in_range(): buttons["jump"] = db
-	if comms_open and comms_mode != "roster" and comms_mode != "picker":
-		var cr := _comms_rect()
-		buttons["voice"] = Rect2(cr.end.x - 128, cr.position.y + 10, 116, 34)
-		buttons["hangup"] = Rect2(cr.end.x - 128, cr.position.y + 50, 116, 34)
-	if comms_open and comms_mode == "roster":
+	for side in ["l", "r"]:
+		var sd: Dictionary = slots[side]
+		if sd.is_empty(): continue
+		var sr := side_rect(side)
+		if sd["mode"] == "talk": buttons["hangup"] = Rect2(sr.end.x - 34, sr.position.y + 2, 32, 22)   # before the body, so it wins
+		buttons["side_" + side] = sr
+	if console_open:
 		var rr := roster_rect()
 		if roster_t > 0.95 and not roster_closing:
-			for k in mini(GS.met.size(), 6):
-				buttons["met_%d" % k] = Rect2(rr.position.x + 8, rr.position.y + 40 + k * 48, rr.size.x - 16, 44)
+			var cw := rr.size.x * 0.46
+			for k in mini(GS.met.size(), 5):
+				buttons["met_%d" % k] = Rect2(rr.position.x + 8, rr.position.y + 34 + k * 46, cw, 42)
+			buttons["type"] = Rect2(rr.position.x + 8, rr.end.y - 46, cw * 0.5 - 4, 38)
+			buttons["voice"] = Rect2(rr.position.x + 8 + cw * 0.5 + 4, rr.end.y - 46, cw * 0.5 - 4, 38)
 
 # ---------------------------------------------------------------- input
 func _input(e: InputEvent) -> void:
@@ -213,14 +286,12 @@ func _input(e: InputEvent) -> void:
 					if id != "thrust": pressed.emit(id)   # THRUST works while held
 					get_viewport().set_input_as_handled()
 					return
-			if comms_open and comms_mode == "roster":
+			if console_open:
 				if roster_rect().has_point(e.position):
 					owners[e.index] = "comms_body"
+					roster_idle = 0.0
 					return
-				close_roster()
-			if comms_open and comms_mode != "roster" and _comms_rect().has_point(e.position):
-				owners[e.index] = "comms_body"
-				return
+				if not (_typer and _typer.visible): close_roster()
 			if e.position.y > btn * 2 + 30:
 				if e.position.x < S.x * 0.5 and not owners.values().has("move"):
 					owners[e.index] = "move"
@@ -257,17 +328,24 @@ func _process(dt: float) -> void:
 	space.aim = a * a.length()
 	space.fire_held = Input.is_action_pressed("fire")
 	space.thrust_held = held.has("thrust") or Input.is_key_pressed(KEY_SHIFT)
-	if comms_mode == "roster":
+	if console_open:
 		if roster_closing:
 			roster_t = maxf(0.0, roster_t - dt * 6.0)
-			if roster_t <= 0.0: close_comms()
+			if roster_t <= 0.0:
+				console_open = false
+				_typer.visible = false
+				_sync()
 		else:
 			roster_t = minf(1.0, roster_t + dt * 6.0)
-			roster_idle += dt
-			if roster_idle > 8.0: close_roster() # rolls itself back up if you don't pick anyone
-	if comms_mode == "incoming":
-		comms_timer -= dt
-		if comms_timer <= 0.0: close_comms()
+			if not _typer.visible: roster_idle += dt
+			if roster_idle > 10.0: close_roster() # rolls itself back up if you leave it
+	for side in ["l", "r"]:
+		var sd: Dictionary = slots[side]
+		if sd.is_empty(): continue
+		sd["anim"] = minf(1.0, float(sd["anim"]) + dt * 4.0)
+		if sd["mode"] == "incoming":
+			sd["timer"] = float(sd["timer"]) - dt
+			if sd["timer"] <= 0.0: close_side(side)
 	queue_redraw()
 
 # ---------------------------------------------------------------- drawing helpers
@@ -346,6 +424,13 @@ func _icon(id: String, c: Vector2, s: float, col: Color) -> void:
 			draw_circle(c + Vector2(s * 0.8, s * 0.2), s * 0.3, RED)
 		"stop":
 			draw_rect(Rect2(c - Vector2(s * 0.6, s * 0.6), Vector2(s * 1.2, s * 1.2)), col)
+		"form":   # two arrows chasing each other: ship <-> mech
+			draw_arc(c, s * 0.8, deg_to_rad(200), deg_to_rad(340), 16, col, 3.0, true)
+			draw_arc(c, s * 0.8, deg_to_rad(20), deg_to_rad(160), 16, col, 3.0, true)
+			var a1 := c + Vector2(cos(deg_to_rad(340)), sin(deg_to_rad(340))) * s * 0.8
+			var a2 := c + Vector2(cos(deg_to_rad(160)), sin(deg_to_rad(160))) * s * 0.8
+			draw_colored_polygon(PackedVector2Array([a1 + Vector2(-s * 0.35, -s * 0.1), a1 + Vector2(s * 0.25, -s * 0.05), a1 + Vector2(0, s * 0.4)]), col)
+			draw_colored_polygon(PackedVector2Array([a2 + Vector2(s * 0.35, s * 0.1), a2 + Vector2(-s * 0.25, s * 0.05), a2 + Vector2(0, -s * 0.4)]), col)
 		"kill":
 			draw_circle(c, s * 0.55, col, false, 3.0)
 			for k in 4:
@@ -448,7 +533,78 @@ func _screen(p3: Vector3) -> Variant:
 	return cam.unproject_position(p3)
 
 # ---------------------------------------------------------------- cockpit frame
+var _cockpit_tex: Texture2D
+const COCKPIT_PATH := "res://assets/cockpit/cockpit_b.png"
+## The owner's cockpit art (cockpit pack): glass keyed out so space shows through. 1280 x 720, scaled to cover the
+## screen and anchored to the bottom so the dashboard always shows.
+func cockpit_rect() -> Rect2:
+	var sc := maxf(S.x / 1280.0, S.y / 720.0)
+	var sz := Vector2(1280.0, 720.0) * sc
+	return Rect2(Vector2((S.x - sz.x) * 0.5, S.y - sz.y), sz)
+
+func cockpit_texture() -> Texture2D:
+	if _cockpit_tex == null and ResourceLoader.exists(COCKPIT_PATH): _cockpit_tex = load(COCKPIT_PATH)
+	return _cockpit_tex
+
 func _cockpit() -> void:
+	var tex := cockpit_texture()
+	if tex:
+		var cr := cockpit_rect()
+		draw_texture_rect(tex, cr, false)
+		_cockpit_instruments(cr)
+		return
+	_cockpit_old()
+
+## Cockpit-view instruments: the centre dash screen becomes the radar; heading tape, SPD and ALT/RNG bars and a
+## ring reticle on the glass (like the owner's concept).
+func _cockpit_instruments(cr: Rect2) -> void:
+	var scr := Rect2(cr.position + cr.size * Vector2(0.433, 0.66), cr.size * Vector2(0.136, 0.155))
+	_radar(scr.get_center(), minf(scr.size.x, scr.size.y) * 0.46, false)
+	var c := S * 0.5
+	var col := Color(0.55, 0.88, 1.0, 0.9)
+	# heading tape
+	var hdg := fposmod(rad_to_deg(-space.yaw), 360.0)
+	var ty := c.y - 98.0   # between the DOCK / WARP GATE button and the reticle
+	var span := 40.0
+	var px := 260.0 / span
+	draw_line(Vector2(c.x - 130, ty + 8), Vector2(c.x + 130, ty + 8), Color(col, 0.6), 1.5)
+	var start := int(floor((hdg - span * 0.5) / 5.0)) * 5
+	for k in range(start, int(hdg + span * 0.5) + 1, 5):
+		var x := c.x + (k - hdg) * px
+		if absf(x - c.x) > 130.0: continue
+		var big := k % 10 == 0
+		draw_line(Vector2(x, ty + 8), Vector2(x, ty + (0.0 if big else 4.0)), col, 1.5)
+		if big and absf(x - c.x) > 18.0: _text(Vector2(x - 20, ty - 4), "%03d" % posmod(k, 360), 11, col, HORIZONTAL_ALIGNMENT_CENTER, 40)
+	_box(Rect2(c.x - 24, ty - 18, 48, 20), Color(0.02, 0.08, 0.16, 0.8), col, 4, 1)
+	_text(Vector2(c.x - 24, ty - 3), "%03d" % int(hdg), 13, WHITE, HORIZONTAL_ALIGNMENT_CENTER, 48)
+	draw_colored_polygon(PackedVector2Array([Vector2(c.x - 5, ty + 10), Vector2(c.x + 5, ty + 10), Vector2(c.x, ty + 16)]), col)
+	# speed (left) and altitude / range (right) bars
+	var top_speed: float = float(GS.ship()["speed"]) * Data.THRUST_MULT
+	_cockpit_bar(Vector2(c.x - 170, c.y), "SPD", "%d m/s" % int(space.speed_now), clampf(space.speed_now / top_speed, 0.0, 1.0), col, true)
+	var right_lbl := "RNG"
+	var right_val := "—"
+	var right_k := 0.0
+	if space.surface_mode:
+		right_lbl = "ALT"
+		right_val = "%d m" % int(space.altitude)
+		right_k = clampf(space.altitude / Surface.CEILING, 0.0, 1.0)
+	elif space.target and is_instance_valid(space.target):
+		var dd: float = space.distance_to(space.target)
+		right_val = _dist(dd)
+		right_k = clampf(dd / 3000.0, 0.0, 1.0)
+	_cockpit_bar(Vector2(c.x + 170, c.y), right_lbl, right_val, right_k, col, false)
+
+func _cockpit_bar(p: Vector2, lbl: String, val: String, k: float, col: Color, left: bool) -> void:
+	var h := 150.0
+	var r := Rect2(p - Vector2(4, h * 0.5), Vector2(8, h))
+	draw_rect(r, Color(col, 0.18))
+	draw_rect(Rect2(Vector2(r.position.x, r.end.y - h * k), Vector2(8, h * k)), col)
+	for i in 6: draw_line(Vector2(r.position.x - 4, r.position.y + i * h / 5.0), Vector2(r.end.x + 4, r.position.y + i * h / 5.0), Color(col, 0.6), 1)
+	var tx := r.position.x - 92 if left else r.end.x + 10
+	_text(Vector2(tx, p.y - 8), lbl, 12, col, HORIZONTAL_ALIGNMENT_RIGHT if left else HORIZONTAL_ALIGNMENT_LEFT, 82)
+	_text(Vector2(tx, p.y + 14), val, 17, WHITE, HORIZONTAL_ALIGNMENT_RIGHT if left else HORIZONTAL_ALIGNMENT_LEFT, 82)
+
+func _cockpit_old() -> void:
 	var w := S.x
 	var h := S.y
 	var shell := Color(0.5, 0.54, 0.6)
@@ -539,14 +695,25 @@ func _draw() -> void:
 	if space.planet_hazard > 0 and fmod(t, 0.5) < 0.32:
 		_text(Vector2(0, S.y * 0.5 - 132), "PLANETARY MASS DETECTED", 34, RED, HORIZONTAL_ALIGNMENT_CENTER, S.x)
 		_text(Vector2(0, S.y * 0.5 - 100), "DROP WARP NOW", 24, RED, HORIZONTAL_ALIGNMENT_CENTER, S.x)
-	# reticle
+	# reticle (cockpit view: a wider ring with ticks and a chevron, like the concept)
 	var c := S * 0.5
 	var locked: bool = space._in_fire_cone(space.target)
 	var rc2 := RED if locked else WHITE
-	draw_arc(c, 32, 0, TAU, 48, Color(rc2, 0.95), 2.5, true)
-	for d in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
-		draw_line(c + d * 20, c + d * 52, Color(rc2, 0.95), 2.5)
-	draw_circle(c, 4, rc2)
+	if cockpit and cockpit_texture():
+		var rcol := RED if locked else Color(0.6, 0.9, 1.0)
+		draw_arc(c, 46, 0, TAU, 64, Color(rcol, 0.95), 2.0, true)
+		draw_arc(c, 52, deg_to_rad(200), deg_to_rad(340), 32, Color(rcol, 0.5), 1.5, true)
+		for d in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
+			draw_line(c + d * 46, c + d * 60, Color(rcol, 0.95), 2.0)
+		draw_line(c + Vector2(-110, 0), c + Vector2(-64, 0), Color(rcol, 0.5), 1.5)
+		draw_line(c + Vector2(64, 0), c + Vector2(110, 0), Color(rcol, 0.5), 1.5)
+		draw_polyline(PackedVector2Array([c + Vector2(-9, 64), c + Vector2(0, 74), c + Vector2(9, 64)]), rcol, 2.0)
+		draw_circle(c, 3, rcol)
+	else:
+		draw_arc(c, 32, 0, TAU, 48, Color(rc2, 0.95), 2.5, true)
+		for d in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
+			draw_line(c + d * 20, c + d * 52, Color(rc2, 0.95), 2.5)
+		draw_circle(c, 4, rc2)
 	_status_bars()
 	var line2 := objective
 	if msg_t > 0.0: line2 = msg
@@ -561,7 +728,8 @@ func _draw() -> void:
 	_corner("shield", "SHIELD", "shield", Color(0.35, 0.7, 1.0), false, str(GS.shield_charges), sh_cd)
 	_corner("repair", "REPAIR", "repair", GREEN, false, str(GS.repairs), space.repair_cd / 1.5)
 	_corner("tractor", "TRACTOR", "tractor", Color(0.45, 0.9, 1.0), space.tractor_t > 0.0, str(space.loot.size()) if space.loot.size() > 0 else "")
-	_corner("stop", "STOP", "stop", CYAN, space.braking)
+	var tf: bool = space.transform_t > 0.0
+	_corner("form", "…" if tf else ("SHIP" if GS.form == "mech" else "MECH"), "form", GOLD, tf, "", 0.0, space.warp_state != "off", "TRANSFORM")
 	var wsub := ""
 	if space.warp_state == "charging": wsub = "%d s" % int(ceil(Data.WARP_CHARGE - space.warp_t))
 	elif space.warp_state == "on": wsub = "DROP OUT"
@@ -585,12 +753,10 @@ func _draw() -> void:
 	_pill("target", "TARGET", false, CYAN, "NEXT")
 	_pill("goto", "GO TO", space.autopilot != null, CYAN, "AUTO")
 	_pill("log", "LOG", comms_mode == "roster", CYAN, "CONTACTS")
-	var tf: bool = space.transform_t > 0.0
-	_pill("form", ("…" if tf else ("SHIP" if GS.form == "mech" else "MECH")), tf, GOLD, "TRANSFORM")
 	_pill("call", "CALL", comms_mode == "talk", GREEN)
 	if buttons.has("dock"): _pill("dock", "DOCK", true, GREEN, space.dock_candidate().name.to_upper())
 	if buttons.has("jump"): _pill("jump", "WARP GATE", true, GOLD, "TO %s" % Data.SYSTEMS[space.sys["gate"]["to"]]["name"].to_upper())
-	_dashboard()
+	if not (cockpit and cockpit_texture()): _dashboard()   # the cockpit art has its own dash screens
 	_stick("move", "FLIGHT")
 	_stick("aim", "AIM")
 	if comms_open: _comms()
@@ -704,8 +870,11 @@ func _dashboard() -> void:
 	if mode != "": _text(Vector2(speed_r.position.x, speed_r.end.y + 16), mode, 13, GOLD, HORIZONTAL_ALIGNMENT_CENTER, speed_r.size.x)
 	# centre screen: radar with your ship silhouette
 	_box(screen_r, Color(0.01, 0.06, 0.12, 0.95), Color(CYAN, 0.9), 12, 2)
-	var rc := screen_r.get_center() + Vector2(0, 4)
-	var rr := minf(screen_r.size.x, screen_r.size.y) * 0.44
+	_radar(screen_r.get_center() + Vector2(0, 4), minf(screen_r.size.x, screen_r.size.y) * 0.44, true)
+	_way_box(way_r)
+
+## Radar: blips around your ship silhouette (also drawn on the cockpit's centre dash screen).
+func _radar(rc: Vector2, rr: float, label: bool) -> void:
 	draw_arc(rc, rr, 0, TAU, 48, Color(CYAN, 0.35), 1.5, true)
 	draw_arc(rc, rr * 0.5, 0, TAU, 36, Color(CYAN, 0.2), 1.0, true)
 	draw_line(rc + Vector2(0, -rr), rc + Vector2(0, rr), Color(CYAN, 0.15))
@@ -731,8 +900,10 @@ func _dashboard() -> void:
 	var sil := PackedVector2Array([rc + Vector2(0, -16), rc + Vector2(4, -6), rc + Vector2(15, 6), rc + Vector2(4, 5), rc + Vector2(3, 12), rc + Vector2(-3, 12), rc + Vector2(-4, 5), rc + Vector2(-15, 6), rc + Vector2(-4, -6)])
 	draw_colored_polygon(sil, Color(hullc, 0.9))
 	draw_polyline(sil + PackedVector2Array([sil[0]]), WHITE, 1.5, true)
-	_text(Vector2(screen_r.position.x, screen_r.end.y - 6), "RADAR %s" % _dist(rng), 10, Color(CYAN, 0.8), HORIZONTAL_ALIGNMENT_CENTER, screen_r.size.x)
-	# waypoint: autopilot destination, else the current target
+	_text(Vector2(rc.x - rr, rc.y + rr + (-2.0 if label else 2.0)), "RADAR %s" % _dist(rng), 10, Color(CYAN, 0.8), HORIZONTAL_ALIGNMENT_CENTER, rr * 2.0)
+
+## Waypoint box: autopilot destination, else the current target.
+func _way_box(way_r: Rect2) -> void:
 	_box(way_r, PANEL, EDGE, 10, 2)
 	var wp: Node3D = space.autopilot if space.autopilot != null else space.target
 	var dcol := GOLD
@@ -764,92 +935,118 @@ func _dashboard() -> void:
 		scol = RED
 	_text(way_r.position + Vector2(12, 82), "SCAN  " + scan, 12, scol)
 
-# ---------------------------------------------------------------- intercom panel
+# ---------------------------------------------------------------- comms: side screens + console
 func _comms() -> void:
-	if comms_mode == "roster":
-		_roster()
-		return
-	var r := _comms_rect()
-	var accent := RED if comms_hostile else CYAN_HI
-	_box(r, Color(0.02, 0.08, 0.16, 0.94), accent, 14, 3)
-	if comms_mode == "roster":
-		_roster()
-		return
-	var card := Rect2(r.position + Vector2(14, 14), Vector2(r.size.y - 28, r.size.y - 28))
-	_box(card, Color(0.18, 0.04, 0.05, 1.0) if comms_hostile else Color(0.05, 0.14, 0.24, 1.0), Color(accent, 0.5), 12, 2)
-	var cc := card.get_center()
-	var tex: Texture2D = _face_tex(comms_face, comms_expr) if comms_face != "" else null
-	if tex:
-		# portrait: bobs and brightens with each spoken syllable, with a faint radio scanline
-		var talk: float = Sfx.talking
-		var inner := card.grow(-5)
-		var bob := Vector2(0, -2.0 * talk)
-		draw_texture_rect(tex, Rect2(inner.position + bob, inner.size), false, Color(1, 1, 1).lerp(Color(1.12, 1.12, 1.12), talk))
-		for k in int(inner.size.y / 4.0):
-			draw_line(Vector2(inner.position.x, inner.position.y + k * 4), Vector2(inner.end.x, inner.position.y + k * 4), Color(0, 0.1, 0.2, 0.12), 1)
-		var sy := fmod(t * 60.0, inner.size.y)
-		draw_line(Vector2(inner.position.x, inner.position.y + sy), Vector2(inner.end.x, inner.position.y + sy), Color(accent, 0.18), 3)
-		_box(Rect2(inner.position, inner.size), Color(0, 0, 0, 0), Color(accent, 0.7), 8, 2)
-		# little voice meter along the bottom of the portrait
-		for i in 14:
-			var hh := 3.0 + 12.0 * talk * absf(sin(t * 23.0 + i * 1.3))
-			var xx := inner.position.x + 10 + i * (inner.size.x - 20) / 13.0
-			draw_line(Vector2(xx, inner.end.y - 6 - hh), Vector2(xx, inner.end.y - 6), Color(accent, 0.9), 3)
-	else:
-		draw_arc(cc, card.size.x * 0.34, 0, TAU, 48, Color(accent, 0.5), 2.0, true)
-		for i in 21:
-			var hgt := 8.0 + 30.0 * absf(sin(t * 7.0 + i * 0.9)) * (0.4 + 0.6 * absf(sin(i * 0.45))) * (0.35 + 0.65 * Sfx.talking)
-			var x := cc.x - 60 + i * 6
-			draw_line(Vector2(x, cc.y - hgt * 0.5), Vector2(x, cc.y + hgt * 0.5), accent, 3)
-	var tx := card.end.x + 20
-	var parts := comms_from.split(" — ", true, 1)
+	for side in ["l", "r"]: _side(side)
+	if console_open: _roster()
+
+## One holo screen sliding in from its side: name strip, portrait, and the line on a white see-through panel under it.
+func _side(side: String) -> void:
+	var d: Dictionary = slots[side]
+	if d.is_empty(): return
+	var r := side_rect(side)
+	var e := ease(float(d["anim"]), 0.4)
+	r.position.x += (1.0 - e) * (r.size.x + 24.0) * (-1.0 if side == "l" else 1.0)
+	var accent := RED if d["hostile"] else CYAN_HI
+	var a := 0.55 + 0.45 * e
+	_box(r, Color(0.02, 0.07, 0.14, 0.5 * a), Color(accent, 0.9 * a), 8, 2)
+	# name strip
+	var head := Rect2(r.position, Vector2(r.size.x, 26))
+	draw_rect(head, Color(accent.darkened(0.35), 0.85 * a))
+	var parts := (d["from"] as String).split(" — ", true, 1)
 	var nm := parts[0].to_upper()
-	var name_w := r.end.x - tx - 140
-	var fs := 26
-	while fs > 15 and font.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > name_w: fs -= 1
-	_text(Vector2(tx, r.position.y + 42), nm, fs, WHITE)
-	if parts.size() > 1: _text(Vector2(tx, r.position.y + 61), parts[1], 13, Color(1, 1, 1, 0.7), HORIZONTAL_ALIGNMENT_LEFT, r.end.x - tx - 16)
-	draw_circle(Vector2(tx + 8, r.position.y + 78), 6, RED if comms_hostile else GREEN)
-	var status := "INCOMING CALL" if comms_mode == "incoming" else "COMMS · LIVE"
-	if comms_hostile: status += " · HOSTILE"
-	_text(Vector2(tx + 22, r.position.y + 85), status, 15, accent)
-	var line_r := Rect2(Vector2(tx - 4, r.position.y + 96), Vector2(r.end.x - tx - 12, 96))
-	_box(line_r, Color(0.03, 0.1, 0.2, 1.0), Color(accent, 0.5), 10, 2)
-	draw_multiline_string_outline(font, line_r.position + Vector2(14, 28), comms_line, HORIZONTAL_ALIGNMENT_LEFT, line_r.size.x - 24, 17, 3, 4, Color(0, 0.03, 0.08, 0.75))
-	draw_multiline_string(font, line_r.position + Vector2(14, 28), comms_line, HORIZONTAL_ALIGNMENT_LEFT, line_r.size.x - 24, 17, 3, WHITE)
-	if comms_mode == "incoming":
-		_text(Vector2(line_r.position.x, r.end.y - 18), "Closes by itself · HANG UP to end now", 13, Color(1, 1, 1, 0.6))
-	if buttons.has("voice"):
-		_pill("voice", "VOICE", false, accent, "READ ALOUD" if Sfx.voice_mode == "read" else "RADIO MUMBLE")
-	if buttons.has("hangup"): _pill("hangup", "HANG UP", true, RED)
+	var fs := 15
+	var nw := r.size.x - (44 if d["mode"] == "talk" else 12)
+	while fs > 10 and font.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > nw: fs -= 1
+	_text(head.position + Vector2(6, 18), nm, fs, WHITE)
+	if d["mode"] == "talk" and buttons.has("hangup"):
+		var hb: Rect2 = buttons["hangup"]
+		hb.position.x += (1.0 - e) * (r.size.x + 24.0) * (-1.0 if side == "l" else 1.0)
+		draw_rect(hb, Color(RED, 0.9))
+		_text(hb.position + Vector2(0, 16), "END", 12, WHITE, HORIZONTAL_ALIGNMENT_CENTER, hb.size.x)
+	# portrait
+	var pr := Rect2(r.position + Vector2(6, 30), Vector2(r.size.x - 12, r.size.x - 12))
+	pr.size.y = minf(pr.size.y, r.size.y - 30 - 70)
+	var tex: Texture2D = _face_tex(d["face"], d["expr"]) if d["face"] != "" else null
+	var talk: float = Sfx.talking if side == _last else 0.0
+	if tex:
+		var src := Rect2(Vector2.ZERO, tex.get_size())
+		var asp := pr.size.x / pr.size.y
+		if asp > 1.0: src = Rect2(0, src.size.y * (1.0 - 1.0 / asp) * 0.3, src.size.x, src.size.y / asp)
+		draw_texture_rect_region(tex, Rect2(pr.position + Vector2(0, -2.0 * talk), pr.size), src, Color(1, 1, 1, a).lerp(Color(1.12, 1.12, 1.12, a), talk))
+	else:
+		draw_rect(pr, Color(0.02, 0.1, 0.2, 0.8 * a))
+		var cc := pr.get_center()
+		for i in 15:
+			var hgt := 6.0 + 26.0 * absf(sin(t * 7.0 + i * 0.9)) * (0.35 + 0.65 * Sfx.talking)
+			var x := cc.x - 42 + i * 6
+			draw_line(Vector2(x, cc.y - hgt * 0.5), Vector2(x, cc.y + hgt * 0.5), accent, 3)
+	for k in int(pr.size.y / 4.0):   # holo scanlines
+		draw_line(Vector2(pr.position.x, pr.position.y + k * 4), Vector2(pr.end.x, pr.position.y + k * 4), Color(0, 0.1, 0.2, 0.12), 1)
+	var sy := fmod(t * 60.0, pr.size.y)
+	draw_line(Vector2(pr.position.x, pr.position.y + sy), Vector2(pr.end.x, pr.position.y + sy), Color(accent, 0.2), 3)
+	draw_rect(pr, Color(accent, 0.7 * a), false, 1.5)
+	if e < 1.0:   # digital materialise: bright bands sweep while it slides in
+		for k in 6: draw_rect(Rect2(r.position.x, r.position.y + fmod(k * 53.0 + t * 900.0, r.size.y), r.size.x, 3), Color(accent, 0.5 * (1.0 - e)))
+	# the line, on white see-through glass under the portrait
+	var tr := Rect2(Vector2(r.position.x + 5, pr.end.y + 5), Vector2(r.size.x - 10, r.end.y - pr.end.y - 10))
+	draw_rect(tr, Color(1, 1, 1, 0.7 * a))
+	draw_rect(tr, Color(accent, 0.8 * a), false, 1.5)
+	var tag := ("HOSTILE" if d["hostile"] else "FRIENDLY") + (" · LIVE" if d["mode"] == "talk" else "")
+	draw_string(font, tr.position + Vector2(5, 12), tag, HORIZONTAL_ALIGNMENT_LEFT, tr.size.x - 10, 9, Color(accent.darkened(0.45), a))
+	draw_multiline_string(font, tr.position + Vector2(5, 26), d["line"], HORIZONTAL_ALIGNMENT_LEFT, tr.size.x - 10, 13, maxi(1, int((tr.size.y - 16) / 15.0)), Color(0.03, 0.07, 0.13, a))
 
 func _dist(d: float) -> String:
 	return "%.1f km" % (d / 1000.0) if d >= 1000.0 else "%d m" % int(d)
 
-## LOG drop-down: everyone you've met, with their mood; tap to call.
+## Comms console (LOG): contacts on the left (only people in this star system pick up), the chat log on the right,
+## TYPE and VOICE along the bottom.
 func _roster() -> void:
 	var r := roster_rect()
 	_box(r, Color(0.02, 0.07, 0.14, 0.94), CYAN_HI, 10, 2)
 	if r.size.y < 36.0: return
-	_text(r.position + Vector2(12, 26), "CONTACTS", 16, WHITE)
-	_text(r.position + Vector2(0, 26), "TAP TO CALL", 11, CYAN_HI, HORIZONTAL_ALIGNMENT_RIGHT, r.size.x - 12)
+	var cw := r.size.x * 0.46
+	_text(r.position + Vector2(12, 24), "COMMS · CONTACTS", 15, WHITE)
+	_text(r.position + Vector2(cw + 22, 24), "LOG", 15, WHITE)
+	_text(r.position + Vector2(0, 24), "TAP LOG TO CLOSE", 10, CYAN_HI, HORIZONTAL_ALIGNMENT_RIGHT, r.size.x - 12)
+	if r.size.y < 300.0: return
 	if GS.met.is_empty():
-		if r.size.y > 70: _text(r.position + Vector2(12, 64), "Nobody yet — people you meet appear here.", 12, Color(1, 1, 1, 0.7))
-		return
-	for k in mini(GS.met.size(), 6):
-		var br := Rect2(r.position.x + 8, r.position.y + 40 + k * 48, r.size.x - 16, 44)
-		if br.end.y > r.end.y: break
+		_text(r.position + Vector2(12, 60), "Nobody yet — people you meet appear here.", 12, Color(1, 1, 1, 0.7), HORIZONTAL_ALIGNMENT_LEFT, cw)
+	for k in mini(GS.met.size(), 5):
+		var br := Rect2(r.position.x + 8, r.position.y + 34 + k * 46, cw, 42)
 		var id: String = GS.met[k]
 		var c: Dictionary = Data.CHARACTERS[id]
+		var ok := in_range(id)
 		var m: String = GS.mood.get(id, "neutral")
 		var mc: Color = {"friendly": GREEN, "neutral": CYAN_HI, "enraged": RED}[m]
+		if not ok: mc = Color(0.55, 0.6, 0.66)
 		var down := held.has("met_%d" % k)
-		_box(br, Color(mc, 0.25) if down else Color(0.05, 0.13, 0.23, 1.0), Color(mc, 0.7), 8, 1)
-		var pc := br.position + Vector2(24, 22)
-		draw_circle(pc, 16, Color(c["color"], 0.9))
-		var parts: PackedStringArray = (c["name"] as String).replace(".", "").split(" ")
-		var ini := (parts[0].substr(0, 1) + parts[parts.size() - 1].substr(0, 1)).to_upper()
-		_text(pc + Vector2(-20, 5), ini, 13, Color(0.02, 0.05, 0.1), HORIZONTAL_ALIGNMENT_CENTER, 40)
-		_text(Vector2(br.position.x + 48, br.position.y + 20), c["name"], 15, WHITE)
-		_text(Vector2(br.position.x + 48, br.position.y + 37), c["role"], 11, Color(0.8, 0.88, 0.95))
-		_text(Vector2(br.position.x, br.position.y + 20), m.to_upper(), 10, mc, HORIZONTAL_ALIGNMENT_RIGHT, br.size.x - 8)
+		_box(br, Color(mc, 0.25) if down else Color(0.05, 0.13, 0.23, 1.0 if ok else 0.6), Color(mc, 0.7 if ok else 0.35), 8, 1)
+		var pc := br.position + Vector2(22, 21)
+		var ftex: Texture2D = _face_tex(c.get("face", ""), "normal") if c.get("face", "") != "" else null
+		if ftex: draw_texture_rect(ftex, Rect2(pc - Vector2(17, 17), Vector2(34, 34)), false, Color(1, 1, 1, 1.0 if ok else 0.4))
+		else: draw_circle(pc, 16, Color(c["color"], 0.9))
+		_text(Vector2(br.position.x + 46, br.position.y + 19), c["name"], 14, WHITE if ok else Color(1, 1, 1, 0.5), HORIZONTAL_ALIGNMENT_LEFT, br.size.x - 52)
+		var sub: String = c["role"] if ok else "OUT OF RANGE · %s" % Data.SYSTEMS[c["system"]]["name"].to_upper()
+		_text(Vector2(br.position.x + 46, br.position.y + 35), sub, 10, Color(0.8, 0.88, 0.95) if ok else Color(1, 1, 1, 0.45), HORIZONTAL_ALIGNMENT_LEFT, br.size.x - 52)
+	# chat log, newest at the top
+	var lr := Rect2(r.position.x + cw + 16, r.position.y + 34, r.size.x - cw - 24, r.size.y - 42)
+	draw_rect(lr, Color(1, 1, 1, 0.08))
+	var y := lr.position.y + 16
+	for line in history:
+		if y > lr.end.y - 6: break
+		var mine := (line as String).begins_with("YOU:")
+		var lines := maxi(1, int(ceil(font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x / (lr.size.x - 12))))
+		draw_multiline_string(font, Vector2(lr.position.x + 6, y), line, HORIZONTAL_ALIGNMENT_LEFT, lr.size.x - 12, 12, 3, GOLD if mine else Color(0.85, 0.92, 1.0))
+		y += 15.0 * mini(lines, 3) + 5.0
+	_pill("type", "TYPE", _typer.visible, CYAN)
+	_pill("voice", "VOICE", false, CYAN, "READ" if Sfx.voice_mode == "read" else "MUMBLE")
+	if _typer.visible:
+		_typer.position = Vector2(lr.position.x, r.end.y + 6)
+		_typer.size = Vector2(lr.size.x, 40)
+
+## TYPE: open the message box (the phone keyboard comes up).
+func start_typing() -> void:
+	roster_idle = 0.0
+	_typer.visible = true
+	_typer.grab_focus()

@@ -121,7 +121,15 @@ The current "Aquila / Solara Jump Gate" objects are technically warp gates (buil
   1.1 km), 201 collision boxes. `city` pack 37 KB, +1.8 MB GPU on the planet, nothing in the core download.
 - **Not done on purpose:** no more buildings, no hangar/comms/defence modules, no villain art. Waiting for review.
 
-## 12. Owner requests, Oct 1 voice call — PLANNED, not built yet
+## 12. Owner requests, Oct 1 voice call
+**BUILT in Job P:** default cruise (centred stick = 55 % speed; full back = stop and hold; autopilot stops on arrival),
+full loops, STOP removed / TRANSFORM in its spot, cockpit view with the owner's cockpit art (cockpit pack, 0.1 MB) +
+ring crosshair, heading tape, SPD and ALT/RNG bars, radar on the centre dash screen; side-screen comms (enemy left,
+friendly right, both at once, line under the face on white glass, END on calls you placed); comms console from LOG or
+by tapping a screen (contacts — only in-system ones answer —, chat log, TYPE, VOICE).
+**Still planned:** missions + capture, radar-tap map with waypoints, dynamic music, Kokoro voices, immersive galaxy
+map, new ship models.
+
 **Flight controls**
 - **Full loops:** remove the pitch cap so the ship can loop continuously over the top and under; roll follows so
   upside-down doesn't feel flipped. Check it in mech form too.

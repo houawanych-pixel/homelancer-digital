@@ -38,6 +38,7 @@ func _ready() -> void:
 	fx = FxScript.new()
 	ui.add_child(fx)
 	hud.pressed.connect(_on_hud)
+	hud.typed.connect(_on_typed)
 	hub.launch_requested.connect(launch)
 	hub.map_requested.connect(func(): navmap.open(null))
 	hub.descend_requested.connect(descend_to)
@@ -48,7 +49,7 @@ func _ready() -> void:
 	_load_system("solara", "station")
 	space.controls = false
 	# optional content arrives in the background after the game is up (see scripts/packs.gd)
-	get_tree().create_timer(1.5).timeout.connect(func(): for pk in ["enemies", "mechs", "lancer", "planets"]: Packs.request(pk))
+	get_tree().create_timer(1.5).timeout.connect(func(): for pk in ["enemies", "cockpit", "mechs", "lancer", "planets"]: Packs.request(pk))
 	autotest = "--autotest" in OS.get_cmdline_user_args() or _web_flag("autotest")
 	if autotest:
 		var runner: Node = load("res://scripts/autotest.gd").new()
@@ -266,10 +267,16 @@ func _on_hud(id: String) -> void:
 			if n: dock(n)
 		"jump":
 			if space.gate_in_range(): jump()
+		"side_l", "side_r":   # tap a comms screen: the console (log, contacts, type) pulls up
+			if hud.comms_mode != "roster": hud.open_log()
+		"type": hud.start_typing()
 		_:
 			if id.begins_with("met_"):
 				var k := int(id.substr(4))
-				if k < GS.met.size(): call_character(GS.met[k])
+				if k < GS.met.size():
+					var cid: String = GS.met[k]
+					if hud.in_range(cid): call_character(cid)
+					else: hud.flash_message("%s is in %s — out of comms range. Only people in this system can be called." % [Data.CHARACTERS[cid]["name"], Data.SYSTEMS[Data.CHARACTERS[cid]["system"]]["name"]])
 
 ## CALL: hail whatever you have targeted, otherwise the local station controller.
 func _call_target() -> void:
@@ -289,8 +296,21 @@ func _call_target() -> void:
 			return
 	call_character("vale" if GS.system_id == "solara" else "amari")
 
+var on_call := ""   # who you're talking to (for typed messages)
+
+## You typed into the comms console: whoever is on the line answers.
+func _on_typed(_txt: String) -> void:
+	var side := "r" if hud.slot("r").get("mode", "") == "talk" else ("l" if hud.slot("l").get("mode", "") == "talk" else "")
+	if on_call == "" or side == "":
+		hud.flash_message("Message logged — nobody is on the line. Call someone from LOG first.")
+		return
+	var who := on_call
+	await get_tree().create_timer(1.2).timeout
+	if hud.slot(side).get("mode", "") == "talk": call_character(who)
+
 func call_character(id: String, incoming := false) -> void:
 	var c: Dictionary = Data.CHARACTERS[id]
+	if not incoming: on_call = id
 	if not (id in GS.met): GS.meet(id, "enraged" if c["lines"].has("enraged") else "friendly")
 	var m: String = GS.mood.get(id, "friendly")
 	var pool: Array = c["lines"].get(m, c["lines"].values()[0])
@@ -348,7 +368,7 @@ func _pilot_call(p: Dictionary, incoming := true) -> void:
 		p["face"], float(p["voice"]), bool(p["female"]))
 
 func _on_enemy_hail(p: Dictionary) -> void:
-	if hud.comms_open and hud.comms_mode != "incoming": return
+	if hud.side_busy(true): return
 	var leader: String = Data.ENEMY_LEADER[space.sys["enemy"]]
 	if leader in GS.met and randf() < 0.35: call_character(leader, true)
 	else: _pilot_call(p)
@@ -356,14 +376,15 @@ func _on_enemy_hail(p: Dictionary) -> void:
 ## A generic pilot (AX-01..06, flying under a named leader) on the same radio: short line, NORMAL or DAMAGED
 ## portrait from the enemies pack (waveform until the pack is there). Never cuts off a named leader mid-sentence.
 func _on_enemy_chatter(p: Dictionary, line: String) -> void:
-	if hud.comms_open and hud.comms_mode != "incoming": return
-	if hud.comms_open and not hud.comms_generic and hud.comms_timer > 3.0: return
+	var l: Dictionary = hud.slot("l")
+	if hud.side_busy(true): return
+	if not l.is_empty() and not l["generic"] and float(l["timer"]) > 3.0: return   # let a named leader finish
 	hud.open_comms("%s — %s pilot · %s's wing" % [p["unit"], p["type"], p["leader"]], line, "incoming", true,
 		"gp/" + p["id"], float(p["voice"]), bool(p["female"]))
 	hud.comms_timer = 3.5
 
 func _on_hail(from: String, line: String, hostile: bool) -> void:
-	if hud.comms_open and hud.comms_mode != "incoming": return
+	if hud.side_busy(hostile): return
 	var leader: String = Data.ENEMY_LEADER[space.sys["enemy"]]
 	if hostile and leader in GS.met: call_character(leader, true)
 	else: hud.open_comms(from, line, "incoming", hostile)

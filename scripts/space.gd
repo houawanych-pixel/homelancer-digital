@@ -61,6 +61,8 @@ var braking := false
 var thrust_held := false
 var boosting := false
 var call_cd := 0.0
+var holding := false   # stopped and staying stopped (after a full stop) until the stick moves
+static var cruise_assist := true   # centred stick holds Data.CRUISE (the route test turns it off for its fixed setups)
 var _particle_acc := 0.0
 signal hail(from: String, line: String, hostile: bool)
 signal enemy_hail(pilot: Dictionary)
@@ -883,8 +885,10 @@ func _update_player(dt: float) -> void:
 		steer = ap[0]
 		thrust = ap[1]
 	if warp_state == "on": steer *= 0.35 # heavy steering at warp speed
-	yaw -= steer.x * turn * dt
-	pitch = clampf(pitch - steer.y * turn * 0.8 * dt, deg_to_rad(-75), deg_to_rad(75))
+	# full loops: pitch is not capped. Upside down, left/right steering is mirrored so it still turns the way the
+	# stick points on screen (the camera rolls over with the ship).
+	yaw -= steer.x * turn * dt * (1.0 if cos(pitch) >= 0.0 else -1.0)
+	pitch = wrapf(pitch - steer.y * turn * 0.8 * dt, -PI, PI)
 	player.basis = Basis.from_euler(Vector3(pitch, yaw, 0))
 	if is_instance_valid(model) and GS.form != "mech" and transform_t <= 0.0:
 		model.rotation.z = lerpf(model.rotation.z, -steer.x * 0.55, minf(1.0, dt * 4.0))
@@ -919,9 +923,16 @@ func _update_player(dt: float) -> void:
 		if vel.length() < 0.6:
 			vel = Vector3.ZERO
 			braking = false
+			holding = true
 			message.emit("Full stop.")
 	else:
+		# default cruise: centred stick holds Data.CRUISE, forward speeds up to full, pulling back slows to a stop
 		var f := thrust.y if thrust.y >= 0.0 else thrust.y * 0.5
+		if cruise_assist:
+			if thrust.length() > 0.15 or thrust_held: holding = false
+			if thrust.y < -0.9 and vel.length() < 2.0: holding = true   # pulled all the way back to a stop: stay there
+			f = Data.CRUISE + thrust.y * (1.0 - Data.CRUISE) if thrust.y >= 0.0 else Data.CRUISE * (1.0 + thrust.y)
+			if holding: f = 0.0
 		var desired := fwd * base_speed * f + right * base_speed * 0.6 * thrust.x
 		if thrust_held and controls and GS.energy > 1.0:
 			boosting = true
@@ -1032,6 +1043,7 @@ func _autopilot_input() -> Array:
 	if dist < 170.0:
 		autopilot = null
 		drop_warp()
+		if cruise_assist: braking = true   # stop at the destination instead of cruising past it
 		message.emit("Autopilot: arrived.")
 		return [Vector2.ZERO, Vector2.ZERO]
 	var aligned := local.z < -0.97

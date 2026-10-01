@@ -43,6 +43,7 @@ const ATMO_OUTER := 1.3   # planet radius x: outer atmosphere (haze, glow, rumbl
 const ATMO_INNER := 1.02  # planet radius x: entry sphere (commits to the surface)
 const WARP_MULT := 6.0 # x ship speed
 const THRUST_MULT := 2.0 # afterburner x ship speed
+const CRUISE := 0.55     # default cruise (x ship speed) with the left stick centred; full back = stop
 const THRUST_ENERGY := 14.0 # per second
 const ENERGY_BOOST_COOLDOWN := 3.0
 # The six cockpit systems. AUTO = the ship triggers it when needed; MANUAL = tap the panel.

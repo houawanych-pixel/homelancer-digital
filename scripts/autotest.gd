@@ -11,6 +11,7 @@ var web := OS.has_feature("web")
 
 func _ready() -> void:
 	GS.god_mode = true
+	SpaceSystem.cruise_assist = false   # fixed test setups need a ship that stays put; the cruise check turns it on
 	_run.call_deferred()
 
 func _publish(step: String, done := false) -> void:
@@ -277,6 +278,84 @@ func _generic_pilots() -> void:
 		if s.enemies.has(e):
 			s.enemies.erase(e)
 			(e["node"] as Node3D).queue_free()
+
+## Oct 1 requests: default cruise, full loops, TRANSFORM where STOP was, cockpit art view, two-sided comms + console.
+func _flight_and_comms() -> void:
+	var s := _sp()
+	var hud: Node = main.hud
+	hud.close_comms()
+	# TRANSFORM sits in the old STOP slot; the centre row loses its MECH pill
+	hud._layout()
+	var fr: Rect2 = hud.buttons.get("form", Rect2())
+	var wr: Rect2 = hud.buttons["warp"]
+	_check("TRANSFORM button in the old STOP spot (STOP removed)", fr.size.x > 0.0 and absf(fr.position.y - wr.position.y) < 1.0 and fr.position.x < wr.position.x
+		and not hud.buttons.has("stop") and hud.buttons.has("map") and hud.buttons.has("goto"), "at %s" % str(fr.position))
+	# default cruise: centred stick holds cruise speed; all the way back stops and stays stopped
+	SpaceSystem.cruise_assist = true
+	s.holding = false
+	s.braking = false
+	s.engine_kill = false
+	main.hud.move_vec = Vector2.ZERO
+	await _wait(3.0)
+	var cruise: float = s.speed_now
+	var want: float = float(GS.ship()["speed"]) * Data.CRUISE
+	main.hud.move_vec = Vector2(0, 1)    # stick pulled all the way back
+	await _until(func(): return s.speed_now < 0.8, 5.0)
+	await _wait(0.3)
+	main.hud.move_vec = Vector2.ZERO
+	await _wait(1.5)
+	var held_stop: float = s.speed_now
+	SpaceSystem.cruise_assist = false
+	s.holding = false
+	_check("Default cruise: centred stick cruises, full back stops and holds", absf(cruise - want) < want * 0.15 and held_stop < 1.0,
+		"cruise %d m/s (want %d), after full back + release %.1f m/s" % [int(cruise), int(want), held_stop])
+	# full loop: hold the stick up and go all the way round, upside down at the top
+	var start_fwd: Vector3 = -s.player.global_basis.z
+	var turned := 0.0
+	var prev := start_fwd
+	var inverted := false
+	main.hud.aim_vec = Vector2(0, -1)
+	var tt := 0.0
+	while tt < 10.0 and turned < TAU:
+		await get_tree().process_frame
+		tt += get_process_delta_time()
+		var f: Vector3 = -s.player.global_basis.z
+		turned += prev.angle_to(f)
+		prev = f
+		if s.player.global_basis.y.y < -0.9: inverted = true
+	main.hud.aim_vec = Vector2.ZERO
+	_check("Full loop: pitch keeps going over the top (no cap)", turned >= TAU * 0.98 and inverted, "turned %d deg in %.1f s, upside down at the top %s" % [int(rad_to_deg(turned)), tt, inverted])
+	s._face(start_fwd)
+	# cockpit view with the owner's cockpit art + instruments
+	s.set_view("cockpit")
+	await _wait(0.3)
+	var tex: Texture2D = hud.cockpit_texture()
+	await _shot("cockpit_view", 0.4)
+	_check("Cockpit view: cockpit art, see-through glass, crosshair + heading/speed", tex != null and Packs.PACKS.has("cockpit"), tex.resource_path.get_file() if tex else "no art")
+	# enemy LEFT + friendly RIGHT talking at the same time
+	main._pilot_call(Data.PILOTS["raider"][0], true)
+	main.call_character("vale", true)
+	await _wait(0.6)
+	var l: Dictionary = hud.slot("l")
+	var r: Dictionary = hud.slot("r")
+	await _shot("comms_two_sides", 0.2)
+	_check("Comms side screens: enemy left + friendly right at once, line under the face", not l.is_empty() and not r.is_empty() and l["hostile"] and not r["hostile"]
+		and l["face"] == Data.PILOTS["raider"][0]["face"] and r["face"] == "vale", "%s | %s" % [l.get("from", "-"), r.get("from", "-")])
+	# tap a screen: the console pulls up; contacts only answer in this system; type a message
+	_press("side_l")
+	await _wait(0.5)
+	hud._layout()
+	var console_up: bool = hud.comms_mode == "roster" and hud.buttons.has("met_0") and hud.buttons.has("type")
+	hud.start_typing()
+	hud._typer.text_submitted.emit("Hold the line, Vale.")
+	var logged: bool = "YOU: Hold the line, Vale." in hud.history
+	await _shot("comms_console", 0.2)
+	_check("Comms console: pulls up from a tap, contact list (in-system only), chat log, typing", console_up and logged and hud.in_range("vale") and not hud.in_range("amari"),
+		"vale in range %s, amari (Vega) in range %s" % [hud.in_range("vale"), hud.in_range("amari")])
+	_press("log")
+	await _wait(0.4)
+	hud.close_comms()
+	s.set_view("chase")
 
 ## The capital city prototype kit: connections on the modular grid, mech clearance, the pack split.
 func _city_kit() -> void:
@@ -567,7 +646,7 @@ func _run() -> void:
 	main.start_game()
 	_check("Godot boot + START", await _until(func(): return main.state == "flight", 10.0))
 	await _wait(1.0)
-	_check("Mobile HUD shown", main.hud.visible and main.hud.buttons.has("slot_0") and main.hud.buttons.has("slot_2") and main.hud.buttons.has("shield") and main.hud.buttons.has("repair") and main.hud.buttons.has("tractor") and main.hud.buttons.has("stop") and main.hud.buttons.has("warp") and main.hud.buttons.has("thrust") and main.hud.buttons.has("kill") and main.hud.buttons.has("call"))
+	_check("Mobile HUD shown", main.hud.visible and main.hud.buttons.has("slot_0") and main.hud.buttons.has("slot_2") and main.hud.buttons.has("shield") and main.hud.buttons.has("repair") and main.hud.buttons.has("tractor") and main.hud.buttons.has("form") and not main.hud.buttons.has("stop") and main.hud.buttons.has("warp") and main.hud.buttons.has("thrust") and main.hud.buttons.has("kill") and main.hud.buttons.has("call"))
 	await _shot("solara_flight")
 	var s := _sp()
 	s.hail.connect(_on_hail)   # listen from the start: enemies may call as soon as they see you (e.g. a warp spool)
@@ -667,6 +746,7 @@ func _run() -> void:
 	await _mech_form()
 	await _generic_pilots()
 	await _city_kit()
+	await _flight_and_comms()
 	# ---- dock at station
 	_check("Station docking", await _dock_at(s.station), s.station.name)
 	await _wait(0.8)
