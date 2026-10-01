@@ -160,7 +160,18 @@ The current "Aquila / Solara Jump Gate" objects are technically warp gates (buil
   you from the white into your first system. The same white space could be the final battle: flying in to fight the
   Creator.
 
-## 13. Implementation order (from the master spec)
+## 13. Ship models to replace (owner will make new ones)
+| Priority | In game as | Now | Notes |
+|---|---|---|---|
+| 1 | Ranger (player ship #2, bought at the hub) | NO model: boxes built in code | player ship: textures up to 1024 px |
+| 2 | Raider (Solara enemies, Shade's side) | enemy_fleet.glb, 6k tris, shared with Corsair | 512 px textures |
+| 3 | Corsair (Vega enemies, Hoard's side) | same enemy_fleet.glb as Raider | needs its own look |
+| 4 | Cargo hauler (traffic) | cargo_ship.glb, 10k tris | keep or replace |
+| — | Cadet (starter), Lancer, carrier, station, mechs | real models | keep |
+Every new ship: GLB, nose clearly at the front, left/right symmetric (wings split automatically for damage),
+about 10–30k triangles.
+
+## 14. Implementation order (from the master spec)
 1. Optimized public build (Job L) ✔
 2. Real Samsung loading test — **waiting for the report** (Copy details)
 3. Content-pack streaming ✔
