@@ -66,9 +66,39 @@ func _tp(pos: Vector3, look: Vector3) -> void:
 func _press(id: String) -> void:
 	main._on_hud(id)
 
+## HL_SOAK=n: n round trips SPACE -> PLANET -> SECTOR -> SECTOR -> ORBIT -> SPACE, printing memory after each,
+## to prove old areas are freed (memory must level off, not climb every lap).
+func _soak(laps: int) -> void:
+	await _wait(1.0)
+	main.start_game()
+	await _until(func(): return main.state == "flight", 10.0)
+	await Packs.wait("planets", 60.0)
+	print("[soak] start ", SpaceSystem.memory_report())
+	for lap in laps:
+		var s := _sp()
+		var pc: Vector3 = s.planet.global_position
+		var d := Vector3(0.3, 0.2, 1.0).normalized()
+		_tp(pc + d * (float(s.planet.get_meta("radius")) + 90.0), pc)
+		main.hud.move_vec = Vector2(0, -1)
+		await _until(func(): return main.state == "flight" and _sp().surface_mode, 20.0)
+		for dir in [Vector2i(1, 0), Vector2i(0, 1)]:
+			s = _sp()
+			var t0: int = s.tile
+			var at := Vector3(dir.x, 0, dir.y) * (Surface.EDGE - 40.0) + Vector3(0, 900, 0)
+			_tp(at, at + Vector3(dir.x, 0, dir.y) * 500.0)
+			await _until(func(): return s.tile != t0, 8.0)
+			await _wait(1.0)
+		_tp(Vector3(0, Surface.CEILING - 30.0, 0), Vector3(0, Surface.CEILING + 400.0, -100.0))
+		await _until(func(): return main.state == "flight" and not _sp().surface_mode, 10.0)
+		main.hud.move_vec = Vector2.ZERO
+		await _wait(1.5)
+		print("[soak] lap %d %s" % [lap + 1, SpaceSystem.memory_report()])
+	get_tree().quit()
+
 ## Owner's first-pass loop: spawn a mech, shoot off its left arm (explosion, arm hidden, that gun offline),
 ## wait for a damage spark, then kill the core. Also shoots the right wing off a ship.
 func _section_loop() -> void:
+	await Packs.wait("mechs", 60.0)
 	var s := _sp()
 	var fwd := -s.player.global_basis.z
 	var e: Dictionary = s.spawn_unit("mech", s.player.global_position + fwd * 40.0 + s.player.global_basis.y * 2.0, s.player.global_position)
@@ -100,6 +130,7 @@ func _section_loop() -> void:
 ## Planet prototype: fly into New Terra (atmosphere entry -> tile), cross the east edge into the next tile,
 ## cross the outer edge (wrap to the other side), climb back to orbit, then fast-travel from the planet hub.
 func _planet_surface() -> void:
+	await Packs.wait("planets", 60.0)
 	var s := _sp()
 	var pc: Vector3 = s.planet.global_position
 	var pr: float = s.planet.get_meta("radius")
@@ -255,6 +286,9 @@ func _showcase() -> void:
 	get_tree().quit()
 
 func _run() -> void:
+	if OS.get_environment("HL_SOAK") != "":
+		await _soak(int(OS.get_environment("HL_SOAK")))
+		return
 	if OS.get_environment("HL_SHOWCASE") != "":
 		await _showcase()
 		return

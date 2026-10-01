@@ -135,7 +135,9 @@ func show_screen(s: String) -> void:
 	match s:
 		"hub": _hub_page()
 		"equipment": _equipment_page()
-		"ships": _ships_page()
+		"ships":
+			Packs.request("lancer")
+			_ships_page()
 		"repair": _repair_page()
 		"surface": _surface_page()
 	queue_redraw()

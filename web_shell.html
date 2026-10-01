@@ -22,7 +22,7 @@ p{color:#9bbfd0;margin:6px 0}
 #phase{color:#dff6ff;font-weight:600}
 #hint{min-height:1.4em;font-size:14px}
 #error{color:#ffaf97;max-width:36em}
-#error button{margin-top:14px;border:1px solid #67dcff;background:#174967;color:#fff;border-radius:10px;padding:12px 18px;font-size:17px}
+#error button{display:inline-block;margin-top:14px;border:1px solid #67dcff;background:#174967;color:#fff;border-radius:10px;padding:12px 18px;font-size:17px}
 #rotate{display:none;z-index:10}
 @media (orientation:portrait){#rotate{display:grid}}
 #timing{position:fixed;left:50%;bottom:10px;translate:-50% 0;z-index:6;background:#071426e6;border:1px solid #2f7ea3;border-radius:8px;padding:6px 12px;font-size:13px;color:#9bbfd0;display:none;white-space:nowrap}
@@ -35,80 +35,116 @@ $GODOT_HEAD_INCLUDE
   <h1>HOMELANCER</h1>
   <p>Digital · v1.2 · Solara — Vega</p>
   <div id="bar"><div id="fill"></div></div>
-  <p id="phase">Preparing flight deck…</p>
+  <p id="phase">Loading Homelancer…</p>
   <p id="hint"></p>
   <p id="error"></p>
 </div>
 <div id="rotate"><h1>TURN YOUR PHONE</h1><p>Use landscape for both sticks and the flight controls.</p><p id="rotate-phase"></p></div>
 <div id="timing"></div>
-<script src="$GODOT_URL"></script>
+<script>window.__engineScriptFailed = false;</script>
+<script src="$GODOT_URL" onerror="window.__engineScriptFailed = true"></script>
 <script>
-const GODOT_CONFIG = $GODOT_CONFIG;
 (function () {
-  // Loading screen with real phases and timings, so a slow start on a phone shows WHERE the time goes:
-  // 1 download (engine + game data), 2 engine start (WebAssembly ready -> renderer up), 3 cockpit build (scene + first frames).
+  // Loading screen: real phases with timings (CORE download -> ENGINE start -> SYSTEM build -> READY), a watchdog
+  // so a stall or crash becomes a visible message instead of an endless bar, and "Copy details" for bug reports.
   const $ = (id) => document.getElementById(id);
   const t0 = performance.now();
   const T = { download: null, engine: null, ready: null };
   const sec = (ms) => (ms / 1000).toFixed(1);
-  let phase = 'download', pct = 0;
-  const totalBytes = Object.values(GODOT_CONFIG.fileSizes || {}).reduce((a, b) => a + b, 0);
+  let phase = 'download', pct = 0, lastProgress = performance.now(), lastLine = '', lastErr = '';
+  const log = [];
+  const STEPS = { download: 'CORE', engine: 'ENGINE', cockpit: 'SYSTEM', done: 'READY' };
 
   function show(text) { $('phase').textContent = text; $('rotate-phase').textContent = text; }
+  function steps() {
+    const order = ['download', 'engine', 'cockpit', 'done'];
+    const i = order.indexOf(phase);
+    return order.map((k, j) => (j < i ? '✓ ' : j === i ? '▸ ' : '· ') + STEPS[k]).join('   ');
+  }
+  function details() {
+    return ['Homelancer load report', 'phase: ' + phase + ' at ' + sec(performance.now() - t0) + ' s',
+      'download ' + pct + '%', 'last step: ' + lastLine, 'last error: ' + lastErr,
+      'device: ' + navigator.userAgent, 'memory: ' + (navigator.deviceMemory || '?') + ' GB',
+      'log:', ...log.slice(-25)].join('\n');
+  }
+  function addButtons(el) {
+    const r = document.createElement('button'); r.textContent = 'Reload'; r.onclick = () => location.reload();
+    const c = document.createElement('button'); c.textContent = 'Copy details'; c.style.marginLeft = '10px';
+    c.onclick = () => { navigator.clipboard && navigator.clipboard.writeText(details()); c.textContent = 'Copied'; };
+    el.append(document.createElement('br'), r, c);
+  }
+  function warn(msg) {
+    if ($('error').dataset.kind === 'warn' && $('error').dataset.msg === msg) return;
+    $('error').dataset.kind = 'warn'; $('error').dataset.msg = msg;
+    $('error').innerHTML = ''; $('error').append(msg); addButtons($('error'));
+  }
+  function clearWarn() { if ($('error').dataset.kind === 'warn') { $('error').innerHTML = ''; $('error').dataset.kind = ''; } }
+  function fail(msg) {
+    if (phase === 'done') return;
+    phase = 'error'; $('bar').style.display = 'none'; show('Could not start the game.');
+    $('error').dataset.kind = 'error'; $('error').innerHTML = ''; $('error').append(msg);
+    if (lastErr) { const d = document.createElement('div'); d.style.cssText = 'font-size:12px;opacity:.8;margin-top:8px'; d.textContent = 'Engine said: ' + lastErr; $('error').append(d); }
+    addButtons($('error'));
+    window.__loadFailed = msg;
+  }
   function tick() {
     if (phase === 'done' || phase === 'error') return;
-    const s = sec(performance.now() - t0);
-    if (phase === 'download') show(`Downloading ${pct}% · ${s} s`);
-    if (phase === 'engine') show('Starting engine…');
-    if (phase === 'cockpit') show('Building star system…');
     const el = performance.now() - t0;
-    $('hint').textContent = el > 45000 ? 'Still working. A slow connection or an older phone can take a minute the first time; the next visit is faster.' :
-      el > 20000 && phase === 'download' ? 'Slow connection. Wi-Fi will be quicker.' : '';
+    if (phase === 'download') show(`Downloading game core ${pct}% · ${sec(el)} s`);
+    if (phase === 'engine') show('Starting engine…');
+    if (phase === 'cockpit') show('Building star system…' + (lastLine ? ' (' + lastLine + ')' : ''));
+    $('hint').textContent = steps();
+    // watchdog: no download progress for 30 s, or engine/system start taking over 90 s
+    if (phase === 'download' && performance.now() - lastProgress > 30000) warn('The download has stopped at ' + pct + '%. Your connection may have dropped. Reload to try again.');
+    else if (phase !== 'download' && el - (T.download || 0) > 90000) warn('Starting is taking much longer than it should. Tap Copy details and send them, then Reload.');
+    else clearWarn();
     setTimeout(tick, 250);
   }
   function setPhase(p) {
-    if (p === phase) return;
+    if (p === phase || phase === 'error') return;
     const now = performance.now() - t0;
     if (phase === 'download') T.download = now;
     if (phase === 'engine') T.engine = now;
     phase = p;
     $('bar').classList.toggle('busy', p !== 'download');
   }
-  function fail(msg) {
-    phase = 'error'; $('bar').style.display = 'none'; show('Could not start the game.');
-    $('error').innerHTML = '';
-    $('error').append(msg, document.createElement('br'));
-    const b = document.createElement('button'); b.textContent = 'Reload'; b.onclick = () => location.reload(); $('error').append(b);
-  }
+  window.addEventListener('error', (e) => { lastErr = String(e.message || e); log.push('error: ' + lastErr); });
+  window.addEventListener('unhandledrejection', (e) => { lastErr = String(e.reason && e.reason.message || e.reason); log.push('rejection: ' + lastErr); });
+  $('canvas').addEventListener('webglcontextlost', () => fail('The phone ran out of graphics memory (WebGL context lost). Close other tabs and apps, then Reload.'));
 
+  if (window.__engineScriptFailed || typeof Engine === 'undefined') { fail('Could not download the game engine (index.js). Check your connection, then Reload.'); return; }
+  const GODOT_CONFIG = $GODOT_CONFIG;
   const missing = Engine.getMissingFeatures({ threads: false });
   if (missing.length) { fail('This browser is missing: ' + missing.join(', ') + '. Please open the link in Chrome.'); return; }
   if (!Engine.isWebGLAvailable(2)) { fail('WebGL 2 graphics are turned off or not supported. Open in Chrome and make sure hardware acceleration is on.'); return; }
+  const totalBytes = Object.values(GODOT_CONFIG.fileSizes || {}).reduce((a, b) => a + b, 0);
 
   tick();
   const engine = new Engine(GODOT_CONFIG);
   engine.startGame({
     onProgress(current, total) {
       const t = total || totalBytes;
+      lastProgress = performance.now();
       if (t > 0) { pct = Math.min(100, Math.floor(100 * current / t)); $('fill').style.width = pct + '%'; }
-      // Switch to the moving "starting" bar just before the engine takes over the page (it paints before the long startup step).
       if (t > 0 && current >= t * 0.99) { setPhase('engine'); show('Starting engine…'); }
     },
     onPrint(...parts) {
       const line = parts.join(' ');
       console.log(line);
-      // The engine's first print means the download finished and WebAssembly is running.
+      log.push(line);
       if (line.startsWith('Godot Engine')) { pct = 100; $('fill').style.width = '100%'; setPhase('engine'); }
       if (line.startsWith('OpenGL API')) setPhase('cockpit');
+      const m = line.match(/^\[profile\] ([^:]+)/);
+      if (m) lastLine = m[1];
     },
-    onPrintError(...parts) { console.error(parts.join(' ')); },
+    onPrintError(...parts) { const l = parts.join(' '); console.error(l); log.push('ERR ' + l); lastErr = l; },
   }).then(() => {
-    // Hide the loading screen only once the game has actually drawn two frames.
     requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (phase === 'error') return;
       setPhase('cockpit'); T.ready = performance.now() - t0; phase = 'done';
       $('load').style.display = 'none'; $('rotate-phase').textContent = '';
       const d = T.download ?? T.ready, e = T.engine ?? d;
-      const msg = `Loaded in ${sec(T.ready)} s · download ${sec(d)} · engine ${sec(e - d)} · cockpit ${sec(T.ready - e)}`;
+      const msg = `Loaded in ${sec(T.ready)} s · download ${sec(d)} · engine ${sec(e - d)} · system ${sec(T.ready - e)}`;
       console.log('[load timing] ' + msg);
       window.__loadTiming = { total: T.ready, download: d, engine: e - d, cockpit: T.ready - e };
       const chip = $('timing'); chip.textContent = msg; chip.style.display = 'block';

@@ -225,7 +225,13 @@ static func has_water(planet_id: String, tile: int) -> bool:
 	return false
 
 static var _terrain_mat: ShaderMaterial
-static func terrain_material(strata: float) -> ShaderMaterial:
+static func terrain_material(strata: float) -> Material:
+	if not ResourceLoader.exists("res://assets/terrain/ground_albedo.jpg"):
+		# planet pack not mounted (download failed): plain vertex colours still fly fine
+		var plain := StandardMaterial3D.new()
+		plain.vertex_color_use_as_albedo = true
+		plain.roughness = 0.95
+		return plain
 	if _terrain_mat == null:
 		_terrain_mat = ShaderMaterial.new()
 		_terrain_mat.shader = load("res://assets/terrain/terrain.gdshader")
@@ -253,7 +259,9 @@ static func build_tile(planet_id: String, tile: int) -> Node3D:
 	root.name = "Tile_%d" % tile
 	var b := biome(planet_id, tile)
 	var key := "%s|%d" % [planet_id, tile]
-	if not _mesh_cache.has(key): _mesh_cache[key] = _terrain_mesh(planet_id, tile)
+	if not _mesh_cache.has(key):
+		_mesh_cache[key] = _terrain_mesh(planet_id, tile)
+		if _mesh_cache.size() > 6: _mesh_cache.erase(_mesh_cache.keys()[0])   # keep only recent sectors in memory
 	var terrain := MeshInstance3D.new()
 	terrain.mesh = _mesh_cache[key]
 	terrain.name = "Terrain"

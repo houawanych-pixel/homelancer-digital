@@ -42,6 +42,8 @@ func _ready() -> void:
 	_build_title()
 	_load_system("solara", "station")
 	space.controls = false
+	# optional content arrives in the background after the game is up (see scripts/packs.gd)
+	get_tree().create_timer(1.5).timeout.connect(func(): for pk in ["mechs", "lancer", "planets"]: Packs.request(pk))
 	autotest = "--autotest" in OS.get_cmdline_user_args() or _web_flag("autotest")
 	if autotest:
 		var runner: Node = load("res://scripts/autotest.gd").new()
@@ -566,6 +568,10 @@ func enter_atmosphere(planet_node: Node3D) -> void:
 	tw.parallel().tween_method(func(k: float): space.hit_shake = 0.35 + 0.4 * k, 0.0, 1.0, 1.4)
 	tw.tween_property(fx, "clouds", 1.0, 0.5)
 	await tw.finished
+	if not Packs.is_ready("planets"):
+		fx.caption = "ENTERING ATMOSPHERE"
+		fx.sub = "Receiving surface data…"
+		await Packs.wait("planets", 90.0)   # clouds stay up while the planet pack arrives
 	_load_surface(pid, t)            # loads while the screen is white
 	space.controls = false
 	var p: Node3D = space.player
@@ -658,6 +664,9 @@ func descend_to(pid: String, loc_id: String) -> void:
 	fx.fade = 1.0
 	fx.caption = "DESCENDING"
 	fx.sub = "%s  ·  %s" % [l["name"].to_upper(), l["role"].to_upper()]
+	if not Packs.is_ready("planets"):
+		fx.sub = "Receiving surface data…"
+		await Packs.wait("planets", 90.0)
 	_load_surface(pid, int(l["tile"]))
 	visited[loc_id] = true
 	await get_tree().create_timer(0.6).timeout

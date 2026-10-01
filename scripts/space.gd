@@ -111,17 +111,41 @@ func setup(id: String, arrival: String) -> void:
 	_bolt_mesh.size = Vector3(0.6, 0.6, 14.0)   # bright core
 	_bolt_halo = BoxMesh.new()
 	_bolt_halo.size = Vector3(2.2, 2.2, 18.0)    # soft glow around it, so bolts read at range and on phones
+	_prof("start")
 	_build_environment()
+	_prof("environment (sky, sun, camera)")
 	_build_station(sys["station"])
+	_prof("station")
 	_build_planet(sys["planet"])
+	_prof("planet")
 	_build_gate(sys["gate"])
+	_prof("gate")
 	_build_belt(sys["asteroids"])
+	_prof("asteroid belt")
 	_build_nebula(sys["nebula"])
+	_prof("nebula")
 	_build_player()
+	_prof("player ship")
 	for p in sys["patrols"]: _spawn_group(p, 2)
+	_prof("patrols")
 	_build_traffic()
 	_build_carrier()
+	_prof("traffic + carrier")
 	place_player(arrival)
+
+## One line of memory numbers (GPU textures, GPU buffers, engine RAM, node count) for load/soak testing.
+static func memory_report() -> String:
+	return "[memory] textures %.1f MB · buffers %.1f MB · RAM %.1f MB · nodes %d · objects %d" % [
+		Performance.get_monitor(Performance.RENDER_TEXTURE_MEM_USED) / 1e6, Performance.get_monitor(Performance.RENDER_BUFFER_MEM_USED) / 1e6,
+		Performance.get_monitor(Performance.MEMORY_STATIC) / 1e6, Performance.get_monitor(Performance.OBJECT_NODE_COUNT), Performance.get_monitor(Performance.OBJECT_COUNT)]
+
+var _prof_t := 0
+## Startup timing per step, printed when HL_PROFILE is set (and always on the web, so the browser log shows it).
+func _prof(step: String) -> void:
+	var now := Time.get_ticks_usec()
+	if step != "start" and (OS.has_feature("web") or OS.get_environment("HL_PROFILE") != ""):
+		print("[profile] %s: %d ms" % [step, (now - _prof_t) / 1000])
+	_prof_t = now
 
 func place_player(arrival: String) -> void:
 	var at: Vector3
@@ -564,7 +588,7 @@ func _spawn_group(center: Vector3, count: int) -> void:
 	for i in count:
 		# the last ship of a pair or bigger group is sometimes an assault mech
 		var kind: String = sys["enemy"]
-		if count >= 2 and i == count - 1 and _rng.randf() < 0.5: kind = "mech"
+		if count >= 2 and i == count - 1 and _rng.randf() < 0.5 and Packs.is_ready("mechs"): kind = "mech"
 		spawn_unit(kind, center + Vector3(_rng.randf_range(-60, 60), _rng.randf_range(-20, 20), _rng.randf_range(-60, 60)), center)
 
 ## Spawn one hostile ship or mech with three sections (left / core / right).
@@ -621,8 +645,12 @@ func _build_carrier() -> void:
 	carrier.look_at(carrier.global_position + Vector3(1, 0, 0.3), Vector3.UP)
 
 # ---------------------------------------------------------------- per frame
+var _mem_reported := false
 func _process(dt: float) -> void:
 	time += dt
+	if not _mem_reported and time > 3.0:
+		_mem_reported = true
+		if OS.has_feature("web") or OS.get_environment("HL_PROFILE") != "": print(memory_report())
 	if not is_instance_valid(player): return
 	_update_player(dt)
 	_update_enemies(dt)

@@ -36,6 +36,12 @@ make_ships.sh, make_booster.py. tools/setup_env.sh. See tools/shipkit/README.md.
 ## Sky panoramas
 tools/sky/fix_pano.py makes any nebula image a seamless 360 sky (seam fold + pole blur + 4096x2048). See tools/sky/README.md.
 
+## Loading / content packs (read docs/PERFORMANCE.md)
+Only what is needed to start is in the main download. Mechs, planet terrain and the Lancer are content packs
+(scripts/packs.gd, written next to the export by addons/content_packs). New planets, systems and big model sets get
+their own pack and are excluded in export_presets.cfg. Measure with tools/perf/measure_web.py and web_route.py,
+HL_PROFILE=1 (startup steps and memory), and HL_SOAK=n (memory over round trips).
+
 ## Limits learned
 - Drive connector downloads only files < 10 MB: ask the owner to attach bigger GLBs in chat.
 - Sending files back: max 30 MB each. pip/npm registries may be blocked; everything here needs only numpy + Pillow.

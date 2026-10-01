@@ -10,6 +10,11 @@ config/features=PackedStringArray("4.3")
 [autoload]
 GS="*res://scripts/game_state.gd"
 Sfx="*res://scripts/sfx.gd"
+Packs="*res://scripts/packs.gd"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/content_packs/plugin.cfg")
 
 [display]
 window/size/viewport_width=1280
