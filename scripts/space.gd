@@ -451,6 +451,7 @@ func _build_planet(d: Dictionary) -> void:
 	beacon.look_at(planet.global_position, Vector3.UP)
 
 func dock_point(n: Node3D) -> Vector3:
+	if n.get_meta("kind", "") == "waypoint": return n.global_position
 	if surface_mode and n == station: return station.global_position + Vector3(0, 90, 160)
 	if n == planet:
 		var toward: Vector3 = (station.global_position - planet.global_position).normalized()
@@ -1564,13 +1565,21 @@ func _collisions(dt: float) -> void:
 	var nd := p.distance_to(nebula_center)
 	in_nebula = 0.0 if nebula_radius <= 1.0 else clampf((nebula_radius - nd) / (nebula_radius * 0.35), 0.0, 1.0)
 
+var look := Vector2.ZERO   # cockpit free-look (-1..1): the pilot's head turns toward where you steer
+const LOOK_YAW := 0.5      # radians at full look left/right
+const LOOK_PITCH := 0.22   # radians at full look up/down (less: you shouldn't see past the canopy art)
+
 func _update_camera(dt: float, snap: bool) -> void:
 	if GS.view == "cockpit":
-		# pilot's eye: fixed to the hull, tiny lag-free shake on hits
+		# pilot's eye: fixed to the hull, tiny lag-free shake on hits. The head turns with the aim stick (free-look),
+		# so you can look out of the side and top glass; the crosshair shows where the nose really points.
+		look = look.lerp(aim if controls else Vector2.ZERO, minf(1.0, dt * 3.0))
 		cam.global_position = player.global_position + player.global_basis * Vector3(0, 0.9, -1.2)
-		var ahead := player.global_position - player.global_basis.z * 60.0
+		var b := player.global_basis
+		var dir: Vector3 = (Basis(b.y, -look.x * LOOK_YAW) * Basis(b.x, -look.y * LOOK_PITCH)) * -b.z
+		var ahead := cam.global_position + dir * 60.0
 		if hit_shake > 0.0: ahead += Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), 0) * hit_shake * 1.2
-		cam.look_at(ahead, player.global_basis.y)
+		cam.look_at(ahead, b.y)
 		cam.fov = lerpf(cam.fov, 92.0 if warp_state == "on" else (82.0 if boosting else 76.0), minf(1.0, dt * 2.0))
 		return
 	var back := 15.0 + (4.0 if warp_state == "on" else (1.5 if boosting else 0.0))
@@ -2074,12 +2083,14 @@ func load_tile(t: int, keep := Vector3.INF) -> void:
 	# city blocks: simple box collision (decks, pillars, tower blocks) in this tile's space
 	city_solids.clear()
 	city_bounds = AABB()
+	var all: Array = []
 	var cb := tile_root.get_node_or_null("CapitalBlock")
 	if cb:
-		for a: AABB in cb.get_meta("solids"):
-			var w := AABB(a.position + cb.position, a.size)
-			city_solids.append(w)
-			city_bounds = w if city_bounds.size == Vector3.ZERO else city_bounds.merge(w)
+		for a: AABB in cb.get_meta("solids"): all.append(AABB(a.position + cb.position, a.size))
+	for a: AABB in tile_root.get_meta("solids", []): all.append(a)   # town buildings
+	for w: AABB in all:
+		city_solids.append(w)
+		city_bounds = w if city_bounds.size == Vector3.ZERO else city_bounds.merge(w)
 
 func _apply_sky(c: Dictionary, _k: float) -> void:
 	_sky.sky_top_color = c["sky"]
@@ -2091,6 +2102,19 @@ func _apply_sky(c: Dictionary, _k: float) -> void:
 
 var _corners: Array = []
 var _prepared := {}
+var waypoint: Node3D = null   # the player's own map waypoint (radar map -> tap anywhere -> SET COURSE)
+
+## Put the custom waypoint at a point in this system (one at a time) and return it.
+func waypoint_at(p: Vector3) -> Node3D:
+	if not is_instance_valid(waypoint):
+		waypoint = Node3D.new()
+		waypoint.name = "Waypoint"
+		waypoint.set_meta("kind", "waypoint")
+		waypoint.set_meta("radius", 30.0)
+		add_child(waypoint)
+	waypoint.global_position = p
+	return waypoint
+
 var city_solids: Array = []   # AABBs of the city block in this tile (see City)
 
 ## The city pack arrived after the block was built: swap its flat colours for the shared capital material.

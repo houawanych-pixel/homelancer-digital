@@ -127,8 +127,14 @@ full loops, STOP removed / TRANSFORM in its spot, cockpit view with the owner's 
 ring crosshair, heading tape, SPD and ALT/RNG bars, radar on the centre dash screen; side-screen comms (enemy left,
 friendly right, both at once, line under the face on white glass, END on calls you placed); comms console from LOG or
 by tapping a screen (contacts — only in-system ones answer —, chat log, TYPE, VOICE).
-**Still planned:** missions + capture, radar-tap map with waypoints, dynamic music, Kokoro voices, immersive galaxy
-map, new ship models.
+**BUILT in Job Q:** cockpit art 1.3x bigger and lower; free-look (the aim stick turns your head up to ~29 deg left/right,
+~13 deg up/down, the cockpit slides the other way) with the crosshair on the nose; the radar is a button (tap = map;
+tap empty map space = your own waypoint; SET COURSE flies there); sticks only grab in the bottom corners; town
+buildings are solid; start screen = the owner's white network picture panning; galaxy map: the front system nearest
+the middle lights up with an outline + its name, the network picture as a far layer; hangar ship inspector (tap the
+ship or VIEW: drag to turn, pinch/scroll to zoom, full stats).
+**Still planned:** missions + capture, dynamic music, Kokoro voices, new ship models, 360-degree panorama rooms
+(hangar etc., owner to supply panoramas), a character in the hangar, scanning other ships' loadouts, more city assets.
 
 **Flight controls**
 - **Full loops:** remove the pitch cap so the ship can loop continuously over the top and under; roll follows so

@@ -210,6 +210,21 @@ func _home(which: String) -> Vector2:
 	var x := 36 + stick_r if which == "move" else S.x - 36 - stick_r
 	return Vector2(x, S.y - stick_r - 28)
 
+## The radar screen (chase: centre dash panel; cockpit: the art's centre screen). It is a button: tap = radar map.
+func radar_rect() -> Rect2:
+	if GS.view == "cockpit" and cockpit_texture():
+		var cr := cockpit_rect()
+		return Rect2(cr.position + cr.size * Vector2(0.433, 0.66), cr.size * Vector2(0.136, 0.155))
+	var c := _console()
+	var mid := clampf(c.size.x * 0.34, 150.0, 220.0)
+	return Rect2(c.get_center().x - mid * 0.5, c.position.y, mid, c.size.y)
+
+## Where a stick can be grabbed: the bottom corners only (not the radar / middle of the dash).
+func stick_zone(which: String) -> Rect2:
+	var top := btn * 2.0 + 30.0
+	var w := clampf(S.x * 0.36, 260.0, 520.0)
+	return Rect2(0.0, top, w, S.y - top) if which == "move" else Rect2(S.x - w, top, w, S.y - top)
+
 func _console() -> Rect2:
 	var l := _home("move").x + stick_r + 14
 	var r := _home("aim").x - stick_r - 14
@@ -253,6 +268,7 @@ func _layout() -> void:
 	var ids := ["map", "view", "log", "call", "target", "goto"]
 	for k in 6: buttons[ids[k]] = Rect2(Vector2(S.x * 0.5 - row * 0.5 + k * (pw + 6), 78), Vector2(pw, 44))
 	log_rect = buttons["log"]
+	if space and space.controls and not console_open: buttons["radar"] = radar_rect()
 	if space and space.controls:
 		var db := Rect2(S.x * 0.5 - 130, 176, 260, 60)
 		if space.dock_candidate() != null: buttons["dock"] = db
@@ -292,13 +308,12 @@ func _input(e: InputEvent) -> void:
 					roster_idle = 0.0
 					return
 				if not (_typer and _typer.visible): close_roster()
-			if e.position.y > btn * 2 + 30:
-				if e.position.x < S.x * 0.5 and not owners.values().has("move"):
-					owners[e.index] = "move"
-					origins["move"] = e.position
-				elif e.position.x >= S.x * 0.5 and not owners.values().has("aim"):
-					owners[e.index] = "aim"
-					origins["aim"] = e.position
+			if stick_zone("move").has_point(e.position) and not owners.values().has("move"):
+				owners[e.index] = "move"
+				origins["move"] = e.position
+			elif stick_zone("aim").has_point(e.position) and not owners.values().has("aim"):
+				owners[e.index] = "aim"
+				origins["aim"] = e.position
 		else:
 			var o: String = owners.get(e.index, "")
 			owners.erase(e.index)
@@ -537,10 +552,17 @@ var _cockpit_tex: Texture2D
 const COCKPIT_PATH := "res://assets/cockpit/cockpit_b.png"
 ## The owner's cockpit art (cockpit pack): glass keyed out so space shows through. 1280 x 720, scaled to cover the
 ## screen and anchored to the bottom so the dashboard always shows.
+## Scaled up 1.3x and pushed down so the dashboard sits low and you see more space; the spare margin lets the
+## cockpit slide the opposite way when you look around (free-look), without showing its edges.
+const COCKPIT_SCALE := 1.3
 func cockpit_rect() -> Rect2:
-	var sc := maxf(S.x / 1280.0, S.y / 720.0)
+	var sc := maxf(S.x / 1280.0, S.y / 720.0) * COCKPIT_SCALE
 	var sz := Vector2(1280.0, 720.0) * sc
-	return Rect2(Vector2((S.x - sz.x) * 0.5, S.y - sz.y), sz)
+	var base := Vector2((S.x - sz.x) * 0.5, S.y - 4.0 - sz.y * 0.82)   # centre dash screen's bottom edge on the screen bottom
+	var lk: Vector2 = space.look if space else Vector2.ZERO
+	var mx := (sz.x - S.x) * 0.5 * 0.85
+	base += Vector2(-lk.x * mx, clampf(-lk.y * 70.0, -40.0, maxf(0.0, -base.y)))
+	return Rect2(base, sz)
 
 func cockpit_texture() -> Texture2D:
 	if _cockpit_tex == null and ResourceLoader.exists(COCKPIT_PATH): _cockpit_tex = load(COCKPIT_PATH)
@@ -640,6 +662,13 @@ func _draw() -> void:
 		if sp != null and Rect2(Vector2(col_w, 0), Vector2(S.x - col_w * 2, S.y)).has_point(sp):
 			draw_arc(sp, 14, 0, TAU, 4, Color(col, 0.85), 2.0)
 			_text(sp + Vector2(20, 6), "%s  %s" % [n.name, _dist(space.distance_to(n))], 14, Color(col, 0.95))
+	if is_instance_valid(space.waypoint):
+		var wsp = _screen(space.waypoint.global_position)
+		if wsp != null:
+			draw_colored_polygon(PackedVector2Array([wsp + Vector2(0, -10), wsp + Vector2(10, 0), wsp + Vector2(0, 10), wsp + Vector2(-10, 0)]), Color(GOLD, 0.9))
+			_text(wsp + Vector2(16, 6), "WAYPOINT  " + _dist(space.distance_to(space.waypoint)), 14, GOLD)
+		elif space.autopilot == space.waypoint:
+			_edge_arrow(space.waypoint.global_position, GOLD, Rect2(Vector2(col_w + 30, 40), Vector2(S.x - col_w * 2 - 60, S.y - 80)), true)
 	for tr in space.traffic:
 		var tp0 = _screen(tr["node"].global_position)
 		if tp0 != null and space.player.global_position.distance_to(tr["node"].global_position) < 900.0:
@@ -700,6 +729,8 @@ func _draw() -> void:
 	var locked: bool = space._in_fire_cone(space.target)
 	var rc2 := RED if locked else WHITE
 	if cockpit and cockpit_texture():
+		var nose = _screen(space.player.global_position - space.player.global_basis.z * 400.0)
+		if nose != null: c = nose   # the crosshair marks where the nose points, even while you look around
 		var rcol := RED if locked else Color(0.6, 0.9, 1.0)
 		draw_arc(c, 46, 0, TAU, 64, Color(rcol, 0.95), 2.0, true)
 		draw_arc(c, 52, deg_to_rad(200), deg_to_rad(340), 32, Color(rcol, 0.5), 1.5, true)

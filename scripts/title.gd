@@ -1,6 +1,6 @@
 extends Control
-## Startup screen in Homelancer's navigation style: a white field with the blue star network slowly panning, the
-## HOMELANCER letters resolving one by one, then a strong START. (Galaxy map drawing is shared: galaxymap.gd.)
+## Startup screen: the owner's white-and-blue star network picture as a seamless strip that slowly pans (a
+## panorama), the HOMELANCER letters resolving one by one, then a strong START.
 
 signal start_pressed
 
@@ -9,6 +9,8 @@ const WORD := "HOMELANCER"
 var t := 0.0
 var font: Font = ThemeDB.fallback_font
 var start_btn: Button
+var bg: Texture2D = load("res://assets/ui/title_network.jpg")   # mirrored strip: the two ends meet seamlessly
+const PAN_SPEED := 14.0   # pixels per second at 720 p
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -41,8 +43,14 @@ func _process(dt: float) -> void:
 
 func _draw() -> void:
 	var S := get_viewport_rect().size
-	GM.draw_network(self, S, 0.2 + t * 0.03, 0.05, t, Vector3(-10, 0, -20), "", "", null, false)
-	draw_rect(Rect2(Vector2.ZERO, S), Color(GM.BG, 0.35))
+	# slow pan through the network picture; it repeats seamlessly
+	var ks := S.y / bg.get_height() if bg else 1.0
+	var w := bg.get_width() * ks if bg else S.x
+	var x0 := -fposmod(t * PAN_SPEED * ks, w)
+	while bg and x0 < S.x:
+		draw_texture_rect(bg, Rect2(x0, 0, w, S.y), false)
+		x0 += w
+	draw_rect(Rect2(Vector2.ZERO, S), Color(1, 1, 1, 0.38))   # soften behind the logo
 	# the letters resolve one after another: each fades in and settles from a slight offset
 	var size := clampi(int(S.y * 0.13), 56, 110)
 	var total := font.get_string_size(WORD, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x + (WORD.length() - 1) * size * 0.18
@@ -58,3 +66,7 @@ func _draw() -> void:
 	draw_line(Vector2(S.x * 0.5 - total * 0.5 * k2, y + 22), Vector2(S.x * 0.5 + total * 0.5 * k2, y + 22), Color(GM.MID, k2), 2.0)
 	draw_string(font, Vector2(0, y + 52), "DIGITAL  ·  %s" % Data.VERSION, HORIZONTAL_ALIGNMENT_CENTER, S.x, 18, Color(GM.DEEP, k2))
 	draw_string(font, Vector2(0, S.y - 26), "Landscape · left thumb flies · right thumb aims · lasers fire on their own", HORIZONTAL_ALIGNMENT_CENTER, S.x, 14, Color(GM.MID, k2))
+
+## Once the game starts, let go of the picture so it doesn't sit in GPU memory.
+func release() -> void:
+	bg = null

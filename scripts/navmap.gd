@@ -20,6 +20,7 @@ var btn_galaxy := Rect2()
 var map_rect := Rect2()
 var scale_k := 1.0
 var center := Vector3.ZERO
+var way_pos := Vector3.INF   # a custom waypoint picked by tapping empty space on the map
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -49,14 +50,27 @@ func _gui_input(e: InputEvent) -> void:
 		closed.emit()
 		return
 	if btn_course.has_point(p) and selected != "" and space != null and space.controls:
-		var n: Node3D = {"station": space.station, "planet": space.planet, "gate": space.gate}[selected]
-		visible = false
-		course_set.emit(n)
+		set_course()
 		return
 	for k in hits:
 		if (hits[k] as Vector2).distance_to(p) < 44.0:
 			selected = k
 			return
+	if map_rect.has_point(p) and space != null:   # empty space: drop your own waypoint there
+		var rel := (p - map_rect.get_center()) / scale_k
+		way_pos = Vector3(center.x + rel.x, space.player.global_position.y, center.z + rel.y)
+		selected = "point"
+
+## SET COURSE: fly to the selected place or waypoint on autopilot.
+func set_course() -> void:
+	var n: Node3D = space.waypoint_at(way_pos) if selected == "point" else {"station": space.station, "planet": space.planet, "gate": space.gate}[selected]
+	visible = false
+	course_set.emit(n)
+
+## Pick a spot on the map as a waypoint (used by the route test, same as a tap).
+func pick_point(world: Vector3) -> void:
+	way_pos = world
+	selected = "point"
 
 func _w2m(p: Vector3) -> Vector2:
 	var rel := Vector2(p.x - center.x, p.z - center.z) * scale_k
@@ -116,6 +130,11 @@ func _draw() -> void:
 		draw_circle(mp, r, Color(it[2], 0.85))
 		if it[0] == selected: draw_arc(mp, r + 9, 0, TAU, 32, Color.WHITE, 3.0)
 		_txt(mp + Vector2(r + 8, 6), it[3], 16, it[2])
+	if selected == "point" and way_pos != Vector3.INF:
+		var wp := _w2m(way_pos)
+		draw_colored_polygon(PackedVector2Array([wp + Vector2(0, -12), wp + Vector2(12, 0), wp + Vector2(0, 12), wp + Vector2(-12, 0)]), GOLD)
+		draw_arc(wp, 20, 0, TAU, 32, Color.WHITE, 2.0)
+		_txt(wp + Vector2(18, 6), "WAYPOINT", 15, GOLD)
 	# live objects
 	if space != null and is_instance_valid(space.player):
 		for e in space.enemies:
@@ -148,6 +167,11 @@ func _draw() -> void:
 	draw_rect(sel, Color(CYAN, 0.35), false, 2)
 	if selected == "":
 		_txt(sel.position + Vector2(14, 34), "No destination selected.", 16, Color(1, 1, 1, 0.7))
+		_txt(sel.position + Vector2(14, 60), "Tap a place, or tap empty space for a waypoint.", 13, Color(1, 1, 1, 0.55))
+	elif selected == "point":
+		_txt(sel.position + Vector2(14, 34), "Custom waypoint", 20, GOLD)
+		if space != null and is_instance_valid(space.player):
+			_txt(sel.position + Vector2(14, 60), "Distance %.1f km" % (space.player.global_position.distance_to(way_pos) / 1000.0), 15, CYAN)
 	else:
 		var d: Dictionary = sys[selected]
 		_txt(sel.position + Vector2(14, 34), d["name"], 20, GOLD)

@@ -26,14 +26,15 @@ static var _mats := {}
 static func has_real_model(key: String) -> bool:
 	return GLB.has(key) and ResourceLoader.exists(GLB[key][0])
 
-static func build(key: String) -> Node3D:
+## keep = false: don't hold the model in memory after this copy is gone (hangar previews of ships you don't fly).
+static func build(key: String, keep := true) -> Node3D:
 	var root := Node3D.new()
 	root.name = "Model_" + key
 	if has_real_model(key):
 		var scene: PackedScene = _cache.get(key)
 		if scene == null:
 			scene = load(GLB[key][0])
-			_cache[key] = scene
+			if keep: _cache[key] = scene
 		var inst: Node3D = scene.instantiate()
 		inst.rotation_degrees.y = GLB[key][2]
 		root.add_child(inst)

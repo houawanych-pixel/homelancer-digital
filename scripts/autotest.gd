@@ -332,6 +332,36 @@ func _flight_and_comms() -> void:
 	var tex: Texture2D = hud.cockpit_texture()
 	await _shot("cockpit_view", 0.4)
 	_check("Cockpit view: cockpit art, see-through glass, crosshair + heading/speed", tex != null and Packs.PACKS.has("cockpit"), tex.resource_path.get_file() if tex else "no art")
+	var S0: Vector2 = hud.get_viewport_rect().size
+	var cr0: Rect2 = hud.cockpit_rect()
+	var dash_y: float = cr0.position.y + cr0.size.y * 0.62
+	# free-look: steer right and the head turns right, the cockpit slides left, the crosshair follows the nose
+	s.engine_kill = true   # hold position while looking
+	main.hud.aim_vec = Vector2(0.8, 0)
+	await _wait(1.2)
+	var look_x: float = s.look.x
+	var cr1: Rect2 = hud.cockpit_rect()
+	var nose = hud._screen(s.player.global_position - s.player.global_basis.z * 400.0)
+	await _shot("cockpit_look_right", 0.1)
+	main.hud.aim_vec = Vector2.ZERO
+	await _wait(1.0)
+	s.engine_kill = false
+	_check("Cockpit bigger + lower, free-look slides it, crosshair stays on the nose", cr0.size.x > S0.x * 1.25 and dash_y > S0.y * 0.64 and look_x > 0.3 and cr1.position.x < cr0.position.x - 40.0 and nose != null,
+		"scale %.2f, dash top at %d%% of screen, slide %d px" % [cr0.size.x / S0.x, int(dash_y / S0.y * 100.0), int(cr0.position.x - cr1.position.x)])
+	# the radar is a button: tap it for the map; drop a waypoint and the autopilot flies there
+	hud._layout()
+	var rr: Rect2 = hud.buttons.get("radar", Rect2())
+	var not_stick: bool = rr.size.x > 0.0 and not hud.stick_zone("move").has_point(rr.get_center()) and not hud.stick_zone("aim").has_point(rr.get_center())
+	_press("radar")
+	await _wait(0.3)
+	var map_open: bool = main.state == "map" and main.navmap.visible
+	main.navmap.pick_point(s.player.global_position - s.player.global_basis.z * 900.0)
+	await _shot("radar_map_waypoint", 0.2)
+	main.navmap.set_course()
+	await _wait(0.3)
+	var wp_ok: bool = main.state == "flight" and s.autopilot != null and s.autopilot == s.waypoint
+	s.autopilot = null
+	_check("Tap the radar: map opens, tap empty space = waypoint, autopilot flies there", not_stick and map_open and wp_ok, "radar %s, stick-free %s" % [str(rr.position), not_stick])
 	# enemy LEFT + friendly RIGHT talking at the same time
 	main._pilot_call(Data.PILOTS["raider"][0], true)
 	main.call_character("vale", true)
@@ -400,7 +430,7 @@ func _city_visit() -> void:
 	await get_tree().process_frame
 	var cb: Node3D = s.tile_root.get_node_or_null("CapitalBlock")
 	var st := City.stats(City.test_block())
-	_check("Capital test block stands in the city sector (simple collision)", cb != null and s.city_solids.size() == st["solids"],
+	_check("Capital test block stands in the city sector (simple collision)", cb != null and s.city_solids.size() >= st["solids"],
 		"%d parts, %d MultiMesh draw groups, ~%d triangles (%d beyond LOD range), %d collision boxes" % [st["parts"], st["draw_calls"], st["triangles"], st["triangles_far"], st["solids"]])
 	if cb == null: return
 	var block: Dictionary = cb.get_meta("block")
@@ -416,6 +446,15 @@ func _city_visit() -> void:
 	var pushed: Vector3 = s.player.global_position - (o + Vector3(60, 50, -180))
 	_tp(o + Vector3(700, 300, 600), o)   # park the ship well away from the camera shots
 	_check("City collision: stand on a deck, pushed out of the tower", on_deck >= City.DECK + 5.9 and on_deck < City.DECK + 6.5 and pushed.length() > 4.0, "deck y %.1f, push %.1f m" % [on_deck, pushed.length()])
+	# town buildings are solid too (Port Meridian's blocks)
+	var town: Array = s.tile_root.get_meta("solids", [])
+	var tb: AABB = town[0] if not town.is_empty() else AABB()
+	s.player.global_position = tb.get_center()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var out: bool = not tb.grow(5.9).has_point(s.player.global_position)
+	_tp(o + Vector3(700, 300, 600), o)
+	_check("Town buildings are solid (no flying through them)", town.size() > 20 and out, "%d buildings, pushed out %s" % [town.size(), out])
 	# mechs for scale: 1 on a road, 2 abreast on the bridge, a group passing under it and 4 crossing the intersection
 	var mechs: Array = []
 	var spots := [[Vector3(140, City.DECK, -220), 0.0], [Vector3(134, City.DECK, -110), 0.0], [Vector3(146, City.DECK, -95), PI],
@@ -643,6 +682,7 @@ func _run() -> void:
 	await _wait(1.5)
 	_publish("title")
 	await _shot("title", 1.0)
+	_check("Start screen: the owner's white network picture, slowly panning", main.title.bg != null and main.title.bg.resource_path.ends_with("title_network.jpg"))
 	main.start_game()
 	_check("Godot boot + START", await _until(func(): return main.state == "flight", 10.0))
 	await _wait(1.0)
@@ -769,6 +809,17 @@ func _run() -> void:
 	if sb and not sb.disabled: sb.pressed.emit()
 	await _wait(0.4)
 	_check("Ship purchase", GS.ship_id == "ranger", "ship=%s hull=%d" % [GS.ship_id, int(GS.max_hull())])
+	main.hub.open_inspector("lancer")
+	await _wait(0.4)
+	var cam0: Vector3 = main.hub.insp_cam.position
+	main.hub.turn_inspector(Vector2(140, 30))
+	main.hub.zoom_inspector(0.75)
+	await _wait(0.3)
+	await _shot("ship_inspector", 0.2)
+	var sheet: String = main.hub.insp_stats.text
+	_check("Hangar ship inspector: turn, zoom, full stats", is_instance_valid(main.hub.inspect) and main.hub.insp_cam.position.distance_to(cam0) > 3.0 and main.hub.insp_dist < 24.0
+		and "Gun hardpoints" in sheet and "Hull" in sheet and "Warp" in sheet, "zoom %.1f m" % main.hub.insp_dist)
+	main.hub.close_inspector()
 	await _shot("ship_dealer")
 	_check("Launch from station", await _launch())
 	s = _sp()
@@ -849,8 +900,14 @@ func _run() -> void:
 	var res_after := Performance.get_monitor(Performance.OBJECT_RESOURCE_COUNT)
 	_check("Galaxy map: %d systems shown, data only" % net["systems"].size(), gm.visible and net["systems"].size() >= 50 and playable == 2 and Packs.state == packs_before and res_after - res_before < 20,
 		"links %d, resources +%d" % [net["links"].size(), int(res_after - res_before)])
-	gm.press("close")
-	gm.press("close")
+	gm.press("close")   # back out of the system chart first
+	gm.yaw = atan2(0.0 - gm.viewer.x, -(0.0 - gm.viewer.z))   # look straight at Solara
+	gm.pitch = 0.0
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await _shot("galaxy_focus", 0.2)
+	_check("Galaxy map: the system in the middle lights up with its name", gm.focus == "solara" and gm.focus_t > 0.0, "focus %s" % gm.focus)
+	if gm.visible: gm.press("close")
 	main.navmap.visible = false
 	main._on_map_closed()
 	_press("log")

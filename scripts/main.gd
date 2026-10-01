@@ -81,6 +81,7 @@ func _build_title() -> void:
 func start_game() -> void:
 	if state != "title": return
 	title.visible = false
+	title.release()
 	state = "launching"
 	GS.restore_full()
 	_launch_sequence("Liberty Hub")
@@ -270,6 +271,7 @@ func _on_hud(id: String) -> void:
 		"side_l", "side_r":   # tap a comms screen: the console (log, contacts, type) pulls up
 			if hud.comms_mode != "roster": hud.open_log()
 		"type": hud.start_typing()
+		"radar": open_map()   # tap the radar: the map, where you can set a course or drop a waypoint
 		_:
 			if id.begins_with("met_"):
 				var k := int(id.substr(4))

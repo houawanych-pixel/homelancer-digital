@@ -27,6 +27,10 @@ var _drag_from := Vector2.INF
 var _drag_moved := 0.0
 var _hits := {}
 var _btns := {}
+var focus := ""      # the front system nearest the centre of view: outlined and named as you pan past it
+var focus_t := 0.0   # 0..1 fade-in of that outline
+var backdrop: Texture2D = load("res://assets/ui/title_network.jpg")   # owner's network picture, far behind
+const FOCUS_DIST := 70.0   # only systems this close count as "in front" (the far ones are just stars)
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -47,7 +51,28 @@ func _process(dt: float) -> void:
 	if not visible: return
 	t += dt
 	if _drag_from == Vector2.INF and expanded == "": yaw += dt * 0.015   # slow drift, like a sensor sweep
+	var f := focus_of(get_viewport_rect().size, yaw, pitch, viewer)
+	if f != focus:
+		focus = f
+		focus_t = 0.0
+	focus_t = minf(1.0, focus_t + dt * 3.0)
 	queue_redraw()
+
+## The system in front that is nearest the middle of the screen ("" if none is near the middle).
+static func focus_of(S: Vector2, yaw: float, pitch: float, viewer: Vector3) -> String:
+	var best := ""
+	var bd := S.x * 0.16
+	var sys: Dictionary = Galaxy.network()["systems"]
+	for id in sys:
+		var d: Vector3 = (sys[id]["pos"] as Vector3) - viewer
+		if d.length() > FOCUS_DIST: continue
+		var dx := wrapf(atan2(d.x, -d.z) - yaw, -PI, PI)
+		var el := asin(clampf(d.y / maxf(d.length(), 0.001), -1, 1))
+		var p := Vector2(dx / FOV_H * S.x, -(el - pitch) / FOV_V * S.y)
+		if p.length() < bd:
+			bd = p.length()
+			best = id
+	return best
 
 func _gui_input(e: InputEvent) -> void:
 	var pos := Vector2.INF
@@ -111,7 +136,7 @@ func _draw() -> void:
 	var S := get_viewport_rect().size
 	_hits.clear()
 	_btns.clear()
-	draw_network(self, S, yaw, pitch, t, viewer, current, selected, _hits)
+	draw_network(self, S, yaw, pitch, t, viewer, current, selected, _hits, true, focus, focus_t, backdrop)
 	_title(S)
 	if selected != "" and expanded == "": _info(S)
 	if expanded != "": _system_view(S, expanded)
@@ -120,9 +145,17 @@ func _draw() -> void:
 	_button(cb, "BACK" if expanded != "" else "CLOSE")
 
 ## The network drawing, shared with the title screen. hits (optional) receives screen positions of systems.
-static func draw_network(ci: CanvasItem, S: Vector2, yaw: float, pitch: float, t: float, viewer: Vector3, current := "", selected := "", hits = null, labels := true) -> void:
+static func draw_network(ci: CanvasItem, S: Vector2, yaw: float, pitch: float, t: float, viewer: Vector3, current := "", selected := "", hits = null, labels := true, focus := "", focus_k := 1.0, back: Texture2D = null) -> void:
 	var f: Font = ThemeDB.fallback_font
 	ci.draw_rect(Rect2(Vector2.ZERO, S), BG)
+	if back:   # the owner's network picture as a far, slow layer (moves at a third of the pan speed)
+		var bh := S.y * 1.15
+		var bw := back.get_width() * bh / back.get_height()
+		var x0 := -fposmod(yaw / FOV_H * S.x * 0.33, bw)
+		var y0 := (S.y - bh) * 0.5 + pitch / FOV_V * S.y * 0.33
+		while x0 < S.x:
+			ci.draw_texture_rect(back, Rect2(x0, y0, bw, bh), false, Color(1, 1, 1, 0.35))
+			x0 += bw
 	# faint blueprint grid: horizon and meridians
 	var hy := S.y * 0.5 + pitch / FOV_V * S.y
 	ci.draw_line(Vector2(0, hy), Vector2(S.x, hy), Color(PALE, 0.9), 1.0)
@@ -171,7 +204,14 @@ static func draw_network(ci: CanvasItem, S: Vector2, yaw: float, pitch: float, t
 				var q: Vector2 = p + c * (r + 8)
 				ci.draw_line(q, q - Vector2(c.x * 7, 0), NAVY, 2.0)
 				ci.draw_line(q, q - Vector2(0, c.y * 7), NAVY, 2.0)
-		if labels and (s["discovered"] or id == selected or r > 7.0):
+		if id == focus and focus_k > 0.0:   # comes into the middle: lights up with a stroke and shows its name
+			var gr := r + 14.0 + 4.0 * (1.0 - focus_k)
+			ci.draw_arc(p, gr, 0, TAU, 40, Color(SKY, 0.55 * focus_k), 6.0, true)
+			ci.draw_arc(p, gr, 0, TAU, 40, Color(DEEP, focus_k), 2.0, true)
+			if labels:
+				ci.draw_string(f, p + Vector2(-110, -gr - 12), (s["name"] as String).to_upper(), HORIZONTAL_ALIGNMENT_CENTER, 220, 18, Color(NAVY, focus_k))
+				ci.draw_string(f, p + Vector2(-110, gr + 20), "%s · %s" % [s["faction"], "CHARTED" if s["discovered"] else "UNCHARTED"], HORIZONTAL_ALIGNMENT_CENTER, 220, 11, Color(DEEP, focus_k))
+		elif labels and (id == selected or id == current or s["playable"]):
 			ci.draw_string(f, p + Vector2(r + 6, 5), s["name"], HORIZONTAL_ALIGNMENT_LEFT, -1, 13 if s["playable"] else 11, NAVY if s["discovered"] else MID)
 		if hits != null: hits[id] = p
 	if labels:

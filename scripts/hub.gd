@@ -24,6 +24,17 @@ var preview_vp: SubViewport
 var preview_pivot: Node3D
 var preview_key := ""
 var t := 0.0
+# ship inspector: tap the showroom (or VIEW) to look the ship over: drag to turn it, pinch / wheel to zoom, full stats
+var inspect: Control = null
+var insp_id := ""
+var insp_pivot: Node3D
+var insp_cam: Camera3D
+var insp_yaw := 0.7
+var insp_pitch := 0.25
+var insp_dist := 18.0
+var insp_stats: RichTextLabel
+var _touches := {}   # index -> position (for pinch)
+var _pinch0 := 0.0
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -113,6 +124,7 @@ func _refresh_credits() -> void:
 	credits_label.text = "CREDITS  %d cr" % GS.credits
 
 func show_screen(s: String) -> void:
+	close_inspector()
 	screen = s
 	_refresh_credits()
 	var sysname: String = Data.SYSTEMS[GS.system_id]["name"]
@@ -279,7 +291,7 @@ func _ships_page() -> void:
 		var pv := Button.new()
 		pv.text = "VIEW"
 		pv.custom_minimum_size = Vector2(100, 50)
-		pv.pressed.connect(func(): _set_preview(id))
+		pv.pressed.connect(func(): _set_preview(id); open_inspector(id))
 		row.add_child(pv)
 		card.add_child(row)
 		list.add_child(card)
@@ -310,15 +322,172 @@ func _ships_page() -> void:
 	preview_pivot = Node3D.new()
 	preview_vp.add_child(preview_pivot)
 	_set_preview(GS.ship_id)
+	svc.gui_input.connect(func(e: InputEvent):
+		if (e is InputEventScreenTouch and not e.pressed) or (e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed):
+			open_inspector(preview_key))
+	var hint := _label(14, CYAN)
+	hint.text = "TAP THE SHIP TO INSPECT"
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	hint.offset_top = -26
+	svc.add_child(hint)
 
 func _set_preview(id: String) -> void:
 	if preview_pivot == null or not is_instance_valid(preview_pivot): return
 	for c in preview_pivot.get_children(): c.queue_free()
-	var m := ShipFactory.build(Data.SHIPS[id]["model"])
+	var m := ShipFactory.build(Data.SHIPS[id]["model"], id == GS.ship_id)
 	preview_pivot.add_child(m)
 	preview_key = id
 	if m.get_meta("placeholder", false):
 		status.text = "%s shown as a temporary original stand-in model until final art is supplied." % Data.SHIPS[id]["name"]
+
+## Full-screen ship inspector: the ship up close in 3D (drag to turn, pinch or wheel to zoom) and everything about it,
+## like checking a ship out in Freelancer before you buy.
+func open_inspector(id: String) -> void:
+	close_inspector()
+	insp_id = id
+	insp_yaw = 0.7
+	insp_pitch = 0.25
+	insp_dist = 24.0
+	inspect = Control.new()
+	inspect.name = "Inspector"
+	inspect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	inspect.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(inspect)
+	var bg := ColorRect.new()
+	bg.color = Color(0.01, 0.04, 0.08, 1.0)
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	inspect.add_child(bg)
+	var svc := SubViewportContainer.new()
+	svc.stretch = true
+	svc.anchor_right = 0.62
+	svc.anchor_bottom = 1.0
+	svc.offset_left = 20
+	svc.offset_top = 20
+	svc.offset_bottom = -20
+	inspect.add_child(svc)
+	var vp := SubViewport.new()
+	vp.own_world_3d = true
+	svc.add_child(vp)
+	var we := WorldEnvironment.new()
+	we.environment = Environment.new()
+	we.environment.background_mode = Environment.BG_COLOR
+	we.environment.background_color = Color(0.03, 0.07, 0.13)
+	we.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	we.environment.ambient_light_color = Color(0.5, 0.56, 0.68)
+	vp.add_child(we)
+	for r in [Vector3(-40, 30, 0), Vector3(-15, 200, 0)]:
+		var l := DirectionalLight3D.new()
+		l.rotation_degrees = r
+		l.light_energy = 1.0 if r.y < 100 else 0.6
+		vp.add_child(l)
+	insp_cam = Camera3D.new()
+	insp_cam.fov = 40
+	vp.add_child(insp_cam)
+	insp_pivot = Node3D.new()
+	vp.add_child(insp_pivot)
+	insp_pivot.add_child(ShipFactory.build(Data.SHIPS[id]["model"], id == GS.ship_id))
+	var grid := MeshInstance3D.new()   # a floor ring so the turn and scale read
+	var tm := TorusMesh.new()
+	tm.inner_radius = 7.6
+	tm.outer_radius = 7.8
+	grid.mesh = tm
+	grid.position.y = -2.5
+	var gm := StandardMaterial3D.new()
+	gm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	gm.albedo_color = Color(0.4, 0.86, 1.0, 0.8)
+	grid.material_override = gm
+	vp.add_child(grid)
+	svc.gui_input.connect(_insp_input)
+	insp_stats = RichTextLabel.new()
+	insp_stats.bbcode_enabled = true
+	insp_stats.anchor_left = 0.64
+	insp_stats.anchor_right = 1.0
+	insp_stats.anchor_bottom = 1.0
+	insp_stats.offset_top = 24
+	insp_stats.offset_right = -24
+	insp_stats.offset_bottom = -100
+	insp_stats.add_theme_font_size_override("normal_font_size", 17)
+	insp_stats.add_theme_font_size_override("bold_font_size", 26)
+	insp_stats.text = ship_sheet(id)
+	inspect.add_child(insp_stats)
+	var close := Button.new()
+	close.name = "InspectClose"
+	close.text = "CLOSE"
+	close.anchor_left = 0.64
+	close.anchor_right = 1.0
+	close.anchor_top = 1.0
+	close.anchor_bottom = 1.0
+	close.offset_top = -84
+	close.offset_bottom = -24
+	close.offset_right = -24
+	close.pressed.connect(close_inspector)
+	inspect.add_child(close)
+	_insp_camera()
+
+func close_inspector() -> void:
+	if is_instance_valid(inspect): inspect.queue_free()
+	inspect = null
+	_touches.clear()
+
+## Everything about a ship, as shown in the inspector.
+static func ship_sheet(id: String) -> String:
+	var s: Dictionary = Data.SHIPS[id]
+	var w: Dictionary = GS.weapon()
+	var dps: float = float(s["guns"]) * float(w["damage"]) * float(w["rate"])
+	var own := "FLYING" if id == GS.ship_id else ("OWNED" if id in GS.owned_ships else "%d cr" % s["price"])
+	var lines := [
+		"[b]%s[/b]" % (s["name"] as String).to_upper(),
+		"[color=#66dbff]%s  ·  %s[/color]" % [s["class"], own],
+		"%s" % s["desc"], "",
+		"[color=#ffd166]DEFENCE[/color]",
+		"Hull  %d   ·   Shield  %d" % [s["hull"], s["shield"]],
+		"Wings  %d each (break off separately)" % int(float(s["hull"]) * Data.SECTION_SHARE), "",
+		"[color=#ffd166]ENGINES[/color]",
+		"Cruise  %d m/s   ·   Top  %d m/s" % [int(float(s["speed"]) * Data.CRUISE), int(s["speed"])],
+		"Thrust  %d m/s   ·   Warp  %d m/s" % [int(float(s["speed"]) * Data.THRUST_MULT), int(float(s["speed"]) * Data.WARP_MULT)],
+		"Turn rate  %.2f" % s["turn"], "",
+		"[color=#ffd166]WEAPONS[/color]",
+		"Gun hardpoints  %d   (%s)" % [s["guns"], w["name"]],
+		"Gun damage  %d per second" % int(dps),
+		"Light missiles  %d   ·   Heavy  %d   ·   Mines  %d" % [s["missiles"], s["heavy"], s["mines"]],
+		"Weapon slots  3", "",
+		"[color=#9fb3c8]Drag the ship to turn it · pinch or scroll to zoom[/color]"]
+	return "\n".join(lines)
+
+func _insp_input(e: InputEvent) -> void:
+	if e is InputEventScreenTouch:
+		if e.pressed: _touches[e.index] = e.position
+		else: _touches.erase(e.index)
+		if _touches.size() == 2: _pinch0 = (_touches.values()[0] as Vector2).distance_to(_touches.values()[1])
+	elif e is InputEventScreenDrag:
+		_touches[e.index] = e.position
+		if _touches.size() >= 2:
+			var d := (_touches.values()[0] as Vector2).distance_to(_touches.values()[1])
+			if _pinch0 > 1.0: zoom_inspector(_pinch0 / d)
+			_pinch0 = d
+		else: turn_inspector(e.relative)
+	elif e is InputEventMouseMotion and e.button_mask & MOUSE_BUTTON_MASK_LEFT:
+		turn_inspector(e.relative)
+	elif e is InputEventMouseButton and e.pressed:
+		if e.button_index == MOUSE_BUTTON_WHEEL_UP: zoom_inspector(0.9)
+		elif e.button_index == MOUSE_BUTTON_WHEEL_DOWN: zoom_inspector(1.1)
+	elif e is InputEventMagnifyGesture:
+		zoom_inspector(1.0 / e.factor)
+
+func turn_inspector(rel: Vector2) -> void:
+	insp_yaw -= rel.x * 0.01
+	insp_pitch = clampf(insp_pitch + rel.y * 0.008, -0.6, 1.2)
+	_insp_camera()
+
+func zoom_inspector(k: float) -> void:
+	insp_dist = clampf(insp_dist * k, 12.0, 45.0)
+	_insp_camera()
+
+func _insp_camera() -> void:
+	if not is_instance_valid(insp_cam): return
+	insp_cam.position = Vector3(sin(insp_yaw) * cos(insp_pitch), sin(insp_pitch), cos(insp_yaw) * cos(insp_pitch)) * insp_dist
+	insp_cam.look_at(Vector3.ZERO, Vector3.UP)
 
 func _repair_page() -> void:
 	var v := _page_box()

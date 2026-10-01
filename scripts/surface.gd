@@ -506,6 +506,7 @@ static func _settlement(root: Node3D, planet_id: String, tile: int, l: Dictionar
 	mm.mesh = _box
 	var count := 90 if role.contains("city") or role.contains("Capital") else 28
 	mm.instance_count = count
+	var solids: Array = root.get_meta("solids", [])
 	var bm := StandardMaterial3D.new()
 	bm.vertex_color_use_as_albedo = true
 	bm.roughness = 0.6
@@ -517,7 +518,9 @@ static func _settlement(root: Node3D, planet_id: String, tile: int, l: Dictionar
 		if role.contains("Military"): h = rng.randf_range(12.0, 30.0)
 		if role.contains("Mission") and i % 5 == 0: h = rng.randf_range(120.0, 200.0)   # smoke stacks
 		var pos := Vector3(p2.x + cos(a) * r, gy + h * 0.5, p2.y + sin(a) * r)
-		mm.set_instance_transform(i, Transform3D(Basis.from_euler(Vector3(0, rng.randf() * PI, 0)).scaled(Vector3(w, h, w * rng.randf_range(0.6, 1.4))), pos))
+		var bxf := Transform3D(Basis.from_euler(Vector3(0, rng.randf() * PI, 0)).scaled(Vector3(w, h, w * rng.randf_range(0.6, 1.4))), pos)
+		mm.set_instance_transform(i, bxf)
+		solids.append(bxf * AABB(Vector3(-0.5, -0.5, -0.5), Vector3.ONE))   # simple collision: the box's bounds
 		var shade := rng.randf_range(0.55, 0.9)
 		mm.set_instance_color(i, Color(shade, shade * 0.98, shade * 0.95) if not role.contains("Military") else Color(0.35, 0.4, 0.32))
 	var mmi := MultiMeshInstance3D.new()
@@ -526,6 +529,7 @@ static func _settlement(root: Node3D, planet_id: String, tile: int, l: Dictionar
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mmi.name = "Buildings_" + l["id"]
 	root.add_child(mmi)
+	root.set_meta("solids", solids)
 	# the landing pad: flat disc with green guide lights
 	var pad := MeshInstance3D.new()
 	pad.mesh = _cyl
