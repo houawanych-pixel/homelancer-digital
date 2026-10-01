@@ -101,4 +101,20 @@ save("warp_spool", lowpass(spool, 3000) * env(len(tt), 0.2, 0.05), 0.6)
 n = rng.normal(0, 1, int(SR * 1.2)); tt = t(1.2)
 go = lowpass(n, 2500) * np.exp(-tt * 3.5) + 0.8 * sweep(900, 60, 1.2) * np.exp(-tt * 2.5)
 save("warp_go", go, 0.8)
+# --- ship <-> mech transformation: 3 s, four mechanical beats (clack, chunk, lock, thoom) over servo whine
+L = 3.7; tt = t(L); out = np.zeros(len(tt))
+def put(sig, at):
+    i = int(at * SR); n = min(len(sig), len(out) - i); out[i:i + n] += sig[:n]
+servo = sweep(220, 520, 1.3) * 0.25 * env(int(SR * 1.3), 0.05, 0.2)
+put(servo, 0.1); put(sweep(480, 260, 1.2) * 0.22 * env(int(SR * 1.2), 0.05, 0.2), 1.3)
+def clack():
+    n = rng.normal(0, 1, int(SR * 0.08)); return biquad_bp(n, 3200, 4) * np.exp(-t(0.08) * 60) + 0.6 * np.sin(2 * np.pi * 1900 * t(0.08)) * np.exp(-t(0.08) * 50)
+def chunk():
+    x = t(0.3); return 0.9 * np.sin(2 * np.pi * 95 * x) * np.exp(-x * 14) + 0.5 * lowpass(rng.normal(0, 1, len(x)), 900) * np.exp(-x * 20)
+def lock():
+    x = t(0.35); return 0.7 * np.sin(2 * np.pi * 1450 * x) * np.exp(-x * 18) + 0.6 * np.sin(2 * np.pi * 2900 * x) * np.exp(-x * 30) + 0.5 * clack()[:len(x)].tolist().__len__() * 0
+def thoom():
+    x = t(0.9); return 1.0 * np.sin(2 * np.pi * np.cumsum(55 * np.exp(-x * 1.2)) / SR) * np.exp(-x * 3.5) + 0.35 * sweep(600, 2400, 0.9) * np.exp(-x * 4)
+put(clack(), 0.02); put(chunk(), 0.72); put(lock(), 1.45); put(clack(), 1.47); put(thoom(), 2.85)
+save("transform", out, 0.85)
 print("wrote", sorted(os.listdir(OUT)))

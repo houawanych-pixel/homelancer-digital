@@ -13,7 +13,7 @@
     export GODOT=/home/claude/godot/Godot_v4.3-stable_linux.x86_64
     cd /home/claude/hl && $GODOT --headless --import --path .
     xvfb-run -a $GODOT --audio-driver Dummy --rendering-driver opengl3 --resolution 1280x720 --path . -- --autotest --quit-after-test
-      -> must print RESULT 43/43 PASS  (HL_SHOT_DIR=/dir saves screenshots; HL_SHOWCASE=1 = short combat demo)
+      -> must print RESULT 47/47 PASS  (HL_SHOT_DIR=/dir saves screenshots; HL_SHOWCASE=1 = short combat demo)
 
 ## Game layout (scripts/)
 main.gd (states, calls, hub/map), space.gd (world, combat, enemies, missiles, stations), hud.gd (mobile HUD, call box

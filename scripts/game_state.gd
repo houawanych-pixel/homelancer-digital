@@ -23,6 +23,7 @@ var energy := Data.ENERGY_MAX
 # lasers fire themselves and energy cells top up on their own; shield, repair, missiles and mines are your buttons
 var modes := {"shield": "manual", "hull": "manual", "energy": "auto", "guns": "auto", "missile": "manual", "mine": "manual"}
 var view := "chase" # "chase" or "cockpit"
+var form := "ship" # "ship" or "mech" (the player frame transforms between them; damage carries over)
 var system_id := "solara"
 var discovered := ["solara"]
 var last_base := "liberty_hub"

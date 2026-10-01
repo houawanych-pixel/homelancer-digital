@@ -1,0 +1,37 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://uwn4q1yejjgr"
+path="res://.godot/imported/black_gold_mecha_0.jpg-4b3ebe964435d3eff89808bc71b8c12a.ctex"
+metadata={
+"vram_texture": false
+}
+generator_parameters={
+"md5": "65151e16a2abdb1d26ddf864c1ffc597"
+}
+
+[deps]
+
+source_file="res://assets/mechs/black_gold_mecha_0.jpg"
+dest_files=["res://.godot/imported/black_gold_mecha_0.jpg-4b3ebe964435d3eff89808bc71b8c12a.ctex"]
+
+[params]
+
+compress/mode=1
+compress/high_quality=false
+compress/lossy_quality=0.8
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=512
+detect_3d/compress_to=1

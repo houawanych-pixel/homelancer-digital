@@ -174,10 +174,10 @@ func _layout() -> void:
 	# centre strip: MAP · VIEW · LOG · CALL · TARGET · GO TO under the status bars
 	var cl := 8 + _block_w() + 14
 	var avail := S.x - cl * 2
-	var pw := clampf((avail - 5 * 6) / 6.0, 70.0, 104.0)
-	var row := pw * 6 + 30
-	var ids := ["map", "view", "log", "call", "target", "goto"]
-	for k in 6: buttons[ids[k]] = Rect2(Vector2(S.x * 0.5 - row * 0.5 + k * (pw + 6), 78), Vector2(pw, 44))
+	var pw := clampf((avail - 6 * 6) / 7.0, 66.0, 104.0)
+	var row := pw * 7 + 36
+	var ids := ["map", "view", "form", "log", "call", "target", "goto"]
+	for k in 7: buttons[ids[k]] = Rect2(Vector2(S.x * 0.5 - row * 0.5 + k * (pw + 6), 78), Vector2(pw, 44))
 	log_rect = buttons["log"]
 	if space and space.controls:
 		var db := Rect2(S.x * 0.5 - 130, 176, 260, 60)
@@ -559,7 +559,7 @@ func _draw() -> void:
 	var wsub := ""
 	if space.warp_state == "charging": wsub = "%d s" % int(ceil(Data.WARP_CHARGE - space.warp_t))
 	elif space.warp_state == "on": wsub = "DROP OUT"
-	_corner("warp", "WARP", "warp", Color(0.62, 0.55, 1.0), space.warp_state != "off", "", 0.0, false, wsub)
+	_corner("warp", "WARP", "warp", Color(0.62, 0.55, 1.0), space.warp_state != "off", "", 0.0, GS.form == "mech", wsub)
 	if space.warp_state == "charging":
 		var wr: Rect2 = buttons["warp"]
 		draw_rect(Rect2(wr.position + Vector2(8, wr.size.y - 5), Vector2((wr.size.x - 16) * space.warp_t / Data.WARP_CHARGE, 3)), Color(0.8, 0.75, 1.0))
@@ -571,16 +571,19 @@ func _draw() -> void:
 		var scol := ORANGE if item == "light_missile" else (RED if item == "heavy_missile" else GOLD)
 		var cdk: float = (space.mine_cd / 2.5) if item == "mine" else (space.missile_cd / 1.2)
 		_corner("slot_%d" % k, it["label"], it["icon"], scol, false, "%d" % ammo, cdk, space.warp_active(), it["sub"])
-	_corner("thrust", "THRUST", "thrust", ORANGE, space.boosting)
-	_corner("kill", "KILL", "kill", GOLD, space.engine_kill, "", 0.0, false, "DRIFTING" if space.engine_kill else "ENGINE")
+	var mech: bool = GS.form == "mech"
+	_corner("thrust", "BOOST" if mech else "THRUST", "thrust", ORANGE, space.boosting, "", 0.0, false, "STICK = DASH" if mech else "")
+	_corner("kill", "KILL", "kill", GOLD, space.engine_kill, "", 0.0, mech, "DRIFTING" if space.engine_kill else "ENGINE")
 	_pill("map", "MAP")
 	_pill("view", "CHASE" if cockpit else "COCKPIT", false, CYAN, "VIEW")
 	_pill("target", "TARGET", false, CYAN, "NEXT")
 	_pill("goto", "GO TO", space.autopilot != null, CYAN, "AUTO")
 	_pill("log", "LOG", comms_mode == "roster", CYAN, "CONTACTS")
+	var tf: bool = space.transform_t > 0.0
+	_pill("form", ("…" if tf else ("SHIP" if GS.form == "mech" else "MECH")), tf, GOLD, "TRANSFORM")
 	_pill("call", "CALL", comms_mode == "talk", GREEN)
 	if buttons.has("dock"): _pill("dock", "DOCK", true, GREEN, space.dock_candidate().name.to_upper())
-	if buttons.has("jump"): _pill("jump", "JUMP", true, GOLD, "TO %s" % Data.SYSTEMS[space.sys["gate"]["to"]]["name"].to_upper())
+	if buttons.has("jump"): _pill("jump", "WARP GATE", true, GOLD, "TO %s" % Data.SYSTEMS[space.sys["gate"]["to"]]["name"].to_upper())
 	_dashboard()
 	_stick("move", "FLIGHT")
 	_stick("aim", "AIM")

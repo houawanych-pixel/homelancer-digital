@@ -580,12 +580,125 @@ func _build_player() -> void:
 
 func set_player_model() -> void:
 	if is_instance_valid(model): model.queue_free()
-	model = ShipFactory.build(Data.SHIPS[GS.ship_id]["model"])
+	if GS.form == "mech" and not Packs.is_ready("mechs"): GS.form = "ship"
+	var mech := GS.form == "mech"
+	model = ShipFactory.build("mech_player" if mech else Data.SHIPS[GS.ship_id]["model"])
 	player.add_child(model)
 	model.visible = GS.view != "cockpit"
-	player_vis = Sections.setup(model, false)
+	# damage maps between forms: left wing = left arm, right wing = right arm, hull = core
+	player_vis = Sections.setup(model, mech)
 	Sections.set_side_visible(player_vis, "l", GS.wing_l > 0.0)
 	Sections.set_side_visible(player_vis, "r", GS.wing_r > 0.0)
+
+func is_mech_form() -> bool:
+	return GS.form == "mech"
+
+# ---------------------------------------------------------------- ship <-> mech transformation
+var transform_t := 0.0      # > 0 while transforming (counts up to TRANSFORM_TIME)
+var transform_to := ""
+var _swapped := false
+var _flash: MeshInstance3D
+const TRANSFORM_TIME := 3.0
+var last_transform_s := 0.0
+
+## Start transforming to the other form. Returns a reason when it can't.
+func start_transform() -> String:
+	if transform_t > 0.0: return "busy"
+	if warp_state != "off": return "warp"
+	var to := "ship" if GS.form == "mech" else "mech"
+	if to == "mech" and not Packs.is_ready("mechs"):
+		Packs.request("mechs")
+		return "loading"
+	transform_to = to
+	transform_t = 0.001
+	_swapped = false
+	engine_kill = false
+	Sfx.play("transform", -2.0)
+	return to
+
+## 3 s: the current form tucks/compresses (0-1.4 s), an energy flash covers the swap (1.4 s), the new form
+## unfolds and locks (1.4-2.8 s), final lock at 3 s — timed to the clack / chunk / lock / thoom of the sound.
+func _update_transform(dt: float) -> void:
+	if transform_t <= 0.0: return
+	transform_t += dt
+	var t := transform_t
+	var fold := clampf(t / 1.4, 0.0, 1.0) if t < 1.4 else clampf(1.0 - (t - 1.4) / 1.4, 0.0, 1.0)
+	if t >= 1.4 and not _swapped:
+		_swapped = true
+		GS.form = transform_to
+		set_player_model()
+		_spark(player.global_position, Color(0.75, 0.85, 1.0), 22.0, 0.35)
+		_spark(player.global_position, Color(1, 1, 1), 12.0, 0.2)
+	if is_instance_valid(model):
+		if GS.form == "mech":
+			model.scale = Vector3.ONE * lerpf(1.0, 0.7, fold)
+			Sections.pose_mech(player_vis, 10.0, 1.0, fold)
+		else:
+			model.scale = Vector3(1.0, lerpf(1.0, 0.8, fold), lerpf(1.0, 0.55, fold))
+			model.rotation.z += dt * 9.0 * fold   # wings roll as they fold
+	if t >= TRANSFORM_TIME:
+		last_transform_s = t
+		transform_t = 0.0
+		if is_instance_valid(model):
+			model.scale = Vector3.ONE
+			model.rotation.z = 0.0
+		_spark(player.global_position, Color(0.8, 0.9, 1.0), 9.0, 0.25)
+		message.emit("Transformation complete: %s form." % GS.form.to_upper())
+
+# ---------------------------------------------------------------- mech movement (no warp, directional boost dashes)
+var _boost_was := false
+var dash_t := 0.0
+var dash_cd := 0.0
+var dash_dir := Vector3.ZERO   # local direction of the current dash
+var last_dash := ""            # e.g. "back-left" (for the HUD and tests)
+
+## Stick direction -> one of 8 forgiving 45-degree sectors (centre stick = forward).
+static func dash_sector(stick: Vector2) -> Vector2:
+	if stick.length() < 0.3: return Vector2(0, 1)
+	var a := snappedf(stick.angle(), PI / 4.0)
+	return Vector2(cos(a), sin(a)).round().normalized()
+
+func _mech_move(dt: float, thrust: Vector2, base_speed: float) -> void:
+	var fwd := -player.global_basis.z
+	var right := player.global_basis.x
+	var sp := base_speed * 0.85
+	dash_t = maxf(0.0, dash_t - dt)
+	dash_cd = maxf(0.0, dash_cd - dt)
+	boosting = false
+	var boost_now := thrust_held and controls and transform_t <= 0.0
+	if boost_now and not _boost_was and dash_cd <= 0.0 and GS.energy > 18.0:
+		var sec := dash_sector(thrust)   # thrust.x = strafe, thrust.y = forward(+)/back(-)
+		dash_dir = Vector3(sec.x, 0, -sec.y).normalized()
+		dash_t = 0.45
+		dash_cd = 0.8
+		GS.energy -= 18.0
+		last_dash = ("forward" if sec.y > 0.5 else ("back" if sec.y < -0.5 else "")) + ("-" if absf(sec.y) > 0.5 and absf(sec.x) > 0.5 else "") + ("right" if sec.x > 0.5 else ("left" if sec.x < -0.5 else ""))
+		Sfx.play("whoosh", -6.0, 1.4)
+		_spark_v(player.global_position - player.global_basis * dash_dir * 4.0, -(player.global_basis * dash_dir) * 20.0, Color(0.7, 0.85, 1.0), 6.0, 0.3)
+	_boost_was = boost_now
+	var desired := fwd * sp * thrust.y + right * sp * 0.9 * thrust.x
+	var rate := 2.2
+	if dash_t > 0.0:
+		desired = player.global_basis * dash_dir * sp * 3.2
+		rate = 9.0
+		boosting = true
+	elif boost_now and GS.energy > 1.0 and dash_dir != Vector3.ZERO:
+		desired = player.global_basis * dash_dir * sp * 1.7   # holding BOOST keeps pushing that way
+		GS.energy = maxf(0.0, GS.energy - Data.THRUST_ENERGY * dt)
+		boosting = true
+		_booster_particles(dt, 0.2)
+	if braking:
+		desired = Vector3.ZERO
+		if vel.length() < 0.6: braking = false
+	vel = vel.lerp(desired, minf(1.0, dt * rate))
+	# posture: lean into the motion, arms back when going forward fast
+	if is_instance_valid(model) and transform_t <= 0.0:
+		var lv := player.global_basis.inverse() * vel
+		var fwd_k := clampf(-lv.z / sp, -1.5, 3.2)
+		var side_k := clampf(lv.x / sp, -3.0, 3.0)
+		model.rotation.x = lerpf(model.rotation.x, -deg_to_rad(clampf(fwd_k * 12.0, -18.0, 30.0)), minf(1.0, dt * 4.0))
+		model.rotation.z = lerpf(model.rotation.z, -deg_to_rad(side_k * 10.0), minf(1.0, dt * 4.0))
+		Sections.pose_mech(player_vis, clampf(8.0 + fwd_k * 14.0, -15.0, 55.0), dt)
 
 func _spawn_group(center: Vector3, count: int) -> void:
 	for i in count:
@@ -696,6 +809,8 @@ func _update_player(dt: float) -> void:
 			_spark_v(ps, Vector3(_rng.randfn(0, 5), _rng.randfn(0, 5), _rng.randfn(0, 5)), Color(1.0, 0.85, 0.5), 1.8, 0.15)
 	if shield_delay <= 0.0 and GS.shield < GS.max_shield():
 		GS.shield = minf(GS.max_shield(), GS.shield + GS.max_shield() * 0.12 * dt)
+	_update_transform(dt)
+	if GS.form == "mech": turn *= 1.3   # mechs pivot faster
 	var steer := aim if controls else Vector2.ZERO
 	var thrust := move if controls else Vector2.ZERO
 	if autopilot != null and is_instance_valid(autopilot) and controls:
@@ -706,7 +821,7 @@ func _update_player(dt: float) -> void:
 	yaw -= steer.x * turn * dt
 	pitch = clampf(pitch - steer.y * turn * 0.8 * dt, deg_to_rad(-75), deg_to_rad(75))
 	player.basis = Basis.from_euler(Vector3(pitch, yaw, 0))
-	if is_instance_valid(model):
+	if is_instance_valid(model) and GS.form != "mech" and transform_t <= 0.0:
 		model.rotation.z = lerpf(model.rotation.z, -steer.x * 0.55, minf(1.0, dt * 4.0))
 		model.rotation.x = lerpf(model.rotation.x, -steer.y * 0.12, minf(1.0, dt * 4.0))
 	var fwd := -player.global_basis.z
@@ -727,7 +842,9 @@ func _update_player(dt: float) -> void:
 			_spark(player.global_position - fwd * 4.0, Color(0.8, 0.85, 1.0), 26.0, 0.4)
 			Sfx.play("warp_go", -2.0)
 			message.emit("Warp! Weapons locked until you drop out.")
-	if warp_state == "on":
+	if GS.form == "mech" and warp_state == "off":
+		_mech_move(dt, thrust, base_speed)
+	elif warp_state == "on":
 		vel = vel.lerp(fwd * base_speed * Data.WARP_MULT, minf(1.0, dt * 1.2))
 		_booster_particles(dt, 0.5)
 	elif engine_kill:
@@ -750,7 +867,7 @@ func _update_player(dt: float) -> void:
 		vel = vel.lerp(desired, minf(1.0, dt * rate))
 	player.global_position += vel * dt
 	speed_now = vel.length()
-	if controls and warp_state == "off":
+	if controls and warp_state == "off" and transform_t <= 0.0:
 		var want := fire_held
 		if GS.is_auto("guns") and _in_fire_cone(target): want = true
 		var cost := Data.ENERGY_PER_GUN * float(GS.ship()["guns"])
@@ -767,7 +884,7 @@ func full_stop() -> void:
 	autopilot = null
 
 func toggle_engine_kill() -> bool:
-	if warp_state == "on": return false
+	if warp_state == "on" or GS.form == "mech": return false
 	engine_kill = not engine_kill
 	braking = false
 	return engine_kill
@@ -784,6 +901,8 @@ func request_warp() -> String:
 		_warp_bulge(-1.0)
 		return "cancelled"
 	if surface_mode: return "atmosphere"
+	if GS.form == "mech": return "mech"
+	if transform_t > 0.0: return "busy"
 	braking = false
 	warp_state = "charging"
 	warp_t = 0.0
@@ -1336,7 +1455,11 @@ func _update_camera(dt: float, snap: bool) -> void:
 		cam.fov = lerpf(cam.fov, 92.0 if warp_state == "on" else (82.0 if boosting else 76.0), minf(1.0, dt * 2.0))
 		return
 	var back := 15.0 + (4.0 if warp_state == "on" else (1.5 if boosting else 0.0))
-	var want := player.global_position + player.global_basis * Vector3(0, 2.2, back)
+	var up := 2.2
+	if GS.form == "mech":   # the mech stands taller: sit the camera higher and further back so it doesn't block the reticle
+		back += 8.0
+		up = 5.5
+	var want := player.global_position + player.global_basis * Vector3(0, up, back)
 	if snap: cam.global_position = want
 	else: cam.global_position = cam.global_position.lerp(want, minf(1.0, dt * 6.0))
 	var look := player.global_position - player.global_basis.z * 30.0 + player.global_basis.y * 2.6
@@ -1418,6 +1541,8 @@ func _update_effects(dt: float) -> void:
 # ---------------------------------------------------------------- cockpit systems (AUTO / MANUAL)
 ## Manually trigger one of the six systems. Returns false when it could not run.
 func trigger_system(id: String) -> bool:
+	if transform_t > 0.0 and id in ["guns", "missile", "light_missile", "heavy_missile", "mine"]:
+		return _say(id, "Weapons are locked while transforming.")
 	if warp_state != "off" and id in ["guns", "missile", "light_missile", "heavy_missile", "mine"]:
 		return _say(id, "Weapons are locked while the warp drive is active.")
 	match id:

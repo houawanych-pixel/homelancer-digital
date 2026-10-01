@@ -17,6 +17,7 @@ const GLB := {
 	"rocket_pod": ["res://assets/weapons/rocket_pod.glb", 3.0, 0.0],
 	# mechs: rigged 3 m models scaled to small-ship size; yaw 180 so the mech faces -Z like the ships
 	"mech_tan": ["res://assets/mechs/tan_navy_mecha.glb", 11.0, 180.0],
+	"mech_player": ["res://assets/mechs/black_gold_mecha.glb", 9.5, 180.0],   # the player's ship <-> mech frame
 }
 
 static var _cache := {}

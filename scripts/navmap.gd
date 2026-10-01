@@ -3,6 +3,7 @@ extends Control
 
 signal closed
 signal course_set(node: Node3D)
+signal galaxy_requested
 
 const CYAN := Color(0.4, 0.86, 1.0)
 const GOLD := Color(1.0, 0.82, 0.4)
@@ -15,6 +16,7 @@ var selected := "" # "station" | "planet" | "gate"
 var hits := {}
 var btn_close := Rect2()
 var btn_course := Rect2()
+var btn_galaxy := Rect2()
 var map_rect := Rect2()
 var scale_k := 1.0
 var center := Vector3.ZERO
@@ -39,6 +41,9 @@ func _gui_input(e: InputEvent) -> void:
 	elif e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT: p = e.position
 	else: return
 	accept_event()
+	if btn_galaxy.has_point(p):
+		galaxy_requested.emit()
+		return
 	if btn_close.has_point(p):
 		visible = false
 		closed.emit()
@@ -146,16 +151,18 @@ func _draw() -> void:
 	else:
 		var d: Dictionary = sys[selected]
 		_txt(sel.position + Vector2(14, 34), d["name"], 20, GOLD)
-		var line := "Dockable %s" % ("station" if selected == "station" else "planet") if selected != "gate" else "Jump gate to %s" % Data.SYSTEMS[d["to"]]["name"]
+		var line := "Dockable %s" % ("station" if selected == "station" else "planet") if selected != "gate" else "Warp gate to %s" % Data.SYSTEMS[d["to"]]["name"]
 		_txt(sel.position + Vector2(14, 60), line, 15, Color(0.85, 0.9, 0.95))
 		if space != null and is_instance_valid(space.player):
 			var n: Node3D = {"station": space.station, "planet": space.planet, "gate": space.gate}[selected]
 			_txt(sel.position + Vector2(14, 84), "Distance %.1f km" % (space.distance_to(n) / 1000.0), 15, CYAN)
 	btn_course = Rect2(sel.position.x, sel.end.y + 14, sel.size.x, 62)
-	btn_close = Rect2(sel.position.x, btn_course.end.y + 12, sel.size.x, 62)
+	btn_galaxy = Rect2(sel.position.x, btn_course.end.y + 12, sel.size.x * 0.5 - 5, 62)
+	btn_close = Rect2(sel.position.x + sel.size.x * 0.5 + 5, btn_course.end.y + 12, sel.size.x * 0.5 - 5, 62)
 	var can := selected != "" and space != null and space.controls
 	_btn(btn_course, "SET COURSE", can, GREEN)
-	_btn(btn_close, "CLOSE MAP", true, CYAN)
+	_btn(btn_galaxy, "GALAXY", true, CYAN)
+	_btn(btn_close, "CLOSE", true, CYAN)
 
 func _btn(r: Rect2, label: String, enabled: bool, col: Color) -> void:
 	var sb := StyleBoxFlat.new()

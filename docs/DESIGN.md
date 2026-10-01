@@ -99,8 +99,17 @@ The current "Aquila / Solara Jump Gate" objects are technically warp gates (buil
 5. Seamless sector borders ✔ (Job M)
 6. Corner cloud ✔ (Job M)
 7. Warp rule update ✔ (Job M)
-8. Mech directional boost (next)
-9. Ship/mech damage icon ✔ for the ship (Job M); the mech version comes with the transformation
-10. Transformation prototype (next)
-11. Basic travel-system data model (after)
-12. Star-map UI prototype (after)
+8. Mech directional boost ✔ (Job N): stick + BOOST, 8 forgiving sectors, hold to keep pushing; no warp, no engine kill
+9. Ship/mech damage icon ✔ (ship Job M, mech silhouette Job N)
+10. Transformation prototype ✔ (Job N): MECH/SHIP pill or T key. 3 s: the old form tucks/compresses, an energy flash
+    covers the swap at 1.4 s, the new form unfolds and locks at 3 s; the 4-beat sound (`transform`) lines up. Weapons are
+    locked and warp is refused while transforming. Damage carries over and isn't repaired. The player mech is the
+    black/gold mech (mechs pack); the camera sits higher and further back in mech form.
+11. Basic travel-system data model ✔ (Job N): `scripts/galaxy.gd`. 56 systems in 6 regions, 81 links (warp, jump and
+    rift gates), spaceways for Solara/Vega. Data only; Solara and Vega are flyable. The existing gates are renamed
+    "warp gates".
+12. Star-map UI prototype ✔ (Job N): `scripts/galaxymap.gd`, opened with MAP then GALAXY. It's panoramic: drag to look
+    around, tap a system, EXPAND for its blueprint (orbits, bodies, warp gate, spaceways, routes out). White and blues
+    only. The route test checks that opening it loads nothing (+0 resources, packs untouched).
+- Startup screen ✔ (Job N): white field, the blue network panning, the HOMELANCER letters resolving one by one, then START.
+  The web loading page now uses the same white and blue.

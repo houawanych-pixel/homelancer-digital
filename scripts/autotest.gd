@@ -211,6 +211,47 @@ func _warp_into_planet() -> void:
 	_check("Warp into a planet: warning, then destroyed", warned and dead, "warned %s, state %s" % [warned, main.state])
 	await _launch()
 
+## Ship <-> mech: ~3 s transformation (weapons locked, damage carried over), mech dashes in any direction, and back.
+func _mech_form() -> void:
+	await Packs.wait("mechs", 60.0)
+	var s := _sp()
+	GS.wing_l = 0.0                      # a destroyed left wing must come back as a destroyed left arm
+	s.set_player_model()
+	_press("form")
+	await _wait(0.8)
+	var m0 := GS.missiles
+	var locked := not s.trigger_system("missile") and GS.missiles == m0
+	await _shot("transform_mid", 0.6)
+	await _until(func(): return s.transform_t <= 0.0, 5.0)
+	var took: float = s.last_transform_s
+	var arm_gone: bool = s.player_vis.get("mech", false) and s.player_vis.get("gone_l", false)
+	var no_warp: String = s.request_warp()
+	await _shot("mech_form", 0.4)
+	_check("Transform ship -> mech in ~3 s (weapons locked, left wing -> left arm)", GS.form == "mech" and locked and arm_gone and no_warp == "mech" and took < 3.6,
+		"%.1f s, arm gone %s, warp '%s'" % [took, arm_gone, no_warp])
+	# directional dashes: stick + BOOST
+	var results: Array = []
+	for stick in [Vector2(0, 1), Vector2(-0.7, -0.7), Vector2(1, 0.1)]:   # screen stick: down = back, up-left, right
+		main.hud.move_vec = stick
+		await _wait(0.1)
+		main.hud.held["thrust"] = true
+		await _wait(0.3)
+		var lv: Vector3 = s.player.global_basis.inverse() * s.vel
+		results.append([s.last_dash, lv])
+		main.hud.held.erase("thrust")
+		main.hud.move_vec = Vector2.ZERO
+		await _wait(1.0)
+	var sp: float = float(GS.ship()["speed"])
+	var ok: bool = results[0][0] == "back" and results[0][1].z > sp and results[1][0] == "forward-left" and results[1][1].x < -sp * 0.8 and results[1][1].z < -sp * 0.8 \
+		and results[2][0] == "right" and results[2][1].x > sp
+	_check("Mech boost dashes: back, forward-left, right", ok, "%s / %s / %s" % [results[0][0], results[1][0], results[2][0]])
+	_press("form")
+	await _until(func(): return s.transform_t <= 0.0 and GS.form == "ship", 5.0)
+	var wing_gone: bool = not s.player_vis.get("mech", true) and s.player_vis["l"].all(func(w): return not w.visible)
+	_check("Transform mech -> ship (damage kept, not repaired)", GS.form == "ship" and GS.wing_l <= 0.0 and wing_gone, "form %s, left wing hidden %s" % [GS.form, wing_gone])
+	GS.wing_l = GS.wing_max()
+	s.set_player_model()
+
 var got_hail := false
 func _fight(label: String) -> bool:
 	var s := _sp()
@@ -411,6 +452,7 @@ func _run() -> void:
 	await _wait(0.5)
 	_check("Enraged raider leader joins contacts", GS.mood.get("voss", "") == "enraged")
 	await _section_loop()
+	await _mech_form()
 	# ---- dock at station
 	_check("Station docking", await _dock_at(s.station), s.station.name)
 	await _wait(0.8)
@@ -497,6 +539,24 @@ func _run() -> void:
 	main.open_map()
 	await _wait(0.4)
 	await _shot("navigation_map")
+	# galaxy map: the whole network on screen as data only — nothing extra loads
+	var packs_before: Dictionary = Packs.state.duplicate()
+	var res_before := Performance.get_monitor(Performance.OBJECT_RESOURCE_COUNT)
+	main.navmap.galaxy_requested.emit()
+	await _wait(0.6)
+	var gm: Control = main.galaxymap
+	var net := Galaxy.network()
+	var playable: int = net["systems"].values().filter(func(x): return x["playable"]).size()
+	await _shot("galaxy_map")
+	gm.selected = "vega"
+	gm.press("expand")
+	await _wait(0.4)
+	await _shot("galaxy_system_vega")
+	var res_after := Performance.get_monitor(Performance.OBJECT_RESOURCE_COUNT)
+	_check("Galaxy map: %d systems shown, data only" % net["systems"].size(), gm.visible and net["systems"].size() >= 50 and playable == 2 and Packs.state == packs_before and res_after - res_before < 20,
+		"links %d, resources +%d" % [net["links"].size(), int(res_after - res_before)])
+	gm.press("close")
+	gm.press("close")
 	main.navmap.visible = false
 	main._on_map_closed()
 	_press("log")

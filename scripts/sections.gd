@@ -16,7 +16,7 @@ static func setup(model: Node3D, is_mech: bool) -> Dictionary:
 		var sk := _find_skeleton(model)
 		if sk:
 			var v := {"mech": true, "skel": sk}
-			for n in ["LeftUpperArm", "RightUpperArm", "LeftShoulder", "RightShoulder", "UpperChest"]:
+			for n in ["LeftUpperArm", "RightUpperArm", "LeftShoulder", "RightShoulder", "UpperChest", "LeftUpperLeg", "RightUpperLeg", "LeftLowerLeg", "RightLowerLeg", "Spine"]:
 				v[n] = sk.find_bone(n)
 			if v["LeftUpperArm"] >= 0 and v["RightUpperArm"] >= 0:
 				v["arm_l"] = 0.0
@@ -133,7 +133,8 @@ static func side_of_hit(v: Dictionary, unit: Node3D, hit: Vector3, radius: float
 	return "core"
 
 ## Mech flight posture: arms swing back with speed/boost/warp (degrees), returning smoothly to neutral.
-static func pose_mech(v: Dictionary, back_deg: float, dt: float) -> void:
+## tuck 0..1 folds the mech into a compact block (arms forward over the chest, knees up) for the transformation.
+static func pose_mech(v: Dictionary, back_deg: float, dt: float, tuck := 0.0) -> void:
 	if v.is_empty() or not v["mech"]: return
 	var sk: Skeleton3D = v["skel"]
 	if not is_instance_valid(sk): return
@@ -141,8 +142,16 @@ static func pose_mech(v: Dictionary, back_deg: float, dt: float) -> void:
 		var cur: float = v["arm_" + side]
 		cur = lerpf(cur, back_deg, minf(1.0, dt * 2.2))   # heavy: eases in and out
 		v["arm_" + side] = cur
-		var b: int = v["LeftUpperArm" if side == "l" else "RightUpperArm"]
-		var rest := sk.get_bone_rest(b)
-		var grest := sk.get_bone_global_rest(b)
-		var axis := (grest.basis.inverse() * Vector3.RIGHT).normalized()
-		sk.set_bone_pose_rotation(b, rest.basis.get_rotation_quaternion() * Quaternion(axis, deg_to_rad(cur)))
+		var pre := "Left" if side == "l" else "Right"
+		_bend(sk, v[pre + "UpperArm"], cur - tuck * 95.0)                 # tuck: arms fold forward over the chest
+		_bend(sk, v.get(pre + "UpperLeg", -1), -tuck * 85.0)             # knees up
+		_bend(sk, v.get(pre + "LowerLeg", -1), tuck * 110.0)             # shins fold back
+	_bend(sk, v.get("Spine", -1), -tuck * 25.0)                          # hunch
+
+## Rotate a bone about the skeleton's sideways axis (positive = toward the back), relative to its rest pose.
+static func _bend(sk: Skeleton3D, b: int, deg: float) -> void:
+	if b < 0: return
+	var rest := sk.get_bone_rest(b)
+	var grest := sk.get_bone_global_rest(b)
+	var axis := (grest.basis.inverse() * Vector3.RIGHT).normalized()
+	sk.set_bone_pose_rotation(b, rest.basis.get_rotation_quaternion() * Quaternion(axis, deg_to_rad(deg)))

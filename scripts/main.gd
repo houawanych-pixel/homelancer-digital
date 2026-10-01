@@ -5,6 +5,7 @@ const SpaceScript := preload("res://scripts/space.gd")
 const HudScript := preload("res://scripts/hud.gd")
 const HubScript := preload("res://scripts/hub.gd")
 const MapScript := preload("res://scripts/navmap.gd")
+const GalaxyMapScript := preload("res://scripts/galaxymap.gd")
 const FxScript := preload("res://scripts/fx.gd")
 
 var state := "title"
@@ -13,6 +14,7 @@ var ui: CanvasLayer
 var hud: Control
 var hub: Control
 var navmap: Control
+var galaxymap: Control
 var fx: Control
 var title: Control
 var docked_node_kind := "station"
@@ -30,6 +32,9 @@ func _ready() -> void:
 	ui.add_child(hub)
 	navmap = MapScript.new()
 	ui.add_child(navmap)
+	galaxymap = GalaxyMapScript.new()
+	ui.add_child(galaxymap)
+	navmap.galaxy_requested.connect(func(): galaxymap.open(GS.system_id))
 	fx = FxScript.new()
 	ui.add_child(fx)
 	hud.pressed.connect(_on_hud)
@@ -57,7 +62,7 @@ func _web_flag(f: String) -> bool:
 	return false
 
 func _input_map() -> void:
-	var keys := {"forward": [KEY_W], "back": [KEY_S], "strafe_left": [KEY_A], "strafe_right": [KEY_D],
+	var keys := {"transform": [KEY_T], "forward": [KEY_W], "back": [KEY_S], "strafe_left": [KEY_A], "strafe_right": [KEY_D],
 		"yaw_left": [KEY_LEFT, KEY_Q], "yaw_right": [KEY_RIGHT, KEY_E], "pitch_up": [KEY_UP], "pitch_down": [KEY_DOWN], "fire": [KEY_SPACE]}
 	for a in keys:
 		if not InputMap.has_action(a): InputMap.add_action(a)
@@ -68,59 +73,9 @@ func _input_map() -> void:
 
 # ---------------------------------------------------------------- title
 func _build_title() -> void:
-	title = Control.new()
-	title.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	title = load("res://scripts/title.gd").new()
 	ui.add_child(title)
-	var shade := ColorRect.new()
-	shade.color = Color(0, 0.02, 0.05, 0.45)
-	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	title.add_child(shade)
-	var box := VBoxContainer.new()
-	box.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.add_theme_constant_override("separation", 14)
-	box.offset_left = -360
-	box.offset_right = 360
-	box.offset_top = -200
-	box.offset_bottom = 200
-	title.add_child(box)
-	var t1 := Label.new()
-	t1.text = "HOMELANCER"
-	t1.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	t1.add_theme_font_size_override("font_size", 76)
-	t1.add_theme_color_override("font_color", Color(0.9, 0.96, 1.0))
-	t1.add_theme_color_override("font_outline_color", Color(0, 0.1, 0.2))
-	t1.add_theme_constant_override("outline_size", 10)
-	box.add_child(t1)
-	var t2 := Label.new()
-	t2.text = "DIGITAL  ·  %s  ·  SOLARA — VEGA" % Data.VERSION
-	t2.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	t2.add_theme_font_size_override("font_size", 22)
-	t2.add_theme_color_override("font_color", Color(0.4, 0.86, 1.0))
-	box.add_child(t2)
-	var b := Button.new()
-	b.text = "START"
-	b.name = "StartButton"
-	b.custom_minimum_size = Vector2(360, 96)
-	b.add_theme_font_size_override("font_size", 40)
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.1, 0.55, 0.35)
-	sb.border_color = Color(0.6, 1.0, 0.75)
-	sb.set_border_width_all(3)
-	sb.set_corner_radius_all(16)
-	for s in ["normal", "hover", "pressed", "focus"]: b.add_theme_stylebox_override(s, sb)
-	var cc := CenterContainer.new()
-	cc.add_child(b)
-	box.add_child(cc)
-	b.pressed.connect(start_game)
-	var note := Label.new()
-	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	note.add_theme_font_size_override("font_size", 15)
-	note.add_theme_color_override("font_color", Color(0.8, 0.86, 0.92))
-	note.text = "Landscape. Left thumb: thrust and strafe. Right thumb: aim. Extra fingers: fire, missile, repair.\nPrototype build — ships marked as stand-ins are temporary original models."
-	box.add_child(note)
+	title.start_pressed.connect(start_game)
 
 func start_game() -> void:
 	if state != "title": return
@@ -265,13 +220,22 @@ func _on_hud(id: String) -> void:
 		"stop":
 			space.full_stop()
 			hud.flash_message("Braking to a full stop.")
+		"form":
+			match space.start_transform():
+				"mech": hud.flash_message("Transforming to MECH… weapons locked for 3 s.")
+				"ship": hud.flash_message("Transforming to SHIP… weapons locked for 3 s.")
+				"warp": hud.flash_message("Can't transform during warp.")
+				"loading": hud.flash_message("Mech frame still downloading — try again in a moment.")
 		"kill":
-			if space.warp_active(): hud.flash_message("Drop out of warp first.")
+			if GS.form == "mech": hud.flash_message("Mechs don't drift — use BOOST with the stick to dash any direction.")
+			elif space.warp_active(): hud.flash_message("Drop out of warp first.")
 			else: hud.flash_message("Engines OFF — drifting. You can still turn and shoot." if space.toggle_engine_kill() else "Engines restarted.")
 		"warp":
 			match space.request_warp():
 				"charging": hud.flash_message("Warp spooling — 5 s. Weapons locked. Keep flying!")
 				"atmosphere": hud.flash_message("The warp drive can't run inside an atmosphere.")
+				"mech": hud.flash_message("Mechs have no warp drive — transform to SHIP to warp.")
+				"busy": hud.flash_message("Finish transforming first.")
 				"cancelled": hud.flash_message("Warp charge cancelled. Weapons unlocked.")
 				"off": hud.flash_message("Dropped out of warp. Weapons unlocked.")
 		"call":
@@ -370,6 +334,7 @@ func _on_course(n: Node3D) -> void:
 	hud.flash_message("Course set: %s. Autopilot engaged — steer to cancel." % n.name)
 
 func _unhandled_input(e: InputEvent) -> void:
+	if state == "flight" and e.is_action_pressed("transform"): _on_hud("form")
 	# any manual aim cancels autopilot
 	if state == "flight" and space.autopilot != null and hud.aim_vec.length() > 0.35:
 		space.autopilot = null
