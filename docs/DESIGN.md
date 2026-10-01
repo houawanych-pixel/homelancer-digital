@@ -114,7 +114,7 @@ The current "Aquila / Solara Jump Gate" objects are technically warp gates (buil
   plaza) · 04 mega bridge (1×3, 120 m span) · 05 square platform · 06 rectangular platform · 07 stair bridge ·
   08 B-01 command tower.
 - **B-01 is the first Blender-built asset (Job R).** Built on the owner's laptop in Blender from the blueprint and
-  exported as `B01_tower_textured.glb` (source kept in `art/models/`): ONE mesh, 1,976 triangles, UV-mapped, with
+  exported as `B01_tower_textured_v2.glb` (source kept in `art/models/`): ONE mesh, 1,048 triangles, UV-mapped, with
   its own baked colour, normal (bump), roughness/metal and glow maps. `tools/city/bake_glb.py in.glb out.glb 2.0`
   scales it to game metres (77 × 61 m foot, 119 m to the mast tips) and strips the embedded images; the four maps
   ship as separate files (colour + normal 1024 px, the other two 512 px). All of it is in the `city` pack. One draw

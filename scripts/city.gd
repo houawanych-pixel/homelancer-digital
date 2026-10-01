@@ -27,7 +27,7 @@ const DETAIL_RANGE := 1100.0
 const TOWER_PATH := "res://assets/city/b01_tower.glb"
 const TOWER_SCALE := 2.0     # Blender metres -> game metres (already baked into the mesh; used for the boxes below)
 const TOWER_OFF := -11.0     # the model sits west of the cell centre so its podium ends at the platform edge
-const TOWER_TRIS := 1976
+const TOWER_TRIS := 1048
 const TOWER_BOXES := [       # simple collision, in Blender metres: [stand-in material, min, max]
 	[1, Vector3(-7.0, 0, -14.5), Vector3(7.0, 24.0, 7.5)],      # lower hub + buttresses + back foot
 	[0, Vector3(-7.0, 24.0, -7.0), Vector3(7.0, 50.0, 5.2)],    # shaft + side slabs
