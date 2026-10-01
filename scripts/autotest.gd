@@ -455,6 +455,12 @@ func _city_visit() -> void:
 	var out: bool = not tb.grow(5.9).has_point(s.player.global_position)
 	_tp(o + Vector3(700, 300, 600), o)
 	_check("Town buildings are solid (no flying through them)", town.size() > 20 and out, "%d buildings, pushed out %s" % [town.size(), out])
+	# B-01 command tower: the Blender build, merged to one mesh, from the city pack; solid like the rest
+	var tw := cb.get_node_or_null("B01Tower") as MeshInstance3D
+	var tw_in: Vector3 = cb.to_global(Vector3(49, 60, -180))
+	_check("B-01 command tower is the Blender model (city pack), one mesh, solid", tw != null and tw.mesh.get_surface_count() == City.TOWER_MATS.size()
+		and cb.get_node_or_null("B01StandIn") == null and s.city_push(tw_in, 6.0) != Vector3.ZERO and tw.get_aabb().size.y > 115.0,
+		"%d surfaces, %.0f x %.0f x %.0f m" % [tw.mesh.get_surface_count() if tw else 0, tw.get_aabb().size.x if tw else 0.0, tw.get_aabb().size.y if tw else 0.0, tw.get_aabb().size.z if tw else 0.0])
 	# mechs for scale: 1 on a road, 2 abreast on the bridge, a group passing under it and 4 crossing the intersection
 	var mechs: Array = []
 	var spots := [[Vector3(140, City.DECK, -220), 0.0], [Vector3(134, City.DECK, -110), 0.0], [Vector3(146, City.DECK, -95), PI],
@@ -475,7 +481,9 @@ func _city_visit() -> void:
 	var prev: Camera3D = get_viewport().get_camera_3d()
 	cam.make_current()
 	var views := [["city_block_overview", Vector3(470, 190, 60), Vector3(150, 25, -230)],
-		["city_tower_b01", Vector3(-30, 40, -300), Vector3(60, 52, -180)],
+		["city_tower_b01", Vector3(165, 50, -95), Vector3(49, 56, -180)],
+		["city_tower_b01_gangway", Vector3(118, 32, -150), Vector3(49, 36, -182)],
+		["city_tower_b01_back", Vector3(-80, 70, -290), Vector3(49, 52, -180)],
 		["city_mech_clearance_bridge", Vector3(205, 24, -40), Vector3(140, 14, -110)],
 		["city_intersection_mechs", Vector3(196, 64, -238), Vector3(140, 20, -180)],
 		["city_merge_onramp", Vector3(250, 46, -480), Vector3(160, 10, -330)],
@@ -509,7 +517,7 @@ func _city_visit() -> void:
 	await _wait(0.15)
 	dfar -= int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
 	cb.visible = true
-	_check("City shared material + normal detail (city pack), draw calls measured", shader_on and draws_block <= st["draw_calls"] + 2,
+	_check("City shared material + normal detail (city pack), draw calls measured", shader_on and draws_block <= st["draw_calls"] + 4,
 		"block adds %d draw calls up close, %d from 1.7 km (detail LOD off); whole frame %d" % [draws_block, dfar, draws])
 	for m in mechs: m.queue_free()
 	cam.queue_free()

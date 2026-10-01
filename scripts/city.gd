@@ -22,8 +22,22 @@ const LANE := 12.0          # one mech lane
 const ROAD := 24.0          # curb to curb = 2 lanes. This is THE connection width for roads and platforms.
 const RAIL := 3.0           # parapet each side -> a road module is 30 m wide inside its 40 m cell
 const PED := 4.0            # pedestrian stairs / walkways (too narrow for a mech on purpose)
-const TOWER_H := 100.0      # B-01 roof; the main spire tops out at 120 m, the blueprint height
 const DETAIL_RANGE := 1100.0
+# B-01 command tower: built in Blender (art/models/B01_tower_blender.glb), baked by tools/city/bake_glb.py at x2.
+const TOWER_PATH := "res://assets/city/b01_tower.glb"
+const TOWER_SCALE := 2.0     # Blender metres -> game metres (already baked into the mesh; used for the boxes below)
+const TOWER_OFF := -11.0     # the model sits west of the cell centre so its podium ends at the platform edge
+const TOWER_TRIS := 2852
+const TOWER_BOXES := [       # simple collision, in Blender metres: [stand-in material, min, max]
+	[1, Vector3(-7.0, 0, -14.5), Vector3(7.0, 24.0, 7.5)],      # lower hub + buttresses + back foot
+	[0, Vector3(-7.0, 24.0, -7.0), Vector3(7.0, 50.0, 5.2)],    # shaft + side slabs
+	[1, Vector3(-3.4, 50.0, -5.0), Vector3(3.4, 54.0, 5.0)],    # roof machinery
+	[0, Vector3(-18.4, 0, -4.2), Vector3(18.4, 6.3, 9.8)],      # wings
+	[0, Vector3(-17.8, 6.3, 1.6), Vector3(17.8, 14.0, 3.4)],    # wing fins
+	[0, Vector3(-11.2, 0, 0.5), Vector3(11.2, 19.5, 3.7)],      # legs
+	[0, Vector3(-2.6, 0, 6.8), Vector3(2.6, 5.4, 13.5)],        # entrance porch
+	[0, Vector3(-12.0, 0, -8.5), Vector3(12.0, 5.5, -4.2)],     # side annexes
+]
 
 enum { WHITE, DARK, GLASS, AMBER, ROADM }
 enum { BOX, CYL, CONE }
@@ -37,6 +51,8 @@ class Kit:
 	var parts: Array = []
 	var conns: Array = []    # {kind, pos, dir, width, height}
 	var solids: Array = []   # AABB, simple collision
+	var alt: Array = []      # stand-in parts for a module whose real model lives in the city pack
+	var tower = null         # Transform3D of the B-01 model, when this module has one
 	func box(mat: int, c: Vector3, s: Vector3, lod := 0, rot := Vector3.ZERO, solid := false) -> void:
 		parts.append([BOX, mat, lod, Transform3D(Basis.from_euler(rot) * Basis.from_scale(s), c)])
 		if solid: solids.append(AABB(c - s * 0.5, s))
@@ -300,48 +316,26 @@ static func module(id: String) -> Kit:
 				_pylon(k, sx * (hw + 1.5), 2.0, 3.0, 1.6, DECK * 0.5)
 			k.conn("ped", Vector3(0, DECK, hz), Vector3(0, 0, 1), PED, DECK)
 			k.conn("ped", Vector3(0, 0.0, -hz), Vector3(0, 0, -1), PED, 0.0)
-		"command_tower":   # 08: B-01 blockout. 40 x 40 m footprint, roof ~120 m, wings at deck height for platforms
-			# podium + lower hub
-			k.box(DARK, Vector3(0, 1.5, 0), Vector3(40.0, 3.0, 40.0), 0, Vector3.ZERO, true)
-			k.box(WHITE, Vector3(0, 3.0 + 13.0, 0), Vector3(24.0, 26.0, 26.0), 0, Vector3.ZERO, true)
-			k.box(GLASS, Vector3(0, 9.0, -13.06), Vector3(10.0, 8.0, 0.12), 0)                            # entrance glazing
-			k.box(AMBER, Vector3(0, 13.6, -13.1), Vector3(12.0, 0.4, 0.2), 1)
-			k.box(DARK, Vector3(0, 5.0, -15.0), Vector3(12.0, 4.0, 4.0), 0, Vector3.ZERO, true)             # entrance canopy
-			for sx in [-1.0, 1.0]:
-				# side wings: roofs at DECK, so platforms plug straight into them
-				k.box(WHITE, Vector3(sx * 16.0, 3.0 + (DECK - 3.0) * 0.5 - 0.2, 0), Vector3(8.0, DECK - 3.4, 28.0), 0, Vector3.ZERO, true)
-				k.box(DARK, Vector3(sx * 16.0, DECK - 0.3, 0), Vector3(8.0, 0.6, 28.0), 0, Vector3.ZERO, true)
-				k.box(GLASS, Vector3(sx * 20.06, 11.0, 0), Vector3(0.12, 5.0, 22.0), 0)
-				k.box(AMBER, Vector3(sx * 20.1, DECK - 1.0, 0), Vector3(0.2, 0.3, 28.0), 1)
-				# sloped buttresses leaning into the shaft (the big white wedges in the reference)
-				k.box(WHITE, Vector3(sx * 9.0, 38.0, -6.0), Vector3(7.0, 26.0, 10.0), 0, Vector3(0, 0, sx * 0.28), true)
-				k.box(DARK, Vector3(sx * 10.0, 32.0, 6.0), Vector3(4.0, 30.0, 8.0), 0, Vector3(0, 0, sx * 0.18))
-				k.box(DARK, Vector3(sx * 8.6, 54.0, 0), Vector3(2.4, 44.0, 10.0), 0)                       # dark spines
-			# main shaft + front glass column
-			k.box(WHITE, Vector3(0, 29.0 + (TOWER_H - 22.0 - 29.0) * 0.5, 1.0), Vector3(15.0, TOWER_H - 22.0 - 29.0, 13.0), 0, Vector3.ZERO, true)
-			k.box(GLASS, Vector3(0, 54.0, -5.56), Vector3(5.0, 44.0, 0.12), 0)
-			k.box(DARK, Vector3(-3.2, 54.0, -5.7), Vector3(0.9, 44.0, 0.4), 1)
-			k.box(DARK, Vector3(3.2, 54.0, -5.7), Vector3(0.9, 44.0, 0.4), 1)
-			for i in 5:
-				k.box(AMBER, Vector3(0, 38.0 + i * 9.0, -5.7), Vector3(5.6, 0.2, 0.3), 1)
-			# setback crown (offset back, as in the side view) + top cap
-			k.box(WHITE, Vector3(0, TOWER_H - 22.0 + 7.0, 3.0), Vector3(12.0, 14.0, 10.0), 0, Vector3.ZERO, true)
-			k.box(WHITE, Vector3(-3.0, TOWER_H - 8.0 + 4.0, 0.0), Vector3(8.0, 8.0, 9.0), 0, Vector3.ZERO, true)
-			k.box(GLASS, Vector3(0, TOWER_H - 14.0, -2.06), Vector3(8.0, 3.0, 0.12), 0)
-			k.box(DARK, Vector3(-3.0, TOWER_H + 0.6, 0), Vector3(6.0, 1.2, 7.0))
-			k.cone(DARK, Vector3(-3.0, TOWER_H + 1.2, -1.0), 0.8, 120.0 - TOWER_H - 1.2, 0)             # main spire -> 120 m
-			k.cone(DARK, Vector3(-0.2, TOWER_H + 1.2, 1.5), 0.5, 14.0)
-			k.cone(DARK, Vector3(-5.6, TOWER_H + 1.2, 1.5), 0.45, 11.0)
-			k.cone(DARK, Vector3(4.0, TOWER_H - 8.0, 4.0), 0.4, 10.0)
-			# east annex: smaller antenna cluster on the wing (second spire group in the isometric)
-			# (behind the wing, so the wing roof stays clear for the platform connection)
-			k.box(WHITE, Vector3(14.0, (DECK + 12.0) * 0.5, 16.5), Vector3(6.0, DECK + 12.0, 5.0), 0, Vector3.ZERO, true)
-			k.box(GLASS, Vector3(14.0, DECK + 6.0, 13.94), Vector3(2.5, 6.0, 0.12), 1)
-			k.cone(DARK, Vector3(13.0, DECK + 12.0, 16.5), 0.5, 18.0, 0)
-			k.cone(DARK, Vector3(15.5, DECK + 12.0, 17.5), 0.35, 10.0)
-			k.cone(DARK, Vector3(-14.0, DECK, 13.5), 0.4, 12.0)
+		"command_tower":   # 08: B-01. The real model is the Blender build (assets/city/b01_tower.glb, city pack), ~61 x 77 m, 119 m tall.
+			# Here: its collision boxes (also drawn as the plain stand-in until the pack is in) + the gangway to the platform.
+			# The model's front (+Z in Blender's export) is turned to face east, at the platform.
+			var txf := Transform3D(Basis(Vector3.UP, PI * 0.5), Vector3(TOWER_OFF, 0, 0))
+			for bx: Array in TOWER_BOXES:   # [material, min, max] in Blender metres
+				var box: AABB = txf * AABB((bx[1] as Vector3) * TOWER_SCALE, ((bx[2] as Vector3) - (bx[1] as Vector3)) * TOWER_SCALE)
+				k.alt.append([BOX, bx[0], 0, Transform3D(Basis.from_scale(box.size), box.get_center())])
+				k.solids.append(box)
+			# gangway at deck height: from the light ring on the tower's front, over the entrance porch, to the cell edge
+			# (the same 24 m connection as every platform)
+			var gx0 := TOWER_OFF + 14.0
+			var gx1 := CELL * 0.5
+			k.slab(DARK, Vector3((gx0 + gx1) * 0.5, DECK - DECK_T * 0.5, 0), Vector3(gx1 - gx0, DECK_T, ROAD))
+			k.box(ROADM, Vector3((gx0 + gx1) * 0.5, DECK - 0.05, 0), Vector3(gx1 - gx0, 0.12, ROAD - 2.0))
+			for sz in [-1.0, 1.0]:
+				k.box(WHITE, Vector3((gx0 + gx1) * 0.5, DECK + 0.7, sz * (ROAD * 0.5 + 0.4)), Vector3(gx1 - gx0, 1.4, 0.8), 0, Vector3.ZERO, true)
+				k.box(AMBER, Vector3((gx0 + gx1) * 0.5, DECK + 1.45, sz * (ROAD * 0.5 + 0.4)), Vector3(gx1 - gx0, 0.12, 0.3), 1)
+				_pillar(k, gx1 - 1.5, sz * (ROAD * 0.5 - 1.0), 2.4)
 			k.conn("platform", Vector3(CELL * 0.5, DECK, 0), Vector3(1, 0, 0), ROAD, DECK)
-			k.conn("platform", Vector3(-CELL * 0.5, DECK, 0), Vector3(-1, 0, 0), ROAD, DECK)
+			k.tower = txf
 	return k
 
 ## A simplified background building (kept to big forms: body, glass strips, roof, antenna).
@@ -373,12 +367,14 @@ static func place(block: Dictionary, id: String, cell: Vector2i, rot := 0) -> vo
 		block["conns"].append({"module": id, "cell": cell, "kind": c["kind"], "pos": xf * (c["pos"] as Vector3),
 			"dir": (xf.basis * (c["dir"] as Vector3)).round(), "width": c["width"], "height": c["height"]})
 	for s: AABB in k.solids: block["solids"].append(xf * s)
+	for p in k.alt: block["alt"].append([p[0], p[1], p[2], xf * (p[3] as Transform3D)])
+	if k.tower != null: block["tower"] = xf * (k.tower as Transform3D)
 	block["modules"].append({"id": id, "cell": cell, "rot": rot, "footprint": f})
 
 ## THE test city block: command tower, square + rectangular platforms, intersection, roads, merge/on-ramp,
 ## mega bridge, stair bridge, and a few simplified background buildings. Returns the block description.
 static func test_block() -> Dictionary:
-	var b := {"parts": [], "conns": [], "solids": [], "modules": []}
+	var b := {"parts": [], "conns": [], "solids": [], "modules": [], "alt": [], "tower": null}
 	# the north-south avenue (column 3)
 	place(b, "road_straight", Vector2i(3, -6))
 	place(b, "merge", Vector2i(3, -10))           # cells x 3..4, z -10..-7; ramp comes up from the plaza in column 4
@@ -473,6 +469,12 @@ static func materials(detail := 1.0) -> Array:
 		[Color(1.0, 0.68, 0.12), 0.4, 0.1, Color(1.0, 0.6, 0.1) * 0.35, 0.0, 0.0, 8.0],    # AMBER accents
 		[Color(0.2, 0.21, 0.23), 0.85, 0.05, Color(0, 0, 0), 0.0, 0.5, 12.0],      # ROAD / deck plates
 	]
+	spec.append_array([   # B-01 tower extras (5..8): shaded white, grey trim, navy structure, light strips
+		[Color(0.68, 0.7, 0.72), 0.5, 0.1, Color(0, 0, 0), 0.0, 0.3, 14.0],
+		[Color(0.4, 0.42, 0.45), 0.7, 0.2, Color(0, 0, 0), 0.0, 0.3, 10.0],
+		[Color(0.05, 0.1, 0.19), 0.45, 0.5, Color(0, 0, 0), 0.0, 0.2, 10.0],
+		[Color(0.5, 0.8, 1.0), 0.3, 0.0, Color(0.35, 0.75, 1.0) * 2.2, 0.0, 0.0, 8.0],
+	])
 	var out: Array = []
 	var sh: Shader = load("res://assets/city/capital.gdshader") if Packs.is_ready("city") else null
 	for sp in spec:
@@ -491,14 +493,14 @@ static func materials(detail := 1.0) -> Array:
 			m.set_shader_parameter("panel_mask", load("res://assets/city/capital_mask.png"))
 			out.append(m)
 		else:
-			var s := StandardMaterial3D.new()
-			s.albedo_color = sp[0]
-			s.roughness = sp[1]
-			s.metallic = sp[2]
+			var sm := StandardMaterial3D.new()
+			sm.albedo_color = sp[0]
+			sm.roughness = sp[1]
+			sm.metallic = sp[2]
 			if (sp[3] as Color).r + (sp[3] as Color).b > 0.0:
-				s.emission_enabled = true
-				s.emission = sp[3]
-			out.append(s)
+				sm.emission_enabled = true
+				sm.emission = sp[3]
+			out.append(sm)
 	_mats[key] = out
 	return out
 
@@ -532,13 +534,64 @@ static func instantiate(block: Dictionary, detail := 1.0) -> Node3D:
 			mmi.visibility_range_end_margin = 100.0
 		root.add_child(mmi)
 	root.set_meta("solids", block["solids"])
+	root.set_meta("alt", block.get("alt", []))
+	root.set_meta("tower", block.get("tower"))
+	_tower(root, detail)
 	return root
+
+## The B-01 command tower: the Blender model once the city pack is mounted, a few plain boxes until then.
+const TOWER_MATS := {"B01_White": 0, "B01_Dark": 1, "B01_Glass": 2, "B01_Gold": 3, "B01_WhiteShade": 5, "B01_Grey": 6, "B01_Navy": 7, "B01_Light": 8}
+static var _tower_mesh: Mesh = null
+
+static func tower_mesh() -> Mesh:
+	if _tower_mesh == null and Packs.is_ready("city") and ResourceLoader.exists(TOWER_PATH):
+		var sc := (load(TOWER_PATH) as PackedScene).instantiate()
+		var found := sc.find_children("*", "MeshInstance3D", true, false)
+		if not found.is_empty(): _tower_mesh = (found[0] as MeshInstance3D).mesh
+		sc.free()
+	return _tower_mesh
+
+static func _tower(root: Node3D, detail := 1.0) -> void:
+	if root.get_meta("tower") == null: return
+	var mats := materials(detail)
+	var mesh := tower_mesh()
+	var cur := root.get_node_or_null("B01Tower")
+	var alt := root.get_node_or_null("B01StandIn")
+	if mesh:
+		if alt:
+			root.remove_child(alt)
+			alt.queue_free()
+		var mi := cur as MeshInstance3D
+		if mi == null:
+			mi = MeshInstance3D.new()
+			mi.name = "B01Tower"
+			mi.mesh = mesh
+			mi.transform = root.get_meta("tower")
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			root.add_child(mi)
+		for i in mesh.get_surface_count():
+			var mt := mesh.surface_get_material(i)
+			mi.set_surface_override_material(i, mats[int(TOWER_MATS.get(mt.resource_name if mt else "", 0))])
+	elif alt == null and cur == null:
+		var parts: Array = root.get_meta("alt")
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = _unit_meshes()[BOX]
+		mm.instance_count = parts.size()
+		for i in parts.size(): mm.set_instance_transform(i, parts[i][3])
+		var mmi := MultiMeshInstance3D.new()
+		mmi.name = "B01StandIn"
+		mmi.multimesh = mm
+		mmi.material_override = mats[WHITE]
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		root.add_child(mmi)
 
 ## Re-apply the materials (e.g. once the city pack is mounted).
 static func refresh(root: Node3D, detail := 1.0) -> void:
 	var mats := materials(detail)
 	for c in root.get_children():
 		if c is MultiMeshInstance3D and c.has_meta("mat"): (c as MultiMeshInstance3D).material_override = mats[int(c.get_meta("mat"))]
+	if root.has_meta("tower"): _tower(root, detail)
 
 ## Rough cost numbers for the report: instances, triangles, draw calls (one per MultiMesh).
 static func stats(block: Dictionary) -> Dictionary:
@@ -550,4 +603,6 @@ static func stats(block: Dictionary) -> Dictionary:
 		tri += tris_per[p[0]]
 		if p[2] == 0: tri_main += tris_per[p[0]]
 		groups["%d|%d|%d" % [p[0], p[1], p[2]]] = true
-	return {"parts": block["parts"].size(), "triangles": tri, "triangles_far": tri_main, "draw_calls": groups.size(), "solids": block["solids"].size()}
+	var tw := 0 if block.get("tower") == null else 1
+	return {"parts": block["parts"].size() + tw, "triangles": tri + tw * TOWER_TRIS, "triangles_far": tri_main + tw * TOWER_TRIS,
+		"draw_calls": groups.size() + tw * TOWER_MATS.size(), "solids": block["solids"].size()}
