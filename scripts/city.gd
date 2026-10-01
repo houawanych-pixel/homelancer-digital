@@ -27,7 +27,7 @@ const DETAIL_RANGE := 1100.0
 const TOWER_PATH := "res://assets/city/b01_tower.glb"
 const TOWER_SCALE := 2.0     # Blender metres -> game metres (already baked into the mesh; used for the boxes below)
 const TOWER_OFF := -11.0     # the model sits west of the cell centre so its podium ends at the platform edge
-const TOWER_TRIS := 2852
+const TOWER_TRIS := 1976
 const TOWER_BOXES := [       # simple collision, in Blender metres: [stand-in material, min, max]
 	[1, Vector3(-7.0, 0, -14.5), Vector3(7.0, 24.0, 7.5)],      # lower hub + buttresses + back foot
 	[0, Vector3(-7.0, 24.0, -7.0), Vector3(7.0, 50.0, 5.2)],    # shaft + side slabs
@@ -469,12 +469,6 @@ static func materials(detail := 1.0) -> Array:
 		[Color(1.0, 0.68, 0.12), 0.4, 0.1, Color(1.0, 0.6, 0.1) * 0.35, 0.0, 0.0, 8.0],    # AMBER accents
 		[Color(0.2, 0.21, 0.23), 0.85, 0.05, Color(0, 0, 0), 0.0, 0.5, 12.0],      # ROAD / deck plates
 	]
-	spec.append_array([   # B-01 tower extras (5..8): shaded white, grey trim, navy structure, light strips
-		[Color(0.68, 0.7, 0.72), 0.5, 0.1, Color(0, 0, 0), 0.0, 0.3, 14.0],
-		[Color(0.4, 0.42, 0.45), 0.7, 0.2, Color(0, 0, 0), 0.0, 0.3, 10.0],
-		[Color(0.05, 0.1, 0.19), 0.45, 0.5, Color(0, 0, 0), 0.0, 0.2, 10.0],
-		[Color(0.5, 0.8, 1.0), 0.3, 0.0, Color(0.35, 0.75, 1.0) * 2.2, 0.0, 0.0, 8.0],
-	])
 	var out: Array = []
 	var sh: Shader = load("res://assets/city/capital.gdshader") if Packs.is_ready("city") else null
 	for sp in spec:
@@ -540,7 +534,26 @@ static func instantiate(block: Dictionary, detail := 1.0) -> Node3D:
 	return root
 
 ## The B-01 command tower: the Blender model once the city pack is mounted, a few plain boxes until then.
-const TOWER_MATS := {"B01_White": 0, "B01_Dark": 1, "B01_Glass": 2, "B01_Gold": 3, "B01_WhiteShade": 5, "B01_Grey": 6, "B01_Navy": 7, "B01_Light": 8}
+## It carries its own painted textures (colour, normal/bump, roughness+metal, glow), baked in Blender: one draw call.
+static var _tower_mat: Material = null
+
+static func tower_material() -> Material:
+	if _tower_mat == null:
+		var m := ORMMaterial3D.new()
+		m.albedo_texture = load("res://assets/city/b01_color.jpg")
+		m.orm_texture = load("res://assets/city/b01_orm.jpg")
+		m.normal_enabled = true
+		m.normal_texture = load("res://assets/city/b01_normal.jpg")
+		m.emission_enabled = true
+		m.emission = Color.WHITE
+		m.emission_operator = BaseMaterial3D.EMISSION_OP_MULTIPLY
+		m.emission_texture = load("res://assets/city/b01_emission.jpg")
+		m.emission_energy_multiplier = 2.5
+		m.cull_mode = BaseMaterial3D.CULL_DISABLED   # the Blender export is double-sided
+		m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+		_tower_mat = m
+	return _tower_mat
+
 static var _tower_mesh: Mesh = null
 
 static func tower_mesh() -> Mesh:
@@ -569,9 +582,7 @@ static func _tower(root: Node3D, detail := 1.0) -> void:
 			mi.transform = root.get_meta("tower")
 			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			root.add_child(mi)
-		for i in mesh.get_surface_count():
-			var mt := mesh.surface_get_material(i)
-			mi.set_surface_override_material(i, mats[int(TOWER_MATS.get(mt.resource_name if mt else "", 0))])
+		mi.material_override = tower_material()
 	elif alt == null and cur == null:
 		var parts: Array = root.get_meta("alt")
 		var mm := MultiMesh.new()
@@ -605,4 +616,4 @@ static func stats(block: Dictionary) -> Dictionary:
 		groups["%d|%d|%d" % [p[0], p[1], p[2]]] = true
 	var tw := 0 if block.get("tower") == null else 1
 	return {"parts": block["parts"].size() + tw, "triangles": tri + tw * TOWER_TRIS, "triangles_far": tri_main + tw * TOWER_TRIS,
-		"draw_calls": groups.size() + tw * TOWER_MATS.size(), "solids": block["solids"].size()}
+		"draw_calls": groups.size() + tw, "solids": block["solids"].size()}

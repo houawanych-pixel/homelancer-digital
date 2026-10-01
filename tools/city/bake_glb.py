@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Bake a Blender building export for the game: merge all parts into ONE mesh with one surface per material
-(131 draw calls -> 8), apply node transforms, scale to game metres. Positions + normals only (the city shader
-maps its panel detail in world space, so no UVs are needed).
+(131 draw calls -> 8), apply node transforms, scale to game metres. Keeps UVs when the export has them. Embedded
+images are dropped: the game loads the textures as separate files so their import settings can be controlled.
 usage: bake_glb.py in.glb out.glb [scale]"""
 import json, struct, sys
 import numpy as np
@@ -40,8 +40,9 @@ def walk(i, M):
             P = (P @ M[:3, :3].T + M[:3, 3]) * scale
             N = N @ np.linalg.inv(M[:3, :3]); N /= np.maximum(np.linalg.norm(N, axis=1, keepdims=True), 1e-9)
             if np.linalg.det(M[:3, :3]) < 0: I = I[:, ::-1]
-            g = groups.setdefault(p.get("material", 0), [[], [], [], 0])
+            g = groups.setdefault(p.get("material", 0), [[], [], [], 0, []])
             g[0].append(P); g[1].append(N); g[2].append(I + g[3]); g[3] += len(P)
+            g[4].append(acc(p["attributes"]["TEXCOORD_0"]).astype(float) if "TEXCOORD_0" in p["attributes"] else None)
     for c in nd.get("children", []): walk(c, M)
 for r in j["scenes"][j.get("scene", 0)]["nodes"]: walk(r, np.eye(4))
 
@@ -57,12 +58,14 @@ for m in sorted(groups):
     P = np.concatenate(groups[m][0]).astype("<f4"); N = np.concatenate(groups[m][1]).astype("<f4"); I = np.concatenate(groups[m][2]).reshape(-1)
     tris += len(I) // 3
     big = len(P) > 65535
-    prims.append({"attributes": {"POSITION": push(P, 34962, "VEC3", 5126, True), "NORMAL": push(N, 34962, "VEC3", 5126)},
+    at = {"POSITION": push(P, 34962, "VEC3", 5126, True), "NORMAL": push(N, 34962, "VEC3", 5126)}
+    if all(u is not None for u in groups[m][4]): at["TEXCOORD_0"] = push(np.concatenate(groups[m][4]).astype("<f4"), 34962, "VEC2", 5126)
+    prims.append({"attributes": at,
         "indices": push(I.astype("<u4" if big else "<u2"), 34963, "SCALAR", 5125 if big else 5123), "material": m})
 while len(out) % 4: out.append(0)
 name = dst.split("/")[-1].split(".")[0]
 g = {"asset": {"version": "2.0", "generator": "homelancer bake_glb"}, "scene": 0, "scenes": [{"nodes": [0]}], "nodes": [{"name": name, "mesh": 0}],
-    "meshes": [{"name": name, "primitives": prims}], "materials": [{k: v for k, v in mt.items() if k != "extensions"} for mt in j["materials"]],
+    "meshes": [{"name": name, "primitives": prims}], "materials": [{"name": mt.get("name", "m"), "pbrMetallicRoughness": {k: v for k, v in mt.get("pbrMetallicRoughness", {}).items() if not k.endswith("Texture")}} for mt in j["materials"]],
     "accessors": accs, "bufferViews": views, "buffers": [{"byteLength": len(out)}]}
 js = json.dumps(g, separators=(",", ":")).encode(); js += b" " * (-len(js) % 4)
 open(dst, "wb").write(struct.pack("<III", 0x46546C67, 2, 12 + 8 + len(js) + 8 + len(out)) + struct.pack("<II", len(js), 0x4E4F534A) + js

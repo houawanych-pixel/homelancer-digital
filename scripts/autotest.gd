@@ -458,9 +458,9 @@ func _city_visit() -> void:
 	# B-01 command tower: the Blender build, merged to one mesh, from the city pack; solid like the rest
 	var tw := cb.get_node_or_null("B01Tower") as MeshInstance3D
 	var tw_in: Vector3 = cb.to_global(Vector3(49, 60, -180))
-	_check("B-01 command tower is the Blender model (city pack), one mesh, solid", tw != null and tw.mesh.get_surface_count() == City.TOWER_MATS.size()
+	_check("B-01 command tower is the textured Blender model (city pack), one draw call, solid", tw != null and tw.mesh.get_surface_count() == 1 and (tw.material_override as ORMMaterial3D).normal_texture != null
 		and cb.get_node_or_null("B01StandIn") == null and s.city_push(tw_in, 6.0) != Vector3.ZERO and tw.get_aabb().size.y > 115.0,
-		"%d surfaces, %.0f x %.0f x %.0f m" % [tw.mesh.get_surface_count() if tw else 0, tw.get_aabb().size.x if tw else 0.0, tw.get_aabb().size.y if tw else 0.0, tw.get_aabb().size.z if tw else 0.0])
+		"%d surface, colour + bump + glow maps, %.0f x %.0f x %.0f m" % [tw.mesh.get_surface_count() if tw else 0, tw.get_aabb().size.x if tw else 0.0, tw.get_aabb().size.y if tw else 0.0, tw.get_aabb().size.z if tw else 0.0])
 	# mechs for scale: 1 on a road, 2 abreast on the bridge, a group passing under it and 4 crossing the intersection
 	var mechs: Array = []
 	var spots := [[Vector3(140, City.DECK, -220), 0.0], [Vector3(134, City.DECK, -110), 0.0], [Vector3(146, City.DECK, -95), PI],

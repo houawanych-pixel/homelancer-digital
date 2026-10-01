@@ -113,21 +113,22 @@ The current "Aquila / Solara Jump Gate" objects are technically warp gates (buil
 - **Kit (8 modules):** 01 straight road · 02 four-way intersection · 03 merge / on-ramp (2×4 cells, ramp from the
   plaza) · 04 mega bridge (1×3, 120 m span) · 05 square platform · 06 rectangular platform · 07 stair bridge ·
   08 B-01 command tower.
-- **B-01 is the first Blender-built asset (Job R).** Built on the owner's laptop in Blender from the blueprint,
-  exported as `B01_tower.glb` (source kept in `art/models/`). `tools/city/bake_glb.py in.glb out.glb 2.0` merges its
-  131 parts into ONE mesh with 8 material surfaces and scales it to game metres (77 × 61 m foot, 119 m to the mast
-  tips, 2,852 triangles). It ships in the `city` pack and wears the shared city shader, so it matches the kit. Its
-  front faces the platform; a deck-height gangway joins it to the platform. Collision is 8 boxes. Until the pack
-  is in, those same boxes are drawn as a plain stand-in. The exported GLB has no UVs, so the painted atlas from
-  Blender is not used yet (a later texture pass needs UVs in the export).
+- **B-01 is the first Blender-built asset (Job R).** Built on the owner's laptop in Blender from the blueprint and
+  exported as `B01_tower_textured.glb` (source kept in `art/models/`): ONE mesh, 1,976 triangles, UV-mapped, with
+  its own baked colour, normal (bump), roughness/metal and glow maps. `tools/city/bake_glb.py in.glb out.glb 2.0`
+  scales it to game metres (77 × 61 m foot, 119 m to the mast tips) and strips the embedded images; the four maps
+  ship as separate files (colour + normal 1024 px, the other two 512 px). All of it is in the `city` pack. One draw
+  call. Its front faces the platform; a deck-height gangway joins it to the platform. Collision is 8 boxes; until
+  the pack is in, those boxes are drawn as a plain stand-in. Texture detail is ~4 px per game metre: good from
+  flying distance, soft right against a wall.
 - **Pipeline for the next building:** export GLB from Blender → put it in Drive "Home Lancer Models" → bake →
   add to `assets/city/` → place in the block.
 - **One test block** in New Terra's city sector, ~1 km north-west of Port Meridian, on its own flattened ground.
   The rest of New Terra keeps all its biomes (the canyon/desert references are ONE biome).
 - **One material family:** one shader, five settings (white armour, dark structure, blue glass, amber, road). Panel
   seams, grooves, bolts, vents and window cells come from one 512 px normal map + mask, tiled in world space.
-- **Cost:** ~815 instanced parts + the tower, ~12.3k triangles, 21 draw calls up close / 12 at range (small parts drop out past
-  1.1 km), 203 collision boxes. `city` pack ~0.2 MB, +1.8 MB GPU on the planet, nothing in the core download.
+- **Cost:** ~815 instanced parts + the tower, ~11.5k triangles, 14 draw calls up close / 8 at range (small parts drop out past
+  1.1 km), 203 collision boxes. `city` pack 0.5 MB (tower maps add ~11 MB GPU while on the planet), +1.8 MB GPU on the planet, nothing in the core download.
 - **Not done on purpose:** no more buildings, no hangar/comms/defence modules, no villain art. Waiting for review.
 
 ## 12. Owner requests, Oct 1 voice call
