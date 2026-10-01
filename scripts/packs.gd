@@ -14,6 +14,8 @@ const PACKS := {
 	"mechs": {"folders": ["res://assets/mechs"], "probe": "res://assets/mechs/tan_navy_mecha.glb"},
 	"planets": {"folders": ["res://assets/terrain"], "probe": "res://assets/terrain/ground_albedo.jpg"},
 	"lancer": {"folders": ["res://assets/ships/player"], "match": "lancer", "probe": "res://assets/ships/player/lancer.glb"},
+	"enemies": {"folders": ["res://assets/enemy_pilots"], "probe": "res://assets/enemy_pilots/ax01_normal.jpg"},
+	"city": {"folders": ["res://assets/city"], "probe": "res://assets/city/capital_normal.png"},
 }
 
 var state := {}   # name -> "ready" | "loading" | "failed"

@@ -48,7 +48,7 @@ func _ready() -> void:
 	_load_system("solara", "station")
 	space.controls = false
 	# optional content arrives in the background after the game is up (see scripts/packs.gd)
-	get_tree().create_timer(1.5).timeout.connect(func(): for pk in ["mechs", "lancer", "planets"]: Packs.request(pk))
+	get_tree().create_timer(1.5).timeout.connect(func(): for pk in ["enemies", "mechs", "lancer", "planets"]: Packs.request(pk))
 	autotest = "--autotest" in OS.get_cmdline_user_args() or _web_flag("autotest")
 	if autotest:
 		var runner: Node = load("res://scripts/autotest.gd").new()
@@ -118,6 +118,7 @@ func _connect_space() -> void:
 	space.system_used.connect(func(sid, txt): hud.flash_message(txt); hud.pulse(sid))
 	space.hail.connect(_on_hail)
 	space.enemy_hail.connect(_on_enemy_hail)
+	space.enemy_chatter.connect(_on_enemy_chatter)
 	hud.space = space
 
 func _on_gs_changed() -> void:
@@ -352,6 +353,15 @@ func _on_enemy_hail(p: Dictionary) -> void:
 	if leader in GS.met and randf() < 0.35: call_character(leader, true)
 	else: _pilot_call(p)
 
+## A generic pilot (AX-01..06, flying under a named leader) on the same radio: short line, NORMAL or DAMAGED
+## portrait from the enemies pack (waveform until the pack is there). Never cuts off a named leader mid-sentence.
+func _on_enemy_chatter(p: Dictionary, line: String) -> void:
+	if hud.comms_open and hud.comms_mode != "incoming": return
+	if hud.comms_open and not hud.comms_generic and hud.comms_timer > 3.0: return
+	hud.open_comms("%s — %s pilot · %s's wing" % [p["unit"], p["type"], p["leader"]], line, "incoming", true,
+		"gp/" + p["id"], float(p["voice"]), bool(p["female"]))
+	hud.comms_timer = 3.5
+
 func _on_hail(from: String, line: String, hostile: bool) -> void:
 	if hud.comms_open and hud.comms_mode != "incoming": return
 	var leader: String = Data.ENEMY_LEADER[space.sys["enemy"]]
@@ -544,6 +554,7 @@ func enter_atmosphere(planet_node: Node3D) -> void:
 	tw.parallel().tween_method(func(k: float): space.hit_shake = 0.35 + 0.4 * k, 0.0, 1.0, 1.4)
 	tw.tween_property(fx, "clouds", 1.0, 0.5)
 	await tw.finished
+	Packs.request("city")
 	if not Packs.is_ready("planets"):
 		fx.caption = "ENTERING ATMOSPHERE"
 		fx.sub = "Receiving surface data…"
@@ -647,6 +658,7 @@ func descend_to(pid: String, loc_id: String) -> void:
 	fx.fade = 1.0
 	fx.caption = "DESCENDING"
 	fx.sub = "%s  ·  %s" % [l["name"].to_upper(), l["role"].to_upper()]
+	Packs.request("city")
 	if not Packs.is_ready("planets"):
 		fx.sub = "Receiving surface data…"
 		await Packs.wait("planets", 90.0)

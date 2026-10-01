@@ -64,6 +64,11 @@ var call_cd := 0.0
 var _particle_acc := 0.0
 signal hail(from: String, line: String, hostile: bool)
 signal enemy_hail(pilot: Dictionary)
+signal enemy_chatter(pilot: Dictionary, line: String)   # a generic pilot's short radio line ("[normal]..." / "[damaged]...")
+var chatter_cd := 0.0
+var last_chatter := {}      # {pilot, event, state, line} of the latest generic chatter (route test / debugging)
+var _warp_spotted := false
+var _group_serial := 0
 const TAUNTS := ["Give up, cadet. Power down and we might let you drift home.",
 	"Nice ship. It'll look better in our colours.",
 	"You're a long way from your patrol, little lancer.",
@@ -611,6 +616,8 @@ func start_transform() -> String:
 		return "loading"
 	transform_to = to
 	transform_t = 0.001
+	var ge := _nearest_generic(1600.0)
+	if not ge.is_empty(): _chatter(ge, "enemy_transforming", true)
 	_swapped = false
 	engine_kill = false
 	Sfx.play("transform", -2.0)
@@ -700,12 +707,69 @@ func _mech_move(dt: float, thrust: Vector2, base_speed: float) -> void:
 		model.rotation.z = lerpf(model.rotation.z, -deg_to_rad(side_k * 10.0), minf(1.0, dt * 4.0))
 		Sections.pose_mech(player_vis, clampf(8.0 + fwd_k * 14.0, -15.0, 55.0), dt)
 
-func _spawn_group(center: Vector3, count: int) -> void:
+func _spawn_group(center: Vector3, count: int) -> Array:
+	# a fight already going on nearby, or the player close: the new group announces itself as reinforcements
+	var busy := enemies.any(func(o): return o["aggro"]) or (is_instance_valid(player) and player.global_position.distance_to(center) < 2500.0 and time > 1.0)
+	_group_serial += 1
+	var group: Array = []
+	var leader := ""
 	for i in count:
 		# the last ship of a pair or bigger group is sometimes an assault mech
 		var kind: String = sys["enemy"]
 		if count >= 2 and i == count - 1 and _rng.randf() < 0.5 and Packs.is_ready("mechs"): kind = "mech"
-		spawn_unit(kind, center + Vector3(_rng.randf_range(-60, 60), _rng.randf_range(-20, 20), _rng.randf_range(-60, 60)), center)
+		var e := spawn_unit(kind, center + Vector3(_rng.randf_range(-60, 60), _rng.randf_range(-20, 20), _rng.randf_range(-60, 60)), center)
+		e["group"] = _group_serial
+		# the first ship flies under a NAMED squad leader (Scar Jackal, Iron Revenant...); everyone else is a generic
+		# pilot in that leader's wing
+		if i == 0 and e["node"].has_meta("pilot"): leader = e["node"].get_meta("pilot")["name"]
+		elif i > 0: _make_generic(e, leader)
+		group.append(e)
+	if busy and group.size() > 1: _chatter(group[-1], "reinforcements", true)
+	return group
+
+## Give a unit a generic pilot (AX-01..06) flying under the named leader. Keeps NORMAL until its health falls to
+## GENERIC_HURT, then DAMAGED for the rest of the encounter.
+func _make_generic(e: Dictionary, leader: String) -> void:
+	var g: Dictionary = Data.GENERIC_PILOTS[(_enemy_serial * 7 + _group_serial) % Data.GENERIC_PILOTS.size()].duplicate()
+	g["generic"] = true
+	g["leader"] = leader if leader != "" else ("Shade" if sys.get("enemy", "") == "raider" else "Hoard")
+	e["pilot"] = g
+	e["pstate"] = "normal"
+	e["node"].set_meta("pilot", g)
+
+## Total health share 0..1 (core + both sides), the number a generic pilot's portrait state follows.
+static func unit_health(e: Dictionary) -> float:
+	var tot := float(e["max"]) + 2.0 * float(e["side_max"])
+	return clampf((maxf(0.0, float(e["hp"])) + maxf(0.0, float(e["l"])) + maxf(0.0, float(e["r"]))) / tot, 0.0, 1.0)
+
+## Latch NORMAL -> DAMAGED at or below GENERIC_HURT. Never flips back, so the portrait cannot flicker around 50 %.
+func _update_pilot_state(e: Dictionary) -> void:
+	if e.get("pstate", "") == "normal" and unit_health(e) <= Data.GENERIC_HURT: e["pstate"] = "damaged"
+
+## One short radio line from a generic pilot. Important events (force) skip the chatter cooldown.
+func _chatter(e: Dictionary, ev: String, force := false) -> bool:
+	var p: Dictionary = e.get("pilot", {})
+	if p.is_empty() or not controls: return false
+	if not force and chatter_cd > 0.0: return false
+	chatter_cd = 3.5
+	var lines: Array = Data.CHATTER[ev]
+	var line: String = lines[_rng.randi() % lines.size()]
+	if ev == "critical_damage" and e["pstate"] == "damaged" and _rng.randf() < 0.5: line = p["hurt"]
+	last_chatter = {"pilot": p, "event": ev, "state": e["pstate"], "line": line}
+	enemy_chatter.emit(p, "[%s]%s" % [e["pstate"], line])
+	return true
+
+## The nearest generic pilot that is in the fight (for events about the player: warp, transform).
+func _nearest_generic(r: float) -> Dictionary:
+	var best := {}
+	var bd := r
+	for e in enemies:
+		if e.get("pilot", {}).is_empty() or not e["aggro"]: continue
+		var d: float = (e["node"] as Node3D).global_position.distance_to(player.global_position)
+		if d < bd:
+			bd = d
+			best = e
+	return best
 
 ## Spawn one hostile ship or mech with three sections (left / core / right).
 func spawn_unit(kind: String, pos: Vector3, home: Vector3) -> Dictionary:
@@ -799,6 +863,7 @@ func _update_player(dt: float) -> void:
 	shield_delay = maxf(0.0, shield_delay - dt)
 	hit_shake = maxf(0.0, hit_shake - dt * 2.5)
 	call_cd = maxf(0.0, call_cd - dt)
+	chatter_cd = maxf(0.0, chatter_cd - dt)
 	GS.energy = minf(Data.ENERGY_MAX, GS.energy + Data.ENERGY_REGEN * dt)
 	for k in ["shield_cd", "energy_cd", "repair_cd", "missile_cd", "mine_cd"]: set(k, maxf(0.0, float(get(k)) - dt))
 	if GS.wing_l <= 0.0 or GS.wing_r <= 0.0:
@@ -1070,6 +1135,8 @@ func fire_missile(heavy := false) -> bool:
 		return false
 	if heavy: GS.heavy_missiles -= 1
 	else: GS.missiles -= 1
+	var te := _enemy_entry(t)
+	if te.has("pilot"): _chatter(te, "missile_incoming", true)
 	GS.changed.emit()
 	var mi: Node3D
 	if ShipFactory.has_real_model("missile"):
@@ -1206,9 +1273,11 @@ func _damage_enemy(e: Dictionary, dmg: float, hit := Vector3.INF) -> void:
 	e["aggro"] = true
 	e["sh_cd"] = 4.0
 	var at: Vector3 = e["node"].global_position if hit == Vector3.INF else hit
+	var had_shield := float(e["sh"]) > 0.0
 	var to_shield := minf(dmg, float(e["sh"]))
 	e["sh"] = float(e["sh"]) - to_shield
 	var to_hull := dmg - to_shield
+	if e.has("pilot"): _generic_hit(e, had_shield, to_hull)
 	if to_shield > 0.0:
 		_spark(at, Color(0.4, 0.8, 1.0), 9.0, 0.22)   # shield flare
 		_popup(at, "-%d" % roundi(to_shield), Color(0.45, 0.85, 1.0))
@@ -1229,9 +1298,34 @@ func _damage_enemy(e: Dictionary, dmg: float, hit := Vector3.INF) -> void:
 	Sfx.play("hull_hit", -12.0, 1.3)
 	if e["hp"] <= 0.0: _destroy_unit(e)
 
+## Generic pilot reactions to being hit. Hull effects (state latch, critical, retreat) are checked once this hit
+## has been applied (deferred to the end of the frame).
+func _generic_hit(e: Dictionary, had_shield: bool, to_hull: float) -> void:
+	if not e.get("hit_said", false):
+		e["hit_said"] = true
+		_chatter(e, "taking_fire")
+	elif had_shield and float(e["sh"]) <= 0.0 and float(e["sh_max"]) > 0.0 and not e.get("sh_said", false):
+		e["sh_said"] = true
+		_chatter(e, "shields_failing")
+	if to_hull > 0.0: _after_hull_hit.call_deferred(e)
+
+func _after_hull_hit(e: Dictionary) -> void:
+	if not enemies.has(e): return
+	_update_pilot_state(e)
+	if unit_health(e) <= 0.25 and not e.get("crit_said", false):
+		e["crit_said"] = true
+		# alone and badly hurt: falls back for a few seconds; otherwise just calls it in
+		if not enemies.any(func(o): return o != e and o.get("group", -1) == e.get("group", -2)):
+			e["retreat"] = 6.0
+			_chatter(e, "retreat", true)
+		else: _chatter(e, "critical_damage", true)
+
 ## A wing or arm reaches zero: one sharp explosion at that side, the part vanishes, its weapon stops.
 func _break_section(e: Dictionary, side: String) -> void:
 	e[side] = 0.0
+	if e.has("pilot"):
+		_update_pilot_state(e)
+		_chatter(e, "arm_damaged" if e["mech"] else "wing_damaged", true)
 	var model: Node3D = e["model"]
 	var p := Sections.side_point(e["vis"], side, model)
 	var dd := p.distance_to(player.global_position)
@@ -1251,6 +1345,10 @@ func _destroy_unit(e: Dictionary) -> void:
 	_explode(n.global_position)
 	_spark(n.global_position, Color(1.0, 0.95, 0.85), 40.0, 0.35)
 	enemies.erase(e)
+	# the wing reacts: the leader went down, or a wingmate did
+	var mates: Array = enemies.filter(func(o): return o.get("group", -1) == e.get("group", -2) and o.has("pilot"))
+	if not mates.is_empty():
+		_chatter(mates[0], "regroup" if e.has("pilot") else "leader_down", not e.has("pilot"))
 	var reward: int = e["def"]["reward"]
 	_drop_loot(n.global_position, reward)
 	enemy_killed.emit(reward, n.name)
@@ -1286,6 +1384,7 @@ func _player_hit(dmg: float, hit := Vector3.INF) -> void:
 
 func _update_enemies(dt: float) -> void:
 	var ppos := player.global_position
+	if warp_state != "charging": _warp_spotted = false
 	_laser_sfx_cd -= dt
 	for pu in popups:
 		pu["life"] -= dt
@@ -1301,12 +1400,19 @@ func _update_enemies(dt: float) -> void:
 		var was: bool = e["aggro"]
 		var spotting := warp_state == "charging" and dist < 1600.0   # they see the warp charge and come to stop you
 		if dist < 650.0 or e["aggro"] or spotting: e["aggro"] = dist < (1600.0 if spotting else 1400.0)
-		if e["aggro"] and not was and call_cd <= 0.0 and controls and warp_state != "on":
+		if e.has("pilot"):
+			# generic pilots chatter instead of hailing; named leaders keep the full hail below
+			if e["aggro"] and not was and warp_state != "on": _chatter(e, "target_acquired")
+			if spotting and not _warp_spotted and _chatter(e, "enemy_warp", true): _warp_spotted = true
+			e["retreat"] = maxf(0.0, float(e.get("retreat", 0.0)) - dt)
+		elif e["aggro"] and not was and call_cd <= 0.0 and controls and warp_state != "on":
 			call_cd = 30.0
 			if n.has_meta("pilot"): enemy_hail.emit(n.get_meta("pilot"))
 			else: hail.emit("%s pilot" % d["name"], TAUNTS[_rng.randi() % TAUNTS.size()], true)
 		var goal: Vector3
-		if e["aggro"] and controls:
+		if float(e.get("retreat", 0.0)) > 0.0:
+			goal = n.global_position - to.normalized() * 400.0 + Vector3(0, 60, 0)   # falling back
+		elif e["aggro"] and controls:
 			# attack run: approach, then peel off to the side and come back around
 			var side: Vector3 = player.global_basis.x * float(e["strafe"]) * 90.0
 			goal = ppos + side if dist > 140.0 else n.global_position - to.normalized() * 200.0 + side
@@ -1428,6 +1534,7 @@ func _collisions(dt: float) -> void:
 			atmo_depth = clampf((outer2 - d2) / (outer2 - inner), 0.0, 1.0) if warp_state == "off" else 0.0
 			if atmo_depth > 0.0:
 				Packs.request("planets")
+				Packs.request("city")    # small; city blocks upgrade to the full capital material when it lands
 				if not _atmo_rumbled:
 					_atmo_rumbled = true
 					Sfx.play("atmo", -10.0, 0.8)
@@ -1834,6 +1941,8 @@ func hostiles_near(r: float) -> int:
 ## around the player is different. planet/gate become hidden placeholders; the tile's town pad is the dockable "station".
 func setup_surface(pid: String, t: int) -> void:
 	surface_mode = true
+	Packs.request("city")
+	if not Packs.pack_ready.is_connected(_on_pack_ready): Packs.pack_ready.connect(_on_pack_ready)
 	planet_id = pid
 	sys_id = Surface.PLANETS[pid]["system"]
 	sys = Data.SYSTEMS[sys_id]
@@ -1950,6 +2059,15 @@ func load_tile(t: int, keep := Vector3.INF) -> void:
 	if keep == Vector3.INF: _update_camera(1.0, true)
 	_corners = Surface.wrap_corners(planet_id, t)
 	_prepared.clear()
+	# city blocks: simple box collision (decks, pillars, tower blocks) in this tile's space
+	city_solids.clear()
+	city_bounds = AABB()
+	var cb := tile_root.get_node_or_null("CapitalBlock")
+	if cb:
+		for a: AABB in cb.get_meta("solids"):
+			var w := AABB(a.position + cb.position, a.size)
+			city_solids.append(w)
+			city_bounds = w if city_bounds.size == Vector3.ZERO else city_bounds.merge(w)
 
 func _apply_sky(c: Dictionary, _k: float) -> void:
 	_sky.sky_top_color = c["sky"]
@@ -1961,6 +2079,32 @@ func _apply_sky(c: Dictionary, _k: float) -> void:
 
 var _corners: Array = []
 var _prepared := {}
+var city_solids: Array = []   # AABBs of the city block in this tile (see City)
+
+## The city pack arrived after the block was built: swap its flat colours for the shared capital material.
+func _on_pack_ready(pk: String) -> void:
+	if pk != "city" or not is_instance_valid(tile_root): return
+	var cb := tile_root.get_node_or_null("CapitalBlock")
+	if cb: City.refresh(cb)
+var city_bounds := AABB()
+
+## Keep a body of radius r out of the city's solid boxes. Landing on top of a box (a deck, the plaza, a roof)
+## works like the ground; hitting a side pushes you back out. Returns the push applied.
+func city_push(p: Vector3, r: float) -> Vector3:
+	if city_solids.is_empty() or not city_bounds.grow(r).has_point(p): return Vector3.ZERO
+	var push := Vector3.ZERO
+	for a: AABB in city_solids:
+		var g := a.grow(r)
+		if not g.has_point(p + push): continue
+		var q := p + push
+		var opts := [[g.end.y - q.y, Vector3.UP], [q.x - g.position.x, Vector3.LEFT], [g.end.x - q.x, Vector3.RIGHT],
+			[q.z - g.position.z, Vector3.FORWARD], [g.end.z - q.z, Vector3.BACK], [q.y - g.position.y, Vector3.DOWN]]
+		var best: Array = opts[0]
+		if best[0] > 3.0:   # well below the top: push out sideways (or down) the shortest way instead
+			for o in opts.slice(1):
+				if o[0] < best[0]: best = o
+		push += (best[1] as Vector3) * best[0]
+	return push
 var corner_haze := 0.0   # 0..1 inside the wrap-corner cloud bank
 
 func _ground(x: float, z: float) -> float:
@@ -1980,6 +2124,13 @@ func _surface_update(_dt: float) -> void:
 		if impact > 20.0 and controls:
 			_player_hit(impact * 0.25)
 			message.emit("Terrain impact! Pull up.")
+	var cp := city_push(player.global_position, 6.0)
+	if cp != Vector3.ZERO:
+		player.global_position += cp
+		var nrm := cp.normalized()
+		var into := vel.dot(nrm)
+		if into < 0.0: vel -= nrm * into   # stop moving into the wall / deck
+		if nrm.y > 0.7: altitude = 0.0
 	for e in enemies:
 		var n: Node3D = e["node"]
 		var ef := _ground(n.global_position.x, n.global_position.z) + 30.0

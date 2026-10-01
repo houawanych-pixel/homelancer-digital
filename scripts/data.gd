@@ -151,3 +151,33 @@ const PILOTS := {
 	],
 }
 const ENEMY_LEADER := {"raider": "voss", "corsair": "kessler"}
+
+# Generic enemy pilots: the rank and file who fly UNDER the named squad leaders above (they never replace them).
+# Portraits AX-01..06 from the "enemy comms portraits" sheet, two states each: assets/enemy_pilots/<id>_normal.jpg and
+# <id>_damaged.jpg (cracked mask). They live in the "enemies" content pack, not the core download.
+# "hurt" = the line they say once their mask has cracked (from the reference sheet).
+const GENERIC_PILOTS := [
+	{"id": "ax01", "unit": "AX-01", "type": "Standard", "voice": 0.9, "female": false, "hurt": "...Still in the fight..."},
+	{"id": "ax02", "unit": "AX-02", "type": "Recon", "voice": 1.1, "female": false, "hurt": "Target... acquired..."},
+	{"id": "ax03", "unit": "AX-03", "type": "Desert", "voice": 0.8, "female": false, "hurt": "...Cover me..."},
+	{"id": "ax04", "unit": "AX-04", "type": "Arctic", "voice": 1.2, "female": true, "hurt": "We're not done yet..."},
+	{"id": "ax05", "unit": "AX-05", "type": "Jungle", "voice": 0.75, "female": false, "hurt": "...Hold the line..."},
+	{"id": "ax06", "unit": "AX-06", "type": "Elite", "voice": 1.0, "female": true, "hurt": "You'll regret this..."},
+]
+const GENERIC_HURT := 0.5   # NORMAL above this share of total health, DAMAGED at or below (latched: never flips back)
+# Short combat chatter by event. Named leaders keep their own personality lines (PILOTS / CHARACTERS).
+const CHATTER := {
+	"target_acquired": ["Target acquired.", "Contact. Engaging.", "Eyes on the target."],
+	"taking_fire": ["Taking fire!", "I'm hit!", "He's on me!"],
+	"shields_failing": ["Shields failing!", "Shields are down!"],
+	"wing_damaged": ["Wing damaged!", "Lost a wing — still flying!"],
+	"arm_damaged": ["Arm's gone!", "Lost an arm — still fighting!"],
+	"regroup": ["Regroup on me!", "Form up — regroup!"],
+	"retreat": ["I'm pulling out!", "Retreat — falling back!"],
+	"missile_incoming": ["Missile incoming!", "Missile lock — break!"],
+	"leader_down": ["Leader's down!", "We lost the leader!"],
+	"reinforcements": ["Reinforcements inbound.", "More of us coming — hold on."],
+	"enemy_transforming": ["He's transforming!", "Target's changing shape!"],
+	"enemy_warp": ["He's spooling warp — stop him!", "Warp signature! Don't let him jump!"],
+	"critical_damage": ["Critical damage!", "Hull critical — I can't hold!"],
+}

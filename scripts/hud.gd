@@ -44,6 +44,7 @@ var comms_face := ""        # portrait set id (assets/portraits/<face>_<expr>.pn
 var comms_expr := "normal"
 var comms_voice := 1.0
 var comms_female := false
+var comms_generic := false   # a generic enemy pilot (face "gp/<id>") is on the line
 var _faces := {}
 var contacts: Array = []
 var history: Array = [] # recent messages and calls for LOG
@@ -84,6 +85,7 @@ func open_comms(from: String, line: String, mode := "talk", hostile := false, fa
 		comms_expr = line.substr(1, line.find("]") - 1)
 		line = line.substr(line.find("]") + 1).strip_edges()
 	comms_face = face
+	comms_generic = face.begins_with("gp/")
 	comms_line = line
 	comms_voice = voice if face != "" else (0.8 if hostile else 1.0)
 	comms_female = female
@@ -120,6 +122,10 @@ func close_roster() -> void:
 
 func _face_tex(face: String, expr: String) -> Texture2D:
 	var k := face + "_" + expr
+	if face.begins_with("gp/"):   # generic enemy pilot: enemies pack, normal / damaged only; not cached until it exists
+		var gp := "res://assets/enemy_pilots/%s_%s.jpg" % [face.substr(3), "damaged" if expr == "damaged" else "normal"]
+		if _faces.get(k) == null: _faces[k] = load(gp) if ResourceLoader.exists(gp) else null
+		return _faces[k]
 	if not _faces.has(k):
 		var path := "res://assets/portraits/%s.png" % k
 		_faces[k] = load(path) if ResourceLoader.exists(path) else null

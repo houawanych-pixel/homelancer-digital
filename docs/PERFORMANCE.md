@@ -15,7 +15,7 @@ Measured on commit 9b2028f (live build at the time of the audit) and again after
 | index.wasm (Godot 4.3 engine; gzip on the wire) | 35.4 MB → 8.0 MB | same |
 | index.pck (game core) | 14.4 MB | **9.7 MB** |
 | **Initial transfer** | **22.4 MB** | **17.8 MB** |
-| Optional packs (fetched in background or on demand) | none | mechs 0.9 MB · planets 0.8 MB · lancer 1.4 MB |
+| Optional packs (fetched in background or on demand) | none | mechs 1.85 MB · planets 0.8 MB · lancer 1.4 MB · enemies 0.2 MB · city 0.04 MB |
 
 Biggest files in the core pck (before):
 | File | Size | What uses it | Needed at start? |

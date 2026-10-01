@@ -91,7 +91,37 @@ The current "Aquila / Solara Jump Gate" objects are technically warp gates (buil
 - **Startup screen:** the same white-and-blue network slowly pans, the HOMELANCER letters resolve in, then a strong START.
 - **Creator space (idea only, not approved):** a white abstract world of blue networks, for simulation, training or system construction. Kept here; nothing to build until it's approved.
 
-## 9. Implementation order (from the master spec)
+## 9. Generic enemy pilots (Job O)
+- **Hierarchy:** every patrol is led by a NAMED squad leader (Scar Jackal, Ember Wraith, Iron Revenant, Frost Banshee;
+  bosses Shade and Hoard above them). The other ships and mechs in the group are GENERIC pilots AX-01..06 (Standard,
+  Recon, Desert, Arctic, Jungle, Elite) "in that leader's wing". Named leaders keep their portraits, lines and hails.
+- **Two portrait states:** NORMAL (intact mask) above 50 % total health, DAMAGED (cracked mask) at or below 50 %.
+  The switch is latched for the encounter, so it never flickers around 50 %.
+- **Chatter** on the same radio window, 3.5 s lines: target acquired, taking fire, shields failing, wing / arm damaged,
+  regroup, retreat (alone and below 25 %: falls back for 6 s), missile incoming, leader down, reinforcements, enemy
+  transforming, enemy entering warp, critical damage. A generic line never cuts off a named leader mid-sentence.
+- **Loading:** portraits are the `enemies` pack (0.2 MB), fetched in the background after start. Until it's there,
+  the radio shows the waveform instead of a face.
+
+## 10. Capital city prototype (Job O) — review before building more
+- **Built with Godot primitives** (no Blender in this environment): `scripts/city.gd`. Proves scale, connections,
+  gameplay and performance, not final art.
+- **Modular grid:** 40 m cells. Every elevated road / platform surface is at 20 m; every road and platform connection
+  is 24 m wide (2 mech lanes of 12 m) with 3 m parapets. 17.5 m clear under decks, 15 m under the mega bridge's truss.
+  Mechs are 11 m tall and 6.6 m wide: one per lane, two abreast per road, groups pass underneath.
+  Pedestrian stairs are 4 m wide and separate (too narrow for a mech).
+- **Kit (8 modules):** 01 straight road · 02 four-way intersection · 03 merge / on-ramp (2×4 cells, ramp from the
+  plaza) · 04 mega bridge (1×3, 120 m span) · 05 square platform · 06 rectangular platform · 07 stair bridge ·
+  08 B-01 command tower blockout (40×40 m footprint, roof 100 m, spire to 120 m, wings at deck height for platforms).
+- **One test block** in New Terra's city sector, ~1 km north-west of Port Meridian, on its own flattened ground.
+  The rest of New Terra keeps all its biomes (the canyon/desert references are ONE biome).
+- **One material family:** one shader, five settings (white armour, dark structure, blue glass, amber, road). Panel
+  seams, grooves, bolts, vents and window cells come from one 512 px normal map + mask, tiled in world space.
+- **Cost:** ~840 instanced parts, ~9.7k triangles, 11 draw calls up close / 8 at range (small parts drop out past
+  1.1 km), 201 collision boxes. `city` pack 37 KB, +1.8 MB GPU on the planet, nothing in the core download.
+- **Not done on purpose:** no more buildings, no hangar/comms/defence modules, no villain art. Waiting for review.
+
+## 11. Implementation order (from the master spec)
 1. Optimized public build (Job L) ✔
 2. Real Samsung loading test — **waiting for the report** (Copy details)
 3. Content-pack streaming ✔

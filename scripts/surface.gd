@@ -57,7 +57,10 @@ const PLANETS := {
 				"desc": "Unity garrison high in the western range."},
 			{"id": "iron_foundry", "name": "Iron Foundry", "kind": "planet", "role": "Mission zone", "tile": 7, "pos": Vector2(500, 400),
 				"desc": "Abandoned smelters. Pirates hide gunships in the stacks."},
-		]},
+		],
+		# capital city prototype (scripts/city.gd): one test block on flattened ground in the city sector, ~1 km
+		# north-west of Port Meridian. The rest of the planet keeps its own biomes.
+		"city_blocks": [{"id": "capital_block", "name": "Capital Test Block", "tile": 4, "pos": Vector2(-700, -250)}]},
 	"eden_prime": {"name": "Eden Prime", "system": "vega", "grid": 2,
 		"tiles": ["jungle", "coast", "volcanic", "jungle"],
 		"locations": [
@@ -192,7 +195,29 @@ static func sample(planet_id: String, gx: float, gz: float) -> Array:
 		if d < 900.0:
 			var kk := clampf((d - 450.0) / 450.0, 0.0, 1.0)
 			h = lerpf(pad_height(planet_id, tc), h, kk * kk)
+	for cb in city_blocks_in(planet_id, tc):
+		var d2 := Vector2(lx, lz).distance_to(cb["pos"])
+		if d2 < CITY_FLAT + 300.0:
+			var k2 := clampf((d2 - CITY_FLAT) / 300.0, 0.0, 1.0)
+			h = lerpf(pad_height(planet_id, tc), h, k2 * k2)
 	return [h, col]
+
+const CITY_FLAT := 380.0   # fully flat radius under a city block (the test block's plaza is 440 x 520 m)
+
+static func city_blocks_in(planet_id: String, tile: int) -> Array:
+	return PLANETS[planet_id].get("city_blocks", []).filter(func(c): return int(c["tile"]) == tile)
+
+static var _block_cache := {}
+## The capital test block standing on its flattened ground (plaza top just above the terrain).
+static func capital_block(planet_id: String, tile: int, cb: Dictionary) -> Node3D:
+	if not _block_cache.has(cb["id"]): _block_cache[cb["id"]] = City.test_block()
+	var block: Dictionary = _block_cache[cb["id"]]
+	var n := City.instantiate(block)
+	var pc: Vector3 = (block["plaza"] as AABB).get_center()
+	n.position = Vector3(cb["pos"].x - pc.x, pad_height(planet_id, tile) + 0.3, cb["pos"].y - pc.z)
+	n.name = "CapitalBlock"
+	n.set_meta("block", block)
+	return n
 
 static func _smooth(t: float) -> float:
 	t = clampf(t, 0.0, 1.0)
@@ -292,6 +317,7 @@ static func build_tile(planet_id: String, tile: int) -> Node3D:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(key)
 	for l in locations_in(planet_id, tile): _settlement(root, planet_id, tile, l, rng)
+	for cb in city_blocks_in(planet_id, tile): root.add_child(capital_block(planet_id, tile, cb))
 	for c in wrap_corners(planet_id, tile): _corner_cloud(root, planet_id, tile, c, rng)
 	if PLANETS[planet_id]["tiles"][tile] in ["desert", "mountains", "wasteland", "volcanic", "industrial", "ice"]:
 		_landmarks(root, planet_id, tile, rng)
