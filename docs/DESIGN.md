@@ -127,8 +127,8 @@ The current "Aquila / Solara Jump Gate" objects are technically warp gates (buil
   upside-down doesn't feel flipped. Check it in mech form too.
 - **Default cruise:** a centred left stick holds a default cruise speed (Freelancer style). Push = faster, pull = slower
   or reverse. It no longer slows to a stop.
-- **STOP button removed;** its slot stays empty for now.
-- **Transform button moves** — the owner wants it "where the icon is". Which icon still needs confirming.
+- **STOP button removed.** The TRANSFORM button (MECH / SHIP) takes its place: top-left, second row, beside WARP.
+  The MECH pill in the centre row goes away.
 
 **Missions (Freelancer-style)**
 - **Mission board, two types:** SEEK AND DESTROY (clear every wave) and BOUNTY (one wave hides a named face).
