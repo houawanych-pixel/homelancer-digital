@@ -301,14 +301,24 @@ func _call_target() -> void:
 var on_call := ""   # who you're talking to (for typed messages)
 
 ## You typed into the comms console: whoever is on the line answers.
-func _on_typed(_txt: String) -> void:
+func _on_typed(txt: String) -> void:
 	var side := "r" if hud.slot("r").get("mode", "") == "talk" else ("l" if hud.slot("l").get("mode", "") == "talk" else "")
 	if on_call == "" or side == "":
 		hud.flash_message("Message logged — nobody is on the line. Call someone from LOG first.")
 		return
 	var who := on_call
-	await get_tree().create_timer(1.2).timeout
-	if hud.slot(side).get("mode", "") == "talk": call_character(who)
+	var ctx := {"system": GS.system_id, "hostiles": space.hostiles_near(900.0), "hull": GS.hull / GS.max_hull(), "kills": GS.kills,
+		"credits": GS.credits, "on_planet": space.surface_mode}
+	await get_tree().create_timer(0.9).timeout   # a beat before they answer
+	if hud.slot(side).get("mode", "") != "talk": return
+	Brain.ask(who, txt, ctx, func(line: String): say_as(who, line))
+
+## Put a line in a character's mouth (comms screen, face, voice). The brain's replies come through here.
+func say_as(id: String, line: String) -> void:
+	var c: Dictionary = Data.CHARACTERS[id]
+	on_call = id
+	hud.open_comms("%s — %s" % [c["name"], c["role"]], line, "talk", GS.mood.get(id, "friendly") == "enraged",
+		c.get("face", ""), float(c.get("voice", 1.0)), bool(c.get("female", false)))
 
 func call_character(id: String, incoming := false) -> void:
 	var c: Dictionary = Data.CHARACTERS[id]

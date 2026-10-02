@@ -232,3 +232,16 @@ about 10–30k triangles.
     only. The route test checks that opening it loads nothing (+0 resources, packs untouched).
 - Startup screen ✔ (Job N): white field, the blue network panning, the HOMELANCER letters resolving one by one, then START.
   The web loading page now uses the same white and blue.
+
+## 14. NPC chat brain (built, no AI model)
+
+`scripts/brain.gd`. Type to a contact in the comms console and they answer in character.
+- **Persona** per contact (`Brain.PERSONAS`): who they are, temper, greed, warmth, what they know.
+- **Understanding:** the typed line becomes an intent (greet, help, place, work, trade, who, status, thanks, apology,
+  insult, threat, surrender, bribe, bye) plus a topic (station, gate, belt, nebula, planet, raiders, corsairs).
+- **Memory** (`GS.memory`, this session): talks, trust, insults, threats. Trust changes the tone (warm / cool / cold).
+- **Context:** system, hostiles near you, hull, kills.
+- **Reply step is swappable:** `Brain.responder` can be pointed at a relay + language model later; `Brain.payload()`
+  is what it would send (persona, memory, context, the pilot's line). No key in the game. Offline always works.
+- **Not yet:** replies change words only, not gameplay (no real tribute payment, no calling off attackers), memory is
+  not saved between sessions, generic pilots cannot be typed to.

@@ -382,6 +382,13 @@ func _flight_and_comms() -> void:
 	await _shot("comms_console", 0.2)
 	_check("Comms console: pulls up from a tap, contact list (in-system only), chat log, typing", console_up and logged and hud.in_range("vale") and not hud.in_range("amari"),
 		"vale in range %s, amari (Vega) in range %s" % [hud.in_range("vale"), hud.in_range("amari")])
+	main.on_call = "vale"   # with Vale on the line, a typed question gets an answer from the brain
+	main.call_character("vale")
+	hud._typer.text_submitted.emit("Where is the warp gate?")
+	await _wait(1.3)
+	var answered: bool = str(hud.slot("r").get("line", "")).find("Aquila") >= 0
+	_check("Typing to a contact on the line gets an in-character answer", answered, str(hud.slot("r").get("line", "")).left(80))
+	await _shot("comms_brain_answer", 0.2)
 	_press("log")
 	await _wait(0.4)
 	hud.close_comms()
@@ -530,6 +537,40 @@ func _city_visit() -> void:
 	cam.queue_free()
 	if prev: prev.make_current()
 	main.hud.visible = true
+
+## NPC chat brain: understands what was typed, answers in character, remembers the pilot. No network.
+func _npc_brain() -> void:
+	var u1: Dictionary = Brain.understand("Where is the warp gate?")
+	var u2: Dictionary = Brain.understand("I'm going to kill you, coward")
+	var u3: Dictionary = Brain.understand("Mayday, I need help!")
+	var u4: Dictionary = Brain.understand("name your price, I'll pay tribute")
+	_check("NPC brain understands typed messages (place, threat, help, bribe)", u1["intent"] == "place" and u1["topic"] == "gate" and u2["intent"] == "threat"
+		and u3["intent"] == "help" and u4["intent"] == "bribe", "%s/%s, %s, %s, %s" % [u1["intent"], u1["topic"], u2["intent"], u3["intent"], u4["intent"]])
+	GS.memory.clear()
+	GS.meet("vale", "friendly")
+	GS.meet("voss", "enraged")
+	var ctx := {"system": "solara", "hostiles": 2}
+	var got: Array = []
+	var take := func(line: String): got.append(line)
+	Brain.ask("vale", "Where is the warp gate?", ctx, take)
+	Brain.ask("voss", "Where is the warp gate?", ctx, take)
+	Brain.ask("vale", "Mayday, I need help!", ctx, take)
+	var in_char: bool = got.size() == 3 and (got[0] as String).find("Aquila") >= 0 and got[0] != got[1] and (got[2] as String).find("2 hostiles") >= 0 and (got[0] as String).begins_with("[")
+	_check("NPC brain answers in character from what each one knows", in_char, "Vale: %s | Shade: %s" % [got[0] if got.size() > 0 else "", got[1] if got.size() > 1 else ""])
+	var t0 := float(Brain.memory("voss")["trust"])
+	Brain.ask("voss", "You pathetic coward", ctx, take)
+	Brain.ask("voss", "shut up, scum", ctx, take)
+	var mem: Dictionary = Brain.memory("voss")
+	var pay: Dictionary = Brain.payload("voss", "hello", ctx)
+	_check("NPC brain remembers the pilot (trust falls with insults) and can hand off to a model later", float(mem["trust"]) < t0 and int(mem["insults"]) == 2 and int(mem["talks"]) == 3
+		and Brain.feeling("voss") == "cold" and (pay["persona"] as String).find("Shade") >= 0 and pay.has("memory") and not Brain.responder.is_valid(),
+		"trust %.2f -> %.2f, %d insults, last line: %s" % [t0, float(mem["trust"]), int(mem["insults"]), got[-1]])
+	# swap the responder (what a relay / language model would plug into), then put it back
+	Brain.responder = func(_id: String, _t: String, _c: Dictionary, done: Callable): done.call("[normal]MODEL LINE")
+	Brain.ask("vale", "hello", ctx, take)
+	Brain.responder = Callable()
+	_check("NPC brain reply step is swappable", got[-1] == "[normal]MODEL LINE", "custom responder answered")
+	GS.memory.clear()
 
 ## Warping at a planet: warning first, then the ship is destroyed at the atmosphere line (towed to the station).
 func _warp_into_planet() -> void:
@@ -802,6 +843,7 @@ func _run() -> void:
 	await _generic_pilots()
 	await _city_kit()
 	await _flight_and_comms()
+	_npc_brain()
 	# ---- dock at station
 	_check("Station docking", await _dock_at(s.station), s.station.name)
 	await _wait(0.8)

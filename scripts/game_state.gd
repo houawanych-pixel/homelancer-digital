@@ -30,6 +30,7 @@ var last_base := "liberty_hub"
 var kills := 0
 var met: Array = [] # character ids, most recent first
 var mood := {} # id -> friendly | neutral | enraged
+var memory := {} # id -> what that character remembers about you (see scripts/brain.gd)
 var god_mode := false # only used by the automated route test
 
 func ship() -> Dictionary: return Data.SHIPS[ship_id]
