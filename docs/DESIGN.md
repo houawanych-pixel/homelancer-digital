@@ -314,3 +314,14 @@ picture -> 360) then `tools/sky/fix_pano.py` (poles).
 - **Not yet (needs art or a decision):** walking NPC sprites (6 s loops, mirrored), three face stills per character and
   moods, typing/voice to people in rooms, sticks for look/pan, hotspots that pull the view closer, contracts, cargo
   trading, renting the room, marker positions tuned by the owner.
+
+## 17. Intro screen: the looping collage (Oct 2)
+
+The start screen pans slowly through the owner's faction collage and loops for as long as the player waits (one loop
+is about 6 minutes at `Title.PAN_SPEED = 14`). The collage is one 16:9 picture, front on top and back on the bottom.
+`tools/rooms/make_overlap_strip.py collage.png out.jpg 44 521 537 1.274` joins them the owner's way: at each join the
+next view is laid over the previous one for 160 px and faded in with a transparency ramp. No mirroring. (The two
+halves have different heights, so the back is scaled and the front's top trimmed until the trooper lines meet.)
+It is the small `intro` pack (`assets/intro/title_collage.jpg`, 2920 x 400), requested at once; the old white network
+strip from the core download shows for the first moment and the collage fades in over it. The logo and START sit on a
+soft dark band. (The white-network intro strip and the white secret system were tried and discarded.)

@@ -869,7 +869,12 @@ func _run() -> void:
 	await _wait(1.5)
 	_publish("title")
 	await _shot("title", 1.0)
-	_check("Start screen: the owner's white network picture, slowly panning", main.title.bg != null and main.title.bg.resource_path.ends_with("title_network.jpg"))
+	await Packs.wait("intro", 60.0)
+	await _wait(1.2)
+	await _shot("title_collage", 0.2)
+	var tw: float = main.title.art.get_width() * (get_viewport().get_visible_rect().size.y / main.title.art.get_height()) if main.title.art else 0.0
+	_check("Start screen: the owner's collage as one looping strip, panning slowly", main.title.art != null and main.title.art.resource_path.ends_with("title_collage.jpg")
+		and main.title.art.get_width() > 2500 and main.title.art_k >= 1.0 and tw / main.title.PAN_SPEED > 120.0, "one loop takes %.0f s" % (tw / main.title.PAN_SPEED))
 	main.start_game()
 	_check("Godot boot + START", await _until(func(): return main.state == "flight", 10.0))
 	await _wait(1.0)

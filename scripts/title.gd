@@ -1,6 +1,7 @@
 extends Control
-## Startup screen: the owner's white-and-blue star network picture as a seamless strip that slowly pans (a
-## panorama), the HOMELANCER letters resolving one by one, then a strong START.
+## Startup screen: the owner's faction collage as one long strip (front + back views overlapped and cross-faded at
+## the joins, tools/rooms/make_overlap_strip.py) that pans slowly and loops for as long as the player waits; the
+## HOMELANCER letters resolve one by one over a dark band, then a strong START.
 
 signal start_pressed
 
@@ -9,7 +10,10 @@ const WORD := "HOMELANCER"
 var t := 0.0
 var font: Font = ThemeDB.fallback_font
 var start_btn: Button
-var bg: Texture2D = load("res://assets/ui/title_network.jpg")   # mirrored strip: the two ends meet seamlessly
+var bg: Texture2D = load("res://assets/ui/title_network.jpg")   # small stand-in from the core download, shown first
+var art: Texture2D = null   # the collage strip ("intro" pack): fades in over the stand-in as soon as it arrives
+var art_k := 0.0
+const ART := "res://assets/intro/title_collage.jpg"
 const PAN_SPEED := 14.0   # pixels per second at 720 p
 
 func _ready() -> void:
@@ -33,9 +37,18 @@ func _ready() -> void:
 	start_btn.modulate.a = 0.0
 	start_btn.pressed.connect(func(): start_pressed.emit())
 	add_child(start_btn)
+	Packs.pack_ready.connect(_take_art)
+	Packs.request("intro")
+	_take_art()
+
+func _take_art(pk := "intro") -> void:
+	if pk == "intro" and art == null and Packs.is_ready("intro") and ResourceLoader.exists(ART): art = load(ART)
 
 func _process(dt: float) -> void:
 	t += dt
+	if art != null and art_k < 1.0:
+		art_k = minf(1.0, art_k + dt / 0.9)
+		if art_k >= 1.0: bg = null   # the stand-in is no longer drawn
 	var S := get_viewport_rect().size
 	start_btn.position = Vector2(S.x * 0.5 - 160, S.y * 0.62)
 	start_btn.modulate.a = clampf((t - 2.1) / 0.5, 0.0, 1.0)   # START appears once the logo has resolved
@@ -43,14 +56,24 @@ func _process(dt: float) -> void:
 
 func _draw() -> void:
 	var S := get_viewport_rect().size
-	# slow pan through the network picture; it repeats seamlessly
-	var ks := S.y / bg.get_height() if bg else 1.0
-	var w := bg.get_width() * ks if bg else S.x
-	var x0 := -fposmod(t * PAN_SPEED * ks, w)
-	while bg and x0 < S.x:
-		draw_texture_rect(bg, Rect2(x0, 0, w, S.y), false)
-		x0 += w
-	draw_rect(Rect2(Vector2.ZERO, S), Color(1, 1, 1, 0.38))   # soften behind the logo
+	# slow pan through the picture; it repeats seamlessly and loops for as long as the player waits
+	for layer in [[bg, 1.0], [art, art_k]]:
+		var tx: Texture2D = layer[0]
+		if tx == null or float(layer[1]) <= 0.0: continue
+		var ks := S.y / tx.get_height()
+		var w := tx.get_width() * ks
+		var x0 := -fposmod(t * PAN_SPEED, w)
+		while x0 < S.x:
+			draw_texture_rect(tx, Rect2(x0, 0, w, S.y), false, Color(1, 1, 1, layer[1]))
+			x0 += w
+	# a dark band behind the logo and the button so they read over busy art; the art stays clear above and below
+	var steps := 48
+	for i in steps:
+		var v := (i + 0.5) / steps
+		var a := 0.62 * pow(sin(v * PI), 1.6)
+		var y0 := floorf(S.y * (0.2 + 0.62 * i / steps))
+		var y1 := floorf(S.y * (0.2 + 0.62 * (i + 1) / steps))   # whole pixels, edge to edge: no overlap lines
+		draw_rect(Rect2(0, y0, S.x, y1 - y0), Color(0.01, 0.02, 0.06, a))
 	# the letters resolve one after another: each fades in and settles from a slight offset
 	var size := clampi(int(S.y * 0.13), 56, 110)
 	var total := font.get_string_size(WORD, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x + (WORD.length() - 1) * size * 0.18
@@ -60,13 +83,15 @@ func _draw() -> void:
 		var ch := WORD[i]
 		var k := clampf((t - 0.25 - i * 0.14) / 0.45, 0.0, 1.0)
 		var e := k * k * (3.0 - 2.0 * k)
-		draw_string(font, Vector2(x, y + (1.0 - e) * 18.0), ch, HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(GM.NAVY, e))
+		draw_string(font, Vector2(x, y + (1.0 - e) * 18.0), ch, HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(1, 1, 1, e))
 		x += font.get_string_size(ch, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x + size * 0.18
 	var k2 := clampf((t - 1.8) / 0.5, 0.0, 1.0)
-	draw_line(Vector2(S.x * 0.5 - total * 0.5 * k2, y + 22), Vector2(S.x * 0.5 + total * 0.5 * k2, y + 22), Color(GM.MID, k2), 2.0)
-	draw_string(font, Vector2(0, y + 52), "DIGITAL  ·  %s" % Data.VERSION, HORIZONTAL_ALIGNMENT_CENTER, S.x, 18, Color(GM.DEEP, k2))
-	draw_string(font, Vector2(0, S.y - 26), "Landscape · left thumb flies · right thumb aims · lasers fire on their own", HORIZONTAL_ALIGNMENT_CENTER, S.x, 14, Color(GM.MID, k2))
+	draw_line(Vector2(S.x * 0.5 - total * 0.5 * k2, y + 22), Vector2(S.x * 0.5 + total * 0.5 * k2, y + 22), Color(0.45, 0.8, 1.0, k2), 2.0)
+	draw_string(font, Vector2(0, y + 52), "DIGITAL  ·  %s" % Data.VERSION, HORIZONTAL_ALIGNMENT_CENTER, S.x, 18, Color(0.75, 0.9, 1.0, k2))
+	draw_rect(Rect2(0, S.y - 46, S.x, 46), Color(0.01, 0.02, 0.06, 0.55 * k2))
+	draw_string(font, Vector2(0, S.y - 18), "Landscape · left thumb flies · right thumb aims · lasers fire on their own", HORIZONTAL_ALIGNMENT_CENTER, S.x, 14, Color(0.85, 0.93, 1.0, k2))
 
 ## Once the game starts, let go of the picture so it doesn't sit in GPU memory.
 func release() -> void:
 	bg = null
+	art = null
