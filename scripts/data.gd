@@ -44,6 +44,11 @@ const ATMO_INNER := 1.02  # planet radius x: entry sphere (commits to the surfac
 const WARP_MULT := 6.0 # x ship speed
 const THRUST_MULT := 2.0 # afterburner x ship speed
 const CRUISE := 0.55     # default cruise (x ship speed) with the left stick centred; full back = stop
+# The sun (see docs/DESIGN.md §15): a sphere far out toward the system's edge, with a billboard glow on it.
+const SUN_DIST := 7500.0         # from the system centre; the gate is ~4200 out, so it is well past everything
+const SUN_RADIUS := 300.0        # the sphere: touching it destroys the ship
+const SUN_WARN := 4.0            # heat warning inside this many radii
+const SUN_BLOOM_RANGE := 5000.0  # the screen bloom builds over this distance
 const THRUST_ENERGY := 14.0 # per second
 const ENERGY_BOOST_COOLDOWN := 3.0
 # The six cockpit systems. AUTO = the ship triggers it when needed; MANUAL = tap the panel.

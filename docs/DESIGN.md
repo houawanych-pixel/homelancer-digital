@@ -275,10 +275,15 @@ This replaces the clustered node network of §7–8 as the foundation. Marked EA
 
 **Build order**
 1. Grid data: tiles, void tiles, wrap, gate links (replaces Galaxy.CLUSTERS); galaxy map draws the board.
-2. Sun: sphere + billboard, bloom by angle and distance, kill on contact.
+2. Sun: sphere + billboard, bloom by angle and distance, kill on contact. ✔ built
 3. Travel between neighbouring tiles by warp, with the wrap.
 4. Void breadcrumbs and the hidden systems.
 5. Sun interior (needs the heat shield item).
+
+**BUILT: the sun (Job T).** An invisible sphere (300 m radius) 7,500 m from the system centre, opposite the gate side,
+with a bright core and a billboard glow on it. The view blooms the closer and more head-on you look at it and clears
+when you look away. Inside 4 radii: HEAT WARNING. Touching the sphere destroys the ship (unless `GS.heat_shield`, which
+nothing sells yet: that is the hook for the sun-interior idea). Numbers are `Data.SUN_*`, easy to tune.
 
 **BUILT now: a painted sky per system.** `assets/sky/<system>.jpg` (the `sky` pack, 2048 x 1024, ~8 MB GPU each, only the
 current system's is loaded). Solara = the owner's magenta nebula, Vega = the teal and coral one; the existing warp gate

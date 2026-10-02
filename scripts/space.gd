@@ -48,6 +48,10 @@ var altitude := 0.0
 var _water := false
 var atmo_depth := 0.0     # 0 outside a planet's outer atmosphere .. 1 at the entry sphere
 var planet_hazard := 0    # 0 none, 1 warp near planet (warning), 2 warp impact
+var sun_pos := Vector3.INF      # where the sun's sphere sits (INF = no sun here, e.g. on a planet)
+var sun_glow: MeshInstance3D
+var sun_flare := 0.0            # 0..1: how hard the sun blooms on screen (looking at it, and close)
+var sun_hazard := 0             # 0 none, 1 heat warning, 2 burned up
 var _atmo_rumbled := false
 var _edge_warned := false
 var _sky: ProceduralSkyMaterial
@@ -229,23 +233,41 @@ func _build_environment() -> void:
 	var d: Vector3 = (sys["sun_dir"] as Vector3).normalized()
 	sun.look_at_from_position(Vector3.ZERO, d, Vector3.UP)
 	add_child(sun)
-	# visible star disc + glow, far away opposite the light direction
+	# The sun: an invisible sphere holds its place (and is the kill line); a bright core you can see from anywhere
+	# and a billboard glow ride on it. It sits far out, toward the edge of the system but not on the border.
+	sun_pos = -d * Data.SUN_DIST
+	var core := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = Data.SUN_RADIUS
+	sm.height = Data.SUN_RADIUS * 2.0
+	sm.radial_segments = 24
+	sm.rings = 12
+	core.mesh = sm
+	var cm := StandardMaterial3D.new()
+	cm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	cm.albedo_color = (sys["star"] as Color).lerp(Color.WHITE, 0.6)
+	core.material_override = cm
+	core.name = "SunCore"
+	core.position = sun_pos
+	core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(core)
 	var glow := MeshInstance3D.new()
 	var q := QuadMesh.new()
-	q.size = Vector2(1400, 1400)
+	q.size = Vector2.ONE * Data.SUN_RADIUS * 9.0
 	glow.mesh = q
 	var m := StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	m.albedo_texture = _radial_texture(sys["star"], 0.18)
-	m.no_depth_test = false
+	m.billboard_keep_scale = true
+	m.albedo_texture = _radial_texture(sys["star"], 0.0)
 	glow.material_override = m
 	glow.name = "Sun"
-	glow.position = -d * 9000.0
+	glow.position = sun_pos
 	glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(glow)
+	sun_glow = glow
 	cam = Camera3D.new()
 	cam.far = 14000.0
 	cam.near = 0.5
@@ -857,6 +879,7 @@ func _process(dt: float) -> void:
 	_collisions(dt)
 	if surface_mode: _surface_update(dt)
 	_update_camera(dt, false)
+	_update_sun(dt)
 	_ambient_anim(dt)
 	if not is_instance_valid(target): target = null
 	if target == null or target.get_meta("kind", "") != "enemy": _auto_target()
@@ -867,6 +890,32 @@ func _process(dt: float) -> void:
 			respawn_timer = 0.0
 			for p in sys["patrols"]:
 				if p.distance_to(player.global_position) > 700.0: _spawn_group(p, 2)
+
+## The sun: blooms the closer and the more head-on you look at it; warns inside the heat zone; the sphere destroys the ship.
+func _update_sun(dt: float) -> void:
+	if surface_mode or sun_pos == Vector3.INF or not is_instance_valid(cam):
+		sun_flare = 0.0
+		sun_hazard = 0
+		return
+	var to := sun_pos - cam.global_position
+	var dist := to.length()
+	var surf := maxf(dist - Data.SUN_RADIUS, 0.0)
+	var facing := clampf(((-cam.global_basis.z).dot(to / maxf(dist, 1.0)) - 0.82) / 0.18, 0.0, 1.0)
+	var near := clampf(1.0 - surf / Data.SUN_BLOOM_RANGE, 0.0, 1.0)
+	var want := facing * facing * (0.12 + 0.88 * near * near)
+	sun_flare = lerpf(sun_flare, want, clampf(dt * 5.0, 0.0, 1.0))
+	if is_instance_valid(sun_glow): sun_glow.scale = Vector3.ONE * (1.0 + 0.9 * sun_flare + 0.06 * sin(time * 1.7))
+	var pd := (sun_pos - player.global_position).length()
+	var was := sun_hazard
+	sun_hazard = 1 if pd < Data.SUN_RADIUS * Data.SUN_WARN else 0
+	if sun_hazard == 1 and was == 0: message.emit("Hull temperature rising — turn away from the star!")
+	if pd < Data.SUN_RADIUS and controls and not GS.heat_shield:
+		sun_hazard = 2
+		message.emit("Burned up in the star.")
+		_explode(player.global_position)
+		controls = false
+		if warp_state != "off": drop_warp()
+		player_destroyed.emit()
 
 func _update_player(dt: float) -> void:
 	var s: Dictionary = GS.ship()
