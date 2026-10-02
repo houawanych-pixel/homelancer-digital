@@ -538,6 +538,23 @@ func _city_visit() -> void:
 	if prev: prev.make_current()
 	main.hud.visible = true
 
+## Each system wears its own painted 360 sky (the "sky" pack), made from the owner's nebula pictures.
+func _system_sky(shot: String) -> void:
+	var s := _sp()
+	var tex: Texture2D = s._pano.panorama if s._pano else null
+	var ok: bool = tex != null and tex.get_width() == 2048 and tex.resource_path == s.sky_path()
+	main.hud.visible = false
+	var keep_yaw: float = s.yaw
+	var keep_pitch: float = s.pitch
+	s._face(Vector3(0, 0.15, -1))
+	await _shot(shot + "_ahead", 0.5)
+	s._face(Vector3(0, 0.1, 1))
+	await _shot(shot + "_behind", 0.5)
+	s.yaw = keep_yaw
+	s.pitch = keep_pitch
+	main.hud.visible = true
+	_check("%s has its own painted 360 sky" % Data.SYSTEMS[GS.system_id]["name"], ok, "%s, %d px wide" % [s.sky_path().get_file(), tex.get_width() if tex else 0])
+
 ## NPC chat brain: understands what was typed, answers in character, remembers the pilot. No network.
 func _npc_brain() -> void:
 	var u1: Dictionary = Brain.understand("Where is the warp gate?")
@@ -844,6 +861,7 @@ func _run() -> void:
 	await _city_kit()
 	await _flight_and_comms()
 	_npc_brain()
+	await _system_sky("sky_solara")
 	# ---- dock at station
 	_check("Station docking", await _dock_at(s.station), s.station.name)
 	await _wait(0.8)
@@ -929,6 +947,7 @@ func _run() -> void:
 	_check("Jump gate to Vega", GS.system_id == "vega" and "vega" in GS.discovered)
 	await _wait(1.0)
 	await _shot("vega_arrival")
+	await _system_sky("sky_vega")
 	s = _sp()
 	_check("Vega dock", await _dock_at(s.station), s.station.name)
 	await _wait(0.5)

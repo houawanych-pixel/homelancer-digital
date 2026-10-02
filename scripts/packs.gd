@@ -16,6 +16,7 @@ const PACKS := {
 	"lancer": {"folders": ["res://assets/ships/player"], "match": "lancer", "probe": "res://assets/ships/player/lancer.glb"},
 	"enemies": {"folders": ["res://assets/enemy_pilots"], "probe": "res://assets/enemy_pilots/ax01_normal.jpg"},
 	"city": {"folders": ["res://assets/city"], "probe": "res://assets/city/capital_normal.png"},
+	"sky": {"folders": ["res://assets/sky"], "probe": "res://assets/sky/solara.jpg"},
 	"cockpit": {"folders": ["res://assets/cockpit"], "probe": "res://assets/cockpit/cockpit_b.png"},
 }
 

@@ -10,3 +10,11 @@
   colour, so looking straight up or down shows no pinch.
 - `--preview` renders forward / behind (the seam) / up / down, after and before, into one contact sheet. Check it.
 - Only numpy, scipy and Pillow. The owner's images: clouds only, no stars (stars are drawn in code).
+
+## Portrait or non-2:1 pictures
+
+    python3 tools/sky/portrait_to_pano.py in.jpg raw.png            # 2048 wide; picture ahead + dimmer echo behind
+    python3 tools/sky/fix_pano.py raw.png out.jpg --width 2048 --seam 0.02 --pole 0.12 --preview check.jpg
+
+Then roll the result by half its width if the main cloud should face -Z (toward the gate) and save it as
+`assets/sky/<system id>.jpg` (the "sky" pack; lossy import, no mipmaps). 2048 x 1024 costs ~8 MB of GPU memory.

@@ -209,7 +209,12 @@ func _build_environment() -> void:
 	e.background_mode = Environment.BG_SKY
 	var sky := Sky.new()
 	var pano := PanoramaSkyMaterial.new()
-	pano.panorama = _star_panorama(sys["sky_tint"], sys["nebula"]["color"])
+	_pano = pano
+	# the system's own painted sky (the "sky" pack, assets/sky/<system>.jpg); stars-and-haze made in code until it arrives
+	if Packs.is_ready("sky") and ResourceLoader.exists(sky_path()): pano.panorama = load(sky_path())
+	else:
+		pano.panorama = _star_panorama(sys["sky_tint"], sys["nebula"]["color"])
+		if not Packs.pack_ready.is_connected(_on_sky_pack): Packs.pack_ready.connect(_on_sky_pack)
 	sky.sky_material = pano
 	e.sky = sky
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
@@ -247,6 +252,11 @@ func _build_environment() -> void:
 	cam.fov = 70.0
 	cam.current = true
 	add_child(cam)
+
+var _pano: PanoramaSkyMaterial
+func sky_path() -> String: return "res://assets/sky/%s.jpg" % sys_id
+func _on_sky_pack(pk: String) -> void:
+	if pk == "sky" and _pano != null and not surface_mode and ResourceLoader.exists(sky_path()): _pano.panorama = load(sky_path())
 
 func _star_panorama(tint: Color, band: Color) -> ImageTexture:
 	var w := 1024

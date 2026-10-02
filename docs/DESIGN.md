@@ -245,3 +245,42 @@ about 10–30k triangles.
   is what it would send (persona, memory, context, the pilot's line). No key in the game. Offline always works.
 - **Not yet:** replies change words only, not gameplay (no real tribute payment, no calling off attackers), memory is
   not saved between sessions, generic pilots cannot be typed to.
+
+## 15. Galaxy foundation: the checkerboard (owner + Grok notes, Oct 1) — PLAN, the next galaxy job
+
+Source: the end of the Drive doc "HOMELANCER — Master Game + Galaxy Bible" (Sun & Star Map), plus the owner's voice notes.
+This replaces the clustered node network of §7–8 as the foundation. Marked EARLY where the owner said so.
+
+**The board**
+- The star map is a checkerboard grid. Each tile is one star system. Some tiles are VOID (no star).
+- Tiles are named like a board: column letter + row number (A1 .. e.g. A12).
+- **Full Pac-Man wrap on every edge.** Fly off the bottom of A12 and you arrive at the top of A1, same column; the same
+  left to right. No walls anywhere. This is the wrap the planet surface tiles already use, applied to the whole board.
+- Tile to tile takes about an hour of plain flying. Warp speed tiers shorten it.
+- Jump gates link system A to system B. Some systems have NO gate: warp is the only way in.
+- Beyond the grid is the void buffer, about an hour out.
+
+**Each system**
+- Its own painted 360 sky (BUILT, see below).
+- A sun: a billboard glow that always faces the player, held in place by an invisible sphere. It sits FAR out, near the
+  edge of the system but NOT on the border (space remains beyond it). It looks bigger only because you get closer; cap the
+  size so it never looks cartoon-huge at normal range. The flare blooms harder the closer and more head-on you fly.
+  Touching the sphere destroys the ship (exact kill distance to tune in game). The sun is separate from the sky picture.
+- EARLY: with a heat-shield upgrade the sun stops killing you and becomes a place: entering loads a small, self-looping
+  magma tile (wavy heat haze, rolling magma floor, yellow atmosphere glow = your heat shield working). Light on content.
+
+**The void (EARLY)**
+- Two opposite hidden systems (spooky/shadow and beautiful "god" system), in opposite corners or anywhere in void tiles.
+- Breadcrumbs: nebula gets thicker the closer you are; golden ring-shaped formations replace asteroids near secrets.
+
+**Build order**
+1. Grid data: tiles, void tiles, wrap, gate links (replaces Galaxy.CLUSTERS); galaxy map draws the board.
+2. Sun: sphere + billboard, bloom by angle and distance, kill on contact.
+3. Travel between neighbouring tiles by warp, with the wrap.
+4. Void breadcrumbs and the hidden systems.
+5. Sun interior (needs the heat shield item).
+
+**BUILT now: a painted sky per system.** `assets/sky/<system>.jpg` (the `sky` pack, 2048 x 1024, ~8 MB GPU each, only the
+current system's is loaded). Solara = the owner's magenta nebula, Vega = the teal and coral one; the existing warp gate
+jumps between them. The code-made star sky shows until the pack arrives. Tools: `tools/sky/portrait_to_pano.py` (portrait
+picture -> 360) then `tools/sky/fix_pano.py` (poles).

@@ -49,7 +49,7 @@ func _ready() -> void:
 	_load_system("solara", "station")
 	space.controls = false
 	# optional content arrives in the background after the game is up (see scripts/packs.gd)
-	get_tree().create_timer(1.5).timeout.connect(func(): for pk in ["enemies", "cockpit", "mechs", "lancer", "planets"]: Packs.request(pk))
+	get_tree().create_timer(1.5).timeout.connect(func(): for pk in ["sky", "enemies", "cockpit", "mechs", "lancer", "planets"]: Packs.request(pk))
 	autotest = "--autotest" in OS.get_cmdline_user_args() or _web_flag("autotest")
 	if autotest:
 		var runner: Node = load("res://scripts/autotest.gd").new()
@@ -375,6 +375,11 @@ func _unhandled_input(e: InputEvent) -> void:
 
 ## An enemy pilot (face from the enemy dossiers) taunts you over the radio.
 func _pilot_call(p: Dictionary, incoming := true) -> void:
+	if not p.has("lines"):   # a generic wing pilot: no personal lines, they answer with squad chatter
+		var ch: Array = Data.CHATTER["target_acquired"]
+		hud.open_comms("%s — %s pilot · %s's wing" % [p["unit"], p["type"], p.get("leader", "?")], ch[randi() % ch.size()],
+			"incoming" if incoming else "talk", true, "gp/" + str(p["id"]), float(p["voice"]), bool(p["female"]))
+		return
 	var lines: Array = p["lines"]
 	hud.open_comms("%s — Unit %s" % [p["name"], p["unit"]], lines[randi() % lines.size()], "incoming" if incoming else "talk", true,
 		p["face"], float(p["voice"]), bool(p["female"]))
