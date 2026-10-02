@@ -295,3 +295,22 @@ ceiling returns you to space just outside the star's heat zone.
 current system's is loaded). Solara = the owner's magenta nebula, Vega = the teal and coral one; the existing warp gate
 jumps between them. The code-made star sky shows until the pack arrives. Tools: `tools/sky/portrait_to_pano.py` (portrait
 picture -> 360) then `tools/sky/fix_pano.py` (poles).
+
+## 16. Station interiors: panorama rooms (owner + Grok "Design Notes 1-4", Oct 2) — first build
+
+`scripts/rooms.gd`, pictures in the `rooms` pack (`assets/rooms/<id>.jpg`, ~0.43 MB each, ~6 MB GPU, one loaded at a time).
+- **A room is one strip:** the owner's 16:9 picture has the FRONT view on the top half and the BACK view on the bottom
+  half; `tools/rooms/make_strip.py in.png out.jpg --preview joins.png` joins them into ONE long strip, front | bridge | back | bridge (3664 x 464). The two
+  views are separate paintings, so each join gets a 160 px bridge: lighting matched, each side continued by its
+  mirror image, cut where the two differ least, and blended (owner-approved; mirrored lettering at a join is accepted).
+  Pictures WITHOUT the split (information sheets) are not rooms.
+- **Looking around:** drag sideways, it scrolls forever (wraps); drag up/down tilts a little. No floor or ceiling.
+- **Markers:** tap a sign, door or person. Doors zoom in, swap the picture while zoomed, zoom out (no loading screen).
+  Dealer signs open the existing dealer screens; their STATION button returns to the room you left.
+- **Built for Liberty Hub (Unity):** Main Hub H-01, Docking Bay H-06 (LAUNCH), Mission Center, Trade Market, Unity Bar,
+  Hangar (inspect your ship), Apartment A-721. Stations without rooms keep the old hub page. Until the pack arrives the
+  old page shows.
+- **People:** Cmdr. Vale in the Mission Center answers from the chat brain (§14); other people say a fixed line.
+- **Not yet (needs art or a decision):** walking NPC sprites (6 s loops, mirrored), three face stills per character and
+  moods, typing/voice to people in rooms, sticks for look/pan, hotspots that pull the view closer, contracts, cargo
+  trading, renting the room, marker positions tuned by the owner.

@@ -605,6 +605,62 @@ func _system_sky(shot: String) -> void:
 	main.hud.visible = true
 	_check("%s has its own painted 360 sky" % Data.SYSTEMS[GS.system_id]["name"], ok, "%s, %d px wide" % [s.sky_path().get_file(), tex.get_width() if tex else 0])
 
+## Station interior as panorama rooms: look around (wraps), tap markers, zoom through doors, dealer screens, talk.
+func _station_rooms() -> void:
+	await Packs.wait("rooms", 60.0)
+	var hub: Control = main.hub
+	hub.show_screen("hub")
+	var rm: Rooms = hub.rooms
+	await _wait(0.3)
+	var in_room: bool = hub.has_rooms() and rm.visible and rm.room == "main_hub" and rm.tex != null and rm.tex.get_width() > 3000 and not hub.content.visible
+	await _shot("room_main_hub_front", 0.2)
+	# look around: the picture scrolls and wraps forever, the tilt is limited
+	var p0: float = rm.pan
+	for i in 40: rm.drag(Vector2(-400, 0))
+	var wrapped: bool = rm.pan >= 0.0 and rm.pan < 1.0
+	rm.pan = Rooms.strip_u(0.75)
+	rm._vel = 0.0
+	for i in 10: rm.drag(Vector2(0, -300))
+	var tilt_ok: bool = absf(rm.tilt) <= 1.0
+	rm.tilt = 0.0
+	await _shot("room_main_hub_back", 0.2)
+	rm.pan = (Rooms.VIEW_W + Rooms.BRIDGE * 0.5) / float(rm.tex.get_width())   # the join between the two views
+	await _shot("room_main_hub_join", 0.2)
+	_check("Station rooms: docking opens the Main Hub panorama; drag looks around and wraps", in_room and wrapped and tilt_ok and is_equal_approx(p0, Rooms.strip_u(0.25)),
+		"%s, picture %d px wide, %d markers" % [Rooms.ROOMS[rm.room]["name"], rm.tex.get_width() if rm.tex else 0, Rooms.ROOMS[rm.room]["spots"].size()])
+	# tap the DOCKING BAY sign: zoom through the door into the next room
+	var spots: Array = Rooms.ROOMS["main_hub"]["spots"]
+	var di := -1
+	for i in spots.size(): if spots[i]["act"] == "room:docking": di = i
+	rm.tap(rm.spot_pos(spots[di]["u"], spots[di]["v"]))
+	var zooming: bool = rm.busy
+	await _until(func(): return not rm.busy, 3.0)
+	await _shot("room_docking_bay", 0.2)
+	_check("Station rooms: tapping a door zooms into the next room", zooming and rm.room == "docking", rm.room)
+	# every room's picture exists and every door leads somewhere real
+	var all_ok := true
+	for id: String in Rooms.ROOMS:
+		if not ResourceLoader.exists(Rooms.path(id)): all_ok = false
+		for sp: Dictionary in Rooms.ROOMS[id]["spots"]:
+			var act: String = sp["act"]
+			if act.begins_with("room:") and not Rooms.ROOMS.has(act.substr(5)): all_ok = false
+			if act.begins_with("talk:") and not Data.CHARACTERS.has(act.substr(5)): all_ok = false
+	for id in ["mission", "market", "bar", "hangar", "apartment"]:
+		rm.open(id)
+		if id == "mission": rm.use(1)   # Cmdr. Vale answers from the chat brain
+		await _shot("room_" + id, 0.25)
+	var talked: bool = false
+	rm.open("mission")
+	rm.use(1)
+	talked = rm.caption != "" and rm.caption_who == "Cmdr. Vale"
+	_check("Station rooms: 7 rooms, all doors valid, people talk", all_ok and Rooms.ROOMS.size() == 7 and talked, "%s: %s" % [rm.caption_who, rm.caption.left(60)])
+	# a dealer marker opens the old dealer screen; STATION brings the room back where you were
+	rm.open("main_hub")
+	rm.use(1)
+	var dealer: bool = hub.screen == "ships" and not rm.visible and hub.content.visible
+	hub.show_screen("hub")
+	_check("Station rooms: dealer markers open the dealer screens and STATION returns to the room", dealer and rm.visible and rm.room == "main_hub", hub.screen)
+
 ## NPC chat brain: understands what was typed, answers in character, remembers the pilot. No network.
 func _npc_brain() -> void:
 	var u1: Dictionary = Brain.understand("Where is the warp gate?")
@@ -924,6 +980,7 @@ func _run() -> void:
 	_check("Station docking", await _dock_at(s.station), s.station.name)
 	await _wait(0.8)
 	await _shot("hub_station")
+	await _station_rooms()
 	main.hub.show_screen("equipment")
 	await _wait(0.3)
 	var btn: Button = main.hub.find_child("Buy_pulse2", true, false)

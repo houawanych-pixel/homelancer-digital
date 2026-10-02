@@ -25,6 +25,8 @@ var preview_pivot: Node3D
 var preview_key := ""
 var t := 0.0
 # ship inspector: tap the showroom (or VIEW) to look the ship over: drag to turn it, pinch / wheel to zoom, full stats
+var rooms: Rooms
+var last_room := ""
 var inspect: Control = null
 var insp_id := ""
 var insp_pivot: Node3D
@@ -78,7 +80,25 @@ func _ready() -> void:
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(status)
 	GS.changed.connect(_refresh_credits)
+	rooms = Rooms.new()
+	add_child(rooms)
+	rooms.action.connect(_on_room_action)
+	Packs.pack_ready.connect(func(pk: String):
+		if pk == "rooms" and visible and screen == "hub": show_screen("hub"))
 	visible = false
+
+## A marker in a panorama room was tapped: open the matching dealer screen, the map, the inspector, or launch.
+func _on_room_action(act: String) -> void:
+	if act == "launch": launch_requested.emit()
+	elif act == "map": map_requested.emit()
+	elif act == "inspect":
+		show_screen("ships")
+		open_inspector(GS.ship_id)
+	elif act.begins_with("screen:"): show_screen(act.substr(7))
+
+## Stations with painted rooms (scripts/rooms.gd) show those instead of the plain hub page, once the pack is in.
+func has_rooms() -> bool:
+	return kind == "station" and Rooms.available(base.get("id", ""))
 
 func _label(size: int, col: Color) -> Label:
 	var l := Label.new()
@@ -117,6 +137,8 @@ func open(station_or_planet: Dictionary) -> void:
 	base = station_or_planet
 	kind = base.get("kind", "station")
 	visible = true
+	last_room = ""
+	Packs.request("rooms")
 	show_screen("hub")
 	status.text = "Docked at %s. Hull repaired, shields and repair kits restored, missiles reloaded." % base["name"]
 
@@ -125,15 +147,26 @@ func _refresh_credits() -> void:
 
 func show_screen(s: String) -> void:
 	close_inspector()
+	if screen == "hub" and rooms.visible: last_room = rooms.room
 	screen = s
 	_refresh_credits()
+	var in_rooms := s == "hub" and has_rooms()
+	for c in [header, subheader, credits_label, left, content, status]: c.visible = not in_rooms
+	rooms.visible = in_rooms
+	if in_rooms:
+		for c in left.get_children(): c.queue_free()
+		for c in content.get_children(): c.queue_free()
+		preview_vp = null
+		rooms.open(last_room if last_room != "" else Rooms.start_room(base["id"]))
+		queue_redraw()
+		return
 	var sysname: String = Data.SYSTEMS[GS.system_id]["name"]
 	header.text = base["name"].to_upper() if s == "hub" else {"equipment": "EQUIPMENT DEALER", "ships": "SHIP DEALER", "repair": "REPAIR & RESUPPLY", "surface": "PLANET DESTINATIONS"}[s]
 	subheader.text = "%s  ·  %s SYSTEM  ·  %s" % ["ORBITAL STATION" if kind == "station" else "PLANET SURFACE", sysname.to_upper(), base["name"]]
 	for c in left.get_children(): c.queue_free()
 	for c in content.get_children(): c.queue_free()
 	preview_vp = null
-	var menu := [["hub", "HUB"], ["equipment", "EQUIPMENT"], ["ships", "SHIP DEALER"], ["repair", "REPAIR / RESUPPLY"], ["map", "NAVIGATION"], ["launch", "LAUNCH"]]
+	var menu := [["hub", "STATION" if has_rooms() else "HUB"], ["equipment", "EQUIPMENT"], ["ships", "SHIP DEALER"], ["repair", "REPAIR / RESUPPLY"], ["map", "NAVIGATION"], ["launch", "LAUNCH"]]
 	if _surface_planet() != "": menu.insert(4, ["surface", "SURFACE TRAVEL"])
 	for m in menu:
 		var b := Button.new()
