@@ -582,7 +582,7 @@ func enter_atmosphere(planet_node: Node3D) -> void:
 	space.drop_warp()
 	hud.close_comms()
 	hud.visible = false
-	fx.caption = "ENTERING ATMOSPHERE"
+	fx.caption = "ENTERING THE STAR" if Surface.is_sun(pid) else "ENTERING ATMOSPHERE"
 	fx.sub = Surface.PLANETS[pid]["name"].to_upper()
 	fx.cloud_tint = Surface.biome(pid, t)["horizon"].lerp(Color.WHITE, 0.6)
 	Sfx.play("atmo", -2.0)
@@ -607,7 +607,7 @@ func enter_atmosphere(planet_node: Node3D) -> void:
 	p.basis = Basis.from_euler(Vector3(space.pitch, space.yaw, 0))
 	space.vel = -p.global_basis.z * clampf(entry_speed, 40.0, 90.0)
 	space._update_camera(1.0, true)
-	fx.caption = "ATMOSPHERE"
+	fx.caption = "SOLAR SURFACE" if Surface.is_sun(pid) else "ATMOSPHERE"
 	fx.sub = Surface.tile_name(pid, t)
 	var tw2 := create_tween()
 	tw2.tween_property(fx, "heat", 0.0, 0.9)
@@ -675,7 +675,7 @@ func leave_atmosphere() -> void:
 	var tw := create_tween()
 	tw.tween_property(fx, "clouds", 1.0, 0.8)
 	await tw.finished
-	_load_system(Surface.PLANETS[pid]["system"], "orbit:%d" % t)
+	_load_system(Surface.PLANETS[pid]["system"], "sunorbit" if Surface.is_sun(pid) else "orbit:%d" % t)
 	space.controls = false
 	var tw2 := create_tween()
 	tw2.tween_property(fx, "clouds", 0.0, 1.0)
@@ -684,7 +684,7 @@ func leave_atmosphere() -> void:
 	space.controls = true
 	hud.visible = true
 	state = "flight"
-	hud.flash_message("Orbit reached above %s." % Surface.PLANETS[pid]["name"])
+	hud.flash_message(("Clear of %s." if Surface.is_sun(pid) else "Orbit reached above %s.") % Surface.PLANETS[pid]["name"])
 
 ## Option B: from a planet hub (orbital port or a town), pick a destination and go straight there.
 func descend_to(pid: String, loc_id: String) -> void:

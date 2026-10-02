@@ -51,6 +51,10 @@ var planet_hazard := 0    # 0 none, 1 warp near planet (warning), 2 warp impact
 var sun_pos := Vector3.INF      # where the sun's sphere sits (INF = no sun here, e.g. on a planet)
 var sun_glow: MeshInstance3D
 var sun_core: MeshInstance3D
+var sun_body: Node3D
+var sun_surface := false        # on the surface of a star
+var heat_shielded := false      # on a star with a working heat shield
+var _sun_burned := false
 var sun_flare := 0.0            # 0..1: how hard the sun blooms on screen (looking at it, and close)
 var sun_hazard := 0             # 0 none, 1 heat warning, 2 burned up
 var _atmo_rumbled := false
@@ -188,6 +192,14 @@ func place_player(arrival: String) -> void:
 		vel = -player.global_basis.z * 30.0
 		_update_camera(1.0, true)
 		return
+	if arrival == "sunorbit":
+		# climbing out of the star: appear outside its heat zone, on the side facing the system, flying home
+		var sd := sun_pos.normalized()
+		player.global_position = sun_pos - sd * (Data.SUN_RADIUS * Data.SUN_WARN + 300.0)
+		_face(-sd)
+		vel = -player.global_basis.z * 30.0
+		_update_camera(1.0, true)
+		return
 	if arrival == "gate":
 		at = gate.global_position + gate.global_basis.z * 90.0
 		face = gate.global_basis.z
@@ -253,6 +265,8 @@ func _build_environment() -> void:
 	core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(core)
 	sun_core = core
+	sun_body = _placeholder("%s's Star" % sys["name"], "sun", sun_pos, {"id": sys_id + "_sun"})   # the real place: what you fly into
+	sun_body.set_meta("radius", Data.SUN_RADIUS)
 	var glow := MeshInstance3D.new()
 	var q := QuadMesh.new()
 	q.size = Vector2.ONE * Data.SUN_RADIUS * 6.0
@@ -895,6 +909,9 @@ func _process(dt: float) -> void:
 
 ## The sun: blooms the closer and the more head-on you look at it; warns inside the heat zone; the sphere destroys the ship.
 func _update_sun(dt: float) -> void:
+	if surface_mode and sun_surface:
+		_sun_heat(dt)
+		return
 	if surface_mode or sun_pos == Vector3.INF or not is_instance_valid(cam):
 		sun_flare = 0.0
 		sun_hazard = 0
@@ -918,13 +935,39 @@ func _update_sun(dt: float) -> void:
 	var pd := (sun_pos - player.global_position).length()
 	var was := sun_hazard
 	sun_hazard = 1 if pd < Data.SUN_RADIUS * Data.SUN_WARN else 0
-	if sun_hazard == 1 and was == 0: message.emit("Hull temperature rising — turn away from the star!")
-	if pd < Data.SUN_RADIUS and controls and not GS.heat_shield:
+	if sun_hazard == 1 and was == 0: message.emit("Hull temperature rising — %s" % ("heat shield holding." if GS.heat_shield else "turn away from the star!"))
+	if pd < Data.SUN_RADIUS and controls and not entering:
+		if warp_state != "off":   # hitting it at warp is a crash, like a planet
+			sun_hazard = 2
+			message.emit("Warp impact with the star!")
+			_explode(player.global_position)
+			controls = false
+			drop_warp()
+			player_destroyed.emit()
+			return
+		entering = true
+		Packs.request("planets")
+		atmosphere_entered.emit(sun_body)   # the star has a surface: same way in as a planet
+
+## On a star's surface the heat eats the shields, then the hull, fast. A heat shield (GS.heat_shield) stops it.
+func _sun_heat(dt: float) -> void:
+	sun_flare = 0.0
+	heat_shielded = GS.heat_shield
+	sun_hazard = 0 if heat_shielded else 1
+	if heat_shielded or not controls: return
+	if not _sun_burned:
+		GS.shield = maxf(0.0, GS.shield - GS.max_shield() / Data.SUN_SHIELD_SECS * dt)
+		if GS.shield <= 0.0: _sun_burned = true   # once the shields are gone they stay gone here
+	else:
+		GS.shield = 0.0
+		GS.hull -= GS.max_hull() / Data.SUN_HULL_SECS * dt
+	hit_shake = maxf(hit_shake, 0.12)
+	if GS.hull <= 0.0:
+		GS.hull = 0.0
 		sun_hazard = 2
 		message.emit("Burned up in the star.")
 		_explode(player.global_position)
 		controls = false
-		if warp_state != "off": drop_warp()
 		player_destroyed.emit()
 
 func _update_player(dt: float) -> void:
@@ -1742,6 +1785,8 @@ func trigger_system(id: String) -> bool:
 		return _say(id, "Weapons are locked while transforming.")
 	if warp_state != "off" and id in ["guns", "missile", "light_missile", "heavy_missile", "mine"]:
 		return _say(id, "Weapons are locked while the warp drive is active.")
+	if sun_surface and not GS.heat_shield and id in ["shield", "hull"]:
+		return _say(id, "Too hot — shields and repairs cannot hold here. Climb out!")
 	match id:
 		"shield":
 			if shield_cd > 0.0: return false
@@ -2034,6 +2079,7 @@ func setup_surface(pid: String, t: int) -> void:
 	Packs.request("city")
 	if not Packs.pack_ready.is_connected(_on_pack_ready): Packs.pack_ready.connect(_on_pack_ready)
 	planet_id = pid
+	sun_surface = Surface.is_sun(pid)
 	sys_id = Surface.PLANETS[pid]["system"]
 	sys = Data.SYSTEMS[sys_id]
 	_rng.seed = hash(pid)

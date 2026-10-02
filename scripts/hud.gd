@@ -653,6 +653,8 @@ func _draw() -> void:
 	var cockpit := GS.view == "cockpit"
 	if space.in_nebula > 0.0:
 		draw_rect(Rect2(Vector2.ZERO, S), Color(space.nebula_color, 0.36 * space.in_nebula))
+	if space.sun_surface:   # on a star: everything is seen through a hot yellow haze (your heat shield, if you have one)
+		draw_rect(Rect2(Vector2.ZERO, S), Color(1.0, 0.82, 0.25, 0.16 + 0.04 * sin(t * 3.1)))
 	if space.sun_flare > 0.01:   # sun bloom: washes the view out the closer and more head-on you fly at it
 		var sc: Color = (space.sys["star"] as Color).lerp(Color.WHITE, 0.55)
 		draw_rect(Rect2(Vector2.ZERO, S), Color(sc, minf(0.92, space.sun_flare * 0.95)))
@@ -726,7 +728,9 @@ func _draw() -> void:
 		_text(Vector2(0, S.y * 0.5 - 62), "WARP", 64, Color(0.85, 0.92, 1.0, minf(1.0, space.warp_flash * 2.0)), HORIZONTAL_ALIGNMENT_CENTER, S.x)
 	if space.sun_hazard > 0 and fmod(t, 0.5) < 0.32:
 		_text(Vector2(0, S.y * 0.5 - 132), "HEAT WARNING", 34, RED, HORIZONTAL_ALIGNMENT_CENTER, S.x)
-		_text(Vector2(0, S.y * 0.5 - 100), "TURN AWAY FROM THE STAR", 24, RED, HORIZONTAL_ALIGNMENT_CENTER, S.x)
+		_text(Vector2(0, S.y * 0.5 - 100), "NO HEAT SHIELD — CLIMB OUT NOW" if space.sun_surface else "TURN AWAY FROM THE STAR", 24, RED, HORIZONTAL_ALIGNMENT_CENTER, S.x)
+	elif space.sun_surface and space.heat_shielded:
+		_text(Vector2(0, 182), "HEAT SHIELD HOLDING", 15, Color(1.0, 0.85, 0.4), HORIZONTAL_ALIGNMENT_CENTER, S.x)
 	if space.planet_hazard > 0 and fmod(t, 0.5) < 0.32:
 		_text(Vector2(0, S.y * 0.5 - 132), "PLANETARY MASS DETECTED", 34, RED, HORIZONTAL_ALIGNMENT_CENTER, S.x)
 		_text(Vector2(0, S.y * 0.5 - 100), "DROP WARP NOW", 24, RED, HORIZONTAL_ALIGNMENT_CENTER, S.x)

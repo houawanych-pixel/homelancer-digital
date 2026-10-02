@@ -282,8 +282,14 @@ This replaces the clustered node network of §7–8 as the foundation. Marked EA
 
 **BUILT: the sun (Job T).** A sphere 5.5x a planet (5,500 m radius) 40,000 m from the system centre, opposite the gate side (its picture is drawn at most 11 km away, scaled, so the camera range stays short),
 with a bright core and a billboard glow on it. The view blooms the closer and more head-on you look at it and clears
-when you look away. Inside 1.5 radii: HEAT WARNING. Touching the sphere destroys the ship (unless `GS.heat_shield`, which
-nothing sells yet: that is the hook for the sun-interior idea). Numbers are `Data.SUN_*`, easy to tune.
+when you look away. Inside 1.5 radii: HEAT WARNING. Flying into the sphere at normal speed ENTERS THE STAR (at warp it is a crash). Numbers are `Data.SUN_*`, easy to tune.
+
+**BUILT: the star's surface (Job T).** The sun is a planet you can enter: `Surface.PLANETS["<system>_sun"]`, one small
+tile of the new "sun" biome (glowing magma sea, dark crust islands, yellow sky and haze) that wraps onto itself. Nothing
+on it yet. Without a heat shield the heat takes the shields in 3 s, then the hull in 8 s (`Data.SUN_SHIELD_SECS`,
+`SUN_HULL_SECS`); shield cells and repairs do not work there; the ship is lost and towed home. With `GS.heat_shield`
+(the special item: nothing sells it yet) there is no damage and the HUD shows HEAT SHIELD HOLDING. Climbing past the
+ceiling returns you to space just outside the star's heat zone.
 
 **BUILT now: a painted sky per system.** `assets/sky/<system>.jpg` (the `sky` pack, 2048 x 1024, ~8 MB GPU each, only the
 current system's is loaded). Solara = the owner's magenta nebula, Vega = the teal and coral one; the existing warp gate

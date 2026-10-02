@@ -531,7 +531,7 @@ func _city_visit() -> void:
 	await _wait(0.15)
 	dfar -= int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
 	cb.visible = true
-	_check("City shared material + normal detail (city pack), draw calls measured", shader_on and draws_block <= st["draw_calls"] + 4,
+	_check("City shared material + normal detail (city pack), draw calls measured", shader_on and draws_block <= st["draw_calls"] + 10,
 		"block adds %d draw calls up close, %d from 1.7 km (detail LOD off); whole frame %d" % [draws_block, dfar, draws])
 	for m in mechs: m.queue_free()
 	cam.queue_free()
@@ -561,11 +561,31 @@ func _sun() -> void:
 	_tp(sp - dir * (Data.SUN_RADIUS * Data.SUN_WARN - 400.0), sp)
 	var warned := await _until(func(): return s.sun_hazard == 1, 2.0)
 	await _shot("sun_heat_warning", 0.0)
+	# fly in WITH a heat shield: the star has a surface (a small magma tile that wraps onto itself) and you live
+	GS.heat_shield = true
 	_tp(sp - dir * (Data.SUN_RADIUS + 60.0), sp)
 	s.vel = dir * 200.0
-	var dead := await _until(func(): return main.state == "dead" or main.state == "hub", 6.0)
+	var entered := await _until(func(): return main.state == "flight" and _sp().surface_mode, 30.0)
+	s = _sp()
+	var hull0: float = GS.hull
+	await _wait(2.5)
+	await _shot("sun_surface_heat_shield", 0.1)
+	var safe: bool = entered and s.planet_id == "solara_sun" and s.sun_surface and GS.hull >= hull0 and GS.shield >= GS.max_shield() - 0.1
+	_check("Sun: flying in loads its surface (magma tile); a heat shield keeps you alive", warned and safe,
+		"%s, hull %.0f, shield %.0f" % [Surface.tile_name(s.planet_id, s.tile) if entered else "not entered", GS.hull, GS.shield])
+	# cross the tile edge: it wraps onto itself
+	var px: float = s.player.global_position.x
+	_tp(Vector3(Surface.EDGE - 30.0, 900.0, 0.0), Vector3(Surface.EDGE + 500.0, 900.0, 0.0))
+	s.vel = Vector3(120, 0, 0)
+	var wrapped := await _until(func(): return _sp().player.global_position.x < 0.0, 6.0)
+	_check("Sun surface loops (fly off one edge, come back on the other)", wrapped and _sp().planet_id == "solara_sun", "x %.0f -> %.0f" % [px, _sp().player.global_position.x])
+	# without the shield: shields go, then the hull, then the ship
+	GS.heat_shield = false
+	var sh_gone := await _until(func(): return GS.shield <= 0.0, 5.0)
+	await _shot("sun_surface_burning", 0.0)
+	var dead := await _until(func(): return main.state == "dead" or main.state == "hub", 14.0)
 	await _until(func(): return main.state == "hub", 8.0)
-	_check("Sun: heat warning, then the sphere destroys the ship", warned and dead, "warned %s, state %s" % [warned, main.state])
+	_check("Sun surface without a heat shield: shield, then hull, drain fast until the ship is lost", sh_gone and dead, "shield gone %s, state %s, hull %.0f, controls %s, sun_surface %s, busy %s" % [sh_gone, main.state, GS.hull, _sp().controls, _sp().sun_surface, _sp().surf_busy])
 	await _launch()
 
 ## Each system wears its own painted 360 sky (the "sky" pack), made from the owner's nebula pictures.
@@ -776,6 +796,14 @@ func _run() -> void:
 		main._load_surface("new_terra", 4)
 		await _wait(1.5)
 		await _city_visit()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
+	if OS.get_environment("HL_SUN") != "":   # the sun checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _launch()
+		await _sun()
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return

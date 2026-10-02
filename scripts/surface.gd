@@ -39,6 +39,10 @@ const BIOMES := {
 		"sky": Color(0.36, 0.6, 0.68), "horizon": Color(0.7, 0.86, 0.72), "fog": Color(0.56, 0.74, 0.6), "water": Color(0.08, 0.3, 0.26)},
 	"volcanic": {"name": "Volcanic", "amp": 900.0, "base": 40.0, "sea": null, "low": Color(0.14, 0.12, 0.12), "mid": Color(0.24, 0.18, 0.16), "high": Color(0.9, 0.35, 0.12),
 		"sky": Color(0.35, 0.2, 0.18), "horizon": Color(0.8, 0.42, 0.25), "fog": Color(0.45, 0.3, 0.26)},
+	# the surface of a star: a glowing magma sea with dark crust islands, under a yellow sky ("glow" = the sea shines)
+	"sun": {"name": "Solar surface", "amp": 300.0, "base": -70.0, "sea": 0.0, "glow": true, "detail": 0.6,
+		"low": Color(1.0, 0.72, 0.2), "mid": Color(0.75, 0.28, 0.06), "high": Color(0.22, 0.08, 0.05),
+		"sky": Color(1.0, 0.72, 0.22), "horizon": Color(1.0, 0.9, 0.55), "fog": Color(1.0, 0.72, 0.28), "water": Color(1.0, 0.5, 0.08)},
 }
 
 # Planets with surfaces. tiles: row-major biome list (row 0 = north). locations: named places you can land at /
@@ -61,6 +65,10 @@ const PLANETS := {
 		# capital city prototype (scripts/city.gd): one test block on flattened ground in the city sector, ~1 km
 		# north-west of Port Meridian. The rest of the planet keeps its own biomes.
 		"city_blocks": [{"id": "capital_block", "name": "Capital Test Block", "tile": 4, "pos": Vector2(-700, -250)}]},
+	# Stars you can fly into (the sun sphere in space is the way in). One small tile that wraps onto itself, nothing on
+	# it yet. "sun": the heat drains shield then hull unless the ship has a heat shield (see space.gd).
+	"solara_sun": {"name": "Solara's Star", "system": "solara", "grid": 1, "tiles": ["sun"], "locations": [], "sun": true},
+	"vega_sun": {"name": "Vega's Star", "system": "vega", "grid": 1, "tiles": ["sun"], "locations": [], "sun": true},
 	"eden_prime": {"name": "Eden Prime", "system": "vega", "grid": 2,
 		"tiles": ["jungle", "coast", "volcanic", "jungle"],
 		"locations": [
@@ -74,6 +82,9 @@ const PLANETS := {
 static var _noise := {}   # planet id -> FastNoiseLite
 static var _ridge := {}
 static var _mesh_cache := {} # "planet|tile" -> ArrayMesh
+
+static func is_sun(planet_id: String) -> bool:
+	return bool(PLANETS.get(planet_id, {}).get("sun", false))
 
 static func has_surface(planet_id: String) -> bool:
 	return PLANETS.has(planet_id)
@@ -310,6 +321,9 @@ static func build_tile(planet_id: String, tile: int) -> Node3D:
 		wm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		wm.metallic = 0.3
 		wm.roughness = 0.15
+		if b.get("glow", false):   # magma: it gives off its own light
+			wm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			wm.albedo_color = Color(b["water"], 0.93)
 		w.material_override = wm
 		w.position.y = 0.0
 		w.name = "Water"
