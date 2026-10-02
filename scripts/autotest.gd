@@ -542,14 +542,14 @@ func _city_visit() -> void:
 func _sun() -> void:
 	var s := _sp()
 	var sp: Vector3 = s.sun_pos
-	var far_ok: bool = sp.length() > 7000.0 and sp.distance_to(s.gate.global_position) > 5000.0 and is_instance_valid(s.sun_glow)
+	var far_ok: bool = sp.length() > 30000.0 and Data.SUN_RADIUS >= 5.0 * float(s.planet.get_meta("radius")) and sp.distance_to(s.gate.global_position) > 20000.0 and is_instance_valid(s.sun_glow)
 	main.hud.visible = false
 	s._face(sp - s.player.global_position)
 	await _shot("sun_from_the_station", 0.6)
 	var flare_far: float = s.sun_flare
 	main.hud.visible = true
 	var dir := sp.normalized()
-	_tp(sp - dir * 2600.0, sp)                       # looking straight at it from 2,600 m
+	_tp(sp - dir * (Data.SUN_RADIUS + 9000.0), sp)   # looking straight at it from 9 km above its surface
 	await _wait(0.8)
 	var flare_mid: float = s.sun_flare
 	await _shot("sun_bloom_close", 0.1)
@@ -557,8 +557,8 @@ func _sun() -> void:
 	await _wait(0.8)
 	var flare_away: float = s.sun_flare
 	_check("Sun: far out on its sphere, blooms when you fly at it, not when you look away", far_ok and flare_far < 0.2 and flare_mid > flare_far + 0.25 and flare_away < 0.05,
-		"%.0f m out; bloom %.2f from the station, %.2f at 2.6 km, %.2f looking away" % [sp.length(), flare_far, flare_mid, flare_away])
-	_tp(sp - dir * (Data.SUN_RADIUS * Data.SUN_WARN - 150.0), sp)
+		"%.0f m out, 5.5x the planet; bloom %.2f from the station, %.2f at 9 km, %.2f looking away" % [sp.length(), flare_far, flare_mid, flare_away])
+	_tp(sp - dir * (Data.SUN_RADIUS * Data.SUN_WARN - 400.0), sp)
 	var warned := await _until(func(): return s.sun_hazard == 1, 2.0)
 	await _shot("sun_heat_warning", 0.0)
 	_tp(sp - dir * (Data.SUN_RADIUS + 60.0), sp)

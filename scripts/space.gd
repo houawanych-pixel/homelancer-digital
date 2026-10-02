@@ -50,6 +50,7 @@ var atmo_depth := 0.0     # 0 outside a planet's outer atmosphere .. 1 at the en
 var planet_hazard := 0    # 0 none, 1 warp near planet (warning), 2 warp impact
 var sun_pos := Vector3.INF      # where the sun's sphere sits (INF = no sun here, e.g. on a planet)
 var sun_glow: MeshInstance3D
+var sun_core: MeshInstance3D
 var sun_flare := 0.0            # 0..1: how hard the sun blooms on screen (looking at it, and close)
 var sun_hazard := 0             # 0 none, 1 heat warning, 2 burned up
 var _atmo_rumbled := false
@@ -240,8 +241,8 @@ func _build_environment() -> void:
 	var sm := SphereMesh.new()
 	sm.radius = Data.SUN_RADIUS
 	sm.height = Data.SUN_RADIUS * 2.0
-	sm.radial_segments = 24
-	sm.rings = 12
+	sm.radial_segments = 48
+	sm.rings = 24
 	core.mesh = sm
 	var cm := StandardMaterial3D.new()
 	cm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -251,9 +252,10 @@ func _build_environment() -> void:
 	core.position = sun_pos
 	core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(core)
+	sun_core = core
 	var glow := MeshInstance3D.new()
 	var q := QuadMesh.new()
-	q.size = Vector2.ONE * Data.SUN_RADIUS * 9.0
+	q.size = Vector2.ONE * Data.SUN_RADIUS * 6.0
 	glow.mesh = q
 	var m := StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -904,7 +906,15 @@ func _update_sun(dt: float) -> void:
 	var near := clampf(1.0 - surf / Data.SUN_BLOOM_RANGE, 0.0, 1.0)
 	var want := facing * facing * (0.12 + 0.88 * near * near)
 	sun_flare = lerpf(sun_flare, want, clampf(dt * 5.0, 0.0, 1.0))
-	if is_instance_valid(sun_glow): sun_glow.scale = Vector3.ONE * (1.0 + 0.9 * sun_flare + 0.06 * sin(time * 1.7))
+	# The sun is real-sized and very far; its picture is drawn at most SUN_DRAW_MAX away, shrunk to look identical.
+	var k := minf(dist, Data.SUN_DRAW_MAX) / maxf(dist, 1.0)
+	var at := cam.global_position + to * k
+	if is_instance_valid(sun_core):
+		sun_core.global_position = at
+		sun_core.scale = Vector3.ONE * k
+	if is_instance_valid(sun_glow):
+		sun_glow.global_position = at
+		sun_glow.scale = Vector3.ONE * k * (1.0 + 0.9 * sun_flare + 0.06 * sin(time * 1.7))
 	var pd := (sun_pos - player.global_position).length()
 	var was := sun_hazard
 	sun_hazard = 1 if pd < Data.SUN_RADIUS * Data.SUN_WARN else 0

@@ -280,9 +280,9 @@ This replaces the clustered node network of §7–8 as the foundation. Marked EA
 4. Void breadcrumbs and the hidden systems.
 5. Sun interior (needs the heat shield item).
 
-**BUILT: the sun (Job T).** An invisible sphere (300 m radius) 7,500 m from the system centre, opposite the gate side,
+**BUILT: the sun (Job T).** A sphere 5.5x a planet (5,500 m radius) 40,000 m from the system centre, opposite the gate side (its picture is drawn at most 11 km away, scaled, so the camera range stays short),
 with a bright core and a billboard glow on it. The view blooms the closer and more head-on you look at it and clears
-when you look away. Inside 4 radii: HEAT WARNING. Touching the sphere destroys the ship (unless `GS.heat_shield`, which
+when you look away. Inside 1.5 radii: HEAT WARNING. Touching the sphere destroys the ship (unless `GS.heat_shield`, which
 nothing sells yet: that is the hook for the sun-interior idea). Numbers are `Data.SUN_*`, easy to tune.
 
 **BUILT now: a painted sky per system.** `assets/sky/<system>.jpg` (the `sky` pack, 2048 x 1024, ~8 MB GPU each, only the
