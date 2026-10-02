@@ -374,7 +374,7 @@ static func place(block: Dictionary, id: String, cell: Vector2i, rot := 0) -> vo
 ## THE test city block: command tower, square + rectangular platforms, intersection, roads, merge/on-ramp,
 ## mega bridge, stair bridge, and a few simplified background buildings. Returns the block description.
 static func test_block() -> Dictionary:
-	var b := {"parts": [], "conns": [], "solids": [], "modules": [], "alt": [], "tower": null}
+	var b := {"parts": [], "conns": [], "solids": [], "modules": [], "alt": [], "tower": null, "props": []}
 	# the north-south avenue (column 3)
 	place(b, "road_straight", Vector2i(3, -6))
 	place(b, "merge", Vector2i(3, -10))           # cells x 3..4, z -10..-7; ramp comes up from the plaza in column 4
@@ -398,6 +398,7 @@ static func test_block() -> Dictionary:
 		filler(k, (f[0] as Vector3) * CELL, f[1], f[2], f[3], 70 + i)
 	for p in k.parts: b["parts"].append(p)
 	for s in k.solids: b["solids"].append(s)
+	add_prop(b, "h01", Vector3(-30, 0, -120))     # H-01 hangar on the plaza, west of the tower, door to the south
 	# plaza: the ground level everything stands on (roads ramp down to it, stairs and mechs walk on it)
 	var lo := Vector3(-2, 0, -12) * CELL
 	var hi := Vector3(9, 0, 1) * CELL
@@ -530,39 +531,76 @@ static func instantiate(block: Dictionary, detail := 1.0) -> Node3D:
 	root.set_meta("solids", block["solids"])
 	root.set_meta("alt", block.get("alt", []))
 	root.set_meta("tower", block.get("tower"))
+	root.set_meta("props", block.get("props", []))
 	_tower(root, detail)
+	_props(root)
 	return root
 
 ## The B-01 command tower: the Blender model once the city pack is mounted, a few plain boxes until then.
 ## It carries its own painted textures (colour, normal/bump, roughness+metal, glow), baked in Blender: one draw call.
-static var _tower_mat: Material = null
+static var _pack_mats := {}
+static var _pack_meshes := {}
 
-static func tower_material() -> Material:
-	if _tower_mat == null:
+## Material for a Blender-built asset: its own colour, normal (bump), roughness/metal and glow maps (assets/city/<id>_*.jpg).
+static func pack_material(id: String) -> Material:
+	if not _pack_mats.has(id):
 		var m := ORMMaterial3D.new()
-		m.albedo_texture = load("res://assets/city/b01_color.jpg")
-		m.orm_texture = load("res://assets/city/b01_orm.jpg")
+		var base := "res://assets/city/%s_" % id
+		m.albedo_texture = load(base + "color.jpg")
+		m.orm_texture = load(base + "orm.jpg")
 		m.normal_enabled = true
-		m.normal_texture = load("res://assets/city/b01_normal.jpg")
+		m.normal_texture = load(base + "normal.jpg")
 		m.emission_enabled = true
 		m.emission = Color.WHITE
 		m.emission_operator = BaseMaterial3D.EMISSION_OP_MULTIPLY
-		m.emission_texture = load("res://assets/city/b01_emission.jpg")
+		m.emission_texture = load(base + "emission.jpg")
 		m.emission_energy_multiplier = 2.5
-		m.cull_mode = BaseMaterial3D.CULL_DISABLED   # the Blender export is double-sided
+		m.cull_mode = BaseMaterial3D.CULL_DISABLED   # the Blender exports are double-sided
 		m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
-		_tower_mat = m
-	return _tower_mat
+		_pack_mats[id] = m
+	return _pack_mats[id]
 
-static var _tower_mesh: Mesh = null
-
-static func tower_mesh() -> Mesh:
-	if _tower_mesh == null and Packs.is_ready("city") and ResourceLoader.exists(TOWER_PATH):
-		var sc := (load(TOWER_PATH) as PackedScene).instantiate()
+static func pack_mesh(path: String) -> Mesh:
+	if not _pack_meshes.has(path):
+		if not (Packs.is_ready("city") and ResourceLoader.exists(path)): return null
+		var sc := (load(path) as PackedScene).instantiate()
 		var found := sc.find_children("*", "MeshInstance3D", true, false)
-		if not found.is_empty(): _tower_mesh = (found[0] as MeshInstance3D).mesh
+		_pack_meshes[path] = (found[0] as MeshInstance3D).mesh if not found.is_empty() else null
 		sc.free()
-	return _tower_mesh
+	return _pack_meshes[path]
+
+static func tower_material() -> Material: return pack_material("b01")
+static func tower_mesh() -> Mesh: return pack_mesh(TOWER_PATH)
+
+## Other Blender-built assets placed in a block (block["props"] = [{id, xf}]). They appear once the city pack is in;
+## their collision boxes are in the block from the start.
+const PROPS := {
+	"h01": {"path": "res://assets/city/h01_hangar.glb", "tris": 100, "min": Vector3(-28, 0, -35), "max": Vector3(16, 25.6, 12)},   # H-01 hangar
+}
+
+static func add_prop(block: Dictionary, id: String, pos: Vector3, rot := 0.0) -> void:
+	var pr: Dictionary = PROPS[id]
+	var lo: Vector3 = pr["min"]
+	var hi: Vector3 = pr["max"]
+	var mid := Vector3((lo.x + hi.x) * 0.5, 0, (lo.z + hi.z) * 0.5)
+	var bs := Basis(Vector3.UP, rot)
+	var xf := Transform3D(bs, pos - bs * mid)   # `pos` is where the middle of the footprint stands
+	block["props"].append({"id": id, "xf": xf})
+	block["solids"].append(xf * AABB(lo, hi - lo))
+
+static func _props(root: Node3D) -> void:
+	for pr: Dictionary in root.get_meta("props", []):
+		var nm := "Prop_%s" % pr["id"]
+		if root.has_node(nm): continue
+		var mesh := pack_mesh(PROPS[pr["id"]]["path"])
+		if mesh == null: continue
+		var mi := MeshInstance3D.new()
+		mi.name = nm
+		mi.mesh = mesh
+		mi.transform = pr["xf"]
+		mi.material_override = pack_material(pr["id"])
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		root.add_child(mi)
 
 static func _tower(root: Node3D, detail := 1.0) -> void:
 	if root.get_meta("tower") == null: return
@@ -603,6 +641,7 @@ static func refresh(root: Node3D, detail := 1.0) -> void:
 	for c in root.get_children():
 		if c is MultiMeshInstance3D and c.has_meta("mat"): (c as MultiMeshInstance3D).material_override = mats[int(c.get_meta("mat"))]
 	if root.has_meta("tower"): _tower(root, detail)
+	_props(root)
 
 ## Rough cost numbers for the report: instances, triangles, draw calls (one per MultiMesh).
 static func stats(block: Dictionary) -> Dictionary:
@@ -615,5 +654,8 @@ static func stats(block: Dictionary) -> Dictionary:
 		if p[2] == 0: tri_main += tris_per[p[0]]
 		groups["%d|%d|%d" % [p[0], p[1], p[2]]] = true
 	var tw := 0 if block.get("tower") == null else 1
-	return {"parts": block["parts"].size() + tw, "triangles": tri + tw * TOWER_TRIS, "triangles_far": tri_main + tw * TOWER_TRIS,
-		"draw_calls": groups.size() + tw, "solids": block["solids"].size()}
+	var ptri := 0
+	for pr in block.get("props", []): ptri += int(PROPS[pr["id"]]["tris"])
+	var np: int = block.get("props", []).size()
+	return {"parts": block["parts"].size() + tw + np, "triangles": tri + tw * TOWER_TRIS + ptri, "triangles_far": tri_main + tw * TOWER_TRIS + ptri,
+		"draw_calls": groups.size() + tw + np, "solids": block["solids"].size()}

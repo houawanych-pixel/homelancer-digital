@@ -461,6 +461,10 @@ func _city_visit() -> void:
 	_check("B-01 command tower is the textured Blender model (city pack), one draw call, solid", tw != null and tw.mesh.get_surface_count() == 1 and (tw.material_override as ORMMaterial3D).normal_texture != null
 		and cb.get_node_or_null("B01StandIn") == null and s.city_push(tw_in, 6.0) != Vector3.ZERO and tw.get_aabb().size.y > 115.0,
 		"%d surface, colour + bump + glow maps, %.0f x %.0f x %.0f m" % [tw.mesh.get_surface_count() if tw else 0, tw.get_aabb().size.x if tw else 0.0, tw.get_aabb().size.y if tw else 0.0, tw.get_aabb().size.z if tw else 0.0])
+	var hg := cb.get_node_or_null("Prop_h01") as MeshInstance3D
+	var hg_in: Vector3 = cb.to_global(Vector3(-30, 10, -120))
+	_check("H-01 hangar (Blender, concept-art textured) stands in the test city, solid", hg != null and (hg.material_override as ORMMaterial3D).albedo_texture != null
+		and s.city_push(hg_in, 6.0) != Vector3.ZERO, "%d triangles, 1 draw call" % [City.PROPS["h01"]["tris"]])
 	# mechs for scale: 1 on a road, 2 abreast on the bridge, a group passing under it and 4 crossing the intersection
 	var mechs: Array = []
 	var spots := [[Vector3(140, City.DECK, -220), 0.0], [Vector3(134, City.DECK, -110), 0.0], [Vector3(146, City.DECK, -95), PI],
@@ -484,6 +488,9 @@ func _city_visit() -> void:
 		["city_tower_b01", Vector3(165, 50, -95), Vector3(49, 56, -180)],
 		["city_tower_b01_gangway", Vector3(118, 32, -150), Vector3(49, 36, -182)],
 		["city_tower_b01_back", Vector3(-80, 70, -290), Vector3(49, 52, -180)],
+		["city_hangar_h01_front", Vector3(0, 22, -40), Vector3(-30, 12, -120)],
+		["city_hangar_h01_side", Vector3(-110, 30, -70), Vector3(-30, 10, -120)],
+		["city_hangar_h01_back", Vector3(-75, 35, -200), Vector3(-30, 10, -120)],
 		["city_mech_clearance_bridge", Vector3(205, 24, -40), Vector3(140, 14, -110)],
 		["city_intersection_mechs", Vector3(196, 64, -238), Vector3(140, 20, -180)],
 		["city_merge_onramp", Vector3(250, 46, -480), Vector3(160, 10, -330)],

@@ -121,6 +121,9 @@ The current "Aquila / Solara Jump Gate" objects are technically warp gates (buil
   call. Its front faces the platform; a deck-height gangway joins it to the platform. Collision is 8 boxes; until
   the pack is in, those boxes are drawn as a plain stand-in. Texture detail is ~4 px per game metre: good from
   flying distance, soft right against a wall.
+- **H-01 hangar (second Blender asset).** `H01_hangar_v3.glb`: 100 triangles, 44 × 47 m, 26 m tall, built from one
+  isometric concept picture with the saved scripts. Placed on the plaza west of the tower with `City.add_prop()`
+  (any further Blender asset goes into `City.PROPS` and is placed the same way). One draw call, one collision box.
 - **Pipeline for the next building:** export GLB from Blender → put it in Drive "Home Lancer Models" → bake →
   add to `assets/city/` → place in the block.
 - **One test block** in New Terra's city sector, ~1 km north-west of Port Meridian, on its own flattened ground.
