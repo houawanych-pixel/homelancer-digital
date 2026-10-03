@@ -1,0 +1,66 @@
+tile,system,faction,role,planets,stations,sky file
+A1,Beta-7,Neutral,,1,1,beta_7.jpg
+C1,Void System,Enemy,Solrath home,3,2,void_system.jpg
+F1,Keldrix,Unity,,3,1,keldrix.jpg
+H1,Kronos,Enemy,Arctides home,3,1,kronos.jpg
+I1,Void 1,Void,void,1,0,void_1.jpg
+J1,Nebulax,Neutral,,1,1,nebulax.jpg
+K1,Radiant,Hidden,hidden,1,1,radiant.jpg
+A2,Void 6,Void,void,1,0,void_6.jpg
+B2,Selenvar,Elyza,,2,1,selenvar.jpg
+D2,Velanthos,Elyza,,3,1,velanthos.jpg
+E2,Aurentum,Unity,,3,2,aurentum.jpg
+H2,Techanis,Solarion,,3,2,techanis.jpg
+J2,Kellova,Solarion,,3,1,kellova.jpg
+A3,Farreach Outpost,Neutral,,1,1,farreach_outpost.jpg
+C3,Crystara,Elyza,,3,1,crystara.jpg
+G3,Federis,Unity,,2,2,federis.jpg
+I3,Nexarion,Solarion,,3,2,nexarion.jpg
+K3,Perimeter,Neutral,,2,1,perimeter.jpg
+B4,Zillance Major,Elyza,,4,2,zillance_major.jpg
+D4,Aurelion,Elyza,capital,5,3,aurelion.jpg
+F4,Veranthos,Unity,capital,5,4,veranthos.jpg
+H4,Synthari Capital,Solarion,capital,6,4,synthari_capital.jpg
+J4,Crossma Major,Solarion,,4,2,crossma_major.jpg
+A5,Cynthara,Enemy,Gadversee home,3,1,cynthara.jpg
+C5,Kiral,Liberator,,3,1,kiral.jpg
+E5,Rimgate,Neutral,,2,1,rimgate.jpg
+G5,Vexara,Neutral,,2,1,vexara.jpg
+I5,Vorreth,Imperium,,3,1,vorreth.jpg
+K5,Nullpoint,Neutral,,1,1,nullpoint.jpg
+B6,Exodus Point,Liberator,,2,2,exodus_point.jpg
+D6,Vantara,Liberator,capital,4,3,vantara.jpg
+F6,THE HEART,Heart,centre,0,0,
+H6,Malachar,Imperium,capital,5,3,malachar.jpg
+J6,Shadenvex,Imperium,,2,1,shadenvex.jpg
+A7,Void 3,Void,void,1,0,void_3.jpg
+C7,Republic Major,Liberator,,3,2,republic_major.jpg
+E7,Ogden,Neutral,,2,1,ogden.jpg
+G7,Foggiest,Neutral,,2,1,foggiest.jpg
+I7,Empire Major,Imperium,,4,2,empire_major.jpg
+K7,Obsidrath,Imperium,,3,1,obsidrath.jpg
+A8,Cybernet,Enemy,Cybermorph home,2,2,cybernet.jpg
+B8,Plundros,Savagers,,3,1,plundros.jpg
+D8,Raptian Major,Savagers,capital,4,3,raptian_major.jpg
+F8,Dreadholm,Orion,capital,5,4,dreadholm.jpg
+H8,Sepheron,Covenant,capital,4,3,sepheron.jpg
+J8,Valdris,Covenant,,3,1,valdris.jpg
+K8,Noctyra,Enemy,Phenom home,2,1,noctyra.jpg
+C9,Scavaris,Savagers,,2,1,scavaris.jpg
+E9,Korrath,Orion,,2,1,korrath.jpg
+G9,Battlespire,Orion,,2,2,battlespire.jpg
+K9,Void 4,Void,void,1,0,void_4.jpg
+A10,Shroud,Neutral,,2,1,shroud.jpg
+B10,Derelicta,Savagers,,2,2,derelicta.jpg
+D10,Ravage Major,Savagers,,3,1,ravage_major.jpg
+F10,Ironvast,Orion,,3,2,ironvast.jpg
+I10,Sanctum Major,Covenant,,3,2,sanctum_major.jpg
+J10,Sigma-19,Neutral,,2,1,sigma_19.jpg
+K10,Omega,Neutral,,3,1,omega.jpg
+A11,Shadow,Hidden,hidden,2,1,shadow.jpg
+C11,Voidtex,Neutral,,2,1,voidtex.jpg
+D11,Void 5,Void,void,1,0,void_5.jpg
+E11,Vortegan,Orion,,3,1,vortegan.jpg
+G11,Omicron Major,Orion,,4,2,omicron_major.jpg
+H11,Genesis,Enemy,Kaijurai home,3,1,genesis.jpg
+K11,Void 2,Void,void,1,0,void_2.jpg

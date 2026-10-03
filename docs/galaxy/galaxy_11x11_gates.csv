@@ -1,0 +1,98 @@
+type,from,from tile,to,to tile
+jump,Omega,K10,Sigma-19,J10
+jump,Aurentum,E2,Velanthos,D2
+jump,Beta-7,A1,Void 6,A2
+jump,Cybernet,A8,Void 3,A7
+jump,Derelicta,B10,Shroud,A10
+jump,Farreach Outpost,A3,Void 6,A2
+jump,Kellova,J2,Nebulax,J1
+jump,Kronos,H1,Void 1,I1
+jump,Nebulax,J1,Void 1,I1
+jump,Noctyra,K8,Void 4,K9
+jump,Obsidrath,K7,Noctyra,K8
+jump,Omega,K10,Void 2,K11
+jump,Omega,K10,Void 4,K9
+jump,Omicron Major,G11,Genesis,H11
+jump,Plundros,B8,Cybernet,A8
+jump,Ravage Major,D10,Void 5,D11
+jump,Sanctum Major,I10,Sigma-19,J10
+jump,Selenvar,B2,Void 6,A2
+jump,Techanis,H2,Kronos,H1
+jump,Valdris,J8,Noctyra,K8
+jump,Voidtex,C11,Void 5,D11
+jump,Vortegan,E11,Void 5,D11
+jump,Aurelion,D4,Crystara,C3
+jump,Crystara,C3,Selenvar,B2
+jump,Crystara,C3,Velanthos,D2
+jump,Crystara,C3,Zillance Major,B4
+jump,Dreadholm,F8,Battlespire,G9
+jump,Dreadholm,F8,Korrath,E9
+jump,Exodus Point,B6,Kiral,C5
+jump,Exodus Point,B6,Republic Major,C7
+jump,Ironvast,F10,Battlespire,G9
+jump,Ironvast,F10,Omicron Major,G11
+jump,Ironvast,F10,Vortegan,E11
+jump,Keldrix,F1,Aurentum,E2
+jump,Malachar,H6,Empire Major,I7
+jump,Malachar,H6,Vorreth,I5
+jump,Nexarion,I3,Crossma Major,J4
+jump,Nexarion,I3,Kellova,J2
+jump,Raptian Major,D8,Scavaris,C9
+jump,Scavaris,C9,Derelicta,B10
+jump,Scavaris,C9,Plundros,B8
+jump,Scavaris,C9,Ravage Major,D10
+jump,Shadenvex,J6,Empire Major,I7
+jump,Shadenvex,J6,Obsidrath,K7
+jump,Synthari Capital,H4,Nexarion,I3
+jump,Vantara,D6,Kiral,C5
+jump,Veranthos,F4,Federis,G3
+jump,Aurelion,D4,Rimgate,E5
+jump,Crossma Major,J4,Nullpoint,K5
+jump,Crossma Major,J4,Perimeter,K3
+jump,Crossma Major,J4,Vorreth,I5
+jump,Dreadholm,F8,Foggiest,G7
+jump,Dreadholm,F8,Ogden,E7
+jump,Empire Major,I7,Sepheron,H8
+jump,Exodus Point,B6,Cynthara,A5
+jump,Exodus Point,B6,Void 3,A7
+jump,Federis,G3,Synthari Capital,H4
+jump,Kiral,C5,Aurelion,D4
+jump,Malachar,H6,Foggiest,G7
+jump,Malachar,H6,Vexara,G5
+jump,Selenvar,B2,Void System,C1
+jump,Dreadholm,F8,THE HEART,F6
+jump,Shadenvex,J6,Vorreth,I5
+jump,Vantara,D6,Republic Major,C7
+jump,Derelicta,B10,Voidtex,C11
+jump,Federis,G3,Techanis,H2
+jump,Kellova,J2,Perimeter,K3
+jump,Korrath,E9,Raptian Major,D8
+jump,Korrath,E9,Ravage Major,D10
+jump,Obsidrath,K7,Valdris,J8
+jump,Plundros,B8,Republic Major,C7
+jump,Raptian Major,D8,Ogden,E7
+jump,Sanctum Major,I10,Genesis,H11
+jump,Sepheron,H8,Battlespire,G9
+jump,Sepheron,H8,Foggiest,G7
+jump,Sigma-19,J10,Void 2,K11
+jump,Synthari Capital,H4,Vexara,G5
+jump,Techanis,H2,Void 1,I1
+jump,Valdris,J8,Void 4,K9
+jump,Vantara,D6,Ogden,E7
+jump,Velanthos,D2,Void System,C1
+jump,Veranthos,F4,Rimgate,E5
+jump,Veranthos,F4,Vexara,G5
+jump,Zillance Major,B4,Cynthara,A5
+jump,Zillance Major,B4,Farreach Outpost,A3
+jump,Veranthos,F4,THE HEART,F6
+warp,Selenvar,B2,Aurentum,E2
+warp,Kellova,J2,Shadenvex,J6
+warp,Obsidrath,K7,Sanctum Major,I10
+warp,Ironvast,F10,Derelicta,B10
+warp,Plundros,B8,Kiral,C5
+warp,Omicron Major,G11,Sigma-19,J10
+warp,Perimeter,K3,Radiant,K1
+warp,Shroud,A10,Shadow,A11
+rift,Rimgate,E5,Nullpoint,K5
+rift,Velanthos,D2,Ravage Major,D10
+rift,THE HEART,F6,REALM,off grid
