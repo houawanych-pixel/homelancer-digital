@@ -9,7 +9,7 @@ Made with: `portrait_to_pano.py src raw.png --lon 112 --lat 150 --bg auto` then
 straight down (no pinch at the poles) and the background is set to the picture's own edge brightness (`--bg auto`).
 
 The assignments are a first guess by faction colour and theme. The owner corrects them.
-57 of the 58 named systems have a sky. Missing: Korrath (Orion) and the 6 unnamed tiles.
+All 64 tiles have a sky: the 58 named systems and the 6 unnamed tiles (`void_1` .. `void_6`). 13 spare skies wait in `spare_01` .. `spare_13`.
 
 | Faction | System | Sky |
 |---|---|---|
@@ -70,6 +70,21 @@ The assignments are a first guess by faction colour and theme. The owner correct
 | Neutral | Omega | pink and gold eye with a blue star |
 | Neutral | Foggiest | pink and blue spiral |
 | Neutral | Ogden | purple and orange |
+| Orion | Korrath | red fire on dark teal |
+| Unnamed tile | void_1 | dark, an edge-on galaxy far off |
+| Unnamed tile | void_2 | dark teal, a faint rust core |
+| Unnamed tile | void_3 | dim red on navy |
+| Unnamed tile | void_4 | dark navy, a low orange glow |
+| Unnamed tile | void_5 | black with a thin gold streak |
+| Unnamed tile | void_6 | dark teal, a red cloud |
+
+**Void systems (owner, 3 Oct 2026):** some systems are void systems: a small sun, no life, too cold to live in.
+The six unnamed tiles are treated as these until the owner says otherwise; they got the darkest, coldest pictures.
+
+Spares (not assigned): spare_01 orange dust lane; spare_02 blue and purple ridge; spare_03 pure blue (good Unity
+swap); spare_04 red cloud, blue heart; spare_05 blue-white flare (good Unity swap); spare_06 red and blue (small
+picture); spare_07 orange and blue; spare_08 rose spiral; spare_09 orange web on blue; spare_10 pink galaxy (small
+picture); spare_11 blue and gold swirl; spare_12 teal and brown clouds; spare_13 gold and blue star field.
 
 Dropped as duplicates: 3 pictures (two were the Solara and Vega skies already in the game, one was sent twice).
 Two pictures carried a watermark (Omega, Voidtex); the strip was cut off. Check picture rights before the game is sold.
