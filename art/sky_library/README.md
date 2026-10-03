@@ -91,5 +91,10 @@ Left out of batch 5: one picture already used (Velanthos) and one with a stock-s
 
 More spares (batch 6): spare_32 orange fire on teal; spare_33 orange and magenta, bright core; spare_34 gold and red clouds with painted planets; spare_35 blue, pink and amber bubble; spare_36 red and blue flower burst; spare_37 green-gold eye; spare_38 violet and blue ridge; spare_39 orange shell, blue heart; spare_40 magenta ring, gold spiral; spare_41 crimson and indigo clouds; spare_42 teal, orange and purple swirl; spare_43 navy, teal and red clouds; spare_44 amber and blue heart, dark; spare_45 dark blue with an amber burst; spare_46 rose and blue with a galaxy (small picture); spare_47 rose and blue spiral (small picture); spare_48 amber, magenta and teal; spare_49 amber and violet clouds (small picture); spare_50 blue and orange spiral; spare_51 red-pink over blue.
 
+**Realms (off the grid, first guess):** realm_hova gold and orange light with teal; realm_sai soft gold on deep green;
+realm_coola cold blue heart with orange threads; realm_johnvex red and teal spiral with dark veins.
+
+More spares (batch 7): spare_52 gold cloud tower on teal; spare_53 rust-red cloud, blue star; spare_54 red, orange and magenta.
+
 Dropped as duplicates: 3 pictures (two were the Solara and Vega skies already in the game, one was sent twice).
 Two pictures carried a watermark (Omega, Voidtex); the strip was cut off. Check picture rights before the game is sold.
