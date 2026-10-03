@@ -2065,6 +2065,13 @@ func target_health() -> float:
 	if e.is_empty(): return -1.0
 	return float(e["hp"]) / float(e["max"])
 
+## Hostiles that are actually on you (they have seen you and are within fighting range): drives the battle music.
+func hostiles_engaged(r := 1500.0) -> int:
+	var c := 0
+	for e in enemies:
+		if e.get("aggro", false) and is_instance_valid(e["node"]) and e["node"].global_position.distance_to(player.global_position) < r: c += 1
+	return c
+
 func hostiles_near(r: float) -> int:
 	var c := 0
 	for e in enemies:

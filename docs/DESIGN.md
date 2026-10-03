@@ -340,3 +340,19 @@ at the bottom: one tap uses it. Tapping a marker directly still works.
 - Calls: your friend list comes with the game. You call them, they call you (also in flight, before docking, and
   during fights: allies, not enemies). Reach = your current star system. Calls guide missions ("dock here, I'll meet
   you") and the caller is then waiting in that room.
+
+## 19. Music by mood (Job Z, owner's 28 tracks)
+
+`scripts/music.gd` (autoload `Music`). Tracks are used by MOOD, not by place (64+ worlds, 28 tracks). The owner's own
+descriptions (full guide in Drive: "HOMELANCER — Music Guide"):
+- **Homelancer game** = the intro (start screen). **Homelancer game 1** = confusion / puzzles (HELD, no puzzles yet).
+- **Spaceways** = relaxed space travel; **Gate of Veranthos** = drifting and flying through space (one pool, "space").
+- **Interstellar** = exploration, the search (planet surfaces today).
+- **Rift Gate Collapse** = epic, battles and chases. **Bloodwater Corridor** = dark faction territory, high-level danger (Vega today).
+- **Void Drift** = unknown areas, lost, alone (nebula, and beyond 9 km from the system centre).
+- **Stars Remember Us** = heart moments, self-reflection, calm after a victory (26 s after a won fight; the apartment).
+- **Architect Ruins** = spooky exploration / horror missions (SOS on an abandoned carrier or station, underground
+  ruins). HELD until those exist. Do not use it as general planet music.
+- A random take per mood, the next take when one ends, 2 s cross-fades, MUSIC ON/OFF on the start screen.
+- Each track is its own pack (`mus_<id>`, 1.2-2.3 MB, Ogg q1) fetched on first use. Station rooms are quiet for now.
+- The owner's MP3s are the masters; the repo holds only the shrunken Ogg copies.

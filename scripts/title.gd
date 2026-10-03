@@ -10,6 +10,7 @@ const WORD := "HOMELANCER"
 var t := 0.0
 var font: Font = ThemeDB.fallback_font
 var start_btn: Button
+var music_btn: Button
 var bg: Texture2D = load("res://assets/ui/title_network.jpg")   # small stand-in from the core download, shown first
 var art: Texture2D = null   # the collage strip ("intro" pack): fades in over the stand-in as soon as it arrives
 var art_k := 0.0
@@ -37,9 +38,21 @@ func _ready() -> void:
 	start_btn.modulate.a = 0.0
 	start_btn.pressed.connect(func(): start_pressed.emit())
 	add_child(start_btn)
+	music_btn = Button.new()
+	music_btn.name = "MusicButton"
+	music_btn.custom_minimum_size = Vector2(150, 44)
+	music_btn.add_theme_font_size_override("font_size", 16)
+	music_btn.pressed.connect(func():
+		Music.set_muted(not Music.muted)
+		_music_label())
+	add_child(music_btn)
+	_music_label()
 	Packs.pack_ready.connect(_take_art)
 	Packs.request("intro")
 	_take_art()
+
+func _music_label() -> void:
+	music_btn.text = "MUSIC: OFF" if Music.muted else "MUSIC: ON"
 
 func _take_art(pk := "intro") -> void:
 	if pk == "intro" and art == null and Packs.is_ready("intro") and ResourceLoader.exists(ART): art = load(ART)
@@ -51,6 +64,7 @@ func _process(dt: float) -> void:
 		if art_k >= 1.0: bg = null   # the stand-in is no longer drawn
 	var S := get_viewport_rect().size
 	start_btn.position = Vector2(S.x * 0.5 - 160, S.y * 0.62)
+	music_btn.position = Vector2(S.x - 174, 20)
 	start_btn.modulate.a = clampf((t - 2.1) / 0.5, 0.0, 1.0)   # START appears once the logo has resolved
 	queue_redraw()
 

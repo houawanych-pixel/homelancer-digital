@@ -127,7 +127,32 @@ func _on_gs_changed() -> void:
 	if state == "flight" and is_instance_valid(space) and GS.shield < GS.max_shield() and space.shield_delay >= 2.9:
 		hud.hurt()
 
+## Which music fits right now (moods: scripts/music.gd; the owner's guide is in docs/DESIGN.md §19).
+var _fight_t := 0.0     # seconds since hostiles were last on you
+var _calm_t := 0.0      # "calm after a victory" time left
+var _kills_seen := 0
+func music_mood(dt: float) -> String:
+	if state == "title": return "intro"
+	if state == "hub": return "heart" if hub.rooms.visible and hub.rooms.room == "apartment" else ""
+	if not is_instance_valid(space) or not is_instance_valid(space.player): return Music.mood
+	if state != "flight": return Music.mood          # docking, jumping, map: keep what is playing
+	var fighting: bool = space.hostiles_engaged() > 0
+	if fighting:
+		if _fight_t > 0.0 or Music.mood != "battle": _kills_seen = GS.kills   # a new fight begins: count kills from here
+		_fight_t = 0.0
+		return "battle"
+	if _fight_t == 0.0 and Music.mood == "battle" and GS.kills > _kills_seen: _calm_t = 26.0   # won it (not just got away)
+	_fight_t += dt
+	if Music.mood == "battle" and _fight_t < 4.0: return "battle"   # do not drop the battle music for a short gap
+	if _calm_t > 0.0:
+		_calm_t -= dt
+		return "heart"
+	if space.surface_mode: return "explore"
+	if space.in_nebula > 0.0 or space.player.global_position.length() > 9000.0: return "void"
+	return "dark" if space.sys.get("enemy", "") == "corsair" else "space"
+
 func _process(_dt: float) -> void:
+	Music.want(music_mood(_dt))
 	if state == "title" and is_instance_valid(space):
 		# slow attract-mode orbit around Liberty Hub
 		var t := Time.get_ticks_msec() / 1000.0

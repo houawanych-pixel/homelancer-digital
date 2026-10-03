@@ -689,6 +689,41 @@ func _station_rooms() -> void:
 	hub.show_screen("hub")
 	_check("Station rooms: dealer markers open the dealer screens and STATION returns to the room", dealer and rm.visible and rm.room == "main_hub", hub.screen)
 
+## Music by mood: the right mood for where you are, a take from that mood, every track present and wired.
+func _music() -> void:
+	var ok_files := true
+	var n := 0
+	for m: String in Music.MOODS:
+		for id: String in Music.MOODS[m]:
+			n += 1
+			if not Packs.PACKS.has(Music.pack(id)) or not (OS.has_feature("web") or ResourceLoader.exists(Music.path(id))): ok_files = false
+	var s := _sp()
+	var keep: Array = s.enemies
+	s.enemies = []          # nobody around: plain flying
+	main._calm_t = 0.0
+	main._fight_t = 99.0
+	await _wait(0.3)
+	var flying: String = Music.mood
+	s.enemies = keep
+	var took: bool = Music.track in Music.MOODS.get(Music.mood, [])
+	var grp: Array = s._spawn_group(s.player.global_position + Vector3(0, 0, -400), 1)   # a hostile that has seen you
+	for e in grp: e["aggro"] = true
+	await _wait(0.4)
+	await Packs.wait(Music.pack(Music.track), 40.0)   # (on the web the track downloads first)
+	await _wait(0.3)
+	var battle: bool = Music.mood == "battle" and Music.track.begins_with("rift_") and Music.is_playing()
+	var btrack: String = Music.track
+	for e in grp:
+		s.enemies.erase(e)
+		e["node"].queue_free()
+	s.target = null
+	main._calm_t = 0.0
+	Music.set_muted(true)
+	var was_muted: bool = Music.muted
+	Music.set_muted(false)
+	_check("Music: 28 tracks by mood (space when flying Solara, Rift Gate in battle), each its own pack, can be muted",
+		ok_files and n == 28 and flying == "space" and took and battle and was_muted and main.title.music_btn != null, "%d tracks, flying = %s, battle = %s" % [n, flying, btrack])
+
 ## NPC chat brain: understands what was typed, answers in character, remembers the pilot. No network.
 func _npc_brain() -> void:
 	var u1: Dictionary = Brain.understand("Where is the warp gate?")
@@ -1011,6 +1046,7 @@ func _run() -> void:
 	await _city_kit()
 	await _flight_and_comms()
 	_npc_brain()
+	await _music()
 	await _system_sky("sky_solara")
 	# ---- dock at station
 	_check("Station docking", await _dock_at(s.station), s.station.name)
@@ -1113,7 +1149,11 @@ func _run() -> void:
 	await _wait(0.4)
 	await _shot("navigation_map")
 	# galaxy map: the whole network on screen as data only — nothing extra loads
-	var packs_before: Dictionary = Packs.state.duplicate()
+	var no_music := func(d: Dictionary) -> Dictionary:   # (a music track may finish downloading meanwhile; that is not the map)
+		var o := {}
+		for k: String in d: if not k.begins_with("mus_"): o[k] = d[k]
+		return o
+	var packs_before: Dictionary = no_music.call(Packs.state)
 	var res_before := Performance.get_monitor(Performance.OBJECT_RESOURCE_COUNT)
 	main.navmap.galaxy_requested.emit()
 	await _wait(0.6)
@@ -1126,7 +1166,7 @@ func _run() -> void:
 	await _wait(0.4)
 	await _shot("galaxy_system_vega")
 	var res_after := Performance.get_monitor(Performance.OBJECT_RESOURCE_COUNT)
-	_check("Galaxy map: %d systems shown, data only" % net["systems"].size(), gm.visible and net["systems"].size() >= 50 and playable == 2 and Packs.state == packs_before and res_after - res_before < 20,
+	_check("Galaxy map: %d systems shown, data only" % net["systems"].size(), gm.visible and net["systems"].size() >= 50 and playable == 2 and no_music.call(Packs.state) == packs_before and res_after - res_before < 20,
 		"links %d, resources +%d" % [net["links"].size(), int(res_after - res_before)])
 	gm.press("close")   # back out of the system chart first
 	gm.yaw = atan2(0.0 - gm.viewer.x, -(0.0 - gm.viewer.z))   # look straight at Solara
