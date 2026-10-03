@@ -3,7 +3,7 @@
 The picture is placed undistorted-ish as the feature in one direction of the sky (default 110 x 176 degrees, straight
 ahead) and feathered into a dark background made from the picture's own colours (blurred, mirrored so it has no
 seam), with extra stars sprinkled where the picture does not reach. Run tools/sky/fix_pano.py afterwards for the poles.
-usage: portrait_to_pano.py in.jpg out.png [--width 2048] [--lon 110] [--lat 176] [--seed 1]"""
+usage: portrait_to_pano.py in.jpg out.png [--width 2048] [--lon 110] [--lat 176] [--seed 1] [--bg auto]"""
 import argparse
 import numpy as np
 from PIL import Image, ImageFilter
@@ -15,6 +15,7 @@ ap.add_argument("--lon", type=float, default=130.0)
 ap.add_argument("--lat", type=float, default=176.0)
 ap.add_argument("--seed", type=int, default=1)
 ap.add_argument("--echo", type=float, default=0.55)
+ap.add_argument("--bg", default="0.45", help="background brightness, or 'auto' = match the picture's own edges (no visible frame)")
 a = ap.parse_args()
 W = a.width; H = W // 2
 src = Image.open(a.src).convert("RGB")
@@ -23,7 +24,13 @@ half = src.resize((W // 2, H), Image.LANCZOS).filter(ImageFilter.GaussianBlur(W 
 bg = Image.new("RGB", (W, H))
 bg.paste(half.transpose(Image.FLIP_LEFT_RIGHT), (0, 0)); bg.paste(half, (W // 2, 0))
 bg = bg.filter(ImageFilter.GaussianBlur(W / 40))
-out = np.asarray(bg).astype(np.float32) * 0.45
+out = np.asarray(bg).astype(np.float32)
+if a.bg == "auto":
+    sa = np.asarray(src).astype(np.float32); r = max(4, int(min(sa.shape[:2]) * 0.06))
+    ring = np.concatenate([sa[:r].reshape(-1, 3), sa[-r:].reshape(-1, 3), sa[:, :r].reshape(-1, 3), sa[:, -r:].reshape(-1, 3)])
+    out *= float(np.clip(np.median(ring.mean(1)) / max(out.mean(), 1.0), 0.06, 0.45))
+else:
+    out *= float(a.bg)
 # stars on the background (the picture brings its own)
 rng = np.random.default_rng(a.seed)
 n = int(W * H * 0.0011)
