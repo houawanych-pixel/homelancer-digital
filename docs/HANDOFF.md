@@ -13,7 +13,7 @@
     export GODOT=/home/claude/godot/Godot_v4.3-stable_linux.x86_64
     cd /home/claude/hl && $GODOT --headless --import --path .
     xvfb-run -a $GODOT --audio-driver Dummy --rendering-driver opengl3 --resolution 1280x720 --path . -- --autotest --quit-after-test
-      -> must print RESULT 91/91 PASS  (HL_SHOT_DIR=/dir saves screenshots; HL_SHOWCASE=1 = short combat demo; HL_CITY=1 = city prototype shots only)
+      -> must print RESULT 92/92 PASS (91/91 in the web build)  (HL_SHOT_DIR=/dir saves screenshots; HL_SHOWCASE=1 = short combat demo; HL_CITY=1 = city prototype shots only)
 
 ## Game layout (scripts/)
 main.gd (states, calls, hub/map), space.gd (world, combat, enemies, missiles, stations), hud.gd (mobile HUD, call box
@@ -63,3 +63,9 @@ HL_PROFILE=1 (startup steps and memory), and HL_SOAK=n (memory over round trips)
   big-battle test with 30–40 units.
 - Human characters (~480k tris) need a rig-preserving reducer before going in-game; no on-foot mode yet.
 - Spare portrait set art/portraits/homelancer_operative_* (black/white suit operative) not used yet.
+
+## Version number (owner's scheme)
+`Data.VERSION` and the `hl-version` meta in `web_shell.html` carry the beta version, e.g. v1.2x. The letter is the
+Chief job letter. After z the number goes up and the letter restarts: v1.2z -> v1.3a. Bump both for every job. The
+Hova Matrix landing page (repo hova-matrix) reads the meta from the live game page and shows it on its PLAY TEST BETA
+button, so the site always shows the current version without being edited.

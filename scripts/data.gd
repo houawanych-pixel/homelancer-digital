@@ -2,7 +2,10 @@ class_name Data
 extends RefCounted
 ## Static game data for Homelancer Digital v1.2. All names, ships and places are original Homelancer content.
 
-const VERSION := "v1.2"
+# Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
+# Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
+# Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
+const VERSION := "v1.2x"
 
 # ---------------------------------------------------------------- ships
 # model: key understood by ShipFactory. "cadet_glb" etc. load real GLBs when present under assets/ships/.
