@@ -18,6 +18,7 @@ const PACKS := {
 	"city": {"folders": ["res://assets/city"], "probe": "res://assets/city/capital_normal.png"},
 	"intro": {"folders": ["res://assets/intro"], "probe": "res://assets/intro/title_collage.jpg"},
 	"rooms": {"folders": ["res://assets/rooms"], "probe": "res://assets/rooms/main_hub.jpg"},
+	"structures": {"folders": ["res://assets/structures"], "probe": "res://assets/structures/jump_gate_ring.glb"},
 	"sky": {"folders": ["res://assets/sky"], "probe": "res://assets/sky/solara.jpg"},
 	# music: one pack per track, fetched the first time that track is wanted (scripts/music.gd)
 	"mus_bloodwater_1": {"folders": ["res://assets/music"], "match": "bloodwater_1.", "probe": "res://assets/music/bloodwater_1.ogg"},

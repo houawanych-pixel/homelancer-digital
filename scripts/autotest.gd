@@ -1125,10 +1125,20 @@ func _run() -> void:
 	var g: Node3D = s.gate
 	_tp(g.global_position + g.global_basis.z * 420.0, g.global_position)
 	await _shot("jump_gate", 1.2)
+	await Packs.wait("structures", 30.0)
+	await _wait(0.3)
+	var ring_tris := 0
+	if s.gate_model != null: ring_tris = s.gate_model.mesh.surface_get_array_len(0) if s.gate_model.mesh.surface_get_array_index_len(0) == 0 else s.gate_model.mesh.surface_get_array_index_len(0) / 3
+	_check("Jump gate wears the owner's ring model (structures pack, under 6000 triangles)", s.gate_model != null and not s.gate_standin.visible and ring_tris > 1000 and ring_tris <= 6000, "tris=%d" % ring_tris)
+	_check("Liberty Hub wears the owner's station model; Vega keeps the code-made one until it gets its own", s.station_model != null and s.sys["station"].get("model", "") == "wheel_station" and not Data.SYSTEMS["vega"]["station"].has("model"))
 	s.target = g
 	_press("goto")
 	await _until(func(): return s.gate_in_range(), 25.0)
 	_press("jump")
+	await _until(func(): return main.fx.warp > 0.3, 8.0)
+	var rings_n: int = s.jump_rings.size()
+	await _capture("jump_rings")
+	_check("Jump rings light up behind the gate during the jump", rings_n == s.JUMP_RINGS, "rings=%d" % rings_n)
 	await _until(func(): return main.fx.warp > 0.8, 8.0)
 	await _capture("warp")
 	await _until(func(): return main.state == "flight", 15.0)

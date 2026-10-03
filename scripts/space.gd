@@ -97,6 +97,16 @@ var carrier: Node3D
 var planet: Node3D
 var gate: Node3D
 var gate_portal: MeshInstance3D
+var gate_standin: Node3D          # the code-made ring, shown until the "structures" pack arrives
+var gate_model: MeshInstance3D    # the owner's jump gate ring (assets/structures/jump_gate_ring.glb)
+var jump_rings: Array = []
+const GATE_RING_PATH := "res://assets/structures/jump_gate_ring.glb"
+const GATE_RING_SCALE := 44.0     # the model's clear opening has radius 1.0
+const GATE_RING_TRIS := 5316
+const JUMP_RINGS := 6
+var station_model: MeshInstance3D   # the owner's station model, for stations whose data says "model"
+const STATION_WIDTH := 170.0       # the model is 1.0 wide; its ring then sits where the code-made ring was
+const STATION_TRIS := 14900
 var nebula_center := Vector3.ZERO
 var nebula_radius := 0.0
 var nebula_color := Color.WHITE
@@ -386,6 +396,8 @@ func _build_station(d: Dictionary) -> void:
 				var gl := _mesh(body, BoxMesh.new(), Vector3(s * 12, -6, 64 + i * 14), Color(0.3, 1.0, 0.6), Vector3(1.2, 1.2, 1.2), Vector3.ZERO, true)
 				gl.set_meta("blink", i * 0.12)
 		station.set_meta("body", body)
+		_station_model()
+		if d.has("model") and station_model == null and not Packs.pack_ready.is_connected(_on_gate_pack): Packs.pack_ready.connect(_on_gate_pack)
 		return
 	_mesh(body, cyl, Vector3.ZERO, c, Vector3(14, 70, 14))
 	_mesh(body, cyl, Vector3(0, 40, 0), c.darkened(0.3), Vector3(22, 10, 22))
@@ -408,6 +420,29 @@ func _build_station(d: Dictionary) -> void:
 		var a2 := i * TAU / 8.0
 		_mesh(body, BoxMesh.new(), Vector3(cos(a2) * 60, 0, sin(a2) * 60), Color(1.0, 0.85, 0.5), Vector3(2, 2, 2), Vector3.ZERO, true)
 	station.set_meta("body", body)
+	_station_model()
+	if d.has("model") and station_model == null and not Packs.pack_ready.is_connected(_on_gate_pack): Packs.pack_ready.connect(_on_gate_pack)
+
+## A station whose data names a model (assets/structures/<model>.glb) wears it once the "structures" pack is in.
+## The code-made station stays as the stand-in until then; the green docking guide lights are kept.
+func _station_model() -> void:
+	if station_model != null or not is_instance_valid(station) or station.get_meta("kind", "") != "station": return
+	var d: Dictionary = station.get_meta("info")
+	if not d.has("model") or not station.has_meta("body"): return
+	var path := "res://assets/structures/%s.glb" % d["model"]
+	if not (Packs.is_ready("structures") and ResourceLoader.exists(path)): return
+	var sc := (load(path) as PackedScene).instantiate()
+	var found := sc.find_children("*", "MeshInstance3D", true, false)
+	if not found.is_empty():
+		var body: Node3D = station.get_meta("body")
+		for ch in body.get_children():
+			if ch is Node3D and not ch.has_meta("blink"): ch.visible = false
+		station_model = MeshInstance3D.new()
+		station_model.mesh = (found[0] as MeshInstance3D).mesh
+		station_model.scale = Vector3.ONE * STATION_WIDTH
+		station_model.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		body.add_child(station_model)
+	sc.free()
 
 func _planet_texture(palette: String) -> ImageTexture:
 	var w := 512
@@ -518,17 +553,21 @@ func _build_gate(d: Dictionary) -> void:
 	var inward: Vector3 = (Vector3(0, 0, -1200) - gate.position)
 	if inward.length() < 10.0: inward = Vector3(0, 0, -1)
 	gate.look_at(gate.position - inward.normalized(), Vector3.UP)
+	gate_standin = Node3D.new()
+	gate.add_child(gate_standin)
 	var ring := TorusMesh.new()
 	ring.inner_radius = 44.0
 	ring.outer_radius = 52.0
 	ring.rings = 48
 	ring.ring_segments = 8
-	_mesh(gate, ring, Vector3.ZERO, Color(0.55, 0.6, 0.7), Vector3.ONE, Vector3(90, 0, 0))
+	_mesh(gate_standin, ring, Vector3.ZERO, Color(0.55, 0.6, 0.7), Vector3.ONE, Vector3(90, 0, 0))
 	var box := BoxMesh.new()
 	for i in 6:
 		var a := i * TAU / 6.0
-		_mesh(gate, box, Vector3(cos(a) * 56, sin(a) * 56, 0), Color(0.3, 0.33, 0.4), Vector3(10, 10, 16), Vector3(0, 0, rad_to_deg(a)))
-		_mesh(gate, box, Vector3(cos(a) * 56, sin(a) * 56, 8.5), Color(0.3, 0.85, 1.0), Vector3(4, 4, 1), Vector3.ZERO, true)
+		_mesh(gate_standin, box, Vector3(cos(a) * 56, sin(a) * 56, 0), Color(0.3, 0.33, 0.4), Vector3(10, 10, 16), Vector3(0, 0, rad_to_deg(a)))
+		_mesh(gate_standin, box, Vector3(cos(a) * 56, sin(a) * 56, 8.5), Color(0.3, 0.85, 1.0), Vector3(4, 4, 1), Vector3.ZERO, true)
+	_gate_model()
+	if gate_model == null and not Packs.pack_ready.is_connected(_on_gate_pack): Packs.pack_ready.connect(_on_gate_pack)
 	gate_portal = MeshInstance3D.new()
 	var disc := CylinderMesh.new()
 	disc.top_radius = 44.0
@@ -546,6 +585,62 @@ func _build_gate(d: Dictionary) -> void:
 	pm.cull_mode = BaseMaterial3D.CULL_DISABLED
 	gate_portal.material_override = pm
 	gate.add_child(gate_portal)
+
+## The owner's jump gate ring replaces the code-made ring once the "structures" pack is in.
+func _gate_model() -> void:
+	if gate_model != null or not is_instance_valid(gate_standin): return
+	if not (Packs.is_ready("structures") and ResourceLoader.exists(GATE_RING_PATH)): return
+	var sc := (load(GATE_RING_PATH) as PackedScene).instantiate()
+	var found := sc.find_children("*", "MeshInstance3D", true, false)
+	if not found.is_empty():
+		gate_model = MeshInstance3D.new()
+		gate_model.mesh = (found[0] as MeshInstance3D).mesh
+		gate_model.scale = Vector3.ONE * GATE_RING_SCALE
+		gate_model.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		gate.add_child(gate_model)
+		gate_standin.visible = false
+		gate.set_meta("radius", 2.9 * GATE_RING_SCALE)
+	sc.free()
+
+func _on_gate_pack(pk: String) -> void:
+	if pk == "structures" and not surface_mode:
+		_gate_model()
+		_station_model()
+
+## Jump rings: a short tunnel of glowing rings behind the gate that the ship flies through as it jumps.
+## Cheap: one shared torus mesh and one unshaded additive material; they light up one after another.
+func show_jump_rings(col: Color, reach: float) -> void:
+	clear_jump_rings()
+	var tor := TorusMesh.new()
+	tor.inner_radius = 0.9
+	tor.outer_radius = 1.0
+	tor.rings = 32
+	tor.ring_segments = 6
+	for i in JUMP_RINGS:
+		var k := float(i + 1) / JUMP_RINGS
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		m.albedo_color = Color(col.r, col.g, col.b, 0.0)
+		var mi := MeshInstance3D.new()
+		mi.mesh = tor
+		mi.material_override = m
+		mi.rotation_degrees = Vector3(90, 0, 0)
+		mi.position = Vector3(0, 0, -reach * k)
+		mi.scale = Vector3.ONE * lerpf(40.0, 16.0, k)
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		gate.add_child(mi)
+		jump_rings.append(mi)
+		var tw := mi.create_tween()
+		tw.tween_interval(0.12 * i)
+		tw.tween_property(m, "albedo_color:a", 0.9, 0.25)
+		tw.parallel().tween_property(mi, "scale", mi.scale * 1.12, 0.25)
+
+func clear_jump_rings() -> void:
+	for r in jump_rings:
+		if is_instance_valid(r): r.queue_free()
+	jump_rings.clear()
 
 func _rock_mesh(seed_v: int, ice: bool) -> ArrayMesh:
 	var n := FastNoiseLite.new()

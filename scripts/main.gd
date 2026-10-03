@@ -49,7 +49,7 @@ func _ready() -> void:
 	_load_system("solara", "station")
 	space.controls = false
 	# optional content arrives in the background after the game is up (see scripts/packs.gd)
-	get_tree().create_timer(1.5).timeout.connect(func(): for pk in ["sky", "rooms", "enemies", "cockpit", "mechs", "lancer", "planets"]: Packs.request(pk))
+	get_tree().create_timer(1.5).timeout.connect(func(): for pk in ["sky", "structures", "rooms", "enemies", "cockpit", "mechs", "lancer", "planets"]: Packs.request(pk))
 	autotest = "--autotest" in OS.get_cmdline_user_args() or _web_flag("autotest")
 	if autotest:
 		var runner: Node = load("res://scripts/autotest.gd").new()
@@ -540,13 +540,14 @@ func jump() -> void:
 	var gate: Node3D = space.gate
 	var p: Node3D = space.player
 	var front: Vector3 = gate.global_position + gate.global_basis.z * 110.0
-	var through: Vector3 = gate.global_position - gate.global_basis.z * 60.0
+	var through: Vector3 = gate.global_position - gate.global_basis.z * 260.0     # on through the jump rings
+	space.show_jump_rings(Data.SYSTEMS[to]["star"], 240.0)
 	fx.caption = ""
 	fx.warp_color = Data.SYSTEMS[to]["star"]
 	var tw := create_tween()
 	tw.tween_method(func(k: float): _fly_along(p, front, k), 0.0, 1.0, 1.2)
-	tw.tween_method(func(k: float): _fly_along(p, through, k), 0.0, 1.0, 1.4)
-	tw.parallel().tween_property(fx, "warp", 1.0, 1.4)
+	tw.tween_method(func(k: float): _fly_along(p, through, k), 0.0, 1.0, 1.9)
+	tw.parallel().tween_property(fx, "warp", 1.0, 1.9)
 	await tw.finished
 	fx.caption = "JUMP IN PROGRESS"
 	fx.sub = "%s  >  %s" % [space.sys["name"].to_upper(), Data.SYSTEMS[to]["name"].to_upper()]

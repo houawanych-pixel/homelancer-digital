@@ -356,3 +356,18 @@ descriptions (full guide in Drive: "HOMELANCER — Music Guide"):
 - A random take per mood, the next take when one ends, 2 s cross-fades, MUSIC ON/OFF on the start screen.
 - Each track is its own pack (`mus_<id>`, 1.2-2.3 MB, Ogg q1) fetched on first use. Station rooms are quiet for now.
 - The owner's MP3s are the masters; the repo holds only the shrunken Ogg copies.
+
+## 20. Jump gate ring, jump rings, station model, sky library, galaxy draft (v1.3a)
+
+- **Jump gate ring.** The owner's Tripo jump gate (`art/models` keeps the spare arch piece as
+  `jump_gate_extra_section.glb`) is cut to the ring only, 336,876 -> 5,316 triangles, 512 px maps:
+  `assets/structures/jump_gate_ring.glb` (the `structures` pack). Hole along Z, clear opening radius 1.0, drawn at
+  `GATE_RING_SCALE` 44. The code-made ring is the stand-in until the pack arrives. Tool: `tools/gate/make_gate.py`.
+- **Jump rings.** `space.show_jump_rings()` puts 6 glowing rings behind the gate; the ship flies on through them as
+  the warp effect builds (`main.jump`). One shared torus, unshaded additive: nearly free on a phone.
+- **Station model.** The owner's wheel station, 473,334 -> 14,900 triangles: `assets/structures/wheel_station.glb`.
+  A station wears it when its data has `"model": "wheel_station"` (Liberty Hub does; Vega keeps the old one for a
+  second look). Tool: `tools/gate/make_station.py`.
+- **Sky library.** `art/sky_library`: 122 seamless skies from the owner's pictures, one per tile and realm plus
+  spares. Not in the build; copy one into `assets/sky/<system>.jpg` when its system is built.
+- **Galaxy draft.** `docs/galaxy`: the 11 x 11 map (script, tile list, gate list, picture). PLAN, not built.
