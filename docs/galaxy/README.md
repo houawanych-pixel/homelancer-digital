@@ -18,3 +18,6 @@ Draft choices made by Claude (owner to correct): faction wedges go round the Hea
 Solarion, Imperium, Covenant, Orion, Savagers, Liberator, Elyza); capitals sit two tiles from the Heart; the Heart links
 only to Veranthos and Dreadholm, so it is the one Unity-Orion crossing; the realm's rift gate sits on the Heart; Shadow
 and Radiant sit in opposite corners and are reached by warp gate only; the 6 void systems sit on the outer edge.
+
+- Enemy (grey) factions control the open tiles next to their home (owner, 3 Oct 2026): every open tile touching an
+  enemy home, corners included, is that enemy's space. 17 tiles in this draft.

@@ -36,6 +36,7 @@ S = {
 }
 PRESS = {"Void System": ("Unity", "Elyza"), "Kronos": ("Solarion", "Unity"), "Cynthara": ("Elyza", "Liberator"),
          "Cybernet": ("Liberator", "Savagers"), "Noctyra": ("Imperium", "Covenant"), "Genesis": ("Orion", "Covenant")}
+ENEMY = {"Void System": "Solrath", "Kronos": "Arctides", "Cynthara": "Gadversee", "Cybernet": "Cybermorphs", "Noctyra": "Phenom", "Genesis": "Kaijurai"}
 WARP = [("Selenvar", "Aurentum"), ("Kellova", "Shadenvex"), ("Obsidrath", "Sanctum Major"), ("Ironvast", "Derelicta"),
         ("Plundros", "Kiral"), ("Omicron Major", "Sigma-19"), ("Perimeter", "Radiant"), ("Shroud", "Shadow")]
 RIFT = [("Rimgate", "Nullpoint"), ("Velanthos", "Ravage Major")]
@@ -44,6 +45,14 @@ def xy(t): return COLS.index(t[0]), int(t[1:]) - 1
 P = {n: xy(v[0]) for n, v in S.items()}
 assert len(set(P.values())) == len(P), "two systems on one tile"
 occ = {v: k for k, v in P.items()}
+
+HELD = {}
+for e in ENEMY:
+    ex, ey = P[e]
+    for dx in (-1, 0, 1):
+        for dy in (-1, 0, 1):
+            t = (ex + dx, ey + dy)
+            if t != (ex, ey) and 0 <= t[0] < 11 and 0 <= t[1] < 11 and t not in occ and t not in HELD: HELD[t] = e
 
 def jump_ok(a, b):
     fa, fb = S[a][1], S[b][1]
@@ -83,14 +92,20 @@ im = Image.new("RGB", (W, H), "#070a12"); dr = ImageDraw.Draw(im)
 def font(sz, bold=True): return ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans%s.ttf" % ("-Bold" if bold else ""), sz)
 def c(n): x, y = P[n]; return M + x * T + T // 2, TOP + y * T + T // 2
 dr.text((M, 28), "HOMELANCER GALAXY  11 x 11  FIRST DRAFT", font=font(54), fill="#ffffff")
-dr.text((M, 96), "121 tiles: 58 named systems, 6 void systems, the Heart, 56 open-space tiles. Every edge wraps to the far side.", font=font(26, False), fill="#9fb0c8")
+dr.text((M, 96), "121 tiles: 58 named systems, 6 void systems, the Heart, %d enemy-held open tiles, %d free open tiles." % (len(HELD), 56 - len(HELD)) + " Every edge wraps to the far side.", font=font(26, False), fill="#9fb0c8")
 for i in range(11):
     dr.text((M + i * T + T // 2 - 10, TOP - 34), COLS[i], font=font(28), fill="#6f7f98")
     dr.text((22, TOP + i * T + T // 2 - 16), str(i + 1), font=font(28), fill="#6f7f98")
     for j in range(11):
         x0, y0 = M + i * T, TOP + j * T
         dr.rectangle([x0, y0, x0 + T, y0 + T], outline="#1b2436", width=2)
-        if (i, j) not in occ: dr.text((x0 + 10, y0 + 8), f"{COLS[i]}{j + 1}", font=font(18, False), fill="#2f3b52")
+        if (i, j) in HELD:
+            e = HELD[(i, j)]
+            dr.rectangle([x0 + 5, y0 + 5, x0 + T - 5, y0 + T - 5], fill="#24252b", outline=ACCENT[e], width=4)
+            dr.text((x0 + 14, y0 + 12), f"{COLS[i]}{j + 1}", font=font(18), fill="#8d909c")
+            for k, l in enumerate((ENEMY[e], "space")):
+                dr.text((x0 + T / 2 - dr.textlength(l, font=font(24)) / 2, y0 + T / 2 - 30 + k * 30), l, font=font(24), fill=ACCENT[e])
+        elif (i, j) not in occ: dr.text((x0 + 10, y0 + 8), f"{COLS[i]}{j + 1}", font=font(18, False), fill="#2f3b52")
 def line(a, b, col, wd, dash=None):
     (x1, y1), (x2, y2) = c(a), c(b)
     if not dash: dr.line([x1, y1, x2, y2], fill=col, width=wd); return
@@ -136,7 +151,7 @@ for k in range(0, 150, 52): dr.line([M + k, gy + 118, M + k + 26, gy + 118], fil
 dr.text((M + 170, gy + 102), f"WARP gate ({len(WARP)}): hidden in nebula, 3 to 4 tiles, the only way to Shadow and Radiant", font=font(26, False), fill="#d8e2f0")
 for k in range(0, 150, 24): dr.line([M + k, gy + 166, M + k + 12, gy + 166], fill="#c04cff", width=7)
 dr.text((M + 170, gy + 150), f"RIFT gate ({len(RIFT) + 1}): 6 to 8 tiles. Purple ring on the Heart = the rift gate to the one live REALM (off the grid; 3 more realms later)", font=font(26, False), fill="#d8e2f0")
-dr.text((M, gy + 210), "White border = faction capital. Coloured border = enemy home (accent colour) or hidden system. Dark squares with a tile code = open space.", font=font(24, False), fill="#9fb0c8")
+dr.text((M, gy + 210), "White border = faction capital. Coloured border = enemy home (accent colour) or hidden system. Grey squares = open space held by the enemy home next to them.", font=font(24, False), fill="#9fb0c8")
 dr.text((M, gy + 246), "Planet and station counts are the PROPOSED ones from the Star System Catalog v2. Draft for the owner to reshape.", font=font(24, False), fill="#9fb0c8")
 im.save("galaxy_11x11_draft.png"); im.convert("RGB").save("galaxy_11x11_draft.jpg", quality=88)
 with open("galaxy_11x11_tiles.csv", "w", newline="") as f:
@@ -148,4 +163,9 @@ with open("galaxy_11x11_gates.csv", "w", newline="") as f:
     w = csv.writer(f); w.writerow(["type", "from", "from tile", "to", "to tile"])
     for t, L in (("jump", JUMP), ("warp", WARP), ("rift", RIFT + [("THE HEART", "REALM")])):
         for a, b in L: w.writerow([t, a, S[a][0], b, S[b][0] if b in S else "off grid"])
+with open("galaxy_11x11_tiles.csv", "a", newline="") as f:
+    w = csv.writer(f)
+    for (i, j), e in sorted(HELD.items(), key=lambda kv: (kv[0][1], kv[0][0])): w.writerow([f"{COLS[i]}{j + 1}", "(open space)", "Enemy", f"held by {ENEMY[e]} ({e})", 0, 0, ""])
+import collections
+print("held", len(HELD), dict(collections.Counter(ENEMY[e] for e in HELD.values())))
 print(W, H)
