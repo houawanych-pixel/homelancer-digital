@@ -86,5 +86,8 @@ swap); spare_04 red cloud, blue heart; spare_05 blue-white flare (good Unity swa
 picture); spare_07 orange and blue; spare_08 rose spiral; spare_09 orange web on blue; spare_10 pink galaxy (small
 picture); spare_11 blue and gold swirl; spare_12 teal and brown clouds; spare_13 gold and blue star field.
 
+More spares (batch 5): spare_14 teal and coral star river; spare_15 teal and amber with dark veins; spare_16 navy with gold and cyan swirls; spare_17 blue heart, rust pillars; spare_18 violet swirl over dark clouds; spare_19 orange fire and blue; spare_20 violet and amber, bright core; spare_21 purple over peach; spare_22 orange and blue ridges; spare_23 purple heart, gold halo; spare_24 amber cloud over navy; spare_25 rust and grey dust; spare_26 gold, rust and violet; spare_27 dark teal and gold; spare_28 orange, pink and violet blaze; spare_29 orange shell, blue core; spare_30 amber pillars; spare_31 teal and amber, dark pillar.
+Left out of batch 5: one picture already used (Velanthos) and one with a stock-site watermark across the middle.
+
 Dropped as duplicates: 3 pictures (two were the Solara and Vega skies already in the game, one was sent twice).
 Two pictures carried a watermark (Omega, Voidtex); the strip was cut off. Check picture rights before the game is sold.
