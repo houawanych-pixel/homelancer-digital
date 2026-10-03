@@ -325,3 +325,18 @@ halves have different heights, so the back is scaled and the front's top trimmed
 It is the small `intro` pack (`assets/intro/title_collage.jpg`, 2920 x 400), requested at once; the old white network
 strip from the core download shows for the first moment and the collage fades in over it. The logo and START sit on a
 soft dark band. (The white-network intro strip and the white secret system were tried and discarded.)
+
+## 18. Station rooms: look stick + green "ready" (Job Y), and the arm tablet (PLAN, owner voice notes Oct 2)
+
+**Built (Job Y):** a LOOK stick bottom right in every room (big left-right sweep, gentle up-down; drag still works).
+The marker nearest the middle of the view lights up GREEN (same green as docking = ready) and a green button appears
+at the bottom: one tap uses it. Tapping a marker directly still works.
+
+**Planned next: the arm tablet (Freelancer-style menu).**
+- A button (the tablet on your arm). Push it: the tablet activates and slides out on the LEFT side. Push again: it drops away.
+- Smoked glass: tinted enough to read, the room still shows through. You can keep looking around while it is open.
+- On it: a map of the station with all rooms highlighted (jump straight to one), the menu, contacts and the call log.
+- Markers behind the tablet do NOT light up and cannot be tapped (the tablet is in front); markers in the clear work as usual.
+- Calls: your friend list comes with the game. You call them, they call you (also in flight, before docking, and
+  during fights: allies, not enemies). Reach = your current star system. Calls guide missions ("dock here, I'll meet
+  you") and the caller is then waiting in that room.

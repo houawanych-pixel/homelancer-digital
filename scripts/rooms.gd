@@ -4,7 +4,8 @@ extends Control
 ## A room is ONE long picture: the front view and the back view side by side, with a blended bridge at each join
 ## (tools/rooms/make_strip.py builds it from a 16:9 image with front on top, back on the bottom). You look around by dragging: it scrolls left and right forever
 ## (seamless wrap) and tilts only a little up and down. No floor or ceiling beyond the picture.
-## Signs, doors and people are HOTSPOTS: tap one. A door zooms into it, swaps the picture while zoomed, and zooms out
+## A LOOK stick (bottom right) turns the view; the marker nearest the middle lights up GREEN and a green button
+## appears: one tap uses it. Signs, doors and people are HOTSPOTS: you can also tap one directly. A door zooms into it, swaps the picture while zoomed, and zooms out
 ## in the next room (the zoom hides the swap). Only the current room's picture is in memory.
 ## Pictures live in the "rooms" content pack (assets/rooms/<id>.jpg).
 
@@ -12,6 +13,11 @@ signal action(act: String)   # "screen:<hub screen>", "launch", "map", "inspect"
 
 const CYAN := Color(0.4, 0.86, 1.0)
 const GOLD := Color(1.0, 0.82, 0.4)
+const GREEN := Color(0.25, 0.92, 0.45)   # "ready": the same green as the docking prompt
+const STICK_R := 74.0
+const STICK_TURN := 0.16      # strip lengths per second at full stick: a full turn takes about 6 s
+const STICK_TILT := 1.6       # tilt units per second at full stick (the tilt range is small)
+const FOCUS_HALF := 0.17      # a marker within this share of the screen width from the middle is "in view"
 const OVERSCAN := 1.14        # the picture is this much taller than the screen: that is the tilt you get
 const ZOOM_IN := 0.42         # seconds to zoom into a door
 const ZOOM_OUT := 0.38
@@ -88,6 +94,9 @@ var _drag := false
 var _moved := 0.0
 var _vel := 0.0
 var _zoom_at := Vector2.ZERO
+var look := Vector2.ZERO   # the look stick, -1..1 (x turns, y tilts)
+var focus := -1            # the marker in the middle of the view (green = ready), -1 = none
+var _stick_on := false
 
 ## The strip is [front | bridge | back | bridge] (tools/rooms/make_strip.py). Marker positions are written against the
 ## two views (0..0.5 front, 0.5..1 back); this turns one into a position along the real strip.
@@ -156,6 +165,11 @@ func spot_pos(u: float, v: float) -> Vector2:
 func _process(dt: float) -> void:
 	if not visible: return
 	_t += dt
+	if look != Vector2.ZERO and not busy and tex != null:   # the look stick: big left-right sweep, gentle up-down
+		pan = fposmod(pan + look.x * STICK_TURN * dt, 1.0)
+		tilt = clampf(tilt + look.y * STICK_TILT * dt, -1.0, 1.0)
+		_vel = 0.0
+	focus = _find_focus()
 	if not _drag and absf(_vel) > 0.0001:   # a flick keeps turning for a moment
 		pan = fposmod(pan + _vel * dt, 1.0)
 		_vel = lerpf(_vel, 0.0, clampf(dt * 4.0, 0.0, 1.0))
@@ -164,16 +178,43 @@ func _process(dt: float) -> void:
 		if caption_t <= 0.0: caption = ""
 	queue_redraw()
 
+## Where the look stick sits (bottom right, like the aim stick in flight) and the green GO button (bottom middle).
+func stick_center() -> Vector2: return Vector2(size.x - STICK_R - 46.0, size.y - STICK_R - 46.0)
+func go_rect() -> Rect2: return Rect2(size.x * 0.5 - 190.0, size.y - 104.0, 380.0, 62.0)
+
+## The marker nearest the middle of the view, if it is close enough to count as "in view".
+func _find_focus() -> int:
+	if tex == null or busy: return -1
+	var best := -1
+	var bd := size.x * FOCUS_HALF
+	var spots: Array = ROOMS[room]["spots"]
+	for i in spots.size():
+		var d := absf(spot_pos(spots[i]["u"], spots[i]["v"]).x - size.x * 0.5)
+		if d < bd:
+			bd = d
+			best = i
+	return best
+
 func _gui_input(e: InputEvent) -> void:
 	if busy or tex == null: return
 	if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
 		if e.pressed:
+			if e.position.distance_to(stick_center()) < STICK_R * 1.5:   # thumb on the look stick
+				_stick_on = true
+				look = ((e.position - stick_center()) / STICK_R).limit_length(1.0)
+				return
 			_drag = true
 			_moved = 0.0
 			_vel = 0.0
 		else:
+			if _stick_on:
+				_stick_on = false
+				look = Vector2.ZERO
+				return
 			_drag = false
 			if _moved < 14.0: tap(e.position)
+	elif e is InputEventMouseMotion and _stick_on:
+		look = ((e.position - stick_center()) / STICK_R).limit_length(1.0)
 	elif e is InputEventMouseMotion and _drag:
 		drag(e.relative)
 		_moved += e.relative.length()
@@ -188,6 +229,9 @@ func drag(rel: Vector2) -> void:
 
 ## Tap: the nearest hotspot within reach.
 func tap(p: Vector2) -> void:
+	if focus >= 0 and go_rect().has_point(p):   # the green button: use whatever is in view
+		use(focus)
+		return
 	var best := -1
 	var bd := 78.0
 	var spots: Array = ROOMS[room]["spots"]
@@ -232,17 +276,23 @@ func _draw() -> void:
 		x += w
 	# hotspots
 	var pulse := 0.5 + 0.5 * sin(_t * 3.0)
-	for sp: Dictionary in ROOMS[room]["spots"]:
+	var spots: Array = ROOMS[room]["spots"]
+	for i in spots.size():
+		var sp: Dictionary = spots[i]
 		var p := spot_pos(sp["u"], sp["v"])
 		if p.x < -160.0 or p.x > S.x + 160.0: continue
 		var door: bool = (sp["act"] as String).begins_with("room:") or sp["act"] == "launch"
-		var col := GOLD if door else CYAN
-		draw_circle(p, 9.0, Color(col, 0.9))
+		var lit := i == focus   # in the middle of the view: lights up green = ready to use
+		var col := GREEN if lit else (GOLD if door else CYAN)
+		if lit:
+			draw_circle(p, 30.0 + 6.0 * pulse, Color(GREEN, 0.16))
+			draw_arc(p, 30.0 + 6.0 * pulse, 0.0, TAU, 36, Color(GREEN, 0.9), 3.5)
+		draw_circle(p, 12.0 if lit else 9.0, Color(col, 0.95))
 		draw_arc(p, 17.0 + 5.0 * pulse, 0.0, TAU, 28, Color(col, 0.75 - 0.4 * pulse), 2.5)
 		var tw := maxf(font.get_string_size(sp["label"], HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x, font.get_string_size(sp["sub"], HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x) + 20.0
 		var r := Rect2(p.x - tw * 0.5, p.y + 26.0, tw, 42.0)
-		draw_rect(r, Color(0.02, 0.05, 0.1, 0.78))
-		draw_rect(r, Color(col, 0.8), false, 1.5)
+		draw_rect(r, Color(0.02, 0.12, 0.06, 0.86) if lit else Color(0.02, 0.05, 0.1, 0.78))
+		draw_rect(r, Color(col, 0.95 if lit else 0.8), false, 2.5 if lit else 1.5)
 		draw_string(font, r.position + Vector2(10, 18), sp["label"], HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color.WHITE)
 		draw_string(font, r.position + Vector2(10, 35), sp["sub"], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, col)
 	if zoom != 1.0: draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
@@ -250,9 +300,24 @@ func _draw() -> void:
 	draw_rect(Rect2(0, 0, S.x, 54), Color(0, 0, 0, 0.5))
 	draw_string(font, Vector2(24, 35), ROOMS[room]["name"], HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color.WHITE)
 	draw_string(font, Vector2(S.x - 324, 35), "CREDITS  %d cr" % GS.credits, HORIZONTAL_ALIGNMENT_RIGHT, 300, 20, GOLD)
-	draw_string(font, Vector2(0, S.y - 16), "Drag to look around  ·  tap a marker", HORIZONTAL_ALIGNMENT_CENTER, S.x, 14, Color(1, 1, 1, 0.65))
+	draw_string(font, Vector2(0, S.y - 16), "Stick or drag to look around  ·  green = ready, tap it", HORIZONTAL_ALIGNMENT_CENTER, S.x, 14, Color(1, 1, 1, 0.65))
+	# the green button: whatever is in the middle of the view, one tap
+	if focus >= 0 and not busy:
+		var g := go_rect()
+		var fs: Dictionary = spots[focus]
+		draw_rect(g, Color(0.05, 0.36, 0.16, 0.92))
+		draw_rect(g, Color(GREEN, 0.75 + 0.25 * pulse), false, 3.0)
+		draw_string(font, Vector2(g.position.x, g.position.y + 27), fs["label"], HORIZONTAL_ALIGNMENT_CENTER, g.size.x, 20, Color.WHITE)
+		draw_string(font, Vector2(g.position.x, g.position.y + 49), "TAP  ·  " + str(fs["sub"]), HORIZONTAL_ALIGNMENT_CENTER, g.size.x, 13, GREEN)
+	# the look stick (same look as the aim stick in flight)
+	var sc2 := stick_center()
+	draw_circle(sc2, STICK_R + 8.0, Color(0.0, 0.05, 0.1, 0.35))
+	draw_circle(sc2, STICK_R, Color(0.02, 0.1, 0.2, 0.62 if _stick_on else 0.5))
+	draw_arc(sc2, STICK_R, 0.0, TAU, 40, Color(CYAN, 0.5), 2.0)
+	draw_circle(sc2 + look * STICK_R * 0.62, STICK_R * 0.34, Color(0.62, 0.8, 0.97, 0.95 if _stick_on else 0.85))
+	draw_string(font, Vector2(sc2.x - STICK_R, sc2.y - STICK_R - 14.0), "LOOK", HORIZONTAL_ALIGNMENT_CENTER, STICK_R * 2.0, 13, Color(1, 1, 1, 0.7))
 	if caption != "":
-		var cr := Rect2(S.x * 0.14, S.y - 150.0, S.x * 0.72, 96.0)
+		var cr := Rect2(S.x * 0.14, S.y - 216.0, S.x * 0.68, 96.0)
 		draw_rect(cr, Color(0.02, 0.05, 0.1, 0.86))
 		draw_rect(cr, Color(CYAN, 0.8), false, 2.0)
 		draw_string(font, cr.position + Vector2(18, 28), caption_who, HORIZONTAL_ALIGNMENT_LEFT, -1, 17, CYAN)

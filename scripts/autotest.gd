@@ -628,6 +628,34 @@ func _station_rooms() -> void:
 	await _shot("room_main_hub_join", 0.2)
 	_check("Station rooms: docking opens the Main Hub panorama; drag looks around and wraps", in_room and wrapped and tilt_ok and is_equal_approx(p0, Rooms.strip_u(0.25)),
 		"%s, picture %d px wide, %d markers" % [Rooms.ROOMS[rm.room]["name"], rm.tex.get_width() if rm.tex else 0, Rooms.ROOMS[rm.room]["spots"].size()])
+	# the LOOK stick turns the view; what comes to the middle lights up green and the green button uses it
+	rm.open("main_hub")
+	await _wait(0.2)
+	var f0: int = rm.focus   # arriving, the service desk is straight ahead
+	var pan0: float = rm.pan
+	rm.look = Vector2(1, 0.4)
+	await _wait(1.0)
+	rm.look = Vector2.ZERO
+	var turned: bool = rm.pan > pan0 + 0.08 and rm.tilt > 0.5 and rm.tilt <= 1.0
+	rm.tilt = 0.0
+	var sp2: Array = Rooms.ROOMS["main_hub"]["spots"]
+	var want := -1
+	for i in sp2.size(): if sp2[i]["act"] == "room:mission": want = i
+	rm.pan = Rooms.strip_u(sp2[want]["u"])
+	await _wait(0.2)
+	var lit: bool = rm.focus == want
+	await _shot("room_green_ready", 0.2)
+	rm.pan = Rooms.strip_u(0.385)   # nothing near the middle here: no green, no button
+	await _wait(0.2)
+	var none: bool = rm.focus == -1
+	rm.pan = Rooms.strip_u(sp2[want]["u"])
+	await _wait(0.2)
+	rm.tap(rm.go_rect().get_center())
+	await _until(func(): return not rm.busy, 3.0)
+	_check("Station rooms: LOOK stick turns the view; the marker in view lights green and the green button uses it",
+		f0 >= 0 and turned and lit and none and rm.room == "mission", "ahead %s, turned %s, green %s, clear %s, in view: %s -> %s" % [f0 >= 0, turned, lit, none, sp2[want]["label"], rm.room])
+	rm.open("main_hub")
+	await _wait(0.2)
 	# tap the DOCKING BAY sign: zoom through the door into the next room
 	var spots: Array = Rooms.ROOMS["main_hub"]["spots"]
 	var di := -1
