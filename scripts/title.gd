@@ -4,6 +4,7 @@ extends Control
 ## HOMELANCER letters resolve one by one over a dark band, then a strong START.
 
 signal start_pressed
+signal settings_pressed   # Job J: Settings (control mode; Controls list on desktop)
 
 const GM := preload("res://scripts/galaxymap.gd")
 const WORD := "HOMELANCER"
@@ -11,6 +12,7 @@ var t := 0.0
 var font: Font = ThemeDB.fallback_font
 var start_btn: Button
 var music_btn: Button
+var settings_btn: Button
 var bg: Texture2D = load("res://assets/ui/title_network.jpg")   # small stand-in from the core download, shown first
 var art: Texture2D = null   # the collage strip ("intro" pack): fades in over the stand-in as soon as it arrives
 var art_k := 0.0
@@ -47,6 +49,14 @@ func _ready() -> void:
 		_music_label())
 	add_child(music_btn)
 	_music_label()
+	settings_btn = Button.new()
+	settings_btn.name = "SettingsButton"
+	settings_btn.text = "SETTINGS"
+	settings_btn.custom_minimum_size = Vector2(150, 44)
+	settings_btn.add_theme_font_size_override("font_size", 16)
+	settings_btn.focus_mode = Control.FOCUS_NONE
+	settings_btn.pressed.connect(func(): settings_pressed.emit())
+	add_child(settings_btn)
 	Packs.pack_ready.connect(_take_art)
 	Packs.request("intro")
 	_take_art()
@@ -65,6 +75,7 @@ func _process(dt: float) -> void:
 	var S := get_viewport_rect().size
 	start_btn.position = Vector2(S.x * 0.5 - 160, S.y * 0.62)
 	music_btn.position = Vector2(S.x - 174, 20)
+	settings_btn.position = Vector2(S.x - 174, 72)
 	start_btn.modulate.a = clampf((t - 2.1) / 0.5, 0.0, 1.0)   # START appears once the logo has resolved
 	queue_redraw()
 

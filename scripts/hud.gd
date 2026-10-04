@@ -21,6 +21,7 @@ const YELLOW := Color(1.0, 0.92, 0.3)
 const ORANGE := Color(1.0, 0.6, 0.2)
 
 var space: SpaceSystem
+var controls: Controls   # Job J: desktop keyboard + mouse (null-safe: touch never needs it)
 var font: Font = ThemeDB.fallback_font
 var owners := {} # touch index -> "move" | "aim" | button id
 var origins := {}
@@ -308,6 +309,7 @@ func _input(e: InputEvent) -> void:
 					roster_idle = 0.0
 					return
 				if not (_typer and _typer.visible): close_roster()
+			if _mouse_in_kbm(e): return   # Job J: in keyboard + mouse mode the MOUSE flies (left-drag); real touches are unchanged
 			if stick_zone("move").has_point(e.position) and not owners.values().has("move"):
 				owners[e.index] = "move"
 				origins["move"] = e.position
@@ -336,13 +338,15 @@ func _process(dt: float) -> void:
 	msg_t = maxf(0.0, msg_t - dt)
 	damage_flash = maxf(0.0, damage_flash - dt)
 	for k in flash.keys(): flash[k] = maxf(0.0, float(flash[k]) - dt)
-	var kb := Vector2(Input.get_axis("strafe_left", "strafe_right"), Input.get_axis("back", "forward"))
-	var ka := Vector2(Input.get_axis("yaw_left", "yaw_right"), Input.get_axis("pitch_up", "pitch_down"))
+	var kb := Vector2(_axis("strafe_left", "strafe_right"), _axis("back", "forward"))
+	var ka := Vector2(_axis("yaw_left", "yaw_right"), _axis("pitch_up", "pitch_down"))
+	if kb.y == 0.0 and controls and controls.is_kbm() and not controls.blocked: kb.y = controls.wheel_throttle   # Job J: wheel throttle
 	space.move = Vector2(move_vec.x, -move_vec.y) if kb == Vector2.ZERO else kb
 	var a := aim_vec if ka == Vector2.ZERO else ka
+	if a == Vector2.ZERO and controls: a = controls.mouse_steer(S)   # Job J: left-drag steer / mouse flight (keyboard + mouse only)
 	space.aim = a * a.length()
-	space.fire_held = Input.is_action_pressed("fire")
-	space.thrust_held = held.has("thrust") or Input.is_key_pressed(KEY_SHIFT)
+	space.fire_held = controls.held("fire") if controls else Input.is_action_pressed("fire")   # Job J: right-click by default
+	space.thrust_held = held.has("thrust") or (controls != null and controls.held("afterburner"))   # Job J: afterburner key (Tab)
 	if console_open:
 		if roster_closing:
 			roster_t = maxf(0.0, roster_t - dt * 6.0)
@@ -362,6 +366,23 @@ func _process(dt: float) -> void:
 			sd["timer"] = float(sd["timer"]) - dt
 			if sd["timer"] <= 0.0: close_side(side)
 	queue_redraw()
+
+## Job J: a held keyboard axis (paused while the Settings screen is open).
+func _axis(neg: String, pos: String) -> float:
+	if controls and controls.blocked: return 0.0
+	return Input.get_axis(neg, pos)
+
+## Job J: an emulated touch made by the MOUSE (not a finger) while in keyboard + mouse mode.
+func _mouse_in_kbm(e: InputEvent) -> bool:
+	return controls != null and controls.is_kbm() and e.device == InputEvent.DEVICE_ID_EMULATION
+
+## Job J: which HUD button (if any) is under a screen point.
+func button_at(p: Vector2) -> String:
+	if not visible: return ""
+	_layout()
+	for id in buttons:
+		if (buttons[id] as Rect2).grow(3).has_point(p): return id
+	return ""
 
 # ---------------------------------------------------------------- drawing helpers
 func _box(r: Rect2, bg := PANEL, edge := EDGE, radius := 10, bw := 2) -> void:

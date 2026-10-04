@@ -20,6 +20,8 @@ var title: Control
 var docked_node_kind := "station"
 var visited := {}
 var autotest := false
+var controls: Controls     # Job J: desktop keyboard + mouse controls and rebinding (scripts/controls.gd)
+var settings: Control      # Job J: Settings screen (scripts/settings.gd)
 
 func _ready() -> void:
 	_input_map()
@@ -45,7 +47,15 @@ func _ready() -> void:
 	navmap.closed.connect(_on_map_closed)
 	navmap.course_set.connect(_on_course)
 	GS.changed.connect(_on_gs_changed)
+	hud.controls = controls
+	controls.hud = hud
+	controls.space_ref = func(): return space if state == "flight" and is_instance_valid(space) else null
+	controls.action.connect(_on_key_action)
 	_build_title()
+	settings = load("res://scripts/settings.gd").new()
+	settings.controls = controls
+	ui.add_child(settings)
+	controls.capture_done.connect(_on_capture_done)
 	_load_system("solara", "station")
 	space.controls = false
 	# optional content arrives in the background after the game is up (see scripts/packs.gd)
@@ -62,21 +72,19 @@ func _web_flag(f: String) -> bool:
 		return q is String and (q as String).find(f) >= 0
 	return false
 
+## Keyboard + mouse bindings (Job J): the defaults and the player's rebinds live in Controls (data.gd Job J block);
+## it builds the InputMap actions (forward, back, strafe_*, yaw_*, pitch_*, fire, transform keep their names).
 func _input_map() -> void:
-	var keys := {"transform": [KEY_T], "forward": [KEY_W], "back": [KEY_S], "strafe_left": [KEY_A], "strafe_right": [KEY_D],
-		"yaw_left": [KEY_LEFT, KEY_Q], "yaw_right": [KEY_RIGHT, KEY_E], "pitch_up": [KEY_UP], "pitch_down": [KEY_DOWN], "fire": [KEY_SPACE]}
-	for a in keys:
-		if not InputMap.has_action(a): InputMap.add_action(a)
-		for k in keys[a]:
-			var ev := InputEventKey.new()
-			ev.physical_keycode = k
-			InputMap.action_add_event(a, ev)
+	controls = Controls.new()
+	controls.name = "Controls"
+	add_child(controls)
 
 # ---------------------------------------------------------------- title
 func _build_title() -> void:
 	title = load("res://scripts/title.gd").new()
 	ui.add_child(title)
 	title.start_pressed.connect(start_game)
+	title.settings_pressed.connect(func(): settings.open())
 
 func start_game() -> void:
 	if state != "title": return
@@ -306,6 +314,32 @@ func _on_hud(id: String) -> void:
 					if hud.in_range(cid): call_character(cid)
 					else: hud.flash_message("%s is in %s — out of comms range. Only people in this system can be called." % [Data.CHARACTERS[cid]["name"], Data.SYSTEMS[Data.CHARACTERS[cid]["system"]]["name"]])
 
+func _on_capture_done(_id: String, _ok: bool, _note: String) -> void:
+	if settings.visible: settings.refresh()
+
+## Job J: a keyboard / mouse action (see Data.KBM_ACTIONS). Reuses the HUD button code so both behave the same.
+func _on_key_action(id: String) -> void:
+	if id == "settings":
+		if settings.visible: settings.close()
+		else: settings.open()
+		return
+	if state != "flight": return
+	match id:
+		"mouse_flight": hud.flash_message("Mouse flight %s." % ("ON — the ship steers toward the cursor" if controls.mouse_flight else "OFF — hold left-click and drag to steer"))
+		"missile": _on_hud("missile")
+		"brake": _on_hud("stop")
+		"engine_kill": _on_hud("kill")
+		"cruise": _on_hud("warp")
+		"target_closest": space.target_closest()
+		"target_next": _on_hud("target")
+		"dock":   # dock / activate: station or planet in range, otherwise the jump gate in range
+			if space.dock_candidate() != null: _on_hud("dock")
+			elif space.gate_in_range(): _on_hud("jump")
+			else: hud.flash_message("Nothing in docking range.")
+		"transform": _on_hud("form")
+		"view": _on_hud("view")
+		"map": _on_hud("nav")
+
 ## CALL: hail whatever you have targeted, otherwise the local station controller.
 func _call_target() -> void:
 	var tgt: Node3D = space.target
@@ -393,7 +427,6 @@ func _on_course(n: Node3D) -> void:
 	hud.flash_message("Course set: %s. Autopilot engaged — steer to cancel." % n.name)
 
 func _unhandled_input(e: InputEvent) -> void:
-	if state == "flight" and e.is_action_pressed("transform"): _on_hud("form")
 	# any manual aim cancels autopilot
 	if state == "flight" and space.autopilot != null and hud.aim_vec.length() > 0.35:
 		space.autopilot = null

@@ -2353,6 +2353,22 @@ func targetables() -> Array:
 	for g in gates: out.append(g)
 	return out
 
+## Job J (Freelancer "target closest enemy"): the nearest hostile; with none around, the nearest thing you can target.
+func target_closest() -> Node3D:
+	var best := _nearest_enemy(INF)
+	if best == null:
+		var bd := INF
+		for n in targetables():
+			if n == null or not is_instance_valid(n): continue
+			var d: float = n.global_position.distance_to(player.global_position)
+			if d < bd:
+				bd = d
+				best = n
+	if best != null:
+		target = best
+		message.emit("Target: %s" % best.name)
+	return best
+
 func cycle_target() -> void:
 	var list := targetables()
 	var i := list.find(target)

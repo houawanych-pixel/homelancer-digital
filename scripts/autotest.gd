@@ -1038,6 +1038,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_CONTROLS") != "":   # the Job J desktop controls checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _controls_j()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_SHOWCASE") != "":
 		await _showcase()
 		return
@@ -1315,9 +1323,322 @@ func _run() -> void:
 	await _wait(1.0)
 	await _shot("solara_return")
 	await _galaxy()
+	await _controls_j()
 	var passed := results.filter(func(r): return r["pass"]).size()
 	print("[route] RESULT %d/%d PASS" % [passed, results.size()])
 	_publish("done", true)
 	GS.god_mode = false
 	if not web and "--quit-after-test" in OS.get_cmdline_user_args():
 		get_tree().quit(0 if passed == results.size() else 1)
+
+# ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
+func _frames(n := 3) -> void:
+	for i in n: await get_tree().process_frame
+
+func _key(code: int, pressed: bool, shift := false) -> void:
+	var k := InputEventKey.new()
+	k.physical_keycode = code
+	k.keycode = code
+	k.shift_pressed = shift
+	k.pressed = pressed
+	Input.parse_input_event(k)
+
+func _tap(code: int, shift := false) -> void:
+	_key(code, true, shift)
+	await _frames()
+	_key(code, false, shift)
+	await _frames()
+
+## Viewport point -> window point (input events arrive in window pixels and the viewport stretches them back).
+func _win(at: Vector2) -> Vector2:
+	return get_viewport().get_final_transform() * at
+
+func _mouse(button: int, pressed: bool, at: Vector2) -> void:
+	at = _win(at)
+	var m := InputEventMouseButton.new()
+	m.button_index = button
+	m.pressed = pressed
+	m.position = at
+	m.global_position = at
+	if pressed: m.button_mask = MOUSE_BUTTON_MASK_LEFT if button == MOUSE_BUTTON_LEFT else (MOUSE_BUTTON_MASK_RIGHT if button == MOUSE_BUTTON_RIGHT else 0)
+	Input.parse_input_event(m)
+
+func _move_mouse(at: Vector2, left_held: bool) -> void:
+	at = _win(at)
+	var m := InputEventMouseMotion.new()
+	m.position = at
+	m.global_position = at
+	m.button_mask = MOUSE_BUTTON_MASK_LEFT if left_held else 0
+	Input.parse_input_event(m)
+
+func _controls_j() -> void:
+	if main.galaxymap.visible: main.galaxymap.visible = false
+	if main.navmap.visible: main.navmap.visible = false
+	if main.state == "map": main._on_map_closed()
+	await _until(func(): return main.state == "flight", 5.0)
+	var c: Controls = main.controls
+	var s := _sp()
+	var vs := get_viewport().get_visible_rect().size
+	c.settings_path = "user://settings_autotest.cfg"   # never touch a real player's settings file
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(c.settings_path))
+	c.touch_available = false
+	c.mode_pref = "auto"
+	c.reset_defaults()
+	if GS.form == "mech": s.start_transform()
+	s.autopilot = null
+	if s.warp_state != "off": s.drop_warp()
+	# ---- 1. the action config
+	var ids := {}
+	var keys := {}
+	var ok := true
+	for a in Data.KBM_ACTIONS:
+		ok = ok and a.has("id") and a.has("name") and a.has("key") and a.has("rebind") and str(a["name"]) != "" and Controls.parse_binding(a["key"]) != null and not ids.has(a["id"]) and not keys.has(a["key"])
+		ids[a["id"]] = true
+		keys[a["key"]] = true
+	_check("Job J: control config — every action has an id, a name, a default key/button and a rebindable flag", ok and ids.size() >= 20, "%d actions" % ids.size())
+	# ---- 2. Freelancer baseline, with the owner's correction (RIGHT-click fires)
+	var want := {"fire": "Mouse Right", "select": "Mouse Left", "mouse_flight": "Space", "missile": "Q", "forward": "W", "back": "S",
+		"strafe_left": "A", "strafe_right": "D", "brake": "X", "engine_kill": "Z", "cruise": "Shift+W", "afterburner": "Tab",
+		"target_closest": "R", "target_next": "T", "dock": "F3"}
+	var wrong: Array = []
+	for k in want:
+		if c.binding(k) != want[k]: wrong.append(k)
+	_check("Job J: Freelancer default keys (right-click fire, left-click select/steer, Space mouse flight, W/S, A/D, X, Z, Shift+W, Tab, R, T, F3)", wrong.is_empty(), "wrong: %s" % ", ".join(wrong))
+	# ---- 3. auto-detect + override
+	var d1 := Controls.detect(true)
+	var d2 := Controls.detect(false)
+	c.touch_available = true
+	var auto_touch := c.active_mode()
+	c.touch_available = false
+	var auto_kbm := c.active_mode()
+	c.set_mode("touch")
+	var o1 := c.active_mode()
+	c.touch_available = true
+	c.set_mode("kbm")
+	var o2 := c.active_mode()
+	c.touch_available = false
+	c.set_mode("auto")
+	_check("Job J: auto-detect picks touch on a touch device and keyboard + mouse on desktop; the Settings override wins",
+		d1 == "touch" and d2 == "kbm" and auto_touch == "touch" and auto_kbm == "kbm" and o1 == "touch" and o2 == "kbm" and c.is_kbm())
+	# ---- 4. mouse flight + Space toggle
+	main.hud.aim_vec = Vector2.ZERO
+	c.mouse_flight = true
+	c.mouse_seen = true
+	c.mouse_pos = vs * 0.5 + Vector2(vs.y * 0.3, 0.0)
+	await _frames()
+	var aim_on: Vector2 = s.aim
+	var hud_free: bool = main.hud.button_at(c.mouse_pos) == ""
+	await _tap(KEY_SPACE)
+	var flight_off := not c.mouse_flight
+	var aim_off: Vector2 = s.aim
+	var space_fired: bool = s.fire_held
+	await _tap(KEY_SPACE)
+	_check("Job J: mouse flight steers toward the cursor and Space toggles it off/on (Space no longer fires)",
+		hud_free and aim_on.x > 0.1 and absf(aim_on.y) < 0.05 and flight_off and aim_off == Vector2.ZERO and c.mouse_flight and not space_fired,
+		"aim on %s, off %s" % [aim_on, aim_off])
+	# ---- 5. left-click selects a target; left-click held + dragged steers; left-click never fires
+	c.mouse_flight = false
+	var st: Node3D = s.station
+	_tp(st.global_position + Vector3(0, 120, 900), st.global_position)
+	s.target = null
+	await _frames()
+	var sp: Vector2 = s.cam.unproject_position(st.global_position)
+	_mouse(MOUSE_BUTTON_LEFT, true, sp)
+	await _frames()
+	var left_fire: bool = s.fire_held
+	_mouse(MOUSE_BUTTON_LEFT, false, sp)
+	await _frames()
+	var picked: bool = s.target == st
+	var p0 := vs * 0.5
+	_mouse(MOUSE_BUTTON_LEFT, true, p0)
+	await _frames()
+	_move_mouse(p0 + Vector2(-90, 0), true)
+	await _frames()
+	var drag_aim: Vector2 = s.aim
+	var tgt_kept: bool = s.target == st
+	_mouse(MOUSE_BUTTON_LEFT, false, p0 + Vector2(-90, 0))
+	await _frames()
+	var after_drag: Vector2 = s.aim
+	_check("Job J: left-click selects the target under the cursor; left-click held + dragged steers; left-click does not fire",
+		picked and not left_fire and drag_aim.x < -0.1 and tgt_kept and after_drag == Vector2.ZERO and s.target == st,
+		"picked %s, drag aim %s, at %s (window %s)" % [picked, drag_aim, sp, _win(sp)])
+	# ---- 6. right-click fires weapons (owner correction)
+	_mouse(MOUSE_BUTTON_RIGHT, true, p0)
+	await _frames()
+	var rfire: bool = s.fire_held and Input.is_action_pressed("fire")
+	_mouse(MOUSE_BUTTON_RIGHT, false, p0)
+	await _frames()
+	_check("Job J: RIGHT-click fires weapons (Freelancer; owner correction)", rfire and not s.fire_held)
+	# ---- 7. Freelancer keys drive the right actions
+	_key(KEY_W, true)
+	await _frames()
+	var thr_up: bool = s.move.y > 0.5
+	_key(KEY_W, false)
+	_key(KEY_A, true)
+	await _frames()
+	var strafe: bool = s.move.x < -0.5
+	_key(KEY_A, false)
+	_key(KEY_TAB, true)
+	await _frames()
+	var burner: bool = s.thrust_held
+	_key(KEY_TAB, false)
+	await _frames()
+	var burner_off: bool = not s.thrust_held
+	await _tap(KEY_Z)
+	var killed: bool = s.engine_kill
+	await _tap(KEY_Z)
+	var unkilled: bool = not s.engine_kill
+	await _tap(KEY_X)
+	var braked: bool = s.braking or s.holding
+	await _tap(KEY_W, true)
+	var cruise_on: bool = s.warp_state == "charging"
+	await _tap(KEY_W, true)
+	var cruise_off: bool = s.warp_state == "off"
+	_check("Job J: throttle W, strafe A, afterburner Tab, engine kill Z, brake X and cruise Shift+W drive the right actions",
+		thr_up and strafe and burner and burner_off and killed and unkilled and braked and cruise_on and cruise_off,
+		"W %s A %s Tab %s/%s Z %s/%s X %s Shift+W %s/%s" % [thr_up, strafe, burner, burner_off, killed, unkilled, braked, cruise_on, cruise_off])
+	# ---- 8. targeting keys R / T, dock key F3
+	await _tap(KEY_R)
+	var nearest: Node3D = s._nearest_enemy(INF)
+	if nearest == null:
+		var bd := INF
+		for n in s.targetables():
+			var dd: float = n.global_position.distance_to(s.player.global_position)
+			if dd < bd:
+				bd = dd
+				nearest = n
+	var r_ok: bool = s.target == nearest
+	var before_t: Node3D = s.target
+	await _tap(KEY_T)
+	var t_ok: bool = s.target != before_t and s.target != null
+	var dp: Vector3 = s.dock_point(st)
+	_tp(dp + (dp - st.global_position).normalized() * 60.0, dp)
+	await _wait(0.3)
+	await _tap(KEY_F3)
+	var docked := await _until(func(): return main.state == "hub", 8.0)
+	var back := await _launch()
+	_check("Job J: R targets the closest enemy, T cycles to the next target, F3 docks", r_ok and t_ok and docked and back,
+		"R %s T %s F3 dock %s, relaunch %s" % [r_ok, t_ok, docked, back])
+	s = _sp()
+	# ---- 9. rebinding changes the key used in game; duplicate keys are blocked; Escape cancels
+	c.begin_capture("engine_kill")
+	var dup_note := c.finish_capture("W")
+	var still_waiting := c.capturing == "engine_kill"
+	var esc_note := c.finish_capture("Escape")
+	var esc_ok := c.capturing == "" and c.binding("engine_kill") == "Z"
+	c.begin_capture("engine_kill")
+	var good := c.finish_capture("K")
+	if GS.form == "mech": s.start_transform()
+	var was_kill: bool = s.engine_kill
+	await _tap(KEY_Z)
+	var z_dead: bool = s.engine_kill == was_kill
+	await _tap(KEY_K)
+	var k_live: bool = s.engine_kill != was_kill
+	if s.engine_kill: s.toggle_engine_kill()
+	_check("Job J: rebinding moves the action to the new key; a key already in use is blocked with a warning; Escape cancels",
+		dup_note != "" and still_waiting and esc_note == "Cancelled." and esc_ok and good == "" and c.binding("engine_kill") == "K" and z_dead and k_live,
+		"dup '%s'" % dup_note)
+	# ---- 10. extra Homelancer actions are listed and rebindable
+	var extras: Array = Data.KBM_ACTIONS.filter(func(a): return a["extra"] and a["rebind"])
+	var xr := c.rebind("transform", "Y")
+	var ev_ok := false
+	for ev in InputMap.action_get_events("transform"):
+		if ev is InputEventKey and ev.physical_keycode == KEY_Y: ev_ok = true
+	main.settings.open()
+	await _frames()
+	var rows_ok: bool = main.settings.controls_list_shown() and main.settings.row_btns.size() == Data.KBM_ACTIONS.size() and main.settings.row_btns["transform"].text == "Y" and main.settings.row_btns["select"].disabled
+	_check("Job J: extra Homelancer actions (transform, view, map, keyboard turning) appear in the Controls list and can be rebound",
+		extras.size() >= 4 and xr == "" and ev_ok and rows_ok, "%d extras" % extras.size())
+	await _shot("settings_controls", 0.3)
+	# ---- 11. reset to defaults restores the Freelancer baseline and the extras' defaults
+	main.settings.press_reset()
+	var armed: bool = c.binding("transform") == "Y"   # first press only arms the confirm
+	main.settings.press_reset()
+	var all_def := true
+	for a in Data.KBM_ACTIONS:
+		if c.binding(a["id"]) != a["key"]: all_def = false
+	_check("Job J: Reset to defaults (with confirm) restores the Freelancer baseline and the extra actions' defaults", armed and all_def)
+	main.settings.close()
+	# ---- 12. settings persist (new file, new keys only) and older data loads with safe defaults
+	c.rebind("missile", "Shift+Q")
+	c.set_mode("kbm")
+	var fresh := Controls.new()
+	fresh.settings_path = c.settings_path
+	fresh.load_settings()
+	var persisted := fresh.binding("missile") == "Shift+Q" and fresh.mode_pref == "kbm"
+	var cf := ConfigFile.new()
+	cf.load(c.settings_path)
+	var keys_ok := cf.get_sections() == PackedStringArray(["controls"]) and cf.get_section_keys("controls") == PackedStringArray(["mode", "bindings"])
+	var old_path := "user://settings_autotest_old.cfg"
+	var old := ConfigFile.new()
+	old.set_value("other", "kept", 7)   # a file from before Job J (or none at all) has no "controls" section
+	old.save(old_path)
+	var legacy := Controls.new()
+	legacy.settings_path = old_path
+	legacy.load_settings()
+	var legacy_ok := legacy.mode_pref == "auto" and legacy.binding("fire") == "Mouse Right" and legacy.binding("dock") == "F3"
+	legacy.rebind("dock", "F4")
+	var old2 := ConfigFile.new()
+	old2.load(old_path)
+	legacy_ok = legacy_ok and old2.get_value("other", "kept", 0) == 7
+	var none := Controls.new()
+	none.settings_path = "user://does_not_exist_autotest.cfg"
+	none.load_settings()
+	legacy_ok = legacy_ok and none.mode_pref == "auto" and none.bindings == Controls.defaults()
+	fresh.free()
+	legacy.free()
+	none.free()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(old_path))
+	_check("Job J: bindings and control mode persist in the new settings file; a pre-v1.4f state loads cleanly with defaults and keeps other data",
+		persisted and keys_ok and legacy_ok)
+	# ---- 13. phone / touch unchanged
+	c.reset_defaults()
+	c.set_mode("touch")
+	c.mouse_flight = true
+	c.mouse_seen = true
+	c.mouse_pos = vs * 0.5 + Vector2(vs.y * 0.3, 0.0)
+	main.hud.aim_vec = Vector2.ZERO
+	await _frames()
+	var no_mouse_aim: bool = s.aim == Vector2.ZERO
+	_mouse(MOUSE_BUTTON_RIGHT, true, p0)
+	await _frames()
+	var no_rclick: bool = not s.fire_held
+	_mouse(MOUSE_BUTTON_RIGHT, false, p0)
+	main.settings.open()
+	await _frames()
+	var list_hidden: bool = main.settings.visible and not main.settings.controls_list_shown()
+	main.settings.close()
+	# a real finger (device 0) on the right stick zone still grabs the AIM stick, in either mode
+	var hz: Rect2 = main.hud.stick_zone("aim")
+	var finger := hz.position + hz.size * Vector2(0.6, 0.7)
+	var tch := InputEventScreenTouch.new()
+	tch.index = 3
+	tch.position = finger
+	tch.pressed = true
+	main.hud._input(tch)
+	var grabbed: bool = main.hud.owners.get(3, "") == "aim"
+	var drag := InputEventScreenDrag.new()
+	drag.index = 3
+	drag.position = finger + Vector2(40, 0)
+	main.hud._input(drag)
+	var stick_moves: bool = main.hud.aim_vec.x > 0.2
+	tch.pressed = false
+	main.hud._input(tch)
+	var released: bool = main.hud.aim_vec == Vector2.ZERO and not main.hud.owners.has(3)
+	c.set_mode("kbm")
+	tch.pressed = true
+	main.hud._input(tch)
+	var grabbed_kbm: bool = main.hud.owners.get(3, "") == "aim"
+	tch.pressed = false
+	main.hud._input(tch)
+	_check("Job J: touch mode is unchanged — no mouse flight, no right-click fire, no Controls list; finger sticks work as before",
+		no_mouse_aim and no_rclick and list_hidden and grabbed and stick_moves and released and grabbed_kbm and main.hud.buttons.has("slot_0") and main.hud.buttons.has("thrust"))
+	# ---- 14. version label
+	var shell := FileAccess.get_file_as_string("res://web_shell.html") if FileAccess.file_exists("res://web_shell.html") else ""
+	_check("Job J: version label reads \"Homelancer Digital v1.4f\"", Data.VERSION == "v1.4f" and shell.find("<title>Homelancer Digital v1.4f</title>") >= 0)
+	# leave everything as a player would find it
+	c.mouse_seen = false
+	c.set_mode("auto")
+	c.reset_defaults()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(c.settings_path))
+	c.settings_path = Data.SETTINGS_PATH

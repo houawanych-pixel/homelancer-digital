@@ -5,7 +5,54 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.3d"
+const VERSION := "v1.4f"
+
+# ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
+# Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
+# Each action: id (also the InputMap action name), name (shown in Settings > Controls), key (default binding:
+# a key like "W", "Shift+W", "F3", or a mouse button "Mouse Left" / "Mouse Right" / "Mouse Middle"),
+# rebind (can the player change it), extra (a Homelancer-only action on top of the Freelancer baseline).
+# Freelancer baseline (owner correction: weapons fire on RIGHT-click; left-click selects a target, left-drag steers).
+const KBM_ACTIONS := [
+	{"id": "fire", "name": "Fire weapons", "key": "Mouse Right", "rebind": true, "extra": false},
+	{"id": "select", "name": "Select target (click) / steer (hold + drag)", "key": "Mouse Left", "rebind": false, "extra": false},
+	{"id": "mouse_flight", "name": "Mouse flight on/off", "key": "Space", "rebind": true, "extra": false},
+	{"id": "missile", "name": "Fire missiles", "key": "Q", "rebind": true, "extra": false},
+	{"id": "forward", "name": "Throttle up", "key": "W", "rebind": true, "extra": false},
+	{"id": "back", "name": "Throttle down", "key": "S", "rebind": true, "extra": false},
+	{"id": "strafe_left", "name": "Strafe left", "key": "A", "rebind": true, "extra": false},
+	{"id": "strafe_right", "name": "Strafe right", "key": "D", "rebind": true, "extra": false},
+	{"id": "brake", "name": "Reverse / brake", "key": "X", "rebind": true, "extra": false},
+	{"id": "engine_kill", "name": "Engine kill", "key": "Z", "rebind": true, "extra": false},
+	{"id": "cruise", "name": "Cruise engine (warp drive) on/off", "key": "Shift+W", "rebind": true, "extra": false},
+	{"id": "afterburner", "name": "Afterburner (hold)", "key": "Tab", "rebind": true, "extra": false},
+	{"id": "target_closest", "name": "Target closest enemy", "key": "R", "rebind": true, "extra": false},
+	{"id": "target_next", "name": "Next target", "key": "T", "rebind": true, "extra": false},
+	{"id": "dock", "name": "Dock / activate (stations, planets, jump gates)", "key": "F3", "rebind": true, "extra": false},
+	# Homelancer-only extras (same list, also rebindable)
+	{"id": "transform", "name": "Transform ship / mech", "key": "G", "rebind": true, "extra": true},
+	{"id": "view", "name": "Chase / cockpit view", "key": "V", "rebind": true, "extra": true},
+	{"id": "map", "name": "System map", "key": "M", "rebind": true, "extra": true},
+	{"id": "yaw_left", "name": "Turn left (keyboard)", "key": "Left", "rebind": true, "extra": true},
+	{"id": "yaw_right", "name": "Turn right (keyboard)", "key": "Right", "rebind": true, "extra": true},
+	{"id": "pitch_up", "name": "Nose up (keyboard)", "key": "Up", "rebind": true, "extra": true},
+	{"id": "pitch_down", "name": "Nose down (keyboard)", "key": "Down", "rebind": true, "extra": true},
+	{"id": "settings", "name": "Settings", "key": "F1", "rebind": false, "extra": true},
+]
+const KBM_RESERVED := []              # keys that can never be bound to an action (empty by default)
+const KBM_CANCEL_KEY := "Escape"      # cancels a "Press a key…" prompt (so it can't be bound)
+const CONTROL_MODE_DEFAULT := "auto"  # auto | touch | kbm
+const MOUSE_FLIGHT_DEFAULT := true    # mouse flight starts ON in keyboard + mouse mode, like Freelancer
+const MOUSE_FLIGHT_RANGE := 0.45      # cursor this far from centre (fraction of half the screen height) = full turn
+const MOUSE_DEAD_ZONE := 0.06         # no turn while the cursor is this close to the centre (same units)
+const MOUSE_DRAG_PX := 8.0            # a left press that moves further than this is a steer drag, not a click
+const MOUSE_DRAG_RANGE := 120.0       # pixels of left-drag for a full turn
+const MOUSE_PICK_PX := 56.0           # a left click this close (pixels) to something on screen selects it
+const WHEEL_THROTTLE := true          # mouse wheel moves the throttle
+const WHEEL_STEP := 0.1               # throttle change per wheel notch (-1 .. 1)
+const SETTINGS_PATH := "user://settings.cfg"   # new settings file (Job J); section "controls": mode, bindings
+const SETTINGS_ROW_H := 48.0          # Controls list row height (big enough for a thumb or a mouse)
+const SETTINGS_RESET_CONFIRM_S := 3.0 # press Reset again within this many seconds to confirm
 
 # ---------------------------------------------------------------- ships
 # model: key understood by ShipFactory. "cadet_glb" etc. load real GLBs when present under assets/ships/.

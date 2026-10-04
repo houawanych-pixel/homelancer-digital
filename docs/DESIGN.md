@@ -423,3 +423,9 @@ descriptions (full guide in Drive: "HOMELANCER — Music Guide"):
 - **Tankers (v1.3d).** From the owner's second transport sheet (two of its ships): the long thin one is a liquid
   tanker on the traffic run (`tanker.glb`, key `fleet3`); the big one holds station by each planet (`big_tanker.glb`,
   key `tanker`). Water, fuel and other liquids.
+- **Desktop keyboard + mouse controls (v1.4f, Job J).** Freelancer-style scheme for desktop players only
+  (`scripts/controls.gd`, Settings screen `scripts/settings.gd`, numbers and default keys in the Job J block of
+  `scripts/data.gd`). Control mode is auto-detected (touch device -> touch, otherwise keyboard + mouse) with an
+  Auto / Touch / Keyboard + mouse override. Right-click fires (owner correction), left-click selects, left-drag steers,
+  mouse flight on Space. Bindings and mode are stored in a new file `user://settings.cfg` (section `controls`).
+  Phone touch controls are unchanged.

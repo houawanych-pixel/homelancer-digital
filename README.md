@@ -31,7 +31,10 @@ Exchange or Eden Prime → fight corsairs → jump back to Solara.
   people you've met (friendly or ENRAGED enemies you've fought) — tap one to call them; recent messages underneath.
   Characters are original placeholders in `scripts/data.gd` until the Homelancer bible names canon ones.
 - Every finger belongs to what it first touched, so dragging a stick never presses a button.
-- Desktop: W/S thrust, A/D strafe, arrows or Q/E aim, Space fire, Shift thrust, mouse clicks act as touches.
+- Desktop (v1.4f, Freelancer style; Settings > Controls rebinds every key): mouse flight steers toward the cursor
+  (Space toggles), RIGHT-click fires, left-click selects a target, left-click held + dragged steers, W/S or wheel
+  throttle, A/D strafe, X brake, Z engine kill, Shift+W cruise (warp drive), Tab afterburner, Q missiles, R closest
+  enemy, T next target, F3 dock; extras G transform, V view, M map, arrows turn, F1 settings. Phones: touch as before.
 
 ## Structure
 ```
