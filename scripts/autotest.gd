@@ -636,6 +636,8 @@ func _galaxy() -> void:
 	_check("New Terra wears a real planet map with a day side, a night side and clouds", s.planet_real and pmap[0] == "earth" and is_instance_valid(s.planet_clouds)
 		and (s.planet.get_meta("surface") as MeshInstance3D).material_override is ShaderMaterial, "map %s" % pmap[0])
 	_check("Planet docking gate: the ring with four arch pieces round it", s.dock_gate != null and s.dock_gate.get_child_count() == 5 and s.DOCK_GATE_TRIS < 16000, "tris %d" % s.DOCK_GATE_TRIS)
+	_check("Traffic: a cargo hauler, a freighter and a tanker on the run, and a big fuel tanker by the planet", s.traffic.size() == 3 and (s.traffic[2]["node"] as Node3D).name.begins_with("Tanker")
+		and is_instance_valid(s.tanker) and ShipFactory.has_real_model("tanker") and ShipFactory.has_real_model("fleet3"))
 	main.hud.visible = false
 	var pr: float = s.planet.get_meta("radius")
 	var ts: Vector3 = (s.sun_pos - s.planet.global_position).normalized()
@@ -650,6 +652,14 @@ func _galaxy() -> void:
 	await _shot("planet_dock_gate", 0.8)
 	_tp(dp + up * 420.0, dp)
 	await _shot("planet_dock_gate_above", 0.8)
+	_tp(s.tanker.global_position + Vector3(120, 50, 150), s.tanker.global_position)
+	await _shot("big_tanker", 0.8)
+	var tk: Node3D = s.traffic[2]["node"]
+	_tp(tk.global_position + Vector3(22, 8, 26), tk.global_position)
+	await _shot("tanker", 0.5)
+	var cr: Node3D = s.carrier
+	_tp(cr.global_position + Vector3(120, 50, 160), cr.global_position)
+	await _shot("carrier", 0.6)
 	main.hud.visible = true
 	# fly it: Solara's new gate to Veranthos, the Unity capital
 	var vg: Node3D = null

@@ -420,3 +420,6 @@ descriptions (full guide in Drive: "HOMELANCER — Music Guide"):
 - **Corsair ship (owner's lopsided ship, mirrored).** `tools/shipkit/mirror_ship.py` cuts a ship in half along its
   length and mirrors each half: two symmetrical ships. The one with two tall fins is the Corsair
   (`assets/ships/enemy/corsair.glb`, key `enemy2`); the other is kept in `art/models/mirror_ship_low.glb`.
+- **Tankers (v1.3d).** From the owner's second transport sheet (two of its ships): the long thin one is a liquid
+  tanker on the traffic run (`tanker.glb`, key `fleet3`); the big one holds station by each planet (`big_tanker.glb`,
+  key `tanker`). Water, fuel and other liquids.

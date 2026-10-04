@@ -121,6 +121,7 @@ var belt_radius := 0.0
 var rocks: Array = [] # [Vector3 pos, float radius]
 var enemies: Array = [] # Dictionaries
 var traffic: Array = []
+var tanker: Node3D           # the big liquid tanker by the planet
 var bolts: Array = []
 var missiles_live: Array = []
 var effects: Array = []
@@ -1160,14 +1161,16 @@ func unit_guns(e: Dictionary) -> Array:
 
 func _build_traffic() -> void:
 	for pair in sys["traffic"]:
-		for k in 2:
+		for k in 3:      # a cargo hauler, a freighter and a liquid tanker (water, fuel) on each run
+			var mk: String = ["fleet", "fleet2", "fleet3"][k]
+			if not ShipFactory.has_real_model(mk): mk = "fleet"
 			var node := Node3D.new()
-			node.name = "Freighter %s-%d" % [sys["name"], k + 1]
-			node.add_child(ShipFactory.build("fleet" if k == 0 or not ShipFactory.has_real_model("fleet2") else "fleet2"))   # two kinds of hauler
+			node.name = ("Tanker %s-%d" if mk == "fleet3" else "Freighter %s-%d") % [sys["name"], k + 1]
+			node.add_child(ShipFactory.build(mk))
 			node.set_meta("kind", "traffic")
 			node.set_meta("radius", 12.0)
 			add_child(node)
-			traffic.append({"node": node, "t": 0.5 * k, "dir": 1.0 if k == 0 else -1.0})
+			traffic.append({"node": node, "t": float(k) / 3.0, "dir": 1.0 if k != 1 else -1.0})
 
 func _build_carrier() -> void:
 	carrier = Node3D.new()
@@ -1179,6 +1182,17 @@ func _build_carrier() -> void:
 	var st: Vector3 = station.global_position
 	carrier.global_position = st + Vector3(-420, 60, -180)
 	carrier.look_at(carrier.global_position + Vector3(1, 0, 0.3), Vector3.UP)
+	# a big liquid tanker (water, fuel) holding station off the planet, on the station's side
+	if ShipFactory.has_real_model("tanker") and is_instance_valid(planet):
+		tanker = Node3D.new()
+		tanker.name = "%s Fuel Tanker" % sys["name"]
+		tanker.add_child(ShipFactory.build("tanker"))
+		tanker.set_meta("kind", "traffic")
+		tanker.set_meta("radius", 55.0)
+		add_child(tanker)
+		var out: Vector3 = (st - planet.global_position).normalized()
+		tanker.global_position = planet.global_position + out * (float(planet.get_meta("radius")) + 520.0) + out.cross(Vector3.UP).normalized() * 380.0
+		tanker.look_at(tanker.global_position + out.cross(Vector3.UP).normalized(), Vector3.UP)
 
 # ---------------------------------------------------------------- per frame
 var _mem_reported := false

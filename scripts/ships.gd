@@ -12,6 +12,8 @@ const GLB := {
 	"enemy2": ["res://assets/ships/enemy/corsair.glb", 13.0, 0.0],
 	"fleet": ["res://assets/ships/civilian/cargo_ship.glb", 16.0, 0.0],
 	"fleet2": ["res://assets/ships/civilian/freighter.glb", 20.0, 0.0],
+	"fleet3": ["res://assets/ships/civilian/tanker.glb", 24.0, 0.0],
+	"tanker": ["res://assets/ships/civilian/big_tanker.glb", 110.0, 0.0],
 	"carrier": ["res://assets/ships/civilian/carrier.glb", 130.0, 0.0],
 	"station": ["res://assets/stations/station.glb", 150.0, 0.0],
 	"missile": ["res://assets/weapons/missile.glb", 3.4, 0.0],
