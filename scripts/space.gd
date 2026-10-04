@@ -107,6 +107,9 @@ const GATE_RING_PATH := "res://assets/structures/jump_gate_ring.glb"
 const GATE_RING_SCALE := 44.0     # the model's clear opening has radius 1.0
 const GATE_RING_TRIS := 5316
 const JUMP_RINGS := 6
+const DOCK_RING_SCALE := 26.0      # docking gate ring: opening radius, the same as the old green beacon ring
+const DOCK_ARCH_SCALE := 140.0     # the arch piece is about 0.64 long: 90 m when placed
+const DOCK_GATE_TRIS := 5316 + 4 * 2264
 var station_model: MeshInstance3D   # the owner's station model, for stations whose data says "model"
 const STATION_WIDTH := 170.0       # the model is 1.0 wide; its ring then sits where the code-made ring was
 const STATION_TRIS := 14900
@@ -477,6 +480,159 @@ const PLANET_LOOKS := {
 	"machine": [Color(0.06, 0.07, 0.1), Color(0.12, 0.14, 0.2), Color(0.3, 0.32, 0.38), Color(0.2, 0.75, 0.85), -0.2, false, 0.1, Color(0.4, 0.9, 1.0)],
 }
 
+# Real planet maps (the "worlds" pack, assets/worlds/<map>.jpg, made from NASA's public maps by
+# tools/planets/make_worlds.py). planet type: variants of [map, colour tint, saturation]; a planet picks one by its id.
+const PLANET_MAPS := {
+	"terran": [["earth", Color(1, 1, 1), 1.0]],
+	"jungle": [["earth", Color(0.72, 1.1, 0.68), 1.0]],
+	"ocean": [["earth", Color(0.6, 0.86, 1.25), 0.7]],
+	"ice": [["europa", Color(0.82, 0.93, 1.1), 1.0], ["pluto", Color(0.82, 0.95, 1.12), 0.35]],
+	"desert": [["mars", Color(1, 1, 1), 1.0], ["io", Color(1.0, 0.86, 0.68), 0.9]],
+	"lava": [["venus", Color(1.15, 0.62, 0.42), 1.1]],
+	"dead": [["charon", Color(1, 1, 1), 0.8], ["ganymede", Color(0.72, 0.72, 0.75), 1.0]],
+	"gas": [["jupiter", Color(1, 1, 1), 1.0], ["saturn", Color(1, 1, 1), 1.0], ["neptune", Color(1, 1, 1), 1.0], ["titan", Color(1, 0.95, 0.9), 1.0]],
+	"city": [["ganymede", Color(0.55, 0.63, 0.82), 1.0], ["earth", Color(0.72, 0.78, 0.95), 0.25]],
+	"crystal": [["europa", Color(1.0, 0.7, 1.28), 1.0], ["pluto", Color(0.92, 0.7, 1.25), 0.6]],
+	"toxic": [["io", Color(0.7, 1.12, 0.4), 1.0], ["venus", Color(0.5, 1.05, 0.35), 0.9]],
+	"machine": [["ganymede", Color(0.4, 0.76, 0.86), 1.0], ["charon", Color(0.45, 0.72, 0.82), 0.6]],
+}
+const PLANET_SHADER := """shader_type spatial;
+render_mode unshaded, cull_back;
+// One real map, coloured for this world. The sun and the planet never move, so the day and night sides are fixed:
+// a single dot product, no lights. The atmosphere glows INSIDE the edge of the disc, on the lit side.
+uniform sampler2D map : source_color, repeat_enable, filter_linear_mipmap;
+uniform vec3 tint = vec3(1.0);
+uniform float sat = 1.0;
+uniform float roll = 0.0;
+uniform vec2 flip = vec2(0.0);      // 1 = mirror that way, so one map gives four different worlds
+uniform vec3 sun_dir = vec3(0.0, 0.0, 1.0);
+uniform vec3 air : source_color = vec3(0.45, 0.7, 1.0);
+uniform float air_k = 1.0;
+varying vec3 wn;
+void vertex() { wn = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz); }
+void fragment() {
+	vec2 uv = mix(UV, vec2(1.0) - UV, flip);
+	vec3 c = texture(map, vec2(uv.x + roll, uv.y)).rgb;
+	float g = dot(c, vec3(0.299, 0.587, 0.114));
+	c = mix(vec3(g), c, sat) * tint;
+	float day = smoothstep(-0.16, 0.3, dot(normalize(wn), sun_dir));
+	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.4);
+	ALBEDO = c * (0.03 + 0.97 * day) + air * rim * air_k * (0.06 + 0.94 * day);
+}"""
+const CLOUD_SHADER := """shader_type spatial;
+render_mode unshaded, cull_back, depth_draw_never;
+uniform sampler2D map : repeat_enable, filter_linear_mipmap;
+uniform float amount = 0.7;
+uniform float roll = 0.0;
+uniform vec3 sun_dir = vec3(0.0, 0.0, 1.0);
+varying vec3 wn;
+void vertex() { wn = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz); }
+void fragment() {
+	float day = smoothstep(-0.16, 0.3, dot(normalize(wn), sun_dir));
+	ALBEDO = vec3(0.04 + 0.96 * day);
+	ALPHA = clamp(texture(map, vec2(UV.x + roll, UV.y)).r * 1.6, 0.0, 1.0) * amount;
+}"""
+const HALO_SHADER := """shader_type spatial;
+render_mode unshaded, blend_add, cull_back, depth_draw_never;
+// a THIN haze just outside the planet's edge, lit side only (the old one was a thick shell: a glass ball)
+uniform vec4 tint : source_color;
+uniform vec3 sun_dir = vec3(0.0, 0.0, 1.0);
+varying vec3 wn;
+void vertex() { wn = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz); }
+void fragment() {
+	// brightest right at the planet's edge (where this shell's facing is about 0.26), fading to nothing outward
+	float ndv = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
+	float f = smoothstep(0.0, 0.26, ndv) * (1.0 - smoothstep(0.26, 0.5, ndv));
+	float day = smoothstep(-0.25, 0.35, dot(normalize(wn), sun_dir));
+	ALBEDO = tint.rgb * f * 0.8 * (0.06 + 0.94 * day);
+	ALPHA = f;
+}"""
+var planet_clouds: MeshInstance3D
+var planet_real := false      # the planet wears its real map (the "worlds" pack is in)
+var dock_gate: Node3D         # the planet docking gate: the owner's ring with four arch pieces round it
+
+## Which map, tint and saturation this planet wears.
+func planet_map(d: Dictionary) -> Array:
+	var v: Array = PLANET_MAPS.get(d["palette"], PLANET_MAPS["terran"])
+	return v[absi(hash(d["id"])) % v.size()]
+
+## Swap the code-made planet texture for the real map with fixed day/night and clouds (once the pack is in).
+func _planet_real() -> void:
+	if planet_real or surface_mode or not is_instance_valid(planet) or not planet.has_meta("surface"): return
+	var d: Dictionary = planet.get_meta("info")
+	var pm := planet_map(d)
+	var path := "res://assets/worlds/%s.jpg" % pm[0]
+	if not (Packs.is_ready("worlds") and ResourceLoader.exists(path)): return
+	var look: Array = PLANET_LOOKS.get(d["palette"], PLANET_LOOKS["terran"])
+	var to_sun: Vector3 = (sun_pos - planet.global_position).normalized()
+	var roll := float(absi(hash(str(d["id"]) + "roll")) % 1000) / 1000.0
+	var sh := Shader.new()
+	sh.code = PLANET_SHADER
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	m.set_shader_parameter("map", load(path))
+	m.set_shader_parameter("tint", Vector3(pm[1].r, pm[1].g, pm[1].b))
+	m.set_shader_parameter("sat", pm[2])
+	m.set_shader_parameter("roll", roll)
+	var fh := absi(hash(str(d["id"]) + "flip"))
+	m.set_shader_parameter("flip", Vector2(float(fh % 2), float((fh / 2) % 2)))
+	m.set_shader_parameter("sun_dir", to_sun)
+	m.set_shader_parameter("air", look[7])
+	m.set_shader_parameter("air_k", 0.25 if d["palette"] in ["dead", "machine"] else 0.9)
+	(planet.get_meta("surface") as MeshInstance3D).material_override = m
+	if planet.has_meta("halo"): ((planet.get_meta("halo") as MeshInstance3D).material_override as ShaderMaterial).set_shader_parameter("sun_dir", to_sun)
+	if float(look[6]) >= 0.3 and ResourceLoader.exists("res://assets/worlds/clouds.jpg"):
+		var r: float = planet.get_meta("radius")
+		var cs := SphereMesh.new()
+		cs.radius = r * 1.012
+		cs.height = r * 2.024
+		cs.radial_segments = 48
+		cs.rings = 24
+		planet_clouds = MeshInstance3D.new()
+		planet_clouds.mesh = cs
+		var csh := Shader.new()
+		csh.code = CLOUD_SHADER
+		var cm := ShaderMaterial.new()
+		cm.shader = csh
+		cm.set_shader_parameter("map", load("res://assets/worlds/clouds.jpg"))
+		cm.set_shader_parameter("amount", float(look[6]))
+		cm.set_shader_parameter("roll", fmod(roll * 3.7, 1.0))
+		cm.set_shader_parameter("sun_dir", to_sun)
+		planet_clouds.material_override = cm
+		planet_clouds.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		planet.add_child(planet_clouds)
+	planet_real = true
+
+## The planet docking gate: the owner's ring lying over the dock point with four arch pieces standing round it,
+## feet toward the planet, so it sits on top of the atmosphere. Replaces the plain green beacon ring.
+func _dock_gate() -> void:
+	if dock_gate != null or surface_mode or not is_instance_valid(planet): return
+	var beacon: Node3D = planet.get_node_or_null("LandingBeacon")
+	if beacon == null or not Packs.is_ready("structures") or not ResourceLoader.exists("res://assets/structures/dock_arch.glb"): return
+	var meshes: Array = []
+	for path in [GATE_RING_PATH, "res://assets/structures/dock_arch.glb"]:
+		var sc := (load(path) as PackedScene).instantiate()
+		var found := sc.find_children("*", "MeshInstance3D", true, false)
+		meshes.append((found[0] as MeshInstance3D).mesh if not found.is_empty() else null)
+		sc.free()
+	if meshes[0] == null or meshes[1] == null: return
+	dock_gate = Node3D.new()
+	dock_gate.name = "DockGate"
+	beacon.add_child(dock_gate)      # the beacon faces the planet: -Z is down toward it
+	var ring := MeshInstance3D.new()
+	ring.mesh = meshes[0]
+	ring.scale = Vector3.ONE * DOCK_RING_SCALE
+	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	dock_gate.add_child(ring)
+	for i in 4:
+		var a := i * TAU / 4.0 + TAU / 8.0
+		var out := Vector3(cos(a), sin(a), 0)
+		var arch := MeshInstance3D.new()
+		arch.mesh = meshes[1]
+		arch.transform = Transform3D(Basis(Vector3(0, 0, 1).cross(out), Vector3(0, 0, 1), out).scaled(Vector3.ONE * DOCK_ARCH_SCALE), out * DOCK_ARCH_SCALE * 0.62 + Vector3(0, 0, -8))
+		arch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		dock_gate.add_child(arch)
+
 func _planet_texture(palette: String, seed_text := "") -> ImageTexture:
 	var w := 512
 	var h := 256
@@ -540,19 +696,21 @@ func _build_planet(d: Dictionary) -> void:
 	# atmosphere rim
 	var atm := MeshInstance3D.new()
 	var am := SphereMesh.new()
-	am.radius = r * 1.12   # upper atmosphere glow, visible well before you reach it
-	am.height = r * 2.24
+	am.radius = r * 1.035   # a thin haze past the edge (it was 1.12: a glass ball)
+	am.height = r * 2.07
 	am.radial_segments = 48
 	am.rings = 24
 	atm.mesh = am
 	var sh := Shader.new()
-	sh.code = "shader_type spatial;\nrender_mode unshaded, blend_add, cull_back, depth_draw_never;\nuniform vec4 tint : source_color;\nvoid fragment(){ float f = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0); ALBEDO = tint.rgb * f * 1.6; ALPHA = f; }"
+	sh.code = HALO_SHADER
 	var sm2 := ShaderMaterial.new()
 	sm2.shader = sh
 	sm2.set_shader_parameter("tint", PLANET_LOOKS.get(d["palette"], PLANET_LOOKS["jungle"])[7])
 	atm.material_override = sm2
+	sm2.set_shader_parameter("sun_dir", (sun_pos - planet.global_position).normalized() if sun_pos != Vector3.INF else Vector3(0, 0, 1))
 	atm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	planet.add_child(atm)
+	planet.set_meta("halo", atm)
 	# landing beacon ring at the dock point
 	var beacon := Node3D.new()
 	beacon.name = "LandingBeacon"
@@ -567,6 +725,14 @@ func _build_planet(d: Dictionary) -> void:
 	var dp := dock_point(planet)
 	beacon.global_position = dp
 	beacon.look_at(planet.global_position, Vector3.UP)
+	_planet_real()
+	_dock_gate()
+	if not Packs.pack_ready.is_connected(_on_world_pack): Packs.pack_ready.connect(_on_world_pack)
+	Packs.request("worlds")
+
+func _on_world_pack(pk: String) -> void:
+	if pk == "worlds": _planet_real()
+	if pk == "structures": _dock_gate()
 
 func dock_point(n: Node3D) -> Vector3:
 	if n.get_meta("kind", "") == "waypoint": return n.global_position
@@ -963,7 +1129,9 @@ func _nearest_generic(r: float) -> Dictionary:
 func spawn_unit(kind: String, pos: Vector3, home: Vector3) -> Dictionary:
 	var e: Dictionary = Data.ENEMIES[kind]
 	var is_mech: bool = e.get("mech", false)
-	var n := ShipFactory.build(e.get("model", "enemy"))
+	var mk: String = e.get("model", "enemy")
+	if not (ShipFactory.has_real_model(mk) or mk.begins_with("mech")): mk = "enemy"
+	var n := ShipFactory.build(mk)
 	var node := Node3D.new()
 	_enemy_serial += 1
 	node.name = "%s %d" % [e["name"], _enemy_serial]
@@ -995,7 +1163,7 @@ func _build_traffic() -> void:
 		for k in 2:
 			var node := Node3D.new()
 			node.name = "Freighter %s-%d" % [sys["name"], k + 1]
-			node.add_child(ShipFactory.build("fleet"))
+			node.add_child(ShipFactory.build("fleet" if k == 0 or not ShipFactory.has_real_model("fleet2") else "fleet2"))   # two kinds of hauler
 			node.set_meta("kind", "traffic")
 			node.set_meta("radius", 12.0)
 			add_child(node)
@@ -1845,6 +2013,7 @@ func _update_camera(dt: float, snap: bool) -> void:
 	cam.fov = lerpf(cam.fov, 88.0 if warp_state == "on" else (76.0 if boosting else 70.0), minf(1.0, dt * 2.0))
 
 func _ambient_anim(dt: float) -> void:
+	if is_instance_valid(planet_clouds): planet_clouds.rotate_y(dt * 0.006)
 	for gp in gate_portals:
 		if not is_instance_valid(gp): continue
 		gp.rotate_object_local(Vector3.UP, dt * 0.8)

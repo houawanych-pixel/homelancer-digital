@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://j8aaqg3qbn4y"
-path="res://.godot/imported/lancer_3.jpg-1bc6924c0eacdee6ef1d185ff9f6c19b.ctex"
+uid="uid://7mkugrbgdwxl"
+path="res://.godot/imported/dock_arch_0.jpg-cd426eaec2c15a39ca6e32bf31e9b090.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "a61cd8ecfb84e292c89292e90c6af42f"
+"md5": "f451a678fc7afc38cfde1a527d7446aa"
 }
 
 [deps]
 
-source_file="res://assets/ships/player/lancer_3.jpg"
-dest_files=["res://.godot/imported/lancer_3.jpg-1bc6924c0eacdee6ef1d185ff9f6c19b.ctex"]
+source_file="res://assets/structures/dock_arch_0.jpg"
+dest_files=["res://.godot/imported/dock_arch_0.jpg-cd426eaec2c15a39ca6e32bf31e9b090.ctex"]
 
 [params]
 

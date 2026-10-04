@@ -2,13 +2,13 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bga3s27s7gwbm"
+uid="uid://daxs87q0kusl0"
 path="res://.godot/imported/carrier_2.jpg-523a36de68c1302636381292217bdc91.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "dea733228378532208b4d63747a5d0cf"
+"md5": "7e0062d5d40f5e45beea4fbd2b6fbe27"
 }
 
 [deps]
@@ -33,5 +33,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=512
+process/size_limit=0
 detect_3d/compress_to=1

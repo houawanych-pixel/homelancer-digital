@@ -182,6 +182,7 @@ func show_screen(s: String) -> void:
 		"equipment": _equipment_page()
 		"ships":
 			Packs.request("lancer")
+			Packs.request("ranger")
 			_ships_page()
 		"repair": _repair_page()
 		"surface": _surface_page()

@@ -395,3 +395,28 @@ descriptions (full guide in Drive: "HOMELANCER — Music Guide"):
   3,540 triangles, `assets/ships/enemy/enemy_fleet.glb`); the other three on the sheet were discarded. The Ranger
   (a code-made stand-in) is off sale: the dealer lists Cadet and Lancer. `shipkit.py export --yaw-fit` straightens a
   ship that lies flat but turned at an angle.
+
+## 22. Real planets, docking gate, the owner's player ships (v1.3c)
+
+- **Planet maps.** `assets/worlds/<map>.jpg` (the `worlds` pack, 12 maps + clouds, about 1.4 MB): NASA's public
+  planet maps (from github.com/nasa/NASA-3D-Resources, sources kept in `art/planet_maps`), made game-ready by
+  `tools/planets/make_worlds.py`. A planet map is equirectangular: 2:1, left edge = right edge, top row = north pole.
+  To add a world: drop a 2:1 picture in `art/planet_maps`, add it to `MAPS` in the tool, run it, name it in
+  `PLANET_MAPS` (space.gd). No other code changes.
+- **One map, many worlds.** `PLANET_MAPS` gives each planet type its maps with a colour tint and saturation; a planet
+  picks a variant, a longitude roll and a mirror from its own id. So 12 maps cover every system.
+- **Fixed day and night.** The sun and planet never move, so `PLANET_SHADER` lights the map with one dot product
+  against a fixed sun direction (no lights). The atmosphere glows inside the edge of the disc on the lit side; the
+  outer haze shell is thin (1.035 r, was 1.12: the glass ball). Worlds with weather get a slow cloud sphere.
+  The code-made texture is the stand-in until the pack arrives.
+- **Planet docking gate.** At the dock point: the owner's ring with four arch pieces round it (the spare piece of the
+  jump gate model, `assets/structures/dock_arch.glb`, 2,264 triangles each), feet toward the planet.
+- **Player ships.** Cadet, Ranger and Lancer are the owner's three ships with the sheet's cannons mounted
+  (`tools/shipkit/make_fleet3.py`): Cadet two on top; Ranger a long cannon on top and one on each wing (3 guns);
+  Lancer a long cannon on each wing and a short one each side of the nose joining the loose pods (4 guns).
+  Spare weapons: `art/models/fleet3_weapon_*.glb`.
+- **Transports (owner's sheet of three).** The big one is the carrier (`carrier.glb`), the long thin one the cargo
+  hauler (`cargo_ship.glb`), the middle one a second hauler (`freighter.glb`, key `fleet2`); traffic uses both haulers.
+- **Corsair ship (owner's lopsided ship, mirrored).** `tools/shipkit/mirror_ship.py` cuts a ship in half along its
+  length and mirrors each half: two symmetrical ships. The one with two tall fins is the Corsair
+  (`assets/ships/enemy/corsair.glb`, key `enemy2`); the other is kept in `art/models/mirror_ship_low.glb`.

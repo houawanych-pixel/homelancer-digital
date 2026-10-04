@@ -6,9 +6,12 @@ extends RefCounted
 # key -> [glb path, target length, extra yaw degrees applied after import]
 const GLB := {
 	"cadet": ["res://assets/ships/player/cadet_ship.glb", 9.0, 0.0],
+	"ranger": ["res://assets/ships/player/ranger.glb", 10.5, 0.0],
 	"lancer": ["res://assets/ships/player/lancer.glb", 12.0, 0.0],
 	"enemy": ["res://assets/ships/enemy/enemy_fleet.glb", 10.0, 0.0],
+	"enemy2": ["res://assets/ships/enemy/corsair.glb", 13.0, 0.0],
 	"fleet": ["res://assets/ships/civilian/cargo_ship.glb", 16.0, 0.0],
+	"fleet2": ["res://assets/ships/civilian/freighter.glb", 20.0, 0.0],
 	"carrier": ["res://assets/ships/civilian/carrier.glb", 130.0, 0.0],
 	"station": ["res://assets/stations/station.glb", 150.0, 0.0],
 	"missile": ["res://assets/weapons/missile.glb", 3.4, 0.0],

@@ -1,0 +1,37 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://dgao6ayw48mbx"
+path="res://.godot/imported/dock_arch_2.jpg-586f84a996f8eaf9c308957164aa611f.ctex"
+metadata={
+"vram_texture": false
+}
+generator_parameters={
+"md5": "051af9f5f0be7d2dc269fa94a8202f9b"
+}
+
+[deps]
+
+source_file="res://assets/structures/dock_arch_2.jpg"
+dest_files=["res://.godot/imported/dock_arch_2.jpg-586f84a996f8eaf9c308957164aa611f.ctex"]
+
+[params]
+
+compress/mode=1
+compress/high_quality=false
+compress/lossy_quality=0.8
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=1

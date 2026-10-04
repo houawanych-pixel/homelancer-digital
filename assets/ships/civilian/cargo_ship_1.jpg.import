@@ -2,13 +2,13 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dhpd2awfilooh"
+uid="uid://d0n1i4686rpht"
 path="res://.godot/imported/cargo_ship_1.jpg-763ab009daaac4f2a14d30d5b2205fac.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "1cbca247084f4e49be56097bfa855a33"
+"md5": "1b6f5bfb4516a275cbd7cd1f8b85d861"
 }
 
 [deps]
@@ -33,5 +33,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=512
+process/size_limit=0
 detect_3d/compress_to=1

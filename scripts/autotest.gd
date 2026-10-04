@@ -627,8 +627,31 @@ func _galaxy() -> void:
 				todo.append(g["to"])
 	_check("Galaxy: %d systems, each with a star you can enter, a station, a planet and two-way gates; all reachable from Solara" % Data.SYSTEMS.size(),
 		Data.SYSTEMS.size() == 67 and bad.is_empty() and seen.size() == Data.SYSTEMS.size(), "reachable %d; %s" % [seen.size(), ", ".join(bad.slice(0, 4))])
-	# fly it: Solara's new gate to Veranthos, the Unity capital
+	# real planets: NASA maps, a fixed day and night side, clouds, and the docking gate on top of the atmosphere
 	var s := _sp()
+	await Packs.wait("worlds", 40.0)
+	await Packs.wait("structures", 30.0)
+	await _wait(0.4)
+	var pmap: Array = s.planet_map(s.planet.get_meta("info"))
+	_check("New Terra wears a real planet map with a day side, a night side and clouds", s.planet_real and pmap[0] == "earth" and is_instance_valid(s.planet_clouds)
+		and (s.planet.get_meta("surface") as MeshInstance3D).material_override is ShaderMaterial, "map %s" % pmap[0])
+	_check("Planet docking gate: the ring with four arch pieces round it", s.dock_gate != null and s.dock_gate.get_child_count() == 5 and s.DOCK_GATE_TRIS < 16000, "tris %d" % s.DOCK_GATE_TRIS)
+	main.hud.visible = false
+	var pr: float = s.planet.get_meta("radius")
+	var ts: Vector3 = (s.sun_pos - s.planet.global_position).normalized()
+	var side: Vector3 = ts.cross(Vector3.UP).normalized()
+	_tp(s.planet.global_position + (ts * 0.75 + side * 0.66).normalized() * pr * 3.4, s.planet.global_position)
+	await _shot("planet_real_day_night", 0.8)
+	_tp(s.planet.global_position + (ts * -0.2 + side).normalized() * pr * 2.6, s.planet.global_position)
+	await _shot("planet_real_terminator", 0.8)
+	var dp: Vector3 = s.dock_point(s.planet)
+	var up: Vector3 = (dp - s.planet.global_position).normalized()
+	_tp(dp + up * 260.0 + up.cross(Vector3.UP).normalized() * 240.0, dp)
+	await _shot("planet_dock_gate", 0.8)
+	_tp(dp + up * 420.0, dp)
+	await _shot("planet_dock_gate_above", 0.8)
+	main.hud.visible = true
+	# fly it: Solara's new gate to Veranthos, the Unity capital
 	var vg: Node3D = null
 	for g in s.gates:
 		if g.get_meta("info")["to"] == "veranthos": vg = g
@@ -652,6 +675,11 @@ func _galaxy() -> void:
 		and is_instance_valid(s.sun_body) and s.station_model != null, "gates %d, sky %s" % [s.gates.size(), tex.resource_path.get_file() if tex else "none"])
 	_tp(s.station.global_position + Vector3(260, 60, 420), s.station.global_position)
 	await _shot("veranthos", 1.0)
+	await Packs.wait("worlds", 30.0)
+	await _wait(0.3)
+	var kinds := {}
+	for id2 in Data.SYSTEMS: kinds[s.planet_map(Data.SYSTEMS[id2]["planet"])[0]] = true
+	_check("Every planet in the galaxy has a real map (%d different maps in use)" % kinds.size(), s.planet_real and kinds.size() >= 10 and kinds.keys().all(func(k): return ResourceLoader.exists("res://assets/worlds/%s.jpg" % k)))
 	_tp(back.global_position + back.global_basis.z * 300.0 + Vector3(120, 40, 0), back.global_position)
 	await _shot("veranthos_gates", 0.8)
 	# load a spread of other systems to prove the generator's output runs (all of them on desktop, a few on the web)
@@ -665,7 +693,13 @@ func _galaxy() -> void:
 		await get_tree().process_frame
 		var t := _sp()
 		if not (is_instance_valid(t.station) and is_instance_valid(t.planet) and is_instance_valid(t.sun_body) and t.gates.size() == (Data.SYSTEMS[id]["gates"] as Array).size() and t.gates.size() >= 1): broke.append(id)
-		if id in ["void_1", "noctyra", "heart"]: await _shot("system_" + id, 0.6)
+		if id in ["void_1", "noctyra", "heart", "vortegan", "obsidrath", "crystara", "kronos"]:
+			var tp2: Node3D = t.planet
+			var ts2: Vector3 = (t.sun_pos - tp2.global_position).normalized()
+			_tp(tp2.global_position + (ts2 * 0.75 + ts2.cross(Vector3.UP).normalized() * 0.66).normalized() * float(tp2.get_meta("radius")) * 3.4, tp2.global_position)
+			main.hud.visible = false
+			await _shot("planet_" + id, 0.6)
+			main.hud.visible = true
 	var small_ok: bool = Data.SYSTEMS["void_1"].get("small_sun", false) and not Data.SYSTEMS["veranthos"].get("small_sun", false)
 	_check("%d generated systems load and run; void systems have a small sun" % tour.size(), broke.is_empty() and small_ok, ", ".join(broke.slice(0, 6)))
 	main._load_system("solara", "gate:veranthos")
@@ -1138,7 +1172,7 @@ func _run() -> void:
 	var sb: Button = main.hub.find_child("Ship_lancer", true, false)
 	if sb and not sb.disabled: sb.pressed.emit()
 	await _wait(0.4)
-	_check("Ship purchase (Lancer; the stand-in Ranger is no longer sold)", GS.ship_id == "lancer" and not ("ranger" in Data.SHIP_ORDER) and main.hub.find_child("Ship_ranger", true, false) == null, "ship=%s hull=%d" % [GS.ship_id, int(GS.max_hull())])
+	_check("Ship purchase (Lancer, 4 cannons); the dealer sells three real ships", GS.ship_id == "lancer" and int(GS.ship()["guns"]) == 4 and Data.SHIP_ORDER == ["cadet", "ranger", "lancer"] and ShipFactory.has_real_model("ranger"), "ship=%s hull=%d" % [GS.ship_id, int(GS.max_hull())])
 	main.hub.open_inspector("lancer")
 	await _wait(0.4)
 	var cam0: Vector3 = main.hub.insp_cam.position

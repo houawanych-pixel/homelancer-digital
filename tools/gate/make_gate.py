@@ -42,6 +42,8 @@ def main():
     for k, e in enumerate(extra):
         suffix = "" if k == 0 else "_%d" % (k + 1)
         jobs.append((e, 1024, "build/gate/extra%s_full.glb" % suffix, "art/models/jump_gate_extra_section%s.glb" % suffix, "JumpGateExtra", False, EXTRA_TRIS))
+        if k == 0:   # the same arch, small, for the game: four of them stand round the planet docking gate
+            jobs.append((e, 512, "build/gate/arch_full.glb", "assets/structures/dock_arch.glb", "DockArch", False, 3000))
     for i, tex, tmp, out, name, is_ring, tris in jobs:
         rep = piece(g, js, binc, tcl, i, tex, tmp, name, is_ring)
         r = subprocess.run([godot, "--headless", "--path", ".", "--script", "tools/shipkit/decimate.gd", "--", tmp, out, str(tris)], capture_output=True, text=True)

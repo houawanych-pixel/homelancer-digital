@@ -5,21 +5,20 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.3b"
+const VERSION := "v1.3c"
 
 # ---------------------------------------------------------------- ships
 # model: key understood by ShipFactory. "cadet_glb" etc. load real GLBs when present under assets/ships/.
 const SHIPS := {
 	"cadet": {"name": "Cadet", "class": "Starter fighter", "price": 0, "hull": 100, "shield": 60, "speed": 46.0,
-		"turn": 1.7, "guns": 2, "missiles": 6, "heavy": 2, "mines": 3, "model": "cadet", "desc": "Unity-issue trainer. Light, nimble, forgiving."},
+		"turn": 1.7, "guns": 2, "missiles": 6, "heavy": 2, "mines": 3, "model": "cadet", "desc": "Unity-issue trainer. Light, nimble, forgiving. Twin cannons on top."},
 	"ranger": {"name": "Ranger", "class": "Patrol fighter", "price": 1500, "hull": 160, "shield": 95, "speed": 50.0,
-		"turn": 1.55, "guns": 2, "missiles": 10, "heavy": 3, "mines": 4, "model": "ranger", "desc": "Faster frame with thicker plating and a bigger rack."},
+		"turn": 1.55, "guns": 3, "missiles": 10, "heavy": 3, "mines": 4, "model": "ranger", "desc": "Faster frame, thicker plating. A long cannon on top and one on each wing."},
 	"lancer": {"name": "Lancer", "class": "Heavy fighter", "price": 4000, "hull": 240, "shield": 140, "speed": 42.0,
-		"turn": 1.25, "guns": 3, "missiles": 14, "heavy": 4, "mines": 6, "model": "lancer", "desc": "Three hardpoints and a heavy shield. Slow to turn."},
+		"turn": 1.25, "guns": 4, "missiles": 14, "heavy": 4, "mines": 6, "model": "lancer", "desc": "Four cannons: two on the wings, two beside the nose. Heavy shield. Slow to turn."},
 }
-# The Ranger was a code-made stand-in with no real model; the owner took it off sale (v1.3b). Its data stays so old
-# references still resolve, but the dealer only lists SHIP_ORDER.
-const SHIP_ORDER := ["cadet", "lancer"]
+# v1.3c: all three are the owner's models with weapons mounted (tools/shipkit/make_fleet3.py). Guns = cannons you can see.
+const SHIP_ORDER := ["cadet", "ranger", "lancer"]
 
 # ---------------------------------------------------------------- weapons (per gun)
 const WEAPONS := {
@@ -86,7 +85,7 @@ const REPAIR_AMOUNT := 0.4 # fraction of max hull
 # ---------------------------------------------------------------- enemies
 const ENEMIES := {
 	"raider": {"name": "Raider", "hull": 60.0, "shield": 30.0, "speed": 44.0, "turn": 1.3, "damage": 5.0, "rate": 1.6, "reward": 150},
-	"corsair": {"name": "Corsair", "hull": 90.0, "shield": 50.0, "speed": 48.0, "turn": 1.4, "damage": 6.0, "rate": 1.9, "reward": 220},
+	"corsair": {"name": "Corsair", "model": "enemy2", "hull": 90.0, "shield": 50.0, "speed": 48.0, "turn": 1.4, "damage": 6.0, "rate": 1.9, "reward": 220},
 	# assault mech: two arm guns + a chest cannon; flies with the raiders/corsairs
 	"mech": {"name": "Assault Mech", "hull": 120.0, "shield": 40.0, "speed": 40.0, "turn": 1.2, "damage": 6.0, "rate": 1.4, "reward": 280, "model": "mech_tan", "mech": true},
 }
