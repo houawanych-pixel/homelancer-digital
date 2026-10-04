@@ -183,6 +183,8 @@ func show_screen(s: String) -> void:
 		"ships":
 			Packs.request("lancer")
 			Packs.request("ranger")
+			Packs.request("hauler")
+			Packs.request("bulk")
 			_ships_page()
 		"repair": _repair_page()
 		"surface": _surface_page()
@@ -303,7 +305,12 @@ func _ships_page() -> void:
 	var list := VBoxContainer.new()
 	list.add_theme_constant_override("separation", 10)
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	h.add_child(list)
+	var scroll := ScrollContainer.new()      # five ships no longer fit on one screen: drag the list
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	h.add_child(scroll)
+	scroll.add_child(list)
 	for id in Data.SHIP_ORDER:
 		var s: Dictionary = Data.SHIPS[id]
 		var card := VBoxContainer.new()

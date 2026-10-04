@@ -441,3 +441,19 @@ descriptions (full guide in Drive: "HOMELANCER — Music Guide"):
   window after a hit. Flash, shake and sound scale with the hit; zero hull = the normal "ship disabled" flow.
   Existing collision shapes and responses (asteroid/station bounce, ground/building stop) are unchanged. Numbers in
   the Job L block of `scripts/data.gd`. Enemy ships don't take collision damage yet.
+- **v1.3e (owner's third transport sheet).** The long skinny tanker is gone; the tanker on the traffic run is the
+  new one (`tanker.glb`, 9,282 triangles). Loot pods are the owner's cargo containers (`assets/cargo/crate_a/b/c.glb`,
+  about 300 triangles each). The other cargo pieces are kept in `art/models/cargo/`.
+- **Hauler (v1.3e).** The owner's cargo ship, buyable (2,500 cr, toughest hull, slow). The box hanging under its
+  nose was cut away. Loot pods: `crate_a` (single emblem crate) and `crate_c` (four-crate block) come from its sheet.
+- **Bulk Freighter (v1.3f).** The owner's big cargo ship, buyable (6,000 cr, key `bulk`). Its loose guns and
+  containers are spares in `art/models/cargo/freighter_part_*.glb`. The dealer list now scrolls.
+- **Frame Freighter (v1.3f).** The Bulk Freighter with its crates removed, leaving the cargo frame (key
+  `bulk_empty`, 4,500 cr). How it was cut: `tools/shipkit/empty_cargo.md`. Carrying chosen crates in the frame is
+  not built yet.
+- **Every catalog planet and station (placeholders).** `tools/galaxy/build_game_data.py` now holds the full
+  contents of each system from the Star System Catalog v2 (`SYS`): 172 planets and 102 stations across the 67 systems
+  (count sheet: `docs/galaxy/system_contents.csv`). The first planet and station of a system are the dockable ones;
+  the rest are `GalaxyData.EXTRAS` -> `sys["more_planets"]` / `sys["more_stations"]`, built by `space._build_extras()`
+  as landmarks: visible, solid, targetable, on the system map, reachable by GO TO, no docking yet. Planets use the
+  NASA solar-system maps with their type's temporary tint; stations are a small stand-in in the faction colour.

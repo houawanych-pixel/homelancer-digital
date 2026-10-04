@@ -37,7 +37,7 @@ static func network() -> Dictionary:
 		var d: Dictionary = Data.SYSTEMS[id]
 		var pos := tile_pos(t[3], t[4], id)
 		systems[id] = {"id": id, "name": d["name"], "pos": pos, "cluster": t[5], "faction": t[5], "shade": SHADE.get(t[5], 0),
-			"tile": t[2], "star": "small, cold" if t[5] == "Void" else "yellow", "planets": 1, "stations": 1,
+			"tile": t[2], "star": "small, cold" if t[5] == "Void" else "yellow", "planets": 1 + (d.get("more_planets", []) as Array).size(), "stations": 1 + (d.get("more_stations", []) as Array).size(),
 			"spaceways": (SPACEWAYS.get(id, []) as Array).size(), "playable": true, "discovered": id in GS.discovered}
 		if not sums.has(t[5]): sums[t[5]] = [Vector3.ZERO, 0]
 		sums[t[5]][0] += pos

@@ -1,0 +1,68 @@
+tile,system,faction,planets,stations,planet names,station names
+A1,Beta-7,Neutral,1,1,Beta-7 (terran),Survey Depot
+C1,Void System,Enemy,3,2,Void Citadel (dead); Husk (dead); Scar (lava),Void Citadel Station; Gate Anchor
+F1,Keldrix,Unity,3,1,Keldrix (terran); Keld Minor (desert); Frost (ice),Keldrix Patrol Base
+H1,Kronos,Enemy,3,1,Kronos (ice); Glacier (ice); Floe (ice),Cryo Station
+I1,Void 1,Void,1,1,Void 1 I (dead),Void 1 Beacon (automated)
+J1,Nebulax,Neutral,1,1,Nebulax (gas),Gas Harvest Station
+K1,Radiant,Hidden,1,1,Radiant Core (crystal),Shrine Platform
+A2,Void 6,Void,1,1,Void 6 I (dead),Void 6 Beacon (automated)
+B2,Selenvar,Elyza,2,1,Selenvar (ice); Vigil (dead),Selenvar Observatory
+D2,Velanthos,Elyza,3,1,Velanthos (ocean); Reefhold (ocean); Tempest (gas),Velanthos Research Platform
+E2,Aurentum,Unity,3,2,Aurentum (terran); Fields (terran); Barren Rock (dead),Reserve Vault Station; Trade Dock
+F2,Vega,Neutral,1,1,Eden Prime (jungle),Frontier Exchange
+H2,Techanis,Solarion,3,2,Techanis (desert); Proving Ground (desert); Scrap (dead),Techanis Lab Station; Prototype Shipyard
+J2,Kellova,Solarion,3,1,Kellova (terran); Market (desert); Kell Moon (dead),Kellova Cargo Depot
+A3,Farreach Outpost,Neutral,1,1,Farreach (desert),Farreach Outpost
+C3,Crystara,Elyza,3,1,Crystara (crystal); Geode (crystal); Prism (ice),Crystal Refinery
+F3,Solara,Unity,1,1,New Terra (terran),Liberty Hub
+G3,Federis,Unity,2,2,Federis (terran); New Federis (terran),Embassy Station; Communications Relay
+I3,Nexarion,Solarion,3,2,Nexarion (machine); Relay (dead); Coolant (ice),Nexarion Data Relay; Tech Market
+K3,Perimeter,Neutral,2,1,Perimeter I (ice); Perimeter II (ice),Perimeter Picket
+B4,Zillance Major,Elyza,4,2,Zillance Major (jungle); Monolith (desert); Ashfall (dead); Zill (gas),Zillance Picket; Zillance Waystation
+D4,Aurelion,Elyza,5,3,Aurelion Prime (jungle); Verdance (terran); Lumen (crystal); Thornwild (jungle); Calyx (gas),Aurelion Citadel; Diplomatic and Trade Hub; Aurelion Shipyard
+F4,Veranthos,Unity,5,4,Veranthos Prime (city); Concord (terran); Bastion (desert); Meridian (terran); Halcyon (gas),Senate Station; Diplomatic Summit Station; Fleet Headquarters; Customs Station
+H4,Synthari Capital,Solarion,6,4,Synthari (city); Forge (lava); Datafarm (machine); Portis (ocean); Sol Giant (gas); Brightside (desert),Grand Exchange; Main Shipyard; Research Lab Station; Warp-Gate Hub Station
+J4,Crossma Major,Solarion,4,2,Crossma Major (desert); Depot (dead); Crossma II (terran); Crossma III (gas),Crossma Freeport; Crossma Customs Station
+A5,Cynthara,Enemy,3,1,Cynthara (toxic); Mire (toxic); Brood (jungle),Spore Station
+C5,Kiral,Liberator,3,1,Kiral (ice); Kiral Mine (dead); Ice World (ice),Kiral Militia Outpost
+E5,Rimgate,Neutral,2,1,Rimgate I (desert); Rimgate II (gas),Rimgate Control
+G5,Vexara,Neutral,2,1,Vexara (terran); Vexara II (dead),Vexara Market
+I5,Vorreth,Imperium,3,1,Vorreth (desert); Vor Mine (dead); Barren Rock (dead),Vorreth Garrison
+K5,Nullpoint,Neutral,1,1,Nullpoint (dead),Null-Zone Beacon
+B6,Exodus Point,Liberator,2,2,Exodus Point (desert); Waypoint Moon (dead),Refugee Transit Station; Launch Dock
+D6,Vantara,Liberator,4,3,Vantara (terran); Haven (terran); Harvest (terran); Hideout (dead),Resistance Headquarters; Refugee Haven Station; Vantara Shipyard
+F6,THE HEART,Heart,1,1,Heart World (crystal),Heart Beacon
+H6,Malachar,Imperium,5,3,Malachar Prime (city); Garrison (desert); Gaol (dead); Anvil (lava); Mal Giant (gas),Orbital Command; Imperial Shipyard; Defense Platform Ring
+J6,Shadenvex,Imperium,2,1,Shadenvex (dead); Umbra (dead),Listening Post
+A7,Void 3,Void,1,1,Void 3 I (dead),Void 3 Beacon (automated)
+C7,Republic Major,Liberator,3,2,Republic Major (terran); Colony One (terran); Colony Two (desert),Assembly Station; Republic Trade Station
+E7,Ogden,Neutral,2,1,Ogden (terran); Ogden's Rock (dead),Ogden Trading Post
+G7,Foggiest,Neutral,2,1,Foggiest (gas); Mist (dead),Fog Beacon Station
+I7,Empire Major,Imperium,4,2,Empire Major (city); Colonia (terran); Mill (desert); Imperial Giant (gas),Imperial Customs Station; Fleet Anchorage
+K7,Obsidrath,Imperium,3,1,Obsidrath (lava); Cinder (lava); Ash (dead),Obsidrath Armory
+A8,Cybernet,Enemy,2,2,Cybernet (machine); Core (machine),Assimilation Factory; Signal Relay
+B8,Plundros,Savagers,3,1,Plundros (ocean); Hoard (desert); Plundros III (ice),Smuggler Den
+D8,Raptian Major,Savagers,4,3,Raptian Major (desert); Junkworld (dead); Feral (jungle); Raptor Giant (gas),Scrap Citadel; Black Market Station; Salvage Yard
+F8,Dreadholm,Orion,5,4,Dreadholm (lava); Academy (desert); Munitions (machine); Vassal (terran); Dread Giant (gas),Fleet Command; Dreadholm Shipyard; Drydock; Orbital Battery Ring
+H8,Sepheron,Covenant,4,3,Sepheron (ice); Sanctorum (desert); Vault Moon (dead); Veilgiant (gas),Library Station; Sepheron Observatory; Sealed Vault Station
+J8,Valdris,Covenant,3,1,Valdris (desert); Dig (desert); Rime (ice),Cipher Station
+K8,Noctyra,Enemy,2,1,Noctyra (dead); Eclipse (dead),Unknown Monolith
+C9,Scavaris,Savagers,2,1,Scavaris (dead); Husk (dead),Salvage Hulk
+E9,Korrath,Orion,2,1,Korrath (dead); Barren Rock (dead),Korrath Garrison
+G9,Battlespire,Orion,2,2,Battlespire (desert); Range (desert),Battle Station; Arena Station
+K9,Void 4,Void,1,1,Void 4 I (dead),Void 4 Beacon (automated)
+A10,Shroud,Neutral,2,1,Shroud (gas); Shroud II (gas),Smugglers' Waystation
+B10,Derelicta,Savagers,2,2,Derelicta (dead); Tomb (dead),Derelict Hulk; Second Derelict Hulk
+D10,Ravage Major,Savagers,3,1,Ravage Major (lava); Pit (desert); Cracked Moon (dead),Raider Outpost
+F10,Ironvast,Orion,3,2,Ironvast (desert); Foundry (lava); Slag (dead),Ironvast Refinery; Ironvast Shipyard
+I10,Sanctum Major,Covenant,3,2,Sanctum Major (terran); Cloister (desert); Sanctum III (dead),Sanctuary Station; Sanctum Relay
+J10,Sigma-19,Neutral,2,1,Sigma-19 (desert); Sigma-19b (dead),Sigma Mining Station
+K10,Omega,Neutral,3,1,Omega I (desert); Omega II (dead); Omega III (gas),Last Stop Station
+A11,Shadow,Hidden,2,1,Shadow Core (dead); Dead Moon (dead),Ghost Ship
+C11,Voidtex,Neutral,2,1,Voidtex (dead); Voidtex II (dead),Voidtex Transit Station
+D11,Void 5,Void,1,1,Void 5 I (dead),Void 5 Beacon (automated)
+E11,Vortegan,Orion,3,1,Vortegan (gas); Frontier Colony (terran); Vort Giant (gas),Vortegan Outpost
+G11,Omicron Major,Orion,4,2,Omicron Major (terran); Omicron II (terran); Omicron III (desert); Omicron IV (gas),Fleet Staging Base; Supply Depot
+H11,Genesis,Enemy,3,1,Genesis (toxic); Wildgrowth (jungle); Titan Moon (dead),Kaiju Lair
+K11,Void 2,Void,1,1,Void 2 I (dead),Void 2 Beacon (automated)

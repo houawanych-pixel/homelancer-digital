@@ -558,6 +558,90 @@ func planet_map(d: Dictionary) -> Array:
 	var v: Array = PLANET_MAPS.get(d["palette"], PLANET_MAPS["terran"])
 	return v[absi(hash(d["id"])) % v.size()]
 
+## The real-map material for one world: its type's map, tinted, rolled and mirrored by its id, lit from the sun's side.
+func _world_material(d: Dictionary, at: Vector3) -> ShaderMaterial:
+	var pm := planet_map(d)
+	var look: Array = PLANET_LOOKS.get(d["palette"], PLANET_LOOKS["terran"])
+	if _world_shader == null:
+		_world_shader = Shader.new()
+		_world_shader.code = PLANET_SHADER
+	var m := ShaderMaterial.new()
+	m.shader = _world_shader
+	m.set_shader_parameter("map", load("res://assets/worlds/%s.jpg" % pm[0]))
+	m.set_shader_parameter("tint", Vector3(pm[1].r, pm[1].g, pm[1].b))
+	m.set_shader_parameter("sat", pm[2])
+	m.set_shader_parameter("roll", float(absi(hash(str(d["id"]) + "roll")) % 1000) / 1000.0)
+	var fh := absi(hash(str(d["id"]) + "flip"))
+	m.set_shader_parameter("flip", Vector2(float(fh % 2), float((fh / 2) % 2)))
+	m.set_shader_parameter("sun_dir", (sun_pos - at).normalized())
+	m.set_shader_parameter("air", look[7])
+	m.set_shader_parameter("air_k", 0.25 if d["palette"] in ["dead", "machine"] else 0.9)
+	return m
+var _world_shader: Shader
+
+## Placeholder planets and stations: the rest of the system's catalog contents. You can see them, target them and fly
+## to them; no docking or landing yet. Planets wear their type's real map (a flat temporary colour until the "worlds"
+## pack is in); stations are a small code-made stand-in in the faction's colour.
+var extras: Array = []          # Node3D, meta kind "landmark"
+var extra_worlds: Array = []    # [MeshInstance3D, data] waiting for / wearing the real map
+func _build_extras() -> void:
+	if surface_mode or not extras.is_empty() or not is_inside_tree(): return
+	var sphere := SphereMesh.new()
+	sphere.radius = 1.0
+	sphere.height = 2.0
+	sphere.radial_segments = Data.PH_SPHERE_SEGMENTS
+	sphere.rings = Data.PH_SPHERE_SEGMENTS / 2
+	for d: Dictionary in sys.get("more_planets", []):
+		var n := Node3D.new()
+		n.name = d["name"]
+		n.position = d["pos"]
+		n.set_meta("kind", "landmark")
+		n.set_meta("info", d)
+		n.set_meta("radius", float(d["radius"]))
+		add_child(n)
+		var mi := MeshInstance3D.new()
+		mi.mesh = sphere
+		mi.scale = Vector3.ONE * float(d["radius"])
+		var look: Array = PLANET_LOOKS.get(d["palette"], PLANET_LOOKS["terran"])
+		var tm := StandardMaterial3D.new()      # temporary colouring
+		tm.albedo_color = (look[2] as Color).lerp(look[1], 0.4)
+		tm.roughness = 1.0
+		mi.material_override = tm
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		n.add_child(mi)
+		extras.append(n)
+		extra_worlds.append([mi, d])
+	var cyl := CylinderMesh.new()
+	cyl.radial_segments = 12
+	cyl.rings = 1
+	var tor := TorusMesh.new()
+	tor.inner_radius = 30.0
+	tor.outer_radius = 36.0
+	tor.rings = 24
+	tor.ring_segments = 6
+	for d: Dictionary in sys.get("more_stations", []):
+		var n := Node3D.new()
+		n.name = d["name"]
+		n.position = d["pos"]
+		n.set_meta("kind", "landmark")
+		n.set_meta("info", d)
+		n.set_meta("radius", Data.PH_STATION_RADIUS)
+		add_child(n)
+		var c: Color = d["color"]
+		_mesh(n, cyl, Vector3.ZERO, c, Vector3(9, 44, 9))
+		_mesh(n, tor, Vector3.ZERO, c.darkened(0.2))
+		_mesh(n, BoxMesh.new(), Vector3.ZERO, Color(0.12, 0.2, 0.42), Vector3(70, 1.2, 14))
+		_mesh(n, BoxMesh.new(), Vector3(0, 24, 0), Color(1.0, 0.85, 0.5), Vector3(2, 2, 2), Vector3.ZERO, true)
+		extras.append(n)
+	_extra_worlds_real()
+
+func _extra_worlds_real() -> void:
+	if surface_mode or not Packs.is_ready("worlds"): return
+	for w in extra_worlds:
+		if not is_instance_valid(w[0]) or (w[0] as MeshInstance3D).material_override is ShaderMaterial: continue
+		if ResourceLoader.exists("res://assets/worlds/%s.jpg" % planet_map(w[1])[0]):
+			(w[0] as MeshInstance3D).material_override = _world_material(w[1], (w[0] as MeshInstance3D).global_position)
+
 ## Swap the code-made planet texture for the real map with fixed day/night and clouds (once the pack is in).
 func _planet_real() -> void:
 	if planet_real or surface_mode or not is_instance_valid(planet) or not planet.has_meta("surface"): return
@@ -568,19 +652,7 @@ func _planet_real() -> void:
 	var look: Array = PLANET_LOOKS.get(d["palette"], PLANET_LOOKS["terran"])
 	var to_sun: Vector3 = (sun_pos - planet.global_position).normalized()
 	var roll := float(absi(hash(str(d["id"]) + "roll")) % 1000) / 1000.0
-	var sh := Shader.new()
-	sh.code = PLANET_SHADER
-	var m := ShaderMaterial.new()
-	m.shader = sh
-	m.set_shader_parameter("map", load(path))
-	m.set_shader_parameter("tint", Vector3(pm[1].r, pm[1].g, pm[1].b))
-	m.set_shader_parameter("sat", pm[2])
-	m.set_shader_parameter("roll", roll)
-	var fh := absi(hash(str(d["id"]) + "flip"))
-	m.set_shader_parameter("flip", Vector2(float(fh % 2), float((fh / 2) % 2)))
-	m.set_shader_parameter("sun_dir", to_sun)
-	m.set_shader_parameter("air", look[7])
-	m.set_shader_parameter("air_k", 0.25 if d["palette"] in ["dead", "machine"] else 0.9)
+	var m := _world_material(d, planet.global_position)
 	(planet.get_meta("surface") as MeshInstance3D).material_override = m
 	if planet.has_meta("halo"): ((planet.get_meta("halo") as MeshInstance3D).material_override as ShaderMaterial).set_shader_parameter("sun_dir", to_sun)
 	if float(look[6]) >= 0.3 and ResourceLoader.exists("res://assets/worlds/clouds.jpg"):
@@ -729,11 +801,15 @@ func _build_planet(d: Dictionary) -> void:
 	beacon.look_at(planet.global_position, Vector3.UP)
 	_planet_real()
 	_dock_gate()
+	# placeholders are built a moment after arrival, so they never add to the load hitch of a jump
+	get_tree().create_timer(Data.PH_BUILD_DELAY).timeout.connect(_build_extras)
 	if not Packs.pack_ready.is_connected(_on_world_pack): Packs.pack_ready.connect(_on_world_pack)
 	Packs.request("worlds")
 
 func _on_world_pack(pk: String) -> void:
-	if pk == "worlds": _planet_real()
+	if pk == "worlds":
+		_planet_real()
+		_extra_worlds_real()
 	if pk == "structures": _dock_gate()
 
 func dock_point(n: Node3D) -> Vector3:
@@ -1468,6 +1544,9 @@ func _autopilot_input() -> Array:
 	var goal: Vector3 = autopilot.global_position
 	var kind: String = autopilot.get_meta("kind", "")
 	if kind == "planet" or kind == "station": goal = dock_point(autopilot)
+	if kind == "landmark":      # stop a little way off a placeholder planet or station
+		var off: Vector3 = (player.global_position - autopilot.global_position).normalized()
+		goal = autopilot.global_position + off * (float(autopilot.get_meta("radius")) + Data.PH_GOTO_STANDOFF)
 	if kind == "gate": goal = autopilot.global_position + autopilot.global_basis.z * 120.0
 	var to := goal - player.global_position
 	var local := player.global_basis.inverse() * to.normalized()
@@ -1977,7 +2056,9 @@ func _collisions(dt: float) -> void:
 				player.global_position = r[0] + n * rr
 				collision_damage("asteroid", vel.dot(-n), player.global_position - n * 3.5)   # Job L
 				vel = vel - n * vel.dot(n) * 1.6
-	for body: Node3D in [station, planet]:
+	var solid: Array = [station, planet]
+	solid.append_array(extras)        # placeholder planets and stations are solid too
+	for body: Node3D in solid:
 		if surface_mode: break
 		var rad: float = body.get_meta("radius")
 		var hitr := rad + (6.0 if body == planet else 10.0)
@@ -2019,7 +2100,7 @@ func _collisions(dt: float) -> void:
 		if d2 < hitr:
 			var n2 := (player.global_position - body.global_position).normalized()
 			player.global_position = body.global_position + n2 * hitr
-			collision_damage("station" if body == station else "ground", -vel.dot(n2))   # Job L (a planet without a surface is ground)
+			collision_damage("station" if (body == station or not body.get_meta("info", {}).has("palette")) else "ground", -vel.dot(n2))   # Job L (a planet without a surface is ground)
 			vel = vel - n2 * vel.dot(n2) * 1.5
 	var nd := p.distance_to(nebula_center)
 	in_nebula = 0.0 if nebula_radius <= 1.0 else clampf((nebula_radius - nd) / (nebula_radius * 0.35), 0.0, 1.0)
@@ -2285,10 +2366,14 @@ func _drop_loot(at: Vector3, reward: int) -> void:
 	var n := 1 + _rng.randi() % 2
 	for i in n:
 		var pod := MeshInstance3D.new()
-		var bm := BoxMesh.new()
-		bm.size = Vector3(2.2, 1.6, 3.0)
-		pod.mesh = bm
-		pod.material_override = ShipFactory.mat(Color(0.95, 0.75, 0.25), false, 0.4)
+		var ck: String = ["crate_a", "crate_b", "crate_c"][_rng.randi() % 3]
+		if ShipFactory.has_real_model(ck):      # the owner's cargo containers
+			pod.add_child(ShipFactory.build(ck))
+		else:
+			var bm := BoxMesh.new()
+			bm.size = Vector3(2.2, 1.6, 3.0)
+			pod.mesh = bm
+			pod.material_override = ShipFactory.mat(Color(0.95, 0.75, 0.25), false, 0.4)
 		var glow := MeshInstance3D.new()
 		var gm := SphereMesh.new()
 		gm.radius = 2.6
@@ -2379,6 +2464,7 @@ func targetables() -> Array:
 	out.append(station)
 	out.append(planet)
 	for g in gates: out.append(g)
+	for x in extras: out.append(x)
 	return out
 
 ## Job J (Freelancer "target closest enemy"): the nearest hostile; with none around, the nearest thing you can target.

@@ -109,6 +109,7 @@ func _draw() -> void:
 	# fit the system into the map
 	var pts := [sys["station"]["pos"], sys["planet"]["pos"], sys["gate"]["pos"], sys["asteroids"]["center"], sys["nebula"]["center"]]
 	for gd0 in sys["gates"]: pts.append(gd0["pos"])
+	for xd0 in sys.get("more_planets", []): pts.append(xd0["pos"])
 	var mn := Vector2(1e9, 1e9)
 	var mx := Vector2(-1e9, -1e9)
 	for p in pts:
@@ -145,6 +146,15 @@ func _draw() -> void:
 		draw_circle(mp, r, Color(it[2], 0.85))
 		if it[0] == selected: draw_arc(mp, r + 9, 0, TAU, 32, Color.WHITE, 3.0)
 		_txt(mp + Vector2(r + 8, 6), it[3], 16, it[2])
+	# the rest of the system: placeholder planets and stations (TARGET in flight selects them)
+	for xd: Dictionary in sys.get("more_planets", []):
+		var xp := _w2m(xd["pos"])
+		draw_circle(xp, maxf(7.0, float(xd["radius"]) * scale_k), Color(0.5, 0.8, 1.0, 0.45))
+		_txt(xp + Vector2(12, 5), xd["name"], 13, Color(0.5, 0.8, 1.0, 0.8))
+	for xd: Dictionary in sys.get("more_stations", []):
+		var xs := _w2m(xd["pos"])
+		draw_rect(Rect2(xs - Vector2(5, 5), Vector2(10, 10)), Color(GREEN, 0.55))
+		_txt(xs + Vector2(10, 5), xd["name"], 13, Color(GREEN, 0.8))
 	if selected == "point" and way_pos != Vector3.INF:
 		var wp := _w2m(way_pos)
 		draw_colored_polygon(PackedVector2Array([wp + Vector2(0, -12), wp + Vector2(12, 0), wp + Vector2(0, 12), wp + Vector2(-12, 0)]), GOLD)

@@ -38,6 +38,9 @@ static func all(core: Dictionary) -> Dictionary:
 		out[t[0]]["tile"] = t[2]
 		out[t[0]]["faction"] = t[5]
 	for id in out:
+		out[id]["more_planets"] = []
+		out[id]["more_stations"] = []
+	for id in out:
 		if not out[id].has("gates"): out[id]["gates"] = [out[id]["gate"]] if out[id].has("gate") else []
 		for g in out[id]["gates"]:
 			if not g.has("gkind"): g["gkind"] = "jump"
@@ -46,7 +49,44 @@ static func all(core: Dictionary) -> Dictionary:
 		_link(out, rows, g[0], g[2], g[1])
 	for id in out:
 		if not out[id].has("gate"): out[id]["gate"] = out[id]["gates"][0]
+	# the rest of each system from the catalog: placeholder planets and stations, spread round the system and kept
+	# clear of everything already there (main planet, main station, gates, each other)
+	for e in GalaxyData.EXTRAS:
+		var sid: String = e[0]
+		var sys: Dictionary = out[sid]
+		var f: Array = FACTIONS[rows[sid][5]]
+		var rng := RandomNumberGenerator.new()
+		rng.seed = hash("homelancer:%s:%s" % [sid, e[2]])
+		var is_planet: bool = e[1] == "planet"
+		var k: int = (sys["more_planets"] if is_planet else sys["more_stations"]).size()
+		var radius: float = Data.PH_STATION_RADIUS
+		if is_planet: radius = rng.randf_range(Data.PH_GIANT_RADIUS[0], Data.PH_GIANT_RADIUS[1]) if e[3] == "gas" else rng.randf_range(Data.PH_PLANET_RADIUS[0], Data.PH_PLANET_RADIUS[1])
+		var a0: float = atan2((sys["planet"]["pos"] as Vector3).z - CENTRE.z, (sys["planet"]["pos"] as Vector3).x - CENTRE.x) + (k + 1) * Data.PH_PLANET_ANGLE if is_planet else rng.randf() * TAU
+		var pos := Vector3.ZERO
+		for attempt in Data.PH_PLACE_TRIES:
+			var a: float = a0 + attempt * 0.47
+			var dist: float = (Data.PH_PLANET_DIST + Data.PH_PLANET_STEP * k + rng.randf_range(0.0, Data.PH_PLANET_JITTER)) if is_planet else (Data.PH_STATION_DIST + Data.PH_STATION_STEP * k + rng.randf_range(0.0, Data.PH_STATION_JITTER))
+			var h: float = Data.PH_PLANET_HEIGHT if is_planet else Data.PH_STATION_HEIGHT
+			pos = CENTRE + Vector3(cos(a) * dist, rng.randf_range(-h, h), sin(a) * dist)
+			if clear_of(sys, pos, radius): break
+		if is_planet:
+			sys["more_planets"].append({"id": "%s_planet_%d" % [sid, k + 2], "name": e[2], "palette": e[3], "kind": "landmark", "placeholder": true,
+				"pos": pos, "radius": radius, "desc": "%s world. Placeholder: no landing yet." % (e[3] as String).capitalize()})
+		else:
+			sys["more_stations"].append({"id": "%s_station_%d" % [sid, k + 2], "name": e[2], "kind": "landmark", "placeholder": true, "color": f[3],
+				"pos": pos, "radius": radius, "desc": "Station. Placeholder: no docking yet."})
 	return out
+
+## Is a body of this radius at `pos` clear of everything already in the system? (tests use it too)
+static func clear_of(sys: Dictionary, pos: Vector3, radius: float, skip_id := "") -> bool:
+	var m: float = Data.PH_CLEARANCE
+	if pos.distance_to(sys["planet"]["pos"]) < float(sys["planet"]["radius"]) * 1.15 + radius + m: return false
+	if pos.distance_to(sys["station"]["pos"]) < 150.0 + radius + m: return false
+	for g in sys["gates"]:
+		if pos.distance_to(g["pos"]) < 140.0 + radius + m: return false
+	for x in sys["more_planets"] + sys["more_stations"]:
+		if x["id"] != skip_id and pos.distance_to(x["pos"]) < float(x["radius"]) + radius + m: return false
+	return true
 
 static func _system(t: Array) -> Dictionary:
 	var id: String = t[0]

@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.4h"
+const VERSION := "v1.4i"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -70,6 +70,28 @@ const JUMP_REDUCED_FADE := 0.3        # s: reduced-effects jump: a plain fade ou
 const JUMP_STREAK_LAYERS := [[60, 0.45, 1.0], [50, 0.9, 1.8], [30, 1.6, 3.0]]   # [count, speed, width]: far, mid, near (near streaks move faster)
 const REDUCED_EFFECTS_DEFAULT := false   # new setting (settings.cfg, section "effects", key "reduced"): full effects
 
+# ---------------------------------------------------------------- Job E2 (v1.4i): placeholder planets and stations
+# Every Job E2 number lives in this one block. (The new ships' stats are in SHIPS below, like every other ship.)
+# Each system's first planet and station are the dockable ones; the rest of its catalog contents are placeholders:
+# visible, solid, targetable, on the system map, reachable by GO TO. No docking or landing on them yet.
+const PH_PLANET_DIST := 2700.0        # the first placeholder planet sits this far from the system centre ...
+const PH_PLANET_STEP := 520.0         # ... and each further one this much farther out
+const PH_PLANET_JITTER := 250.0       # random extra distance (0 .. this)
+const PH_PLANET_ANGLE := 1.05         # radians between one placeholder planet and the next, round the centre
+const PH_PLANET_HEIGHT := 380.0       # placeholder planets sit up to this far above / below the system plane
+const PH_PLANET_RADIUS := [260.0, 430.0]      # size range of a rocky placeholder planet
+const PH_GIANT_RADIUS := [520.0, 680.0]       # size range of a gas giant
+const PH_STATION_DIST := 1100.0       # the first placeholder station sits this far from the system centre ...
+const PH_STATION_STEP := 380.0        # ... and each further one this much farther out
+const PH_STATION_JITTER := 200.0      # random extra distance (0 .. this)
+const PH_STATION_HEIGHT := 160.0      # placeholder stations sit up to this far above / below the system plane
+const PH_STATION_RADIUS := 42.0       # collision radius of a placeholder station
+const PH_GOTO_STANDOFF := 160.0       # GO TO stops this far off a placeholder's surface
+const PH_BUILD_DELAY := 1.2           # s after a system loads before its placeholders are built (keeps arrival smooth)
+const PH_CLEARANCE := 260.0          # free space kept between a placeholder and anything else in the system
+const PH_PLACE_TRIES := 30            # positions tried to find a clear spot
+const PH_SPHERE_SEGMENTS := 40        # roundness of a placeholder planet (the main planet uses 72)
+
 # ---------------------------------------------------------------- Job L (v1.4h): collision damage
 # Every Job L number lives in this one block. Damage = (impact speed - threshold) x multiplier, straight to the hull.
 # Impact speed = how fast the ship was moving INTO the surface (m/s). Player ship only.
@@ -90,11 +112,17 @@ const SHIPS := {
 		"turn": 1.7, "guns": 2, "missiles": 6, "heavy": 2, "mines": 3, "model": "cadet", "desc": "Unity-issue trainer. Light, nimble, forgiving. Twin cannons on top."},
 	"ranger": {"name": "Ranger", "class": "Patrol fighter", "price": 1500, "hull": 160, "shield": 95, "speed": 50.0,
 		"turn": 1.55, "guns": 3, "missiles": 10, "heavy": 3, "mines": 4, "model": "ranger", "desc": "Faster frame, thicker plating. A long cannon on top and one on each wing."},
+	"hauler": {"name": "Hauler", "class": "Armed cargo ship", "price": 2500, "hull": 320, "shield": 110, "speed": 38.0,
+		"turn": 1.0, "guns": 2, "missiles": 12, "heavy": 4, "mines": 8, "model": "hauler", "desc": "A cargo ship you can own. The toughest hull on sale, a big rack, and slow."},
+	"bulk_empty": {"name": "Frame Freighter", "class": "Empty cargo ship", "price": 4500, "hull": 400, "shield": 150, "speed": 40.0,
+		"turn": 1.0, "guns": 3, "missiles": 14, "heavy": 5, "mines": 8, "model": "bulk_empty", "desc": "The Bulk Freighter with an empty cargo frame, ready to carry any crate. Lighter, so faster."},
+	"bulk": {"name": "Bulk Freighter", "class": "Heavy cargo ship", "price": 6000, "hull": 480, "shield": 160, "speed": 34.0,
+		"turn": 0.8, "guns": 3, "missiles": 18, "heavy": 6, "mines": 10, "model": "bulk", "desc": "The biggest ship you can own. Six engines, a huge hull and rack. Very slow to turn."},
 	"lancer": {"name": "Lancer", "class": "Heavy fighter", "price": 4000, "hull": 240, "shield": 140, "speed": 42.0,
 		"turn": 1.25, "guns": 4, "missiles": 14, "heavy": 4, "mines": 6, "model": "lancer", "desc": "Four cannons: two on the wings, two beside the nose. Heavy shield. Slow to turn."},
 }
 # v1.3c: all three are the owner's models with weapons mounted (tools/shipkit/make_fleet3.py). Guns = cannons you can see.
-const SHIP_ORDER := ["cadet", "ranger", "lancer"]
+const SHIP_ORDER := ["cadet", "ranger", "hauler", "lancer", "bulk_empty", "bulk"]
 
 # ---------------------------------------------------------------- weapons (per gun)
 const WEAPONS := {
