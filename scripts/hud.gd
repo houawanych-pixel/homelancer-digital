@@ -817,7 +817,7 @@ func _draw() -> void:
 	_pill("log", "LOG", comms_mode == "roster", CYAN, "CONTACTS")
 	_pill("call", "CALL", comms_mode == "talk", GREEN)
 	if buttons.has("dock"): _pill("dock", "DOCK", true, GREEN, space.dock_candidate().name.to_upper())
-	if buttons.has("jump"): _pill("jump", "%s GATE" % str(space.near_gate().get_meta("info").get("gkind", "warp")).to_upper() if space.sys.get("generated", false) else "WARP GATE", true, GOLD, "TO %s" % Data.SYSTEMS[space.near_gate().get_meta("info")["to"]]["name"].to_upper())
+	if buttons.has("jump"): _pill("jump", "%s GATE" % str(space.near_gate().get_meta("info").get("gkind", "warp")).to_upper() if space.sys.get("generated", false) else "WARP GATE", true, GOLD, "DOCK · TO %s" % Data.SYSTEMS[space.near_gate().get_meta("info")["to"]]["name"].to_upper())
 	if not (cockpit and cockpit_texture()): _dashboard()   # the cockpit art has its own dash screens
 	_stick("move", "FLIGHT")
 	_stick("aim", "AIM")

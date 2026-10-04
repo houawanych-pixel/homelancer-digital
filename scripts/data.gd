@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.4f"
+const VERSION := "v1.4g"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -53,6 +53,22 @@ const WHEEL_STEP := 0.1               # throttle change per wheel notch (-1 .. 1
 const SETTINGS_PATH := "user://settings.cfg"   # new settings file (Job J); section "controls": mode, bindings
 const SETTINGS_ROW_H := 48.0          # Controls list row height (big enough for a thumb or a mouse)
 const SETTINGS_RESET_CONFIRM_S := 3.0 # press Reset again within this many seconds to confirm
+
+# ---------------------------------------------------------------- Job K (v1.4g): jump-gate docking + warp tunnel
+# Every Job K number lives in this one block. The jump destination logic is unchanged (gate "to" in the galaxy data).
+const JUMP_TUNNEL_BUILD := 0.5        # s: the tunnel builds up (streaks + shake + blur) as the ship pushes through the gate
+const JUMP_TUNNEL_HOLD_MIN := 0.25    # s: shortest time at full tunnel before the swap; the real load time adds to it
+const JUMP_TUNNEL_CLEAR := 0.3        # s: the tunnel snaps clear once the next system is ready
+const JUMP_SHAKE := 0.35              # camera shake at full tunnel (the atmosphere-entry shake start value)
+const JUMP_BLUR := 0.6                # screen blur at full tunnel (0..1)
+const JUMP_BLUR_PX := 6.0             # blur radius in pixels at blur 1
+const JUMP_PUSH := 260.0              # m the ship travels on through the gate during the build (the old fly-through)
+const JUMP_LAUNCH_MULT := 2.2         # arrival "boom": the ship is launched out at this x its top speed
+const JUMP_LAUNCH_FLASH := 0.35       # s: white flash as the ship is launched out
+const JUMP_FLASH_ALPHA := 0.55        # strength of that flash
+const JUMP_REDUCED_FADE := 0.3        # s: reduced-effects jump: a plain fade out / in instead of streaks, shake and blur
+const JUMP_STREAK_LAYERS := [[60, 0.45, 1.0], [50, 0.9, 1.8], [30, 1.6, 3.0]]   # [count, speed, width]: far, mid, near (near streaks move faster)
+const REDUCED_EFFECTS_DEFAULT := false   # new setting (settings.cfg, section "effects", key "reduced"): full effects
 
 # ---------------------------------------------------------------- ships
 # model: key understood by ShipFactory. "cadet_glb" etc. load real GLBs when present under assets/ships/.

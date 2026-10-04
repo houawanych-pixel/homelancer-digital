@@ -17,6 +17,7 @@ signal action(id: String)        # a discrete action key was pressed (main.gd ro
 signal capture_done(id: String, ok: bool, note: String)
 
 const SECTION := "controls"
+const EFFECTS_SECTION := "effects"   # Job K
 const MOUSE_NAMES := {"Mouse Left": MOUSE_BUTTON_LEFT, "Mouse Right": MOUSE_BUTTON_RIGHT, "Mouse Middle": MOUSE_BUTTON_MIDDLE,
 	"Mouse Back": MOUSE_BUTTON_XBUTTON1, "Mouse Forward": MOUSE_BUTTON_XBUTTON2}
 ## Actions that are held (read every frame) rather than pressed once.
@@ -27,6 +28,7 @@ var mode_pref: String = Data.CONTROL_MODE_DEFAULT   # saved: auto | touch | kbm
 var bindings := {}                                  # saved: action id -> binding string
 var touch_available := DisplayServer.is_touchscreen_available()
 var mouse_flight: bool = Data.MOUSE_FLIGHT_DEFAULT
+var reduced_effects: bool = Data.REDUCED_EFFECTS_DEFAULT   # Job K: saved in its own section "effects", key "reduced"
 var wheel_throttle := 0.0
 var mouse_pos := Vector2.ZERO
 var mouse_seen := false          # a real mouse moved over the game (headless runs never see one)
@@ -152,10 +154,13 @@ func set_mode(m: String) -> void:
 func load_settings() -> void:
 	mode_pref = Data.CONTROL_MODE_DEFAULT
 	bindings = defaults()
+	reduced_effects = Data.REDUCED_EFFECTS_DEFAULT
 	var cf := ConfigFile.new()
 	if cf.load(settings_path) == OK:
 		var m = cf.get_value(SECTION, "mode", Data.CONTROL_MODE_DEFAULT)
 		if m is String and m in ["auto", "touch", "kbm"]: mode_pref = m
+		var re = cf.get_value(EFFECTS_SECTION, "reduced", Data.REDUCED_EFFECTS_DEFAULT)
+		reduced_effects = re if re is bool else Data.REDUCED_EFFECTS_DEFAULT
 		var saved = cf.get_value(SECTION, "bindings", {})
 		if saved is Dictionary:
 			for id in saved:
@@ -169,6 +174,14 @@ func save_settings() -> void:
 	cf.load(settings_path)
 	cf.set_value(SECTION, "mode", mode_pref)
 	cf.set_value(SECTION, "bindings", bindings.duplicate())
+	cf.save(settings_path)
+
+## Job K: reduced motion / effects (jump tunnel becomes a plain fade). Writes only the "effects" section.
+func set_reduced_effects(on: bool) -> void:
+	reduced_effects = on
+	var cf := ConfigFile.new()
+	cf.load(settings_path)
+	cf.set_value(EFFECTS_SECTION, "reduced", on)
 	cf.save(settings_path)
 
 # ---------------------------------------------------------------- per-frame queries (used by hud.gd)

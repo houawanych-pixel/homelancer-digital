@@ -429,3 +429,9 @@ descriptions (full guide in Drive: "HOMELANCER — Music Guide"):
   Auto / Touch / Keyboard + mouse override. Right-click fires (owner correction), left-click selects, left-drag steers,
   mouse flight on Space. Bindings and mode are stored in a new file `user://settings.cfg` (section `controls`).
   Phone touch controls are unchanged.
+- **Jump-gate docking + warp tunnel (v1.4g, Job K).** In range of a gate the HUD gate prompt (or the Dock key F3)
+  docks you to it: the docking screen (`scripts/gatedock.gd`) names the destination system with ACTIVATE JUMP and
+  UNDOCK. Activate: layered star streaks drawn in code, shake and blur build over 0.5 s while the ship pushes through
+  the gate, hold at full while the next system loads, then snap clear in 0.3 s as the ship is launched out. All gate
+  kinds use it for now. Reduced motion (Settings) swaps the tunnel for a short fade (`settings.cfg`, section
+  `effects`, key `reduced`). Numbers in the Job K block of `scripts/data.gd`. Nothing is saved mid-jump.

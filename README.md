@@ -34,7 +34,7 @@ Exchange or Eden Prime → fight corsairs → jump back to Solara.
 - Desktop (v1.4f, Freelancer style; Settings > Controls rebinds every key): mouse flight steers toward the cursor
   (Space toggles), RIGHT-click fires, left-click selects a target, left-click held + dragged steers, W/S or wheel
   throttle, A/D strafe, X brake, Z engine kill, Shift+W cruise (warp drive), Tab afterburner, Q missiles, R closest
-  enemy, T next target, F3 dock; extras G transform, V view, M map, arrows turn, F1 settings. Phones: touch as before.
+  enemy, T next target, F3 dock (also docks to a jump gate: v1.4g docking screen + warp tunnel); extras G transform, V view, M map, arrows turn, F1 settings. Phones: touch as before.
 
 ## Structure
 ```

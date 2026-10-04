@@ -67,6 +67,11 @@ func _tp(pos: Vector3, look: Vector3) -> void:
 func _press(id: String) -> void:
 	main._on_hud(id)
 
+## Job K: dock to the gate in range (HUD gate prompt) and press ACTIVATE JUMP on the docking screen.
+func _gate_jump() -> void:
+	_press("jump")
+	main.gate_dock.press_activate()
+
 ## HL_SOAK=n: n round trips SPACE -> PLANET -> SECTOR -> SECTOR -> ORBIT -> SPACE, printing memory after each,
 ## to prove old areas are freed (memory must level off, not climb every lap).
 func _soak(laps: int) -> void:
@@ -669,7 +674,7 @@ func _galaxy() -> void:
 	if vg == null: return
 	_tp(vg.global_position + vg.global_basis.z * 180.0, vg.global_position)
 	await _wait(0.4)
-	_press("jump")
+	_gate_jump()   # Job K: the gate prompt docks; ACTIVATE JUMP on the docking screen jumps
 	await _until(func(): return main.state == "flight" and GS.system_id == "veranthos", 20.0)
 	s = _sp()
 	var back: Node3D = null
@@ -1038,6 +1043,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_GATE") != "":   # the Job K gate docking + warp tunnel checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _gate_k()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_CONTROLS") != "":   # the Job J desktop controls checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1254,7 +1267,7 @@ func _run() -> void:
 	s.target = g
 	_press("goto")
 	await _until(func(): return s.gate_in_range(), 25.0)
-	_press("jump")
+	_gate_jump()   # Job K: the gate prompt docks; ACTIVATE JUMP on the docking screen jumps
 	await _until(func(): return main.fx.warp > 0.3, 8.0)
 	var rings_n: int = s.jump_rings.size()
 	await _capture("jump_rings")
@@ -1317,13 +1330,14 @@ func _run() -> void:
 	var g2: Node3D = s.gate
 	_tp(g2.global_position + g2.global_basis.z * 180.0, g2.global_position)
 	await _wait(0.4)
-	_press("jump")
+	_gate_jump()   # Job K: the gate prompt docks; ACTIVATE JUMP on the docking screen jumps
 	await _until(func(): return main.state == "flight" and GS.system_id == "solara", 15.0)
 	_check("Return jump to Solara", GS.system_id == "solara")
 	await _wait(1.0)
 	await _shot("solara_return")
 	await _galaxy()
 	await _controls_j()
+	await _gate_k()
 	var passed := results.filter(func(r): return r["pass"]).size()
 	print("[route] RESULT %d/%d PASS" % [passed, results.size()])
 	_publish("done", true)
@@ -1635,10 +1649,128 @@ func _controls_j() -> void:
 		no_mouse_aim and no_rclick and list_hidden and grabbed and stick_moves and released and grabbed_kbm and main.hud.buttons.has("slot_0") and main.hud.buttons.has("thrust"))
 	# ---- 14. version label
 	var shell := FileAccess.get_file_as_string("res://web_shell.html") if FileAccess.file_exists("res://web_shell.html") else ""
-	_check("Job J: version label reads \"Homelancer Digital v1.4f\"", Data.VERSION == "v1.4f" and shell.find("<title>Homelancer Digital v1.4f</title>") >= 0)
+	# (from v1.4g on: the label must be v1.4f or later and match the page title)
+	_check("Job J: version label reads \"Homelancer Digital v1.4f\" or later", Data.VERSION >= "v1.4f" and shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0, Data.VERSION)
 	# leave everything as a player would find it
 	c.mouse_seen = false
 	c.set_mode("auto")
 	c.reset_defaults()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(c.settings_path))
 	c.settings_path = Data.SETTINGS_PATH
+
+# ---------------------------------------------------------------- Job K (v1.4g): jump-gate docking + warp tunnel
+func _gate_k() -> void:
+	if main.galaxymap.visible: main.galaxymap.visible = false
+	if main.navmap.visible: main.navmap.visible = false
+	if main.state == "map": main._on_map_closed()
+	await _until(func(): return main.state == "flight", 8.0)
+	var c: Controls = main.controls
+	c.settings_path = "user://settings_autotest_k.cfg"
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(c.settings_path))
+	c.reduced_effects = false
+	var s := _sp()
+	s.autopilot = null
+	var g: Node3D = s.gate
+	var to: String = g.get_meta("info")["to"]
+	var home: String = GS.system_id
+	# ---- 1. select + dock within range opens the docking screen (and not from out of range)
+	_tp(g.global_position + g.global_basis.z * 2000.0, g.global_position)
+	await _frames()
+	var far_no: bool = not main.dock_gate() and main.state == "flight"
+	s.target = g
+	_tp(g.global_position + g.global_basis.z * 180.0, g.global_position)
+	await _wait(0.3)
+	main.hud._layout()
+	var prompt: bool = main.hud.buttons.has("jump")
+	_press("jump")
+	var opened: bool = main.state == "gate_dock" and main.gate_dock.visible and not main.hud.visible and s.process_mode == Node.PROCESS_MODE_DISABLED
+	_check("Job K: a selected jump gate in range can be docked to and the docking screen opens (not from out of range)", far_no and prompt and opened and s.target == g)
+	# ---- 2. destination
+	var dest: String = Data.SYSTEMS[to]["name"]
+	_check("Job K: the docking screen shows the right destination system for that gate", main.gate_dock.destination == dest and main.gate_dock.dest_label.text.find(dest.to_upper()) >= 0, dest)
+	await _shot("gate_dock_screen", 0.3)
+	# ---- 3. undock: no jump
+	var jumps0: int = main.jumps
+	main.gate_dock.press_undock()
+	await _frames()
+	_check("Job K: UNDOCK closes the screen with no jump and no system change", main.state == "flight" and not main.gate_dock.visible and GS.system_id == home
+		and main.jumps == jumps0 and s.controls and main.hud.visible and s.process_mode == Node.PROCESS_MODE_INHERIT)
+	# ---- 4/5. F3 (Job J dock key) docks to the gate; a double tap on ACTIVATE starts one jump only
+	var file_before := FileAccess.get_file_as_string(c.settings_path) if FileAccess.file_exists(c.settings_path) else "<none>"
+	await _tap(KEY_F3)
+	var f3: bool = main.state == "gate_dock"
+	main.gate_dock.press_activate()
+	main.gate_dock.press_activate()
+	main.gate_activate()
+	main.jump()
+	var one: bool = main.jumps == jumps0 + 1
+	await _until(func(): return main.jump_log.size() >= 2, 5.0)
+	var mid_jump: bool = main.state == "jumping"
+	var file_mid := FileAccess.get_file_as_string(c.settings_path) if FileAccess.file_exists(c.settings_path) else "<none>"
+	await _until(func(): return main.state == "flight", 20.0)
+	var arrived: bool = GS.system_id == to
+	_check("Job K: F3 docks to the gate and ACTIVATE JUMP ends with the player in the destination system", f3 and arrived, "%s -> %s" % [home, GS.system_id])
+	_check("Job K: a double tap on ACTIVATE JUMP starts only one jump", one and main.jumps == jumps0 + 1 and arrived)
+	# ---- 6. tunnel timing: build ~0.5 s, hold until loaded, clear ~0.3 s
+	var L: Array = main.jump_log
+	var phases := L.map(func(x): return x[0])
+	var timing_ok := phases == ["build", "hold", "loaded", "clear", "done"]
+	var detail := "phases %s" % str(phases)
+	if timing_ok:
+		var build_s: float = (L[1][1] - L[0][1]) / 1000.0
+		var hold_s: float = (L[2][1] - L[1][1]) / 1000.0
+		var clear_s: float = (L[4][1] - L[3][1]) / 1000.0
+		timing_ok = absf(build_s - Data.JUMP_TUNNEL_BUILD) < 0.35 and hold_s >= Data.JUMP_TUNNEL_HOLD_MIN - 0.02 and absf(clear_s - Data.JUMP_TUNNEL_CLEAR) < 0.35 \
+			and L[1][2] >= 0.99 and L[2][2] >= 0.99 and L[1][3] == home and L[2][3] == to and L[4][2] == 0.0 and main.fx.warp == 0.0 and main.fx.blur == 0.0
+		detail = "build %.2f s, hold %.2f s (load inside), clear %.2f s" % [build_s, hold_s, clear_s]
+	_check("Job K: the warp tunnel builds, holds at full until the next system is loaded, then clears (matches the load time)", timing_ok, detail)
+	# ---- 7. star streaks in layers (near faster), shake + blur at full tunnel, launched out of the gate
+	var layers: Array = main.fx.streak_layers()
+	var layered: bool = layers.size() == Data.JUMP_STREAK_LAYERS.size() and float(layers.max()) > float(layers.min())
+	var fx_full: bool = L.size() == 5 and absf(float(L[1][5]) - Data.JUMP_BLUR) < 0.01
+	var boom: bool = L.size() == 5 and float(L[3][4]) >= float(GS.ship()["speed"]) * Data.JUMP_LAUNCH_MULT * 0.95
+	_check("Job K: layered star streaks drawn in code, blur at full tunnel, and the ship is launched out into the new system", layered and fx_full and boom and mid_jump,
+		"layers %s, launch %.0f" % [str(layers), float(L[3][4]) if L.size() == 5 else 0.0])
+	await _shot("after_gate_jump", 0.4)
+	# ---- 8. reduced motion: new setting (default off), persists, and the jump becomes a plain fade
+	var probe := Controls.new()
+	var def_off := not probe.reduced_effects
+	probe.free()
+	c.set_reduced_effects(true)
+	var fresh := Controls.new()
+	fresh.settings_path = c.settings_path
+	fresh.load_settings()
+	var persisted := fresh.reduced_effects
+	fresh.free()
+	c.apply()
+	s = _sp()
+	var g2: Node3D = s.near_gate()
+	_tp(g2.global_position + g2.global_basis.z * 180.0, g2.global_position)
+	await _wait(0.3)
+	_gate_jump()
+	await _until(func(): return main.jump_log.size() >= 2, 5.0)
+	var fade_only: bool = main.fx.warp == 0.0 and main.fx.blur == 0.0 and main.fx.fade >= 0.99
+	await _until(func(): return main.state == "flight", 20.0)
+	var back_home: bool = GS.system_id == home and main.fx.fade == 0.0
+	c.set_reduced_effects(false)
+	_check("Job K: reduced-motion setting (new field, default off) persists and turns the tunnel into a short fade", def_off and persisted and fade_only and back_home)
+	# ---- 9. older settings load with the new field defaulted; nothing is saved mid-jump
+	var old_path := "user://settings_autotest_k_old.cfg"
+	var old := ConfigFile.new()
+	old.set_value("controls", "mode", "auto")
+	old.set_value("controls", "bindings", {})
+	old.save(old_path)
+	var legacy := Controls.new()
+	legacy.settings_path = old_path
+	legacy.load_settings()
+	var legacy_ok := not legacy.reduced_effects and legacy.binding("dock") == "F3"
+	legacy.free()
+	c.apply()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(old_path))
+	_check("Job K: a v1.4f settings file loads with the new setting defaulted; nothing about the jump is saved mid-jump", legacy_ok and file_mid == file_before)
+	# ---- 10. version label
+	var shell := FileAccess.get_file_as_string("res://web_shell.html") if FileAccess.file_exists("res://web_shell.html") else ""
+	_check("Job K: version label reads \"Homelancer Digital v1.4g\" or later", Data.VERSION >= "v1.4g" and shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0, Data.VERSION)
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(c.settings_path))
+	c.settings_path = Data.SETTINGS_PATH
+	c.reduced_effects = Data.REDUCED_EFFECTS_DEFAULT

@@ -22,6 +22,10 @@ var visited := {}
 var autotest := false
 var controls: Controls     # Job J: desktop keyboard + mouse controls and rebinding (scripts/controls.gd)
 var settings: Control      # Job J: Settings screen (scripts/settings.gd)
+var gate_dock: Control     # Job K: jump-gate docking screen (scripts/gatedock.gd)
+var docked_gate: Node3D    # Job K: the gate you are docked to
+var jumps := 0             # Job K: jumps started this session (tests: a double tap must not start two)
+var jump_log: Array = []   # Job K: [phase, msec, fx.warp, system, ship speed, fx.blur, fx.fade] for the last jump: build, hold, loaded, clear, done
 
 func _ready() -> void:
 	_input_map()
@@ -56,6 +60,10 @@ func _ready() -> void:
 	settings.controls = controls
 	ui.add_child(settings)
 	controls.capture_done.connect(_on_capture_done)
+	gate_dock = load("res://scripts/gatedock.gd").new()
+	ui.add_child(gate_dock)
+	gate_dock.activate_pressed.connect(gate_activate)
+	gate_dock.undock_pressed.connect(gate_undock)
 	_load_system("solara", "station")
 	space.controls = false
 	# optional content arrives in the background after the game is up (see scripts/packs.gd)
@@ -300,8 +308,8 @@ func _on_hud(id: String) -> void:
 		"dock":
 			var n: Node3D = space.dock_candidate()
 			if n: dock(n)
-		"jump":
-			if space.gate_in_range(): jump()
+		"jump":   # Job K: the gate prompt docks you to the gate (docking screen), it no longer jumps at once
+			if space.gate_in_range(): dock_gate()
 		"side_l", "side_r":   # tap a comms screen: the console (log, contacts, type) pulls up
 			if hud.comms_mode != "roster": hud.open_log()
 		"type": hud.start_typing()
@@ -563,41 +571,108 @@ func _launch_sequence(where: String) -> void:
 	else: _meet(ctl, "friendly")
 
 # ---------------------------------------------------------------- jump gates
-func jump() -> void:
-	if state != "flight": return
+## Job K: dock to the jump gate in range: the ship stops at the gate and the docking screen opens (destination,
+## ACTIVATE JUMP, UNDOCK). The world waits behind the screen, like a station hub.
+func dock_gate() -> bool:
+	if state != "flight" or not space.gate_in_range(): return false
+	state = "gate_dock"
+	space.controls = false
+	space.autopilot = null
+	space.drop_warp()
+	space.vel = Vector3.ZERO
+	hud.visible = false
+	docked_gate = space.near_gate()
+	var info: Dictionary = docked_gate.get_meta("info")
+	space.process_mode = Node.PROCESS_MODE_DISABLED
+	gate_dock.open(docked_gate.name, Data.SYSTEMS[info["to"]]["name"], "%s gate" % str(info.get("gkind", "jump")))
+	return true
+
+## Job K: UNDOCK on the docking screen: back to flight at the gate, no jump.
+func gate_undock() -> void:
+	if state != "gate_dock": return
+	gate_dock.close()
+	space.process_mode = Node.PROCESS_MODE_INHERIT
+	space.controls = true
+	hud.visible = true
+	state = "flight"
+	hud.flash_message("Undocked from %s." % docked_gate.name)
+
+## Job K: ACTIVATE JUMP. Only from the docking screen, and only once (the state changes at once).
+func gate_activate() -> void:
+	if state != "gate_dock": return
+	gate_dock.close()
+	space.process_mode = Node.PROCESS_MODE_INHERIT
+	jump(docked_gate)
+
+func _jlog(phase: String) -> void:
+	var spd: float = space.vel.length() if is_instance_valid(space) else 0.0
+	jump_log.append([phase, Time.get_ticks_msec(), fx.warp, GS.system_id, spd, fx.blur, fx.fade])
+
+## Job K: the warp tunnel at strength k (0..1): streaks, blur and shake together (values in the Job K config block).
+func _tunnel(k: float) -> void:
+	fx.warp = k
+	fx.blur = Data.JUMP_BLUR * k
+	if is_instance_valid(space): space.hit_shake = maxf(space.hit_shake, Data.JUMP_SHAKE * k)
+
+## Jump through a gate (Job K flow): the tunnel builds over JUMP_TUNNEL_BUILD while the ship pushes through the
+## gate, holds at full while the next system loads behind it (at least JUMP_TUNNEL_HOLD_MIN, longer if the load
+## takes longer), then snaps clear over JUMP_TUNNEL_CLEAR as the ship is launched out. Nothing is saved mid-jump.
+func jump(gate: Node3D = null) -> void:
+	if state != "gate_dock" and state != "flight": return
 	state = "jumping"
+	jumps += 1
+	jump_log = []
 	space.controls = false
 	space.autopilot = null
 	space.drop_warp()
 	hud.visible = false
-	var gate: Node3D = space.near_gate()
+	if gate == null or not is_instance_valid(gate): gate = space.near_gate()
 	var to: String = gate.get_meta("info")["to"]
 	var from: String = GS.system_id
+	var reduced: bool = controls.reduced_effects
 	var p: Node3D = space.player
-	var front: Vector3 = gate.global_position + gate.global_basis.z * 110.0
-	var through: Vector3 = gate.global_position - gate.global_basis.z * 260.0     # on through the jump rings
+	var through: Vector3 = gate.global_position - gate.global_basis.z * Data.JUMP_PUSH     # on through the jump rings
 	space.show_jump_rings(Data.SYSTEMS[to]["star"], 240.0, gate)
-	fx.caption = ""
 	fx.warp_color = Data.SYSTEMS[to]["star"]
-	var tw := create_tween()
-	tw.tween_method(func(k: float): _fly_along(p, front, k), 0.0, 1.0, 1.2)
-	tw.tween_method(func(k: float): _fly_along(p, through, k), 0.0, 1.0, 1.9)
-	tw.parallel().tween_property(fx, "warp", 1.0, 1.9)
-	await tw.finished
 	fx.caption = "JUMP IN PROGRESS"
 	fx.sub = "%s  >  %s" % [space.sys["name"].to_upper(), Data.SYSTEMS[to]["name"].to_upper()]
-	await get_tree().create_timer(1.3).timeout
+	_jlog("build")
+	var tw := create_tween()
+	tw.tween_method(func(k: float): _fly_along(p, through, k), 0.0, 1.0, Data.JUMP_TUNNEL_BUILD)
+	if reduced: tw.parallel().tween_property(fx, "fade", 1.0, Data.JUMP_REDUCED_FADE)
+	else: tw.parallel().tween_method(_tunnel, 0.0, 1.0, Data.JUMP_TUNNEL_BUILD)
+	await tw.finished
+	_jlog("hold")
+	var hold_end := Time.get_ticks_msec() + int(Data.JUMP_TUNNEL_HOLD_MIN * 1000.0)
+	while Time.get_ticks_msec() < hold_end:
+		if not reduced: _tunnel(1.0)
+		await get_tree().process_frame
+	await get_tree().process_frame   # the full tunnel is on screen before the load starts
 	_load_system(to, "gate:" + from)
 	space.controls = false
+	if not reduced: _tunnel(1.0)
+	await get_tree().process_frame   # the new system is built and drawn once, still behind the tunnel
+	await get_tree().process_frame   # (and the long load frame's time step is used up, so the clear isn't skipped)
+	_jlog("loaded")
 	fx.caption = "ARRIVING"
 	fx.sub = "%s SYSTEM  ·  %s" % [Data.SYSTEMS[to]["name"].to_upper(), Data.SYSTEMS[from]["name"].to_upper() + " GATE"]
+	# launched out of the gate ("boom"): a burst of speed along the nose and a white flash
+	space.vel = -space.player.global_basis.z * float(GS.ship()["speed"]) * Data.JUMP_LAUNCH_MULT
+	fx.flash = 1.0
+	Sfx.play("warp_go", -4.0)
+	_jlog("clear")
 	var tw2 := create_tween()
-	tw2.tween_property(fx, "warp", 0.0, 1.4)
+	if reduced: tw2.tween_property(fx, "fade", 0.0, Data.JUMP_REDUCED_FADE)
+	else: tw2.tween_method(_tunnel, 1.0, 0.0, Data.JUMP_TUNNEL_CLEAR)
+	tw2.parallel().tween_property(fx, "flash", 0.0, Data.JUMP_LAUNCH_FLASH)
 	await tw2.finished
+	if not reduced: _tunnel(0.0)
+	fx.flash = 0.0
 	fx.caption = ""
 	space.controls = true
 	hud.visible = true
 	state = "flight"
+	_jlog("done")
 	hud.flash_message("Welcome to %s." % Data.SYSTEMS[to]["name"])
 
 # ---------------------------------------------------------------- defeat

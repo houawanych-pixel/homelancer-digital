@@ -13,6 +13,7 @@ var controls_box: VBoxContainer
 var list: VBoxContainer
 var note: Label
 var reset_btn: Button
+var effects_btn: Button   # Job K: reduced motion / effects (shown in every mode, phones too)
 var close_btn: Button
 var row_btns := {}        # action id -> key Button
 var _reset_armed := 0.0   # seconds left to confirm a reset
@@ -59,6 +60,9 @@ func _ready() -> void:
 	mode_label = Label.new()
 	mode_label.add_theme_font_size_override("font_size", 15)
 	v.add_child(mode_label)
+	effects_btn = _button("")
+	effects_btn.pressed.connect(press_effects)
+	v.add_child(effects_btn)
 	controls_box = VBoxContainer.new()
 	controls_box.add_theme_constant_override("separation", 8)
 	controls_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -126,6 +130,7 @@ func refresh() -> void:
 	for m in mode_btns: mode_btns[m].button_pressed = controls.mode_pref == m
 	var act := controls.active_mode()
 	mode_label.text = "Active: %s%s" % ["Keyboard + mouse" if act == "kbm" else "Touch", " (auto-detected)" if controls.mode_pref == "auto" else ""]
+	effects_btn.text = "REDUCED MOTION (jump effects): %s" % ("ON — simple fade" if controls.reduced_effects else "OFF — full warp tunnel")
 	var kbm := controls.is_kbm()
 	controls_box.visible = kbm
 	reset_btn.visible = kbm
@@ -157,6 +162,10 @@ func refresh() -> void:
 func press_row(id: String) -> void:
 	if controls.capturing != "": controls.cancel_capture()
 	controls.begin_capture(id)
+	refresh()
+
+func press_effects() -> void:
+	controls.set_reduced_effects(not controls.reduced_effects)
 	refresh()
 
 func press_reset() -> void:
