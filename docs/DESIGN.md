@@ -435,3 +435,9 @@ descriptions (full guide in Drive: "HOMELANCER — Music Guide"):
   the gate, hold at full while the next system loads, then snap clear in 0.3 s as the ship is launched out. All gate
   kinds use it for now. Reduced motion (Settings) swaps the tunnel for a short fade (`settings.cfg`, section
   `effects`, key `reduced`). Numbers in the Job K block of `scripts/data.gd`. Nothing is saved mid-jump.
+- **Collision damage (v1.4h, Job L).** The player ship takes hull damage when it hits something solid: asteroids,
+  the ground (planet surface, or a planet with no surface), town/city buildings and the space station. Damage =
+  (impact speed into the surface - 8 m/s) x 0.9, straight to the core hull; below 8 m/s contact is free. 0.5 s grace
+  window after a hit. Flash, shake and sound scale with the hit; zero hull = the normal "ship disabled" flow.
+  Existing collision shapes and responses (asteroid/station bounce, ground/building stop) are unchanged. Numbers in
+  the Job L block of `scripts/data.gd`. Enemy ships don't take collision damage yet.

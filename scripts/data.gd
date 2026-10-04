@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.4g"
+const VERSION := "v1.4h"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -69,6 +69,19 @@ const JUMP_FLASH_ALPHA := 0.55        # strength of that flash
 const JUMP_REDUCED_FADE := 0.3        # s: reduced-effects jump: a plain fade out / in instead of streaks, shake and blur
 const JUMP_STREAK_LAYERS := [[60, 0.45, 1.0], [50, 0.9, 1.8], [30, 1.6, 3.0]]   # [count, speed, width]: far, mid, near (near streaks move faster)
 const REDUCED_EFFECTS_DEFAULT := false   # new setting (settings.cfg, section "effects", key "reduced"): full effects
+
+# ---------------------------------------------------------------- Job L (v1.4h): collision damage
+# Every Job L number lives in this one block. Damage = (impact speed - threshold) x multiplier, straight to the hull.
+# Impact speed = how fast the ship was moving INTO the surface (m/s). Player ship only.
+const COLLIDE_THRESHOLD := 8.0        # m/s: slower contact is free (gentle nudges, landings, scrapes)
+const COLLIDE_MULT := 0.9             # hull per m/s above the threshold: a full-speed Cadet hit (~46 m/s) costs ~34 of 100
+const COLLIDE_GRACE := 0.5            # s after a hit when another collision can't damage the ship
+const COLLIDE_FX_FULL := 0.35         # a hit of this fraction of max hull gives the strongest feedback
+const COLLIDE_SHAKE_MIN := 0.25       # camera shake for the softest damaging hit (1.0 = strongest)
+const COLLIDE_FLASH_MIN := 0.15       # red hit flash (s) for the softest damaging hit ...
+const COLLIDE_FLASH_MAX := 0.6        # ... and for the hardest
+const COLLIDE_SFX_DB_SOFT := -14.0    # hit sound volume for a soft hit ...
+const COLLIDE_SFX_DB_HARD := -2.0     # ... and a hard one
 
 # ---------------------------------------------------------------- ships
 # model: key understood by ShipFactory. "cadet_glb" etc. load real GLBs when present under assets/ships/.

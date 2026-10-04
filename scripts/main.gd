@@ -133,12 +133,17 @@ func _connect_space() -> void:
 	space.leave_atmosphere.connect(leave_atmosphere)
 	space.enemy_killed.connect(_on_kill)
 	space.player_destroyed.connect(_on_destroyed)
+	space.collided.connect(_on_collided)
 	space.message.connect(func(t): hud.flash_message(t))
 	space.system_used.connect(func(sid, txt): hud.flash_message(txt); hud.pulse(sid))
 	space.hail.connect(_on_hail)
 	space.enemy_hail.connect(_on_enemy_hail)
 	space.enemy_chatter.connect(_on_enemy_chatter)
 	hud.space = space
+
+## Job L: a damaging collision: the red hit flash, longer for harder hits (shake + sound are in space.gd).
+func _on_collided(_kind: String, _dmg: float, k: float) -> void:
+	hud.damage_flash = maxf(hud.damage_flash, lerpf(Data.COLLIDE_FLASH_MIN, Data.COLLIDE_FLASH_MAX, k))
 
 func _on_gs_changed() -> void:
 	if state == "flight" and is_instance_valid(space) and GS.shield < GS.max_shield() and space.shield_delay >= 2.9:

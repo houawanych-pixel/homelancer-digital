@@ -169,6 +169,14 @@ func damage(amount: float, side := "") -> String:
 	changed.emit()
 	return broke
 
+## Job L: collision damage goes straight to the core hull (not shields or wings). Returns the hull taken.
+func collide(amount: float) -> float:
+	if god_mode: amount = 0.0
+	var before := hull
+	hull = maxf(0.0, hull - amount)
+	changed.emit()
+	return before - hull
+
 func use_repair() -> bool:
 	if repairs <= 0 or hull >= max_hull(): return false
 	repairs -= 1

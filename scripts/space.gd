@@ -8,6 +8,7 @@ signal message(text: String)
 signal atmosphere_entered(planet_node: Node3D) # flew into a planet that has a surface
 signal tile_edge(dir: Vector2i)                 # crossed the edge of a planet tile
 signal leave_atmosphere                         # climbed above the ceiling of a planet tile
+signal collided(kind: String, dmg: float, k: float)   # Job L: a damaging collision (k = 0..1 how hard, for feedback)
 
 const DOCK_RANGE_STATION := 260.0
 const DOCK_RANGE_PLANET := 300.0 # measured from the planet surface
@@ -1934,7 +1935,37 @@ func _update_traffic(dt: float) -> void:
 		n.global_position = p
 		n.look_at(p + dir, Vector3.UP)
 
+# ---------------------------------------------------------------- Job L: collision damage
+var collide_grace := 0.0        # s left in the grace window after a damaging hit
+var last_collision := {}        # {kind, impact, dmg, k} of the latest damaging hit (HUD / tests)
+const COLLIDE_MSG := {"asteroid": "Collision alert: asteroid impact.", "ground": "Terrain impact! Pull up.",
+	"building": "Collision: structure impact!", "station": "Collision: station hull impact!"}
+
+## The ship hit something solid (asteroid, ground, building, station) at `impact` m/s into its surface.
+## Below the threshold, or inside the grace window, nothing happens. Otherwise hull damage scaled by speed, hit
+## feedback scaled by how hard, and the normal destruction flow at zero hull. Returns the hull taken.
+func collision_damage(kind: String, impact: float, at := Vector3.INF) -> float:
+	if impact <= Data.COLLIDE_THRESHOLD or not controls or collide_grace > 0.0: return 0.0
+	var dmg := (impact - Data.COLLIDE_THRESHOLD) * Data.COLLIDE_MULT
+	collide_grace = Data.COLLIDE_GRACE
+	var dealt := GS.collide(dmg)
+	var k := clampf(dmg / maxf(GS.max_hull() * Data.COLLIDE_FX_FULL, 1.0), 0.0, 1.0)
+	hit_shake = maxf(hit_shake, lerpf(Data.COLLIDE_SHAKE_MIN, 1.0, k))
+	Sfx.play("hull_hit", lerpf(Data.COLLIDE_SFX_DB_SOFT, Data.COLLIDE_SFX_DB_HARD, k))
+	_spark(at if at != Vector3.INF else player.global_position, Color(1, 0.8, 0.5), 3.0 + 6.0 * k)
+	last_collision = {"kind": kind, "impact": impact, "dmg": dmg, "k": k}
+	collided.emit(kind, dmg, k)
+	message.emit(COLLIDE_MSG.get(kind, "Collision!"))
+	if warp_state != "off": drop_warp("Collision — warp drive disrupted!")
+	if GS.hull <= 0.0 and controls:
+		GS.hull = 0.0
+		_explode(player.global_position)
+		controls = false
+		player_destroyed.emit()
+	return dealt
+
 func _collisions(dt: float) -> void:
+	collide_grace = maxf(0.0, collide_grace - dt)
 	var p := player.global_position
 	in_belt = in_belt_region(p)
 	if in_belt:
@@ -1944,11 +1975,7 @@ func _collisions(dt: float) -> void:
 			if d < rr:
 				var n: Vector3 = (p - r[0]).normalized()
 				player.global_position = r[0] + n * rr
-				var impact := vel.dot(-n)
-				if impact > 8.0:
-					_player_hit(impact * 0.35)
-					_spark(player.global_position, Color(1, 0.8, 0.5), 4.0)
-					message.emit("Collision alert: asteroid impact.")
+				collision_damage("asteroid", vel.dot(-n), player.global_position - n * 3.5)   # Job L
 				vel = vel - n * vel.dot(n) * 1.6
 	for body: Node3D in [station, planet]:
 		if surface_mode: break
@@ -1992,6 +2019,7 @@ func _collisions(dt: float) -> void:
 		if d2 < hitr:
 			var n2 := (player.global_position - body.global_position).normalized()
 			player.global_position = body.global_position + n2 * hitr
+			collision_damage("station" if body == station else "ground", -vel.dot(n2))   # Job L (a planet without a surface is ground)
 			vel = vel - n2 * vel.dot(n2) * 1.5
 	var nd := p.distance_to(nebula_center)
 	in_nebula = 0.0 if nebula_radius <= 1.0 else clampf((nebula_radius - nd) / (nebula_radius * 0.35), 0.0, 1.0)
@@ -2628,14 +2656,13 @@ func _surface_update(_dt: float) -> void:
 		var impact := -vel.y
 		player.global_position.y = floor_y
 		if vel.y < 0.0: vel.y = 0.0
-		if impact > 20.0 and controls:
-			_player_hit(impact * 0.25)
-			message.emit("Terrain impact! Pull up.")
+		collision_damage("ground", impact)   # Job L (was: > 20 m/s, 0.25 x impact through the shields)
 	var cp := city_push(player.global_position, 6.0)
 	if cp != Vector3.ZERO:
 		player.global_position += cp
 		var nrm := cp.normalized()
 		var into := vel.dot(nrm)
+		collision_damage("building", -into)   # Job L: town / city buildings
 		if into < 0.0: vel -= nrm * into   # stop moving into the wall / deck
 		if nrm.y > 0.7: altitude = 0.0
 	for e in enemies:

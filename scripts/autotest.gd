@@ -1043,6 +1043,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_COLLIDE") != "":   # the Job L collision damage checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _collide_l()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_GATE") != "":   # the Job K gate docking + warp tunnel checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1338,6 +1346,7 @@ func _run() -> void:
 	await _galaxy()
 	await _controls_j()
 	await _gate_k()
+	await _collide_l()
 	var passed := results.filter(func(r): return r["pass"]).size()
 	print("[route] RESULT %d/%d PASS" % [passed, results.size()])
 	_publish("done", true)
@@ -1774,3 +1783,163 @@ func _gate_k() -> void:
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(c.settings_path))
 	c.settings_path = Data.SETTINGS_PATH
 	c.reduced_effects = Data.REDUCED_EFFECTS_DEFAULT
+
+# ---------------------------------------------------------------- Job L (v1.4h): collision damage
+## Put the ship at `pos` moving with `v` and let the real collision code run for a couple of frames.
+func _ram(pos: Vector3, v: Vector3) -> void:
+	var s := _sp()
+	s.collide_grace = 0.0
+	s.player.global_position = pos
+	s.vel = v
+	await _frames(2)
+
+func _collide_l() -> void:
+	if main.galaxymap.visible: main.galaxymap.visible = false
+	if main.navmap.visible: main.navmap.visible = false
+	if main.state == "map": main._on_map_closed()
+	await _until(func(): return main.state == "flight", 8.0)
+	var s := _sp()
+	s.autopilot = null
+	GS.god_mode = false   # collision damage must really land in these checks
+	GS.restore_full()
+	var hits := {}
+	var settings_before := FileAccess.get_file_as_string(main.controls.settings_path) if FileAccess.file_exists(main.controls.settings_path) else "<none>"
+	# ---- asteroid (space): ram a rock of the belt
+	var rock_hit := false
+	var fake_rock := s.rocks.is_empty() or not s.in_belt_region(s.rocks[0][0])
+	var saved_belt := [s.belt_center, s.belt_radius]
+	if fake_rock:   # this system has no belt: borrow one rock-shaped collision entry for the check, then remove it
+		var fp: Vector3 = s.station.global_position + Vector3(900, 300, 900)
+		s.rocks.push_front([fp, 18.0])
+		s.belt_center = fp
+		s.belt_radius = 400.0
+	if true:
+		var r: Array = s.rocks[0]
+		var n := Vector3(0, 0, 1)
+		var h0 := GS.hull
+		s.last_collision = {}
+		await _ram(r[0] + n * (float(r[1]) + 2.5), -n * 40.0)
+		rock_hit = s.last_collision.get("kind", "") == "asteroid" and GS.hull < h0
+		hits["asteroid"] = h0 - GS.hull
+	if fake_rock:
+		s.rocks.pop_front()
+		s.belt_center = saved_belt[0]
+		s.belt_radius = saved_belt[1]
+	# ---- non-solid things deal no damage: loot pods, a jump gate's ring opening, the docking range trigger
+	GS.restore_full()
+	s.last_collision = {}
+	var g: Node3D = s.gate
+	_tp(g.global_position + g.global_basis.z * 30.0, g.global_position)
+	s.vel = -g.global_basis.z * 60.0
+	await _frames(6)
+	s._drop_loot(s.player.global_position, 100)
+	for l in s.loot: (l["node"] as Node3D).global_position = s.player.global_position + Vector3(0, 0, -2)
+	s.vel = Vector3(0, 0, -40)
+	await _frames(4)
+	var dp: Vector3 = s.dock_point(s.station)
+	_tp(dp + (dp - s.station.global_position).normalized() * 120.0, dp)
+	await _frames(3)
+	var non_solid: bool = s.last_collision.is_empty() and GS.hull >= GS.max_hull() - 0.001
+	# ---- scaling, threshold, grace (the same function every solid object uses)
+	_tp(s.station.global_position + Vector3(400, 200, 400), s.station.global_position)
+	await _frames(2)
+	GS.restore_full()
+	s.collide_grace = 0.0
+	var d_slow: float = s.collision_damage("building", 20.0)
+	s.collide_grace = 0.0
+	var d_fast: float = s.collision_damage("building", 40.0)
+	var expect_slow := (20.0 - Data.COLLIDE_THRESHOLD) * Data.COLLIDE_MULT
+	_check("Job L: damage scales with impact speed (faster = more)", d_fast > d_slow and absf(d_slow - expect_slow) < 0.01, "20 m/s %.1f, 40 m/s %.1f" % [d_slow, d_fast])
+	GS.restore_full()
+	s.collide_grace = 0.0
+	var free_touch: float = s.collision_damage("ground", Data.COLLIDE_THRESHOLD - 0.1)
+	var hull_free: bool = GS.hull == GS.max_hull()
+	# ---- feedback: shake, flash, sound scale with the hit
+	s.collide_grace = 0.0
+	s.hit_shake = 0.0
+	main.hud.damage_flash = 0.0
+	s.collision_damage("asteroid", Data.COLLIDE_THRESHOLD + 3.0)
+	await _frames(1)
+	var soft_k: float = s.last_collision.get("k", -1.0)
+	var soft_flash: float = main.hud.damage_flash
+	var soft_shake: float = s.hit_shake
+	s.collide_grace = 0.0
+	s.hit_shake = 0.0
+	main.hud.damage_flash = 0.0
+	s.collision_damage("asteroid", 60.0)
+	await _frames(1)
+	var hard_k: float = s.last_collision.get("k", -1.0)
+	_check("Job L: hit feedback (flash, shake, sound) on collision, stronger for harder hits; the hull bar shows it", soft_flash > 0.0 and soft_shake > 0.0
+		and hard_k > soft_k and main.hud.damage_flash > soft_flash and s.hit_shake > soft_shake and GS.hull < GS.max_hull(),
+		"k soft %.2f hard %.2f" % [soft_k, hard_k])
+	# ---- grace window
+	GS.restore_full()
+	s.collide_grace = 0.0
+	var first: float = s.collision_damage("asteroid", 30.0)
+	var second: float = s.collision_damage("asteroid", 30.0)
+	await _wait(Data.COLLIDE_GRACE + 0.15)
+	var third: float = s.collision_damage("asteroid", 30.0)
+	_check("Job L: the grace window blocks a second hit for its length, then damage applies again", first > 0.0 and second == 0.0 and third > 0.0, "%.1f / %.1f / %.1f" % [first, second, third])
+	_check("Job L: non-solid things (loot pods, the gate opening, the docking trigger) deal no collision damage", non_solid)
+	# ---- planet surface: the ground and buildings
+	main._load_surface("new_terra", 4)
+	await _wait(1.0)
+	await Packs.wait("city", 30.0)
+	await _frames(2)
+	s = _sp()
+	s.controls = true
+	GS.restore_full()
+	var gx := 300.0
+	var gz := -900.0
+	var gy: float = s._ground(gx, gz)
+	s.last_collision = {}
+	var h1 := GS.hull
+	await _ram(Vector3(gx, gy + 5.0, gz), Vector3(0, -35.0, 0))
+	var ground_hit: bool = s.last_collision.get("kind", "") == "ground" and GS.hull < h1
+	hits["ground"] = h1 - GS.hull
+	s.last_collision = {}
+	var h2 := GS.hull
+	await _ram(Vector3(gx, gy + 5.5, gz), Vector3(0, -(Data.COLLIDE_THRESHOLD - 3.0), 0))
+	var soft_landing: bool = s.last_collision.is_empty() and GS.hull == h2
+	var town: Array = s.tile_root.get_meta("solids", []) if is_instance_valid(s.tile_root) else []
+	var boxes: Array = town if not town.is_empty() else s.city_solids
+	var bld_hit := false
+	if not boxes.is_empty():
+		var tb: AABB = boxes[0]
+		var c := tb.get_center()
+		s.last_collision = {}
+		var h3 := GS.hull
+		await _ram(Vector3(tb.position.x - 3.0, c.y, c.z), Vector3(45.0, 0, 0))
+		bld_hit = s.last_collision.get("kind", "") == "building" and GS.hull < h3
+		hits["building"] = h3 - GS.hull
+	_check("Job L: colliding with an asteroid, the ground and a building each damages the hull", rock_hit and ground_hit and bld_hit,
+		"asteroid %.1f, ground %.1f, building %.1f" % [float(hits.get("asteroid", 0.0)), float(hits.get("ground", 0.0)), float(hits.get("building", 0.0))])
+	_check("Job L: contact below the threshold speed does no damage (gentle touch, soft landing)", free_touch == 0.0 and hull_free and soft_landing)
+	# ---- older settings load; nothing new is saved by collisions
+	var old_path := "user://settings_autotest_l_old.cfg"
+	var old := ConfigFile.new()
+	old.set_value("controls", "mode", "kbm")
+	old.set_value("controls", "bindings", {"missile": "K"})
+	old.set_value("effects", "reduced", true)
+	old.save(old_path)
+	var legacy := Controls.new()
+	legacy.settings_path = old_path
+	legacy.load_settings()
+	var legacy_ok := legacy.mode_pref == "kbm" and legacy.binding("missile") == "K" and legacy.reduced_effects
+	legacy.free()
+	main.controls.apply()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(old_path))
+	var settings_after := FileAccess.get_file_as_string(main.controls.settings_path) if FileAccess.file_exists(main.controls.settings_path) else "<none>"
+	_check("Job L: a v1.4g settings file loads unchanged; collision damage adds no save fields", legacy_ok and settings_after == settings_before)
+	# ---- a crash at low hull destroys the ship through the normal death flow
+	s.collide_grace = 0.0
+	GS.hull = 5.0
+	s.collision_damage("building", 40.0)
+	var dead_now: bool = GS.hull == 0.0 and not s.controls
+	var towed := await _until(func(): return main.state == "hub", 15.0)
+	_check("Job L: a collision that takes the hull to zero destroys the ship through the normal death flow", dead_now and towed and GS.hull == GS.max_hull(), "state %s" % main.state)
+	await _launch()
+	GS.god_mode = true
+	# ---- version label
+	var shell := FileAccess.get_file_as_string("res://web_shell.html") if FileAccess.file_exists("res://web_shell.html") else ""
+	_check("Job L: version label reads \"Homelancer Digital v1.4h\" or later", Data.VERSION >= "v1.4h" and shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0, Data.VERSION)
