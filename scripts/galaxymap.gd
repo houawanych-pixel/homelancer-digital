@@ -183,8 +183,8 @@ static func draw_network(ci: CanvasItem, S: Vector2, yaw: float, pitch: float, t
 		var pb: Vector2 = b[0]
 		if (pa.x < -200 and pb.x < -200) or (pa.x > S.x + 200 and pb.x > S.x + 200): continue
 		match l[2]:
-			"warp_gate": ci.draw_line(pa, pb, Color(MID, 0.75), 1.6, true)
-			"jump_gate": _dashed(ci, pa, pb, Color(SKY, 0.95), 2.0, 9.0)
+			"jump_gate": ci.draw_line(pa, pb, Color(MID, 0.75), 1.6, true)
+			"warp_gate": _dashed(ci, pa, pb, Color(SKY, 0.95), 2.0, 9.0)
 			"rift_gate": _dashed(ci, pa, pb, Color(NAVY, 0.8), 3.0, 4.0)
 	# systems
 	for id in proj:
@@ -248,9 +248,9 @@ func _title(S: Vector2) -> void:
 	_text(Vector2(24, 62), "Drag to look around · tap a system · EXPAND for its chart", 13, MID)
 	var ly := S.y - 22.0
 	draw_line(Vector2(24, ly), Vector2(60, ly), Color(MID, 0.75), 1.6)
-	_text(Vector2(66, ly + 5), "Warp gate", 12, NAVY)
+	_text(Vector2(66, ly + 5), "Jump gate", 12, NAVY)
 	_dashed(self, Vector2(150, ly), Vector2(186, ly), SKY, 2.0, 9.0)
-	_text(Vector2(192, ly + 5), "Jump gate (natural)", 12, NAVY)
+	_text(Vector2(192, ly + 5), "Warp gate (hidden)", 12, NAVY)
 	_dashed(self, Vector2(330, ly), Vector2(366, ly), NAVY, 3.0, 4.0)
 	_text(Vector2(372, ly + 5), "Rift gate", 12, NAVY)
 	draw_arc(Vector2(462, ly), 6, 0, TAU, 16, DEEP, 2.0)
@@ -268,11 +268,11 @@ func _info(S: Vector2) -> void:
 	sb.set_corner_radius_all(10)
 	draw_style_box(sb, r)
 	_text(r.position + Vector2(16, 32), (s["name"] as String).to_upper(), 22, NAVY)
-	_text(r.position + Vector2(16, 54), "%s · %s" % [s["cluster"], s["faction"]], 13, MID)
+	_text(r.position + Vector2(16, 54), "%s · tile %s" % [s["faction"], s.get("tile", "?")], 13, MID)
 	_text(r.position + Vector2(16, 78), "%s star · %d planets · %d stations · %d spaceways" % [s["star"], s["planets"], s["stations"], s["spaceways"]], 13, NAVY)
 	var kinds := {"warp_gate": 0, "jump_gate": 0, "rift_gate": 0}
 	for l in Galaxy.links_of(selected): kinds[l[2]] += 1
-	_text(r.position + Vector2(16, 100), "Gates: %d warp · %d jump · %d rift" % [kinds["warp_gate"], kinds["jump_gate"], kinds["rift_gate"]], 13, NAVY)
+	_text(r.position + Vector2(16, 100), "Gates: %d jump · %d warp · %d rift" % [kinds["jump_gate"], kinds["warp_gate"], kinds["rift_gate"]], 13, NAVY)
 	var status := "FLYABLE" if s["playable"] else ("SURVEYED — no route yet" if s["discovered"] else "UNCHARTED")
 	_text(r.position + Vector2(16, 124), status, 14, DEEP if s["playable"] else MID)
 	var eb := Rect2(r.position + Vector2(16, 140), Vector2(140, 44))

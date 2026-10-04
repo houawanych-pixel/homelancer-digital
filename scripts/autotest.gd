@@ -605,6 +605,74 @@ func _system_sky(shot: String) -> void:
 	main.hud.visible = true
 	_check("%s has its own painted 360 sky" % Data.SYSTEMS[GS.system_id]["name"], ok, "%s, %d px wide" % [s.sky_path().get_file(), tex.get_width() if tex else 0])
 
+## The whole 11 x 11 map as real systems: every one is built from the map tables by SystemBuilder.
+func _galaxy() -> void:
+	var bad: Array = []
+	for id in Data.SYSTEMS:
+		var d: Dictionary = Data.SYSTEMS[id]
+		for k in ["name", "star", "sky_tint", "ambient", "sun_dir", "station", "planet", "gate", "gates", "asteroids", "nebula", "enemy", "patrols", "traffic", "tile"]:
+			if not d.has(k): bad.append("%s lacks %s" % [id, k])
+		if not Surface.is_sun(id + "_sun"): bad.append("%s has no sun surface" % id)
+		for g in d.get("gates", []):
+			if not Data.SYSTEMS.has(g["to"]): bad.append("%s gate to nowhere" % id)
+			elif not (Data.SYSTEMS[g["to"]]["gates"] as Array).any(func(x): return x["to"] == id): bad.append("%s > %s is one-way" % [id, g["to"]])
+	# every system must be reachable from Solara through gates
+	var seen := {"solara": true}
+	var todo: Array = ["solara"]
+	while not todo.is_empty():
+		var cur: String = todo.pop_back()
+		for g in Data.SYSTEMS[cur]["gates"]:
+			if not seen.has(g["to"]):
+				seen[g["to"]] = true
+				todo.append(g["to"])
+	_check("Galaxy: %d systems, each with a star you can enter, a station, a planet and two-way gates; all reachable from Solara" % Data.SYSTEMS.size(),
+		Data.SYSTEMS.size() == 67 and bad.is_empty() and seen.size() == Data.SYSTEMS.size(), "reachable %d; %s" % [seen.size(), ", ".join(bad.slice(0, 4))])
+	# fly it: Solara's new gate to Veranthos, the Unity capital
+	var s := _sp()
+	var vg: Node3D = null
+	for g in s.gates:
+		if g.get_meta("info")["to"] == "veranthos": vg = g
+	_check("Solara has a second gate, to Veranthos", vg != null and s.gates.size() == 2 and s.gate.get_meta("info")["to"] == "vega")
+	if vg == null: return
+	_tp(vg.global_position + vg.global_basis.z * 180.0, vg.global_position)
+	await _wait(0.4)
+	_press("jump")
+	await _until(func(): return main.state == "flight" and GS.system_id == "veranthos", 20.0)
+	s = _sp()
+	var back: Node3D = null
+	for g in s.gates:
+		if g.get_meta("info")["to"] == "solara": back = g
+	var near_back: bool = back != null and s.player.global_position.distance_to(back.global_position) < 400.0
+	await Packs.wait("sky_veranthos", 40.0)
+	await Packs.wait("structures", 30.0)
+	await _wait(0.5)
+	var tex: Texture2D = s._pano.panorama if s._pano else null
+	_check("Jump to Veranthos: arrive at the gate that leads back, with its own sky, a sun and the capital's station model",
+		GS.system_id == "veranthos" and near_back and s.gates.size() == (Data.SYSTEMS["veranthos"]["gates"] as Array).size() and tex != null and tex.resource_path == "res://assets/skies/veranthos.jpg"
+		and is_instance_valid(s.sun_body) and s.station_model != null, "gates %d, sky %s" % [s.gates.size(), tex.resource_path.get_file() if tex else "none"])
+	_tp(s.station.global_position + Vector3(260, 60, 420), s.station.global_position)
+	await _shot("veranthos", 1.0)
+	_tp(back.global_position + back.global_basis.z * 300.0 + Vector3(120, 40, 0), back.global_position)
+	await _shot("veranthos_gates", 0.8)
+	# load a spread of other systems to prove the generator's output runs (all of them on desktop, a few on the web)
+	var tour: Array = Data.SYSTEMS.keys()
+	if web: tour = ["heart", "void_1", "noctyra", "radiant", "raptian_major", "synthari_capital"]
+	var broke: Array = []
+	for id in tour:
+		if Data.CORE_SYSTEMS.has(id): continue
+		main._load_system(id, "gate:veranthos")
+		await get_tree().process_frame
+		await get_tree().process_frame
+		var t := _sp()
+		if not (is_instance_valid(t.station) and is_instance_valid(t.planet) and is_instance_valid(t.sun_body) and t.gates.size() == (Data.SYSTEMS[id]["gates"] as Array).size() and t.gates.size() >= 1): broke.append(id)
+		if id in ["void_1", "noctyra", "heart"]: await _shot("system_" + id, 0.6)
+	var small_ok: bool = Data.SYSTEMS["void_1"].get("small_sun", false) and not Data.SYSTEMS["veranthos"].get("small_sun", false)
+	_check("%d generated systems load and run; void systems have a small sun" % tour.size(), broke.is_empty() and small_ok, ", ".join(broke.slice(0, 6)))
+	main._load_system("solara", "gate:veranthos")
+	main.space.controls = true
+	await _wait(0.6)
+	_check("Back in Solara by the Veranthos gate", GS.system_id == "solara" and main.state == "flight")
+
 ## Station interior as panorama rooms: look around (wraps), tap markers, zoom through doors, dealer screens, talk.
 func _station_rooms() -> void:
 	await Packs.wait("rooms", 60.0)
@@ -1064,13 +1132,13 @@ func _run() -> void:
 	main.hub.show_screen("ships")
 	await _wait(0.5)
 	# the route test is credited enough for one ship so the dealer can be verified in one run
-	GS.add_credits(1500)
+	GS.add_credits(4000)
 	main.hub.show_screen("ships")
 	await _wait(0.3)
-	var sb: Button = main.hub.find_child("Ship_ranger", true, false)
+	var sb: Button = main.hub.find_child("Ship_lancer", true, false)
 	if sb and not sb.disabled: sb.pressed.emit()
 	await _wait(0.4)
-	_check("Ship purchase", GS.ship_id == "ranger", "ship=%s hull=%d" % [GS.ship_id, int(GS.max_hull())])
+	_check("Ship purchase (Lancer; the stand-in Ranger is no longer sold)", GS.ship_id == "lancer" and not ("ranger" in Data.SHIP_ORDER) and main.hub.find_child("Ship_ranger", true, false) == null, "ship=%s hull=%d" % [GS.ship_id, int(GS.max_hull())])
 	main.hub.open_inspector("lancer")
 	await _wait(0.4)
 	var cam0: Vector3 = main.hub.insp_cam.position
@@ -1085,7 +1153,7 @@ func _run() -> void:
 	await _shot("ship_dealer")
 	_check("Launch from station", await _launch())
 	s = _sp()
-	_check("New ship flies", s.model.name.ends_with("ranger"), s.model.name)
+	_check("New ship flies", s.model.name.ends_with("lancer"), s.model.name)
 	# ---- real autopilot leg to the planet
 	s.target = s.planet
 	_press("goto")
@@ -1176,11 +1244,12 @@ func _run() -> void:
 	await _wait(0.4)
 	await _shot("galaxy_system_vega")
 	var res_after := Performance.get_monitor(Performance.OBJECT_RESOURCE_COUNT)
-	_check("Galaxy map: %d systems shown, data only" % net["systems"].size(), gm.visible and net["systems"].size() >= 50 and playable == 2 and no_music.call(Packs.state) == packs_before and res_after - res_before < 20,
+	_check("Galaxy map: %d systems shown, data only" % net["systems"].size(), gm.visible and net["systems"].size() == Data.SYSTEMS.size() and playable == net["systems"].size() and no_music.call(Packs.state) == packs_before and res_after - res_before < 20,
 		"links %d, resources +%d" % [net["links"].size(), int(res_after - res_before)])
 	gm.press("close")   # back out of the system chart first
-	gm.yaw = atan2(0.0 - gm.viewer.x, -(0.0 - gm.viewer.z))   # look straight at Solara
-	gm.pitch = 0.0
+	var sol: Vector3 = (net["systems"]["solara"]["pos"] as Vector3) - gm.viewer   # look straight at Solara
+	gm.yaw = atan2(sol.x, -sol.z)
+	gm.pitch = asin(clampf(sol.y / maxf(sol.length(), 0.001), -1, 1))
 	await get_tree().process_frame
 	await get_tree().process_frame
 	await _shot("galaxy_focus", 0.2)
@@ -1201,6 +1270,7 @@ func _run() -> void:
 	_check("Return jump to Solara", GS.system_id == "solara")
 	await _wait(1.0)
 	await _shot("solara_return")
+	await _galaxy()
 	var passed := results.filter(func(r): return r["pass"]).size()
 	print("[route] RESULT %d/%d PASS" % [passed, results.size()])
 	_publish("done", true)

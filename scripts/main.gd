@@ -91,6 +91,7 @@ func _load_system(id: String, arrival: String) -> void:
 	_new_space("Space_" + id)
 	GS.system_id = id
 	if not (id in GS.discovered): GS.discovered.append(id)
+	Galaxy.refresh()
 	space.setup(id, arrival)
 	_connect_space()
 
@@ -209,7 +210,7 @@ func _objective() -> String:
 		if not visited.has("new_terra"): return "OBJECTIVE: Land on %s — MAP > select planet > SET COURSE" % pl
 		return "OBJECTIVE: Cross the belt and nebula to the %s" % gt
 	if not visited.has("frontier_exchange"): return "OBJECTIVE: Dock at %s" % st
-	return "OBJECTIVE: Explore Vega, fight %ss, or return via the %s" % [enemy_name.to_lower(), gt]
+	return "OBJECTIVE: Explore %s, fight %ss, or leave by the %s" % [space.sys["name"], enemy_name.to_lower(), gt]
 
 # ---------------------------------------------------------------- HUD buttons
 func _on_hud(id: String) -> void:
@@ -536,12 +537,13 @@ func jump() -> void:
 	space.autopilot = null
 	space.drop_warp()
 	hud.visible = false
-	var to: String = space.sys["gate"]["to"]
-	var gate: Node3D = space.gate
+	var gate: Node3D = space.near_gate()
+	var to: String = gate.get_meta("info")["to"]
+	var from: String = GS.system_id
 	var p: Node3D = space.player
 	var front: Vector3 = gate.global_position + gate.global_basis.z * 110.0
 	var through: Vector3 = gate.global_position - gate.global_basis.z * 260.0     # on through the jump rings
-	space.show_jump_rings(Data.SYSTEMS[to]["star"], 240.0)
+	space.show_jump_rings(Data.SYSTEMS[to]["star"], 240.0, gate)
 	fx.caption = ""
 	fx.warp_color = Data.SYSTEMS[to]["star"]
 	var tw := create_tween()
@@ -552,10 +554,10 @@ func jump() -> void:
 	fx.caption = "JUMP IN PROGRESS"
 	fx.sub = "%s  >  %s" % [space.sys["name"].to_upper(), Data.SYSTEMS[to]["name"].to_upper()]
 	await get_tree().create_timer(1.3).timeout
-	_load_system(to, "gate")
+	_load_system(to, "gate:" + from)
 	space.controls = false
 	fx.caption = "ARRIVING"
-	fx.sub = "%s SYSTEM  ·  %s" % [Data.SYSTEMS[to]["name"].to_upper(), space.sys["gate"]["name"]]
+	fx.sub = "%s SYSTEM  ·  %s" % [Data.SYSTEMS[to]["name"].to_upper(), Data.SYSTEMS[from]["name"].to_upper() + " GATE"]
 	var tw2 := create_tween()
 	tw2.tween_property(fx, "warp", 0.0, 1.4)
 	await tw2.finished

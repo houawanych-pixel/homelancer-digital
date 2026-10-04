@@ -47,7 +47,12 @@ const BIOMES := {
 
 # Planets with surfaces. tiles: row-major biome list (row 0 = north). locations: named places you can land at /
 # fast-travel to (pos = metres from the tile centre, x east, y south).
-const PLANETS := {
+static var PLANETS: Dictionary = _all_planets()
+static func _all_planets() -> Dictionary:
+	var out: Dictionary = CORE_PLANETS.duplicate(true)
+	out.merge(SystemBuilder.suns(out))
+	return out
+const CORE_PLANETS := {
 	"new_terra": {"name": "New Terra", "system": "solara", "grid": 3,
 		"tiles": ["ocean", "coast", "desert", "mountains", "city", "forest", "ice", "industrial", "canyon"],
 		"locations": [

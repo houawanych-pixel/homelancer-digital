@@ -371,3 +371,27 @@ descriptions (full guide in Drive: "HOMELANCER — Music Guide"):
 - **Sky library.** `art/sky_library`: 122 seamless skies from the owner's pictures, one per tile and realm plus
   spares. Not in the build; copy one into `assets/sky/<system>.jpg` when its system is built.
 - **Galaxy draft.** `docs/galaxy`: the 11 x 11 map (script, tile list, gate list, picture). PLAN, not built.
+
+## 21. The whole map as real systems (v1.3b)
+
+- **One generator.** `tools/galaxy/build_game_data.py` turns the map (`docs/galaxy/*.csv`, made by
+  `docs/galaxy/galaxy_draft.py`) into `scripts/galaxy_data.gd`: a tile table and a gate table. `SystemBuilder`
+  (`scripts/system_builder.gd`) builds every system from them when the game starts: star, ONE station, ONE planet,
+  asteroid field, nebula, patrols, and one gate per link on the map. `Data.SYSTEMS` = the hand-made systems
+  (`Data.CORE_SYSTEMS`: Solara, Vega) + all generated ones: 67 systems. Change the map, run both scripts, done.
+- **Gates.** `sys["gates"]` lists every gate; `sys["gate"]` is the first. Each gate sits in the direction its
+  destination lies on the map. Portal colour = type: green jump, blue warp, purple rift. JUMP uses the nearest gate;
+  you arrive at the gate that leads back (`"gate:<from>"`). Solara (tile F3) links to Veranthos; Vega (F2) to Solara.
+- **Suns.** Every system has a sun you can fly into (`<id>_sun`, added to `Surface.PLANETS` by `SystemBuilder.suns`).
+  Void systems have a small sun (`small_sun`, 35 % size) and a dead planet.
+- **Skies.** Each generated system has its own small download, `sky_<id>` (`assets/skies/<id>.jpg`), fetched when
+  you arrive. The start-up download does not grow.
+- **Planet looks.** `PLANET_LOOKS` in space.gd: 12 types (terran, jungle, ocean, ice, desert, lava, dead, gas, city,
+  crystal, toxic, machine), each planet seeded by its own id.
+- **Not built yet:** more than one station/planet per system, landing on generated planets (they dock from orbit),
+  open-space tiles and edge crossings (turbulence + blur), realms, per-system characters and missions, a flat grid
+  galaxy screen (the galaxy screen shows the real systems and links in its old look-around style).
+- **Ships (v1.3b, owner).** Enemy ships use the owner's new fighter (piece 3 of the four-ship sheet, 103,998 ->
+  3,540 triangles, `assets/ships/enemy/enemy_fleet.glb`); the other three on the sheet were discarded. The Ranger
+  (a code-made stand-in) is off sale: the dealer lists Cadet and Lancer. `shipkit.py export --yaw-fit` straightens a
+  ship that lies flat but turned at an angle.

@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.3a"
+const VERSION := "v1.3b"
 
 # ---------------------------------------------------------------- ships
 # model: key understood by ShipFactory. "cadet_glb" etc. load real GLBs when present under assets/ships/.
@@ -17,7 +17,9 @@ const SHIPS := {
 	"lancer": {"name": "Lancer", "class": "Heavy fighter", "price": 4000, "hull": 240, "shield": 140, "speed": 42.0,
 		"turn": 1.25, "guns": 3, "missiles": 14, "heavy": 4, "mines": 6, "model": "lancer", "desc": "Three hardpoints and a heavy shield. Slow to turn."},
 }
-const SHIP_ORDER := ["cadet", "ranger", "lancer"]
+# The Ranger was a code-made stand-in with no real model; the owner took it off sale (v1.3b). Its data stays so old
+# references still resolve, but the dealer only lists SHIP_ORDER.
+const SHIP_ORDER := ["cadet", "lancer"]
 
 # ---------------------------------------------------------------- weapons (per gun)
 const WEAPONS := {
@@ -91,7 +93,10 @@ const ENEMIES := {
 
 # ---------------------------------------------------------------- star systems
 # Positions in metres-ish world units. The player spawns at `spawn` (station launch) or at the gate exit.
-const SYSTEMS := {
+# Every system in the game: the hand-made ones below (CORE_SYSTEMS) plus all the rest of the 11 x 11 map, built by
+# SystemBuilder from the map tables. sys["gates"] lists every gate; sys["gate"] is the first one.
+static var SYSTEMS: Dictionary = SystemBuilder.all(CORE_SYSTEMS)
+const CORE_SYSTEMS := {
 	"solara": {
 		"name": "Solara", "star": Color(1.0, 0.86, 0.6), "sky_tint": Color(0.10, 0.06, 0.16), "ambient": Color(0.42, 0.40, 0.55),
 		"sun_dir": Vector3(-0.4, -0.35, -1.0),

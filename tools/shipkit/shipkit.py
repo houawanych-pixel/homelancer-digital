@@ -585,6 +585,14 @@ def cmd_export(a):
         sys.exit("cluster(s) %s not found" % a.cluster)
     tri = g["tri"][sel]; tmat = g["tmat"][sel]
     pos, nrm, uv, tri = compact(g["pos"], g["nrm"], g["uv"], tri)
+    if getattr(a, "yaw_fit", False):
+        # a ship lying flat but turned at an angle: spin it about Y until its long axis runs along Z
+        c = pos[:, [0, 2]] - pos[:, [0, 2]].mean(0)
+        w, v = np.linalg.eigh(c.T @ c)
+        d = v[:, 1]
+        ang = np.arctan2(d[0], d[1])
+        R = np.array([[np.cos(ang), 0, -np.sin(ang)], [0, 1, 0], [np.sin(ang), 0, np.cos(ang)]])
+        pos = pos @ R.T; nrm = nrm @ R.T
     pos, nrm, rep = orient(pos, nrm, a.flip, a.axis)
     if a.taper < 1.0:
         pos, nrm = taper_nose(pos, nrm, a.taper, a.nose_frac)
@@ -634,7 +642,7 @@ def main():
     e.add_argument("--name", default="ship"); e.add_argument("--out", required=True)
     e.add_argument("--margin", type=float, default=0.01); e.add_argument("--grid"); e.add_argument("--pieces", action="store_true"); e.add_argument("--min-frac", type=float, default=0.02)
     e.add_argument("--taper", type=float, default=0.65); e.add_argument("--nose-frac", type=float, default=0.35)
-    e.add_argument("--flip", action="store_true"); e.add_argument("--axis", choices=list("xyz"))
+    e.add_argument("--flip", action="store_true"); e.add_argument("--axis", choices=list("xyz")); e.add_argument("--yaw-fit", action="store_true")
     e.add_argument("--tex", type=int, default=1024); e.add_argument("--preview")
     r = sp.add_parser("repack"); r.add_argument("glb"); r.add_argument("--textures-from", required=True)
     r.add_argument("--out", required=True); r.add_argument("--name", default="ship")

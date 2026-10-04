@@ -33,6 +33,8 @@ S = {
  "Void 1": ("I1", "Void", "void", 1, 0), "Void 2": ("K11", "Void", "void", 1, 0), "Void 3": ("A7", "Void", "void", 1, 0),
  "Void 4": ("K9", "Void", "void", 1, 0), "Void 5": ("D11", "Void", "void", 1, 0), "Void 6": ("A2", "Void", "void", 1, 0),
  "THE HEART": ("F6", "Heart", "centre", 0, 0),
+ # the two systems already built in the game (the test pair). Solara hangs off Veranthos, Vega off Solara.
+ "Solara": ("F3", "Unity", "start", 1, 1), "Vega": ("F2", "Neutral", "frontier", 1, 1),
 }
 PRESS = {"Void System": ("Unity", "Elyza"), "Kronos": ("Solarion", "Unity"), "Cynthara": ("Elyza", "Liberator"),
          "Cybernet": ("Liberator", "Savagers"), "Noctyra": ("Imperium", "Covenant"), "Genesis": ("Orion", "Covenant")}
@@ -56,6 +58,7 @@ for e in ENEMY:
 
 def jump_ok(a, b):
     fa, fb = S[a][1], S[b][1]
+    if "Solara" in (a, b) or "Vega" in (a, b): return {a, b} in ({"Solara", "Veranthos"}, {"Solara", "Vega"})
     if "Hidden" in (fa, fb): return False                       # hidden systems: warp only
     if "Heart" in (fa, fb): return {a, b} in ({"THE HEART", "Veranthos"}, {"THE HEART", "Dreadholm"})
     if {fa, fb} == {"Unity", "Orion"}: return False             # their one link runs through the Heart
@@ -92,7 +95,7 @@ im = Image.new("RGB", (W, H), "#070a12"); dr = ImageDraw.Draw(im)
 def font(sz, bold=True): return ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans%s.ttf" % ("-Bold" if bold else ""), sz)
 def c(n): x, y = P[n]; return M + x * T + T // 2, TOP + y * T + T // 2
 dr.text((M, 28), "HOMELANCER GALAXY  11 x 11  FIRST DRAFT", font=font(54), fill="#ffffff")
-dr.text((M, 96), "121 tiles: 58 named systems, 6 void systems, the Heart, %d enemy-held open tiles, %d free open tiles." % (len(HELD), 56 - len(HELD)) + " Every edge wraps to the far side.", font=font(26, False), fill="#9fb0c8")
+dr.text((M, 96), "121 tiles: 58 named systems, Solara and Vega, 6 void systems, the Heart, %d enemy-held open tiles, %d free open tiles." % (len(HELD), 54 - len(HELD)) + " Every edge wraps to the far side.", font=font(26, False), fill="#9fb0c8")
 for i in range(11):
     dr.text((M + i * T + T // 2 - 10, TOP - 34), COLS[i], font=font(28), fill="#6f7f98")
     dr.text((22, TOP + i * T + T // 2 - 16), str(i + 1), font=font(28), fill="#6f7f98")

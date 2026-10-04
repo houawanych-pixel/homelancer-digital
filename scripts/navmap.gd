@@ -63,9 +63,20 @@ func _gui_input(e: InputEvent) -> void:
 
 ## SET COURSE: fly to the selected place or waypoint on autopilot.
 func set_course() -> void:
-	var n: Node3D = space.waypoint_at(way_pos) if selected == "point" else {"station": space.station, "planet": space.planet, "gate": space.gate}[selected]
+	var n: Node3D = space.waypoint_at(way_pos) if selected == "point" else _node(selected)
 	visible = false
 	course_set.emit(n)
+
+## Map keys: "station", "planet", "gate" (the first gate), "gate1", "gate2" ... (the system's other gates).
+func _gate_index(key: String) -> int: return 0 if key == "gate" else int(key.substr(4))
+func _node(key: String) -> Node3D:
+	if key == "station": return space.station
+	if key == "planet": return space.planet
+	return space.gates[mini(_gate_index(key), space.gates.size() - 1)]
+func _data(key: String) -> Dictionary:
+	var sys: Dictionary = Data.SYSTEMS[GS.system_id]
+	if key == "station" or key == "planet": return sys[key]
+	return sys["gates"][mini(_gate_index(key), sys["gates"].size() - 1)]
 
 ## Pick a spot on the map as a waypoint (used by the route test, same as a tap).
 func pick_point(world: Vector3) -> void:
@@ -97,6 +108,7 @@ func _draw() -> void:
 		draw_line(Vector2(map_rect.position.x, y), Vector2(map_rect.end.x, y), Color(CYAN, 0.06))
 	# fit the system into the map
 	var pts := [sys["station"]["pos"], sys["planet"]["pos"], sys["gate"]["pos"], sys["asteroids"]["center"], sys["nebula"]["center"]]
+	for gd0 in sys["gates"]: pts.append(gd0["pos"])
 	var mn := Vector2(1e9, 1e9)
 	var mx := Vector2(-1e9, -1e9)
 	for p in pts:
@@ -123,6 +135,9 @@ func _draw() -> void:
 	var items := [["station", sys["station"]["pos"], GREEN, sys["station"]["name"] + " (station)"],
 		["planet", sys["planet"]["pos"], Color(0.5, 0.8, 1.0), sys["planet"]["name"] + " (planet)"],
 		["gate", sys["gate"]["pos"], GOLD, sys["gate"]["name"] + " > " + Data.SYSTEMS[sys["gate"]["to"]]["name"]]]
+	for gi in range(1, sys["gates"].size()):
+		var gd: Dictionary = sys["gates"][gi]
+		items.append(["gate%d" % gi, gd["pos"], GOLD, gd["name"]])
 	for it in items:
 		var mp := _w2m(it[1])
 		hits[it[0]] = mp
@@ -150,17 +165,27 @@ func _draw() -> void:
 	draw_rect(sm, Color(0.02, 0.06, 0.1))
 	draw_rect(sm, Color(CYAN, 0.35), false, 2)
 	_txt(sm.position + Vector2(14, 28), "KNOWN SPACE", 16, CYAN)
-	var a2 := sm.position + Vector2(sm.size.x * 0.28, sm.size.y * 0.6)
-	var b2 := sm.position + Vector2(sm.size.x * 0.75, sm.size.y * 0.45)
-	var vega_known := "vega" in GS.discovered
-	draw_line(a2, b2, Color(GOLD, 0.8 if vega_known else 0.25), 3.0)
-	for s in [["solara", a2], ["vega", b2]]:
-		var known: bool = s[0] in GS.discovered
-		var here: bool = s[0] == GS.system_id
-		draw_circle(s[1], 16, Color(Data.SYSTEMS[s[0]]["star"], 1.0 if known else 0.3))
-		if here: draw_arc(s[1], 24, 0, TAU, 32, Color.WHITE, 2.0)
-		_txt(s[1] + Vector2(-60, 44), Data.SYSTEMS[s[0]]["name"] if known else "Uncharted", 16, Color.WHITE if known else Color(1, 1, 1, 0.4), HORIZONTAL_ALIGNMENT_CENTER, 120)
-	_txt(sm.position + Vector2(14, sm.size.y - 14), "Aquila Gate <> Solara Gate" if vega_known else "Jump through the Aquila Gate to chart the next system.", 13, Color(0.85, 0.9, 0.95))
+	if GS.system_id in ["solara", "vega"] and not ("veranthos" in GS.discovered):
+		var a2 := sm.position + Vector2(sm.size.x * 0.28, sm.size.y * 0.6)
+		var b2 := sm.position + Vector2(sm.size.x * 0.75, sm.size.y * 0.45)
+		var vega_known := "vega" in GS.discovered
+		draw_line(a2, b2, Color(GOLD, 0.8 if vega_known else 0.25), 3.0)
+		for s in [["solara", a2], ["vega", b2]]:
+			var known: bool = s[0] in GS.discovered
+			var here: bool = s[0] == GS.system_id
+			draw_circle(s[1], 16, Color(Data.SYSTEMS[s[0]]["star"], 1.0 if known else 0.3))
+			if here: draw_arc(s[1], 24, 0, TAU, 32, Color.WHITE, 2.0)
+			_txt(s[1] + Vector2(-60, 44), Data.SYSTEMS[s[0]]["name"] if known else "Uncharted", 16, Color.WHITE if known else Color(1, 1, 1, 0.4), HORIZONTAL_ALIGNMENT_CENTER, 120)
+		_txt(sm.position + Vector2(14, sm.size.y - 14), "Aquila Gate <> Solara Gate" if vega_known else "Jump through the Aquila Gate to chart the next system.", 13, Color(0.85, 0.9, 0.95))
+	else:
+		# once you are out in the galaxy: this system's tile and where each of its gates leads
+		_txt(sm.position + Vector2(14, 52), "%s  ·  tile %s  ·  %s" % [sys["name"], sys.get("tile", "?"), sys.get("faction", "")], 15, Color.WHITE)
+		var gy := 78.0
+		for gd in sys["gates"]:
+			var known2: bool = gd["to"] in GS.discovered
+			_txt(sm.position + Vector2(14, gy), "%s > %s" % [str(gd.get("gkind", "jump")).to_upper(), Data.SYSTEMS[gd["to"]]["name"] + ("" if known2 else "  (uncharted)")], 14, GOLD if known2 else Color(1, 1, 1, 0.6))
+			gy += 22.0
+		_txt(sm.position + Vector2(14, sm.size.y - 14), "%d of %d systems charted. GALAXY shows the whole map." % [GS.discovered.size(), Data.SYSTEMS.size()], 13, Color(0.85, 0.9, 0.95))
 	# selection panel + buttons
 	var sel := Rect2(sm.position.x, sm.end.y + 16, sm.size.x, 150)
 	draw_rect(sel, Color(0.02, 0.06, 0.1))
@@ -173,12 +198,12 @@ func _draw() -> void:
 		if space != null and is_instance_valid(space.player):
 			_txt(sel.position + Vector2(14, 60), "Distance %.1f km" % (space.player.global_position.distance_to(way_pos) / 1000.0), 15, CYAN)
 	else:
-		var d: Dictionary = sys[selected]
+		var d: Dictionary = _data(selected)
 		_txt(sel.position + Vector2(14, 34), d["name"], 20, GOLD)
-		var line := "Dockable %s" % ("station" if selected == "station" else "planet") if selected != "gate" else "Warp gate to %s" % Data.SYSTEMS[d["to"]]["name"]
+		var line := "Dockable %s" % ("station" if selected == "station" else "planet") if not selected.begins_with("gate") else "%s gate to %s" % [str(d.get("gkind", "warp")).capitalize() if d.has("gkind") and (d["id"] as String).contains("_gate_") else "Warp", Data.SYSTEMS[d["to"]]["name"]]
 		_txt(sel.position + Vector2(14, 60), line, 15, Color(0.85, 0.9, 0.95))
 		if space != null and is_instance_valid(space.player):
-			var n: Node3D = {"station": space.station, "planet": space.planet, "gate": space.gate}[selected]
+			var n: Node3D = _node(selected)
 			_txt(sel.position + Vector2(14, 84), "Distance %.1f km" % (space.distance_to(n) / 1000.0), 15, CYAN)
 	btn_course = Rect2(sel.position.x, sel.end.y + 14, sel.size.x, 62)
 	btn_galaxy = Rect2(sel.position.x, btn_course.end.y + 12, sel.size.x * 0.5 - 5, 62)

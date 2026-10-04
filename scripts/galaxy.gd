@@ -7,96 +7,61 @@ extends RefCounted
 ## Travel tiers: spaceway (in-system highway), warp (the ship), WARP GATE (built, system to system),
 ## JUMP GATE (natural corridor: nebula vortex / gravity rift, often hidden or unstable), RIFT GATE (rare, extreme range).
 
-const PLAYABLE := ["solara", "vega"]
+# galactic units between neighbouring tiles of the 11 x 11 map
+const TILE := 24.0
+const SHADE := {"Unity": 1, "Elyza": 3, "Solarion": 2, "Imperium": 4, "Covenant": 3, "Orion": 2, "Savagers": 2, "Liberator": 1,
+	"Enemy": 4, "Neutral": 0, "Hidden": 4, "Void": 0, "Heart": 4}
 
-# region name, faction, centre (galactic units), spread, member count, shade index (0 pale .. 4 navy)
-const CLUSTERS := [
-	["Liberty Reach", "Unity", Vector3(0, 0, 0), 26.0, 8, 3],
-	["Frontier Drift", "Independent", Vector3(95, 6, -40), 30.0, 10, 2],
-	["Corsair Expanse", "Corsair clans", Vector3(60, -8, 85), 28.0, 8, 4],
-	["Azure Veil", "Uncharted nebula", Vector3(-80, 10, 70), 24.0, 8, 1],
-	["Core Worlds", "Unity Senate", Vector3(-90, -5, -75), 30.0, 12, 4],
-	["Outer Rim", "Unknown", Vector3(10, 14, -150), 40.0, 10, 0],
-]
-const SYLL := ["al", "ar", "bel", "cor", "dra", "el", "fen", "gal", "hal", "ir", "kel", "lun", "mar", "nor", "or", "pra", "quin", "ros", "sel", "tor", "ul", "ver", "xan", "yor", "zen"]
-
-# hand-made spaceways for the playable systems (body ids from Data.SYSTEMS)
+# hand-made spaceways for the hand-made systems (body ids from Data.SYSTEMS)
 const SPACEWAYS := {
 	"solara": [["Liberty Spaceway", "station", "planet"], ["Aquila Lane", "station", "gate"]],
 	"vega": [["Frontier Spaceway", "station", "planet"], ["Ice Run", "station", "gate"]],
 }
 
 static var _cache: Dictionary = {}
+# region name, faction, centre: one label per faction, at the middle of its systems (filled by network())
+static var CLUSTERS: Array = []
 
-## The whole network: {"systems": {id: {...}}, "links": [[a, b, kind], ...]}. Built once from a fixed seed.
+## Where a tile sits in the galaxy view: the map laid flat, north = -Z, with a little height so it reads in 3D.
+static func tile_pos(col: int, row: int, id: String) -> Vector3:
+	return Vector3((col - 5) * TILE, float(hash(id) % 17) - 8.0, (row - 5) * TILE)
+
+## The whole network: {"systems": {id: {...}}, "links": [[a, b, kind], ...]}. Built once from the 11 x 11 map
+## (GalaxyData). Every system on it can be flown to, so all are "playable"; nothing here loads art.
 static func network() -> Dictionary:
 	if not _cache.is_empty(): return _cache
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 20260930
 	var systems := {}
-	var by_cluster: Array = []
-	for ci in CLUSTERS.size():
-		var c: Array = CLUSTERS[ci]
-		var ids: Array = []
-		for k in int(c[4]):
-			var id := ""
-			var nm := ""
-			var pos := Vector3.ZERO
-			if ci == 0 and k == 0:
-				id = "solara"; nm = "Solara"; pos = c[2]
-			elif ci == 0 and k == 1:
-				id = "vega"; nm = "Vega"; pos = c[2] + Vector3(14, 2, -9)
-			else:
-				nm = (SYLL[rng.randi() % SYLL.size()] + SYLL[rng.randi() % SYLL.size()]).capitalize()
-				if rng.randf() < 0.4: nm += " " + ["Prime", "Major", "Minor", "II", "IV", "Reach", "Gate"][rng.randi() % 7]
-				id = "sys_%d_%d" % [ci, k]
-				pos = (c[2] as Vector3) + Vector3(rng.randfn(0, c[3]), rng.randfn(0, c[3] * 0.25), rng.randfn(0, c[3]))
-			systems[id] = {"id": id, "name": nm, "pos": pos, "cluster": c[0], "faction": c[1], "shade": c[5],
-				"star": ["yellow", "white", "blue", "red dwarf", "binary"][rng.randi() % 5],
-				"planets": rng.randi_range(1, 6), "stations": rng.randi_range(0, 3), "spaceways": rng.randi_range(0, 3),
-				"playable": id in PLAYABLE, "discovered": id in PLAYABLE or (ci == 0 and rng.randf() < 0.5)}
-			if id in PLAYABLE:   # real systems report their real contents
-				systems[id]["planets"] = 1
-				systems[id]["stations"] = 1
-				systems[id]["spaceways"] = SPACEWAYS[id].size()
-				systems[id]["star"] = "yellow" if id == "solara" else "blue-white"
-			ids.append(id)
-		by_cluster.append(ids)
+	var sums := {}
+	for t in GalaxyData.TILES:
+		var id: String = t[0]
+		var d: Dictionary = Data.SYSTEMS[id]
+		var pos := tile_pos(t[3], t[4], id)
+		systems[id] = {"id": id, "name": d["name"], "pos": pos, "cluster": t[5], "faction": t[5], "shade": SHADE.get(t[5], 0),
+			"tile": t[2], "star": "small, cold" if t[5] == "Void" else "yellow", "planets": 1, "stations": 1,
+			"spaceways": (SPACEWAYS.get(id, []) as Array).size(), "playable": true, "discovered": id in GS.discovered}
+		if not sums.has(t[5]): sums[t[5]] = [Vector3.ZERO, 0]
+		sums[t[5]][0] += pos
+		sums[t[5]][1] += 1
+	CLUSTERS = []
+	for f in sums:
+		if f in ["Neutral", "Void", "Hidden", "Heart", "Enemy"]: continue
+		CLUSTERS.append([f, f, (sums[f][0] as Vector3) / float(sums[f][1]), TILE * 2.0, sums[f][1], SHADE[f]])
 	var links: Array = []
 	var seen := {}
-	var add := func(a: String, b: String, kind: String):
-		var key := a + "|" + b if a < b else b + "|" + a
-		if seen.has(key): return
-		seen[key] = true
-		links.append([a, b, kind])
-	# warp gates: each system to its nearest neighbours inside its cluster (a connected, built network)
-	for ids in by_cluster:
-		for i in range(1, ids.size()):
-			var best := ""
-			var bd := INF
-			for j in i:
-				var d := (systems[ids[i]]["pos"] as Vector3).distance_to(systems[ids[j]]["pos"])
-				if d < bd:
-					bd = d
-					best = ids[j]
-			add.call(ids[i], best, "warp_gate")
-		for k in maxi(1, ids.size() / 4):   # a few extra gates so the network has loops
-			var a2: String = ids[rng.randi() % ids.size()]
-			var b2: String = ids[rng.randi() % ids.size()]
-			if a2 != b2: add.call(a2, b2, "warp_gate")
-	add.call("solara", "vega", "warp_gate")
-	# jump gates: natural corridors between neighbouring clusters (some hidden)
-	for ci in by_cluster.size():
-		for cj in range(ci + 1, by_cluster.size()):
-			if (CLUSTERS[ci][2] as Vector3).distance_to(CLUSTERS[cj][2]) > 150.0: continue
-			for k in 2:
-				add.call(by_cluster[ci][rng.randi() % by_cluster[ci].size()], by_cluster[cj][rng.randi() % by_cluster[cj].size()], "jump_gate")
-	# rift gates: a few very long links between region hubs
-	add.call("solara", by_cluster[5][0], "rift_gate")
-	add.call(by_cluster[4][0], by_cluster[2][0], "rift_gate")
-	add.call(by_cluster[1][0], by_cluster[3][0], "rift_gate")
+	for id in Data.SYSTEMS:
+		for g in Data.SYSTEMS[id]["gates"]:
+			var a: String = id
+			var b: String = g["to"]
+			var key := a + "|" + b if a < b else b + "|" + a
+			if seen.has(key): continue
+			seen[key] = true
+			links.append([a, b, str(g.get("gkind", "jump")) + "_gate"])
 	_cache = {"systems": systems, "links": links}
 	return _cache
+
+## Call when a new system is charted, so the map shows it as discovered.
+static func refresh() -> void:
+	for id in _cache.get("systems", {}): _cache["systems"][id]["discovered"] = id in GS.discovered
 
 static func links_of(id: String) -> Array:
 	return network()["links"].filter(func(l): return l[0] == id or l[1] == id)
@@ -108,7 +73,9 @@ static func bodies(id: String) -> Array:
 		var s: Dictionary = Data.SYSTEMS[id]
 		out.append({"key": "station", "name": s["station"]["name"], "kind": "station", "pos": s["station"]["pos"]})
 		out.append({"key": "planet", "name": s["planet"]["name"], "kind": "planet", "pos": s["planet"]["pos"]})
-		out.append({"key": "gate", "name": s["gate"]["name"], "kind": "warp gate", "pos": s["gate"]["pos"]})
+		for gi in (s["gates"] as Array).size():
+			var g: Dictionary = s["gates"][gi]
+			out.append({"key": "gate" if gi == 0 else "gate%d" % gi, "name": g["name"], "kind": "%s gate" % g.get("gkind", "jump"), "pos": g["pos"]})
 		return out
 	var sys: Dictionary = network()["systems"][id]
 	var rng := RandomNumberGenerator.new()

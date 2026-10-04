@@ -96,6 +96,9 @@ var station: Node3D
 var carrier: Node3D
 var planet: Node3D
 var gate: Node3D
+var gates: Array = []            # every gate in this system (gate = the first one)
+var gate_portals: Array = []
+var sun_radius: float = Data.SUN_RADIUS   # void systems have a small sun
 var gate_portal: MeshInstance3D
 var gate_standin: Node3D          # the code-made ring, shown until the "structures" pack arrives
 var gate_model: MeshInstance3D    # the owner's jump gate ring (assets/structures/jump_gate_ring.glb)
@@ -135,6 +138,7 @@ var _rng := RandomNumberGenerator.new()
 func setup(id: String, arrival: String) -> void:
 	sys_id = id
 	sys = Data.SYSTEMS[id]
+	sun_radius = Data.SUN_RADIUS * (0.35 if sys.get("small_sun", false) else 1.0)
 	_rng.seed = hash(id)
 	_bolt_mesh = BoxMesh.new()
 	_bolt_mesh.size = Vector3(0.6, 0.6, 14.0)   # bright core
@@ -147,7 +151,12 @@ func setup(id: String, arrival: String) -> void:
 	_prof("station")
 	_build_planet(sys["planet"])
 	_prof("planet")
-	_build_gate(sys["gate"])
+	for gd in sys["gates"]: _build_gate(gd)
+	gate = gates[0]
+	gate_portal = gate_portals[0]
+	gate_standin = gate.get_meta("standin")
+	_gate_model()
+	if gate_model == null and not Packs.pack_ready.is_connected(_on_gate_pack): Packs.pack_ready.connect(_on_gate_pack)
 	_prof("gate")
 	_build_belt(sys["asteroids"])
 	_prof("asteroid belt")
@@ -205,14 +214,18 @@ func place_player(arrival: String) -> void:
 	if arrival == "sunorbit":
 		# climbing out of the star: appear outside its heat zone, on the side facing the system, flying home
 		var sd := sun_pos.normalized()
-		player.global_position = sun_pos - sd * (Data.SUN_RADIUS * Data.SUN_WARN + 300.0)
+		player.global_position = sun_pos - sd * (sun_radius * Data.SUN_WARN + 300.0)
 		_face(-sd)
 		vel = -player.global_basis.z * 30.0
 		_update_camera(1.0, true)
 		return
-	if arrival == "gate":
-		at = gate.global_position + gate.global_basis.z * 90.0
-		face = gate.global_basis.z
+	if arrival.begins_with("gate"):
+		# come out of the gate that leads back to where you came from ("gate:<system>"), else the first gate
+		var ag: Node3D = gate
+		for g in gates:
+			if arrival == "gate:" + str(g.get_meta("info").get("to", "")): ag = g
+		at = ag.global_position + ag.global_basis.z * 150.0
+		face = ag.global_basis.z
 	elif arrival == "planet":
 		at = dock_point(planet) + (dock_point(planet) - planet.global_position).normalized() * 40.0
 		face = (station.global_position - at).normalized()
@@ -238,10 +251,11 @@ func _build_environment() -> void:
 	var pano := PanoramaSkyMaterial.new()
 	_pano = pano
 	# the system's own painted sky (the "sky" pack, assets/sky/<system>.jpg); stars-and-haze made in code until it arrives
-	if Packs.is_ready("sky") and ResourceLoader.exists(sky_path()): pano.panorama = load(sky_path())
+	if Packs.is_ready(sky_pack()) and ResourceLoader.exists(sky_path()): pano.panorama = load(sky_path())
 	else:
 		pano.panorama = _star_panorama(sys["sky_tint"], sys["nebula"]["color"])
 		if not Packs.pack_ready.is_connected(_on_sky_pack): Packs.pack_ready.connect(_on_sky_pack)
+		Packs.request(sky_pack())
 	sky.sky_material = pano
 	e.sky = sky
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
@@ -261,8 +275,8 @@ func _build_environment() -> void:
 	sun_pos = -d * Data.SUN_DIST
 	var core := MeshInstance3D.new()
 	var sm := SphereMesh.new()
-	sm.radius = Data.SUN_RADIUS
-	sm.height = Data.SUN_RADIUS * 2.0
+	sm.radius = sun_radius
+	sm.height = sun_radius * 2.0
 	sm.radial_segments = 48
 	sm.rings = 24
 	core.mesh = sm
@@ -276,10 +290,10 @@ func _build_environment() -> void:
 	add_child(core)
 	sun_core = core
 	sun_body = _placeholder("%s's Star" % sys["name"], "sun", sun_pos, {"id": sys_id + "_sun"})   # the real place: what you fly into
-	sun_body.set_meta("radius", Data.SUN_RADIUS)
+	sun_body.set_meta("radius", sun_radius)
 	var glow := MeshInstance3D.new()
 	var q := QuadMesh.new()
-	q.size = Vector2.ONE * Data.SUN_RADIUS * 6.0
+	q.size = Vector2.ONE * sun_radius * 6.0
 	glow.mesh = q
 	var m := StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -302,9 +316,12 @@ func _build_environment() -> void:
 	add_child(cam)
 
 var _pano: PanoramaSkyMaterial
-func sky_path() -> String: return "res://assets/sky/%s.jpg" % sys_id
+## Hand-made systems keep their sky in the shared "sky" pack; every other system has its own small pack (sky_<id>),
+## fetched when you arrive there, so the game never downloads skies it does not show.
+func sky_pack() -> String: return "sky" if Data.CORE_SYSTEMS.has(sys_id) else "sky_" + sys_id
+func sky_path() -> String: return ("res://assets/sky/%s.jpg" if Data.CORE_SYSTEMS.has(sys_id) else "res://assets/skies/%s.jpg") % sys_id
 func _on_sky_pack(pk: String) -> void:
-	if pk == "sky" and _pano != null and not surface_mode and ResourceLoader.exists(sky_path()): _pano.panorama = load(sky_path())
+	if pk == sky_pack() and _pano != null and not surface_mode and ResourceLoader.exists(sky_path()): _pano.panorama = load(sky_path())
 
 func _star_panorama(tint: Color, band: Color) -> ImageTexture:
 	var w := 1024
@@ -444,26 +461,41 @@ func _station_model() -> void:
 		body.add_child(station_model)
 	sc.free()
 
-func _planet_texture(palette: String) -> ImageTexture:
+# planet type: deep, shallow, land, high, sea level (-1 = no sea), polar caps, cloud cover, atmosphere tint
+const PLANET_LOOKS := {
+	"terran": [Color(0.05, 0.16, 0.42), Color(0.12, 0.42, 0.7), Color(0.25, 0.48, 0.2), Color(0.52, 0.45, 0.32), -0.05, true, 0.75, Color(0.45, 0.7, 1.0)],
+	"jungle": [Color(0.03, 0.2, 0.3), Color(0.08, 0.45, 0.5), Color(0.12, 0.5, 0.18), Color(0.3, 0.6, 0.25), -0.05, true, 0.75, Color(0.45, 1.0, 0.7)],
+	"ocean": [Color(0.02, 0.1, 0.4), Color(0.1, 0.45, 0.8), Color(0.75, 0.7, 0.5), Color(0.3, 0.55, 0.3), 0.28, true, 0.8, Color(0.4, 0.7, 1.0)],
+	"ice": [Color(0.55, 0.7, 0.85), Color(0.75, 0.87, 0.95), Color(0.88, 0.93, 0.98), Color(0.6, 0.72, 0.85), -0.2, true, 0.4, Color(0.7, 0.9, 1.0)],
+	"desert": [Color(0.55, 0.38, 0.2), Color(0.7, 0.5, 0.28), Color(0.82, 0.66, 0.4), Color(0.6, 0.36, 0.22), -1.0, false, 0.15, Color(1.0, 0.75, 0.5)],
+	"lava": [Color(1.0, 0.45, 0.08), Color(0.9, 0.2, 0.05), Color(0.16, 0.1, 0.1), Color(0.3, 0.2, 0.18), -0.18, false, 0.2, Color(1.0, 0.45, 0.25)],
+	"dead": [Color(0.2, 0.2, 0.23), Color(0.3, 0.3, 0.33), Color(0.42, 0.41, 0.42), Color(0.58, 0.56, 0.55), -1.0, false, 0.0, Color(0.5, 0.55, 0.65)],
+	"gas": [Color(0.75, 0.55, 0.35), Color(0.9, 0.75, 0.55), Color(0.6, 0.42, 0.3), Color(0.95, 0.85, 0.7), -1.0, false, 0.0, Color(1.0, 0.85, 0.65)],
+	"city": [Color(0.05, 0.1, 0.22), Color(0.1, 0.2, 0.35), Color(0.35, 0.37, 0.42), Color(0.75, 0.7, 0.5), -0.15, true, 0.5, Color(0.6, 0.8, 1.0)],
+	"crystal": [Color(0.3, 0.15, 0.5), Color(0.5, 0.35, 0.8), Color(0.55, 0.8, 0.9), Color(0.9, 0.75, 1.0), -0.1, false, 0.3, Color(0.8, 0.6, 1.0)],
+	"toxic": [Color(0.15, 0.3, 0.05), Color(0.4, 0.6, 0.1), Color(0.25, 0.28, 0.12), Color(0.6, 0.65, 0.2), -0.05, false, 0.6, Color(0.6, 1.0, 0.3)],
+	"machine": [Color(0.06, 0.07, 0.1), Color(0.12, 0.14, 0.2), Color(0.3, 0.32, 0.38), Color(0.2, 0.75, 0.85), -0.2, false, 0.1, Color(0.4, 0.9, 1.0)],
+}
+
+func _planet_texture(palette: String, seed_text := "") -> ImageTexture:
 	var w := 512
 	var h := 256
+	var look: Array = PLANET_LOOKS.get(palette, PLANET_LOOKS["terran"])
+	var key := palette if seed_text == "" else seed_text      # hand-made planets keep their old look
 	var n := FastNoiseLite.new()
-	n.seed = hash(palette)
+	n.seed = hash(key)
 	n.frequency = 0.012
 	n.fractal_octaves = 4
 	var clouds := FastNoiseLite.new()
-	clouds.seed = hash(palette) + 7
+	clouds.seed = hash(key) + 7
 	clouds.frequency = 0.03
 	var img := Image.create(w, h, false, Image.FORMAT_RGB8)
-	var deep := Color(0.05, 0.16, 0.42)
-	var shallow := Color(0.12, 0.42, 0.7)
-	var land := Color(0.25, 0.48, 0.2)
-	var high := Color(0.52, 0.45, 0.32)
-	if palette == "jungle":
-		deep = Color(0.03, 0.2, 0.3)
-		shallow = Color(0.08, 0.45, 0.5)
-		land = Color(0.12, 0.5, 0.18)
-		high = Color(0.3, 0.6, 0.25)
+	var deep: Color = look[0]
+	var shallow: Color = look[1]
+	var land: Color = look[2]
+	var high: Color = look[3]
+	var sea: float = look[4]
+	var banded: bool = palette == "gas"
 	for y in h:
 		var lat := (float(y) / h - 0.5) * PI
 		for x in w:
@@ -471,11 +503,14 @@ func _planet_texture(palette: String) -> ImageTexture:
 			var p := Vector3(cos(lat) * cos(lon), sin(lat), cos(lat) * sin(lon)) * 180.0
 			var v := n.get_noise_3dv(p)
 			var c: Color
-			if v < -0.05: c = deep.lerp(shallow, clampf((v + 0.5) / 0.45, 0.0, 1.0))
-			else: c = land.lerp(high, clampf(v * 2.2, 0.0, 1.0))
-			if absf(lat) > 1.25: c = c.lerp(Color(0.92, 0.95, 1.0), 0.8)
+			if banded:      # gas giant: colour bands by latitude, stirred a little
+				var b := sin(lat * 9.0 + v * 2.5) * 0.5 + 0.5
+				c = deep.lerp(shallow, b).lerp(high, clampf(v * 1.5, 0.0, 0.6))
+			elif v < sea: c = deep.lerp(shallow, clampf((v + 0.5) / 0.45, 0.0, 1.0))
+			else: c = land.lerp(high, clampf((v - maxf(sea, -0.3)) * 2.2, 0.0, 1.0))
+			if look[5] and absf(lat) > 1.25: c = c.lerp(Color(0.92, 0.95, 1.0), 0.8)
 			var cl := clouds.get_noise_3dv(p)
-			if cl > 0.15: c = c.lerp(Color(1, 1, 1), clampf((cl - 0.15) * 2.2, 0.0, 0.75))
+			if float(look[6]) > 0.0 and cl > 0.15: c = c.lerp(Color(1, 1, 1), clampf((cl - 0.15) * 2.2, 0.0, float(look[6])))
 			img.set_pixel(x, y, c)
 	return ImageTexture.create_from_image(img)
 
@@ -496,7 +531,7 @@ func _build_planet(d: Dictionary) -> void:
 	var mi := MeshInstance3D.new()
 	mi.mesh = sm
 	var m := StandardMaterial3D.new()
-	m.albedo_texture = _planet_texture(d["palette"])
+	m.albedo_texture = _planet_texture(d["palette"], d["id"] if sys.get("generated", false) else "")
 	m.roughness = 0.9
 	mi.material_override = m
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -514,7 +549,7 @@ func _build_planet(d: Dictionary) -> void:
 	sh.code = "shader_type spatial;\nrender_mode unshaded, blend_add, cull_back, depth_draw_never;\nuniform vec4 tint : source_color;\nvoid fragment(){ float f = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0); ALBEDO = tint.rgb * f * 1.6; ALPHA = f; }"
 	var sm2 := ShaderMaterial.new()
 	sm2.shader = sh
-	sm2.set_shader_parameter("tint", Color(0.45, 0.7, 1.0) if d["palette"] == "terran" else Color(0.45, 1.0, 0.7))
+	sm2.set_shader_parameter("tint", PLANET_LOOKS.get(d["palette"], PLANET_LOOKS["jungle"])[7])
 	atm.material_override = sm2
 	atm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	planet.add_child(atm)
@@ -542,64 +577,70 @@ func dock_point(n: Node3D) -> Vector3:
 	return n.global_position + Vector3(0, 0, 150)
 
 func _build_gate(d: Dictionary) -> void:
-	gate = Node3D.new()
-	gate.name = d["name"]
-	gate.position = d["pos"]
-	gate.set_meta("kind", "gate")
-	gate.set_meta("info", d)
-	gate.set_meta("radius", 55.0)
-	add_child(gate)
+	var g := Node3D.new()
+	g.name = d["name"]
+	g.position = d["pos"]
+	g.set_meta("kind", "gate")
+	g.set_meta("info", d)
+	g.set_meta("radius", 55.0)
+	add_child(g)
+	gates.append(g)
 	# face the gate toward the system centre so arrivals come out facing inward
-	var inward: Vector3 = (Vector3(0, 0, -1200) - gate.position)
+	var inward: Vector3 = (Vector3(0, 0, -1200) - g.position)
 	if inward.length() < 10.0: inward = Vector3(0, 0, -1)
-	gate.look_at(gate.position - inward.normalized(), Vector3.UP)
-	gate_standin = Node3D.new()
-	gate.add_child(gate_standin)
+	g.look_at(g.position - inward.normalized(), Vector3.UP)
+	var standin := Node3D.new()
+	g.add_child(standin)
+	g.set_meta("standin", standin)
 	var ring := TorusMesh.new()
 	ring.inner_radius = 44.0
 	ring.outer_radius = 52.0
 	ring.rings = 48
 	ring.ring_segments = 8
-	_mesh(gate_standin, ring, Vector3.ZERO, Color(0.55, 0.6, 0.7), Vector3.ONE, Vector3(90, 0, 0))
+	_mesh(standin, ring, Vector3.ZERO, Color(0.55, 0.6, 0.7), Vector3.ONE, Vector3(90, 0, 0))
 	var box := BoxMesh.new()
 	for i in 6:
 		var a := i * TAU / 6.0
-		_mesh(gate_standin, box, Vector3(cos(a) * 56, sin(a) * 56, 0), Color(0.3, 0.33, 0.4), Vector3(10, 10, 16), Vector3(0, 0, rad_to_deg(a)))
-		_mesh(gate_standin, box, Vector3(cos(a) * 56, sin(a) * 56, 8.5), Color(0.3, 0.85, 1.0), Vector3(4, 4, 1), Vector3.ZERO, true)
-	_gate_model()
-	if gate_model == null and not Packs.pack_ready.is_connected(_on_gate_pack): Packs.pack_ready.connect(_on_gate_pack)
-	gate_portal = MeshInstance3D.new()
+		_mesh(standin, box, Vector3(cos(a) * 56, sin(a) * 56, 0), Color(0.3, 0.33, 0.4), Vector3(10, 10, 16), Vector3(0, 0, rad_to_deg(a)))
+		_mesh(standin, box, Vector3(cos(a) * 56, sin(a) * 56, 8.5), Color(0.3, 0.85, 1.0), Vector3(4, 4, 1), Vector3.ZERO, true)
+	var portal := MeshInstance3D.new()
 	var disc := CylinderMesh.new()
 	disc.top_radius = 44.0
 	disc.bottom_radius = 44.0
 	disc.height = 0.5
 	disc.radial_segments = 40
-	gate_portal.mesh = disc
-	gate_portal.rotation_degrees = Vector3(90, 0, 0)
+	portal.mesh = disc
+	portal.rotation_degrees = Vector3(90, 0, 0)
 	var pm := StandardMaterial3D.new()
 	pm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	pm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	pm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	pm.albedo_texture = _radial_texture(Color(0.35, 0.8, 1.0), 0.0)
+	# portal colour tells the gate type: the old cyan for hand-made gates, green jump, blue warp, purple rift
+	var pc := Color(0.35, 0.8, 1.0)
+	if (d["id"] as String).contains("_gate_"): pc = SystemBuilder.GATE_KINDS[d.get("gkind", "jump")][1]
+	pm.albedo_texture = _radial_texture(pc, 0.0)
 	pm.albedo_color = Color(1, 1, 1, 0.55)
 	pm.cull_mode = BaseMaterial3D.CULL_DISABLED
-	gate_portal.material_override = pm
-	gate.add_child(gate_portal)
+	portal.material_override = pm
+	g.add_child(portal)
+	gate_portals.append(portal)
 
 ## The owner's jump gate ring replaces the code-made ring once the "structures" pack is in.
 func _gate_model() -> void:
-	if gate_model != null or not is_instance_valid(gate_standin): return
+	if gate_model != null or gates.is_empty() or not is_instance_valid(gate_standin): return
 	if not (Packs.is_ready("structures") and ResourceLoader.exists(GATE_RING_PATH)): return
 	var sc := (load(GATE_RING_PATH) as PackedScene).instantiate()
 	var found := sc.find_children("*", "MeshInstance3D", true, false)
 	if not found.is_empty():
-		gate_model = MeshInstance3D.new()
-		gate_model.mesh = (found[0] as MeshInstance3D).mesh
-		gate_model.scale = Vector3.ONE * GATE_RING_SCALE
-		gate_model.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		gate.add_child(gate_model)
-		gate_standin.visible = false
-		gate.set_meta("radius", 2.9 * GATE_RING_SCALE)
+		for g in gates:
+			var mi := MeshInstance3D.new()
+			mi.mesh = (found[0] as MeshInstance3D).mesh
+			mi.scale = Vector3.ONE * GATE_RING_SCALE
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			g.add_child(mi)
+			(g.get_meta("standin") as Node3D).visible = false
+			g.set_meta("radius", 2.9 * GATE_RING_SCALE)
+			if g == gate: gate_model = mi
 	sc.free()
 
 func _on_gate_pack(pk: String) -> void:
@@ -609,7 +650,8 @@ func _on_gate_pack(pk: String) -> void:
 
 ## Jump rings: a short tunnel of glowing rings behind the gate that the ship flies through as it jumps.
 ## Cheap: one shared torus mesh and one unshaded additive material; they light up one after another.
-func show_jump_rings(col: Color, reach: float) -> void:
+func show_jump_rings(col: Color, reach: float, at: Node3D = null) -> void:
+	if at == null: at = gate
 	clear_jump_rings()
 	var tor := TorusMesh.new()
 	tor.inner_radius = 0.9
@@ -630,7 +672,7 @@ func show_jump_rings(col: Color, reach: float) -> void:
 		mi.position = Vector3(0, 0, -reach * k)
 		mi.scale = Vector3.ONE * lerpf(40.0, 16.0, k)
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		gate.add_child(mi)
+		at.add_child(mi)
 		jump_rings.append(mi)
 		var tw := mi.create_tween()
 		tw.tween_interval(0.12 * i)
@@ -1013,7 +1055,7 @@ func _update_sun(dt: float) -> void:
 		return
 	var to := sun_pos - cam.global_position
 	var dist := to.length()
-	var surf := maxf(dist - Data.SUN_RADIUS, 0.0)
+	var surf := maxf(dist - sun_radius, 0.0)
 	var facing := clampf(((-cam.global_basis.z).dot(to / maxf(dist, 1.0)) - 0.82) / 0.18, 0.0, 1.0)
 	var near := clampf(1.0 - surf / Data.SUN_BLOOM_RANGE, 0.0, 1.0)
 	var want := facing * facing * (0.12 + 0.88 * near * near)
@@ -1029,9 +1071,9 @@ func _update_sun(dt: float) -> void:
 		sun_glow.scale = Vector3.ONE * k * (1.0 + 0.9 * sun_flare + 0.06 * sin(time * 1.7))
 	var pd := (sun_pos - player.global_position).length()
 	var was := sun_hazard
-	sun_hazard = 1 if pd < Data.SUN_RADIUS * Data.SUN_WARN else 0
+	sun_hazard = 1 if pd < sun_radius * Data.SUN_WARN else 0
 	if sun_hazard == 1 and was == 0: message.emit("Hull temperature rising — %s" % ("heat shield holding." if GS.heat_shield else "turn away from the star!"))
-	if pd < Data.SUN_RADIUS and controls and not entering:
+	if pd < sun_radius and controls and not entering:
 		if warp_state != "off":   # hitting it at warp is a crash, like a planet
 			sun_hazard = 2
 			message.emit("Warp impact with the star!")
@@ -1803,9 +1845,10 @@ func _update_camera(dt: float, snap: bool) -> void:
 	cam.fov = lerpf(cam.fov, 88.0 if warp_state == "on" else (76.0 if boosting else 70.0), minf(1.0, dt * 2.0))
 
 func _ambient_anim(dt: float) -> void:
-	if is_instance_valid(gate_portal):
-		gate_portal.rotate_object_local(Vector3.UP, dt * 0.8)
-		var pm := gate_portal.material_override as StandardMaterial3D
+	for gp in gate_portals:
+		if not is_instance_valid(gp): continue
+		gp.rotate_object_local(Vector3.UP, dt * 0.8)
+		var pm := gp.material_override as StandardMaterial3D
 		pm.albedo_color.a = 0.4 + 0.15 * sin(time * 2.0)
 
 # ---------------------------------------------------------------- effects
@@ -2124,7 +2167,7 @@ func targetables() -> Array:
 	for e in list: out.append(e["node"])
 	out.append(station)
 	out.append(planet)
-	out.append(gate)
+	for g in gates: out.append(g)
 	return out
 
 func cycle_target() -> void:
@@ -2142,7 +2185,18 @@ func dock_candidate() -> Node3D:
 	return null
 
 func gate_in_range() -> bool:
-	return player.global_position.distance_to(gate.global_position) < GATE_RANGE
+	return player.global_position.distance_to(near_gate().global_position) < GATE_RANGE
+
+## The gate closest to the ship: the one the JUMP button uses.
+func near_gate() -> Node3D:
+	var best: Node3D = gate
+	var bd := INF
+	for g in gates:
+		var d := player.global_position.distance_to(g.global_position)
+		if d < bd:
+			bd = d
+			best = g
+	return best
 
 func distance_to(n: Node3D) -> float:
 	if n == planet: return maxf(0.0, player.global_position.distance_to(planet.global_position) - float(planet.get_meta("radius")))
@@ -2193,6 +2247,7 @@ func setup_surface(pid: String, t: int) -> void:
 	var far := Vector3(0, -1000000, 0)
 	planet = _placeholder(sys["planet"]["name"], "planet", far, sys["planet"])
 	gate = _placeholder(sys["gate"]["name"], "gate", far, sys["gate"])
+	gates = [gate]
 	station = _placeholder("-", "none", far, {})
 	nebula_center = far
 	nebula_radius = 1.0

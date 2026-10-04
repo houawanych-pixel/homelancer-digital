@@ -1,5 +1,6 @@
 type,from,from tile,to,to tile
 jump,Omega,K10,Sigma-19,J10
+jump,Veranthos,F4,Solara,F3
 jump,Aurentum,E2,Velanthos,D2
 jump,Beta-7,A1,Void 6,A2
 jump,Cybernet,A8,Void 3,A7
@@ -17,6 +18,7 @@ jump,Plundros,B8,Cybernet,A8
 jump,Ravage Major,D10,Void 5,D11
 jump,Sanctum Major,I10,Sigma-19,J10
 jump,Selenvar,B2,Void 6,A2
+jump,Solara,F3,Vega,F2
 jump,Techanis,H2,Kronos,H1
 jump,Valdris,J8,Noctyra,K8
 jump,Voidtex,C11,Void 5,D11
@@ -81,7 +83,6 @@ jump,Valdris,J8,Void 4,K9
 jump,Vantara,D6,Ogden,E7
 jump,Velanthos,D2,Void System,C1
 jump,Veranthos,F4,Rimgate,E5
-jump,Veranthos,F4,Vexara,G5
 jump,Zillance Major,B4,Cynthara,A5
 jump,Zillance Major,B4,Farreach Outpost,A3
 jump,Veranthos,F4,THE HEART,F6

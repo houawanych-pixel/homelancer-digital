@@ -2,13 +2,13 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bx52frg3mfh3x"
+uid="uid://drdaafv4kmwri"
 path="res://.godot/imported/enemy_fleet_0.jpg-af7922e70fc8d7c50228985fa7ad09ec.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "5c80109b993182478cd01ae2d46b2e0e"
+"md5": "7805f18651eb27fa6fe8be34b90bf2fc"
 }
 
 [deps]
@@ -33,5 +33,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=512
+process/size_limit=0
 detect_3d/compress_to=1
