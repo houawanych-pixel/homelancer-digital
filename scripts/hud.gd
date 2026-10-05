@@ -723,12 +723,26 @@ func _draw() -> void:
 				var e2: Dictionary = space._enemy_entry(tgt)
 				if not e2.is_empty(): _enemy_bars(tp + Vector2(-40, 38), 80.0, 7.0, e2, true)
 				if not e2.is_empty():
-					var d: float = space.player.global_position.distance_to(tgt.global_position)
-					var lp = _screen(tgt.global_position + (e2["vel"] as Vector3) * (d / float(GS.weapon()["speed"])))
-					if lp != null:
-						draw_arc(lp, 11, 0, TAU, 24, Color(RED, 0.95), 2.0)
-						draw_line(lp + Vector2(-5, 0), lp + Vector2(5, 0), RED, 2)
-						draw_line(lp + Vector2(0, -5), lp + Vector2(0, 5), RED, 2)
+					# Job M: the aim box. Put the reticle on it and the shots meet the enemy where it is going.
+					var lp = _screen(space.lead_point(tgt))
+					if lp != null and space.distance_to(tgt) < float(GS.weapon()["range"]) * Data.LEAD_BOX_RANGE:
+						var on: bool = lp.distance_to(S * 0.5) < Data.LEAD_BOX_ON
+						var lc := GREEN if on else GOLD
+						var hs: float = Data.LEAD_BOX_SIZE
+						draw_line(tp, lp, Color(lc, 0.35), 1.5)
+						draw_rect(Rect2(lp - Vector2(hs, hs), Vector2(hs, hs) * 2.0), Color(lc, 0.95), false, 2.5)
+						draw_circle(lp, 2.5, lc)
+					# Job M: missile locks: one pip per lock the fitted rack can hold, filled as they come
+					var item := "light_missile" if "light_missile" in GS.slots else "heavy_missile"
+					var cap: int = mini(GS.max_locks(item), GS.slot_ammo(item))
+					var got: int = space.lock_count(item)
+					for k in cap:
+						var pc: Vector2 = tp + Vector2((k - (cap - 1) * 0.5) * 16.0, -46.0)
+						var dia := PackedVector2Array([pc + Vector2(0, -6), pc + Vector2(6, 0), pc + Vector2(0, 6), pc + Vector2(-6, 0)])
+						if k < got: draw_colored_polygon(dia, RED)
+						dia.append(dia[0])
+						draw_polyline(dia, Color(RED, 0.95), 1.5)
+					if got > 0: _text(tp + Vector2(-60, -74), "LOCK %d" % got, 14, RED, HORIZONTAL_ALIGNMENT_CENTER, 120)
 		elif tgt.get_meta("kind", "") != "enemy":
 			_edge_arrow(tgt.global_position, GOLD, view, true)
 	if space.warp_state == "on":
@@ -752,6 +766,9 @@ func _draw() -> void:
 		_text(Vector2(0, S.y * 0.5 - 100), "NO HEAT SHIELD — CLIMB OUT NOW" if space.sun_surface else "TURN AWAY FROM THE STAR", 24, RED, HORIZONTAL_ALIGNMENT_CENTER, S.x)
 	elif space.sun_surface and space.heat_shielded:
 		_text(Vector2(0, 182), "HEAT SHIELD HOLDING", 15, Color(1.0, 0.85, 0.4), HORIZONTAL_ALIGNMENT_CENTER, S.x)
+	if space.missile_warn >= 0.0 and fmod(t, 0.4) < 0.28:   # Job M
+		_text(Vector2(0, S.y * 0.5 - 98), "MISSILE  %d m" % int(space.missile_warn), 26, RED, HORIZONTAL_ALIGNMENT_CENTER, S.x)
+		_text(Vector2(0, S.y * 0.5 - 76), "BOOST SIDEWAYS NOW" if space.missile_warn < Data.DODGE_RANGE else "TURN SIDEWAYS · BOOST WHEN IT IS CLOSE", 16, RED, HORIZONTAL_ALIGNMENT_CENTER, S.x)
 	if space.planet_hazard > 0 and fmod(t, 0.5) < 0.32:
 		_text(Vector2(0, S.y * 0.5 - 132), "PLANETARY MASS DETECTED", 34, RED, HORIZONTAL_ALIGNMENT_CENTER, S.x)
 		_text(Vector2(0, S.y * 0.5 - 100), "DROP WARP NOW", 24, RED, HORIZONTAL_ALIGNMENT_CENTER, S.x)
@@ -806,7 +823,11 @@ func _draw() -> void:
 		var ammo := GS.slot_ammo(item)
 		var scol := ORANGE if item == "light_missile" else (RED if item == "heavy_missile" else GOLD)
 		var cdk: float = (space.mine_cd / 2.5) if item == "mine" else (space.missile_cd / 1.2)
-		_corner("slot_%d" % k, it["label"], it["icon"], scol, false, "%d" % ammo, cdk, space.warp_active(), it["sub"])
+		var ssub: String = it["sub"]
+		if item != "mine":   # Job M: how many this button fires, and the locks held right now
+			var lk: int = space.lock_count(item)
+			ssub = "LOCK %d/%d" % [lk, GS.max_locks(item)] if lk > 0 else "MISSILE ×%d" % GS.max_locks(item)
+		_corner("slot_%d" % k, it["label"], it["icon"], scol, false, "%d" % ammo, cdk, space.warp_active(), ssub)
 	var mech: bool = GS.form == "mech"
 	_corner("thrust", "BOOST" if mech else "THRUST", "thrust", ORANGE, space.boosting, "", 0.0, false, "STICK = DASH" if mech else "")
 	_corner("kill", "KILL", "kill", GOLD, space.engine_kill, "", 0.0, mech, "DRIFTING" if space.engine_kill else "ENGINE")

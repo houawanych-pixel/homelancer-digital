@@ -16,6 +16,8 @@ var repairs := Data.MAX_REPAIRS
 var missiles := 6
 var heavy_missiles := 2
 var mines := 3
+var rack := "triple"            # missile rack on the LIGHT slot (Data.MISSILE_RACKS)
+var owned_racks := ["triple"]
 var slots: Array = Data.DEFAULT_SLOTS.duplicate()
 var shield_charges := Data.MAX_SHIELD_CHARGES
 var energy_cells := Data.MAX_ENERGY_CELLS
@@ -120,6 +122,22 @@ func slot_ammo(item: String) -> int:
 		"heavy_missile": return heavy_missiles
 		"mine": return mines
 	return 0
+
+## Buy a missile rack, or fit one you already own.
+func buy_rack(id: String) -> String:
+	var r: Dictionary = Data.MISSILE_RACKS[id]
+	if not (id in owned_racks):
+		if credits < int(r["price"]): return "Not enough credits (%d needed)." % int(r["price"])
+		credits -= int(r["price"])
+		owned_racks.append(id)
+	rack = id
+	changed.emit()
+	return "%s fitted: %d locks per volley." % [r["name"], int(r["locks"])]
+
+## Most locks a slot item can hold on one target.
+func max_locks(item: String) -> int:
+	if item == "heavy_missile": return Data.HEAVY_LOCKS
+	return int(Data.MISSILE_RACKS.get(rack, Data.MISSILE_RACKS["triple"])["locks"])
 
 func buy_mines(n: int) -> String:
 	var room := max_mines() - mines

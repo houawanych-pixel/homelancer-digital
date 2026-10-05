@@ -5,7 +5,7 @@ extends RefCounted
 
 # key -> [glb path, target length, extra yaw degrees applied after import]
 const GLB := {
-	"cadet": ["res://assets/ships/player/cadet_ship.glb", 9.0, 0.0],
+	"cadet": ["res://assets/ships/player/cadet_ship.glb", 9.0, 180.0],   # v1.4j: turned round, the nose was pointing at the camera
 	"ranger": ["res://assets/ships/player/ranger.glb", 10.5, 0.0],
 	"lancer": ["res://assets/ships/player/lancer.glb", 12.0, 0.0],
 	"bulk_empty": ["res://assets/ships/player/bulk_empty.glb", 19.0, 0.0],

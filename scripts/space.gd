@@ -35,6 +35,7 @@ var repair_cd := 0.0
 var missile_cd := 0.0
 var mine_cd := 0.0
 var lock_time := 0.0
+var enemy_dodge_chance := Data.ENEMY_DODGE_CHANCE
 var mines_live: Array = []
 var loot: Array = [] # {node, vel, value, life}
 var tractor_t := 0.0
@@ -125,6 +126,11 @@ var traffic: Array = []
 var tanker: Node3D           # the big liquid tanker by the planet
 var bolts: Array = []
 var missiles_live: Array = []
+var enemy_missiles: Array = []    # Job M: missiles flying at the player
+var volley_queue: Array = []      # Job M: the rest of a volley, launched VOLLEY_GAP apart
+var missile_warn := -1.0          # distance of the nearest missile homing on you (-1 = none)
+var missiles_evaded := 0          # enemy missiles you shook off
+var enemy_evades := 0             # your missiles an enemy shook off
 var effects: Array = []
 var popups: Array = [] # floating damage numbers: {pos, text, col, life}
 var target: Node3D = null
@@ -1572,6 +1578,12 @@ func _in_fire_cone(t: Node3D) -> bool:
 	if to.length() > float(w["range"]): return false
 	return (-player.global_basis.z).dot(to.normalized()) > cos(deg_to_rad(8.0))
 
+## Where to aim so the guns hit the target: its position plus how far it moves (relative to you) while the bolt flies.
+func lead_point(t: Node3D) -> Vector3:
+	var tv: Vector3 = _enemy_entry(t).get("vel", Vector3.ZERO)
+	var d := t.global_position.distance_to(player.global_position)
+	return t.global_position + (tv - vel) * (d / float(GS.weapon()["speed"]))
+
 func _fire_guns() -> void:
 	var w: Dictionary = GS.weapon()
 	gun_cd = 1.0 / float(w["rate"])
@@ -1582,9 +1594,7 @@ func _fire_guns() -> void:
 	if target and is_instance_valid(target) and target.get_meta("kind", "") == "enemy":
 		var to := target.global_position - player.global_position
 		if fwd.dot(to.normalized()) > cos(deg_to_rad(10.0)):
-			var tv: Vector3 = _enemy_entry(target).get("vel", Vector3.ZERO)
-			var lead := target.global_position + tv * (to.length() / float(w["speed"]))
-			aim_dir = (lead - player.global_position).normalized()
+			aim_dir = (lead_point(target) - player.global_position).normalized()
 	for g in guns:
 		var off := (g - (guns - 1) / 2.0) * 2.4
 		if off < -0.1 and GS.wing_l <= 0.0: continue   # left wing gone: its guns are gone
@@ -1650,9 +1660,28 @@ func _glow_mat(col: Color) -> StandardMaterial3D:
 	_glow_mats[k] = m
 	return m
 
-func fire_missile(heavy := false) -> bool:
+## Locks held right now for a slot item ("light_missile" / "heavy_missile"): one per LOCK_STEP seconds on target,
+## up to what the rack holds and the ammo left.
+func lock_count(item := "light_missile") -> int:
+	var ammo := GS.heavy_missiles if item == "heavy_missile" else GS.missiles
+	return mini(mini(GS.max_locks(item), int(lock_time / Data.LOCK_STEP)), ammo)
+
+## Fire `count` missiles at the target: the first now, the rest VOLLEY_GAP apart, fanned out.
+func fire_volley(heavy: bool, count: int) -> int:
+	count = clampi(count, 1, GS.heavy_missiles if heavy else GS.missiles)
+	var scale := 1.0 if heavy else float(Data.MISSILE_RACKS.get(GS.rack, Data.MISSILE_RACKS["triple"])["damage"])
+	if count <= 1 and not heavy: scale = 1.0   # a single shot without locks is a full-strength missile
+	if not fire_missile(heavy, 0, count, scale): return 0
+	var t = missiles_live[-1]["target"]
+	for k in range(1, count):
+		volley_queue.append({"t": Data.VOLLEY_GAP * k, "heavy": heavy, "k": k, "n": count, "scale": scale, "target": t})
+	lock_time = 0.0
+	return count
+
+func fire_missile(heavy := false, k := 0, n := 1, scale := 1.0, forced: Node3D = null) -> bool:
 	if (GS.heavy_missiles if heavy else GS.missiles) <= 0: return false
 	var t := target if (target and is_instance_valid(target) and target.get_meta("kind", "") == "enemy") else null
+	if forced != null and is_instance_valid(forced): t = forced
 	if t == null: t = _nearest_enemy(900.0)
 	if t == null:
 		message.emit("No hostile target for missile lock.")
@@ -1662,6 +1691,18 @@ func fire_missile(heavy := false) -> bool:
 	var te := _enemy_entry(t)
 	if te.has("pilot"): _chatter(te, "missile_incoming", true)
 	GS.changed.emit()
+	var mi := _missile_node(heavy)
+	add_child(mi)
+	mi.global_position = player.global_position - player.global_basis.y * 1.5
+	var fan := Vector3.ZERO   # a volley fans out left/right and a little up
+	if n > 1:
+		var a := (float(k) / float(n - 1) - 0.5) * 2.0
+		fan = (player.global_basis.x * a + player.global_basis.y * (1.0 - absf(a)) * 0.5) * Data.VOLLEY_SPREAD
+	missiles_live.append({"node": mi, "vel": -player.global_basis.z * 90.0 + vel + fan, "target": t, "life": 7.0, "heavy": heavy, "scale": scale})
+	Sfx.play("missile", -4.0 if k == 0 else -9.0)
+	return true
+
+func _missile_node(heavy: bool) -> Node3D:
 	var mi: Node3D
 	if ShipFactory.has_real_model("missile"):
 		mi = ShipFactory.build("missile")
@@ -1682,11 +1723,7 @@ func fire_missile(heavy := false) -> bool:
 		mi = box
 	if heavy: mi.scale = Vector3.ONE * 1.5
 	_add_missile_flame(mi)
-	add_child(mi)
-	mi.global_position = player.global_position - player.global_basis.y * 1.5
-	missiles_live.append({"node": mi, "vel": -player.global_basis.z * 90.0 + vel, "target": t, "life": 7.0, "heavy": heavy})
-	Sfx.play("missile", -4.0)
-	return true
+	return mi
 
 ## Exhaust flame out of the missile's tail (+Z): a hot inner cone and a wider outer cone that flicker.
 func _add_missile_flame(mi: Node3D) -> void:
@@ -1754,7 +1791,71 @@ func _seg_hit(a: Vector3, b: Vector3, c: Vector3, r: float) -> bool:
 	if l2 > 0.0: t = clampf((c - a).dot(ab) / l2, 0.0, 1.0)
 	return (a + ab * t).distance_to(c) < r
 
+## Speed across the line from a missile to its target: what shakes a missile off.
+func side_speed(v: Vector3, line: Vector3) -> float:
+	if line.length() < 0.01: return 0.0
+	var l := line.normalized()
+	return (v - l * v.dot(l)).length()
+
+func _missile_trail(n: Node3D) -> void:
+	for c in n.get_children():
+		if c.name.begins_with("Flame"): c.scale = Vector3(1.0, 0.8 + _rng.randf() * 0.45, 1.0)
+	var tail := n.global_position + n.global_basis.z * 2.2
+	_spark_v(tail, n.global_basis.z * 6.0, Color(1.0, 0.62, 0.25), 4.5, 0.55)
+	if int(time * 60.0) % 3 == 0: _spark_v(tail, n.global_basis.z * 3.0 + Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), _rng.randfn(0, 1)), Color(0.55, 0.55, 0.6), 5.0, 1.2)
+
+## An enemy launches a homing missile at the player.
+func enemy_fire_missile(e: Dictionary) -> void:
+	var n: Node3D = e["node"]
+	var mi := _missile_node(false)
+	add_child(mi)
+	mi.global_position = n.global_position - n.global_basis.y * 1.5 - n.global_basis.z * 4.0
+	enemy_missiles.append({"node": mi, "vel": -n.global_basis.z * 80.0 + (e["vel"] as Vector3), "life": Data.ENEMY_MISSILE_LIFE, "lost": false})
+	if n.global_position.distance_to(player.global_position) < 700.0: Sfx.play("missile", -8.0, 0.8)
+	message.emit("Missile incoming — boost sideways!")
+
+## Missiles homing on the player. Inside DODGE_RANGE a fast sideways move (a boost across its path, or an
+## engine-kill slide after one) breaks the lock and the missile flies on straight.
+func _update_enemy_missiles(dt: float) -> void:
+	missile_warn = -1.0
+	for i in range(enemy_missiles.size() - 1, -1, -1):
+		var m: Dictionary = enemy_missiles[i]
+		var n: Node3D = m["node"]
+		var v: Vector3 = m["vel"]
+		var rel := player.global_position - n.global_position
+		var dist := rel.length()
+		var done := false
+		if not m["lost"] and controls:
+			v = v.lerp(rel.normalized() * Data.ENEMY_MISSILE_SPEED, minf(1.0, dt * Data.ENEMY_MISSILE_TURN))
+			if dist < Data.DODGE_RANGE and side_speed(vel, rel) > Data.DODGE_SIDE_FRAC * float(GS.ship()["speed"]):
+				m["lost"] = true
+				missiles_evaded += 1
+				message.emit("Missile evaded!")
+			else:
+				if missile_warn < 0.0 or dist < missile_warn: missile_warn = dist
+				if dist < Data.ENEMY_MISSILE_HIT:
+					_player_hit(Data.ENEMY_MISSILE_DAMAGE, n.global_position)
+					_spark(n.global_position, Color(1, 0.6, 0.2), 8.0)
+					Sfx.play("explosion", -8.0, 1.3)
+					done = true
+		m["vel"] = v
+		n.global_position += v * dt
+		if v.length() > 0.1: n.look_at(n.global_position + v, Vector3.UP)
+		m["life"] -= dt
+		_missile_trail(n)
+		if done or m["life"] <= 0.0:
+			n.queue_free()
+			enemy_missiles.remove_at(i)
+
 func _update_missiles(dt: float) -> void:
+	_update_enemy_missiles(dt)
+	for i in range(volley_queue.size() - 1, -1, -1):
+		var q: Dictionary = volley_queue[i]
+		q["t"] -= dt
+		if q["t"] <= 0.0:
+			volley_queue.remove_at(i)
+			var qt = q["target"]
+			if controls and is_instance_valid(qt): fire_missile(q["heavy"], q["k"], q["n"], q["scale"], qt)
 	for i in range(missiles_live.size() - 1, -1, -1):
 		var m: Dictionary = missiles_live[i]
 		var n: Node3D = m["node"]
@@ -1762,29 +1863,43 @@ func _update_missiles(dt: float) -> void:
 		var t: Node3D = tv if is_instance_valid(tv) else null
 		var v: Vector3 = m["vel"]
 		if is_instance_valid(t):
-			var want := (t.global_position - n.global_position).normalized() * 190.0
-			v = v.lerp(want, minf(1.0, dt * 2.6))
+			var rel := t.global_position - n.global_position
+			v = v.lerp(rel.normalized() * Data.MISSILE_SPEED, minf(1.0, dt * Data.MISSILE_TURN))
+			var te := _enemy_entry(t)
+			if not te.is_empty():
+				# the enemy may try a side-boost as the missile closes in; moving sideways fast enough shakes it off
+				if rel.length() < Data.DODGE_RANGE and not m.get("rolled", false):
+					m["rolled"] = true
+					if float(te.get("dodge_t", 0.0)) <= 0.0 and _rng.randf() < enemy_dodge_chance:
+						var sd := v.cross(Vector3.UP).normalized() * (1.0 if _rng.randf() < 0.5 else -1.0)
+						te["dodge_t"] = Data.ENEMY_DODGE_TIME
+						te["dodge_dir"] = sd if sd.length() > 0.5 else Vector3.RIGHT
+				if rel.length() < Data.DODGE_RANGE and side_speed(te["vel"], rel) > Data.DODGE_SIDE_FRAC * float(te["def"]["speed"]):
+					m["target"] = null
+					t = null
+					enemy_evades += 1
+					_popup(te["node"].global_position, "EVADED", Color(0.7, 0.9, 1.0))
 		m["vel"] = v
 		n.global_position += v * dt
 		if v.length() > 0.1: n.look_at(n.global_position + v, Vector3.UP)
 		m["life"] -= dt
-		for c in n.get_children():
-			if c.name.begins_with("Flame"): c.scale = Vector3(1.0, 0.8 + _rng.randf() * 0.45, 1.0)
-		# glowing exhaust trail that fades behind the missile, with a little grey smoke
-		var tail := n.global_position + n.global_basis.z * 2.2
-		_spark_v(tail, n.global_basis.z * 6.0, Color(1.0, 0.62, 0.25), 4.5, 0.55)
-		if int(time * 60.0) % 3 == 0: _spark_v(tail, n.global_basis.z * 3.0 + Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), _rng.randfn(0, 1)), Color(0.55, 0.55, 0.6), 5.0, 1.2)
+		_missile_trail(n)
 		var done: bool = m["life"] <= 0.0
 		if is_instance_valid(t) and n.global_position.distance_to(t.global_position) < 9.0:
 			var e := _enemy_entry(t)
 			if not e.is_empty():
-				var dmg := Data.HEAVY_MISSILE_DAMAGE if m.get("heavy", false) else maxf(Data.MISSILE_DAMAGE, float(e["max"]) * Data.LIGHT_MISSILE_HULL_FRAC)
-				_damage_enemy(e, dmg)
+				_damage_enemy(e, missile_damage(e, m.get("heavy", false), float(m.get("scale", 1.0))))
 			_spark(n.global_position, Color(1, 0.6, 0.2), 12.0 if m.get("heavy", false) else 8.0)
 			done = true
 		if done:
 			n.queue_free()
 			missiles_live.remove_at(i)
+
+## Heavy: hits hard (at least HEAVY_MISSILE_HULL_FRAC of the hull). Light: MISSILE_DAMAGE or 30 % of the hull,
+## times the rack's damage share (a swarm missile is lighter).
+func missile_damage(e: Dictionary, heavy: bool, scale := 1.0) -> float:
+	if heavy: return maxf(Data.HEAVY_MISSILE_DAMAGE, float(e["max"]) * Data.HEAVY_MISSILE_HULL_FRAC)
+	return maxf(Data.MISSILE_DAMAGE, float(e["max"]) * Data.LIGHT_MISSILE_HULL_FRAC) * scale
 
 func _enemy_entry(n: Node3D) -> Dictionary:
 	for e in enemies:
@@ -1950,7 +2065,16 @@ func _update_enemies(dt: float) -> void:
 			n.look_at(n.global_position + new_fwd, Vector3.UP)
 		var sp: float = d["speed"] * (1.0 if e["aggro"] else 0.5) * (1.4 if warp_state == "charging" else 1.0)
 		e["vel"] = (e["vel"] as Vector3).lerp(-n.global_basis.z * sp, minf(1.0, dt * 1.5))
+		if float(e.get("dodge_t", 0.0)) > 0.0:   # Job M: side-boost out of a missile's path
+			e["dodge_t"] = float(e["dodge_t"]) - dt
+			e["vel"] = (e["dodge_dir"] as Vector3) * float(d["speed"]) * Data.ENEMY_DODGE_BOOST
 		n.global_position += e["vel"] * dt
+		if d.get("missiles", false) and e["aggro"] and controls and warp_state != "on" and dist < Data.ENEMY_MISSILE_RANGE:
+			if not e.has("mcd"): e["mcd"] = _rng.randf_range(Data.ENEMY_MISSILE_EVERY[0], Data.ENEMY_MISSILE_EVERY[1]) * 0.5
+			e["mcd"] = float(e["mcd"]) - dt
+			if e["mcd"] <= 0.0 and (-n.global_basis.z).dot(to.normalized()) > 0.5:
+				e["mcd"] = _rng.randf_range(Data.ENEMY_MISSILE_EVERY[0], Data.ENEMY_MISSILE_EVERY[1])
+				enemy_fire_missile(e)
 		# shooting
 		e["cd"] -= dt
 		e["core_cd"] -= dt
@@ -2250,9 +2374,10 @@ func trigger_system(id: String) -> bool:
 			var heavy := id == "heavy_missile"
 			if (GS.heavy_missiles if heavy else GS.missiles) <= 0:
 				return _say(id, "No %s missiles left — buy more at Equipment." % ("heavy" if heavy else "light"))
-			if fire_missile(heavy):
+			var shots := fire_volley(heavy, maxi(1, lock_count("heavy_missile" if heavy else "light_missile")))
+			if shots > 0:
 				missile_cd = 1.2
-				system_used.emit(id, "%s missile away." % ("Heavy" if heavy else "Light"))
+				system_used.emit(id, "%s missile away." % ("Heavy" if heavy else "Light") if shots == 1 else "%d missiles away." % shots)
 				return true
 			return false
 		"mine":
@@ -2268,11 +2393,11 @@ func _auto_systems(_dt: float) -> void:
 	if GS.is_auto("hull") and GS.hull < GS.max_hull() * 0.35 and GS.repairs > 0 and repair_cd <= 0.0: trigger_system("hull")
 	if GS.is_auto("energy") and GS.energy < Data.ENERGY_MAX * 0.15 and GS.energy_cells > 0 and energy_cd <= 0.0: trigger_system("energy")
 	# missiles: after holding a hostile in the reticle for 1.5 s
-	if _in_fire_cone(target) or (target and target.get_meta("kind", "") == "enemy" and _cone(target, 15.0, 800.0)):
+	if _in_fire_cone(target) or (target and target.get_meta("kind", "") == "enemy" and _cone(target, Data.LOCK_CONE_DEG, Data.LOCK_RANGE)):
 		lock_time += _dt
 	else:
 		lock_time = 0.0
-	if GS.is_auto("missile") and lock_time > 1.5 and GS.missiles > 0 and missile_cd <= 0.0:
+	if GS.is_auto("missile") and lock_time > 1.5 and lock_count() >= mini(GS.max_locks("light_missile"), GS.missiles) and GS.missiles > 0 and missile_cd <= 0.0:
 		if trigger_system("missile"): missile_cd = 5.0
 	# mines: drop one when a hostile is chasing close behind
 	if GS.is_auto("mine") and GS.mines > 0 and mine_cd <= 0.0:
@@ -2618,7 +2743,7 @@ func _build_surface_env() -> void:
 func load_tile(t: int, keep := Vector3.INF) -> void:
 	tile = t
 	var pp := player.global_position if is_instance_valid(player) else Vector3.ZERO
-	for arr in [enemies, loot, missiles_live, mines_live, bolts]:
+	for arr in [enemies, loot, missiles_live, enemy_missiles, mines_live, bolts]:
 		for i in range(arr.size() - 1, -1, -1):
 			var d: Dictionary = arr[i]
 			var nd: Node3D = d["node"]

@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.4i"
+const VERSION := "v1.4j"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -105,6 +105,38 @@ const COLLIDE_FLASH_MAX := 0.6        # ... and for the hardest
 const COLLIDE_SFX_DB_SOFT := -14.0    # hit sound volume for a soft hit ...
 const COLLIDE_SFX_DB_HARD := -2.0     # ... and a hard one
 
+# ---------------------------------------------------------------- Job M (v1.4j): lead box, missile locks, dodging
+const LEAD_BOX_SIZE := 14.0           # half-width (px) of the aim box drawn ahead of the targeted enemy
+const LEAD_BOX_RANGE := 1.6           # the box shows inside this x your gun range
+const LEAD_BOX_ON := 16.0             # px: reticle this close to the box centre = "on target" (box turns green)
+const LOCK_CONE_DEG := 15.0           # keep the target inside this cone to build missile locks
+const LOCK_RANGE := 800.0
+const LOCK_STEP := 0.5                # seconds per lock
+const HEAVY_LOCKS := 1                # heavy missile: one lock, hits hard
+const HEAVY_MISSILE_HULL_FRAC := 0.6  # heavy does at least this share of the target's hull
+# the rack on the LIGHT slot. "triple" comes with every ship; "swarm" is bought at Equipment.
+const MISSILE_RACKS := {
+	"triple": {"name": "Triple Rack", "price": 0, "locks": 3, "damage": 1.0, "desc": "Locks three missiles on one target."},
+	"swarm": {"name": "Swarm Rack", "price": 1800, "locks": 5, "damage": 0.6, "desc": "Locks five lighter missiles on one target."},
+}
+const RACK_ORDER := ["triple", "swarm"]
+const VOLLEY_GAP := 0.12              # seconds between missiles of one volley
+const VOLLEY_SPREAD := 26.0           # sideways launch speed so a volley fans out
+const MISSILE_SPEED := 190.0
+const MISSILE_TURN := 2.6             # how hard a missile steers (higher = harder to shake)
+const DODGE_RANGE := 250.0            # a missile can only be shaken inside this distance (boost too early and it just follows you)
+const DODGE_SIDE_FRAC := 1.15         # ...by moving sideways faster than this x your normal top speed (needs boost)
+const ENEMY_DODGE_CHANCE := 0.3       # chance an enemy tries a side-boost when your missile closes in
+const ENEMY_DODGE_TIME := 0.7
+const ENEMY_DODGE_BOOST := 2.0        # x its normal speed, sideways
+const ENEMY_MISSILE_EVERY := [12.0, 20.0]   # seconds between missiles from one enemy (types with "missiles": true)
+const ENEMY_MISSILE_RANGE := 600.0
+const ENEMY_MISSILE_DAMAGE := 22.0
+const ENEMY_MISSILE_SPEED := 125.0
+const ENEMY_MISSILE_TURN := 1.8
+const ENEMY_MISSILE_LIFE := 8.0
+const ENEMY_MISSILE_HIT := 7.0        # hit radius
+
 # ---------------------------------------------------------------- ships
 # model: key understood by ShipFactory. "cadet_glb" etc. load real GLBs when present under assets/ships/.
 const SHIPS := {
@@ -189,9 +221,9 @@ const REPAIR_AMOUNT := 0.4 # fraction of max hull
 # ---------------------------------------------------------------- enemies
 const ENEMIES := {
 	"raider": {"name": "Raider", "hull": 60.0, "shield": 30.0, "speed": 44.0, "turn": 1.3, "damage": 5.0, "rate": 1.6, "reward": 150},
-	"corsair": {"name": "Corsair", "model": "enemy2", "hull": 90.0, "shield": 50.0, "speed": 48.0, "turn": 1.4, "damage": 6.0, "rate": 1.9, "reward": 220},
+	"corsair": {"name": "Corsair", "model": "enemy2", "hull": 90.0, "shield": 50.0, "speed": 48.0, "turn": 1.4, "damage": 6.0, "rate": 1.9, "reward": 220, "missiles": true},
 	# assault mech: two arm guns + a chest cannon; flies with the raiders/corsairs
-	"mech": {"name": "Assault Mech", "hull": 120.0, "shield": 40.0, "speed": 40.0, "turn": 1.2, "damage": 6.0, "rate": 1.4, "reward": 280, "model": "mech_tan", "mech": true},
+	"mech": {"name": "Assault Mech", "hull": 120.0, "shield": 40.0, "speed": 40.0, "turn": 1.2, "damage": 6.0, "rate": 1.4, "reward": 280, "model": "mech_tan", "mech": true, "missiles": true},
 }
 
 # ---------------------------------------------------------------- star systems

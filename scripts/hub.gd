@@ -224,7 +224,16 @@ func _hub_page() -> void:
 	v.add_child(tips)
 
 func _equipment_page() -> void:
-	var v := _page_box()
+	var outer := _page_box()
+	var scroll := ScrollContainer.new()      # v1.4j: the missile racks made the list taller than the screen: drag it
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	outer.add_child(scroll)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 10)
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(v)
 	var cap := _label(16, CYAN)
 	cap.text = "GUNS  ·  your %s carries %d hardpoints. Damage shown per shot." % [GS.ship()["name"], GS.ship()["guns"]]
 	v.add_child(cap)
@@ -262,10 +271,27 @@ func _equipment_page() -> void:
 		b2.pressed.connect(func(): status.text = GS.buy_missiles(n); show_screen("equipment"))
 		row2.add_child(b2)
 	v.add_child(row2)
+	for rid in Data.RACK_ORDER:   # Job M: missile racks for the LIGHT slot
+		var rk: Dictionary = Data.MISSILE_RACKS[rid]
+		var rr := HBoxContainer.new()
+		rr.add_theme_constant_override("separation", 14)
+		var rl := _label(18, Color(1, 1, 1))
+		rl.text = "%s   ·   %d locks   ·   %d%% damage each" % [rk["name"], int(rk["locks"]), int(float(rk["damage"]) * 100.0)]
+		rl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		rr.add_child(rl)
+		var rb := Button.new()
+		rb.name = "Rack_" + rid
+		rb.custom_minimum_size = Vector2(234, 54)
+		if rid == GS.rack: rb.text = "FITTED"; rb.disabled = true
+		elif rid in GS.owned_racks: rb.text = "FIT"
+		else: rb.text = "BUY  %d cr" % int(rk["price"]); rb.disabled = GS.credits < int(rk["price"])
+		rb.pressed.connect(func(): status.text = GS.buy_rack(rid); show_screen("equipment"))
+		rr.add_child(rb)
+		v.add_child(rr)
 	var rowh := HBoxContainer.new()
 	rowh.add_theme_constant_override("separation", 14)
 	var hl := _label(18, Color(1, 1, 1))
-	hl.text = "Heavy missiles   ·   %d/%d loaded   ·   %d cr each   ·   dmg %d" % [GS.heavy_missiles, GS.max_heavy(), Data.HEAVY_MISSILE_PRICE, int(Data.HEAVY_MISSILE_DAMAGE)]
+	hl.text = "Heavy missiles   ·   %d/%d loaded   ·   %d cr each   ·   one lock, %d%% of target hull" % [GS.heavy_missiles, GS.max_heavy(), Data.HEAVY_MISSILE_PRICE, int(Data.HEAVY_MISSILE_HULL_FRAC * 100.0)]
 	hl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	rowh.add_child(hl)
 	for n in [1, 99]:

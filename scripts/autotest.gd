@@ -1092,6 +1092,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_MISSILE") != "":   # the Job M lead box / missile lock / dodge checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _combat_m()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_COLLIDE") != "":   # the Job L collision damage checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1249,6 +1257,10 @@ func _run() -> void:
 	if btn and not btn.disabled: btn.pressed.emit()
 	await _wait(0.3)
 	_check("Weapon purchase", GS.weapon_id == "pulse2", "weapon=%s credits=%d" % [GS.weapon_id, GS.credits])
+	var rack_btn: Button = main.hub.find_child("Rack_swarm", true, false)
+	var fit_btn: Button = main.hub.find_child("Rack_triple", true, false)
+	_check("Job M: Equipment sells the missile racks (Triple fitted, Swarm for sale)", rack_btn != null and fit_btn != null and fit_btn.disabled
+		and rack_btn.text.find(str(Data.MISSILE_RACKS["swarm"]["price"])) >= 0, rack_btn.text if rack_btn else "no button")
 	await _shot("equipment_dealer")
 	var m0 := GS.missiles
 	main.hub.show_screen("ships")
@@ -1392,6 +1404,7 @@ func _run() -> void:
 	_check("Return jump to Solara", GS.system_id == "solara")
 	await _wait(1.0)
 	await _shot("solara_return")
+	await _combat_m()
 	await _galaxy()
 	await _controls_j()
 	await _gate_k()
@@ -1993,3 +2006,212 @@ func _collide_l() -> void:
 	# ---- version label
 	var shell := FileAccess.get_file_as_string("res://web_shell.html") if FileAccess.file_exists("res://web_shell.html") else ""
 	_check("Job L: version label reads \"Homelancer Digital v1.4h\" or later", Data.VERSION >= "v1.4h" and (shell == "" or shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0), Data.VERSION)
+
+
+## Job M (v1.4j): Cadet turned round, the lead box, missile locks and volleys, the three missile types, dodging.
+func _combat_m() -> void:
+	var s := _sp()
+	var shell := FileAccess.get_file_as_string("res://web_shell.html")
+	_check("Job M: version label reads \"Homelancer Digital v1.4j\" or later", Data.VERSION >= "v1.4j" and (shell == "" or shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0), Data.VERSION)
+	_check("Job M: the Cadet model is turned round (nose away from the camera); the other ships are unchanged",
+		is_equal_approx(ShipFactory.GLB["cadet"][2], 180.0) and ShipFactory.GLB["ranger"][2] == 0.0 and ShipFactory.GLB["lancer"][2] == 0.0)
+	_check("Job M: phone buttons unchanged: three weapon slots (light missile, heavy missile, mine)", GS.slots == Data.DEFAULT_SLOTS and main.hud.buttons.has("slot_0") and main.hud.buttons.has("slot_2"), str(GS.slots))
+	# ---- a quiet spot, engines off so the ship stays put
+	var rack0: String = GS.rack
+	var owned0: Array = GS.owned_racks.duplicate()
+	var m0 := GS.missiles
+	var h0 := GS.heavy_missiles
+	var cr0 := GS.credits
+	_tp(Vector3(900, 700, 900), Vector3(900, 700, 0))
+	s.engine_kill = true
+	s.enemy_dodge_chance = 0.0
+	var guns0: String = GS.modes["guns"]
+	GS.modes["guns"] = "manual"   # only missiles may touch the target in these checks
+	await _frames(2)
+	var fwd := -s.player.global_basis.z
+	var e: Dictionary = s.spawn_unit("raider", s.player.global_position + fwd * 300.0, s.player.global_position + fwd * 300.0)
+	var n: Node3D = e["node"]
+	s.target = n
+	# ---- lead box
+	e["vel"] = s.player.global_basis.x * 40.0
+	var lead: Vector3 = s.lead_point(n)
+	var ahead: float = (lead - n.global_position).dot(s.player.global_basis.x)
+	var want: float = 40.0 * n.global_position.distance_to(s.player.global_position) / float(GS.weapon()["speed"])
+	s.vel = s.player.global_basis.x * 40.0   # flying alongside at the same speed: no lead needed
+	var none: float = (s.lead_point(n) - n.global_position).length()
+	s.vel = Vector3.ZERO
+	_check("Job M: the lead box sits ahead of the target by its travel during the shot (and on it when you match its speed)", absf(ahead - want) < 0.5 and ahead > 5.0 and none < 0.1, "ahead %.1f want %.1f matched %.2f" % [ahead, want, none])
+	await _shot("lead_box_and_locks", 0.5)
+	# ---- locks build over time on target, drop when off target
+	GS.rack = "triple"
+	GS.missiles = 6
+	GS.heavy_missiles = 2
+	s.lock_time = 0.0
+	var l0: int = s.lock_count()
+	s.lock_time = Data.LOCK_STEP * 1.5
+	var l1: int = s.lock_count()
+	s.lock_time = Data.LOCK_STEP * 9.0
+	var l3: int = s.lock_count()
+	var lh: int = s.lock_count("heavy_missile")
+	GS.missiles = 2
+	var l_ammo: int = s.lock_count()
+	GS.missiles = 6
+	_check("Job M: locks stack one per %.1f s: Triple Rack holds 3, heavy holds 1, never more than the missiles left" % Data.LOCK_STEP, l0 == 0 and l1 == 1 and l3 == 3 and lh == 1 and l_ammo == 2, "%d %d %d heavy %d ammo-capped %d" % [l0, l1, l3, lh, l_ammo])
+	s.lock_time = 0.0
+	n.global_position = s.player.global_position - s.player.global_basis.z * 300.0
+	await _wait(0.6)
+	var grew: bool = s.lock_time > 0.3
+	n.global_position = s.player.global_position + s.player.global_basis.z * 300.0   # behind you
+	await _frames(3)
+	var dropped: bool = s.lock_time == 0.0
+	_check("Job M: the lock builds while the target is in front of you and drops when it leaves the cone", grew and dropped, "lock_time grew %s dropped %s" % [grew, dropped])
+	# ---- volley of three
+	n.global_position = s.player.global_position - s.player.global_basis.z * 500.0
+	e["hp"] = 99999.0   # it must outlive the volleys below
+	s.missile_cd = 0.0
+	s.lock_time = Data.LOCK_STEP * 3.2
+	var before: int = s.missiles_live.size()
+	var fired: bool = s.trigger_system("light_missile")
+	await _wait(Data.VOLLEY_GAP * 3.0 + 0.2)
+	var all_on: bool = true
+	for m in s.missiles_live: all_on = all_on and m["target"] == n
+	_check("Job M: three locks fire a volley of three homing missiles at the target and use three missiles", fired and GS.missiles == 3 and s.missiles_live.size() - before == 3 and all_on and s.lock_time < 1.0,
+		"missiles left %d, in flight %d" % [GS.missiles, s.missiles_live.size() - before])
+	for m in s.missiles_live: m["life"] = 0.0
+	await _frames(3)
+	# ---- heavy: one lock only
+	s.missile_cd = 0.0
+	s.lock_time = Data.LOCK_STEP * 9.0
+	e["hp"] = 99999.0
+	var live1: int = s.missiles_live.size()
+	s.trigger_system("heavy_missile")
+	await _wait(0.4)
+	var heavy_dmg: float = s.missile_damage({"max": 200.0}, true)
+	_check("Job M: the heavy missile fires one at a time and hits hard (at least %d%% of the hull)" % int(Data.HEAVY_MISSILE_HULL_FRAC * 100.0), GS.heavy_missiles == 1 and s.missiles_live.size() - live1 <= 1 and heavy_dmg >= 120.0
+		and heavy_dmg > s.missile_damage({"max": 200.0}, false), "heavy %.0f vs light %.0f on a 200 hull" % [heavy_dmg, s.missile_damage({"max": 200.0}, false)])
+	# ---- swarm rack: bought, five locks, lighter missiles
+	GS.credits = 0
+	var refused: bool = GS.buy_rack("swarm").begins_with("Not enough") and GS.rack == "triple"
+	GS.credits = int(Data.MISSILE_RACKS["swarm"]["price"]) + 10
+	GS.buy_rack("swarm")
+	var bought: bool = GS.rack == "swarm" and GS.credits == 10 and "swarm" in GS.owned_racks
+	GS.missiles = 8
+	s.missile_cd = 0.0
+	s.lock_time = Data.LOCK_STEP * 9.0
+	var l5: int = s.lock_count()
+	for m in s.missiles_live: m["life"] = 0.0
+	await _frames(3)
+	s.trigger_system("light_missile")
+	await _wait(Data.VOLLEY_GAP * 5.0 + 0.2)
+	var swarm_n: int = s.missiles_live.size()
+	var swarm_scale: float = float(s.missiles_live[-1]["scale"]) if swarm_n > 0 else 0.0
+	GS.buy_rack("triple")
+	var refit: bool = GS.rack == "triple" and GS.credits == 10
+	_check("Job M: the Swarm Rack is bought at Equipment, holds five locks and fires five lighter missiles; refitting a rack you own is free", refused and bought and l5 == 5 and swarm_n == 5 and GS.missiles == 3
+		and is_equal_approx(swarm_scale, float(Data.MISSILE_RACKS["swarm"]["damage"])) and refit, "locks %d, in flight %d, damage x%.1f" % [l5, swarm_n, swarm_scale])
+	for m in s.missiles_live: m["life"] = 0.0
+	await _frames(3)
+	# ---- your missile hits an enemy that flies on; an enemy that side-boosts shakes it off
+	e["hp"] = 60.0
+	e["sh"] = 0.0
+	n.global_position = s.player.global_position - s.player.global_basis.z * 320.0
+	GS.missiles = 4
+	s.enemy_dodge_chance = 0.0
+	s.fire_missile()
+	await _until(func(): return s.missiles_live.is_empty(), 8.0)
+	var hit_ok: bool = float(e["hp"]) < 60.0 or not is_instance_valid(n) or not (e in s.enemies)
+	if not (e in s.enemies) or not is_instance_valid(n):
+		e = s.spawn_unit("raider", s.player.global_position + fwd * 320.0, s.player.global_position + fwd * 320.0)
+		n = e["node"]
+	e["hp"] = 60.0
+	e["sh"] = 0.0
+	n.global_position = s.player.global_position - s.player.global_basis.z * 320.0
+	s.target = n
+	s.enemy_dodge_chance = 1.0
+	var ev0: int = s.enemy_evades
+	s.fire_missile()
+	await _until(func(): return s.enemy_evades > ev0 or s.missiles_live.is_empty(), 8.0)
+	var evaded: bool = s.enemy_evades == ev0 + 1 and is_equal_approx(float(e["hp"]), 60.0)
+	_check("Job M: a missile hits an enemy that holds its course; an enemy that boosts sideways as it closes in shakes it off", hit_ok and evaded, "hit %s, evaded %s" % [hit_ok, evaded])
+	s.enemy_dodge_chance = 0.0
+	if e in s.enemies:
+		s.enemies.erase(e)
+		n.queue_free()
+	s.target = null
+	for m in s.missiles_live: m["life"] = 0.0
+	# ---- an enemy missile: hits a ship that sits still, misses one that slides sideways fast
+	_tp(Vector3(900, 700, 900), Vector3(900, 700, 0))
+	GS.god_mode = false
+	GS.restore_full()
+	var launcher := Node3D.new()
+	s.add_child(launcher)
+	launcher.global_position = s.player.global_position - s.player.global_basis.z * 400.0
+	launcher.look_at(s.player.global_position, Vector3.UP)
+	var fake := {"node": launcher, "vel": Vector3.ZERO}
+	s.enemy_fire_missile(fake)
+	await _frames(3)
+	var warned: bool = s.missile_warn > 0.0
+	await _shot("missile_incoming", 0.3)
+	var sh0 := GS.shield + GS.hull
+	await _until(func(): return s.enemy_missiles.is_empty(), 10.0)
+	var took: float = sh0 - (GS.shield + GS.hull)
+	_check("Job M: an enemy missile warns you on the HUD and hits a ship that holds still", warned and took > Data.ENEMY_MISSILE_DAMAGE * 0.5 and took <= Data.ENEMY_MISSILE_DAMAGE + 0.01, "warned %s, damage %.1f" % [warned, took])
+	GS.restore_full()
+	_tp(Vector3(900, 700, 900), Vector3(900, 700, 0))
+	launcher.global_position = s.player.global_position - s.player.global_basis.z * 400.0
+	launcher.look_at(s.player.global_position, Vector3.UP)
+	var dodge0: int = s.missiles_evaded
+	await _frames(3)
+	s.enemy_fire_missile(fake)
+	await _frames(3)
+	await _until(func(): return s.missile_warn > 0.0 and s.missile_warn < Data.DODGE_RANGE * 0.8, 6.0)
+	s.engine_kill = true   # the engine-kill slide after a sideways boost
+	s.vel = s.player.global_basis.x * float(GS.ship()["speed"]) * Data.THRUST_MULT
+	var sh1 := GS.shield + GS.hull
+	await _until(func(): return s.missiles_evaded > dodge0 or s.enemy_missiles.is_empty(), 8.0)
+	var slid: bool = s.missiles_evaded == dodge0 + 1 and is_equal_approx(GS.shield + GS.hull, sh1)
+	await _until(func(): return s.enemy_missiles.is_empty(), 10.0)
+	_tp(Vector3(900, 700, 900), Vector3(900, 700, 0))
+	launcher.global_position = s.player.global_position - s.player.global_basis.z * 400.0
+	await _frames(3)
+	s.enemy_fire_missile(fake)
+	await _frames(3)
+	await _until(func(): return s.missile_warn > 0.0 and s.missile_warn < Data.DODGE_RANGE * 0.8, 6.0)
+	s.vel = s.player.global_basis.x * float(GS.ship()["speed"])   # normal speed is not enough
+	var dodge1: int = s.missiles_evaded
+	await _until(func(): return s.enemy_missiles.is_empty(), 10.0)
+	var slow_hit: bool = s.missiles_evaded == dodge1 and GS.shield + GS.hull < sh1
+	_check("Job M: a sideways boost (or an engine-kill slide after one) shakes an enemy missile off; flying sideways at normal speed does not", slid and slow_hit, "slide dodged %s, slow got hit %s" % [slid, slow_hit])
+	launcher.queue_free()
+	# ---- who carries missiles
+	GS.god_mode = true
+	GS.restore_full()
+	_tp(Vector3(900, 700, 900), Vector3(900, 700, 0))
+	var c: Dictionary = s.spawn_unit("corsair", s.player.global_position + fwd * 250.0, s.player.global_position + fwd * 250.0)
+	(c["node"] as Node3D).look_at(s.player.global_position, Vector3.UP)
+	c["aggro"] = true
+	c["mcd"] = 0.05
+	var r: Dictionary = s.spawn_unit("raider", s.player.global_position + fwd * 250.0 + Vector3(0, 40, 0), s.player.global_position)
+	r["aggro"] = true
+	r["mcd"] = 0.05
+	await _until(func(): return not s.enemy_missiles.is_empty(), 6.0)
+	_check("Job M: Corsairs and Assault Mechs carry missiles; Raiders do not", s.enemy_missiles.size() == 1 and float(c["mcd"]) >= Data.ENEMY_MISSILE_EVERY[0] - 1.0
+		and Data.ENEMIES["mech"].get("missiles", false) and not Data.ENEMIES["raider"].get("missiles", false), "in flight %d" % s.enemy_missiles.size())
+	for x in [c, r]:
+		if x in s.enemies:
+			s.enemies.erase(x)
+			(x["node"] as Node3D).queue_free()
+	for m in s.enemy_missiles: m["life"] = 0.0
+	s.target = null
+	s.engine_kill = false
+	s.vel = Vector3.ZERO
+	s.lock_time = 0.0
+	s.volley_queue.clear()
+	GS.modes["guns"] = guns0
+	GS.rack = rack0
+	GS.owned_racks = owned0
+	GS.missiles = m0
+	GS.heavy_missiles = h0
+	GS.credits = cr0
+	GS.restore_full()
+	await _wait(0.5)

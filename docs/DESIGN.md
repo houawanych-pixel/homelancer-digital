@@ -457,3 +457,23 @@ descriptions (full guide in Drive: "HOMELANCER — Music Guide"):
   the rest are `GalaxyData.EXTRAS` -> `sys["more_planets"]` / `sys["more_stations"]`, built by `space._build_extras()`
   as landmarks: visible, solid, targetable, on the system map, reachable by GO TO, no docking yet. Planets use the
   NASA solar-system maps with their type's temporary tint; stations are a small stand-in in the faction colour.
+
+
+## 23. Lead box, missile locks and dodging (Job M, v1.4j)
+All numbers are in the "Job M" block of `scripts/data.gd`. Phone buttons are unchanged.
+
+- **Cadet** model turned round (yaw 180 in `ShipFactory.GLB`): the nose now points away from the chase camera.
+- **Lead box**: a small box ahead of the targeted enemy (`space.lead_point`). Put the reticle on it and the guns
+  hit; it turns green when you are on it. It uses the enemy's speed relative to yours.
+- **Missile locks**: keep the target in front (15 degree cone, 800 m). One lock every 0.5 s, shown as pips over the
+  target and "LOCK 2/3" on the button. Press the button to fire one missile per lock; no lock still fires one.
+- **Three missile types**: HEAVY (one lock, at least 60 % of the target's hull), the **Triple Rack** on the LIGHT
+  button (3 locks, comes with every ship) and the **Swarm Rack** (5 locks, each missile 60 % strength, 1800 cr at
+  Equipment). Racks are owned once and swapped for free. `GS.rack`, `GS.owned_racks` are new fields with defaults.
+- **Dodging**: a missile inside 250 m loses its lock when the target moves sideways across its path faster than
+  1.15 x its normal top speed. For the player that means a boost across the missile's path, or an engine-kill slide
+  after a boost. Boosting too early just makes it follow. Enemies try a side-boost 30 % of the time.
+- **Enemy missiles**: Corsairs and Assault Mechs fire one every 12-20 s inside 600 m (22 damage). The HUD flashes
+  "MISSILE 320 m" and then "BOOST SIDEWAYS NOW". Raiders carry none, so the first system stays gentle.
+- SIMPLEST CHOICES (open to change): all locks go on one target; racks are a one-time purchase, not ammo types;
+  version v1.4j was used because this job was built first, so the panorama jobs move to v1.4k and v1.4l.
