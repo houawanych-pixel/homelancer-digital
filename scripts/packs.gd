@@ -21,6 +21,7 @@ const PACKS := {
 	"city": {"folders": ["res://assets/city"], "probe": "res://assets/city/capital_normal.png"},
 	"intro": {"folders": ["res://assets/intro"], "probe": "res://assets/intro/title_collage.jpg"},
 	"rooms": {"folders": ["res://assets/rooms"], "probe": "res://assets/rooms/main_hub.jpg"},
+	"rooms_aurelion": {"folders": ["res://assets/rooms_aurelion"], "probe": "res://assets/rooms_aurelion/au_main_hub.jpg"},   # v1.4l: Aurelion Citadel hub
 	"worlds": {"folders": ["res://assets/worlds"], "probe": "res://assets/worlds/earth.jpg"},
 	"structures": {"folders": ["res://assets/structures"], "probe": "res://assets/structures/jump_gate_ring.glb"},
 	"sky": {"folders": ["res://assets/sky"], "probe": "res://assets/sky/solara.jpg"},

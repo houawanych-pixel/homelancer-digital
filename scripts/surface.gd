@@ -39,6 +39,20 @@ const BIOMES := {
 		"sky": Color(0.36, 0.6, 0.68), "horizon": Color(0.7, 0.86, 0.72), "fog": Color(0.56, 0.74, 0.6), "water": Color(0.08, 0.3, 0.26)},
 	"volcanic": {"name": "Volcanic", "amp": 900.0, "base": 40.0, "sea": null, "low": Color(0.14, 0.12, 0.12), "mid": Color(0.24, 0.18, 0.16), "high": Color(0.9, 0.35, 0.12),
 		"sky": Color(0.35, 0.2, 0.18), "horizon": Color(0.8, 0.42, 0.25), "fog": Color(0.45, 0.3, 0.26)},
+	# v1.4l: one-tile surfaces for the planet types that had none. Colours follow the planet seen from space.
+	"barren": {"name": "Barren plain", "detail": 0.7, "strata": 0.5, "amp": 520.0, "base": 40.0, "sea": null, "low": Color(0.36, 0.35, 0.37), "mid": Color(0.46, 0.45, 0.46), "high": Color(0.62, 0.6, 0.58),
+		"sky": Color(0.05, 0.06, 0.1), "horizon": Color(0.3, 0.32, 0.38), "fog": Color(0.26, 0.27, 0.31)},
+	"clouds": {"name": "Cloud deck", "amp": 260.0, "base": -90.0, "sea": 0.0, "detail": 0.3,
+		"low": Color(0.95, 0.85, 0.66), "mid": Color(0.86, 0.68, 0.45), "high": Color(0.7, 0.5, 0.34),
+		"sky": Color(0.86, 0.68, 0.42), "horizon": Color(0.98, 0.88, 0.68), "fog": Color(0.93, 0.78, 0.55), "water": Color(0.9, 0.74, 0.5)},
+	"crystal": {"name": "Crystal fields", "amp": 760.0, "base": 40.0, "sea": null, "terrace": true, "detail": 0.8,
+		"low": Color(0.34, 0.2, 0.55), "mid": Color(0.5, 0.4, 0.82), "high": Color(0.82, 0.9, 1.0),
+		"sky": Color(0.24, 0.14, 0.42), "horizon": Color(0.7, 0.55, 0.95), "fog": Color(0.55, 0.42, 0.8)},
+	"toxic": {"name": "Toxic marsh", "amp": 380.0, "base": 20.0, "sea": 0.0, "low": Color(0.42, 0.5, 0.12), "mid": Color(0.28, 0.34, 0.12), "high": Color(0.55, 0.6, 0.2),
+		"sky": Color(0.4, 0.5, 0.14), "horizon": Color(0.72, 0.82, 0.3), "fog": Color(0.55, 0.66, 0.22), "water": Color(0.42, 0.6, 0.08)},
+	"machine": {"name": "Machine plates", "amp": 240.0, "base": 30.0, "sea": null, "terrace": true, "detail": 0.3,
+		"low": Color(0.12, 0.14, 0.2), "mid": Color(0.26, 0.28, 0.34), "high": Color(0.2, 0.7, 0.8),
+		"sky": Color(0.05, 0.07, 0.11), "horizon": Color(0.16, 0.4, 0.48), "fog": Color(0.1, 0.2, 0.26)},
 	# the surface of a star: a glowing magma sea with dark crust islands, under a yellow sky ("glow" = the sea shines)
 	"sun": {"name": "Solar surface", "amp": 300.0, "base": -70.0, "sea": 0.0, "glow": true, "detail": 0.6,
 		"low": Color(1.0, 0.72, 0.2), "mid": Color(0.75, 0.28, 0.06), "high": Color(0.22, 0.08, 0.05),
@@ -51,6 +65,7 @@ static var PLANETS: Dictionary = _all_planets()
 static func _all_planets() -> Dictionary:
 	var out: Dictionary = CORE_PLANETS.duplicate(true)
 	out.merge(SystemBuilder.suns(out))
+	out.merge(SystemBuilder.planets(out))   # v1.4l: every planet has at least one tile
 	return out
 const CORE_PLANETS := {
 	"new_terra": {"name": "New Terra", "system": "solara", "grid": 3,

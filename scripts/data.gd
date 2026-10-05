@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.4k"
+const VERSION := "v1.4l"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -107,7 +107,7 @@ const COLLIDE_SFX_DB_HARD := -2.0     # ... and a hard one
 
 # ---------------------------------------------------------------- Job M (v1.4j): lead box, missile locks, dodging
 const LEAD_BOX_SIZE := 14.0           # half-width (px) of the aim box drawn ahead of the targeted enemy
-const LEAD_BOX_RANGE := 1.6           # the box shows inside this x your gun range
+const LEAD_BOX_RANGE := 6.0           # the box shows inside this x your gun range
 const LEAD_BOX_ON := 16.0             # px: reticle this close to the box centre = "on target" (box turns green)
 const LOCK_CONE_DEG := 15.0           # keep the target inside this cone to build missile locks
 const LOCK_RANGE := 800.0
@@ -117,7 +117,7 @@ const HEAVY_MISSILE_HULL_FRAC := 0.6  # heavy does at least this share of the ta
 # the rack on the LIGHT slot. "triple" comes with every ship; "swarm" is bought at Equipment.
 const MISSILE_RACKS := {
 	"triple": {"name": "Triple Rack", "price": 0, "locks": 3, "damage": 1.0, "desc": "Locks three missiles on one target."},
-	"swarm": {"name": "Swarm Rack", "price": 1800, "locks": 5, "damage": 0.6, "desc": "Locks five lighter missiles on one target."},
+	"swarm": {"name": "Six Rack", "price": 1800, "locks": 6, "damage": 0.6, "desc": "Locks six lighter missiles on one target."},   # v1.4l: six locks; every pilot starts with it fitted
 }
 const RACK_ORDER := ["triple", "swarm"]
 const VOLLEY_GAP := 0.12              # seconds between missiles of one volley
@@ -159,21 +159,56 @@ const SIGNATURES := {
 		"hull_reach": 3.5},              # the effect is drawn this close to the ship's centre, so it sits on the hull,
 }
 
+# ---------------------------------------------------------------- Job O (v1.4l)
+# missile trails: a flat white ribbon behind every missile, bright at the missile, wider and fainter toward the end
+const TRAIL_LIFE := 2.2               # seconds a piece of trail lasts
+const TRAIL_STEP := 0.04              # seconds between trail points
+const TRAIL_WIDTH0 := 0.55             # ribbon half-width at the missile (m)...
+const TRAIL_WIDTH1 := 5.0             # ...and at the fading end
+const TRAIL_COLOR := Color(1.0, 1.0, 1.0)
+# missiles weave on the way in (the swing dies away close to the target so they still hit)
+const WEAVE_AMP := 30.0               # sideways swing (m/s)
+const WEAVE_HZ := [0.9, 1.8]          # each missile picks its own rhythm in this range
+const WEAVE_FADE := 120.0             # no weave inside this distance of the target
+# explosions: [flash size, fireballs, debris bits, later pops, seconds between pops]
+const BLAST_WING := [15.0, 9, 8, 2, 0.16]
+const BLAST_DEATH := [44.0, 20, 18, 6, 0.2]
+const BLAST_ENEMY := [24.0, 10, 8, 2, 0.14]
+# trade lanes: rings in a row between two places in one system. Dock a ring and the ship is carried down the chain.
+const LANE_RING_GAP := 900.0          # metres between rings
+const LANE_MAX_RINGS := 8
+const LANE_MIN_LEN := 1400.0          # shorter runs get no lane
+const LANE_RING_RADIUS := 34.0
+const LANE_STACK := 110.0             # the two directions sit this far apart, one ring above the other
+const LANE_STANDOFF := 330.0          # the end rings sit this far from the station / planet surface / gate
+const LANE_DOCK_RANGE := 240.0        # the LANE prompt shows inside this distance of a ring
+const LANE_SPEED := 650.0             # cruise in the lane (m/s)
+const LANE_RAMP := 2.5                # seconds to reach it
+const LANE_SLOW_DIST := 700.0         # start slowing this far from the last ring
+const LANE_EXIT_SPEED := 50.0
+const LANE_TINT := Color(0.35, 0.85, 1.0)
+const LANE_TUNNEL_LEN := 240.0        # the energy tunnel that rides on the ship
+const LANE_TUNNEL_RADIUS := 15.0
+const LANE_SPLASH := 0.5              # seconds of ring glow as you pass
+# planet type -> surface biome for the one-tile surfaces on every planet (scripts/surface.gd)
+const PLANET_BIOME := {"terran": "forest", "jungle": "jungle", "ocean": "ocean", "ice": "ice", "desert": "desert", "lava": "volcanic",
+	"dead": "barren", "gas": "clouds", "city": "city", "crystal": "crystal", "toxic": "toxic", "machine": "machine"}
+
 # ---------------------------------------------------------------- ships
 # model: key understood by ShipFactory. "cadet_glb" etc. load real GLBs when present under assets/ships/.
 const SHIPS := {
 	"cadet": {"name": "Cadet", "class": "Starter fighter", "price": 0, "hull": 100, "shield": 60, "speed": 46.0,
-		"turn": 1.7, "guns": 2, "missiles": 6, "heavy": 2, "mines": 3, "model": "cadet", "desc": "Unity-issue trainer. Light, nimble, forgiving. Twin cannons on top."},
+		"turn": 1.7, "guns": 2, "missiles": 12, "heavy": 2, "mines": 3, "model": "cadet", "desc": "Unity-issue trainer. Light, nimble, forgiving. Twin cannons on top."},
 	"ranger": {"name": "Ranger", "class": "Patrol fighter", "price": 1500, "hull": 160, "shield": 95, "speed": 50.0,
-		"turn": 1.55, "guns": 3, "missiles": 10, "heavy": 3, "mines": 4, "model": "ranger", "desc": "Faster frame, thicker plating. A long cannon on top and one on each wing."},
+		"turn": 1.55, "guns": 3, "missiles": 20, "heavy": 3, "mines": 4, "model": "ranger", "desc": "Faster frame, thicker plating. A long cannon on top and one on each wing."},
 	"hauler": {"name": "Hauler", "class": "Armed cargo ship", "price": 2500, "hull": 320, "shield": 110, "speed": 38.0,
-		"turn": 1.0, "guns": 2, "missiles": 12, "heavy": 4, "mines": 8, "model": "hauler", "desc": "A cargo ship you can own. The toughest hull on sale, a big rack, and slow."},
+		"turn": 1.0, "guns": 2, "missiles": 24, "heavy": 4, "mines": 8, "model": "hauler", "desc": "A cargo ship you can own. The toughest hull on sale, a big rack, and slow."},
 	"bulk_empty": {"name": "Frame Freighter", "class": "Empty cargo ship", "price": 4500, "hull": 400, "shield": 150, "speed": 40.0,
-		"turn": 1.0, "guns": 3, "missiles": 14, "heavy": 5, "mines": 8, "model": "bulk_empty", "desc": "The Bulk Freighter with an empty cargo frame, ready to carry any crate. Lighter, so faster."},
+		"turn": 1.0, "guns": 3, "missiles": 28, "heavy": 5, "mines": 8, "model": "bulk_empty", "desc": "The Bulk Freighter with an empty cargo frame, ready to carry any crate. Lighter, so faster."},
 	"bulk": {"name": "Bulk Freighter", "class": "Heavy cargo ship", "price": 6000, "hull": 480, "shield": 160, "speed": 34.0,
-		"turn": 0.8, "guns": 3, "missiles": 18, "heavy": 6, "mines": 10, "model": "bulk", "desc": "The biggest ship you can own. Six engines, a huge hull and rack. Very slow to turn."},
+		"turn": 0.8, "guns": 3, "missiles": 36, "heavy": 6, "mines": 10, "model": "bulk", "desc": "The biggest ship you can own. Six engines, a huge hull and rack. Very slow to turn."},
 	"lancer": {"name": "Lancer", "class": "Heavy fighter", "price": 4000, "hull": 240, "shield": 140, "speed": 42.0,
-		"turn": 1.25, "guns": 4, "missiles": 14, "heavy": 4, "mines": 6, "model": "lancer", "desc": "Four cannons: two on the wings, two beside the nose. Heavy shield. Slow to turn."},
+		"turn": 1.25, "guns": 4, "missiles": 28, "heavy": 4, "mines": 6, "model": "lancer", "desc": "Four cannons: two on the wings, two beside the nose. Heavy shield. Slow to turn."},
 }
 # v1.3c: all three are the owner's models with weapons mounted (tools/shipkit/make_fleet3.py). Guns = cannons you can see.
 const SHIP_ORDER := ["cadet", "ranger", "hauler", "lancer", "bulk_empty", "bulk"]

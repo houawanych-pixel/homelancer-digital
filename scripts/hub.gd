@@ -84,7 +84,7 @@ func _ready() -> void:
 	add_child(rooms)
 	rooms.action.connect(_on_room_action)
 	Packs.pack_ready.connect(func(pk: String):
-		if pk == "rooms" and visible and screen == "hub": show_screen("hub"))
+		if pk.begins_with("rooms") and visible and screen == "hub": show_screen("hub"))
 	visible = false
 
 ## A marker in a panorama room was tapped: open the matching dealer screen, the map, the inspector, or launch.
@@ -139,6 +139,8 @@ func open(station_or_planet: Dictionary) -> void:
 	visible = true
 	last_room = ""
 	Packs.request("rooms")
+	if Rooms.station_pack(base.get("id", "")) != "": Packs.request(Rooms.station_pack(base["id"]))   # v1.4l: each hub's rooms are their own pack
+	if last_room != "" and Rooms.pack_of(last_room) != Rooms.station_pack(base.get("id", "")): last_room = ""   # a room from another station
 	show_screen("hub")
 	status.text = "Docked at %s. Hull repaired, shields and repair kits restored, missiles reloaded." % base["name"]
 

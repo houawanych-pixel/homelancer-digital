@@ -55,7 +55,8 @@ def main():
         p, n, u, t = take(g, tcl, [i]); p, n = canon_weapon(p, n); weapons[name] = (p, n, u, t)
     mats, images, mat_map = sk.remap_materials(js, binc, [0], 512)
     report = {}
-    for ship, ids, yaw_fit, flip in (("starter", [4], True, True), ("patrol", [8], True, True), ("heavy", [6, 0, 1, 2, 3, 5, 7], False, True)):   # flip: the pointed end is the nose
+    for ship, ids, yaw_fit, flip in (("starter", [4], True, False), ("patrol", [8], True, False), ("heavy", [6, 0, 1, 2, 3, 5, 7], False, True)):   # nose (pointed end) must come out at -Z, the way the cannons point.
+    # v1.4l: starter and patrol were built tail-first (flip was True), so their cannons pointed backwards.
         p, n, u, t = take(g, tcl, ids)
         marks = np.array([g["pos"][np.unique(g["tri"][tcl == k])].mean(0) for k in (0, 1, 2, 3)]) if ship == "heavy" else np.zeros((0, 3))
         if yaw_fit:

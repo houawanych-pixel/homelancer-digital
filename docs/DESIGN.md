@@ -500,3 +500,39 @@ characters. Nothing is drawn or invented in the game where the art does not exis
 - SIMPLEST CHOICES: "Elyria station hubs" was read as the three Aurelion stations (the Drive folder Planets/Elyria is
   empty). Lockon is in the data but in no system: there is no Lockon sheet or model, so the prow-split launch is a
   data note and the tests use the existing mech body as a stand-in.
+
+
+## 25. Trade lanes, a surface on every planet, faction music, combat feel, Aurelion hub (Job O, v1.4l)
+All numbers are in the "Job O" block of `scripts/data.gd`.
+
+- **Trade lanes** (Freelancer style, `space.gd` "trade lanes"): rows of four-bracket rings inside one system, from the
+  main station to the main planet and to each jump gate (a run is skipped when it is short or would cross the sun
+  or a planet). Rings come in pairs, one above the other: the upper row runs out, the lower row runs back. The
+  green lamp marks the mouth. Near a ring the prompt reads TRADE LANE; docking locks controls and weapons and
+  carries the ship ring to ring at 650 m/s with a ramp up and a slow-down before the last ring. The warp look is an
+  energy tunnel that rides ON THE SHIP (a shader on a short tube parented to the ship) plus a glow and splash at
+  each ring: there is no tube between rings. All rings of a system are one MultiMesh (one draw call). Tap the
+  prompt again to leave part-way. Nothing is solid while riding. NOT BUILT: shooting a bracket to disrupt a lane.
+- **A surface on every planet**: `SystemBuilder.planets()` gives every planet without one a single tile that wraps
+  onto itself (the same wrap the stars use, so the ground meets itself at the edges). The biome follows the planet
+  type (`Data.PLANET_BIOME`; new biomes barren, clouds, crystal, toxic, machine). The system's other planets can be
+  entered too; climbing out returns you beside that planet (`orbit:<tile>:<planet id>`).
+- **Music by faction** (owner): in flight the track is the one for the faction whose space you are in
+  (`Music.FACTION_TRACK`, 13 factions, one track each) and stays until you cross into another faction's space.
+  Battle music still cuts in during a fight. "Stars Remember Us" (the love song) no longer plays after a kill or in
+  the apartment: it is HELD for later, with the ruins set and the puzzle track. SUPERSEDES the mood list in §19 for
+  flight.
+- **Guns forward**: the Cadet and Ranger models were built tail-first, so their cannons pointed backwards. Both are
+  rebuilt nose-first (`make_fleet3.py`), and the Cadet's 180 degree turn from v1.4j is removed. The Lancer was
+  already right.
+- **Lead box**: red, Freelancer style, shown for any targeted enemy on screen (was gold and short range).
+- **Missiles**: a white ribbon trail (flat strip, bright at the missile, wider and fainter toward the end, 2.2 s
+  long) and a weaving path that straightens near the target. The Six Rack (6 locks) comes fitted; every ship
+  carries twice the light missiles.
+- **FIRE button** (new, in the empty corner beside THRUST): tap = guns fire nonstop, tap again = stop.
+- **Collisions** take the shield first, then the hull (SUPERSEDES Job L's "straight to the hull").
+- **Explosions**: `_blast()` = flash, fireball cloud, shock ring, debris, later pops. Used when a wing is lost (on
+  that side), when any unit dies, and when the player's ship is destroyed (both sides and the core, ship hidden).
+- **Aurelion Citadel hub**: eight rooms from the owner's Drive pictures (pack `rooms_aurelion`). These pictures are
+  one view each, not front + back, so `"single": true` rooms pan inside the picture and stop at its edges.
+  The other two Aurelion stations and all other hubs still use the plain station menu.

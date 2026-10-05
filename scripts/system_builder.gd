@@ -71,7 +71,7 @@ static func all(core: Dictionary) -> Dictionary:
 			if clear_of(sys, pos, radius): break
 		if is_planet:
 			sys["more_planets"].append({"id": "%s_planet_%d" % [sid, k + 2], "name": e[2], "palette": e[3], "kind": "landmark", "placeholder": true,
-				"pos": pos, "radius": radius, "desc": "%s world. Placeholder: no landing yet." % (e[3] as String).capitalize()})
+				"pos": pos, "radius": radius, "desc": "%s world. Fly into the atmosphere to go down." % (e[3] as String).capitalize()})
 		else:
 			sys["more_stations"].append({"id": "%s_station_%d" % [sid, k + 2], "name": e[2], "kind": "landmark", "placeholder": true, "color": f[3],
 				"pos": pos, "radius": radius, "desc": "Station. Placeholder: no docking yet."})
@@ -140,4 +140,24 @@ static func suns(have: Dictionary) -> Dictionary:
 	for t in GalaxyData.TILES:
 		var pid: String = t[0] + "_sun"
 		if not have.has(pid): out[pid] = {"name": "%s's Star" % t[1], "system": t[0], "grid": 1, "tiles": ["sun"], "locations": [], "sun": true}
+	return out
+
+
+## v1.4l: a one-tile surface for every planet that has none yet (the main planet of each generated system and every
+## catalog planet). One tile wraps onto itself, like the stars. The biome follows the planet type (Data.PLANET_BIOME),
+## so a yellow world is yellow on the ground. Ids match the ones built above: <sys>_planet and <sys>_planet_<n>.
+static func planets(have: Dictionary) -> Dictionary:
+	var out := {}
+	var count := {}
+	for t in GalaxyData.TILES:
+		count[t[0]] = 0
+		if Data.CORE_SYSTEMS.has(t[0]): continue
+		var pid: String = t[0] + "_planet"
+		if not have.has(pid): out[pid] = {"name": t[7], "system": t[0], "grid": 1, "tiles": [Data.PLANET_BIOME.get(t[8], "barren")], "locations": []}
+	for e in GalaxyData.EXTRAS:
+		if e[1] != "planet": continue
+		var k: int = count[e[0]]
+		count[e[0]] = k + 1
+		var pid2 := "%s_planet_%d" % [e[0], k + 2]
+		if not have.has(pid2): out[pid2] = {"name": e[2], "system": e[0], "grid": 1, "tiles": [Data.PLANET_BIOME.get(e[3], "barren")], "locations": []}
 	return out

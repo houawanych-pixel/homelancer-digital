@@ -155,23 +155,17 @@ var _calm_t := 0.0      # "calm after a victory" time left
 var _kills_seen := 0
 func music_mood(dt: float) -> String:
 	if state == "title": return "intro"
-	if state == "hub": return "heart" if hub.rooms.visible and hub.rooms.room == "apartment" else ""
+	if state == "hub": return ""    # v1.4l: the love song is held for later (it used to play in the apartment)
 	if not is_instance_valid(space) or not is_instance_valid(space.player): return Music.mood
 	if state != "flight": return Music.mood          # docking, jumping, map: keep what is playing
 	var fighting: bool = space.hostiles_engaged() > 0
 	if fighting:
-		if _fight_t > 0.0 or Music.mood != "battle": _kills_seen = GS.kills   # a new fight begins: count kills from here
 		_fight_t = 0.0
 		return "battle"
-	if _fight_t == 0.0 and Music.mood == "battle" and GS.kills > _kills_seen: _calm_t = 26.0   # won it (not just got away)
 	_fight_t += dt
 	if Music.mood == "battle" and _fight_t < 4.0: return "battle"   # do not drop the battle music for a short gap
-	if _calm_t > 0.0:
-		_calm_t -= dt
-		return "heart"
-	if space.surface_mode: return "explore"
-	if space.in_nebula > 0.0 or space.player.global_position.length() > 9000.0: return "void"
-	return "dark" if space.sys.get("enemy", "") == "corsair" else "space"
+	# v1.4l (owner): one song per faction; it stays until you fly into another faction's space
+	return Music.faction_mood(Data.SYSTEMS[space.sys_id].get("faction", "Neutral"))
 
 func _process(_dt: float) -> void:
 	Music.want(music_mood(_dt))
@@ -276,6 +270,14 @@ func _on_hud(id: String) -> void:
 				"ship": hud.flash_message("Transforming to SHIP… weapons locked for 3 s.")
 				"warp": hud.flash_message("Can't transform during warp.")
 				"loading": hud.flash_message("Mech frame still downloading — try again in a moment.")
+		"fire":   # v1.4l: guns on / off
+			space.fire_lock = not space.fire_lock
+			hud.flash_message("Guns firing nonstop. Tap FIRE again to stop." if space.fire_lock else "Guns holding fire.")
+		"lane":   # v1.4l: dock the trade-lane ring in range, or leave the lane you are in
+			if not space.lane.is_empty():
+				space.lane_abort()
+				hud.flash_message("Left the trade lane.")
+			elif not space.lane_enter(): hud.flash_message("No trade-lane ring in range.")
 		"kill":
 			if GS.form == "mech": hud.flash_message("Mechs don't drift — use BOOST with the stick to dash any direction.")
 			elif space.warp_active(): hud.flash_message("Drop out of warp first.")
@@ -348,6 +350,7 @@ func _on_key_action(id: String) -> void:
 		"dock":   # dock / activate: station or planet in range, otherwise the jump gate in range
 			if space.dock_candidate() != null: _on_hud("dock")
 			elif space.gate_in_range(): _on_hud("jump")
+			elif not space.lane_candidate().is_empty(): _on_hud("lane")
 			else: hud.flash_message("Nothing in docking range.")
 		"transform": _on_hud("form")
 		"view": _on_hud("view")
@@ -816,7 +819,7 @@ func leave_atmosphere() -> void:
 	var tw := create_tween()
 	tw.tween_property(fx, "clouds", 1.0, 0.8)
 	await tw.finished
-	_load_system(Surface.PLANETS[pid]["system"], "sunorbit" if Surface.is_sun(pid) else "orbit:%d" % t)
+	_load_system(Surface.PLANETS[pid]["system"], "sunorbit" if Surface.is_sun(pid) else "orbit:%d:%s" % [t, pid])
 	space.controls = false
 	var tw2 := create_tween()
 	tw2.tween_property(fx, "clouds", 0.0, 1.0)

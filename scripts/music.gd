@@ -16,6 +16,18 @@ const MOODS := {
 	"ruins": ["ruins_1", "ruins_2", "ruins_3", "ruins_4"],  # Architect Ruins: HELD for horror / ruins missions
 	"puzzle": ["puzzle_1"],                                 # Homelancer game 1: HELD for puzzles
 }
+## v1.4l (owner): in flight the music follows whose space you are in. One track per faction; it keeps playing until
+## you cross into another faction's space. "Stars Remember Us" (the love song) is HELD for later, like the ruins set.
+const FACTION_TRACK := {
+	"Unity": "veranthos_1", "Elyza": "interstellar_1", "Solarion": "spaceways_1", "Liberator": "spaceways_2",
+	"Savagers": "spaceways_3", "Neutral": "spaceways_4", "Orion": "veranthos_2", "Covenant": "interstellar_2",
+	"Imperium": "bloodwater_1", "Enemy": "bloodwater_2", "Hidden": "void_1", "Void": "void_2", "Heart": "veranthos_3",
+}
+const HELD := ["stars_1", "stars_2", "ruins_1", "ruins_2", "ruins_3", "ruins_4", "puzzle_1"]
+static func faction_mood(faction: String) -> String: return "f:" + (faction if FACTION_TRACK.has(faction) else "Neutral")
+static func takes(m: String) -> Array:
+	if m.begins_with("f:"): return [FACTION_TRACK[m.substr(2)]]
+	return MOODS.get(m, [])
 const VOLUME_DB := -9.0
 const FADE := 2.2
 
@@ -49,16 +61,16 @@ func _player() -> AudioStreamPlayer:
 func want(m: String) -> void:
 	if m == mood: return
 	mood = m
-	if m == "" or not MOODS.has(m):
+	if m == "" or takes(m).is_empty():
 		track = ""
 		_fade(_a, -60.0, true)
 		return
 	_start(_pick(m))
 
 func _pick(m: String) -> String:
-	var takes: Array = MOODS[m]
-	var id: String = takes[_rng.randi() % takes.size()]
-	if takes.size() > 1 and id == _last.get(m, ""): id = takes[(takes.find(id) + 1) % takes.size()]
+	var tk: Array = takes(m)
+	var id: String = tk[_rng.randi() % tk.size()]
+	if tk.size() > 1 and id == _last.get(m, ""): id = tk[(tk.find(id) + 1) % tk.size()]
 	_last[m] = id
 	return id
 

@@ -13,11 +13,11 @@ var wing_l := 40.0 # left and right wing sections (own health; a destroyed wing 
 var wing_r := 40.0
 var shield := 60.0
 var repairs := Data.MAX_REPAIRS
-var missiles := 6
+var missiles := 12
 var heavy_missiles := 2
 var mines := 3
-var rack := "triple"            # missile rack on the LIGHT slot (Data.MISSILE_RACKS)
-var owned_racks := ["triple"]
+var rack := "swarm"             # missile rack on the LIGHT slot (Data.MISSILE_RACKS); v1.4l: the Six Rack comes fitted
+var owned_racks := ["triple", "swarm"]
 var slots: Array = Data.DEFAULT_SLOTS.duplicate()
 var shield_charges := Data.MAX_SHIELD_CHARGES
 var energy_cells := Data.MAX_ENERGY_CELLS
@@ -187,13 +187,16 @@ func damage(amount: float, side := "") -> String:
 	changed.emit()
 	return broke
 
-## Job L: collision damage goes straight to the core hull (not shields or wings). Returns the hull taken.
+## Collision damage (Job L). v1.4l, owner: the shield takes it first; only what gets through reaches the core hull.
+## Returns what was taken in all (shield + hull).
 func collide(amount: float) -> float:
 	if god_mode: amount = 0.0
+	var absorbed := minf(shield, amount)
+	shield -= absorbed
 	var before := hull
-	hull = maxf(0.0, hull - amount)
+	hull = maxf(0.0, hull - (amount - absorbed))
 	changed.emit()
-	return before - hull
+	return absorbed + (before - hull)
 
 func use_repair() -> bool:
 	if repairs <= 0 or hull >= max_hull(): return false

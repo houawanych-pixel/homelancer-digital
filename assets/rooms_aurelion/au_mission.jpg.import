@@ -2,19 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://okbg5rx1hj5n"
-path="res://.godot/imported/ranger_2.jpg-0d739dcd58801213b8c8d67df5324e77.ctex"
+uid="uid://codo4rsolpp8r"
+path="res://.godot/imported/au_mission.jpg-c95fb4387d4bb2664768b3ce44576d4e.ctex"
 metadata={
 "vram_texture": false
-}
-generator_parameters={
-"md5": "476bcb59ac406e1dfb5366a0971ed872"
 }
 
 [deps]
 
-source_file="res://assets/ships/player/ranger_2.jpg"
-dest_files=["res://.godot/imported/ranger_2.jpg-0d739dcd58801213b8c8d67df5324e77.ctex"]
+source_file="res://assets/rooms_aurelion/au_mission.jpg"
+dest_files=["res://.godot/imported/au_mission.jpg-c95fb4387d4bb2664768b3ce44576d4e.ctex"]
 
 [params]
 
@@ -24,7 +21,7 @@ compress/lossy_quality=0.8
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=true
+mipmaps/generate=false
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""

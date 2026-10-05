@@ -261,6 +261,7 @@ func _layout() -> void:
 	for k in 3: buttons["slot_%d" % k] = Rect2(Vector2(S.x - 8 - (3 - k) * btn - (2 - k) * g, y1), bs)
 	buttons["kill"] = Rect2(Vector2(S.x - 8 - btn, y2), bs)
 	buttons["thrust"] = Rect2(Vector2(S.x - 8 - btn * 2 - g, y2), bs)
+	buttons["fire"] = Rect2(Vector2(S.x - 8 - btn * 3 - g * 2, y2), bs)   # v1.4l: FIRE on/off, in the empty corner of the block
 	# centre strip: MAP · VIEW · LOG · CALL · TARGET · GO TO under the status bars
 	var cl := 8 + _block_w() + 14
 	var avail := S.x - cl * 2
@@ -274,6 +275,7 @@ func _layout() -> void:
 		var db := Rect2(S.x * 0.5 - 130, 176, 260, 60)
 		if space.dock_candidate() != null: buttons["dock"] = db
 		elif space.gate_in_range(): buttons["jump"] = db
+		elif not space.lane.is_empty() or not space.lane_candidate().is_empty(): buttons["lane"] = db
 	for side in ["l", "r"]:
 		var sd: Dictionary = slots[side]
 		if sd.is_empty(): continue
@@ -723,15 +725,17 @@ func _draw() -> void:
 				var e2: Dictionary = space._enemy_entry(tgt)
 				if not e2.is_empty(): _enemy_bars(tp + Vector2(-40, 38), 80.0, 7.0, e2, true)
 				if not e2.is_empty():
-					# Job M: the aim box. Put the reticle on it and the shots meet the enemy where it is going.
+					# The aim box (Freelancer style, v1.4l): a RED box ahead of the enemy, where your shots will meet it.
+					# Put the crosshair on the box and fire. It shows for any targeted enemy on screen.
 					var lp = _screen(space.lead_point(tgt))
 					if lp != null and space.distance_to(tgt) < float(GS.weapon()["range"]) * Data.LEAD_BOX_RANGE:
 						var on: bool = lp.distance_to(S * 0.5) < Data.LEAD_BOX_ON
-						var lc := GREEN if on else GOLD
+						var lc := Color(1.0, 0.95, 0.3) if on else RED
 						var hs: float = Data.LEAD_BOX_SIZE
-						draw_line(tp, lp, Color(lc, 0.35), 1.5)
-						draw_rect(Rect2(lp - Vector2(hs, hs), Vector2(hs, hs) * 2.0), Color(lc, 0.95), false, 2.5)
-						draw_circle(lp, 2.5, lc)
+						draw_line(tp, lp, Color(RED, 0.45), 1.5)
+						draw_rect(Rect2(lp - Vector2(hs, hs), Vector2(hs, hs) * 2.0), Color(lc, 1.0), false, 3.0)
+						draw_line(lp + Vector2(-hs * 0.45, 0), lp + Vector2(hs * 0.45, 0), lc, 2.0)
+						draw_line(lp + Vector2(0, -hs * 0.45), lp + Vector2(0, hs * 0.45), lc, 2.0)
 					# Job M: missile locks: one pip per lock the fitted rack can hold, filled as they come
 					var item := "light_missile" if "light_missile" in GS.slots else "heavy_missile"
 					var cap: int = mini(GS.max_locks(item), GS.slot_ammo(item))
@@ -830,6 +834,7 @@ func _draw() -> void:
 		_corner("slot_%d" % k, it["label"], it["icon"], scol, false, "%d" % ammo, cdk, space.warp_active(), ssub)
 	var mech: bool = GS.form == "mech"
 	_corner("thrust", "BOOST" if mech else "THRUST", "thrust", ORANGE, space.boosting, "", 0.0, false, "STICK = DASH" if mech else "")
+	_corner("fire", "FIRE", "guns", RED, space.fire_lock, "", 0.0, space.warp_active() or not space.lane.is_empty(), "ON · TAP = OFF" if space.fire_lock else "TAP = NONSTOP")
 	_corner("kill", "KILL", "kill", GOLD, space.engine_kill, "", 0.0, mech, "DRIFTING" if space.engine_kill else "ENGINE")
 	_pill("map", "MAP")
 	_pill("view", "CHASE" if cockpit else "COCKPIT", false, CYAN, "VIEW")
@@ -838,6 +843,9 @@ func _draw() -> void:
 	_pill("log", "LOG", comms_mode == "roster", CYAN, "CONTACTS")
 	_pill("call", "CALL", comms_mode == "talk", GREEN)
 	if buttons.has("dock"): _pill("dock", "DOCK", true, GREEN, space.dock_candidate().name.to_upper())
+	if buttons.has("lane"):
+		if space.lane.is_empty(): _pill("lane", "TRADE LANE", true, CYAN, "TO %s" % str(space.lane_candidate().get("to", "")).to_upper())
+		else: _pill("lane", "IN LANE · %d m/s" % int(space.speed_now), true, CYAN, "TAP TO LEAVE · TO %s" % str(space.lane.get("to", "")).to_upper())
 	if buttons.has("jump"): _pill("jump", "%s GATE" % str(space.near_gate().get_meta("info").get("gkind", "warp")).to_upper() if space.sys.get("generated", false) else "WARP GATE", true, GOLD, "DOCK · TO %s" % Data.SYSTEMS[space.near_gate().get_meta("info")["to"]]["name"].to_upper())
 	if not (cockpit and cockpit_texture()): _dashboard()   # the cockpit art has its own dash screens
 	_stick("move", "FLIGHT")

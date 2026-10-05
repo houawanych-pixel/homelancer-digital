@@ -29,6 +29,7 @@ var vel := Vector3.ZERO
 var move := Vector2.ZERO # x strafe, y forward(+)/back(-)
 var aim := Vector2.ZERO # stick deflection -1..1
 var fire_held := false
+var fire_lock := false            # v1.4l: the FIRE button: on = the guns fire nonstop until you press it again
 var shield_cd := 0.0
 var energy_cd := 0.0
 var repair_cd := 0.0
@@ -184,6 +185,8 @@ func setup(id: String, arrival: String) -> void:
 	_build_traffic()
 	_build_carrier()
 	_prof("traffic + carrier")
+	_build_lanes()
+	_prof("trade lanes")
 	place_player(arrival)
 
 ## One line of memory numbers (GPU textures, GPU buffers, engine RAM, node count) for load/soak testing.
@@ -203,6 +206,7 @@ func _prof(step: String) -> void:
 func place_player(arrival: String) -> void:
 	var at: Vector3
 	var face: Vector3
+	player.visible = true   # (hidden when the ship blew up)
 	if surface_mode:
 		if station.get_meta("kind", "") == "station":
 			at = dock_point(station)
@@ -217,9 +221,19 @@ func place_player(arrival: String) -> void:
 		return
 	if arrival.begins_with("orbit:"):
 		# climbing out of a planet tile: appear above that part of the planet, facing away from it
+		# "orbit:<tile>" = the main planet; "orbit:<tile>:<planet id>" = one of the system's other planets (v1.4l)
+		var parts := arrival.split(":")
 		var pid: String = planet.get_meta("info")["id"]
-		var d := Surface.direction_from_tile(pid, int(arrival.substr(6)))
-		at = planet.global_position + d * (float(planet.get_meta("radius")) * Data.ATMO_OUTER + 60.0)
+		var centre: Vector3 = planet.global_position
+		var prad: float = planet.get_meta("radius")
+		if parts.size() > 2 and parts[2] != pid:
+			for mp: Dictionary in sys.get("more_planets", []):
+				if mp["id"] == parts[2]:
+					pid = parts[2]
+					centre = mp["pos"]
+					prad = float(mp["radius"])
+		var d := Surface.direction_from_tile(pid, int(parts[1]))
+		at = centre + d * (prad * Data.ATMO_OUTER + 60.0)
 		face = d
 		player.global_position = at
 		_face(face)
@@ -1295,6 +1309,8 @@ func _process(dt: float) -> void:
 	_update_traffic(dt)
 	_update_bolts(dt)
 	_update_missiles(dt)
+	_update_trails(dt)
+	_update_blasts(dt)
 	_update_mines(dt)
 	_update_loot(dt)
 	_update_effects(dt)
@@ -1349,7 +1365,7 @@ func _update_sun(dt: float) -> void:
 			_explode(player.global_position)
 			controls = false
 			drop_warp()
-			player_destroyed.emit()
+			_die()
 			return
 		entering = true
 		Packs.request("planets")
@@ -1374,7 +1390,7 @@ func _sun_heat(dt: float) -> void:
 		message.emit("Burned up in the star.")
 		_explode(player.global_position)
 		controls = false
-		player_destroyed.emit()
+		_die()
 
 func _update_player(dt: float) -> void:
 	var s: Dictionary = GS.ship()
@@ -1395,6 +1411,9 @@ func _update_player(dt: float) -> void:
 			_spark_v(ps, Vector3(_rng.randfn(0, 5), _rng.randfn(0, 5), _rng.randfn(0, 5)), Color(1.0, 0.85, 0.5), 1.8, 0.15)
 	if shield_delay <= 0.0 and GS.shield < GS.max_shield():
 		GS.shield = minf(GS.max_shield(), GS.shield + GS.max_shield() * 0.12 * dt)
+	if not lane.is_empty():   # v1.4l: riding a trade lane: the lane flies the ship
+		_lane_update(dt)
+		return
 	_update_transform(dt)
 	if GS.form == "mech": turn *= 1.3   # mechs pivot faster
 	var steer := aim if controls else Vector2.ZERO
@@ -1463,7 +1482,7 @@ func _update_player(dt: float) -> void:
 	player.global_position += vel * dt
 	speed_now = vel.length()
 	if controls and warp_state == "off" and transform_t <= 0.0:
-		var want := fire_held
+		var want := fire_held or fire_lock
 		if GS.is_auto("guns") and _in_fire_cone(target): want = true
 		var cost := Data.ENERGY_PER_GUN * float(GS.ship()["guns"])
 		if want and gun_cd <= 0.0 and GS.energy >= cost:
@@ -1702,7 +1721,9 @@ func fire_missile(heavy := false, k := 0, n := 1, scale := 1.0, forced: Node3D =
 	if n > 1:
 		var a := (float(k) / float(n - 1) - 0.5) * 2.0
 		fan = (player.global_basis.x * a + player.global_basis.y * (1.0 - absf(a)) * 0.5) * Data.VOLLEY_SPREAD
-	missiles_live.append({"node": mi, "vel": -player.global_basis.z * 90.0 + vel + fan, "target": t, "life": 7.0, "heavy": heavy, "scale": scale})
+	missiles_live.append({"node": mi, "vel": -player.global_basis.z * 90.0 + vel + fan, "target": t, "life": 7.0, "heavy": heavy, "scale": scale,
+		"wp": _rng.randf() * TAU, "wf": _rng.randf_range(Data.WEAVE_HZ[0], Data.WEAVE_HZ[1]), "wo": _rng.randf() * TAU})
+	_trail_new(mi)
 	Sfx.play("missile", -4.0 if k == 0 else -9.0)
 	return true
 
@@ -1804,9 +1825,389 @@ func side_speed(v: Vector3, line: Vector3) -> float:
 func _missile_trail(n: Node3D) -> void:
 	for c in n.get_children():
 		if c.name.begins_with("Flame"): c.scale = Vector3(1.0, 0.8 + _rng.randf() * 0.45, 1.0)
-	var tail := n.global_position + n.global_basis.z * 2.2
-	_spark_v(tail, n.global_basis.z * 6.0, Color(1.0, 0.62, 0.25), 4.5, 0.55)
-	if int(time * 60.0) % 3 == 0: _spark_v(tail, n.global_basis.z * 3.0 + Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), _rng.randfn(0, 1)), Color(0.55, 0.55, 0.6), 5.0, 1.2)
+	# v1.4l: the long trail is the white ribbon (_update_trails); only a small glow stays at the nozzle
+	_spark_v(n.global_position + n.global_basis.z * 2.2, n.global_basis.z * 6.0, Color(1.0, 0.8, 0.5), 2.4, 0.18)
+
+## The swing a missile adds to its path (Robotech style). It dies away near the target so the missile still hits.
+func weave(m: Dictionary, v: Vector3, dist: float, dt: float) -> Vector3:
+	if not m.has("wp") or v.length() < 1.0: return Vector3.ZERO
+	m["wp"] = float(m["wp"]) + dt * TAU * float(m["wf"])
+	var k := clampf((dist - Data.WEAVE_FADE * 0.3) / Data.WEAVE_FADE, 0.0, 1.0)
+	var fw := v.normalized()
+	var sx := fw.cross(Vector3.UP)
+	if sx.length() < 0.05: sx = Vector3.RIGHT
+	sx = sx.normalized()
+	var sy := sx.cross(fw)
+	return (sx * sin(float(m["wp"])) + sy * cos(float(m["wp"]) * 0.73 + float(m["wo"]))) * Data.WEAVE_AMP * k
+
+# ---------------------------------------------------------------- Job O: missile ribbon trails
+var trails: Array = []            # {"mi", "im", "src", "pts": [[pos, time]...] newest first, "t"}
+var _trail_mat: StandardMaterial3D
+
+## Start a ribbon behind a missile: a flat strip that always faces the camera, white at the missile, widening and
+## fading toward the end. It outlives the missile by TRAIL_LIFE.
+func _trail_new(src: Node3D) -> void:
+	if _trail_mat == null:
+		_trail_mat = StandardMaterial3D.new()
+		_trail_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_trail_mat.vertex_color_use_as_albedo = true
+		_trail_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_trail_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		_trail_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var mi := MeshInstance3D.new()
+	var im := ImmediateMesh.new()
+	mi.mesh = im
+	mi.material_override = _trail_mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.top_level = true
+	add_child(mi)
+	mi.global_transform = Transform3D.IDENTITY
+	trails.append({"mi": mi, "im": im, "src": src, "pts": [], "t": 0.0})
+
+func _update_trails(dt: float) -> void:
+	var cp: Vector3 = cam.global_position if is_instance_valid(cam) else Vector3.ZERO
+	for i in range(trails.size() - 1, -1, -1):
+		var tr: Dictionary = trails[i]
+		var pts: Array = tr["pts"]
+		var src = tr["src"]
+		var alive: bool = is_instance_valid(src) and not (src as Node).is_queued_for_deletion()
+		if alive:
+			tr["t"] = float(tr["t"]) - dt
+			if tr["t"] <= 0.0:
+				tr["t"] = Data.TRAIL_STEP
+				pts.push_front([(src as Node3D).global_position, time])
+		while not pts.is_empty() and time - float(pts[-1][1]) > Data.TRAIL_LIFE: pts.pop_back()
+		var im: ImmediateMesh = tr["im"]
+		im.clear_surfaces()
+		if pts.is_empty() and not alive:
+			(tr["mi"] as Node).queue_free()
+			trails.remove_at(i)
+			continue
+		var line: Array = pts.duplicate()
+		if alive: line.push_front([(src as Node3D).global_position, time])
+		if line.size() < 2: continue
+		im.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
+		for k in line.size():
+			var p: Vector3 = line[k][0]
+			var a: Vector3 = line[maxi(k - 1, 0)][0]
+			var b: Vector3 = line[mini(k + 1, line.size() - 1)][0]
+			var side := (a - b).cross(cp - p)
+			side = side.normalized() if side.length() > 0.0001 else Vector3.UP
+			var age := clampf((time - float(line[k][1])) / Data.TRAIL_LIFE, 0.0, 1.0)
+			var w := lerpf(Data.TRAIL_WIDTH0, Data.TRAIL_WIDTH1, age)
+			im.surface_set_color(Color(Data.TRAIL_COLOR, pow(1.0 - age, 1.6)))
+			im.surface_add_vertex(p + side * w)
+			im.surface_set_color(Color(Data.TRAIL_COLOR, pow(1.0 - age, 1.6)))
+			im.surface_add_vertex(p - side * w)
+		im.surface_end()
+
+# ---------------------------------------------------------------- Job O: trade lanes (Freelancer style)
+## In-system highways. A lane is a row of four-bracket rings between two places; each place on the row has two
+## rings, one above the other: the upper row runs A -> B, the lower row B -> A. Dock at a ring and the ship is locked
+## and carried ring to ring. The warp look is an energy tunnel that rides ON THE SHIP (plus a glow and a splash at
+## each ring): there is no tube between the rings. Jump gates still do the hops between systems.
+var lanes: Array = []            # {"a": name, "b": name, "up": [Vector3...], "down": [Vector3...], "dir": unit A->B}
+var lane := {}                   # the ride in progress: {"i": lane index, "fwd": bool, "k": next ring, "speed", "t"}
+var lane_stats := {"docks": 0, "passes": 0, "exits": 0}
+var lane_tunnel: MeshInstance3D
+var _lane_mm: MultiMeshInstance3D
+var _lane_lights: Array = []
+
+const LANE_TUNNEL_SHADER := """
+shader_type spatial;
+render_mode unshaded, blend_add, cull_disabled, depth_draw_never;
+uniform vec3 tint : source_color = vec3(0.35, 0.85, 1.0);
+uniform float power = 0.0;
+void fragment() {
+	float streak = pow(fract(sin(floor(UV.x * 90.0) * 91.7) * 43758.5), 5.0);
+	float flow = fract(UV.y * 2.0 + TIME * (1.6 + streak * 2.4) + streak * 7.0);
+	float band = smoothstep(0.0, 0.25, flow) * smoothstep(1.0, 0.55, flow);
+	float ends = smoothstep(0.0, 0.2, UV.y) * smoothstep(1.0, 0.75, UV.y);
+	ALBEDO = mix(tint, vec3(1.0), streak * 0.6);
+	ALPHA = (0.04 + streak * band * 0.75) * ends * power;
+}
+"""
+
+## One ring: four metal brackets round a circle with a light strip on each (unit radius; scaled per ring).
+func _lane_ring_mesh() -> ArrayMesh:
+	var metal := SurfaceTool.new()
+	metal.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var light := SurfaceTool.new()
+	light.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var box := BoxMesh.new()
+	for b in 4:
+		var mid := TAU * b / 4.0 + TAU / 8.0
+		for part in [-1, 0, 1]:
+			var a: float = mid + part * 0.3
+			var xf := Transform3D(Basis(Vector3.BACK, a), Vector3(cos(a), sin(a), 0.0))
+			box.size = Vector3(0.14, 0.34, 0.2)       # a slab of the bracket, lying along the circle
+			metal.append_from(box, 0, xf)
+			box.size = Vector3(0.03, 0.26, 0.06)      # its light strip, on the inside face
+			light.append_from(box, 0, xf * Transform3D(Basis.IDENTITY, Vector3(-0.08, 0, 0)))
+		var xo := Transform3D(Basis(Vector3.BACK, mid), Vector3(cos(mid), sin(mid), 0.0) * 1.16)
+		box.size = Vector3(0.22, 0.12, 0.3)           # the claw on the outside
+		metal.append_from(box, 0, xo)
+	metal.generate_normals()
+	light.generate_normals()
+	var mesh: ArrayMesh = metal.commit()
+	light.commit(mesh)
+	var mm := StandardMaterial3D.new()
+	mm.albedo_color = Color(0.36, 0.4, 0.46)
+	mm.metallic = 0.6
+	mm.roughness = 0.45
+	mesh.surface_set_material(0, mm)
+	var lm := StandardMaterial3D.new()
+	lm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	lm.albedo_color = Data.LANE_TINT
+	mesh.surface_set_material(1, lm)
+	return mesh
+
+## Is the straight run a -> b clear of the sun, the planet and the station (other than its own two ends)?
+func _lane_clear(a: Vector3, b: Vector3, skip: Array) -> bool:
+	var bodies: Array = [[sun_pos, sun_radius + 400.0]] if sun_pos != Vector3.INF else []
+	for n: Node3D in [station, planet]:
+		if not (n in skip): bodies.append([n.global_position, float(n.get_meta("radius", 80.0)) + 250.0])
+	for d: Dictionary in sys.get("more_planets", []) + sys.get("more_stations", []): bodies.append([d["pos"], float(d["radius"]) + 200.0])
+	for q in bodies:
+		if _seg_hit(a, b, q[0], q[1]): return false
+	return true
+
+func _build_lanes() -> void:
+	lanes.clear()
+	lane = {}
+	if surface_mode: return
+	var pairs: Array = [[station, planet]]
+	for g in gates: pairs.append([station, g])
+	var xfs: Array = []
+	for pr in pairs:
+		var a: Node3D = pr[0]
+		var b: Node3D = pr[1]
+		var dir := (b.global_position - a.global_position).normalized()
+		var ra: float = (float(a.get_meta("radius", 80.0)) if a != station else 120.0) + Data.LANE_STANDOFF
+		var rb: float = (float(b.get_meta("radius", 0.0)) if b == planet else 60.0) + Data.LANE_STANDOFF
+		var p0 := a.global_position + dir * ra
+		var p1 := b.global_position - dir * rb
+		var length := p0.distance_to(p1)
+		if length < Data.LANE_MIN_LEN or (p1 - p0).dot(dir) <= 0.0 or not _lane_clear(p0, p1, [a, b]): continue
+		var n := clampi(int(ceil(length / Data.LANE_RING_GAP)) + 1, 2, Data.LANE_MAX_RINGS)
+		var up := Vector3.UP if absf(dir.y) < 0.9 else Vector3.RIGHT
+		up = (up - dir * up.dot(dir)).normalized()
+		var ln := {"a": a.name, "b": b.name, "up": [], "down": [], "dir": dir}
+		var basis := Basis.looking_at(dir, up).scaled(Vector3.ONE * Data.LANE_RING_RADIUS)
+		for k in n:
+			var c := p0.lerp(p1, float(k) / float(n - 1))
+			ln["up"].append(c + up * Data.LANE_STACK * 0.5)
+			ln["down"].append(c - up * Data.LANE_STACK * 0.5)
+			xfs.append(Transform3D(basis, ln["up"][k]))
+			xfs.append(Transform3D(basis, ln["down"][k]))
+		lanes.append(ln)
+		# the green light marks each live mouth: where you get on
+		for mouth: Vector3 in [ln["up"][0], ln["down"][n - 1]]:
+			var lamp := MeshInstance3D.new()
+			var sm := SphereMesh.new()
+			sm.radius = 5.0
+			sm.height = 10.0
+			sm.radial_segments = 8
+			sm.rings = 4
+			lamp.mesh = sm
+			lamp.material_override = ShipFactory.mat(Color(0.3, 1.0, 0.45), true)
+			add_child(lamp)
+			lamp.global_position = mouth + up * (Data.LANE_RING_RADIUS + 12.0)
+			_lane_lights.append(lamp)
+	if xfs.is_empty(): return
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = _lane_ring_mesh()
+	mm.instance_count = xfs.size()
+	for i in xfs.size(): mm.set_instance_transform(i, xfs[i])
+	_lane_mm = MultiMeshInstance3D.new()
+	_lane_mm.multimesh = mm
+	_lane_mm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(_lane_mm)
+	# the energy tunnel that rides on the ship (hidden until a lane is in use)
+	lane_tunnel = MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = Data.LANE_TUNNEL_RADIUS
+	cyl.bottom_radius = Data.LANE_TUNNEL_RADIUS * 0.8
+	cyl.height = Data.LANE_TUNNEL_LEN
+	cyl.radial_segments = 24
+	cyl.rings = 1
+	cyl.cap_top = false
+	cyl.cap_bottom = false
+	lane_tunnel.mesh = cyl
+	var sh := Shader.new()
+	sh.code = LANE_TUNNEL_SHADER
+	var tm := ShaderMaterial.new()
+	tm.shader = sh
+	tm.set_shader_parameter("tint", Data.LANE_TINT)
+	lane_tunnel.material_override = tm
+	lane_tunnel.rotation_degrees = Vector3(-90, 0, 0)      # the cylinder's length runs along the ship's nose line
+	lane_tunnel.position = Vector3(0, 0, -Data.LANE_TUNNEL_LEN * 0.25)
+	lane_tunnel.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	lane_tunnel.visible = false
+	player.add_child(lane_tunnel)
+
+## The ring you could dock right now: nearest live ring inside LANE_DOCK_RANGE (one with a ring after it).
+## Returns {} or {"i": lane, "fwd": bool, "k": ring index, "to": destination name, "pos": Vector3}.
+func lane_candidate() -> Dictionary:
+	if surface_mode or not lane.is_empty() or not controls or warp_state != "off" or GS.form == "mech": return {}
+	var best := {}
+	var bd: float = Data.LANE_DOCK_RANGE
+	for i in lanes.size():
+		var ln: Dictionary = lanes[i]
+		var n: int = ln["up"].size()
+		for k in n:
+			for fwd in [true, false]:
+				if (fwd and k >= n - 1) or (not fwd and k <= 0): continue   # the last ring of a row is the way off
+				var pos: Vector3 = (ln["up"] if fwd else ln["down"])[k]
+				var d := player.global_position.distance_to(pos)
+				if d < bd:
+					bd = d
+					best = {"i": i, "fwd": fwd, "k": k, "to": ln["b"] if fwd else ln["a"], "pos": pos}
+	return best
+
+## Dock the ring in range: controls lock and the lane takes the ship.
+func lane_enter() -> bool:
+	var c := lane_candidate()
+	if c.is_empty(): return false
+	lane = {"i": c["i"], "fwd": c["fwd"], "k": c["k"], "speed": maxf(vel.length(), 20.0), "t": 0.0, "to": c["to"]}
+	autopilot = null
+	engine_kill = false
+	braking = false
+	holding = false
+	lane_stats["docks"] += 1
+	Sfx.play("warp_spool", -8.0, 1.4)
+	message.emit("Trade lane to %s. Controls locked." % c["to"])
+	return true
+
+## Leave the lane where you are (the button again, or the ship was destroyed).
+func lane_abort() -> void:
+	if lane.is_empty(): return
+	lane = {}
+	vel = -player.global_basis.z * Data.LANE_EXIT_SPEED
+	if is_instance_valid(lane_tunnel): lane_tunnel.visible = false
+
+func _lane_update(dt: float) -> void:
+	var ln: Dictionary = lanes[lane["i"]]
+	var row: Array = ln["up"] if lane["fwd"] else ln["down"]
+	var step_k := 1 if lane["fwd"] else -1
+	var last: int = row.size() - 1 if lane["fwd"] else 0
+	lane["t"] = float(lane["t"]) + dt
+	var sp: float = minf(Data.LANE_SPEED, float(lane["speed"]) + Data.LANE_SPEED / Data.LANE_RAMP * dt)
+	var to_end := player.global_position.distance_to(row[last])
+	if to_end < Data.LANE_SLOW_DIST: sp = minf(sp, maxf(Data.LANE_EXIT_SPEED, Data.LANE_SPEED * to_end / Data.LANE_SLOW_DIST))
+	lane["speed"] = sp
+	var left := sp * dt
+	while left > 0.0 and not lane.is_empty():
+		var target_pos: Vector3 = row[lane["k"]]
+		var to := target_pos - player.global_position
+		if to.length() > left:
+			player.global_position += to.normalized() * left
+			_face(to)
+			vel = to.normalized() * sp
+			left = 0.0
+		else:
+			left -= to.length()
+			player.global_position = target_pos
+			_lane_pass(target_pos, ln["dir"])
+			if lane["k"] == last:
+				lane_stats["exits"] += 1
+				var out_dir: Vector3 = (ln["dir"] as Vector3) * (1.0 if lane["fwd"] else -1.0)
+				_face(out_dir)
+				vel = out_dir * Data.LANE_EXIT_SPEED
+				message.emit("Lane exit: %s." % lane["to"])
+				lane = {}
+			else:
+				lane["k"] = int(lane["k"]) + step_k
+	speed_now = vel.length()
+	boosting = false
+	if is_instance_valid(lane_tunnel):
+		lane_tunnel.visible = not lane.is_empty()
+		(lane_tunnel.material_override as ShaderMaterial).set_shader_parameter("power", clampf(sp / Data.LANE_SPEED, 0.0, 1.0))
+	if is_instance_valid(model): model.rotation = model.rotation.lerp(Vector3.ZERO, minf(1.0, dt * 4.0))
+
+## Passing a ring: it lights up and throws a splash.
+func _lane_pass(at: Vector3, dir: Vector3) -> void:
+	lane_stats["passes"] += 1
+	_ring_fx(at, Color(Data.LANE_TINT, 0.9), Data.LANE_RING_RADIUS * 0.9, Data.LANE_SPLASH, 1.5)
+	_spark(at, Color(Data.LANE_TINT.lerp(Color.WHITE, 0.5), 0.8), Data.LANE_RING_RADIUS * 1.2, 0.22)
+	for k in 8:
+		var a := TAU * k / 8.0
+		var side := (cam.global_basis.x * cos(a) + cam.global_basis.y * sin(a)) * Data.LANE_RING_RADIUS
+		_spark_v(at + side, side.normalized() * 30.0 + dir * 40.0, Data.LANE_TINT, 4.0, 0.4)
+	Sfx.play("whoosh", -7.0, 1.3)
+
+# ---------------------------------------------------------------- Job O: explosions
+var blast_pending: Array = []
+var blasts := 0                  # how many big blasts have gone off (tests)
+var last_blast := {}
+
+func _ring_fx(at: Vector3, col: Color, size: float, life: float, grow: float) -> void:
+	var mi := _hex_node(col, size)
+	mi.mesh = _ring_mesh()
+	add_child(mi)
+	mi.global_position = at
+	var tw := mi.create_tween().set_parallel(true)
+	tw.tween_property(mi, "scale", Vector3.ONE * size * grow, life).set_ease(Tween.EASE_OUT)
+	tw.tween_property(mi.material_override, "albedo_color:a", 0.0, life)
+	tw.chain().tween_callback(mi.queue_free)
+
+var _ring_m: ArrayMesh
+func _ring_mesh() -> ArrayMesh:
+	if _ring_m != null: return _ring_m
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in 28:
+		var a0 := TAU * i / 28.0
+		var a1 := TAU * (i + 1) / 28.0
+		var o0 := Vector3(cos(a0), sin(a0), 0)
+		var o1 := Vector3(cos(a1), sin(a1), 0)
+		for v in [o0, o1, o1 * 0.94, o0, o1 * 0.94, o0 * 0.94]: st.add_vertex(v)
+	_ring_m = st.commit()
+	return _ring_m
+
+## A proper explosion: white flash, a fireball cloud, a shock ring, flying debris, then a few later pops around it.
+## spec = [flash size, fireballs, debris bits, later pops, seconds between pops] (Data.BLAST_*).
+func _blast(at: Vector3, spec: Array, kind := "") -> void:
+	var size: float = spec[0]
+	blasts += 1
+	last_blast = {"at": at, "kind": kind, "size": size}
+	_spark(at, Color(1.0, 1.0, 0.95), size, 0.14)
+	_spark(at, Color(1.0, 0.72, 0.3), size * 0.75, 0.7)
+	_spark(at, Color(1.0, 0.38, 0.12), size * 0.5, 1.1)
+	_ring_fx(at, Color(1.0, 0.85, 0.6, 0.6), size * 0.12, 0.5, 3.5)
+	for i in int(spec[1]):
+		var d := Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), _rng.randfn(0, 1)).normalized()
+		_spark_v(at + d * size * 0.08, d * _rng.randf_range(4.0, 16.0) * size * 0.06, Color(1.0, _rng.randf_range(0.45, 0.85), 0.2), _rng.randf_range(0.2, 0.42) * size, _rng.randf_range(0.6, 1.3))
+	for i in int(spec[2]):
+		var d2 := Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), _rng.randfn(0, 1)).normalized()
+		_spark_v(at, d2 * _rng.randf_range(14.0, 40.0), Color(0.5, 0.5, 0.54), _rng.randf_range(0.6, 1.4), _rng.randf_range(0.8, 1.5))
+	for k in int(spec[3]):
+		blast_pending.append({"t": float(spec[4]) * (k + 1), "at": at + Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), _rng.randfn(0, 1)) * size * 0.14, "size": size * _rng.randf_range(0.3, 0.55)})
+
+func _update_blasts(dt: float) -> void:
+	for i in range(blast_pending.size() - 1, -1, -1):
+		var q: Dictionary = blast_pending[i]
+		q["t"] -= dt
+		if q["t"] > 0.0: continue
+		blast_pending.remove_at(i)
+		var at: Vector3 = q["at"]
+		_spark(at, Color(1.0, 0.95, 0.8), float(q["size"]), 0.12)
+		_spark(at, Color(1.0, 0.55, 0.2), float(q["size"]) * 0.7, 0.6)
+		var dd := at.distance_to(player.global_position)
+		if dd < 1200.0: Sfx.play("explosion", -8.0 - dd / 90.0, _rng.randf_range(1.1, 1.5))
+
+## The player's ship blows up: both sides and the core go, then the wreck is gone.
+func _die() -> void:
+	var p := player.global_position
+	for side in ["l", "r"]: _blast(Sections.side_point(player_vis, side, model) if is_instance_valid(model) else p, Data.BLAST_WING, "wing_" + side)
+	_blast(p, Data.BLAST_DEATH, "death")
+	Sfx.play("explosion", 0.0, 0.7)
+	hit_shake = 1.6
+	player.visible = false
+	lane_abort()
+	fire_lock = false
+	player_destroyed.emit()
 
 ## An enemy launches a homing missile at the player.
 func enemy_fire_missile(e: Dictionary) -> void:
@@ -1818,7 +2219,9 @@ func enemy_fire_missile(e: Dictionary) -> void:
 	var mi := _missile_node(false)
 	add_child(mi)
 	mi.global_position = n.global_position - n.global_basis.y * 1.5 - n.global_basis.z * 4.0
-	enemy_missiles.append({"node": mi, "vel": -n.global_basis.z * 80.0 + (e["vel"] as Vector3), "life": Data.ENEMY_MISSILE_LIFE, "lost": false})
+	enemy_missiles.append({"node": mi, "vel": -n.global_basis.z * 80.0 + (e["vel"] as Vector3), "life": Data.ENEMY_MISSILE_LIFE, "lost": false,
+		"wp": _rng.randf() * TAU, "wf": _rng.randf_range(Data.WEAVE_HZ[0], Data.WEAVE_HZ[1]), "wo": _rng.randf() * TAU})
+	_trail_new(mi)
 	if n.global_position.distance_to(player.global_position) < 700.0: Sfx.play("missile", -8.0, 0.8)
 	message.emit("Missile incoming — boost sideways!")
 
@@ -1985,8 +2388,9 @@ func _update_enemy_missiles(dt: float) -> void:
 						_sig_impact(n.global_position, m["sig"])
 					done = true
 		m["vel"] = v
-		n.global_position += v * dt
-		if v.length() > 0.1: n.look_at(n.global_position + v, Vector3.UP)
+		var wv := Vector3.ZERO if m["lost"] else weave(m, v, dist, dt)
+		n.global_position += (v + wv) * dt
+		if v.length() > 0.1: n.look_at(n.global_position + v + wv, Vector3.UP)
 		m["life"] -= dt
 		if m.has("sig"):
 			m["vel"] = v
@@ -2029,8 +2433,9 @@ func _update_missiles(dt: float) -> void:
 					enemy_evades += 1
 					_popup(te["node"].global_position, "EVADED", Color(0.7, 0.9, 1.0))
 		m["vel"] = v
-		n.global_position += v * dt
-		if v.length() > 0.1: n.look_at(n.global_position + v, Vector3.UP)
+		var wv2 := weave(m, v, n.global_position.distance_to(t.global_position), dt) if is_instance_valid(t) else Vector3.ZERO
+		n.global_position += (v + wv2) * dt
+		if v.length() > 0.1: n.look_at(n.global_position + v + wv2, Vector3.UP)
 		m["life"] -= dt
 		_missile_trail(n)
 		var done: bool = m["life"] <= 0.0
@@ -2159,16 +2564,15 @@ func _player_hit(dmg: float, hit := Vector3.INF) -> void:
 	var broke := GS.damage(dmg, side)
 	if broke != "":
 		var p := Sections.side_point(player_vis, broke, model)
-		Sfx.play("explosion", -4.0, 1.35)
-		_spark(p, Color(1.0, 0.95, 0.8), 12.0, 0.25)
-		_spark(p, Color(1.0, 0.55, 0.2), 8.0, 0.6)
+		Sfx.play("explosion", -2.0, 1.2)
+		_blast(p, Data.BLAST_WING, "wing_" + broke)   # v1.4l: the wing goes up properly
 		Sections.set_side_visible(player_vis, broke, false)
 		message.emit("%s wing destroyed — its guns are offline. Dock for repairs." % ("Left" if broke == "l" else "Right"))
 	if warp_state != "off": drop_warp("Warp drive disrupted by weapons fire!")
 	if GS.hull <= 0.0 and controls:
 		_explode(player.global_position)
 		controls = false
-		player_destroyed.emit()
+		_die()
 
 func _update_enemies(dt: float) -> void:
 	var ppos := player.global_position
@@ -2313,10 +2717,11 @@ func collision_damage(kind: String, impact: float, at := Vector3.INF) -> float:
 		GS.hull = 0.0
 		_explode(player.global_position)
 		controls = false
-		player_destroyed.emit()
+		_die()
 	return dealt
 
 func _collisions(dt: float) -> void:
+	if not lane.is_empty(): return   # nothing is solid while the lane carries you
 	collide_grace = maxf(0.0, collide_grace - dt)
 	var p := player.global_position
 	in_belt = in_belt_region(p)
@@ -2349,8 +2754,15 @@ func _collisions(dt: float) -> void:
 					_spark(player.global_position, Color(1, 1, 1), 60.0, 0.6)
 					controls = false
 					drop_warp()
-					player_destroyed.emit()
+					_die()
 					continue
+		if body != planet and body != station and Surface.has_surface(str(body.get_meta("info").get("id", ""))):
+			# v1.4l: every catalog planet has a surface too. Fly into it (not at warp) to go down.
+			if d2 < rad * Data.ATMO_INNER + 10.0 and controls and not entering and warp_state == "off":
+				entering = true
+				message.emit("Entering the atmosphere of %s." % body.name)
+				atmosphere_entered.emit(body)
+			continue
 		if body == planet and Surface.has_surface(planet.get_meta("info")["id"]):
 			# planets with a surface are not solid. Outer atmosphere: haze, glow, rumble and the planet pack starts
 			# coming. Inner entry sphere (forgiving, any direction): commits to the surface.
@@ -2458,10 +2870,7 @@ func _spark_tex() -> ImageTexture:
 func _explode(at: Vector3) -> void:
 	var dd := at.distance_to(player.global_position)
 	if dd < 1500.0: Sfx.play("explosion", -2.0 - dd / 90.0)
-	_spark(at, Color(1.0, 0.75, 0.35), 26.0, 0.9)
-	_spark(at, Color(1.0, 0.4, 0.15), 14.0, 1.3)
-	for i in 6:
-		_spark(at + Vector3(_rng.randfn(0, 5), _rng.randfn(0, 5), _rng.randfn(0, 5)), Color(1, 0.6, 0.3), 7.0, 0.7)
+	_blast(at, Data.BLAST_ENEMY, "unit")
 
 func _update_effects(dt: float) -> void:
 	for i in range(effects.size() - 1, -1, -1):
@@ -2486,6 +2895,8 @@ func _update_effects(dt: float) -> void:
 func trigger_system(id: String) -> bool:
 	if transform_t > 0.0 and id in ["guns", "missile", "light_missile", "heavy_missile", "mine"]:
 		return _say(id, "Weapons are locked while transforming.")
+	if not lane.is_empty() and id in ["guns", "missile", "light_missile", "heavy_missile", "mine"]:
+		return _say(id, "Weapons are locked in the trade lane.")
 	if warp_state != "off" and id in ["guns", "missile", "light_missile", "heavy_missile", "mine"]:
 		return _say(id, "Weapons are locked while the warp drive is active.")
 	if sun_surface and not GS.heat_shield and id in ["shield", "hull"]:

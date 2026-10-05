@@ -23,7 +23,8 @@ const ZOOM_IN := 0.42         # seconds to zoom into a door
 const ZOOM_OUT := 0.38
 
 ## Which room you arrive in when you dock, by station id.
-const STATIONS := {"liberty_hub": "main_hub"}
+const STATIONS := {"liberty_hub": "main_hub", "aurelion_station": "au_main_hub"}
+const SINGLE_OVER := 1.34     # single-view rooms are drawn this much taller than the screen, so there is room to look around
 
 ## u, v: where the hotspot sits on the picture (u 0..1 across the whole strip: 0..0.5 front view, 0.5..1 back view;
 ## v 0 top .. 1 bottom). act: "room:<id>" | "screen:<hub screen>" | "launch" | "map" | "inspect" | "say:<text>" | "talk:<character>"
@@ -71,6 +72,58 @@ const ROOMS := {
 		{"u": 0.966, "v": 0.27, "label": "REPAIRS", "sub": "Back in the fight", "act": "screen:repair"},
 		{"u": 0.750, "v": 0.56, "label": "MAIN HUB", "sub": "Through the door", "act": "room:main_hub"},
 	]},
+	# ---- Aurelion Citadel (v1.4l), from the owner's Elyza hub pictures (Drive: concept-art/Stations/Aurelion).
+	# These are ONE view each, not front + back ("single": true): you can look left and right inside the picture, it
+	# does not turn all the way round. u runs 0..1 across the picture. Pack "rooms_aurelion".
+	"au_main_hub": {"name": "AURELION CITADEL · MAIN HUB", "face": 0.5, "single": true, "pack": "rooms_aurelion", "spots": [
+		{"u": 0.10, "v": 0.72, "label": "SHIPYARD", "sub": "Ships", "act": "room:au_shipyard"},
+		{"u": 0.22, "v": 0.72, "label": "DEALER", "sub": "Trade goods", "act": "room:au_dealer"},
+		{"u": 0.34, "v": 0.72, "label": "WEAPONS", "sub": "Guns and missiles", "act": "room:au_weapons"},
+		{"u": 0.46, "v": 0.72, "label": "SUPPLIES", "sub": "Repair and resupply", "act": "room:au_supplies"},
+		{"u": 0.58, "v": 0.72, "label": "BAR", "sub": "The Canopy", "act": "room:au_bar"},
+		{"u": 0.70, "v": 0.72, "label": "MISSION BOARD", "sub": "Bounties", "act": "room:au_mission"},
+		{"u": 0.82, "v": 0.72, "label": "ROOMS", "sub": "Rest quarters", "act": "room:au_rest"},
+		{"u": 0.66, "v": 0.50, "label": "LAUNCH", "sub": "Take your ship out", "act": "launch"},
+		{"u": 0.50, "v": 0.36, "label": "AURELION PRIME", "sub": "System map", "act": "map"},
+		{"u": 0.14, "v": 0.62, "label": "WARDENS", "sub": "Talk", "act": "say:Welcome to the Citadel, traveller. The Council sits above; trade and rest are along the east walk."},
+	]},
+	"au_shipyard": {"name": "AURELION CITADEL · SHIPYARD", "face": 0.5, "single": true, "pack": "rooms_aurelion", "spots": [
+		{"u": 0.23, "v": 0.30, "label": "YOUR SHIP", "sub": "Inspect", "act": "inspect"},
+		{"u": 0.93, "v": 0.52, "label": "SHIPWRIGHT", "sub": "Ship dealer", "act": "screen:ships"},
+		{"u": 0.06, "v": 0.42, "label": "HULL PLANS", "sub": "Ship dealer", "act": "screen:ships"},
+		{"u": 0.50, "v": 0.88, "label": "MAIN HUB", "sub": "Back", "act": "room:au_main_hub"},
+		{"u": 0.62, "v": 0.60, "label": "LAUNCH", "sub": "Take your ship out", "act": "launch"},
+	]},
+	"au_dealer": {"name": "AURELION CITADEL · DEALER", "face": 0.4, "single": true, "pack": "rooms_aurelion", "spots": [
+		{"u": 0.15, "v": 0.42, "label": "DEALER", "sub": "Talk", "act": "say:Crystal lenses, medical flora, star charts. Cargo trading opens soon, pilot."},
+		{"u": 0.50, "v": 0.88, "label": "MAIN HUB", "sub": "Back", "act": "room:au_main_hub"},
+	]},
+	"au_weapons": {"name": "AURELION CITADEL · WEAPONS DEALER", "face": 0.4, "single": true, "pack": "rooms_aurelion", "spots": [
+		{"u": 0.15, "v": 0.47, "label": "ARMOURER", "sub": "Guns and missiles", "act": "screen:equipment"},
+		{"u": 0.88, "v": 0.42, "label": "RACKS", "sub": "Guns and missiles", "act": "screen:equipment"},
+		{"u": 0.50, "v": 0.88, "label": "MAIN HUB", "sub": "Back", "act": "room:au_main_hub"},
+	]},
+	"au_supplies": {"name": "AURELION CITADEL · SUPPLIES", "face": 0.4, "single": true, "pack": "rooms_aurelion", "spots": [
+		{"u": 0.07, "v": 0.56, "label": "QUARTERMASTER", "sub": "Repair and resupply", "act": "screen:repair"},
+		{"u": 0.84, "v": 0.52, "label": "MARKET STALL", "sub": "Talk", "act": "say:Fresh from Verdance this morning. Take what you need for the road."},
+		{"u": 0.50, "v": 0.88, "label": "MAIN HUB", "sub": "Back", "act": "room:au_main_hub"},
+	]},
+	"au_bar": {"name": "AURELION CITADEL · THE CANOPY BAR", "face": 0.4, "single": true, "pack": "rooms_aurelion", "spots": [
+		{"u": 0.07, "v": 0.44, "label": "BARTENDER", "sub": "Talk", "act": "say:Sit, pilot. They say the crystal barges from Crystara are running late again."},
+		{"u": 0.88, "v": 0.60, "label": "PILOTS", "sub": "Listen", "act": "say:...and the wardens want escorts on the Zillance run. Good pay, they say."},
+		{"u": 0.50, "v": 0.88, "label": "MAIN HUB", "sub": "Back", "act": "room:au_main_hub"},
+	]},
+	"au_mission": {"name": "AURELION CITADEL · MISSION BOARD", "face": 0.4, "single": true, "pack": "rooms_aurelion", "spots": [
+		{"u": 0.20, "v": 0.27, "label": "CONTRACTS · BOUNTIES", "sub": "Read the board", "act": "say:No contracts are posted yet. Check back soon, pilot."},
+		{"u": 0.90, "v": 0.46, "label": "ESCORT JOBS", "sub": "Read the board", "act": "say:Escort work opens soon."},
+		{"u": 0.55, "v": 0.40, "label": "NAVIGATION", "sub": "System map", "act": "map"},
+		{"u": 0.50, "v": 0.88, "label": "MAIN HUB", "sub": "Back", "act": "room:au_main_hub"},
+	]},
+	"au_rest": {"name": "AURELION CITADEL · REST QUARTERS", "face": 0.4, "single": true, "pack": "rooms_aurelion", "spots": [
+		{"u": 0.23, "v": 0.55, "label": "BED", "sub": "Rest", "act": "say:You rest a while under the living wood. The Citadel is quiet here."},
+		{"u": 0.52, "v": 0.36, "label": "WINDOW", "sub": "System map", "act": "map"},
+		{"u": 0.50, "v": 0.90, "label": "MAIN HUB", "sub": "Back", "act": "room:au_main_hub"},
+	]},
 	"apartment": {"name": "UNITY STATION · APARTMENT A-721", "face": 0.30, "spots": [
 		{"u": 0.049, "v": 0.45, "label": "DOOR", "sub": "Main Hub", "act": "room:main_hub"},
 		{"u": 0.575, "v": 0.78, "label": "BED", "sub": "Rest", "act": "say:You rest a while. The station hums around you."},
@@ -109,10 +162,25 @@ static func strip_u(u: float) -> float:
 static func start_room(station_id: String) -> String:
 	return STATIONS.get(station_id, "")
 
-static func available(station_id: String) -> bool:
-	return STATIONS.has(station_id) and Packs.is_ready("rooms")
+static func pack_of(room_id: String) -> String: return ROOMS.get(room_id, {}).get("pack", "rooms")
+## The content pack a station's rooms live in ("" = that station has no rooms).
+static func station_pack(station_id: String) -> String:
+	return pack_of(STATIONS[station_id]) if STATIONS.has(station_id) else ""
 
-static func path(id: String) -> String: return "res://assets/rooms/%s.jpg" % id
+static func available(station_id: String) -> bool:
+	return STATIONS.has(station_id) and Packs.is_ready(station_pack(station_id))
+
+static func path(id: String) -> String: return "res://assets/%s/%s.jpg" % [pack_of(id), id]
+
+func is_single() -> bool: return ROOMS.get(room, {}).get("single", false)
+func _over() -> float: return SINGLE_OVER if is_single() else OVERSCAN
+## Where a marker's u sits along the picture: the whole picture for a single view, the two-view strip otherwise.
+func _su(u: float) -> float: return u if is_single() else strip_u(u)
+## Keep the view inside a single picture (no wrap); a two-view strip wraps for ever.
+func _pan_fix(p: float) -> float:
+	if not is_single() or tex == null: return fposmod(p, 1.0)
+	var hw := size.x / (2.0 * tex.get_width() * _scale())
+	return 0.5 if hw >= 0.5 else clampf(p, hw, 1.0 - hw)
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -123,7 +191,8 @@ func _ready() -> void:
 func open(id: String) -> void:
 	room = id
 	tex = load(path(id))   # the previous room's picture is dropped here: only one is ever loaded
-	pan = strip_u(float(ROOMS[id]["face"]))
+	focus = -1   # the marker in view belongs to the room before; it is found again next frame
+	pan = _pan_fix(_su(float(ROOMS[id]["face"])))
 	tilt = 0.0
 	zoom = 1.0
 	fade = 0.0
@@ -152,26 +221,26 @@ func go(id: String, at: Vector2) -> void:
 	busy = false
 
 func _scale() -> float:
-	return size.y * OVERSCAN / float(tex.get_height())
+	return size.y * _over() / float(tex.get_height())
 
 ## Screen position of a point on the picture (the copy nearest the middle of the screen).
 func spot_pos(u: float, v: float) -> Vector2:
 	var sc := _scale()
 	var w := tex.get_width() * sc
-	var du := fposmod(strip_u(u) - pan + 0.5, 1.0) - 0.5
-	var extra := size.y * (OVERSCAN - 1.0)
+	var du := (_su(u) - pan) if is_single() else fposmod(strip_u(u) - pan + 0.5, 1.0) - 0.5
+	var extra := size.y * (_over() - 1.0)
 	return Vector2(size.x * 0.5 + du * w, v * tex.get_height() * sc - extra * (0.5 + 0.5 * tilt))
 
 func _process(dt: float) -> void:
 	if not visible: return
 	_t += dt
 	if look != Vector2.ZERO and not busy and tex != null:   # the look stick: big left-right sweep, gentle up-down
-		pan = fposmod(pan + look.x * STICK_TURN * dt, 1.0)
+		pan = _pan_fix(pan + look.x * STICK_TURN * dt)
 		tilt = clampf(tilt + look.y * STICK_TILT * dt, -1.0, 1.0)
 		_vel = 0.0
 	focus = _find_focus()
 	if not _drag and absf(_vel) > 0.0001:   # a flick keeps turning for a moment
-		pan = fposmod(pan + _vel * dt, 1.0)
+		pan = _pan_fix(pan + _vel * dt)
 		_vel = lerpf(_vel, 0.0, clampf(dt * 4.0, 0.0, 1.0))
 	if caption_t > 0.0:
 		caption_t -= dt
@@ -223,7 +292,7 @@ func _gui_input(e: InputEvent) -> void:
 func drag(rel: Vector2) -> void:
 	var w := tex.get_width() * _scale()
 	var du := -rel.x / w
-	pan = fposmod(pan + du, 1.0)
+	pan = _pan_fix(pan + du)
 	_vel = du * 30.0
 	tilt = clampf(tilt - rel.y / (size.y * 0.25), -1.0, 1.0)
 
@@ -266,14 +335,17 @@ func _draw() -> void:
 	var sc := _scale()
 	var w := tex.get_width() * sc
 	var h := tex.get_height() * sc
-	var extra := S.y * (OVERSCAN - 1.0)
+	var extra := S.y * (_over() - 1.0)
 	var y := -extra * (0.5 + 0.5 * tilt)
 	if zoom != 1.0: draw_set_transform(_zoom_at * (1.0 - zoom), 0.0, Vector2(zoom, zoom))
-	var x0 := fposmod(S.x * 0.5 - pan * w, w) - w   # the first copy starts at or left of the screen edge
-	var x := x0
-	while x < S.x:
-		draw_texture_rect(tex, Rect2(x, y, w, h), false)
-		x += w
+	if is_single():
+		draw_texture_rect(tex, Rect2(S.x * 0.5 - pan * w, y, w, h), false)   # one view: it stops at its edges
+	else:
+		var x0 := fposmod(S.x * 0.5 - pan * w, w) - w   # the first copy starts at or left of the screen edge
+		var x := x0
+		while x < S.x:
+			draw_texture_rect(tex, Rect2(x, y, w, h), false)
+			x += w
 	# hotspots
 	var pulse := 0.5 + 0.5 * sin(_t * 3.0)
 	var spots: Array = ROOMS[room]["spots"]
@@ -300,7 +372,7 @@ func _draw() -> void:
 	draw_rect(Rect2(0, 0, S.x, 54), Color(0, 0, 0, 0.5))
 	draw_string(font, Vector2(24, 35), ROOMS[room]["name"], HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color.WHITE)
 	draw_string(font, Vector2(S.x - 324, 35), "CREDITS  %d cr" % GS.credits, HORIZONTAL_ALIGNMENT_RIGHT, 300, 20, GOLD)
-	draw_string(font, Vector2(0, S.y - 16), "Stick or drag to look around  ·  green = ready, tap it", HORIZONTAL_ALIGNMENT_CENTER, S.x, 14, Color(1, 1, 1, 0.65))
+	draw_string(font, Vector2(0, S.y - 16), "Stick or drag to look around  ·  tap a marker" if is_single() else "Stick or drag to look around  ·  green = ready, tap it", HORIZONTAL_ALIGNMENT_CENTER, S.x, 14, Color(1, 1, 1, 0.65))
 	# the green button: whatever is in the middle of the view, one tap
 	if focus >= 0 and not busy:
 		var g := go_rect()

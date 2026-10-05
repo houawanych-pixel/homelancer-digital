@@ -736,6 +736,27 @@ func _galaxy() -> void:
 	_tp(xst.global_position + Vector3(90, 40, 150), xst.global_position)
 	await _shot("placeholder_station", 0.6)
 	main.hud.visible = true
+	# v1.4l: every catalog planet has a surface. Fly into Halcyon (a gas giant), look, climb back out beside it.
+	var xinfo: Dictionary = xn.get_meta("info")
+	var xpos: Vector3 = xn.global_position
+	_tp(xpos + sunward * (xr * Data.ATMO_INNER + 40.0), xpos)
+	main.hud.move_vec = Vector2(0, -1)
+	var went_down := await _until(func(): return main.state == "flight" and _sp().surface_mode and _sp().planet_id == xinfo["id"], 25.0)
+	main.hud.move_vec = Vector2.ZERO
+	s = _sp()
+	var biome_ok: bool = went_down and Surface.PLANETS[xinfo["id"]]["tiles"][0] == Data.PLANET_BIOME[xinfo["palette"]] and Surface.grid(xinfo["id"]) == 1
+	await _shot("surface_of_placeholder_planet", 0.8)
+	_tp(Vector3(0, Surface.CEILING - 30.0, 0), Vector3(0, Surface.CEILING + 400.0, -100.0))
+	main.hud.move_vec = Vector2(0, -1)
+	var back_up := await _until(func(): return main.state == "flight" and not _sp().surface_mode, 12.0)
+	main.hud.move_vec = Vector2.ZERO
+	s = _sp()
+	var beside: bool = back_up and GS.system_id == "veranthos" and s.player.global_position.distance_to(xpos) < xr * Data.ATMO_OUTER + 400.0
+	_check("Job O: a catalog planet (Halcyon) can be entered from space, has its own one-tile surface in the planet's colours, and climbing out puts you back beside it", went_down and biome_ok and beside,
+		"down %s, biome %s, back beside it %s" % [went_down, biome_ok, beside])
+	await _until(func(): return not s.extras.is_empty(), 6.0)
+	for g in s.gates:   # the system was loaded again: pick the gate up again
+		if g.get_meta("info")["to"] == "solara": back = g
 	main.navmap.open(s)
 	await _shot("navmap_veranthos", 0.5)
 	main.navmap.visible = false
@@ -834,7 +855,7 @@ func _station_rooms() -> void:
 	# every room's picture exists and every door leads somewhere real
 	var all_ok := true
 	for id: String in Rooms.ROOMS:
-		if not ResourceLoader.exists(Rooms.path(id)): all_ok = false
+		if Rooms.pack_of(id) == "rooms" and not ResourceLoader.exists(Rooms.path(id)): all_ok = false   # (other hubs' packs load when you dock there; Job O checks them)
 		for sp: Dictionary in Rooms.ROOMS[id]["spots"]:
 			var act: String = sp["act"]
 			if act.begins_with("room:") and not Rooms.ROOMS.has(act.substr(5)): all_ok = false
@@ -847,7 +868,7 @@ func _station_rooms() -> void:
 	rm.open("mission")
 	rm.use(1)
 	talked = rm.caption != "" and rm.caption_who == "Cmdr. Vale"
-	_check("Station rooms: 7 rooms, all doors valid, people talk", all_ok and Rooms.ROOMS.size() == 7 and talked, "%s: %s" % [rm.caption_who, rm.caption.left(60)])
+	_check("Station rooms: 7 rooms, all doors valid, people talk", all_ok and Rooms.ROOMS.keys().filter(func(k): return not (k as String).begins_with("au_")).size() == 7 and talked, "%s: %s" % [rm.caption_who, rm.caption.left(60)])
 	# a dealer marker opens the old dealer screen; STATION brings the room back where you were
 	rm.open("main_hub")
 	rm.use(1)
@@ -871,7 +892,7 @@ func _music() -> void:
 	await _wait(0.3)
 	var flying: String = Music.mood
 	s.enemies = keep
-	var took: bool = Music.track in Music.MOODS.get(Music.mood, [])
+	var took: bool = Music.track in Music.takes(Music.mood)
 	var grp: Array = s._spawn_group(s.player.global_position + Vector3(0, 0, -400), 1)   # a hostile that has seen you
 	for e in grp: e["aggro"] = true
 	await _wait(0.4)
@@ -887,8 +908,8 @@ func _music() -> void:
 	Music.set_muted(true)
 	var was_muted: bool = Music.muted
 	Music.set_muted(false)
-	_check("Music: 28 tracks by mood (space when flying Solara, Rift Gate in battle), each its own pack, can be muted",
-		ok_files and n == 28 and flying == "space" and took and battle and was_muted and main.title.music_btn != null, "%d tracks, flying = %s, battle = %s" % [n, flying, btrack])
+	_check("Music: 28 tracks, each its own pack; flying plays the track of the faction whose space it is (v1.4l), Rift Gate in battle; can be muted",
+		ok_files and n == 28 and flying == Music.faction_mood(Data.SYSTEMS[s.sys_id].get("faction", "Neutral")) and took and battle and was_muted and main.title.music_btn != null, "%d tracks, flying = %s, battle = %s" % [n, flying, btrack])
 
 ## NPC chat brain: understands what was typed, answers in character, remembers the pilot. No network.
 func _npc_brain() -> void:
@@ -1108,6 +1129,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_O") != "":   # the Job O checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_o()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_COLLIDE") != "":   # the Job L collision damage checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1267,8 +1296,8 @@ func _run() -> void:
 	_check("Weapon purchase", GS.weapon_id == "pulse2", "weapon=%s credits=%d" % [GS.weapon_id, GS.credits])
 	var rack_btn: Button = main.hub.find_child("Rack_swarm", true, false)
 	var fit_btn: Button = main.hub.find_child("Rack_triple", true, false)
-	_check("Job M: Equipment sells the missile racks (Triple fitted, Swarm for sale)", rack_btn != null and fit_btn != null and fit_btn.disabled
-		and rack_btn.text.find(str(Data.MISSILE_RACKS["swarm"]["price"])) >= 0, rack_btn.text if rack_btn else "no button")
+	_check("Job M: Equipment lists the missile racks (v1.4l: the Six Rack comes fitted, the Triple Rack can be fitted instead)", rack_btn != null and fit_btn != null and rack_btn.disabled
+		and rack_btn.text == "FITTED" and fit_btn.text == "FIT", rack_btn.text if rack_btn else "no button")
 	await _shot("equipment_dealer")
 	var m0 := GS.missiles
 	main.hub.show_screen("ships")
@@ -1414,6 +1443,7 @@ func _run() -> void:
 	await _shot("solara_return")
 	await _combat_m()
 	await _art_n()
+	await _job_o()
 	await _galaxy()
 	await _controls_j()
 	await _gate_k()
@@ -1873,7 +1903,9 @@ func _collide_l() -> void:
 	s.autopilot = null
 	GS.god_mode = false   # collision damage must really land in these checks
 	GS.restore_full()
+	_shield_down()
 	var hits := {}
+	_shield_down()   # v1.4l: collisions take the shield first, so these hull checks run with the shield down
 	var settings_before := FileAccess.get_file_as_string(main.controls.settings_path) if FileAccess.file_exists(main.controls.settings_path) else "<none>"
 	# ---- asteroid (space): ram a rock of the belt
 	var rock_hit := false
@@ -1898,6 +1930,7 @@ func _collide_l() -> void:
 		s.belt_radius = saved_belt[1]
 	# ---- non-solid things deal no damage: loot pods, a jump gate's ring opening, the docking range trigger
 	GS.restore_full()
+	_shield_down()
 	s.last_collision = {}
 	var g: Node3D = s.gate
 	_tp(g.global_position + g.global_basis.z * 30.0, g.global_position)
@@ -1915,6 +1948,7 @@ func _collide_l() -> void:
 	_tp(s.station.global_position + Vector3(400, 200, 400), s.station.global_position)
 	await _frames(2)
 	GS.restore_full()
+	_shield_down()
 	s.collide_grace = 0.0
 	var d_slow: float = s.collision_damage("building", 20.0)
 	s.collide_grace = 0.0
@@ -1922,6 +1956,7 @@ func _collide_l() -> void:
 	var expect_slow := (20.0 - Data.COLLIDE_THRESHOLD) * Data.COLLIDE_MULT
 	_check("Job L: damage scales with impact speed (faster = more)", d_fast > d_slow and absf(d_slow - expect_slow) < 0.01, "20 m/s %.1f, 40 m/s %.1f" % [d_slow, d_fast])
 	GS.restore_full()
+	_shield_down()
 	s.collide_grace = 0.0
 	var free_touch: float = s.collision_damage("ground", Data.COLLIDE_THRESHOLD - 0.1)
 	var hull_free: bool = GS.hull == GS.max_hull()
@@ -1931,21 +1966,23 @@ func _collide_l() -> void:
 	main.hud.damage_flash = 0.0
 	s.collision_damage("asteroid", Data.COLLIDE_THRESHOLD + 3.0)
 	var soft_shake: float = s.hit_shake      # read at once: on a slow frame the shake has died away a frame later (E2)
+	var soft_flash: float = main.hud.damage_flash   # (v1.4l: the flash is read at once too, for the same reason)
 	await _frames(1)
 	var soft_k: float = s.last_collision.get("k", -1.0)
-	var soft_flash: float = main.hud.damage_flash
 	s.collide_grace = 0.0
 	s.hit_shake = 0.0
 	main.hud.damage_flash = 0.0
 	s.collision_damage("asteroid", 60.0)
 	var hard_shake: float = s.hit_shake
+	var hard_flash: float = main.hud.damage_flash
 	await _frames(1)
 	var hard_k: float = s.last_collision.get("k", -1.0)
 	_check("Job L: hit feedback (flash, shake, sound) on collision, stronger for harder hits; the hull bar shows it", soft_flash > 0.0 and soft_shake > 0.0
-		and hard_k > soft_k and main.hud.damage_flash > soft_flash and hard_shake > soft_shake and GS.hull < GS.max_hull(),
-		"k soft %.2f hard %.2f; shake %.2f > %.2f" % [soft_k, hard_k, hard_shake, soft_shake])
+		and hard_k > soft_k and hard_flash > soft_flash and hard_shake > soft_shake and GS.hull < GS.max_hull(),
+		"k soft %.2f hard %.2f; shake %.2f > %.2f; flash %.2f > %.2f; hull %.0f of %.0f" % [soft_k, hard_k, hard_shake, soft_shake, hard_flash, soft_flash, GS.hull, GS.max_hull()])
 	# ---- grace window
 	GS.restore_full()
+	_shield_down()
 	s.collide_grace = 0.0
 	var first: float = s.collision_damage("asteroid", 30.0)
 	var second: float = s.collision_damage("asteroid", 30.0)
@@ -1961,6 +1998,7 @@ func _collide_l() -> void:
 	s = _sp()
 	s.controls = true
 	GS.restore_full()
+	_shield_down()
 	var gx := 300.0
 	var gz := -900.0
 	var gy: float = s._ground(gx, gz)
@@ -2006,10 +2044,12 @@ func _collide_l() -> void:
 	# ---- a crash at low hull destroys the ship through the normal death flow
 	s.collide_grace = 0.0
 	GS.hull = 5.0
+	_shield_down()
 	s.collision_damage("building", 40.0)
 	var dead_now: bool = GS.hull == 0.0 and not s.controls
 	var towed := await _until(func(): return main.state == "hub", 15.0)
 	_check("Job L: a collision that takes the hull to zero destroys the ship through the normal death flow", dead_now and towed and GS.hull == GS.max_hull(), "state %s" % main.state)
+	if is_instance_valid(_sp()): _sp().shield_delay = 0.0
 	await _launch()
 	GS.god_mode = true
 	# ---- version label
@@ -2018,12 +2058,17 @@ func _collide_l() -> void:
 
 
 ## Job M (v1.4j): Cadet turned round, the lead box, missile locks and volleys, the three missile types, dodging.
+## v1.4l: shield off and kept off (no recharge), for checks that read hull damage.
+func _shield_down() -> void:
+	GS.shield = 0.0
+	_sp().shield_delay = 2.8   # (below 2.9, or the HUD would count every change as a fresh hit)
+
 func _combat_m() -> void:
 	var s := _sp()
 	var shell := FileAccess.get_file_as_string("res://web_shell.html")
 	_check("Job M: version label reads \"Homelancer Digital v1.4j\" or later", Data.VERSION >= "v1.4j" and (shell == "" or shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0), Data.VERSION)
-	_check("Job M: the Cadet model is turned round (nose away from the camera); the other ships are unchanged",
-		is_equal_approx(ShipFactory.GLB["cadet"][2], 180.0) and ShipFactory.GLB["ranger"][2] == 0.0 and ShipFactory.GLB["lancer"][2] == 0.0)
+	_check("Job M: the Cadet's nose points away from the camera (v1.4l: the model itself was rebuilt nose-first, so no turn is applied)",
+		ShipFactory.GLB["cadet"][2] == 0.0 and ShipFactory.has_real_model("cadet"))
 	_check("Job M: phone buttons unchanged: three weapon slots (light missile, heavy missile, mine)", GS.slots == Data.DEFAULT_SLOTS and main.hud.buttons.has("slot_0") and main.hud.buttons.has("slot_2"), str(GS.slots))
 	# ---- a quiet spot, engines off so the ship stays put
 	var rack0: String = GS.rack
@@ -2099,6 +2144,8 @@ func _combat_m() -> void:
 	_check("Job M: the heavy missile fires one at a time and hits hard (at least %d%% of the hull)" % int(Data.HEAVY_MISSILE_HULL_FRAC * 100.0), GS.heavy_missiles == 1 and s.missiles_live.size() - live1 <= 1 and heavy_dmg >= 120.0
 		and heavy_dmg > s.missile_damage({"max": 200.0}, false), "heavy %.0f vs light %.0f on a 200 hull" % [heavy_dmg, s.missile_damage({"max": 200.0}, false)])
 	# ---- swarm rack: bought, five locks, lighter missiles
+	GS.owned_racks.erase("swarm")   # (v1.4l: it now comes with the ship; take it away to check the purchase)
+	GS.rack = "triple"
 	GS.credits = 0
 	var refused: bool = GS.buy_rack("swarm").begins_with("Not enough") and GS.rack == "triple"
 	GS.credits = int(Data.MISSILE_RACKS["swarm"]["price"]) + 10
@@ -2108,15 +2155,16 @@ func _combat_m() -> void:
 	s.missile_cd = 0.0
 	s.lock_time = Data.LOCK_STEP * 9.0
 	var l5: int = s.lock_count()
+	var rack_locks: int = Data.MISSILE_RACKS["swarm"]["locks"]   # six since v1.4l
 	for m in s.missiles_live: m["life"] = 0.0
 	await _frames(3)
 	s.trigger_system("light_missile")
-	await _wait(Data.VOLLEY_GAP * 5.0 + 0.2)
+	await _wait(Data.VOLLEY_GAP * rack_locks + 0.2)
 	var swarm_n: int = s.missiles_live.size()
 	var swarm_scale: float = float(s.missiles_live[-1]["scale"]) if swarm_n > 0 else 0.0
 	GS.buy_rack("triple")
 	var refit: bool = GS.rack == "triple" and GS.credits == 10
-	_check("Job M: the Swarm Rack is bought at Equipment, holds five locks and fires five lighter missiles; refitting a rack you own is free", refused and bought and l5 == 5 and swarm_n == 5 and GS.missiles == 3
+	_check("Job M: the big rack is bought at Equipment, holds its locks (six since v1.4l) and fires that many lighter missiles; refitting a rack you own is free", refused and bought and l5 == rack_locks and swarm_n == rack_locks and GS.missiles == 8 - rack_locks
 		and is_equal_approx(swarm_scale, float(Data.MISSILE_RACKS["swarm"]["damage"])) and refit, "locks %d, in flight %d, damage x%.1f" % [l5, swarm_n, swarm_scale])
 	for m in s.missiles_live: m["life"] = 0.0
 	await _frames(3)
@@ -2348,3 +2396,219 @@ func _art_n() -> void:
 	GS.god_mode = true
 	GS.restore_full()
 	await _wait(0.3)
+
+
+## Job O (v1.4l): guns forward, red lead box, six locks, FIRE toggle, shield-first collisions, ribbon trails that
+## weave, explosions, trade lanes, a surface on every planet, music by faction, the Aurelion Citadel hub.
+func _job_o() -> void:
+	var s := _sp()
+	var shell := FileAccess.get_file_as_string("res://web_shell.html")
+	_check("Job O: version label reads \"Homelancer Digital v1.4l\" or later", Data.VERSION >= "v1.4l" and (shell == "" or shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0), Data.VERSION)
+	_check("Job O: Cadet and Ranger are rebuilt nose-first (no turn-round needed), so the cannons point the way the ship flies",
+		ShipFactory.GLB["cadet"][2] == 0.0 and ShipFactory.GLB["ranger"][2] == 0.0 and ShipFactory.GLB["lancer"][2] == 0.0)
+	# ---- six locks, more missiles
+	var cap_ok := true
+	for id in Data.SHIP_ORDER: cap_ok = cap_ok and int(Data.SHIPS[id]["missiles"]) >= 12
+	var gs0 := {"rack": GS.rack, "missiles": GS.missiles, "guns": GS.modes["guns"], "heavy": GS.heavy_missiles}
+	GS.rack = "swarm"
+	GS.missiles = 12
+	s.lock_time = Data.LOCK_STEP * 20.0
+	_check("Job O: the Six Rack comes fitted on every ship (six locks) and every ship carries at least 12 light missiles", "swarm" in GS.owned_racks and GS.max_locks("light_missile") == 6
+		and s.lock_count() == 6 and cap_ok and int(Data.SHIPS["cadet"]["missiles"]) == 12, "locks %d, Cadet carries %d" % [s.lock_count(), int(Data.SHIPS["cadet"]["missiles"])])
+	s.lock_time = 0.0
+	# ---- FIRE toggle
+	_tp(Vector3(900, 700, 900), Vector3(900, 700, 0))
+	s.engine_kill = true
+	s.target = null
+	GS.modes["guns"] = "manual"
+	main.hud._layout()
+	var b: Dictionary = main.hud.buttons
+	var layout_ok: bool = b.has("fire") and (b["thrust"] as Rect2).position.x > (b["fire"] as Rect2).position.x and (b["kill"] as Rect2).position.x > (b["thrust"] as Rect2).position.x \
+		and is_equal_approx((b["fire"] as Rect2).position.y, (b["thrust"] as Rect2).position.y) and is_equal_approx((b["kill"] as Rect2).end.x, main.hud.S.x - 8.0)
+	var bolts0: int = s.bolts.size()
+	_press("fire")
+	await _wait(0.6)
+	var on_fired: bool = s.fire_lock and s.bolts.size() > bolts0
+	_press("fire")
+	await _wait(2.2)
+	var off_quiet: bool = not s.fire_lock and s.bolts.is_empty()
+	_check("Job O: the FIRE button fires the guns nonstop, a second tap stops them; THRUST and KILL have not moved", layout_ok and on_fired and off_quiet, "layout %s, firing %s, stopped %s" % [layout_ok, on_fired, off_quiet])
+	# ---- collisions: shield first
+	GS.god_mode = false
+	GS.restore_full()
+	var sh0 := GS.shield
+	var hl0 := GS.hull
+	GS.collide(sh0 * 0.5)
+	var shield_only: bool = is_equal_approx(GS.shield, sh0 * 0.5) and is_equal_approx(GS.hull, hl0)
+	GS.collide(sh0 * 0.5 + 15.0)
+	_check("Job O: a collision takes the shield first; only what gets through reaches the hull", shield_only and GS.shield == 0.0 and is_equal_approx(GS.hull, hl0 - 15.0), "shield %.0f hull %.0f of %.0f" % [GS.shield, GS.hull, hl0])
+	GS.restore_full()
+	# ---- ribbon trail + weave
+	var fwd := -s.player.global_basis.z
+	s.enemy_dodge_chance = 0.0
+	var e: Dictionary = s.spawn_unit("raider", s.player.global_position + fwd * 700.0, s.player.global_position + fwd * 700.0)
+	e["hp"] = 99999.0
+	s.target = e["node"]
+	var tr0: int = s.trails.size()
+	s.fire_missile()
+	var mnode: Node3D = s.missiles_live[-1]["node"]
+	var p0: Vector3 = mnode.global_position
+	var max_off := 0.0
+	var ribbon := false
+	for i in 70:
+		await _frames(1)
+		if not is_instance_valid(mnode) or s.missiles_live.is_empty(): break
+		var rel: Vector3 = mnode.global_position - p0
+		max_off = maxf(max_off, (rel - fwd * rel.dot(fwd)).length())
+		for tr in s.trails:
+			if (tr["pts"] as Array).size() >= 3 and (tr["im"] as ImmediateMesh).get_surface_count() == 1: ribbon = true
+		if i == 16: await _capture("missile_ribbon_trail")
+	var hp_before: float = e["hp"]
+	await _until(func(): return s.missiles_live.is_empty(), 8.0)
+	var hit: bool = float(e["hp"]) < 99999.0
+	await _wait(Data.TRAIL_LIFE + 0.3)
+	_check("Job O: a missile draws a white ribbon trail, swings off the straight line on the way in, still hits, and the trail fades out", s.trails.size() > tr0 - 1 and ribbon and max_off > 2.0 and hit and s.trails.is_empty(),
+		"ribbon %s, swing %.1f m, hit %s, trails left %d" % [ribbon, max_off, hit, s.trails.size()])
+	if e in s.enemies:
+		s.enemies.erase(e)
+		(e["node"] as Node3D).queue_free()
+	s.target = null
+	# ---- explosions: wing, then the whole ship
+	GS.restore_full()
+	var b0: int = s.blasts
+	s._player_hit(GS.max_shield() + GS.wing_max() + 5.0, s.player.global_position - s.player.global_basis.x * 4.0)
+	var wing_gone: bool = GS.wing_l <= 0.0 or GS.wing_r <= 0.0
+	var wing_blast: bool = s.blasts == b0 + 1 and str(s.last_blast.get("kind", "")).begins_with("wing_")
+	await _shot("wing_explosion", 0.1)
+	s.player_destroyed.disconnect(main._on_destroyed)
+	var b1: int = s.blasts
+	s._die()
+	var death_ok: bool = s.blasts == b1 + 3 and s.last_blast["kind"] == "death" and not s.player.visible and not s.blast_pending.is_empty() and float(Data.BLAST_DEATH[0]) > float(Data.BLAST_WING[0]) * 2.0
+	await _shot("ship_explosion", 0.12)
+	await _until(func(): return s.blast_pending.is_empty(), 4.0)
+	s.player.visible = true
+	s.controls = true
+	s.player_destroyed.connect(main._on_destroyed)
+	GS.restore_full()
+	Sections.set_side_visible(s.player_vis, "l", true)
+	Sections.set_side_visible(s.player_vis, "r", true)
+	_check("Job O: losing a wing sets off an explosion on that side; when the ship is destroyed both sides and the core blow up and the ship is gone", wing_gone and wing_blast and death_ok, "wing %s/%s, death %s" % [wing_gone, wing_blast, death_ok])
+	GS.god_mode = true
+	# ---- trade lanes
+	s.engine_kill = false
+	var has_lane: bool = s.lanes.size() >= 1
+	var clear := true
+	var rings := 0
+	for ln in s.lanes:
+		rings += (ln["up"] as Array).size() * 2
+		clear = clear and s._lane_clear(ln["up"][0], ln["up"][-1], [s.station, s.planet]) and (ln["up"] as Array).size() >= 2
+	_check("Job O: the system has trade lanes: rows of rings in pairs (one row each way), clear of the sun and planets, drawn as one batch", has_lane and clear and rings >= 4
+		and s._lane_mm != null and s._lane_mm.multimesh.instance_count == rings, "%d lanes, %d rings" % [s.lanes.size(), rings])
+	if has_lane:
+		var ln0: Dictionary = s.lanes[0]
+		var mouth: Vector3 = ln0["up"][0]
+		_tp(mouth - (ln0["dir"] as Vector3) * 120.0, mouth)
+		await _frames(3)
+		main.hud._layout()
+		var cand: Dictionary = s.lane_candidate()
+		var prompt: bool = main.hud.buttons.has("lane") and cand.get("to", "") == ln0["b"] and cand.get("fwd", false)
+		var st0: Dictionary = s.lane_stats.duplicate()
+		_press("lane")
+		await _frames(2)
+		var locked: bool = not s.lane.is_empty() and not s.trigger_system("light_missile")
+		await _until(func(): return s.lane.is_empty() or float(s.lane.get("speed", 0.0)) > Data.LANE_SPEED * 0.9, 6.0)
+		var fast: bool = s.speed_now > Data.LANE_SPEED * 0.8 and is_instance_valid(s.lane_tunnel) and s.lane_tunnel.visible
+		await _shot("trade_lane_ride", 0.05)
+		await _until(func(): return s.lane.is_empty(), 30.0)
+		var n: int = (ln0["up"] as Array).size()
+		var at_end: bool = s.player.global_position.distance_to(ln0["up"][n - 1]) < 80.0
+		_check("Job O: docking a ring locks the controls and weapons and carries the ship ring to ring at lane speed inside an energy tunnel on the ship, then lets go at the last ring",
+			prompt and locked and fast and at_end and s.lane_stats["docks"] == st0["docks"] + 1 and s.lane_stats["passes"] - st0["passes"] == n and s.lane_stats["exits"] == st0["exits"] + 1
+			and not s.lane_tunnel.visible and s.controls and s.speed_now <= Data.LANE_EXIT_SPEED + 1.0,
+			"prompt %s locked %s fast %s end %s passes %d of %d" % [prompt, locked, fast, at_end, s.lane_stats["passes"] - st0["passes"], n])
+		# the lower row runs the other way, and you can leave part-way
+		var back: Vector3 = ln0["down"][n - 1]
+		_tp(back + (ln0["dir"] as Vector3) * 100.0, back)
+		await _frames(3)
+		var c2: Dictionary = s.lane_candidate()
+		_press("lane")
+		await _wait(1.2)
+		var riding: bool = not s.lane.is_empty() and not s.lane["fwd"]
+		_press("lane")
+		await _frames(2)
+		_check("Job O: the other row of rings runs back the other way, and tapping the lane button again lets you out part-way", c2.get("to", "") == ln0["a"] and not c2.get("fwd", true) and riding and s.lane.is_empty() and s.controls)
+	# ---- a surface on every planet
+	var all_have := true
+	var planets := 0
+	var missing := ""
+	for sid in Data.SYSTEMS:
+		for d in [Data.SYSTEMS[sid]["planet"]] + Data.SYSTEMS[sid]["more_planets"]:
+			planets += 1
+			if not Surface.has_surface(d["id"]) or not Surface.BIOMES.has(Surface.PLANETS[d["id"]]["tiles"][0]):
+				all_have = false
+				missing = d["id"]
+	var seam := 0.0
+	for pid in ["scavaris_planet", "crystara_planet", "aurelion_planet_2"]:
+		if not Surface.has_surface(pid): continue
+		for z in [-1800.0, 0.0, 1300.0]:
+			seam = maxf(seam, absf(Surface.height(pid, 0, Surface.EDGE, z) - Surface.height(pid, 0, -Surface.EDGE, z)))
+			seam = maxf(seam, absf(Surface.height(pid, 0, z, Surface.EDGE) - Surface.height(pid, 0, z, -Surface.EDGE)))
+	var gas: Dictionary = Surface.BIOMES["clouds"]
+	_check("Job O: every planet in the catalog has a surface (one tile that wraps onto itself), the ground meets itself across the wrap line, and its colours follow the planet type",
+		all_have and planets >= 170 and seam < 1.0 and (gas["fog"] as Color).r > (gas["fog"] as Color).b and Data.PLANET_BIOME.size() == 12, "%d planets, seam %.2f m %s" % [planets, seam, missing])
+	# ---- music by faction
+	var tracks := {}
+	var held_used := false
+	for f in SystemBuilder.FACTIONS:
+		var tk: Array = Music.takes(Music.faction_mood(f))
+		if tk.size() != 1: held_used = true
+		else:
+			tracks[tk[0]] = true
+			if tk[0] in Music.HELD: held_used = true
+	main._fight_t = 99.0
+	for en in s.enemies: en["aggro"] = false
+	_tp(Vector3(900, 2500, 900), Vector3(900, 2500, 0))
+	await _frames(2)
+	var mood_now: String = main.music_mood(0.016)
+	var fac: String = Data.SYSTEMS[s.sys_id].get("faction", "Neutral")
+	_check("Job O: music follows the faction whose space you are in (one track each, 13 factions); the love song and the ruins set are held back",
+		not held_used and tracks.size() == SystemBuilder.FACTIONS.size() and (mood_now == Music.faction_mood(fac) or mood_now == "battle") and Music.takes("f:" + fac).size() == 1, "%s -> %s" % [fac, mood_now])
+	# ---- Aurelion Citadel hub rooms
+	await Packs.wait("rooms_aurelion", 60.0)
+	var rooms_ok: bool = Rooms.start_room("aurelion_station") == "au_main_hub" and Data.SYSTEMS["aurelion"]["station"]["id"] == "aurelion_station" and Rooms.available("aurelion_station")
+	var count := 0
+	var doors := 0
+	for rid in Rooms.ROOMS:
+		if not rid.begins_with("au_"): continue
+		count += 1
+		if not ResourceLoader.exists(Rooms.path(rid)) or not Rooms.ROOMS[rid].get("single", false): rooms_ok = false
+		for sp in Rooms.ROOMS[rid]["spots"]:
+			if sp["act"] == "room:au_main_hub": doors += 1
+	var hubdoors := 0
+	for sp in Rooms.ROOMS["au_main_hub"]["spots"]:
+		if (sp["act"] as String).begins_with("room:au_"): hubdoors += 1
+	var r: Rooms = main.hub.rooms
+	var was_vis: bool = r.visible
+	var hub_vis: bool = main.hub.visible
+	main.hub.visible = true
+	r.visible = true
+	r.size = get_viewport().get_visible_rect().size
+	r.open("au_main_hub")
+	r.pan = r._pan_fix(5.0)
+	var hw: float = r.size.x / (2.0 * r.tex.get_width() * r._scale())
+	var clamped: bool = r.is_single() and r.pan <= 1.0 - hw + 0.001 and r.pan >= hw - 0.001
+	await _shot("aurelion_citadel_main_hub", 0.4)
+	r.open("au_rest")
+	await _shot("aurelion_citadel_rest_quarters", 0.3)
+	r.visible = was_vis
+	main.hub.visible = hub_vis
+	_check("Job O: Aurelion Citadel has its hub: eight painted rooms (main hub, shipyard, dealer, weapons, supplies, bar, mission board, rest quarters), each with a way back, and the view stops at the picture's edges",
+		rooms_ok and count == 8 and doors == 7 and hubdoors == 7 and clamped and ArtRefs.ROOMS.size() == count, "%d rooms, %d doors back, %d doors out" % [count, doors, hubdoors])
+	GS.rack = gs0["rack"]
+	GS.missiles = gs0["missiles"]
+	GS.heavy_missiles = gs0["heavy"]
+	GS.modes["guns"] = gs0["guns"]
+	s.engine_kill = false
+	s.vel = Vector3.ZERO
+	GS.restore_full()
+	await _wait(0.4)
