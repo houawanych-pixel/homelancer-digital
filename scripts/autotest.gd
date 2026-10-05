@@ -1100,6 +1100,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_ART") != "":   # the Job N concept-art map and Lockon signature checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _art_n()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_COLLIDE") != "":   # the Job L collision damage checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1405,6 +1413,7 @@ func _run() -> void:
 	await _wait(1.0)
 	await _shot("solara_return")
 	await _combat_m()
+	await _art_n()
 	await _galaxy()
 	await _controls_j()
 	await _gate_k()
@@ -2215,3 +2224,127 @@ func _combat_m() -> void:
 	GS.credits = cr0
 	GS.restore_full()
 	await _wait(0.5)
+
+
+## Job N (v1.4k): the concept-art map wired into the systems, and Lockon's signature attack.
+func _art_n() -> void:
+	var s := _sp()
+	var shell := FileAccess.get_file_as_string("res://web_shell.html")
+	_check("Job N: version label reads \"Homelancer Digital v1.4k\" or later", Data.VERSION >= "v1.4k" and (shell == "" or shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0), Data.VERSION)
+	# ---- Aurelion: three stations, eight rooms each, and the Aurelion Prime locations
+	var au: Dictionary = Data.SYSTEMS["aurelion"]
+	var stations: Array = [au["station"]] + au["more_stations"]
+	var rooms_ok := stations.size() == 3
+	var room_count := 0
+	for st in stations:
+		var art = st.get("art")
+		if art == null or not (art["exterior"] as Dictionary).has("drive"):
+			rooms_ok = false
+			continue
+		for r in ArtRefs.ROOMS:
+			var ref: Dictionary = ArtRefs.room("aurelion", st["name"], r)
+			if ref.get("drive", "") == "" or not (ref.get("file", "") as String).ends_with(".png"): rooms_ok = false
+			else: room_count += 1
+	_check("Job N: Aurelion's three stations each carry an exterior and all eight hub rooms (main hub, shipyard, dealer, weapons dealer, supplies, bar, mission board, bedroom)", rooms_ok and room_count == 24 and ArtRefs.ROOMS.size() == 8, "%d room pictures on %d stations" % [room_count, stations.size()])
+	var prime = au["planet"].get("art")
+	var locs: Array = prime["locations"] if prime != null else []
+	var codes: Array = [prime["sheet"]["code"]] if prime != null else []
+	for l in locs:
+		codes.append(l["aerial"]["code"])
+		codes.append(l["first_person"]["code"])
+	_check("Job N: Aurelion Prime carries A01 to A09: the concept sheet and four locations with an aerial and a first-person view each, plus the Alisa temple throne scene",
+		au["planet"]["name"] == "Aurelion Prime" and codes == ["A01", "A02", "A03", "A04", "A05", "A06", "A07", "A08", "A09"] and locs.size() == 4
+		and (prime["scenes"] as Array).size() == 1 and prime["scenes"][0]["id"] == "alisa_temple_throne", str(codes))
+	var g: Dictionary = au["art_guards"]
+	_check("Job N: Elyza guard rules are in the data: paladin or Dark Knight armor, mixed loadouts, no recycled characters, none in the bedroom",
+		g["armor"] == ["paladin", "dark_knight"] and (g["loadouts"] as Array).size() >= 3 and g["recycled_characters"] == false and "rest_quarters" in g["none_in"]
+		and Data.SYSTEMS["crystara"]["art_guards"]["armor"] == g["armor"])
+	# ---- Scavaris and Crystara: the places exist, the art does not, and nothing is made up
+	var sc: Dictionary = Data.SYSTEMS["scavaris"]
+	var cr: Dictionary = Data.SYSTEMS["crystara"]
+	var sc_names: Array = [sc["planet"]["name"], sc["station"]["name"]] + (sc["more_planets"] as Array).map(func(x): return x["name"])
+	var cr_names: Array = [cr["planet"]["name"], cr["station"]["name"]] + (cr["more_planets"] as Array).map(func(x): return x["name"])
+	var none_yet := true
+	for body in [sc["planet"], sc["station"], cr["planet"], cr["station"]] + sc["more_planets"] + cr["more_planets"]:
+		if not body.has("art") or body["art"] != null: none_yet = false
+	var miss: Array = ArtRefs.missing()
+	var listed := 0
+	for line in miss:
+		if (line as String).begins_with("scavaris") or (line as String).begins_with("crystara"): listed += 1
+	_check("Job N: Scavaris (Scavaris, Husk, Salvage Hulk) and Crystara (Crystara, Geode, Prism, Crystal Refinery) are wired with no art invented, and all seven are on the missing list",
+		sc_names == ["Scavaris", "Salvage Hulk", "Husk"] and cr_names == ["Crystara", "Crystal Refinery", "Geode", "Prism"] and none_yet and listed == 7
+		and cr["art_lore"] == "locked", "missing list has %d lines, %d for these two" % [miss.size(), listed])
+	var seen := {}
+	var dup := ""
+	for sid in ArtRefs.SYSTEMS:
+		for nm in ArtRefs.SYSTEMS[sid]["stations"]:
+			var st = ArtRefs.SYSTEMS[sid]["stations"][nm]
+			if st == null: continue
+			for ref in [st["exterior"]] + (st["rooms"] as Dictionary).values():
+				if seen.has(ref["drive"]): dup = ref["file"]
+				seen[ref["drive"]] = true
+	for l in locs:
+		for ref in [l["aerial"], l["first_person"]]:
+			if seen.has(ref["drive"]): dup = ref["file"]
+			seen[ref["drive"]] = true
+	_check("Job N: no picture is wired to two places", dup == "" and seen.size() == 27 + 8, "%d pictures %s" % [seen.size(), dup])
+	# ---- Lockon's signature attack
+	var sig: Dictionary = Data.SIGNATURES["lockon"]
+	var placed := false
+	for sid in Data.SYSTEMS:
+		if Data.SYSTEMS[sid].get("enemy", "") == "lockon": placed = true
+	_check("Job N: Lockon's attack is in the data (Cybermorph, charcoal dart, crimson slit, red trail, cyan-white bloom) and Lockon is placed in no system until a sheet and model exist",
+		sig["faction"] == "Cybermorph" and Data.ENEMIES["lockon"]["signature"] == "lockon" and Data.ENEMIES["lockon"].get("stand_in", false) and not placed
+		and (sig["slit"] as Color).r > 0.8 and (sig["dart"] as Color).r < 0.2 and (sig["bloom"] as Color).b > 0.9 and int(sig["shards"]) == 6)
+	_tp(Vector3(900, 700, 900), Vector3(900, 700, 0))
+	s.engine_kill = true
+	GS.god_mode = false
+	GS.restore_full()
+	var launcher := Node3D.new()
+	s.add_child(launcher)
+	launcher.global_position = s.player.global_position - s.player.global_basis.z * 420.0
+	launcher.look_at(s.player.global_position, Vector3.UP)
+	var stats0: Dictionary = s.sig_stats.duplicate()
+	var plain0: int = s.enemy_missiles.size()
+	var hp0 := GS.shield + GS.hull
+	s.enemy_fire_missile({"node": launcher, "vel": Vector3.ZERO, "def": Data.ENEMIES["lockon"]})
+	await _frames(3)
+	var darts: int = s.enemy_missiles.size() - plain0
+	var all_sig := true
+	for m in s.enemy_missiles: all_sig = all_sig and m.get("sig", "") == "lockon"
+	await _until(func(): return s.sig_stats["kinks"] > stats0["kinks"], 6.0)
+	await _shot("lockon_darts", 0.15)
+	await _until(func(): return s.sig_stats["impacts"] > stats0["impacts"], 8.0)
+	var punch_first: bool = s.sig_stats["blooms"] == stats0["blooms"] and s.sig_pending.size() > 0   # the punch lands before the bloom
+	await _until(func(): return s.sig_stats["brands"] > stats0["brands"], 2.0)
+	await _shot("lockon_impact", 0.12)
+	await _until(func(): return s.enemy_missiles.is_empty() and s.sig_pending.is_empty(), 8.0)
+	var d: Dictionary = s.sig_stats
+	var took: float = hp0 - (GS.shield + GS.hull)
+	_check("Job N: Lockon fires a volley of three darts; each trail kinks once when the lock hardens; they hit for the listed damage", darts == int(sig["volley"]) and all_sig
+		and d["darts"] - stats0["darts"] == 3 and d["kinks"] - stats0["kinks"] == 3 and d["impacts"] - stats0["impacts"] == 3
+		and took > float(sig["damage"]) * 2.0 and took <= float(sig["damage"]) * 3.0 + 0.01, "darts %d kinks %d impacts %d damage %.1f" % [darts, d["kinks"] - stats0["kinks"], d["impacts"] - stats0["impacts"], took])
+	var brands: int = s.sig_brands.size()
+	_check("Job N: the impact punches first, then blooms, and leaves a lock-brand on the hull", punch_first and d["blooms"] - stats0["blooms"] == 3 and brands >= 1 and d["brands"] - stats0["brands"] == 3,
+		"punch first %s, blooms %d, brands %d" % [punch_first, d["blooms"] - stats0["blooms"], brands])
+	await _wait(float(sig["brand_life"]) + 0.4)
+	_check("Job N: the lock-brand pulses for %.0f s and then clears" % float(sig["brand_life"]), s.sig_brands.is_empty(), "left %d" % s.sig_brands.size())
+	# a dart can be shaken off like any missile
+	GS.restore_full()
+	_tp(Vector3(900, 700, 900), Vector3(900, 700, 0))
+	launcher.global_position = s.player.global_position - s.player.global_basis.z * 420.0
+	launcher.look_at(s.player.global_position, Vector3.UP)
+	var ev0: int = s.missiles_evaded
+	var imp0: int = s.sig_stats["impacts"]
+	s.enemy_fire_missile({"node": launcher, "vel": Vector3.ZERO, "def": Data.ENEMIES["lockon"]})
+	await _frames(3)
+	await _until(func(): return s.missile_warn > 0.0 and s.missile_warn < Data.DODGE_RANGE * 0.8, 6.0)
+	s.vel = s.player.global_basis.x * float(GS.ship()["speed"]) * Data.THRUST_MULT
+	await _until(func(): return s.enemy_missiles.is_empty(), 12.0)
+	_check("Job N: Lockon's darts can be dodged with a sideways boost like any missile", s.missiles_evaded - ev0 == 3 and s.sig_stats["impacts"] == imp0, "evaded %d" % (s.missiles_evaded - ev0))
+	launcher.queue_free()
+	s.engine_kill = false
+	s.vel = Vector3.ZERO
+	GS.god_mode = true
+	GS.restore_full()
+	await _wait(0.3)

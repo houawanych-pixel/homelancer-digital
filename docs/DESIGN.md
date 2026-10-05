@@ -477,3 +477,26 @@ All numbers are in the "Job M" block of `scripts/data.gd`. Phone buttons are unc
   "MISSILE 320 m" and then "BOOST SIDEWAYS NOW". Raiders carry none, so the first system stays gentle.
 - SIMPLEST CHOICES (open to change): all locks go on one target; racks are a one-time purchase, not ammo types;
   version v1.4j was used because this job was built first, so the panorama jobs move to v1.4k and v1.4l.
+
+
+## 24. Concept-art map and Lockon's signature attack (Job N, v1.4k)
+Follows the owner's Concept-Art-First standard: Bible-locked lore, then concept sheets, then exteriors, interiors,
+characters. Nothing is drawn or invented in the game where the art does not exist yet.
+
+- **Art map**: `tools/art/build_art_refs.py` holds one table and writes `scripts/art_refs.gd` and `docs/ART_MAP.md`.
+  Each station gets `art` (exterior + eight hub rooms: main hub, shipyard, dealer, weapons dealer, supplies, bar,
+  mission board, bedroom); each planet gets `art` (concept sheet, locations with aerial and first-person views,
+  scenes). `ArtRefs.apply()` writes them onto the system data by name; `ArtRefs.missing()` lists what has no art.
+- The pictures stay in Drive (concept-art). The game stores the file name and Drive id only. Turning a picture into
+  a walkable room strip still needs the picture file itself (homelancer-panorama skill).
+- Mapped: Aurelion (3 stations x exterior + 8 rooms = 27 pictures; Aurelion Prime A01-A09; Alisa temple throne).
+  No art yet: Scavaris (Scavaris, Husk, Salvage Hulk) and Crystara (Crystara, Geode, Prism, Crystal Refinery).
+- Elyza guard rules ride on the system (`art_guards`): paladin or Dark Knight armor, mixed gunblade loadouts, no
+  recycled characters, no guards in the bedroom.
+- **Signature attacks**: `Data.SIGNATURES` (block "Job N"). A unit with `"signature"` in its ENEMIES entry fires it in
+  place of the plain missile. Lockon (Cybermorph): three charcoal darts with crimson slits, red needle trail with
+  dotted hex sparks, one kink when the lock hardens (inside the dodge range), impact = punch, then a cyan-white
+  bloom, a red hex-shard ring and a pulsing lock-brand on the hull for 4 s. Grey machine debris only.
+- SIMPLEST CHOICES: "Elyria station hubs" was read as the three Aurelion stations (the Drive folder Planets/Elyria is
+  empty). Lockon is in the data but in no system: there is no Lockon sheet or model, so the prow-split launch is a
+  data note and the tests use the existing mech body as a stand-in.

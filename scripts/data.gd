@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.4j"
+const VERSION := "v1.4k"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -137,6 +137,28 @@ const ENEMY_MISSILE_TURN := 1.8
 const ENEMY_MISSILE_LIFE := 8.0
 const ENEMY_MISSILE_HIT := 7.0        # hit radius
 
+# ---------------------------------------------------------------- Job N (v1.4k): signature attacks
+# A unit whose ENEMIES entry has "signature": "<id>" fires this instead of the plain missile. Dodging works the same.
+# Lockon (Cybermorph, machines only): hex tubes fire charcoal darts with crimson optic slits; a razor-red needle
+# trail with dotted hex sparks that kinks once when the lock hardens; impact punches, then blooms a cyan-white core
+# and a red hex-shard ring, and leaves a pulsing lock-brand scorch. Machine debris only.
+const SIGNATURES := {
+	"lockon": {"name": "Lock-Brand Darts", "owner": "Lockon", "faction": "Cybermorph",
+		"launch": "prow_split",          # the prow splits along a hard seam: needs Lockon's model (not made yet)
+		"tubes": 6, "volley": 3,         # hexagonal tubes on the model; darts per attack
+		"damage": 16.0, "speed": 150.0, "turn": 2.2, "life": 8.0, "fan": 22.0,
+		"dart": Color(0.13, 0.13, 0.15), "slit": Color(1.0, 0.08, 0.12), "dart_size": Vector3(0.5, 0.5, 2.6),
+		"trail": Color(1.0, 0.1, 0.14), "trail_size": 1.5, "trail_life": 0.35,
+		"hex_every": 0.09, "hex_size": 0.7, "hex_life": 0.45,       # the dotted hex sparks along the trail
+		"kink": 16.0,                    # sideways jolt (m/s), once, when the lock hardens (inside DODGE_RANGE)
+		"punch_size": 3.5, "punch_delay": 0.08,                     # punch first...
+		"bloom": Color(0.78, 1.0, 1.0), "bloom_size": 5.0, "bloom_life": 0.5,   # ...then the cyan-white core
+		"ring": Color(1.0, 0.1, 0.14), "ring_size": 1.3, "ring_grow": 2.2, "ring_life": 0.6, "shards": 6, "shard_speed": 14.0,
+		"brand_size": 0.9, "brand_life": 4.0, "brand_pulse": 3.0,    # the lock-brand scorch left on the hull
+		"debris": Color(0.42, 0.42, 0.46), "debris_count": 5,
+		"hull_reach": 3.5},              # the effect is drawn this close to the ship's centre, so it sits on the hull,
+}
+
 # ---------------------------------------------------------------- ships
 # model: key understood by ShipFactory. "cadet_glb" etc. load real GLBs when present under assets/ships/.
 const SHIPS := {
@@ -224,13 +246,16 @@ const ENEMIES := {
 	"corsair": {"name": "Corsair", "model": "enemy2", "hull": 90.0, "shield": 50.0, "speed": 48.0, "turn": 1.4, "damage": 6.0, "rate": 1.9, "reward": 220, "missiles": true},
 	# assault mech: two arm guns + a chest cannon; flies with the raiders/corsairs
 	"mech": {"name": "Assault Mech", "hull": 120.0, "shield": 40.0, "speed": 40.0, "turn": 1.2, "damage": 6.0, "rate": 1.4, "reward": 280, "model": "mech_tan", "mech": true, "missiles": true},
+	# Cybermorph (v1.4k): Lockon. Placed in no system yet: no concept sheet or model (the mech body is a stand-in for tests).
+	"lockon": {"name": "Lockon", "faction": "Cybermorph", "hull": 220.0, "shield": 80.0, "speed": 42.0, "turn": 1.2, "damage": 7.0, "rate": 1.4, "reward": 600,
+		"model": "mech_tan", "mech": true, "missiles": true, "signature": "lockon", "stand_in": true},
 }
 
 # ---------------------------------------------------------------- star systems
 # Positions in metres-ish world units. The player spawns at `spawn` (station launch) or at the gate exit.
 # Every system in the game: the hand-made ones below (CORE_SYSTEMS) plus all the rest of the 11 x 11 map, built by
 # SystemBuilder from the map tables. sys["gates"] lists every gate; sys["gate"] is the first one.
-static var SYSTEMS: Dictionary = SystemBuilder.all(CORE_SYSTEMS)
+static var SYSTEMS: Dictionary = ArtRefs.apply(SystemBuilder.all(CORE_SYSTEMS))   # v1.4k: concept-art references on stations and planets
 const CORE_SYSTEMS := {
 	"solara": {
 		"name": "Solara", "star": Color(1.0, 0.86, 0.6), "sky_tint": Color(0.10, 0.06, 0.16), "ambient": Color(0.42, 0.40, 0.55),

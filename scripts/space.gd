@@ -130,6 +130,10 @@ var enemy_missiles: Array = []    # Job M: missiles flying at the player
 var volley_queue: Array = []      # Job M: the rest of a volley, launched VOLLEY_GAP apart
 var missile_warn := -1.0          # distance of the nearest missile homing on you (-1 = none)
 var missiles_evaded := 0          # enemy missiles you shook off
+var sig_stats := {"darts": 0, "kinks": 0, "impacts": 0, "blooms": 0, "brands": 0}   # Job N: signature attack counters
+var sig_pending: Array = []       # delayed parts of a signature impact (the bloom after the punch)
+var sig_brands: Array = []        # lock-brand scorches still pulsing
+var _hex_mesh: ArrayMesh
 var enemy_evades := 0             # your missiles an enemy shook off
 var effects: Array = []
 var popups: Array = [] # floating damage numbers: {pos, text, col, life}
@@ -1807,6 +1811,10 @@ func _missile_trail(n: Node3D) -> void:
 ## An enemy launches a homing missile at the player.
 func enemy_fire_missile(e: Dictionary) -> void:
 	var n: Node3D = e["node"]
+	var sig_id: String = e.get("def", {}).get("signature", "")
+	if Data.SIGNATURES.has(sig_id):
+		_fire_signature(e, sig_id)
+		return
 	var mi := _missile_node(false)
 	add_child(mi)
 	mi.global_position = n.global_position - n.global_basis.y * 1.5 - n.global_basis.z * 4.0
@@ -1814,10 +1822,143 @@ func enemy_fire_missile(e: Dictionary) -> void:
 	if n.global_position.distance_to(player.global_position) < 700.0: Sfx.play("missile", -8.0, 0.8)
 	message.emit("Missile incoming — boost sideways!")
 
+# ---------------------------------------------------------------- Job N: signature attacks (Data.SIGNATURES)
+## A flat hexagon ring (unit radius), shared by every hex spark, shard ring and lock-brand.
+func _hex_ring() -> ArrayMesh:
+	if _hex_mesh != null: return _hex_mesh
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in 6:
+		var a0 := TAU * i / 6.0
+		var a1 := TAU * (i + 1) / 6.0
+		var o0 := Vector3(cos(a0), sin(a0), 0)
+		var o1 := Vector3(cos(a1), sin(a1), 0)
+		for v in [o0, o1, o1 * 0.84, o0, o1 * 0.84, o0 * 0.84]: st.add_vertex(v)
+	_hex_mesh = st.commit()
+	return _hex_mesh
+
+func _hex_node(col: Color, size: float) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	mi.mesh = _hex_ring()
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	m.billboard_keep_scale = true
+	m.albedo_color = col
+	mi.material_override = m
+	mi.scale = Vector3.ONE * size
+	return mi
+
+## A hex outline that grows and fades (trail dots, the shard ring).
+func _hex_fx(at: Vector3, col: Color, size: float, life: float, grow := 1.0) -> void:
+	var mi := _hex_node(col, size)
+	add_child(mi)
+	mi.global_position = at
+	var tw := mi.create_tween().set_parallel(true)
+	tw.tween_property(mi, "scale", Vector3.ONE * size * grow, life)
+	tw.tween_property(mi.material_override, "albedo_color:a", 0.0, life)
+	tw.chain().tween_callback(mi.queue_free)
+
+func _fire_signature(e: Dictionary, sig_id: String) -> void:
+	var sig: Dictionary = Data.SIGNATURES[sig_id]
+	var n: Node3D = e["node"]
+	var count: int = sig["volley"]
+	for k in count:
+		var dart := Node3D.new()
+		var body := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = sig["dart_size"]
+		body.mesh = bm
+		body.material_override = ShipFactory.mat(sig["dart"])
+		dart.add_child(body)
+		var slit := MeshInstance3D.new()   # the crimson optic slit across the nose
+		var sm := BoxMesh.new()
+		sm.size = Vector3((sig["dart_size"] as Vector3).x * 1.08, (sig["dart_size"] as Vector3).y * 0.22, (sig["dart_size"] as Vector3).z * 0.3)
+		slit.mesh = sm
+		slit.position = Vector3(0, 0, -(sig["dart_size"] as Vector3).z * 0.3)
+		slit.material_override = ShipFactory.mat(sig["slit"], true)
+		dart.add_child(slit)
+		add_child(dart)
+		dart.global_position = n.global_position - n.global_basis.z * 5.0
+		var a := (float(k) / float(maxi(1, count - 1)) - 0.5) * 2.0 if count > 1 else 0.0
+		var fan: Vector3 = (n.global_basis.x * a + n.global_basis.y * (1.0 - absf(a)) * 0.5) * float(sig["fan"])
+		enemy_missiles.append({"node": dart, "vel": -n.global_basis.z * 90.0 + (e["vel"] as Vector3) + fan, "life": float(sig["life"]), "lost": false,
+			"sig": sig_id, "hex_t": 0.0, "kinked": false})
+		sig_stats["darts"] += 1
+	if n.global_position.distance_to(player.global_position) < 700.0: Sfx.play("missile", -6.0, 1.5)
+	message.emit("%s has you locked — boost sideways!" % e["def"]["name"])
+
+## Trail of a signature dart: a razor-red needle with dotted hex sparks; one kink when the lock hardens.
+func _sig_trail(m: Dictionary, dt: float, dist: float) -> void:
+	var sig: Dictionary = Data.SIGNATURES[m["sig"]]
+	var n: Node3D = m["node"]
+	var tail := n.global_position + n.global_basis.z * 1.6
+	_spark_v(tail, n.global_basis.z * 4.0, sig["trail"], float(sig["trail_size"]), float(sig["trail_life"]))
+	m["hex_t"] = float(m["hex_t"]) - dt
+	if m["hex_t"] <= 0.0:
+		m["hex_t"] = float(sig["hex_every"])
+		_hex_fx(tail, sig["trail"], float(sig["hex_size"]), float(sig["hex_life"]), 1.6)
+	if not m["kinked"] and not m["lost"] and dist < Data.DODGE_RANGE:
+		m["kinked"] = true
+		sig_stats["kinks"] += 1
+		var side := (m["vel"] as Vector3).cross(Vector3.UP).normalized() * (1.0 if _rng.randf() < 0.5 else -1.0)
+		m["vel"] = (m["vel"] as Vector3) + side * float(sig["kink"])
+		_hex_fx(n.global_position, sig["trail"], float(sig["hex_size"]) * 2.2, float(sig["hex_life"]), 2.0)
+
+## Impact: the punch now; the cyan-white bloom, red hex-shard ring and the lock-brand a moment later. No blood: grey debris.
+func _sig_impact(at: Vector3, sig_id: String) -> void:
+	var sig: Dictionary = Data.SIGNATURES[sig_id]
+	sig_stats["impacts"] += 1
+	at = player.global_position + (at - player.global_position).limit_length(float(sig["hull_reach"]))
+	_spark(at, Color.WHITE, float(sig["punch_size"]), float(sig["punch_delay"]) + 0.05)
+	Sfx.play("hull_hit", -4.0, 0.7)
+	sig_pending.append({"t": float(sig["punch_delay"]), "sig": sig_id, "off": at - player.global_position})
+
+func _update_signatures(dt: float) -> void:
+	for i in range(sig_pending.size() - 1, -1, -1):
+		var q: Dictionary = sig_pending[i]
+		q["t"] -= dt
+		if q["t"] > 0.0: continue
+		sig_pending.remove_at(i)
+		var sig: Dictionary = Data.SIGNATURES[q["sig"]]
+		var at: Vector3 = player.global_position + (q["off"] as Vector3)
+		sig_stats["blooms"] += 1
+		_spark(at, sig["bloom"], float(sig["bloom_size"]), float(sig["bloom_life"]))
+		_hex_fx(at, sig["ring"], float(sig["ring_size"]), float(sig["ring_life"]), float(sig["ring_grow"]))
+		for k in int(sig["shards"]):
+			var a := TAU * k / float(sig["shards"])
+			var dir: Vector3 = cam.global_basis.x * cos(a) + cam.global_basis.y * sin(a)
+			_spark_v(at + dir * 1.0, dir * float(sig["shard_speed"]), sig["ring"], 1.2, float(sig["ring_life"]))
+		for k in int(sig["debris_count"]):
+			_spark_v(at, Vector3(_rng.randfn(0, 9), _rng.randfn(0, 9), _rng.randfn(0, 9)), sig["debris"], 0.9, 0.9)
+		Sfx.play("explosion", -7.0, 1.6)
+		var brand := _hex_node(sig["ring"], float(sig["brand_size"]))   # rides on the hull where it hit
+		player.add_child(brand)
+		brand.global_position = at
+		sig_brands.append({"node": brand, "life": float(sig["brand_life"]), "max": float(sig["brand_life"]), "sig": q["sig"]})
+		sig_stats["brands"] += 1
+	for i in range(sig_brands.size() - 1, -1, -1):
+		var b: Dictionary = sig_brands[i]
+		b["life"] -= dt
+		var bn: MeshInstance3D = b["node"]
+		if b["life"] <= 0.0 or not is_instance_valid(bn):
+			if is_instance_valid(bn): bn.queue_free()
+			sig_brands.remove_at(i)
+			continue
+		var sg: Dictionary = Data.SIGNATURES[b["sig"]]
+		var k: float = float(b["life"]) / float(b["max"])
+		var pulse := 0.5 + 0.5 * sin(time * TAU * float(sg["brand_pulse"]))
+		bn.scale = Vector3.ONE * float(sg["brand_size"]) * (0.85 + 0.25 * pulse)
+		(bn.material_override as StandardMaterial3D).albedo_color.a = k * (0.35 + 0.65 * pulse)
+
 ## Missiles homing on the player. Inside DODGE_RANGE a fast sideways move (a boost across its path, or an
 ## engine-kill slide after one) breaks the lock and the missile flies on straight.
 func _update_enemy_missiles(dt: float) -> void:
 	missile_warn = -1.0
+	_update_signatures(dt)
 	for i in range(enemy_missiles.size() - 1, -1, -1):
 		var m: Dictionary = enemy_missiles[i]
 		var n: Node3D = m["node"]
@@ -1826,7 +1967,8 @@ func _update_enemy_missiles(dt: float) -> void:
 		var dist := rel.length()
 		var done := false
 		if not m["lost"] and controls:
-			v = v.lerp(rel.normalized() * Data.ENEMY_MISSILE_SPEED, minf(1.0, dt * Data.ENEMY_MISSILE_TURN))
+			var sg: Dictionary = Data.SIGNATURES.get(m.get("sig", ""), {})
+			v = v.lerp(rel.normalized() * float(sg.get("speed", Data.ENEMY_MISSILE_SPEED)), minf(1.0, dt * float(sg.get("turn", Data.ENEMY_MISSILE_TURN))))
 			if dist < Data.DODGE_RANGE and side_speed(vel, rel) > Data.DODGE_SIDE_FRAC * float(GS.ship()["speed"]):
 				m["lost"] = true
 				missiles_evaded += 1
@@ -1834,15 +1976,22 @@ func _update_enemy_missiles(dt: float) -> void:
 			else:
 				if missile_warn < 0.0 or dist < missile_warn: missile_warn = dist
 				if dist < Data.ENEMY_MISSILE_HIT:
-					_player_hit(Data.ENEMY_MISSILE_DAMAGE, n.global_position)
-					_spark(n.global_position, Color(1, 0.6, 0.2), 8.0)
-					Sfx.play("explosion", -8.0, 1.3)
+					if sg.is_empty():
+						_player_hit(Data.ENEMY_MISSILE_DAMAGE, n.global_position)
+						_spark(n.global_position, Color(1, 0.6, 0.2), 8.0)
+						Sfx.play("explosion", -8.0, 1.3)
+					else:
+						_player_hit(float(sg["damage"]), n.global_position)
+						_sig_impact(n.global_position, m["sig"])
 					done = true
 		m["vel"] = v
 		n.global_position += v * dt
 		if v.length() > 0.1: n.look_at(n.global_position + v, Vector3.UP)
 		m["life"] -= dt
-		_missile_trail(n)
+		if m.has("sig"):
+			m["vel"] = v
+			_sig_trail(m, dt, dist)
+		else: _missile_trail(n)
 		if done or m["life"] <= 0.0:
 			n.queue_free()
 			enemy_missiles.remove_at(i)
