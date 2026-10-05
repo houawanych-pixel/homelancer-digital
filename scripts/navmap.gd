@@ -88,6 +88,7 @@ func _w2m(p: Vector3) -> Vector2:
 	return map_rect.get_center() + rel
 
 func _txt(p: Vector2, t: String, s := 16, c := Color.WHITE, align := HORIZONTAL_ALIGNMENT_LEFT, w := -1.0) -> void:
+	if s < Data.TEXT_BUMP_BELOW: s = maxi(Data.TEXT_MIN, s + Data.TEXT_BUMP)   # v1.4m: small print is a little bigger
 	draw_string_outline(font, p, t, align, w, s, 4, Color(0, 0, 0, 0.8))
 	draw_string(font, p, t, align, w, s, c)
 

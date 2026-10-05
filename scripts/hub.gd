@@ -147,8 +147,13 @@ func open(station_or_planet: Dictionary) -> void:
 func _refresh_credits() -> void:
 	credits_label.text = "CREDITS  %d cr" % GS.credits
 
+var screen_bg: Texture2D   # v1.4m: a room of this station, dimmed, behind the dealer screens
+
 func show_screen(s: String) -> void:
 	close_inspector()
+	screen_bg = null
+	var bg_room: String = Rooms.SCREEN_BG.get(base.get("id", ""), {}).get(s, "")
+	if bg_room != "" and kind == "station" and Rooms.available(base.get("id", "")) and ResourceLoader.exists(Rooms.path(bg_room)): screen_bg = load(Rooms.path(bg_room))
 	if screen == "hub" and rooms.visible: last_room = rooms.room
 	screen = s
 	_refresh_credits()
@@ -601,6 +606,14 @@ func _draw() -> void:
 		draw_rect(Rect2(0, S.y * 0.72, S.x, S.y * 0.28), Color(0.1, 0.12, 0.14))
 		for i in 8:
 			draw_line(Vector2(S.x * 0.5, S.y * 0.72), Vector2(S.x * (i / 7.0), S.y), Color(1.0, 0.85, 0.4, 0.25), 2)
+	elif screen_bg != null:
+		# the room this dealer works in, filling the screen and dimmed so the lists read (front view of a two-view strip)
+		var two: bool = screen_bg.get_width() > screen_bg.get_height() * 4
+		var src := Rect2(0, 0, Rooms.VIEW_W if two else float(screen_bg.get_width()), screen_bg.get_height())
+		var k := maxf(S.x / src.size.x, S.y / src.size.y)
+		var dst := Rect2((S.x - src.size.x * k) * 0.5, (S.y - src.size.y * k) * 0.5, src.size.x * k, src.size.y * k)
+		draw_texture_rect_region(screen_bg, dst, src)
+		draw_rect(Rect2(Vector2.ZERO, S), Color(0.01, 0.03, 0.06, 0.62))
 	else:
 		draw_rect(Rect2(Vector2.ZERO, S), Color(0.04, 0.06, 0.09))
 		# hangar window onto space

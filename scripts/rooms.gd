@@ -24,12 +24,24 @@ const ZOOM_OUT := 0.38
 
 ## Which room you arrive in when you dock, by station id.
 const STATIONS := {"liberty_hub": "main_hub", "aurelion_station": "au_main_hub"}
+## v1.4m: the picture behind each dealer screen: a room of the same station (hub.gd dims it and draws it full screen).
+const SCREEN_BG := {
+	"liberty_hub": {"equipment": "market", "repair": "hangar", "ships": "hangar"},
+	"aurelion_station": {"equipment": "au_weapons", "repair": "au_supplies", "ships": "au_shipyard"},
+}
 const SINGLE_OVER := 1.34     # single-view rooms are drawn this much taller than the screen, so there is room to look around
 
 ## u, v: where the hotspot sits on the picture (u 0..1 across the whole strip: 0..0.5 front view, 0.5..1 back view;
 ## v 0 top .. 1 bottom). act: "room:<id>" | "screen:<hub screen>" | "launch" | "map" | "inspect" | "say:<text>" | "talk:<character>"
 const ROOMS := {
-	"main_hub": {"name": "UNITY STATION · MAIN HUB H-01", "face": 0.25, "spots": [
+	"main_hub": {"name": "UNITY STATION · MAIN HUB H-01", "face": 0.25,
+		# v1.4m TRIAL: one person who strolls about the concourse (scripts/npc.gd). Tap to talk.
+		"npcs": [{"name": "Deck Marshal Orrin", "model": "marshal", "u0": 0.19, "u1": 0.31, "greet": "Pilot. Welcome aboard Liberty Hub.",
+			"lines": ["Welcome aboard, pilot. Ship dealer is to your left, the bar is past the cafe sign.",
+				"Raiders have been hitting haulers out by the belt. Keep your shields charged.",
+				"The new trade lane to New Terra is open. Dock a ring and it does the flying.",
+				"If you want work, Commander Vale posts it in the Mission Center."]}],
+		"spots": [
 		{"u": 0.045, "v": 0.50, "label": "STARBORN CAFÉ", "sub": "Unity Bar H-08", "act": "room:bar"},
 		{"u": 0.170, "v": 0.47, "label": "SHIP DEALER", "sub": "H-02", "act": "screen:ships"},
 		{"u": 0.250, "v": 0.70, "label": "SERVICE DESK", "sub": "Repair and resupply", "act": "screen:repair"},
@@ -150,6 +162,8 @@ var _zoom_at := Vector2.ZERO
 var look := Vector2.ZERO   # the look stick, -1..1 (x turns, y tilts)
 var focus := -1            # the marker in the middle of the view (green = ready), -1 = none
 var _stick_on := false
+var npcs: Array = []       # NpcFigure nodes of this room (v1.4m)
+var _npc_want: Array = []  # the room's people, waiting for the "npc" pack
 
 ## The strip is [front | bridge | back | bridge] (tools/rooms/make_strip.py). Marker positions are written against the
 ## two views (0..0.5 front, 0.5..1 back); this turns one into a position along the real strip.
@@ -192,6 +206,10 @@ func open(id: String) -> void:
 	room = id
 	tex = load(path(id))   # the previous room's picture is dropped here: only one is ever loaded
 	focus = -1   # the marker in view belongs to the room before; it is found again next frame
+	for n in npcs: (n as Node).queue_free()
+	npcs.clear()
+	_npc_want = (ROOMS[id].get("npcs", []) as Array).duplicate()
+	if not _npc_want.is_empty(): Packs.request("npc")
 	pan = _pan_fix(_su(float(ROOMS[id]["face"])))
 	tilt = 0.0
 	zoom = 1.0
@@ -239,6 +257,19 @@ func _process(dt: float) -> void:
 		tilt = clampf(tilt + look.y * STICK_TILT * dt, -1.0, 1.0)
 		_vel = 0.0
 	focus = _find_focus()
+	if not _npc_want.is_empty() and Packs.is_ready("npc"):   # the people of this room walk in once their pack is here
+		for d in _npc_want:
+			var f := NpcFigure.new()
+			add_child(f)
+			if f.setup(d): npcs.append(f)
+			else: f.queue_free()
+		_npc_want.clear()
+	for f in npcs:
+		(f as NpcFigure).update(dt)
+		if not (f as NpcFigure).greeted and not busy and caption == "" and absf(npc_rect(f).get_center().x - size.x * 0.5) < size.x * 0.22:
+			(f as NpcFigure).greeted = true      # they speak first when you look their way
+			(f as NpcFigure).do_gesture("wave")
+			say(f.info["name"], f.info.get("greet", "Hello."))
 	if not _drag and absf(_vel) > 0.0001:   # a flick keeps turning for a moment
 		pan = _pan_fix(pan + _vel * dt)
 		_vel = lerpf(_vel, 0.0, clampf(dt * 4.0, 0.0, 1.0))
@@ -296,14 +327,50 @@ func drag(rel: Vector2) -> void:
 	_vel = du * 30.0
 	tilt = clampf(tilt - rel.y / (size.y * 0.25), -1.0, 1.0)
 
+## The people of a room are live 3D pictures: they must not keep rendering once the room is off screen (in flight
+## that would cost frames for nothing). Hidden: they leave; shown again: they walk back in.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_VISIBILITY_CHANGED and not is_visible_in_tree() and not npcs.is_empty():
+		for n in npcs: (n as Node).queue_free()
+		npcs.clear()
+		if ROOMS.has(room): _npc_want = (ROOMS[room].get("npcs", []) as Array).duplicate()
+
+## Where a person of this room is drawn (screen rectangle, feet line at the bottom edge).
+func npc_rect(f: NpcFigure) -> Rect2:
+	return f.rect_at(spot_pos(f.u, 0.5).x, size)
+
+## v1.4m: MAIN HUB and LAUNCH are always on the top bar, in every room.
+func bar_rect(which: String) -> Rect2:
+	return Rect2(size.x - (640.0 if which == "hub" else 470.0), 5.0, 160.0, 44.0)
+
+func hub_room() -> String:
+	return "au_main_hub" if room.begins_with("au_") else "main_hub"
+
 ## Tap: the nearest hotspot within reach.
 func tap(p: Vector2) -> void:
+	if bar_rect("launch").has_point(p):
+		Sfx.play("click")
+		action.emit("launch")
+		return
+	if bar_rect("hub").has_point(p):
+		Sfx.play("click")
+		if room != hub_room(): go(hub_room(), p)
+		return
 	if focus >= 0 and go_rect().has_point(p):   # the green button: use whatever is in view
 		use(focus)
 		return
 	var best := -1
 	var bd := 78.0
 	var spots: Array = ROOMS[room]["spots"]
+	for f in npcs:   # a person: tap them to talk (markers close by still win)
+		if npc_rect(f).grow(-npc_rect(f).size.x * 0.18).has_point(p):
+			var near_marker := false
+			for sp in spots:
+				if spot_pos(sp["u"], sp["v"]).distance_to(p) < 40.0: near_marker = true
+			if not near_marker:
+				Sfx.play("click")
+				say(f.info["name"], (f as NpcFigure).talk())
+				return
 	for i in spots.size():
 		var d := spot_pos(spots[i]["u"], spots[i]["v"]).distance_to(p)
 		if d < bd:
@@ -346,6 +413,18 @@ func _draw() -> void:
 		while x < S.x:
 			draw_texture_rect(tex, Rect2(x, y, w, h), false)
 			x += w
+	# the people of the room: each is a small live picture, standing in front of the painted room
+	for f in npcs:
+		var nt: Texture2D = (f as NpcFigure).texture()
+		var nr := npc_rect(f)
+		if nt != null and nr.end.x > -20.0 and nr.position.x < S.x + 20.0:
+			draw_texture_rect(nt, nr, false)
+			var tag: String = f.info["name"]
+			var tw0 := font.get_string_size(tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x + 18.0
+			var tr := Rect2(nr.get_center().x - tw0 * 0.5, nr.position.y + nr.size.y * 0.04, tw0, 26.0)
+			draw_rect(tr, Color(0.02, 0.05, 0.1, 0.78))
+			draw_rect(tr, Color(GREEN, 0.8), false, 1.5)
+			draw_string(font, tr.position + Vector2(9, 19), tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color.WHITE)
 	# hotspots
 	var pulse := 0.5 + 0.5 * sin(_t * 3.0)
 	var spots: Array = ROOMS[room]["spots"]
@@ -361,18 +440,24 @@ func _draw() -> void:
 			draw_arc(p, 30.0 + 6.0 * pulse, 0.0, TAU, 36, Color(GREEN, 0.9), 3.5)
 		draw_circle(p, 12.0 if lit else 9.0, Color(col, 0.95))
 		draw_arc(p, 17.0 + 5.0 * pulse, 0.0, TAU, 28, Color(col, 0.75 - 0.4 * pulse), 2.5)
-		var tw := maxf(font.get_string_size(sp["label"], HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x, font.get_string_size(sp["sub"], HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x) + 20.0
-		var r := Rect2(p.x - tw * 0.5, p.y + 26.0, tw, 42.0)
+		var tw := maxf(font.get_string_size(sp["label"], HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x, font.get_string_size(sp["sub"], HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x) + 20.0
+		var r := Rect2(p.x - tw * 0.5, p.y + 26.0, tw, 48.0)
 		draw_rect(r, Color(0.02, 0.12, 0.06, 0.86) if lit else Color(0.02, 0.05, 0.1, 0.78))
 		draw_rect(r, Color(col, 0.95 if lit else 0.8), false, 2.5 if lit else 1.5)
-		draw_string(font, r.position + Vector2(10, 18), sp["label"], HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color.WHITE)
-		draw_string(font, r.position + Vector2(10, 35), sp["sub"], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, col)
+		draw_string(font, r.position + Vector2(10, 20), sp["label"], HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color.WHITE)
+		draw_string(font, r.position + Vector2(10, 40), sp["sub"], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, col)
 	if zoom != 1.0: draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	# room name, credits, hint
 	draw_rect(Rect2(0, 0, S.x, 54), Color(0, 0, 0, 0.5))
 	draw_string(font, Vector2(24, 35), ROOMS[room]["name"], HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color.WHITE)
 	draw_string(font, Vector2(S.x - 324, 35), "CREDITS  %d cr" % GS.credits, HORIZONTAL_ALIGNMENT_RIGHT, 300, 20, GOLD)
-	draw_string(font, Vector2(0, S.y - 16), "Stick or drag to look around  ·  tap a marker" if is_single() else "Stick or drag to look around  ·  green = ready, tap it", HORIZONTAL_ALIGNMENT_CENTER, S.x, 14, Color(1, 1, 1, 0.65))
+	for wb in ["hub", "launch"]:   # v1.4m: always there, in every room
+		var br := bar_rect(wb)
+		var here: bool = wb == "hub" and room == hub_room()
+		draw_rect(br, Color(0.05, 0.14, 0.2, 0.9) if not here else Color(0.05, 0.08, 0.1, 0.6))
+		draw_rect(br, Color(GREEN if wb == "launch" else CYAN, 0.35 if here else 0.9), false, 2.0)
+		draw_string(font, Vector2(br.position.x, br.position.y + 29), "LAUNCH" if wb == "launch" else "MAIN HUB", HORIZONTAL_ALIGNMENT_CENTER, br.size.x, 18, Color(1, 1, 1, 0.45 if here else 1.0))
+	draw_string(font, Vector2(0, S.y - 16), "Stick or drag to look around  ·  tap a marker" if is_single() else "Stick or drag to look around  ·  green = ready, tap it", HORIZONTAL_ALIGNMENT_CENTER, S.x, 16, Color(1, 1, 1, 0.7))
 	# the green button: whatever is in the middle of the view, one tap
 	if focus >= 0 and not busy:
 		var g := go_rect()
@@ -380,7 +465,7 @@ func _draw() -> void:
 		draw_rect(g, Color(0.05, 0.36, 0.16, 0.92))
 		draw_rect(g, Color(GREEN, 0.75 + 0.25 * pulse), false, 3.0)
 		draw_string(font, Vector2(g.position.x, g.position.y + 27), fs["label"], HORIZONTAL_ALIGNMENT_CENTER, g.size.x, 20, Color.WHITE)
-		draw_string(font, Vector2(g.position.x, g.position.y + 49), "TAP  ·  " + str(fs["sub"]), HORIZONTAL_ALIGNMENT_CENTER, g.size.x, 13, GREEN)
+		draw_string(font, Vector2(g.position.x, g.position.y + 50), "TAP  ·  " + str(fs["sub"]), HORIZONTAL_ALIGNMENT_CENTER, g.size.x, 15, GREEN)
 	# the look stick (same look as the aim stick in flight)
 	var sc2 := stick_center()
 	draw_circle(sc2, STICK_R + 8.0, Color(0.0, 0.05, 0.1, 0.35))

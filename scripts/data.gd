@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.4l"
+const VERSION := "v1.4m"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -74,11 +74,11 @@ const REDUCED_EFFECTS_DEFAULT := false   # new setting (settings.cfg, section "e
 # Every Job E2 number lives in this one block. (The new ships' stats are in SHIPS below, like every other ship.)
 # Each system's first planet and station are the dockable ones; the rest of its catalog contents are placeholders:
 # visible, solid, targetable, on the system map, reachable by GO TO. No docking or landing on them yet.
-const PH_PLANET_DIST := 2700.0        # the first placeholder planet sits this far from the system centre ...
-const PH_PLANET_STEP := 520.0         # ... and each further one this much farther out
-const PH_PLANET_JITTER := 250.0       # random extra distance (0 .. this)
+const PH_PLANET_DIST := 4300.0        # the first placeholder planet sits this far from the system centre ...
+const PH_PLANET_STEP := 1900.0         # ... and each further one this much farther out
+const PH_PLANET_JITTER := 600.0       # random extra distance (0 .. this)
 const PH_PLANET_ANGLE := 1.05         # radians between one placeholder planet and the next, round the centre
-const PH_PLANET_HEIGHT := 380.0       # placeholder planets sit up to this far above / below the system plane
+const PH_PLANET_HEIGHT := 700.0       # placeholder planets sit up to this far above / below the system plane
 const PH_PLANET_RADIUS := [260.0, 430.0]      # size range of a rocky placeholder planet
 const PH_GIANT_RADIUS := [520.0, 680.0]       # size range of a gas giant
 const PH_STATION_DIST := 1100.0       # the first placeholder station sits this far from the system centre ...
@@ -88,7 +88,8 @@ const PH_STATION_HEIGHT := 160.0      # placeholder stations sit up to this far 
 const PH_STATION_RADIUS := 42.0       # collision radius of a placeholder station
 const PH_GOTO_STANDOFF := 160.0       # GO TO stops this far off a placeholder's surface
 const PH_BUILD_DELAY := 1.2           # s after a system loads before its placeholders are built (keeps arrival smooth)
-const PH_CLEARANCE := 260.0          # free space kept between a placeholder and anything else in the system
+const PH_CLEARANCE := 900.0           # v1.4m: free space kept between one planet and the next (was 260)
+const PH_STATION_CLEARANCE := 260.0   # free space kept round a placeholder station (and between a planet and anything that is not a planet)
 const PH_PLACE_TRIES := 30            # positions tried to find a clear spot
 const PH_SPHERE_SEGMENTS := 40        # roundness of a placeholder planet (the main planet uses 72)
 
@@ -193,6 +194,30 @@ const LANE_SPLASH := 0.5              # seconds of ring glow as you pass
 # planet type -> surface biome for the one-tile surfaces on every planet (scripts/surface.gd)
 const PLANET_BIOME := {"terran": "forest", "jungle": "jungle", "ocean": "ocean", "ice": "ice", "desert": "desert", "lava": "volcanic",
 	"dead": "barren", "gas": "clouds", "city": "city", "crystal": "crystal", "toxic": "toxic", "machine": "machine"}
+
+# ---------------------------------------------------------------- Job P (v1.4m)
+const TEXT_BUMP := 2                  # HUD and room text below TEXT_BUMP_BELOW px is drawn this much bigger
+const TEXT_BUMP_BELOW := 17
+const TEXT_MIN := 13                  # nothing on the HUD is smaller than this
+# people in station rooms (scripts/npc.gd): one rigged character drawn as a moving cut-out
+const NPC_VIEW := Vector2(320, 480)   # the character's own little picture (pixels)
+const NPC_HEIGHT_NEAR := 0.86         # share of the screen height the figure fills when close (waist-up)...
+const NPC_HEIGHT_FAR := 0.6           # ...and when it has walked back (thigh-up)
+const NPC_FRAME_NEAR := 0.5           # the frame starts this far up the body when close (0.5 = the waist)...
+const NPC_FRAME_FAR := 0.3            # ...and at mid-thigh when back
+const NPC_WALK := 0.012               # stroll speed, in room-picture widths per second
+const NPC_PAUSE := [2.5, 6.0]         # seconds they stand between strolls
+const NPC_TALK_TIME := 6.0
+const NPC_GESTURE_TIME := 2.2
+# radar: normal range, and zoom-out when you are far from everything
+const RADAR_RANGE := 1600.0
+const RADAR_FIT := 1.15               # zoomed out, the farthest place sits this far inside the rim
+const RADAR_ZOOM_SPEED := 2.5
+# missiles pick a new target when theirs is gone, and firing one wakes the target's wing
+const MISSILE_RETARGET := 900.0
+const MISSILE_ALERT := 700.0
+# galaxy map (flat, fog of war)
+const MAP_FOG := Color(0.02, 0.03, 0.06)
 
 # ---------------------------------------------------------------- ships
 # model: key understood by ShipFactory. "cadet_glb" etc. load real GLBs when present under assets/ships/.

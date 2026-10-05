@@ -79,13 +79,16 @@ static func all(core: Dictionary) -> Dictionary:
 
 ## Is a body of this radius at `pos` clear of everything already in the system? (tests use it too)
 static func clear_of(sys: Dictionary, pos: Vector3, radius: float, skip_id := "") -> bool:
-	var m: float = Data.PH_CLEARANCE
-	if pos.distance_to(sys["planet"]["pos"]) < float(sys["planet"]["radius"]) * 1.15 + radius + m: return false
+	# v1.4m: planets keep a wide gap from other planets (PH_CLEARANCE); everything else keeps the small gap
+	var big: bool = radius > 100.0
+	var m: float = Data.PH_STATION_CLEARANCE
+	if pos.distance_to(sys["planet"]["pos"]) < float(sys["planet"]["radius"]) * 1.15 + radius + (Data.PH_CLEARANCE if big else m): return false
 	if pos.distance_to(sys["station"]["pos"]) < 150.0 + radius + m: return false
 	for g in sys["gates"]:
 		if pos.distance_to(g["pos"]) < 140.0 + radius + m: return false
 	for x in sys["more_planets"] + sys["more_stations"]:
-		if x["id"] != skip_id and pos.distance_to(x["pos"]) < float(x["radius"]) + radius + m: return false
+		var gap: float = Data.PH_CLEARANCE if (big and float(x["radius"]) > 100.0) else m
+		if x["id"] != skip_id and pos.distance_to(x["pos"]) < float(x["radius"]) + radius + gap: return false
 	return true
 
 static func _system(t: Array) -> Dictionary:

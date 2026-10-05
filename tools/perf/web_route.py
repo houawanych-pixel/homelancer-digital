@@ -32,7 +32,7 @@ with sync_playwright() as pw:
     t = time.time()
     page.goto(url)
     try:
-        page.wait_for_function("window.__hl && window.__hl.done", timeout=1800000, polling=1000)
+        page.wait_for_function("window.__hl && window.__hl.done", timeout=3000000, polling=1000)
     except Exception as e:
         print("TIMEOUT", e)
     res = page.evaluate("window.__hl ? window.__hl.results : []")

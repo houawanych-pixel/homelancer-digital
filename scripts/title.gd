@@ -42,8 +42,9 @@ func _ready() -> void:
 	add_child(start_btn)
 	music_btn = Button.new()
 	music_btn.name = "MusicButton"
-	music_btn.custom_minimum_size = Vector2(150, 44)
-	music_btn.add_theme_font_size_override("font_size", 16)
+	music_btn.custom_minimum_size = SIDE_BTN
+	music_btn.add_theme_font_size_override("font_size", 22)
+	_grey(music_btn)
 	music_btn.pressed.connect(func():
 		Music.set_muted(not Music.muted)
 		_music_label())
@@ -52,14 +53,30 @@ func _ready() -> void:
 	settings_btn = Button.new()
 	settings_btn.name = "SettingsButton"
 	settings_btn.text = "SETTINGS"
-	settings_btn.custom_minimum_size = Vector2(150, 44)
-	settings_btn.add_theme_font_size_override("font_size", 16)
+	settings_btn.custom_minimum_size = SIDE_BTN
+	settings_btn.add_theme_font_size_override("font_size", 22)
+	_grey(settings_btn)
 	settings_btn.focus_mode = Control.FOCUS_NONE
 	settings_btn.pressed.connect(func(): settings_pressed.emit())
 	add_child(settings_btn)
 	Packs.pack_ready.connect(_take_art)
 	Packs.request("intro")
 	_take_art()
+
+## v1.4m (owner): MUSIC and SETTINGS sit under START as two big grey buttons, not small ones in the corner.
+const SIDE_BTN := Vector2(214, 62)
+func _grey(b: Button) -> void:
+	var g := StyleBoxFlat.new()
+	g.bg_color = Color(0.32, 0.35, 0.4, 0.92)
+	g.border_color = Color(0.78, 0.82, 0.88)
+	g.set_border_width_all(2)
+	g.set_corner_radius_all(12)
+	var g2 := g.duplicate() as StyleBoxFlat
+	g2.bg_color = Color(0.46, 0.5, 0.56, 0.96)
+	for st in ["normal", "focus"]: b.add_theme_stylebox_override(st, g)
+	for st in ["hover", "pressed"]: b.add_theme_stylebox_override(st, g2)
+	b.add_theme_color_override("font_color", Color.WHITE)
+	b.modulate.a = 0.0
 
 func _music_label() -> void:
 	music_btn.text = "MUSIC: OFF" if Music.muted else "MUSIC: ON"
@@ -73,10 +90,13 @@ func _process(dt: float) -> void:
 		art_k = minf(1.0, art_k + dt / 0.9)
 		if art_k >= 1.0: bg = null   # the stand-in is no longer drawn
 	var S := get_viewport_rect().size
-	start_btn.position = Vector2(S.x * 0.5 - 160, S.y * 0.62)
-	music_btn.position = Vector2(S.x - 174, 20)
-	settings_btn.position = Vector2(S.x - 174, 72)
+	start_btn.position = Vector2(S.x * 0.5 - 160, S.y * 0.6)
+	var row_y := start_btn.position.y + 86.0 + 14.0
+	music_btn.position = Vector2(S.x * 0.5 - SIDE_BTN.x - 8.0, row_y)
+	settings_btn.position = Vector2(S.x * 0.5 + 8.0, row_y)
 	start_btn.modulate.a = clampf((t - 2.1) / 0.5, 0.0, 1.0)   # START appears once the logo has resolved
+	music_btn.modulate.a = start_btn.modulate.a
+	settings_btn.modulate.a = start_btn.modulate.a
 	queue_redraw()
 
 func _draw() -> void:
@@ -112,9 +132,9 @@ func _draw() -> void:
 		x += font.get_string_size(ch, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x + size * 0.18
 	var k2 := clampf((t - 1.8) / 0.5, 0.0, 1.0)
 	draw_line(Vector2(S.x * 0.5 - total * 0.5 * k2, y + 22), Vector2(S.x * 0.5 + total * 0.5 * k2, y + 22), Color(0.45, 0.8, 1.0, k2), 2.0)
-	draw_string(font, Vector2(0, y + 52), "DIGITAL  ·  %s" % Data.VERSION, HORIZONTAL_ALIGNMENT_CENTER, S.x, 18, Color(0.75, 0.9, 1.0, k2))
+	draw_string(font, Vector2(0, y + 52), "DIGITAL  ·  %s" % Data.VERSION, HORIZONTAL_ALIGNMENT_CENTER, S.x, 20, Color(0.75, 0.9, 1.0, k2))
 	draw_rect(Rect2(0, S.y - 46, S.x, 46), Color(0.01, 0.02, 0.06, 0.55 * k2))
-	draw_string(font, Vector2(0, S.y - 18), "Landscape · left thumb flies · right thumb aims · lasers fire on their own", HORIZONTAL_ALIGNMENT_CENTER, S.x, 14, Color(0.85, 0.93, 1.0, k2))
+	draw_string(font, Vector2(0, S.y - 18), "Landscape · left thumb flies · right thumb aims · lasers fire on their own", HORIZONTAL_ALIGNMENT_CENTER, S.x, 16, Color(0.85, 0.93, 1.0, k2))
 
 ## Once the game starts, let go of the picture so it doesn't sit in GPU memory.
 func release() -> void:

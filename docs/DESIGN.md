@@ -536,3 +536,31 @@ All numbers are in the "Job O" block of `scripts/data.gd`.
 - **Aurelion Citadel hub**: eight rooms from the owner's Drive pictures (pack `rooms_aurelion`). These pictures are
   one view each, not front + back, so `"single": true` rooms pan inside the picture and stop at its edges.
   The other two Aurelion stations and all other hubs still use the plain station menu.
+
+
+## 26. Spread-out planets, flat fog-of-war galaxy map, radar zoom, first person in a room (Job P, v1.4m)
+Numbers: the "Job P" block of `scripts/data.gd` (and the PH_ planet constants).
+
+- **Planets farther apart**: catalog planets now start 4.3 km from the system centre and step out 1.9 km each, with
+  at least 900 m of open space between any two planets (`PH_CLEARANCE`; stations keep the old 260 m,
+  `PH_STATION_CLEARANCE`).
+- **Bigger small print**: HUD and system-map text under 17 px gains 2 px and is never under 13 px; room markers,
+  the title line and the galaxy map use larger sizes too.
+- **Missiles**: firing one turns the target and every hostile within 700 m of it on you. A missile whose target is
+  gone picks the nearest hostile within 900 m (not after it was dodged).
+- **Title screen**: MUSIC and SETTINGS are two big grey buttons under START (they were small, top right).
+- **Galaxy map** (`galaxymap.gd`, `_draw_flat`): opens as the flat 11 x 11 chart of the owner's map: each system in
+  its tile (A-K, 1-11), each gate a line (jump solid, warp long dashes, rift short dashes). FOG OF WAR: systems you
+  have been to are lit in their faction colour with their name; systems one gate beyond show as "?" contacts;
+  everything else is dark. "3D VIEW" switches to the old look-around view. SUPERSEDES the look-around as the default.
+- **Radar**: 1.6 km near things; when the nearest place is farther than that it zooms out until the station, planets
+  and gates all fit (the range is printed under it), and shows the other planets and the sun too.
+- **Rooms**: MAIN HUB and LAUNCH buttons on the top bar of every room.
+- **Dealer screens**: Equipment, Repair and Ship Dealer show a room of that station behind the lists, dimmed
+  (`Rooms.SCREEN_BG`).
+- **First person in a room (TRIAL)**: `scripts/npc.gd`. Deck Marshal Orrin in Liberty Hub's main hub is the rigged
+  "future soldier" model drawn live in a small transparent viewport and placed over the room picture. He strolls
+  left and right, is waist-up when close and thigh-up (smaller) when he walks back, speaks first when you look his
+  way, and waves or nods and answers when tapped. Gestures are posed on the bones, so any humanoid rig works.
+  Pack `npc` (3 MB). NOT DONE YET, waiting on the owner's verdict: more people, a standing dealer on the
+  Equipment / Repair screens, typed or spoken chat with them.

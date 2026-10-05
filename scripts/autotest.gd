@@ -1129,6 +1129,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_P") != "":   # the Job P checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_p()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_O") != "":   # the Job O checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1444,6 +1452,7 @@ func _run() -> void:
 	await _combat_m()
 	await _art_n()
 	await _job_o()
+	await _job_p()
 	await _galaxy()
 	await _controls_j()
 	await _gate_k()
@@ -2612,3 +2621,191 @@ func _job_o() -> void:
 	s.vel = Vector3.ZERO
 	GS.restore_full()
 	await _wait(0.4)
+
+
+## Job P (v1.4m): planets spread out, bigger small print, missiles that re-target and wake the wing, title buttons
+## under START, the flat fog-of-war galaxy map, radar zoom-out, MAIN HUB and LAUNCH in every room, dealer screen
+## backgrounds, and the first person walking about the main hub.
+func _job_p() -> void:
+	var s := _sp()
+	var shell := FileAccess.get_file_as_string("res://web_shell.html")
+	_check("Job P: version label reads \"Homelancer Digital v1.4m\" or later", Data.VERSION >= "v1.4m" and (shell == "" or shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0), Data.VERSION)
+	# ---- planets are spread out
+	var tight := ""
+	var closest := INF
+	var pairs := 0
+	for sid in Data.SYSTEMS:
+		if Data.CORE_SYSTEMS.has(sid): continue
+		var ps: Array = [Data.SYSTEMS[sid]["planet"]] + Data.SYSTEMS[sid]["more_planets"]
+		for i in ps.size():
+			for j in range(i + 1, ps.size()):
+				pairs += 1
+				var gap: float = (ps[i]["pos"] as Vector3).distance_to(ps[j]["pos"]) - float(ps[i]["radius"]) - float(ps[j]["radius"])
+				closest = minf(closest, gap)
+				if gap < Data.PH_CLEARANCE - 1.0: tight = "%s: %s / %s" % [sid, ps[i]["name"], ps[j]["name"]]
+	_check("Job P: planets are spread out: at least %d m of open space between any two planets of a system (was 260)" % int(Data.PH_CLEARANCE), tight == "" and pairs > 100 and Data.PH_PLANET_DIST >= 4000.0,
+		"%d pairs, closest gap %d m %s" % [pairs, int(closest), tight])
+	_check("Job P: small print is bigger: nothing on the HUD is under %d px, and small sizes gain %d px" % [Data.TEXT_MIN, Data.TEXT_BUMP], Data.TEXT_MIN >= 13 and Data.TEXT_BUMP >= 2)
+	# ---- missiles: the launch wakes the wing; a missile whose target is gone takes the next one
+	_tp(Vector3(-900, 800, 900), Vector3(-900, 800, 0))
+	s.engine_kill = true
+	var guns0: String = GS.modes["guns"]
+	GS.modes["guns"] = "manual"
+	s.enemy_dodge_chance = 0.0
+	var m0 := GS.missiles
+	GS.missiles = 6
+	var fwd := -s.player.global_basis.z
+	var ea: Dictionary = s.spawn_unit("raider", s.player.global_position + fwd * 520.0, s.player.global_position + fwd * 520.0)
+	var eb: Dictionary = s.spawn_unit("raider", s.player.global_position + fwd * 620.0 + s.player.global_basis.x * 200.0, s.player.global_position + fwd * 620.0)
+	for e in [ea, eb]:
+		e["aggro"] = false
+		e["hp"] = 400.0
+	await _frames(1)
+	ea["aggro"] = false
+	eb["aggro"] = false
+	s.target = ea["node"]
+	var r0: int = s.retargets
+	s.fire_missile()
+	var woke: bool = ea["aggro"] and eb["aggro"]
+	await _frames(4)
+	s.enemies.erase(ea)
+	(ea["node"] as Node3D).queue_free()
+	await _until(func(): return s.retargets > r0, 4.0)
+	var switched: bool = s.retargets == r0 + 1 and not s.missiles_live.is_empty() and s.missiles_live[-1]["target"] == eb["node"]
+	await _until(func(): return s.missiles_live.is_empty(), 10.0)
+	var landed: bool = float(eb["hp"]) < 400.0
+	_check("Job P: firing a missile turns the target and its wing on you; a missile whose target is gone goes after the next hostile and hits it", woke and switched and landed, "woke %s, switched %s, hit %s" % [woke, switched, landed])
+	if eb in s.enemies:
+		s.enemies.erase(eb)
+		(eb["node"] as Node3D).queue_free()
+	s.target = null
+	GS.missiles = m0
+	GS.modes["guns"] = guns0
+	# ---- radar zooms out when you are far from everything
+	_tp(s.station.global_position + Vector3(0, 200, 300), s.station.global_position)
+	await _wait(1.6)
+	var near_rng: float = main.hud.radar_range
+	var away: Vector3 = s.station.global_position + Vector3(0, 9000, 26000)
+	_tp(away, s.station.global_position)
+	await _wait(2.5)
+	var far_rng: float = main.hud.radar_range
+	var farthest := 0.0
+	for n: Node3D in [s.station, s.planet] + s.gates: farthest = maxf(farthest, away.distance_to(n.global_position))
+	await _shot("radar_zoomed_out", 0.2)
+	_tp(s.station.global_position + Vector3(0, 200, 300), s.station.global_position)
+	await _wait(2.5)
+	_check("Job P: the radar keeps its normal range near things and zooms out to fit the whole system when you are far away", absf(near_rng - Data.RADAR_RANGE) < 60.0 and far_rng > farthest and far_rng < farthest * 1.3
+		and absf(main.hud.radar_range - Data.RADAR_RANGE) < 120.0, "near %d m, far %d m (farthest place %d m)" % [int(near_rng), int(far_rng), int(farthest)])
+	s.engine_kill = false
+	# ---- title screen: MUSIC and SETTINGS under START
+	var tl = main.title
+	var S: Vector2 = get_viewport().get_visible_rect().size
+	tl._process(0.0)
+	var under: bool = tl.music_btn.position.y >= tl.start_btn.position.y + 86.0 and tl.settings_btn.position.y == tl.music_btn.position.y \
+		and tl.music_btn.position.x > S.x * 0.2 and tl.settings_btn.position.x + tl.settings_btn.custom_minimum_size.x < S.x * 0.8 \
+		and tl.music_btn.custom_minimum_size.x >= 200.0 and tl.music_btn.custom_minimum_size.y >= 60.0 and tl.settings_btn.position.y + 62.0 < S.y - 46.0
+	var grey: bool = (tl.music_btn.get_theme_stylebox("normal") as StyleBoxFlat).bg_color.s < 0.25
+	_check("Job P: MUSIC and SETTINGS are two big grey buttons under START, not small ones in the corner", under and grey, "music at %s, settings at %s" % [tl.music_btn.position, tl.settings_btn.position])
+	# ---- galaxy map: flat 11 x 11 chart with fog of war
+	var gm = main.galaxymap
+	var disc0: Array = GS.discovered.duplicate()
+	GS.discovered = ["solara"]
+	gm.open("solara")
+	await _wait(0.4)
+	var states := {"seen": 0, "rumor": 0, "fog": 0}
+	var tiles := {}
+	for tl2 in GalaxyData.TILES:
+		states[gm.fog_state(tl2[0])] += 1
+		tiles[Vector2i(tl2[3], tl2[4])] = true
+	var neigh := 0
+	for l in Galaxy.links_of("solara"): neigh += 1
+	var sol_t: Array = GalaxyData.TILES.filter(func(x): return x[0] == "solara")[0]
+	var on_grid: bool = gm._hits.has("solara") and (gm._hits["solara"] as Vector2).distance_to(gm.flat_pos(S, sol_t[3], sol_t[4])) < 1.0
+	var hidden_ok := true
+	for id in gm._hits:
+		if gm.fog_state(id) == "fog": hidden_ok = false
+	await _shot("galaxy_map_fog_start", 0.2)
+	GS.discovered = disc0 + ["veranthos", "aurelion", "crystara", "vega"]
+	await _wait(0.3)
+	var more: int = gm._hits.size()
+	await _shot("galaxy_map_fog_more", 0.2)
+	gm.selected = ""
+	gm.press("mode")
+	var was_3d: bool = not gm.flat
+	gm.press("mode")
+	_check("Job P: the galaxy map is the flat 11 x 11 chart: each system in its own tile, gates as lines, and fog of war (your systems, then unknown contacts one gate out, nothing else)",
+		gm.flat and tiles.size() == GalaxyData.TILES.size() and states["seen"] == 1 and states["rumor"] == neigh and states["fog"] == GalaxyData.TILES.size() - 1 - neigh
+		and on_grid and hidden_ok and more > 1 + neigh and was_3d, "start: %d seen, %d unknown contacts, %d in fog; later %d shown" % [states["seen"], states["rumor"], states["fog"], more])
+	GS.discovered = disc0
+	gm.press("close")
+	# ---- station rooms: MAIN HUB and LAUNCH always there; the first person in the main hub
+	await Packs.wait("rooms", 60.0)
+	await Packs.wait("npc", 60.0)
+	var r: Rooms = main.hub.rooms
+	var hub_vis: bool = main.hub.visible
+	var was_vis: bool = r.visible
+	main.hub.visible = true
+	r.visible = true
+	r.size = S
+	r.open("bar")
+	await _frames(2)
+	var acts: Array = []
+	var cb := func(a: String): acts.append(a)
+	r.action.connect(cb)
+	r.tap(r.bar_rect("launch").get_center())
+	r.tap(r.bar_rect("hub").get_center())
+	await _until(func(): return not r.busy and r.room == "main_hub", 4.0)
+	r.action.disconnect(cb)
+	var au_home: bool = Rooms.new().hub_room() == "main_hub"
+	_check("Job P: MAIN HUB and LAUNCH are on the top bar of every room: LAUNCH launches, MAIN HUB takes you back to the hub", acts == ["launch"] and r.room == "main_hub" and au_home, "actions %s, room %s" % [acts, r.room])
+	await _until(func(): return r.npcs.size() == 1, 6.0)
+	var has_npc: bool = r.npcs.size() == 1
+	var talked := false
+	var strolled := false
+	var seen_px := 0
+	var bigger := false
+	if has_npc:
+		var f: NpcFigure = r.npcs[0]
+		await _until(func(): return f.steps >= 1, Data.NPC_PAUSE[1] + 4.0)
+		await _wait(1.0)
+		strolled = f.steps >= 1 and f.u >= float(f.info["u0"]) - 0.001 and f.u <= float(f.info["u1"]) + 0.001
+		r.pan = Rooms.strip_u(f.u)
+		await _frames(3)
+		var img: Image = f.texture().get_image()
+		for y in range(0, img.get_height(), 8):
+			for x in range(0, img.get_width(), 8):
+				if img.get_pixel(x, y).a > 0.5: seen_px += 1
+		var d0: float = f.depth
+		f.depth = 0.0
+		var near_h: float = r.npc_rect(f).size.y
+		f.depth = 1.0
+		var far_h: float = r.npc_rect(f).size.y
+		f.depth = d0
+		bigger = near_h > far_h * 1.2 and is_equal_approx(r.npc_rect(f).end.y, S.y)
+		await _shot("main_hub_person", 0.3)
+		r.caption = ""
+		r.tap(r.npc_rect(f).get_center() + Vector2(0, -r.npc_rect(f).size.y * 0.2))
+		talked = r.caption_who == f.info["name"] and r.caption != "" and f.state == "talk" and f.gesture != ""
+		await _shot("main_hub_person_talking", 0.9)
+	_check("Job P: one person lives in the main hub: a rigged character who strolls left and right, is waist-up when close and thigh-up (smaller) when back, and waves and answers when you tap them",
+		has_npc and strolled and seen_px > 150 and bigger and talked, "there %s, strolled %s, drawn %d, sizes %s, talked %s" % [has_npc, strolled, seen_px, bigger, talked])
+	# ---- dealer screens show the room they belong to
+	var base0: Dictionary = main.hub.base
+	var kind0: String = main.hub.kind
+	main.hub.base = Data.SYSTEMS["solara"]["station"]
+	main.hub.kind = "station"
+	main.hub.show_screen("equipment")
+	var bg_eq: bool = main.hub.screen_bg != null and main.hub.screen_bg.resource_path == Rooms.path("market")
+	await _shot("equipment_with_room_behind", 0.4)
+	main.hub.show_screen("repair")
+	var bg_rp: bool = main.hub.screen_bg != null and main.hub.screen_bg.resource_path == Rooms.path("hangar")
+	_check("Job P: the Equipment and Repair screens show the room they belong to behind the lists (market, hangar)", bg_eq and bg_rp)
+	main.hub.show_screen("hub")
+	main.hub.base = base0
+	main.hub.kind = kind0
+	r.visible = was_vis
+	main.hub.visible = hub_vis
+	await _frames(2)
+	_check("Job P: the room's person stops being drawn the moment the room is off screen (nothing extra renders in flight)", r.npcs.is_empty() and not r.is_visible_in_tree())
+	for c in [main.hub.header, main.hub.subheader, main.hub.credits_label, main.hub.left, main.hub.content, main.hub.status]: c.visible = true
+	await _wait(0.3)

@@ -135,6 +135,7 @@ var sig_stats := {"darts": 0, "kinks": 0, "impacts": 0, "blooms": 0, "brands": 0
 var sig_pending: Array = []       # delayed parts of a signature impact (the bloom after the punch)
 var sig_brands: Array = []        # lock-brand scorches still pulsing
 var _hex_mesh: ArrayMesh
+var retargets := 0                # missiles that picked a new target after theirs was gone
 var enemy_evades := 0             # your missiles an enemy shook off
 var effects: Array = []
 var popups: Array = [] # floating damage numbers: {pos, text, col, life}
@@ -1713,6 +1714,9 @@ func fire_missile(heavy := false, k := 0, n := 1, scale := 1.0, forced: Node3D =
 	else: GS.missiles -= 1
 	var te := _enemy_entry(t)
 	if te.has("pilot"): _chatter(te, "missile_incoming", true)
+	# v1.4m: a launch is noticed. The target and its wing turn on you.
+	for ae in enemies:
+		if ae["node"] == t or (ae["node"] as Node3D).global_position.distance_to(t.global_position) < Data.MISSILE_ALERT: ae["aggro"] = true
 	GS.changed.emit()
 	var mi := _missile_node(heavy)
 	add_child(mi)
@@ -2414,6 +2418,20 @@ func _update_missiles(dt: float) -> void:
 		var n: Node3D = m["node"]
 		var tv = m["target"]
 		var t: Node3D = tv if is_instance_valid(tv) else null
+		if t != null and t.get_meta("kind", "") != "enemy": t = null   # (a wreck is no target)
+		if t == null and not m.get("shaken", false):
+			# v1.4m: its target is gone: the missile goes after the nearest hostile it can reach
+			var nb: Node3D = null
+			var nd: float = Data.MISSILE_RETARGET
+			for oe in enemies:
+				var od: float = (oe["node"] as Node3D).global_position.distance_to((m["node"] as Node3D).global_position)
+				if od < nd:
+					nd = od
+					nb = oe["node"]
+			if nb != null:
+				t = nb
+				m["target"] = nb
+				retargets += 1
 		var v: Vector3 = m["vel"]
 		if is_instance_valid(t):
 			var rel := t.global_position - n.global_position
@@ -2429,6 +2447,7 @@ func _update_missiles(dt: float) -> void:
 						te["dodge_dir"] = sd if sd.length() > 0.5 else Vector3.RIGHT
 				if rel.length() < Data.DODGE_RANGE and side_speed(te["vel"], rel) > Data.DODGE_SIDE_FRAC * float(te["def"]["speed"]):
 					m["target"] = null
+					m["shaken"] = true   # dodged: it does not get a second go
 					t = null
 					enemy_evades += 1
 					_popup(te["node"].global_position, "EVADED", Color(0.7, 0.9, 1.0))
@@ -2949,6 +2968,7 @@ func _say(id: String, t: String) -> bool:
 	return false
 
 func _auto_systems(_dt: float) -> void:
+	if not is_instance_valid(target): target = null
 	if GS.is_auto("shield") and GS.shield <= 0.5 and GS.shield_charges > 0 and shield_cd <= 0.0 and shield_delay > 0.0: trigger_system("shield")
 	if GS.is_auto("hull") and GS.hull < GS.max_hull() * 0.35 and GS.repairs > 0 and repair_cd <= 0.0: trigger_system("hull")
 	if GS.is_auto("energy") and GS.energy < Data.ENERGY_MAX * 0.15 and GS.energy_cells > 0 and energy_cd <= 0.0: trigger_system("energy")

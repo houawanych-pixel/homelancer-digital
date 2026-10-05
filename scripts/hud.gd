@@ -34,6 +34,7 @@ var held := {}
 var msg := ""
 var msg_t := 0.0
 var damage_flash := 0.0
+var radar_range: float = Data.RADAR_RANGE   # what the radar shows right now (v1.4m: it zooms out when you are far from everything)
 var objective := ""
 var comms_open := false
 var comms_line := ""
@@ -398,6 +399,7 @@ func _box(r: Rect2, bg := PANEL, edge := EDGE, radius := 10, bw := 2) -> void:
 	draw_style_box(sb, r)
 
 func _text(p: Vector2, txt: String, size := 18, col := WHITE, align := HORIZONTAL_ALIGNMENT_LEFT, width := -1.0) -> void:
+	if size < Data.TEXT_BUMP_BELOW: size = maxi(Data.TEXT_MIN, size + Data.TEXT_BUMP)   # v1.4m: small print is a little bigger
 	draw_string_outline(font, p, txt, align, width, size, 5, Color(0, 0.03, 0.08, 0.8))
 	draw_string(font, p, txt, align, width, size, col)
 
@@ -834,7 +836,7 @@ func _draw() -> void:
 		_corner("slot_%d" % k, it["label"], it["icon"], scol, false, "%d" % ammo, cdk, space.warp_active(), ssub)
 	var mech: bool = GS.form == "mech"
 	_corner("thrust", "BOOST" if mech else "THRUST", "thrust", ORANGE, space.boosting, "", 0.0, false, "STICK = DASH" if mech else "")
-	_corner("fire", "FIRE", "guns", RED, space.fire_lock, "", 0.0, space.warp_active() or not space.lane.is_empty(), "ON · TAP = OFF" if space.fire_lock else "TAP = NONSTOP")
+	_corner("fire", "FIRE", "guns", RED, space.fire_lock, "", 0.0, space.warp_active() or not space.lane.is_empty(), "ON · TAP OFF" if space.fire_lock else "TAP = ON")
 	_corner("kill", "KILL", "kill", GOLD, space.engine_kill, "", 0.0, mech, "DRIFTING" if space.engine_kill else "ENGINE")
 	_pill("map", "MAP")
 	_pill("view", "CHASE" if cockpit else "COCKPIT", false, CYAN, "VIEW")
@@ -972,16 +974,32 @@ func _radar(rc: Vector2, rr: float, label: bool) -> void:
 	draw_line(rc + Vector2(-rr, 0), rc + Vector2(rr, 0), Color(CYAN, 0.15))
 	var sweep := fmod(t * 1.4, TAU)
 	draw_line(rc, rc + Vector2(cos(sweep), sin(sweep)) * rr, Color(CYAN, 0.3), 2.0)
-	var rng := 1600.0 * (1.0 - 0.6 * space.in_nebula)
 	var inv := Basis(Vector3.UP, -space.yaw)
 	var pp: Vector3 = space.player.global_position
+	# v1.4m: normal range near things; far from everything (out by the sun, say) the radar zooms out until the
+	# station, the planets and the gates all fit, so you can see where you are
+	var want_rng: float = Data.RADAR_RANGE
+	if not space.surface_mode:
+		var near := INF
+		var far := 0.0
+		for n: Node3D in [space.station, space.planet] + space.gates + space.extras:
+			if not is_instance_valid(n): continue
+			var dn := pp.distance_to(n.global_position)
+			near = minf(near, dn)
+			far = maxf(far, dn)
+		if near > Data.RADAR_RANGE: want_rng = far * Data.RADAR_FIT
+	radar_range = lerpf(radar_range, want_rng, clampf(get_process_delta_time() * Data.RADAR_ZOOM_SPEED, 0.0, 1.0))
+	var rng := radar_range * (1.0 - 0.6 * space.in_nebula)
 	var items: Array = []
 	for e in space.enemies: items.append([e["node"].global_position, RED])
 	for tr in space.traffic: items.append([tr["node"].global_position, GREEN])
 	if space.station.get_meta("kind", "") == "station": items.append([space.station.global_position, GREEN])
 	if not space.surface_mode:
 		items.append([space.planet.global_position, Color(0.5, 0.8, 1.0)])
-		items.append([space.gate.global_position, GOLD])
+		for g in space.gates: items.append([g.global_position, GOLD])
+		if radar_range > Data.RADAR_RANGE * 1.2:   # zoomed out: the rest of the system shows too
+			for x in space.extras: items.append([x.global_position, Color(0.5, 0.8, 1.0) if float(x.get_meta("radius", 0.0)) > 100.0 else GREEN])
+			if space.sun_pos != Vector3.INF: items.append([space.sun_pos, Color(1.0, 0.9, 0.4)])
 	for it in items:
 		var rel: Vector3 = inv * (it[0] - pp)
 		var v := Vector2(rel.x, rel.z) / rng * rr

@@ -29,6 +29,7 @@ var _hits := {}
 var _btns := {}
 var focus := ""      # the front system nearest the centre of view: outlined and named as you pan past it
 var focus_t := 0.0   # 0..1 fade-in of that outline
+var flat := true     # v1.4m: the map opens as the flat 11 x 11 chart with fog of war; "3D VIEW" shows the old look-around
 var backdrop: Texture2D = load("res://assets/ui/title_network.jpg")   # owner's network picture, far behind
 const FOCUS_DIST := 70.0   # only systems this close count as "in front" (the far ones are just stars)
 
@@ -130,19 +131,135 @@ func press(b: String) -> void:
 				visible = false
 				closed.emit()
 		"expand": if selected != "": expanded = selected
+		"mode": flat = not flat
 
 # ---------------------------------------------------------------- drawing
 func _draw() -> void:
 	var S := get_viewport_rect().size
 	_hits.clear()
 	_btns.clear()
-	draw_network(self, S, yaw, pitch, t, viewer, current, selected, _hits, true, focus, focus_t, backdrop)
-	_title(S)
+	if flat: _draw_flat(S)
+	else:
+		draw_network(self, S, yaw, pitch, t, viewer, current, selected, _hits, true, focus, focus_t, backdrop)
+		_title(S)
+	var mb := Rect2(Vector2(S.x - 300, 16), Vector2(140, 48))
+	if expanded == "":
+		_btns["mode"] = mb
+		_button(mb, "3D VIEW" if flat else "FLAT MAP")
 	if selected != "" and expanded == "": _info(S)
 	if expanded != "": _system_view(S, expanded)
 	var cb := Rect2(Vector2(S.x - 150, 16), Vector2(130, 48))
 	_btns["close"] = cb
 	_button(cb, "BACK" if expanded != "" else "CLOSE")
+
+# ---------------------------------------------------------------- v1.4m: the flat chart with fog of war
+## What the pilot knows of a system: "seen" (been there), "rumor" (a gate from a system you have seen leads there:
+## shown as an unknown contact), or "fog" (nothing shown at all).
+static func fog_state(id: String) -> String:
+	if id in GS.discovered: return "seen"
+	for l in Galaxy.links_of(id):
+		var other: String = l[1] if l[0] == id else l[0]
+		if other in GS.discovered: return "rumor"
+	return "fog"
+
+## The rectangle of the chart and the size of one tile (11 columns A-K, 11 rows 1-11, as on the owner's map).
+static func flat_grid(S: Vector2) -> Array:
+	var org := Vector2(378.0, 96.0)
+	var cell := Vector2((S.x - org.x - 24.0) / 11.0, (S.y - org.y - 44.0) / 11.0)
+	return [org, cell]
+
+static func flat_pos(S: Vector2, col: int, row: int) -> Vector2:
+	var g := flat_grid(S)
+	return (g[0] as Vector2) + Vector2((col + 0.5) * (g[1] as Vector2).x, (row + 0.5) * (g[1] as Vector2).y)
+
+static func link_color(kind: String) -> Color:
+	match kind:
+		"warp_gate": return Color(0.4, 0.7, 1.0)
+		"rift_gate": return Color(0.8, 0.45, 1.0)
+	return Color(0.4, 0.95, 0.55)
+
+## The galaxy as it is on the owner's 11 x 11 map: every system in its tile, every gate as a line between tiles.
+## Fog of war: you see the systems you have been to, the next ones along their gates as unknown contacts, and
+## nothing else.
+func _draw_flat(S: Vector2) -> void:
+	draw_rect(Rect2(Vector2.ZERO, S), Data.MAP_FOG)
+	var g := flat_grid(S)
+	var org: Vector2 = g[0]
+	var cell: Vector2 = g[1]
+	var net := Galaxy.network()
+	var sys: Dictionary = net["systems"]
+	var at := {}
+	var state := {}
+	var tile_of := {}
+	for tl in GalaxyData.TILES:
+		at[tl[0]] = flat_pos(S, tl[3], tl[4])
+		state[tl[0]] = fog_state(tl[0])
+		tile_of[Vector2i(tl[3], tl[4])] = tl[0]
+	# the grid, with the tiles you know lit in their faction's colour
+	for c in 11:
+		for r in 11:
+			var rc := Rect2(org + Vector2(c * cell.x, r * cell.y), cell).grow(-1.5)
+			var id: String = tile_of.get(Vector2i(c, r), "")
+			var st: String = state.get(id, "fog")
+			if st == "seen":
+				var fc: Color = SystemBuilder.FACTIONS[sys[id]["faction"]][3]
+				draw_rect(rc, Color(fc, 0.2))
+				draw_rect(rc, Color(fc, 0.55), false, 1.5)
+			elif st == "rumor":
+				draw_rect(rc, Color(0.5, 0.6, 0.7, 0.07))
+				draw_rect(rc, Color(0.5, 0.6, 0.7, 0.3), false, 1.0)
+			else:
+				draw_rect(rc, Color(1, 1, 1, 0.012))
+				draw_rect(rc, Color(0.4, 0.5, 0.6, 0.08), false, 1.0)
+	for c in 11: draw_string(font, org + Vector2(c * cell.x, -8.0), "ABCDEFGHIJK"[c], HORIZONTAL_ALIGNMENT_CENTER, cell.x, 14, Color(0.6, 0.75, 0.9, 0.8))
+	for r in 11: draw_string(font, org + Vector2(-26.0, r * cell.y + cell.y * 0.5 + 5.0), str(r + 1), HORIZONTAL_ALIGNMENT_CENTER, 22.0, 14, Color(0.6, 0.75, 0.9, 0.8))
+	# gates: a line shows when you have been to at least one end of it
+	for l in net["links"]:
+		var sa: String = state[l[0]]
+		var sb: String = state[l[1]]
+		if sa != "seen" and sb != "seen": continue
+		var lc := link_color(l[2])
+		var both: bool = sa == "seen" and sb == "seen"
+		if l[2] == "jump_gate": draw_line(at[l[0]], at[l[1]], Color(lc, 0.9 if both else 0.4), 2.5 if both else 1.5, true)
+		else: _dashed(self, at[l[0]], at[l[1]], Color(lc, 0.9 if both else 0.4), 2.5 if both else 1.5, 8.0 if l[2] == "warp_gate" else 4.0)
+	# systems
+	for id in at:
+		var st2: String = state[id]
+		if st2 == "fog": continue
+		var p: Vector2 = at[id]
+		var s: Dictionary = sys[id]
+		if st2 == "seen":
+			var fc2: Color = SystemBuilder.FACTIONS[s["faction"]][3]
+			draw_circle(p, 9.0, fc2)
+			draw_arc(p, 9.0, 0, TAU, 24, Color.WHITE, 1.5, true)
+			draw_string(font, p + Vector2(-cell.x * 0.5, 26.0), s["name"], HORIZONTAL_ALIGNMENT_CENTER, cell.x, 13, Color.WHITE)
+		else:
+			draw_arc(p, 8.0, 0, TAU, 20, Color(0.7, 0.8, 0.9, 0.7), 1.5, true)
+			draw_string(font, p + Vector2(-10, 6), "?", HORIZONTAL_ALIGNMENT_CENTER, 20, 15, Color(0.7, 0.8, 0.9, 0.8))
+		if id == current:
+			draw_arc(p, 15.0 + 2.5 * sin(t * 3.0), 0, TAU, 32, Color(1.0, 0.85, 0.4), 2.5, true)
+			draw_string(font, p + Vector2(-cell.x * 0.5, -18.0), "YOU", HORIZONTAL_ALIGNMENT_CENTER, cell.x, 13, Color(1.0, 0.85, 0.4))
+		if id == selected:
+			for cn in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
+				var q: Vector2 = p + cn * 17.0
+				draw_line(q, q - Vector2(cn.x * 8, 0), Color.WHITE, 2.0)
+				draw_line(q, q - Vector2(0, cn.y * 8), Color.WHITE, 2.0)
+		_hits[id] = p
+	# heading and key
+	draw_string(font, Vector2(24, 40), "GALAXY MAP", HORIZONTAL_ALIGNMENT_LEFT, -1, 26, Color.WHITE)
+	var known := 0
+	for id2 in state:
+		if state[id2] == "seen": known += 1
+	draw_string(font, Vector2(24, 64), "%d of %d systems charted  ·  tap a system" % [known, state.size()], HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(0.7, 0.85, 1.0))
+	var ky := S.y - 16.0
+	var kx := org.x
+	for kd in [["jump_gate", "Jump gate"], ["warp_gate", "Warp gate"], ["rift_gate", "Rift gate"]]:
+		if kd[0] == "jump_gate": draw_line(Vector2(kx, ky - 5), Vector2(kx + 34, ky - 5), link_color(kd[0]), 2.5)
+		else: _dashed(self, Vector2(kx, ky - 5), Vector2(kx + 34, ky - 5), link_color(kd[0]), 2.5, 8.0 if kd[0] == "warp_gate" else 4.0)
+		draw_string(font, Vector2(kx + 42, ky), kd[1], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.85, 0.92, 1.0))
+		kx += 150.0
+	draw_arc(Vector2(kx + 8, ky - 5), 7.0, 0, TAU, 16, Color(0.7, 0.8, 0.9, 0.7), 1.5)
+	draw_string(font, Vector2(kx + 22, ky), "? = not charted yet", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.85, 0.92, 1.0))
 
 ## The network drawing, shared with the title screen. hits (optional) receives screen positions of systems.
 static func draw_network(ci: CanvasItem, S: Vector2, yaw: float, pitch: float, t: float, viewer: Vector3, current := "", selected := "", hits = null, labels := true, focus := "", focus_k := 1.0, back: Texture2D = null) -> void:
@@ -267,12 +384,18 @@ func _info(S: Vector2) -> void:
 	sb.set_border_width_all(2)
 	sb.set_corner_radius_all(10)
 	draw_style_box(sb, r)
+	if flat and fog_state(selected) != "seen":   # fog of war: an unknown contact tells you only where it is
+		_text(r.position + Vector2(16, 32), "UNCHARTED SYSTEM", 22, NAVY)
+		_text(r.position + Vector2(16, 58), "Tile %s" % s.get("tile", "?"), 15, MID)
+		_text(r.position + Vector2(16, 86), "A gate from a system you know", 15, NAVY)
+		_text(r.position + Vector2(16, 108), "leads here. Fly there to chart it.", 15, NAVY)
+		return
 	_text(r.position + Vector2(16, 32), (s["name"] as String).to_upper(), 22, NAVY)
-	_text(r.position + Vector2(16, 54), "%s · tile %s" % [s["faction"], s.get("tile", "?")], 13, MID)
-	_text(r.position + Vector2(16, 78), "%s star · %d planets · %d stations · %d spaceways" % [s["star"], s["planets"], s["stations"], s["spaceways"]], 13, NAVY)
+	_text(r.position + Vector2(16, 54), "%s · tile %s" % [s["faction"], s.get("tile", "?")], 15, MID)
+	_text(r.position + Vector2(16, 78), "%s star · %d planets · %d stations" % [s["star"], s["planets"], s["stations"]], 15, NAVY)
 	var kinds := {"warp_gate": 0, "jump_gate": 0, "rift_gate": 0}
 	for l in Galaxy.links_of(selected): kinds[l[2]] += 1
-	_text(r.position + Vector2(16, 100), "Gates: %d jump · %d warp · %d rift" % [kinds["jump_gate"], kinds["warp_gate"], kinds["rift_gate"]], 13, NAVY)
+	_text(r.position + Vector2(16, 100), "Gates: %d jump · %d warp · %d rift" % [kinds["jump_gate"], kinds["warp_gate"], kinds["rift_gate"]], 15, NAVY)
 	var status := "FLYABLE" if s["playable"] else ("SURVEYED — no route yet" if s["discovered"] else "UNCHARTED")
 	_text(r.position + Vector2(16, 124), status, 14, DEEP if s["playable"] else MID)
 	var eb := Rect2(r.position + Vector2(16, 140), Vector2(140, 44))
