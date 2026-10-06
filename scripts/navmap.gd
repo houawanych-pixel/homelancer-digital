@@ -1,5 +1,10 @@
 extends Control
-## Navigation screen: top-down map of the current system plus the known star map (Solara <-> Vega).
+## Navigation screen (Job S, v1.4p): a GPS-style map of the current system.
+##  - holographic grid that keeps going as you zoom (pinch, wheel, + / -), drag to pan
+##  - NORTH-UP (angled GPS view or flat overhead) or HEADING-UP (you are the arrow, the map turns round you)
+##  - tap anything to identify it: glowing brackets and an info card with its picture; then SET COURSE
+##  - a set course is drawn as a thick glowing route with a pulsing pin
+## The projection, grid and shapes live in NavGrid (shared with the HUD radar).
 
 signal closed
 signal course_set(node: Node3D)
@@ -9,39 +14,167 @@ const CYAN := Color(0.4, 0.86, 1.0)
 const GOLD := Color(1.0, 0.82, 0.4)
 const GREEN := Color(0.45, 1.0, 0.6)
 const RED := Color(1.0, 0.36, 0.3)
+const PLANET := Color(0.42, 0.72, 1.0)
+const PANEL := Color(0.02, 0.06, 0.1, 0.94)
 
 var space: SpaceSystem = null # null while docked (map built from data only)
 var font: Font = ThemeDB.fallback_font
-var selected := "" # "station" | "planet" | "gate"
-var hits := {}
+var selected := ""            # "" | "point" | an object key: "station", "planet", "gate", "gate1".., "planet1".., "station1".., "belt", "nebula", "star", "enemy0".., "traffic0"..
+var hits := {}                # key -> screen position (this frame's projection, so it follows any rotation)
+var objs := {}                # key -> {type, name, pos, col, r, data, node}
 var btn_close := Rect2()
 var btn_course := Rect2()
 var btn_galaxy := Rect2()
+var btn_orient := Rect2()
+var btn_tilt := Rect2()
+var btn_zoom_in := Rect2()
+var btn_zoom_out := Rect2()
+var btn_fit := Rect2()
+var btn_card_x := Rect2()
+var card_rect := Rect2()
+var compass_pos := Vector2.ZERO
 var map_rect := Rect2()
-var scale_k := 1.0
-var center := Vector3.ZERO
-var way_pos := Vector3.INF   # a custom waypoint picked by tapping empty space on the map
+var scale_k := 1.0            # pixels per metre right now
+var center := Vector3.ZERO    # world point at the middle of the fitted system
+var way_pos := Vector3.INF    # a custom waypoint picked by tapping empty space on the map
+var view := NavGrid.new()
+var zoom := 1.0
+var pan := Vector3.ZERO       # north-up only: how far the view has been dragged (world metres)
+var grid_stats := {}          # what the grid drew last frame (tests)
+var route := {}               # the drawn course: {"from", "to", "dist", "eta", "name"} (screen points), {} when none
+var t := 0.0
+var _press := {}              # pointer index -> [start, last, moved]
+var _pinch := 0.0
+var _last_press_frame := -1
+var _last_press_pos := Vector2.INF
+var clip: Control
+var canvas: Control
+var over: Control
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false
+	if not NavGrid._loaded: NavGrid.load_prefs()
+	clip = Control.new()   # the map window: everything the canvas draws is cut off at its edge
+	clip.clip_contents = true
+	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(clip)
+	canvas = Control.new()
+	canvas.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	canvas.draw.connect(_draw_map)
+	clip.add_child(canvas)
+	over = Control.new()   # panels, buttons and the info card, on top of the map
+	over.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	over.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	over.draw.connect(_draw_over)
+	add_child(over)
 
 func open(sp: SpaceSystem) -> void:
 	space = sp
 	selected = ""
+	zoom = 1.0
+	pan = Vector3.ZERO
+	_press.clear()
 	visible = true
+	_layout()
 	queue_redraw()
 
-func _process(_dt: float) -> void:
-	if visible: queue_redraw()
+func _process(dt: float) -> void:
+	if not visible: return
+	t += dt
+	queue_redraw()
+	canvas.queue_redraw()
+	over.queue_redraw()
 
+# ---------------------------------------------------------------- view state
+func heading_up() -> bool:
+	return NavGrid.orient == "heading" and space != null and is_instance_valid(space.player)
+
+func toggle_orient() -> void:
+	NavGrid.toggle_orient()
+	pan = Vector3.ZERO
+	_layout()
+
+func toggle_tilt() -> void:
+	NavGrid.toggle_tilt()
+	_layout()
+
+func zoom_by(f: float) -> void:
+	zoom = clampf(zoom * f, Data.NAV_ZOOM[0], Data.NAV_ZOOM[1])
+	_layout()
+
+func fit() -> void:
+	zoom = 1.0
+	pan = Vector3.ZERO
+	_layout()
+
+# ---------------------------------------------------------------- input (mouse and touch share one path)
 func _gui_input(e: InputEvent) -> void:
-	var p := Vector2.ZERO
-	if e is InputEventScreenTouch and e.pressed: p = e.position
-	elif e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT: p = e.position
+	if e is InputEventMouseButton and e.pressed and e.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+		accept_event()
+		if map_rect.has_point(e.position): zoom_by(Data.NAV_ZOOM_STEP if e.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0 / Data.NAV_ZOOM_STEP)
+		return
+	var idx := -1
+	var pos := Vector2.ZERO
+	var down := false
+	var up := false
+	var motion := false
+	if e is InputEventScreenTouch:
+		idx = e.index
+		pos = e.position
+		down = e.pressed
+		up = not e.pressed
+	elif e is InputEventScreenDrag:
+		idx = e.index
+		pos = e.position
+		motion = true
+	elif e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
+		idx = 99
+		pos = e.position
+		down = e.pressed
+		up = not e.pressed
+	elif e is InputEventMouseMotion and _press.has(99):
+		idx = 99
+		pos = e.position
+		motion = true
 	else: return
 	accept_event()
+	if down:
+		# a mouse click arrives twice when touch emulation is on (as a click and as a touch): take it once
+		if Engine.get_process_frames() == _last_press_frame and pos.distance_to(_last_press_pos) < 2.0: return
+		_last_press_frame = Engine.get_process_frames()
+		_last_press_pos = pos
+		_press[idx] = [pos, pos, false]
+		if _press.size() == 2: _pinch = _spread()
+	elif motion and _press.has(idx):
+		var pr: Array = _press[idx]
+		if _press.size() >= 2:   # pinch to zoom
+			pr[1] = pos
+			pr[2] = true
+			var sp := _spread()
+			if _pinch > 10.0 and sp > 10.0: zoom_by(sp / _pinch)
+			_pinch = sp
+		else:
+			if (pr[0] as Vector2).distance_to(pos) > Data.NAV_TAP_SLOP: pr[2] = true
+			if pr[2] and map_rect.has_point(pr[0]) and not heading_up():   # drag the map
+				var w0 := view.to_world((pr[1] as Vector2) - map_rect.position)
+				var w1 := view.to_world(pos - map_rect.position)
+				pan += w0 - w1
+				_layout()
+			pr[1] = pos
+	elif up and _press.has(idx):
+		var pr2: Array = _press[idx]
+		_press.erase(idx)
+		if not pr2[2] and _press.is_empty(): tap(pos)
+
+func _spread() -> float:
+	var v := _press.values()
+	return ((v[0][1] as Vector2).distance_to(v[1][1])) if v.size() >= 2 else 0.0
+
+## One tap / click at a screen point. Buttons first, then the info card, then objects, then empty space.
+func tap(p: Vector2) -> void:
+	_layout()
 	if btn_galaxy.has_point(p):
 		galaxy_requested.emit()
 		return
@@ -49,34 +182,97 @@ func _gui_input(e: InputEvent) -> void:
 		visible = false
 		closed.emit()
 		return
-	if btn_course.has_point(p) and selected != "" and space != null and space.controls:
-		set_course()
+	if btn_course.has_point(p):
+		if selected != "" and space != null and space.controls: set_course()
 		return
-	for k in hits:
-		if (hits[k] as Vector2).distance_to(p) < 44.0:
-			selected = k
-			return
+	if btn_orient.has_point(p):
+		if space != null: toggle_orient()
+		return
+	if btn_tilt.has_point(p):
+		toggle_tilt()
+		return
+	if btn_zoom_in.has_point(p):
+		zoom_by(Data.NAV_ZOOM_STEP)
+		return
+	if btn_zoom_out.has_point(p):
+		zoom_by(1.0 / Data.NAV_ZOOM_STEP)
+		return
+	if btn_fit.has_point(p):
+		fit()
+		return
+	if selected != "" and btn_card_x.has_point(p):
+		selected = ""
+		return
+	if selected != "" and card_rect.has_point(p): return   # reading the card
+	var key := pick(p)
+	if key != "":
+		selected = key
+		return
+	if selected != "":   # a tap outside closes the card
+		selected = ""
+		return
 	if map_rect.has_point(p) and space != null:   # empty space: drop your own waypoint there
-		var rel := (p - map_rect.get_center()) / scale_k
-		way_pos = Vector3(center.x + rel.x, space.player.global_position.y, center.z + rel.y)
+		var w := view.to_world(p - map_rect.position)
+		way_pos = Vector3(w.x, space.player.global_position.y, w.z)
 		selected = "point"
+
+## The object under a screen point ("" = none). Uses this frame's projected positions, so it works in any rotation.
+func pick(p: Vector2) -> String:
+	if not map_rect.has_point(p): return ""
+	var best := ""
+	var best_d: float = Data.NAV_HIT_RADIUS
+	for k in hits:
+		var d := (hits[k] as Vector2).distance_to(p)
+		var reach: float = maxf(Data.NAV_HIT_RADIUS, float(objs[k].get("px", 0.0)))
+		if d < reach and (best == "" or d < best_d):
+			best = k
+			best_d = d
+	return best
+
+func select(key: String) -> void:
+	_layout()
+	if objs.has(key): selected = key
+
+## Select whatever is nearest this world position (a tap on a radar blip opens the map on that object).
+func select_near(world: Vector3) -> String:
+	_layout()
+	var best := ""
+	var best_d := INF
+	for key in objs:
+		var d := Vector2(objs[key]["pos"].x - world.x, objs[key]["pos"].z - world.z).length()
+		if d < best_d:
+			best = key
+			best_d = d
+	if best != "": selected = best
+	return best
 
 ## SET COURSE: fly to the selected place or waypoint on autopilot.
 func set_course() -> void:
-	var n: Node3D = space.waypoint_at(way_pos) if selected == "point" else _node(selected)
+	var n: Node3D = null
+	if selected == "point": n = space.waypoint_at(way_pos)
+	else:
+		n = _node(selected)
+		if n == null and objs.has(selected):   # a zone with no node of its own (belt, nebula): fly to its middle
+			var op: Vector3 = objs[selected]["pos"]
+			n = space.waypoint_at(Vector3(op.x, space.player.global_position.y if selected != "star" else op.y, op.z))
+			n.name = str(objs[selected]["name"]).validate_node_name()
 	visible = false
 	course_set.emit(n)
 
 ## Map keys: "station", "planet", "gate" (the first gate), "gate1", "gate2" ... (the system's other gates).
 func _gate_index(key: String) -> int: return 0 if key == "gate" else int(key.substr(4))
 func _node(key: String) -> Node3D:
+	if space == null: return null
 	if key == "station": return space.station
 	if key == "planet": return space.planet
-	return space.gates[mini(_gate_index(key), space.gates.size() - 1)]
+	if key.begins_with("gate"): return space.gates[mini(_gate_index(key), space.gates.size() - 1)]
+	if objs.has(key) and objs[key].get("node") != null and is_instance_valid(objs[key]["node"]): return objs[key]["node"]
+	return null
 func _data(key: String) -> Dictionary:
 	var sys: Dictionary = Data.SYSTEMS[GS.system_id]
 	if key == "station" or key == "planet": return sys[key]
-	return sys["gates"][mini(_gate_index(key), sys["gates"].size() - 1)]
+	if key.begins_with("gate"): return sys["gates"][mini(_gate_index(key), sys["gates"].size() - 1)]
+	return objs[key].get("data", {}) if objs.has(key) else {}
 
 ## Pick a spot on the map as a waypoint (used by the route test, same as a tap).
 func pick_point(world: Vector3) -> void:
@@ -84,29 +280,124 @@ func pick_point(world: Vector3) -> void:
 	selected = "point"
 
 func _w2m(p: Vector3) -> Vector2:
-	var rel := Vector2(p.x - center.x, p.z - center.z) * scale_k
-	return map_rect.get_center() + rel
+	return view.to_screen(p) + map_rect.position
 
-func _txt(p: Vector2, t: String, s := 16, c := Color.WHITE, align := HORIZONTAL_ALIGNMENT_LEFT, w := -1.0) -> void:
+func _txt(ci: CanvasItem, p: Vector2, s_txt: String, s := 16, c := Color.WHITE, align := HORIZONTAL_ALIGNMENT_LEFT, w := -1.0) -> void:
 	if s < Data.TEXT_BUMP_BELOW: s = maxi(Data.TEXT_MIN, s + Data.TEXT_BUMP)   # v1.4m: small print is a little bigger
-	draw_string_outline(font, p, t, align, w, s, 4, Color(0, 0, 0, 0.8))
-	draw_string(font, p, t, align, w, s, c)
+	ci.draw_string_outline(font, p, s_txt, align, w, s, 4, Color(0, 0, 0, 0.8))
+	ci.draw_string(font, p, s_txt, align, w, s, c)
 
-func _draw() -> void:
-	var S := get_viewport_rect().size
-	draw_rect(Rect2(Vector2.ZERO, S), Color(0.01, 0.03, 0.06, 0.96))
+# ---------------------------------------------------------------- what is on the map
+## Everything that can be shown and tapped, from the system data plus (in flight) the live contacts.
+func _collect() -> void:
+	objs.clear()
 	var sys: Dictionary = Data.SYSTEMS[GS.system_id]
-	_txt(Vector2(36, 50), "NAVIGATION — %s SYSTEM" % sys["name"].to_upper(), 30, CYAN)
-	_txt(Vector2(38, 78), "Tap a destination, then SET COURSE to fly there on autopilot." if space != null and space.controls else "Plan your route. Launch to fly it.", 16, Color(0.85, 0.9, 0.95))
+	var st: Dictionary = sys["station"]
+	objs["station"] = {"type": "station", "name": st["name"], "pos": st["pos"], "col": GREEN, "r": 60.0, "data": st, "main": true}
+	var pl: Dictionary = sys["planet"]
+	objs["planet"] = {"type": "planet", "name": pl["name"], "pos": pl["pos"], "col": PLANET, "r": float(pl["radius"]), "data": pl, "main": true}
+	for gi in sys["gates"].size():
+		var gd: Dictionary = sys["gates"][gi]
+		objs["gate" if gi == 0 else "gate%d" % gi] = {"type": "gate", "name": gd["name"], "pos": gd["pos"], "col": GOLD, "r": 70.0, "data": gd}
+	var k := 1
+	for xd: Dictionary in sys.get("more_planets", []):
+		objs["planet%d" % k] = {"type": "planet", "name": xd["name"], "pos": xd["pos"], "col": PLANET.darkened(0.12), "r": float(xd["radius"]), "data": xd, "node": _extra_at(xd["pos"])}
+		k += 1
+	k = 1
+	for xd: Dictionary in sys.get("more_stations", []):
+		objs["station%d" % k] = {"type": "station", "name": xd["name"], "pos": xd["pos"], "col": GREEN.darkened(0.15), "r": 45.0, "data": xd, "node": _extra_at(xd["pos"])}
+		k += 1
+	var belt: Dictionary = sys["asteroids"]
+	objs["belt"] = {"type": "belt", "name": belt["name"], "pos": belt["center"], "col": Color(0.82, 0.72, 0.56), "r": float(belt["radius"]), "data": belt}
+	var neb: Dictionary = sys["nebula"]
+	objs["nebula"] = {"type": "nebula", "name": neb["name"] + " nebula", "pos": neb["center"], "col": neb["color"], "r": float(neb["radius"]), "data": neb}
+	var star_pos: Vector3 = space.sun_pos if space != null and space.sun_pos != Vector3.INF else -(sys.get("sun_dir", Vector3(0, -0.3, 1)) as Vector3).normalized() * Data.SUN_DIST
+	objs["star"] = {"type": "star", "name": "%s's Star" % sys["name"], "pos": star_pos, "col": sys.get("star", Color(1.0, 0.9, 0.5)), "r": 900.0, "data": {}}
+	if space != null and is_instance_valid(space.player):
+		var i := 0
+		for e in space.enemies:
+			if is_instance_valid(e["node"]):
+				objs["enemy%d" % i] = {"type": "enemy", "name": e["def"].get("name", "Hostile"), "pos": (e["node"] as Node3D).global_position, "col": RED, "r": 8.0, "data": e["def"], "node": e["node"], "ship": true}
+			i += 1
+		i = 0
+		for tr in space.traffic:
+			if is_instance_valid(tr["node"]):
+				objs["traffic%d" % i] = {"type": "traffic", "name": str((tr["node"] as Node3D).name), "pos": (tr["node"] as Node3D).global_position, "col": GREEN, "r": 8.0, "data": {}, "node": tr["node"], "ship": true}
+			i += 1
+
+func _extra_at(p: Vector3) -> Node3D:
+	if space == null: return null
+	for x: Node3D in space.extras:
+		if is_instance_valid(x) and x.global_position.distance_to(p) < 5.0: return x
+	return null
+
+## What the info card says about an object: {"name", "type", "lines": [...], "picture": Texture2D or null,
+## "fallback": the type picture was used, "region": part of the picture to show, "distance": metres or -1}
+func info(key: String) -> Dictionary:
+	if key == "point":
+		var d0 := space.player.global_position.distance_to(way_pos) if space != null and is_instance_valid(space.player) else -1.0
+		return {"name": "Custom waypoint", "type": "Waypoint", "lines": ["A point you picked on the map."], "picture": null, "fallback": true, "region": Rect2(), "distance": d0, "col": GOLD}
+	if not objs.has(key): return {}
+	var o: Dictionary = objs[key]
+	var d: Dictionary = o["data"]
+	var sys: Dictionary = Data.SYSTEMS[GS.system_id]
+	var out := {"name": o["name"], "type": "", "lines": [], "picture": null, "fallback": false, "region": Rect2(), "distance": -1.0, "col": o["col"]}
+	var own := ""
+	var pic_type: String = o["type"]
+	match o["type"]:
+		"planet":
+			out["type"] = "Planet" + ("  ·  %s" % str(d["palette"]).capitalize() if d.has("palette") else "")
+			own = NavGrid.planet_picture(d)
+			if d.has("desc"): out["lines"].append(d["desc"])
+			out["lines"].append("Dockable: land at the surface port." if key == "planet" else "Fly down into its atmosphere to enter.")
+		"station":
+			out["type"] = "Station"
+			own = "res://assets/nav/station_wheel.jpg" if d.get("model", "") == "wheel_station" else ""
+			var fac: String = d.get("faction", sys.get("faction", ""))
+			if fac != "": out["lines"].append("Faction: %s" % fac)
+			out["faction"] = fac
+			var sv: Array = d.get("services", [] if d.get("placeholder", false) else Data.NAV_STATION_SERVICES)
+			out["services"] = sv
+			out["lines"].append("Services: %s" % ("  ·  ".join(sv) if not sv.is_empty() else "none yet (landmark)"))
+			if d.has("desc"): out["lines"].append(d["desc"])
+		"gate":
+			out["type"] = "Jump Gate"
+			var dest: String = Data.SYSTEMS[d["to"]]["name"]
+			out["destination"] = dest
+			out["name"] = "%s > %s" % [o["name"], dest]
+			out["lines"].append("Destination: %s%s" % [dest, "" if d["to"] in GS.discovered else "  (uncharted)"])
+			out["lines"].append("Fly to it and press DOCK to jump.")
+		"belt":
+			out["type"] = "Asteroid Belt"
+			out["lines"].append("%d rocks, about %d m across. Mind your hull." % [int(d.get("count", 0)), int(o["r"] * 2.0)])
+		"nebula":
+			out["type"] = "Nebula"
+			out["lines"].append("Radar range drops inside it.")
+		"star":
+			out["type"] = "Star"
+			out["lines"].append("Too hot to approach: shields and repairs fail close in.")
+		"enemy":
+			out["type"] = "Ship  ·  Hostile"
+			out["lines"].append("Hull %d  ·  Shield %d" % [int(d.get("hull", 0)), int(d.get("shield", 0))])
+		"traffic":
+			out["type"] = "Ship  ·  Civilian"
+			out["lines"].append("Local traffic on its route.")
+	var pic := NavGrid.picture(own, pic_type)
+	out["picture"] = pic[0]
+	out["fallback"] = pic[1]
+	if pic[0] != null:
+		var ts: Vector2 = (pic[0] as Texture2D).get_size()
+		out["region"] = Rect2(ts.x * 0.5 - ts.y * 0.6667, 0, ts.y * 1.3333, ts.y) if ts.x > ts.y * 1.5 else Rect2(Vector2.ZERO, ts)   # world maps are 2:1: show the middle
+	if space != null and is_instance_valid(space.player):
+		var n := _node(key)
+		out["distance"] = space.distance_to(n) if n != null else space.player.global_position.distance_to(o["pos"])
+	return out
+
+# ---------------------------------------------------------------- layout and projection
+func _layout() -> void:
+	var S := get_viewport_rect().size
 	map_rect = Rect2(36, 100, S.x * 0.64, S.y - 130)
-	draw_rect(map_rect, Color(0.02, 0.06, 0.1))
-	draw_rect(map_rect, Color(CYAN, 0.35), false, 2)
-	for i in range(1, 8):
-		var x := map_rect.position.x + map_rect.size.x * i / 8.0
-		draw_line(Vector2(x, map_rect.position.y), Vector2(x, map_rect.end.y), Color(CYAN, 0.06))
-	for i in range(1, 6):
-		var y := map_rect.position.y + map_rect.size.y * i / 6.0
-		draw_line(Vector2(map_rect.position.x, y), Vector2(map_rect.end.x, y), Color(CYAN, 0.06))
+	var sys: Dictionary = Data.SYSTEMS[GS.system_id]
 	# fit the system into the map
 	var pts := [sys["station"]["pos"], sys["planet"]["pos"], sys["gate"]["pos"], sys["asteroids"]["center"], sys["nebula"]["center"]]
 	for gd0 in sys["gates"]: pts.append(gd0["pos"])
@@ -118,117 +409,258 @@ func _draw() -> void:
 		mx = Vector2(maxf(mx.x, p.x), maxf(mx.y, p.z))
 	center = Vector3((mn.x + mx.x) * 0.5, 0, (mn.y + mx.y) * 0.5)
 	var span := (mx - mn) + Vector2(1200, 1200)
-	scale_k = minf(map_rect.size.x / span.x, map_rect.size.y / span.y)
-	# zones
-	var neb: Dictionary = sys["nebula"]
-	draw_circle(_w2m(neb["center"]), neb["radius"] * scale_k, Color(neb["color"], 0.25))
-	_txt(_w2m(neb["center"]) + Vector2(-80, 4), neb["name"] + " nebula", 14, Color(neb["color"].lightened(0.4), 1), HORIZONTAL_ALIGNMENT_CENTER, 160)
-	var belt: Dictionary = sys["asteroids"]
-	draw_arc(_w2m(belt["center"]), belt["radius"] * scale_k, 0, TAU, 40, Color(0.8, 0.7, 0.55, 0.7), 2.0)
-	for i in 30:
-		var a := i * 2.4
-		draw_circle(_w2m(belt["center"]) + Vector2(cos(a), sin(a)) * belt["radius"] * scale_k * fmod(i * 0.37, 1.0), 2, Color(0.8, 0.7, 0.55))
-	_txt(_w2m(belt["center"]) + Vector2(-80, belt["radius"] * scale_k + 18), belt["name"], 14, Color(0.9, 0.8, 0.65), HORIZONTAL_ALIGNMENT_CENTER, 160)
+	var fit_k := minf(map_rect.size.x / span.x, map_rect.size.y / span.y)
+	var angled := NavGrid.tilt == "angled"
+	var depth: float = map_rect.size.y * 0.5 * Data.NAV_DEPTH
+	if heading_up():
+		scale_k = map_rect.size.x / Data.NAV_HEADING_SPAN * zoom
+		var pp: Vector3 = space.player.global_position
+		view.setup(Vector2(map_rect.size.x * 0.5, map_rect.size.y * Data.NAV_HEADING_ANCHOR), Vector3(pp.x, 0, pp.z), scale_k, -space.player.global_basis.z, angled, depth)
+	else:
+		scale_k = fit_k * zoom * (0.94 if angled else 1.0)
+		view.setup(map_rect.size * 0.5, center + pan, scale_k, Vector3.ZERO, angled, depth)
+	clip.position = map_rect.position
+	clip.size = map_rect.size
+	canvas.position = Vector2.ZERO
+	canvas.size = map_rect.size
+	_collect()
+	hits.clear()
+	for key in objs:
+		var o: Dictionary = objs[key]
+		hits[key] = _w2m(o["pos"])
+		o["px"] = _px(o)
+	# the right column
+	var sm := Rect2(map_rect.end.x + 20, 100, S.x - map_rect.end.x - 56, 250)
+	var bh := 58.0
+	btn_close = Rect2(sm.position.x + sm.size.x * 0.5 + 5, S.y - 30 - bh, sm.size.x * 0.5 - 5, bh)
+	btn_galaxy = Rect2(sm.position.x, S.y - 30 - bh, sm.size.x * 0.5 - 5, bh)
+	btn_course = Rect2(sm.position.x, btn_close.position.y - 10 - bh, sm.size.x, bh)
+	card_rect = Rect2(sm.position.x, 100, sm.size.x, btn_course.position.y - 12 - 100)
+	btn_card_x = Rect2(card_rect.end.x - 50, card_rect.position.y + 6, 44, 44)
+	# view buttons along the bottom of the map
+	var y := map_rect.end.y - 56.0
+	var x := map_rect.position.x + 10.0
+	btn_orient = Rect2(x, y, 168, 46)
+	btn_tilt = Rect2(x + 176, y, 150, 46)
+	btn_zoom_out = Rect2(map_rect.end.x - 10 - 46 * 3 - 16, y, 46, 46)
+	btn_zoom_in = Rect2(map_rect.end.x - 10 - 46 * 2 - 8, y, 46, 46)
+	btn_fit = Rect2(map_rect.end.x - 10 - 46, y, 46, 46)
+	compass_pos = Vector2(map_rect.end.x - 46, map_rect.position.y + 58)
+
+## How big an object is drawn (pixels): its true size, but never smaller than a readable token.
+func _px(o: Dictionary) -> float:
+	var s := view.persp(o["pos"])
+	match o["type"]:
+		"planet": return clampf(float(o["r"]) * scale_k * s, 12.0 if o.get("main", false) else 9.0, 220.0)
+		"star": return clampf(float(o["r"]) * scale_k * s, 16.0, 120.0)
+		"station": return clampf(float(o["r"]) * scale_k * s, 15.0 if o.get("main", false) else 11.0, 90.0)
+		"gate": return clampf(float(o["r"]) * scale_k * s, 14.0, 90.0)
+		"belt", "nebula": return maxf(float(o["r"]) * scale_k * s, 14.0)
+	return 9.0
+
+func _draw() -> void:
+	var S := get_viewport_rect().size
+	_layout()
+	draw_rect(Rect2(Vector2.ZERO, S), Color(0.01, 0.03, 0.06, 0.96))
+	var sys: Dictionary = Data.SYSTEMS[GS.system_id]
+	_txt(self, Vector2(36, 50), "NAVIGATION — %s SYSTEM" % sys["name"].to_upper(), 30, CYAN)
+	_txt(self, Vector2(38, 78), "Tap anything to identify it, then SET COURSE to fly there on autopilot." if space != null and space.controls else "Plan your route. Launch to fly it.", 16, Color(0.85, 0.9, 0.95))
+	draw_rect(map_rect, Color(0.012, 0.045, 0.08))
+
+# ---------------------------------------------------------------- the map itself (clipped to the map window)
+func _draw_map() -> void:
+	var ci := canvas
+	var sys: Dictionary = Data.SYSTEMS[GS.system_id]
+	var local := Rect2(Vector2.ZERO, map_rect.size)
+	var through: Array = []
+	for key in objs:
+		if objs[key]["type"] in ["planet", "station", "gate", "star"]: through.append(objs[key]["pos"])
+	grid_stats = view.draw_grid(ci, local, 0.0, through, true, font)
+	# orbit paths: a polygon circle through each planet, round the middle of the system
+	for key in objs:
+		var o: Dictionary = objs[key]
+		if o["type"] != "planet": continue
+		var rad := Vector2(o["pos"].x, o["pos"].z).length()
+		if rad > 50.0: ci.draw_polyline(view.plane_ring(Vector3.ZERO, rad, Data.NAV_SIDES["orbit"]), Color(PLANET, 0.22), 1.5)
+	# zones lying on the grid
+	var neb: Dictionary = objs["nebula"]
+	var np := PackedVector2Array()
+	for i in 14:
+		var a := TAU * i / 14.0
+		var rr: float = float(neb["r"]) * (0.78 + 0.22 * sin(i * 2.3 + 1.0))
+		np.append(view.to_screen(neb["pos"] + Vector3(cos(a) * rr, 0, sin(a) * rr)))
+	NavGrid.cloud(ci, np, view.to_screen(neb["pos"]), neb["col"])
+	_txt(ci, view.to_screen(neb["pos"]) + Vector2(-90, 5), neb["name"], 14, (neb["col"] as Color).lightened(0.45), HORIZONTAL_ALIGNMENT_CENTER, 180)
+	var belt: Dictionary = objs["belt"]
+	var bc := view.to_screen(belt["pos"])
+	ci.draw_polyline(view.plane_ring(belt["pos"], belt["r"], Data.NAV_SIDES["ring"]), Color(belt["col"], 0.8), 2.0)
+	ci.draw_polyline(view.plane_ring(belt["pos"], float(belt["r"]) * 0.55, Data.NAV_SIDES["ring"]), Color(belt["col"], 0.3), 1.0)
+	for i in 26:
+		var a2 := i * 2.4
+		var rp: Vector3 = belt["pos"] + Vector3(cos(a2), 0, sin(a2)) * float(belt["r"]) * (0.25 + 0.75 * fmod(i * 0.37, 1.0))
+		NavGrid.rock(ci, view.to_screen(rp), clampf(float(belt["r"]) * scale_k * 0.09, 3.0, 14.0) * (0.7 + 0.5 * fmod(i * 0.61, 1.0)), belt["col"], i)
+	_txt(ci, bc + Vector2(-90, float(belt["px"]) * 0.8 + 20), belt["name"], 14, (belt["col"] as Color).lightened(0.2), HORIZONTAL_ALIGNMENT_CENTER, 180)
 	# patrol areas
 	for p in sys["patrols"]:
-		draw_arc(_w2m(p), 150 * scale_k, 0, TAU, 24, Color(RED, 0.35), 1.5)
-	# destinations
-	hits.clear()
-	var items := [["station", sys["station"]["pos"], GREEN, sys["station"]["name"] + " (station)"],
-		["planet", sys["planet"]["pos"], Color(0.5, 0.8, 1.0), sys["planet"]["name"] + " (planet)"],
-		["gate", sys["gate"]["pos"], GOLD, sys["gate"]["name"] + " > " + Data.SYSTEMS[sys["gate"]["to"]]["name"]]]
-	for gi in range(1, sys["gates"].size()):
-		var gd: Dictionary = sys["gates"][gi]
-		items.append(["gate%d" % gi, gd["pos"], GOLD, gd["name"]])
-	for it in items:
-		var mp := _w2m(it[1])
-		hits[it[0]] = mp
-		var r := 14.0 if it[0] != "planet" else maxf(14.0, sys["planet"]["radius"] * scale_k)
-		draw_circle(mp, r, Color(it[2], 0.85))
-		if it[0] == selected: draw_arc(mp, r + 9, 0, TAU, 32, Color.WHITE, 3.0)
-		_txt(mp + Vector2(r + 8, 6), it[3], 16, it[2])
-	# the rest of the system: placeholder planets and stations (TARGET in flight selects them)
-	for xd: Dictionary in sys.get("more_planets", []):
-		var xp := _w2m(xd["pos"])
-		draw_circle(xp, maxf(7.0, float(xd["radius"]) * scale_k), Color(0.5, 0.8, 1.0, 0.45))
-		_txt(xp + Vector2(12, 5), xd["name"], 13, Color(0.5, 0.8, 1.0, 0.8))
-	for xd: Dictionary in sys.get("more_stations", []):
-		var xs := _w2m(xd["pos"])
-		draw_rect(Rect2(xs - Vector2(5, 5), Vector2(10, 10)), Color(GREEN, 0.55))
-		_txt(xs + Vector2(10, 5), xd["name"], 13, Color(GREEN, 0.8))
+		ci.draw_polyline(view.plane_ring(p, 150.0, 12), Color(RED, 0.4), 1.5)
+	# the course: under the bodies, over the grid
+	route = {}
+	if space != null and is_instance_valid(space.player) and space.autopilot != null and is_instance_valid(space.autopilot):
+		var a3 := view.to_screen(space.player.global_position)
+		var b3 := view.to_screen(space.autopilot.global_position)
+		var dist: float = space.distance_to(space.autopilot)
+		var spd: float = maxf(space.speed_now, float(GS.ship()["speed"]) * Data.CRUISE)
+		route = {"from": a3 + map_rect.position, "to": b3 + map_rect.position, "dist": dist, "eta": dist / maxf(spd, 1.0), "name": str(space.autopilot.name)}
+		NavGrid.route(ci, a3, b3, GREEN, t)
+		_txt(ci, (a3 + b3) * 0.5 + Vector2(10, -8), _dist(dist), 16, Color.WHITE)
+	# bodies, far ones first so near ones overlap them in the angled view
+	var order: Array = objs.keys()
+	order.sort_custom(func(a4, b4): return (hits[a4] as Vector2).y < (hits[b4] as Vector2).y)
+	for key in order:
+		var o2: Dictionary = objs[key]
+		var c := view.to_screen(o2["pos"])
+		var r: float = o2["px"]
+		if not local.grow(r * 2.0 + 160.0).has_point(c): continue   # outside the map window
+		match o2["type"]:
+			"planet": NavGrid.sphere(ci, c, r, o2["col"], Data.NAV_SIDES["planet"])
+			"star": NavGrid.star(ci, c, r, o2["col"])
+			"station": NavGrid.station(ci, c, r, o2["col"])
+			"gate": NavGrid.gate(ci, c, r, o2["col"])
+			"enemy", "traffic":
+				var nd: Node3D = o2["node"]
+				var f: Vector3 = -nd.global_basis.z
+				NavGrid.dart(ci, c, 8.0, Vector2(f.x, f.z).rotated(view.rot), o2["col"])
+		if o2["type"] in ["planet", "station", "gate", "star"]:
+			var main_obj: bool = o2.get("main", false) or o2["type"] == "gate"
+			var label: String = o2["name"]
+			if o2["type"] == "gate": label = "%s > %s" % [o2["name"], Data.SYSTEMS[o2["data"]["to"]]["name"]]
+			_txt(ci, c + Vector2(r + 8, 6), label, 16 if main_obj else 13, o2["col"] if main_obj else Color(o2["col"], 0.85))
 	if selected == "point" and way_pos != Vector3.INF:
-		var wp := _w2m(way_pos)
-		draw_colored_polygon(PackedVector2Array([wp + Vector2(0, -12), wp + Vector2(12, 0), wp + Vector2(0, 12), wp + Vector2(-12, 0)]), GOLD)
-		draw_arc(wp, 20, 0, TAU, 32, Color.WHITE, 2.0)
-		_txt(wp + Vector2(18, 6), "WAYPOINT", 15, GOLD)
-	# live objects
+		var wp := view.to_screen(way_pos)
+		NavGrid.fill(ci, PackedVector2Array([wp + Vector2(0, -12), wp + Vector2(12, 0), wp + Vector2(0, 12), wp + Vector2(-12, 0)]), GOLD)
+		NavGrid.brackets(ci, wp, 20.0, Color.WHITE, 0.5 + 0.5 * sin(t * 5.0))
+		_txt(ci, wp + Vector2(26, 6), "WAYPOINT", 15, GOLD)
+	elif selected != "" and objs.has(selected):
+		NavGrid.brackets(ci, view.to_screen(objs[selected]["pos"]), maxf(18.0, float(objs[selected]["px"]) + 8.0), Color(0.75, 0.95, 1.0), 0.5 + 0.5 * sin(t * 5.0))
+	# you
 	if space != null and is_instance_valid(space.player):
-		for e in space.enemies:
-			draw_circle(_w2m(e["node"].global_position), 4, RED)
-		var pp: Vector2 = _w2m(space.player.global_position)
-		var f: Vector3 = -space.player.global_basis.z
-		var dir := Vector2(f.x, f.z).normalized()
-		var perp := Vector2(-dir.y, dir.x)
-		draw_colored_polygon(PackedVector2Array([pp + dir * 14, pp - dir * 8 + perp * 8, pp - dir * 8 - perp * 8]), Color.WHITE)
-		_txt(pp + Vector2(12, -10), "YOU", 13, Color.WHITE)
-	# star map panel
-	var sm := Rect2(map_rect.end.x + 20, 100, S.x - map_rect.end.x - 56, 250)
-	draw_rect(sm, Color(0.02, 0.06, 0.1))
-	draw_rect(sm, Color(CYAN, 0.35), false, 2)
-	_txt(sm.position + Vector2(14, 28), "KNOWN SPACE", 16, CYAN)
-	if GS.system_id in ["solara", "vega"] and not ("veranthos" in GS.discovered):
-		var a2 := sm.position + Vector2(sm.size.x * 0.28, sm.size.y * 0.6)
-		var b2 := sm.position + Vector2(sm.size.x * 0.75, sm.size.y * 0.45)
-		var vega_known := "vega" in GS.discovered
-		draw_line(a2, b2, Color(GOLD, 0.8 if vega_known else 0.25), 3.0)
-		for s in [["solara", a2], ["vega", b2]]:
-			var known: bool = s[0] in GS.discovered
-			var here: bool = s[0] == GS.system_id
-			draw_circle(s[1], 16, Color(Data.SYSTEMS[s[0]]["star"], 1.0 if known else 0.3))
-			if here: draw_arc(s[1], 24, 0, TAU, 32, Color.WHITE, 2.0)
-			_txt(s[1] + Vector2(-60, 44), Data.SYSTEMS[s[0]]["name"] if known else "Uncharted", 16, Color.WHITE if known else Color(1, 1, 1, 0.4), HORIZONTAL_ALIGNMENT_CENTER, 120)
-		_txt(sm.position + Vector2(14, sm.size.y - 14), "Aquila Gate <> Solara Gate" if vega_known else "Jump through the Aquila Gate to chart the next system.", 13, Color(0.85, 0.9, 0.95))
-	else:
-		# once you are out in the galaxy: this system's tile and where each of its gates leads
-		_txt(sm.position + Vector2(14, 52), "%s  ·  tile %s  ·  %s" % [sys["name"], sys.get("tile", "?"), sys.get("faction", "")], 15, Color.WHITE)
+		var pp := view.to_screen(space.player.global_position)
+		var fw: Vector3 = -space.player.global_basis.z
+		var dir := Vector2(fw.x, fw.z).rotated(view.rot)
+		for rr2 in [400.0, 1200.0]:   # range rings
+			ci.draw_polyline(view.plane_ring(space.player.global_position, rr2, Data.NAV_SIDES["ring"]), Color(1, 1, 1, 0.16), 1.0)
+		NavGrid.fill(ci, NavGrid.poly(pp, 22.0, 12), Color(1, 1, 1, 0.1))
+		NavGrid.dart(ci, pp, 17.0, dir, Color.WHITE, true)
+		var readout := "YOU  ·  %d m/s" % int(space.speed_now)
+		if not route.is_empty(): readout += "  ·  ETA %s" % _eta(route["eta"])
+		_txt(ci, pp + Vector2(22, 18), readout, 13, Color.WHITE)
+	ci.draw_rect(local, Color(CYAN, 0.45), false, 2.0)
+
+static func _dist(d: float) -> String:
+	return "%.1f km" % (d / 1000.0) if d >= 1000.0 else "%d m" % int(d)
+
+static func _eta(sec: float) -> String:
+	var s := int(sec)
+	return "%d:%02d" % [s / 60, s % 60]
+
+# ---------------------------------------------------------------- panels, buttons and the info card (over the map)
+func _draw_over() -> void:
+	var ci := over
+	var S := get_viewport_rect().size
+	var sys: Dictionary = Data.SYSTEMS[GS.system_id]
+	# compass: always there, always points at true north
+	NavGrid.compass(ci, compass_pos, 26.0, view.north_angle(), font)
+	_txt(ci, map_rect.position + Vector2(12, 24), ("HEADING-UP" if heading_up() else "NORTH-UP") + ("  ·  ANGLED" if NavGrid.tilt == "angled" else "  ·  OVERHEAD") + "  ·  grid %s" % _dist(float(grid_stats.get("spacing", 0.0))), 13, Color(CYAN.lightened(0.3), 0.9))
+	_btn(ci, btn_orient, "HEADING-UP" if not heading_up() else "NORTH-UP", space != null, CYAN, 16)
+	_btn(ci, btn_tilt, "OVERHEAD" if NavGrid.tilt == "angled" else "ANGLED", true, CYAN, 16)
+	_btn(ci, btn_zoom_out, "−", zoom > Data.NAV_ZOOM[0] + 0.001, CYAN, 26)
+	_btn(ci, btn_zoom_in, "+", zoom < Data.NAV_ZOOM[1] - 0.001, CYAN, 26)
+	_btn(ci, btn_fit, "FIT", true, CYAN, 14)
+	if selected == "":
+		var sm := Rect2(card_rect.position, Vector2(card_rect.size.x, minf(250.0, card_rect.size.y * 0.62)))
+		ci.draw_rect(sm, PANEL)
+		ci.draw_rect(sm, Color(CYAN, 0.35), false, 2)
+		_txt(ci, sm.position + Vector2(14, 28), "KNOWN SPACE", 16, CYAN)
+		_txt(ci, sm.position + Vector2(14, 52), "%s  ·  tile %s  ·  %s" % [sys["name"], sys.get("tile", "?"), sys.get("faction", "")], 15, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, sm.size.x - 28)
 		var gy := 78.0
 		for gd in sys["gates"]:
+			if gy > sm.size.y - 40: break
 			var known2: bool = gd["to"] in GS.discovered
-			_txt(sm.position + Vector2(14, gy), "%s > %s" % [str(gd.get("gkind", "jump")).to_upper(), Data.SYSTEMS[gd["to"]]["name"] + ("" if known2 else "  (uncharted)")], 14, GOLD if known2 else Color(1, 1, 1, 0.6))
+			_txt(ci, sm.position + Vector2(14, gy), "%s > %s" % [gd["name"], Data.SYSTEMS[gd["to"]]["name"] + ("" if known2 else "  (uncharted)")], 14, GOLD if known2 else Color(1, 1, 1, 0.6), HORIZONTAL_ALIGNMENT_LEFT, sm.size.x - 28)
 			gy += 22.0
-		_txt(sm.position + Vector2(14, sm.size.y - 14), "%d of %d systems charted. GALAXY shows the whole map." % [GS.discovered.size(), Data.SYSTEMS.size()], 13, Color(0.85, 0.9, 0.95))
-	# selection panel + buttons
-	var sel := Rect2(sm.position.x, sm.end.y + 16, sm.size.x, 150)
-	draw_rect(sel, Color(0.02, 0.06, 0.1))
-	draw_rect(sel, Color(CYAN, 0.35), false, 2)
-	if selected == "":
-		_txt(sel.position + Vector2(14, 34), "No destination selected.", 16, Color(1, 1, 1, 0.7))
-		_txt(sel.position + Vector2(14, 60), "Tap a place, or tap empty space for a waypoint.", 13, Color(1, 1, 1, 0.55))
-	elif selected == "point":
-		_txt(sel.position + Vector2(14, 34), "Custom waypoint", 20, GOLD)
-		if space != null and is_instance_valid(space.player):
-			_txt(sel.position + Vector2(14, 60), "Distance %.1f km" % (space.player.global_position.distance_to(way_pos) / 1000.0), 15, CYAN)
+		_txt(ci, sm.position + Vector2(14, sm.size.y - 14), "%d of %d systems charted." % [GS.discovered.size(), Data.SYSTEMS.size()], 13, Color(0.85, 0.9, 0.95), HORIZONTAL_ALIGNMENT_LEFT, sm.size.x - 28)
+		var hint := Rect2(sm.position.x, sm.end.y + 12, sm.size.x, card_rect.end.y - sm.end.y - 12)
+		ci.draw_rect(hint, PANEL)
+		ci.draw_rect(hint, Color(CYAN, 0.35), false, 2)
+		_txt(ci, hint.position + Vector2(14, 30), "No destination selected.", 16, Color(1, 1, 1, 0.75))
+		ci.draw_multiline_string(font, hint.position + Vector2(14, 54), "Tap a planet, station, gate or ship to see what it is. Tap empty space for a waypoint. Pinch or use + and − to zoom.", HORIZONTAL_ALIGNMENT_LEFT, hint.size.x - 28, 14, 4, Color(1, 1, 1, 0.6))
 	else:
-		var d: Dictionary = _data(selected)
-		_txt(sel.position + Vector2(14, 34), d["name"], 20, GOLD)
-		var line := "Dockable %s" % ("station" if selected == "station" else "planet") if not selected.begins_with("gate") else "%s gate to %s" % [str(d.get("gkind", "warp")).capitalize() if d.has("gkind") and (d["id"] as String).contains("_gate_") else "Warp", Data.SYSTEMS[d["to"]]["name"]]
-		_txt(sel.position + Vector2(14, 60), line, 15, Color(0.85, 0.9, 0.95))
-		if space != null and is_instance_valid(space.player):
-			var n: Node3D = _node(selected)
-			_txt(sel.position + Vector2(14, 84), "Distance %.1f km" % (space.distance_to(n) / 1000.0), 15, CYAN)
-	btn_course = Rect2(sel.position.x, sel.end.y + 14, sel.size.x, 62)
-	btn_galaxy = Rect2(sel.position.x, btn_course.end.y + 12, sel.size.x * 0.5 - 5, 62)
-	btn_close = Rect2(sel.position.x + sel.size.x * 0.5 + 5, btn_course.end.y + 12, sel.size.x * 0.5 - 5, 62)
+		_card(ci)
 	var can := selected != "" and space != null and space.controls
-	_btn(btn_course, "SET COURSE", can, GREEN)
-	_btn(btn_galaxy, "GALAXY", true, CYAN)
-	_btn(btn_close, "CLOSE", true, CYAN)
+	_btn(ci, btn_course, "SET COURSE", can, GREEN)
+	_btn(ci, btn_galaxy, "GALAXY", true, CYAN)
+	_btn(ci, btn_close, "CLOSE", true, CYAN)
 
-func _btn(r: Rect2, label: String, enabled: bool, col: Color) -> void:
+func _card(ci: CanvasItem) -> void:
+	var inf := info(selected)
+	if inf.is_empty():
+		selected = ""
+		return
+	var r := card_rect
+	var col: Color = inf["col"]
+	ci.draw_rect(r, PANEL)
+	ci.draw_rect(r, Color(col, 0.7), false, 2)
+	var pw := r.size.x - 20.0
+	var ph := minf(pw * 0.75, r.size.y * 0.5)
+	var pr := Rect2(r.position + Vector2(10, 10), Vector2(pw, ph))
+	ci.draw_rect(pr, Color(0.0, 0.02, 0.05))
+	var tex: Texture2D = inf["picture"]
+	if tex != null:
+		var src: Rect2 = inf["region"]
+		var want := pr.size.x / pr.size.y
+		if src.size.x / src.size.y > want: src = Rect2(src.position.x + (src.size.x - src.size.y * want) * 0.5, src.position.y, src.size.y * want, src.size.y)
+		else: src = Rect2(src.position.x, src.position.y + (src.size.y - src.size.x / want) * 0.5, src.size.x, src.size.x / want)
+		ci.draw_texture_rect_region(tex, pr, src)
+	else:   # no picture at all: a code-made token, never a broken image
+		var c := pr.get_center()
+		var pv := NavGrid.new()
+		pv.setup(c, Vector3.ZERO, 1.0, Vector3.ZERO, false, 900.0)
+		pv.draw_grid(ci, pr)
+		var tp: String = objs[selected]["type"] if objs.has(selected) else "point"
+		match tp:
+			"planet": NavGrid.sphere(ci, c, ph * 0.3, col)
+			"star": NavGrid.star(ci, c, ph * 0.2, col)
+			"station": NavGrid.station(ci, c, ph * 0.3, col)
+			"gate": NavGrid.gate(ci, c, ph * 0.3, col)
+			"belt":
+				for i in 7: NavGrid.rock(ci, c + Vector2(cos(i * 2.4), sin(i * 2.4) * 0.6) * ph * 0.28 * fmod(i * 0.37 + 0.3, 1.0), ph * 0.1, col, i)
+			"nebula": NavGrid.cloud(ci, NavGrid.poly(c, ph * 0.34, 14), c, col)
+			"point": NavGrid.route(ci, c + Vector2(-pw * 0.3, ph * 0.25), c + Vector2(0, ph * 0.15), GOLD, t)
+			_: NavGrid.dart(ci, c, ph * 0.22, Vector2(0.4, -1), col, true)
+	ci.draw_rect(pr, Color(col, 0.6), false, 1.5)
+	_btn(ci, btn_card_x, "X", true, CYAN, 20)
+	var y := pr.end.y + 30.0
+	var nm: String = inf["name"]
+	var fs := 22
+	while fs > 14 and font.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > r.size.x - 24: fs -= 1
+	_txt(ci, Vector2(r.position.x + 12, y), nm, fs, GOLD)
+	y += 24.0
+	_txt(ci, Vector2(r.position.x + 12, y), str(inf["type"]).to_upper(), 14, col.lightened(0.3))
+	if float(inf["distance"]) >= 0.0:
+		_txt(ci, Vector2(r.position.x, y), _dist(inf["distance"]), 15, CYAN, HORIZONTAL_ALIGNMENT_RIGHT, r.size.x - 12)
+	y += 22.0
+	for line: String in inf["lines"]:
+		if y > r.end.y - 10: break
+		var rows := maxi(1, int(ceil(font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x / (r.size.x - 24))))
+		rows = mini(rows, maxi(1, int((r.end.y - y) / 18.0) + 1))
+		ci.draw_multiline_string(font, Vector2(r.position.x + 12, y), line, HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 24, 14, rows, Color(0.86, 0.91, 0.96))
+		y += 18.0 * rows + 4.0
+
+func _btn(ci: CanvasItem, r: Rect2, label: String, enabled: bool, col: Color, size := 21) -> void:
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(col, 0.28 if enabled else 0.06)
+	sb.bg_color = Color(col.darkened(0.6), 0.9) if enabled else Color(0.03, 0.06, 0.1, 0.85)
 	sb.border_color = Color(col, 0.9 if enabled else 0.25)
 	sb.set_border_width_all(2)
 	sb.set_corner_radius_all(10)
-	draw_style_box(sb, r)
-	_txt(r.position + Vector2(0, r.size.y * 0.5 + 8), label, 21, Color(1, 1, 1, 1.0 if enabled else 0.35), HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
+	ci.draw_style_box(sb, r)
+	_txt(ci, r.position + Vector2(0, r.size.y * 0.5 + size * 0.36), label, size, Color(1, 1, 1, 1.0 if enabled else 0.35), HORIZONTAL_ALIGNMENT_CENTER, r.size.x)

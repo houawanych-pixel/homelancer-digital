@@ -1129,6 +1129,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_S") != "":   # the Job S checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_s()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_Q") != "":   # the Job Q checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1462,6 +1470,7 @@ func _run() -> void:
 	await _job_o()
 	await _job_p()
 	await _job_q()
+	await _job_s()
 	await _galaxy()
 	await _controls_j()
 	await _gate_k()
@@ -3004,3 +3013,234 @@ func _job_q() -> void:
 	s.cruise_assist = assist0
 	GS.modes["guns"] = guns0
 	s.vel = Vector3.ZERO
+
+
+# ---------------------------------------------------------------- Job S (v1.4p): GPS-style navigation map and radar
+func _job_s() -> void:
+	var s := _sp()
+	var hud = main.hud
+	var nm = main.navmap
+	var shell := FileAccess.get_file_as_string("res://web_shell.html")
+	_check("Job S: version label reads \"Homelancer Digital v1.4p\" or later", Data.VERSION >= "v1.4p" and (shell == "" or shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0), Data.VERSION)
+	NavGrid.path = "user://settings_autotest_nav.cfg"   # never touch a real player's settings file
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(NavGrid.path))
+	NavGrid.load_prefs()
+	var defaults_ok: bool = NavGrid.orient == "north" and NavGrid.tilt == "angled"
+	s.engine_kill = true
+	s.autopilot = null
+	var st_pos: Vector3 = s.station.global_position
+	_tp(st_pos + Vector3(-700, 0, 500), st_pos + Vector3(300, 0, 500))   # facing east (+X)
+	await _frames(3)
+	hud.close_comms()
+	# ---- 1. the grid
+	main.open_map()
+	await _frames(4)
+	var g0: Dictionary = nm.grid_stats.duplicate()
+	nm.zoom_by(5.0)
+	await _frames(3)
+	var g1: Dictionary = nm.grid_stats.duplicate()
+	nm.zoom_by(5.0)
+	await _frames(3)
+	var g2: Dictionary = nm.grid_stats.duplicate()
+	await _shot("s_grid_zoomed", 0.3)
+	nm.fit()
+	await _frames(3)
+	var lv: Array = NavGrid.levels(0.1)
+	var lv2: Array = NavGrid.levels(0.17)   # zoomed in a little: the minor lines have grown brighter
+	var layered: bool = is_equal_approx(float(lv[0][0]) / float(lv[1][0]), 5.0) and is_equal_approx(float(lv[1][0]) / float(lv[2][0]), 5.0) and float(lv[0][2]) > float(lv[1][2]) and float(lv2[1][2]) > float(lv[1][2])
+	var grid_ok: bool = int(g0["major"]) > 0 and int(g0["minor"]) > int(g0["major"]) and int(g0["through"]) >= 6 and int(g1["major"]) > 0 and int(g2["major"]) > 0 \
+		and float(g1["spacing"]) < float(g0["spacing"]) and float(g2["spacing"]) < float(g1["spacing"]) and (int(g0["ticks"]) + int(g1["ticks"]) + int(g2["ticks"])) > 0
+	_check("Job S: the map draws a layered grid (bold major lines, minor lines, micro-ticks), a grid crossing under every object, and zooming in keeps revealing finer lines",
+		grid_ok and layered, "major/minor/ticks/through %d/%d/%d/%d; spacing %d m, x5 zoom %d m, x25 zoom %d m" % [g0["major"], g0["minor"], g0["ticks"], g0["through"], int(g0["spacing"]), int(g1["spacing"]), int(g2["spacing"])])
+	# ---- 2. north-up is the default; the button switches to heading-up; the choice is remembered
+	var north_rot: float = nm.view.rot
+	var north_hit: Vector2 = nm.hits["station"]
+	var n_ang0: float = nm.view.north_angle()
+	await _shot("s_north_up_angled", 0.3)
+	nm.tap(nm.btn_orient.get_center())
+	await _frames(3)
+	var is_heading: bool = NavGrid.orient == "heading" and nm.heading_up()
+	NavGrid.orient = "north"
+	NavGrid.load_prefs()
+	var remembered: bool = NavGrid.orient == "heading"
+	await _frames(3)
+	_check("Job S: north-up is the default and never rotates; the map button switches to heading-up and the choice is remembered", defaults_ok and is_zero_approx(north_rot) and is_heading and remembered,
+		"defaults %s, rot %.2f, heading %s, saved %s" % [defaults_ok, north_rot, is_heading, remembered])
+	# ---- 3. heading-up maths: what is straight ahead is drawn straight above the arrow
+	var fwd: Vector3 = -s.player.global_basis.z
+	var ahead: Vector2 = nm.view.to_screen(s.player.global_position + fwd * 800.0)
+	var beside: Vector2 = nm.view.to_screen(s.player.global_position + s.player.global_basis.x * 800.0)
+	var me: Vector2 = nm.view.to_screen(s.player.global_position)
+	var rot_ok: bool = absf(ahead.x - me.x) < 1.0 and ahead.y < me.y - 20.0 and beside.x > me.x + 20.0 and absf(beside.y - me.y) < 1.0
+	var anchor_ok: bool = absf(me.y / nm.map_rect.size.y - Data.NAV_HEADING_ANCHOR) < 0.01 and absf(me.x - nm.map_rect.size.x * 0.5) < 1.0
+	var pure: bool = absf(wrapf(NavGrid.heading_rot(Vector3(0, 0, -1)), -PI, PI)) < 0.001 and absf(wrapf(NavGrid.heading_rot(Vector3(1, 0, 0)) + PI * 0.5, -PI, PI)) < 0.001
+	await _shot("s_heading_up", 0.3)
+	_check("Job S: heading-up: you are the arrow at lower-centre, and an object straight ahead is drawn straight above it (one to starboard is drawn to the right)", rot_ok and anchor_ok and pure,
+		"ahead (%d,%d), me (%d,%d), starboard (%d,%d)" % [int(ahead.x), int(ahead.y), int(me.x), int(me.y), int(beside.x), int(beside.y)])
+	# ---- 4. hit-testing still works while the map is rotated
+	var rot_hit: Vector2 = nm.hits["station"]
+	var picked: String = nm.pick(rot_hit)
+	nm.selected = ""
+	nm.tap(rot_hit)
+	var tapped: String = nm.selected
+	_check("Job S: tapping an object picks it while the map is rotated (heading-up)", picked == "station" and tapped == "station" and rot_hit.distance_to(north_hit) > 20.0 and nm.map_rect.has_point(rot_hit),
+		"north-up at (%d,%d), heading-up at (%d,%d), picked '%s'" % [int(north_hit.x), int(north_hit.y), int(rot_hit.x), int(rot_hit.y), picked])
+	nm.selected = ""
+	# ---- 5. the north marker, both modes (map and radar)
+	var n_ang1: float = nm.view.north_angle()   # facing east: north is to the left
+	nm.visible = false
+	main._on_map_closed()
+	await _frames(4)
+	var rc: Vector2 = hud.radar_rect().get_center() + Vector2(0, 4)
+	var rn_heading: Vector2 = hud.radar_north - rc
+	main._on_key_action("map_orient")   # the key does the same as the button
+	await _frames(4)
+	var rn_north: Vector2 = hud.radar_north - rc
+	var key_ok: bool = NavGrid.orient == "north"
+	_check("Job S: the north marker is always there: straight up in north-up, turned to true north in heading-up (map and radar), and the keybind toggles it",
+		is_zero_approx(n_ang0) and absf(n_ang1 + PI * 0.5) < 0.02 and rn_heading.x < -10.0 and absf(rn_heading.y) < 6.0 and rn_north.y < -10.0 and absf(rn_north.x) < 2.0 and key_ok,
+		"map north %.2f / %.2f rad; radar N at (%d,%d) heading-up, (%d,%d) north-up" % [n_ang0, n_ang1, int(rn_heading.x), int(rn_heading.y), int(rn_north.x), int(rn_north.y)])
+	# ---- 6. angled and overhead: same layout, the angled view has depth
+	main.open_map()
+	await _frames(3)
+	var c3: Vector3 = nm.view.center
+	var far_pt := c3 + Vector3(0, 0, -1500)
+	var near_pt := c3 + Vector3(0, 0, 1500)
+	var a_far: Vector2 = nm.view.to_screen(far_pt)
+	var a_near: Vector2 = nm.view.to_screen(near_pt)
+	var depth_ok: bool = nm.view.angled and nm.view.persp(far_pt) < 0.97 and nm.view.persp(near_pt) > 1.03 and (nm.view.anchor.y - a_far.y) < (a_near.y - nm.view.anchor.y)
+	var round_a: float = nm.view.to_world(nm.view.to_screen(c3 + Vector3(900, 0, -700))).distance_to(c3 + Vector3(900, 0, -700))
+	var order_a: Array = [nm.hits["station"].x < nm.hits["planet"].x, nm.hits["station"].y < nm.hits["planet"].y]
+	nm.tap(nm.btn_tilt.get_center())
+	await _frames(3)
+	var f_far: Vector2 = nm.view.to_screen(far_pt)
+	var f_near: Vector2 = nm.view.to_screen(near_pt)
+	var flat_ok: bool = NavGrid.tilt == "flat" and not nm.view.angled and is_equal_approx(nm.view.persp(far_pt), 1.0) and absf((nm.view.anchor.y - f_far.y) - (f_near.y - nm.view.anchor.y)) < 0.5
+	var round_f: float = nm.view.to_world(nm.view.to_screen(c3 + Vector3(900, 0, -700))).distance_to(c3 + Vector3(900, 0, -700))
+	var order_f: Array = [nm.hits["station"].x < nm.hits["planet"].x, nm.hits["station"].y < nm.hits["planet"].y]
+	await _shot("s_north_up_overhead", 0.3)
+	_check("Job S: the ANGLED / OVERHEAD button switches between a tilted view with depth and a flat straight-down view of the same layout", depth_ok and flat_ok and round_a < 1.0 and round_f < 1.0 and order_a == order_f,
+		"angled: far x%.2f near x%.2f; flat: x%.2f; inverse error %.2f / %.2f m" % [nm.view.persp(far_pt), nm.view.persp(near_pt), 1.0, round_a, round_f])
+	# ---- 7. tap to identify: planet, station (faction + services), gate (destination)
+	nm.tap(nm.hits["planet"])
+	await _frames(2)
+	var pi: Dictionary = nm.info(nm.selected)
+	var planet_ok: bool = nm.selected == "planet" and str(pi["type"]).begins_with("Planet") and pi["name"] == s.sys["planet"]["name"] and pi["picture"] != null and float(pi["distance"]) > 0.0
+	await _shot("s_card_planet", 0.3)
+	nm.tap(nm.btn_card_x.get_center())
+	var x_closed: bool = nm.selected == ""
+	nm.tap(nm.hits["station"])
+	await _frames(2)
+	var si: Dictionary = nm.info(nm.selected)
+	var station_ok: bool = nm.selected == "station" and si["type"] == "Station" and str(si.get("faction", "")) != "" and (si.get("services", []) as Array).size() >= 3 and si["picture"] != null \
+		and (si["lines"] as Array).any(func(l): return str(l).begins_with("Faction: ")) and (si["lines"] as Array).any(func(l): return str(l).begins_with("Services: "))
+	await _shot("s_card_station", 0.3)
+	# a tap on empty map closes the card (and only the next one drops a waypoint)
+	var empty := Vector2.INF
+	for gx in range(1, 12):
+		for gy in range(1, 8):
+			var cand: Vector2 = nm.map_rect.position + nm.map_rect.size * Vector2(gx / 12.0, gy / 9.0)
+			if nm.pick(cand) == "" and not nm.btn_orient.has_point(cand) and not nm.btn_tilt.has_point(cand) and empty == Vector2.INF: empty = cand
+	nm.tap(empty)
+	var out_closed: bool = nm.selected == ""
+	nm.tap(empty)
+	var dropped: bool = nm.selected == "point"
+	nm.selected = ""
+	nm.tap(nm.hits["gate"])
+	await _frames(2)
+	var gi: Dictionary = nm.info(nm.selected)
+	var dest_name: String = Data.SYSTEMS[s.sys["gate"]["to"]]["name"]
+	var gate_ok: bool = nm.selected == "gate" and gi["type"] == "Jump Gate" and gi.get("destination", "") == dest_name and gi["name"] == "%s > %s" % [s.sys["gate"]["name"], dest_name] and gi["picture"] != null
+	await _shot("s_card_gate", 0.3)
+	nm.selected = ""
+	_check("Job S: tap a planet: brackets and an info card with its picture, name, type and distance", planet_ok, "%s / %s / %d m" % [pi["name"], pi["type"], int(pi["distance"])])
+	_check("Job S: tap a station: the card says Station, its faction and its services", station_ok, "%s; %s" % [si.get("faction", "?"), ", ".join(si.get("services", []))])
+	_check("Job S: tap a jump gate: the card says Jump Gate and where it goes", gate_ok, str(gi["name"]))
+	_check("Job S: the card closes with its X or a tap outside it; only then does a tap on empty space drop a waypoint", x_closed and out_closed and dropped)
+	var others := true
+	var other_types: Array = []
+	for key in ["belt", "nebula", "star"]:
+		nm.select(key)
+		var oi: Dictionary = nm.info(key)
+		others = others and nm.selected == key and str(oi["type"]) != "" and oi["picture"] != null
+		other_types.append(oi["type"])
+	var fwd2: Vector3 = -s.player.global_basis.z
+	var foe: Dictionary = s.spawn_unit("raider", s.player.global_position + fwd2 * 600.0, s.player.global_position + fwd2 * 600.0)
+	foe["aggro"] = false
+	await _frames(3)
+	var foe_key := ""
+	for key in nm.objs:
+		if nm.objs[key].get("node") == foe["node"]: foe_key = key
+	var ship_ok := false
+	if foe_key != "":
+		nm.selected = ""
+		nm.tap(nm.hits[foe_key])
+		ship_ok = nm.selected == foe_key and str(nm.info(foe_key)["type"]).begins_with("Ship") and nm.info(foe_key)["picture"] != null
+	if foe in s.enemies:
+		s.enemies.erase(foe)
+		(foe["node"] as Node3D).queue_free()
+	nm.selected = ""
+	_check("Job S: the asteroid belt, the nebula, the star and ships can be tapped and identified too", others and ship_ok, "%s; ship %s" % [", ".join(other_types), ship_ok])
+	# ---- 8. pictures: every type has one; a missing picture falls back to the type's; nothing is ever broken
+	var all_types := true
+	for tp in Data.NAV_TYPE_PICTURES: all_types = all_types and ResourceLoader.exists(Data.NAV_TYPE_PICTURES[tp])
+	var fb: Array = NavGrid.picture("res://assets/nav/does_not_exist.jpg", "gate")
+	var none: Array = NavGrid.picture("", "no_such_type")
+	var own: Array = NavGrid.picture("res://assets/nav/station_wheel.jpg", "station")
+	_check("Job S: an object with no picture of its own shows its type's picture, and a missing type picture gives a drawn token, never a broken image",
+		all_types and fb[0] != null and fb[1] == true and fb[0] == NavGrid.picture("", "gate")[0] and none[0] == null and none[1] == true and own[0] != null and own[1] == false, "%d type pictures" % Data.NAV_TYPE_PICTURES.size())
+	# ---- 9. SET COURSE: the flow is unchanged, and the course is drawn as a route with a pin
+	var galaxy_hits := [0]
+	var cb := func(): galaxy_hits[0] += 1
+	nm.galaxy_requested.connect(cb)
+	nm.tap(nm.btn_galaxy.get_center())
+	nm.galaxy_requested.disconnect(cb)
+	if main.galaxymap.visible: main.galaxymap.visible = false
+	nm.tap(nm.hits["planet"])
+	nm.tap(nm.btn_course.get_center())
+	await _frames(3)
+	var flying: bool = main.state == "flight" and s.autopilot == s.planet and not nm.visible
+	await _frames(4)
+	var radar_route: bool = not (hud.radar_route as Dictionary).is_empty()
+	main.open_map()
+	await _frames(4)
+	var rt: Dictionary = nm.route
+	var route_ok: bool = not rt.is_empty() and (rt["to"] as Vector2).distance_to(nm.hits["planet"]) < 1.0 and (rt["from"] as Vector2).distance_to(nm._w2m(s.player.global_position)) < 1.0 \
+		and float(rt["dist"]) > 100.0 and float(rt["eta"]) > 0.0
+	await _shot("s_route", 0.4)
+	nm.tap(nm.btn_close.get_center())
+	await _frames(2)
+	var closed_ok: bool = main.state == "flight" and not nm.visible
+	s.autopilot = null
+	await _frames(3)
+	_check("Job S: tap a destination then SET COURSE engages the autopilot as before, and the course is drawn as a glowing route with a pin on the map and on the radar; GALAXY and CLOSE still work",
+		flying and route_ok and radar_route and (hud.radar_route as Dictionary).is_empty() and galaxy_hits[0] == 1 and closed_ok,
+		"flying %s, route %s (%d m, ETA %d s), radar %s" % [flying, route_ok, int(rt.get("dist", 0)), int(rt.get("eta", 0)), radar_route])
+	# ---- 10. the radar: grid, blips you can tap, same shapes
+	await _frames(3)
+	var blip_pos := Vector2.INF
+	var blip_world := Vector3.INF
+	for bl in hud.radar_blips:
+		if bl[2] == "station":
+			blip_pos = bl[1]
+			blip_world = bl[0]
+	var grid_r: Dictionary = hud.radar_stats
+	var pick_ok: bool = blip_pos != Vector2.INF and hud.radar_pick_at(blip_pos) == blip_world and hud.radar_pick_at(blip_pos + Vector2(300, 0)) == Vector3.INF
+	hud.radar_pick = blip_world
+	_press("radar")
+	await _frames(3)
+	var opened: bool = main.state == "map" and nm.visible and nm.selected == "station"
+	nm.visible = false
+	main._on_map_closed()
+	await _shot("s_radar", 0.3)
+	_check("Job S: the radar draws the same grid, and tapping a radar blip opens the map with that object's card", (int(grid_r.get("major", 0)) + int(grid_r.get("minor", 0))) > 0 and pick_ok and opened,
+		"radar grid %d + %d lines, %d blips, opened on '%s'" % [int(grid_r.get("major", 0)), int(grid_r.get("minor", 0)), hud.radar_blips.size(), nm.selected])
+	var keys_ok := false
+	for a in Data.KBM_ACTIONS:
+		if a["id"] == "map_tilt" and a["rebind"]: keys_ok = true
+	NavGrid.orient = Data.NAV_ORIENT_DEFAULT
+	NavGrid.tilt = Data.NAV_TILT_DEFAULT
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(NavGrid.path))
+	nm.selected = ""
+	s.engine_kill = false
+	_check("Job S: both view toggles are in the rebindable key list (N and B by default)", keys_ok and main.controls.binding("map_orient") == "N" and main.controls.binding("map_tilt") == "B")

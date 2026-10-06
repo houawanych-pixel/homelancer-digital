@@ -320,7 +320,9 @@ func _on_hud(id: String) -> void:
 		"side_l", "side_r":   # tap a comms screen: the console (log, contacts, type) pulls up
 			if hud.comms_mode != "roster": hud.open_log()
 		"type": hud.start_typing()
-		"radar": open_map()   # tap the radar: the map, where you can set a course or drop a waypoint
+		"radar":   # tap the radar: the map, where you can set a course or drop a waypoint; a tap on a blip opens its card
+			open_map()
+			if state == "map" and hud.radar_pick != Vector3.INF: navmap.select_near(hud.radar_pick)
 		_:
 			if id.begins_with("met_"):
 				var k := int(id.substr(4))
@@ -337,6 +339,11 @@ func _on_key_action(id: String) -> void:
 	if id == "settings":
 		if settings.visible: settings.close()
 		else: settings.open()
+		return
+	if id in ["map_orient", "map_tilt"] and state in ["flight", "map"]:   # v1.4p: works on the map and in flight (the radar follows)
+		if id == "map_orient": NavGrid.toggle_orient()
+		else: NavGrid.toggle_tilt()
+		if state == "flight": hud.flash_message("Map and radar: %s, %s." % ["heading-up" if NavGrid.orient == "heading" else "north-up", "angled" if NavGrid.tilt == "angled" else "overhead"])
 		return
 	if state != "flight": return
 	match id:

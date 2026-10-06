@@ -330,6 +330,7 @@ func _input(e: InputEvent) -> void:
 					owners[e.index] = id
 					held[id] = true
 					Sfx.play("button", -14.0)
+					if id == "radar": radar_pick = radar_pick_at(e.position)   # v1.4p: which blip the tap landed on, if any
 					if id != "thrust": pressed.emit(id)   # THRUST works while held
 					get_viewport().set_input_as_handled()
 					return
@@ -992,15 +993,27 @@ func _dashboard() -> void:
 	_radar(screen_r.get_center() + Vector2(0, 4), minf(screen_r.size.x, screen_r.size.y) * 0.44, true)
 	_way_box(way_r)
 
-## Radar: blips around your ship silhouette (also drawn on the cockpit's centre dash screen).
+## Radar (Job S, v1.4p): the same GPS-style view as the navigation map, small. A grid, faceted blips, a north
+## marker, and the course line when one is set. North-up or heading-up, angled or overhead (NavGrid's setting).
+## A tap on a blip opens the map with that object's info card.
+var radar_blips: Array = []        # [world position, screen position, kind] of what was drawn (hit-testing, tests)
+var radar_pick := Vector3.INF      # the world position of the blip the last radar tap landed on (INF = none)
+var radar_view := NavGrid.new()
+var radar_stats := {}
+var radar_north := Vector2.ZERO    # where the N marker was drawn
+var radar_route := {}              # {"from", "to"} when a course is drawn on the radar
+
+func radar_pick_at(p: Vector2) -> Vector3:
+	var best := Vector3.INF
+	var best_d: float = Data.RADAR_HIT_RADIUS
+	for bl in radar_blips:
+		var d := (bl[1] as Vector2).distance_to(p)
+		if d < best_d:
+			best_d = d
+			best = bl[0]
+	return best
+
 func _radar(rc: Vector2, rr: float, label: bool) -> void:
-	draw_arc(rc, rr, 0, TAU, 48, Color(CYAN, 0.35), 1.5, true)
-	draw_arc(rc, rr * 0.5, 0, TAU, 36, Color(CYAN, 0.2), 1.0, true)
-	draw_line(rc + Vector2(0, -rr), rc + Vector2(0, rr), Color(CYAN, 0.15))
-	draw_line(rc + Vector2(-rr, 0), rc + Vector2(rr, 0), Color(CYAN, 0.15))
-	var sweep := fmod(t * 1.4, TAU)
-	draw_line(rc, rc + Vector2(cos(sweep), sin(sweep)) * rr, Color(CYAN, 0.3), 2.0)
-	var inv := Basis(Vector3.UP, -space.yaw)
 	var pp: Vector3 = space.player.global_position
 	# v1.4m: normal range near things; far from everything (out by the sun, say) the radar zooms out until the
 	# station, the planets and the gates all fit, so you can see where you are
@@ -1016,25 +1029,63 @@ func _radar(rc: Vector2, rr: float, label: bool) -> void:
 		if near > Data.RADAR_RANGE: want_rng = far * Data.RADAR_FIT
 	radar_range = lerpf(radar_range, want_rng, clampf(get_process_delta_time() * Data.RADAR_ZOOM_SPEED, 0.0, 1.0))
 	var rng := radar_range * (1.0 - 0.6 * space.in_nebula)
-	var items: Array = []
-	for e in space.enemies: items.append([e["node"].global_position, RED])
-	for tr in space.traffic: items.append([tr["node"].global_position, GREEN])
-	if space.station.get_meta("kind", "") == "station": items.append([space.station.global_position, GREEN])
+	var heading := NavGrid.orient == "heading"
+	var fwd3: Vector3 = -space.player.global_basis.z
+	var anchor := rc + Vector2(0, rr * Data.RADAR_HEADING_ANCHOR) if heading else rc
+	radar_view.major_px = 44.0
+	radar_view.setup(anchor, Vector3(pp.x, 0, pp.z), rr / rng, fwd3 if heading else Vector3.ZERO, NavGrid.tilt == "angled", rr * Data.NAV_DEPTH)
+	# the scope: a polygon disc, the grid cut to it, polygon range rings
+	NavGrid.fill(self, NavGrid.poly(rc, rr, 16), Color(0.01, 0.05, 0.09, 0.55))
+	radar_stats = radar_view.draw_grid(self, Rect2(rc - Vector2(rr, rr), Vector2(rr, rr) * 2.0), rr)
+	var rim := NavGrid.poly(rc, rr, 16)
+	draw_polyline(rim + PackedVector2Array([rim[0]]), Color(CYAN, 0.75), 2.0, true)
+	var half := NavGrid.poly(anchor, rr * 0.5, 16)
+	for i in 16:
+		var seg := NavGrid.clip_circle(half[i], half[(i + 1) % 16], rc, rr)
+		if not seg.is_empty(): draw_line(seg[0], seg[1], Color(CYAN, 0.3), 1.0)
+	# the course line
+	radar_route = {}
+	if space.autopilot != null and is_instance_valid(space.autopilot):
+		var dest := radar_view.to_screen(space.autopilot.global_position)
+		var rseg := NavGrid.clip_circle(anchor, dest, rc, rr)
+		if not rseg.is_empty():
+			NavGrid.route(self, rseg[0], rseg[1], GREEN, t, dest.distance_to(rc) <= rr, 0.5)
+			radar_route = {"from": rseg[0], "to": rseg[1]}
+	var items: Array = []   # [position, colour, kind, node]
+	for e in space.enemies: items.append([e["node"].global_position, RED, "ship", e["node"]])
+	for tr in space.traffic: items.append([tr["node"].global_position, GREEN, "ship", tr["node"]])
+	if space.station.get_meta("kind", "") == "station": items.append([space.station.global_position, GREEN, "station", null])
 	if not space.surface_mode:
-		items.append([space.planet.global_position, Color(0.5, 0.8, 1.0)])
-		for g in space.gates: items.append([g.global_position, GOLD])
+		items.append([space.planet.global_position, Color(0.5, 0.8, 1.0), "planet", null])
+		for g in space.gates: items.append([g.global_position, GOLD, "gate", null])
 		if radar_range > Data.RADAR_RANGE * 1.2:   # zoomed out: the rest of the system shows too
-			for x in space.extras: items.append([x.global_position, Color(0.5, 0.8, 1.0) if float(x.get_meta("radius", 0.0)) > 100.0 else GREEN])
-			if space.sun_pos != Vector3.INF: items.append([space.sun_pos, Color(1.0, 0.9, 0.4)])
+			for x in space.extras:
+				var big: bool = float(x.get_meta("radius", 0.0)) > 100.0
+				items.append([x.global_position, Color(0.5, 0.8, 1.0) if big else GREEN, "planet" if big else "station", null])
+			if space.sun_pos != Vector3.INF: items.append([space.sun_pos, Color(1.0, 0.9, 0.4), "star", null])
+	radar_blips.clear()
 	for it in items:
-		var rel: Vector3 = inv * (it[0] - pp)
-		var v := Vector2(rel.x, rel.z) / rng * rr
-		if v.length() > rr: v = v.normalized() * rr
-		draw_colored_polygon(PackedVector2Array([rc + v + Vector2(0, -5), rc + v + Vector2(4, 4), rc + v + Vector2(-4, 4)]), it[1])
+		var v: Vector2 = radar_view.to_screen(it[0])
+		var off := v - rc
+		if off.length() > rr - 5.0: v = rc + off.normalized() * (rr - 5.0)
+		match it[2]:
+			"planet": NavGrid.sphere(self, v, 6.0, it[1], 12, false)
+			"station": NavGrid.ring(self, v, 6.0, it[1], 8, 0.4, 0.2)
+			"gate": NavGrid.ring(self, v, 6.0, it[1], 12, 0.3, 0.15, 0.85)
+			"star": NavGrid.star(self, v, 3.5, it[1])
+			_:
+				var nf: Vector3 = -(it[3] as Node3D).global_basis.z if is_instance_valid(it[3]) else Vector3.FORWARD
+				NavGrid.dart(self, v, 5.5, Vector2(nf.x, nf.z).rotated(radar_view.rot), it[1])
+		radar_blips.append([it[0], v, it[2]])
+	# you: the arrow. Heading-up: fixed, pointing up. North-up: it turns with the ship.
 	var hullc := GREEN.lerp(RED, 1.0 - GS.hull / GS.max_hull())
-	var sil := PackedVector2Array([rc + Vector2(0, -16), rc + Vector2(4, -6), rc + Vector2(15, 6), rc + Vector2(4, 5), rc + Vector2(3, 12), rc + Vector2(-3, 12), rc + Vector2(-4, 5), rc + Vector2(-15, 6), rc + Vector2(-4, -6)])
-	draw_colored_polygon(sil, Color(hullc, 0.9))
-	draw_polyline(sil + PackedVector2Array([sil[0]]), WHITE, 1.5, true)
+	NavGrid.dart(self, anchor, 11.0, Vector2(fwd3.x, fwd3.z).rotated(radar_view.rot), hullc.lightened(0.2), true)
+	# north marker on the rim: straight up in north-up, wherever true north is in heading-up
+	var nd := Vector2(0, -1).rotated(radar_view.north_angle())
+	radar_north = rc + nd * rr
+	var np := Vector2(-nd.y, nd.x)
+	NavGrid.fill(self, PackedVector2Array([radar_north + nd * 7.0, radar_north - nd * 3.0 + np * 5.0, radar_north - nd * 3.0 - np * 5.0]), Color(1.0, 0.45, 0.4))
+	draw_string(font, radar_north + nd * 15.0 + Vector2(-4, 5), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, WHITE)
 	_text(Vector2(rc.x - rr, rc.y + rr + (-2.0 if label else 2.0)), "RADAR %s" % _dist(rng), 10, Color(CYAN, 0.8), HORIZONTAL_ALIGNMENT_CENTER, rr * 2.0)
 
 ## Waypoint box: autopilot destination, else the current target.

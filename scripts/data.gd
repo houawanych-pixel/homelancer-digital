@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.4o"
+const VERSION := "v1.4p"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -33,6 +33,8 @@ const KBM_ACTIONS := [
 	{"id": "transform", "name": "Transform ship / mech", "key": "G", "rebind": true, "extra": true},
 	{"id": "view", "name": "Chase / cockpit view", "key": "V", "rebind": true, "extra": true},
 	{"id": "map", "name": "System map", "key": "M", "rebind": true, "extra": true},
+	{"id": "map_orient", "name": "Map / radar: north-up or heading-up", "key": "N", "rebind": true, "extra": true},
+	{"id": "map_tilt", "name": "Map / radar: angled or overhead", "key": "B", "rebind": true, "extra": true},
 	{"id": "yaw_left", "name": "Turn left (keyboard)", "key": "Left", "rebind": true, "extra": true},
 	{"id": "yaw_right", "name": "Turn right (keyboard)", "key": "Right", "rebind": true, "extra": true},
 	{"id": "pitch_up", "name": "Nose up (keyboard)", "key": "Up", "rebind": true, "extra": true},
@@ -218,6 +220,34 @@ const MISSILE_RETARGET := 900.0
 const MISSILE_ALERT := 700.0
 # galaxy map (flat, fog of war)
 const MAP_FOG := Color(0.02, 0.03, 0.06)
+
+# ---------------------------------------------------------------- Job S (v1.4p): GPS-style navigation map and radar
+const NAV_ORIENT_DEFAULT := "north"     # "north" (north-up, never rotates) | "heading" (the map turns round the ship)
+const NAV_TILT_DEFAULT := "angled"      # "angled" (GPS tilt) | "flat" (straight down)
+const NAV_TILT := 0.454                 # radians the angled view leans back (26 degrees)
+const NAV_DEPTH := 2.6                  # angled view: camera distance, x the map's half height (bigger = less depth)
+const NAV_GRID_MAJOR_PX := 110.0        # bold grid lines are between this and 5x this apart on screen
+const NAV_GRID_ALPHA := [0.62, 0.16, 0.5]   # major lines, faintest minor lines, micro-ticks
+const NAV_GRID_WIDTH := [2.0, 1.0]      # major, minor (pixels)
+const NAV_GRID_MAX_LINES := 90          # per layer and direction
+const NAV_GRID_MAX_TICKS := 1400
+const NAV_ZOOM := [0.6, 40.0]           # how far the map zooms out / in (1 = the whole system fits)
+const NAV_ZOOM_STEP := 1.5              # one press of + or -, one wheel notch
+const NAV_HEADING_ANCHOR := 0.74        # heading-up: the player arrow sits this far down the map
+const NAV_HEADING_SPAN := 5200.0        # heading-up: metres across the map at zoom 1
+const NAV_HIT_RADIUS := 40.0            # how close a tap must land to pick an object (pixels)
+const NAV_TAP_SLOP := 14.0              # a press that moves less than this is a tap, more is a drag
+const NAV_ROUTE_WIDTH := 6.0
+const NAV_PIN_PULSE := 0.18
+const NAV_SIDES := {"planet": 16, "star": 12, "orbit": 18, "ring": 16}   # polygon circles: 12 to 20 straight sides
+const NAV_TYPE_PICTURES := {            # info-card picture per type, used when the object has no picture of its own
+	"planet": "res://assets/nav/planet.jpg", "moon": "res://assets/nav/moon.jpg", "station": "res://assets/nav/station.jpg",
+	"gate": "res://assets/nav/gate.jpg", "belt": "res://assets/nav/asteroids.jpg", "nebula": "res://assets/nav/nebula.jpg",
+	"star": "res://assets/nav/star.jpg", "enemy": "res://assets/nav/ship_hostile.jpg", "traffic": "res://assets/nav/ship_trader.jpg",
+	"ship": "res://assets/nav/ship_friendly.jpg"}
+const NAV_STATION_SERVICES := ["Equipment", "Ship Dealer", "Repair / Resupply", "Navigation"]   # a dockable station with no "services" list
+const RADAR_HIT_RADIUS := 22.0          # a tap this close to a radar blip picks it
+const RADAR_HEADING_ANCHOR := 0.42      # heading-up radar: your arrow sits this far below the centre (x radius)
 
 # ---------------------------------------------------------------- Job Q (v1.4n): comms split, big racks, restock, burst thrust
 # comms console: contacts on the right edge, message log on the left edge, the middle of the screen stays clear

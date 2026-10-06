@@ -596,3 +596,34 @@ with no screen: 198 checks) while passing here on a screen (201 checks). Both we
   now parked while it measures;
 - the radar zoom check waited a fixed time: it now waits for the zoom to settle.
 From now on every job is also run with `--headless` here before it is packaged.
+
+## 29. GPS-style navigation map and radar (Job S, v1.4p)
+
+All numbers are in the "Job S" block of `scripts/data.gd`. The shared view is `scripts/navgrid.gd` (class
+`NavGrid`); the map is `scripts/navmap.gd`; the radar is `hud._radar`.
+
+- **Grid.** World-space lines in three layers: bold major lines, minor lines at a fifth of that, micro-ticks
+  (ruler marks along the major lines) at a twenty-fifth. Major lines are always 110 to 550 px apart, so zooming
+  in turns minors into majors without a jump (`NavGrid.levels`). A pair of lines is drawn through every planet,
+  station, gate and the star, so each sits on a crossing. Coordinates are written where major lines meet the edge.
+- **Views.** `NavGrid.orient` = "north" (default, never rotates) or "heading" (you are the arrow at lower-centre,
+  the map turns round you). `NavGrid.tilt` = "angled" (26 degree lean with perspective) or "flat". One projection
+  (`to_screen`) and its exact inverse (`to_world`) serve drawing, taps and panning in every mode. The choice is
+  saved in the settings file, section "nav" (new fields only). Buttons on the map; keys N and B (rebindable); the
+  radar follows the same setting. A compass (map) and an N marker (radar rim) always show true north.
+- **Zoom and pan.** Pinch, mouse wheel, + / - and FIT; drag to pan in north-up.
+- **Shapes.** Polygon circles with straight edges (12 to 20 sides, `NAV_SIDES`): planets and the star are two
+  rings of flat facets lit from the upper left with a rim light and a shadow cast on the grid; stations and gates
+  are rings with a wall for thickness; rocks, the nebula and ships are faceted too. Orbit paths, the belt and the
+  range rings are polygons laid on the map plane.
+- **Tap to identify.** `navmap.tap` then `pick` use this frame's projected positions, so they work rotated.
+  Brackets mark the selection and `navmap.info(key)` fills the card: picture, name, type, distance; faction and
+  services for a station; destination for a gate. Pictures: a planet shows its own world map (when the worlds pack
+  is in), Liberty-type stations their wheel model; everything else its type picture in `assets/nav/` (rendered
+  from the game's own models). A missing type picture gives a drawn token (`NavGrid.picture`). X or a tap outside
+  closes the card. There are no moons in the data yet; the "moon" type picture is ready for when there are.
+- **Set course.** Unchanged flow (tap, SET COURSE, autopilot). The course is drawn as a thick glowing line with
+  running chevrons and a pulsing pin, with distance on the line and speed and ETA by your arrow, on the map and
+  (shorter) on the radar. Belts, the nebula and the star can be set as a course too (a waypoint at their middle).
+- **Radar.** Same view, small: a tap on a blip opens the map with that object's card; a tap elsewhere on the
+  radar opens the map as before.
