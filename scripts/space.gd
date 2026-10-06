@@ -1122,6 +1122,18 @@ static func dash_sector(stick: Vector2) -> Vector2:
 	var a := snappedf(stick.angle(), PI / 4.0)
 	return Vector2(cos(a), sin(a)).round().normalized()
 
+## v1.4n: where a THRUST burst goes, in the craft's own axes. Stick centred = straight UP; otherwise the stick's
+## 45-degree sector (x = strafe, y = forward/back). Same rule for the ship and the mech.
+static func burst_dir(stick: Vector2) -> Vector3:
+	if stick.length() < 0.3: return Vector3.UP
+	var sec := dash_sector(stick)
+	return Vector3(sec.x, 0, -sec.y).normalized()
+
+static func burst_name(stick: Vector2) -> String:
+	if stick.length() < 0.3: return "up"
+	var sec := dash_sector(stick)
+	return ("forward" if sec.y > 0.5 else ("back" if sec.y < -0.5 else "")) + ("-" if absf(sec.y) > 0.5 and absf(sec.x) > 0.5 else "") + ("right" if sec.x > 0.5 else ("left" if sec.x < -0.5 else ""))
+
 func _mech_move(dt: float, thrust: Vector2, base_speed: float) -> void:
 	var fwd := -player.global_basis.z
 	var right := player.global_basis.x
@@ -1131,19 +1143,18 @@ func _mech_move(dt: float, thrust: Vector2, base_speed: float) -> void:
 	boosting = false
 	var boost_now := thrust_held and controls and transform_t <= 0.0
 	if boost_now and not _boost_was and dash_cd <= 0.0 and GS.energy > 18.0:
-		var sec := dash_sector(thrust)   # thrust.x = strafe, thrust.y = forward(+)/back(-)
-		dash_dir = Vector3(sec.x, 0, -sec.y).normalized()
+		dash_dir = burst_dir(thrust)   # thrust.x = strafe, thrust.y = forward(+)/back(-); centred = straight up (v1.4n)
 		dash_t = 0.45
 		dash_cd = 0.8
 		GS.energy -= 18.0
-		last_dash = ("forward" if sec.y > 0.5 else ("back" if sec.y < -0.5 else "")) + ("-" if absf(sec.y) > 0.5 and absf(sec.x) > 0.5 else "") + ("right" if sec.x > 0.5 else ("left" if sec.x < -0.5 else ""))
+		last_dash = burst_name(thrust)
 		Sfx.play("whoosh", -6.0, 1.4)
 		_spark_v(player.global_position - player.global_basis * dash_dir * 4.0, -(player.global_basis * dash_dir) * 20.0, Color(0.7, 0.85, 1.0), 6.0, 0.3)
 	_boost_was = boost_now
 	var desired := fwd * sp * thrust.y + right * sp * 0.9 * thrust.x
 	var rate := 2.2
 	if dash_t > 0.0:
-		desired = player.global_basis * dash_dir * sp * 3.2
+		desired = player.global_basis * dash_dir * sp * Data.MECH_BURST_MULT
 		rate = 9.0
 		boosting = true
 	elif boost_now and GS.energy > 1.0 and dash_dir != Vector3.ZERO:
@@ -1470,14 +1481,27 @@ func _update_player(dt: float) -> void:
 		if cruise_assist:
 			if thrust.length() > 0.15 or thrust_held: holding = false
 			if thrust.y < -0.9 and vel.length() < 2.0: holding = true   # pulled all the way back to a stop: stay there
-			f = Data.CRUISE + thrust.y * (1.0 - Data.CRUISE) if thrust.y >= 0.0 else Data.CRUISE * (1.0 + thrust.y)
+			# v1.4n: holding the stick forward IS the throttle: it builds gradually to FORWARD_MULT x ship speed
+			# (Cadet: 100 m/s) and settles back to cruise when you let go. The autopilot keeps its old, gentler top speed.
+			var top: float = 1.0 if (autopilot != null and is_instance_valid(autopilot)) else Data.FORWARD_MULT
+			f = Data.CRUISE + thrust.y * (top - Data.CRUISE) if thrust.y >= 0.0 else Data.CRUISE * (1.0 + thrust.y)
+			if thrust.y > 0.15 and top > 1.0: rate = Data.FORWARD_RATE
 			if holding: f = 0.0
 		var desired := fwd * base_speed * f + right * base_speed * 0.6 * thrust.x
-		if thrust_held and controls and GS.energy > 1.0:
+		# v1.4n: THRUST = an instant burst at BURST_MULT x ship speed (Cadet: 120 m/s) the way the stick points,
+		# straight up with the stick centred. Holding the button keeps you moving that way.
+		var burst_now := thrust_held and controls and GS.energy > 1.0
+		if burst_now and not _boost_was:
+			dash_dir = burst_dir(thrust)
+			last_dash = burst_name(thrust)
+			vel = player.global_basis * dash_dir * base_speed * Data.BURST_MULT
+			Sfx.play("whoosh", -6.0, 1.3)
+		_boost_was = burst_now
+		if burst_now and dash_dir != Vector3.ZERO:
 			boosting = true
 			GS.energy = maxf(0.0, GS.energy - Data.THRUST_ENERGY * dt)
-			desired = fwd * base_speed * Data.THRUST_MULT + right * base_speed * 0.6 * thrust.x
-			rate = 2.4
+			desired = player.global_basis * dash_dir * base_speed * Data.BURST_MULT
+			rate = Data.BURST_RATE
 			_booster_particles(dt, 0.25)
 		vel = vel.lerp(desired, minf(1.0, dt * rate))
 	player.global_position += vel * dt

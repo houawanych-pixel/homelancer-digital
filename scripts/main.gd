@@ -510,7 +510,7 @@ func dock(n: Node3D) -> void:
 	await tw.finished
 	space.visible = false
 	space.process_mode = Node.PROCESS_MODE_DISABLED
-	GS.restore_full()
+	GS.dock_service()   # v1.4n: shields and energy only; hull = REPAIR, ammo = RESTOCK at Equipment
 	GS.last_base = info["id"]
 	visited[info["id"]] = true
 	if info["id"] == "new_terra": GS.meet("oduya", "friendly")

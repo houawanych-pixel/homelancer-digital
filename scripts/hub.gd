@@ -142,7 +142,7 @@ func open(station_or_planet: Dictionary) -> void:
 	if Rooms.station_pack(base.get("id", "")) != "": Packs.request(Rooms.station_pack(base["id"]))   # v1.4l: each hub's rooms are their own pack
 	if last_room != "" and Rooms.pack_of(last_room) != Rooms.station_pack(base.get("id", "")): last_room = ""   # a room from another station
 	show_screen("hub")
-	status.text = "Docked at %s. Hull repaired, shields and repair kits restored, missiles reloaded." % base["name"]
+	status.text = "Docked at %s. Shields and energy restored. REPAIR and RESTOCK are at Equipment." % base["name"]
 
 func _refresh_credits() -> void:
 	credits_label.text = "CREDITS  %d cr" % GS.credits
@@ -241,6 +241,30 @@ func _equipment_page() -> void:
 	v.add_theme_constant_override("separation", 10)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(v)
+	# v1.4n: one tap each, right at the top
+	var quick := HBoxContainer.new()
+	quick.add_theme_constant_override("separation", 14)
+	var rcost := GS.restock_cost()
+	var rs := Button.new()
+	rs.name = "RestockAll"
+	rs.custom_minimum_size = Vector2(0, 64)
+	rs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rs.text = "RESTOCK ALL  ·  %d cr" % rcost if rcost > 0 else "RESTOCK ALL  ·  FULL"
+	rs.disabled = rcost <= 0
+	rs.pressed.connect(func(): status.text = GS.restock_all(); show_screen("equipment"))
+	quick.add_child(rs)
+	var rp := Button.new()
+	rp.name = "RepairNow"
+	rp.custom_minimum_size = Vector2(0, 64)
+	rp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rp.text = "REPAIR  ·  FREE" if GS.needs_repair() else "REPAIR  ·  HULL OK"
+	rp.disabled = not GS.needs_repair()
+	rp.pressed.connect(func(): status.text = GS.repair_all(); show_screen("equipment"))
+	quick.add_child(rp)
+	v.add_child(quick)
+	var qcap := _label(15, Color(0.8, 0.88, 0.95))
+	qcap.text = "Missiles %d/%d  ·  Heavy %d/%d  ·  Mines %d/%d  ·  Hull %d/%d" % [GS.missiles, GS.max_missiles(), GS.heavy_missiles, GS.max_heavy(), GS.mines, GS.max_mines(), int(GS.hull), int(GS.max_hull())]
+	v.add_child(qcap)
 	var cap := _label(16, CYAN)
 	cap.text = "GUNS  ·  your %s carries %d hardpoints. Damage shown per shot." % [GS.ship()["name"], GS.ship()["guns"]]
 	v.add_child(cap)
@@ -567,14 +591,23 @@ func _repair_page() -> void:
 	var v := _page_box()
 	var l := _label(20, Color(1, 1, 1))
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.text = "Hull %d/%d  ·  Shield %d/%d  ·  Repair kits %d/%d  ·  Shield charges %d/%d  ·  Energy cells %d/%d  ·  Missiles %d/%d  ·  Mines %d/%d\n\nDocking crews repair and resupply every ship that lands here, free of charge for Unity-registered pilots." % [int(GS.hull), int(GS.max_hull()), int(GS.shield), int(GS.max_shield()), GS.repairs, Data.MAX_REPAIRS, GS.shield_charges, Data.MAX_SHIELD_CHARGES, GS.energy_cells, Data.MAX_ENERGY_CELLS, GS.missiles, GS.max_missiles(), GS.mines, GS.max_mines()]
+	l.text = "Hull %d/%d  ·  Shield %d/%d  ·  Repair kits %d/%d  ·  Shield charges %d/%d  ·  Energy cells %d/%d  ·  Missiles %d/%d  ·  Mines %d/%d\n\nDocking crews repair every ship that lands here, free of charge for Unity-registered pilots." % [int(GS.hull), int(GS.max_hull()), int(GS.shield), int(GS.max_shield()), GS.repairs, Data.MAX_REPAIRS, GS.shield_charges, Data.MAX_SHIELD_CHARGES, GS.energy_cells, Data.MAX_ENERGY_CELLS, GS.missiles, GS.max_missiles(), GS.mines, GS.max_mines()]
 	v.add_child(l)
 	var b := Button.new()
-	b.text = "REPAIR AND RESUPPLY NOW"
+	b.text = "REPAIR NOW  ·  FREE"
 	b.name = "RepairAll"
 	b.custom_minimum_size = Vector2(360, 60)
-	b.pressed.connect(func(): GS.restore_full(); status.text = "All systems restored."; show_screen("repair"))
+	b.disabled = not GS.needs_repair()
+	b.pressed.connect(func(): status.text = GS.repair_all(); show_screen("repair"))
 	v.add_child(b)
+	var b2 := Button.new()   # v1.4n: ammo is billed, same button as at Equipment
+	var rc := GS.restock_cost()
+	b2.text = "RESTOCK ALL  ·  %d cr" % rc if rc > 0 else "RESTOCK ALL  ·  FULL"
+	b2.name = "RestockAll"
+	b2.custom_minimum_size = Vector2(360, 60)
+	b2.disabled = rc <= 0
+	b2.pressed.connect(func(): status.text = GS.restock_all(); show_screen("repair"))
+	v.add_child(b2)
 
 func _process(dt: float) -> void:
 	if not visible: return

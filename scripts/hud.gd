@@ -169,10 +169,35 @@ func open_log() -> void:
 	roster_idle = 0.0
 	_sync()
 
+## v1.4n: the console is two panels at the screen edges, so the middle (your ship, the view) stays clear.
+## Contacts sit flush against the RIGHT edge, the message log against the LEFT edge. Both slide in from their side.
+func _panel_w() -> float:
+	return clampf(S.x * Data.COMMS_PANEL_FRAC, Data.COMMS_PANEL_W[0], Data.COMMS_PANEL_W[1])
+
+func _panel_span() -> Vector2:   # top and bottom of both panels: under the corner buttons, above the sticks
+	var top := 8.0 + btn * 2.0 + 8.0 + 14.0
+	var bottom := _home("move").y - stick_r - 10.0
+	return Vector2(top, maxf(top + 150.0, bottom))
+
+func contacts_rect() -> Rect2:
+	var w := _panel_w()
+	var sp := _panel_span()
+	var e := ease(roster_t, 0.35)
+	return Rect2(S.x - w * e, sp.x, w, sp.y - sp.x)
+
+func msglog_rect() -> Rect2:
+	var w := _panel_w()
+	var sp := _panel_span()
+	var e := ease(roster_t, 0.35)
+	return Rect2(-w * (1.0 - e), sp.x, w, sp.y - sp.x)
+
+## How many contact rows fit (up to 5).
+func contact_rows() -> int:
+	return clampi(int((contacts_rect().size.y - 38.0) / Data.COMMS_ROW_H), 1, 5)
+
+## Kept for older callers: the area the console covers = the contacts panel.
 func roster_rect() -> Rect2:
-	var w := clampf(S.x - (8 + _block_w()) * 2 - 40, 420.0, 640.0)
-	var full_h := 322.0
-	return Rect2(S.x * 0.5 - w * 0.5, 130, w, maxf(8.0, full_h * ease(roster_t, 0.35)))
+	return contacts_rect()
 
 ## Can you call this contact from here? Only people in the same star system answer.
 static func in_range(id: String) -> bool:
@@ -205,7 +230,8 @@ func side_rect(side: String) -> Rect2:
 	var w := clampf(S.x * 0.14, 150.0, 190.0)
 	var top := 8.0 + btn * 2.0 + 8.0 + 14.0
 	var h := minf(w + 90.0, _home("move").y - stick_r - 10.0 - top)
-	return Rect2(8.0 if side == "l" else S.x - 8.0 - w, top, w, h)
+	var inset := 8.0 + ((_panel_w() + 6.0) * ease(roster_t, 0.35) if console_open else 0.0)   # v1.4n: a caller floats in NEXT to the console panel
+	return Rect2(inset if side == "l" else S.x - inset - w, top, w, h)
 
 # ---------------------------------------------------------------- layout
 func _home(which: String) -> Vector2:
@@ -284,13 +310,14 @@ func _layout() -> void:
 		if sd["mode"] == "talk": buttons["hangup"] = Rect2(sr.end.x - 34, sr.position.y + 2, 32, 22)   # before the body, so it wins
 		buttons["side_" + side] = sr
 	if console_open:
-		var rr := roster_rect()
+		var rr := contacts_rect()
+		var lg := msglog_rect()
 		if roster_t > 0.95 and not roster_closing:
-			var cw := rr.size.x * 0.46
-			for k in mini(GS.met.size(), 5):
-				buttons["met_%d" % k] = Rect2(rr.position.x + 8, rr.position.y + 34 + k * 46, cw, 42)
-			buttons["type"] = Rect2(rr.position.x + 8, rr.end.y - 46, cw * 0.5 - 4, 38)
-			buttons["voice"] = Rect2(rr.position.x + 8 + cw * 0.5 + 4, rr.end.y - 46, cw * 0.5 - 4, 38)
+			for k in mini(GS.met.size(), contact_rows()):
+				buttons["met_%d" % k] = Rect2(rr.position.x + 6, rr.position.y + 32 + k * Data.COMMS_ROW_H, rr.size.x - 6, Data.COMMS_ROW_H - 4)
+			var hw := (lg.size.x - 18.0) * 0.5
+			buttons["type"] = Rect2(lg.position.x + 6, lg.end.y - 44, hw, 38)
+			buttons["voice"] = Rect2(lg.position.x + 12 + hw, lg.end.y - 44, hw, 38)
 
 # ---------------------------------------------------------------- input
 func _input(e: InputEvent) -> void:
@@ -307,11 +334,10 @@ func _input(e: InputEvent) -> void:
 					get_viewport().set_input_as_handled()
 					return
 			if console_open:
-				if roster_rect().has_point(e.position):
+				if contacts_rect().has_point(e.position) or msglog_rect().has_point(e.position):
 					owners[e.index] = "comms_body"
 					roster_idle = 0.0
-					return
-				if not (_typer and _typer.visible): close_roster()
+					return   # v1.4n: a touch anywhere else flies the ship; LOG (or leaving it alone) closes the console
 			if _mouse_in_kbm(e): return   # Job J: in keyboard + mouse mode the MOUSE flies (left-drag); real touches are unchanged
 			if stick_zone("move").has_point(e.position) and not owners.values().has("move"):
 				owners[e.index] = "move"
@@ -360,7 +386,7 @@ func _process(dt: float) -> void:
 		else:
 			roster_t = minf(1.0, roster_t + dt * 6.0)
 			if not _typer.visible: roster_idle += dt
-			if roster_idle > 10.0: close_roster() # rolls itself back up if you leave it
+			if roster_idle > Data.COMMS_IDLE_CLOSE: close_roster() # rolls itself back up if you leave it
 	for side in ["l", "r"]:
 		var sd: Dictionary = slots[side]
 		if sd.is_empty(): continue
@@ -1046,8 +1072,8 @@ func _way_box(way_r: Rect2) -> void:
 
 # ---------------------------------------------------------------- comms: side screens + console
 func _comms() -> void:
-	for side in ["l", "r"]: _side(side)
 	if console_open: _roster()
+	for side in ["l", "r"]: _side(side)   # callers draw over / beside the console panels
 
 ## One holo screen sliding in from its side: name strip, portrait, and the line on a white see-through panel under it.
 func _side(side: String) -> void:
@@ -1111,18 +1137,17 @@ func _dist(d: float) -> String:
 ## Comms console (LOG): contacts on the left (only people in this star system pick up), the chat log on the right,
 ## TYPE and VOICE along the bottom.
 func _roster() -> void:
-	var r := roster_rect()
-	_box(r, Color(0.02, 0.07, 0.14, 0.94), CYAN_HI, 10, 2)
-	if r.size.y < 36.0: return
-	var cw := r.size.x * 0.46
-	_text(r.position + Vector2(12, 24), "COMMS · CONTACTS", 15, WHITE)
-	_text(r.position + Vector2(cw + 22, 24), "LOG", 15, WHITE)
-	_text(r.position + Vector2(0, 24), "TAP LOG TO CLOSE", 10, CYAN_HI, HORIZONTAL_ALIGNMENT_RIGHT, r.size.x - 12)
-	if r.size.y < 300.0: return
+	var r := contacts_rect()
+	var lg := msglog_rect()
+	# ---- right edge: who you can call. Faces flush right, names beside them; tap a row to call.
+	draw_rect(r, Color(0.02, 0.07, 0.14, 0.9))
+	draw_line(r.position, Vector2(r.position.x, r.end.y), CYAN_HI, 2)
+	_text(r.position + Vector2(0, 22), "CONTACTS", 15, WHITE, HORIZONTAL_ALIGNMENT_RIGHT, r.size.x - 10)
 	if GS.met.is_empty():
-		_text(r.position + Vector2(12, 60), "Nobody yet — people you meet appear here.", 12, Color(1, 1, 1, 0.7), HORIZONTAL_ALIGNMENT_LEFT, cw)
-	for k in mini(GS.met.size(), 5):
-		var br := Rect2(r.position.x + 8, r.position.y + 34 + k * 46, cw, 42)
+		draw_multiline_string(font, r.position + Vector2(10, 52), "Nobody yet. People you meet appear here.", HORIZONTAL_ALIGNMENT_RIGHT, r.size.x - 20, 12, 3, Color(1, 1, 1, 0.7))
+	var rh: float = Data.COMMS_ROW_H
+	for k in mini(GS.met.size(), contact_rows()):
+		var br := Rect2(r.position.x + 6, r.position.y + 32 + k * rh, r.size.x - 6, rh - 4)
 		var id: String = GS.met[k]
 		var c: Dictionary = Data.CHARACTERS[id]
 		var ok := in_range(id)
@@ -1130,29 +1155,38 @@ func _roster() -> void:
 		var mc: Color = {"friendly": GREEN, "neutral": CYAN_HI, "enraged": RED}[m]
 		if not ok: mc = Color(0.55, 0.6, 0.66)
 		var down := held.has("met_%d" % k)
-		_box(br, Color(mc, 0.25) if down else Color(0.05, 0.13, 0.23, 1.0 if ok else 0.6), Color(mc, 0.7 if ok else 0.35), 8, 1)
-		var pc := br.position + Vector2(22, 21)
+		draw_rect(br, Color(mc, 0.25) if down else Color(0.05, 0.13, 0.23, 1.0 if ok else 0.6))
+		draw_rect(br, Color(mc, 0.7 if ok else 0.35), false, 1.0)
+		var fs := br.size.y
+		var fr := Rect2(br.end.x - fs, br.position.y, fs, fs)   # face against the screen edge
 		var ftex: Texture2D = _face_tex(c.get("face", ""), "normal") if c.get("face", "") != "" else null
-		if ftex: draw_texture_rect(ftex, Rect2(pc - Vector2(17, 17), Vector2(34, 34)), false, Color(1, 1, 1, 1.0 if ok else 0.4))
-		else: draw_circle(pc, 16, Color(c["color"], 0.9))
-		_text(Vector2(br.position.x + 46, br.position.y + 19), c["name"], 14, WHITE if ok else Color(1, 1, 1, 0.5), HORIZONTAL_ALIGNMENT_LEFT, br.size.x - 52)
-		var sub: String = c["role"] if ok else "OUT OF RANGE · %s" % Data.SYSTEMS[c["system"]]["name"].to_upper()
-		_text(Vector2(br.position.x + 46, br.position.y + 35), sub, 10, Color(0.8, 0.88, 0.95) if ok else Color(1, 1, 1, 0.45), HORIZONTAL_ALIGNMENT_LEFT, br.size.x - 52)
-	# chat log, newest at the top
-	var lr := Rect2(r.position.x + cw + 16, r.position.y + 34, r.size.x - cw - 24, r.size.y - 42)
+		if ftex: draw_texture_rect(ftex, fr, false, Color(1, 1, 1, 1.0 if ok else 0.4))
+		else: draw_circle(fr.get_center(), fs * 0.4, Color(c["color"], 0.9))
+		var tw := br.size.x - fs - 12
+		_text(Vector2(br.position.x + 6, br.position.y + 18), c["name"], 14, WHITE if ok else Color(1, 1, 1, 0.5), HORIZONTAL_ALIGNMENT_RIGHT, tw)
+		var sub: String = "TAP TO CALL" if ok else "OUT OF RANGE · %s" % Data.SYSTEMS[c["system"]]["name"].to_upper()
+		_text(Vector2(br.position.x + 6, br.position.y + 34), sub, 10, Color(mc, 0.95) if ok else Color(1, 1, 1, 0.45), HORIZONTAL_ALIGNMENT_RIGHT, tw)
+	# ---- left edge: the message log, newest at the top; TYPE and VOICE under it
+	draw_rect(lg, Color(0.02, 0.07, 0.14, 0.9))
+	draw_line(Vector2(lg.end.x, lg.position.y), lg.end, CYAN_HI, 2)
+	_text(lg.position + Vector2(10, 22), "LOG", 15, WHITE)
+	_text(lg.position + Vector2(0, 22), "TAP LOG TO CLOSE", 9, CYAN_HI, HORIZONTAL_ALIGNMENT_RIGHT, lg.size.x - 10)
+	var lr := Rect2(lg.position.x + 6, lg.position.y + 32, lg.size.x - 12, lg.size.y - 32 - 50)
 	draw_rect(lr, Color(1, 1, 1, 0.08))
 	var y := lr.position.y + 16
 	for line in history:
 		if y > lr.end.y - 6: break
 		var mine := (line as String).begins_with("YOU:")
 		var lines := maxi(1, int(ceil(font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x / (lr.size.x - 12))))
-		draw_multiline_string(font, Vector2(lr.position.x + 6, y), line, HORIZONTAL_ALIGNMENT_LEFT, lr.size.x - 12, 12, 3, GOLD if mine else Color(0.85, 0.92, 1.0))
-		y += 15.0 * mini(lines, 3) + 5.0
-	_pill("type", "TYPE", _typer.visible, CYAN)
-	_pill("voice", "VOICE", false, CYAN, "READ" if Sfx.voice_mode == "read" else "MUMBLE")
+		var room := maxi(1, int((lr.end.y - y) / 15.0) + 1)
+		draw_multiline_string(font, Vector2(lr.position.x + 6, y), line, HORIZONTAL_ALIGNMENT_LEFT, lr.size.x - 12, 12, mini(4, room), GOLD if mine else Color(0.85, 0.92, 1.0))
+		y += 15.0 * mini(lines, 4) + 5.0
+	if roster_t > 0.95 and not roster_closing:
+		_pill("type", "TYPE", _typer.visible, CYAN)
+		_pill("voice", "VOICE", false, CYAN, "READ" if Sfx.voice_mode == "read" else "MUMBLE")
 	if _typer.visible:
-		_typer.position = Vector2(lr.position.x, r.end.y + 6)
-		_typer.size = Vector2(lr.size.x, 40)
+		_typer.position = Vector2(lg.end.x + 8, lg.end.y - 44)
+		_typer.size = Vector2(minf(420.0, S.x - lg.end.x - _panel_w() - 16), 40)
 
 ## TYPE: open the message box (the phone keyboard comes up).
 func start_typing() -> void:

@@ -55,6 +55,50 @@ func meet(id: String, m := "friendly") -> bool:
 	changed.emit()
 	return first
 
+## Docking: the free part (shields, energy, charges). Hull and ammo are the REPAIR and RESTOCK buttons at Equipment.
+func dock_service() -> void:
+	shield = max_shield()
+	energy = Data.ENERGY_MAX
+	shield_charges = Data.MAX_SHIELD_CHARGES
+	energy_cells = Data.MAX_ENERGY_CELLS
+	changed.emit()
+
+## REPAIR: hull, both wings and the repair kits, in one tap. Free at any dock.
+func repair_all() -> String:
+	if hull >= max_hull() and wing_l >= wing_max() and wing_r >= wing_max() and repairs >= Data.MAX_REPAIRS: return "Nothing to repair."
+	hull = max_hull()
+	wing_l = wing_max()
+	wing_r = wing_max()
+	repairs = Data.MAX_REPAIRS
+	shield = max_shield()
+	changed.emit()
+	return "Hull, wings and repair kits restored."
+
+func needs_repair() -> bool:
+	return hull < max_hull() or wing_l < wing_max() or wing_r < wing_max() or repairs < Data.MAX_REPAIRS
+
+## What a full RESTOCK would cost right now (light + heavy missiles + mines).
+func restock_cost() -> int:
+	return maxi(0, max_missiles() - missiles) * Data.MISSILE_PRICE + maxi(0, max_heavy() - heavy_missiles) * Data.HEAVY_MISSILE_PRICE + maxi(0, max_mines() - mines) * Data.MINE_PRICE
+
+## RESTOCK: fill every rack and bill it in one go. Short of credits it loads what you can afford, light missiles first.
+func restock_all() -> String:
+	var cost := restock_cost()
+	if cost <= 0: return "All racks are full."
+	var before := credits
+	if credits >= cost:
+		credits -= cost
+		missiles = max_missiles()
+		heavy_missiles = max_heavy()
+		mines = max_mines()
+		changed.emit()
+		return "Restocked everything for %d credits." % cost
+	buy_missiles(9999)
+	buy_heavy(9999)
+	buy_mines(9999)
+	if credits == before: return "Not enough credits to restock."
+	return "Loaded what %d credits would buy. Racks are not full." % (before - credits)
+
 func restore_full() -> void:
 	hull = max_hull()
 	wing_l = wing_max()

@@ -981,7 +981,7 @@ func _mech_form() -> void:
 		"%.1f s, arm gone %s, warp '%s'" % [took, arm_gone, no_warp])
 	# directional dashes: stick + BOOST
 	var results: Array = []
-	for stick in [Vector2(0, 1), Vector2(-0.7, -0.7), Vector2(1, 0.1)]:   # screen stick: down = back, up-left, right
+	for stick in [Vector2(0, 1), Vector2(-0.7, -0.7), Vector2(1, 0.1), Vector2.ZERO]:   # screen stick: down = back, up-left, right, centred = straight up (v1.4n)
 		main.hud.move_vec = stick
 		await _wait(0.1)
 		main.hud.held["thrust"] = true
@@ -993,7 +993,7 @@ func _mech_form() -> void:
 		await _wait(1.0)
 	var sp: float = float(GS.ship()["speed"])
 	var ok: bool = results[0][0] == "back" and results[0][1].z > sp and results[1][0] == "forward-left" and results[1][1].x < -sp * 0.8 and results[1][1].z < -sp * 0.8 \
-		and results[2][0] == "right" and results[2][1].x > sp
+		and results[2][0] == "right" and results[2][1].x > sp and results[3][0] == "up" and results[3][1].y > sp
 	_check("Mech boost dashes: back, forward-left, right", ok, "%s / %s / %s" % [results[0][0], results[1][0], results[2][0]])
 	_press("form")
 	await _until(func(): return s.transform_t <= 0.0 and GS.form == "ship", 5.0)
@@ -1126,6 +1126,14 @@ func _run() -> void:
 		await _until(func(): return main.state == "flight", 10.0)
 		await _wait(1.0)
 		await _art_n()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
+	if OS.get_environment("HL_Q") != "":   # the Job Q checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_q()
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
@@ -1453,6 +1461,7 @@ func _run() -> void:
 	await _art_n()
 	await _job_o()
 	await _job_p()
+	await _job_q()
 	await _galaxy()
 	await _controls_j()
 	await _gate_k()
@@ -2423,7 +2432,7 @@ func _job_o() -> void:
 	GS.missiles = 12
 	s.lock_time = Data.LOCK_STEP * 20.0
 	_check("Job O: the Six Rack comes fitted on every ship (six locks) and every ship carries at least 12 light missiles", "swarm" in GS.owned_racks and GS.max_locks("light_missile") == 6
-		and s.lock_count() == 6 and cap_ok and int(Data.SHIPS["cadet"]["missiles"]) == 12, "locks %d, Cadet carries %d" % [s.lock_count(), int(Data.SHIPS["cadet"]["missiles"])])
+		and s.lock_count() == 6 and cap_ok and int(Data.SHIPS["cadet"]["missiles"]) >= 12, "locks %d, Cadet carries %d" % [s.lock_count(), int(Data.SHIPS["cadet"]["missiles"])])
 	s.lock_time = 0.0
 	# ---- FIRE toggle
 	_tp(Vector3(900, 700, 900), Vector3(900, 700, 0))
@@ -2809,3 +2818,180 @@ func _job_p() -> void:
 	_check("Job P: the room's person stops being drawn the moment the room is off screen (nothing extra renders in flight)", r.npcs.is_empty() and not r.is_visible_in_tree())
 	for c in [main.hub.header, main.hub.subheader, main.hub.credits_label, main.hub.left, main.hub.content, main.hub.status]: c.visible = true
 	await _wait(0.3)
+
+
+# ---------------------------------------------------------------- Job Q (v1.4n): split comms console, 100 / 50 racks,
+# one-tap RESTOCK and REPAIR, stick-forward throttle, THRUST burst (up with the stick centred)
+func _job_q() -> void:
+	var s := _sp()
+	var hud = main.hud
+	var shell := FileAccess.get_file_as_string("res://web_shell.html")
+	_check("Job Q: version label reads \"Homelancer Digital v1.4n\" or later", Data.VERSION >= "v1.4n" and (shell == "" or shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0), Data.VERSION)
+	# ---- comms console: contacts flush right, log flush left, the middle clear
+	_tp(Vector3(1200, 900, 1200), Vector3(1200, 900, 0))
+	s.engine_kill = true
+	hud.close_comms()
+	GS.meet("vale", "friendly")
+	GS.meet("rennick", "friendly")
+	_press("log")
+	await _wait(0.6)
+	hud._layout()
+	var cr: Rect2 = hud.contacts_rect()
+	var lg: Rect2 = hud.msglog_rect()
+	var sz: Vector2 = hud.S
+	var mid := Rect2(sz.x * 0.3, 0, sz.x * 0.4, sz.y)
+	var flush: bool = absf(cr.end.x - sz.x) < 1.0 and absf(lg.position.x) < 1.0
+	var clear: bool = not cr.intersects(mid) and not lg.intersects(mid)
+	var rows: bool = hud.buttons.has("met_0") and cr.encloses(hud.buttons["met_0"]) and hud.buttons.has("type") and lg.encloses(hud.buttons["type"]) and lg.encloses(hud.buttons["voice"])
+	await _shot("q_comms_split")
+	_check("Job Q: the comms console is split: contacts flush against the right edge, the message log flush against the left edge, the middle 40% of the screen clear", hud.console_open and flush and clear and rows,
+		"contacts x %d..%d, log x %d..%d of %d, rows in place %s" % [int(cr.position.x), int(cr.end.x), int(lg.position.x), int(lg.end.x), int(sz.x), rows])
+	# a caller floats in beside the panel, not under it; the console stays up while you fly
+	hud.open_comms("Capt. Rennick — Bright Margin", "[smile]Good to see you out here.", "incoming", false, "rennick")
+	await _wait(0.5)
+	hud._layout()
+	var sr: Rect2 = hud.side_rect("r")
+	var beside: bool = sr.end.x <= hud.contacts_rect().position.x + 1.0 and sr.position.x > sz.x * 0.6
+	await _shot("q_comms_caller")
+	var ev := InputEventScreenTouch.new()
+	ev.index = 7
+	ev.pressed = true
+	ev.position = sz * Vector2(0.5, 0.45)
+	hud._input(ev)
+	ev = ev.duplicate()
+	ev.pressed = false
+	hud._input(ev)
+	await _wait(0.4)
+	_check("Job Q: someone calling floats in next to the contacts panel, and touching the middle of the screen leaves the console up", beside and hud.console_open and not hud.roster_closing,
+		"caller x %d..%d, panel starts %d" % [int(sr.position.x), int(sr.end.x), int(hud.contacts_rect().position.x)])
+	# tapping a name calls that person
+	hud.close_comms()
+	_press("log")
+	await _wait(0.6)
+	var who: String = GS.met[0]
+	_press("met_0")
+	await _wait(0.4)
+	var called: bool = not (hud.slots["l"] as Dictionary).is_empty() or not (hud.slots["r"] as Dictionary).is_empty()
+	_check("Job Q: tapping a name in the contacts panel calls that person", called, who)
+	hud.close_comms()
+	await _wait(0.2)
+	# ---- racks: 100 light, 50 heavy on every ship; the heavy hits harder
+	var racks_ok := true
+	for id in Data.SHIP_ORDER: racks_ok = racks_ok and int(Data.SHIPS[id]["missiles"]) == 100 and int(Data.SHIPS[id]["heavy"]) == 50
+	var dummy := {"max": 200.0}
+	_check("Job Q: every ship carries 100 light and 50 heavy missiles, and the heavy missile is stronger (85% of the target's hull, was 60%)", racks_ok and GS.max_missiles() == Data.MISSILE_LOAD and GS.max_heavy() == Data.HEAVY_LOAD
+		and Data.HEAVY_MISSILE_HULL_FRAC >= 0.85 and s.missile_damage(dummy, true, 1.0) >= 170.0 and s.missile_damage(dummy, true, 1.0) > s.missile_damage(dummy, false, 1.0) * 2.0,
+		"heavy does %d, light %d on a 200 hull" % [int(s.missile_damage(dummy, true, 1.0)), int(s.missile_damage(dummy, false, 1.0))])
+	# ---- RESTOCK ALL and REPAIR at Equipment
+	var keep := {"credits": GS.credits, "missiles": GS.missiles, "heavy": GS.heavy_missiles, "mines": GS.mines, "hull": GS.hull, "wl": GS.wing_l, "wr": GS.wing_r, "kits": GS.repairs}
+	GS.missiles = 3
+	GS.heavy_missiles = 1
+	GS.mines = 0
+	GS.hull = 12.0
+	GS.wing_l = 0.0
+	GS.repairs = 1
+	GS.dock_service()
+	var dock_kept: bool = GS.missiles == 3 and GS.heavy_missiles == 1 and is_equal_approx(GS.hull, 12.0)
+	GS.credits = 50000
+	var want: int = (GS.max_missiles() - 3) * Data.MISSILE_PRICE + (GS.max_heavy() - 1) * Data.HEAVY_MISSILE_PRICE + GS.max_mines() * Data.MINE_PRICE
+	var cost_ok: bool = GS.restock_cost() == want
+	var hub_vis: bool = main.hub.visible
+	if main.hub.base.is_empty(): main.hub.base = s.sys["station"]
+	main.hub.visible = true
+	main.hub.show_screen("equipment")
+	await _frames(2)
+	var rb: Button = main.hub.find_child("RestockAll", true, false)
+	var pb: Button = main.hub.find_child("RepairNow", true, false)
+	var both: bool = rb != null and pb != null and not rb.disabled and not pb.disabled and rb.text.find(str(want)) >= 0
+	await _shot("q_equipment_restock")
+	if rb: rb.pressed.emit()
+	await _frames(2)
+	var filled: bool = GS.missiles == GS.max_missiles() and GS.heavy_missiles == GS.max_heavy() and GS.mines == GS.max_mines() and GS.credits == 50000 - want
+	pb = main.hub.find_child("RepairNow", true, false)
+	if pb: pb.pressed.emit()
+	await _frames(2)
+	var fixed: bool = is_equal_approx(GS.hull, GS.max_hull()) and is_equal_approx(GS.wing_l, GS.wing_max()) and GS.repairs == Data.MAX_REPAIRS and GS.credits == 50000 - want
+	rb = main.hub.find_child("RestockAll", true, false)
+	pb = main.hub.find_child("RepairNow", true, false)
+	var done: bool = rb != null and rb.disabled and pb != null and pb.disabled
+	_check("Job Q: Equipment has RESTOCK ALL and REPAIR at the top: one tap fills every rack and bills it, one tap repairs hull, wing and kits", cost_ok and both and filled and fixed and done,
+		"cost %d (expected %d), filled %s, repaired %s, both greyed after %s" % [GS.restock_cost() if not filled else want, want, filled, fixed, done])
+	GS.missiles = 0
+	GS.heavy_missiles = GS.max_heavy()
+	GS.mines = GS.max_mines()
+	GS.credits = Data.MISSILE_PRICE * 5 + 3
+	var msg: String = GS.restock_all()
+	_check("Job Q: short of credits, RESTOCK loads what you can afford; docking alone no longer refills ammo or hull", GS.missiles == 5 and GS.credits == 3 and dock_kept, msg)
+	main.hub.visible = hub_vis
+	GS.credits = keep["credits"]
+	GS.restore_full()
+	await _frames(2)
+	# ---- flight: stick forward builds to 100, lets go back to cruise
+	_tp(Vector3(-1500, 1200, 1500), Vector3(-1500, 1200, 0))
+	var assist0: bool = s.cruise_assist
+	s.cruise_assist = true
+	s.engine_kill = false
+	s.braking = false
+	s.holding = false
+	s.autopilot = null
+	var guns0: String = GS.modes["guns"]
+	GS.modes["guns"] = "manual"
+	var sp: float = float(GS.ship()["speed"])
+	var top: float = sp * Data.FORWARD_MULT
+	var burst: float = sp * Data.BURST_MULT
+	await _wait(2.5)
+	var cruise_v: float = s.speed_now
+	hud.move_vec = Vector2(0, -1)
+	await _wait(0.6)
+	var early: float = s.speed_now
+	await _wait(5.5)
+	var full: float = s.speed_now
+	hud.move_vec = Vector2.ZERO
+	await _wait(4.0)
+	var back: float = s.speed_now
+	_check("Job Q: holding the stick forward is the throttle: it builds gradually to %d m/s, and letting go settles back to cruise" % int(top),
+		absf(cruise_v - sp * Data.CRUISE) < 3.0 and early > cruise_v + 3.0 and early < top * 0.8 and absf(full - top) < top * 0.05 and absf(back - sp * Data.CRUISE) < 4.0,
+		"cruise %d, after 0.6 s %d, after 6 s %d, let go %d" % [int(cruise_v), int(early), int(full), int(back)])
+	# ---- THRUST: instant burst; straight up with the stick centred; the stick picks the direction; holding keeps it
+	GS.energy = Data.ENERGY_MAX
+	s.last_dash = ""
+	hud.held["thrust"] = true
+	await _until(func(): return s.last_dash != "", 2.0)
+	await _frames(2)
+	var lv1: Vector3 = s.player.global_basis.inverse() * s.vel
+	var name1: String = s.last_dash
+	await _wait(1.0)
+	var lv2: Vector3 = s.player.global_basis.inverse() * s.vel
+	hud.held.erase("thrust")
+	await _wait(1.5)
+	var up_ok: bool = name1 == "up" and lv1.y > burst * 0.85 and lv2.y > burst * 0.9 and absf(lv2.z) < burst * 0.25
+	GS.energy = Data.ENERGY_MAX
+	hud.move_vec = Vector2(-1, 0)
+	await _wait(0.1)
+	s.last_dash = ""
+	hud.held["thrust"] = true
+	await _until(func(): return s.last_dash != "", 2.0)
+	await _frames(2)
+	var lv3: Vector3 = s.player.global_basis.inverse() * s.vel
+	var name3: String = s.last_dash
+	hud.held.erase("thrust")
+	hud.move_vec = Vector2.ZERO
+	await _wait(1.5)
+	GS.energy = Data.ENERGY_MAX
+	hud.move_vec = Vector2(0, -1)
+	await _wait(0.1)
+	s.last_dash = ""
+	hud.held["thrust"] = true
+	await _until(func(): return s.last_dash != "", 2.0)
+	await _frames(2)
+	var lv4: Vector3 = s.player.global_basis.inverse() * s.vel
+	var name4: String = s.last_dash
+	hud.held.erase("thrust")
+	hud.move_vec = Vector2.ZERO
+	await _wait(1.0)
+	_check("Job Q: THRUST is an instant %d m/s burst: straight up with the stick centred (and it holds while held), left with the stick left, forward with the stick forward" % int(burst),
+		up_ok and name3 == "left" and lv3.x < -burst * 0.85 and name4 == "forward" and lv4.z < -burst * 0.85,
+		"centred '%s' up %d then %d; left '%s' %d; forward '%s' %d" % [name1, int(lv1.y), int(lv2.y), name3, int(lv3.x), name4, int(-lv4.z)])
+	s.cruise_assist = assist0
+	GS.modes["guns"] = guns0
+	s.vel = Vector3.ZERO

@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.4m"
+const VERSION := "v1.4n"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -114,7 +114,7 @@ const LOCK_CONE_DEG := 15.0           # keep the target inside this cone to buil
 const LOCK_RANGE := 800.0
 const LOCK_STEP := 0.5                # seconds per lock
 const HEAVY_LOCKS := 1                # heavy missile: one lock, hits hard
-const HEAVY_MISSILE_HULL_FRAC := 0.6  # heavy does at least this share of the target's hull
+const HEAVY_MISSILE_HULL_FRAC := 0.85 # heavy does at least this share of the target's hull
 # the rack on the LIGHT slot. "triple" comes with every ship; "swarm" is bought at Equipment.
 const MISSILE_RACKS := {
 	"triple": {"name": "Triple Rack", "price": 0, "locks": 3, "damage": 1.0, "desc": "Locks three missiles on one target."},
@@ -219,21 +219,38 @@ const MISSILE_ALERT := 700.0
 # galaxy map (flat, fog of war)
 const MAP_FOG := Color(0.02, 0.03, 0.06)
 
+# ---------------------------------------------------------------- Job Q (v1.4n): comms split, big racks, restock, burst thrust
+# comms console: contacts on the right edge, message log on the left edge, the middle of the screen stays clear
+const COMMS_PANEL_W := [200.0, 270.0]   # min / max width of each side panel
+const COMMS_PANEL_FRAC := 0.21          # of the screen width
+const COMMS_ROW_H := 46.0               # one contact row
+const COMMS_IDLE_CLOSE := 20.0          # seconds untouched before the console tucks itself away
+# every ship carries the same racks
+const MISSILE_LOAD := 100
+const HEAVY_LOAD := 50
+# flight: stick forward builds up to FORWARD_MULT x ship speed (Cadet: 100 m/s); THRUST is an instant burst at
+# BURST_MULT x ship speed (Cadet: 120 m/s) in the stick's direction, straight UP with the stick centred
+const FORWARD_MULT := 100.0 / 46.0
+const FORWARD_RATE := 0.9               # how quickly stick-forward speed builds (lower = more gradual)
+const BURST_MULT := 120.0 / 46.0
+const BURST_RATE := 9.0                 # how hard a held burst holds its line
+const MECH_BURST_MULT := 3.2            # mech dash (x its walking pace), also used straight up
+
 # ---------------------------------------------------------------- ships
 # model: key understood by ShipFactory. "cadet_glb" etc. load real GLBs when present under assets/ships/.
 const SHIPS := {
 	"cadet": {"name": "Cadet", "class": "Starter fighter", "price": 0, "hull": 100, "shield": 60, "speed": 46.0,
-		"turn": 1.7, "guns": 2, "missiles": 12, "heavy": 2, "mines": 3, "model": "cadet", "desc": "Unity-issue trainer. Light, nimble, forgiving. Twin cannons on top."},
+		"turn": 1.7, "guns": 2, "missiles": MISSILE_LOAD, "heavy": HEAVY_LOAD, "mines": 3, "model": "cadet", "desc": "Unity-issue trainer. Light, nimble, forgiving. Twin cannons on top."},
 	"ranger": {"name": "Ranger", "class": "Patrol fighter", "price": 1500, "hull": 160, "shield": 95, "speed": 50.0,
-		"turn": 1.55, "guns": 3, "missiles": 20, "heavy": 3, "mines": 4, "model": "ranger", "desc": "Faster frame, thicker plating. A long cannon on top and one on each wing."},
+		"turn": 1.55, "guns": 3, "missiles": MISSILE_LOAD, "heavy": HEAVY_LOAD, "mines": 4, "model": "ranger", "desc": "Faster frame, thicker plating. A long cannon on top and one on each wing."},
 	"hauler": {"name": "Hauler", "class": "Armed cargo ship", "price": 2500, "hull": 320, "shield": 110, "speed": 38.0,
-		"turn": 1.0, "guns": 2, "missiles": 24, "heavy": 4, "mines": 8, "model": "hauler", "desc": "A cargo ship you can own. The toughest hull on sale, a big rack, and slow."},
+		"turn": 1.0, "guns": 2, "missiles": MISSILE_LOAD, "heavy": HEAVY_LOAD, "mines": 8, "model": "hauler", "desc": "A cargo ship you can own. The toughest hull on sale, a big rack, and slow."},
 	"bulk_empty": {"name": "Frame Freighter", "class": "Empty cargo ship", "price": 4500, "hull": 400, "shield": 150, "speed": 40.0,
-		"turn": 1.0, "guns": 3, "missiles": 28, "heavy": 5, "mines": 8, "model": "bulk_empty", "desc": "The Bulk Freighter with an empty cargo frame, ready to carry any crate. Lighter, so faster."},
+		"turn": 1.0, "guns": 3, "missiles": MISSILE_LOAD, "heavy": HEAVY_LOAD, "mines": 8, "model": "bulk_empty", "desc": "The Bulk Freighter with an empty cargo frame, ready to carry any crate. Lighter, so faster."},
 	"bulk": {"name": "Bulk Freighter", "class": "Heavy cargo ship", "price": 6000, "hull": 480, "shield": 160, "speed": 34.0,
-		"turn": 0.8, "guns": 3, "missiles": 36, "heavy": 6, "mines": 10, "model": "bulk", "desc": "The biggest ship you can own. Six engines, a huge hull and rack. Very slow to turn."},
+		"turn": 0.8, "guns": 3, "missiles": MISSILE_LOAD, "heavy": HEAVY_LOAD, "mines": 10, "model": "bulk", "desc": "The biggest ship you can own. Six engines, a huge hull and rack. Very slow to turn."},
 	"lancer": {"name": "Lancer", "class": "Heavy fighter", "price": 4000, "hull": 240, "shield": 140, "speed": 42.0,
-		"turn": 1.25, "guns": 4, "missiles": 28, "heavy": 4, "mines": 6, "model": "lancer", "desc": "Four cannons: two on the wings, two beside the nose. Heavy shield. Slow to turn."},
+		"turn": 1.25, "guns": 4, "missiles": MISSILE_LOAD, "heavy": HEAVY_LOAD, "mines": 6, "model": "lancer", "desc": "Four cannons: two on the wings, two beside the nose. Heavy shield. Slow to turn."},
 }
 # v1.3c: all three are the owner's models with weapons mounted (tools/shipkit/make_fleet3.py). Guns = cannons you can see.
 const SHIP_ORDER := ["cadet", "ranger", "hauler", "lancer", "bulk_empty", "bulk"]
@@ -246,11 +263,11 @@ const WEAPONS := {
 	"plasma": {"name": "Plasma Driver", "price": 2600, "damage": 26.0, "rate": 2.4, "speed": 340.0, "range": 560.0, "color": Color(1.0, 0.6, 0.25)},
 }
 const WEAPON_ORDER := ["pulse1", "pulse2", "ion", "plasma"]
-const MISSILE_PRICE := 40
+const MISSILE_PRICE := 10
 const MISSILE_DAMAGE := 45.0 # light missile minimum; it does LIGHT_MISSILE_HULL_FRAC of the target's hull when bigger
 const LIGHT_MISSILE_HULL_FRAC := 0.3
-const HEAVY_MISSILE_PRICE := 200
-const HEAVY_MISSILE_DAMAGE := 75.0
+const HEAVY_MISSILE_PRICE := 50
+const HEAVY_MISSILE_DAMAGE := 120.0
 const MINE_PRICE := 60
 const MINE_DAMAGE := 70.0
 const MINE_RADIUS := 45.0

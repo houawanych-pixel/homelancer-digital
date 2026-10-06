@@ -564,3 +564,26 @@ Numbers: the "Job P" block of `scripts/data.gd` (and the PH_ planet constants).
   way, and waves or nods and answers when tapped. Gestures are posed on the bones, so any humanoid rig works.
   Pack `npc` (3 MB). NOT DONE YET, waiting on the owner's verdict: more people, a standing dealer on the
   Equipment / Repair screens, typed or spoken chat with them.
+
+## 27. Split comms console, big racks, one-tap restock and repair, burst thrust (Job Q, v1.4n)
+
+All numbers are in the "Job Q" block of `scripts/data.gd`.
+
+- **Comms console (LOG).** No longer a block in the middle of the screen. It is two panels at the screen
+  edges: CONTACTS flush against the right edge (face against the edge, name beside it, tap a row to call) and
+  the message LOG flush against the left edge, with TYPE and VOICE under it. The middle stays clear, and
+  touching the middle no longer closes the console: you keep flying. LOG closes it, or it tucks itself away after
+  `COMMS_IDLE_CLOSE` seconds. A caller's screen floats in next to the panel (`hud.side_rect`).
+  The owner's note said both "faces to the right" and "the right is just the log"; we took contacts right, log left.
+- **Racks.** Every ship carries `MISSILE_LOAD` (100) light and `HEAVY_LOAD` (50) heavy missiles. The heavy does
+  85 % of the target's hull (was 60 %). Prices were cut so a full load is payable: light 10 cr, heavy 50 cr.
+- **RESTOCK ALL and REPAIR.** Two buttons at the top of Equipment (and on the Repair page). RESTOCK fills light,
+  heavy and mines and bills the total in one tap (`GS.restock_all`); short of credits it loads what you can
+  afford. REPAIR restores hull, wings and repair kits, free (`GS.repair_all`). Because these buttons would
+  otherwise have nothing to do, **docking no longer refills ammo or repairs the hull by itself**
+  (`GS.dock_service` restores shields and energy only). New game and the rescue tug still restore everything.
+- **Throttle.** Holding the left stick forward builds gradually (`FORWARD_RATE`) to `FORWARD_MULT` x ship speed
+  (Cadet: 100 m/s); letting go settles back to cruise. The autopilot keeps its old top speed.
+- **THRUST.** An instant burst at `BURST_MULT` x ship speed (Cadet: 120 m/s) in the stick's direction
+  (8 sectors). With the stick centred the burst goes straight UP, in ship form and mech form alike
+  (`Space.burst_dir`). Holding the button keeps you moving that way and drains energy as before.

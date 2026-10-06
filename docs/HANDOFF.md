@@ -13,7 +13,7 @@
     export GODOT=/home/claude/godot/Godot_v4.3-stable_linux.x86_64
     cd /home/claude/hl && $GODOT --headless --import --path .
     xvfb-run -a $GODOT --audio-driver Dummy --rendering-driver opengl3 --resolution 1280x720 --path . -- --autotest --quit-after-test
-      -> must print RESULT 192/192 PASS (the web build prints its own count)  (HL_SHOT_DIR=/dir saves screenshots; HL_SHOWCASE=1 = short combat demo; HL_CITY=1 = city prototype shots only; HL_MISSILE=1 = the Job M combat checks only; HL_ART=1 = the Job N art map and Lockon checks only; HL_O=1 = the Job O checks only; HL_P=1 = the Job P checks only)
+      -> must print RESULT 201/201 PASS (the web build prints its own count)  (HL_SHOT_DIR=/dir saves screenshots; HL_SHOWCASE=1 = short combat demo; HL_CITY=1 = city prototype shots only; HL_MISSILE=1 = the Job M combat checks only; HL_ART=1 = the Job N art map and Lockon checks only; HL_O=1 = the Job O checks only; HL_P=1 = the Job P checks only; HL_Q=1 = the Job Q checks only)
 
 ## Game layout (scripts/)
 main.gd (states, calls, hub/map), space.gd (world, combat, enemies, missiles, stations), hud.gd (mobile HUD, call box
