@@ -587,3 +587,12 @@ All numbers are in the "Job Q" block of `scripts/data.gd`.
 - **THRUST.** An instant burst at `BURST_MULT` x ship speed (Cadet: 120 m/s) in the stick's direction
   (8 sectors). With the stick centred the burst goes straight UP, in ship form and mech form alike
   (`Space.burst_dir`). Holding the button keeps you moving that way and drains energy as before.
+
+## 28. Build-server test fixes (Job R, v1.4o)
+
+No game change. v1.4m and v1.4n never went live because two route checks failed on GitHub (which runs the test
+with no screen: 198 checks) while passing here on a screen (201 checks). Both were test weaknesses:
+- the enemy-missile damage check could be hit by a passing raider's guns (27 instead of 22): other enemies are
+  now parked while it measures;
+- the radar zoom check waited a fixed time: it now waits for the zoom to settle.
+From now on every job is also run with `--headless` here before it is packaged.

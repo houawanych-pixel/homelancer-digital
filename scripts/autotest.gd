@@ -2223,6 +2223,10 @@ func _combat_m() -> void:
 	launcher.global_position = s.player.global_position - s.player.global_basis.z * 400.0
 	launcher.look_at(s.player.global_position, Vector3.UP)
 	var fake := {"node": launcher, "vel": Vector3.ZERO}
+	var parked: Array = s.enemies.duplicate()   # v1.4n: nobody else may shoot during this measurement (a stray raider's gun hit made it read 27 on the build server)
+	s.enemies.clear()
+	await _wait(1.5)                            # let any shots already in flight land or expire
+	GS.restore_full()
 	s.enemy_fire_missile(fake)
 	await _frames(3)
 	var warned: bool = s.missile_warn > 0.0
@@ -2230,6 +2234,8 @@ func _combat_m() -> void:
 	var sh0 := GS.shield + GS.hull
 	await _until(func(): return s.enemy_missiles.is_empty(), 10.0)
 	var took: float = sh0 - (GS.shield + GS.hull)
+	for pe in parked:
+		if is_instance_valid(pe["node"]): s.enemies.append(pe)
 	_check("Job M: an enemy missile warns you on the HUD and hits a ship that holds still", warned and took > Data.ENEMY_MISSILE_DAMAGE * 0.5 and took <= Data.ENEMY_MISSILE_DAMAGE + 0.01, "warned %s, damage %.1f" % [warned, took])
 	GS.restore_full()
 	_tp(Vector3(900, 700, 900), Vector3(900, 700, 0))
@@ -2692,17 +2698,20 @@ func _job_p() -> void:
 	GS.modes["guns"] = guns0
 	# ---- radar zooms out when you are far from everything
 	_tp(s.station.global_position + Vector3(0, 200, 300), s.station.global_position)
-	await _wait(1.6)
+	await _until(func(): return absf(main.hud.radar_range - Data.RADAR_RANGE) < 20.0, 10.0)   # v1.4n: wait for the zoom to settle rather than a fixed time (slow build servers)
 	var near_rng: float = main.hud.radar_range
 	var away: Vector3 = s.station.global_position + Vector3(0, 9000, 26000)
 	_tp(away, s.station.global_position)
-	await _wait(2.5)
+	var far_want := 0.0
+	for n0: Node3D in [s.station, s.planet] + s.gates: far_want = maxf(far_want, away.distance_to(n0.global_position))
+	await _until(func(): return main.hud.radar_range > far_want * 1.1, 10.0)
+	await _wait(1.0)
 	var far_rng: float = main.hud.radar_range
 	var farthest := 0.0
 	for n: Node3D in [s.station, s.planet] + s.gates: farthest = maxf(farthest, away.distance_to(n.global_position))
 	await _shot("radar_zoomed_out", 0.2)
 	_tp(s.station.global_position + Vector3(0, 200, 300), s.station.global_position)
-	await _wait(2.5)
+	await _until(func(): return absf(main.hud.radar_range - Data.RADAR_RANGE) < 60.0, 10.0)
 	_check("Job P: the radar keeps its normal range near things and zooms out to fit the whole system when you are far away", absf(near_rng - Data.RADAR_RANGE) < 60.0 and far_rng > farthest and far_rng < farthest * 1.3
 		and absf(main.hud.radar_range - Data.RADAR_RANGE) < 120.0, "near %d m, far %d m (farthest place %d m)" % [int(near_rng), int(far_rng), int(farthest)])
 	s.engine_kill = false
