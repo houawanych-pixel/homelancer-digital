@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://cy8fonibterwm"
-path="res://.godot/imported/corsair.glb-1d7d00e4137354b92734fb86247504b4.scn"
+uid="uid://dls0r56msvvwc"
+path="res://.godot/imported/savager_cruiser.glb-e62cdc26cfa740e4ae6bf1df10c56957.scn"
 
 [deps]
 
-source_file="res://assets/ships/enemy/corsair.glb"
-dest_files=["res://.godot/imported/corsair.glb-1d7d00e4137354b92734fb86247504b4.scn"]
+source_file="res://assets/ships/enemy/savager_cruiser.glb"
+dest_files=["res://.godot/imported/savager_cruiser.glb-e62cdc26cfa740e4ae6bf1df10c56957.scn"]
 
 [params]
 

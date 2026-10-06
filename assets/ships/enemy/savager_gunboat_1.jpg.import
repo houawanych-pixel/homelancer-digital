@@ -2,25 +2,25 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dbsbng7qpg32k"
-path="res://.godot/imported/enemy_fleet_1.jpg-93e7d887e427d786d63749e7e8e94518.ctex"
+uid="uid://bt2y6fuh56r1s"
+path="res://.godot/imported/savager_gunboat_1.jpg-0406a5637dd8cf4fd74f6cd4b134c08e.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "bbe9698db68ea67889a0dd2883b8ec90"
+"md5": "26bf37cae04858324d99c093143cdfc6"
 }
 
 [deps]
 
-source_file="res://assets/ships/enemy/enemy_fleet_1.jpg"
-dest_files=["res://.godot/imported/enemy_fleet_1.jpg-93e7d887e427d786d63749e7e8e94518.ctex"]
+source_file="res://assets/ships/enemy/savager_gunboat_1.jpg"
+dest_files=["res://.godot/imported/savager_gunboat_1.jpg-0406a5637dd8cf4fd74f6cd4b134c08e.ctex"]
 
 [params]
 
-compress/mode=1
+compress/mode=0
 compress/high_quality=false
-compress/lossy_quality=0.8
+compress/lossy_quality=0.7
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0

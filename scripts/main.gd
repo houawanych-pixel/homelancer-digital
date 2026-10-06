@@ -524,6 +524,10 @@ func dock(n: Node3D) -> void:
 	if info["id"] == "frontier_exchange": GS.meet("amari", "friendly")
 	if info["id"] == "liberty_hub" and GS.kills > 0: visited["liberty_hub_2"] = true
 	hub.open(info)
+	var paid: String = GS.claim_bounty()   # v1.4q: a captured bounty pilot is paid on docking, at any station
+	if paid != "":
+		hub.status.text = paid
+		hub._refresh_credits()
 	state = "hub"
 	var tw2 := create_tween()
 	tw2.tween_property(fx, "fade", 0.0, 0.6)
@@ -556,6 +560,7 @@ func launch() -> void:
 	space.process_mode = Node.PROCESS_MODE_INHERIT
 	space.set_player_model()
 	space.place_player("planet" if docked_node_kind == "planet" else "station")
+	space.spawn_bounty()   # v1.4q: a bounty just accepted for this very system
 	_launch_sequence(where)
 
 func _launch_sequence(where: String) -> void:

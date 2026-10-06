@@ -627,3 +627,36 @@ All numbers are in the "Job S" block of `scripts/data.gd`. The shared view is `s
   (shorter) on the radar. Belts, the nebula and the star can be set as a course too (a waypoint at their middle).
 - **Radar.** Same view, small: a tap on a blip opens the map with that object's card; a tap elsewhere on the
   radar opens the map as before.
+
+## 30. The true Savagers: ships, pilots, the rank rule and bounties (Job U, v1.4q)
+
+**Ships.** The owner's Savagers ship set (one file, 17 objects) was split into separate light copies. The original file
+is kept untouched outside the game for printing; nothing was saved over it.
+
+- **Raider** now flies the Savagers skirmish craft, **Corsair** the Savagers twin gunboat (`assets/ships/enemy/savager_*`).
+  The old `enemy_fleet` and `corsair` models are removed. Raider and corsair are the enemy in every faction's space, so
+  the new models show up wherever those two fly.
+- **Raider Cruiser** (new enemy kind `cruiser`) is the boss ship.
+- **Savagers systems** show the salvaged carrier instead of the fleet carrier (`SpaceSystem.carrier_key`).
+- The other 13 objects of the set (station, frigates, fighters, gunboats, turrets, outpost) are ready as light copies but
+  not placed yet. The owner is making a station for each Savagers system.
+
+**Pilots (Savagers space only).** Six portraits from the owner's Savagers sheet, each clean and battle-damaged
+(`assets/enemy_pilots/sv01..sv06_normal/_damaged.jpg`). The face switches to battle-damaged at half health, same as the
+AX pilots. `Data.ROSTERS["Savagers"]`; `Data.roster(system)` returns a roster only for Savagers systems.
+
+- 01 Thug, 02 Raider (hyena), 05 Lieutenant = **soldiers**: they fly the patrol ships in Savagers space.
+- 03 Thug (mohawk), 04 Ace Pilot, 06 Gannon (gang boss) = **bounties**.
+
+**The rule (for every roster to come: each faction, each star system, each planet).** Six pilots numbered 1 to 6. The
+higher the number, the stronger: hull, wings and shield x (1 + 0.3 per step), gun damage x (1 + 0.18 per step), speed
+x (1 + 0.03 per step), reward x (1 + 0.5 per step), and a bigger ship (`RANK_KIND`: 1-2 skirmish craft, 3-5 gunboat,
+6 cruiser). All numbers are in the Job U block of `data.gd`. A test checks that every step up is tougher and hits harder.
+
+**Bounties.** Every station has a BOUNTIES page (left menu). ACCEPT one target; they hide in a Savagers system
+(03 Plundros, 04 Scavaris, 06 Raptian Major). Destroy the ship: the pilot drifts out in a space suit (stand-in model:
+the future soldier, `assets/cargo/spacesuit_pilot.glb`). TRACTOR them in, dock at any station, and the reward
+(600 cr x number) is paid once. One bounty at a time. `GS.bounty`, `GS.bounties_done` (new fields, empty by default).
+
+Simplest choices made: any station pays; leaving the system before the pickup puts the target back; stations with
+panorama rooms (Liberty Hub) reach BOUNTIES from the left menu of any dealer screen.

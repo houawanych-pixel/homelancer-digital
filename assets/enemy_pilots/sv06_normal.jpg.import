@@ -2,29 +2,26 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dd1sd1r5li014"
-path="res://.godot/imported/corsair_2.jpg-aa83b0376f0e8799abc22e5ac8ea0e20.ctex"
+uid="uid://bu6mrl6sndmbf"
+path="res://.godot/imported/sv06_normal.jpg-40eea8800c7d48394bbf0796a400552d.ctex"
 metadata={
 "vram_texture": false
-}
-generator_parameters={
-"md5": "4c2a81669752dec149e5677ba2e74db3"
 }
 
 [deps]
 
-source_file="res://assets/ships/enemy/corsair_2.jpg"
-dest_files=["res://.godot/imported/corsair_2.jpg-aa83b0376f0e8799abc22e5ac8ea0e20.ctex"]
+source_file="res://assets/enemy_pilots/sv06_normal.jpg"
+dest_files=["res://.godot/imported/sv06_normal.jpg-40eea8800c7d48394bbf0796a400552d.ctex"]
 
 [params]
 
-compress/mode=1
+compress/mode=0
 compress/high_quality=false
-compress/lossy_quality=0.8
+compress/lossy_quality=0.7
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=true
+mipmaps/generate=false
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""

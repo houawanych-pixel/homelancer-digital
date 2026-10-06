@@ -2,29 +2,26 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://drdaafv4kmwri"
-path="res://.godot/imported/enemy_fleet_0.jpg-af7922e70fc8d7c50228985fa7ad09ec.ctex"
+uid="uid://5sedq482wfkl"
+path="res://.godot/imported/sv04_normal.jpg-0f6820779cd8e9a5d2e3455c75b79ad7.ctex"
 metadata={
 "vram_texture": false
-}
-generator_parameters={
-"md5": "7805f18651eb27fa6fe8be34b90bf2fc"
 }
 
 [deps]
 
-source_file="res://assets/ships/enemy/enemy_fleet_0.jpg"
-dest_files=["res://.godot/imported/enemy_fleet_0.jpg-af7922e70fc8d7c50228985fa7ad09ec.ctex"]
+source_file="res://assets/enemy_pilots/sv04_normal.jpg"
+dest_files=["res://.godot/imported/sv04_normal.jpg-0f6820779cd8e9a5d2e3455c75b79ad7.ctex"]
 
 [params]
 
-compress/mode=1
+compress/mode=0
 compress/high_quality=false
-compress/lossy_quality=0.8
+compress/lossy_quality=0.7
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=true
+mipmaps/generate=false
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""

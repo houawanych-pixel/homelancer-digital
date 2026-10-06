@@ -34,6 +34,8 @@ var met: Array = [] # character ids, most recent first
 var mood := {} # id -> friendly | neutral | enraged
 var memory := {} # id -> what that character remembers about you (see scripts/brain.gd)
 var heat_shield := false # EARLY idea: a ship upgrade that survives the sun (nothing sells it yet)
+var bounty := {}             # v1.4q: the bounty you carry: {id, sys, state: "hunt" | "captured"}; empty = none
+var bounties_done: Array = []   # roster ids already paid
 var god_mode := false # only used by the automated route test
 
 func ship() -> Dictionary: return Data.SHIPS[ship_id]
@@ -112,6 +114,33 @@ func restore_full() -> void:
 	shield_charges = Data.MAX_SHIELD_CHARGES
 	energy_cells = Data.MAX_ENERGY_CELLS
 	changed.emit()
+
+## v1.4q bounties: take one at a station's BOUNTY board, capture the pilot, dock anywhere to be paid.
+func accept_bounty(id: String) -> String:
+	var p: Dictionary = Data.roster_pilot(id)
+	if p.is_empty() or p.get("role", "") != "bounty": return "No such bounty."
+	if id in bounties_done: return "That bounty is already paid."
+	if bounty.get("state", "") == "captured": return "Hand in the pilot in your hold first."
+	bounty = {"id": id, "sys": p["sys"], "state": "hunt"}
+	changed.emit()
+	return "Bounty accepted: %s (%s). Last seen in the %s system. Destroy the ship, then TRACTOR the pilot in." % [p["name"], p["type"], Data.SYSTEMS[p["sys"]]["name"]]
+
+func capture_bounty(id: String) -> bool:
+	if bounty.get("id", "") != id or bounty.get("state", "") != "hunt": return false
+	bounty["state"] = "captured"
+	changed.emit()
+	return true
+
+## Called on docking: pays a captured bounty. "" = nothing to pay.
+func claim_bounty() -> String:
+	if bounty.get("state", "") != "captured": return ""
+	var id: String = bounty["id"]
+	var p: Dictionary = Data.roster_pilot(id)
+	var pay: int = Data.bounty_reward(id)
+	bounties_done.append(id)
+	bounty = {}
+	add_credits(pay)
+	return "Bounty paid: %s handed over. +%d cr." % [p.get("name", "the pilot"), pay]
 
 func add_credits(n: int) -> void:
 	credits += n

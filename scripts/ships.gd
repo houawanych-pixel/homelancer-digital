@@ -11,8 +11,12 @@ const GLB := {
 	"bulk_empty": ["res://assets/ships/player/bulk_empty.glb", 19.0, 0.0],
 	"bulk": ["res://assets/ships/player/bulk.glb", 19.0, 0.0],
 	"hauler": ["res://assets/ships/player/hauler.glb", 15.0, 0.0],
-	"enemy": ["res://assets/ships/enemy/enemy_fleet.glb", 10.0, 0.0],
-	"enemy2": ["res://assets/ships/enemy/corsair.glb", 13.0, 0.0],
+	# v1.4q: the owner's true Savagers set (split from hl_SAVAGERS_ship_set) replaces the old raider and corsair models
+	"enemy": ["res://assets/ships/enemy/savager_skirmish.glb", Data.SAVAGER_SKIRMISH_LEN, Data.SAVAGER_SKIRMISH_YAW],
+	"enemy2": ["res://assets/ships/enemy/savager_gunboat.glb", Data.SAVAGER_GUNBOAT_LEN, Data.SAVAGER_GUNBOAT_YAW],
+	"savager_cruiser": ["res://assets/ships/enemy/savager_cruiser.glb", Data.SAVAGER_CRUISER_LEN, Data.SAVAGER_CRUISER_YAW],
+	"pilot_pod": ["res://assets/cargo/spacesuit_pilot.glb", 4.0, 0.0],   # stand-in: the soldier in the space suit
+	"savager_carrier": ["res://assets/ships/enemy/savager_carrier.glb", Data.SAVAGER_CARRIER_LEN, Data.SAVAGER_CARRIER_YAW],
 	"fleet": ["res://assets/ships/civilian/cargo_ship.glb", 16.0, 0.0],
 	"fleet2": ["res://assets/ships/civilian/freighter.glb", 20.0, 0.0],
 	"fleet3": ["res://assets/ships/civilian/tanker.glb", 34.0, 0.0],

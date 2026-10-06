@@ -2,25 +2,25 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cah3550recdqq"
-path="res://.godot/imported/enemy_fleet_2.jpg-f990cfa57b2dea6179df6a53e962af6b.ctex"
+uid="uid://b0bp7x76cws2g"
+path="res://.godot/imported/savager_cruiser_1.jpg-262d9ac6ec3a182517124094d492072c.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "e1f0c12bdce162d1edbe512ebb1248a3"
+"md5": "edbefaefd33a6e25a9af2cc694beed59"
 }
 
 [deps]
 
-source_file="res://assets/ships/enemy/enemy_fleet_2.jpg"
-dest_files=["res://.godot/imported/enemy_fleet_2.jpg-f990cfa57b2dea6179df6a53e962af6b.ctex"]
+source_file="res://assets/ships/enemy/savager_cruiser_1.jpg"
+dest_files=["res://.godot/imported/savager_cruiser_1.jpg-262d9ac6ec3a182517124094d492072c.ctex"]
 
 [params]
 
-compress/mode=1
+compress/mode=0
 compress/high_quality=false
-compress/lossy_quality=0.8
+compress/lossy_quality=0.7
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0

@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://drbbp18skg1kk"
-path="res://.godot/imported/enemy_fleet.glb-7e0e8ec32ea657fecd3686f142ad42f2.scn"
+uid="uid://becshhuoges0e"
+path="res://.godot/imported/savager_skirmish.glb-c42ca47a01c8047ef6580a8d8951f9e9.scn"
 
 [deps]
 
-source_file="res://assets/ships/enemy/enemy_fleet.glb"
-dest_files=["res://.godot/imported/enemy_fleet.glb-7e0e8ec32ea657fecd3686f142ad42f2.scn"]
+source_file="res://assets/ships/enemy/savager_skirmish.glb"
+dest_files=["res://.godot/imported/savager_skirmish.glb-c42ca47a01c8047ef6580a8d8951f9e9.scn"]
 
 [params]
 

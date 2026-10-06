@@ -182,6 +182,7 @@ func setup(id: String, arrival: String) -> void:
 	_build_player()
 	_prof("player ship")
 	for p in sys["patrols"]: _spawn_group(p, 2)
+	spawn_bounty()
 	_prof("patrols")
 	_build_traffic()
 	_build_carrier()
@@ -1184,16 +1185,85 @@ func _spawn_group(center: Vector3, count: int) -> Array:
 	for i in count:
 		# the last ship of a pair or bigger group is sometimes an assault mech
 		var kind: String = sys["enemy"]
+		var soldier: Dictionary = _roster_soldier()   # v1.4q: this space has a roster (Savagers): its soldiers fly the patrols
+		if not soldier.is_empty(): kind = Data.RANK_KIND.get(int(soldier["rank"]), kind)
 		if count >= 2 and i == count - 1 and _rng.randf() < 0.5 and Packs.is_ready("mechs"): kind = "mech"
 		var e := spawn_unit(kind, center + Vector3(_rng.randf_range(-60, 60), _rng.randf_range(-20, 20), _rng.randf_range(-60, 60)), center)
 		e["group"] = _group_serial
 		# the first ship flies under a NAMED squad leader (Scar Jackal, Iron Revenant...); everyone else is a generic
 		# pilot in that leader's wing
-		if i == 0 and e["node"].has_meta("pilot"): leader = e["node"].get_meta("pilot")["name"]
+		if not soldier.is_empty(): assign_roster(e, soldier)
+		elif i == 0 and e["node"].has_meta("pilot"): leader = e["node"].get_meta("pilot")["name"]
 		elif i > 0: _make_generic(e, leader)
 		group.append(e)
 	if busy and group.size() > 1: _chatter(group[-1], "reinforcements", true)
 	return group
+
+## The next soldier of this system's roster (weakest most often). {} = this space has no roster.
+func _roster_soldier() -> Dictionary:
+	var soldiers: Array = Data.roster(sys).filter(func(p): return p["role"] == "soldier")
+	if soldiers.is_empty(): return {}
+	var k: int = Data.SOLDIER_PATTERN[_enemy_serial % Data.SOLDIER_PATTERN.size()]
+	return Data.roster_pilot(soldiers[mini(k, soldiers.size() - 1)]["id"])
+
+## Put a roster pilot in a unit: their face (normal / damaged) on the radio, and the rank rule on the ship.
+func assign_roster(e: Dictionary, p: Dictionary) -> void:
+	var g: Dictionary = p.duplicate()
+	g["generic"] = true
+	e["pilot"] = g
+	e["pstate"] = "normal"
+	e["node"].set_meta("pilot", g)
+	apply_rank(e, int(p["rank"]))
+
+## THE RULE: the higher the number, the stronger the ship (Data.RANK_*).
+func apply_rank(e: Dictionary, rank: int) -> void:
+	var k: float = Data.rank_mult(rank, Data.RANK_HULL_STEP)
+	for key in ["hp", "max", "sh", "sh_max", "l", "r", "side_max"]: e[key] = float(e[key]) * k
+	var d: Dictionary = (e["def"] as Dictionary).duplicate()
+	d["damage"] = float(d["damage"]) * Data.rank_mult(rank, Data.RANK_DAMAGE_STEP)
+	d["speed"] = float(d["speed"]) * Data.rank_mult(rank, Data.RANK_SPEED_STEP)
+	d["reward"] = int(float(d["reward"]) * Data.rank_mult(rank, Data.RANK_REWARD_STEP))
+	e["def"] = d
+	e["rank"] = rank
+
+## The bounty you carry hides in this system: put the target out by the first patrol point. {} = not here.
+func spawn_bounty() -> Dictionary:
+	if GS.bounty.get("state", "") != "hunt" or GS.bounty.get("sys", "") != sys_id: return {}
+	for o in enemies:
+		if o.get("bounty", "") == GS.bounty["id"]: return o
+	var p: Dictionary = Data.roster_pilot(GS.bounty["id"])
+	if p.is_empty(): return {}
+	var at: Vector3 = (sys["patrols"][0] as Vector3) + Vector3(0, 70, 0)
+	var e := spawn_unit(Data.RANK_KIND.get(int(p["rank"]), sys["enemy"]), at, at)
+	assign_roster(e, p)
+	e["bounty"] = p["id"]
+	e["node"].name = "%s (bounty)" % p["name"]
+	return e
+
+## A bounty ship is gone: its pilot drifts out in a space suit (stand-in model) for the tractor beam.
+func _drop_pilot(at: Vector3, id: String) -> void:
+	var pod := Node3D.new()
+	pod.name = "Pilot"
+	if ShipFactory.has_real_model("pilot_pod"): pod.add_child(ShipFactory.build("pilot_pod"))
+	else:
+		var mi := MeshInstance3D.new()
+		var cm := CapsuleMesh.new()
+		cm.radius = 0.8
+		cm.height = 3.6
+		mi.mesh = cm
+		mi.material_override = ShipFactory.mat(Color(0.8, 0.82, 0.86), false, 0.2)
+		pod.add_child(mi)
+	var glow := MeshInstance3D.new()
+	var gm := SphereMesh.new()
+	gm.radius = 3.2
+	gm.height = 6.4
+	glow.mesh = gm
+	glow.material_override = _glow_mat(Color(1.0, 0.3, 0.25))
+	pod.add_child(glow)
+	add_child(pod)
+	pod.global_position = at
+	loot.append({"node": pod, "vel": Vector3(_rng.randfn(0, 1), 0.4, _rng.randfn(0, 1)).normalized() * 6.0, "value": 0, "life": Data.PILOT_POD_LIFE, "bounty": id})
+	message.emit("%s bailed out. TRACTOR the pilot in." % Data.roster_pilot(id).get("name", "The pilot"))
 
 ## Give a unit a generic pilot (AX-01..06) flying under the named leader. Keeps NORMAL until its health falls to
 ## GENERIC_HURT, then DAMAGED for the rest of the encounter.
@@ -1252,7 +1322,7 @@ func spawn_unit(kind: String, pos: Vector3, home: Vector3) -> Dictionary:
 	node.add_child(n)
 	node.position = pos
 	node.set_meta("kind", "enemy")
-	node.set_meta("radius", 7.0)
+	node.set_meta("radius", float(e.get("radius", 7.0)))
 	var pilots: Array = Data.PILOTS.get(sys["enemy"], [])
 	if not pilots.is_empty() and not is_mech: node.set_meta("pilot", pilots[_enemy_serial % pilots.size()])
 	add_child(node, true)
@@ -1285,10 +1355,16 @@ func _build_traffic() -> void:
 			add_child(node)
 			traffic.append({"node": node, "t": float(k) / 3.0, "dir": 1.0 if k != 1 else -1.0})
 
+## v1.4q: Savagers space flies the Savagers' own salvaged carrier; everyone else keeps the fleet carrier.
+static func carrier_key(system: Dictionary) -> String:
+	return "savager_carrier" if str(system.get("faction", "")) == "Savagers" and ShipFactory.has_real_model("savager_carrier") else "carrier"
+
 func _build_carrier() -> void:
 	carrier = Node3D.new()
-	carrier.name = "%s Carrier" % ("Unity" if sys_id == "solara" else "Frontier")
-	carrier.add_child(ShipFactory.build("carrier"))
+	var savage: bool = carrier_key(sys) == "savager_carrier"
+	carrier.name = "%s Carrier" % ("Savagers" if savage else ("Unity" if sys_id == "solara" else "Frontier"))
+	carrier.set_meta("model_key", carrier_key(sys))
+	carrier.add_child(ShipFactory.build(carrier_key(sys)))
 	carrier.set_meta("kind", "traffic")
 	carrier.set_meta("radius", 60.0)
 	add_child(carrier)
@@ -2588,6 +2664,7 @@ func _destroy_unit(e: Dictionary) -> void:
 	var reward: int = e["def"]["reward"]
 	_drop_loot(n.global_position, reward)
 	enemy_killed.emit(reward, n.name)
+	if e.has("bounty"): _drop_pilot(n.global_position, e["bounty"])   # (after the kill line, so "TRACTOR the pilot in" is what stays on screen)
 	if target == n: target = null
 	n.set_meta("kind", "wreck")
 	var tw := n.create_tween()
@@ -3121,7 +3198,7 @@ func tractor() -> String:
 	var inrange := 0
 	for l in loot:
 		if (l["node"] as Node3D).global_position.distance_to(player.global_position) < Data.LOOT_RANGE: inrange += 1
-	if inrange == 0: return "Tractor beam: no cargo in range."
+	if inrange == 0: return "Tractor beam: nothing in range."
 	tractor_t = Data.TRACTOR_TIME
 	return "Tractor beam on — pulling in %d pod%s." % [inrange, "" if inrange == 1 else "s"]
 
@@ -3142,7 +3219,14 @@ func _update_loot(dt: float) -> void:
 		n.global_position += l["vel"] * dt
 		n.rotate_y(dt * 0.9)
 		n.rotate_x(dt * 0.5)
-		if d < 14.0:
+		if d < 14.0 and l.has("bounty"):
+			if GS.capture_bounty(l["bounty"]):
+				_popup(n.global_position, "PILOT CAPTURED", Color(1.0, 0.5, 0.4))
+				message.emit("%s is in your hold. Dock at any station for the %d cr bounty." % [Data.roster_pilot(l["bounty"]).get("name", "The pilot"), Data.bounty_reward(l["bounty"])])
+			Sfx.play("pickup", -6.0)
+			n.queue_free()
+			loot.remove_at(i)
+		elif d < 14.0:
 			GS.add_credits(int(l["value"]))
 			_popup(n.global_position, "+%d cr" % int(l["value"]), Color(1.0, 0.85, 0.35))
 			Sfx.play("pickup", -6.0)

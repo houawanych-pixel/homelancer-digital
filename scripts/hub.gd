@@ -168,12 +168,12 @@ func show_screen(s: String) -> void:
 		queue_redraw()
 		return
 	var sysname: String = Data.SYSTEMS[GS.system_id]["name"]
-	header.text = base["name"].to_upper() if s == "hub" else {"equipment": "EQUIPMENT DEALER", "ships": "SHIP DEALER", "repair": "REPAIR & RESUPPLY", "surface": "PLANET DESTINATIONS"}[s]
+	header.text = base["name"].to_upper() if s == "hub" else {"equipment": "EQUIPMENT DEALER", "ships": "SHIP DEALER", "repair": "REPAIR & RESUPPLY", "bounty": "BOUNTY BOARD", "surface": "PLANET DESTINATIONS"}[s]
 	subheader.text = "%s  ·  %s SYSTEM  ·  %s" % ["ORBITAL STATION" if kind == "station" else "PLANET SURFACE", sysname.to_upper(), base["name"]]
 	for c in left.get_children(): c.queue_free()
 	for c in content.get_children(): c.queue_free()
 	preview_vp = null
-	var menu := [["hub", "STATION" if has_rooms() else "HUB"], ["equipment", "EQUIPMENT"], ["ships", "SHIP DEALER"], ["repair", "REPAIR / RESUPPLY"], ["map", "NAVIGATION"], ["launch", "LAUNCH"]]
+	var menu := [["hub", "STATION" if has_rooms() else "HUB"], ["equipment", "EQUIPMENT"], ["ships", "SHIP DEALER"], ["repair", "REPAIR / RESUPPLY"], ["bounty", "BOUNTIES"], ["map", "NAVIGATION"], ["launch", "LAUNCH"]]
 	if _surface_planet() != "": menu.insert(4, ["surface", "SURFACE TRAVEL"])
 	for m in menu:
 		var b := Button.new()
@@ -194,6 +194,7 @@ func show_screen(s: String) -> void:
 			Packs.request("bulk")
 			_ships_page()
 		"repair": _repair_page()
+		"bounty": _bounty_page()
 		"surface": _surface_page()
 	queue_redraw()
 
@@ -586,6 +587,57 @@ func _insp_camera() -> void:
 	if not is_instance_valid(insp_cam): return
 	insp_cam.position = Vector3(sin(insp_yaw) * cos(insp_pitch), sin(insp_pitch), cos(insp_yaw) * cos(insp_pitch)) * insp_dist
 	insp_cam.look_at(Vector3.ZERO, Vector3.UP)
+
+## v1.4q: the bounty board. One row per named target (weakest first): face, where they hide, the reward.
+func _bounty_page() -> void:
+	var v := _page_box()
+	var l := _label(19, Color(1, 1, 1))
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.text = "Pick a target, fly to their system and destroy the ship. The pilot bails out: TRACTOR them in, then dock at any station to be paid. The higher the number, the harder the fight."
+	v.add_child(l)
+	for p in Data.bounties():
+		var id: String = p["id"]
+		var row := HBoxContainer.new()
+		row.name = "Row_" + id
+		row.add_theme_constant_override("separation", 14)
+		var pic := TextureRect.new()
+		pic.custom_minimum_size = Vector2(Data.BOUNTY_FACE_PX, Data.BOUNTY_FACE_PX)
+		pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		var path := "res://assets/enemy_pilots/%s_normal.jpg" % id
+		if ResourceLoader.exists(path): pic.texture = load(path)
+		else:   # picture slot not filled yet: a plain plate in the faction colour
+			var ph := GradientTexture2D.new()
+			ph.gradient = Gradient.new()
+			ph.gradient.colors = PackedColorArray([Color(0.35, 0.1, 0.08), Color(0.12, 0.05, 0.05)])
+			pic.texture = ph
+		row.add_child(pic)
+		var t := _label(18, CYAN)
+		t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		t.text = "%02d  %s  ·  %s  ·  %s\nLast seen: %s system   ·   Flies a %s\nReward %d cr" % [int(p["rank"]), str(p["name"]).to_upper(), p["type"], p["faction"],
+			Data.SYSTEMS[p["sys"]]["name"], Data.ENEMIES[Data.RANK_KIND[int(p["rank"])]]["name"], Data.bounty_reward(id)]
+		row.add_child(t)
+		var b := Button.new()
+		b.name = "Bounty_" + id
+		b.custom_minimum_size = Vector2(230, 60)
+		var mine: bool = GS.bounty.get("id", "") == id
+		if id in GS.bounties_done:
+			b.text = "PAID"
+			b.disabled = true
+		elif mine and GS.bounty["state"] == "captured":
+			b.text = "IN YOUR HOLD"
+			b.disabled = true
+		elif mine:
+			b.text = "HUNTING"
+			b.disabled = true
+			b.add_theme_color_override("font_disabled_color", GOLD)
+		else:
+			b.text = "ACCEPT"
+			b.disabled = GS.bounty.get("state", "") == "captured"
+			b.pressed.connect(func(): status.text = GS.accept_bounty(id); show_screen("bounty"))
+		row.add_child(b)
+		v.add_child(row)
 
 func _repair_page() -> void:
 	var v := _page_box()

@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.4p"
+const VERSION := "v1.4q"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -347,10 +347,71 @@ const LOOT_RANGE := 700.0
 const TRACTOR_TIME := 4.0
 const REPAIR_AMOUNT := 0.4 # fraction of max hull
 
+# ---------------------------------------------------------------- Job U (v1.4q): the true Savagers ships
+# length in metres and the turn (degrees) that points each model's nose at -Z like every other ship
+const SAVAGER_SKIRMISH_LEN := 11.0
+const SAVAGER_SKIRMISH_YAW := 170.0
+const SAVAGER_GUNBOAT_LEN := 13.0
+const SAVAGER_GUNBOAT_YAW := 180.0
+const SAVAGER_CARRIER_LEN := 130.0
+const SAVAGER_CARRIER_YAW := 180.0
+const SAVAGER_CRUISER_LEN := 40.0
+const SAVAGER_CRUISER_YAW := 180.0
+# Faction rosters. THE RULE for every roster (each faction, later each star system or planet): six pilots numbered 1..6,
+# and the higher the number the stronger the pilot: tougher ship, harder guns, a little faster, bigger reward.
+# role "soldier" = flies the patrol ships of that faction's space; role "bounty" = a named target picked at a station's
+# BOUNTY board (destroy the ship, tractor the pilot in, dock anywhere for the reward). "sys" = where a bounty hides.
+# Portraits: assets/enemy_pilots/<id>_normal.jpg and <id>_damaged.jpg.
+const RANK_HULL_STEP := 0.3      # hull, wings and shield: x (1 + step x (rank - 1))
+const RANK_DAMAGE_STEP := 0.18   # gun damage
+const RANK_SPEED_STEP := 0.03    # top speed
+const RANK_REWARD_STEP := 0.5    # kill reward
+const BOUNTY_REWARD := 600       # paid on return: this x rank
+const RANK_KIND := {1: "raider", 2: "raider", 3: "corsair", 4: "corsair", 5: "corsair", 6: "cruiser"}   # the ship each rank flies
+const SOLDIER_PATTERN := [0, 0, 1, 0, 1, 2]   # which soldier (weakest first) each new patrol ship gets, in turn
+const BOUNTY_FACE_PX := 96        # portrait size on the bounty board
+const PILOT_POD_LIFE := 100000.0  # a captured-pilot pod never times out
+const ROSTERS := {
+	"Savagers": {"leader": "Gannon", "pilots": [
+		{"id": "sv01", "rank": 1, "unit": "SV-01", "name": "Thug", "type": "Grunt", "role": "soldier", "voice": 0.8, "female": false, "hurt": "...Still breathing..."},
+		{"id": "sv02", "rank": 2, "unit": "SV-02", "name": "Raider", "type": "Hyena Outlaw", "role": "soldier", "voice": 0.7, "female": false, "hurt": "...I'll chew through you..."},
+		{"id": "sv03", "rank": 3, "unit": "SV-03", "name": "Thug", "type": "Mohawk Outlaw", "role": "bounty", "sys": "plundros", "voice": 1.15, "female": true, "hurt": "...That all you got?.."},
+		{"id": "sv04", "rank": 4, "unit": "SV-04", "name": "Ace Pilot", "type": "Specialist", "role": "bounty", "sys": "scavaris", "voice": 1.25, "female": true, "hurt": "...Not finished..."},
+		{"id": "sv05", "rank": 5, "unit": "SV-05", "name": "Lieutenant", "type": "Enforcer", "role": "soldier", "voice": 0.6, "female": false, "hurt": "...Hold the line, dogs..."},
+		{"id": "sv06", "rank": 6, "unit": "SV-06", "name": "Gannon", "type": "Gang Boss", "role": "bounty", "sys": "raptian_major", "voice": 0.5, "female": false, "hurt": "...Space belongs to the Savages..."},
+	]},
+}
+
+## The roster that flies in this system: its faction's (a per-system roster can be added here later). Empty = none yet.
+static func roster(system: Dictionary) -> Array:
+	return ROSTERS.get(str(system.get("faction", "")), {}).get("pilots", [])
+
+static func roster_pilot(id: String) -> Dictionary:
+	for f in ROSTERS:
+		for p in ROSTERS[f]["pilots"]:
+			if p["id"] == id:
+				var d: Dictionary = (p as Dictionary).duplicate()
+				d["faction"] = f
+				d["leader"] = ROSTERS[f]["leader"]
+				return d
+	return {}
+
+static func bounties() -> Array:
+	var out: Array = []
+	for f in ROSTERS:
+		for p in ROSTERS[f]["pilots"]:
+			if p["role"] == "bounty": out.append(roster_pilot(p["id"]))
+	return out
+
+static func rank_mult(rank: int, step: float) -> float: return 1.0 + step * float(maxi(1, rank) - 1)
+static func bounty_reward(id: String) -> int: return BOUNTY_REWARD * int(roster_pilot(id).get("rank", 1))
+
 # ---------------------------------------------------------------- enemies
 const ENEMIES := {
 	"raider": {"name": "Raider", "hull": 60.0, "shield": 30.0, "speed": 44.0, "turn": 1.3, "damage": 5.0, "rate": 1.6, "reward": 150},
 	"corsair": {"name": "Corsair", "model": "enemy2", "hull": 90.0, "shield": 50.0, "speed": 48.0, "turn": 1.4, "damage": 6.0, "rate": 1.9, "reward": 220, "missiles": true},
+	# v1.4q: the Savagers raider cruiser, flown by a rank 6 boss
+	"cruiser": {"name": "Raider Cruiser", "model": "savager_cruiser", "radius": 16.0, "hull": 180.0, "shield": 80.0, "speed": 34.0, "turn": 0.8, "damage": 7.0, "rate": 2.2, "reward": 500, "missiles": true},
 	# assault mech: two arm guns + a chest cannon; flies with the raiders/corsairs
 	"mech": {"name": "Assault Mech", "hull": 120.0, "shield": 40.0, "speed": 40.0, "turn": 1.2, "damage": 6.0, "rate": 1.4, "reward": 280, "model": "mech_tan", "mech": true, "missiles": true},
 	# Cybermorph (v1.4k): Lockon. Placed in no system yet: no concept sheet or model (the mech body is a stand-in for tests).
