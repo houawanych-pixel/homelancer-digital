@@ -19,7 +19,7 @@ const PACKS := {
 	"lancer": {"folders": ["res://assets/ships/player"], "match": "lancer", "probe": "res://assets/ships/player/lancer.glb"},
 	"enemies": {"folders": ["res://assets/enemy_pilots"], "probe": "res://assets/enemy_pilots/ax01_normal.jpg"},
 	"city": {"folders": ["res://assets/city"], "probe": "res://assets/city/capital_normal.png"},
-	"intro": {"folders": ["res://assets/intro"], "probe": "res://assets/intro/title_collage.jpg"},
+	"intro": {"folders": ["res://assets/intro"], "probe": "res://assets/intro/title_movie.ogv"},
 	# v1.4s: one static interface background per faction; only the one for the station you dock at is fetched
 	"hubbg_unity": {"folders": ["res://assets/hub_bg"], "match": "unity.", "probe": "res://assets/hub_bg/unity.jpg"},
 	"hubbg_elyza": {"folders": ["res://assets/hub_bg"], "match": "elyza.", "probe": "res://assets/hub_bg/elyza.jpg"},

@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.4z"
+const VERSION := "v1.5a"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -539,6 +539,31 @@ static func roster_pilot(id: String) -> Dictionary:
 				d["portrait_damaged"] = "res://assets/enemy_pilots/%s_damaged.jpg" % p["id"]
 				return d
 	return {}
+
+## v1.5a: the shortest way from one system to another through the gates, as a list of system ids (both ends in it).
+## [] = no way. Every gate works both ways, so each system's own gate list is enough.
+static func gate_route(from: String, to: String) -> Array:
+	if not SYSTEMS.has(from) or not SYSTEMS.has(to): return []
+	if from == to: return [from]
+	var key := from + ">" + to
+	if _route_cache.has(key): return _route_cache[key]   # (asked every frame by the HUD while a mission is on)
+	var prev := {from: ""}
+	var queue: Array = [from]
+	while not queue.is_empty():
+		var cur: String = queue.pop_front()
+		for g in SYSTEMS[cur].get("gates", []):
+			var nx: String = str(g.get("to", ""))
+			if nx == "" or prev.has(nx) or not SYSTEMS.has(nx): continue
+			prev[nx] = cur
+			if nx == to:
+				var out: Array = [to]
+				while out[0] != from: out.push_front(prev[out[0]])
+				_route_cache[key] = out
+				return out
+			queue.append(nx)
+	_route_cache[key] = []
+	return []
+static var _route_cache := {}
 
 static func bounties() -> Array:
 	var out: Array = []

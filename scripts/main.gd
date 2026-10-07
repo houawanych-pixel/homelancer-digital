@@ -96,6 +96,7 @@ func _build_title() -> void:
 
 func start_game() -> void:
 	if state != "title": return
+	if OS.has_feature("web"): JavaScriptBridge.eval("window.__hlFullscreen && window.__hlFullscreen()", true)   # v1.5a: full screen (asked from the START tap)
 	title.visible = false
 	title.release()
 	state = "launching"
@@ -215,6 +216,8 @@ func _objective() -> String:
 	if space.surface_mode:
 		var has_port: bool = space.station.get_meta("kind", "") == "station"
 		return "PLANET: %s  ·  climb above %d m for orbit" % [("dock at " + space.station.name) if has_port else "fly on — the planet wraps around", int(Surface.CEILING)]
+	var mw: Dictionary = space.mission_waypoint()   # v1.5a: a mission you carry comes first, with where to go next
+	if not mw.is_empty(): return "MISSION: %s" % mw["line"]
 	var enemy_name: String = Data.ENEMIES[space.sys["enemy"]]["name"]
 	var st: String = space.sys["station"]["name"]
 	var pl: String = space.sys["planet"]["name"]
@@ -309,6 +312,11 @@ func _on_hud(id: String) -> void:
 			elif space.autopilot != null:
 				space.autopilot = null
 				hud.flash_message("Autopilot off.")
+			elif not space.mission_waypoint().is_empty():   # v1.5a: nothing picked: fly the mission waypoint
+				var mw: Dictionary = space.mission_waypoint()
+				var mn: Node3D = mw["node"]
+				space.autopilot = mn if mn.get_meta("kind", "") != "enemy" else space.waypoint_at(mn.global_position)   # (a hostile is flown TO, not docked with)
+				hud.flash_message("Autopilot engaged: %s" % mw["title"])
 			else:
 				hud.flash_message("Select a station, planet or gate with TARGET or MAP first.")
 		"nav": open_map()
@@ -430,7 +438,7 @@ func _comms_line() -> String:
 	if space.in_nebula > 0.0: return "[serious]We're losing your signal in the nebula. Sensors will be short-ranged in there."
 	if space.in_belt: return "[serious]Rocks everywhere out there. Throttle down and watch your hull."
 	if GS.hull < GS.max_hull() * 0.5: return "[sad]You're leaking plasma. Dock with us for free repairs."
-	var o := _objective().replace("OBJECTIVE: ", "")
+	var o := _objective().replace("OBJECTIVE: ", "").replace("MISSION: ", "")
 	return "[normal]Traffic control here. Recommended: %s." % o.to_lower()
 
 func open_map() -> void:
@@ -573,6 +581,8 @@ func launch() -> void:
 	space.place_player("planet" if docked_node_kind == "planet" else "station")
 	space.spawn_bounty()   # v1.4q: a bounty just accepted for this very system
 	_launch_sequence(where)
+	var mw: Dictionary = space.mission_waypoint()
+	if not mw.is_empty(): hud.flash_message("Waypoint set: %s. GO TO flies it." % mw["title"])
 
 func _launch_sequence(where: String) -> void:
 	fx.caption = "LAUNCHING"

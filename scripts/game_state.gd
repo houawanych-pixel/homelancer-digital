@@ -125,7 +125,7 @@ func accept_bounty(id: String) -> String:
 	if bounty.get("state", "") == "captured": return "Hand in the pilot in your hold first."
 	bounty = {"id": id, "sys": p["sys"], "state": "hunt"}
 	changed.emit()
-	return "Bounty accepted: %s (%s). Last seen in the %s system. Destroy the ship, then TRACTOR the pilot in." % [p["name"], p["type"], Data.SYSTEMS[p["sys"]]["name"]]
+	return "Bounty accepted: %s (%s). Last seen in the %s system. Destroy the ship, then TRACTOR the pilot in. A mission waypoint is set: follow the gold marker." % [p["name"], p["type"], Data.SYSTEMS[p["sys"]]["name"]]
 
 func capture_bounty(id: String) -> bool:
 	if bounty.get("id", "") != id or bounty.get("state", "") != "hunt": return false

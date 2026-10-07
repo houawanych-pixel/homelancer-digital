@@ -889,3 +889,22 @@ both sets are saved in the asset library and not placed.
   Kaijurai: 01 and 02 dart, 03 and 04 heavy fighter, 05 and 06 gunship.
 - Two Job AA checks counted "8 rosters" and "three factions fly"; they now count the eight main factions only. The
   Job AC patrol check now accepts the faction's own roster people as the pilots.
+
+## 40. Full screen, mission waypoints, title movie (Job AE, v1.5a)
+
+- Full screen: the web page asks the browser for full screen (and landscape lock) on the first tap and again on
+  START (`window.__hlFullscreen` in `web_shell.html`, called from `main.start_game`). A browser only allows this
+  after a tap, never on page load. If the player leaves full screen on purpose, taps no longer force it back; START
+  asks again. Browsers that refuse (some in-app browsers, iPhone Safari) simply stay as they were.
+- Mission waypoint: accepting a mission sets a waypoint by itself. Today the only missions are bounties.
+  `space.mission_waypoint()` gives the next thing to fly to: the jump gate on the shortest route
+  (`Data.gate_route`, breadth-first over the gates) while the target is in another system, then the target ship,
+  then its pilot pod, then the station to hand the pilot in. The HUD shows it as a gold MISSION diamond with the
+  distance (an arrow on the screen edge when it is off screen), the waypoint box names it, the objective line says
+  "MISSION: ...", and GO TO flies it when nothing else is picked. No save fields were added.
+- Title movie: the panning collage is gone (picture kept in `art/archive_title/`, outside the game). The start
+  screen plays `assets/intro/title_movie.ogv` on repeat (640x352, 20 pictures a second, 1 min 42 s, about 9.5 MB,
+  in the intro pack, so START never waits for it). It plays picture only; the main theme stays the sound.
+- Smaller main download: the textures of the seven Kaijurai / Phenom ships (v1.4y) were imported uncompressed;
+  they are now lossy (0.8), which takes about 5 MB off the core.
+- Tests: the start-screen check now checks the movie; five new Job AE checks (`HL_AE=1`).

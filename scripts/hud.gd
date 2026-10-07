@@ -722,6 +722,18 @@ func _draw() -> void:
 		if sp != null and Rect2(Vector2(col_w, 0), Vector2(S.x - col_w * 2, S.y)).has_point(sp):
 			draw_arc(sp, 14, 0, TAU, 4, Color(col, 0.85), 2.0)
 			_text(sp + Vector2(20, 6), "%s  %s" % [n.name, _dist(space.distance_to(n))], 14, Color(col, 0.95))
+	# v1.5a: the mission waypoint: a gold marker with what it is and how far, and an arrow at the screen edge when it is out of view
+	var mw: Dictionary = space.mission_waypoint()
+	if not mw.is_empty():
+		var mnode: Node3D = mw["node"]
+		var view := Rect2(Vector2(col_w + 30, 40), Vector2(S.x - col_w * 2 - 60, S.y - 80))
+		var msp = _screen(mnode.global_position)
+		if msp != null and view.has_point(msp):
+			draw_colored_polygon(PackedVector2Array([msp + Vector2(0, -14), msp + Vector2(12, 0), msp + Vector2(0, 14), msp + Vector2(-12, 0)]), Color(GOLD, 0.25))
+			draw_polyline(PackedVector2Array([msp + Vector2(0, -14), msp + Vector2(12, 0), msp + Vector2(0, 14), msp + Vector2(-12, 0), msp + Vector2(0, -14)]), GOLD, 2.5)
+			_text(msp + Vector2(18, -8), "MISSION  " + _dist(space.distance_to(mnode)), 14, GOLD)
+		else:
+			_edge_arrow(mnode.global_position, GOLD, view, true)
 	if is_instance_valid(space.waypoint):
 		var wsp = _screen(space.waypoint.global_position)
 		if wsp != null:
@@ -1095,12 +1107,18 @@ func _radar(rc: Vector2, rr: float, label: bool) -> void:
 func _way_box(way_r: Rect2) -> void:
 	_box(way_r, PANEL, EDGE, 10, 2)
 	var wp: Node3D = space.autopilot if space.autopilot != null else space.target
+	var mission := false   # v1.5a: nothing picked: the box shows the mission waypoint
+	if not (wp and is_instance_valid(wp)):
+		var mwb: Dictionary = space.mission_waypoint()
+		if not mwb.is_empty():
+			wp = mwb["node"]
+			mission = true
 	var dcol := GOLD
 	if wp and is_instance_valid(wp):
 		if wp.get_meta("kind", "") == "enemy": dcol = RED
 		var dia := way_r.position + Vector2(20, 24)
 		draw_colored_polygon(PackedVector2Array([dia + Vector2(0, -9), dia + Vector2(9, 0), dia + Vector2(0, 9), dia + Vector2(-9, 0)]), dcol)
-		_text(way_r.position + Vector2(36, 22), "WAYPOINT" if space.autopilot != null else "TARGET", 12, CYAN_HI)
+		_text(way_r.position + Vector2(36, 22), "MISSION" if mission else ("WAYPOINT" if space.autopilot != null else "TARGET"), 12, CYAN_HI)
 		_text(way_r.position + Vector2(36, 44), _dist(space.distance_to(wp)), 20, WHITE)
 		_text(way_r.position + Vector2(12, 62), wp.name, 11, dcol, HORIZONTAL_ALIGNMENT_LEFT, way_r.size.x - 20)
 		var th: float = space.target_health()

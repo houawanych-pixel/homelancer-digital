@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#f6f9fc">
-<meta name="hl-version" content="v1.4z">
-<title>Homelancer Digital v1.4z</title>
+<meta name="hl-version" content="v1.5a">
+<title>Homelancer Digital v1.5a</title>
 <style>
 *{box-sizing:border-box}
 html,body{margin:0;width:100%;height:100%;background:#f6f9fc;color:#0e2f5a;font:16px system-ui,sans-serif;overflow:hidden;touch-action:none}
@@ -154,6 +154,25 @@ $GODOT_HEAD_INCLUDE
     }));
   }).catch((err) => fail((err && err.message ? err.message : String(err)) + ' — please reload in Chrome.'));
   document.addEventListener('contextmenu', (e) => e.preventDefault());
+  // v1.5a FULL SCREEN: a phone browser (or the small browser inside another app) keeps its address bar and the
+  // system buttons on screen. A page may only ask for full screen from a tap, so the first tap on the game asks,
+  // and holds the phone in landscape. If the player leaves full screen on purpose, it is not forced back on them;
+  // the next START (window.__hlFullscreen(), called by the game) asks again.
+  let fsLeft = false;
+  function goFull() {
+    const el = document.documentElement;
+    if (document.fullscreenElement || document.webkitFullscreenElement) return;
+    const rq = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!rq) return;
+    try {
+      const p = rq.call(el, { navigationUI: 'hide' });
+      const lock = () => { try { screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {}); } catch (e) {} };
+      if (p && p.then) p.then(lock).catch(() => {}); else lock();
+    } catch (e) {}
+  }
+  window.__hlFullscreen = () => { fsLeft = false; goFull(); };
+  document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) fsLeft = true; });
+  for (const ev of ['pointerup', 'touchend', 'click']) $('canvas').addEventListener(ev, () => { if (!fsLeft) goFull(); }, { passive: true });
 })();
 </script>
 </body>

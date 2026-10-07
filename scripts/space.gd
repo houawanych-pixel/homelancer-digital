@@ -3768,6 +3768,35 @@ func _apply_sky(c: Dictionary, _k: float) -> void:
 
 var _corners: Array = []
 var _prepared := {}
+## v1.5a MISSION WAYPOINT: where the mission you carry wants you to go next, as a thing in THIS system.
+## {} = no mission. Otherwise {"node", "title" (short name for the marker), "line" (what to do), "hops" (gate jumps left)}.
+## A bounty: in another system -> the gate that starts the shortest way there; in its system -> the ship; once the
+## ship is down -> the drifting pilot; once the pilot is in your hold -> the station (dock anywhere to be paid).
+func mission_waypoint() -> Dictionary:
+	var b: Dictionary = GS.bounty
+	if b.is_empty() or surface_mode or not is_instance_valid(player): return {}
+	var p: Dictionary = Data.roster_pilot(str(b.get("id", "")))
+	var who: String = str(p.get("name", "the pilot"))
+	if b.get("state", "") == "captured":
+		if not is_instance_valid(station): return {}
+		return {"node": station, "title": station.name, "line": "Dock at %s to hand %s over for the bounty" % [station.name, who], "hops": 0}
+	if b.get("state", "") != "hunt": return {}
+	if str(b.get("sys", "")) != sys_id:
+		var route: Array = Data.gate_route(sys_id, str(b["sys"]))
+		if route.size() < 2: return {}
+		for g in gates:
+			if is_instance_valid(g) and str((g.get_meta("info", {}) as Dictionary).get("to", "")) == str(route[1]):
+				var hops: int = route.size() - 1
+				return {"node": g, "title": g.name, "line": "Bounty on %s: %d jump%s to %s. Take the %s" % [who, hops, "" if hops == 1 else "s", Data.SYSTEMS[b["sys"]]["name"], g.name], "hops": hops}
+		return {}
+	for l in loot:
+		if l.get("bounty", "") == b["id"] and is_instance_valid(l["node"]):
+			return {"node": l["node"], "title": "%s (pilot)" % who, "line": "TRACTOR %s in" % who, "hops": 0}
+	for o in enemies:
+		if o.get("bounty", "") == b["id"] and is_instance_valid(o["node"]):
+			return {"node": o["node"], "title": who, "line": "Bounty on %s: destroy the ship, then TRACTOR the pilot in" % who, "hops": 0}
+	return {}
+
 var waypoint: Node3D = null   # the player's own map waypoint (radar map -> tap anywhere -> SET COURSE)
 
 ## Put the custom waypoint at a point in this system (one at a time) and return it.

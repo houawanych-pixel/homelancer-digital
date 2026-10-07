@@ -1,7 +1,7 @@
 extends Control
-## Startup screen: the owner's faction collage as one long strip (front + back views overlapped and cross-faded at
-## the joins, tools/rooms/make_overlap_strip.py) that pans slowly and loops for as long as the player waits; the
-## HOMELANCER letters resolve one by one over a dark band, then a strong START.
+## Startup screen: the owner's intro movie, filling the screen and playing on repeat for as long as the player waits
+## (v1.5a: it replaces the panning collage strip, which is archived in art/archive_title/); the HOMELANCER letters
+## resolve one by one over a dark band, then a strong START. The movie is picture only: the main theme keeps playing.
 
 signal start_pressed
 signal settings_pressed   # Job J: Settings (control mode; Controls list on desktop)
@@ -14,10 +14,9 @@ var start_btn: Button
 var music_btn: Button
 var settings_btn: Button
 var bg: Texture2D = load("res://assets/ui/title_network.jpg")   # small stand-in from the core download, shown first
-var art: Texture2D = null   # the collage strip ("intro" pack): fades in over the stand-in as soon as it arrives
+var movie: VideoStreamPlayer = null   # the intro movie ("intro" pack): fades in over the stand-in as soon as it arrives
 var art_k := 0.0
-const ART := "res://assets/intro/title_collage.jpg"
-const PAN_SPEED := 14.0   # pixels per second at 720 p
+const MOVIE := "res://assets/intro/title_movie.ogv"
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -82,14 +81,35 @@ func _music_label() -> void:
 	music_btn.text = "MUSIC: OFF" if Music.muted else "MUSIC: ON"
 
 func _take_art(pk := "intro") -> void:
-	if pk == "intro" and art == null and Packs.is_ready("intro") and ResourceLoader.exists(ART): art = load(ART)
+	if pk != "intro" or movie != null or not Packs.is_ready("intro") or not ResourceLoader.exists(MOVIE): return
+	var st := load(MOVIE) as VideoStream
+	if st == null: return
+	movie = VideoStreamPlayer.new()
+	movie.name = "IntroMovie"
+	movie.stream = st
+	movie.loop = true
+	movie.expand = true
+	movie.volume_db = -80.0            # picture only (the clip's own sound is off; the main theme plays)
+	movie.show_behind_parent = true    # the dark band, the logo and the buttons are drawn over it
+	movie.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(movie)
+	move_child(movie, 0)
+	movie.play()
 
 func _process(dt: float) -> void:
 	t += dt
-	if art != null and art_k < 1.0:
-		art_k = minf(1.0, art_k + dt / 0.9)
-		if art_k >= 1.0: bg = null   # the stand-in is no longer drawn
 	var S := get_viewport_rect().size
+	if movie != null:
+		if art_k < 1.0:
+			art_k = minf(1.0, art_k + dt / 0.9)
+			if art_k >= 1.0: bg = null   # the stand-in is no longer drawn
+		# fill the screen edge to edge, keeping the picture's shape (the overflow is cut off evenly)
+		var vs: Vector2 = Vector2(movie.get_video_texture().get_size()) if movie.get_video_texture() != null else Vector2(640, 352)
+		if vs.x < 2.0 or vs.y < 2.0: vs = Vector2(640, 352)
+		var k := maxf(S.x / vs.x, S.y / vs.y)
+		movie.size = vs * k
+		movie.position = (S - movie.size) * 0.5
+		if not movie.is_playing(): movie.play()   # (belt and braces for "on repeat")
 	start_btn.position = Vector2(S.x * 0.5 - 160, S.y * 0.6)
 	var row_y := start_btn.position.y + 86.0 + 14.0
 	music_btn.position = Vector2(S.x * 0.5 - SIDE_BTN.x - 8.0, row_y)
@@ -101,16 +121,11 @@ func _process(dt: float) -> void:
 
 func _draw() -> void:
 	var S := get_viewport_rect().size
-	# slow pan through the picture; it repeats seamlessly and loops for as long as the player waits
-	for layer in [[bg, 1.0], [art, art_k]]:
-		var tx: Texture2D = layer[0]
-		if tx == null or float(layer[1]) <= 0.0: continue
-		var ks := S.y / tx.get_height()
-		var w := tx.get_width() * ks
-		var x0 := -fposmod(t * PAN_SPEED, w)
-		while x0 < S.x:
-			draw_texture_rect(tx, Rect2(x0, 0, w, S.y), false, Color(1, 1, 1, layer[1]))
-			x0 += w
+	# the small stand-in picture, until the movie has arrived; it fades away over the movie playing behind
+	if bg != null:
+		var ks := maxf(S.x / bg.get_width(), S.y / bg.get_height())
+		var bs := Vector2(bg.get_width(), bg.get_height()) * ks
+		draw_texture_rect(bg, Rect2((S - bs) * 0.5, bs), false, Color(1, 1, 1, 1.0 - art_k))
 	# a dark band behind the logo and the button so they read over busy art; the art stays clear above and below
 	var steps := 48
 	for i in steps:
@@ -139,4 +154,7 @@ func _draw() -> void:
 ## Once the game starts, let go of the picture so it doesn't sit in GPU memory.
 func release() -> void:
 	bg = null
-	art = null
+	if movie != null:
+		movie.stop()
+		movie.queue_free()
+		movie = null

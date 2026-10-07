@@ -1044,6 +1044,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_AE") != "":   # the Job AE checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_ae()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_AD") != "":   # the Job AD checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1206,10 +1214,14 @@ func _run() -> void:
 		_check("Version %s matches the web page (the landing page reads it from there)" % Data.VERSION, shell.find('name="hl-version" content="%s"' % Data.VERSION) >= 0)
 	await Packs.wait("intro", 60.0)
 	await _wait(1.2)
-	await _shot("title_collage", 0.2)
-	var tw: float = main.title.art.get_width() * (get_viewport().get_visible_rect().size.y / main.title.art.get_height()) if main.title.art else 0.0
-	_check("Start screen: the owner's collage as one looping strip, panning slowly", main.title.art != null and main.title.art.resource_path.ends_with("title_collage.jpg")
-		and main.title.art.get_width() > 2500 and main.title.art_k >= 1.0 and tw / main.title.PAN_SPEED > 120.0, "one loop takes %.0f s" % (tw / main.title.PAN_SPEED))
+	await _shot("title_movie", 0.2)
+	# v1.5a: the owner's intro movie replaces the panning collage (the old check looked for the collage strip)
+	var mv: VideoStreamPlayer = main.title.movie
+	var S0: Vector2 = get_viewport().get_visible_rect().size
+	_check("Start screen: the owner's intro movie fills the screen and plays on repeat (the old panning collage is gone from the game)",
+		mv != null and mv.stream != null and mv.stream.resource_path.ends_with("title_movie.ogv") and mv.loop and mv.is_playing() and main.title.art_k >= 1.0
+		and mv.size.x >= S0.x - 1.0 and mv.size.y >= S0.y - 1.0 and FileAccess.get_file_as_bytes(main.title.MOVIE).size() > 2000000 and not ResourceLoader.exists("res://assets/intro/title_collage.jpg"),
+		"drawn %s on a %s screen" % [str(mv.size) if mv != null else "-", str(S0)])   # (the engine does not report a Theora clip's length, so the file size stands in for "a real clip")
 	main.start_game()
 	_check("Godot boot + START", await _until(func(): return main.state == "flight", 10.0))
 	await _wait(1.0)
@@ -1490,6 +1502,7 @@ func _run() -> void:
 	await _job_ab()
 	await _job_ac()
 	await _job_ad()
+	await _job_ae()
 	await _galaxy()
 	await _controls_j()
 	await _gate_k()
@@ -3585,6 +3598,81 @@ func _job_z() -> void:
 	_tp(s.station.global_position + Vector3(0, 40, 420), s.station.global_position)
 	_check("Job Z: World's End Emporium (Omega), the Hollow Requiem (Shadow) and Greywhistle Beacon (Foggiest) wear the owner's models", data_ok and seen_models == [true, true, true], str(seen_models))
 	_check("Job Z: Greywhistle Beacon stands in thick grey fog with its lamp lit: the fog thins and the sensors recover beside it", fog_ok, fog_txt)
+
+## Job AE (v1.5a): a mission you accept sets a waypoint to follow (bounties today), full screen on a phone, and the
+## intro movie on the start screen (that one is checked at the start of the route, while the start screen is up).
+func _job_ae() -> void:
+	var shell := FileAccess.get_file_as_string("res://web_shell.html")
+	_check("Job AE: version label reads \"Homelancer Digital v1.5a\" or later", Data.VERSION >= "v1.5a" and (shell == "" or shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0), Data.VERSION)
+	_check("Job AE: on a phone the page asks for full screen (and landscape) on the first tap and again on START, and does not force it back after the player leaves it",
+		shell == "" or (shell.find("requestFullscreen") >= 0 and shell.find("navigationUI: 'hide'") >= 0 and shell.find("orientation.lock('landscape')") >= 0 and shell.find("window.__hlFullscreen") >= 0 and shell.find("fsLeft = true") >= 0))
+	var s := _sp()
+	var keep := {"bounty": GS.bounty.duplicate(true), "done": GS.bounties_done.duplicate(), "cast": GS.cast.duplicate(true), "target": s.target, "auto": s.autopilot}
+	GS.bounty = {}
+	s.target = null
+	s.autopilot = null
+	var none: bool = s.mission_waypoint().is_empty()
+	# the shortest way through the gates
+	var r1: Array = Data.gate_route("solara", "vega")
+	var far: Array = Data.gate_route("solara", "plundros")
+	var route_ok: bool = r1 == ["solara", "vega"] and Data.gate_route("solara", "solara") == ["solara"] and far.size() >= 2 and far[0] == "solara" and far[-1] == "plundros" and Data.gate_route("solara", "nowhere").is_empty()
+	for i in far.size() - 1:
+		var linked := false
+		for g in Data.SYSTEMS[far[i]]["gates"]:
+			if g["to"] == far[i + 1]: linked = true
+		if not linked: route_ok = false
+	_check("Job AE: the game knows the shortest way between any two systems through the gates", route_ok, "Solara to Plundros: %d jumps" % (far.size() - 1))
+	# accept a bounty whose target is in another system: the waypoint is the gate that starts the way there
+	GS.bounties_done.erase("savagers_03")
+	GS.cast_state("savagers_03_razor")["custody"] = false
+	var said: String = GS.accept_bounty("savagers_03")
+	var w1: Dictionary = s.mission_waypoint()
+	var gate_ok: bool = not w1.is_empty() and (w1["node"] as Node3D).get_meta("kind", "") == "gate" and str(((w1["node"] as Node3D).get_meta("info") as Dictionary)["to"]) == str(far[1]) and int(w1["hops"]) == far.size() - 1
+	var obj: String = main._objective()
+	main.hud.queue_redraw()
+	await _frames(3)
+	await _shot("ae_mission_waypoint_gate", 0.3)
+	# GO TO with nothing picked flies the mission waypoint
+	main._on_hud("goto")
+	var goto_ok: bool = not w1.is_empty() and s.autopilot == w1["node"]
+	s.autopilot = null
+	_check("Job AE: accepting a bounty sets a mission waypoint: with the target in another system it is the gate that starts the shortest way there, the objective line says how many jumps, and GO TO flies it",
+		none and said.find("waypoint") >= 0 and gate_ok and obj.begins_with("MISSION: ") and obj.find("jump") >= 0 and goto_ok, "none %s, gate %s, goto %s: %s" % [none, gate_ok, goto_ok, obj])
+	# in the target's own system: the ship, then the drifting pilot, then (pilot aboard) the station
+	GS.bounty["sys"] = s.sys_id               # (test only: bring the hunt to this system)
+	var tgt: Dictionary = s.spawn_bounty()
+	var w2: Dictionary = s.mission_waypoint()
+	var ship_ok: bool = not tgt.is_empty() and not w2.is_empty() and w2["node"] == tgt["node"] and int(w2["hops"]) == 0
+	if not tgt.is_empty():
+		(tgt["node"] as Node3D).global_position = s.player.global_position - s.player.global_basis.z * 160.0 + Vector3(40, 20, 0)
+		await _frames(3)
+		await _shot("ae_mission_waypoint_ship", 0.3)
+		main._on_hud("goto")   # a hostile: flown TO (a waypoint at its place), never docked with
+		ship_ok = ship_ok and s.autopilot != null and s.autopilot == s.waypoint and s.waypoint.global_position.distance_to((tgt["node"] as Node3D).global_position) < 30.0
+		s.autopilot = null
+		s._destroy_unit(tgt)
+	var w3: Dictionary = s.mission_waypoint()
+	var pod_ok := false
+	for l in s.loot:
+		if l.get("bounty", "") == "savagers_03" and not w3.is_empty() and w3["node"] == l["node"]: pod_ok = true
+	GS.capture_bounty("savagers_03")
+	for i in range(s.loot.size() - 1, -1, -1):
+		(s.loot[i]["node"] as Node3D).queue_free()
+		s.loot.remove_at(i)
+	var w4: Dictionary = s.mission_waypoint()
+	var dock_ok: bool = not w4.is_empty() and w4["node"] == s.station and str(w4["line"]).find("Dock at") >= 0
+	GS.claim_bounty()
+	var done_ok: bool = s.mission_waypoint().is_empty() and not main._objective().begins_with("MISSION")
+	_check("Job AE: the waypoint follows the mission: the bounty's ship in its own system, the drifting pilot once the ship is down, the station once the pilot is aboard, and nothing once you are paid",
+		ship_ok and pod_ok and dock_ok and done_ok, "ship %s, pilot %s, dock %s, cleared %s" % [ship_ok, pod_ok, dock_ok, done_ok])
+	if is_instance_valid(s.waypoint): s.waypoint.queue_free()
+	s.waypoint = null
+	GS.bounty = keep["bounty"]
+	GS.bounties_done = keep["done"]
+	GS.cast = keep["cast"]
+	s.target = keep["target"] if is_instance_valid(keep["target"]) else null
+	s.autopilot = keep["auto"] if is_instance_valid(keep["auto"]) else null
+	_tp(s.station.global_position + Vector3(0, 40, 420), s.station.global_position)
 
 ## Job AD (v1.4z): the six permanent-enemy casts from the owner's roster documents (Phenom, Kaijurai, Cybermorph,
 ## Solrath, Gadversee, Arctides), their portraits, and the two that have ships (Phenom, Kaijurai) flying them.
