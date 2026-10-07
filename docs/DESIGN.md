@@ -779,3 +779,20 @@ Still to do (owner's brief, next job): one core warp effect, skinned three ways:
 the cloud "anomaly" warp for the warp gates, and the rift gate as a rotating oval tear in the sky with layers of sky
 and coloured mist rushing past (slow at first, then fast, holding at full speed while the next system loads, easing
 out with no white flash).
+
+## 35. Named stations (Job Z, v1.4v)
+
+The owner's 68 station names, each with one line of lore, are laid over the map catalog (`scripts/station_names.gd`).
+Every name fitted a station that was already on the map under a role name ("Smuggler Den" is now Blackbilge Den,
+"Last Stop Station" is World's End Emporium, and so on), so nothing had to be invented or moved. Station ids are
+unchanged, so saves are safe. The lore shows on the docking screen and the map card. Stations that share a model
+still have their own name, system, owner and lore. Elyria (Grovecrown) is on the planet, so it is told on Aurelion
+Prime's line, not placed in orbit.
+
+Three stations wear the owner's finished models: World's End Emporium (Omega, with its glass domes), the Hollow
+Requiem (Shadow: the dead liner from the ghost ship set, a discovery, no faction), and Greywhistle Beacon (Foggiest:
+the light beacon station). Greywhistle and Hushmark Beacon (Nullpoint) carry the lamp themselves; Foggiest's cloud
+is grey and wraps the beacon, so the lamp burns in the fog and thins it as you come close.
+
+Not yet named by the owner and left as they were: Cybernet, the capitals' extra stations except Synthari's, the Void
+beacons, Vega and Solara.

@@ -492,6 +492,7 @@ func _station_model() -> void:
 		station_model = MeshInstance3D.new()
 		station_model.mesh = (found[0] as MeshInstance3D).mesh
 		station_model.scale = Vector3.ONE * STATION_WIDTH * float(Data.STATION_MODEL_SCALE.get(d["model"], 1.0))
+		station_model.rotation_degrees.y = float(Data.STATION_MODEL_YAW.get(d["model"], 0.0))
 		station_model.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		body.add_child(station_model)
 	sc.free()
@@ -1057,7 +1058,12 @@ func _build_beacon() -> void:
 	beacon_glow = null
 	beacon_core = null
 	beacon_model = null
-	if surface_mode or not has_beacon(sys_id, sys) or nebula_radius <= 1.0: return
+	if surface_mode: return
+	# v1.4v: a station that IS a beacon (Greywhistle, Hushmark) carries the lamp itself
+	if is_instance_valid(station) and sys["station"].get("lamp", false):
+		_lamp(station, Vector3(0, Data.BEACON_LAMP_Y * STATION_WIDTH * float(Data.STATION_MODEL_SCALE.get(str(sys["station"].get("model", "")), 1.0)), 0))
+		return
+	if not has_beacon(sys_id, sys) or nebula_radius <= 1.0: return
 	beacon = Node3D.new()
 	beacon.name = "Light Beacon"
 	beacon.position = nebula_center
@@ -1077,7 +1083,12 @@ func _build_beacon() -> void:
 	_mesh(body, BoxMesh.new(), Vector3.ZERO, Color(0.55, 0.6, 0.7), Vector3(Data.BEACON_SIZE, 3, 6))
 	_mesh(body, BoxMesh.new(), Vector3.ZERO, Color(0.55, 0.6, 0.7), Vector3(6, 3, Data.BEACON_SIZE))
 	beacon.set_meta("body", body)
-	var lamp := Vector3(0, Data.BEACON_LAMP_Y * Data.BEACON_SIZE, 0)
+	_lamp(beacon, Vector3(0, Data.BEACON_LAMP_Y * Data.BEACON_SIZE, 0))
+	_beacon_model()
+	if beacon_model == null and not Packs.pack_ready.is_connected(_on_beacon_pack): Packs.pack_ready.connect(_on_beacon_pack)
+
+## The lamp: a real light, a bright star, a halo and lit cloud puffs, at `lamp` on `host` (a beacon or a station).
+func _lamp(host: Node3D, lamp: Vector3) -> void:
 	beacon_light = OmniLight3D.new()
 	beacon_light.name = "Lamp"
 	beacon_light.position = lamp
@@ -1086,7 +1097,7 @@ func _build_beacon() -> void:
 	beacon_light.omni_range = Data.BEACON_LIGHT_RANGE
 	beacon_light.omni_attenuation = 0.6
 	beacon_light.shadow_enabled = false
-	beacon.add_child(beacon_light)
+	host.add_child(beacon_light)
 	beacon_glow = MeshInstance3D.new()
 	beacon_glow.name = "Glow"
 	var q := QuadMesh.new()
@@ -1112,7 +1123,7 @@ func _build_beacon() -> void:
 	beacon_glow.position = lamp
 	beacon_glow.scale = Vector3.ONE * Data.BEACON_GLOW_SIZE
 	beacon_glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	beacon.add_child(beacon_glow)
+	host.add_child(beacon_glow)
 	beacon_core = MeshInstance3D.new()   # the lamp itself: a small, very bright star
 	beacon_core.name = "Core"
 	beacon_core.mesh = q
@@ -1122,7 +1133,7 @@ func _build_beacon() -> void:
 	beacon_core.position = lamp
 	beacon_core.scale = Vector3.ONE * Data.BEACON_CORE_SIZE
 	beacon_core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	beacon.add_child(beacon_core)
+	host.add_child(beacon_core)
 	# the cloud round the lamp, lit by it: a few big soft puffs in the lamp's colour
 	var ctex := _cloud_texture(Data.BEACON_LIGHT_COLOR.lerp(nebula_color, 0.35), hash(sys_id) + 11)
 	beacon_puffs = []
@@ -1143,10 +1154,8 @@ func _build_beacon() -> void:
 		puff.position = lamp + dir * _rng.randf_range(Data.BEACON_SIZE * 0.9, Data.BEACON_GLOW_SIZE * 0.7)
 		puff.scale = Vector3.ONE * _rng.randf_range(0.5, 0.9) * Data.BEACON_GLOW_SIZE
 		puff.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		beacon.add_child(puff)
+		host.add_child(puff)
 		beacon_puffs.append(puff)
-	_beacon_model()
-	if beacon_model == null and not Packs.pack_ready.is_connected(_on_beacon_pack): Packs.pack_ready.connect(_on_beacon_pack)
 
 func _on_beacon_pack(_name: String) -> void: _beacon_model()
 

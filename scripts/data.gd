@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.4u"
+const VERSION := "v1.4v"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -201,6 +201,11 @@ const PLANET_BIOME := {"terran": "forest", "jungle": "jungle", "ocean": "ocean",
 const TEXT_BUMP := 2                  # HUD and room text below TEXT_BUMP_BELOW px is drawn this much bigger
 const TEXT_BUMP_BELOW := 17
 const TEXT_MIN := 13                  # nothing on the HUD is smaller than this
+# ---------------------------------------------------------------- Job Z (v1.4v): named stations, three placed models, the fog beacon
+const FOG_RADIUS := 700.0            # Foggiest: the grey cloud that wraps Greywhistle Beacon
+const FOG_COLOR := Color(0.62, 0.65, 0.7)
+const STATION_MODEL_YAW := {"hollow_requiem": 90.0}   # degrees: the dead liner lies across the docking approach
+
 # ---------------------------------------------------------------- Job Y (v1.4u): more room, cleaner prompts, lane tunnel
 const SYSTEM_SPREAD := 1.4           # every system: planets, gates, belt, nebula and patrols sit this much farther from the main station
 const DOCK_RANGE_STATION := 190.0    # was 260: you must be this close to a station (or its docking mouth) for DOCK
@@ -407,7 +412,7 @@ const REP_RIVAL_SHARE := 1.0     # the rival gains this share of what the factio
 const REP_HUNTER_SIZE := 3       # RED: a hunter group this big meets you when you enter their space
 const REP_HUNTER_DIST := 1100.0
 # stations and the light beacon
-const STATION_MODEL_SCALE := {"savagers_cross_station": 1.45}   # x the standard station width
+const STATION_MODEL_SCALE := {"savagers_cross_station": 1.45, "worlds_end_emporium": 1.6, "hollow_requiem": 2.2}   # x the standard station width
 const BEACON_SYSTEMS := ["solara"]   # extra systems with a light beacon in their nebula (every roster-faction hideout system has one)
 const BEACON_FACTIONS := ["Savagers"]
 const BEACON_SIZE := 150.0           # width of the beacon station
@@ -507,7 +512,7 @@ const ENEMIES := {
 # Positions in metres-ish world units. The player spawns at `spawn` (station launch) or at the gate exit.
 # Every system in the game: the hand-made ones below (CORE_SYSTEMS) plus all the rest of the 11 x 11 map, built by
 # SystemBuilder from the map tables. sys["gates"] lists every gate; sys["gate"] is the first one.
-static var SYSTEMS: Dictionary = ArtRefs.apply(SystemBuilder.all(CORE_SYSTEMS))   # v1.4k: concept-art references on stations and planets
+static var SYSTEMS: Dictionary = StationNames.apply(ArtRefs.apply(SystemBuilder.all(CORE_SYSTEMS)))   # v1.4k: concept-art references on stations and planets
 const CORE_SYSTEMS := {
 	"solara": {
 		"name": "Solara", "star": Color(1.0, 0.86, 0.6), "sky_tint": Color(0.10, 0.06, 0.16), "ambient": Color(0.42, 0.40, 0.55),

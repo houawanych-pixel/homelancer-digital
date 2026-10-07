@@ -1044,6 +1044,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_Z") != "":   # the Job Z checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_z()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_Y") != "":   # the Job Y checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1445,6 +1453,7 @@ func _run() -> void:
 	await _job_w()
 	await _job_x()
 	await _job_y()
+	await _job_z()
 	await _galaxy()
 	await _controls_j()
 	await _gate_k()
@@ -2317,8 +2326,9 @@ func _art_n() -> void:
 	# ---- Scavaris and Crystara: the places exist, the art does not, and nothing is made up
 	var sc: Dictionary = Data.SYSTEMS["scavaris"]
 	var cr: Dictionary = Data.SYSTEMS["crystara"]
-	var sc_names: Array = [sc["planet"]["name"], sc["station"]["name"]] + (sc["more_planets"] as Array).map(func(x): return x["name"])
-	var cr_names: Array = [cr["planet"]["name"], cr["station"]["name"]] + (cr["more_planets"] as Array).map(func(x): return x["name"])
+	# (v1.4v: the art map is keyed by the catalog's role names; the stations' proper names are laid over them afterwards)
+	var sc_names: Array = [sc["planet"]["name"], sc["station"].get("catalog_name", sc["station"]["name"])] + (sc["more_planets"] as Array).map(func(x): return x["name"])
+	var cr_names: Array = [cr["planet"]["name"], cr["station"].get("catalog_name", cr["station"]["name"])] + (cr["more_planets"] as Array).map(func(x): return x["name"])
 	var none_yet := true
 	for body in [sc["planet"], sc["station"], cr["planet"], cr["station"]] + sc["more_planets"] + cr["more_planets"]:
 		if not body.has("art") or body["art"] != null: none_yet = false
@@ -3455,6 +3465,90 @@ func _job_y() -> void:
 	_check("Job Y: the trade-lane tunnel is pulled back and widened: the camera rides inside it, far from either end, so its round rim is never on screen", shape_ok and cam_in, cam_txt)
 	s.vel = Vector3.ZERO
 	_tp(st + Vector3(0, 40, 420), st)
+
+## Job Z (v1.4v): the owner's 68 station names and lore on the map; World's End Emporium, the Hollow Requiem and the
+## Greywhistle fog beacon wear their models.
+func _job_z() -> void:
+	var shell := FileAccess.get_file_as_string("res://web_shell.html")
+	_check("Job Z: version label reads \"Homelancer Digital v1.4v\" or later", Data.VERSION >= "v1.4v" and (shell == "" or shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0), Data.VERSION)
+	var named := 0
+	var ok := true
+	var ids_ok := true
+	var seen := {}
+	for sid in StationNames.NAMES:
+		var sy: Dictionary = Data.SYSTEMS[sid]
+		if sy["station"]["id"] != sid + "_station": ids_ok = false
+		for old in StationNames.NAMES[sid]:
+			var row: Array = StationNames.NAMES[sid][old]
+			var hit := false
+			for body in [sy["station"]] + sy["more_stations"]:
+				if body["name"] == row[0] and body.get("catalog_name", "") == old and str(body["desc"]).begins_with(row[1]): hit = true
+			if hit: named += 1
+			else: ok = false
+			if seen.has(row[0]): ok = false
+			seen[row[0]] = true
+	var spot: bool = Data.SYSTEMS["omega"]["station"]["name"] == "World's End Emporium" and Data.SYSTEMS["derelicta"]["station"]["name"] == "Old Widowmaker" \
+		and Data.SYSTEMS["void_system"]["station"]["name"] == "Nihil Citadel" and Data.SYSTEMS["synthari_capital"]["more_stations"].any(func(x): return x["name"] == "Synthari Warp Gate Hub") \
+		and str(Data.SYSTEMS["aurelion"]["planet"]["desc"]).find("Elyria (Grovecrown)") >= 0
+	_check("Job Z: the owner's 68 station names are on the map, each in its own system with its line of lore (ids unchanged, no name used twice); Elyria is told on Aurelion Prime",
+		StationNames.count() == 68 and named == 68 and ok and ids_ok and spot, "%d named" % named)
+	# the lore shows where you read about a station
+	var hub = main.hub
+	var base0: Dictionary = hub.base
+	var kind0: String = hub.kind
+	var vis0: bool = hub.visible
+	var sys0: String = GS.system_id
+	GS.system_id = "vexara"
+	hub.open(Data.SYSTEMS["vexara"]["station"])
+	await _frames(3)
+	var txt := ""
+	for c in hub.content.find_children("*", "Label", true, false): txt += (c as Label).text + " "
+	var hub_ok: bool = hub.header.text == "HAGGLER'S WHEEL" and txt.find("wheel-shaped market") >= 0
+	await _shot("z_hagglers_wheel_hub", 0.3)
+	GS.system_id = sys0
+	hub.base = base0
+	hub.kind = kind0
+	hub.visible = vis0
+	_check("Job Z: docking shows the station's own name and its lore (Haggler's Wheel)", hub_ok, hub.header.text)
+	# three stations wear the owner's finished models; Greywhistle's lamp burns in the fog
+	var files := true
+	for m in ["worlds_end_emporium", "hollow_requiem", "light_beacon_station"]:
+		if not ResourceLoader.exists("res://assets/structures/%s.glb" % m): files = false
+	var fg: Dictionary = Data.SYSTEMS["foggiest"]
+	var data_ok: bool = files and Data.SYSTEMS["omega"]["station"]["model"] == "worlds_end_emporium" and Data.SYSTEMS["shadow"]["station"]["model"] == "hollow_requiem" \
+		and fg["station"]["model"] == "light_beacon_station" and fg["station"].get("lamp", false) and Data.SYSTEMS["nullpoint"]["station"].get("lamp", false) \
+		and (fg["nebula"]["center"] as Vector3).is_equal_approx(fg["station"]["pos"]) and fg["nebula"]["color"] == Data.FOG_COLOR
+	main.hud.visible = false
+	var seen_models: Array = []
+	var fog_ok := false
+	var fog_txt := ""
+	for sid in ["foggiest", "omega", "shadow"]:
+		main._load_system(sid, "station")
+		await _wait(1.6)
+		await Packs.wait("structures", 30.0)
+		await _frames(4)
+		var sp := _sp()
+		seen_models.append(sp.station_model != null and sp.station.name == Data.SYSTEMS[sid]["station"]["name"])
+		if sid == "foggiest":
+			var lamp: OmniLight3D = sp.beacon_light
+			_tp(sp.station.global_position + Vector3(150, 40, 190), sp.station.global_position + Vector3(0, 30, 0))
+			await _frames(3)
+			fog_ok = lamp != null and lamp.get_parent() == sp.station and sp.in_nebula > 0.9 and sp.beacon_lit > 0.5 and sp.beacon == null and sp.beacon_puffs.size() == Data.BEACON_PUFFS
+			fog_txt = "lamp on the station %s, fog %.2f, lit %.2f" % [lamp != null and lamp.get_parent() == sp.station, sp.in_nebula, sp.beacon_lit]
+			_tp(sp.station.global_position + Vector3(260, 60, 420), sp.station.global_position + Vector3(0, 30, 0))
+		else:
+			_tp(sp.station.global_position + Vector3(330, 130, 520), sp.station.global_position)
+		await _shot("z_" + sid, 0.5)
+	main._load_system(sys0, "station")
+	await _wait(1.6)
+	await Packs.wait("structures", 30.0)
+	await _frames(4)
+	main.hud.visible = true
+	var s := _sp()
+	s.controls = true
+	_tp(s.station.global_position + Vector3(0, 40, 420), s.station.global_position)
+	_check("Job Z: World's End Emporium (Omega), the Hollow Requiem (Shadow) and Greywhistle Beacon (Foggiest) wear the owner's models", data_ok and seen_models == [true, true, true], str(seen_models))
+	_check("Job Z: Greywhistle Beacon stands in thick grey fog with its lamp lit: the fog thins and the sensors recover beside it", fog_ok, fog_txt)
 
 func _job_s() -> void:
 	var s := _sp()
