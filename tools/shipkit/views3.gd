@@ -37,7 +37,7 @@ func _initialize() -> void:
 	env.environment.ambient_light_color = Color(1, 1, 1)
 	env.environment.ambient_light_energy = 1.3
 	root.add_child(env)
-	root.size = Vector2i(640, 640)
+	root.size = Vector2i(int(OS.get_environment("VPX")) if OS.get_environment("VPX") != "" else 640, int(OS.get_environment("VPX")) if OS.get_environment("VPX") != "" else 640)
 	var shots := [
 		["top", Vector3(0, 1, 0), Vector3(0, 0, -1), maxf(box.size.x, box.size.z)],
 		["side", Vector3(1, 0, 0), Vector3(0, 1, 0), maxf(box.size.z, box.size.y)],
