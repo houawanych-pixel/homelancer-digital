@@ -641,9 +641,14 @@ func _jlog(phase: String) -> void:
 
 ## Job K: the warp tunnel at strength k (0..1): streaks, blur and shake together (values in the Job K config block).
 func _tunnel(k: float) -> void:
-	fx.warp = k
+	fx.warp = k if fx.skin == "tunnel" else clampf(k * 3.0, 0.0, 1.0)   # v1.4x: the cloud and the tear fade in early, then speed up
+	fx.pace = k * k if fx.skin != "tunnel" else k                       # slow booms first, then fast
 	fx.blur = Data.JUMP_BLUR * k
-	if is_instance_valid(space): space.hit_shake = maxf(space.hit_shake, Data.JUMP_SHAKE * k)
+	if is_instance_valid(space): space.hit_shake = maxf(space.hit_shake, Data.JUMP_SHAKE * k * (1.0 if fx.skin == "tunnel" else 0.5))
+
+## Job AB: the last jump's look and what it did (tests).
+var jump_look := ""
+var jump_booms := 0
 
 ## Jump through a gate (Job K flow): the tunnel builds over JUMP_TUNNEL_BUILD while the ship pushes through the
 ## gate, holds at full while the next system loads behind it (at least JUMP_TUNNEL_HOLD_MIN, longer if the load
@@ -663,15 +668,24 @@ func jump(gate: Node3D = null) -> void:
 	var reduced: bool = controls.reduced_effects
 	var p: Node3D = space.player
 	var through: Vector3 = gate.global_position - gate.global_basis.z * Data.JUMP_PUSH     # on through the jump rings
-	space.show_jump_rings(Data.SYSTEMS[to]["star"], 240.0, gate)
+	# v1.4x: one warp effect, three looks, chosen by the kind of gate
+	var look: String = Data.WARP_SKINS.get(str(gate.get_meta("info").get("gkind", "jump")), "tunnel")
+	jump_look = look
+	fx.begin_warp(look)
+	var here: Dictionary = space.sys
+	fx.set_skies(space.sky_texture(), null, [here["star"], here["nebula"]["color"], Data.SYSTEMS[to]["star"], Data.SYSTEMS[to]["nebula"]["color"]])
+	var build_t: float = Data.WARP_BUILD[look]
+	var clear_t: float = Data.WARP_CLEAR[look]
+	if Data.WARP_RINGS[look]: space.show_jump_rings(Data.SYSTEMS[to]["star"], 240.0, gate)
+	else: through = p.global_position - p.global_basis.z * 40.0   # the rift opens where you are: no rings to fly
 	fx.warp_color = Data.SYSTEMS[to]["star"]
 	fx.caption = "JUMP IN PROGRESS"
 	fx.sub = "%s  >  %s" % [space.sys["name"].to_upper(), Data.SYSTEMS[to]["name"].to_upper()]
 	_jlog("build")
 	var tw := create_tween()
-	tw.tween_method(func(k: float): _fly_along(p, through, k), 0.0, 1.0, Data.JUMP_TUNNEL_BUILD)
+	tw.tween_method(func(k: float): _fly_along(p, through, k), 0.0, 1.0, build_t)
 	if reduced: tw.parallel().tween_property(fx, "fade", 1.0, Data.JUMP_REDUCED_FADE)
-	else: tw.parallel().tween_method(_tunnel, 0.0, 1.0, Data.JUMP_TUNNEL_BUILD)
+	else: tw.parallel().tween_method(_tunnel, 0.0, 1.0, build_t)
 	await tw.finished
 	_jlog("hold")
 	var hold_end := Time.get_ticks_msec() + int(Data.JUMP_TUNNEL_HOLD_MIN * 1000.0)
@@ -682,6 +696,7 @@ func jump(gate: Node3D = null) -> void:
 	_load_system(to, "gate:" + from)
 	space.controls = false
 	if not reduced: _tunnel(1.0)
+	fx.set_skies(null, space.sky_texture(), [here["star"], here["nebula"]["color"], Data.SYSTEMS[to]["star"], Data.SYSTEMS[to]["nebula"]["color"]])   # the far side of the tear
 	await get_tree().process_frame   # the new system is built and drawn once, still behind the tunnel
 	await get_tree().process_frame   # (and the long load frame's time step is used up, so the clear isn't skipped)
 	_jlog("loaded")
@@ -689,15 +704,17 @@ func jump(gate: Node3D = null) -> void:
 	fx.sub = "%s SYSTEM  ·  %s" % [Data.SYSTEMS[to]["name"].to_upper(), Data.SYSTEMS[from]["name"].to_upper() + " GATE"]
 	# launched out of the gate ("boom"): a burst of speed along the nose and a white flash
 	space.vel = -space.player.global_basis.z * float(GS.ship()["speed"]) * Data.JUMP_LAUNCH_MULT
-	fx.flash = 1.0
+	fx.flash = float(Data.WARP_FLASH[look]) / maxf(Data.JUMP_FLASH_ALPHA, 0.01)   # v1.4x: the cloud and the tear arrive smoothly, no white flash
 	Sfx.play("warp_go", -4.0)
 	_jlog("clear")
 	var tw2 := create_tween()
 	if reduced: tw2.tween_property(fx, "fade", 0.0, Data.JUMP_REDUCED_FADE)
-	else: tw2.tween_method(_tunnel, 1.0, 0.0, Data.JUMP_TUNNEL_CLEAR)
+	else: tw2.tween_method(_tunnel, 1.0, 0.0, clear_t).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE if look != "tunnel" else Tween.TRANS_LINEAR)
 	tw2.parallel().tween_property(fx, "flash", 0.0, Data.JUMP_LAUNCH_FLASH)
 	await tw2.finished
 	if not reduced: _tunnel(0.0)
+	jump_booms = fx.booms
+	fx.end_warp()
 	fx.flash = 0.0
 	fx.caption = ""
 	space.controls = true

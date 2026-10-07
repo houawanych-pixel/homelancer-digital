@@ -822,3 +822,28 @@ Open points for the owner: the Covenant picture labels slot 05 "Hierarch Orin" a
 Valen"; the documents say "Hierarch Guard" and "Valen Aurex", and the documents were followed. The Orion roster
 describes explorers (Pathfinder Nations) while the station list describes Orion as the reptilian Venom war clan.
 The newer rosters say slot 05 is an unnamed elite soldier "retroactively"; the Savagers' Brakk was left named.
+
+## 37. One warp effect, three looks (Job AB, v1.4x)
+
+The owner's brief (voice): match the Freelancer jump-gate feel, give warp gates a gas "anomaly" jump, and make the
+rift gate a tear in the fabric of space built from the sky pictures. All three are the same effect with a different
+look; the kind of gate picks the look (`Data.WARP_SKINS`). Every number is in the Job AB block of `scripts/data.gd`.
+
+- **How it runs** (`main.jump`, unchanged order from Job K): build -> hold at full speed while the next system loads
+  -> clear. `fx.pace` is the speed (layers per second from `WARP_PACE_SLOW` to `WARP_PACE_FAST`) and `fx.spin` the
+  turn rate, so the cloud and the tear start with slow passes, each with a boom, then run fast, hold, and ease out.
+- **Tunnel (jump gate):** a corkscrewing tube of light toward a bright far end, with the old star streaks on top.
+  Same timing as before (0.5 s in, 0.3 s out) and it keeps its launch flash.
+- **Cloud (warp gate):** layers of gas in the colours of the two skies rushing past. No white flash.
+- **Tear (rift gate):** `RIFT_LAYERS` sheets (10; up to 12) made from the sky picture of the system you leave and the
+  one you reach. Each sheet has a ragged oval rip; you fly through the rips. Sheets turn opposite ways, one after the
+  other, slowly at first and then fast. Each rip has coloured mist on its edge; the twelve mist colours are taken from
+  the two sky pictures and no two in a row are alike (`RIFT_TINT_MIN_HUE`). No rings to fly through first: the rift
+  opens where the ship is. No white flash; it eases out.
+- **Drawn by** one small screen shader in `scripts/fx.gd` (one pass, no extra 3D, no particles). With REDUCED EFFECTS
+  on, every jump is still the plain fade from Job K.
+- Planet tile changes keep their plain streaks (`fx.jumping` is false there).
+
+Simplest choices made, to confirm: the jump tunnel is a close match in feel to Freelancer's, not a copy of its art;
+the tunnel keeps its flash while the other two have none; the tear's colours fall back to the two systems' star and
+nebula colours when a sky picture cannot be read.

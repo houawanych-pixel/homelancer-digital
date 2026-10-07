@@ -1044,6 +1044,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_AB") != "":   # the Job AB checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_ab()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_AA") != "":   # the Job AA checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1463,6 +1471,7 @@ func _run() -> void:
 	await _job_y()
 	await _job_z()
 	await _job_aa()
+	await _job_ab()
 	await _galaxy()
 	await _controls_j()
 	await _gate_k()
@@ -3558,6 +3567,99 @@ func _job_z() -> void:
 	_tp(s.station.global_position + Vector3(0, 40, 420), s.station.global_position)
 	_check("Job Z: World's End Emporium (Omega), the Hollow Requiem (Shadow) and Greywhistle Beacon (Foggiest) wear the owner's models", data_ok and seen_models == [true, true, true], str(seen_models))
 	_check("Job Z: Greywhistle Beacon stands in thick grey fog with its lamp lit: the fog thins and the sensors recover beside it", fog_ok, fog_txt)
+
+## Job AB (v1.4x): one warp effect, three looks (jump gate tunnel, warp gate cloud, rift gate tear).
+func _job_ab() -> void:
+	var shell := FileAccess.get_file_as_string("res://web_shell.html")
+	_check("Job AB: version label reads \"Homelancer Digital v1.4x\" or later", Data.VERSION >= "v1.4x" and (shell == "" or shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0), Data.VERSION)
+	var home: String = GS.system_id
+	var credits0: int = GS.credits
+	var disc0: Array = GS.discovered.duplicate()
+	var fx: Control = main.fx
+	# every kind of gate has a look, and every look has its numbers
+	var cfg_ok := true
+	for gk in SystemBuilder.GATE_KINDS:
+		var look: String = Data.WARP_SKINS.get(gk, "")
+		if not (look in fx.SKINS and Data.WARP_BUILD.has(look) and Data.WARP_CLEAR.has(look) and Data.WARP_FLASH.has(look) and Data.WARP_RINGS.has(look)): cfg_ok = false
+	_check("Job AB: jump, warp and rift gates each have their own look (tunnel, cloud, tear) with numbers in one config block", cfg_ok and Data.WARP_SKINS.size() == 3, str(Data.WARP_SKINS))
+	# a system that has each kind of gate
+	var where := {}
+	for id in Data.SYSTEMS:
+		for g in Data.SYSTEMS[id]["gates"]:
+			var gk: String = g.get("gkind", "jump")
+			if not where.has(gk) and Data.SYSTEMS.has(g["to"]): where[gk] = [id, g["id"], g["to"]]
+	var seen := {}
+	var detail := ""
+	var smooth := true
+	var booms := 0
+	var rings_ok := true
+	var tint_ok := true
+	var timing := true
+	var last_build := 0.0
+	for gk in ["jump", "warp", "rift"]:
+		if not where.has(gk): continue
+		var look: String = Data.WARP_SKINS[gk]
+		main._load_system(where[gk][0], "station")
+		await _wait(0.6)
+		main.state = "flight"
+		var s = main.space
+		s.controls = true
+		s.autopilot = null
+		s.drop_warp()
+		var gate: Node3D = null
+		for g in s.gates:
+			if g.get_meta("info")["id"] == where[gk][1]: gate = g
+		if gate == null: continue
+		s.player.global_position = gate.global_position + gate.global_basis.z * 120.0
+		s.vel = Vector3.ZERO
+		main.jump(gate)
+		await _until(func(): return main.jump_log.size() >= 1, 3.0)
+		var rings_now: bool = not s.jump_rings.is_empty()
+		if rings_now != bool(Data.WARP_RINGS[look]): rings_ok = false
+		await _until(func(): return fx.warp >= 0.99 and fx.pace > 0.5, 8.0)
+		var shown: bool = fx._warp_rect.visible and fx.skin == look
+		if gk == "rift":
+			tint_ok = fx.tints.size() == 12
+			for i in 12:
+				if fx._hue_gap((fx.tints[i] as Color).h, (fx.tints[(i + 1) % 12] as Color).h) < Data.RIFT_TINT_MIN_HUE - 0.001: tint_ok = false
+		if OS.get_environment("HL_SHOT_DIR") != "": await _shot("ab_warp_%s" % look, 0.0)
+		var max_flash := 0.0
+		while main.state != "flight" and main.jump_log.size() < 5:
+			max_flash = maxf(max_flash, fx.flash * Data.JUMP_FLASH_ALPHA)
+			await get_tree().process_frame
+		await _until(func(): return main.state == "flight", 20.0)
+		var L: Array = main.jump_log
+		if L.size() == 5:
+			var b: float = (L[1][1] - L[0][1]) / 1000.0
+			var c: float = (L[4][1] - L[3][1]) / 1000.0
+			if b < float(Data.WARP_BUILD[look]) - 0.1 or c < float(Data.WARP_CLEAR[look]) - 0.1 or b <= last_build: timing = false
+			last_build = b
+			detail += "%s %s: build %.1f s, clear %.1f s, booms %d; " % [gk, look, b, c, main.jump_booms]
+		else: timing = false
+		await get_tree().process_frame
+		await get_tree().process_frame
+		if float(Data.WARP_FLASH[look]) == 0.0 and max_flash > 0.001: smooth = false
+		if gk != "jump": booms += main.jump_booms
+		if shown and main.jump_look == look and GS.system_id == where[gk][2] and fx.warp == 0.0 and not fx._warp_rect.visible and not fx.jumping: seen[gk] = true
+	_check("Job AB: a jump through each kind of gate plays its own look and arrives in the next system with the effect gone", seen.size() == where.size() and where.size() >= 1, "%s of %s kinds on the map; %s" % [seen.size(), where.size(), detail])
+	_check("Job AB: each look builds (slow, then fast), holds while the next system loads, and eases out in its own time", timing, detail)
+	_check("Job AB: the cloud and the tear arrive smoothly with no white flash, and their slow layers make booms", smooth and (booms > 0 or not (where.has("warp") or where.has("rift"))), "booms %d" % booms)
+	_check("Job AB: the rift opens where you are (no rings to fly through); jump and warp gates keep their rings", rings_ok)
+	_check("Job AB: the tear's mist colours come in twelve, never two alike in a row", tint_ok and Data.RIFT_LAYERS >= 1 and Data.RIFT_LAYERS <= 12, "layers %d" % Data.RIFT_LAYERS)
+	# the surface tile change still uses the plain streaks, not the gate effect
+	fx.warp = 0.4
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_check("Job AB: outside a gate jump the warp effect stays off (planet tile changes keep their plain streaks)", not fx._warp_rect.visible)
+	fx.warp = 0.0
+	# back home, nothing kept
+	GS.credits = credits0
+	GS.discovered = disc0
+	main._load_system(home, "station")
+	await _wait(0.6)
+	main.state = "flight"
+	main.space.controls = true
+	main.hud.visible = true
 
 ## Job AA (v1.4w): the casts of seven more factions (from the owner's roster documents), faces, and the first two
 ## that fly (Imperium, Liberator) as peaceful guard wings.

@@ -359,6 +359,10 @@ func sky_path() -> String: return ("res://assets/sky/%s.jpg" if Data.CORE_SYSTEM
 func _on_sky_pack(pk: String) -> void:
 	if pk == sky_pack() and _pano != null and not surface_mode and ResourceLoader.exists(sky_path()): _pano.panorama = load(sky_path())
 
+## Job AB: the sky picture on show right now (the painted one, or the stars-and-haze made in code).
+func sky_texture() -> Texture2D:
+	return _pano.panorama if _pano != null else null
+
 func _star_panorama(tint: Color, band: Color) -> ImageTexture:
 	var w := 1024
 	var h := 512

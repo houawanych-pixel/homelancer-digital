@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.4w"
+const VERSION := "v1.4x"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -201,6 +201,28 @@ const PLANET_BIOME := {"terran": "forest", "jungle": "jungle", "ocean": "ocean",
 const TEXT_BUMP := 2                  # HUD and room text below TEXT_BUMP_BELOW px is drawn this much bigger
 const TEXT_BUMP_BELOW := 17
 const TEXT_MIN := 13                  # nothing on the HUD is smaller than this
+# ---------------------------------------------------------------- Job AB (v1.4x): one warp effect, three looks
+# gate kind -> look.  tunnel = jump gate (energy tube), cloud = warp gate (gas anomaly), rift = rift gate (a tear in space)
+const WARP_SKINS := {"jump": "tunnel", "warp": "cloud", "rift": "rift"}
+const WARP_BUILD := {"tunnel": 0.5, "cloud": 1.4, "rift": 3.0}     # s: slow start, then fast
+const WARP_CLEAR := {"tunnel": 0.3, "cloud": 0.9, "rift": 1.1}     # s: ease out on arrival
+const WARP_FLASH := {"tunnel": 0.55, "cloud": 0.0, "rift": 0.0}    # white flash on arrival (0 = smooth, no flash)
+const WARP_RINGS := {"tunnel": true, "cloud": true, "rift": false} # fly through the gate rings first (the rift just opens)
+const WARP_PACE_SLOW := 0.45         # layers passing per second at the start ("slow booms")
+const WARP_PACE_FAST := 4.2          # layers passing per second at full speed (held while the next system loads)
+const WARP_SPIN_SLOW := 0.15         # turns per second at the start
+const WARP_SPIN_FAST := 1.3          # turns per second at full speed
+const WARP_BOOM_BELOW := 0.75        # each passing layer makes a boom while the pace is below this share of full speed
+const RIFT_LAYERS := 10              # sheets of sky in the tear (1..12)
+const RIFT_OVAL := 1.6               # the tear is this much wider than tall
+const RIFT_RAGGED := 0.2             # how torn the edge is (0 = clean oval)
+const RIFT_MIST := 0.6               # coloured mist on each tear's edge
+const RIFT_TINT_MIN_HUE := 0.12      # two tears in a row differ in hue by at least this
+const TUNNEL_TWIST := 0.55           # jump tunnel: how much the energy bands corkscrew
+const TUNNEL_BANDS := 3.0            # jump tunnel: bands around the tube (whole number)
+const CLOUD_LAYERS := 6              # warp-gate anomaly: gas layers rushing past
+const WARP_MIN_COLOUR := 0.55       # the effect's main colour is at least this saturated
+const WARP_ALPHA := 0.96             # how solid the effect is at full strength
 # ---------------------------------------------------------------- Job AA (v1.4w): seven more faction casts
 const GUARD_SIZE := 2                # a faction's own guard wing near its main station (factions that have fighters)
 const GUARD_DIST := 520.0            # how far from the station the wing holds
