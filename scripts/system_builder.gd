@@ -124,7 +124,7 @@ static func _system(t: Array) -> Dictionary:
 			"count": 70 if void_sys else 130, "ice": t[8] in ["ice", "dead", "gas"]},
 		"nebula": {"name": "%s Veil" % nm, "center": CENTRE + Vector3(cos(a3) * 1700.0, 40, sin(a3) * 1700.0), "radius": 460.0,
 			"color": (f[0] as Color).lerp(f[3], 0.6)},
-		"enemy": f[4], "enemy_ships": Data.HOME_FLEETS.get(t[6], []), "patrols": patrols, "traffic": [[id + "_station", id + "_planet"]],
+		"enemy": f[4], "enemy_ships": Data.HOME_FLEETS.get(t[6], []), "enemy_faction": Data.HOME_FACTION.get(t[6], ""), "patrols": patrols, "traffic": [[id + "_station", id + "_planet"]],
 	}
 
 ## v1.4u: more room. Everything in a system moves Data.SYSTEM_SPREAD times farther from its main station (sizes stay).

@@ -30,19 +30,19 @@ const DEFS := {
 		"rival_faction_id": "Orion", "reputation_mode": "normal", "base_standing": 10.0},
 	"Orion": {"faction_id": "orion", "character_roster": "Orion", "fighter_pool": [], "ui_background": "orion", "display_name": "Orion", "primary_color": Color(0.25, 0.7, 0.45), "secondary_color": Color(0.1, 0.2, 0.14),
 		"rival_faction_id": "Solarion", "reputation_mode": "normal", "base_standing": 10.0},
-	"Cybermorph": {"faction_id": "cybermorph", "ui_background": "cybermorphs", "display_name": "Cybermorph", "primary_color": Color(0.62, 0.64, 0.68), "secondary_color": Color(0.1, 0.1, 0.12),
+	"Cybermorph": {"faction_id": "cybermorph", "character_roster": "Cybermorph", "fighter_pool": [], "ui_background": "cybermorphs", "display_name": "Cybermorph", "primary_color": Color(0.62, 0.64, 0.68), "secondary_color": Color(0.1, 0.1, 0.12),
 		"rival_faction_id": "", "reputation_mode": "enemy", "base_standing": -100.0},
 	# v1.4s: the other permanent-enemy factions. Outside the rival pairs; their interface art is used for captured
 	# places, enemy terminals and story screens.
-	"Solrath": {"faction_id": "solrath", "ui_background": "solrath", "display_name": "Solrath", "primary_color": Color(0.8, 0.15, 0.2), "secondary_color": Color(0.08, 0.05, 0.06),
+	"Solrath": {"faction_id": "solrath", "character_roster": "Solrath", "fighter_pool": [], "ui_background": "solrath", "display_name": "Solrath", "primary_color": Color(0.8, 0.15, 0.2), "secondary_color": Color(0.08, 0.05, 0.06),
 		"rival_faction_id": "", "reputation_mode": "enemy", "base_standing": -100.0},
-	"Gadversee": {"faction_id": "gadversee", "ui_background": "gadversee", "display_name": "Gadversee", "primary_color": Color(0.55, 0.85, 0.3), "secondary_color": Color(0.08, 0.1, 0.05),
+	"Gadversee": {"faction_id": "gadversee", "character_roster": "Gadversee", "fighter_pool": [], "ui_background": "gadversee", "display_name": "Gadversee", "primary_color": Color(0.55, 0.85, 0.3), "secondary_color": Color(0.08, 0.1, 0.05),
 		"rival_faction_id": "", "reputation_mode": "enemy", "base_standing": -100.0},
-	"Arctides": {"faction_id": "arctides", "ui_background": "arctides", "display_name": "Arctides", "primary_color": Color(0.6, 0.8, 1.0), "secondary_color": Color(0.08, 0.12, 0.2),
+	"Arctides": {"faction_id": "arctides", "character_roster": "Arctides", "fighter_pool": [], "ui_background": "arctides", "display_name": "Arctides", "primary_color": Color(0.6, 0.8, 1.0), "secondary_color": Color(0.08, 0.12, 0.2),
 		"rival_faction_id": "", "reputation_mode": "enemy", "base_standing": -100.0},
-	"Phenom": {"faction_id": "phenom", "ui_background": "phenom", "display_name": "Phenom", "primary_color": Color(0.65, 0.4, 1.0), "secondary_color": Color(0.08, 0.05, 0.14),
+	"Phenom": {"faction_id": "phenom", "character_roster": "Phenom", "fighter_pool": ["phenom_fighter", "phenom_interceptor", "phenom_scout", "phenom_heavy"], "ui_background": "phenom", "display_name": "Phenom", "primary_color": Color(0.65, 0.4, 1.0), "secondary_color": Color(0.08, 0.05, 0.14),
 		"rival_faction_id": "", "reputation_mode": "enemy", "base_standing": -100.0},
-	"Kaijurai": {"faction_id": "kaijurai", "ui_background": "kaijurai", "display_name": "Kaijurai", "primary_color": Color(0.95, 0.8, 0.35), "secondary_color": Color(0.12, 0.1, 0.05),
+	"Kaijurai": {"faction_id": "kaijurai", "character_roster": "Kaijurai", "fighter_pool": ["kaijurai_dart", "kaijurai_heavy", "kaijurai_gunship"], "ui_background": "kaijurai", "display_name": "Kaijurai", "primary_color": Color(0.95, 0.8, 0.35), "secondary_color": Color(0.12, 0.1, 0.05),
 		"rival_faction_id": "", "reputation_mode": "enemy", "base_standing": -100.0},
 }
 

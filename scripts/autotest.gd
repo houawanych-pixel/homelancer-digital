@@ -1044,6 +1044,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_AD") != "":   # the Job AD checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_ad()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_AC") != "":   # the Job AC checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1481,6 +1489,7 @@ func _run() -> void:
 	await _job_aa()
 	await _job_ab()
 	await _job_ac()
+	await _job_ad()
 	await _galaxy()
 	await _controls_j()
 	await _gate_k()
@@ -3577,6 +3586,92 @@ func _job_z() -> void:
 	_check("Job Z: World's End Emporium (Omega), the Hollow Requiem (Shadow) and Greywhistle Beacon (Foggiest) wear the owner's models", data_ok and seen_models == [true, true, true], str(seen_models))
 	_check("Job Z: Greywhistle Beacon stands in thick grey fog with its lamp lit: the fog thins and the sensors recover beside it", fog_ok, fog_txt)
 
+## Job AD (v1.4z): the six permanent-enemy casts from the owner's roster documents (Phenom, Kaijurai, Cybermorph,
+## Solrath, Gadversee, Arctides), their portraits, and the two that have ships (Phenom, Kaijurai) flying them.
+func _job_ad() -> void:
+	var shell := FileAccess.get_file_as_string("res://web_shell.html")
+	_check("Job AD: version label reads \"Homelancer Digital v1.4z\" or later", Data.VERSION >= "v1.4z" and (shell == "" or shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0), Data.VERSION)
+	var want := {"Phenom": ["Aurelian Guard", "Vyrela", "Thalen", "Isara", "Ascendant Guard", "Xerathion"],
+		"Kaijurai": ["Containment Trooper", "Zhara Keth", "Drakk Vorn", "Syrak Nem", "Cradle Guard", "Vorrax Kael"],
+		"Cybermorph": ["UNIT-01", "VX-RAID", "ORION-K", "NEX-M7", "AX-9", "PRIME-NEXUS"],
+		"Solrath": ["Void Trooper", "Velkira Syth", "Kharvek", "Nyssara Veil", "Void Enforcer", "Azrath Vhol"],
+		"Gadversee": ["Hive Thrall Trooper", "Mireya Bloom", "Grath Vorn", "Vesha Mycel", "Elite Spore Guard", "Mother Sera"],
+		"Arctides": ["Ice Guard", "Seryn Vail", "Kaldren", "Lysara", "House Warden", "Vorstane"]}
+	var names_ok := true
+	var rule_ok := true
+	var faces := 0
+	var enemy_ok := true
+	for f in want:
+		var ros: Array = Data.ROSTERS.get(f, {}).get("pilots", [])
+		if ros.map(func(p): return p["name"]) != want[f] or Data.ROSTERS.get(f, {}).get("leader", "") != want[f][5]: names_ok = false
+		if Factions.band(f) != "gray" or not Factions.hostile(f) or Factions.normal(f) or str(Factions.def(f).get("character_roster", "")) != f: enemy_ok = false
+		for i in ros.size():
+			var p: Dictionary = Data.roster_pilot(ros[i]["character_id"])
+			if int(p["slot"]) != i + 1 or int(p["rank"]) != i + 1 or bool(p["named_unique"]) != (i in [1, 2, 3, 5]) or p["faction"] != f: rule_ok = false
+			if bool(p["female"]) != (p["sex"] == "female") or p["voice_sex"] != p["sex"] or p["voice_id"] != p["character_id"] or not (p["sex"] in ["male", "female", "none"]): rule_ok = false
+			if (f == "Cybermorph") != (p["sex"] == "none") or (f == "Cybermorph" and not str(p["voice_persona"]).begins_with("neutral_machine")): rule_ok = false
+			for k in ["species", "persona", "voice_persona", "normal_emotion", "combat_emotion", "damaged_emotion", "critical_emotion", "fighter_primary"]:
+				if not p.has(k): rule_ok = false
+			if ResourceLoader.exists(p["portrait_clean"]) and ResourceLoader.exists(p["portrait_damaged"]): faces += 1
+	_check("Job AD: the six enemy factions have their six people, named as the owner's roster documents name them (Phenom, Kaijurai, Cybermorph, Solrath, Gadversee, Arctides)", names_ok and Data.ROSTERS.size() == 14, "%d rosters" % Data.ROSTERS.size())
+	_check("Job AD: slot 01 is the common soldier, 05 the elite, 02 03 04 06 are named; sex and voice come from the documents (Cybermorphs are machines: no sex, one neutral machine voice family; Isara and Mother Sera female, Xerathion male)",
+		rule_ok and Data.roster_pilot("phenom_04_isara")["sex"] == "female" and Data.roster_pilot("gadversee_06_mother")["sex"] == "female" and Data.roster_pilot("phenom_06_xerathion")["voice_persona"] == "male_augmented"
+		and Data.roster_pilot("cybermorph_06_prime_nexus")["voice_persona"] == "neutral_machine_echo_command")
+	_check("Job AD: all 36 have a clean and a battle-damaged portrait", faces == 36, "%d of 36" % faces)
+	_check("Job AD: all six are permanent enemies (gray, hostile, outside the reputation ladder)", enemy_ok)
+	# who flies: only the two with ships in the game, each person in a ship of their own faction, heavier with rank
+	var ships_ok := true
+	for f in want:
+		for p in Data.ROSTERS[f]["pilots"]:
+			var k: String = p["fighter_primary"]
+			if f in ["Phenom", "Kaijurai"]:
+				if not Data.ENEMIES.has(k) or Data.ENEMIES[k].get("faction", "") != f or not ShipFactory.has_real_model(Data.ENEMIES[k]["model"]): ships_ok = false
+			elif k != "": ships_ok = false
+	_check("Job AD: Phenom and Kaijurai people each have a ship from their own set (Vyrela the interceptor, the two elites and commanders the heaviest); the other four casts are known but do not fly yet",
+		ships_ok and Data.roster_pilot("phenom_02_vyrela")["fighter_primary"] == "phenom_interceptor" and Data.roster_pilot("phenom_06_xerathion")["fighter_primary"] == "phenom_heavy"
+		and Data.roster_pilot("kaijurai_01")["fighter_primary"] == "kaijurai_dart" and Data.roster_pilot("kaijurai_06_vorrax")["fighter_primary"] == "kaijurai_gunship"
+		and Factions.has_fighters("Phenom") and Factions.has_fighters("Kaijurai") and not Factions.has_fighters("Solrath"))
+	# in their home systems the patrols are their own people, always hostile, and a hail shows their own face
+	var s := _sp()
+	var real_sys: Dictionary = s.sys
+	var crew_ok := true
+	var seen: Array = []
+	var hail_ok := false
+	for pair in [["genesis", "Kaijurai"], ["noctyra", "Phenom"]]:
+		var sy: Dictionary = Data.SYSTEMS.get(pair[0], {})
+		if sy.get("enemy_faction", "") != pair[1]: crew_ok = false
+		s.sys = sy
+		var g: Array = s._spawn_group(s.station.global_position + Vector3(0, 300, 2600), 3)
+		s.sys = real_sys
+		await _frames(4)
+		for e in g:
+			var pl: Dictionary = e.get("pilot", {})
+			seen.append(str(pl.get("name", "?")))
+			if pl.get("faction", "") != pair[1] or e.get("faction", "") != pair[1] or str(Data.ENEMIES.find_key(Data.ENEMIES.get(pl.get("fighter_primary", ""), {}))) != str(pl.get("fighter_primary", "-")): crew_ok = false
+			if not str(e["def"].get("faction", "")) == pair[1] or (e["node"] as Node3D).get_meta("kind", "") != "enemy" or int(e.get("rank", 0)) != int(pl.get("rank", -1)): crew_ok = false
+		if pair[1] == "Phenom" and not g.is_empty():
+			s.target = g[0]["node"]
+			main._pilot_call(g[0]["node"].get_meta("pilot"), false)   # (CALL on a hostile sometimes rings their leader instead: ask the pilot directly)
+			for side in ["l", "r"]:
+				var slot: Dictionary = main.hud.slot(side)
+				if not slot.is_empty() and str(slot["from"]).to_upper().begins_with(str(g[0]["pilot"]["name"]).to_upper()) and bool(slot["hostile"]): hail_ok = true
+			hail_ok = hail_ok and main.hud.comms_voice_id == g[0]["pilot"]["voice_id"]
+			await Packs.wait("enemies", 30.0)
+			await _shot("ad_phenom_hail", 0.4)
+			main.hud.close_comms()
+		s.target = null
+		for e in g:
+			s.enemies.erase(e)
+			(e["node"] as Node3D).free()
+	s.target = null
+	Sfx.stop_voice()
+	var others := true
+	for id in Data.SYSTEMS:
+		if id not in ["genesis", "noctyra"] and str(Data.SYSTEMS[id].get("enemy_faction", "")) != "": others = false
+	_tp(s.station.global_position + Vector3(0, 40, 420), s.station.global_position)
+	_check("Job AD: in Genesis and Noctyra the patrols are flown by Kaijurai and Phenom people from the rosters, in their own ships, ranked, always hostile; a hail shows that person's name and voice id; no other system changed",
+		crew_ok and hail_ok and others, "crew %s, hail %s, others %s: %s" % [crew_ok, hail_ok, others, str(seen)])
+
 ## Job AC (v1.4y): the owner's Kaijurai and Phenom ship sets in the game (mirrored light copies, nose first), the
 ## thruster repair on two Phenom ships, and the two enemy home systems flying them.
 func _job_ac() -> void:
@@ -3661,9 +3756,11 @@ func _job_ac() -> void:
 		var g: Array = s._spawn_group(s.station.global_position + Vector3(0, 300, 2600), 4)
 		s.sys = real_sys
 		for e in g:
-			flown.append(str(Data.ENEMIES.find_key(e["def"])))
-			if e.has("faction") or (e["node"] as Node3D).get_meta("kind", "") != "enemy": hostile = false
-			if not e.has("pilot") or not bool(e["pilot"].get("generic", false)) or str(e["pilot"].get("leader", "")) != str(e["def"]["faction"]): plain = false
+			flown.append(str(e["def"].get("model", "")))   # (a ranked pilot's ship carries its own tuned copy of the entry: go by the model)
+			if (e["node"] as Node3D).get_meta("kind", "") != "enemy" or (e.has("faction") and not Factions.hostile(e["faction"])): hostile = false
+			# v1.4z: the pilot is one of that faction's own six, or (fallback) a generic pilot under the faction's name; never a raider or corsair leader
+			var own_cast: bool = str(e.get("pilot", {}).get("faction", "")) == str(e["def"]["faction"])
+			if not e.has("pilot") or not (own_cast or str(e["pilot"].get("leader", "")) == str(e["def"]["faction"])): plain = false
 		main.hud.visible = false
 		for e in g:   # one picture of each ship, seen from behind and a little above (the way the player meets it)
 			var k := str(Data.ENEMIES.find_key(e["def"]))
@@ -3681,10 +3778,10 @@ func _job_ac() -> void:
 			(e["node"] as Node3D).free()
 		s.target = null
 	_tp(s.station.global_position + Vector3(0, 40, 420), s.station.global_position)
-	_check("Job AC: the Kaijurai home system (Genesis) and the Phenom home system (Noctyra) fly their own ships on patrol, taken from the list in turn, hostile, with no named raider or corsair leader; no other system changed",
+	_check("Job AC: the Kaijurai home system (Genesis) and the Phenom home system (Noctyra) fly their own ships on patrol, hostile, with no named raider or corsair leader; no other system changed",
 		gen.get("enemy_ships", []) == Data.HOME_FLEETS["Kaijurai home"] and noc.get("enemy_ships", []) == Data.HOME_FLEETS["Phenom home"] and others and hostile and plain
 		and flown.slice(0, 4).all(func(k): return str(k).begins_with("kaijurai_")) and flown.slice(4).all(func(k): return str(k).begins_with("phenom_")) and flown.size() == 8
-		and flown.slice(0, 4).has("kaijurai_heavy") and flown.slice(4).has("phenom_interceptor"), str(flown))
+		, str(flown))
 
 ## every vertex of a model, in the model root's space (Job AC shape checks)
 func _ac_points(n: Node, xf: Transform3D) -> PackedVector3Array:
@@ -3816,7 +3913,7 @@ func _job_aa() -> void:
 			for k in ["species", "persona", "voice_persona", "normal_emotion", "combat_emotion", "damaged_emotion", "critical_emotion", "fighter_primary"]:
 				if not p.has(k): fields = false
 			if ResourceLoader.exists(p["portrait_clean"]) and ResourceLoader.exists(p["portrait_damaged"]): faces += 1
-	_check("Job AA: seven more factions have their six people, named as the owner's roster documents name them (Covenant, Imperium, Solarion, Unity, Elyza, Orion, Liberator)", names_ok and Data.ROSTERS.size() == 8, "%d rosters" % Data.ROSTERS.size())
+	_check("Job AA: seven more factions have their six people, named as the owner's roster documents name them (Covenant, Imperium, Solarion, Unity, Elyza, Orion, Liberator)", names_ok and Data.ROSTERS.size() >= 8, "%d rosters" % Data.ROSTERS.size())   # (v1.4z: 8 main factions + the 6 enemy casts)
 	_check("Job AA: in every one, slot 01 is the common soldier and 05 the elite soldier, slots 02 03 04 06 are named, and sex and voice come from the data (Syra N'Tel female, Korvax male, Lord Kraeg augmented)",
 		rule_ok and fields and Data.roster_pilot("orion_03_syra")["sex"] == "female" and Data.roster_pilot("orion_04_korvax")["sex"] == "male" and Data.roster_pilot("imperium_06_kraeg")["voice_persona"] == "male_augmented")
 	_check("Job AA: all 42 have a clean and a battle-damaged portrait", faces == 42, "%d of 42" % faces)
@@ -3829,7 +3926,8 @@ func _job_aa() -> void:
 	for k in ["imperium_fighter", "imperium_gunship", "liberator_fighter", "liberator_heavy"]:
 		if not ShipFactory.has_real_model(Data.ENEMIES[k]["model"]): models = false
 	_check("Job AA: Imperium and Liberator pilots have fighters from their own ship sets (light for slots 1-3, heavier for 4-6); the other five casts are known but do not fly yet",
-		fly == ["Imperium", "Liberator", "Savagers"] and models and Data.roster_pilot("imperium_02")["fighter_primary"] == "imperium_fighter" and Data.roster_pilot("imperium_05")["fighter_primary"] == "imperium_gunship"
+		fly.filter(func(f): return Factions.normal(f)) == ["Imperium", "Liberator", "Savagers"] and models   # (v1.4z: of the eight main factions; Kaijurai and Phenom fly too)
+		 and Data.roster_pilot("imperium_02")["fighter_primary"] == "imperium_fighter" and Data.roster_pilot("imperium_05")["fighter_primary"] == "imperium_gunship"
 		and Data.roster_pilot("unity_02")["fighter_primary"] == "" and float(ShipFactory.GLB["liberator_fighter"][2]) == Data.LIBERATOR_YAW, str(fly))
 	# a guard wing in their own space: peaceful, not a hostile contact, answers a hail; shoot and it turns
 	var s := _sp()

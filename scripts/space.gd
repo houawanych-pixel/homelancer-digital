@@ -1344,6 +1344,8 @@ func _spawn_group(center: Vector3, count: int) -> Array:
 		# v1.4r / v1.4w: a faction whose own people fly its patrols (Savagers), or its guard wing / hunters
 		var own: String = str(sys.get("faction", ""))
 		var soldier: Dictionary = roster_pick(own, _guard_slot) if (Factions.replaces_patrols(own) or _guard_spawn) else {}
+		# v1.4z: an enemy home system whose faction has a roster and ships (Phenom, Kaijurai): its own people fly the patrols
+		if soldier.is_empty() and not _guard_spawn and str(sys.get("enemy_faction", "")) != "": soldier = roster_pick(str(sys["enemy_faction"]))
 		if soldier.is_empty() and _incursion != "" and not _guard_spawn:   # a rival's raiding party: common soldiers, now and then led by slot 02
 			soldier = roster_pick(_incursion, 2 if (i == 0 and randf() < Data.INCURSION_NAMED_CHANCE) else 1)
 			if i == count - 1 or count > Data.INCURSION_SIZE: _incursion_done = true
@@ -2905,7 +2907,7 @@ func _destroy_unit(e: Dictionary) -> void:
 		if pl.get("named_unique", false) and not e.has("bounty"):
 			_named_down[pl["character_id"]] = true   # a named pilot is not gone for good: they break off and turn up again later
 			GS.cast_state(pl["character_id"])["current_system"] = ""
-			message.emit("%s's fighter is finished. %s got away." % [pl["name"], "She" if pl["sex"] == "female" else "He"])
+			message.emit("%s's fighter is finished. %s got away." % [pl["name"], {"female": "She", "male": "He"}.get(str(pl["sex"]), "It")])   # (v1.4z: a machine is "it")
 	if e.has("bounty"): _drop_pilot(n.global_position, e["bounty"])   # (after the kill line, so "TRACTOR the pilot in" is what stays on screen)
 	if target == n: target = null
 	n.set_meta("kind", "wreck")

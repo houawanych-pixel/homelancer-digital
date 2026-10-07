@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.4y"
+const VERSION := "v1.4z"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -218,6 +218,10 @@ const HOME_FLEETS := {
 	"Kaijurai home": ["kaijurai_dart", "kaijurai_heavy", "kaijurai_dart", "kaijurai_gunship"],
 	"Phenom home": ["phenom_fighter", "phenom_interceptor", "phenom_scout", "phenom_heavy"],
 }
+# ---------------------------------------------------------------- Job AD (v1.4z): the six enemy casts
+# whose people fly the patrols of an enemy home system (by the map's role text). Only factions with a roster AND
+# ships in the game are listed; the ship lists above stay as the fallback when no one from the roster can fly.
+const HOME_FACTION := {"Kaijurai home": "Kaijurai", "Phenom home": "Phenom"}
 # ---------------------------------------------------------------- Job AB (v1.4x): one warp effect, three looks
 # gate kind -> look.  tunnel = jump gate (energy tube), cloud = warp gate (gas anomaly), rift = rift gate (a tear in space)
 const WARP_SKINS := {"jump": "tunnel", "warp": "cloud", "rift": "rift"}

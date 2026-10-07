@@ -866,3 +866,26 @@ nebula colours when a sky picture cannot be read.
 Simplest choices made, to confirm: which ship of each set is the "fighter", "heavy" and so on are guesses from the
 shapes; the stats copy the Imperium and Liberator fighters of the same class; the capital ships, turrets and missiles of
 both sets are saved in the asset library and not placed.
+
+## 39. The six enemy casts (Job AD, v1.4z)
+
+- Source: the owner's roster documents of 7 Oct 2026 ("<FACTION> - Character Roster, Personas, Voice IDs & Image
+  Pairing v1") and their matched pictures, for Phenom, Kaijurai, Cybermorphs, Solrath, Gadversee and Arctides. Names,
+  sex, species, voice type, rank and persona are copied from the DOCUMENT, never read off the picture. Where a
+  document gives no text for a field (several have no "critical" voice line; the Cybermorph frames 02-06 only have a
+  voice variant) the field is left empty: nothing was invented. `tools/rosterkit/gen_rosters.py` holds the typed data.
+- Cybermorphs are machines: sex "none", one neutral machine voice family; the game says "It", not "He" or "She".
+- Portraits: 72 pictures (clean and battle-damaged for each of the 36), cut from the six roster sheets by
+  `tools/rosterkit/crop.py`, in `assets/enemy_pilots/` (the "enemies" pack, not the core download).
+- All six are permanent enemies (gray band, always hostile, outside the reputation ladder), as the documents say.
+  The Arctides document does not use the words "permanent hostile"; it was left as the enemy faction the map and
+  the Bible make it.
+- Who flies: only Phenom and Kaijurai have ships in the game. Their people fly the patrols of Noctyra and Genesis
+  (`Data.HOME_FACTION`), each in a ship of their own set, with the usual rank rule (higher slot = stronger ship). The
+  ship lists of v1.4y (`Data.HOME_FLEETS`) remain as the fallback. The other four casts are known (faces, names) but
+  do not fly until their ship sets are processed.
+- Ship assignments are NOT in the documents ("future ship assignments"). Simplest choice made, to confirm: slots 1-3
+  light, 4-6 heavier. Phenom: 01 fighter, 02 Vyrela interceptor, 03 and 04 scout, 05 and 06 heavy fighter.
+  Kaijurai: 01 and 02 dart, 03 and 04 heavy fighter, 05 and 06 gunship.
+- Two Job AA checks counted "8 rosters" and "three factions fly"; they now count the eight main factions only. The
+  Job AC patrol check now accepts the faction's own roster people as the pilots.
