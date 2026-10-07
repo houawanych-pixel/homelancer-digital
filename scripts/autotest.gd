@@ -1044,6 +1044,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_AC") != "":   # the Job AC checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_ac()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_AB") != "":   # the Job AB checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1472,6 +1480,7 @@ func _run() -> void:
 	await _job_z()
 	await _job_aa()
 	await _job_ab()
+	await _job_ac()
 	await _galaxy()
 	await _controls_j()
 	await _gate_k()
@@ -3567,6 +3576,126 @@ func _job_z() -> void:
 	_tp(s.station.global_position + Vector3(0, 40, 420), s.station.global_position)
 	_check("Job Z: World's End Emporium (Omega), the Hollow Requiem (Shadow) and Greywhistle Beacon (Foggiest) wear the owner's models", data_ok and seen_models == [true, true, true], str(seen_models))
 	_check("Job Z: Greywhistle Beacon stands in thick grey fog with its lamp lit: the fog thins and the sensors recover beside it", fog_ok, fog_txt)
+
+## Job AC (v1.4y): the owner's Kaijurai and Phenom ship sets in the game (mirrored light copies, nose first), the
+## thruster repair on two Phenom ships, and the two enemy home systems flying them.
+func _job_ac() -> void:
+	var shell := FileAccess.get_file_as_string("res://web_shell.html")
+	_check("Job AC: version label reads \"Homelancer Digital v1.4y\" or later", Data.VERSION >= "v1.4y" and (shell == "" or shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0), Data.VERSION)
+	var keys := ["kaijurai_dart", "kaijurai_heavy", "kaijurai_gunship", "phenom_fighter", "phenom_interceptor", "phenom_scout", "phenom_heavy"]
+	var real := true
+	var fit := true
+	var nose := true
+	var mirror := true
+	var tail := true
+	var note := ""
+	for k in keys:
+		if not (Data.ENEMIES.has(k) and ShipFactory.has_real_model(Data.ENEMIES[k]["model"])):
+			real = false
+			continue
+		var m := ShipFactory.build(k, false)
+		if m.get_meta("placeholder", true): real = false
+		var inst: Node3D = m.get_child(0)
+		var pts := _ac_points(inst, Transform3D.IDENTITY)
+		var lo := Vector3(INF, INF, INF)
+		var hi := -lo
+		for v in pts:
+			lo = lo.min(v)
+			hi = hi.max(v)
+		var size := hi - lo
+		var want: float = ShipFactory.GLB[k][1]
+		# the right length, lying nose-to-tail along the game's forward axis, centred, turned as the table says
+		if absf(maxf(size.x, size.z) - want) > want * 0.03 or size.z < size.x * 0.9 or ((lo + hi) * 0.5).length() > want * 0.03 or not is_equal_approx(inst.rotation_degrees.y, float(ShipFactory.GLB[k][2])):
+			fit = false
+			note += " fit:" + k
+		# nose first: the front quarter (toward -Z) is narrower than the back half
+		var wf := 0.0
+		var wb := 0.0
+		var rear_lo := INF
+		var rear_hi := -INF
+		var seen := {}
+		for v in pts:
+			if v.z < lo.z + size.z * 0.25: wf = maxf(wf, absf(v.x))
+			if v.z > lo.z + size.z * 0.5: wb = maxf(wb, absf(v.x))
+			if v.z > hi.z - size.z * 0.2:
+				rear_lo = minf(rear_lo, v.y)
+				rear_hi = maxf(rear_hi, v.y)
+			seen[Vector3i((v * (400.0 / want)).round())] = true
+		if wf >= wb * 0.8:
+			nose = false
+			note += " nose:" + k
+		# left = right: every point has a twin on the other side
+		var miss := 0
+		for v in pts:
+			var q := Vector3i((Vector3(-v.x, v.y, v.z) * (400.0 / want)).round())
+			var ok := false
+			for dx in [-1, 0, 1]:
+				if seen.has(q + Vector3i(dx, 0, 0)): ok = true
+			if not ok: miss += 1
+		if miss > pts.size() / 100:
+			mirror = false
+			note += " mirror:%s(%d of %d)" % [k, miss, pts.size()]
+		# the thruster repair: nothing upright at the tail any more
+		if k in ["phenom_interceptor", "phenom_scout"] and rear_hi - rear_lo > want * 0.2:
+			tail = false
+			note += " tail:%s(%.2f)" % [k, (rear_hi - rear_lo) / want]
+		m.free()
+	_check("Job AC: seven ships from the owner's Kaijurai and Phenom sets are real models (three Kaijurai, four Phenom), each the right length, centred and turned as the ship table says", real and fit, note)
+	_check("Job AC: every one of them flies nose first (narrow front toward the game's forward) and is mirrored: left matches right", nose and mirror, note)
+	_check("Job AC: thruster repair: the Phenom interceptor and scout no longer carry an upright cannon at the tail (the tail is low and ends in thrusters taken from another Phenom fighter)", tail, note)
+	# the two home systems fly them; nobody else changed
+	var gen: Dictionary = Data.SYSTEMS.get("genesis", {})
+	var noc: Dictionary = Data.SYSTEMS.get("noctyra", {})
+	var others := true
+	for id in Data.SYSTEMS:
+		if id not in ["genesis", "noctyra"] and not (Data.SYSTEMS[id].get("enemy_ships", []) as Array).is_empty(): others = false
+	var s := _sp()
+	var real_sys: Dictionary = s.sys
+	var flown: Array = []
+	var hostile := true
+	var plain := true
+	var shot_done: Array = []
+	for sy in [gen, noc]:
+		if sy.is_empty(): continue
+		s.sys = sy
+		var g: Array = s._spawn_group(s.station.global_position + Vector3(0, 300, 2600), 4)
+		s.sys = real_sys
+		for e in g:
+			flown.append(str(Data.ENEMIES.find_key(e["def"])))
+			if e.has("faction") or (e["node"] as Node3D).get_meta("kind", "") != "enemy": hostile = false
+			if not e.has("pilot") or not bool(e["pilot"].get("generic", false)) or str(e["pilot"].get("leader", "")) != str(e["def"]["faction"]): plain = false
+		main.hud.visible = false
+		for e in g:   # one picture of each ship, seen from behind and a little above (the way the player meets it)
+			var k := str(Data.ENEMIES.find_key(e["def"]))
+			if k in shot_done: continue
+			shot_done.append(k)
+			var np: Vector3 = (e["node"] as Node3D).global_position
+			var back: Vector3 = (e["node"] as Node3D).global_basis.z
+			var side: Vector3 = (e["node"] as Node3D).global_basis.x
+			_tp(np + back * 24.0 + Vector3(0, 2, 0), np - side * 10.0 + Vector3(0, -6, 0))   # the ship sits up and to the right of the player's own
+			await _shot("ac_" + k, 0.2)
+		main.hud.visible = true
+		s.target = null
+		for e in g:
+			s.enemies.erase(e)
+			(e["node"] as Node3D).free()
+		s.target = null
+	_tp(s.station.global_position + Vector3(0, 40, 420), s.station.global_position)
+	_check("Job AC: the Kaijurai home system (Genesis) and the Phenom home system (Noctyra) fly their own ships on patrol, taken from the list in turn, hostile, with no named raider or corsair leader; no other system changed",
+		gen.get("enemy_ships", []) == Data.HOME_FLEETS["Kaijurai home"] and noc.get("enemy_ships", []) == Data.HOME_FLEETS["Phenom home"] and others and hostile and plain
+		and flown.slice(0, 4).all(func(k): return str(k).begins_with("kaijurai_")) and flown.slice(4).all(func(k): return str(k).begins_with("phenom_")) and flown.size() == 8
+		and flown.slice(0, 4).has("kaijurai_heavy") and flown.slice(4).has("phenom_interceptor"), str(flown))
+
+## every vertex of a model, in the model root's space (Job AC shape checks)
+func _ac_points(n: Node, xf: Transform3D) -> PackedVector3Array:
+	var out := PackedVector3Array()
+	if n is Node3D: xf = xf * (n as Node3D).transform
+	if n is MeshInstance3D and (n as MeshInstance3D).mesh:
+		var mesh: Mesh = (n as MeshInstance3D).mesh
+		for si in mesh.get_surface_count():
+			for v in (mesh.surface_get_arrays(si)[Mesh.ARRAY_VERTEX] as PackedVector3Array): out.append(xf * v)
+	for c in n.get_children(): out.append_array(_ac_points(c, xf))
+	return out
 
 ## Job AB (v1.4x): one warp effect, three looks (jump gate tunnel, warp gate cloud, rift gate tear).
 func _job_ab() -> void:

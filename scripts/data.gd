@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.4x"
+const VERSION := "v1.4y"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -201,6 +201,23 @@ const PLANET_BIOME := {"terran": "forest", "jungle": "jungle", "ocean": "ocean",
 const TEXT_BUMP := 2                  # HUD and room text below TEXT_BUMP_BELOW px is drawn this much bigger
 const TEXT_BUMP_BELOW := 17
 const TEXT_MIN := 13                  # nothing on the HUD is smaller than this
+# ---------------------------------------------------------------- Job AC (v1.4y): Kaijurai and Phenom ships
+# The owner's Kaijurai and Phenom ship sets (hl_Kaijurai_ship_set, hl_Phenom_ship_set): light, mirrored copies. Every
+# one was levelled and checked from above: nose at -Z, so the extra yaw is 0. Names are guesses from the shapes.
+const KAIJURAI_DART_LEN := 12.0
+const KAIJURAI_HEAVY_LEN := 15.0
+const KAIJURAI_GUNSHIP_LEN := 18.0
+const PHENOM_FIGHTER_LEN := 12.0
+const PHENOM_INTERCEPTOR_LEN := 12.0    # thruster repair: the upright tail cannon was cut off, thrusters from Phenom fighter c grafted on
+const PHENOM_SCOUT_LEN := 11.0          # thruster repair, same donor
+const PHENOM_HEAVY_LEN := 15.0
+const ALIEN_SHIP_YAW := 0.0
+# which ships fly the patrols of an enemy home system (by the map's role text). The patrol's ships are taken from this
+# list in turn. Systems not listed keep sys["enemy"].
+const HOME_FLEETS := {
+	"Kaijurai home": ["kaijurai_dart", "kaijurai_heavy", "kaijurai_dart", "kaijurai_gunship"],
+	"Phenom home": ["phenom_fighter", "phenom_interceptor", "phenom_scout", "phenom_heavy"],
+}
 # ---------------------------------------------------------------- Job AB (v1.4x): one warp effect, three looks
 # gate kind -> look.  tunnel = jump gate (energy tube), cloud = warp gate (gas anomaly), rift = rift gate (a tear in space)
 const WARP_SKINS := {"jump": "tunnel", "warp": "cloud", "rift": "rift"}
@@ -538,6 +555,14 @@ const ENEMIES := {
 	"imperium_gunship": {"name": "Imperium Gunship", "class": "gunship", "faction": "Imperium", "model": "imperium_gunship", "radius": 9.0, "hull": 130.0, "shield": 70.0, "speed": 42.0, "turn": 1.1, "damage": 7.5, "rate": 2.0, "reward": 360, "missiles": true},
 	"liberator_fighter": {"name": "Liberator Fighter", "class": "fighter", "faction": "Liberator", "model": "liberator_fighter", "hull": 65.0, "shield": 40.0, "speed": 49.0, "turn": 1.5, "damage": 5.5, "rate": 1.7, "reward": 190},
 	"liberator_heavy": {"name": "Liberator Strike Fighter", "class": "heavy fighter", "faction": "Liberator", "model": "liberator_heavy", "radius": 9.0, "hull": 110.0, "shield": 60.0, "speed": 45.0, "turn": 1.25, "damage": 7.0, "rate": 1.9, "reward": 330, "missiles": true},
+	# v1.4y: the owner's Kaijurai and Phenom sets (permanent enemies: no roster, no reputation; they fly their home systems' patrols)
+	"kaijurai_dart": {"name": "Kaijurai Dart Fighter", "class": "fighter", "faction": "Kaijurai", "model": "kaijurai_dart", "hull": 70.0, "shield": 40.0, "speed": 49.0, "turn": 1.5, "damage": 6.0, "rate": 1.7, "reward": 210},
+	"kaijurai_heavy": {"name": "Kaijurai Heavy Fighter", "class": "heavy fighter", "faction": "Kaijurai", "model": "kaijurai_heavy", "radius": 9.0, "hull": 120.0, "shield": 65.0, "speed": 45.0, "turn": 1.25, "damage": 7.0, "rate": 1.9, "reward": 340, "missiles": true},
+	"kaijurai_gunship": {"name": "Kaijurai Gunship", "class": "gunship", "faction": "Kaijurai", "model": "kaijurai_gunship", "radius": 10.0, "hull": 150.0, "shield": 80.0, "speed": 41.0, "turn": 1.1, "damage": 8.0, "rate": 2.0, "reward": 420, "missiles": true},
+	"phenom_fighter": {"name": "Phenom Fighter", "class": "fighter", "faction": "Phenom", "model": "phenom_fighter", "hull": 70.0, "shield": 45.0, "speed": 49.0, "turn": 1.5, "damage": 6.0, "rate": 1.7, "reward": 210},
+	"phenom_interceptor": {"name": "Phenom Interceptor", "class": "interceptor", "faction": "Phenom", "model": "phenom_interceptor", "hull": 65.0, "shield": 45.0, "speed": 52.0, "turn": 1.6, "damage": 6.0, "rate": 1.8, "reward": 230},
+	"phenom_scout": {"name": "Phenom Scout", "class": "scout", "faction": "Phenom", "model": "phenom_scout", "hull": 55.0, "shield": 40.0, "speed": 53.0, "turn": 1.6, "damage": 5.0, "rate": 1.6, "reward": 180},
+	"phenom_heavy": {"name": "Phenom Heavy Fighter", "class": "heavy fighter", "faction": "Phenom", "model": "phenom_heavy", "radius": 9.0, "hull": 120.0, "shield": 70.0, "speed": 45.0, "turn": 1.25, "damage": 7.0, "rate": 1.9, "reward": 340, "missiles": true},
 	# v1.4r: the Savagers fighter ladder (strike craft only: no battleships as a pilot's ride)
 	"scrapfang": {"name": "Scrapfang Light Fighter", "class": "light fighter", "faction": "Savagers", "model": "savager_scrapfang", "hull": 60.0, "shield": 30.0, "speed": 46.0, "turn": 1.4, "damage": 5.0, "rate": 1.6, "reward": 150},
 	"redclaw": {"name": "Redclaw Interceptor", "class": "interceptor", "faction": "Savagers", "model": "savager_redclaw", "hull": 80.0, "shield": 45.0, "speed": 50.0, "turn": 1.5, "damage": 6.0, "rate": 1.8, "reward": 220},

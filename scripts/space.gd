@@ -1348,15 +1348,20 @@ func _spawn_group(center: Vector3, count: int) -> Array:
 			soldier = roster_pick(_incursion, 2 if (i == 0 and randf() < Data.INCURSION_NAMED_CHANCE) else 1)
 			if i == count - 1 or count > Data.INCURSION_SIZE: _incursion_done = true
 		if not soldier.is_empty(): kind = roster_fighter(soldier)
-		if soldier.is_empty() and count >= 2 and i == count - 1 and _rng.randf() < 0.5 and Packs.is_ready("mechs"): kind = "mech"
+		# v1.4y: an enemy home system with its own ships (Kaijurai, Phenom) flies them, taken from its list in turn
+		var fleet: Array = sys.get("enemy_ships", []) if soldier.is_empty() and not _guard_spawn else []
+		if not fleet.is_empty(): kind = fleet[(_fleet_serial + i) % fleet.size()]
+		if fleet.is_empty() and soldier.is_empty() and count >= 2 and i == count - 1 and _rng.randf() < 0.5 and Packs.is_ready("mechs"): kind = "mech"
 		var e := spawn_unit(kind, center + Vector3(_rng.randf_range(-60, 60), _rng.randf_range(-20, 20), _rng.randf_range(-60, 60)), center)
 		e["group"] = _group_serial
 		# the first ship flies under a NAMED squad leader (Scar Jackal, Iron Revenant...); everyone else is a generic
 		# pilot in that leader's wing
 		if not soldier.is_empty(): assign_roster(e, soldier)
+		elif not fleet.is_empty(): _make_generic(e, str(e["def"].get("faction", "")))   # no named squad leader: they are not the raiders' or corsairs' people
 		elif i == 0 and e["node"].has_meta("pilot"): leader = e["node"].get_meta("pilot")["name"]
 		elif i > 0: _make_generic(e, leader)
 		group.append(e)
+	_fleet_serial += count
 	if _incursion_done:
 		_incursion = ""
 		_incursion_done = false
@@ -1397,6 +1402,7 @@ func roster_fighter(p: Dictionary) -> String:
 	if not alts.is_empty() and randf() < Data.ALT_FIGHTER_CHANCE: return alts[randi() % alts.size()]
 	return p["fighter_primary"]
 
+var _fleet_serial := 0        # v1.4y: where the next patrol starts in the system's own ship list
 var _guard_spawn := false     # the group being spawned is the faction's own (guard wing or hunters), not a placeholder patrol
 
 ## v1.4w: a faction that has fighters keeps a small wing of its own people near its main station. They follow the

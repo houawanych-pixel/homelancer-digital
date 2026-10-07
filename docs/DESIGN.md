@@ -847,3 +847,20 @@ look; the kind of gate picks the look (`Data.WARP_SKINS`). Every number is in th
 Simplest choices made, to confirm: the jump tunnel is a close match in feel to Freelancer's, not a copy of its art;
 the tunnel keeps its flash while the other two have none; the tear's colours fall back to the two systems' star and
 nebula colours when a sky picture cannot be read.
+
+## 38. Kaijurai and Phenom ships (Job AC, v1.4y)
+
+- Seven ships from the owner's two sets are in the game, as light mirrored copies, all nose first (extra yaw 0):
+  Kaijurai dart fighter, heavy fighter and gunship; Phenom fighter, interceptor, scout and heavy fighter.
+- Thruster repair: the Phenom interceptor and scout came with a cannon standing upright at the tail. It was cut off
+  and the twin thrusters of another Phenom fighter were grafted on (`tools/assetkit/rear_swap.py`).
+- Where they fly: the patrols of the two enemy home systems, Genesis (Kaijurai) and Noctyra (Phenom). `Data.HOME_FLEETS`
+  maps the map's role text to a list of ship kinds; a patrol takes its ships from the list in turn (`sys["enemy_ships"]`).
+  Every other system keeps `sys["enemy"]`.
+- They are permanent enemies: no roster, no reputation, always hostile. Their pilots are the generic masked pilots, shown
+  as that faction's wing; no named raider or corsair leader flies them. No lore was invented.
+- Numbers (lengths, the fleet lists) are in the "Job AC" block of `scripts/data.gd`. No save key changed.
+
+Simplest choices made, to confirm: which ship of each set is the "fighter", "heavy" and so on are guesses from the
+shapes; the stats copy the Imperium and Liberator fighters of the same class; the capital ships, turrets and missiles of
+both sets are saved in the asset library and not placed.

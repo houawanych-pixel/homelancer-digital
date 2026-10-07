@@ -114,67 +114,60 @@ Savagers X-wing fighters stand on their tails in the set; they were left as they
 | Imperium | imperium_turret_b_game.glb | turret | 1632 |  | hl_Imperium_ship_set | saved, not placed |
 | Imperium | imperium_turret_c_game.glb | turret | 2440 |  | hl_Imperium_ship_set | saved, not placed |
 | Imperium | imperium_turret_d_game.glb | turret | 872 |  | hl_Imperium_ship_set | saved, not placed |
-| Phenom | phenom_battleship_game.glb | capital ship | 31232 |  | hl_phenom_ship_set | saved, not placed |
-| Phenom | phenom_battleship_sym_game.glb | capital ship | 34562 | yes | hl_phenom_ship_set | saved, not placed |
-| Phenom | phenom_cannon_mount_a_game.glb | part | 2352 |  | hl_phenom_ship_set | saved, not placed |
-| Phenom | phenom_cannon_mount_b_game.glb | part | 2176 |  | hl_phenom_ship_set | saved, not placed |
-| Phenom | phenom_cruiser_game.glb | cruiser | 12800 |  | hl_phenom_ship_set | saved, not placed |
-| Phenom | phenom_cruiser_sym_game.glb | cruiser | 13598 | yes | hl_phenom_ship_set | saved, not placed |
-| Phenom | phenom_drone_game.glb | drone | 1840 |  | hl_phenom_ship_set | saved, not placed |
-| Phenom | phenom_fighter_a_game.glb | fighter | 6976 |  | hl_phenom_ship_set | saved, not placed |
-| Phenom | phenom_fighter_a_sym_game.glb | fighter | 7362 | yes | hl_phenom_ship_set | saved, not placed |
-| Phenom | phenom_fighter_b_game.glb | fighter | 6784 |  | hl_phenom_ship_set | saved, not placed |
-| Phenom | phenom_fighter_b_sym_game.glb | fighter | 7550 | yes | hl_phenom_ship_set | saved, not placed |
-| Phenom | phenom_fighter_c_game.glb | fighter | 6720 |  | hl_phenom_ship_set | saved, not placed |
-| Phenom | phenom_fighter_c_sym_game.glb | fighter | 7466 | yes | hl_phenom_ship_set | saved, not placed |
-| Phenom | phenom_fighter_d_game.glb | fighter | 3120 |  | hl_phenom_ship_set | saved, not placed |
-| Phenom | phenom_fighter_d_sym_game.glb | fighter | 3886 | yes | hl_phenom_ship_set | saved, not placed |
-| Phenom | phenom_fighter_heavy_game.glb | fighter | 2672 |  | hl_phenom_ship_set | saved, not placed |
-| Phenom | phenom_fighter_heavy_sym_game.glb | fighter | 3042 | yes | hl_phenom_ship_set | saved, not placed |
-| Phenom | phenom_lance_a_game.glb | lance / ordnance | 1664 |  | hl_phenom_ship_set | saved, not placed |
-| Phenom | phenom_lance_b_game.glb | lance / ordnance | 2880 |  | hl_phenom_ship_set | saved, not placed |
-| Phenom | phenom_lance_c_game.glb | lance / ordnance | 384 |  | hl_phenom_ship_set | saved, not placed |
-| Phenom | phenom_lance_cannon_a_game.glb | lance / ordnance | 1664 |  | hl_phenom_ship_set | saved, not placed |
-| Phenom | phenom_lance_cannon_b_game.glb | lance / ordnance | 1376 |  | hl_phenom_ship_set | saved, not placed |
-| Phenom | phenom_lance_d_game.glb | lance / ordnance | 384 |  | hl_phenom_ship_set | saved, not placed |
-| Phenom | phenom_scout_game.glb | part | 1864 |  | hl_phenom_ship_set | saved, not placed |
-| Phenom | phenom_scout_sym_game.glb | part | 2336 | yes | hl_phenom_ship_set | saved, not placed |
-| Phenom | phenom_spike_game.glb | part | 2688 |  | hl_phenom_ship_set | saved, not placed |
-| Kaijurai | kaijurai_barrel_a_game.glb | part | 2272 |  | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_barrel_b_game.glb | part | 1824 |  | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_barrel_c_game.glb | part | 2624 |  | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_barrel_d_game.glb | part | 2880 |  | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_battleship_game.glb | capital ship | 23584 |  | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_battleship_sym_game.glb | capital ship | 26864 | yes | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_cannon_a_game.glb | part | 896 |  | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_cannon_b_game.glb | part | 1456 |  | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_cannon_block_game.glb | part | 1024 |  | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_cannon_c_game.glb | part | 1216 |  | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_command_craft_game.glb | part | 9504 |  | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_command_craft_sym_game.glb | part | 10470 | yes | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_cruiser_game.glb | cruiser | 7816 |  | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_cruiser_sym_game.glb | cruiser | 9090 | yes | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_dart_fighter_game.glb | fighter | 1648 |  | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_dart_fighter_sym_game.glb | fighter | 2100 | yes | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_fighter_a_game.glb | fighter | 1456 |  | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_fighter_heavy_game.glb | fighter | 6720 |  | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_frigate_game.glb | frigate | 8496 |  | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_frigate_sym_game.glb | frigate | 9624 | yes | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_gunship_game.glb | gunship | 6048 |  | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_gunship_sym_game.glb | gunship | 6828 | yes | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_hull_section_game.glb | part | 1600 |  | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_interceptor_game.glb | fighter | 1488 |  | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_interceptor_sym_game.glb | fighter | 1718 | yes | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_lance_a_game.glb | lance / ordnance | 2880 |  | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_lance_b_game.glb | lance / ordnance | 1744 |  | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_missile_a_game.glb | missile / ordnance | 1968 |  | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_missile_b_game.glb | missile / ordnance | 1648 |  | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_missile_c_game.glb | missile / ordnance | 1648 |  | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_missile_d_game.glb | missile / ordnance | 1952 |  | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_pod_craft_game.glb | part | 2688 |  | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_pod_craft_sym_game.glb | part | 3564 | yes | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_shuttle_game.glb | shuttle | 2656 |  | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_shuttle_sym_game.glb | shuttle | 3048 | yes | hl_Kaijurai_ship_set | saved, not placed |
+| Phenom | phenom_battleship_game.glb | capital ship | 30240 |  | hl_Phenom_ship_set | saved, not placed |
+| Phenom | phenom_battleship_sym_game.glb | capital ship | 34228 | yes | hl_Phenom_ship_set | saved, not placed |
+| Phenom | phenom_cannon_mount_a_game.glb | turret | 2256 |  | hl_Phenom_ship_set | saved, not placed |
+| Phenom | phenom_cannon_mount_b_game.glb | turret | 2944 |  | hl_Phenom_ship_set | saved, not placed |
+| Phenom | phenom_cruiser_game.glb | cruiser | 6416 |  | hl_Phenom_ship_set | saved, not placed |
+| Phenom | phenom_cruiser_sym_game.glb | cruiser | 6964 | yes | hl_Phenom_ship_set | saved, not placed |
+| Phenom | phenom_drone_game.glb | drone | 3424 |  | hl_Phenom_ship_set | saved, not placed |
+| Phenom | phenom_fighter_a_game.glb | fighter | 7072 |  | hl_Phenom_ship_set | saved, not placed |
+| Phenom | phenom_fighter_a_sym_game.glb | fighter | 7824 | yes | hl_Phenom_ship_set | saved, not placed |
+| Phenom | phenom_fighter_b_game.glb | fighter | 3440 |  | hl_Phenom_ship_set | saved, not placed |
+| Phenom | phenom_fighter_b_sym_game.glb | fighter | 3906 | yes | hl_Phenom_ship_set | saved, not placed |
+| Phenom | phenom_fighter_c_game.glb | fighter | 6752 |  | hl_Phenom_ship_set | saved, not placed |
+| Phenom | phenom_fighter_c_sym_game.glb | fighter | 7400 | yes | hl_Phenom_ship_set | IN GAME: phenom_fighter.glb |
+| Phenom | phenom_fighter_d_game.glb | fighter | 1576 |  | hl_Phenom_ship_set | saved, not placed |
+| Phenom | phenom_fighter_d_sym_game.glb | fighter | 2016 | yes | hl_Phenom_ship_set | saved, not placed |
+| Phenom | phenom_fighter_d_thruster_sym_game.glb | fighter | 2790 | yes | hl_Phenom_ship_set | IN GAME: phenom_interceptor.glb (thruster repair) |
+| Phenom | phenom_fighter_heavy_game.glb | fighter | 10816 |  | hl_Phenom_ship_set | saved, not placed |
+| Phenom | phenom_fighter_heavy_sym_game.glb | fighter | 11624 | yes | hl_Phenom_ship_set | IN GAME: phenom_heavy.glb |
+| Phenom | phenom_lance_a_game.glb | lance / ordnance | 1536 |  | hl_Phenom_ship_set | saved, not placed |
+| Phenom | phenom_lance_b_game.glb | lance / ordnance | 448 |  | hl_Phenom_ship_set | saved, not placed |
+| Phenom | phenom_scout_game.glb | fighter | 7584 |  | hl_Phenom_ship_set | saved, not placed |
+| Phenom | phenom_scout_sym_game.glb | fighter | 8278 | yes | hl_Phenom_ship_set | saved, not placed |
+| Phenom | phenom_scout_thruster_sym_game.glb | fighter | 7826 | yes | hl_Phenom_ship_set | IN GAME: phenom_scout.glb (thruster repair) |
+| Phenom | phenom_spike_game.glb | part | 2688 |  | hl_Phenom_ship_set | saved, not placed |
+| Kaijurai | kaijurai_barge_game.glb | small craft | 5248 |  | hl_Kaijurai_ship_set | saved, not placed |
+| Kaijurai | kaijurai_barge_sym_game.glb | small craft | 5780 | yes | hl_Kaijurai_ship_set | saved, not placed |
+| Kaijurai | kaijurai_barrel_game.glb | turret | 1792 |  | hl_Kaijurai_ship_set | saved, not placed |
+| Kaijurai | kaijurai_battleship_game.glb | capital ship | 47504 |  | hl_Kaijurai_ship_set | saved, not placed |
+| Kaijurai | kaijurai_battleship_sym_game.glb | capital ship | 52950 | yes | hl_Kaijurai_ship_set | saved, not placed |
+| Kaijurai | kaijurai_cannon_game.glb | turret | 1744 |  | hl_Kaijurai_ship_set | saved, not placed |
+| Kaijurai | kaijurai_cruiser_game.glb | cruiser | 7744 |  | hl_Kaijurai_ship_set | saved, not placed |
+| Kaijurai | kaijurai_cruiser_sym_game.glb | cruiser | 8930 | yes | hl_Kaijurai_ship_set | saved, not placed |
+| Kaijurai | kaijurai_dart_fighter_game.glb | fighter | 6848 |  | hl_Kaijurai_ship_set | saved, not placed |
+| Kaijurai | kaijurai_dart_fighter_sym_game.glb | fighter | 8076 | yes | hl_Kaijurai_ship_set | IN GAME: kaijurai_dart.glb |
+| Kaijurai | kaijurai_fighter_a_game.glb | fighter | 5760 |  | hl_Kaijurai_ship_set | saved, needs a turn by hand / nose not certain |
+| Kaijurai | kaijurai_fighter_heavy_game.glb | fighter | 13056 |  | hl_Kaijurai_ship_set | saved, not placed |
+| Kaijurai | kaijurai_fighter_heavy_sym_game.glb | fighter | 13744 | yes | hl_Kaijurai_ship_set | IN GAME: kaijurai_heavy.glb |
+| Kaijurai | kaijurai_fork_frigate_game.glb | frigate | 3168 |  | hl_Kaijurai_ship_set | saved, not placed |
+| Kaijurai | kaijurai_fork_frigate_sym_game.glb | frigate | 3442 | yes | hl_Kaijurai_ship_set | saved, not placed |
+| Kaijurai | kaijurai_frigate_game.glb | frigate | 4208 |  | hl_Kaijurai_ship_set | saved, not placed |
+| Kaijurai | kaijurai_frigate_sym_game.glb | frigate | 4904 | yes | hl_Kaijurai_ship_set | saved, not placed |
+| Kaijurai | kaijurai_gunship_game.glb | gunship | 9472 |  | hl_Kaijurai_ship_set | saved, not placed |
+| Kaijurai | kaijurai_gunship_sym_game.glb | gunship | 10408 | yes | hl_Kaijurai_ship_set | IN GAME: kaijurai_gunship.glb |
+| Kaijurai | kaijurai_heavy_barrel_game.glb | turret | 2368 |  | hl_Kaijurai_ship_set | saved, not placed |
+| Kaijurai | kaijurai_interceptor_game.glb | fighter | 1424 |  | hl_Kaijurai_ship_set | saved, needs a turn by hand / nose not certain |
+| Kaijurai | kaijurai_lance_game.glb | lance / ordnance | 2912 |  | hl_Kaijurai_ship_set | saved, not placed |
+| Kaijurai | kaijurai_missile_a_game.glb | missile / ordnance | 1912 |  | hl_Kaijurai_ship_set | saved, not placed |
+| Kaijurai | kaijurai_missile_b_game.glb | missile / ordnance | 1968 |  | hl_Kaijurai_ship_set | saved, not placed |
+| Kaijurai | kaijurai_missile_c_game.glb | missile / ordnance | 1536 |  | hl_Kaijurai_ship_set | saved, not placed |
+| Kaijurai | kaijurai_missile_pod_game.glb | turret | 1016 |  | hl_Kaijurai_ship_set | saved, not placed |
+| Kaijurai | kaijurai_pod_craft_game.glb | small craft | 5312 |  | hl_Kaijurai_ship_set | saved, not placed |
+| Kaijurai | kaijurai_pod_craft_sym_game.glb | small craft | 5862 | yes | hl_Kaijurai_ship_set | saved, not placed |
+| Kaijurai | kaijurai_wing_gunship_game.glb | gunship | 6144 |  | hl_Kaijurai_ship_set | saved, not placed |
+| Kaijurai | kaijurai_wing_gunship_sym_game.glb | gunship | 6508 | yes | hl_Kaijurai_ship_set | saved, not placed |
 | Cybermorph | cybermorph_barrel_a_game.glb | part | 2432 |  | hl_Cybermorph_ship_set | saved, not placed |
 | Cybermorph | cybermorph_barrel_b_game.glb | part | 2880 |  | hl_Cybermorph_ship_set | saved, not placed |
 | Cybermorph | cybermorph_battleship_game.glb | capital ship | 19744 |  | hl_Cybermorph_ship_set | saved, not placed |
@@ -238,3 +231,20 @@ Savagers X-wing fighters stand on their tails in the set; they were left as they
 | Omega: World's End Emporium | worlds_end_emporium_game.glb | station | 44358 |  | space_station (World's End) | saved, not placed |
 
 222 light copies, 50 of them mirrored. The dancer and any other rigged character keep their skeleton only in the original file.
+
+## Kaijurai and Phenom sets: second intake (Job AC, v1.4y)
+
+The owner sent both sets again with two instructions, and the rows for these two factions above were rebuilt from that:
+
+- **Fewer look-alikes.** Barrels, cannons, missiles and lances that were near copies of one another were thinned to one of
+  each distinct design: Kaijurai 26 pieces -> 20 kept (dropped: two more stand cannons, two more stand barrels, two more
+  missiles), Phenom 18 -> 14 kept (dropped: two more cannon mounts, two more lances). Nothing is lost: the originals hold
+  every piece.
+- **Thruster repair.** Two Phenom fighters ended in a cannon standing upright at the tail (`phenom_fighter_d`,
+  `phenom_scout`). The tail was cut off at the neck, the cut closed, and the rear end of `phenom_fighter_c` (its twin
+  thruster tubes) grafted on: `*_thruster_sym_game.glb`. The un-repaired mirrored copies are kept beside them.
+- Every ship was levelled in 3D first (`tools/assetkit/orient.py` finds the mirror plane even when the ship is pitched or
+  rolled in the set), then mirrored (`mirror_x.py`). Not mirrored: turrets, missiles, lances, the drone, and two Kaijurai
+  fighters whose nose could not be told for certain (`kaijurai_fighter_a`, `kaijurai_interceptor`).
+- Other ships that carry upright spires or blades and were left as they are, for the owner to rule on: the Kaijurai
+  gunship and pod craft (mast on top), the Phenom battleship (blade fan at the tail), the Phenom scout's wing-pod blades.

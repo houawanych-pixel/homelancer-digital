@@ -22,6 +22,14 @@ const GLB := {
 	"imperium_gunship": ["res://assets/ships/enemy/imperium_gunship.glb", Data.IMPERIUM_GUNSHIP_LEN, 0.0],
 	"liberator_fighter": ["res://assets/ships/enemy/liberator_fighter.glb", Data.LIBERATOR_FIGHTER_LEN, Data.LIBERATOR_YAW],
 	"liberator_heavy": ["res://assets/ships/enemy/liberator_heavy.glb", Data.LIBERATOR_HEAVY_LEN, Data.LIBERATOR_YAW],
+	# v1.4y: the owner's Kaijurai and Phenom sets (facing checked from above: nose at -Z)
+	"kaijurai_dart": ["res://assets/ships/enemy/kaijurai_dart.glb", Data.KAIJURAI_DART_LEN, Data.ALIEN_SHIP_YAW],
+	"kaijurai_heavy": ["res://assets/ships/enemy/kaijurai_heavy.glb", Data.KAIJURAI_HEAVY_LEN, Data.ALIEN_SHIP_YAW],
+	"kaijurai_gunship": ["res://assets/ships/enemy/kaijurai_gunship.glb", Data.KAIJURAI_GUNSHIP_LEN, Data.ALIEN_SHIP_YAW],
+	"phenom_fighter": ["res://assets/ships/enemy/phenom_fighter.glb", Data.PHENOM_FIGHTER_LEN, Data.ALIEN_SHIP_YAW],
+	"phenom_interceptor": ["res://assets/ships/enemy/phenom_interceptor.glb", Data.PHENOM_INTERCEPTOR_LEN, Data.ALIEN_SHIP_YAW],
+	"phenom_scout": ["res://assets/ships/enemy/phenom_scout.glb", Data.PHENOM_SCOUT_LEN, Data.ALIEN_SHIP_YAW],
+	"phenom_heavy": ["res://assets/ships/enemy/phenom_heavy.glb", Data.PHENOM_HEAVY_LEN, Data.ALIEN_SHIP_YAW],
 	"savager_cruiser": ["res://assets/ships/enemy/savager_cruiser.glb", Data.SAVAGER_CRUISER_LEN, Data.SAVAGER_CRUISER_YAW],
 	"pilot_pod": ["res://assets/cargo/spacesuit_pilot.glb", 4.0, 0.0],   # stand-in: the soldier in the space suit
 	"savager_carrier": ["res://assets/ships/enemy/savager_carrier.glb", Data.SAVAGER_CARRIER_LEN, Data.SAVAGER_CARRIER_YAW],
