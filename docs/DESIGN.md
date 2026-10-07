@@ -743,3 +743,20 @@ Two of the Drive pictures (Covenant, Liberator) are ship reference sheets rather
 salvaged carrier, raider cruiser) were replaced by their mirrored copies: exactly the same left and right. The skirmish
 craft, which sat 10 degrees askew in the owner's set, is now straight (`SAVAGER_SKIRMISH_YAW` 180). 50 ships in the
 library have a mirrored copy; see `docs/ASSET_LIBRARY.md` for the list and for what was left alone and why.
+
+## 33. Voice ON by default (Job X, v1.4t)
+
+What was already there: the comms console has a VOICE button. It used to start on the Star Fox style radio blips
+("mumble") and could be switched to "read", which made the device's own text-to-speech read the line. The choice was
+not remembered. There were no recorded voices and no way to play one.
+
+Now:
+- **Voice is ON by default** (`Data.VOICE_DEFAULT`). The VOICE button shows ON / OFF. OFF gives the radio blips.
+  The choice is remembered (settings file, new section "audio").
+- **ON plays the character's own recorded line when there is one**: `assets/voices/<voice_id>/<line key>.ogg`, where
+  the line key is the line in lower case with words joined by `_` (`Sfx.clip_path`). The voice id comes from the data
+  (`voice_id` on roster characters, the character key for Vale, Shade and the others), never from the picture.
+- **No recording for that line:** the device reads it aloud if it can; a device that cannot keeps the blips.
+- Honest state today: NO real voice clips are in the game yet (only a half-second test tone). Until the owner's
+  generated or recorded lines are added, "ON" means the phone's or browser's built-in reader, which varies by
+  device. Each character's clips should go in as their own small pack when they arrive.

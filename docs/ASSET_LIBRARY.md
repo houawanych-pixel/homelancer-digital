@@ -202,29 +202,29 @@ Savagers X-wing fighters stand on their tails in the set; they were left as they
 | Cybermorph | cybermorph_missile_heavy_game.glb | missile / ordnance | 1504 |  | hl_Cybermorph_ship_set | saved, not placed |
 | Cybermorph | cybermorph_pod_block_game.glb | part | 1904 |  | hl_Cybermorph_ship_set | saved, not placed |
 | Cybermorph | cybermorph_spike_mine_game.glb | part | 1952 |  | hl_Cybermorph_ship_set | saved, not placed |
-| Ghost (faction not named yet) | ghost_liner_ship_game.glb | capital ship | 43713 |  | hl_ghost_ship_asset | saved, not placed |
-| Ghost (faction not named yet) | ghost_liner_ship_sym_game.glb | capital ship | 46386 | yes | hl_ghost_ship_asset | saved, not placed |
-| Ghost (faction not named yet) | ghost_part_bridge_tower_game.glb | ship part | 3740 |  | hl_ghost_ship_asset | saved, not placed |
-| Ghost (faction not named yet) | ghost_part_cabinets_game.glb | ship part | 2432 |  | hl_ghost_ship_asset | saved, not placed |
-| Ghost (faction not named yet) | ghost_part_caged_tank_game.glb | ship part | 2160 |  | hl_ghost_ship_asset | saved, not placed |
-| Ghost (faction not named yet) | ghost_part_column_tank_game.glb | ship part | 1476 |  | hl_ghost_ship_asset | saved, not placed |
-| Ghost (faction not named yet) | ghost_part_draped_thrones_game.glb | ship part | 1528 |  | hl_ghost_ship_asset | saved, not placed |
-| Ghost (faction not named yet) | ghost_part_draped_wreck_game.glb | ship part | 2872 |  | hl_ghost_ship_asset | saved, not placed |
-| Ghost (faction not named yet) | ghost_part_engine_game.glb | ship part | 4896 |  | hl_ghost_ship_asset | saved, not placed |
-| Ghost (faction not named yet) | ghost_part_hull_slab_game.glb | ship part | 2724 |  | hl_ghost_ship_asset | saved, not placed |
-| Ghost (faction not named yet) | ghost_part_oval_deck_game.glb | ship part | 2017 |  | hl_ghost_ship_asset | saved, not placed |
-| Ghost (faction not named yet) | ghost_part_stair_gate_game.glb | ship part | 4848 |  | hl_ghost_ship_asset | saved, not placed |
-| Ghost (faction not named yet) | ghost_part_window_wall_a_game.glb | ship part | 4156 |  | hl_ghost_ship_asset | saved, not placed |
-| Ghost (faction not named yet) | ghost_part_window_wall_b_game.glb | ship part | 4976 |  | hl_ghost_ship_asset | saved, not placed |
-| Ghost (faction not named yet) | ghost_shuttle_a_game.glb | shuttle | 1784 |  | hl_ghost_ship_asset | saved, not placed |
-| Ghost (faction not named yet) | ghost_shuttle_a_sym_game.glb | shuttle | 2196 | yes | hl_ghost_ship_asset | saved, not placed |
-| Ghost (faction not named yet) | ghost_shuttle_b_game.glb | shuttle | 2304 |  | hl_ghost_ship_asset | saved, not placed |
-| Ghost (faction not named yet) | ghost_shuttle_b_sym_game.glb | shuttle | 2832 | yes | hl_ghost_ship_asset | saved, not placed |
-| Ghost (faction not named yet) | ghost_shuttle_c_game.glb | shuttle | 2032 |  | hl_ghost_ship_asset | saved, not placed |
-| Ghost (faction not named yet) | ghost_shuttle_c_sym_game.glb | shuttle | 2454 | yes | hl_ghost_ship_asset | saved, not placed |
-| Ghost (faction not named yet) | ghost_skiff_game.glb | small craft | 2424 |  | hl_ghost_ship_asset | saved, not placed |
-| Ghost (faction not named yet) | ghost_skiff_sym_game.glb | small craft | 2880 | yes | hl_ghost_ship_asset | saved, not placed |
-| Ghost (faction not named yet) | ghost_boss_creature_game.glb | creature / boss | 70688 |  | hl_gho_boss | saved, not placed |
+| Discovery: Unknown Territories (not a faction) | ghost_liner_ship_game.glb | capital ship | 43713 |  | hl_ghost_ship_asset | saved, not placed |
+| Discovery: Unknown Territories (not a faction) | ghost_liner_ship_sym_game.glb | capital ship | 46386 | yes | hl_ghost_ship_asset | saved, not placed |
+| Discovery: Unknown Territories (not a faction) | ghost_part_bridge_tower_game.glb | ship part | 3740 |  | hl_ghost_ship_asset | saved, not placed |
+| Discovery: Unknown Territories (not a faction) | ghost_part_cabinets_game.glb | ship part | 2432 |  | hl_ghost_ship_asset | saved, not placed |
+| Discovery: Unknown Territories (not a faction) | ghost_part_caged_tank_game.glb | ship part | 2160 |  | hl_ghost_ship_asset | saved, not placed |
+| Discovery: Unknown Territories (not a faction) | ghost_part_column_tank_game.glb | ship part | 1476 |  | hl_ghost_ship_asset | saved, not placed |
+| Discovery: Unknown Territories (not a faction) | ghost_part_draped_thrones_game.glb | ship part | 1528 |  | hl_ghost_ship_asset | saved, not placed |
+| Discovery: Unknown Territories (not a faction) | ghost_part_draped_wreck_game.glb | ship part | 2872 |  | hl_ghost_ship_asset | saved, not placed |
+| Discovery: Unknown Territories (not a faction) | ghost_part_engine_game.glb | ship part | 4896 |  | hl_ghost_ship_asset | saved, not placed |
+| Discovery: Unknown Territories (not a faction) | ghost_part_hull_slab_game.glb | ship part | 2724 |  | hl_ghost_ship_asset | saved, not placed |
+| Discovery: Unknown Territories (not a faction) | ghost_part_oval_deck_game.glb | ship part | 2017 |  | hl_ghost_ship_asset | saved, not placed |
+| Discovery: Unknown Territories (not a faction) | ghost_part_stair_gate_game.glb | ship part | 4848 |  | hl_ghost_ship_asset | saved, not placed |
+| Discovery: Unknown Territories (not a faction) | ghost_part_window_wall_a_game.glb | ship part | 4156 |  | hl_ghost_ship_asset | saved, not placed |
+| Discovery: Unknown Territories (not a faction) | ghost_part_window_wall_b_game.glb | ship part | 4976 |  | hl_ghost_ship_asset | saved, not placed |
+| Discovery: Unknown Territories (not a faction) | ghost_shuttle_a_game.glb | shuttle | 1784 |  | hl_ghost_ship_asset | saved, not placed |
+| Discovery: Unknown Territories (not a faction) | ghost_shuttle_a_sym_game.glb | shuttle | 2196 | yes | hl_ghost_ship_asset | saved, not placed |
+| Discovery: Unknown Territories (not a faction) | ghost_shuttle_b_game.glb | shuttle | 2304 |  | hl_ghost_ship_asset | saved, not placed |
+| Discovery: Unknown Territories (not a faction) | ghost_shuttle_b_sym_game.glb | shuttle | 2832 | yes | hl_ghost_ship_asset | saved, not placed |
+| Discovery: Unknown Territories (not a faction) | ghost_shuttle_c_game.glb | shuttle | 2032 |  | hl_ghost_ship_asset | saved, not placed |
+| Discovery: Unknown Territories (not a faction) | ghost_shuttle_c_sym_game.glb | shuttle | 2454 | yes | hl_ghost_ship_asset | saved, not placed |
+| Discovery: Unknown Territories (not a faction) | ghost_skiff_game.glb | small craft | 2424 |  | hl_ghost_ship_asset | saved, not placed |
+| Discovery: Unknown Territories (not a faction) | ghost_skiff_sym_game.glb | small craft | 2880 | yes | hl_ghost_ship_asset | saved, not placed |
+| Discovery: Unknown Territories (not a faction) | ghost_boss_creature_game.glb | creature / boss | 70688 |  | hl_gho_boss | saved, not placed |
 | Character (faction not named yet) | dancer_character_static_game.glb | character (static pose) | 19783 |  | hl_bikni_dance | saved, not placed |
 | Omega: World's End Emporium | big_uncut.glb | part | 1361144 |  | space_station (World's End) | saved, not placed |
 | Omega: World's End Emporium | hull_cut.glb | part | 1246464 |  | space_station (World's End) | saved, not placed |

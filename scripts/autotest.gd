@@ -1044,6 +1044,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_X") != "":   # the Job X checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_x()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_W") != "":   # the Job W checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1427,6 +1435,7 @@ func _run() -> void:
 	await _job_u()
 	await _job_v()
 	await _job_w()
+	await _job_x()
 	await _galaxy()
 	await _controls_j()
 	await _gate_k()
@@ -3298,6 +3307,46 @@ func _job_w() -> void:
 	hub.visible = vis0
 	var not_preloaded: bool = not OS.has_feature("web") or not ResourceLoader.exists(Data.HUB_BG_DIR + "phenom.jpg")   # web: a faction you never docked with was never downloaded
 	_check("Job W: a Savagers station shows the Savagers picture; only the current station's picture is held, and it is let go when you leave", sav_ok and released and not_preloaded, "savagers %s, released %s, vega -> %s" % [sav_ok, released, veg["source"]])
+
+## Job X (v1.4t): voice ON by default; OFF gives the radio blips; a character's own recorded lines win when present.
+func _job_x() -> void:
+	var hud = main.hud
+	var shell := FileAccess.get_file_as_string("res://web_shell.html")
+	_check("Job X: version label reads \"Homelancer Digital v1.4t\" or later", Data.VERSION >= "v1.4t" and (shell == "" or shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0), Data.VERSION)
+	var path0: String = Sfx.path
+	var mode0: String = Sfx.voice_mode
+	Sfx.path = "user://settings_autotest_voice.cfg"   # never touch a real player's settings file
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(Sfx.path))
+	Sfx.load_prefs()
+	_check("Job X: with no saved choice the voice is ON (lines are spoken)", Data.VOICE_DEFAULT == "read" and Sfx.voice_on())
+	# ON: a recorded line wins; no recording -> the device reads it; neither -> blips
+	var clip: String = Sfx.clip_path("_test", "Radio check!")
+	hud.open_comms("Test — Radio", "Radio check!", "talk", false, "", 1.0, false, "_test")
+	var by_clip: String = Sfx.last_voice
+	hud.open_comms("Test — Radio", "No recording of this line exists.", "talk", false, "", 1.0, false, "_test")
+	var by_fallback: String = Sfx.last_voice
+	_check("Job X: voice ON plays a character's own recorded line when there is one (assets/voices/<voice id>/<line>.ogg); without one the device reads it, or blips if it cannot",
+		clip == "res://assets/voices/_test/radio_check.ogg" and by_clip == "clip" and by_fallback == ("tts" if Sfx.tts_available() else "blip")
+		and Sfx.clip_path("savagers_04_veil", "...Not finished...") == "res://assets/voices/savagers_04_veil/not_finished.ogg", "%s / %s" % [by_clip, by_fallback])
+	# OFF: blips, and the choice is remembered
+	var said: String = Sfx.toggle_voice()
+	hud.open_comms("Test — Radio", "Radio check!", "talk", false, "", 1.0, false, "_test")
+	var off_ok: bool = not Sfx.voice_on() and Sfx.last_voice == "blip" and said.begins_with("Voice OFF")
+	Sfx.voice_mode = "read"
+	Sfx.load_prefs()
+	var kept: bool = not Sfx.voice_on()
+	Sfx.toggle_voice()
+	Sfx.load_prefs()
+	var back: bool = Sfx.voice_on()
+	_check("Job X: VOICE in the comms console turns it OFF (radio blips, even for recorded lines) and ON again, and the choice is remembered", off_ok and kept and back, said)
+	var who: Dictionary = Data.roster_pilot("savagers_04_veil")
+	main._pilot_call(who, true)
+	_check("Job X: a roster pilot's call looks for that pilot's own voice (voice id from the data, never guessed)", hud.comms_voice_id == "savagers_04_veil" and who["voice_sex"] == "female", hud.comms_voice_id)
+	Sfx.stop_voice()
+	hud.close_comms() if hud.has_method("close_comms") else null
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(Sfx.path))
+	Sfx.path = path0
+	Sfx.voice_mode = mode0
 
 func _job_s() -> void:
 	var s := _sp()

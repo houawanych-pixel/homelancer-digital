@@ -297,7 +297,7 @@ func _on_hud(id: String) -> void:
 			else: hud.open_log()
 		"voice":
 			hud.flash_message(Sfx.toggle_voice())
-			if hud.comms_open: Sfx.speak(hud.comms_line, hud.comms_voice, hud.comms_female)
+			if hud.comms_open: Sfx.speak(hud.comms_line, hud.comms_voice, hud.comms_female, hud.comms_voice_id)
 		"hangup":
 			if hud.comms_open:
 				hud.close_comms()
@@ -401,7 +401,7 @@ func say_as(id: String, line: String) -> void:
 	var c: Dictionary = Data.CHARACTERS[id]
 	on_call = id
 	hud.open_comms("%s — %s" % [c["name"], c["role"]], line, "talk", GS.mood.get(id, "friendly") == "enraged",
-		c.get("face", ""), float(c.get("voice", 1.0)), bool(c.get("female", false)))
+		c.get("face", ""), float(c.get("voice", 1.0)), bool(c.get("female", false)), id)
 
 func call_character(id: String, incoming := false) -> void:
 	var c: Dictionary = Data.CHARACTERS[id]
@@ -412,7 +412,7 @@ func call_character(id: String, incoming := false) -> void:
 	var line: String = pool[randi() % pool.size()]
 	if (id == "vale" or id == "amari") and not incoming: line = _comms_line()
 	hud.open_comms("%s — %s" % [c["name"], c["role"]], line, "incoming" if incoming else "talk", m == "enraged",
-		c.get("face", ""), float(c.get("voice", 1.0)), bool(c.get("female", false)))
+		c.get("face", ""), float(c.get("voice", 1.0)), bool(c.get("female", false)), id)
 
 ## First meetings: they join the LOG roster and usually call you.
 func _meet(id: String, m: String, call := true) -> void:
@@ -460,11 +460,11 @@ func _pilot_call(p: Dictionary, incoming := true) -> void:
 	if not p.has("lines"):   # a generic wing pilot: no personal lines, they answer with squad chatter
 		var ch: Array = Data.CHATTER["target_acquired"]
 		hud.open_comms(pilot_title(p), ch[randi() % ch.size()],
-			"incoming" if incoming else "talk", true, "gp/" + str(p["id"]), float(p["voice"]), bool(p["female"]))
+			"incoming" if incoming else "talk", true, "gp/" + str(p["id"]), float(p["voice"]), bool(p["female"]), str(p.get("voice_id", p["id"])))
 		return
 	var lines: Array = p["lines"]
 	hud.open_comms("%s — Unit %s" % [p["name"], p["unit"]], lines[randi() % lines.size()], "incoming" if incoming else "talk", true,
-		p["face"], float(p["voice"]), bool(p["female"]))
+		p["face"], float(p["voice"]), bool(p["female"]), str(p["face"]))
 
 ## The name line over a pilot's face: roster people by name and rank, the old generic wing pilots as before.
 static func pilot_title(p: Dictionary) -> String:
@@ -484,7 +484,7 @@ func _on_enemy_chatter(p: Dictionary, line: String) -> void:
 	if hud.side_busy(true): return
 	if not l.is_empty() and not l["generic"] and float(l["timer"]) > 3.0: return   # let a named leader finish
 	hud.open_comms(pilot_title(p), line, "incoming", true,
-		"gp/" + p["id"], float(p["voice"]), bool(p["female"]))
+		"gp/" + p["id"], float(p["voice"]), bool(p["female"]), str(p.get("voice_id", p["id"])))
 	hud.comms_timer = 3.5
 
 func _on_hail(from: String, line: String, hostile: bool) -> void:
@@ -592,7 +592,7 @@ func _launch_sequence(where: String) -> void:
 	hud.flash_message("Launch complete. %s system." % Data.SYSTEMS[GS.system_id]["name"])
 	var ctl := "vale" if GS.system_id == "solara" else "amari"
 	if ctl in GS.met: hud.open_comms("%s — %s" % [Data.CHARACTERS[ctl]["name"], Data.CHARACTERS[ctl]["role"]], "[smile]You're clear, pilot. " + _comms_line().substr(_comms_line().find("]") + 1), "incoming", false,
-		Data.CHARACTERS[ctl].get("face", ""), float(Data.CHARACTERS[ctl].get("voice", 1.0)), bool(Data.CHARACTERS[ctl].get("female", false)))
+		Data.CHARACTERS[ctl].get("face", ""), float(Data.CHARACTERS[ctl].get("voice", 1.0)), bool(Data.CHARACTERS[ctl].get("female", false)), ctl)
 	else: _meet(ctl, "friendly")
 
 # ---------------------------------------------------------------- jump gates

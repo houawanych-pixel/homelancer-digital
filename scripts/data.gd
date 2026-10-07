@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.4s"
+const VERSION := "v1.4t"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -201,6 +201,11 @@ const PLANET_BIOME := {"terran": "forest", "jungle": "jungle", "ocean": "ocean",
 const TEXT_BUMP := 2                  # HUD and room text below TEXT_BUMP_BELOW px is drawn this much bigger
 const TEXT_BUMP_BELOW := 17
 const TEXT_MIN := 13                  # nothing on the HUD is smaller than this
+# ---------------------------------------------------------------- Job X (v1.4t): voice ON by default
+const VOICE_DEFAULT := "read"            # "read" = voice ON (lines are spoken), "bleep" = voice OFF (radio blips)
+const VOICE_DIR := "res://assets/voices/"   # <voice_id>/<line key>.ogg : a character's recorded or generated lines
+const VOICE_KEY_LEN := 60                # letters of the line used for the clip's file name
+
 # ---------------------------------------------------------------- Job W (v1.4s): static faction hub backgrounds
 const HUB_BG_DIR := "res://assets/hub_bg/"
 const HUB_BG_WASH := 0.38        # dark wash over the faction picture so text reads (0 = none)

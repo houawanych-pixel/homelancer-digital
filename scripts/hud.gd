@@ -56,6 +56,7 @@ var comms_timer: float:
 var comms_face := ""        # portrait set id (assets/portraits/<face>_<expr>.png), "" = no face (waveform)
 var comms_expr := "normal"
 var comms_voice := 1.0
+var comms_voice_id := ""   # v1.4t: whose recorded voice the line on screen looks for
 var comms_female := false
 var comms_generic := false   # a generic enemy pilot (face "gp/<id>") is on the line
 var _faces := {}
@@ -107,7 +108,7 @@ func pulse(id: String) -> void:
 
 ## A voice on the radio. Enemies appear on the LEFT side screen, friendlies on the RIGHT; one of each can be on
 ## at the same time. Placing a call closes the comms console.
-func open_comms(from: String, line: String, mode := "talk", hostile := false, face := "", voice := 1.0, female := false) -> void:
+func open_comms(from: String, line: String, mode := "talk", hostile := false, face := "", voice := 1.0, female := false, voice_id := "") -> void:
 	var expr := "angry" if hostile else "normal"
 	if line.begins_with("[") and line.find("]") > 0:   # "[smile]Text" picks the face for this line
 		expr = line.substr(1, line.find("]") - 1)
@@ -128,7 +129,8 @@ func open_comms(from: String, line: String, mode := "talk", hostile := false, fa
 	comms_female = female
 	comms_hostile = hostile
 	if mode == "talk": console_open = false
-	Sfx.speak(line, v, female)
+	comms_voice_id = voice_id
+	Sfx.speak(line, v, female, voice_id)
 	_sync()
 	_log("%s: %s" % [from, line])
 
@@ -1236,7 +1238,7 @@ func _roster() -> void:
 		y += 15.0 * mini(lines, 4) + 5.0
 	if roster_t > 0.95 and not roster_closing:
 		_pill("type", "TYPE", _typer.visible, CYAN)
-		_pill("voice", "VOICE", false, CYAN, "READ" if Sfx.voice_mode == "read" else "MUMBLE")
+		_pill("voice", "VOICE", false, CYAN, "ON" if Sfx.voice_on() else "OFF")
 	if _typer.visible:
 		_typer.position = Vector2(lg.end.x + 8, lg.end.y - 44)
 		_typer.size = Vector2(minf(420.0, S.x - lg.end.x - _panel_w() - 16), 40)
