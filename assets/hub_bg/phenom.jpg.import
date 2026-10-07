@@ -2,22 +2,22 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://d0ckrmy5isg2d"
-path="res://.godot/imported/main_hub.jpg-a94b160c8a0dde46d2d03c04cd0b67f2.ctex"
+uid="uid://dlpapgjv0t77l"
+path="res://.godot/imported/phenom.jpg-1c2b7fe66cb466e2e3078b708179be7d.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/rooms/main_hub.jpg"
-dest_files=["res://.godot/imported/main_hub.jpg-a94b160c8a0dde46d2d03c04cd0b67f2.ctex"]
+source_file="res://assets/hub_bg/phenom.jpg"
+dest_files=["res://.godot/imported/phenom.jpg-1c2b7fe66cb466e2e3078b708179be7d.ctex"]
 
 [params]
 
-compress/mode=1
+compress/mode=0
 compress/high_quality=false
-compress/lossy_quality=0.75
+compress/lossy_quality=0.7
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
@@ -31,4 +31,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=0
+detect_3d/compress_to=1

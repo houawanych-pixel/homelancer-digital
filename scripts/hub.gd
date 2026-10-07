@@ -25,8 +25,8 @@ var preview_pivot: Node3D
 var preview_key := ""
 var t := 0.0
 # ship inspector: tap the showroom (or VIEW) to look the ship over: drag to turn it, pinch / wheel to zoom, full stats
-var rooms: Rooms
-var last_room := ""
+var bg_tex: Texture2D     # v1.4s: ONE static picture behind the interface (station's own > faction's > none)
+var bg := {}              # Factions.hub_background() of the place you are docked at
 var inspect: Control = null
 var insp_id := ""
 var insp_pivot: Node3D
@@ -58,7 +58,7 @@ func _ready() -> void:
 	add_child(credits_label)
 	left = VBoxContainer.new()
 	left.position = Vector2(40, 130)
-	left.add_theme_constant_override("separation", 10)
+	left.add_theme_constant_override("separation", 8)
 	add_child(left)
 	content = Panel.new()
 	content.anchor_left = 0.0
@@ -80,25 +80,20 @@ func _ready() -> void:
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(status)
 	GS.changed.connect(_refresh_credits)
-	rooms = Rooms.new()
-	add_child(rooms)
-	rooms.action.connect(_on_room_action)
 	Packs.pack_ready.connect(func(pk: String):
-		if pk.begins_with("rooms") and visible and screen == "hub": show_screen("hub"))
+		if visible and pk == bg.get("pack", "-"): _load_background())
+	visibility_changed.connect(func():
+		if not visible: bg_tex = null)   # leaving the station lets the picture go
 	visible = false
 
-## A marker in a panorama room was tapped: open the matching dealer screen, the map, the inspector, or launch.
-func _on_room_action(act: String) -> void:
-	if act == "launch": launch_requested.emit()
-	elif act == "map": map_requested.emit()
-	elif act == "inspect":
-		show_screen("ships")
-		open_inspector(GS.ship_id)
-	elif act.begins_with("screen:"): show_screen(act.substr(7))
-
-## Stations with painted rooms (scripts/rooms.gd) show those instead of the plain hub page, once the pack is in.
-func has_rooms() -> bool:
-	return kind == "station" and Rooms.available(base.get("id", ""))
+## The static faction picture for this station: asked for when you dock, shown as soon as it is in.
+func _load_background() -> void:
+	bg = Factions.hub_background(base, Data.SYSTEMS[GS.system_id])
+	bg_tex = null
+	if bg["path"] != "":
+		Packs.request(bg["pack"])
+		if ResourceLoader.exists(bg["path"]): bg_tex = load(bg["path"])
+	queue_redraw()
 
 func _label(size: int, col: Color) -> Label:
 	var l := Label.new()
@@ -121,15 +116,15 @@ func _make_theme() -> Theme:
 		sb.content_margin_top = 10
 		sb.content_margin_bottom = 10
 		return sb
-	th.set_stylebox("normal", "Button", mk.call(Color(0.05, 0.12, 0.2, 0.92), Color(CYAN, 0.6)))
-	th.set_stylebox("hover", "Button", mk.call(Color(0.08, 0.2, 0.32, 0.95), CYAN))
+	th.set_stylebox("normal", "Button", mk.call(Color(0.03, 0.08, 0.14, Data.HUB_BUTTON_ALPHA), Color(CYAN, 0.6)))
+	th.set_stylebox("hover", "Button", mk.call(Color(0.08, 0.2, 0.32, 0.9), CYAN))
 	th.set_stylebox("pressed", "Button", mk.call(Color(0.15, 0.35, 0.5, 0.98), CYAN))
 	th.set_stylebox("focus", "Button", mk.call(Color(0, 0, 0, 0), Color(0, 0, 0, 0)))
-	th.set_stylebox("disabled", "Button", mk.call(Color(0.05, 0.07, 0.1, 0.8), Color(1, 1, 1, 0.15)))
+	th.set_stylebox("disabled", "Button", mk.call(Color(0.03, 0.05, 0.08, Data.HUB_BUTTON_ALPHA * 0.85), Color(1, 1, 1, 0.15)))
 	th.set_font_size("font_size", "Button", 21)
 	th.set_color("font_color", "Button", Color(0.93, 0.97, 1.0))
 	th.set_color("font_disabled_color", "Button", Color(1, 1, 1, 0.35))
-	th.set_stylebox("panel", "Panel", mk.call(INK, Color(CYAN, 0.35)))
+	th.set_stylebox("panel", "Panel", mk.call(Color(INK, Data.HUB_PANEL_ALPHA), Color(CYAN, 0.35)))
 	th.set_font_size("font_size", "Label", 18)
 	return th
 
@@ -137,48 +132,31 @@ func open(station_or_planet: Dictionary) -> void:
 	base = station_or_planet
 	kind = base.get("kind", "station")
 	visible = true
-	last_room = ""
-	Packs.request("rooms")
-	if Rooms.station_pack(base.get("id", "")) != "": Packs.request(Rooms.station_pack(base["id"]))   # v1.4l: each hub's rooms are their own pack
-	if last_room != "" and Rooms.pack_of(last_room) != Rooms.station_pack(base.get("id", "")): last_room = ""   # a room from another station
+	_load_background()
 	show_screen("hub")
 	status.text = "Docked at %s. Shields and energy restored. REPAIR and RESTOCK are at Equipment." % base["name"]
 
 func _refresh_credits() -> void:
 	credits_label.text = "CREDITS  %d cr" % GS.credits
 
-var screen_bg: Texture2D   # v1.4m: a room of this station, dimmed, behind the dealer screens
-
 func show_screen(s: String) -> void:
 	close_inspector()
-	screen_bg = null
-	var bg_room: String = Rooms.SCREEN_BG.get(base.get("id", ""), {}).get(s, "")
-	if bg_room != "" and kind == "station" and Rooms.available(base.get("id", "")) and ResourceLoader.exists(Rooms.path(bg_room)): screen_bg = load(Rooms.path(bg_room))
-	if screen == "hub" and rooms.visible: last_room = rooms.room
 	screen = s
 	_refresh_credits()
-	var in_rooms := s == "hub" and has_rooms()
-	for c in [header, subheader, credits_label, left, content, status]: c.visible = not in_rooms
-	rooms.visible = in_rooms
-	if in_rooms:
-		for c in left.get_children(): c.queue_free()
-		for c in content.get_children(): c.queue_free()
-		preview_vp = null
-		rooms.open(last_room if last_room != "" else Rooms.start_room(base["id"]))
-		queue_redraw()
-		return
 	var sysname: String = Data.SYSTEMS[GS.system_id]["name"]
-	header.text = base["name"].to_upper() if s == "hub" else {"equipment": "EQUIPMENT DEALER", "ships": "SHIP DEALER", "repair": "REPAIR & RESUPPLY", "bounty": "BOUNTY BOARD", "surface": "PLANET DESTINATIONS"}[s]
+	header.text = base["name"].to_upper() if s == "hub" else {"equipment": "EQUIPMENT DEALER", "ships": "SHIP DEALER", "repair": "REPAIR & RESUPPLY", "bounty": "BOUNTY BOARD", "faction": "FACTION", "surface": "PLANET DESTINATIONS"}[s]
 	subheader.text = "%s  ·  %s SYSTEM  ·  %s" % ["ORBITAL STATION" if kind == "station" else "PLANET SURFACE", sysname.to_upper(), base["name"]]
-	for c in left.get_children(): c.queue_free()
-	for c in content.get_children(): c.queue_free()
+	for box in [left, content]:   # take the old page out at once, so the new buttons keep their own names
+		for c in box.get_children():
+			box.remove_child(c)
+			c.queue_free()
 	preview_vp = null
-	var menu := [["hub", "STATION" if has_rooms() else "HUB"], ["equipment", "EQUIPMENT"], ["ships", "SHIP DEALER"], ["repair", "REPAIR / RESUPPLY"], ["bounty", "BOUNTIES"], ["map", "NAVIGATION"], ["launch", "LAUNCH"]]
+	var menu := [["hub", "HUB"], ["equipment", "EQUIPMENT"], ["ships", "SHIP DEALER"], ["repair", "REPAIR / RESUPPLY"], ["bounty", "BOUNTIES"], ["faction", "FACTION"], ["map", "NAVIGATION"], ["launch", "LAUNCH"]]
 	if _surface_planet() != "": menu.insert(4, ["surface", "SURFACE TRAVEL"])
 	for m in menu:
 		var b := Button.new()
 		b.text = m[1]
-		b.custom_minimum_size = Vector2(270, 64)
+		b.custom_minimum_size = Vector2(270, 56)
 		b.name = "Btn_" + m[0]
 		if m[0] == s: b.add_theme_color_override("font_color", GOLD)
 		if m[0] == "launch": b.add_theme_color_override("font_color", Color(0.5, 1.0, 0.65))
@@ -195,6 +173,7 @@ func show_screen(s: String) -> void:
 			_ships_page()
 		"repair": _repair_page()
 		"bounty": _bounty_page()
+		"faction": _faction_page()
 		"surface": _surface_page()
 	queue_redraw()
 
@@ -660,6 +639,27 @@ func _standing_rows(v: VBoxContainer) -> void:
 		flow.add_child(l)
 	v.add_child(flow)
 
+## v1.4s: who runs this place and where you stand with them.
+func _faction_page() -> void:
+	var v := _page_box()
+	var f: String = Factions.owner_of(base, Data.SYSTEMS[GS.system_id])
+	var d: Dictionary = Factions.def(f)
+	var title := _label(26, d.get("primary_color", Color(1, 1, 1)))
+	title.name = "FactionName"
+	title.text = str(d.get("display_name", f if f != "" else "Independent")).to_upper()
+	v.add_child(title)
+	var l := _label(19, Color(1, 1, 1))
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	if d.is_empty():
+		l.text = "No major faction holds this place."
+	else:
+		var i: Dictionary = Factions.info(f)
+		var rv: String = Factions.rival(f)
+		l.text = "This station is run by the %s.\nYour standing: %s. %s\n%s" % [d["display_name"], i["name"], i["note"],
+			("Their rival: the %s. What you do for one side counts against the other." % Factions.def(rv)["display_name"]) if rv != "" else "A permanent enemy: no diplomacy."]
+	v.add_child(l)
+	_standing_rows(v)
+
 func _repair_page() -> void:
 	var v := _page_box()
 	var l := _label(20, Color(1, 1, 1))
@@ -691,7 +691,14 @@ func _process(dt: float) -> void:
 # ---------------------------------------------------------------- scenic background
 func _draw() -> void:
 	var S := get_viewport_rect().size
-	if kind == "planet":
+	if bg_tex != null:
+		# the faction's (or this station's own) interface picture: fixed, filling the screen, never moving
+		var src := Rect2(Vector2.ZERO, bg_tex.get_size())
+		var k := maxf(S.x / src.size.x, S.y / src.size.y)
+		draw_texture_rect_region(bg_tex, Rect2((S.x - src.size.x * k) * 0.5, (S.y - src.size.y * k) * 0.5, src.size.x * k, src.size.y * k), src)
+		draw_rect(Rect2(Vector2.ZERO, S), Color(0.01, 0.02, 0.04, Data.HUB_BG_WASH))
+		draw_rect(Rect2(0, 0, S.x, 116), Color(0, 0, 0, Data.HUB_HEADER_BAND))
+	elif kind == "planet":
 		var sky_top := Color(0.2, 0.42, 0.75) if base.get("palette", "") == "terran" else Color(0.15, 0.45, 0.4)
 		var sky_bot := Color(0.95, 0.75, 0.55) if base.get("palette", "") == "terran" else Color(0.75, 0.9, 0.6)
 		for i in 24:
@@ -712,14 +719,6 @@ func _draw() -> void:
 		draw_rect(Rect2(0, S.y * 0.72, S.x, S.y * 0.28), Color(0.1, 0.12, 0.14))
 		for i in 8:
 			draw_line(Vector2(S.x * 0.5, S.y * 0.72), Vector2(S.x * (i / 7.0), S.y), Color(1.0, 0.85, 0.4, 0.25), 2)
-	elif screen_bg != null:
-		# the room this dealer works in, filling the screen and dimmed so the lists read (front view of a two-view strip)
-		var two: bool = screen_bg.get_width() > screen_bg.get_height() * 4
-		var src := Rect2(0, 0, Rooms.VIEW_W if two else float(screen_bg.get_width()), screen_bg.get_height())
-		var k := maxf(S.x / src.size.x, S.y / src.size.y)
-		var dst := Rect2((S.x - src.size.x * k) * 0.5, (S.y - src.size.y * k) * 0.5, src.size.x * k, src.size.y * k)
-		draw_texture_rect_region(screen_bg, dst, src)
-		draw_rect(Rect2(Vector2.ZERO, S), Color(0.01, 0.03, 0.06, 0.62))
 	else:
 		draw_rect(Rect2(Vector2.ZERO, S), Color(0.04, 0.06, 0.09))
 		# hangar window onto space

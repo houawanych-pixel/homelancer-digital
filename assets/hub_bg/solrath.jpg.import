@@ -2,22 +2,22 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dm65y0eqfkd08"
-path="res://.godot/imported/mission.jpg-f9c4f2c526f83b95ebe421250ca404b1.ctex"
+uid="uid://323g0vijgbpg"
+path="res://.godot/imported/solrath.jpg-a1645333cc1903f87c15588685d72d5e.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/rooms/mission.jpg"
-dest_files=["res://.godot/imported/mission.jpg-f9c4f2c526f83b95ebe421250ca404b1.ctex"]
+source_file="res://assets/hub_bg/solrath.jpg"
+dest_files=["res://.godot/imported/solrath.jpg-a1645333cc1903f87c15588685d72d5e.ctex"]
 
 [params]
 
-compress/mode=1
+compress/mode=0
 compress/high_quality=false
-compress/lossy_quality=0.75
+compress/lossy_quality=0.7
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
@@ -31,4 +31,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=0
+detect_3d/compress_to=1

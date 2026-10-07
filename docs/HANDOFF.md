@@ -13,7 +13,7 @@
     export GODOT=/home/claude/godot/Godot_v4.3-stable_linux.x86_64
     cd /home/claude/hl && $GODOT --headless --import --path .
     xvfb-run -a $GODOT --audio-driver Dummy --rendering-driver opengl3 --resolution 1280x720 --path . -- --autotest --quit-after-test
-      -> must print RESULT 239/239 PASS on a screen, 236/236 with no screen as GitHub runs it (the web build prints its own count)  (HL_SHOT_DIR=/dir saves screenshots; HL_SHOWCASE=1 = short combat demo; HL_CITY=1 = city prototype shots only; HL_MISSILE=1 = the Job M combat checks only; HL_ART=1 = the Job N art map and Lockon checks only; HL_O=1 = the Job O checks only; HL_P=1 = the Job P checks only; HL_Q=1 = the Job Q checks only; HL_S=1 = the Job S checks only; HL_U=1 = the Job U Savagers ship checks only; HL_V=1 = the Job V faction, reputation, station and beacon checks only (HL_V=2 adds review shots in Plundros))
+      -> must print RESULT 237/237 PASS on a screen, 237/237 with no screen as GitHub runs it (the web build prints its own count)  (HL_SHOT_DIR=/dir saves screenshots; HL_SHOWCASE=1 = short combat demo; HL_CITY=1 = city prototype shots only; HL_MISSILE=1 = the Job M combat checks only; HL_ART=1 = the Job N art map and Lockon checks only; HL_O=1 = the Job O checks only; HL_P=1 = the Job P checks only; HL_Q=1 = the Job Q checks only; HL_S=1 = the Job S checks only; HL_U=1 = the Job U Savagers ship checks only; HL_W=1 = the Job W hub-background checks only; HL_V=1 = the Job V faction, reputation, station and beacon checks only (HL_V=2 adds review shots in Plundros))
 
 ## Game layout (scripts/)
 main.gd (states, calls, hub/map), space.gd (world, combat, enemies, missiles, stations), hud.gd (mobile HUD, call box

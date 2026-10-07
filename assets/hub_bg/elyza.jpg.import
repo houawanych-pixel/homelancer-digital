@@ -2,22 +2,22 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cuv8bpoubnqtw"
-path="res://.godot/imported/au_bar.jpg-730d418f256e1ac28711de626cee8e04.ctex"
+uid="uid://dlf5h6oxvli4b"
+path="res://.godot/imported/elyza.jpg-5f702064c0faafcae50477191d534063.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/rooms_aurelion/au_bar.jpg"
-dest_files=["res://.godot/imported/au_bar.jpg-730d418f256e1ac28711de626cee8e04.ctex"]
+source_file="res://assets/hub_bg/elyza.jpg"
+dest_files=["res://.godot/imported/elyza.jpg-5f702064c0faafcae50477191d534063.ctex"]
 
 [params]
 
-compress/mode=1
+compress/mode=0
 compress/high_quality=false
-compress/lossy_quality=0.8
+compress/lossy_quality=0.7
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0

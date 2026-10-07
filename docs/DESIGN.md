@@ -712,3 +712,34 @@ light copies but not placed: their pack is not this phase.
 
 Not done in this phase (said plainly): desert-world and underground Savagers settlements, cargo-theft / convoy /
 checkpoint encounter types (only patrols, raids, hunters and bounties exist), story encounters.
+
+## 32. Hub reset: static faction backgrounds, panorama rooms removed (Job W, v1.4s)
+
+Owner decision: a hub is a fast 2D interface, not a room. Dock, the faction's picture appears, a see-through menu
+sits over it, buy / equip / repair / missions, launch. No panning, no dragging, no hotspots.
+
+- **One picture per station visit.** `Factions.hub_background(station, system)` picks it: the station's own picture
+  (`"ui_background"` on the station record) > its owner faction's (`"ui_background"` in `Factions.DEFS`) > none, in
+  which case the hub draws its plain code-made backdrop. Nothing is hard-coded per screen: Hub, Equipment, Ship
+  Dealer, Repair, Bounties and Faction all sit over the same picture.
+- **The pictures** are the owner's 14 "Faction Interface Background" images from Drive (`assets/hub_bg/<faction>.jpg`,
+  1280 x 720, about 300 KB each): Unity, Elyza, Solarion, Imperium, Covenant, Orion, Savagers, Liberator and the
+  enemy factions Solrath, Gadversee, Arctides, Cybermorphs, Phenom, Kaijurai. Each is its own small pack
+  (`hubbg_<faction>`): only the picture for the station you dock at is fetched, and it is let go when you leave.
+- **See-through interface.** Panel 50 %, buttons 72 %, a 38 % dark wash and a darker strip behind the title
+  (`HUB_*` in `data.gd`).
+- **FACTION page** (new menu button): who runs the station, your standing, their rival.
+- **Enemy factions** Solrath, Gadversee, Arctides, Phenom, Kaijurai were added to `Factions.DEFS` as gray permanent
+  enemies (with Cybermorph): interface art, no place in the rival pairs.
+- **Panorama removed from the game.** `rooms.gd`, `npc.gd`, the room pictures and the room person's model moved to
+  `art/archive_panorama/` (kept in the repo, never exported); the `rooms`, `rooms_aurelion` and `npc` packs are gone
+  (12.8 MB no longer built or downloaded). Ten route checks that tested the rooms were removed with them.
+  The title screen's slow collage is not a hub and is unchanged. `ArtRefs` (the concept-art map) still lists room art.
+- Not built here: Cargo, Trade, a Weapons / Armor split, a mission board beyond bounties (the old Job T brief).
+
+Two of the Drive pictures (Covenant, Liberator) are ship reference sheets rather than scenes; they are used as filed.
+
+**Symmetry repair (same job).** The four Savagers models the game flies or stages (skirmish craft, twin gunboat,
+salvaged carrier, raider cruiser) were replaced by their mirrored copies: exactly the same left and right. The skirmish
+craft, which sat 10 degrees askew in the owner's set, is now straight (`SAVAGER_SKIRMISH_YAW` 180). 50 ships in the
+library have a mirrored copy; see `docs/ASSET_LIBRARY.md` for the list and for what was left alone and why.

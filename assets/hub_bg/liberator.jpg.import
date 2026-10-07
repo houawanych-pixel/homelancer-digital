@@ -2,22 +2,22 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cx78osbe8184p"
-path="res://.godot/imported/au_shipyard.jpg-771ae53a3cb03b2adb181bbd3a5b5c88.ctex"
+uid="uid://cr2beo831trq4"
+path="res://.godot/imported/liberator.jpg-0318db9c85d798cbcba84acf18eac34e.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/rooms_aurelion/au_shipyard.jpg"
-dest_files=["res://.godot/imported/au_shipyard.jpg-771ae53a3cb03b2adb181bbd3a5b5c88.ctex"]
+source_file="res://assets/hub_bg/liberator.jpg"
+dest_files=["res://.godot/imported/liberator.jpg-0318db9c85d798cbcba84acf18eac34e.ctex"]
 
 [params]
 
-compress/mode=1
+compress/mode=0
 compress/high_quality=false
-compress/lossy_quality=0.8
+compress/lossy_quality=0.7
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0

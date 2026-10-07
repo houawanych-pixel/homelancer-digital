@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.4r"
+const VERSION := "v1.4s"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -201,16 +201,12 @@ const PLANET_BIOME := {"terran": "forest", "jungle": "jungle", "ocean": "ocean",
 const TEXT_BUMP := 2                  # HUD and room text below TEXT_BUMP_BELOW px is drawn this much bigger
 const TEXT_BUMP_BELOW := 17
 const TEXT_MIN := 13                  # nothing on the HUD is smaller than this
-# people in station rooms (scripts/npc.gd): one rigged character drawn as a moving cut-out
-const NPC_VIEW := Vector2(320, 480)   # the character's own little picture (pixels)
-const NPC_HEIGHT_NEAR := 0.86         # share of the screen height the figure fills when close (waist-up)...
-const NPC_HEIGHT_FAR := 0.6           # ...and when it has walked back (thigh-up)
-const NPC_FRAME_NEAR := 0.5           # the frame starts this far up the body when close (0.5 = the waist)...
-const NPC_FRAME_FAR := 0.3            # ...and at mid-thigh when back
-const NPC_WALK := 0.012               # stroll speed, in room-picture widths per second
-const NPC_PAUSE := [2.5, 6.0]         # seconds they stand between strolls
-const NPC_TALK_TIME := 6.0
-const NPC_GESTURE_TIME := 2.2
+# ---------------------------------------------------------------- Job W (v1.4s): static faction hub backgrounds
+const HUB_BG_DIR := "res://assets/hub_bg/"
+const HUB_BG_WASH := 0.38        # dark wash over the faction picture so text reads (0 = none)
+const HUB_PANEL_ALPHA := 0.5     # the big content panel: see-through so the faction art stays visible
+const HUB_BUTTON_ALPHA := 0.72   # menu and action buttons
+const HUB_HEADER_BAND := 0.45    # darkness of the strip behind the title and the credits
 # radar: normal range, and zoom-out when you are far from everything
 const RADAR_RANGE := 1600.0
 const RADAR_FIT := 1.15               # zoomed out, the farthest place sits this far inside the rim
@@ -350,7 +346,7 @@ const REPAIR_AMOUNT := 0.4 # fraction of max hull
 # ---------------------------------------------------------------- Job U (v1.4q): the true Savagers ships
 # length in metres and the turn (degrees) that points each model's nose at -Z like every other ship
 const SAVAGER_SKIRMISH_LEN := 11.0
-const SAVAGER_SKIRMISH_YAW := 170.0
+const SAVAGER_SKIRMISH_YAW := 180.0   # v1.4s: the mirrored copy is straight
 const SAVAGER_GUNBOAT_LEN := 13.0
 const SAVAGER_GUNBOAT_YAW := 180.0
 const SAVAGER_CARRIER_LEN := 130.0

@@ -2,22 +2,22 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://x2djtxwb24be"
-path="res://.godot/imported/market.jpg-2febaaa0acb3f571c311dd713459b2f9.ctex"
+uid="uid://c10esi4r40a6m"
+path="res://.godot/imported/solarion.jpg-099a657cad00ded9a2614ce7d32e7ac4.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/rooms/market.jpg"
-dest_files=["res://.godot/imported/market.jpg-2febaaa0acb3f571c311dd713459b2f9.ctex"]
+source_file="res://assets/hub_bg/solarion.jpg"
+dest_files=["res://.godot/imported/solarion.jpg-099a657cad00ded9a2614ce7d32e7ac4.ctex"]
 
 [params]
 
-compress/mode=1
+compress/mode=0
 compress/high_quality=false
-compress/lossy_quality=0.75
+compress/lossy_quality=0.7
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
@@ -31,4 +31,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=0
+detect_3d/compress_to=1

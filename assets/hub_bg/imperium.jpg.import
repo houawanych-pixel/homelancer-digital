@@ -2,22 +2,22 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c8huara7haj7r"
-path="res://.godot/imported/au_rest.jpg-b93eb6f21af34b6b0c9a763a6ce1c381.ctex"
+uid="uid://cnndhjjq6uy7n"
+path="res://.godot/imported/imperium.jpg-08ecf156aa38b31307711e2ba8e4fc1c.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/rooms_aurelion/au_rest.jpg"
-dest_files=["res://.godot/imported/au_rest.jpg-b93eb6f21af34b6b0c9a763a6ce1c381.ctex"]
+source_file="res://assets/hub_bg/imperium.jpg"
+dest_files=["res://.godot/imported/imperium.jpg-08ecf156aa38b31307711e2ba8e4fc1c.ctex"]
 
 [params]
 
-compress/mode=1
+compress/mode=0
 compress/high_quality=false
-compress/lossy_quality=0.8
+compress/lossy_quality=0.7
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0

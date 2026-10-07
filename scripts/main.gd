@@ -67,7 +67,7 @@ func _ready() -> void:
 	_load_system("solara", "station")
 	space.controls = false
 	# optional content arrives in the background after the game is up (see scripts/packs.gd)
-	get_tree().create_timer(1.5).timeout.connect(func(): for pk in ["sky", "structures", "worlds", "rooms", "enemies", "cockpit", "mechs", "lancer", "ranger", "hauler", "bulk", "planets"]: Packs.request(pk))
+	get_tree().create_timer(1.5).timeout.connect(func(): for pk in ["sky", "structures", "worlds", "enemies", "cockpit", "mechs", "lancer", "ranger", "hauler", "bulk", "planets"]: Packs.request(pk))
 	autotest = "--autotest" in OS.get_cmdline_user_args() or _web_flag("autotest")
 	if autotest:
 		var runner: Node = load("res://scripts/autotest.gd").new()

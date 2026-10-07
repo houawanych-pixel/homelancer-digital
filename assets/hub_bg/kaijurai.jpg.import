@@ -2,22 +2,22 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://codo4rsolpp8r"
-path="res://.godot/imported/au_mission.jpg-c95fb4387d4bb2664768b3ce44576d4e.ctex"
+uid="uid://dtgybid4rmq06"
+path="res://.godot/imported/kaijurai.jpg-c9c7b7edd9fd8c37d0a67f00ced4c2ec.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/rooms_aurelion/au_mission.jpg"
-dest_files=["res://.godot/imported/au_mission.jpg-c95fb4387d4bb2664768b3ce44576d4e.ctex"]
+source_file="res://assets/hub_bg/kaijurai.jpg"
+dest_files=["res://.godot/imported/kaijurai.jpg-c9c7b7edd9fd8c37d0a67f00ced4c2ec.ctex"]
 
 [params]
 
-compress/mode=1
+compress/mode=0
 compress/high_quality=false
-compress/lossy_quality=0.8
+compress/lossy_quality=0.7
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0

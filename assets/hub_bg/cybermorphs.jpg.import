@@ -2,22 +2,22 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ce22dx5ehy6yk"
-path="res://.godot/imported/apartment.jpg-ed238c5731735eec600719b1ccf4206c.ctex"
+uid="uid://c3jvcpdx3wt5l"
+path="res://.godot/imported/cybermorphs.jpg-4bafb99cc3874f7c58a7bd4d83d70ad5.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/rooms/apartment.jpg"
-dest_files=["res://.godot/imported/apartment.jpg-ed238c5731735eec600719b1ccf4206c.ctex"]
+source_file="res://assets/hub_bg/cybermorphs.jpg"
+dest_files=["res://.godot/imported/cybermorphs.jpg-4bafb99cc3874f7c58a7bd4d83d70ad5.ctex"]
 
 [params]
 
-compress/mode=1
+compress/mode=0
 compress/high_quality=false
-compress/lossy_quality=0.75
+compress/lossy_quality=0.7
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
@@ -31,4 +31,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=0
+detect_3d/compress_to=1

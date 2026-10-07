@@ -792,91 +792,6 @@ func _galaxy() -> void:
 	await _wait(0.6)
 	_check("Back in Solara by the Veranthos gate", GS.system_id == "solara" and main.state == "flight")
 
-## Station interior as panorama rooms: look around (wraps), tap markers, zoom through doors, dealer screens, talk.
-func _station_rooms() -> void:
-	await Packs.wait("rooms", 60.0)
-	var hub: Control = main.hub
-	hub.show_screen("hub")
-	var rm: Rooms = hub.rooms
-	await _wait(0.3)
-	var in_room: bool = hub.has_rooms() and rm.visible and rm.room == "main_hub" and rm.tex != null and rm.tex.get_width() > 3000 and not hub.content.visible
-	await _shot("room_main_hub_front", 0.2)
-	# look around: the picture scrolls and wraps forever, the tilt is limited
-	var p0: float = rm.pan
-	for i in 40: rm.drag(Vector2(-400, 0))
-	var wrapped: bool = rm.pan >= 0.0 and rm.pan < 1.0
-	rm.pan = Rooms.strip_u(0.75)
-	rm._vel = 0.0
-	for i in 10: rm.drag(Vector2(0, -300))
-	var tilt_ok: bool = absf(rm.tilt) <= 1.0
-	rm.tilt = 0.0
-	await _shot("room_main_hub_back", 0.2)
-	rm.pan = (Rooms.VIEW_W + Rooms.BRIDGE * 0.5) / float(rm.tex.get_width())   # the join between the two views
-	await _shot("room_main_hub_join", 0.2)
-	_check("Station rooms: docking opens the Main Hub panorama; drag looks around and wraps", in_room and wrapped and tilt_ok and is_equal_approx(p0, Rooms.strip_u(0.25)),
-		"%s, picture %d px wide, %d markers" % [Rooms.ROOMS[rm.room]["name"], rm.tex.get_width() if rm.tex else 0, Rooms.ROOMS[rm.room]["spots"].size()])
-	# the LOOK stick turns the view; what comes to the middle lights up green and the green button uses it
-	rm.open("main_hub")
-	await _wait(0.2)
-	var f0: int = rm.focus   # arriving, the service desk is straight ahead
-	var pan0: float = rm.pan
-	rm.look = Vector2(1, 0.4)
-	await _wait(1.0)
-	rm.look = Vector2.ZERO
-	var turned: bool = rm.pan > pan0 + 0.08 and rm.tilt > 0.5 and rm.tilt <= 1.0
-	rm.tilt = 0.0
-	var sp2: Array = Rooms.ROOMS["main_hub"]["spots"]
-	var want := -1
-	for i in sp2.size(): if sp2[i]["act"] == "room:mission": want = i
-	rm.pan = Rooms.strip_u(sp2[want]["u"])
-	await _wait(0.2)
-	var lit: bool = rm.focus == want
-	await _shot("room_green_ready", 0.2)
-	rm.pan = Rooms.strip_u(0.385)   # nothing near the middle here: no green, no button
-	await _wait(0.2)
-	var none: bool = rm.focus == -1
-	rm.pan = Rooms.strip_u(sp2[want]["u"])
-	await _wait(0.2)
-	rm.tap(rm.go_rect().get_center())
-	await _until(func(): return not rm.busy, 3.0)
-	_check("Station rooms: LOOK stick turns the view; the marker in view lights green and the green button uses it",
-		f0 >= 0 and turned and lit and none and rm.room == "mission", "ahead %s, turned %s, green %s, clear %s, in view: %s -> %s" % [f0 >= 0, turned, lit, none, sp2[want]["label"], rm.room])
-	rm.open("main_hub")
-	await _wait(0.2)
-	# tap the DOCKING BAY sign: zoom through the door into the next room
-	var spots: Array = Rooms.ROOMS["main_hub"]["spots"]
-	var di := -1
-	for i in spots.size(): if spots[i]["act"] == "room:docking": di = i
-	rm.tap(rm.spot_pos(spots[di]["u"], spots[di]["v"]))
-	var zooming: bool = rm.busy
-	await _until(func(): return not rm.busy, 3.0)
-	await _shot("room_docking_bay", 0.2)
-	_check("Station rooms: tapping a door zooms into the next room", zooming and rm.room == "docking", rm.room)
-	# every room's picture exists and every door leads somewhere real
-	var all_ok := true
-	for id: String in Rooms.ROOMS:
-		if Rooms.pack_of(id) == "rooms" and not ResourceLoader.exists(Rooms.path(id)): all_ok = false   # (other hubs' packs load when you dock there; Job O checks them)
-		for sp: Dictionary in Rooms.ROOMS[id]["spots"]:
-			var act: String = sp["act"]
-			if act.begins_with("room:") and not Rooms.ROOMS.has(act.substr(5)): all_ok = false
-			if act.begins_with("talk:") and not Data.CHARACTERS.has(act.substr(5)): all_ok = false
-	for id in ["mission", "market", "bar", "hangar", "apartment"]:
-		rm.open(id)
-		if id == "mission": rm.use(1)   # Cmdr. Vale answers from the chat brain
-		await _shot("room_" + id, 0.25)
-	var talked: bool = false
-	rm.open("mission")
-	rm.use(1)
-	talked = rm.caption != "" and rm.caption_who == "Cmdr. Vale"
-	_check("Station rooms: 7 rooms, all doors valid, people talk", all_ok and Rooms.ROOMS.keys().filter(func(k): return not (k as String).begins_with("au_")).size() == 7 and talked, "%s: %s" % [rm.caption_who, rm.caption.left(60)])
-	# a dealer marker opens the old dealer screen; STATION brings the room back where you were
-	rm.open("main_hub")
-	rm.use(1)
-	var dealer: bool = hub.screen == "ships" and not rm.visible and hub.content.visible
-	hub.show_screen("hub")
-	_check("Station rooms: dealer markers open the dealer screens and STATION returns to the room", dealer and rm.visible and rm.room == "main_hub", hub.screen)
-
-## Music by mood: the right mood for where you are, a take from that mood, every track present and wired.
 func _music() -> void:
 	var ok_files := true
 	var n := 0
@@ -1129,6 +1044,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_W") != "":   # the Job W checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_w()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_V") != "":   # the Job V checks only (HL_V=2: then jump to a Savagers system for review shots)
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1342,7 +1265,6 @@ func _run() -> void:
 	_check("Station docking", await _dock_at(s.station), s.station.name)
 	await _wait(0.8)
 	await _shot("hub_station")
-	await _station_rooms()
 	main.hub.show_screen("equipment")
 	await _wait(0.3)
 	var btn: Button = main.hub.find_child("Buy_pulse2", true, false)
@@ -1504,6 +1426,7 @@ func _run() -> void:
 	await _job_s()
 	await _job_u()
 	await _job_v()
+	await _job_w()
 	await _galaxy()
 	await _controls_j()
 	await _gate_k()
@@ -2639,37 +2562,6 @@ func _job_o() -> void:
 	var fac: String = Data.SYSTEMS[s.sys_id].get("faction", "Neutral")
 	_check("Job O: music follows the faction whose space you are in (one track each, 13 factions); the love song and the ruins set are held back",
 		not held_used and tracks.size() == SystemBuilder.FACTIONS.size() and (mood_now == Music.faction_mood(fac) or mood_now == "battle") and Music.takes("f:" + fac).size() == 1, "%s -> %s" % [fac, mood_now])
-	# ---- Aurelion Citadel hub rooms
-	await Packs.wait("rooms_aurelion", 60.0)
-	var rooms_ok: bool = Rooms.start_room("aurelion_station") == "au_main_hub" and Data.SYSTEMS["aurelion"]["station"]["id"] == "aurelion_station" and Rooms.available("aurelion_station")
-	var count := 0
-	var doors := 0
-	for rid in Rooms.ROOMS:
-		if not rid.begins_with("au_"): continue
-		count += 1
-		if not ResourceLoader.exists(Rooms.path(rid)) or not Rooms.ROOMS[rid].get("single", false): rooms_ok = false
-		for sp in Rooms.ROOMS[rid]["spots"]:
-			if sp["act"] == "room:au_main_hub": doors += 1
-	var hubdoors := 0
-	for sp in Rooms.ROOMS["au_main_hub"]["spots"]:
-		if (sp["act"] as String).begins_with("room:au_"): hubdoors += 1
-	var r: Rooms = main.hub.rooms
-	var was_vis: bool = r.visible
-	var hub_vis: bool = main.hub.visible
-	main.hub.visible = true
-	r.visible = true
-	r.size = get_viewport().get_visible_rect().size
-	r.open("au_main_hub")
-	r.pan = r._pan_fix(5.0)
-	var hw: float = r.size.x / (2.0 * r.tex.get_width() * r._scale())
-	var clamped: bool = r.is_single() and r.pan <= 1.0 - hw + 0.001 and r.pan >= hw - 0.001
-	await _shot("aurelion_citadel_main_hub", 0.4)
-	r.open("au_rest")
-	await _shot("aurelion_citadel_rest_quarters", 0.3)
-	r.visible = was_vis
-	main.hub.visible = hub_vis
-	_check("Job O: Aurelion Citadel has its hub: eight painted rooms (main hub, shipyard, dealer, weapons, supplies, bar, mission board, rest quarters), each with a way back, and the view stops at the picture's edges",
-		rooms_ok and count == 8 and doors == 7 and hubdoors == 7 and clamped and ArtRefs.ROOMS.size() == count, "%d rooms, %d doors back, %d doors out" % [count, doors, hubdoors])
 	GS.rack = gs0["rack"]
 	GS.missiles = gs0["missiles"]
 	GS.heavy_missiles = gs0["heavy"]
@@ -2798,77 +2690,6 @@ func _job_p() -> void:
 		and on_grid and hidden_ok and more > 1 + neigh and was_3d, "start: %d seen, %d unknown contacts, %d in fog; later %d shown" % [states["seen"], states["rumor"], states["fog"], more])
 	GS.discovered = disc0
 	gm.press("close")
-	# ---- station rooms: MAIN HUB and LAUNCH always there; the first person in the main hub
-	await Packs.wait("rooms", 60.0)
-	await Packs.wait("npc", 60.0)
-	var r: Rooms = main.hub.rooms
-	var hub_vis: bool = main.hub.visible
-	var was_vis: bool = r.visible
-	main.hub.visible = true
-	r.visible = true
-	r.size = S
-	r.open("bar")
-	await _frames(2)
-	var acts: Array = []
-	var cb := func(a: String): acts.append(a)
-	r.action.connect(cb)
-	r.tap(r.bar_rect("launch").get_center())
-	r.tap(r.bar_rect("hub").get_center())
-	await _until(func(): return not r.busy and r.room == "main_hub", 4.0)
-	r.action.disconnect(cb)
-	var au_home: bool = Rooms.new().hub_room() == "main_hub"
-	_check("Job P: MAIN HUB and LAUNCH are on the top bar of every room: LAUNCH launches, MAIN HUB takes you back to the hub", acts == ["launch"] and r.room == "main_hub" and au_home, "actions %s, room %s" % [acts, r.room])
-	await _until(func(): return r.npcs.size() == 1, 6.0)
-	var has_npc: bool = r.npcs.size() == 1
-	var talked := false
-	var strolled := false
-	var seen_px := 0
-	var bigger := false
-	if has_npc:
-		var f: NpcFigure = r.npcs[0]
-		await _until(func(): return f.steps >= 1, Data.NPC_PAUSE[1] + 4.0)
-		await _wait(1.0)
-		strolled = f.steps >= 1 and f.u >= float(f.info["u0"]) - 0.001 and f.u <= float(f.info["u1"]) + 0.001
-		r.pan = Rooms.strip_u(f.u)
-		await _frames(3)
-		var img: Image = f.texture().get_image()
-		for y in range(0, img.get_height(), 8):
-			for x in range(0, img.get_width(), 8):
-				if img.get_pixel(x, y).a > 0.5: seen_px += 1
-		var d0: float = f.depth
-		f.depth = 0.0
-		var near_h: float = r.npc_rect(f).size.y
-		f.depth = 1.0
-		var far_h: float = r.npc_rect(f).size.y
-		f.depth = d0
-		bigger = near_h > far_h * 1.2 and is_equal_approx(r.npc_rect(f).end.y, S.y)
-		await _shot("main_hub_person", 0.3)
-		r.caption = ""
-		r.tap(r.npc_rect(f).get_center() + Vector2(0, -r.npc_rect(f).size.y * 0.2))
-		talked = r.caption_who == f.info["name"] and r.caption != "" and f.state == "talk" and f.gesture != ""
-		await _shot("main_hub_person_talking", 0.9)
-	_check("Job P: one person lives in the main hub: a rigged character who strolls left and right, is waist-up when close and thigh-up (smaller) when back, and waves and answers when you tap them",
-		has_npc and strolled and seen_px > 150 and bigger and talked, "there %s, strolled %s, drawn %d, sizes %s, talked %s" % [has_npc, strolled, seen_px, bigger, talked])
-	# ---- dealer screens show the room they belong to
-	var base0: Dictionary = main.hub.base
-	var kind0: String = main.hub.kind
-	main.hub.base = Data.SYSTEMS["solara"]["station"]
-	main.hub.kind = "station"
-	main.hub.show_screen("equipment")
-	var bg_eq: bool = main.hub.screen_bg != null and main.hub.screen_bg.resource_path == Rooms.path("market")
-	await _shot("equipment_with_room_behind", 0.4)
-	main.hub.show_screen("repair")
-	var bg_rp: bool = main.hub.screen_bg != null and main.hub.screen_bg.resource_path == Rooms.path("hangar")
-	_check("Job P: the Equipment and Repair screens show the room they belong to behind the lists (market, hangar)", bg_eq and bg_rp)
-	main.hub.show_screen("hub")
-	main.hub.base = base0
-	main.hub.kind = kind0
-	r.visible = was_vis
-	main.hub.visible = hub_vis
-	await _frames(2)
-	_check("Job P: the room's person stops being drawn the moment the room is off screen (nothing extra renders in flight)", r.npcs.is_empty() and not r.is_visible_in_tree())
-	for c in [main.hub.header, main.hub.subheader, main.hub.credits_label, main.hub.left, main.hub.content, main.hub.status]: c.visible = true
-	await _wait(0.3)
 
 
 # ---------------------------------------------------------------- Job Q (v1.4n): split comms console, 100 / 50 racks,
@@ -3393,6 +3214,90 @@ func _job_v() -> void:
 	GS.kills = keep["kills"]
 	GS.mood = keep["mood"]
 	GS.met = keep["met"]
+
+## Job W (v1.4s): hub reset. Panorama rooms are out of the game; a station is one static faction picture with a
+## see-through interface over it.
+func _job_w() -> void:
+	var s := _sp()
+	s.autopilot = null
+	s.drop_warp()
+	s.vel = Vector3.ZERO
+	var hub = main.hub
+	var shell := FileAccess.get_file_as_string("res://web_shell.html")
+	_check("Job W: version label reads \"Homelancer Digital v1.4s\" or later", Data.VERSION >= "v1.4s" and (shell == "" or shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0), Data.VERSION)
+	var gone := true
+	for path in ["res://scripts/rooms.gd", "res://scripts/npc.gd", "res://assets/rooms/main_hub.jpg", "res://assets/rooms_aurelion/au_main_hub.jpg", "res://assets/npc/marshal.glb"]:
+		if ResourceLoader.exists(path) or FileAccess.file_exists(path): gone = false
+	var packs_gone := true
+	for pk in Packs.PACKS:
+		if (pk as String).begins_with("rooms") or pk == "npc": packs_gone = false
+	_check("Job W: the panorama rooms are out of the game: no room or room-person script, no room pictures, no room packs to download", gone and packs_gone and not ("rooms" in hub) and not hub.has_method("has_rooms"))
+	# the picture rule: station's own > faction's > plain neutral
+	var sav_sys: Dictionary = Data.SYSTEMS["plundros"]
+	var own: Dictionary = Factions.hub_background({"ui_background": "phenom"}, sav_sys)
+	var fac: Dictionary = Factions.hub_background(sav_sys["station"], sav_sys)
+	var neutral: Dictionary = Factions.hub_background({}, {"faction": "Neutral"})
+	var files := true
+	var n_bg := 0
+	for f in Factions.DEFS:
+		var nm: String = str(Factions.DEFS[f].get("ui_background", ""))
+		if nm == "": files = false
+		else:
+			n_bg += 1
+			if not Packs.PACKS.has("hubbg_" + nm) or Packs.PACKS["hubbg_" + nm]["probe"] != Data.HUB_BG_DIR + nm + ".jpg": files = false
+			if not OS.has_feature("web") and not ResourceLoader.exists(Data.HUB_BG_DIR + nm + ".jpg"): files = false   # (on the web each one arrives only when you dock there)
+	_check("Job W: the background comes from data: a station's own picture wins, then its faction's, then the plain neutral backdrop; all 14 factions have a picture, each in its own small pack",
+		own["source"] == "station" and own["path"].ends_with("phenom.jpg") and fac["source"] == "faction" and fac["path"].ends_with("savagers.jpg") and fac["pack"] == "hubbg_savagers"
+		and neutral["source"] == "neutral" and neutral["path"] == "" and files and n_bg == 14, "%d pictures" % n_bg)
+	_check("Job W: the six enemy factions have interface art but stay outside the rival pairs (gray, permanent enemies); the eight majors are unchanged",
+		Factions.majors().size() == 8 and ["Solrath", "Gadversee", "Arctides", "Cybermorph", "Phenom", "Kaijurai"].all(func(f): return Factions.band(f) == "gray" and Factions.rival(f) == ""))
+	# dock: one fixed picture, the interface over it
+	var base0: Dictionary = hub.base
+	var kind0: String = hub.kind
+	var vis0: bool = hub.visible
+	hub.open(Data.SYSTEMS["solara"]["station"])
+	await Packs.wait("hubbg_unity", 30.0)
+	await _frames(3)
+	var t0: Texture2D = hub.bg_tex
+	var docked_ok: bool = t0 != null and t0.resource_path.ends_with("unity.jpg") and t0.get_size() == Vector2(1280, 720) and hub.bg["source"] == "faction"
+	var ui_ok: bool = hub.left.visible and hub.content.visible and hub.header.visible and hub.left.find_child("Btn_launch", true, false) != null and hub.left.find_child("Btn_faction", true, false) != null
+	await _shot("w_hub_unity", 0.4)
+	var same := true
+	for scr in ["equipment", "ships", "repair", "bounty", "faction", "hub"]:
+		hub.show_screen(scr)
+		await _frames(2)
+		if hub.bg_tex != t0: same = false
+		if scr == "equipment": await _shot("w_equipment_unity", 0.3)
+	var fits: bool = hub.left.position.y + hub.left.get_combined_minimum_size().y <= get_viewport().get_visible_rect().size.y
+	_check("Job W: docking shows the faction's picture, fixed, with the menu over it at once; every service screen keeps that same picture and the menu fits the screen",
+		docked_ok and ui_ok and same and fits, "picture %s, menu %s, same on all screens %s, fits %s" % [docked_ok, ui_ok, same, fits])
+	var panel: StyleBoxFlat = hub.theme_obj.get_stylebox("panel", "Panel")
+	var btn: StyleBoxFlat = hub.theme_obj.get_stylebox("normal", "Button")
+	_check("Job W: the interface is see-through so the faction art stays visible (panel %d%%, buttons %d%%, a light dark wash for reading)" % [int(Data.HUB_PANEL_ALPHA * 100), int(Data.HUB_BUTTON_ALPHA * 100)],
+		is_equal_approx(panel.bg_color.a, Data.HUB_PANEL_ALPHA) and panel.bg_color.a <= 0.6 and is_equal_approx(btn.bg_color.a, Data.HUB_BUTTON_ALPHA) and Data.HUB_BG_WASH > 0.0 and Data.HUB_BG_WASH < 0.6)
+	hub.show_screen("faction")
+	await _frames(3)
+	var fname: Label = hub.content.find_child("FactionName", true, false)
+	_check("Job W: the FACTION page names who runs the station and shows your standing", fname != null and fname.text == "UNITY" and hub.content.find_child("Standing_Unity", true, false) != null)
+	# another owner, another picture; leaving lets it go
+	var sys0: String = GS.system_id
+	GS.system_id = "plundros"
+	hub.open(Data.SYSTEMS["plundros"]["station"])
+	await Packs.wait("hubbg_savagers", 30.0)
+	await _frames(3)
+	var sav_ok: bool = hub.bg_tex != null and hub.bg_tex.resource_path.ends_with("savagers.jpg") and hub.bg_tex != t0
+	await _shot("w_hub_savagers", 0.4)
+	GS.system_id = "vega"
+	var veg: Dictionary = Factions.hub_background(Data.SYSTEMS["vega"]["station"], Data.SYSTEMS["vega"])
+	hub.visible = false
+	await _frames(2)
+	var released: bool = hub.bg_tex == null
+	GS.system_id = sys0
+	hub.base = base0
+	hub.kind = kind0
+	hub.visible = vis0
+	var not_preloaded: bool = not OS.has_feature("web") or not ResourceLoader.exists(Data.HUB_BG_DIR + "phenom.jpg")   # web: a faction you never docked with was never downloaded
+	_check("Job W: a Savagers station shows the Savagers picture; only the current station's picture is held, and it is let go when you leave", sav_ok and released and not_preloaded, "savagers %s, released %s, vega -> %s" % [sav_ok, released, veg["source"]])
 
 func _job_s() -> void:
 	var s := _sp()

@@ -9,28 +9,40 @@ extends RefCounted
 ## The four rival pairs are a first guess (the Savagers' neighbour on the map is the Liberators): one line each to change.
 
 const DEFS := {
-	"Savagers": {"faction_id": "savagers", "display_name": "Savagers", "primary_color": Color(0.78, 0.25, 0.12), "secondary_color": Color(0.12, 0.11, 0.11),
+	"Savagers": {"faction_id": "savagers", "ui_background": "savagers", "display_name": "Savagers", "primary_color": Color(0.78, 0.25, 0.12), "secondary_color": Color(0.12, 0.11, 0.11),
 		"rival_faction_id": "Liberator", "reputation_mode": "normal", "base_standing": -40.0,
 		"character_roster": "Savagers", "fighter_pool": ["scrapfang", "redclaw", "ironhowl", "warboar"],
 		"station_pool": ["savagers_cross_station", "light_beacon_station"],
 		"base_types": ["hidden station", "nebula hideout", "asteroid base", "underground hangar", "wreck field"],
 		"environment_tags": ["desert", "wasteland", "badlands", "scrapyard", "caves", "black market", "salvage"],
 		"spawn_weights": {"patrol": 6.0, "raider_group": 3.0, "scavenger_convoy": 1.0, "named": 1.0, "boss": 0.2}, "incursion": true},
-	"Liberator": {"faction_id": "liberator", "display_name": "Liberators", "primary_color": Color(0.3, 0.75, 0.72), "secondary_color": Color(0.9, 0.92, 0.95),
+	"Liberator": {"faction_id": "liberator", "ui_background": "liberator", "display_name": "Liberators", "primary_color": Color(0.3, 0.75, 0.72), "secondary_color": Color(0.9, 0.92, 0.95),
 		"rival_faction_id": "Savagers", "reputation_mode": "normal", "base_standing": 10.0},
-	"Unity": {"faction_id": "unity", "display_name": "Unity", "primary_color": Color(0.78, 0.9, 0.96), "secondary_color": Color(0.2, 0.35, 0.6),
+	"Unity": {"faction_id": "unity", "ui_background": "unity", "display_name": "Unity", "primary_color": Color(0.78, 0.9, 0.96), "secondary_color": Color(0.2, 0.35, 0.6),
 		"rival_faction_id": "Imperium", "reputation_mode": "normal", "base_standing": 10.0},
-	"Imperium": {"faction_id": "imperium", "display_name": "Imperium", "primary_color": Color(0.75, 0.25, 0.28), "secondary_color": Color(0.15, 0.1, 0.1),
+	"Imperium": {"faction_id": "imperium", "ui_background": "imperium", "display_name": "Imperium", "primary_color": Color(0.75, 0.25, 0.28), "secondary_color": Color(0.15, 0.1, 0.1),
 		"rival_faction_id": "Unity", "reputation_mode": "normal", "base_standing": 10.0},
-	"Elyza": {"faction_id": "elyza", "display_name": "Elyza", "primary_color": Color(0.45, 0.6, 0.95), "secondary_color": Color(0.85, 0.87, 0.95),
+	"Elyza": {"faction_id": "elyza", "ui_background": "elyza", "display_name": "Elyza", "primary_color": Color(0.45, 0.6, 0.95), "secondary_color": Color(0.85, 0.87, 0.95),
 		"rival_faction_id": "Covenant", "reputation_mode": "normal", "base_standing": 10.0},
-	"Covenant": {"faction_id": "covenant", "display_name": "Covenant", "primary_color": Color(0.6, 0.4, 0.85), "secondary_color": Color(0.2, 0.15, 0.3),
+	"Covenant": {"faction_id": "covenant", "ui_background": "covenant", "display_name": "Covenant", "primary_color": Color(0.6, 0.4, 0.85), "secondary_color": Color(0.2, 0.15, 0.3),
 		"rival_faction_id": "Elyza", "reputation_mode": "normal", "base_standing": 10.0},
-	"Solarion": {"faction_id": "solarion", "display_name": "Solarion", "primary_color": Color(0.95, 0.72, 0.3), "secondary_color": Color(0.3, 0.22, 0.1),
+	"Solarion": {"faction_id": "solarion", "ui_background": "solarion", "display_name": "Solarion", "primary_color": Color(0.95, 0.72, 0.3), "secondary_color": Color(0.3, 0.22, 0.1),
 		"rival_faction_id": "Orion", "reputation_mode": "normal", "base_standing": 10.0},
-	"Orion": {"faction_id": "orion", "display_name": "Orion", "primary_color": Color(0.25, 0.7, 0.45), "secondary_color": Color(0.1, 0.2, 0.14),
+	"Orion": {"faction_id": "orion", "ui_background": "orion", "display_name": "Orion", "primary_color": Color(0.25, 0.7, 0.45), "secondary_color": Color(0.1, 0.2, 0.14),
 		"rival_faction_id": "Solarion", "reputation_mode": "normal", "base_standing": 10.0},
-	"Cybermorph": {"faction_id": "cybermorph", "display_name": "Cybermorph", "primary_color": Color(0.62, 0.64, 0.68), "secondary_color": Color(0.1, 0.1, 0.12),
+	"Cybermorph": {"faction_id": "cybermorph", "ui_background": "cybermorphs", "display_name": "Cybermorph", "primary_color": Color(0.62, 0.64, 0.68), "secondary_color": Color(0.1, 0.1, 0.12),
+		"rival_faction_id": "", "reputation_mode": "enemy", "base_standing": -100.0},
+	# v1.4s: the other permanent-enemy factions. Outside the rival pairs; their interface art is used for captured
+	# places, enemy terminals and story screens.
+	"Solrath": {"faction_id": "solrath", "ui_background": "solrath", "display_name": "Solrath", "primary_color": Color(0.8, 0.15, 0.2), "secondary_color": Color(0.08, 0.05, 0.06),
+		"rival_faction_id": "", "reputation_mode": "enemy", "base_standing": -100.0},
+	"Gadversee": {"faction_id": "gadversee", "ui_background": "gadversee", "display_name": "Gadversee", "primary_color": Color(0.55, 0.85, 0.3), "secondary_color": Color(0.08, 0.1, 0.05),
+		"rival_faction_id": "", "reputation_mode": "enemy", "base_standing": -100.0},
+	"Arctides": {"faction_id": "arctides", "ui_background": "arctides", "display_name": "Arctides", "primary_color": Color(0.6, 0.8, 1.0), "secondary_color": Color(0.08, 0.12, 0.2),
+		"rival_faction_id": "", "reputation_mode": "enemy", "base_standing": -100.0},
+	"Phenom": {"faction_id": "phenom", "ui_background": "phenom", "display_name": "Phenom", "primary_color": Color(0.65, 0.4, 1.0), "secondary_color": Color(0.08, 0.05, 0.14),
+		"rival_faction_id": "", "reputation_mode": "enemy", "base_standing": -100.0},
+	"Kaijurai": {"faction_id": "kaijurai", "ui_background": "kaijurai", "display_name": "Kaijurai", "primary_color": Color(0.95, 0.8, 0.35), "secondary_color": Color(0.12, 0.1, 0.05),
 		"rival_faction_id": "", "reputation_mode": "enemy", "base_standing": -100.0},
 }
 
@@ -95,3 +107,18 @@ static func raider_of(f: String) -> String:
 	var r := rival(f)
 	if r != "" and DEFS[r].get("incursion", false) and Data.ROSTERS.has(str(DEFS[r].get("character_roster", ""))): return r
 	return ""
+
+## v1.4s: the static picture behind a station's interface. Priority: the station's own picture (station
+## "ui_background"), then its owner faction's, then none (the hub draws its plain neutral backdrop).
+## Returns {path, pack, source}: source is "station", "faction" or "neutral"; path and pack are "" for neutral.
+static func hub_background(station: Dictionary, system: Dictionary) -> Dictionary:
+	var own := str(station.get("ui_background", ""))
+	if own != "": return {"path": Data.HUB_BG_DIR + own + ".jpg", "pack": "hubbg_" + own, "source": "station", "faction": owner_of(station, system)}
+	var f := owner_of(station, system)
+	var name := str(DEFS.get(f, {}).get("ui_background", ""))
+	if name != "": return {"path": Data.HUB_BG_DIR + name + ".jpg", "pack": "hubbg_" + name, "source": "faction", "faction": f}
+	return {"path": "", "pack": "", "source": "neutral", "faction": f}
+
+## Who owns a station or planet: its own "faction" if it has one, else the system's.
+static func owner_of(station: Dictionary, system: Dictionary) -> String:
+	return str(station.get("faction", system.get("faction", "")))

@@ -2,22 +2,22 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bph2fafbmw2uk"
-path="res://.godot/imported/au_supplies.jpg-477cbc55aab460a28e5e5f25f4b3fabb.ctex"
+uid="uid://dpml2m2q0onfn"
+path="res://.godot/imported/orion.jpg-329159bdf08d1faae016a19947feb4c4.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/rooms_aurelion/au_supplies.jpg"
-dest_files=["res://.godot/imported/au_supplies.jpg-477cbc55aab460a28e5e5f25f4b3fabb.ctex"]
+source_file="res://assets/hub_bg/orion.jpg"
+dest_files=["res://.godot/imported/orion.jpg-329159bdf08d1faae016a19947feb4c4.ctex"]
 
 [params]
 
-compress/mode=1
+compress/mode=0
 compress/high_quality=false
-compress/lossy_quality=0.8
+compress/lossy_quality=0.7
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0

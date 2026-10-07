@@ -2,19 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://gcyeoxxvuglb"
-path="res://.godot/imported/marshal_2.jpg-56b6a7edb7fc2f4cbb310e011700e955.ctex"
+uid="uid://cbs8uegv0hb3l"
+path="res://.godot/imported/savagers.jpg-a362b5aefa5d0d794c06e3ae758f539e.ctex"
 metadata={
 "vram_texture": false
-}
-generator_parameters={
-"md5": "c9e001d8213a59b9a6c74c10ba2d8b37"
 }
 
 [deps]
 
-source_file="res://assets/npc/marshal_2.jpg"
-dest_files=["res://.godot/imported/marshal_2.jpg-56b6a7edb7fc2f4cbb310e011700e955.ctex"]
+source_file="res://assets/hub_bg/savagers.jpg"
+dest_files=["res://.godot/imported/savagers.jpg-a362b5aefa5d0d794c06e3ae758f539e.ctex"]
 
 [params]
 
@@ -24,7 +21,7 @@ compress/lossy_quality=0.7
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=true
+mipmaps/generate=false
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""

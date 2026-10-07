@@ -2,19 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dwm6et3bb8asl"
-path="res://.godot/imported/marshal_4.jpg-062d98d4ebc63277ebb37836dcd19cf0.ctex"
+uid="uid://cccn8vxo2yyyf"
+path="res://.godot/imported/unity.jpg-74e50f0153d3855a48690160f0414122.ctex"
 metadata={
 "vram_texture": false
-}
-generator_parameters={
-"md5": "85e22ff5c1027df2c9c561e1e5dda3d2"
 }
 
 [deps]
 
-source_file="res://assets/npc/marshal_4.jpg"
-dest_files=["res://.godot/imported/marshal_4.jpg-062d98d4ebc63277ebb37836dcd19cf0.ctex"]
+source_file="res://assets/hub_bg/unity.jpg"
+dest_files=["res://.godot/imported/unity.jpg-74e50f0153d3855a48690160f0414122.ctex"]
 
 [params]
 
@@ -24,7 +21,7 @@ compress/lossy_quality=0.7
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=true
+mipmaps/generate=false
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
