@@ -2,16 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bpjjcs50btqvx"
-path="res://.godot/imported/sv05_damaged.jpg-d1aac53ae06fb8b0f9bdf63fb9b79f24.ctex"
+uid="uid://c62gln3ubuccw"
+path="res://.godot/imported/light_beacon_station_0.jpg-db1645f6247828349d821128994ef80e.ctex"
 metadata={
 "vram_texture": false
+}
+generator_parameters={
+"md5": "7481e0f4512782b51ffdb9c19a7f9343"
 }
 
 [deps]
 
-source_file="res://assets/enemy_pilots/sv05_damaged.jpg"
-dest_files=["res://.godot/imported/sv05_damaged.jpg-d1aac53ae06fb8b0f9bdf63fb9b79f24.ctex"]
+source_file="res://assets/structures/light_beacon_station_0.jpg"
+dest_files=["res://.godot/imported/light_beacon_station_0.jpg-db1645f6247828349d821128994ef80e.ctex"]
 
 [params]
 
@@ -21,7 +24,7 @@ compress/lossy_quality=0.7
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""

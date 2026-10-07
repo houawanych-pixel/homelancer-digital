@@ -210,6 +210,7 @@ func _face_tex(face: String, expr: String) -> Texture2D:
 	var k := face + "_" + expr
 	if face.begins_with("gp/"):   # generic enemy pilot: enemies pack, normal / damaged only; not cached until it exists
 		var gp := "res://assets/enemy_pilots/%s_%s.jpg" % [face.substr(3), "damaged" if expr == "damaged" else "normal"]
+		if expr != "damaged" and not ResourceLoader.exists(gp): gp = "res://assets/enemy_pilots/%s_clean.jpg" % face.substr(3)   # roster characters: clean / damaged
 		if _faces.get(k) == null: _faces[k] = load(gp) if ResourceLoader.exists(gp) else null
 		return _faces[k]
 	if not _faces.has(k):
@@ -704,7 +705,8 @@ func _draw() -> void:
 	var cam: Camera3D = space.cam
 	var cockpit := GS.view == "cockpit"
 	if space.in_nebula > 0.0:
-		draw_rect(Rect2(Vector2.ZERO, S), Color(space.nebula_color, 0.36 * space.in_nebula))
+		var lit: float = space.beacon_lit   # v1.4r: a light beacon lights the cloud: the haze thins and warms near the lamp
+		draw_rect(Rect2(Vector2.ZERO, S), Color(space.nebula_color.lerp(Data.BEACON_LIGHT_COLOR, lit * 0.6), 0.36 * space.in_nebula * (1.0 - Data.BEACON_HAZE_CLEAR * lit)))
 	if space.sun_surface:   # on a star: everything is seen through a hot yellow haze (your heat shield, if you have one)
 		draw_rect(Rect2(Vector2.ZERO, S), Color(1.0, 0.82, 0.25, 0.16 + 0.04 * sin(t * 3.1)))
 	if space.sun_flare > 0.01:   # sun bloom: washes the view out the closer and more head-on you fly at it
@@ -1028,7 +1030,7 @@ func _radar(rc: Vector2, rr: float, label: bool) -> void:
 			far = maxf(far, dn)
 		if near > Data.RADAR_RANGE: want_rng = far * Data.RADAR_FIT
 	radar_range = lerpf(radar_range, want_rng, clampf(get_process_delta_time() * Data.RADAR_ZOOM_SPEED, 0.0, 1.0))
-	var rng := radar_range * (1.0 - 0.6 * space.in_nebula)
+	var rng := radar_range * (1.0 - 0.6 * space.in_nebula * (1.0 - Data.BEACON_SENSOR_HELP * space.beacon_lit))
 	var heading := NavGrid.orient == "heading"
 	var fwd3: Vector3 = -space.player.global_basis.z
 	var anchor := rc + Vector2(0, rr * Data.RADAR_HEADING_ANCHOR) if heading else rc

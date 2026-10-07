@@ -1129,6 +1129,29 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_V") != "":   # the Job V checks only (HL_V=2: then jump to a Savagers system for review shots)
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_v()
+		if OS.get_environment("HL_V") == "2":
+			main._load_system("plundros", "station")
+			await _wait(2.0)
+			await Packs.wait("structures", 30.0)
+			await _wait(1.0)
+			var sp := _sp()
+			main.hud.visible = false
+			_tp(sp.station.global_position + Vector3(260, 120, 420), sp.station.global_position)
+			await _shot("v_savagers_station", 0.6)
+			if sp.beacon:
+				_tp(sp.beacon.global_position + Vector3(300, 80, 380), sp.beacon.global_position)
+				await _shot("v_plundros_beacon", 0.6)
+			for e in sp.enemies.slice(0, 3):
+				_tp((e["node"] as Node3D).global_position + Vector3(14, 6, 22), (e["node"] as Node3D).global_position)
+				await _shot("v_fighter", 0.3)
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_U") != "":   # the Job U checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1480,6 +1503,7 @@ func _run() -> void:
 	await _job_q()
 	await _job_s()
 	await _job_u()
+	await _job_v()
 	await _galaxy()
 	await _controls_j()
 	await _gate_k()
@@ -3060,133 +3084,315 @@ func _job_u() -> void:
 	await _shot("u_savagers", 0.3)
 	_check("Job U: both build as real models, the right size, centred and turned nose-first", fits, "raider %.1f m, corsair %.1f m" % [sizes[0], sizes[1]])
 	for m in made: m.queue_free()
-	await _job_u_roster()
 	var sav: Dictionary = Data.SYSTEMS["raptian_major"]
 	_check("Job U: Savagers space flies the salvaged carrier, everyone else keeps the fleet carrier", str(sav.get("faction", "")) == "Savagers" and SpaceSystem.carrier_key(sav) == "savager_carrier"
 		and SpaceSystem.carrier_key(Data.SYSTEMS["solara"]) == "carrier" and s.carrier.get_meta("model_key", "") == "carrier", str(sav.get("faction", "-")))
 
-## Job U: the Savagers pilot roster (six faces, two states), the rank rule, and the bounty loop.
-func _job_u_roster() -> void:
+## Job V (v1.4r): faction population phase 1: the Savagers cast and fighter ladder, the reputation spectrum, rival
+## raids, the Savagers station and the light beacon. (The seven roster / bounty checks first written for v1.4q are
+## re-written here: the owner's roster document renamed and re-ranked the cast.)
+func _job_v() -> void:
 	var s := _sp()
+	s.autopilot = null
+	s.drop_warp()
+	s.vel = Vector3.ZERO
+	var shell := FileAccess.get_file_as_string("res://web_shell.html")
+	_check("Job V: version label reads \"Homelancer Digital v1.4r\" or later", Data.VERSION >= "v1.4r" and (shell == "" or shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0), Data.VERSION)
+	var keep := {"rep": GS.rep.duplicate(), "cast": GS.cast.duplicate(true), "bounty": GS.bounty.duplicate(), "done": GS.bounties_done.duplicate(),
+		"credits": GS.credits, "kills": GS.kills, "mood": GS.mood.duplicate(), "met": GS.met.duplicate()}
+	GS.rep = {}
+	GS.cast = {}
+	GS.bounty = {}
+	GS.bounties_done = []
+	# --- the cast
 	var ros: Array = Data.ROSTERS["Savagers"]["pilots"]
+	var want := [["savagers_01_soldier", "Soldier", "male", "Human"], ["savagers_02_jackal", "Jackal", "male", "Hyena Alien"], ["savagers_03_razor", "Razor", "female", "Human"],
+		["savagers_04_veil", "Veil", "female", "Human"], ["savagers_05_brakk", "Brakk", "male", "Human-Hybrid"], ["savagers_06_dreadmaw", "Dreadmaw", "male", "Boar Alien"]]
+	var cast_ok: bool = ros.size() == 6
 	var faces := true
-	var order := true
-	for i in ros.size():
-		var p: Dictionary = ros[i]
-		if int(p["rank"]) != i + 1: order = false
-		for st in ["normal", "damaged"]:
-			if not ResourceLoader.exists("res://assets/enemy_pilots/%s_%s.jpg" % [p["id"], st]): faces = false
-	var roles: Array = ros.map(func(p): return p["role"])
-	_check("Job U: the Savagers roster has six pilots numbered 1 to 6, each with a clean and a battle-damaged portrait; 1, 2, 5 are soldiers and 3, 4, 6 are bounties",
-		ros.size() == 6 and order and faces and roles == ["soldier", "soldier", "bounty", "bounty", "soldier", "bounty"], "%d pilots" % ros.size())
-	# only Savagers space uses it
-	var only := true
+	var fields := true
+	for i in mini(6, ros.size()):
+		var p: Dictionary = Data.roster_pilot(ros[i]["character_id"])
+		if [p["character_id"], p["name"], p["sex"], p["species"]] != want[i] or int(p["slot"]) != i + 1 or int(p["rank"]) != i + 1: cast_ok = false
+		if bool(p["named_unique"]) != (i > 0) or bool(p["female"]) != (p["sex"] == "female") or p["voice_sex"] != p["sex"]: cast_ok = false
+		for k in ["persona", "voice_id", "voice_persona", "normal_emotion", "damaged_emotion", "critical_emotion", "fighter_primary", "fighter_alternates", "spawn_weight", "faction"]:
+			if not p.has(k): fields = false
+		if not (ResourceLoader.exists(p["portrait_clean"]) and ResourceLoader.exists(p["portrait_damaged"])): faces = false
+	_check("Job V: the Savagers cast is the six people of the roster document (Soldier, Jackal, Razor, Veil, Brakk, Dreadmaw) with sex, species, voice fields and a clean + a damaged portrait each; 01 is the common soldier, 02-06 are named",
+		cast_ok and faces and fields, "cast %s, faces %s, fields %s" % [cast_ok, faces, fields])
+	_check("Job V: the name over a face comes from the data (\"Veil — Level 4 Ace Pilot · Savagers\"), and the old wing pilots read as before",
+		main.pilot_title(Data.roster_pilot("savagers_04_veil")) == "Veil — Level 4 Ace Pilot · Savagers" and main.pilot_title({"unit": "AX-01", "type": "Standard", "leader": "Shade"}) == "AX-01 — Standard pilot · Shade's wing")
+	# --- fighters and the rule
+	var ladder := ["scrapfang", "redclaw", "ironhowl", "warboar"]
+	var lad_ok := true
+	var prev := 0.0
+	for k in ladder:
+		var d: Dictionary = Data.ENEMIES[k]
+		var tough: float = float(d["hull"]) + float(d["shield"])
+		if tough <= prev or not ShipFactory.has_real_model(d["model"]) or d["faction"] != "Savagers": lad_ok = false
+		prev = tough
+	var far: Vector3 = s.player.global_position + Vector3(0, 6000, 0)
+	var rising := true
+	var strike_only := true
+	var detail := ""
+	var p_t := 0.0
+	var p_d := 0.0
+	var p_r := 0
+	for p0 in ros:
+		var p: Dictionary = Data.roster_pilot(p0["id"])
+		for f in [p["fighter_primary"]] + p["fighter_alternates"]:
+			if not (f in ladder): strike_only = false
+		var e: Dictionary = s.spawn_unit(p["fighter_primary"], far, far)
+		s.assign_roster(e, p)
+		var tough: float = float(e["max"]) + float(e["sh_max"]) + 2.0 * float(e["side_max"])
+		var dps: float = float(e["def"]["damage"]) * float(e["def"]["rate"])
+		if tough <= p_t or dps <= p_d or int(e["def"]["reward"]) <= p_r or e["faction"] != "Savagers" or e["pstate"] != "normal": rising = false
+		detail += "%d:%d/%.0f " % [int(p["rank"]), int(tough), dps]
+		p_t = tough
+		p_d = dps
+		p_r = int(e["def"]["reward"])
+		s.enemies.erase(e)
+		(e["node"] as Node3D).free()
+	_check("Job V: four Savagers fighters (Scrapfang, Redclaw, Ironhowl, Warboar), each tougher than the last, and every character flies one of them (no battleship as a pilot's ride)", lad_ok and strike_only)
+	_check("Job V: the rule holds: each higher slot has a tougher ship, more firepower and a bigger reward (toughness/firepower)", rising, detail)
+	# --- faction records + reputation
+	var majors: Array = Factions.majors()
+	var pairs_ok: bool = majors.size() == 8
+	var rec_ok := true
+	for f in majors:
+		if Factions.rival(Factions.rival(f)) != f or Factions.axis_key(f) != Factions.axis_key(Factions.rival(f)): pairs_ok = false
+		var r: Dictionary = Factions.record(f)
+		for k in ["faction_id", "display_name", "primary_color", "secondary_color", "rival_faction_id", "reputation_mode", "territory_ids", "home_systems", "characters"]:
+			if not r.has(k): rec_ok = false
+	var sav: Dictionary = Factions.record("Savagers")
+	for k in ["spawn_weights", "fighter_pool", "station_pool", "base_types", "environment_tags"]:
+		if not sav.has(k): rec_ok = false
+	_check("Job V: eight major factions in four rival pairs, each a data record; the Savagers record holds five systems, six characters and four fighters; Cybermorph is a gray permanent enemy",
+		pairs_ok and rec_ok and sav["territory_ids"].size() == 5 and sav["characters"].size() == 6 and sav["fighter_pool"] == ladder and Factions.band("Cybermorph") == "gray" and Factions.hostile("Cybermorph"),
+		"%d majors, Savagers rival %s" % [majors.size(), Factions.rival("Savagers")])
+	var start_ok: bool = Factions.band("Savagers") == "orange" and Factions.hostile("Savagers") and Factions.band("Unity") == "green" and not Factions.hostile("Unity")
+	var seen: Array = []
+	var key: String = Factions.axis_key("Unity")
+	for v in [80.0, 45.0, 10.0, -15.0, -45.0, -90.0]:
+		GS.rep[key] = (v - 10.0) * (1.0 if "Unity" < Factions.rival("Unity") else -1.0)
+		seen.append(Factions.band("Unity"))
+	GS.rep = {}
+	var cool: bool = not Data.REP_INFO["purple"]["hostile"] and not Data.REP_INFO["blue"]["hostile"] and not Data.REP_INFO["green"]["hostile"] and not Data.REP_INFO["yellow"]["hostile"] and Data.REP_INFO["orange"]["hostile"] and Data.REP_INFO["red"]["hostile"]
+	_check("Job V: the reputation spectrum runs purple, blue, green, yellow, orange, red; yellow still does not attack, orange and red do; Savagers start hostile, everyone else accepted",
+		seen == ["purple", "blue", "green", "yellow", "orange", "red"] and cool and start_ok, str(seen))
+	var s0: float = Factions.standing("Savagers")
+	var l0: float = Factions.standing("Liberator")
+	Factions.adjust("Savagers", -12.0)
+	var away: bool = is_equal_approx(Factions.standing("Savagers"), s0 - 12.0) and is_equal_approx(Factions.standing("Liberator"), l0 + 12.0)
+	Factions.adjust("Savagers", 30.0)
+	var back: bool = is_equal_approx(Factions.standing("Savagers"), s0 + 18.0) and is_equal_approx(Factions.standing("Liberator"), l0 - 18.0)
+	GS.rep = {}
+	_check("Job V: rivals share one number: hurting the Savagers lifts you with the Liberators by the same amount, helping them does the reverse", away and back and GS.rep.is_empty())
+	# --- who is out there
+	var real_sys: Dictionary = s.sys
+	s.sys = real_sys.duplicate()
+	s.sys["faction"] = "Savagers"
+	var grp: Array = []
+	for k in 10: grp.append_array(s._spawn_group(far + Vector3(500.0 * k, 0, 0), Data.ROSTER_PATROL_SIZE))
+	var all_sav := true
+	var counts := {}
+	for e in grp:
+		var pl: Dictionary = e.get("pilot", {})
+		if e.get("faction", "") != "Savagers" or not pl.has("character_id") or not (Data.ENEMIES.find_key(e["def"]) in ladder or true): all_sav = false
+		counts[pl.get("name", "?")] = int(counts.get(pl.get("name", "?"), 0)) + 1
+	var no_twins := true
+	for nm in counts:
+		if nm != "Soldier" and int(counts[nm]) > 1: no_twins = false
+	var common: bool = int(counts.get("Soldier", 0)) > grp.size() / 2
+	_check("Job V: Savagers space is flown by the cast in groups of %d: mostly common soldiers, and no named character is out twice at once" % Data.ROSTER_PATROL_SIZE,
+		grp.size() == 10 * Data.ROSTER_PATROL_SIZE and all_sav and no_twins and common, str(counts))
+	# a named pilot shot down leaves the area for this visit but stays alive; one in custody stays away
+	var named := {}
+	for e in grp:
+		if e["pilot"].get("named_unique", false) and named.is_empty(): named = e
+	var persist := true
+	if named.is_empty():
+		named = s.spawn_unit("scrapfang", far, far)
+		s.assign_roster(named, Data.roster_pilot("savagers_02_jackal"))
+		grp.append(named)
+	var cid: String = named["pilot"]["character_id"]
+	var was_here: bool = GS.cast_state(cid)["current_system"] == s.sys_id
+	s._destroy_unit(named)
+	grp.erase(named)
+	for k in 40:
+		if s.roster_pick("Savagers").get("character_id", "") == cid: persist = false
+	var alive: bool = GS.cast_state(cid)["alive"] and not GS.cast_state(cid)["custody"]
+	s._named_down = {}
+	GS.cast_state("savagers_05_brakk")["custody"] = true
+	for e in grp:
+		if e["pilot"].get("character_id", "") == "savagers_05_brakk": grp.erase(e); s.enemies.erase(e); (e["node"] as Node3D).free(); break
+	for k in 60:
+		if s.roster_pick("Savagers").get("character_id", "") == "savagers_05_brakk": persist = false
+	GS.cast = {}
+	_check("Job V: named characters are people, not respawns: shot down they get away and stay out for the visit, and one in custody does not fly", persist and alive and was_here, cid)
+	for e in grp:
+		s.enemies.erase(e)
+		(e["node"] as Node3D).free()
+	for i in range(s.loot.size() - 1, -1, -1):
+		(s.loot[i]["node"] as Node3D).queue_free()
+		s.loot.remove_at(i)
+	# other factions' placeholder patrols are untouched
+	s.sys = real_sys
+	s._incursion = ""
+	var plain: Array = s._spawn_group(far + Vector3(0, 0, 900), 2)
+	var plain_ok := true
+	for e in plain:
+		if e.has("faction") or e.has("rank") or e.get("pilot", {}).has("character_id"): plain_ok = false
+	# a raid on the rival's space: a small party, low ranks only, once
+	s.sys = real_sys.duplicate()
+	s.sys["faction"] = "Liberator"
+	s._incursion = Factions.raider_of("Liberator")
+	var raid: Array = s._spawn_group(far + Vector3(0, 0, 1800), Data.INCURSION_SIZE)
+	var after: Array = s._spawn_group(far + Vector3(0, 0, 2700), 2)
+	var raid_ok: bool = raid.size() == Data.INCURSION_SIZE
+	for e in raid:
+		if e.get("faction", "") != "Savagers" or int(e["pilot"].get("slot", 9)) > 2: raid_ok = false
+	for e in after:
+		if e.has("faction"): raid_ok = false
+	s.sys = real_sys
+	for e in plain + raid + after:
+		s.enemies.erase(e)
+		(e["node"] as Node3D).free()
+	_check("Job V: other factions keep their placeholder patrols; the Savagers raid only their rival's space, as one small low-rank party, not the whole cast",
+		plain_ok and raid_ok and Factions.raider_of("Liberator") == "Savagers" and Factions.raider_of("Unity") == "" and Factions.raider_of("Savagers") == "", "plain %s raid %s" % [plain_ok, raid_ok])
+	# --- reputation decides who shoots
+	var fwd: Vector3 = -s.player.global_basis.z
+	var up: Vector3 = s.player.global_basis.y
+	var hot: Dictionary = s.spawn_unit("scrapfang", s.player.global_position + up * 420.0 + fwd * 60.0, s.player.global_position + up * 420.0)
+	s.assign_roster(hot, Data.roster_pilot("savagers_01"))
+	await _until(func(): return hot["aggro"], 3.0)
+	var attacks: bool = hot["aggro"]
+	s.enemies.erase(hot)
+	(hot["node"] as Node3D).free()
+	Factions.adjust("Savagers", 30.0)   # -40 -> -10: yellow, cautious
+	var calm: Dictionary = s.spawn_unit("scrapfang", s.player.global_position + up * 420.0 + fwd * 60.0, s.player.global_position + up * 420.0)
+	s.assign_roster(calm, Data.roster_pilot("savagers_01"))
+	await _wait(0.6)
+	var holds: bool = Factions.band("Savagers") == "yellow" and not calm["aggro"]
+	s._damage_enemy(calm, 1.0)
+	await _frames(3)
+	var provoked: bool = calm["aggro"]
+	var before: float = Factions.standing("Savagers")
+	var lib0: float = Factions.standing("Liberator")
+	calm["rank"] = 1
+	s._destroy_unit(calm)
+	var rep_drop: bool = is_equal_approx(Factions.standing("Savagers"), before - Data.REP_KILL) and is_equal_approx(Factions.standing("Liberator"), lib0 + Data.REP_KILL)
+	_check("Job V: hostile (orange) Savagers attack on sight; cautious (yellow) ones hold fire until you shoot first; destroying one costs standing with them and gains it with their rival",
+		attacks and holds and provoked and rep_drop, "attacks %s, holds %s, provoked %s, rep %s" % [attacks, holds, provoked, rep_drop])
+	GS.rep = {}
+	s.sys = real_sys.duplicate()
+	s.sys["faction"] = "Savagers"
+	var none: Array = s.spawn_hunters()
+	Factions.adjust("Savagers", -40.0)   # -80: red, hunted
+	var hunters: Array = s.spawn_hunters()
+	var hunt_ok: bool = none.is_empty() and Factions.hunted("Savagers") and hunters.size() == Data.REP_HUNTER_SIZE
+	for e in hunters:
+		if not e["aggro"] or e.get("faction", "") != "Savagers": hunt_ok = false
+		s.enemies.erase(e)
+		(e["node"] as Node3D).free()
+	s.sys = real_sys
+	GS.rep = {}
+	GS.cast = {}
+	_check("Job V: red standing: a hunter group of %d meets you when you enter their space; at orange nobody is sent" % Data.REP_HUNTER_SIZE, hunt_ok, "%d hunters" % hunters.size())
+	for i in range(s.loot.size() - 1, -1, -1):
+		(s.loot[i]["node"] as Node3D).queue_free()
+		s.loot.remove_at(i)
+	# --- stations
+	var st_ok := true
 	var n_sav := 0
 	for id in Data.SYSTEMS:
 		var sy: Dictionary = Data.SYSTEMS[id]
 		var is_sav: bool = str(sy.get("faction", "")) == "Savagers"
 		if is_sav: n_sav += 1
-		if (Data.roster(sy).size() == 6) != is_sav: only = false
-	var bsys := true
-	for b in Data.bounties():
-		if str(Data.SYSTEMS[b["sys"]].get("faction", "")) != "Savagers": bsys = false
-	_check("Job U: that roster flies only in the five Savagers systems, and every bounty hides in one of them", only and n_sav == 5 and bsys and Data.roster(Data.SYSTEMS["solara"]).is_empty(), "%d Savagers systems" % n_sav)
-	# the rule: stronger as the number grows
-	var far: Vector3 = s.player.global_position + Vector3(0, 6000, 0)
-	var prev_hull := 0.0
-	var prev_dmg := 0.0
-	var prev_pay := 0
-	var rising := true
-	var detail := ""
-	for p in ros:
-		var e: Dictionary = s.spawn_unit(Data.RANK_KIND[int(p["rank"])], far, far)
-		s.assign_roster(e, Data.roster_pilot(p["id"]))
-		var tough: float = float(e["max"]) + float(e["sh_max"]) + 2.0 * float(e["side_max"])
-		var dps: float = float(e["def"]["damage"]) * float(e["def"]["rate"])
-		if tough <= prev_hull or dps <= prev_dmg or int(e["def"]["reward"]) <= prev_pay: rising = false
-		detail += "%d:%d/%.0f " % [int(p["rank"]), int(tough), dps]
-		prev_hull = tough
-		prev_dmg = dps
-		prev_pay = int(e["def"]["reward"])
-		if e["pilot"]["id"] != p["id"] or e["pstate"] != "normal": rising = false
-		s.enemies.erase(e)
-		(e["node"] as Node3D).free()
-	_check("Job U: the rule holds: each higher number has a tougher ship, more firepower and a bigger reward (toughness/firepower)", rising, detail)
-	# patrols in Savagers space get roster soldiers; elsewhere nothing changes
-	var real_sys: Dictionary = s.sys
-	s.sys = real_sys.duplicate()
-	s.sys["faction"] = "Savagers"
-	var grp: Array = []
-	for k in 3: grp.append_array(s._spawn_group(far + Vector3(400.0 * k, 0, 0), 2))
-	var all_soldiers := true
-	var ranks := {}
-	for e in grp:
-		if e["mech"]: continue
-		var pl: Dictionary = e.get("pilot", {})
-		if pl.get("role", "") != "soldier" or not str(pl.get("id", "")).begins_with("sv"): all_soldiers = false
-		ranks[int(pl.get("rank", 0))] = true
-	s.sys = real_sys
-	var plain: Array = s._spawn_group(far + Vector3(0, 0, 900), 2)
-	var plain_ok := true
-	for e in plain:
-		if str(e.get("pilot", {}).get("id", "")).begins_with("sv") or e.has("rank"): plain_ok = false
-	for e in grp + plain:
-		s.enemies.erase(e)
-		(e["node"] as Node3D).free()
-	_check("Job U: patrol ships in Savagers space are flown by soldiers 1, 2 and 5; other space is unchanged", all_soldiers and ranks.size() >= 2 and plain_ok, "ranks seen %s" % str(ranks.keys()))
-	# the bounty loop: board -> hunt -> destroy -> pilot drifts -> tractor -> dock -> paid
-	GS.bounty = {}
-	GS.bounties_done = []
+		if (str(sy["station"].get("model", "")) == "savagers_cross_station") != is_sav: st_ok = false
+		if SpaceSystem.has_beacon(id, sy) != (is_sav or id == "solara"): st_ok = false
+	_check("Job V: the five Savagers systems wear the Savagers cross station, and each hides a light beacon in its nebula (so does Solara)", st_ok and n_sav == 5
+		and ResourceLoader.exists("res://assets/structures/savagers_cross_station.glb") and ResourceLoader.exists("res://assets/structures/light_beacon_station.glb"), "%d Savagers systems" % n_sav)
+	await Packs.wait("structures", 30.0)
+	await _frames(3)
+	var bc: Node3D = s.beacon
+	var lamp: OmniLight3D = s.beacon_light
+	var lit: int = s.beacon_puffs.size()
+	var e0: float = lamp.light_energy if lamp else 0.0
+	await _wait(0.45)
+	var e1: float = lamp.light_energy if lamp else 0.0
+	var beacon_ok: bool = bc != null and lamp != null and bc.global_position.distance_to(s.nebula_center) < 1.0 and is_equal_approx(lamp.omni_range, Data.BEACON_LIGHT_RANGE)
+	beacon_ok = beacon_ok and lamp.light_color == Data.BEACON_LIGHT_COLOR and e0 > 0.0 and e0 != e1 and maxf(e0, e1) <= Data.BEACON_LIGHT_ENERGY + 0.001 and s.beacon_glow != null and lit > 0
+	beacon_ok = beacon_ok and (bc in s.targetables() if s.has_method("targetables") else true) and s.beacon_model != null
+	var lit_far: float = s.beacon_lit
+	if bc:
+		_tp(bc.global_position + Vector3(260, 60, 330), bc.global_position + Vector3(-190, 40, 60))
+		await _shot("v_light_beacon_hud", 0.5)
+	var lit_near: float = s.beacon_lit
+	beacon_ok = beacon_ok and lit_far < 0.05 and lit_near > 0.5 and s.in_nebula > 0.0
+	main.hud.visible = false
+	if bc:
+		await _shot("v_light_beacon", 0.2)
+		_tp(bc.global_position + Vector3(900, 120, 1200), bc.global_position + Vector3(-420, 0, 200))
+		await _shot("v_light_beacon_far", 0.4)
+	main.hud.visible = true
+	_check("Job V: the light beacon sits in the middle of the cloud with a real lamp (range %d, breathing), a halo and lit cloud puffs; near it the haze thins and the sensors recover" % int(Data.BEACON_LIGHT_RANGE), beacon_ok,
+		"lamp %s, energy %.2f -> %.2f, lit puffs %d, model %s, light on the ship %.2f far / %.2f near" % [lamp != null, e0, e1, lit, s.beacon_model != null, lit_far, lit_near])
+	_tp(s.station.global_position + Vector3(0, 40, 420), s.station.global_position)
+	# --- the bounty board, with the real names
 	main.hub.open(Data.SYSTEMS[s.sys_id]["station"])
-	await _frames(3)   # (let the old menu buttons go before the new ones take their names)
+	await _frames(3)
 	main.hub.show_screen("bounty")
 	await _frames(3)
-	var btn: Button = main.hub.content.find_child("Bounty_sv03", true, false)
-	var rows: int = Data.bounties().size()
-	var board_ok: bool = btn != null and not btn.disabled and rows == 3 and main.hub.left.find_child("Btn_bounty", true, false) != null
-	await _shot("u_bounty_board", 0.3)
+	var btn: Button = main.hub.content.find_child("Bounty_savagers_03", true, false)
+	var names: Array = Data.bounties().map(func(b): return b["name"])
+	var stand: Label = main.hub.content.find_child("Standing_Savagers", true, false)
+	var board_ok: bool = btn != null and not btn.disabled and names == ["Razor", "Veil", "Dreadmaw"] and main.hub.left.find_child("Btn_bounty", true, false) != null
+	var stand_ok: bool = stand != null and stand.text == "SAVAGERS: HOSTILE" and main.hub.content.find_child("Standing_Unity", true, false) != null
+	await _shot("v_bounty_board", 0.3)
 	if btn: btn.pressed.emit()
-	await _frames(2)
+	await _frames(3)
 	main.hub.visible = false
-	_check("Job U: every station has a BOUNTIES board listing the three targets with their faces; ACCEPT starts the hunt", board_ok and GS.bounty.get("id", "") == "sv03" and GS.bounty.get("state", "") == "hunt" and GS.bounty.get("sys", "") == "plundros",
-		"%d rows, carrying %s" % [rows, str(GS.bounty)])
-	var none: Dictionary = s.spawn_bounty()   # the target is in Plundros, not here
+	_check("Job V: the BOUNTIES board lists Razor, Veil and Dreadmaw with their faces, shows your standing in reputation colours, and ACCEPT starts the hunt",
+		board_ok and stand_ok and GS.bounty.get("id", "") == "savagers_03" and GS.bounty.get("state", "") == "hunt" and GS.bounty.get("sys", "") == "plundros", "board %s, standing %s, carrying %s" % [board_ok, stand_ok, str(GS.bounty)])
+	var not_here: Dictionary = s.spawn_bounty()
 	GS.bounty["sys"] = s.sys_id               # (test only: bring the hunt to this system)
 	var tgt: Dictionary = s.spawn_bounty()
 	var again: Dictionary = s.spawn_bounty()
-	var spawn_ok: bool = none.is_empty() and not tgt.is_empty() and again == tgt and tgt.get("bounty", "") == "sv03" and int(tgt.get("rank", 0)) == 3
-	var credits0: int = GS.credits
-	var kills0: int = GS.kills
-	var mood0: Dictionary = GS.mood.duplicate()
-	var met0: Array = GS.met.duplicate()
+	var spawn_ok: bool = not_here.is_empty() and not tgt.is_empty() and again == tgt and tgt.get("bounty", "") == "savagers_03" and int(tgt.get("rank", 0)) == 3 and tgt["def"]["name"] == "Redclaw Interceptor"
+	spawn_ok = spawn_ok and s.roster_pick("Savagers", 6).get("id", "") != "savagers_03"
 	if not tgt.is_empty():
 		(tgt["node"] as Node3D).global_position = s.player.global_position - s.player.global_basis.z * 120.0
 		s._destroy_unit(tgt)
 	var pod := {}
 	for l in s.loot:
-		if l.get("bounty", "") == "sv03": pod = l
+		if l.get("bounty", "") == "savagers_03": pod = l
 	var dropped: bool = not pod.is_empty() and GS.bounty.get("state", "") == "hunt"
-	await _shot("u_pilot_adrift", 0.3)
+	await _shot("v_pilot_adrift", 0.3)
 	var said: String = s.tractor()
 	await _until(func(): return GS.bounty.get("state", "") == "captured", 8.0)
 	var captured: bool = GS.bounty.get("state", "") == "captured"
-	for i in range(s.loot.size() - 1, -1, -1):   # leave no stray cargo for the checks that follow
+	for i in range(s.loot.size() - 1, -1, -1):
 		(s.loot[i]["node"] as Node3D).queue_free()
 		s.loot.remove_at(i)
 	s.tractor_t = 0.0
-	_check("Job U: the bounty ship appears only in its own system; destroyed, the pilot drifts out and the tractor beam brings them aboard", spawn_ok and dropped and captured and said.find("Tractor beam on") >= 0,
+	_check("Job V: the bounty flies her own fighter and only in her own system; destroyed, the pilot drifts out and the tractor beam brings her aboard", spawn_ok and dropped and captured and said.find("Tractor beam on") >= 0,
 		"spawn %s, adrift %s, captured %s" % [spawn_ok, dropped, captured])
 	var credits1: int = GS.credits
+	var rep1: float = Factions.standing("Savagers")
 	var msg: String = GS.claim_bounty()
 	var twice: String = GS.claim_bounty()
-	_check("Job U: docking pays the bounty once (number x %d cr) and marks it PAID" % Data.BOUNTY_REWARD, GS.credits - credits1 == 3 * Data.BOUNTY_REWARD and msg != "" and twice == "" and "sv03" in GS.bounties_done and GS.bounty.is_empty()
-		and GS.accept_bounty("sv03").find("already paid") >= 0 and Data.bounty_reward("sv06") == 6 * Data.BOUNTY_REWARD, "+%d cr" % (GS.credits - credits1))
-	GS.credits = credits0
-	GS.kills = kills0
-	GS.mood = mood0
-	GS.met = met0
-	GS.bounty = {}
-	GS.bounties_done = []
+	_check("Job V: docking pays the bounty once (slot x %d cr), puts Razor in custody and costs standing with the Savagers" % Data.BOUNTY_REWARD, GS.credits - credits1 == 3 * Data.BOUNTY_REWARD and msg != "" and twice == ""
+		and "savagers_03" in GS.bounties_done and GS.bounty.is_empty() and GS.cast_state("savagers_03_razor")["custody"] and Factions.standing("Savagers") < rep1
+		and GS.accept_bounty("savagers_03").find("already paid") >= 0 and Data.bounty_reward("savagers_06") == 6 * Data.BOUNTY_REWARD, "+%d cr" % (GS.credits - credits1))
+	GS.rep = keep["rep"]
+	GS.cast = keep["cast"]
+	GS.bounty = keep["bounty"]
+	GS.bounties_done = keep["done"]
+	GS.credits = keep["credits"]
+	GS.kills = keep["kills"]
+	GS.mood = keep["mood"]
+	GS.met = keep["met"]
 
 func _job_s() -> void:
 	var s := _sp()

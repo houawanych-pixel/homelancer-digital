@@ -2,16 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://6ckjn5dqbxy4"
-path="res://.godot/imported/sv05_normal.jpg-bacbf1afd9d3e3a93cb313531cd95009.ctex"
+uid="uid://d3vs1w5gdv1ei"
+path="res://.godot/imported/savagers_cross_station_0.jpg-f2a9cb4a669e7ed9b47f7d5a931e07d7.ctex"
 metadata={
 "vram_texture": false
+}
+generator_parameters={
+"md5": "788e3f96ee290303a36617a3ebd0a2d7"
 }
 
 [deps]
 
-source_file="res://assets/enemy_pilots/sv05_normal.jpg"
-dest_files=["res://.godot/imported/sv05_normal.jpg-bacbf1afd9d3e3a93cb313531cd95009.ctex"]
+source_file="res://assets/structures/savagers_cross_station_0.jpg"
+dest_files=["res://.godot/imported/savagers_cross_station_0.jpg-f2a9cb4a669e7ed9b47f7d5a931e07d7.ctex"]
 
 [params]
 
@@ -21,7 +24,7 @@ compress/lossy_quality=0.7
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""

@@ -459,12 +459,17 @@ func _unhandled_input(e: InputEvent) -> void:
 func _pilot_call(p: Dictionary, incoming := true) -> void:
 	if not p.has("lines"):   # a generic wing pilot: no personal lines, they answer with squad chatter
 		var ch: Array = Data.CHATTER["target_acquired"]
-		hud.open_comms("%s — %s pilot · %s's wing" % [p["unit"], p["type"], p.get("leader", "?")], ch[randi() % ch.size()],
+		hud.open_comms(pilot_title(p), ch[randi() % ch.size()],
 			"incoming" if incoming else "talk", true, "gp/" + str(p["id"]), float(p["voice"]), bool(p["female"]))
 		return
 	var lines: Array = p["lines"]
 	hud.open_comms("%s — Unit %s" % [p["name"], p["unit"]], lines[randi() % lines.size()], "incoming" if incoming else "talk", true,
 		p["face"], float(p["voice"]), bool(p["female"]))
+
+## The name line over a pilot's face: roster people by name and rank, the old generic wing pilots as before.
+static func pilot_title(p: Dictionary) -> String:
+	if p.has("character_id"): return "%s — %s · %s" % [p["name"], p["type"], p.get("faction", "")]
+	return "%s — %s pilot · %s's wing" % [p["unit"], p["type"], p.get("leader", "?")]
 
 func _on_enemy_hail(p: Dictionary) -> void:
 	if hud.side_busy(true): return
@@ -478,7 +483,7 @@ func _on_enemy_chatter(p: Dictionary, line: String) -> void:
 	var l: Dictionary = hud.slot("l")
 	if hud.side_busy(true): return
 	if not l.is_empty() and not l["generic"] and float(l["timer"]) > 3.0: return   # let a named leader finish
-	hud.open_comms("%s — %s pilot · %s's wing" % [p["unit"], p["type"], p["leader"]], line, "incoming", true,
+	hud.open_comms(pilot_title(p), line, "incoming", true,
 		"gp/" + p["id"], float(p["voice"]), bool(p["female"]))
 	hud.comms_timer = 3.5
 

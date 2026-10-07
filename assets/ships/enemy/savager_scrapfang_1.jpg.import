@@ -2,16 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dym8kr2evuvmg"
-path="res://.godot/imported/sv06_damaged.jpg-fdf651801605d0990d9900e0fafa0d38.ctex"
+uid="uid://cbolfrytr671b"
+path="res://.godot/imported/savager_scrapfang_1.jpg-058f7e978654efa1ee7e26dc2f1b984c.ctex"
 metadata={
 "vram_texture": false
+}
+generator_parameters={
+"md5": "e1ead00df009ef1fb612b5654cd0dbf2"
 }
 
 [deps]
 
-source_file="res://assets/enemy_pilots/sv06_damaged.jpg"
-dest_files=["res://.godot/imported/sv06_damaged.jpg-fdf651801605d0990d9900e0fafa0d38.ctex"]
+source_file="res://assets/ships/enemy/savager_scrapfang_1.jpg"
+dest_files=["res://.godot/imported/savager_scrapfang_1.jpg-058f7e978654efa1ee7e26dc2f1b984c.ctex"]
 
 [params]
 
@@ -21,7 +24,7 @@ compress/lossy_quality=0.7
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""

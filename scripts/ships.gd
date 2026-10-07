@@ -14,6 +14,10 @@ const GLB := {
 	# v1.4q: the owner's true Savagers set (split from hl_SAVAGERS_ship_set) replaces the old raider and corsair models
 	"enemy": ["res://assets/ships/enemy/savager_skirmish.glb", Data.SAVAGER_SKIRMISH_LEN, Data.SAVAGER_SKIRMISH_YAW],
 	"enemy2": ["res://assets/ships/enemy/savager_gunboat.glb", Data.SAVAGER_GUNBOAT_LEN, Data.SAVAGER_GUNBOAT_YAW],
+	"savager_scrapfang": ["res://assets/ships/enemy/savager_scrapfang.glb", Data.SCRAPFANG_LEN, 0.0],   # v1.4r fighter ladder (stand-ins from the owner's set until
+	"savager_redclaw": ["res://assets/ships/enemy/savager_redclaw.glb", Data.REDCLAW_LEN, 0.0],         #  each named fighter design is delivered)
+	"savager_ironhowl": ["res://assets/ships/enemy/savager_skirmish.glb", Data.IRONHOWL_LEN, Data.SAVAGER_SKIRMISH_YAW],
+	"savager_warboar": ["res://assets/ships/enemy/savager_gunboat.glb", Data.WARBOAR_LEN, Data.SAVAGER_GUNBOAT_YAW],
 	"savager_cruiser": ["res://assets/ships/enemy/savager_cruiser.glb", Data.SAVAGER_CRUISER_LEN, Data.SAVAGER_CRUISER_YAW],
 	"pilot_pod": ["res://assets/cargo/spacesuit_pilot.glb", 4.0, 0.0],   # stand-in: the soldier in the space suit
 	"savager_carrier": ["res://assets/ships/enemy/savager_carrier.glb", Data.SAVAGER_CARRIER_LEN, Data.SAVAGER_CARRIER_YAW],

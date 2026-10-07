@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.4q"
+const VERSION := "v1.4r"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -355,30 +355,101 @@ const SAVAGER_GUNBOAT_LEN := 13.0
 const SAVAGER_GUNBOAT_YAW := 180.0
 const SAVAGER_CARRIER_LEN := 130.0
 const SAVAGER_CARRIER_YAW := 180.0
+const SCRAPFANG_LEN := 9.0
+const REDCLAW_LEN := 11.0
+const IRONHOWL_LEN := 14.0
+const WARBOAR_LEN := 18.0
 const SAVAGER_CRUISER_LEN := 40.0
 const SAVAGER_CRUISER_YAW := 180.0
-# Faction rosters. THE RULE for every roster (each faction, later each star system or planet): six pilots numbered 1..6,
-# and the higher the number the stronger the pilot: tougher ship, harder guns, a little faster, bigger reward.
-# role "soldier" = flies the patrol ships of that faction's space; role "bounty" = a named target picked at a station's
-# BOUNTY board (destroy the ship, tractor the pilot in, dock anywhere for the reward). "sys" = where a bounty hides.
-# Portraits: assets/enemy_pilots/<id>_normal.jpg and <id>_damaged.jpg.
+# ---------------------------------------------------------------- Job V (v1.4r): faction population + reputation
+# Faction rosters (data only; the faction records themselves are in scripts/factions.gd).
+# THE RULE for every roster (each faction, later each star system or planet): six characters in slots 1..6, and the
+# higher the slot the stronger: a better fighter, tougher, harder guns, a little faster, bigger reward.
+# Slot 01 is the common soldier (many at once). Slots 02..06 are NAMED, persistent people: never two of the same one at
+# once. "bounty": true = can be hunted from a station's BOUNTY board; "sys" = where that bounty hides.
+# Source of truth for the Savagers: the owner's "SAVAGERS - Faction Roster, Voice Personas & Fighter Assignments v1".
+# Sex, species, name, voice and ship come from THIS data, never from the picture. Voice chat is not built yet: the
+# voice_* / *_emotion fields are kept ready for it.
 const RANK_HULL_STEP := 0.3      # hull, wings and shield: x (1 + step x (rank - 1))
 const RANK_DAMAGE_STEP := 0.18   # gun damage
 const RANK_SPEED_STEP := 0.03    # top speed
 const RANK_REWARD_STEP := 0.5    # kill reward
 const BOUNTY_REWARD := 600       # paid on return: this x rank
-const RANK_KIND := {1: "raider", 2: "raider", 3: "corsair", 4: "corsair", 5: "corsair", 6: "cruiser"}   # the ship each rank flies
-const SOLDIER_PATTERN := [0, 0, 1, 0, 1, 2]   # which soldier (weakest first) each new patrol ship gets, in turn
+const ALT_FIGHTER_CHANCE := 0.25 # how often a character flies an alternate fighter instead of the primary one
+const ROSTER_PATROL_SIZE := 3    # ships per patrol in a roster faction's own space (other space keeps 2)
+const INCURSION_CHANCE := 0.4    # per visit to a rival's system: one small raiding party is there
+const INCURSION_SIZE := 2
+const INCURSION_NAMED_CHANCE := 0.15   # that the party is led by slot 02 instead of two common soldiers
 const BOUNTY_FACE_PX := 96        # portrait size on the bounty board
 const PILOT_POD_LIFE := 100000.0  # a captured-pilot pod never times out
+# reputation: one number per rival pair (-100 .. +100). A faction's standing = its base + its side of that number.
+const REP_BANDS := [["purple", 75.0], ["blue", 40.0], ["green", 5.0], ["yellow", -20.0], ["orange", -60.0], ["red", -1000.0]]   # standing at or above
+const REP_INFO := {
+	"purple": {"name": "TRUSTED", "color": Color(0.7, 0.45, 1.0), "hostile": false, "note": "Allied. Best support and access; may fight beside you."},
+	"blue": {"name": "FRIENDLY", "color": Color(0.35, 0.65, 1.0), "hostile": false, "note": "Welcomes you. Good mission access."},
+	"green": {"name": "ACCEPTED", "color": Color(0.4, 0.95, 0.55), "hostile": false, "note": "Peaceful. Normal access."},
+	"yellow": {"name": "CAUTIOUS", "color": Color(1.0, 0.9, 0.35), "hostile": false, "note": "Watching you. Will warn, will not attack on sight."},
+	"orange": {"name": "HOSTILE", "color": Color(1.0, 0.6, 0.2), "hostile": true, "note": "Patrols attack on sight."},
+	"red": {"name": "HUNTED", "color": Color(1.0, 0.3, 0.25), "hostile": true, "note": "Attacks on sight and sends hunters when you enter their space."},
+	"gray": {"name": "ENEMY", "color": Color(0.62, 0.64, 0.68), "hostile": true, "note": "Permanent enemy. No diplomacy."},
+}
+const REP_LIMIT := 100.0
+const REP_KILL := 1.5            # standing lost with a faction per ship of theirs you destroy, x the pilot's rank
+const REP_BOUNTY := 6.0          # extra standing lost when you hand in one of their named pilots
+const REP_RIVAL_SHARE := 1.0     # the rival gains this share of what the faction lost (one shared number per pair)
+const REP_HUNTER_SIZE := 3       # RED: a hunter group this big meets you when you enter their space
+const REP_HUNTER_DIST := 1100.0
+# stations and the light beacon
+const STATION_MODEL_SCALE := {"savagers_cross_station": 1.45}   # x the standard station width
+const BEACON_SYSTEMS := ["solara"]   # extra systems with a light beacon in their nebula (every roster-faction hideout system has one)
+const BEACON_FACTIONS := ["Savagers"]
+const BEACON_SIZE := 150.0           # width of the beacon station
+const BEACON_LAMP_Y := 0.33          # lamp height on the model (model is 1.0 wide, centred)
+const BEACON_LIGHT_COLOR := Color(1.0, 0.93, 0.72)
+const BEACON_LIGHT_RANGE := 1100.0   # how far the lamp lights ships, rocks and the station itself
+const BEACON_LIGHT_ENERGY := 6.0
+const BEACON_GLOW_SIZE := 620.0      # the bright halo that lights up the cloud around it
+const BEACON_GLOW_ALPHA := 0.9
+const BEACON_CORE_SIZE := 120.0      # the bright star at the lamp itself
+const BEACON_PULSE := 0.25           # share of the brightness that breathes
+const BEACON_PULSE_RATE := 0.7       # breaths per second (x TAU)
+const BEACON_PUFFS := 7              # lit cloud puffs round the lamp
+const BEACON_PUFF_ALPHA := 0.22
+const BEACON_HAZE_CLEAR := 0.75      # next to the lamp the nebula haze on screen thins by this share and takes the lamp's colour
+const BEACON_SENSOR_HELP := 0.7      # ... and the sensors get this share of their range back
 const ROSTERS := {
-	"Savagers": {"leader": "Gannon", "pilots": [
-		{"id": "sv01", "rank": 1, "unit": "SV-01", "name": "Thug", "type": "Grunt", "role": "soldier", "voice": 0.8, "female": false, "hurt": "...Still breathing..."},
-		{"id": "sv02", "rank": 2, "unit": "SV-02", "name": "Raider", "type": "Hyena Outlaw", "role": "soldier", "voice": 0.7, "female": false, "hurt": "...I'll chew through you..."},
-		{"id": "sv03", "rank": 3, "unit": "SV-03", "name": "Thug", "type": "Mohawk Outlaw", "role": "bounty", "sys": "plundros", "voice": 1.15, "female": true, "hurt": "...That all you got?.."},
-		{"id": "sv04", "rank": 4, "unit": "SV-04", "name": "Ace Pilot", "type": "Specialist", "role": "bounty", "sys": "scavaris", "voice": 1.25, "female": true, "hurt": "...Not finished..."},
-		{"id": "sv05", "rank": 5, "unit": "SV-05", "name": "Lieutenant", "type": "Enforcer", "role": "soldier", "voice": 0.6, "female": false, "hurt": "...Hold the line, dogs..."},
-		{"id": "sv06", "rank": 6, "unit": "SV-06", "name": "Gannon", "type": "Gang Boss", "role": "bounty", "sys": "raptian_major", "voice": 0.5, "female": false, "hurt": "...Space belongs to the Savages..."},
+	"Savagers": {"leader": "Dreadmaw", "pilots": [
+		{"character_id": "savagers_01_soldier", "id": "savagers_01", "slot": 1, "rank": 1, "unit": "SV-01", "name": "Soldier", "type": "Level 1 Grunt", "role": "Common Soldier",
+			"sex": "male", "species": "Human", "persona": "obedient, aggressive, low-rank thug, disposable but dangerous in groups",
+			"voice_id": "savagers_01_soldier", "voice_sex": "male", "voice_persona": "male, filtered helmet voice", "normal_emotion": "alert / rough / militarized", "damaged_emotion": "panicked / angry / breathless", "critical_emotion": "panicked / desperate",
+			"fighter_primary": "scrapfang", "fighter_alternates": [], "spawn_weight": 70.0, "named_unique": false, "bounty": false,
+			"voice": 0.8, "female": false, "hurt": "...Still breathing..."},
+		{"character_id": "savagers_02_jackal", "id": "savagers_02", "slot": 2, "rank": 2, "unit": "SV-02", "name": "Jackal", "type": "Level 2 Raider", "role": "Raider",
+			"sex": "male", "species": "Hyena Alien", "persona": "mocking, feral, reckless, enjoys chasing prey",
+			"voice_id": "savagers_02_jackal", "voice_sex": "male", "voice_persona": "male", "normal_emotion": "raspy / taunting / laughing", "damaged_emotion": "enraged / snarling", "critical_emotion": "snarling / cornered",
+			"fighter_primary": "scrapfang", "fighter_alternates": ["redclaw"], "spawn_weight": 12.0, "named_unique": true, "bounty": false,
+			"voice": 0.7, "female": false, "hurt": "...I'll chew through you..."},
+		{"character_id": "savagers_03_razor", "id": "savagers_03", "slot": 3, "rank": 3, "unit": "SV-03", "name": "Razor", "type": "Level 3 Assault Raider", "role": "Assault Raider",
+			"sex": "female", "species": "Human", "persona": "arrogant, violent, bold, intimidation-driven",
+			"voice_id": "savagers_03_razor", "voice_sex": "female", "voice_persona": "female", "normal_emotion": "sharp / cocky / aggressive", "damaged_emotion": "furious / wounded", "critical_emotion": "furious / desperate",
+			"fighter_primary": "redclaw", "fighter_alternates": ["scrapfang"], "spawn_weight": 6.0, "named_unique": true, "bounty": true, "sys": "plundros",
+			"voice": 1.15, "female": true, "hurt": "...That all you got?.."},
+		{"character_id": "savagers_04_veil", "id": "savagers_04", "slot": 4, "rank": 4, "unit": "SV-04", "name": "Veil", "type": "Level 4 Ace Pilot", "role": "Ace Pilot",
+			"sex": "female", "species": "Human", "persona": "cool, focused, dangerous, observant, calculating",
+			"voice_id": "savagers_04_veil", "voice_sex": "female", "voice_persona": "female, low, precise outlaw pilot", "normal_emotion": "calm / low / precise", "damaged_emotion": "cold anger / strained", "critical_emotion": "strained / desperate",
+			"fighter_primary": "redclaw", "fighter_alternates": ["ironhowl"], "spawn_weight": 5.0, "named_unique": true, "bounty": true, "sys": "scavaris",
+			"voice": 0.95, "female": true, "hurt": "...Not finished..."},
+		{"character_id": "savagers_05_brakk", "id": "savagers_05", "slot": 5, "rank": 5, "unit": "SV-05", "name": "Brakk", "type": "Level 5 Lieutenant", "role": "Enforcer Lieutenant",
+			"sex": "male", "species": "Human-Hybrid", "persona": "brutal, tactical, loyal to the boss, intimidating",
+			"voice_id": "savagers_05_brakk", "voice_sex": "male", "voice_persona": "male", "normal_emotion": "deep / stern / commanding", "damaged_emotion": "furious / forceful", "critical_emotion": "furious / forceful",
+			"fighter_primary": "ironhowl", "fighter_alternates": ["redclaw"], "spawn_weight": 5.0, "named_unique": true, "bounty": false,
+			"voice": 0.6, "female": false, "hurt": "...Hold the line, dogs..."},
+		{"character_id": "savagers_06_dreadmaw", "id": "savagers_06", "slot": 6, "rank": 6, "unit": "SV-06", "name": "Dreadmaw", "type": "Level 6 Gang Boss", "role": "Savager Boss",
+			"sex": "male", "species": "Boar Alien", "persona": "ruthless, territorial, cunning, domineering, dangerous strategist",
+			"permanent_features": "boar face, scar across one eye, permanent eyepatch",
+			"voice_id": "savagers_06_dreadmaw", "voice_sex": "male", "voice_persona": "male", "normal_emotion": "deep / gravelly / mocking threat", "damaged_emotion": "berserk rage / wounded but dominant", "critical_emotion": "berserk rage",
+			"fighter_primary": "warboar", "fighter_alternates": ["ironhowl"], "spawn_weight": 2.0, "named_unique": true, "bounty": true, "sys": "raptian_major",
+			"voice": 0.5, "female": false, "hurt": "...Space belongs to the Savages..."},
 	]},
 }
 
@@ -386,13 +457,16 @@ const ROSTERS := {
 static func roster(system: Dictionary) -> Array:
 	return ROSTERS.get(str(system.get("faction", "")), {}).get("pilots", [])
 
+## One roster character by character_id or by portrait id ("savagers_04_veil" or "savagers_04"), with its faction added.
 static func roster_pilot(id: String) -> Dictionary:
 	for f in ROSTERS:
 		for p in ROSTERS[f]["pilots"]:
-			if p["id"] == id:
+			if p["id"] == id or p["character_id"] == id:
 				var d: Dictionary = (p as Dictionary).duplicate()
 				d["faction"] = f
 				d["leader"] = ROSTERS[f]["leader"]
+				d["portrait_clean"] = "res://assets/enemy_pilots/%s_clean.jpg" % p["id"]
+				d["portrait_damaged"] = "res://assets/enemy_pilots/%s_damaged.jpg" % p["id"]
 				return d
 	return {}
 
@@ -400,7 +474,7 @@ static func bounties() -> Array:
 	var out: Array = []
 	for f in ROSTERS:
 		for p in ROSTERS[f]["pilots"]:
-			if p["role"] == "bounty": out.append(roster_pilot(p["id"]))
+			if p.get("bounty", false): out.append(roster_pilot(p["id"]))
 	return out
 
 static func rank_mult(rank: int, step: float) -> float: return 1.0 + step * float(maxi(1, rank) - 1)
@@ -410,8 +484,11 @@ static func bounty_reward(id: String) -> int: return BOUNTY_REWARD * int(roster_
 const ENEMIES := {
 	"raider": {"name": "Raider", "hull": 60.0, "shield": 30.0, "speed": 44.0, "turn": 1.3, "damage": 5.0, "rate": 1.6, "reward": 150},
 	"corsair": {"name": "Corsair", "model": "enemy2", "hull": 90.0, "shield": 50.0, "speed": 48.0, "turn": 1.4, "damage": 6.0, "rate": 1.9, "reward": 220, "missiles": true},
-	# v1.4q: the Savagers raider cruiser, flown by a rank 6 boss
-	"cruiser": {"name": "Raider Cruiser", "model": "savager_cruiser", "radius": 16.0, "hull": 180.0, "shield": 80.0, "speed": 34.0, "turn": 0.8, "damage": 7.0, "rate": 2.2, "reward": 500, "missiles": true},
+	# v1.4r: the Savagers fighter ladder (strike craft only: no battleships as a pilot's ride)
+	"scrapfang": {"name": "Scrapfang Light Fighter", "class": "light fighter", "faction": "Savagers", "model": "savager_scrapfang", "hull": 60.0, "shield": 30.0, "speed": 46.0, "turn": 1.4, "damage": 5.0, "rate": 1.6, "reward": 150},
+	"redclaw": {"name": "Redclaw Interceptor", "class": "interceptor", "faction": "Savagers", "model": "savager_redclaw", "hull": 80.0, "shield": 45.0, "speed": 50.0, "turn": 1.5, "damage": 6.0, "rate": 1.8, "reward": 220},
+	"ironhowl": {"name": "Ironhowl Heavy Fighter", "class": "heavy fighter", "faction": "Savagers", "model": "savager_ironhowl", "radius": 9.0, "hull": 115.0, "shield": 60.0, "speed": 44.0, "turn": 1.2, "damage": 7.0, "rate": 2.0, "reward": 320, "missiles": true},
+	"warboar": {"name": "Warboar Command Fighter", "class": "command fighter", "faction": "Savagers", "model": "savager_warboar", "radius": 11.0, "hull": 160.0, "shield": 90.0, "speed": 42.0, "turn": 1.1, "damage": 8.0, "rate": 2.2, "reward": 500, "missiles": true},
 	# assault mech: two arm guns + a chest cannon; flies with the raiders/corsairs
 	"mech": {"name": "Assault Mech", "hull": 120.0, "shield": 40.0, "speed": 40.0, "turn": 1.2, "damage": 6.0, "rate": 1.4, "reward": 280, "model": "mech_tan", "mech": true, "missiles": true},
 	# Cybermorph (v1.4k): Lockon. Placed in no system yet: no concept sheet or model (the mech body is a stand-in for tests).

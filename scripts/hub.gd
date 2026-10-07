@@ -228,6 +228,7 @@ func _hub_page() -> void:
 	var tips := _label(17, Color(0.85, 0.9, 0.95))
 	tips.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var gate: Dictionary = Data.SYSTEMS[GS.system_id]["gate"]
+	_standing_rows(v)
 	tips.text = "Local traffic report: hostile %ss patrol the lanes. The %s leads to %s.\nEquipment sells new guns and missiles. The Ship Dealer trades up to heavier hulls. Launch when ready." % [Data.ENEMIES[Data.SYSTEMS[GS.system_id]["enemy"]]["name"].to_lower(), gate["name"], Data.SYSTEMS[gate["to"]]["name"]]
 	v.add_child(tips)
 
@@ -595,6 +596,7 @@ func _bounty_page() -> void:
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.text = "Pick a target, fly to their system and destroy the ship. The pilot bails out: TRACTOR them in, then dock at any station to be paid. The higher the number, the harder the fight."
 	v.add_child(l)
+	_standing_rows(v)
 	for p in Data.bounties():
 		var id: String = p["id"]
 		var row := HBoxContainer.new()
@@ -604,7 +606,7 @@ func _bounty_page() -> void:
 		pic.custom_minimum_size = Vector2(Data.BOUNTY_FACE_PX, Data.BOUNTY_FACE_PX)
 		pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		var path := "res://assets/enemy_pilots/%s_normal.jpg" % id
+		var path: String = p["portrait_clean"]
 		if ResourceLoader.exists(path): pic.texture = load(path)
 		else:   # picture slot not filled yet: a plain plate in the faction colour
 			var ph := GradientTexture2D.new()
@@ -616,7 +618,7 @@ func _bounty_page() -> void:
 		t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		t.text = "%02d  %s  ·  %s  ·  %s\nLast seen: %s system   ·   Flies a %s\nReward %d cr" % [int(p["rank"]), str(p["name"]).to_upper(), p["type"], p["faction"],
-			Data.SYSTEMS[p["sys"]]["name"], Data.ENEMIES[Data.RANK_KIND[int(p["rank"])]]["name"], Data.bounty_reward(id)]
+			Data.SYSTEMS[p["sys"]]["name"], Data.ENEMIES[p["fighter_primary"]]["name"], Data.bounty_reward(id)]
 		row.add_child(t)
 		var b := Button.new()
 		b.name = "Bounty_" + id
@@ -638,6 +640,25 @@ func _bounty_page() -> void:
 			b.pressed.connect(func(): status.text = GS.accept_bounty(id); show_screen("bounty"))
 		row.add_child(b)
 		v.add_child(row)
+
+## v1.4r: where you stand with the major factions, in their reputation colour (purple .. red, gray = permanent enemy).
+## This system's owner and its rival come first.
+func _standing_rows(v: VBoxContainer) -> void:
+	var here: String = str(Data.SYSTEMS[GS.system_id].get("faction", ""))
+	var order: Array = []
+	for f in [here, Factions.rival(here), "Savagers", "Liberator"]:
+		if Factions.has(f) and not (f in order): order.append(f)
+	var flow := HFlowContainer.new()
+	flow.name = "Standing"
+	flow.add_theme_constant_override("h_separation", 22)
+	for f in order.slice(0, 4):
+		var i: Dictionary = Factions.info(f)
+		var l := _label(17, i["color"])
+		l.name = "Standing_" + f
+		l.text = "%s: %s" % [Factions.def(f)["display_name"].to_upper(), i["name"]]
+		l.tooltip_text = i["note"]
+		flow.add_child(l)
+	v.add_child(flow)
 
 func _repair_page() -> void:
 	var v := _page_box()

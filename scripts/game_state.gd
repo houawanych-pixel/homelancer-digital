@@ -36,6 +36,8 @@ var memory := {} # id -> what that character remembers about you (see scripts/br
 var heat_shield := false # EARLY idea: a ship upgrade that survives the sun (nothing sells it yet)
 var bounty := {}             # v1.4q: the bounty you carry: {id, sys, state: "hunt" | "captured"}; empty = none
 var bounties_done: Array = []   # roster ids already paid
+var rep := {}                # v1.4r: reputation, one number per rival pair (Factions.axis_key -> -200..200); empty = everyone at their base
+var cast := {}               # v1.4r: named characters' state: character_id -> {alive, current_system, custody}
 var god_mode := false # only used by the automated route test
 
 func ship() -> Dictionary: return Data.SHIPS[ship_id]
@@ -118,7 +120,7 @@ func restore_full() -> void:
 ## v1.4q bounties: take one at a station's BOUNTY board, capture the pilot, dock anywhere to be paid.
 func accept_bounty(id: String) -> String:
 	var p: Dictionary = Data.roster_pilot(id)
-	if p.is_empty() or p.get("role", "") != "bounty": return "No such bounty."
+	if p.is_empty() or not p.get("bounty", false): return "No such bounty."
 	if id in bounties_done: return "That bounty is already paid."
 	if bounty.get("state", "") == "captured": return "Hand in the pilot in your hold first."
 	bounty = {"id": id, "sys": p["sys"], "state": "hunt"}
@@ -139,8 +141,15 @@ func claim_bounty() -> String:
 	var pay: int = Data.bounty_reward(id)
 	bounties_done.append(id)
 	bounty = {}
+	cast_state(p.get("character_id", id))["custody"] = true   # handed over: out of the patrols
+	Factions.adjust(str(p.get("faction", "")), -Data.REP_BOUNTY)
 	add_credits(pay)
 	return "Bounty paid: %s handed over. +%d cr." % [p.get("name", "the pilot"), pay]
+
+## v1.4r: a named character's persistent record (made on first use: alive, at large, nowhere in particular).
+func cast_state(character_id: String) -> Dictionary:
+	if not cast.has(character_id): cast[character_id] = {"alive": true, "current_system": "", "custody": false}
+	return cast[character_id]
 
 func add_credits(n: int) -> void:
 	credits += n

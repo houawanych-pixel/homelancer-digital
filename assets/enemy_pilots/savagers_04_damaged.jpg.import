@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://vnb23rx3art8"
-path="res://.godot/imported/sv04_damaged.jpg-6cc0da14d0c18d666ec5c5460a5056dc.ctex"
+uid="uid://b7vaipor50nve"
+path="res://.godot/imported/savagers_04_damaged.jpg-c5fefd82478d5154b0857771332c3f47.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/enemy_pilots/sv04_damaged.jpg"
-dest_files=["res://.godot/imported/sv04_damaged.jpg-6cc0da14d0c18d666ec5c5460a5056dc.ctex"]
+source_file="res://assets/enemy_pilots/savagers_04_damaged.jpg"
+dest_files=["res://.godot/imported/savagers_04_damaged.jpg-c5fefd82478d5154b0857771332c3f47.ctex"]
 
 [params]
 

@@ -2,16 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bu6mrl6sndmbf"
-path="res://.godot/imported/sv06_normal.jpg-40eea8800c7d48394bbf0796a400552d.ctex"
+uid="uid://dkic8hs0ew388"
+path="res://.godot/imported/savager_redclaw_1.jpg-6c12ddcd28c4e7129b9c98b7d41b499e.ctex"
 metadata={
 "vram_texture": false
+}
+generator_parameters={
+"md5": "5777a6d7a1a972bf27f784c52493c6f1"
 }
 
 [deps]
 
-source_file="res://assets/enemy_pilots/sv06_normal.jpg"
-dest_files=["res://.godot/imported/sv06_normal.jpg-40eea8800c7d48394bbf0796a400552d.ctex"]
+source_file="res://assets/ships/enemy/savager_redclaw_1.jpg"
+dest_files=["res://.godot/imported/savager_redclaw_1.jpg-6c12ddcd28c4e7129b9c98b7d41b499e.ctex"]
 
 [params]
 
@@ -21,7 +24,7 @@ compress/lossy_quality=0.7
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""

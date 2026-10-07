@@ -660,3 +660,55 @@ the future soldier, `assets/cargo/spacesuit_pilot.glb`). TRACTOR them in, dock a
 
 Simplest choices made: any station pays; leaving the system before the pickup puts the target back; stations with
 panorama rooms (Liberty Hub) reach BOUNTIES from the left menu of any dealer screen.
+
+## 31. Faction population phase 1: Savagers + reputation (Job V, v1.4r)
+
+Source of truth for the Savagers: the owner's document "SAVAGERS - Faction Roster, Voice Personas & Fighter Assignments v1"
+and the brief "Faction Population Update, Phase 1". Only the Savagers are filled in. Other factions keep their
+placeholder patrols until their pack arrives; nothing of theirs was removed.
+
+**The cast (`Data.ROSTERS["Savagers"]`).** Six persistent people, linked by `character_id`: 01 Soldier (the common
+troop, many at once), 02 Jackal, 03 Razor, 04 Veil, 05 Brakk, 06 Dreadmaw (named, never two of the same at once). Each
+record carries slot, rank, sex, species, persona, voice fields (`voice_id`, `voice_sex`, `voice_persona`,
+`normal_emotion`, `damaged_emotion`, `critical_emotion`), a clean and a damaged portrait
+(`assets/enemy_pilots/savagers_0N_clean.jpg` / `_damaged.jpg`), a primary fighter and alternates, a spawn weight.
+Sex, name, voice and ship are read from the data, never guessed from the picture. Voice chat itself is not built.
+This replaces the v1.4q names (Thug / Raider / Gannon) and roles.
+
+**Fighters (`Data.ENEMIES`).** Scrapfang Light Fighter, Redclaw Interceptor, Ironhowl Heavy Fighter, Warboar Command
+Fighter, each tougher than the last. Strike craft only: the cruiser and carrier are never a pilot's ride. The models
+are stand-ins picked from the owner's Savagers ship set until each named fighter design is delivered (Scrapfang and
+Redclaw = the two small X-wing darts, Ironhowl = the skirmish craft, Warboar = the twin gunboat). The rank rule from
+v1.4q still applies on top (higher slot = tougher, harder guns, bigger reward).
+
+**Who you meet.** In Savagers space patrols fly in threes and are picked by spawn weight: mostly Soldiers, sometimes
+Jackal, Razor, Veil or Brakk, rarely Dreadmaw. A named pilot you shoot down gets away and stays out for that visit
+(`GS.cast` keeps alive / current_system / custody). A pilot handed in as a bounty is in custody and no longer flies.
+
+**Raids.** The Savagers' rival is set to the Liberators (their neighbour on the map; one line in `factions.gd` to
+change). On 40 % of visits to a Liberator system one two-ship Savagers party is there: Soldiers, now and then led by
+Jackal. Never the whole cast.
+
+**Reputation (`scripts/factions.gd`, `GS.rep`).** Eight major factions in four rival pairs; each pair shares ONE
+number, so hurting one side helps the other by the same amount. Standing reads as a colour: purple TRUSTED, blue
+FRIENDLY, green ACCEPTED, yellow CAUTIOUS (does not attack), orange HOSTILE (attacks on sight), red HUNTED (attacks
+and sends a hunter group of three when you enter their space). Cybermorph is a GRAY permanent enemy outside the
+spectrum. Savagers start orange, everyone else green. Destroying a faction ship costs 1.5 x the pilot's slot;
+handing in a bounty costs 6 more. Shown on the station hub page and the BOUNTIES page, in colour.
+What reputation does NOT do yet: discounts, blocked docking, allies fighting beside you, special missions.
+The pairs other than Savagers / Liberators (Unity / Imperium, Elyza / Covenant, Solarion / Orion) are a first guess.
+
+**Stations.** The five Savagers systems wear the owner's Savagers cross station (`assets/structures`). The light
+beacon station sits in the middle of the nebula in each Savagers system and in Solara's Violet Reach. Its lamp is a
+real light (colour, range 1100, energy, breathing: the `BEACON_*` block in `data.gd`) with a bright star, a halo and
+lit cloud puffs; close to it the nebula haze on screen thins and warms and the sensors get most of their range back.
+You can target it; you cannot dock at it yet.
+
+**Bounties** now list Razor, Veil and Dreadmaw, each in her or his own fighter.
+
+**Assets saved outside the game, untouched, for printing:** the five original files (Savagers ship set, Savagers
+cross station, light beacon station, Liberator ship set, World's End station). The Liberator set is split into 18
+light copies but not placed: their pack is not this phase.
+
+Not done in this phase (said plainly): desert-world and underground Savagers settlements, cargo-theft / convoy /
+checkpoint encounter types (only patrols, raids, hunters and bounties exist), story encounters.

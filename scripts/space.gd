@@ -178,10 +178,13 @@ func setup(id: String, arrival: String) -> void:
 	_build_belt(sys["asteroids"])
 	_prof("asteroid belt")
 	_build_nebula(sys["nebula"])
+	_build_beacon()
 	_prof("nebula")
 	_build_player()
 	_prof("player ship")
-	for p in sys["patrols"]: _spawn_group(p, 2)
+	_named_down = {}
+	_incursion = Factions.raider_of(str(sys.get("faction", ""))) if randf() < Data.INCURSION_CHANCE else ""
+	for p in sys["patrols"]: _spawn_group(p, Data.ROSTER_PATROL_SIZE if not Data.roster(sys).is_empty() else 2)
 	spawn_bounty()
 	_prof("patrols")
 	_build_traffic()
@@ -190,6 +193,7 @@ func setup(id: String, arrival: String) -> void:
 	_build_lanes()
 	_prof("trade lanes")
 	place_player(arrival)
+	spawn_hunters()
 
 ## One line of memory numbers (GPU textures, GPU buffers, engine RAM, node count) for load/soak testing.
 static func memory_report() -> String:
@@ -487,7 +491,7 @@ func _station_model() -> void:
 			if ch is Node3D and not ch.has_meta("blink"): ch.visible = false
 		station_model = MeshInstance3D.new()
 		station_model.mesh = (found[0] as MeshInstance3D).mesh
-		station_model.scale = Vector3.ONE * STATION_WIDTH
+		station_model.scale = Vector3.ONE * STATION_WIDTH * float(Data.STATION_MODEL_SCALE.get(d["model"], 1.0))
 		station_model.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		body.add_child(station_model)
 	sc.free()
@@ -1035,6 +1039,144 @@ func _build_nebula(d: Dictionary) -> void:
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		holder.add_child(mi)
 
+## v1.4r: the light beacon station, hidden in the nebula. Its lamp is a real light (it lights ships, rocks and the
+## station itself) plus a bright halo that lights up the cloud around it; the cloud puffs nearest the lamp are brightened.
+var beacon: Node3D
+var beacon_light: OmniLight3D
+var beacon_glow: MeshInstance3D
+var beacon_core: MeshInstance3D
+var beacon_model: MeshInstance3D
+var beacon_puffs: Array = []
+var beacon_lit := 0.0   # 0..1 how strongly the lamp lights where the ship is (clears the nebula haze, helps the sensors)
+static func has_beacon(id: String, system: Dictionary) -> bool:
+	return id in Data.BEACON_SYSTEMS or str(system.get("faction", "")) in Data.BEACON_FACTIONS
+
+func _build_beacon() -> void:
+	beacon = null
+	beacon_light = null
+	beacon_glow = null
+	beacon_core = null
+	beacon_model = null
+	if surface_mode or not has_beacon(sys_id, sys) or nebula_radius <= 1.0: return
+	beacon = Node3D.new()
+	beacon.name = "Light Beacon"
+	beacon.position = nebula_center
+	beacon.set_meta("kind", "landmark")
+	beacon.set_meta("radius", Data.BEACON_SIZE * 0.5)
+	beacon.set_meta("info", {"id": sys_id + "_beacon", "name": "Light Beacon", "kind": "station", "pos": nebula_center, "color": Data.BEACON_LIGHT_COLOR,
+		"desc": "A lighthouse station hidden in the cloud. Its lamp lights the way through."})
+	add_child(beacon)
+	var body := Node3D.new()
+	body.name = "Body"
+	beacon.add_child(body)
+	# code-made tower until the structures pack is in
+	var cyl := CylinderMesh.new()
+	cyl.radial_segments = 10
+	cyl.rings = 1
+	_mesh(body, cyl, Vector3.ZERO, Color(0.7, 0.74, 0.82), Vector3(7, Data.BEACON_SIZE * 0.6, 7))
+	_mesh(body, BoxMesh.new(), Vector3.ZERO, Color(0.55, 0.6, 0.7), Vector3(Data.BEACON_SIZE, 3, 6))
+	_mesh(body, BoxMesh.new(), Vector3.ZERO, Color(0.55, 0.6, 0.7), Vector3(6, 3, Data.BEACON_SIZE))
+	beacon.set_meta("body", body)
+	var lamp := Vector3(0, Data.BEACON_LAMP_Y * Data.BEACON_SIZE, 0)
+	beacon_light = OmniLight3D.new()
+	beacon_light.name = "Lamp"
+	beacon_light.position = lamp
+	beacon_light.light_color = Data.BEACON_LIGHT_COLOR
+	beacon_light.light_energy = Data.BEACON_LIGHT_ENERGY
+	beacon_light.omni_range = Data.BEACON_LIGHT_RANGE
+	beacon_light.omni_attenuation = 0.6
+	beacon_light.shadow_enabled = false
+	beacon.add_child(beacon_light)
+	beacon_glow = MeshInstance3D.new()
+	beacon_glow.name = "Glow"
+	var q := QuadMesh.new()
+	q.size = Vector2(1, 1)
+	beacon_glow.mesh = q
+	var gm := StandardMaterial3D.new()
+	gm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	gm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	gm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	gm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	gm.billboard_keep_scale = true
+	gm.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	var gi := Image.create(96, 96, false, Image.FORMAT_RGBA8)   # soft round falloff, made here (no art file)
+	for y in 96:
+		for x in 96:
+			var r := Vector2(x - 47.5, y - 47.5).length() / 48.0
+			var a := clampf(1.0 - r, 0.0, 1.0)
+			gi.set_pixel(x, y, Color(1, 1, 1, pow(a, 1.6) * 0.75 + pow(a, 6.0) * 0.25))
+	var gt := ImageTexture.create_from_image(gi)
+	gm.albedo_texture = gt
+	gm.albedo_color = Color(Data.BEACON_LIGHT_COLOR, Data.BEACON_GLOW_ALPHA)
+	beacon_glow.material_override = gm
+	beacon_glow.position = lamp
+	beacon_glow.scale = Vector3.ONE * Data.BEACON_GLOW_SIZE
+	beacon_glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	beacon.add_child(beacon_glow)
+	beacon_core = MeshInstance3D.new()   # the lamp itself: a small, very bright star
+	beacon_core.name = "Core"
+	beacon_core.mesh = q
+	var cm := gm.duplicate() as StandardMaterial3D
+	cm.albedo_color = Color(1, 1, 1, 1)
+	beacon_core.material_override = cm
+	beacon_core.position = lamp
+	beacon_core.scale = Vector3.ONE * Data.BEACON_CORE_SIZE
+	beacon_core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	beacon.add_child(beacon_core)
+	# the cloud round the lamp, lit by it: a few big soft puffs in the lamp's colour
+	var ctex := _cloud_texture(Data.BEACON_LIGHT_COLOR.lerp(nebula_color, 0.35), hash(sys_id) + 11)
+	beacon_puffs = []
+	for i in Data.BEACON_PUFFS:
+		var pm := StandardMaterial3D.new()
+		pm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		pm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		pm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		pm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+		pm.billboard_keep_scale = true
+		pm.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+		pm.albedo_texture = ctex
+		pm.albedo_color = Color(1, 1, 1, Data.BEACON_PUFF_ALPHA)
+		var puff := MeshInstance3D.new()
+		puff.mesh = q
+		puff.material_override = pm
+		var dir := Vector3(_rng.randfn(0, 1), _rng.randfn(0, 0.45), _rng.randfn(0, 1)).normalized()
+		puff.position = lamp + dir * _rng.randf_range(Data.BEACON_SIZE * 0.9, Data.BEACON_GLOW_SIZE * 0.7)
+		puff.scale = Vector3.ONE * _rng.randf_range(0.5, 0.9) * Data.BEACON_GLOW_SIZE
+		puff.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		beacon.add_child(puff)
+		beacon_puffs.append(puff)
+	_beacon_model()
+	if beacon_model == null and not Packs.pack_ready.is_connected(_on_beacon_pack): Packs.pack_ready.connect(_on_beacon_pack)
+
+func _on_beacon_pack(_name: String) -> void: _beacon_model()
+
+## Swap the code-made tower for the owner's beacon model once the structures pack is in.
+func _beacon_model() -> void:
+	if beacon_model != null or not is_instance_valid(beacon): return
+	var path := "res://assets/structures/light_beacon_station.glb"
+	if not (Packs.is_ready("structures") and ResourceLoader.exists(path)): return
+	var sc := (load(path) as PackedScene).instantiate()
+	var found := sc.find_children("*", "MeshInstance3D", true, false)
+	if not found.is_empty():
+		var body: Node3D = beacon.get_meta("body")
+		for ch in body.get_children(): (ch as Node3D).visible = false
+		beacon_model = MeshInstance3D.new()
+		beacon_model.mesh = (found[0] as MeshInstance3D).mesh
+		beacon_model.scale = Vector3.ONE * Data.BEACON_SIZE
+		beacon_model.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		body.add_child(beacon_model)
+	sc.free()
+
+## The lamp breathes.
+func _update_beacon() -> void:
+	beacon_lit = 0.0
+	if not is_instance_valid(beacon_light): return
+	if is_instance_valid(player): beacon_lit = clampf(1.0 - player.global_position.distance_to(beacon_light.global_position) / Data.BEACON_LIGHT_RANGE, 0.0, 1.0)
+	var k := 1.0 - Data.BEACON_PULSE * (0.5 + 0.5 * sin(time * TAU * Data.BEACON_PULSE_RATE))
+	beacon_light.light_energy = Data.BEACON_LIGHT_ENERGY * k
+	(beacon_glow.material_override as StandardMaterial3D).albedo_color = Color(Data.BEACON_LIGHT_COLOR, Data.BEACON_GLOW_ALPHA * k)
+	if is_instance_valid(beacon_core): (beacon_core.material_override as StandardMaterial3D).albedo_color = Color(1, 1, 1, k)
+
 func _build_player() -> void:
 	player = Node3D.new()
 	player.name = "Player"
@@ -1185,9 +1327,12 @@ func _spawn_group(center: Vector3, count: int) -> Array:
 	for i in count:
 		# the last ship of a pair or bigger group is sometimes an assault mech
 		var kind: String = sys["enemy"]
-		var soldier: Dictionary = _roster_soldier()   # v1.4q: this space has a roster (Savagers): its soldiers fly the patrols
-		if not soldier.is_empty(): kind = Data.RANK_KIND.get(int(soldier["rank"]), kind)
-		if count >= 2 and i == count - 1 and _rng.randf() < 0.5 and Packs.is_ready("mechs"): kind = "mech"
+		var soldier: Dictionary = roster_pick(str(sys.get("faction", "")))   # v1.4r: this space has a roster (Savagers): its people fly the patrols
+		if soldier.is_empty() and _incursion != "":   # a rival's raiding party: common soldiers, now and then led by slot 02
+			soldier = roster_pick(_incursion, 2 if (i == 0 and randf() < Data.INCURSION_NAMED_CHANCE) else 1)
+			if i == count - 1 or count > Data.INCURSION_SIZE: _incursion_done = true
+		if not soldier.is_empty(): kind = roster_fighter(soldier)
+		if soldier.is_empty() and count >= 2 and i == count - 1 and _rng.randf() < 0.5 and Packs.is_ready("mechs"): kind = "mech"
 		var e := spawn_unit(kind, center + Vector3(_rng.randf_range(-60, 60), _rng.randf_range(-20, 20), _rng.randf_range(-60, 60)), center)
 		e["group"] = _group_serial
 		# the first ship flies under a NAMED squad leader (Scar Jackal, Iron Revenant...); everyone else is a generic
@@ -1196,15 +1341,57 @@ func _spawn_group(center: Vector3, count: int) -> Array:
 		elif i == 0 and e["node"].has_meta("pilot"): leader = e["node"].get_meta("pilot")["name"]
 		elif i > 0: _make_generic(e, leader)
 		group.append(e)
+	if _incursion_done:
+		_incursion = ""
+		_incursion_done = false
 	if busy and group.size() > 1: _chatter(group[-1], "reinforcements", true)
 	return group
 
-## The next soldier of this system's roster (weakest most often). {} = this space has no roster.
-func _roster_soldier() -> Dictionary:
-	var soldiers: Array = Data.roster(sys).filter(func(p): return p["role"] == "soldier")
-	if soldiers.is_empty(): return {}
-	var k: int = Data.SOLDIER_PATTERN[_enemy_serial % Data.SOLDIER_PATTERN.size()]
-	return Data.roster_pilot(soldiers[mini(k, soldiers.size() - 1)]["id"])
+var _named_down := {}        # named characters you shot down on this visit: they have left the area
+var _incursion := ""         # the rival faction raiding this system on this visit ("" = none)
+var _incursion_done := false
+
+## Who flies the next ship of a faction's roster: weighted by spawn_weight, slot 01 most often. A NAMED character is
+## never out twice at once, and sits out while in custody, while being hunted as a bounty, or after you shot them down
+## on this visit. max_slot limits how senior (raiding parties send low ranks). {} = that faction has no roster.
+func roster_pick(faction: String, max_slot := 6) -> Dictionary:
+	var pilots: Array = Data.ROSTERS.get(faction, {}).get("pilots", [])
+	if pilots.is_empty(): return {}
+	var open_list: Array = []
+	var total := 0.0
+	for p in pilots:
+		if int(p["slot"]) > max_slot: continue
+		if p["named_unique"]:
+			var cid: String = p["character_id"]
+			if _named_down.has(cid) or GS.cast_state(cid)["custody"] or not GS.cast_state(cid)["alive"]: continue
+			if GS.bounty.get("id", "") == p["id"]: continue
+			if enemies.any(func(o): return o.get("pilot", {}).get("character_id", "") == cid): continue
+		open_list.append(p)
+		total += float(p["spawn_weight"])
+	if open_list.is_empty(): return {}
+	var roll := randf() * total
+	for p in open_list:
+		roll -= float(p["spawn_weight"])
+		if roll <= 0.0: return Data.roster_pilot(p["id"])
+	return Data.roster_pilot(open_list[0]["id"])
+
+## The fighter a character takes out: the primary one, now and then an alternate.
+func roster_fighter(p: Dictionary) -> String:
+	var alts: Array = p.get("fighter_alternates", [])
+	if not alts.is_empty() and randf() < Data.ALT_FIGHTER_CHANCE: return alts[randi() % alts.size()]
+	return p["fighter_primary"]
+
+## RED standing: a hunter group meets you when you enter that faction's space.
+func spawn_hunters() -> Array:
+	var f: String = str(sys.get("faction", ""))
+	if Data.roster(sys).is_empty() or not Factions.hunted(f) or not is_instance_valid(player): return []
+	var at: Vector3 = player.global_position - player.global_basis.z * Data.REP_HUNTER_DIST + Vector3(0, 80, 0)
+	var g: Array = _spawn_group(at, Data.REP_HUNTER_SIZE)
+	for e in g:
+		e["aggro"] = true
+		e["hunter"] = true
+	message.emit("%s hunters inbound. You are marked." % Factions.def(f)["display_name"])
+	return g
 
 ## Put a roster pilot in a unit: their face (normal / damaged) on the radio, and the rank rule on the ship.
 func assign_roster(e: Dictionary, p: Dictionary) -> void:
@@ -1213,6 +1400,10 @@ func assign_roster(e: Dictionary, p: Dictionary) -> void:
 	e["pilot"] = g
 	e["pstate"] = "normal"
 	e["node"].set_meta("pilot", g)
+	e["faction"] = p.get("faction", "")
+	if p.get("named_unique", false):
+		e["node"].name = p["name"]
+		GS.cast_state(p["character_id"])["current_system"] = sys_id
 	apply_rank(e, int(p["rank"]))
 
 ## THE RULE: the higher the number, the stronger the ship (Data.RANK_*).
@@ -1234,7 +1425,7 @@ func spawn_bounty() -> Dictionary:
 	var p: Dictionary = Data.roster_pilot(GS.bounty["id"])
 	if p.is_empty(): return {}
 	var at: Vector3 = (sys["patrols"][0] as Vector3) + Vector3(0, 70, 0)
-	var e := spawn_unit(Data.RANK_KIND.get(int(p["rank"]), sys["enemy"]), at, at)
+	var e := spawn_unit(p["fighter_primary"], at, at)
 	assign_roster(e, p)
 	e["bounty"] = p["id"]
 	e["node"].name = "%s (bounty)" % p["name"]
@@ -1393,6 +1584,7 @@ func _process(dt: float) -> void:
 		if OS.has_feature("web") or OS.get_environment("HL_PROFILE") != "": print(memory_report())
 	if not is_instance_valid(player): return
 	_update_player(dt)
+	_update_beacon()
 	_update_enemies(dt)
 	_update_traffic(dt)
 	_update_bolts(dt)
@@ -2583,6 +2775,7 @@ func _enemy_entry(n: Node3D) -> Dictionary:
 ## landed on that side (and it is still there), otherwise the core. Missiles and mines (no hit point) hit the core.
 func _damage_enemy(e: Dictionary, dmg: float, hit := Vector3.INF) -> void:
 	e["aggro"] = true
+	e["provoked"] = true
 	e["sh_cd"] = 4.0
 	var at: Vector3 = e["node"].global_position if hit == Vector3.INF else hit
 	var had_shield := float(e["sh"]) > 0.0
@@ -2664,6 +2857,13 @@ func _destroy_unit(e: Dictionary) -> void:
 	var reward: int = e["def"]["reward"]
 	_drop_loot(n.global_position, reward)
 	enemy_killed.emit(reward, n.name)
+	if e.has("faction"):   # v1.4r: their faction remembers; its rival approves
+		Factions.adjust(e["faction"], -Data.REP_KILL * float(e.get("rank", 1)))
+		var pl: Dictionary = e.get("pilot", {})
+		if pl.get("named_unique", false) and not e.has("bounty"):
+			_named_down[pl["character_id"]] = true   # a named pilot is not gone for good: they break off and turn up again later
+			GS.cast_state(pl["character_id"])["current_system"] = ""
+			message.emit("%s's fighter is finished. %s got away." % [pl["name"], "She" if pl["sex"] == "female" else "He"])
 	if e.has("bounty"): _drop_pilot(n.global_position, e["bounty"])   # (after the kill line, so "TRACTOR the pilot in" is what stays on screen)
 	if target == n: target = null
 	n.set_meta("kind", "wreck")
@@ -2711,7 +2911,10 @@ func _update_enemies(dt: float) -> void:
 		var dist := to.length()
 		var was: bool = e["aggro"]
 		var spotting := warp_state == "charging" and dist < 1600.0   # they see the warp charge and come to stop you
-		if dist < 650.0 or e["aggro"] or spotting: e["aggro"] = dist < (1600.0 if spotting else 1400.0)
+		# v1.4r: a faction you are on speaking terms with (yellow or better) leaves you alone until you shoot at it
+		var peaceful: bool = e.has("faction") and not e.get("provoked", false) and not Factions.hostile(e["faction"])
+		if peaceful: e["aggro"] = false
+		elif dist < 650.0 or e["aggro"] or spotting: e["aggro"] = dist < (1600.0 if spotting else 1400.0)
 		if e.has("pilot"):
 			# generic pilots chatter instead of hailing; named leaders keep the full hail below
 			if e["aggro"] and not was and warp_state != "on": _chatter(e, "target_acquired")
@@ -3278,6 +3481,7 @@ func targetables() -> Array:
 	out.append(planet)
 	for g in gates: out.append(g)
 	for x in extras: out.append(x)
+	if is_instance_valid(beacon): out.append(beacon)
 	return out
 
 ## Job J (Freelancer "target closest enemy"): the nearest hostile; with none around, the nearest thing you can target.

@@ -108,6 +108,7 @@ static func _system(t: Array) -> Dictionary:
 	var station := {"id": id + "_station", "name": t[9], "pos": st_pos, "kind": "station", "color": f[3],
 		"desc": "Automated beacon. No one lives out here." if void_sys else "%s station in the %s system." % [t[5], nm]}
 	if t[6] == "capital": station["model"] = "wheel_station"
+	if t[5] == "Savagers": station["model"] = "savagers_cross_station"   # v1.4r: the patched-together cross station (the owner is making one per system)
 	var patrols: Array = []
 	for i in 3:
 		var pa := rng.randf() * TAU
