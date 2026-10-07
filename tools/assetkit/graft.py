@@ -1,4 +1,4 @@
-"""graft.py SHIP.glb PART.glb OUT.glb SCALE X Y Z [nose=K:Z0] : bolt a part (a barrel, a pod) onto a levelled, mirrored
+"""graft.py SHIP.glb PART.glb OUT.glb SCALE X Y Z [nose=K:Z0] [wings=K:R0:Z0] [flip] : bolt a part (a barrel, a pod) onto a levelled, mirrored
 ship at (X, Y, Z) and again mirrored at (-X, Y, Z), so the ship stays symmetric. The part keeps its own heading (its -Z
 is the ship's forward). The two textures are packed side by side into one atlas: still one mesh, one material.
 PART_DROP="x0,x1,y0,y1,z0,z1" (in the part's own units) removes triangles whose centre is in the box (a turret's stand).
@@ -14,12 +14,16 @@ P, N, U, I, js, imgs = read(a[1]); Pp, Np, Up, Ip, jsp, imgsp = read(a[2])
 for o in a[8:]:
     if o.startswith('nose='):
         k, z0 = [float(v) for v in o[5:].split(':')]; m = P[:, 2] < z0; P[m, 2] = z0 + (P[m, 2] - z0) * k
+    if o.startswith('wings='):   # wings=K:R0:Z0 : behind z = Z0, everything farther out than R0 from the centre line is stretched sideways by K
+        k, r0, z0 = [float(v) for v in o[6:].split(':')]; m = (P[:, 2] > z0) & (np.abs(P[:, 0]) > r0)
+        P[m, 0] = np.sign(P[m, 0]) * (r0 + (np.abs(P[m, 0]) - r0) * k)
 box = os.environ.get('PART_DROP')
 if box:
     b = [float(v) for v in box.split(',')]; c = Pp[Ip].mean(1)
     Ip = Ip[~((c[:, 0] >= b[0]) & (c[:, 0] <= b[1]) & (c[:, 1] >= b[2]) & (c[:, 1] <= b[3]) & (c[:, 2] >= b[4]) & (c[:, 2] <= b[5]))]
 used, inv = np.unique(Ip, return_inverse=True); Pp, Np, Up, Ip = Pp[used], Np[used], Up[used], inv.reshape(-1, 3)
 Pp = (Pp - (Pp.min(0) + Pp.max(0)) / 2) * sc
+if 'flip' in a[8:]: Pp = Pp * [-1, 1, -1]; Np = Np * [-1, 1, -1]   # turn the part end for end (a barrel's glowing breech becomes a booster nozzle)
 R = Pp + [x, y, z]; L = Pp * [-1, 1, 1] + [-x, y, z]; NL = Np * [-1, 1, 1]
 T = [Image.open(io.BytesIO(b)).convert('RGB') for b, _ in imgs]; D = [Image.open(io.BytesIO(b)).convert('RGB') for b, _ in imgsp]
 W, H = T[0].size; w, h = D[0].size; k = min(1.0, 256.0 / max(w, h)); w2, h2 = max(4, round(w * k)), max(4, round(h * k))   # a small part: 256 px is plenty

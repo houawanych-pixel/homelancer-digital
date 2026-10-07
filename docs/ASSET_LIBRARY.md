@@ -126,10 +126,12 @@ Savagers X-wing fighters stand on their tails in the set; they were left as they
 | Phenom | phenom_fighter_b_game.glb | fighter | 3440 |  | hl_Phenom_ship_set | saved, not placed |
 | Phenom | phenom_fighter_b_sym_game.glb | fighter | 3906 | yes | hl_Phenom_ship_set | saved, not placed |
 | Phenom | phenom_fighter_c_game.glb | fighter | 6752 |  | hl_Phenom_ship_set | saved, not placed |
-| Phenom | phenom_fighter_c_sym_game.glb | fighter | 7400 | yes | hl_Phenom_ship_set | IN GAME: phenom_fighter.glb |
+| Phenom | phenom_fighter_c_sym_game.glb | fighter | 7400 | yes | hl_Phenom_ship_set | saved, not placed |
+| Phenom | phenom_fighter_c_onecockpit_sym_game.glb | fighter | 7092 | yes | hl_Phenom_ship_set | IN GAME: phenom_fighter.glb (owner edit: one cockpit) |
 | Phenom | phenom_fighter_d_game.glb | fighter | 1576 |  | hl_Phenom_ship_set | saved, not placed |
 | Phenom | phenom_fighter_d_sym_game.glb | fighter | 2016 | yes | hl_Phenom_ship_set | saved, not placed |
-| Phenom | phenom_fighter_d_thruster_sym_game.glb | fighter | 2790 | yes | hl_Phenom_ship_set | IN GAME: phenom_interceptor.glb (thruster repair) |
+| Phenom | phenom_fighter_d_thruster_sym_game.glb | fighter | 2790 | yes | hl_Phenom_ship_set | saved, not placed |
+| Phenom | phenom_fighter_d_onecockpit_thruster_sym_game.glb | fighter | 2792 | yes | hl_Phenom_ship_set | IN GAME: phenom_interceptor.glb (thruster repair; owner edit: one cockpit) |
 | Phenom | phenom_fighter_heavy_game.glb | fighter | 10816 |  | hl_Phenom_ship_set | saved, not placed |
 | Phenom | phenom_fighter_heavy_sym_game.glb | fighter | 11624 | yes | hl_Phenom_ship_set | IN GAME: phenom_heavy.glb |
 | Phenom | phenom_lance_a_game.glb | lance / ordnance | 1536 |  | hl_Phenom_ship_set | saved, not placed |
@@ -147,7 +149,8 @@ Savagers X-wing fighters stand on their tails in the set; they were left as they
 | Kaijurai | kaijurai_cruiser_game.glb | cruiser | 7744 |  | hl_Kaijurai_ship_set | saved, not placed |
 | Kaijurai | kaijurai_cruiser_sym_game.glb | cruiser | 8930 | yes | hl_Kaijurai_ship_set | saved, not placed |
 | Kaijurai | kaijurai_dart_fighter_game.glb | fighter | 6848 |  | hl_Kaijurai_ship_set | saved, not placed |
-| Kaijurai | kaijurai_dart_fighter_sym_game.glb | fighter | 8076 | yes | hl_Kaijurai_ship_set | IN GAME: kaijurai_dart.glb |
+| Kaijurai | kaijurai_dart_fighter_sym_game.glb | fighter | 8076 | yes | hl_Kaijurai_ship_set | saved, not placed |
+| Kaijurai | kaijurai_dart_fighter_winged_sym_game.glb | fighter | 12590 | yes | hl_Kaijurai_ship_set | IN GAME: kaijurai_dart.glb (owner edit: wider wings, a barrel-booster each side, shorter nose) |
 | Kaijurai | kaijurai_fighter_a_game.glb | fighter | 5760 |  | hl_Kaijurai_ship_set | saved, needs a turn by hand / nose not certain |
 | Kaijurai | kaijurai_fighter_heavy_game.glb | fighter | 13056 |  | hl_Kaijurai_ship_set | saved, not placed |
 | Kaijurai | kaijurai_fighter_heavy_sym_game.glb | fighter | 13744 | yes | hl_Kaijurai_ship_set | IN GAME: kaijurai_heavy.glb |
@@ -248,3 +251,8 @@ The owner sent both sets again with two instructions, and the rows for these two
   fighters whose nose could not be told for certain (`kaijurai_fighter_a`, `kaijurai_interceptor`).
 - Other ships that carry upright spires or blades and were left as they are, for the owner to rule on: the Kaijurai
   gunship and pod craft (mast on top), the Phenom battleship (blade fan at the tail), the Phenom scout's wing-pod blades.
+- **Owner edits, same day.** (1) The Kaijurai dart "looks like a missile": its wings were stretched to about twice the
+  span, the nose pulled back by about a third, and one of the set's heavy barrels bolted along each side of the tail,
+  turned end for end so its glowing breech is a booster (`graft.py ... nose= wings= flip`). (2) "A single cockpit per
+  ship": Phenom fighter c and fighter d each showed two cockpit-looking bulges; the slice holding the second one was cut
+  out and the nose with the real cockpit slid back to close the gap (`segment_cut.py`).

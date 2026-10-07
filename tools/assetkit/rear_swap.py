@@ -81,4 +81,4 @@ def main():
     print('%s: ship %d tris + donor rear %d tris, atlas %dx%d, size %s' % (os.path.basename(a[3]), len(I), len(Id), AW, AH, np.round(np.ptp(P2, 0), 4)))
 
 
-main()
+if __name__ == '__main__': main()

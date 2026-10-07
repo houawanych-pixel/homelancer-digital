@@ -852,6 +852,8 @@ nebula colours when a sky picture cannot be read.
 
 - Seven ships from the owner's two sets are in the game, as light mirrored copies, all nose first (extra yaw 0):
   Kaijurai dart fighter, heavy fighter and gunship; Phenom fighter, interceptor, scout and heavy fighter.
+- Owner edits: the Kaijurai dart got wider wings, a barrel-booster on each side of the tail and a shorter nose (it
+  looked like a missile); the Phenom fighter and interceptor were shortened to one cockpit each (`graft.py`, `segment_cut.py`).
 - Thruster repair: the Phenom interceptor and scout came with a cannon standing upright at the tail. It was cut off
   and the twin thrusters of another Phenom fighter were grafted on (`tools/assetkit/rear_swap.py`).
 - Where they fly: the patrols of the two enemy home systems, Genesis (Kaijurai) and Noctyra (Phenom). `Data.HOME_FLEETS`
