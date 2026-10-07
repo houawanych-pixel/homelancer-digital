@@ -1055,7 +1055,7 @@ func _radar(rc: Vector2, rr: float, label: bool) -> void:
 			NavGrid.route(self, rseg[0], rseg[1], GREEN, t, dest.distance_to(rc) <= rr, 0.5)
 			radar_route = {"from": rseg[0], "to": rseg[1]}
 	var items: Array = []   # [position, colour, kind, node]
-	for e in space.enemies: items.append([e["node"].global_position, RED, "ship", e["node"]])
+	for e in space.enemies: items.append([e["node"].global_position, RED if e["node"].get_meta("kind", "enemy") == "enemy" else GOLD, "ship", e["node"]])
 	for tr in space.traffic: items.append([tr["node"].global_position, GREEN, "ship", tr["node"]])
 	if space.station.get_meta("kind", "") == "station": items.append([space.station.global_position, GREEN, "station", null])
 	if not space.surface_mode:

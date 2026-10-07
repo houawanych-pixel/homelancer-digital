@@ -18,6 +18,10 @@ const GLB := {
 	"savager_redclaw": ["res://assets/ships/enemy/savager_redclaw.glb", Data.REDCLAW_LEN, 0.0],         #  each named fighter design is delivered)
 	"savager_ironhowl": ["res://assets/ships/enemy/savager_skirmish.glb", Data.IRONHOWL_LEN, Data.SAVAGER_SKIRMISH_YAW],
 	"savager_warboar": ["res://assets/ships/enemy/savager_gunboat.glb", Data.WARBOAR_LEN, Data.SAVAGER_GUNBOAT_YAW],
+	"imperium_fighter": ["res://assets/ships/enemy/imperium_fighter.glb", Data.IMPERIUM_FIGHTER_LEN, 0.0],   # v1.4w (facing checked from above)
+	"imperium_gunship": ["res://assets/ships/enemy/imperium_gunship.glb", Data.IMPERIUM_GUNSHIP_LEN, 0.0],
+	"liberator_fighter": ["res://assets/ships/enemy/liberator_fighter.glb", Data.LIBERATOR_FIGHTER_LEN, Data.LIBERATOR_YAW],
+	"liberator_heavy": ["res://assets/ships/enemy/liberator_heavy.glb", Data.LIBERATOR_HEAVY_LEN, Data.LIBERATOR_YAW],
 	"savager_cruiser": ["res://assets/ships/enemy/savager_cruiser.glb", Data.SAVAGER_CRUISER_LEN, Data.SAVAGER_CRUISER_YAW],
 	"pilot_pod": ["res://assets/cargo/spacesuit_pilot.glb", 4.0, 0.0],   # stand-in: the soldier in the space suit
 	"savager_carrier": ["res://assets/ships/enemy/savager_carrier.glb", Data.SAVAGER_CARRIER_LEN, Data.SAVAGER_CARRIER_YAW],

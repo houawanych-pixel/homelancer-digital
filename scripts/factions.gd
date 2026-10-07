@@ -15,20 +15,20 @@ const DEFS := {
 		"station_pool": ["savagers_cross_station", "light_beacon_station"],
 		"base_types": ["hidden station", "nebula hideout", "asteroid base", "underground hangar", "wreck field"],
 		"environment_tags": ["desert", "wasteland", "badlands", "scrapyard", "caves", "black market", "salvage"],
-		"spawn_weights": {"patrol": 6.0, "raider_group": 3.0, "scavenger_convoy": 1.0, "named": 1.0, "boss": 0.2}, "incursion": true},
-	"Liberator": {"faction_id": "liberator", "ui_background": "liberator", "display_name": "Liberators", "primary_color": Color(0.3, 0.75, 0.72), "secondary_color": Color(0.9, 0.92, 0.95),
+		"spawn_weights": {"patrol": 6.0, "raider_group": 3.0, "scavenger_convoy": 1.0, "named": 1.0, "boss": 0.2}, "incursion": true, "replaces_patrols": true},
+	"Liberator": {"faction_id": "liberator", "character_roster": "Liberator", "fighter_pool": ["liberator_fighter", "liberator_heavy"], "ui_background": "liberator", "display_name": "Liberators", "primary_color": Color(0.3, 0.75, 0.72), "secondary_color": Color(0.9, 0.92, 0.95),
 		"rival_faction_id": "Savagers", "reputation_mode": "normal", "base_standing": 10.0},
-	"Unity": {"faction_id": "unity", "ui_background": "unity", "display_name": "Unity", "primary_color": Color(0.78, 0.9, 0.96), "secondary_color": Color(0.2, 0.35, 0.6),
+	"Unity": {"faction_id": "unity", "character_roster": "Unity", "fighter_pool": [], "ui_background": "unity", "display_name": "Unity", "primary_color": Color(0.78, 0.9, 0.96), "secondary_color": Color(0.2, 0.35, 0.6),
 		"rival_faction_id": "Imperium", "reputation_mode": "normal", "base_standing": 10.0},
-	"Imperium": {"faction_id": "imperium", "ui_background": "imperium", "display_name": "Imperium", "primary_color": Color(0.75, 0.25, 0.28), "secondary_color": Color(0.15, 0.1, 0.1),
+	"Imperium": {"faction_id": "imperium", "character_roster": "Imperium", "fighter_pool": ["imperium_fighter", "imperium_gunship"], "ui_background": "imperium", "display_name": "Imperium", "primary_color": Color(0.75, 0.25, 0.28), "secondary_color": Color(0.15, 0.1, 0.1),
 		"rival_faction_id": "Unity", "reputation_mode": "normal", "base_standing": 10.0},
-	"Elyza": {"faction_id": "elyza", "ui_background": "elyza", "display_name": "Elyza", "primary_color": Color(0.45, 0.6, 0.95), "secondary_color": Color(0.85, 0.87, 0.95),
+	"Elyza": {"faction_id": "elyza", "character_roster": "Elyza", "fighter_pool": [], "ui_background": "elyza", "display_name": "Elyza", "primary_color": Color(0.45, 0.6, 0.95), "secondary_color": Color(0.85, 0.87, 0.95),
 		"rival_faction_id": "Covenant", "reputation_mode": "normal", "base_standing": 10.0},
-	"Covenant": {"faction_id": "covenant", "ui_background": "covenant", "display_name": "Covenant", "primary_color": Color(0.6, 0.4, 0.85), "secondary_color": Color(0.2, 0.15, 0.3),
+	"Covenant": {"faction_id": "covenant", "character_roster": "Covenant", "fighter_pool": [], "ui_background": "covenant", "display_name": "Covenant", "primary_color": Color(0.6, 0.4, 0.85), "secondary_color": Color(0.2, 0.15, 0.3),
 		"rival_faction_id": "Elyza", "reputation_mode": "normal", "base_standing": 10.0},
-	"Solarion": {"faction_id": "solarion", "ui_background": "solarion", "display_name": "Solarion", "primary_color": Color(0.95, 0.72, 0.3), "secondary_color": Color(0.3, 0.22, 0.1),
+	"Solarion": {"faction_id": "solarion", "character_roster": "Solarion", "fighter_pool": [], "ui_background": "solarion", "display_name": "Solarion", "primary_color": Color(0.95, 0.72, 0.3), "secondary_color": Color(0.3, 0.22, 0.1),
 		"rival_faction_id": "Orion", "reputation_mode": "normal", "base_standing": 10.0},
-	"Orion": {"faction_id": "orion", "ui_background": "orion", "display_name": "Orion", "primary_color": Color(0.25, 0.7, 0.45), "secondary_color": Color(0.1, 0.2, 0.14),
+	"Orion": {"faction_id": "orion", "character_roster": "Orion", "fighter_pool": [], "ui_background": "orion", "display_name": "Orion", "primary_color": Color(0.25, 0.7, 0.45), "secondary_color": Color(0.1, 0.2, 0.14),
 		"rival_faction_id": "Solarion", "reputation_mode": "normal", "base_standing": 10.0},
 	"Cybermorph": {"faction_id": "cybermorph", "ui_background": "cybermorphs", "display_name": "Cybermorph", "primary_color": Color(0.62, 0.64, 0.68), "secondary_color": Color(0.1, 0.1, 0.12),
 		"rival_faction_id": "", "reputation_mode": "enemy", "base_standing": -100.0},
@@ -47,6 +47,10 @@ const DEFS := {
 }
 
 static func has(f: String) -> bool: return DEFS.has(f)
+## Do this faction's own people fly ALL the patrols in its space (its placeholder raiders are gone)?
+static func replaces_patrols(f: String) -> bool: return bool(DEFS.get(f, {}).get("replaces_patrols", false))
+## Does this faction have fighters in the game, so its people can fly at all?
+static func has_fighters(f: String) -> bool: return not (DEFS.get(f, {}).get("fighter_pool", []) as Array).is_empty()
 static func def(f: String) -> Dictionary: return DEFS.get(f, {})
 static func normal(f: String) -> bool: return DEFS.get(f, {}).get("reputation_mode", "") == "normal"
 static func rival(f: String) -> String: return str(DEFS.get(f, {}).get("rival_faction_id", ""))

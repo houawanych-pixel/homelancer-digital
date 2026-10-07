@@ -373,6 +373,11 @@ func _call_target() -> void:
 		elif leader in GS.met: call_character(leader)
 		else: hud.open_comms(tgt.name + " pilot", space.TAUNTS[randi() % space.TAUNTS.size()], "talk", true)
 		return
+	if tgt and is_instance_valid(tgt) and tgt.get_meta("kind", "") == "patrol" and tgt.has_meta("pilot"):   # v1.4w: a faction pilot who is not hostile
+		var fp: Dictionary = tgt.get_meta("pilot")
+		var line: String = Data.ROSTER_HAIL[randi() % Data.ROSTER_HAIL.size()].replace("{name}", str(fp["name"])).replace("{faction}", str(fp.get("faction", "")))
+		hud.open_comms(pilot_title(fp), line, "talk", false, "gp/" + str(fp["id"]), float(fp["voice"]), bool(fp["female"]), str(fp.get("voice_id", fp["id"])))
+		return
 	if tgt and is_instance_valid(tgt) and tgt == space.planet and GS.system_id == "solara":
 		call_character("oduya")
 		return

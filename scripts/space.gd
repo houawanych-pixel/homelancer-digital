@@ -184,7 +184,8 @@ func setup(id: String, arrival: String) -> void:
 	_prof("player ship")
 	_named_down = {}
 	_incursion = Factions.raider_of(str(sys.get("faction", ""))) if randf() < Data.INCURSION_CHANCE else ""
-	for p in sys["patrols"]: _spawn_group(p, Data.ROSTER_PATROL_SIZE if not Data.roster(sys).is_empty() else 2)
+	for p in sys["patrols"]: _spawn_group(p, Data.ROSTER_PATROL_SIZE if Factions.replaces_patrols(str(sys.get("faction", ""))) else 2)
+	spawn_guard()
 	spawn_bounty()
 	_prof("patrols")
 	_build_traffic()
@@ -1336,8 +1337,10 @@ func _spawn_group(center: Vector3, count: int) -> Array:
 	for i in count:
 		# the last ship of a pair or bigger group is sometimes an assault mech
 		var kind: String = sys["enemy"]
-		var soldier: Dictionary = roster_pick(str(sys.get("faction", "")))   # v1.4r: this space has a roster (Savagers): its people fly the patrols
-		if soldier.is_empty() and _incursion != "":   # a rival's raiding party: common soldiers, now and then led by slot 02
+		# v1.4r / v1.4w: a faction whose own people fly its patrols (Savagers), or its guard wing / hunters
+		var own: String = str(sys.get("faction", ""))
+		var soldier: Dictionary = roster_pick(own, _guard_slot) if (Factions.replaces_patrols(own) or _guard_spawn) else {}
+		if soldier.is_empty() and _incursion != "" and not _guard_spawn:   # a rival's raiding party: common soldiers, now and then led by slot 02
 			soldier = roster_pick(_incursion, 2 if (i == 0 and randf() < Data.INCURSION_NAMED_CHANCE) else 1)
 			if i == count - 1 or count > Data.INCURSION_SIZE: _incursion_done = true
 		if not soldier.is_empty(): kind = roster_fighter(soldier)
@@ -1353,7 +1356,7 @@ func _spawn_group(center: Vector3, count: int) -> Array:
 	if _incursion_done:
 		_incursion = ""
 		_incursion_done = false
-	if busy and group.size() > 1: _chatter(group[-1], "reinforcements", true)
+	if busy and group.size() > 1 and not (_guard_spawn and not Factions.hostile(str(sys.get("faction", "")))): _chatter(group[-1], "reinforcements", true)   # (a peaceful guard wing does not announce itself as a threat)
 	return group
 
 var _named_down := {}        # named characters you shot down on this visit: they have left the area
@@ -1369,7 +1372,7 @@ func roster_pick(faction: String, max_slot := 6) -> Dictionary:
 	var open_list: Array = []
 	var total := 0.0
 	for p in pilots:
-		if int(p["slot"]) > max_slot: continue
+		if int(p["slot"]) > max_slot or not Data.ENEMIES.has(str(p["fighter_primary"])): continue   # (no fighter in the game yet: known, but not flying)
 		if p["named_unique"]:
 			var cid: String = p["character_id"]
 			if _named_down.has(cid) or GS.cast_state(cid)["custody"] or not GS.cast_state(cid)["alive"]: continue
@@ -1390,15 +1393,35 @@ func roster_fighter(p: Dictionary) -> String:
 	if not alts.is_empty() and randf() < Data.ALT_FIGHTER_CHANCE: return alts[randi() % alts.size()]
 	return p["fighter_primary"]
 
+var _guard_spawn := false     # the group being spawned is the faction's own (guard wing or hunters), not a placeholder patrol
+
+## v1.4w: a faction that has fighters keeps a small wing of its own people near its main station. They follow the
+## reputation rules: peaceful (shown as a patrol, not a hostile) unless that faction is hostile to you or you shoot.
+func spawn_guard() -> Array:
+	var f: String = str(sys.get("faction", ""))
+	if surface_mode or Factions.replaces_patrols(f) or not Factions.has_fighters(f) or not is_instance_valid(station): return []
+	if roster_pick(f, Data.GUARD_MAX_SLOT).is_empty(): return []
+	_guard_spawn = true
+	_guard_slot = Data.GUARD_MAX_SLOT
+	var g: Array = _spawn_group(station.global_position + Vector3(Data.GUARD_DIST, 60, -Data.GUARD_DIST * 0.4), Data.GUARD_SIZE)
+	_guard_spawn = false
+	_guard_slot = 6
+	for e in g: e["guard"] = true
+	return g
+var _guard_slot := 6
+
 ## RED standing: a hunter group meets you when you enter that faction's space.
 func spawn_hunters() -> Array:
 	var f: String = str(sys.get("faction", ""))
-	if Data.roster(sys).is_empty() or not Factions.hunted(f) or not is_instance_valid(player): return []
+	if roster_pick(f).is_empty() or not Factions.hunted(f) or not is_instance_valid(player): return []
+	_guard_spawn = true
 	var at: Vector3 = player.global_position - player.global_basis.z * Data.REP_HUNTER_DIST + Vector3(0, 80, 0)
 	var g: Array = _spawn_group(at, Data.REP_HUNTER_SIZE)
+	_guard_spawn = false
 	for e in g:
 		e["aggro"] = true
 		e["hunter"] = true
+	_guard_spawn = false
 	message.emit("%s hunters inbound. You are marked." % Factions.def(f)["display_name"])
 	return g
 
@@ -2922,6 +2945,7 @@ func _update_enemies(dt: float) -> void:
 		var spotting := warp_state == "charging" and dist < 1600.0   # they see the warp charge and come to stop you
 		# v1.4r: a faction you are on speaking terms with (yellow or better) leaves you alone until you shoot at it
 		var peaceful: bool = e.has("faction") and not e.get("provoked", false) and not Factions.hostile(e["faction"])
+		if e.has("faction"): n.set_meta("kind", "patrol" if peaceful else "enemy")   # v1.4w: a peaceful faction ship is not a hostile contact
 		if peaceful: e["aggro"] = false
 		elif dist < 650.0 or e["aggro"] or spotting: e["aggro"] = dist < (1600.0 if spotting else 1400.0)
 		if e.has("pilot"):

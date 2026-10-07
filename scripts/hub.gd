@@ -659,6 +659,31 @@ func _faction_page() -> void:
 			("Their rival: the %s. What you do for one side counts against the other." % Factions.def(rv)["display_name"]) if rv != "" else "A permanent enemy: no diplomacy."]
 	v.add_child(l)
 	_standing_rows(v)
+	# v1.4w: the faction's six people (names, ranks and faces from the owner's roster)
+	var cast: Array = Data.ROSTERS.get(f, {}).get("pilots", [])
+	if not cast.is_empty():
+		var strip := HBoxContainer.new()
+		strip.name = "Cast"
+		strip.add_theme_constant_override("separation", 10)
+		for p0 in cast:
+			var p: Dictionary = Data.roster_pilot(p0["id"])
+			var col := VBoxContainer.new()
+			col.name = "Cast_" + str(p["id"])
+			col.custom_minimum_size = Vector2(Data.FACTION_FACE_PX + 44, 0)
+			var pic := TextureRect.new()
+			pic.custom_minimum_size = Vector2(Data.FACTION_FACE_PX, Data.FACTION_FACE_PX)
+			pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			Packs.request("enemies")
+			if ResourceLoader.exists(p["portrait_clean"]): pic.texture = load(p["portrait_clean"])
+			col.add_child(pic)
+			var nm := _label(13, Color(1, 1, 1))
+			nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			nm.text = "%02d %s" % [int(p["slot"]), p["name"]]
+			col.add_child(nm)
+			strip.add_child(col)
+		v.add_child(strip)
 
 func _repair_page() -> void:
 	var v := _page_box()

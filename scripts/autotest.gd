@@ -1044,6 +1044,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_AA") != "":   # the Job AA checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_aa()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_Z") != "":   # the Job Z checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1454,6 +1462,7 @@ func _run() -> void:
 	await _job_x()
 	await _job_y()
 	await _job_z()
+	await _job_aa()
 	await _galaxy()
 	await _controls_j()
 	await _gate_k()
@@ -3549,6 +3558,107 @@ func _job_z() -> void:
 	_tp(s.station.global_position + Vector3(0, 40, 420), s.station.global_position)
 	_check("Job Z: World's End Emporium (Omega), the Hollow Requiem (Shadow) and Greywhistle Beacon (Foggiest) wear the owner's models", data_ok and seen_models == [true, true, true], str(seen_models))
 	_check("Job Z: Greywhistle Beacon stands in thick grey fog with its lamp lit: the fog thins and the sensors recover beside it", fog_ok, fog_txt)
+
+## Job AA (v1.4w): the casts of seven more factions (from the owner's roster documents), faces, and the first two
+## that fly (Imperium, Liberator) as peaceful guard wings.
+func _job_aa() -> void:
+	var shell := FileAccess.get_file_as_string("res://web_shell.html")
+	_check("Job AA: version label reads \"Homelancer Digital v1.4w\" or later", Data.VERSION >= "v1.4w" and (shell == "" or shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0), Data.VERSION)
+	var want := {"Covenant": ["Covenant Acolyte", "Nerea Solis", "Kael Varis", "Lyra Shan", "Hierarch Guard", "Archon Selen"],
+		"Imperium": ["Imperium Trooper", "Vexa Drak", "Garrik Rend", "Nyx Dar'Kesh", "Dominion Guard", "Lord Kraeg"],
+		"Solarion": ["Solarion Trooper", "Lira Suntide", "Taron Kael", "Seraph Nova", "Solarion Guard", "Valen Aurex"],
+		"Unity": ["Alliance Trooper", "Mira Dane", "Rowan Hale", "Selene Ward", "Unity Elite Guard", "Commander Elara Voss"],
+		"Elyza": ["Elyza Security Trooper", "Serin Vale", "Cael Rhyn", "Lyra Vey", "Elyza Elite Guard", "Aurelia Voss"],
+		"Orion": ["Orion Survey Trooper", "Ryan Solace", "Syra N'Tel", "Korvax", "Orion Vanguard", "Admiral Caleb Rynn"],
+		"Liberator": ["Liberator Trooper", "Lena Torres", "Brok Tal", "Kai Mori", "Liberator Vanguard", "Marcus Vale"]}
+	var names_ok := true
+	var rule_ok := true
+	var faces := 0
+	var fields := true
+	for f in want:
+		var ros: Array = Data.ROSTERS.get(f, {}).get("pilots", [])
+		if ros.map(func(p): return p["name"]) != want[f]: names_ok = false
+		for i in ros.size():
+			var p: Dictionary = Data.roster_pilot(ros[i]["character_id"])
+			if int(p["slot"]) != i + 1 or bool(p["named_unique"]) != (i in [1, 2, 3, 5]) or p["faction"] != f: rule_ok = false
+			if bool(p["female"]) != (p["sex"] == "female") or p["voice_sex"] != p["sex"] or p["voice_id"] != p["character_id"]: rule_ok = false
+			for k in ["species", "persona", "voice_persona", "normal_emotion", "combat_emotion", "damaged_emotion", "critical_emotion", "fighter_primary"]:
+				if not p.has(k): fields = false
+			if ResourceLoader.exists(p["portrait_clean"]) and ResourceLoader.exists(p["portrait_damaged"]): faces += 1
+	_check("Job AA: seven more factions have their six people, named as the owner's roster documents name them (Covenant, Imperium, Solarion, Unity, Elyza, Orion, Liberator)", names_ok and Data.ROSTERS.size() == 8, "%d rosters" % Data.ROSTERS.size())
+	_check("Job AA: in every one, slot 01 is the common soldier and 05 the elite soldier, slots 02 03 04 06 are named, and sex and voice come from the data (Syra N'Tel female, Korvax male, Lord Kraeg augmented)",
+		rule_ok and fields and Data.roster_pilot("orion_03_syra")["sex"] == "female" and Data.roster_pilot("orion_04_korvax")["sex"] == "male" and Data.roster_pilot("imperium_06_kraeg")["voice_persona"] == "male_augmented")
+	_check("Job AA: all 42 have a clean and a battle-damaged portrait", faces == 42, "%d of 42" % faces)
+	# who can fly: only factions with a fighter in the game
+	var fly: Array = []
+	for f in Data.ROSTERS:
+		if Factions.has_fighters(f): fly.append(f)
+	fly.sort()
+	var models := true
+	for k in ["imperium_fighter", "imperium_gunship", "liberator_fighter", "liberator_heavy"]:
+		if not ShipFactory.has_real_model(Data.ENEMIES[k]["model"]): models = false
+	_check("Job AA: Imperium and Liberator pilots have fighters from their own ship sets (light for slots 1-3, heavier for 4-6); the other five casts are known but do not fly yet",
+		fly == ["Imperium", "Liberator", "Savagers"] and models and Data.roster_pilot("imperium_02")["fighter_primary"] == "imperium_fighter" and Data.roster_pilot("imperium_05")["fighter_primary"] == "imperium_gunship"
+		and Data.roster_pilot("unity_02")["fighter_primary"] == "" and float(ShipFactory.GLB["liberator_fighter"][2]) == Data.LIBERATOR_YAW, str(fly))
+	# a guard wing in their own space: peaceful, not a hostile contact, answers a hail; shoot and it turns
+	var s := _sp()
+	var real_sys: Dictionary = s.sys
+	var solara_guard: Array = s.spawn_guard()   # Unity has no fighters: nobody
+	s.sys = real_sys.duplicate()
+	s.sys["faction"] = "Imperium"
+	var g: Array = s.spawn_guard()
+	s.sys = real_sys
+	var wing_ok: bool = solara_guard.is_empty() and g.size() == Data.GUARD_SIZE
+	for e in g:
+		if e.get("faction", "") != "Imperium" or int(e["pilot"]["slot"]) > Data.GUARD_MAX_SLOT or not str(Data.ENEMIES.find_key(Data.ENEMIES.get(e["pilot"]["fighter_primary"], {}))).begins_with("imperium"): wing_ok = false
+	await _frames(4)
+	var calm := true
+	for e in g:
+		if e["aggro"] or (e["node"] as Node3D).get_meta("kind", "") != "patrol": calm = false
+	var first: Dictionary = g[0] if not g.is_empty() else {}
+	var hail_ok := false
+	var turned := false
+	if not first.is_empty():
+		main.hud.visible = false
+		_tp((first["node"] as Node3D).global_position + Vector3(10, 5, 24), (first["node"] as Node3D).global_position)
+		await _shot("aa_imperium_guard", 0.3)
+		main.hud.visible = true
+		s.target = first["node"]
+		main._call_target()
+		var slot: Dictionary = main.hud.slot("r")
+		hail_ok = not slot.is_empty() and str(slot["from"]).begins_with(first["pilot"]["name"]) and not bool(slot["hostile"]) and main.hud.comms_voice_id == first["pilot"]["voice_id"]
+		await _shot("aa_imperium_hail", 0.3)
+		main.hud.close_comms()
+		s._damage_enemy(first, 1.0)
+		await _frames(3)
+		turned = (first["node"] as Node3D).get_meta("kind", "") == "enemy"
+	for e in g:
+		s.enemies.erase(e)
+		(e["node"] as Node3D).free()
+	s.target = null
+	Sfx.stop_voice()
+	_tp(s.station.global_position + Vector3(0, 40, 420), s.station.global_position)
+	_check("Job AA: a faction with fighters keeps a guard wing of %d near its station (never the commander): peaceful and shown as a patrol, it answers a hail with its own face and voice id, and turns hostile only if you shoot" % Data.GUARD_SIZE,
+		wing_ok and calm and hail_ok and turned, "wing %s, calm %s, hail %s, turned %s" % [wing_ok, calm, hail_ok, turned])
+	# the FACTION page shows the six
+	var hub = main.hub
+	var base0: Dictionary = hub.base
+	var kind0: String = hub.kind
+	var vis0: bool = hub.visible
+	hub.open(Data.SYSTEMS[GS.system_id]["station"])
+	await _frames(3)
+	hub.show_screen("faction")
+	await Packs.wait("enemies", 30.0)
+	await _frames(3)
+	var shown := 0
+	for p in Data.ROSTERS["Unity"]["pilots"]:
+		var col = hub.content.find_child("Cast_" + str(p["id"]), true, false)
+		if col != null and (col.get_child(0) as TextureRect).texture != null: shown += 1
+	await _shot("aa_faction_page_cast", 0.3)
+	hub.base = base0
+	hub.kind = kind0
+	hub.visible = vis0
+	_check("Job AA: a station's FACTION page shows its faction's six people with their faces and names", shown == 6, "%d shown" % shown)
 
 func _job_s() -> void:
 	var s := _sp()

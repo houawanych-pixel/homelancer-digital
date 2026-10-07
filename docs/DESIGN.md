@@ -796,3 +796,29 @@ is grey and wraps the beacon, so the lamp burns in the fog and thins it as you c
 
 Not yet named by the owner and left as they were: Cybernet, the capitals' extra stations except Synthari's, the Void
 beacons, Vega and Solara.
+
+## 36. Seven more faction casts (Job AA, v1.4w)
+
+Source: the owner's roster documents in Drive ("<FACTION> - Character Roster, Personas, Voice IDs & Image Pairing v1";
+Orion's text is v2.0) and the matching roster pictures. Document and picture are a pair: names, sex, species, voice
+type, rank and persona come from the document, never from the picture.
+
+- **Data** (`scripts/roster_data.gd`, merged into `Data.ROSTERS`): six people each for Covenant, Imperium, Solarion,
+  Unity, Elyza, Orion and Liberator. Slot 01 = common masked soldier, slot 05 = elite masked soldier (both may appear
+  many times); slots 02, 03, 04, 06 = named, persistent people. Voice fields are kept ready (voice id, sex, type,
+  normal / combat / damaged / critical delivery). No dialogue was invented.
+- **Faces:** 84 portraits (42 clean, 42 battle-damaged) cut from the seven roster pictures. Each picture is laid out
+  differently (two halves, or two rows of six); the cuts were checked by eye against the slot numbers.
+- **Who flies:** only a faction with a fighter model in the game. Imperium and Liberator have two each, stand-ins from
+  the owner's own ship sets (light for slots 1-3, heavier for 4-6), mirrored and checked from above for facing. Each
+  keeps a guard wing of two near its main station. They obey reputation: peaceful and shown as a gold patrol contact
+  (kind "patrol", not "enemy"), they answer a hail with their own face, and turn hostile only if you shoot or your
+  standing is orange or red. The placeholder raiders in those systems are unchanged.
+- **Known but not flying yet:** Covenant (its fighters lie on edge in the set; nose not clear), Unity, Elyza,
+  Solarion, Orion (no ship set yet). Their six show on the station FACTION page.
+- **FACTION page:** the owner faction's six faces and names.
+
+Open points for the owner: the Covenant picture labels slot 05 "Hierarch Orin" and Solarion's labels slot 06 "Emperor
+Valen"; the documents say "Hierarch Guard" and "Valen Aurex", and the documents were followed. The Orion roster
+describes explorers (Pathfinder Nations) while the station list describes Orion as the reptilian Venom war clan.
+The newer rosters say slot 05 is an unnamed elite soldier "retroactively"; the Savagers' Brakk was left named.

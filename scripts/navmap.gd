@@ -317,7 +317,7 @@ func _collect() -> void:
 		var i := 0
 		for e in space.enemies:
 			if is_instance_valid(e["node"]):
-				objs["enemy%d" % i] = {"type": "enemy", "name": e["def"].get("name", "Hostile"), "pos": (e["node"] as Node3D).global_position, "col": RED, "r": 8.0, "data": e["def"], "node": e["node"], "ship": true}
+				objs["enemy%d" % i] = {"type": "enemy", "name": e["def"].get("name", "Hostile"), "pos": (e["node"] as Node3D).global_position, "col": RED if (e["node"] as Node3D).get_meta("kind", "enemy") == "enemy" else GOLD, "r": 8.0, "data": e["def"], "node": e["node"], "ship": true}
 			i += 1
 		i = 0
 		for tr in space.traffic:

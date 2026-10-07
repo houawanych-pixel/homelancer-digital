@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.4v"
+const VERSION := "v1.4w"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -201,6 +201,20 @@ const PLANET_BIOME := {"terran": "forest", "jungle": "jungle", "ocean": "ocean",
 const TEXT_BUMP := 2                  # HUD and room text below TEXT_BUMP_BELOW px is drawn this much bigger
 const TEXT_BUMP_BELOW := 17
 const TEXT_MIN := 13                  # nothing on the HUD is smaller than this
+# ---------------------------------------------------------------- Job AA (v1.4w): seven more faction casts
+const GUARD_SIZE := 2                # a faction's own guard wing near its main station (factions that have fighters)
+const GUARD_DIST := 520.0            # how far from the station the wing holds
+const GUARD_MAX_SLOT := 5            # the faction commander (slot 06) does not fly guard duty
+const IMPERIUM_FIGHTER_LEN := 12.0
+const IMPERIUM_GUNSHIP_LEN := 16.0
+const LIBERATOR_FIGHTER_LEN := 12.0
+const LIBERATOR_HEAVY_LEN := 15.0
+const LIBERATOR_YAW := 180.0         # the Liberator fighters lie tail-first in the owner's set
+const FACTION_FACE_PX := 84          # portrait size in the FACTION page's pilot strip
+# what a faction pilot says when you hail them and they are not hostile ({name}, {faction}); placeholder wording until
+# the owner writes each character's lines
+const ROSTER_HAIL := ["[normal]{name}, {faction} patrol. You are clear, pilot.", "[normal]This is {name}. Keep your weapons cold and fly safe."]
+
 # ---------------------------------------------------------------- Job Z (v1.4v): named stations, three placed models, the fog beacon
 const FOG_RADIUS := 700.0            # Foggiest: the grey cloud that wraps Greywhistle Beacon
 const FOG_COLOR := Color(0.62, 0.65, 0.7)
@@ -429,7 +443,8 @@ const BEACON_PUFFS := 7              # lit cloud puffs round the lamp
 const BEACON_PUFF_ALPHA := 0.22
 const BEACON_HAZE_CLEAR := 0.75      # next to the lamp the nebula haze on screen thins by this share and takes the lamp's colour
 const BEACON_SENSOR_HELP := 0.7      # ... and the sensors get this share of their range back
-const ROSTERS := {
+static var ROSTERS: Dictionary = RosterData.merged(ROSTERS_CORE)   # v1.4w: Savagers (below) + the seven casts in roster_data.gd
+const ROSTERS_CORE := {
 	"Savagers": {"leader": "Dreadmaw", "pilots": [
 		{"character_id": "savagers_01_soldier", "id": "savagers_01", "slot": 1, "rank": 1, "unit": "SV-01", "name": "Soldier", "type": "Level 1 Grunt", "role": "Common Soldier",
 			"sex": "male", "species": "Human", "persona": "obedient, aggressive, low-rank thug, disposable but dangerous in groups",
@@ -496,6 +511,11 @@ static func bounty_reward(id: String) -> int: return BOUNTY_REWARD * int(roster_
 const ENEMIES := {
 	"raider": {"name": "Raider", "hull": 60.0, "shield": 30.0, "speed": 44.0, "turn": 1.3, "damage": 5.0, "rate": 1.6, "reward": 150},
 	"corsair": {"name": "Corsair", "model": "enemy2", "hull": 90.0, "shield": 50.0, "speed": 48.0, "turn": 1.4, "damage": 6.0, "rate": 1.9, "reward": 220, "missiles": true},
+	# v1.4w: stand-in fighters from the owner's Imperium and Liberator ship sets (light for slots 1-3, heavy for 4-6)
+	"imperium_fighter": {"name": "Imperium Fighter", "class": "fighter", "faction": "Imperium", "model": "imperium_fighter", "hull": 75.0, "shield": 40.0, "speed": 47.0, "turn": 1.4, "damage": 6.0, "rate": 1.7, "reward": 200},
+	"imperium_gunship": {"name": "Imperium Gunship", "class": "gunship", "faction": "Imperium", "model": "imperium_gunship", "radius": 9.0, "hull": 130.0, "shield": 70.0, "speed": 42.0, "turn": 1.1, "damage": 7.5, "rate": 2.0, "reward": 360, "missiles": true},
+	"liberator_fighter": {"name": "Liberator Fighter", "class": "fighter", "faction": "Liberator", "model": "liberator_fighter", "hull": 65.0, "shield": 40.0, "speed": 49.0, "turn": 1.5, "damage": 5.5, "rate": 1.7, "reward": 190},
+	"liberator_heavy": {"name": "Liberator Strike Fighter", "class": "heavy fighter", "faction": "Liberator", "model": "liberator_heavy", "radius": 9.0, "hull": 110.0, "shield": 60.0, "speed": 45.0, "turn": 1.25, "damage": 7.0, "rate": 1.9, "reward": 330, "missiles": true},
 	# v1.4r: the Savagers fighter ladder (strike craft only: no battleships as a pilot's ride)
 	"scrapfang": {"name": "Scrapfang Light Fighter", "class": "light fighter", "faction": "Savagers", "model": "savager_scrapfang", "hull": 60.0, "shield": 30.0, "speed": 46.0, "turn": 1.4, "damage": 5.0, "rate": 1.6, "reward": 150},
 	"redclaw": {"name": "Redclaw Interceptor", "class": "interceptor", "faction": "Savagers", "model": "savager_redclaw", "hull": 80.0, "shield": 45.0, "speed": 50.0, "turn": 1.5, "damage": 6.0, "rate": 1.8, "reward": 220},
