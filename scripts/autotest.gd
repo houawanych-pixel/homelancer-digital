@@ -1044,6 +1044,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_Y") != "":   # the Job Y checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_y()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_X") != "":   # the Job X checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1436,6 +1444,7 @@ func _run() -> void:
 	await _job_v()
 	await _job_w()
 	await _job_x()
+	await _job_y()
 	await _galaxy()
 	await _controls_j()
 	await _gate_k()
@@ -3348,6 +3357,105 @@ func _job_x() -> void:
 	Sfx.path = path0
 	Sfx.voice_mode = mode0
 
+## Job Y (v1.4u): more room in every system, one clear prompt (dock OR lane), the lane tunnel pulled back.
+func _job_y() -> void:
+	var s := _sp()
+	s.autopilot = null
+	s.drop_warp()
+	s.vel = Vector3.ZERO
+	var shell := FileAccess.get_file_as_string("res://web_shell.html")
+	_check("Job Y: version label reads \"Homelancer Digital v1.4u\" or later", Data.VERSION >= "v1.4u" and (shell == "" or shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0), Data.VERSION)
+	# more room: everything sits SYSTEM_SPREAD times farther from the main station, sizes unchanged
+	var k: float = Data.SYSTEM_SPREAD
+	var core_ok := true
+	for id in Data.CORE_SYSTEMS:
+		var c: Dictionary = Data.CORE_SYSTEMS[id]
+		var n: Dictionary = Data.SYSTEMS[id]
+		var o: Vector3 = c["station"]["pos"]
+		if not (n["station"]["pos"] as Vector3).is_equal_approx(o): core_ok = false
+		if not (n["planet"]["pos"] as Vector3).is_equal_approx(o + ((c["planet"]["pos"] as Vector3) - o) * k) or float(n["planet"]["radius"]) != float(c["planet"]["radius"]): core_ok = false
+		if not (n["nebula"]["center"] as Vector3).is_equal_approx(o + ((c["nebula"]["center"] as Vector3) - o) * k): core_ok = false
+		if not (n["gate"]["pos"] as Vector3).is_equal_approx(o + ((c["gate"]["pos"] as Vector3) - o) * k): core_ok = false
+	var all_ok := true
+	var nearest := INF
+	for id in Data.SYSTEMS:
+		var sy: Dictionary = Data.SYSTEMS[id]
+		if float(sy.get("spread", 0.0)) != k: all_ok = false
+		var d: float = (sy["planet"]["pos"] as Vector3).distance_to(sy["station"]["pos"]) - float(sy["planet"]["radius"])
+		nearest = minf(nearest, d)
+		for g in sy["gates"]:
+			if (g["pos"] as Vector3).distance_to(sy["station"]["pos"]) < 900.0 * k: all_ok = false
+	_check("Job Y: every system has more room: planets, gates, belt, nebula and patrols sit %.1f times farther from the main station, and nothing changed size" % k,
+		k > 1.2 and core_ok and all_ok and s.planet.global_position.is_equal_approx(Data.SYSTEMS[s.sys_id]["planet"]["pos"]), "%d systems, closest planet surface %d m from its station" % [Data.SYSTEMS.size(), int(nearest)])
+	# docking needs you closer
+	var st: Vector3 = s.station.global_position
+	_tp(st + Vector3(Data.DOCK_RANGE_STATION + 45.0, 0, -200), st)
+	await _frames(2)
+	var far_none: bool = s.dock_candidate() == null and s.prompt() != "dock"
+	_tp(st + Vector3(Data.DOCK_RANGE_STATION - 25.0, 0, 0), st)
+	await _frames(2)
+	main.hud._layout()
+	var near_dock: bool = s.dock_candidate() == s.station and s.prompt() == "dock" and main.hud.buttons.has("dock") and not main.hud.buttons.has("lane")
+	_check("Job Y: DOCK needs you closer: nothing at %d m from a station, DOCK inside %d m (was 260)" % [int(Data.DOCK_RANGE_STATION + 45.0), int(Data.DOCK_RANGE_STATION)],
+		Data.DOCK_RANGE_STATION < 260.0 and Data.DOCK_RANGE_PLANET < 300.0 and far_none and near_dock, "far %s, near %s" % [far_none, near_dock])
+	# one prompt: at a lane ring you get the lane, never both; where both are in reach the nearer wins
+	var both_never := true
+	var lane_at_ring := true
+	var overlap := 0
+	for ln in s.lanes:
+		for row in ["up", "down"]:
+			var rings: Array = ln[row]
+			for ri in rings.size():
+				if (row == "up" and ri >= rings.size() - 1) or (row == "down" and ri <= 0): continue
+				_tp(rings[ri] as Vector3, (rings[ri] as Vector3) + (ln["dir"] as Vector3) * 50.0)
+				main.hud._layout()
+				var shown: int = int(main.hud.buttons.has("dock")) + int(main.hud.buttons.has("lane")) + int(main.hud.buttons.has("jump"))
+				if shown > 1: both_never = false
+				if s.prompt() != "lane": lane_at_ring = false
+				if s.dock_candidate() != null: overlap += 1
+	# force the overlap: a spot in reach of the station AND a lane ring; the nearer one must win
+	var forced := true
+	if not s.lanes.is_empty():
+		var ring: Vector3 = s.lanes[0]["up"][0]
+		var real_station_pos: Vector3 = s.station.global_position
+		s.station.global_position = ring + Vector3(0, 0, -Data.DOCK_RANGE_STATION * 0.8) - Vector3(0, 0, 150)   # (test only) the docking mouth 80% of dock range from the ring
+		_tp(ring + Vector3(6, 0, 0), ring)
+		var a: String = s.prompt()                       # at the ring: lane
+		_tp(s.dock_point(s.station) + Vector3(4, 0, 0), s.station.global_position)
+		var b: String = s.prompt()                       # at the docking mouth: dock
+		var had_both: bool = s.dock_candidate() != null and not s.lane_candidate().is_empty()
+		forced = a == "lane" and b == "dock" and had_both
+		s.station.global_position = real_station_pos
+	_check("Job Y: one prompt at a time: at a trade-lane ring you get TRADE LANE, at the station you get DOCK; where both are in reach the nearer one wins", both_never and lane_at_ring and forced,
+		"never two %s, lane at rings %s, nearer wins %s, rings also in dock reach %d" % [both_never, lane_at_ring, forced, overlap])
+	# the lane tunnel: pulled back and widened so the camera rides INSIDE it and never sees its rim
+	var tun: MeshInstance3D = s.lane_tunnel
+	var cyl: CylinderMesh = tun.mesh
+	var behind: float = Data.LANE_TUNNEL_LEN * Data.LANE_TUNNEL_BACK
+	var shape_ok: bool = is_equal_approx(cyl.height, Data.LANE_TUNNEL_LEN) and cyl.bottom_radius >= cyl.top_radius and is_equal_approx(tun.position.z, -Data.LANE_TUNNEL_LEN * (0.5 - Data.LANE_TUNNEL_BACK))
+	var cam_in := false
+	var cam_txt := "no lane"
+	if not s.lanes.is_empty():
+		var ln0: Dictionary = s.lanes[0]
+		var mouth: Vector3 = ln0["up"][0]
+		_tp(mouth - (ln0["dir"] as Vector3) * 120.0, mouth)
+		await _frames(3)
+		_press("lane")
+		await _until(func(): return s.lane.is_empty() or float(s.lane.get("speed", 0.0)) > Data.LANE_SPEED * 0.9, 6.0)
+		await _frames(4)
+		var lc: Vector3 = s.player.global_transform.affine_inverse() * s.cam.global_position
+		var radial: float = Vector2(lc.x, lc.y).length()
+		cam_in = tun.visible and radial < Data.LANE_TUNNEL_RADIUS * 0.6 and lc.z > 0.0 and lc.z < behind * 0.5
+		cam_txt = "camera %d m behind the ship, %d m off its line; tunnel runs %d m behind, %d m wide" % [int(lc.z), int(radial), int(behind), int(Data.LANE_TUNNEL_RADIUS * 2.0)]
+		main.hud.visible = false
+		await _shot("y_lane_tunnel", 0.05)
+		main.hud.visible = true
+		if not s.lane.is_empty(): _press("lane")
+		await _until(func(): return s.lane.is_empty(), 8.0)
+	_check("Job Y: the trade-lane tunnel is pulled back and widened: the camera rides inside it, far from either end, so its round rim is never on screen", shape_ok and cam_in, cam_txt)
+	s.vel = Vector3.ZERO
+	_tp(st + Vector3(0, 40, 420), st)
+
 func _job_s() -> void:
 	var s := _sp()
 	var hud = main.hud
@@ -3375,13 +3483,16 @@ func _job_s() -> void:
 	await _frames(3)
 	var g2: Dictionary = nm.grid_stats.duplicate()
 	await _shot("s_grid_zoomed", 0.3)
+	nm.zoom_by(2.4)   # v1.4u: a part-way zoom too (x5 steps always land on the same phase of the grid, where the ticks may be faded out)
+	await _frames(3)
+	var g3: Dictionary = nm.grid_stats.duplicate()
 	nm.fit()
 	await _frames(3)
 	var lv: Array = NavGrid.levels(0.1)
 	var lv2: Array = NavGrid.levels(0.17)   # zoomed in a little: the minor lines have grown brighter
 	var layered: bool = is_equal_approx(float(lv[0][0]) / float(lv[1][0]), 5.0) and is_equal_approx(float(lv[1][0]) / float(lv[2][0]), 5.0) and float(lv[0][2]) > float(lv[1][2]) and float(lv2[1][2]) > float(lv[1][2])
 	var grid_ok: bool = int(g0["major"]) > 0 and int(g0["minor"]) > int(g0["major"]) and int(g0["through"]) >= 6 and int(g1["major"]) > 0 and int(g2["major"]) > 0 \
-		and float(g1["spacing"]) < float(g0["spacing"]) and float(g2["spacing"]) < float(g1["spacing"]) and (int(g0["ticks"]) + int(g1["ticks"]) + int(g2["ticks"])) > 0
+		and float(g1["spacing"]) < float(g0["spacing"]) and float(g2["spacing"]) < float(g1["spacing"]) and (int(g0["ticks"]) + int(g1["ticks"]) + int(g2["ticks"]) + int(g3["ticks"])) > 0
 	_check("Job S: the map draws a layered grid (bold major lines, minor lines, micro-ticks), a grid crossing under every object, and zooming in keeps revealing finer lines",
 		grid_ok and layered, "major/minor/ticks/through %d/%d/%d/%d; spacing %d m, x5 zoom %d m, x25 zoom %d m" % [g0["major"], g0["minor"], g0["ticks"], g0["through"], int(g0["spacing"]), int(g1["spacing"]), int(g2["spacing"])])
 	# ---- 2. north-up is the default; the button switches to heading-up; the choice is remembered

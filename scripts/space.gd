@@ -10,8 +10,8 @@ signal tile_edge(dir: Vector2i)                 # crossed the edge of a planet t
 signal leave_atmosphere                         # climbed above the ceiling of a planet tile
 signal collided(kind: String, dmg: float, k: float)   # Job L: a damaging collision (k = 0..1 how hard, for feedback)
 
-const DOCK_RANGE_STATION := 260.0
-const DOCK_RANGE_PLANET := 300.0 # measured from the planet surface
+const DOCK_RANGE_STATION := Data.DOCK_RANGE_STATION
+const DOCK_RANGE_PLANET := Data.DOCK_RANGE_PLANET # measured from the planet surface
 const GATE_RANGE := 320.0
 
 var sys: Dictionary
@@ -2215,12 +2215,12 @@ render_mode unshaded, blend_add, cull_disabled, depth_draw_never;
 uniform vec3 tint : source_color = vec3(0.35, 0.85, 1.0);
 uniform float power = 0.0;
 void fragment() {
-	float streak = pow(fract(sin(floor(UV.x * 90.0) * 91.7) * 43758.5), 5.0);
+	float streak = pow(fract(sin(floor(UV.x * 240.0) * 91.7) * 43758.5), 5.0);   // v1.4u: finer streaks for the wider tunnel
 	float flow = fract(UV.y * 2.0 + TIME * (1.6 + streak * 2.4) + streak * 7.0);
 	float band = smoothstep(0.0, 0.25, flow) * smoothstep(1.0, 0.55, flow);
 	float ends = smoothstep(0.0, 0.2, UV.y) * smoothstep(1.0, 0.75, UV.y);
 	ALBEDO = mix(tint, vec3(1.0), streak * 0.6);
-	ALPHA = (0.04 + streak * band * 0.75) * ends * power;
+	ALPHA = (0.03 + streak * band * 0.6) * ends * power;
 }
 """
 
@@ -2324,9 +2324,9 @@ func _build_lanes() -> void:
 	lane_tunnel = MeshInstance3D.new()
 	var cyl := CylinderMesh.new()
 	cyl.top_radius = Data.LANE_TUNNEL_RADIUS
-	cyl.bottom_radius = Data.LANE_TUNNEL_RADIUS * 0.8
+	cyl.bottom_radius = Data.LANE_TUNNEL_RADIUS * 1.15   # the end behind the ship flares out: its rim is off screen
 	cyl.height = Data.LANE_TUNNEL_LEN
-	cyl.radial_segments = 24
+	cyl.radial_segments = 48
 	cyl.rings = 1
 	cyl.cap_top = false
 	cyl.cap_bottom = false
@@ -2338,7 +2338,7 @@ func _build_lanes() -> void:
 	tm.set_shader_parameter("tint", Data.LANE_TINT)
 	lane_tunnel.material_override = tm
 	lane_tunnel.rotation_degrees = Vector3(-90, 0, 0)      # the cylinder's length runs along the ship's nose line
-	lane_tunnel.position = Vector3(0, 0, -Data.LANE_TUNNEL_LEN * 0.25)
+	lane_tunnel.position = Vector3(0, 0, -Data.LANE_TUNNEL_LEN * (0.5 - Data.LANE_TUNNEL_BACK))   # pulled back: part of it trails behind the camera
 	lane_tunnel.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	lane_tunnel.visible = false
 	player.add_child(lane_tunnel)
@@ -3513,6 +3513,25 @@ func dock_candidate() -> Node3D:
 	var surf := p.distance_to(planet.global_position) - float(planet.get_meta("radius"))
 	if surf < DOCK_RANGE_PLANET: return planet
 	return null
+
+## v1.4u: which ONE prompt the ship gets: "dock", "jump", "lane" or "". When a station (or planet) and a trade-lane
+## ring are both in reach, the NEARER one wins, so the two no longer fight: fly at the ring for the lane, fly in
+## close for the dock.
+func prompt() -> String:
+	var dc := dock_candidate()
+	var lc: Dictionary = lane_candidate() if lane.is_empty() else {}
+	if not lane.is_empty(): return "lane"
+	if dc != null:
+		if not lc.is_empty() and player.global_position.distance_to(lc["pos"]) < dock_distance(dc): return "lane"
+		return "dock"
+	if gate_in_range(): return "jump"
+	return "lane" if not lc.is_empty() else ""
+
+## How far the ship is from being docked with this station or planet (station: its body or docking mouth; planet: its surface).
+func dock_distance(n: Node3D) -> float:
+	var p := player.global_position
+	if n == planet: return p.distance_to(planet.global_position) - float(planet.get_meta("radius"))
+	return minf(p.distance_to(n.global_position), p.distance_to(dock_point(n)))
 
 func gate_in_range() -> bool:
 	return player.global_position.distance_to(near_gate().global_position) < GATE_RANGE

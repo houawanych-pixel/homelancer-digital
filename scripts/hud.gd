@@ -303,9 +303,8 @@ func _layout() -> void:
 	if space and space.controls and not console_open: buttons["radar"] = radar_rect()
 	if space and space.controls:
 		var db := Rect2(S.x * 0.5 - 130, 176, 260, 60)
-		if space.dock_candidate() != null: buttons["dock"] = db
-		elif space.gate_in_range(): buttons["jump"] = db
-		elif not space.lane.is_empty() or not space.lane_candidate().is_empty(): buttons["lane"] = db
+		var pr: String = space.prompt()   # v1.4u: one prompt, the nearest thing wins
+		if pr != "": buttons[pr] = db
 	for side in ["l", "r"]:
 		var sd: Dictionary = slots[side]
 		if sd.is_empty(): continue

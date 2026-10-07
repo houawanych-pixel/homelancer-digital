@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.4t"
+const VERSION := "v1.4u"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -190,8 +190,8 @@ const LANE_RAMP := 2.5                # seconds to reach it
 const LANE_SLOW_DIST := 700.0         # start slowing this far from the last ring
 const LANE_EXIT_SPEED := 50.0
 const LANE_TINT := Color(0.35, 0.85, 1.0)
-const LANE_TUNNEL_LEN := 240.0        # the energy tunnel that rides on the ship
-const LANE_TUNNEL_RADIUS := 15.0
+const LANE_TUNNEL_LEN := 640.0        # the energy tunnel that rides on the ship (v1.4u: was 240; long enough to pass behind the camera)
+const LANE_TUNNEL_RADIUS := 46.0       # v1.4u: was 15; wide enough that the chase camera sits inside it
 const LANE_SPLASH := 0.5              # seconds of ring glow as you pass
 # planet type -> surface biome for the one-tile surfaces on every planet (scripts/surface.gd)
 const PLANET_BIOME := {"terran": "forest", "jungle": "jungle", "ocean": "ocean", "ice": "ice", "desert": "desert", "lava": "volcanic",
@@ -201,6 +201,12 @@ const PLANET_BIOME := {"terran": "forest", "jungle": "jungle", "ocean": "ocean",
 const TEXT_BUMP := 2                  # HUD and room text below TEXT_BUMP_BELOW px is drawn this much bigger
 const TEXT_BUMP_BELOW := 17
 const TEXT_MIN := 13                  # nothing on the HUD is smaller than this
+# ---------------------------------------------------------------- Job Y (v1.4u): more room, cleaner prompts, lane tunnel
+const SYSTEM_SPREAD := 1.4           # every system: planets, gates, belt, nebula and patrols sit this much farther from the main station
+const DOCK_RANGE_STATION := 190.0    # was 260: you must be this close to a station (or its docking mouth) for DOCK
+const DOCK_RANGE_PLANET := 240.0     # was 300: measured from the planet's surface
+const LANE_TUNNEL_BACK := 0.42       # share of the lane tunnel's length that trails BEHIND the ship (so the camera never sees its rim)
+
 # ---------------------------------------------------------------- Job X (v1.4t): voice ON by default
 const VOICE_DEFAULT := "read"            # "read" = voice ON (lines are spoken), "bleep" = voice OFF (radio blips)
 const VOICE_DIR := "res://assets/voices/"   # <voice_id>/<line key>.ogg : a character's recorded or generated lines

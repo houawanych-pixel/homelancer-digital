@@ -760,3 +760,22 @@ Now:
 - Honest state today: NO real voice clips are in the game yet (only a half-second test tone). Until the owner's
   generated or recorded lines are added, "ON" means the phone's or browser's built-in reader, which varies by
   device. Each character's clips should go in as their own small pack when they arrive.
+
+## 34. More room, one prompt, the lane tunnel pulled back (Job Y, v1.4u)
+
+- **More room.** Every system is spread out: the planet, gates, asteroid belt, nebula, patrol points and the
+  placeholder planets and stations all sit `SYSTEM_SPREAD` (1.4) times farther from the main station. Sizes are
+  unchanged. One step (`SystemBuilder.spread`) does it for the hand-made and the generated systems alike.
+  Flights are longer by the same factor; trade lanes and warp already cover the distance.
+- **Docking needs you closer.** DOCK shows inside 190 m of a station (was 260) and 240 m of a planet's surface
+  (was 300).
+- **One prompt at a time.** `SpaceSystem.prompt()` decides DOCK, GATE or TRADE LANE. Where a station and a lane ring
+  are both in reach the nearer one wins, so the two no longer fight.
+- **Trade-lane tunnel.** The energy tunnel that rides on the ship is now 640 m long and 92 m wide, with 42 % of it
+  trailing behind the ship and the rear end flared. The chase camera sits well inside it, so its round rim is never
+  on screen; the streaks are finer.
+
+Still to do (owner's brief, next job): one core warp effect, skinned three ways: the Freelancer-style gate tunnel,
+the cloud "anomaly" warp for the warp gates, and the rift gate as a rotating oval tear in the sky with layers of sky
+and coloured mist rushing past (slow at first, then fast, holding at full speed while the next system loads, easing
+out with no white flash).

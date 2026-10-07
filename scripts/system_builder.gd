@@ -75,6 +75,7 @@ static func all(core: Dictionary) -> Dictionary:
 		else:
 			sys["more_stations"].append({"id": "%s_station_%d" % [sid, k + 2], "name": e[2], "kind": "landmark", "placeholder": true, "color": f[3],
 				"pos": pos, "radius": radius, "desc": "Station. Placeholder: no docking yet."})
+	spread(out)
 	return out
 
 ## Is a body of this radius at `pos` clear of everything already in the system? (tests use it too)
@@ -125,6 +126,25 @@ static func _system(t: Array) -> Dictionary:
 			"color": (f[0] as Color).lerp(f[3], 0.6)},
 		"enemy": f[4], "patrols": patrols, "traffic": [[id + "_station", id + "_planet"]],
 	}
+
+## v1.4u: more room. Everything in a system moves Data.SYSTEM_SPREAD times farther from its main station (sizes stay).
+static func spread(out: Dictionary) -> void:
+	var k: float = Data.SYSTEM_SPREAD
+	for id in out:
+		var sy: Dictionary = out[id]
+		var o: Vector3 = sy["station"]["pos"]
+		sy["planet"]["pos"] = o + ((sy["planet"]["pos"] as Vector3) - o) * k
+		var done: Array = []
+		for g in sy["gates"] + [sy["gate"]]:
+			if done.any(func(d): return is_same(d, g)): continue
+			done.append(g)
+			g["pos"] = o + ((g["pos"] as Vector3) - o) * k
+		for key in ["asteroids", "nebula"]: sy[key]["center"] = o + ((sy[key]["center"] as Vector3) - o) * k
+		var pts: Array = []
+		for p in sy["patrols"]: pts.append(o + ((p as Vector3) - o) * k)
+		sy["patrols"] = pts
+		for x in sy["more_planets"] + sy["more_stations"]: x["pos"] = o + ((x["pos"] as Vector3) - o) * k
+		sy["spread"] = k
 
 ## One gate in system `a` leading to `b`, set in the direction `b` lies on the map (north on the map = -Z in flight).
 static func _link(out: Dictionary, rows: Dictionary, kind: String, a: String, b: String) -> void:

@@ -355,8 +355,9 @@ func _on_key_action(id: String) -> void:
 		"target_closest": space.target_closest()
 		"target_next": _on_hud("target")
 		"dock":   # dock / activate: station or planet in range, otherwise the jump gate in range
-			if space.dock_candidate() != null: _on_hud("dock")
-			elif space.gate_in_range(): _on_hud("jump")
+			var pr: String = space.prompt()
+			if pr == "dock" or pr == "jump": _on_hud(pr)
+			elif space.dock_candidate() != null: _on_hud("dock")
 			elif not space.lane_candidate().is_empty(): _on_hud("lane")
 			else: hud.flash_message("Nothing in docking range.")
 		"transform": _on_hud("form")
