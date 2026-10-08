@@ -39,6 +39,7 @@ var bounties_done: Array = []   # roster ids already paid
 var mission := {}            # v1.5f: the job you carry from a MISSIONS board (see scripts/missions.gd); empty = none
 var cargo: Array = []        # v1.5f: the hold: [{kind: "pilot", id, name, note}]
 var missions_done := 0       # v1.5f: jobs paid (the boards change with it)
+var special_used := {"half": false, "crit": false}   # v1.5o: the special earned at half / critical hull has been spent
 var rep := {}                # v1.4r: reputation, one number per rival pair (Factions.axis_key -> -200..200); empty = everyone at their base
 var cast := {}               # v1.4r: named characters' state: character_id -> {alive, current_system, custody}
 var god_mode := false # only used by the automated route test
@@ -78,6 +79,7 @@ func repair_all() -> String:
 	wing_r = wing_max()
 	repairs = Data.MAX_REPAIRS
 	shield = max_shield()
+	special_used = {"half": false, "crit": false}
 	changed.emit()
 	return "Hull, wings and repair kits restored."
 
@@ -107,6 +109,7 @@ func restock_all() -> String:
 	return "Loaded what %d credits would buy. Racks are not full." % (before - credits)
 
 func restore_full() -> void:
+	special_used = {"half": false, "crit": false}
 	hull = max_hull()
 	wing_l = wing_max()
 	wing_r = wing_max()

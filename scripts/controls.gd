@@ -21,7 +21,7 @@ const EFFECTS_SECTION := "effects"   # Job K
 const MOUSE_NAMES := {"Mouse Left": MOUSE_BUTTON_LEFT, "Mouse Right": MOUSE_BUTTON_RIGHT, "Mouse Middle": MOUSE_BUTTON_MIDDLE,
 	"Mouse Back": MOUSE_BUTTON_XBUTTON1, "Mouse Forward": MOUSE_BUTTON_XBUTTON2}
 ## Actions that are held (read every frame) rather than pressed once.
-const HELD := ["fire", "forward", "back", "strafe_left", "strafe_right", "afterburner", "yaw_left", "yaw_right", "pitch_up", "pitch_down", "select"]
+const HELD := ["fire", "forward", "back", "strafe_left", "strafe_right", "afterburner", "yaw_left", "yaw_right", "pitch_up", "pitch_down", "select", "special"]
 
 var settings_path: String = Data.SETTINGS_PATH
 var mode_pref: String = Data.CONTROL_MODE_DEFAULT   # saved: auto | touch | kbm

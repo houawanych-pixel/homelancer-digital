@@ -1349,6 +1349,7 @@ func _mech_move(dt: float, thrust: Vector2, base_speed: float) -> void:
 		var side_k := clampf(lv.x / sp, -3.0, 3.0)
 		model.rotation.x = lerpf(model.rotation.x, -deg_to_rad(clampf(fwd_k * 12.0, -18.0, 30.0)), minf(1.0, dt * 4.0))
 		model.rotation.z = lerpf(model.rotation.z, -deg_to_rad(side_k * 10.0), minf(1.0, dt * 4.0))
+		if special_state == "charging": model.rotation.z = special_roll   # v1.5o: the mech rolls too
 		Sections.pose_mech(player_vis, clampf(8.0 + fwd_k * 14.0, -15.0, 55.0), dt)
 
 func _spawn_group(center: Vector3, count: int) -> Array:
@@ -1661,6 +1662,7 @@ func _process(dt: float) -> void:
 	if not is_instance_valid(player): return
 	_update_player(dt)
 	Missions.tick(self, dt)   # v1.5f
+	_update_special(dt)   # v1.5o
 	_update_nav()   # v1.5i
 	_update_beacon()
 	_update_enemies(dt)
@@ -1796,6 +1798,7 @@ func _update_player(dt: float) -> void:
 	if is_instance_valid(model) and GS.form != "mech" and transform_t <= 0.0:
 		model.rotation.z = lerpf(model.rotation.z, -steer.x * 0.55, minf(1.0, dt * 4.0))
 		model.rotation.x = lerpf(model.rotation.x, -steer.y * 0.12 + thrust_arc, minf(1.0, dt * 6.0))
+		if special_state == "charging": model.rotation.z = special_roll   # v1.5o: the barrel roll while the special charges
 	var fwd := -player.global_basis.z
 	var right := player.global_basis.x
 	boosting = false
@@ -2103,7 +2106,8 @@ func fire_missile(heavy := false, k := 0, n := 1, scale := 1.0, forced: Node3D =
 		var a := (float(k) / float(n - 1) - 0.5) * 2.0
 		fan = (player.global_basis.x * a + player.global_basis.y * (1.0 - absf(a)) * 0.5) * Data.VOLLEY_SPREAD
 	missiles_live.append({"node": mi, "vel": -player.global_basis.z * 90.0 + vel + fan, "target": t, "life": 7.0, "heavy": heavy, "scale": scale,
-		"wp": _rng.randf() * TAU, "wf": _rng.randf_range(Data.WEAVE_HZ[0], Data.WEAVE_HZ[1]), "wo": _rng.randf() * TAU})
+		"wp": _rng.randf() * TAU, "wf": _rng.randf_range(Data.WEAVE_HZ[0], Data.WEAVE_HZ[1]), "wo": _rng.randf() * TAU, "special": _special_left > 0})
+	if _special_left > 0: _special_left -= 1
 	_trail_new(mi)
 	Sfx.play("missile", -4.0 if k == 0 else -9.0)
 	return true
@@ -2777,6 +2781,17 @@ func _update_enemy_missiles(dt: float) -> void:
 			m["vel"] = v
 			_sig_trail(m, dt, dist)
 		else: _missile_trail(n)
+		if not done:   # v1.5o DECOY: one of your mines in its path: it detonates on the mine (the mine goes too)
+			for mn in mines_live:
+				if is_instance_valid(mn["node"]) and (mn["node"] as Node3D).global_position.distance_to(n.global_position) < Data.DECOY_RADIUS:
+					_explode((mn["node"] as Node3D).global_position)
+					(mn["node"] as Node3D).queue_free()
+					mines_live.erase(mn)
+					decoyed += 1
+					_popup(n.global_position, "DECOYED", Color(0.6, 0.9, 1.0))
+					done = true
+					break
+		if not done and m["life"] <= 0.0 and Data.MISSILE_EXPIRE_BLAST: _expire_burst(n.global_position)
 		if done or m["life"] <= 0.0:
 			n.queue_free()
 			enemy_missiles.remove_at(i)
@@ -2812,13 +2827,13 @@ func _update_missiles(dt: float) -> void:
 		var v: Vector3 = m["vel"]
 		if is_instance_valid(t):
 			var rel := t.global_position - n.global_position
-			v = v.lerp(rel.normalized() * Data.MISSILE_SPEED, minf(1.0, dt * Data.MISSILE_TURN))
+			v = v.lerp(rel.normalized() * Data.MISSILE_SPEED, minf(1.0, dt * Data.MISSILE_TURN * (Data.SPECIAL_SWARM_TURN if m.get("special", false) else 1.0)))
 			var te := _enemy_entry(t)
 			if not te.is_empty():
 				# the enemy may try a side-boost as the missile closes in; moving sideways fast enough shakes it off
 				if rel.length() < Data.DODGE_RANGE and not m.get("rolled", false):
 					m["rolled"] = true
-					if float(te.get("dodge_t", 0.0)) <= 0.0 and _rng.randf() < enemy_dodge_chance:
+					if float(te.get("dodge_t", 0.0)) <= 0.0 and _rng.randf() < enemy_dodge_chance * (Data.SPECIAL_SWARM_DODGE if m.get("special", false) else 1.0):
 						var sd := v.cross(Vector3.UP).normalized() * (1.0 if _rng.randf() < 0.5 else -1.0)
 						te["dodge_t"] = Data.ENEMY_DODGE_TIME
 						te["dodge_dir"] = sd if sd.length() > 0.5 else Vector3.RIGHT
@@ -2841,6 +2856,9 @@ func _update_missiles(dt: float) -> void:
 				_damage_enemy(e, missile_damage(e, m.get("heavy", false), float(m.get("scale", 1.0))))
 			_spark(n.global_position, Color(1, 0.6, 0.2), 12.0 if m.get("heavy", false) else 8.0)
 			done = true
+		elif done and Data.MISSILE_EXPIRE_BLAST:   # v1.5o: out of life: it self-destructs in a round burst (the missile-trail sky)
+			_expire_burst(n.global_position)
+			missiles_expired += 1
 		if done:
 			n.queue_free()
 			missiles_live.remove_at(i)
@@ -4122,6 +4140,157 @@ func make_escort() -> void:
 
 func planet_dock_point() -> Vector3:
 	return dock_point(planet) + Vector3(0, 60, 0)
+
+# ---------------------------------------------------------------- v1.5o SPECIAL lock-on super move (docs/SPECIAL_MOVE.md)
+var special_held := false       # the SPECIAL button is held (the HUD sets it)
+var special_state := "idle"     # idle | charging | cutin | beam
+var special_t := 0.0            # time in the current state
+var special_target: Node3D = null
+var special_roll := 0.0         # the model's roll angle during the charge
+var special_which := ""         # which earned special this is: "half" | "crit"
+var special_log: Array = []     # what happened, in order (tests)
+var _special_left := 0          # missiles of the special swarm still to launch (they steer harder)
+var _special_break_t := 0.0
+var missiles_expired := 0       # player missiles that ran out of life and burst (tests)
+var decoyed := 0                # enemy missiles that hit one of your mines (tests)
+var _beam: MeshInstance3D = null
+
+## Which earned special is ready ("half" / "crit" / ""): hull at or under half (then critical), not yet spent.
+func special_ready() -> String:
+	var k: float = GS.hull / maxf(GS.max_hull(), 1.0)
+	if k > Data.SPECIAL_RESET_AT and (GS.special_used["half"] or GS.special_used["crit"]): GS.special_used = {"half": false, "crit": false}
+	if k <= Data.SPECIAL_ARM_AT[1] and not GS.special_used["crit"]: return "crit"
+	if k <= Data.SPECIAL_ARM_AT[0] and not GS.special_used["half"]: return "half"
+	return ""
+
+func _special_locked_on(t: Node3D) -> bool:
+	return t != null and is_instance_valid(t) and t.get_meta("kind", "") == "enemy" and _cone(t, Data.SPECIAL_CONE_DEG, Data.SPECIAL_RANGE)
+
+func _update_special(dt: float) -> void:
+	special_t += dt
+	match special_state:
+		"idle":
+			if special_held and controls and warp_state == "off" and special_ready() != "" and _special_locked_on(target):
+				special_state = "charging"
+				special_t = 0.0
+				special_target = target
+				special_which = special_ready()
+				_special_break_t = 0.0
+				special_log.append("charge")
+				message.emit("SPECIAL LOCK: hold on target...")
+				Sfx.play("warp_spool", -6.0)
+		"charging":
+			special_roll += dt * TAU / Data.SPECIAL_ROLL_TIME
+			var k := clampf(special_t / Data.SPECIAL_LOCK_TIME, 0.0, 1.0)
+			_booster_particles(dt, k)   # energy building round the weapons
+			if int(time * 20.0) % 2 == 0: _spark(player.global_position + player.global_basis.x * (2.5 if randf() < 0.5 else -2.5) - player.global_basis.z * 2.0, Color(0.5, 0.85, 1.0).lerp(Color(1, 1, 1), k), 2.0 + 4.0 * k, 0.2)
+			# the target tries to break the lock: it jinks sideways now and then
+			_special_break_t += dt
+			if _special_break_t >= 1.0:
+				_special_break_t = 0.0
+				var te := _enemy_entry(special_target)
+				if not te.is_empty() and randf() < Data.SPECIAL_BREAK_CHANCE and float(te.get("dodge_t", 0.0)) <= 0.0:
+					te["dodge_t"] = Data.ENEMY_DODGE_TIME
+					te["dodge_dir"] = (special_target.global_position - player.global_position).cross(Vector3.UP).normalized() * (1.0 if randf() < 0.5 else -1.0)
+			if not _special_locked_on(special_target):
+				_special_end("LOCK BROKEN: the target got out of your sights.")
+				special_log.append("broken")
+				return
+			if not special_held:
+				if special_t >= Data.SPECIAL_LOCK_TIME: _special_fire()
+				else:
+					_special_end("Special charge lost: hold SPECIAL until the lock completes.")
+					special_log.append("lost")
+		"cutin":
+			if special_t >= Data.SPECIAL_CUTIN_TIME: _special_beam()
+		"beam":
+			if is_instance_valid(_beam):
+				var mat := _beam.material_override as StandardMaterial3D
+				mat.albedo_color.a = clampf(1.0 - special_t / Data.SPECIAL_BEAM_TIME, 0.0, 1.0)
+				if is_instance_valid(special_target): _aim_beam(special_target.global_position)
+			if special_t >= Data.SPECIAL_BEAM_TIME: _special_swarm()
+
+func _special_end(said: String) -> void:
+	special_state = "idle"
+	special_t = 0.0
+	special_roll = 0.0
+	if said != "": message.emit(said)
+
+## Lock complete and released: the special is spent; the cut-in plays (the game keeps running under it).
+func _special_fire() -> void:
+	GS.special_used[special_which] = true
+	special_state = "cutin"
+	special_t = 0.0
+	special_roll = 0.0
+	special_log.append("cutin")
+	Sfx.play("warp_go", -3.0)
+
+## The energy blast: unavoidable once the lock is complete. Shields stripped, overflow into the hull; a hard side
+## hit takes that wing off.
+func _special_beam() -> void:
+	special_state = "beam"
+	special_t = 0.0
+	special_log.append("beam")
+	if not is_instance_valid(special_target):
+		return
+	_beam = MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = Data.SPECIAL_BEAM_WIDTH
+	cm.bottom_radius = Data.SPECIAL_BEAM_WIDTH * 0.6
+	cm.height = 1.0
+	_beam.mesh = cm
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mat.albedo_color = Color(0.55, 0.85, 1.0, 1.0)
+	_beam.material_override = mat
+	add_child(_beam)
+	_aim_beam(special_target.global_position)
+	Sfx.play("explosion", -2.0)
+	var e := _enemy_entry(special_target)
+	if e.is_empty(): return
+	var dir := (special_target.global_position - player.global_position).normalized()
+	var side_dot := dir.dot(special_target.global_basis.x)
+	var hit_side := ""
+	if absf(side_dot) > Data.SPECIAL_SIDE_HIT: hit_side = "l" if side_dot > 0.0 else "r"   # struck from the right = the beam lands on its right... (it enters the side facing you)
+	var dmg: float = float(e["sh"]) + float(e["max"]) * Data.SPECIAL_BEAM_OVERFLOW
+	e["sh_cd"] = 6.0   # the shield stays down for a while
+	_damage_enemy(e, dmg)
+	if hit_side != "" and e in enemies and float(e[hit_side]) > 0.0:
+		_break_section(e, hit_side)
+		special_log.append("wing_" + hit_side)
+	_spark(special_target.global_position, Color(0.7, 0.95, 1.0), 40.0, 0.5)
+
+func _aim_beam(to: Vector3) -> void:
+	if not is_instance_valid(_beam): return
+	var from := player.global_position - player.global_basis.z * 6.0
+	var mid := (from + to) * 0.5
+	var len := from.distance_to(to)
+	var up := (to - from).normalized()
+	var side := up.cross(Vector3.UP if absf(up.y) < 0.95 else Vector3.RIGHT).normalized()
+	_beam.global_transform = Transform3D(Basis(side, up, side.cross(up)).scaled(Vector3(1.0, len, 1.0)), mid)
+
+## The swarm right after the beam: your real light missiles, locks x identical launchers (the twin-launcher rule).
+func _special_swarm() -> void:
+	if is_instance_valid(_beam): _beam.queue_free()
+	_beam = null
+	special_log.append("swarm")
+	var n: int = mini(GS.max_locks("light_missile") * Data.SPECIAL_LAUNCHERS, GS.missiles)
+	if n > 0 and is_instance_valid(special_target) and special_target in enemies.map(func(o): return o["node"]):
+		var keep_t := target
+		target = special_target
+		_special_left = n
+		fire_volley(false, n)
+		target = keep_t if is_instance_valid(keep_t) else special_target
+		message.emit("SPECIAL: beam hit, %d missiles away." % n)
+	elif n <= 0: message.emit("SPECIAL: beam hit. No missiles left for the swarm.")
+	_special_end("")
+
+## A missile out of life bursts into a round explosion zone.
+func _expire_burst(at: Vector3) -> void:
+	_spark(at, Color(1.0, 0.7, 0.3), 22.0, 0.45)
+	_spark(at, Color(1.0, 0.95, 0.8), 10.0, 0.25)
 
 var waypoint: Node3D = null   # the player's own map waypoint (radar map -> tap anywhere -> SET COURSE)
 

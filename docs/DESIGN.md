@@ -1137,3 +1137,24 @@ Owner, after the v1.5k test flow passed: "push it to all".
   boost, the full arc when climbing or pulling up; it rises at `THRUST_ARC_IN` and settles back to level at
   `THRUST_ARC_OUT` after you let go. Looks only: the flight path, speed and controls are unchanged; not at warp, not
   as a mech.
+
+## 54. Special lock-on super move (Job AR, v1.5o)
+- Owner's spec: docs/SPECIAL_MOVE.md. Built now with the single launcher the ship has today; the twin-launcher rule
+  is one number (`SPECIAL_LAUNCHERS`) for when the hangar mounts a second identical launcher.
+- Earned: at half hull (`SPECIAL_ARM_AT[0]`), once more at critical (`SPECIAL_ARM_AT[1]`). Each is spent once;
+  repairing past `SPECIAL_RESET_AT` (75 %) earns them back (`GS.special_used`, a new save-safe field).
+- SPECIAL button: the free corner of the top-left block (next to WARP), F on a keyboard. Locked (sub line "AT HALF
+  HULL") until earned, then pulses gold. Hold it on a target inside `SPECIAL_CONE_DEG` / `SPECIAL_RANGE`: the ship
+  (or mech) barrel-rolls, energy builds round the guns, a gold ring closes on the target over `SPECIAL_LOCK_TIME`.
+  The target tries to break the lock (a sideways jink each second, `SPECIAL_BREAK_CHANCE`); out of the cone =
+  "LOCK BROKEN"; letting go before the ring closes = "charge lost". Neither spends the special.
+- Release after the lock: the cut-in (a slanted band over the view for `SPECIAL_CUTIN_TIME`: the pilot large,
+  "SPECIAL ATTACK", "LOCK CONFIRMED" / "LAST STAND" at critical). Bars and buttons stay visible round it. The pilot is
+  a helmeted silhouette until the owner gives a player pilot portrait (`PLAYER_PILOT_FACE`).
+- Then the beam (can't be dodged once locked): strips the shield, `SPECIAL_BEAM_OVERFLOW` of the target's hull goes
+  through, the shield stays down a while, a side-on hit (`SPECIAL_SIDE_HIT`) takes that wing off.
+- Then the swarm: your real light missiles, locks x launchers (6 x 1 today), never more than you carry. No missiles =
+  the beam only. Swarm missiles steer harder and are harder to dodge.
+- Every missile (yours and theirs) bursts in a round explosion when its life runs out (`MISSILE_EXPIRE_BLAST`). A mine
+  in an incoming missile's path decoys it (`DECOY_RADIUS`): both go off.
+- Not yet: heavy torpedo timed lock, twin launchers (needs the hangar), a player pilot portrait.

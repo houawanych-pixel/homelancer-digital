@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.5n"
+const VERSION := "v1.5o"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -33,6 +33,7 @@ const KBM_ACTIONS := [
 	{"id": "transform", "name": "Transform ship / mech", "key": "G", "rebind": true, "extra": true},
 	{"id": "view", "name": "Chase / cockpit view", "key": "V", "rebind": true, "extra": true},
 	{"id": "map", "name": "System map", "key": "M", "rebind": true, "extra": true},
+	{"id": "special", "name": "Special lock-on (hold on target, release to fire)", "key": "F", "rebind": true, "extra": true},   # v1.5o
 	{"id": "map_orient", "name": "Map / radar: north-up or heading-up", "key": "N", "rebind": true, "extra": true},
 	{"id": "map_tilt", "name": "Map / radar: angled or overhead", "key": "B", "rebind": true, "extra": true},
 	{"id": "yaw_left", "name": "Turn left (keyboard)", "key": "Left", "rebind": true, "extra": true},
@@ -201,6 +202,26 @@ const PLANET_BIOME := {"terran": "forest", "jungle": "jungle", "ocean": "ocean",
 const TEXT_BUMP := 2                  # HUD and room text below TEXT_BUMP_BELOW px is drawn this much bigger
 const TEXT_BUMP_BELOW := 17
 const TEXT_MIN := 13                  # nothing on the HUD is smaller than this
+# ---------------------------------------------------------------- Job AR (v1.5o): the special lock-on super move (docs/SPECIAL_MOVE.md)
+const SPECIAL_ARM_AT := [0.5, 0.25]     # hull shares at which the special arms (half, then critical); once each until repaired
+const SPECIAL_RESET_AT := 0.75          # repaired above this, both are ready to earn again
+const SPECIAL_LOCK_TIME := 2.4          # hold SPECIAL this long on a locked target to complete the special lock
+const SPECIAL_CONE_DEG := 25.0          # keep the target inside this cone ...
+const SPECIAL_RANGE := 1300.0           # ... and this range while charging, or the lock breaks
+const SPECIAL_BREAK_CHANCE := 0.55      # chance per second the target jinks to break the lock
+const SPECIAL_ROLL_TIME := 0.8          # one full barrel roll while charging takes this long
+const SPECIAL_CUTIN_TIME := 2.2         # the pilot cut-in
+const SPECIAL_BEAM_TIME := 0.9          # the energy blast on screen
+const SPECIAL_BEAM_WIDTH := 16.0        # its radius (m): a big, hard-to-miss hit area
+const SPECIAL_BEAM_OVERFLOW := 0.45     # after stripping the shields, this share of the target's max hull goes through
+const SPECIAL_SIDE_HIT := 0.55          # |beam . target's side| above this = a side hit: that wing comes off
+const SPECIAL_SWARM_TURN := 1.6         # the special swarm steers this much harder than normal missiles
+const SPECIAL_SWARM_DODGE := 0.35       # ... and the target's dodge chance against it is this share of normal
+const SPECIAL_LAUNCHERS := 1            # identical light launchers fitted (the twin-launcher rule: locks x launchers); 1 until the hangar fits two
+const MISSILE_EXPIRE_BLAST := true      # a missile that runs out of life bursts into a round explosion zone
+const DECOY_RADIUS := 26.0              # an enemy missile this close to one of your mines detonates on it (the mine goes too)
+const PLAYER_PILOT_FACE := ""           # the player's own pilot portrait for the cut-in (none yet: a drawn silhouette)
+
 # ---------------------------------------------------------------- Job AQ (v1.5n): thrust arc (looks only, flight unchanged)
 const THRUST_ARC_DEG := 22.0      # how far the nose rears up at most while THRUST is on
 const THRUST_ARC_BASE := 0.45     # share of that on a level boost; climbing or pulling up adds the rest

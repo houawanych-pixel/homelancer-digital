@@ -1051,6 +1051,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_AR") != "":   # the Job AR checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_ar()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_AQ") != "":   # the Job AQ checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1626,6 +1634,7 @@ func _run() -> void:
 	await _job_ao()
 	await _job_ap()
 	await _job_aq()
+	await _job_ar()
 	await _galaxy()
 	await _controls_j()
 	await _gate_k()
@@ -5398,3 +5407,175 @@ func _job_aq() -> void:
 	_check("Job AQ: THRUST rears the ship's nose up into an arc (up to %d deg, most when climbing or pulling up), then it eases back to level when you let go; flight is unchanged" % int(Data.THRUST_ARC_DEG),
 		up_arc > max_rad * 0.6 and up_arc <= max_rad + 0.001 and model_up > level0 + max_rad * 0.4 and level_arc > 0.0 and after < up_arc * 0.15,
 		"arc %.1f deg pulling up, model %.1f -> %.1f deg, %.1f deg after release" % [rad_to_deg(up_arc), rad_to_deg(level0), rad_to_deg(model_up), rad_to_deg(after)])
+
+
+## Job AR (v1.5o): the SPECIAL lock-on super move (docs/SPECIAL_MOVE.md). Earned at half hull, again at critical;
+## hold SPECIAL on a locked target (the ship barrel-rolls, the target tries to break the lock), release to fire:
+## the pilot cut-in, the shield-stripping beam (a side hit takes a wing), then a swarm of your real missiles.
+func _job_ar() -> void:
+	var shell := FileAccess.get_file_as_string("res://web_shell.html")
+	_check("Job AR: version label reads \"Homelancer Digital v1.5o\" or later", Data.VERSION >= "v1.5o" and (shell == "" or shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0), Data.VERSION)
+	var s := _sp()
+	var hud = main.hud
+	var mh: float = GS.max_hull()
+	var keep_hull: float = GS.hull
+	var keep_missiles: int = GS.missiles
+	var keep_modes: Dictionary = GS.modes.duplicate()
+	for id in ["guns", "missile", "mine", "hull", "shield", "energy"]: GS.modes[id] = "manual"   # only the special touches the target
+	GS.special_used = {"half": false, "crit": false}
+	# ---- 1. arming: nothing at full hull, "half" at half, "crit" at a quarter, both reset once repaired past 75 %
+	GS.hull = mh * 0.9
+	var r_full: String = s.special_ready()
+	GS.hull = mh * 0.5
+	var r_half: String = s.special_ready()
+	GS.special_used["half"] = true
+	var r_half_spent: String = s.special_ready()
+	GS.hull = mh * 0.2
+	var r_crit: String = s.special_ready()
+	GS.special_used["crit"] = true
+	var r_all_spent: String = s.special_ready()
+	GS.hull = mh * 0.9
+	s.special_ready()
+	var reset_ok: bool = not GS.special_used["half"] and not GS.special_used["crit"]
+	_check("Job AR: the special arms at half hull, again at critical (a quarter), once each; repairing past 75 % earns them back",
+		r_full == "" and r_half == "half" and r_half_spent == "" and r_crit == "crit" and r_all_spent == "" and reset_ok,
+		"full '%s' half '%s' spent '%s' crit '%s' all '%s' reset %s" % [r_full, r_half, r_half_spent, r_crit, r_all_spent, reset_ok])
+	var kb_ok: bool = main.controls != null and main.controls.binding("special") == "F"
+	_check("Job AR: a SPECIAL button sits in the free corner of the top-left block (locked until earned), and F holds it on a keyboard",
+		hud.buttons.has("special") and hud.buttons["special"].position.y > hud.buttons["shield"].position.y and kb_ok, "button %s key F %s" % [hud.buttons.has("special"), kb_ok])
+	# ---- 2. a target dead ahead; hold SPECIAL at half hull
+	GS.hull = mh * 0.5
+	_tp(s.station.global_position + Vector3(0, 1500, 5000), s.station.global_position + Vector3(0, 1500, 6000))   # clear of station guns
+	s.fire_lock = false
+	await _frames(3)
+	var fwd := -s.player.global_basis.z
+	var e: Dictionary = s.spawn_unit("raider", s.player.global_position + fwd * 300.0, s.player.global_position)
+	var n: Node3D = e["node"]
+	e["aggro"] = false
+	for k in ["hp", "max"]: e[k] = 400.0   # tough enough that only the special decides it
+	s.target = n
+	# 2a. let go too early: charge lost, special still there
+	s.special_log.clear()
+	hud.held["special"] = true
+	var t0 := 0.0
+	while t0 < 0.6:   # real time, not frames: a slow screen would finish the lock in 30 frames
+		_ar_hold(s, e, false)
+		await get_tree().process_frame
+		t0 += get_process_delta_time()
+	var charging: bool = s.special_state == "charging"
+	var rolled: bool = absf(s.model.rotation.z) > 0.05
+	hud.held.erase("special")
+	await _frames(3)
+	var lost: bool = "lost" in s.special_log and s.special_state == "idle" and s.special_ready() == "half"
+	# 2b. the target gets out of the sights: lock broken
+	s.special_log.clear()
+	hud.held["special"] = true
+	t0 = 0.0
+	while t0 < 0.3:
+		_ar_hold(s, e, false)
+		await get_tree().process_frame
+		t0 += get_process_delta_time()
+	n.global_position = s.player.global_position + s.player.global_basis.z * 300.0   # behind you
+	await _frames(3)
+	var broken: bool = "broken" in s.special_log and s.special_state == "idle"
+	hud.held.erase("special")
+	await _frames(2)
+	_check("Job AR: holding SPECIAL on a locked target charges it (the ship barrel-rolls); letting go early loses the charge, the target leaving your sights breaks the lock; neither spends it",
+		charging and rolled and lost and broken and s.special_ready() == "half", "charging %s roll %s lost %s broken %s" % [charging, rolled, lost, broken])
+	# ---- 3. the full move: hold through the lock, release, cut-in, beam, swarm
+	s.special_log.clear()
+	GS.missiles = 20
+	e["sh"] = float(e["sh_max"])
+	var hp0: float = float(e["hp"])
+	hud.held["special"] = true
+	var tl := 0.0
+	while tl < Data.SPECIAL_LOCK_TIME + 0.3:
+		_ar_hold(s, e, true)
+		await get_tree().process_frame
+		tl += get_process_delta_time()
+	hud.held.erase("special")
+	var cut := false
+	var tc := 0.0
+	while tc < Data.SPECIAL_CUTIN_TIME + 0.4 and s.special_state != "beam":
+		_ar_hold(s, e, true)
+		if s.special_state == "cutin" and s.special_t > 0.7 and not cut:
+			cut = true
+			await _shot("ar_special_cutin", 0.0)
+		await get_tree().process_frame
+		tc += get_process_delta_time()
+	await _frames(2)
+	var stripped: bool = not is_instance_valid(n) or float(e["sh"]) <= 0.0
+	var hp_hit: bool = not is_instance_valid(n) or float(e["hp"]) < hp0
+	var wing: bool = "wing_l" in s.special_log or "wing_r" in s.special_log
+	var spent: bool = GS.special_used["half"] and s.special_ready() == ""
+	var m0 := GS.missiles
+	await _until(func(): return "swarm" in s.special_log, Data.SPECIAL_BEAM_TIME + 2.0)
+	await _wait(Data.VOLLEY_GAP * 14 + 0.3)
+	var want: int = mini(GS.max_locks("light_missile") * Data.SPECIAL_LAUNCHERS, 20)
+	var fired: int = m0 - GS.missiles
+	var flagged: int = s.missiles_live.filter(func(m): return m.get("special", false)).size()
+	_check("Job AR: released after the full lock: the pilot cut-in, then the beam strips the shield and goes into the hull (a side-on hit takes a wing), then the swarm fires your real missiles (locks x launchers); the special is spent",
+		cut and stripped and hp_hit and wing and spent and fired == want and s.special_state == "idle",
+		"cutin %s shield %s hull %s wing %s spent %s fired %d/%d (special-flagged in flight %d) log %s" % [cut, stripped, hp_hit, wing, spent, fired, want, flagged, s.special_log])
+	# ---- 4. no missiles: the beam still fires, the swarm is empty, no free ammo
+	if is_instance_valid(n): s._damage_enemy(e, 99999.0)
+	await _frames(3)
+	GS.special_used = {"half": true, "crit": false}
+	GS.hull = mh * 0.2
+	GS.missiles = 0
+	var e2: Dictionary = s.spawn_unit("raider", s.player.global_position + fwd * 300.0, s.player.global_position)
+	n = e2["node"]
+	e = e2
+	e2["aggro"] = false
+	s.target = n
+	s.special_log.clear()
+	hud.held["special"] = true
+	tl = 0.0
+	while tl < Data.SPECIAL_LOCK_TIME + 0.3:
+		_ar_hold(s, e, false)
+		await get_tree().process_frame
+		tl += get_process_delta_time()
+	var which: String = s.special_which
+	hud.held.erase("special")
+	await _until(func(): return "swarm" in s.special_log, Data.SPECIAL_CUTIN_TIME + Data.SPECIAL_BEAM_TIME + 2.0)
+	_check("Job AR: at critical hull the special comes back once more; with no missiles left the beam still fires and the swarm is empty (no free ammunition)",
+		which == "crit" and "beam" in s.special_log and "swarm" in s.special_log and GS.missiles == 0 and GS.special_used["crit"],
+		"which %s log %s missiles %d" % [which, s.special_log, GS.missiles])
+	if is_instance_valid(n): s._damage_enemy(e2, 99999.0)
+	await _frames(3)
+	# ---- 5. missiles do not chase forever: out of life they burst
+	GS.missiles = 5
+	var e3: Dictionary = s.spawn_unit("raider", s.player.global_position + fwd * 900.0, s.player.global_position)
+	e3["aggro"] = false
+	var ex0: int = s.missiles_expired
+	s.fire_missile(false, 0, 1, 1.0, e3["node"])
+	if not s.missiles_live.is_empty(): s.missiles_live[-1]["life"] = 0.05
+	await _wait(0.4)
+	var expired: bool = s.missiles_expired > ex0
+	if is_instance_valid(e3["node"]): s._damage_enemy(e3, 99999.0)
+	# ---- 6. a mine in an incoming missile's path decoys it
+	var dc0: int = s.decoyed
+	var em := Node3D.new()
+	s.add_child(em)
+	em.global_position = s.player.global_position + fwd * 200.0
+	s.enemy_missiles.append({"node": em, "vel": Vector3.ZERO, "life": 5.0, "lost": true})
+	var mine := Node3D.new()
+	s.add_child(mine)
+	mine.global_position = em.global_position + Vector3(0, 5, 0)
+	s.mines_live.append({"node": mine, "arm": 1.0, "life": 60.0, "vel": Vector3.ZERO})
+	await _wait(0.3)
+	_check("Job AR: a missile that runs out of life self-destructs in a round burst; a mine dropped in an incoming missile's path decoys it (both go off)",
+		expired and s.decoyed > dc0, "expired %s decoyed %d" % [expired, s.decoyed - dc0])
+	GS.hull = keep_hull
+	GS.missiles = keep_missiles
+	GS.modes = keep_modes
+	GS.special_used = {"half": false, "crit": false}
+	s.special_log.clear()
+
+## Job AR: keep the target steady dead ahead (side-on when asked), as a pilot holding the lock would.
+func _ar_hold(s: SpaceSystem, e: Dictionary, side_on: bool) -> void:
+	var n = e.get("node")
+	if n == null or not is_instance_valid(n): return
+	n.global_position = s.player.global_position - s.player.global_basis.z * 300.0
+	n.look_at(n.global_position + (s.player.global_basis.x if side_on else s.player.global_basis.z), Vector3.UP)
+	e["vel"] = Vector3.ZERO

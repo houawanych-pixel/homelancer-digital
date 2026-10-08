@@ -287,6 +287,7 @@ func _layout() -> void:
 	for k in 3: buttons[lids[k]] = Rect2(Vector2(8 + k * (btn + g), y1), bs)
 	buttons["form"] = Rect2(Vector2(8, y2), bs)   # TRANSFORM sits where STOP used to be
 	buttons["warp"] = Rect2(Vector2(8 + btn + g, y2), bs)
+	buttons["special"] = Rect2(Vector2(8 + 2 * (btn + g), y2), bs)   # v1.5o: SPECIAL, held (the free corner of the block)
 	# top right mirrors it: three weapon slots / THRUST · KILL (kill hard against the right edge)
 	for k in 3: buttons["slot_%d" % k] = Rect2(Vector2(S.x - 8 - (3 - k) * btn - (2 - k) * g, y1), bs)
 	buttons["kill"] = Rect2(Vector2(S.x - 8 - btn, y2), bs)
@@ -340,7 +341,7 @@ func _input(e: InputEvent) -> void:
 						talk_press()
 						get_viewport().set_input_as_handled()
 						return
-					if id != "thrust": pressed.emit(id)   # THRUST works while held
+					if id != "thrust" and id != "special": pressed.emit(id)   # THRUST and SPECIAL work while held
 					get_viewport().set_input_as_handled()
 					return
 			if console_open:
@@ -396,6 +397,7 @@ func _process(dt: float) -> void:
 	space.aim = a * a.length()
 	space.fire_held = controls.held("fire") if controls else Input.is_action_pressed("fire")   # Job J: right-click by default
 	space.thrust_held = held.has("thrust") or (controls != null and controls.held("afterburner"))   # Job J: afterburner key (Tab)
+	space.special_held = held.has("special") or (controls != null and controls.held("special"))   # v1.5o: SPECIAL (F)
 	if console_open:
 		if roster_closing:
 			roster_t = maxf(0.0, roster_t - dt * 6.0)
@@ -451,6 +453,13 @@ func _text(p: Vector2, txt: String, size := 18, col := WHITE, align := HORIZONTA
 
 func _icon(id: String, c: Vector2, s: float, col: Color) -> void:
 	match id:
+		"special":   # v1.5o: a burst in a lock ring
+			draw_arc(c, s * 0.95, 0, TAU, 28, col, 2.5, true)
+			var pts := PackedVector2Array()
+			for i in 16:
+				var a := i * TAU / 16.0 - PI / 2
+				pts.append(c + Vector2(cos(a), sin(a)) * (s * 0.7 if i % 2 == 0 else s * 0.3))
+			draw_colored_polygon(pts, col)
 		"shield":
 			var pts := PackedVector2Array([c + Vector2(0, -s), c + Vector2(s * 0.85, -s * 0.62), c + Vector2(s * 0.72, s * 0.25), c + Vector2(0, s), c + Vector2(-s * 0.72, s * 0.25), c + Vector2(-s * 0.85, -s * 0.62), c + Vector2(0, -s)])
 			draw_polyline(pts, col, 3.0, true)
@@ -526,6 +535,66 @@ func _icon(id: String, c: Vector2, s: float, col: Color) -> void:
 		"thrust":
 			draw_colored_polygon(PackedVector2Array([c + Vector2(0, -s), c + Vector2(s * 0.55, -s * 0.1), c + Vector2(s * 0.6, s * 0.45), c + Vector2(0, s * 0.95), c + Vector2(-s * 0.6, s * 0.45), c + Vector2(-s * 0.4, -s * 0.2)]), ORANGE)
 			draw_colored_polygon(PackedVector2Array([c + Vector2(0, -s * 0.3), c + Vector2(s * 0.3, s * 0.3), c + Vector2(0, s * 0.8), c + Vector2(-s * 0.3, s * 0.3)]), YELLOW)
+
+## v1.5o SPECIAL button: locked until the hull is down to half (then critical); held while locked on.
+func _special_button() -> void:
+	var st: String = space.special_state
+	var ready: String = space.special_ready()
+	var sub := "HOLD ON LOCK"
+	var cd := 0.0
+	if st == "charging":
+		var k := clampf(space.special_t / Data.SPECIAL_LOCK_TIME, 0.0, 1.0)
+		sub = "RELEASE!" if k >= 1.0 else "LOCKING %d%%" % int(k * 100)
+		cd = 1.0 - k
+	elif st != "idle": sub = "FIRING"
+	elif ready == "": sub = "AT HALF HULL" if not GS.special_used["half"] else ("AT CRITICAL" if not GS.special_used["crit"] else "SPENT")
+	elif ready == "crit": sub = "CRITICAL · HOLD"
+	var armed := ready != "" or st != "idle"
+	_corner("special", "SPECIAL", "special", GOLD, st != "idle" or (armed and fmod(t, 0.8) < 0.4), "", cd, not armed or space.warp_state != "off", sub)
+
+func _draw_special() -> void:
+	if space == null: return
+	var st: String = space.special_state
+	if st == "charging" and is_instance_valid(space.special_target):
+		var cam := get_viewport().get_camera_3d()
+		var p: Vector3 = space.special_target.global_position
+		if cam and not cam.is_position_behind(p):
+			var c := cam.unproject_position(p)
+			var k := clampf(space.special_t / Data.SPECIAL_LOCK_TIME, 0.0, 1.0)
+			var rr := lerpf(70.0, 30.0, k)
+			draw_arc(c, rr, -PI / 2, -PI / 2 + TAU * k, 48, GOLD, 4.0, true)
+			for i in 4:
+				var a := i * PI / 2 + t * 2.0
+				draw_line(c + Vector2(cos(a), sin(a)) * (rr + 6), c + Vector2(cos(a), sin(a)) * (rr + 18), Color(GOLD, 0.9), 3.0)
+			_text(c + Vector2(-80, rr + 34), "LOCKED · RELEASE" if k >= 1.0 else "SPECIAL LOCK", 15, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 160)
+	if st != "cutin": return
+	# the cut-in: a slanted band across the middle, the pilot large on it, "SPECIAL ATTACK"; bars and buttons stay visible
+	var k := clampf(space.special_t / Data.SPECIAL_CUTIN_TIME, 0.0, 1.0)
+	var slide := clampf(k * 5.0, 0.0, 1.0) * (1.0 - clampf((k - 0.85) * 6.7, 0.0, 1.0))
+	var h := S.y * 0.34
+	var y := S.y * 0.5 - h * 0.5
+	var sk := h * 0.35
+	var x0 := lerpf(-S.x, 0.0, slide)
+	var band := PackedVector2Array([Vector2(x0 + sk, y), Vector2(x0 + S.x + sk, y), Vector2(x0 + S.x - sk, y + h), Vector2(x0 - sk, y + h)])
+	draw_colored_polygon(band, Color(0.02, 0.05, 0.12, 0.82 * slide))
+	draw_polyline(PackedVector2Array([band[0], band[1]]), Color(GOLD, slide), 4.0)
+	draw_polyline(PackedVector2Array([band[3], band[2]]), Color(GOLD, slide), 4.0)
+	for i in 6:   # speed lines
+		var ly := y + h * (0.15 + i * 0.14)
+		var lx := fmod(t * 1400.0 + i * 260.0, S.x + 400.0) - 200.0
+		draw_line(Vector2(lx, ly), Vector2(lx + 180, ly), Color(1, 1, 1, 0.25 * slide), 2.0)
+	var face_r := Rect2(Vector2(x0 + S.x * 0.12, y - h * 0.1), Vector2(h * 1.2, h * 1.2))
+	var tex: Texture2D = _face_tex(Data.PLAYER_PILOT_FACE, "normal") if Data.PLAYER_PILOT_FACE != "" else null
+	if tex: draw_texture_rect(tex, face_r, false, Color(1, 1, 1, slide))
+	else:   # no pilot portrait yet: a helmeted silhouette
+		var fc := face_r.get_center()
+		var fs := face_r.size.x * 0.32
+		draw_circle(fc + Vector2(0, -fs * 0.2), fs, Color(0.1, 0.16, 0.26, slide))
+		draw_colored_polygon(PackedVector2Array([fc + Vector2(-fs * 0.75, -fs * 0.3), fc + Vector2(fs * 0.75, -fs * 0.3), fc + Vector2(fs * 0.55, fs * 0.05), fc + Vector2(-fs * 0.55, fs * 0.05)]), Color(0.45, 0.85, 1.0, 0.9 * slide))
+		draw_colored_polygon(PackedVector2Array([fc + Vector2(-fs * 1.4, fs * 1.6), fc + Vector2(-fs * 0.7, fs * 0.7), fc + Vector2(fs * 0.7, fs * 0.7), fc + Vector2(fs * 1.4, fs * 1.6)]), Color(0.1, 0.16, 0.26, slide))
+	var crit: bool = space.special_which == "crit"
+	_text(Vector2(x0 + S.x * 0.45, y + h * 0.45), "SPECIAL ATTACK", 44, Color(GOLD, slide), HORIZONTAL_ALIGNMENT_LEFT, S.x * 0.5)
+	_text(Vector2(x0 + S.x * 0.45, y + h * 0.68), "LAST STAND" if crit else "LOCK CONFIRMED", 22, Color(RED if crit else CYAN, slide), HORIZONTAL_ALIGNMENT_LEFT, S.x * 0.5)
 
 ## One big corner button: raised face, icon, label, optional count badge and cooldown ring.
 func _corner(id: String, label: String, icon: String, col: Color, active := false, badge := "", cd := 0.0, locked := false, sub := "") -> void:
@@ -878,6 +947,7 @@ func _draw() -> void:
 	if space.warp_state == "charging": wsub = "%d s" % int(ceil(Data.WARP_CHARGE - space.warp_t))
 	elif space.warp_state == "on": wsub = "DROP OUT"
 	_corner("warp", "WARP", "warp", Color(0.62, 0.55, 1.0), space.warp_state != "off", "", 0.0, GS.form == "mech", wsub)
+	_special_button()   # v1.5o
 	if space.warp_state == "charging":
 		var wr: Rect2 = buttons["warp"]
 		draw_rect(Rect2(wr.position + Vector2(8, wr.size.y - 5), Vector2((wr.size.x - 16) * space.warp_t / Data.WARP_CHARGE, 3)), Color(0.8, 0.75, 1.0))
@@ -913,6 +983,7 @@ func _draw() -> void:
 	_stick("aim", "AIM")
 	if comms_open: _comms()
 	_draw_scan()   # v1.5g
+	_draw_special()   # v1.5o: lock ring + the pilot cut-in (drawn over the view, the HUD stays readable)
 	if damage_flash > 0.0:
 		for i in 6: draw_rect(Rect2(Vector2.ZERO, S), Color(RED, damage_flash * 0.08), false, 60.0 - i * 9.0)
 
