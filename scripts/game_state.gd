@@ -36,6 +36,9 @@ var memory := {} # id -> what that character remembers about you (see scripts/br
 var heat_shield := false # EARLY idea: a ship upgrade that survives the sun (nothing sells it yet)
 var bounty := {}             # v1.4q: the bounty you carry: {id, sys, state: "hunt" | "captured"}; empty = none
 var bounties_done: Array = []   # roster ids already paid
+var mission := {}            # v1.5f: the job you carry from a MISSIONS board (see scripts/missions.gd); empty = none
+var cargo: Array = []        # v1.5f: the hold: [{kind: "pilot", id, name, note}]
+var missions_done := 0       # v1.5f: jobs paid (the boards change with it)
 var rep := {}                # v1.4r: reputation, one number per rival pair (Factions.axis_key -> -200..200); empty = everyone at their base
 var cast := {}               # v1.4r: named characters' state: character_id -> {alive, current_system, custody}
 var god_mode := false # only used by the automated route test

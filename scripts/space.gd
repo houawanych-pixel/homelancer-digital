@@ -3,6 +3,7 @@ extends Node3D
 ## One star system in flight: environment, player flight, combat, AI, docking and gate proximity.
 
 signal enemy_killed(reward: int, name: String)
+signal mission_done(said: String)   # v1.5f: a mission ended (paid, or "failed")
 signal player_destroyed
 signal message(text: String)
 signal atmosphere_entered(planet_node: Node3D) # flew into a planet that has a surface
@@ -1480,6 +1481,7 @@ func apply_rank(e: Dictionary, rank: int) -> void:
 
 ## The bounty you carry hides in this system: put the target out by the first patrol point. {} = not here.
 func spawn_bounty() -> Dictionary:
+	if not GS.mission.is_empty(): return {}   # v1.5f: a bounty taken from the board turns up at the end of its waypoint chain
 	if GS.bounty.get("state", "") != "hunt" or GS.bounty.get("sys", "") != sys_id: return {}
 	for o in enemies:
 		if o.get("bounty", "") == GS.bounty["id"]: return o
@@ -1645,6 +1647,7 @@ func _process(dt: float) -> void:
 		if OS.has_feature("web") or OS.get_environment("HL_PROFILE") != "": print(memory_report())
 	if not is_instance_valid(player): return
 	_update_player(dt)
+	Missions.tick(self, dt)   # v1.5f
 	_update_beacon()
 	_update_enemies(dt)
 	_update_traffic(dt)
@@ -2925,7 +2928,8 @@ func _destroy_unit(e: Dictionary) -> void:
 			_named_down[pl["character_id"]] = true   # a named pilot is not gone for good: they break off and turn up again later
 			GS.cast_state(pl["character_id"])["current_system"] = ""
 			message.emit("%s's fighter is finished. %s got away." % [pl["name"], {"female": "She", "male": "He"}.get(str(pl["sex"]), "It")])   # (v1.4z: a machine is "it")
-	if e.has("bounty"): _drop_pilot(n.global_position, e["bounty"])   # (after the kill line, so "TRACTOR the pilot in" is what stays on screen)
+	if e.has("bounty") and not Missions.wants_dead(e["bounty"]): _drop_pilot(n.global_position, e["bounty"])   # (after the kill line, so "TRACTOR the pilot in" is what stays on screen; v1.5f: wanted dead = no pod)
+	Missions.on_kill(self, e)   # v1.5f: a bounty wanted dead is paid here
 	if target == n: target = null
 	n.set_meta("kind", "wreck")
 	var tw := n.create_tween()
@@ -3487,7 +3491,11 @@ func _update_loot(dt: float) -> void:
 		if d < 14.0 and l.has("bounty"):
 			if GS.capture_bounty(l["bounty"]):
 				_popup(n.global_position, "PILOT CAPTURED", Color(1.0, 0.5, 0.4))
-				message.emit("%s is in your hold. Dock at any station for the %d cr bounty." % [Data.roster_pilot(l["bounty"]).get("name", "The pilot"), Data.bounty_reward(l["bounty"])])
+				var who: Dictionary = Data.roster_pilot(l["bounty"])
+				GS.cargo.append({"kind": "pilot", "id": l["bounty"], "name": str(who.get("name", "Pilot")), "note": "bounty prisoner"})   # v1.5f: in the hold
+				var m0: Dictionary = GS.mission
+				if m0.get("kind", "") == "bounty": message.emit("%s is in your hold. Bring them back to %s for the %d cr bounty." % [who.get("name", "The pilot"), Data.SYSTEMS[m0["giver_sys"]]["station"]["name"], Data.bounty_reward(l["bounty"])])
+				else: message.emit("%s is in your hold. Dock at any station for the %d cr bounty." % [who.get("name", "The pilot"), Data.bounty_reward(l["bounty"])])
 			Sfx.play("pickup", -6.0)
 			n.queue_free()
 			loot.remove_at(i)
@@ -3790,6 +3798,7 @@ var _prepared := {}
 ## A bounty: in another system -> the gate that starts the shortest way there; in its system -> the ship; once the
 ## ship is down -> the drifting pilot; once the pilot is in your hold -> the station (dock anywhere to be paid).
 func mission_waypoint() -> Dictionary:
+	if not GS.mission.is_empty(): return Missions.waypoint(self)   # v1.5f: a job from the board (bounties included)
 	var b: Dictionary = GS.bounty
 	if b.is_empty() or surface_mode or not is_instance_valid(player): return {}
 	var p: Dictionary = Data.roster_pilot(str(b.get("id", "")))
@@ -3813,6 +3822,73 @@ func mission_waypoint() -> Dictionary:
 		if o.get("bounty", "") == b["id"] and is_instance_valid(o["node"]):
 			return {"node": o["node"], "title": who, "line": "Bounty on %s: destroy the ship, then TRACTOR the pilot in" % who, "hops": 0}
 	return {}
+
+var escort_node: Node3D = null   # v1.5f: the freighter of an escort mission (null = none out)
+var _mission_marker: Node3D = null
+
+## v1.5f: the marker a mission point is flown to (one at a time, moved to the stage's point).
+func mission_point(p: Vector3) -> Node3D:
+	if not is_instance_valid(_mission_marker):
+		_mission_marker = Node3D.new()
+		_mission_marker.name = "Mission point"
+		_mission_marker.set_meta("kind", "waypoint")
+		_mission_marker.set_meta("radius", 30.0)
+		add_child(_mission_marker)
+	_mission_marker.global_position = p
+	return _mission_marker
+
+## v1.5f: a mission wave: `count` ships of `faction` at `at`, soldiers up to `max_slot`, always hostile to you; with a
+## `boss_id` the first ship is that named bounty pilot. Tagged with the stage, so the mission knows when it is gone.
+func spawn_mission_group(at: Vector3, faction: String, count: int, max_slot: int, boss_id: String, stage: int) -> Array:
+	_group_serial += 1
+	var out: Array = []
+	var pool: Array = Factions.DEFS.get(faction, {}).get("fighter_pool", [])
+	for i in count:
+		var soldier: Dictionary = {}
+		if i == 0 and boss_id != "": soldier = Data.roster_pilot(boss_id)
+		else: soldier = _pick_senior(faction, max_slot, max_slot if i == 0 else mini(max_slot, 2))
+		var kind := ""
+		if not soldier.is_empty() and Data.ENEMIES.has(str(soldier.get("fighter_primary", ""))): kind = str(soldier["fighter_primary"])
+		elif not pool.is_empty(): kind = pool[mini(i, pool.size() - 1)]
+		else: kind = sys["enemy"]
+		var e := spawn_unit(kind, at + Vector3(_rng.randf_range(-70, 70), _rng.randf_range(-25, 25), _rng.randf_range(-70, 70)), at)
+		e["group"] = _group_serial
+		e["mission"] = stage
+		e["provoked"] = true   # a mission's targets fight you whatever your standing with their faction
+		if not soldier.is_empty(): assign_roster(e, soldier)
+		else: _make_generic(e, faction)
+		if i == 0 and boss_id != "":
+			e["bounty"] = boss_id
+			e["node"].name = "%s (bounty)" % soldier["name"]
+		out.append(e)
+	return out
+
+## v1.5f: the most senior pick a few draws give (roster_pick leans to slot 01; a senior job wants the slot asked for).
+func _pick_senior(faction: String, max_slot: int, want: int) -> Dictionary:
+	var best: Dictionary = {}
+	for k in 14:
+		var p := roster_pick(faction, max_slot)
+		if p.is_empty(): break
+		if best.is_empty() or int(p.get("slot", 0)) > int(best.get("slot", 0)): best = p
+		if int(best.get("slot", 0)) >= want: break
+	return best
+
+## v1.5f: the escort mission's freighter, at the station's dock point, heading for the planet.
+func make_escort() -> void:
+	if is_instance_valid(escort_node) or not is_instance_valid(station) or not is_instance_valid(planet): return
+	var node := Node3D.new()
+	node.name = "Freighter %s (escort)" % sys["name"]
+	node.add_child(ShipFactory.build("fleet" if ShipFactory.has_real_model("fleet") else "enemy"))
+	node.set_meta("kind", "traffic")
+	node.set_meta("radius", 12.0)
+	add_child(node)
+	var a := dock_point(station) + Vector3(0, 60, 0)
+	node.global_position = a
+	node.set_meta("trip", a.distance_to(planet_dock_point()))
+	escort_node = node
+
+func planet_dock_point() -> Vector3:
+	return dock_point(planet) + Vector3(0, 60, 0)
 
 var waypoint: Node3D = null   # the player's own map waypoint (radar map -> tap anywhere -> SET COURSE)
 

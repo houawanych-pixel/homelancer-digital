@@ -545,7 +545,7 @@ func dock(n: Node3D) -> void:
 	if info["id"] == "frontier_exchange": GS.meet("amari", "friendly")
 	if info["id"] == "liberty_hub" and GS.kills > 0: visited["liberty_hub_2"] = true
 	hub.open(info)
-	var paid: String = GS.claim_bounty()   # v1.4q: a captured bounty pilot is paid on docking, at any station
+	var paid: String = Missions.claim_at(info["id"]) if not GS.mission.is_empty() else GS.claim_bounty()   # v1.5f: a board bounty is paid where it was taken; an old-style one anywhere
 	if paid != "":
 		hub.status.text = paid
 		hub._refresh_credits()
@@ -585,6 +585,8 @@ func launch() -> void:
 	_launch_sequence(where)
 	var mw: Dictionary = space.mission_waypoint()
 	if not mw.is_empty(): hud.flash_message("Waypoint set: %s. GO TO flies it." % mw["title"])
+	if not GS.mission.is_empty():   # v1.5f: the dispatcher repeats the brief on the comms panel
+		hud.open_comms("%s dispatch" % Data.SYSTEMS[GS.mission["giver_sys"]]["station"]["name"], str(GS.mission["brief"]), "incoming", false)
 
 func _launch_sequence(where: String) -> void:
 	fx.caption = "LAUNCHING"

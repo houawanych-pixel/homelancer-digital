@@ -1044,6 +1044,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_AI") != "":   # the Job AI checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_ai()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_AG") != "":   # the Job AG checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1512,6 +1520,7 @@ func _run() -> void:
 	await _job_ad()
 	await _job_ae()
 	await _job_ag()
+	await _job_ai()
 	await _galaxy()
 	await _controls_j()
 	await _gate_k()
@@ -3260,6 +3269,7 @@ func _job_v() -> void:
 	if btn: btn.pressed.emit()
 	await _frames(3)
 	main.hub.visible = false
+	GS.mission = {}   # (v1.5f: the board also starts the waypoint chain; this older check follows the plain hunt)
 	_check("Job V: the BOUNTIES board lists Razor, Veil and Dreadmaw with their faces, shows your standing in reputation colours, and ACCEPT starts the hunt",
 		board_ok and stand_ok and GS.bounty.get("id", "") == "savagers_03" and GS.bounty.get("state", "") == "hunt" and GS.bounty.get("sys", "") == "plundros", "board %s, standing %s, carrying %s" % [board_ok, stand_ok, str(GS.bounty)])
 	var not_here: Dictionary = s.spawn_bounty()
@@ -3298,6 +3308,7 @@ func _job_v() -> void:
 	GS.bounties_done = keep["done"]
 	GS.credits = keep["credits"]
 	GS.kills = keep["kills"]
+	GS.cargo = []
 	GS.mood = keep["mood"]
 	GS.met = keep["met"]
 
@@ -4432,3 +4443,207 @@ func _job_ag() -> void:
 	_check("Job AG: Cybernet flies Cybermorph ships and the Void System flies Solrath ships on patrol, hostile, flown by their own people",
 		cyb.get("enemy_ships", []) == Data.HOME_FLEETS["Cybermorph home"] and voi.get("enemy_ships", []) == Data.HOME_FLEETS["Solrath home"] and hostile and own
 		and flown.slice(0, 4).all(func(k): return str(k).begins_with("cybermorph_")) and flown.slice(4).all(func(k): return str(k).begins_with("solrath_")) and flown.size() == 8, str(flown))
+
+
+## Job AI (v1.5f): missions: the station's MISSIONS board (threats easy / hard, escort), the bounty chain (escort wing
+## -> the target's wing -> paid dead on the spot, or alive back at the giver), the hold, the YOUR SHIP page.
+func _job_ai() -> void:
+	var shell := FileAccess.get_file_as_string("res://web_shell.html")
+	_check("Job AI: version label reads \"Homelancer Digital v1.5f\" or later", Data.VERSION >= "v1.5f" and (shell == "" or shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0), Data.VERSION)
+	var s := _sp()
+	var keep := {"bounty": GS.bounty.duplicate(true), "done": GS.bounties_done.duplicate(), "cast": GS.cast.duplicate(true), "credits": GS.credits, "rep": GS.rep.duplicate(true), "mission": GS.mission.duplicate(true), "cargo": GS.cargo.duplicate(true), "last": GS.last_base}
+	GS.bounty = {}
+	GS.mission = {}
+	GS.cargo = []
+	GS.last_base = Data.SYSTEMS[s.sys_id]["station"]["id"]
+	for e in s.enemies.duplicate():
+		if is_instance_valid(e["node"]): (e["node"] as Node3D).free()
+	s.enemies = []
+	s.target = null
+	# ---- the board
+	var sid: String = Data.SYSTEMS[s.sys_id]["station"]["id"]
+	var offers: Array = Missions.offers(s.sys_id, sid)
+	var kinds: Array = offers.map(func(o): return str(o["kind"]) + ("_hard" if o.get("hard", false) else ""))
+	var easy: Dictionary = {}
+	var hard: Dictionary = {}
+	var esc: Dictionary = {}
+	for o in offers:
+		if o["kind"] == "threats" and o.get("hard", false): hard = o
+		elif o["kind"] == "threats": easy = o
+		elif o["kind"] == "escort": esc = o
+	var same: bool = Missions.offers(s.sys_id, sid).map(func(o): return o["title"]) == offers.map(func(o): return o["title"])
+	_check("Job AI: a station's MISSIONS board offers a patrol threats job, an elite threats job (slot 05, paid more) and an escort, from a faction hostile to the owner, the same offers for the whole visit",
+		kinds == ["threats", "threats_hard", "escort"] and int(hard["slot"]) == 5 and int(easy["slot"]) == 1 and int(hard["pay"]) > int(easy["pay"]) and same and Factions.has_fighters(str(easy["faction"])) and (easy["points"] as Array).size() == 2,
+		str(kinds) + " " + str(easy.get("faction", "")))
+	# ---- the hub pages
+	main.hub.open(Data.SYSTEMS[s.sys_id]["station"])
+	await _frames(2)
+	main.hub.show_screen("missions")
+	await _frames(2)
+	var take: Button = main.hub.content.find_child("Take_Job_threats", true, false)
+	var rows_ok: bool = take != null and not take.disabled and main.hub.content.find_child("Job_threats_hard", true, false) != null and main.hub.content.find_child("Job_escort", true, false) != null and main.hub.left.find_child("Btn_missions", true, false) != null
+	await _shot("ai_missions_board", 0.3)
+	if take: take.pressed.emit()
+	await _frames(2)
+	var taken: bool = GS.mission.get("kind", "") == "threats" and not bool(GS.mission.get("hard", false)) and main.hub.status.text.find("waypoint") >= 0 and main.hub.content.find_child("CurrentJob", true, false) != null
+	main.hub.show_screen("ship")
+	await _frames(2)
+	var wl: Label = main.hub.content.find_child("Weapons", true, false)
+	var cl: Label = main.hub.content.find_child("Cargo", true, false)
+	var ship_page: bool = wl != null and cl != null and wl.text.find("Guns") >= 0 and wl.text.find("MISSILE") >= 0 and cl.text.find("CARGO HOLD  0 / %d" % Data.CARGO_HOLD) >= 0 and main.hub.content.find_child("DropJob", true, false) != null
+	await _shot("ai_ship_page", 0.3)
+	main.hub.visible = false
+	_check("Job AI: the MISSIONS page lists the jobs with ACCEPT, taking one shows it as the current job; YOUR SHIP lists guns, racks and the hold, and can drop the job", rows_ok and taken and ship_page, "rows %s taken %s ship %s" % [rows_ok, taken, ship_page])
+	# ---- threats, easy: point 1 -> wave -> point 2 -> wave -> paid
+	var m: Dictionary = GS.mission
+	var w0: Dictionary = s.mission_waypoint()
+	var p0: Vector3 = Missions.point_pos(s, 0)
+	var way1: bool = not w0.is_empty() and (w0["node"] as Node3D).get_meta("kind", "") == "waypoint" and (w0["node"] as Node3D).global_position.distance_to(p0) < 1.0 and str(w0["line"]).find("point 1 of 2") >= 0 and main._objective().begins_with("MISSION: ")
+	var far_ok: bool = p0.distance_to(s.station.global_position) >= Data.MISSION_POINT_DIST[0] - 1.0
+	var credits0: int = GS.credits
+	_tp(p0 + Vector3(0, 0, 300), p0)
+	await _frames(4)
+	var wave: Array = s.enemies.filter(func(o): return int(o.get("mission", -1)) == 0)
+	var wave_ok: bool = wave.size() == Data.MISSION_GROUP[0] and wave.all(func(o): return str(o.get("faction", "")) == str(m["faction"]) and o.get("provoked", false) and int(o.get("pilot", {}).get("slot", 9)) <= 1 and (o["node"] as Node3D).get_meta("kind", "") == "enemy")
+	var w1: Dictionary = s.mission_waypoint()
+	var way2: bool = not w1.is_empty() and wave.any(func(o): return o["node"] == w1["node"]) and str(w1["line"]).find("Destroy") >= 0
+	main.hud.queue_redraw()
+	await _shot("ai_threats_wave", 0.3)
+	for o in wave: s._destroy_unit(o)
+	await _frames(3)
+	var w2: Dictionary = s.mission_waypoint()
+	var p1: Vector3 = Missions.point_pos(s, 1)
+	var moved: bool = int(GS.mission.get("stage", -1)) == 1 and not w2.is_empty() and (w2["node"] as Node3D).global_position.distance_to(p1) < 1.0
+	_tp(p1 + Vector3(0, 0, 300), p1)
+	await _frames(4)
+	var wave2: Array = s.enemies.filter(func(o): return int(o.get("mission", -1)) == 1)
+	for o in wave2: s._destroy_unit(o)
+	await _frames(3)
+	var paid: bool = GS.mission.is_empty() and GS.credits - credits0 >= int(easy["pay"]) and GS.missions_done >= 1 and s.mission_waypoint().is_empty()
+	_check("Job AI: a threats job: the waypoint is mission point 1 (far from the station); reaching it brings the wave (that faction's slot-01 soldiers, hostile), the waypoint moves to the nearest of them, the cleared wave moves it to point 2, and the second wave cleared pays on the spot",
+		way1 and far_ok and wave_ok and way2 and moved and wave2.size() == Data.MISSION_GROUP[1] and paid, "way1 %s far %s wave %s (%d) way2 %s moved %s wave2 %d paid %s" % [way1, far_ok, wave_ok, wave.size(), way2, moved, wave2.size(), paid])
+	# ---- threats, hard: the elites
+	Missions.accept(hard)
+	_tp(Missions.point_pos(s, 0) + Vector3(0, 0, 300), Missions.point_pos(s, 0))
+	await _frames(4)
+	var elite: Array = s.enemies.filter(func(o): return int(o.get("mission", -1)) == 0)
+	var elite_ok: bool = elite.size() == Data.MISSION_GROUP[0] and elite.all(func(o): return int(o.get("pilot", {}).get("slot", 0)) >= 2) and elite.any(func(o): return int(o.get("pilot", {}).get("slot", 0)) == 5)
+	for o in elite: s._destroy_unit(o)
+	Missions.abandon()
+	_check("Job AI: the ELITE threats job sends the faction's seniors, the slot-05 elite among them, for %.1fx the pay; a job can be dropped" % Data.MISSION_HARD_MULT, elite_ok and GS.mission.is_empty() and int(hard["pay"]) == int(Data.MISSION_PAY["threats"] * Data.MISSION_HARD_MULT), str(elite.map(func(o): return o.get("pilot", {}).get("slot", 0))))
+	# ---- bounty wanted dead (Razor, rank 3): escort wing, then her wing, paid on the kill
+	var said: String = Missions.accept_bounty("savagers_03")
+	var bm: Dictionary = GS.mission
+	var chain_ok: bool = bm.get("kind", "") == "bounty" and not bool(bm.get("alive", true)) and GS.bounty.get("state", "") == "hunt" and said.find("waypoint") >= 0 and said.find("escort") >= 0
+	bm["sys"] = s.sys_id
+	GS.bounty["sys"] = s.sys_id
+	var none_yet: bool = s.spawn_bounty().is_empty()   # the chain owns the target now
+	_tp(Missions.point_pos(s, 0) + Vector3(0, 0, 300), Missions.point_pos(s, 0))
+	await _frames(4)
+	var ew: Array = s.enemies.filter(func(o): return int(o.get("mission", -1)) == 0)
+	var escort_ok: bool = ew.size() == Data.MISSION_GROUP[0] and ew.all(func(o): return str(o.get("faction", "")) == "Savagers" and not o.has("bounty"))
+	for o in ew: s._destroy_unit(o)
+	await _frames(3)
+	_tp(Missions.point_pos(s, 1) + Vector3(0, 0, 300), Missions.point_pos(s, 1))
+	await _frames(4)
+	var bw: Array = s.enemies.filter(func(o): return int(o.get("mission", -1)) == 1)
+	var boss: Array = bw.filter(func(o): return o.get("bounty", "") == "savagers_03")
+	var wb: Dictionary = s.mission_waypoint()
+	var boss_ok: bool = bw.size() == Data.MISSION_GROUP[1] and boss.size() == 1 and int(boss[0].get("rank", 0)) == 3 and not wb.is_empty() and wb["node"] == boss[0]["node"]
+	await _shot("ai_bounty_boss", 0.3)
+	var credits1: int = GS.credits
+	for o in bw: s._destroy_unit(o)
+	await _frames(3)
+	var dead_paid: bool = GS.mission.is_empty() and GS.bounty.is_empty() and "savagers_03" in GS.bounties_done and GS.credits - credits1 >= Data.bounty_reward("savagers_03") and s.loot.all(func(l): return l.get("bounty", "") != "savagers_03")
+	_check("Job AI: a bounty wanted dead (rank under %d): the first waypoint is the escort wing, the second the target's own wing with the target in it; the kill pays on the spot and drops no pilot" % Data.BOUNTY_ALIVE_RANK,
+		chain_ok and none_yet and escort_ok and boss_ok and dead_paid, "chain %s none %s escort %s boss %s paid %s" % [chain_ok, none_yet, escort_ok, boss_ok, dead_paid])
+	# ---- bounty wanted alive (Dreadmaw, rank 6): the pod, the hold, back to the giver
+	Missions.accept_bounty("savagers_06")
+	var am: Dictionary = GS.mission
+	am["sys"] = s.sys_id
+	GS.bounty["sys"] = s.sys_id
+	am["stage"] = 1   # (test: straight to the target's wing)
+	_tp(Missions.point_pos(s, 1) + Vector3(0, 0, 300), Missions.point_pos(s, 1))
+	await _frames(4)
+	var aw: Array = s.enemies.filter(func(o): return int(o.get("mission", -1)) == 1)
+	var aboss: Array = aw.filter(func(o): return o.get("bounty", "") == "savagers_06")
+	for o in aw: s._destroy_unit(o)
+	await _frames(2)
+	var pod: Array = s.loot.filter(func(l): return l.get("bounty", "") == "savagers_06")
+	var pod_way: Dictionary = s.mission_waypoint()
+	var pod_ok: bool = bool(am.get("alive", false)) and aboss.size() == 1 and pod.size() == 1 and not pod_way.is_empty() and pod_way["node"] == pod[0]["node"] and GS.mission.get("kind", "") == "bounty"
+	if pod.size() == 1: (pod[0]["node"] as Node3D).global_position = s.player.global_position - s.player.global_basis.z * 40.0
+	s.tractor()
+	await _until(func(): return GS.bounty.get("state", "") == "captured", 8.0)
+	s.tractor_t = 0.0
+	var held: bool = GS.bounty.get("state", "") == "captured" and GS.cargo.any(func(c): return c.get("kind", "") == "pilot" and c.get("id", "") == "savagers_06")
+	var back: Dictionary = s.mission_waypoint()
+	var back_ok: bool = not back.is_empty() and back["node"] == s.station and str(back["line"]).find("hand") >= 0
+	var elsewhere: String = Missions.claim_at("somewhere_else")
+	var credits2: int = GS.credits
+	var here: String = Missions.claim_at(sid)
+	var alive_paid: bool = elsewhere.find("paid at") >= 0 and GS.bounty.get("state", "") == "captured" or false
+	alive_paid = elsewhere.find("paid at") >= 0 and here.find("paid") >= 0 and GS.credits - credits2 == Data.bounty_reward("savagers_06") and GS.mission.is_empty() and GS.bounty.is_empty() and GS.cargo.is_empty() and "savagers_06" in GS.bounties_done
+	_check("Job AI: a bounty wanted alive (rank %d and up): the pilot bails out, TRACTOR puts them in the hold (YOUR SHIP lists them), the waypoint is the station that gave the job, and only that station pays" % Data.BOUNTY_ALIVE_RANK,
+		pod_ok and held and back_ok and alive_paid, "pod %s held %s back %s paid %s (%s / %s)" % [pod_ok, held, back_ok, alive_paid, elsewhere, here])
+	for i in range(s.loot.size() - 1, -1, -1):
+		(s.loot[i]["node"] as Node3D).queue_free()
+		s.loot.remove_at(i)
+	# ---- escort: the freighter leaves for the planet, raiders jump it, it arrives, paid
+	Missions.accept(esc)
+	await _frames(3)
+	var fr: Node3D = s.escort_node
+	var fr_ok: bool = is_instance_valid(fr) and fr.get_meta("kind", "") == "traffic"
+	var wf: Dictionary = s.mission_waypoint()
+	var fr_way: bool = not wf.is_empty() and wf["node"] == fr
+	var start_pos: Vector3 = fr.global_position if fr_ok else Vector3.ZERO
+	await _frames(30)
+	var moving: bool = fr_ok and fr.global_position.distance_to(start_pos) > 5.0 and fr.global_position.distance_to(s.planet_dock_point()) < start_pos.distance_to(s.planet_dock_point())
+	# jump ahead to a third of the way: the first ambush
+	if fr_ok: fr.global_position = start_pos.lerp(s.planet_dock_point(), 0.36)
+	await _frames(3)
+	var raid: Array = s.enemies.filter(func(o): return int(o.get("mission", -1)) == 0)
+	var raid_ok: bool = raid.size() == Data.MISSION_GROUP[0] and raid.all(func(o): return (o["node"] as Node3D).global_position.distance_to(fr.global_position) < Data.ESCORT_AMBUSH + 200.0)
+	var hull0: float = float(GS.mission.get("escort_hp", 0.0))
+	for o in raid: (o["node"] as Node3D).global_position = fr.global_position + Vector3(60, 0, 60)   # on it
+	_tp(fr.global_position + Vector3(0, 30, 200), fr.global_position)
+	await _shot("ai_escort_ambush", 0.3)
+	await _frames(20)
+	var hurt: bool = float(GS.mission.get("escort_hp", 0.0)) < hull0 and not GS.mission.is_empty()
+	for o in raid: s._destroy_unit(o)
+	await _frames(3)
+	var still: float = float(GS.mission.get("escort_hp", 0.0))
+	await _frames(10)
+	var safe: bool = is_equal_approx(float(GS.mission.get("escort_hp", 0.0)), still)
+	var credits3: int = GS.credits
+	if is_instance_valid(fr): fr.global_position = s.planet_dock_point() + Vector3(0, 0, Data.ESCORT_DOCK * 0.5)
+	await _frames(4)
+	var arrived: bool = GS.mission.is_empty() and GS.credits - credits3 == int(esc["pay"]) and not is_instance_valid(s.escort_node)
+	_check("Job AI: an escort job: a freighter leaves the station for the planet and is the waypoint; a third of the way raiders ambush it and it loses hull while they are close; with them gone it stops losing hull; when it reaches the planet you are paid",
+		fr_ok and fr_way and moving and raid_ok and hurt and safe and arrived, "freighter %s way %s moving %s raid %s hurt %s safe %s arrived %s" % [fr_ok, fr_way, moving, raid_ok, hurt, safe, arrived])
+	# ---- a lost freighter fails the job
+	Missions.accept(esc)
+	await _frames(3)
+	GS.mission["escort_hp"] = 1.0
+	GS.mission["spawned"] = 1
+	var fr2: Node3D = s.escort_node
+	var g2: Array = s.spawn_mission_group(fr2.global_position + Vector3(50, 0, 50), str(esc["faction"]), 1, 1, "", 1)
+	await _frames(6)
+	var failed: bool = GS.mission.is_empty() and not is_instance_valid(s.escort_node)
+	for o in g2:
+		if o in s.enemies: s._destroy_unit(o)
+	_check("Job AI: the freighter destroyed fails the escort job (no pay)", failed)
+	# ---- tidy
+	for e in s.enemies.duplicate():
+		if is_instance_valid(e["node"]): (e["node"] as Node3D).free()
+	s.enemies = []
+	s.target = null
+	GS.bounty = keep["bounty"]
+	GS.bounties_done = keep["done"]
+	GS.cast = keep["cast"]
+	GS.credits = keep["credits"]
+	GS.rep = keep["rep"]
+	GS.mission = keep["mission"]
+	GS.cargo = keep["cargo"]
+	GS.last_base = keep["last"]
+	_tp(s.station.global_position + Vector3(0, 40, 420), s.station.global_position)

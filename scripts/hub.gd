@@ -144,14 +144,14 @@ func show_screen(s: String) -> void:
 	screen = s
 	_refresh_credits()
 	var sysname: String = Data.SYSTEMS[GS.system_id]["name"]
-	header.text = base["name"].to_upper() if s == "hub" else {"equipment": "EQUIPMENT DEALER", "ships": "SHIP DEALER", "repair": "REPAIR & RESUPPLY", "bounty": "BOUNTY BOARD", "faction": "FACTION", "surface": "PLANET DESTINATIONS"}[s]
+	header.text = base["name"].to_upper() if s == "hub" else {"equipment": "EQUIPMENT DEALER", "ships": "SHIP DEALER", "repair": "REPAIR & RESUPPLY", "bounty": "BOUNTY BOARD", "missions": "MISSIONS", "ship": "YOUR SHIP", "faction": "FACTION", "surface": "PLANET DESTINATIONS"}[s]
 	subheader.text = "%s  ·  %s SYSTEM  ·  %s" % ["ORBITAL STATION" if kind == "station" else "PLANET SURFACE", sysname.to_upper(), base["name"]]
 	for box in [left, content]:   # take the old page out at once, so the new buttons keep their own names
 		for c in box.get_children():
 			box.remove_child(c)
 			c.queue_free()
 	preview_vp = null
-	var menu := [["hub", "HUB"], ["equipment", "EQUIPMENT"], ["ships", "SHIP DEALER"], ["repair", "REPAIR / RESUPPLY"], ["bounty", "BOUNTIES"], ["faction", "FACTION"], ["map", "NAVIGATION"], ["launch", "LAUNCH"]]
+	var menu := [["hub", "HUB"], ["equipment", "EQUIPMENT"], ["ships", "SHIP DEALER"], ["repair", "REPAIR / RESUPPLY"], ["missions", "MISSIONS"], ["bounty", "BOUNTIES"], ["ship", "YOUR SHIP"], ["faction", "FACTION"], ["map", "NAVIGATION"], ["launch", "LAUNCH"]]
 	if _surface_planet() != "": menu.insert(4, ["surface", "SURFACE TRAVEL"])
 	for m in menu:
 		var b := Button.new()
@@ -173,6 +173,8 @@ func show_screen(s: String) -> void:
 			_ships_page()
 		"repair": _repair_page()
 		"bounty": _bounty_page()
+		"missions": _missions_page()
+		"ship": _ship_page()
 		"faction": _faction_page()
 		"surface": _surface_page()
 	queue_redraw()
@@ -616,9 +618,74 @@ func _bounty_page() -> void:
 		else:
 			b.text = "ACCEPT"
 			b.disabled = GS.bounty.get("state", "") == "captured"
-			b.pressed.connect(func(): status.text = GS.accept_bounty(id); show_screen("bounty"))
+			b.disabled = b.disabled or not GS.mission.is_empty()
+			b.pressed.connect(func(): status.text = Missions.accept_bounty(id); show_screen("bounty"))   # v1.5f: a chain of waypoints, paid dead on the spot or alive back here
 		row.add_child(b)
 		v.add_child(row)
+
+## v1.5f: the MISSIONS board: the station's jobs (threats easy / hard, escort), one at a time.
+func _missions_page() -> void:
+	var v := _page_box()
+	var l := _label(19, Color(1, 1, 1))
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.text = "Work for %s. Take a job and a gold mission waypoint leads you through it. One job at a time; bounties are on the BOUNTY BOARD." % base["name"]
+	v.add_child(l)
+	if not GS.mission.is_empty():
+		var cur := _label(18, GOLD)
+		cur.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		cur.name = "CurrentJob"
+		cur.text = "CURRENT JOB: %s\n%s" % [str(GS.mission["title"]).to_upper(), GS.mission["brief"]]
+		v.add_child(cur)
+	for o in Missions.offers(GS.system_id, base["id"]):
+		var row := HBoxContainer.new()
+		row.name = "Job_" + str(o["kind"]) + ("_hard" if o.get("hard", false) else "")
+		row.add_theme_constant_override("separation", 14)
+		var t := _label(18, CYAN)
+		t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		t.text = "%s\n%s\nReward %d cr" % [str(o["title"]).to_upper(), o["brief"], int(o["pay"])]
+		row.add_child(t)
+		var b := Button.new()
+		b.name = "Take_" + row.name
+		b.custom_minimum_size = Vector2(230, 60)
+		b.text = "ACCEPT"
+		b.disabled = not GS.mission.is_empty() or not GS.bounty.is_empty()
+		b.pressed.connect(func(): status.text = Missions.accept(o); show_screen("missions"))
+		row.add_child(b)
+		v.add_child(row)
+
+## v1.5f: YOUR SHIP: weapons and the hold (and the job you carry, which can be dropped here).
+func _ship_page() -> void:
+	var v := _page_box()
+	var sh := GS.ship()
+	var head := _label(22, Color(1, 1, 1))
+	head.text = "%s  ·  %s" % [str(sh["name"]).to_upper(), sh["class"]]
+	v.add_child(head)
+	var w := _label(18, CYAN)
+	w.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	w.name = "Weapons"
+	var slots: Array = []
+	for it in GS.slots: slots.append("%s %s %d/%d" % [Data.SLOT_ITEMS[it]["label"], Data.SLOT_ITEMS[it]["sub"], GS.slot_ammo(it), {"light_missile": GS.max_missiles(), "heavy_missile": GS.max_heavy(), "mine": GS.max_mines()}[it]])
+	w.text = "WEAPONS\nGuns: %s ×%d   ·   Hull %d/%d   ·   Shield %d\nRacks: %s" % [GS.weapon()["name"], sh["guns"], int(GS.hull), int(sh["hull"]), int(sh["shield"]), "   ·   ".join(slots)]
+	v.add_child(w)
+	var c := _label(18, CYAN)
+	c.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	c.name = "Cargo"
+	var lines: Array = []
+	for item in GS.cargo: lines.append("%s (%s)" % [item.get("name", item.get("kind", "?")), item.get("note", item.get("kind", ""))])
+	c.text = "CARGO HOLD  %d / %d\n%s" % [GS.cargo.size(), Data.CARGO_HOLD, "\n".join(lines) if not lines.is_empty() else "Empty."]
+	v.add_child(c)
+	if not GS.mission.is_empty():
+		var m := _label(18, GOLD)
+		m.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		m.text = "CURRENT JOB: %s\n%s" % [str(GS.mission["title"]).to_upper(), GS.mission["brief"]]
+		v.add_child(m)
+		var b := Button.new()
+		b.name = "DropJob"
+		b.text = "DROP THIS JOB"
+		b.custom_minimum_size = Vector2(230, 56)
+		b.pressed.connect(func(): Missions.abandon(); status.text = "Job dropped."; show_screen("ship"))
+		v.add_child(b)
 
 ## v1.4r: where you stand with the major factions, in their reputation colour (purple .. red, gray = permanent enemy).
 ## This system's owner and its rival come first.

@@ -947,3 +947,28 @@ both sets are saved in the asset library and not placed.
 - In flight the navigation map is centred on your ship and zoomed out until the whole system fits round you (the
   fit is worked out from your position, not the system's middle); FIT returns to that. Docked, it still fits the
   system. The mission waypoint is drawn on it as the gold MISSION diamond.
+
+## 45. Missions (Job AI, v1.5f)
+
+- `scripts/missions.gd`. A station's MISSIONS page offers three jobs for the visit (seeded by the station and the
+  number of jobs done): PATROL threats (slot-01 soldiers), ELITE threats (the slot-05 elite leads, `MISSION_HARD_MULT`
+  the pay) and an escort. The enemy is the faction that raids the owner (`Factions.raider_of`), else the first of
+  `MISSION_FALLBACK_ENEMIES` with ships. One job at a time; YOUR SHIP can drop it.
+- Accepting a job says what to do and sets the gold mission waypoint; at launch the station's dispatch repeats the brief
+  on the comms panel. Threats: fly to point 1 (3.2-5.2 km from the station, clear of the planet), the wave appears when
+  you are within `MISSION_ARRIVE`, the waypoint moves to the nearest of them; wave cleared, the waypoint moves to point
+  2; second wave cleared, paid on the spot.
+- Bounties from the BOUNTY BOARD now run the same chain in the target's system: point 1 is the escort wing, point 2 the
+  target's own wing with the target in it. Rank under `BOUNTY_ALIVE_RANK` (4) = wanted dead: the kill pays on the spot,
+  no pod. Rank 4 and up = wanted alive: the pilot bails out, TRACTOR puts them in the hold (`GS.cargo`), the waypoint
+  leads back to the station that gave the job (through the gates if needed) and only that station pays. An old-style
+  bounty (GS.bounty with no mission) still pays anywhere, as before.
+- Escort: a freighter leaves the station's dock point for the planet at `ESCORT_SPEED`; at a third and two thirds of
+  the way a wave appears `ESCORT_AMBUSH` off it. Simplest model of "under attack": while a mission ship is within
+  `ESCORT_RANGE` the freighter loses `ESCORT_FIRE` hull a second per attacker (sparks show it); kill them and it stops.
+  Arrival pays; the freighter lost fails the job. (Enemies still only shoot at the player; a real freighter-targeting AI
+  is a later job.)
+- The hold: `GS.cargo` (`CARGO_HOLD` 8) lists what you carry; today only bounty prisoners. YOUR SHIP shows guns,
+  racks and the hold. No save fields: there is no save system yet.
+- Open for the owner: pay numbers; whether a bounty's dead / alive should be chosen per target instead of by rank;
+  mission givers on planets (only stations have the page).

@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.5e"
+const VERSION := "v1.5f"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -201,6 +201,24 @@ const PLANET_BIOME := {"terran": "forest", "jungle": "jungle", "ocean": "ocean",
 const TEXT_BUMP := 2                  # HUD and room text below TEXT_BUMP_BELOW px is drawn this much bigger
 const TEXT_BUMP_BELOW := 17
 const TEXT_MIN := 13                  # nothing on the HUD is smaller than this
+# ---------------------------------------------------------------- Job AI (v1.5f): missions (scripts/missions.gd)
+const MISSION_POINT_DIST := [3200.0, 5200.0]   # a mission point lies this far from the station
+const MISSION_ARRIVE := 700.0                   # this close to the point, its wave is there
+const MISSION_PLANET_CLEAR := 900.0             # a point keeps this much clear of a planet's surface
+const MISSION_GROUP := [3, 3]                   # ships in a wave: [first waves, last wave] (the last of a bounty = target + 2)
+const MISSION_PAY := {"threats": 900, "escort": 700}
+const MISSION_HARD_MULT := 2.2                  # the ELITE threats job pays this much more
+const MISSION_HARD_SLOT := 5                    # ...and sends the slot 05 elites
+const MISSION_FALLBACK_ENEMIES := ["Kaijurai", "Phenom", "Cybermorph", "Solrath"]   # when nobody raids the owner
+const BOUNTY_ALIVE_RANK := 4                    # named pilots of this rank and up are wanted ALIVE (bring them back); below, dead (paid on the spot)
+const REP_MISSION := 3.0                        # standing gained with the giver's faction per job done
+const CARGO_HOLD := 8                           # pods and crates a ship carries
+const ESCORT_HULL := 600.0                      # the escorted freighter's hull
+const ESCORT_FIRE := 25.0                       # hull it loses a second per attacker within ESCORT_RANGE
+const ESCORT_RANGE := 500.0
+const ESCORT_SPEED := 45.0                      # m/s on its run station -> planet
+const ESCORT_AMBUSH := 900.0                    # ambush waves appear this far off the freighter
+const ESCORT_DOCK := 260.0                      # this close to the planet dock point it has arrived
 # ---------------------------------------------------------------- Job AG (v1.5c): Covenant, Cybermorph, Solrath fighters; Liberator and Imperium rebuilt
 # Light, mirrored, levelled copies from the owner's sets (hl_2covenant, hl_Cybermorph, hl_solrath, hl_Liberator, hl_Imperium).
 # Fighters only (the owner: ships and battleships matter, not the look-alike missiles and turrets). Nose at -Z, yaw 0.
