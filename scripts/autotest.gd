@@ -4864,4 +4864,66 @@ func _job_al() -> void:
 	s.autopilot = null
 	s.nav_dest = null
 	_check("Job AL: reaching the destination clears it; SET COURSE also makes its target the GPS destination (the GPS stays when you take the stick)", cleared and course_sets, "cleared %s course %s" % [cleared, course_sets])
+	# ---- stage 2: ADD WAYPOINT, up to three stops, managed on the map; reached stops advance by themselves
+	s.clear_route()
+	main.open_map()
+	await _frames(3)
+	var keys: Array = nm.dest_list().map(func(r): return str(r["key"]))
+	var st_k := "station"
+	var pl_k := ""
+	var bl_k := ""
+	var gt_k := ""
+	for r in nm.dest_list():
+		if r["kind"] == "Planet": pl_k = r["key"]
+		elif r["kind"] == "Asteroid field": bl_k = r["key"]
+		elif str(r["kind"]).find("Gate >") >= 0 and gt_k == "": gt_k = r["key"]
+	for k in [pl_k, bl_k, gt_k]:
+		await _frames(1)
+		if nm.add_btns.has(k): nm.tap((nm.add_btns[k] as Rect2).get_center())
+	await _frames(2)
+	var three: bool = s.nav_route.size() == 3 and s.nav_dest == s.planet
+	var said4: String = nm.add_waypoint(st_k)
+	var capped: bool = s.nav_route.size() == 3 and said4.find("holds 3") >= 0
+	var dup: String = s.add_stop(s.planet)
+	var no_dup: bool = s.nav_route.size() == 3 and dup.find("already") >= 0
+	await _frames(2)
+	var lens: Array = s.route_lengths()
+	var total_ok: bool = float(lens[1]) > float(lens[0]) and absf(float(lens[0]) - s.distance_to(s.planet)) < 1.0 and int(nm.route.get("stops", 0)) == 3
+	await _shot("al_gps_route_three", 0.3)
+	# reorder, replace, remove
+	var second: Node3D = s.nav_route[1]
+	nm.tap((nm.route_btns["up_1"] as Rect2).get_center())
+	await _frames(1)
+	var moved: bool = s.nav_route[0] == second and s.nav_dest == second
+	nm.tap((nm.route_btns["stop_2"] as Rect2).get_center())
+	await _frames(1)
+	var armed_ok: bool = nm.armed == 2
+	if nm.dest_rows.has(st_k): nm.tap((nm.dest_rows[st_k] as Rect2).get_center())
+	await _frames(1)
+	var replaced: bool = s.nav_route.size() == 3 and s.nav_route[2] == s.station and nm.armed == -1
+	nm.tap((nm.route_btns["x_0"] as Rect2).get_center())
+	await _frames(1)
+	var removed: bool = s.nav_route.size() == 2 and not (second in s.nav_route) and s.nav_dest == s.nav_route[0]
+	_check("Job AL: + adds waypoints up to three stops (no fourth, no repeats); the map joins them in order with the total; a stop can be moved up, replaced (tap it, then a place) and removed, and the GPS always aims at stop 1",
+		three and capped and no_dup and total_ok and moved and armed_ok and replaced and removed, "three %s cap %s dup %s total %s moved %s armed %s replaced %s removed %s" % [three, capped, no_dup, total_ok, moved, armed_ok, replaced, removed])
+	nm.visible = false
+	main._on_map_closed()
+	await _frames(2)
+	# auto-advance: reach stop 1, the GPS moves on to stop 2 by itself; reach the last, it is done
+	# (open-space stops: flying "into" a planet would take the ship down to its surface)
+	s.set_destination(nm._dest_node(bl_k))
+	s.add_stop(s.station)
+	await _frames(2)
+	var first: Node3D = s.nav_route[0]
+	var last: Node3D = s.nav_route[1]
+	var g_two: Dictionary = main.hud.gps_drawn.duplicate()
+	_tp(first.global_position + Vector3(0, 0, Data.GPS_ARRIVE * 0.4), first.global_position)
+	await _frames(3)
+	var advanced: bool = s.nav_dest == last and s.nav_route.size() == 1 and not is_instance_valid(first) or s.nav_dest == last and s.nav_route.size() == 1
+	_tp(last.global_position + Vector3(0, 0, Data.GPS_ARRIVE * 0.4), last.global_position)
+	await _frames(3)
+	var done: bool = s.nav_dest == null and s.nav_route.is_empty()
+	_check("Job AL: the HUD strip says STOP 1 of N with the leg and the whole route; reaching a stop moves the GPS to the next one by itself, and the last one ends the route",
+		int(g_two.get("stops", 0)) == 2 and float(g_two.get("total", 0.0)) > float(g_two.get("dist", 0.0)) and advanced and done, "strip %s advanced %s done %s" % [str(g_two), advanced, done])
+	s.clear_route()
 	_tp(s.station.global_position + Vector3(0, 40, 420), s.station.global_position)

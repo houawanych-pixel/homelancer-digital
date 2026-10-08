@@ -1021,3 +1021,14 @@ Stage 1 (this version):
   marked, distance and ETA on it.
 - HUD: above the dashboard a GPS strip: A -> B on a blue line, your marker sliding toward B as the distance closes
   (and back if you fly away), name, distance, ETA.
+
+GPS stage 2 (same version): ADD WAYPOINT.
+- `space.nav_route` holds up to `GPS_MAX_STOPS` (3) stops in order; the last one is the final destination (the brief's
+  "stop 1 / 2 / 3" structure). `nav_dest` is always stop 1. Reaching a stop (`GPS_ARRIVE`) drops it and the GPS aims
+  at the next one by itself; the last one ends the route.
+- Map, right panel: ROUTE (total distance and ETA, CLEAR) with each stop's leg and up / down / remove buttons; tap a
+  stop's name, then a place below, to replace it. In the list: tap a place = go there (the route becomes that one
+  stop); its + = ADD WAYPOINT (no fourth stop, no repeats; changing the final destination = replace or reorder). The
+  map joins the stops in order with numbered blue dots.
+- HUD strip: STOP 1/N, the leg's distance and ETA, and ROUTE total distance and time.
+- Zones (asteroid field, nebula) get a GPS marker node of their own per stop, removed with the stop.

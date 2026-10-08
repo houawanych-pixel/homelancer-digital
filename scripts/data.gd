@@ -205,6 +205,7 @@ const TEXT_MIN := 13                  # nothing on the HUD is smaller than this
 const GPS_ARRIVE := 250.0          # this close, the GPS says you have arrived and clears the destination
 const GPS_ROUTE_COLOR := Color(0.35, 0.65, 1.0)   # the blue route line
 const GPS_LIST_ROWS := 9           # destinations listed at once on the map (nearest first)
+const GPS_MAX_STOPS := 3           # stops a route can hold (the last one is the final destination)
 
 # ---------------------------------------------------------------- Job AK (v1.5h): planet surface terrain and water (scripts/surface.gd)
 const TERRAIN_RIDGE_HIGH := 0.55      # ridge share for big-amplitude country (mountains), squared ridges (was 0.8, sharp)

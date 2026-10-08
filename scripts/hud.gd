@@ -1143,9 +1143,17 @@ func _gps_strip(rc: Rect2) -> void:
 	draw_colored_polygon(tri, WHITE)
 	_text(Vector2(x0 - 24, y + 5), "A", 13, Color(1, 1, 1, 0.7))
 	var eta_s := "--" if eta < 0.0 else ("%dm %02ds" % [int(eta) / 60, int(eta) % 60] if eta >= 60.0 else "%ds" % int(eta))
-	_text(Vector2(rc.position.x + 10, rc.position.y + 12), "GPS  %s" % n.name, 11, WHITE, HORIZONTAL_ALIGNMENT_LEFT, rc.size.x * 0.55)
-	_text(Vector2(rc.position.x, rc.position.y + 12), "%s  ·  ETA %s" % [_dist(d), eta_s], 11, col, HORIZONTAL_ALIGNMENT_RIGHT, rc.size.x - 10)
-	gps_drawn = {"name": str(n.name), "dist": d, "eta": eta, "k": k}
+	var nst: int = space.nav_route.size()
+	var lead := "GPS  %s" % n.name if nst <= 1 else "STOP 1/%d  %s" % [nst, n.name]
+	_text(Vector2(rc.position.x + 10, rc.position.y + 12), lead, 11, WHITE, HORIZONTAL_ALIGNMENT_LEFT, rc.size.x * 0.5)
+	var right := "%s  ·  ETA %s" % [_dist(d), eta_s]
+	var total := d
+	if nst > 1:   # the whole route too
+		total = float(space.route_lengths()[1])
+		var te: float = total / maxf(space.eff_speed(), 1.0)
+		right += "   ROUTE %s · %s" % [_dist(total), "%dm %02ds" % [int(te) / 60, int(te) % 60] if te >= 60.0 else "%ds" % int(te)]
+	_text(Vector2(rc.position.x, rc.position.y + 12), right, 11, col, HORIZONTAL_ALIGNMENT_RIGHT, rc.size.x - 10)
+	gps_drawn = {"name": str(n.name), "dist": d, "eta": eta, "k": k, "stops": nst, "total": total}
 
 # ---------------------------------------------------------------- v1.5g ship scan
 var way_rect := Rect2()     # where the waypoint / target box was drawn (tap = scan)

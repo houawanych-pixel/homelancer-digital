@@ -3827,12 +3827,81 @@ func mission_waypoint() -> Dictionary:
 var escort_node: Node3D = null   # v1.5f: the freighter of an escort mission (null = none out)
 
 # ---------------------------------------------------------------- v1.5i GPS: the active destination (point B)
-var nav_dest: Node3D = null      # what the GPS is guiding you to (stays set when you take the stick; cleared on arrival)
-var nav_start := 0.0             # the distance when it was set (the GPS bar's full length)
+var nav_dest: Node3D = null      # what the GPS is guiding you to NOW = nav_route[0] (stays set when you take the stick)
+var nav_start := 0.0             # the distance when this leg started (the GPS bar's full length)
+var nav_route: Array = []        # v1.5i stage 2: the stops in order, at most Data.GPS_MAX_STOPS (the last = final destination)
 
+## One destination: the route becomes just this stop.
 func set_destination(n: Node3D) -> void:
-	nav_dest = n
-	nav_start = distance_to(n) if n != null and is_instance_valid(n) else 0.0
+	_drop_markers(nav_route.filter(func(x): return x != n))
+	nav_route = [n] if n != null and is_instance_valid(n) else []
+	_route_changed()
+
+## ADD WAYPOINT: one more stop at the end (up to GPS_MAX_STOPS; a place already in the route is not added twice).
+func add_stop(n: Node3D) -> String:
+	if n == null or not is_instance_valid(n): return "Nothing to add."
+	if n in nav_route: return "%s is already on your route." % n.name
+	if nav_route.size() >= Data.GPS_MAX_STOPS: return "The route holds %d stops. Remove one first." % Data.GPS_MAX_STOPS
+	nav_route.append(n)
+	_route_changed()
+	return "Stop %d: %s." % [nav_route.size(), n.name]
+
+func remove_stop(i: int) -> void:
+	if i < 0 or i >= nav_route.size(): return
+	_drop_markers([nav_route[i]])
+	nav_route.remove_at(i)
+	_route_changed()
+
+## Move stop i one place earlier (d = -1) or later (d = 1).
+func move_stop(i: int, d: int) -> void:
+	var j := i + d
+	if i < 0 or j < 0 or i >= nav_route.size() or j >= nav_route.size(): return
+	var tmp = nav_route[i]
+	nav_route[i] = nav_route[j]
+	nav_route[j] = tmp
+	_route_changed()
+
+func replace_stop(i: int, n: Node3D) -> void:
+	if i < 0 or i >= nav_route.size() or n == null or not is_instance_valid(n): return
+	if n in nav_route and nav_route.find(n) != i: return
+	_drop_markers([nav_route[i]])
+	nav_route[i] = n
+	_route_changed()
+
+func clear_route() -> void:
+	_drop_markers(nav_route)
+	nav_route = []
+	_route_changed()
+
+func _route_changed() -> void:
+	nav_route = nav_route.filter(func(x): return x != null and is_instance_valid(x))
+	var first: Node3D = nav_route[0] if not nav_route.is_empty() else null
+	if first != nav_dest: nav_start = distance_to(first) if first != null else 0.0
+	nav_dest = first
+
+## A GPS-only marker for a place with no node of its own (a zone's middle, a point): one node per stop.
+func nav_marker(p: Vector3, label: String) -> Node3D:
+	var m := Node3D.new()
+	m.name = label.validate_node_name()
+	m.set_meta("kind", "waypoint")
+	m.set_meta("radius", 30.0)
+	m.set_meta("gps_marker", true)
+	add_child(m)
+	m.global_position = p
+	return m
+
+func _drop_markers(list: Array) -> void:
+	for x in list:
+		if x != null and is_instance_valid(x) and x.get_meta("gps_marker", false) and x != autopilot: x.queue_free()
+
+## Whole route: [distance to the next stop, distance to the end through every stop in order].
+func route_lengths() -> Array:
+	if nav_route.is_empty() or not is_instance_valid(player): return [0.0, 0.0]
+	var first: float = distance_to(nav_route[0])
+	var total := first
+	for i in range(1, nav_route.size()):
+		total += (nav_route[i - 1] as Node3D).global_position.distance_to((nav_route[i] as Node3D).global_position)
+	return [first, total]
 
 ## The speed the GPS counts on: the lane's while in a trade lane, warp speed at warp, otherwise what you are flying
 ## now (never less than cruise, so a ship sitting still still gets an honest ETA).
@@ -3846,13 +3915,17 @@ func nav_eta() -> float:
 	return distance_to(nav_dest) / maxf(eff_speed(), 1.0)
 
 func _update_nav() -> void:
-	if nav_dest == null: return
-	if not is_instance_valid(nav_dest):
-		nav_dest = null
+	if nav_dest == null and nav_route.is_empty(): return
+	if nav_dest == null or not is_instance_valid(nav_dest):
+		_route_changed()
 		return
-	if distance_to(nav_dest) < Data.GPS_ARRIVE:
-		message.emit("GPS: arrived at %s." % nav_dest.name)
-		nav_dest = null
+	if distance_to(nav_dest) < Data.GPS_ARRIVE:   # this stop reached: on to the next one by itself
+		var here: String = str(nav_dest.name)
+		_drop_markers([nav_dest])
+		nav_route.pop_front()
+		_route_changed()
+		if nav_dest != null: message.emit("GPS: %s reached. Next stop: %s (%d to go)." % [here, nav_dest.name, nav_route.size()])
+		else: message.emit("GPS: arrived at %s." % here)
 var _mission_marker: Node3D = null
 
 ## v1.5f: the marker a mission point is flown to (one at a time, moved to the stage's point).
@@ -3894,6 +3967,9 @@ func spawn_mission_group(at: Vector3, faction: String, count: int, max_slot: int
 
 ## v1.5f: the most senior pick a few draws give (roster_pick leans to slot 01; a senior job wants the slot asked for).
 func _pick_senior(faction: String, max_slot: int, want: int) -> Dictionary:
+	if want >= 5:   # the elite soldier (slot 05 is a rank, not one person: always there to send)
+		for p in Data.ROSTERS.get(faction, {}).get("pilots", []):
+			if int(p.get("slot", 0)) == want and not p.get("named_unique", false) and Data.ENEMIES.has(str(p.get("fighter_primary", ""))): return p
 	var best: Dictionary = {}
 	for k in 14:
 		var p := roster_pick(faction, max_slot)
