@@ -124,7 +124,7 @@ func play_character_voice(character_id: String, dialogue_id: String, text: Strin
 		_speak_legacy(text, legacy_pitch, legacy_female, character_id)
 		return
 	stop_voice()
-	var prof := Voice.profile(character_id)
+	var prof := Voice.profile(character_id, legacy_female)
 	last_profile = prof
 	var fx: Array = Data.VOICE_EFFECT_SOUNDS.get(str(prof["effect"]), ["", "", ""])
 	play("comm_open", -4.0)

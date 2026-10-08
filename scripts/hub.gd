@@ -20,6 +20,8 @@ var status: Label
 var header: Label
 var subheader: Label
 var credits_label: Label
+var launch_btn: Button   # v1.5k: always there, upper right
+var board_tab := "missions"   # v1.5k: the MISSION BOARD's open tab: "missions" | "bounty"
 var preview_vp: SubViewport
 var preview_pivot: Node3D
 var preview_key := ""
@@ -56,6 +58,30 @@ func _ready() -> void:
 	credits_label.offset_top = 30
 	credits_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	add_child(credits_label)
+	# v1.5k: LAUNCH is always on screen (upper right, under the credits), on every page: you can never be stuck here
+	launch_btn = Button.new()
+	launch_btn.name = "LaunchButton"
+	launch_btn.text = "LAUNCH"
+	launch_btn.anchor_left = 1.0
+	launch_btn.anchor_right = 1.0
+	launch_btn.offset_left = -36 - Data.HUB_LAUNCH_SIZE.x
+	launch_btn.offset_right = -36
+	launch_btn.offset_top = 64
+	launch_btn.offset_bottom = 64 + Data.HUB_LAUNCH_SIZE.y
+	launch_btn.add_theme_font_size_override("font_size", 26)
+	launch_btn.add_theme_color_override("font_color", Color(1, 1, 1))
+	launch_btn.add_theme_color_override("font_hover_color", Color(1, 1, 1))
+	var lsb := StyleBoxFlat.new()
+	lsb.bg_color = Color(0.12, 0.62, 0.28)
+	lsb.border_color = Color(0.55, 1.0, 0.65)
+	lsb.set_border_width_all(3)
+	lsb.set_corner_radius_all(10)
+	launch_btn.add_theme_stylebox_override("normal", lsb)
+	var lsh := lsb.duplicate() as StyleBoxFlat
+	lsh.bg_color = Color(0.18, 0.75, 0.36)
+	launch_btn.add_theme_stylebox_override("hover", lsh)
+	launch_btn.add_theme_stylebox_override("pressed", lsh)
+	launch_btn.pressed.connect(func(): launch_requested.emit())
 	left = VBoxContainer.new()
 	left.position = Vector2(40, 130)
 	left.add_theme_constant_override("separation", 8)
@@ -79,6 +105,7 @@ func _ready() -> void:
 	status.offset_right = -36
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(status)
+	add_child(launch_btn)   # last child: drawn over everything, nothing can cover it
 	GS.changed.connect(_refresh_credits)
 	Packs.pack_ready.connect(func(pk: String):
 		if visible and pk == bg.get("pack", "-"): _load_background())
@@ -144,21 +171,21 @@ func show_screen(s: String) -> void:
 	screen = s
 	_refresh_credits()
 	var sysname: String = Data.SYSTEMS[GS.system_id]["name"]
-	header.text = base["name"].to_upper() if s == "hub" else {"equipment": "EQUIPMENT DEALER", "ships": "SHIP DEALER", "repair": "REPAIR & RESUPPLY", "bounty": "BOUNTY BOARD", "missions": "MISSIONS", "ship": "YOUR SHIP", "faction": "FACTION", "surface": "PLANET DESTINATIONS"}[s]
+	header.text = base["name"].to_upper() if s == "hub" else {"equipment": "EQUIPMENT DEALER", "ships": "SHIP DEALER", "repair": "REPAIR & RESUPPLY", "bounty": "MISSION BOARD", "missions": "MISSION BOARD", "board": "MISSION BOARD", "ship": "YOUR SHIP", "faction": "FACTION", "surface": "PLANET DESTINATIONS"}[s]
 	subheader.text = "%s  ·  %s SYSTEM  ·  %s" % ["ORBITAL STATION" if kind == "station" else "PLANET SURFACE", sysname.to_upper(), base["name"]]
 	for box in [left, content]:   # take the old page out at once, so the new buttons keep their own names
 		for c in box.get_children():
 			box.remove_child(c)
 			c.queue_free()
 	preview_vp = null
-	var menu := [["hub", "HUB"], ["equipment", "EQUIPMENT"], ["ships", "SHIP DEALER"], ["repair", "REPAIR / RESUPPLY"], ["missions", "MISSIONS"], ["bounty", "BOUNTIES"], ["ship", "YOUR SHIP"], ["faction", "FACTION"], ["map", "NAVIGATION"], ["launch", "LAUNCH"]]
+	var menu := [["hub", "HUB"], ["equipment", "EQUIPMENT"], ["ships", "SHIP DEALER"], ["repair", "REPAIR / RESUPPLY"], ["board", "MISSION BOARD"], ["ship", "YOUR SHIP"], ["faction", "FACTION"], ["map", "NAVIGATION"]]   # (v1.5k: LAUNCH is its own always-visible button)
 	if _surface_planet() != "": menu.insert(4, ["surface", "SURFACE TRAVEL"])
 	for m in menu:
 		var b := Button.new()
 		b.text = m[1]
 		b.custom_minimum_size = Vector2(270, 56)
 		b.name = "Btn_" + m[0]
-		if m[0] == s: b.add_theme_color_override("font_color", GOLD)
+		if m[0] == s or (m[0] == "board" and s in ["missions", "bounty"]): b.add_theme_color_override("font_color", GOLD)
 		if m[0] == "launch": b.add_theme_color_override("font_color", Color(0.5, 1.0, 0.65))
 		b.pressed.connect(_menu.bind(m[0]))
 		left.add_child(b)
@@ -172,8 +199,13 @@ func show_screen(s: String) -> void:
 			Packs.request("bulk")
 			_ships_page()
 		"repair": _repair_page()
-		"bounty": _bounty_page()
-		"missions": _missions_page()
+		"board": show_screen(board_tab)
+		"bounty":
+			board_tab = "bounty"
+			_bounty_page()
+		"missions":
+			board_tab = "missions"
+			_missions_page()
 		"ship": _ship_page()
 		"faction": _faction_page()
 		"surface": _surface_page()
@@ -183,6 +215,23 @@ func _menu(id: String) -> void:
 	if id == "launch": launch_requested.emit()
 	elif id == "map": map_requested.emit()
 	else: show_screen(id)
+
+## v1.5k: a page that scrolls (the MISSION BOARD's lists can be longer than the panel).
+func _scroll_box() -> VBoxContainer:
+	var sc := ScrollContainer.new()
+	sc.name = "Scroll"
+	sc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	sc.offset_left = 24
+	sc.offset_top = 18
+	sc.offset_right = -14
+	sc.offset_bottom = -12
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	content.add_child(sc)
+	var v := VBoxContainer.new()
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.add_theme_constant_override("separation", 10)
+	sc.add_child(v)
+	return v
 
 func _page_box() -> VBoxContainer:
 	var v := VBoxContainer.new()
@@ -571,11 +620,49 @@ func _insp_camera() -> void:
 	insp_cam.look_at(Vector3.ZERO, Vector3.UP)
 
 ## v1.4q: the bounty board. One row per named target (weakest first): face, where they hide, the reward.
+## v1.5k: the tab bar of the MISSION BOARD (MISSIONS | BOUNTIES) and the line saying what is being tracked.
+func _board_head(v: VBoxContainer, tab: String) -> void:
+	var bar := HBoxContainer.new()
+	bar.add_theme_constant_override("separation", 10)
+	for tb in [["missions", "MISSIONS"], ["bounty", "BOUNTIES"]]:
+		var b := Button.new()
+		b.name = "Tab_" + tb[0]
+		b.text = tb[1]
+		b.custom_minimum_size = Vector2(200, 50)
+		b.toggle_mode = true
+		b.button_pressed = tb[0] == tab
+		if tb[0] == tab: b.add_theme_color_override("font_color", GOLD)
+		b.pressed.connect(func(): show_screen(tb[0]))
+		bar.add_child(b)
+	v.add_child(bar)
+	var tr := _label(17, GOLD)
+	tr.name = "Tracking"
+	tr.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	tr.text = Missions.tracking_line(GS.system_id)
+	v.add_child(tr)
+
+## A row's highlight: a gold frame when it is the job being tracked.
+func _row_frame(row: Control, on: bool) -> PanelContainer:
+	var pc := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.35, 0.27, 0.05, 0.55) if on else Color(0, 0, 0, 0.0)
+	sb.border_color = GOLD if on else Color(1, 1, 1, 0.08)
+	sb.set_border_width_all(3 if on else 1)
+	sb.set_corner_radius_all(8)
+	sb.content_margin_left = 8
+	sb.content_margin_right = 8
+	sb.content_margin_top = 6
+	sb.content_margin_bottom = 6
+	pc.add_theme_stylebox_override("panel", sb)
+	pc.add_child(row)
+	return pc
+
 func _bounty_page() -> void:
-	var v := _page_box()
-	var l := _label(19, Color(1, 1, 1))
+	var v := _scroll_box()
+	_board_head(v, "bounty")
+	var l := _label(17, Color(1, 1, 1))
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.text = "Pick a target, fly to their system and destroy the ship. The pilot bails out: TRACTOR them in, then dock at any station to be paid. The higher the number, the harder the fight."
+	l.text = "Tap a target to track it (a gold waypoint leads you there); tap it again to stop. Tapping another target switches. Rank under %d: destroy the ship, paid on the spot. Rank %d and up: bring the pilot back here alive." % [Data.BOUNTY_ALIVE_RANK, Data.BOUNTY_ALIVE_RANK]
 	v.add_child(l)
 	_standing_rows(v)
 	for p in Data.bounties():
@@ -589,17 +676,17 @@ func _bounty_page() -> void:
 		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 		var path: String = p["portrait_clean"]
 		if ResourceLoader.exists(path): pic.texture = load(path)
-		else:   # picture slot not filled yet: a plain plate in the faction colour
+		else:
 			var ph := GradientTexture2D.new()
 			ph.gradient = Gradient.new()
 			ph.gradient.colors = PackedColorArray([Color(0.35, 0.1, 0.08), Color(0.12, 0.05, 0.05)])
 			pic.texture = ph
 		row.add_child(pic)
-		var t := _label(18, CYAN)
+		var t := _label(17, CYAN)
 		t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		t.text = "%02d  %s  ·  %s  ·  %s\nLast seen: %s system   ·   Flies a %s\nReward %d cr" % [int(p["rank"]), str(p["name"]).to_upper(), p["type"], p["faction"],
-			Data.SYSTEMS[p["sys"]]["name"], Data.ENEMIES[p["fighter_primary"]]["name"], Data.bounty_reward(id)]
+		t.text = "%02d  %s  ·  %s  ·  %s\nLast seen: %s system   ·   Flies a %s\nReward %d cr  ·  wanted %s" % [int(p["rank"]), str(p["name"]).to_upper(), p["type"], p["faction"],
+			Data.SYSTEMS[p["sys"]]["name"], Data.ENEMIES[p["fighter_primary"]]["name"], Data.bounty_reward(id), "ALIVE" if int(p["rank"]) >= Data.BOUNTY_ALIVE_RANK else "dead"]
 		row.add_child(t)
 		var b := Button.new()
 		b.name = "Bounty_" + id
@@ -612,35 +699,29 @@ func _bounty_page() -> void:
 			b.text = "IN YOUR HOLD"
 			b.disabled = true
 		elif mine:
-			b.text = "HUNTING"
-			b.disabled = true
-			b.add_theme_color_override("font_disabled_color", GOLD)
+			b.text = "TRACKING\ntap to stop"
+			b.add_theme_color_override("font_color", GOLD)
 		else:
-			b.text = "ACCEPT"
-			b.disabled = GS.bounty.get("state", "") == "captured"
-			b.disabled = b.disabled or not GS.mission.is_empty()
-			b.pressed.connect(func(): status.text = Missions.accept_bounty(id); show_screen("bounty"))   # v1.5f: a chain of waypoints, paid dead on the spot or alive back here
+			b.text = "SELECT"
+		b.pressed.connect(func(): status.text = Missions.toggle_bounty(id); show_screen("bounty"))
 		row.add_child(b)
-		v.add_child(row)
+		v.add_child(_row_frame(row, mine))
 
-## v1.5f: the MISSIONS board: the station's jobs (threats easy / hard, escort), one at a time.
+## v1.5f / v1.5k: the MISSIONS tab: the station's jobs; tap one to take and track it, tap it again to drop it, tap
+## another to switch.
 func _missions_page() -> void:
-	var v := _page_box()
-	var l := _label(19, Color(1, 1, 1))
+	var v := _scroll_box()
+	_board_head(v, "missions")
+	var l := _label(17, Color(1, 1, 1))
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.text = "Work for %s. Take a job and a gold mission waypoint leads you through it. One job at a time; bounties are on the BOUNTY BOARD." % base["name"]
+	l.text = "Work for %s. Tap a job to take it (a gold waypoint leads you through it); tap it again to drop it. Tapping another job switches." % base["name"]
 	v.add_child(l)
-	if not GS.mission.is_empty():
-		var cur := _label(18, GOLD)
-		cur.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		cur.name = "CurrentJob"
-		cur.text = "CURRENT JOB: %s\n%s" % [str(GS.mission["title"]).to_upper(), GS.mission["brief"]]
-		v.add_child(cur)
 	for o in Missions.offers(GS.system_id, base["id"]):
 		var row := HBoxContainer.new()
 		row.name = "Job_" + str(o["kind"]) + ("_hard" if o.get("hard", false) else "")
 		row.add_theme_constant_override("separation", 14)
-		var t := _label(18, CYAN)
+		var mine: bool = Missions.is_current(o)
+		var t := _label(17, CYAN)
 		t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		t.text = "%s\n%s\nReward %d cr" % [str(o["title"]).to_upper(), o["brief"], int(o["pay"])]
@@ -648,11 +729,11 @@ func _missions_page() -> void:
 		var b := Button.new()
 		b.name = "Take_" + row.name
 		b.custom_minimum_size = Vector2(230, 60)
-		b.text = "ACCEPT"
-		b.disabled = not GS.mission.is_empty() or not GS.bounty.is_empty()
-		b.pressed.connect(func(): status.text = Missions.accept(o); show_screen("missions"))
+		b.text = "TRACKING\ntap to stop" if mine else "SELECT"
+		if mine: b.add_theme_color_override("font_color", GOLD)
+		b.pressed.connect(func(): status.text = Missions.toggle(o); show_screen("missions"))
 		row.add_child(b)
-		v.add_child(row)
+		v.add_child(_row_frame(row, mine))
 
 ## v1.5f: YOUR SHIP: weapons and the hold (and the job you carry, which can be dropped here).
 func _ship_page() -> void:

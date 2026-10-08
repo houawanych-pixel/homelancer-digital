@@ -208,7 +208,10 @@ func _generic_pilots() -> void:
 	var hud: Node = main.hud
 	hud.close_comms()
 	var fwd: Vector3 = -s.player.global_basis.z
+	var real_sys: Dictionary = s.sys
+	s.sys = Data.SYSTEMS["vega"]   # (v1.5k: Solara's opening is Imperium troops now; the named-leader wings fly in corsair space)
 	var group: Array = s._spawn_group(s.player.global_position + fwd * 500.0, 3)
+	s.sys = real_sys
 	var lead: Dictionary = group[0]
 	var wing: Dictionary = group[1]
 	var named := []
@@ -922,6 +925,7 @@ func _fight(label: String) -> bool:
 	var s := _sp()
 	if not s.hail.is_connected(_on_hail): s.hail.connect(_on_hail)
 	if not s.enemy_hail.is_connected(_on_enemy_hail): s.enemy_hail.connect(_on_enemy_hail)
+	if not s.enemy_chatter.is_connected(_on_enemy_chat): s.enemy_chatter.connect(_on_enemy_chat)   # (v1.5k: roster troops talk on the radio rather than hail)
 	var before := GS.kills
 	if s.enemies.is_empty():
 		for p in s.sys["patrols"]: s._spawn_group(p, 2)
@@ -952,6 +956,9 @@ func _fight(label: String) -> bool:
 	return GS.kills > before
 
 func _on_enemy_hail(_p: Dictionary) -> void:
+	got_hail = true
+
+func _on_enemy_chat(_a = null, _b = null) -> void:
 	got_hail = true
 
 func _on_hail(_from: String, _line: String, hostile: bool) -> void:
@@ -1041,6 +1048,14 @@ func _run() -> void:
 		await _until(func(): return main.state == "flight", 10.0)
 		await _wait(1.0)
 		await _art_n()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
+	if OS.get_environment("HL_AN") != "":   # the Job AN test flow only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_an()
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
@@ -1303,6 +1318,7 @@ func _run() -> void:
 	var s := _sp()
 	s.hail.connect(_on_hail)   # listen from the start: enemies may call as soon as they see you (e.g. a warp spool)
 	s.enemy_hail.connect(_on_enemy_hail)
+	s.enemy_chatter.connect(_on_enemy_chat)   # (v1.5k: the opening's roster troops talk on the radio rather than hail)
 	_check("Real/placeholder player ship", is_instance_valid(s.model), "placeholder=%s" % s.model.get_meta("placeholder", true))
 	# ---- first-person cockpit, comms and the AUTO/MANUAL system panels
 	_press("view")
@@ -1393,7 +1409,7 @@ func _run() -> void:
 	_check("Credits earned + TRACTOR pulls loot", GS.credits > credits0 and pods > 0 and pulled and GS.credits > credits1, "%d -> %d, pods %d" % [credits0, GS.credits, pods])
 	_check("Enemy called you on the intercom", got_hail)
 	await _wait(0.5)
-	_check("Enraged raider leader joins contacts", GS.mood.get("voss", "") == "enraged")
+	_check("No story leader calls in after the opening fight (v1.5k: the opening enemies are ordinary Imperium troops; Shade stays out of it)", not GS.mood.has("voss") and Data.OPENING_SYSTEMS.has("solara"))
 	await _section_loop()
 	await _mech_form()
 	await _generic_pilots()
@@ -1582,6 +1598,7 @@ func _run() -> void:
 	await _job_ak()
 	await _job_al()
 	await _job_am()
+	await _job_an()
 	await _galaxy()
 	await _controls_j()
 	await _gate_k()
@@ -3213,8 +3230,8 @@ func _job_v() -> void:
 	for i in range(s.loot.size() - 1, -1, -1):
 		(s.loot[i]["node"] as Node3D).queue_free()
 		s.loot.remove_at(i)
-	# other factions' placeholder patrols are untouched
-	s.sys = real_sys
+	# other factions' placeholder patrols are untouched (v1.5k: in Vega; Solara's opening is Imperium troops now)
+	s.sys = Data.SYSTEMS["vega"]
 	s._incursion = ""
 	var plain: Array = s._spawn_group(far + Vector3(0, 0, 900), 2)
 	var plain_ok := true
@@ -3324,7 +3341,7 @@ func _job_v() -> void:
 	var btn: Button = main.hub.content.find_child("Bounty_savagers_03", true, false)
 	var names: Array = Data.bounties().map(func(b): return b["name"])
 	var stand: Label = main.hub.content.find_child("Standing_Savagers", true, false)
-	var board_ok: bool = btn != null and not btn.disabled and names == ["Razor", "Veil", "Dreadmaw"] and main.hub.left.find_child("Btn_bounty", true, false) != null
+	var board_ok: bool = btn != null and not btn.disabled and names == ["Jackal", "Razor", "Veil", "Dreadmaw"] and main.hub.left.find_child("Btn_board", true, false) != null
 	var stand_ok: bool = stand != null and stand.text == "SAVAGERS: HOSTILE" and main.hub.content.find_child("Standing_Unity", true, false) != null
 	await _shot("v_bounty_board", 0.3)
 	if btn: btn.pressed.emit()
@@ -3418,7 +3435,7 @@ func _job_w() -> void:
 	await _frames(3)
 	var t0: Texture2D = hub.bg_tex
 	var docked_ok: bool = t0 != null and t0.resource_path.ends_with("unity.jpg") and t0.get_size() == Vector2(1280, 720) and hub.bg["source"] == "faction"
-	var ui_ok: bool = hub.left.visible and hub.content.visible and hub.header.visible and hub.left.find_child("Btn_launch", true, false) != null and hub.left.find_child("Btn_faction", true, false) != null
+	var ui_ok: bool = hub.left.visible and hub.content.visible and hub.header.visible and hub.launch_btn != null and hub.launch_btn.visible and hub.left.find_child("Btn_faction", true, false) != null
 	await _shot("w_hub_unity", 0.4)
 	var same := true
 	for scr in ["equipment", "ships", "repair", "bounty", "faction", "hub"]:
@@ -4542,11 +4559,12 @@ func _job_ai() -> void:
 	main.hub.show_screen("missions")
 	await _frames(2)
 	var take: Button = main.hub.content.find_child("Take_Job_threats", true, false)
-	var rows_ok: bool = take != null and not take.disabled and main.hub.content.find_child("Job_threats_hard", true, false) != null and main.hub.content.find_child("Job_escort", true, false) != null and main.hub.left.find_child("Btn_missions", true, false) != null
+	var rows_ok: bool = take != null and not take.disabled and main.hub.content.find_child("Job_threats_hard", true, false) != null and main.hub.content.find_child("Job_escort", true, false) != null and main.hub.left.find_child("Btn_board", true, false) != null
 	await _shot("ai_missions_board", 0.3)
 	if take: take.pressed.emit()
 	await _frames(2)
-	var taken: bool = GS.mission.get("kind", "") == "threats" and not bool(GS.mission.get("hard", false)) and main.hub.status.text.find("waypoint") >= 0 and main.hub.content.find_child("CurrentJob", true, false) != null
+	var trk: Label = main.hub.content.find_child("Tracking", true, false)
+	var taken: bool = GS.mission.get("kind", "") == "threats" and not bool(GS.mission.get("hard", false)) and main.hub.status.text.find("waypoint") >= 0 and trk != null and trk.text.find("PATROL") >= 0
 	main.hub.show_screen("ship")
 	await _frames(2)
 	var wl: Label = main.hub.content.find_child("Weapons", true, false)
@@ -5008,8 +5026,8 @@ func _job_am() -> void:
 	var off_ok: bool = Sfx.last_provider == "BLIPS"
 	Sfx.stop_voice()
 	Sfx.voice_mode = "read"
-	Sfx.play_character_voice("amari", "", "Old path.", 1.2, true)
-	var legacy_ok: bool = Sfx.last_provider == "" and Sfx.last_profile.is_empty()
+	Sfx.play_character_voice("amari", "", "Every one now.", 1.2, true)
+	var legacy_ok: bool = Sfx.last_provider == "PHONE_TTS" and Sfx.last_profile.get("voice_type", "") == "female"   # (v1.5k: every character is on a profile now)
 	Sfx.stop_voice()
 	var central: bool = true
 	for f in ["main.gd", "hud.gd", "space.gd", "brain.gd"]:
@@ -5041,3 +5059,155 @@ func _job_am() -> void:
 	Sfx.voice_mode = keep_mode
 	Sfx.voice_picks = keep_picks
 	Sfx.path = keep_path
+
+
+## Job AN (v1.5k): the owner's test flow, start to finish: opening Imperium troops with their own voices -> dock ->
+## MISSION BOARD (select, deselect, switch) -> BOUNTIES (select Jackal / Razor / Veil / Dreadmaw, highlight, waypoint,
+## deselect, switch) -> green LAUNCH always there -> back in space -> follow the waypoint -> the right target.
+func _job_an() -> void:
+	var shell := FileAccess.get_file_as_string("res://web_shell.html")
+	_check("Job AN: version label reads \"Homelancer Digital v1.5k\" or later", Data.VERSION >= "v1.5k" and (shell == "" or shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0), Data.VERSION)
+	var s := _sp()
+	var keep := {"bounty": GS.bounty.duplicate(true), "done": GS.bounties_done.duplicate(), "mission": GS.mission.duplicate(true), "cast": GS.cast.duplicate(true), "credits": GS.credits, "rep": GS.rep.duplicate(true)}
+	GS.bounty = {}
+	GS.mission = {}
+	GS.bounties_done = []
+	# ---- 1. the opening enemies: Imperium troops (slots 1-2), hostile, their own voices; no raider leader, no boss
+	var g: Array = s._spawn_group(s.station.global_position + Vector3(400, 60, -900), 6)
+	var people: Array = g.map(func(e): return e.get("pilot", {}))
+	var all_imperial: bool = people.all(func(p): return str(p.get("faction", "")) == "Imperium" and int(p.get("slot", 9)) <= 2)
+	var hostile: bool = g.all(func(e): return e.get("provoked", false) and str(e["def"].get("faction", "")) == "Imperium")
+	var no_boss: bool = not people.any(func(p): return str(p.get("name", "")) in ["Scar Jackal", "Ember Wraith", "Shade", "Lord Kraeg"])
+	var sexes := {}
+	var voice_ok := true
+	Sfx.voices_override = [{"id": "v_m", "name": "Microsoft David", "language": "en-US"}, {"id": "v_f", "name": "Microsoft Zira", "language": "en-US"}]
+	for p in people:
+		Sfx.play_character_voice(str(p.get("voice_id", "")), "", "Opening line %s." % p.get("id", ""), 1.0, str(p.get("sex", "")) == "female")
+		var want := "v_f" if str(p.get("sex", "")) == "female" else "v_m"
+		if Sfx.last_profile.get("preferred_voice", "") != want: voice_ok = false
+		sexes[str(p.get("sex", ""))] = true
+		Sfx.stop_voice()
+		await _wait(Data.VOICE_SAME_LINE_GUARD * 0.3)
+	Sfx.voices_override = []
+	await _shot("an_opening_imperium", 0.3)
+	for e in g:
+		if e in s.enemies:
+			s.enemies.erase(e)
+			(e["node"] as Node3D).free()
+	_check("Job AN: the opening enemies are the rival nation's ordinary troops (Imperium slots 01-02: Imperium Trooper and Vexa Drak), hostile, flying Imperium fighters; no placeholder raider leader or story boss",
+		all_imperial and hostile and no_boss, str(people.map(func(p): return p.get("name", "?"))))
+	_check("Job AN: each opening NPC speaks with the voice of its own definition: men a man's voice, women a woman's voice", voice_ok, "sexes seen %s" % str(sexes.keys()))
+	# ---- 2. dock: the green LAUNCH button is there on every page
+	var hub = main.hub
+	hub.open(Data.SYSTEMS[s.sys_id]["station"])
+	main.state = "hub"
+	await _frames(2)
+	var launch_ok := true
+	for scr in ["hub", "equipment", "ships", "repair", "board", "missions", "bounty", "ship", "faction"]:
+		hub.show_screen(scr)
+		await _frames(1)
+		var lr: Rect2 = hub.launch_btn.get_global_rect()
+		if not (hub.launch_btn.visible and Rect2(Vector2.ZERO, hub.get_viewport_rect().size).encloses(lr) and hub.launch_btn.get_index() == hub.get_child_count() - 1): launch_ok = false
+		for c in hub.left.get_children():
+			if (c as Control).get_global_rect().intersects(lr): launch_ok = false
+	_check("Job AN: the hub's green LAUNCH button is on screen, upper right, on every page (hub, equipment, ship dealer, repair, mission board, missions, bounties, your ship, faction) and nothing covers it", launch_ok)
+	# ---- 3. MISSION BOARD -> MISSIONS: select, deselect, select another
+	hub.show_screen("board")   # (opens the tab last used)
+	await _frames(2)
+	var tabs_ok: bool = hub.content.find_child("Tab_missions", true, false) != null and hub.content.find_child("Tab_bounty", true, false) != null
+	(hub.content.find_child("Tab_missions", true, false) as Button).pressed.emit()
+	await _frames(2)
+	var b1: Button = hub.content.find_child("Take_Job_threats", true, false)
+	b1.pressed.emit()
+	await _frames(2)
+	var sel1: bool = GS.mission.get("kind", "") == "threats" and not GS.mission.get("hard", true)
+	var hi1: Button = hub.content.find_child("Take_Job_threats", true, false)
+	var lit1: bool = hi1 != null and hi1.text.begins_with("TRACKING")
+	await _shot("an_mission_selected", 0.3)
+	hi1.pressed.emit()
+	await _frames(2)
+	var desel: bool = GS.mission.is_empty() and (hub.content.find_child("Take_Job_threats", true, false) as Button).text == "SELECT"
+	(hub.content.find_child("Take_Job_escort", true, false) as Button).pressed.emit()
+	await _frames(2)
+	var sel2: bool = GS.mission.get("kind", "") == "escort"
+	(hub.content.find_child("Take_Job_threats_hard", true, false) as Button).pressed.emit()
+	await _frames(2)
+	var switched: bool = GS.mission.get("kind", "") == "threats" and GS.mission.get("hard", false) and (hub.content.find_child("Take_Job_escort", true, false) as Button).text == "SELECT"
+	_check("Job AN: MISSIONS: tap a job = selected (gold, TRACKING), tap it again = cleared, tap another = switched; nothing stays blocked",
+		tabs_ok and sel1 and lit1 and desel and sel2 and switched, "tabs %s sel %s lit %s desel %s sel2 %s switch %s" % [tabs_ok, sel1, lit1, desel, sel2, switched])
+	# ---- 4. BOUNTIES: 2, 3, 4, 6; select (waypoint), deselect, select another (waypoint switches)
+	(hub.content.find_child("Tab_bounty", true, false) as Button).pressed.emit()
+	await _frames(2)
+	var ids: Array = Data.bounties().map(func(p): return int(p["slot"]))
+	var bj: Button = hub.content.find_child("Bounty_savagers_02", true, false)
+	bj.pressed.emit()
+	await _frames(2)
+	var trk: Label = hub.content.find_child("Tracking", true, false)
+	var jack: bool = GS.bounty.get("id", "") == "savagers_02" and GS.mission.get("kind", "") == "bounty" and GS.mission.get("id", "") == "savagers_02" and trk.text.find("Derelicta") >= 0 and trk.text.find("jump") >= 0
+	var w_j: Dictionary = s.mission_waypoint()
+	var way_j: bool = not w_j.is_empty() and str(w_j["line"]).find("Derelicta") >= 0
+	var lit_j: bool = (hub.content.find_child("Bounty_savagers_02", true, false) as Button).text.begins_with("TRACKING")
+	await _shot("an_bounty_selected", 0.3)
+	(hub.content.find_child("Bounty_savagers_02", true, false) as Button).pressed.emit()
+	await _frames(2)
+	var off: bool = GS.bounty.is_empty() and GS.mission.is_empty() and s.mission_waypoint().is_empty()
+	(hub.content.find_child("Bounty_savagers_04", true, false) as Button).pressed.emit()
+	await _frames(2)
+	var w_v: Dictionary = s.mission_waypoint()
+	var veil: bool = GS.bounty.get("id", "") == "savagers_04" and not w_v.is_empty() and str(w_v["line"]).find("Scavaris") >= 0 and (hub.content.find_child("Bounty_savagers_02", true, false) as Button).text == "SELECT"
+	(hub.content.find_child("Bounty_savagers_03", true, false) as Button).pressed.emit()
+	await _frames(2)
+	var razor: bool = GS.bounty.get("id", "") == "savagers_03" and str(s.mission_waypoint().get("line", "")).find("Plundros") >= 0
+	_check("Job AN: BOUNTIES: the targets are characters 2, 3, 4 and 6 (Jackal, Razor, Veil, Dreadmaw); tap one = tracked, gold, with its waypoint (the gate toward its system); tap again = cleared; tap another = the waypoint switches to that target; only one is tracked",
+		ids == [2, 3, 4, 6] and jack and way_j and lit_j and off and veil and razor, "slots %s jackal %s way %s lit %s off %s veil %s razor %s" % [str(ids), jack, way_j, lit_j, off, veil, razor])
+	# ---- 5. LAUNCH -> space; follow the waypoint to the target's system; the right target is there
+	await _shot("an_board_launch_visible", 0.3)
+	hub.launch_btn.pressed.emit()
+	await _until(func(): return main.state == "flight", 12.0)
+	var flying: bool = main.state == "flight" and not hub.visible
+	var hops := 0
+	var guard := 0
+	while _sp().sys_id != "plundros" and guard < 8:
+		guard += 1
+		var wp: Dictionary = _sp().mission_waypoint()
+		if wp.is_empty() or (wp["node"] as Node3D).get_meta("kind", "") != "gate": break
+		main.jump(wp["node"])
+		await _until(func(): return main.state == "flight", 20.0)
+		hops += 1
+	s = _sp()
+	var arrived: bool = s.sys_id == "plundros"
+	var p0: Vector3 = Missions.point_pos(s, 0)
+	var p1: Vector3 = Missions.point_pos(s, 1)
+	_tp(p0 + Vector3(0, 0, 300), p0)
+	await _frames(4)
+	for e in s.enemies.filter(func(o): return int(o.get("mission", -1)) == 0): s._destroy_unit(e)
+	await _frames(3)
+	_tp(p1 + Vector3(0, 0, 300), p1)
+	await _frames(4)
+	var tgt: Array = s.enemies.filter(func(o): return o.get("bounty", "") == "savagers_03")
+	var wb: Dictionary = s.mission_waypoint()
+	var right: bool = tgt.size() == 1 and not wb.is_empty() and wb["node"] == tgt[0]["node"]
+	var model_ok: bool = right and str(tgt[0]["def"].get("model", "")) == "savager_redclaw" and str(tgt[0].get("pilot", {}).get("name", "")) == "Razor" and str(tgt[0].get("pilot", {}).get("sex", "")) == "female"
+	if right: s.target = tgt[0]["node"]
+	var targeting: bool = right and s.target_health() > 0.0
+	Sfx.voices_override = [{"id": "v_m", "name": "Microsoft David", "language": "en-US"}, {"id": "v_f", "name": "Microsoft Zira", "language": "en-US"}]
+	if right: main._pilot_call(tgt[0]["pilot"], false)
+	var razor_voice: bool = Sfx.last_profile.get("preferred_voice", "") == "v_f"
+	Sfx.voices_override = []
+	await _shot("an_bounty_target_razor", 0.3)
+	_check("Job AN: LAUNCH returns you to space; the waypoint leads gate by gate to the target's system (%d jumps); at the second mission point the target's wing is there with Razor herself, in her Redclaw, targetable, speaking in a woman's voice" % hops,
+		flying and arrived and right and model_ok and targeting and razor_voice, "flying %s arrived %s right %s model %s target %s voice %s" % [flying, arrived, right, model_ok, targeting, razor_voice])
+	for e in s.enemies.duplicate():
+		if is_instance_valid(e["node"]): (e["node"] as Node3D).free()
+	s.enemies = []
+	s.target = null
+	Missions.abandon()
+	GS.bounty = keep["bounty"]
+	GS.bounties_done = keep["done"]
+	GS.mission = keep["mission"]
+	GS.cast = keep["cast"]
+	GS.credits = keep["credits"]
+	GS.rep = keep["rep"]
+	main._load_system("solara", "station")   # back home for the rest of the route test
+	await _frames(4)
+	_tp(_sp().station.global_position + Vector3(0, 40, 420), _sp().station.global_position)

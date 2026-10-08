@@ -1361,9 +1361,12 @@ func _spawn_group(center: Vector3, count: int) -> Array:
 		var kind: String = sys["enemy"]
 		# v1.4r / v1.4w: a faction whose own people fly its patrols (Savagers), or its guard wing / hunters
 		var own: String = str(sys.get("faction", ""))
-		var soldier: Dictionary = roster_pick(own, _guard_slot) if (Factions.replaces_patrols(own) or _guard_spawn) else {}
+		var soldier: Dictionary = roster_pick(own, mini(_guard_slot, Data.PATROL_MAX_SLOT)) if (Factions.replaces_patrols(own) or _guard_spawn) else {}
+		# v1.5k: the opening system: the rival nation's low ranks, always hostile (no raider leaders, no story bosses)
+		var opening: Dictionary = opening_rule()
+		if not opening.is_empty() and not _guard_spawn: soldier = roster_pick(str(opening["faction"]), int(opening["max_slot"]))
 		# v1.4z: an enemy home system whose faction has a roster and ships (Phenom, Kaijurai): its own people fly the patrols
-		if soldier.is_empty() and not _guard_spawn and str(sys.get("enemy_faction", "")) != "": soldier = roster_pick(str(sys["enemy_faction"]))
+		if soldier.is_empty() and not _guard_spawn and str(sys.get("enemy_faction", "")) != "": soldier = roster_pick(str(sys["enemy_faction"]), Data.PATROL_MAX_SLOT)
 		if soldier.is_empty() and _incursion != "" and not _guard_spawn:   # a rival's raiding party: common soldiers, now and then led by slot 02
 			soldier = roster_pick(_incursion, 2 if (i == 0 and randf() < Data.INCURSION_NAMED_CHANCE) else 1)
 			if i == count - 1 or count > Data.INCURSION_SIZE: _incursion_done = true
@@ -1376,7 +1379,9 @@ func _spawn_group(center: Vector3, count: int) -> Array:
 		e["group"] = _group_serial
 		# the first ship flies under a NAMED squad leader (Scar Jackal, Iron Revenant...); everyone else is a generic
 		# pilot in that leader's wing
-		if not soldier.is_empty(): assign_roster(e, soldier)
+		if not soldier.is_empty():
+			assign_roster(e, soldier)
+			if not opening.is_empty(): e["provoked"] = true   # the rival's raiders fight you whatever the standing
 		elif not fleet.is_empty(): _make_generic(e, str(e["def"].get("faction", "")))   # no named squad leader: they are not the raiders' or corsairs' people
 		elif i == 0 and e["node"].has_meta("pilot"): leader = e["node"].get_meta("pilot")["name"]
 		elif i > 0: _make_generic(e, leader)
@@ -1387,6 +1392,13 @@ func _spawn_group(center: Vector3, count: int) -> Array:
 		_incursion_done = false
 	if busy and group.size() > 1 and not (_guard_spawn and not Factions.hostile(str(sys.get("faction", "")))): _chatter(group[-1], "reinforcements", true)   # (a peaceful guard wing does not announce itself as a threat)
 	return group
+
+## v1.5k: the opening-system rule for the system being flown ({} = none). Matched on the system's own data, so code
+## that borrows another system's data (the tests do) gets that system's patrols.
+func opening_rule() -> Dictionary:
+	for k in Data.OPENING_SYSTEMS:
+		if is_same(sys, Data.SYSTEMS.get(k, null)): return Data.OPENING_SYSTEMS[k]
+	return {}
 
 var _named_down := {}        # named characters you shot down on this visit: they have left the area
 var _incursion := ""         # the rival faction raiding this system on this visit ("" = none)

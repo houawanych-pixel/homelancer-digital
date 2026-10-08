@@ -33,10 +33,11 @@ static func voice_gender(name: String) -> String:
 
 ## Is this character on the new profile system yet? (Stage 1 rolls out to a few test characters first.)
 static func profiled(character_id: String) -> bool:
-	return character_id in Data.VOICE_PROFILE_ROLLOUT
+	return character_id != "" and ("*" in Data.VOICE_PROFILE_ROLLOUT or character_id in Data.VOICE_PROFILE_ROLLOUT)
 
-## What the game knows about a character's voice: [persona_id, sex] from the roster documents or the story cast.
-static func _persona(character_id: String) -> Array:
+## What the game knows about a character's voice: [persona_id, sex] from the roster documents or the story cast;
+## a generic pilot (not in either) goes by the sex its own entry gives (female_hint).
+static func _persona(character_id: String, female_hint := false) -> Array:
 	if Data.CHARACTERS.has(character_id):
 		var c: Dictionary = Data.CHARACTERS[character_id]
 		var persona := str(c.get("voice_persona", "female" if c.get("female", false) else "male"))
@@ -45,11 +46,14 @@ static func _persona(character_id: String) -> Array:
 		for p in Data.ROSTERS[f]["pilots"]:
 			if str(p.get("voice_id", "")) == character_id or str(p.get("character_id", "")) == character_id:
 				return [str(p.get("voice_persona", "male")), str(p.get("voice_sex", p.get("sex", "male")))]
-	return ["male", "male"]
+	for g in Data.GENERIC_PILOTS:
+		if "gp/" + str(g.get("id", "")) == character_id or str(g.get("id", "")) == character_id:
+			return ["female" if g.get("female", false) else "male_masked", "female" if g.get("female", false) else "male"]
+	return ["female", "female"] if female_hint else ["male", "male"]
 
 ## The full profile for one character (device voice not chosen here: see pick_voice).
-static func profile(character_id: String) -> Dictionary:
-	var pr: Array = _persona(character_id)
+static func profile(character_id: String, female_hint := false) -> Dictionary:
+	var pr: Array = _persona(character_id, female_hint)
 	var persona: String = pr[0]
 	var base: Dictionary = Data.VOICE_PERSONAS.get(persona, {})
 	if base.is_empty():   # an unlisted persona: go by its first word ("female_x" -> "female")

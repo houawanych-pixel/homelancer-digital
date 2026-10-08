@@ -18,7 +18,9 @@ class_name Missions
 static func offers(sys_id: String, station_id: String) -> Array:
 	var sys: Dictionary = Data.SYSTEMS[sys_id]
 	var own := str(sys.get("faction", ""))
-	var enemy := Factions.raider_of(own)
+	var enemy := str(Data.OPENING_SYSTEMS.get(sys_id, {}).get("faction", ""))   # v1.5k: the opening system's rival nation
+	if enemy == "": enemy = Factions.raider_of(own)
+	if enemy == "" and Factions.has_fighters(Factions.rival(own)): enemy = Factions.rival(own)   # the owner's rival nation, if it has ships
 	if enemy == "":   # nobody raids this owner: the nearest permanent enemy with ships does the dirty work
 		for f in Data.MISSION_FALLBACK_ENEMIES:
 			if Factions.has_fighters(f):
@@ -68,8 +70,11 @@ static func point_pos(space: SpaceSystem, i: int) -> Vector3:
 
 ## Take a job from the board. "" = taken.
 static func accept(offer: Dictionary) -> String:
-	if not GS.mission.is_empty(): return "Finish the job you have first (or drop it from the SHIP page)."
-	if not GS.bounty.is_empty(): return "Finish your bounty first."
+	if not GS.mission.is_empty() or not GS.bounty.is_empty():
+		var blk := _switch_block()
+		if blk != "": return blk
+		abandon()
+		GS.bounty = {}
 	var m := offer.duplicate(true)
 	m["stage"] = 0
 	m["spawned"] = -1
@@ -83,7 +88,10 @@ static func accept(offer: Dictionary) -> String:
 static func accept_bounty(id: String) -> String:
 	var p: Dictionary = Data.roster_pilot(id)
 	if p.is_empty(): return "No such bounty."
-	if not GS.mission.is_empty(): return "Finish the job you have first."
+	if not GS.mission.is_empty():
+		var blk := _switch_block()
+		if blk != "": return blk
+		abandon()
 	var said := GS.accept_bounty(id)
 	if GS.bounty.get("id", "") != id: return said
 	var rng := RandomNumberGenerator.new()
@@ -96,6 +104,57 @@ static func accept_bounty(id: String) -> String:
 		"points": _points(rng, 2), "stage": 0, "spawned": -1, "escort_hp": 0.0}
 	GS.changed.emit()
 	return "Bounty accepted: %s. %s A mission waypoint is set: follow the gold marker." % [p["name"], GS.mission["brief"]]
+
+# ---------------------------------------------------------------- v1.5k: select / deselect / switch on the board
+## Is this board offer the job being tracked?
+static func is_current(offer: Dictionary) -> bool:
+	var m: Dictionary = GS.mission
+	return not m.is_empty() and m.get("kind", "") == offer.get("kind", "") and bool(m.get("hard", false)) == bool(offer.get("hard", false)) and str(m.get("giver", "")) == str(offer.get("giver", ""))
+
+## Tap on a job: not tracked -> track it (dropping whatever was tracked); tracked -> drop it.
+static func toggle(offer: Dictionary) -> String:
+	if is_current(offer):
+		abandon()
+		return "Stopped tracking: %s." % offer["title"]
+	var blocked := _switch_block()
+	if blocked != "": return blocked
+	abandon()
+	return accept(offer)
+
+## Tap on a bounty: the same rules.
+static func toggle_bounty(id: String) -> String:
+	if GS.bounty.get("id", "") == id and GS.bounty.get("state", "") == "hunt":
+		abandon()
+		GS.bounty = {}
+		GS.changed.emit()
+		return "Stopped tracking the bounty on %s." % Data.roster_pilot(id).get("name", id)
+	var blocked := _switch_block()
+	if blocked != "": return blocked
+	abandon()
+	GS.bounty = {}
+	return accept_bounty(id)
+
+## The one thing that can stop a switch: a prisoner in the hold must be handed in first.
+static func _switch_block() -> String:
+	if GS.bounty.get("state", "") == "captured":
+		return "%s is in your hold: hand them in at %s first." % [Data.roster_pilot(str(GS.bounty["id"])).get("name", "The pilot"), Data.SYSTEMS[str(GS.mission.get("giver_sys", GS.system_id))]["station"]["name"]]
+	return ""
+
+## What the board says is being tracked and where its waypoint leads, from here (works docked: no space needed).
+static func tracking_line(here: String) -> String:
+	var m: Dictionary = GS.mission
+	if m.is_empty(): return "Tracking: nothing. Select a job or a bounty."
+	var where := str(m.get("sys", here))
+	if m.get("kind", "") == "bounty" and GS.bounty.get("state", "") == "captured":
+		return "Tracking: %s. Waypoint: back to %s." % [m["title"], Data.SYSTEMS[m["giver_sys"]]["station"]["name"]]
+	if where != here:
+		var route: Array = Data.gate_route(here, where)
+		var gate_name := "?"
+		if route.size() >= 2:
+			for g in Data.SYSTEMS[here]["gates"]:
+				if str(g["to"]) == str(route[1]): gate_name = str(g["name"])
+		return "Tracking: %s. Waypoint: %s, %d jump%s away (first take the %s)." % [m["title"], Data.SYSTEMS[where]["name"], route.size() - 1, "" if route.size() == 2 else "s", gate_name]
+	return "Tracking: %s. Waypoint: mission point %d of %d in this system." % [m["title"], int(m.get("stage", 0)) + 1, (m.get("points", []) as Array).size()]
 
 ## Drop the job (no pay, no penalty beyond the lost time).
 static func abandon() -> void:

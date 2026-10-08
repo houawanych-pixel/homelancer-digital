@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.5j"
+const VERSION := "v1.5k"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -201,9 +201,17 @@ const PLANET_BIOME := {"terran": "forest", "jungle": "jungle", "ocean": "ocean",
 const TEXT_BUMP := 2                  # HUD and room text below TEXT_BUMP_BELOW px is drawn this much bigger
 const TEXT_BUMP_BELOW := 17
 const TEXT_MIN := 13                  # nothing on the HUD is smaller than this
+# ---------------------------------------------------------------- Job AN (v1.5k): test-flow foundation (owner's brief of 8 Oct)
+## The opening system's enemies: the start system's RIVAL NATION (Unity's rival, the Imperium), low ranks only, always
+## hostile: ordinary troops, never a story boss or a placeholder raider leader. Slot 01 (Imperium Trooper, male) and
+## 02 (Vexa Drak, female) so both voices are heard.
+const OPENING_SYSTEMS := {"solara": {"faction": "Imperium", "max_slot": 2}}
+const PATROL_MAX_SLOT := 5           # patrols never fly a faction's leader (slot 06): leaders keep their story roles
+const HUB_LAUNCH_SIZE := Vector2(230, 58)   # the hub's LAUNCH button (always on screen, upper right)
+
 # ---------------------------------------------------------------- Job AM (v1.5j): voice system stage 1 (scripts/voice.gd, Sfx.play_character_voice)
 const VOICE_LIVE_API := false                 # stage 3 only, behind a secure server: never a key in this client
-const VOICE_PROFILE_ROLLOUT := ["rennick", "vale", "cybermorph_01_unit", "kaijurai_01_containment_trooper"]   # the four test characters first
+const VOICE_PROFILE_ROLLOUT := ["*"]   # v1.5k: everyone (was the four test characters: Rennick, Vale, UNIT-01, Kaijurai trooper)
 const VOICE_PITCH_RANGE := [0.55, 1.5]        # never so far that speech is hard to follow
 const VOICE_RATE_RANGE := [0.75, 1.35]
 const VOICE_SEX_PITCH_NUDGE := 1.18           # the device has no voice of that sex: raise (female) / lower (male) the pitch this much instead
@@ -588,7 +596,7 @@ const ROSTERS_CORE := {
 		{"character_id": "savagers_02_jackal", "id": "savagers_02", "slot": 2, "rank": 2, "unit": "SV-02", "name": "Jackal", "type": "Level 2 Raider", "role": "Raider",
 			"sex": "male", "species": "Hyena Alien", "persona": "mocking, feral, reckless, enjoys chasing prey",
 			"voice_id": "savagers_02_jackal", "voice_sex": "male", "voice_persona": "male", "normal_emotion": "raspy / taunting / laughing", "damaged_emotion": "enraged / snarling", "critical_emotion": "snarling / cornered",
-			"fighter_primary": "scrapfang", "fighter_alternates": ["redclaw"], "spawn_weight": 12.0, "named_unique": true, "bounty": false,
+			"fighter_primary": "scrapfang", "fighter_alternates": ["redclaw"], "spawn_weight": 12.0, "named_unique": true, "bounty": true, "sys": "derelicta",
 			"voice": 0.7, "female": false, "hurt": "...I'll chew through you..."},
 		{"character_id": "savagers_03_razor", "id": "savagers_03", "slot": 3, "rank": 3, "unit": "SV-03", "name": "Razor", "type": "Level 3 Assault Raider", "role": "Assault Raider",
 			"sex": "female", "species": "Human", "persona": "arrogant, violent, bold, intimidation-driven",

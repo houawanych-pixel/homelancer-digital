@@ -516,6 +516,7 @@ func _on_kill(reward: int, who: String) -> void:
 	GS.kills += 1
 	GS.add_credits(reward)
 	hud.flash_message("%s destroyed. +%d credits." % [who, reward])
+	if not space.opening_rule().is_empty(): return   # v1.5k: no story leader calls in from the opening fight
 	var leader: String = Data.ENEMY_LEADER[space.sys["enemy"]]
 	if not (leader in GS.met): _meet.call_deferred(leader, "enraged")
 

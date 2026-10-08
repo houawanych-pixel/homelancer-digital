@@ -1065,3 +1065,33 @@ Now (owner's voice brief, stage 1; stages 2 and 3 not built):
   No speech recognition, or nothing heard: typing opens instead. Typing is always there.
 - Not checked on a real phone from here: which voices an Android phone offers (many Android voices have no name that
   says male or female; then the pitch nudge decides), and the microphone permission prompt in Chrome.
+
+## 50. Test-flow foundation (Job AN, v1.5k): LAUNCH, the MISSION BOARD, the opening enemies, voices
+
+Owner's brief of 8 Oct ("fix this test flow before deploying the full character roster"). Nothing of the bigger
+character deployment was done; only the foundation.
+- LAUNCH: v1.5f's two new menu entries pushed the LAUNCH entry off the bottom of the screen. Now LAUNCH is its own
+  green button in the upper right (under the credits, `HUB_LAUNCH_SIZE`), the hub's last child so nothing covers it,
+  on every page. The menu has one MISSION BOARD entry instead of MISSIONS + BOUNTIES.
+- MISSION BOARD: tabs MISSIONS | BOUNTIES (it reopens the tab last used); the lists scroll. Tap a job or a bounty =
+  tracked (gold frame, TRACKING, the waypoint is set at once); tap it again = cleared; tap another = switched (the old
+  one is dropped). Only one thing is tracked at a time. The only thing that blocks a switch: a prisoner in your hold
+  (hand them in first). A "Tracking:" line says what is tracked and where its waypoint leads (system, jumps, first gate).
+- Bounty targets: characters 2, 3, 4 and 6 of the Savagers (Jackal, Razor, Veil, Dreadmaw). Jackal is new (hides in
+  Derelicta). Not female-only: Razor and Veil happen to be women.
+- Opening enemies: the start system (Solara, Unity space) is raided by its RIVAL NATION, the Imperium
+  (`OPENING_SYSTEMS`): slot 01 Imperium Trooper (male) and slot 02 Vexa Drak (female) in Imperium fighters, always
+  hostile. The placeholder raider leaders (Scar Jackal, Ember Wraith) no longer fly there, and Shade (the hooded raider
+  lieutenant) no longer calls in after the first kill there. They are kept for corsair / raider space elsewhere.
+  Mission jobs in Solara are against the Imperium too.
+- Major characters reserved: patrols never fly a faction's slot 06 leader (`PATROL_MAX_SLOT` 5); leaders appear only
+  through their own story roles (and as bounty targets, like Dreadmaw).
+- Voices: every character is on a voice profile now (`VOICE_PROFILE_ROLLOUT` "*"): story cast by its own sex, roster
+  people by their documents' voice persona and sex, generic wingmen by their entry's sex. No single default woman's
+  voice for everyone.
+- Planets: no planet NPCs were added (the brief: leader + coordinator + local NPCs for now, later more). Today planets
+  have their story contact (Oduya on New Terra, Amari at Frontier Exchange) and nothing else; nothing to remove.
+- `HL_AN=1` runs the owner's exact flow as checks: opening Imperium troops and their voices -> dock -> MISSION BOARD
+  select / deselect / switch -> BOUNTIES select Jackal, clear, select Veil, select Razor (waypoint switches) -> LAUNCH
+  visible on every page -> LAUNCH -> follow the waypoint 5 jumps to Plundros -> beat the escort wing -> Razor herself
+  in her Redclaw, targetable, a woman's voice.
