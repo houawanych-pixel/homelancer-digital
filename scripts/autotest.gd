@@ -3647,6 +3647,21 @@ func _job_ae() -> void:
 	s.autopilot = null
 	_check("Job AE: accepting a bounty sets a mission waypoint: with the target in another system it is the gate that starts the shortest way there, the objective line says how many jumps, and GO TO flies it",
 		none and said.find("waypoint") >= 0 and gate_ok and obj.begins_with("MISSION: ") and obj.find("jump") >= 0 and goto_ok, "none %s, gate %s, goto %s: %s" % [none, gate_ok, goto_ok, obj])
+	# v1.5e: the map opens centred on you, zoomed out until the whole system fits round you, and shows the mission marker
+	main.navmap.open(s)
+	await _frames(2)
+	var nm: Control = main.navmap
+	var ppos: Vector3 = s.player.global_position
+	var centred: bool = Vector2(nm.center.x, nm.center.z).distance_to(Vector2(ppos.x, ppos.z)) < 1.0
+	var all_in := true
+	var sysd: Dictionary = Data.SYSTEMS[GS.system_id]
+	for pt in [sysd["station"]["pos"], sysd["planet"]["pos"], sysd["asteroids"]["center"], sysd["nebula"]["center"]] + sysd["gates"].map(func(g): return g["pos"]):
+		var sp: Vector2 = nm.view.to_screen(pt)
+		if not Rect2(Vector2.ZERO, nm.map_rect.size).grow(-4.0).has_point(sp): all_in = false
+	await _shot("ae_map_centred_mission", 0.3)
+	main.navmap.visible = false
+	main._on_map_closed()
+	_check("Job AE: the map opens centred on you and zoomed out until the whole system fits round you, with the mission marker on it", centred and all_in and nm.zoom == 1.0 and not w1.is_empty(), "centred %s, all in view %s" % [centred, all_in])
 	# in the target's own system: the ship, then the drifting pilot, then (pilot aboard) the station
 	GS.bounty["sys"] = s.sys_id               # (test only: bring the hunt to this system)
 	var tgt: Dictionary = s.spawn_bounty()
@@ -4177,8 +4192,8 @@ func _job_s() -> void:
 	main.open_map()
 	await _frames(3)
 	var c3: Vector3 = nm.view.center
-	var far_pt := c3 + Vector3(0, 0, -1500)
-	var near_pt := c3 + Vector3(0, 0, 1500)
+	var far_pt := c3 + Vector3(0, 0, -3000)   # (v1.5e: the map is zoomed out further now that it fits the system round the player, so the depth is read 3 km out)
+	var near_pt := c3 + Vector3(0, 0, 3000)
 	var a_far: Vector2 = nm.view.to_screen(far_pt)
 	var a_near: Vector2 = nm.view.to_screen(near_pt)
 	var depth_ok: bool = nm.view.angled and nm.view.persp(far_pt) < 0.97 and nm.view.persp(near_pt) > 1.03 and (nm.view.anchor.y - a_far.y) < (a_near.y - nm.view.anchor.y)

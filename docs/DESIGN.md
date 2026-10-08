@@ -941,3 +941,9 @@ both sets are saved in the asset library and not placed.
   while the new one is being built.
 - Owner's audit answers (7 Oct): jump gates and freeways are good as they are. Still open from the brief: a longer
   exit dissolve, dock / gate / lane nearest-wins, rift slow-layer count and rift-only spin, system spread.
+
+## 44. The map opens on you (v1.5e)
+
+- In flight the navigation map is centred on your ship and zoomed out until the whole system fits round you (the
+  fit is worked out from your position, not the system's middle); FIT returns to that. Docked, it still fits the
+  system. The mission waypoint is drawn on it as the gold MISSION diamond.

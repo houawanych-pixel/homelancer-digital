@@ -409,6 +409,12 @@ func _layout() -> void:
 		mx = Vector2(maxf(mx.x, p.x), maxf(mx.y, p.z))
 	center = Vector3((mn.x + mx.x) * 0.5, 0, (mn.y + mx.y) * 0.5)
 	var span := (mx - mn) + Vector2(1200, 1200)
+	if space != null and is_instance_valid(space.player):   # v1.5e: in flight the map is centred on YOU, zoomed out until the whole system fits round you
+		var pp0: Vector3 = space.player.global_position
+		center = Vector3(pp0.x, 0, pp0.z)
+		var reach := 0.0
+		for p in pts: reach = maxf(reach, maxf(absf(p.x - pp0.x), absf(p.z - pp0.z)))
+		span = Vector2(reach, reach) * 2.0 + Vector2(1200, 1200)
 	var fit_k := minf(map_rect.size.x / span.x, map_rect.size.y / span.y)
 	var angled := NavGrid.tilt == "angled"
 	var depth: float = map_rect.size.y * 0.5 * Data.NAV_DEPTH
@@ -542,6 +548,14 @@ func _draw_map() -> void:
 		_txt(ci, wp + Vector2(26, 6), "WAYPOINT", 15, GOLD)
 	elif selected != "" and objs.has(selected):
 		NavGrid.brackets(ci, view.to_screen(objs[selected]["pos"]), maxf(18.0, float(objs[selected]["px"]) + 8.0), Color(0.75, 0.95, 1.0), 0.5 + 0.5 * sin(t * 5.0))
+	# v1.5e: the mission waypoint (gold diamond, as on the HUD)
+	if space != null and is_instance_valid(space.player):
+		var mw: Dictionary = space.mission_waypoint()
+		if not mw.is_empty() and is_instance_valid(mw["node"]):
+			var mp := view.to_screen((mw["node"] as Node3D).global_position)
+			NavGrid.fill(ci, PackedVector2Array([mp + Vector2(0, -11), mp + Vector2(11, 0), mp + Vector2(0, 11), mp + Vector2(-11, 0)]), GOLD)
+			ci.draw_polyline(PackedVector2Array([mp + Vector2(0, -16), mp + Vector2(16, 0), mp + Vector2(0, 16), mp + Vector2(-16, 0), mp + Vector2(0, -16)]), Color(GOLD, 0.5 + 0.5 * sin(t * 4.0)), 2.0)
+			_txt(ci, mp + Vector2(22, -10), "MISSION", 14, GOLD)
 	# you
 	if space != null and is_instance_valid(space.player):
 		var pp := view.to_screen(space.player.global_position)
