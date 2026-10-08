@@ -919,3 +919,15 @@ both sets are saved in the asset library and not placed.
   ranks and voices were NOT changed. Open question for the owner.
 - Owner's decision (7 Oct 2026): Homelancer is for a mature audience, 17 and up. This replaces the earlier
   "kid-friendly game page" rule. The title movie stays as sent.
+
+## 42. Covenant, Cybermorph and Solrath fly; Liberator and Imperium rebuilt (Job AG, v1.5c)
+
+- Fourteen fighters from the owner's ship sets (see `docs/ASSET_LIBRARY.md`, Job AG). Covenant is a main faction, so
+  its people now fly its patrols like the other main factions with ships. Cybermorph and Solrath are permanent
+  enemies: Cybernet and the Void System fly their home fleets (`Data.HOME_FLEETS`, `Data.HOME_FACTION`), flown by
+  their own six, like Genesis and Noctyra.
+- Ship per pilot (simplest choice, the documents give none; to confirm): slots 1-3 light, 4-6 heavier.
+- Capital ships (the Covenant battleship, Liberator carrier, Imperium warships, Solrath flagship, Cybermorph big
+  frames) are the next job: the owner wants the vessels, not the repeated turrets and missiles.
+- Tests: five Job AG checks (`HL_AG=1`); the Job AC "no other system flies a home fleet" check now excludes every
+  system whose role is in `HOME_FLEETS`.

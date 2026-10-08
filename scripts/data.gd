@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.5b"
+const VERSION := "v1.5c"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -201,6 +201,18 @@ const PLANET_BIOME := {"terran": "forest", "jungle": "jungle", "ocean": "ocean",
 const TEXT_BUMP := 2                  # HUD and room text below TEXT_BUMP_BELOW px is drawn this much bigger
 const TEXT_BUMP_BELOW := 17
 const TEXT_MIN := 13                  # nothing on the HUD is smaller than this
+# ---------------------------------------------------------------- Job AG (v1.5c): Covenant, Cybermorph, Solrath fighters; Liberator and Imperium rebuilt
+# Light, mirrored, levelled copies from the owner's sets (hl_2covenant, hl_Cybermorph, hl_solrath, hl_Liberator, hl_Imperium).
+# Fighters only (the owner: ships and battleships matter, not the look-alike missiles and turrets). Nose at -Z, yaw 0.
+const COVENANT_FIGHTER_LEN := 11.0
+const COVENANT_INTERCEPTOR_LEN := 12.0
+const COVENANT_LANCE_LEN := 14.0
+const CYBERMORPH_FIGHTER_LEN := 13.0
+const CYBERMORPH_STAR_LEN := 10.0
+const SOLRATH_BATWING_LEN := 14.0
+const SOLRATH_BLADE_LEN := 13.0
+const SOLRATH_SPIRE_LEN := 15.0
+const LIBERATOR_CROSS_LEN := 9.0
 # ---------------------------------------------------------------- Job AC (v1.4y): Kaijurai and Phenom ships
 # The owner's Kaijurai and Phenom ship sets (hl_Kaijurai_ship_set, hl_Phenom_ship_set): light, mirrored copies. Every
 # one was levelled and checked from above: nose at -Z, so the extra yaw is 0. Names are guesses from the shapes.
@@ -217,11 +229,13 @@ const ALIEN_SHIP_YAW := 0.0
 const HOME_FLEETS := {
 	"Kaijurai home": ["kaijurai_dart", "kaijurai_heavy", "kaijurai_dart", "kaijurai_gunship"],
 	"Phenom home": ["phenom_fighter", "phenom_interceptor", "phenom_scout", "phenom_heavy"],
+	"Cybermorph home": ["cybermorph_fighter", "cybermorph_star", "cybermorph_fighter", "cybermorph_fighter"],   # v1.5c
+	"Solrath home": ["solrath_blade_a", "solrath_blade_b", "solrath_batwing", "solrath_spire"],   # v1.5c
 }
 # ---------------------------------------------------------------- Job AD (v1.4z): the six enemy casts
 # whose people fly the patrols of an enemy home system (by the map's role text). Only factions with a roster AND
 # ships in the game are listed; the ship lists above stay as the fallback when no one from the roster can fly.
-const HOME_FACTION := {"Kaijurai home": "Kaijurai", "Phenom home": "Phenom"}
+const HOME_FACTION := {"Kaijurai home": "Kaijurai", "Phenom home": "Phenom", "Cybermorph home": "Cybermorph", "Solrath home": "Solrath"}   # v1.5c: + Cybernet, Void System
 # ---------------------------------------------------------------- Job AB (v1.4x): one warp effect, three looks
 # gate kind -> look.  tunnel = jump gate (energy tube), cloud = warp gate (gas anomaly), rift = rift gate (a tear in space)
 const WARP_SKINS := {"jump": "tunnel", "warp": "cloud", "rift": "rift"}
@@ -252,7 +266,7 @@ const IMPERIUM_FIGHTER_LEN := 12.0
 const IMPERIUM_GUNSHIP_LEN := 16.0
 const LIBERATOR_FIGHTER_LEN := 12.0
 const LIBERATOR_HEAVY_LEN := 15.0
-const LIBERATOR_YAW := 180.0         # the Liberator fighters lie tail-first in the owner's set
+const LIBERATOR_YAW := 0.0           # v1.5c: the Liberator copies were rebuilt levelled and mirrored, nose at -Z (was 180: the old copies lay tail-first)
 const FACTION_FACE_PX := 84          # portrait size in the FACTION page's pilot strip
 # what a faction pilot says when you hail them and they are not hostile ({name}, {faction}); placeholder wording until
 # the owner writes each character's lines
@@ -584,6 +598,17 @@ const ENEMIES := {
 	"imperium_gunship": {"name": "Imperium Gunship", "class": "gunship", "faction": "Imperium", "model": "imperium_gunship", "radius": 9.0, "hull": 130.0, "shield": 70.0, "speed": 42.0, "turn": 1.1, "damage": 7.5, "rate": 2.0, "reward": 360, "missiles": true},
 	"liberator_fighter": {"name": "Liberator Fighter", "class": "fighter", "faction": "Liberator", "model": "liberator_fighter", "hull": 65.0, "shield": 40.0, "speed": 49.0, "turn": 1.5, "damage": 5.5, "rate": 1.7, "reward": 190},
 	"liberator_heavy": {"name": "Liberator Strike Fighter", "class": "heavy fighter", "faction": "Liberator", "model": "liberator_heavy", "radius": 9.0, "hull": 110.0, "shield": 60.0, "speed": 45.0, "turn": 1.25, "damage": 7.0, "rate": 1.9, "reward": 330, "missiles": true},
+	# v1.5c: Covenant (a main faction: its people fly its patrols), Cybermorph and Solrath (permanent enemies: home patrols), Liberator cross fighter
+	"covenant_fighter": {"name": "Covenant Fighter", "class": "fighter", "faction": "Covenant", "model": "covenant_fighter", "hull": 70.0, "shield": 50.0, "speed": 49.0, "turn": 1.5, "damage": 6.0, "rate": 1.7, "reward": 210},
+	"covenant_interceptor": {"name": "Covenant Interceptor", "class": "interceptor", "faction": "Covenant", "model": "covenant_interceptor", "hull": 65.0, "shield": 50.0, "speed": 52.0, "turn": 1.6, "damage": 6.0, "rate": 1.8, "reward": 230},
+	"covenant_lance": {"name": "Covenant Lance", "class": "heavy fighter", "faction": "Covenant", "model": "covenant_lance", "radius": 9.0, "hull": 115.0, "shield": 75.0, "speed": 46.0, "turn": 1.25, "damage": 7.0, "rate": 1.9, "reward": 340, "missiles": true},
+	"cybermorph_fighter": {"name": "Cybermorph Frame Fighter", "class": "fighter", "faction": "Cybermorph", "model": "cybermorph_fighter", "hull": 80.0, "shield": 40.0, "speed": 48.0, "turn": 1.4, "damage": 6.5, "rate": 1.7, "reward": 230},
+	"cybermorph_star": {"name": "Cybermorph Star Drone", "class": "drone", "faction": "Cybermorph", "model": "cybermorph_star", "hull": 55.0, "shield": 30.0, "speed": 54.0, "turn": 1.7, "damage": 5.0, "rate": 1.5, "reward": 170},
+	"solrath_blade_a": {"name": "Solrath Blade", "class": "fighter", "faction": "Solrath", "model": "solrath_blade_a", "hull": 70.0, "shield": 45.0, "speed": 50.0, "turn": 1.5, "damage": 6.0, "rate": 1.7, "reward": 220},
+	"solrath_blade_b": {"name": "Solrath Shard", "class": "interceptor", "faction": "Solrath", "model": "solrath_blade_b", "hull": 65.0, "shield": 45.0, "speed": 52.0, "turn": 1.6, "damage": 6.0, "rate": 1.8, "reward": 230},
+	"solrath_batwing": {"name": "Solrath Batwing", "class": "heavy fighter", "faction": "Solrath", "model": "solrath_batwing", "radius": 9.0, "hull": 120.0, "shield": 65.0, "speed": 45.0, "turn": 1.25, "damage": 7.0, "rate": 1.9, "reward": 340, "missiles": true},
+	"solrath_spire": {"name": "Solrath Spire", "class": "gunship", "faction": "Solrath", "model": "solrath_spire", "radius": 10.0, "hull": 150.0, "shield": 80.0, "speed": 41.0, "turn": 1.1, "damage": 8.0, "rate": 2.0, "reward": 420, "missiles": true},
+	"liberator_cross": {"name": "Liberator Cross Fighter", "class": "light fighter", "faction": "Liberator", "model": "liberator_cross", "hull": 55.0, "shield": 35.0, "speed": 52.0, "turn": 1.6, "damage": 5.0, "rate": 1.6, "reward": 160},
 	# v1.4y: the owner's Kaijurai and Phenom sets (permanent enemies: no roster, no reputation; they fly their home systems' patrols)
 	"kaijurai_dart": {"name": "Kaijurai Dart Fighter", "class": "fighter", "faction": "Kaijurai", "model": "kaijurai_dart", "hull": 70.0, "shield": 40.0, "speed": 49.0, "turn": 1.5, "damage": 6.0, "rate": 1.7, "reward": 210},
 	"kaijurai_heavy": {"name": "Kaijurai Heavy Fighter", "class": "heavy fighter", "faction": "Kaijurai", "model": "kaijurai_heavy", "radius": 9.0, "hull": 120.0, "shield": 65.0, "speed": 45.0, "turn": 1.25, "damage": 7.0, "rate": 1.9, "reward": 340, "missiles": true},

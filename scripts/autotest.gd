@@ -1044,6 +1044,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_AG") != "":   # the Job AG checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_ag()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_AE") != "":   # the Job AE checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1503,6 +1511,7 @@ func _run() -> void:
 	await _job_ac()
 	await _job_ad()
 	await _job_ae()
+	await _job_ag()
 	await _galaxy()
 	await _controls_j()
 	await _gate_k()
@@ -3712,13 +3721,13 @@ func _job_ad() -> void:
 	for f in want:
 		for p in Data.ROSTERS[f]["pilots"]:
 			var k: String = p["fighter_primary"]
-			if f in ["Phenom", "Kaijurai"]:
+			if f in ["Phenom", "Kaijurai", "Cybermorph", "Solrath"]:   # (v1.5c: Cybermorph and Solrath fly too)
 				if not Data.ENEMIES.has(k) or Data.ENEMIES[k].get("faction", "") != f or not ShipFactory.has_real_model(Data.ENEMIES[k]["model"]): ships_ok = false
 			elif k != "": ships_ok = false
-	_check("Job AD: Phenom and Kaijurai people each have a ship from their own set (Vyrela the interceptor, the two elites and commanders the heaviest); the other four casts are known but do not fly yet",
+	_check("Job AD: Phenom and Kaijurai people each have a ship from their own set (Vyrela the interceptor, the two elites and commanders the heaviest); the casts without ships are known but do not fly yet",
 		ships_ok and Data.roster_pilot("phenom_02_vyrela")["fighter_primary"] == "phenom_interceptor" and Data.roster_pilot("phenom_06_xerathion")["fighter_primary"] == "phenom_heavy"
 		and Data.roster_pilot("kaijurai_01")["fighter_primary"] == "kaijurai_dart" and Data.roster_pilot("kaijurai_06_vorrax")["fighter_primary"] == "kaijurai_gunship"
-		and Factions.has_fighters("Phenom") and Factions.has_fighters("Kaijurai") and not Factions.has_fighters("Solrath"))
+		and Factions.has_fighters("Phenom") and Factions.has_fighters("Kaijurai") and not Factions.has_fighters("Gadversee"))   # (v1.5c: Solrath flies now; Gadversee and Arctides still wait for ships)
 	# in their home systems the patrols are their own people, always hostile, and a hail shows their own face
 	var s := _sp()
 	var real_sys: Dictionary = s.sys
@@ -3755,7 +3764,7 @@ func _job_ad() -> void:
 	Sfx.stop_voice()
 	var others := true
 	for id in Data.SYSTEMS:
-		if id not in ["genesis", "noctyra"] and str(Data.SYSTEMS[id].get("enemy_faction", "")) != "": others = false
+		if str(Data.SYSTEMS[id].get("role", "")) not in Data.HOME_FACTION and str(Data.SYSTEMS[id].get("enemy_faction", "")) != "": others = false   # v1.5c: Cybernet and the Void System too
 	_tp(s.station.global_position + Vector3(0, 40, 420), s.station.global_position)
 	_check("Job AD: in Genesis and Noctyra the patrols are flown by Kaijurai and Phenom people from the rosters, in their own ships, ranked, always hostile; a hail shows that person's name and voice id; no other system changed",
 		crew_ok and hail_ok and others, "crew %s, hail %s, others %s: %s" % [crew_ok, hail_ok, others, str(seen)])
@@ -3831,7 +3840,7 @@ func _job_ac() -> void:
 	var noc: Dictionary = Data.SYSTEMS.get("noctyra", {})
 	var others := true
 	for id in Data.SYSTEMS:
-		if id not in ["genesis", "noctyra"] and not (Data.SYSTEMS[id].get("enemy_ships", []) as Array).is_empty(): others = false
+		if str(Data.SYSTEMS[id].get("role", "")) not in Data.HOME_FLEETS and not (Data.SYSTEMS[id].get("enemy_ships", []) as Array).is_empty(): others = false   # v1.5c: Cybernet and the Void System fly home fleets too
 	var s := _sp()
 	var real_sys: Dictionary = s.sys
 	var flown: Array = []
@@ -4014,7 +4023,7 @@ func _job_aa() -> void:
 	for k in ["imperium_fighter", "imperium_gunship", "liberator_fighter", "liberator_heavy"]:
 		if not ShipFactory.has_real_model(Data.ENEMIES[k]["model"]): models = false
 	_check("Job AA: Imperium and Liberator pilots have fighters from their own ship sets (light for slots 1-3, heavier for 4-6); the other five casts are known but do not fly yet",
-		fly.filter(func(f): return Factions.normal(f)) == ["Imperium", "Liberator", "Savagers"] and models   # (v1.4z: of the eight main factions; Kaijurai and Phenom fly too)
+		fly.filter(func(f): return Factions.normal(f)) == ["Covenant", "Imperium", "Liberator", "Savagers"] and models   # (v1.4z: of the eight main factions; Kaijurai and Phenom fly too; v1.5c: Covenant, Cybermorph, Solrath too)
 		 and Data.roster_pilot("imperium_02")["fighter_primary"] == "imperium_fighter" and Data.roster_pilot("imperium_05")["fighter_primary"] == "imperium_gunship"
 		and Data.roster_pilot("unity_02")["fighter_primary"] == "" and float(ShipFactory.GLB["liberator_fighter"][2]) == Data.LIBERATOR_YAW, str(fly))
 	# a guard wing in their own space: peaceful, not a hostile contact, answers a hail; shoot and it turns
@@ -4308,3 +4317,103 @@ func _job_s() -> void:
 	nm.selected = ""
 	s.engine_kill = false
 	_check("Job S: both view toggles are in the rebindable key list (N and B by default)", keys_ok and main.controls.binding("map_orient") == "N" and main.controls.binding("map_tilt") == "B")
+
+
+## Job AG (v1.5c): Covenant, Cybermorph and Solrath fighters from the owner's sets; Liberator and Imperium copies rebuilt
+## (levelled, mirrored, nose at -Z, yaw 0); Cybernet and the Void System fly their home fleets; the pilots have ships.
+func _job_ag() -> void:
+	var shell := FileAccess.get_file_as_string("res://web_shell.html")
+	_check("Job AG: version label reads \"Homelancer Digital v1.5c\" or later", Data.VERSION >= "v1.5c" and (shell == "" or shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0), Data.VERSION)
+	var keys := ["covenant_fighter", "covenant_interceptor", "covenant_lance", "cybermorph_fighter", "cybermorph_star", "solrath_blade_a", "solrath_blade_b", "solrath_batwing", "solrath_spire",
+		"liberator_cross", "liberator_fighter", "liberator_heavy", "imperium_fighter", "imperium_gunship"]
+	var real := true
+	var fit := true
+	var mirror := true
+	var small := true
+	var note := ""
+	for k in keys:
+		if not (Data.ENEMIES.has(k) and ShipFactory.has_real_model(Data.ENEMIES[k]["model"])):
+			real = false
+			note += " missing:" + k
+			continue
+		var path: String = ShipFactory.GLB[k][0]
+		if FileAccess.file_exists(path) and FileAccess.get_file_as_bytes(path).size() > 700 * 1024:
+			small = false
+			note += " big:" + k
+		var m := ShipFactory.build(k, false)
+		if m.get_meta("placeholder", true): real = false
+		var inst: Node3D = m.get_child(0)
+		var pts := _ac_points(inst, Transform3D.IDENTITY)
+		var lo := Vector3(INF, INF, INF)
+		var hi := -lo
+		for v in pts:
+			lo = lo.min(v)
+			hi = hi.max(v)
+		var size := hi - lo
+		var want: float = ShipFactory.GLB[k][1]
+		if absf(maxf(size.x, size.z) - want) > want * 0.03 or ((lo + hi) * 0.5).length() > want * 0.03 or not is_equal_approx(inst.rotation_degrees.y, 0.0):
+			fit = false
+			note += " fit:" + k
+		var seen := {}
+		for v in pts: seen[Vector3i((v * (400.0 / want)).round())] = true
+		var miss := 0
+		for v in pts:
+			var q := Vector3i((Vector3(-v.x, v.y, v.z) * (400.0 / want)).round())
+			var ok := false
+			for dx in [-1, 0, 1]:
+				if seen.has(q + Vector3i(dx, 0, 0)): ok = true
+			if not ok: miss += 1
+		if miss > pts.size() / 100:
+			mirror = false
+			note += " mirror:%s(%d of %d)" % [k, miss, pts.size()]
+		m.free()
+	_check("Job AG: fourteen fighters are real models (three Covenant, two Cybermorph, four Solrath, three Liberator, two Imperium), each the right length, centred, yaw 0 (the Liberator copies no longer need the 180 turn)", real and fit, note)
+	_check("Job AG: every one of them is mirrored (left matches right) and light (under 700 KB each)", mirror and small, note)
+	# the pilots: every Covenant, Cybermorph, Solrath and Liberator person has a ship of their own faction, lighter in the low slots
+	var ships_ok := true
+	var pnote := ""
+	for f in ["Covenant", "Cybermorph", "Solrath", "Liberator"]:
+		for p in Data.ROSTERS[f]["pilots"]:
+			var fp := str(p["fighter_primary"])
+			if not Data.ENEMIES.has(fp) or str(Data.ENEMIES[fp]["faction"]) != f:
+				ships_ok = false
+				pnote += " %s:%s" % [p["id"], fp]
+	_check("Job AG: every Covenant, Cybermorph, Solrath and Liberator pilot flies a fighter of their own faction (slots 1-3 light, 4-6 heavier: simplest choice, the documents give no ships)", ships_ok and Factions.has_fighters("Covenant") and Factions.has_fighters("Cybermorph") and Factions.has_fighters("Solrath"), pnote)
+	# Cybernet and the Void System fly their own ships, hostile, flown by their own people
+	var cyb: Dictionary = Data.SYSTEMS.get("cybernet", {})
+	var voi: Dictionary = Data.SYSTEMS.get("void_system", {})
+	var s := _sp()
+	var real_sys: Dictionary = s.sys
+	var flown: Array = []
+	var hostile := true
+	var own := true
+	var shot_done: Array = []
+	for sy in [cyb, voi]:
+		if sy.is_empty(): continue
+		s.sys = sy
+		var g: Array = s._spawn_group(s.station.global_position + Vector3(0, 300, 2600), 4)
+		s.sys = real_sys
+		for e in g:
+			flown.append(str(e["def"].get("model", "")))
+			if (e["node"] as Node3D).get_meta("kind", "") != "enemy" or (e.has("faction") and not Factions.hostile(e["faction"])): hostile = false
+			if not e.has("pilot") or str(e["pilot"].get("faction", "")) != str(e["def"]["faction"]): own = false
+		main.hud.visible = false
+		for e in g:
+			var k := str(e["def"].get("model", ""))
+			if k in shot_done: continue
+			shot_done.append(k)
+			var np: Vector3 = (e["node"] as Node3D).global_position
+			var back: Vector3 = (e["node"] as Node3D).global_basis.z
+			var side: Vector3 = (e["node"] as Node3D).global_basis.x
+			_tp(np + back * 24.0 + Vector3(0, 2, 0), np - side * 10.0 + Vector3(0, -6, 0))
+			await _shot("ag_" + k, 0.2)
+		main.hud.visible = true
+		s.target = null
+		for e in g:
+			s.enemies.erase(e)
+			(e["node"] as Node3D).free()
+		s.target = null
+	_tp(s.station.global_position + Vector3(0, 40, 420), s.station.global_position)
+	_check("Job AG: Cybernet flies Cybermorph ships and the Void System flies Solrath ships on patrol, hostile, flown by their own people",
+		cyb.get("enemy_ships", []) == Data.HOME_FLEETS["Cybermorph home"] and voi.get("enemy_ships", []) == Data.HOME_FLEETS["Solrath home"] and hostile and own
+		and flown.slice(0, 4).all(func(k): return str(k).begins_with("cybermorph_")) and flown.slice(4).all(func(k): return str(k).begins_with("solrath_")) and flown.size() == 8, str(flown))

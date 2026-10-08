@@ -256,3 +256,38 @@ The owner sent both sets again with two instructions, and the rows for these two
   turned end for end so its glowing breech is a booster (`graft.py ... nose= wings= flip`). (2) "A single cockpit per
   ship": Phenom fighter c and fighter d each showed two cockpit-looking bulges; the slice holding the second one was cut
   out and the nose with the real cockpit slid back to close the gap (`segment_cut.py`).
+
+## Job AG (v1.5c): Covenant, Cybermorph, Solrath fighters; Liberator and Imperium rebuilt
+
+Originals (read-only, never written to): `hl_Covenant_ship_set_ORIGINAL.glb` (the first upload arrived cut off; the
+second was whole), `hl_Cybermorph_ship_set_ORIGINAL.glb`, `hl_Solrath_ship_set_ORIGINAL.glb`,
+`hl_Liberator_ship_set_ORIGINAL.glb`, `hl_Imperium_ship_set_ORIGINAL.glb`, `hl_ghost_ship_asset_ORIGINAL.glb`.
+Owner's rule for this batch: ships, vessels and battleships matter; of look-alike missiles, turrets and gun parts keep
+one, not many. So only the fighters were built this time; the capital ships are the next job, the small parts are left.
+
+| Faction | Game copy (assets/ships/enemy) | Piece | Triangles | Mirrored | Status |
+|---|---|---|---|---|---|
+| Covenant | covenant_fighter.glb | set piece 7 (spear fighter) | 8854 | yes | IN GAME: Covenant pilots 1-2 |
+| Covenant | covenant_interceptor.glb | piece 3 (three-prong, orb engine) | 8186 | yes | IN GAME: pilots 3-4 |
+| Covenant | covenant_lance.glb | piece 8 (long lance fighter) | 4684 | yes | IN GAME: pilots 5-6 |
+| Cybermorph | cybermorph_fighter.glb | piece 2 (swept frame fighter) | 6980 | yes | IN GAME: pilots 3-6, Cybernet patrols |
+| Cybermorph | cybermorph_star.glb | piece 9 (six-point star drone) | 8426 | yes | IN GAME: pilots 1-2, Cybernet patrols |
+| Solrath | solrath_blade_a.glb | piece 2 | 6720 | yes | IN GAME: pilots 1-2, Void System patrols |
+| Solrath | solrath_blade_b.glb | piece 3 | 6564 | yes | IN GAME: pilots 3-4 |
+| Solrath | solrath_batwing.glb | piece 1 (bat-wing heavy) | 6206 | yes | IN GAME: pilot 5 |
+| Solrath | solrath_spire.glb | piece 5 (long spire gunship) | 8528 | yes | IN GAME: pilot 6 |
+| Liberator | liberator_cross.glb | piece 13 (cross light fighter) | 5416 | yes | IN GAME: pilot 1 |
+| Liberator | liberator_fighter.glb (rebuilt) | piece 1 (jet a) | 5308 | yes | IN GAME: pilots 2-3 |
+| Liberator | liberator_heavy.glb (rebuilt) | piece 2 (jet b) | 8678 | yes | IN GAME: pilots 4-6 |
+| Imperium | imperium_fighter.glb (rebuilt) | piece 3 (striker) | 6926 | yes | IN GAME |
+| Imperium | imperium_gunship.glb (rebuilt) | piece 4 (twin boom) | 3012 | yes | IN GAME |
+
+- Not built yet (set pieces, biggest first): Covenant 0 battleship, 1 cruiser, 4-6 saucer craft, 10 pod; Liberator 0
+  carrier, 3 and 4 long hulls, 5 and 14 star craft, 12 wedge, 6-11 and 15-17 turrets/pods; Imperium 0-2 long warships,
+  5-13 turret blocks, 14-15 missiles; Solrath 0 flagship, 4, 6, 7 spikes; Cybermorph 0, 1, 3 big frames, 4, 5, 12
+  upright frames, 6-20 rods and guns. "hl_ghost_ship_asset" (17 pieces: a hull, a dome, slabs, a big engine) and
+  "hl_gho_boss" (one creature, 2 M triangles) are an unknown area per the owner; saved, nothing placed.
+- Solrath's set is painted smooth chrome (very metallic, very smooth). The game has no reflections, so those ships
+  rendered as black cut-outs; the metallic channel was capped at 0.25 and roughness raised to 0.55 (`tame_metal.py`).
+- The old Liberator and Imperium copies (v1.4w) were the same four ships, not levelled or mirrored and lying tail-first
+  (`LIBERATOR_YAW` 180). They were replaced by levelled, mirrored copies, nose at -Z, yaw 0; same file names.

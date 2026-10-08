@@ -30,6 +30,16 @@ const GLB := {
 	"phenom_interceptor": ["res://assets/ships/enemy/phenom_interceptor.glb", Data.PHENOM_INTERCEPTOR_LEN, Data.ALIEN_SHIP_YAW],
 	"phenom_scout": ["res://assets/ships/enemy/phenom_scout.glb", Data.PHENOM_SCOUT_LEN, Data.ALIEN_SHIP_YAW],
 	"phenom_heavy": ["res://assets/ships/enemy/phenom_heavy.glb", Data.PHENOM_HEAVY_LEN, Data.ALIEN_SHIP_YAW],
+	"covenant_fighter": ["res://assets/ships/enemy/covenant_fighter.glb", Data.COVENANT_FIGHTER_LEN, Data.ALIEN_SHIP_YAW],   # v1.5c
+	"covenant_interceptor": ["res://assets/ships/enemy/covenant_interceptor.glb", Data.COVENANT_INTERCEPTOR_LEN, Data.ALIEN_SHIP_YAW],
+	"covenant_lance": ["res://assets/ships/enemy/covenant_lance.glb", Data.COVENANT_LANCE_LEN, Data.ALIEN_SHIP_YAW],
+	"cybermorph_fighter": ["res://assets/ships/enemy/cybermorph_fighter.glb", Data.CYBERMORPH_FIGHTER_LEN, Data.ALIEN_SHIP_YAW],
+	"cybermorph_star": ["res://assets/ships/enemy/cybermorph_star.glb", Data.CYBERMORPH_STAR_LEN, Data.ALIEN_SHIP_YAW],
+	"solrath_blade_a": ["res://assets/ships/enemy/solrath_blade_a.glb", Data.SOLRATH_BLADE_LEN, Data.ALIEN_SHIP_YAW],
+	"solrath_blade_b": ["res://assets/ships/enemy/solrath_blade_b.glb", Data.SOLRATH_BLADE_LEN, Data.ALIEN_SHIP_YAW],
+	"solrath_batwing": ["res://assets/ships/enemy/solrath_batwing.glb", Data.SOLRATH_BATWING_LEN, Data.ALIEN_SHIP_YAW],
+	"solrath_spire": ["res://assets/ships/enemy/solrath_spire.glb", Data.SOLRATH_SPIRE_LEN, Data.ALIEN_SHIP_YAW],
+	"liberator_cross": ["res://assets/ships/enemy/liberator_cross.glb", Data.LIBERATOR_CROSS_LEN, Data.LIBERATOR_YAW],
 	"savager_cruiser": ["res://assets/ships/enemy/savager_cruiser.glb", Data.SAVAGER_CRUISER_LEN, Data.SAVAGER_CRUISER_YAW],
 	"pilot_pod": ["res://assets/cargo/spacesuit_pilot.glb", 4.0, 0.0],   # stand-in: the soldier in the space suit
 	"savager_carrier": ["res://assets/ships/enemy/savager_carrier.glb", Data.SAVAGER_CARRIER_LEN, Data.SAVAGER_CARRIER_YAW],
