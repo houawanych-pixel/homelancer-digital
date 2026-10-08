@@ -1152,6 +1152,14 @@ func _gps_strip(rc: Rect2) -> void:
 	var eta_s := "--" if eta < 0.0 else ("%dm %02ds" % [int(eta) / 60, int(eta) % 60] if eta >= 60.0 else "%ds" % int(eta))
 	var nst: int = space.nav_route.size()
 	var lead := "GPS  %s" % n.name if nst <= 1 else "STOP 1/%d  %s" % [nst, n.name]
+	var plan: Dictionary = space.nav_plan()
+	if plan.get("via", "") == "lane":   # v1.5m: the fastest way is a trade lane: say so, and mark its mouth
+		lead = ("RIDING THE LANE  ·  " if plan.get("riding", false) else "VIA TRADE LANE  ·  ") + lead
+		if not plan.get("riding", false):
+			var ep = _screen(plan["entry"])
+			if ep != null:
+				draw_arc(ep, 16.0, 0, TAU, 24, Color(0.55, 0.85, 1.0), 3.0)
+				_text(ep + Vector2(20, 5), "LANE  %s" % _dist(space.player.global_position.distance_to(plan["entry"])), 12, Color(0.55, 0.85, 1.0))
 	_text(Vector2(rc.position.x + 10, rc.position.y + 12), lead, 11, WHITE, HORIZONTAL_ALIGNMENT_LEFT, rc.size.x * 0.5)
 	var right := "%s  ·  ETA %s" % [_dist(d), eta_s]
 	var total := d
@@ -1160,7 +1168,7 @@ func _gps_strip(rc: Rect2) -> void:
 		var te: float = total / maxf(space.eff_speed(), 1.0)
 		right += "   ROUTE %s · %s" % [_dist(total), "%dm %02ds" % [int(te) / 60, int(te) % 60] if te >= 60.0 else "%ds" % int(te)]
 	_text(Vector2(rc.position.x, rc.position.y + 12), right, 11, col, HORIZONTAL_ALIGNMENT_RIGHT, rc.size.x - 10)
-	gps_drawn = {"name": str(n.name), "dist": d, "eta": eta, "k": k, "stops": nst, "total": total}
+	gps_drawn = {"name": str(n.name), "dist": d, "eta": eta, "k": k, "stops": nst, "total": total, "via": plan.get("via", "direct")}
 
 # ---------------------------------------------------------------- v1.5g ship scan
 var way_rect := Rect2()     # where the waypoint / target box was drawn (tap = scan)

@@ -3842,6 +3842,7 @@ var escort_node: Node3D = null   # v1.5f: the freighter of an escort mission (nu
 var nav_dest: Node3D = null      # what the GPS is guiding you to NOW = nav_route[0] (stays set when you take the stick)
 var nav_start := 0.0             # the distance when this leg started (the GPS bar's full length)
 var nav_route: Array = []        # v1.5i stage 2: the stops in order, at most Data.GPS_MAX_STOPS (the last = final destination)
+var nav_go := false              # v1.5m: GO: the autopilot flies the whole route, stop after stop (steering cancels it)
 
 ## One destination: the route becomes just this stop.
 func set_destination(n: Node3D) -> void:
@@ -3904,7 +3905,10 @@ func nav_marker(p: Vector3, label: String) -> Node3D:
 
 func _drop_markers(list: Array) -> void:
 	for x in list:
-		if x != null and is_instance_valid(x) and x.get_meta("gps_marker", false) and x != autopilot: x.queue_free()
+		if x != null and is_instance_valid(x) and x.get_meta("gps_marker", false):
+			if x == autopilot: autopilot = null
+			if x == target: target = null
+			x.queue_free()
 
 ## Whole route: [distance to the next stop, distance to the end through every stop in order].
 func route_lengths() -> Array:
@@ -3924,9 +3928,48 @@ func eff_speed() -> float:
 
 func nav_eta() -> float:
 	if nav_dest == null or not is_instance_valid(nav_dest): return -1.0
+	var pl := nav_plan()
+	if pl.get("via", "") == "lane": return float(pl["t"])
 	return distance_to(nav_dest) / maxf(eff_speed(), 1.0)
 
+## v1.5m FASTEST ROUTE to the GPS destination: straight there, or by a trade lane (fly to its mouth, ride it, fly
+## on). {via: "direct" | "lane", t, entry, exit, lane_name} with times in seconds; a lane is chosen when it beats
+## flying direct by GPS_LANE_GAIN. In a lane already, the rest of the ride is the plan.
+func _leg_time(d: float) -> float:
+	var sp: float = float(GS.ship()["speed"])
+	if d < Data.GPS_WARP_FROM: return d / maxf(sp * Data.FORWARD_MULT, 1.0)
+	return Data.WARP_CHARGE + d / maxf(sp * Data.WARP_MULT, 1.0)
+
+func nav_plan() -> Dictionary:
+	if nav_dest == null or not is_instance_valid(nav_dest) or not is_instance_valid(player): return {}
+	var p := player.global_position
+	var goal: Vector3 = nav_dest.global_position
+	var direct := {"via": "direct", "t": _leg_time(p.distance_to(goal)), "entry": goal, "exit": goal, "lane_name": ""}
+	if surface_mode: return direct
+	if not lane.is_empty():
+		return {"via": "lane", "t": 0.0, "entry": p, "exit": p, "lane_name": "%s - %s" % [lane.get("a", ""), lane.get("b", "")], "riding": true}
+	var best := direct
+	for ln in lanes:
+		for way in [["up", 0], ["down", -1]]:
+			var rings: Array = ln[way[0]]
+			if rings.size() < 2: continue
+			var en: Vector3 = rings[0] if way[1] == 0 else rings[-1]
+			var ex: Vector3 = rings[-1] if way[1] == 0 else rings[0]
+			var t := _leg_time(p.distance_to(en)) + en.distance_to(ex) / Data.LANE_SPEED + Data.LANE_RAMP * 2.0 + _leg_time(ex.distance_to(goal))
+			if t < float(best["t"]) * (Data.GPS_LANE_GAIN if best["via"] == "direct" else 1.0):
+				best = {"via": "lane", "t": t, "entry": en, "exit": ex, "lane_name": "%s - %s" % [ln["a"], ln["b"]]}
+	return best
+
+## v1.5m GO: the autopilot flies the route, every stop in turn.
+func route_go() -> String:
+	if nav_dest == null or not is_instance_valid(nav_dest): return "No route to fly."
+	nav_go = true
+	autopilot = nav_dest
+	target = nav_dest
+	return "Flying the route: %d stop%s. Steer to take over." % [nav_route.size(), "" if nav_route.size() == 1 else "s"]
+
 func _update_nav() -> void:
+	if nav_go and autopilot == null and not (nav_dest != null and is_instance_valid(nav_dest) and distance_to(nav_dest) < Data.GPS_ARRIVE): nav_go = false   # you took the stick (not: the autopilot just arrived)
 	if nav_dest == null and nav_route.is_empty(): return
 	if nav_dest == null or not is_instance_valid(nav_dest):
 		_route_changed()
@@ -3936,8 +3979,16 @@ func _update_nav() -> void:
 		_drop_markers([nav_dest])
 		nav_route.pop_front()
 		_route_changed()
-		if nav_dest != null: message.emit("GPS: %s reached. Next stop: %s (%d to go)." % [here, nav_dest.name, nav_route.size()])
-		else: message.emit("GPS: arrived at %s." % here)
+		if nav_dest != null:
+			message.emit("GPS: %s reached. Next stop: %s (%d to go)." % [here, nav_dest.name, nav_route.size()])
+			if nav_go:   # on to the next stop by itself
+				autopilot = nav_dest
+				target = nav_dest
+		else:
+			message.emit("GPS: arrived at %s." % here)
+			if nav_go:
+				nav_go = false
+				autopilot = null
 var _mission_marker: Node3D = null
 
 ## v1.5f: the marker a mission point is flown to (one at a time, moved to the stage's point).

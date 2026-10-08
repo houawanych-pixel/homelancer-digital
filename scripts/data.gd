@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.5l"
+const VERSION := "v1.5m"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -201,6 +201,11 @@ const PLANET_BIOME := {"terran": "forest", "jungle": "jungle", "ocean": "ocean",
 const TEXT_BUMP := 2                  # HUD and room text below TEXT_BUMP_BELOW px is drawn this much bigger
 const TEXT_BUMP_BELOW := 17
 const TEXT_MIN := 13                  # nothing on the HUD is smaller than this
+# ---------------------------------------------------------------- Job AP (v1.5m): GPS stage 3: fastest route, lanes clear of rocks, GO
+const LANE_BELT_CLEAR := 350.0     # the asteroid field keeps this far (past its radius) from every trade-lane line
+const GPS_LANE_GAIN := 0.85        # the GPS sends you by trade lane when that is at least this much faster than flying direct
+const GPS_WARP_FROM := 1500.0      # legs longer than this count as flown at warp (as the autopilot does)
+
 # ---------------------------------------------------------------- Job AO (v1.5l): the roster deployed across the game
 const BOUNTY_SLOTS := [2, 3, 4, 6]            # who is wanted, in every faction with ships
 const BOUNTY_FACTIONS := ["Savagers", "Imperium", "Liberator", "Covenant", "Phenom", "Kaijurai", "Cybermorph", "Solrath"]
@@ -368,7 +373,7 @@ const FOG_COLOR := Color(0.62, 0.65, 0.7)
 const STATION_MODEL_YAW := {"hollow_requiem": 90.0}   # degrees: the dead liner lies across the docking approach
 
 # ---------------------------------------------------------------- Job Y (v1.4u): more room, cleaner prompts, lane tunnel
-const SYSTEM_SPREAD := 1.4           # every system: planets, gates, belt, nebula and patrols sit this much farther from the main station
+const SYSTEM_SPREAD := 1.8           # every system: planets, gates, belt, nebula and patrols sit this much farther from the main station (v1.5m: was 1.4)
 const DOCK_RANGE_STATION := 190.0    # was 260: you must be this close to a station (or its docking mouth) for DOCK
 const DOCK_RANGE_PLANET := 240.0     # was 300: measured from the planet's surface
 const LANE_TUNNEL_BACK := 0.42       # share of the lane tunnel's length that trails BEHIND the ship (so the camera never sees its rim)

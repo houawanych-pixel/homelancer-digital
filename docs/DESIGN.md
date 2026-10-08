@@ -1113,3 +1113,19 @@ Owner, after the v1.5k test flow passed: "push it to all".
   have none. The coordinator gives the job brief on the radio at launch, with face and voice.
 - Factions without ships yet (Unity, Elyza, Solarion, Orion, Gadversee, Arctides) are not bounty targets: their
   people cannot fly until their ship sets are in.
+
+## 52. GPS stage 3: freeways clear of the rocks, more room, fastest route, GO (Job AP, v1.5m)
+
+- Rocks off the freeways: `SystemBuilder.clear_lanes` moves each system's asteroid field sideways (level) until every
+  trade-lane line (station -> planet, station -> each gate) passes at least its radius + `LANE_BELT_CLEAR` (350 m)
+  away. Lanes stay straight and engineered; the field moves. Checked for all 67 systems, and rock by rock for the
+  system you fly in.
+- More room: `SYSTEM_SPREAD` 1.4 -> 1.8 (everything 1.8x farther from the main station; sizes unchanged). Docking
+  ranges, gate ranges and lane mechanics did not change; the autopilot warps on long legs and the lanes carry you.
+- Fastest route: `space.nav_plan()` compares flying direct (warp on legs over `GPS_WARP_FROM`) with every trade lane
+  (fly to its mouth, ride it at `LANE_SPEED`, fly on) and takes the lane when it is at least `GPS_LANE_GAIN` faster.
+  The map draws it (blue to the mouth, the lane, blue on), the route panel says "Fastest: by trade lane ...", the HUD
+  strip says VIA TRADE LANE and rings the lane mouth with its distance; the ETA is the plan's time.
+- GO (route panel): the autopilot flies the whole waypoint route, stop after stop; taking the stick cancels GO but
+  keeps the GPS route. (The autopilot itself still flies direct at warp; it does not ride the lanes.)
+- Not done yet: routes across several systems on the galaxy map (the mission waypoint already leads gate by gate).

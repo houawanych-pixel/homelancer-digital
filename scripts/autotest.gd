@@ -1051,6 +1051,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_AP") != "":   # the Job AP checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_ap()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_AO") != "":   # the Job AO checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1608,6 +1616,7 @@ func _run() -> void:
 	await _job_am()
 	await _job_an()
 	await _job_ao()
+	await _job_ap()
 	await _galaxy()
 	await _controls_j()
 	await _gate_k()
@@ -5272,3 +5281,84 @@ func _job_ao() -> void:
 	Sfx.voices_override = []
 	_check("Job AO: every main-faction station has its coordinator (role-based: Lena Torres for the Liberators, Korvax for Orion, else slot 03), the capital its leader too (Commander Elara Voss at Veranthos), shown with face and role on the station page and a TALK in their own voice; enemy stations have none; the bounty board shows this station's enemies",
 		roles_ok and enemy_none and has_card and spoke and board_ok, "roles %s enemy %s card %s spoke %s board %s (%s)" % [roles_ok, enemy_none, has_card, spoke, board_ok, str(rows)])
+
+
+## Job AP (v1.5m): GPS stage 3: no trade lane runs through an asteroid field (the field is moved off the lane lines),
+## more room in every system (spread 1.8), the fastest route uses a trade lane when that is quicker, GO flies the
+## whole waypoint route on autopilot.
+func _job_ap() -> void:
+	var shell := FileAccess.get_file_as_string("res://web_shell.html")
+	_check("Job AP: version label reads \"Homelancer Digital v1.5m\" or later", Data.VERSION >= "v1.5m" and (shell == "" or shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0), Data.VERSION)
+	var bad: Array = []
+	for id in Data.SYSTEMS:
+		var sy: Dictionary = Data.SYSTEMS[id]
+		var a: Vector3 = sy["station"]["pos"]
+		var need: float = float(sy["asteroids"].get("radius", 400.0)) + Data.LANE_BELT_CLEAR - 1.0
+		for b in [sy["planet"]["pos"]] + sy["gates"].map(func(g): return g["pos"]):
+			var q := Geometry3D.get_closest_point_to_segment(sy["asteroids"]["center"], a, b)
+			if Vector2(q.x - sy["asteroids"]["center"].x, q.z - sy["asteroids"]["center"].z).length() < need: bad.append(id)
+	# in the system you are in: no rock sits on a built lane
+	var s := _sp()
+	var hits := 0
+	for ln in s.lanes:
+		for side in ["up", "down"]:
+			var rings: Array = ln[side]
+			for i in range(rings.size() - 1):
+				for r in s.rocks:
+					var q2 := Geometry3D.get_closest_point_to_segment(r[0], rings[i], rings[i + 1])
+					if q2.distance_to(r[0]) < float(r[1]) + Data.LANE_RING_RADIUS: hits += 1
+	_check("Job AP: no trade lane runs through an asteroid field in any of the %d systems (the field sits at least its radius + %d m off every lane line), and no rock of this system touches a built lane" % [Data.SYSTEMS.size(), int(Data.LANE_BELT_CLEAR)],
+		bad.is_empty() and hits == 0 and s.lanes.size() >= 2, "blocked %s, rocks on lanes %d, lanes %d" % [str(bad.slice(0, 6)), hits, s.lanes.size()])
+	_check("Job AP: systems are roomier: everything sits %.1fx farther from the main station (was 1.4)" % Data.SYSTEM_SPREAD, Data.SYSTEM_SPREAD > 1.4 and float(Data.SYSTEMS["solara"].get("spread", 0.0)) == Data.SYSTEM_SPREAD)
+	# fastest route: a far gate with a lane to it -> by lane; something close -> direct
+	_tp(s.station.global_position + Vector3(0, 40, 420), s.station.global_position)
+	await _frames(2)
+	var far_gate: Node3D = null
+	var far_d := 0.0
+	for g in s.gates:
+		var d: float = s.distance_to(g)
+		if d > far_d and s.lanes.any(func(ln): return str(ln["b"]) == str(g.name)):
+			far_d = d
+			far_gate = g
+	s.set_destination(far_gate)
+	var plan: Dictionary = s.nav_plan()
+	var by_lane: bool = plan.get("via", "") == "lane" and float(plan["t"]) < s._leg_time(s.distance_to(far_gate)) and s.nav_eta() == float(plan["t"])
+	main.open_map()
+	await _frames(3)
+	var map_lane: bool = main.navmap.route.get("via", "") == "lane"
+	await _shot("ap_route_by_lane", 0.3)
+	main.navmap.visible = false
+	main._on_map_closed()
+	await _frames(2)
+	var strip_lane: bool = main.hud.gps_drawn.get("via", "") == "lane"
+	await _shot("ap_hud_via_lane", 0.3)
+	var near_n: Node3D = s.nav_marker(s.player.global_position - s.player.global_basis.z * 900.0, "Near point")
+	s.set_destination(near_n)
+	var direct: bool = s.nav_plan().get("via", "") == "direct"
+	_check("Job AP: the GPS picks the fastest way: to the far gate (%.1f km) it goes by trade lane (fly to the lane mouth, ride it, fly on; shown on the map and the HUD), to a point 900 m away it goes direct" % (far_d / 1000.0),
+		far_gate != null and by_lane and map_lane and strip_lane and direct, "lane %s map %s strip %s direct %s" % [by_lane, map_lane, strip_lane, direct])
+	# GO: the autopilot flies the route, stop after stop
+	s.clear_route()
+	var m1: Node3D = s.nav_marker(s.player.global_position - s.player.global_basis.z * 1200.0, "Stop one")
+	var m2: Node3D = s.nav_marker(s.player.global_position - s.player.global_basis.z * 1200.0 + s.player.global_basis.x * 1500.0, "Stop two")
+	s.set_destination(m1)
+	s.add_stop(m2)
+	var said: String = s.route_go()
+	var go1: bool = s.nav_go and s.autopilot == m1
+	_tp(m1.global_position + Vector3(0, 0, Data.GPS_ARRIVE * 0.4), m1.global_position)
+	await _frames(3)
+	var go2: bool = s.autopilot == m2 and s.nav_dest == m2
+	_tp(m2.global_position + Vector3(0, 0, Data.GPS_ARRIVE * 0.4), m2.global_position)
+	await _frames(3)
+	var done: bool = not s.nav_go and s.autopilot == null and s.nav_dest == null
+	# steering takes over
+	var m3: Node3D = s.nav_marker(s.player.global_position - s.player.global_basis.z * 2000.0, "Stop three")
+	s.set_destination(m3)
+	s.route_go()
+	s.autopilot = null   # (what taking the stick does)
+	await _frames(2)
+	var cancel: bool = not s.nav_go and s.nav_dest == m3
+	s.clear_route()
+	_check("Job AP: GO flies the whole route on autopilot: stop 1, then stop 2 by itself, then it stops; taking the stick cancels GO but keeps the GPS route",
+		go1 and go2 and done and cancel and said.find("2 stops") >= 0, "go1 %s go2 %s done %s cancel %s" % [go1, go2, done, cancel])
+	_tp(s.station.global_position + Vector3(0, 40, 420), s.station.global_position)

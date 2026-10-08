@@ -195,6 +195,10 @@ func tap(p: Vector2) -> void:
 					"down": space.move_stop(i, 1)
 					"x": space.remove_stop(i)
 					"clear": space.clear_route()
+					"go":
+						gps_note = space.route_go()
+						visible = false
+						closed.emit()   # back to flying: the autopilot takes it from here
 					"stop": armed = -1 if armed == i else i
 				if parts[0] != "stop": armed = -1
 				return
@@ -596,8 +600,20 @@ func _draw_map() -> void:
 		var a3 := view.to_screen(space.player.global_position)
 		var b3 := view.to_screen(dest_n.global_position)
 		var dist: float = space.distance_to(dest_n)
-		route = {"from": a3 + map_rect.position, "to": b3 + map_rect.position, "dist": dist, "eta": dist / maxf(space.eff_speed(), 1.0), "name": str(dest_n.name)}
-		NavGrid.route(ci, a3, b3, Data.GPS_ROUTE_COLOR, t)
+		route = {"from": a3 + map_rect.position, "to": b3 + map_rect.position, "dist": dist, "eta": space.nav_eta() if dest_n == space.nav_dest else dist / maxf(space.eff_speed(), 1.0), "name": str(dest_n.name)}
+		var plan: Dictionary = space.nav_plan() if dest_n == space.nav_dest else {}
+		if plan.get("via", "") == "lane" and not plan.get("riding", false):   # v1.5m: fastest by trade lane: fly to its mouth, ride it, fly on
+			var e3 := view.to_screen(plan["entry"])
+			var x3 := view.to_screen(plan["exit"])
+			NavGrid.route(ci, a3, e3, Data.GPS_ROUTE_COLOR, t)
+			ci.draw_line(e3, x3, Color(0.55, 0.85, 1.0), 6.0)
+			NavGrid.route(ci, x3, b3, Data.GPS_ROUTE_COLOR, t)
+			ci.draw_circle(e3, 7.0, Color(0.55, 0.85, 1.0))
+			_txt(ci, (e3 + x3) * 0.5 + Vector2(10, 14), "TRADE LANE", 13, Color(0.55, 0.85, 1.0))
+			route["via"] = "lane"
+		else:
+			NavGrid.route(ci, a3, b3, Data.GPS_ROUTE_COLOR, t)
+			route["via"] = "direct"
 		_txt(ci, a3 + Vector2(-26, -14), "A", 15, Color.WHITE)
 		_txt(ci, (a3 + b3) * 0.5 + Vector2(12, -8), "%s  ·  ETA %s" % [_dist(dist), _eta(route["eta"])], 16, Color.WHITE)
 		# v1.5i stage 2: the later stops, joined in order; numbered (the last is B)
@@ -729,11 +745,19 @@ func _dest_panel(ci: CanvasItem, rc: Rect2) -> void:
 	if not stops.is_empty():
 		var lens: Array = space.route_lengths()
 		var spd: float = maxf(space.eff_speed(), 1.0)
-		_txt(ci, Vector2(rc.position.x + 14, y), "ROUTE  ·  %s  ·  ETA %s" % [_dist(lens[1]), _eta(lens[1] / spd)], 15, col)
+		_txt(ci, Vector2(rc.position.x + 14, y), "ROUTE  ·  %s  ·  ETA %s" % [_dist(lens[1]), _eta(lens[1] / spd)], 14, col, HORIZONTAL_ALIGNMENT_LEFT, rc.size.x - 180)
 		var cb := Rect2(rc.end.x - 78, y - 18, 66, 24)
 		ci.draw_rect(cb, Color(1, 1, 1, 0.08))
 		_txt(ci, cb.position + Vector2(0, 17), "CLEAR", 12, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, cb.size.x)
 		route_btns["clear"] = cb
+		var gb := Rect2(rc.end.x - 150, y - 18, 66, 24)   # v1.5m: fly the whole route on autopilot
+		ci.draw_rect(gb, Color(0.15, 0.6, 0.3, 0.85) if not space.nav_go else Color(0.15, 0.6, 0.3, 0.4))
+		_txt(ci, gb.position + Vector2(0, 17), "GO", 13, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, gb.size.x)
+		route_btns["go"] = gb
+		var pl: Dictionary = space.nav_plan()
+		if pl.get("via", "") == "lane":
+			_txt(ci, Vector2(rc.position.x + 14, y + 16), "Fastest: by trade lane %s" % pl["lane_name"], 11, Color(0.55, 0.85, 1.0), HORIZONTAL_ALIGNMENT_LEFT, rc.size.x - 28)
+			y += 20.0
 		y += 10.0
 		for i in stops.size():
 			var n: Node3D = stops[i]

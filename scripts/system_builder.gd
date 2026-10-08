@@ -76,7 +76,34 @@ static func all(core: Dictionary) -> Dictionary:
 			sys["more_stations"].append({"id": "%s_station_%d" % [sid, k + 2], "name": e[2], "kind": "landmark", "placeholder": true, "color": f[3],
 				"pos": pos, "radius": radius, "desc": "Station. Placeholder: no docking yet."})
 	spread(out)
+	clear_lanes(out)   # v1.5m: the freeways never run through the rocks
 	return out
+
+## v1.5m: the asteroid field is moved off every trade-lane line (station -> planet, station -> each gate): its middle is
+## pushed sideways, level, until the lane passes at least its radius + LANE_BELT_CLEAR away. Lanes stay straight.
+static func clear_lanes(out: Dictionary) -> void:
+	for id in out:
+		var sy: Dictionary = out[id]
+		var a: Vector3 = sy["station"]["pos"]
+		var ends: Array = [sy["planet"]["pos"]]
+		for g in sy["gates"]: ends.append(g["pos"])
+		var belt: Dictionary = sy["asteroids"]
+		var need: float = float(belt.get("radius", 400.0)) + Data.LANE_BELT_CLEAR
+		for it in 12:
+			var moved := false
+			for b in ends:
+				var c: Vector3 = belt["center"]
+				var q := Geometry3D.get_closest_point_to_segment(c, a, b)
+				var off := Vector3(c.x - q.x, 0.0, c.z - q.z)
+				var d := off.length()
+				if d >= need: continue
+				if d < 1.0:   # dead on the line: step out to the side of it
+					var ab: Vector3 = (b as Vector3) - a
+					off = Vector3(-ab.z, 0.0, ab.x)
+				belt["center"] = c + off.normalized() * (need - d + 40.0)
+				moved = true
+			if not moved: break
+		belt["lane_clear"] = true
 
 ## Is a body of this radius at `pos` clear of everything already in the system? (tests use it too)
 static func clear_of(sys: Dictionary, pos: Vector3, radius: float, skip_id := "") -> bool:
