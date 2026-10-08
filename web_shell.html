@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#f6f9fc">
-<meta name="hl-version" content="v1.5i">
-<title>Homelancer Digital v1.5i</title>
+<meta name="hl-version" content="v1.5j">
+<title>Homelancer Digital v1.5j</title>
 <style>
 *{box-sizing:border-box}
 html,body{margin:0;width:100%;height:100%;background:#f6f9fc;color:#0e2f5a;font:16px system-ui,sans-serif;overflow:hidden;touch-action:none}
@@ -171,6 +171,25 @@ $GODOT_HEAD_INCLUDE
     } catch (e) {}
   }
   window.__hlFullscreen = () => { fsLeft = false; goFull(); };
+  // v1.5j HOLD-TO-TALK: the browser's speech recognition (Chrome on Android, desktop Chrome / Edge). The game polls
+  // window.__hlSR: state idle | listening | done | error; text = what was heard so far; err = why it stopped.
+  window.__hlSR = { supported: !!(window.SpeechRecognition || window.webkitSpeechRecognition), state: 'idle', text: '', err: '' };
+  let hlRec = null;
+  window.__hlListenStart = () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const st = window.__hlSR;
+    if (!SR) { st.state = 'error'; st.err = 'unsupported'; return false; }
+    try { if (hlRec) hlRec.abort(); } catch (e) {}
+    hlRec = new SR();
+    hlRec.lang = navigator.language || 'en-US'; hlRec.interimResults = true; hlRec.continuous = true; hlRec.maxAlternatives = 1;
+    st.state = 'listening'; st.text = ''; st.err = '';
+    hlRec.onresult = (ev) => { let s = ''; for (let i = 0; i < ev.results.length; i++) s += ev.results[i][0].transcript; st.text = s.trim(); };
+    hlRec.onerror = (ev) => { st.err = ev.error || 'error'; if (ev.error !== 'no-speech' && ev.error !== 'aborted') st.state = 'error'; };
+    hlRec.onend = () => { if (st.state !== 'error') st.state = 'done'; };
+    try { hlRec.start(); } catch (e) { st.state = 'error'; st.err = String(e); return false; }
+    return true;
+  };
+  window.__hlListenStop = () => { try { if (hlRec) hlRec.stop(); } catch (e) { window.__hlSR.state = 'done'; } };
   document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) fsLeft = true; });
   for (const ev of ['pointerup', 'touchend', 'click']) $('canvas').addEventListener(ev, () => { if (!fsLeft) goFull(); }, { passive: true });
 })();

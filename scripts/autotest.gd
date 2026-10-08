@@ -1044,6 +1044,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_AM") != "":   # the Job AM checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_am()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_AL") != "":   # the Job AL checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1573,6 +1581,7 @@ func _run() -> void:
 	await _job_aj()
 	await _job_ak()
 	await _job_al()
+	await _job_am()
 	await _galaxy()
 	await _controls_j()
 	await _gate_k()
@@ -4927,3 +4936,108 @@ func _job_al() -> void:
 		int(g_two.get("stops", 0)) == 2 and float(g_two.get("total", 0.0)) > float(g_two.get("dist", 0.0)) and advanced and done, "strip %s advanced %s done %s" % [str(g_two), advanced, done])
 	s.clear_route()
 	_tp(s.station.global_position + Vector3(0, 40, 420), s.station.global_position)
+
+
+## Job AM (v1.5j): voice system stage 1: voice profiles (male / female / machine / alien) for four test characters, the
+## device voice picked by sex (not "voice 2 = female"), pitch and rate per character, effect sounds around the line,
+## the provider order (recorded file, then the phone's speech), no line spoken twice, and hold-to-talk feeding the
+## same dialogue as typing (typing always there).
+func _job_am() -> void:
+	var shell := FileAccess.get_file_as_string("res://web_shell.html")
+	_check("Job AM: version label reads \"Homelancer Digital v1.5j\" or later", Data.VERSION >= "v1.5j" and (shell == "" or shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0), Data.VERSION)
+	var keep_mode: String = Sfx.voice_mode
+	var keep_picks: Dictionary = Sfx.voice_picks.duplicate()
+	var keep_path: String = Sfx.path
+	Sfx.path = "user://settings_autotest_voice.cfg"
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(Sfx.path))
+	Sfx.voice_mode = "read"
+	Sfx.voice_picks = {}
+	# a device with male and female voices whose order does NOT put a woman second
+	Sfx.voices_override = [{"id": "v_david", "name": "Microsoft David - English (United States)", "language": "en-US"},
+		{"id": "v_mark", "name": "Microsoft Mark - English (United States)", "language": "en-US"},
+		{"id": "v_zira", "name": "Microsoft Zira - English (United States)", "language": "en-US"},
+		{"id": "v_fr", "name": "Microsoft Julie - French", "language": "fr-FR"},
+		{"id": "v_google_f", "name": "Google UK English Female", "language": "en-GB"}]
+	var four := {"rennick": "male", "vale": "female", "cybermorph_01_unit": "machine", "kaijurai_01_containment_trooper": "alien"}
+	var res := {}
+	for cid in four:
+		Sfx.play_character_voice(cid, "", "Test line for %s." % cid)
+		res[cid] = Sfx.last_profile.duplicate()
+		res[cid]["provider"] = Sfx.last_provider
+		Sfx.stop_voice()
+		await _frames(1)
+	var r: Dictionary = res["rennick"]
+	var v: Dictionary = res["vale"]
+	var c: Dictionary = res["cybermorph_01_unit"]
+	var k: Dictionary = res["kaijurai_01_containment_trooper"]
+	var sex_ok: bool = r["preferred_voice"] in ["v_david", "v_mark"] and v["preferred_voice"] in ["v_zira", "v_google_f"] and c["preferred_voice"] in ["v_david", "v_mark"] and k["preferred_voice"] in ["v_david", "v_mark"]
+	var fields := ["character_id", "persona_id", "preferred_voice", "voice_type", "pitch", "speaking_rate", "volume", "fallback_voice", "effect"]
+	var shape_ok: bool = res.values().all(func(p): return fields.all(func(f): return p.has(f)) and p["provider"] == "PHONE_TTS")
+	var styles_ok: bool = float(r["pitch"]) < 1.0 and float(r["speaking_rate"]) < 1.0 and float(v["pitch"]) > 1.0 and c["voice_type"] == "machine" and c["effect"] == "robot" and float(c["pitch"]) < float(r["pitch"]) and k["effect"] == "alien" and k["persona_id"] == "male_alien_masked" and float(k["speaking_rate"]) > 1.0 and r["effect"] == "radio"
+	var in_range: bool = res.values().all(func(p): return float(p["pitch"]) >= Data.VOICE_PITCH_RANGE[0] and float(p["pitch"]) <= Data.VOICE_PITCH_RANGE[1] and float(p["speaking_rate"]) >= Data.VOICE_RATE_RANGE[0] and float(p["speaking_rate"]) <= Data.VOICE_RATE_RANGE[1])
+	_check("Job AM: the four test characters get full voice profiles: Rennick a man's voice lower and slower, Vale a woman's voice (picked by name, not 'voice 2'), the Cybermorph a deep machine voice with robot sounds, the Kaijurai a male alien voice with alien sounds; all within readable pitch and rate",
+		sex_ok and shape_ok and styles_ok and in_range, "voices %s / %s / %s / %s; shape %s styles %s range %s" % [r["preferred_voice"], v["preferred_voice"], c["preferred_voice"], k["preferred_voice"], shape_ok, styles_ok, in_range])
+	# remembered per character; a voice that disappears falls back; no woman's voice at all -> same voice, higher pitch
+	var cf := ConfigFile.new()
+	var saved_ok: bool = cf.load(Sfx.path) == OK and (cf.get_value("voice_pick", "picks", {}) as Dictionary).get("vale", "") == v["preferred_voice"]
+	Sfx.voices_override = [{"id": "v_david", "name": "Microsoft David", "language": "en-US"}, {"id": "v_plain", "name": "English (United States)", "language": "en-US"}]
+	Sfx.play_character_voice("vale", "", "Fallback line.")
+	var fb: Dictionary = Sfx.last_profile.duplicate()
+	Sfx.stop_voice()
+	var fallback_ok: bool = fb["preferred_voice"] in ["v_david", "v_plain"] and float(fb["spoken_pitch"]) > float(fb["pitch"]) and Sfx.voice_picks.get("vale", "") == fb["preferred_voice"]
+	_check("Job AM: the device voice picked for each character is remembered in the settings file; if that voice is gone another is used, and with no woman's voice on the device Vale's pitch is raised instead",
+		saved_ok and fallback_ok, "saved %s fallback %s (%s, pitch %.2f -> %.2f)" % [saved_ok, fallback_ok, fb["preferred_voice"], float(fb["pitch"]), float(fb.get("spoken_pitch", 0.0))])
+	# providers: a recorded line wins over the phone; voice OFF = blips; everyone else unchanged; no double line
+	Sfx.voices_override = [{"id": "v_david", "name": "Microsoft David", "language": "en-US"}]
+	var probe: String = Sfx.clip_path("rennick", "probe")
+	var test_clip := "res://assets/voices/_test/test_tone.ogg"
+	var has_clip: bool = ResourceLoader.exists(test_clip)
+	var pre_ok := true
+	if has_clip:
+		Sfx.play_character_voice("_test", "test_tone", "anything")   # (not a profiled character: legacy path keeps working)
+		Sfx.stop_voice()
+	Sfx.play_character_voice("rennick", "", "Same line twice.")
+	var first_prov: String = Sfx.last_provider
+	Sfx.last_provider = "none"
+	Sfx.play_character_voice("rennick", "", "Same line twice.")
+	var once: bool = Sfx.last_provider == "none" and first_prov == "PHONE_TTS"
+	Sfx.stop_voice()
+	await _wait(Data.VOICE_SAME_LINE_GUARD + 0.1)
+	Sfx.voice_mode = "bleep"
+	Sfx.play_character_voice("vale", "", "Blips please.")
+	var off_ok: bool = Sfx.last_provider == "BLIPS"
+	Sfx.stop_voice()
+	Sfx.voice_mode = "read"
+	Sfx.play_character_voice("amari", "", "Old path.", 1.2, true)
+	var legacy_ok: bool = Sfx.last_provider == "" and Sfx.last_profile.is_empty()
+	Sfx.stop_voice()
+	var central: bool = true
+	for f in ["main.gd", "hud.gd", "space.gd", "brain.gd"]:
+		if FileAccess.get_file_as_string("res://scripts/" + f).find("tts_speak") >= 0: central = false
+	_check("Job AM: one place speaks every line (Sfx.play_character_voice; no text-to-speech calls anywhere else): recorded file first, then the phone's voice, blips with VOICE OFF; characters not yet on a profile keep the old voice; the same line asked twice at once is spoken once",
+		once and off_ok and legacy_ok and central and probe.begins_with(Data.VOICE_DIR), "once %s off %s legacy %s central %s" % [once, off_ok, legacy_ok, central])
+	# hold-to-talk: the words go where typed words go (a character answers); unsupported -> typing opens
+	var hud = main.hud
+	var got := []
+	var cb := func(t: String): got.append(t)
+	hud.typed.connect(cb)
+	hud.speech_override = "where is the warp gate"
+	hud.talk_press()
+	var was_listening: bool = hud.listening
+	await _frames(2)
+	hud.talk_release()
+	await _wait(0.3)
+	var talk_ok: bool = was_listening and got == ["where is the warp gate"] and not hud.listening
+	hud.speech_override = ""
+	got.clear()
+	hud._typer.visible = false
+	hud.talk_press()
+	var typed_instead: bool = not hud.listening and hud._typer.visible   # (no speech recognition off the web)
+	hud._typer.visible = false
+	hud.typed.disconnect(cb)
+	_check("Job AM: HOLD TO TALK: while held it listens, on release the words go into the same dialogue as typing; where the device cannot listen it opens typing instead (typing is always there)",
+		talk_ok and typed_instead, "talk %s (%s) typing fallback %s" % [talk_ok, str(got), typed_instead])
+	Sfx.voices_override = []
+	Sfx.voice_mode = keep_mode
+	Sfx.voice_picks = keep_picks
+	Sfx.path = keep_path

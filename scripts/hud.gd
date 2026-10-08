@@ -319,9 +319,10 @@ func _layout() -> void:
 		if roster_t > 0.95 and not roster_closing:
 			for k in mini(GS.met.size(), contact_rows()):
 				buttons["met_%d" % k] = Rect2(rr.position.x + 6, rr.position.y + 32 + k * Data.COMMS_ROW_H, rr.size.x - 6, Data.COMMS_ROW_H - 4)
-			var hw := (lg.size.x - 18.0) * 0.5
+			var hw := (lg.size.x - 24.0) / 3.0
 			buttons["type"] = Rect2(lg.position.x + 6, lg.end.y - 44, hw, 38)
-			buttons["voice"] = Rect2(lg.position.x + 12 + hw, lg.end.y - 44, hw, 38)
+			buttons["talk"] = Rect2(lg.position.x + 12 + hw, lg.end.y - 44, hw, 38)   # v1.5j hold-to-talk
+			buttons["voice"] = Rect2(lg.position.x + 18 + hw * 2.0, lg.end.y - 44, hw, 38)
 
 # ---------------------------------------------------------------- input
 func _input(e: InputEvent) -> void:
@@ -335,6 +336,10 @@ func _input(e: InputEvent) -> void:
 					held[id] = true
 					Sfx.play("button", -14.0)
 					if id == "radar": radar_pick = radar_pick_at(e.position)   # v1.4p: which blip the tap landed on, if any
+					if id == "talk":   # v1.5j: held, not tapped
+						talk_press()
+						get_viewport().set_input_as_handled()
+						return
 					if id != "thrust": pressed.emit(id)   # THRUST works while held
 					get_viewport().set_input_as_handled()
 					return
@@ -368,6 +373,7 @@ func _input(e: InputEvent) -> void:
 				origins.erase("aim")
 			elif o != "":
 				held.erase(o)
+				if o == "talk": talk_release()
 	elif e is InputEventScreenDrag:
 		var o2: String = owners.get(e.index, "")
 		if o2 == "move": move_vec = ((e.position - origins["move"]) / stick_r).limit_length(1.0)
@@ -377,6 +383,7 @@ func _process(dt: float) -> void:
 	if space == null: return
 	t += dt
 	_tick_scan(dt)
+	_tick_talk(dt)
 	msg_t = maxf(0.0, msg_t - dt)
 	damage_flash = maxf(0.0, damage_flash - dt)
 	for k in flash.keys(): flash[k] = maxf(0.0, float(flash[k]) - dt)
@@ -1372,12 +1379,72 @@ func _roster() -> void:
 		y += 15.0 * mini(lines, 4) + 5.0
 	if roster_t > 0.95 and not roster_closing:
 		_pill("type", "TYPE", _typer.visible, CYAN)
+		_pill("talk", "LISTENING" if listening else "HOLD TO TALK", listening, GREEN if listening else CYAN, heard_text.left(18) if listening and heard_text != "" else "")
 		_pill("voice", "VOICE", false, CYAN, "ON" if Sfx.voice_on() else "OFF")
 	if _typer.visible:
 		_typer.position = Vector2(lg.end.x + 8, lg.end.y - 44)
 		_typer.size = Vector2(minf(420.0, S.x - lg.end.x - _panel_w() - 16), 40)
 
 ## TYPE: open the message box (the phone keyboard comes up).
+# ---------------------------------------------------------------- v1.5j hold-to-talk
+var listening := false
+var heard_text := ""
+var _listen_wait := 0.0     # after release: waiting for the browser's last words (seconds left)
+var speech_override := ""   # tests: pretend the browser heard this ("" = use the browser)
+
+## Can this device turn speech into text? (Web only, and only where the browser has speech recognition.)
+func speech_supported() -> bool:
+	if speech_override != "": return true
+	if not OS.has_feature("web"): return false
+	return bool(JavaScriptBridge.eval("!!(window.__hlSR && window.__hlSR.supported)", true))
+
+func talk_press() -> void:
+	roster_idle = 0.0
+	if not speech_supported():
+		flash_message("Voice input isn't available on this device or browser: type instead.")
+		start_typing()
+		return
+	listening = true
+	heard_text = ""
+	_listen_wait = 0.0
+	Sfx.stop_voice()   # nobody talks over you
+	Sfx.play("comm_open", -10.0)
+	if speech_override == "" and OS.has_feature("web"): JavaScriptBridge.eval("window.__hlListenStart && window.__hlListenStart()", true)
+
+func talk_release() -> void:
+	if not listening: return
+	listening = false
+	if speech_override == "" and OS.has_feature("web"): JavaScriptBridge.eval("window.__hlListenStop && window.__hlListenStop()", true)
+	_listen_wait = Data.TALK_FINISH_WAIT
+
+## Every frame while listening or just after: read what the browser heard; when it is done, hand the words to the
+## same place typed text goes (the character's brain answers, and the voice provider speaks the answer).
+func _tick_talk(dt: float) -> void:
+	if not listening and _listen_wait <= 0.0: return
+	var st := "listening"
+	if speech_override != "":
+		heard_text = speech_override
+		st = "done" if not listening else "listening"
+	elif OS.has_feature("web"):
+		heard_text = str(JavaScriptBridge.eval("(window.__hlSR && window.__hlSR.text) || ''", true))
+		st = str(JavaScriptBridge.eval("(window.__hlSR && window.__hlSR.state) || 'error'", true))
+	if listening: return
+	_listen_wait -= dt
+	if st == "error" and heard_text == "":
+		_listen_wait = 0.0
+		flash_message("Didn't catch that: type instead.")
+		start_typing()
+		return
+	if st == "done" or _listen_wait <= 0.0:
+		_listen_wait = 0.0
+		var said := heard_text.strip_edges()
+		heard_text = ""
+		if said == "":
+			flash_message("Didn't catch that: hold TALK and speak, or type.")
+			return
+		_log("You: %s" % said)
+		typed.emit(said)
+
 func start_typing() -> void:
 	roster_idle = 0.0
 	_typer.visible = true

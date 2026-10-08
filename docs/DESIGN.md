@@ -1032,3 +1032,36 @@ GPS stage 2 (same version): ADD WAYPOINT.
   map joins the stops in order with numbered blue dots.
 - HUD strip: STOP 1/N, the leg's distance and ETA, and ROUTE total distance and time.
 - Zones (asteroid field, nebula) get a GPS marker node of their own per stop, removed with the stop.
+
+## 49. Voice system, stage 1: phone voices with profiles, hold-to-talk (Job AM, v1.5j)
+
+What was there: every spoken line already went through one place, `Sfx.speak` (called by `hud.open_comms`, and the
+VOICE button's replay). It played a recorded clip if one existed (`assets/voices/<voice_id>/<line>.ogg`, none yet),
+else the device's text-to-speech with "voice 2 = female", else radio blips. Talking back was TYPE only.
+
+Now (owner's voice brief, stage 1; stages 2 and 3 not built):
+- `scripts/voice.gd` holds the voice PROFILES and the device-voice choice; `Sfx.play_character_voice(character_id,
+  dialogue_id, text)` is the one call that speaks (the old `Sfx.speak` forwards to it; no text-to-speech call anywhere
+  else). Providers in order: PRELOADED_AUDIO (a recorded file for that line) -> LIVE_API (off: `VOICE_LIVE_API`
+  false, needs a secure server, never a key here) -> PHONE_TTS -> radio blips. VOICE OFF = blips.
+- Profile: character_id, persona_id (the roster documents' voice_persona), preferred_voice, voice_type
+  (male / female / machine), pitch, speaking_rate, volume, fallback_voice, effect (radio / robot / alien). Defaults per
+  persona in `Data.VOICE_PERSONAS`, one character's changes in `Data.VOICE_PROFILES`; pitch and rate kept readable
+  (`VOICE_PITCH_RANGE`, `VOICE_RATE_RANGE`). Machines use the masculine voice family (owner's Cybermorph rule).
+- Device voice: chosen from the voices the device has, by name (Zira, Samantha, "Female"... vs David, Daniel,
+  "Male"...), English first, varied per character; remembered per character in the settings file (new section
+  "voice_pick"). If it is gone, another is picked; if the device has no voice of that sex the pitch is nudged
+  (`VOICE_SEX_PITCH_NUDGE`) instead.
+- Effects around the line, no live processing: robot = beep chatter before and after plus a quiet hum behind;
+  alien = clicks and warble before and after; radio = a static burst before (new synthesized sounds, made by
+  `tools/sfx/make_voice_fx.py`).
+- The same line for the same character asked twice within `VOICE_SAME_LINE_GUARD` is spoken once.
+- Rolled out to four test characters only (`VOICE_PROFILE_ROLLOUT`): Capt. Rennick (male human), Cmdr. Vale (female
+  human), UNIT-01 (Cybermorph), the Kaijurai Containment Trooper (alien). Everyone else keeps the old voice path
+  until the owner approves the four.
+- HOLD TO TALK (comms console, between TYPE and VOICE): while held the browser's speech recognition listens (Chrome
+  on Android, Chrome / Edge on desktop; `window.__hlListenStart/Stop` in `web_shell.html`); on release the words go
+  where typed words go (`hud.typed` -> `main._on_typed` -> the character's brain answers -> the voice speaks it).
+  No speech recognition, or nothing heard: typing opens instead. Typing is always there.
+- Not checked on a real phone from here: which voices an Android phone offers (many Android voices have no name that
+  says male or female; then the pitch nudge decides), and the microphone permission prompt in Chrome.

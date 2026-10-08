@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.5i"
+const VERSION := "v1.5j"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -201,6 +201,39 @@ const PLANET_BIOME := {"terran": "forest", "jungle": "jungle", "ocean": "ocean",
 const TEXT_BUMP := 2                  # HUD and room text below TEXT_BUMP_BELOW px is drawn this much bigger
 const TEXT_BUMP_BELOW := 17
 const TEXT_MIN := 13                  # nothing on the HUD is smaller than this
+# ---------------------------------------------------------------- Job AM (v1.5j): voice system stage 1 (scripts/voice.gd, Sfx.play_character_voice)
+const VOICE_LIVE_API := false                 # stage 3 only, behind a secure server: never a key in this client
+const VOICE_PROFILE_ROLLOUT := ["rennick", "vale", "cybermorph_01_unit", "kaijurai_01_containment_trooper"]   # the four test characters first
+const VOICE_PITCH_RANGE := [0.55, 1.5]        # never so far that speech is hard to follow
+const VOICE_RATE_RANGE := [0.75, 1.35]
+const VOICE_SEX_PITCH_NUDGE := 1.18           # the device has no voice of that sex: raise (female) / lower (male) the pitch this much instead
+## Defaults per voice persona (the roster documents' "voice_persona"); effect = sounds played around the line.
+const VOICE_PERSONAS := {
+	"male": {"voice_type": "male", "pitch": 0.95, "speaking_rate": 1.0, "volume": 80, "effect": "radio"},
+	"female": {"voice_type": "female", "pitch": 1.06, "speaking_rate": 1.02, "volume": 80, "effect": "radio"},
+	"male_masked": {"voice_type": "male", "pitch": 0.86, "speaking_rate": 0.98, "volume": 80, "effect": "radio"},
+	"male_augmented": {"voice_type": "male", "pitch": 0.78, "speaking_rate": 0.94, "volume": 85, "effect": "radio"},
+	"male_alien": {"voice_type": "male", "pitch": 0.76, "speaking_rate": 1.12, "volume": 80, "effect": "alien"},
+	"male_alien_masked": {"voice_type": "male", "pitch": 0.72, "speaking_rate": 1.06, "volume": 80, "effect": "alien"},
+	"male_alien_augmented": {"voice_type": "male", "pitch": 0.66, "speaking_rate": 0.95, "volume": 85, "effect": "alien"},
+	"female_alien": {"voice_type": "female", "pitch": 1.24, "speaking_rate": 1.12, "volume": 80, "effect": "alien"},
+	"male_hive": {"voice_type": "male", "pitch": 0.8, "speaking_rate": 1.0, "volume": 80, "effect": "alien"},
+	"male_masked_hive": {"voice_type": "male", "pitch": 0.76, "speaking_rate": 0.98, "volume": 80, "effect": "alien"},
+	"female_hive": {"voice_type": "female", "pitch": 1.16, "speaking_rate": 1.05, "volume": 80, "effect": "alien"},
+	"neutral_machine_echo": {"voice_type": "machine", "pitch": 0.72, "speaking_rate": 0.9, "volume": 85, "effect": "robot"},
+	"neutral_machine_echo_heavy": {"voice_type": "machine", "pitch": 0.62, "speaking_rate": 0.85, "volume": 90, "effect": "robot"},
+	"neutral_machine_echo_command": {"voice_type": "machine", "pitch": 0.58, "speaking_rate": 0.82, "volume": 90, "effect": "robot"},
+}
+## One character on top of their persona (editable).
+const VOICE_PROFILES := {
+	"rennick": {"voice_persona_note": "older hauler captain", "pitch": 0.88, "speaking_rate": 0.93},
+	"vale": {"voice_persona_note": "station commander", "pitch": 1.04, "speaking_rate": 0.97},
+}
+## The sounds an effect plays: [before the line, behind it (quiet, looped while speaking), after it] ("" = none).
+const VOICE_EFFECT_SOUNDS := {"radio": ["fx_static", "", ""], "robot": ["fx_robot", "fx_hum", "fx_robot"], "alien": ["fx_alien", "", "fx_alien"]}
+const TALK_FINISH_WAIT := 1.5               # after you let go of TALK, wait this long at most for the browser's last words
+const VOICE_SAME_LINE_GUARD := 0.4            # the same line for the same character within this many seconds is not spoken twice
+
 # ---------------------------------------------------------------- Job AL (v1.5i): GPS (destination list, A -> B route, distance and ETA)
 const GPS_ARRIVE := 250.0          # this close, the GPS says you have arrived and clears the destination
 const GPS_ROUTE_COLOR := Color(0.35, 0.65, 1.0)   # the blue route line
