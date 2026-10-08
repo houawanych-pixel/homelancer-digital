@@ -931,3 +931,13 @@ both sets are saved in the asset library and not placed.
   frames) are the next job: the owner wants the vessels, not the repeated turrets and missiles.
 - Tests: five Job AG checks (`HL_AG=1`); the Job AC "no other system flies a home fleet" check now excludes every
   system whose role is in `HOME_FLEETS`.
+
+## 43. The warp keeps moving while the next system loads (v1.5d)
+
+- The jump's load used to be one long frame, so the cloud and the tear froze for about a second and then jumped
+  forward. Now `space.setup_staged()` builds the next system one step a frame (station, planet, gate, nebula, ship,
+  patrols, traffic), with the scene's own processing off until the last step, and `fx` advances the warp by at most
+  `WARP_MAX_STEP` (0.05 s) a frame, so a long build frame never jumps the layers. The HUD lets go of the old scene
+  while the new one is being built.
+- Owner's audit answers (7 Oct): jump gates and freeways are good as they are. Still open from the brief: a longer
+  exit dissolve, dock / gate / lane nearest-wins, rift slow-layer count and rift-only spin, system spread.

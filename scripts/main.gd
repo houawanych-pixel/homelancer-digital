@@ -104,12 +104,13 @@ func start_game() -> void:
 	_launch_sequence("Liberty Hub")
 
 # ---------------------------------------------------------------- systems
-func _load_system(id: String, arrival: String) -> void:
+func _load_system(id: String, arrival: String, staged := false) -> void:
 	_new_space("Space_" + id)
 	GS.system_id = id
 	if not (id in GS.discovered): GS.discovered.append(id)
 	Galaxy.refresh()
-	space.setup(id, arrival)
+	if staged: await space.setup_staged(id, arrival)   # v1.5d: one build step a frame, behind the moving warp
+	else: space.setup(id, arrival)
 	_connect_space()
 
 ## Planet surface: the same flight scene, built as one tile of a planet (see surface.gd).
@@ -123,6 +124,7 @@ func _new_space(nm: String) -> void:
 	if is_instance_valid(space):
 		space.queue_free()
 		remove_child(space)
+	hud.space = null   # v1.5d: the old scene is gone until the new one is connected (a staged load spans several frames)
 	space = SpaceScript.new()
 	space.name = nm
 	add_child(space)
@@ -703,7 +705,8 @@ func jump(gate: Node3D = null) -> void:
 		if not reduced: _tunnel(1.0)
 		await get_tree().process_frame
 	await get_tree().process_frame   # the full tunnel is on screen before the load starts
-	_load_system(to, "gate:" + from)
+	if not reduced: _tunnel(1.0)
+	await _load_system(to, "gate:" + from, true)   # v1.5d: built one step a frame; the warp keeps moving over it
 	space.controls = false
 	if not reduced: _tunnel(1.0)
 	fx.set_skies(null, space.sky_texture(), [here["star"], here["nebula"]["color"], Data.SYSTEMS[to]["star"], Data.SYSTEMS[to]["nebula"]["color"]])   # the far side of the tear

@@ -153,6 +153,15 @@ var _rng := RandomNumberGenerator.new()
 
 # ---------------------------------------------------------------- build
 func setup(id: String, arrival: String) -> void:
+	await _setup(id, arrival, false)
+
+## v1.5d: the same build spread over several frames (one step a frame), for the jump: the warp effect keeps moving
+## while the next system is built behind it instead of freezing for one long frame. Nothing runs here until the end.
+func setup_staged(id: String, arrival: String) -> void:
+	await _setup(id, arrival, true)
+
+func _setup(id: String, arrival: String, staged: bool) -> void:
+	set_process(staged == false)
 	sys_id = id
 	sys = Data.SYSTEMS[id]
 	sun_radius = Data.SUN_RADIUS * (0.35 if sys.get("small_sun", false) else 1.0)
@@ -166,8 +175,10 @@ func setup(id: String, arrival: String) -> void:
 	_prof("environment (sky, sun, camera)")
 	_build_station(sys["station"])
 	_prof("station")
+	if staged: await get_tree().process_frame
 	_build_planet(sys["planet"])
 	_prof("planet")
+	if staged: await get_tree().process_frame
 	for gd in sys["gates"]: _build_gate(gd)
 	gate = gates[0]
 	gate_portal = gate_portals[0]
@@ -175,26 +186,32 @@ func setup(id: String, arrival: String) -> void:
 	_gate_model()
 	if gate_model == null and not Packs.pack_ready.is_connected(_on_gate_pack): Packs.pack_ready.connect(_on_gate_pack)
 	_prof("gate")
+	if staged: await get_tree().process_frame
 	_build_belt(sys["asteroids"])
 	_prof("asteroid belt")
 	_build_nebula(sys["nebula"])
 	_build_beacon()
 	_prof("nebula")
+	if staged: await get_tree().process_frame
 	_build_player()
 	_prof("player ship")
+	if staged: await get_tree().process_frame
 	_named_down = {}
 	_incursion = Factions.raider_of(str(sys.get("faction", ""))) if randf() < Data.INCURSION_CHANCE else ""
 	for p in sys["patrols"]: _spawn_group(p, Data.ROSTER_PATROL_SIZE if Factions.replaces_patrols(str(sys.get("faction", ""))) else 2)
 	spawn_guard()
 	spawn_bounty()
 	_prof("patrols")
+	if staged: await get_tree().process_frame
 	_build_traffic()
 	_build_carrier()
 	_prof("traffic + carrier")
+	if staged: await get_tree().process_frame
 	_build_lanes()
 	_prof("trade lanes")
 	place_player(arrival)
 	spawn_hunters()
+	set_process(true)
 
 ## One line of memory numbers (GPU textures, GPU buffers, engine RAM, node count) for load/soak testing.
 static func memory_report() -> String:

@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.5c"
+const VERSION := "v1.5d"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -256,6 +256,7 @@ const RIFT_TINT_MIN_HUE := 0.12      # two tears in a row differ in hue by at le
 const TUNNEL_TWIST := 0.55           # jump tunnel: how much the energy bands corkscrew
 const TUNNEL_BANDS := 3.0            # jump tunnel: bands around the tube (whole number)
 const CLOUD_LAYERS := 6              # warp-gate anomaly: gas layers rushing past
+const WARP_MAX_STEP := 0.05      # v1.5d: the most warp time one frame may advance (a long build frame does not jump the layers)
 const WARP_MIN_COLOUR := 0.55       # the effect's main colour is at least this saturated
 const WARP_ALPHA := 0.96             # how solid the effect is at full strength
 # ---------------------------------------------------------------- Job AA (v1.4w): seven more faction casts

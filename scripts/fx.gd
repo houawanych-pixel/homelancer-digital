@@ -195,6 +195,7 @@ func _process(dt: float) -> void:
 	_warp_rect.visible = jumping and warp > 0.001
 	if _warp_rect.visible:
 		var before := int(travel)
+		dt = minf(dt, Data.WARP_MAX_STEP)   # v1.5d: a long frame (a build step) never jumps the layers forward
 		travel += dt * lerpf(Data.WARP_PACE_SLOW, Data.WARP_PACE_FAST, pace)
 		spin += dt * lerpf(Data.WARP_SPIN_SLOW, Data.WARP_SPIN_FAST, pace)
 		if int(travel) != before and skin != "tunnel" and pace < Data.WARP_BOOM_BELOW:   # a layer went by: the slow booms
