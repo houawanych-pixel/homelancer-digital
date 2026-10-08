@@ -908,3 +908,14 @@ both sets are saved in the asset library and not placed.
 - Smaller main download: the textures of the seven Kaijurai / Phenom ships (v1.4y) were imported uncompressed;
   they are now lossy (0.8), which takes about 5 MB off the core.
 - Tests: the start-screen check now checks the movie; five new Job AE checks (`HL_AE=1`).
+
+## 41. New Cybermorph faces; the game is for a mature audience (Job AF, v1.5b)
+
+- The owner sent a new Cybermorph roster picture. The twelve portraits (six clean, six battle-damaged) in
+  `assets/enemy_pilots/cybermorph_0N_*.jpg` were cut again from it, same file names, slot numbers as printed on it.
+- The new picture prints other names and roles than the roster document (01 Scout Verid, 02 Specialist / Raider
+  Drakos, 03 Hunter Kael, 04 Commander Aegis, 05 Assassin Nyx, 06 Titan Korvex; the document has UNIT-01, VX-RAID,
+  ORION-K, NEX-M7, AX-9, PRIME-NEXUS with the command frame in slot 6). The document is the authority, so names,
+  ranks and voices were NOT changed. Open question for the owner.
+- Owner's decision (7 Oct 2026): Homelancer is for a mature audience, 17 and up. This replaces the earlier
+  "kid-friendly game page" rule. The title movie stays as sent.
