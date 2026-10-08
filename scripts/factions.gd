@@ -124,5 +124,35 @@ static func hub_background(station: Dictionary, system: Dictionary) -> Dictionar
 	return {"path": "", "pack": "", "source": "neutral", "faction": f}
 
 ## Who owns a station or planet: its own "faction" if it has one, else the system's.
+## v1.5l: a faction's leader (slot 06) and its coordinator (the named slot 02-04 whose role reads like handing out
+## work, else slot 03). {} = no roster.
+static func leader(f: String) -> Dictionary:
+	for p in Data.ROSTERS.get(f, {}).get("pilots", []):
+		if int(p["slot"]) == 6: return Data.roster_pilot(p["id"])
+	return {}
+
+static func coordinator(f: String) -> Dictionary:
+	var pilots: Array = Data.ROSTERS.get(f, {}).get("pilots", [])
+	for p in pilots:
+		if int(p["slot"]) in [2, 3, 4]:
+			var role := str(p.get("type", "")).to_lower()
+			for h in Data.COORDINATOR_HINTS:
+				if role.find(h) >= 0: return Data.roster_pilot(p["id"])
+	for p in pilots:
+		if int(p["slot"]) == 3: return Data.roster_pilot(p["id"])
+	return {}
+
+## v1.5l: who you meet at a station: the coordinator at every station of a main faction, the leader too at its capital.
+static func people_at(station: Dictionary, system: Dictionary) -> Array:
+	var f := owner_of(station, system)
+	if not normal(f): return []
+	var out: Array = []
+	var c := coordinator(f)
+	if not c.is_empty(): out.append({"role": "coordinator", "pilot": c})
+	if str(system.get("role", "")) == "capital" and str(station.get("id", "")) == str(system.get("station", {}).get("id", "")):
+		var l := leader(f)
+		if not l.is_empty(): out.push_front({"role": "leader", "pilot": l})
+	return out
+
 static func owner_of(station: Dictionary, system: Dictionary) -> String:
 	return str(station.get("faction", system.get("faction", "")))

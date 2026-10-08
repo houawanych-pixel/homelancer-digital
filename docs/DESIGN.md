@@ -1095,3 +1095,21 @@ character deployment was done; only the foundation.
   select / deselect / switch -> BOUNTIES select Jackal, clear, select Veil, select Razor (waypoint switches) -> LAUNCH
   visible on every page -> LAUNCH -> follow the waypoint 5 jumps to Plundros -> beat the escort wing -> Razor herself
   in her Redclaw, targetable, a woman's voice.
+
+## 51. The roster deployed across the game (Job AO, v1.5l)
+
+Owner, after the v1.5k test flow passed: "push it to all".
+- Bounties: characters 2, 3, 4 and 6 (`BOUNTY_SLOTS`) of every faction with ships (`BOUNTY_FACTIONS`: Savagers,
+  Imperium, Liberator, Covenant, Phenom, Kaijurai, Cybermorph, Solrath) are wanted: 32 targets. Each hides in a system
+  of their own faction (`Data.faction_systems`, spread by slot; the Savagers keep their own hideouts). A station posts
+  its owner's enemies' targets only (`Data.bounties_for`): its rival nation, the permanent enemies and the outlaw
+  Savagers; never its own people. Rank 4 and up wanted alive, as before.
+- People at stations (`Factions.people_at`): every station of a main faction has its coordinator (the named slot
+  02-04 whose role reads like handing out work, `COORDINATOR_HINTS`: Lena Torres for the Liberators, Korvax for
+  Orion, Kael Varis for the Covenant; else slot 03: Rowan Hale for Unity, Garrik Rend for the Imperium...). The
+  faction's capital also has its leader (slot 06: Commander Elara Voss at Veranthos, Lord Kraeg at Malachar...).
+  The station page shows them (AT THIS STATION: face, name, role, TALK in their own voice). The lines they say are
+  plain functional lines (who they are, "I have work for you on the Mission Board"), not invented lore. Enemy stations
+  have none. The coordinator gives the job brief on the radio at launch, with face and voice.
+- Factions without ships yet (Unity, Elyza, Solarion, Orion, Gadversee, Arctides) are not bounty targets: their
+  people cannot fly until their ship sets are in.

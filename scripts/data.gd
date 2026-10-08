@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.5k"
+const VERSION := "v1.5l"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -201,6 +201,11 @@ const PLANET_BIOME := {"terran": "forest", "jungle": "jungle", "ocean": "ocean",
 const TEXT_BUMP := 2                  # HUD and room text below TEXT_BUMP_BELOW px is drawn this much bigger
 const TEXT_BUMP_BELOW := 17
 const TEXT_MIN := 13                  # nothing on the HUD is smaller than this
+# ---------------------------------------------------------------- Job AO (v1.5l): the roster deployed across the game
+const BOUNTY_SLOTS := [2, 3, 4, 6]            # who is wanted, in every faction with ships
+const BOUNTY_FACTIONS := ["Savagers", "Imperium", "Liberator", "Covenant", "Phenom", "Kaijurai", "Cybermorph", "Solrath"]
+const COORDINATOR_HINTS := ["officer", "strategist", "leader", "engineer", "warden", "scientist", "captain"]   # a role that sounds like handing out work
+
 # ---------------------------------------------------------------- Job AN (v1.5k): test-flow foundation (owner's brief of 8 Oct)
 ## The opening system's enemies: the start system's RIVAL NATION (Unity's rival, the Imperium), low ranks only, always
 ## hostile: ordinary troops, never a story boss or a placeholder raider leader. Slot 01 (Imperium Trooper, male) and
@@ -634,6 +639,12 @@ static func roster_pilot(id: String) -> Dictionary:
 				var d: Dictionary = (p as Dictionary).duplicate()
 				d["faction"] = f
 				d["leader"] = ROSTERS[f]["leader"]
+				# v1.5l: characters 2, 3, 4 and 6 of every faction with ships are wanted (BOUNTY_SLOTS); they hide in their own space
+				if not d.get("bounty", false) and int(d.get("slot", 0)) in BOUNTY_SLOTS and f in BOUNTY_FACTIONS and ENEMIES.has(str(d.get("fighter_primary", ""))):
+					var owned: Array = faction_systems(f)
+					if not owned.is_empty():
+						d["bounty"] = true
+						d["sys"] = owned[int(d["slot"]) % owned.size()]
 				d["portrait_clean"] = "res://assets/enemy_pilots/%s_clean.jpg" % p["id"]
 				d["portrait_damaged"] = "res://assets/enemy_pilots/%s_damaged.jpg" % p["id"]
 				return d
@@ -668,7 +679,24 @@ static func bounties() -> Array:
 	var out: Array = []
 	for f in ROSTERS:
 		for p in ROSTERS[f]["pilots"]:
-			if p.get("bounty", false): out.append(roster_pilot(p["id"]))
+			var d := roster_pilot(p["id"])
+			if d.get("bounty", false): out.append(d)
+	return out
+
+## v1.5l: the bounties a station posts: the targets of its owner's enemies (its rival nation, the permanent enemies,
+## and the Savagers, who are outlaws everywhere), never its own people.
+static func bounties_for(owner: String) -> Array:
+	return bounties().filter(func(p): return str(p["faction"]) != owner and (str(p["faction"]) == Factions.rival(owner) or not Factions.normal(str(p["faction"])) or str(p["faction"]) == "Savagers"))
+
+## v1.5l: where a faction's people hide: the systems it owns (a permanent enemy: its home system), in a fixed order.
+static var _owned_cache := {}
+static func faction_systems(f: String) -> Array:
+	if _owned_cache.has(f): return _owned_cache[f]
+	var out: Array = []
+	for id in SYSTEMS:
+		if str(SYSTEMS[id].get("faction", "")) == f or str(SYSTEMS[id].get("enemy_faction", "")) == f: out.append(id)
+	out.sort()
+	_owned_cache[f] = out
 	return out
 
 static func rank_mult(rank: int, step: float) -> float: return 1.0 + step * float(maxi(1, rank) - 1)

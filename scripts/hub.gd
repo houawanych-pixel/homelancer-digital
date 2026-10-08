@@ -244,8 +244,47 @@ func _page_box() -> VBoxContainer:
 	content.add_child(v)
 	return v
 
+## v1.5l: the people of this station (coordinator; the leader too at a capital): face, name, role, and TALK.
+func _people_rows(v: VBoxContainer) -> void:
+	var folk: Array = Factions.people_at(base, Data.SYSTEMS[GS.system_id])
+	if folk.is_empty(): return
+	var head := _label(18, GOLD)
+	head.text = "AT THIS STATION"
+	v.add_child(head)
+	var row := HBoxContainer.new()
+	row.name = "People"
+	row.add_theme_constant_override("separation", 18)
+	for who in folk:
+		var p: Dictionary = who["pilot"]
+		var card := HBoxContainer.new()
+		card.name = "Person_" + str(p["id"])
+		card.add_theme_constant_override("separation", 8)
+		var pic := TextureRect.new()
+		pic.custom_minimum_size = Vector2(72, 72)
+		pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		if ResourceLoader.exists(str(p["portrait_clean"])): pic.texture = load(str(p["portrait_clean"]))
+		card.add_child(pic)
+		var col := VBoxContainer.new()
+		var nm := _label(16, Color(1, 1, 1))
+		nm.text = "%s\n%s" % [str(p["name"]), "Leader · " + str(p["type"]).trim_prefix("Level 6 ") if who["role"] == "leader" else "Coordinator · " + str(p["type"]).substr(8)]
+		col.add_child(nm)
+		var tb := Button.new()
+		tb.name = "Talk_" + str(p["id"])
+		tb.text = "TALK"
+		tb.custom_minimum_size = Vector2(110, 38)
+		var line := ("%s, %s. Welcome to %s." % [p["name"], str(Data.ROSTERS[p["faction"]].get("title", p["faction"])), base["name"]]) if who["role"] == "leader" else ("%s here. I have work for you on the Mission Board." % p["name"])
+		tb.pressed.connect(func():
+			status.text = "%s: %s" % [p["name"], line]
+			Sfx.play_character_voice(str(p.get("voice_id", p["id"])), "", line, float(p.get("voice", 1.0)), str(p.get("sex", "")) == "female"))
+		col.add_child(tb)
+		card.add_child(col)
+		row.add_child(card)
+	v.add_child(row)
+
 func _hub_page() -> void:
 	var v := _page_box()
+	_people_rows(v)
 	var l := _label(22, Color(1, 1, 1))
 	l.text = base.get("desc", "")
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -665,7 +704,9 @@ func _bounty_page() -> void:
 	l.text = "Tap a target to track it (a gold waypoint leads you there); tap it again to stop. Tapping another target switches. Rank under %d: destroy the ship, paid on the spot. Rank %d and up: bring the pilot back here alive." % [Data.BOUNTY_ALIVE_RANK, Data.BOUNTY_ALIVE_RANK]
 	v.add_child(l)
 	_standing_rows(v)
-	for p in Data.bounties():
+	var posted: Array = Data.bounties_for(Factions.owner_of(base, Data.SYSTEMS[GS.system_id]))   # v1.5l: this station's enemies
+	posted.sort_custom(func(a, b): return [str(a["faction"]) != "Savagers", str(a["faction"]), int(a["slot"])] < [str(b["faction"]) != "Savagers", str(b["faction"]), int(b["slot"])])
+	for p in posted:
 		var id: String = p["id"]
 		var row := HBoxContainer.new()
 		row.name = "Row_" + id
@@ -714,7 +755,8 @@ func _missions_page() -> void:
 	_board_head(v, "missions")
 	var l := _label(17, Color(1, 1, 1))
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.text = "Work for %s. Tap a job to take it (a gold waypoint leads you through it); tap it again to drop it. Tapping another job switches." % base["name"]
+	var co: Dictionary = Factions.coordinator(Factions.owner_of(base, Data.SYSTEMS[GS.system_id]))
+	l.text = "Work for %s%s. Tap a job to take it (a gold waypoint leads you through it); tap it again to drop it. Tapping another job switches." % [base["name"], (", from %s" % co["name"]) if not co.is_empty() else ""]
 	v.add_child(l)
 	for o in Missions.offers(GS.system_id, base["id"]):
 		var row := HBoxContainer.new()

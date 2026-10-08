@@ -590,7 +590,10 @@ func launch() -> void:
 	var mw: Dictionary = space.mission_waypoint()
 	if not mw.is_empty(): hud.flash_message("Waypoint set: %s. GO TO flies it." % mw["title"])
 	if not GS.mission.is_empty():   # v1.5f: the dispatcher repeats the brief on the comms panel
-		hud.open_comms("%s dispatch" % Data.SYSTEMS[GS.mission["giver_sys"]]["station"]["name"], str(GS.mission["brief"]), "incoming", false)
+		var gsys: Dictionary = Data.SYSTEMS[GS.mission["giver_sys"]]
+		var co: Dictionary = Factions.coordinator(Factions.owner_of(gsys["station"], gsys))   # v1.5l: the coordinator gives the brief, in their own voice
+		if co.is_empty(): hud.open_comms("%s dispatch" % gsys["station"]["name"], str(GS.mission["brief"]), "incoming", false)
+		else: hud.open_comms("%s — %s" % [co["name"], gsys["station"]["name"]], str(GS.mission["brief"]), "incoming", false, "gp/" + str(co["id"]), float(co.get("voice", 1.0)), str(co.get("sex", "")) == "female", str(co.get("voice_id", co["id"])))
 
 func _launch_sequence(where: String) -> void:
 	fx.caption = "LAUNCHING"

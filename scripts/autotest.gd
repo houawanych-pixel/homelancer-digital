@@ -1051,6 +1051,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_AO") != "":   # the Job AO checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_ao()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_AN") != "":   # the Job AN test flow only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1599,6 +1607,7 @@ func _run() -> void:
 	await _job_al()
 	await _job_am()
 	await _job_an()
+	await _job_ao()
 	await _galaxy()
 	await _controls_j()
 	await _gate_k()
@@ -3339,7 +3348,7 @@ func _job_v() -> void:
 	main.hub.show_screen("bounty")
 	await _frames(3)
 	var btn: Button = main.hub.content.find_child("Bounty_savagers_03", true, false)
-	var names: Array = Data.bounties().map(func(b): return b["name"])
+	var names: Array = Data.bounties().filter(func(b): return b["faction"] == "Savagers").map(func(b): return b["name"])
 	var stand: Label = main.hub.content.find_child("Standing_Savagers", true, false)
 	var board_ok: bool = btn != null and not btn.disabled and names == ["Jackal", "Razor", "Veil", "Dreadmaw"] and main.hub.left.find_child("Btn_board", true, false) != null
 	var stand_ok: bool = stand != null and stand.text == "SAVAGERS: HOSTILE" and main.hub.content.find_child("Standing_Unity", true, false) != null
@@ -5138,7 +5147,7 @@ func _job_an() -> void:
 	# ---- 4. BOUNTIES: 2, 3, 4, 6; select (waypoint), deselect, select another (waypoint switches)
 	(hub.content.find_child("Tab_bounty", true, false) as Button).pressed.emit()
 	await _frames(2)
-	var ids: Array = Data.bounties().map(func(p): return int(p["slot"]))
+	var ids: Array = Data.bounties().filter(func(p): return p["faction"] == "Savagers").map(func(p): return int(p["slot"]))
 	var bj: Button = hub.content.find_child("Bounty_savagers_02", true, false)
 	bj.pressed.emit()
 	await _frames(2)
@@ -5211,3 +5220,55 @@ func _job_an() -> void:
 	main._load_system("solara", "station")   # back home for the rest of the route test
 	await _frames(4)
 	_tp(_sp().station.global_position + Vector3(0, 40, 420), _sp().station.global_position)
+
+
+## Job AO (v1.5l): the roster deployed: characters 2, 3, 4, 6 of every faction with ships are bounties hiding in their
+## own space, each station posting its own enemies' targets; every main-faction station has its coordinator (and the
+## capital its leader) with face, role and voice; the coordinator briefs your jobs.
+func _job_ao() -> void:
+	var shell := FileAccess.get_file_as_string("res://web_shell.html")
+	_check("Job AO: version label reads \"Homelancer Digital v1.5l\" or later", Data.VERSION >= "v1.5l" and (shell == "" or shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0), Data.VERSION)
+	var all: Array = Data.bounties()
+	var by := {}
+	for p in all: by[str(p["faction"])] = by.get(str(p["faction"]), []) + [int(p["slot"])]
+	var each := true
+	for f in Data.BOUNTY_FACTIONS:
+		if by.get(f, []) != [2, 3, 4, 6]: each = false
+	var hide_ok: bool = all.all(func(p): return Data.SYSTEMS.has(str(p["sys"])) and (str(Data.SYSTEMS[p["sys"]].get("faction", "")) == str(p["faction"]) or str(Data.SYSTEMS[p["sys"]].get("enemy_faction", "")) == str(p["faction"])))
+	var unity: Array = Data.bounties_for("Unity").map(func(p): return str(p["faction"]))
+	var lib: Array = Data.bounties_for("Liberator").map(func(p): return str(p["faction"]))
+	var post_ok: bool = unity.has("Imperium") and unity.has("Savagers") and unity.has("Kaijurai") and not unity.has("Unity") and not unity.has("Liberator") and lib.has("Savagers") and not lib.has("Liberator") and not lib.has("Imperium")
+	_check("Job AO: characters 2, 3, 4 and 6 of every faction with ships are wanted (%d targets), each hiding in a system of their own faction; a station posts its enemies' targets only (Unity: the Imperium, the outlaw Savagers, the permanent enemies)" % all.size(),
+		each and hide_ok and post_ok, "%s hide %s post %s" % [str(by), hide_ok, post_ok])
+	# people at stations
+	var lib_c: Dictionary = Factions.coordinator("Liberator")
+	var orion_c: Dictionary = Factions.coordinator("Orion")
+	var unity_c: Dictionary = Factions.coordinator("Unity")
+	var cap: Dictionary = Data.SYSTEMS["veranthos"]
+	var at_cap: Array = Factions.people_at(cap["station"], cap)
+	var at_solara: Array = Factions.people_at(Data.SYSTEMS["solara"]["station"], Data.SYSTEMS["solara"])
+	var roles_ok: bool = lib_c.get("name", "") == "Lena Torres" and orion_c.get("name", "") == "Korvax" and unity_c.get("name", "") == "Rowan Hale" and at_cap.size() == 2 and at_cap[0]["role"] == "leader" and at_cap[0]["pilot"]["name"] == "Commander Elara Voss" and at_solara.size() == 1 and at_solara[0]["role"] == "coordinator"
+	var enemy_none: bool = Factions.people_at(Data.SYSTEMS["genesis"]["station"], Data.SYSTEMS["genesis"]).is_empty()
+	var s := _sp()
+	main.hub.open(Data.SYSTEMS[s.sys_id]["station"])
+	main.state = "hub"
+	await _frames(2)
+	var card: Node = main.hub.content.find_child("Person_unity_03", true, false)
+	var talk: Button = main.hub.content.find_child("Talk_unity_03", true, false)
+	var has_card: bool = card != null and talk != null   # (read now: the page is rebuilt below)
+	Sfx.voices_override = [{"id": "v_m", "name": "Microsoft David", "language": "en-US"}, {"id": "v_f", "name": "Microsoft Zira", "language": "en-US"}]
+	if talk: talk.pressed.emit()
+	var spoke: bool = Sfx.last_profile.get("voice_type", "") == "male" and Sfx.last_profile.get("preferred_voice", "") == "v_m" and Sfx.last_provider == "PHONE_TTS"
+	Sfx.stop_voice()
+	await _shot("ao_people_at_station", 0.3)
+	main.hub.show_screen("bounty")
+	await _frames(2)
+	var rows: Array = []
+	for c in main.hub.content.find_children("Row_*", "", true, false): rows.append(str(c.name).trim_prefix("Row_"))
+	var board_ok: bool = rows.has("imperium_02") and rows.has("savagers_02") and not rows.any(func(r): return str(r).begins_with("unity_") or str(r).begins_with("liberator_"))
+	await _shot("ao_bounty_board_all", 0.3)
+	main.hub.visible = false
+	main.state = "flight"
+	Sfx.voices_override = []
+	_check("Job AO: every main-faction station has its coordinator (role-based: Lena Torres for the Liberators, Korvax for Orion, else slot 03), the capital its leader too (Commander Elara Voss at Veranthos), shown with face and role on the station page and a TALK in their own voice; enemy stations have none; the bounty board shows this station's enemies",
+		roles_ok and enemy_none and has_card and spoke and board_ok, "roles %s enemy %s card %s spoke %s board %s (%s)" % [roles_ok, enemy_none, has_card, spoke, board_ok, str(rows)])
