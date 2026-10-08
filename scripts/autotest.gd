@@ -1044,6 +1044,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_AL") != "":   # the Job AL checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_al()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_AK") != "":   # the Job AK checks only
 		await _job_ak()
 		for r in results: print("[route] ", r)
@@ -1564,6 +1572,7 @@ func _run() -> void:
 	await _job_ai()
 	await _job_aj()
 	await _job_ak()
+	await _job_al()
 	await _galaxy()
 	await _controls_j()
 	await _gate_k()
@@ -4786,3 +4795,73 @@ func _job_ak() -> void:
 	sun_tile.free()
 	_check("Job AK: the sea is a wave shader on a grid that knows its depth (deep water and a shoreline band for the foam); a star's magma sea keeps its flat glow",
 		mat_ok and deep > 50 and shore > 50 and magma_ok, "shader %s deep %d shore %d magma %s" % [mat_ok, deep, shore, magma_ok])
+
+
+## Job AL (v1.5i): GPS: a destination list on the map, point A (you) and point B on a blue route, live distance and ETA
+## at the effective speed (lane, warp, flying), on the map and on the HUD strip; arrival clears it.
+func _job_al() -> void:
+	var shell := FileAccess.get_file_as_string("res://web_shell.html")
+	_check("Job AL: version label reads \"Homelancer Digital v1.5i\" or later", Data.VERSION >= "v1.5i" and (shell == "" or shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0), Data.VERSION)
+	var s := _sp()
+	var nm: Control = main.navmap
+	s.nav_dest = null
+	s.autopilot = null
+	_tp(s.station.global_position + Vector3(0, 40, 420), s.station.global_position)
+	main.open_map()
+	await _frames(3)
+	var rows: Array = nm.dest_list()
+	var kinds: Array = rows.map(func(r): return r["kind"])
+	var sorted_ok := true
+	for i in range(1, rows.size()):
+		if rows[i]["key"] != "mission" and rows[i - 1]["key"] != "mission" and float(rows[i]["dist"]) < float(rows[i - 1]["dist"]): sorted_ok = false
+	var has_all: bool = kinds.has("Station") and kinds.has("Planet") and kinds.any(func(k): return str(k).find("Gate >") >= 0) and kinds.has("Asteroid field") and not rows.any(func(r): return str(r["key"]).begins_with("enemy") or str(r["key"]).begins_with("traffic"))
+	var shown: bool = nm.dest_rows.size() == mini(rows.size(), Data.GPS_LIST_ROWS)
+	await _shot("al_gps_list", 0.3)
+	# tap the planet's row: it becomes the destination
+	var pkey := ""
+	for r in rows:
+		if r["kind"] == "Planet": pkey = r["key"]
+	if nm.dest_rows.has(pkey): nm.tap((nm.dest_rows[pkey] as Rect2).get_center())
+	await _frames(3)
+	var picked: bool = s.nav_dest == s.planet and s.autopilot == null and nm.route.get("name", "") == str(s.planet.name)
+	var eta_ok: bool = absf(float(nm.route.get("eta", 0.0)) - s.distance_to(s.planet) / s.eff_speed()) < 0.5
+	await _shot("al_gps_route_map", 0.3)
+	_check("Job AL: the map lists the system's known places nearest first (stations, planet, gates with where they go, asteroid field; no ships), and tapping one makes it the GPS destination with a blue A -> B route, distance and ETA (no autopilot)",
+		has_all and sorted_ok and shown and picked and eta_ok, "%s sorted %s shown %d picked %s eta %s" % [str(kinds), sorted_ok, nm.dest_rows.size(), picked, eta_ok])
+	nm.visible = false
+	main._on_map_closed()
+	await _frames(3)
+	# the HUD strip: the gap closes as you fly at it, opens if you fly away
+	var g0: Dictionary = main.hud.gps_drawn.duplicate()
+	var toward: Vector3 = (s.planet.global_position - s.player.global_position).normalized()
+	s.player.global_position += toward * 900.0
+	await _frames(3)
+	var g1: Dictionary = main.hud.gps_drawn.duplicate()
+	s.player.global_position -= toward * 1800.0
+	await _frames(3)
+	var g2: Dictionary = main.hud.gps_drawn.duplicate()
+	var strip_ok: bool = not g0.is_empty() and g0["name"] == str(s.planet.name) and float(g1["dist"]) < float(g0["dist"]) - 800.0 and float(g1["k"]) > float(g0["k"]) and float(g2["dist"]) > float(g0["dist"])
+	await _shot("al_gps_strip", 0.3)
+	# ETA follows the effective speed: faster in a lane, at warp
+	var e_fly: float = s.nav_eta()
+	s.warp_state = "on"
+	var e_warp: float = s.nav_eta()
+	s.warp_state = "off"
+	s.lane = {"to": "test"}
+	var e_lane: float = s.nav_eta()
+	s.lane = {}
+	var eta_mode: bool = e_warp < e_fly and e_lane < e_warp
+	_check("Job AL: in flight the HUD strip shows A -> B with the name, distance and ETA; the marker closes on B as you fly toward it and falls back if you fly away; the ETA uses the lane's speed in a lane and warp speed at warp",
+		strip_ok and eta_mode, "strip %s (%s / %s / %s) eta fly %.0f warp %.0f lane %.0f" % [strip_ok, str(g0.get("dist", 0)), str(g1.get("dist", 0)), str(g2.get("dist", 0)), e_fly, e_warp, e_lane])
+	# arrival clears it; SET COURSE also sets it
+	s.player.global_position = s.planet.global_position + (s.player.global_position - s.planet.global_position).normalized() * (s.distance_to(s.planet) - s.distance_to(s.planet) + 1.0)
+	s.nav_dest = s.station
+	_tp(s.station.global_position + Vector3(0, 0, Data.GPS_ARRIVE * 0.5), s.station.global_position)
+	await _frames(3)
+	var cleared: bool = s.nav_dest == null
+	main._on_course(s.planet)
+	var course_sets: bool = s.nav_dest == s.planet and s.autopilot == s.planet
+	s.autopilot = null
+	s.nav_dest = null
+	_check("Job AL: reaching the destination clears it; SET COURSE also makes its target the GPS destination (the GPS stays when you take the stick)", cleared and course_sets, "cleared %s course %s" % [cleared, course_sets])
+	_tp(s.station.global_position + Vector3(0, 40, 420), s.station.global_position)

@@ -996,3 +996,28 @@ both sets are saved in the asset library and not placed.
   angles and a sun glint. Magma seas (stars) keep their flat glow. Numbers in the Job AK block.
 - `HL_TERRAIN=1` (with `HL_SHOT_DIR`) takes pictures of New Terra's tiles from low altitude and a low pass over the
   coast's water: a work tool, no checks.
+
+## 48. GPS, stage 1: destinations, A -> B, distance and ETA (Job AL, v1.5i)
+
+Audit of what was there (owner's GPS brief, section 1):
+- Destination selection: `scripts/navmap.gd` (tap an object, its card, SET COURSE -> `main._on_course` sets
+  `space.autopilot` and `space.target`). Objects register by `navmap._collect()` reading the system data plus the live
+  nodes (station, planet, gates, extra planets / stations, belt, nebula, star, beacon, ships, traffic).
+- Distance: straight line, `space.distance_to(node)` (surface to surface for planets).
+- Markers: HUD `_draw` labels station / planet / gate; the gold MISSION diamond (v1.5a); radar blips (`hud._radar`).
+- Route lines existed only for a SET COURSE (a green line on the map and the radar), ETA from current speed.
+- Freeways = trade lanes: rings from the station to the planet and to each gate (`space._build_lanes`), entered at a
+  ring (`lane_candidate`). Jump / warp / rift gates = ring nodes with `info.gkind`; `Data.gate_route` finds the
+  shortest gate path between systems (v1.5a).
+- Limits: the map pauses the game while open (so "watch the icon move" happens on the HUD strip, not the map); no
+  waypoint list; lanes are straight lines (they can cross the asteroid field); systems use one spread factor (1.4).
+
+Stage 1 (this version):
+- `space.nav_dest` is the GPS destination (point B); it stays set when you take the stick and clears within
+  `GPS_ARRIVE`. SET COURSE sets it too. ETA = distance / `space.eff_speed()` (the one place to tune it: lane speed in a
+  lane, warp speed at warp, otherwise current speed but never under cruise).
+- Map: with nothing picked, the right panel is GPS · DESTINATIONS: the system's known places nearest first (mission
+  first), with kind and distance; tap one to make it the destination (no autopilot). The route is blue, A and B
+  marked, distance and ETA on it.
+- HUD: above the dashboard a GPS strip: A -> B on a blue line, your marker sliding toward B as the distance closes
+  (and back if you fly away), name, distance, ETA.

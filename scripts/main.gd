@@ -465,6 +465,7 @@ func _on_course(n: Node3D) -> void:
 	_on_map_closed()
 	space.target = n
 	space.autopilot = n
+	space.set_destination(n)   # v1.5i: the GPS follows it even after you take the stick
 	hud.flash_message("Course set: %s. Autopilot engaged — steer to cancel." % n.name)
 
 func _unhandled_input(e: InputEvent) -> void:

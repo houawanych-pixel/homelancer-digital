@@ -1648,6 +1648,7 @@ func _process(dt: float) -> void:
 	if not is_instance_valid(player): return
 	_update_player(dt)
 	Missions.tick(self, dt)   # v1.5f
+	_update_nav()   # v1.5i
 	_update_beacon()
 	_update_enemies(dt)
 	_update_traffic(dt)
@@ -3824,6 +3825,34 @@ func mission_waypoint() -> Dictionary:
 	return {}
 
 var escort_node: Node3D = null   # v1.5f: the freighter of an escort mission (null = none out)
+
+# ---------------------------------------------------------------- v1.5i GPS: the active destination (point B)
+var nav_dest: Node3D = null      # what the GPS is guiding you to (stays set when you take the stick; cleared on arrival)
+var nav_start := 0.0             # the distance when it was set (the GPS bar's full length)
+
+func set_destination(n: Node3D) -> void:
+	nav_dest = n
+	nav_start = distance_to(n) if n != null and is_instance_valid(n) else 0.0
+
+## The speed the GPS counts on: the lane's while in a trade lane, warp speed at warp, otherwise what you are flying
+## now (never less than cruise, so a ship sitting still still gets an honest ETA).
+func eff_speed() -> float:
+	if not lane.is_empty(): return Data.LANE_SPEED
+	if warp_state == "on": return float(GS.ship()["speed"]) * Data.WARP_MULT
+	return maxf(speed_now, float(GS.ship()["speed"]) * Data.CRUISE)
+
+func nav_eta() -> float:
+	if nav_dest == null or not is_instance_valid(nav_dest): return -1.0
+	return distance_to(nav_dest) / maxf(eff_speed(), 1.0)
+
+func _update_nav() -> void:
+	if nav_dest == null: return
+	if not is_instance_valid(nav_dest):
+		nav_dest = null
+		return
+	if distance_to(nav_dest) < Data.GPS_ARRIVE:
+		message.emit("GPS: arrived at %s." % nav_dest.name)
+		nav_dest = null
 var _mission_marker: Node3D = null
 
 ## v1.5f: the marker a mission point is flown to (one at a time, moved to the stage's point).

@@ -1019,6 +1019,7 @@ func _dashboard() -> void:
 	_box(screen_r, Color(0.01, 0.06, 0.12, 0.95), Color(CYAN, 0.9), 12, 2)
 	_radar(screen_r.get_center() + Vector2(0, 4), minf(screen_r.size.x, screen_r.size.y) * 0.44, true)
 	_way_box(way_r)
+	_gps_strip(Rect2(cr.get_center().x - 230, cr.position.y - 44, 460, 34))   # v1.5i
 
 ## Radar (Job S, v1.4p): the same GPS-style view as the navigation map, small. A grid, faceted blips, a north
 ## marker, and the course line when one is set. North-up or heading-up, angled or overhead (NavGrid's setting).
@@ -1114,6 +1115,37 @@ func _radar(rc: Vector2, rr: float, label: bool) -> void:
 	NavGrid.fill(self, PackedVector2Array([radar_north + nd * 7.0, radar_north - nd * 3.0 + np * 5.0, radar_north - nd * 3.0 - np * 5.0]), Color(1.0, 0.45, 0.4))
 	draw_string(font, radar_north + nd * 15.0 + Vector2(-4, 5), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, WHITE)
 	_text(Vector2(rc.x - rr, rc.y + rr + (-2.0 if label else 2.0)), "RADAR %s" % _dist(rng), 10, Color(CYAN, 0.8), HORIZONTAL_ALIGNMENT_CENTER, rr * 2.0)
+
+# ---------------------------------------------------------------- v1.5i GPS strip
+var gps_drawn := {}   # what the strip showed last frame (tests): {name, dist, eta, k}
+
+## Point A (you) and point B (the destination) on a blue line; your marker slides toward B as the distance closes
+## (and back if you fly away), with the name, the distance and the ETA at your current effective speed.
+func _gps_strip(rc: Rect2) -> void:
+	gps_drawn = {}
+	var n: Node3D = space.nav_dest
+	if n == null or not is_instance_valid(n): return
+	var d: float = space.distance_to(n)
+	var full: float = maxf(space.nav_start, d)
+	var k := clampf(1.0 - d / maxf(full, 1.0), 0.0, 1.0)
+	var eta: float = space.nav_eta()
+	_box(rc, Color(0.01, 0.05, 0.1, 0.82), Color(Data.GPS_ROUTE_COLOR, 0.9), 8, 2)
+	var x0 := rc.position.x + 34.0
+	var x1 := rc.end.x - 34.0
+	var y := rc.position.y + 24.0
+	var col: Color = Data.GPS_ROUTE_COLOR
+	draw_line(Vector2(x0, y), Vector2(x1, y), Color(col, 0.35), 4.0)
+	var xa := lerpf(x0, x1, k)
+	draw_line(Vector2(xa, y), Vector2(x1, y), col, 4.0)   # the part still to fly
+	draw_circle(Vector2(x1, y), 7.0, col)
+	_text(Vector2(x1 + 10, y + 5), "B", 13, WHITE)
+	var tri := PackedVector2Array([Vector2(xa + 9, y), Vector2(xa - 6, y - 7), Vector2(xa - 6, y + 7)])
+	draw_colored_polygon(tri, WHITE)
+	_text(Vector2(x0 - 24, y + 5), "A", 13, Color(1, 1, 1, 0.7))
+	var eta_s := "--" if eta < 0.0 else ("%dm %02ds" % [int(eta) / 60, int(eta) % 60] if eta >= 60.0 else "%ds" % int(eta))
+	_text(Vector2(rc.position.x + 10, rc.position.y + 12), "GPS  %s" % n.name, 11, WHITE, HORIZONTAL_ALIGNMENT_LEFT, rc.size.x * 0.55)
+	_text(Vector2(rc.position.x, rc.position.y + 12), "%s  ·  ETA %s" % [_dist(d), eta_s], 11, col, HORIZONTAL_ALIGNMENT_RIGHT, rc.size.x - 10)
+	gps_drawn = {"name": str(n.name), "dist": d, "eta": eta, "k": k}
 
 # ---------------------------------------------------------------- v1.5g ship scan
 var way_rect := Rect2()     # where the waypoint / target box was drawn (tap = scan)

@@ -185,6 +185,11 @@ func tap(p: Vector2) -> void:
 	if btn_course.has_point(p):
 		if selected != "" and space != null and space.controls: set_course()
 		return
+	if selected == "":   # v1.5i GPS: a destination row
+		for k in dest_rows:
+			if (dest_rows[k] as Rect2).has_point(p):
+				set_destination(k)
+				return
 	if btn_orient.has_point(p):
 		if space != null: toggle_orient()
 		return
@@ -258,6 +263,42 @@ func set_course() -> void:
 			n.name = str(objs[selected]["name"]).validate_node_name()
 	visible = false
 	course_set.emit(n)
+
+## v1.5i GPS: the known places of this system, nearest first: [{key, name, kind, dist}]. Ships are left out (they
+## move); the mission waypoint comes first when there is one. Only what the map already shows (nothing hidden).
+func dest_list() -> Array:
+	var out: Array = []
+	if space == null or not is_instance_valid(space.player): return out
+	var pp: Vector3 = space.player.global_position
+	var mw: Dictionary = space.mission_waypoint()
+	if not mw.is_empty() and is_instance_valid(mw["node"]):
+		out.append({"key": "mission", "name": "MISSION: %s" % mw["title"], "kind": "Mission", "dist": pp.distance_to((mw["node"] as Node3D).global_position)})
+	var rest: Array = []
+	for k in objs:
+		var o: Dictionary = objs[k]
+		if o.get("ship", false) or k == "star": continue
+		var kind: String = {"planet": "Planet", "station": "Station", "gate": "Gate", "belt": "Asteroid field", "nebula": "Nebula", "beacon": "Beacon"}.get(str(o["type"]), str(o["type"]).capitalize())
+		if o["type"] == "gate": kind = "%s Gate > %s" % [str(o["data"].get("gkind", "jump")).capitalize(), Data.SYSTEMS[o["data"]["to"]]["name"]]
+		rest.append({"key": k, "name": str(o["name"]), "kind": kind, "dist": pp.distance_to(o["pos"])})
+	rest.sort_custom(func(a, b): return a["dist"] < b["dist"])
+	return out + rest
+
+## Make a list entry (or a picked map object) the GPS destination without flying it.
+func set_destination(key: String) -> void:
+	if space == null: return
+	var n: Node3D = null
+	if key == "mission":
+		var mw: Dictionary = space.mission_waypoint()
+		if not mw.is_empty(): n = mw["node"]
+	else:
+		n = _node(key)
+		if n == null and objs.has(key):
+			var op: Vector3 = objs[key]["pos"]
+			n = space.waypoint_at(Vector3(op.x, space.player.global_position.y, op.z))
+			n.name = str(objs[key]["name"]).validate_node_name()
+	if n != null:
+		space.set_destination(n)
+		if key != "mission": selected = key
 
 ## Map keys: "station", "planet", "gate" (the first gate), "gate1", "gate2" ... (the system's other gates).
 func _gate_index(key: String) -> int: return 0 if key == "gate" else int(key.substr(4))
@@ -511,14 +552,21 @@ func _draw_map() -> void:
 		ci.draw_polyline(view.plane_ring(p, 150.0, 12), Color(RED, 0.4), 1.5)
 	# the course: under the bodies, over the grid
 	route = {}
-	if space != null and is_instance_valid(space.player) and space.autopilot != null and is_instance_valid(space.autopilot):
+	var dest_n: Node3D = null
+	if space != null and is_instance_valid(space.player):
+		if space.nav_dest != null and is_instance_valid(space.nav_dest): dest_n = space.nav_dest   # v1.5i: the GPS destination
+		elif space.autopilot != null and is_instance_valid(space.autopilot): dest_n = space.autopilot
+	if dest_n != null:
 		var a3 := view.to_screen(space.player.global_position)
-		var b3 := view.to_screen(space.autopilot.global_position)
-		var dist: float = space.distance_to(space.autopilot)
-		var spd: float = maxf(space.speed_now, float(GS.ship()["speed"]) * Data.CRUISE)
-		route = {"from": a3 + map_rect.position, "to": b3 + map_rect.position, "dist": dist, "eta": dist / maxf(spd, 1.0), "name": str(space.autopilot.name)}
-		NavGrid.route(ci, a3, b3, GREEN, t)
-		_txt(ci, (a3 + b3) * 0.5 + Vector2(10, -8), _dist(dist), 16, Color.WHITE)
+		var b3 := view.to_screen(dest_n.global_position)
+		var dist: float = space.distance_to(dest_n)
+		route = {"from": a3 + map_rect.position, "to": b3 + map_rect.position, "dist": dist, "eta": dist / maxf(space.eff_speed(), 1.0), "name": str(dest_n.name)}
+		NavGrid.route(ci, a3, b3, Data.GPS_ROUTE_COLOR, t)
+		ci.draw_circle(b3, 9.0, Data.GPS_ROUTE_COLOR)
+		ci.draw_arc(b3, 15.0 + 3.0 * sin(t * 4.0), 0, TAU, 24, Color(Data.GPS_ROUTE_COLOR, 0.7), 2.0)
+		_txt(ci, b3 + Vector2(-8, -20), "B", 15, Color.WHITE)
+		_txt(ci, a3 + Vector2(-26, -14), "A", 15, Color.WHITE)
+		_txt(ci, (a3 + b3) * 0.5 + Vector2(12, -8), "%s  ·  ETA %s" % [_dist(dist), _eta(route["eta"])], 16, Color.WHITE)
 	# bodies, far ones first so near ones overlap them in the angled view
 	var order: Array = objs.keys()
 	order.sort_custom(func(a4, b4): return (hits[a4] as Vector2).y < (hits[b4] as Vector2).y)
@@ -594,6 +642,13 @@ func _draw_over() -> void:
 		var sm := Rect2(card_rect.position, Vector2(card_rect.size.x, minf(250.0, card_rect.size.y * 0.62)))
 		ci.draw_rect(sm, PANEL)
 		ci.draw_rect(sm, Color(CYAN, 0.35), false, 2)
+		if space != null and is_instance_valid(space.player):   # v1.5i GPS: tap a place to make it the destination
+			_dest_panel(ci, Rect2(card_rect.position, card_rect.size))
+			var can0 := false
+			_btn(ci, btn_course, "SET COURSE", can0, GREEN)
+			_btn(ci, btn_galaxy, "GALAXY", true, CYAN)
+			_btn(ci, btn_close, "CLOSE", true, CYAN)
+			return
 		_txt(ci, sm.position + Vector2(14, 28), "KNOWN SPACE", 16, CYAN)
 		_txt(ci, sm.position + Vector2(14, 52), "%s  ·  tile %s  ·  %s" % [sys["name"], sys.get("tile", "?"), sys.get("faction", "")], 15, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, sm.size.x - 28)
 		var gy := 78.0
@@ -614,6 +669,30 @@ func _draw_over() -> void:
 	_btn(ci, btn_course, "SET COURSE", can, GREEN)
 	_btn(ci, btn_galaxy, "GALAXY", true, CYAN)
 	_btn(ci, btn_close, "CLOSE", true, CYAN)
+
+var dest_rows := {}   # key -> Rect2 (screen) of the destination list rows drawn last frame
+
+func _dest_panel(ci: CanvasItem, rc: Rect2) -> void:
+	dest_rows = {}
+	ci.draw_rect(rc, PANEL)
+	ci.draw_rect(rc, Color(CYAN, 0.35), false, 2)
+	_txt(ci, rc.position + Vector2(14, 28), "GPS  ·  DESTINATIONS", 16, CYAN)
+	var y := rc.position.y + 44.0
+	var rows: Array = dest_list()
+	var cur: Node3D = space.nav_dest if space.nav_dest != null and is_instance_valid(space.nav_dest) else null
+	for i in mini(rows.size(), Data.GPS_LIST_ROWS):
+		var r: Dictionary = rows[i]
+		var rr := Rect2(rc.position.x + 8, y, rc.size.x - 16, 40)
+		var mine: bool = cur != null and (str(cur.name) == r["name"] or (r["key"] != "mission" and _node(str(r["key"])) == cur) or (r["key"] == "mission" and r["name"].ends_with(str(cur.name))))
+		ci.draw_rect(rr, Color(Data.GPS_ROUTE_COLOR, 0.28) if mine else Color(1, 1, 1, 0.04))
+		_txt(ci, rr.position + Vector2(8, 17), str(r["name"]), 14, GOLD if r["key"] == "mission" else Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, rr.size.x - 100)
+		_txt(ci, rr.position + Vector2(8, 34), str(r["kind"]), 11, Color(0.75, 0.85, 0.95), HORIZONTAL_ALIGNMENT_LEFT, rr.size.x - 100)
+		_txt(ci, rr.position + Vector2(rr.size.x - 92, 24), _dist(float(r["dist"])), 14, CYAN, HORIZONTAL_ALIGNMENT_RIGHT, 84)
+		dest_rows[str(r["key"])] = Rect2(rr.position + position, rr.size)
+		y += 44.0
+	if cur != null:
+		var d: float = space.distance_to(cur)
+		_txt(ci, Vector2(rc.position.x + 14, rc.end.y - 16), "To %s: %s · ETA %s" % [cur.name, _dist(d), _eta(space.nav_eta())], 13, Data.GPS_ROUTE_COLOR, HORIZONTAL_ALIGNMENT_LEFT, rc.size.x - 28)
 
 func _card(ci: CanvasItem) -> void:
 	var inf := info(selected)
