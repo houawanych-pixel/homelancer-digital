@@ -1044,6 +1044,39 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_AK") != "":   # the Job AK checks only
+		await _job_ak()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
+	if OS.get_environment("HL_TERRAIN") != "":   # work tool: pictures of New Terra's tiles from low altitude (no checks)
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		for t in [3, 0, 1, 2, 5, 6, 8]:
+			main._load_surface("new_terra", t)
+			await _frames(6)
+			var hx := 900.0
+			var hz := 900.0
+			var gh: float = Surface.height("new_terra", t, hx, hz)
+			_tp(Vector3(hx, maxf(gh, 0.0) + 160.0, hz), Vector3(hx - 2600.0, maxf(gh, 0.0) + 40.0, hz - 2600.0))
+			await _shot("terrain_%d_%s" % [t, Surface.PLANETS["new_terra"]["tiles"][t]], 1.0)
+		# close to the sea: a low pass over the coast's water, looking toward the shore
+		main._load_surface("new_terra", 1)
+		await _frames(6)
+		var wet := Vector2.INF
+		var dry := Vector2.INF
+		for k in 400:
+			var q := Vector2(randf_range(-2200, 2200), randf_range(-2200, 2200))
+			var qh: float = Surface.height("new_terra", 1, q.x, q.y)
+			if qh < -25.0 and wet == Vector2.INF: wet = q
+			if qh > 5.0 and qh < 60.0 and dry == Vector2.INF: dry = q
+		if wet != Vector2.INF and dry != Vector2.INF:
+			var mid := wet.lerp(dry, 0.6)
+			_tp(Vector3(wet.x, 22.0, wet.y), Vector3(mid.x, 0.0, mid.y))
+			await _shot("terrain_water_close", 1.5)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_AJ") != "":   # the Job AJ checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1530,6 +1563,7 @@ func _run() -> void:
 	await _job_ag()
 	await _job_ai()
 	await _job_aj()
+	await _job_ak()
 	await _galaxy()
 	await _controls_j()
 	await _gate_k()
@@ -4726,3 +4760,29 @@ func _job_aj() -> void:
 		if o in s.enemies: s._destroy_unit(o)
 	s.target = null
 	hud.close_scan()
+
+
+## Job AK (v1.5h): lower, rounder mountains and real water on planet surfaces.
+func _job_ak() -> void:
+	var hi := -INF
+	for k in 900:
+		var q := Vector2(randf_range(-2500, 2500), randf_range(-2500, 2500))
+		hi = maxf(hi, Surface.height("new_terra", 3, q.x, q.y))
+	_check("Job AK: New Terra's mountains top out well under the 2.6 km flight ceiling (under 1.45 km, was about 2.5 km)", hi < 1450.0 and hi > 500.0, "highest sampled %d m" % int(hi))
+	var tile: Node3D = Surface.build_tile("new_terra", 1)
+	var w: MeshInstance3D = tile.get_node_or_null("Water")
+	var mat_ok: bool = w != null and w.material_override is ShaderMaterial and (w.material_override as ShaderMaterial).shader.code.find("foam") >= 0
+	var deep := 0
+	var shore := 0
+	if w != null and w.mesh is ArrayMesh:
+		var cols: PackedColorArray = (w.mesh as ArrayMesh).surface_get_arrays(0)[Mesh.ARRAY_COLOR]
+		for c in cols:
+			if c.r * 255.0 > 30.0: deep += 1
+			elif c.r * 255.0 < 7.0: shore += 1
+	tile.free()
+	var sun_tile: Node3D = Surface.build_tile("solara_sun", 0)
+	var sw: MeshInstance3D = sun_tile.get_node_or_null("Water")
+	var magma_ok: bool = sw != null and sw.material_override is StandardMaterial3D
+	sun_tile.free()
+	_check("Job AK: the sea is a wave shader on a grid that knows its depth (deep water and a shoreline band for the foam); a star's magma sea keeps its flat glow",
+		mat_ok and deep > 50 and shore > 50 and magma_ok, "shader %s deep %d shore %d magma %s" % [mat_ok, deep, shore, magma_ok])

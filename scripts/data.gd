@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.5g"
+const VERSION := "v1.5h"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -201,6 +201,17 @@ const PLANET_BIOME := {"terran": "forest", "jungle": "jungle", "ocean": "ocean",
 const TEXT_BUMP := 2                  # HUD and room text below TEXT_BUMP_BELOW px is drawn this much bigger
 const TEXT_BUMP_BELOW := 17
 const TEXT_MIN := 13                  # nothing on the HUD is smaller than this
+# ---------------------------------------------------------------- Job AK (v1.5h): planet surface terrain and water (scripts/surface.gd)
+const TERRAIN_RIDGE_HIGH := 0.55      # ridge share for big-amplitude country (mountains), squared ridges (was 0.8, sharp)
+const TERRAIN_RIDGE_LOW := 0.25       # ...for everything else
+const TERRAIN_RIDGE_AMP := 700.0      # amplitude from which a biome counts as mountain country
+const TERRAIN_PEAK_EASE := 0.85       # above this share of the amplitude, ground rises at under half the rate (broad peaks)
+const WATER_GRID := 64                # the sea's grid per tile (64 x 64 quads)
+const WATER_WAVE_H := 1.6             # wave height (m) in open water
+const WATER_WAVE_SPEED := 1.0
+const WATER_FOAM_DEPTH := 7.0         # foam where the sea is shallower than this (m)
+const WATER_SHALLOW_DEPTH := 45.0     # shallows turn turquoise above this depth (m)
+
 # ---------------------------------------------------------------- Job AJ (v1.5g): ship scan (tap a ship to target it, tap the target box to scan it)
 const SCAN_RANGE := 1500.0            # a ship this close can be scanned
 const SCAN_TIME := 1.2                # seconds the scan takes

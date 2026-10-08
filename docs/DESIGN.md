@@ -983,3 +983,16 @@ both sets are saved in the asset library and not placed.
   X or when you pick another target.
 - Cargo is made up from the ship's name, so the same ship always carries the same: civilian goods for haulers
   (`SCAN_GOODS`), faction goods for enemy ships (`SCAN_ENEMY_GOODS`), plus the credits it would drop.
+
+## 47. Lower mountains, real water (Job AK, v1.5h)
+
+- Mountains were up to about 2.5 km of needle peaks (amplitude 1350 and sharp ridges at 0.8, nearly the 2.6 km
+  ceiling). Now: mountains amplitude 760, volcanic 640, ridges squared (rounded crests) at `TERRAIN_RIDGE_HIGH` 0.55
+  for country from `TERRAIN_RIDGE_AMP` 700 up (0.25 elsewhere), and above `TERRAIN_PEAK_EASE` 85 % of the amplitude the
+  ground rises at under half the rate, so peaks broaden. The highest ground sampled is now under 1 km (the check allows up to 1.45 km).
+- Water: a shader (no textures, gl_compatibility) on a 64 x 64 grid per tile whose vertex colour holds the sea depth
+  below it (from the same height field as the terrain): rolling waves (moving sines, gentler in the shallows),
+  deep water darker, turquoise shallows, breathing white foam on the shoreline, the horizon colour reflected at low
+  angles and a sun glint. Magma seas (stars) keep their flat glow. Numbers in the Job AK block.
+- `HL_TERRAIN=1` (with `HL_SHOT_DIR`) takes pictures of New Terra's tiles from low altitude and a low pass over the
+  coast's water: a work tool, no checks.

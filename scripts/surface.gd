@@ -23,7 +23,7 @@ const BIOMES := {
 		"sky": Color(0.42, 0.6, 0.88), "horizon": Color(0.95, 0.8, 0.62), "fog": Color(0.9, 0.74, 0.58), "water": Color(0.14, 0.34, 0.36)},
 	"desert": {"name": "Desert", "detail": 1.0, "strata": 1.0, "amp": 420.0, "base": 40.0, "sea": null, "low": Color(0.86, 0.7, 0.45), "mid": Color(0.8, 0.58, 0.36), "high": Color(0.62, 0.42, 0.3),
 		"sky": Color(0.45, 0.62, 0.9), "horizon": Color(0.95, 0.85, 0.7), "fog": Color(0.92, 0.82, 0.66)},
-	"mountains": {"name": "Mountains", "strata": 0.15, "amp": 1350.0, "base": 80.0, "sea": null, "low": Color(0.35, 0.48, 0.3), "mid": Color(0.45, 0.42, 0.38), "high": Color(0.95, 0.96, 1.0),
+	"mountains": {"name": "Mountains", "strata": 0.15, "amp": 760.0, "base": 80.0, "sea": null, "low": Color(0.35, 0.48, 0.3), "mid": Color(0.45, 0.42, 0.38), "high": Color(0.95, 0.96, 1.0),
 		"sky": Color(0.3, 0.5, 0.88), "horizon": Color(0.75, 0.82, 0.92), "fog": Color(0.72, 0.78, 0.88)},
 	"city": {"name": "Capital city", "amp": 300.0, "base": 30.0, "sea": 0.0, "low": Color(0.55, 0.55, 0.5), "mid": Color(0.4, 0.52, 0.34), "high": Color(0.55, 0.52, 0.48),
 		"sky": Color(0.34, 0.55, 0.88), "horizon": Color(0.8, 0.84, 0.9), "fog": Color(0.76, 0.8, 0.86), "water": Color(0.12, 0.32, 0.46)},
@@ -37,7 +37,7 @@ const BIOMES := {
 		"sky": Color(0.55, 0.5, 0.48), "horizon": Color(0.8, 0.66, 0.52), "fog": Color(0.72, 0.6, 0.5)},
 	"jungle": {"name": "Alien jungle", "amp": 560.0, "base": 40.0, "sea": 0.0, "low": Color(0.16, 0.42, 0.28), "mid": Color(0.2, 0.5, 0.2), "high": Color(0.3, 0.36, 0.22),
 		"sky": Color(0.36, 0.6, 0.68), "horizon": Color(0.7, 0.86, 0.72), "fog": Color(0.56, 0.74, 0.6), "water": Color(0.08, 0.3, 0.26)},
-	"volcanic": {"name": "Volcanic", "amp": 900.0, "base": 40.0, "sea": null, "low": Color(0.14, 0.12, 0.12), "mid": Color(0.24, 0.18, 0.16), "high": Color(0.9, 0.35, 0.12),
+	"volcanic": {"name": "Volcanic", "amp": 640.0, "base": 40.0, "sea": null, "low": Color(0.14, 0.12, 0.12), "mid": Color(0.24, 0.18, 0.16), "high": Color(0.9, 0.35, 0.12),
 		"sky": Color(0.35, 0.2, 0.18), "horizon": Color(0.8, 0.42, 0.25), "fog": Color(0.45, 0.3, 0.26)},
 	# v1.4l: one-tile surfaces for the planet types that had none. Colours follow the planet seen from space.
 	"barren": {"name": "Barren plain", "detail": 0.7, "strata": 0.5, "amp": 520.0, "base": 40.0, "sea": null, "low": Color(0.36, 0.35, 0.37), "mid": Color(0.46, 0.45, 0.46), "high": Color(0.62, 0.6, 0.58),
@@ -270,7 +270,14 @@ static func _biome_height(b: Dictionary, n: float, r: float) -> Array:
 		h = base + stepped / 3.0 * amp
 		if v < 0.4: h = base - 70.0 * _smooth((0.4 - v) / 0.12)
 	else:
-		h = base + n * amp + maxf(0.0, r) * amp * (0.8 if amp > 800.0 else 0.25)
+		# v1.5h: ridges squared (rounded crests instead of needles), a bigger share for mountain country, and the
+		# highest ground eased off so peaks broaden instead of spiking
+		var rr := maxf(0.0, r)
+		var ridge: float = Data.TERRAIN_RIDGE_HIGH if amp >= Data.TERRAIN_RIDGE_AMP else Data.TERRAIN_RIDGE_LOW
+		var lift := n * amp + rr * rr * amp * ridge * 2.0
+		var cap: float = amp * Data.TERRAIN_PEAK_EASE
+		if lift > cap: lift = cap + (lift - cap) * 0.45
+		h = base + lift
 	var lo := base - amp * (0.2 if b.get("terrace", false) else 0.6)
 	var hi := base + amp * 1.1
 	var k := clampf((h - lo) / maxf(1.0, hi - lo), 0.0, 1.0)
@@ -288,6 +295,116 @@ static func has_water(planet_id: String, tile: int) -> bool:
 	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
 		if biome(planet_id, neighbour(planet_id, tile, d))["sea"] != null: return true
 	return false
+
+# ---------------------------------------------------------------- v1.5h water
+## The sea: rolling waves (sums of moving sines, no textures), deep water darker than the shallows, a turquoise rim
+## and white foam where it meets the land (the depth below each vertex is baked into the mesh's colour), the sky in it
+## at low angles (fresnel) and a sun glint. Works in the gl_compatibility renderer (no depth or screen texture).
+const WATER_SHADER := """
+shader_type spatial;
+render_mode blend_mix, cull_disabled, specular_schlick_ggx;
+uniform vec3 deep_col : source_color = vec3(0.03, 0.16, 0.3);
+uniform vec3 shallow_col : source_color = vec3(0.12, 0.5, 0.55);
+uniform vec3 sky_col : source_color = vec3(0.6, 0.75, 0.9);
+uniform vec3 sun_dir = vec3(0.4, 0.8, 0.3);
+uniform float wave_h = 1.6;
+uniform float wave_speed = 1.0;
+uniform float foam_depth = 7.0;
+uniform float shallow_depth = 45.0;
+varying float depth;
+varying vec3 wpos;
+float wave(vec2 p, vec2 d, float f, float sp, float t) { return sin(dot(p, d) * f + t * sp); }
+float waves(vec2 p, float t) {
+	return wave(p, normalize(vec2(1.0, 0.3)), 0.021, 1.1, t) * 0.5 + wave(p, normalize(vec2(-0.4, 1.0)), 0.034, 1.5, t) * 0.3
+		+ wave(p, normalize(vec2(0.7, -0.8)), 0.061, 2.2, t) * 0.15 + wave(p, normalize(vec2(-1.0, -0.2)), 0.13, 3.1, t) * 0.06;
+}
+void vertex() {
+	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	depth = COLOR.r * 255.0;
+	float t = TIME * wave_speed;
+	VERTEX.y += waves(wpos.xz, t) * wave_h * clamp(depth / 12.0, 0.15, 1.0);
+}
+void fragment() {
+	float t = TIME * wave_speed;
+	vec2 p = wpos.xz;
+	float e = 1.5;
+	float hx = waves(p + vec2(e, 0.0), t) - waves(p - vec2(e, 0.0), t);
+	float hz = waves(p + vec2(0.0, e), t) - waves(p - vec2(0.0, e), t);
+	// fine ripples on top of the swell
+	float r1 = sin(p.x * 0.37 + p.y * 0.21 + t * 4.0) + sin(p.x * -0.29 + p.y * 0.41 + t * 3.3);
+	vec3 n = normalize(vec3(-hx * wave_h * 0.6 - r1 * 0.03, 2.0 * e, -hz * wave_h * 0.6 - r1 * 0.03));
+	NORMAL = normalize((VIEW_MATRIX * vec4(n, 0.0)).xyz);
+	float sh = 1.0 - smoothstep(0.0, shallow_depth, depth);
+	vec3 col = mix(deep_col, shallow_col, sh * sh);
+	vec3 v = normalize(-VERTEX);
+	float fres = pow(1.0 - clamp(dot(NORMAL, v), 0.0, 1.0), 4.0);
+	col = mix(col, sky_col, fres * 0.75);
+	// shore foam: a band at the waterline that breathes with the waves
+	float fb = 1.0 - smoothstep(0.0, foam_depth, depth + sin(t * 1.3 + p.x * 0.05 + p.y * 0.04) * 1.5);
+	float fn = 0.5 + 0.5 * sin(p.x * 0.9 + t * 2.0) * sin(p.y * 0.8 - t * 1.7);
+	float foam = clamp(fb * (0.55 + 0.6 * fn), 0.0, 1.0);
+	ALBEDO = mix(col, vec3(0.95, 0.97, 1.0), foam);
+	ROUGHNESS = mix(0.08, 0.6, foam);
+	METALLIC = 0.0;
+	SPECULAR = 0.6;
+	ALPHA = mix(0.78, 0.97, clamp(depth / shallow_depth, 0.0, 1.0)) + foam * 0.2;
+	ALPHA = clamp(ALPHA, 0.0, 1.0);
+}
+"""
+static var _water_shader: Shader
+static func water_material(b: Dictionary) -> ShaderMaterial:
+	if _water_shader == null:
+		_water_shader = Shader.new()
+		_water_shader.code = WATER_SHADER
+	var m := ShaderMaterial.new()
+	m.shader = _water_shader
+	var wc: Color = b.get("water", Color(0.1, 0.3, 0.45))
+	m.set_shader_parameter("deep_col", wc.darkened(0.45))
+	m.set_shader_parameter("shallow_col", wc.lightened(0.25).lerp(Color(0.2, 0.7, 0.68), 0.35))
+	m.set_shader_parameter("sky_col", (b.get("horizon", Color(0.7, 0.8, 0.9)) as Color))
+	m.set_shader_parameter("wave_h", Data.WATER_WAVE_H)
+	m.set_shader_parameter("wave_speed", Data.WATER_WAVE_SPEED)
+	m.set_shader_parameter("foam_depth", Data.WATER_FOAM_DEPTH)
+	m.set_shader_parameter("shallow_depth", Data.WATER_SHALLOW_DEPTH)
+	return m
+
+static var _water_cache := {}
+## The sea's grid for one tile: WATER_GRID x WATER_GRID quads; each vertex's colour holds the sea depth below it
+## (0..255 m in red), taken from the same height field as the terrain, so the foam sits exactly on the shoreline.
+static func _water_mesh(planet_id: String, tile: int) -> ArrayMesh:
+	var key := "%s|%d" % [planet_id, tile]
+	if _water_cache.has(key): return _water_cache[key]
+	var n: int = Data.WATER_GRID
+	var size := TILE + MARGIN * 2.0
+	var g := grid(planet_id)
+	var ox := float(tile % g) * TILE
+	var oz := float(tile / g) * TILE
+	var verts := PackedVector3Array()
+	var cols := PackedColorArray()
+	var norms := PackedVector3Array()
+	var idx := PackedInt32Array()
+	for j in n + 1:
+		for i in n + 1:
+			var x := -size * 0.5 + size * float(i) / float(n)
+			var z := -size * 0.5 + size * float(j) / float(n)
+			var gh: float = sample(planet_id, ox + x, oz + z)[0]
+			verts.append(Vector3(x, 0.0, z))
+			norms.append(Vector3.UP)
+			cols.append(Color(clampf(-gh, 0.0, 255.0) / 255.0, 0, 0, 1))
+	for j in n:
+		for i in n:
+			var a := j * (n + 1) + i
+			idx.append_array([a, a + 1, a + n + 1, a + 1, a + n + 2, a + n + 1])
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = verts
+	arr[Mesh.ARRAY_NORMAL] = norms
+	arr[Mesh.ARRAY_COLOR] = cols
+	arr[Mesh.ARRAY_INDEX] = idx
+	var am := ArrayMesh.new()
+	am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	_water_cache[key] = am
+	return am
 
 static var _terrain_mat: ShaderMaterial
 static func terrain_material(strata: float) -> Material:
@@ -333,18 +450,19 @@ static func build_tile(planet_id: String, tile: int) -> Node3D:
 	root.add_child(terrain)
 	if has_water(planet_id, tile):
 		var w := MeshInstance3D.new()
-		var pm := PlaneMesh.new()
-		pm.size = Vector2(TILE + MARGIN * 2.0, TILE + MARGIN * 2.0)
-		w.mesh = pm
-		var wm := StandardMaterial3D.new()
-		wm.albedo_color = Color(b.get("water", Color(0.1, 0.3, 0.45)), 0.86)
-		wm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		wm.metallic = 0.3
-		wm.roughness = 0.15
-		if b.get("glow", false):   # magma: it gives off its own light
+		if b.get("glow", false):   # magma: it gives off its own light (a flat glowing sea, as before)
+			var pm := PlaneMesh.new()
+			pm.size = Vector2(TILE + MARGIN * 2.0, TILE + MARGIN * 2.0)
+			w.mesh = pm
+			var wm := StandardMaterial3D.new()
 			wm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 			wm.albedo_color = Color(b["water"], 0.93)
-		w.material_override = wm
+			wm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			w.material_override = wm
+		else:
+			w.mesh = _water_mesh(planet_id, tile)   # v1.5h: a grid that knows how deep the sea is at each point (shore foam, shallows)
+			w.material_override = water_material(b)
+		w.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		w.position.y = 0.0
 		w.name = "Water"
 		root.add_child(w)
