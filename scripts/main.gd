@@ -263,6 +263,8 @@ func _on_hud(id: String) -> void:
 			hud.flash_message(tm)
 			if space.tractor_t > 0.0: Sfx.play("tractor", -6.0)
 		"target": space.cycle_target()
+		"scan": hud.flash_message(hud.start_scan())   # v1.5g
+		"scan_close": hud.close_scan()
 		"view":
 			space.set_view("cockpit" if GS.view == "chase" else "chase")
 			hud.flash_message("View: %s" % ("first-person cockpit" if GS.view == "cockpit" else "chase camera"))

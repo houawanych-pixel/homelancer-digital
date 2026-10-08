@@ -3873,6 +3873,63 @@ func _pick_senior(faction: String, max_slot: int, want: int) -> Dictionary:
 		if int(best.get("slot", 0)) >= want: break
 	return best
 
+## v1.5g SHIP SCAN: what a scan of this ship shows: {title, sub, lines: [[label, text]], hostile}. {} = not a ship.
+## Cargo is made up from the ship's name (the same every scan) from Data.SCAN_GOODS / SCAN_ENEMY_GOODS; a bounty target
+## shows its price, a mission ship its job.
+func scan_info(n: Node3D) -> Dictionary:
+	if n == null or not is_instance_valid(n): return {}
+	var h := absi(hash(n.name))
+	var e := _enemy_entry(n)
+	if not e.is_empty():
+		var d: Dictionary = e["def"]
+		var pl: Dictionary = e.get("pilot", {})
+		var who := "Unknown pilot"
+		if pl.has("character_id"): who = "%s — %s (slot %02d)" % [pl["name"], pl.get("type", ""), int(pl.get("slot", 1))]
+		elif not pl.is_empty(): who = "%s — %s, %s's wing" % [pl.get("unit", "?"), pl.get("type", "pilot"), pl.get("leader", "?")]
+		var guns: Array = []
+		if float(e["l"]) > 0.0: guns.append("left %s gun" % ("arm" if e["mech"] else "wing"))
+		else: guns.append("left %s DESTROYED" % ("arm" if e["mech"] else "wing"))
+		if float(e["r"]) > 0.0: guns.append("right %s gun" % ("arm" if e["mech"] else "wing"))
+		else: guns.append("right %s DESTROYED" % ("arm" if e["mech"] else "wing"))
+		if e["mech"]: guns.append("chest cannon")
+		if d.get("missiles", false): guns.append("missile rack")
+		var fac := str(e.get("faction", d.get("faction", "")))
+		var goods: Array = Data.SCAN_ENEMY_GOODS.get(fac, ["Scrap metal", "Munitions"])
+		var cargo: Array = ["%s %d t" % [goods[h % goods.size()], 2 + h % 9]]
+		if h % 3 == 0: cargo.append("%s %d t" % [Data.SCAN_GOODS[(h / 3) % Data.SCAN_GOODS.size()], 1 + (h / 7) % 6])
+		cargo.append("credits on board ~%d cr" % maxi(10, int(float(d.get("reward", 100)) * 0.4)))
+		var lines: Array = [["PILOT", who], ["SHIP", "%s (%s)" % [d.get("name", n.name), d.get("class", "fighter")]],
+			["HULL", "%d / %d   shield %d / %d" % [int(e["hp"]), int(e["max"]), int(e["sh"]), int(e["sh_max"])]],
+			["WEAPONS", ", ".join(guns)], ["CARGO", ", ".join(cargo)]]
+		if e.has("bounty"): lines.append(["WANTED", "%d cr bounty" % Data.bounty_reward(str(e["bounty"]))])
+		if e.has("mission"): lines.append(["JOB", "a target of your mission"])
+		var hostile: bool = n.get_meta("kind", "") == "enemy"
+		return {"title": n.name.to_upper(), "sub": "%s  ·  %s" % [fac if fac != "" else "Unaligned", "HOSTILE" if hostile else "not hostile"], "lines": lines, "hostile": hostile}
+	var is_traffic: bool = n.get_meta("kind", "") == "traffic"
+	if is_traffic:
+		var cargo2: Array = []
+		for k in 2 + h % 2: cargo2.append("%s %d t" % [Data.SCAN_GOODS[(h / (k + 1) + k * 3) % Data.SCAN_GOODS.size()], 10 + (h / (k + 2)) % 60])
+		var lines2: Array = [["SHIP", "Civilian hauler"], ["WEAPONS", "none"], ["CARGO", ", ".join(cargo2)]]
+		if n == escort_node: lines2.append(["JOB", "escort this ship (hull %d%%)" % int(100.0 * float(GS.mission.get("escort_hp", 0.0)) / Data.ESCORT_HULL)])
+		return {"title": n.name.to_upper(), "sub": "%s  ·  civilian" % str(sys.get("faction", "")), "lines": lines2, "hostile": false}
+	return {}
+
+## v1.5g: the ship drawn nearest a screen point (enemies, traffic), within SHIP_TAP_RADIUS. null = none.
+func ship_at_screen(p: Vector2) -> Node3D:
+	var best: Node3D = null
+	var best_d: float = Data.SHIP_TAP_RADIUS
+	var nodes: Array = []
+	for e in enemies: nodes.append(e["node"])
+	for t in traffic: nodes.append(t["node"])
+	if is_instance_valid(escort_node): nodes.append(escort_node)
+	for n in nodes:
+		if not is_instance_valid(n) or cam.is_position_behind(n.global_position): continue
+		var d := cam.unproject_position(n.global_position).distance_to(p)
+		if d < best_d:
+			best_d = d
+			best = n
+	return best
+
 ## v1.5f: the escort mission's freighter, at the station's dock point, heading for the planet.
 func make_escort() -> void:
 	if is_instance_valid(escort_node) or not is_instance_valid(station) or not is_instance_valid(planet): return

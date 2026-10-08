@@ -1044,6 +1044,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_AJ") != "":   # the Job AJ checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_aj()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_AI") != "":   # the Job AI checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1521,6 +1529,7 @@ func _run() -> void:
 	await _job_ae()
 	await _job_ag()
 	await _job_ai()
+	await _job_aj()
 	await _galaxy()
 	await _controls_j()
 	await _gate_k()
@@ -4647,3 +4656,73 @@ func _job_ai() -> void:
 	GS.cargo = keep["cargo"]
 	GS.last_base = keep["last"]
 	_tp(s.station.global_position + Vector3(0, 40, 420), s.station.global_position)
+
+
+## Job AJ (v1.5g): ship scan: tap a ship on screen to target it, tap the target box to scan it (in range, takes a moment),
+## and a panel shows its pilot, ship, hull, weapons and cargo.
+func _job_aj() -> void:
+	var shell := FileAccess.get_file_as_string("res://web_shell.html")
+	_check("Job AJ: version label reads \"Homelancer Digital v1.5g\" or later", Data.VERSION >= "v1.5g" and (shell == "" or shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0), Data.VERSION)
+	var s := _sp()
+	var hud = main.hud
+	for e in s.enemies.duplicate():
+		if is_instance_valid(e["node"]): (e["node"] as Node3D).free()
+	s.enemies = []
+	s.target = null
+	var g: Array = s.spawn_mission_group(s.player.global_position - s.player.global_basis.z * 260.0, "Savagers", 1, 3, "", 7)
+	var e: Dictionary = g[0]
+	var n: Node3D = e["node"]
+	n.global_position = s.player.global_position - s.player.global_basis.z * 260.0
+	e["hp"] = 1.0e6   # (the auto-guns are firing at it: keep it alive for the test)
+	e["max"] = 1.0e6
+	await _frames(3)
+	# tap the ship where it is drawn
+	var sp: Vector2 = s.cam.unproject_position(n.global_position)
+	var tap := InputEventScreenTouch.new()
+	tap.index = 5
+	tap.position = sp + Vector2(8, 6)
+	tap.pressed = true
+	hud._input(tap)
+	tap.pressed = false
+	hud._input(tap)
+	var picked: bool = s.target == n
+	# scan it: the target box is the button
+	await _frames(2)
+	var has_btn: bool = hud.buttons.has("scan")
+	main._on_hud("scan")
+	var running: bool = hud.scan_t > 0.0 and hud.scan.is_empty()
+	await _shot("aj_scanning", 0.2)
+	await _wait(Data.SCAN_TIME + 0.3)
+	var sc: Dictionary = hud.scan
+	var labels: Array = (sc.get("lines", []) as Array).map(func(l): return l[0])
+	var ok_info: bool = not sc.is_empty() and labels.has("PILOT") and labels.has("WEAPONS") and labels.has("CARGO") and labels.has("HULL") and labels.has("JOB") and str(sc["title"]).find(n.name.to_upper()) >= 0
+	await _shot("aj_scan_panel", 0.3)
+	# a wing shot off shows as destroyed on the next refresh
+	e["l"] = 0.0
+	await _wait(0.7)
+	var wl: Array = (hud.scan.get("lines", []) as Array).filter(func(l): return l[0] == "WEAPONS")
+	var wing_off: bool = not wl.is_empty() and str(wl[0][1]).find("left wing DESTROYED") >= 0
+	_check("Job AJ: tap a ship on screen and it becomes the target; tap the target box and the scan runs for a moment, then a panel shows its pilot, ship, hull, weapons, cargo (and that it is a mission target); damage shows live",
+		picked and has_btn and running and ok_info and wing_off, "picked %s button %s running %s info %s (%s) wing %s" % [picked, has_btn, running, ok_info, str(labels), wing_off])
+	# out of range: no scan; a freighter scans as civilian cargo
+	hud.close_scan()
+	n.global_position = s.player.global_position - s.player.global_basis.z * (Data.SCAN_RANGE + 400.0)
+	var far_said: String = hud.start_scan()
+	var far_ok: bool = far_said.find("Too far") >= 0 and hud.scan_node == null
+	var fr: Node3D = s.traffic[0]["node"] if not s.traffic.is_empty() else null
+	var civ: Dictionary = s.scan_info(fr) if fr != null else {}
+	var civ_ok: bool = not civ.is_empty() and not civ["hostile"] and str(civ["lines"][1][1]) == "none" and str(civ["lines"][2][1]).find(" t") >= 0
+	var station_none: bool = s.scan_info(s.station).is_empty()
+	# the panel closes when the target changes
+	s.target = n
+	hud.scan_node = n
+	hud.scan = s.scan_info(n)
+	s.target = s.station
+	await _frames(2)
+	var closed: bool = hud.scan.is_empty() and hud.scan_node == null
+	_check("Job AJ: too far away nothing is scanned; a freighter scans as an unarmed civilian with its cargo; a station is not a ship; the panel closes when you pick another target",
+		far_ok and civ_ok and station_none and closed, "far %s civ %s station %s closed %s" % [far_ok, civ_ok, station_none, closed])
+	for o in g:
+		if o in s.enemies: s._destroy_unit(o)
+	s.target = null
+	hud.close_scan()

@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.5f"
+const VERSION := "v1.5g"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -201,6 +201,14 @@ const PLANET_BIOME := {"terran": "forest", "jungle": "jungle", "ocean": "ocean",
 const TEXT_BUMP := 2                  # HUD and room text below TEXT_BUMP_BELOW px is drawn this much bigger
 const TEXT_BUMP_BELOW := 17
 const TEXT_MIN := 13                  # nothing on the HUD is smaller than this
+# ---------------------------------------------------------------- Job AJ (v1.5g): ship scan (tap a ship to target it, tap the target box to scan it)
+const SCAN_RANGE := 1500.0            # a ship this close can be scanned
+const SCAN_TIME := 1.2                # seconds the scan takes
+const SHIP_TAP_RADIUS := 46.0         # a tap this close to a ship on screen targets it
+const SCAN_GOODS := ["Water", "Fuel cells", "Ore", "Medical supplies", "Food rations", "Machine parts", "Electronics", "Coolant", "Scrap metal", "Munitions"]
+const SCAN_ENEMY_GOODS := {"Savagers": ["Scrap metal", "Stolen goods", "Munitions"], "Cybermorph": ["Nanite slurry", "Data cores"], "Kaijurai": ["Behemoth spores", "Bio-resin"],
+	"Phenom": ["Crystal relics", "Void glass"], "Solrath": ["Void ash", "Dark alloy"]}
+
 # ---------------------------------------------------------------- Job AI (v1.5f): missions (scripts/missions.gd)
 const MISSION_POINT_DIST := [3200.0, 5200.0]   # a mission point lies this far from the station
 const MISSION_ARRIVE := 700.0                   # this close to the point, its wave is there

@@ -301,6 +301,8 @@ func _layout() -> void:
 	for k in 6: buttons[ids[k]] = Rect2(Vector2(S.x * 0.5 - row * 0.5 + k * (pw + 6), 78), Vector2(pw, 44))
 	log_rect = buttons["log"]
 	if space and space.controls and not console_open: buttons["radar"] = radar_rect()
+	if space and space.controls and way_rect != Rect2() and space.target != null and is_instance_valid(space.target): buttons["scan"] = way_rect   # v1.5g: tap the target box = SCAN
+	if not scan.is_empty(): buttons["scan_close"] = scan_rect()
 	if space and space.controls:
 		var db := Rect2(S.x * 0.5 - 130, 176, 260, 60)
 		var pr: String = space.prompt()   # v1.4u: one prompt, the nearest thing wins
@@ -342,6 +344,13 @@ func _input(e: InputEvent) -> void:
 					roster_idle = 0.0
 					return   # v1.4n: a touch anywhere else flies the ship; LOG (or leaving it alone) closes the console
 			if _mouse_in_kbm(e): return   # Job J: in keyboard + mouse mode the MOUSE flies (left-drag); real touches are unchanged
+			if space.controls and not stick_zone("move").has_point(e.position) and not stick_zone("aim").has_point(e.position):   # v1.5g: tap a ship = target it
+				var tapped: Node3D = space.ship_at_screen(e.position)
+				if tapped != null:
+					space.target = tapped
+					Sfx.play("button", -14.0)
+					get_viewport().set_input_as_handled()
+					return
 			if stick_zone("move").has_point(e.position) and not owners.values().has("move"):
 				owners[e.index] = "move"
 				origins["move"] = e.position
@@ -367,6 +376,7 @@ func _input(e: InputEvent) -> void:
 func _process(dt: float) -> void:
 	if space == null: return
 	t += dt
+	_tick_scan(dt)
 	msg_t = maxf(0.0, msg_t - dt)
 	damage_flash = maxf(0.0, damage_flash - dt)
 	for k in flash.keys(): flash[k] = maxf(0.0, float(flash[k]) - dt)
@@ -895,6 +905,7 @@ func _draw() -> void:
 	_stick("move", "FLIGHT")
 	_stick("aim", "AIM")
 	if comms_open: _comms()
+	_draw_scan()   # v1.5g
 	if damage_flash > 0.0:
 		for i in 6: draw_rect(Rect2(Vector2.ZERO, S), Color(RED, damage_flash * 0.08), false, 60.0 - i * 9.0)
 
@@ -992,6 +1003,7 @@ func _dashboard() -> void:
 	var speed_r := Rect2(cr.get_center().x - mid * 0.5 - 10 - sw, cr.position.y + 26, sw, 76)
 	var screen_r := Rect2(cr.get_center().x - mid * 0.5, cr.position.y, mid, cr.size.y)
 	var way_r := Rect2(cr.get_center().x + mid * 0.5 + 10, cr.position.y + 26, sw, 86)
+	way_rect = way_r
 	_box(speed_r, PANEL, EDGE, 10, 2)
 	_text(Vector2(speed_r.position.x, speed_r.position.y + 26), "SPEED", 16, CYAN_HI, HORIZONTAL_ALIGNMENT_CENTER, speed_r.size.x)
 	_text(Vector2(speed_r.position.x, speed_r.position.y + 60), "%d m/s" % int(space.speed_now), 26, WHITE, HORIZONTAL_ALIGNMENT_CENTER, speed_r.size.x)
@@ -1103,6 +1115,69 @@ func _radar(rc: Vector2, rr: float, label: bool) -> void:
 	draw_string(font, radar_north + nd * 15.0 + Vector2(-4, 5), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, WHITE)
 	_text(Vector2(rc.x - rr, rc.y + rr + (-2.0 if label else 2.0)), "RADAR %s" % _dist(rng), 10, Color(CYAN, 0.8), HORIZONTAL_ALIGNMENT_CENTER, rr * 2.0)
 
+# ---------------------------------------------------------------- v1.5g ship scan
+var way_rect := Rect2()     # where the waypoint / target box was drawn (tap = scan)
+var scan := {}              # the scan on screen ({} = none): space.scan_info() of scan_node
+var scan_node: Node3D = null
+var scan_t := 0.0           # > 0 while a scan is running
+
+## Start a scan of the current target: in range, a ship, takes SCAN_TIME. Returns what to say.
+func start_scan() -> String:
+	var n: Node3D = space.target
+	if n == null or not is_instance_valid(n): return "No target to scan."
+	if space.scan_info(n).is_empty(): return "%s is not a ship." % n.name
+	if space.distance_to(n) > Data.SCAN_RANGE: return "Too far to scan: get within %s." % _dist(Data.SCAN_RANGE)
+	scan_node = n
+	scan = {}
+	scan_t = Data.SCAN_TIME
+	Sfx.play("tractor", -10.0)
+	return "Scanning %s..." % n.name
+
+func close_scan() -> void:
+	scan = {}
+	scan_node = null
+	scan_t = 0.0
+
+func scan_rect() -> Rect2:
+	return Rect2(S.x * 0.5 - 250, 132, 500, 64 + 30 * maxi(1, (scan.get("lines", []) as Array).size()))
+
+func _tick_scan(dt: float) -> void:
+	if scan_node == null: return
+	if not is_instance_valid(scan_node) or space.target != scan_node:
+		close_scan()
+		return
+	if scan_t > 0.0:
+		scan_t -= dt
+		if scan_t <= 0.0:
+			scan = space.scan_info(scan_node)
+			Sfx.play("pickup", -10.0)
+	elif not scan.is_empty() and int(t * 2.0) != int((t - dt) * 2.0):
+		scan = space.scan_info(scan_node)   # live hull / weapons while it is open
+
+func _draw_scan() -> void:
+	if scan_node == null or not is_instance_valid(scan_node): return
+	var sp = _screen(scan_node.global_position)
+	if scan_t > 0.0:   # scanning: a sweeping bracket on the ship and a progress bar
+		var k := 1.0 - scan_t / Data.SCAN_TIME
+		if sp != null:
+			var r := 40.0 + 10.0 * sin(t * 12.0)
+			draw_arc(sp, r, -PI * 0.5, -PI * 0.5 + TAU * k, 40, CYAN_HI, 3.0)
+			_text(sp + Vector2(-40, -r - 10), "SCANNING %d%%" % int(k * 100.0), 13, CYAN_HI)
+		return
+	if scan.is_empty(): return
+	var rc := scan_rect()
+	var col: Color = RED if scan.get("hostile", false) else CYAN_HI
+	_box(rc, Color(0.02, 0.06, 0.1, 0.9), col, 10, 2)
+	_text(rc.position + Vector2(16, 28), str(scan["title"]), 18, WHITE, HORIZONTAL_ALIGNMENT_LEFT, rc.size.x - 60)
+	_text(rc.position + Vector2(16, 50), str(scan["sub"]), 13, col)
+	_text(Vector2(rc.end.x - 30, rc.position.y + 26), "X", 16, Color(1, 1, 1, 0.7))
+	var y := rc.position.y + 80
+	for ln in scan["lines"]:
+		_text(Vector2(rc.position.x + 16, y), str(ln[0]), 12, GOLD)
+		_text(Vector2(rc.position.x + 110, y), str(ln[1]), 13, WHITE, HORIZONTAL_ALIGNMENT_LEFT, rc.size.x - 126)
+		y += 30
+	if sp != null: draw_arc(sp, 34.0, 0, TAU, 32, Color(col, 0.8), 2.0)
+
 ## Waypoint box: autopilot destination, else the current target.
 func _way_box(way_r: Rect2) -> void:
 	_box(way_r, PANEL, EDGE, 10, 2)
@@ -1132,15 +1207,17 @@ func _way_box(way_r: Rect2) -> void:
 			draw_rect(Rect2(way_r.position + Vector2(12, 68), Vector2(bw * th, 4)), _hull_col(th))
 	else:
 		_text(way_r.position + Vector2(12, 34), "NO WAYPOINT", 13, Color(1, 1, 1, 0.6))
-	var scan := "NORMAL"
+	var sens := "NORMAL"
 	var scol := GREEN
 	if space.in_nebula > 0.0:
-		scan = "DEGRADED"
+		sens = "DEGRADED"
 		scol = GOLD
 	elif space.hostiles_near(900.0) > 0:
-		scan = "%d HOSTILE" % space.hostiles_near(900.0)
+		sens = "%d HOSTILE" % space.hostiles_near(900.0)
 		scol = RED
-	_text(way_r.position + Vector2(12, 82), "SCAN  " + scan, 12, scol)
+	_text(way_r.position + Vector2(12, 82), "SCAN  " + sens, 12, scol)
+	if space.target != null and is_instance_valid(space.target) and not space.scan_info(space.target).is_empty():
+		_text(way_r.position + Vector2(12, 22), "TAP = SCAN", 10, CYAN_HI, HORIZONTAL_ALIGNMENT_RIGHT, way_r.size.x - 24)
 
 # ---------------------------------------------------------------- comms: side screens + console
 func _comms() -> void:

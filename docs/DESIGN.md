@@ -972,3 +972,14 @@ both sets are saved in the asset library and not placed.
   racks and the hold. No save fields: there is no save system yet.
 - Open for the owner: pay numbers; whether a bounty's dead / alive should be chosen per target instead of by rank;
   mission givers on planets (only stations have the page).
+
+## 46. Ship scan (Job AJ, v1.5g)
+
+- Tap a ship where it is drawn (enemies, traffic, the escort freighter; within `SHIP_TAP_RADIUS` px, not on the sticks)
+  and it becomes the target. With a ship targeted the waypoint box says TAP = SCAN: tap it and the scan runs for
+  `SCAN_TIME` (a sweep on the ship), if it is within `SCAN_RANGE`. Then a panel shows pilot (name, role, slot),
+  ship and class, hull and shield, weapons (each wing / arm gun, or DESTROYED once shot off; chest cannon; missile
+  rack), cargo, bounty price and whether it is your mission's target. It refreshes live while open, and closes with its
+  X or when you pick another target.
+- Cargo is made up from the ship's name, so the same ship always carries the same: civilian goods for haulers
+  (`SCAN_GOODS`), faction goods for enemy ships (`SCAN_ENEMY_GOODS`), plus the credits it would drop.
