@@ -1051,6 +1051,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_AQ") != "":   # the Job AQ checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_aq()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_AP") != "":   # the Job AP checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1617,6 +1625,7 @@ func _run() -> void:
 	await _job_an()
 	await _job_ao()
 	await _job_ap()
+	await _job_aq()
 	await _galaxy()
 	await _controls_j()
 	await _gate_k()
@@ -5362,3 +5371,30 @@ func _job_ap() -> void:
 	_check("Job AP: GO flies the whole route on autopilot: stop 1, then stop 2 by itself, then it stops; taking the stick cancels GO but keeps the GPS route",
 		go1 and go2 and done and cancel and said.find("2 stops") >= 0, "go1 %s go2 %s done %s cancel %s" % [go1, go2, done, cancel])
 	_tp(s.station.global_position + Vector3(0, 40, 420), s.station.global_position)
+
+
+## Job AQ (v1.5n): THRUST makes the ship's nose rear up into an arc (more when climbing / pulling up) and settle back
+## to level on release; the model only, the flight path is the same.
+func _job_aq() -> void:
+	var shell := FileAccess.get_file_as_string("res://web_shell.html")
+	_check("Job AQ: version label reads \"Homelancer Digital v1.5n\" or later", Data.VERSION >= "v1.5n" and (shell == "" or shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0), Data.VERSION)
+	var s := _sp()
+	_tp(s.station.global_position + Vector3(0, 300, 1400), s.station.global_position + Vector3(0, 300, 2400))
+	await _frames(3)
+	var level0: float = s.model.rotation.x
+	main.hud.held["thrust"] = true
+	main.hud.aim_vec = Vector2(0, -0.8)   # pulling up while thrusting
+	await _wait(0.8)
+	var up_arc: float = s.thrust_arc
+	var model_up: float = s.model.rotation.x
+	await _shot("aq_thrust_arc", 0.0)
+	main.hud.aim_vec = Vector2.ZERO
+	await _wait(0.4)
+	var level_arc: float = s.thrust_arc
+	main.hud.held.erase("thrust")
+	await _wait(1.6)
+	var after: float = s.thrust_arc
+	var max_rad: float = deg_to_rad(Data.THRUST_ARC_DEG)
+	_check("Job AQ: THRUST rears the ship's nose up into an arc (up to %d deg, most when climbing or pulling up), then it eases back to level when you let go; flight is unchanged" % int(Data.THRUST_ARC_DEG),
+		up_arc > max_rad * 0.6 and up_arc <= max_rad + 0.001 and model_up > level0 + max_rad * 0.4 and level_arc > 0.0 and after < up_arc * 0.15,
+		"arc %.1f deg pulling up, model %.1f -> %.1f deg, %.1f deg after release" % [rad_to_deg(up_arc), rad_to_deg(level0), rad_to_deg(model_up), rad_to_deg(after)])

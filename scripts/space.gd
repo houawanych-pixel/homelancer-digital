@@ -73,6 +73,7 @@ var engine_kill := false
 var braking := false
 var thrust_held := false
 var boosting := false
+var thrust_arc := 0.0   # v1.5n: the nose-up arc on the ship model while THRUST is on (radians)
 var call_cd := 0.0
 var holding := false   # stopped and staying stopped (after a full stop) until the stick moves
 static var cruise_assist := true   # centred stick holds Data.CRUISE (the route test turns it off for its fixed setups)
@@ -1785,9 +1786,16 @@ func _update_player(dt: float) -> void:
 	yaw -= steer.x * turn * dt * (1.0 if cos(pitch) >= 0.0 else -1.0)
 	pitch = wrapf(pitch - steer.y * turn * 0.8 * dt, -PI, PI)
 	player.basis = Basis.from_euler(Vector3(pitch, yaw, 0))
+	# v1.5n THRUST ARC: while THRUST is on, the ship's nose rears up into an arc (more when you are climbing or pulling
+	# up), and settles back to level when you let go. The model only: the flight itself does not change.
+	var climb := 0.0
+	if vel.length() > 5.0: climb = maxf(0.0, vel.normalized().dot(Vector3.UP))
+	var arc_want := 0.0
+	if boosting and warp_state == "off": arc_want = deg_to_rad(Data.THRUST_ARC_DEG) * clampf(Data.THRUST_ARC_BASE + maxf(0.0, -steer.y) + climb, 0.0, 1.0)
+	thrust_arc = lerpf(thrust_arc, arc_want, minf(1.0, dt * (Data.THRUST_ARC_IN if arc_want > thrust_arc else Data.THRUST_ARC_OUT)))
 	if is_instance_valid(model) and GS.form != "mech" and transform_t <= 0.0:
 		model.rotation.z = lerpf(model.rotation.z, -steer.x * 0.55, minf(1.0, dt * 4.0))
-		model.rotation.x = lerpf(model.rotation.x, -steer.y * 0.12, minf(1.0, dt * 4.0))
+		model.rotation.x = lerpf(model.rotation.x, -steer.y * 0.12 + thrust_arc, minf(1.0, dt * 6.0))
 	var fwd := -player.global_basis.z
 	var right := player.global_basis.x
 	boosting = false

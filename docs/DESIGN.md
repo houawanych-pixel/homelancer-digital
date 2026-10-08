@@ -1129,3 +1129,11 @@ Owner, after the v1.5k test flow passed: "push it to all".
 - GO (route panel): the autopilot flies the whole waypoint route, stop after stop; taking the stick cancels GO but
   keeps the GPS route. (The autopilot itself still flies direct at warp; it does not ride the lanes.)
 - Not done yet: routes across several systems on the galaxy map (the mission waypoint already leads gate by gate).
+
+## 53. Thrust arc (Job AQ, v1.5n)
+
+- Owner (by voice): when you push THRUST and fly up, the ship should arc up so it looks more impressive. While THRUST
+  is on, the ship model's nose rears up into an arc: `THRUST_ARC_BASE` (45 %) of `THRUST_ARC_DEG` (22 deg) on a level
+  boost, the full arc when climbing or pulling up; it rises at `THRUST_ARC_IN` and settles back to level at
+  `THRUST_ARC_OUT` after you let go. Looks only: the flight path, speed and controls are unchanged; not at warp, not
+  as a mech.
