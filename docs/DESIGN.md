@@ -1236,3 +1236,5 @@ Owner, after the v1.5k test flow passed: "push it to all".
   the player only, react with sand / dirt / each other, drawn see-through; lava burns. See docs/PLANET_BLOCKS.md 2f.
 - v1.6c (?blocks only): gold / diamond veins from the seed (`_place_veins`), tough layers; breaking one emits `mined`
   and the game drops pickup gems (fewer with bigger weapons, `MINING_KEEP`) for the tractor beam (`MINE_VALUE` credits).
+- v1.6d (?blocks only): world generation 1: seeded sealed cave pockets (`_carve_caves`, `CAVE_*`); an obsidian cap
+  (`KILL_CAP`) over a kill floor that glows when dug open and destroys the ship, fluids and rubble.

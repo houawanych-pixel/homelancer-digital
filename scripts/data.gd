@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.6c"
+const VERSION := "v1.6d"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -287,6 +287,17 @@ const VEIN_DEPTH := {"gold": [25.0, 120.0], "diamond": [80.0, 170.0]}
 const SURFACE_TREASURE_CHANCE := 0.6   # chance a world has a few veins right out on the surface
 const MINING_KEEP := {"gun": 0.75, "thrust": 0.75, "thrust_soft": 0.75, "missile": 0.5, "heavy": 0.35, "special": 0.2}
 const MINE_VALUE := {"gold": 40, "diamond": 120}   # credits per piece you pull in
+# v1.6d world generation, part 1. Caves: a few self-contained pockets of winding tunnels (3D noise in a rounded box),
+# sealed. The bottom of the ground (BLOCK_DEPTH_FLOOR down) is the KILL FLOOR under a KILL_CAP of obsidian: dug open
+# it glows; water, lava and rubble reaching it are gone; the ship touching it is destroyed.
+const CAVE_COUNT := 5
+const CAVE_SIZE := 14                # cells across (70 m)
+const CAVE_LAYERS := 8               # layers tall (40 m)
+const CAVE_DEPTH := [45.0, 110.0]    # m under the ground (its middle)
+const CAVE_NOISE_FREQ := 0.11
+const CAVE_THRESHOLD := 0.18
+const KILL_CAP := 30.0               # m of obsidian over the kill floor
+const KILL_COLOR := Color(1.0, 0.82, 0.45)
 # v1.5v (owner): the mech digs by thrusting its body into a wall, by the same break rules as a shot. Sand and dirt it
 # plows straight through; stone breaks but shoves it back each push (chip, bounce, chip); obsidian won't break, it just
 # bounces the mech off. Never any damage to the mech.

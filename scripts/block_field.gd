@@ -45,6 +45,10 @@ var merged := 0                # rubble pieces that merged into the ground (test
 var fluid := {}                # v1.6b water and lava: cell -> {layer: "water" | "lava"} (they fill air layers)
 var pockets: Array = []        # the sealed pockets placed from the seed: [{cells: [cell], k0, kind}]
 var veins: Array = []          # v1.6c gold / diamond veins from the seed: [{mat, cells: [Vector2i(cell, layer)]}]
+var caves: Array = []          # v1.6d cave pockets from the seed: [{centre: Vector3, cells: int}]
+var killed := 0                # things the kill floor took (tests)
+var _kill_st: SurfaceTool
+var _kill_any := false
 var fluid_moves := 0           # (tests)
 var reactions := 0             # (tests)
 var _fluid_t := 0.0
@@ -184,7 +188,8 @@ func build(pid: String, t: int) -> void:
 	_noise = FastNoiseLite.new()
 	_noise.seed = hash("%s|%d|layers" % [pid, t])
 	_noise.frequency = 0.03
-	# 4. sealed water and lava pockets, gold and diamond veins, from the seed (v1.6b / v1.6c)
+	# 4. caves, sealed water and lava pockets, gold and diamond veins, from the seed (v1.6b-d)
+	_carve_caves()
 	_place_pockets()
 	_place_veins()
 	# 5. re-apply the blasts made here before (seed + deltas), quietly
@@ -220,6 +225,7 @@ func mat_at(fx: int, fz: int, y: float) -> String:
 		var kk := _k(y - Data.BLOCK_MIN * 0.5)
 		if ov.has(kk): return ov[kk]
 	var d: float = h0[fz * n + fx] - y
+	if Data.BLOCK_DEPTH_FLOOR - d < Data.KILL_CAP + 0.01: return "obsidian"   # v1.6d: the obsidian cap over the kill floor
 	var step: float = Data.BLOCK_MIN
 	var wx := x0 + (fx + 0.5) * step
 	var wz := z0 + (fz + 0.5) * step
@@ -766,6 +772,62 @@ func _place_veins() -> void:
 			var c := rng.randi_range(4, n - 5) * n + rng.randi_range(4, n - 5)
 			lay.call([c], func(cc): return _ktop(cc) - 1, "gold" if v < 2 else "diamond")
 
+## Caves (v1.6d): a few self-contained pockets of winding tunnels and chambers ("little pockets of ant farm"), carved
+## by 3D noise inside a rounded box so each stays a section with solid rock round it; sealed, asleep until broken into.
+## Settled once here so every roof that's left stands.
+@warning_ignore("integer_division")
+func _carve_caves() -> void:
+	caves.clear()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash("%s|%d|caves" % [planet_id, tile])
+	var nz := FastNoiseLite.new()
+	nz.seed = rng.randi()
+	nz.frequency = Data.CAVE_NOISE_FREQ
+	var w: int = Data.CAVE_SIZE
+	var tries := 0
+	while caves.size() < Data.CAVE_COUNT and tries < 60:
+		tries += 1
+		var cx := rng.randi_range(2, n - w - 2)
+		var cz := rng.randi_range(2, n - w - 2)
+		if Vector2(cx + w / 2 - n / 2, cz + w / 2 - n / 2).length() < 14: continue   # the middle stays plain
+		var topmin := INF
+		for jz in w:
+			for jx in w: topmin = minf(topmin, h0[(cz + jz) * n + cx + jx])
+		var depth := rng.randf_range(float(Data.CAVE_DEPTH[0]), float(Data.CAVE_DEPTH[1]))
+		var kc := _k(topmin - depth)
+		var hl: int = Data.CAVE_LAYERS
+		if kc - hl / 2 < _kfloor(cz * n + cx) + Data.KILL_CAP / Data.BLOCK_MIN + 1: continue
+		var count := 0
+		for jz in w:
+			for jx in w:
+				var c := (cz + jz) * n + cx + jx
+				_split_one(c)
+				for kk in range(-hl / 2, hl / 2):
+					var k := kc + kk
+					if k >= _ktop(c) - 3: continue   # always rock over it (sealed)
+					var u := Vector3(float(jx) / (w - 1) * 2.0 - 1.0, float(kk) / (hl / 2), float(jz) / (w - 1) * 2.0 - 1.0)
+					var fall := 1.0 - u.length_squared()   # rounded: the edges stay solid
+					if fall <= 0.0: continue
+					var v := nz.get_noise_3d(cx + jx, k * 1.4, cz + jz)
+					if v + fall * 0.35 > Data.CAVE_THRESHOLD:
+						_cell_remove(c, k)
+						count += 1
+		_settle(cx - 2, cx + w + 2, cz - 2, cz + w + 2)
+		caves.append({"centre": Vector3(x0 + (cx + w * 0.5) * Data.BLOCK_MIN, _ly(kc), z0 + (cz + w * 0.5) * Data.BLOCK_MIN), "cells": count})
+	collapses = 0
+
+## The kill floor (v1.6d): the bottom of the diggable ground (BLOCK_DEPTH_FLOOR down), under a thick obsidian cap.
+## Where it's been dug open it glows; anything that reaches it is gone, and the ship is destroyed.
+func kill_y(x: float, z: float) -> float:
+	if not covers(x, z): return -INF
+	var step: float = Data.BLOCK_MIN
+	var c := clampi(int((z - z0) / step), 0, n - 1) * n + clampi(int((x - x0) / step), 0, n - 1)
+	return y0 + _kfloor(c) * step
+
+func touches_kill(p: Vector3, reach := 1.0) -> bool:
+	var ky := kill_y(p.x, p.z)
+	return ky > -INF and p.y < ky + reach
+
 func _pocket_open(pk: Dictionary) -> bool:
 	for c in pk["cells"]:
 		for k in [int(pk["k0"]), int(pk["k0"]) + 1]:
@@ -839,6 +901,10 @@ func fluid_step(near: Vector3, radius: float, lava_too := true) -> int:
 		var kind := _fluid_k(c, k)
 		if kind == "" or (kind == "lava" and not lava_too): continue
 		if _react(c, k, kind): continue
+		if k <= _kfloor(c):   # v1.6d: it reached the kill floor: gone
+			_set_fluid(c, k, "")
+			killed += 1
+			continue
 		if _air(c, k - 1):
 			_set_fluid(c, k, "")
 			_set_fluid(c, k - 1, kind)
@@ -1081,6 +1147,11 @@ func _process(dt: float) -> void:
 			if g == -INF and nd.position.y < hmax - 400.0:   # fell off the patch: gone
 				nd.queue_free()
 				rubble.remove_at(i)
+			elif nd.position.y - float(b["half"]) <= g and absf(g - kill_y(nd.position.x, nd.position.z)) < 0.01:
+				nd.queue_free()   # v1.6d: it fell onto the kill floor: gone
+				rubble.remove_at(i)
+				killed += 1
+				continue
 			elif nd.position.y - float(b["half"]) <= g:
 				nd.position.y = g + float(b["half"])
 				b["rest"] = 0.0
@@ -1129,6 +1200,9 @@ func _draw_chunk(k: int) -> void:
 	var cj := k / nc
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	_kill_st = SurfaceTool.new()
+	_kill_st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	_kill_any = false
 	var any := false
 	for fz in range(cj * c, mini((cj + 1) * c, n)):
 		for fx in range(ci * c, mini((ci + 1) * c, n)):
@@ -1150,6 +1224,20 @@ func _draw_chunk(k: int) -> void:
 		add_child(mi)
 		_chunks[k] = mi
 	mi.mesh = st.commit() if any else null
+	var km: MeshInstance3D = mi.get_node_or_null("Kill")
+	if _kill_any:
+		if km == null:
+			km = MeshInstance3D.new()
+			km.name = "Kill"
+			var m := StandardMaterial3D.new()
+			m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			m.vertex_color_use_as_albedo = true
+			m.cull_mode = BaseMaterial3D.CULL_DISABLED
+			km.material_override = m
+			km.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			mi.add_child(km)
+		km.mesh = _kill_st.commit()
+	elif km != null: km.mesh = null
 
 @warning_ignore("integer_division")
 func _draw_block(st: SurfaceTool, ox: int, oz: int, s: int) -> void:
@@ -1200,7 +1288,11 @@ func _draw_block(st: SurfaceTool, ox: int, oz: int, s: int) -> void:
 		if dd > 0:   # cracked: darker the closer it is to breaking
 			var f: float = Data.BLOCK_DAMAGE_DARK * float(dd) / float(Data.BLOCK_HITS.get(mat_at(cfx, cfz, ty), 1))
 			for q in 4: cs[q] = (cs[q] as Color).lerp(Color.BLACK, f)
-		if j == sp.size() - 1 and (drop > 0.0 or fused):
+		if j == 0 and o.y <= _kfloor(i0):   # the kill floor, dug open: it blazes (a warning you see from far above)
+			var kc: Color = Data.KILL_COLOR
+			_quad(_kill_st, Vector3(ax, ty, az), Vector3(bx, ty, az), Vector3(bx, ty, bz), Vector3(ax, ty, bz), [kc, kc, kc, kc], Vector3.UP)
+			_kill_any = true
+		elif j == sp.size() - 1 and (drop > 0.0 or fused):
 			_skin_top(st, ax, az, bx, bz, ty, edge, inset, drop, cs, fused, shard, s * step)
 		else:
 			_quad(st, Vector3(ax, ty, az), Vector3(bx, ty, az), Vector3(bx, ty, bz), Vector3(ax, ty, bz), cs, Vector3.UP)

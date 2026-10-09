@@ -5725,6 +5725,20 @@ func _blocks() -> void:
 			cam.look_at(Vector3(at.x, floor_y, at.z), Vector3.UP)
 			cam.make_current()
 			await _shot("water_pocket", 0.4)
+		# v1.6d: blast into a cave pocket from above and look in
+		if not bf.caves.is_empty():
+			var cv: Vector3 = bf.caves[0]["centre"]
+			var cy: float = bf.top_at(cv.x, cv.z) - 25.0
+			for k in 4:
+				if cy < cv.y + 10.0: break
+				bf.blast(Vector3(cv.x, cy, cv.z), "special")
+				cy -= 40.0
+			bf.flush()
+			await _wait(0.5)
+			cam.global_position = Vector3(cv.x - 55.0, cv.y + 70.0, cv.z + 55.0)
+			cam.look_at(cv, Vector3.UP)
+			cam.make_current()
+			await _shot("cave_opened", 0.4)
 		cam.queue_free()
 		if prev: prev.make_current()
 		main.hud.visible = true
@@ -6153,6 +6167,33 @@ func _craters(s, bf: BlockField, pid: String, t: int) -> void:
 	_check("Craters: mining: gold and diamond veins from the seed; a gold layer broken carefully with the light gun drops more pieces (%d) than one blown by a heavy missile (%d); the pieces never turn to rubble; the tractor beam pulls them in (+%d cr)" % [by_gun, by_heavy, earned],
 		vk.has("gold") and vk.has("diamond") and by_gun == 3 and by_heavy <= 2 and gems >= by_gun and no_rubble and earned >= by_gun * int(Data.MINE_VALUE["gold"]),
 		"veins %s gun %d heavy %d gems %d earned %d" % [str(vk.keys()), by_gun, by_heavy, gems, earned])
+	# 15. world generation part 1 (v1.6d): sealed cave pockets that stand on their own; an obsidian cap over the kill
+	#     floor; dug open, the kill floor takes water and destroys the ship
+	var carved := 0
+	for cv in bf.caves: carved += int(cv["cells"])
+	var col_before: int = bf.collapses
+	bf._settle(0, bf.n - 1, 0, bf.n - 1)
+	var stands: bool = bf.collapses == col_before
+	var snap15: Dictionary = bf.snapshot()
+	wall.call(150, 160, 150, 160, 999, by, 0.0)
+	var kc: int = 155 * bf.n + 155
+	var ky: float = bf.y0 + bf._kfloor(kc) * step
+	var cap: bool = bf.mat_at(155, 155, ky + step) == "obsidian" and bf.mat_at(155, 155, ky + Data.KILL_CAP + 2.0 * step) != "obsidian" or bf.mat_at(155, 155, ky + step) == "obsidian"
+	while bf._ktop(kc) > bf._kfloor(kc): bf._cell_remove(kc, bf._ktop(kc) - 1)   # (test only: a shaft dug to the floor)
+	var at_floor: bool = is_equal_approx(bf.h[kc], ky) and is_equal_approx(bf.kill_y(bf.x0 + 155.5 * step, bf.z0 + 155.5 * step), ky)
+	bf._set_fluid(kc, bf._kfloor(kc), "water")
+	var k0: int = bf.killed
+	bf.fluid_step(Vector3(bf.x0 + 155.5 * step, 0, bf.z0 + 155.5 * step), 100.0)
+	var took_water: bool = bf.killed == k0 + 1 and bf._fluid_k(kc, bf._kfloor(kc)) == ""
+	var deadly: bool = bf.touches_kill(Vector3(bf.x0 + 155.5 * step, ky + 0.5, bf.z0 + 155.5 * step)) and not bf.touches_kill(Vector3(bf.x0 + 155.5 * step, ky + 8.0, bf.z0 + 155.5 * step))
+	var nch: int = ceili(float(bf.n) / Data.BLOCK_CHUNK)
+	bf._draw_chunk((155 / Data.BLOCK_CHUNK) * nch + 155 / Data.BLOCK_CHUNK)
+	var glow: bool = (bf._chunks[(155 / Data.BLOCK_CHUNK) * nch + 155 / Data.BLOCK_CHUNK] as Node).get_node_or_null("Kill") != null
+	bf.restore(snap15)
+	bf.flush()
+	_check("Craters: world generation 1: %d sealed cave pockets (%d cells carved) that stand on their own; an obsidian cap over the kill floor; dug open, the kill floor glows, takes water and is deadly to the ship" % [bf.caves.size(), carved],
+		bf.caves.size() >= 3 and carved > 50 and stands and cap and at_floor and took_water and deadly and glow,
+		"stands %s cap %s floor %s water %s deadly %s glow %s" % [stands, cap, at_floor, took_water, deadly, glow])
 	_check("Craters: shots dig INTO walls: a stone overhang over the tunnel holds; a sand one caves in; a pillar shot through its middle comes down (support and collapse)",
 		over["stone"]["tunnel"] and over["stone"]["overhangs"] > 0 and over["stone"]["fell"] == 0 and over["sand"]["fell"] > 0 and over["sand"]["overhangs"] == 0
 		and pillar["fell"] > 0 and not pillar["holes"] and pillar["h"] < 40.0, "overhang %s pillar %s" % [str(over), str(pillar)])

@@ -4464,6 +4464,13 @@ func _surface_update(_dt: float) -> void:
 				_lava_t = 0.0
 				_player_hit(Data.LAVA_DPS * 0.5, p)
 				message.emit("LAVA! Get out!")
+	if on_blocks and controls and bfp.touches_kill(player.global_position - Vector3(0, 6.0, 0)):   # v1.6d: the kill floor
+		message.emit("You touched the kill floor.")
+		GS.hull = 0.0
+		_explode(player.global_position)
+		controls = false
+		_die()
+		return
 	if on_blocks:   # v1.5y: the roof of a tunnel or cave holds you down
 		var roof := bfp.ceiling_above(p.x, player.global_position.y - 6.0, p.z)
 		if player.global_position.y > roof - 1.5:

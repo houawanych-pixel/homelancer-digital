@@ -487,6 +487,15 @@ Status: the owner said go for step 2 (craters), step by step. Each next step wai
    them in: gold 40 cr, diamond 120 cr a piece (`MINE_VALUE`; upgrades instead of money is still open).
    Not yet: real glow / light from them (the lighting step); breaking big pieces down to pickup size (every piece is
    pickup size for now).
+2h. DONE (v1.6d, behind ?blocks): world generation, part 1. Caves: 5 self-contained pockets of winding tunnels and
+   chambers (3D noise in a rounded 70 x 40 m box, 45-110 m down, never in the middle), sealed with rock over them,
+   settled once at build so every roof left stands (`CAVE_*`). The kill floor: the bottom of the diggable ground
+   (`BLOCK_DEPTH_FLOOR` down) under a 30 m obsidian cap (`KILL_CAP`); dug open it blazes (`KILL_COLOR`, a warning seen
+   from above); water, lava and rubble that reach it are gone; the ship (or mech) touching it is destroyed.
+   Known: on the test patch the tile's old sea plane (y = 0) and the sunk smooth sheet still show in very deep holes
+   near the patch edge; they go when the whole planet becomes blocks (step 9).
+   Next parts: arches and overhangs (Pride Rock), then canyons and obsidian roots / shards piercing the surface, the
+   interlocking slanted shapes, realistic heights.
 3. DONE (already from earlier work): the ground blends across tile edges and the next area is built before you reach
    it, so crossing has no jump.
 4. DONE (already): no seam lines at ordinary corners (the ground blends); the planet's wrap corner sits in a cloud bank.
