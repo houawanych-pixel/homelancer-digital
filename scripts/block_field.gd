@@ -37,6 +37,9 @@ var dmg := {}                  # hits taken per layer: block's first cell -> {la
 var holes := {}                # v1.5y: air pockets under a cell's top: cell -> [Vector2i(lo, hi)] layers, sorted
 var y0 := 0.0                  # height of layer 0 (layers are BLOCK_MIN thick; below the depth floor is bedrock)
 var collapses := 0             # pieces that lost their support and fell (tests)
+var mats := {}                 # v1.5z: layers whose material is not the ground's own (rubble that settled, pieces that fell): cell -> {layer: material}
+var fill := {}                 # v1.5z: rubble merged into a cell but not yet a whole layer: cell -> amount (layers)
+var merged := 0                # rubble pieces that merged into the ground (tests)
 var ccol := PackedColorArray() # the ground colour at each cell corner ((n + 1)^2), so the surface blends
 var hmax := -INF               # the highest top in the patch (quick miss test for shots)
 var base := Color.GRAY         # the planet's ground colour here: the tones are made from it
@@ -174,7 +177,7 @@ func build(pid: String, t: int) -> void:
 	var key := key_of(pid, t)
 	if not GS.block_deltas.has(key): GS.block_deltas[key] = []
 	deltas = GS.block_deltas[key]
-	for d in deltas: blast(Vector3(float(d[0]), float(d[1]), float(d[2])), str(d[3]), false, false)
+	for d in deltas: _apply_note(d)
 	layers_broken = 0
 	splits = 0
 	collapses = 0
@@ -194,6 +197,10 @@ var force_mat := ""   # tests only: every layer reads as this material
 
 func mat_at(fx: int, fz: int, y: float) -> String:
 	if force_mat != "": return force_mat
+	var ov: Dictionary = mats.get(fz * n + fx, {})
+	if not ov.is_empty():
+		var kk := _k(y - Data.BLOCK_MIN * 0.5)
+		if ov.has(kk): return ov[kk]
 	var d: float = h0[fz * n + fx] - y
 	var step: float = Data.BLOCK_MIN
 	var wx := x0 + (fx + 0.5) * step
@@ -351,6 +358,9 @@ func _solid_k(i: int, k: int) -> bool:
 func _cell_remove(i: int, k: int) -> void:
 	var kt := _ktop(i)
 	if k >= kt: return
+	if mats.has(i):
+		(mats[i] as Dictionary).erase(k)
+		if (mats[i] as Dictionary).is_empty(): mats.erase(i)
 	var hl: Array = holes.get(i, [])
 	if k == kt - 1:
 		kt -= 1
@@ -419,6 +429,13 @@ func _settle(cx0: int, cx1: int, cz0: int, cz1: int) -> Array:
 				var a: Vector2i = sp[j - 1]
 				var b: Vector2i = sp[j]
 				fell.append({"pos": Vector3(x0 + (fx + 0.5) * Data.BLOCK_MIN, _ly(b.x), z0 + (fz + 0.5) * Data.BLOCK_MIN), "size": Data.BLOCK_MIN, "mat": mat_at(fx, fz, _ly(b.x))})
+				# v1.5z: it keeps its own material where it lands
+				var moved := {}
+				for k in range(b.x, b.y): moved[a.y + (k - b.x)] = mat_at(fx, fz, _ly(k))
+				var ov: Dictionary = mats.get(i, {})
+				for k in range(a.y, b.y): ov.erase(k)
+				for k in moved: ov[k] = moved[k]
+				mats[i] = ov
 				sp[j - 1] = Vector2i(a.x, a.y + (b.y - b.x))   # it drops and lands on what was under the hole
 				sp.remove_at(j)
 				collapses += 1
@@ -502,16 +519,141 @@ func mat_point(x: float, y: float, z: float) -> String:
 
 ## Tests / tools: the whole changeable state, and putting it back.
 func snapshot() -> Dictionary:
-	return {"h": h.duplicate(), "lsz": lsz.duplicate(), "dmg": dmg.duplicate(true), "holes": holes.duplicate(true), "n": deltas.size()}
+	return {"h": h.duplicate(), "lsz": lsz.duplicate(), "dmg": dmg.duplicate(true), "holes": holes.duplicate(true), "mats": mats.duplicate(true), "fill": fill.duplicate(true), "n": deltas.size()}
 
 func restore(sn: Dictionary) -> void:
 	h = sn["h"]
 	lsz = sn["lsz"]
 	dmg = sn["dmg"]
 	holes = sn["holes"]
+	mats = sn.get("mats", {})
+	fill = sn.get("fill", {})
 	deltas.resize(int(sn["n"]))
 	var nc := _nchunks()
 	for k in nc * nc: _dirty[k] = true
+
+# ---------------------------------------------------------------- settling rubble (v1.5z)
+## A landed (or stuck) piece becomes part of the ground: its volume, in 5 m layers, goes into the cell under it as its
+## own material. Kept as a note, so the ground regrows the same: [x, y, z, "dep:<material>:<amount>"].
+func _merge_piece(b: Dictionary, y: float) -> void:
+	var nd := b["node"] as Node3D
+	var sc: Vector3 = nd.scale
+	var amount := clampf(sc.x * sc.y * sc.z / pow(Data.BLOCK_MIN, 3.0), 0.05, Data.BLOCK_DEPOSIT_MAX)
+	var at: Vector3 = nd.position
+	nd.queue_free()
+	merged += 1
+	var note := [snappedf(at.x, 0.01), snappedf(y, 0.01), snappedf(at.z, 0.01), "dep:%s:%.3f" % [str(b.get("mat", "dirt")), amount]]
+	deltas.append(note)
+	if deltas.size() > Data.BLOCK_DELTAS_MAX: deltas.remove_at(0)
+	_apply_note(note)
+
+## Re-apply one kept note: a blast, or a deposit of settled rubble.
+func _apply_note(d: Array) -> void:
+	var kind := str(d[3])
+	if kind.begins_with("dep:"):
+		var parts := kind.split(":")
+		deposit(Vector3(float(d[0]), float(d[1]), float(d[2])), parts[1], float(parts[2]))
+	else:
+		blast(Vector3(float(d[0]), float(d[1]), float(d[2])), kind, false, false)
+
+## Add `amount` layers of material m at the air layer containing point p (its cell). Whole layers are laid as the
+## amount builds up; sand then slumps into a pile; anything left hanging is checked for support.
+@warning_ignore("integer_division")
+func deposit(p: Vector3, m: String, amount: float) -> void:
+	if not covers(p.x, p.z): return
+	var step: float = Data.BLOCK_MIN
+	var fx := clampi(int((p.x - x0) / step), 0, n - 1)
+	var fz := clampi(int((p.z - z0) / step), 0, n - 1)
+	var i := fz * n + fx
+	var acc: float = float(fill.get(i, 0.0)) + amount
+	var added := 0
+	while acc >= 1.0:
+		_split_one(i)
+		var k := _k(p.y)
+		if _solid_k(i, k) or k < _kfloor(i): k = _ktop(i)   # (inside rock: it goes on top)
+		_cell_add(i, k, m)
+		acc -= 1.0
+		added += 1
+		p.y += step
+	if acc > 0.001: fill[i] = acc
+	else: fill.erase(i)
+	if added > 0:
+		if m == "sand": _slump(fx, fz)
+		_settle(fx - 2, fx + 2, fz - 2, fz + 2)
+		_mark(fx, fz, 1)
+
+## Lay one layer k of material m in cell i (on top, or filling part of a hole).
+func _cell_add(i: int, k: int, m: String) -> void:
+	var kt := _ktop(i)
+	if k >= kt:
+		if k > kt:   # leaves air between: that's a hole under the new layer
+			var hl: Array = holes.get(i, [])
+			hl.append(Vector2i(kt, k))
+			holes[i] = hl
+		h[i] = y0 + (k + 1) * Data.BLOCK_MIN
+	else:
+		var keep: Array = []
+		for hv in holes.get(i, []):
+			var e: Vector2i = hv
+			if k >= e.x and k < e.y:
+				if e.x < k: keep.append(Vector2i(e.x, k))
+				if k + 1 < e.y: keep.append(Vector2i(k + 1, e.y))
+			else: keep.append(e)
+		if keep.is_empty(): holes.erase(i)
+		else: holes[i] = keep
+	var ov: Dictionary = mats.get(i, {})
+	ov[k] = m
+	mats[i] = ov
+	hmax = maxf(hmax, h[i])
+
+## Break the block a cell belongs to down to single cells (rubble can only settle on single cells).
+@warning_ignore("integer_division")
+func _split_one(i: int) -> void:
+	var fx := i % n
+	var fz := i / n
+	var s: int = lsz[i]
+	if s <= 1: return
+	var ox := fx - fx % s
+	var oz := fz - fz % s
+	var d0: Dictionary = dmg.get(oz * n + ox, {})
+	for jz in s:
+		for jx in s:
+			var c := (oz + jz) * n + ox + jx
+			lsz[c] = 1
+			if not d0.is_empty(): dmg[c] = d0.duplicate()
+	splits += 1
+	_mark(ox, oz, s)
+
+## Sand piles: a sand top more than a layer above a neighbour pours its top layer onto the lowest neighbour, again and
+## again, so it ends as a mound with 45-degree sides, never a tower.
+func _slump(fx: int, fz: int) -> void:
+	var todo: Array = [Vector2i(fx, fz)]
+	var guard := 0
+	while not todo.is_empty() and guard < 200:
+		guard += 1
+		var c: Vector2i = todo.pop_back()
+		var i := c.y * n + c.x
+		if holes.has(i): continue
+		var kt := _ktop(i)
+		if mat_at(c.x, c.y, _ly(kt - 1)) != "sand": continue
+		var low := -1
+		var low_k := kt - Data.BLOCK_SAND_STEP
+		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var nx: int = c.x + d.x
+			var nz: int = c.y + d.y
+			if nx < 0 or nz < 0 or nx >= n or nz >= n: continue
+			var nk := _ktop(nz * n + nx)
+			if nk < low_k:
+				low_k = nk
+				low = nz * n + nx
+		if low < 0: continue
+		_cell_remove(i, kt - 1)
+		_split_one(low)
+		_cell_add(low, _ktop(low), "sand")
+		_mark(c.x, c.y, 1)
+		_mark(low % n, low / n, 1)
+		todo.append(c)
+		todo.append(Vector2i(low % n, low / n))
 
 ## A shot from a to b: where it first goes into the block ground (or Vector3.INF).
 func ray_hit(a: Vector3, b: Vector3) -> Vector3:
@@ -615,6 +757,12 @@ func _process(dt: float) -> void:
 			continue
 		var g := ground_for(nd.position.x, nd.position.y - float(b["half"]), nd.position.z)
 		if float(b["rest"]) < 0.0:
+			if b.get("mat", "") == "dirt" and g != -INF:
+				var ahead: Vector3 = nd.position + (b["vel"] as Vector3) * dt + Vector3((b["vel"] as Vector3).x, 0, (b["vel"] as Vector3).z).normalized() * float(b["half"])
+				if is_solid(ahead.x, nd.position.y, ahead.z) and not is_solid(nd.position.x, nd.position.y, nd.position.z):
+					_merge_piece(b, nd.position.y)   # dirt sticks to the wall it hits
+					rubble.remove_at(i)
+					continue
 			b["vel"] = (b["vel"] as Vector3) + Vector3.DOWN * 30.0 * dt
 			nd.position += (b["vel"] as Vector3) * dt
 			nd.rotation += (b["spin"] as Vector3) * dt
@@ -639,6 +787,9 @@ func _process(dt: float) -> void:
 			if g != -INF and g < nd.position.y - float(b["half"]) - 1.0:   # the ground under it was blown away: it falls again
 				b["rest"] = -1.0
 				b["vel"] = Vector3.ZERO
+			elif float(b["rest"]) > Data.BLOCK_MERGE_DELAY and g != -INF:   # v1.5z: it settles into the ground, as its own material
+				_merge_piece(b, g + 0.1)
+				rubble.remove_at(i)
 			elif float(b["rest"]) > Data.BLOCK_RUBBLE_REST:
 				nd.position.y -= dt * 2.0
 				if float(b["rest"]) > Data.BLOCK_RUBBLE_REST + 3.0:

@@ -1227,3 +1227,6 @@ Owner, after the v1.5k test flow passed: "push it to all".
   dig into walls: tunnels, overhangs, caves. Every layer inside the blast sphere takes the weapon's hits. Floating pieces
   must be joined sideways to grounded ground within `BLOCK_REACH` (sand 0 / dirt 1 / stone 3 / obsidian 5 cells) or they
   fall (`_settle`). Ship and mech use tunnel floors and roofs; the mech digs a tunnel its own size by pushing.
+- v1.5z (step 6, settling, ?blocks only): landed rubble merges into the ground as its own material (`mats` per layer,
+  `fill` for part-layers, `BLOCK_MERGE_DELAY`); dirt sticks to walls in flight; sand slumps to 45-degree piles
+  (`BLOCK_SAND_STEP`); collapsing pieces keep their material. Merges are kept as "dep:" notes and replayed.

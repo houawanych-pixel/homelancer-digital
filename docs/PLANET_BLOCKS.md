@@ -457,6 +457,12 @@ Status: the owner said go for step 2 (craters), step by step. Each next step wai
    So a stone overhang holds, a sand one caves in, a pillar shot through its middle comes down. Tunnel roofs hold the
    ship and mech down; tunnel floors carry them. Kept as the same notes (the collapses replay from the blasts).
    Simplified for now: a fallen piece takes the material of where it lands (by depth), and it drops in one go.
+2d. DONE (v1.5z, behind ?blocks): settling. Rubble that comes to rest (1 s) merges into the ground as ITS OWN material
+   (its volume in 5 m layers, `fill` until a whole layer builds up; nothing mixes). Dirt that hits a wall in flight
+   sticks to it (a dirt ledge, held up by the wall like any overhang). Sand slumps: a sand top more than one layer
+   over a neighbour pours onto the lowest one, so piles end with 45-degree sides. Pieces that fall in a collapse now
+   keep their own material. Each merge is kept as a small note ("dep:<material>:<amount>"), so the ground regrows the
+   same. Not yet: leaning slabs / A-frames (stretch), the smoothed look (sand mounds, crystal shards: next).
 3. DONE (already from earlier work): the ground blends across tile edges and the next area is built before you reach
    it, so crossing has no jump.
 4. DONE (already): no seam lines at ordinary corners (the ground blends); the planet's wrap corner sits in a cloud bank.

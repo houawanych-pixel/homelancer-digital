@@ -5797,28 +5797,35 @@ func _craters(s, bf: BlockField, pid: String, t: int) -> void:
 	var drop := Vector3(bf.center.x + 60.0, 0.0, bf.center.y - 60.0)
 	drop.y = bf.top_at(drop.x, drop.z) + 30.0
 	bf._piece(drop, 6.0, "obsidian", Vector3(0, -25, 0))
-	await _wait(1.0)
+	await _wait(2.0)
 	_check("Craters: a falling obsidian chunk cleaves in half again when it lands hard", bf.cleaved >= cl0 + 1, "cleaved %d" % (bf.cleaved - cl0))
 	bf.flush()
 	# 5. a real shot: the ship's bolt flies down into the ground and digs it
-	var nd1: int = bf.deltas.size()
+	var shots_of := func() -> int:
+		var c := 0
+		for d in bf.deltas:
+			if str(d[3]) == "gun": c += 1
+		return c
+	var nd1: int = shots_of.call()
 	var aim := Vector3(bf.center.x - 90.0, 0.0, bf.center.y + 60.0)
 	aim.y = bf.top_at(aim.x, aim.z)
 	s._spawn_bolt(aim + Vector3(0, 60, 0), Vector3(0, -600, 0), 10.0, Color(1, 0.4, 0.3), "player", 1.0)
 	await _wait(0.4)
-	var shot_ok: bool = bf.deltas.size() == nd1 + 1 and str(bf.deltas[-1][3]) == "gun"
-	_check("Craters: the ship's own shots hit the block ground (they used to fly through it) and each one is a crater note", shot_ok, "notes %d -> %d" % [nd1, bf.deltas.size()])
+	var shot_ok: bool = shots_of.call() == nd1 + 1
+	_check("Craters: the ship's own shots hit the block ground (they used to fly through it) and each one is a crater note", shot_ok, "shot notes %d -> %d" % [nd1, shots_of.call()])
 	# 6. rubble stays capped and comes down to rest on the ground
 	for k in 12:
 		var q := Vector3(bf.center.x + 150.0 - k * 25.0, 0.0, bf.center.y - 150.0)
 		q.y = bf.top_at(q.x, q.z)
 		bf.blast(q, "missile")
-	await _wait(3.0)
-	var landed := 0
-	for b in bf.rubble:
-		if float(b["rest"]) >= 0.0: landed += 1
-	_check("Craters: flying rubble is capped (%d alive, at most %d) and comes down to rest on the ground (%d landed)" % [bf.rubble.size(), Data.BLOCK_RUBBLE_LIVE, landed],
-		bf.rubble.size() <= Data.BLOCK_RUBBLE_LIVE and landed * 2 > bf.rubble.size())
+	var alive: int = bf.rubble.size()
+	var mg0: int = bf.merged
+	await _wait(4.0)
+	var deps := 0
+	for d in bf.deltas:
+		if str(d[3]).begins_with("dep:"): deps += 1
+	_check("Craters: flying rubble is capped (%d alive, at most %d), comes down and settles into the ground as its own material (%d pieces merged, %d kept as notes)" % [alive, Data.BLOCK_RUBBLE_LIVE, bf.merged - mg0, deps],
+		alive <= Data.BLOCK_RUBBLE_LIVE and bf.merged - mg0 > alive / 2 and deps >= bf.merged - mg0)
 	# 7. bumping the block ground (v1.5u): free up to cruising speed and while braking, the mech never hurt
 	var pp: Vector3 = s.player.global_position
 	s.player.global_position = Vector3(bf.center.x, bf.top_at(bf.center.x, bf.center.y) + 20.0, bf.center.y)
@@ -5849,7 +5856,10 @@ func _craters(s, bf: BlockField, pid: String, t: int) -> void:
 	if same_holes:
 		for hk in hk1:
 			if str(again.holes[hk]) != str(bf.holes[hk]): same_holes = false
-	var same: bool = again.h == bf.h and again.lsz == bf.lsz and same_holes
+	var same_mats: bool = str(again.mats.keys().size()) == str(bf.mats.keys().size())
+	for mk in bf.mats:
+		if not again.mats.has(mk) or str(again.mats[mk]) != str(bf.mats[mk]): same_mats = false
+	var same: bool = again.h == bf.h and again.lsz == bf.lsz and same_holes and same_mats
 	var st: Dictionary = bf.save_state()
 	_check("Craters: what is kept is the seed plus one small note per blast (%d notes); the patch regrown from them is the same ground, block for block" % bf.deltas.size(),
 		same and st.keys().size() == 3 and str(st).length() < bf.deltas.size() * 60 + 100, "same %s" % same)
@@ -5942,6 +5952,33 @@ func _craters(s, bf: BlockField, pid: String, t: int) -> void:
 	bf.force_mat = ""
 	bf.restore(snap10)
 	bf.flush()
+	# 11. settling (v1.5z): sand poured on one spot spreads into a pile; dirt thrown at a wall sticks to it; a stone layer
+	#     laid on sand stays stone (nothing mixes); a falling piece keeps its material
+	var snap11: Dictionary = bf.snapshot()
+	wall.call(80, 96, 80, 96, 999, by, 0.0)
+	var sc := Vector3(bf.x0 + 88.5 * step, by + 0.1, bf.z0 + 88.5 * step)
+	for k in 9: bf.deposit(sc, "sand", 1.0)
+	var top_c: float = bf.h[88 * bf.n + 88] - by
+	var total := 0.0
+	var steep := false
+	for j in range(80, 96):
+		for i in range(80, 96):
+			var c: int = j * bf.n + i
+			total += (bf.h[c] - by) / step
+			if i > 80 and absf(bf.h[c] - bf.h[c - 1]) > step + 0.01: steep = true
+	var pile_ok: bool = is_equal_approx(total, 9.0) and top_c < 9.0 * step and not steep
+	wall.call(80, 96, 80, 96, 90, by, 30.0)   # a 30 m wall from cell 90 east
+	var stick := Vector3(bf.x0 + 89.5 * step, by + 17.5, bf.z0 + 85.5 * step)
+	bf.deposit(stick, "dirt", 1.0)
+	var stuck: bool = bf.is_solid(stick.x, stick.y, stick.z) and bf.holes.has(85 * bf.n + 89) and bf.mat_point(stick.x, stick.y, stick.z) == "dirt"
+	wall.call(80, 96, 80, 96, 999, by, 0.0)
+	bf.deposit(sc, "sand", 1.0)
+	bf.deposit(sc + Vector3(0, step, 0), "stone", 1.0)
+	var no_mix: bool = bf.mat_point(sc.x, by + 7.5, sc.z) == "stone" and bf.mat_point(sc.x, by + 2.5, sc.z) == "sand"
+	bf.restore(snap11)
+	bf.flush()
+	_check("Craters: settling: sand poured on one spot spreads into a pile with 45-degree sides; dirt thrown at a wall sticks to it (held up by the wall); a stone layer laid on sand stays stone",
+		pile_ok and stuck and no_mix, "pile %s (top %.0f m, total %.1f) stuck %s no_mix %s" % [pile_ok, top_c, total, stuck, no_mix])
 	_check("Craters: shots dig INTO walls: a stone overhang over the tunnel holds; a sand one caves in; a pillar shot through its middle comes down (support and collapse)",
 		over["stone"]["tunnel"] and over["stone"]["overhangs"] > 0 and over["stone"]["fell"] == 0 and over["sand"]["fell"] > 0 and over["sand"]["overhangs"] == 0
 		and pillar["fell"] > 0 and not pillar["holes"] and pillar["h"] < 40.0, "overhang %s pillar %s" % [str(over), str(pillar)])
