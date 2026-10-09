@@ -365,12 +365,23 @@ the changes are re-applied. A hundred craters are a hundred small notes, not a f
 - The mech can thrust full force against a wall ("boom") and take no damage: it's the underground workhorse that
   muscles through where the ship has to finesse. Owner: YES, thrusting into rock and dirt breaks it, just like
   shooting: the thrust counts as hits on the blocks it pushes against, with the same carving and the same tier hit
-  counts (so sand goes fast, obsidian takes long). Still needed: the ship's safe-bump speed (under 50).
+  counts. Owner refinement: no lawnmower. Sand and dirt: the mech plows straight through. Stone: it fights back,
+  the mech gets a BOUNCE-BACK and takes damage (chip, bounce, chip). Obsidian: likely guns only (to confirm).
+  Still needed: the ship's safe-bump speed (under 50).
 - Today's game rule (Data.COLLIDE_THRESHOLD) already makes contact under 8 m/s free and charges 0.9 hull per m/s
   above it. The change would be a higher free threshold near walls / while braking (somewhere under 50 m/s; the
   number to be tuned with the owner), maybe a higher one for the mech.
 - Note: over the block patch the ship doesn't hit block walls from the side yet (it pops up onto the step); real side
   collisions come with caves.
+
+## Arches (generation step, later)
+- Natural arches: big chunky spans curving over open space on a leg at each end (Arches National Park style).
+  Both STONE (rough) and OBSIDIAN (dark, glassy, catching the light; can be a root breaking the surface and curving
+  over).
+- Flyable: big enough to fly under or through (a threading moment).
+- Load-bearing: blast out a leg and the whole span crashes down; a bit tougher, so a stray graze won't drop one.
+- Some have diamond or gold piercing out of the span, glowing from far off: blast it out carefully without bringing
+  the arch down. Landmark, reward and mining challenge in one.
 
 ## Polish for the very end (owner, call)
 - Cracked, sun-baked earth on the UPWARD-facing top of big fused dirt shapes only (sides and underside plain); a cheap
