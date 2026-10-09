@@ -38,7 +38,10 @@ Mostly rock, a little sand, hard rock as the backbone (deep core, big supports).
   piece count drops back down (hard rock excepted).
 - Pieces can come to rest at an angle (leaning, diagonal), not snapped to a grid. Safe version first: a few tilt
   angles. A leaning slab whose prop is shot out falls flat.
-- Stretch goal: rubble that catches, sticks and stacks into new ledges and arches instead of crumbling to sand.
+- Stretch goal (the risky part, tried last, after craters, collapse and merging work): rubble that catches and sticks
+  against the side of a neighbouring block and stacks, so debris can grow ledges, bridges and arches and the ground keeps
+  dramatic shapes instead of melting into a flat pile. Hardest to keep cheap on a phone. Safe version first: sticky
+  dirt (it clings where it lands). Fallback if it's too heavy: rubble falls, settles and merges by type.
 
 ## Support, collapse, caves, arches (after craters)
 - Each block knows the block underneath it (its support). Destroy the support and the blocks above lose it: they fall
