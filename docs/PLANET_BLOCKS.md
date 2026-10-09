@@ -27,6 +27,18 @@ gives light-red sand and dark-red obsidian, an ice world pale to dark ice), so n
 Mostly stone, a little sand, obsidian as the backbone (deep core, big supports). Heavier weapons do more per hit
 (missiles, the SPECIAL cut through faster).
 
+## Target direction: start from strange interlocking shapes (ambitious, later)
+- Instead of a tidy grid of squares that only looks natural once it's shot up, the world LOADS already made of
+  strange, irregular, interlocking rock shapes: squares AND slanted pieces, triangles, wedges.
+- The pieces lean on and lock into each other, so:
+  - it looks like real rugged rock from the moment it loads (no Minecraft grid, it was never a grid);
+  - support, collapse and leaning slabs are built in from the start (knock one out, its neighbours lose their prop);
+  - destruction just carries on what's already there.
+- Deep down this gives the big strange obsidian "Tetris" masses (obsidian holds whatever shape it's in and chips
+  rather than fusing), wrapped round the lava pockets and the gold and diamond.
+- Harder to generate than a grid. Order: AFTER the fused-blocks look is approved and craters work. The current
+  step-1 fused-blocks terrain stays as it is for now.
+
 ## Obsidian gradient by depth
 - Obsidian gets MORE common the deeper you go and concentrates in the bottom layers, nearest the heat (the heat is
   what forms and hardens it).
