@@ -35,7 +35,61 @@ Mostly rock, a little sand, hard rock as the backbone (deep core, big supports).
   sand pockets that ooze and pour out when breached (half-filling the tunnel), sticky dirt pockets that clump and
   cling, and (later) water pockets that flood when breached.
 
-## Flowing materials (later, with water and lava)
+## Names (owner, voice call): sand, dirt, STONE, OBSIDIAN
+The four solid tiers are now called sand, dirt, stone (was "rock") and obsidian (was "hard rock"). The table above
+keeps the old words until the code uses the new ones; same tiers, same hit counts, same rules. Lava + water makes
+obsidian (below).
+
+## Two layers: solid blocks underneath, smoothed skin on top (notes only, not built)
+- Underneath: square blocks, always solid. They hold the data: material, toughness, hits taken, neighbours, support.
+  This layer is what splits, falls, settles and gets saved. Nothing about the look changes it.
+- After touching same-material blocks fuse (DONE in v1.5s for the ground), a cheap smoothing pass (the owner's
+  "hypernerve") runs over the OUTER SKIN only, and only when the shape changes (a hit, a collapse, a settle), never
+  every frame. It changes the look only; collision and the block data stay square.
+- Per material:
+  - Sand: the triangle / pyramid look (next section).
+  - Dirt and stone: only a light rounding of the skin's edges and corners.
+  - Obsidian: stays sharp (it never fuses; its chunk is a landmark).
+
+## Sand: the pyramid rule
+- A lone sand block on open ground reads as a pyramid / cone, not a cube.
+- Falling sand forms that slope as it lands (it piles, it doesn't stack).
+- Poured into a corner it banks against the walls as a half-pyramid.
+- Filling an enclosed empty square it fills solid and flush to the top.
+- It is NOT water: it doesn't run flat or spill pocket to pocket.
+- Sand touching sand fuses into one solid mass, even in an odd Tetris shape.
+
+## Water (notes only)
+- Flows to the lowest open space and fills supported empty squares flush.
+- The pool grows as it fills, then spills over the lip into the next pocket, pocket to pocket.
+- After settling, wherever water sits on nothing it drops a layer, again, until all of it is supported (water can't
+  sit on air).
+- After settling, sand it touches turns into dirt.
+- Settled water fuses into ONE flush shape (one water block shaped like the space it filled); break the edge and it
+  flows out and re-forms.
+- Look: transparent, blue tint.
+
+## Lava (notes only)
+- Same flow as water, but slower; glows; burns (hurts the ship / mech).
+- Eats sand for free; trades one-for-one with dirt (both lose a piece); stopped by stone.
+- Lava + water = obsidian.
+- Look: slightly transparent, red and orange. The transparency is what says "fluid"; every solid is opaque.
+
+## Fluids stay cheap
+Water, lava and sand only flow when disturbed AND near the player. Otherwise each one sits as one still, fused shape
+and costs nothing.
+
+## Whole planet, later
+- The end goal: the whole planet is blocks and the smooth terrain is retired.
+- Possible cheap version: smooth look in the distance, turning into blocks up close.
+
+## Bottom of the world: the destroy boundary
+- A kill layer at the bottom. Sand, water and rubble that reach it vanish (deleted); the ship blows up if it touches it.
+- Its look (optional): a raging, rippling, sun-like lava surface over the kill layer, a cheap shader (like the Star Fox
+  sun stage). It is only a look; it isn't a lava fluid.
+- A real lava core underneath is for later, not now.
+
+## Flowing materials (earlier notes, kept)
 - Sand piles into a cone at its own slope angle; past that it slumps; the pile merges up into bigger blocks as it grows.
 - Water flows to the lowest place and fills it level, then becomes ONE water block shaped like the space it filled;
   break the edge and it flows out and re-forms. Lava: the same, slower, glowing, burns.
@@ -84,7 +138,9 @@ the changes are re-applied. A hundred craters are a hundred small notes, not a f
 Water and lava (flow when a wall breaks), trees (shoot the trunk, the top falls), Continue / New World on landing.
 
 ## Build order (a preview to the owner after each)
+Status: the owner asked to HOLD (more discussion first). Nothing past 1b gets built until he says go.
 1. DONE: the big-block test terrain on New Terra's mountains (800 m patch, 20 m blocks, 5 m steps).
+1b. DONE (v1.5s, behind ?blocks): same-material ground fused into one solid surface, no cube seams.
 2. Craters: blast radius, split into four, hit counts by tier, tones by tier, half the material as rubble (chunks at
    the edge), seed + deltas saved and re-applied.
 3. Border camera hand-off.
