@@ -189,7 +189,8 @@ Older sections below may still say "rock" / "hard rock": read them as stone / ob
   keep breaking until the chunks are pickup-size, then collect.
 - Very tough (they can hold lava).
 - Collected with the tractor beam the game ALREADY has: break the vein down to pickup size, then pull the pieces in.
-  The mining step hooks into it, nothing new to build.
+  The mining step hooks into it, nothing new to build. Only pickup-size chunks get drawn in; bigger pieces must be
+  broken down first. The blast loses about half; the beam collects the surviving pickup-size pieces.
 - Treasure isn't only deep: some worlds have gold and diamond right out in the open (piercing out of arches, rock faces,
   outcrops). How much and where is rolled by each planet's seed: some worlds easy surface pickings, some deep only.
 - A loose single diamond comes to rest TILTED (sideways, at an angle), so it glints off its faces.
@@ -359,6 +360,8 @@ the changes are re-applied. A hundred craters are a hundred small notes, not a f
 - Underground you'll touch walls constantly. SETTLED (owner, call): at normal cruising speed and below (and while
   braking) a wall bump does NO damage; only when you pass cruise speed does a crash hurt. Ship and mech both, and
   the mech gets a higher safe speed than the ship. Lava and enemy fire stay as dangerous as ever.
+- The mech can thrust full force against a wall ("boom") and take no damage: it's the underground workhorse that
+  muscles through where the ship has to finesse. Open: should the mech's wall-grind also break soft blocks?
 - Today's game rule (Data.COLLIDE_THRESHOLD) already makes contact under 8 m/s free and charges 0.9 hull per m/s
   above it. The change would be a higher free threshold near walls / while braking (somewhere under 50 m/s; the
   number to be tuned with the owner), maybe a higher one for the mech.
