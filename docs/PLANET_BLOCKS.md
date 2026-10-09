@@ -339,7 +339,9 @@ the changes are re-applied. A hundred craters are a hundred small notes, not a f
   mined and never re-fuses. Since diamond doesn't fuse, its "one shape" is the deposit / vein the generation places;
   the big adjustable hypernerve sculpts that into a grand cluster of bright glowing shards.
 - Example the owner likes (rare, rolled by the seed): a blunt sand mound with a single diamond resting on top, tilted,
-  glinting from far off; or a dark obsidian piece crowning a pale mound.
+  glinting from far off, a "come get me" landmark you fly straight toward; or a dark obsidian piece crowning a pale
+  mound, which tumbles down if blasted off. (Per the owner's later refinements the mound's top is blunt, not a tip,
+  and a lone piece on it rests tilted as a plain block; shards only come from fused pieces.)
 
 ## World generation wish list (owner, call; the ambitious later step)
 - From arrival the world should look amazing: big interlocking slanted shapes (above; plain square blocks still
