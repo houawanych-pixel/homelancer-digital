@@ -5562,6 +5562,7 @@ func _blocks() -> void:
 	var t: int = Data.BLOCK_TEST["tile"]
 	var off_normally: bool = not BlockField.enabled()
 	BlockField.force = true
+	GS.block_deltas.erase(BlockField.key_of(pid, t))   # start from the seed alone
 	Surface._mesh_cache.erase("%s|%d" % [pid, t])   # the patch sinks the smooth sheet under it: build that tile fresh
 	main._load_surface(pid, t)
 	await _wait(1.0)
@@ -5591,6 +5592,7 @@ func _blocks() -> void:
 	var st: Dictionary = bf.save_state() if ok else {}
 	_check("Blocks (experiment): the ship's ground over the patch is the block tops; what would be saved is only the seed and the changes (none yet)",
 		land_ok and st.get("deltas", [1]).is_empty() and str(st).length() < 200, str(st))
+	if ok: await _craters(s, bf, pid, t)
 	if ok:   # pictures: a free camera over the patch (the ship and HUD out of the way)
 		main.hud.visible = false
 		s.player.visible = false
@@ -5599,7 +5601,8 @@ func _blocks() -> void:
 		s.add_child(cam)
 		var prev := get_viewport().get_camera_3d()
 		var c3 := Vector3(bf.center.x, bf.top_at(bf.center.x, bf.center.y), bf.center.y)
-		for v in [["blocks_overview", Vector3(520, 360, 620)], ["blocks_low", Vector3(140, 60, 220)], ["blocks_close", Vector3(40, 28, 60)]]:
+		for v in [["blocks_overview", Vector3(520, 360, 620)], ["blocks_low", Vector3(140, 60, 220)], ["blocks_close", Vector3(40, 28, 60)],
+				["craters_high", Vector3(90, 150, 130)], ["craters_low", Vector3(70, 35, 95)]]:
 			cam.global_position = c3 + (v[1] as Vector3)
 			cam.look_at(c3, Vector3.UP)
 			cam.make_current()
@@ -5609,7 +5612,129 @@ func _blocks() -> void:
 		main.hud.visible = true
 		s.player.visible = true
 	BlockField.force = false
+	GS.block_deltas.erase(BlockField.key_of(pid, t))
 	Surface._mesh_cache.erase("%s|%d" % [pid, t])   # and back to the normal ground for everything after
 	_check("Blocks (experiment): switched off in normal play (on the web it is on only with ?blocks in the address)", off_normally)
 	main._load_system("solara", "station")   # back to space for the rest of the route test
 	await _wait(1.0)
+
+## EXPERIMENT step 2 (v1.5t): craters on the block patch.
+@warning_ignore("integer_division")
+func _craters(s, bf: BlockField, pid: String, t: int) -> void:
+	var step: float = Data.BLOCK_MIN
+	var cell := func(x: float, z: float) -> int: return int((z - bf.z0) / step) * bf.n + int((x - bf.x0) / step)
+	# 1. a light-gun shot at the middle of one 5 m cell: the big block splits 20 -> 10 -> 5 only there, and that layer
+	#    breaks after exactly its tier's hit count (sand 1, dirt 2, stone 4, obsidian 8)
+	var c0: Vector2 = bf.center + Vector2(-180.0, 140.0)
+	var gx: float = bf.x0 + (floorf((c0.x - bf.x0) / Data.BLOCK_BIG) * bf.R + 1 + 0.5) * step   # the 2nd cell of a big block
+	var gz: float = bf.z0 + (floorf((c0.y - bf.z0) / Data.BLOCK_BIG) * bf.R + 1 + 0.5) * step
+	var i0: int = cell.call(gx, gz)
+	var top0: float = bf.h[i0]
+	var m0: String = bf.mat_at(int((gx - bf.x0) / step), int((gz - bf.z0) / step), top0)
+	var need: int = Data.BLOCK_HITS[m0]
+	var held := true
+	for k in need - 1:
+		bf.blast(Vector3(gx, top0, gz), "gun")
+		if bf.h[i0] != top0: held = false
+	bf.blast(Vector3(gx, top0, gz), "gun")
+	var broke: bool = is_equal_approx(bf.h[i0], top0 - step)
+	var far_i: int = cell.call(gx + 2.0 * step, gz + 2.0 * step)   # same big block, the other quarter
+	var carve_only: bool = bf.lsz[i0] == 1 and bf.lsz[far_i] == 2 and is_equal_approx(bf.h[far_i], top0) and bf.splits >= 2
+	_check("Craters: a light-gun shot splits the big block into four only where it hit (20 -> 10 -> 5 m), and a %s layer breaks after exactly %d hit(s) (tiers sand 1 / dirt 2 / stone 4 / obsidian 8)" % [m0, need],
+		held and broke and carve_only and Data.BLOCK_HITS == {"sand": 1, "dirt": 2, "stone": 4, "obsidian": 8},
+		"held %s broke %s cell %d / far %d, splits %d" % [held, broke, bf.lsz[i0], bf.lsz[far_i], bf.splits])
+	# 2. a missile: a crater, about half flying as rubble (at most 10 pieces), one small note kept
+	var mp := Vector3(bf.center.x + 120.0, 0.0, bf.center.y + 100.0)
+	mp.y = bf.top_at(mp.x, mp.z)
+	var nd0: int = bf.deltas.size()
+	var th0: int = bf.thrown
+	var r1: Dictionary = bf.blast(mp, "missile")
+	var flew: int = bf.thrown - th0
+	_check("Craters: a missile blows a crater; part of it flies out as rubble, each material in its own number of pieces (%d pieces from %d broken layers, at most %d), and the crater is kept as one small note" % [flew, int(r1["broken"]), Data.BLOCK_RUBBLE_PER_BLAST],
+		int(r1["broken"]) >= 4 and flew >= 1 and flew <= Data.BLOCK_RUBBLE_PER_BLAST and Data.BLOCK_BREAK_PIECES == {"obsidian": 2, "stone": 3, "dirt": 4, "sand": 5} and bf.deltas.size() == nd0 + 1 and str(bf.deltas[-1]).length() < 60,
+		"broken %d flew %d note %s" % [int(r1["broken"]), flew, str(bf.deltas[-1]) if not bf.deltas.is_empty() else "-"])
+	# 3. the SPECIAL: a crater you can fly into (much wider and deeper than a missile's)
+	var sp := Vector3(bf.center.x, 0.0, bf.center.y)
+	sp.y = bf.top_at(sp.x, sp.z)
+	var before := bf.h.duplicate()
+	bf.blast(sp, "special")
+	var cells := 0
+	var deepest := 0.0
+	for i in bf.h.size():
+		if bf.h[i] < before[i] - 0.01:
+			cells += 1
+			deepest = maxf(deepest, before[i] - bf.h[i])
+	_check("Craters: the SPECIAL blows a crater you can fly into (%d cells of 5 m, %.0f m deep at most)" % [cells, deepest], cells > 150 and deepest >= 15.0)
+	# 4. obsidian chips and holds, never splits: when it gives, it goes as ONE whole chunk
+	var ob_ok := false
+	var ob_info := "no obsidian found"
+	for j in range(2, bf.cols - 2):
+		if ob_ok or ob_info != "no obsidian found": break
+		for i in range(2, bf.cols - 2):
+			var ox: int = i * bf.R
+			var oz: int = j * bf.R
+			var o0: int = oz * bf.n + ox
+			if bf.lsz[o0] != bf.R: continue
+			var y: float = bf.h[o0] - 20.0
+			var found := -1e9
+			while y > bf.h0[o0] - 180.0:
+				if bf.mat_at(ox + bf.R / 2, oz + bf.R / 2, y) == "obsidian":
+					found = y
+					break
+				y -= step
+			if found < -1e8: continue
+			var keep := bf.h.duplicate()
+			for jz in bf.R:
+				for jx in bf.R: bf.h[(oz + jz) * bf.n + ox + jx] = found   # (test only: dig straight down to it)
+			var corner := Vector3(bf.x0 + ox * step + 2.5, found, bf.z0 + oz * step + 2.5)   # a corner shot: only part of it inside
+			var held_ob := true
+			for k in Data.BLOCK_HITS["obsidian"] - 1:
+				bf.blast(corner, "gun", false, false)
+				if bf.h[o0] != found or bf.lsz[o0] != bf.R: held_ob = false
+			var th1: int = bf.thrown
+			bf.blast(corner, "gun", false, true)
+			var whole := true
+			for jz in bf.R:
+				for jx in bf.R:
+					if not is_equal_approx(bf.h[(oz + jz) * bf.n + ox + jx], found - step): whole = false
+			ob_ok = held_ob and whole and bf.lsz[o0] == bf.R and bf.thrown - th1 == 2
+			ob_info = "held %s whole %s size %d thrown %d" % [held_ob, whole, bf.lsz[o0], bf.thrown - th1]
+			bf.h = keep   # put it back
+			bf.dmg[o0] = 0
+			break
+	_check("Craters: obsidian chips and holds (7 hits), never splits into four, then breaks off whole, in half (2 big pieces), on the 8th", ob_ok, ob_info)
+	var cl0: int = bf.cleaved
+	var drop := Vector3(bf.center.x + 60.0, 0.0, bf.center.y - 60.0)
+	drop.y = bf.top_at(drop.x, drop.z) + 30.0
+	bf._piece(drop, 6.0, "obsidian", Vector3(0, -25, 0))
+	await _wait(1.0)
+	_check("Craters: a falling obsidian chunk cleaves in half again when it lands hard", bf.cleaved == cl0 + 1, "cleaved %d" % (bf.cleaved - cl0))
+	bf.flush()
+	# 5. a real shot: the ship's bolt flies down into the ground and digs it
+	var nd1: int = bf.deltas.size()
+	var aim := Vector3(bf.center.x - 90.0, 0.0, bf.center.y + 60.0)
+	aim.y = bf.top_at(aim.x, aim.z)
+	s._spawn_bolt(aim + Vector3(0, 60, 0), Vector3(0, -600, 0), 10.0, Color(1, 0.4, 0.3), "player", 1.0)
+	await _wait(0.4)
+	var shot_ok: bool = bf.deltas.size() == nd1 + 1 and str(bf.deltas[-1][3]) == "gun"
+	_check("Craters: the ship's own shots hit the block ground (they used to fly through it) and each one is a crater note", shot_ok, "notes %d -> %d" % [nd1, bf.deltas.size()])
+	# 6. rubble stays capped and comes down to rest on the ground
+	for k in 12:
+		var q := Vector3(bf.center.x + 150.0 - k * 25.0, 0.0, bf.center.y - 150.0)
+		q.y = bf.top_at(q.x, q.z)
+		bf.blast(q, "missile")
+	await _wait(3.0)
+	var landed := 0
+	for b in bf.rubble:
+		if float(b["rest"]) >= 0.0: landed += 1
+	_check("Craters: flying rubble is capped (%d alive, at most %d) and comes down to rest on the ground (%d landed)" % [bf.rubble.size(), Data.BLOCK_RUBBLE_LIVE, landed],
+		bf.rubble.size() <= Data.BLOCK_RUBBLE_LIVE and landed * 2 > bf.rubble.size())
+	# 7. seed + deltas: a fresh patch regrown from the seed and the notes is the same ground
+	bf.flush()
+	var again := BlockField.new()
+	again.build(pid, t)
+	var same: bool = again.h == bf.h and again.lsz == bf.lsz
+	var st: Dictionary = bf.save_state()
+	_check("Craters: what is kept is the seed plus one small note per blast (%d notes); the patch regrown from them is the same ground, block for block" % bf.deltas.size(),
+		same and st.keys().size() == 3 and str(st).length() < bf.deltas.size() * 60 + 100, "same %s" % same)
+	again.free()

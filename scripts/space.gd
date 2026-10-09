@@ -2088,15 +2088,17 @@ func fire_missile(heavy := false, k := 0, n := 1, scale := 1.0, forced: Node3D =
 	var t := target if (target and is_instance_valid(target) and target.get_meta("kind", "") == "enemy") else null
 	if forced != null and is_instance_valid(forced): t = forced
 	if t == null: t = _nearest_enemy(900.0)
-	if t == null:
+	var ground_shot := t == null and surface_mode and _over_blocks()   # EXPERIMENT (v1.5t): no target over the blocks: fire straight, to dig
+	if t == null and not ground_shot:
 		message.emit("No hostile target for missile lock.")
 		return false
 	if heavy: GS.heavy_missiles -= 1
 	else: GS.missiles -= 1
-	var te := _enemy_entry(t)
+	var te := _enemy_entry(t) if t != null else {}
 	if te.has("pilot"): _chatter(te, "missile_incoming", true)
 	# v1.4m: a launch is noticed. The target and its wing turn on you.
 	for ae in enemies:
+		if t == null: break
 		if ae["node"] == t or (ae["node"] as Node3D).global_position.distance_to(t.global_position) < Data.MISSILE_ALERT: ae["aggro"] = true
 	GS.changed.emit()
 	var mi := _missile_node(heavy)
@@ -2106,7 +2108,7 @@ func fire_missile(heavy := false, k := 0, n := 1, scale := 1.0, forced: Node3D =
 	if n > 1:
 		var a := (float(k) / float(n - 1) - 0.5) * 2.0
 		fan = (player.global_basis.x * a + player.global_basis.y * (1.0 - absf(a)) * 0.5) * Data.VOLLEY_SPREAD
-	missiles_live.append({"node": mi, "vel": -player.global_basis.z * 90.0 + vel + fan, "target": t, "life": 7.0, "heavy": heavy, "scale": scale,
+	missiles_live.append({"node": mi, "vel": -player.global_basis.z * (Data.MISSILE_SPEED if ground_shot else 90.0) + vel + fan, "target": t, "life": 7.0, "heavy": heavy, "scale": scale, "shaken": ground_shot,
 		"wp": _rng.randf() * TAU, "wf": _rng.randf_range(Data.WEAVE_HZ[0], Data.WEAVE_HZ[1]), "wo": _rng.randf() * TAU, "special": _special_left > 0})
 	if _special_left > 0: _special_left -= 1
 	_trail_new(mi)
@@ -2175,6 +2177,17 @@ func _update_bolts(dt: float) -> void:
 			if _seg_hit(from, to, player.global_position, 5.0):
 				_player_hit(b["dmg"], _seg_closest(from, to, player.global_position))
 				hit = true
+		if not hit and surface_mode:   # EXPERIMENT (v1.5t): shots dig the block ground
+			var bfg := _block_field()
+			if bfg:
+				var at := bfg.ray_hit(from, to)
+				if at != Vector3.INF:
+					hit = true
+					if b["owner"] == "player":
+						var res := bfg.blast(at, "gun")
+						_spark(at, bfg.tone(str(res["mat"])) if str(res["mat"]) != "" else Color(1, 0.85, 0.6), 4.5 if int(res["broken"]) > 0 else 2.5, 0.25)
+					else:
+						_spark(at, Color(1, 0.8, 0.5), 2.0)
 		if not hit and in_belt_region(to):
 			for r in rocks:
 				if _seg_hit(from, to, r[0], r[1]):
@@ -2851,7 +2864,13 @@ func _update_missiles(dt: float) -> void:
 		m["life"] -= dt
 		_missile_trail(n)
 		var done: bool = m["life"] <= 0.0
-		if is_instance_valid(t) and n.global_position.distance_to(t.global_position) < 9.0:
+		var bfm := _block_field() if surface_mode else null
+		var dig := bfm.ray_hit(n.global_position - (v + wv2) * dt, n.global_position) if bfm else Vector3.INF
+		if dig != Vector3.INF:   # EXPERIMENT (v1.5t): a missile that meets the block ground blows a crater
+			bfm.blast(dig, "heavy" if m.get("heavy", false) else "missile")
+			_blast(dig, Data.BLAST_ENEMY if m.get("heavy", false) else Data.BLAST_WING, "ground")
+			done = true
+		elif is_instance_valid(t) and n.global_position.distance_to(t.global_position) < 9.0:
 			var e := _enemy_entry(t)
 			if not e.is_empty():
 				_damage_enemy(e, missile_damage(e, m.get("heavy", false), float(m.get("scale", 1.0))))
@@ -4244,6 +4263,11 @@ func _special_beam() -> void:
 	add_child(_beam)
 	_aim_beam(special_target.global_position)
 	Sfx.play("explosion", -2.0)
+	var bfs := _block_field() if surface_mode else null
+	var dig := bfs.ray_hit(player.global_position, special_target.global_position) if bfs else Vector3.INF
+	if dig != Vector3.INF:   # EXPERIMENT (v1.5t): a beam through the block ground blows a crater you can fly into
+		bfs.blast(dig, "special")
+		_blast(dig, Data.BLAST_DEATH, "ground")
 	var e := _enemy_entry(special_target)
 	if e.is_empty(): return
 	var dir := (special_target.global_position - player.global_position).normalized()
@@ -4302,6 +4326,14 @@ func waypoint_at(p: Vector3) -> Node3D:
 	return waypoint
 
 var corner_haze := 0.0   # 0..1 inside the wrap-corner cloud bank
+
+## EXPERIMENT: the block ground patch on this tile, if there is one.
+func _block_field() -> BlockField:
+	return tile_root.get_node_or_null("BlockField") as BlockField if is_instance_valid(tile_root) else null
+
+func _over_blocks() -> bool:
+	var bf := _block_field()
+	return bf != null and is_instance_valid(player) and bf.covers(player.global_position.x, player.global_position.z)
 
 func _ground(x: float, z: float) -> float:
 	var h := Surface.height(planet_id, tile, x, z)

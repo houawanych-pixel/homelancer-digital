@@ -23,7 +23,7 @@ gives light-red sand and dark-red obsidian, an ice world pale to dark ice), so n
 | Sand | lightest | 1 | loose: pours, slumps, runs downhill, fills the crater back in; merges with sand |
 | Dirt | light-medium | 2 | sticks: holds a rough edge; blown dirt flies and sticks where it lands; dirt on dirt merges |
 | Stone | medium | 4 | holds its shape, carves, load-bearing; sticks and merges with stone when it settles |
-| Obsidian | darkest | 8 | chips but keeps its shape; when it finally gives it sheds ONE solid chunk (no split into four); never fuses, the chunk stays a landmark |
+| Obsidian | darkest | 8 | chips but keeps its shape; when it finally gives it breaks off whole, in half (no split into four); fuses only with obsidian; the chunks stay landmarks |
 Mostly stone, a little sand, obsidian as the backbone (deep core, big supports). Heavier weapons do more per hit
 (missiles, the SPECIAL cut through faster).
 
@@ -76,6 +76,8 @@ Mostly stone, a little sand, obsidian as the backbone (deep core, big supports).
   - The kill zone: glows VERY bright and lights everything from below (the underside of the obsidian roots
     silhouetted against it, the deepest caverns). Doubles as the danger warning: the glow through the gaps as you
     near the bottom.
+- The flashlight makes whatever it hits light up MORE, on top of its own glow: sweep the beam onto diamond or obsidian
+  and it flares / gleams brighter; hit water and that whole area lights up as the light carries through the clear water.
 - Reflection / shine on top: obsidian is volcanic glass, so it's glossy; the flashlight and the glows glint off the
   roots (highlights slide as you move), and off water. The owner stressed the difference: a glow is a real light
   source (lights things even when your beam isn't on them), reflection just bounces your beam. Do both.
@@ -183,6 +185,8 @@ Older sections below may still say "rock" / "hard rock": read them as stone / ob
 - A piece has to be broken small enough to pick up before you can collect it: the same split-into-four breakdown,
   keep breaking until the chunks are pickup-size, then collect.
 - Very tough (they can hold lava).
+- They NEVER fuse (the one exception to "everything fuses with its own kind"), so a vein can be broken down small
+  enough to pick up; if they fused they'd merge back and could never be extracted.
 - Cashed in for money or upgrades (owner: yes; which one, or both, still to decide).
 - Open: how tough each one is (diamond tougher than obsidian?), how rare, what they're worth.
 
@@ -253,10 +257,25 @@ and costs nothing.
 - The blast does not just erase: about half the material flies out as rubble (tune how much flies versus vanishes).
 - Debris is a mix of sizes: big chunks at the edge of the blast, little pieces only in its centre (ten pieces flying,
   not thirty).
+- EACH MATERIAL BREAKS ITS OWN WAY (owner, call; refines the generic "into four" for the flying pieces): harder =
+  fewer, bigger pieces. You can read the material by how it comes apart.
+  | Material | Pieces | When the pieces land |
+  |---|---|---|
+  | Obsidian | 2 (breaks in half) | a hard landing cleaves it in half once more; big glassy black chunks that hold their shape (landmarks) |
+  | Stone | 3 | big chunks that come down heavy and hold their shape |
+  | Dirt | 4 | sticks: wherever it hits (wall, block, ground) it sticks and fuses on |
+  | Sand | 5 | disperses: scatters loose and settles into a pile |
+  Example (owner): blast an obsidian mountain and big whole blocks calve off like a glacier, tumble down and break in
+  half on impact, landing as black glass boulders: far more dramatic than sand or dirt crumbling.
+- The ground blocks themselves still split into four where hit (20 -> 10 -> 5 m), except obsidian, which never splits.
 
 ## Settling
+- EVERYTHING FUSES WITH ITS OWN KIND, nothing mixes (owner's corrected rule): obsidian with obsidian (that is how
+  the big strange obsidian shapes and roots grow), stone with stone (fallen pieces merge into a new rocky shape),
+  dirt with dirt (it sticks where it hits), sand with sand (it settles into its pile). The one exception: gold and
+  diamond never fuse (so they can be mined). This replaces the older "hard rock never fuses".
 - Split when hit, merge when settled: rubble that comes to rest merges with its own kind into bigger blocks, so the
-  piece count drops back down (hard rock excepted).
+  piece count drops back down.
 - Pieces can come to rest at an angle (leaning, diagonal, wedged across a gap), not snapped to a grid; two leaning
   slabs make a natural A-frame arch. A leaning slab is propped by a support: shoot that out and it falls flat, then
   settles and merges by type (dismantle a formation stage by stage). Safe gear first: a few tilt angles. Ambitious gear
@@ -277,6 +296,16 @@ and costs nothing.
 ## Saving
 Only the seed plus the changes (what broke, what opened, where rubble settled). The planet regrows from the seed and
 the changes are re-applied. A hundred craters are a hundred small notes, not a field of blocks.
+- v1.5t: each blast is one note [x, y, z, weapon]; the patch regrown from the seed plus the notes is the same ground,
+  block for block. The game has no save file yet, so for now the notes last while you play (leave and come back and
+  the craters are still there); a reload starts fresh. A real save will just keep the notes.
+
+## Generating and loading a planet (owner, call)
+- When you arrive you descend through the atmosphere and the cloud layer, and that descent hides the work: the world
+  generates from its seed behind the cloud, and you break through to a finished planet. No load screen; the descent
+  IS the loading, and it feels like flying. A bigger generation can stretch the cloud descent a little.
+- Load flow: load the seed -> regrow the planet during the descent -> re-apply your saved changes -> come out below to
+  the planet exactly as you left it, every crater and tunnel there. Tiny saves, hidden loading.
 
 ## Tile border and corners
 - Crossing a tile edge: instead of the instant Pac-Man snap, the camera eases across so there is no visible jump.
@@ -287,11 +316,16 @@ the changes are re-applied. A hundred craters are a hundred small notes, not a f
 Water and lava (flow when a wall breaks), trees (shoot the trunk, the top falls), Continue / New World on landing.
 
 ## Build order (a preview to the owner after each)
-Status: the owner asked to HOLD (more discussion first). Nothing past 1b gets built until he says go.
+Status: the owner said go for step 2 (craters), step by step. Each next step waits for his go after the preview.
 1. DONE: the big-block test terrain on New Terra's mountains (800 m patch, 20 m blocks, 5 m steps).
 1b. DONE (v1.5s, behind ?blocks): same-material ground fused into one solid surface, no cube seams.
-2. Craters: blast radius, split into four, hit counts by tier, tones by tier, half the material as rubble (chunks at
-   the edge), seed + deltas saved and re-applied.
+2. DONE (v1.5t, behind ?blocks): craters. Blast radius by weapon (light gun 2.4 m, missile 12 m, heavy 20 m, SPECIAL
+   40 m); blocks split into four only where hit, down to 5 m; hits by tier (sand 1 / dirt 2 / stone 4 / obsidian 8),
+   cracked blocks darken; tones by tier from the planet's colour; layers by depth (sand/dirt skin, dirt and stone,
+   then stone with obsidian growing deeper); rubble by material (obsidian 2 halves that cleave again on a hard
+   landing, stone 3, dirt 4, sand 5; at most 10 pieces a blast, 60 alive; landed pieces sink away after 25 s);
+   the ship's shots and missiles hit the block ground (no target over the patch: missiles fire straight, to dig);
+   seed + one note per blast, re-applied on return. Not yet: dirt sticking, sand piling, fusing of rubble (step 5).
 3. Border camera hand-off.
 4. Fog in the four corners only.
 5. Support and collapse, then cave blocks, overhangs, arches; merging and leaning rubble; stretch goals last.

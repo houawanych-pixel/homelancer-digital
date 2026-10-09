@@ -1202,3 +1202,13 @@ Owner, after the v1.5k test flow passed: "push it to all".
   colours, one MultiMesh. The smooth sheet under the patch is sunk out of sight; the ship lands on the block tops.
   Saved state = seed + deltas (none yet). Next: a hit splits a block into four smaller ones down to 5 m; then the
   border camera hand-off and fog in the four corners only.
+- v1.5s (step 1b): drawn as ONE fused surface (walls only where the ground steps), not a box per block.
+- v1.5t (step 2, craters, still only with ?blocks): the ground is 5 m cells grouped into aligned 20/10/5 m blocks.
+  A blast (`BLOCK_BLAST` by weapon: gun / missile / heavy / special) hits every block in its radius; a block only partly
+  inside splits into four, so only the hit part goes; 5 m layers break after `BLOCK_HITS` by material (sand 1, dirt 2,
+  stone 4, obsidian 8; obsidian never splits). Materials are layered by depth from the planet seed, toned from the
+  planet's ground colour (`BLOCK_TONES`). Rubble by material (`BLOCK_BREAK_PIECES` 2/3/4/5, obsidian cleaves again on
+  a hard landing), capped (`BLOCK_RUBBLE_PER_BLAST`, `BLOCK_RUBBLE_LIVE`). Shots, missiles and the special's beam dig
+  it; with no target over the patch a missile fires straight. Kept: seed + one note per blast (`GS.block_deltas`,
+  session only until the game has a save file). Only changed squares redraw (`BLOCK_CHUNK`). Full design and the
+  owner's later rules: docs/PLANET_BLOCKS.md.

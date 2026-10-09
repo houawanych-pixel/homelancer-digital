@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.5s"
+const VERSION := "v1.5t"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -236,6 +236,22 @@ const BLOCK_SKIRT := 120.0     # how deep the outer edge of the patch goes (cove
 const BLOCK_SINK := 260.0      # the smooth ground under the patch is sunk this far (out of sight below the blocks)
 const BLOCK_MARGIN := 3.0      # column tops sit this much over the highest ground sampled under them
 const BLOCK_ROCK := Color(0.32, 0.3, 0.29)   # the deep rock colour under the surface
+# Step 2 (v1.5t): craters. Every block inside a blast's radius is hit; a block only partly inside splits into four
+# (20 -> 10 -> 5 m) so only the hit part goes; obsidian never splits (it chips, then breaks off whole, in half).
+const BLOCK_HITS := {"sand": 1, "dirt": 2, "stone": 4, "obsidian": 8}   # light-gun hits to break a 5 m layer, by tier
+const BLOCK_BLAST := {"gun": [2.4, 1], "missile": [12.0, 4], "heavy": [20.0, 8], "special": [40.0, 16]}   # [radius m, hits dealt]
+const BLOCK_BREAK_PIECES := {"obsidian": 2, "stone": 3, "dirt": 4, "sand": 5}   # each material breaks its own way: harder = fewer, bigger pieces
+const BLOCK_CLEAVE_SPEED := 12.0     # an obsidian piece landing faster than this (m/s) cleaves in half once more
+const BLOCK_RUBBLE_FRAC := 0.5       # about half of what a blast breaks flies out as rubble (the rest is dust); obsidian always flies whole
+const BLOCK_RUBBLE_PER_BLAST := 10   # at most this many flying pieces per blast (big chunks at the edge, small in the middle)
+const BLOCK_RUBBLE_LIVE := 60        # pieces alive at once (the oldest go first)
+const BLOCK_RUBBLE_REST := 25.0      # seconds a landed piece lies there before it sinks away (settling/merging is a later step)
+const BLOCK_DEPTH_FLOOR := 200.0     # nothing digs deeper than this under the original ground (the kill floor comes later)
+const BLOCK_DELTAS_MAX := 4000       # crater notes kept per patch (oldest dropped)
+const BLOCK_CHUNK := 40              # the patch is drawn in squares of this many 5 m cells (only the hit squares redraw)
+# Tones from the planet's own ground colour, darker = tougher: [mix toward white (+) or black (-), keep saturation]
+const BLOCK_TONES := {"sand": [0.38, 0.8], "dirt": [-0.12, 0.9], "stone": [-0.45, 0.45], "obsidian": [-0.8, 0.35]}
+const BLOCK_DAMAGE_DARK := 0.35      # a cracked block darkens up to this much before it breaks
 # ---------------------------------------------------------------- Job AT (v1.5q): clean-up + placeholder fighters
 # The owner's placeholder fighter set (hlpshplholder_faction): one fighter per faction, tinted in its own colour, so every
 # faction's six pilots have a ship (and their voices) until the real ships come. Factions that already fly the owner's
