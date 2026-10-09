@@ -346,8 +346,9 @@ the changes are re-applied. A hundred craters are a hundred small notes, not a f
   Pride Rock style promontories (big jutting overhangs held up by what's under them: blast the support and the whole
   thing comes down; bold silhouettes you see from far off and fly toward, not just rolling hills), rock arches AND obsidian arches big enough to fly under or through (load-bearing: take a leg out
   and the span drops), deep winding CANYONS to fly down into with the layers showing in their walls.
-- Everything rolled by the seed per planet: treasure amount and place, arches, roots, bluffs, layout. Nothing
-  hand-placed; every world different.
+- Everything rolled by the seed per planet: treasure amount and place (surface or deep), arches, where roots
+  pierce, where bluffs stand, layout. Nothing hand-placed; every world a surprise (some lucky with surface gold, some
+  stingy and deep, some full of arches, some bare and jagged), so exploration never runs out.
 - Method is the builder's choice; one standard way is a heightmap (a grey picture the seed paints: dark = low,
   canyons and hollows; light = high, peaks), possibly a few layered maps (shape, treasure, roots).
 - REALISTIC HEIGHTS: believable slopes and proportions, no thin "Eiffel Tower" spikes; clamp the noise's extremes.
@@ -368,7 +369,8 @@ the changes are re-applied. A hundred craters are a hundred small notes, not a f
   shooting: the thrust counts as hits on the blocks it pushes against, with the same carving and the same tier hit
   counts. Owner refinement: no lawnmower. Sand and dirt: the mech plows straight through. Stone: it fights back,
   the mech gets a BOUNCE-BACK and takes damage, but the stone still breaks (chip, bounce, chip). Obsidian: NOT by
-  thrust (owner), guns only.
+  thrust (owner), guns only; thrusting into it just stops / bounces the mech, with NO damage ("you don't take no
+  damage though"; to confirm this is about obsidian only, not taking back the stone damage).
   Still needed: the ship's safe-bump speed (under 50).
 - Today's game rule (Data.COLLIDE_THRESHOLD) already makes contact under 8 m/s free and charges 0.9 hull per m/s
   above it. The change would be a higher free threshold near walls / while braking (somewhere under 50 m/s; the
