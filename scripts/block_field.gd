@@ -50,6 +50,7 @@ var killed := 0                # things the kill floor took (tests)
 var clamped := 0               # v1.6f spires cut down to a realistic height (tests)
 var canyon_cells: Array = []   # v1.6f the canyon floor's cells
 var roots: Array = []          # v1.6f obsidian roots piercing the surface: [{cells: [cell], tip}]
+var halls: Array = []          # v1.6h deep root halls: [{x, z, w, k0, k1, trunks: [cell], lava: int}]
 var arches: Array = []         # v1.6e generated arches: [{legs: [[cells], [cells]], span: [cells], mid: cell, mat}]
 var overhangs: Array = []      # v1.6e Pride Rock promontories: [{base: [cells], jut: [cells], tip: cell}]
 var reach_bonus := {}          # v1.6e cell -> how far (cells) its rock may hang from support (arches, promontories)
@@ -208,6 +209,7 @@ func build(pid: String, t: int) -> void:
 	_noise.frequency = 0.03
 	# 4. caves, sealed water and lava pockets, gold and diamond veins, from the seed (v1.6b-d)
 	_carve_canyon()
+	_carve_root_halls()
 	_carve_caves()
 	_build_landmarks()
 	_raise_roots()
@@ -1000,6 +1002,90 @@ func _carve_canyon() -> void:
 						mats[c] = ov
 						gold_left -= 1
 				_mark(fx, fz, 1)
+
+## The deep world (v1.6h): a few great halls right over the obsidian cap, the planet's skeleton. Dark obsidian trunks
+## stand from the floor to the roof and fork into branches between them; they hold the rock above up (the roof hangs
+## from them, never more than a few cells away); lava pools glow on the floor between the roots. Sealed and asleep
+## like everything underground until you dig down to one. In sections (not the whole planet), to stay light.
+@warning_ignore("integer_division")
+func _carve_root_halls() -> void:
+	halls.clear()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash("%s|%d|roothalls" % [planet_id, tile])
+	var w: int = Data.HALL_SIZE
+	var hl: int = Data.HALL_LAYERS
+	var sp: int = Data.HALL_TRUNK_SPACING
+	var tries := 0
+	while halls.size() < Data.HALL_COUNT and tries < 40:
+		tries += 1
+		var hx := rng.randi_range(4, n - w - 4)
+		var hz := rng.randi_range(4, n - w - 4)
+		var clash := false
+		for h2 in halls:
+			if absi(int(h2["x"]) - hx) < w + 4 and absi(int(h2["z"]) - hz) < w + 4: clash = true
+		if clash: continue
+		var cap_l := int(Data.KILL_CAP / Data.BLOCK_MIN)
+		var deep_ok := true   # the floor follows the top of the cap under each cell; at least 30 m of rock over it
+		for jz in w:
+			for jx in w:
+				var cc := (hz + jz) * n + hx + jx
+				if _ktop(cc) < _kfloor(cc) + cap_l + hl + 6 or holes.has(cc): deep_ok = false
+		if not deep_ok: continue
+		# trunks on a jittered grid, 1-2 cells thick
+		var trunk := {}
+		for gz in range(0, w, sp):
+			for gx in range(0, w, sp):
+				var tx := clampi(gx + rng.randi_range(0, sp - 2), 0, w - 1)
+				var tz := clampi(gz + rng.randi_range(0, sp - 2), 0, w - 1)
+				trunk[Vector2i(tx, tz)] = true
+				if rng.randf() < 0.5: trunk[Vector2i(mini(tx + 1, w - 1), tz)] = true
+		var branch := {}   # layer -> cells: a branch joins neighbouring trunks at some height
+		var tlist: Array = trunk.keys()
+		for a in tlist:
+			for b in tlist:
+				var va: Vector2i = a
+				var vb: Vector2i = b
+				if va == vb or (va - vb).length() > sp * 1.6 or rng.randf() > 0.35: continue
+				var k := rng.randi_range(2, hl - 2)   # (in layers over the hall floor)
+				var steps := maxi(absi(vb.x - va.x), absi(vb.y - va.y))
+				for q in steps + 1:
+					var c2 := Vector2i(int(round(lerpf(va.x, vb.x, float(q) / maxf(steps, 1)))), int(round(lerpf(va.y, vb.y, float(q) / maxf(steps, 1)))))
+					var kk := k + int(round(float(q) / maxf(steps, 1) * rng.randi_range(-2, 2)))   # branches slant
+					branch[Vector3i(c2.x, c2.y, clampi(kk, 1, hl - 1))] = true
+		var lava := 0
+		var trunks: Array = []
+		var k0s := {}
+		for jz in w:
+			for jx in w:
+				var c := (hz + jz) * n + hx + jx
+				_split_one(c)
+				var ov: Dictionary = mats.get(c, {})
+				var is_trunk: bool = trunk.has(Vector2i(jx, jz))
+				if is_trunk: trunks.append(c)
+				var k0 := _kfloor(c) + cap_l
+				k0s[c] = k0
+				for k in range(k0, k0 + hl):
+					if is_trunk or branch.has(Vector3i(jx, jz, k - k0)):
+						ov[k] = "obsidian"
+					else:
+						_cell_remove(c, k)
+				ov[k0 - 1] = "obsidian"
+				mats[c] = ov
+				reach_bonus[c] = maxi(int(reach_bonus.get(c, 0)), sp)   # the roof hangs from the trunks
+				_mark(jx + hx, jz + hz, 1)
+		for c in k0s:   # lava pools on the floor between the roots, only in the low spots (so they lie still)
+			if trunk.has(Vector2i(int(c) % n - hx, int(c) / n - hz)) or rng.randf() >= Data.HALL_LAVA: continue
+			var low := true
+			for d in [1, -1, n, -n]:
+				if k0s.has(int(c) + d) and int(k0s[int(c) + d]) < int(k0s[c]): low = false
+			if not low: continue
+			var fd: Dictionary = fluid.get(c, {})
+			fd[int(k0s[c])] = "lava"
+			fluid[c] = fd
+			lava += 1
+		_settle(hx - 2, hx + w + 2, hz - 2, hz + w + 2)
+		halls.append({"x": hx, "z": hz, "w": w, "k0s": k0s, "layers": hl, "trunks": trunks, "lava": lava})
+	collapses = 0
 
 ## Obsidian roots piercing the surface (v1.6f): small crowns of black glass standing out of the ground (joined, so the
 ## skin points them into shards), each with its root running straight down into the deep rock: they show where the

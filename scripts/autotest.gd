@@ -6357,6 +6357,34 @@ func _craters(s, bf: BlockField, pid: String, t: int) -> void:
 		bf.flush()
 	_check("Craters: world generation 2: %d arches you can fly under and %d Pride Rock slabs over open air stand on their own; blast one leg out and what hung from it comes down, the far end stays up" % [bf.arches.size(), bf.overhangs.size()],
 		bf.arches.size() >= 2 and bf.overhangs.size() >= 1 and flyable and jutting and stand and drop_ok, "flyable %s jutting %s stand %s %s" % [flyable, jutting, stand, drop_info])
+	# 18. the deep world (v1.6h): root halls over the obsidian cap, obsidian trunks and branches holding the rock up,
+	#     lava glowing between them, standing on their own, sealed under a roof
+	var halls_ok: bool = bf.halls.size() >= 2
+	var hinfo := []
+	for hh in bf.halls:
+		var air := 0
+		var tot := 0
+		var sealed_roof := true
+		for jz in int(hh["w"]):
+			for jx in int(hh["w"]):
+				var c: int = (int(hh["z"]) + jz) * bf.n + int(hh["x"]) + jx
+				var hfl: int = hh["k0s"][c]
+				var hrf: int = hfl + int(hh["layers"])
+				for k in range(hfl, hrf):
+					tot += 1
+					if not bf._solid_k(c, k): air += 1
+				if not bf._solid_k(c, hrf) and not bf._solid_k(c, hrf + 1): sealed_roof = false
+		var tr_ok := true
+		for c in hh["trunks"]:
+			for k in range(int(hh["k0s"][c]), int(hh["k0s"][c]) + int(hh["layers"])):
+				if not bf._solid_k(c, k) or bf.mat_at(int(c) % bf.n, int(c) / bf.n, bf._ly(k)) != "obsidian": tr_ok = false
+		hinfo.append("air %d%% trunks %d ok %s lava %d roof %s" % [100 * air / maxi(tot, 1), (hh["trunks"] as Array).size(), tr_ok, int(hh["lava"]), sealed_roof])
+		if air * 2 < tot or not tr_ok or (hh["trunks"] as Array).is_empty() or not sealed_roof: halls_ok = false
+	var cb2: int = bf.collapses
+	bf._settle(0, bf.n - 1, 0, bf.n - 1)
+	var halls_stand: bool = bf.collapses == cb2
+	_check("Craters: the deep world: %d root halls over the obsidian cap, obsidian trunks and branches holding the rock up, lava glowing between them; sealed under their roof and standing on their own" % bf.halls.size(),
+		halls_ok and halls_stand, "%s stand %s" % [str(hinfo), halls_stand])
 	_check("Craters: shots dig INTO walls: a stone overhang over the tunnel holds; a sand one caves in; a pillar shot through its middle comes down (support and collapse)",
 		over["stone"]["tunnel"] and over["stone"]["overhangs"] > 0 and over["stone"]["fell"] == 0 and over["sand"]["fell"] > 0 and over["sand"]["overhangs"] == 0
 		and pillar["fell"] > 0 and not pillar["holes"] and pillar["h"] < 40.0, "overhang %s pillar %s" % [str(over), str(pillar)])

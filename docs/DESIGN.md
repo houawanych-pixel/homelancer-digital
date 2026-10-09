@@ -1246,3 +1246,4 @@ Owner, after the v1.5k test flow passed: "push it to all".
   left it, so the job's enemies got no red brackets, no aim box and no missile lock. Now a waypoint, GPS stop or
   mission marker hands the target over to the nearest hostile when one is near (a station or planet you picked
   yourself does too once hostiles turn on you). Bounty targets from the old bounty board are always hostile too.
+- v1.6h (?blocks only): the deep world: seeded root halls over the obsidian cap (`_carve_root_halls`, `HALL_*`).

@@ -510,6 +510,12 @@ Status: the owner said go for step 2 (craters), step by step. Each next step wai
    shards, each with its root running 80 m down into the rock.
    Still to come in generation: the interlocking slanted shapes (big leaning slabs, wedges), the deep obsidian root
    structure at the bottom, canyons on every world, and it all becoming the whole planet (step 9).
+2k. DONE (v1.6h, behind ?blocks): the deep world, first version. 3 great root halls (`HALL_*`: 120 m across, 50 m
+   tall) right on top of the obsidian cap, their floor following the cap: obsidian trunks every ~25 m stand from floor
+   to roof and fork into slanting branches between them; the rock above hangs from the trunks; lava pools glow in the
+   low spots of the floor (they lie still). Sealed and asleep under 30 m+ of rock until you dig down. In sections,
+   not the whole planet, to stay light on a phone.
+   Still to come: the interlocking slanted shapes over the whole ground; sand and dirt settled in the root crooks.
 3. DONE (already from earlier work): the ground blends across tile edges and the next area is built before you reach
    it, so crossing has no jump.
 4. DONE (already): no seam lines at ordinary corners (the ground blends); the planet's wrap corner sits in a cloud bank.

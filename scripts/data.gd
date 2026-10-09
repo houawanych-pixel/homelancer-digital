@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.6g"
+const VERSION := "v1.6h"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -317,6 +317,13 @@ const CANYON_WIDTH := 3.0            # cells (half-width; 15 m)
 const ROOT_COUNT := 6
 const ROOT_RISE := [12.0, 35.0]      # m the shards stand out of the ground
 const ROOT_DEPTH := 80.0             # m the obsidian root runs down under them
+# v1.6h the deep world: great halls right over the obsidian cap, with obsidian trunks and branches holding the rock up
+# and lava pools glowing between them. In sections, sealed.
+const HALL_COUNT := 3
+const HALL_SIZE := 24               # cells across (120 m)
+const HALL_LAYERS := 10             # layers tall (50 m)
+const HALL_TRUNK_SPACING := 5       # cells between trunks
+const HALL_LAVA := 0.04             # share of the floor that is a lava pool
 # v1.5v (owner): the mech digs by thrusting its body into a wall, by the same break rules as a shot. Sand and dirt it
 # plows straight through; stone breaks but shoves it back each push (chip, bounce, chip); obsidian won't break, it just
 # bounces the mech off. Never any damage to the mech.
