@@ -115,6 +115,10 @@ and costs nothing.
 
 ## Whole planet, later
 - The end goal: the whole planet is blocks and the smooth terrain is retired.
+- Owner decision: GO ALL BLOCKS. The blocks become the one and only ground system on the whole planet; the old smooth
+  terrain is NOT kept as a layer underneath. "Smooth" survives only as the cheap far-distance look of these same
+  blocks. Order: get the look approved on the test patch first, then roll out planet-wide and remove the old
+  smooth-terrain system (a bigger job, after approval).
 - Possible cheap version: smooth look in the distance, turning into blocks up close.
 - How they fit (detail on demand): the blocks ARE the ground, not cubes sitting on top of the smooth sheet. Wherever
   blocks are active, the smooth sheet is hidden underneath.
@@ -130,6 +134,11 @@ and costs nothing.
 - Its look (optional): a raging, rippling, sun-like lava surface over the kill layer, a cheap shader (like the Star Fox
   sun stage). It is only a look; it isn't a lava fluid.
 - A real lava core underneath is for later, not now.
+- The lava core idea (relayed later): the very bottom layer is molten lava. Digging down goes sand, dirt, stone,
+  obsidian, then breaks into lava at the base, which floods up glowing and burning; the deeper you dig, the more
+  dangerous. Water pockets near the base crust into obsidian (lava + water). NOTE: on the call the owner also said
+  "we can put that later, we don't need a lava layer underneath", so for now the bottom stays the destroy boundary
+  (with the lava LOOK); the real lava core is the later version. Confirm with the owner before building either.
 
 ## Flowing materials (earlier notes, kept)
 - Sand piles into a cone at its own slope angle; past that it slumps; the pile merges up into bigger blocks as it grows.
