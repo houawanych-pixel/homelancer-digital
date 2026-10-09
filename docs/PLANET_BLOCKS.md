@@ -39,6 +39,34 @@ Mostly stone, a little sand, obsidian as the backbone (deep core, big supports).
 - Harder to generate than a grid. Order: AFTER the fused-blocks look is approved and craters work. The current
   step-1 fused-blocks terrain stays as it is for now.
 
+## The deep world: an obsidian root structure (long-term vision)
+- The kill boundary is CAPPED by obsidian so the planet doesn't drain into it (without the cap everything would just
+  fall down). The kill boundary only catches what gets blasted all the way through.
+- The cap is not a plain flat floor: the deep obsidian is a branching TREE-ROOT / skeleton structure, dark glassy
+  roots forking and twisting up from the base and holding the planet up. Between them: self-carved caves, loose sand
+  and dirt settled into the crooks and low pockets, lava glowing between the branches, gold and diamond in the forks.
+- Nobody hand-places it: the world carves it from the simple material rules (sand pours and settles, dirt clumps,
+  the unsupported collapses, obsidian holds its strange shapes), so every dig is different. The bottom of the world
+  becomes a sight worth digging to, not a boring boundary.
+- The branches must CATCH AND HOLD: thick and frequent enough that loose material bridges the forks, wedges between
+  branches and fills the crooks, instead of falling straight through the gaps and hollowing the planet. Balance: airy
+  enough to read as roots, solid enough to carry the load.
+
+## Radius of exposure: the firm anti-crash cap (the most important performance rule)
+- However huge or carved-out the exposed world is, ONLY what's within a set radius of the player is ever active
+  (falling, flowing, settling, cascading, calculating). Everything outside it stays frozen as still shapes, even if
+  it's wide open, and costs almost nothing.
+- The radius moves with the player. Pushing forward exposes new structure ahead and sets off chain reactions just in
+  front of you (sand pouring, dirt sliding, branches shedding, lava seeping); behind you, what you passed settles and
+  freezes again. Chaos ahead, stillness behind: dramatic where you are, cheap everywhere else.
+- The radius is the dial: tune it to what a phone handles comfortably.
+- Together with: freeze-on-settle, a hard cap on how many pieces are active at once, and kill-floor clean-up, so
+  counts never pile up and the full vision can't crash the game.
+- Open (owner, call): "we want to pull that first, then put the kill zone in", i.e. remove the old ground first.
+  Not settled whether that means a separate stripped-down test world (kill floor plus blocks, live game untouched)
+  or the live planet. Current written order stays: the old ground keeps working until the blocks are ready to replace
+  it. Confirm before doing either.
+
 ## Obsidian gradient by depth
 - Obsidian gets MORE common the deeper you go and concentrates in the bottom layers, nearest the heat (the heat is
   what forms and hardens it).
