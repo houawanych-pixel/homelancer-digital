@@ -336,7 +336,8 @@ the changes are re-applied. A hundred craters are a hundred small notes, not a f
   more shards and facets top and bottom (a small pair keeps a flat footing, a big mass becomes a faceted crystal
   monument).
 - A diamond deposit can look like one grand glowing shard cluster, but it still breaks into separate pickup pieces when
-  mined and never re-fuses.
+  mined and never re-fuses. Since diamond doesn't fuse, its "one shape" is the deposit / vein the generation places;
+  the big adjustable hypernerve sculpts that into a grand cluster of bright glowing shards.
 - Example the owner likes (rare, rolled by the seed): a blunt sand mound with a single diamond resting on top, tilted,
   glinting from far off; or a dark obsidian piece crowning a pale mound.
 
@@ -386,7 +387,8 @@ the changes are re-applied. A hundred craters are a hundred small notes, not a f
 ## Missiles: regular vs super (owner, call)
 - Two missiles: the regular one and the super (heavy) one. The super has a BIGGER explosion, a bigger crater and a
   bigger hitbox, in space dogfights too, not only on the ground. On the block ground it already digs bigger (heavy
-  20 m vs missile 12 m blast radius); a bigger blast and hitbox in space is noted, not built (owner to confirm).
+  20 m vs missile 12 m blast radius). Owner CONFIRMED the space side too (bigger explosion and hitbox in dogfights);
+  not built yet, it is the next job when he says go.
 
 ## Arches (generation step, later)
 - Natural arches: big chunky spans curving over open space on a leg at each end (Arches National Park style).
