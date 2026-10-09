@@ -180,7 +180,8 @@ Older sections below may still say "rock" / "hard rock": read them as stone / ob
   can't hold lava). Sand that ends up next to active, exposed lava just gets eaten.
 
 ## Mining: gold and diamond (notes only)
-- Two valuables, separate from the ground tiers: gold and diamond. Rare, deep, often near the lava.
+- Two valuables, separate from the ground tiers: gold and diamond. Rare; deep (often near the lava) OR right out in
+  the open surface landscape, depending on the planet (see below).
 - Both can hold lava, like obsidian (they can be the walls of a lava pocket).
 - You blow them up to get them: your weapons are the mining tools. Blast them loose, collect the pieces.
 - You only get about half: the blast destroys the rest. Careful mining (light gun) keeps more, a big weapon loses more,
@@ -366,7 +367,8 @@ the changes are re-applied. A hundred craters are a hundred small notes, not a f
   muscles through where the ship has to finesse. Owner: YES, thrusting into rock and dirt breaks it, just like
   shooting: the thrust counts as hits on the blocks it pushes against, with the same carving and the same tier hit
   counts. Owner refinement: no lawnmower. Sand and dirt: the mech plows straight through. Stone: it fights back,
-  the mech gets a BOUNCE-BACK and takes damage (chip, bounce, chip). Obsidian: likely guns only (to confirm).
+  the mech gets a BOUNCE-BACK and takes damage, but the stone still breaks (chip, bounce, chip). Obsidian: NOT by
+  thrust (owner), guns only.
   Still needed: the ship's safe-bump speed (under 50).
 - Today's game rule (Data.COLLIDE_THRESHOLD) already makes contact under 8 m/s free and charges 0.9 hull per m/s
   above it. The change would be a higher free threshold near walls / while braking (somewhere under 50 m/s; the
