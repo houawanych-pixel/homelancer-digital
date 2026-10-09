@@ -96,6 +96,11 @@ Older sections below may still say "rock" / "hard rock": read them as stone / ob
   convert dirt, burns nothing. It is one still shape plus a "lava here" label: a tiny bit of memory, no processing.
   Flowing, eating, trading, converting and burning switch ON only when the player breaks into the pocket and it is
   exposed. So the map never quietly eats itself in the dark, and thousands of buried pockets stay cheap.
+- EXPOSURE SPREADS (a cascade): activation starts at the spot where the player breaks in or opens a cave or hole.
+  From there it rolls outward: the exposed lava wakes, flows and eats; as it eats into new space it exposes more lava
+  and pockets, which wake in turn, and so on. Only the active, exposed front does any work; everything still sealed
+  beyond it stays frozen and cheap until the flow actually reaches and opens it. One breach can set off an unfolding
+  chain, but nothing wakes ahead in the sealed dark.
 - Pockets are placed only inside solid sealing materials: obsidian, stone, diamond, gold. Never in sand (loose sand
   can't hold lava). Sand that ends up next to active, exposed lava just gets eaten.
 
