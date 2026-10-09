@@ -67,6 +67,23 @@ Mostly stone, a little sand, obsidian as the backbone (deep core, big supports).
   or the live planet. Current written order stays: the old ground keeps working until the blocks are ready to replace
   it. Confirm before doing either.
 
+## Underground lighting (long-term vision): you're never just travelling in the dark
+- Ship flashlight / headlamp: casts ahead as you dig and fills the plain dark gaps. Just ONE light among many.
+- Real light sources that light their surroundings on their own (not only reflecting your beam):
+  - Lava: warm glow, lights everything near it.
+  - Diamond: bright, cold, sparkling glow that lights its pocket of the cave.
+  - Gold: warm, rich gleam that lights the nearby rock. (Warm gold vs cold diamond, so they read differently.)
+  - The kill zone: glows VERY bright and lights everything from below (the underside of the obsidian roots
+    silhouetted against it, the deepest caverns). Doubles as the danger warning: the glow through the gaps as you
+    near the bottom.
+- Reflection / shine on top: obsidian is volcanic glass, so it's glossy; the flashlight and the glows glint off the
+  roots (highlights slide as you move), and off water. The owner stressed the difference: a glow is a real light
+  source (lights things even when your beam isn't on them), reflection just bounces your beam. Do both.
+- Feel: a living, glittering underworld; treasure announces itself by its own light (the sparkle doubles as a "dig
+  here" cue); danger glows from below. Beyond the radius bubble it's black.
+- Keep it cheap on phone and web: fake most of these as emissive glows (and cheap glossy highlights), only a few real
+  dynamic lights. Same look.
+
 ## Obsidian gradient by depth
 - Obsidian gets MORE common the deeper you go and concentrates in the bottom layers, nearest the heat (the heat is
   what forms and hardens it).
