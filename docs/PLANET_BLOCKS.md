@@ -17,14 +17,14 @@ An interesting noise surface on top, huge solid blocks underneath, fine detail o
 ## Materials (properties), shown by TONE
 Every planet keeps its own palette; toughness reads by how dark the block is, same rule everywhere ("darker =
 stronger"). The tones are made from the planet's own base colour (light / medium / dark versions of it: a red world
-gives light-red sand and dark-red hard rock, an ice world pale to dark ice), so no planet needs its own setup.
+gives light-red sand and dark-red obsidian, an ice world pale to dark ice), so no planet needs its own setup.
 | Tier | Tone | Hits (light gun) | Behaviour |
 |---|---|---|---|
 | Sand | lightest | 1 | loose: pours, slumps, runs downhill, fills the crater back in; merges with sand |
 | Dirt | light-medium | 2 | sticks: holds a rough edge; blown dirt flies and sticks where it lands; dirt on dirt merges |
-| Rock | medium | 4 | holds its shape, carves, load-bearing; sticks and merges with rock when it settles |
-| Hard rock | darkest | 8 | chips but keeps its shape; when it finally gives it sheds ONE solid chunk (no split into four); never fuses, the chunk stays a landmark |
-Mostly rock, a little sand, hard rock as the backbone (deep core, big supports). Heavier weapons do more per hit
+| Stone | medium | 4 | holds its shape, carves, load-bearing; sticks and merges with stone when it settles |
+| Obsidian | darkest | 8 | chips but keeps its shape; when it finally gives it sheds ONE solid chunk (no split into four); never fuses, the chunk stays a landmark |
+Mostly stone, a little sand, obsidian as the backbone (deep core, big supports). Heavier weapons do more per hit
 (missiles, the SPECIAL cut through faster).
 
 ## Underground (layered by depth, always separate breakable blocks)
@@ -36,9 +36,9 @@ Mostly rock, a little sand, hard rock as the backbone (deep core, big supports).
   cling, and (later) water pockets that flood when breached.
 
 ## Names (owner, voice call): sand, dirt, STONE, OBSIDIAN
-The four solid tiers are now called sand, dirt, stone (was "rock") and obsidian (was "hard rock"). The table above
-keeps the old words until the code uses the new ones; same tiers, same hit counts, same rules. Lava + water makes
-obsidian (below).
+The four solid tiers are now called sand, dirt, stone (was "rock") and obsidian (was "hard rock"). Same tiers, same
+1 / 2 / 4 / 8 hit counts, same rule: four tones of each planet's own colour, lightest sand to darkest obsidian.
+Older sections below may still say "rock" / "hard rock": read them as stone / obsidian. Lava + water makes obsidian.
 
 ## Two layers: solid blocks underneath, smoothed skin on top (notes only, not built)
 - Underneath: square blocks, always solid. They hold the data: material, toughness, hits taken, neighbours, support.
@@ -77,9 +77,15 @@ obsidian (below).
   supported pocket.
 
 ## Lava (notes only)
-- Same flow as water, but slower; glows; burns (hurts the ship / mech).
-- Eats sand for free; trades one-for-one with dirt (both lose a piece); stopped by stone.
-- Lava + water = obsidian.
+- Same rules as water (flow, fill flush, grow, spill pocket to pocket, settle until supported, fuse into one shape),
+  but slower; glows (gives off its own light); burns / damages anything that touches it.
+- Eats sand for free: the sand vanishes, the lava loses nothing. Sand is no barrier.
+- Eats dirt as a trade, one for one: the dirt goes, and so does a piece of the lava. Enough dirt slows a flow and can
+  stop it (a partial barrier).
+- Stone stops lava: it holds it off, and shapes and channels the flow.
+- Lava + water: where they meet, both are used up at the boundary and turn into obsidian. Pour water on lava and it
+  walls itself off in obsidian; lava reaching an underground water pocket plugs itself solid. This is where obsidian
+  comes from.
 - Look: slightly transparent, red and orange. The transparency is what says "fluid"; every solid is opaque.
 - Maybe (open): lava doing its own conversion to what it touches (baking, melting).
 - Lava pockets (the Minecraft "uh oh" moment): lava sits sealed deep down, held in by obsidian (obsidian can hold
@@ -90,6 +96,9 @@ obsidian (below).
 - Two valuables, separate from the ground tiers: gold and diamond. Rare, deep, often near the lava.
 - Both can hold lava, like obsidian (they can be the walls of a lava pocket).
 - You blow them up to get them: your weapons are the mining tools. Blast them loose, collect the pieces.
+- You only get about half: the blast destroys the rest. Careful mining (light gun) keeps more, a big weapon loses more,
+  so precision pays.
+- A piece has to be broken small enough to pick up before you can collect it.
 - Cashed in for money or upgrades (owner: yes; which one, or both, still to decide).
 - Open: how tough each one is (diamond tougher than obsidian?), how rare, what they're worth.
 
