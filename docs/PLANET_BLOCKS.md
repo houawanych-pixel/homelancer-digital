@@ -338,8 +338,10 @@ the changes are re-applied. A hundred craters are a hundred small notes, not a f
   glinting from far off; or a dark obsidian piece crowning a pale mound.
 
 ## World generation wish list (owner, call; the ambitious later step)
-- From arrival the world should look amazing: big interlocking slanted shapes (above), obsidian roots and shards
-  PIERCING up out of the ground as landmarks (they show where the deep root structure runs and where to dig),
+- From arrival the world should look amazing: big interlocking slanted shapes (above; plain square blocks still
+  tracked underneath for material, support and destruction, this is the generated outer form), obsidian roots and
+  shards PIERCING up out of the ground ("the planet's bones piercing its skin"), visible from the air as you
+  descend; they connect down to the deep roots, so they tell you where the root system, lava and treasure are,
   Pride Rock style promontories (big jutting overhangs held up by what's under them: blast the support and the whole
   thing comes down), rock arches AND obsidian arches big enough to fly under or through (load-bearing: take a leg out
   and the span drops), deep winding CANYONS to fly down into with the layers showing in their walls.
@@ -361,7 +363,9 @@ the changes are re-applied. A hundred craters are a hundred small notes, not a f
   braking) a wall bump does NO damage; only when you pass cruise speed does a crash hurt. Ship and mech both, and
   the mech gets a higher safe speed than the ship. Lava and enemy fire stay as dangerous as ever.
 - The mech can thrust full force against a wall ("boom") and take no damage: it's the underground workhorse that
-  muscles through where the ship has to finesse. Open: should the mech's wall-grind also break soft blocks?
+  muscles through where the ship has to finesse. Owner: YES, thrusting into rock and dirt breaks it, just like
+  shooting (muscle-digging, no guns needed). Suggested, to confirm: sand and dirt give quickly, stone slowly,
+  obsidian too tough to shoulder through (needs firepower). Still needed: the ship's safe-bump speed (under 50).
 - Today's game rule (Data.COLLIDE_THRESHOLD) already makes contact under 8 m/s free and charges 0.9 hull per m/s
   above it. The change would be a higher free threshold near walls / while braking (somewhere under 50 m/s; the
   number to be tuned with the owner), maybe a higher one for the mech.
