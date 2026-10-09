@@ -15,7 +15,9 @@ An interesting noise surface on top, huge solid blocks underneath, fine detail o
 - The surface follows the planet's own noise shape, in 5 m steps (DONE, step 1).
 
 ## Materials (properties), shown by TONE
-Every planet keeps its own palette; toughness reads by how dark the block is, same rule everywhere.
+Every planet keeps its own palette; toughness reads by how dark the block is, same rule everywhere ("darker =
+stronger"). The tones are made from the planet's own base colour (light / medium / dark versions of it: a red world
+gives light-red sand and dark-red hard rock, an ice world pale to dark ice), so no planet needs its own setup.
 | Tier | Tone | Hits (light gun) | Behaviour |
 |---|---|---|---|
 | Sand | lightest | 1 | loose: pours, slumps, runs downhill, fills the crater back in; merges with sand |
