@@ -115,17 +115,17 @@ Older sections below may still say "rock" / "hard rock": read them as stone / ob
   "hypernerve") runs over the OUTER SKIN only, and only when the shape changes (a hit, a collapse, a settle), never
   every frame. It changes the look only; collision and the block data stay square.
 - Per material:
-  - Sand: the triangle / pyramid look (next section).
+  - Sand: a soft mound with a blunt top (next section).
   - Dirt and stone: only a light rounding of the skin's edges and corners.
   - Obsidian: sharp crystal shards, earned by fusing with other obsidian (see "Shapes on the skin"); a lone piece stays a block.
 
-## Sand: the pyramid rule
+## Sand: the mound rule
 - (refined) The "pyramid" is a soft mound with a BLUNT top, not a sharp point. It only forms while the sand's top is
   open: the moment something lands on it (dirt, a diamond...), the sand under the load squares back to a flat block
   and the thing rests on that flat top.
-- A lone sand block on open ground reads as a pyramid / cone, not a cube.
+- A lone sand block on open ground reads as a soft, blunt-topped mound, not a cube (never a sharp point).
 - Falling sand forms that slope as it lands (it piles, it doesn't stack).
-- Poured into a corner it banks against the walls as a half-pyramid.
+- Poured into a corner it banks against the walls as a half-mound.
 - Filling an enclosed empty square it fills solid and flush to the top.
 - It is NOT water: it doesn't run flat or spill pocket to pocket.
 - Sand touching sand fuses into one solid mass, even in an odd Tetris shape.
@@ -331,10 +331,11 @@ the changes are re-applied. A hundred craters are a hundred small notes, not a f
   - side by side flat on the floor: the points jut out sideways, along the ground;
   - stacked upright: the top becomes the point;
   - tilted: the highest end becomes the point;
-  - always flat where it meets the ground. Shards follow the footprint and point up or diagonal, never down.
+  - always rooted where it meets the ground. Shards follow the footprint and point up or diagonal, never down (a
+    wide low pair points sideways along the ground, per the owner's two-block rule).
 - Only the exposed tip points; the body behind stays solid mass. The bigger the fused mass, the more shape it earns:
   more shards and facets top and bottom (a small pair keeps a flat footing, a big mass becomes a faceted crystal
-  monument).
+  monument; its base is faceted with angled planes too, not one dead-flat slab, just rooted enough to sit).
 - A diamond deposit can look like one grand glowing shard cluster, but it still breaks into separate pickup pieces when
   mined and never re-fuses. Since diamond doesn't fuse, its "one shape" is the deposit / vein the generation places;
   the big adjustable hypernerve sculpts that into a grand cluster of bright glowing shards.
