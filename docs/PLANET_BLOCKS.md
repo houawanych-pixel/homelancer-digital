@@ -102,6 +102,13 @@ Older sections below may still say "rock" / "hard rock": read them as stone / ob
 - Cashed in for money or upgrades (owner: yes; which one, or both, still to decide).
 - Open: how tough each one is (diamond tougher than obsidian?), how rare, what they're worth.
 
+## Transparency = fluid
+- Rule of thumb: see-through means it flows.
+- Water: clearly transparent, tinted its own colour (blue), so you see the ground, rocks and pockets under a pool.
+- Lava: only a little transparency, glowing red-orange, so it looks molten and alive, not solid.
+- Sand, dirt, stone, obsidian: opaque.
+- Kept cheap and colour-only: a simple translucent material, no heavy textures.
+
 ## Fluids stay cheap
 Water, lava and sand only flow when disturbed AND near the player. Otherwise each one sits as one still, fused shape
 and costs nothing.
