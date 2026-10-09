@@ -49,8 +49,10 @@ Mostly rock, a little sand, hard rock as the backbone (deep core, big supports).
 ## Settling
 - Split when hit, merge when settled: rubble that comes to rest merges with its own kind into bigger blocks, so the
   piece count drops back down (hard rock excepted).
-- Pieces can come to rest at an angle (leaning, diagonal), not snapped to a grid. Safe version first: a few tilt
-  angles. A leaning slab whose prop is shot out falls flat.
+- Pieces can come to rest at an angle (leaning, diagonal, wedged across a gap), not snapped to a grid; two leaning
+  slabs make a natural A-frame arch. A leaning slab is propped by a support: shoot that out and it falls flat, then
+  settles and merges by type (dismantle a formation stage by stage). Safe gear first: a few tilt angles. Ambitious gear
+  later: free-angle leaning and wedging anywhere (risky on a phone, same group as the rubble-holds-shape goal).
 - Stretch goal (the risky part, tried last, after craters, collapse and merging work): rubble that catches and sticks
   against the side of a neighbouring block and stacks, so debris can grow ledges, bridges and arches and the ground keeps
   dramatic shapes instead of melting into a flat pile. Hardest to keep cheap on a phone. Safe version first: sticky
