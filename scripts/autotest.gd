@@ -5729,7 +5729,25 @@ func _craters(s, bf: BlockField, pid: String, t: int) -> void:
 		if float(b["rest"]) >= 0.0: landed += 1
 	_check("Craters: flying rubble is capped (%d alive, at most %d) and comes down to rest on the ground (%d landed)" % [bf.rubble.size(), Data.BLOCK_RUBBLE_LIVE, landed],
 		bf.rubble.size() <= Data.BLOCK_RUBBLE_LIVE and landed * 2 > bf.rubble.size())
-	# 7. seed + deltas: a fresh patch regrown from the seed and the notes is the same ground
+	# 7. bumping the block ground (v1.5u): free up to cruising speed and while braking, the mech never hurt
+	var pp: Vector3 = s.player.global_position
+	s.player.global_position = Vector3(bf.center.x, bf.top_at(bf.center.x, bf.center.y) + 20.0, bf.center.y)
+	var form0: String = GS.form
+	var hits := []
+	for c in [["ship", false, Data.BLOCK_SAFE_BUMP - 5.0], ["ship", false, 50.0], ["ship", true, 50.0], ["mech", false, 80.0]]:
+		GS.form = c[0]
+		s.braking = c[1]
+		s.collide_grace = 0.0
+		s.last_collision = {}
+		s.collision_damage("ground", float(c[2]))
+		hits.append(float(s.last_collision.get("dmg", 0.0)))
+	GS.form = form0
+	s.braking = false
+	s.collide_grace = 0.0
+	s.player.global_position = pp
+	_check("Craters: over the block ground a wall bump is free up to cruising speed (%d m/s) and while braking; at 50 m/s the ship is hurt; the mech is never hurt by the ground" % int(Data.BLOCK_SAFE_BUMP),
+		hits[0] == 0.0 and hits[1] > 0.0 and hits[2] == 0.0 and hits[3] == 0.0, str(hits))
+	# 8. seed + deltas: a fresh patch regrown from the seed and the notes is the same ground
 	bf.flush()
 	var again := BlockField.new()
 	again.build(pid, t)

@@ -3149,6 +3149,9 @@ const COLLIDE_MSG := {"asteroid": "Collision alert: asteroid impact.", "ground":
 ## Below the threshold, or inside the grace window, nothing happens. Otherwise hull damage scaled by speed, hit
 ## feedback scaled by how hard, and the normal destruction flow at zero hull. Returns the hull taken.
 func collision_damage(kind: String, impact: float, at := Vector3.INF) -> float:
+	if kind == "ground" and surface_mode and _over_blocks():   # EXPERIMENT (v1.5u): bumping the block ground
+		if GS.form == "mech" or braking or impact <= Data.BLOCK_SAFE_BUMP: return 0.0
+		impact -= Data.BLOCK_SAFE_BUMP - Data.COLLIDE_THRESHOLD   # only the speed past cruise counts
 	if impact <= Data.COLLIDE_THRESHOLD or not controls or collide_grace > 0.0: return 0.0
 	var dmg := (impact - Data.COLLIDE_THRESHOLD) * Data.COLLIDE_MULT
 	collide_grace = Data.COLLIDE_GRACE

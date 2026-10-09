@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.5t"
+const VERSION := "v1.5u"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -252,6 +252,10 @@ const BLOCK_CHUNK := 40              # the patch is drawn in squares of this man
 # Tones from the planet's own ground colour, darker = tougher: [mix toward white (+) or black (-), keep saturation]
 const BLOCK_TONES := {"sand": [0.38, 0.8], "dirt": [-0.12, 0.9], "stone": [-0.45, 0.45], "obsidian": [-0.8, 0.35]}
 const BLOCK_DAMAGE_DARK := 0.35      # a cracked block darkens up to this much before it breaks
+# v1.5u (owner): underground you touch walls all the time. Over the block ground a bump is free up to cruising speed
+# (and always while braking); only faster than that hurts (counted from this speed up). The mech is never hurt by
+# the ground at all. Lava and enemy fire are unchanged.
+const BLOCK_SAFE_BUMP := 40.0        # m/s (50 still hurts)
 # ---------------------------------------------------------------- Job AT (v1.5q): clean-up + placeholder fighters
 # The owner's placeholder fighter set (hlpshplholder_faction): one fighter per faction, tinted in its own colour, so every
 # faction's six pilots have a ship (and their voices) until the real ships come. Factions that already fly the owner's

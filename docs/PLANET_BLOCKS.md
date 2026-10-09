@@ -321,6 +321,8 @@ the changes are re-applied. A hundred craters are a hundred small notes, not a f
 - The hypernerve skin is PER MATERIAL: sand eases into soft blunt mounds, dirt and stone get a light rounding,
   obsidian and diamond crisp into sharp, faceted crystal shards (reference: Superman's Fortress of Solitude, big
   diagonal crystal shards leaning on and crossing each other). Blocks underneath for the logic, shapes for the eyes.
+- (Scale detail: a small obsidian poke gets one sharp tip; a big exposed mass a crown of a few big points of varied
+  height across its top, scaled to the mass. "One shape in, one smooth form out" is what fully kills the blocky look.)
 - It works on the WHOLE fused shape as one, at an adjustable scale: a big fused mass becomes one grand coherent form
   (grand shards, a sweeping ridge, a smooth dune), not per-block detail. Any outline, even a plain rectangle or an odd
   Tetris shape, comes out smooth and sculpted, never boxy.
@@ -363,7 +365,7 @@ the changes are re-applied. A hundred craters are a hundred small notes, not a f
 - Caves are beautiful and are where fights happen too: dogfighting through a pocket with an enemy on your tail, shots
   tearing up the rock; bring a roof down on a pursuer, shoot an arch leg to block one. The terrain becomes a weapon.
 
-## Bumping walls underground (owner, call; NOT built, waiting on his go)
+## Bumping walls underground (owner, call)
 - Underground you'll touch walls constantly. SETTLED (owner, call): at normal cruising speed and below (and while
   braking) a wall bump does NO damage; only when you pass cruise speed does a crash hurt. Ship and mech both, and
   the mech gets a higher safe speed than the ship. Lava and enemy fire stay as dangerous as ever.
@@ -374,12 +376,17 @@ the changes are re-applied. A hundred craters are a hundred small notes, not a f
   with a BOUNCE-BACK, but still breaks (chip, bounce, chip). Obsidian: NOT by thrust, guns only; it just stops /
   bounces the mech. SETTLED: the mech is NEVER hurt by thrusting into terrain, any material ("we don't get hurt,
   at all"); the stone bounce is the only resistance.
-  Still needed: the ship's safe-bump speed (under 50).
-- Today's game rule (Data.COLLIDE_THRESHOLD) already makes contact under 8 m/s free and charges 0.9 hull per m/s
-  above it. The change would be a higher free threshold near walls / while braking (somewhere under 50 m/s; the
-  number to be tuned with the owner), maybe a higher one for the mech.
+- BUILT (v1.5u, over the block ground only): a ground bump is free up to 40 m/s (`BLOCK_SAFE_BUMP`, owner's number;
+  50 still hurts) and always while braking; above it only the speed past 40 counts (0.9 hull per m/s). The mech is
+  never hurt by the ground. Elsewhere the old rule stays (free under 8 m/s). Mech thrust-digging is NOT built yet: it
+  needs real side contact with block walls, which comes with caves.
 - Note: over the block patch the ship doesn't hit block walls from the side yet (it pops up onto the step); real side
   collisions come with caves.
+
+## Missiles: regular vs super (owner, call)
+- Two missiles: the regular one and the super (heavy) one. The super has a BIGGER explosion, a bigger crater and a
+  bigger hitbox, in space dogfights too, not only on the ground. On the block ground it already digs bigger (heavy
+  20 m vs missile 12 m blast radius); a bigger blast and hitbox in space is noted, not built (owner to confirm).
 
 ## Arches (generation step, later)
 - Natural arches: big chunky spans curving over open space on a leg at each end (Arches National Park style).

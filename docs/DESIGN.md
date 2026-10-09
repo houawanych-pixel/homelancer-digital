@@ -1212,3 +1212,5 @@ Owner, after the v1.5k test flow passed: "push it to all".
   it; with no target over the patch a missile fires straight. Kept: seed + one note per blast (`GS.block_deltas`,
   session only until the game has a save file). Only changed squares redraw (`BLOCK_CHUNK`). Full design and the
   owner's later rules: docs/PLANET_BLOCKS.md.
+- v1.5u: over the block ground a bump is free up to cruising speed (`BLOCK_SAFE_BUMP` 40 m/s) and while braking;
+  only the speed past it hurts; the mech is never hurt by the ground. Normal planets keep the old rule.
