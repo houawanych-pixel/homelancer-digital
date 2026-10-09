@@ -447,6 +447,10 @@ static func build_tile(planet_id: String, tile: int) -> Node3D:
 	for c in wrap_corners(planet_id, tile): _corner_cloud(root, planet_id, tile, c, rng)
 	if PLANETS[planet_id]["tiles"][tile] in ["desert", "mountains", "wasteland", "volcanic", "industrial", "ice"]:
 		_landmarks(root, planet_id, tile, rng)
+	if BlockField.wanted(planet_id, tile):   # EXPERIMENT: the big-block test patch
+		var bf := BlockField.new()
+		bf.build(planet_id, tile)
+		root.add_child(bf)
 	return root
 
 static func _terrain_mesh(planet_id: String, tile: int) -> ArrayMesh:
@@ -485,6 +489,12 @@ static func prepare(planet_id: String, tile: int, rows: int) -> bool:
 			var c: Color = hc[1]
 			var jitter := 0.94 + 0.12 * fposmod(sin(i * 12.9898 + j * 78.233) * 43758.5453, 1.0)
 			hs2[j * (n + 1) + i] = hc[0]
+			if BlockField.wanted(planet_id, tile):   # EXPERIMENT: sink the smooth sheet under the block patch so it never shows
+				var lx := -size * 0.5 + i * step
+				var lz := -size * 0.5 + j * step
+				var half: float = float(Data.BLOCK_TEST["size"]) * 0.5 - step   # only well inside: the slope down hides under the edge blocks
+				var bc: Vector2 = Data.BLOCK_TEST["center"]
+				if absf(lx - bc.x) < half and absf(lz - bc.y) < half: hs2[j * (n + 1) + i] = hc[0] - Data.BLOCK_SINK
 			cols2[j * (n + 1) + i] = Color(c.r * jitter, c.g * jitter, c.b * jitter, c.a)
 	job["row"] = mini(j0 + rows, n + 1)
 	job["hs"] = hs2

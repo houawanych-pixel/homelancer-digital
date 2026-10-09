@@ -1194,3 +1194,11 @@ Owner, after the v1.5k test flow passed: "push it to all".
 - The GitHub build's time limit went from 15 to 25 minutes (the test run had reached 14).
 - Every roster pilot of the five ship-less factions flies its faction's placeholder; Elyza's pilots fly the Elyza
   fighter. The opening system (Solara) gets no guard wing, so the owner's test flow stays as it was.
+
+## EXPERIMENT (branch planet-blocks-test): big-block destructible ground, step 1
+- The owner's Bible "HL Minecraft-Style World Elements", light version (no voxel engine: Voxel Tools needs Godot
+  4.4.1+ and has no web build). One test patch (800 m, `BLOCK_TEST`) on New Terra's mountains tile is built from big
+  20 m blocks following the planet's own noise shape in 5 m steps (`BLOCK_BIG`, `BLOCK_MIN` = half a mech), plain
+  colours, one MultiMesh. The smooth sheet under the patch is sunk out of sight; the ship lands on the block tops.
+  Saved state = seed + deltas (none yet). Next: a hit splits a block into four smaller ones down to 5 m; then the
+  border camera hand-off and fog in the four corners only.

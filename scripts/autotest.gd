@@ -889,6 +889,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_BLOCKS") != "":   # EXPERIMENT: the big-block ground patch only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _blocks()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_AT") != "":   # the Job AT checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1490,6 +1498,7 @@ func _run() -> void:
 	await _job_ar()
 	await _job_as()
 	await _job_at()
+	await _blocks()
 	await _galaxy()
 	await _controls_j()
 	await _gate_k()
@@ -5544,3 +5553,57 @@ func _job_at() -> void:
 	var tex: Texture2D = main.hud._face_tex(Data.PLAYER_PILOT_FACE, "normal")
 	_check("Job AT: a Unity patrol fighter flies the placeholder model; the SPECIAL cut-in shows the character picture (%s) big in the middle" % Data.PLAYER_PILOT_FACE,
 		real and tex != null and Factions.DEFS["Unity"]["fighter_pool"] == ["ph_unity"], "real %s picture %s" % [real, tex != null])
+
+
+## EXPERIMENT (branch planet-blocks-test), step 1: New Terra's mountains tile has a patch of big-block ground that
+## follows the planet's own shape and colours; the ship lands on the block tops; nothing is saved but the seed.
+func _blocks() -> void:
+	var pid: String = Data.BLOCK_TEST["planet"]
+	var t: int = Data.BLOCK_TEST["tile"]
+	main._load_surface(pid, t)
+	await _wait(1.0)
+	var s := _sp()
+	var bf := s.tile_root.get_node_or_null("BlockField") as BlockField if is_instance_valid(s.tile_root) else null
+	var ok := bf != null
+	var covered := true
+	var steps := true
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7
+	var worst := 0.0
+	if ok:
+		for k in 400:
+			var x: float = bf.center.x + rng.randf_range(-0.48, 0.48) * bf.cols * Data.BLOCK_BIG
+			var z: float = bf.center.y + rng.randf_range(-0.48, 0.48) * bf.cols * Data.BLOCK_BIG
+			worst = maxf(worst, Surface.height(pid, t, x, z) - bf.top_at(x, z))
+			var top: float = bf.top_at(x, z)
+			if top < Surface.height(pid, t, x, z) - 0.01: covered = false
+			if not is_equal_approx(fposmod(top, Data.BLOCK_MIN), 0.0) and not is_equal_approx(fposmod(top, Data.BLOCK_MIN), Data.BLOCK_MIN): steps = false
+	_check("Blocks (experiment): New Terra's mountains tile has a %d m patch of big blocks (%d m, any box shape) following the planet's own shape in %d m steps, the smooth ground never poking through" % [int(Data.BLOCK_TEST["size"]), int(Data.BLOCK_BIG), int(Data.BLOCK_MIN)],
+		ok and bf.cols == int(round(float(Data.BLOCK_TEST["size"]) / Data.BLOCK_BIG)) and bf.blocks.size() > bf.cols * bf.cols and covered and steps,
+		"%d columns, %d blocks, worst poke %.2f m" % [bf.cols * bf.cols if ok else 0, bf.blocks.size() if ok else 0, worst])
+	var land_ok := false
+	if ok:
+		var p := Vector3(bf.center.x + 33.0, 0.0, bf.center.y - 47.0)
+		land_ok = is_equal_approx(s._ground(p.x, p.z), bf.top_at(p.x, p.z))
+	var st: Dictionary = bf.save_state() if ok else {}
+	_check("Blocks (experiment): the ship's ground over the patch is the block tops; what would be saved is only the seed and the changes (none yet)",
+		land_ok and st.get("deltas", [1]).is_empty() and str(st).length() < 200, str(st))
+	if ok:   # pictures: a free camera over the patch (the ship and HUD out of the way)
+		main.hud.visible = false
+		s.player.visible = false
+		var cam := Camera3D.new()
+		cam.far = 8000.0
+		s.add_child(cam)
+		var prev := get_viewport().get_camera_3d()
+		var c3 := Vector3(bf.center.x, bf.top_at(bf.center.x, bf.center.y), bf.center.y)
+		for v in [["blocks_overview", Vector3(520, 360, 620)], ["blocks_low", Vector3(140, 60, 220)], ["blocks_close", Vector3(40, 28, 60)]]:
+			cam.global_position = c3 + (v[1] as Vector3)
+			cam.look_at(c3, Vector3.UP)
+			cam.make_current()
+			await _shot(v[0], 0.4)
+		cam.queue_free()
+		if prev: prev.make_current()
+		main.hud.visible = true
+		s.player.visible = true
+	main._load_system("solara", "station")   # back to space for the rest of the route test
+	await _wait(1.0)

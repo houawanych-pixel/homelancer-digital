@@ -4306,6 +4306,8 @@ var corner_haze := 0.0   # 0..1 inside the wrap-corner cloud bank
 func _ground(x: float, z: float) -> float:
 	var h := Surface.height(planet_id, tile, x, z)
 	if _water: h = maxf(h, 0.0)
+	var bf := tile_root.get_node_or_null("BlockField") as BlockField if is_instance_valid(tile_root) else null
+	if bf and bf.covers(x, z): h = bf.top_at(x, z)   # EXPERIMENT: the big blocks are the ground there
 	return h
 
 ## Ground contact, tile edges (wrap to the next tile) and the ceiling (back to orbit).

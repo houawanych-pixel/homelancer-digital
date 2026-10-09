@@ -226,6 +226,17 @@ const PLAYER_PILOT_FACE := "gp/unity_01"  # v1.5q placeholder (owner: a characte
 # one, so the game copy is that one, mirrored, nose at -Z, split into Body / WingL / WingR. The closed form is the same
 # model with the wings folded in by SHIP_WINGS (model units): that is how it flies. Each ship can have its own SPECIAL
 # move (SHIP_SPECIAL_MOVE): the Elyza fighter swings its wings out while it barrel-rolls; any other ship just rolls.
+# ---------------------------------------------------------------- EXPERIMENT (branch planet-blocks-test): big-block ground
+# The owner's Minecraft-style destructible ground, light version (no voxel engine): one test patch on New Terra's
+# mountains tile built from big blocks that will split into four when hit, down to half a mech. Step 1: looks only.
+const BLOCK_TEST := {"planet": "new_terra", "tile": 3, "center": Vector2(500, -700), "size": 800.0}
+const BLOCK_BIG := 20.0        # big block (m): a ship-sized chunk; splits 20 -> 10 -> 5
+const BLOCK_MIN := 5.0         # the smallest block: half a mech; also the height step of the ground
+const BLOCK_SKIRT := 120.0     # how deep the outer edge of the patch goes (covers the sunk sheet's slope)
+const BLOCK_GAP := 0.35        # the hair of space between blocks so each reads as a block
+const BLOCK_SINK := 260.0      # the smooth ground under the patch is sunk this far (out of sight below the blocks)
+const BLOCK_MARGIN := 3.0      # column tops sit this much over the highest ground sampled under them
+const BLOCK_ROCK := Color(0.32, 0.3, 0.29)   # the deep rock colour under the surface
 # ---------------------------------------------------------------- Job AT (v1.5q): clean-up + placeholder fighters
 # The owner's placeholder fighter set (hlpshplholder_faction): one fighter per faction, tinted in its own colour, so every
 # faction's six pilots have a ship (and their voices) until the real ships come. Factions that already fly the owner's
