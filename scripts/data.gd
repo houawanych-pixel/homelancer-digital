@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.6d"
+const VERSION := "v1.6e"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -298,6 +298,17 @@ const CAVE_NOISE_FREQ := 0.11
 const CAVE_THRESHOLD := 0.18
 const KILL_CAP := 30.0               # m of obsidian over the kill floor
 const KILL_COLOR := Color(1.0, 0.82, 0.45)
+# v1.6e world generation, part 2: landmarks. Flyable arches (stone, some obsidian, some with treasure in the span) and
+# Pride Rock promontories (a slab jutting out over open air). Sizes in 5 m cells / metres; realistic, no thin spikes.
+const ARCH_COUNT := 3
+const ARCH_SPAN := [6, 11]           # cells of open air between the legs (30-55 m)
+const ARCH_CLEAR := [25.0, 45.0]     # m of headroom under the middle
+const ARCH_THICK := 10.0             # m of rock over the opening
+const OVERHANG_COUNT := 2
+const OVERHANG_JUT := [3, 5]         # cells the slab juts out (15-25 m)
+const OVERHANG_RISE := [35.0, 60.0]  # m the promontory stands over the ground
+const OVERHANG_THICK := 10.0
+const LANDMARK_FLAT := 25.0         # m: how uneven the ground under a landmark may be
 # v1.5v (owner): the mech digs by thrusting its body into a wall, by the same break rules as a shot. Sand and dirt it
 # plows straight through; stone breaks but shoves it back each push (chip, bounce, chip); obsidian won't break, it just
 # bounces the mech off. Never any damage to the mech.

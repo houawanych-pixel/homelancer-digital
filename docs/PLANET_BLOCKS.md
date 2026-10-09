@@ -496,6 +496,12 @@ Status: the owner said go for step 2 (craters), step by step. Each next step wai
    near the patch edge; they go when the whole planet becomes blocks (step 9).
    Next parts: arches and overhangs (Pride Rock), then canyons and obsidian roots / shards piercing the surface, the
    interlocking slanted shapes, realistic heights.
+2i. DONE (v1.6e, behind ?blocks): world generation, part 2: landmarks. 3 natural arches (`ARCH_*`: 30-55 m of open
+   air between two solid legs, 25-45 m headroom, 10 m of rock over it; about a third obsidian; some with gold or
+   diamond glinting in the span) you can fly under; 2 Pride Rock promontories (`OVERHANG_*`: a block of rock 35-60 m
+   high with a 15-25 m slab jutting out over open air). Built only on fairly even ground (`LANDMARK_FLAT`), never in
+   the middle. Load-bearing (`reach_bonus`): each half of an arch hangs from its own leg, the slab from its block;
+   blast a leg out and what hung from it comes down (where an arch end rests against the hillside, that bit stays).
 3. DONE (already from earlier work): the ground blends across tile edges and the next area is built before you reach
    it, so crossing has no jump.
 4. DONE (already): no seam lines at ordinary corners (the ground blends); the planet's wrap corner sits in a cloud bank.

@@ -1238,3 +1238,5 @@ Owner, after the v1.5k test flow passed: "push it to all".
   and the game drops pickup gems (fewer with bigger weapons, `MINING_KEEP`) for the tractor beam (`MINE_VALUE` credits).
 - v1.6d (?blocks only): world generation 1: seeded sealed cave pockets (`_carve_caves`, `CAVE_*`); an obsidian cap
   (`KILL_CAP`) over a kill floor that glows when dug open and destroys the ship, fluids and rubble.
+- v1.6e (?blocks only): world generation 2: seeded arches and Pride Rock promontories (`_build_landmarks`), held by
+  `reach_bonus` so blasting a leg drops what hung from it.

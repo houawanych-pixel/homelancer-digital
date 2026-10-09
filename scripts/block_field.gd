@@ -47,6 +47,9 @@ var pockets: Array = []        # the sealed pockets placed from the seed: [{cell
 var veins: Array = []          # v1.6c gold / diamond veins from the seed: [{mat, cells: [Vector2i(cell, layer)]}]
 var caves: Array = []          # v1.6d cave pockets from the seed: [{centre: Vector3, cells: int}]
 var killed := 0                # things the kill floor took (tests)
+var arches: Array = []         # v1.6e generated arches: [{legs: [[cells], [cells]], span: [cells], mid: cell, mat}]
+var overhangs: Array = []      # v1.6e Pride Rock promontories: [{base: [cells], jut: [cells], tip: cell}]
+var reach_bonus := {}          # v1.6e cell -> how far (cells) its rock may hang from support (arches, promontories)
 var _kill_st: SurfaceTool
 var _kill_any := false
 var fluid_moves := 0           # (tests)
@@ -190,6 +193,7 @@ func build(pid: String, t: int) -> void:
 	_noise.frequency = 0.03
 	# 4. caves, sealed water and lava pockets, gold and diamond veins, from the seed (v1.6b-d)
 	_carve_caves()
+	_build_landmarks()
 	_place_pockets()
 	_place_veins()
 	# 5. re-apply the blasts made here before (seed + deltas), quietly
@@ -473,7 +477,7 @@ func _settle(cx0: int, cx1: int, cz0: int, cz1: int) -> Array:
 	return fell
 
 func _held(fx: int, fz: int, sp: Vector2i) -> bool:
-	var reach: int = Data.BLOCK_REACH.get(mat_at(fx, fz, _ly(sp.x)), 1)
+	var reach: int = maxi(Data.BLOCK_REACH.get(mat_at(fx, fz, _ly(sp.x)), 1), int(reach_bonus.get(fz * n + fx, 0)))
 	var frontier: Array = [[fx, fz, sp]]
 	var seen := {Vector3i(fx, fz, sp.x): true}
 	for depth in reach:
@@ -545,7 +549,7 @@ func mat_point(x: float, y: float, z: float) -> String:
 
 ## Tests / tools: the whole changeable state, and putting it back.
 func snapshot() -> Dictionary:
-	return {"h": h.duplicate(), "lsz": lsz.duplicate(), "dmg": dmg.duplicate(true), "holes": holes.duplicate(true), "mats": mats.duplicate(true), "fill": fill.duplicate(true), "fluid": fluid.duplicate(true), "n": deltas.size()}
+	return {"h": h.duplicate(), "lsz": lsz.duplicate(), "dmg": dmg.duplicate(true), "holes": holes.duplicate(true), "mats": mats.duplicate(true), "fill": fill.duplicate(true), "fluid": fluid.duplicate(true), "reach": reach_bonus.duplicate(), "n": deltas.size()}
 
 func restore(sn: Dictionary) -> void:
 	h = sn["h"]
@@ -555,6 +559,7 @@ func restore(sn: Dictionary) -> void:
 	mats = sn.get("mats", {})
 	fill = sn.get("fill", {})
 	fluid = sn.get("fluid", {})
+	reach_bonus = sn.get("reach", reach_bonus)
 	_fluid_dirty = true
 	deltas.resize(int(sn["n"]))
 	var nc := _nchunks()
@@ -815,6 +820,118 @@ func _carve_caves() -> void:
 		_settle(cx - 2, cx + w + 2, cz - 2, cz + w + 2)
 		caves.append({"centre": Vector3(x0 + (cx + w * 0.5) * Data.BLOCK_MIN, _ly(kc), z0 + (cz + w * 0.5) * Data.BLOCK_MIN), "cells": count})
 	collapses = 0
+
+## Landmarks (v1.6e): flyable natural ARCHES (stone, some obsidian; some with gold or diamond in the span) on a leg at
+## each end, and PRIDE ROCK promontories: a block of rock with a slab jutting out over open air. Load-bearing: each
+## half of an arch hangs from its own leg (reach_bonus), a promontory's slab from its block, so blasting a leg out
+## brings its half down. Realistic sizes (no thin spikes).
+@warning_ignore("integer_division")
+func _build_landmarks() -> void:
+	arches.clear()
+	overhangs.clear()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash("%s|%d|landmarks" % [planet_id, tile])
+	var step: float = Data.BLOCK_MIN
+	var free := func(cells: Array) -> bool:
+		for c in cells:
+			if c < 0 or c >= n * n or holes.has(c) or fluid.has(c): return false
+		return true
+	var tries := 0
+	while arches.size() < Data.ARCH_COUNT and tries < 80:
+		tries += 1
+		var length := rng.randi_range(int(Data.ARCH_SPAN[0]), int(Data.ARCH_SPAN[1]))   # cells between the legs
+		var along_x := rng.randf() < 0.5
+		var lx := rng.randi_range(3, n - length - 8)
+		var lz := rng.randi_range(3, n - 6)
+		var leg_w := 2
+		var all_cells: Array = []
+		var cell_at := func(a: int, b: int) -> int: return (lz + b) * n + lx + a if along_x else (lz + a) * n + lx + b
+		for a in length + leg_w * 2:
+			for b in 2: all_cells.append(cell_at.call(a, b))
+		if not free.call(all_cells): continue
+		if Vector2(lx + length / 2 - n / 2, lz - n / 2).length() < 14: continue
+		var ground := -INF
+		var low := INF
+		for c in all_cells:
+			ground = maxf(ground, h[c])
+			low = minf(low, h[c])
+		if ground - low > Data.LANDMARK_FLAT: continue   # only on fairly even ground
+		var clear: float = rng.randf_range(float(Data.ARCH_CLEAR[0]), float(Data.ARCH_CLEAR[1]))
+		var thick: float = Data.ARCH_THICK
+		var m := "obsidian" if rng.randf() < 0.35 else "stone"
+		var treasure := "" if rng.randf() > 0.4 else ("diamond" if rng.randf() < 0.35 else "gold")
+		var legs: Array = [[], []]
+		var span: Array = []
+		var half := length / 2 + 1
+		for a in length + leg_w * 2:
+			var t := float(a - leg_w + 0.5) / float(length)   # 0..1 along the opening
+			var under: float = ground if a < leg_w or a >= length + leg_w else ground + clear * sin(PI * clampf(t, 0.0, 1.0))
+			under = floorf(under / step) * step
+			var top: float = ceilf((ground + clear + thick) / step) * step
+			for b in 2:
+				var c: int = cell_at.call(a, b)
+				_split_one(c)
+				var k_ground := _ktop(c)
+				var k_under := _k(under + 0.01)
+				var k_top := _k(top - 0.01) + 1
+				h[c] = y0 + k_top * step
+				var is_leg: bool = a < leg_w or a >= length + leg_w
+				if k_under > k_ground and not is_leg: holes[c] = [Vector2i(k_ground, k_under)]
+				else: holes.erase(c)   # the legs are solid rock right down to the ground
+				var ov: Dictionary = mats.get(c, {})
+				for k in range(mini(k_ground, k_under), k_top): ov[k] = m
+				if treasure != "" and a == (length + leg_w * 2) / 2 and b == 0: ov[k_top - 2] = treasure   # it glints in the span
+				mats[c] = ov
+				hmax = maxf(hmax, h[c])
+				if a < leg_w: legs[0].append(c)
+				elif a >= length + leg_w: legs[1].append(c)
+				else:
+					span.append(c)
+					reach_bonus[c] = half
+				_mark(c % n, c / n, 1)
+		arches.append({"legs": legs, "span": span, "mid": cell_at.call((length + leg_w * 2) / 2, 0), "mat": m, "treasure": treasure})
+	tries = 0
+	while overhangs.size() < Data.OVERHANG_COUNT and tries < 80:
+		tries += 1
+		var bw := 4
+		var jut := rng.randi_range(int(Data.OVERHANG_JUT[0]), int(Data.OVERHANG_JUT[1]))
+		var ox := rng.randi_range(3, n - bw - jut - 4)
+		var oz := rng.randi_range(3, n - bw - 4)
+		var cells: Array = []
+		for jz in bw:
+			for jx in bw + jut: cells.append((oz + jz) * n + ox + jx)
+		if not free.call(cells): continue
+		if Vector2(ox - n / 2, oz - n / 2).length() < 14: continue
+		var ground := -INF
+		var low := INF
+		for c in cells:
+			ground = maxf(ground, h[c])
+			low = minf(low, h[c])
+		if ground - low > Data.LANDMARK_FLAT: continue
+		var rise: float = rng.randf_range(float(Data.OVERHANG_RISE[0]), float(Data.OVERHANG_RISE[1]))
+		var top: float = ceilf((ground + rise) / step) * step
+		var under: float = floorf((top - Data.OVERHANG_THICK) / step) * step
+		var base: Array = []
+		var slab: Array = []
+		for jz in bw:
+			for jx in bw + jut:
+				var c: int = (oz + jz) * n + ox + jx
+				_split_one(c)
+				var k_ground := _ktop(c)
+				var k_under := _k(under + 0.01)
+				h[c] = top
+				var ov: Dictionary = mats.get(c, {})
+				if jx >= bw:   # the slab jutting out over open air
+					if k_under > k_ground: holes[c] = [Vector2i(k_ground, k_under)]
+					reach_bonus[c] = jut + 1
+					slab.append(c)
+				else: base.append(c)
+				for k in range(k_ground - 1, _ktop(c)): ov[k] = "stone"
+				mats[c] = ov
+				hmax = maxf(hmax, h[c])
+				_mark(c % n, c / n, 1)
+		overhangs.append({"base": base, "jut": slab, "tip": (oz + 1) * n + ox + bw + jut - 1})
+	_settle(0, n - 1, 0, n - 1)
 
 ## The kill floor (v1.6d): the bottom of the diggable ground (BLOCK_DEPTH_FLOOR down), under a thick obsidian cap.
 ## Where it's been dug open it glows; anything that reaches it is gone, and the ship is destroyed.

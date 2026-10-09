@@ -5725,6 +5725,29 @@ func _blocks() -> void:
 			cam.look_at(Vector3(at.x, floor_y, at.z), Vector3.UP)
 			cam.make_current()
 			await _shot("water_pocket", 0.4)
+		# v1.6e: the arches and a Pride Rock slab
+		var shots_done := 0
+		for ar in bf.arches:
+			if shots_done >= 2: break
+			var mc: int = ar["mid"]
+			if not bf.holes.has(mc): continue
+			var mp := Vector3(bf.x0 + (mc % bf.n + 0.5) * Data.BLOCK_MIN, bf.y0 + (bf.holes[mc][0] as Vector2i).x * Data.BLOCK_MIN + 15.0, bf.z0 + (mc / bf.n + 0.5) * Data.BLOCK_MIN)
+			var l0: int = ar["legs"][0][0]
+			var l1: int = ar["legs"][1][0]
+			var along := Vector3(float(l1 % bf.n - l0 % bf.n), 0, float(l1 / bf.n - l0 / bf.n)).normalized()
+			var side := along.cross(Vector3.UP)
+			cam.global_position = mp + side * 110.0 + Vector3(0, 25.0, 0)
+			cam.look_at(mp, Vector3.UP)
+			cam.make_current()
+			await _shot("arch_%d" % shots_done, 0.4)
+			shots_done += 1
+		if not bf.overhangs.is_empty():
+			var tc: int = bf.overhangs[0]["tip"]
+			var tp := Vector3(bf.x0 + (tc % bf.n + 0.5) * Data.BLOCK_MIN, bf.h[tc] - 15.0, bf.z0 + (tc / bf.n + 0.5) * Data.BLOCK_MIN)
+			cam.global_position = tp + Vector3(60.0, -10.0, 90.0)
+			cam.look_at(tp, Vector3.UP)
+			cam.make_current()
+			await _shot("pride_rock", 0.4)
 		# v1.6d: blast into a cave pocket from above and look in
 		if not bf.caves.is_empty():
 			var cv: Vector3 = bf.caves[0]["centre"]
@@ -5753,6 +5776,12 @@ func _blocks() -> void:
 ## EXPERIMENT step 2 (v1.5t): craters on the block patch.
 @warning_ignore("integer_division")
 func _craters(s, bf: BlockField, pid: String, t: int) -> void:
+	var flyable := true   # (v1.6e, measured before any test digs into them)
+	for ar in bf.arches:
+		if not bf.holes.has(int(ar["mid"])): flyable = false
+	var jutting := true
+	for oh in bf.overhangs:
+		if not bf.holes.has(int(oh["tip"])): jutting = false
 	var step: float = Data.BLOCK_MIN
 	var cell := func(x: float, z: float) -> int: return int((z - bf.z0) / step) * bf.n + int((x - bf.x0) / step)
 	# 1. a light-gun shot at the middle of one 5 m cell: the big block splits 20 -> 10 -> 5 only there, and that layer
@@ -6194,6 +6223,37 @@ func _craters(s, bf: BlockField, pid: String, t: int) -> void:
 	_check("Craters: world generation 1: %d sealed cave pockets (%d cells carved) that stand on their own; an obsidian cap over the kill floor; dug open, the kill floor glows, takes water and is deadly to the ship" % [bf.caves.size(), carved],
 		bf.caves.size() >= 3 and carved > 50 and stands and cap and at_floor and took_water and deadly and glow,
 		"stands %s cap %s floor %s water %s deadly %s glow %s" % [stands, cap, at_floor, took_water, deadly, glow])
+	# 16. world generation part 2 (v1.6e): arches you can fly under, Pride Rock slabs over open air; they stand; take a
+	#     leg out and that half comes down
+	var cb: int = bf.collapses
+	bf._settle(0, bf.n - 1, 0, bf.n - 1)
+	var stand: bool = bf.collapses == cb
+	var drop_ok := false
+	var drop_info := "no arch"
+	if not bf.arches.is_empty():
+		var snap16: Dictionary = bf.snapshot()
+		var ar: Dictionary = bf.arches[0]
+		for cand in bf.arches:
+			if bf.holes.has(int(cand["mid"])):
+				ar = cand
+				break
+		var span: Array = ar["span"]
+		var far: int = span[span.size() - 2]   # the far end of the span, next to the other leg
+		var near: int = span[1]
+		var leg: Array = (ar["legs"][0] as Array).duplicate()
+		for c in span.slice(0, span.size() / 2):
+			if not bf.holes.has(c): leg.append(c)   # (where the opening is too low to fly under, the leg goes on)
+		for c in leg:   # blast leg 0 clean through, under the span
+			var kt: int = bf._ktop(c)
+			for k in range(kt - 14, kt - 2): bf._cell_remove(c, k)   # blown out: only its cap is left
+		var cl1: int = bf.collapses
+		bf._settle(0, bf.n - 1, 0, bf.n - 1)
+		drop_ok = bf.collapses > cl1 and bf.holes.has(far)
+		drop_info = "fell %d, far end still up %s, near end down %s" % [bf.collapses - cl1, bf.holes.has(far), not bf.holes.has(near)]
+		bf.restore(snap16)
+		bf.flush()
+	_check("Craters: world generation 2: %d arches you can fly under and %d Pride Rock slabs over open air stand on their own; blast one leg out and what hung from it comes down, the far end stays up" % [bf.arches.size(), bf.overhangs.size()],
+		bf.arches.size() >= 2 and bf.overhangs.size() >= 1 and flyable and jutting and stand and drop_ok, "flyable %s jutting %s stand %s %s" % [flyable, jutting, stand, drop_info])
 	_check("Craters: shots dig INTO walls: a stone overhang over the tunnel holds; a sand one caves in; a pillar shot through its middle comes down (support and collapse)",
 		over["stone"]["tunnel"] and over["stone"]["overhangs"] > 0 and over["stone"]["fell"] == 0 and over["sand"]["fell"] > 0 and over["sand"]["overhangs"] == 0
 		and pillar["fell"] > 0 and not pillar["holes"] and pillar["h"] < 40.0, "overhang %s pillar %s" % [str(over), str(pillar)])
