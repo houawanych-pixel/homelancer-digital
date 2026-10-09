@@ -25,6 +25,19 @@ Every planet keeps its own palette; toughness reads by how dark the block is, sa
 Mostly rock, a little sand, hard rock as the backbone (deep core, big supports). Heavier weapons do more per hit
 (missiles, the SPECIAL cut through faster).
 
+## Underground (layered by depth, always separate breakable blocks)
+- Top: the thin skin, smaller soft blocks (sand, dirt) where craters and digging happen.
+- Middle: medium rock blocks.
+- Deep: big rock blocks packed together (never one solid slab), getting bigger the deeper you go.
+- Scattered through the deep rock, irregularly: big hard-rock boulders (darkest; go round or bring the big gun),
+  sand pockets that ooze and pour out when breached (half-filling the tunnel), sticky dirt pockets that clump and
+  cling, and (later) water pockets that flood when breached.
+
+## Flowing materials (later, with water and lava)
+- Sand piles into a cone at its own slope angle; past that it slumps; the pile merges up into bigger blocks as it grows.
+- Water flows to the lowest place and fills it level, then becomes ONE water block shaped like the space it filled;
+  break the edge and it flows out and re-forms. Lava: the same, slower, glowing, burns.
+
 ## Hits and blasts
 - A blast has a radius: every block inside it is hit, not just one.
 - A hit block splits into FOUR smaller blocks at the spot (carve only where hit: a corner shot takes a corner, the rest

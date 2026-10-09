@@ -5560,6 +5560,9 @@ func _job_at() -> void:
 func _blocks() -> void:
 	var pid: String = Data.BLOCK_TEST["planet"]
 	var t: int = Data.BLOCK_TEST["tile"]
+	var off_normally: bool = not BlockField.enabled()
+	BlockField.force = true
+	Surface._mesh_cache.erase("%s|%d" % [pid, t])   # the patch sinks the smooth sheet under it: build that tile fresh
 	main._load_surface(pid, t)
 	await _wait(1.0)
 	var s := _sp()
@@ -5605,5 +5608,8 @@ func _blocks() -> void:
 		if prev: prev.make_current()
 		main.hud.visible = true
 		s.player.visible = true
+	BlockField.force = false
+	Surface._mesh_cache.erase("%s|%d" % [pid, t])   # and back to the normal ground for everything after
+	_check("Blocks (experiment): switched off in normal play (on the web it is on only with ?blocks in the address)", off_normally)
 	main._load_system("solara", "station")   # back to space for the rest of the route test
 	await _wait(1.0)

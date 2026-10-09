@@ -21,8 +21,21 @@ var _mmi: MultiMeshInstance3D
 const OFFS := [Vector2.ZERO, Vector2(-0.5, -0.5), Vector2(0.5, -0.5), Vector2(-0.5, 0.5), Vector2(0.5, 0.5),
 	Vector2(0, -0.5), Vector2(0, 0.5), Vector2(-0.5, 0), Vector2(0.5, 0)]
 
+static var force := false   # tests switch it on
+static var _url_on := -1
+
+## The experiment is OFF in normal play. On the web it switches on when the game's address ends in ?blocks
+## (the owner's link to look at it); the route test switches it on with `force`.
+static func enabled() -> bool:
+	if force: return true
+	if _url_on < 0:
+		_url_on = 0
+		if OS.has_feature("web"):
+			_url_on = 1 if str(JavaScriptBridge.eval("window.location.search || ''", true)).find("blocks") >= 0 else 0
+	return _url_on == 1
+
 static func wanted(pid: String, t: int) -> bool:
-	return Data.BLOCK_TEST.get("planet", "") == pid and int(Data.BLOCK_TEST.get("tile", -1)) == t
+	return enabled() and Data.BLOCK_TEST.get("planet", "") == pid and int(Data.BLOCK_TEST.get("tile", -1)) == t
 
 func build(pid: String, t: int) -> void:
 	planet_id = pid
