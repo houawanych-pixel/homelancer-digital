@@ -117,7 +117,7 @@ Older sections below may still say "rock" / "hard rock": read them as stone / ob
 - Per material:
   - Sand: the triangle / pyramid look (next section).
   - Dirt and stone: only a light rounding of the skin's edges and corners.
-  - Obsidian: stays sharp (it never fuses; its chunk is a landmark).
+  - Obsidian: sharp crystal shards, earned by fusing with other obsidian (see "Shapes on the skin"); a lone piece stays a block.
 
 ## Sand: the pyramid rule
 - (refined) The "pyramid" is a soft mound with a BLUNT top, not a sharp point. It only forms while the sand's top is
@@ -280,8 +280,11 @@ and costs nothing.
 ## Settling
 - Stone in detail: it breaks into 3 heavy pieces that come down hard and hold their shape, then fuse with the stone
   around where they land into a NEW stone shape (the terrain reshapes itself in solid stone).
-  (A relayed note said obsidian never fuses; the owner's later correction stands: obsidian fuses, but only with
-  obsidian.)
+- Obsidian fuses too, but ONLY with other obsidian: big chunks that break off, fall and land near obsidian fuse into a
+  bigger obsidian shape (the strange Tetris-like black-glass masses); that is what grows the deep root structures.
+  It still breaks into 2 and cleaves in half on a hard landing. Every material fuses only with its own kind:
+  obsidian (2 pieces), stone (3, a new shape on settle), dirt (4, sticks where it hits), sand (5, disperses, settles
+  into its pile).
 - EVERYTHING FUSES WITH ITS OWN KIND, nothing mixes (owner's corrected rule): obsidian with obsidian (that is how
   the big strange obsidian shapes and roots grow), stone with stone (fallen pieces merge into a new rocky shape),
   dirt with dirt (it sticks where it hits), sand with sand (it settles into its pile). The one exception: gold and
