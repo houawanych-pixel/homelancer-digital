@@ -897,6 +897,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_AX") != "":   # the v1.5x super missile / mine checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_ax()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_AT") != "":   # the Job AT checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1498,6 +1506,7 @@ func _run() -> void:
 	await _job_ar()
 	await _job_as()
 	await _job_at()
+	await _job_ax()
 	await _blocks()
 	await _galaxy()
 	await _controls_j()
@@ -5554,6 +5563,56 @@ func _job_at() -> void:
 	_check("Job AT: a Unity patrol fighter flies the placeholder model; the SPECIAL cut-in shows the character picture (%s) big in the middle" % Data.PLAYER_PILOT_FACE,
 		real and tex != null and Factions.DEFS["Unity"]["fighter_pool"] == ["ph_unity"], "real %s picture %s" % [real, tex != null])
 
+
+## v1.5x (owner): the super missile hits as hard as 3-4 regular missiles and locks slowly (1 or 2 at most); mines are as
+## strong as a super missile; the magnetic mine pulls the ships it hits in and holds them stuck for a few seconds.
+func _job_ax() -> void:
+	var s := _sp()
+	var e: Dictionary = s.spawn_unit("ph_unity", s.player.global_position - s.player.global_basis.z * 600.0, s.player.global_position)
+	var light: float = s.missile_damage(e, false)
+	var heavy: float = s.missile_damage(e, true)
+	_check("v1.5x: one super missile hits as hard as about %.1f regular missiles (%d vs %d)" % [heavy / light, int(heavy), int(light)], heavy >= light * 3.0 and heavy <= light * 4.0 + 1.0)
+	var keep_h: int = GS.heavy_missiles
+	GS.heavy_missiles = maxi(2, GS.heavy_missiles)
+	var counts := []
+	for lt in [1.0, Data.HEAVY_LOCK_STEP + 0.1, Data.HEAVY_LOCK_STEP * 2.0 + 0.1, 20.0]:
+		s.lock_time = lt
+		counts.append(s.lock_count("heavy_missile"))
+	s.lock_time = 0.0
+	s.missile_cd = 0.0
+	var before: int = GS.heavy_missiles
+	var fired: bool = s.trigger_system("heavy_missile")
+	var held: bool = not fired and GS.heavy_missiles == before
+	GS.heavy_missiles = keep_h
+	_check("v1.5x: the super missile takes much longer to lock (%.1f s a lock, regular %.1f s) and goes 1 or 2 at a time; it won't fire without a lock" % [Data.HEAVY_LOCK_STEP, Data.LOCK_STEP],
+		counts == [0, 1, 2, 2] and held, "locks %s, unlocked shot held %s" % [str(counts), held])
+	_check("v1.5x: a mine hits as hard as a super missile", is_equal_approx(s.mine_damage(e), heavy))
+	# the magnetic mine: caught ships are pulled in to the blast point and held there for a few seconds
+	e["sh"] = 1e9   # (test only: it survives the blast)
+	e["sh_max"] = 1e9
+	var kind0: String = GS.mine_kind
+	var mines0: int = GS.mines
+	GS.mine_kind = "magnetic"
+	GS.mines = maxi(1, GS.mines)
+	s.mine_cd = 0.0
+	var dropped: bool = s.deploy_mine()
+	var m: Dictionary = s.mines_live[-1] if dropped and not s.mines_live.is_empty() else {}
+	var en: Node3D = e["node"]
+	var anchor: Vector3 = en.global_position + Vector3(25.0, 0.0, 0.0)
+	if not m.is_empty():
+		(m["node"] as Node3D).global_position = anchor
+		m["life"] = 0.0
+	await _wait(0.25)
+	var caught: bool = float(e.get("stuck_t", 0.0)) > 0.0
+	await _wait(1.5)
+	var near: bool = is_instance_valid(en) and en.global_position.distance_to(anchor) < 8.0
+	await _wait(Data.MAG_MINE_HOLD)
+	var freed: bool = float(e.get("stuck_t", 0.0)) <= 0.0
+	GS.mine_kind = kind0
+	GS.mines = mines0
+	_check("v1.5x: two kinds of mine; the magnetic one pulls the ship it hits in to the blast and holds it stuck for %.1f s, then lets go" % Data.MAG_MINE_HOLD,
+		dropped and m.get("magnetic", false) and caught and near and freed, "dropped %s caught %s near %s freed %s" % [dropped, caught, near, freed])
+	if is_instance_valid(en): s._damage_enemy(e, 1e12)
 
 ## EXPERIMENT (branch planet-blocks-test), step 1: New Terra's mountains tile has a patch of big-block ground that
 ## follows the planet's own shape and colours; the ship lands on the block tops; nothing is saved but the seed.

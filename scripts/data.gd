@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.5w"
+const VERSION := "v1.5x"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -116,7 +116,7 @@ const LEAD_BOX_ON := 16.0             # px: reticle this close to the box centre
 const LOCK_CONE_DEG := 15.0           # keep the target inside this cone to build missile locks
 const LOCK_RANGE := 800.0
 const LOCK_STEP := 0.5                # seconds per lock
-const HEAVY_LOCKS := 1                # heavy missile: one lock, hits hard
+const HEAVY_LOCKS := 2                # heavy (super) missile: up to two locks, HEAVY_LOCK_STEP each
 const HEAVY_MISSILE_HULL_FRAC := 0.85 # heavy does at least this share of the target's hull
 # the rack on the LIGHT slot. "triple" comes with every ship; "swarm" is bought at Equipment.
 const MISSILE_RACKS := {
@@ -565,6 +565,13 @@ const HEAVY_MISSILE_DAMAGE := 120.0
 const MISSILE_HIT_RADIUS := 9.0        # m: a regular missile goes off this close to its target
 const HEAVY_MISSILE_HIT_RADIUS := 14.0 # m: the super missile's bigger hitbox
 const BLAST_HEAVY_MISSILE := [30.0, 12, 10, 3, 0.15]   # its explosion ([flash size, fireballs, debris, later pops, gap])
+# v1.5x (owner): the super missile hits A LOT harder (one = 3 to 4 regular missiles) and takes much longer to lock
+# (you send off 1 or 2). Mines are as strong as a super missile; two kinds, both with a blast radius: BLAST (the
+# old one) and MAGNETIC (it pulls the ships it hits in and holds them stuck for a few seconds).
+const HEAVY_MISSILE_MULT := 3.5        # a super missile = this many full regular missiles
+const HEAVY_LOCK_STEP := 2.5           # s per super-missile lock (regular: LOCK_STEP)
+const MAG_MINE_HOLD := 3.5             # s a magnetic mine holds the ships it caught
+const MAG_MINE_PULL := 4.0             # how hard it drags them in to the blast point
 const MINE_PRICE := 60
 const MINE_DAMAGE := 70.0
 const MINE_RADIUS := 45.0

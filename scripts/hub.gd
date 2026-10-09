@@ -408,9 +408,19 @@ func _equipment_page() -> void:
 	var row3 := HBoxContainer.new()
 	row3.add_theme_constant_override("separation", 14)
 	var nl := _label(18, Color(1, 1, 1))
-	nl.text = "Proximity mines   ·   %d/%d loaded   ·   %d cr each   ·   dmg %d" % [GS.mines, GS.max_mines(), Data.MINE_PRICE, int(Data.MINE_DAMAGE)]
+	nl.text = "Proximity mines   ·   %d/%d loaded   ·   %d cr each   ·   as strong as a super missile" % [GS.mines, GS.max_mines(), Data.MINE_PRICE]
 	nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row3.add_child(nl)
+	var bk := Button.new()   # v1.5x: two kinds of mine; this switches which one you drop
+	bk.name = "MineKind"
+	bk.text = "MAGNETIC" if GS.mine_kind == "magnetic" else "BLAST"
+	bk.tooltip_text = "Blast: a big explosion. Magnetic: the same blast, and it pulls the ships it hits in and holds them stuck for a few seconds. Tap to switch."
+	bk.custom_minimum_size = Vector2(150, 54)
+	bk.pressed.connect(func():
+		GS.mine_kind = "blast" if GS.mine_kind == "magnetic" else "magnetic"
+		status.text = "Mines: %s." % ("magnetic (pull in and hold)" if GS.mine_kind == "magnetic" else "blast")
+		show_screen("equipment"))
+	row3.add_child(bk)
 	for n in [1, 99]:
 		var b3 := Button.new()
 		b3.text = "+1" if n == 1 else "FILL"

@@ -397,7 +397,9 @@ the changes are re-applied. A hundred craters are a hundred small notes, not a f
   bigger hitbox, in space dogfights too, not only on the ground. On the block ground it already digs bigger (heavy
   20 m vs missile 12 m blast radius). BUILT (v1.5w), the space side too, in normal play as the owner asked: the super
   missile goes off within 14 m of its target (regular 9 m, `HEAVY_MISSILE_HIT_RADIUS` / `MISSILE_HIT_RADIUS`) with a
-  big explosion (`BLAST_HEAVY_MISSILE`). Damage numbers unchanged.
+  big explosion (`BLAST_HEAVY_MISSILE`). v1.5x: it hits as hard as 3.5 regular missiles and locks slowly (2.5 s a
+  lock, 1 or 2 at a time). Mines are as strong as a super missile; two kinds: blast and magnetic (pulls in and holds
+  3.5 s). Details in docs/DESIGN.md.
 
 ## Arches (generation step, later)
 - Natural arches: big chunky spans curving over open space on a leg at each end (Arches National Park style).

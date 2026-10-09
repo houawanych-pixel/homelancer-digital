@@ -2069,7 +2069,8 @@ func _glow_mat(col: Color) -> StandardMaterial3D:
 ## up to what the rack holds and the ammo left.
 func lock_count(item := "light_missile") -> int:
 	var ammo := GS.heavy_missiles if item == "heavy_missile" else GS.missiles
-	return mini(mini(GS.max_locks(item), int(lock_time / Data.LOCK_STEP)), ammo)
+	var step: float = Data.HEAVY_LOCK_STEP if item == "heavy_missile" else Data.LOCK_STEP   # v1.5x: the super missile locks slowly
+	return mini(mini(GS.max_locks(item), int(lock_time / step)), ammo)
 
 ## Fire `count` missiles at the target: the first now, the rest VOLLEY_GAP apart, fanned out.
 func fire_volley(heavy: bool, count: int) -> int:
@@ -2887,8 +2888,9 @@ func _update_missiles(dt: float) -> void:
 ## Heavy: hits hard (at least HEAVY_MISSILE_HULL_FRAC of the hull). Light: MISSILE_DAMAGE or 30 % of the hull,
 ## times the rack's damage share (a swarm missile is lighter).
 func missile_damage(e: Dictionary, heavy: bool, scale := 1.0) -> float:
-	if heavy: return maxf(Data.HEAVY_MISSILE_DAMAGE, float(e["max"]) * Data.HEAVY_MISSILE_HULL_FRAC)
-	return maxf(Data.MISSILE_DAMAGE, float(e["max"]) * Data.LIGHT_MISSILE_HULL_FRAC) * scale
+	var full := maxf(Data.MISSILE_DAMAGE, float(e["max"]) * Data.LIGHT_MISSILE_HULL_FRAC)
+	if heavy: return maxf(maxf(Data.HEAVY_MISSILE_DAMAGE, float(e["max"]) * Data.HEAVY_MISSILE_HULL_FRAC), full * Data.HEAVY_MISSILE_MULT)   # v1.5x: = 3.5 regular missiles
+	return full * scale
 
 func _enemy_entry(n: Node3D) -> Dictionary:
 	for e in enemies:
@@ -3070,6 +3072,9 @@ func _update_enemies(dt: float) -> void:
 		if float(e.get("dodge_t", 0.0)) > 0.0:   # Job M: side-boost out of a missile's path
 			e["dodge_t"] = float(e["dodge_t"]) - dt
 			e["vel"] = (e["dodge_dir"] as Vector3) * float(d["speed"]) * Data.ENEMY_DODGE_BOOST
+		if float(e.get("stuck_t", 0.0)) > 0.0:   # v1.5x: a magnetic mine has it: dragged in to the blast point and held there
+			e["stuck_t"] = float(e["stuck_t"]) - dt
+			e["vel"] = ((e["stuck_at"] as Vector3) - n.global_position) * Data.MAG_MINE_PULL
 		n.global_position += e["vel"] * dt
 		if d.get("missiles", false) and e["aggro"] and controls and warp_state != "on" and dist < Data.ENEMY_MISSILE_RANGE:
 			if not e.has("mcd"): e["mcd"] = _rng.randf_range(Data.ENEMY_MISSILE_EVERY[0], Data.ENEMY_MISSILE_EVERY[1]) * 0.5
@@ -3385,6 +3390,8 @@ func trigger_system(id: String) -> bool:
 			var heavy := id == "heavy_missile"
 			if (GS.heavy_missiles if heavy else GS.missiles) <= 0:
 				return _say(id, "No %s missiles left — buy more at Equipment." % ("heavy" if heavy else "light"))
+			if heavy and lock_count("heavy_missile") < 1 and not (surface_mode and _over_blocks() and _nearest_enemy(900.0) == null):
+				return _say(id, "Super missile locking — hold the target in your sights.")   # v1.5x: it needs a full lock
 			var shots := fire_volley(heavy, maxi(1, lock_count("heavy_missile" if heavy else "light_missile")))
 			if shots > 0:
 				missile_cd = 1.2
@@ -3452,9 +3459,16 @@ func deploy_mine() -> bool:
 	mi.add_child(light)
 	add_child(mi)
 	mi.global_position = player.global_position + player.global_basis.z * 10.0
-	mines_live.append({"node": mi, "arm": 1.0, "life": 60.0, "vel": vel * 0.2})
-	system_used.emit("mine", "Mine deployed. %d left." % GS.mines)
+	var magnetic := GS.mine_kind == "magnetic"
+	if magnetic: light.material_override = ShipFactory.mat(Color(0.3, 0.6, 1.0), true)   # a blue light: the magnetic one
+	mines_live.append({"node": mi, "arm": 1.0, "life": 60.0, "vel": vel * 0.2, "magnetic": magnetic})
+	system_used.emit("mine", "%s mine deployed. %d left." % ["Magnetic" if magnetic else "Blast", GS.mines])
 	return true
+
+## v1.5x: a mine hits as hard as a super missile (the owner's rule), falling off over its blast radius.
+var mines_detonated := 0
+func mine_damage(e: Dictionary) -> float:
+	return maxf(Data.MINE_DAMAGE, missile_damage(e, true))
 
 func _update_mines(dt: float) -> void:
 	for i in range(mines_live.size() - 1, -1, -1):
@@ -3487,7 +3501,12 @@ func _update_mines(dt: float) -> void:
 			_explode(n.global_position)
 			for e in enemies.duplicate():
 				var d: float = e["node"].global_position.distance_to(n.global_position)
-				if d < Data.MINE_RADIUS: _damage_enemy(e, Data.MINE_DAMAGE * (1.0 - d / Data.MINE_RADIUS * 0.5))
+				if d < Data.MINE_RADIUS:
+					if m.get("magnetic", false):   # v1.5x: caught: pulled in and held stuck for a few seconds
+						e["stuck_t"] = Data.MAG_MINE_HOLD
+						e["stuck_at"] = n.global_position
+					_damage_enemy(e, mine_damage(e) * (1.0 - d / Data.MINE_RADIUS * 0.5))
+			mines_detonated += 1
 			n.queue_free()
 			mines_live.remove_at(i)
 

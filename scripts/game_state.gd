@@ -42,6 +42,7 @@ var missions_done := 0       # v1.5f: jobs paid (the boards change with it)
 var special_used := {"half": false, "crit": false}   # v1.5o: the special earned at half / critical hull has been spent
 var rep := {}                # v1.4r: reputation, one number per rival pair (Factions.axis_key -> -200..200); empty = everyone at their base
 var cast := {}               # v1.4r: named characters' state: character_id -> {alive, current_system, custody}
+var mine_kind := "blast"         # v1.5x: which mine you drop: "blast" or "magnetic" (switched at the Equipment screen)
 var block_deltas := {}       # v1.5t EXPERIMENT: crater notes per block patch ("planet|tile" -> [[x, y, z, kind]]); the ground regrows from the seed and these are re-applied
 var god_mode := false # only used by the automated route test
 

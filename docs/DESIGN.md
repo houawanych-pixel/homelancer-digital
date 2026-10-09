@@ -1218,3 +1218,8 @@ Owner, after the v1.5k test flow passed: "push it to all".
   dirt, breaks stone a hit per push with a bounce-back, only bounces off obsidian; never hurt.
 - v1.5w (normal play, owner's request): the super (heavy) missile has a bigger hitbox (14 m vs 9 m) and a big
   explosion in space fights; on the block ground it already dug a bigger crater (20 m vs 12 m). Damage unchanged.
+- v1.5x (normal play, owner): the super (heavy) missile hits as hard as 3.5 regular missiles (`HEAVY_MISSILE_MULT`)
+  and locks slowly (`HEAVY_LOCK_STEP` 2.5 s a lock, up to 2; it won't fire without a lock, except straight down at
+  the block ground with nobody around). Mines hit as hard as a super missile, falling off over their blast radius.
+  Two kinds of mine (switch at Equipment, `GS.mine_kind`): BLAST, and MAGNETIC (blue light) which also pulls the
+  ships it hits in to the blast point and holds them for `MAG_MINE_HOLD` 3.5 s.
