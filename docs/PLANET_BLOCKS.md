@@ -116,6 +116,14 @@ and costs nothing.
 ## Whole planet, later
 - The end goal: the whole planet is blocks and the smooth terrain is retired.
 - Possible cheap version: smooth look in the distance, turning into blocks up close.
+- How they fit (detail on demand): the blocks ARE the ground, not cubes sitting on top of the smooth sheet. Wherever
+  blocks are active, the smooth sheet is hidden underneath.
+- Level of detail by distance, to stay cheap on phone and web: far away, a smooth, cheap version of the same ground;
+  as you fly closer it turns into the real fused, destructible blocks. Detail only where the player is and can shoot.
+  Same ground, swapped by distance, so there is no blocky-near / smooth-far mismatch.
+- Today (prototype): only the 800 m test patch is blocks (smooth sheet sunk out of sight there); the rest of the
+  planet is still smooth, which is why smooth hills show in the distance. Expected for now; the distance swap above is
+  how it gets resolved later.
 
 ## Bottom of the world: the destroy boundary
 - A kill layer at the bottom. Sand, water and rubble that reach it vanish (deleted); the ship blows up if it touches it.
