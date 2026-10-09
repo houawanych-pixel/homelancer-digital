@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.5v"
+const VERSION := "v1.5w"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -560,6 +560,11 @@ const MISSILE_DAMAGE := 45.0 # light missile minimum; it does LIGHT_MISSILE_HULL
 const LIGHT_MISSILE_HULL_FRAC := 0.3
 const HEAVY_MISSILE_PRICE := 50
 const HEAVY_MISSILE_DAMAGE := 120.0
+# v1.5w (owner): the SUPER (heavy) missile is the bigger hitter everywhere: a bigger hitbox and a bigger explosion in
+# space fights (and a bigger crater in the block ground: BLOCK_BLAST heavy 20 m vs missile 12 m).
+const MISSILE_HIT_RADIUS := 9.0        # m: a regular missile goes off this close to its target
+const HEAVY_MISSILE_HIT_RADIUS := 14.0 # m: the super missile's bigger hitbox
+const BLAST_HEAVY_MISSILE := [30.0, 12, 10, 3, 0.15]   # its explosion ([flash size, fireballs, debris, later pops, gap])
 const MINE_PRICE := 60
 const MINE_DAMAGE := 70.0
 const MINE_RADIUS := 45.0

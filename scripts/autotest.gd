@@ -5756,6 +5756,29 @@ func _craters(s, bf: BlockField, pid: String, t: int) -> void:
 	_check("Craters: what is kept is the seed plus one small note per blast (%d notes); the patch regrown from them is the same ground, block for block" % bf.deltas.size(),
 		same and st.keys().size() == 3 and str(st).length() < bf.deltas.size() * 60 + 100, "same %s" % same)
 	again.free()
+	# 8b. the super (heavy) missile is the bigger hitter everywhere (v1.5w)
+	var hp := Vector3(bf.center.x - 150.0, 0.0, bf.center.y + 150.0)
+	hp.y = bf.top_at(hp.x, hp.z)
+	var hb := bf.h.duplicate()
+	var keep_h0 := bf.h.duplicate()
+	var keep_l0 := bf.lsz.duplicate()
+	var keep_d0 := bf.dmg.duplicate()
+	bf.blast(hp, "missile", false, false)
+	var light_cells := 0
+	for i in bf.h.size():
+		if bf.h[i] < hb[i] - 0.01: light_cells += 1
+	bf.h = keep_h0.duplicate()
+	bf.lsz = keep_l0.duplicate()
+	bf.dmg = keep_d0.duplicate()
+	bf.blast(hp, "heavy", false, false)
+	var heavy_cells := 0
+	for i in bf.h.size():
+		if bf.h[i] < hb[i] - 0.01: heavy_cells += 1
+	bf.h = keep_h0
+	bf.lsz = keep_l0
+	bf.dmg = keep_d0
+	_check("Craters: the SUPER missile is the bigger hitter: a bigger crater (%d cells vs %d), a bigger hitbox in space fights (%d m vs %d m) and a bigger explosion" % [heavy_cells, light_cells, int(Data.HEAVY_MISSILE_HIT_RADIUS), int(Data.MISSILE_HIT_RADIUS)],
+		heavy_cells > light_cells and Data.HEAVY_MISSILE_HIT_RADIUS > Data.MISSILE_HIT_RADIUS and float(Data.BLAST_HEAVY_MISSILE[0]) > 8.0)
 	# 9. the mech digs by pushing into a wall (v1.5v): sand / dirt plow, stone breaks with a bounce, obsidian only bounces
 	var keep_h := bf.h.duplicate()
 	var keep_l := bf.lsz.duplicate()

@@ -395,8 +395,9 @@ the changes are re-applied. A hundred craters are a hundred small notes, not a f
 ## Missiles: regular vs super (owner, call)
 - Two missiles: the regular one and the super (heavy) one. The super has a BIGGER explosion, a bigger crater and a
   bigger hitbox, in space dogfights too, not only on the ground. On the block ground it already digs bigger (heavy
-  20 m vs missile 12 m blast radius). Owner CONFIRMED the space side too (bigger explosion and hitbox in dogfights);
-  not built yet, it is the next job when he says go.
+  20 m vs missile 12 m blast radius). BUILT (v1.5w), the space side too, in normal play as the owner asked: the super
+  missile goes off within 14 m of its target (regular 9 m, `HEAVY_MISSILE_HIT_RADIUS` / `MISSILE_HIT_RADIUS`) with a
+  big explosion (`BLAST_HEAVY_MISSILE`). Damage numbers unchanged.
 
 ## Arches (generation step, later)
 - Natural arches: big chunky spans curving over open space on a leg at each end (Arches National Park style).

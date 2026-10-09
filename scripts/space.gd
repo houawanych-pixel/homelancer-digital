@@ -2870,11 +2870,12 @@ func _update_missiles(dt: float) -> void:
 			bfm.blast(dig, "heavy" if m.get("heavy", false) else "missile")
 			_blast(dig, Data.BLAST_ENEMY if m.get("heavy", false) else Data.BLAST_WING, "ground")
 			done = true
-		elif is_instance_valid(t) and n.global_position.distance_to(t.global_position) < 9.0:
+		elif is_instance_valid(t) and n.global_position.distance_to(t.global_position) < (Data.HEAVY_MISSILE_HIT_RADIUS if m.get("heavy", false) else Data.MISSILE_HIT_RADIUS):
 			var e := _enemy_entry(t)
 			if not e.is_empty():
 				_damage_enemy(e, missile_damage(e, m.get("heavy", false), float(m.get("scale", 1.0))))
-			_spark(n.global_position, Color(1, 0.6, 0.2), 12.0 if m.get("heavy", false) else 8.0)
+			if m.get("heavy", false): _blast(n.global_position, Data.BLAST_HEAVY_MISSILE, "heavy_missile")   # v1.5w: the super missile's big explosion
+			else: _spark(n.global_position, Color(1, 0.6, 0.2), 8.0)
 			done = true
 		elif done and Data.MISSILE_EXPIRE_BLAST:   # v1.5o: out of life: it self-destructs in a round burst (the missile-trail sky)
 			_expire_burst(n.global_position)
