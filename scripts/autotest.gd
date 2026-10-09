@@ -5664,19 +5664,24 @@ func _job_as() -> void:
 	# ---- 3. the hangar
 	main.hub.open(Data.SYSTEMS[s.sys_id]["station"])
 	await _frames(2)
-	main.hub.show_screen("ship")
+	main.hub.show_screen("hub")
 	await _frames(2)
-	var enter: Button = main.hub.content.find_child("EnterHangar", true, false)
+	var enter: Button = main.hub.left.find_child("Btn_hangar", true, false)
 	if enter: enter.pressed.emit()
 	await _until(func(): return is_instance_valid(main.hub.hangar) and main.hub.hangar.room != null and is_instance_valid(main.hub.hangar.craft), 30.0)
 	var hv: HangarView = main.hub.hangar
 	var ok := hv != null and hv.room != null
 	var room: HangarRoom = hv.room if ok else null
-	var rows_ok := ok and room.rows.size() == 8 and room.rows.all(func(r): return absf(float(r[0]) - float(r[1])) < 0.01 and int(r[2]) >= 2)
-	var plate: bool = ok and room.find_child("PadBackPlate", true, false) != null
-	var ceiling: bool = ok and room.find_child("Ceiling", true, false) != null and room.find_child("Floor", true, false) != null
-	_check("Job AS: ENTER HANGAR (YOUR SHIP) opens the 3D hangar built from the owner's parts: all four walls panelled in two rows that each fill the wall exactly (no gaps), the launch pad with a solid plate behind its open frame, the mech bays, gantries, wall bays, door, pipes, a floor and a generated ceiling",
-		ok and room.missing.is_empty() and rows_ok and plate and ceiling and room.parts >= 40, "parts %d, %d triangles, rows %s, missing %s" % [room.parts if ok else 0, room.tris if ok else 0, str(room.rows) if ok else "-", str(room.missing) if ok else "-"])
+	var grid_ok := ok and room.walls_per_side == Data.HANGAR_WALLS_PER_SIDE and is_equal_approx(room.W, room.D)
+	for k in ["floor", "ceiling"]:
+		if not grid_ok: break
+		var g: Array = room.surfaces.get(k, [])
+		grid_ok = g.size() == 6 and absf(float(g[4]) - room.W) < 0.01 and absf(float(g[5]) - room.D) < 0.01
+	var only_ours: bool = ok and room.find_children("*", "MeshInstance3D", true, false).all(func(n): return n.name.begins_with("Backing"))
+	var named: Array = room.find_children("*", "MultiMeshInstance3D", true, false).map(func(n): return str(n.name)) if ok else []
+	named.sort()
+	_check("Job AS/AQ (v1.5q): HANGAR opens ONE unified room from one part of the owner's: its wall section three a side on all four walls (a square 3 x 3 room), its floor and its squared panels cut into seamless tiles covering the floor and ceiling exactly, the launch pad frame standing on that same floor; nothing else scattered about",
+		ok and room.missing.is_empty() and grid_ok and only_ours and named == ["Ceiling", "Floor", "Pad", "Walls"], "%d pieces, %d triangles, %.0f x %.0f, grids %s, %s" % [room.parts if ok else 0, room.tris if ok else 0, room.W if ok else 0.0, room.D if ok else 0.0, str(room.surfaces) if ok else "-", str(named)])
 	var inside := func(p: Vector3) -> bool:
 		var k: float = Data.HANGAR_SCALE
 		return absf(p.x) < room.W * 0.5 * k and absf(p.z) < room.D * 0.5 * k and p.y > 0.0 and p.y < room.H * k

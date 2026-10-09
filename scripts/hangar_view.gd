@@ -156,13 +156,11 @@ func _camera() -> void:
 	if not is_instance_valid(cam): return
 	var off := Vector3(sin(yaw) * cos(pitch), sin(pitch), cos(yaw) * cos(pitch)) * dist
 	var p := target + off
-	if room:   # the open floor: in front of the pad, between the side wall bays, under the ceiling beams
+	if room:   # inside the room, clear of the walls, floor and ceiling
 		var k: float = Data.HANGAR_SCALE
-		var xm: float = (room.W * 0.5 - Data.HANGAR_WALL_DEPTH - Data.HANGAR_SIDE_DEPTH - 1.0) * k
-		var z0: float = (room.pad_center.z + Data.HANGAR_PLAN_PAD_H * 0.3) * k
-		var z1: float = (room.D * 0.5 - Data.HANGAR_WALL_DEPTH - 3.0) * k
-		p.x = clampf(p.x, -xm, xm)
-		p.z = clampf(p.z, z0, z1)
+		var m: float = 3.0 + (float(room.surfaces["walls"][3]) if room.surfaces.has("walls") else 0.0)
+		p.x = clampf(p.x, -(room.W * 0.5 - m) * k, (room.W * 0.5 - m) * k)
+		p.z = clampf(p.z, -(room.D * 0.5 - m) * k, (room.D * 0.5 - m) * k)
 		p.y = clampf(p.y, 1.5, (room.H - 3.0) * k)
 	cam.position = p
 	cam.look_at(target, Vector3.UP)

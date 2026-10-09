@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.5p"
+const VERSION := "v1.5q"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -230,21 +230,25 @@ const ELYZA_FIGHTER_LEN := 12.0
 const SHIP_WINGS := {"elyza_fighter": 0.125}          # model key -> how far the wings fold in (model units; 0 = open)
 const SHIP_SPECIAL_MOVE := {"elyza_fighter": "wings_out"}   # model key -> its own special move ("roll" when not listed)
 const WINGS_OPEN_RATE := 2.5                          # wings open / close per second (fraction of the way)
-# The hangar (YOUR SHIP -> ENTER HANGAR), built from the owner's hangar parts. Plan units: the launch pad is
-# HANGAR_PLAN_PAD_H tall; the whole room is then scaled by HANGAR_SCALE so the player's mech fits the pad.
+# The hangar (HANGAR in the station menu), v1.5q: one unified room from ONE rich part of the owner's (hlhang03): its
+# wall section three a side on all four walls (3 x 3), its floor and its squared panels cut into seamless tiles for the
+# floor and ceiling, the launch pad frame on that floor. Plan units, then the room is scaled by HANGAR_SCALE.
 const HANGAR_SCALE := 0.6
-const HANGAR_PLAN_PAD_H := 20.0
-const HANGAR_SIZE := Vector3(76.0, 30.0, 64.0)        # width, height, depth (plan units)
-const HANGAR_WALL_DEPTH := 2.5                        # how far the panel backing stands out from each wall
-const HANGAR_BAY_X := 25.0                            # the two mech bays, either side of the pad
-const HANGAR_GANTRY_X := 12.5
-const HANGAR_GANTRY_LEN := 16.0
-const HANGAR_SIDE_H := 18.0                           # the wall bays (lockers + walkway) on the side walls
-const HANGAR_SIDE_DEPTH := 12.0
-const HANGAR_SIDE_BAYS := [-0.6, 20.6]                # their centres along the side walls (z)
+const HANGAR_PLAN_PAD_H := 20.0                       # the launch pad's height (plan units); the mech stands in it
+const HANGAR_WALL := "hangar_wall_section"            # the wall (four bays, three doors)
+const HANGAR_FLOOR := "hangar_floor_tile"             # its floor, cut and mirrored 2 x 2 (seamless)
+const HANGAR_CEILING := "hangar_ceiling_tile"         # its squared panels, cut and mirrored 2 x 2 (seamless)
+const HANGAR_PAD := "hangar_launch_pad_open"          # the pad frame without its own deck (stands on the room floor)
+const HANGAR_HEIGHT := 30.0                           # wall height (plan units); the room is square, walls x section width
+const HANGAR_WALLS_PER_SIDE := 3                      # the owner: three by three, no bigger
+const HANGAR_FLOOR_TILE := 36.0                       # floor tile size (whole number per side, stretched to fit)
+const HANGAR_CEILING_TILE := 12.0
+const HANGAR_CEILING_DEPTH := 1.5
+const HANGAR_PAD_FROM_WALL := 4.0                     # gap between the back wall's front and the pad
+const HANGAR_SEAM_COLOR := Color(0.32, 0.34, 0.38)    # the shell behind everything (seams show this, not black)
+const HANGAR_CORNER_COLOR := Color(0.16, 0.17, 0.19)   # the corner columns (the walls' own dark steel)
 const HANGAR_SHIP_LIFT := 2.5                         # the ship hovers this high over the floor
-const HANGAR_SHIP_AHEAD := 16.0                       # and this far in front of the pad
-const HANGAR_BEAMS := Vector2(6, 5)                   # ceiling bays across x / along z
+const HANGAR_SHIP_AHEAD := 22.0                       # and this far in front of the pad
 const HANGAR_CAM_DIST := [10.0, 34.0]                 # orbit camera distance range (metres)
 
 # ---------------------------------------------------------------- Job AQ (v1.5n): thrust arc (looks only, flight unchanged)

@@ -178,7 +178,7 @@ func show_screen(s: String) -> void:
 			box.remove_child(c)
 			c.queue_free()
 	preview_vp = null
-	var menu := [["hub", "HUB"], ["equipment", "EQUIPMENT"], ["ships", "SHIP DEALER"], ["repair", "REPAIR / RESUPPLY"], ["board", "MISSION BOARD"], ["ship", "YOUR SHIP"], ["faction", "FACTION"], ["map", "NAVIGATION"]]   # (v1.5k: LAUNCH is its own always-visible button)
+	var menu := [["hub", "HUB"], ["equipment", "EQUIPMENT"], ["ships", "SHIP DEALER"], ["repair", "REPAIR / RESUPPLY"], ["board", "MISSION BOARD"], ["ship", "YOUR SHIP"], ["hangar", "HANGAR"], ["faction", "FACTION"], ["map", "NAVIGATION"]]   # (v1.5k: LAUNCH is its own always-visible button)
 	if _surface_planet() != "": menu.insert(4, ["surface", "SURFACE TRAVEL"])
 	for m in menu:
 		var b := Button.new()
@@ -212,6 +212,9 @@ func show_screen(s: String) -> void:
 	queue_redraw()
 
 func _menu(id: String) -> void:
+	if id == "hangar":   # v1.5q: one tap from the station menu
+		open_hangar()
+		return
 	if id == "launch": launch_requested.emit()
 	elif id == "map": map_requested.emit()
 	else: show_screen(id)
