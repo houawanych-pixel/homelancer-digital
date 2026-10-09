@@ -343,7 +343,7 @@ the changes are re-applied. A hundred craters are a hundred small notes, not a f
   shards PIERCING up out of the ground ("the planet's bones piercing its skin"), visible from the air as you
   descend; they connect down to the deep roots, so they tell you where the root system, lava and treasure are,
   Pride Rock style promontories (big jutting overhangs held up by what's under them: blast the support and the whole
-  thing comes down), rock arches AND obsidian arches big enough to fly under or through (load-bearing: take a leg out
+  thing comes down; bold silhouettes you see from far off and fly toward, not just rolling hills), rock arches AND obsidian arches big enough to fly under or through (load-bearing: take a leg out
   and the span drops), deep winding CANYONS to fly down into with the layers showing in their walls.
 - Everything rolled by the seed per planet: treasure amount and place, arches, roots, bluffs, layout. Nothing
   hand-placed; every world different.
@@ -364,8 +364,8 @@ the changes are re-applied. A hundred craters are a hundred small notes, not a f
   the mech gets a higher safe speed than the ship. Lava and enemy fire stay as dangerous as ever.
 - The mech can thrust full force against a wall ("boom") and take no damage: it's the underground workhorse that
   muscles through where the ship has to finesse. Owner: YES, thrusting into rock and dirt breaks it, just like
-  shooting (muscle-digging, no guns needed). Suggested, to confirm: sand and dirt give quickly, stone slowly,
-  obsidian too tough to shoulder through (needs firepower). Still needed: the ship's safe-bump speed (under 50).
+  shooting: the thrust counts as hits on the blocks it pushes against, with the same carving and the same tier hit
+  counts (so sand goes fast, obsidian takes long). Still needed: the ship's safe-bump speed (under 50).
 - Today's game rule (Data.COLLIDE_THRESHOLD) already makes contact under 8 m/s free and charges 0.9 hull per m/s
   above it. The change would be a higher free threshold near walls / while braking (somewhere under 50 m/s; the
   number to be tuned with the owner), maybe a higher one for the mech.
