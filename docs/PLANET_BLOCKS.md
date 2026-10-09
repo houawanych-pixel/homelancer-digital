@@ -91,10 +91,13 @@ Older sections below may still say "rock" / "hard rock": read them as stone / ob
 - Lava pockets (the Minecraft "uh oh" moment): lava sits sealed deep down, held in by obsidian (obsidian can hold
   lava). Break the container and the lava pours out into the gap you opened, runs downhill, fills the low spots,
   burns whatever is in the way. Gold and diamond can be container walls too.
-- At the start of a world the pockets do NOT eat their way through the map: a sealed pocket sits still (fluids only
-  flow when disturbed) and its walls are lava-proof (obsidian, gold, diamond). Only once you breach it does the lava
-  run, eating sand and trading with dirt along its path until stone stops it. (Owner raised this on the call:
-  "the lava pockets are going to start digging through the map". This is the answer in the rules; confirm.)
+- DORMANT UNTIL EXPOSED (owner confirmed; a key performance and correctness rule): a lava or water pocket that is
+  still sealed and out of sight is frozen and inert. It does not flow, does not eat sand, does not trade with or
+  convert dirt, burns nothing. It is one still shape plus a "lava here" label: a tiny bit of memory, no processing.
+  Flowing, eating, trading, converting and burning switch ON only when the player breaks into the pocket and it is
+  exposed. So the map never quietly eats itself in the dark, and thousands of buried pockets stay cheap.
+- Pockets are placed only inside solid sealing materials: obsidian, stone, diamond, gold. Never in sand (loose sand
+  can't hold lava). Sand that ends up next to active, exposed lava just gets eaten.
 
 ## Mining: gold and diamond (notes only)
 - Two valuables, separate from the ground tiers: gold and diamond. Rare, deep, often near the lava.
