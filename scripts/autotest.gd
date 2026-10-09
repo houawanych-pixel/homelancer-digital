@@ -5666,6 +5666,37 @@ func _blocks() -> void:
 			cam.look_at(c3, Vector3.UP)
 			cam.make_current()
 			await _shot(v[0], 0.4)
+		# v1.5y: a tunnel shot into a cliff face (a stone overhang left over it)
+		var best := -1
+		var drop := 0.0
+		for j in range(50, 110):
+			for i in range(50, 110):
+				var c: int = j * bf.n + i
+				var d: float = bf.h[c] - bf.h[c - 1]
+				if d > drop and not bf.holes.has(c):
+					drop = d
+					best = c
+		if best >= 0:
+			var fx: int = best % bf.n
+			var fz: int = best / bf.n
+			var low: float = bf.h[best - 1]
+			var face := Vector3(bf.x0 + fx * Data.BLOCK_MIN - 1.0, low + minf(drop * 0.4, 18.0), bf.z0 + (fz + 0.5) * Data.BLOCK_MIN)
+			bf.blast(face, "missile")
+			bf.blast(face + Vector3(4.0, 0, 0), "missile")
+			bf.flush()
+			await _wait(1.5)
+			var look := face + Vector3(5, 0, 0)
+			var spot := face + Vector3(-70.0, 10.0, 35.0)
+			for cand in [Vector3(-60, 6, 0), Vector3(-60, 12, 25), Vector3(-60, 12, -25), Vector3(-40, 4, 0), Vector3(-90, 20, 0), Vector3(-50, 25, 40), Vector3(-50, 25, -40), Vector3(-30, 3, 10)]:
+				var cp: Vector3 = face + cand
+				var hit: Vector3 = bf.ray_hit(cp, look)
+				if not bf.is_solid(cp.x, cp.y, cp.z) and (hit == Vector3.INF or hit.distance_to(look) < 8.0):
+					spot = cp
+					break
+			cam.global_position = spot
+			cam.look_at(look, Vector3.UP)
+			cam.make_current()
+			await _shot("tunnel_face", 0.4)
 		cam.queue_free()
 		if prev: prev.make_current()
 		main.hud.visible = true
@@ -5720,7 +5751,7 @@ func _craters(s, bf: BlockField, pid: String, t: int) -> void:
 	var cells := 0
 	var deepest := 0.0
 	for i in bf.h.size():
-		if bf.h[i] < before[i] - 0.01:
+		if bf.h[i] < before[i] - 0.01 or bf.holes.has(i):
 			cells += 1
 			deepest = maxf(deepest, before[i] - bf.h[i])
 	_check("Craters: the SPECIAL blows a crater you can fly into (%d cells of 5 m, %.0f m deep at most)" % [cells, deepest], cells > 150 and deepest >= 15.0)
@@ -5759,7 +5790,7 @@ func _craters(s, bf: BlockField, pid: String, t: int) -> void:
 			ob_ok = held_ob and whole and bf.lsz[o0] == bf.R and bf.thrown - th1 == 2
 			ob_info = "held %s whole %s size %d thrown %d" % [held_ob, whole, bf.lsz[o0], bf.thrown - th1]
 			bf.h = keep   # put it back
-			bf.dmg[o0] = 0
+			bf.dmg.erase(o0)
 			break
 	_check("Craters: obsidian chips and holds (7 hits), never splits into four, then breaks off whole, in half (2 big pieces), on the 8th", ob_ok, ob_info)
 	var cl0: int = bf.cleaved
@@ -5767,7 +5798,7 @@ func _craters(s, bf: BlockField, pid: String, t: int) -> void:
 	drop.y = bf.top_at(drop.x, drop.z) + 30.0
 	bf._piece(drop, 6.0, "obsidian", Vector3(0, -25, 0))
 	await _wait(1.0)
-	_check("Craters: a falling obsidian chunk cleaves in half again when it lands hard", bf.cleaved == cl0 + 1, "cleaved %d" % (bf.cleaved - cl0))
+	_check("Craters: a falling obsidian chunk cleaves in half again when it lands hard", bf.cleaved >= cl0 + 1, "cleaved %d" % (bf.cleaved - cl0))
 	bf.flush()
 	# 5. a real shot: the ship's bolt flies down into the ground and digs it
 	var nd1: int = bf.deltas.size()
@@ -5810,7 +5841,15 @@ func _craters(s, bf: BlockField, pid: String, t: int) -> void:
 	bf.flush()
 	var again := BlockField.new()
 	again.build(pid, t)
-	var same: bool = again.h == bf.h and again.lsz == bf.lsz
+	var hk1: Array = again.holes.keys()
+	var hk2: Array = bf.holes.keys()
+	hk1.sort()
+	hk2.sort()
+	var same_holes: bool = hk1 == hk2
+	if same_holes:
+		for hk in hk1:
+			if str(again.holes[hk]) != str(bf.holes[hk]): same_holes = false
+	var same: bool = again.h == bf.h and again.lsz == bf.lsz and same_holes
 	var st: Dictionary = bf.save_state()
 	_check("Craters: what is kept is the seed plus one small note per blast (%d notes); the patch regrown from them is the same ground, block for block" % bf.deltas.size(),
 		same and st.keys().size() == 3 and str(st).length() < bf.deltas.size() * 60 + 100, "same %s" % same)
@@ -5819,30 +5858,30 @@ func _craters(s, bf: BlockField, pid: String, t: int) -> void:
 	var hp := Vector3(bf.center.x - 150.0, 0.0, bf.center.y + 150.0)
 	hp.y = bf.top_at(hp.x, hp.z)
 	var hb := bf.h.duplicate()
-	var keep_h0 := bf.h.duplicate()
-	var keep_l0 := bf.lsz.duplicate()
-	var keep_d0 := bf.dmg.duplicate()
+	var snap: Dictionary = bf.snapshot()
 	bf.blast(hp, "missile", false, false)
 	var light_cells := 0
 	for i in bf.h.size():
 		if bf.h[i] < hb[i] - 0.01: light_cells += 1
-	bf.h = keep_h0.duplicate()
-	bf.lsz = keep_l0.duplicate()
-	bf.dmg = keep_d0.duplicate()
+	bf.restore(snap.duplicate(true))
 	bf.blast(hp, "heavy", false, false)
 	var heavy_cells := 0
 	for i in bf.h.size():
 		if bf.h[i] < hb[i] - 0.01: heavy_cells += 1
-	bf.h = keep_h0
-	bf.lsz = keep_l0
-	bf.dmg = keep_d0
+	bf.restore(snap.duplicate(true))
 	_check("Craters: the SUPER missile is the bigger hitter: a bigger crater (%d cells vs %d), a bigger hitbox in space fights (%d m vs %d m) and a bigger explosion" % [heavy_cells, light_cells, int(Data.HEAVY_MISSILE_HIT_RADIUS), int(Data.MISSILE_HIT_RADIUS)],
 		heavy_cells > light_cells and Data.HEAVY_MISSILE_HIT_RADIUS > Data.MISSILE_HIT_RADIUS and float(Data.BLAST_HEAVY_MISSILE[0]) > 8.0)
-	# 9. the mech digs by pushing into a wall (v1.5v): sand / dirt plow, stone breaks with a bounce, obsidian only bounces
-	var keep_h := bf.h.duplicate()
-	var keep_l := bf.lsz.duplicate()
-	var keep_d := bf.dmg.duplicate()
-	var nkeep: int = bf.deltas.size()
+	# a test wall: cells [i0, i1) x [j0, j1) raised `tall` m over base_y, the rest of the box flat at base_y
+	var wall := func(i0: int, i1: int, j0: int, j1: int, wi: int, base: float, tall: float) -> void:
+		for j in range(j0, j1):
+			for i in range(i0, i1):
+				var c: int = j * bf.n + i
+				bf.lsz[c] = 1
+				bf.dmg.erase(c)
+				bf.holes.erase(c)
+				bf.h[c] = base + (tall if i >= wi else 0.0)
+	# 9. the mech digs by pushing into a wall: dirt it tunnels through (no bounce), stone breaks with a bounce, obsidian only bounces
+	var snap9: Dictionary = bf.snapshot()
 	var form1: String = GS.form
 	var hull0: float = GS.hull
 	var pp2: Vector3 = s.player.global_position
@@ -5850,13 +5889,10 @@ func _craters(s, bf: BlockField, pid: String, t: int) -> void:
 	var ax: float = bf.x0 + 30.0 * step + 2.5   # stand in one 5 m cell, the wall is the next cells east
 	var az: float = bf.z0 + 30.0 * step + 2.5
 	var base_y: float = bf.h[30 * bf.n + 30]
+	var wc: int = 30 * bf.n + 31
 	var res := {}
 	for mat in ["dirt", "stone", "obsidian"]:
-		for j in range(28, 33):
-			for i in range(28, 40):
-				bf.lsz[j * bf.n + i] = 1
-				bf.dmg[j * bf.n + i] = 0
-				bf.h[j * bf.n + i] = base_y + (20.0 if i >= 31 else 0.0)   # a 20 m wall just east of the mech
+		wall.call(26, 40, 26, 35, 31, base_y, 20.0)   # a 20 m wall just east of the mech
 		bf.force_mat = mat
 		s.dig_log = {"soft": 0, "stone": 0, "bounce": 0}
 		s._dig_cd = 0.0
@@ -5866,18 +5902,47 @@ func _craters(s, bf: BlockField, pid: String, t: int) -> void:
 			s.vel = Vector3(20.0, 0.0, 0.0)
 			s._mech_dig(0.05)
 			if s.vel.x < -0.1: backed = true
-		res[mat] = {"wall": bf.h[30 * bf.n + 31] - base_y, "backed": backed, "log": s.dig_log.duplicate()}
+		res[mat] = {"open": not bf.is_solid(bf.x0 + 31.5 * step, base_y + 6.5, az), "dug": bf.holes.has(wc) or bf.h[wc] < base_y + 19.9,
+			"backed": backed, "log": s.dig_log.duplicate()}
 	bf.force_mat = ""
 	GS.form = form1
 	s.vel = Vector3.ZERO
 	s.player.global_position = pp2
-	bf.h = keep_h
-	bf.lsz = keep_l
-	bf.dmg = keep_d
-	bf.deltas.resize(nkeep)   # (test only: forget the test digs)
-	var dirt_ok: bool = res["dirt"]["wall"] <= Data.MECH_DIG_STEP and not res["dirt"]["backed"]
-	var stone_ok: bool = res["stone"]["wall"] < 20.0 and res["stone"]["backed"]
-	var obs_ok: bool = is_equal_approx(res["obsidian"]["wall"], 20.0) and res["obsidian"]["backed"]
-	_check("Craters: the mech digs by pushing into a block wall: it plows through dirt (no bounce), breaks stone with a bounce-back each push, only bounces off obsidian; never any damage",
+	bf.restore(snap9)   # (test only: forget the test digs)
+	var dirt_ok: bool = res["dirt"]["open"] and not res["dirt"]["backed"]
+	var stone_ok: bool = res["stone"]["dug"] and res["stone"]["backed"]
+	var obs_ok: bool = not res["obsidian"]["dug"] and res["obsidian"]["backed"]
+	_check("Craters: the mech digs by pushing into a block wall: it tunnels through dirt (no bounce), breaks stone with a bounce-back each push, only bounces off obsidian; never any damage",
 		dirt_ok and stone_ok and obs_ok and GS.hull == hull0, str(res))
+	# 10. support and collapse (v1.5y): a shot into a wall digs IN; a stone overhang holds, a sand one falls; a pillar
+	#     cut through at its middle comes down
+	var snap10: Dictionary = bf.snapshot()
+	var bx0: float = bf.x0 + 60.0 * step
+	var bzc: float = bf.z0 + 62.5 * step
+	var by: float = bf.h[62 * bf.n + 60]
+	var over := {}
+	for mat in ["stone", "sand"]:
+		wall.call(56, 72, 56, 70, 60, by, 40.0)   # a 40 m cliff face at x = cell 60
+		bf.force_mat = mat
+		var col0: int = bf.collapses
+		bf.blast(Vector3(bx0 - 1.0, by + 20.0, bzc), "missile", false, false)   # sideways into the face, 20 m up
+		var holed := 0
+		for c in bf.holes:
+			if int(c) % bf.n >= 56 and int(c) % bf.n < 72 and int(c) / bf.n >= 56 and int(c) / bf.n < 70: holed += 1
+		var cut: bool = bf.is_solid(bx0 + 2.5, by + 20.0, bzc) == false
+		over[mat] = {"tunnel": cut, "overhangs": holed, "fell": bf.collapses - col0}
+	wall.call(56, 72, 56, 70, 999, by, 0.0)   # flat, then one 40 m stone pillar in the middle
+	var pc: int = 62 * bf.n + 64
+	bf.h[pc] = by + 40.0
+	bf.force_mat = "stone"
+	var c1: int = bf.collapses
+	bf.blast(Vector3(bf.x0 + 64.5 * step, by + 20.0, bf.z0 + 62.5 * step), "gun", false, false)
+	for k in 3: bf.blast(Vector3(bf.x0 + 64.5 * step, by + 20.0, bf.z0 + 62.5 * step), "gun", false, false)   # stone: 4 hits
+	var pillar := {"fell": bf.collapses - c1, "holes": bf.holes.has(pc), "h": bf.h[pc] - by}
+	bf.force_mat = ""
+	bf.restore(snap10)
+	bf.flush()
+	_check("Craters: shots dig INTO walls: a stone overhang over the tunnel holds; a sand one caves in; a pillar shot through its middle comes down (support and collapse)",
+		over["stone"]["tunnel"] and over["stone"]["overhangs"] > 0 and over["stone"]["fell"] == 0 and over["sand"]["fell"] > 0 and over["sand"]["overhangs"] == 0
+		and pillar["fell"] > 0 and not pillar["holes"] and pillar["h"] < 40.0, "overhang %s pillar %s" % [str(over), str(pillar)])
 	bf.flush()

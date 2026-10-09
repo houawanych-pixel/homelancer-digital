@@ -450,6 +450,16 @@ Status: the owner said go for step 2 (craters), step by step. Each next step wai
    the ship's shots and missiles hit the block ground (no target over the patch: missiles fire straight, to dig);
    seed + one note per blast, re-applied on return. Not yet: dirt sticking, sand piling, fusing of rubble (step 5).
 2b. DONE (v1.5u / v1.5v, behind ?blocks): free wall bumps up to 40 m/s (mech never hurt); the mech digs by pushing.
-3. Border camera hand-off.
+2c. DONE (v1.5y, behind ?blocks): support and collapse. Shots, missiles and the mech dig INTO walls (tunnels,
+   overhangs, holes under the top) instead of only from the top: each 5 m cell keeps its air pockets. A piece over a
+   hole stays up only if it is joined sideways to grounded ground within its material's reach (`BLOCK_REACH` in cells:
+   sand 0, dirt 1, stone 3, obsidian 5); otherwise it falls and lands on what's under it (a few rubble pieces fly).
+   So a stone overhang holds, a sand one caves in, a pillar shot through its middle comes down. Tunnel roofs hold the
+   ship and mech down; tunnel floors carry them. Kept as the same notes (the collapses replay from the blasts).
+   Simplified for now: a fallen piece takes the material of where it lands (by depth), and it drops in one go.
+3. DONE (already from earlier work): the ground blends across tile edges and the next area is built before you reach
+   it, so crossing has no jump.
+4. DONE (already): no seam lines at ordinary corners (the ground blends); the planet's wrap corner sits in a cloud bank.
+(Old 3.) Border camera hand-off.
 4. Fog in the four corners only.
 5. Support and collapse, then cave blocks, overhangs, arches; merging and leaning rubble; stretch goals last.

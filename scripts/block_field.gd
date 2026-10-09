@@ -33,7 +33,10 @@ var z0 := 0.0
 var h := PackedFloat32Array()  # the ground now, per cell
 var h0 := PackedFloat32Array() # the original ground, per cell
 var lsz := PackedByteArray()   # the size (in cells) of the block each cell belongs to
-var dmg := PackedByteArray()   # hits taken by a block's top layer (kept at the block's first cell)
+var dmg := {}                  # hits taken per layer: block's first cell -> {layer: hits}
+var holes := {}                # v1.5y: air pockets under a cell's top: cell -> [Vector2i(lo, hi)] layers, sorted
+var y0 := 0.0                  # height of layer 0 (layers are BLOCK_MIN thick; below the depth floor is bedrock)
+var collapses := 0             # pieces that lost their support and fell (tests)
 var ccol := PackedColorArray() # the ground colour at each cell corner ((n + 1)^2), so the surface blends
 var hmax := -INF               # the highest top in the patch (quick miss test for shots)
 var base := Color.GRAY         # the planet's ground colour here: the tones are made from it
@@ -126,14 +129,16 @@ func build(pid: String, t: int) -> void:
 	z0 = center.y - cols * big * 0.5
 	h.resize(n * n)
 	lsz.resize(n * n)
-	dmg.resize(n * n)
-	dmg.fill(0)
 	lsz.fill(R)
 	for fz in n:
 		for fx in n:
 			h[fz * n + fx] = tops[(fz / R) * cols + fx / R]
 	h0 = h.duplicate()
-	for v in tops: hmax = maxf(hmax, v)
+	var hmin := INF
+	for v in tops:
+		hmax = maxf(hmax, v)
+		hmin = minf(hmin, v)
+	y0 = floorf((hmin - Data.BLOCK_DEPTH_FLOOR) / step) * step - step * 2.0
 	var cc := PackedColorArray()   # colours at the big columns' corners, then blended down to every cell corner
 	cc.resize((cols + 1) * (cols + 1))
 	var sum := Color(0, 0, 0)
@@ -172,6 +177,7 @@ func build(pid: String, t: int) -> void:
 	for d in deltas: blast(Vector3(float(d[0]), float(d[1]), float(d[2])), str(d[3]), false, false)
 	layers_broken = 0
 	splits = 0
+	collapses = 0
 	var nc := _nchunks()
 	for k in nc * nc: _dirty[k] = true
 	flush()
@@ -212,8 +218,10 @@ func tone(m: String) -> Color:
 	return c
 
 # ---------------------------------------------------------------- craters
-## A blast at tile-local point p by a weapon kind (Data.BLOCK_BLAST: gun, missile, heavy, special).
-## Returns {broken: layers broken, chipped: blocks hit but still holding, mat: what broke (or "")}.
+## A blast at tile-local point p by a weapon kind (Data.BLOCK_BLAST: gun, missile, heavy, special, thrust...).
+## Every 5 m layer of every block inside the sphere takes the weapon's hits; a layer breaks when its material's count
+## is reached. A blast from above digs a crater; one against a wall digs INTO it (v1.5y: tunnels, overhangs). Then
+## anything that lost its support falls (_settle). Returns {broken, chipped, mat}.
 @warning_ignore("integer_division")
 func blast(p: Vector3, kind: String, record := true, effects := true) -> Dictionary:
 	var spec: Array = Data.BLOCK_BLAST.get(kind, Data.BLOCK_BLAST["gun"])
@@ -253,52 +261,257 @@ func blast(p: Vector3, kind: String, record := true, effects := true) -> Diction
 		if dmin >= r: continue
 		var dmax := Vector2(maxf(absf(p.x - rx0), absf(p.x - rx1)), maxf(absf(p.z - rz0), absf(p.z - rz1))).length()
 		var i0 := oz * n + ox
-		var top: float = h[i0]
 		var v := sqrt(r * r - dmin * dmin)
-		if top <= p.y - v: continue   # the blast does not reach down to this block
+		var kt := _ktop(i0)
+		var kf := _kfloor(i0)
+		var klo := maxi(_k(p.y - v + 0.01), kf)
+		var khi := mini(_k(p.y + v - 0.01), kt - 1)
+		if khi < klo: continue   # the sphere doesn't reach any breakable layer of this block
+		var ktop_hit := -1
+		for k in range(khi, klo - 1, -1):
+			if _solid_k(i0, k):
+				ktop_hit = k
+				break
+		if ktop_hit < 0: continue   # only air (a hole) in reach
 		var cfx := ox + s / 2
 		var cfz := oz + s / 2
-		var m := mat_at(cfx, cfz, top)
-		if dmax > r and s > 1 and m != "obsidian":
-			# only partly inside: split into four and hit just the parts that are in
-			var hs := s / 2
-			var d0: int = dmg[i0]
-			for c in [Vector2i(0, 0), Vector2i(hs, 0), Vector2i(0, hs), Vector2i(hs, hs)]:
-				var sx: int = ox + c.x
-				var sz: int = oz + c.y
-				for jz in hs:
-					for jx in hs: lsz[(sz + jz) * n + sx + jx] = hs
-				dmg[sz * n + sx] = d0
-				queue.append(Vector3i(sx, sz, hs))
+		var m := mat_at(cfx, cfz, _ly(ktop_hit))
+		var partial: bool = dmax > r and m != "obsidian"
+		var holing: bool = khi < kt - 1   # the top isn't in reach: this digs a hole under it
+		if s > 1 and (partial or holing):
+			# split into four (or straight down to single cells when it digs in under the top)
+			var hs := 1 if holing and not partial else s / 2
+			var d0: Dictionary = dmg.get(i0, {})
+			dmg.erase(i0)
+			for jz in range(0, s, hs):
+				for jx in range(0, s, hs):
+					var sx: int = ox + jx
+					var sz: int = oz + jz
+					for yz in hs:
+						for yx in hs: lsz[(sz + yz) * n + sx + yx] = hs
+					if not d0.is_empty(): dmg[sz * n + sx] = d0.duplicate()
+					queue.append(Vector3i(sx, sz, hs))
 			splits += 1
 			_mark(ox, oz, s)
 			continue
-		var remaining := power
-		var maxl := maxi(1, ceili((minf(top, p.y + v) - (p.y - v)) / step - 0.01))
-		var removed := 0
-		var dd: int = dmg[i0]
-		var floor_y: float = h0[i0] - Data.BLOCK_DEPTH_FLOOR
-		while remaining > 0 and removed < maxl and top > floor_y + 0.01:
-			m = mat_at(cfx, cfz, top)
+		var dl: Dictionary = dmg.get(i0, {})
+		var broke := 0
+		for k in range(khi, klo - 1, -1):
+			if not _solid_k(i0, k): continue
+			m = mat_at(cfx, cfz, _ly(k))
 			var need: int = Data.BLOCK_HITS.get(m, 1)
-			var take := mini(remaining, need - dd)
-			dd += take
-			remaining -= take
-			if dd < need: break
-			dd = 0
-			out.append({"pos": Vector3((rx0 + rx1) * 0.5, top - step * 0.5, (rz0 + rz1) * 0.5), "size": s * step, "mat": m, "edge": dmin / r})
-			top -= step
-			removed += 1
-		if removed == 0: res["chipped"] = int(res["chipped"]) + 1
-		dmg[i0] = dd
-		for jz in s:
-			for jx in s: h[(oz + jz) * n + ox + jx] = top
+			var hits: int = int(dl.get(k, 0)) + power
+			if hits < need:
+				dl[k] = hits
+				continue
+			dl.erase(k)
+			for jz in s:
+				for jx in s: _cell_remove((oz + jz) * n + ox + jx, k)
+			out.append({"pos": Vector3((rx0 + rx1) * 0.5, _ly(k) - step * 0.5, (rz0 + rz1) * 0.5), "size": s * step, "mat": m, "edge": dmin / r})
+			broke += 1
+		if broke == 0: res["chipped"] = int(res["chipped"]) + 1
+		# damage on layers that are gone is dropped
+		for k in dl.keys():
+			if not _solid_k(i0, int(k)): dl.erase(k)
+		if dl.is_empty(): dmg.erase(i0)
+		else: dmg[i0] = dl
 		_mark(ox, oz, s)
 	layers_broken += out.size()
 	res["broken"] = out.size()
-	if not out.is_empty(): res["mat"] = out[0]["mat"]
-	if effects and not out.is_empty(): _throw(p, r, out)
+	if not out.is_empty():
+		res["mat"] = out[0]["mat"]
+		var fell := _settle(fx0 - 6, fx1 + 6, fz0 - 6, fz1 + 6)
+		if effects:
+			var flew := _throw(p, r, out)
+			for f in fell.slice(0, clampi(Data.BLOCK_RUBBLE_PER_BLAST - flew, 0, 4)): _piece(f["pos"], minf(float(f["size"]), 8.0) * 0.6, str(f["mat"]), Vector3(_rng.randf_range(-3, 3), -4.0, _rng.randf_range(-3, 3)))
 	return res
+
+# ---------------------------------------------------------------- layers, holes and support (v1.5y)
+## Layer k covers heights [y0 + k * BLOCK_MIN, y0 + (k + 1) * BLOCK_MIN); _ly(k) is its TOP.
+func _k(y: float) -> int:
+	return floori((y - y0) / Data.BLOCK_MIN + 0.0001)
+
+func _ly(k: int) -> float:
+	return y0 + (k + 1) * Data.BLOCK_MIN
+
+func _ktop(i: int) -> int:   # layers [.., ktop) can be solid
+	return int(round((h[i] - y0) / Data.BLOCK_MIN))
+
+func _kfloor(i: int) -> int:   # below this is bedrock (nothing digs deeper than BLOCK_DEPTH_FLOOR)
+	return int(round((h0[i] - Data.BLOCK_DEPTH_FLOOR - y0) / Data.BLOCK_MIN))
+
+func _solid_k(i: int, k: int) -> bool:
+	if k >= _ktop(i): return false
+	for hv in holes.get(i, []):
+		if k >= hv.x and k < hv.y: return false
+	return true
+
+## Break layer k of cell i: the top layer lowers the ground (and opens any hole right under it to the sky); a lower
+## layer becomes a hole (air) under solid ground: a tunnel or a cave.
+func _cell_remove(i: int, k: int) -> void:
+	var kt := _ktop(i)
+	if k >= kt: return
+	var hl: Array = holes.get(i, [])
+	if k == kt - 1:
+		kt -= 1
+		while not hl.is_empty() and (hl[-1] as Vector2i).y >= kt:
+			kt = mini(kt, (hl[-1] as Vector2i).x)
+			hl.pop_back()
+		h[i] = y0 + kt * Data.BLOCK_MIN
+	else:
+		var lo := k
+		var hi := k + 1
+		var keep: Array = []
+		for hv in hl:
+			var e: Vector2i = hv
+			if e.y < lo or e.x > hi: keep.append(e)
+			else:
+				lo = mini(lo, e.x)
+				hi = maxi(hi, e.y)
+		keep.append(Vector2i(lo, hi))
+		keep.sort_custom(func(a, b): return a.x < b.x)
+		hl = keep
+	if hl.is_empty(): holes.erase(i)
+	else: holes[i] = hl
+
+## The solid runs of a cell, bottom up: [Vector2i(lo, hi)]; the first rests on bedrock (lo = -1000).
+func spans(i: int) -> Array:
+	var out: Array = []
+	var start := -1000
+	for hv in holes.get(i, []):
+		out.append(Vector2i(start, (hv as Vector2i).x))
+		start = (hv as Vector2i).y
+	out.append(Vector2i(start, _ktop(i)))
+	return out
+
+func _set_spans(i: int, sp: Array) -> void:
+	var hl: Array = []
+	for j in range(1, sp.size()):
+		hl.append(Vector2i((sp[j - 1] as Vector2i).y, (sp[j] as Vector2i).x))
+	h[i] = y0 + (sp[-1] as Vector2i).y * Data.BLOCK_MIN
+	if hl.is_empty(): holes.erase(i)
+	else: holes[i] = hl
+
+## Support (step 5): a piece floating over a hole stays up only if it is joined sideways to grounded ground within its
+## material's reach (Data.BLOCK_REACH, in 5 m cells: sand 0, dirt 1, stone 3, obsidian 5). Otherwise it falls and lands
+## on what is under it. Checked around the blast, again and again until nothing more falls. Returns what fell.
+func _settle(cx0: int, cx1: int, cz0: int, cz1: int) -> Array:
+	var fell: Array = []
+	cx0 = clampi(cx0, 0, n - 1)
+	cx1 = clampi(cx1, 0, n - 1)
+	cz0 = clampi(cz0, 0, n - 1)
+	cz1 = clampi(cz1, 0, n - 1)
+	for pass_i in 12:
+		var changed := false
+		var cells: Array = holes.keys()
+		cells.sort()
+		for ci in cells:
+			var i: int = ci
+			var fx := i % n
+			var fz := i / n
+			if fx < cx0 or fx > cx1 or fz < cz0 or fz > cz1 or not holes.has(i): continue
+			var sp: Array = spans(i)
+			var j := 1
+			while j < sp.size():
+				if _held(fx, fz, sp[j]):
+					j += 1
+					continue
+				var a: Vector2i = sp[j - 1]
+				var b: Vector2i = sp[j]
+				fell.append({"pos": Vector3(x0 + (fx + 0.5) * Data.BLOCK_MIN, _ly(b.x), z0 + (fz + 0.5) * Data.BLOCK_MIN), "size": Data.BLOCK_MIN, "mat": mat_at(fx, fz, _ly(b.x))})
+				sp[j - 1] = Vector2i(a.x, a.y + (b.y - b.x))   # it drops and lands on what was under the hole
+				sp.remove_at(j)
+				collapses += 1
+				changed = true
+			_set_spans(i, sp)
+			dmg.erase(i)
+			_mark(fx, fz, 1)
+		if not changed: break
+	return fell
+
+func _held(fx: int, fz: int, sp: Vector2i) -> bool:
+	var reach: int = Data.BLOCK_REACH.get(mat_at(fx, fz, _ly(sp.x)), 1)
+	var frontier: Array = [[fx, fz, sp]]
+	var seen := {Vector3i(fx, fz, sp.x): true}
+	for depth in reach:
+		var nxt: Array = []
+		for it in frontier:
+			var cur: Vector2i = it[2]
+			for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+				var nx: int = int(it[0]) + d.x
+				var nz: int = int(it[1]) + d.y
+				if nx < 0 or nz < 0 or nx >= n or nz >= n: continue
+				var nsp := spans(nz * n + nx)
+				for jj in nsp.size():
+					var o: Vector2i = nsp[jj]
+					if o.x >= cur.y or o.y <= cur.x: continue   # no side contact
+					if jj == 0: return true   # joined to grounded ground
+					var key := Vector3i(nx, nz, o.x)
+					if seen.has(key): continue
+					seen[key] = true
+					nxt.append([nx, nz, o])
+		frontier = nxt
+		if frontier.is_empty(): break
+	return false
+
+## Is a tile-local point inside the block ground? (Off the patch: no.)
+@warning_ignore("integer_division")
+func is_solid(x: float, y: float, z: float) -> bool:
+	if not covers(x, z): return false
+	var step: float = Data.BLOCK_MIN
+	var i := clampi(int((z - z0) / step), 0, n - 1) * n + clampi(int((x - x0) / step), 0, n - 1)
+	var k := _k(y)
+	if k < _kfloor(i): return true
+	return _solid_k(i, k)
+
+## The ground for something whose feet are at height y: inside rock = the top of that rock (it pops up onto it);
+## otherwise the top of the solid under it (a tunnel floor under an overhang). Off the patch: -INF.
+func ground_for(x: float, y: float, z: float) -> float:
+	if not covers(x, z): return -INF
+	var step: float = Data.BLOCK_MIN
+	var i := clampi(int((z - z0) / step), 0, n - 1) * n + clampi(int((x - x0) / step), 0, n - 1)
+	if not holes.has(i): return h[i]
+	var best := -INF
+	for o in spans(i):
+		var lo: float = y0 + (o as Vector2i).x * step
+		var hi: float = y0 + (o as Vector2i).y * step
+		if y >= lo and y < hi - 0.01: return hi
+		if hi <= y + 0.01: best = maxf(best, hi)
+	return best if best > -INF else h[i]
+
+## The underside of the rock over a point (a tunnel / cave roof), or INF in the open.
+func ceiling_above(x: float, y: float, z: float) -> float:
+	if not covers(x, z): return INF
+	var step: float = Data.BLOCK_MIN
+	var i := clampi(int((z - z0) / step), 0, n - 1) * n + clampi(int((x - x0) / step), 0, n - 1)
+	if not holes.has(i): return INF
+	for o in spans(i):
+		var lo: float = y0 + (o as Vector2i).x * step
+		if lo > y + 0.01: return lo
+	return INF
+
+## The material of the layer at a point (or "" outside the ground).
+@warning_ignore("integer_division")
+func mat_point(x: float, y: float, z: float) -> String:
+	if not covers(x, z): return ""
+	var step: float = Data.BLOCK_MIN
+	var fx := clampi(int((x - x0) / step), 0, n - 1)
+	var fz := clampi(int((z - z0) / step), 0, n - 1)
+	var s: int = lsz[fz * n + fx]
+	return mat_at(fx - fx % s + s / 2, fz - fz % s + s / 2, _ly(_k(y)))
+
+## Tests / tools: the whole changeable state, and putting it back.
+func snapshot() -> Dictionary:
+	return {"h": h.duplicate(), "lsz": lsz.duplicate(), "dmg": dmg.duplicate(true), "holes": holes.duplicate(true), "n": deltas.size()}
+
+func restore(sn: Dictionary) -> void:
+	h = sn["h"]
+	lsz = sn["lsz"]
+	dmg = sn["dmg"]
+	holes = sn["holes"]
+	deltas.resize(int(sn["n"]))
+	var nc := _nchunks()
+	for k in nc * nc: _dirty[k] = true
 
 ## A shot from a to b: where it first goes into the block ground (or Vector3.INF).
 func ray_hit(a: Vector3, b: Vector3) -> Vector3:
@@ -307,12 +520,12 @@ func ray_hit(a: Vector3, b: Vector3) -> Vector3:
 	var prev := a
 	for k in range(1, steps + 1):
 		var q := a.lerp(b, float(k) / steps)
-		if q.y < top_at(q.x, q.z):
+		if is_solid(q.x, q.y, q.z):
 			var lo := prev
 			var hi := q
 			for it in 6:
 				var mid := (lo + hi) * 0.5
-				if mid.y < top_at(mid.x, mid.z): hi = mid
+				if is_solid(mid.x, mid.y, mid.z): hi = mid
 				else: lo = mid
 			return hi
 		prev = q
@@ -335,7 +548,7 @@ func _nchunks() -> int:
 ## What a blast breaks flies out by material (Data.BLOCK_BREAK_PIECES): obsidian in 2 big halves, stone in 3, dirt in
 ## 4, sand in 5 smaller pieces. About half of it flies (BLOCK_RUBBLE_FRAC; obsidian always goes whole), at most
 ## BLOCK_RUBBLE_PER_BLAST pieces: bigger pieces from the edge of the blast, smaller ones from the middle.
-func _throw(p: Vector3, r: float, out: Array) -> void:
+func _throw(p: Vector3, r: float, out: Array) -> int:
 	var cands: Array = []
 	for o in out:
 		var cnt: int = Data.BLOCK_BREAK_PIECES.get(o["mat"], 4)
@@ -347,7 +560,8 @@ func _throw(p: Vector3, r: float, out: Array) -> void:
 		cands[i] = cands[j]
 		cands[j] = tmp
 	cands.sort_custom(func(a, b): return a["mat"] == "obsidian" and b["mat"] != "obsidian")   # obsidian first: it never turns to dust
-	for k in mini(Data.BLOCK_RUBBLE_PER_BLAST, cands.size()):
+	var nfly := mini(Data.BLOCK_RUBBLE_PER_BLAST, cands.size())
+	for k in nfly:
 		var o: Dictionary = cands[k]
 		var m: String = o["mat"]
 		var cnt: int = Data.BLOCK_BREAK_PIECES.get(m, 4)
@@ -361,6 +575,7 @@ func _throw(p: Vector3, r: float, out: Array) -> void:
 		var vel := away.normalized() * _rng.randf_range(6.0, 18.0) * (1.0 + r / 40.0) + Vector3.UP * _rng.randf_range(14.0, 30.0)
 		if edge: vel *= 0.6
 		_piece(pos + Vector3.UP * Data.BLOCK_MIN * 0.5, sz, m, vel)
+	return nfly
 
 ## One rubble piece. Obsidian pieces cleave in half once more when they land hard (Data.BLOCK_CLEAVE_SPEED).
 func _piece(pos: Vector3, sz: float, m: String, vel: Vector3, cleave := true) -> void:
@@ -398,7 +613,7 @@ func _process(dt: float) -> void:
 		if not is_instance_valid(nd):
 			rubble.remove_at(i)
 			continue
-		var g := top_at(nd.position.x, nd.position.z)
+		var g := ground_for(nd.position.x, nd.position.y - float(b["half"]), nd.position.z)
 		if float(b["rest"]) < 0.0:
 			b["vel"] = (b["vel"] as Vector3) + Vector3.DOWN * 30.0 * dt
 			nd.position += (b["vel"] as Vector3) * dt
@@ -482,44 +697,54 @@ func _draw_block(st: SurfaceTool, ox: int, oz: int, s: int) -> void:
 	var az := z0 + oz * step
 	var bx := ax + s * step
 	var bz := az + s * step
-	var a := Vector3(ax, top, az)
-	var b := Vector3(bx, top, az)
-	var c := Vector3(bx, top, bz)
-	var d := Vector3(ax, top, bz)
 	var cfx := ox + s / 2
 	var cfz := oz + s / 2
 	var untouched: bool = top >= h0[i0] - 0.01
-	var cs: Array
 	var n1 := n + 1
-	if untouched:
-		cs = [ccol[oz * n1 + ox], ccol[oz * n1 + ox + s], ccol[(oz + s) * n1 + ox + s], ccol[(oz + s) * n1 + ox]]
-	else:
-		var tc := tone(mat_at(cfx, cfz, top)) * (0.95 + float(absi(hash(i0)) % 100) / 1000.0)
-		cs = [tc, tc, tc, tc]
-	var dd: int = dmg[i0]
-	if dd > 0:   # cracked: darker the closer it is to breaking
-		var f: float = Data.BLOCK_DAMAGE_DARK * float(dd) / float(Data.BLOCK_HITS.get(mat_at(cfx, cfz, top), 1))
-		for q in 4: cs[q] = (cs[q] as Color).lerp(Color.BLACK, f)
-	_quad(st, a, b, c, d, cs, Vector3.UP)
+	var sp := spans(i0)
+	var dl: Dictionary = dmg.get(i0, {})
+	var jit := 0.95 + float(absi(hash(i0)) % 100) / 1000.0
+	for j in sp.size():
+		var o: Vector2i = sp[j]
+		var ty: float = y0 + o.y * step
+		var cs: Array
+		if j == sp.size() - 1 and untouched:
+			cs = [ccol[oz * n1 + ox], ccol[oz * n1 + ox + s], ccol[(oz + s) * n1 + ox + s], ccol[(oz + s) * n1 + ox]]
+		else:
+			var tc := tone(mat_at(cfx, cfz, ty)) * jit
+			cs = [tc, tc, tc, tc]
+		var dd: int = int(dl.get(o.y - 1, 0))
+		if dd > 0:   # cracked: darker the closer it is to breaking
+			var f: float = Data.BLOCK_DAMAGE_DARK * float(dd) / float(Data.BLOCK_HITS.get(mat_at(cfx, cfz, ty), 1))
+			for q in 4: cs[q] = (cs[q] as Color).lerp(Color.BLACK, f)
+		_quad(st, Vector3(ax, ty, az), Vector3(bx, ty, az), Vector3(bx, ty, bz), Vector3(ax, ty, bz), cs, Vector3.UP)
+		if j > 0:   # the roof of a hole under it (a tunnel or cave ceiling)
+			var by: float = y0 + o.x * step
+			var cc := tone(mat_at(cfx, cfz, _ly(o.x))).lerp(Color.BLACK, 0.4)
+			_quad(st, Vector3(ax, by, az), Vector3(ax, by, bz), Vector3(bx, by, bz), Vector3(bx, by, az), [cc, cc, cc, cc], Vector3.DOWN)
 	var surf: Color = ccol[cfz * n1 + cfx]
-	var corners := [a, b, c, d, a]
+	var corners := [Vector3(ax, 0, az), Vector3(bx, 0, az), Vector3(bx, 0, bz), Vector3(ax, 0, bz), Vector3(ax, 0, az)]
 	var normals := [Vector3.FORWARD, Vector3.RIGHT, Vector3.BACK, Vector3.LEFT]
 	for side in 4:
 		var k := 0
 		while k < s:
-			var nh := _nb(side, ox, oz, s, k, top)
-			if nh >= top - 0.01:
-				k += 1
-				continue
+			var key = _nb_key(side, ox, oz, s, k)
 			var k2 := k + 1
-			while k2 < s and absf(_nb(side, ox, oz, s, k2, top) - nh) < 0.01: k2 += 1
+			while k2 < s and _nb_key(side, ox, oz, s, k2) == key: k2 += 1
+			var air := _air_iv(_nb_cell(side, ox, oz, s, k), top)
 			var p0: Vector3 = (corners[side] as Vector3).lerp(corners[side + 1], float(k) / s)
 			var p1: Vector3 = (corners[side] as Vector3).lerp(corners[side + 1], float(k2) / s)
-			_wall(st, p0, p1, top, nh, cfx, cfz, untouched, surf, normals[side])
+			for o in sp:
+				var lo: float = -INF if (o as Vector2i).x <= -1000 else y0 + (o as Vector2i).x * step
+				var hi: float = y0 + (o as Vector2i).y * step
+				for A in air:
+					var wl := maxf(lo, (A as Vector2).x)
+					var wh := minf(hi, (A as Vector2).y)
+					if wh > wl + 0.01: _wall(st, p0, p1, wh, wl, cfx, cfz, untouched and absf(wh - top) < 0.01, surf, normals[side])
 			k = k2
 
-## The ground height next to a block's side (outside the patch: the skirt down to hide the sunk sheet).
-func _nb(side: int, ox: int, oz: int, s: int, k: int, top: float) -> float:
+## The cell next to a block's side (-1 outside the patch).
+func _nb_cell(side: int, ox: int, oz: int, s: int, k: int) -> int:
 	var x := 0
 	var z := 0
 	match side:
@@ -535,8 +760,24 @@ func _nb(side: int, ox: int, oz: int, s: int, k: int, top: float) -> float:
 		_:
 			x = ox - 1
 			z = oz + s - 1 - k
-	if x < 0 or z < 0 or x >= n or z >= n: return top - Data.BLOCK_SKIRT
-	return h[z * n + x]
+	if x < 0 or z < 0 or x >= n or z >= n: return -1
+	return z * n + x
+
+func _nb_key(side: int, ox: int, oz: int, s: int, k: int):
+	var c := _nb_cell(side, ox, oz, s, k)
+	if c < 0: return "out"
+	if not holes.has(c): return str(h[c])
+	return str(h[c], holes[c])
+
+## Where the neighbouring cell is open (air), as height ranges [Vector2(lo, hi)]: its holes, and above its top.
+## Outside the patch: open down to the skirt (it hides the sunk smooth sheet).
+func _air_iv(c: int, top: float) -> Array:
+	if c < 0: return [Vector2(top - Data.BLOCK_SKIRT, INF)]
+	var out: Array = []
+	for hv in holes.get(c, []):
+		out.append(Vector2(y0 + (hv as Vector2i).x * Data.BLOCK_MIN, y0 + (hv as Vector2i).y * Data.BLOCK_MIN))
+	out.append(Vector2(h[c], INF))
+	return out
 
 ## A wall from the block's top down to `low`, in bands by the layers it cuts (same-material layers merged).
 func _wall(st: SurfaceTool, p0: Vector3, p1: Vector3, top: float, low: float, cfx: int, cfz: int, untouched: bool, surf: Color, nrm: Vector3) -> void:

@@ -4364,16 +4364,15 @@ func _mech_dig(dt: float) -> void:
 	var dir := hv.normalized()
 	var p := player.global_position
 	var q := p + dir * Data.MECH_DIG_REACH
-	var ahead := bf.top_at(q.x, q.z)
 	var feet := p.y - 6.0   # (the ground keeps the player 6 m up)
-	if ahead == -INF or ahead <= feet + Data.MECH_DIG_STEP + 0.01: return   # open ground or a step it walks up
+	var body := feet + Data.MECH_DIG_STEP + 0.5
+	if not (bf.is_solid(q.x, body, q.z) or bf.is_solid(q.x, p.y + 1.0, q.z)): return   # open ahead, or a step it walks up
 	var into := hv.dot(dir)
 	vel -= dir * into   # it can't walk into the wall
-	var here := bf.top_at(p.x, p.z)
-	if here != -INF and here > feet + Data.MECH_DIG_STEP + 0.01:
+	if bf.is_solid(p.x, body, p.z):
 		player.global_position -= dir * (into * dt + 0.5)   # already in it this frame: step back out
-	var m := bf.mat_top(q.x, q.z)
-	var face := Vector3(q.x, minf(ahead, p.y), q.z)
+	var m := bf.mat_point(q.x, body if bf.is_solid(q.x, body, q.z) else p.y + 1.0, q.z)
+	var face := Vector3(q.x, feet + 7.5, q.z)   # v1.5y: it digs a tunnel its own size into the wall
 	if m == "obsidian":
 		if _dig_cd <= 0.0:
 			vel -= dir * Data.MECH_DIG_BOUNCE
@@ -4414,13 +4413,20 @@ func _ground(x: float, z: float) -> float:
 func _surface_update(_dt: float) -> void:
 	if GS.form == "mech": _mech_dig(_dt)   # EXPERIMENT (v1.5v): the mech digs into block walls by pushing
 	var p := player.global_position
-	var floor_y := _ground(p.x, p.z) + 6.0
+	var bfp := _block_field()
+	var on_blocks := bfp != null and bfp.covers(p.x, p.z)
+	var floor_y := (bfp.ground_for(p.x, p.y - 6.0, p.z) if on_blocks else _ground(p.x, p.z)) + 6.0   # v1.5y: tunnel floors
 	altitude = p.y - floor_y + 6.0
 	if p.y < floor_y:
 		var impact := -vel.y
 		player.global_position.y = floor_y
 		if vel.y < 0.0: vel.y = 0.0
 		collision_damage("ground", impact)   # Job L (was: > 20 m/s, 0.25 x impact through the shields)
+	if on_blocks:   # v1.5y: the roof of a tunnel or cave holds you down
+		var roof := bfp.ceiling_above(p.x, player.global_position.y - 6.0, p.z)
+		if player.global_position.y > roof - 1.5:
+			player.global_position.y = maxf(floor_y, roof - 1.5)
+			if vel.y > 0.0: vel.y = 0.0
 	for e in enemies:
 		var n: Node3D = e["node"]
 		var ef := _ground(n.global_position.x, n.global_position.z) + 30.0

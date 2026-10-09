@@ -1223,3 +1223,7 @@ Owner, after the v1.5k test flow passed: "push it to all".
   the block ground with nobody around). Mines hit as hard as a super missile, falling off over their blast radius.
   Two kinds of mine (switch at Equipment, `GS.mine_kind`): BLAST, and MAGNETIC (blue light) which also pulls the
   ships it hits in to the blast point and holds them for `MAG_MINE_HOLD` 3.5 s.
+- v1.5y (step 5, support and collapse, ?blocks only): each 5 m cell keeps air pockets under its top (`holes`), so blasts
+  dig into walls: tunnels, overhangs, caves. Every layer inside the blast sphere takes the weapon's hits. Floating pieces
+  must be joined sideways to grounded ground within `BLOCK_REACH` (sand 0 / dirt 1 / stone 3 / obsidian 5 cells) or they
+  fall (`_settle`). Ship and mech use tunnel floors and roofs; the mech digs a tunnel its own size by pushing.
