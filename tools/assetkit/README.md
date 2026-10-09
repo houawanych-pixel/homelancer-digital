@@ -18,3 +18,11 @@ Work tools (never exported with the game). Order of use, one faction set at a ti
    asset library.
 
 Originals are never written to. Every step writes a NEW file.
+
+Structures (v1.5p, the hangar parts):
+- `orient_struct.py IN OUT [yaw|auto|pca] [front: auto|detail|+x|-x|+z|-z|none] [dropback 0|1]` : upright, square to
+  the axes, front at +Z, bottom at y = 0; dropback removes the faces looking backwards in the back half.
+- `split_wings.py IN OUT CUT_X [TUCK]` : nodes Body / WingL / WingR for folding wings.
+- `redecimate.py` : a second decimation pass (Godot's LOD chain stops early on Tripo meshes with many UV seams).
+- `render6.sh SET` + `sheet6.py` : six views per piece (top, both sides, front, back, three-quarter). Pass
+  `--resolution` equal to VPX to Godot when rendering bigger than 300 px, or the picture is cropped.

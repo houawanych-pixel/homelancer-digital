@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.5o"
+const VERSION := "v1.5p"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -221,6 +221,31 @@ const SPECIAL_LAUNCHERS := 1            # identical light launchers fitted (the 
 const MISSILE_EXPIRE_BLAST := true      # a missile that runs out of life bursts into a round explosion zone
 const DECOY_RADIUS := 26.0              # an enemy missile this close to one of your mines detonates on it (the mine goes too)
 const PLAYER_PILOT_FACE := ""           # the player's own pilot portrait for the cut-in (none yet: a drawn silhouette)
+# ---------------------------------------------------------------- Job AS (v1.5p): the Elyza fighter (folding wings) and the hangar
+# The owner's hl_s_elyza file held two forms of one ship; the open form (wings out on their arms) was the clean, even
+# one, so the game copy is that one, mirrored, nose at -Z, split into Body / WingL / WingR. The closed form is the same
+# model with the wings folded in by SHIP_WINGS (model units): that is how it flies. Each ship can have its own SPECIAL
+# move (SHIP_SPECIAL_MOVE): the Elyza fighter swings its wings out while it barrel-rolls; any other ship just rolls.
+const ELYZA_FIGHTER_LEN := 12.0
+const SHIP_WINGS := {"elyza_fighter": 0.125}          # model key -> how far the wings fold in (model units; 0 = open)
+const SHIP_SPECIAL_MOVE := {"elyza_fighter": "wings_out"}   # model key -> its own special move ("roll" when not listed)
+const WINGS_OPEN_RATE := 2.5                          # wings open / close per second (fraction of the way)
+# The hangar (YOUR SHIP -> ENTER HANGAR), built from the owner's hangar parts. Plan units: the launch pad is
+# HANGAR_PLAN_PAD_H tall; the whole room is then scaled by HANGAR_SCALE so the player's mech fits the pad.
+const HANGAR_SCALE := 0.6
+const HANGAR_PLAN_PAD_H := 20.0
+const HANGAR_SIZE := Vector3(76.0, 30.0, 64.0)        # width, height, depth (plan units)
+const HANGAR_WALL_DEPTH := 2.5                        # how far the panel backing stands out from each wall
+const HANGAR_BAY_X := 25.0                            # the two mech bays, either side of the pad
+const HANGAR_GANTRY_X := 12.5
+const HANGAR_GANTRY_LEN := 16.0
+const HANGAR_SIDE_H := 18.0                           # the wall bays (lockers + walkway) on the side walls
+const HANGAR_SIDE_DEPTH := 12.0
+const HANGAR_SIDE_BAYS := [-0.6, 20.6]                # their centres along the side walls (z)
+const HANGAR_SHIP_LIFT := 2.5                         # the ship hovers this high over the floor
+const HANGAR_SHIP_AHEAD := 16.0                       # and this far in front of the pad
+const HANGAR_BEAMS := Vector2(6, 5)                   # ceiling bays across x / along z
+const HANGAR_CAM_DIST := [10.0, 34.0]                 # orbit camera distance range (metres)
 
 # ---------------------------------------------------------------- Job AQ (v1.5n): thrust arc (looks only, flight unchanged)
 const THRUST_ARC_DEG := 22.0      # how far the nose rears up at most while THRUST is on
@@ -486,9 +511,11 @@ const SHIPS := {
 		"turn": 0.8, "guns": 3, "missiles": MISSILE_LOAD, "heavy": HEAVY_LOAD, "mines": 10, "model": "bulk", "desc": "The biggest ship you can own. Six engines, a huge hull and rack. Very slow to turn."},
 	"lancer": {"name": "Lancer", "class": "Heavy fighter", "price": 4000, "hull": 240, "shield": 140, "speed": 42.0,
 		"turn": 1.25, "guns": 4, "missiles": MISSILE_LOAD, "heavy": HEAVY_LOAD, "mines": 6, "model": "lancer", "desc": "Four cannons: two on the wings, two beside the nose. Heavy shield. Slow to turn."},
+	"elyza": {"name": "Elyza Fighter", "class": "Folding-wing fighter", "price": 3500, "hull": 190, "shield": 130, "speed": 50.0,   # v1.5p
+		"turn": 1.5, "guns": 3, "missiles": MISSILE_LOAD, "heavy": HEAVY_LOAD, "mines": 4, "model": "elyza_fighter", "desc": "Elyza design. The wings fold in to fly and swing out on their arms for the SPECIAL."},
 }
 # v1.3c: all three are the owner's models with weapons mounted (tools/shipkit/make_fleet3.py). Guns = cannons you can see.
-const SHIP_ORDER := ["cadet", "ranger", "hauler", "lancer", "bulk_empty", "bulk"]
+const SHIP_ORDER := ["cadet", "ranger", "hauler", "elyza", "lancer", "bulk_empty", "bulk"]
 
 # ---------------------------------------------------------------- weapons (per gun)
 const WEAPONS := {
@@ -749,6 +776,7 @@ const ENEMIES := {
 	"covenant_lance": {"name": "Covenant Lance", "class": "heavy fighter", "faction": "Covenant", "model": "covenant_lance", "radius": 9.0, "hull": 115.0, "shield": 75.0, "speed": 46.0, "turn": 1.25, "damage": 7.0, "rate": 1.9, "reward": 340, "missiles": true},
 	"cybermorph_fighter": {"name": "Cybermorph Frame Fighter", "class": "fighter", "faction": "Cybermorph", "model": "cybermorph_fighter", "hull": 80.0, "shield": 40.0, "speed": 48.0, "turn": 1.4, "damage": 6.5, "rate": 1.7, "reward": 230},
 	"cybermorph_star": {"name": "Cybermorph Star Drone", "class": "drone", "faction": "Cybermorph", "model": "cybermorph_star", "hull": 55.0, "shield": 30.0, "speed": 54.0, "turn": 1.7, "damage": 5.0, "rate": 1.5, "reward": 170},
+	"elyza_fighter": {"name": "Elyza Fighter", "class": "fighter", "faction": "Elyza", "model": "elyza_fighter", "radius": 8.0, "hull": 80.0, "shield": 55.0, "speed": 50.0, "turn": 1.5, "damage": 6.5, "rate": 1.7, "reward": 240, "missiles": true},   # v1.5p
 	"solrath_blade_a": {"name": "Solrath Blade", "class": "fighter", "faction": "Solrath", "model": "solrath_blade_a", "hull": 70.0, "shield": 45.0, "speed": 50.0, "turn": 1.5, "damage": 6.0, "rate": 1.7, "reward": 220},
 	"solrath_blade_b": {"name": "Solrath Shard", "class": "interceptor", "faction": "Solrath", "model": "solrath_blade_b", "hull": 65.0, "shield": 45.0, "speed": 52.0, "turn": 1.6, "damage": 6.0, "rate": 1.8, "reward": 230},
 	"solrath_batwing": {"name": "Solrath Batwing", "class": "heavy fighter", "faction": "Solrath", "model": "solrath_batwing", "radius": 9.0, "hull": 120.0, "shield": 65.0, "speed": 45.0, "turn": 1.25, "damage": 7.0, "rate": 1.9, "reward": 340, "missiles": true},

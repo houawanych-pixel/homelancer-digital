@@ -39,6 +39,7 @@ const GLB := {
 	"solrath_blade_b": ["res://assets/ships/enemy/solrath_blade_b.glb", Data.SOLRATH_BLADE_LEN, Data.ALIEN_SHIP_YAW],
 	"solrath_batwing": ["res://assets/ships/enemy/solrath_batwing.glb", Data.SOLRATH_BATWING_LEN, Data.ALIEN_SHIP_YAW],
 	"solrath_spire": ["res://assets/ships/enemy/solrath_spire.glb", Data.SOLRATH_SPIRE_LEN, Data.ALIEN_SHIP_YAW],
+	"elyza_fighter": ["res://assets/ships/enemy/elyza_fighter.glb", Data.ELYZA_FIGHTER_LEN, Data.ALIEN_SHIP_YAW],   # v1.5p: folding wings (Body / WingL / WingR)
 	"liberator_cross": ["res://assets/ships/enemy/liberator_cross.glb", Data.LIBERATOR_CROSS_LEN, Data.LIBERATOR_YAW],
 	"savager_cruiser": ["res://assets/ships/enemy/savager_cruiser.glb", Data.SAVAGER_CRUISER_LEN, Data.SAVAGER_CRUISER_YAW],
 	"pilot_pod": ["res://assets/cargo/spacesuit_pilot.glb", 4.0, 0.0],   # stand-in: the soldier in the space suit
@@ -81,6 +82,9 @@ static func build(key: String, keep := true) -> Node3D:
 		root.add_child(inst)
 		_fit(root, inst, GLB[key][1])
 		root.set_meta("placeholder", false)
+		if Data.SHIP_WINGS.has(key):   # v1.5p: folding wings start folded (the open form is only for the SPECIAL)
+			root.set_meta("wings_key", key)
+			set_wings(root, 0.0)
 		return root
 	root.set_meta("placeholder", true)
 	match key:
@@ -92,6 +96,19 @@ static func build(key: String, keep := true) -> Node3D:
 		"carrier": _carrier(root, Color(0.62, 0.66, 0.72), Color(0.35, 0.8, 1.0))
 		_: _fighter(root, Color.WHITE, Color.CYAN, 1.0, 2)
 	return root
+
+## v1.5p folding wings: k = 0 folded in (how it flies), 1 = swung out (the SPECIAL). No-op for other ships.
+static func set_wings(root: Node3D, k: float) -> void:
+	if root == null or not root.has_meta("wings_key"): return
+	var tuck: float = float(Data.SHIP_WINGS[root.get_meta("wings_key")]) * (1.0 - clampf(k, 0.0, 1.0))
+	var wl := root.find_child("WingL", true, false) as Node3D
+	var wr := root.find_child("WingR", true, false) as Node3D
+	if wl: wl.position.x = tuck
+	if wr: wr.position.x = -tuck
+	root.set_meta("wings_open", clampf(k, 0.0, 1.0))
+
+static func wings_open(root: Node3D) -> float:
+	return float(root.get_meta("wings_open", 1.0)) if root and root.has_meta("wings_key") else -1.0
 
 ## Scale and centre an imported model once (never re-scaled at runtime).
 static func _fit(root: Node3D, inst: Node3D, length: float) -> void:

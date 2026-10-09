@@ -22,7 +22,7 @@ const DEFS := {
 		"rival_faction_id": "Imperium", "reputation_mode": "normal", "base_standing": 10.0},
 	"Imperium": {"faction_id": "imperium", "character_roster": "Imperium", "fighter_pool": ["imperium_fighter", "imperium_gunship"], "ui_background": "imperium", "display_name": "Imperium", "primary_color": Color(0.75, 0.25, 0.28), "secondary_color": Color(0.15, 0.1, 0.1),
 		"rival_faction_id": "Unity", "reputation_mode": "normal", "base_standing": 10.0},
-	"Elyza": {"faction_id": "elyza", "character_roster": "Elyza", "fighter_pool": [], "ui_background": "elyza", "display_name": "Elyza", "primary_color": Color(0.45, 0.6, 0.95), "secondary_color": Color(0.85, 0.87, 0.95),
+	"Elyza": {"faction_id": "elyza", "character_roster": "Elyza", "fighter_pool": ["elyza_fighter"], "ui_background": "elyza", "display_name": "Elyza", "primary_color": Color(0.45, 0.6, 0.95), "secondary_color": Color(0.85, 0.87, 0.95),
 		"rival_faction_id": "Covenant", "reputation_mode": "normal", "base_standing": 10.0},
 	"Covenant": {"faction_id": "covenant", "character_roster": "Covenant", "fighter_pool": ["covenant_fighter", "covenant_interceptor", "covenant_lance"], "ui_background": "covenant", "display_name": "Covenant", "primary_color": Color(0.6, 0.4, 0.85), "secondary_color": Color(0.2, 0.15, 0.3),
 		"rival_faction_id": "Elyza", "reputation_mode": "normal", "base_standing": 10.0},

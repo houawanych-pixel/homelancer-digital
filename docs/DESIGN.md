@@ -1158,3 +1158,23 @@ Owner, after the v1.5k test flow passed: "push it to all".
 - Every missile (yours and theirs) bursts in a round explosion when its life runs out (`MISSILE_EXPIRE_BLAST`). A mine
   in an incoming missile's path decoys it (`DECOY_RADIUS`): both go off.
 - Not yet: heavy torpedo timed lock, twin launchers (needs the hangar), a player pilot portrait.
+
+## 55. The Elyza fighter and the hangar (Job AS, v1.5p)
+- Owner: one ship for the whole Elyza faction for now ("one ship perfection"). His file held two forms of it; the
+  closed one was uneven, so the game uses the clean open form, mirrored, and folds its wings in itself
+  (`SHIP_WINGS`): it flies folded. The model is Body + WingL + WingR (`tools/assetkit/split_wings.py`).
+- Per-ship special (`SHIP_SPECIAL_MOVE`): the Elyza fighter swings its wings out while it barrel-rolls through the
+  special (lock, cut-in, beam) and folds them back after; any ship without its own move just rolls. The Elyza fighter
+  is also on sale at the ship dealer (3500 cr) so the player can fly it.
+- The hangar (YOUR SHIP -> ENTER HANGAR), from the owner's 3D parts, in its own "hangar" pack (not in the first
+  download). Four walls, each a continuous backing of panels in two rows, each row stretched a few percent so it fills
+  its wall exactly (no gaps); the big parts stand in front: the launch pad in the middle with a solid plate filling
+  the back of its open frame (the owner: that panel must not be see-through), a mech bay each side, gantries between,
+  two wall bays (lockers + walkway) on each side wall, pipes and a valve, the tall door in a corridor arch with a
+  window strip on the front wall. Floor: steel plates with a hazard frame and guide lines (shader). Ceiling,
+  generated: a dark deck, a grid of deep beams, light strips, a cornice round the walls; four lamps and a key light on
+  the pad. Laid out in plan units (pad 20 tall) and scaled by `HANGAR_SCALE` so the player's mech fits the pad.
+- Your mech stands on the pad, your ship is parked in front of it; SHIP / MECH switches, WINGS opens folding wings,
+  drag looks around, pinch zooms; the camera stays on the open floor. Weapon mounts and the three paint channels come
+  next on this screen.
+- Budget: about 50 parts and 0.7 M triangles (the gantry and wall bays would not decimate below 64-73 k each).

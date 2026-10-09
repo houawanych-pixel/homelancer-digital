@@ -594,6 +594,14 @@ func open_inspector(id: String) -> void:
 	inspect.add_child(close)
 	_insp_camera()
 
+var hangar: HangarView = null   # v1.5p
+
+func open_hangar() -> void:
+	if is_instance_valid(hangar): return
+	hangar = HangarView.new()
+	add_child(hangar)
+	hangar.closed.connect(func(): hangar = null)
+
 func close_inspector() -> void:
 	if is_instance_valid(inspect): inspect.queue_free()
 	inspect = null
@@ -784,6 +792,13 @@ func _ship_page() -> void:
 	var head := _label(22, Color(1, 1, 1))
 	head.text = "%s  ·  %s" % [str(sh["name"]).to_upper(), sh["class"]]
 	v.add_child(head)
+	var hb := Button.new()   # v1.5p: the 3D hangar
+	hb.name = "EnterHangar"
+	hb.text = "ENTER HANGAR"
+	hb.custom_minimum_size = Vector2(260, 56)
+	hb.add_theme_color_override("font_color", GOLD)
+	hb.pressed.connect(open_hangar)
+	v.add_child(hb)
 	var w := _label(18, CYAN)
 	w.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	w.name = "Weapons"

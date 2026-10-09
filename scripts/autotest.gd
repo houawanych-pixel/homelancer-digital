@@ -1051,6 +1051,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_AS") != "":   # the Job AS checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_as()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_AR") != "":   # the Job AR checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1475,7 +1483,7 @@ func _run() -> void:
 	var sb: Button = main.hub.find_child("Ship_lancer", true, false)
 	if sb and not sb.disabled: sb.pressed.emit()
 	await _wait(0.4)
-	_check("Ship purchase (Lancer, 4 cannons); the dealer sells six real ships", GS.ship_id == "lancer" and int(GS.ship()["guns"]) == 4 and Data.SHIP_ORDER == ["cadet", "ranger", "hauler", "lancer", "bulk_empty", "bulk"] and ShipFactory.has_real_model("bulk_empty") and ShipFactory.has_real_model("ranger") and ShipFactory.has_real_model("hauler") and ShipFactory.has_real_model("bulk"), "ship=%s hull=%d" % [GS.ship_id, int(GS.max_hull())])
+	_check("Ship purchase (Lancer, 4 cannons); the dealer sells seven real ships (v1.5p: + the Elyza fighter)", GS.ship_id == "lancer" and int(GS.ship()["guns"]) == 4 and Data.SHIP_ORDER == ["cadet", "ranger", "hauler", "elyza", "lancer", "bulk_empty", "bulk"] and ShipFactory.has_real_model("bulk_empty") and ShipFactory.has_real_model("ranger") and ShipFactory.has_real_model("hauler") and ShipFactory.has_real_model("bulk"), "ship=%s hull=%d" % [GS.ship_id, int(GS.max_hull())])
 	main.hub.open_inspector("lancer")
 	await _wait(0.4)
 	var cam0: Vector3 = main.hub.insp_cam.position
@@ -1635,6 +1643,7 @@ func _run() -> void:
 	await _job_ap()
 	await _job_aq()
 	await _job_ar()
+	await _job_as()
 	await _galaxy()
 	await _controls_j()
 	await _gate_k()
@@ -4163,7 +4172,7 @@ func _job_aa() -> void:
 	for k in ["imperium_fighter", "imperium_gunship", "liberator_fighter", "liberator_heavy"]:
 		if not ShipFactory.has_real_model(Data.ENEMIES[k]["model"]): models = false
 	_check("Job AA: Imperium and Liberator pilots have fighters from their own ship sets (light for slots 1-3, heavier for 4-6); the other five casts are known but do not fly yet",
-		fly.filter(func(f): return Factions.normal(f)) == ["Covenant", "Imperium", "Liberator", "Savagers"] and models   # (v1.4z: of the eight main factions; Kaijurai and Phenom fly too; v1.5c: Covenant, Cybermorph, Solrath too)
+		fly.filter(func(f): return Factions.normal(f)) == ["Covenant", "Elyza", "Imperium", "Liberator", "Savagers"] and models   # (v1.4z: of the eight main factions; Kaijurai and Phenom fly too; v1.5c: Covenant, Cybermorph, Solrath too; v1.5p: Elyza)
 		 and Data.roster_pilot("imperium_02")["fighter_primary"] == "imperium_fighter" and Data.roster_pilot("imperium_05")["fighter_primary"] == "imperium_gunship"
 		and Data.roster_pilot("unity_02")["fighter_primary"] == "" and float(ShipFactory.GLB["liberator_fighter"][2]) == Data.LIBERATOR_YAW, str(fly))
 	# a guard wing in their own space: peaceful, not a hostile contact, answers a hail; shoot and it turns
@@ -5579,3 +5588,117 @@ func _ar_hold(s: SpaceSystem, e: Dictionary, side_on: bool) -> void:
 	n.global_position = s.player.global_position - s.player.global_basis.z * 300.0
 	n.look_at(n.global_position + (s.player.global_basis.x if side_on else s.player.global_basis.z), Vector3.UP)
 	e["vel"] = Vector3.ZERO
+
+
+## Job AS (v1.5p): the owner's Elyza fighter (one ship for the Elyza faction, folding wings: they swing out for the
+## SPECIAL, per ship) and the 3D hangar built from his hangar parts.
+func _job_as() -> void:
+	var shell := FileAccess.get_file_as_string("res://web_shell.html")
+	_check("Job AS: version label reads \"Homelancer Digital v1.5p\" or later", Data.VERSION >= "v1.5p" and (shell == "" or shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0), Data.VERSION)
+	# ---- 1. the Elyza fighter model: real, nose-first, folding wings, folded by default
+	var m := ShipFactory.build("elyza_fighter")
+	var wl := m.find_child("WingL", true, false) as Node3D
+	var wr := m.find_child("WingR", true, false) as Node3D
+	var body := m.find_child("Body", true, false)
+	var tuck: float = Data.SHIP_WINGS["elyza_fighter"]
+	var folded: bool = wl != null and wr != null and is_equal_approx(wl.position.x, tuck) and is_equal_approx(wr.position.x, -tuck) and ShipFactory.wings_open(m) == 0.0
+	var box: AABB = ShipFactory._aabb(m, Transform3D.IDENTITY)
+	ShipFactory.set_wings(m, 1.0)
+	var opened: bool = is_equal_approx(wl.position.x, 0.0) and is_equal_approx(wr.position.x, 0.0) if wl and wr else false
+	var box2: AABB = ShipFactory._aabb(m, Transform3D.IDENTITY)
+	var wider: bool = box2.size.x > box.size.x * 1.3
+	_check("Job AS: the Elyza fighter is the owner's model (one file, Body + WingL + WingR), nose at -Z, about %d m; it flies with the wings folded in, and they swing out on their arms" % int(Data.ELYZA_FIGHTER_LEN),
+		ShipFactory.has_real_model("elyza_fighter") and not m.get_meta("placeholder", true) and body != null and folded and opened and wider and absf(box.size.z - Data.ELYZA_FIGHTER_LEN) < 1.5 and is_equal_approx(float(ShipFactory.GLB["elyza_fighter"][2]), 0.0),
+		"folded %s opened %s width %.1f -> %.1f length %.1f" % [folded, opened, box.size.x, box2.size.x, box.size.z])
+	m.free()
+	var pool: Array = Factions.DEFS.get("Elyza", {}).get("fighter_pool", [])
+	_check("Job AS: one ship for the whole Elyza faction for now: their fighter pool is the Elyza fighter, and the ship dealer sells it too",
+		pool == ["elyza_fighter"] and Data.ENEMIES.has("elyza_fighter") and Data.SHIPS.has("elyza") and "elyza" in Data.SHIP_ORDER and Data.SHIPS["elyza"]["model"] == "elyza_fighter", str(pool))
+	# ---- 2. per-ship special: flying the Elyza fighter, the special swings the wings out (and rolls); others just roll
+	var s := _sp()
+	var keep_ship: String = GS.ship_id
+	var keep_hull: float = GS.hull
+	var keep_modes: Dictionary = GS.modes.duplicate()
+	for id in ["guns", "missile", "mine", "hull", "shield", "energy"]: GS.modes[id] = "manual"
+	GS.ship_id = "elyza"
+	GS.form = "ship"
+	s.set_player_model()
+	await _frames(2)
+	var move_ok: bool = s.special_move() == "wings_out"
+	var w0: float = ShipFactory.wings_open(s.model)
+	GS.special_used = {"half": false, "crit": false}
+	GS.hull = GS.max_hull() * 0.5
+	_tp(s.station.global_position + Vector3(0, 1500, 5000), s.station.global_position + Vector3(0, 1500, 6000))
+	s.fire_lock = false
+	await _frames(3)
+	var e: Dictionary = s.spawn_unit("elyza_fighter", s.player.global_position - s.player.global_basis.z * 300.0, s.player.global_position)
+	e["aggro"] = false
+	for k in ["hp", "max"]: e[k] = 400.0
+	s.target = e["node"]
+	main.hud.held["special"] = true
+	var tl := 0.0
+	var w_mid := 0.0
+	var rolled := false
+	while tl < Data.SPECIAL_LOCK_TIME * 0.8:
+		_ar_hold(s, e, false)
+		await get_tree().process_frame
+		tl += get_process_delta_time()
+		w_mid = maxf(w_mid, ShipFactory.wings_open(s.model))
+		rolled = rolled or absf(s.model.rotation.z) > 0.3
+	await _shot("as_elyza_special_wings", 0.0)
+	main.hud.held.erase("special")
+	await _until(func(): return s.special_state == "idle", 2.0)
+	await _wait(1.0)
+	var w_end: float = ShipFactory.wings_open(s.model)
+	var enemy_real: bool = not (e["node"] as Node3D).get_child(0).get_meta("placeholder", true) if is_instance_valid(e["node"]) else false
+	if is_instance_valid(e["node"]): s._damage_enemy(e, 99999.0)
+	GS.ship_id = keep_ship
+	GS.hull = keep_hull
+	GS.modes = keep_modes
+	GS.special_used = {"half": false, "crit": false}
+	s.set_player_model()
+	var other_roll: bool = s.special_move() == "roll" or keep_ship == "elyza"
+	_check("Job AS: each ship has its own special move: holding SPECIAL in the Elyza fighter swings its wings out while it barrel-rolls, and they fold back after; a ship without its own move just rolls",
+		move_ok and w0 == 0.0 and w_mid > 0.8 and rolled and w_end < 0.05 and other_roll and enemy_real,
+		"wings %.2f -> %.2f -> %.2f roll %s, enemy model real %s" % [w0, w_mid, w_end, rolled, enemy_real])
+	# ---- 3. the hangar
+	main.hub.open(Data.SYSTEMS[s.sys_id]["station"])
+	await _frames(2)
+	main.hub.show_screen("ship")
+	await _frames(2)
+	var enter: Button = main.hub.content.find_child("EnterHangar", true, false)
+	if enter: enter.pressed.emit()
+	await _until(func(): return is_instance_valid(main.hub.hangar) and main.hub.hangar.room != null and is_instance_valid(main.hub.hangar.craft), 30.0)
+	var hv: HangarView = main.hub.hangar
+	var ok := hv != null and hv.room != null
+	var room: HangarRoom = hv.room if ok else null
+	var rows_ok := ok and room.rows.size() == 8 and room.rows.all(func(r): return absf(float(r[0]) - float(r[1])) < 0.01 and int(r[2]) >= 2)
+	var plate: bool = ok and room.find_child("PadBackPlate", true, false) != null
+	var ceiling: bool = ok and room.find_child("Ceiling", true, false) != null and room.find_child("Floor", true, false) != null
+	_check("Job AS: ENTER HANGAR (YOUR SHIP) opens the 3D hangar built from the owner's parts: all four walls panelled in two rows that each fill the wall exactly (no gaps), the launch pad with a solid plate behind its open frame, the mech bays, gantries, wall bays, door, pipes, a floor and a generated ceiling",
+		ok and room.missing.is_empty() and rows_ok and plate and ceiling and room.parts >= 40, "parts %d, %d triangles, rows %s, missing %s" % [room.parts if ok else 0, room.tris if ok else 0, str(room.rows) if ok else "-", str(room.missing) if ok else "-"])
+	var inside := func(p: Vector3) -> bool:
+		var k: float = Data.HANGAR_SCALE
+		return absf(p.x) < room.W * 0.5 * k and absf(p.z) < room.D * 0.5 * k and p.y > 0.0 and p.y < room.H * k
+	var ship_ok: bool = ok and hv.showing == "ship" and inside.call(hv.craft.position) and inside.call(hv.cam.position)
+	await _shot("as_hangar_ship", 0.6)
+	hv.turn(Vector2(-260, 40))
+	await _shot("as_hangar_ship_turned", 0.3)
+	var wings_btn: Button = hv.find_child("HangarWings", true, false) if ok else null
+	var mech_ok := false
+	var sw: Button = hv.find_child("HangarSwitch", true, false) if ok else null
+	if sw: sw.pressed.emit()
+	await _frames(3)
+	if ok and ShipFactory.has_real_model("mech_player"):
+		var mb := ShipFactory._aabb(hv.craft, Transform3D.IDENTITY)
+		var pad_h: float = Data.HANGAR_PLAN_PAD_H * Data.HANGAR_SCALE
+		var dxz := Vector2(hv.craft.position.x - hv.pad_point().x, hv.craft.position.z - hv.pad_point().z).length()
+		mech_ok = hv.showing == "mech" and dxz < 2.0 and mb.size.y < pad_h and mb.size.y > pad_h * 0.4 and inside.call(hv.cam.position)
+		await _shot("as_hangar_mech_on_pad", 0.6)
+	else: mech_ok = true   # (no mech pack in this run)
+	if not mech_ok and ok: print("[as] mech ", hv.showing, " ", hv.craft.position, " pad ", hv.pad_point(), " size ", ShipFactory._aabb(hv.craft, Transform3D.IDENTITY).size)
+	_check("Job AS: in the hangar the ship is parked in front of the pad and the mech stands on the launch pad (it fits the pad); SHIP / MECH switches, drag turns the view, and the camera never leaves the room",
+		ship_ok and mech_ok and sw != null and wings_btn != null, "ship %s mech %s" % [ship_ok, mech_ok])
+	if ok: hv.close()
+	await _frames(2)
+	main.hub.visible = false

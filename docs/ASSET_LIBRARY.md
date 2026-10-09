@@ -291,3 +291,25 @@ one, not many. So only the fighters were built this time; the capital ships are 
   rendered as black cut-outs; the metallic channel was capped at 0.25 and roughness raised to 0.55 (`tame_metal.py`).
 - The old Liberator and Imperium copies (v1.4w) were the same four ships, not levelled or mirrored and lying tail-first
   (`LIBERATOR_YAW` 180). They were replaced by levelled, mirrored copies, nose at -Z, yaw 0; same file names.
+
+## Job AS (v1.5p): the Elyza fighter and the hangar parts
+
+Originals (read-only, never written): hlselyza, hlhang1, hlhang2, hlhang03, hlhanwapan1, hlhangwalwa1, hlhwaldoor1,
+hlpipes, hlmpad. Every piece of every file was kept: light copies of all 63 pieces are in the owner's zip; the ones the
+game uses are below. Names are guesses from the shapes. Parts are upright, front at +Z, bottom at y = 0
+(`tools/assetkit/orient_struct.py`); wall-type parts had their back faces (towards the outer wall) removed.
+
+| Faction / set | File | Source piece | Triangles | Mirrored | Status |
+|---|---|---|---|---|---|
+| Elyza | assets/ships/enemy/elyza_fighter.glb | hlselyza piece 0 (open form) | 45556 | yes | IN GAME: Elyza fighter pool + ship dealer; nodes Body / WingL / WingR |
+| Elyza | (saved) elyza_fighter_closed_orig | hlselyza piece 1 (closed form, uneven) | 14667 | no | saved only: the owner chose the open form |
+| Hangar | hangar_launch_pad.glb | hlmpad | 28715 | no | IN GAME (hangar centre, solid plate behind its frame) |
+| Hangar | hangar_mech_bay.glb | hlhang2 | 43550 | no | IN GAME x2 |
+| Hangar | hangar_wall_bay.glb | hlhang03 (lockers + walkway) | 63989 | no | IN GAME x4 (side walls) |
+| Hangar | hangar_gantry.glb | hlhang1 | 73469 | no | IN GAME x2 (would not decimate further) |
+| Hangar | hangar_panel_a..f.glb | hlhanwapan1 pieces 0-5 | 3560-7841 | no | IN GAME: wall backing, every wall |
+| Hangar | hangar_wall_panel_a..g.glb | hlhwaldoor1 pieces 12, 15, 16, 18-21 | 448-1865 | no | IN GAME: front wall, lower row |
+| Hangar | hangar_door_tall / door_double / pillar_block_a.glb | hlhwaldoor1 14, 13, 0 | 464-4617 | no | door_tall IN GAME; others in the pack |
+| Hangar | hangar_corridor_arch_b / window_strip.glb | hlhangwalwa1 2, 7 | 4610 / 2306 | no | IN GAME (front wall) |
+| Hangar | hangar_pipe_long_a/b, bend_a, riser, valve_wheel.glb | hlpipes 0-3, 5 | 2561-3248 | no | IN GAME (long_b, riser, valve) |
+| Hangar | (saved) corridor walls / tubes / ceiling bevels, door frames, brackets, tilted blocks, pipe tee / elbow | hlhangwalwa1, hlhwaldoor1, hlpipes | - | no | saved only |

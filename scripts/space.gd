@@ -4166,8 +4166,17 @@ func special_ready() -> String:
 func _special_locked_on(t: Node3D) -> bool:
 	return t != null and is_instance_valid(t) and t.get_meta("kind", "") == "enemy" and _cone(t, Data.SPECIAL_CONE_DEG, Data.SPECIAL_RANGE)
 
+## v1.5p: this ship's own special move (Data.SHIP_SPECIAL_MOVE by model key): "wings_out" or "roll".
+func special_move() -> String:
+	if GS.form == "mech": return "roll"
+	return str(Data.SHIP_SPECIAL_MOVE.get(str(GS.ship().get("model", "")), "roll"))
+
 func _update_special(dt: float) -> void:
 	special_t += dt
+	if is_instance_valid(model) and ShipFactory.wings_open(model) >= 0.0:   # v1.5p: folding wings swing out for the special
+		var want := 1.0 if special_state != "idle" and special_move() == "wings_out" else 0.0
+		var k := ShipFactory.wings_open(model)
+		if not is_equal_approx(k, want): ShipFactory.set_wings(model, move_toward(k, want, dt * Data.WINGS_OPEN_RATE))
 	match special_state:
 		"idle":
 			if special_held and controls and warp_state == "off" and special_ready() != "" and _special_locked_on(target):

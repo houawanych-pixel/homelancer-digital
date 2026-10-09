@@ -36,6 +36,7 @@ const PACKS := {
 	"hubbg_phenom": {"folders": ["res://assets/hub_bg"], "match": "phenom.", "probe": "res://assets/hub_bg/phenom.jpg"},
 	"hubbg_kaijurai": {"folders": ["res://assets/hub_bg"], "match": "kaijurai.", "probe": "res://assets/hub_bg/kaijurai.jpg"},
 	"worlds": {"folders": ["res://assets/worlds"], "probe": "res://assets/worlds/earth.jpg"},
+	"hangar": {"folders": ["res://assets/hangar"], "probe": "res://assets/hangar/hangar_launch_pad.glb"},   # v1.5p
 	"structures": {"folders": ["res://assets/structures"], "probe": "res://assets/structures/jump_gate_ring.glb"},
 	"sky": {"folders": ["res://assets/sky"], "probe": "res://assets/sky/solara.jpg"},
 	# music: one pack per track, fetched the first time that track is wanted (scripts/music.gd)
