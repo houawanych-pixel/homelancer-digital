@@ -120,6 +120,9 @@ Older sections below may still say "rock" / "hard rock": read them as stone / ob
   - Obsidian: stays sharp (it never fuses; its chunk is a landmark).
 
 ## Sand: the pyramid rule
+- (refined) The "pyramid" is a soft mound with a BLUNT top, not a sharp point. It only forms while the sand's top is
+  open: the moment something lands on it (dirt, a diamond...), the sand under the load squares back to a flat block
+  and the thing rests on that flat top.
 - A lone sand block on open ground reads as a pyramid / cone, not a cube.
 - Falling sand forms that slope as it lands (it piles, it doesn't stack).
 - Poured into a corner it banks against the walls as a half-pyramid.
@@ -185,6 +188,11 @@ Older sections below may still say "rock" / "hard rock": read them as stone / ob
 - A piece has to be broken small enough to pick up before you can collect it: the same split-into-four breakdown,
   keep breaking until the chunks are pickup-size, then collect.
 - Very tough (they can hold lava).
+- Collected with the tractor beam the game ALREADY has: break the vein down to pickup size, then pull the pieces in.
+  The mining step hooks into it, nothing new to build.
+- Treasure isn't only deep: some worlds have gold and diamond right out in the open (piercing out of arches, rock faces,
+  outcrops). How much and where is rolled by each planet's seed: some worlds easy surface pickings, some deep only.
+- A loose single diamond comes to rest TILTED (sideways, at an angle), so it glints off its faces.
 - They NEVER fuse (the one exception to "everything fuses with its own kind"), so a vein can be broken down small
   enough to pick up; if they fused they'd merge back and could never be extracted.
 - Cashed in for money or upgrades (owner: yes; which one, or both, still to decide).
@@ -270,6 +278,10 @@ and costs nothing.
 - The ground blocks themselves still split into four where hit (20 -> 10 -> 5 m), except obsidian, which never splits.
 
 ## Settling
+- Stone in detail: it breaks into 3 heavy pieces that come down hard and hold their shape, then fuse with the stone
+  around where they land into a NEW stone shape (the terrain reshapes itself in solid stone).
+  (A relayed note said obsidian never fuses; the owner's later correction stands: obsidian fuses, but only with
+  obsidian.)
 - EVERYTHING FUSES WITH ITS OWN KIND, nothing mixes (owner's corrected rule): obsidian with obsidian (that is how
   the big strange obsidian shapes and roots grow), stone with stone (fallen pieces merge into a new rocky shape),
   dirt with dirt (it sticks where it hits), sand with sand (it settles into its pile). The one exception: gold and
@@ -299,6 +311,52 @@ the changes are re-applied. A hundred craters are a hundred small notes, not a f
 - v1.5t: each blast is one note [x, y, z, weapon]; the patch regrown from the seed plus the notes is the same ground,
   block for block. The game has no save file yet, so for now the notes last while you play (leave and come back and
   the craters are still there); a reload starts fresh. A real save will just keep the notes.
+
+## Shapes on the skin: shards, tips and the "hypernerve" (owner, call; notes only)
+- The hypernerve skin is PER MATERIAL: sand eases into soft blunt mounds, dirt and stone get a light rounding,
+  obsidian and diamond crisp into sharp, faceted crystal shards (reference: Superman's Fortress of Solitude, big
+  diagonal crystal shards leaning on and crossing each other). Blocks underneath for the logic, shapes for the eyes.
+- It works on the WHOLE fused shape as one, at an adjustable scale: a big fused mass becomes one grand coherent form
+  (grand shards, a sweeping ridge, a smooth dune), not per-block detail. Any outline, even a plain rectangle or an odd
+  Tetris shape, comes out smooth and sculpted, never boxy.
+- Obsidian and diamond shards are EARNED BY FUSING: a lone piece stays a plain block; two or more fused get the shape.
+  The two-block rules (same for both, obsidian big / dark / glossy, diamond smaller / bright / glowing):
+  - side by side flat on the floor: the points jut out sideways, along the ground;
+  - stacked upright: the top becomes the point;
+  - tilted: the highest end becomes the point;
+  - always flat where it meets the ground. Shards follow the footprint and point up or diagonal, never down.
+- Only the exposed tip points; the body behind stays solid mass. The bigger the fused mass, the more shape it earns:
+  more shards and facets top and bottom (a small pair keeps a flat footing, a big mass becomes a faceted crystal
+  monument).
+- A diamond deposit can look like one grand glowing shard cluster, but it still breaks into separate pickup pieces when
+  mined and never re-fuses.
+- Example the owner likes (rare, rolled by the seed): a blunt sand mound with a single diamond resting on top, tilted,
+  glinting from far off; or a dark obsidian piece crowning a pale mound.
+
+## World generation wish list (owner, call; the ambitious later step)
+- From arrival the world should look amazing: big interlocking slanted shapes (above), obsidian roots and shards
+  PIERCING up out of the ground as landmarks (they show where the deep root structure runs and where to dig),
+  Pride Rock style promontories (big jutting overhangs held up by what's under them: blast the support and the whole
+  thing comes down), rock arches AND obsidian arches big enough to fly under or through (load-bearing: take a leg out
+  and the span drops), deep winding CANYONS to fly down into with the layers showing in their walls.
+- Everything rolled by the seed per planet: treasure amount and place, arches, roots, bluffs, layout. Nothing
+  hand-placed; every world different.
+- Method is the builder's choice; one standard way is a heightmap (a grey picture the seed paints: dark = low,
+  canyons and hollows; light = high, peaks), possibly a few layered maps (shape, treasure, roots).
+- REALISTIC HEIGHTS: believable slopes and proportions, no thin "Eiffel Tower" spikes; clamp the noise's extremes.
+  Drama from scale and bold shape, not impossible spikes.
+- CAVES: carved by 3D noise (Minecraft's cheap trick) so they're organic and winding, not boxy Tetris rooms or one big
+  empty chamber; the hypernerve rounds their walls. But in SECTIONS: little self-contained pockets of "ant farm"
+  (branching tunnels and caverns), solid rock between them, never one planet-wide warren. Unlike Minecraft, our blocks
+  know their support, so a cave roof can come down; each pocket sleeps until broken into.
+- Caves are beautiful and are where fights happen too: dogfighting through a pocket with an enemy on your tail, shots
+  tearing up the rock; bring a roof down on a pursuer, shoot an arch leg to block one. The terrain becomes a weapon.
+
+## Polish for the very end (owner, call)
+- Cracked, sun-baked earth on the UPWARD-facing top of big fused dirt shapes only (sides and underside plain); a cheap
+  texture or shader, not cut geometry.
+- Water with gentle animated ripples and shimmer, lava a slow glowing churn: the same cheap GPU surface-wave trick,
+  no fluid simulation.
 
 ## Generating and loading a planet (owner, call)
 - When you arrive you descend through the atmosphere and the cloud layer, and that descent hides the work: the world
