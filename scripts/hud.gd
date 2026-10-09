@@ -583,18 +583,21 @@ func _draw_special() -> void:
 		var ly := y + h * (0.15 + i * 0.14)
 		var lx := fmod(t * 1400.0 + i * 260.0, S.x + 400.0) - 200.0
 		draw_line(Vector2(lx, ly), Vector2(lx + 180, ly), Color(1, 1, 1, 0.25 * slide), 2.0)
-	var face_r := Rect2(Vector2(x0 + S.x * 0.12, y - h * 0.1), Vector2(h * 1.2, h * 1.2))
+	# v1.5q (owner): the character's picture big in the middle of the screen, framed, the words under it
+	var fsz := S.y * 0.46 * (0.85 + 0.15 * slide)
+	var face_r := Rect2(Vector2(S.x * 0.5 - fsz * 0.5, S.y * 0.40 - fsz * 0.5), Vector2(fsz, fsz))
+	draw_rect(face_r.grow(8), Color(0.02, 0.05, 0.12, 0.92 * slide))
 	var tex: Texture2D = _face_tex(Data.PLAYER_PILOT_FACE, "normal") if Data.PLAYER_PILOT_FACE != "" else null
 	if tex: draw_texture_rect(tex, face_r, false, Color(1, 1, 1, slide))
-	else:   # no pilot portrait yet: a helmeted silhouette
+	else:   # no picture: a helmeted silhouette
 		var fc := face_r.get_center()
 		var fs := face_r.size.x * 0.32
 		draw_circle(fc + Vector2(0, -fs * 0.2), fs, Color(0.1, 0.16, 0.26, slide))
 		draw_colored_polygon(PackedVector2Array([fc + Vector2(-fs * 0.75, -fs * 0.3), fc + Vector2(fs * 0.75, -fs * 0.3), fc + Vector2(fs * 0.55, fs * 0.05), fc + Vector2(-fs * 0.55, fs * 0.05)]), Color(0.45, 0.85, 1.0, 0.9 * slide))
-		draw_colored_polygon(PackedVector2Array([fc + Vector2(-fs * 1.4, fs * 1.6), fc + Vector2(-fs * 0.7, fs * 0.7), fc + Vector2(fs * 0.7, fs * 0.7), fc + Vector2(fs * 1.4, fs * 1.6)]), Color(0.1, 0.16, 0.26, slide))
+	draw_rect(face_r.grow(8), Color(GOLD, slide), false, 4.0)
 	var crit: bool = space.special_which == "crit"
-	_text(Vector2(x0 + S.x * 0.45, y + h * 0.45), "SPECIAL ATTACK", 44, Color(GOLD, slide), HORIZONTAL_ALIGNMENT_LEFT, S.x * 0.5)
-	_text(Vector2(x0 + S.x * 0.45, y + h * 0.68), "LAST STAND" if crit else "LOCK CONFIRMED", 22, Color(RED if crit else CYAN, slide), HORIZONTAL_ALIGNMENT_LEFT, S.x * 0.5)
+	_text(Vector2(0, face_r.end.y + 46), "SPECIAL ATTACK", 44, Color(GOLD, slide), HORIZONTAL_ALIGNMENT_CENTER, S.x)
+	_text(Vector2(0, face_r.end.y + 72), "LAST STAND" if crit else "LOCK CONFIRMED", 22, Color(RED if crit else CYAN, slide), HORIZONTAL_ALIGNMENT_CENTER, S.x)
 
 ## One big corner button: raised face, icon, label, optional count badge and cooldown ring.
 func _corner(id: String, label: String, icon: String, col: Color, active := false, badge := "", cd := 0.0, locked := false, sub := "") -> void:

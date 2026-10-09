@@ -798,7 +798,6 @@ func enter_atmosphere(planet_node: Node3D) -> void:
 	tw.parallel().tween_method(func(k: float): space.hit_shake = 0.35 + 0.4 * k, 0.0, 1.0, 1.4)
 	tw.tween_property(fx, "clouds", 1.0, 0.5)
 	await tw.finished
-	Packs.request("city")
 	if not Packs.is_ready("planets"):
 		fx.caption = "ENTERING ATMOSPHERE"
 		fx.sub = "Receiving surface data…"
@@ -902,7 +901,6 @@ func descend_to(pid: String, loc_id: String) -> void:
 	fx.fade = 1.0
 	fx.caption = "DESCENDING"
 	fx.sub = "%s  ·  %s" % [l["name"].to_upper(), l["role"].to_upper()]
-	Packs.request("city")
 	if not Packs.is_ready("planets"):
 		fx.sub = "Receiving surface data…"
 		await Packs.wait("planets", 90.0)

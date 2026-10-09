@@ -81,10 +81,7 @@ const CORE_PLANETS := {
 				"desc": "Unity garrison high in the western range."},
 			{"id": "iron_foundry", "name": "Iron Foundry", "kind": "planet", "role": "Mission zone", "tile": 7, "pos": Vector2(500, 400),
 				"desc": "Abandoned smelters. Pirates hide gunships in the stacks."},
-		],
-		# capital city prototype (scripts/city.gd): one test block on flattened ground in the city sector, ~1 km
-		# north-west of Port Meridian. The rest of the planet keeps its own biomes.
-		"city_blocks": [{"id": "capital_block", "name": "Capital Test Block", "tile": 4, "pos": Vector2(-700, -250)}]},
+		]},
 	# Stars you can fly into (the sun sphere in space is the way in). One small tile that wraps onto itself, nothing on
 	# it yet. "sun": the heat drains shield then hull unless the ship has a heat shield (see space.gd).
 	"solara_sun": {"name": "Solara's Star", "system": "solara", "grid": 1, "tiles": ["sun"], "locations": [], "sun": true},
@@ -226,29 +223,7 @@ static func sample(planet_id: String, gx: float, gz: float) -> Array:
 		if d < 900.0:
 			var kk := clampf((d - 450.0) / 450.0, 0.0, 1.0)
 			h = lerpf(pad_height(planet_id, tc), h, kk * kk)
-	for cb in city_blocks_in(planet_id, tc):
-		var d2 := Vector2(lx, lz).distance_to(cb["pos"])
-		if d2 < CITY_FLAT + 300.0:
-			var k2 := clampf((d2 - CITY_FLAT) / 300.0, 0.0, 1.0)
-			h = lerpf(pad_height(planet_id, tc), h, k2 * k2)
 	return [h, col]
-
-const CITY_FLAT := 380.0   # fully flat radius under a city block (the test block's plaza is 440 x 520 m)
-
-static func city_blocks_in(planet_id: String, tile: int) -> Array:
-	return PLANETS[planet_id].get("city_blocks", []).filter(func(c): return int(c["tile"]) == tile)
-
-static var _block_cache := {}
-## The capital test block standing on its flattened ground (plaza top just above the terrain).
-static func capital_block(planet_id: String, tile: int, cb: Dictionary) -> Node3D:
-	if not _block_cache.has(cb["id"]): _block_cache[cb["id"]] = City.test_block()
-	var block: Dictionary = _block_cache[cb["id"]]
-	var n := City.instantiate(block)
-	var pc: Vector3 = (block["plaza"] as AABB).get_center()
-	n.position = Vector3(cb["pos"].x - pc.x, pad_height(planet_id, tile) + 0.3, cb["pos"].y - pc.z)
-	n.name = "CapitalBlock"
-	n.set_meta("block", block)
-	return n
 
 static func _smooth(t: float) -> float:
 	t = clampf(t, 0.0, 1.0)
@@ -469,7 +444,6 @@ static func build_tile(planet_id: String, tile: int) -> Node3D:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(key)
 	for l in locations_in(planet_id, tile): _settlement(root, planet_id, tile, l, rng)
-	for cb in city_blocks_in(planet_id, tile): root.add_child(capital_block(planet_id, tile, cb))
 	for c in wrap_corners(planet_id, tile): _corner_cloud(root, planet_id, tile, c, rng)
 	if PLANETS[planet_id]["tiles"][tile] in ["desert", "mountains", "wasteland", "volcanic", "industrial", "ice"]:
 		_landmarks(root, planet_id, tile, rng)
@@ -651,37 +625,6 @@ static func _settlement(root: Node3D, planet_id: String, tile: int, l: Dictionar
 	_prims()
 	var p2: Vector2 = l["pos"]
 	var gy := pad_height(planet_id, tile)
-	var role: String = l["role"]
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.use_colors = true
-	mm.mesh = _box
-	var count := 90 if role.contains("city") or role.contains("Capital") else 28
-	mm.instance_count = count
-	var solids: Array = root.get_meta("solids", [])
-	var bm := StandardMaterial3D.new()
-	bm.vertex_color_use_as_albedo = true
-	bm.roughness = 0.6
-	for i in count:
-		var a := rng.randf() * TAU
-		var r := rng.randf_range(160.0, 420.0)
-		var w := rng.randf_range(30.0, 70.0)
-		var h := rng.randf_range(30.0, 90.0) * (2.6 if role.contains("Capital") and r < 280.0 else 1.0)
-		if role.contains("Military"): h = rng.randf_range(12.0, 30.0)
-		if role.contains("Mission") and i % 5 == 0: h = rng.randf_range(120.0, 200.0)   # smoke stacks
-		var pos := Vector3(p2.x + cos(a) * r, gy + h * 0.5, p2.y + sin(a) * r)
-		var bxf := Transform3D(Basis.from_euler(Vector3(0, rng.randf() * PI, 0)).scaled(Vector3(w, h, w * rng.randf_range(0.6, 1.4))), pos)
-		mm.set_instance_transform(i, bxf)
-		solids.append(bxf * AABB(Vector3(-0.5, -0.5, -0.5), Vector3.ONE))   # simple collision: the box's bounds
-		var shade := rng.randf_range(0.55, 0.9)
-		mm.set_instance_color(i, Color(shade, shade * 0.98, shade * 0.95) if not role.contains("Military") else Color(0.35, 0.4, 0.32))
-	var mmi := MultiMeshInstance3D.new()
-	mmi.multimesh = mm
-	mmi.material_override = bm
-	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	mmi.name = "Buildings_" + l["id"]
-	root.add_child(mmi)
-	root.set_meta("solids", solids)
 	# the landing pad: flat disc with green guide lights
 	var pad := MeshInstance3D.new()
 	pad.mesh = _cyl

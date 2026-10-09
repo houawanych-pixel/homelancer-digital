@@ -313,3 +313,12 @@ game uses are below. Names are guesses from the shapes. Parts are upright, front
 | Hangar | hangar_corridor_arch_b / window_strip.glb | hlhangwalwa1 2, 7 | 4610 / 2306 | no | IN GAME (front wall) |
 | Hangar | hangar_pipe_long_a/b, bend_a, riser, valve_wheel.glb | hlpipes 0-3, 5 | 2561-3248 | no | IN GAME (long_b, riser, valve) |
 | Hangar | (saved) corridor walls / tubes / ceiling bevels, door frames, brackets, tilted blocks, pipe tee / elbow | hlhangwalwa1, hlhwaldoor1, hlpipes | - | no | saved only |
+
+## Job AT (v1.5q): placeholder fighters and the clean-up
+
+Original: hlpshplholder_faction (24 pieces: big ships 0-7, fighters 8-23), read-only. Fighters levelled, turned nose-first,
+mirrored and tinted (`tools/assetkit/tint.py`); all in assets/ships/enemy/placeholder_<faction>.glb, IN GAME as
+`ph_<faction>`. Piece per faction: Savagers 8, Gadversee 9, Imperium 10, Unity 11, Liberator 12, Orion 13, Phenom 14,
+Covenant 15, Cybermorph 16, Kaijurai 17, Arctides 18, Solarion 19, Elyza 21, Solrath 23 (20, 22 and the big ships 0-7
+saved only). Removed from the game: assets/hangar (all hangar parts, §55), assets/city (b01 tower, h01 hangar, city
+textures), assets/ui/title_network.jpg. Their originals stay in the owner's originals folder.

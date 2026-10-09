@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.5p"
+const VERSION := "v1.5q"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -220,32 +220,24 @@ const SPECIAL_SWARM_DODGE := 0.35       # ... and the target's dodge chance agai
 const SPECIAL_LAUNCHERS := 1            # identical light launchers fitted (the twin-launcher rule: locks x launchers); 1 until the hangar fits two
 const MISSILE_EXPIRE_BLAST := true      # a missile that runs out of life bursts into a round explosion zone
 const DECOY_RADIUS := 26.0              # an enemy missile this close to one of your mines detonates on it (the mine goes too)
-const PLAYER_PILOT_FACE := ""           # the player's own pilot portrait for the cut-in (none yet: a drawn silhouette)
+const PLAYER_PILOT_FACE := "gp/unity_01"  # v1.5q placeholder (owner: a character picture for now): the cut-in shows it big in the middle
 # ---------------------------------------------------------------- Job AS (v1.5p): the Elyza fighter (folding wings) and the hangar
 # The owner's hl_s_elyza file held two forms of one ship; the open form (wings out on their arms) was the clean, even
 # one, so the game copy is that one, mirrored, nose at -Z, split into Body / WingL / WingR. The closed form is the same
 # model with the wings folded in by SHIP_WINGS (model units): that is how it flies. Each ship can have its own SPECIAL
 # move (SHIP_SPECIAL_MOVE): the Elyza fighter swings its wings out while it barrel-rolls; any other ship just rolls.
+# ---------------------------------------------------------------- Job AT (v1.5q): clean-up + placeholder fighters
+# The owner's placeholder fighter set (hlpshplholder_faction): one fighter per faction, tinted in its own colour, so every
+# faction's six pilots have a ship (and their voices) until the real ships come. Factions that already fly the owner's
+# own ships keep them; PLACEHOLDER_SHIPS says which placeholder each faction has (one line each to swap in).
+const PLACEHOLDER_SHIP_LEN := 11.0
+const PLACEHOLDER_SHIPS := {"Savagers": "ph_savagers", "Liberator": "ph_liberator", "Unity": "ph_unity", "Imperium": "ph_imperium",
+	"Elyza": "ph_elyza", "Covenant": "ph_covenant", "Solarion": "ph_solarion", "Orion": "ph_orion", "Cybermorph": "ph_cybermorph",
+	"Solrath": "ph_solrath", "Gadversee": "ph_gadversee", "Arctides": "ph_arctides", "Phenom": "ph_phenom", "Kaijurai": "ph_kaijurai"}
 const ELYZA_FIGHTER_LEN := 12.0
 const SHIP_WINGS := {"elyza_fighter": 0.125}          # model key -> how far the wings fold in (model units; 0 = open)
 const SHIP_SPECIAL_MOVE := {"elyza_fighter": "wings_out"}   # model key -> its own special move ("roll" when not listed)
 const WINGS_OPEN_RATE := 2.5                          # wings open / close per second (fraction of the way)
-# The hangar (YOUR SHIP -> ENTER HANGAR), built from the owner's hangar parts. Plan units: the launch pad is
-# HANGAR_PLAN_PAD_H tall; the whole room is then scaled by HANGAR_SCALE so the player's mech fits the pad.
-const HANGAR_SCALE := 0.6
-const HANGAR_PLAN_PAD_H := 20.0
-const HANGAR_SIZE := Vector3(76.0, 30.0, 64.0)        # width, height, depth (plan units)
-const HANGAR_WALL_DEPTH := 2.5                        # how far the panel backing stands out from each wall
-const HANGAR_BAY_X := 25.0                            # the two mech bays, either side of the pad
-const HANGAR_GANTRY_X := 12.5
-const HANGAR_GANTRY_LEN := 16.0
-const HANGAR_SIDE_H := 18.0                           # the wall bays (lockers + walkway) on the side walls
-const HANGAR_SIDE_DEPTH := 12.0
-const HANGAR_SIDE_BAYS := [-0.6, 20.6]                # their centres along the side walls (z)
-const HANGAR_SHIP_LIFT := 2.5                         # the ship hovers this high over the floor
-const HANGAR_SHIP_AHEAD := 16.0                       # and this far in front of the pad
-const HANGAR_BEAMS := Vector2(6, 5)                   # ceiling bays across x / along z
-const HANGAR_CAM_DIST := [10.0, 34.0]                 # orbit camera distance range (metres)
 
 # ---------------------------------------------------------------- Job AQ (v1.5n): thrust arc (looks only, flight unchanged)
 const THRUST_ARC_DEG := 22.0      # how far the nose rears up at most while THRUST is on
@@ -776,6 +768,20 @@ const ENEMIES := {
 	"covenant_lance": {"name": "Covenant Lance", "class": "heavy fighter", "faction": "Covenant", "model": "covenant_lance", "radius": 9.0, "hull": 115.0, "shield": 75.0, "speed": 46.0, "turn": 1.25, "damage": 7.0, "rate": 1.9, "reward": 340, "missiles": true},
 	"cybermorph_fighter": {"name": "Cybermorph Frame Fighter", "class": "fighter", "faction": "Cybermorph", "model": "cybermorph_fighter", "hull": 80.0, "shield": 40.0, "speed": 48.0, "turn": 1.4, "damage": 6.5, "rate": 1.7, "reward": 230},
 	"cybermorph_star": {"name": "Cybermorph Star Drone", "class": "drone", "faction": "Cybermorph", "model": "cybermorph_star", "hull": 55.0, "shield": 30.0, "speed": 54.0, "turn": 1.7, "damage": 5.0, "rate": 1.5, "reward": 170},
+	"ph_savagers": {"name": "Savagers Fighter", "class": "fighter", "faction": "Savagers", "model": "placeholder_savagers", "hull": 75.0, "shield": 45.0, "speed": 48.0, "turn": 1.45, "damage": 6.0, "rate": 1.7, "reward": 210, "missiles": true, "placeholder": true},
+	"ph_liberator": {"name": "Liberator Fighter", "class": "fighter", "faction": "Liberator", "model": "placeholder_liberator", "hull": 75.0, "shield": 45.0, "speed": 48.0, "turn": 1.45, "damage": 6.0, "rate": 1.7, "reward": 210, "missiles": true, "placeholder": true},
+	"ph_unity": {"name": "Unity Fighter", "class": "fighter", "faction": "Unity", "model": "placeholder_unity", "hull": 75.0, "shield": 45.0, "speed": 48.0, "turn": 1.45, "damage": 6.0, "rate": 1.7, "reward": 210, "missiles": true, "placeholder": true},
+	"ph_imperium": {"name": "Imperium Fighter", "class": "fighter", "faction": "Imperium", "model": "placeholder_imperium", "hull": 75.0, "shield": 45.0, "speed": 48.0, "turn": 1.45, "damage": 6.0, "rate": 1.7, "reward": 210, "missiles": true, "placeholder": true},
+	"ph_elyza": {"name": "Elyza Fighter", "class": "fighter", "faction": "Elyza", "model": "placeholder_elyza", "hull": 75.0, "shield": 45.0, "speed": 48.0, "turn": 1.45, "damage": 6.0, "rate": 1.7, "reward": 210, "missiles": true, "placeholder": true},
+	"ph_covenant": {"name": "Covenant Fighter", "class": "fighter", "faction": "Covenant", "model": "placeholder_covenant", "hull": 75.0, "shield": 45.0, "speed": 48.0, "turn": 1.45, "damage": 6.0, "rate": 1.7, "reward": 210, "missiles": true, "placeholder": true},
+	"ph_solarion": {"name": "Solarion Fighter", "class": "fighter", "faction": "Solarion", "model": "placeholder_solarion", "hull": 75.0, "shield": 45.0, "speed": 48.0, "turn": 1.45, "damage": 6.0, "rate": 1.7, "reward": 210, "missiles": true, "placeholder": true},
+	"ph_orion": {"name": "Orion Fighter", "class": "fighter", "faction": "Orion", "model": "placeholder_orion", "hull": 75.0, "shield": 45.0, "speed": 48.0, "turn": 1.45, "damage": 6.0, "rate": 1.7, "reward": 210, "missiles": true, "placeholder": true},
+	"ph_cybermorph": {"name": "Cybermorph Fighter", "class": "fighter", "faction": "Cybermorph", "model": "placeholder_cybermorph", "hull": 75.0, "shield": 45.0, "speed": 48.0, "turn": 1.45, "damage": 6.0, "rate": 1.7, "reward": 210, "missiles": true, "placeholder": true},
+	"ph_solrath": {"name": "Solrath Fighter", "class": "fighter", "faction": "Solrath", "model": "placeholder_solrath", "hull": 75.0, "shield": 45.0, "speed": 48.0, "turn": 1.45, "damage": 6.0, "rate": 1.7, "reward": 210, "missiles": true, "placeholder": true},
+	"ph_gadversee": {"name": "Gadversee Fighter", "class": "fighter", "faction": "Gadversee", "model": "placeholder_gadversee", "hull": 75.0, "shield": 45.0, "speed": 48.0, "turn": 1.45, "damage": 6.0, "rate": 1.7, "reward": 210, "missiles": true, "placeholder": true},
+	"ph_arctides": {"name": "Arctides Fighter", "class": "fighter", "faction": "Arctides", "model": "placeholder_arctides", "hull": 75.0, "shield": 45.0, "speed": 48.0, "turn": 1.45, "damage": 6.0, "rate": 1.7, "reward": 210, "missiles": true, "placeholder": true},
+	"ph_phenom": {"name": "Phenom Fighter", "class": "fighter", "faction": "Phenom", "model": "placeholder_phenom", "hull": 75.0, "shield": 45.0, "speed": 48.0, "turn": 1.45, "damage": 6.0, "rate": 1.7, "reward": 210, "missiles": true, "placeholder": true},
+	"ph_kaijurai": {"name": "Kaijurai Fighter", "class": "fighter", "faction": "Kaijurai", "model": "placeholder_kaijurai", "hull": 75.0, "shield": 45.0, "speed": 48.0, "turn": 1.45, "damage": 6.0, "rate": 1.7, "reward": 210, "missiles": true, "placeholder": true},
 	"elyza_fighter": {"name": "Elyza Fighter", "class": "fighter", "faction": "Elyza", "model": "elyza_fighter", "radius": 8.0, "hull": 80.0, "shield": 55.0, "speed": 50.0, "turn": 1.5, "damage": 6.5, "rate": 1.7, "reward": 240, "missiles": true},   # v1.5p
 	"solrath_blade_a": {"name": "Solrath Blade", "class": "fighter", "faction": "Solrath", "model": "solrath_blade_a", "hull": 70.0, "shield": 45.0, "speed": 50.0, "turn": 1.5, "damage": 6.0, "rate": 1.7, "reward": 220},
 	"solrath_blade_b": {"name": "Solrath Shard", "class": "interceptor", "faction": "Solrath", "model": "solrath_blade_b", "hull": 65.0, "shield": 45.0, "speed": 52.0, "turn": 1.6, "damage": 6.0, "rate": 1.8, "reward": 230},

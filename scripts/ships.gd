@@ -40,6 +40,21 @@ const GLB := {
 	"solrath_batwing": ["res://assets/ships/enemy/solrath_batwing.glb", Data.SOLRATH_BATWING_LEN, Data.ALIEN_SHIP_YAW],
 	"solrath_spire": ["res://assets/ships/enemy/solrath_spire.glb", Data.SOLRATH_SPIRE_LEN, Data.ALIEN_SHIP_YAW],
 	"elyza_fighter": ["res://assets/ships/enemy/elyza_fighter.glb", Data.ELYZA_FIGHTER_LEN, Data.ALIEN_SHIP_YAW],   # v1.5p: folding wings (Body / WingL / WingR)
+	# v1.5q: the owner's placeholder fighters, one per faction in its own colour (until each faction's real ships come)
+	"placeholder_savagers": ["res://assets/ships/enemy/placeholder_savagers.glb", Data.PLACEHOLDER_SHIP_LEN, 0.0],
+	"placeholder_liberator": ["res://assets/ships/enemy/placeholder_liberator.glb", Data.PLACEHOLDER_SHIP_LEN, 0.0],
+	"placeholder_unity": ["res://assets/ships/enemy/placeholder_unity.glb", Data.PLACEHOLDER_SHIP_LEN, 0.0],
+	"placeholder_imperium": ["res://assets/ships/enemy/placeholder_imperium.glb", Data.PLACEHOLDER_SHIP_LEN, 0.0],
+	"placeholder_elyza": ["res://assets/ships/enemy/placeholder_elyza.glb", Data.PLACEHOLDER_SHIP_LEN, 0.0],
+	"placeholder_covenant": ["res://assets/ships/enemy/placeholder_covenant.glb", Data.PLACEHOLDER_SHIP_LEN, 0.0],
+	"placeholder_solarion": ["res://assets/ships/enemy/placeholder_solarion.glb", Data.PLACEHOLDER_SHIP_LEN, 0.0],
+	"placeholder_orion": ["res://assets/ships/enemy/placeholder_orion.glb", Data.PLACEHOLDER_SHIP_LEN, 0.0],
+	"placeholder_cybermorph": ["res://assets/ships/enemy/placeholder_cybermorph.glb", Data.PLACEHOLDER_SHIP_LEN, 0.0],
+	"placeholder_solrath": ["res://assets/ships/enemy/placeholder_solrath.glb", Data.PLACEHOLDER_SHIP_LEN, 0.0],
+	"placeholder_gadversee": ["res://assets/ships/enemy/placeholder_gadversee.glb", Data.PLACEHOLDER_SHIP_LEN, 0.0],
+	"placeholder_arctides": ["res://assets/ships/enemy/placeholder_arctides.glb", Data.PLACEHOLDER_SHIP_LEN, 0.0],
+	"placeholder_phenom": ["res://assets/ships/enemy/placeholder_phenom.glb", Data.PLACEHOLDER_SHIP_LEN, 0.0],
+	"placeholder_kaijurai": ["res://assets/ships/enemy/placeholder_kaijurai.glb", Data.PLACEHOLDER_SHIP_LEN, 0.0],
 	"liberator_cross": ["res://assets/ships/enemy/liberator_cross.glb", Data.LIBERATOR_CROSS_LEN, Data.LIBERATOR_YAW],
 	"savager_cruiser": ["res://assets/ships/enemy/savager_cruiser.glb", Data.SAVAGER_CRUISER_LEN, Data.SAVAGER_CRUISER_YAW],
 	"pilot_pod": ["res://assets/cargo/spacesuit_pilot.glb", 4.0, 0.0],   # stand-in: the soldier in the space suit

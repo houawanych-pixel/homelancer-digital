@@ -13,7 +13,7 @@ var font: Font = ThemeDB.fallback_font
 var start_btn: Button
 var music_btn: Button
 var settings_btn: Button
-var bg: Texture2D = load("res://assets/ui/title_network.jpg")   # small stand-in from the core download, shown first
+var bg: Texture2D = null   # v1.5q: no stand-in picture (owner): dark until the intro movie arrives
 var movie: VideoStreamPlayer = null   # the intro movie ("intro" pack): fades in over the stand-in as soon as it arrives
 var art_k := 0.0
 const MOVIE := "res://assets/intro/title_movie.ogv"

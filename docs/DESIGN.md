@@ -1178,3 +1178,19 @@ Owner, after the v1.5k test flow passed: "push it to all".
   drag looks around, pinch zooms; the camera stays on the open floor. Weapon mounts and the three paint channels come
   next on this screen.
 - Budget: about 50 parts and 0.7 M triangles (the gantry and wall bays would not decimate below 64-73 k each).
+
+## 56. Clean-up and placeholder fighters (Job AT, v1.5q)
+- Owner: clean the game up, no loose assets. Removed: the title screen's blue network picture (the screen is dark until
+  the intro movie arrives; the galaxy map lost it too), the 3D hangar (§55; the owner will provide something better),
+  and the planet surface towns: Port Meridian's capital test block (the owner's tower and hangar buildings, the city
+  kit, scripts/city.gd, the "city" pack) and the box-building towns round every landing site (the landing pads stay).
+  The sweep for files nothing loads found none besides these (portraits, pilot pictures, skies and music are looked up
+  by name). The ghost ship stays saved for later.
+- The owner's placeholder fighter set: 14 of its fighters, one per faction, each tinted in its own colour
+  (`PLACEHOLDER_SHIPS`, `ph_<faction>` in ENEMIES). Factions with no ships of their own (Unity, Solarion, Orion,
+  Gadversee, Arctides) now fly theirs, so every faction's six pilots have a ship and a voice; factions that already fly
+  the owner's real ships keep them (each placeholder is one line away).
+- SPECIAL cut-in: the character's picture big in the middle (placeholder `PLAYER_PILOT_FACE` = the Unity trooper).
+- The GitHub build's time limit went from 15 to 25 minutes (the test run had reached 14).
+- Every roster pilot of the five ship-less factions flies its faction's placeholder; Elyza's pilots fly the Elyza
+  fighter. The opening system (Solara) gets no guard wing, so the owner's test flow stays as it was.

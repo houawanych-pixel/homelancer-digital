@@ -30,7 +30,7 @@ var _btns := {}
 var focus := ""      # the front system nearest the centre of view: outlined and named as you pan past it
 var focus_t := 0.0   # 0..1 fade-in of that outline
 var flat := true     # v1.4m: the map opens as the flat 11 x 11 chart with fog of war; "3D VIEW" shows the old look-around
-var backdrop: Texture2D = load("res://assets/ui/title_network.jpg")   # owner's network picture, far behind
+var backdrop: Texture2D = null   # v1.5q: the old network picture was removed (owner)
 const FOCUS_DIST := 70.0   # only systems this close count as "in front" (the far ones are just stars)
 
 func _ready() -> void:

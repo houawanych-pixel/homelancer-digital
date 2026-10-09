@@ -1445,6 +1445,7 @@ func spawn_guard() -> Array:
 	var f: String = str(sys.get("faction", ""))
 	if surface_mode or Factions.replaces_patrols(f) or not Factions.has_fighters(f) or not is_instance_valid(station): return []
 	if roster_pick(f, Data.GUARD_MAX_SLOT).is_empty(): return []
+	if not opening_rule().is_empty(): return []   # v1.5q: the opening system keeps the owner's test flow (only its opening enemies)
 	_guard_spawn = true
 	_guard_slot = Data.GUARD_MAX_SLOT
 	var g: Array = _spawn_group(station.global_position + Vector3(Data.GUARD_DIST, 60, -Data.GUARD_DIST * 0.4), Data.GUARD_SIZE)
@@ -3199,7 +3200,6 @@ func _collisions(dt: float) -> void:
 			atmo_depth = clampf((outer2 - d2) / (outer2 - inner), 0.0, 1.0) if warp_state == "off" else 0.0
 			if atmo_depth > 0.0:
 				Packs.request("planets")
-				Packs.request("city")    # small; city blocks upgrade to the full capital material when it lands
 				if not _atmo_rumbled:
 					_atmo_rumbled = true
 					Sfx.play("atmo", -10.0, 0.8)
@@ -3690,8 +3690,6 @@ func hostiles_near(r: float) -> int:
 ## around the player is different. planet/gate become hidden placeholders; the tile's town pad is the dockable "station".
 func setup_surface(pid: String, t: int) -> void:
 	surface_mode = true
-	Packs.request("city")
-	if not Packs.pack_ready.is_connected(_on_pack_ready): Packs.pack_ready.connect(_on_pack_ready)
 	planet_id = pid
 	sun_surface = Surface.is_sun(pid)
 	sys_id = Surface.PLANETS[pid]["system"]
@@ -3810,17 +3808,6 @@ func load_tile(t: int, keep := Vector3.INF) -> void:
 	if keep == Vector3.INF: _update_camera(1.0, true)
 	_corners = Surface.wrap_corners(planet_id, t)
 	_prepared.clear()
-	# city blocks: simple box collision (decks, pillars, tower blocks) in this tile's space
-	city_solids.clear()
-	city_bounds = AABB()
-	var all: Array = []
-	var cb := tile_root.get_node_or_null("CapitalBlock")
-	if cb:
-		for a: AABB in cb.get_meta("solids"): all.append(AABB(a.position + cb.position, a.size))
-	for a: AABB in tile_root.get_meta("solids", []): all.append(a)   # town buildings
-	for w: AABB in all:
-		city_solids.append(w)
-		city_bounds = w if city_bounds.size == Vector3.ZERO else city_bounds.merge(w)
 
 func _apply_sky(c: Dictionary, _k: float) -> void:
 	_sky.sky_top_color = c["sky"]
@@ -4314,32 +4301,6 @@ func waypoint_at(p: Vector3) -> Node3D:
 	waypoint.global_position = p
 	return waypoint
 
-var city_solids: Array = []   # AABBs of the city block in this tile (see City)
-
-## The city pack arrived after the block was built: swap its flat colours for the shared capital material.
-func _on_pack_ready(pk: String) -> void:
-	if pk != "city" or not is_instance_valid(tile_root): return
-	var cb := tile_root.get_node_or_null("CapitalBlock")
-	if cb: City.refresh(cb)
-var city_bounds := AABB()
-
-## Keep a body of radius r out of the city's solid boxes. Landing on top of a box (a deck, the plaza, a roof)
-## works like the ground; hitting a side pushes you back out. Returns the push applied.
-func city_push(p: Vector3, r: float) -> Vector3:
-	if city_solids.is_empty() or not city_bounds.grow(r).has_point(p): return Vector3.ZERO
-	var push := Vector3.ZERO
-	for a: AABB in city_solids:
-		var g := a.grow(r)
-		if not g.has_point(p + push): continue
-		var q := p + push
-		var opts := [[g.end.y - q.y, Vector3.UP], [q.x - g.position.x, Vector3.LEFT], [g.end.x - q.x, Vector3.RIGHT],
-			[q.z - g.position.z, Vector3.FORWARD], [g.end.z - q.z, Vector3.BACK], [q.y - g.position.y, Vector3.DOWN]]
-		var best: Array = opts[0]
-		if best[0] > 3.0:   # well below the top: push out sideways (or down) the shortest way instead
-			for o in opts.slice(1):
-				if o[0] < best[0]: best = o
-		push += (best[1] as Vector3) * best[0]
-	return push
 var corner_haze := 0.0   # 0..1 inside the wrap-corner cloud bank
 
 func _ground(x: float, z: float) -> float:
@@ -4357,14 +4318,6 @@ func _surface_update(_dt: float) -> void:
 		player.global_position.y = floor_y
 		if vel.y < 0.0: vel.y = 0.0
 		collision_damage("ground", impact)   # Job L (was: > 20 m/s, 0.25 x impact through the shields)
-	var cp := city_push(player.global_position, 6.0)
-	if cp != Vector3.ZERO:
-		player.global_position += cp
-		var nrm := cp.normalized()
-		var into := vel.dot(nrm)
-		collision_damage("building", -into)   # Job L: town / city buildings
-		if into < 0.0: vel -= nrm * into   # stop moving into the wall / deck
-		if nrm.y > 0.7: altitude = 0.0
 	for e in enemies:
 		var n: Node3D = e["node"]
 		var ef := _ground(n.global_position.x, n.global_position.z) + 30.0

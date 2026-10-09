@@ -163,7 +163,6 @@ func _planet_surface() -> void:
 	_check("Tile edge -> neighbouring tile", crossed and s.player.global_position.x < -Surface.EDGE + 300.0 and absf(s.yaw - yaw0) < 0.01 and s.vel.x > 10.0,
 		"tile %d, x %d, speed %d" % [s.tile, int(s.player.global_position.x), int(s.vel.length())])
 	await _shot("planet_capital_tile", 0.3)
-	await _city_visit()
 	# outer edge wraps around: east out of the last column comes back in column 0 of the same row
 	s.load_tile(5)
 	_tp(Vector3(Surface.EDGE - 40.0, 900.0, 0.0), Vector3(Surface.EDGE + 500.0, 900.0, 0.0))
@@ -401,158 +400,6 @@ func _flight_and_comms() -> void:
 	await _wait(0.4)
 	hud.close_comms()
 	s.set_view("chase")
-
-## The capital city prototype kit: connections on the modular grid, mech clearance, the pack split.
-func _city_kit() -> void:
-	var b := City.test_block()
-	var j := City.joins(b)
-	var pairs := {}
-	for pr in j["joined"]:
-		var names := [pr[0]["module"], pr[1]["module"]]
-		names.sort()
-		pairs["%s+%s" % names] = pairs.get("%s+%s" % names, 0) + 1
-	var mods := {}
-	for m in b["modules"]: mods[m["id"]] = true
-	_check("City kit: 8 modules on a %d m grid in one block" % int(City.CELL), mods.size() == 8 and City.MODULES.size() == 8, ", ".join(mods.keys()))
-	_check("Road connections (straight <-> straight/intersection/bridge, same width + height)", pairs.get("intersection+road_straight", 0) >= 2 and pairs.get("mega_bridge+road_straight", 0) == 1
-		and j["bad"].is_empty(), "joined %d, mismatched %d" % [j["joined"].size(), j["bad"].size()])
-	_check("Intersection connections (4 sides: road, bridge, road, platform)", pairs.get("intersection+mega_bridge", 0) == 1 and pairs.get("intersection+road_straight", 0) == 2
-		and pairs.get("intersection+platform_square", 0) == 1, str(pairs))
-	var ramp: Array = b["conns"].filter(func(c): return c["kind"] == "ramp")
-	_check("Merge / on-ramp connections (main road both ends + ramp down to the plaza)", pairs.get("merge+road_straight", 0) == 2 and ramp.size() == 1 and float(ramp[0]["height"]) == 0.0
-		and absf(float(ramp[0]["width"]) - City.LANE) < 0.01, "ramp lands at y %.1f" % float(ramp[0]["height"]))
-	var stairs: Array = b["conns"].filter(func(c): return c["kind"] == "ped" and float(c["height"]) > 0.0)
-	_check("Platform connections (tower, intersection, road, stairs)", pairs.get("command_tower+platform_square", 0) == 1 and pairs.get("platform_rect+road_straight", 0) == 1
-		and stairs.size() == 1 and City.lands_on_platform(b, stairs[0]), str(pairs))
-	# mech clearance from the real mech model
-	var mech := ShipFactory.build("mech_tan")
-	var box := ShipFactory._aabb(mech, Transform3D.IDENTITY)
-	mech.free()
-	var mw := maxf(box.size.x, box.size.z)
-	var under_deck := City.DECK - City.DECK_T
-	var under_bridge := City.DECK - City.DECK_T - 2.5
-	_check("Mech clearance: 1 per lane, 2 abreast per road, passing under decks", City.LANE >= mw * 1.5 and City.ROAD >= mw * 3.0 and under_bridge > box.size.y + 2.0
-		and City.PED < mw, "mech %.1f m tall x %.1f m wide; lane %d m, road %d m, under deck %.1f m, under bridge %.1f m, stairs %d m" % [box.size.y, mw, City.LANE, City.ROAD, under_deck, under_bridge, City.PED])
-	var ex := FileAccess.get_file_as_string("res://export_presets.cfg") if FileAccess.file_exists("res://export_presets.cfg") else ""
-	var in_tree := get_tree().root.find_children("CapitalBlock", "", true, false).size()
-	_check("City + pilot content not in the core download", Packs.PACKS.has("city") and Packs.PACKS["city"]["folders"] == ["res://assets/city"] and (ex == "" or ("assets/city/*" in ex and "assets/enemy_pilots/*" in ex))
-		and in_tree == 0, "city pack + enemies pack, exclude_filter %s, city nodes at start %d" % ["ok" if ex != "" else "n/a (exported build)", in_tree])
-
-## Visit the test block in New Terra's city sector: screenshots with mechs for scale, the normal-map A/B, costs.
-func _city_visit() -> void:
-	var s := _sp()
-	await Packs.wait("city", 30.0)   # web: 37 KB, requested on planet approach; the block upgrades in place
-	await get_tree().process_frame
-	var cb: Node3D = s.tile_root.get_node_or_null("CapitalBlock")
-	var st := City.stats(City.test_block())
-	_check("Capital test block stands in the city sector (simple collision)", cb != null and s.city_solids.size() >= st["solids"],
-		"%d parts, %d MultiMesh draw groups, ~%d triangles (%d beyond LOD range), %d collision boxes" % [st["parts"], st["draw_calls"], st["triangles"], st["triangles_far"], st["solids"]])
-	if cb == null: return
-	var block: Dictionary = cb.get_meta("block")
-	# collision: drop the player onto the bridge deck and into the tower wall
-	var o := cb.position
-	_tp(o + Vector3(140, City.DECK + 3.0, -100), o + Vector3(140, City.DECK + 3.0, -60))
-	await get_tree().process_frame
-	await get_tree().process_frame
-	var on_deck: float = s.player.global_position.y - o.y
-	_tp(o + Vector3(60, 50, -180), o + Vector3(60, 50, -100))
-	await get_tree().process_frame
-	await get_tree().process_frame
-	var pushed: Vector3 = s.player.global_position - (o + Vector3(60, 50, -180))
-	_tp(o + Vector3(700, 300, 600), o)   # park the ship well away from the camera shots
-	_check("City collision: stand on a deck, pushed out of the tower", on_deck >= City.DECK + 5.9 and on_deck < City.DECK + 6.5 and pushed.length() > 4.0, "deck y %.1f, push %.1f m" % [on_deck, pushed.length()])
-	# town buildings are solid too (Port Meridian's blocks)
-	var town: Array = s.tile_root.get_meta("solids", [])
-	var tb: AABB = town[0] if not town.is_empty() else AABB()
-	s.player.global_position = tb.get_center()
-	await get_tree().process_frame
-	await get_tree().process_frame
-	var out: bool = not tb.grow(5.9).has_point(s.player.global_position)
-	_tp(o + Vector3(700, 300, 600), o)
-	_check("Town buildings are solid (no flying through them)", town.size() > 20 and out, "%d buildings, pushed out %s" % [town.size(), out])
-	# B-01 command tower: the Blender build, merged to one mesh, from the city pack; solid like the rest
-	var tw := cb.get_node_or_null("B01Tower") as MeshInstance3D
-	var tw_in: Vector3 = cb.to_global(Vector3(49, 60, -180))
-	_check("B-01 command tower is the textured Blender model (city pack), one draw call, solid", tw != null and tw.mesh.get_surface_count() == 1 and (tw.material_override as ORMMaterial3D).normal_texture != null
-		and cb.get_node_or_null("B01StandIn") == null and s.city_push(tw_in, 6.0) != Vector3.ZERO and tw.get_aabb().size.y > 115.0,
-		"%d surface, colour + bump + glow maps, %.0f x %.0f x %.0f m" % [tw.mesh.get_surface_count() if tw else 0, tw.get_aabb().size.x if tw else 0.0, tw.get_aabb().size.y if tw else 0.0, tw.get_aabb().size.z if tw else 0.0])
-	var hg := cb.get_node_or_null("Prop_h01") as MeshInstance3D
-	var hg_in: Vector3 = cb.to_global(Vector3(-30, 10, -120))
-	_check("H-01 hangar (Blender, concept-art textured) stands in the test city, solid", hg != null and (hg.material_override as ORMMaterial3D).albedo_texture != null
-		and s.city_push(hg_in, 6.0) != Vector3.ZERO, "%d triangles, 1 draw call" % [City.PROPS["h01"]["tris"]])
-	# mechs for scale: 1 on a road, 2 abreast on the bridge, a group passing under it and 4 crossing the intersection
-	var mechs: Array = []
-	var spots := [[Vector3(140, City.DECK, -220), 0.0], [Vector3(134, City.DECK, -110), 0.0], [Vector3(146, City.DECK, -95), PI],
-		[Vector3(118, 0, -90), PI * 0.5], [Vector3(140, 0, -96), PI * 0.5], [Vector3(162, 0, -88), -PI * 0.5],
-		[Vector3(134, City.DECK, -186), 0.0], [Vector3(146, City.DECK, -172), PI], [Vector3(126, City.DECK, -176), PI * 0.5], [Vector3(156, City.DECK, -183), -PI * 0.5],
-		[Vector3(174, 9.0, -350), PI]]
-	for sp in spots:
-		var m := ShipFactory.build("mech_tan")
-		var bb := ShipFactory._aabb(m, Transform3D.IDENTITY)
-		cb.add_child(m)
-		m.position = (sp[0] as Vector3) - Vector3(0, bb.position.y, 0)
-		m.rotation.y = sp[1]
-		mechs.append(m)
-	main.hud.visible = false
-	var cam := Camera3D.new()
-	cam.far = 9000.0
-	cb.add_child(cam)
-	var prev: Camera3D = get_viewport().get_camera_3d()
-	cam.make_current()
-	var views := [["city_block_overview", Vector3(470, 190, 60), Vector3(150, 25, -230)],
-		["city_tower_b01", Vector3(165, 50, -95), Vector3(49, 56, -180)],
-		["city_tower_b01_gangway", Vector3(118, 32, -150), Vector3(49, 36, -182)],
-		["city_tower_b01_back", Vector3(-80, 70, -290), Vector3(49, 52, -180)],
-		["city_hangar_h01_front", Vector3(0, 22, -40), Vector3(-30, 12, -120)],
-		["city_hangar_h01_side", Vector3(-110, 30, -70), Vector3(-30, 10, -120)],
-		["city_hangar_h01_back", Vector3(-75, 35, -200), Vector3(-30, 10, -120)],
-		["city_mech_clearance_bridge", Vector3(205, 24, -40), Vector3(140, 14, -110)],
-		["city_intersection_mechs", Vector3(196, 64, -238), Vector3(140, 20, -180)],
-		["city_merge_onramp", Vector3(250, 46, -480), Vector3(160, 10, -330)],
-		["city_stairs_platform", Vector3(60, 30, -96), Vector3(100, 14, -150)]]
-	var draws := 0
-	var draws_block := 0
-	for v in views:
-		cam.look_at_from_position(cb.to_global(v[1]), cb.to_global(v[2]), Vector3.UP)
-		await _shot(v[0], 0.5)
-		for m in mechs: m.visible = false   # measure the block alone
-		await _wait(0.15)
-		var dc := int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
-		for m in mechs: m.visible = true
-		cb.visible = false
-		await _wait(0.15)
-		var d1 := dc - int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
-		cb.visible = true
-		# measure twice and keep the smaller: ships and loot drifting into view between the two frames are not the block
-		await _wait(0.15)
-		var dc2 := int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
-		cb.visible = false
-		await _wait(0.15)
-		var d2 := dc2 - int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
-		draws_block = maxi(draws_block, mini(d1, d2))
-		cb.visible = true
-		draws = maxi(draws, dc)
-	# normal / bump detail A/B: same low-poly geometry, detail off then on
-	cam.look_at_from_position(cb.to_global(Vector3(98, 24, -236)), cb.to_global(Vector3(58, 40, -180)), Vector3.UP)
-	for m in City.materials(1.0): if m is ShaderMaterial: m.set_shader_parameter("detail", 0.0)
-	await _shot("city_detail_off", 0.4)
-	for m in City.materials(1.0): if m is ShaderMaterial: m.set_shader_parameter("detail", 1.0)
-	await _shot("city_detail_on", 0.4)
-	var shader_on := City.materials(1.0)[0] is ShaderMaterial and (cb.get_child(0) as MultiMeshInstance3D).material_override is ShaderMaterial
-	cam.look_at_from_position(cb.to_global(Vector3(140, 300, 1500)), cb.to_global(Vector3(140, 0, -220)), Vector3.UP)
-	for m in mechs: m.visible = false
-	await _wait(0.3)
-	var dfar := int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
-	cb.visible = false
-	await _wait(0.15)
-	dfar -= int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
-	cb.visible = true
-	_check("City shared material + normal detail (city pack), draw calls measured", shader_on and draws_block <= st["draw_calls"] + 12,   # +12: for a moment both detail levels of a few groups can draw while the LOD switches (seen: 23)
-		"block adds %d draw calls up close, %d from 1.7 km (detail LOD off); whole frame %d" % [draws_block, dfar, draws])
-	for m in mechs: m.queue_free()
-	cam.queue_free()
-	if prev: prev.make_current()
-	main.hud.visible = true
 
 ## The sun: far out, blooms as you fly at it, heat warning, and its sphere destroys the ship.
 func _sun() -> void:
@@ -1018,15 +865,6 @@ func _run() -> void:
 	if OS.get_environment("HL_SOAK") != "":
 		await _soak(int(OS.get_environment("HL_SOAK")))
 		return
-	if OS.get_environment("HL_CITY") != "":   # quick look at the city prototype only
-		main.start_game()
-		await _until(func(): return main.state == "flight", 10.0)
-		main._load_surface("new_terra", 4)
-		await _wait(1.5)
-		await _city_visit()
-		for r in results: print("[route] ", r)
-		get_tree().quit()
-		return
 	if OS.get_environment("HL_SUN") != "":   # the sun checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1048,6 +886,14 @@ func _run() -> void:
 		await _until(func(): return main.state == "flight", 10.0)
 		await _wait(1.0)
 		await _art_n()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
+	if OS.get_environment("HL_AT") != "":   # the Job AT checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_at()
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
@@ -1453,7 +1299,6 @@ func _run() -> void:
 	await _section_loop()
 	await _mech_form()
 	await _generic_pilots()
-	await _city_kit()
 	await _flight_and_comms()
 	_npc_brain()
 	await _music()
@@ -1644,6 +1489,7 @@ func _run() -> void:
 	await _job_aq()
 	await _job_ar()
 	await _job_as()
+	await _job_at()
 	await _galaxy()
 	await _controls_j()
 	await _gate_k()
@@ -2193,7 +2039,6 @@ func _collide_l() -> void:
 	# ---- planet surface: the ground and buildings
 	main._load_surface("new_terra", 4)
 	await _wait(1.0)
-	await Packs.wait("city", 30.0)
 	await _frames(2)
 	s = _sp()
 	s.controls = true
@@ -2211,19 +2056,8 @@ func _collide_l() -> void:
 	var h2 := GS.hull
 	await _ram(Vector3(gx, gy + 5.5, gz), Vector3(0, -(Data.COLLIDE_THRESHOLD - 3.0), 0))
 	var soft_landing: bool = s.last_collision.is_empty() and GS.hull == h2
-	var town: Array = s.tile_root.get_meta("solids", []) if is_instance_valid(s.tile_root) else []
-	var boxes: Array = town if not town.is_empty() else s.city_solids
-	var bld_hit := false
-	if not boxes.is_empty():
-		var tb: AABB = boxes[0]
-		var c := tb.get_center()
-		s.last_collision = {}
-		var h3 := GS.hull
-		await _ram(Vector3(tb.position.x - 3.0, c.y, c.z), Vector3(45.0, 0, 0))
-		bld_hit = s.last_collision.get("kind", "") == "building" and GS.hull < h3
-		hits["building"] = h3 - GS.hull
-	_check("Job L: colliding with an asteroid, the ground and a building each damages the hull", rock_hit and ground_hit and bld_hit,
-		"asteroid %.1f, ground %.1f, building %.1f" % [float(hits.get("asteroid", 0.0)), float(hits.get("ground", 0.0)), float(hits.get("building", 0.0))])
+	_check("Job L: colliding with an asteroid and the ground each damages the hull (v1.5q: the planet towns were removed, so no building check)", rock_hit and ground_hit,
+		"asteroid %.1f, ground %.1f" % [float(hits.get("asteroid", 0.0)), float(hits.get("ground", 0.0))])
 	_check("Job L: contact below the threshold speed does no damage (gentle touch, soft landing)", free_touch == 0.0 and hull_free and soft_landing)
 	# ---- older settings load; nothing new is saved by collisions
 	var old_path := "user://settings_autotest_l_old.cfg"
@@ -3870,13 +3704,13 @@ func _job_ad() -> void:
 	for f in want:
 		for p in Data.ROSTERS[f]["pilots"]:
 			var k: String = p["fighter_primary"]
-			if f in ["Phenom", "Kaijurai", "Cybermorph", "Solrath"]:   # (v1.5c: Cybermorph and Solrath fly too)
+			if f in ["Phenom", "Kaijurai", "Cybermorph", "Solrath", "Gadversee", "Arctides"]:   # (v1.5c: Cybermorph and Solrath fly too; v1.5q: the rest on placeholders)
 				if not Data.ENEMIES.has(k) or Data.ENEMIES[k].get("faction", "") != f or not ShipFactory.has_real_model(Data.ENEMIES[k]["model"]): ships_ok = false
 			elif k != "": ships_ok = false
 	_check("Job AD: Phenom and Kaijurai people each have a ship from their own set (Vyrela the interceptor, the two elites and commanders the heaviest); the casts without ships are known but do not fly yet",
 		ships_ok and Data.roster_pilot("phenom_02_vyrela")["fighter_primary"] == "phenom_interceptor" and Data.roster_pilot("phenom_06_xerathion")["fighter_primary"] == "phenom_heavy"
 		and Data.roster_pilot("kaijurai_01")["fighter_primary"] == "kaijurai_dart" and Data.roster_pilot("kaijurai_06_vorrax")["fighter_primary"] == "kaijurai_gunship"
-		and Factions.has_fighters("Phenom") and Factions.has_fighters("Kaijurai") and not Factions.has_fighters("Gadversee"))   # (v1.5c: Solrath flies now; Gadversee and Arctides still wait for ships)
+		and Factions.has_fighters("Phenom") and Factions.has_fighters("Kaijurai") and Factions.has_fighters("Gadversee"))   # (v1.5c: Solrath flies now; Gadversee and Arctides still wait for ships)
 	# in their home systems the patrols are their own people, always hostile, and a hail shows their own face
 	var s := _sp()
 	var real_sys: Dictionary = s.sys
@@ -4172,13 +4006,13 @@ func _job_aa() -> void:
 	for k in ["imperium_fighter", "imperium_gunship", "liberator_fighter", "liberator_heavy"]:
 		if not ShipFactory.has_real_model(Data.ENEMIES[k]["model"]): models = false
 	_check("Job AA: Imperium and Liberator pilots have fighters from their own ship sets (light for slots 1-3, heavier for 4-6); the other five casts are known but do not fly yet",
-		fly.filter(func(f): return Factions.normal(f)) == ["Covenant", "Elyza", "Imperium", "Liberator", "Savagers"] and models   # (v1.4z: of the eight main factions; Kaijurai and Phenom fly too; v1.5c: Covenant, Cybermorph, Solrath too; v1.5p: Elyza)
+		fly.filter(func(f): return Factions.normal(f)) == ["Covenant", "Elyza", "Imperium", "Liberator", "Orion", "Savagers", "Solarion", "Unity"] and models   # (v1.4z: of the eight main factions; Kaijurai and Phenom fly too; v1.5c: Covenant, Cybermorph, Solrath too; v1.5p: Elyza)
 		 and Data.roster_pilot("imperium_02")["fighter_primary"] == "imperium_fighter" and Data.roster_pilot("imperium_05")["fighter_primary"] == "imperium_gunship"
-		and Data.roster_pilot("unity_02")["fighter_primary"] == "" and float(ShipFactory.GLB["liberator_fighter"][2]) == Data.LIBERATOR_YAW, str(fly))
+		and Data.roster_pilot("unity_02")["fighter_primary"] == "ph_unity" and float(ShipFactory.GLB["liberator_fighter"][2]) == Data.LIBERATOR_YAW, str(fly))
 	# a guard wing in their own space: peaceful, not a hostile contact, answers a hail; shoot and it turns
 	var s := _sp()
 	var real_sys: Dictionary = s.sys
-	var solara_guard: Array = s.spawn_guard()   # Unity has no fighters: nobody
+	var solara_guard: Array = s.spawn_guard()   # the opening system: no guard wing (v1.5q: Unity flies placeholders now)
 	s.sys = real_sys.duplicate()
 	s.sys["faction"] = "Imperium"
 	var g: Array = s.spawn_guard()
@@ -5661,44 +5495,52 @@ func _job_as() -> void:
 	_check("Job AS: each ship has its own special move: holding SPECIAL in the Elyza fighter swings its wings out while it barrel-rolls, and they fold back after; a ship without its own move just rolls",
 		move_ok and w0 == 0.0 and w_mid > 0.8 and rolled and w_end < 0.05 and other_roll and enemy_real,
 		"wings %.2f -> %.2f -> %.2f roll %s, enemy model real %s" % [w0, w_mid, w_end, rolled, enemy_real])
-	# ---- 3. the hangar
-	main.hub.open(Data.SYSTEMS[s.sys_id]["station"])
-	await _frames(2)
-	main.hub.show_screen("ship")
-	await _frames(2)
-	var enter: Button = main.hub.content.find_child("EnterHangar", true, false)
-	if enter: enter.pressed.emit()
-	await _until(func(): return is_instance_valid(main.hub.hangar) and main.hub.hangar.room != null and is_instance_valid(main.hub.hangar.craft), 30.0)
-	var hv: HangarView = main.hub.hangar
-	var ok := hv != null and hv.room != null
-	var room: HangarRoom = hv.room if ok else null
-	var rows_ok := ok and room.rows.size() == 8 and room.rows.all(func(r): return absf(float(r[0]) - float(r[1])) < 0.01 and int(r[2]) >= 2)
-	var plate: bool = ok and room.find_child("PadBackPlate", true, false) != null
-	var ceiling: bool = ok and room.find_child("Ceiling", true, false) != null and room.find_child("Floor", true, false) != null
-	_check("Job AS: ENTER HANGAR (YOUR SHIP) opens the 3D hangar built from the owner's parts: all four walls panelled in two rows that each fill the wall exactly (no gaps), the launch pad with a solid plate behind its open frame, the mech bays, gantries, wall bays, door, pipes, a floor and a generated ceiling",
-		ok and room.missing.is_empty() and rows_ok and plate and ceiling and room.parts >= 40, "parts %d, %d triangles, rows %s, missing %s" % [room.parts if ok else 0, room.tris if ok else 0, str(room.rows) if ok else "-", str(room.missing) if ok else "-"])
-	var inside := func(p: Vector3) -> bool:
-		var k: float = Data.HANGAR_SCALE
-		return absf(p.x) < room.W * 0.5 * k and absf(p.z) < room.D * 0.5 * k and p.y > 0.0 and p.y < room.H * k
-	var ship_ok: bool = ok and hv.showing == "ship" and inside.call(hv.craft.position) and inside.call(hv.cam.position)
-	await _shot("as_hangar_ship", 0.6)
-	hv.turn(Vector2(-260, 40))
-	await _shot("as_hangar_ship_turned", 0.3)
-	var wings_btn: Button = hv.find_child("HangarWings", true, false) if ok else null
-	var mech_ok := false
-	var sw: Button = hv.find_child("HangarSwitch", true, false) if ok else null
-	if sw: sw.pressed.emit()
-	await _frames(3)
-	if ok and ShipFactory.has_real_model("mech_player"):
-		var mb := ShipFactory._aabb(hv.craft, Transform3D.IDENTITY)
-		var pad_h: float = Data.HANGAR_PLAN_PAD_H * Data.HANGAR_SCALE
-		var dxz := Vector2(hv.craft.position.x - hv.pad_point().x, hv.craft.position.z - hv.pad_point().z).length()
-		mech_ok = hv.showing == "mech" and dxz < 2.0 and mb.size.y < pad_h and mb.size.y > pad_h * 0.4 and inside.call(hv.cam.position)
-		await _shot("as_hangar_mech_on_pad", 0.6)
-	else: mech_ok = true   # (no mech pack in this run)
-	if not mech_ok and ok: print("[as] mech ", hv.showing, " ", hv.craft.position, " pad ", hv.pad_point(), " size ", ShipFactory._aabb(hv.craft, Transform3D.IDENTITY).size)
-	_check("Job AS: in the hangar the ship is parked in front of the pad and the mech stands on the launch pad (it fits the pad); SHIP / MECH switches, drag turns the view, and the camera never leaves the room",
-		ship_ok and mech_ok and sw != null and wings_btn != null, "ship %s mech %s" % [ship_ok, mech_ok])
-	if ok: hv.close()
-	await _frames(2)
-	main.hub.visible = false
+
+
+## Job AT (v1.5q): the owner's clean-up (title picture, the 3D hangar, the planet towns and capital block gone) and his
+## placeholder fighters: one per faction in its own colour, so every faction's pilots fly (with their voices).
+func _job_at() -> void:
+	var shell := FileAccess.get_file_as_string("res://web_shell.html")
+	_check("Job AT: version label reads \"Homelancer Digital v1.5q\" or later", Data.VERSION >= "v1.5q" and (shell == "" or shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0), Data.VERSION)
+	var gone := not ResourceLoader.exists("res://assets/ui/title_network.jpg") and not FileAccess.file_exists("res://scripts/hangar_room.gd") \
+		and not FileAccess.file_exists("res://scripts/hangar_view.gd") and not FileAccess.file_exists("res://scripts/city.gd") \
+		and not DirAccess.dir_exists_absolute("res://assets/hangar") and not DirAccess.dir_exists_absolute("res://assets/city") \
+		and not Packs.PACKS.has("hangar") and not Packs.PACKS.has("city")
+	var tl = main.get("title")
+	var title_clean: bool = tl == null or not is_instance_valid(tl) or tl.get("bg") == null
+	_check("Job AT: clean-up: the title's network picture, the 3D hangar and the planet capital block / city kit are out of the game (files, code and packs)", gone and title_clean)
+	# placeholder fighters
+	var bad: Array = []
+	var colours := {}
+	for f in Data.PLACEHOLDER_SHIPS:
+		var key: String = Data.PLACEHOLDER_SHIPS[f]
+		var e: Dictionary = Data.ENEMIES.get(key, {})
+		var mk: String = e.get("model", "")
+		if e.is_empty() or e.get("faction", "") != f or not ShipFactory.has_real_model(mk) or not is_equal_approx(float(ShipFactory.GLB[mk][2]), 0.0):
+			bad.append(f)
+			continue
+		var m := ShipFactory.build(mk, false)
+		var box: AABB = ShipFactory._aabb(m, Transform3D.IDENTITY)
+		if m.get_meta("placeholder", true) or absf(maxf(box.size.x, box.size.z) - Data.PLACEHOLDER_SHIP_LEN) > 0.6 or box.size.y > box.size.z: bad.append(f + "(size)")
+		m.free()
+		colours[mk] = true
+	_check("Job AT: the owner's placeholder fighters: one per faction (%d), each its own model in its own colour, nose at -Z, about %d m" % [Data.PLACEHOLDER_SHIPS.size(), int(Data.PLACEHOLDER_SHIP_LEN)],
+		bad.is_empty() and Data.PLACEHOLDER_SHIPS.size() == 14 and colours.size() == 14, "bad %s" % str(bad))
+	var no_ship: Array = []
+	var no_voice: Array = []
+	for f in Data.ROSTERS:
+		if not Factions.has_fighters(f): no_ship.append(f)
+		for p in Data.ROSTERS[f]["pilots"]:
+			var cid := str(p.get("character_id", p.get("voice_id", "")))
+			if not Voice.profiled(cid) or Voice.profile(cid).get("voice_type", "") == "": no_voice.append(cid)
+	_check("Job AT: every faction's pilots now have a ship (their own, or the placeholder) and a voice profile",
+		no_ship.is_empty() and no_voice.is_empty(), "no ship %s, no voice %s" % [str(no_ship), str(no_voice.slice(0, 5))])
+	# a placeholder pilot in flight: spawned from its faction's pool, real model, talks
+	var s := _sp()
+	var e2: Dictionary = s.spawn_unit("ph_unity", s.player.global_position - s.player.global_basis.z * 400.0, s.player.global_position)
+	var real: bool = is_instance_valid(e2["node"]) and not (e2["node"] as Node3D).get_child(0).get_meta("placeholder", true)
+	await _shot("at_placeholder_unity", 0.3)
+	if is_instance_valid(e2["node"]): s._damage_enemy(e2, 99999.0)
+	var tex: Texture2D = main.hud._face_tex(Data.PLAYER_PILOT_FACE, "normal")
+	_check("Job AT: a Unity patrol fighter flies the placeholder model; the SPECIAL cut-in shows the character picture (%s) big in the middle" % Data.PLAYER_PILOT_FACE,
+		real and tex != null and Factions.DEFS["Unity"]["fighter_pool"] == ["ph_unity"], "real %s picture %s" % [real, tex != null])

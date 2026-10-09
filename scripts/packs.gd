@@ -18,7 +18,6 @@ const PACKS := {
 	"hauler": {"folders": ["res://assets/ships/player"], "match": "hauler", "probe": "res://assets/ships/player/hauler.glb"},
 	"lancer": {"folders": ["res://assets/ships/player"], "match": "lancer", "probe": "res://assets/ships/player/lancer.glb"},
 	"enemies": {"folders": ["res://assets/enemy_pilots"], "probe": "res://assets/enemy_pilots/ax01_normal.jpg"},
-	"city": {"folders": ["res://assets/city"], "probe": "res://assets/city/capital_normal.png"},
 	"intro": {"folders": ["res://assets/intro"], "probe": "res://assets/intro/title_movie.ogv"},
 	# v1.4s: one static interface background per faction; only the one for the station you dock at is fetched
 	"hubbg_unity": {"folders": ["res://assets/hub_bg"], "match": "unity.", "probe": "res://assets/hub_bg/unity.jpg"},
@@ -36,7 +35,6 @@ const PACKS := {
 	"hubbg_phenom": {"folders": ["res://assets/hub_bg"], "match": "phenom.", "probe": "res://assets/hub_bg/phenom.jpg"},
 	"hubbg_kaijurai": {"folders": ["res://assets/hub_bg"], "match": "kaijurai.", "probe": "res://assets/hub_bg/kaijurai.jpg"},
 	"worlds": {"folders": ["res://assets/worlds"], "probe": "res://assets/worlds/earth.jpg"},
-	"hangar": {"folders": ["res://assets/hangar"], "probe": "res://assets/hangar/hangar_launch_pad.glb"},   # v1.5p
 	"structures": {"folders": ["res://assets/structures"], "probe": "res://assets/structures/jump_gate_ring.glb"},
 	"sky": {"folders": ["res://assets/sky"], "probe": "res://assets/sky/solara.jpg"},
 	# music: one pack per track, fetched the first time that track is wanted (scripts/music.gd)
