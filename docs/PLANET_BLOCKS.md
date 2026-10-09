@@ -130,7 +130,14 @@ and costs nothing.
   how it gets resolved later.
 
 ## Bottom of the world: the destroy boundary
+- DECIDED: the very bottom layer of the world is this destroy boundary, NOT a lava core.
 - A kill layer at the bottom. Sand, water and rubble that reach it vanish (deleted); the ship blows up if it touches it.
+- Anything that crosses it is simply destroyed: no mixing, no pooling, no pile-up. Water that pours all the way down
+  vanishes; sand, dirt, rubble, any material is deleted too.
+- It doubles as automatic clean-up: whatever drains or tumbles to the bottom is removed, so fluid and piece counts
+  never grow out of control.
+- Hazard: the player's ship hitting it is destroyed (death floor).
+- Cheap: just a check against one bottom depth, no simulation.
 - Its look (optional): a raging, rippling, sun-like lava surface over the kill layer, a cheap shader (like the Star Fox
   sun stage). It is only a look; it isn't a lava fluid.
 - A real lava core underneath is for later, not now.
@@ -139,7 +146,8 @@ and costs nothing.
   dangerous. Water pockets near the base crust into obsidian (lava + water). NOTE: on the call the owner also said
   "we can put that later, we don't need a lava layer underneath", so for now the bottom stays the destroy boundary
   (with the lava LOOK); the real lava core is the later version.
-- SETTLED: the lava core is DEFERRED (nice-to-have, not needed for the prototype). When it's done it is NOT a
+- REPLACED by the destroy boundary above. Kept only as a possible later look: the lava core was DEFERRED
+  (nice-to-have, not needed for the prototype). If it's ever done it is NOT a
   simulated fluid: one flat sheet drawn like the Star Fox "sun" lava stage, a constantly rippling, raging surface
   (wave animation in the shader on the GPU, plus glow and flares). Cheap, because every point just follows a wave
   formula over time: no per-square flow, no neighbour checks. It still counts as REAL lava: it burns / damages, and
