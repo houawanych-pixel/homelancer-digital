@@ -27,6 +27,15 @@ gives light-red sand and dark-red obsidian, an ice world pale to dark ice), so n
 Mostly stone, a little sand, obsidian as the backbone (deep core, big supports). Heavier weapons do more per hit
 (missiles, the SPECIAL cut through faster).
 
+## Obsidian gradient by depth
+- Obsidian gets MORE common the deeper you go and concentrates in the bottom layers, nearest the heat (the heat is
+  what forms and hardens it).
+- So the planet has a toughness gradient: soft sand and dirt on top, stone in the middle, obsidian-heavy at the
+  bottom, right above the destroy boundary.
+- The deep planet is the toughest and most dangerous place to dig (heavier weapons, the SPECIAL).
+- The thick deep obsidian seals the deep lava pockets best (containers are thickest where the lava is) and holds the
+  deep gold and diamond.
+
 ## Underground (layered by depth, always separate breakable blocks)
 - Top: the thin skin, smaller soft blocks (sand, dirt) where craters and digging happen.
 - Middle: medium rock blocks.
