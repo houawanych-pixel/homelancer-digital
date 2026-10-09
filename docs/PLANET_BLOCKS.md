@@ -355,6 +355,16 @@ the changes are re-applied. A hundred craters are a hundred small notes, not a f
 - Caves are beautiful and are where fights happen too: dogfighting through a pocket with an enemy on your tail, shots
   tearing up the rock; bring a roof down on a pursuer, shoot an arch leg to block one. The terrain becomes a weapon.
 
+## Bumping walls underground (owner, call; NOT built, waiting on his go)
+- Underground you'll touch walls constantly, so a slow or braking bump must be free; a real crash at speed still
+  hurts. Ship and mech both. Owner: "if you're moving normal at fifty, you're gonna get hit"; braking or cruising
+  slow = a safe nudge.
+- Today's game rule (Data.COLLIDE_THRESHOLD) already makes contact under 8 m/s free and charges 0.9 hull per m/s
+  above it. The change would be a higher free threshold near walls / while braking (somewhere under 50 m/s; the
+  number to be tuned with the owner), maybe a higher one for the mech.
+- Note: over the block patch the ship doesn't hit block walls from the side yet (it pops up onto the step); real side
+  collisions come with caves.
+
 ## Polish for the very end (owner, call)
 - Cracked, sun-baked earth on the UPWARD-facing top of big fused dirt shapes only (sides and underside plain); a cheap
   texture or shader, not cut geometry.
@@ -365,6 +375,8 @@ the changes are re-applied. A hundred craters are a hundred small notes, not a f
 - When you arrive you descend through the atmosphere and the cloud layer, and that descent hides the work: the world
   generates from its seed behind the cloud, and you break through to a finished planet. No load screen; the descent
   IS the loading, and it feels like flying. A bigger generation can stretch the cloud descent a little.
+- It can start far and low-detail and sharpen as you drop closer (the smooth-far / blocks-near swap), and the planet
+  is fully built and revealed as you break out of the bottom of the cloud. No spinner, no visible wait.
 - Load flow: load the seed -> regrow the planet during the descent -> re-apply your saved changes -> come out below to
   the planet exactly as you left it, every crater and tunnel there. Tiny saves, hidden loading.
 
