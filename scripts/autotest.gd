@@ -5756,3 +5756,46 @@ func _craters(s, bf: BlockField, pid: String, t: int) -> void:
 	_check("Craters: what is kept is the seed plus one small note per blast (%d notes); the patch regrown from them is the same ground, block for block" % bf.deltas.size(),
 		same and st.keys().size() == 3 and str(st).length() < bf.deltas.size() * 60 + 100, "same %s" % same)
 	again.free()
+	# 9. the mech digs by pushing into a wall (v1.5v): sand / dirt plow, stone breaks with a bounce, obsidian only bounces
+	var keep_h := bf.h.duplicate()
+	var keep_l := bf.lsz.duplicate()
+	var keep_d := bf.dmg.duplicate()
+	var nkeep: int = bf.deltas.size()
+	var form1: String = GS.form
+	var hull0: float = GS.hull
+	var pp2: Vector3 = s.player.global_position
+	GS.form = "mech"
+	var ax: float = bf.x0 + 30.0 * step + 2.5   # stand in one 5 m cell, the wall is the next cells east
+	var az: float = bf.z0 + 30.0 * step + 2.5
+	var base_y: float = bf.h[30 * bf.n + 30]
+	var res := {}
+	for mat in ["dirt", "stone", "obsidian"]:
+		for j in range(28, 33):
+			for i in range(28, 40):
+				bf.lsz[j * bf.n + i] = 1
+				bf.dmg[j * bf.n + i] = 0
+				bf.h[j * bf.n + i] = base_y + (20.0 if i >= 31 else 0.0)   # a 20 m wall just east of the mech
+		bf.force_mat = mat
+		s.dig_log = {"soft": 0, "stone": 0, "bounce": 0}
+		s._dig_cd = 0.0
+		var backed := false
+		for k in 40:
+			s.player.global_position = Vector3(ax, base_y + 6.0, az)
+			s.vel = Vector3(20.0, 0.0, 0.0)
+			s._mech_dig(0.05)
+			if s.vel.x < -0.1: backed = true
+		res[mat] = {"wall": bf.h[30 * bf.n + 31] - base_y, "backed": backed, "log": s.dig_log.duplicate()}
+	bf.force_mat = ""
+	GS.form = form1
+	s.vel = Vector3.ZERO
+	s.player.global_position = pp2
+	bf.h = keep_h
+	bf.lsz = keep_l
+	bf.dmg = keep_d
+	bf.deltas.resize(nkeep)   # (test only: forget the test digs)
+	var dirt_ok: bool = res["dirt"]["wall"] <= Data.MECH_DIG_STEP and not res["dirt"]["backed"]
+	var stone_ok: bool = res["stone"]["wall"] < 20.0 and res["stone"]["backed"]
+	var obs_ok: bool = is_equal_approx(res["obsidian"]["wall"], 20.0) and res["obsidian"]["backed"]
+	_check("Craters: the mech digs by pushing into a block wall: it plows through dirt (no bounce), breaks stone with a bounce-back each push, only bounces off obsidian; never any damage",
+		dirt_ok and stone_ok and obs_ok and GS.hull == hull0, str(res))
+	bf.flush()

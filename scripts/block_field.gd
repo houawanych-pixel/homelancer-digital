@@ -184,7 +184,10 @@ func _col_centre(i: int, j: int) -> Vector2:
 ## What a 5 m layer is made of: its top at height y in cell (fx, fz). Layered by depth under the original ground:
 ## a skin of sand and dirt, dirt and stone under it, then stone with obsidian growing more common the deeper you go
 ## (and a few sand pockets in the rock). Fixed by the planet seed, so it is the same every visit.
+var force_mat := ""   # tests only: every layer reads as this material
+
 func mat_at(fx: int, fz: int, y: float) -> String:
+	if force_mat != "": return force_mat
 	var d: float = h0[fz * n + fx] - y
 	var step: float = Data.BLOCK_MIN
 	var wx := x0 + (fx + 0.5) * step
@@ -569,6 +572,18 @@ func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, cs: 
 func covers(x: float, z: float) -> bool:
 	var half := cols * Data.BLOCK_BIG * 0.5
 	return absf(x - center.x) < half and absf(z - center.y) < half
+
+## The material of the top layer of the block under a tile-local point ("" off the patch).
+@warning_ignore("integer_division")
+func mat_top(x: float, z: float) -> String:
+	if not covers(x, z): return ""
+	var step: float = Data.BLOCK_MIN
+	var fx := clampi(int((x - x0) / step), 0, n - 1)
+	var fz := clampi(int((z - z0) / step), 0, n - 1)
+	var s: int = lsz[fz * n + fx]
+	var ox := fx - fx % s
+	var oz := fz - fz % s
+	return mat_at(ox + s / 2, oz + s / 2, h[oz * n + ox])
 
 ## The block ground under a tile-local point (or -INF off the patch).
 func top_at(x: float, z: float) -> float:

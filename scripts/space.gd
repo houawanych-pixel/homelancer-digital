@@ -4330,6 +4330,51 @@ func waypoint_at(p: Vector3) -> Node3D:
 
 var corner_haze := 0.0   # 0..1 inside the wrap-corner cloud bank
 
+## EXPERIMENT (v1.5v): the mech meets a block wall ahead (higher than a step) and pushes into it. It can't walk into
+## the wall; the push digs it by the same rules as a shot: sand and dirt give way steadily (it plows on), stone breaks
+## a hit at a time and shoves the mech back each push, obsidian doesn't break and just bounces it off. No damage, ever.
+var _dig_cd := 0.0
+var dig_log := {"soft": 0, "stone": 0, "bounce": 0}   # (tests)
+func _mech_dig(dt: float) -> void:
+	_dig_cd = maxf(0.0, _dig_cd - dt)
+	var bf := _block_field()
+	if bf == null or not is_instance_valid(player): return
+	var hv := Vector3(vel.x, 0.0, vel.z)
+	if hv.length() < 2.0: return
+	var dir := hv.normalized()
+	var p := player.global_position
+	var q := p + dir * Data.MECH_DIG_REACH
+	var ahead := bf.top_at(q.x, q.z)
+	var feet := p.y - 6.0   # (the ground keeps the player 6 m up)
+	if ahead == -INF or ahead <= feet + Data.MECH_DIG_STEP + 0.01: return   # open ground or a step it walks up
+	var into := hv.dot(dir)
+	vel -= dir * into   # it can't walk into the wall
+	var here := bf.top_at(p.x, p.z)
+	if here != -INF and here > feet + Data.MECH_DIG_STEP + 0.01:
+		player.global_position -= dir * (into * dt + 0.5)   # already in it this frame: step back out
+	var m := bf.mat_top(q.x, q.z)
+	var face := Vector3(q.x, minf(ahead, p.y), q.z)
+	if m == "obsidian":
+		if _dig_cd <= 0.0:
+			vel -= dir * Data.MECH_DIG_BOUNCE
+			dig_log["bounce"] += 1
+			_spark(face, Color(0.8, 0.8, 1.0), 2.5)
+			Sfx.play("hull_hit", -16.0)
+			_dig_cd = Data.MECH_DIG_STONE_TICK
+	elif m == "stone":
+		if _dig_cd <= 0.0:
+			bf.blast(face, "thrust")
+			vel -= dir * Data.MECH_DIG_BOUNCE
+			dig_log["stone"] += 1
+			_spark(face, bf.tone("stone"), 3.5)
+			Sfx.play("hull_hit", -14.0)
+			_dig_cd = Data.MECH_DIG_STONE_TICK
+	elif _dig_cd <= 0.0:   # sand and dirt: no bounce, it just eats its way on while you push
+		bf.blast(face, "thrust_soft")
+		dig_log["soft"] += 1
+		_spark(face, bf.tone(m if m != "" else "dirt"), 3.0)
+		_dig_cd = Data.MECH_DIG_SOFT_TICK
+
 ## EXPERIMENT: the block ground patch on this tile, if there is one.
 func _block_field() -> BlockField:
 	return tile_root.get_node_or_null("BlockField") as BlockField if is_instance_valid(tile_root) else null
@@ -4347,6 +4392,7 @@ func _ground(x: float, z: float) -> float:
 
 ## Ground contact, tile edges (wrap to the next tile) and the ceiling (back to orbit).
 func _surface_update(_dt: float) -> void:
+	if GS.form == "mech": _mech_dig(_dt)   # EXPERIMENT (v1.5v): the mech digs into block walls by pushing
 	var p := player.global_position
 	var floor_y := _ground(p.x, p.z) + 6.0
 	altitude = p.y - floor_y + 6.0

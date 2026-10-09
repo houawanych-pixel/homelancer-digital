@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.5u"
+const VERSION := "v1.5v"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -239,7 +239,7 @@ const BLOCK_ROCK := Color(0.32, 0.3, 0.29)   # the deep rock colour under the su
 # Step 2 (v1.5t): craters. Every block inside a blast's radius is hit; a block only partly inside splits into four
 # (20 -> 10 -> 5 m) so only the hit part goes; obsidian never splits (it chips, then breaks off whole, in half).
 const BLOCK_HITS := {"sand": 1, "dirt": 2, "stone": 4, "obsidian": 8}   # light-gun hits to break a 5 m layer, by tier
-const BLOCK_BLAST := {"gun": [2.4, 1], "missile": [12.0, 4], "heavy": [20.0, 8], "special": [40.0, 16]}   # [radius m, hits dealt]
+const BLOCK_BLAST := {"gun": [2.4, 1], "missile": [12.0, 4], "heavy": [20.0, 8], "special": [40.0, 16], "thrust": [3.5, 1], "thrust_soft": [3.5, 2]}   # [radius m, hits dealt]; thrust = the mech pushing into a wall
 const BLOCK_BREAK_PIECES := {"obsidian": 2, "stone": 3, "dirt": 4, "sand": 5}   # each material breaks its own way: harder = fewer, bigger pieces
 const BLOCK_CLEAVE_SPEED := 12.0     # an obsidian piece landing faster than this (m/s) cleaves in half once more
 const BLOCK_RUBBLE_FRAC := 0.5       # about half of what a blast breaks flies out as rubble (the rest is dust); obsidian always flies whole
@@ -256,6 +256,14 @@ const BLOCK_DAMAGE_DARK := 0.35      # a cracked block darkens up to this much b
 # (and always while braking); only faster than that hurts (counted from this speed up). The mech is never hurt by
 # the ground at all. Lava and enemy fire are unchanged.
 const BLOCK_SAFE_BUMP := 40.0        # m/s (50 still hurts)
+# v1.5v (owner): the mech digs by thrusting its body into a wall, by the same break rules as a shot. Sand and dirt it
+# plows straight through; stone breaks but shoves it back each push (chip, bounce, chip); obsidian won't break, it just
+# bounces the mech off. Never any damage to the mech.
+const MECH_DIG_REACH := 4.5          # m ahead of the mech's middle where it meets a wall
+const MECH_DIG_STEP := 5.0           # a rise up to this is just a step it walks up, not a wall
+const MECH_DIG_SOFT_TICK := 0.12     # s between digs into sand / dirt (one 5 m dirt layer each)
+const MECH_DIG_STONE_TICK := 0.35    # s between pushes into stone (one hit each, then the bounce)
+const MECH_DIG_BOUNCE := 14.0        # m/s the stone / obsidian shoves the mech back
 # ---------------------------------------------------------------- Job AT (v1.5q): clean-up + placeholder fighters
 # The owner's placeholder fighter set (hlpshplholder_faction): one fighter per faction, tinted in its own colour, so every
 # faction's six pilots have a ship (and their voices) until the real ships come. Factions that already fly the owner's

@@ -1214,3 +1214,5 @@ Owner, after the v1.5k test flow passed: "push it to all".
   owner's later rules: docs/PLANET_BLOCKS.md.
 - v1.5u: over the block ground a bump is free up to cruising speed (`BLOCK_SAFE_BUMP` 40 m/s) and while braking;
   only the speed past it hurts; the mech is never hurt by the ground. Normal planets keep the old rule.
+- v1.5v: the mech pushing into a block wall digs it by the shot rules (`MECH_DIG_*`, "thrust" blasts): plows sand and
+  dirt, breaks stone a hit per push with a bounce-back, only bounces off obsidian; never hurt.

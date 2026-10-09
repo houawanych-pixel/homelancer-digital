@@ -382,8 +382,13 @@ the changes are re-applied. A hundred craters are a hundred small notes, not a f
   at all"); the stone bounce is the only resistance.
 - BUILT (v1.5u, over the block ground only): a ground bump is free up to 40 m/s (`BLOCK_SAFE_BUMP`, owner's number;
   50 still hurts) and always while braking; above it only the speed past 40 counts (0.9 hull per m/s). The mech is
-  never hurt by the ground. Elsewhere the old rule stays (free under 8 m/s). Mech thrust-digging is NOT built yet: it
-  needs real side contact with block walls, which comes with caves.
+  never hurt by the ground. Elsewhere the old rule stays (free under 8 m/s).
+- BUILT (v1.5v, block ground only): the mech meets a wall ahead (higher than a 5 m step) and can't walk into it;
+  pushing digs it by the shot rules ("thrust" blasts, kept as crater notes like any other). Sand and dirt: no
+  bounce, it eats its way on (a 5 m dirt layer every 0.12 s while you push). Stone: one hit per push, then a 14 m/s
+  shove back (4 pushes a 5 m layer). Obsidian: never breaks, only bounces. No damage, ever. Because the blocks only
+  carve from the top, a tall wall crumbles from its top down as you push until it's low enough to walk over (real
+  tunnels sideways come with caves). The ship still pops up onto steps.
 - Note: over the block patch the ship doesn't hit block walls from the side yet (it pops up onto the step); real side
   collisions come with caves.
 
@@ -441,6 +446,7 @@ Status: the owner said go for step 2 (craters), step by step. Each next step wai
    landing, stone 3, dirt 4, sand 5; at most 10 pieces a blast, 60 alive; landed pieces sink away after 25 s);
    the ship's shots and missiles hit the block ground (no target over the patch: missiles fire straight, to dig);
    seed + one note per blast, re-applied on return. Not yet: dirt sticking, sand piling, fusing of rubble (step 5).
+2b. DONE (v1.5u / v1.5v, behind ?blocks): free wall bumps up to 40 m/s (mech never hurt); the mech digs by pushing.
 3. Border camera hand-off.
 4. Fog in the four corners only.
 5. Support and collapse, then cave blocks, overhangs, arches; merging and leaning rubble; stretch goals last.
