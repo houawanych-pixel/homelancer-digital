@@ -41,7 +41,10 @@ Mostly rock, a little sand, hard rock as the backbone (deep core, big supports).
   break the edge and it flows out and re-forms. Lava: the same, slower, glowing, burns.
 
 ## Hits and blasts
-- A blast has a radius: every block inside it is hit, not just one.
+- A blast has a radius (the weapons' own blast / hitbox): every block inside it is hit, not just one. Bigger weapon,
+  bigger bite: light gun small, missile bigger, the SPECIAL huge (a crater you can fly into).
+- Blocks show damage each hit (cracks, chips) before they give; hit counts by tier are in the table (1 / 2 / 4 / 8,
+  the owner's final numbers; easy to tune). Heavier weapons do more per hit.
 - A hit block splits into FOUR smaller blocks at the spot (carve only where hit: a corner shot takes a corner, the rest
   stays one big block). Again into four on later hits, down to the 5 m floor.
 - The blast does not just erase: about half the material flies out as rubble (tune how much flies versus vanishes).
