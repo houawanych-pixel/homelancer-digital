@@ -138,7 +138,13 @@ and costs nothing.
   obsidian, then breaks into lava at the base, which floods up glowing and burning; the deeper you dig, the more
   dangerous. Water pockets near the base crust into obsidian (lava + water). NOTE: on the call the owner also said
   "we can put that later, we don't need a lava layer underneath", so for now the bottom stays the destroy boundary
-  (with the lava LOOK); the real lava core is the later version. Confirm with the owner before building either.
+  (with the lava LOOK); the real lava core is the later version.
+- SETTLED: the lava core is DEFERRED (nice-to-have, not needed for the prototype). When it's done it is NOT a
+  simulated fluid: one flat sheet drawn like the Star Fox "sun" lava stage, a constantly rippling, raging surface
+  (wave animation in the shader on the GPU, plus glow and flares). Cheap, because every point just follows a wave
+  formula over time: no per-square flow, no neighbour checks. It still counts as REAL lava: it burns / damages, and
+  can well up if dug into.
+- Big lava or water seas elsewhere can use the same cheap animated-surface look.
 
 ## Flowing materials (earlier notes, kept)
 - Sand piles into a cone at its own slope angle; past that it slumps; the pile merges up into bigger blocks as it grows.
