@@ -90,7 +90,11 @@ Older sections below may still say "rock" / "hard rock": read them as stone / ob
 - Maybe (open): lava doing its own conversion to what it touches (baking, melting).
 - Lava pockets (the Minecraft "uh oh" moment): lava sits sealed deep down, held in by obsidian (obsidian can hold
   lava). Break the container and the lava pours out into the gap you opened, runs downhill, fills the low spots,
-  burns whatever is in the way.
+  burns whatever is in the way. Gold and diamond can be container walls too.
+- At the start of a world the pockets do NOT eat their way through the map: a sealed pocket sits still (fluids only
+  flow when disturbed) and its walls are lava-proof (obsidian, gold, diamond). Only once you breach it does the lava
+  run, eating sand and trading with dirt along its path until stone stops it. (Owner raised this on the call:
+  "the lava pockets are going to start digging through the map". This is the answer in the rules; confirm.)
 
 ## Mining: gold and diamond (notes only)
 - Two valuables, separate from the ground tiers: gold and diamond. Rare, deep, often near the lava.
@@ -98,7 +102,9 @@ Older sections below may still say "rock" / "hard rock": read them as stone / ob
 - You blow them up to get them: your weapons are the mining tools. Blast them loose, collect the pieces.
 - You only get about half: the blast destroys the rest. Careful mining (light gun) keeps more, a big weapon loses more,
   so precision pays.
-- A piece has to be broken small enough to pick up before you can collect it.
+- A piece has to be broken small enough to pick up before you can collect it: the same split-into-four breakdown,
+  keep breaking until the chunks are pickup-size, then collect.
+- Very tough (they can hold lava).
 - Cashed in for money or upgrades (owner: yes; which one, or both, still to decide).
 - Open: how tough each one is (diamond tougher than obsidian?), how rare, what they're worth.
 
