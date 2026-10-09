@@ -356,9 +356,9 @@ the changes are re-applied. A hundred craters are a hundred small notes, not a f
   tearing up the rock; bring a roof down on a pursuer, shoot an arch leg to block one. The terrain becomes a weapon.
 
 ## Bumping walls underground (owner, call; NOT built, waiting on his go)
-- Underground you'll touch walls constantly, so a slow or braking bump must be free; a real crash at speed still
-  hurts. Ship and mech both. Owner: "if you're moving normal at fifty, you're gonna get hit"; braking or cruising
-  slow = a safe nudge.
+- Underground you'll touch walls constantly. SETTLED (owner, call): at normal cruising speed and below (and while
+  braking) a wall bump does NO damage; only when you pass cruise speed does a crash hurt. Ship and mech both, and
+  the mech gets a higher safe speed than the ship. Lava and enemy fire stay as dangerous as ever.
 - Today's game rule (Data.COLLIDE_THRESHOLD) already makes contact under 8 m/s free and charges 0.9 hull per m/s
   above it. The change would be a higher free threshold near walls / while braking (somewhere under 50 m/s; the
   number to be tuned with the owner), maybe a higher one for the mech.
@@ -377,6 +377,8 @@ the changes are re-applied. A hundred craters are a hundred small notes, not a f
   IS the loading, and it feels like flying. A bigger generation can stretch the cloud descent a little.
 - It can start far and low-detail and sharpen as you drop closer (the smooth-far / blocks-near swap), and the planet
   is fully built and revealed as you break out of the bottom of the cloud. No spinner, no visible wait.
+- We never store the world: one seed regrows exactly the same planet every time (all layers, roots, pockets), plus
+  the list of the player's changes (the craters step already keeps seed + one note per blast).
 - Load flow: load the seed -> regrow the planet during the descent -> re-apply your saved changes -> come out below to
   the planet exactly as you left it, every crater and tunnel there. Tiny saves, hidden loading.
 
