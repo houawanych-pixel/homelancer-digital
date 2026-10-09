@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.6e"
+const VERSION := "v1.6f"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -309,6 +309,14 @@ const OVERHANG_JUT := [3, 5]         # cells the slab juts out (15-25 m)
 const OVERHANG_RISE := [35.0, 60.0]  # m the promontory stands over the ground
 const OVERHANG_THICK := 10.0
 const LANDMARK_FLAT := 25.0         # m: how uneven the ground under a landmark may be
+# v1.6f world generation, part 3. Realistic heights (no thin spires), a winding canyon, obsidian roots piercing the
+# surface.
+const SPIRE_MAX := 15.0              # m a column may stand over all its neighbours
+const CANYON_DEPTH := [40.0, 70.0]   # m under the ground
+const CANYON_WIDTH := 3.0            # cells (half-width; 15 m)
+const ROOT_COUNT := 6
+const ROOT_RISE := [12.0, 35.0]      # m the shards stand out of the ground
+const ROOT_DEPTH := 80.0             # m the obsidian root runs down under them
 # v1.5v (owner): the mech digs by thrusting its body into a wall, by the same break rules as a shot. Sand and dirt it
 # plows straight through; stone breaks but shoves it back each push (chip, bounce, chip); obsidian won't break, it just
 # bounces the mech off. Never any damage to the mech.

@@ -47,6 +47,9 @@ var pockets: Array = []        # the sealed pockets placed from the seed: [{cell
 var veins: Array = []          # v1.6c gold / diamond veins from the seed: [{mat, cells: [Vector2i(cell, layer)]}]
 var caves: Array = []          # v1.6d cave pockets from the seed: [{centre: Vector3, cells: int}]
 var killed := 0                # things the kill floor took (tests)
+var clamped := 0               # v1.6f spires cut down to a realistic height (tests)
+var canyon_cells: Array = []   # v1.6f the canyon floor's cells
+var roots: Array = []          # v1.6f obsidian roots piercing the surface: [{cells: [cell], tip}]
 var arches: Array = []         # v1.6e generated arches: [{legs: [[cells], [cells]], span: [cells], mid: cell, mat}]
 var overhangs: Array = []      # v1.6e Pride Rock promontories: [{base: [cells], jut: [cells], tip: cell}]
 var reach_bonus := {}          # v1.6e cell -> how far (cells) its rock may hang from support (arches, promontories)
@@ -124,6 +127,18 @@ func build(pid: String, t: int) -> void:
 			tops[j * cols + i] = ceilf((hm + Data.BLOCK_MARGIN) / step) * step
 			surf_cols[j * cols + i] = Color(colr.r, colr.g, colr.b)
 			cols_c[j * cols + i] = colr
+	# 1b. realistic heights (v1.6f): no thin spires. A column standing more than SPIRE_MAX over every neighbour is cut
+	#     down to that (the edge columns are left alone: the smooth sheet there isn't sunk)
+	for pass_i in 2:
+		for j in range(2, cols - 2):
+			for i in range(2, cols - 2):
+				var mx := -INF
+				for dj in [-1, 0, 1]:
+					for di in [-1, 0, 1]:
+						if di != 0 or dj != 0: mx = maxf(mx, tops[(j + dj) * cols + i + di])
+				if tops[j * cols + i] > mx + Data.SPIRE_MAX:
+					tops[j * cols + i] = ceilf((mx + Data.SPIRE_MAX) / step) * step
+					clamped += 1
 	# 2. the original stacks of big blocks (each column from below its lowest neighbour up to its top)
 	_rng.seed = hash("%s|%d|blocks" % [pid, t])
 	for j in cols:
@@ -192,8 +207,10 @@ func build(pid: String, t: int) -> void:
 	_noise.seed = hash("%s|%d|layers" % [pid, t])
 	_noise.frequency = 0.03
 	# 4. caves, sealed water and lava pockets, gold and diamond veins, from the seed (v1.6b-d)
+	_carve_canyon()
 	_carve_caves()
 	_build_landmarks()
+	_raise_roots()
 	_place_pockets()
 	_place_veins()
 	# 5. re-apply the blasts made here before (seed + deltas), quietly
@@ -932,6 +949,98 @@ func _build_landmarks() -> void:
 				_mark(c % n, c / n, 1)
 		overhangs.append({"base": base, "jut": slab, "tip": (oz + 1) * n + ox + bw + jut - 1})
 	_settle(0, n - 1, 0, n - 1)
+
+## A canyon (v1.6f): one deep, winding cut across the patch you can fly down into, its walls showing the layers, with a
+## little gold in the walls. It wanders by noise, keeps away from the patch edge, and its floor follows the ground
+## down (never deeper than CANYON_DEPTH under it, never into the obsidian cap).
+@warning_ignore("integer_division")
+func _carve_canyon() -> void:
+	canyon_cells.clear()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash("%s|%d|canyon" % [planet_id, tile])
+	var step: float = Data.BLOCK_MIN
+	var m := 10
+	var p := Vector2(m, rng.randf_range(m, n - m))
+	var heading := rng.randf_range(-0.4, 0.4)
+	if rng.randf() < 0.5:   # sometimes it runs north-south
+		p = Vector2(p.y, p.x)
+		heading += PI * 0.5
+	var nz := FastNoiseLite.new()
+	nz.seed = rng.randi()
+	nz.frequency = 0.05
+	var depth: float = rng.randf_range(float(Data.CANYON_DEPTH[0]), float(Data.CANYON_DEPTH[1]))
+	var seen := {}
+	var t := 0
+	var gold_left := 6
+	while p.x >= m and p.y >= m and p.x < n - m and p.y < n - m and t < n * 3:
+		t += 1
+		heading += nz.get_noise_1d(t * 3.0) * 0.35
+		p += Vector2(cos(heading), sin(heading))
+		var w: float = Data.CANYON_WIDTH * (0.75 + 0.5 * (nz.get_noise_1d(t * 2.0 + 500.0) * 0.5 + 0.5))
+		var ci := int(p.y) * n + int(p.x)
+		var floor_y: float = maxf(floorf((h0[ci] - depth) / step) * step, h0[ci] - Data.BLOCK_DEPTH_FLOOR + Data.KILL_CAP + step * 4.0)
+		for dz in range(-int(w) - 1, int(w) + 2):
+			for dx in range(-int(w) - 1, int(w) + 2):
+				if Vector2(dx, dz).length() > w: continue
+				var fx := int(p.x) + dx
+				var fz := int(p.y) + dz
+				if fx < m - 4 or fz < m - 4 or fx >= n - m + 4 or fz >= n - m + 4: continue
+				var c := fz * n + fx
+				# the walls step down a little toward the middle (no knife-thin lip)
+				var fy: float = floor_y + floorf(maxf(0.0, Vector2(dx, dz).length() - w + 1.5) * 2.0) * step
+				if h[c] <= fy: continue
+				_split_one(c)
+				h[c] = fy
+				if not seen.has(c):
+					seen[c] = true
+					canyon_cells.append(c)
+					if gold_left > 0 and Vector2(dx, dz).length() > w - 1.0 and rng.randf() < 0.04:   # gold glinting in the wall
+						var ov: Dictionary = mats.get(c, {})
+						ov[_k(fy + step * 2.5)] = "gold"
+						mats[c] = ov
+						gold_left -= 1
+				_mark(fx, fz, 1)
+
+## Obsidian roots piercing the surface (v1.6f): small crowns of black glass standing out of the ground (joined, so the
+## skin points them into shards), each with its root running straight down into the deep rock: they show where the
+## root system, the lava and the treasure are.
+@warning_ignore("integer_division")
+func _raise_roots() -> void:
+	roots.clear()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash("%s|%d|roots" % [planet_id, tile])
+	var step: float = Data.BLOCK_MIN
+	var tries := 0
+	while roots.size() < Data.ROOT_COUNT and tries < 60:
+		tries += 1
+		var cx := rng.randi_range(6, n - 9)
+		var cz := rng.randi_range(6, n - 9)
+		if Vector2(cx - n / 2, cz - n / 2).length() < 14: continue
+		var cells: Array = []
+		var shape := [Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1), Vector2i(2, 1), Vector2i(1, 2)]
+		var count := rng.randi_range(2, shape.size())
+		var bad := false
+		for q in count:
+			var c: int = (cz + shape[q].y) * n + cx + shape[q].x
+			if holes.has(c) or fluid.has(c): bad = true
+			cells.append(c)
+		if bad: continue
+		var tip := -1
+		var tallest := -INF
+		for c in cells:
+			_split_one(c)
+			var rise: float = ceilf(rng.randf_range(float(Data.ROOT_RISE[0]), float(Data.ROOT_RISE[1])) / step) * step
+			var k_ground := _ktop(c)
+			h[c] = h[c] + rise
+			var ov: Dictionary = mats.get(c, {})
+			for k in range(maxi(_kfloor(c), k_ground - int(Data.ROOT_DEPTH / step)), _ktop(c)): ov[k] = "obsidian"   # the root, down into the rock
+			mats[c] = ov
+			hmax = maxf(hmax, h[c])
+			if h[c] > tallest:
+				tallest = h[c]
+				tip = c
+			_mark(c % n, c / n, 1)
+		roots.append({"cells": cells, "tip": tip})
 
 ## The kill floor (v1.6d): the bottom of the diggable ground (BLOCK_DEPTH_FLOOR down), under a thick obsidian cap.
 ## Where it's been dug open it glows; anything that reaches it is gone, and the ship is destroyed.

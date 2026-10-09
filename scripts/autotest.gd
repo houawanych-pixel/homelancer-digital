@@ -5639,7 +5639,8 @@ func _blocks() -> void:
 			var z: float = bf.center.y + rng.randf_range(-0.48, 0.48) * bf.cols * Data.BLOCK_BIG
 			worst = maxf(worst, Surface.height(pid, t, x, z) - bf.top_at(x, z))
 			var top: float = bf.top_at(x, z)
-			if top < Surface.height(pid, t, x, z) - 0.01: covered = false
+			var interior: bool = absf(x - bf.center.x) < float(Data.BLOCK_TEST["size"]) * 0.5 - 40.0 and absf(z - bf.center.y) < float(Data.BLOCK_TEST["size"]) * 0.5 - 40.0
+			if top < Surface.height(pid, t, x, z) - (Data.BLOCK_SINK - 20.0 if interior else 0.0) - 0.01: covered = false   # (inside, the smooth sheet is sunk out of sight)
 			if not is_equal_approx(fposmod(top, Data.BLOCK_MIN), 0.0) and not is_equal_approx(fposmod(top, Data.BLOCK_MIN), Data.BLOCK_MIN): steps = false
 	_check("Blocks (experiment): New Terra's mountains tile has a %d m patch of big blocks (%d m, any box shape) following the planet's own shape in %d m steps, the smooth ground never poking through" % [int(Data.BLOCK_TEST["size"]), int(Data.BLOCK_BIG), int(Data.BLOCK_MIN)],
 		ok and bf.cols == int(round(float(Data.BLOCK_TEST["size"]) / Data.BLOCK_BIG)) and bf.blocks.size() > bf.cols * bf.cols and covered and steps,
@@ -5725,6 +5726,23 @@ func _blocks() -> void:
 			cam.look_at(Vector3(at.x, floor_y, at.z), Vector3.UP)
 			cam.make_current()
 			await _shot("water_pocket", 0.4)
+		# v1.6f: down the canyon, and an obsidian root
+		if not bf.canyon_cells.is_empty():
+			var cc: int = bf.canyon_cells[bf.canyon_cells.size() / 2]
+			var cn: int = bf.canyon_cells[mini(bf.canyon_cells.size() - 1, bf.canyon_cells.size() / 2 + 40)]
+			var cp := Vector3(bf.x0 + (cc % bf.n + 0.5) * Data.BLOCK_MIN, bf.h[cc] + 25.0, bf.z0 + (cc / bf.n + 0.5) * Data.BLOCK_MIN)
+			var cq := Vector3(bf.x0 + (cn % bf.n + 0.5) * Data.BLOCK_MIN, bf.h[cn] + 10.0, bf.z0 + (cn / bf.n + 0.5) * Data.BLOCK_MIN)
+			cam.global_position = cp
+			cam.look_at(cq, Vector3.UP)
+			cam.make_current()
+			await _shot("canyon", 0.4)
+		if not bf.roots.is_empty():
+			var tc: int = bf.roots[0]["tip"]
+			var tp := Vector3(bf.x0 + (tc % bf.n + 0.5) * Data.BLOCK_MIN, bf.h[tc] - 10.0, bf.z0 + (tc / bf.n + 0.5) * Data.BLOCK_MIN)
+			cam.global_position = tp + Vector3(35.0, 15.0, 45.0)
+			cam.look_at(tp, Vector3.UP)
+			cam.make_current()
+			await _shot("obsidian_root", 0.4)
 		# v1.6e: the arches and a Pride Rock slab
 		var shots_done := 0
 		for ar in bf.arches:
@@ -5777,6 +5795,26 @@ func _blocks() -> void:
 @warning_ignore("integer_division")
 func _craters(s, bf: BlockField, pid: String, t: int) -> void:
 	var flyable := true   # (v1.6e, measured before any test digs into them)
+	# (v1.6f, also before any test digs) no thin spires; the canyon; the roots
+	var spire := false
+	for j in range(2, bf.cols - 2):
+		for i in range(2, bf.cols - 2):
+			var mx := -INF
+			for dj in [-1, 0, 1]:
+				for di in [-1, 0, 1]:
+					if di != 0 or dj != 0: mx = maxf(mx, bf.tops[(j + dj) * bf.cols + i + di])
+			if bf.tops[j * bf.cols + i] > mx + Data.SPIRE_MAX + Data.BLOCK_MIN: spire = true
+	var deep := 0
+	for c in bf.canyon_cells:
+		if bf.h0[c] - bf.h[c] >= 30.0: deep += 1
+	var roots_ok: bool = bf.roots.size() >= 3
+	for rt in bf.roots:
+		var tc: int = rt["tip"]
+		var around := -INF
+		for d in [-2, 2, -2 * bf.n, 2 * bf.n]: around = maxf(around, bf.h[tc + d])
+		if bf.mat_at(tc % bf.n, tc / bf.n, bf.h[tc]) != "obsidian" or bf.h[tc] < bf.h0[tc] + 10.0: roots_ok = false
+	_check("Craters: world generation 3: realistic heights (no spire more than %d m over all its neighbours; %d cut down); a winding canyon (%d cells, %d of them 30 m+ deep) with its layers in the walls; %d obsidian roots piercing the surface" % [int(Data.SPIRE_MAX), bf.clamped, bf.canyon_cells.size(), deep, bf.roots.size()],
+		not spire and bf.canyon_cells.size() > 150 and deep > 100 and roots_ok, "spire %s canyon %d deep %d roots %s" % [spire, bf.canyon_cells.size(), deep, roots_ok])
 	for ar in bf.arches:
 		if not bf.holes.has(int(ar["mid"])): flyable = false
 	var jutting := true

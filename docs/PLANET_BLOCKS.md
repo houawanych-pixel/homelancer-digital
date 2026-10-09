@@ -502,6 +502,14 @@ Status: the owner said go for step 2 (craters), step by step. Each next step wai
    high with a 15-25 m slab jutting out over open air). Built only on fairly even ground (`LANDMARK_FLAT`), never in
    the middle. Load-bearing (`reach_bonus`): each half of an arch hangs from its own leg, the slab from its block;
    blast a leg out and what hung from it comes down (where an arch end rests against the hillside, that bit stays).
+2j. DONE (v1.6f, behind ?blocks): world generation, part 3. Realistic heights: no column may stand more than 15 m
+   over all its neighbours (`SPIRE_MAX`; New Terra's test patch had none, but other ground will). A winding canyon
+   (`CANYON_*`: 40-70 m deep, about 30 m wide, wandering across the patch by noise, kept off the patch edge, never into
+   the obsidian cap), its walls showing the layers, a little gold glinting in them. 6 obsidian roots piercing the
+   surface (`ROOT_*`): small crowns of black glass 12-35 m out of the ground, joined so the skin points them into
+   shards, each with its root running 80 m down into the rock.
+   Still to come in generation: the interlocking slanted shapes (big leaning slabs, wedges), the deep obsidian root
+   structure at the bottom, canyons on every world, and it all becoming the whole planet (step 9).
 3. DONE (already from earlier work): the ground blends across tile edges and the next area is built before you reach
    it, so crossing has no jump.
 4. DONE (already): no seam lines at ordinary corners (the ground blends); the planet's wrap corner sits in a cloud bank.
