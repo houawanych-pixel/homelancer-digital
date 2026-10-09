@@ -401,7 +401,10 @@ the changes are re-applied. A hundred craters are a hundred small notes, not a f
 
 ## Polish for the very end (owner, call)
 - Cracked, sun-baked earth on the UPWARD-facing top of big fused dirt shapes only (sides and underside plain); a cheap
-  texture or shader, not cut geometry.
+  texture or shader, not cut geometry. It follows the top of the whole fused shape, however irregular; a shader can
+  shade the cracks so they look slightly recessed. Texturing the skin is the cheap part of the hypernerve, reshaping
+  geometry the costly part. Could extend the same cheap way to sand ripples and stone strata / fracture lines.
+  Parked: do not prioritise.
 - Water with gentle animated ripples and shimmer, lava a slow glowing churn: the same cheap GPU surface-wave trick,
   no fluid simulation.
 
