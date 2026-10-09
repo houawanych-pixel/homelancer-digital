@@ -68,12 +68,30 @@ obsidian (below).
 - Settled water fuses into ONE flush shape (one water block shaped like the space it filled); break the edge and it
   flows out and re-forms.
 - Look: transparent, blue tint.
+- Underneath it is still a square block like every material; its property is what makes it flow.
+- The pool reads as one level body with a flat top; as more flows in, the level rises and it spreads square by square.
+- Spills go to the next pocket DOWN, so water fills and spills its way down a slope.
+- Blast out the floor or wall holding a pool: it loses support and pours away to the next place that can hold it (like
+  collapse, but it flows instead of falling as rubble). Then the settle-and-check above finds its new level.
+- Water pockets in the rock flood out when blasted into: pour into the tunnel, run downhill, pool in the lowest
+  supported pocket.
 
 ## Lava (notes only)
 - Same flow as water, but slower; glows; burns (hurts the ship / mech).
 - Eats sand for free; trades one-for-one with dirt (both lose a piece); stopped by stone.
 - Lava + water = obsidian.
 - Look: slightly transparent, red and orange. The transparency is what says "fluid"; every solid is opaque.
+- Maybe (open): lava doing its own conversion to what it touches (baking, melting).
+- Lava pockets (the Minecraft "uh oh" moment): lava sits sealed deep down, held in by obsidian (obsidian can hold
+  lava). Break the container and the lava pours out into the gap you opened, runs downhill, fills the low spots,
+  burns whatever is in the way.
+
+## Mining: gold and diamond (notes only)
+- Two valuables, separate from the ground tiers: gold and diamond. Rare, deep, often near the lava.
+- Both can hold lava, like obsidian (they can be the walls of a lava pocket).
+- You blow them up to get them: your weapons are the mining tools. Blast them loose, collect the pieces.
+- Cashed in for money or upgrades (owner: yes; which one, or both, still to decide).
+- Open: how tough each one is (diamond tougher than obsidian?), how rare, what they're worth.
 
 ## Fluids stay cheap
 Water, lava and sand only flow when disturbed AND near the player. Otherwise each one sits as one still, fused shape
