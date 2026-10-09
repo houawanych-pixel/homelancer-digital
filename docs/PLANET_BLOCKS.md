@@ -101,6 +101,10 @@ Older sections below may still say "rock" / "hard rock": read them as stone / ob
   and pockets, which wake in turn, and so on. Only the active, exposed front does any work; everything still sealed
   beyond it stays frozen and cheap until the flow actually reaches and opens it. One breach can set off an unfolding
   chain, but nothing wakes ahead in the sealed dark.
+- SAME FOR WATER (owner: "same as water"): both rules above, dormant-until-exposed and the exposure cascade, apply to
+  water exactly as to lava. A sealed water pocket is frozen and costs nothing until broken into; once exposed it
+  pours and floods, and as it flows into new space it wakes the next pocket, cascading from the breach. Only the
+  open, moving front costs anything.
 - Pockets are placed only inside solid sealing materials: obsidian, stone, diamond, gold. Never in sand (loose sand
   can't hold lava). Sand that ends up next to active, exposed lava just gets eaten.
 
