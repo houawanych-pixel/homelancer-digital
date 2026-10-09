@@ -478,6 +478,15 @@ Status: the owner said go for step 2 (craters), step by step. Each next step wai
    blue, lava a little see-through and glowing. Lava burns the ship and mech (`LAVA_DPS`). Rock changes from all
    this are kept as notes ("set:" / "cut"). Simplified for now: where water and lava flowed to isn't saved; a pocket
    that was opened before is gone (empty) when you come back. Water doesn't slow you yet.
+2g. DONE (v1.6c, behind ?blocks): mining. Gold and diamond veins from the seed (`MINE_VEINS`: gold 25-120 m down,
+   diamond 80-170 m; half the lava pockets have diamond in the obsidian over them; 60% of worlds also wear a few right
+   out on the surface). Bright fixed colours on any world. Tough: gold 6 light-gun hits, diamond 12 (tougher than
+   obsidian, the owner's open question answered for now). Breaking a layer drops pickup pieces (gold 4, diamond 3), but
+   the blast destroys the rest (`MINING_KEEP`: light gun / mech 3 in 4, missile half, heavy a third, special a fifth),
+   so careful digging pays. The pieces never turn to rubble or fuse back. The tractor beam the game already has pulls
+   them in: gold 40 cr, diamond 120 cr a piece (`MINE_VALUE`; upgrades instead of money is still open).
+   Not yet: real glow / light from them (the lighting step); breaking big pieces down to pickup size (every piece is
+   pickup size for now).
 3. DONE (already from earlier work): the ground blends across tile edges and the next area is built before you reach
    it, so crossing has no jump.
 4. DONE (already): no seam lines at ordinary corners (the ground blends); the planet's wrap corner sits in a cloud bank.

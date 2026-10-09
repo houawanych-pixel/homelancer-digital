@@ -1234,3 +1234,5 @@ Owner, after the v1.5k test flow passed: "push it to all".
   off, fused obsidian tops point into shard tips (`BLOCK_SKIN`, `_skin_top`). Collision unchanged.
 - v1.6b (?blocks only): water and lava (`fluid` per cell/layer): sealed seed pockets, asleep until opened, flow near
   the player only, react with sand / dirt / each other, drawn see-through; lava burns. See docs/PLANET_BLOCKS.md 2f.
+- v1.6c (?blocks only): gold / diamond veins from the seed (`_place_veins`), tough layers; breaking one emits `mined`
+  and the game drops pickup gems (fewer with bigger weapons, `MINING_KEEP`) for the tractor beam (`MINE_VALUE` credits).

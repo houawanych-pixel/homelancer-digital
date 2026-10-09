@@ -3543,6 +3543,37 @@ func _drop_loot(at: Vector3, reward: int) -> void:
 		var dir := Vector3(_rng.randfn(0, 1), _rng.randfn(0, 0.5), _rng.randfn(0, 1)).normalized()
 		loot.append({"node": pod, "vel": dir * _rng.randf_range(8.0, 16.0), "value": maxi(10, int(reward * 0.4)), "life": 120.0})
 
+## v1.6c mining: a gold or diamond layer broke. It drops pickup pieces (its own break count), but the blast destroys
+## the rest: a careful light gun keeps 3 in 4, a missile half, the SPECIAL very little. The tractor beam pulls them in.
+var mined_pieces := 0   # (tests)
+func _on_mined(at: Vector3, mat: String, weapon: String) -> void:
+	var pieces: int = Data.BLOCK_BREAK_PIECES.get(mat, 3)
+	var keep: float = float(Data.MINING_KEEP.get(weapon, 0.5)) * pieces
+	var n := int(keep) + (1 if _rng.randf() < keep - int(keep) else 0)
+	var col: Color = Data.VALUABLE_COLOR.get(mat, Color.WHITE)
+	for i in n:
+		var gem := MeshInstance3D.new()
+		var pm: PrimitiveMesh = PrismMesh.new() if mat == "diamond" else BoxMesh.new()
+		if pm is PrismMesh: (pm as PrismMesh).size = Vector3(1.6, 2.2, 1.6)
+		else: (pm as BoxMesh).size = Vector3(1.8, 1.0, 1.2)
+		gem.mesh = pm
+		gem.material_override = ShipFactory.mat(col, true)
+		var glow := MeshInstance3D.new()
+		var gm := SphereMesh.new()
+		gm.radius = 2.2
+		gm.height = 4.4
+		glow.mesh = gm
+		glow.material_override = _glow_mat(col)
+		gem.add_child(glow)
+		gem.name = "Gem"
+		add_child(gem)
+		gem.global_position = at + Vector3(0, 2.0, 0)
+		var dir := Vector3(_rng.randfn(0, 1), absf(_rng.randfn(0, 0.6)) + 0.3, _rng.randfn(0, 1)).normalized()
+		loot.append({"node": gem, "vel": dir * _rng.randf_range(5.0, 10.0), "value": int(Data.MINE_VALUE.get(mat, 20)), "life": 180.0, "gem": mat})
+		mined_pieces += 1
+	if n > 0: _popup(at, "%s x%d" % [mat.to_upper(), n], col)
+	else: _popup(at, "%s lost in the blast" % mat.capitalize(), col)
+
 ## Switch the tractor beam on for a few seconds: every pod in range flies to you.
 func tractor() -> String:
 	var inrange := 0
@@ -3582,7 +3613,7 @@ func _update_loot(dt: float) -> void:
 			loot.remove_at(i)
 		elif d < 14.0:
 			GS.add_credits(int(l["value"]))
-			_popup(n.global_position, "+%d cr" % int(l["value"]), Color(1.0, 0.85, 0.35))
+			_popup(n.global_position, ("+%d cr %s" % [int(l["value"]), str(l["gem"])]) if l.has("gem") else "+%d cr" % int(l["value"]), Color(1.0, 0.85, 0.35))
 			Sfx.play("pickup", -6.0)
 			n.queue_free()
 			loot.remove_at(i)
@@ -3817,6 +3848,8 @@ func load_tile(t: int, keep := Vector3.INF) -> void:
 	autopilot = null
 	if is_instance_valid(tile_root): tile_root.queue_free()
 	tile_root = Surface.build_tile(planet_id, t)
+	var bfm := tile_root.get_node_or_null("BlockField") as BlockField
+	if bfm: bfm.mined.connect(_on_mined)   # v1.6c: gold and diamond pieces to pull in
 	_water = Surface.has_water(planet_id, t)
 	_edge_warned = false
 	add_child(tile_root)

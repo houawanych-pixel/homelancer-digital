@@ -5759,7 +5759,7 @@ func _craters(s, bf: BlockField, pid: String, t: int) -> void:
 	var far_i: int = cell.call(gx + 2.0 * step, gz + 2.0 * step)   # same big block, the other quarter
 	var carve_only: bool = bf.lsz[i0] == 1 and bf.lsz[far_i] == 2 and is_equal_approx(bf.h[far_i], top0) and bf.splits >= 2
 	_check("Craters: a light-gun shot splits the big block into four only where it hit (20 -> 10 -> 5 m), and a %s layer breaks after exactly %d hit(s) (tiers sand 1 / dirt 2 / stone 4 / obsidian 8)" % [m0, need],
-		held and broke and carve_only and Data.BLOCK_HITS == {"sand": 1, "dirt": 2, "stone": 4, "obsidian": 8},
+		held and broke and carve_only and Data.BLOCK_HITS["sand"] == 1 and Data.BLOCK_HITS["dirt"] == 2 and Data.BLOCK_HITS["stone"] == 4 and Data.BLOCK_HITS["obsidian"] == 8,
 		"held %s broke %s cell %d / far %d, splits %d" % [held, broke, bf.lsz[i0], bf.lsz[far_i], bf.splits])
 	# 2. a missile: a crater, about half flying as rubble (at most 10 pieces), one small note kept
 	var mp := Vector3(bf.center.x + 120.0, 0.0, bf.center.y + 100.0)
@@ -5769,7 +5769,7 @@ func _craters(s, bf: BlockField, pid: String, t: int) -> void:
 	var r1: Dictionary = bf.blast(mp, "missile")
 	var flew: int = bf.thrown - th0
 	_check("Craters: a missile blows a crater; part of it flies out as rubble, each material in its own number of pieces (%d pieces from %d broken layers, at most %d), and the crater is kept as one small note" % [flew, int(r1["broken"]), Data.BLOCK_RUBBLE_PER_BLAST],
-		int(r1["broken"]) >= 4 and flew >= 1 and flew <= Data.BLOCK_RUBBLE_PER_BLAST and Data.BLOCK_BREAK_PIECES == {"obsidian": 2, "stone": 3, "dirt": 4, "sand": 5} and bf.deltas.size() == nd0 + 1 and str(bf.deltas[-1]).length() < 60,
+		int(r1["broken"]) >= 4 and flew >= 1 and flew <= Data.BLOCK_RUBBLE_PER_BLAST and Data.BLOCK_BREAK_PIECES["obsidian"] == 2 and Data.BLOCK_BREAK_PIECES["stone"] == 3 and Data.BLOCK_BREAK_PIECES["dirt"] == 4 and Data.BLOCK_BREAK_PIECES["sand"] == 5 and bf.deltas.size() == nd0 + 1 and str(bf.deltas[-1]).length() < 60,
 		"broken %d flew %d note %s" % [int(r1["broken"]), flew, str(bf.deltas[-1]) if not bf.deltas.is_empty() else "-"])
 	# 3. the SPECIAL: a crater you can fly into (much wider and deeper than a missile's)
 	var sp := Vector3(bf.center.x, 0.0, bf.center.y)
@@ -6117,6 +6117,42 @@ func _craters(s, bf: BlockField, pid: String, t: int) -> void:
 	_check("Craters: water and lava: sealed pockets from the seed (%s), asleep until opened; poured water spreads to fill a basin flush; water turns sand to dirt; lava eats sand, trades with dirt, and meeting water becomes obsidian" % ", ".join(kinds.keys()),
 		kinds.has("water") and kinds.has("lava") and sealed and asleep and level_ok and wet and ate and traded and obs and burns,
 		"sealed %s asleep %s level %s (%d units) wet %s ate %s traded %s obsidian %s" % [sealed, asleep, level_ok, units, wet, ate, traded, obs])
+	# 14. mining (v1.6c): veins from the seed; a gold layer broken with the light gun drops more pieces than one broken
+	#     by a heavy missile; the pieces never turn to rubble; the tractor beam pulls them in for credits
+	var vk := {}
+	for v in bf.veins: vk[v["mat"]] = true
+	var snap14: Dictionary = bf.snapshot()
+	wall.call(140, 150, 140, 150, 999, by, 0.0)
+	var g1: int = 144 * bf.n + 144
+	var g2: int = 146 * bf.n + 148
+	bf.mats[g1] = {bf._ktop(g1) - 1: "gold"}
+	bf.mats[g2] = {bf._ktop(g2) - 1: "gold"}
+	var p0: int = s.mined_pieces
+	var loot0: int = s.loot.size()
+	var gp := Vector3(bf.x0 + 144.5 * step, by, bf.z0 + 144.5 * step)
+	for k in Data.BLOCK_HITS["gold"]: bf.blast(gp, "gun")
+	var by_gun: int = s.mined_pieces - p0
+	var p1: int = s.mined_pieces
+	bf.blast(Vector3(bf.x0 + 148.5 * step, by, bf.z0 + 146.5 * step), "heavy")
+	var by_heavy: int = s.mined_pieces - p1
+	var gems := 0
+	for l in s.loot:
+		if l.has("gem"): gems += 1
+	var no_rubble := true
+	for b in bf.rubble:
+		if Data.VALUABLE_COLOR.has(str(b.get("mat", ""))): no_rubble = false
+	var cr0: int = GS.credits
+	var pp3: Vector3 = s.player.global_position
+	s.player.global_position = gp + Vector3(0, 30, 0)
+	s.tractor()
+	await _wait(3.0)
+	var earned: int = GS.credits - cr0
+	s.player.global_position = pp3
+	bf.restore(snap14)
+	bf.flush()
+	_check("Craters: mining: gold and diamond veins from the seed; a gold layer broken carefully with the light gun drops more pieces (%d) than one blown by a heavy missile (%d); the pieces never turn to rubble; the tractor beam pulls them in (+%d cr)" % [by_gun, by_heavy, earned],
+		vk.has("gold") and vk.has("diamond") and by_gun == 3 and by_heavy <= 2 and gems >= by_gun and no_rubble and earned >= by_gun * int(Data.MINE_VALUE["gold"]),
+		"veins %s gun %d heavy %d gems %d earned %d" % [str(vk.keys()), by_gun, by_heavy, gems, earned])
 	_check("Craters: shots dig INTO walls: a stone overhang over the tunnel holds; a sand one caves in; a pillar shot through its middle comes down (support and collapse)",
 		over["stone"]["tunnel"] and over["stone"]["overhangs"] > 0 and over["stone"]["fell"] == 0 and over["sand"]["fell"] > 0 and over["sand"]["overhangs"] == 0
 		and pillar["fell"] > 0 and not pillar["holes"] and pillar["h"] < 40.0, "overhang %s pillar %s" % [str(over), str(pillar)])

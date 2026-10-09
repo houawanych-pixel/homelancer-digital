@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.6b"
+const VERSION := "v1.6c"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -238,9 +238,9 @@ const BLOCK_MARGIN := 3.0      # column tops sit this much over the highest grou
 const BLOCK_ROCK := Color(0.32, 0.3, 0.29)   # the deep rock colour under the surface
 # Step 2 (v1.5t): craters. Every block inside a blast's radius is hit; a block only partly inside splits into four
 # (20 -> 10 -> 5 m) so only the hit part goes; obsidian never splits (it chips, then breaks off whole, in half).
-const BLOCK_HITS := {"sand": 1, "dirt": 2, "stone": 4, "obsidian": 8}   # light-gun hits to break a 5 m layer, by tier
+const BLOCK_HITS := {"sand": 1, "dirt": 2, "stone": 4, "obsidian": 8, "gold": 6, "diamond": 12}   # light-gun hits to break a 5 m layer, by tier
 const BLOCK_BLAST := {"gun": [2.4, 1], "missile": [12.0, 4], "heavy": [20.0, 8], "special": [40.0, 16], "thrust": [7.5, 1], "thrust_soft": [7.5, 2]}   # [radius m, hits dealt]; thrust = the mech pushing into a wall
-const BLOCK_BREAK_PIECES := {"obsidian": 2, "stone": 3, "dirt": 4, "sand": 5}   # each material breaks its own way: harder = fewer, bigger pieces
+const BLOCK_BREAK_PIECES := {"obsidian": 2, "stone": 3, "dirt": 4, "sand": 5, "gold": 4, "diamond": 3}   # each material breaks its own way: harder = fewer, bigger pieces
 const BLOCK_CLEAVE_SPEED := 12.0     # an obsidian piece landing faster than this (m/s) cleaves in half once more
 const BLOCK_RUBBLE_FRAC := 0.5       # about half of what a blast breaks flies out as rubble (the rest is dust); obsidian always flies whole
 const BLOCK_RUBBLE_PER_BLAST := 10   # at most this many flying pieces per blast (big chunks at the edge, small in the middle)
@@ -258,7 +258,7 @@ const BLOCK_DAMAGE_DARK := 0.35      # a cracked block darkens up to this much b
 const BLOCK_SAFE_BUMP := 40.0        # m/s (50 still hurts)
 # v1.5y step 5, support and collapse: shots can dig INTO walls (tunnels, overhangs, caves). A piece over a hole stays up
 # only if it is joined sideways to grounded ground within its material's reach (5 m cells); otherwise it falls.
-const BLOCK_REACH := {"sand": 0, "dirt": 1, "stone": 3, "obsidian": 5}
+const BLOCK_REACH := {"sand": 0, "dirt": 1, "stone": 3, "obsidian": 5, "gold": 3, "diamond": 5}
 # v1.5z step 6, settling: landed rubble merges into the ground as its own material (nothing mixes); dirt sticks to
 # the wall it hits; sand slumps into a pile; pieces that fall keep their material.
 const BLOCK_MERGE_DELAY := 1.0       # s a landed piece lies there before it becomes ground
@@ -278,6 +278,15 @@ const FLUID_RADIUS := 250.0          # m: only this close to the player does any
 const FLUID_MAX_MOVES := 200         # moves per step at most
 const FLUID_COLOR := {"water": Color(0.12, 0.42, 0.95, 0.62), "lava": Color(1.0, 0.42, 0.08, 0.85)}
 const LAVA_DPS := 25.0               # hull per second while in lava (ship and mech)
+# v1.6c mining. Gold and diamond veins from the seed: deep (diamond often in the obsidian round a lava pocket), and on
+# some worlds a few right out on the surface. Very tough. Breaking one drops pickup pieces (they never fuse back); the
+# blast destroys the rest, so careful digging keeps more (MINING_KEEP by weapon). The tractor beam pulls them in.
+const VALUABLE_COLOR := {"gold": Color(1.0, 0.78, 0.22), "diamond": Color(0.78, 0.95, 1.0)}
+const MINE_VEINS := {"gold": 6, "diamond": 3}
+const VEIN_DEPTH := {"gold": [25.0, 120.0], "diamond": [80.0, 170.0]}
+const SURFACE_TREASURE_CHANCE := 0.6   # chance a world has a few veins right out on the surface
+const MINING_KEEP := {"gun": 0.75, "thrust": 0.75, "thrust_soft": 0.75, "missile": 0.5, "heavy": 0.35, "special": 0.2}
+const MINE_VALUE := {"gold": 40, "diamond": 120}   # credits per piece you pull in
 # v1.5v (owner): the mech digs by thrusting its body into a wall, by the same break rules as a shot. Sand and dirt it
 # plows straight through; stone breaks but shoves it back each push (chip, bounce, chip); obsidian won't break, it just
 # bounces the mech off. Never any damage to the mech.

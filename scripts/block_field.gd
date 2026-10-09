@@ -1,5 +1,7 @@
 class_name BlockField
 extends Node3D
+
+signal mined(at: Vector3, mat: String, weapon: String)   # v1.6c: a gold / diamond layer broke (the game drops the pieces)
 ## EXPERIMENT (branch planet-blocks-test): the owner's destructible ground, light version (docs/PLANET_BLOCKS.md).
 ## One test patch of a planet tile is built from BIG blocks instead of the smooth terrain sheet:
 ##   - columns on a grid of Data.BLOCK_BIG metres; the top of each follows the planet's own noise shape
@@ -42,6 +44,7 @@ var fill := {}                 # v1.5z: rubble merged into a cell but not yet a 
 var merged := 0                # rubble pieces that merged into the ground (tests)
 var fluid := {}                # v1.6b water and lava: cell -> {layer: "water" | "lava"} (they fill air layers)
 var pockets: Array = []        # the sealed pockets placed from the seed: [{cells: [cell], k0, kind}]
+var veins: Array = []          # v1.6c gold / diamond veins from the seed: [{mat, cells: [Vector2i(cell, layer)]}]
 var fluid_moves := 0           # (tests)
 var reactions := 0             # (tests)
 var _fluid_t := 0.0
@@ -181,8 +184,9 @@ func build(pid: String, t: int) -> void:
 	_noise = FastNoiseLite.new()
 	_noise.seed = hash("%s|%d|layers" % [pid, t])
 	_noise.frequency = 0.03
-	# 4. sealed water and lava pockets from the seed (v1.6b)
+	# 4. sealed water and lava pockets, gold and diamond veins, from the seed (v1.6b / v1.6c)
 	_place_pockets()
+	_place_veins()
 	# 5. re-apply the blasts made here before (seed + deltas), quietly
 	var key := key_of(pid, t)
 	if not GS.block_deltas.has(key): GS.block_deltas[key] = []
@@ -229,6 +233,7 @@ func mat_at(fx: int, fz: int, y: float) -> String:
 
 ## The tone of a material, made from this planet's own ground colour: lighter = softer, darker = tougher.
 func tone(m: String) -> Color:
+	if Data.VALUABLE_COLOR.has(m): return Data.VALUABLE_COLOR[m]   # treasure keeps its own bright colour on any world
 	if _tones.has(m): return _tones[m]
 	var tn: Array = Data.BLOCK_TONES.get(m, [0.0, 1.0])
 	var gl := (base.r + base.g + base.b) / 3.0
@@ -329,6 +334,7 @@ func blast(p: Vector3, kind: String, record := true, effects := true) -> Diction
 			for jz in s:
 				for jx in s: _cell_remove((oz + jz) * n + ox + jx, k)
 			out.append({"pos": Vector3((rx0 + rx1) * 0.5, _ly(k) - step * 0.5, (rz0 + rz1) * 0.5), "size": s * step, "mat": m, "edge": dmin / r})
+			if effects and Data.VALUABLE_COLOR.has(m): mined.emit(Vector3((rx0 + rx1) * 0.5, _ly(k) - step * 0.5, (rz0 + rz1) * 0.5), m, kind)
 			broke += 1
 		if broke == 0: res["chipped"] = int(res["chipped"]) + 1
 		# damage on layers that are gone is dropped
@@ -723,6 +729,43 @@ func _place_pockets() -> void:
 			pockets.append({"cells": cells, "k0": k0, "kind": kind})
 			placed += 1
 
+## Gold and diamond veins (v1.6c): deep in the rock; some diamond in the obsidian over a lava pocket; and on some worlds
+## (rolled by the seed) a few right out on the surface. A vein is a few 5 m cells of one layer.
+@warning_ignore("integer_division")
+func _place_veins() -> void:
+	veins.clear()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash("%s|%d|veins" % [planet_id, tile])
+	var lay := func(cells: Array, k_of: Callable, m: String) -> void:
+		var placed: Array = []
+		for c in cells:
+			var k: int = k_of.call(c)
+			if holes.has(c) or fluid.has(c) or k < _kfloor(c) or k >= _ktop(c) or not _solid_k(c, k): continue
+			_split_one(c)
+			var ov: Dictionary = mats.get(c, {})
+			ov[k] = m
+			mats[c] = ov
+			placed.append(Vector2i(c, k))
+		if not placed.is_empty(): veins.append({"mat": m, "cells": placed})
+	for m in ["gold", "diamond"]:
+		for v in int(Data.MINE_VEINS[m]):
+			var cx := rng.randi_range(3, n - 6)
+			var cz := rng.randi_range(3, n - 6)
+			var depth: float = rng.randf_range(float(Data.VEIN_DEPTH[m][0]), float(Data.VEIN_DEPTH[m][1]))
+			var w := rng.randi_range(1, 3)
+			var cells: Array = []
+			for jz in w:
+				for jx in rng.randi_range(1, 3): cells.append((cz + jz) * n + cx + jx)
+			var k0 := _k(h0[cz * n + cx] - depth)
+			lay.call(cells, func(_c): return k0, m)
+	for pk in pockets:   # diamond in the obsidian over some lava pockets
+		if pk["kind"] != "lava" or rng.randf() > 0.5: continue
+		lay.call((pk["cells"] as Array).slice(0, 2), func(_c): return int(pk["k0"]) + 2, "diamond")
+	if rng.randf() < Data.SURFACE_TREASURE_CHANCE:   # this world wears some treasure on its surface
+		for v in 3:
+			var c := rng.randi_range(4, n - 5) * n + rng.randi_range(4, n - 5)
+			lay.call([c], func(cc): return _ktop(cc) - 1, "gold" if v < 2 else "diamond")
+
 func _pocket_open(pk: Dictionary) -> bool:
 	for c in pk["cells"]:
 		for k in [int(pk["k0"]), int(pk["k0"]) + 1]:
@@ -961,6 +1004,7 @@ func _nchunks() -> int:
 func _throw(p: Vector3, r: float, out: Array) -> int:
 	var cands: Array = []
 	for o in out:
+		if Data.VALUABLE_COLOR.has(o["mat"]): continue   # treasure doesn't turn to rubble: the game drops it as pickups
 		var cnt: int = Data.BLOCK_BREAK_PIECES.get(o["mat"], 4)
 		var keep: int = cnt if o["mat"] == "obsidian" else ceili(cnt * Data.BLOCK_RUBBLE_FRAC)
 		for k in keep: cands.append(o)
@@ -1118,7 +1162,7 @@ func _draw_block(st: SurfaceTool, ox: int, oz: int, s: int) -> void:
 	var bz := az + s * step
 	var cfx := ox + s / 2
 	var cfz := oz + s / 2
-	var untouched: bool = top >= h0[i0] - 0.01
+	var untouched: bool = top >= h0[i0] - 0.01 and not (mats.get(i0, {}) as Dictionary).has(_ktop(i0) - 1)
 	var n1 := n + 1
 	var sp := spans(i0)
 	var dl: Dictionary = dmg.get(i0, {})
