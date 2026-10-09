@@ -1242,3 +1242,7 @@ Owner, after the v1.5k test flow passed: "push it to all".
   `reach_bonus` so blasting a leg drops what hung from it.
 - v1.6f (?blocks only): world generation 3: spire limit (`SPIRE_MAX`), a seeded winding canyon (`_carve_canyon`),
   obsidian roots piercing the surface (`_raise_roots`).
+- v1.6g (normal play, owner bug): on a job your target was the mission marker / GPS stop, and auto-targeting never
+  left it, so the job's enemies got no red brackets, no aim box and no missile lock. Now a waypoint, GPS stop or
+  mission marker hands the target over to the nearest hostile when one is near (a station or planet you picked
+  yourself does too once hostiles turn on you). Bounty targets from the old bounty board are always hostile too.

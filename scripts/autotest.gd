@@ -897,6 +897,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_AY") != "":   # the v1.6g mission-target lock-on checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_ay()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_AX") != "":   # the v1.5x super missile / mine checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1507,6 +1515,7 @@ func _run() -> void:
 	await _job_as()
 	await _job_at()
 	await _job_ax()
+	await _job_ay()
 	await _blocks()
 	await _galaxy()
 	await _controls_j()
@@ -5613,6 +5622,62 @@ func _job_ax() -> void:
 	_check("v1.5x: two kinds of mine; the magnetic one pulls the ship it hits in to the blast and holds it stuck for %.1f s, then lets go" % Data.MAG_MINE_HOLD,
 		dropped and m.get("magnetic", false) and caught and near and freed, "dropped %s caught %s near %s freed %s" % [dropped, caught, near, freed])
 	if is_instance_valid(en): s._damage_enemy(e, 1e12)
+
+## v1.6g (owner): every enemy you fight on a job (bounty targets, mission groups, escort raiders) is a hostile contact
+## like the first enemies you meet: red brackets, the lead marker, missile lock. Before, a bounty target from a faction
+## you were on good terms with showed up as a peaceful (gold) ship you couldn't lock.
+func _job_ay() -> void:
+	var s := _sp()
+	var bad: Array = []
+	var seen := 0
+	var keep_bounty: Dictionary = GS.bounty.duplicate()
+	var keep_mission: Dictionary = GS.mission.duplicate()
+	var keep_rep: Dictionary = GS.rep.duplicate()
+	for f in Data.ROSTERS:
+		# make every faction friendly: the worst case for "peaceful"
+		if Factions.normal(f): Factions.adjust(f, 400.0)
+	var units: Array = []
+	for f in ["Unity", "Solarion", "Orion", "Gadversee", "Arctides"]:
+		if not Data.ROSTERS.has(f): continue
+		units += s.spawn_mission_group(s.player.global_position - s.player.global_basis.z * 500.0, f, 2, 3, "", 1)
+	var bp := ""
+	for f in Data.ROSTERS:
+		for p in Data.ROSTERS[f]["pilots"]:
+			if p.get("bounty", false) and str(p.get("sys", "")) == s.sys_id:
+				bp = str(p["id"])
+				break
+		if bp != "": break
+	if bp != "":
+		GS.mission = {}
+		GS.bounty = {"id": bp, "sys": s.sys_id, "state": "hunt"}
+		var be: Dictionary = s.spawn_bounty()
+		if not be.is_empty(): units.append(be)
+	await _wait(0.3)
+	for e in units:
+		if not (e in s.enemies): continue
+		seen += 1
+		var n: Node3D = e["node"]
+		if n.get_meta("kind", "") != "enemy": bad.append(str(n.name))
+	var lockable := false
+	var retarget := false
+	if seen > 0:
+		var e0: Dictionary = units[0]
+		# on a job your target is usually the mission marker: the enemies must still get targeted
+		s.target = s.waypoint_at(s.player.global_position + Vector3(0, 0, -2000))
+		s.player.look_at((e0["node"] as Node3D).global_position, Vector3.UP)
+		s._auto_target()
+		retarget = s.target != null and s.target.get_meta("kind", "") == "enemy"
+		s.target = e0["node"]
+		s.player.look_at((e0["node"] as Node3D).global_position, Vector3.UP)
+		s.lock_time = 3.0
+		lockable = s.lock_count("light_missile") > 0 and s.target.get_meta("kind", "") == "enemy"
+	for e in units:
+		if e in s.enemies: s._destroy_unit(e)
+	GS.bounty = keep_bounty
+	GS.mission = keep_mission
+	GS.rep = keep_rep
+	_check("v1.6g: every enemy on a job (mission groups of every faction, bounty targets) is a red hostile contact you can lock missiles on, even when you're on good terms with their faction, and gets targeted instead of the mission marker (%d checked)" % seen,
+		seen >= 5 and bad.is_empty() and lockable and retarget, "not hostile: %s, lock %s, switches off the mission marker %s" % [str(bad), lockable, retarget])
 
 ## EXPERIMENT (branch planet-blocks-test), step 1: New Terra's mountains tile has a patch of big-block ground that
 ## follows the planet's own shape and colours; the ship lands on the block tops; nothing is saved but the seed.

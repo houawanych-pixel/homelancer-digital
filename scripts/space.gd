@@ -1506,6 +1506,7 @@ func spawn_bounty() -> Dictionary:
 	var e := spawn_unit(p["fighter_primary"], at, at)
 	assign_roster(e, p)
 	e["bounty"] = p["id"]
+	e["provoked"] = true   # v1.6g: a bounty target is hostile whatever your standing with its faction
 	e["node"].name = "%s (bounty)" % p["name"]
 	return e
 
@@ -3639,8 +3640,12 @@ func _nearest_enemy(max_d: float) -> Node3D:
 	return best
 
 func _auto_target() -> void:
-	# keep a manually chosen non-enemy target; otherwise pick the nearest hostile ahead
-	if target != null and target.get_meta("kind", "") != "enemy": return
+	# keep a manually chosen non-enemy target while nothing is coming at you; otherwise pick the nearest hostile ahead.
+	# v1.6g: a waypoint, GPS stop or mission marker is never "chosen": when hostiles are near, they get targeted, so a
+	# job's enemies get the red brackets, the aim box and missile lock like any others.
+	if target != null and is_instance_valid(target) and target.get_meta("kind", "") != "enemy":
+		var soft: bool = target.get_meta("kind", "") == "waypoint" or target == nav_dest or target == _mission_marker or target == waypoint
+		if not soft and not _hostiles_on_you(): return
 	var best: Node3D = null
 	var score := -1.0
 	for e in enemies:
@@ -3652,7 +3657,14 @@ func _auto_target() -> void:
 		if s > score:
 			score = s
 			best = n
-	target = best
+	if best != null or target == null or not is_instance_valid(target) or target.get_meta("kind", "") == "enemy": target = best
+
+## Any hostile (red contact) within 1100 m that has turned on you?
+func _hostiles_on_you() -> bool:
+	for e in enemies:
+		var n: Node3D = e["node"]
+		if n.get_meta("kind", "") == "enemy" and e.get("aggro", false) and n.global_position.distance_to(player.global_position) < 1100.0: return true
+	return false
 
 func targetables() -> Array:
 	var out: Array = []
