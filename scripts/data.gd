@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.5r"
+const VERSION := "v1.5s"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -233,7 +233,6 @@ const BLOCK_TEST := {"planet": "new_terra", "tile": 3, "center": Vector2(500, -7
 const BLOCK_BIG := 20.0        # big block (m): a ship-sized chunk; splits 20 -> 10 -> 5
 const BLOCK_MIN := 5.0         # the smallest block: half a mech; also the height step of the ground
 const BLOCK_SKIRT := 120.0     # how deep the outer edge of the patch goes (covers the sunk sheet's slope)
-const BLOCK_GAP := 0.35        # the hair of space between blocks so each reads as a block
 const BLOCK_SINK := 260.0      # the smooth ground under the patch is sunk this far (out of sight below the blocks)
 const BLOCK_MARGIN := 3.0      # column tops sit this much over the highest ground sampled under them
 const BLOCK_ROCK := Color(0.32, 0.3, 0.29)   # the deep rock colour under the surface
