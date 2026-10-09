@@ -1230,3 +1230,5 @@ Owner, after the v1.5k test flow passed: "push it to all".
 - v1.5z (step 6, settling, ?blocks only): landed rubble merges into the ground as its own material (`mats` per layer,
   `fill` for part-layers, `BLOCK_MERGE_DELAY`); dirt sticks to walls in flight; sand slumps to 45-degree piles
   (`BLOCK_SAND_STEP`); collapsing pieces keep their material. Merges are kept as "dep:" notes and replayed.
+- v1.6a (?blocks only): a look-only skin over the blocks: sand tops ease into blunt mounds, dirt/stone edges round
+  off, fused obsidian tops point into shard tips (`BLOCK_SKIN`, `_skin_top`). Collision unchanged.

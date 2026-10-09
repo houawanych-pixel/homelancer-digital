@@ -463,6 +463,12 @@ Status: the owner said go for step 2 (craters), step by step. Each next step wai
    over a neighbour pours onto the lowest one, so piles end with 45-degree sides. Pieces that fall in a collapse now
    keep their own material. Each merge is kept as a small note ("dep:<material>:<amount>"), so the ground regrows the
    same. Not yet: leaning slabs / A-frames (stretch), the smoothed look (sand mounds, crystal shards: next).
+2e. DONE (v1.6a, behind ?blocks): the skin (first cut, look only, collision stays square). Where a block's top
+   steps down on a side: sand eases into a soft blunt mound (inset 1.8 m, down 4 m), dirt gets a rounded edge (1 m),
+   stone a light one (0.7 m); obsidian joined to obsidian points up into a faceted shard tip (up to 8 m, leaning away
+   from the obsidian it's joined to); a lone obsidian block stays a block (`BLOCK_SKIN`, `BLOCK_SHARD_HEIGHT`).
+   Not yet: the big adjustable hypernerve over whole fused shapes (grand dunes, sweeping ridges, shard clusters),
+   the full two-block orientation rules, diamond (no diamond in the ground yet).
 3. DONE (already from earlier work): the ground blends across tile edges and the next area is built before you reach
    it, so crossing has no jump.
 4. DONE (already): no seam lines at ordinary corners (the ground blends); the planet's wrap corner sits in a cloud bank.

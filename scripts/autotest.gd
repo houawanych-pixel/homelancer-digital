@@ -5979,6 +5979,43 @@ func _craters(s, bf: BlockField, pid: String, t: int) -> void:
 	bf.flush()
 	_check("Craters: settling: sand poured on one spot spreads into a pile with 45-degree sides; dirt thrown at a wall sticks to it (held up by the wall); a stone layer laid on sand stays stone",
 		pile_ok and stuck and no_mix, "pile %s (top %.0f m, total %.1f) stuck %s no_mix %s" % [pile_ok, top_c, total, stuck, no_mix])
+	# 12. the skin (v1.6a): look only. A lone sand block shows as a blunt mound; two joined obsidian blocks get pointed
+	#     tips; a lone obsidian block stays a block; the ground the ship stands on doesn't change
+	var snap12: Dictionary = bf.snapshot()
+	var verts_in := func(fx: int, fz: int) -> PackedVector3Array:
+		var c: int = Data.BLOCK_CHUNK
+		var nc: int = ceili(float(bf.n) / c)
+		bf._draw_chunk((fz / c) * nc + fx / c)
+		var mi: MeshInstance3D = bf._chunks[(fz / c) * nc + fx / c]
+		var out := PackedVector3Array()
+		if mi.mesh == null: return out
+		for v in mi.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]:
+			if v.x > bf.x0 + fx * step + 0.01 and v.x < bf.x0 + (fx + 1) * step - 0.01 and v.z > bf.z0 + fz * step + 0.01 and v.z < bf.z0 + (fz + 1) * step - 0.01: out.append(v)
+			elif v.x >= bf.x0 + fx * step - 0.01 and v.x <= bf.x0 + (fx + 1) * step + 0.01 and v.z >= bf.z0 + fz * step - 0.01 and v.z <= bf.z0 + (fz + 1) * step + 0.01: out.append(v)
+		return out
+	wall.call(100, 116, 100, 116, 999, by, 0.0)
+	bf.h[104 * bf.n + 104] = by + 10.0   # lone sand block
+	bf.h[108 * bf.n + 104] = by + 10.0   # two obsidian blocks side by side
+	bf.h[108 * bf.n + 105] = by + 10.0
+	bf.h[112 * bf.n + 104] = by + 10.0   # a lone obsidian block
+	bf.force_mat = "sand"
+	var sand_v: PackedVector3Array = verts_in.call(104, 104)
+	var mound := false
+	for v in sand_v:
+		if absf(v.y - (by + 10.0 - float(Data.BLOCK_SKIN["sand"][1]))) < 0.05: mound = true
+	bf.force_mat = "obsidian"
+	var tip := false
+	for v in verts_in.call(104, 108):
+		if v.y > by + 10.5: tip = true
+	var lone_tip := false
+	for v in verts_in.call(104, 112):
+		if v.y > by + 10.5: lone_tip = true
+	var same_ground: bool = is_equal_approx(bf.top_at(bf.x0 + 104.5 * step, bf.z0 + 104.5 * step), by + 10.0)
+	bf.force_mat = ""
+	bf.restore(snap12)
+	bf.flush()
+	_check("Craters: the skin over the blocks (look only): a lone sand block shows as a soft blunt mound; two joined obsidian blocks point up into shard tips; a lone obsidian block stays a block; the ground underneath is unchanged",
+		mound and tip and not lone_tip and same_ground, "mound %s tip %s lone tip %s ground %s" % [mound, tip, lone_tip, same_ground])
 	_check("Craters: shots dig INTO walls: a stone overhang over the tunnel holds; a sand one caves in; a pillar shot through its middle comes down (support and collapse)",
 		over["stone"]["tunnel"] and over["stone"]["overhangs"] > 0 and over["stone"]["fell"] == 0 and over["sand"]["fell"] > 0 and over["sand"]["overhangs"] == 0
 		and pillar["fell"] > 0 and not pillar["holes"] and pillar["h"] < 40.0, "overhang %s pillar %s" % [str(over), str(pillar)])

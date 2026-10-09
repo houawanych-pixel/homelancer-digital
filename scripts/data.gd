@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.5z"
+const VERSION := "v1.6a"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -264,6 +264,9 @@ const BLOCK_REACH := {"sand": 0, "dirt": 1, "stone": 3, "obsidian": 5}
 const BLOCK_MERGE_DELAY := 1.0       # s a landed piece lies there before it becomes ground
 const BLOCK_DEPOSIT_MAX := 3.0       # most layers one piece can add
 const BLOCK_SAND_STEP := 1           # sand stands at most this many layers over a neighbour (45-degree sides)
+# v1.6a the skin over the blocks (look only, collision stays square): [inset m, drop m] where the top steps down.
+const BLOCK_SKIN := {"sand": [1.8, 4.0], "dirt": [1.0, 1.2], "stone": [0.7, 0.8], "obsidian": [0.0, 0.0]}
+const BLOCK_SHARD_HEIGHT := 8.0      # how far a fused obsidian top points up (m, at most)
 # v1.5v (owner): the mech digs by thrusting its body into a wall, by the same break rules as a shot. Sand and dirt it
 # plows straight through; stone breaks but shoves it back each push (chip, bounce, chip); obsidian won't break, it just
 # bounces the mech off. Never any damage to the mech.

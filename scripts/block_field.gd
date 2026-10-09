@@ -855,6 +855,26 @@ func _draw_block(st: SurfaceTool, ox: int, oz: int, s: int) -> void:
 	var sp := spans(i0)
 	var dl: Dictionary = dmg.get(i0, {})
 	var jit := 0.95 + float(absi(hash(i0)) % 100) / 1000.0
+	# v1.6a the skin (the owner's "hypernerve"): only the look changes, collision stays square. Where the top steps down
+	# on a side, sand eases into a soft blunt mound, dirt and stone get a rounded edge; obsidian joined to obsidian
+	# crisps up into a pointed shard tip. A lone obsidian block stays a block.
+	var tm := mat_at(cfx, cfz, top)
+	var edge := [false, false, false, false]
+	var any_edge := false
+	for side in 4:
+		edge[side] = _side_lower(side, ox, oz, s, top)
+		any_edge = any_edge or edge[side]
+	var skin: Array = Data.BLOCK_SKIN.get(tm, [0.0, 0.0])
+	var inset: float = minf(float(skin[0]), s * step * 0.42)
+	var drop: float = float(skin[1]) if any_edge else 0.0
+	var shard := Vector3.ZERO   # the shard's lean (away from the obsidian it is joined to)
+	var fused := false
+	if tm == "obsidian" and any_edge:
+		for side in 4:
+			var c := _nb_cell(side, ox, oz, s, 0)
+			if c >= 0 and h[c] >= top - step - 0.01 and mat_point(x0 + (c % n + 0.5) * step, h[c] - step * 0.5, z0 + (c / n + 0.5) * step) == "obsidian":
+				fused = true
+				shard -= [Vector3.FORWARD, Vector3.RIGHT, Vector3.BACK, Vector3.LEFT][side]
 	for j in sp.size():
 		var o: Vector2i = sp[j]
 		var ty: float = y0 + o.y * step
@@ -868,7 +888,10 @@ func _draw_block(st: SurfaceTool, ox: int, oz: int, s: int) -> void:
 		if dd > 0:   # cracked: darker the closer it is to breaking
 			var f: float = Data.BLOCK_DAMAGE_DARK * float(dd) / float(Data.BLOCK_HITS.get(mat_at(cfx, cfz, ty), 1))
 			for q in 4: cs[q] = (cs[q] as Color).lerp(Color.BLACK, f)
-		_quad(st, Vector3(ax, ty, az), Vector3(bx, ty, az), Vector3(bx, ty, bz), Vector3(ax, ty, bz), cs, Vector3.UP)
+		if j == sp.size() - 1 and (drop > 0.0 or fused):
+			_skin_top(st, ax, az, bx, bz, ty, edge, inset, drop, cs, fused, shard, s * step)
+		else:
+			_quad(st, Vector3(ax, ty, az), Vector3(bx, ty, az), Vector3(bx, ty, bz), Vector3(ax, ty, bz), cs, Vector3.UP)
 		if j > 0:   # the roof of a hole under it (a tunnel or cave ceiling)
 			var by: float = y0 + o.x * step
 			var cc := tone(mat_at(cfx, cfz, _ly(o.x))).lerp(Color.BLACK, 0.4)
@@ -888,11 +911,59 @@ func _draw_block(st: SurfaceTool, ox: int, oz: int, s: int) -> void:
 			for o in sp:
 				var lo: float = -INF if (o as Vector2i).x <= -1000 else y0 + (o as Vector2i).x * step
 				var hi: float = y0 + (o as Vector2i).y * step
+				if absf(hi - top) < 0.01 and edge[side]: hi -= drop   # the skin rounds the top edge off
 				for A in air:
 					var wl := maxf(lo, (A as Vector2).x)
 					var wh := minf(hi, (A as Vector2).y)
 					if wh > wl + 0.01: _wall(st, p0, p1, wh, wl, cfx, cfz, untouched and absf(wh - top) < 0.01, surf, normals[side])
 			k = k2
+
+## Does the ground drop away along this whole side of a block?
+func _side_lower(side: int, ox: int, oz: int, s: int, top: float) -> bool:
+	for k in s:
+		var c := _nb_cell(side, ox, oz, s, k)
+		if c >= 0 and h[c] >= top - 0.01: return false
+	return true
+
+## The skinned top of a block: a plateau inset on the sides that drop away, sloping down to the edge (cs = the colours
+## at the four corners NW, NE, SE, SW). A fused obsidian top becomes a faceted point instead of the flat plateau.
+func _skin_top(st: SurfaceTool, ax: float, az: float, bx: float, bz: float, ty: float, edge: Array, inset: float, drop: float, cs: Array, fused: bool, lean: Vector3, size: float) -> void:
+	var e0: float = inset if edge[0] else 0.0
+	var e1: float = inset if edge[1] else 0.0
+	var e2: float = inset if edge[2] else 0.0
+	var e3: float = inset if edge[3] else 0.0
+	var inner := [Vector3(ax + e3, ty, az + e0), Vector3(bx - e1, ty, az + e0), Vector3(bx - e1, ty, bz - e2), Vector3(ax + e3, ty, bz - e2)]
+	var outer := [Vector3(ax, ty - (drop if edge[0] or edge[3] else 0.0), az), Vector3(bx, ty - (drop if edge[0] or edge[1] else 0.0), az),
+		Vector3(bx, ty - (drop if edge[1] or edge[2] else 0.0), bz), Vector3(ax, ty - (drop if edge[2] or edge[3] else 0.0), bz)]
+	if fused:
+		var mid: Vector3 = (inner[0] + inner[2]) * 0.5
+		if lean.length() > 0.01: mid += lean.normalized() * size * 0.3
+		var apex: Vector3 = mid + Vector3.UP * minf(size * 0.8, Data.BLOCK_SHARD_HEIGHT)
+		var gl := (cs[0] as Color).lightened(0.18)   # glossy black glass
+		for q in 4:
+			var a: Vector3 = inner[q]
+			var b: Vector3 = inner[(q + 1) % 4]
+			var nrm := (b - a).cross(apex - a).normalized()
+			if nrm.y < 0.0: nrm = -nrm
+			for v in [a, apex, b]:
+				st.set_normal(nrm)
+				st.set_color(gl if v == apex else cs[q])
+				st.add_vertex(v)
+	else:
+		_quad(st, inner[0], inner[1], inner[2], inner[3], cs, Vector3.UP)
+	for q in 4:
+		var a2: Vector3 = inner[q]
+		var b2: Vector3 = inner[(q + 1) % 4]
+		var c2: Vector3 = outer[(q + 1) % 4]
+		var d2: Vector3 = outer[q]
+		if a2.distance_to(d2) < 0.01 and b2.distance_to(c2) < 0.01: continue
+		var n2 := (b2 - a2).cross(d2 - a2)
+		if n2.length() < 0.0001: n2 = (c2 - b2).cross(a2 - b2)
+		n2 = n2.normalized()
+		if n2.y < 0.0: n2 = -n2
+		var c3: Color = (cs[q] as Color) * 0.93
+		var c4: Color = (cs[(q + 1) % 4] as Color) * 0.93
+		_quad(st, a2, b2, c2, d2, [cs[q], cs[(q + 1) % 4], c4, c3], n2)
 
 ## The cell next to a block's side (-1 outside the patch).
 func _nb_cell(side: int, ox: int, oz: int, s: int, k: int) -> int:
