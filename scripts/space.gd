@@ -4353,6 +4353,7 @@ var corner_haze := 0.0   # 0..1 inside the wrap-corner cloud bank
 ## EXPERIMENT (v1.5v): the mech meets a block wall ahead (higher than a step) and pushes into it. It can't walk into
 ## the wall; the push digs it by the same rules as a shot: sand and dirt give way steadily (it plows on), stone breaks
 ## a hit at a time and shoves the mech back each push, obsidian doesn't break and just bounces it off. No damage, ever.
+var _lava_t := 0.0
 var _dig_cd := 0.0
 var dig_log := {"soft": 0, "stone": 0, "bounce": 0}   # (tests)
 func _mech_dig(dt: float) -> void:
@@ -4422,6 +4423,14 @@ func _surface_update(_dt: float) -> void:
 		player.global_position.y = floor_y
 		if vel.y < 0.0: vel.y = 0.0
 		collision_damage("ground", impact)   # Job L (was: > 20 m/s, 0.25 x impact through the shields)
+	if bfp:   # v1.6b: water and lava move near you; lava burns
+		bfp.fluid_update(_dt, player.global_position)
+		if on_blocks and controls and bfp.fluid_at(p.x, p.y, p.z) == "lava":
+			_lava_t += _dt
+			if _lava_t >= 0.5:
+				_lava_t = 0.0
+				_player_hit(Data.LAVA_DPS * 0.5, p)
+				message.emit("LAVA! Get out!")
 	if on_blocks:   # v1.5y: the roof of a tunnel or cave holds you down
 		var roof := bfp.ceiling_above(p.x, player.global_position.y - 6.0, p.z)
 		if player.global_position.y > roof - 1.5:

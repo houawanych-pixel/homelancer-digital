@@ -469,6 +469,15 @@ Status: the owner said go for step 2 (craters), step by step. Each next step wai
    from the obsidian it's joined to); a lone obsidian block stays a block (`BLOCK_SKIN`, `BLOCK_SHARD_HEIGHT`).
    Not yet: the big adjustable hypernerve over whole fused shapes (grand dunes, sweeping ridges, shard clusters),
    the full two-block orientation rules, diamond (no diamond in the ground yet).
+2f. DONE (v1.6b, behind ?blocks): water and lava. Sealed pockets from the seed (`FLUID_POCKETS`: 8 water in stone
+   20-60 m down, 5 lava in obsidian 60-150 m down; never in sand, not in the middle of the patch). They sleep: a
+   sealed pocket never moves. Break in and it pours: each 5 m unit falls if it can, spills over a lip, spreads when
+   there's more on top, so a pool fills flush and finds its level. Only within 250 m of the player does anything
+   flow (`FLUID_RADIUS`, the radius of exposure); lava moves 3x slower. Water turns sand it touches into dirt; lava
+   eats sand, trades one-for-one with dirt, is stopped by stone; lava meeting water becomes obsidian. Water is clear
+   blue, lava a little see-through and glowing. Lava burns the ship and mech (`LAVA_DPS`). Rock changes from all
+   this are kept as notes ("set:" / "cut"). Simplified for now: where water and lava flowed to isn't saved; a pocket
+   that was opened before is gone (empty) when you come back. Water doesn't slow you yet.
 3. DONE (already from earlier work): the ground blends across tile edges and the next area is built before you reach
    it, so crossing has no jump.
 4. DONE (already): no seam lines at ordinary corners (the ground blends); the planet's wrap corner sits in a cloud bank.

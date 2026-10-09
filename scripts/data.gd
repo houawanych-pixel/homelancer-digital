@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.6a"
+const VERSION := "v1.6b"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -267,6 +267,17 @@ const BLOCK_SAND_STEP := 1           # sand stands at most this many layers over
 # v1.6a the skin over the blocks (look only, collision stays square): [inset m, drop m] where the top steps down.
 const BLOCK_SKIN := {"sand": [1.8, 4.0], "dirt": [1.0, 1.2], "stone": [0.7, 0.8], "obsidian": [0.0, 0.0]}
 const BLOCK_SHARD_HEIGHT := 8.0      # how far a fused obsidian top points up (m, at most)
+# v1.6b water and lava. Sealed pockets from the seed (water in stone, lava deeper in obsidian), asleep until opened;
+# they flow only near the player. Water turns sand to dirt; lava eats sand, trades with dirt, stops at stone; lava +
+# water = obsidian. Lava burns.
+const FLUID_POCKETS := {"water": 8, "lava": 5}
+const FLUID_DEPTH := {"water": [20.0, 60.0], "lava": [60.0, 150.0]}   # m under the ground
+const FLUID_TICK := 0.25             # s per flow step
+const LAVA_SLOW := 3                 # lava moves every this many steps (slower)
+const FLUID_RADIUS := 250.0          # m: only this close to the player does anything flow
+const FLUID_MAX_MOVES := 200         # moves per step at most
+const FLUID_COLOR := {"water": Color(0.12, 0.42, 0.95, 0.62), "lava": Color(1.0, 0.42, 0.08, 0.85)}
+const LAVA_DPS := 25.0               # hull per second while in lava (ship and mech)
 # v1.5v (owner): the mech digs by thrusting its body into a wall, by the same break rules as a shot. Sand and dirt it
 # plows straight through; stone breaks but shoves it back each push (chip, bounce, chip); obsidian won't break, it just
 # bounces the mech off. Never any damage to the mech.

@@ -5697,6 +5697,34 @@ func _blocks() -> void:
 			cam.look_at(look, Vector3.UP)
 			cam.make_current()
 			await _shot("tunnel_face", 0.4)
+		# v1.6b: blow open the shallowest water pocket from above and look down into it
+		var wp: Dictionary = {}
+		var wdepth := INF
+		for pk in bf.pockets:
+			if pk["kind"] != "water" or not bf.fluid.has(pk["cells"][0]): continue
+			var c0: int = pk["cells"][0]
+			var dd: float = bf.h[c0] - bf._ly(int(pk["k0"]) + 1)
+			var off := Vector2(c0 % bf.n - bf.n / 2, c0 / bf.n - bf.n / 2).length()
+			if off > 45: continue   # away from the patch edge (the old smooth ground still sits under there)
+			if dd < wdepth:
+				wdepth = dd
+				wp = pk
+		if not wp.is_empty():
+			var c0: int = wp["cells"][4] if wp["cells"].size() > 4 else wp["cells"][0]
+			var at := Vector3(bf.x0 + (c0 % bf.n + 0.5) * Data.BLOCK_MIN, bf.h[c0], bf.z0 + (c0 / bf.n + 0.5) * Data.BLOCK_MIN)
+			var dig_y: float = at.y - 30.0
+			for k in 6:   # dig straight down until the pocket is open
+				if bf._pocket_open(wp): break
+				bf.blast(Vector3(at.x, dig_y, at.z), "special")
+				dig_y -= 45.0
+			bf.flush()
+			bf._draw_fluids()
+			await _wait(0.5)
+			var floor_y: float = bf._ly(int(wp["k0"]))
+			cam.global_position = Vector3(at.x - 45.0, floor_y + 55.0, at.z + 45.0)
+			cam.look_at(Vector3(at.x, floor_y, at.z), Vector3.UP)
+			cam.make_current()
+			await _shot("water_pocket", 0.4)
 		cam.queue_free()
 		if prev: prev.make_current()
 		main.hud.visible = true
@@ -5889,6 +5917,8 @@ func _craters(s, bf: BlockField, pid: String, t: int) -> void:
 				bf.lsz[c] = 1
 				bf.dmg.erase(c)
 				bf.holes.erase(c)
+				bf.fluid.erase(c)
+				bf.mats.erase(c)
 				bf.h[c] = base + (tall if i >= wi else 0.0)
 	# 9. the mech digs by pushing into a wall: dirt it tunnels through (no bounce), stone breaks with a bounce, obsidian only bounces
 	var snap9: Dictionary = bf.snapshot()
@@ -6016,6 +6046,77 @@ func _craters(s, bf: BlockField, pid: String, t: int) -> void:
 	bf.flush()
 	_check("Craters: the skin over the blocks (look only): a lone sand block shows as a soft blunt mound; two joined obsidian blocks point up into shard tips; a lone obsidian block stays a block; the ground underneath is unchanged",
 		mound and tip and not lone_tip and same_ground, "mound %s tip %s lone tip %s ground %s" % [mound, tip, lone_tip, same_ground])
+	# 13. water and lava (v1.6b): sealed pockets from the seed, asleep; poured water finds its level; water turns sand
+	#     to dirt; lava eats sand, trades with dirt, and meeting water turns to obsidian
+	var kinds := {}
+	var sealed := true
+	for pk in bf.pockets:
+		kinds[pk["kind"]] = true
+		if bf._pocket_open(pk) and bf.fluid.has(pk["cells"][0]): sealed = false
+	var before_moves: int = bf.fluid_moves
+	for k in 4: bf.fluid_step(Vector3(bf.center.x, 0, bf.center.y), 99999.0)
+	var asleep: bool = bf.fluid_moves == before_moves
+	var snap13: Dictionary = bf.snapshot()
+	wall.call(120, 136, 120, 136, 999, by, 0.0)
+	bf.force_mat = "stone"
+	var bk: int = bf._k(by + 0.1)   # the first air layer over the floor
+	# a basin: a 3x3 floor at by inside a ring one layer higher; pour 4 layers of water into the middle cell
+	for j in range(123, 130):
+		for i in range(123, 130):
+			var c: int = j * bf.n + i
+			bf.h[c] = by + (0.0 if i >= 124 and i <= 128 and j >= 124 and j <= 128 else 10.0)
+	var mid: int = 126 * bf.n + 126
+	for k in 4: bf._set_fluid(mid, bk + k, "water")
+	for k in 30: bf.fluid_step(Vector3(bf.x0 + 126 * step, 0, bf.z0 + 126 * step), 300.0)
+	var units := 0
+	var high := false
+	for c in bf.fluid:
+		if int(c) % bf.n >= 120 and int(c) % bf.n < 136 and int(c) / bf.n >= 120 and int(c) / bf.n < 136:
+			for k in bf.fluid[c]:
+				units += 1
+				if int(k) > bk: high = true
+	var level_ok: bool = units == 4 and not high
+	# reactions
+	bf.force_mat = ""
+	var cs: int = 126 * bf.n + 126
+	for c in bf.fluid.keys():
+		if int(c) % bf.n >= 120 and int(c) % bf.n < 136: bf.fluid.erase(c)
+	var ov: Dictionary = {bk - 1: "sand"}
+	bf.mats[cs] = ov
+	bf._set_fluid(cs, bk, "water")
+	bf.fluid_step(Vector3(bf.x0 + 126 * step, 0, bf.z0 + 126 * step), 300.0)
+	var wet: bool = bf.mat_at(126, 126, bf._ly(bk - 1)) == "dirt"
+	bf._set_fluid(cs, bk, "")
+	bf.mats[cs] = {bk - 1: "sand"}
+	bf._set_fluid(cs, bk, "lava")
+	bf.fluid_step(Vector3(bf.x0 + 126 * step, 0, bf.z0 + 126 * step), 300.0, true)
+	var ate: bool = not bf._solid_k(cs, bk - 1)
+	for c in bf.fluid.keys():
+		if int(c) % bf.n >= 120 and int(c) % bf.n < 136: bf.fluid.erase(c)
+	var c2: int = 126 * bf.n + 125
+	bf.h[c2] = by
+	bf.mats[c2] = {bk - 1: "dirt"}
+	bf._set_fluid(c2, bk, "lava")
+	bf.fluid_step(Vector3(bf.x0 + 125 * step, 0, bf.z0 + 126 * step), 300.0, true)
+	var traded: bool = not bf._solid_k(c2, bk - 1) and bf._fluid_k(c2, bk) == "" and bf._fluid_k(c2, bk - 1) == ""
+	for c in bf.fluid.keys():
+		if int(c) % bf.n >= 120 and int(c) % bf.n < 136: bf.fluid.erase(c)
+	var c3: int = 130 * bf.n + 130
+	var c4: int = 130 * bf.n + 131
+	bf.mats.erase(c3)
+	bf.mats.erase(c4)
+	bf._set_fluid(c3, bk, "lava")
+	bf._set_fluid(c4, bk, "water")
+	bf.force_mat = "stone"
+	bf.fluid_step(Vector3(bf.x0 + 130 * step, 0, bf.z0 + 130 * step), 300.0, true)
+	bf.force_mat = ""
+	var obs: bool = bf._solid_k(c3, bk) and bf.mat_at(130, 130, bf._ly(bk)) == "obsidian" and bf._fluid_k(c4, bk) == ""
+	var burns: bool = bf.fluid_at(bf.x0 + 130.5 * step, by + 2.5, bf.z0 + 130.5 * step) == "" and Data.LAVA_DPS > 0.0
+	bf.restore(snap13)
+	bf.flush()
+	_check("Craters: water and lava: sealed pockets from the seed (%s), asleep until opened; poured water spreads to fill a basin flush; water turns sand to dirt; lava eats sand, trades with dirt, and meeting water becomes obsidian" % ", ".join(kinds.keys()),
+		kinds.has("water") and kinds.has("lava") and sealed and asleep and level_ok and wet and ate and traded and obs and burns,
+		"sealed %s asleep %s level %s (%d units) wet %s ate %s traded %s obsidian %s" % [sealed, asleep, level_ok, units, wet, ate, traded, obs])
 	_check("Craters: shots dig INTO walls: a stone overhang over the tunnel holds; a sand one caves in; a pillar shot through its middle comes down (support and collapse)",
 		over["stone"]["tunnel"] and over["stone"]["overhangs"] > 0 and over["stone"]["fell"] == 0 and over["sand"]["fell"] > 0 and over["sand"]["overhangs"] == 0
 		and pillar["fell"] > 0 and not pillar["holes"] and pillar["h"] < 40.0, "overhang %s pillar %s" % [str(over), str(pillar)])

@@ -1232,3 +1232,5 @@ Owner, after the v1.5k test flow passed: "push it to all".
   (`BLOCK_SAND_STEP`); collapsing pieces keep their material. Merges are kept as "dep:" notes and replayed.
 - v1.6a (?blocks only): a look-only skin over the blocks: sand tops ease into blunt mounds, dirt/stone edges round
   off, fused obsidian tops point into shard tips (`BLOCK_SKIN`, `_skin_top`). Collision unchanged.
+- v1.6b (?blocks only): water and lava (`fluid` per cell/layer): sealed seed pockets, asleep until opened, flow near
+  the player only, react with sand / dirt / each other, drawn see-through; lava burns. See docs/PLANET_BLOCKS.md 2f.

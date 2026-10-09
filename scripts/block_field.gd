@@ -40,6 +40,14 @@ var collapses := 0             # pieces that lost their support and fell (tests)
 var mats := {}                 # v1.5z: layers whose material is not the ground's own (rubble that settled, pieces that fell): cell -> {layer: material}
 var fill := {}                 # v1.5z: rubble merged into a cell but not yet a whole layer: cell -> amount (layers)
 var merged := 0                # rubble pieces that merged into the ground (tests)
+var fluid := {}                # v1.6b water and lava: cell -> {layer: "water" | "lava"} (they fill air layers)
+var pockets: Array = []        # the sealed pockets placed from the seed: [{cells: [cell], k0, kind}]
+var fluid_moves := 0           # (tests)
+var reactions := 0             # (tests)
+var _fluid_t := 0.0
+var _fluid_tick := 0
+var _fluid_dirty := false
+var _fluid_mi := {}            # "water" / "lava" -> MeshInstance3D
 var ccol := PackedColorArray() # the ground colour at each cell corner ((n + 1)^2), so the surface blends
 var hmax := -INF               # the highest top in the patch (quick miss test for shots)
 var base := Color.GRAY         # the planet's ground colour here: the tones are made from it
@@ -173,11 +181,17 @@ func build(pid: String, t: int) -> void:
 	_noise = FastNoiseLite.new()
 	_noise.seed = hash("%s|%d|layers" % [pid, t])
 	_noise.frequency = 0.03
-	# 4. re-apply the blasts made here before (seed + deltas), quietly
+	# 4. sealed water and lava pockets from the seed (v1.6b)
+	_place_pockets()
+	# 5. re-apply the blasts made here before (seed + deltas), quietly
 	var key := key_of(pid, t)
 	if not GS.block_deltas.has(key): GS.block_deltas[key] = []
 	deltas = GS.block_deltas[key]
 	for d in deltas: _apply_note(d)
+	for pk in pockets:   # a pocket that was opened before has already poured out (its effects are in the notes)
+		if _pocket_open(pk):
+			for c in pk["cells"]: fluid.erase(c)
+	_fluid_dirty = true
 	layers_broken = 0
 	splits = 0
 	collapses = 0
@@ -519,7 +533,7 @@ func mat_point(x: float, y: float, z: float) -> String:
 
 ## Tests / tools: the whole changeable state, and putting it back.
 func snapshot() -> Dictionary:
-	return {"h": h.duplicate(), "lsz": lsz.duplicate(), "dmg": dmg.duplicate(true), "holes": holes.duplicate(true), "mats": mats.duplicate(true), "fill": fill.duplicate(true), "n": deltas.size()}
+	return {"h": h.duplicate(), "lsz": lsz.duplicate(), "dmg": dmg.duplicate(true), "holes": holes.duplicate(true), "mats": mats.duplicate(true), "fill": fill.duplicate(true), "fluid": fluid.duplicate(true), "n": deltas.size()}
 
 func restore(sn: Dictionary) -> void:
 	h = sn["h"]
@@ -528,6 +542,8 @@ func restore(sn: Dictionary) -> void:
 	holes = sn["holes"]
 	mats = sn.get("mats", {})
 	fill = sn.get("fill", {})
+	fluid = sn.get("fluid", {})
+	_fluid_dirty = true
 	deltas.resize(int(sn["n"]))
 	var nc := _nchunks()
 	for k in nc * nc: _dirty[k] = true
@@ -553,6 +569,8 @@ func _apply_note(d: Array) -> void:
 	if kind.begins_with("dep:"):
 		var parts := kind.split(":")
 		deposit(Vector3(float(d[0]), float(d[1]), float(d[2])), parts[1], float(parts[2]))
+	elif kind.begins_with("set:") or kind == "cut":
+		_edit_layer(Vector3(float(d[0]), float(d[1]), float(d[2])), kind.substr(4) if kind != "cut" else "")
 	else:
 		blast(Vector3(float(d[0]), float(d[1]), float(d[2])), kind, false, false)
 
@@ -654,6 +672,256 @@ func _slump(fx: int, fz: int) -> void:
 		_mark(low % n, low / n, 1)
 		todo.append(c)
 		todo.append(Vector2i(low % n, low / n))
+
+# ---------------------------------------------------------------- water and lava (v1.6b)
+## Sealed pockets placed from the seed: water held in stone, lava held in obsidian (more and deeper toward the bottom),
+## never in sand, and not right at the middle of the patch. They sleep: nothing moves until one is broken into.
+@warning_ignore("integer_division")
+func _place_pockets() -> void:
+	pockets.clear()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash("%s|%d|pockets" % [planet_id, tile])
+	for spec in [["water", Data.FLUID_POCKETS["water"], 3, Data.FLUID_DEPTH["water"]], ["lava", Data.FLUID_POCKETS["lava"], 2, Data.FLUID_DEPTH["lava"]]]:
+		var kind: String = spec[0]
+		var w: int = spec[2]
+		var tries := 0
+		var placed := 0
+		while placed < int(spec[1]) and tries < 200:
+			tries += 1
+			var cx := rng.randi_range(2, n - w - 2)
+			var cz := rng.randi_range(2, n - w - 2)
+			if Vector2(cx - n / 2, cz - n / 2).length() < 12: continue   # keep the middle clear
+			var depth: float = rng.randf_range(float(spec[3][0]), float(spec[3][1]))
+			var topmin := INF
+			for jz in w:
+				for jx in w: topmin = minf(topmin, h0[(cz + jz) * n + cx + jx])
+			var k0 := _k(topmin - depth)
+			var clash := false
+			for jz in range(-1, w + 1):
+				for jx in range(-1, w + 1):
+					var c := (cz + jz) * n + cx + jx
+					if fluid.has(c) or holes.has(c) or _kfloor(c) > k0 - 2 or _ktop(c) < k0 + 4: clash = true
+			if clash: continue
+			var cells: Array = []
+			var shell: String = "obsidian" if kind == "lava" else "stone"
+			for jz in range(-1, w + 1):
+				for jx in range(-1, w + 1):
+					var c := (cz + jz) * n + cx + jx
+					_split_one(c)
+					var ov: Dictionary = mats.get(c, {})
+					for k in range(k0 - 1, k0 + 3): ov[k] = shell   # the container
+					mats[c] = ov
+			for jz in w:
+				for jx in w:
+					var c := (cz + jz) * n + cx + jx
+					var fd: Dictionary = {}
+					for k in [k0 + 1, k0]:
+						_cell_remove(c, k)
+						fd[k] = kind
+					fluid[c] = fd
+					cells.append(c)
+			pockets.append({"cells": cells, "k0": k0, "kind": kind})
+			placed += 1
+
+func _pocket_open(pk: Dictionary) -> bool:
+	for c in pk["cells"]:
+		for k in [int(pk["k0"]), int(pk["k0"]) + 1]:
+			for nb in _nbrs6(c, k):
+				if _air(nb.x, nb.y): return true
+	return false
+
+## The 6 neighbours of a layer: 4 sides, below, above ([Vector2i(cell, layer)]; off the patch left out).
+@warning_ignore("integer_division")
+func _nbrs6(c: int, k: int) -> Array:
+	var out: Array = [Vector2i(c, k - 1), Vector2i(c, k + 1)]
+	var fx := c % n
+	var fz := c / n
+	if fx > 0: out.append(Vector2i(c - 1, k))
+	if fx < n - 1: out.append(Vector2i(c + 1, k))
+	if fz > 0: out.append(Vector2i(c - n, k))
+	if fz < n - 1: out.append(Vector2i(c + n, k))
+	return out
+
+func _fluid_k(c: int, k: int) -> String:
+	return str((fluid.get(c, {}) as Dictionary).get(k, ""))
+
+## Open air (not rock, not water or lava) at a layer.
+func _air(c: int, k: int) -> bool:
+	if k < _kfloor(c): return false
+	return not _solid_k(c, k) and _fluid_k(c, k) == ""
+
+func fluid_at(x: float, y: float, z: float) -> String:
+	if not covers(x, z): return ""
+	var step: float = Data.BLOCK_MIN
+	var c := clampi(int((z - z0) / step), 0, n - 1) * n + clampi(int((x - x0) / step), 0, n - 1)
+	return _fluid_k(c, _k(y))
+
+func _set_fluid(c: int, k: int, kind: String) -> void:
+	var fd: Dictionary = fluid.get(c, {})
+	if kind == "": fd.erase(k)
+	else: fd[k] = kind
+	if fd.is_empty(): fluid.erase(c)
+	else: fluid[c] = fd
+	_fluid_dirty = true
+
+## Called by the game each frame with the player's position: water and lava only move near the player (the radius of
+## exposure); everywhere else, and in every sealed pocket, they sit still and cost nothing.
+func fluid_update(dt: float, near: Vector3) -> void:
+	_fluid_t += dt
+	if _fluid_t >= Data.FLUID_TICK:
+		_fluid_t = 0.0
+		_fluid_tick += 1
+		fluid_step(near, Data.FLUID_RADIUS, _fluid_tick % Data.LAVA_SLOW == 0)
+	if _fluid_dirty: _draw_fluids()
+
+## One step of flow: each unit (one 5 m layer of water or lava) falls if it can; otherwise it spills sideways over a
+## lip, or spreads when there is more on top of it, so a pool finds its level and fills flush. It reacts with what it
+## touches: water turns sand to dirt; lava eats sand, trades one-for-one with dirt, is stopped by stone; lava meeting
+## water turns to obsidian (the water is used up). Lava moves every LAVA_SLOW steps. Returns how many units moved.
+@warning_ignore("integer_division")
+func fluid_step(near: Vector3, radius: float, lava_too := true) -> int:
+	var units: Array = []
+	for c in fluid:
+		var fx: int = int(c) % n
+		var fz: int = int(c) / n
+		if Vector2(x0 + (fx + 0.5) * Data.BLOCK_MIN - near.x, z0 + (fz + 0.5) * Data.BLOCK_MIN - near.z).length() > radius: continue
+		for k in (fluid[c] as Dictionary):
+			units.append(Vector3i(int(c), int(k), 0))
+	units.sort_custom(func(a, b): return a.y < b.y)   # lowest first, so falls cascade
+	var moved := 0
+	for u in units:
+		if moved >= Data.FLUID_MAX_MOVES: break
+		var c: int = u.x
+		var k: int = u.y
+		var kind := _fluid_k(c, k)
+		if kind == "" or (kind == "lava" and not lava_too): continue
+		if _react(c, k, kind): continue
+		if _air(c, k - 1):
+			_set_fluid(c, k, "")
+			_set_fluid(c, k - 1, kind)
+			moved += 1
+			continue
+		var pressed := _fluid_k(c, k + 1) != ""
+		for nb in _nbrs6(c, k).slice(2):
+			var nc: int = (nb as Vector2i).x
+			if not _air(nc, k): continue
+			if _air(nc, k - 1) or pressed:
+				_set_fluid(c, k, "")
+				_set_fluid(nc, k, kind)
+				moved += 1
+				break
+	fluid_moves += moved
+	return moved
+
+@warning_ignore("integer_division")
+func _react(c: int, k: int, kind: String) -> bool:
+	for nb in _nbrs6(c, k):
+		var nc: int = (nb as Vector2i).x
+		var nk: int = (nb as Vector2i).y
+		var other := _fluid_k(nc, nk)
+		if kind == "lava" and other == "water":   # they meet: obsidian where the lava was, the water is used up
+			_set_fluid(nc, nk, "")
+			_set_fluid(c, k, "")
+			_edit_layer(_layer_point(c, k), "obsidian", true)
+			reactions += 1
+			return true
+		if not _solid_k(nc, nk) or nk < _kfloor(nc): continue
+		var m := mat_at(nc % n, nc / n, _ly(nk))
+		if kind == "water" and m == "sand":   # wet sand clumps into dirt
+			_edit_layer(_layer_point(nc, nk), "dirt", true)
+			reactions += 1
+			return false
+		if kind == "lava" and m == "sand":   # eaten for free
+			_edit_layer(_layer_point(nc, nk), "", true)
+			reactions += 1
+			return false
+		if kind == "lava" and m == "dirt":   # a trade: both go
+			_edit_layer(_layer_point(nc, nk), "", true)
+			_set_fluid(c, k, "")
+			reactions += 1
+			return true
+	return false
+
+@warning_ignore("integer_division")
+func _layer_point(c: int, k: int) -> Vector3:
+	return Vector3(x0 + (c % n + 0.5) * Data.BLOCK_MIN, _ly(k) - Data.BLOCK_MIN * 0.5, z0 + (c / n + 0.5) * Data.BLOCK_MIN)
+
+## Change one layer of rock at a point: m = a material (it becomes solid that), "" = it's gone. With `record` the
+## change is kept as a note ("set:<m>" / "cut"), so the ground regrows the same.
+@warning_ignore("integer_division")
+func _edit_layer(p: Vector3, m: String, record := false) -> void:
+	if not covers(p.x, p.z): return
+	var step: float = Data.BLOCK_MIN
+	var fx := clampi(int((p.x - x0) / step), 0, n - 1)
+	var fz := clampi(int((p.z - z0) / step), 0, n - 1)
+	var c := fz * n + fx
+	var k := _k(p.y)
+	_split_one(c)
+	if m == "":
+		if _solid_k(c, k) and k >= _kfloor(c): _cell_remove(c, k)
+	else:
+		_set_fluid(c, k, "")
+		if not _solid_k(c, k): _cell_add(c, k, m)
+		else:
+			var ov: Dictionary = mats.get(c, {})
+			ov[k] = m
+			mats[c] = ov
+	_mark(fx, fz, 1)
+	if m == "": _settle(fx - 2, fx + 2, fz - 2, fz + 2)
+	if record:
+		deltas.append([snappedf(p.x, 0.01), snappedf(p.y, 0.01), snappedf(p.z, 0.01), ("set:" + m) if m != "" else "cut"])
+		if deltas.size() > Data.BLOCK_DELTAS_MAX: deltas.remove_at(0)
+
+## Water is clear and tinted blue, lava only a little see-through and glowing (see-through = it flows).
+@warning_ignore("integer_division")
+func _draw_fluids() -> void:
+	_fluid_dirty = false
+	var step: float = Data.BLOCK_MIN
+	for kind in ["water", "lava"]:
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var any := false
+		var col: Color = Data.FLUID_COLOR[kind]
+		for c in fluid:
+			for k in (fluid[c] as Dictionary):
+				if str(fluid[c][k]) != kind: continue
+				any = true
+				var ax: float = x0 + (int(c) % n) * step
+				var az: float = z0 + (int(c) / n) * step
+				var y_lo: float = y0 + int(k) * step
+				var y_hi: float = y_lo + step
+				if _fluid_k(int(c), int(k) + 1) != kind and not _solid_k(int(c), int(k) + 1):
+					var ty := y_hi - 0.6
+					_quad(st, Vector3(ax, ty, az), Vector3(ax + step, ty, az), Vector3(ax + step, ty, az + step), Vector3(ax, ty, az + step), [col, col, col, col], Vector3.UP)
+				var sides := [[-n, Vector3(ax, 0, az), Vector3(ax + step, 0, az), Vector3.FORWARD], [1, Vector3(ax + step, 0, az), Vector3(ax + step, 0, az + step), Vector3.RIGHT],
+					[n, Vector3(ax + step, 0, az + step), Vector3(ax, 0, az + step), Vector3.BACK], [-1, Vector3(ax, 0, az + step), Vector3(ax, 0, az), Vector3.LEFT]]
+				for sd in sides:
+					var nc: int = int(c) + int(sd[0])
+					if nc < 0 or nc >= n * n: continue
+					if absi(int(sd[0])) == 1 and nc / n != int(c) / n: continue
+					if _fluid_k(nc, int(k)) == kind or _solid_k(nc, int(k)): continue
+					var p0: Vector3 = sd[1]
+					var p1: Vector3 = sd[2]
+					var top_y: float = y_hi - (0.6 if _fluid_k(int(c), int(k) + 1) != kind else 0.0)
+					_quad(st, Vector3(p0.x, top_y, p0.z), Vector3(p1.x, top_y, p1.z), Vector3(p1.x, y_lo, p1.z), Vector3(p0.x, y_lo, p0.z), [col, col, col, col], sd[3])
+		var mi: MeshInstance3D = _fluid_mi.get(kind)
+		if mi == null:
+			mi = MeshInstance3D.new()
+			mi.name = "Fluid_" + kind
+			var m := StandardMaterial3D.new()
+			m.vertex_color_use_as_albedo = true
+			m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			m.cull_mode = BaseMaterial3D.CULL_DISABLED
+			m.roughness = 0.15
+			if kind == "lava":
+				m.emission_enabled = true
+				m.emission = Color(1.0, 0.35, 0.05)
+				m.emission_energy_multiplier = 1.6
+			mi.material_override = m
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			add_child(mi)
+			_fluid_mi[kind] = mi
+		mi.mesh = st.commit() if any else null
 
 ## A shot from a to b: where it first goes into the block ground (or Vector3.INF).
 func ray_hit(a: Vector3, b: Vector3) -> Vector3:
