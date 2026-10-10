@@ -926,7 +926,7 @@ func _draw() -> void:
 		_text(Vector2(0, S.y * 0.5 - 100), "DROP WARP NOW", 24, RED, HORIZONTAL_ALIGNMENT_CENTER, S.x)
 	# reticle (cockpit view: a wider ring with ticks and a chevron, like the concept)
 	var c := S * 0.5
-	var locked: bool = space._in_fire_cone(space.target)
+	var locked: bool = is_instance_valid(space.target) and space._in_fire_cone(space.target)
 	var rc2 := RED if locked else WHITE
 	if cockpit and cockpit_texture():
 		var nose = _screen(space.player.global_position - space.player.global_basis.z * 400.0)

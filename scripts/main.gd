@@ -102,6 +102,8 @@ func start_game() -> void:
 	state = "launching"
 	GS.restore_full()
 	_launch_sequence("Liberty Hub", false)   # v1.7n (owner): no radio call at the very start
+	await get_tree().create_timer(2.6).timeout
+	if state == "flight" and GS.tutorial_seen.is_empty(): hud.flash_message(Data.TUTOR_HINT)   # v1.7r: a quiet hint, no radio noise
 
 # ---------------------------------------------------------------- systems
 func _load_system(id: String, arrival: String, staged := false) -> void:
@@ -398,7 +400,38 @@ func _call_target() -> void:
 		if tgt == tr["node"]:
 			call_character("rennick")
 			return
+	if tutor_next() != "":   # v1.7r (owner): nothing targeted and lessons left: the guide teaches the next one
+		_tutor_call()
+		return
 	call_character("vale" if GS.system_id == "solara" else "amari")
+
+## v1.7r: the next tutorial lesson id ("" when all are done). What is happening around you comes first.
+func tutor_next() -> String:
+	var now := ""
+	if space.hostiles_near(900.0) > 0: now = "hostiles"
+	elif space.surface_mode: now = "planet"
+	elif space.dock_candidate() != null: now = "dock"
+	var first := ""
+	for l in Data.TUTORIAL:
+		if str(l["id"]) in GS.tutorial_seen: continue
+		if now != "" and str(l["when"]) == now: return str(l["id"])
+		if first == "": first = str(l["id"])
+	return first
+
+func _tutor_call() -> void:
+	var id := tutor_next()
+	var line := ""
+	for l in Data.TUTORIAL:
+		if str(l["id"]) == id: line = str(l["line"])
+	GS.tutorial_seen.append(id)
+	var left := Data.TUTORIAL.size() - GS.tutorial_seen.size()
+	if left > 0: line += " (%d more — tap CALL again.)" % left
+	var c: Dictionary = Data.CHARACTERS[Data.TUTOR_ID]
+	if not (Data.TUTOR_ID in GS.met): GS.meet(Data.TUTOR_ID, "friendly")
+	on_call = Data.TUTOR_ID
+	Sfx.keep_until = 0.0   # (you asked: the lesson may speak)
+	hud.open_comms("%s — Tutorial" % c["name"], line, "talk", false,
+		c.get("face", ""), float(c.get("voice", 1.0)), bool(c.get("female", false)), Data.TUTOR_ID)
 
 var on_call := ""   # who you're talking to (for typed messages)
 

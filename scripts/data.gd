@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.7q"
+const VERSION := "v1.7r"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -208,6 +208,25 @@ const TEXT_SCALE := 1.25
 const TEXT_FLOOR := 15
 static func ts(size: int) -> int:
 	return maxi(TEXT_FLOOR, int(round(size * TEXT_SCALE)))
+
+# v1.7r (owner): the tutorial. Tap CALL with nothing targeted and the guide teaches the next lesson.
+# TUTOR_ID is a placeholder (Cmdr. Vale) until the owner names the tech team member; swap this one line.
+const TUTOR_ID := "vale"
+const TUTOR_HINT := "Need help? Tap CALL with nothing targeted for a lesson."
+# Each lesson: id, the line spoken, and "when" (a situation that moves it to the front: "hostiles", "dock", "planet", or "").
+const TUTORIAL := [
+	{"id": "fly", "when": "", "line": "[smile]Lesson one: flying. The left stick is FLIGHT, it steers and throttles. The right stick is AIM. Tap BOOST for a burst of speed."},
+	{"id": "fire", "when": "hostiles", "line": "[serious]Guns. Tap FIRE once and your lasers keep shooting at whatever is in your sights. Tap it again to stop. Keep the target in the middle of the screen."},
+	{"id": "missile", "when": "hostiles", "line": "[serious]Missiles. Tap NEXT to pick a TARGET, hold the missile button until it says LOCK CONFIRMED, then let go. Heavy missiles hit harder but you carry fewer."},
+	{"id": "shield", "when": "hostiles", "line": "[normal]When you take hits, tap SHIELD for a burst of protection, and REPAIR to patch the hull. Both have limited charges, so dock to refill them."},
+	{"id": "map", "when": "", "line": "[normal]Tap MAP to see the whole system. Pick a station or a planet and tap GO TO. A gold line on your radar shows the way, and autopilot flies you there."},
+	{"id": "jobs", "when": "", "line": "[smile]Want credits? Dock at a station and open the mission board. Take a job and the radar marks your target with a gold diamond."},
+	{"id": "dock", "when": "dock", "line": "[normal]Docking. Fly close to a station or a landing pad and tap DOCK. Inside you can repair, restock, buy gear and take missions. Docking also refills your shields."},
+	{"id": "planet", "when": "planet", "line": "[normal]On a planet the ground is made of blocks. Shoot it to dig, and watch for caves. In the dark your lights come on by themselves. Landing pads sit on floating islands above the ground."},
+	{"id": "mech", "when": "", "line": "[smile]Tap MECH and your ship turns into a walking mech. It is slower but tough on the ground. Tap it again to fly."},
+	{"id": "warp", "when": "", "line": "[normal]To leave the system, fly to a WARP GATE and tap DOCK, then activate the jump. Trade lanes are fast roads between stations."},
+	{"id": "call", "when": "", "line": "[smile]Last one. CALL talks to whoever you target: pilots, stations, even enemies. LOG keeps your contacts. Call me any time with nothing targeted. That's the basics, pilot. You're ready."},
+]
 # ---------------------------------------------------------------- Job AR (v1.5o): the special lock-on super move (docs/SPECIAL_MOVE.md)
 const SPECIAL_ARM_AT := [0.5, 0.25]     # hull shares at which the special arms (half, then critical); once each until repaired
 const SPECIAL_RESET_AT := 0.75          # repaired above this, both are ready to earn again

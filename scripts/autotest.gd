@@ -1249,6 +1249,27 @@ func _run() -> void:
 	_press("call")
 	await _wait(0.4)
 	_check("CALL talks to target/controller", main.hud.comms_mode == "talk")
+	var les1: String = str(GS.tutorial_seen.back()) if GS.tutorial_seen.size() == 1 else ""
+	_check("CALL with nothing targeted gives a tutorial lesson from the guide (v1.7r, owner)", les1 != "" and main.hud.comms_from.contains("Tutorial")
+		and main.hud.comms_face == str(Data.CHARACTERS[Data.TUTOR_ID]["face"]), "seen=%s from=%s" % [GS.tutorial_seen, main.hud.comms_from])
+	_press("hangup")
+	await _wait(0.2)
+	_press("call")
+	await _wait(0.4)
+	var keep_en: Array = s.enemies
+	var seen_keep: Array = GS.tutorial_seen.duplicate()
+	s.enemies = [{"node": s.player}]   # (one pretend hostile right on top of you)
+	var hot: String = main.tutor_next()
+	s.enemies = keep_en
+	GS.tutorial_seen = seen_keep
+	_check("A repeat CALL gives the next lesson; with hostiles near, combat lessons come first (v1.7r)", GS.tutorial_seen.size() == 2 and str(GS.tutorial_seen[1]) != les1
+		and hot in ["fire", "missile", "shield"], "seen=%s hot=%s" % [GS.tutorial_seen, hot])
+	_press("hangup")
+	await _wait(0.2)
+	GS.tutorial_seen = []
+	for l in Data.TUTORIAL: GS.tutorial_seen.append(str(l["id"]))   # (lessons done: CALL goes back to the controller)
+	_press("call")
+	await _wait(0.4)
 	await _shot("intercom_call")
 	_press("hangup")
 	_check("Hang up", not main.hud.comms_open or main.hud.comms_mode == "incoming")

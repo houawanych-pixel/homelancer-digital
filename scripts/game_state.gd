@@ -44,6 +44,7 @@ var rep := {}                # v1.4r: reputation, one number per rival pair (Fac
 var cast := {}               # v1.4r: named characters' state: character_id -> {alive, current_system, custody}
 var mine_kind := "blast"         # v1.5x: which mine you drop: "blast" or "magnetic" (switched at the Equipment screen)
 var block_deltas := {}       # v1.5t EXPERIMENT: crater notes per block patch ("planet|tile" -> [[x, y, z, kind]]); the ground regrows from the seed and these are re-applied
+var tutorial_seen: Array = []   # v1.7r: tutorial lesson ids already given (see Data.TUTORIAL)
 var god_mode := false # only used by the automated route test
 
 func ship() -> Dictionary: return Data.SHIPS[ship_id]
