@@ -211,8 +211,8 @@ func _draw_flat(S: Vector2) -> void:
 			else:
 				draw_rect(rc, Color(1, 1, 1, 0.012))
 				draw_rect(rc, Color(0.4, 0.5, 0.6, 0.08), false, 1.0)
-	for c in 11: draw_string(font, org + Vector2(c * cell.x, -8.0), "ABCDEFGHIJK"[c], HORIZONTAL_ALIGNMENT_CENTER, cell.x, 14, Color(0.6, 0.75, 0.9, 0.8))
-	for r in 11: draw_string(font, org + Vector2(-26.0, r * cell.y + cell.y * 0.5 + 5.0), str(r + 1), HORIZONTAL_ALIGNMENT_CENTER, 22.0, 14, Color(0.6, 0.75, 0.9, 0.8))
+	for c in 11: draw_string(font, org + Vector2(c * cell.x, -8.0), "ABCDEFGHIJK"[c], HORIZONTAL_ALIGNMENT_CENTER, cell.x, Data.ts(14), Color(0.6, 0.75, 0.9, 0.8))
+	for r in 11: draw_string(font, org + Vector2(-26.0, r * cell.y + cell.y * 0.5 + 5.0), str(r + 1), HORIZONTAL_ALIGNMENT_CENTER, 22.0, Data.ts(14), Color(0.6, 0.75, 0.9, 0.8))
 	# gates: a line shows when you have been to at least one end of it
 	for l in net["links"]:
 		var sa: String = state[l[0]]
@@ -232,13 +232,13 @@ func _draw_flat(S: Vector2) -> void:
 			var fc2: Color = SystemBuilder.FACTIONS[s["faction"]][3]
 			draw_circle(p, 9.0, fc2)
 			draw_arc(p, 9.0, 0, TAU, 24, Color.WHITE, 1.5, true)
-			draw_string(font, p + Vector2(-cell.x * 0.5, 26.0), s["name"], HORIZONTAL_ALIGNMENT_CENTER, cell.x, 13, Color.WHITE)
+			draw_string(font, p + Vector2(-cell.x * 0.5, 26.0), s["name"], HORIZONTAL_ALIGNMENT_CENTER, cell.x, Data.ts(13), Color.WHITE)
 		else:
 			draw_arc(p, 8.0, 0, TAU, 20, Color(0.7, 0.8, 0.9, 0.7), 1.5, true)
-			draw_string(font, p + Vector2(-10, 6), "?", HORIZONTAL_ALIGNMENT_CENTER, 20, 15, Color(0.7, 0.8, 0.9, 0.8))
+			draw_string(font, p + Vector2(-10, 6), "?", HORIZONTAL_ALIGNMENT_CENTER, 20, Data.ts(15), Color(0.7, 0.8, 0.9, 0.8))
 		if id == current:
 			draw_arc(p, 15.0 + 2.5 * sin(t * 3.0), 0, TAU, 32, Color(1.0, 0.85, 0.4), 2.5, true)
-			draw_string(font, p + Vector2(-cell.x * 0.5, -18.0), "YOU", HORIZONTAL_ALIGNMENT_CENTER, cell.x, 13, Color(1.0, 0.85, 0.4))
+			draw_string(font, p + Vector2(-cell.x * 0.5, -18.0), "YOU", HORIZONTAL_ALIGNMENT_CENTER, cell.x, Data.ts(13), Color(1.0, 0.85, 0.4))
 		if id == selected:
 			for cn in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
 				var q: Vector2 = p + cn * 17.0
@@ -246,20 +246,20 @@ func _draw_flat(S: Vector2) -> void:
 				draw_line(q, q - Vector2(0, cn.y * 8), Color.WHITE, 2.0)
 		_hits[id] = p
 	# heading and key
-	draw_string(font, Vector2(24, 40), "GALAXY MAP", HORIZONTAL_ALIGNMENT_LEFT, -1, 26, Color.WHITE)
+	draw_string(font, Vector2(24, 40), "GALAXY MAP", HORIZONTAL_ALIGNMENT_LEFT, -1, Data.ts(26), Color.WHITE)
 	var known := 0
 	for id2 in state:
 		if state[id2] == "seen": known += 1
-	draw_string(font, Vector2(24, 64), "%d of %d systems charted  ·  tap a system" % [known, state.size()], HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(0.7, 0.85, 1.0))
+	draw_string(font, Vector2(24, 64), "%d of %d systems charted  ·  tap a system" % [known, state.size()], HORIZONTAL_ALIGNMENT_LEFT, -1, Data.ts(15), Color(0.7, 0.85, 1.0))
 	var ky := S.y - 16.0
 	var kx := org.x
 	for kd in [["jump_gate", "Jump gate"], ["warp_gate", "Warp gate"], ["rift_gate", "Rift gate"]]:
 		if kd[0] == "jump_gate": draw_line(Vector2(kx, ky - 5), Vector2(kx + 34, ky - 5), link_color(kd[0]), 2.5)
 		else: _dashed(self, Vector2(kx, ky - 5), Vector2(kx + 34, ky - 5), link_color(kd[0]), 2.5, 8.0 if kd[0] == "warp_gate" else 4.0)
-		draw_string(font, Vector2(kx + 42, ky), kd[1], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.85, 0.92, 1.0))
+		draw_string(font, Vector2(kx + 42, ky), kd[1], HORIZONTAL_ALIGNMENT_LEFT, -1, Data.ts(14), Color(0.85, 0.92, 1.0))
 		kx += 150.0
 	draw_arc(Vector2(kx + 8, ky - 5), 7.0, 0, TAU, 16, Color(0.7, 0.8, 0.9, 0.7), 1.5)
-	draw_string(font, Vector2(kx + 22, ky), "? = not charted yet", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.85, 0.92, 1.0))
+	draw_string(font, Vector2(kx + 22, ky), "? = not charted yet", HORIZONTAL_ALIGNMENT_LEFT, -1, Data.ts(14), Color(0.85, 0.92, 1.0))
 
 ## The network drawing, shared with the title screen. hits (optional) receives screen positions of systems.
 static func draw_network(ci: CanvasItem, S: Vector2, yaw: float, pitch: float, t: float, viewer: Vector3, current := "", selected := "", hits = null, labels := true, focus := "", focus_k := 1.0, back: Texture2D = null) -> void:
@@ -315,7 +315,7 @@ static func draw_network(ci: CanvasItem, S: Vector2, yaw: float, pitch: float, t
 		if s["playable"]: ci.draw_arc(p, r + 4, 0, TAU, 24, DEEP, 2.0, true)
 		if id == current:
 			ci.draw_arc(p, r + 10 + 2.0 * sin(t * 3.0), 0, TAU, 32, NAVY, 2.0, true)
-			if labels: ci.draw_string(f, p + Vector2(-60, r + 28), "YOU ARE HERE", HORIZONTAL_ALIGNMENT_CENTER, 120, 12, NAVY)
+			if labels: ci.draw_string(f, p + Vector2(-60, r + 28), "YOU ARE HERE", HORIZONTAL_ALIGNMENT_CENTER, 120, Data.ts(12), NAVY)
 		if id == selected:
 			for c in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
 				var q: Vector2 = p + c * (r + 8)
@@ -326,10 +326,10 @@ static func draw_network(ci: CanvasItem, S: Vector2, yaw: float, pitch: float, t
 			ci.draw_arc(p, gr, 0, TAU, 40, Color(SKY, 0.55 * focus_k), 6.0, true)
 			ci.draw_arc(p, gr, 0, TAU, 40, Color(DEEP, focus_k), 2.0, true)
 			if labels:
-				ci.draw_string(f, p + Vector2(-110, -gr - 12), (s["name"] as String).to_upper(), HORIZONTAL_ALIGNMENT_CENTER, 220, 18, Color(NAVY, focus_k))
-				ci.draw_string(f, p + Vector2(-110, gr + 20), "%s · %s" % [s["faction"], "CHARTED" if s["discovered"] else "UNCHARTED"], HORIZONTAL_ALIGNMENT_CENTER, 220, 11, Color(DEEP, focus_k))
+				ci.draw_string(f, p + Vector2(-110, -gr - 12), (s["name"] as String).to_upper(), HORIZONTAL_ALIGNMENT_CENTER, 220, Data.ts(18), Color(NAVY, focus_k))
+				ci.draw_string(f, p + Vector2(-110, gr + 20), "%s · %s" % [s["faction"], "CHARTED" if s["discovered"] else "UNCHARTED"], HORIZONTAL_ALIGNMENT_CENTER, 220, Data.ts(11), Color(DEEP, focus_k))
 		elif labels and (id == selected or id == current or s["playable"]):
-			ci.draw_string(f, p + Vector2(r + 6, 5), s["name"], HORIZONTAL_ALIGNMENT_LEFT, -1, 13 if s["playable"] else 11, NAVY if s["discovered"] else MID)
+			ci.draw_string(f, p + Vector2(r + 6, 5), s["name"], HORIZONTAL_ALIGNMENT_LEFT, -1, Data.ts(13 if s["playable"] else 11), NAVY if s["discovered"] else MID)
 		if hits != null: hits[id] = p
 	if labels:
 		for c in Galaxy.CLUSTERS:
@@ -337,7 +337,7 @@ static func draw_network(ci: CanvasItem, S: Vector2, yaw: float, pitch: float, t
 			var dx2 := wrapf(atan2(d2.x, -d2.z) - yaw, -PI, PI)
 			var el2 := asin(clampf(d2.y / maxf(d2.length(), 0.001), -1, 1))
 			var cp := Vector2(S.x * 0.5 + dx2 / FOV_H * S.x, S.y * 0.5 - (el2 - pitch) / FOV_V * S.y - 70)
-			if cp.x > 0 and cp.x < S.x: ci.draw_string(f, cp - Vector2(100, 0), (c[0] as String).to_upper(), HORIZONTAL_ALIGNMENT_CENTER, 200, 13, Color(DEEP, 0.55))
+			if cp.x > 0 and cp.x < S.x: ci.draw_string(f, cp - Vector2(100, 0), (c[0] as String).to_upper(), HORIZONTAL_ALIGNMENT_CENTER, 200, Data.ts(13), Color(DEEP, 0.55))
 
 static func _dashed(ci: CanvasItem, a: Vector2, b: Vector2, col: Color, w: float, dash: float) -> void:
 	var l := a.distance_to(b)

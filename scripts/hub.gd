@@ -68,7 +68,7 @@ func _ready() -> void:
 	launch_btn.offset_right = -36
 	launch_btn.offset_top = 64
 	launch_btn.offset_bottom = 64 + Data.HUB_LAUNCH_SIZE.y
-	launch_btn.add_theme_font_size_override("font_size", 26)
+	launch_btn.add_theme_font_size_override("font_size", Data.ts(26))
 	launch_btn.add_theme_color_override("font_color", Color(1, 1, 1))
 	launch_btn.add_theme_color_override("font_hover_color", Color(1, 1, 1))
 	var lsb := StyleBoxFlat.new()
@@ -124,7 +124,7 @@ func _load_background() -> void:
 
 func _label(size: int, col: Color) -> Label:
 	var l := Label.new()
-	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_font_size_override("font_size", Data.ts(size))
 	l.add_theme_color_override("font_color", col)
 	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
 	l.add_theme_constant_override("outline_size", 5)
@@ -148,11 +148,11 @@ func _make_theme() -> Theme:
 	th.set_stylebox("pressed", "Button", mk.call(Color(0.15, 0.35, 0.5, 0.98), CYAN))
 	th.set_stylebox("focus", "Button", mk.call(Color(0, 0, 0, 0), Color(0, 0, 0, 0)))
 	th.set_stylebox("disabled", "Button", mk.call(Color(0.03, 0.05, 0.08, Data.HUB_BUTTON_ALPHA * 0.85), Color(1, 1, 1, 0.15)))
-	th.set_font_size("font_size", "Button", 21)
+	th.set_font_size("font_size", "Button", Data.ts(21))
 	th.set_color("font_color", "Button", Color(0.93, 0.97, 1.0))
 	th.set_color("font_disabled_color", "Button", Color(1, 1, 1, 0.35))
 	th.set_stylebox("panel", "Panel", mk.call(Color(INK, Data.HUB_PANEL_ALPHA), Color(CYAN, 0.35)))
-	th.set_font_size("font_size", "Label", 18)
+	th.set_font_size("font_size", "Label", Data.ts(18))
 	return th
 
 func open(station_or_planet: Dictionary) -> void:
@@ -586,8 +586,8 @@ func open_inspector(id: String) -> void:
 	insp_stats.offset_top = 24
 	insp_stats.offset_right = -24
 	insp_stats.offset_bottom = -100
-	insp_stats.add_theme_font_size_override("normal_font_size", 17)
-	insp_stats.add_theme_font_size_override("bold_font_size", 26)
+	insp_stats.add_theme_font_size_override("normal_font_size", Data.ts(17))
+	insp_stats.add_theme_font_size_override("bold_font_size", Data.ts(26))
 	insp_stats.text = ship_sheet(id)
 	inspect.add_child(insp_stats)
 	var close := Button.new()
@@ -783,7 +783,11 @@ func _missions_page() -> void:
 		b.custom_minimum_size = Vector2(230, 60)
 		b.text = "TRACKING\ntap to stop" if mine else "SELECT"
 		if mine: b.add_theme_color_override("font_color", GOLD)
-		b.pressed.connect(func(): status.text = Missions.toggle(o); show_screen("missions"))
+		b.pressed.connect(func():
+			status.text = Missions.toggle(o)
+			if Missions.is_current(o) and not co.is_empty():   # v1.7p (owner): the job is read out when you select it
+				Sfx.play_character_voice(str(co.get("voice_id", co["id"])), "", "%s. %s" % [str(o["title"]), str(o["brief"])], float(co.get("voice", 1.0)), str(co.get("sex", "")) == "female")
+			show_screen("missions"))
 		row.add_child(b)
 		v.add_child(_row_frame(row, mine))
 

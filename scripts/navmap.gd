@@ -366,6 +366,7 @@ func _w2m(p: Vector3) -> Vector2:
 
 func _txt(ci: CanvasItem, p: Vector2, s_txt: String, s := 16, c := Color.WHITE, align := HORIZONTAL_ALIGNMENT_LEFT, w := -1.0) -> void:
 	if s < Data.TEXT_BUMP_BELOW: s = maxi(Data.TEXT_MIN, s + Data.TEXT_BUMP)   # v1.4m: small print is a little bigger
+	s = Data.ts(s)   # v1.7p: bigger for phones
 	ci.draw_string_outline(font, p, s_txt, align, w, s, 4, Color(0, 0, 0, 0.8))
 	ci.draw_string(font, p, s_txt, align, w, s, c)
 

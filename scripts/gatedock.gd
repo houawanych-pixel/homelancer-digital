@@ -37,12 +37,12 @@ func _ready() -> void:
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	panel.add_child(v)
 	gate_label = Label.new()
-	gate_label.add_theme_font_size_override("font_size", 20)
+	gate_label.add_theme_font_size_override("font_size", Data.ts(20))
 	gate_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	gate_label.add_theme_color_override("font_color", Color(1.0, 0.84, 0.3))
 	v.add_child(gate_label)
 	dest_label = Label.new()
-	dest_label.add_theme_font_size_override("font_size", 30)
+	dest_label.add_theme_font_size_override("font_size", Data.ts(30))
 	dest_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(dest_label)
 	activate_btn = _button("ACTIVATE JUMP", Vector2(340, 96), 32)
@@ -57,7 +57,7 @@ func _button(txt: String, sz: Vector2, fs: int) -> Button:
 	b.text = txt
 	b.custom_minimum_size = sz          # thumb-sized
 	b.focus_mode = Control.FOCUS_NONE
-	b.add_theme_font_size_override("font_size", fs)
+	b.add_theme_font_size_override("font_size", Data.ts(fs))
 	return b
 
 func open(gname: String, dest: String, kind: String) -> void:

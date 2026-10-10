@@ -25,7 +25,7 @@ func _ready() -> void:
 	start_btn.name = "StartButton"
 	start_btn.text = "START"
 	start_btn.custom_minimum_size = Vector2(320, 86)
-	start_btn.add_theme_font_size_override("font_size", 38)
+	start_btn.add_theme_font_size_override("font_size", Data.ts(38))
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = GM.DEEP
 	sb.border_color = GM.NAVY
@@ -42,7 +42,7 @@ func _ready() -> void:
 	music_btn = Button.new()
 	music_btn.name = "MusicButton"
 	music_btn.custom_minimum_size = SIDE_BTN
-	music_btn.add_theme_font_size_override("font_size", 22)
+	music_btn.add_theme_font_size_override("font_size", Data.ts(22))
 	_grey(music_btn)
 	music_btn.pressed.connect(func():
 		Music.set_muted(not Music.muted)
@@ -53,7 +53,7 @@ func _ready() -> void:
 	settings_btn.name = "SettingsButton"
 	settings_btn.text = "SETTINGS"
 	settings_btn.custom_minimum_size = SIDE_BTN
-	settings_btn.add_theme_font_size_override("font_size", 22)
+	settings_btn.add_theme_font_size_override("font_size", Data.ts(22))
 	_grey(settings_btn)
 	settings_btn.focus_mode = Control.FOCUS_NONE
 	settings_btn.pressed.connect(func(): settings_pressed.emit())

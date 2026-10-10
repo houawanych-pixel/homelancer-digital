@@ -81,7 +81,7 @@ func _ready() -> void:
 	_typer.visible = false
 	_typer.placeholder_text = "Type a message…"
 	_typer.max_length = 120
-	_typer.add_theme_font_size_override("font_size", 18)
+	_typer.add_theme_font_size_override("font_size", Data.ts(18))
 	add_child(_typer)
 	_typer.text_submitted.connect(func(txt: String):
 		_typer.visible = false
@@ -449,6 +449,7 @@ func _box(r: Rect2, bg := PANEL, edge := EDGE, radius := 10, bw := 2) -> void:
 
 func _text(p: Vector2, txt: String, size := 18, col := WHITE, align := HORIZONTAL_ALIGNMENT_LEFT, width := -1.0) -> void:
 	if size < Data.TEXT_BUMP_BELOW: size = maxi(Data.TEXT_MIN, size + Data.TEXT_BUMP)   # v1.4m: small print is a little bigger
+	size = Data.ts(size)   # v1.7p: bigger for phones
 	draw_string_outline(font, p, txt, align, width, size, 5, Color(0, 0.03, 0.08, 0.8))
 	draw_string(font, p, txt, align, width, size, col)
 
@@ -1208,7 +1209,7 @@ func _radar(rc: Vector2, rr: float, label: bool) -> void:
 	radar_north = rc + nd * rr
 	var np := Vector2(-nd.y, nd.x)
 	NavGrid.fill(self, PackedVector2Array([radar_north + nd * 7.0, radar_north - nd * 3.0 + np * 5.0, radar_north - nd * 3.0 - np * 5.0]), Color(1.0, 0.45, 0.4))
-	draw_string(font, radar_north + nd * 15.0 + Vector2(-4, 5), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, WHITE)
+	draw_string(font, radar_north + nd * 15.0 + Vector2(-4, 5), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, Data.ts(13), WHITE)
 	_text(Vector2(rc.x - rr, rc.y + rr + (-2.0 if label else 2.0)), "RADAR %s" % _dist(rng), 10, Color(CYAN, 0.8), HORIZONTAL_ALIGNMENT_CENTER, rr * 2.0)
 
 # ---------------------------------------------------------------- v1.5i GPS strip

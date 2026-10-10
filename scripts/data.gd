@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.7o"
+const VERSION := "v1.7p"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -202,6 +202,12 @@ const PLANET_BIOME := {"terran": "forest", "jungle": "jungle", "ocean": "ocean",
 const TEXT_BUMP := 2                  # HUD and room text below TEXT_BUMP_BELOW px is drawn this much bigger
 const TEXT_BUMP_BELOW := 17
 const TEXT_MIN := 13                  # nothing on the HUD is smaller than this
+# v1.7p (owner: "better readability on phone all around, bigger text"): every size in the game is scaled by this
+# (the HUD, maps, hub, settings, title), and nothing drawn is under TEXT_FLOOR px.
+const TEXT_SCALE := 1.25
+const TEXT_FLOOR := 15
+static func ts(size: int) -> int:
+	return maxi(TEXT_FLOOR, int(round(size * TEXT_SCALE)))
 # ---------------------------------------------------------------- Job AR (v1.5o): the special lock-on super move (docs/SPECIAL_MOVE.md)
 const SPECIAL_ARM_AT := [0.5, 0.25]     # hull shares at which the special arms (half, then critical); once each until repaired
 const SPECIAL_RESET_AT := 0.75          # repaired above this, both are ready to earn again

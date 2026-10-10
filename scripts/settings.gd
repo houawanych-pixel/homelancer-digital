@@ -42,14 +42,14 @@ func _ready() -> void:
 	panel.add_child(v)
 	var title := Label.new()
 	title.text = "SETTINGS"
-	title.add_theme_font_size_override("font_size", 28)
+	title.add_theme_font_size_override("font_size", Data.ts(28))
 	v.add_child(title)
 	var mrow := HBoxContainer.new()
 	mrow.add_theme_constant_override("separation", 8)
 	v.add_child(mrow)
 	var ml := Label.new()
 	ml.text = "Controls:"
-	ml.add_theme_font_size_override("font_size", 18)
+	ml.add_theme_font_size_override("font_size", Data.ts(18))
 	mrow.add_child(ml)
 	for m in [["auto", "AUTO"], ["touch", "TOUCH"], ["kbm", "KEYBOARD + MOUSE"]]:
 		var b := _button(m[1])
@@ -58,7 +58,7 @@ func _ready() -> void:
 		mrow.add_child(b)
 		mode_btns[m[0]] = b
 	mode_label = Label.new()
-	mode_label.add_theme_font_size_override("font_size", 15)
+	mode_label.add_theme_font_size_override("font_size", Data.ts(15))
 	v.add_child(mode_label)
 	effects_btn = _button("")
 	effects_btn.pressed.connect(press_effects)
@@ -76,7 +76,7 @@ func _ready() -> void:
 	list.add_theme_constant_override("separation", 4)
 	scroll.add_child(list)
 	note = Label.new()
-	note.add_theme_font_size_override("font_size", 15)
+	note.add_theme_font_size_override("font_size", Data.ts(15))
 	note.add_theme_color_override("font_color", Color(1.0, 0.84, 0.3))
 	controls_box.add_child(note)
 	var brow := HBoxContainer.new()
@@ -94,7 +94,7 @@ func _button(txt: String) -> Button:
 	b.text = txt
 	b.focus_mode = Control.FOCUS_NONE   # Space/Enter never "click" a settings button by accident
 	b.custom_minimum_size = Vector2(0, Data.SETTINGS_ROW_H)
-	b.add_theme_font_size_override("font_size", 17)
+	b.add_theme_font_size_override("font_size", Data.ts(17))
 	return b
 
 func open() -> void:
@@ -147,7 +147,7 @@ func refresh() -> void:
 		var l := Label.new()
 		l.text = a["name"] + ("  (Homelancer)" if a["extra"] else "")
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		l.add_theme_font_size_override("font_size", 16)
+		l.add_theme_font_size_override("font_size", Data.ts(16))
 		row.add_child(l)
 		var id: String = a["id"]
 		var b := _button("Press a key…  (Esc cancels)" if controls.capturing == id else controls.binding(id))
