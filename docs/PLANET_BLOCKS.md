@@ -438,6 +438,23 @@ the changes are re-applied. A hundred craters are a hundred small notes, not a f
 ## Later
 Water and lava (flow when a wall breaks), trees (shoot the trunk, the top falls), Continue / New World on landing.
 
+## The owner's look pictures (Oct 10, docs/blocks_look/) and the voxel notes
+- 01-05: blocky canyons, an arch and a Pride Rock overhang, big and small blocks mixed (long rectangles and big solid
+  cubes, not one size of square), dirt with a thin grass cap in the planet's colour, an obsidian tree with pointed
+  tips, an obsidian cave with shard stalactites. Slants: "a few" (mostly square steps).
+- 06: alien trees and waterfalls. New block materials: WOOD (the trunk and branches, grey-brown, chunky and twisting)
+  and LEAF (the canopy: big flat blocks in two colours, teal and purple). Waterfalls pour off cliff edges into pools.
+  The owner said "wood fire leaf block" (wood can burn? to confirm).
+- 07-09 (isometric molds): a cave layout to carve (a big chamber, four tunnels, side rooms, stairs); a straight beam
+  leaning on a big block; a tree of tilted beams.
+- "Minecraft Cave Technique" (owner's Drive notes): seeded terrain + designed shapes; noise caves (chambers, winding
+  tunnels, narrow passages) found by digging; molds stamped in (add: trees, roots, cliffs; subtract: caves with a
+  surface entrance), cut as filled volumes; check clearance, connection and ceiling thickness after carving; carve the
+  cave first, then the roots that should show in it. First prototype: one chamber, two tunnels, a surface entrance,
+  one tree whose roots reach into the chamber.
+- Plan: v1.7g the look (grass cap, big/long blocks, a few slants) -> v1.7h molds + the first cave -> v1.7i alien trees
+  (wood + leaf blocks, roots into the cave) -> v1.7j winding tunnels, a Blender-to-mold tool, waterfalls, phone check.
+
 ## Build order (a preview to the owner after each)
 Status: the owner said go for step 2 (craters), step by step. Each next step waits for his go after the preview.
 1. DONE: the big-block test terrain on New Terra's mountains (800 m patch, 20 m blocks, 5 m steps).
