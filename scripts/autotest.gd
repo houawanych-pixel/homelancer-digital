@@ -4493,13 +4493,15 @@ func _job_ai() -> void:
 	var easy: Dictionary = {}
 	var hard: Dictionary = {}
 	var esc: Dictionary = {}
+	var cvy: Dictionary = {}
 	for o in offers:
 		if o["kind"] == "threats" and o.get("hard", false): hard = o
 		elif o["kind"] == "threats": easy = o
 		elif o["kind"] == "escort": esc = o
+		elif o["kind"] == "convoy": cvy = o
 	var same: bool = Missions.offers(s.sys_id, sid).map(func(o): return o["title"]) == offers.map(func(o): return o["title"])
 	_check("Job AI: a station's MISSIONS board offers a patrol threats job, an elite threats job (slot 05, paid more) and an escort, from a faction hostile to the owner, the same offers for the whole visit",
-		kinds == ["threats", "threats_hard", "escort"] and int(hard["slot"]) == 5 and int(easy["slot"]) == 1 and int(hard["pay"]) > int(easy["pay"]) and same and Factions.has_fighters(str(easy["faction"])) and (easy["points"] as Array).size() == 2,
+		kinds == ["threats", "threats_hard", "escort", "convoy"] and int(hard["slot"]) == 5 and int(easy["slot"]) == 1 and int(hard["pay"]) > int(easy["pay"]) and same and Factions.has_fighters(str(easy["faction"])) and (easy["points"] as Array).size() == 2,
 		str(kinds) + " " + str(easy.get("faction", "")))
 	# ---- the hub pages
 	main.hub.open(Data.SYSTEMS[s.sys_id]["station"])
@@ -4697,6 +4699,48 @@ func _job_ai() -> void:
 	for o in g2:
 		if o in s.enemies: s._destroy_unit(o)
 	_check("Job AI: the freighter destroyed fails the escort job (no pay)", failed)
+	# ---- v1.7w (owner): the cargo run: station -> jump gate (ambush), through to the next system, to its station (battle), paid
+	var home_sys: String = s.sys_id
+	Missions.accept(cvy)
+	await _frames(3)
+	var cf: Node3D = s.escort_node
+	var cgate: Node3D = Missions.gate_to(s, str(cvy["dest"]))
+	var c_way: Dictionary = s.mission_waypoint()
+	var leg0: bool = is_instance_valid(cf) and cgate != null and (cf.get_meta("goal", Vector3.ZERO) as Vector3).distance_to(cgate.global_position) < 1.0 and not c_way.is_empty() and c_way["node"] == cf
+	cf.global_position = cgate.global_position + (cf.global_position - cgate.global_position).normalized() * (cf.get_meta("trip", 1.0) as float) * 0.45
+	s.player.global_position = cf.global_position + Vector3(0, 30, 200)
+	await _frames(3)
+	var amb1: Array = s.enemies.filter(func(o): return int(o.get("mission", -1)) == 0)
+	for o in amb1: s._destroy_unit(o)
+	cf.global_position = cgate.global_position + Vector3(0, 0, Data.CONVOY_GATE * 0.5)
+	await _frames(3)
+	var jumped: bool = int(GS.mission.get("leg", 0)) == 1 and str(GS.mission.get("sys", "")) == str(cvy["dest"]) and not is_instance_valid(s.escort_node)
+	var c_way2: Dictionary = s.mission_waypoint()
+	var to_gate: bool = not c_way2.is_empty() and c_way2["node"] == cgate
+	await main._load_system(str(cvy["dest"]), "gate:" + home_sys)
+	await _frames(4)
+	var s2 := _sp()
+	var cf2: Node3D = s2.escort_node
+	var back_gate: Node3D = Missions.gate_to(s2, home_sys)
+	var leg1: bool = is_instance_valid(cf2) and back_gate != null and cf2.global_position.distance_to(back_gate.global_position) < Data.CONVOY_START + 50.0 \
+		and (cf2.get_meta("goal", Vector3.ZERO) as Vector3).distance_to(s2.dock_point(s2.station) + Vector3(0, 60, 0)) < 1.0
+	if is_instance_valid(cf2):
+		var g2v: Vector3 = cf2.get_meta("goal", Vector3.ZERO)
+		cf2.global_position = g2v + (cf2.global_position - g2v).normalized() * (cf2.get_meta("trip", 1.0) as float) * 0.6
+		s2.player.global_position = cf2.global_position + Vector3(0, 30, 200)
+	await _frames(3)
+	var amb2: Array = s2.enemies.filter(func(o): return int(o.get("mission", -1)) == 1)
+	var battle: bool = amb2.size() == int(Data.CONVOY_WAVE_SHIPS[1])
+	for o in amb2: s2._destroy_unit(o)
+	var cc0: int = GS.credits
+	if is_instance_valid(cf2): cf2.global_position = (cf2.get_meta("goal", Vector3.ZERO) as Vector3) + Vector3(0, 0, Data.ESCORT_DOCK * 0.5)
+	await _frames(3)
+	var c_paid: bool = GS.mission.is_empty() and GS.credits - cc0 >= int(cvy["pay"])
+	_check("v1.7w (owner): the cargo run: the freighter flies from the station to the jump gate (an ambush on the way) and jumps; the waypoint becomes that gate; in the next system it comes out by the arrival gate and heads for the station, a bigger battle hits it, and its docking pays",
+		leg0 and jumped and to_gate and leg1 and battle and c_paid, "leg0 %s jumped %s to_gate %s leg1 %s battle %s (%d) paid %s" % [leg0, jumped, to_gate, leg1, battle, amb2.size(), c_paid])
+	await main._load_system(home_sys, "station")
+	await _frames(4)
+	s = _sp()
 	# ---- tidy
 	for e in s.enemies.duplicate():
 		if is_instance_valid(e["node"]): (e["node"] as Node3D).free()

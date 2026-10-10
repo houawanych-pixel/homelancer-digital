@@ -4237,7 +4237,7 @@ func ship_at_screen(p: Vector2) -> Node3D:
 	return best
 
 ## v1.5f: the escort mission's freighter, at the station's dock point, heading for the planet.
-func make_escort() -> void:
+func make_escort(from := Vector3.INF, goal := Vector3.INF) -> void:   # v1.7w: the cargo run gives its own ends
 	if is_instance_valid(escort_node) or not is_instance_valid(station) or not is_instance_valid(planet): return
 	var node := Node3D.new()
 	node.name = "Freighter %s (escort)" % sys["name"]
@@ -4245,9 +4245,11 @@ func make_escort() -> void:
 	node.set_meta("kind", "traffic")
 	node.set_meta("radius", 12.0)
 	add_child(node)
-	var a := dock_point(station) + Vector3(0, 60, 0)
+	var a := dock_point(station) + Vector3(0, 60, 0) if from == Vector3.INF else from
+	var b := planet_dock_point() if goal == Vector3.INF else goal
 	node.global_position = a
-	node.set_meta("trip", a.distance_to(planet_dock_point()))
+	node.set_meta("goal", b)
+	node.set_meta("trip", a.distance_to(b))
 	escort_node = node
 
 func planet_dock_point() -> Vector3:

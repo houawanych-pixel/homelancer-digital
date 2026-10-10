@@ -42,7 +42,19 @@ static func offers(sys_id: String, station_id: String) -> Array:
 			"giver": station_id, "giver_sys": sys_id, "sys": sys_id,
 			"brief": "A freighter is leaving for %s. Stay with it: %s will try to stop it on the way. If it arrives, you are paid." % [sys["planet"]["name"], enemy if enemy != "" else "raiders"],
 			"points": _points(rng, 2)})
+		var dest := convoy_dest(sys_id)   # v1.7w: the cargo run into the next system
+		if dest != "":
+			out.append({"kind": "convoy", "faction": enemy, "slot": 2, "pay": Data.MISSION_PAY["convoy"], "title": "Cargo run to %s" % Data.SYSTEMS[dest]["name"],
+				"giver": station_id, "giver_sys": sys_id, "sys": sys_id, "dest": dest, "leg": 0,
+				"brief": "A freighter is taking cargo to %s in the %s system. Fly with it to the jump gate, follow it through, and get it to the station there. %s will hit it on both sides of the gate." % [Data.SYSTEMS[dest]["station"]["name"], Data.SYSTEMS[dest]["name"], enemy if enemy != "" else "Raiders"],
+				"points": _points(rng, 2)})
 	return out
+
+## v1.7w: where a cargo run from this system goes: the system through its first jump gate ("" = no gate out).
+static func convoy_dest(sys_id: String) -> String:
+	for g in Data.SYSTEMS[sys_id].get("gates", []):
+		if Data.SYSTEMS.has(str(g.get("to", ""))): return str(g["to"])
+	return ""
 
 static func _points(rng: RandomNumberGenerator, n: int) -> Array:
 	var pts: Array = []
@@ -175,7 +187,7 @@ static func waypoint(space: SpaceSystem) -> Dictionary:
 		return _to_place(space, str(m["giver_sys"]), "Dock at %s to hand %s over" % [Data.SYSTEMS[m["giver_sys"]]["station"]["name"], Data.roster_pilot(str(m["id"])).get("name", "the pilot")])
 	if str(m["sys"]) != space.sys_id: return _to_place(space, str(m["sys"]), m["title"])
 	match kind:
-		"escort":
+		"escort", "convoy":
 			if is_instance_valid(space.escort_node):
 				return {"node": space.escort_node, "title": space.escort_node.name, "line": "Escort: stay with %s (hull %d%%)" % [space.escort_node.name, int(100.0 * float(m["escort_hp"]) / Data.ESCORT_HULL)], "hops": 0}
 			return {}
@@ -216,6 +228,9 @@ static func tick(space: SpaceSystem, dt: float) -> void:
 	var pts: Array = m.get("points", [])
 	if kind == "escort":
 		_tick_escort(space, dt, m)
+		return
+	if kind == "convoy":
+		_tick_convoy(space, dt, m)
 		return
 	if stage >= pts.size(): return
 	if int(m["spawned"]) < stage:
@@ -279,6 +294,72 @@ static func _pay(space: SpaceSystem, said: String) -> void:
 	GS.changed.emit()
 	space.message.emit(said)
 	space.mission_done.emit(said)
+
+# ---------------------------------------------------------------- v1.7w cargo run
+## The gate in this system that leads to sys_id (null = none).
+static func gate_to(space: SpaceSystem, sys_id: String) -> Node3D:
+	for g in space.gates:
+		if is_instance_valid(g) and str((g.get_meta("info", {}) as Dictionary).get("to", "")) == sys_id: return g
+	return null
+
+## Leg 0: station -> the gate to the destination (it jumps there). Leg 1, in the destination system: out of the
+## arrival gate -> that system's station (paid when it docks). Hull carries over; losing it fails the job.
+static func _tick_convoy(space: SpaceSystem, dt: float, m: Dictionary) -> void:
+	var leg := int(m.get("leg", 0))
+	var gate: Node3D = gate_to(space, str(m["dest"]) if leg == 0 else str(m["giver_sys"]))
+	if not is_instance_valid(space.escort_node):
+		if int(m["stage"]) >= 90 or not is_instance_valid(space.station): return
+		if leg == 0: space.make_escort(space.dock_point(space.station) + Vector3(0, 60, 0), gate.global_position if gate != null else space.planet_dock_point())
+		else:
+			var from: Vector3 = gate.global_position if gate != null else space.player.global_position
+			var goal0: Vector3 = space.dock_point(space.station) + Vector3(0, 60, 0)
+			space.make_escort(from + (goal0 - from).normalized() * Data.CONVOY_START, goal0)
+		return
+	var n: Node3D = space.escort_node
+	var goal: Vector3 = n.get_meta("goal", space.planet_dock_point())
+	var to := goal - n.global_position
+	var d := to.length()
+	if d > 1.0:
+		n.global_position += to.normalized() * minf(Data.ESCORT_SPEED * dt, d)
+		n.look_at(goal, Vector3.UP)
+	var done: float = 1.0 - d / maxf(1.0, n.get_meta("trip", 1.0))
+	var pts: Array = m.get("points", [])
+	if int(m["spawned"]) < leg and leg < pts.size() and done >= float(Data.CONVOY_WAVE_AT[leg]):
+		space.spawn_mission_group(n.global_position + Vector3(cos(float(pts[leg]["dir"])), 0.2, sin(float(pts[leg]["dir"]))) * Data.ESCORT_AMBUSH, str(m["faction"]), int(Data.CONVOY_WAVE_SHIPS[leg]), int(m["slot"]), "", leg)
+		m["spawned"] = leg
+		space.message.emit("Mission: %s on the freighter%s. Keep them off it." % [m["faction"], "" if leg == 0 else " — this is the big one"])
+	if _escort_hits(space, dt, m, n): return
+	if leg == 0 and d < Data.CONVOY_GATE:   # through the gate: you follow
+		n.queue_free()
+		space.escort_node = null
+		m["leg"] = 1
+		m["sys"] = str(m["dest"])
+		space.message.emit("The freighter has jumped to %s. Follow it through the gate." % Data.SYSTEMS[m["dest"]]["name"])
+		GS.changed.emit()
+	elif leg == 1 and d < Data.ESCORT_DOCK:
+		n.queue_free()
+		space.escort_node = null
+		m["stage"] = 90
+		_pay(space, "The cargo is in at %s. %s pays %d cr." % [Data.SYSTEMS[m["dest"]]["station"]["name"], Data.SYSTEMS[m["giver_sys"]]["station"]["name"], int(m["pay"])])
+
+## Attackers near the freighter wear its hull down; true when it is lost (the job fails).
+static func _escort_hits(space: SpaceSystem, dt: float, m: Dictionary, n: Node3D) -> bool:
+	var attackers := 0
+	for o in space.enemies:
+		if o.has("mission") and is_instance_valid(o["node"]) and (o["node"] as Node3D).global_position.distance_to(n.global_position) < Data.ESCORT_RANGE: attackers += 1
+	if attackers == 0: return false
+	m["escort_hp"] = float(m["escort_hp"]) - Data.ESCORT_FIRE * attackers * dt
+	if int(space.time * 4.0) % 2 == 0: space._spark(n.global_position + Vector3(randf_range(-6, 6), randf_range(-3, 3), randf_range(-8, 8)), Color(1.0, 0.6, 0.3), 3.0, 0.2)
+	if float(m["escort_hp"]) > 0.0: return false
+	space._explode(n.global_position)
+	n.queue_free()
+	space.escort_node = null
+	m["stage"] = 99
+	space.message.emit("Mission failed: the freighter is lost.")
+	space.mission_done.emit("failed")
+	GS.mission = {}
+	GS.changed.emit()
+	return true
 
 # ---------------------------------------------------------------- escort
 ## The freighter: made when you launch (or arrive) with the job; flies station -> planet at ESCORT_SPEED; two ambush

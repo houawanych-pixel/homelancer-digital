@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.7v"
+const VERSION := "v1.7w"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -566,7 +566,7 @@ const MISSION_POINT_DIST := [3200.0, 5200.0]   # a mission point lies this far f
 const MISSION_ARRIVE := 700.0                   # this close to the point, its wave is there
 const MISSION_PLANET_CLEAR := 900.0             # a point keeps this much clear of a planet's surface
 const MISSION_GROUP := [3, 3]                   # ships in a wave: [first waves, last wave] (the last of a bounty = target + 2)
-const MISSION_PAY := {"threats": 900, "escort": 700}
+const MISSION_PAY := {"threats": 900, "escort": 700, "convoy": 1600}   # v1.7w: "convoy" = the cargo run into the next system
 const MISSION_HARD_MULT := 2.2                  # the ELITE threats job pays this much more
 const MISSION_HARD_SLOT := 5                    # ...and sends the slot 05 elites
 const MISSION_FALLBACK_ENEMIES := ["Kaijurai", "Phenom", "Cybermorph", "Solrath"]   # when nobody raids the owner
@@ -579,6 +579,13 @@ const ESCORT_RANGE := 500.0
 const ESCORT_SPEED := 45.0                      # m/s on its run station -> planet
 const ESCORT_AMBUSH := 900.0                    # ambush waves appear this far off the freighter
 const ESCORT_DOCK := 260.0                      # this close to the planet dock point it has arrived
+# v1.7w (owner): the cargo run. The freighter flies from the station to the jump gate (one ambush on the way), jumps
+# to the next system, and you follow it through; there it flies from the arrival gate to that system's station with a
+# bigger fight on the way. Paid when it docks there. The only job that leaves the system.
+const CONVOY_GATE := 220.0                      # this close to the gate, the freighter jumps
+const CONVOY_START := 700.0                     # in the next system it comes out this far in front of the arrival gate
+const CONVOY_WAVE_AT := [0.5, 0.35]             # how far along each leg its ambush comes
+const CONVOY_WAVE_SHIPS := [3, 4]               # ships in each ambush (the second, in the next system, is the battle)
 # ---------------------------------------------------------------- Job AG (v1.5c): Covenant, Cybermorph, Solrath fighters; Liberator and Imperium rebuilt
 # Light, mirrored, levelled copies from the owner's sets (hl_2covenant, hl_Cybermorph, hl_solrath, hl_Liberator, hl_Imperium).
 # Fighters only (the owner: ships and battleships matter, not the look-alike missiles and turrets). Nose at -Z, yaw 0.
