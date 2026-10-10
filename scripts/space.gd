@@ -3891,7 +3891,7 @@ func load_tile(t: int, keep := Vector3.INF) -> void:
 		station.set_meta("info", l)
 		station.set_meta("radius", 40.0)
 		add_child(station)
-		station.global_position = Vector3(l["pos"].x, Surface.pad_height(planet_id, t) + 20.0, l["pos"].y)
+		station.global_position = Vector3(l["pos"].x, Surface.pad_top(planet_id, t) + 20.0, l["pos"].y)
 	# a patrol over this tile (ships, sometimes a mech)
 	var prng := RandomNumberGenerator.new()
 	prng.seed = hash("%s%d" % [planet_id, t])
@@ -4567,7 +4567,9 @@ func _ground(x: float, z: float) -> float:
 	var h := Surface.height(planet_id, tile, x, z)
 	if _water: h = maxf(h, 0.0)
 	var bf := _block_field_at(x, z)
-	if bf: h = bf.top_at(x, z)   # EXPERIMENT: the big blocks are the ground there
+	if bf: h = bf.top_at(x, z)
+	var isl := Surface.island_at(planet_id, tile, x, z)   # v1.7c: the floating pad island
+	if not isl.is_empty(): h = maxf(h, float(isl[0]))   # EXPERIMENT: the big blocks are the ground there
 	return h
 
 ## Ground contact, tile edges (wrap to the next tile) and the ceiling (back to orbit).
@@ -4578,6 +4580,13 @@ func _surface_update(_dt: float) -> void:
 	var bfp := _block_field_at(p.x, p.z)
 	var on_blocks := bfp != null
 	var floor_y := (bfp.ground_for(p.x, p.y - 6.0, p.z) if on_blocks else _ground(p.x, p.z)) + 6.0   # v1.5y: tunnel floors
+	var isl := Surface.island_at(planet_id, tile, p.x, p.z)   # v1.7c: land on the pad island from above; under it, it's a roof
+	if not isl.is_empty():
+		if p.y - 6.0 > (float(isl[0]) + float(isl[1])) * 0.5: floor_y = maxf(floor_y, float(isl[0]) + 6.0)
+		elif p.y > float(isl[1]) - 1.5:
+			player.global_position.y = float(isl[1]) - 1.5
+			p = player.global_position
+			if vel.y > 0.0: vel.y = 0.0
 	altitude = p.y - floor_y + 6.0
 	if p.y < floor_y:
 		var impact := -vel.y

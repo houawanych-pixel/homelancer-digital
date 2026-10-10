@@ -1249,3 +1249,4 @@ Owner, after the v1.5k test flow passed: "push it to all".
 - v1.6h (?blocks only): the deep world: seeded root halls over the obsidian cap (`_carve_root_halls`, `HALL_*`).
 - v1.7a (?blocks only): step 9 part 1, the whole planet as blocks: 500 m regions built round the player from the seed (`BlockField.build(pid, tile, region)`, space `_update_regions` / `_fields` / `_block_field_at` / `_ray_blocks`), the smooth sheet cut out under them in the terrain shader, flat blocks round cities (`BLOCK_REGION*`, `BLOCK_SITE_FLAT`).
 - v1.7b: block ground on for everyone (`BlockField.enabled()` true unless the web address has ?noblocks); the smooth sheet is the far view only.
+- v1.7c: landing pads on floating block islands (`Surface.pad_top` / `island_at` / `_pad_island`, `PAD_ISLAND_*`); the ground under cities is no longer flattened when blocks are on.

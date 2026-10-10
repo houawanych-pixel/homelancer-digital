@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.7b"
+const VERSION := "v1.7c"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -240,7 +240,12 @@ const BLOCK_MARGIN := 3.0      # column tops sit this much over the highest grou
 const BLOCK_REGION := 500.0         # region side (m): 10 x 10 regions per 5 km tile, 100 x 100 cells each
 const BLOCK_REGION_REACH := 1       # regions this many squares around yours are built (1 = a 3 x 3 block of 1.5 km)
 const BLOCK_REGION_KEEP := 2        # ...and freed once you are more than this many squares away
-const BLOCK_SITE_FLAT := 440.0      # around a city / base the blocks are flat at pad height (m), with no caves or landmarks
+# v1.7c (owner): landing pads sit on a floating island of blocks above the ground, so the block ground runs natural
+# right under them (no flattening) and world building never has to step round a city. Later: buildings up there.
+const PAD_ISLAND_RADIUS := 120.0    # island radius (m); the pad itself is 90
+const PAD_ISLAND_CLEAR := 70.0      # its top floats this far over the highest ground under it (arches, roots and all)
+const PAD_ISLAND_DEPTH := 45.0      # how far its rocky underside hangs down at the middle (m)
+const PAD_ISLAND_CELL := 10.0       # its block size (m)
 const BLOCK_REGION_FEATURES := 0.39 # features per region compared with the 800 m test patch (its area share)
 const BLOCK_CUTS_MAX := 32         # (the terrain shader holds this many cut-out squares)
 const BLOCK_REGION_CANYON := 0.2    # the chance a region has a canyon running through it

@@ -5901,24 +5901,56 @@ func _regions() -> void:
 	var ground_ok: bool = here != null and absf(s._ground(p.x, p.z) - here.top_at(p.x, p.z)) < 0.01
 	_check("Blocks everywhere (v1.7a): on another tile the %d regions round you are built from the seed (%d m squares), the smooth ground is cut out under each one, and the ground you stand on is the blocks" % [want, int(Data.BLOCK_REGION)],
 		s._regions.size() == want and cut_n == want and ground_ok, "tile %d, regions %d of %d, cuts %d, ground %s, built a little each frame over %d frames (last region %.0f ms start to end)" % [t, s._regions.size(), want, cut_n, ground_ok, frames, s.region_ms])
-	# the pad: flat blocks just under it, nothing carved round it
+	# v1.7c: the pad floats on an island of blocks well over the ground; the ground under it runs natural (not flattened)
 	var loc: Dictionary = Surface.locations_in(pid, t)[0]
 	var lp: Vector2 = loc["pos"]
 	var lr := BlockField.region_of(lp.x, lp.y)
 	var lbf: BlockField = s._regions.get(lr)
 	if lbf == null: lbf = s._build_region(lr)
-	var pad := Surface.pad_height(pid, t)
-	var flat := true
-	for k in 24:
-		var a := k * TAU / 24.0
-		var q := lp + Vector2(cos(a), sin(a)) * (20.0 + 6.0 * k)
+	var top := Surface.pad_top(pid, t)
+	var under := -INF
+	var lo := INF
+	for k in 40:
+		var a := k * TAU / 40.0
+		var q := lp + Vector2(cos(a), sin(a)) * (Data.PAD_ISLAND_RADIUS * float(k % 5) / 5.0)
 		var f: BlockField = s._block_field_at(q.x, q.y)
 		if f == null: f = lbf if lbf.covers(q.x, q.y) else null
 		if f == null: continue
-		var top := f.top_at(q.x, q.y)
-		if top > pad + 0.01 or top < pad - Data.BLOCK_MIN - 0.01 or f.ceiling_above(q.x, top + 1.0, q.y) < INF: flat = false
-	_check("Blocks everywhere: round %s the blocks are flat just under the landing pad (no caves, canyon or landmarks under it)" % str(loc.get("name", "the city")),
-		flat and lbf.flat_cols > 0, "pad %.1f, flat %s, flattened columns %d" % [pad, flat, lbf.flat_cols])
+		under = maxf(under, f.top_at(q.x, q.y))
+		lo = minf(lo, f.top_at(q.x, q.y))
+	var isl := s.tile_root.get_node_or_null("PadIsland")
+	var st_ok: bool = absf(s.station.global_position.y - (top + 20.0)) < 0.01
+	# set the ship down on it
+	s.player.global_position = Vector3(lp.x + 30.0, top + 2.0, lp.y)   # (sunk into it: the floor puts you on top)
+	s.vel = Vector3.ZERO
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var landed: bool = s.player.global_position.y >= top + 5.0 and s.player.global_position.y < top + 9.0
+	s.player.global_position = Vector3(lp.x + 30.0, top - Data.PAD_ISLAND_DEPTH, lp.y)   # under it: its rock is a roof
+	s.vel = Vector3(0, 20, 0)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	landed = landed and s.player.global_position.y < top - 5.0
+	if OS.get_environment("HL_SHOT_DIR") != "":   # pictures of the island
+		main.hud.visible = false
+		s.player.visible = false
+		var pcam := Camera3D.new()
+		pcam.far = 8000.0
+		s.add_child(pcam)
+		var pprev := get_viewport().get_camera_3d()
+		var pc := Vector3(lp.x, top - 20.0, lp.y)
+		for v in [["pad_island", Vector3(330, 40, 380)], ["pad_island_high", Vector3(260, 220, 300)]]:
+			pcam.global_position = pc + (v[1] as Vector3)
+			pcam.look_at(pc, Vector3.UP)
+			pcam.make_current()
+			await _shot(v[0], 1.0)
+		pcam.queue_free()
+		if pprev: pprev.make_current()
+		main.hud.visible = true
+		s.player.visible = true
+	_check("Pad islands (v1.7c): the landing pad at %s floats on an island of blocks well over the ground, the ground under it isn't flattened, and you can set down on it" % str(loc.get("name", "the city")),
+		isl != null and under > -INF and top >= under + 20.0 and st_ok and landed and Surface.island_at(pid, t, lp.x, lp.y).size() == 2,
+		"island top %.0f, highest ground under it %.0f (lowest %.0f), station %s, landed %s (y %.1f)" % [top, under, lo, st_ok, landed, s.player.global_position.y])
 	# each region its own seed and its own kept blasts
 	var ra: BlockField = s._regions.get(pr)
 	var rb: BlockField = null

@@ -523,14 +523,19 @@ Status: the owner said go for step 2 (craters), step by step. Each next step wai
    than 2 squares away (`BLOCK_REGION_KEEP`). Each region has its own seed (planet|tile|rx|rz) and keeps its own
    blast notes, so a crater is still there when you come back. The smooth ground stays as the far view and the
    terrain shader cuts it out under every standing region (`cuts`). Landmarks, caves, pockets, veins and halls come
-   at the region's share by area (`BLOCK_REGION_FEATURES`); a canyon runs through about 1 region in 5. Round every
-   city / base (`BLOCK_SITE_FLAT`, 440 m) the blocks are flat just under the landing pad and nothing is carved.
+   at the region's share by area (`BLOCK_REGION_FEATURES`); a canyon runs through about 1 region in 5. (v1.7a
+   flattened the blocks round cities; v1.7c replaced that with floating pad islands, below.)
    The old 800 m test patch is now only for the route test. Known for now: a blast right on a region edge only
    digs its own region; blocks stop at the tile border until you cross it; the sea plane shows in very deep holes.
    Next (v1.7b, after the owner tries it): on for everyone, the old ground removed.
 2m. DONE (v1.7b, owner: "Ok go"): block ground ON for everyone, no link needed. Wherever you fly or walk on any
    planet you are on blocks; the smooth sheet is only the far view now (cut out under every region). `?noblocks` in
    the address turns it off on the web, in case a phone struggles. `?blocks` still works (it is simply on).
+2n. DONE (v1.7c, owner idea): landing pads float. Every pad stands on a floating island of blocks (`PAD_ISLAND_*`:
+   120 m across the top, ground-coloured, its rock underside hanging deepest in the middle, ragged), its top 70 m over
+   the highest ground under it. So the block ground runs natural right under every city (nothing flattened, world
+   building never steps round a site) and can be as big and deep as it likes. You land on the island from above;
+   flying under it, its rock is a roof. Later: the owner's buildings up on the islands.
 3. DONE (already from earlier work): the ground blends across tile edges and the next area is built before you reach
    it, so crossing has no jump.
 4. DONE (already): no seam lines at ordinary corners (the ground blends); the planet's wrap corner sits in a cloud bank.

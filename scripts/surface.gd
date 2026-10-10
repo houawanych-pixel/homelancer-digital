@@ -218,7 +218,7 @@ static func sample(planet_id: String, gx: float, gz: float) -> Array:
 	var tc := (floori(w / TILE) % g) * g + floori(u / TILE) % g
 	var lx := u - floorf(u / TILE) * TILE - EDGE
 	var lz := w - floorf(w / TILE) * TILE - EDGE
-	for l in locations_in(planet_id, tc):
+	for l in (locations_in(planet_id, tc) if not BlockField.enabled() else []):   # (v1.7c: with blocks, pads float instead)
 		var d := Vector2(lx, lz).distance_to(l["pos"])
 		if d < 900.0:
 			var kk := clampf((d - 450.0) / 450.0, 0.0, 1.0)
@@ -259,6 +259,45 @@ static func _biome_height(b: Dictionary, n: float, r: float) -> Array:
 	var c: Color = (b["low"] as Color).lerp(b["mid"], clampf(k * 2.0, 0.0, 1.0)) if k < 0.5 else (b["mid"] as Color).lerp(b["high"], clampf(k * 2.0 - 1.0, 0.0, 1.0))
 	c.a = float(b.get("detail", 0.0))
 	return [h, c]
+
+static var _pad_cache := {}
+## v1.7c: the top of the floating island the landing pads stand on: a clear PAD_ISLAND_CLEAR over the highest ground
+## under any pad on the tile (the old flat-ground pad height when blocks are off).
+static func pad_top(planet_id: String, tile: int) -> float:
+	if not BlockField.enabled(): return pad_height(planet_id, tile)
+	var key := "%s|%d" % [planet_id, tile]
+	if _pad_cache.has(key): return _pad_cache[key]
+	var hm := pad_height(planet_id, tile) - Data.PAD_ISLAND_CLEAR
+	var g := grid(planet_id)
+	var ox := float(tile % g) * TILE
+	var oz := float(tile / g) * TILE
+	for l in locations_in(planet_id, tile):
+		var p2: Vector2 = l["pos"]
+		var r := Data.PAD_ISLAND_RADIUS + 40.0
+		for j in 13:
+			for i in 13:
+				var q := p2 + Vector2(-r + i * r / 6.0, -r + j * r / 6.0)
+				hm = maxf(hm, float(sample(planet_id, ox + q.x, oz + q.y)[0]))
+	if biome(planet_id, tile)["sea"] != null: hm = maxf(hm, 0.0)
+	var top := ceilf((hm + Data.PAD_ISLAND_CLEAR) / 5.0) * 5.0
+	_pad_cache[key] = top
+	return top
+
+## How far the island's underside hangs at distance d from its middle (0 outside it).
+static func island_depth(d: float) -> float:
+	if d >= Data.PAD_ISLAND_RADIUS: return 0.0
+	var k := d / Data.PAD_ISLAND_RADIUS
+	return 6.0 + Data.PAD_ISLAND_DEPTH * (1.0 - k * k)
+
+## The floating pad island over a tile-local point: [top, bottom], or [] where there is none.
+static func island_at(planet_id: String, tile: int, x: float, z: float) -> Array:
+	if not BlockField.enabled(): return []
+	for l in locations_in(planet_id, tile):
+		var d := Vector2(x, z).distance_to(l["pos"])
+		if d < Data.PAD_ISLAND_RADIUS:
+			var top := pad_top(planet_id, tile)
+			return [top, top - island_depth(d)]
+	return []
 
 static func pad_height(planet_id: String, tile: int) -> float:
 	var b := biome(planet_id, tile)
@@ -630,11 +669,54 @@ static func _prims() -> void:
 	_cyl.radial_segments = 12
 	_cyl.rings = 1
 
+## v1.7c: the floating island under a landing pad: 10 m block columns, ground-coloured on top, rock below, hanging
+## deepest in the middle like a chunk of ground torn up into the air (one MultiMesh).
+@warning_ignore("integer_division")
+static func _pad_island(root: Node3D, planet_id: String, tile: int, p2: Vector2, gy: float) -> void:
+	var cell: float = Data.PAD_ISLAND_CELL
+	var nr := int(ceil(Data.PAD_ISLAND_RADIUS / cell))
+	var g := grid(planet_id)
+	var top_c: Color = sample(planet_id, float(tile % g) * TILE + p2.x, float(tile / g) * TILE + p2.y)[1]
+	var cols: Array = []
+	for j in range(-nr, nr):
+		for i in range(-nr, nr):
+			var c := Vector2((i + 0.5) * cell, (j + 0.5) * cell)
+			var dep := island_depth(c.length())
+			if dep <= 0.0: continue
+			dep += fposmod(sin(i * 12.9898 + j * 78.233) * 43758.5453, 1.0) * 8.0   # a ragged underside
+			dep = ceilf(dep / 5.0) * 5.0
+			cols.append([c, dep])
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
+	mm.mesh = _box
+	mm.instance_count = cols.size() * 2
+	var k := 0
+	for cd in cols:
+		var c: Vector2 = cd[0]
+		var dep: float = cd[1]
+		mm.set_instance_transform(k, Transform3D(Basis.from_scale(Vector3(cell, 5.0, cell)), Vector3(p2.x + c.x, gy - 2.5, p2.y + c.y)))
+		mm.set_instance_color(k, Color(top_c.r, top_c.g, top_c.b))
+		k += 1
+		var rock := Data.BLOCK_ROCK * (0.85 + 0.3 * fposmod(c.x * 0.37 + c.y * 0.11, 1.0))
+		mm.set_instance_transform(k, Transform3D(Basis.from_scale(Vector3(cell, dep - 5.0, cell)), Vector3(p2.x + c.x, gy - 5.0 - (dep - 5.0) * 0.5, p2.y + c.y)))
+		mm.set_instance_color(k, Color(rock.r, rock.g, rock.b))
+		k += 1
+	var mi := MultiMeshInstance3D.new()
+	mi.multimesh = mm
+	mi.name = "PadIsland"
+	var mat := StandardMaterial3D.new()
+	mat.vertex_color_use_as_albedo = true
+	mat.roughness = 0.95
+	mi.material_override = mat
+	root.add_child(mi)
+
 ## A settlement: landing pad (the dockable port) plus a cluster of buildings drawn with one MultiMesh.
 static func _settlement(root: Node3D, planet_id: String, tile: int, l: Dictionary, rng: RandomNumberGenerator) -> void:
 	_prims()
 	var p2: Vector2 = l["pos"]
-	var gy := pad_height(planet_id, tile)
+	var gy := pad_top(planet_id, tile)
+	if BlockField.enabled(): _pad_island(root, planet_id, tile, p2, gy)
 	# the landing pad: flat disc with green guide lights
 	var pad := MeshInstance3D.new()
 	pad.mesh = _cyl

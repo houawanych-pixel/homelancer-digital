@@ -21,8 +21,6 @@ var tile := 0
 var region := Vector2i(-1, -1)   # v1.7a: which 500 m square of the tile ((-1, -1) = the old test patch)
 var _sk := ""                  # the seed key: planet|tile (test patch) or planet|tile|rx|rz (a region)
 var feat := 1.0                # how many landmarks / caves / pockets compared with the test patch (by area)
-var _sites: Array = []         # the cities / bases on this tile (tile-local Vector2)
-var flat_cols := 0             # big columns flattened round a city / base (tests)
 var center := Vector2.ZERO     # tile-local centre of the patch (x east, z south)
 var cols := 0                  # big columns per side
 var tops := PackedFloat32Array()   # the ORIGINAL top of each big column (row-major)
@@ -125,33 +123,6 @@ func _scaled(count: int, rng: RandomNumberGenerator) -> int:
 	var e := count * feat
 	return int(e) + (1 if rng.randf() < e - int(e) else 0)
 
-## How far a tile-local point is from the nearest city / base on this tile (INF if none).
-func _site_dist(p: Vector2) -> float:
-	var d := INF
-	for q in _sites: d = minf(d, p.distance_to(q))
-	return d
-
-## (v1.7a) Round a city or base nothing generated stays: no caves, pockets, canyon or landmarks under the pad.
-func _clear_sites() -> void:
-	var step: float = Data.BLOCK_MIN
-	var flat := floorf(Surface.pad_height(planet_id, tile) / step) * step
-	var cleared := {}
-	for fz in n:
-		for fx in n:
-			var c := fz * n + fx
-			if _site_dist(Vector2(x0 + (fx + 0.5) * step, z0 + (fz + 0.5) * step)) >= Data.BLOCK_SITE_FLAT: continue
-			h[c] = flat
-			h0[c] = flat
-			holes.erase(c)
-			fluid.erase(c)
-			mats.erase(c)
-			fill.erase(c)
-			reach_bonus.erase(c)
-			cleared[c] = true
-	if cleared.is_empty(): return
-	for pk in pockets: pk["cells"] = (pk["cells"] as Array).filter(func(c): return not cleared.has(c))
-	pockets = pockets.filter(func(pk): return not (pk["cells"] as Array).is_empty())
-
 static func key_of(pid: String, t: int) -> String:
 	return "%s|%d" % [pid, t]
 
@@ -165,8 +136,6 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false) -> voi
 	planet_id = pid
 	tile = t
 	region = reg
-	_sites.clear()
-	for l in Surface.locations_in(pid, t): _sites.append(l["pos"])
 	var big: float = Data.BLOCK_BIG
 	var step: float = Data.BLOCK_MIN
 	if reg.x < 0:
@@ -206,9 +175,6 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false) -> voi
 			tops[j * cols + i] = ceilf((hm + Data.BLOCK_MARGIN) / step) * step
 			surf_cols[j * cols + i] = Color(colr.r, colr.g, colr.b)
 			cols_c[j * cols + i] = colr
-			if reg.x >= 0 and _site_dist(c) < Data.BLOCK_SITE_FLAT:   # 1a. (v1.7a) round a city or base: flat, just under the pad
-				tops[j * cols + i] = floorf(Surface.pad_height(pid, t) / step) * step
-				flat_cols += 1
 	# 1b. realistic heights (v1.6f): no thin spires. A column standing more than SPIRE_MAX over every neighbour is cut
 	#     down to that (the edge columns are left alone: the smooth sheet there isn't sunk)
 	for pass_i in 2:
@@ -326,7 +292,6 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false) -> voi
 			return
 	_place_pockets()
 	_place_veins()
-	if region.x >= 0: _clear_sites()
 	# 5. re-apply the blasts made here before (seed + deltas), quietly
 	var key := _sk
 	if not GS.block_deltas.has(key): GS.block_deltas[key] = []
