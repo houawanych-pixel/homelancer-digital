@@ -1430,6 +1430,8 @@ func _side(side: String) -> void:
 	# portrait
 	var pr := Rect2(r.position + Vector2(6, 30), Vector2(r.size.x - 12, r.size.x - 12))
 	pr.size.y = minf(pr.size.y, r.size.y - 30 - 70)
+	var clip := str(d.get("video", "")) != ""
+	if clip: pr.size.y = r.size.y - 36   # v1.7s (owner): a clip is the whole call: it fills the screen, no typed line under it
 	var tex: Texture2D = _face_tex(d["face"], d["expr"]) if d["face"] != "" else null
 	var talk: float = Sfx.talking if side == _last else 0.0
 	if str(d.get("video", "")) != "" and vid != null and vid.get_video_texture() != null and vid.get_video_texture().get_width() > 0:
@@ -1456,6 +1458,7 @@ func _side(side: String) -> void:
 	draw_rect(pr, Color(accent, 0.7 * a), false, 1.5)
 	if e < 1.0:   # digital materialise: bright bands sweep while it slides in
 		for k in 6: draw_rect(Rect2(r.position.x, r.position.y + fmod(k * 53.0 + t * 900.0, r.size.y), r.size.x, 3), Color(accent, 0.5 * (1.0 - e)))
+	if clip: return
 	# the line, on white see-through glass under the portrait
 	var tr := Rect2(Vector2(r.position.x + 5, pr.end.y + 5), Vector2(r.size.x - 10, r.end.y - pr.end.y - 10))
 	draw_rect(tr, Color(1, 1, 1, 0.7 * a))

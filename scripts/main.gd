@@ -415,6 +415,7 @@ func tutor_next() -> String:
 	var first := ""
 	for l in Data.TUTORIAL:
 		if str(l["id"]) in GS.tutorial_seen: continue
+		if not Packs.PACKS.has("tutor_%d" % int(l.get("video", 0))): continue   # (owner's test: only lessons whose clip has arrived)
 		if str(l["id"]) == "intro": return "intro"
 		if now != "" and str(l["when"]) == now: return str(l["id"])
 		if first == "": first = str(l["id"])
@@ -445,8 +446,6 @@ func _tutor_call() -> void:
 	var line := str(l["line"])
 	var clip := tutor_clip(l)
 	GS.tutorial_seen.append(id)
-	var left := Data.TUTORIAL.size() - GS.tutorial_seen.size()
-	if left > 0: line += " (%d more)" % left
 	var c: Dictionary = Data.CHARACTERS[Data.TUTOR_ID]
 	if not (Data.TUTOR_ID in GS.met): GS.meet(Data.TUTOR_ID, "friendly")
 	on_call = Data.TUTOR_ID
