@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.7k"
+const VERSION := "v1.7l"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -356,6 +356,13 @@ const TREE_TALL := [6, 10]           # trunk height in layers (30-50 m)
 const TREE_BRANCHES := [3, 5]
 const TREE_CANOPY := [5, 9]          # leaf slab width in cells
 const TREE_ROOTS := [3, 5]
+# v1.7l WATERFALLS (the owner's picture 06): where a cliff drops sharply, a pool set back on its top pours over a rock
+# lip down the face into a pool with white foam at its foot. The falling sheet is a moving picture; the pools are real
+# water. Blast the lip or the cliff face and the fall stops.
+const FALLS_PER_TILE := {"forest": 3, "coast": 3, "mountains": 4, "canyon": 3, "city": 1, "industrial": 1, "ocean": 1, "desert": 0, "volcanic": 0, "ice": 0, "sun": 0}   # per 800 m; others 2
+const FALL_DROP := 20.0              # m: the least drop for a waterfall
+const FALL_WIDE := 2                 # cells across (10 m)
+const FALL_COLOR := Color(0.62, 0.86, 1.0, 0.85)
 const FIRE_TICK := 0.5               # s
 const FIRE_BURN := {"wood": 4.0, "leaf": 1.5, "leaf2": 1.5}   # s a burning layer lasts before it is gone
 const FIRE_SPREAD := {"wood": 0.25, "leaf": 0.5, "leaf2": 0.5}   # chance per tick it catches from a burning neighbour

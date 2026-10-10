@@ -6173,6 +6173,53 @@ func _regions() -> void:
 			s.player.visible = true
 	_check("Mold library (v1.7k): shapes made from models (tools/molds/voxelize.py) stamp into the ground whole, in their material, tilted beams as stepped diagonals with air under them",
 		lib_ok, "molds %s, placed by the seed round you %d; %s" % [str(lib_names), natural_placed, lib_detail])
+	# v1.7l: waterfalls: a pool on a cliff top pours over a rock lip down the face into a foamy pool at its foot; real
+	# water in both pools; blast the lip and the fall stops
+	var wf: BlockField = null
+	var n_falls := 0
+	for f in s._fields():
+		n_falls += (f as BlockField).falls.size()
+		if wf == null and not (f as BlockField).falls.is_empty(): wf = f
+	var falls_ok := wf != null
+	var falls_detail := "falls %d" % n_falls
+	if wf:
+		var fa: Dictionary = wf.falls[0]
+		var drop: float = (fa["top"] as Vector3).y - (fa["bottom"] as Vector3).y
+		var wet_top := false
+		var wet_foot := false
+		for c5 in wf.fluid: 
+			for c6 in fa["foot"]:
+				if int(c5) == int(c6): wet_foot = true
+		for c7 in fa["lip"]:
+			var behind: int = int(c7) - int((fa["dir"] as Vector2).y) * wf.n - int((fa["dir"] as Vector2).x)
+			if wf.fluid.has(behind): wet_top = true
+		var drawn2: bool = (wf.get_node("Falls") as MeshInstance3D).mesh != null
+		if OS.get_environment("HL_SHOT_DIR") != "":
+			main.hud.visible = false
+			s.player.visible = false
+			var wcam := Camera3D.new()
+			wcam.far = 8000.0
+			s.add_child(wcam)
+			var wprev := get_viewport().get_camera_3d()
+			var mid3: Vector3 = ((fa["top"] as Vector3) + (fa["bottom"] as Vector3)) * 0.5
+			var dd: Vector2 = fa["dir"]
+			var ll: Vector2 = fa["lat"]
+			wcam.global_position = mid3 + Vector3(dd.x, 0, dd.y) * 70.0 + Vector3(ll.x, 0, ll.y) * 25.0 + Vector3(0, 12, 0)
+			wcam.look_at(mid3, Vector3.UP)
+			wcam.make_current()
+			await _shot("waterfall", 1.0)
+			wcam.queue_free()
+			if wprev: wprev.make_current()
+			main.hud.visible = true
+			s.player.visible = true
+		var lc: int = (fa["lip"] as Array)[0]
+		wf.blast(wf._layer_point(lc, wf._ktop(lc) - 1), "heavy")
+		wf.flush()
+		var stopped: bool = not fa["on"]
+		falls_ok = drop >= Data.FALL_DROP and wet_top and wet_foot and drawn2 and stopped
+		falls_detail = "falls %d, drop %.0f m, water in the top pool %s and the foot pool %s, drawn %s, stops when the lip is blasted %s" % [n_falls, drop, wet_top, wet_foot, drawn2, stopped]
+	_check("Waterfalls (v1.7l): a pool on a cliff top pours over a rock lip down the face into a foamy pool at its foot (real water in both); blast the lip and it stops",
+		falls_ok, falls_detail)
 	# v1.7i: alien trees (wood trunk and branches, big two-colour leaf slabs you can fly under, roots underground; one
 	# beside the cave sends a root into its chamber); wood and leaves catch fire, it spreads, burns them away, dies out
 	var tf: BlockField = null

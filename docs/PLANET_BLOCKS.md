@@ -607,6 +607,10 @@ Status: the owner said go for step 2 (craters), step by step. Each next step wai
    its material, held together. Tilted beams come out as stepped diagonals; cells touching only at an edge or corner
    are joined up so nothing falls. Samples from the owner's pictures 08 and 09: `beam_tree` (obsidian, its tips point
    into shards) and `beam_lean` (stone).
+2w. DONE (v1.7l): WATERFALLS (the owner's picture 06). Where a natural column drops 20 m+ to its neighbour
+   (`FALLS_PER_TILE`, `FALL_*`), a pool is cut into the top behind a one-cell rock lip and a pool at the cliff's foot,
+   both real water; between them a moving sheet of water (a scrolling shader) and white foam blocks where it lands.
+   Blast the lip and the fall stops. The slab and waterfall drawings now move with a tile crossing too.
 3. DONE (already from earlier work): the ground blends across tile edges and the next area is built before you reach
    it, so crossing has no jump.
 4. DONE (already): no seam lines at ordinary corners (the ground blends); the planet's wrap corner sits in a cloud bank.

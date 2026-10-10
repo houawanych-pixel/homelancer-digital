@@ -59,6 +59,7 @@ var halls: Array = []          # v1.6h deep root halls: [{x, z, w, k0, k1, trunk
 var trees: Array = []          # v1.7i alien trees: [{base: cell, wood: int, leaf: int, cave_root: bool, trunk: [cells], k_top}]
 var burning := {}              # v1.7i fire: Vector2i(cell, layer) -> seconds burning
 var burned := 0                # layers fire took (tests)
+var falls: Array = []          # v1.7l waterfalls: [{lip: [cells], lip_h, foot: [cells], foot_h, top: Vector3, bottom: Vector3, dir: Vector2, on}]
 var placed: Array = []         # v1.7k molds from the library (models made into molds): [{name, centre, k0, cells}]
 var links: Array = []          # v1.7j winding tunnels: [{from: cell, to: [cell, k], path: [[cell, k]]}]
 var molds: Array = []          # v1.7h stamped mold shapes: [{kind, centre, k0, rooms, entrance, route}]
@@ -303,6 +304,7 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 	if region.x >= 0: _build_slabs()   # (v1.7f; the old test patch keeps its ground as the tests know it)
 	if region.x >= 0: _place_library()   # (v1.7k: shapes made from models, scripts/mold_library.gd)
 	if region.x >= 0: _grow_trees()   # (v1.7i: after the cave, so a root can grow into it)
+	if region.x >= 0: _place_falls()   # (v1.7l)
 	if staged:
 		await Engine.get_main_loop().process_frame
 		if cancel:
@@ -800,6 +802,13 @@ func reframe(d: Vector2) -> void:
 	off += d
 	_pox -= d.x   # (the same planet ground: the frame's origin moved the other way)
 	_poz -= d.y
+	for sb in slabs:   # (the slab and waterfall drawings remember where they are)
+		for g in sb["geo"]:
+			g[0] = (g[0] as Vector2) + d
+			g[1] = (g[1] as Vector2) + d
+	for f in falls:
+		f["top"] = (f["top"] as Vector3) + Vector3(d.x, 0.0, d.y)
+		f["bottom"] = (f["bottom"] as Vector3) + Vector3(d.x, 0.0, d.y)
 	for ch in get_children():
 		if ch is Node3D: (ch as Node3D).position += Vector3(d.x, 0.0, d.y)
 
@@ -1218,6 +1227,158 @@ func _place_mold(nm: String, cx: int, cz: int) -> Dictionary:
 	var rec := {"name": nm, "centre": cz * n + cx, "k0": k0, "cells": touched.size()}
 	placed.append(rec)
 	return rec
+
+## v1.7l: waterfalls. Where a natural column drops FALL_DROP or more to its neighbour, a pool is cut into the top set
+## back behind a one-cell rock lip, a pool at the cliff's foot, both filled with real water; the falling sheet between
+## them is drawn as moving water with foam where it lands.
+@warning_ignore("integer_division")
+func _place_falls() -> void:
+	falls.clear()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(_sk + "|falls")
+	var kind: String = Surface.PLANETS[planet_id]["tiles"][tile] if Surface.PLANETS.has(planet_id) else ""
+	var want := _scaled(int(Data.FALLS_PER_TILE.get(kind, 2)), rng)
+	var dirs := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+	var step: float = Data.BLOCK_MIN
+	var tries := 0
+	while falls.size() < want and tries < 400:
+		tries += 1
+		var x := rng.randi_range(6, n - 7)
+		var z := rng.randi_range(6, n - 7)
+		var d: Vector2i = dirs[rng.randi_range(0, 3)]
+		var lat := Vector2i(-d.y, d.x)
+		var w: int = Data.FALL_WIDE
+		# the lip: w cells along the edge; behind it the pool (2 deep); in front, the drop to the foot
+		var lip: Array = []
+		var pool: Array = []
+		var foot: Array = []
+		var ok := true
+		var top := INF
+		var top_hi := -INF
+		var low := -INF
+		for a in w:
+			var p := Vector2i(x, z) + lat * a
+			for c2 in [p, p - d, p - d * 2, p + d, p + d * 2]:
+				if c2.x < 2 or c2.y < 2 or c2.x >= n - 2 or c2.y >= n - 2: ok = false
+			if not ok: break
+			var cl: int = p.y * n + p.x
+			lip.append(cl)
+			for b in [1, 2]: pool.append((p - d * b).y * n + (p - d * b).x)
+			for b in [1, 2, 3]:
+				var q: Vector2i = p + d * int(b)
+				if q.x >= 2 and q.y >= 2 and q.x < n - 2 and q.y < n - 2: foot.append(q.y * n + q.x)
+			top = minf(top, h[cl])
+			top_hi = maxf(top_hi, h[cl])
+		if not ok or top_hi - top > 0.01: continue
+		for c2 in lip + pool + foot:
+			if holes.has(c2) or fluid.has(c2) or _slab_of.has(c2) or (mats.get(c2, {}) as Dictionary).size() > 0: ok = false
+		if not ok: continue
+		for c2 in pool:
+			if absf(h[c2] - top) > 0.01: ok = false   # the pool behind the lip is on the same top
+		var fl := -INF
+		for c2 in foot: fl = maxf(fl, h[c2])
+		if not ok or top - fl < Data.FALL_DROP: continue
+		var foot_lo := INF
+		for c2 in foot: foot_lo = minf(foot_lo, h[c2])
+		if fl - foot_lo > step * 1.01: continue   # (a fairly flat foot for the pool)
+		# cut and fill: the top pool one layer down behind the lip, the foot pool one layer into the ground
+		for c2 in pool:
+			_split_one(c2)
+			var kt := _ktop(c2)
+			_cell_remove(c2, kt - 1)
+			_set_fluid(c2, kt - 1, "water")
+		for c2 in foot:
+			_split_one(c2)
+			var kt2 := _ktop(c2)
+			if h[c2] > foot_lo + 0.01: _cell_remove(c2, kt2 - 1)
+			kt2 = _ktop(c2)
+			_cell_remove(c2, kt2 - 1)
+			_set_fluid(c2, kt2 - 1, "water")
+		for c2 in lip: _split_one(c2)
+		var p0 := Vector2(x0 + (x + 0.5) * step, z0 + (z + 0.5) * step) + Vector2(d) * step * 0.5 + Vector2(lat) * (w - 1) * step * 0.5
+		var foot_y := foot_lo - step + step * 0.8
+		falls.append({"lip": lip, "lip_h": top, "foot": foot, "foot_h": foot_lo - step, "top": Vector3(p0.x, top - 0.6, p0.y), "bottom": Vector3(p0.x, foot_y, p0.y), "dir": Vector2(d), "lat": Vector2(lat), "on": true})
+		for c2 in lip + pool + foot: _mark(c2 % n, c2 / n, 1)
+	_fluid_dirty = true
+	_draw_falls()
+
+## A fall whose lip or foot has been blasted stops.
+func _falls_check() -> void:
+	var changed := false
+	for f in falls:
+		if not f["on"]: continue
+		for c in f["lip"]:
+			if absf(h[c] - float(f["lip_h"])) > 0.01: f["on"] = false
+		if not f["on"]: changed = true
+	if changed: _draw_falls()
+
+## The falling sheets (moving water) and the foam where they land.
+func _draw_falls() -> void:
+	var mi := get_node_or_null("Falls") as MeshInstance3D
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var foam := SurfaceTool.new()
+	foam.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var any := false
+	for f in falls:
+		if not f["on"]: continue
+		var t: Vector3 = f["top"]
+		var b: Vector3 = f["bottom"]
+		var d: Vector2 = f["dir"]
+		var lat: Vector2 = f["lat"]
+		var half := Data.FALL_WIDE * Data.BLOCK_MIN * 0.5 - 0.4
+		var out := Vector3(d.x, 0, d.y) * 1.2   # just off the cliff face
+		var sv := Vector3(lat.x, 0, lat.y) * half
+		var a0 := t - sv + out
+		var a1 := t + sv + out
+		var b0 := Vector3(b.x, b.y, b.z) - sv + out * 2.5
+		var b1 := Vector3(b.x, b.y, b.z) + sv + out * 2.5
+		var hgt := t.y - b.y
+		for v in [[a0, Vector2(0, 0)], [a1, Vector2(1, 0)], [b1, Vector2(1, hgt / 10.0)], [a0, Vector2(0, 0)], [b1, Vector2(1, hgt / 10.0)], [b0, Vector2(0, hgt / 10.0)]]:
+			st.set_normal(Vector3(d.x, 0, d.y))
+			st.set_uv(v[1])
+			st.add_vertex(v[0])
+		for q in 7:   # foam: little white blocks bunched where it lands
+			var fc := Vector3(b.x, b.y + 0.4, b.z) + out * 3.0 + sv * _rng.randf_range(-1.1, 1.1) + Vector3(d.x, 0, d.y) * _rng.randf_range(-1.0, 4.0)
+			var s := _rng.randf_range(1.2, 2.6)
+			var c := Color(0.95, 0.98, 1.0)
+			_quad(foam, fc + Vector3(-s, s, -s), fc + Vector3(s, s, -s), fc + Vector3(s, s, s), fc + Vector3(-s, s, s), [c, c, c, c], Vector3.UP)
+			_quad(foam, fc + Vector3(-s, -s, s), fc + Vector3(s, -s, s), fc + Vector3(s, s, s), fc + Vector3(-s, s, s), [c, c, c, c], Vector3.BACK)
+			_quad(foam, fc + Vector3(s, -s, -s), fc + Vector3(-s, -s, -s), fc + Vector3(-s, s, -s), fc + Vector3(s, s, -s), [c, c, c, c], Vector3.FORWARD)
+			_quad(foam, fc + Vector3(s, -s, s), fc + Vector3(s, -s, -s), fc + Vector3(s, s, -s), fc + Vector3(s, s, s), [c, c, c, c], Vector3.RIGHT)
+			_quad(foam, fc + Vector3(-s, -s, -s), fc + Vector3(-s, -s, s), fc + Vector3(-s, s, s), fc + Vector3(-s, s, -s), [c, c, c, c], Vector3.LEFT)
+		any = true
+	if mi == null:
+		mi = MeshInstance3D.new()
+		mi.name = "Falls"
+		var sm := ShaderMaterial.new()
+		var sh := Shader.new()
+		sh.code = """shader_type spatial;
+render_mode unshaded, cull_disabled, depth_draw_opaque;
+uniform vec4 col : source_color = vec4(0.62, 0.86, 1.0, 0.85);
+void fragment() {
+	float s = fract(UV.y * 1.5 - TIME * 1.4 + sin(UV.x * 17.0) * 0.08);
+	float streak = smoothstep(0.0, 0.08, s) * (1.0 - smoothstep(0.5, 0.6, s));
+	float edge = smoothstep(0.0, 0.08, UV.x) * smoothstep(0.0, 0.08, 1.0 - UV.x);
+	ALBEDO = col.rgb + vec3(0.18) * streak;
+	ALPHA = col.a * edge;
+}"""
+		sm.shader = sh
+		sm.set_shader_parameter("col", Data.FALL_COLOR)
+		mi.material_override = sm
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(mi)
+		var fm := MeshInstance3D.new()
+		fm.name = "Foam"
+		var fmat := StandardMaterial3D.new()
+		fmat.vertex_color_use_as_albedo = true
+		fmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		fm.material_override = fmat
+		fm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.add_child(fm)
+	mi.position = Vector3.ZERO
+	mi.mesh = st.commit() if any else null
+	(mi.get_node("Foam") as MeshInstance3D).mesh = foam.commit() if any else null
 
 ## v1.7i: alien trees (the owner's picture 06), grown as an "add" mold of wood and leaf: a chunky trunk on root
 ## buttresses, branches stepping up and out, big flat leaf slabs in two colours at their ends and on top, and roots
@@ -2363,6 +2524,7 @@ func _process(dt: float) -> void:
 var _slant_cache := {}
 func flush(limit := 0) -> void:
 	if not slabs.is_empty(): _slab_check()
+	if not falls.is_empty(): _falls_check()
 	var done := 0
 	for k in _dirty.keys():
 		_draw_chunk(int(k))

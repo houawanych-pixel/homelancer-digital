@@ -1258,3 +1258,4 @@ Owner, after the v1.5k test flow passed: "push it to all".
 - v1.7i: alien trees (`_grow_trees` / `_grow_tree` / `_grow_cave_tree`, wood + leaf + leaf2) and fire (`ignite`, `_fire_update`, `_draw_fire`, `FIRE_*`); `_stamp` "add" now also sets the material of layers already solid.
 - v1.7j: winding tunnels from mold caves to nearby caves (`_carve_links`, `LINK_*`); `_stamp` "paint" (material only) for underground roots.
 - v1.7k: mold library: `tools/molds/voxelize.py` -> `scripts/mold_library.gd` (preloaded as MoldLibrary), placed by `_place_library` / `_place_mold`.
+- v1.7l: waterfalls (`_place_falls`, `_falls_check`, `_draw_falls`, `FALL_*`).
