@@ -1431,7 +1431,8 @@ func _run() -> void:
 		await get_tree().process_frame
 	await _shot("asteroid_field")
 	s.move = Vector2.ZERO
-	_check("Asteroid field", in_belt and s.rocks.size() > 100, "rocks=%d" % s.rocks.size())
+	_check("Asteroid field (v1.7x: block asteroids)", in_belt and s.asteroids.size() >= int(Data.ASTEROID_COUNT * 0.8) and s.rocks.size() == s.asteroids.size(), "asteroids=%d rocks=%d" % [s.asteroids.size(), s.rocks.size()])
+	await _asteroid_mining(s)
 	# ---- nebula
 	var nc: Vector3 = s.nebula_center
 	_tp(nc + Vector3(s.nebula_radius * 0.55, 0, 0), nc)
@@ -2030,7 +2031,10 @@ func _collide_l() -> void:
 		var n := Vector3(0, 0, 1)
 		var h0 := GS.hull
 		s.last_collision = {}
-		await _ram(r[0] + n * (float(r[1]) + 2.5), -n * 40.0)
+		if not fake_rock and not s.asteroids.is_empty():   # v1.7x: ram the blocks of a real asteroid
+			var ast0 = s.asteroids[0]
+			await _ram((ast0.surface_point(n) as Vector3) + n * 2.0, -n * 40.0)
+		else: await _ram(r[0] + n * (float(r[1]) + 2.5), -n * 40.0)
 		rock_hit = s.last_collision.get("kind", "") == "asteroid" and GS.hull < h0
 		hits["asteroid"] = h0 - GS.hull
 	if fake_rock:
@@ -5235,6 +5239,59 @@ func _job_an() -> void:
 	await _frames(4)
 	_tp(_sp().station.global_position + Vector3(0, 40, 420), _sp().station.global_position)
 
+
+## v1.7x (owner): block asteroids: lasers chip and break blocks (they drift off), obsidian is tough, a missile blows a hole,
+## gold / diamond inside drop pickups, and loose blocks past the field's invisible sphere are gone.
+func _asteroid_mining(s: SpaceSystem) -> void:
+	var ast = null
+	for a in s.asteroids:
+		if a.count(3) > 0 or a.count(4) > 0:
+			ast = a
+			break
+	var any_treasure: bool = ast != null
+	if ast == null: ast = s.asteroids[0]
+	var before: int = ast.solid_count
+	# a laser: rock breaks after its hits, a loose block drifts off
+	var rc := Vector3i(-1, -1, -1)
+	for x in ast.n:
+		for y in ast.n:
+			for z in ast.n:
+				if rc.x < 0 and ast.at(Vector3i(x, y, z)) == 1 and ast.at(Vector3i(x, y + 1, z)) == 0: rc = Vector3i(x, y, z)
+	var d0: int = s.debris.size()
+	var first: String = ast.hit_cell(rc, 1)
+	var second: String = ast.hit_cell(rc, 1)
+	if second != "":
+		s._asteroid_broke(ast, rc, second, "gun")
+		ast.remesh()
+	var laser_ok: bool = first == "" and second == "rock" and ast.solid_count == before - 1 and s.debris.size() == d0 + 1
+	# a shot through the real bolt path breaks blocks too (aim at the asteroid's middle)
+	var hit0: int = int(s.asteroid_broken.get("rock", 0)) + int(s.asteroid_broken.get("obsidian", 0))
+	var tough := true
+	for c in ast.cells_near(ast.global_position, ast.radius):
+		if str(c[1]) == "obsidian":
+			tough = ast.hit_cell(c[0], int(Data.ASTEROID_HITS["obsidian"]) - 1) == ""
+			break
+	# a missile: a hole, and treasure inside drops pickups that drift in zero gravity
+	var l0: int = s.loot.size()
+	var core: Vector3 = ast.global_position
+	if any_treasure:
+		for x in ast.n:
+			for y in ast.n:
+				for z in ast.n:
+					var m: int = ast.at(Vector3i(x, y, z))
+					if m == 3 or m == 4: core = ast.world_centre(Vector3i(x, y, z))
+	var broke: int = 0
+	for k in 4: broke += s.blast_asteroid(ast, core, "heavy")
+	var gems: Array = s.loot.slice(l0).filter(func(l): return l.get("zero_g", false))
+	var mined: bool = not any_treasure or not gems.is_empty() or int(s.asteroid_broken.get("gold", 0)) + int(s.asteroid_broken.get("diamond", 0)) > 0
+	await _shot("ax_asteroid_mined", 0.3)
+	# the invisible sphere: a loose block pushed past it is gone
+	var far: Dictionary = s.debris[-1]
+	(far["node"] as Node3D).global_position = s.belt_center + Vector3(s.belt_radius * Data.ASTEROID_BOUND + 50.0, 0, 0)
+	await _frames(2)
+	var gone: bool = not (far in s.debris)
+	_check("v1.7x (owner): block asteroids: a laser breaks a rock block after its hits and it drifts off; obsidian is tough; a missile blows a hole; gold / diamond inside drop pickups (%s); blocks past the field's invisible sphere are gone" % ("treasure found" if any_treasure else "no treasure in this field"),
+		laser_ok and tough and broke > 3 and mined and gone, "laser %s tough %s broke %d mined %s (gems %d) gone %s" % [laser_ok, tough, broke, mined, gems.size(), gone])
 
 ## (v1.7v) the map's route panel offers only GO and CLEAR.
 static func route_keys_simple(btns: Dictionary) -> bool:

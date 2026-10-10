@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.7w"
+const VERSION := "v1.7x"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -586,6 +586,20 @@ const CONVOY_GATE := 220.0                      # this close to the gate, the fr
 const CONVOY_START := 700.0                     # in the next system it comes out this far in front of the arrival gate
 const CONVOY_WAVE_AT := [0.5, 0.35]             # how far along each leg its ambush comes
 const CONVOY_WAVE_SHIPS := [3, 4]               # ships in each ambush (the second, in the next system, is the battle)
+# v1.7x (owner): asteroids made of blocks, for mining. Rock outside, obsidian streaks, gold / diamond in some cores; no
+# sand or dirt. Zero gravity: broken blocks drift off, and anything floating past the field's invisible sphere is gone.
+const ASTEROIDS_BLOCK := true
+const ASTEROID_COUNT := 34                # block asteroids per field (they replace the old round rocks)
+const ASTEROID_SIZE := [5, 11]            # blocks across (most are small: the size leans to the low end)
+const ASTEROID_BIG := [3, 15]             # [how many big ones, blocks across]
+const ASTEROID_CELL := 3.0                # m per block
+const ASTEROID_TREASURE := {"gold": 0.4, "diamond": 0.15}   # chance an asteroid hides a gold / diamond cluster in its core
+const ASTEROID_HITS := {"rock": 2, "obsidian": 7, "gold": 4, "diamond": 6}   # laser hits a block takes
+const ASTEROID_BLAST := {"missile": 5.0, "heavy": 10.0}     # m: a missile breaks every block this close (obsidian only in the inner half)
+const ASTEROID_BOUND := 1.3               # the invisible sphere = field radius x this; drifting blocks and pickups past it are gone
+const ASTEROID_DEBRIS_MAX := 140          # loose blocks floating at once (the oldest go first)
+const ASTEROID_DEBRIS_LIFE := 50.0        # s a loose block drifts before it fades
+const ASTEROID_DEBRIS_SPEED := [2.0, 8.0] # m/s a broken block drifts away
 # ---------------------------------------------------------------- Job AG (v1.5c): Covenant, Cybermorph, Solrath fighters; Liberator and Imperium rebuilt
 # Light, mirrored, levelled copies from the owner's sets (hl_2covenant, hl_Cybermorph, hl_solrath, hl_Liberator, hl_Imperium).
 # Fighters only (the owner: ships and battleships matter, not the look-alike missiles and turrets). Nose at -Z, yaw 0.

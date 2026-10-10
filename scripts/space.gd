@@ -122,6 +122,12 @@ var nebula_center := Vector3.ZERO
 var nebula_radius := 0.0
 var nebula_color := Color.WHITE
 var belt_center := Vector3.ZERO
+const BlockAsteroid := preload("res://scripts/block_asteroid.gd")
+var asteroids: Array = []        # v1.7x: the field's block asteroids (each also has a [centre, radius] entry in rocks)
+var debris: Array = []           # v1.7x: loose blocks drifting in zero gravity: {node, vel, spin, life}
+var asteroid_broken := {}        # (tests) blocks broken per material
+var _debris_mesh: BoxMesh = null
+var _debris_mats := {}
 var belt_radius := 0.0
 var rocks: Array = [] # [Vector3 pos, float radius]
 var enemies: Array = [] # Dictionaries
@@ -1014,6 +1020,9 @@ func _rock_mesh(seed_v: int, ice: bool) -> ArrayMesh:
 func _build_belt(d: Dictionary) -> void:
 	belt_center = d["center"]
 	belt_radius = d["radius"]
+	if Data.ASTEROIDS_BLOCK:
+		_build_block_belt(d)
+		return
 	var variants := 3
 	var per := int(d["count"]) / variants
 	for v in variants:
@@ -1034,6 +1043,123 @@ func _build_belt(d: Dictionary) -> void:
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		mmi.name = "Asteroids%d" % v
 		add_child(mmi)
+
+## v1.7x: the field as block asteroids: a few big ones and many small, spread through the field without overlapping.
+func _build_block_belt(d: Dictionary) -> void:
+	var holder := Node3D.new()
+	holder.name = "Asteroids"
+	add_child(holder)
+	var big: int = int(Data.ASTEROID_BIG[0])
+	for i in Data.ASTEROID_COUNT:
+		var size: int = int(Data.ASTEROID_BIG[1]) if i < big else int(round(lerpf(float(Data.ASTEROID_SIZE[0]), float(Data.ASTEROID_SIZE[1]), pow(_rng.randf(), 1.8))))
+		var r: float = size * Data.ASTEROID_CELL * 0.9
+		var p := Vector3.INF
+		for k in 12:
+			var a := _rng.randf() * TAU
+			var dist := sqrt(_rng.randf()) * maxf(10.0, belt_radius - r)
+			var c: Vector3 = belt_center + Vector3(cos(a) * dist, _rng.randfn(0.0, 30.0), sin(a) * dist * 0.8)
+			var clear := true
+			for o in rocks:
+				if (o[0] as Vector3).distance_to(c) < float(o[1]) + r + 6.0: clear = false
+			if clear:
+				p = c
+				break
+		if p == Vector3.INF: continue
+		var ast = BlockAsteroid.new()
+		ast.name = "Asteroid%d" % i
+		ast.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		holder.add_child(ast)
+		ast.global_position = p
+		ast.setup(hash(sys_id) * 31 + i, size, Data.ASTEROID_CELL, bool(d.get("ice", false)), Data.ASTEROID_TREASURE)
+		asteroids.append(ast)
+		rocks.append([p, float(ast.radius)])
+
+## Every frame: the asteroids tumble, loose blocks drift, and anything past the field's invisible sphere is gone.
+func _update_asteroids(dt: float) -> void:
+	if asteroids.is_empty(): return
+	var near: bool = is_instance_valid(player) and player.global_position.distance_to(belt_center) < belt_radius + 3000.0
+	if near:
+		for a in asteroids: a.tick(dt)
+	var bound: float = belt_radius * Data.ASTEROID_BOUND
+	for i in range(debris.size() - 1, -1, -1):
+		var b: Dictionary = debris[i]
+		var nd: Node3D = b["node"]
+		b["life"] = float(b["life"]) - dt
+		nd.global_position += (b["vel"] as Vector3) * dt
+		nd.rotate((b["spin"] as Vector3).normalized(), (b["spin"] as Vector3).length() * dt)
+		if float(b["life"]) < 2.0: nd.scale = Vector3.ONE * maxf(0.05, float(b["life"]) / 2.0)
+		if float(b["life"]) <= 0.0 or nd.global_position.distance_to(belt_center) > bound:
+			nd.queue_free()
+			debris.remove_at(i)
+	for i in range(loot.size() - 1, -1, -1):   # mined gold / diamond that drifts out of the field is lost too
+		var l: Dictionary = loot[i]
+		if l.get("zero_g", false) and (l["node"] as Node3D).global_position.distance_to(belt_center) > bound:
+			(l["node"] as Node3D).queue_free()
+			loot.remove_at(i)
+
+## The block asteroid a segment meets first: [asteroid, cell, point] or [].
+func ray_asteroids(a: Vector3, b: Vector3) -> Array:
+	if asteroids.is_empty() or not (in_belt_region(a) or in_belt_region(b)): return []
+	var best: Array = []
+	var bd := INF
+	for ast in asteroids:
+		if _seg_closest(a, b, ast.global_position).distance_to(ast.global_position) > float(ast.radius): continue
+		var h: Array = ast.ray(a, b)
+		if h.is_empty(): continue
+		var d := a.distance_to(h[1])
+		if d < bd:
+			bd = d
+			best = [ast, h[0], h[1]]
+	return best
+
+## A block came off an asteroid: gold and diamond drop pickups (tractor them in); the rest drifts off as a loose block.
+func _asteroid_broke(ast, c: Vector3i, mat: String, weapon: String) -> void:
+	var at: Vector3 = ast.world_centre(c)
+	asteroid_broken[mat] = int(asteroid_broken.get(mat, 0)) + 1
+	if mat == "gold" or mat == "diamond":
+		var before := loot.size()
+		_on_mined(at, mat, weapon)
+		for k in range(before, loot.size()):
+			loot[k]["zero_g"] = true
+			loot[k]["vel"] = (at - ast.global_position).normalized() * _rng.randf_range(3.0, 7.0)
+		return
+	if _debris_mesh == null:
+		_debris_mesh = BoxMesh.new()
+		_debris_mesh.size = Vector3.ONE * Data.ASTEROID_CELL * 0.8
+	if not _debris_mats.has(mat):
+		var m := StandardMaterial3D.new()
+		m.albedo_color = ast.color_of(BlockAsteroid.NAMES.find(mat))
+		m.roughness = 0.85
+		_debris_mats[mat] = m
+	var mi := MeshInstance3D.new()
+	mi.mesh = _debris_mesh
+	mi.material_override = _debris_mats[mat]
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.name = "LooseBlock"
+	add_child(mi)
+	mi.global_transform = Transform3D(ast.global_transform.basis.orthonormalized(), at)
+	var out: Vector3 = (at - (ast.global_position as Vector3)).normalized()
+	if out.length() < 0.5: out = Vector3.UP
+	var dv: Vector3 = (out + Vector3(_rng.randfn(0, 0.3), _rng.randfn(0, 0.3), _rng.randfn(0, 0.3))).normalized()
+	debris.append({"node": mi, "vel": dv * _rng.randf_range(Data.ASTEROID_DEBRIS_SPEED[0], Data.ASTEROID_DEBRIS_SPEED[1]),
+		"spin": Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), _rng.randfn(0, 1)), "life": Data.ASTEROID_DEBRIS_LIFE})
+	while debris.size() > Data.ASTEROID_DEBRIS_MAX:
+		(debris[0]["node"] as Node3D).queue_free()
+		debris.remove_at(0)
+
+## A missile meets an asteroid: every block within its blast breaks (obsidian only near the middle).
+func blast_asteroid(ast, at: Vector3, kind: String) -> int:
+	var r: float = float(Data.ASTEROID_BLAST.get(kind, Data.ASTEROID_BLAST["missile"]))
+	var n := 0
+	for e in ast.cells_near(at, r):
+		var c: Vector3i = e[0]
+		if str(e[1]) == "obsidian" and (ast.world_centre(c) as Vector3).distance_to(at) > r * 0.5: continue
+		var mat: String = ast.break_cell(c)
+		if mat != "":
+			_asteroid_broke(ast, c, mat, kind)
+			n += 1
+	if n > 0: ast.remesh()
+	return n
 
 func _build_nebula(d: Dictionary) -> void:
 	nebula_center = d["center"]
@@ -1676,6 +1802,7 @@ func _process(dt: float) -> void:
 	_update_blasts(dt)
 	_update_mines(dt)
 	_update_loot(dt)
+	_update_asteroids(dt)   # v1.7x
 	_update_effects(dt)
 	_collisions(dt)
 	if surface_mode: _surface_update(dt)
@@ -2193,11 +2320,24 @@ func _update_bolts(dt: float) -> void:
 					else:
 						_spark(at, Color(1, 0.8, 0.5), 2.0)
 		if not hit and in_belt_region(to):
-			for r in rocks:
-				if _seg_hit(from, to, r[0], r[1]):
-					_spark(to, Color(1, 0.8, 0.5), 3.0)
+			if not asteroids.is_empty():   # v1.7x: shots chip the block asteroids (yours break blocks)
+				var ah := ray_asteroids(from, to)
+				if not ah.is_empty():
 					hit = true
-					break
+					var ast = ah[0]
+					if b["owner"] == "player":
+						var mat: String = ast.hit_cell(ah[1], 1)
+						if mat != "":
+							_asteroid_broke(ast, ah[1], mat, "gun")
+							ast.remesh()
+						_spark(ah[2], ast.color_of(ast.at(ah[1])) if mat == "" else Color(1, 0.85, 0.6), 4.0 if mat != "" else 2.5, 0.25)
+					else: _spark(ah[2], Color(1, 0.8, 0.5), 2.0)
+			else:
+				for r in rocks:
+					if _seg_hit(from, to, r[0], r[1]):
+						_spark(to, Color(1, 0.8, 0.5), 3.0)
+						hit = true
+						break
 		if hit or b["life"] <= 0.0:
 			n.queue_free()
 			bolts.remove_at(i)
@@ -2866,7 +3006,13 @@ func _update_missiles(dt: float) -> void:
 		var rbm := _ray_blocks(n.global_position - (v + wv2) * dt, n.global_position) if surface_mode else [null, Vector3.INF]
 		var bfm: BlockField = rbm[0]
 		var dig: Vector3 = rbm[1]
-		if dig != Vector3.INF:   # EXPERIMENT (v1.5t): a missile that meets the block ground blows a crater
+		var ahm: Array = ray_asteroids(n.global_position - (v + wv2) * dt, n.global_position) if not surface_mode and dig == Vector3.INF else []
+		if not ahm.is_empty():   # v1.7x: a missile that meets an asteroid blows a hole in it
+			blast_asteroid(ahm[0], ahm[2], "heavy" if m.get("heavy", false) else "missile")
+			missile_blast(ahm[2], m, null)
+			_spark(ahm[2], Color(1, 0.6, 0.2), 10.0)
+			done = true
+		elif dig != Vector3.INF:   # EXPERIMENT (v1.5t): a missile that meets the block ground blows a crater
 			_blast_blocks(dig, "heavy" if m.get("heavy", false) else "missile", bfm)
 			_blast(dig, Data.BLAST_ENEMY if m.get("heavy", false) else Data.BLAST_WING, "ground")
 			done = true
@@ -3183,7 +3329,17 @@ func _collisions(dt: float) -> void:
 	collide_grace = maxf(0.0, collide_grace - dt)
 	var p := player.global_position
 	in_belt = in_belt_region(p)
-	if in_belt:
+	if in_belt and not asteroids.is_empty():   # v1.7x: bump off the blocks themselves
+		for ast in asteroids:
+			if p.distance_to(ast.global_position) > float(ast.radius) + 4.0: continue
+			var push: Vector3 = ast.push_out(p, 3.5)
+			if push == Vector3.ZERO: continue
+			var nrm := push.normalized()
+			player.global_position += push
+			collision_damage("asteroid", vel.dot(-nrm), player.global_position - nrm * 3.5)
+			vel = vel - nrm * vel.dot(nrm) * 1.6
+			p = player.global_position
+	elif in_belt:
 		for r in rocks:
 			var d: float = p.distance_to(r[0])
 			var rr: float = r[1] + 3.5

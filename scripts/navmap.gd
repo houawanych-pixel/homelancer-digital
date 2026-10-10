@@ -464,7 +464,8 @@ func info(key: String) -> Dictionary:
 			out["lines"].append("Fly to it and press DOCK to jump.")
 		"belt":
 			out["type"] = "Asteroid Belt"
-			out["lines"].append("%d rocks, about %d m across. Mind your hull." % [int(d.get("count", 0)), int(o["r"] * 2.0)])
+			out["lines"].append("%d rocks, about %d m across. Mind your hull." % [Data.ASTEROID_COUNT if Data.ASTEROIDS_BLOCK else int(d.get("count", 0)), int(o["r"] * 2.0)])
+			if Data.ASTEROIDS_BLOCK: out["lines"].append("Block asteroids: shoot them to mine. Some hide gold or diamond inside; TRACTOR the pieces in.")
 		"nebula":
 			out["type"] = "Nebula"
 			out["lines"].append("Radar range drops inside it.")
