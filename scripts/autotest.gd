@@ -5169,6 +5169,7 @@ func _job_an() -> void:
 	if right: s.target = tgt[0]["node"]
 	var targeting: bool = right and s.target_health() > 0.0
 	Sfx.voices_override = [{"id": "v_m", "name": "Microsoft David", "language": "en-US"}, {"id": "v_f", "name": "Microsoft Zira", "language": "en-US"}]
+	Sfx.keep_until = 0.0   # (v1.7v: no jumps now, so the job brief may still be reading; nothing talks over it by design)
 	if right: main._pilot_call(tgt[0]["pilot"], false)
 	var razor_voice: bool = Sfx.last_profile.get("preferred_voice", "") == "v_f"
 	Sfx.voices_override = []
