@@ -56,6 +56,7 @@ var clamped := 0               # v1.6f spires cut down to a realistic height (te
 var canyon_cells: Array = []   # v1.6f the canyon floor's cells
 var roots: Array = []          # v1.6f obsidian roots piercing the surface: [{cells: [cell], tip}]
 var halls: Array = []          # v1.6h deep root halls: [{x, z, w, k0, k1, trunks: [cell], lava: int}]
+var molds: Array = []          # v1.7h stamped mold shapes: [{kind, centre, k0, rooms, entrance, route}]
 var slabs: Array = []          # v1.7f leaning slabs and A-frames: [{cells, lo: {cell: y}, kind, mat, geo: [pieces], whole}]
 var _slab_of := {}             # cell -> index in slabs
 var arches: Array = []         # v1.6e generated arches: [{legs: [[cells], [cells]], span: [cells], mid: cell, mat}]
@@ -286,6 +287,7 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 			queue_free()
 			return
 	_carve_caves()
+	if region.x >= 0: _carve_cave_mold()   # (v1.7h)
 	if staged:
 		await Engine.get_main_loop().process_frame
 		if cancel:
@@ -1009,6 +1011,147 @@ func _carve_caves() -> void:
 		_settle(cx - 2, cx + w + 2, cz - 2, cz + w + 2)
 		caves.append({"centre": Vector3(x0 + (cx + w * 0.5) * Data.BLOCK_MIN, _ly(kc), z0 + (cz + w * 0.5) * Data.BLOCK_MIN), "cells": count})
 	collapses = 0
+
+## v1.7h: stamp a mold into the ground. A mold is a filled volume of 5 m cells, given as runs [dx, dz, klo, khi]
+## (cells from (cx, cz); layers from k0, khi not included). "cut" makes those layers air (from the top down, so a cut
+## that reaches the surface opens an entrance); "add" makes them solid in material m. Returns the cells touched.
+func _stamp(runs: Array, cx: int, cz: int, k0: int, op: String, m := "stone") -> Array:
+	var touched: Array = []
+	for r in runs:
+		var x: int = cx + int(r[0])
+		var z: int = cz + int(r[1])
+		if x < 0 or z < 0 or x >= n or z >= n: continue
+		var c := z * n + x
+		_split_one(c)
+		var kf := _kfloor(c) + 1
+		if op == "cut":
+			for k in range(k0 + int(r[3]) - 1, k0 + int(r[2]) - 1, -1):
+				if k > kf and _solid_k(c, k): _cell_remove(c, k)
+		else:
+			for k in range(k0 + int(r[2]), k0 + int(r[3])):
+				if not _solid_k(c, k): _cell_add(c, k, m)
+		touched.append(c)
+		_mark(x, z, 1)
+	return touched
+
+## Turn {Vector2i(dx, dz): {k: true}} into mold runs [dx, dz, klo, khi].
+func _runs_of(vol: Dictionary) -> Array:
+	var out: Array = []
+	for key in vol:
+		var ks: Array = (vol[key] as Dictionary).keys()
+		ks.sort()
+		var i := 0
+		while i < ks.size():
+			var a: int = ks[i]
+			var b: int = a + 1
+			while i + 1 < ks.size() and int(ks[i + 1]) == b:
+				i += 1
+				b += 1
+			out.append([(key as Vector2i).x, (key as Vector2i).y, a, b])
+			i += 1
+	return out
+
+## v1.7h, the first mold (the owner's picture 07): a big chamber, tunnels out to side rooms at other heights, and one
+## tunnel climbing to a surface entrance. Placed where there is room, with at least MOLD_CEILING of rock over the
+## chamber and rooms; the ceiling over the open spaces may hang further than plain rock (reach_bonus), like the halls.
+@warning_ignore("integer_division")
+func _carve_cave_mold(force := false) -> bool:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(_sk + "|cavemold")
+	if not force and rng.randf() >= Data.MOLD_CAVE_CHANCE: return false
+	var cw := rng.randi_range(int(Data.MOLD_CHAMBER[0]), int(Data.MOLD_CHAMBER[1]))
+	var ch: int = Data.MOLD_CHAMBER_TALL
+	var tw: int = Data.MOLD_TUNNEL_W
+	var th: int = Data.MOLD_TUNNEL_TALL
+	for attempt in 30:
+		var vol := {}   # Vector2i(dx, dz) from the chamber's middle -> {k (from the chamber floor): true}
+		var put := func(dx: int, dz: int, k_lo: int, k_hi: int) -> void:
+			var key := Vector2i(dx, dz)
+			var d: Dictionary = vol.get(key, {})
+			for k in range(k_lo, k_hi): d[k] = true
+			vol[key] = d
+		var half := cw / 2
+		for dz in range(-half, half):   # the chamber: a rounded box, a little domed
+			for dx in range(-half, half):
+				var u := Vector2((dx + 0.5) / half, (dz + 0.5) / half)
+				var e := pow(absf(u.x), 4.0) + pow(absf(u.y), 4.0)
+				if e > 1.0: continue
+				put.call(dx, dz, 0, ch - (1 if e > 0.6 else 0))
+		var ent := rng.randi_range(0, 3)   # which side the entrance tunnel leaves from
+		var dirs := [Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(0, -1)]
+		var rooms: Array = []
+		var route: Array = []   # the way out: [Vector2i(dx, dz), floor k] samples down the middle of the entrance tunnel
+		var far := half
+		for side in 4:
+			var d: Vector2i = dirs[side]
+			var lat := Vector2i(-d.y, d.x)
+			if side == ent:   # climb toward the surface (one layer up every MOLD_RAMP cells), then a shaft straight up and out
+				var fl := 0
+				var s := half - 1
+				while fl < ch:
+					for w in range(-tw / 2, tw - tw / 2):
+						var p := d * s + lat * w
+						put.call(p.x, p.y, fl, fl + th)
+					route.append([d * s, fl])
+					s += 1
+					if (s - half) % int(Data.MOLD_RAMP) == 0: fl += 1
+				for a2 in range(0, tw):   # the shaft: cut on up through everything, so it opens to the sky
+					for w in range(-tw / 2, tw - tw / 2):
+						var p := d * (s + a2) + lat * w
+						put.call(p.x, p.y, fl, fl + 80)
+				route.append([d * (s + tw / 2), fl])
+				far = maxi(far, s + tw)
+			else:
+				var ln := rng.randi_range(int(Data.MOLD_TUNNEL_LEN[0]), int(Data.MOLD_TUNNEL_LEN[1]))
+				var rf := rng.randi_range(-2, 2)   # the side room's floor, in layers from the chamber floor
+				for s in range(half - 1, half + ln + 1):   # (one cell into the room, so it always meets it)
+					var f := int(round(lerpf(0.0, float(rf), float(s - half + 1) / float(ln))))   # it steps on the way
+					for w in range(-tw / 2, tw - tw / 2):
+						var p := d * s + lat * w
+						put.call(p.x, p.y, f, f + th)
+				var rw := rng.randi_range(int(Data.MOLD_ROOM[0]), int(Data.MOLD_ROOM[1]))
+				var rc := d * (half + ln + rw / 2)
+				for a in range(-rw / 2, rw - rw / 2):
+					for b in range(-rw / 2, rw - rw / 2):
+						var p := rc + Vector2i(a, b)
+						put.call(p.x, p.y, rf, rf + Data.MOLD_ROOM_TALL)
+				rooms.append([rc, rf])
+				far = maxi(far, half + ln + rw)
+		# where it fits: inside the region, the rock thick enough over everything but the entrance climb
+		var cx := rng.randi_range(far + 2, n - far - 3)
+		var cz := rng.randi_range(far + 2, n - far - 3)
+		if cx < far + 2 or cz < far + 2 or cx > n - far - 3 or cz > n - far - 3:
+			if far * 2 + 6 > n: return false
+			continue
+		var topmin := INF
+		var floor_ok := true
+		for key in vol:
+			var kk: Vector2i = key
+			var x := cx + kk.x
+			var z := cz + kk.y
+			if x < 1 or z < 1 or x >= n - 1 or z >= n - 1:
+				floor_ok = false
+				break
+			var on_route := false
+			for rt in route:
+				if (rt[0] as Vector2i) == kk or ((rt[0] as Vector2i) - kk).length_squared() <= tw * tw: on_route = true
+			if not on_route: topmin = minf(topmin, h[z * n + x])
+		if not floor_ok or topmin == INF: continue
+		if Surface.biome(planet_id, tile)["sea"] != null and topmin < 8.0: continue   # (not under the sea: it would open on the sea floor)
+		var k0 := _k(topmin) - ch - Data.MOLD_CEILING - 2 - rng.randi_range(0, 2)
+		if k0 - 3 < _kfloor(cz * n + cx) + int(Data.KILL_CAP / Data.BLOCK_MIN) + 1: continue
+		var runs := _runs_of(vol)
+		var touched := _stamp(runs, cx, cz, k0, "cut")
+		for c in touched: reach_bonus[c] = maxi(int(reach_bonus.get(c, 0)), half + 2)
+		_settle(maxi(0, cx - far - 2), mini(n - 1, cx + far + 2), maxi(0, cz - far - 2), mini(n - 1, cz + far + 2))
+		var rts: Array = []
+		for rt in route: rts.append([(cz + (rt[0] as Vector2i).y) * n + cx + (rt[0] as Vector2i).x, k0 + int(rt[1])])
+		var rms: Array = []
+		for rm in rooms: rms.append([(cz + (rm[0] as Vector2i).y) * n + cx + (rm[0] as Vector2i).x, k0 + int(rm[1])])
+		molds.append({"kind": "cave", "centre": cz * n + cx, "k0": k0, "tall": ch, "rooms": rms, "route": rts, "cells": touched.size()})
+		collapses = 0
+		return true
+	return false
 
 ## Landmarks (v1.6e): flyable natural ARCHES (stone, some obsidian; some with gold or diamond in the span) on a leg at
 ## each end, and PRIDE ROCK promontories: a block of rock with a slab jutting out over open air. Load-bearing: each

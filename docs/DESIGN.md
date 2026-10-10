@@ -1254,3 +1254,4 @@ Owner, after the v1.5k test flow passed: "push it to all".
 - v1.7e: slanted outer form (look only): `_slant` / `_corner_h` / `_slant_ok` / `_slant_top` lean natural tops into slabs and wedges, per-corner so neighbours always meet (`BLOCK_SLANT_MAX`).
 - v1.7f: leaning slabs and A-frames (`_build_slabs`, drawn whole by `_draw_slabs`, `_slab_lo` hides their blocks while whole, `_slab_check` drops the look once hit).
 - v1.7g: owner's look: grass cap + brown dirt (`BLOCK_GRASS_BAND`, `DIRT_BROWN`), `_join_columns` (`BLOCK_SHAPES`), slant patches (`BLOCK_SLANT_ZONE`).
+- v1.7h: molds (`_stamp` cut/add of [dx, dz, klo, khi] runs, `_runs_of`) and the first cave mold (`_carve_cave_mold`, `MOLD_*`).

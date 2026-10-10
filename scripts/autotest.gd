@@ -6018,6 +6018,95 @@ func _regions() -> void:
 	var brown: bool = tdirt.r > tdirt.g and tdirt.g > tdirt.b
 	_check("Owner's look (v1.7g): brown dirt under a thin grass cap in the planet's own colour, and the ground built from blocks of many sizes (long rectangles and big solid blocks, not one size of square)",
 		jn > 100 and brown, "columns joined into bigger blocks %d, dirt colour %s (brown %s), grass cap %.1f m" % [jn, str(tdirt), brown, Data.BLOCK_GRASS_BAND])
+	# v1.7h: the first mold: a cave (big chamber, tunnels to side rooms, a tunnel climbing to a shaft open to the sky),
+	# cut as a filled volume; then checked as the owner's notes ask: room to fly, all connected, rock over it, collision
+	var mf: BlockField = null
+	for f in s._fields():
+		if mf == null and not (f as BlockField).molds.is_empty(): mf = f
+	var natural := mf != null
+	if mf == null:
+		mf = sr
+		mf._carve_cave_mold(true)
+		mf.flush()
+	var mo: Dictionary = mf.molds[0] if not mf.molds.is_empty() else {}
+	var clear_ok := not mo.is_empty()
+	var conn_ok := false
+	var ceil_ok := not mo.is_empty()
+	var coll_ok := false
+	var reached := 0
+	if not mo.is_empty():
+		var k0: int = mo["k0"]
+		for rt in (mo["route"] as Array).slice(0, -1):   # room to fly all the way out
+			for k in range(int(rt[1]), int(rt[1]) + Data.MOLD_TUNNEL_TALL):
+				if mf._solid_k(int(rt[0]), k): clear_ok = false
+		var last: Array = (mo["route"] as Array)[-1]
+		var sky_ok: bool = mf._ktop(int(last[0])) <= int(last[1]) + 1
+		# connected: walk the air from the chamber floor; it must reach every room and the open sky
+		var start := Vector2i(int(mo["centre"]), k0 + 1)
+		var seen := {start: true}
+		var queue: Array = [start]
+		var sky := false
+		var goals := {}
+		for rm in mo["rooms"]: goals[Vector2i(int(rm[0]), int(rm[1]) + 1)] = true
+		var steps := 0
+		while not queue.is_empty() and steps < 60000:
+			steps += 1
+			var cur: Vector2i = queue.pop_back()
+			if goals.has(cur):
+				goals.erase(cur)
+				reached += 1
+			if cur.y >= mf._ktop(cur.x):
+				sky = true
+				continue
+			var cx2: int = cur.x % mf.n
+			var cz2: int = cur.x / mf.n
+			for nb in [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 1, 0), Vector3i(0, -1, 0), Vector3i(0, 0, 1), Vector3i(0, 0, -1)]:
+				var x2: int = cx2 + nb.x
+				var z2: int = cz2 + nb.y
+				if x2 < 0 or z2 < 0 or x2 >= mf.n or z2 >= mf.n: continue
+				var nx := Vector2i(z2 * mf.n + x2, cur.y + nb.z)
+				if seen.has(nx) or nx.y < k0 - 4 or mf._solid_k(nx.x, nx.y): continue
+				seen[nx] = true
+				queue.append(nx)
+		conn_ok = sky and sky_ok and reached == (mo["rooms"] as Array).size()
+		# rock overhead: over the chamber's middle and each room at least MOLD_CEILING layers stay solid
+		var over := func(c: int, k_from: int) -> int:
+			var nsol := 0
+			for k in range(k_from, mf._ktop(c)):
+				if mf._solid_k(c, k): nsol += 1
+			return nsol
+		if over.call(int(mo["centre"]), k0 + int(mo["tall"])) < Data.MOLD_CEILING: ceil_ok = false
+		for rm in mo["rooms"]:
+			if over.call(int(rm[0]), int(rm[1]) + Data.MOLD_ROOM_TALL) < Data.MOLD_CEILING: ceil_ok = false
+		var cc: int = mo["centre"]
+		var px: float = mf.x0 + (cc % mf.n + 0.5) * Data.BLOCK_MIN
+		var pz: float = mf.z0 + (cc / mf.n + 0.5) * Data.BLOCK_MIN
+		var inside: float = mf.y0 + (k0 + 3) * Data.BLOCK_MIN
+		coll_ok = absf(mf.ground_for(px, inside, pz) - (mf.y0 + k0 * Data.BLOCK_MIN)) < 0.01 and mf.ceiling_above(px, inside, pz) >= mf.y0 + (k0 + int(mo["tall"]) - 1) * Data.BLOCK_MIN - 0.01
+		if OS.get_environment("HL_SHOT_DIR") != "":   # pictures: inside the chamber, and the shaft from above
+			main.hud.visible = false
+			s.player.visible = false
+			var ccam := Camera3D.new()
+			ccam.far = 8000.0
+			s.add_child(ccam)
+			var cprev := get_viewport().get_camera_3d()
+			var r0: int = int((mo["rooms"] as Array)[0][0])
+			var look := Vector3(mf.x0 + (r0 % mf.n + 0.5) * Data.BLOCK_MIN, inside, mf.z0 + (r0 / mf.n + 0.5) * Data.BLOCK_MIN)
+			ccam.global_position = Vector3(px, inside + 8.0, pz) - (look - Vector3(px, inside, pz)).normalized() * 30.0
+			ccam.look_at(look, Vector3.UP)
+			ccam.make_current()
+			await _shot("mold_cave_inside", 1.0)
+			var lc: int = int(last[0])
+			var top3 := Vector3(mf.x0 + (lc % mf.n + 0.5) * Data.BLOCK_MIN, mf.h0[lc], mf.z0 + (lc / mf.n + 0.5) * Data.BLOCK_MIN)
+			ccam.global_position = top3 + Vector3(60, 70, 60)
+			ccam.look_at(top3 + Vector3(0, -20, 0), Vector3.UP)
+			await _shot("mold_cave_entrance", 1.0)
+			ccam.queue_free()
+			if cprev: cprev.make_current()
+			main.hud.visible = true
+			s.player.visible = true
+	_check("Molds (v1.7h): a cave is cut into the ground as one filled shape (a big chamber, tunnels to side rooms at other heights, a tunnel climbing to a shaft open to the sky); room to fly all the way out, all of it connected, rock left overhead, solid floor and roof",
+		clear_ok and conn_ok and ceil_ok and coll_ok, "made by the seed %s, cells cut %d, room to fly %s, rooms reached %d of %d, open to the sky %s, rock overhead %s, floor/roof %s" % [natural, int(mo.get("cells", 0)), clear_ok, reached, (mo.get("rooms", []) as Array).size(), conn_ok, ceil_ok, coll_ok])
 	# v1.7f: leaning slabs and A-frames stand about, one straight tilted slab each while whole; you can fly under an
 	# A-frame; knock out a lean-to's prop (or one foot of an A-frame) and it stops being one piece and the far part falls
 	var found := {"lean": null, "aframe": null}

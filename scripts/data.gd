@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.7g"
+const VERSION := "v1.7h"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -324,6 +324,19 @@ const CAVE_LAYERS := 8               # layers tall (40 m)
 const CAVE_DEPTH := [45.0, 110.0]    # m under the ground (its middle)
 const CAVE_NOISE_FREQ := 0.11
 const CAVE_THRESHOLD := 0.18
+# v1.7h MOLDS (owner's voxel notes + picture 07): designed shapes stamped into the ground as filled volumes of 5 m
+# cells, either cut out (caves) or added (trees, roots: next). The first: a cave system with a big chamber, tunnels
+# out to side rooms (floors at different heights) and one tunnel climbing to a surface entrance, all big enough to fly.
+const MOLD_CAVE_CHANCE := 0.3        # the share of regions with one
+const MOLD_CHAMBER := [16, 20]       # chamber width in cells (80-100 m)
+const MOLD_CHAMBER_TALL := 7         # layers (35 m)
+const MOLD_TUNNEL_W := 4             # cells (20 m): room to fly
+const MOLD_TUNNEL_TALL := 4          # layers (20 m)
+const MOLD_TUNNEL_LEN := [8, 14]     # cells from the chamber to a side room
+const MOLD_ROOM := [7, 10]           # side room width in cells
+const MOLD_ROOM_TALL := 5            # layers
+const MOLD_CEILING := 3              # layers of rock left over the chamber and rooms at least (15 m)
+const MOLD_RAMP := 2                 # the entrance tunnel climbs one layer every this many cells, then a shaft opens up
 const KILL_CAP := 30.0               # m of obsidian over the kill floor
 const KILL_COLOR := Color(1.0, 0.82, 0.45)
 # v1.6e world generation, part 2: landmarks. Flyable arches (stone, some obsidian, some with treasure in the span) and

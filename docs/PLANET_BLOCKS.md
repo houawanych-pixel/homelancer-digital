@@ -576,6 +576,15 @@ Status: the owner said go for step 2 (craters), step by step. Each next step wai
    blocks (`BLOCK_SHAPES`: 1x1 up to 3x2 columns of 20 m), some big ones standing a step or two proud
    (`BLOCK_BIG_RISE`); slants only in patches ("a few slants": `BLOCK_SLANT_ZONE` on one planet-wide noise), the
    rest square steps like the pictures.
+2s. DONE (v1.7h): MOLDS, first version (the owner's voxel notes and picture 07). A mold is a filled volume of 5 m
+   cells given as runs [dx, dz, klo, khi], stamped in by `_stamp`: "cut" makes those layers air from the top down (a cut
+   that reaches the surface opens an entrance), "add" makes them solid (for trees and roots next). The first mold is a
+   cave system in about 1 region in 3 (`MOLD_*`): a domed chamber 80-100 m across and 35 m tall, 20 m tunnels out to
+   three side rooms whose floors sit at other heights (the tunnels step), and one tunnel climbing to a 20 m shaft that
+   opens to the sky. At least 15 m of rock over the chamber and rooms; its ceiling may hang further than plain rock;
+   never under the sea. The test walks the air from the chamber floor: every room and the sky must be reachable,
+   20 m of room all the way out, rock overhead, floor and roof solid. Still to come: a Blender-model-to-mold tool,
+   more mold shapes, winding tunnels linking caves.
 3. DONE (already from earlier work): the ground blends across tile edges and the next area is built before you reach
    it, so crossing has no jump.
 4. DONE (already): no seam lines at ordinary corners (the ground blends); the planet's wrap corner sits in a cloud bank.
