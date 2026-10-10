@@ -1250,6 +1250,10 @@ func _run() -> void:
 	await _wait(0.4)
 	_check("CALL talks to target/controller", main.hud.comms_mode == "talk")
 	var les1: String = str(GS.tutorial_seen.back()) if GS.tutorial_seen.size() == 1 else ""
+	_check("The first lesson is her intro, and her acted clip 1 plays in the comms portrait, not a synthetic voice (v1.7r, owner)", les1 == "intro"
+		and str(main.hud.slot("r").get("video", "")) == Data.tutor_clip(1) and main.hud.vid != null and main.hud.vid.stream != null, "seen=%s video=%s" % [GS.tutorial_seen, main.hud.slot("r").get("video", "")])
+	await _wait(2.0)
+	await _shot("tutor_intro")
 	_check("CALL with nothing targeted gives a tutorial lesson from the guide (v1.7r, owner)", les1 != "" and main.hud.comms_from.contains("Tutorial")
 		and main.hud.comms_face == str(Data.CHARACTERS[Data.TUTOR_ID]["face"]), "seen=%s from=%s" % [GS.tutorial_seen, main.hud.comms_from])
 	_press("hangup")
@@ -1263,6 +1267,7 @@ func _run() -> void:
 	s.enemies = keep_en
 	GS.tutorial_seen = seen_keep
 	_check("A repeat CALL gives the next lesson; with hostiles near, combat lessons come first (v1.7r)", GS.tutorial_seen.size() == 2 and str(GS.tutorial_seen[1]) != les1
+		and str(GS.tutorial_seen[1]) == "fly" and str(main.hud.slot("r").get("video", "")) == Data.tutor_clip(2)
 		and hot in ["fire", "missile", "shield"], "seen=%s hot=%s" % [GS.tutorial_seen, hot])
 	_press("hangup")
 	await _wait(0.2)

@@ -104,6 +104,7 @@ func start_game() -> void:
 	_launch_sequence("Liberty Hub", false)   # v1.7n (owner): no radio call at the very start
 	await get_tree().create_timer(2.6).timeout
 	if state == "flight" and GS.tutorial_seen.is_empty(): hud.flash_message(Data.TUTOR_HINT)   # v1.7r: a quiet hint, no radio noise
+	tutor_prefetch()   # (her first clip downloads while you fly)
 
 # ---------------------------------------------------------------- systems
 func _load_system(id: String, arrival: String, staged := false) -> void:
@@ -405,7 +406,7 @@ func _call_target() -> void:
 		return
 	call_character("vale" if GS.system_id == "solara" else "amari")
 
-## v1.7r: the next tutorial lesson id ("" when all are done). What is happening around you comes first.
+## v1.7r: the next tutorial lesson id ("" when all are done). The intro first; then what is happening around you.
 func tutor_next() -> String:
 	var now := ""
 	if space.hostiles_near(900.0) > 0: now = "hostiles"
@@ -414,24 +415,45 @@ func tutor_next() -> String:
 	var first := ""
 	for l in Data.TUTORIAL:
 		if str(l["id"]) in GS.tutorial_seen: continue
+		if str(l["id"]) == "intro": return "intro"
 		if now != "" and str(l["when"]) == now: return str(l["id"])
 		if first == "": first = str(l["id"])
 	return first
 
+func _lesson(id: String) -> Dictionary:
+	for l in Data.TUTORIAL:
+		if str(l["id"]) == id: return l
+	return {}
+
+## The lesson's acted clip, if it is here ("" = not yet: the line is spoken instead).
+func tutor_clip(l: Dictionary) -> String:
+	var n := int(l.get("video", 0))
+	if n <= 0: return ""
+	var pk := "tutor_%d" % n
+	if Packs.PACKS.has(pk) and not Packs.is_ready(pk): Packs.request(pk)
+	var path := Data.tutor_clip(n)
+	return path if (not Packs.PACKS.has(pk) or Packs.is_ready(pk)) and ResourceLoader.exists(path) else ""
+
+## Fetch the next lesson's clip in the background so it is ready when you CALL.
+func tutor_prefetch() -> void:
+	var l := _lesson(tutor_next())
+	if not l.is_empty(): tutor_clip(l)
+
 func _tutor_call() -> void:
 	var id := tutor_next()
-	var line := ""
-	for l in Data.TUTORIAL:
-		if str(l["id"]) == id: line = str(l["line"])
+	var l := _lesson(id)
+	var line := str(l["line"])
+	var clip := tutor_clip(l)
 	GS.tutorial_seen.append(id)
 	var left := Data.TUTORIAL.size() - GS.tutorial_seen.size()
-	if left > 0: line += " (%d more — tap CALL again.)" % left
+	if left > 0: line += " (%d more)" % left
 	var c: Dictionary = Data.CHARACTERS[Data.TUTOR_ID]
 	if not (Data.TUTOR_ID in GS.met): GS.meet(Data.TUTOR_ID, "friendly")
 	on_call = Data.TUTOR_ID
 	Sfx.keep_until = 0.0   # (you asked: the lesson may speak)
 	hud.open_comms("%s — Tutorial" % c["name"], line, "talk", false,
-		c.get("face", ""), float(c.get("voice", 1.0)), bool(c.get("female", false)), Data.TUTOR_ID)
+		c.get("face", ""), float(c.get("voice", 1.0)), bool(c.get("female", false)), Data.TUTOR_ID, clip)
+	tutor_prefetch()
 
 var on_call := ""   # who you're talking to (for typed messages)
 
@@ -457,6 +479,9 @@ func say_as(id: String, line: String) -> void:
 
 func call_character(id: String, incoming := false) -> void:
 	var c: Dictionary = Data.CHARACTERS[id]
+	if id == Data.TUTOR_ID and not incoming and tutor_next() != "":   # v1.7r: calling her from LOG gives the next lesson too
+		_tutor_call()
+		return
 	if not incoming: on_call = id
 	if not (id in GS.met): GS.meet(id, "enraged" if c["lines"].has("enraged") else "friendly")
 	var m: String = GS.mood.get(id, "friendly")

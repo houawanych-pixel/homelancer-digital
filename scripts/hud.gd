@@ -109,7 +109,7 @@ func pulse(id: String) -> void:
 
 ## A voice on the radio. Enemies appear on the LEFT side screen, friendlies on the RIGHT; one of each can be on
 ## at the same time. Placing a call closes the comms console.
-func open_comms(from: String, line: String, mode := "talk", hostile := false, face := "", voice := 1.0, female := false, voice_id := "") -> void:
+func open_comms(from: String, line: String, mode := "talk", hostile := false, face := "", voice := 1.0, female := false, voice_id := "", video := "") -> void:
 	var expr := "angry" if hostile else "normal"
 	if line.begins_with("[") and line.find("]") > 0:   # "[smile]Text" picks the face for this line
 		expr = line.substr(1, line.find("]") - 1)
@@ -119,7 +119,7 @@ func open_comms(from: String, line: String, mode := "talk", hostile := false, fa
 	var v := voice if face != "" else (0.8 if hostile else 1.0)
 	slots[side] = {"from": from, "line": line, "face": face, "expr": expr, "voice": v, "female": female, "hostile": hostile,
 		"mode": mode, "timer": 7.0 if mode == "incoming" else 0.0, "generic": face.begins_with("gp/"),
-		"anim": float(old.get("anim", 0.0)) if not old.is_empty() else 0.0}
+		"anim": float(old.get("anim", 0.0)) if not old.is_empty() else 0.0, "video": video}
 	_last = side
 	comms_from = from
 	comms_expr = expr
@@ -131,13 +131,34 @@ func open_comms(from: String, line: String, mode := "talk", hostile := false, fa
 	comms_hostile = hostile
 	if mode == "talk": console_open = false
 	comms_voice_id = voice_id
-	if Time.get_ticks_msec() / 1000.0 >= Sfx.keep_until or not Sfx.voice_busy(): Sfx.speak(line, v, female, voice_id)   # v1.7n: not over a brief
+	if video != "": _play_video(video)   # v1.7r: an acted clip speaks for itself (its own voice and gestures)
+	elif video_playing() and side == "l": pass   # (a hostile line shows as text while the guide's clip talks)
+	elif Time.get_ticks_msec() / 1000.0 >= Sfx.keep_until or not Sfx.voice_busy(): Sfx.speak(line, v, female, voice_id)   # v1.7n: not over a brief
 	_sync()
 	_log("%s: %s" % [from, line])
 
 ## Is that side's screen busy with a call you placed (don't talk over it)?
 func side_busy(hostile: bool) -> bool:
 	return slots["l" if hostile else "r"].get("mode", "") == "talk"
+
+## v1.7r: the guide's acted clips play in the comms portrait (same size as the other faces).
+var vid: VideoStreamPlayer = null
+func _play_video(path: String) -> void:
+	var st := load(path) as VideoStream
+	if st == null: return
+	if vid == null:
+		vid = VideoStreamPlayer.new()
+		vid.name = "CommsVideo"
+		vid.size = Vector2(2, 2)
+		vid.modulate = Color(1, 1, 1, 0)   # (decoded here, drawn by _side into the portrait frame)
+		vid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(vid)
+	Sfx.stop_voice()
+	vid.stream = st
+	vid.play()
+
+func video_playing() -> bool:
+	return vid != null and vid.is_playing()
 
 func slot(side: String) -> Dictionary:
 	return slots[side]
@@ -384,6 +405,7 @@ func _input(e: InputEvent) -> void:
 func _process(dt: float) -> void:
 	if space == null: return
 	t += dt
+	if vid != null and vid.is_playing() and str(slots["r"].get("video", "")) == "" and str(slots["l"].get("video", "")) == "": vid.stop()   # v1.7r: hung up: the clip stops
 	_tick_scan(dt)
 	_tick_talk(dt)
 	msg_t = maxf(0.0, msg_t - dt)
@@ -1410,10 +1432,15 @@ func _side(side: String) -> void:
 	pr.size.y = minf(pr.size.y, r.size.y - 30 - 70)
 	var tex: Texture2D = _face_tex(d["face"], d["expr"]) if d["face"] != "" else null
 	var talk: float = Sfx.talking if side == _last else 0.0
+	if str(d.get("video", "")) != "" and vid != null and vid.get_video_texture() != null and vid.get_video_texture().get_width() > 0:
+		tex = vid.get_video_texture()   # (the clip, last frame held when it ends)
+		talk = 0.0
 	if tex:
 		var src := Rect2(Vector2.ZERO, tex.get_size())
 		var asp := pr.size.x / pr.size.y
 		if asp > 1.0: src = Rect2(0, src.size.y * (1.0 - 1.0 / asp) * 0.3, src.size.x, src.size.y / asp)
+		var tasp: float = src.size.x / src.size.y
+		if tasp < asp: src = Rect2(0, src.size.y * 0.04, src.size.x, src.size.x / asp)   # a tall clip: keep the head and shoulders
 		draw_texture_rect_region(tex, Rect2(pr.position + Vector2(0, -2.0 * talk), pr.size), src, Color(1, 1, 1, a).lerp(Color(1.12, 1.12, 1.12, a), talk))
 	else:
 		draw_rect(pr, Color(0.02, 0.1, 0.2, 0.8 * a))

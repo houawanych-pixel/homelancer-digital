@@ -19,6 +19,11 @@ const PACKS := {
 	"lancer": {"folders": ["res://assets/ships/player"], "match": "lancer", "probe": "res://assets/ships/player/lancer.glb"},
 	"enemies": {"folders": ["res://assets/enemy_pilots"], "probe": "res://assets/enemy_pilots/ax01_normal.jpg"},
 	"intro": {"folders": ["res://assets/intro"], "probe": "res://assets/intro/title_movie.ogv"},
+	# v1.7r: the tutorial guide's acted clips, one pack each, fetched one lesson ahead (a pack is added as each clip arrives)
+	"tutor_1": {"folders": ["res://assets/tutor"], "match": "tutor_1.", "probe": "res://assets/tutor/tutor_1.ogv"},
+	"tutor_2": {"folders": ["res://assets/tutor"], "match": "tutor_2.", "probe": "res://assets/tutor/tutor_2.ogv"},
+	"tutor_3": {"folders": ["res://assets/tutor"], "match": "tutor_3.", "probe": "res://assets/tutor/tutor_3.ogv"},
+	"tutor_4": {"folders": ["res://assets/tutor"], "match": "tutor_4.", "probe": "res://assets/tutor/tutor_4.ogv"},
 	# v1.4s: one static interface background per faction; only the one for the station you dock at is fetched
 	"hubbg_unity": {"folders": ["res://assets/hub_bg"], "match": "unity.", "probe": "res://assets/hub_bg/unity.jpg"},
 	"hubbg_elyza": {"folders": ["res://assets/hub_bg"], "match": "elyza.", "probe": "res://assets/hub_bg/elyza.jpg"},
