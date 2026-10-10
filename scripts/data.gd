@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.7h"
+const VERSION := "v1.7i"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -252,9 +252,9 @@ const BLOCK_REGION_CANYON := 0.2    # the chance a region has a canyon running t
 const BLOCK_ROCK := Color(0.32, 0.3, 0.29)   # the deep rock colour under the surface
 # Step 2 (v1.5t): craters. Every block inside a blast's radius is hit; a block only partly inside splits into four
 # (20 -> 10 -> 5 m) so only the hit part goes; obsidian never splits (it chips, then breaks off whole, in half).
-const BLOCK_HITS := {"sand": 1, "dirt": 2, "stone": 4, "obsidian": 8, "gold": 6, "diamond": 12}   # light-gun hits to break a 5 m layer, by tier
+const BLOCK_HITS := {"sand": 1, "dirt": 2, "stone": 4, "obsidian": 8, "gold": 6, "diamond": 12, "wood": 3, "leaf": 1, "leaf2": 1}   # light-gun hits to break a 5 m layer, by tier
 const BLOCK_BLAST := {"gun": [2.4, 1], "missile": [12.0, 4], "heavy": [20.0, 8], "special": [40.0, 16], "thrust": [7.5, 1], "thrust_soft": [7.5, 2]}   # [radius m, hits dealt]; thrust = the mech pushing into a wall
-const BLOCK_BREAK_PIECES := {"obsidian": 2, "stone": 3, "dirt": 4, "sand": 5, "gold": 4, "diamond": 3}   # each material breaks its own way: harder = fewer, bigger pieces
+const BLOCK_BREAK_PIECES := {"obsidian": 2, "stone": 3, "dirt": 4, "sand": 5, "gold": 4, "diamond": 3, "wood": 3, "leaf": 5, "leaf2": 5}   # each material breaks its own way: harder = fewer, bigger pieces
 const BLOCK_CLEAVE_SPEED := 12.0     # an obsidian piece landing faster than this (m/s) cleaves in half once more
 const BLOCK_RUBBLE_FRAC := 0.5       # about half of what a blast breaks flies out as rubble (the rest is dust); obsidian always flies whole
 const BLOCK_RUBBLE_PER_BLAST := 10   # at most this many flying pieces per blast (big chunks at the edge, small in the middle)
@@ -280,7 +280,7 @@ const BLOCK_DAMAGE_DARK := 0.35      # a cracked block darkens up to this much b
 const BLOCK_SAFE_BUMP := 40.0        # m/s (50 still hurts)
 # v1.5y step 5, support and collapse: shots can dig INTO walls (tunnels, overhangs, caves). A piece over a hole stays up
 # only if it is joined sideways to grounded ground within its material's reach (5 m cells); otherwise it falls.
-const BLOCK_REACH := {"sand": 0, "dirt": 1, "stone": 3, "obsidian": 5, "gold": 3, "diamond": 5}
+const BLOCK_REACH := {"sand": 0, "dirt": 1, "stone": 3, "obsidian": 5, "gold": 3, "diamond": 5, "wood": 4, "leaf": 2, "leaf2": 2}
 # v1.5z step 6, settling: landed rubble merges into the ground as its own material (nothing mixes); dirt sticks to
 # the wall it hits; sand slumps into a pile; pieces that fall keep their material.
 const BLOCK_MERGE_DELAY := 1.0       # s a landed piece lies there before it becomes ground
@@ -337,6 +337,24 @@ const MOLD_ROOM := [7, 10]           # side room width in cells
 const MOLD_ROOM_TALL := 5            # layers
 const MOLD_CEILING := 3              # layers of rock left over the chamber and rooms at least (15 m)
 const MOLD_RAMP := 2                 # the entrance tunnel climbs one layer every this many cells, then a shaft opens up
+# v1.7i ALIEN TREES (the owner's picture 06): a chunky twisting WOOD trunk and branches under big flat LEAF slabs in
+# two colours (teal and purple), roots spreading underground; one tree beside each mold cave sends a root down into
+# its chamber. Wood and leaves CATCH FIRE (owner): missiles and lava set them burning, fire spreads to touching wood
+# and leaves, burns them away and dies out; water puts it out. Like the fluids, fire only runs near the player.
+const WOOD_COLOR := Color(0.40, 0.35, 0.30)
+const LEAF_COLORS := {"leaf": Color(0.16, 0.55, 0.50), "leaf2": Color(0.52, 0.40, 0.72)}
+const TREES_PER_TILE := {"forest": 10, "coast": 4, "mountains": 3, "city": 3, "canyon": 2, "industrial": 1, "ocean": 1, "desert": 0, "ice": 0, "volcanic": 0, "sun": 0}   # per 800 m (a region gets its share); others 2
+const TREE_TRUNK := [2, 3]           # trunk width in cells (10-15 m)
+const TREE_TALL := [6, 10]           # trunk height in layers (30-50 m)
+const TREE_BRANCHES := [3, 5]
+const TREE_CANOPY := [5, 9]          # leaf slab width in cells
+const TREE_ROOTS := [3, 5]
+const FIRE_TICK := 0.5               # s
+const FIRE_BURN := {"wood": 4.0, "leaf": 1.5, "leaf2": 1.5}   # s a burning layer lasts before it is gone
+const FIRE_SPREAD := {"wood": 0.25, "leaf": 0.5, "leaf2": 0.5}   # chance per tick it catches from a burning neighbour
+const FIRE_MAX := 300                # burning layers at once at most
+const FIRE_RADIUS := 300.0           # m: fire only runs this near the player
+const FIRE_GUN_CHANCE := 0.2         # a light-gun hit on wood sets it alight this often (missiles always do)
 const KILL_CAP := 30.0               # m of obsidian over the kill floor
 const KILL_COLOR := Color(1.0, 0.82, 0.45)
 # v1.6e world generation, part 2: landmarks. Flyable arches (stone, some obsidian, some with treasure in the span) and

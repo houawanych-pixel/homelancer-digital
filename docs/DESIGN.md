@@ -1255,3 +1255,4 @@ Owner, after the v1.5k test flow passed: "push it to all".
 - v1.7f: leaning slabs and A-frames (`_build_slabs`, drawn whole by `_draw_slabs`, `_slab_lo` hides their blocks while whole, `_slab_check` drops the look once hit).
 - v1.7g: owner's look: grass cap + brown dirt (`BLOCK_GRASS_BAND`, `DIRT_BROWN`), `_join_columns` (`BLOCK_SHAPES`), slant patches (`BLOCK_SLANT_ZONE`).
 - v1.7h: molds (`_stamp` cut/add of [dx, dz, klo, khi] runs, `_runs_of`) and the first cave mold (`_carve_cave_mold`, `MOLD_*`).
+- v1.7i: alien trees (`_grow_trees` / `_grow_tree` / `_grow_cave_tree`, wood + leaf + leaf2) and fire (`ignite`, `_fire_update`, `_draw_fire`, `FIRE_*`); `_stamp` "add" now also sets the material of layers already solid.

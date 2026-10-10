@@ -56,6 +56,9 @@ var clamped := 0               # v1.6f spires cut down to a realistic height (te
 var canyon_cells: Array = []   # v1.6f the canyon floor's cells
 var roots: Array = []          # v1.6f obsidian roots piercing the surface: [{cells: [cell], tip}]
 var halls: Array = []          # v1.6h deep root halls: [{x, z, w, k0, k1, trunks: [cell], lava: int}]
+var trees: Array = []          # v1.7i alien trees: [{base: cell, wood: int, leaf: int, cave_root: bool, trunk: [cells], k_top}]
+var burning := {}              # v1.7i fire: Vector2i(cell, layer) -> seconds burning
+var burned := 0                # layers fire took (tests)
 var molds: Array = []          # v1.7h stamped mold shapes: [{kind, centre, k0, rooms, entrance, route}]
 var slabs: Array = []          # v1.7f leaning slabs and A-frames: [{cells, lo: {cell: y}, kind, mat, geo: [pieces], whole}]
 var _slab_of := {}             # cell -> index in slabs
@@ -295,6 +298,7 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 			return
 	_build_landmarks()
 	if region.x >= 0: _build_slabs()   # (v1.7f; the old test patch keeps its ground as the tests know it)
+	if region.x >= 0: _grow_trees()   # (v1.7i: after the cave, so a root can grow into it)
 	if staged:
 		await Engine.get_main_loop().process_frame
 		if cancel:
@@ -424,6 +428,8 @@ func tone(m: String) -> Color:
 	var gl := (base.r + base.g + base.b) / 3.0
 	var c := Color(gl, gl, gl).lerp(base, float(tn[1]))
 	if m == "dirt": c = Data.DIRT_BROWN.lerp(base, Data.DIRT_PLANET)   # (v1.7g: earthy brown under the grass)
+	if m == "wood": c = Data.WOOD_COLOR
+	if Data.LEAF_COLORS.has(m): c = Data.LEAF_COLORS[m]
 	var k := float(tn[0])
 	c = c.lerp(Color.WHITE, k) if k > 0.0 else c.lerp(Color.BLACK, -k)
 	_tones[m] = c
@@ -531,6 +537,17 @@ func blast(p: Vector3, kind: String, record := true, effects := true) -> Diction
 		_mark(ox, oz, s)
 	layers_broken += out.size()
 	res["broken"] = out.size()
+	if effects and kind != "thrust" and kind != "thrust_soft":   # v1.7i: shots set wood and leaves alight
+		var kl := _k(p.y - r)
+		var kh := _k(p.y + r)
+		for fz in range(fz0, fz1 + 1):
+			for fx in range(fx0, fx1 + 1):
+				var c := fz * n + fx
+				for k in range(kl, kh + 1):
+					if not _solid_k(c, k): continue
+					var mm := mat_at(fx, fz, _ly(k))
+					if mm != "wood" and not Data.LEAF_COLORS.has(mm): continue
+					if kind != "gun" or _rng.randf() < Data.FIRE_GUN_CHANCE: ignite(c, k)
 	if not out.is_empty():
 		res["mat"] = out[0]["mat"]
 		var fell := _settle(fx0 - 6, fx1 + 6, fz0 - 6, fz1 + 6)
@@ -1027,9 +1044,14 @@ func _stamp(runs: Array, cx: int, cz: int, k0: int, op: String, m := "stone") ->
 		if op == "cut":
 			for k in range(k0 + int(r[3]) - 1, k0 + int(r[2]) - 1, -1):
 				if k > kf and _solid_k(c, k): _cell_remove(c, k)
-		else:
+		else:   # (layers already solid take the mould's material: a root through rock is wood)
 			for k in range(k0 + int(r[2]), k0 + int(r[3])):
+				if k <= kf: continue
 				if not _solid_k(c, k): _cell_add(c, k, m)
+				else:
+					var ov: Dictionary = mats.get(c, {})
+					ov[k] = m
+					mats[c] = ov
 		touched.append(c)
 		_mark(x, z, 1)
 	return touched
@@ -1152,6 +1174,209 @@ func _carve_cave_mold(force := false) -> bool:
 		collapses = 0
 		return true
 	return false
+
+## v1.7i: alien trees (the owner's picture 06), grown as an "add" mold of wood and leaf: a chunky trunk on root
+## buttresses, branches stepping up and out, big flat leaf slabs in two colours at their ends and on top, and roots
+## running down and out underground. Next to a mold cave one tree sends a root down into the chamber, where it hangs
+## from the ceiling to the floor (carved first, the roots added after, so they show inside it).
+@warning_ignore("integer_division")
+func _grow_trees() -> void:
+	trees.clear()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(_sk + "|trees")
+	var kind: String = Surface.PLANETS[planet_id]["tiles"][tile] if Surface.PLANETS.has(planet_id) else ""
+	var want := _scaled(int(Data.TREES_PER_TILE.get(kind, 2)), rng)
+	if not molds.is_empty(): _grow_cave_tree(rng)
+	var tries := 0
+	while trees.size() < want + (1 if not molds.is_empty() else 0) and tries < 40:
+		tries += 1
+		_grow_tree(rng, rng.randi_range(14, n - 15), rng.randi_range(14, n - 15), -1)
+	_settle(0, n - 1, 0, n - 1)
+
+## The tree beside a mold cave: it stands a little off the chamber, and one of its roots grows down into it.
+func _grow_cave_tree(rng: RandomNumberGenerator) -> bool:
+	if molds.is_empty(): return false
+	var mo: Dictionary = molds[0]
+	var cc: int = mo["centre"]
+	for t in 20:
+		var a := rng.randf() * TAU
+		var dd := rng.randf_range(6.0, 12.0)
+		var x := clampi(cc % n + int(round(cos(a) * dd)), 14, n - 15)
+		var z := clampi(cc / n + int(round(sin(a) * dd)), 14, n - 15)
+		if _grow_tree(rng, x, z, cc): return true
+	return false
+
+## One tree with its trunk's corner at cell (cx, cz); to_cave >= 0: one root grows into that mold cave's chamber.
+@warning_ignore("integer_division")
+func _grow_tree(rng: RandomNumberGenerator, cx: int, cz: int, to_cave: int) -> bool:
+	var tw := rng.randi_range(int(Data.TREE_TRUNK[0]), int(Data.TREE_TRUNK[1]))
+	var ground := -INF
+	for jz in tw:
+		for jx in tw:
+			var c := (cz + jz) * n + cx + jx
+			if holes.has(c) or fluid.has(c) or _slab_of.has(c) or (mats.get(c, {}) as Dictionary).size() > 0: return false
+			ground = maxf(ground, h[c])
+	for tr in trees:   # (not on top of another tree)
+		if Vector2i(int(tr["base"]) % n - cx, int(tr["base"]) / n - cz).length() < 12: return false
+	var kg := _k(ground + 0.01)
+	var tall := rng.randi_range(int(Data.TREE_TALL[0]), int(Data.TREE_TALL[1]))
+	var kt := kg + tall
+	var wood := {}
+	var leaf := {"leaf": {}, "leaf2": {}}
+	var put := func(vol: Dictionary, x: int, z: int, k_lo: int, k_hi: int) -> void:
+		if x < 1 or z < 1 or x >= n - 1 or z >= n - 1: return
+		var key := Vector2i(x, z)
+		var d: Dictionary = vol.get(key, {})
+		for k in range(k_lo, k_hi): d[k] = true
+		vol[key] = d
+	for jz in tw:   # the trunk, from a little under the ground to the top
+		for jx in tw: put.call(wood, cx + jx, cz + jz, kg - 2, kt)
+	for t in rng.randi_range(4, 7):   # root buttresses flaring at its foot
+		var side := rng.randi_range(0, 3)
+		var along := rng.randi_range(0, tw - 1)
+		var bx: int = [cx + tw, cx + along, cx - 1, cx + along][side]
+		var bz: int = [cz + along, cz + tw, cz + along, cz - 1][side]
+		put.call(wood, bx, bz, _ktop(clampi(bz, 0, n - 1) * n + clampi(bx, 0, n - 1)) - 1, kg + rng.randi_range(1, 2))
+	var mid := Vector2(cx + tw * 0.5, cz + tw * 0.5)
+	var canopy_lo := kt
+	var slab := func(x0c: int, z0c: int, k: int, colour: String) -> void:
+		var w := rng.randi_range(int(Data.TREE_CANOPY[0]), int(Data.TREE_CANOPY[1]))
+		var d := rng.randi_range(int(Data.TREE_CANOPY[0]), int(Data.TREE_CANOPY[1]))
+		for a in w:
+			for b in d: put.call(leaf[colour], x0c - w / 2 + a, z0c - d / 2 + b, k, k + 2)
+	var nb := rng.randi_range(int(Data.TREE_BRANCHES[0]), int(Data.TREE_BRANCHES[1]))
+	var a0 := rng.randf() * TAU
+	for b in nb:   # branches stepping up and out, a leaf slab at each end
+		var ang := a0 + TAU * b / nb + rng.randf_range(-0.3, 0.3)
+		var dir := Vector2(cos(ang), sin(ang))
+		var k := kt - rng.randi_range(1, 3)
+		var ln := rng.randi_range(3, 6)
+		var p := mid
+		for st in ln:
+			p += dir
+			if st % 2 == 1: k += 1
+			put.call(wood, int(floor(p.x)), int(floor(p.y)), k - 1, k + 1)
+		slab.call(int(floor(p.x)), int(floor(p.y)), k + 1, "leaf" if b % 2 == 0 else "leaf2")
+		canopy_lo = mini(canopy_lo, k + 1)
+	slab.call(int(mid.x), int(mid.y), kt, "leaf2" if nb % 2 == 0 else "leaf")   # the crown on top
+	for r in rng.randi_range(int(Data.TREE_ROOTS[0]), int(Data.TREE_ROOTS[1])):   # roots out and down underground
+		var ang := rng.randf() * TAU
+		var dir := Vector2(cos(ang), sin(ang))
+		var p := mid
+		var k := kg - 2
+		for st in rng.randi_range(6, 12):
+			p += dir
+			k -= rng.randi_range(0, 2)
+			put.call(wood, int(floor(p.x)), int(floor(p.y)), k - 1, k + 1)
+	var cave_root := false
+	if to_cave >= 0:   # down to the chamber's ceiling, in, and hanging from roof to floor
+		var mo: Dictionary = molds[0]
+		var k0: int = mo["k0"]
+		var ktall: int = mo["tall"]
+		var target := Vector2(to_cave % n + 0.5, to_cave / n + 0.5) + (mid - Vector2(to_cave % n + 0.5, to_cave / n + 0.5)).normalized() * 3.0
+		var steps := int(ceil(mid.distance_to(target))) + 1
+		for st in steps + 1:
+			var q := mid.lerp(target, float(st) / steps)
+			var kk := int(round(lerpf(float(kg - 2), float(k0 + ktall + 1), float(st) / steps)))
+			put.call(wood, int(floor(q.x)), int(floor(q.y)), kk - 1, kk + 2)
+		put.call(wood, int(floor(target.x)), int(floor(target.y)), k0, k0 + ktall + 2)   # the root pillar in the chamber
+		cave_root = true
+	var cells := {}
+	var nw := 0
+	var nl := 0
+	for c in _stamp(_runs_of(wood), 0, 0, 0, "add", "wood"): cells[c] = true
+	for v in wood.values(): nw += (v as Dictionary).size()
+	for colour in ["leaf", "leaf2"]:
+		for c in _stamp(_runs_of(leaf[colour]), 0, 0, 0, "add", colour): cells[c] = true
+		for v in (leaf[colour] as Dictionary).values(): nl += (v as Dictionary).size()
+	for c in cells: reach_bonus[c] = maxi(int(reach_bonus.get(c, 0)), 12)   # (it holds together; take the trunk and it falls)
+	var trunk: Array = []
+	for jz in tw:
+		for jx in tw: trunk.append((cz + jz) * n + cx + jx)
+	trees.append({"base": cz * n + cx, "wood": nw, "leaf": nl, "cave_root": cave_root, "trunk": trunk, "k_ground": kg, "k_top": kt, "canopy_lo": canopy_lo})
+	return true
+
+## v1.7i fire: set a wood or leaf layer burning.
+@warning_ignore("integer_division")
+func ignite(c: int, k: int) -> bool:
+	if burning.size() >= Data.FIRE_MAX or burning.has(Vector2i(c, k)) or not _solid_k(c, k): return false
+	var m := mat_at(c % n, c / n, _ly(k))
+	if m != "wood" and not Data.LEAF_COLORS.has(m): return false
+	burning[Vector2i(c, k)] = 0.0
+	_fire_dirty = true
+	return true
+
+var _fire_t := 0.0
+var _fire_dirty := false
+## Every FIRE_TICK: what burns long enough is gone (a note, like any change), it catches touching wood and leaves, and
+## water beside it puts it out. Only near the player (the rest waits, like the fluids).
+@warning_ignore("integer_division")
+func _fire_update(dt: float, near: Vector3) -> void:
+	_fire_t += dt
+	if _fire_t < Data.FIRE_TICK:
+		if _fire_dirty: _draw_fire()
+		return
+	_fire_t = 0.0
+	var keys: Array = burning.keys()
+	for key in keys:
+		var kv: Vector2i = key
+		if not burning.has(kv): continue
+		var c := kv.x
+		var k := kv.y
+		var pt := _layer_point(c, k)
+		if Vector2(pt.x - near.x, pt.z - near.z).length() > Data.FIRE_RADIUS: continue
+		if not _solid_k(c, k):
+			burning.erase(kv)
+			continue
+		var m := mat_at(c % n, c / n, _ly(k))
+		var wet := false
+		for nb in _nbrs6(c, k):
+			if _fluid_k((nb as Vector2i).x, (nb as Vector2i).y) == "water": wet = true
+		if wet:
+			burning.erase(kv)
+			continue
+		for nb in _nbrs6(c, k):
+			var nc: int = (nb as Vector2i).x
+			var nk: int = (nb as Vector2i).y
+			if burning.has(Vector2i(nc, nk)) or not _solid_k(nc, nk): continue
+			var nm := mat_at(nc % n, nc / n, _ly(nk))
+			if Data.FIRE_SPREAD.has(nm) and _rng.randf() < float(Data.FIRE_SPREAD[nm]): ignite(nc, nk)
+		burning[kv] = float(burning[kv]) + Data.FIRE_TICK
+		if float(burning[kv]) >= float(Data.FIRE_BURN.get(m, 2.0)):
+			burning.erase(kv)
+			_edit_layer(pt, "", true)   # burnt away (kept as a note)
+			burned += 1
+	_fire_dirty = true
+	flush()
+	_draw_fire()
+
+## The flames: a glowing orange block over each burning layer, flickering.
+func _draw_fire() -> void:
+	_fire_dirty = false
+	var mi := get_node_or_null("Fire") as MultiMeshInstance3D
+	if mi == null:
+		mi = MultiMeshInstance3D.new()
+		mi.name = "Fire"
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		var bx := BoxMesh.new()
+		bx.size = Vector3.ONE
+		mm.mesh = bx
+		mi.multimesh = mm
+		var mat := StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.albedo_color = Color(1.0, 0.45, 0.08, 0.75)
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mi.material_override = mat
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(mi)
+	mi.position = Vector3.ZERO
+	var keys: Array = burning.keys()
+	mi.multimesh.instance_count = keys.size()
+	for i in keys.size():
+		var kv: Vector2i = keys[i]
+		var s := Data.BLOCK_MIN * (1.02 + 0.12 * _rng.randf())
+		mi.multimesh.set_instance_transform(i, Transform3D(Basis.from_scale(Vector3(s, s * (1.0 + 0.3 * _rng.randf()), s)), _layer_point(kv.x, kv.y) + Vector3(0, 0.6, 0)))
 
 ## Landmarks (v1.6e): flyable natural ARCHES (stone, some obsidian; some with gold or diamond in the span) on a leg at
 ## each end, and PRIDE ROCK promontories: a block of rock with a slab jutting out over open air. Load-bearing: each
@@ -1677,6 +1902,7 @@ func _set_fluid(c: int, k: int, kind: String) -> void:
 ## Called by the game each frame with the player's position: water and lava only move near the player (the radius of
 ## exposure); everywhere else, and in every sealed pocket, they sit still and cost nothing.
 func fluid_update(dt: float, near: Vector3) -> void:
+	if not burning.is_empty(): _fire_update(dt, near)
 	_fluid_t += dt
 	if _fluid_t >= Data.FLUID_TICK:
 		_fluid_t = 0.0
@@ -1745,6 +1971,9 @@ func _react(c: int, k: int, kind: String) -> bool:
 			_edit_layer(_layer_point(nc, nk), "dirt", true)
 			reactions += 1
 			return false
+		if kind == "lava" and (m == "wood" or Data.LEAF_COLORS.has(m)):   # v1.7i: lava sets wood and leaves alight
+			ignite(nc, nk)
+			continue
 		if kind == "lava" and m == "sand":   # eaten for free
 			_edit_layer(_layer_point(nc, nk), "", true)
 			reactions += 1

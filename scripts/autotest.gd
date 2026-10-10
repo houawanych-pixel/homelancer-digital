@@ -6107,6 +6107,96 @@ func _regions() -> void:
 			s.player.visible = true
 	_check("Molds (v1.7h): a cave is cut into the ground as one filled shape (a big chamber, tunnels to side rooms at other heights, a tunnel climbing to a shaft open to the sky); room to fly all the way out, all of it connected, rock left overhead, solid floor and roof",
 		clear_ok and conn_ok and ceil_ok and coll_ok, "made by the seed %s, cells cut %d, room to fly %s, rooms reached %d of %d, open to the sky %s, rock overhead %s, floor/roof %s" % [natural, int(mo.get("cells", 0)), clear_ok, reached, (mo.get("rooms", []) as Array).size(), conn_ok, ceil_ok, coll_ok])
+	# v1.7i: alien trees (wood trunk and branches, big two-colour leaf slabs you can fly under, roots underground; one
+	# beside the cave sends a root into its chamber); wood and leaves catch fire, it spreads, burns them away, dies out
+	var tf: BlockField = null
+	var tr: Dictionary = {}
+	var n_trees := 0
+	for f in s._fields():
+		n_trees += (f as BlockField).trees.size()
+		if tf == null and not (f as BlockField).trees.is_empty():
+			tf = f
+			tr = (f as BlockField).trees[0]
+	if mo.size() > 0 and not natural: mf._grow_cave_tree(RandomNumberGenerator.new())
+	var root_in := false
+	if not mo.is_empty():
+		for tt5 in mf.trees:
+			if tt5["cave_root"]: root_in = true
+		var kin: int = int(mo["k0"]) + 2
+		var any_wood := false
+		var cc2: int = mo["centre"]
+		for dz in range(-6, 7):
+			for dx in range(-6, 7):
+				var c2: int = cc2 + dz * mf.n + dx
+				if c2 >= 0 and c2 < mf.n * mf.n and mf._solid_k(c2, kin) and mf.mat_at(c2 % mf.n, c2 / mf.n, mf._ly(kin)) == "wood": any_wood = true
+		root_in = root_in and any_wood
+	var tree_ok := tf != null and int(tr.get("wood", 0)) > 20 and int(tr.get("leaf", 0)) > 40
+	var shade := false   # air under the leaves: somewhere a leaf layer sits over a hole
+	if tf:
+		for c3 in tf.holes:
+			var sp: Array = tf.spans(int(c3))
+			var topk: int = (sp[-1] as Vector2i).y - 1
+			if Data.LEAF_COLORS.has(tf.mat_at(int(c3) % tf.n, int(c3) / tf.n, tf._ly(topk))): shade = true
+	if tf and OS.get_environment("HL_SHOT_DIR") != "":   # pictures of a tree (and later, on fire)
+		main.hud.visible = false
+		s.player.visible = false
+		var tcam := Camera3D.new()
+		tcam.far = 8000.0
+		s.add_child(tcam)
+		var tprev := get_viewport().get_camera_3d()
+		var b0: int = tr["base"]
+		var tb := Vector3(tf.x0 + (b0 % tf.n + 1.0) * Data.BLOCK_MIN, tf.y0 + float(tr["k_ground"]) * Data.BLOCK_MIN, tf.z0 + (b0 / tf.n + 1.0) * Data.BLOCK_MIN)
+		tcam.global_position = tb + Vector3(70, 110, 55)
+		tcam.look_at(tb + Vector3(0, 30, 0), Vector3.UP)
+		tcam.make_current()
+		await _shot("tree", 1.0)
+		var trunk0: int = (tr["trunk"] as Array)[0]
+		tf.blast(tf._layer_point(trunk0, (int(tr["k_ground"]) + int(tr["k_top"])) / 2), "missile")
+		for q in 8: tf._fire_update(Data.FIRE_TICK, tb)
+		await _shot("tree_fire", 0.3)
+		while not tf.burning.is_empty(): tf._fire_update(Data.FIRE_TICK, tb)
+		tcam.queue_free()
+		if tprev: tprev.make_current()
+		main.hud.visible = true
+		s.player.visible = true
+		tr = tf.trees[1] if tf.trees.size() > 1 else tr
+	# fire: set the trunk alight with a missile, let it burn (near the tree), it spreads, then dies out
+	var fire_ok := false
+	var fire_detail := ""
+	if tf:
+		var trunk_c: int = (tr["trunk"] as Array)[0]
+		var kmid: int = (int(tr["k_ground"]) + int(tr["k_top"])) / 2
+		var pt: Vector3 = tf._layer_point(trunk_c, kmid)
+		var notes0 := tf.deltas.size()
+		tf.blast(pt, "missile")
+		var lit := tf.burning.size()
+		var most := lit
+		var ticks := 0
+		while not tf.burning.is_empty() and ticks < 600:
+			tf._fire_update(Data.FIRE_TICK, pt)
+			most = maxi(most, tf.burning.size())
+			ticks += 1
+		var cuts := 0
+		for d in tf.deltas.slice(notes0): cuts += 1 if str(d[3]) == "cut" else 0
+		# lava beside wood sets it alight too
+		var lava_ok := false
+		for c4 in tf.trees.size():
+			var t4: Dictionary = tf.trees[c4]
+			var tc: int = (t4["trunk"] as Array)[0]
+			var kk: int = int(t4["k_ground"]) + 2
+			if not tf._solid_k(tc, kk): continue
+			var side_c := tc - 1
+			if tf._solid_k(side_c, kk): continue
+			tf._set_fluid(side_c, kk, "lava")
+			tf._react(side_c, kk, "lava")
+			lava_ok = tf.burning.has(Vector2i(tc, kk))
+			tf._set_fluid(side_c, kk, "")
+			tf.burning.clear()
+			break
+		fire_ok = lit > 0 and most > lit and tf.burned > 3 and tf.burning.is_empty() and cuts > 0 and lava_ok
+		fire_detail = "lit %d, most at once %d, burnt away %d, out after %d ticks, kept as notes %d, lava lights it %s" % [lit, most, tf.burned, ticks, cuts, lava_ok]
+	_check("Alien trees (v1.7i): wood trunks and branches under big two-colour leaf slabs you can fly under, roots underground, one root down into the cave's chamber; wood and leaves catch fire (missiles, lava), it spreads, burns them away and dies out",
+		tree_ok and shade and root_in and fire_ok, "trees %d, first: wood %d leaf %d, air under the leaves %s, root in the cave %s, %s" % [n_trees, int(tr.get("wood", 0)), int(tr.get("leaf", 0)), shade, root_in, fire_detail])
 	# v1.7f: leaning slabs and A-frames stand about, one straight tilted slab each while whole; you can fly under an
 	# A-frame; knock out a lean-to's prop (or one foot of an A-frame) and it stops being one piece and the far part falls
 	var found := {"lean": null, "aframe": null}

@@ -585,6 +585,16 @@ Status: the owner said go for step 2 (craters), step by step. Each next step wai
    never under the sea. The test walks the air from the chamber floor: every room and the sky must be reachable,
    20 m of room all the way out, rock overhead, floor and roof solid. Still to come: a Blender-model-to-mold tool,
    more mold shapes, winding tunnels linking caves.
+2t. DONE (v1.7i): ALIEN TREES and FIRE (the owner's picture 06). New materials: WOOD (grey-brown) and LEAF in two
+   colours (teal "leaf", purple "leaf2"). Trees (`TREES_PER_TILE`: forests many, deserts / ice / volcanic none) are
+   grown as an "add" mold: a chunky 10-15 m trunk 30-50 m tall on root buttresses, 3-5 branches stepping up and out,
+   big flat leaf slabs at their ends and a crown on top (you can fly under them), roots running down and out
+   underground (wood through the rock). Beside every mold cave one tree sends a root down into the chamber, hanging
+   from the roof to the floor (cave carved first, roots added after). They hold together (take the trunk and the rest
+   falls). FIRE: missiles always and the light gun sometimes set wood and leaves alight, lava beside them too; each
+   tick a burning layer may catch its touching wood and leaves (leaves faster), burns away after a few seconds (kept as
+   a note) and the fire dies out when nothing is left; water beside it puts it out; it only runs near the player
+   (`FIRE_*`), glowing orange blocks over what burns.
 3. DONE (already from earlier work): the ground blends across tile edges and the next area is built before you reach
    it, so crossing has no jump.
 4. DONE (already): no seam lines at ordinary corners (the ground blends); the planet's wrap corner sits in a cloud bank.
