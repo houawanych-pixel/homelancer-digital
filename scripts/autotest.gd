@@ -5444,6 +5444,8 @@ func _job_ar() -> void:
 	# ---- 4. no missiles: the beam still fires, the swarm is empty, no free ammo
 	if is_instance_valid(n): s._damage_enemy(e, 99999.0)
 	await _frames(3)
+	for m in s.missiles_live: (m["node"] as Node3D).queue_free()   # (v1.7u: last part's swarm would blow its splash on the next target)
+	s.missiles_live.clear()
 	GS.special_used = {"half": true, "crit": false}
 	GS.hull = mh * 0.2
 	GS.missiles = 0
