@@ -541,6 +541,12 @@ Status: the owner said go for step 2 (craters), step by step. Each next step wai
    The blocks run on over a tile border: the next tile's regions near you are built in this tile's frame (keyed by
    tile -1/0/1 each way plus square; their notes kept in their own tile's frame), and when you cross, the regions
    round you come along (`BlockField.reframe`), the same blocks with nothing rebuilt. No blocks on a star's surface.
+2p. DONE (v1.7e): the slanted outer form, first version (look only; the square blocks stay underneath for material,
+   support, digging and collision). Natural ground where the top steps down leans into slanted slabs and wedges
+   instead of square stairs: each top corner drops toward lower ground (at most `BLOCK_SLANT_MAX`, 10 m), worked
+   out from the four cells round that corner the same way for every block sharing it, so slabs always meet edge to
+   edge with no gaps. Where something stands higher, or the rock is obsidian, dug or rubble, the block stays square,
+   so slabs and steps interlock. Still to come: big leaning slabs and A-frames as landmarks, free-angle pieces.
 3. DONE (already from earlier work): the ground blends across tile edges and the next area is built before you reach
    it, so crossing has no jump.
 4. DONE (already): no seam lines at ordinary corners (the ground blends); the planet's wrap corner sits in a cloud bank.

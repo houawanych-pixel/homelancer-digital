@@ -5869,6 +5869,7 @@ func _blocks() -> void:
 ## EXPERIMENT step 9 (v1.7a): the whole planet as blocks. On a tile with a city, 500 m regions are built round the
 ## player from the seed (each its own seed and its own kept blasts), the smooth sheet is cut out under them, the pad
 ## sits on flat blocks, regions far behind are freed and a blast is still there when you come back.
+@warning_ignore("integer_division")
 func _regions() -> void:
 	var pid: String = Data.BLOCK_TEST["planet"]
 	var g := Surface.grid(pid)
@@ -5970,6 +5971,43 @@ func _regions() -> void:
 	var kept: bool = back != null and back != ra and absf(back.top_at(aim.x, aim.z) - after) < 0.01
 	_check("Blocks everywhere: each region has its own seed and keeps its own blasts; fly off and the far ones are freed, come back and your crater is still there",
 		after < before and own and freed and kept, "crater %.0f -> %.0f, own notes %s, freed %s, rebuilt with the crater %s" % [before, after, own, freed, kept])
+	# v1.7e: the slanted outer form: natural ground leans into slabs and wedges; every pair of neighbouring blocks still
+	# meets with no gap (same height: the shared corners match; a step: the higher edge never dips under the lower top)
+	var slanted := 0
+	var square := 0
+	var gaps := 0
+	var sr: BlockField = back
+	var cv := func(bf: BlockField, c: int) -> Array:
+		var sz: int = bf.lsz[c]
+		var ox: int = c % bf.n - (c % bf.n) % sz
+		var oz: int = c / bf.n - (c / bf.n) % sz
+		var tp: float = bf.h[oz * bf.n + ox]
+		var v: Array = bf._slant(ox, oz, sz, tp, "", true, [])
+		return [ox, oz, sz, tp, v if not v.is_empty() else [tp, tp, tp, tp]]
+	sr._slant_cache.clear()
+	for c in range(0, sr.n * sr.n, 1):
+		var fx: int = c % sr.n
+		var fz: int = c / sr.n
+		if int(sr.lsz[c]) != sr.R or fx % sr.R != 0 or fz % sr.R != 0 or fx + sr.R >= sr.n or fz + sr.R >= sr.n: continue
+		var A: Array = cv.call(sr, c)
+		if (A[4] as Array).min() < float(A[3]) - 0.01: slanted += 1
+		else: square += 1
+		for side in [1, 2]:   # east and south neighbours
+			var nc: int = c + (sr.R if side == 1 else sr.R * sr.n)
+			if int(sr.lsz[nc]) != sr.R: continue
+			var B: Array = cv.call(sr, nc)
+			var a0: float = A[4][1] if side == 1 else A[4][3]   # A's shared corners (NE, SE) or (SW, SE)
+			var a1: float = A[4][2]
+			var b0: float = B[4][0]   # B's (NW, SW) or (NW, NE)
+			var b1: float = B[4][3] if side == 1 else B[4][1]
+			if absf(float(A[3]) - float(B[3])) < 0.01:
+				if absf(a0 - b0) > 0.01 or absf(a1 - b1) > 0.01: gaps += 1
+			elif float(A[3]) > float(B[3]):
+				if minf(a0, a1) < float(B[3]) - 0.01 or absf(b0 - float(B[3])) > 0.01 or absf(b1 - float(B[3])) > 0.01: gaps += 1
+			else:
+				if minf(b0, b1) < float(A[3]) - 0.01 or absf(a0 - float(A[3])) > 0.01 or absf(a1 - float(A[3])) > 0.01: gaps += 1
+	_check("Slanted ground (v1.7e): the natural ground leans into slanted slabs and wedges (look only, blocks underneath), some blocks stay square so they interlock, and neighbouring blocks always meet with no gap",
+		slanted > 20 and square > 20 and gaps == 0, "slanted %d, square %d, gaps %d" % [slanted, square, gaps])
 	# v1.7d: the blocks run on over the tile border (the next tile's regions are built in this tile's frame), and when
 	# you cross they come with you, the same blocks, no rebuild; a blast right on a region edge digs both sides
 	var ey: float = s._ground(Surface.EDGE - 60.0, p.z) + 80.0

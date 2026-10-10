@@ -1603,6 +1603,7 @@ func _process(dt: float) -> void:
 ## Redraw the squares that changed (at most `limit` per call; 0 = all). The ground is one fused surface: same-height
 ## neighbours share one flat face with no seam; a wall appears only where the ground steps. Untouched ground keeps its
 ## own blended colours; dug ground shows the tone of the layer that is now on top; walls show the layers they cut.
+var _slant_cache := {}
 func flush(limit := 0) -> void:
 	var done := 0
 	for k in _dirty.keys():
@@ -1613,6 +1614,7 @@ func flush(limit := 0) -> void:
 
 @warning_ignore("integer_division")
 func _draw_chunk(k: int) -> void:
+	_slant_cache.clear()   # (the ground may have changed since the last chunk)
 	var c: int = Data.BLOCK_CHUNK
 	var nc := _nchunks()
 	var ci := k % nc
@@ -1687,6 +1689,8 @@ func _draw_block(st: SurfaceTool, ox: int, oz: int, s: int) -> void:
 	var skin: Array = Data.BLOCK_SKIN.get(tm, [0.0, 0.0])
 	var inset: float = minf(float(skin[0]), s * step * 0.42)
 	var drop: float = float(skin[1]) if any_edge else 0.0
+	var vh := _slant(ox, oz, s, top, tm, untouched, edge)   # v1.7e: the top's corner heights if it leans ([] if square)
+	if not vh.is_empty(): drop = 0.0
 	var shard := Vector3.ZERO   # the shard's lean (away from the obsidian it is joined to)
 	var fused := false
 	if tm == "obsidian" and any_edge:
@@ -1712,6 +1716,8 @@ func _draw_block(st: SurfaceTool, ox: int, oz: int, s: int) -> void:
 			var kc: Color = Data.KILL_COLOR
 			_quad(_kill_st, Vector3(ax, ty, az), Vector3(bx, ty, az), Vector3(bx, ty, bz), Vector3(ax, ty, bz), [kc, kc, kc, kc], Vector3.UP)
 			_kill_any = true
+		elif j == sp.size() - 1 and not vh.is_empty():
+			_slant_top(st, ax, az, bx, bz, vh, cs)
 		elif j == sp.size() - 1 and (drop > 0.0 or fused):
 			_skin_top(st, ax, az, bx, bz, ty, edge, inset, drop, cs, fused, shard, s * step)
 		else:
@@ -1735,11 +1741,23 @@ func _draw_block(st: SurfaceTool, ox: int, oz: int, s: int) -> void:
 			for o in sp:
 				var lo: float = -INF if (o as Vector2i).x <= -1000 else y0 + (o as Vector2i).x * step
 				var hi: float = y0 + (o as Vector2i).y * step
+				var lean := not vh.is_empty() and absf(hi - top) < 0.01
+				var e0 := 0.0
+				var e1 := 0.0
+				if lean:   # v1.7e: this side's top edge slopes: the wall stops under it and a sliver fills up to it
+					var ha: float = lerpf(vh[side], vh[(side + 1) % 4], float(k) / s)
+					var hb: float = lerpf(vh[side], vh[(side + 1) % 4], float(k2) / s)
+					hi = minf(ha, hb)
+					e0 = ha
+					e1 = hb
 				if absf(hi - top) < 0.01 and edge[side]: hi -= drop   # the skin rounds the top edge off
 				for A in air:
 					var wl := maxf(lo, (A as Vector2).x)
 					var wh := minf(hi, (A as Vector2).y)
-					if wh > wl + 0.01: _wall(st, p0, p1, wh, wl, cfx, cfz, untouched and absf(wh - top) < 0.01, surf, normals[side])
+					if wh > wl + 0.01: _wall(st, p0, p1, wh, wl, cfx, cfz, untouched and (absf(wh - top) < 0.01 or lean), surf, normals[side])
+				if lean and edge[side] and maxf(e0, e1) > hi + 0.01:
+					var sc: Color = surf * 0.92
+					_quad(st, Vector3(p0.x, e0, p0.z), Vector3(p1.x, e1, p1.z), Vector3(p1.x, hi, p1.z), Vector3(p0.x, hi, p0.z), [sc, sc, sc, sc], normals[side])
 			k = k2
 
 ## Does the ground drop away along this whole side of a block?
@@ -1788,6 +1806,86 @@ func _skin_top(st: SurfaceTool, ax: float, az: float, bx: float, bz: float, ty: 
 		var c3: Color = (cs[q] as Color) * 0.93
 		var c4: Color = (cs[(q + 1) % 4] as Color) * 0.93
 		_quad(st, a2, b2, c2, d2, [cs[q], cs[(q + 1) % 4], c4, c3], n2)
+
+## v1.7e: does this natural top lean, and how? Returns its four corner heights (NW, NE, SE, SW) or [] for a square
+## top. Worked out per corner from the four cells that touch it, the same way for every block sharing that corner,
+## so neighbouring slabs always meet edge to edge (no cracks): a corner drops when something round it is lower and
+## nothing round it is higher, down to the highest lower one (at most BLOCK_SLANT_MAX), and only if every block at
+## its height there may lean (whole untouched big blocks of sand, dirt or stone with whole big blocks round them).
+func _slant(ox: int, oz: int, s: int, top: float, _tm: String, _untouched: bool, _edge: Array) -> Array:
+	if not _slant_ok(oz * n + ox): return []
+	var vh := []
+	var any := false
+	for q in 4:
+		var vx: int = ox + (s if q == 1 or q == 2 else 0)
+		var vz: int = oz + (s if q >= 2 else 0)
+		var v := _corner_h(vx, vz, top)
+		vh.append(v)
+		any = any or v < top - 0.01
+	return vh if any else []
+
+## The height a top at `top` takes at grid corner (vx, vz) (see _slant).
+func _corner_h(vx: int, vz: int, top: float) -> float:
+	var lmax := -INF
+	for c: Vector2i in [Vector2i(vx - 1, vz - 1), Vector2i(vx, vz - 1), Vector2i(vx - 1, vz), Vector2i(vx, vz)]:
+		if c.x < 0 or c.y < 0 or c.x >= n or c.y >= n: return top
+		var i := c.y * n + c.x
+		var hc: float = h[i]
+		if hc > top + 0.01: return top
+		if hc >= top - 0.01:
+			if not _slant_ok(i): return top
+		else:
+			if holes.has(i): return top
+			lmax = maxf(lmax, hc)
+	if lmax == -INF: return top
+	return maxf(top - Data.BLOCK_SLANT_MAX, lmax)
+
+## May the block holding cell i lean? (cached per redraw)
+@warning_ignore("integer_division")
+func _slant_ok(i: int) -> bool:
+	if _slant_cache.has(i): return _slant_cache[i]
+	var ok := true
+	var s: int = lsz[i]
+	var fx := i % n
+	var fz := i / n
+	var ox := fx - fx % s
+	var oz := fz - fz % s
+	var i0 := oz * n + ox
+	var top: float = h[i0]
+	if s != R or holes.has(i0) or top < h0[i0] - 0.01 or (mats.get(i0, {}) as Dictionary).has(_ktop(i0) - 1) or not ["sand", "dirt", "stone"].has(mat_at(ox + s / 2, oz + s / 2, top)):
+		ok = false
+	else:
+		for side in 4:
+			for k in s:
+				var c := _nb_cell(side, ox, oz, s, k)
+				if c >= 0 and int(lsz[c]) != R:
+					ok = false
+					break
+			if not ok: break
+	_slant_cache[i] = ok
+	return ok
+
+## The cell diagonally outside corner q (NW, NE, SE, SW) of a block (-1 outside the patch).
+func _corner_cell(q: int, ox: int, oz: int, s: int) -> int:
+	var x: int = [ox - 1, ox + s, ox + s, ox - 1][q]
+	var z: int = [oz - 1, oz - 1, oz + s, oz + s][q]
+	if x < 0 or z < 0 or x >= n or z >= n: return -1
+	return z * n + x
+
+## A leaning top: two triangles creased along the steeper diagonal, so a corner dropped on its own makes a wedge.
+func _slant_top(st: SurfaceTool, ax: float, az: float, bx: float, bz: float, vh: Array, cs: Array) -> void:
+	var v := [Vector3(ax, vh[0], az), Vector3(bx, vh[1], az), Vector3(bx, vh[2], bz), Vector3(ax, vh[3], bz)]
+	var tris := [[0, 1, 2], [0, 2, 3]] if absf(float(vh[0]) - float(vh[2])) >= absf(float(vh[1]) - float(vh[3])) else [[0, 1, 3], [1, 2, 3]]
+	for t in tris:
+		var a: Vector3 = v[t[0]]
+		var b: Vector3 = v[t[1]]
+		var c: Vector3 = v[t[2]]
+		var nrm := (b - a).cross(c - a).normalized()
+		if nrm.y < 0.0: nrm = -nrm
+		for q in t:
+			st.set_normal(nrm)
+			st.set_color(cs[q])
+			st.add_vertex(v[q])
 
 ## The cell next to a block's side (-1 outside the patch).
 func _nb_cell(side: int, ox: int, oz: int, s: int, k: int) -> int:

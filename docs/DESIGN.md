@@ -1251,3 +1251,4 @@ Owner, after the v1.5k test flow passed: "push it to all".
 - v1.7b: block ground on for everyone (`BlockField.enabled()` true unless the web address has ?noblocks); the smooth sheet is the far view only.
 - v1.7c: landing pads on floating block islands (`Surface.pad_top` / `island_at` / `_pad_island`, `PAD_ISLAND_*`); the ground under cities is no longer flattened when blocks are on.
 - v1.7d: seams: `_blast_blocks` digs every region a blast reaches; regions keyed `Vector4i(tile dx, tile dz, rx, rz)` so neighbour tiles' regions are built in this frame (`build(..., frame)`, notes in own-tile frame) and carried over a border crossing (`reframe`).
+- v1.7e: slanted outer form (look only): `_slant` / `_corner_h` / `_slant_ok` / `_slant_top` lean natural tops into slabs and wedges, per-corner so neighbours always meet (`BLOCK_SLANT_MAX`).

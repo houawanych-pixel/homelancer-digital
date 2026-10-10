@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.7d"
+const VERSION := "v1.7e"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -281,6 +281,10 @@ const BLOCK_SAND_STEP := 1           # sand stands at most this many layers over
 # v1.6a the skin over the blocks (look only, collision stays square): [inset m, drop m] where the top steps down.
 const BLOCK_SKIN := {"sand": [1.8, 4.0], "dirt": [1.0, 1.2], "stone": [0.7, 0.8], "obsidian": [0.0, 0.0]}
 const BLOCK_SHARD_HEIGHT := 8.0      # how far a fused obsidian top points up (m, at most)
+# v1.7e the slanted outer form (look only, blocks underneath for the logic): natural ground where the top steps down
+# leans into slanted slabs and wedges instead of square stairs, worked out per corner so slabs always meet edge
+# to edge (no gaps); where something stands higher the block stays square, so slabs and steps interlock.
+const BLOCK_SLANT_MAX := 10.0        # how far a top corner may lean down (m)
 # v1.6b water and lava. Sealed pockets from the seed (water in stone, lava deeper in obsidian), asleep until opened;
 # they flow only near the player. Water turns sand to dirt; lava eats sand, trades with dirt, stops at stone; lava +
 # water = obsidian. Lava burns.
