@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.7f"
+const VERSION := "v1.7g"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -264,6 +264,14 @@ const BLOCK_DEPTH_FLOOR := 200.0     # nothing digs deeper than this under the o
 const BLOCK_DELTAS_MAX := 4000       # crater notes kept per patch (oldest dropped)
 const BLOCK_CHUNK := 40              # the patch is drawn in squares of this many 5 m cells (only the hit squares redraw)
 # Tones from the planet's own ground colour, darker = tougher: [mix toward white (+) or black (-), keep saturation]
+# v1.7g (owner's pictures, docs/blocks_look/): dirt is earthy brown under a thin grass cap in the planet's own colour,
+# and the ground is built from blocks of many sizes: long rectangles and big solid cubes, not one size of square.
+const BLOCK_GRASS_BAND := 1.2        # m of grass cap down the side of a natural top
+const DIRT_BROWN := Color(0.46, 0.31, 0.19)   # dirt's own colour...
+const DIRT_PLANET := 0.25            # ...with this much of the planet's ground colour in it
+const BLOCK_SHAPES := [[1, 1, 34], [2, 1, 18], [1, 2, 18], [2, 2, 12], [3, 1, 6], [1, 3, 6], [3, 2, 3], [2, 3, 3]]   # [cols wide, cols deep, weight]
+const BLOCK_SHAPE_EVEN := 10.0       # m: columns only join into one block where the ground under them is this even
+const BLOCK_BIG_RISE := 0.25         # the chance a big joined block (4+ columns) stands a step or two proud of the ground
 const BLOCK_TONES := {"sand": [0.38, 0.8], "dirt": [-0.12, 0.9], "stone": [-0.45, 0.45], "obsidian": [-0.8, 0.35]}
 const BLOCK_DAMAGE_DARK := 0.35      # a cracked block darkens up to this much before it breaks
 # v1.5u (owner): underground you touch walls all the time. Over the block ground a bump is free up to cruising speed
@@ -285,6 +293,8 @@ const BLOCK_SHARD_HEIGHT := 8.0      # how far a fused obsidian top points up (m
 # leans into slanted slabs and wedges instead of square stairs, worked out per corner so slabs always meet edge
 # to edge (no gaps); where something stands higher the block stays square, so slabs and steps interlock.
 const BLOCK_SLANT_MAX := 10.0        # how far a top corner may lean down (m)
+const BLOCK_SLANT_ZONE := 0.22       # v1.7g (owner: "a few slants"): slants only in patches, where the planet's slant
+const BLOCK_SLANT_FREQ := 0.006      #   noise is over this; the rest is square steps like the owner's pictures
 # v1.6b water and lava. Sealed pockets from the seed (water in stone, lava deeper in obsidian), asleep until opened;
 # they flow only near the player. Water turns sand to dirt; lava eats sand, trades with dirt, stops at stone; lava +
 # water = obsidian. Lava burns.

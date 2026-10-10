@@ -158,6 +158,11 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 	var g := Surface.grid(pid)
 	var ox := float(t % g) * Surface.TILE - off.x   # (planet metres of this frame's origin)
 	var oz := float(t / g) * Surface.TILE - off.y
+	_pox = ox
+	_poz = oz
+	_slant_noise = FastNoiseLite.new()
+	_slant_noise.seed = hash(pid + "|slant")   # (one field for the whole planet, so patches run on across regions)
+	_slant_noise.frequency = Data.BLOCK_SLANT_FREQ
 	var cols_c: Array = []
 	cols_c.resize(cols * cols)
 	surf_cols.resize(cols * cols)
@@ -180,6 +185,9 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 			tops[j * cols + i] = ceilf((hm + Data.BLOCK_MARGIN) / step) * step
 			surf_cols[j * cols + i] = Color(colr.r, colr.g, colr.b)
 			cols_c[j * cols + i] = colr
+	# 1a. (v1.7g) blocks of many sizes: neighbouring columns on even ground join into one long or big block (one top),
+	#     and some big ones stand a step or two proud, so the ground is long rectangles and solid cubes, not one grid
+	if reg.x >= 0: _join_columns()
 	# 1b. realistic heights (v1.6f): no thin spires. A column standing more than SPIRE_MAX over every neighbour is cut
 	#     down to that (the edge columns are left alone: the smooth sheet there isn't sunk)
 	for pass_i in 2:
@@ -323,6 +331,60 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 	flush()
 	built = true
 
+var joined := 0   # columns joined into bigger blocks (tests)
+@warning_ignore("integer_division")
+func _join_columns() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(_sk + "|shapes")
+	var step: float = Data.BLOCK_MIN
+	var used := {}
+	var total_w := 0
+	for sh in Data.BLOCK_SHAPES: total_w += int(sh[2])
+	var order: Array = range(cols * cols)
+	for k in range(order.size() - 1, 0, -1):   # (seeded shuffle)
+		var r := rng.randi_range(0, k)
+		var t: int = order[k]
+		order[k] = order[r]
+		order[r] = t
+	for idx in order:
+		var i: int = idx % cols
+		var j: int = idx / cols
+		if used.has(idx): continue
+		var pick := rng.randi_range(0, total_w - 1)
+		var w := 1
+		var d := 1
+		for sh in Data.BLOCK_SHAPES:
+			pick -= int(sh[2])
+			if pick < 0:
+				w = int(sh[0])
+				d = int(sh[1])
+				break
+		if i + w > cols or j + d > cols:
+			w = 1
+			d = 1
+		var cells: Array = []
+		var hmin := INF
+		var hmx := -INF
+		for dj in d:
+			for di in w:
+				var q := (j + dj) * cols + i + di
+				if used.has(q):
+					cells.clear()
+					break
+				cells.append(q)
+				hmin = minf(hmin, tops[q])
+				hmx = maxf(hmx, tops[q])
+			if cells.is_empty(): break
+		if cells.is_empty() or hmx - hmin > Data.BLOCK_SHAPE_EVEN:
+			used[idx] = true
+			continue
+		var top := hmx
+		if cells.size() >= 4 and rng.randf() < Data.BLOCK_BIG_RISE: top += step * rng.randi_range(1, 2)
+		for q in cells:
+			tops[q] = top
+			used[q] = true
+		if cells.size() > 1: joined += cells.size()
+
 func _col_centre(i: int, j: int) -> Vector2:
 	var big: float = Data.BLOCK_BIG
 	return center + Vector2((i + 0.5) * big - cols * big * 0.5, (j + 0.5) * big - cols * big * 0.5)
@@ -359,6 +421,7 @@ func tone(m: String) -> Color:
 	var tn: Array = Data.BLOCK_TONES.get(m, [0.0, 1.0])
 	var gl := (base.r + base.g + base.b) / 3.0
 	var c := Color(gl, gl, gl).lerp(base, float(tn[1]))
+	if m == "dirt": c = Data.DIRT_BROWN.lerp(base, Data.DIRT_PLANET)   # (v1.7g: earthy brown under the grass)
 	var k := float(tn[0])
 	c = c.lerp(Color.WHITE, k) if k > 0.0 else c.lerp(Color.BLACK, -k)
 	_tones[m] = c
@@ -710,6 +773,8 @@ func reframe(d: Vector2) -> void:
 	x0 += d.x
 	z0 += d.y
 	off += d
+	_pox -= d.x   # (the same planet ground: the frame's origin moved the other way)
+	_poz -= d.y
 	for ch in get_children():
 		if ch is Node3D: (ch as Node3D).position += Vector3(d.x, 0.0, d.y)
 
@@ -2010,8 +2075,12 @@ func _slant(ox: int, oz: int, s: int, top: float, _tm: String, _untouched: bool,
 		any = any or v < top - 0.01
 	return vh if any else []
 
+var _pox := 0.0
+var _poz := 0.0
+var _slant_noise: FastNoiseLite
 ## The height a top at `top` takes at grid corner (vx, vz) (see _slant).
 func _corner_h(vx: int, vz: int, top: float) -> float:
+	if _slant_noise == null or _slant_noise.get_noise_2d(_pox + x0 + vx * Data.BLOCK_MIN, _poz + z0 + vz * Data.BLOCK_MIN) < Data.BLOCK_SLANT_ZONE: return top   # (v1.7g: square steps outside the slant patches)
 	var lmax := -INF
 	for c: Vector2i in [Vector2i(vx - 1, vz - 1), Vector2i(vx, vz - 1), Vector2i(vx - 1, vz), Vector2i(vx, vz)]:
 		if c.x < 0 or c.y < 0 or c.x >= n or c.y >= n: return top
@@ -2118,9 +2187,9 @@ func _wall(st: SurfaceTool, p0: Vector3, p1: Vector3, top: float, low: float, cf
 	while y > low + 0.01:
 		var col: Color
 		var y_end: float
-		if first and untouched:
+		if first and untouched:   # the grass cap (v1.7g: a thin band, the planet's colour; the rock shows below it)
 			col = surf * 0.92
-			y_end = maxf(low, y - step)
+			y_end = maxf(low, y - Data.BLOCK_GRASS_BAND)
 		else:
 			var m := mat_at(cfx, cfz, y)
 			y_end = y - step

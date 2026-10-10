@@ -6006,8 +6006,18 @@ func _regions() -> void:
 				if minf(a0, a1) < float(B[3]) - 0.01 or absf(b0 - float(B[3])) > 0.01 or absf(b1 - float(B[3])) > 0.01: gaps += 1
 			else:
 				if minf(b0, b1) < float(A[3]) - 0.01 or absf(a0 - float(A[3])) > 0.01 or absf(a1 - float(A[3])) > 0.01: gaps += 1
-	_check("Slanted ground (v1.7e): the natural ground leans into slanted slabs and wedges (look only, blocks underneath), some blocks stay square so they interlock, and neighbouring blocks always meet with no gap",
-		slanted > 20 and square > 20 and gaps == 0, "slanted %d, square %d, gaps %d" % [slanted, square, gaps])
+	_check("Slanted ground (v1.7e): in patches the natural ground leans into slanted slabs and wedges (look only, blocks underneath); most of it is square steps (owner: a few slants), and neighbouring blocks always meet with no gap",
+		slanted > 10 and square > slanted and gaps == 0, "slanted %d, square %d, gaps %d" % [slanted, square, gaps])
+	# v1.7g (owner's pictures): brown dirt under a thin grass cap in the planet's colour, and blocks of many sizes:
+	# neighbouring columns join into long rectangles and big solid blocks
+	var jn := 0
+	var big2 := 0
+	for f in s._fields():
+		jn += (f as BlockField).joined
+	var tdirt: Color = sr.tone("dirt")
+	var brown: bool = tdirt.r > tdirt.g and tdirt.g > tdirt.b
+	_check("Owner's look (v1.7g): brown dirt under a thin grass cap in the planet's own colour, and the ground built from blocks of many sizes (long rectangles and big solid blocks, not one size of square)",
+		jn > 100 and brown, "columns joined into bigger blocks %d, dirt colour %s (brown %s), grass cap %.1f m" % [jn, str(tdirt), brown, Data.BLOCK_GRASS_BAND])
 	# v1.7f: leaning slabs and A-frames stand about, one straight tilted slab each while whole; you can fly under an
 	# A-frame; knock out a lean-to's prop (or one foot of an A-frame) and it stops being one piece and the far part falls
 	var found := {"lean": null, "aframe": null}
@@ -6057,11 +6067,11 @@ func _regions() -> void:
 			var cells_before := 0
 			for c in sb["cells"]: cells_before += 1 if f.h[c] > float(sb["ground"]) + 6.0 else 0
 			for c in sb["hold"]:   # blow the prop / foot away, bottom to top
-				for k in 12:
+				for k in 400:   # (pecked away with the light gun, so nothing but the prop is touched)
 					var px: float = f.x0 + (int(c) % f.n + 0.5) * Data.BLOCK_MIN
 					var pz: float = f.z0 + (int(c) / f.n + 0.5) * Data.BLOCK_MIN
 					if f.h[c] <= float(sb["ground"]) - 4.0: break
-					f.blast(Vector3(px, f.h[c] - 1.0, pz), "heavy", false, false)
+					f.blast(Vector3(px, f.h[c] - 1.0, pz), "gun", false, false)
 			f.flush()
 			var cells_after := 0
 			for c in sb["cells"]: cells_after += 1 if f.h[c] > float(sb["ground"]) + 6.0 else 0
