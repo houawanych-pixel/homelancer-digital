@@ -450,6 +450,8 @@ func _box(r: Rect2, bg := PANEL, edge := EDGE, radius := 10, bw := 2) -> void:
 func _text(p: Vector2, txt: String, size := 18, col := WHITE, align := HORIZONTAL_ALIGNMENT_LEFT, width := -1.0) -> void:
 	if size < Data.TEXT_BUMP_BELOW: size = maxi(Data.TEXT_MIN, size + Data.TEXT_BUMP)   # v1.4m: small print is a little bigger
 	size = Data.ts(size)   # v1.7p: bigger for phones
+	if width > 0.0:   # ...but a label in a box shrinks to fit it rather than being cut off
+		while size > 11 and font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > width: size -= 1
 	draw_string_outline(font, p, txt, align, width, size, 5, Color(0, 0.03, 0.08, 0.8))
 	draw_string(font, p, txt, align, width, size, col)
 
@@ -1361,7 +1363,7 @@ func _way_box(way_r: Rect2) -> void:
 		scol = RED
 	_text(way_r.position + Vector2(12, 82), "SCAN  " + sens, 12, scol)
 	if space.target != null and is_instance_valid(space.target) and not space.scan_info(space.target).is_empty():
-		_text(way_r.position + Vector2(12, 22), "TAP = SCAN", 10, CYAN_HI, HORIZONTAL_ALIGNMENT_RIGHT, way_r.size.x - 24)
+		_text(way_r.position + Vector2(12, -6), "TAP = SCAN", 10, CYAN_HI, HORIZONTAL_ALIGNMENT_RIGHT, way_r.size.x - 24)   # (over the box: clear of TARGET)
 
 # ---------------------------------------------------------------- comms: side screens + console
 func _comms() -> void:
