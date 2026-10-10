@@ -130,7 +130,7 @@ func open_comms(from: String, line: String, mode := "talk", hostile := false, fa
 	comms_hostile = hostile
 	if mode == "talk": console_open = false
 	comms_voice_id = voice_id
-	Sfx.speak(line, v, female, voice_id)
+	if Time.get_ticks_msec() / 1000.0 >= Sfx.keep_until or not Sfx.voice_busy(): Sfx.speak(line, v, female, voice_id)   # v1.7n: not over a brief
 	_sync()
 	_log("%s: %s" % [from, line])
 

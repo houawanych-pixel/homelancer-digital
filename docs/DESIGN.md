@@ -1260,3 +1260,4 @@ Owner, after the v1.5k test flow passed: "push it to all".
 - v1.7k: mold library: `tools/molds/voxelize.py` -> `scripts/mold_library.gd` (preloaded as MoldLibrary), placed by `_place_library` / `_place_mold`.
 - v1.7l: waterfalls (`_place_falls`, `_falls_check`, `_draw_falls`, `FALL_*`).
 - v1.7m: underground light: `GROUND_SHADER` (colour alpha = sky, uv = glow / gloss), `_sky` / `_look`, `glow_points`, space `_update_light` (flashlight + `GLOW_LIGHTS` pool).
+- v1.7n (owner fixes): a plain light background on the title until the intro movie plays (no 3D scene first); no radio call from control at the very start; launching with a job, control no longer greets (it cut the brief off) and nothing talks over the brief (`Sfx.keep_until`).

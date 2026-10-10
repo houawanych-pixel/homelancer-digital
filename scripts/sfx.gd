@@ -114,6 +114,10 @@ func device_voices() -> Array:
 ## THE way the game speaks a line for a character. dialogue_id names a recorded line when there is one (otherwise
 ## the line's text does); the providers are tried in order (Voice.PROVIDERS). legacy_* serve characters not yet on a
 ## voice profile (they keep their old pitch / sex values).
+var keep_until := 0.0   # v1.7n: an important line (a mission brief) is not cut off: other lines stay silent until then
+func voice_busy() -> bool:
+	return _talk_left > 0.0 or (voice_player != null and voice_player.playing) or DisplayServer.tts_is_speaking()
+
 func play_character_voice(character_id: String, dialogue_id: String, text: String, legacy_pitch := 1.0, legacy_female := false) -> void:
 	var key := "%s|%s" % [character_id, text]
 	var now := Time.get_ticks_msec() / 1000.0

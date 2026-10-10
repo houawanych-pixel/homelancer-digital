@@ -101,10 +101,11 @@ func start_game() -> void:
 	title.release()
 	state = "launching"
 	GS.restore_full()
-	_launch_sequence("Liberty Hub")
+	_launch_sequence("Liberty Hub", false)   # v1.7n (owner): no radio call at the very start
 
 # ---------------------------------------------------------------- systems
 func _load_system(id: String, arrival: String, staged := false) -> void:
+	Sfx.keep_until = 0.0   # (a new system: its own lines may speak)
 	_new_space("Space_" + id)
 	GS.system_id = id
 	if not (id in GS.discovered): GS.discovered.append(id)
@@ -586,7 +587,7 @@ func launch() -> void:
 	space.set_player_model()
 	space.place_player("planet" if docked_node_kind == "planet" else "station")
 	space.spawn_bounty()   # v1.4q: a bounty just accepted for this very system
-	_launch_sequence(where)
+	_launch_sequence(where, GS.mission.is_empty())   # v1.7n: with a job, the brief is read, not cut off by control
 	var mw: Dictionary = space.mission_waypoint()
 	if not mw.is_empty(): hud.flash_message("Waypoint set: %s. GO TO flies it." % mw["title"])
 	if not GS.mission.is_empty():   # v1.5f: the dispatcher repeats the brief on the comms panel
@@ -594,8 +595,9 @@ func launch() -> void:
 		var co: Dictionary = Factions.coordinator(Factions.owner_of(gsys["station"], gsys))   # v1.5l: the coordinator gives the brief, in their own voice
 		if co.is_empty(): hud.open_comms("%s dispatch" % gsys["station"]["name"], str(GS.mission["brief"]), "incoming", false)
 		else: hud.open_comms("%s — %s" % [co["name"], gsys["station"]["name"]], str(GS.mission["brief"]), "incoming", false, "gp/" + str(co["id"]), float(co.get("voice", 1.0)), str(co.get("sex", "")) == "female", str(co.get("voice_id", co["id"])))
+		Sfx.keep_until = Time.get_ticks_msec() / 1000.0 + clampf(str(GS.mission["brief"]).length() / 13.0, 3.0, 25.0)   # v1.7n: nothing talks over the brief
 
-func _launch_sequence(where: String) -> void:
+func _launch_sequence(where: String, greet := true) -> void:
 	fx.caption = "LAUNCHING"
 	fx.sub = where.to_upper()
 	fx.fade = 1.0
@@ -618,6 +620,7 @@ func _launch_sequence(where: String) -> void:
 	state = "flight"
 	hud.flash_message("Launch complete. %s system." % Data.SYSTEMS[GS.system_id]["name"])
 	var ctl := "vale" if GS.system_id == "solara" else "amari"
+	if not greet: return
 	if ctl in GS.met: hud.open_comms("%s — %s" % [Data.CHARACTERS[ctl]["name"], Data.CHARACTERS[ctl]["role"]], "[smile]You're clear, pilot. " + _comms_line().substr(_comms_line().find("]") + 1), "incoming", false,
 		Data.CHARACTERS[ctl].get("face", ""), float(Data.CHARACTERS[ctl].get("voice", 1.0)), bool(Data.CHARACTERS[ctl].get("female", false)), ctl)
 	else: _meet(ctl, "friendly")

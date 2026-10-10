@@ -121,6 +121,9 @@ func _process(dt: float) -> void:
 
 func _draw() -> void:
 	var S := get_viewport_rect().size
+	# v1.7n (owner): a plain light background (the web page's own colour) until the intro movie plays, so the 3D scene
+	# behind is never seen first; it fades out as the movie fades in
+	if art_k < 1.0: draw_rect(Rect2(Vector2.ZERO, S), Color(0.965, 0.976, 0.988, 1.0 - art_k))
 	# the small stand-in picture, until the movie has arrived; it fades away over the movie playing behind
 	if bg != null:
 		var ks := maxf(S.x / bg.get_width(), S.y / bg.get_height())

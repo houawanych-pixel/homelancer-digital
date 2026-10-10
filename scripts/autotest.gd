@@ -1245,7 +1245,7 @@ func _run() -> void:
 	_check("First-person cockpit view", GS.view == "cockpit" and not s.model.visible)
 	await _shot("cockpit_view")
 	await _until(func(): return not main.hud.comms_open, 9.0) # launch call closes by itself
-	_check("Incoming call auto-closes; station controller met", not main.hud.comms_open and "vale" in GS.met)
+	_check("Incoming call auto-closes; no radio call from control at the very start (v1.7n, owner)", not main.hud.comms_open and not ("vale" in GS.met))
 	_press("call")
 	await _wait(0.4)
 	_check("CALL talks to target/controller", main.hud.comms_mode == "talk")
