@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.7l"
+const VERSION := "v1.7m"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -363,6 +363,17 @@ const FALLS_PER_TILE := {"forest": 3, "coast": 3, "mountains": 4, "canyon": 3, "
 const FALL_DROP := 20.0              # m: the least drop for a waterfall
 const FALL_WIDE := 2                 # cells across (10 m)
 const FALL_COLOR := Color(0.62, 0.86, 1.0, 0.85)
+# v1.7m UNDERGROUND LIGHT (the design notes): under cover (cave floors, roofs, walls facing a hole) the sun and the sky
+# don't reach, so it is dark; light comes from the ship's flashlight and from things that glow by themselves: lava,
+# fire, gold (warm), diamond (cold), the kill floor. Obsidian is glossy. Cheap for phones: the glows are emissive,
+# only a few real lights (the nearest ones to you) light their surroundings.
+const CAVE_DARK := 0.12              # how much of the sun and sky reaches a covered face
+const BLOCK_GLOW := {"gold": 0.55, "diamond": 1.1}   # how brightly treasure glows by itself
+const BLOCK_GLOSS := {"obsidian": 1.0, "diamond": 0.8, "gold": 0.6}   # glassy shine
+const GLOW_LIGHTS := 6               # real lights at the nearest glowing things to you
+const GLOW_LIGHT := {"lava": [Color(1.0, 0.45, 0.12), 2.2, 34.0], "fire": [Color(1.0, 0.55, 0.15), 2.0, 30.0], "diamond": [Color(0.7, 0.9, 1.0), 1.6, 22.0], "gold": [Color(1.0, 0.8, 0.35), 1.2, 16.0], "kill": [Color(1.0, 0.35, 0.1), 3.0, 60.0]}   # [colour, energy, range m]
+const GLOW_REACH := 140.0            # m: glowing things this near you get a real light
+const FLASHLIGHT := [Color(1.0, 0.97, 0.9), 3.0, 160.0, 28.0]   # [colour, energy, range m, cone degrees]: on underground
 const FIRE_TICK := 0.5               # s
 const FIRE_BURN := {"wood": 4.0, "leaf": 1.5, "leaf2": 1.5}   # s a burning layer lasts before it is gone
 const FIRE_SPREAD := {"wood": 0.25, "leaf": 0.5, "leaf2": 0.5}   # chance per tick it catches from a burning neighbour

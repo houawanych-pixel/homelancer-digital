@@ -90,7 +90,7 @@ var _dirty := {}
 var _tones := {}
 var _mats := {}
 var _box: BoxMesh
-var _ground_mat: StandardMaterial3D
+static var _ground_mat: ShaderMaterial   # (one for every field: it compiles once)
 var _rng := RandomNumberGenerator.new()
 
 const MoldLibrary := preload("res://scripts/mold_library.gd")   # v1.7k: models made into molds
@@ -2521,6 +2521,76 @@ func _process(dt: float) -> void:
 ## Redraw the squares that changed (at most `limit` per call; 0 = all). The ground is one fused surface: same-height
 ## neighbours share one flat face with no seam; a wall appears only where the ground steps. Untouched ground keeps its
 ## own blended colours; dug ground shows the tone of the layer that is now on top; walls show the layers they cut.
+const GROUND_SHADER := """shader_type spatial;
+render_mode cull_disabled;
+varying float sky;
+varying float glow;
+varying float gloss;
+void vertex() {
+	sky = COLOR.a;
+	glow = UV.x;
+	gloss = UV.y;
+}
+void fragment() {
+	ALBEDO = COLOR.rgb;
+	ROUGHNESS = mix(0.9, 0.3, gloss);
+	AO = sky;
+	AO_LIGHT_AFFECT = 0.0;
+	EMISSION = COLOR.rgb * glow;
+}
+void light() {
+	float k = LIGHT_IS_DIRECTIONAL ? sky : 1.0;
+	float nl = clamp(dot(NORMAL, LIGHT), 0.0, 1.0);
+	DIFFUSE_LIGHT += k * nl * ATTENUATION * LIGHT_COLOR / PI;
+	vec3 hv = normalize(LIGHT + VIEW);
+	SPECULAR_LIGHT += k * gloss * pow(clamp(dot(NORMAL, hv), 0.0, 1.0), 40.0) * nl * ATTENUATION * LIGHT_COLOR * 0.35;
+}"""
+
+## v1.7m: the glowing things in this field near a point (for the few real lights): [[position, kind]], at most one per
+## ~15 m: lava, fire, gold and diamond with air beside them, the kill floor where it is dug open.
+@warning_ignore("integer_division")
+func glow_points(near: Vector3, reach: float) -> Array:
+	var out: Array = []
+	var taken := {}
+	var add := func(pt: Vector3, kind: String) -> void:
+		if Vector2(pt.x - near.x, pt.z - near.z).length() > reach or absf(pt.y - near.y) > reach: return
+		var key := Vector3i(int(floor(pt.x / 15.0)), int(floor(pt.y / 15.0)), int(floor(pt.z / 15.0)))
+		if taken.has(key): return
+		taken[key] = true
+		out.append([pt, kind])
+	for kv in burning: add.call(_layer_point((kv as Vector2i).x, (kv as Vector2i).y), "fire")
+	for c in fluid:
+		var d: Dictionary = fluid[c]
+		for k in d:
+			if d[k] == "lava": add.call(_layer_point(int(c), int(k)), "lava")
+	for v in veins:
+		for ck in v["cells"]:
+			var c2: int = (ck as Vector2i).x
+			var k2: int = (ck as Vector2i).y
+			if not _solid_k(c2, k2): continue
+			var open := false
+			for nb in _nbrs6(c2, k2):
+				if not _solid_k((nb as Vector2i).x, (nb as Vector2i).y): open = true
+			if open: add.call(_layer_point(c2, k2), str(v["mat"]))
+	var step: float = Data.BLOCK_MIN
+	var fx := int((near.x - x0) / step)
+	var fz := int((near.z - z0) / step)
+	var rr := int(reach / step)
+	for z in range(maxi(0, fz - rr), mini(n, fz + rr + 1), 2):
+		for x in range(maxi(0, fx - rr), mini(n, fx + rr + 1), 2):
+			var c3 := z * n + x
+			if _ktop(c3) <= _kfloor(c3) + 1: add.call(Vector3(x0 + (x + 0.5) * step, h[c3] + 2.0, z0 + (z + 0.5) * step), "kill")
+	return out
+
+## v1.7m: set how the next faces glow and shine (their material's own light and gloss).
+func _look(st: SurfaceTool, m: String) -> void:
+	st.set_uv(Vector2(float(Data.BLOCK_GLOW.get(m, 0.0)), float(Data.BLOCK_GLOSS.get(m, 0.0))))
+
+func _sky(cs: Array, covered: bool) -> Array:
+	var out: Array = []
+	for c in cs: out.append(Color((c as Color).r, (c as Color).g, (c as Color).b, Data.CAVE_DARK if covered else 1.0))
+	return out
+
 var _slant_cache := {}
 func flush(limit := 0) -> void:
 	if not slabs.is_empty(): _slab_check()
@@ -2541,6 +2611,7 @@ func _draw_chunk(k: int) -> void:
 	var cj := k / nc
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_uv(Vector2.ZERO)   # (v1.7m: every face carries its glow / gloss)
 	_kill_st = SurfaceTool.new()
 	_kill_st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	_kill_any = false
@@ -2553,11 +2624,11 @@ func _draw_chunk(k: int) -> void:
 			any = true
 	var mi: MeshInstance3D = _chunks.get(k)
 	if mi == null:
-		if _ground_mat == null:
-			_ground_mat = StandardMaterial3D.new()
-			_ground_mat.vertex_color_use_as_albedo = true
-			_ground_mat.roughness = 0.9
-			_ground_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		if _ground_mat == null:   # v1.7m: vertex colour alpha = how much sun / sky reaches it; uv.x = its own glow, uv.y = gloss
+			_ground_mat = ShaderMaterial.new()
+			var sh := Shader.new()
+			sh.code = GROUND_SHADER
+			_ground_mat.shader = sh
 		mi = MeshInstance3D.new()
 		mi.name = "Ground%d" % k
 		mi.material_override = _ground_mat
@@ -2633,6 +2704,8 @@ func _draw_block(st: SurfaceTool, ox: int, oz: int, s: int) -> void:
 		if dd > 0:   # cracked: darker the closer it is to breaking
 			var f: float = Data.BLOCK_DAMAGE_DARK * float(dd) / float(Data.BLOCK_HITS.get(mat_at(cfx, cfz, ty), 1))
 			for q in 4: cs[q] = (cs[q] as Color).lerp(Color.BLACK, f)
+		cs = _sky(cs, j < sp.size() - 1)   # v1.7m: a floor under a roof (a cave, a tunnel) is out of the sun
+		_look(st, "" if (j == sp.size() - 1 and untouched) else mat_at(cfx, cfz, ty))
 		if slo < INF and ty > slo + 0.01:
 			pass   # (the slab's own top: drawn as the slab)
 		elif j == 0 and o.y <= _kfloor(i0):   # the kill floor, dug open: it blazes (a warning you see from far above)
@@ -2647,7 +2720,10 @@ func _draw_block(st: SurfaceTool, ox: int, oz: int, s: int) -> void:
 			_quad(st, Vector3(ax, ty, az), Vector3(bx, ty, az), Vector3(bx, ty, bz), Vector3(ax, ty, bz), cs, Vector3.UP)
 		if j > 0 and not (slo < INF and y0 + o.x * step >= slo - step - 0.01):   # the roof of a hole under it (a tunnel or cave ceiling)
 			var by: float = y0 + o.x * step
-			var cc := tone(mat_at(cfx, cfz, _ly(o.x))).lerp(Color.BLACK, 0.4)
+			var rm := mat_at(cfx, cfz, _ly(o.x))
+			var cc0 := tone(rm).lerp(Color.BLACK, 0.4)
+			var cc := Color(cc0.r, cc0.g, cc0.b, Data.CAVE_DARK)   # (a roof is always out of the sun)
+			_look(st, rm)
 			_quad(st, Vector3(ax, by, az), Vector3(ax, by, bz), Vector3(bx, by, bz), Vector3(bx, by, az), [cc, cc, cc, cc], Vector3.DOWN)
 	var surf: Color = ccol[cfz * n1 + cfx]
 	var corners := [Vector3(ax, 0, az), Vector3(bx, 0, az), Vector3(bx, 0, bz), Vector3(ax, 0, bz), Vector3(ax, 0, az)]
@@ -2680,9 +2756,11 @@ func _draw_block(st: SurfaceTool, ox: int, oz: int, s: int) -> void:
 				for A in air:
 					var wl := maxf(lo, (A as Vector2).x)
 					var wh := minf(hi, (A as Vector2).y)
-					if wh > wl + 0.01: _wall(st, p0, p1, wh, wl, cfx, cfz, untouched and (absf(wh - top) < 0.01 or lean), surf, normals[side])
+					if wh > wl + 0.01: _wall(st, p0, p1, wh, wl, cfx, cfz, untouched and (absf(wh - top) < 0.01 or lean), surf, normals[side], (A as Vector2).y < INF)
 				if lean and edge[side] and maxf(e0, e1) > hi + 0.01:
-					var sc: Color = surf * 0.92
+					var sc0: Color = surf * 0.92
+					var sc := Color(sc0.r, sc0.g, sc0.b, 1.0)
+					_look(st, "")
 					_quad(st, Vector3(p0.x, e0, p0.z), Vector3(p1.x, e1, p1.z), Vector3(p1.x, hi, p1.z), Vector3(p0.x, hi, p0.z), [sc, sc, sc, sc], normals[side])
 			k = k2
 
@@ -2854,7 +2932,7 @@ func _air_iv(c: int, top: float) -> Array:
 	return out
 
 ## A wall from the block's top down to `low`, in bands by the layers it cuts (same-material layers merged).
-func _wall(st: SurfaceTool, p0: Vector3, p1: Vector3, top: float, low: float, cfx: int, cfz: int, untouched: bool, surf: Color, nrm: Vector3) -> void:
+func _wall(st: SurfaceTool, p0: Vector3, p1: Vector3, top: float, low: float, cfx: int, cfz: int, untouched: bool, surf: Color, nrm: Vector3, covered := false) -> void:
 	var step: float = Data.BLOCK_MIN
 	var ground: float = h0[cfz * n + cfx]
 	var y := top
@@ -2862,6 +2940,7 @@ func _wall(st: SurfaceTool, p0: Vector3, p1: Vector3, top: float, low: float, cf
 	while y > low + 0.01:
 		var col: Color
 		var y_end: float
+		var first_band := first
 		if first and untouched:   # the grass cap (v1.7g: a thin band, the planet's colour; the rock shows below it)
 			col = surf * 0.92
 			y_end = maxf(low, y - Data.BLOCK_GRASS_BAND)
@@ -2874,6 +2953,10 @@ func _wall(st: SurfaceTool, p0: Vector3, p1: Vector3, top: float, low: float, cf
 		first = false
 		var ct := col.lerp(Color.BLACK, clampf((ground - y) / 250.0, 0.0, 0.35))
 		var cb := col.lerp(Color.BLACK, clampf((ground - y_end) / 250.0, 0.0, 0.35) + 0.08)
+		var a := Data.CAVE_DARK if covered else 1.0   # v1.7m: a wall facing into a hole is out of the sun
+		ct.a = a
+		cb.a = a
+		_look(st, "" if (first_band and untouched) else mat_at(cfx, cfz, y - 0.01))
 		_quad(st, Vector3(p0.x, y, p0.z), Vector3(p1.x, y, p1.z), Vector3(p1.x, y_end, p1.z), Vector3(p0.x, y_end, p0.z), [ct, ct, cb, cb], nrm)
 		y = y_end
 

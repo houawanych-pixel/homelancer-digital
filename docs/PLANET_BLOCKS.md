@@ -611,6 +611,13 @@ Status: the owner said go for step 2 (craters), step by step. Each next step wai
    (`FALLS_PER_TILE`, `FALL_*`), a pool is cut into the top behind a one-cell rock lip and a pool at the cliff's foot,
    both real water; between them a moving sheet of water (a scrolling shader) and white foam blocks where it lands.
    Blast the lip and the fall stops. The slab and waterfall drawings now move with a tile crossing too.
+2x. DONE (v1.7m): UNDERGROUND LIGHT, first version (the notes' lighting section). The block ground has its own shader:
+   each face carries how much sun and sky reach it (covered faces: a floor under a roof, a roof, a wall facing into a
+   hole get `CAVE_DARK`), its own glow (gold warm, diamond cold: emissive) and its gloss (obsidian glassy, gold and
+   diamond shiny: a highlight from every light). The ship's FLASHLIGHT comes on under a roof (`FLASHLIGHT`). A few
+   real lights (`GLOW_LIGHTS`, the nearest to you) sit on glowing things: lava, fire, exposed gold and diamond, the
+   kill floor where it is dug open, so they light their surroundings. Still to come: the flashlight making what it
+   hits flare brighter, light carrying through water.
 3. DONE (already from earlier work): the ground blends across tile edges and the next area is built before you reach
    it, so crossing has no jump.
 4. DONE (already): no seam lines at ordinary corners (the ground blends); the planet's wrap corner sits in a cloud bank.

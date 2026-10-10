@@ -6310,6 +6310,50 @@ func _regions() -> void:
 		fire_detail = "lit %d, most at once %d, burnt away %d, out after %d ticks, kept as notes %d, lava lights it %s" % [lit, most, tf.burned, ticks, cuts, lava_ok]
 	_check("Alien trees (v1.7i): wood trunks and branches under big two-colour leaf slabs you can fly under, roots underground, one root down into the cave's chamber; wood and leaves catch fire (missiles, lava), it spreads, burns them away and dies out",
 		tree_ok and shade and root_in and fire_ok, "trees %d, first: wood %d leaf %d, air under the leaves %s, root in the cave %s, %s" % [n_trees, int(tr.get("wood", 0)), int(tr.get("leaf", 0)), shade, root_in, fire_detail])
+	# v1.7m: underground light: covered faces (the cave's floor) are out of the sun, open ground isn't; the flashlight
+	# comes on under a roof and goes off in the open; a glowing thing near you (fire) gets a real light
+	var dark_ok := false
+	var open_ok := false
+	var flash_in := false
+	var flash_out := true
+	var glow_ok := false
+	if not mo.is_empty():
+		var cc8: int = mo["centre"]
+		var fy: float = mf.y0 + int(mo["k0"]) * Data.BLOCK_MIN
+		var fx8: float = mf.x0 + (cc8 % mf.n + 0.5) * Data.BLOCK_MIN
+		var fz8: float = mf.z0 + (cc8 / mf.n + 0.5) * Data.BLOCK_MIN
+		for ch8 in mf.get_children():
+			if not (ch8 is MeshInstance3D) or not str(ch8.name).begins_with("Ground") or (ch8 as MeshInstance3D).mesh == null: continue
+			var arr: Array = (ch8 as MeshInstance3D).mesh.surface_get_arrays(0)
+			var vs: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+			var cols: PackedColorArray = arr[Mesh.ARRAY_COLOR]
+			for vi in range(0, vs.size(), 3):
+				var v: Vector3 = vs[vi]
+				if absf(v.y - fy) < 0.05 and absf(v.x - fx8) < 20.0 and absf(v.z - fz8) < 20.0 and absf(cols[vi].a - Data.CAVE_DARK) < 0.01: dark_ok = true
+				if cols[vi].a > 0.99: open_ok = true
+		s.player.global_position = Vector3(fx8, fy + 15.0, fz8)
+		await get_tree().process_frame
+		await get_tree().process_frame
+		flash_in = s.flashlight != null and s.flashlight.visible
+		s.player.global_position = Vector3(fx8, mf.hmax + 60.0, fz8)
+		await get_tree().process_frame
+		await get_tree().process_frame
+		flash_out = s.flashlight != null and s.flashlight.visible
+	for f in s._fields():
+		if glow_ok: break
+		for t9 in (f as BlockField).trees:
+			var tc9: int = (t9["trunk"] as Array)[0]
+			var k9: int = int(t9["k_ground"]) + 2
+			if not (f as BlockField).ignite(tc9, k9): continue
+			var lp9: Vector3 = (f as BlockField)._layer_point(tc9, k9)
+			s._glow_t = 0.0
+			s._update_light(0.1, f, lp9 + Vector3(0, 0, 30))
+			for gl in s.glow_lights:
+				if (gl as OmniLight3D).visible and str(gl.get_meta("kind", "")) == "fire" and (gl as OmniLight3D).global_position.distance_to(lp9) < 1.0: glow_ok = true
+			(f as BlockField).burning.clear()
+			break
+	_check("Underground light (v1.7m): the cave floor is out of the sun while open ground isn't; the flashlight comes on under a roof and off in the open; glowing things near you (fire, lava, treasure, the kill floor) light up their surroundings",
+		dark_ok and open_ok and flash_in and not flash_out and glow_ok, "cave floor dark %s, open ground lit %s, flashlight in the cave %s, in the open %s, fire gets a light %s" % [dark_ok, open_ok, flash_in, flash_out, glow_ok])
 	# v1.7f: leaning slabs and A-frames stand about, one straight tilted slab each while whole; you can fly under an
 	# A-frame; knock out a lean-to's prop (or one foot of an A-frame) and it stops being one piece and the far part falls
 	var found := {"lean": null, "aframe": null}

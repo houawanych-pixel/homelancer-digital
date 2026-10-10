@@ -4531,6 +4531,49 @@ func _over_blocks() -> bool:
 ## nearest missing one each frame) and freed once you are well away; the smooth sheet is cut out under each one, so
 ## from far off you see the smooth ground and close up you stand on blocks. Blasts and digging are kept per region.
 var _regions := {}       # Vector4i(tile dx, tile dz, rx, rz) -> BlockField
+## v1.7m underground light: the ship's flashlight (on under cover) and a few real lights at the nearest glowing things.
+var flashlight: SpotLight3D
+var glow_lights: Array = []   # OmniLight3D pool
+var _glow_t := 0.0
+func _update_light(dt: float, bf: BlockField, p: Vector3) -> void:
+	if flashlight == null and is_instance_valid(player):
+		flashlight = SpotLight3D.new()
+		flashlight.name = "Flashlight"
+		var fl: Array = Data.FLASHLIGHT
+		flashlight.light_color = fl[0]
+		flashlight.light_energy = fl[1]
+		flashlight.spot_range = fl[2]
+		flashlight.spot_angle = fl[3]
+		flashlight.shadow_enabled = false
+		flashlight.visible = false
+		player.add_child(flashlight)
+		flashlight.position = Vector3(0, 0, -3)
+	if flashlight:
+		flashlight.visible = bf != null and bf.ceiling_above(p.x, p.y - 6.0, p.z) < INF   # under a roof: it comes on
+	_glow_t -= dt
+	if _glow_t > 0.0: return
+	_glow_t = 0.3
+	var pts: Array = []
+	for f in _fields(): pts.append_array((f as BlockField).glow_points(p, Data.GLOW_REACH))
+	pts.sort_custom(func(a, b): return p.distance_squared_to(a[0]) < p.distance_squared_to(b[0]))
+	while glow_lights.size() < Data.GLOW_LIGHTS and not pts.is_empty():
+		var ol := OmniLight3D.new()
+		ol.shadow_enabled = false
+		ol.visible = false
+		add_child(ol)
+		glow_lights.append(ol)
+	for i in glow_lights.size():
+		var ol: OmniLight3D = glow_lights[i]
+		if i >= pts.size():
+			ol.visible = false
+			continue
+		var spec: Array = Data.GLOW_LIGHT.get(str(pts[i][1]), Data.GLOW_LIGHT["lava"])
+		ol.global_position = pts[i][0]
+		ol.light_color = spec[0]
+		ol.light_energy = spec[1]
+		ol.omni_range = spec[2]
+		ol.set_meta("kind", pts[i][1])
+		ol.visible = true
 var region_ms := 0.0     # how long the last region took to build (ms, tests)
 var regions_built := 0   # (tests)
 var _building: BlockField = null   # the region being built now (outside the tree until it's done)
@@ -4639,6 +4682,7 @@ func _surface_update(_dt: float) -> void:
 		if vel.y < 0.0: vel.y = 0.0
 		collision_damage("ground", impact)   # Job L (was: > 20 m/s, 0.25 x impact through the shields)
 	for fl in _fields(): (fl as BlockField).fluid_update(_dt, player.global_position)   # v1.6b: water and lava move near you
+	_update_light(_dt, bfp, p)   # v1.7m
 	if bfp:   # lava burns
 		if on_blocks and controls and bfp.fluid_at(p.x, p.y, p.z) == "lava":
 			_lava_t += _dt
