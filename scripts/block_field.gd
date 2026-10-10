@@ -22,6 +22,7 @@ var region := Vector2i(-1, -1)   # v1.7a: which 500 m square of the tile ((-1, -
 var _sk := ""                  # the seed key: planet|tile (test patch) or planet|tile|rx|rz (a region)
 var off := Vector2.ZERO         # v1.7d: where this field's own tile sits in the frame it is used in (a neighbour tile's
                                # region near the border is built shifted by a tile; its notes are kept in its own tile's frame)
+var chunk: int = Data.BLOCK_CHUNK   # v1.7q: mesh chunk side in cells (regions use smaller ones: quicker to redraw)
 var feat := 1.0                # how many landmarks / caves / pockets compared with the test patch (by area)
 var center := Vector2.ZERO     # tile-local centre of the patch (x east, z south)
 var cols := 0                  # big columns per side
@@ -144,7 +145,14 @@ var cancel := false  # ...and stops (and frees itself) if this is set while it b
 
 ## Build from the seed. `staged` (v1.7a regions): spread over many frames so flying never stalls (each step is
 ## a few rows, one feature or one mesh chunk); `built` goes true at the end.
+static var step_max_ms := 0.0   # v1.7q: the longest single slice of a staged build so far (tests: no long stalls)
+var _step_t0 := 0
+func _slice_end() -> void:
+	var d := (Time.get_ticks_usec() - _step_t0) / 1000.0
+	step_max_ms = maxf(step_max_ms, d)
+
 func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame := Vector2.ZERO) -> void:
+	_step_t0 = Time.get_ticks_usec()
 	planet_id = pid
 	tile = t
 	region = reg
@@ -162,6 +170,7 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 		off = frame
 		cols = int(round(Data.BLOCK_REGION / big))
 		feat = Data.BLOCK_REGION_FEATURES
+		chunk = Data.BLOCK_CHUNK_REGION
 	tops.resize(cols * cols)
 	var g := Surface.grid(pid)
 	var ox := float(t % g) * Surface.TILE - off.x   # (planet metres of this frame's origin)
@@ -177,7 +186,9 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 	# 1. column tops: the highest ground under the column (so the smooth sheet never pokes through), snapped up a step
 	for j in cols:
 		if staged and j % 4 == 3:
+			_slice_end()
 			await Engine.get_main_loop().process_frame
+			_step_t0 = Time.get_ticks_usec()
 			if cancel:
 				queue_free()
 				return
@@ -272,50 +283,118 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 			var top_c := cc[j0 * (cols + 1) + i0].lerp(cc[j0 * (cols + 1) + i0 + 1], tu)
 			var bot_c := cc[(j0 + 1) * (cols + 1) + i0].lerp(cc[(j0 + 1) * (cols + 1) + i0 + 1], tu)
 			ccol[fz * (n + 1) + fx] = top_c.lerp(bot_c, tw)
+	_gen = staged   # (v1.7q: in a staged region build, one support check at the end instead of one per feature)
+	_gen_box = Rect2i()
 	_noise = FastNoiseLite.new()
 	_noise.seed = hash(_sk + "|layers")
 	_noise.frequency = 0.03
 	# 4. caves, sealed water and lava pockets, gold and diamond veins, from the seed (v1.6b-d)
 	if staged:
+		_slice_end()
 		await Engine.get_main_loop().process_frame
+		_step_t0 = Time.get_ticks_usec()
 		if cancel:
 			queue_free()
 			return
 	_carve_canyon()
 	if staged:
+		_slice_end()
 		await Engine.get_main_loop().process_frame
+		_step_t0 = Time.get_ticks_usec()
 		if cancel:
 			queue_free()
 			return
 	_carve_root_halls()
 	if staged:
+		_slice_end()
 		await Engine.get_main_loop().process_frame
+		_step_t0 = Time.get_ticks_usec()
 		if cancel:
 			queue_free()
 			return
 	_carve_caves()
-	if region.x >= 0 and _carve_cave_mold(): _carve_links()   # (v1.7h cave, v1.7j tunnels out to the caves near it)
 	if staged:
+		_slice_end()
 		await Engine.get_main_loop().process_frame
+		_step_t0 = Time.get_ticks_usec()
+		if cancel:
+			queue_free()
+			return
+	if region.x >= 0 and _carve_cave_mold():   # (v1.7h cave, v1.7j tunnels out to the caves near it)
+		if staged:
+			_slice_end()
+			await Engine.get_main_loop().process_frame
+			_step_t0 = Time.get_ticks_usec()
+			if cancel:
+				queue_free()
+				return
+		_carve_links()
+	if staged:
+		_slice_end()
+		await Engine.get_main_loop().process_frame
+		_step_t0 = Time.get_ticks_usec()
 		if cancel:
 			queue_free()
 			return
 	_build_landmarks()
+	if staged:
+		_slice_end()
+		await Engine.get_main_loop().process_frame
+		_step_t0 = Time.get_ticks_usec()
+		if cancel:
+			queue_free()
+			return
 	if region.x >= 0: _build_slabs()   # (v1.7f; the old test patch keeps its ground as the tests know it)
+	if staged:
+		_slice_end()
+		await Engine.get_main_loop().process_frame
+		_step_t0 = Time.get_ticks_usec()
+		if cancel:
+			queue_free()
+			return
 	if region.x >= 0: _place_library()   # (v1.7k: shapes made from models, scripts/mold_library.gd)
+	if staged:
+		_slice_end()
+		await Engine.get_main_loop().process_frame
+		_step_t0 = Time.get_ticks_usec()
+		if cancel:
+			queue_free()
+			return
 	if region.x >= 0: _grow_trees()   # (v1.7i: after the cave, so a root can grow into it)
+	if staged:
+		_slice_end()
+		await Engine.get_main_loop().process_frame
+		_step_t0 = Time.get_ticks_usec()
+		if cancel:
+			queue_free()
+			return
 	if region.x >= 0: _place_falls()   # (v1.7l)
 	if staged:
+		_slice_end()
 		await Engine.get_main_loop().process_frame
+		_step_t0 = Time.get_ticks_usec()
 		if cancel:
 			queue_free()
 			return
 	_raise_roots()
 	if staged:
+		_slice_end()
 		await Engine.get_main_loop().process_frame
+		_step_t0 = Time.get_ticks_usec()
 		if cancel:
 			queue_free()
 			return
+	if _gen:
+		_gen = false
+		if _gen_box.size != Vector2i.ZERO:
+			_slice_end()
+			await Engine.get_main_loop().process_frame
+			_step_t0 = Time.get_ticks_usec()
+			if cancel:
+				queue_free()
+				return
+			_settle(_gen_box.position.x, _gen_box.end.x - 1, _gen_box.position.y, _gen_box.end.y - 1)
+			collapses = 0
 	_place_pockets()
 	_place_veins()
 	_slab_expect()
@@ -331,11 +410,14 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 	layers_broken = 0
 	splits = 0
 	collapses = 0
+	_mat_ok = true
 	var nc := _nchunks()
 	for k in nc * nc: _dirty[k] = true
 	if staged:
 		while not _dirty.is_empty():
+			_slice_end()
 			await Engine.get_main_loop().process_frame
+			_step_t0 = Time.get_ticks_usec()
 			if cancel:
 				queue_free()
 				return
@@ -414,6 +496,23 @@ func mat_at(fx: int, fz: int, y: float) -> String:
 		var kk := _k(y - Data.BLOCK_MIN * 0.5)
 		if ov.has(kk): return ov[kk]
 	var d: float = h0[fz * n + fx] - y
+	# v1.7q: the natural material of a layer never changes once the region is built: remembered (one byte a layer)
+	var slot := -1
+	if _mat_ok and d >= 0.0 and d < MAT_DEPTH * Data.BLOCK_MIN:
+		if _mat_mem.is_empty(): _mat_mem.resize(n * n * MAT_DEPTH)
+		slot = (fz * n + fx) * MAT_DEPTH + int(d / Data.BLOCK_MIN)
+		var mm: int = _mat_mem[slot]
+		if mm > 0: return MAT_NAMES[mm]
+	var res := _mat_natural(fx, fz, y, d)
+	if slot >= 0: _mat_mem[slot] = MAT_NAMES.find(res)
+	return res
+
+const MAT_NAMES := ["", "sand", "dirt", "stone", "obsidian"]
+const MAT_DEPTH := 44
+var _mat_mem := PackedByteArray()
+var _mat_ok := false   # (set once the region is generated: h0 no longer changes)
+
+func _mat_natural(fx: int, fz: int, y: float, d: float) -> String:
 	if Data.BLOCK_DEPTH_FLOOR - d < Data.KILL_CAP + 0.01: return "obsidian"   # v1.6d: the obsidian cap over the kill floor
 	var step: float = Data.BLOCK_MIN
 	var wx := x0 + (fx + 0.5) * step
@@ -636,7 +735,16 @@ func _set_spans(i: int, sp: Array) -> void:
 ## Support (step 5): a piece floating over a hole stays up only if it is joined sideways to grounded ground within its
 ## material's reach (Data.BLOCK_REACH, in 5 m cells: sand 0, dirt 1, stone 3, obsidian 5). Otherwise it falls and lands
 ## on what is under it. Checked around the blast, again and again until nothing more falls. Returns what fell.
+var _gen := false          # v1.7q: generating a region: the support checks wait and run once at the end
+var _gen_box := Rect2i()
 func _settle(cx0: int, cx1: int, cz0: int, cz1: int) -> Array:
+	if _gen:
+		var b := Rect2i(cx0, cz0, cx1 - cx0 + 1, cz1 - cz0 + 1)
+		_gen_box = b if _gen_box.size == Vector2i.ZERO else _gen_box.merge(b)
+		return []
+	return _settle_body(cx0, cx1, cz0, cz1)
+
+func _settle_body(cx0: int, cx1: int, cz0: int, cz1: int) -> Array:
 	var fell: Array = []
 	cx0 = clampi(cx0, 0, n - 1)
 	cx1 = clampi(cx1, 0, n - 1)
@@ -646,6 +754,7 @@ func _settle(cx0: int, cx1: int, cz0: int, cz1: int) -> Array:
 		var changed := false
 		var cells: Array = holes.keys()
 		cells.sort()
+		var dist := _ground_dist()   # v1.7q: every hanging piece's distance to grounded rock, worked out once per pass
 		for ci in cells:
 			var i: int = ci
 			var fx := i % n
@@ -653,8 +762,11 @@ func _settle(cx0: int, cx1: int, cz0: int, cz1: int) -> Array:
 			if fx < cx0 or fx > cx1 or fz < cz0 or fz > cz1 or not holes.has(i): continue
 			var sp: Array = spans(i)
 			var j := 1
+			var cut := false
 			while j < sp.size():
-				if _held(fx, fz, sp[j]):
+				var spj: Vector2i = sp[j]
+				var reach: int = maxi(Data.BLOCK_REACH.get(mat_at(fx, fz, _ly(spj.x)), 1), int(reach_bonus.get(i, 0)))
+				if int(dist.get(Vector3i(fx, fz, spj.x), 999)) <= reach:
 					j += 1
 					continue
 				var a: Vector2i = sp[j - 1]
@@ -671,11 +783,67 @@ func _settle(cx0: int, cx1: int, cz0: int, cz1: int) -> Array:
 				sp.remove_at(j)
 				collapses += 1
 				changed = true
-			_set_spans(i, sp)
-			dmg.erase(i)
-			_mark(fx, fz, 1)
+				cut = true
+			if cut:
+				_set_spans(i, sp)
+				dmg.erase(i)
+				_mark(fx, fz, 1)
 		if not changed: break
 	return fell
+
+## v1.7q: how far (in side-by-side steps) every hanging piece of rock is from rock that stands on the bottom: one sweep
+## out from the grounded rock over all the pieces (the same answer _held finds one piece at a time, far cheaper).
+## Key Vector3i(x, z, the piece's lowest layer) -> steps; pieces further than the longest reach are left out.
+@warning_ignore("integer_division")
+func _ground_dist() -> Dictionary:
+	var maxd := 13
+	for v in reach_bonus.values(): maxd = maxi(maxd, int(v) + 1)
+	var sp_of := {}
+	for c in holes: sp_of[c] = spans(int(c))
+	var dist := {}
+	var frontier: Array = []   # [cell, span]
+	var dirs := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+	for c in sp_of:
+		var fx: int = int(c) % n
+		var fz: int = int(c) / n
+		var sp: Array = sp_of[c]
+		for jj in range(1, sp.size()):
+			var o: Vector2i = sp[jj]
+			for d in dirs:
+				var nx: int = fx + d.x
+				var nz: int = fz + d.y
+				if nx < 0 or nz < 0 or nx >= n or nz >= n: continue
+				var nc := nz * n + nx
+				var ft: int = (holes[nc][0] as Vector2i).x if holes.has(nc) else _ktop(nc)   # the top of its grounded run
+				if ft > o.x:
+					dist[Vector3i(fx, fz, o.x)] = 1
+					frontier.append([int(c), o])
+					break
+	var dcur := 1
+	while not frontier.is_empty() and dcur < maxd:
+		var nxt: Array = []
+		for it in frontier:
+			var c2: int = it[0]
+			var cur: Vector2i = it[1]
+			var fx2: int = c2 % n
+			var fz2: int = c2 / n
+			for d in dirs:
+				var nx2: int = fx2 + d.x
+				var nz2: int = fz2 + d.y
+				if nx2 < 0 or nz2 < 0 or nx2 >= n or nz2 >= n: continue
+				var nc2 := nz2 * n + nx2
+				if not sp_of.has(nc2): continue
+				var nsp: Array = sp_of[nc2]
+				for jj2 in range(1, nsp.size()):
+					var o2: Vector2i = nsp[jj2]
+					if o2.x >= cur.y or o2.y <= cur.x: continue
+					var key := Vector3i(nx2, nz2, o2.x)
+					if dist.has(key): continue
+					dist[key] = dcur + 1
+					nxt.append([nc2, o2])
+		frontier = nxt
+		dcur += 1
+	return dist
 
 func _held(fx: int, fz: int, sp: Vector2i) -> bool:
 	var reach: int = maxi(Data.BLOCK_REACH.get(mat_at(fx, fz, _ly(sp.x)), 1), int(reach_bonus.get(fz * n + fx, 0)))
@@ -1850,6 +2018,7 @@ func _build_slabs() -> void:
 				else:
 					under = ground + rise * (1.0 - absf(float(a) - float(L)) / float(L))
 					solid = a == 0 or a == total - 1
+				if not solid: under = maxf(under, ground + step)   # (v1.7q: air under every part but the feet, so only they hold it)
 				var top: float = ceilf((under + thick) / step) * step
 				var ku := _k(floorf(under / step) * step + 0.01)
 				for b in W:
@@ -2389,7 +2558,7 @@ func ray_hit(a: Vector3, b: Vector3) -> Vector3:
 
 @warning_ignore("integer_division")
 func _mark(ox: int, oz: int, s: int) -> void:
-	var c: int = Data.BLOCK_CHUNK
+	var c: int = chunk
 	var nc := _nchunks()
 	for z in [oz - 1, oz + s]:
 		for x in [ox - 1, ox + s]:
@@ -2398,7 +2567,7 @@ func _mark(ox: int, oz: int, s: int) -> void:
 			_dirty[cz * nc + cx] = true
 
 func _nchunks() -> int:
-	return ceili(float(n) / Data.BLOCK_CHUNK)
+	return ceili(float(n) / chunk)
 
 # ---------------------------------------------------------------- rubble
 ## What a blast breaks flies out by material (Data.BLOCK_BREAK_PIECES): obsidian in 2 big halves, stone in 3, dirt in
@@ -2605,7 +2774,7 @@ func flush(limit := 0) -> void:
 @warning_ignore("integer_division")
 func _draw_chunk(k: int) -> void:
 	_slant_cache.clear()   # (the ground may have changed since the last chunk)
-	var c: int = Data.BLOCK_CHUNK
+	var c: int = chunk
 	var nc := _nchunks()
 	var ci := k % nc
 	var cj := k / nc
@@ -2729,6 +2898,13 @@ func _draw_block(st: SurfaceTool, ox: int, oz: int, s: int) -> void:
 	var corners := [Vector3(ax, 0, az), Vector3(bx, 0, az), Vector3(bx, 0, bz), Vector3(ax, 0, bz), Vector3(ax, 0, az)]
 	var normals := [Vector3.FORWARD, Vector3.RIGHT, Vector3.BACK, Vector3.LEFT]
 	for side in 4:
+		var open := false   # v1.7q: a side against solid ground at least as high, with no holes, has no wall at all: skip it
+		for kq in s:
+			var cq := _nb_cell(side, ox, oz, s, kq)
+			if cq < 0 or holes.has(cq) or h[cq] < top - 0.01:
+				open = true
+				break
+		if not open: continue
 		var k := 0
 		while k < s:
 			var key = _nb_key(side, ox, oz, s, k)
@@ -2915,11 +3091,11 @@ func _nb_cell(side: int, ox: int, oz: int, s: int, k: int) -> int:
 	if x < 0 or z < 0 or x >= n or z >= n: return -1
 	return z * n + x
 
-func _nb_key(side: int, ox: int, oz: int, s: int, k: int):
+func _nb_key(side: int, ox: int, oz: int, s: int, k: int) -> float:
 	var c := _nb_cell(side, ox, oz, s, k)
-	if c < 0: return "out"
-	if not holes.has(c): return str(h[c])
-	return str(h[c], holes[c])
+	if c < 0: return -1e9
+	if not holes.has(c): return h[c]
+	return h[c] + 100000.0 * float(1 + absi(hash(holes[c])) % 100000)   # (v1.7q: a number, not a string: same grouping, much cheaper)
 
 ## Where the neighbouring cell is open (air), as height ranges [Vector2(lo, hi)]: its holes, and above its top.
 ## Outside the patch: open down to the skirt (it hides the sunk smooth sheet).

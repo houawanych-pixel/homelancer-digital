@@ -437,21 +437,32 @@ func button_at(p: Vector2) -> String:
 	return ""
 
 # ---------------------------------------------------------------- drawing helpers
+var _boxes := {}   # v1.7q: one style box per look, made once (not a new one for every box, every frame)
 func _box(r: Rect2, bg := PANEL, edge := EDGE, radius := 10, bw := 2) -> void:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = bg
-	sb.border_color = edge
-	sb.set_border_width_all(bw)
-	sb.set_corner_radius_all(radius)
-	sb.shadow_color = Color(CYAN, 0.18)
-	sb.shadow_size = 5
+	var key := Vector4i(bg.to_rgba32(), edge.to_rgba32(), radius, bw)
+	var sb: StyleBoxFlat = _boxes.get(key)
+	if sb == null:
+		sb = StyleBoxFlat.new()
+		sb.bg_color = bg
+		sb.border_color = edge
+		sb.set_border_width_all(bw)
+		sb.set_corner_radius_all(radius)
+		sb.corner_detail = 4   # (v1.7q: fewer points per rounded corner and no soft glow: much cheaper to draw every frame)
+		if _boxes.size() > 400: _boxes.clear()
+		_boxes[key] = sb
 	draw_style_box(sb, r)
 
+var _fit := {}   # v1.7q: label -> the size that fits its box
 func _text(p: Vector2, txt: String, size := 18, col := WHITE, align := HORIZONTAL_ALIGNMENT_LEFT, width := -1.0) -> void:
 	if size < Data.TEXT_BUMP_BELOW: size = maxi(Data.TEXT_MIN, size + Data.TEXT_BUMP)   # v1.4m: small print is a little bigger
 	size = Data.ts(size)   # v1.7p: bigger for phones
-	if width > 0.0:   # ...but a label in a box shrinks to fit it rather than being cut off
-		while size > 11 and font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > width: size -= 1
+	if width > 0.0:   # ...but a label in a box shrinks to fit it rather than being cut off (worked out once, remembered)
+		var fk := "%s|%d|%d" % [txt, size, int(width)]
+		if _fit.has(fk): size = _fit[fk]
+		else:
+			while size > 11 and font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > width: size -= 1
+			if _fit.size() > 2000: _fit.clear()
+			_fit[fk] = size
 	draw_string_outline(font, p, txt, align, width, size, 5, Color(0, 0.03, 0.08, 0.8))
 	draw_string(font, p, txt, align, width, size, col)
 

@@ -4520,6 +4520,11 @@ func _job_ai() -> void:
 		way1 and far_ok and wave_ok and way2 and moved and wave2.size() == Data.MISSION_GROUP[1] and paid, "way1 %s far %s wave %s (%d) way2 %s moved %s wave2 %d paid %s" % [way1, far_ok, wave_ok, wave.size(), way2, moved, wave2.size(), paid])
 	# ---- threats, hard: the elites
 	Missions.accept(hard)
+	_tp(Missions.point_pos(s, 0) + Vector3(0, 0, 300), Missions.point_pos(s, 0))
+	await _frames(4)
+	var elite: Array = s.enemies.filter(func(o): return int(o.get("mission", -1)) == 0)
+	var elite_ok: bool = elite.size() == Data.MISSION_GROUP[0] and elite.all(func(o): return int(o.get("pilot", {}).get("slot", 0)) >= 2) and elite.any(func(o): return int(o.get("pilot", {}).get("slot", 0)) == 5)
+	for o in elite: s._destroy_unit(o)
 	# v1.7o (owner: "GPS and radar don't work on missions"): the GPS follows the job's waypoint, the radar shows it as a
 	# gold diamond and the station / bases always show (at the rim when far)
 	s.clear_route()
@@ -4533,11 +4538,6 @@ func _job_ai() -> void:
 	_check("Mission GPS + radar (v1.7o): with a job on, the GPS destination follows the mission waypoint, the radar shows it (a gold diamond) and where the stations / bases are",
 		gps_ok and blip_ok and base_ok, "gps on the waypoint %s, mission on the radar %s, stations on the radar %s" % [gps_ok, blip_ok, base_ok])
 	s.gps_mission = false
-	_tp(Missions.point_pos(s, 0) + Vector3(0, 0, 300), Missions.point_pos(s, 0))
-	await _frames(4)
-	var elite: Array = s.enemies.filter(func(o): return int(o.get("mission", -1)) == 0)
-	var elite_ok: bool = elite.size() == Data.MISSION_GROUP[0] and elite.all(func(o): return int(o.get("pilot", {}).get("slot", 0)) >= 2) and elite.any(func(o): return int(o.get("pilot", {}).get("slot", 0)) == 5)
-	for o in elite: s._destroy_unit(o)
 	Missions.abandon()
 	_check("Job AI: the ELITE threats job sends the faction's seniors, the slot-05 elite among them, for %.1fx the pay; a job can be dropped" % Data.MISSION_HARD_MULT, elite_ok and GS.mission.is_empty() and int(hard["pay"]) == int(Data.MISSION_PAY["threats"] * Data.MISSION_HARD_MULT), str(elite.map(func(o): return o.get("pilot", {}).get("slot", 0))))
 	# ---- bounty wanted dead (Razor, rank 3): escort wing, then her wing, paid on the kill
@@ -5903,11 +5903,21 @@ func _regions() -> void:
 	var want := 9   # (v1.7d: across a tile border too)
 	var nr := int(round(Surface.TILE / Data.BLOCK_REGION))
 	var frames := Engine.get_process_frames()
+	BlockField.step_max_ms = 0.0
 	await _until(func(): return s._regions.size() >= want and s._building == null, 30.0)
 	frames = Engine.get_process_frames() - frames
+	# v1.7q (owner: "planet super laggy"): no single slice of building a region stalls a frame for long
+	var slice_ms: float = BlockField.step_max_ms
+	var proc := 0.0
+	for q in 30:
+		await get_tree().process_frame
+		proc += Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0
+	proc /= 30.0
+	_check("Smoothness (v1.7q): building the ground round you is spread thin (no single slice over %d ms here), and a frame over the blocks costs little" % int(Data.BLOCK_SLICE_BUDGET_MS),
+		slice_ms <= Data.BLOCK_SLICE_BUDGET_MS, "longest slice %.0f ms, frame process %.1f ms" % [slice_ms, proc])
 	var terr := s.tile_root.get_node_or_null("Terrain") as MeshInstance3D
 	var sm := terr.material_override as ShaderMaterial if terr else null
-	var cut_n: int = int(sm.get_shader_parameter("cut_n")) if sm else -1
+	var cut_n: int = s.cut_count if sm and sm.get_shader_parameter("cut_mask") != null else -1
 	var here: BlockField = s._block_field_at(p.x, p.z)
 	var ground_ok: bool = here != null and absf(s._ground(p.x, p.z) - here.top_at(p.x, p.z)) < 0.01
 	_check("Blocks everywhere (v1.7a): on another tile the %d regions round you are built from the seed (%d m squares), the smooth ground is cut out under each one, and the ground you stand on is the blocks" % [want, int(Data.BLOCK_REGION)],

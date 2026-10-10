@@ -4571,7 +4571,10 @@ func _update_light(dt: float, bf: BlockField, p: Vector3) -> void:
 	if _glow_t > 0.0: return
 	_glow_t = 0.3
 	var pts: Array = []
-	for f in _fields(): pts.append_array((f as BlockField).glow_points(p, Data.GLOW_REACH))
+	for f in _fields():
+		var bfg: BlockField = f
+		if Vector2(bfg.center.x - p.x, bfg.center.y - p.z).length() > Data.GLOW_REACH + Data.BLOCK_REGION: continue   # (v1.7q: only the near ones)
+		pts.append_array(bfg.glow_points(p, Data.GLOW_REACH))
 	pts.sort_custom(func(a, b): return p.distance_squared_to(a[0]) < p.distance_squared_to(b[0]))
 	while glow_lights.size() < Data.GLOW_LIGHTS and not pts.is_empty():
 		var ol := OmniLight3D.new()
@@ -4648,25 +4651,25 @@ func _build_region(r: Vector2i) -> BlockField:
 	regions_built += 1
 	return bf
 
-## Tell the tile's smooth ground where not to draw (under every region standing now).
+## Tell the tile's smooth ground where not to draw (under every region standing now): a small mask, one texel per
+## 500 m region over this tile and its eight neighbours (v1.7q).
+var cut_count := 0   # (tests)
 func _set_cuts() -> void:
 	var terr := tile_root.get_node_or_null("Terrain") as MeshInstance3D if is_instance_valid(tile_root) else null
 	var sm := terr.material_override as ShaderMaterial if terr else null
 	if sm == null: return
-	var arr := PackedFloat32Array()
-	arr.resize(Data.BLOCK_CUTS_MAX * 4)
-	var k := 0
-	for r in _regions:
-		if k >= Data.BLOCK_CUTS_MAX or not is_instance_valid(_regions[r]): continue
-		var c := _key_centre(r)
-		var hw := Data.BLOCK_REGION * 0.5
-		arr[k * 4] = c.x - hw
-		arr[k * 4 + 1] = c.y - hw
-		arr[k * 4 + 2] = c.x + hw
-		arr[k * 4 + 3] = c.y + hw
-		k += 1
-	sm.set_shader_parameter("cuts", arr)
-	sm.set_shader_parameter("cut_n", k)
+	var nr := int(round(Surface.TILE / Data.BLOCK_REGION))
+	var side := nr * 3
+	var img := Image.create(side, side, false, Image.FORMAT_L8)
+	img.fill(Color(0, 0, 0))
+	cut_count = 0
+	for k in _regions:
+		if not is_instance_valid(_regions[k]): continue
+		var kv: Vector4i = k
+		img.set_pixel((kv.x + 1) * nr + kv.z, (kv.y + 1) * nr + kv.w, Color(1, 1, 1))
+		cut_count += 1
+	sm.set_shader_parameter("cut_mask", ImageTexture.create_from_image(img))
+	sm.set_shader_parameter("cut_area", Vector4(-Surface.EDGE - Surface.TILE, -Surface.EDGE - Surface.TILE, Data.BLOCK_REGION, side))
 
 func _ground(x: float, z: float) -> float:
 	var h := Surface.height(planet_id, tile, x, z)

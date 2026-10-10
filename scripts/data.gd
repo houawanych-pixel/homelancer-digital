@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.7p"
+const VERSION := "v1.7q"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -245,7 +245,7 @@ const BLOCK_MARGIN := 3.0      # column tops sit this much over the highest grou
 # (the far ground stays the smooth sheet, cut out wherever a region stands). Behind ?blocks until the owner says go.
 const BLOCK_REGION := 500.0         # region side (m): 10 x 10 regions per 5 km tile, 100 x 100 cells each
 const BLOCK_REGION_REACH := 1       # regions this many squares around yours are built (1 = a 3 x 3 block of 1.5 km)
-const BLOCK_REGION_KEEP := 2        # ...and freed once you are more than this many squares away
+const BLOCK_REGION_KEEP := 1        # ...and freed once you are more than this many squares away
 # v1.7c (owner): landing pads sit on a floating island of blocks above the ground, so the block ground runs natural
 # right under them (no flattening) and world building never has to step round a city. Later: buildings up there.
 const PAD_ISLAND_RADIUS := 120.0    # island radius (m); the pad itself is 90
@@ -269,6 +269,8 @@ const BLOCK_RUBBLE_REST := 25.0      # seconds a landed piece lies there before 
 const BLOCK_DEPTH_FLOOR := 200.0     # nothing digs deeper than this under the original ground (the kill floor comes later)
 const BLOCK_DELTAS_MAX := 4000       # crater notes kept per patch (oldest dropped)
 const BLOCK_CHUNK := 40              # the patch is drawn in squares of this many 5 m cells (only the hit squares redraw)
+const BLOCK_SLICE_BUDGET_MS := 250.0   # v1.7q test: the longest staged slice allowed on the test machine (a phone is a few times slower)
+const BLOCK_CHUNK_REGION := 25       # v1.7q: regions use smaller squares (each redraws quicker: no long stall)
 # Tones from the planet's own ground colour, darker = tougher: [mix toward white (+) or black (-), keep saturation]
 # v1.7g (owner's pictures, docs/blocks_look/): dirt is earthy brown under a thin grass cap in the planet's own colour,
 # and the ground is built from blocks of many sizes: long rectangles and big solid cubes, not one size of square.
@@ -376,7 +378,7 @@ const FALL_COLOR := Color(0.62, 0.86, 1.0, 0.85)
 const CAVE_DARK := 0.12              # how much of the sun and sky reaches a covered face
 const BLOCK_GLOW := {"gold": 0.55, "diamond": 1.1}   # how brightly treasure glows by itself
 const BLOCK_GLOSS := {"obsidian": 1.0, "diamond": 0.8, "gold": 0.6}   # glassy shine
-const GLOW_LIGHTS := 6               # real lights at the nearest glowing things to you
+const GLOW_LIGHTS := 3               # real lights at the nearest glowing things to you
 const GLOW_LIGHT := {"lava": [Color(1.0, 0.45, 0.12), 2.2, 34.0], "fire": [Color(1.0, 0.55, 0.15), 2.0, 30.0], "diamond": [Color(0.7, 0.9, 1.0), 1.6, 22.0], "gold": [Color(1.0, 0.8, 0.35), 1.2, 16.0], "kill": [Color(1.0, 0.35, 0.1), 3.0, 60.0]}   # [colour, energy, range m]
 const GLOW_REACH := 140.0            # m: glowing things this near you get a real light
 const FLASHLIGHT := [Color(1.0, 0.97, 0.9), 3.0, 160.0, 28.0]   # [colour, energy, range m, cone degrees]: on underground

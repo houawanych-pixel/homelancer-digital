@@ -13,9 +13,10 @@ uniform vec3 tex_avg = vec3(0.72, 0.49, 0.31);
 uniform float detail_scale = 0.014;   // 1 repeat per ~70 m
 uniform float strata = 1.0;           // 1 = layered rock on cliffs (canyon/desert), 0 = plain
 
-// v1.7a: where block regions stand, the smooth ground isn't drawn (rects in tile-local x/z: x0, z0, x1, z1)
-uniform float cuts[128];
-uniform int cut_n = 0;
+// v1.7a: where block regions stand, the smooth ground isn't drawn. v1.7q: one look-up in a small mask (one texel per
+// 500 m region, over this tile and its neighbours) instead of a loop over rectangles: cheap on phones.
+uniform sampler2D cut_mask : filter_nearest, repeat_disable;
+uniform vec4 cut_area = vec4(0.0, 0.0, 500.0, 0.0);   // x0, z0, region size, regions across (0 = no cuts)
 
 varying vec3 wpos;
 varying vec3 wnrm;
@@ -26,9 +27,9 @@ void vertex() {
 }
 
 void fragment() {
-	for (int i = 0; i < 32; i++) {
-		if (i >= cut_n) break;
-		if (wpos.x > cuts[i * 4] && wpos.z > cuts[i * 4 + 1] && wpos.x < cuts[i * 4 + 2] && wpos.z < cuts[i * 4 + 3]) discard;
+	if (cut_area.w > 0.5) {
+		vec2 g = (wpos.xz - cut_area.xy) / cut_area.z;
+		if (g.x >= 0.0 && g.y >= 0.0 && g.x < cut_area.w && g.y < cut_area.w && texelFetch(cut_mask, ivec2(g), 0).r > 0.5) discard;
 	}
 	float slope = clamp((1.0 - wnrm.y) * 2.2, 0.0, 1.0);
 	vec2 uv_top = wpos.xz * detail_scale;
