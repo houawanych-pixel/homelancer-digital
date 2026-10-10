@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.7i"
+const VERSION := "v1.7j"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -327,6 +327,13 @@ const CAVE_THRESHOLD := 0.18
 # v1.7h MOLDS (owner's voxel notes + picture 07): designed shapes stamped into the ground as filled volumes of 5 m
 # cells, either cut out (caves) or added (trees, roots: next). The first: a cave system with a big chamber, tunnels
 # out to side rooms (floors at different heights) and one tunnel climbing to a surface entrance, all big enough to fly.
+# v1.7j winding tunnels (the notes' "spaghetti caves"): from a mold cave's side rooms, tunnels wander by noise out to
+# the nearest sealed caves, so the cave system links up (deliberately connected, as the notes ask).
+const LINK_MAX := 2                  # tunnels out of each mold cave
+const LINK_REACH := 70               # cells: only caves this close get a tunnel
+const LINK_RADIUS := 2               # cells: tunnel radius (about 20 m across, room to fly)
+const LINK_TALL := 4                 # layers
+const LINK_WANDER := 0.55            # how much it winds
 const MOLD_CAVE_CHANCE := 0.3        # the share of regions with one
 const MOLD_CHAMBER := [16, 20]       # chamber width in cells (80-100 m)
 const MOLD_CHAMBER_TALL := 7         # layers (35 m)

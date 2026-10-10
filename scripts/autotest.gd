@@ -6027,6 +6027,7 @@ func _regions() -> void:
 	if mf == null:
 		mf = sr
 		mf._carve_cave_mold(true)
+		mf._carve_links()
 		mf.flush()
 	var mo: Dictionary = mf.molds[0] if not mf.molds.is_empty() else {}
 	var clear_ok := not mo.is_empty()
@@ -6034,6 +6035,7 @@ func _regions() -> void:
 	var ceil_ok := not mo.is_empty()
 	var coll_ok := false
 	var reached := 0
+	var seen_all := {}
 	if not mo.is_empty():
 		var k0: int = mo["k0"]
 		for rt in (mo["route"] as Array).slice(0, -1):   # room to fly all the way out
@@ -6049,7 +6051,7 @@ func _regions() -> void:
 		var goals := {}
 		for rm in mo["rooms"]: goals[Vector2i(int(rm[0]), int(rm[1]) + 1)] = true
 		var steps := 0
-		while not queue.is_empty() and steps < 60000:
+		while not queue.is_empty() and steps < 400000:
 			steps += 1
 			var cur: Vector2i = queue.pop_back()
 			if goals.has(cur):
@@ -6069,6 +6071,7 @@ func _regions() -> void:
 				seen[nx] = true
 				queue.append(nx)
 		conn_ok = sky and sky_ok and reached == (mo["rooms"] as Array).size()
+		seen_all = seen
 		# rock overhead: over the chamber's middle and each room at least MOLD_CEILING layers stay solid
 		var over := func(c: int, k_from: int) -> int:
 			var nsol := 0
@@ -6107,6 +6110,19 @@ func _regions() -> void:
 			s.player.visible = true
 	_check("Molds (v1.7h): a cave is cut into the ground as one filled shape (a big chamber, tunnels to side rooms at other heights, a tunnel climbing to a shaft open to the sky); room to fly all the way out, all of it connected, rock left overhead, solid floor and roof",
 		clear_ok and conn_ok and ceil_ok and coll_ok, "made by the seed %s, cells cut %d, room to fly %s, rooms reached %d of %d, open to the sky %s, rock overhead %s, floor/roof %s" % [natural, int(mo.get("cells", 0)), clear_ok, reached, (mo.get("rooms", []) as Array).size(), conn_ok, ceil_ok, coll_ok])
+	# v1.7j: winding tunnels from the cave's side rooms out to the nearest sealed caves, all part of the same air
+	var linked := 0
+	var link_detail := ""
+	if not mo.is_empty():
+		for lk in mf.links:
+			var to: Array = lk["to"]
+			var hit := false
+			for dk in [0, 1, -1, 2]:
+				if seen_all.has(Vector2i(int(to[0]), int(to[1]) + dk)): hit = true
+			linked += 1 if hit else 0
+			link_detail += "%d cells long (reached %s); " % [(lk["path"] as Array).size(), hit]
+	_check("Winding tunnels (v1.7j): from the cave's side rooms, tunnels wind out to the nearest sealed caves and join them up, flyable and connected",
+		mf.links.size() > 0 and linked == mf.links.size(), "tunnels %d, connected %d: %s" % [mf.links.size(), linked, link_detail])
 	# v1.7i: alien trees (wood trunk and branches, big two-colour leaf slabs you can fly under, roots underground; one
 	# beside the cave sends a root into its chamber); wood and leaves catch fire, it spreads, burns them away, dies out
 	var tf: BlockField = null

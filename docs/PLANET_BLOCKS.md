@@ -595,6 +595,12 @@ Status: the owner said go for step 2 (craters), step by step. Each next step wai
    tick a burning layer may catch its touching wood and leaves (leaves faster), burns away after a few seconds (kept as
    a note) and the fire dies out when nothing is left; water beside it puts it out; it only runs near the player
    (`FIRE_*`), glowing orange blocks over what burns.
+2u. DONE (v1.7j): WINDING TUNNELS (the notes' "spaghetti caves"). From a mold cave's side rooms, up to two tunnels
+   (`LINK_*`, about 20 m across) wander by noise out to the nearest sealed caves, always steering home, always under
+   the ground (2+ layers of rock over them), ending in a junction room and a chimney up or down into the cave; the
+   rock over them and the cave they open holds. The test walks the air from the chamber into each linked cave. Tree
+   roots underground now only turn rock to wood ("paint"); they never fill a cave or tunnel. Missiles set wood alight
+   round the crater, not only in it.
 3. DONE (already from earlier work): the ground blends across tile edges and the next area is built before you reach
    it, so crossing has no jump.
 4. DONE (already): no seam lines at ordinary corners (the ground blends); the planet's wrap corner sits in a cloud bank.

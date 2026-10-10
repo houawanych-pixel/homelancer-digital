@@ -59,6 +59,7 @@ var halls: Array = []          # v1.6h deep root halls: [{x, z, w, k0, k1, trunk
 var trees: Array = []          # v1.7i alien trees: [{base: cell, wood: int, leaf: int, cave_root: bool, trunk: [cells], k_top}]
 var burning := {}              # v1.7i fire: Vector2i(cell, layer) -> seconds burning
 var burned := 0                # layers fire took (tests)
+var links: Array = []          # v1.7j winding tunnels: [{from: cell, to: [cell, k], path: [[cell, k]]}]
 var molds: Array = []          # v1.7h stamped mold shapes: [{kind, centre, k0, rooms, entrance, route}]
 var slabs: Array = []          # v1.7f leaning slabs and A-frames: [{cells, lo: {cell: y}, kind, mat, geo: [pieces], whole}]
 var _slab_of := {}             # cell -> index in slabs
@@ -290,7 +291,7 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 			queue_free()
 			return
 	_carve_caves()
-	if region.x >= 0: _carve_cave_mold()   # (v1.7h)
+	if region.x >= 0 and _carve_cave_mold(): _carve_links()   # (v1.7h cave, v1.7j tunnels out to the caves near it)
 	if staged:
 		await Engine.get_main_loop().process_frame
 		if cancel:
@@ -537,14 +538,16 @@ func blast(p: Vector3, kind: String, record := true, effects := true) -> Diction
 		_mark(ox, oz, s)
 	layers_broken += out.size()
 	res["broken"] = out.size()
-	if effects and kind != "thrust" and kind != "thrust_soft":   # v1.7i: shots set wood and leaves alight
-		var kl := _k(p.y - r)
-		var kh := _k(p.y + r)
-		for fz in range(fz0, fz1 + 1):
-			for fx in range(fx0, fx1 + 1):
+	if effects and kind != "thrust" and kind != "thrust_soft":   # v1.7i: shots set wood and leaves alight (round the crater too)
+		var rf := r + Data.BLOCK_MIN * 1.5
+		var kl := _k(p.y - rf)
+		var kh := _k(p.y + rf)
+		for fz in range(maxi(0, fz0 - 2), mini(n - 1, fz1 + 2) + 1):
+			for fx in range(maxi(0, fx0 - 2), mini(n - 1, fx1 + 2) + 1):
 				var c := fz * n + fx
 				for k in range(kl, kh + 1):
 					if not _solid_k(c, k): continue
+					if _layer_point(c, k).distance_to(p) > rf: continue
 					var mm := mat_at(fx, fz, _ly(k))
 					if mm != "wood" and not Data.LEAF_COLORS.has(mm): continue
 					if kind != "gun" or _rng.randf() < Data.FIRE_GUN_CHANCE: ignite(c, k)
@@ -1044,10 +1047,11 @@ func _stamp(runs: Array, cx: int, cz: int, k0: int, op: String, m := "stone") ->
 		if op == "cut":
 			for k in range(k0 + int(r[3]) - 1, k0 + int(r[2]) - 1, -1):
 				if k > kf and _solid_k(c, k): _cell_remove(c, k)
-		else:   # (layers already solid take the mould's material: a root through rock is wood)
+		else:   # (layers already solid take the mould's material: a root through rock is wood; "paint" fills no air)
 			for k in range(k0 + int(r[2]), k0 + int(r[3])):
 				if k <= kf: continue
-				if not _solid_k(c, k): _cell_add(c, k, m)
+				if not _solid_k(c, k):
+					if op != "paint": _cell_add(c, k, m)
 				else:
 					var ov: Dictionary = mats.get(c, {})
 					ov[k] = m
@@ -1222,6 +1226,7 @@ func _grow_tree(rng: RandomNumberGenerator, cx: int, cz: int, to_cave: int) -> b
 	var tall := rng.randi_range(int(Data.TREE_TALL[0]), int(Data.TREE_TALL[1]))
 	var kt := kg + tall
 	var wood := {}
+	var roots := {}   # (underground wood: it only turns rock to wood, never fills a cave or tunnel)
 	var leaf := {"leaf": {}, "leaf2": {}}
 	var put := func(vol: Dictionary, x: int, z: int, k_lo: int, k_hi: int) -> void:
 		if x < 1 or z < 1 or x >= n - 1 or z >= n - 1: return
@@ -1230,7 +1235,9 @@ func _grow_tree(rng: RandomNumberGenerator, cx: int, cz: int, to_cave: int) -> b
 		for k in range(k_lo, k_hi): d[k] = true
 		vol[key] = d
 	for jz in tw:   # the trunk, from a little under the ground to the top
-		for jx in tw: put.call(wood, cx + jx, cz + jz, kg - 2, kt)
+		for jx in tw:
+			put.call(wood, cx + jx, cz + jz, kg, kt)
+			put.call(roots, cx + jx, cz + jz, kg - 3, kg)
 	for t in rng.randi_range(4, 7):   # root buttresses flaring at its foot
 		var side := rng.randi_range(0, 3)
 		var along := rng.randi_range(0, tw - 1)
@@ -1267,7 +1274,7 @@ func _grow_tree(rng: RandomNumberGenerator, cx: int, cz: int, to_cave: int) -> b
 		for st in rng.randi_range(6, 12):
 			p += dir
 			k -= rng.randi_range(0, 2)
-			put.call(wood, int(floor(p.x)), int(floor(p.y)), k - 1, k + 1)
+			put.call(roots, int(floor(p.x)), int(floor(p.y)), k - 1, k + 1)
 	var cave_root := false
 	if to_cave >= 0:   # down to the chamber's ceiling, in, and hanging from roof to floor
 		var mo: Dictionary = molds[0]
@@ -1278,13 +1285,15 @@ func _grow_tree(rng: RandomNumberGenerator, cx: int, cz: int, to_cave: int) -> b
 		for st in steps + 1:
 			var q := mid.lerp(target, float(st) / steps)
 			var kk := int(round(lerpf(float(kg - 2), float(k0 + ktall + 1), float(st) / steps)))
-			put.call(wood, int(floor(q.x)), int(floor(q.y)), kk - 1, kk + 2)
+			put.call(roots, int(floor(q.x)), int(floor(q.y)), kk - 1, kk + 2)
 		put.call(wood, int(floor(target.x)), int(floor(target.y)), k0, k0 + ktall + 2)   # the root pillar in the chamber
 		cave_root = true
 	var cells := {}
 	var nw := 0
 	var nl := 0
 	for c in _stamp(_runs_of(wood), 0, 0, 0, "add", "wood"): cells[c] = true
+	for c in _stamp(_runs_of(roots), 0, 0, 0, "paint", "wood"): cells[c] = true
+	for v in roots.values(): nw += (v as Dictionary).size()
 	for v in wood.values(): nw += (v as Dictionary).size()
 	for colour in ["leaf", "leaf2"]:
 		for c in _stamp(_runs_of(leaf[colour]), 0, 0, 0, "add", colour): cells[c] = true
@@ -1377,6 +1386,98 @@ func _draw_fire() -> void:
 		var kv: Vector2i = keys[i]
 		var s := Data.BLOCK_MIN * (1.02 + 0.12 * _rng.randf())
 		mi.multimesh.set_instance_transform(i, Transform3D(Basis.from_scale(Vector3(s, s * (1.0 + 0.3 * _rng.randf()), s)), _layer_point(kv.x, kv.y) + Vector3(0, 0.6, 0)))
+
+## v1.7j: winding tunnels from a mold cave's side rooms out to the nearest sealed caves (v1.6d), wandering by noise but
+## always steering home to the cave, so the system is connected on purpose; each ends in a little junction room
+## that opens into the cave. They stay clear of water and lava pockets.
+@warning_ignore("integer_division")
+func _carve_links() -> void:
+	links.clear()
+	if molds.is_empty() or caves.is_empty(): return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(_sk + "|links")
+	var nz := FastNoiseLite.new()
+	nz.seed = rng.randi()
+	nz.frequency = 0.08
+	var mo: Dictionary = molds[0]
+	var step: float = Data.BLOCK_MIN
+	var targets: Array = []
+	for cv in caves:
+		var cp: Vector3 = cv["centre"]
+		var tx := clampi(int((cp.x - x0) / step), 2, n - 3)
+		var tz := clampi(int((cp.z - z0) / step), 2, n - 3)
+		targets.append(Vector3i(tx, tz, _k(cp.y)))
+	var used := {}
+	for rm in mo["rooms"]:
+		if links.size() >= Data.LINK_MAX: break
+		var rc: int = rm[0]
+		var start := Vector2(rc % n + 0.5, rc / n + 0.5)
+		var best := -1
+		var bd := float(Data.LINK_REACH)
+		for ti in targets.size():
+			if used.has(ti): continue
+			var tv: Vector3i = targets[ti]
+			var d := start.distance_to(Vector2(tv.x + 0.5, tv.y + 0.5))
+			if d < bd:
+				bd = d
+				best = ti
+		if best < 0: continue
+		used[best] = true
+		var tgt: Vector3i = targets[best]
+		var goal := Vector2(tgt.x + 0.5, tgt.y + 0.5)
+		var vol := {}
+		var put := func(x: int, z: int, k_lo: int, k_hi: int) -> void:
+			if x < 2 or z < 2 or x >= n - 2 or z >= n - 2: return
+			var key := Vector2i(x, z)
+			var d: Dictionary = vol.get(key, {})
+			for k in range(k_lo, k_hi): d[k] = true
+			vol[key] = d
+		var p := start
+		var k := float(int(rm[1]) + 1)
+		var heading := (goal - start).normalized()
+		var path: Array = []
+		var r: int = Data.LINK_RADIUS
+		var wet := false
+		for st in 220:
+			var want := (goal - p).normalized()
+			var turn := nz.get_noise_2d(st * 3.0, float(links.size()) * 50.0) * Data.LINK_WANDER
+			heading = (heading * 0.65 + want * 0.35).rotated(turn).normalized()
+			p += heading
+			k += clampf(float(tgt.z) - k, -0.5, 0.5)   # it drifts up or down toward the cave, one layer every two cells
+			var ci := int(floor(p.x))
+			var cj := int(floor(p.y))
+			var roof := INF   # always under the ground: at least 2 layers of rock over it
+			for dz in range(-r - 1, r + 2):
+				for dx in range(-r - 1, r + 2):
+					var x2 := clampi(ci + dx, 0, n - 1)
+					var z2 := clampi(cj + dz, 0, n - 1)
+					roof = minf(roof, float(_ktop(z2 * n + x2)))
+			k = minf(k, roof - Data.LINK_TALL - 2)
+			for dz in range(-r, r + 1):
+				for dx in range(-r, r + 1):
+					if dx * dx + dz * dz > r * r + 1: continue
+					var x := ci + dx
+					var z := cj + dz
+					if x >= 0 and z >= 0 and x < n and z < n and fluid.has(z * n + x): wet = true
+					put.call(x, z, int(k), int(k) + Data.LINK_TALL)
+			path.append([cj * n + ci, int(k)])
+			if wet or p.distance_to(goal) < 2.5: break
+		if wet: continue   # (it would have let a sealed pocket of water or lava out: no tunnel there)
+		for dz in range(-3, 4):   # the junction where it meets the cave
+			for dx in range(-3, 4): put.call(tgt.x + dx, tgt.y + dz, tgt.z - 1, tgt.z + 3)
+		var ek := int(k)   # and a chimney from the tunnel's end up or down to it (the ground may have kept it lower)
+		for dz in range(-1, 2):
+			for dx in range(-1, 2): put.call(int(floor(p.x)) + dx, int(floor(p.y)) + dz, mini(ek, tgt.z - 1), maxi(ek + Data.LINK_TALL, tgt.z + 3))
+		var touched := _stamp(_runs_of(vol), 0, 0, 0, "cut")
+		for c in touched: reach_bonus[c] = maxi(int(reach_bonus.get(c, 0)), 12)   # (the rock over it, and over the cave it opens, holds)
+		for dz in range(-9, 10):
+			for dx in range(-9, 10):
+				var x3 := tgt.x + dx
+				var z3 := tgt.y + dz
+				if x3 >= 0 and z3 >= 0 and x3 < n and z3 < n: reach_bonus[z3 * n + x3] = maxi(int(reach_bonus.get(z3 * n + x3, 0)), 12)
+		links.append({"from": rc, "to": [tgt.y * n + tgt.x, tgt.z], "path": path})
+	if not links.is_empty(): _settle(0, n - 1, 0, n - 1)
+	collapses = 0
 
 ## Landmarks (v1.6e): flyable natural ARCHES (stone, some obsidian; some with gold or diamond in the span) on a leg at
 ## each end, and PRIDE ROCK promontories: a block of rock with a slab jutting out over open air. Load-bearing: each
