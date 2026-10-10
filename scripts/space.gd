@@ -2180,10 +2180,11 @@ func _update_bolts(dt: float) -> void:
 				_player_hit(b["dmg"], _seg_closest(from, to, player.global_position))
 				hit = true
 		if not hit and surface_mode:   # EXPERIMENT (v1.5t): shots dig the block ground
-			var bfg := _block_field()
-			if bfg:
-				var at := bfg.ray_hit(from, to)
-				if at != Vector3.INF:
+			var rb := _ray_blocks(from, to)
+			if rb[0] != null:
+				var bfg: BlockField = rb[0]
+				var at: Vector3 = rb[1]
+				if true:
 					hit = true
 					if b["owner"] == "player":
 						var res := bfg.blast(at, "gun")
@@ -2866,8 +2867,9 @@ func _update_missiles(dt: float) -> void:
 		m["life"] -= dt
 		_missile_trail(n)
 		var done: bool = m["life"] <= 0.0
-		var bfm := _block_field() if surface_mode else null
-		var dig := bfm.ray_hit(n.global_position - (v + wv2) * dt, n.global_position) if bfm else Vector3.INF
+		var rbm := _ray_blocks(n.global_position - (v + wv2) * dt, n.global_position) if surface_mode else [null, Vector3.INF]
+		var bfm: BlockField = rbm[0]
+		var dig: Vector3 = rbm[1]
 		if dig != Vector3.INF:   # EXPERIMENT (v1.5t): a missile that meets the block ground blows a crater
 			bfm.blast(dig, "heavy" if m.get("heavy", false) else "missile")
 			_blast(dig, Data.BLAST_ENEMY if m.get("heavy", false) else Data.BLAST_WING, "ground")
@@ -3859,6 +3861,10 @@ func load_tile(t: int, keep := Vector3.INF) -> void:
 	if keep == Vector3.INF or (target != null and not is_instance_valid(target)): target = null
 	autopilot = null
 	if is_instance_valid(tile_root): tile_root.queue_free()
+	_regions = {}   # (v1.7a: they went with the old tile)
+	if _building != null:
+		_building.cancel = true
+		_building = null
 	tile_root = Surface.build_tile(planet_id, t)
 	var bfm := tile_root.get_node_or_null("BlockField") as BlockField
 	if bfm: bfm.mined.connect(_on_mined)   # v1.6c: gold and diamond pieces to pull in
@@ -4331,8 +4337,9 @@ func _special_beam() -> void:
 	add_child(_beam)
 	_aim_beam(special_target.global_position)
 	Sfx.play("explosion", -2.0)
-	var bfs := _block_field() if surface_mode else null
-	var dig := bfs.ray_hit(player.global_position, special_target.global_position) if bfs else Vector3.INF
+	var rbs := _ray_blocks(player.global_position, special_target.global_position) if surface_mode else [null, Vector3.INF]
+	var bfs: BlockField = rbs[0]
+	var dig: Vector3 = rbs[1]
 	if dig != Vector3.INF:   # EXPERIMENT (v1.5t): a beam through the block ground blows a crater you can fly into
 		bfs.blast(dig, "special")
 		_blast(dig, Data.BLAST_DEATH, "ground")
@@ -4403,13 +4410,14 @@ var _dig_cd := 0.0
 var dig_log := {"soft": 0, "stone": 0, "bounce": 0}   # (tests)
 func _mech_dig(dt: float) -> void:
 	_dig_cd = maxf(0.0, _dig_cd - dt)
-	var bf := _block_field()
-	if bf == null or not is_instance_valid(player): return
+	if not is_instance_valid(player): return
 	var hv := Vector3(vel.x, 0.0, vel.z)
 	if hv.length() < 2.0: return
 	var dir := hv.normalized()
 	var p := player.global_position
 	var q := p + dir * Data.MECH_DIG_REACH
+	var bf := _block_field_at(q.x, q.z)   # (v1.7a: the region ahead)
+	if bf == null: return
 	var feet := p.y - 6.0   # (the ground keeps the player 6 m up)
 	var body := feet + Data.MECH_DIG_STEP + 0.5
 	if not (bf.is_solid(q.x, body, q.z) or bf.is_solid(q.x, p.y + 1.0, q.z)): return   # open ahead, or a step it walks up
@@ -4440,27 +4448,135 @@ func _mech_dig(dt: float) -> void:
 		_spark(face, bf.tone(m if m != "" else "dirt"), 3.0)
 		_dig_cd = Data.MECH_DIG_SOFT_TICK
 
-## EXPERIMENT: the block ground patch on this tile, if there is one.
+## EXPERIMENT: the block ground patch on this tile, if there is one (the route test's old 800 m patch).
 func _block_field() -> BlockField:
 	return tile_root.get_node_or_null("BlockField") as BlockField if is_instance_valid(tile_root) else null
 
+## Every block field standing on this tile: the test patch, or (v1.7a) the regions built round you.
+func _fields() -> Array:
+	var out: Array = []
+	if not is_instance_valid(tile_root): return out
+	var tp := _block_field()
+	if tp: out.append(tp)
+	for r in _regions:
+		var f: BlockField = _regions[r]
+		if is_instance_valid(f): out.append(f)
+	return out
+
+## The block field under a tile-local point (null where the ground is the smooth sheet).
+func _block_field_at(x: float, z: float) -> BlockField:
+	if not is_instance_valid(tile_root): return null
+	var tp := _block_field()
+	if tp and tp.covers(x, z): return tp
+	var f: BlockField = _regions.get(BlockField.region_of(x, z))
+	return f if is_instance_valid(f) and f.covers(x, z) else null
+
+## Where a shot from a to b first meets block ground: [field, point] ([null, INF] if it doesn't).
+func _ray_blocks(a: Vector3, b: Vector3) -> Array:
+	var best: BlockField = null
+	var at := Vector3.INF
+	var bd := INF
+	for f in _fields():
+		var hp: Vector3 = (f as BlockField).ray_hit(a, b)
+		if hp != Vector3.INF and a.distance_to(hp) < bd:
+			bd = a.distance_to(hp)
+			best = f
+			at = hp
+	return [best, at]
+
 func _over_blocks() -> bool:
-	var bf := _block_field()
-	return bf != null and is_instance_valid(player) and bf.covers(player.global_position.x, player.global_position.z)
+	return is_instance_valid(player) and _block_field_at(player.global_position.x, player.global_position.z) != null
+
+## v1.7a, step 9: the whole planet is blocks. The 500 m regions round you are built from the seed as you fly (the
+## nearest missing one each frame) and freed once you are well away; the smooth sheet is cut out under each one, so
+## from far off you see the smooth ground and close up you stand on blocks. Blasts and digging are kept per region.
+var _regions := {}       # Vector2i -> BlockField
+var region_ms := 0.0     # how long the last region took to build (ms, tests)
+var regions_built := 0   # (tests)
+var _building: BlockField = null   # the region being built now (outside the tree until it's done)
+var _build_t0 := 0
+func _update_regions() -> void:
+	if not BlockField.regions_on() or not is_instance_valid(tile_root) or not is_instance_valid(player): return
+	var p := player.global_position
+	var pr := BlockField.region_of(p.x, p.z)
+	var nr := int(round(Surface.TILE / Data.BLOCK_REGION))
+	var changed := false
+	for r in _regions.keys():
+		var rr: Vector2i = r
+		if maxi(absi(rr.x - pr.x), absi(rr.y - pr.y)) > Data.BLOCK_REGION_KEEP or not is_instance_valid(_regions[r]):
+			if is_instance_valid(_regions[r]): (_regions[r] as Node).queue_free()
+			_regions.erase(r)
+			changed = true
+	var best := Vector2i(-1, -1)
+	var bd := 1e9
+	for dz in range(-Data.BLOCK_REGION_REACH, Data.BLOCK_REGION_REACH + 1):
+		for dx in range(-Data.BLOCK_REGION_REACH, Data.BLOCK_REGION_REACH + 1):
+			var r := pr + Vector2i(dx, dz)
+			if r.x < 0 or r.y < 0 or r.x >= nr or r.y >= nr or _regions.has(r): continue
+			var d := BlockField.region_centre(r).distance_squared_to(Vector2(p.x, p.z))
+			if d < bd:
+				bd = d
+				best = r
+	if _building != null:   # one region at a time, built a little each frame
+		if _building.built:
+			tile_root.add_child(_building)
+			_building.mined.connect(_on_mined)
+			_regions[_building.region] = _building
+			region_ms = (Time.get_ticks_usec() - _build_t0) / 1000.0
+			regions_built += 1
+			_building = null
+			changed = true
+	elif best.x >= 0:
+		_building = BlockField.new()
+		_build_t0 = Time.get_ticks_usec()
+		_building.build(planet_id, tile, best, true)
+	if changed: _set_cuts()
+
+func _build_region(r: Vector2i) -> BlockField:
+	var t0 := Time.get_ticks_usec()
+	var bf := BlockField.new()
+	bf.build(planet_id, tile, r)
+	tile_root.add_child(bf)
+	bf.mined.connect(_on_mined)
+	_regions[r] = bf
+	region_ms = (Time.get_ticks_usec() - t0) / 1000.0
+	regions_built += 1
+	return bf
+
+## Tell the tile's smooth ground where not to draw (under every region standing now).
+func _set_cuts() -> void:
+	var terr := tile_root.get_node_or_null("Terrain") as MeshInstance3D if is_instance_valid(tile_root) else null
+	var sm := terr.material_override as ShaderMaterial if terr else null
+	if sm == null: return
+	var arr := PackedFloat32Array()
+	arr.resize(Data.BLOCK_CUTS_MAX * 4)
+	var k := 0
+	for r in _regions:
+		if k >= Data.BLOCK_CUTS_MAX or not is_instance_valid(_regions[r]): continue
+		var c := BlockField.region_centre(r)
+		var hw := Data.BLOCK_REGION * 0.5
+		arr[k * 4] = c.x - hw
+		arr[k * 4 + 1] = c.y - hw
+		arr[k * 4 + 2] = c.x + hw
+		arr[k * 4 + 3] = c.y + hw
+		k += 1
+	sm.set_shader_parameter("cuts", arr)
+	sm.set_shader_parameter("cut_n", k)
 
 func _ground(x: float, z: float) -> float:
 	var h := Surface.height(planet_id, tile, x, z)
 	if _water: h = maxf(h, 0.0)
-	var bf := tile_root.get_node_or_null("BlockField") as BlockField if is_instance_valid(tile_root) else null
-	if bf and bf.covers(x, z): h = bf.top_at(x, z)   # EXPERIMENT: the big blocks are the ground there
+	var bf := _block_field_at(x, z)
+	if bf: h = bf.top_at(x, z)   # EXPERIMENT: the big blocks are the ground there
 	return h
 
 ## Ground contact, tile edges (wrap to the next tile) and the ceiling (back to orbit).
 func _surface_update(_dt: float) -> void:
 	if GS.form == "mech": _mech_dig(_dt)   # EXPERIMENT (v1.5v): the mech digs into block walls by pushing
 	var p := player.global_position
-	var bfp := _block_field()
-	var on_blocks := bfp != null and bfp.covers(p.x, p.z)
+	_update_regions()
+	var bfp := _block_field_at(p.x, p.z)
+	var on_blocks := bfp != null
 	var floor_y := (bfp.ground_for(p.x, p.y - 6.0, p.z) if on_blocks else _ground(p.x, p.z)) + 6.0   # v1.5y: tunnel floors
 	altitude = p.y - floor_y + 6.0
 	if p.y < floor_y:
@@ -4468,8 +4584,8 @@ func _surface_update(_dt: float) -> void:
 		player.global_position.y = floor_y
 		if vel.y < 0.0: vel.y = 0.0
 		collision_damage("ground", impact)   # Job L (was: > 20 m/s, 0.25 x impact through the shields)
-	if bfp:   # v1.6b: water and lava move near you; lava burns
-		bfp.fluid_update(_dt, player.global_position)
+	for fl in _fields(): (fl as BlockField).fluid_update(_dt, player.global_position)   # v1.6b: water and lava move near you
+	if bfp:   # lava burns
 		if on_blocks and controls and bfp.fluid_at(p.x, p.y, p.z) == "lava":
 			_lava_t += _dt
 			if _lava_t >= 0.5:

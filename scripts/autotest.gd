@@ -894,6 +894,15 @@ func _run() -> void:
 		await _until(func(): return main.state == "flight", 10.0)
 		await _wait(1.0)
 		await _blocks()
+		await _regions()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
+	if OS.get_environment("HL_REGIONS") != "":   # the v1.7a blocks-everywhere checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _regions()
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
@@ -1517,6 +1526,7 @@ func _run() -> void:
 	await _job_ax()
 	await _job_ay()
 	await _blocks()
+	await _regions()
 	await _galaxy()
 	await _controls_j()
 	await _gate_k()
@@ -5854,6 +5864,88 @@ func _blocks() -> void:
 	Surface._mesh_cache.erase("%s|%d" % [pid, t])   # and back to the normal ground for everything after
 	_check("Blocks (experiment): switched off in normal play (on the web it is on only with ?blocks in the address)", off_normally)
 	main._load_system("solara", "station")   # back to space for the rest of the route test
+	await _wait(1.0)
+
+## EXPERIMENT step 9 (v1.7a): the whole planet as blocks. On a tile with a city, 500 m regions are built round the
+## player from the seed (each its own seed and its own kept blasts), the smooth sheet is cut out under them, the pad
+## sits on flat blocks, regions far behind are freed and a blast is still there when you come back.
+func _regions() -> void:
+	var pid: String = Data.BLOCK_TEST["planet"]
+	var g := Surface.grid(pid)
+	var t := -1
+	for tt in g * g:
+		if tt != int(Data.BLOCK_TEST["tile"]) and not Surface.locations_in(pid, tt).is_empty():
+			t = tt
+			break
+	BlockField.regions_test = true
+	for k in GS.block_deltas.keys():
+		if str(k).begins_with("%s|%d|" % [pid, t]): GS.block_deltas.erase(k)
+	main._load_surface(pid, t)
+	await _wait(0.5)
+	var s := _sp()
+	var p: Vector3 = s.player.global_position
+	var pr := BlockField.region_of(p.x, p.z)
+	var want := 0
+	var nr := int(round(Surface.TILE / Data.BLOCK_REGION))
+	for dz in [-1, 0, 1]:
+		for dx in [-1, 0, 1]:
+			var r := pr + Vector2i(dx, dz)
+			if r.x >= 0 and r.y >= 0 and r.x < nr and r.y < nr: want += 1
+	var frames := Engine.get_process_frames()
+	await _until(func(): return s._regions.size() >= want and s._building == null, 30.0)
+	frames = Engine.get_process_frames() - frames
+	var terr := s.tile_root.get_node_or_null("Terrain") as MeshInstance3D
+	var sm := terr.material_override as ShaderMaterial if terr else null
+	var cut_n: int = int(sm.get_shader_parameter("cut_n")) if sm else -1
+	var here: BlockField = s._block_field_at(p.x, p.z)
+	var ground_ok: bool = here != null and absf(s._ground(p.x, p.z) - here.top_at(p.x, p.z)) < 0.01
+	_check("Blocks everywhere (v1.7a): on another tile the %d regions round you are built from the seed (%d m squares), the smooth ground is cut out under each one, and the ground you stand on is the blocks" % [want, int(Data.BLOCK_REGION)],
+		s._regions.size() == want and cut_n == want and ground_ok, "tile %d, regions %d of %d, cuts %d, ground %s, built a little each frame over %d frames (last region %.0f ms start to end)" % [t, s._regions.size(), want, cut_n, ground_ok, frames, s.region_ms])
+	# the pad: flat blocks just under it, nothing carved round it
+	var loc: Dictionary = Surface.locations_in(pid, t)[0]
+	var lp: Vector2 = loc["pos"]
+	var lr := BlockField.region_of(lp.x, lp.y)
+	var lbf: BlockField = s._regions.get(lr)
+	if lbf == null: lbf = s._build_region(lr)
+	var pad := Surface.pad_height(pid, t)
+	var flat := true
+	for k in 24:
+		var a := k * TAU / 24.0
+		var q := lp + Vector2(cos(a), sin(a)) * (20.0 + 6.0 * k)
+		var f: BlockField = s._block_field_at(q.x, q.y)
+		if f == null: f = lbf if lbf.covers(q.x, q.y) else null
+		if f == null: continue
+		var top := f.top_at(q.x, q.y)
+		if top > pad + 0.01 or top < pad - Data.BLOCK_MIN - 0.01 or f.ceiling_above(q.x, top + 1.0, q.y) < INF: flat = false
+	_check("Blocks everywhere: round %s the blocks are flat just under the landing pad (no caves, canyon or landmarks under it)" % str(loc.get("name", "the city")),
+		flat and lbf.flat_cols > 0, "pad %.1f, flat %s, flattened columns %d" % [pad, flat, lbf.flat_cols])
+	# each region its own seed and its own kept blasts
+	var ra: BlockField = s._regions.get(pr)
+	var rb: BlockField = null
+	for r in s._regions:
+		if r != pr: rb = s._regions[r]
+	var aim := Vector3(ra.center.x + 60.0, 0.0, ra.center.y + 60.0)
+	aim.y = ra.top_at(aim.x, aim.z) - 1.0
+	var before := ra.top_at(aim.x, aim.z)
+	ra.blast(aim, "heavy")
+	var after := ra.top_at(aim.x, aim.z)
+	var ka := BlockField.region_key(pid, t, pr)
+	var kb := BlockField.region_key(pid, t, rb.region)
+	var own: bool = (GS.block_deltas.get(ka, []) as Array).size() > 0 and (GS.block_deltas.get(kb, []) as Array).size() == 0 and ra._sk != rb._sk
+	# fly well away: the far regions go, new ones come; fly back: the crater is still there
+	s.player.global_position = Vector3(ra.center.x + Data.BLOCK_REGION * 3.2 * (1.0 if pr.x * 2 < nr else -1.0), p.y + 200.0, ra.center.y)
+	await _until(func(): return not s._regions.has(pr) and s._building == null and s._regions.size() >= 6, 30.0)
+	var freed: bool = not s._regions.has(pr) and s._regions.size() <= (2 * Data.BLOCK_REGION_KEEP + 1) * (2 * Data.BLOCK_REGION_KEEP + 1)
+	s.player.global_position = Vector3(aim.x, p.y + 200.0, aim.z)
+	await _until(func(): return s._regions.has(pr), 30.0)
+	var back: BlockField = s._regions.get(pr)
+	var kept: bool = back != null and back != ra and absf(back.top_at(aim.x, aim.z) - after) < 0.01
+	_check("Blocks everywhere: each region has its own seed and keeps its own blasts; fly off and the far ones are freed, come back and your crater is still there",
+		after < before and own and freed and kept, "crater %.0f -> %.0f, own notes %s, freed %s, rebuilt with the crater %s" % [before, after, own, freed, kept])
+	BlockField.regions_test = false
+	for k in GS.block_deltas.keys():
+		if str(k).begins_with("%s|%d|" % [pid, t]): GS.block_deltas.erase(k)
+	main._load_system("solara", "station")
 	await _wait(1.0)
 
 ## EXPERIMENT step 2 (v1.5t): craters on the block patch.

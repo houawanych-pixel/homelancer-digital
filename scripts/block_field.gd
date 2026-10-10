@@ -18,6 +18,11 @@ signal mined(at: Vector3, mat: String, weapon: String)   # v1.6c: a gold / diamo
 
 var planet_id := ""
 var tile := 0
+var region := Vector2i(-1, -1)   # v1.7a: which 500 m square of the tile ((-1, -1) = the old test patch)
+var _sk := ""                  # the seed key: planet|tile (test patch) or planet|tile|rx|rz (a region)
+var feat := 1.0                # how many landmarks / caves / pockets compared with the test patch (by area)
+var _sites: Array = []         # the cities / bases on this tile (tile-local Vector2)
+var flat_cols := 0             # big columns flattened round a city / base (tests)
 var center := Vector2.ZERO     # tile-local centre of the patch (x east, z south)
 var cols := 0                  # big columns per side
 var tops := PackedFloat32Array()   # the ORIGINAL top of each big column (row-major)
@@ -92,21 +97,89 @@ static func enabled() -> bool:
 			_url_on = 1 if str(JavaScriptBridge.eval("window.location.search || ''", true)).find("blocks") >= 0 else 0
 	return _url_on == 1
 
+static var regions_test := false   # tests: the region mode with `force`
+
+## The old 800 m test patch: only for the route test now (with ?blocks the whole planet is blocks, region by region).
 static func wanted(pid: String, t: int) -> bool:
-	return enabled() and Data.BLOCK_TEST.get("planet", "") == pid and int(Data.BLOCK_TEST.get("tile", -1)) == t
+	return force and not regions_test and Data.BLOCK_TEST.get("planet", "") == pid and int(Data.BLOCK_TEST.get("tile", -1)) == t
+
+## v1.7a: blocks everywhere, built in 500 m regions round the player (the ?blocks link, or the region test).
+static func regions_on() -> bool:
+	return regions_test or (enabled() and not force)
+
+static func region_key(pid: String, t: int, r: Vector2i) -> String:
+	return "%s|%d|%d|%d" % [pid, t, r.x, r.y]
+
+## The region a tile-local point is in (clamped to the tile).
+static func region_of(x: float, z: float) -> Vector2i:
+	var nr := int(round(Surface.TILE / Data.BLOCK_REGION))
+	return Vector2i(clampi(int(floor((x + Surface.EDGE) / Data.BLOCK_REGION)), 0, nr - 1), clampi(int(floor((z + Surface.EDGE) / Data.BLOCK_REGION)), 0, nr - 1))
+
+static func region_centre(r: Vector2i) -> Vector2:
+	return Vector2(-Surface.EDGE + (r.x + 0.5) * Data.BLOCK_REGION, -Surface.EDGE + (r.y + 0.5) * Data.BLOCK_REGION)
+
+## How many of something the seed places here: the test patch gets the full count, a region its share (the leftover
+## fraction is a chance of one more).
+func _scaled(count: int, rng: RandomNumberGenerator) -> int:
+	if feat >= 0.999: return count
+	var e := count * feat
+	return int(e) + (1 if rng.randf() < e - int(e) else 0)
+
+## How far a tile-local point is from the nearest city / base on this tile (INF if none).
+func _site_dist(p: Vector2) -> float:
+	var d := INF
+	for q in _sites: d = minf(d, p.distance_to(q))
+	return d
+
+## (v1.7a) Round a city or base nothing generated stays: no caves, pockets, canyon or landmarks under the pad.
+func _clear_sites() -> void:
+	var step: float = Data.BLOCK_MIN
+	var flat := floorf(Surface.pad_height(planet_id, tile) / step) * step
+	var cleared := {}
+	for fz in n:
+		for fx in n:
+			var c := fz * n + fx
+			if _site_dist(Vector2(x0 + (fx + 0.5) * step, z0 + (fz + 0.5) * step)) >= Data.BLOCK_SITE_FLAT: continue
+			h[c] = flat
+			h0[c] = flat
+			holes.erase(c)
+			fluid.erase(c)
+			mats.erase(c)
+			fill.erase(c)
+			reach_bonus.erase(c)
+			cleared[c] = true
+	if cleared.is_empty(): return
+	for pk in pockets: pk["cells"] = (pk["cells"] as Array).filter(func(c): return not cleared.has(c))
+	pockets = pockets.filter(func(pk): return not (pk["cells"] as Array).is_empty())
 
 static func key_of(pid: String, t: int) -> String:
 	return "%s|%d" % [pid, t]
 
 @warning_ignore("integer_division")
-func build(pid: String, t: int) -> void:
+var built := false   # v1.7a: a region built a little each frame is only used once this is true
+var cancel := false  # ...and stops (and frees itself) if this is set while it builds
+
+## Build from the seed. `staged` (v1.7a regions): spread over many frames so flying never stalls (each step is
+## a few rows, one feature or one mesh chunk); `built` goes true at the end.
+func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false) -> void:
 	planet_id = pid
 	tile = t
-	name = "BlockField"
-	center = Data.BLOCK_TEST["center"]
+	region = reg
+	_sites.clear()
+	for l in Surface.locations_in(pid, t): _sites.append(l["pos"])
 	var big: float = Data.BLOCK_BIG
 	var step: float = Data.BLOCK_MIN
-	cols = int(round(float(Data.BLOCK_TEST["size"]) / big))
+	if reg.x < 0:
+		name = "BlockField"
+		_sk = key_of(pid, t)
+		center = Data.BLOCK_TEST["center"]
+		cols = int(round(float(Data.BLOCK_TEST["size"]) / big))
+	else:
+		name = "BlockField_%d_%d" % [reg.x, reg.y]
+		_sk = region_key(pid, t, reg)
+		center = region_centre(reg)
+		cols = int(round(Data.BLOCK_REGION / big))
+		feat = Data.BLOCK_REGION_FEATURES
 	tops.resize(cols * cols)
 	var g := Surface.grid(pid)
 	var ox := float(t % g) * Surface.TILE
@@ -116,6 +189,11 @@ func build(pid: String, t: int) -> void:
 	surf_cols.resize(cols * cols)
 	# 1. column tops: the highest ground under the column (so the smooth sheet never pokes through), snapped up a step
 	for j in cols:
+		if staged and j % 4 == 3:
+			await Engine.get_main_loop().process_frame
+			if cancel:
+				queue_free()
+				return
 		for i in cols:
 			var c := _col_centre(i, j)
 			var hm := -1e9
@@ -128,6 +206,9 @@ func build(pid: String, t: int) -> void:
 			tops[j * cols + i] = ceilf((hm + Data.BLOCK_MARGIN) / step) * step
 			surf_cols[j * cols + i] = Color(colr.r, colr.g, colr.b)
 			cols_c[j * cols + i] = colr
+			if reg.x >= 0 and _site_dist(c) < Data.BLOCK_SITE_FLAT:   # 1a. (v1.7a) round a city or base: flat, just under the pad
+				tops[j * cols + i] = floorf(Surface.pad_height(pid, t) / step) * step
+				flat_cols += 1
 	# 1b. realistic heights (v1.6f): no thin spires. A column standing more than SPIRE_MAX over every neighbour is cut
 	#     down to that (the edge columns are left alone: the smooth sheet there isn't sunk)
 	for pass_i in 2:
@@ -141,7 +222,7 @@ func build(pid: String, t: int) -> void:
 					tops[j * cols + i] = ceilf((mx + Data.SPIRE_MAX) / step) * step
 					clamped += 1
 	# 2. the original stacks of big blocks (each column from below its lowest neighbour up to its top)
-	_rng.seed = hash("%s|%d|blocks" % [pid, t])
+	_rng.seed = hash(_sk + "|blocks")
 	for j in cols:
 		for i in cols:
 			var top: float = tops[j * cols + i]
@@ -205,18 +286,49 @@ func build(pid: String, t: int) -> void:
 			var bot_c := cc[(j0 + 1) * (cols + 1) + i0].lerp(cc[(j0 + 1) * (cols + 1) + i0 + 1], tu)
 			ccol[fz * (n + 1) + fx] = top_c.lerp(bot_c, tw)
 	_noise = FastNoiseLite.new()
-	_noise.seed = hash("%s|%d|layers" % [pid, t])
+	_noise.seed = hash(_sk + "|layers")
 	_noise.frequency = 0.03
 	# 4. caves, sealed water and lava pockets, gold and diamond veins, from the seed (v1.6b-d)
+	if staged:
+		await Engine.get_main_loop().process_frame
+		if cancel:
+			queue_free()
+			return
 	_carve_canyon()
+	if staged:
+		await Engine.get_main_loop().process_frame
+		if cancel:
+			queue_free()
+			return
 	_carve_root_halls()
+	if staged:
+		await Engine.get_main_loop().process_frame
+		if cancel:
+			queue_free()
+			return
 	_carve_caves()
+	if staged:
+		await Engine.get_main_loop().process_frame
+		if cancel:
+			queue_free()
+			return
 	_build_landmarks()
+	if staged:
+		await Engine.get_main_loop().process_frame
+		if cancel:
+			queue_free()
+			return
 	_raise_roots()
+	if staged:
+		await Engine.get_main_loop().process_frame
+		if cancel:
+			queue_free()
+			return
 	_place_pockets()
 	_place_veins()
+	if region.x >= 0: _clear_sites()
 	# 5. re-apply the blasts made here before (seed + deltas), quietly
-	var key := key_of(pid, t)
+	var key := _sk
 	if not GS.block_deltas.has(key): GS.block_deltas[key] = []
 	deltas = GS.block_deltas[key]
 	for d in deltas: _apply_note(d)
@@ -229,7 +341,15 @@ func build(pid: String, t: int) -> void:
 	collapses = 0
 	var nc := _nchunks()
 	for k in nc * nc: _dirty[k] = true
+	if staged:
+		while not _dirty.is_empty():
+			await Engine.get_main_loop().process_frame
+			if cancel:
+				queue_free()
+				return
+			flush(1)
 	flush()
+	built = true
 
 func _col_centre(i: int, j: int) -> Vector2:
 	var big: float = Data.BLOCK_BIG
@@ -716,13 +836,14 @@ func _slump(fx: int, fz: int) -> void:
 func _place_pockets() -> void:
 	pockets.clear()
 	var rng := RandomNumberGenerator.new()
-	rng.seed = hash("%s|%d|pockets" % [planet_id, tile])
+	rng.seed = hash(_sk + "|pockets")
 	for spec in [["water", Data.FLUID_POCKETS["water"], 3, Data.FLUID_DEPTH["water"]], ["lava", Data.FLUID_POCKETS["lava"], 2, Data.FLUID_DEPTH["lava"]]]:
 		var kind: String = spec[0]
 		var w: int = spec[2]
 		var tries := 0
 		var placed := 0
-		while placed < int(spec[1]) and tries < 200:
+		var want := _scaled(int(spec[1]), rng)
+		while placed < want and tries < 200:
 			tries += 1
 			var cx := rng.randi_range(2, n - w - 2)
 			var cz := rng.randi_range(2, n - w - 2)
@@ -765,7 +886,7 @@ func _place_pockets() -> void:
 func _place_veins() -> void:
 	veins.clear()
 	var rng := RandomNumberGenerator.new()
-	rng.seed = hash("%s|%d|veins" % [planet_id, tile])
+	rng.seed = hash(_sk + "|veins")
 	var lay := func(cells: Array, k_of: Callable, m: String) -> void:
 		var placed: Array = []
 		for c in cells:
@@ -778,7 +899,7 @@ func _place_veins() -> void:
 			placed.append(Vector2i(c, k))
 		if not placed.is_empty(): veins.append({"mat": m, "cells": placed})
 	for m in ["gold", "diamond"]:
-		for v in int(Data.MINE_VEINS[m]):
+		for v in _scaled(int(Data.MINE_VEINS[m]), rng):
 			var cx := rng.randi_range(3, n - 6)
 			var cz := rng.randi_range(3, n - 6)
 			var depth: float = rng.randf_range(float(Data.VEIN_DEPTH[m][0]), float(Data.VEIN_DEPTH[m][1]))
@@ -803,13 +924,14 @@ func _place_veins() -> void:
 func _carve_caves() -> void:
 	caves.clear()
 	var rng := RandomNumberGenerator.new()
-	rng.seed = hash("%s|%d|caves" % [planet_id, tile])
+	rng.seed = hash(_sk + "|caves")
 	var nz := FastNoiseLite.new()
 	nz.seed = rng.randi()
 	nz.frequency = Data.CAVE_NOISE_FREQ
 	var w: int = Data.CAVE_SIZE
 	var tries := 0
-	while caves.size() < Data.CAVE_COUNT and tries < 60:
+	var want := _scaled(Data.CAVE_COUNT, rng)
+	while caves.size() < want and tries < 60:
 		tries += 1
 		var cx := rng.randi_range(2, n - w - 2)
 		var cz := rng.randi_range(2, n - w - 2)
@@ -849,14 +971,15 @@ func _build_landmarks() -> void:
 	arches.clear()
 	overhangs.clear()
 	var rng := RandomNumberGenerator.new()
-	rng.seed = hash("%s|%d|landmarks" % [planet_id, tile])
+	rng.seed = hash(_sk + "|landmarks")
 	var step: float = Data.BLOCK_MIN
 	var free := func(cells: Array) -> bool:
 		for c in cells:
 			if c < 0 or c >= n * n or holes.has(c) or fluid.has(c): return false
 		return true
 	var tries := 0
-	while arches.size() < Data.ARCH_COUNT and tries < 80:
+	var want := _scaled(Data.ARCH_COUNT, rng)
+	while arches.size() < want and tries < 80:
 		tries += 1
 		var length := rng.randi_range(int(Data.ARCH_SPAN[0]), int(Data.ARCH_SPAN[1]))   # cells between the legs
 		var along_x := rng.randf() < 0.5
@@ -910,7 +1033,8 @@ func _build_landmarks() -> void:
 				_mark(c % n, c / n, 1)
 		arches.append({"legs": legs, "span": span, "mid": cell_at.call((length + leg_w * 2) / 2, 0), "mat": m, "treasure": treasure})
 	tries = 0
-	while overhangs.size() < Data.OVERHANG_COUNT and tries < 80:
+	var want_o := _scaled(Data.OVERHANG_COUNT, rng)
+	while overhangs.size() < want_o and tries < 80:
 		tries += 1
 		var bw := 4
 		var jut := rng.randi_range(int(Data.OVERHANG_JUT[0]), int(Data.OVERHANG_JUT[1]))
@@ -959,7 +1083,8 @@ func _build_landmarks() -> void:
 func _carve_canyon() -> void:
 	canyon_cells.clear()
 	var rng := RandomNumberGenerator.new()
-	rng.seed = hash("%s|%d|canyon" % [planet_id, tile])
+	rng.seed = hash(_sk + "|canyon")
+	if feat < 0.999 and rng.randf() > Data.BLOCK_REGION_CANYON: return   # (v1.7a) not every region has one
 	var step: float = Data.BLOCK_MIN
 	var m := 10
 	var p := Vector2(m, rng.randf_range(m, n - m))
@@ -1011,12 +1136,13 @@ func _carve_canyon() -> void:
 func _carve_root_halls() -> void:
 	halls.clear()
 	var rng := RandomNumberGenerator.new()
-	rng.seed = hash("%s|%d|roothalls" % [planet_id, tile])
+	rng.seed = hash(_sk + "|roothalls")
 	var w: int = Data.HALL_SIZE
 	var hl: int = Data.HALL_LAYERS
 	var sp: int = Data.HALL_TRUNK_SPACING
 	var tries := 0
-	while halls.size() < Data.HALL_COUNT and tries < 40:
+	var want := _scaled(Data.HALL_COUNT, rng)
+	while halls.size() < want and tries < 40:
 		tries += 1
 		var hx := rng.randi_range(4, n - w - 4)
 		var hz := rng.randi_range(4, n - w - 4)
@@ -1094,10 +1220,11 @@ func _carve_root_halls() -> void:
 func _raise_roots() -> void:
 	roots.clear()
 	var rng := RandomNumberGenerator.new()
-	rng.seed = hash("%s|%d|roots" % [planet_id, tile])
+	rng.seed = hash(_sk + "|roots")
 	var step: float = Data.BLOCK_MIN
 	var tries := 0
-	while roots.size() < Data.ROOT_COUNT and tries < 60:
+	var want := _scaled(Data.ROOT_COUNT, rng)
+	while roots.size() < want and tries < 60:
 		tries += 1
 		var cx := rng.randi_range(6, n - 9)
 		var cz := rng.randi_range(6, n - 9)

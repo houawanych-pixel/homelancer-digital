@@ -516,6 +516,18 @@ Status: the owner said go for step 2 (craters), step by step. Each next step wai
    low spots of the floor (they lie still). Sealed and asleep under 30 m+ of rock until you dig down. In sections,
    not the whole planet, to stay light on a phone.
    Still to come: the interlocking slanted shapes over the whole ground; sand and dirt settled in the root crooks.
+2l. DONE (v1.7a, behind ?blocks): step 9, part 1: the whole planet as blocks. Every tile of every planet is cut into
+   500 m regions (`BLOCK_REGION`, 10 x 10 per tile, 100 x 100 cells each). The 3 x 3 regions round you are built
+   from the seed as you fly, one at a time and a little each frame (a few rows, one feature or one mesh chunk per
+   frame, so flying never stalls), nearest first (`BLOCK_REGION_REACH`), and freed once you are more
+   than 2 squares away (`BLOCK_REGION_KEEP`). Each region has its own seed (planet|tile|rx|rz) and keeps its own
+   blast notes, so a crater is still there when you come back. The smooth ground stays as the far view and the
+   terrain shader cuts it out under every standing region (`cuts`). Landmarks, caves, pockets, veins and halls come
+   at the region's share by area (`BLOCK_REGION_FEATURES`); a canyon runs through about 1 region in 5. Round every
+   city / base (`BLOCK_SITE_FLAT`, 440 m) the blocks are flat just under the landing pad and nothing is carved.
+   The old 800 m test patch is now only for the route test. Known for now: a blast right on a region edge only
+   digs its own region; blocks stop at the tile border until you cross it; the sea plane shows in very deep holes.
+   Next (v1.7b, after the owner tries it): on for everyone, the old ground removed.
 3. DONE (already from earlier work): the ground blends across tile edges and the next area is built before you reach
    it, so crossing has no jump.
 4. DONE (already): no seam lines at ordinary corners (the ground blends); the planet's wrap corner sits in a cloud bank.

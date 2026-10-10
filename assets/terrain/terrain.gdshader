@@ -13,6 +13,10 @@ uniform vec3 tex_avg = vec3(0.72, 0.49, 0.31);
 uniform float detail_scale = 0.014;   // 1 repeat per ~70 m
 uniform float strata = 1.0;           // 1 = layered rock on cliffs (canyon/desert), 0 = plain
 
+// v1.7a: where block regions stand, the smooth ground isn't drawn (rects in tile-local x/z: x0, z0, x1, z1)
+uniform float cuts[128];
+uniform int cut_n = 0;
+
 varying vec3 wpos;
 varying vec3 wnrm;
 
@@ -22,6 +26,10 @@ void vertex() {
 }
 
 void fragment() {
+	for (int i = 0; i < 32; i++) {
+		if (i >= cut_n) break;
+		if (wpos.x > cuts[i * 4] && wpos.z > cuts[i * 4 + 1] && wpos.x < cuts[i * 4 + 2] && wpos.z < cuts[i * 4 + 3]) discard;
+	}
 	float slope = clamp((1.0 - wnrm.y) * 2.2, 0.0, 1.0);
 	vec2 uv_top = wpos.xz * detail_scale;
 	vec2 uv_side = vec2(wpos.x + wpos.z, wpos.y * 1.6) * detail_scale;
