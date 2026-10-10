@@ -6008,6 +6008,68 @@ func _regions() -> void:
 				if minf(b0, b1) < float(A[3]) - 0.01 or absf(a0 - float(A[3])) > 0.01 or absf(a1 - float(A[3])) > 0.01: gaps += 1
 	_check("Slanted ground (v1.7e): the natural ground leans into slanted slabs and wedges (look only, blocks underneath), some blocks stay square so they interlock, and neighbouring blocks always meet with no gap",
 		slanted > 20 and square > 20 and gaps == 0, "slanted %d, square %d, gaps %d" % [slanted, square, gaps])
+	# v1.7f: leaning slabs and A-frames stand about, one straight tilted slab each while whole; you can fly under an
+	# A-frame; knock out a lean-to's prop (or one foot of an A-frame) and it stops being one piece and the far part falls
+	var found := {"lean": null, "aframe": null}
+	for f in s._fields():
+		for sb in (f as BlockField).slabs:
+			if found[sb["kind"]] == null and sb["whole"]: found[sb["kind"]] = [f, sb]
+	var sl_ok := found["lean"] != null and found["aframe"] != null
+	var under_air := false
+	var fell := true
+	var drawn := false
+	var slab_detail := ""
+	if sl_ok:
+		var af: BlockField = found["aframe"][0]
+		var asb: Dictionary = found["aframe"][1]
+		var mid: Vector2 = (asb["geo"][0][1] as Vector2) + (asb["lat"] as Vector2) * 0.5   # the apex, half way across
+		var mx := mid.x
+		var mz := mid.y
+		under_air = af.ground_for(mx, float(asb["ground"]) + float(asb["rise"]) * 0.5, mz) < float(asb["ground"]) + float(asb["rise"]) * 0.5 - 1.0
+		drawn = af.get_node_or_null("Slabs") != null and (af.get_node("Slabs") as MeshInstance3D).mesh != null
+		if OS.get_environment("HL_SHOT_DIR") != "":   # pictures of a lean-to and an A-frame
+			main.hud.visible = false
+			s.player.visible = false
+			var scam := Camera3D.new()
+			scam.far = 8000.0
+			s.add_child(scam)
+			var sprev := get_viewport().get_camera_3d()
+			for kind in ["aframe", "lean"]:
+				var sbk: Dictionary = found[kind][1]
+				var g0: Array = sbk["geo"][0]
+				var cen: Vector2 = ((g0[0] as Vector2) + (g0[1] as Vector2)) * 0.5 + (sbk["lat"] as Vector2) * 0.5
+				var aim3 := Vector3(cen.x, float(sbk["ground"]) + float(sbk["rise"]) * 0.5, cen.y)
+				var side := Vector2((sbk["lat"] as Vector2).x, (sbk["lat"] as Vector2).y).normalized()
+				var along := ((g0[1] as Vector2) - (g0[0] as Vector2)).normalized()
+				var eye := aim3 + Vector3(side.x * 70.0 + along.x * 30.0, 20.0, side.y * 70.0 + along.y * 30.0)
+				scam.global_position = eye
+				scam.look_at(aim3, Vector3.UP)
+				scam.make_current()
+				await _shot("slab_" + kind, 1.0)
+			scam.queue_free()
+			if sprev: sprev.make_current()
+			main.hud.visible = true
+			s.player.visible = true
+		for kind in ["lean", "aframe"]:
+			var f: BlockField = found[kind][0]
+			var sb: Dictionary = found[kind][1]
+			var c0 := f.collapses
+			var cells_before := 0
+			for c in sb["cells"]: cells_before += 1 if f.h[c] > float(sb["ground"]) + 6.0 else 0
+			for c in sb["hold"]:   # blow the prop / foot away, bottom to top
+				for k in 12:
+					var px: float = f.x0 + (int(c) % f.n + 0.5) * Data.BLOCK_MIN
+					var pz: float = f.z0 + (int(c) / f.n + 0.5) * Data.BLOCK_MIN
+					if f.h[c] <= float(sb["ground"]) - 4.0: break
+					f.blast(Vector3(px, f.h[c] - 1.0, pz), "heavy", false, false)
+			f.flush()
+			var cells_after := 0
+			for c in sb["cells"]: cells_after += 1 if f.h[c] > float(sb["ground"]) + 6.0 else 0
+			var this_fell: bool = not sb["whole"] and f.collapses > c0 and cells_after < cells_before
+			fell = fell and this_fell
+			slab_detail += "%s: whole %s, collapses +%d, raised cells %d -> %d; " % [kind, sb["whole"], f.collapses - c0, cells_before, cells_after]
+	_check("Leaning slabs (v1.7f): lean-tos and A-frames stand about, each one straight tilted slab while whole; you can fly under an A-frame; shoot the prop or a foot and it stops being one piece and the far part comes down",
+		sl_ok and under_air and drawn and fell, "found lean %s aframe %s, air under the A %s, drawn %s, %s" % [found["lean"] != null, found["aframe"] != null, under_air, drawn, slab_detail])
 	# v1.7d: the blocks run on over the tile border (the next tile's regions are built in this tile's frame), and when
 	# you cross they come with you, the same blocks, no rebuild; a blast right on a region edge digs both sides
 	var ey: float = s._ground(Surface.EDGE - 60.0, p.z) + 80.0

@@ -56,6 +56,8 @@ var clamped := 0               # v1.6f spires cut down to a realistic height (te
 var canyon_cells: Array = []   # v1.6f the canyon floor's cells
 var roots: Array = []          # v1.6f obsidian roots piercing the surface: [{cells: [cell], tip}]
 var halls: Array = []          # v1.6h deep root halls: [{x, z, w, k0, k1, trunks: [cell], lava: int}]
+var slabs: Array = []          # v1.7f leaning slabs and A-frames: [{cells, lo: {cell: y}, kind, mat, geo: [pieces], whole}]
+var _slab_of := {}             # cell -> index in slabs
 var arches: Array = []         # v1.6e generated arches: [{legs: [[cells], [cells]], span: [cells], mid: cell, mat}]
 var overhangs: Array = []      # v1.6e Pride Rock promontories: [{base: [cells], jut: [cells], tip: cell}]
 var reach_bonus := {}          # v1.6e cell -> how far (cells) its rock may hang from support (arches, promontories)
@@ -282,6 +284,7 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 			queue_free()
 			return
 	_build_landmarks()
+	if region.x >= 0: _build_slabs()   # (v1.7f; the old test patch keeps its ground as the tests know it)
 	if staged:
 		await Engine.get_main_loop().process_frame
 		if cancel:
@@ -295,6 +298,7 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 			return
 	_place_pockets()
 	_place_veins()
+	_slab_expect()
 	# 5. re-apply the blasts made here before (seed + deltas), quietly
 	var key := _sk
 	if not GS.block_deltas.has(key): GS.block_deltas[key] = []
@@ -1055,6 +1059,181 @@ func _build_landmarks() -> void:
 		overhangs.append({"base": base, "jut": slab, "tip": (oz + 1) * n + ox + bw + jut - 1})
 	_settle(0, n - 1, 0, n - 1)
 
+## v1.7f: leaning slabs and A-frames. A lean-to is a slab rising from the ground onto a stone pillar (its prop); an
+## A-frame is two slabs rising toward each other until they meet, with air under them to fly through. In blocks: each
+## cell along it is solid from its slab's underside to its top, with air down to the ground under it (the low end and
+## the prop are solid); its cells may hang about half its length from support, so take the prop (or one foot of an
+## A-frame) away and the far part has nothing left to hold it and comes down.
+@warning_ignore("integer_division")
+func _build_slabs() -> void:
+	slabs.clear()
+	_slab_of.clear()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(_sk + "|slabs")
+	var step: float = Data.BLOCK_MIN
+	for kind in ["lean", "aframe"]:
+		var want := _scaled(Data.SLAB_COUNT if kind == "lean" else Data.AFRAME_COUNT, rng)
+		var tries := 0
+		var made := 0
+		while made < want and tries < 60:
+			tries += 1
+			var L := rng.randi_range(int(Data.SLAB_LEN[0]), int(Data.SLAB_LEN[1]))
+			var total := L + 2 if kind == "lean" else L * 2 + 1   # lean-to: slab + 2-cell prop; A-frame: two slabs + the apex
+			var W: int = Data.SLAB_WIDE
+			var along_x := rng.randf() < 0.5
+			var lx := rng.randi_range(4, n - total - 5)
+			var lz := rng.randi_range(4, n - W - 5)
+			var flip := rng.randf() < 0.5
+			var cell_at := func(a: int, b: int) -> int:
+				var aa := total - 1 - a if flip else a
+				return (lz + b) * n + lx + aa if along_x else (lx + aa) * n + lz + b   # (lx runs along, lz across)
+			var cells: Array = []
+			var ok := true
+			var ground := -INF
+			var low := INF
+			for a in total:
+				for b in W:
+					var c: int = cell_at.call(a, b)
+					if holes.has(c) or fluid.has(c) or _slab_of.has(c) or (mats.get(c, {}) as Dictionary).size() > 0: ok = false
+					cells.append(c)
+					ground = maxf(ground, h[c])
+					low = minf(low, h[c])
+			if not ok or ground - low > Data.LANDMARK_FLAT: continue
+			var rise: float = rng.randf_range(float(Data.SLAB_RISE[0]), float(Data.SLAB_RISE[1]))
+			var thick: float = Data.SLAB_THICK
+			var m := "obsidian" if rng.randf() < 0.3 else "stone"
+			var lo := {}
+			var slab_cells: Array = []
+			var hold: Array = []   # the prop (lean-to) or the first foot (A-frame): the test knocks it out
+			for a in total:
+				var under: float   # the slab's underside over this cell (m)
+				var solid := false
+				if kind == "lean":
+					under = ground + rise * float(a) / float(L)
+					solid = a == 0 or a >= L   # the low end and the prop pillar
+					if a >= L: under = ground + rise
+				else:
+					under = ground + rise * (1.0 - absf(float(a) - float(L)) / float(L))
+					solid = a == 0 or a == total - 1
+				var top: float = ceilf((under + thick) / step) * step
+				var ku := _k(floorf(under / step) * step + 0.01)
+				for b in W:
+					var c: int = cell_at.call(a, b)
+					_split_one(c)
+					var kg := _ktop(c)
+					var kt := _k(top - 0.01) + 1
+					h[c] = y0 + kt * step
+					if not solid and ku > kg: holes[c] = [Vector2i(kg, ku)]
+					var ov: Dictionary = mats.get(c, {})
+					for k in range(mini(kg, ku) if solid else ku, kt): ov[k] = m
+					mats[c] = ov
+					hmax = maxf(hmax, h[c])
+					if (kind == "lean" and a >= L) or (kind == "aframe" and a == 0): hold.append(c)
+					if not (kind == "lean" and a >= L):   # (the prop is ordinary rock: you shoot it, it isn't the slab)
+						lo[c] = minf(under, ground) if solid else under
+						slab_cells.append(c)
+						reach_bonus[c] = L / 2 + 1
+					_mark(c % n, c / n, 1)
+			# the look: straight tilted slabs (corner points along the slab, across it, underside heights)
+			var s0: Vector2 = _cell_corner(cell_at.call(0, 0))
+			var geo: Array = []
+			var lat := Vector2(0, 1) if along_x else Vector2(1, 0)   # across
+			var dir := Vector2(1, 0) if along_x else Vector2(0, 1)   # along (the cell order may be flipped)
+			if flip: dir = -dir
+			var start := s0 + (Vector2(step, 0) if along_x else Vector2(0, step)) * (1.0 if flip else 0.0)
+			if flip: start = s0 + (Vector2(step, 0) if along_x else Vector2(0, step))
+			if kind == "lean":
+				geo.append([start, start + dir * L * step, ground, ground + rise])
+			else:
+				var apex := start + dir * (L + 0.5) * step
+				geo.append([start, apex, ground, ground + rise])
+				geo.append([start + dir * total * step, apex, ground, ground + rise])
+			slabs.append({"cells": slab_cells, "lo": lo, "kind": kind, "mat": m, "geo": geo, "lat": lat * W * step, "thick": thick, "whole": true, "expect": {}, "hold": hold, "rise": rise, "ground": ground})
+			for c in slab_cells: _slab_of[c] = slabs.size() - 1
+			made += 1
+	_settle(0, n - 1, 0, n - 1)
+
+## The north-west corner of a cell (tile-local x, z).
+func _cell_corner(c: int) -> Vector2:
+	return Vector2(x0 + (c % n) * Data.BLOCK_MIN, z0 + (c / n) * Data.BLOCK_MIN)
+
+## Remember what each slab's cells look like when whole (after the world is generated).
+func _slab_expect() -> void:
+	for sb in slabs:
+		var ex := {}
+		for c in sb["cells"]: ex[c] = [h[c], (holes.get(c, []) as Array).duplicate()]
+		sb["expect"] = ex
+		sb["whole"] = true
+	for sb in slabs:   # (anything later generation changed shows as blocks from the start)
+		for c in sb["cells"]:
+			if not _slab_cell_same(sb, c): sb["whole"] = false
+	_draw_slabs()
+
+func _slab_cell_same(sb: Dictionary, c: int) -> bool:
+	var e: Array = (sb["expect"] as Dictionary).get(c, [])
+	return not e.is_empty() and absf(float(e[0]) - h[c]) < 0.01 and e[1] == holes.get(c, []) and not dmg.has(c)
+
+## Before drawing: a slab that has been hit anywhere stops being one straight piece and shows as its blocks.
+func _slab_check() -> void:
+	var changed := false
+	for sb in slabs:
+		if not sb["whole"]: continue
+		for c in sb["cells"]:
+			if not _slab_cell_same(sb, c):
+				sb["whole"] = false
+				changed = true
+				for c2 in sb["cells"]: _mark(int(c2) % n, int(c2) / n, 1)
+				break
+	if changed: _draw_slabs()
+
+## While its slab is whole, a cell's slab part isn't drawn as blocks (the slab is drawn instead): the y under it.
+func _slab_lo(c: int) -> float:
+	if not _slab_of.has(c): return INF
+	var sb: Dictionary = slabs[_slab_of[c]]
+	return float((sb["lo"] as Dictionary)[c]) if sb["whole"] else INF
+
+## The straight tilted slabs (one mesh for all of them in this field).
+func _draw_slabs() -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var any := false
+	for sb in slabs:
+		if not sb["whole"]: continue
+		var col := tone(str(sb["mat"]))
+		var lat: Vector2 = sb["lat"]
+		var th: float = sb["thick"]
+		for g in sb["geo"]:
+			var a: Vector2 = g[0]
+			var b: Vector2 = g[1]
+			var ya: float = g[2]
+			var yb: float = g[3]
+			var p := [Vector3(a.x, ya, a.y), Vector3(b.x, yb, b.y), Vector3(b.x + lat.x, yb, b.y + lat.y), Vector3(a.x + lat.x, ya, a.y + lat.y)]
+			var q := []
+			for v in p: q.append((v as Vector3) + Vector3(0, th, 0))
+			var top_c := col.lightened(0.06)
+			var side_c := col * 0.85
+			var under_c := col * 0.6
+			_quad(st, q[0], q[1], q[2], q[3], [top_c, top_c, top_c, top_c], ((q[1] - q[0]) as Vector3).cross(q[3] - q[0]).normalized() * -1.0 if ((q[1] - q[0]) as Vector3).cross(q[3] - q[0]).y < 0.0 else ((q[1] - q[0]) as Vector3).cross(q[3] - q[0]).normalized())
+			_quad(st, p[3], p[2], p[1], p[0], [under_c, under_c, under_c, under_c], Vector3.DOWN)
+			for k in 4:
+				var k2 := (k + 1) % 4
+				var nrm := Vector3(((p[k2] as Vector3) - (p[k] as Vector3)).z, 0, -((p[k2] as Vector3) - (p[k] as Vector3)).x).normalized()
+				_quad(st, q[k], q[k2], p[k2], p[k], [side_c, side_c, side_c, side_c], nrm)
+			any = true
+	var mi := get_node_or_null("Slabs") as MeshInstance3D
+	if mi == null:
+		mi = MeshInstance3D.new()
+		mi.name = "Slabs"
+		var mat := StandardMaterial3D.new()
+		mat.vertex_color_use_as_albedo = true
+		mat.roughness = 0.85
+		mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		mi.material_override = mat
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(mi)
+	mi.position = Vector3.ZERO
+	mi.mesh = st.commit() if any else null
+
 ## A canyon (v1.6f): one deep, winding cut across the patch you can fly down into, its walls showing the layers, with a
 ## little gold in the walls. It wanders by noise, keeps away from the patch edge, and its floor follows the ground
 ## down (never deeper than CANYON_DEPTH under it, never into the obsidian cap).
@@ -1605,6 +1784,7 @@ func _process(dt: float) -> void:
 ## own blended colours; dug ground shows the tone of the layer that is now on top; walls show the layers they cut.
 var _slant_cache := {}
 func flush(limit := 0) -> void:
+	if not slabs.is_empty(): _slab_check()
 	var done := 0
 	for k in _dirty.keys():
 		_draw_chunk(int(k))
@@ -1690,6 +1870,7 @@ func _draw_block(st: SurfaceTool, ox: int, oz: int, s: int) -> void:
 	var inset: float = minf(float(skin[0]), s * step * 0.42)
 	var drop: float = float(skin[1]) if any_edge else 0.0
 	var vh := _slant(ox, oz, s, top, tm, untouched, edge)   # v1.7e: the top's corner heights if it leans ([] if square)
+	var slo := _slab_lo(i0)   # v1.7f: part of a whole leaning slab: above this the slab is drawn, not blocks
 	if not vh.is_empty(): drop = 0.0
 	var shard := Vector3.ZERO   # the shard's lean (away from the obsidian it is joined to)
 	var fused := false
@@ -1712,7 +1893,9 @@ func _draw_block(st: SurfaceTool, ox: int, oz: int, s: int) -> void:
 		if dd > 0:   # cracked: darker the closer it is to breaking
 			var f: float = Data.BLOCK_DAMAGE_DARK * float(dd) / float(Data.BLOCK_HITS.get(mat_at(cfx, cfz, ty), 1))
 			for q in 4: cs[q] = (cs[q] as Color).lerp(Color.BLACK, f)
-		if j == 0 and o.y <= _kfloor(i0):   # the kill floor, dug open: it blazes (a warning you see from far above)
+		if slo < INF and ty > slo + 0.01:
+			pass   # (the slab's own top: drawn as the slab)
+		elif j == 0 and o.y <= _kfloor(i0):   # the kill floor, dug open: it blazes (a warning you see from far above)
 			var kc: Color = Data.KILL_COLOR
 			_quad(_kill_st, Vector3(ax, ty, az), Vector3(bx, ty, az), Vector3(bx, ty, bz), Vector3(ax, ty, bz), [kc, kc, kc, kc], Vector3.UP)
 			_kill_any = true
@@ -1722,7 +1905,7 @@ func _draw_block(st: SurfaceTool, ox: int, oz: int, s: int) -> void:
 			_skin_top(st, ax, az, bx, bz, ty, edge, inset, drop, cs, fused, shard, s * step)
 		else:
 			_quad(st, Vector3(ax, ty, az), Vector3(bx, ty, az), Vector3(bx, ty, bz), Vector3(ax, ty, bz), cs, Vector3.UP)
-		if j > 0:   # the roof of a hole under it (a tunnel or cave ceiling)
+		if j > 0 and not (slo < INF and y0 + o.x * step >= slo - step - 0.01):   # the roof of a hole under it (a tunnel or cave ceiling)
 			var by: float = y0 + o.x * step
 			var cc := tone(mat_at(cfx, cfz, _ly(o.x))).lerp(Color.BLACK, 0.4)
 			_quad(st, Vector3(ax, by, az), Vector3(ax, by, bz), Vector3(bx, by, bz), Vector3(bx, by, az), [cc, cc, cc, cc], Vector3.DOWN)
@@ -1741,6 +1924,9 @@ func _draw_block(st: SurfaceTool, ox: int, oz: int, s: int) -> void:
 			for o in sp:
 				var lo: float = -INF if (o as Vector2i).x <= -1000 else y0 + (o as Vector2i).x * step
 				var hi: float = y0 + (o as Vector2i).y * step
+				if slo < INF:   # (v1.7f: the slab is drawn above this)
+					if lo >= slo - step - 0.01: continue
+					hi = minf(hi, slo)
 				var lean := not vh.is_empty() and absf(hi - top) < 0.01
 				var e0 := 0.0
 				var e1 := 0.0

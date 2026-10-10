@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.7e"
+const VERSION := "v1.7f"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -326,6 +326,15 @@ const OVERHANG_COUNT := 2
 const OVERHANG_JUT := [3, 5]         # cells the slab juts out (15-25 m)
 const OVERHANG_RISE := [35.0, 60.0]  # m the promontory stands over the ground
 const OVERHANG_THICK := 10.0
+# v1.7f leaning slabs (owner: "two leaning slabs make a natural A-frame arch; shoot the prop and it falls flat").
+# Blocks underneath for the logic (a staircase of cells over air, propped), one straight tilted slab for the eyes
+# while it's whole; break any part and it shows as the blocks it really is, and what loses its prop falls.
+const SLAB_COUNT := 4                # lean-tos (a slab propped on a pillar) per 800 m of ground (a region gets its share)
+const AFRAME_COUNT := 3              # A-frames (two slabs leaning on each other) per 800 m
+const SLAB_LEN := [6, 10]            # cells along the slab (30-50 m)
+const SLAB_RISE := [20.0, 35.0]      # how high its raised end stands over the ground (m)
+const SLAB_WIDE := 3                 # cells across (15 m)
+const SLAB_THICK := 10.0             # m
 const LANDMARK_FLAT := 25.0         # m: how uneven the ground under a landmark may be
 # v1.6f world generation, part 3. Realistic heights (no thin spires), a winding canyon, obsidian roots piercing the
 # surface.

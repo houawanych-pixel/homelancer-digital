@@ -547,6 +547,12 @@ Status: the owner said go for step 2 (craters), step by step. Each next step wai
    out from the four cells round that corner the same way for every block sharing it, so slabs always meet edge to
    edge with no gaps. Where something stands higher, or the rock is obsidian, dug or rubble, the block stays square,
    so slabs and steps interlock. Still to come: big leaning slabs and A-frames as landmarks, free-angle pieces.
+2q. DONE (v1.7f): leaning slabs and A-frames (`SLAB_*`, `AFRAME_COUNT`), in the regions (the old test patch is left
+   as the tests know it). A lean-to is a 15 m wide, 10 m thick slab rising 20-35 m from the ground onto a stone
+   pillar (its prop); an A-frame is two slabs rising toward each other until they meet, with air under them to fly
+   through. Blocks underneath (a staircase of cells over air, may hang about half the slab's length from support),
+   one straight tilted slab for the eyes while it is whole. Hit any part and it shows as its blocks; knock out the prop
+   (or one foot of an A-frame) and the far part has nothing to hold it and comes down as rubble.
 3. DONE (already from earlier work): the ground blends across tile edges and the next area is built before you reach
    it, so crossing has no jump.
 4. DONE (already): no seam lines at ordinary corners (the ground blends); the planet's wrap corner sits in a cloud bank.
