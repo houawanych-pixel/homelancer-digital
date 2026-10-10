@@ -4305,6 +4305,7 @@ func _job_s() -> void:
 	await _frames(2)
 	var closed_ok: bool = main.state == "flight" and not nm.visible
 	s.autopilot = null
+	s.clear_route()   # (v1.7o: the radar also draws the GPS course; with no course at all, no line)
 	await _frames(3)
 	_check("Job S: tap a destination then SET COURSE engages the autopilot as before, and the course is drawn as a glowing route with a pin on the map and on the radar; GALAXY and CLOSE still work",
 		flying and route_ok and radar_route and (hud.radar_route as Dictionary).is_empty() and galaxy_hits[0] == 1 and closed_ok,
@@ -4519,6 +4520,19 @@ func _job_ai() -> void:
 		way1 and far_ok and wave_ok and way2 and moved and wave2.size() == Data.MISSION_GROUP[1] and paid, "way1 %s far %s wave %s (%d) way2 %s moved %s wave2 %d paid %s" % [way1, far_ok, wave_ok, wave.size(), way2, moved, wave2.size(), paid])
 	# ---- threats, hard: the elites
 	Missions.accept(hard)
+	# v1.7o (owner: "GPS and radar don't work on missions"): the GPS follows the job's waypoint, the radar shows it as a
+	# gold diamond and the station / bases always show (at the rim when far)
+	s.clear_route()
+	s.gps_mission = true
+	main.hud.radar_overview = Data.RADAR_OVERVIEW
+	await _wait(0.8)
+	var gmw: Dictionary = s.mission_waypoint()
+	var gps_ok: bool = not gmw.is_empty() and s.nav_dest == gmw.get("node")
+	var blip_ok: bool = main.hud.radar_blips.any(func(b): return b[2] == "mission")
+	var base_ok: bool = main.hud.radar_blips.any(func(b): return b[2] == "station")
+	_check("Mission GPS + radar (v1.7o): with a job on, the GPS destination follows the mission waypoint, the radar shows it (a gold diamond) and where the stations / bases are",
+		gps_ok and blip_ok and base_ok, "gps on the waypoint %s, mission on the radar %s, stations on the radar %s" % [gps_ok, blip_ok, base_ok])
+	s.gps_mission = false
 	_tp(Missions.point_pos(s, 0) + Vector3(0, 0, 300), Missions.point_pos(s, 0))
 	await _frames(4)
 	var elite: Array = s.enemies.filter(func(o): return int(o.get("mission", -1)) == 0)

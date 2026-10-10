@@ -324,6 +324,7 @@ func set_destination(key: String) -> void:
 	if space == null: return
 	var n := _dest_node(key)
 	if n != null:
+		space.gps_mission = (n == space.mission_waypoint().get("node"))   # v1.7o: picking the job keeps it following
 		space.set_destination(n)
 		armed = -1
 

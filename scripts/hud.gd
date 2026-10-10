@@ -34,6 +34,7 @@ var held := {}
 var msg := ""
 var msg_t := 0.0
 var damage_flash := 0.0
+var radar_overview := 0.0   # v1.7o: seconds the radar stays zoomed out to show the station, bases and the job
 var radar_range: float = Data.RADAR_RANGE   # what the radar shows right now (v1.4m: it zooms out when you are far from everything)
 var objective := ""
 var comms_open := false
@@ -1136,6 +1137,14 @@ func _radar(rc: Vector2, rr: float, label: bool) -> void:
 			near = minf(near, dn)
 			far = maxf(far, dn)
 		if near > Data.RADAR_RANGE: want_rng = far * Data.RADAR_FIT
+	var mwr: Dictionary = space.mission_waypoint()
+	var mnode: Node3D = mwr.get("node") if not mwr.is_empty() and is_instance_valid(mwr.get("node")) else null
+	if radar_overview > 0.0:   # v1.7o: just after launch with a job: zoomed out over the station, the bases and the target
+		radar_overview -= get_process_delta_time()
+		var far2 := 0.0
+		for n2: Node3D in [space.station, mnode, space.nav_dest] + space.extras:
+			if n2 != null and is_instance_valid(n2) and n2.global_position.y > -500000.0: far2 = maxf(far2, pp.distance_to(n2.global_position))
+		if far2 > 0.0: want_rng = maxf(want_rng, far2 * Data.RADAR_FIT)
 	radar_range = lerpf(radar_range, want_rng, clampf(get_process_delta_time() * Data.RADAR_ZOOM_SPEED, 0.0, 1.0))
 	var rng := radar_range * (1.0 - 0.6 * space.in_nebula * (1.0 - Data.BEACON_SENSOR_HELP * space.beacon_lit))
 	var heading := NavGrid.orient == "heading"
@@ -1154,8 +1163,9 @@ func _radar(rc: Vector2, rr: float, label: bool) -> void:
 		if not seg.is_empty(): draw_line(seg[0], seg[1], Color(CYAN, 0.3), 1.0)
 	# the course line
 	radar_route = {}
-	if space.autopilot != null and is_instance_valid(space.autopilot):
-		var dest := radar_view.to_screen(space.autopilot.global_position)
+	var course: Node3D = space.autopilot if space.autopilot != null and is_instance_valid(space.autopilot) else (space.nav_dest if space.nav_dest != null and is_instance_valid(space.nav_dest) else null)   # v1.7o: the GPS too
+	if course != null:
+		var dest := radar_view.to_screen(course.global_position)
 		var rseg := NavGrid.clip_circle(anchor, dest, rc, rr)
 		if not rseg.is_empty():
 			NavGrid.route(self, rseg[0], rseg[1], GREEN, t, dest.distance_to(rc) <= rr, 0.5)
@@ -1167,11 +1177,12 @@ func _radar(rc: Vector2, rr: float, label: bool) -> void:
 	if not space.surface_mode:
 		items.append([space.planet.global_position, Color(0.5, 0.8, 1.0), "planet", null])
 		for g in space.gates: items.append([g.global_position, GOLD, "gate", null])
-		if radar_range > Data.RADAR_RANGE * 1.2:   # zoomed out: the rest of the system shows too
-			for x in space.extras:
-				var big: bool = float(x.get_meta("radius", 0.0)) > 100.0
-				items.append([x.global_position, Color(0.5, 0.8, 1.0) if big else GREEN, "planet" if big else "station", null])
-			if space.sun_pos != Vector3.INF: items.append([space.sun_pos, Color(1.0, 0.9, 0.4), "star", null])
+		for x in space.extras:   # v1.7o: the other planets and stations always show (at the rim when far: their way)
+			if not is_instance_valid(x): continue
+			var big: bool = float(x.get_meta("radius", 0.0)) > 100.0
+			items.append([x.global_position, Color(0.5, 0.8, 1.0) if big else GREEN, "planet" if big else "station", null])
+		if radar_range > Data.RADAR_RANGE * 1.2 and space.sun_pos != Vector3.INF: items.append([space.sun_pos, Color(1.0, 0.9, 0.4), "star", null])
+	if mnode != null: items.append([mnode.global_position, GOLD, "mission", null])   # v1.7o: the job's waypoint
 	radar_blips.clear()
 	for it in items:
 		var v: Vector2 = radar_view.to_screen(it[0])
@@ -1182,6 +1193,9 @@ func _radar(rc: Vector2, rr: float, label: bool) -> void:
 			"station": NavGrid.ring(self, v, 6.0, it[1], 8, 0.4, 0.2)
 			"gate": NavGrid.ring(self, v, 6.0, it[1], 12, 0.3, 0.15, 0.85)
 			"star": NavGrid.star(self, v, 3.5, it[1])
+			"mission":   # a gold diamond, pulsing
+				var ds := 7.0 + 1.5 * sin(t * 5.0)
+				NavGrid.fill(self, PackedVector2Array([v + Vector2(0, -ds), v + Vector2(ds, 0), v + Vector2(0, ds), v + Vector2(-ds, 0)]), Color(GOLD, 0.95))
 			_:
 				var nf: Vector3 = -(it[3] as Node3D).global_basis.z if is_instance_valid(it[3]) else Vector3.FORWARD
 				NavGrid.dart(self, v, 5.5, Vector2(nf.x, nf.z).rotated(radar_view.rot), it[1])

@@ -1658,6 +1658,7 @@ var _mem_reported := false
 func _process(dt: float) -> void:
 	time += dt
 	warp_flash = maxf(0.0, warp_flash - dt)
+	_follow_mission(dt)
 	if not _mem_reported and time > 3.0:
 		_mem_reported = true
 		if OS.has_feature("web") or OS.get_environment("HL_PROFILE") != "": print(memory_report())
@@ -3957,6 +3958,22 @@ func mission_waypoint() -> Dictionary:
 	return {}
 
 var escort_node: Node3D = null   # v1.5f: the freighter of an escort mission (null = none out)
+
+## v1.7o (owner: "the GPS doesn't work there"): with a job on, the GPS destination follows the mission waypoint (the
+## gate toward it, the target, the next point...) until you pick your own destination on the map.
+var gps_mission := false
+var _gps_chk := 0.0
+func _follow_mission(dt: float) -> void:
+	if not gps_mission: return
+	_gps_chk -= dt
+	if _gps_chk > 0.0: return
+	_gps_chk = 0.5
+	if GS.mission.is_empty() and GS.bounty.is_empty():
+		gps_mission = false
+		return
+	var mw := mission_waypoint()
+	if mw.is_empty() or not is_instance_valid(mw.get("node")): return
+	if nav_dest != mw["node"] and nav_route.size() <= 1: set_destination(mw["node"])
 
 # ---------------------------------------------------------------- v1.5i GPS: the active destination (point B)
 var nav_dest: Node3D = null      # what the GPS is guiding you to NOW = nav_route[0] (stays set when you take the stick)

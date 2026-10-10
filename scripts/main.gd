@@ -467,6 +467,7 @@ func _on_course(n: Node3D) -> void:
 	space.target = n
 	space.autopilot = n
 	space.set_destination(n)   # v1.5i: the GPS follows it even after you take the stick
+	space.gps_mission = false   # (your own course: the GPS stops following the job)
 	hud.flash_message("Course set: %s. Autopilot engaged — steer to cancel." % n.name)
 
 func _unhandled_input(e: InputEvent) -> void:
@@ -589,7 +590,11 @@ func launch() -> void:
 	space.spawn_bounty()   # v1.4q: a bounty just accepted for this very system
 	_launch_sequence(where, GS.mission.is_empty())   # v1.7n: with a job, the brief is read, not cut off by control
 	var mw: Dictionary = space.mission_waypoint()
-	if not mw.is_empty(): hud.flash_message("Waypoint set: %s. GO TO flies it." % mw["title"])
+	if not mw.is_empty():
+		hud.flash_message("Waypoint set: %s. GO TO flies it." % mw["title"])
+		space.gps_mission = true   # v1.7o: the GPS follows the job, and the radar shows the way for a moment
+		space.set_destination(mw["node"])
+		hud.radar_overview = Data.RADAR_OVERVIEW
 	if not GS.mission.is_empty():   # v1.5f: the dispatcher repeats the brief on the comms panel
 		var gsys: Dictionary = Data.SYSTEMS[GS.mission["giver_sys"]]
 		var co: Dictionary = Factions.coordinator(Factions.owner_of(gsys["station"], gsys))   # v1.5l: the coordinator gives the brief, in their own voice
