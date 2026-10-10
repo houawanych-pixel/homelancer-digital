@@ -2111,7 +2111,7 @@ func fire_missile(heavy := false, k := 0, n := 1, scale := 1.0, forced: Node3D =
 	if n > 1:
 		var a := (float(k) / float(n - 1) - 0.5) * 2.0
 		fan = (player.global_basis.x * a + player.global_basis.y * (1.0 - absf(a)) * 0.5) * Data.VOLLEY_SPREAD
-	missiles_live.append({"node": mi, "vel": -player.global_basis.z * (Data.MISSILE_SPEED if ground_shot else 90.0) + vel + fan, "target": t, "life": 7.0, "heavy": heavy, "scale": scale, "shaken": ground_shot,
+	missiles_live.append({"node": mi, "vel": -player.global_basis.z * (Data.MISSILE_SPEED if ground_shot else 90.0) + vel + fan, "target": t, "life": Data.MISSILE_LIFE, "heavy": heavy, "scale": scale, "shaken": ground_shot,
 		"wp": _rng.randf() * TAU, "wf": _rng.randf_range(Data.WEAVE_HZ[0], Data.WEAVE_HZ[1]), "wo": _rng.randf() * TAU, "special": _special_left > 0})
 	if _special_left > 0: _special_left -= 1
 	_trail_new(mi)
@@ -2855,12 +2855,7 @@ func _update_missiles(dt: float) -> void:
 						var sd := v.cross(Vector3.UP).normalized() * (1.0 if _rng.randf() < 0.5 else -1.0)
 						te["dodge_t"] = Data.ENEMY_DODGE_TIME
 						te["dodge_dir"] = sd if sd.length() > 0.5 else Vector3.RIGHT
-				if rel.length() < Data.DODGE_RANGE and side_speed(te["vel"], rel) > Data.DODGE_SIDE_FRAC * float(te["def"]["speed"]):
-					m["target"] = null
-					m["shaken"] = true   # dodged: it does not get a second go
-					t = null
-					enemy_evades += 1
-					_popup(te["node"].global_position, "EVADED", Color(0.7, 0.9, 1.0))
+				# v1.7u (owner): no shaking it off; a swerve can still make it overshoot, and the fuse decides
 		m["vel"] = v
 		var wv2 := weave(m, v, n.global_position.distance_to(t.global_position), dt) if is_instance_valid(t) else Vector3.ZERO
 		n.global_position += (v + wv2) * dt
@@ -2881,9 +2876,11 @@ func _update_missiles(dt: float) -> void:
 				_damage_enemy(e, missile_damage(e, m.get("heavy", false), float(m.get("scale", 1.0))))
 			if m.get("heavy", false): _blast(n.global_position, Data.BLAST_HEAVY_MISSILE, "heavy_missile")   # v1.5w: the super missile's big explosion
 			else: _spark(n.global_position, Color(1, 0.6, 0.2), 8.0)
+			missile_blast(n.global_position, m, t)
 			done = true
 		elif done and Data.MISSILE_EXPIRE_BLAST:   # v1.5o: out of life: it self-destructs in a round burst (the missile-trail sky)
 			_expire_burst(n.global_position)
+			missile_blast(n.global_position, m, null)   # v1.7u: the fuse ran out: it blows where it is
 			missiles_expired += 1
 		if done:
 			n.queue_free()
@@ -4414,6 +4411,73 @@ func _special_swarm() -> void:
 	_special_end("")
 
 ## A missile out of life bursts into a round explosion zone.
+## v1.7u (owner): a missile's blast: its radius shows as a white see-through shape (sphere; six-pointed star for the
+## super missile), and every enemy inside takes splash, falling off to the edge (the one it hit already took full).
+var blast_shapes := 0   # (tests) blast shapes shown
+var blast_log: Array = []   # (tests) [radius, star, enemies splashed]
+func missile_blast(at: Vector3, m: Dictionary, hit: Node3D) -> void:
+	var heavy: bool = m.get("heavy", false)
+	var r: float = Data.HEAVY_MISSILE_BLAST_RADIUS if heavy else Data.MISSILE_BLAST_RADIUS
+	_blast_shape(at, r, heavy)
+	var n := 0
+	for e in enemies.duplicate():
+		var en: Node3D = e["node"]
+		if en == hit or not is_instance_valid(en): continue
+		var d := en.global_position.distance_to(at)
+		if d >= r: continue
+		_damage_enemy(e, missile_damage(e, heavy, float(m.get("scale", 1.0))) * Data.MISSILE_SPLASH * (1.0 - d / r))
+		n += 1
+	blast_log.append([r, heavy, n])
+	if blast_log.size() > 20: blast_log.pop_front()
+
+var _blast_mat: StandardMaterial3D = null
+func _blast_shape(at: Vector3, r: float, star: bool) -> void:
+	if _blast_mat == null:
+		_blast_mat = StandardMaterial3D.new()
+		_blast_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_blast_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_blast_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		_blast_mat.no_depth_test = false
+		_blast_mat.albedo_color = Data.BLAST_SHAPE_COLOR
+	var root := Node3D.new()
+	root.name = "BlastShape"
+	var mat := _blast_mat.duplicate() as StandardMaterial3D   # (each fades on its own)
+	var core := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = 1.0 if not star else 0.55
+	sm.height = sm.radius * 2.0
+	sm.radial_segments = 24
+	sm.rings = 12
+	core.mesh = sm
+	core.material_override = mat
+	core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(core)
+	if star:   # six spikes, one each way along three axes, the whole burst turned at random
+		var cone := CylinderMesh.new()
+		cone.top_radius = 0.0
+		cone.bottom_radius = 0.38
+		cone.height = 0.75
+		cone.radial_segments = 12
+		var dirs := [Vector3.UP, Vector3.DOWN, Vector3.LEFT, Vector3.RIGHT, Vector3.FORWARD, Vector3.BACK]
+		for k in mini(Data.BLAST_STAR_POINTS, dirs.size()):
+			var sp := MeshInstance3D.new()
+			sp.mesh = cone
+			sp.material_override = mat
+			sp.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			var dv: Vector3 = dirs[k]
+			var b := Basis.looking_at(dv, Vector3.FORWARD if absf(dv.y) > 0.9 else Vector3.UP) * Basis(Vector3.RIGHT, -PI * 0.5)
+			sp.transform = Transform3D(b, dv * (0.55 + 0.75 * 0.5 - 0.05))
+			root.add_child(sp)
+		root.rotation = Vector3(_rng.randf() * TAU, _rng.randf() * TAU, _rng.randf() * TAU)
+	add_child(root)
+	root.global_position = at
+	root.scale = Vector3.ONE * r * 0.15
+	blast_shapes += 1
+	var tw := root.create_tween()
+	tw.tween_property(root, "scale", Vector3.ONE * r * (0.8 if star else 1.0), Data.BLAST_SHAPE_TIME * 0.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(mat, "albedo_color:a", 0.0, Data.BLAST_SHAPE_TIME).set_delay(Data.BLAST_SHAPE_TIME * 0.25)
+	tw.tween_callback(root.queue_free)
+
 func _expire_burst(at: Vector3) -> void:
 	_spark(at, Color(1.0, 0.7, 0.3), 22.0, 0.45)
 	_spark(at, Color(1.0, 0.95, 0.8), 10.0, 0.25)

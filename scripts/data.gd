@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.7t"
+const VERSION := "v1.7u"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -248,6 +248,16 @@ const SPECIAL_SWARM_TURN := 1.6         # the special swarm steers this much har
 const SPECIAL_SWARM_DODGE := 0.35       # ... and the target's dodge chance against it is this share of normal
 const SPECIAL_LAUNCHERS := 1            # identical light launchers fitted (the twin-launcher rule: locks x launchers); 1 until the hangar fits two
 const MISSILE_EXPIRE_BLAST := true      # a missile that runs out of life bursts into a round explosion zone
+# v1.7u (owner: "missiles should always track"): your missiles can't be shaken off. An enemy may still swerve or
+# outrun one, but the fuse is short: after MISSILE_LIFE seconds it blows up where it is. Every missile blast shows its
+# radius: a white see-through sphere (light) or a six-pointed star burst (super), and anything inside takes splash.
+const MISSILE_LIFE := 4.0               # s: the fuse
+const MISSILE_BLAST_RADIUS := 18.0      # m: a light missile's blast sphere
+const HEAVY_MISSILE_BLAST_RADIUS := 60.0  # m: the super missile's star burst
+const MISSILE_SPLASH := 0.5             # share of the missile's damage at the centre of the blast (falls to 0 at the edge); the hit target takes full damage
+const BLAST_SHAPE_COLOR := Color(1, 1, 1, 0.32)
+const BLAST_SHAPE_TIME := 0.6           # s: grows, then fades
+const BLAST_STAR_POINTS := 6            # the super blast: a sphere with this many spikes (one each way along three axes)
 const DECOY_RADIUS := 26.0              # an enemy missile this close to one of your mines detonates on it (the mine goes too)
 const PLAYER_PILOT_FACE := "gp/unity_01"  # v1.5q placeholder (owner: a character picture for now): the cut-in shows it big in the middle
 # ---------------------------------------------------------------- Job AS (v1.5p): the Elyza fighter (folding wings) and the hangar

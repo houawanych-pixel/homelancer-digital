@@ -2283,10 +2283,14 @@ func _combat_m() -> void:
 	s.target = n
 	s.enemy_dodge_chance = 1.0
 	var ev0: int = s.enemy_evades
+	var bs0: int = s.blast_shapes
 	s.fire_missile()
-	await _until(func(): return s.enemy_evades > ev0 or s.missiles_live.is_empty(), 8.0)
-	var evaded: bool = s.enemy_evades == ev0 + 1 and is_equal_approx(float(e["hp"]), 60.0)
-	_check("Job M: a missile hits an enemy that holds its course; an enemy that boosts sideways as it closes in shakes it off", hit_ok and evaded, "hit %s, evaded %s" % [hit_ok, evaded])
+	var fuse: float = float(s.missiles_live[-1]["life"]) if not s.missiles_live.is_empty() else -1.0
+	await _until(func(): return s.missiles_live.is_empty(), 8.0)
+	var tracked: bool = s.enemy_evades == ev0 and (float(e["hp"]) < 60.0 or not (e in s.enemies))
+	var shown: bool = s.blast_shapes > bs0 and not s.blast_log.is_empty() and is_equal_approx(float(s.blast_log[-1][0]), Data.MISSILE_BLAST_RADIUS) and not bool(s.blast_log[-1][1])
+	_check("Job M / v1.7u (owner): a missile hits an enemy that holds its course; one that swerves can't shake it off (no EVADED); 4 s fuse; its blast shows a sphere", hit_ok and tracked and shown and is_equal_approx(fuse, Data.MISSILE_LIFE),
+		"hit %s, tracked %s, shown %s, fuse %.1f" % [hit_ok, tracked, shown, fuse])
 	s.enemy_dodge_chance = 0.0
 	if e in s.enemies:
 		s.enemies.erase(e)
@@ -5472,7 +5476,30 @@ func _job_ar() -> void:
 	if not s.missiles_live.is_empty(): s.missiles_live[-1]["life"] = 0.05
 	await _wait(0.4)
 	var expired: bool = s.missiles_expired > ex0
+	var exp_blast: bool = not s.blast_log.is_empty() and is_equal_approx(float(s.blast_log[-1][0]), Data.MISSILE_BLAST_RADIUS)
 	if is_instance_valid(e3["node"]): s._damage_enemy(e3, 99999.0)
+	# ---- v1.7u: the super missile's star blast splashes a second enemy flying close to its target
+	GS.heavy_missiles = 2
+	var ea: Dictionary = s.spawn_unit("raider", s.player.global_position + fwd * 220.0, s.player.global_position)
+	var eb: Dictionary = s.spawn_unit("raider", s.player.global_position + fwd * 220.0 + s.player.global_basis.x * 25.0, s.player.global_position)
+	for ex in [ea, eb]:
+		ex["aggro"] = false
+		ex["hp"] = 5000.0
+		ex["max"] = 5000.0
+		ex["sh"] = 0.0
+	var dc_keep: float = s.enemy_dodge_chance
+	s.enemy_dodge_chance = 0.0
+	s.fire_missile(true, 0, 1, 1.0, ea["node"])
+	await _until(func(): return s.missiles_live.is_empty(), 6.0)
+	await _shot("star_blast", 0.12)
+	var star: bool = not s.blast_log.is_empty() and bool(s.blast_log[-1][1]) and is_equal_approx(float(s.blast_log[-1][0]), Data.HEAVY_MISSILE_BLAST_RADIUS)
+	var splashed: bool = float(eb["hp"]) < 5000.0
+	_check("v1.7u (owner): a missile whose fuse runs out blows a blast sphere; the super missile's six-point star blast splashes an enemy near its target",
+		exp_blast and star and splashed, "expire blast %s, star %s, splash %s (b hp %.0f)" % [exp_blast, star, splashed, float(eb["hp"])])
+	s.enemy_dodge_chance = dc_keep
+	for ex in [ea, eb]:
+		if is_instance_valid(ex["node"]) and ex in s.enemies: s._damage_enemy(ex, 999999.0)
+	await _frames(3)
 	# ---- 6. a mine in an incoming missile's path decoys it
 	var dc0: int = s.decoyed
 	var em := Node3D.new()
