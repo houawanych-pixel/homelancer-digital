@@ -20,6 +20,8 @@ var planet_id := ""
 var tile := 0
 var region := Vector2i(-1, -1)   # v1.7a: which 500 m square of the tile ((-1, -1) = the old test patch)
 var _sk := ""                  # the seed key: planet|tile (test patch) or planet|tile|rx|rz (a region)
+var off := Vector2.ZERO         # v1.7d: where this field's own tile sits in the frame it is used in (a neighbour tile's
+                               # region near the border is built shifted by a tile; its notes are kept in its own tile's frame)
 var feat := 1.0                # how many landmarks / caves / pockets compared with the test patch (by area)
 var center := Vector2.ZERO     # tile-local centre of the patch (x east, z south)
 var cols := 0                  # big columns per side
@@ -132,7 +134,7 @@ var cancel := false  # ...and stops (and frees itself) if this is set while it b
 
 ## Build from the seed. `staged` (v1.7a regions): spread over many frames so flying never stalls (each step is
 ## a few rows, one feature or one mesh chunk); `built` goes true at the end.
-func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false) -> void:
+func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame := Vector2.ZERO) -> void:
 	planet_id = pid
 	tile = t
 	region = reg
@@ -146,13 +148,14 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false) -> voi
 	else:
 		name = "BlockField_%d_%d" % [reg.x, reg.y]
 		_sk = region_key(pid, t, reg)
-		center = region_centre(reg)
+		center = region_centre(reg) + frame
+		off = frame
 		cols = int(round(Data.BLOCK_REGION / big))
 		feat = Data.BLOCK_REGION_FEATURES
 	tops.resize(cols * cols)
 	var g := Surface.grid(pid)
-	var ox := float(t % g) * Surface.TILE
-	var oz := float(t / g) * Surface.TILE
+	var ox := float(t % g) * Surface.TILE - off.x   # (planet metres of this frame's origin)
+	var oz := float(t / g) * Surface.TILE - off.y
 	var cols_c: Array = []
 	cols_c.resize(cols * cols)
 	surf_cols.resize(cols * cols)
@@ -371,7 +374,7 @@ func blast(p: Vector3, kind: String, record := true, effects := true) -> Diction
 	var res := {"broken": 0, "chipped": 0, "mat": ""}
 	if p.x + r < x0 or p.z + r < z0 or p.x - r > x0 + n * step or p.z - r > z0 + n * step: return res
 	if record:
-		deltas.append([snappedf(p.x, 0.01), snappedf(p.y, 0.01), snappedf(p.z, 0.01), kind])
+		deltas.append([snappedf(p.x - off.x, 0.01), snappedf(p.y, 0.01), snappedf(p.z - off.y, 0.01), kind])
 		if deltas.size() > Data.BLOCK_DELTAS_MAX: deltas.remove_at(0)
 	var fx0 := clampi(floori((p.x - r - x0) / step), 0, n - 1)
 	var fx1 := clampi(floori((p.x + r - x0) / step), 0, n - 1)
@@ -679,7 +682,7 @@ func _merge_piece(b: Dictionary, y: float) -> void:
 	var at: Vector3 = nd.position
 	nd.queue_free()
 	merged += 1
-	var note := [snappedf(at.x, 0.01), snappedf(y, 0.01), snappedf(at.z, 0.01), "dep:%s:%.3f" % [str(b.get("mat", "dirt")), amount]]
+	var note := [snappedf(at.x - off.x, 0.01), snappedf(y, 0.01), snappedf(at.z - off.y, 0.01), "dep:%s:%.3f" % [str(b.get("mat", "dirt")), amount]]
 	deltas.append(note)
 	if deltas.size() > Data.BLOCK_DELTAS_MAX: deltas.remove_at(0)
 	_apply_note(note)
@@ -687,13 +690,24 @@ func _merge_piece(b: Dictionary, y: float) -> void:
 ## Re-apply one kept note: a blast, or a deposit of settled rubble.
 func _apply_note(d: Array) -> void:
 	var kind := str(d[3])
+	var at := Vector3(float(d[0]) + off.x, float(d[1]), float(d[2]) + off.y)   # (notes are kept in the field's own tile frame)
 	if kind.begins_with("dep:"):
 		var parts := kind.split(":")
-		deposit(Vector3(float(d[0]), float(d[1]), float(d[2])), parts[1], float(parts[2]))
+		deposit(at, parts[1], float(parts[2]))
 	elif kind.begins_with("set:") or kind == "cut":
-		_edit_layer(Vector3(float(d[0]), float(d[1]), float(d[2])), kind.substr(4) if kind != "cut" else "")
+		_edit_layer(at, kind.substr(4) if kind != "cut" else "")
 	else:
-		blast(Vector3(float(d[0]), float(d[1]), float(d[2])), kind, false, false)
+		blast(at, kind, false, false)
+
+## v1.7d: the player crossed into the next tile, so the frame moved by d: everything here moves with it (no rebuild;
+## meshes already drawn just slide, and sit back at zero when they are next redrawn).
+func reframe(d: Vector2) -> void:
+	center += d
+	x0 += d.x
+	z0 += d.y
+	off += d
+	for ch in get_children():
+		if ch is Node3D: (ch as Node3D).position += Vector3(d.x, 0.0, d.y)
 
 ## Add `amount` layers of material m at the air layer containing point p (its cell). Whole layers are laid as the
 ## amount builds up; sand then slumps into a pile; anything left hanging is checked for support.
@@ -1382,7 +1396,7 @@ func _edit_layer(p: Vector3, m: String, record := false) -> void:
 	_mark(fx, fz, 1)
 	if m == "": _settle(fx - 2, fx + 2, fz - 2, fz + 2)
 	if record:
-		deltas.append([snappedf(p.x, 0.01), snappedf(p.y, 0.01), snappedf(p.z, 0.01), ("set:" + m) if m != "" else "cut"])
+		deltas.append([snappedf(p.x - off.x, 0.01), snappedf(p.y, 0.01), snappedf(p.z - off.y, 0.01), ("set:" + m) if m != "" else "cut"])
 		if deltas.size() > Data.BLOCK_DELTAS_MAX: deltas.remove_at(0)
 
 ## Water is clear and tinted blue, lava only a little see-through and glowing (see-through = it flows).
@@ -1434,6 +1448,7 @@ func _draw_fluids() -> void:
 			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			add_child(mi)
 			_fluid_mi[kind] = mi
+		mi.position = Vector3.ZERO
 		mi.mesh = st.commit() if any else null
 
 ## A shot from a to b: where it first goes into the block ground (or Vector3.INF).
@@ -1627,6 +1642,7 @@ func _draw_chunk(k: int) -> void:
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(mi)
 		_chunks[k] = mi
+	mi.position = Vector3.ZERO   # (after a reframe the old mesh was slid; a fresh one is drawn in place)
 	mi.mesh = st.commit() if any else null
 	var km: MeshInstance3D = mi.get_node_or_null("Kill")
 	if _kill_any:

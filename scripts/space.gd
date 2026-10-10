@@ -2187,7 +2187,7 @@ func _update_bolts(dt: float) -> void:
 				if true:
 					hit = true
 					if b["owner"] == "player":
-						var res := bfg.blast(at, "gun")
+						var res := _blast_blocks(at, "gun", bfg)
 						_spark(at, bfg.tone(str(res["mat"])) if str(res["mat"]) != "" else Color(1, 0.85, 0.6), 4.5 if int(res["broken"]) > 0 else 2.5, 0.25)
 					else:
 						_spark(at, Color(1, 0.8, 0.5), 2.0)
@@ -2871,7 +2871,7 @@ func _update_missiles(dt: float) -> void:
 		var bfm: BlockField = rbm[0]
 		var dig: Vector3 = rbm[1]
 		if dig != Vector3.INF:   # EXPERIMENT (v1.5t): a missile that meets the block ground blows a crater
-			bfm.blast(dig, "heavy" if m.get("heavy", false) else "missile")
+			_blast_blocks(dig, "heavy" if m.get("heavy", false) else "missile", bfm)
 			_blast(dig, Data.BLAST_ENEMY if m.get("heavy", false) else Data.BLAST_WING, "ground")
 			done = true
 		elif is_instance_valid(t) and n.global_position.distance_to(t.global_position) < (Data.HEAVY_MISSILE_HIT_RADIUS if m.get("heavy", false) else Data.MISSILE_HIT_RADIUS):
@@ -3860,12 +3860,26 @@ func load_tile(t: int, keep := Vector3.INF) -> void:
 			arr.remove_at(i)
 	if keep == Vector3.INF or (target != null and not is_instance_valid(target)): target = null
 	autopilot = null
+	var carried := {}   # v1.7d: crossing a border, the block regions round you come along (no rebuild, no gap)
+	if keep != Vector3.INF:
+		var sh := Vector2i(roundi(keep.x / Surface.TILE), roundi(keep.z / Surface.TILE))
+		for k in _regions:
+			var f: BlockField = _regions[k]
+			if not is_instance_valid(f): continue
+			var nk := Vector4i(k.x - sh.x, k.y - sh.y, k.z, k.w)
+			if absi(nk.x) > 1 or absi(nk.y) > 1: continue
+			f.get_parent().remove_child(f)
+			f.reframe(Vector2(-keep.x, -keep.z))
+			carried[nk] = f
 	if is_instance_valid(tile_root): tile_root.queue_free()
-	_regions = {}   # (v1.7a: they went with the old tile)
+	_regions = {}   # (v1.7a: the rest went with the old tile)
 	if _building != null:
 		_building.cancel = true
 		_building = null
 	tile_root = Surface.build_tile(planet_id, t)
+	for k in carried:
+		tile_root.add_child(carried[k])
+		_regions[k] = carried[k]
 	var bfm := tile_root.get_node_or_null("BlockField") as BlockField
 	if bfm: bfm.mined.connect(_on_mined)   # v1.6c: gold and diamond pieces to pull in
 	_water = Surface.has_water(planet_id, t)
@@ -4341,7 +4355,7 @@ func _special_beam() -> void:
 	var bfs: BlockField = rbs[0]
 	var dig: Vector3 = rbs[1]
 	if dig != Vector3.INF:   # EXPERIMENT (v1.5t): a beam through the block ground blows a crater you can fly into
-		bfs.blast(dig, "special")
+		_blast_blocks(dig, "special", bfs)
 		_blast(dig, Data.BLAST_DEATH, "ground")
 	var e := _enemy_entry(special_target)
 	if e.is_empty(): return
@@ -4436,14 +4450,14 @@ func _mech_dig(dt: float) -> void:
 			_dig_cd = Data.MECH_DIG_STONE_TICK
 	elif m == "stone":
 		if _dig_cd <= 0.0:
-			bf.blast(face, "thrust")
+			_blast_blocks(face, "thrust", bf)
 			vel -= dir * Data.MECH_DIG_BOUNCE
 			dig_log["stone"] += 1
 			_spark(face, bf.tone("stone"), 3.5)
 			Sfx.play("hull_hit", -14.0)
 			_dig_cd = Data.MECH_DIG_STONE_TICK
 	elif _dig_cd <= 0.0:   # sand and dirt: no bounce, it just eats its way on while you push
-		bf.blast(face, "thrust_soft")
+		_blast_blocks(face, "thrust_soft", bf)
 		dig_log["soft"] += 1
 		_spark(face, bf.tone(m if m != "" else "dirt"), 3.0)
 		_dig_cd = Data.MECH_DIG_SOFT_TICK
@@ -4468,8 +4482,22 @@ func _block_field_at(x: float, z: float) -> BlockField:
 	if not is_instance_valid(tile_root): return null
 	var tp := _block_field()
 	if tp and tp.covers(x, z): return tp
-	var f: BlockField = _regions.get(BlockField.region_of(x, z))
+	var f: BlockField = _regions.get(_region_key_at(x, z))
 	return f if is_instance_valid(f) and f.covers(x, z) else null
+
+## v1.7d: regions are keyed by which tile they belong to (relative to this one: -1, 0, 1 each way) and which square of
+## it, so the blocks run on across a tile border: a neighbour's regions are built in this tile's frame.
+func _region_key_at(x: float, z: float) -> Vector4i:
+	var tdx := clampi(floori((x + Surface.EDGE) / Surface.TILE), -1, 1)
+	var tdz := clampi(floori((z + Surface.EDGE) / Surface.TILE), -1, 1)
+	var r := BlockField.region_of(x - tdx * Surface.TILE, z - tdz * Surface.TILE)
+	return Vector4i(tdx, tdz, r.x, r.y)
+
+func _key_tile(k: Vector4i) -> int:
+	return tile if k.x == 0 and k.y == 0 else Surface.neighbour(planet_id, tile, Vector2i(k.x, k.y))
+
+func _key_centre(k: Vector4i) -> Vector2:
+	return BlockField.region_centre(Vector2i(k.z, k.w)) + Vector2(k.x, k.y) * Surface.TILE
 
 ## Where a shot from a to b first meets block ground: [field, point] ([null, INF] if it doesn't).
 func _ray_blocks(a: Vector3, b: Vector3) -> Array:
@@ -4484,61 +4512,78 @@ func _ray_blocks(a: Vector3, b: Vector3) -> Array:
 			at = hp
 	return [best, at]
 
+## v1.7d: a blast digs every region it reaches (one right on a region edge digs both sides). Returns what the region
+## that was hit broke (for sparks and sounds).
+func _blast_blocks(at: Vector3, kind: String, hit: BlockField) -> Dictionary:
+	var res: Dictionary = hit.blast(at, kind)
+	var r: float = (Data.BLOCK_BLAST.get(kind, Data.BLOCK_BLAST["gun"]) as Array)[0]
+	for f in _fields():
+		var bf: BlockField = f
+		if bf == hit: continue
+		var half := bf.cols * Data.BLOCK_BIG * 0.5
+		if absf(at.x - bf.center.x) < half + r and absf(at.z - bf.center.y) < half + r: bf.blast(at, kind)
+	return res
+
 func _over_blocks() -> bool:
 	return is_instance_valid(player) and _block_field_at(player.global_position.x, player.global_position.z) != null
 
 ## v1.7a, step 9: the whole planet is blocks. The 500 m regions round you are built from the seed as you fly (the
 ## nearest missing one each frame) and freed once you are well away; the smooth sheet is cut out under each one, so
 ## from far off you see the smooth ground and close up you stand on blocks. Blasts and digging are kept per region.
-var _regions := {}       # Vector2i -> BlockField
+var _regions := {}       # Vector4i(tile dx, tile dz, rx, rz) -> BlockField
 var region_ms := 0.0     # how long the last region took to build (ms, tests)
 var regions_built := 0   # (tests)
 var _building: BlockField = null   # the region being built now (outside the tree until it's done)
+var _building_key := Vector4i.ZERO
 var _build_t0 := 0
 func _update_regions() -> void:
-	if not BlockField.regions_on() or not is_instance_valid(tile_root) or not is_instance_valid(player): return
+	if not BlockField.regions_on() or sun_surface or not is_instance_valid(tile_root) or not is_instance_valid(player): return
 	var p := player.global_position
-	var pr := BlockField.region_of(p.x, p.z)
-	var nr := int(round(Surface.TILE / Data.BLOCK_REGION))
+	var pp := Vector2(p.x, p.z)
 	var changed := false
-	for r in _regions.keys():
-		var rr: Vector2i = r
-		if maxi(absi(rr.x - pr.x), absi(rr.y - pr.y)) > Data.BLOCK_REGION_KEEP or not is_instance_valid(_regions[r]):
-			if is_instance_valid(_regions[r]): (_regions[r] as Node).queue_free()
-			_regions.erase(r)
+	var reach := (Data.BLOCK_REGION_KEEP + 0.5) * Data.BLOCK_REGION
+	for k in _regions.keys():
+		var c := _key_centre(k)
+		if maxf(absf(c.x - pp.x), absf(c.y - pp.y)) > reach or not is_instance_valid(_regions[k]):
+			if is_instance_valid(_regions[k]): (_regions[k] as Node).queue_free()
+			_regions.erase(k)
 			changed = true
-	var best := Vector2i(-1, -1)
-	var bd := 1e9
+	var best := Vector4i.ZERO
+	var found := false
+	var bd := 1e18
 	for dz in range(-Data.BLOCK_REGION_REACH, Data.BLOCK_REGION_REACH + 1):
 		for dx in range(-Data.BLOCK_REGION_REACH, Data.BLOCK_REGION_REACH + 1):
-			var r := pr + Vector2i(dx, dz)
-			if r.x < 0 or r.y < 0 or r.x >= nr or r.y >= nr or _regions.has(r): continue
-			var d := BlockField.region_centre(r).distance_squared_to(Vector2(p.x, p.z))
+			var k := _region_key_at(p.x + dx * Data.BLOCK_REGION, p.z + dz * Data.BLOCK_REGION)
+			if _regions.has(k): continue
+			var d := _key_centre(k).distance_squared_to(pp)
 			if d < bd:
 				bd = d
-				best = r
+				best = k
+				found = true
 	if _building != null:   # one region at a time, built a little each frame
 		if _building.built:
 			tile_root.add_child(_building)
 			_building.mined.connect(_on_mined)
-			_regions[_building.region] = _building
+			_regions[_building_key] = _building
 			region_ms = (Time.get_ticks_usec() - _build_t0) / 1000.0
 			regions_built += 1
 			_building = null
 			changed = true
-	elif best.x >= 0:
+	elif found:
 		_building = BlockField.new()
+		_building_key = best
 		_build_t0 = Time.get_ticks_usec()
-		_building.build(planet_id, tile, best, true)
+		_building.build(planet_id, _key_tile(best), Vector2i(best.z, best.w), true, Vector2(best.x, best.y) * Surface.TILE)
 	if changed: _set_cuts()
 
+## Build one of this tile's regions now, all at once (tests).
 func _build_region(r: Vector2i) -> BlockField:
 	var t0 := Time.get_ticks_usec()
 	var bf := BlockField.new()
 	bf.build(planet_id, tile, r)
 	tile_root.add_child(bf)
 	bf.mined.connect(_on_mined)
-	_regions[r] = bf
+	_regions[Vector4i(0, 0, r.x, r.y)] = bf
 	region_ms = (Time.get_ticks_usec() - t0) / 1000.0
 	regions_built += 1
 	return bf
@@ -4553,7 +4598,7 @@ func _set_cuts() -> void:
 	var k := 0
 	for r in _regions:
 		if k >= Data.BLOCK_CUTS_MAX or not is_instance_valid(_regions[r]): continue
-		var c := BlockField.region_centre(r)
+		var c := _key_centre(r)
 		var hw := Data.BLOCK_REGION * 0.5
 		arr[k * 4] = c.x - hw
 		arr[k * 4 + 1] = c.y - hw

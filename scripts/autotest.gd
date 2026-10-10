@@ -5885,12 +5885,8 @@ func _regions() -> void:
 	var s := _sp()
 	var p: Vector3 = s.player.global_position
 	var pr := BlockField.region_of(p.x, p.z)
-	var want := 0
+	var want := 9   # (v1.7d: across a tile border too)
 	var nr := int(round(Surface.TILE / Data.BLOCK_REGION))
-	for dz in [-1, 0, 1]:
-		for dx in [-1, 0, 1]:
-			var r := pr + Vector2i(dx, dz)
-			if r.x >= 0 and r.y >= 0 and r.x < nr and r.y < nr: want += 1
 	var frames := Engine.get_process_frames()
 	await _until(func(): return s._regions.size() >= want and s._building == null, 30.0)
 	frames = Engine.get_process_frames() - frames
@@ -5905,7 +5901,7 @@ func _regions() -> void:
 	var loc: Dictionary = Surface.locations_in(pid, t)[0]
 	var lp: Vector2 = loc["pos"]
 	var lr := BlockField.region_of(lp.x, lp.y)
-	var lbf: BlockField = s._regions.get(lr)
+	var lbf: BlockField = s._regions.get(Vector4i(0, 0, lr.x, lr.y))
 	if lbf == null: lbf = s._build_region(lr)
 	var top := Surface.pad_top(pid, t)
 	var under := -INF
@@ -5952,28 +5948,56 @@ func _regions() -> void:
 		isl != null and under > -INF and top >= under + 20.0 and st_ok and landed and Surface.island_at(pid, t, lp.x, lp.y).size() == 2,
 		"island top %.0f, highest ground under it %.0f (lowest %.0f), station %s, landed %s (y %.1f)" % [top, under, lo, st_ok, landed, s.player.global_position.y])
 	# each region its own seed and its own kept blasts
-	var ra: BlockField = s._regions.get(pr)
+	var ra: BlockField = s._regions.get(Vector4i(0, 0, pr.x, pr.y))
 	var rb: BlockField = null
 	for r in s._regions:
-		if r != pr: rb = s._regions[r]
+		if r != Vector4i(0, 0, pr.x, pr.y): rb = s._regions[r]
 	var aim := Vector3(ra.center.x + 60.0, 0.0, ra.center.y + 60.0)
 	aim.y = ra.top_at(aim.x, aim.z) - 1.0
 	var before := ra.top_at(aim.x, aim.z)
 	ra.blast(aim, "heavy")
 	var after := ra.top_at(aim.x, aim.z)
 	var ka := BlockField.region_key(pid, t, pr)
-	var kb := BlockField.region_key(pid, t, rb.region)
+	var kb := BlockField.region_key(pid, rb.tile, rb.region)
 	var own: bool = (GS.block_deltas.get(ka, []) as Array).size() > 0 and (GS.block_deltas.get(kb, []) as Array).size() == 0 and ra._sk != rb._sk
 	# fly well away: the far regions go, new ones come; fly back: the crater is still there
 	s.player.global_position = Vector3(ra.center.x + Data.BLOCK_REGION * 3.2 * (1.0 if pr.x * 2 < nr else -1.0), p.y + 200.0, ra.center.y)
-	await _until(func(): return not s._regions.has(pr) and s._building == null and s._regions.size() >= 6, 30.0)
-	var freed: bool = not s._regions.has(pr) and s._regions.size() <= (2 * Data.BLOCK_REGION_KEEP + 1) * (2 * Data.BLOCK_REGION_KEEP + 1)
+	await _until(func(): return not s._regions.has(Vector4i(0, 0, pr.x, pr.y)) and s._building == null and s._regions.size() >= 6, 30.0)
+	var freed: bool = not s._regions.has(Vector4i(0, 0, pr.x, pr.y)) and s._regions.size() <= (2 * Data.BLOCK_REGION_KEEP + 1) * (2 * Data.BLOCK_REGION_KEEP + 1)
 	s.player.global_position = Vector3(aim.x, p.y + 200.0, aim.z)
-	await _until(func(): return s._regions.has(pr), 30.0)
-	var back: BlockField = s._regions.get(pr)
+	await _until(func(): return s._regions.has(Vector4i(0, 0, pr.x, pr.y)), 30.0)
+	var back: BlockField = s._regions.get(Vector4i(0, 0, pr.x, pr.y))
 	var kept: bool = back != null and back != ra and absf(back.top_at(aim.x, aim.z) - after) < 0.01
 	_check("Blocks everywhere: each region has its own seed and keeps its own blasts; fly off and the far ones are freed, come back and your crater is still there",
 		after < before and own and freed and kept, "crater %.0f -> %.0f, own notes %s, freed %s, rebuilt with the crater %s" % [before, after, own, freed, kept])
+	# v1.7d: the blocks run on over the tile border (the next tile's regions are built in this tile's frame), and when
+	# you cross they come with you, the same blocks, no rebuild; a blast right on a region edge digs both sides
+	var ey: float = s._ground(Surface.EDGE - 60.0, p.z) + 80.0
+	s.player.global_position = Vector3(Surface.EDGE - 60.0, ey, p.z)
+	await _until(func(): return s._building == null and s._regions.size() >= 9 and s._block_field_at(Surface.EDGE + 60.0, p.z) != null, 30.0)
+	var east: BlockField = s._block_field_at(Surface.EDGE + 60.0, p.z)
+	var west: BlockField = s._block_field_at(Surface.EDGE - 20.0, p.z)
+	var seam := absf(east.top_at(Surface.EDGE + 2.0, p.z) - west.top_at(Surface.EDGE - 2.0, p.z)) if east and west else INF
+	var etile: int = east.tile if east else -1
+	var edge_x: float = west.center.x + Data.BLOCK_REGION * 0.5 if west else 0.0   # a region edge inside this tile
+	var bz: float = p.z
+	var lh0: float = s._block_field_at(edge_x - 2.0, bz).top_at(edge_x - 2.0, bz) if west else 0.0
+	var both := false
+	var inner: BlockField = s._block_field_at(Surface.EDGE - Data.BLOCK_REGION - 20.0, bz)
+	if inner and west:
+		var ex: float = inner.center.x + Data.BLOCK_REGION * 0.5
+		var ty0 := inner.top_at(ex - 2.0, bz)
+		var ty1: float = west.top_at(ex + 2.0, bz)
+		s._blast_blocks(Vector3(ex, maxf(ty0, ty1) - 1.0, bz), "heavy", inner)
+		both = inner.top_at(ex - 2.0, bz) < ty0 and west.top_at(ex + 2.0, bz) < ty1
+	s.player.global_position = Vector3(Surface.EDGE + 10.0, ey, p.z)
+	var east_top: float = east.top_at(Surface.EDGE + 60.0, p.z) if east else 0.0
+	s.shift_tile(Vector2i(1, 0))
+	await get_tree().process_frame
+	var now: BlockField = s._block_field_at(-Surface.EDGE + 60.0, p.z)
+	var same: bool = now != null and now == east and s.tile == etile and absf(now.top_at(-Surface.EDGE + 60.0, p.z) - east_top) < 0.01
+	_check("Blocks everywhere (v1.7d): the blocks run on over the tile border with no step, cross it and the same blocks come with you (nothing rebuilt); a blast on a region edge digs both sides",
+		east != null and seam <= 25.0 and same and both, "next tile %d built over the border %s, step at the seam %.0f m, carried across %s, edge blast both sides %s" % [etile, east != null, seam, same, both])
 	BlockField.regions_test = false
 	for k in GS.block_deltas.keys():
 		if str(k).begins_with("%s|%d|" % [pid, t]): GS.block_deltas.erase(k)

@@ -526,7 +526,8 @@ Status: the owner said go for step 2 (craters), step by step. Each next step wai
    at the region's share by area (`BLOCK_REGION_FEATURES`); a canyon runs through about 1 region in 5. (v1.7a
    flattened the blocks round cities; v1.7c replaced that with floating pad islands, below.)
    The old 800 m test patch is now only for the route test. Known for now: a blast right on a region edge only
-   digs its own region; blocks stop at the tile border until you cross it; the sea plane shows in very deep holes.
+   digs its own region (fixed v1.7d); blocks stop at the tile border until you cross it (fixed v1.7d); the sea plane
+   shows in very deep holes.
    Next (v1.7b, after the owner tries it): on for everyone, the old ground removed.
 2m. DONE (v1.7b, owner: "Ok go"): block ground ON for everyone, no link needed. Wherever you fly or walk on any
    planet you are on blocks; the smooth sheet is only the far view now (cut out under every region). `?noblocks` in
@@ -536,6 +537,10 @@ Status: the owner said go for step 2 (craters), step by step. Each next step wai
    the highest ground under it. So the block ground runs natural right under every city (nothing flattened, world
    building never steps round a site) and can be as big and deep as it likes. You land on the island from above;
    flying under it, its rock is a roof. Later: the owner's buildings up on the islands.
+2o. DONE (v1.7d): the seams. A blast reaches every region it touches (one right on a region edge digs both sides).
+   The blocks run on over a tile border: the next tile's regions near you are built in this tile's frame (keyed by
+   tile -1/0/1 each way plus square; their notes kept in their own tile's frame), and when you cross, the regions
+   round you come along (`BlockField.reframe`), the same blocks with nothing rebuilt. No blocks on a star's surface.
 3. DONE (already from earlier work): the ground blends across tile edges and the next area is built before you reach
    it, so crossing has no jump.
 4. DONE (already): no seam lines at ordinary corners (the ground blends); the planet's wrap corner sits in a cloud bank.
