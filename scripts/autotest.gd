@@ -3295,7 +3295,8 @@ func _job_v() -> void:
 	main.hub.visible = false
 	GS.mission = {}   # (v1.5f: the board also starts the waypoint chain; this older check follows the plain hunt)
 	_check("Job V: the BOUNTIES board lists Razor, Veil and Dreadmaw with their faces, shows your standing in reputation colours, and ACCEPT starts the hunt",
-		board_ok and stand_ok and GS.bounty.get("id", "") == "savagers_03" and GS.bounty.get("state", "") == "hunt" and GS.bounty.get("sys", "") == "plundros", "board %s, standing %s, carrying %s" % [board_ok, stand_ok, str(GS.bounty)])
+		board_ok and stand_ok and GS.bounty.get("id", "") == "savagers_03" and GS.bounty.get("state", "") == "hunt" and GS.bounty.get("sys", "") == s.sys_id, "board %s, standing %s, carrying %s" % [board_ok, stand_ok, str(GS.bounty)])
+	GS.bounty["sys"] = "plundros" if s.sys_id != "plundros" else "solara"   # (test: a plain hunt somewhere else spawns nothing here)
 	var not_here: Dictionary = s.spawn_bounty()
 	GS.bounty["sys"] = s.sys_id               # (test only: bring the hunt to this system)
 	var tgt: Dictionary = s.spawn_bounty()
@@ -4267,7 +4268,7 @@ func _job_s() -> void:
 	nm.tap(empty)
 	var out_closed: bool = nm.selected == ""
 	nm.tap(empty)
-	var dropped: bool = nm.selected == "point"
+	var dropped: bool = nm.selected == ""   # v1.7v (owner): empty space no longer drops a waypoint
 	nm.selected = ""
 	nm.tap(nm.hits["gate"])
 	await _frames(2)
@@ -4279,7 +4280,7 @@ func _job_s() -> void:
 	_check("Job S: tap a planet: brackets and an info card with its picture, name, type and distance", planet_ok, "%s / %s / %d m" % [pi["name"], pi["type"], int(pi["distance"])])
 	_check("Job S: tap a station: the card says Station, its faction and its services", station_ok, "%s; %s" % [si.get("faction", "?"), ", ".join(si.get("services", []))])
 	_check("Job S: tap a jump gate: the card says Jump Gate and where it goes", gate_ok, str(gi["name"]))
-	_check("Job S: the card closes with its X or a tap outside it; only then does a tap on empty space drop a waypoint", x_closed and out_closed and dropped)
+	_check("Job S / v1.7v: the card closes with its X or a tap outside it; a tap on empty space no longer drops a waypoint (owner: too many ways to set points)", x_closed and out_closed and dropped)
 	var others := true
 	var other_types: Array = []
 	for key in ["belt", "nebula", "star"]:
@@ -4567,6 +4568,30 @@ func _job_ai() -> void:
 	var base_ok: bool = main.hud.radar_blips.any(func(b): return b[2] == "station")
 	_check("Mission GPS + radar (v1.7o): with a job on, the GPS destination follows the mission waypoint, the radar shows it (a gold diamond) and where the stations / bases are",
 		gps_ok and blip_ok and base_ok, "gps on the waypoint %s, mission on the radar %s, stations on the radar %s" % [gps_ok, blip_ok, base_ok])
+	s.gps_mission = false
+	# v1.7v (owner): CURRENT MISSION on the map's left: one tap makes it the destination (highlighted); GO TO flies it
+	s.clear_route()
+	s.target = null
+	s.autopilot = null
+	main.open_map()
+	await _frames(3)
+	var nmv = main.navmap
+	var mbtn: Rect2 = nmv.btn_mission
+	var on_left: bool = mbtn.size.x > 0.0 and mbtn.position.x < nmv.map_rect.position.x + nmv.map_rect.size.x * 0.5
+	if mbtn.size.x > 0.0: nmv.tap(mbtn.get_center())
+	await _frames(2)
+	var mw2: Dictionary = s.mission_waypoint()
+	var m_set: bool = not mw2.is_empty() and s.nav_dest == mw2["node"] and s.gps_mission and str(nmv.gps_note).begins_with("Mission set")
+	await _shot("av_map_current_mission", 0.3)
+	nmv.visible = false
+	main._on_map_closed()
+	await _frames(2)
+	_press("goto")
+	await _frames(2)
+	var m_go: bool = s.autopilot != null
+	s.autopilot = null
+	_check("v1.7v (owner): the map has CURRENT MISSION on the left; one tap makes the job the GPS destination; back in flight, GO TO flies there",
+		on_left and m_set and m_go, "button %s set %s go %s" % [str(mbtn), m_set, m_go])
 	s.gps_mission = false
 	Missions.abandon()
 	_check("Job AI: the ELITE threats job sends the faction's seniors, the slot-05 elite among them, for %.1fx the pay; a job can be dropped" % Data.MISSION_HARD_MULT, elite_ok and GS.mission.is_empty() and int(hard["pay"]) == int(Data.MISSION_PAY["threats"] * Data.MISSION_HARD_MULT), str(elite.map(func(o): return o.get("pilot", {}).get("slot", 0))))
@@ -4864,35 +4889,19 @@ func _job_al() -> void:
 		if r["kind"] == "Planet": pl_k = r["key"]
 		elif r["kind"] == "Asteroid field": bl_k = r["key"]
 		elif str(r["kind"]).find("Gate >") >= 0 and gt_k == "": gt_k = r["key"]
-	for k in [pl_k, bl_k, gt_k]:
-		await _frames(1)
-		if nm.add_btns.has(k): nm.tap((nm.add_btns[k] as Rect2).get_center())
+	for k in [pl_k, bl_k, gt_k]: s.add_stop(nm._dest_node(k))   # (v1.7v: the route API stays; the map no longer edits stops)
 	await _frames(2)
 	var three: bool = s.nav_route.size() == 3 and s.nav_dest == s.planet
-	var said4: String = nm.add_waypoint(st_k)
-	var capped: bool = s.nav_route.size() == 3 and said4.find("holds 3") >= 0
 	var dup: String = s.add_stop(s.planet)
 	var no_dup: bool = s.nav_route.size() == 3 and dup.find("already") >= 0
 	await _frames(2)
-	var lens: Array = s.route_lengths()
-	var total_ok: bool = float(lens[1]) > float(lens[0]) and absf(float(lens[0]) - s.distance_to(s.planet)) < 1.0 and int(nm.route.get("stops", 0)) == 3
+	var simple: bool = nm.add_btns.is_empty() and route_keys_simple(nm.route_btns) and nm.route_btns.has("go") and nm.route_btns.has("clear")
 	await _shot("al_gps_route_three", 0.3)
-	# reorder, replace, remove
-	var second: Node3D = s.nav_route[1]
-	nm.tap((nm.route_btns["up_1"] as Rect2).get_center())
+	nm.tap((nm.route_btns["clear"] as Rect2).get_center())
 	await _frames(1)
-	var moved: bool = s.nav_route[0] == second and s.nav_dest == second
-	nm.tap((nm.route_btns["stop_2"] as Rect2).get_center())
-	await _frames(1)
-	var armed_ok: bool = nm.armed == 2
-	if nm.dest_rows.has(st_k): nm.tap((nm.dest_rows[st_k] as Rect2).get_center())
-	await _frames(1)
-	var replaced: bool = s.nav_route.size() == 3 and s.nav_route[2] == s.station and nm.armed == -1
-	nm.tap((nm.route_btns["x_0"] as Rect2).get_center())
-	await _frames(1)
-	var removed: bool = s.nav_route.size() == 2 and not (second in s.nav_route) and s.nav_dest == s.nav_route[0]
-	_check("Job AL: + adds waypoints up to three stops (no fourth, no repeats); the map joins them in order with the total; a stop can be moved up, replaced (tap it, then a place) and removed, and the GPS always aims at stop 1",
-		three and capped and no_dup and total_ok and moved and armed_ok and replaced and removed, "three %s cap %s dup %s total %s moved %s armed %s replaced %s removed %s" % [three, capped, no_dup, total_ok, moved, armed_ok, replaced, removed])
+	var cleared2: bool = s.nav_route.is_empty() and s.nav_dest == null
+	_check("v1.7v (owner: \"too much on setting points\"): the map shows just where you're going with GO and CLEAR (no +, no reorder / replace / remove); CLEAR empties it; the GPS still holds a route of up to 3 stops (no repeats)",
+		three and no_dup and simple and cleared2, "three %s dup %s simple %s (%s) cleared %s" % [three, no_dup, simple, str(nm.route_btns.keys()), cleared2])
 	nm.visible = false
 	main._on_map_closed()
 	await _frames(2)
@@ -5103,9 +5112,10 @@ func _job_an() -> void:
 	bj.pressed.emit()
 	await _frames(2)
 	var trk: Label = hub.content.find_child("Tracking", true, false)
-	var jack: bool = GS.bounty.get("id", "") == "savagers_02" and GS.mission.get("kind", "") == "bounty" and GS.mission.get("id", "") == "savagers_02" and trk.text.find("Derelicta") >= 0 and trk.text.find("jump") >= 0
+	var jack: bool = GS.bounty.get("id", "") == "savagers_02" and GS.mission.get("kind", "") == "bounty" and GS.mission.get("id", "") == "savagers_02" and trk.text.find("this system") >= 0 and trk.text.find("jump") < 0
 	var w_j: Dictionary = s.mission_waypoint()
-	var way_j: bool = not w_j.is_empty() and str(w_j["line"]).find("Derelicta") >= 0
+	var way_j: bool = not w_j.is_empty() and str(w_j["line"]).find("mission point 1") >= 0
+	var read_j: bool = hub.last_read.begins_with("Bounty: Jackal")
 	var lit_j: bool = (hub.content.find_child("Bounty_savagers_02", true, false) as Button).text.begins_with("TRACKING")
 	await _shot("an_bounty_selected", 0.3)
 	(hub.content.find_child("Bounty_savagers_02", true, false) as Button).pressed.emit()
@@ -5114,12 +5124,20 @@ func _job_an() -> void:
 	(hub.content.find_child("Bounty_savagers_04", true, false) as Button).pressed.emit()
 	await _frames(2)
 	var w_v: Dictionary = s.mission_waypoint()
-	var veil: bool = GS.bounty.get("id", "") == "savagers_04" and not w_v.is_empty() and str(w_v["line"]).find("Scavaris") >= 0 and (hub.content.find_child("Bounty_savagers_02", true, false) as Button).text == "SELECT"
+	var veil: bool = GS.bounty.get("id", "") == "savagers_04" and not w_v.is_empty() and str(w_v["line"]).find("mission point") >= 0 and (hub.content.find_child("Bounty_savagers_02", true, false) as Button).text == "SELECT"
 	(hub.content.find_child("Bounty_savagers_03", true, false) as Button).pressed.emit()
 	await _frames(2)
-	var razor: bool = GS.bounty.get("id", "") == "savagers_03" and str(s.mission_waypoint().get("line", "")).find("Plundros") >= 0
-	_check("Job AN: BOUNTIES: the targets are characters 2, 3, 4 and 6 (Jackal, Razor, Veil, Dreadmaw); tap one = tracked, gold, with its waypoint (the gate toward its system); tap again = cleared; tap another = the waypoint switches to that target; only one is tracked",
-		ids == [2, 3, 4, 6] and jack and way_j and lit_j and off and veil and razor, "slots %s jackal %s way %s lit %s off %s veil %s razor %s" % [str(ids), jack, way_j, lit_j, off, veil, razor])
+	var razor: bool = GS.bounty.get("id", "") == "savagers_03" and str(s.mission_waypoint().get("line", "")).find("mission point") >= 0 and GS.mission.get("sys", "") == s.sys_id
+	var sc: ScrollContainer = hub.content.find_child("Scroll", true, false)
+	var y0: int = sc.scroll_vertical if sc else -1
+	hub.scroll_board(sc, 1)
+	await _wait(0.4)
+	var scrolled: bool = sc != null and sc.scroll_vertical > y0 and hub.content.find_child("ScrollUp", true, false) != null and hub.content.find_child("ScrollDown", true, false) != null
+	await _shot("av_board_scrolled", 0.2)
+	hub.scroll_board(sc, -1)
+	await _wait(0.4)
+	_check("Job AN / v1.7v: BOUNTIES: the targets are characters 2, 3, 4 and 6 (Jackal, Razor, Veil, Dreadmaw); tap one = tracked, gold, read out, its waypoint in THIS system; tap again = cleared; tap another = the waypoint switches; the list has UP / DOWN tabs that scroll it",
+		ids == [2, 3, 4, 6] and jack and way_j and read_j and lit_j and off and veil and razor and scrolled, "slots %s jackal %s way %s read %s lit %s off %s veil %s razor %s scroll %s" % [str(ids), jack, way_j, read_j, lit_j, off, veil, razor, scrolled])
 	# ---- 5. LAUNCH -> space; follow the waypoint to the target's system; the right target is there
 	await _shot("an_board_launch_visible", 0.3)
 	hub.launch_btn.pressed.emit()
@@ -5135,7 +5153,7 @@ func _job_an() -> void:
 		await _until(func(): return main.state == "flight", 20.0)
 		hops += 1
 	s = _sp()
-	var arrived: bool = s.sys_id == "plundros"
+	var arrived: bool = hops == 0   # v1.7v (owner): the hunt is in the system you took it in
 	var p0: Vector3 = Missions.point_pos(s, 0)
 	var p1: Vector3 = Missions.point_pos(s, 1)
 	_tp(p0 + Vector3(0, 0, 300), p0)
@@ -5155,7 +5173,7 @@ func _job_an() -> void:
 	var razor_voice: bool = Sfx.last_profile.get("preferred_voice", "") == "v_f"
 	Sfx.voices_override = []
 	await _shot("an_bounty_target_razor", 0.3)
-	_check("Job AN: LAUNCH returns you to space; the waypoint leads gate by gate to the target's system (%d jumps); at the second mission point the target's wing is there with Razor herself, in her Redclaw, targetable, speaking in a woman's voice" % hops,
+	_check("Job AN / v1.7v: LAUNCH returns you to space; the hunt is right here (%d jumps); at the second mission point the target's wing is there with Razor herself, in her Redclaw, targetable, speaking in a woman's voice" % hops,
 		flying and arrived and right and model_ok and targeting and razor_voice, "flying %s arrived %s right %s model %s target %s voice %s" % [flying, arrived, right, model_ok, targeting, razor_voice])
 	for e in s.enemies.duplicate():
 		if is_instance_valid(e["node"]): (e["node"] as Node3D).free()
@@ -5171,6 +5189,13 @@ func _job_an() -> void:
 	main._load_system("solara", "station")   # back home for the rest of the route test
 	await _frames(4)
 	_tp(_sp().station.global_position + Vector3(0, 40, 420), _sp().station.global_position)
+
+
+## (v1.7v) the map's route panel offers only GO and CLEAR.
+static func route_keys_simple(btns: Dictionary) -> bool:
+	for k in btns:
+		if not (str(k) in ["go", "clear"]): return false
+	return true
 
 
 ## Job AO (v1.5l): the roster deployed: characters 2, 3, 4, 6 of every faction with ships are bounties hiding in their

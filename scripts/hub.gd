@@ -226,12 +226,35 @@ func _scroll_box() -> VBoxContainer:
 	sc.offset_right = -14
 	sc.offset_bottom = -12
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	sc.offset_right = -96   # v1.7v (owner: "I can't scroll down"): room for the big UP / DOWN tabs on the right
 	content.add_child(sc)
 	var v := VBoxContainer.new()
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.mouse_filter = Control.MOUSE_FILTER_PASS
 	v.add_theme_constant_override("separation", 10)
 	sc.add_child(v)
+	for d in [-1, 1]:
+		var b := Button.new()
+		b.name = "ScrollUp" if d < 0 else "ScrollDown"
+		b.text = "▲\nUP" if d < 0 else "DOWN\n▼"
+		b.custom_minimum_size = Vector2(80, 120)
+		b.anchor_left = 1.0
+		b.anchor_right = 1.0
+		b.anchor_top = 0.0 if d < 0 else 1.0
+		b.anchor_bottom = b.anchor_top
+		b.offset_left = -88
+		b.offset_right = -8
+		b.offset_top = 18.0 if d < 0 else -138.0
+		b.offset_bottom = b.offset_top + 120.0
+		b.pressed.connect(func(): scroll_board(sc, d))
+		content.add_child(b)
 	return v
+
+## v1.7v: the UP / DOWN tabs move a board list most of a screen at a time.
+func scroll_board(sc: ScrollContainer, d: int) -> void:
+	var step: float = maxf(160.0, sc.size.y * 0.7)
+	var to: float = clampf(sc.scroll_vertical + d * step, 0.0, maxf(0.0, sc.get_v_scroll_bar().max_value - sc.size.y))
+	create_tween().tween_property(sc, "scroll_vertical", int(to), 0.25)
 
 func _page_box() -> VBoxContainer:
 	var v := VBoxContainer.new()
@@ -703,6 +726,8 @@ func _row_frame(row: Control, on: bool) -> PanelContainer:
 	sb.content_margin_top = 6
 	sb.content_margin_bottom = 6
 	pc.add_theme_stylebox_override("panel", sb)
+	pc.mouse_filter = Control.MOUSE_FILTER_PASS   # v1.7v: a drag on a row scrolls the list
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
 	pc.add_child(row)
 	return pc
 
@@ -736,8 +761,8 @@ func _bounty_page() -> void:
 		var t := _label(17, CYAN)
 		t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		t.text = "%02d  %s  ·  %s  ·  %s\nLast seen: %s system   ·   Flies a %s\nReward %d cr  ·  wanted %s" % [int(p["rank"]), str(p["name"]).to_upper(), p["type"], p["faction"],
-			Data.SYSTEMS[p["sys"]]["name"], Data.ENEMIES[p["fighter_primary"]]["name"], Data.bounty_reward(id), "ALIVE" if int(p["rank"]) >= Data.BOUNTY_ALIVE_RANK else "dead"]
+		t.text = "%02d  %s  ·  %s  ·  %s\nHunt: here in %s   ·   Flies a %s\nReward %d cr  ·  wanted %s" % [int(p["rank"]), str(p["name"]).to_upper(), p["type"], p["faction"],
+			Data.SYSTEMS[GS.system_id]["name"], Data.ENEMIES[p["fighter_primary"]]["name"], Data.bounty_reward(id), "ALIVE" if int(p["rank"]) >= Data.BOUNTY_ALIVE_RANK else "dead"]
 		row.add_child(t)
 		var b := Button.new()
 		b.name = "Bounty_" + id
@@ -754,9 +779,23 @@ func _bounty_page() -> void:
 			b.add_theme_color_override("font_color", GOLD)
 		else:
 			b.text = "SELECT"
-		b.pressed.connect(func(): status.text = Missions.toggle_bounty(id); show_screen("bounty"))
+		b.pressed.connect(func():
+			status.text = Missions.toggle_bounty(id)
+			if GS.bounty.get("id", "") == id:   # v1.7v (owner): the bounty is read out when you select it, like a job
+				read_bounty(p)
+			show_screen("bounty"))
 		row.add_child(b)
 		v.add_child(_row_frame(row, mine))
+
+## v1.7v: the coordinator reads a selected bounty out (same voice as the jobs).
+var last_read := ""   # (tests) the last line read out from the board
+func read_bounty(p: Dictionary) -> void:
+	var co: Dictionary = Factions.coordinator(Factions.owner_of(base, Data.SYSTEMS[GS.system_id]))
+	var line := "Bounty: %s, %s. %s. Reward %d credits, wanted %s. They're in this system: follow the waypoint." % [str(p["name"]), str(p["type"]), str(p["faction"]),
+		Data.bounty_reward(str(p["id"])), "alive" if int(p["rank"]) >= Data.BOUNTY_ALIVE_RANK else "dead"]
+	last_read = line
+	if co.is_empty(): Sfx.speak(line, 1.0, false, "")
+	else: Sfx.play_character_voice(str(co.get("voice_id", co["id"])), "", line, float(co.get("voice", 1.0)), str(co.get("sex", "")) == "female")
 
 ## v1.5f / v1.5k: the MISSIONS tab: the station's jobs; tap one to take and track it, tap it again to drop it, tap
 ## another to switch.
@@ -785,6 +824,7 @@ func _missions_page() -> void:
 		if mine: b.add_theme_color_override("font_color", GOLD)
 		b.pressed.connect(func():
 			status.text = Missions.toggle(o)
+			if Missions.is_current(o): last_read = "%s. %s" % [str(o["title"]), str(o["brief"])]
 			if Missions.is_current(o) and not co.is_empty():   # v1.7p (owner): the job is read out when you select it
 				Sfx.play_character_voice(str(co.get("voice_id", co["id"])), "", "%s. %s" % [str(o["title"]), str(o["brief"])], float(co.get("voice", 1.0)), str(co.get("sex", "")) == "female")
 			show_screen("missions"))

@@ -94,12 +94,13 @@ static func accept_bounty(id: String) -> String:
 		abandon()
 	var said := GS.accept_bounty(id)
 	if GS.bounty.get("id", "") != id: return said
+	GS.bounty["sys"] = GS.system_id   # v1.7v (owner): the hunt happens in the system you took it in, not far away
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(id)
 	var alive: bool = int(p.get("rank", 1)) >= Data.BOUNTY_ALIVE_RANK
 	GS.mission = {"kind": "bounty", "id": id, "alive": alive, "faction": str(p.get("faction", "")), "slot": 2, "pay": Data.bounty_reward(id),
-		"title": "Bounty: %s (%s)" % [p["name"], "wanted alive" if alive else "wanted dead"], "giver": GS.last_base, "giver_sys": GS.system_id, "sys": str(p["sys"]),
-		"brief": "%s was last seen in the %s system with an escort wing. Fly to the first waypoint and deal with the escort; then the waypoint moves to %s. %s" % [p["name"], Data.SYSTEMS[p["sys"]]["name"], p["name"],
+		"title": "Bounty: %s (%s)" % [p["name"], "wanted alive" if alive else "wanted dead"], "giver": GS.last_base, "giver_sys": GS.system_id, "sys": GS.system_id,
+		"brief": "%s has been tracked to the %s system with an escort wing. Fly to the first waypoint and deal with the escort; then the waypoint moves to %s. %s" % [p["name"], Data.SYSTEMS[GS.system_id]["name"], p["name"],
 			"Destroy the ship, TRACTOR the pilot in and bring them back here." if alive else "Destroy the ship: paid on the spot."],
 		"points": _points(rng, 2), "stage": 0, "spawned": -1, "escort_hp": 0.0}
 	GS.changed.emit()

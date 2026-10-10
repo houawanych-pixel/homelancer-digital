@@ -320,6 +320,11 @@ func _on_hud(id: String) -> void:
 			elif space.autopilot != null:
 				space.autopilot = null
 				hud.flash_message("Autopilot off.")
+			elif space.nav_dest != null and is_instance_valid(space.nav_dest):   # v1.7v (owner): the GPS destination picked on the map
+				var nd: Node3D = space.nav_dest
+				space.route_go()
+				if nd.get_meta("kind", "") == "enemy": space.autopilot = space.waypoint_at(nd.global_position)   # (a hostile is flown TO, not docked with)
+				hud.flash_message("Autopilot engaged: %s" % nd.name)
 			elif not space.mission_waypoint().is_empty():   # v1.5a: nothing picked: fly the mission waypoint
 				var mw: Dictionary = space.mission_waypoint()
 				var mn: Node3D = mw["node"]

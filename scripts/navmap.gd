@@ -30,6 +30,7 @@ var btn_tilt := Rect2()
 var btn_zoom_in := Rect2()
 var btn_zoom_out := Rect2()
 var btn_fit := Rect2()
+var btn_mission := Rect2()   # v1.7v (owner): CURRENT MISSION, on the left of the map: one tap makes the job the GPS destination
 var btn_card_x := Rect2()
 var card_rect := Rect2()
 var compass_pos := Vector2.ZERO
@@ -185,6 +186,9 @@ func tap(p: Vector2) -> void:
 	if btn_course.has_point(p):
 		if selected != "" and space != null and space.controls: set_course()
 		return
+	if btn_mission.size.x > 0.0 and btn_mission.has_point(p):
+		gps_note = pick_mission()
+		return
 	if selected == "" and space != null:   # v1.5i GPS: the route panel and the destination rows
 		for k in route_btns:
 			if (route_btns[k] as Rect2).has_point(p):
@@ -201,10 +205,6 @@ func tap(p: Vector2) -> void:
 						closed.emit()   # back to flying: the autopilot takes it from here
 					"stop": armed = -1 if armed == i else i
 				if parts[0] != "stop": armed = -1
-				return
-		for k in add_btns:
-			if (add_btns[k] as Rect2).has_point(p):
-				gps_note = add_waypoint(k)
 				return
 		for k in dest_rows:
 			if (dest_rows[k] as Rect2).has_point(p):
@@ -241,10 +241,7 @@ func tap(p: Vector2) -> void:
 	if selected != "":   # a tap outside closes the card
 		selected = ""
 		return
-	if map_rect.has_point(p) and space != null:   # empty space: drop your own waypoint there
-		var w := view.to_world(p - map_rect.position)
-		way_pos = Vector3(w.x, space.player.global_position.y, w.z)
-		selected = "point"
+	# v1.7v (owner: "too much on setting points"): a tap on empty space does nothing; places are picked from the list
 
 ## The object under a screen point ("" = none). Uses this frame's projected positions, so it works in any rotation.
 func pick(p: Vector2) -> String:
@@ -318,6 +315,21 @@ func _dest_node(key: String) -> Node3D:
 		var op: Vector3 = objs[key]["pos"]
 		n = space.nav_marker(Vector3(op.x, space.player.global_position.y, op.z), str(objs[key]["name"]))
 	return n
+
+## v1.7v (owner): CURRENT MISSION: the job's waypoint becomes the GPS destination (highlighted on the map) and the
+## target, so GO TO on the flight screen flies it. "" when there is no job here.
+func mission_ready() -> bool:
+	return space != null and is_instance_valid(space.player) and not space.mission_waypoint().is_empty()
+
+func pick_mission() -> String:
+	if not mission_ready(): return "No mission waypoint in this system."
+	var mw: Dictionary = space.mission_waypoint()
+	var n: Node3D = mw["node"]
+	space.gps_mission = true
+	space.set_destination(n)
+	space.target = n
+	selected = ""
+	return "Mission set. Tap GO, or GO TO in flight."
 
 ## Make a list entry the GPS destination (the route becomes just this stop) without flying it.
 func set_destination(key: String) -> void:
@@ -535,6 +547,7 @@ func _layout() -> void:
 	btn_zoom_in = Rect2(map_rect.end.x - 10 - 46 * 2 - 8, y, 46, 46)
 	btn_fit = Rect2(map_rect.end.x - 10 - 46, y, 46, 46)
 	compass_pos = Vector2(map_rect.end.x - 46, map_rect.position.y + 58)
+	btn_mission = Rect2(map_rect.position.x + 10, map_rect.position.y + 38, minf(340.0, map_rect.size.x * 0.5), 66) if mission_ready() else Rect2()
 
 ## How big an object is drawn (pixels): its true size, but never smaller than a readable token.
 func _px(o: Dictionary) -> float:
@@ -700,6 +713,14 @@ func _draw_over() -> void:
 	_btn(ci, btn_zoom_out, "−", zoom > Data.NAV_ZOOM[0] + 0.001, CYAN, 26)
 	_btn(ci, btn_zoom_in, "+", zoom < Data.NAV_ZOOM[1] - 0.001, CYAN, 26)
 	_btn(ci, btn_fit, "FIT", true, CYAN, 14)
+	if btn_mission.size.x > 0.0:   # v1.7v: CURRENT MISSION
+		var mw: Dictionary = space.mission_waypoint()
+		var on: bool = space.gps_mission and space.nav_dest != null and space.nav_dest == mw.get("node")
+		ci.draw_rect(btn_mission, Color(GOLD, 0.85) if on else Color(0.12, 0.09, 0.02, 0.88))
+		ci.draw_rect(btn_mission, GOLD, false, 2.5)
+		var tc: Color = Color(0.08, 0.06, 0.0) if on else GOLD
+		_txt(ci, btn_mission.position + Vector2(12, 26), "★ CURRENT MISSION" + ("  ·  SET" if on else "  ·  TAP"), 17, tc, HORIZONTAL_ALIGNMENT_LEFT, btn_mission.size.x - 24)
+		_txt(ci, btn_mission.position + Vector2(12, 52), str(mw.get("title", "")), 14, tc if on else Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, btn_mission.size.x - 24)
 	if selected == "":
 		var sm := Rect2(card_rect.position, Vector2(card_rect.size.x, minf(250.0, card_rect.size.y * 0.62)))
 		ci.draw_rect(sm, PANEL)
@@ -724,7 +745,7 @@ func _draw_over() -> void:
 		ci.draw_rect(hint, PANEL)
 		ci.draw_rect(hint, Color(CYAN, 0.35), false, 2)
 		_txt(ci, hint.position + Vector2(14, 30), "No destination selected.", 16, Color(1, 1, 1, 0.75))
-		ci.draw_multiline_string(font, hint.position + Vector2(14, 54), "Tap a planet, station, gate or ship to see what it is. Tap empty space for a waypoint. Pinch or use + and − to zoom.", HORIZONTAL_ALIGNMENT_LEFT, hint.size.x - 28, 14, 4, Color(1, 1, 1, 0.6))
+		ci.draw_multiline_string(font, hint.position + Vector2(14, 54), "Tap a planet, station, gate or ship to see what it is. Pinch or use + and − to zoom.", HORIZONTAL_ALIGNMENT_LEFT, hint.size.x - 28, 14, 4, Color(1, 1, 1, 0.6))
 	else:
 		_card(ci)
 	var can := selected != "" and space != null and space.controls
@@ -742,52 +763,32 @@ func _dest_panel(ci: CanvasItem, rc: Rect2) -> void:
 	ci.draw_rect(rc, Color(CYAN, 0.35), false, 2)
 	var col: Color = Data.GPS_ROUTE_COLOR
 	var y := rc.position.y + 26.0
-	# ---- the route: stops in order, with up / down / remove; tap a stop's name to replace it
+	# ---- v1.7v (owner: "too much"): just the destination, with GO and CLEAR
 	var stops: Array = space.nav_route
 	if not stops.is_empty():
 		var lens: Array = space.route_lengths()
 		var spd: float = maxf(space.eff_speed(), 1.0)
-		_txt(ci, Vector2(rc.position.x + 14, y), "ROUTE  ·  %s  ·  ETA %s" % [_dist(lens[1]), _eta(lens[1] / spd)], 14, col, HORIZONTAL_ALIGNMENT_LEFT, rc.size.x - 180)
-		var cb := Rect2(rc.end.x - 78, y - 18, 66, 24)
-		ci.draw_rect(cb, Color(1, 1, 1, 0.08))
-		_txt(ci, cb.position + Vector2(0, 17), "CLEAR", 12, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, cb.size.x)
-		route_btns["clear"] = cb
-		var gb := Rect2(rc.end.x - 150, y - 18, 66, 24)   # v1.5m: fly the whole route on autopilot
+		var d0: Node3D = stops[0]
+		var dr := Rect2(rc.position.x + 8, y - 18, rc.size.x - 16, 52)
+		ci.draw_rect(dr, Color(col, 0.22))
+		_txt(ci, dr.position + Vector2(8, 20), "GOING TO: %s" % d0.name, 14, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, dr.size.x - 160)
+		_txt(ci, dr.position + Vector2(8, 42), "%s  ·  ETA %s%s" % [_dist(lens[1]), _eta(lens[1] / spd), ("  ·  %d stops" % stops.size()) if stops.size() > 1 else ""], 12, col, HORIZONTAL_ALIGNMENT_LEFT, dr.size.x - 160)
+		var gb := Rect2(dr.end.x - 148, dr.position.y + 8, 70, 36)   # fly it on autopilot
 		ci.draw_rect(gb, Color(0.15, 0.6, 0.3, 0.85) if not space.nav_go else Color(0.15, 0.6, 0.3, 0.4))
-		_txt(ci, gb.position + Vector2(0, 17), "GO", 13, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, gb.size.x)
+		_txt(ci, gb.position + Vector2(0, 24), "GO", 16, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, gb.size.x)
 		route_btns["go"] = gb
-		var pl: Dictionary = space.nav_plan()
-		if pl.get("via", "") == "lane":
-			_txt(ci, Vector2(rc.position.x + 14, y + 16), "Fastest: by trade lane %s" % pl["lane_name"], 11, Color(0.55, 0.85, 1.0), HORIZONTAL_ALIGNMENT_LEFT, rc.size.x - 28)
-			y += 20.0
-		y += 10.0
-		for i in stops.size():
-			var n: Node3D = stops[i]
-			var sr := Rect2(rc.position.x + 8, y, rc.size.x - 16, 30)
-			ci.draw_rect(sr, Color(GOLD, 0.25) if armed == i else (Color(col, 0.22) if i == 0 else Color(1, 1, 1, 0.05)))
-			var leg: float = space.distance_to(n) if i == 0 else (stops[i - 1] as Node3D).global_position.distance_to(n.global_position)
-			_txt(ci, sr.position + Vector2(8, 20), "%d. %s" % [i + 1, n.name], 13, GOLD if armed == i else Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, sr.size.x - 170)
-			_txt(ci, sr.position + Vector2(sr.size.x - 168, 20), _dist(leg), 12, CYAN, HORIZONTAL_ALIGNMENT_RIGHT, 64)
-			route_btns["stop_%d" % i] = Rect2(sr.position, Vector2(sr.size.x - 100, sr.size.y))
-			var bx := sr.end.x - 96.0
-			for b in ["up", "down", "x"]:
-				var br := Rect2(bx, sr.position.y + 2, 30, 26)
-				ci.draw_rect(br, Color(1, 1, 1, 0.1))
-				var c := br.get_center()
-				if b == "up": ci.draw_colored_polygon(PackedVector2Array([c + Vector2(0, -6), c + Vector2(7, 5), c + Vector2(-7, 5)]), Color.WHITE)
-				elif b == "down": ci.draw_colored_polygon(PackedVector2Array([c + Vector2(0, 6), c + Vector2(7, -5), c + Vector2(-7, -5)]), Color.WHITE)
-				else:
-					ci.draw_line(c + Vector2(-6, -6), c + Vector2(6, 6), Color(1, 0.6, 0.55), 2.5)
-					ci.draw_line(c + Vector2(-6, 6), c + Vector2(6, -6), Color(1, 0.6, 0.55), 2.5)
-				route_btns["%s_%d" % [b, i]] = br
-				bx += 32.0
-			y += 33.0
-		if armed >= 0: _txt(ci, Vector2(rc.position.x + 14, y + 14), "Tap a place below to put it at stop %d." % (armed + 1), 12, GOLD)
-		elif gps_note != "": _txt(ci, Vector2(rc.position.x + 14, y + 14), gps_note, 12, Color(1, 1, 1, 0.7), HORIZONTAL_ALIGNMENT_LEFT, rc.size.x - 28)
-		y += 22.0
+		var cb := Rect2(dr.end.x - 74, dr.position.y + 8, 66, 36)
+		ci.draw_rect(cb, Color(1, 1, 1, 0.1))
+		_txt(ci, cb.position + Vector2(0, 23), "CLEAR", 12, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, cb.size.x)
+		route_btns["clear"] = cb
+		y += 44.0
+		if gps_note != "": _txt(ci, Vector2(rc.position.x + 14, y + 6), gps_note, 12, Color(1, 1, 1, 0.75), HORIZONTAL_ALIGNMENT_LEFT, rc.size.x - 28)
+		y += 18.0
+	elif gps_note != "":
+		_txt(ci, Vector2(rc.position.x + 14, y), gps_note, 12, Color(1, 1, 1, 0.75), HORIZONTAL_ALIGNMENT_LEFT, rc.size.x - 28)
+		y += 14.0
 	# ---- the places: tap = go there (the route becomes this one stop); + = ADD WAYPOINT
-	_txt(ci, Vector2(rc.position.x + 14, y + 16), "GPS  ·  DESTINATIONS", 15, CYAN)
-	_txt(ci, Vector2(rc.position.x + 14, y + 16), "+ = ADD WAYPOINT", 11, Color(1, 1, 1, 0.6), HORIZONTAL_ALIGNMENT_RIGHT, rc.size.x - 28)
+	_txt(ci, Vector2(rc.position.x + 14, y + 16), "GPS  ·  TAP A PLACE TO GO", 15, CYAN)
 	y += 26.0
 	var rows: Array = dest_list()
 	var cur: Node3D = space.nav_dest if space.nav_dest != null and is_instance_valid(space.nav_dest) else null
@@ -799,12 +800,8 @@ func _dest_panel(ci: CanvasItem, rc: Rect2) -> void:
 		ci.draw_rect(rr, Color(col, 0.28) if mine else Color(1, 1, 1, 0.04))
 		_txt(ci, rr.position + Vector2(8, 15), str(r["name"]), 13, GOLD if r["key"] == "mission" else Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, rr.size.x - 130)
 		_txt(ci, rr.position + Vector2(8, 29), str(r["kind"]), 10, Color(0.75, 0.85, 0.95), HORIZONTAL_ALIGNMENT_LEFT, rr.size.x - 130)
-		_txt(ci, rr.position + Vector2(rr.size.x - 122, 22), _dist(float(r["dist"])), 13, CYAN, HORIZONTAL_ALIGNMENT_RIGHT, 80)
-		var ab := Rect2(rr.end.x - 36, rr.position.y + 3, 32, 28)
-		ci.draw_rect(ab, Color(col, 0.35))
-		_txt(ci, ab.position + Vector2(0, 21), "+", 18, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, ab.size.x)
-		add_btns[str(r["key"])] = Rect2(ab.position + position, ab.size)
-		dest_rows[str(r["key"])] = Rect2(rr.position + position, Vector2(rr.size.x - 40, rr.size.y))
+		_txt(ci, rr.position + Vector2(rr.size.x - 92, 22), _dist(float(r["dist"])), 13, CYAN, HORIZONTAL_ALIGNMENT_RIGHT, 80)
+		dest_rows[str(r["key"])] = Rect2(rr.position + position, rr.size)
 		y += 37.0
 
 func _card(ci: CanvasItem) -> void:
