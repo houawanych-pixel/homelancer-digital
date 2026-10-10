@@ -1253,3 +1253,4 @@ Owner, after the v1.5k test flow passed: "push it to all".
 - v1.7d: seams: `_blast_blocks` digs every region a blast reaches; regions keyed `Vector4i(tile dx, tile dz, rx, rz)` so neighbour tiles' regions are built in this frame (`build(..., frame)`, notes in own-tile frame) and carried over a border crossing (`reframe`).
 - v1.7e: slanted outer form (look only): `_slant` / `_corner_h` / `_slant_ok` / `_slant_top` lean natural tops into slabs and wedges, per-corner so neighbours always meet (`BLOCK_SLANT_MAX`).
 - v1.7f: leaning slabs and A-frames (`_build_slabs`, drawn whole by `_draw_slabs`, `_slab_lo` hides their blocks while whole, `_slab_check` drops the look once hit).
+- v1.7g: owner's look: grass cap + brown dirt (`BLOCK_GRASS_BAND`, `DIRT_BROWN`), `_join_columns` (`BLOCK_SHAPES`), slant patches (`BLOCK_SLANT_ZONE`).

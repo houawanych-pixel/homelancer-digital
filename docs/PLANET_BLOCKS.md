@@ -571,6 +571,11 @@ Status: the owner said go for step 2 (craters), step by step. Each next step wai
    through. Blocks underneath (a staircase of cells over air, may hang about half the slab's length from support),
    one straight tilted slab for the eyes while it is whole. Hit any part and it shows as its blocks; knock out the prop
    (or one foot of an A-frame) and the far part has nothing to hold it and comes down as rubble.
+2r. DONE (v1.7g, the owner's pictures): dirt is earthy brown (`DIRT_BROWN`) under a thin grass cap (`BLOCK_GRASS_BAND`,
+   1.2 m) in the planet's own colour; neighbouring columns on even ground join into long rectangles and big solid
+   blocks (`BLOCK_SHAPES`: 1x1 up to 3x2 columns of 20 m), some big ones standing a step or two proud
+   (`BLOCK_BIG_RISE`); slants only in patches ("a few slants": `BLOCK_SLANT_ZONE` on one planet-wide noise), the
+   rest square steps like the pictures.
 3. DONE (already from earlier work): the ground blends across tile edges and the next area is built before you reach
    it, so crossing has no jump.
 4. DONE (already): no seam lines at ordinary corners (the ground blends); the planet's wrap corner sits in a cloud bank.
