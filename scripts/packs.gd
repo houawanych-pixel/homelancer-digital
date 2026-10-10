@@ -24,6 +24,9 @@ const PACKS := {
 	"tutor_2": {"folders": ["res://assets/tutor"], "match": "tutor_2.", "probe": "res://assets/tutor/tutor_2.ogv"},
 	"tutor_3": {"folders": ["res://assets/tutor"], "match": "tutor_3.", "probe": "res://assets/tutor/tutor_3.ogv"},
 	"tutor_4": {"folders": ["res://assets/tutor"], "match": "tutor_4.", "probe": "res://assets/tutor/tutor_4.ogv"},
+	"tutor_5": {"folders": ["res://assets/tutor"], "match": "tutor_5.", "probe": "res://assets/tutor/tutor_5.ogv"},
+	"tutor_6": {"folders": ["res://assets/tutor"], "match": "tutor_6.", "probe": "res://assets/tutor/tutor_6.ogv"},
+	"tutor_7": {"folders": ["res://assets/tutor"], "match": "tutor_7.", "probe": "res://assets/tutor/tutor_7.ogv"},
 	# v1.4s: one static interface background per faction; only the one for the station you dock at is fetched
 	"hubbg_unity": {"folders": ["res://assets/hub_bg"], "match": "unity.", "probe": "res://assets/hub_bg/unity.jpg"},
 	"hubbg_elyza": {"folders": ["res://assets/hub_bg"], "match": "elyza.", "probe": "res://assets/hub_bg/elyza.jpg"},
