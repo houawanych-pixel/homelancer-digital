@@ -6123,6 +6123,56 @@ func _regions() -> void:
 			link_detail += "%d cells long (reached %s); " % [(lk["path"] as Array).size(), hit]
 	_check("Winding tunnels (v1.7j): from the cave's side rooms, tunnels wind out to the nearest sealed caves and join them up, flyable and connected",
 		mf.links.size() > 0 and linked == mf.links.size(), "tunnels %d, connected %d: %s" % [mf.links.size(), linked, link_detail])
+	# v1.7k: the mold library (models made into molds by tools/molds/voxelize.py): each shape stamps in whole, in its
+	# material, its tilted beams coming out as stepped diagonals with air under them
+	var MoldLib = preload("res://scripts/mold_library.gd")
+	var lib_names: Array = MoldLib.MOLDS.keys()
+	var natural_placed := 0
+	for f in s._fields(): natural_placed += (f as BlockField).placed.size()
+	var lib_ok := lib_names.size() >= 2
+	var lib_detail := ""
+	for nm in lib_names:
+		var rec: Dictionary = {}
+		for q in 400:
+			rec = sr._place_mold(nm, 14 + (q * 7) % (sr.n - 28), 14 + (q * 13) % (sr.n - 28))
+			if not rec.is_empty(): break
+		if rec.is_empty():
+			lib_ok = false
+			lib_detail += "%s: no room; " % nm
+			continue
+		var m: Dictionary = MoldLib.MOLDS[nm]
+		var cxm: int = int(rec["centre"]) % sr.n
+		var czm: int = int(rec["centre"]) / sr.n
+		var right := 0
+		var total := 0
+		var floating := false
+		for r in m["runs"]:
+			var c: int = (czm + int(r[1])) * sr.n + cxm + int(r[0])
+			for k in range(int(rec["k0"]) + int(r[2]), int(rec["k0"]) + int(r[3])):
+				if k <= sr._kfloor(c) + 1: continue
+				total += 1
+				if sr._solid_k(c, k) and sr.mat_at(c % sr.n, c / sr.n, sr._ly(k)) == str(m["mat"]): right += 1
+			if int(r[2]) > 2 and not sr._solid_k(c, int(rec["k0"]) + int(r[2]) - 1): floating = true
+		lib_ok = lib_ok and right == total and total > 50 and floating
+		lib_detail += "%s: %d of %d cells in %s, beams with air under %s; " % [nm, right, total, m["mat"], floating]
+		if OS.get_environment("HL_SHOT_DIR") != "" and nm == "beam_tree":
+			main.hud.visible = false
+			s.player.visible = false
+			var lcam := Camera3D.new()
+			lcam.far = 8000.0
+			s.add_child(lcam)
+			var lprev := get_viewport().get_camera_3d()
+			var lb := Vector3(sr.x0 + (cxm + 0.5) * Data.BLOCK_MIN, sr.y0 + int(rec["k0"]) * Data.BLOCK_MIN, sr.z0 + (czm + 0.5) * Data.BLOCK_MIN)
+			lcam.global_position = lb + Vector3(80, 70, 80)
+			lcam.look_at(lb + Vector3(0, 40, 0), Vector3.UP)
+			lcam.make_current()
+			await _shot("library_beam_tree", 1.0)
+			lcam.queue_free()
+			if lprev: lprev.make_current()
+			main.hud.visible = true
+			s.player.visible = true
+	_check("Mold library (v1.7k): shapes made from models (tools/molds/voxelize.py) stamp into the ground whole, in their material, tilted beams as stepped diagonals with air under them",
+		lib_ok, "molds %s, placed by the seed round you %d; %s" % [str(lib_names), natural_placed, lib_detail])
 	# v1.7i: alien trees (wood trunk and branches, big two-colour leaf slabs you can fly under, roots underground; one
 	# beside the cave sends a root into its chamber); wood and leaves catch fire, it spreads, burns them away, dies out
 	var tf: BlockField = null

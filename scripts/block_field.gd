@@ -59,6 +59,7 @@ var halls: Array = []          # v1.6h deep root halls: [{x, z, w, k0, k1, trunk
 var trees: Array = []          # v1.7i alien trees: [{base: cell, wood: int, leaf: int, cave_root: bool, trunk: [cells], k_top}]
 var burning := {}              # v1.7i fire: Vector2i(cell, layer) -> seconds burning
 var burned := 0                # layers fire took (tests)
+var placed: Array = []         # v1.7k molds from the library (models made into molds): [{name, centre, k0, cells}]
 var links: Array = []          # v1.7j winding tunnels: [{from: cell, to: [cell, k], path: [[cell, k]]}]
 var molds: Array = []          # v1.7h stamped mold shapes: [{kind, centre, k0, rooms, entrance, route}]
 var slabs: Array = []          # v1.7f leaning slabs and A-frames: [{cells, lo: {cell: y}, kind, mat, geo: [pieces], whole}]
@@ -91,6 +92,7 @@ var _box: BoxMesh
 var _ground_mat: StandardMaterial3D
 var _rng := RandomNumberGenerator.new()
 
+const MoldLibrary := preload("res://scripts/mold_library.gd")   # v1.7k: models made into molds
 static var force := false   # tests switch it on
 static var _url_on := -1
 
@@ -299,6 +301,7 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 			return
 	_build_landmarks()
 	if region.x >= 0: _build_slabs()   # (v1.7f; the old test patch keeps its ground as the tests know it)
+	if region.x >= 0: _place_library()   # (v1.7k: shapes made from models, scripts/mold_library.gd)
 	if region.x >= 0: _grow_trees()   # (v1.7i: after the cave, so a root can grow into it)
 	if staged:
 		await Engine.get_main_loop().process_frame
@@ -1178,6 +1181,43 @@ func _carve_cave_mold(force := false) -> bool:
 		collapses = 0
 		return true
 	return false
+
+## v1.7k: shapes from the mold library (models turned into molds by tools/molds/voxelize.py). Each may appear in a
+## region by its chance, set on fairly even, solid ground (anchor "ground": its base a layer into the ground).
+func _place_library() -> void:
+	placed.clear()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(_sk + "|library")
+	var names: Array = MoldLibrary.MOLDS.keys()
+	names.sort()
+	for nm in names:
+		var m: Dictionary = MoldLibrary.MOLDS[nm]
+		if rng.randf() >= float(m["chance"]): continue
+		for t in 20:
+			if not _place_mold(nm, rng.randi_range(12, n - 13), rng.randi_range(12, n - 13)).is_empty(): break
+
+## Put mold `nm` with its middle at cell (cx, cz), if the ground there suits it. Returns what was placed ({} if not).
+func _place_mold(nm: String, cx: int, cz: int) -> Dictionary:
+	var m: Dictionary = MoldLibrary.MOLDS[nm]
+	var foot := {}
+	for r in m["runs"]: foot[Vector2i(cx + int(r[0]), cz + int(r[1]))] = true
+	var lo := INF
+	var hi := -INF
+	for key in foot:
+		var kv: Vector2i = key
+		if kv.x < 2 or kv.y < 2 or kv.x >= n - 2 or kv.y >= n - 2: return {}
+		var c := kv.y * n + kv.x
+		if holes.has(c) or fluid.has(c) or _slab_of.has(c): return {}
+		lo = minf(lo, h[c])
+		hi = maxf(hi, h[c])
+	if hi - lo > Data.LANDMARK_FLAT: return {}
+	var k0 := _k(lo + 0.01) - 1 if str(m["anchor"]) == "ground" else _k(lo + 0.01) - int(m["size"][1]) - 3
+	var touched := _stamp(m["runs"], cx, cz, k0, str(m["op"]), str(m["mat"]))
+	for c in touched: reach_bonus[c] = maxi(int(reach_bonus.get(c, 0)), 12)
+	_settle(maxi(0, cx - 14), mini(n - 1, cx + 14), maxi(0, cz - 14), mini(n - 1, cz + 14))
+	var rec := {"name": nm, "centre": cz * n + cx, "k0": k0, "cells": touched.size()}
+	placed.append(rec)
+	return rec
 
 ## v1.7i: alien trees (the owner's picture 06), grown as an "add" mold of wood and leaf: a chunky trunk on root
 ## buttresses, branches stepping up and out, big flat leaf slabs in two colours at their ends and on top, and roots

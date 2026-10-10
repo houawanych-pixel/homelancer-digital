@@ -1,0 +1,4 @@
+[
+  {"name": "beam_tree", "file": "beam_tree.obj", "op": "add", "mat": "obsidian", "anchor": "ground", "chance": 0.3},
+  {"name": "beam_lean", "file": "beam_lean.obj", "op": "add", "mat": "stone", "anchor": "ground", "chance": 0.3}
+]

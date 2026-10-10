@@ -601,6 +601,12 @@ Status: the owner said go for step 2 (craters), step by step. Each next step wai
    rock over them and the cave they open holds. The test walks the air from the chamber into each linked cave. Tree
    roots underground now only turn rock to wood ("paint"); they never fill a cave or tunnel. Missiles set wood alight
    round the crater, not only in it.
+2v. DONE (v1.7k): MODELS INTO MOLDS. `tools/molds/voxelize.py` (plain Python + numpy; reads .glb and .obj) turns closed
+   models into molds and writes `scripts/mold_library.gd`; `tools/molds/README.md` says how to make one in Blender.
+   Each library mold appears in a region by its chance on fairly even ground (`_place_library`, `_place_mold`), in
+   its material, held together. Tilted beams come out as stepped diagonals; cells touching only at an edge or corner
+   are joined up so nothing falls. Samples from the owner's pictures 08 and 09: `beam_tree` (obsidian, its tips point
+   into shards) and `beam_lean` (stone).
 3. DONE (already from earlier work): the ground blends across tile edges and the next area is built before you reach
    it, so crossing has no jump.
 4. DONE (already): no seam lines at ordinary corners (the ground blends); the planet's wrap corner sits in a cloud bank.
