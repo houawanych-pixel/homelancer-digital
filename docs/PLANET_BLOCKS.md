@@ -528,6 +528,9 @@ Status: the owner said go for step 2 (craters), step by step. Each next step wai
    The old 800 m test patch is now only for the route test. Known for now: a blast right on a region edge only
    digs its own region; blocks stop at the tile border until you cross it; the sea plane shows in very deep holes.
    Next (v1.7b, after the owner tries it): on for everyone, the old ground removed.
+2m. DONE (v1.7b, owner: "Ok go"): block ground ON for everyone, no link needed. Wherever you fly or walk on any
+   planet you are on blocks; the smooth sheet is only the far view now (cut out under every region). `?noblocks` in
+   the address turns it off on the web, in case a phone struggles. `?blocks` still works (it is simply on).
 3. DONE (already from earlier work): the ground blends across tile edges and the next area is built before you reach
    it, so crossing has no jump.
 4. DONE (already): no seam lines at ordinary corners (the ground blends); the planet's wrap corner sits in a cloud bank.

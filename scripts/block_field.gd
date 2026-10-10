@@ -87,14 +87,14 @@ var _rng := RandomNumberGenerator.new()
 static var force := false   # tests switch it on
 static var _url_on := -1
 
-## The experiment is OFF in normal play. On the web it switches on when the game's address ends in ?blocks
-## (the owner's link to look at it); the route test switches it on with `force`.
+## v1.7b: block ground is ON for everyone (the whole planet, region by region). On the web, ?noblocks in the address
+## turns it off (the old smooth ground) in case a phone struggles; the route test's old patch uses `force`.
 static func enabled() -> bool:
 	if force: return true
 	if _url_on < 0:
-		_url_on = 0
+		_url_on = 1
 		if OS.has_feature("web"):
-			_url_on = 1 if str(JavaScriptBridge.eval("window.location.search || ''", true)).find("blocks") >= 0 else 0
+			_url_on = 0 if str(JavaScriptBridge.eval("window.location.search || ''", true)).find("noblocks") >= 0 else 1
 	return _url_on == 1
 
 static var regions_test := false   # tests: the region mode with `force`

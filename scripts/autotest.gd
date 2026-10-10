@@ -5694,7 +5694,7 @@ func _job_ay() -> void:
 func _blocks() -> void:
 	var pid: String = Data.BLOCK_TEST["planet"]
 	var t: int = Data.BLOCK_TEST["tile"]
-	var off_normally: bool = not BlockField.enabled()
+	var on_normally: bool = BlockField.enabled() and BlockField.regions_on()
 	BlockField.force = true
 	GS.block_deltas.erase(BlockField.key_of(pid, t))   # start from the seed alone
 	Surface._mesh_cache.erase("%s|%d" % [pid, t])   # the patch sinks the smooth sheet under it: build that tile fresh
@@ -5862,7 +5862,7 @@ func _blocks() -> void:
 	BlockField.force = false
 	GS.block_deltas.erase(BlockField.key_of(pid, t))
 	Surface._mesh_cache.erase("%s|%d" % [pid, t])   # and back to the normal ground for everything after
-	_check("Blocks (experiment): switched off in normal play (on the web it is on only with ?blocks in the address)", off_normally)
+	_check("Blocks (v1.7b): on for everyone in normal play, the whole planet region by region (on the web ?noblocks turns it off)", on_normally)
 	main._load_system("solara", "station")   # back to space for the rest of the route test
 	await _wait(1.0)
 
