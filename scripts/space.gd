@@ -4173,6 +4173,10 @@ func _pick_senior(faction: String, max_slot: int, want: int) -> Dictionary:
 		if p.is_empty(): break
 		if best.is_empty() or int(p.get("slot", 0)) > int(best.get("slot", 0)): best = p
 		if int(best.get("slot", 0)) >= want: break
+	if int(best.get("slot", 0)) < want:   # v1.7v: the draws came up short: an elite job still sends seniors, as its card says
+		for sl in range(max_slot, want - 1, -1):
+			for p in Data.ROSTERS.get(faction, {}).get("pilots", []):
+				if int(p.get("slot", 0)) == sl and not p.get("named_unique", false) and Data.ENEMIES.has(str(p.get("fighter_primary", ""))): return p
 	return best
 
 ## v1.5g SHIP SCAN: what a scan of this ship shows: {title, sub, lines: [[label, text]], hostile}. {} = not a ship.
