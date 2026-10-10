@@ -444,7 +444,8 @@ Water and lava (flow when a wall breaks), trees (shoot the trunk, the top falls)
   tips, an obsidian cave with shard stalactites. Slants: "a few" (mostly square steps).
 - 06: alien trees and waterfalls. New block materials: WOOD (the trunk and branches, grey-brown, chunky and twisting)
   and LEAF (the canopy: big flat blocks in two colours, teal and purple). Waterfalls pour off cliff edges into pools.
-  The owner said "wood fire leaf block" (wood can burn? to confirm).
+  Wood CATCHES FIRE (owner, confirmed): lava, explosions and shots can set wood (and leaves) burning; the fire spreads
+  to touching wood and leaves, burns them away, and dies out (keep it near the player only, like the fluids, for phones).
 - 07-09 (isometric molds): a cave layout to carve (a big chamber, four tunnels, side rooms, stairs); a straight beam
   leaning on a big block; a tree of tilted beams.
 - "Minecraft Cave Technique" (owner's Drive notes): seeded terrain + designed shapes; noise caves (chambers, winding
