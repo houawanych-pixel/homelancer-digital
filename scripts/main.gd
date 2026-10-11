@@ -338,8 +338,15 @@ func _on_hud(id: String) -> void:
 				"busy": hud.flash_message("Finish transforming first.")
 				"cancelled": hud.flash_message("Warp charge cancelled. Weapons unlocked.")
 				"off": hud.flash_message("Dropped out of warp. Weapons unlocked.")
-		"call":
+		"call":   # (v1.8q: no button of its own any more; LOG -> TARGET / CONTROL -> CALL lands here)
 			_call_target()
+		"met_hail": hud.pick_contact("hail", hail_info())
+		"call_pick":   # v1.8q (owner): CALL under the picked face
+			var pk: String = hud.pick
+			if pk == "hail": _call_target()
+			elif pk != "" and hud.in_range(pk): call_character(pk)
+			elif pk != "": hud.flash_message("%s is in %s — out of comms range. Only people in this system can be called." % [Data.CHARACTERS[pk]["name"], Data.SYSTEMS[Data.CHARACTERS[pk]["system"]]["name"]])
+		"ground", "lock_a", "lock_b", "lock_c": hud.flash_message("Locked for now.")
 		"log":
 			if hud.comms_mode == "roster": hud.close_roster()
 			else: hud.open_log()
@@ -385,9 +392,10 @@ func _on_hud(id: String) -> void:
 			if id.begins_with("met_"):
 				var k := int(id.substr(4))
 				if k < GS.met.size():
-					var cid: String = GS.met[k]
-					if hud.in_range(cid): call_character(cid)
-					else: hud.flash_message("%s is in %s — out of comms range. Only people in this system can be called." % [Data.CHARACTERS[cid]["name"], Data.SYSTEMS[Data.CHARACTERS[cid]["system"]]["name"]])
+					var cid: String = GS.met[k]   # v1.8q (owner): a tap shows the picture with CALL; CALL makes the call
+					var cc: Dictionary = Data.CHARACTERS[cid]
+					hud.pick_contact(cid, {"name": "%s — %s" % [cc["name"], cc["role"]], "face": str(cc.get("face", "")), "ok": hud.in_range(cid),
+						"sub": str(Data.SYSTEMS[cc["system"]]["name"]).to_upper() if cc.has("system") else ""})
 
 func _on_capture_done(_id: String, _ok: bool, _note: String) -> void:
 	if settings.visible: settings.refresh()
@@ -421,6 +429,25 @@ func _on_key_action(id: String) -> void:
 		"transform": _on_hud("form")
 		"view": _on_hud("view")
 		"map": _on_hud("nav")
+
+## v1.8q: who LOG's first row (TARGET / CONTROL) would reach right now, for the picture: the same order _call_target uses.
+func hail_info() -> Dictionary:
+	var tgt: Node3D = space.target
+	if tgt and is_instance_valid(tgt):
+		var kind := str(tgt.get_meta("kind", ""))
+		if kind in ["enemy", "patrol"] and tgt.has_meta("pilot"):
+			var fp: Dictionary = tgt.get_meta("pilot")
+			return {"name": str(fp.get("name", tgt.name)), "face": ("gp/" + str(fp["id"])) if fp.has("voice_id") or fp.has("slot") else str(fp.get("face", "")), "ok": true}
+		if kind == "enemy": return {"name": tgt.name + " pilot", "face": "", "ok": true}
+		if tgt == space.planet and GS.system_id == "solara": return _char_info("oduya")
+		for tr in space.traffic:
+			if tgt == tr["node"]: return _char_info("rennick")
+	if tutor_next() != "": return _char_info(Data.TUTOR_ID)
+	return _char_info("vale" if GS.system_id == "solara" else "amari")
+
+func _char_info(id: String) -> Dictionary:
+	var c: Dictionary = Data.CHARACTERS[id]
+	return {"name": "%s — %s" % [c["name"], c["role"]], "face": str(c.get("face", "")), "ok": true}
 
 ## CALL: hail whatever you have targeted, otherwise the local station controller.
 func _call_target() -> void:

@@ -1312,7 +1312,32 @@ func _run() -> void:
 	await _wait(0.5)
 	_check("LOG pull-out contacts", main.hud.comms_mode == "roster" and main.hud.buttons.has("met_0"))
 	await _shot("contacts_tab")
+	main.hud._layout()
+	# v1.8q (owner): CALL is inside LOG: no CALL button; a tapped name puts the picture up on the friendly side with CALL; 8 buttons a side
+	var hq: Control = main.hud
+	var no_call: bool = not hq.buttons.has("call") and hq.buttons.has("met_hail") and hq.buttons["met_hail"].position.y < hq.buttons["met_0"].position.y
+	_press("met_hail")
+	await _wait(0.3)
+	hq._layout()
+	var hsl: Dictionary = hq.slot("r")
+	var hail_ok: bool = hq.pick == "hail" and hsl.get("mode", "") == "pick" and hq.buttons.has("call_pick") and hq.comms_mode == "roster" and str(hsl.get("from", "")) != ""
 	_press("met_0")
+	await _wait(0.3)
+	hq._layout()
+	var psl: Dictionary = hq.slot("r")
+	var pc: Dictionary = Data.CHARACTERS[GS.met[0]]
+	var pick_ok: bool = hq.pick == GS.met[0] and psl.get("mode", "") == "pick" and str(psl.get("face", "")) == str(pc.get("face", "")) and str(psl.get("from", "")).begins_with(str(pc["name"])) \
+		and hq.buttons.has("call_pick") and hq.side_rect("r").encloses(hq.buttons["call_pick"]) and hq.comms_mode == "roster" and not hq.slots["l"].has("mode")
+	await _shot("log_pick", 0.3)
+	var lefts := ["shield", "repair", "tractor", "ground", "form", "warp", "special", "lock_a"]
+	var rights: Array = ["slot_0", "slot_1", "slot_2", "lock_b", "fire", "thrust", "lock_c"] + ["zoom" if hq.buttons.has("zoom") else "kill"]
+	var eight: bool = lefts.all(func(b): return hq.buttons.has(b) and hq.buttons[b].end.x < hq.S.x * 0.5) and rights.all(func(b): return hq.buttons.has(b) and hq.buttons[b].position.x > hq.S.x * 0.5)
+	var clear := true   # the centre strip sits between the two blocks
+	for b in ["map", "view", "log", "target", "goto"]:
+		if hq.buttons[b].position.x < hq.buttons["lock_a"].end.x or hq.buttons[b].end.x > hq.buttons["lock_c"].position.x: clear = false
+	_check("v1.8q (owner): CALL is inside LOG (no CALL button): the list starts with TARGET / CONTROL; a tapped name shows the picture on the friendly side with CALL under it; 8 buttons on the left and 8 on the right, the centre strip between them",
+		no_call and hail_ok and pick_ok and eight and clear, "no_call %s hail %s pick %s eight %s clear %s" % [no_call, hail_ok, pick_ok, eight, clear])
+	_press("call_pick")
 	await _wait(0.3)
 	_check("Call a contact from LOG", main.hud.comms_mode == "talk")
 	_press("hangup")
@@ -2900,6 +2925,8 @@ func _job_q() -> void:
 	await _wait(0.6)
 	var who: String = GS.met[0]
 	_press("met_0")
+	await _wait(0.2)
+	_press("call_pick")   # (v1.8q: the name shows the picture, CALL makes the call)
 	await _wait(0.4)
 	var called: bool = not (hud.slots["l"] as Dictionary).is_empty() or not (hud.slots["r"] as Dictionary).is_empty()
 	_check("Job Q: tapping a name in the contacts panel calls that person", called, who)

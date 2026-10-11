@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.8p"
+const VERSION := "v1.8q"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -248,7 +248,7 @@ static func ts(size: int) -> int:
 # Each lesson can have an acted clip (owner's videos, numbered 1-10): assets/tutor/tutor_<n>.ogv, its own pack
 # "tutor_<n>". With the clip ready it plays in her comms portrait with its own voice; without it the line is spoken.
 const TUTOR_ID := "tutor"
-const TUTOR_HINT := "Need help? Tap CALL with nothing targeted for a lesson."
+const TUTOR_HINT := "Need help? Tap LOG, pick TARGET / CONTROL, then CALL for a lesson."
 const TUTOR_CLIPS := 10
 const TUTOR_VIDEO := false   # v1.8a (owner: the clips stuttered on the phone): Kim talks with pictures and text, not video
 # Each lesson: id, the line (what she says in the clip), "when" (a situation that moves it to the front:
