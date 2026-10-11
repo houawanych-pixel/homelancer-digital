@@ -947,6 +947,14 @@ func _run() -> void:
 		await _speed_probe()
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_RING") != "":   # v1.8f: the ringed planet only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _ringed_planet()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_FPV") != "":   # v1.7z: the mech first-person view checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -5382,6 +5390,36 @@ func _speed_probe() -> void:
 	s.set_view("chase")
 	main._call_target()
 	await _probe("Kim on the comms")
+
+## v1.8f (owner): Nebulax has Saturn-like rings: a see-through band seen from far off, with block asteroids in it that
+## can be shot and mined like the fields' (the pieces stay in the ring).
+func _ringed_planet() -> void:
+	var home: String = _sp().sys_id
+	await main._load_system("nebulax", "station")
+	await _frames(4)
+	var s := _sp()
+	var spec: Dictionary = Data.RINGED_PLANETS["nebulax"]
+	var ringed: bool = not s.ring.is_empty() and s.ring_band != null
+	var rocks_in: Array = s.asteroids.filter(func(a): return a.has_meta("ring"))
+	var all_in: bool = rocks_in.size() >= int(spec["count"]) * 0.9 and rocks_in.all(func(a): return s.in_ring(a.global_position))
+	# look at it from out in space
+	var c: Vector3 = s.ring["centre"]
+	var far := c + Vector3(0, float(s.ring["outer"]) * 0.55, float(s.ring["outer"]) * 1.9)
+	_tp(far, c)
+	await _shot("ba_ring_from_space", 0.4)
+	# fly into the ring: the rocks are there, and a hit one splits and stays in the ring
+	var r0 = rocks_in[0]
+	_tp((r0.global_position as Vector3) + (s.ring["normal"] as Vector3) * 60.0 + Vector3(0, 0, 40), r0.global_position)
+	await _frames(3)
+	var zone: bool = s.in_belt
+	await _shot("ba_ring_rocks", 0.4)
+	var halves: Array = s.split_asteroid(r0, "gun")
+	await _frames(3)
+	var kept: bool = halves.size() >= 1 and halves.all(func(p): return p.has_meta("ring") and p in s.asteroids)
+	_check("v1.8f (owner): Nebulax has a Saturn-like ring: a see-through band and %d block asteroids in it (mined like the fields'; broken pieces stay in the ring)" % rocks_in.size(),
+		ringed and all_in and zone and kept, "ring %s rocks %d in %s zone %s kept %s" % [ringed, rocks_in.size(), all_in, zone, kept])
+	await main._load_system(home, "station")
+	await _frames(4)
 
 ## v1.7z (owner, concept art): VIEW in mech form = first person out of the mech's head, its own arms holding a rifle that
 ## sways with the stick; FIRE shoots from the rifle at the crosshair; ZOOM (in KILL's place) looks down the scope.

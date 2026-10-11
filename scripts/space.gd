@@ -192,6 +192,7 @@ func _setup(id: String, arrival: String, staged: bool) -> void:
 	_prof("gate")
 	if staged: await get_tree().process_frame
 	_build_belt(sys["asteroids"])
+	_build_ring()   # v1.8f
 	_prof("asteroid belt")
 	_build_nebula(sys["nebula"])
 	_build_beacon()
@@ -1075,7 +1076,7 @@ func _build_block_belt(d: Dictionary) -> void:
 ## Every frame: the asteroids tumble, broken pieces drift apart, and anything past the field's invisible sphere is gone.
 func _update_asteroids(dt: float) -> void:
 	if asteroids.is_empty(): return
-	var near: bool = is_instance_valid(player) and player.global_position.distance_to(belt_center) < belt_radius + 3000.0
+	var near: bool = is_instance_valid(player) and (player.global_position.distance_to(belt_center) < belt_radius + 3000.0 or in_ring(player.global_position, 3000.0))
 	var bound: float = belt_radius * Data.ASTEROID_BOUND
 	for k in range(asteroids.size() - 1, -1, -1):
 		if k >= asteroids.size(): continue
@@ -1086,11 +1087,12 @@ func _update_asteroids(dt: float) -> void:
 		if near: a.tick(dt)
 		if a.vel != Vector3.ZERO:
 			a.global_position += a.vel * dt
-			if a.global_position.distance_to(belt_center) > bound:   # drifted out of the field: gone
-				_remove_asteroid(a)
+			var out_of: bool = not in_ring(a.global_position, 150.0) if a.has_meta("ring") else a.global_position.distance_to(belt_center) > bound
+			if out_of: _remove_asteroid(a)   # drifted out of its field / ring: gone
 	for i in range(loot.size() - 1, -1, -1):   # mined gold / diamond that drifts out of the field is lost too
 		var l: Dictionary = loot[i]
-		if l.get("zero_g", false) and (l["node"] as Node3D).global_position.distance_to(belt_center) > bound:
+		var lp: Vector3 = (l["node"] as Node3D).global_position if l.get("zero_g", false) else Vector3.ZERO
+		if l.get("zero_g", false) and ((l.get("ring", false) and not in_ring(lp, 150.0)) or (not l.get("ring", false) and lp.distance_to(belt_center) > bound)):
 			(l["node"] as Node3D).queue_free()
 			loot.remove_at(i)
 
@@ -1141,6 +1143,7 @@ func split_asteroid(ast, weapon: String) -> Array:
 				_on_mined(at + Vector3(_rng.randfn(0, 2), _rng.randfn(0, 2), _rng.randfn(0, 2)), "gold" if mid == 3 else "diamond", weapon)
 				for q in range(before, loot.size()):
 					loot[q]["zero_g"] = true
+					loot[q]["ring"] = ast.has_meta("ring")
 					loot[q]["vel"] = ast.vel + Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), _rng.randfn(0, 1)).normalized() * 4.0
 				gems += 1
 		asteroid_destroyed += 1
@@ -1160,6 +1163,7 @@ func split_asteroid(ast, weapon: String) -> Array:
 		child.vel = ast.vel + away.normalized() * _rng.randf_range(Data.ASTEROID_SPLIT_SPEED[0], Data.ASTEROID_SPLIT_SPEED[1])
 		child.spin = Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), _rng.randfn(0, 1)).normalized() * _rng.randf_range(0.1, 0.4)
 		child.health = _piece_hp(child)
+		if ast.has_meta("ring"): child.set_meta("ring", true)
 		asteroids.append(child)
 		rocks.append([child.global_position, float(child.radius)])
 		child.set_meta("rock", rocks[-1])
@@ -2379,7 +2383,91 @@ func _update_bolts(dt: float) -> void:
 			bolts.remove_at(i)
 
 func in_belt_region(p: Vector3) -> bool:
-	return p.distance_to(belt_center) < belt_radius + 60.0
+	return p.distance_to(belt_center) < belt_radius + 60.0 or in_ring(p)
+
+# ---------------------------------------------------------------- v1.8f the ringed planet
+var ring := {}                    # {centre, normal, inner, outer, thick} when this system's planet has a ring
+var ring_band: MeshInstance3D = null
+
+## Inside the ring's band of rock (near its plane, between its edges)?
+func in_ring(p: Vector3, pad := 60.0) -> bool:
+	if ring.is_empty(): return false
+	var rel: Vector3 = p - (ring["centre"] as Vector3)
+	var up: float = rel.dot(ring["normal"])
+	if absf(up) > float(ring["thick"]) + pad: return false
+	var flat := (rel - (ring["normal"] as Vector3) * up).length()
+	return flat > float(ring["inner"]) - pad and flat < float(ring["outer"]) + pad
+
+func _build_ring() -> void:
+	var spec: Dictionary = Data.RINGED_PLANETS.get(sys_id, {})
+	if spec.is_empty() or not is_instance_valid(planet): return
+	var r: float = float(sys["planet"]["radius"])
+	var tilt := Basis(Vector3.RIGHT, deg_to_rad(float(spec["tilt_deg"])))
+	ring = {"centre": planet.global_position, "normal": (tilt * Vector3.UP).normalized(), "inner": r * float(spec["inner"]), "outer": r * float(spec["outer"]), "thick": float(spec["thick"])}
+	# the band: a flat see-through disc with lighter and darker rings, seen from far away
+	var seg := 96
+	var bands := 7
+	var verts := PackedVector3Array()
+	var cols := PackedColorArray()
+	var idx := PackedInt32Array()
+	var base: Color = spec["band"]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(sys_id) + 77
+	var radii: Array = []
+	var alphas: Array = []
+	for b in bands + 1:
+		radii.append(lerpf(float(ring["inner"]), float(ring["outer"]), float(b) / bands))
+		alphas.append(0.0 if b == 0 or b == bands else rng.randf_range(0.35, 0.7))
+	for b in bands + 1:
+		for k in seg + 1:
+			var a := TAU * k / seg
+			verts.append(Vector3(cos(a), 0, sin(a)) * float(radii[b]))
+			cols.append(Color(base.r, base.g, base.b, alphas[b]).darkened(0.15 if b % 2 == 0 else 0.0))
+	for b in bands:
+		for k in seg:
+			var i0 := b * (seg + 1) + k
+			var i1 := i0 + seg + 1
+			idx.append_array([i0, i1, i0 + 1, i0 + 1, i1, i1 + 1])
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = verts
+	arr[Mesh.ARRAY_COLOR] = cols
+	arr[Mesh.ARRAY_INDEX] = idx
+	var am := ArrayMesh.new()
+	am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.vertex_color_use_as_albedo = true
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	am.surface_set_material(0, m)
+	ring_band = MeshInstance3D.new()
+	ring_band.name = "RingBand"
+	ring_band.mesh = am
+	ring_band.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(ring_band)
+	ring_band.global_transform = Transform3D(tilt, planet.global_position)
+	# the rocks in it: block asteroids, mined like any field's
+	var holder := Node3D.new()
+	holder.name = "RingAsteroids"
+	add_child(holder)
+	for i in int(spec["count"]):
+		var a := rng.randf() * TAU
+		var d := rng.randf_range(float(ring["inner"]) * 1.03, float(ring["outer"]) * 0.97)
+		var p: Vector3 = planet.global_position + tilt * (Vector3(cos(a), 0, sin(a)) * d + Vector3(0, rng.randf_range(-1.0, 1.0) * float(ring["thick"]) * 0.6, 0))
+		var size := rng.randi_range(int(spec["size"][0]), int(spec["size"][1]))
+		var ast = BlockAsteroid.new()
+		ast.name = "RingRock%d" % i
+		ast.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		holder.add_child(ast)
+		ast.global_position = p
+		ast.setup(hash(sys_id) * 17 + i, size, Data.ASTEROID_CELL, false, spec["treasure"])
+		ast.set_meta("ring", true)
+		ast.health = _piece_hp(ast)
+		asteroids.append(ast)
+		rocks.append([p, float(ast.radius)])
+		ast.set_meta("rock", rocks[-1])
 
 func _seg_closest(a: Vector3, b: Vector3, c: Vector3) -> Vector3:
 	var ab := b - a

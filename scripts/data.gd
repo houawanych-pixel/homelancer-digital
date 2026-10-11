@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.8e"
+const VERSION := "v1.8f"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -627,6 +627,10 @@ const ASTEROID_MISSILE := {"missile": [160.0, 14.0, 70.0], "heavy": [600.0, 30.0
 const ASTEROID_SPLIT_SPEED := [3.0, 9.0]  # m/s the pieces fly apart
 const ASTEROID_PIECES_MAX := 220          # pieces in a field at once (past it a hit piece is destroyed instead of splitting)
 const ASTEROID_BOUND := 1.3               # the invisible sphere = field radius x this; pieces and pickups drifting past it are gone
+# v1.8f (owner: "a planet like Saturn with rings of asteroids"): Nebulax, a gas giant in a quiet system, has a ring:
+# a see-through band you see from far away, and block asteroids in it you can mine (same rules as the fields).
+const RINGED_PLANETS := {"nebulax": {"inner": 1.5, "outer": 2.3, "count": 70, "tilt_deg": 14.0, "thick": 40.0,
+	"size": [3, 6], "band": Color(0.86, 0.8, 0.68), "treasure": {"gold": 0.5, "diamond": 0.2}}}
 # ---------------------------------------------------------------- Job AG (v1.5c): Covenant, Cybermorph, Solrath fighters; Liberator and Imperium rebuilt
 # Light, mirrored, levelled copies from the owner's sets (hl_2covenant, hl_Cybermorph, hl_solrath, hl_Liberator, hl_Imperium).
 # Fighters only (the owner: ships and battleships matter, not the look-alike missiles and turrets). Nose at -Z, yaw 0.
