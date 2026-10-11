@@ -11,6 +11,8 @@ var web := OS.has_feature("web")
 
 func _ready() -> void:
 	GS.god_mode = true
+	GS.save_enabled = false   # v1.7y: the route test never reads or writes a player's save (the save check uses its own file)
+	GS.save_path = "user://homelancer_save_autotest.txt"
 	SpaceSystem.cruise_assist = false   # fixed test setups need a ship that stays put; the cruise check turns it on
 	_run.call_deferred()
 
@@ -1278,6 +1280,7 @@ func _run() -> void:
 	await _shot("intercom_call")
 	_press("hangup")
 	_check("Hang up", not main.hud.comms_open or main.hud.comms_mode == "incoming")
+	_save_check()
 	_press("log")
 	await _wait(0.5)
 	_check("LOG pull-out contacts", main.hud.comms_mode == "roster" and main.hud.buttons.has("met_0"))
@@ -5292,6 +5295,38 @@ func _asteroid_mining(s: SpaceSystem) -> void:
 	var gone: bool = not (far in s.debris)
 	_check("v1.7x (owner): block asteroids: a laser breaks a rock block after its hits and it drifts off; obsidian is tough; a missile blows a hole; gold / diamond inside drop pickups (%s); blocks past the field's invisible sphere are gone" % ("treasure found" if any_treasure else "no treasure in this field"),
 		laser_ok and tough and broke > 3 and mined and gone, "laser %s tough %s broke %d mined %s (gems %d) gone %s" % [laser_ok, tough, broke, mined, gems.size(), gone])
+
+## v1.7y (owner): progress is saved: the save keeps credits, ships, systems found, jobs and so on; loading puts them
+## back; a damaged value is ignored; START OVER erases it. (Its own file; the route test never touches a player's save.)
+func _save_check() -> void:
+	var keep := {}
+	for k in GS.SAVE_KEYS: keep[k] = GS.get(k) if not (GS.get(k) is Array or GS.get(k) is Dictionary) else GS.get(k).duplicate(true)
+	GS.save_enabled = true
+	GS.erase_save()
+	GS.credits = 12345
+	GS.owned_ships = ["cadet", "ranger"]
+	GS.discovered = ["solara", "vega"]
+	GS.missions_done = 7
+	GS.tutorial_seen = ["intro"]
+	var wrote: bool = GS.save_game() and GS.has_save()
+	GS.credits = 1
+	GS.owned_ships = ["cadet"]
+	GS.discovered = ["solara"]
+	GS.missions_done = 0
+	GS.tutorial_seen = []
+	var loaded: bool = GS.load_game() and GS.credits == 12345 and GS.owned_ships == ["cadet", "ranger"] and GS.discovered == ["solara", "vega"] and GS.missions_done == 7 and GS.tutorial_seen == ["intro"]
+	var f := FileAccess.open(GS.save_path, FileAccess.WRITE)   # a damaged value: credits as text
+	f.store_string(var_to_str({"credits": "lots", "kills": 9}))
+	f.close()
+	GS.credits = 50
+	GS.load_game()
+	var safe: bool = GS.credits == 50 and GS.kills == 9
+	GS.erase_save()
+	var erased: bool = not GS.has_save() and not GS.load_game()
+	for k in keep: GS.set(k, keep[k])
+	GS.save_enabled = false
+	_check("v1.7y (owner): progress saves and loads back (credits, ships, systems found, jobs done, tutorial); a damaged value is ignored; START OVER erases the save",
+		wrote and loaded and safe and erased, "wrote %s loaded %s safe %s erased %s" % [wrote, loaded, safe, erased])
 
 ## (v1.7v) the map's route panel offers only GO and CLEAR.
 static func route_keys_simple(btns: Dictionary) -> bool:

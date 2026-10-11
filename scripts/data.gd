@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.7x"
+const VERSION := "v1.7y"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -56,6 +56,12 @@ const WHEEL_STEP := 0.1               # throttle change per wheel notch (-1 .. 1
 const SETTINGS_PATH := "user://settings.cfg"   # new settings file (Job J); section "controls": mode, bindings
 const SETTINGS_ROW_H := 48.0          # Controls list row height (big enough for a thumb or a mouse)
 const SETTINGS_RESET_CONFIRM_S := 3.0 # press Reset again within this many seconds to confirm
+# v1.7y (owner): saving progress. One save file on the device (the browser keeps it); written when you dock, when a job
+# pays, after a jump and every SAVE_EVERY seconds in flight; START picks up where you left off. Settings > START OVER
+# erases it. The keys are the GameState names and are never renamed.
+const SAVE_PATH := "user://homelancer_save.txt"
+const SAVE_EVERY := 30.0
+const SAVE_DELTAS_MAX := 2000000   # characters: crater notes past this size are left out of the save (the ground regrows)
 
 # ---------------------------------------------------------------- Job K (v1.4g): jump-gate docking + warp tunnel
 # Every Job K number lives in this one block. The jump destination logic is unchanged (gate "to" in the galaxy data).

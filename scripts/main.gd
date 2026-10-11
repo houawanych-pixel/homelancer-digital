@@ -100,8 +100,13 @@ func start_game() -> void:
 	title.visible = false
 	title.release()
 	state = "launching"
+	var back := GS.load_game()   # v1.7y (owner): pick up where you left off
+	if back and GS.system_id != space.sys_id:
+		await _load_system(GS.system_id, "station")
+		space.controls = false
 	GS.restore_full()
-	_launch_sequence("Liberty Hub", false)   # v1.7n (owner): no radio call at the very start
+	_launch_sequence(str(Data.SYSTEMS[GS.system_id]["station"]["name"]) if back else "Liberty Hub", false)   # v1.7n (owner): no radio call at the very start
+	if back: hud.flash_message("Welcome back. Your progress is loaded.")
 	await get_tree().create_timer(2.6).timeout
 	if state == "flight" and GS.tutorial_seen.is_empty(): hud.flash_message(Data.TUTOR_HINT)   # v1.7r: a quiet hint, no radio noise
 	tutor_prefetch()   # (her first clip downloads while you fly)
@@ -111,6 +116,7 @@ func _load_system(id: String, arrival: String, staged := false) -> void:
 	Sfx.keep_until = 0.0   # (a new system: its own lines may speak)
 	_new_space("Space_" + id)
 	GS.system_id = id
+	if state != "title": GS.save_game()   # v1.7y: a new system saves
 	if not (id in GS.discovered): GS.discovered.append(id)
 	Galaxy.refresh()
 	if staged: await space.setup_staged(id, arrival)   # v1.5d: one build step a frame, behind the moving warp
@@ -174,8 +180,14 @@ func music_mood(dt: float) -> String:
 	# v1.4l (owner): one song per faction; it stays until you fly into another faction's space
 	return Music.faction_mood(Data.SYSTEMS[space.sys_id].get("faction", "Neutral"))
 
+var _save_t := 0.0
 func _process(_dt: float) -> void:
 	Music.want(music_mood(_dt))
+	if state == "flight":   # v1.7y: save every so often in flight
+		_save_t += _dt
+		if _save_t >= Data.SAVE_EVERY:
+			_save_t = 0.0
+			GS.save_game()
 	if state == "title" and is_instance_valid(space):
 		# slow attract-mode orbit around Liberty Hub
 		var t := Time.get_ticks_msec() / 1000.0
@@ -617,6 +629,7 @@ func dock(n: Node3D) -> void:
 	if paid != "":
 		hub.status.text = paid
 		hub._refresh_credits()
+	GS.save_game()   # v1.7y: docking saves
 	state = "hub"
 	var tw2 := create_tween()
 	tw2.tween_property(fx, "fade", 0.0, 0.6)

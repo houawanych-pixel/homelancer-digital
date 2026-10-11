@@ -292,6 +292,7 @@ static func _pay(space: SpaceSystem, said: String) -> void:
 	Factions.adjust(str(Data.SYSTEMS[m["giver_sys"]].get("faction", "")), Data.REP_MISSION)
 	GS.mission = {}
 	GS.changed.emit()
+	GS.save_game()   # v1.7y: a paid job saves
 	space.message.emit(said)
 	space.mission_done.emit(said)
 

@@ -13,6 +13,8 @@ var controls_box: VBoxContainer
 var list: VBoxContainer
 var note: Label
 var reset_btn: Button
+var wipe_btn: Button
+var _wipe_armed := 0.0   # v1.7y: seconds left to confirm START OVER
 var effects_btn: Button   # Job K: reduced motion / effects (shown in every mode, phones too)
 var close_btn: Button
 var row_btns := {}        # action id -> key Button
@@ -85,6 +87,9 @@ func _ready() -> void:
 	reset_btn = _button("RESET TO DEFAULTS")
 	reset_btn.pressed.connect(press_reset)
 	brow.add_child(reset_btn)
+	wipe_btn = _button("START OVER")   # v1.7y: erase the saved game
+	wipe_btn.pressed.connect(press_wipe)
+	brow.add_child(wipe_btn)
 	close_btn = _button("CLOSE")
 	close_btn.pressed.connect(close)
 	brow.add_child(close_btn)
@@ -136,6 +141,7 @@ func refresh() -> void:
 	reset_btn.visible = kbm
 	note.text = controls.last_note
 	reset_btn.text = "CONFIRM RESET?" if _reset_armed > 0.0 else "RESET TO DEFAULTS"
+	if wipe_btn: wipe_btn.text = "TAP AGAIN: ERASE SAVE" if _wipe_armed > 0.0 else "START OVER"
 	for c in list.get_children():
 		list.remove_child(c)
 		c.queue_free()
@@ -177,8 +183,22 @@ func press_reset() -> void:
 		_reset_armed = Data.SETTINGS_RESET_CONFIRM_S
 	refresh()
 
+## v1.7y: START OVER: tap twice; the saved game is erased and the game starts fresh (the page reloads on the web).
+func press_wipe() -> void:
+	if _wipe_armed > 0.0:
+		_wipe_armed = 0.0
+		GS.erase_save()
+		controls.last_note = "Saved game erased."
+		if OS.has_feature("web") and GS.save_enabled: JavaScriptBridge.eval("location.reload()", true)
+	else:
+		_wipe_armed = Data.SETTINGS_RESET_CONFIRM_S
+	refresh()
+
 func _process(dt: float) -> void:
 	if not visible: return
+	if _wipe_armed > 0.0:
+		_wipe_armed -= dt
+		if _wipe_armed <= 0.0: refresh()
 	if _reset_armed > 0.0:
 		_reset_armed -= dt
 		if _reset_armed <= 0.0: refresh()

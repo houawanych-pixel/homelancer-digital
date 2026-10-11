@@ -47,6 +47,50 @@ var block_deltas := {}       # v1.5t EXPERIMENT: crater notes per block patch ("
 var tutorial_seen: Array = []   # v1.7r: tutorial lesson ids already given (see Data.TUTORIAL)
 var god_mode := false # only used by the automated route test
 
+# ---------------------------------------------------------------- v1.7y saving
+const SAVE_KEYS := ["credits", "ship_id", "owned_ships", "weapon_id", "owned_weapons", "missiles", "heavy_missiles", "mines", "rack",
+	"owned_racks", "slots", "modes", "view", "system_id", "discovered", "last_base", "kills", "met", "mood", "memory", "heat_shield",
+	"bounty", "bounties_done", "mission", "cargo", "missions_done", "rep", "cast", "mine_kind", "block_deltas", "tutorial_seen"]
+var save_path: String = Data.SAVE_PATH
+var save_enabled := true   # (the route test turns it off, so a test never reads or writes a player's save)
+var saves := 0             # (tests) saves written this session
+
+func has_save() -> bool: return FileAccess.file_exists(save_path)
+
+## Write the progress (not the moment-to-moment hull / shields: you start each session fully repaired at your base).
+func save_game() -> bool:
+	if not save_enabled: return false
+	var d := {"_version": Data.VERSION, "_saved": Time.get_unix_time_from_system()}
+	for k in SAVE_KEYS: d[k] = get(k)
+	if var_to_str(block_deltas).length() > Data.SAVE_DELTAS_MAX: d.erase("block_deltas")
+	var f := FileAccess.open(save_path, FileAccess.WRITE)
+	if f == null: return false
+	f.store_string(var_to_str(d))
+	f.close()
+	saves += 1
+	return true
+
+## Read it back. Only keys it knows, and only when the stored value has the same type (a damaged file can't break
+## the game). false = no save.
+func load_game() -> bool:
+	if not save_enabled or not has_save(): return false
+	var txt := FileAccess.get_file_as_string(save_path)
+	var d = str_to_var(txt)
+	if not d is Dictionary: return false
+	for k in SAVE_KEYS:
+		if not (d as Dictionary).has(k): continue
+		var v = d[k]
+		var cur = get(k)
+		if typeof(v) == typeof(cur) or (typeof(cur) in [TYPE_INT, TYPE_FLOAT] and typeof(v) in [TYPE_INT, TYPE_FLOAT]): set(k, v)
+	if not Data.SYSTEMS.has(system_id): system_id = "solara"
+	if not Data.SHIPS.has(ship_id): ship_id = "cadet"
+	if not Data.WEAPONS.has(weapon_id): weapon_id = "pulse1"
+	changed.emit()
+	return true
+
+func erase_save() -> void:
+	if has_save(): DirAccess.remove_absolute(ProjectSettings.globalize_path(save_path))
+
 func ship() -> Dictionary: return Data.SHIPS[ship_id]
 func weapon() -> Dictionary: return Data.WEAPONS[weapon_id]
 func max_hull() -> float: return float(ship()["hull"])
