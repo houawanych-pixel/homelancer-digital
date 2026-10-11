@@ -5430,6 +5430,21 @@ func _mech_fpv() -> void:
 	if GS.form != "mech":
 		s.start_transform()
 		await _until(func(): return GS.form == "mech" and s.transform_t <= 0.0, 8.0)
+	await _frames(3)
+	var in_hand: bool = s.hand_gun != null and s.hand_gun.visible and s.hand_gun.has_meta("real")   # v1.8h: the gun in its hand, from outside
+	await _shot("az_mech_hand_gun", 0.3)
+	# a look from the front-left (the world held still for the picture)
+	s.process_mode = Node.PROCESS_MODE_DISABLED
+	var pb: Basis = s.player.global_basis
+	main.hud.visible = false
+	s.cam.global_position = s.player.global_position - pb.z * 7.0 - pb.x * 13.0 + pb.y * 2.0
+	s.cam.look_at(s.player.global_position + pb.y * 1.0 - pb.z * 2.0, pb.y)
+	await _shot("az_mech_two_hands", 0.2)
+	s.cam.global_position = s.player.global_position - pb.z * 14.0 + pb.x * 3.0 + pb.y * 2.0
+	s.cam.look_at(s.player.global_position + pb.y * 1.0, pb.y)
+	await _shot("az_mech_two_hands_front", 0.2)
+	main.hud.visible = true
+	s.process_mode = Node.PROCESS_MODE_INHERIT
 	if GS.view != "cockpit": _press("view")
 	await _frames(4)
 	var arms: bool = s.fpv != null and s.fpv.visible and s.fpv_skel != null and s.fpv_gun != null and not s.model.visible and absf(s.cam.fov - Data.FPV_FOV) < 3.0
@@ -5462,7 +5477,7 @@ func _mech_fpv() -> void:
 	await _until(func(): return GS.form == "ship" and s.transform_t <= 0.0, 8.0)
 	if GS.view != view0: s.set_view(view0)
 	_check("v1.7z (owner): VIEW in mech form looks out of the mech's head with its own arms holding a rifle (no ship cockpit), the arms sway with the stick, FIRE shoots from the rifle with a kick, ZOOM (KILL's place) looks down the scope, VIEW again goes back to the chase camera",
-		arms and real_gun and zoom_btn and swayed and shot_ok and scoped and unscoped and back_out, "arms %s owner's gun %s zoom button %s sway %s shot %s scope %s unscope %s back %s" % [arms, real_gun, zoom_btn, swayed, shot_ok, scoped, unscoped, back_out])
+		arms and real_gun and in_hand and zoom_btn and swayed and shot_ok and scoped and unscoped and back_out, "arms %s owner's gun %s in hand %s zoom button %s sway %s shot %s scope %s unscope %s back %s" % [arms, real_gun, in_hand, zoom_btn, swayed, shot_ok, scoped, unscoped, back_out])
 
 ## v1.7y (owner): progress is saved: the save keeps credits, ships, systems found, jobs and so on; loading puts them
 ## back; a damaged value is ignored; START OVER erases it. (Its own file; the route test never touches a player's save.)

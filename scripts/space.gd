@@ -3538,6 +3538,7 @@ const LOOK_PITCH := 0.22   # radians at full look up/down (less: you shouldn't s
 
 func _update_camera(dt: float, snap: bool) -> void:
 	_sync_fpv(dt)
+	_sync_hand_gun()
 	if GS.view == "cockpit" and GS.form == "mech" and is_instance_valid(player):   # v1.7z: out of the mech's head, rifle in hand
 		var mb := player.global_basis
 		cam.global_position = player.global_position + mb * Data.FPV_EYE
@@ -3927,6 +3928,47 @@ var _fpv_sway := Vector2.ZERO
 var _fpv_kick := 0.0
 var _fpv_walk := 0.0
 
+## v1.8h (owner): the mech carries the same gun in its right hand when seen from outside, pointing where it flies.
+var hand_gun: Node3D = null
+var _hand_model: Node3D = null
+func _sync_hand_gun() -> void:
+	var want: bool = GS.form == "mech" and is_instance_valid(model) and model.visible and player_vis.get("mech", false)
+	if want and (hand_gun == null or _hand_model != model):
+		if is_instance_valid(hand_gun): hand_gun.queue_free()
+		hand_gun = _fpv_gun_model()
+		hand_gun.name = "HandGun"
+		_hand_model = model
+		model.add_child(hand_gun)
+		var k: float = Data.HAND_GUN_LENGTH / maxf(0.01, float(hand_gun.get_meta("length", 5.0)))
+		hand_gun.set_meta("k", k)
+	if not want:
+		if is_instance_valid(hand_gun):
+			hand_gun.queue_free()
+		hand_gun = null
+		return
+	var sk: Skeleton3D = player_vis.get("skel")
+	if not is_instance_valid(sk) or player_vis.get("gone_r", false):
+		hand_gun.visible = false
+		return
+	var hb := sk.find_bone("RightHand")
+	if hb < 0: return
+	hand_gun.visible = transform_t <= 0.0   # (folded away while transforming)
+	if transform_t > 0.0: return
+	# v1.8h (owner: "hold the gun correctly with both hands"): both arms come up and forward every frame, the right
+	# hand on the grip, the left reaching under the barrel (same pose as the first-person arms)
+	for pair in [["RightUpperArm", "RightLowerArm"], ["RightLowerArm", "RightHand"], ["LeftUpperArm", "LeftLowerArm"], ["LeftLowerArm", "LeftHand"]]:
+		if str(pair[0]).begins_with("Left") and player_vis.get("gone_l", false): continue
+		_point_bone(sk, sk.find_bone(pair[0]), sk.find_bone(pair[1]), Data.HAND_GUN_ARM_DIRS[pair[0]])
+	var hp: Vector3 = sk.global_transform * sk.get_bone_global_pose(hb).origin
+	var lb := sk.find_bone("LeftHand")
+	var lp: Vector3 = sk.global_transform * sk.get_bone_global_pose(lb).origin if lb >= 0 and not player_vis.get("gone_l", false) else hp - player.global_basis.z * 3.0
+	var fwd := -player.global_basis.z
+	var along := lp - hp   # the barrel runs from the right hand past the left one
+	var dir := (fwd * 2.0 + along.normalized()).normalized() if along.length() > 0.3 else fwd
+	var k2: float = hand_gun.get_meta("k", 1.0)
+	var mid := hp + dir * (Data.HAND_GUN_LENGTH * 0.18) + player.global_basis.y * Data.HAND_GUN_LIFT
+	hand_gun.global_transform = Transform3D(Basis.looking_at(dir, player.global_basis.y).scaled(Vector3.ONE * k2), mid)
+
 func mech_fpv() -> bool:
 	return GS.view == "cockpit" and GS.form == "mech" and transform_t <= 0.0 and is_instance_valid(player) and is_instance_valid(cam)
 
@@ -4033,7 +4075,8 @@ func _fpv_gun_model() -> Node3D:
 		var b: AABB = mi.transform * mi.get_aabb()
 		box = b if first else box.merge(b)
 		first = false
-	inst.position = -box.get_center()
+	inst.rotation.y = deg_to_rad(Data.FPV_GUN_YAW)   # (the model's barrel points +Z: turned so it fires along -Z)
+	inst.position = -(Basis(Vector3.UP, deg_to_rad(Data.FPV_GUN_YAW)) * box.get_center())
 	g.set_meta("real", true)
 	g.set_meta("length", box.size.z)
 	g.set_meta("muzzle", Vector3(0, box.size.y * 0.1, -box.size.z * 0.5))
