@@ -6747,6 +6747,7 @@ func _regions() -> void:
 		fire_detail = "lit %d, most at once %d, burnt away %d, out after %d ticks, kept as notes %d, lava lights it %s" % [lit, most, tf.burned, ticks, cuts, lava_ok]
 	_check("Alien trees (v1.7i): wood trunks and branches under big two-colour leaf slabs you can fly under, roots underground, one root down into the cave's chamber; wood and leaves catch fire (missiles, lava), it spreads, burns them away and dies out",
 		tree_ok and shade and root_in and fire_ok, "trees %d, first: wood %d leaf %d, air under the leaves %s, root in the cave %s, %s" % [n_trees, int(tr.get("wood", 0)), int(tr.get("leaf", 0)), shade, root_in, fire_detail])
+	_check("v1.8i: sand and dirt bank up in the crooks of a tree's buttress roots (%d blocks round the first tree)" % int(tr.get("soil", 0)), int(tr.get("soil", 0)) > 0, "soil %d" % int(tr.get("soil", 0)))
 	# v1.7m: underground light: covered faces (the cave's floor) are out of the sun, open ground isn't; the flashlight
 	# comes on under a roof and goes off in the open; a glowing thing near you (fire) gets a real light
 	var dark_ok := false

@@ -1607,12 +1607,29 @@ func _grow_tree(rng: RandomNumberGenerator, cx: int, cz: int, to_cave: int) -> b
 		for jx in tw:
 			put.call(wood, cx + jx, cz + jz, kg, kt)
 			put.call(roots, cx + jx, cz + jz, kg - 3, kg)
+	var buttress: Array = []
 	for t in rng.randi_range(4, 7):   # root buttresses flaring at its foot
 		var side := rng.randi_range(0, 3)
 		var along := rng.randi_range(0, tw - 1)
 		var bx: int = [cx + tw, cx + along, cx - 1, cx + along][side]
 		var bz: int = [cz + along, cz + tw, cz + along, cz - 1][side]
 		put.call(wood, bx, bz, _ktop(clampi(bz, 0, n - 1) * n + clampi(bx, 0, n - 1)) - 1, kg + rng.randi_range(1, 2))
+		buttress.append(Vector2i(bx, bz))
+	# v1.8i: sand and dirt banked up in the crooks round the roots (a layer or two against each buttress, deeper where
+	# a buttress meets the trunk)
+	var soil := {"dirt": {}, "sand": {}}
+	for bv in buttress:
+		for d4 in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var q: Vector2i = bv + d4
+			if q.x < 1 or q.y < 1 or q.x >= n - 1 or q.y >= n - 1: continue
+			if wood.has(q) or (q.x >= cx and q.x < cx + tw and q.y >= cz and q.y < cz + tw): continue
+			if rng.randf() > Data.ROOT_SOIL_CHANCE: continue
+			var cq := q.y * n + q.x
+			if holes.has(cq) or fluid.has(cq): continue
+			var by_trunk := q.x >= cx - 1 and q.x <= cx + tw and q.y >= cz - 1 and q.y <= cz + tw
+			var layers := 2 if by_trunk else 1
+			var kq := _ktop(cq)
+			put.call(soil["sand" if rng.randf() < Data.ROOT_SOIL_SAND else "dirt"], q.x, q.y, kq, mini(kq + layers, kg + 1))
 	var mid := Vector2(cx + tw * 0.5, cz + tw * 0.5)
 	var canopy_lo := kt
 	var slab := func(x0c: int, z0c: int, k: int, colour: String) -> void:
@@ -1664,6 +1681,10 @@ func _grow_tree(rng: RandomNumberGenerator, cx: int, cz: int, to_cave: int) -> b
 	for c in _stamp(_runs_of(roots), 0, 0, 0, "paint", "wood"): cells[c] = true
 	for v in roots.values(): nw += (v as Dictionary).size()
 	for v in wood.values(): nw += (v as Dictionary).size()
+	var ns := 0
+	for sm in soil:
+		if not (soil[sm] as Dictionary).is_empty(): _stamp(_runs_of(soil[sm]), 0, 0, 0, "add", sm)
+		for v in (soil[sm] as Dictionary).values(): ns += (v as Dictionary).size()
 	for colour in ["leaf", "leaf2"]:
 		for c in _stamp(_runs_of(leaf[colour]), 0, 0, 0, "add", colour): cells[c] = true
 		for v in (leaf[colour] as Dictionary).values(): nl += (v as Dictionary).size()
@@ -1671,7 +1692,7 @@ func _grow_tree(rng: RandomNumberGenerator, cx: int, cz: int, to_cave: int) -> b
 	var trunk: Array = []
 	for jz in tw:
 		for jx in tw: trunk.append((cz + jz) * n + cx + jx)
-	trees.append({"base": cz * n + cx, "wood": nw, "leaf": nl, "cave_root": cave_root, "trunk": trunk, "k_ground": kg, "k_top": kt, "canopy_lo": canopy_lo})
+	trees.append({"base": cz * n + cx, "wood": nw, "leaf": nl, "cave_root": cave_root, "trunk": trunk, "k_ground": kg, "k_top": kt, "canopy_lo": canopy_lo, "soil": ns})
 	return true
 
 ## v1.7i fire: set a wood or leaf layer burning.

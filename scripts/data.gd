@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.8h"
+const VERSION := "v1.8i"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -486,6 +486,8 @@ const CANYON_WIDTH := 3.0            # cells (half-width; 15 m)
 const ROOT_COUNT := 6
 const ROOT_RISE := [12.0, 35.0]      # m the shards stand out of the ground
 const ROOT_DEPTH := 80.0             # m the obsidian root runs down under them
+const ROOT_SOIL_CHANCE := 0.6        # v1.8i: chance each spot beside a tree's buttress roots gets sand / dirt banked up in it
+const ROOT_SOIL_SAND := 0.35         # ...and the share of those that are sand (the rest dirt)
 # v1.6h the deep world: great halls right over the obsidian cap, with obsidian trunks and branches holding the rock up
 # and lava pools glowing between them. In sections, sealed.
 const HALL_COUNT := 3

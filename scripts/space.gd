@@ -2140,8 +2140,10 @@ func _autopilot_input() -> Array:
 	var th := 1.0 if local.z < -0.3 else 0.2
 	return [steer, Vector2(0, th)]
 
-func _in_fire_cone(t: Node3D) -> bool:
-	if t == null or not is_instance_valid(t) or t.get_meta("kind", "") != "enemy": return false
+func _in_fire_cone(tv) -> bool:   # (untyped: a target freed this frame is just "no", not a script error)
+	if tv == null or not is_instance_valid(tv): return false
+	var t: Node3D = tv
+	if t.get_meta("kind", "") != "enemy": return false
 	var to := t.global_position - player.global_position
 	var w: Dictionary = GS.weapon()
 	if to.length() > float(w["range"]): return false
