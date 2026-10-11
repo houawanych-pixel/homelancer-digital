@@ -3970,6 +3970,9 @@ func _auto_target() -> void:
 		if s > score:
 			score = s
 			best = n
+	if best == null:   # v1.8c (owner): the job's gold-marked enemy is your target even from far off (red box, lead box, locks)
+		var mw := mission_waypoint()
+		if not mw.is_empty() and is_instance_valid(mw.get("node")) and (mw["node"] as Node3D).get_meta("kind", "") == "enemy": best = mw["node"]
 	if best != null or target == null or not is_instance_valid(target) or target.get_meta("kind", "") == "enemy": target = best
 
 ## Any hostile (red contact) within 1100 m that has turned on you?

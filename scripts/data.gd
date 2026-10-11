@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.8b"
+const VERSION := "v1.8c"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -1031,7 +1031,11 @@ static func bounties() -> Array:
 ## v1.5l: the bounties a station posts: the targets of its owner's enemies (its rival nation, the permanent enemies,
 ## and the Savagers, who are outlaws everywhere), never its own people.
 static func bounties_for(owner: String) -> Array:
-	return bounties().filter(func(p): return str(p["faction"]) != owner and (str(p["faction"]) == Factions.rival(owner) or not Factions.normal(str(p["faction"])) or str(p["faction"]) == "Savagers"))
+	# v1.8c (owner): a board only posts its owner's rivals. A rival with no wanted pilots: the Savagers pirates instead.
+	var riv := Factions.rival(owner)
+	var out: Array = bounties().filter(func(p): return str(p["faction"]) == riv and riv != owner)
+	if out.is_empty() and owner != "Savagers": out = bounties().filter(func(p): return str(p["faction"]) == "Savagers")
+	return out
 
 ## v1.5l: where a faction's people hide: the systems it owns (a permanent enemy: its home system), in a fixed order.
 static var _owned_cache := {}

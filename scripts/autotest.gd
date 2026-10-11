@@ -5187,6 +5187,19 @@ func _job_an() -> void:
 	var switched: bool = GS.mission.get("kind", "") == "threats" and GS.mission.get("hard", false) and (hub.content.find_child("Take_Job_escort", true, false) as Button).text == "SELECT"
 	_check("Job AN: MISSIONS: tap a job = selected (gold, TRACKING), tap it again = cleared, tap another = switched; nothing stays blocked",
 		tabs_ok and sel1 and lit1 and desel and sel2 and switched, "tabs %s sel %s lit %s desel %s sel2 %s switch %s" % [tabs_ok, sel1, lit1, desel, sel2, switched])
+	# ---- v1.8c (owner): a board posts only its owner's rivals: Liberty Hub (Unity) = Imperium wanted pilots
+	hub.show_screen("bounty")
+	await _frames(2)
+	var lh_rival: bool = Data.bounties_for("Unity").all(func(p): return str(p["faction"]) == Factions.rival("Unity")) and not Data.bounties_for("Unity").is_empty() \
+		and hub.content.find_child("Bounty_savagers_03", true, false) == null
+	var lib_ok: bool = Data.bounties_for("Liberator").all(func(p): return str(p["faction"]) == "Savagers")
+	_check("v1.8c (owner): mission boards post only the owner's rivals (Liberty Hub: %s pilots only; a Liberator station: Savagers only)" % Factions.rival("Unity"), lh_rival and lib_ok, "liberty %s liberator %s" % [lh_rival, lib_ok])
+	# (the bounty checks below use a Liberator station's board: its rivals are the Savagers)
+	var lib_base: Dictionary = Data.SYSTEMS["kiral"]["station"].duplicate()
+	lib_base["faction"] = "Liberator"
+	hub.open(lib_base)
+	hub.show_screen("bounty")
+	await _frames(2)
 	# ---- 4. BOUNTIES: 2, 3, 4, 6; select (waypoint), deselect, select another (waypoint switches)
 	(hub.content.find_child("Tab_bounty", true, false) as Button).pressed.emit()
 	await _frames(2)

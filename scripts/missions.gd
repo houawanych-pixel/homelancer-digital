@@ -18,7 +18,8 @@ class_name Missions
 static func offers(sys_id: String, station_id: String) -> Array:
 	var sys: Dictionary = Data.SYSTEMS[sys_id]
 	var own := str(sys.get("faction", ""))
-	var enemy := str(Data.OPENING_SYSTEMS.get(sys_id, {}).get("faction", ""))   # v1.5k: the opening system's rival nation
+	var enemy := Factions.rival(own) if Factions.has_fighters(Factions.rival(own)) else ""   # v1.8c (owner): the jobs are against the owner's rival
+	if enemy == "": enemy = str(Data.OPENING_SYSTEMS.get(sys_id, {}).get("faction", ""))   # v1.5k: the opening system's rival nation
 	if enemy == "": enemy = Factions.raider_of(own)
 	if enemy == "" and Factions.has_fighters(Factions.rival(own)): enemy = Factions.rival(own)   # the owner's rival nation, if it has ships
 	if enemy == "":   # nobody raids this owner: the nearest permanent enemy with ships does the dirty work
