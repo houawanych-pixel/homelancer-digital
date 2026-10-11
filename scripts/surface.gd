@@ -339,6 +339,7 @@ void vertex() {
 	VERTEX.y += waves(wpos.xz, t) * wave_h * clamp(depth / 12.0, 0.15, 1.0);
 }
 void fragment() {
+	if (depth < 0.05) discard;   // v1.8g: no sea under dry land (a hole dug in the blocks shows its own bottom, not a flat sea)
 	float t = TIME * wave_speed;
 	vec2 p = wpos.xz;
 	float e = 1.5;
