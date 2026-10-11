@@ -253,6 +253,8 @@ func _web_state() -> void:
 
 func _objective() -> String:
 	if space.surface_mode:
+		var gw: Dictionary = space.mission_waypoint()   # v1.8m: a ground job comes first down here too
+		if not gw.is_empty(): return "MISSION: %s" % gw["line"]
 		var has_port: bool = space.station.get_meta("kind", "") == "station"
 		return "PLANET: %s  ·  climb above %d m for orbit" % [("dock at " + space.station.name) if has_port else "fly on — the planet wraps around", int(Surface.CEILING)]
 	var mw: Dictionary = space.mission_waypoint()   # v1.5a: a mission you carry comes first, with where to go next

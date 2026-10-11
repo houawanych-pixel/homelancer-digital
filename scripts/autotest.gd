@@ -4542,7 +4542,7 @@ func _job_ai() -> void:
 		elif o["kind"] == "convoy": cvy = o
 	var same: bool = Missions.offers(s.sys_id, sid).map(func(o): return o["title"]) == offers.map(func(o): return o["title"])
 	_check("Job AI: a station's MISSIONS board offers a patrol threats job, an elite threats job (slot 05, paid more) and an escort, from a faction hostile to the owner, the same offers for the whole visit",
-		kinds == ["threats", "threats_hard", "escort", "convoy"] and int(hard["slot"]) == 5 and int(easy["slot"]) == 1 and int(hard["pay"]) > int(easy["pay"]) and same and Factions.has_fighters(str(easy["faction"])) and (easy["points"] as Array).size() == 2,
+		kinds == ["threats", "threats_hard", "escort", "convoy", "ground"] and int(hard["slot"]) == 5 and int(easy["slot"]) == 1 and int(hard["pay"]) > int(easy["pay"]) and same and Factions.has_fighters(str(easy["faction"])) and (easy["points"] as Array).size() == 2,
 		str(kinds) + " " + str(easy.get("faction", "")))
 	# ---- the hub pages
 	main.hub.open(Data.SYSTEMS[s.sys_id]["station"])
@@ -4794,6 +4794,53 @@ func _job_ai() -> void:
 	var c_paid: bool = GS.mission.is_empty() and GS.credits - cc0 >= int(cvy["pay"])
 	_check("v1.7w (owner): the cargo run: the freighter flies from the station to the jump gate (an ambush on the way) and jumps; the waypoint becomes that gate; in the next system it comes out by the arrival gate and heads for the station, a bigger battle hits it, and its docking pays",
 		leg0 and jumped and to_gate and leg1 and battle and c_paid, "leg0 %s jumped %s to_gate %s leg1 %s battle %s (%d) paid %s" % [leg0, jumped, to_gate, leg1, battle, amb2.size(), c_paid])
+	await main._load_system(home_sys, "station")
+	await _frames(4)
+	s = _sp()
+	# ---- v1.8m (owner): a ground job: the planet is the waypoint in space; down there two points in one sector, a wave at each; paid on the last kill
+	var gnd: Dictionary = {}
+	for o in Missions.offers(s.sys_id, sid):
+		if o["kind"] == "ground": gnd = o
+	var g_said: String = Missions.accept(gnd)
+	await _frames(2)
+	var gpid: String = str(gnd["planet"])
+	var gtile: int = int(gnd["tile"])
+	var gw0: Dictionary = s.mission_waypoint()
+	var g_space: bool = g_said.find("Job taken") >= 0 and not gw0.is_empty() and gw0["node"] == s.planet and str(gw0["line"]).find("atmosphere") >= 0 and Missions.tracking_line(s.sys_id).find("sector") >= 0
+	main._load_surface(gpid, Surface.neighbour(gpid, gtile, Vector2i(1, 0)))
+	await _wait(0.6)
+	var sg := _sp()
+	var gw1: Dictionary = sg.mission_waypoint()
+	var g_far: bool = not gw1.is_empty() and (gw1["node"] as Node3D).global_position.x < -Surface.TILE * 0.5 and str(gw1["line"]).find("sector") >= 0 and main._objective().begins_with("MISSION")
+	main._load_surface(gpid, gtile)
+	await _wait(0.6)
+	sg = _sp()
+	sg.controls = true
+	var gp0: Vector3 = Missions.ground_pos(sg, 0)
+	var g_alt: bool = absf(gp0.y - sg._ground(gp0.x, gp0.z) - Data.MISSION_GROUND_ALT) < 1.0
+	sg.player.global_position = gp0 + Vector3(0, 0, 200)
+	await _frames(3)
+	var gwave: Array = sg.enemies.filter(func(o): return int(o.get("mission", -1)) == 0)
+	var g_wave: bool = gwave.size() == int(Data.MISSION_GROUP[0]) and gwave.all(func(o): return bool(o.get("provoked", false)))
+	for o in gwave:   # they are left behind (not killed): the job does not move on, they wait at the point again
+		sg.enemies.erase(o)
+		(o["node"] as Node3D).free()
+	await _frames(3)
+	gwave = sg.enemies.filter(func(o): return int(o.get("mission", -1)) == 0)
+	var g_wait: bool = int(GS.mission.get("stage", -1)) == 0 and gwave.size() == int(Data.MISSION_GROUP[0])
+	for o in gwave: sg._destroy_unit(o)
+	await _frames(3)
+	var g_next: bool = int(GS.mission.get("stage", -1)) == 1
+	var gp1: Vector3 = Missions.ground_pos(sg, 1)
+	sg.player.global_position = gp1 + Vector3(0, 0, 200)
+	await _frames(3)
+	var gwave2: Array = sg.enemies.filter(func(o): return int(o.get("mission", -1)) == 1)
+	var gc0: int = GS.credits
+	for o in gwave2: sg._destroy_unit(o)
+	await _frames(3)
+	var g_paid: bool = gwave2.size() == int(Data.MISSION_GROUP[1]) and GS.mission.is_empty() and GS.credits - gc0 >= int(gnd["pay"])
+	_check("v1.8m (owner): a ground job: the board offers a strike on the planet; in space the planet is the waypoint; down there the waypoint leads across sectors to two points in one sector, a wave waits over the ground at each (left behind, it waits again), and the last kill pays",
+		g_space and g_far and g_alt and g_wave and g_wait and g_next and g_paid, "space %s far %s alt %s wave %s wait %s next %s paid %s (%s, %s)" % [g_space, g_far, g_alt, g_wave, g_wait, g_next, g_paid, gpid, Missions.sector_name(gpid, gtile)])
 	await main._load_system(home_sys, "station")
 	await _frames(4)
 	s = _sp()

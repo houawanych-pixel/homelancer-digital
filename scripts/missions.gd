@@ -49,7 +49,39 @@ static func offers(sys_id: String, station_id: String) -> Array:
 				"giver": station_id, "giver_sys": sys_id, "sys": sys_id, "dest": dest, "leg": 0,
 				"brief": "A freighter is taking cargo to %s in the %s system. Fly with it to the jump gate, follow it through, and get it to the station there. %s will hit it on both sides of the gate." % [Data.SYSTEMS[dest]["station"]["name"], Data.SYSTEMS[dest]["name"], enemy if enemy != "" else "Raiders"],
 				"points": _points(rng, 2)})
+	var pid := str(sys["planet"].get("id", ""))   # v1.8m: a strike down on the planet (last, so the older offers keep their points)
+	if enemy != "" and Surface.has_surface(pid) and not Surface.is_sun(pid):
+		var g := Surface.grid(pid)
+		var tile := rng.randi() % (g * g)
+		var sp: float = Data.MISSION_GROUND_SPREAD
+		var p0 := Vector2(rng.randf_range(-sp, sp), rng.randf_range(-sp, sp))
+		var p1 := Vector2(-p0.x * rng.randf_range(0.5, 1.0), -p0.y * rng.randf_range(0.5, 1.0))
+		out.append({"kind": "ground", "faction": enemy, "slot": 2, "pay": Data.MISSION_PAY["ground"], "title": "Strike on %s: destroy the %s landing party" % [sys["planet"]["name"], enemy],
+			"giver": station_id, "giver_sys": sys_id, "sys": sys_id, "planet": pid, "tile": tile,
+			"brief": "%s have landed on %s, in %s. Fly down into the atmosphere, go to both mission points and destroy them." % [enemy, sys["planet"]["name"], sector_name(pid, tile)],
+			"points": [{"x": p0.x, "z": p0.y}, {"x": p1.x, "z": p1.y}]})
 	return out
+
+## v1.8m: "sector B2 (city)": how a ground job names its place on the planet.
+static func sector_name(pid: String, tile: int) -> String:
+	var g := Surface.grid(pid)
+	return "sector %s%d (%s)" % ["ABCDEFG"[tile / g], tile % g + 1, str(Surface.biome(pid, tile)["name"]).to_lower()]
+
+## v1.8m: where a ground job's point is from the sector you are flying over (the planet wraps: the short way round).
+static func ground_pos(space: SpaceSystem, i: int) -> Vector3:
+	var m: Dictionary = GS.mission
+	var pts: Array = m.get("points", [])
+	if i < 0 or i >= pts.size() or not space.surface_mode or space.planet_id != str(m.get("planet", "")): return Vector3.INF
+	var g := Surface.grid(space.planet_id)
+	var dx := int(m["tile"]) % g - space.tile % g
+	var dz := int(m["tile"]) / g - space.tile / g
+	if dx * 2 > g: dx -= g
+	elif dx * 2 < -g: dx += g
+	if dz * 2 > g: dz -= g
+	elif dz * 2 < -g: dz += g
+	var x := float(pts[i]["x"]) + dx * Surface.TILE
+	var z := float(pts[i]["z"]) + dz * Surface.TILE
+	return Vector3(x, (space._ground(x, z) if dx == 0 and dz == 0 else 0.0) + Data.MISSION_GROUND_ALT, z)
 
 ## v1.7w: where a cargo run from this system goes: the system through its first jump gate ("" = no gate out).
 static func convoy_dest(sys_id: String) -> String:
@@ -68,6 +100,7 @@ static func _points(rng: RandomNumberGenerator, n: int) -> Array:
 ## Where a mission point is in this system (the points are relative to the main station).
 static func point_pos(space: SpaceSystem, i: int) -> Vector3:
 	var m: Dictionary = GS.mission
+	if m.get("kind", "") == "ground": return ground_pos(space, i)
 	var pts: Array = m.get("points", [])
 	if i < 0 or i >= pts.size() or not is_instance_valid(space.station): return Vector3.INF
 	var p: Dictionary = pts[i]
@@ -168,6 +201,7 @@ static func tracking_line(here: String) -> String:
 			for g in Data.SYSTEMS[here]["gates"]:
 				if str(g["to"]) == str(route[1]): gate_name = str(g["name"])
 		return "Tracking: %s. Waypoint: %s, %d jump%s away (first take the %s)." % [m["title"], Data.SYSTEMS[where]["name"], route.size() - 1, "" if route.size() == 2 else "s", gate_name]
+	if m.get("kind", "") == "ground": return "Tracking: %s. Waypoint: down on %s, %s." % [m["title"], Surface.PLANETS[m["planet"]]["name"], sector_name(str(m["planet"]), int(m["tile"]))]
 	return "Tracking: %s. Waypoint: mission point %d of %d in this system." % [m["title"], int(m.get("stage", 0)) + 1, (m.get("points", []) as Array).size()]
 
 ## Drop the job (no pay, no penalty beyond the lost time).
@@ -180,9 +214,16 @@ static func abandon() -> void:
 ## What the HUD and the map point at, in THIS system: {node, title, line, hops} or {} when the job has nothing here.
 static func waypoint(space: SpaceSystem) -> Dictionary:
 	var m: Dictionary = GS.mission
-	if m.is_empty() or space.surface_mode or not is_instance_valid(space.player): return {}
+	if m.is_empty() or not is_instance_valid(space.player): return {}
 	var kind := str(m["kind"])
 	var stage := int(m["stage"])
+	if kind == "ground":   # v1.8m: in space the planet is the waypoint; down there the points are
+		if not space.surface_mode:
+			if str(m["sys"]) != space.sys_id: return _to_place(space, str(m["sys"]), m["title"])
+			if not is_instance_valid(space.planet): return {}
+			return {"node": space.planet, "title": space.planet.name, "line": "Strike: fly down into %s's atmosphere, %s" % [space.planet.name, sector_name(str(m["planet"]), int(m["tile"]))], "hops": 0}
+		if space.planet_id != str(m["planet"]): return {}
+	elif space.surface_mode: return {}
 	# bounty, pilot in the hold: back to the station that gave the job
 	if kind == "bounty" and GS.bounty.get("state", "") == "captured":
 		return _to_place(space, str(m["giver_sys"]), "Dock at %s to hand %s over" % [Data.SYSTEMS[m["giver_sys"]]["station"]["name"], Data.roster_pilot(str(m["id"])).get("name", "the pilot")])
@@ -204,7 +245,8 @@ static func waypoint(space: SpaceSystem) -> Dictionary:
 					if l.get("bounty", "") == m["id"] and is_instance_valid(l["node"]): return {"node": l["node"], "title": "%s (pilot)" % Data.roster_pilot(str(m["id"])).get("name", ""), "line": "TRACTOR the pilot in", "hops": 0}
 			if stage < (m.get("points", []) as Array).size():
 				var mp := space.mission_point(point_pos(space, stage))
-				return {"node": mp, "title": "Mission point %d" % (stage + 1), "line": "%s: fly to mission point %d of %d" % ["Bounty" if kind == "bounty" else "Threats", stage + 1, (m["points"] as Array).size()], "hops": 0}
+				var where := "" if kind != "ground" or space.tile == int(m["tile"]) else ", in %s" % sector_name(str(m["planet"]), int(m["tile"]))
+				return {"node": mp, "title": "Mission point %d" % (stage + 1), "line": "%s: fly to mission point %d of %d%s" % ["Bounty" if kind == "bounty" else ("Strike" if kind == "ground" else "Threats"), stage + 1, (m["points"] as Array).size(), where], "hops": 0}
 	return {}
 
 ## The gate that starts the shortest way to another system, or that system's station when you are there.
@@ -223,8 +265,10 @@ static func _to_place(space: SpaceSystem, sys_id: String, line: String) -> Dicti
 ## Every frame in flight: spawn a wave when you reach its point, move the stage on when a wave is gone, run the escort.
 static func tick(space: SpaceSystem, dt: float) -> void:
 	var m: Dictionary = GS.mission
-	if m.is_empty() or space.surface_mode or not is_instance_valid(space.player) or str(m["sys"]) != space.sys_id: return
+	if m.is_empty() or not is_instance_valid(space.player) or str(m["sys"]) != space.sys_id: return
 	var kind := str(m["kind"])
+	if (kind == "ground") != space.surface_mode: return   # v1.8m: a ground job runs down on the planet, the others in space
+	if kind == "ground" and space.planet_id != str(m.get("planet", "")): return
 	var stage := int(m["stage"])
 	var pts: Array = m.get("points", [])
 	if kind == "escort":
@@ -241,7 +285,8 @@ static func tick(space: SpaceSystem, dt: float) -> void:
 			var count: int = Data.MISSION_GROUP[1] if last else Data.MISSION_GROUP[0]
 			var boss := ""
 			if kind == "bounty" and last: boss = str(m["id"])
-			space.spawn_mission_group(at, str(m["faction"]), count, int(m["slot"]), boss, stage)
+			m["need"] = space.spawn_mission_group(at, str(m["faction"]), count, int(m["slot"]), boss, stage).size()
+			m["killed"] = 0
 			m["spawned"] = stage
 			space.message.emit("%s: %s" % ["Mission", "the target's wing is here. Engage." if kind == "bounty" and last else "hostiles at the waypoint. Engage."])
 		return
@@ -249,9 +294,14 @@ static func tick(space: SpaceSystem, dt: float) -> void:
 	var live := space.enemies.filter(func(o): return int(o.get("mission", -1)) == stage and is_instance_valid(o["node"]))
 	if not live.is_empty(): return
 	if kind == "bounty" and stage == pts.size() - 1: return   # the last stage ends on the kill / capture (on_kill, claim)
+	if kind == "ground" and int(m.get("killed", 0)) < int(m.get("need", 0)):   # v1.8m: you left them behind (another sector, orbit): they wait at the point
+		m["spawned"] = stage - 1
+		return
 	m["stage"] = stage + 1
 	if int(m["stage"]) < pts.size():
 		space.message.emit("Mission: wave cleared. The waypoint moves to point %d of %d." % [int(m["stage"]) + 1, pts.size()])
+	elif kind == "ground":
+		_pay(space, "The landing party is destroyed. %s pays %d cr." % [Data.SYSTEMS[m["giver_sys"]]["station"]["name"], int(m["pay"])])
 	elif kind == "threats":
 		_pay(space, "Threats eliminated. %s pays %d cr." % [Data.SYSTEMS[m["giver_sys"]]["station"]["name"], int(m["pay"])])
 
@@ -263,6 +313,7 @@ static func wants_dead(id: String) -> bool:
 ## A kill: a bounty wanted dead ends here; everything else is counted by tick().
 static func on_kill(space: SpaceSystem, e: Dictionary) -> void:
 	var m: Dictionary = GS.mission
+	if m.get("kind", "") == "ground" and int(e.get("mission", -1)) == int(m.get("stage", 0)): m["killed"] = int(m.get("killed", 0)) + 1   # v1.8m
 	if m.is_empty() or not e.has("bounty") or m.get("kind", "") != "bounty" or e["bounty"] != m.get("id", ""): return
 	if bool(m.get("alive", false)): return   # the pod drops; the tractor and the hand-in finish it
 	var id := str(m["id"])

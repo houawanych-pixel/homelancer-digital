@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.8l"
+const VERSION := "v1.8m"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -617,7 +617,11 @@ const MISSION_POINT_DIST := [3200.0, 5200.0]   # a mission point lies this far f
 const MISSION_ARRIVE := 700.0                   # this close to the point, its wave is there
 const MISSION_PLANET_CLEAR := 900.0             # a point keeps this much clear of a planet's surface
 const MISSION_GROUP := [3, 3]                   # ships in a wave: [first waves, last wave] (the last of a bounty = target + 2)
-const MISSION_PAY := {"threats": 900, "escort": 700, "convoy": 1600}   # v1.7w: "convoy" = the cargo run into the next system
+const MISSION_PAY := {"threats": 900, "escort": 700, "convoy": 1600, "ground": 1100}   # v1.7w: "convoy" = the cargo run into the next system
+# v1.8m (owner): ground jobs. A strike on the system's planet: fly down into the atmosphere, go to two mission points in
+# one sector of the surface and destroy the landing party at each. Paid on the spot when the last one is down.
+const MISSION_GROUND_ALT := 220.0               # a ground job's wave waits this high over the ground
+const MISSION_GROUND_SPREAD := 1500.0           # its points lie within this of the sector's centre
 const MISSION_HARD_MULT := 2.2                  # the ELITE threats job pays this much more
 const MISSION_HARD_SLOT := 5                    # ...and sends the slot 05 elites
 const MISSION_FALLBACK_ENEMIES := ["Kaijurai", "Phenom", "Cybermorph", "Solrath"]   # when nobody raids the owner
