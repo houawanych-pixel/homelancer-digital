@@ -1588,6 +1588,7 @@ func _run() -> void:
 	await _controls_j()
 	await _gate_k()
 	await _collide_l()
+	if main.state == "flight": await _ringed_planet()   # v1.8f
 	var passed := results.filter(func(r): return r["pass"]).size()
 	print("[route] RESULT %d/%d PASS" % [passed, results.size()])
 	_publish("done", true)
