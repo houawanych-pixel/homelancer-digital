@@ -4840,7 +4840,7 @@ func _job_ai() -> void:
 	var g_wave: bool = gwave.size() == gn0 and gwave.all(func(o): return bool(o.get("provoked", false)))
 	# v1.8n: the mechs of the wave are on foot: on the ground, upright, walking toward you, never climbing after you
 	var walkers: Array = gwave.filter(func(o): return bool(o.get("walker", false)))
-	sg.player.global_position = gp0 + Vector3(0, 60, 500)
+	sg.player.global_position = gp0 + Vector3(0, 60, 380)
 	var wk0: Vector3 = (walkers[0]["node"] as Node3D).global_position if not walkers.is_empty() else Vector3.ZERO
 	await _wait(1.5)
 	var wk_ok: bool = walkers.size() == int(Data.MISSION_GROUND_MECHS[0])
