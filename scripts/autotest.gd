@@ -2046,6 +2046,10 @@ func _collide_l() -> void:
 		s.last_collision = {}
 		if not fake_rock and not s.asteroids.is_empty():   # v1.7x: ram the blocks of a real asteroid
 			var ast0 = s.asteroids[0]
+			for a0 in s.asteroids:   # (a whole one that sits still: earlier checks may have broken some up)
+				if int(a0.tier) == 0 and a0.vel == Vector3.ZERO:
+					ast0 = a0
+					break
 			await _ram((ast0.surface_point(n) as Vector3) + n * 2.0, -n * 40.0)
 		else: await _ram(r[0] + n * (float(r[1]) + 2.5), -n * 40.0)
 		rock_hit = s.last_collision.get("kind", "") == "asteroid" and GS.hull < h0
@@ -3296,8 +3300,10 @@ func _job_v() -> void:
 	_check("Job V: the light beacon sits in the middle of the cloud with a real lamp (range %d, breathing), a halo and lit cloud puffs; near it the haze thins and the sensors recover" % int(Data.BEACON_LIGHT_RANGE), beacon_ok,
 		"lamp %s, energy %.2f -> %.2f, lit puffs %d, model %s, light on the ship %.2f far / %.2f near" % [lamp != null, e0, e1, lit, s.beacon_model != null, lit_far, lit_near])
 	_tp(s.station.global_position + Vector3(0, 40, 420), s.station.global_position)
-	# --- the bounty board, with the real names
-	main.hub.open(Data.SYSTEMS[s.sys_id]["station"])
+	# --- the bounty board, with the real names (v1.8c: a Liberator station's board: its rivals are the Savagers)
+	var lib_st: Dictionary = Data.SYSTEMS["kiral"]["station"].duplicate()
+	lib_st["faction"] = "Liberator"
+	main.hub.open(lib_st)
 	await _frames(3)
 	main.hub.show_screen("bounty")
 	await _frames(3)
@@ -5420,8 +5426,8 @@ func _job_ao() -> void:
 	var hide_ok: bool = all.all(func(p): return Data.SYSTEMS.has(str(p["sys"])) and (str(Data.SYSTEMS[p["sys"]].get("faction", "")) == str(p["faction"]) or str(Data.SYSTEMS[p["sys"]].get("enemy_faction", "")) == str(p["faction"])))
 	var unity: Array = Data.bounties_for("Unity").map(func(p): return str(p["faction"]))
 	var lib: Array = Data.bounties_for("Liberator").map(func(p): return str(p["faction"]))
-	var post_ok: bool = unity.has("Imperium") and unity.has("Savagers") and unity.has("Kaijurai") and not unity.has("Unity") and not unity.has("Liberator") and lib.has("Savagers") and not lib.has("Liberator") and not lib.has("Imperium")
-	_check("Job AO: characters 2, 3, 4 and 6 of every faction with ships are wanted (%d targets), each hiding in a system of their own faction; a station posts its enemies' targets only (Unity: the Imperium, the outlaw Savagers, the permanent enemies)" % all.size(),
+	var post_ok: bool = unity.has("Imperium") and unity.all(func(f): return f == "Imperium") and lib.has("Savagers") and lib.all(func(f): return f == "Savagers")   # v1.8c (owner): the owner's rival only
+	_check("Job AO: characters 2, 3, 4 and 6 of every faction with ships are wanted (%d targets), each hiding in a system of their own faction; a station posts only its rival's targets (v1.8c: Unity: the Imperium; Liberator: the Savagers)" % all.size(),
 		each and hide_ok and post_ok, "%s hide %s post %s" % [str(by), hide_ok, post_ok])
 	# people at stations
 	var lib_c: Dictionary = Factions.coordinator("Liberator")
@@ -5448,12 +5454,12 @@ func _job_ao() -> void:
 	await _frames(2)
 	var rows: Array = []
 	for c in main.hub.content.find_children("Row_*", "", true, false): rows.append(str(c.name).trim_prefix("Row_"))
-	var board_ok: bool = rows.has("imperium_02") and rows.has("savagers_02") and not rows.any(func(r): return str(r).begins_with("unity_") or str(r).begins_with("liberator_"))
+	var board_ok: bool = rows.has("imperium_02") and rows.all(func(r): return str(r).begins_with("imperium_"))   # v1.8c: the rival only
 	await _shot("ao_bounty_board_all", 0.3)
 	main.hub.visible = false
 	main.state = "flight"
 	Sfx.voices_override = []
-	_check("Job AO: every main-faction station has its coordinator (role-based: Lena Torres for the Liberators, Korvax for Orion, else slot 03), the capital its leader too (Commander Elara Voss at Veranthos), shown with face and role on the station page and a TALK in their own voice; enemy stations have none; the bounty board shows this station's enemies",
+	_check("Job AO: every main-faction station has its coordinator (role-based: Lena Torres for the Liberators, Korvax for Orion, else slot 03), the capital its leader too (Commander Elara Voss at Veranthos), shown with face and role on the station page and a TALK in their own voice; enemy stations have none; the bounty board shows this station's rival",
 		roles_ok and enemy_none and has_card and spoke and board_ok, "roles %s enemy %s card %s spoke %s board %s (%s)" % [roles_ok, enemy_none, has_card, spoke, board_ok, str(rows)])
 
 
