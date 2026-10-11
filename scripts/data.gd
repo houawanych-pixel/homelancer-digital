@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.8q"
+const VERSION := "v1.8r"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -817,6 +817,20 @@ const FORWARD_MULT := 100.0 / 46.0
 const FORWARD_RATE := 0.9               # how quickly stick-forward speed builds (lower = more gradual)
 const BURST_MULT := 120.0 / 46.0
 const BURST_RATE := 9.0                 # how hard a held burst holds its line
+# v1.8r (owner): GROUND mode, down on a planet, for the mech and the ship alike. Gravity is on: you come down and stand
+# on the ground (no damage: the ship lands as if on wheels). Stick = walk / roll that way, centred = stop. THRUST on the
+# ground with the stick centred = a jump; with the stick pushed = a burst that way. In the air THRUST does nothing: you fall.
+const GROUND_GRAVITY := 32.0            # m/s2
+const GROUND_FALL_MAX := 90.0           # m/s: the fastest it comes down
+const GROUND_WALK := 0.5                # share of the ship's speed on the ground
+const GROUND_GRIP := 6.0                # how fast it takes the stick's speed on the ground (centred = stops this fast)
+const GROUND_AIR_STEER := 1.5           # ...and in the air (a little steering while you fall)
+const GROUND_STICK := 6.0                # m: a drop smaller than this underfoot and it stays on the ground (slopes)
+const GROUND_JUMP := 40.0               # m/s up
+const GROUND_DASH_MULT := 3.2           # a burst: x the ground pace
+const GROUND_DASH_TIME := 0.45          # s
+const GROUND_THRUST_CD := 0.6           # s between jumps / bursts
+const GROUND_THRUST_ENERGY := 18.0      # energy a jump or burst takes
 const MECH_BURST_MULT := 3.2            # mech dash (x its walking pace), also used straight up
 
 # ---------------------------------------------------------------- ships

@@ -1471,6 +1471,61 @@ static func burst_name(stick: Vector2) -> String:
 	var sec := dash_sector(stick)
 	return ("forward" if sec.y > 0.5 else ("back" if sec.y < -0.5 else "")) + ("-" if absf(sec.y) > 0.5 and absf(sec.x) > 0.5 else "") + ("right" if sec.x > 0.5 else ("left" if sec.x < -0.5 else ""))
 
+# ---------------------------------------------------------------- v1.8r GROUND mode
+var ground_mode := false   # gravity on: walking / landed (mech and ship)
+var grounded := false      # standing on the ground right now
+
+## The GROUND button. "on" / "off", or why not: "space" (no ground here), "warp".
+func toggle_ground() -> String:
+	if not surface_mode or sun_surface: return "space"
+	if warp_state != "off": return "warp"
+	ground_mode = not ground_mode
+	engine_kill = false
+	braking = false
+	holding = false
+	autopilot = null
+	dash_t = 0.0
+	if not ground_mode: grounded = false
+	return "on" if ground_mode else "off"
+
+func _ground_move(dt: float, thrust: Vector2, base_speed: float) -> void:
+	var yb := Basis.from_euler(Vector3(0, yaw, 0))   # it moves the way it faces on the flat, whatever the nose is doing
+	var sp := base_speed * Data.GROUND_WALK
+	dash_t = maxf(0.0, dash_t - dt)
+	dash_cd = maxf(0.0, dash_cd - dt)
+	boosting = false
+	var boost_now := thrust_held and controls and transform_t <= 0.0
+	if boost_now and not _boost_was:
+		if not grounded: last_dash = "air"   # in the air THRUST does nothing: gravity brings you down
+		elif dash_cd <= 0.0 and GS.energy > Data.GROUND_THRUST_ENERGY:
+			GS.energy -= Data.GROUND_THRUST_ENERGY
+			dash_cd = Data.GROUND_THRUST_CD
+			if thrust.length() < 0.3:   # stick centred: a jump
+				vel.y = Data.GROUND_JUMP
+				grounded = false
+				last_dash = "jump"
+			else:   # stick pushed: a burst that way, along the ground
+				dash_dir = burst_dir(thrust)
+				dash_t = Data.GROUND_DASH_TIME
+				last_dash = burst_name(thrust)
+			Sfx.play("whoosh", -6.0, 1.4)
+			_spark_v(player.global_position - Vector3(0, 4.0, 0), Vector3(0, -12.0, 0), Color(0.7, 0.85, 1.0), 6.0, 0.3)
+	_boost_was = boost_now
+	var desired := -yb.z * sp * thrust.y + yb.x * sp * 0.9 * thrust.x
+	var rate: float = Data.GROUND_GRIP if grounded else Data.GROUND_AIR_STEER
+	if dash_t > 0.0:
+		desired = yb * dash_dir * sp * Data.GROUND_DASH_MULT
+		rate = 9.0
+		boosting = true
+	var h := Vector3(vel.x, 0.0, vel.z).lerp(desired, minf(1.0, dt * rate))
+	vel = Vector3(h.x, maxf(vel.y - Data.GROUND_GRAVITY * dt, -Data.GROUND_FALL_MAX), h.z)
+	if GS.form == "mech" and is_instance_valid(model) and transform_t <= 0.0:   # upright, leaning a little into the walk, legs striding
+		var k := clampf(h.length() / maxf(1.0, sp), 0.0, 2.0)
+		model.rotation.x = lerpf(model.rotation.x, -deg_to_rad(6.0 * k), minf(1.0, dt * 4.0))
+		model.rotation.z = lerpf(model.rotation.z, 0.0, minf(1.0, dt * 4.0))
+		Sections.pose_mech(player_vis, 8.0, dt)
+		if grounded: Sections.stride(player_vis, sin(time * Data.WALKER_STRIDE_RATE * 1.4) * Data.WALKER_STRIDE_DEG * minf(1.0, k))
+
 func _mech_move(dt: float, thrust: Vector2, base_speed: float) -> void:
 	var fwd := -player.global_basis.z
 	var right := player.global_basis.x
@@ -1982,7 +2037,9 @@ func _update_player(dt: float) -> void:
 			_spark(player.global_position - fwd * 4.0, Color(0.8, 0.85, 1.0), 26.0, 0.4)
 			Sfx.play("warp_go", -2.0)
 			message.emit("Warp! Weapons locked until you drop out.")
-	if GS.form == "mech" and warp_state == "off":
+	if ground_mode and surface_mode and warp_state == "off":   # v1.8r: gravity, walking / landed
+		_ground_move(dt, thrust, base_speed)
+	elif GS.form == "mech" and warp_state == "off":
 		_mech_move(dt, thrust, base_speed)
 	elif warp_state == "on":
 		vel = vel.lerp(fwd * base_speed * Data.WARP_MULT, minf(1.0, dt * 1.2))
@@ -5355,11 +5412,16 @@ func _surface_update(_dt: float) -> void:
 			p = player.global_position
 			if vel.y > 0.0: vel.y = 0.0
 	altitude = p.y - floor_y + 6.0
+	if ground_mode and grounded and vel.y <= 0.5 and p.y > floor_y and p.y - floor_y < Data.GROUND_STICK:   # v1.8r: walking downhill it keeps its feet on the ground
+		player.global_position.y = floor_y
+		p = player.global_position
+		vel.y = 0.0
+	grounded = ground_mode and p.y <= floor_y + 0.6 and vel.y <= 0.5   # v1.8r
 	if p.y < floor_y:
 		var impact := -vel.y
 		player.global_position.y = floor_y
 		if vel.y < 0.0: vel.y = 0.0
-		collision_damage("ground", impact)   # Job L (was: > 20 m/s, 0.25 x impact through the shields)
+		if not ground_mode: collision_damage("ground", impact)   # Job L (was: > 20 m/s, 0.25 x impact through the shields); v1.8r: GROUND mode lands without a scratch
 	for fl in _fields(): (fl as BlockField).fluid_update(_dt, player.global_position)   # v1.6b: water and lava move near you
 	_update_light(_dt, bfp, p)   # v1.7m
 	if bfp:   # lava burns

@@ -217,17 +217,31 @@ func _panel_span() -> Vector2:   # top and bottom of both panels: under the corn
 	var bottom := _home("move").y - stick_r - 10.0
 	return Vector2(top, maxf(top + 150.0, bottom))
 
-func contacts_rect() -> Rect2:
+func contacts_rect() -> Rect2:   # v1.8r (owner): the call list is on the LEFT; the picked face comes up on the right
 	var w := _panel_w()
 	var sp := _panel_span()
 	var e := ease(roster_t, 0.35)
-	return Rect2(S.x - w * e, sp.x, w, sp.y - sp.x)
+	return Rect2(-w * (1.0 - e), sp.x, w, sp.y - sp.x)
 
 func msglog_rect() -> Rect2:
 	var w := _panel_w()
 	var sp := _panel_span()
 	var e := ease(roster_t, 0.35)
-	return Rect2(-w * (1.0 - e), sp.x, w, sp.y - sp.x)
+	return Rect2(S.x - w * e, sp.x, w, sp.y - sp.x)
+
+## v1.8r (owner): who is on the call list: people you have met who are still on speaking terms with you (not enraged,
+## and their faction, if they have one, yellow or better). Lose their good will and they drop off the list.
+func call_list() -> Array:
+	return GS.met.filter(func(id): return Data.CHARACTERS.has(id) and GS.mood.get(id, "neutral") != "enraged" and not (Data.CHARACTERS[id].has("faction") and Factions.hostile(str(Data.CHARACTERS[id]["faction"]))))
+
+var contact_scroll := 0   # the first person shown (UP / DOWN in the list's header)
+func contact_at(k: int) -> String:
+	var cl := call_list()
+	return str(cl[k + contact_scroll]) if k >= 0 and k + contact_scroll < cl.size() else ""
+
+func scroll_contacts(d: int) -> void:
+	contact_scroll = clampi(contact_scroll + d, 0, maxi(0, call_list().size() - (contact_rows() - 1)))
+	roster_idle = 0.0
 
 ## How many contact rows fit (up to 5).
 func contact_rows() -> int:
@@ -364,9 +378,14 @@ func _layout() -> void:
 		var rr := contacts_rect()
 		var lg := msglog_rect()
 		if roster_t > 0.95 and not roster_closing:
-			buttons["met_hail"] = Rect2(rr.position.x + 6, rr.position.y + 32, rr.size.x - 6, Data.COMMS_ROW_H - 4)   # v1.8q: the first row: your target / control
-			for k in mini(GS.met.size(), contact_rows() - 1):
-				buttons["met_%d" % k] = Rect2(rr.position.x + 6, rr.position.y + 32 + (k + 1) * Data.COMMS_ROW_H, rr.size.x - 6, Data.COMMS_ROW_H - 4)
+			buttons["met_hail"] = Rect2(rr.position.x, rr.position.y + 32, rr.size.x - 6, Data.COMMS_ROW_H - 4)   # v1.8q: the first row: your target / control
+			var cn := call_list().size()
+			contact_scroll = clampi(contact_scroll, 0, maxi(0, cn - (contact_rows() - 1)))
+			if cn > contact_rows() - 1:   # more people than fit: UP / DOWN in the header
+				buttons["met_up"] = Rect2(rr.end.x - 108, rr.position.y + 3, 50, 26)
+				buttons["met_down"] = Rect2(rr.end.x - 54, rr.position.y + 3, 50, 26)
+			for k in mini(cn - contact_scroll, contact_rows() - 1):
+				buttons["met_%d" % k] = Rect2(rr.position.x, rr.position.y + 32 + (k + 1) * Data.COMMS_ROW_H, rr.size.x - 6, Data.COMMS_ROW_H - 4)
 			var hw := (lg.size.x - 24.0) / 3.0
 			buttons["type"] = Rect2(lg.position.x + 6, lg.end.y - 44, hw, 38)
 			buttons["talk"] = Rect2(lg.position.x + 12 + hw, lg.end.y - 44, hw, 38)   # v1.5j hold-to-talk
@@ -518,6 +537,10 @@ func _text(p: Vector2, txt: String, size := 18, col := WHITE, align := HORIZONTA
 
 func _icon(id: String, c: Vector2, s: float, col: Color) -> void:
 	match id:
+		"ground":   # v1.8r: an arrow down onto a line
+			draw_line(c + Vector2(-s * 1.1, s * 0.95), c + Vector2(s * 1.1, s * 0.95), col, 3.0, true)
+			draw_line(c + Vector2(0, -s), c + Vector2(0, s * 0.3), col, 3.0, true)
+			draw_colored_polygon(PackedVector2Array([c + Vector2(-s * 0.55, s * 0.05), c + Vector2(s * 0.55, s * 0.05), c + Vector2(0, s * 0.75)]), col)
 		"special":   # v1.5o: a burst in a lock ring
 			draw_arc(c, s * 0.95, 0, TAU, 28, col, 2.5, true)
 			var pts := PackedVector2Array()
@@ -1069,7 +1092,8 @@ func _draw() -> void:
 	elif space.warp_state == "on": wsub = "DROP OUT"
 	_corner("warp", "WARP", "warp", Color(0.62, 0.55, 1.0), space.warp_state != "off", "", 0.0, GS.form == "mech", wsub)
 	_special_button()   # v1.5o
-	_padlocked("ground", "GROUND")   # v1.8q: the fourth column (GROUND gets its job next)
+	var gm: bool = space.ground_mode   # v1.8r: GROUND: gravity on, walk / land
+	_corner("ground", "GROUND", "ground", GREEN, gm, "", 0.0, false, ("WALKING" if GS.form == "mech" else "LANDED") if gm and space.grounded else ("FALLING" if gm else ("WALK" if GS.form == "mech" else "LAND")))
 	for lid in ["lock_a", "lock_b", "lock_c"]: _padlocked(lid, "")
 	if space.warp_state == "charging":
 		var wr: Rect2 = buttons["warp"]
@@ -1087,7 +1111,7 @@ func _draw() -> void:
 			ssub = "LOCK %d/%d" % [lk, GS.max_locks(item)] if lk > 0 else "MISSILE ×%d" % GS.max_locks(item)
 		_corner("slot_%d" % k, it["label"], it["icon"], scol, false, "%d" % ammo, cdk, space.warp_active(), ssub)
 	var mech: bool = GS.form == "mech"
-	_corner("thrust", "BOOST" if mech else "THRUST", "thrust", ORANGE, space.boosting, "", 0.0, false, "STICK = DASH" if mech else "")
+	_corner("thrust", "JUMP" if gm else ("BOOST" if mech else "THRUST"), "thrust", ORANGE, space.boosting, "", 0.0, false, "STICK = DASH" if mech or gm else "")
 	_corner("fire", "FIRE", "guns", RED, space.fire_lock, "", 0.0, space.warp_active() or not space.lane.is_empty(), "ON · TAP OFF" if space.fire_lock else "TAP = ON")
 	_corner("kill", "KILL", "kill", GOLD, space.engine_kill, "", 0.0, mech, "DRIFTING" if space.engine_kill else "ENGINE")
 	_corner("zoom", "ZOOM", "zoom", CYAN, space.zoomed, "", 0.0, false, "SCOPE ON" if space.zoomed else "SCOPE")
@@ -1568,23 +1592,27 @@ func _dist(d: float) -> String:
 func _roster() -> void:
 	var r := contacts_rect()
 	var lg := msglog_rect()
-	# ---- right edge: who you can call. Faces flush right, names beside them; tap a row to call.
+	# ---- left edge (v1.8r): who you can call. Faces flush left, names beside them; tap a row and the picture comes up on the right.
 	draw_rect(r, Color(0.02, 0.07, 0.14, 0.9))
-	draw_line(r.position, Vector2(r.position.x, r.end.y), CYAN_HI, 2)
-	_text(r.position + Vector2(0, 22), "CONTACTS", 15, WHITE, HORIZONTAL_ALIGNMENT_RIGHT, r.size.x - 10)
-	if GS.met.is_empty():
-		draw_multiline_string(font, r.position + Vector2(10, 52), "Nobody yet. People you meet appear here.", HORIZONTAL_ALIGNMENT_RIGHT, r.size.x - 20, 12, 3, Color(1, 1, 1, 0.7))
+	draw_line(Vector2(r.end.x, r.position.y), r.end, CYAN_HI, 2)
+	_text(r.position + Vector2(10, 22), "CALL LIST", 15, WHITE)
+	var cl := call_list()
+	if buttons.has("met_up"):
+		_pill("met_up", "UP", false, CYAN)
+		_pill("met_down", "DOWN", false, CYAN)
 	var rh: float = Data.COMMS_ROW_H
-	# v1.8q: the first row is whoever CALL used to reach: your target, or control / the guide
-	var hr := Rect2(r.position.x + 6, r.position.y + 32, r.size.x - 6, rh - 4)
+	# the first row is whoever CALL used to reach: your target, or control / the guide
+	var hr := Rect2(r.position.x, r.position.y + 32, r.size.x - 6, rh - 4)
 	var hsel := pick == "hail"
 	draw_rect(hr, Color(GREEN, 0.3) if hsel or held.has("met_hail") else Color(0.05, 0.13, 0.23, 1.0))
 	draw_rect(hr, Color(GREEN, 1.0 if hsel else 0.7), false, 2.0 if hsel else 1.0)
-	_text(Vector2(hr.position.x + 6, hr.position.y + 18), "TARGET / CONTROL", 14, WHITE, HORIZONTAL_ALIGNMENT_RIGHT, hr.size.x - 14)
-	_text(Vector2(hr.position.x + 6, hr.position.y + 34), "TAP TO SELECT", 10, Color(GREEN, 0.95), HORIZONTAL_ALIGNMENT_RIGHT, hr.size.x - 14)
-	for k in mini(GS.met.size(), contact_rows() - 1):
-		var br := Rect2(r.position.x + 6, r.position.y + 32 + (k + 1) * rh, r.size.x - 6, rh - 4)
-		var id: String = GS.met[k]
+	_text(Vector2(hr.position.x + 10, hr.position.y + 18), "TARGET / CONTROL", 14, WHITE)
+	_text(Vector2(hr.position.x + 10, hr.position.y + 34), "TAP TO SELECT", 10, Color(GREEN, 0.95))
+	if cl.is_empty():
+		draw_multiline_string(font, Vector2(r.position.x + 10, hr.end.y + 22), "Nobody yet. Friendly people you meet appear here.", HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 20, 12, 3, Color(1, 1, 1, 0.7))
+	for k in mini(cl.size() - contact_scroll, contact_rows() - 1):
+		var br := Rect2(r.position.x, r.position.y + 32 + (k + 1) * rh, r.size.x - 6, rh - 4)
+		var id: String = cl[k + contact_scroll]
 		var c: Dictionary = Data.CHARACTERS[id]
 		var ok := in_range(id)
 		var m: String = GS.mood.get(id, "neutral")
@@ -1593,19 +1621,19 @@ func _roster() -> void:
 		var down := held.has("met_%d" % k)
 		draw_rect(br, Color(mc, 0.25) if down else Color(0.05, 0.13, 0.23, 1.0 if ok else 0.6))
 		draw_rect(br, Color(mc, 0.7 if ok else 0.35), false, 1.0)
-		if pick == id: draw_rect(br, Color(mc, 1.0), false, 2.5)   # v1.8q: the one whose picture is up
+		if pick == id: draw_rect(br, Color(mc, 1.0), false, 2.5)   # the one whose picture is up
 		var fs := br.size.y
-		var fr := Rect2(br.end.x - fs, br.position.y, fs, fs)   # face against the screen edge
+		var fr := Rect2(br.position.x, br.position.y, fs, fs)   # face against the screen edge
 		var ftex: Texture2D = _face_tex(c.get("face", ""), "normal") if c.get("face", "") != "" else null
 		if ftex: draw_texture_rect(ftex, fr, false, Color(1, 1, 1, 1.0 if ok else 0.4))
 		else: draw_circle(fr.get_center(), fs * 0.4, Color(c["color"], 0.9))
 		var tw := br.size.x - fs - 12
-		_text(Vector2(br.position.x + 6, br.position.y + 18), c["name"], 14, WHITE if ok else Color(1, 1, 1, 0.5), HORIZONTAL_ALIGNMENT_RIGHT, tw)
+		_text(Vector2(br.position.x + fs + 8, br.position.y + 18), c["name"], 14, WHITE if ok else Color(1, 1, 1, 0.5), HORIZONTAL_ALIGNMENT_LEFT, tw)
 		var sub: String = "TAP TO SELECT" if ok else "OUT OF RANGE · %s" % Data.SYSTEMS[c["system"]]["name"].to_upper()
-		_text(Vector2(br.position.x + 6, br.position.y + 34), sub, 10, Color(mc, 0.95) if ok else Color(1, 1, 1, 0.45), HORIZONTAL_ALIGNMENT_RIGHT, tw)
-	# ---- left edge: the message log, newest at the top; TYPE and VOICE under it
+		_text(Vector2(br.position.x + fs + 8, br.position.y + 34), sub, 10, Color(mc, 0.95) if ok else Color(1, 1, 1, 0.45), HORIZONTAL_ALIGNMENT_LEFT, tw)
+	# ---- right edge (v1.8r): the message log, newest at the top; TYPE and VOICE under it
 	draw_rect(lg, Color(0.02, 0.07, 0.14, 0.9))
-	draw_line(Vector2(lg.end.x, lg.position.y), lg.end, CYAN_HI, 2)
+	draw_line(lg.position, Vector2(lg.position.x, lg.end.y), CYAN_HI, 2)
 	_text(lg.position + Vector2(10, 22), "LOG", 15, WHITE)
 	_text(lg.position + Vector2(0, 22), "TAP LOG TO CLOSE", 9, CYAN_HI, HORIZONTAL_ALIGNMENT_RIGHT, lg.size.x - 10)
 	var lr := Rect2(lg.position.x + 6, lg.position.y + 32, lg.size.x - 12, lg.size.y - 32 - 50)
@@ -1623,8 +1651,8 @@ func _roster() -> void:
 		_pill("talk", "LISTENING" if listening else "HOLD TO TALK", listening, GREEN if listening else CYAN, heard_text.left(18) if listening and heard_text != "" else "")
 		_pill("voice", "VOICE", false, CYAN, "ON" if Sfx.voice_on() else "OFF")
 	if _typer.visible:
-		_typer.position = Vector2(lg.end.x + 8, lg.end.y - 44)
-		_typer.size = Vector2(minf(420.0, S.x - lg.end.x - _panel_w() - 16), 40)
+		_typer.size = Vector2(minf(420.0, S.x - _panel_w() * 2.0 - 16), 40)
+		_typer.position = Vector2(lg.position.x - 8 - _typer.size.x, lg.end.y - 44)
 
 ## TYPE: open the message box (the phone keyboard comes up).
 # ---------------------------------------------------------------- v1.5j hold-to-talk

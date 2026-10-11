@@ -1325,8 +1325,8 @@ func _run() -> void:
 	await _wait(0.3)
 	hq._layout()
 	var psl: Dictionary = hq.slot("r")
-	var pc: Dictionary = Data.CHARACTERS[GS.met[0]]
-	var pick_ok: bool = hq.pick == GS.met[0] and psl.get("mode", "") == "pick" and str(psl.get("face", "")) == str(pc.get("face", "")) and str(psl.get("from", "")).begins_with(str(pc["name"])) \
+	var pc: Dictionary = Data.CHARACTERS[hq.contact_at(0)]
+	var pick_ok: bool = hq.pick == hq.contact_at(0) and psl.get("mode", "") == "pick" and str(psl.get("face", "")) == str(pc.get("face", "")) and str(psl.get("from", "")).begins_with(str(pc["name"])) \
 		and hq.buttons.has("call_pick") and hq.side_rect("r").encloses(hq.buttons["call_pick"]) and hq.comms_mode == "roster" and not hq.slots["l"].has("mode")
 	await _shot("log_pick", 0.3)
 	var lefts := ["shield", "repair", "tractor", "ground", "form", "warp", "special", "lock_a"]
@@ -1337,6 +1337,34 @@ func _run() -> void:
 		if hq.buttons[b].position.x < hq.buttons["lock_a"].end.x or hq.buttons[b].end.x > hq.buttons["lock_c"].position.x: clear = false
 	_check("v1.8q (owner): CALL is inside LOG (no CALL button): the list starts with TARGET / CONTROL; a tapped name shows the picture on the friendly side with CALL under it; 8 buttons on the left and 8 on the right, the centre strip between them",
 		no_call and hail_ok and pick_ok and eight and clear, "no_call %s hail %s pick %s eight %s clear %s" % [no_call, hail_ok, pick_ok, eight, clear])
+	# v1.8r (owner): the call list is on the left, the picked face on the right; only people on speaking terms are listed; it scrolls
+	var left_list: bool = hq.contacts_rect().end.x < hq.S.x * 0.5 and hq.msglog_rect().position.x > hq.S.x * 0.5 and hq.buttons["met_0"].end.x < hq.S.x * 0.5 and hq.side_rect("r").position.x > hq.S.x * 0.5
+	var met_keep: Array = GS.met.duplicate()
+	var mood_keep: Dictionary = GS.mood.duplicate()
+	var first_id: String = hq.contact_at(0)
+	GS.mood[first_id] = "enraged"
+	var dropped: bool = not (first_id in hq.call_list()) and first_id in GS.met
+	GS.mood = mood_keep
+	var back_on: bool = first_id in hq.call_list()
+	for cid2 in Data.CHARACTERS:
+		if not (cid2 in GS.met): GS.met.append(cid2)
+	GS.mood = {}
+	hq.contact_scroll = 0
+	hq._layout()
+	var many: int = hq.call_list().size()
+	var can_scroll: bool = many > hq.contact_rows() - 1 and hq.buttons.has("met_down")
+	var top0: String = hq.contact_at(0)
+	_press("met_down")
+	hq._layout()
+	var scrolled: bool = hq.contact_scroll == 1 and hq.contact_at(0) != top0 and hq.contact_at(0) == str(hq.call_list()[1])
+	_press("met_up")
+	await _shot("log_list_left", 0.3)
+	GS.met = met_keep
+	GS.mood = mood_keep
+	hq.contact_scroll = 0
+	hq._layout()
+	_check("v1.8r (owner): the call list is on the left (face and name), the picked person's picture with CALL on the right; someone who turns against you drops off the list; UP / DOWN scroll it when there are more people than fit",
+		left_list and dropped and back_on and can_scroll and scrolled, "left %s dropped %s back %s scroll %s (%d people) scrolled %s" % [left_list, dropped, back_on, can_scroll, many, scrolled])
 	_press("call_pick")
 	await _wait(0.3)
 	_check("Call a contact from LOG", main.hud.comms_mode == "talk")
@@ -2895,18 +2923,18 @@ func _job_q() -> void:
 	var lg: Rect2 = hud.msglog_rect()
 	var sz: Vector2 = hud.S
 	var mid := Rect2(sz.x * 0.3, 0, sz.x * 0.4, sz.y)
-	var flush: bool = absf(cr.end.x - sz.x) < 1.0 and absf(lg.position.x) < 1.0
+	var flush: bool = absf(lg.end.x - sz.x) < 1.0 and absf(cr.position.x) < 1.0   # (v1.8r, owner: the call list is on the left now, the log on the right)
 	var clear: bool = not cr.intersects(mid) and not lg.intersects(mid)
 	var rows: bool = hud.buttons.has("met_0") and cr.encloses(hud.buttons["met_0"]) and hud.buttons.has("type") and lg.encloses(hud.buttons["type"]) and lg.encloses(hud.buttons["voice"])
 	await _shot("q_comms_split")
-	_check("Job Q: the comms console is split: contacts flush against the right edge, the message log flush against the left edge, the middle 40% of the screen clear", hud.console_open and flush and clear and rows,
+	_check("Job Q: the comms console is split: the call list flush against the left edge (v1.8r), the message log flush against the right edge, the middle 40% of the screen clear", hud.console_open and flush and clear and rows,
 		"contacts x %d..%d, log x %d..%d of %d, rows in place %s" % [int(cr.position.x), int(cr.end.x), int(lg.position.x), int(lg.end.x), int(sz.x), rows])
 	# a caller floats in beside the panel, not under it; the console stays up while you fly
 	hud.open_comms("Capt. Rennick — Bright Margin", "[smile]Good to see you out here.", "incoming", false, "rennick")
 	await _wait(0.5)
 	hud._layout()
 	var sr: Rect2 = hud.side_rect("r")
-	var beside: bool = sr.end.x <= hud.contacts_rect().position.x + 1.0 and sr.position.x > sz.x * 0.6
+	var beside: bool = sr.end.x <= hud.msglog_rect().position.x + 1.0 and sr.position.x > sz.x * 0.6   # (v1.8r: the right panel is the log)
 	await _shot("q_comms_caller")
 	var ev := InputEventScreenTouch.new()
 	ev.index = 7
@@ -2917,7 +2945,7 @@ func _job_q() -> void:
 	ev.pressed = false
 	hud._input(ev)
 	await _wait(0.4)
-	_check("Job Q: someone calling floats in next to the contacts panel, and touching the middle of the screen leaves the console up", beside and hud.console_open and not hud.roster_closing,
+	_check("Job Q: someone calling floats in next to the right panel, and touching the middle of the screen leaves the console up", beside and hud.console_open and not hud.roster_closing,
 		"caller x %d..%d, panel starts %d" % [int(sr.position.x), int(sr.end.x), int(hud.contacts_rect().position.x)])
 	# tapping a name calls that person
 	hud.close_comms()
@@ -4931,6 +4959,68 @@ func _job_ai() -> void:
 	var g_paid: bool = gwave2.size() == int(Data.MISSION_GROUP[1]) + int(Data.MISSION_GROUND_MECHS[1]) and GS.mission.is_empty() and GS.credits - gc0 >= int(gnd["pay"])
 	_check("v1.8m (owner): a ground job: the board offers a strike on the planet; in space the planet is the waypoint; down there the waypoint leads across sectors to two points in one sector, a wave waits over the ground at each (left behind, it waits again), and the last kill pays",
 		g_space and g_far and g_alt and g_wave and g_wait and g_next and g_paid, "space %s far %s alt %s wave %s wait %s next %s paid %s (%s, %s)" % [g_space, g_far, g_alt, g_wave, g_wait, g_next, g_paid, gpid, Missions.sector_name(gpid, gtile)])
+	# ---- v1.8r (owner): GROUND mode: the ship comes down under gravity and lands with no damage, stands q_still with the
+	#      stick centred; THRUST centred = a jump (down again by gravity); THRUST in the air does nothing; stick + THRUST = a q_burst
+	for e in sg.enemies.duplicate():
+		if is_instance_valid(e["node"]): (e["node"] as Node3D).free()
+	sg.enemies = []
+	sg.target = null
+	var hudg: Control = main.hud
+	var gform: String = GS.form
+	var gr_ok := true
+	var gr_note := ""
+	for form in ["ship", "mech"]:
+		GS.form = form
+		sg.ground_mode = false
+		sg.player.global_position = Vector3(gp0.x, sg._ground(gp0.x, gp0.z) + 150.0, gp0.z)
+		sg.vel = Vector3.ZERO
+		hudg.move_vec = Vector2.ZERO
+		hudg.held.erase("thrust")
+		GS.restore_full()
+		_shield_down()
+		sg.last_collision = {}
+		var gh0: float = GS.hull
+		_press("ground")
+		var q_on: bool = sg.ground_mode
+		var q_landed: bool = await _until(func(): return sg.grounded, 15.0)
+		await _wait(0.6)
+		var q_soft: bool = GS.hull == gh0 and sg.last_collision.is_empty()
+		var q_still: bool = sg.vel.length() < 1.5
+		GS.energy = Data.ENERGY_MAX
+		hudg.held["thrust"] = true   # stick centred: a jump
+		await _frames(3)
+		hudg.held.erase("thrust")
+		var q_jumped: bool = sg.last_dash == "jump" and sg.vel.y > Data.GROUND_JUMP * 0.5 and not sg.grounded
+		await _wait(0.5)
+		var q_up_y: float = sg.altitude
+		hudg.move_vec = Vector2(0, -1)   # in the air: stick forward + THRUST = no q_burst
+		hudg.held["thrust"] = true
+		await _frames(4)
+		hudg.held.erase("thrust")
+		var q_no_air: bool = sg.last_dash == "air" and Vector2(sg.vel.x, sg.vel.z).length() < float(GS.ship()["speed"]) * Data.GROUND_WALK * 1.2 and not sg.boosting
+		hudg.move_vec = Vector2.ZERO
+		var q_back: bool = await _until(func(): return sg.grounded, 10.0)
+		await _wait(0.5)
+		GS.energy = Data.ENERGY_MAX
+		hudg.move_vec = Vector2(0, -1)   # q_on the ground: stick forward + THRUST = a q_burst forward
+		await _frames(2)
+		hudg.held["thrust"] = true
+		await _wait(0.25)
+		var q_burst: bool = sg.last_dash == "forward" and sg.boosting and Vector2(sg.vel.x, sg.vel.z).length() > float(GS.ship()["speed"]) * Data.GROUND_WALK * 1.5 and sg.altitude < 12.0
+		gr_note += "[burst %s boosting %s h %.0f alt %.0f grounded %s] " % [sg.last_dash, sg.boosting, Vector2(sg.vel.x, sg.vel.z).length(), sg.altitude, sg.grounded]
+		hudg.held.erase("thrust")
+		hudg.move_vec = Vector2.ZERO
+		await _wait(2.0)
+		var q_stopped: bool = Vector2(sg.vel.x, sg.vel.z).length() < 1.5
+		gr_note += "[stop h %.1f grounded %s alt %.0f] " % [Vector2(sg.vel.x, sg.vel.z).length(), sg.grounded, sg.altitude]
+		_press("ground")
+		var q_off: bool = not sg.ground_mode
+		if not (q_on and q_landed and q_soft and q_still and q_jumped and q_up_y > 8.0 and q_no_air and q_back and q_burst and q_stopped and q_off): gr_ok = false
+		gr_note += "%s: q_on %s q_landed %s q_soft %s q_still %s q_jumped %s (%.0f m) q_no_air %s q_back %s q_burst %s q_stopped %s q_off %s  " % [form, q_on, q_landed, q_soft, q_still, q_jumped, q_up_y, q_no_air, q_back, q_burst, q_stopped, q_off]
+	GS.form = gform
+	GS.restore_full()
+	_check("v1.8r (owner): GROUND mode (ship and mech): gravity brings you down to land with no damage and you stand still with the stick centred; THRUST centred = a jump and gravity brings you back; THRUST in the air does nothing; stick + THRUST on the ground = a burst that way; GROUND again = flying",
+		gr_ok, gr_note)
 	_check("v1.8n (owner): enemy mechs on foot: each wave of a ground job has Assault Mechs walking the ground under the ships: they stay on the ground, upright, and walk toward you; the ships stay in the air",
 		wk_ok and wk_moved and fliers_up and dry, "walkers %d ok %s moved %s fliers up %s dry land %s" % [walkers.size(), wk_ok, wk_moved, fliers_up, dry])
 	await main._load_system(home_sys, "station")

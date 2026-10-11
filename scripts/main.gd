@@ -346,7 +346,13 @@ func _on_hud(id: String) -> void:
 			if pk == "hail": _call_target()
 			elif pk != "" and hud.in_range(pk): call_character(pk)
 			elif pk != "": hud.flash_message("%s is in %s — out of comms range. Only people in this system can be called." % [Data.CHARACTERS[pk]["name"], Data.SYSTEMS[Data.CHARACTERS[pk]["system"]]["name"]])
-		"ground", "lock_a", "lock_b", "lock_c": hud.flash_message("Locked for now.")
+		"ground":   # v1.8r (owner): gravity on / off
+			match space.toggle_ground():
+				"on": hud.flash_message("GROUND: walking. THRUST = jump, stick + THRUST = dash." if GS.form == "mech" else "GROUND: coming down to land. THRUST = hop up, stick + THRUST = dash.")
+				"off": hud.flash_message("GROUND off: flying.")
+				"space": hud.flash_message("GROUND works down on a planet.")
+				"warp": hud.flash_message("Drop out of warp first.")
+		"lock_a", "lock_b", "lock_c": hud.flash_message("Locked for now.")
 		"log":
 			if hud.comms_mode == "roster": hud.close_roster()
 			else: hud.open_log()
@@ -390,9 +396,12 @@ func _on_hud(id: String) -> void:
 			if state == "map" and hud.radar_pick != Vector3.INF: navmap.select_near(hud.radar_pick)
 		_:
 			if id.begins_with("met_"):
+				if id == "met_up" or id == "met_down":   # v1.8r: scroll the call list
+					hud.scroll_contacts(-1 if id == "met_up" else 1)
+					return
 				var k := int(id.substr(4))
-				if k < GS.met.size():
-					var cid: String = GS.met[k]   # v1.8q (owner): a tap shows the picture with CALL; CALL makes the call
+				var cid: String = hud.contact_at(k)   # v1.8q (owner): a tap shows the picture with CALL; CALL makes the call
+				if cid != "":
 					var cc: Dictionary = Data.CHARACTERS[cid]
 					hud.pick_contact(cid, {"name": "%s — %s" % [cc["name"], cc["role"]], "face": str(cc.get("face", "")), "ok": hud.in_range(cid),
 						"sub": str(Data.SYSTEMS[cc["system"]]["name"]).to_upper() if cc.has("system") else ""})
