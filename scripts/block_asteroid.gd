@@ -1,4 +1,6 @@
 extends MeshInstance3D
+## v1.8d (owner): asteroids break like the arcade game: a whole asteroid splits into 2 big pieces, each of those into 4,
+## each of those into 4 more, and the smallest pieces are destroyed. Every piece can be shot; no loose bits are left.
 ## v1.7x (owner): an asteroid made of blocks, like the planet ground but floating in zero gravity. Rock outside, dark
 ## obsidian streaks, and sometimes gold or diamond in the middle to mine. Shots break blocks; broken blocks drift
 ## away (space.gd keeps them inside the field's invisible sphere); gold and diamond drop pickups for the tractor beam.
@@ -19,6 +21,9 @@ var radius := 12.0              # bounding sphere (m)
 var spin := Vector3.ZERO        # rad/s tumble
 var ice := false
 var solid_count := 0
+var tier := 0                   # v1.8d: 0 = whole asteroid, 1 = half, 2 = quarter of that, 3 = smallest (destroyed next)
+var health := 1.0               # damage left before it splits
+var vel := Vector3.ZERO         # m/s drift (pieces fly apart; whole asteroids stay put)
 var _mat: StandardMaterial3D = null
 
 func setup(seed_v: int, size_cells: int, cell_m: float, is_ice: bool, treasure: Dictionary) -> void:
@@ -65,6 +70,65 @@ func setup(seed_v: int, size_cells: int, cell_m: float, is_ice: bool, treasure: 
 	spin = Vector3(rng.randf_range(-1, 1), rng.randf_range(-1, 1), rng.randf_range(-1, 1)).normalized() * rng.randf_range(0.02, 0.08)
 	rotation = Vector3(rng.randf() * TAU, rng.randf() * TAU, rng.randf() * TAU)
 	remesh()
+
+## v1.8d: a piece made from some of another piece's blocks ([[cell, material id]], in the parent's grid).
+## Returns the centre of the new grid in the PARENT's own space (place the piece there).
+func setup_from(list: Array, parent_n: int, cell_m: float, is_ice: bool, new_tier: int) -> Vector3:
+	cell = cell_m
+	ice = is_ice
+	tier = new_tier
+	var mn := Vector3i(9999, 9999, 9999)
+	var mx := Vector3i(-9999, -9999, -9999)
+	for e in list:
+		var c: Vector3i = e[0]
+		mn = Vector3i(mini(mn.x, c.x), mini(mn.y, c.y), mini(mn.z, c.z))
+		mx = Vector3i(maxi(mx.x, c.x), maxi(mx.y, c.y), maxi(mx.z, c.z))
+	var size := mx - mn + Vector3i.ONE
+	n = maxi(1, maxi(size.x, maxi(size.y, size.z)))
+	cells.resize(n * n * n)
+	hp_cells_reset()
+	cells.fill(EMPTY)
+	for e in list:
+		var c: Vector3i = (e[0] as Vector3i) - mn
+		cells[_i(c.x, c.y, c.z)] = int(e[1])
+	var half := (n - 1) * 0.5
+	radius = maxf(cell, half * cell * 1.8 + cell)
+	remesh()
+	# where this grid's middle sits in the parent's space
+	return (Vector3(mn) + Vector3.ONE * (n * 0.5) - Vector3.ONE * (parent_n * 0.5)) * cell
+
+func hp_cells_reset() -> void:
+	hp.resize(n * n * n)
+	hp.fill(0)
+
+## v1.8d: split the solid blocks into k groups (2 = halves across the longest side; 4 = quarters across the two longest).
+func split_groups(k: int) -> Array:
+	var list: Array = []
+	for x in n:
+		for y in n:
+			for z in n:
+				var m := cells[_i(x, y, z)]
+				if m != EMPTY: list.append([Vector3i(x, y, z), m])
+	if list.size() <= 1: return [list]
+	var mn := Vector3(9999, 9999, 9999)
+	var mx := Vector3(-9999, -9999, -9999)
+	for e in list:
+		var c := Vector3(e[0])
+		mn = mn.min(c)
+		mx = mx.max(c)
+	var ext := mx - mn
+	var axes := [0, 1, 2]
+	axes.sort_custom(func(a, b): return ext[a] > ext[b])
+	var mid := (mn + mx) * 0.5
+	var groups: Array = []
+	var count := 2 if k <= 2 else 4
+	for g in count: groups.append([])
+	for e in list:
+		var c := Vector3(e[0])
+		var gi := 1 if c[axes[0]] > mid[axes[0]] else 0
+		if count == 4 and c[axes[1]] > mid[axes[1]]: gi += 2
+		groups[gi].append(e)
+	return groups.filter(func(gr): return not gr.is_empty())
 
 func _i(x: int, y: int, z: int) -> int: return (x * n + y) * n + z
 func _in(x: int, y: int, z: int) -> bool: return x >= 0 and y >= 0 and z >= 0 and x < n and y < n and z < n
@@ -196,18 +260,6 @@ func break_cell(c: Vector3i) -> String:
 	if m == EMPTY: return ""
 	cells[_i(c.x, c.y, c.z)] = EMPTY
 	return NAMES[m]
-
-## A hit on a block: it cracks and breaks after enough hits. Returns the broken material or "".
-func hit_cell(c: Vector3i, power: int) -> String:
-	var m := at(c)
-	if m == EMPTY: return ""
-	var i := _i(c.x, c.y, c.z)
-	var need: int = int(Data.ASTEROID_HITS.get(NAMES[m], 2))
-	var got := mini(255, int(hp[i]) + power)
-	hp[i] = got
-	if got < need: return ""
-	hp[i] = 0
-	return break_cell(c)
 
 ## Every solid block within r metres of a world point: [[cell, material]].
 func cells_near(p: Vector3, r: float) -> Array:
