@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.7y"
+const VERSION := "v1.7z"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -62,6 +62,19 @@ const SETTINGS_RESET_CONFIRM_S := 3.0 # press Reset again within this many secon
 const SAVE_PATH := "user://homelancer_save.txt"
 const SAVE_EVERY := 30.0
 const SAVE_DELTAS_MAX := 2000000   # characters: crater notes past this size are left out of the save (the ground regrows)
+# v1.7z (owner, concept art): the MECH first-person view. VIEW in mech form looks out of the mech's head: its own arms
+# hold a rifle in front of you and sway with the sticks; ZOOM looks down the rifle's scope.
+const FPV_EYE := Vector3(0, 3.4, -0.4)      # the mech's eye, in its own axes (m)
+const FPV_FOV := 72.0
+const FPV_ZOOM_FOV := 26.0                  # looking down the scope
+const FPV_SWAY := Vector2(0.55, 0.4)        # how far the arms lag behind a turn (m at full stick)
+const FPV_BOB := 0.12                       # m the arms bob while walking
+const FPV_KICK := 0.35                      # m the rifle kicks back on each shot
+const FPV_ARM_DIRS := {                      # where the bones point, in the model's own axes (+Z = forward)
+	"RightUpperArm": Vector3(0.2, -0.42, 0.88), "RightLowerArm": Vector3(0.28, 0.12, 0.95),
+	"LeftUpperArm": Vector3(-0.3, -0.4, 0.86), "LeftLowerArm": Vector3(-0.9, 0.12, 0.45)}
+const FPV_GUN_SCALE := 0.6                  # the rifle's size in the hands
+const FPV_GUN_COLORS := {"body": Color(0.86, 0.87, 0.88), "dark": Color(0.12, 0.13, 0.15), "glow": Color(0.3, 0.85, 1.0)}
 
 # ---------------------------------------------------------------- Job K (v1.4g): jump-gate docking + warp tunnel
 # Every Job K number lives in this one block. The jump destination logic is unchanged (gate "to" in the galaxy data).

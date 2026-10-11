@@ -283,7 +283,9 @@ func _on_hud(id: String) -> void:
 		"scan_close": hud.close_scan()
 		"view":
 			space.set_view("cockpit" if GS.view == "chase" else "chase")
-			hud.flash_message("View: %s" % ("first-person cockpit" if GS.view == "cockpit" else "chase camera"))
+			hud.flash_message("View: %s" % (("first person: the mech's eyes" if GS.form == "mech" else "first-person cockpit") if GS.view == "cockpit" else "chase camera"))
+		"zoom":   # v1.7z: the mech rifle's scope
+			hud.flash_message("Scope: ON" if space.toggle_zoom() else "Scope: OFF")
 		"stop":
 			space.full_stop()
 			hud.flash_message("Braking to a full stop.")

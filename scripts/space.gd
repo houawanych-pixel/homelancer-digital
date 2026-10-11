@@ -2129,6 +2129,16 @@ func _fire_guns() -> void:
 		var to := target.global_position - player.global_position
 		if fwd.dot(to.normalized()) > cos(deg_to_rad(10.0)):
 			aim_dir = (lead_point(target) - player.global_position).normalized()
+	if mech_fpv() and fpv != null:   # v1.7z: in the mech's first-person view the rifle fires (all guns' worth, one bolt) at the crosshair
+		var muzzle: Vector3 = cam.global_position - cam.global_basis.z * 4.0 if zoomed else fpv.global_transform * fpv_muzzle
+		var at: Vector3 = cam.global_position - cam.global_basis.z * float(w["range"])
+		if aim_dir != fwd: at = lead_point(target)
+		_spawn_bolt(muzzle, (at - muzzle).normalized() * float(w["speed"]) + vel, float(w["damage"]) * guns, w["color"], "player", float(w["range"]) / float(w["speed"]))
+		fpv_shot()
+		if _laser_sfx_cd <= 0.0:
+			Sfx.play("laser", -9.0)
+			_laser_sfx_cd = 0.07
+		return
 	for g in guns:
 		var off := (g - (guns - 1) / 2.0) * 2.4
 		if off < -0.1 and GS.wing_l <= 0.0: continue   # left wing gone: its guns are gone
@@ -3408,6 +3418,15 @@ const LOOK_YAW := 0.5      # radians at full look left/right
 const LOOK_PITCH := 0.22   # radians at full look up/down (less: you shouldn't see past the canopy art)
 
 func _update_camera(dt: float, snap: bool) -> void:
+	_sync_fpv(dt)
+	if GS.view == "cockpit" and GS.form == "mech" and is_instance_valid(player):   # v1.7z: out of the mech's head, rifle in hand
+		var mb := player.global_basis
+		cam.global_position = player.global_position + mb * Data.FPV_EYE
+		var ahead2 := cam.global_position - mb.z * 80.0
+		if hit_shake > 0.0: ahead2 += Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), 0) * hit_shake * 1.2
+		cam.look_at(ahead2, mb.y)
+		cam.fov = lerpf(cam.fov, Data.FPV_ZOOM_FOV if zoomed else Data.FPV_FOV, minf(1.0, dt * 8.0) if not snap else 1.0)
+		return
 	if GS.view == "cockpit":
 		# pilot's eye: fixed to the hull, tiny lag-free shake on hits. The head turns with the aim stick (free-look),
 		# so you can look out of the side and top glass; the crosshair shows where the nose really points.
@@ -3777,6 +3796,139 @@ func _update_loot(dt: float) -> void:
 		elif l["life"] <= 0.0:
 			n.queue_free()
 			loot.remove_at(i)
+
+# ---------------------------------------------------------------- v1.7z mech first-person view
+var fpv: Node3D = null            # the mech's own arms and rifle, held in front of the camera
+var fpv_skel: Skeleton3D = null
+var fpv_gun: Node3D = null
+var fpv_muzzle := Vector3.ZERO    # (in fpv space)
+var zoomed := false               # looking down the scope
+var _fpv_base := Vector3.ZERO
+var _fpv_sway := Vector2.ZERO
+var _fpv_kick := 0.0
+var _fpv_walk := 0.0
+
+func mech_fpv() -> bool:
+	return GS.view == "cockpit" and GS.form == "mech" and transform_t <= 0.0 and is_instance_valid(player) and is_instance_valid(cam)
+
+func toggle_zoom() -> bool:
+	zoomed = mech_fpv() and not zoomed
+	return zoomed
+
+## Keep the arms there only while looking out of the mech; sway them with the sticks, bob them while walking, kick on shots.
+func _sync_fpv(dt: float) -> void:
+	var want := mech_fpv()
+	if want and fpv == null: _build_fpv()
+	if not want:
+		zoomed = false
+		if fpv != null:
+			fpv.queue_free()
+			fpv = null
+		return
+	if fpv == null: return
+	fpv.visible = not zoomed
+	var stick: Vector2 = aim if controls else Vector2.ZERO
+	_fpv_sway = _fpv_sway.lerp(stick, minf(1.0, dt * 5.0))
+	var walking: float = clampf(vel.length() / 30.0, 0.0, 1.0)
+	_fpv_walk += dt * (4.0 + 6.0 * walking)
+	var bob: float = sin(_fpv_walk) * Data.FPV_BOB * walking
+	_fpv_kick = maxf(0.0, _fpv_kick - dt * 6.0)
+	fpv.position = _fpv_base + Vector3(-_fpv_sway.x * Data.FPV_SWAY.x, -_fpv_sway.y * Data.FPV_SWAY.y + bob, _fpv_kick * Data.FPV_KICK)
+	fpv.rotation = Vector3(_fpv_sway.y * 0.08 + _fpv_kick * 0.06, -_fpv_sway.x * 0.1, _fpv_sway.x * 0.06)
+
+## A shot from the rifle: it kicks back and flashes at the muzzle.
+func fpv_shot() -> void:
+	if fpv == null or not fpv.visible: return
+	_fpv_kick = 1.0
+	_spark(fpv.global_transform * fpv_muzzle, Color(0.55, 0.9, 1.0), 2.6, 0.08)
+
+func _build_fpv() -> void:
+	fpv = Node3D.new()
+	fpv.name = "MechFPV"
+	cam.add_child(fpv)
+	var body := ShipFactory.build("mech_player")
+	fpv.add_child(body)
+	_shadows_off(body)
+	fpv_skel = Sections._find_skeleton(body)
+	var hand_r := Vector3(0.6, -1.4, -2.0)
+	var hand_l := Vector3(-0.3, -1.3, -3.4)
+	if fpv_skel != null:
+		var sk := fpv_skel
+		for bn in ["Head", "Neck", "LeftUpperLeg", "RightUpperLeg"]:
+			var bi := sk.find_bone(bn)
+			if bi >= 0: sk.set_bone_pose_scale(bi, Vector3.ONE * 0.0001)
+		for pair in [["RightUpperArm", "RightLowerArm"], ["RightLowerArm", "RightHand"], ["LeftUpperArm", "LeftLowerArm"], ["LeftLowerArm", "LeftHand"]]:
+			_point_bone(sk, sk.find_bone(pair[0]), sk.find_bone(pair[1]), Data.FPV_ARM_DIRS[pair[0]])
+		# the eye sits where the neck was: move the whole body so its neck is just behind the camera
+		var neck := sk.find_bone("Neck")
+		if neck >= 0:
+			var nw: Vector3 = sk.global_transform * sk.get_bone_global_pose(neck).origin
+			body.position -= fpv.to_local(nw) - Vector3(0, -0.35, 0.5)
+		var hr := sk.find_bone("RightHand")
+		var hl := sk.find_bone("LeftHand")
+		if hr >= 0: hand_r = fpv.to_local(sk.global_transform * sk.get_bone_global_pose(hr).origin)
+		if hl >= 0: hand_l = fpv.to_local(sk.global_transform * sk.get_bone_global_pose(hl).origin)
+	fpv_gun = _fpv_rifle()
+	fpv.add_child(fpv_gun)
+	# the rifle sits in the right hand and runs forward past the left one
+	var along := (hand_l - hand_r)
+	along.x *= 0.4
+	var gdir := Vector3(-0.06, 0.03, -1.0).normalized()
+	fpv_gun.transform = Transform3D(Basis.looking_at(gdir, Vector3.UP).scaled(Vector3.ONE * Data.FPV_GUN_SCALE), hand_r + Vector3(-0.15, 0.2, 0.1))
+	fpv_muzzle = fpv_gun.transform * Vector3(0, 0.1, -4.6)
+	_fpv_base = Vector3.ZERO
+
+## Point a bone (and so its whole limb) along a direction in the model's own axes.
+func _point_bone(sk: Skeleton3D, b: int, child: int, dir: Vector3) -> void:
+	if b < 0 or child < 0: return
+	var gp := sk.get_bone_global_pose(b)
+	var cp := sk.get_bone_global_pose(child)
+	var cur := (cp.origin - gp.origin).normalized()
+	var to := dir.normalized()
+	if cur.length() < 0.5 or cur.is_equal_approx(to): return
+	var q := Quaternion(cur, to)
+	sk.set_bone_global_pose(b, Transform3D(Basis(q) * gp.basis, gp.origin))
+
+func _shadows_off(n: Node) -> void:
+	if n is GeometryInstance3D: (n as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for c in n.get_children(): _shadows_off(c)
+
+## The rifle: blocky, white plates over black, cyan glow strips and a scope (concept art). Its muzzle is at -Z.
+func _fpv_rifle() -> Node3D:
+	var g := Node3D.new()
+	g.name = "Rifle"
+	var col: Dictionary = Data.FPV_GUN_COLORS
+	var parts := [   # [size, centre, colour key]
+		[Vector3(0.55, 0.6, 2.2), Vector3(0, 0.1, -0.9), "body"],      # receiver
+		[Vector3(0.62, 0.22, 1.6), Vector3(0, 0.48, -0.8), "dark"],     # top rail
+		[Vector3(0.3, 0.3, 2.2), Vector3(0, 0.12, -3.0), "dark"],       # barrel
+		[Vector3(0.44, 0.44, 0.5), Vector3(0, 0.12, -4.2), "body"],     # muzzle brake
+		[Vector3(0.3, 0.8, 0.35), Vector3(0, -0.45, -0.2), "dark"],     # grip
+		[Vector3(0.45, 0.7, 0.4), Vector3(0, -0.35, -1.2), "body"],     # magazine
+		[Vector3(0.5, 0.55, 0.9), Vector3(0, 0.05, 0.55), "dark"],      # stock
+		[Vector3(0.42, 0.42, 0.9), Vector3(0, 0.85, -0.6), "dark"],     # scope body
+		[Vector3(0.6, 0.14, 0.12), Vector3(0.0, 0.12, -1.4), "glow"],   # glow strip
+		[Vector3(0.06, 0.08, 1.4), Vector3(0.29, 0.1, -0.9), "glow"],   # side glow
+		[Vector3(0.06, 0.08, 1.4), Vector3(-0.29, 0.1, -0.9), "glow"],
+		[Vector3(0.34, 0.34, 0.05), Vector3(0, 0.85, -1.06), "glow"],   # scope lens
+	]
+	for pt in parts:
+		var mi := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = pt[0]
+		mi.mesh = bm
+		var m := StandardMaterial3D.new()
+		m.albedo_color = col[pt[2]]
+		m.roughness = 0.5 if pt[2] != "glow" else 0.2
+		if pt[2] == "glow":
+			m.emission_enabled = true
+			m.emission = col["glow"]
+			m.emission_energy_multiplier = 2.5
+		mi.material_override = m
+		mi.position = pt[1]
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		g.add_child(mi)
+	return g
 
 ## Chase camera or first-person cockpit.
 func set_view(v: String) -> void:

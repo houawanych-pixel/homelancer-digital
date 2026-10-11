@@ -940,6 +940,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_FPV") != "":   # v1.7z: the mech first-person view checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _mech_fpv()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_AR") != "":   # the Job AR checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1281,6 +1289,7 @@ func _run() -> void:
 	_press("hangup")
 	_check("Hang up", not main.hud.comms_open or main.hud.comms_mode == "incoming")
 	_save_check()
+	await _mech_fpv()
 	_press("log")
 	await _wait(0.5)
 	_check("LOG pull-out contacts", main.hud.comms_mode == "roster" and main.hud.buttons.has("met_0"))
@@ -5295,6 +5304,47 @@ func _asteroid_mining(s: SpaceSystem) -> void:
 	var gone: bool = not (far in s.debris)
 	_check("v1.7x (owner): block asteroids: a laser breaks a rock block after its hits and it drifts off; obsidian is tough; a missile blows a hole; gold / diamond inside drop pickups (%s); blocks past the field's invisible sphere are gone" % ("treasure found" if any_treasure else "no treasure in this field"),
 		laser_ok and tough and broke > 3 and mined and gone, "laser %s tough %s broke %d mined %s (gems %d) gone %s" % [laser_ok, tough, broke, mined, gems.size(), gone])
+
+## v1.7z (owner, concept art): VIEW in mech form = first person out of the mech's head, its own arms holding a rifle that
+## sways with the stick; FIRE shoots from the rifle at the crosshair; ZOOM (in KILL's place) looks down the scope.
+func _mech_fpv() -> void:
+	var s := _sp()
+	var view0: String = GS.view
+	if GS.form != "mech":
+		s.start_transform()
+		await _until(func(): return GS.form == "mech" and s.transform_t <= 0.0, 8.0)
+	if GS.view != "cockpit": _press("view")
+	await _frames(4)
+	var arms: bool = s.fpv != null and s.fpv.visible and s.fpv_skel != null and s.fpv_gun != null and not s.model.visible and absf(s.cam.fov - Data.FPV_FOV) < 3.0
+	main.hud._layout()
+	var zoom_btn: bool = main.hud.buttons.has("zoom") and not main.hud.buttons.has("kill") and main.hud.cockpit_texture() == null
+	await _shot("az_mech_fpv", 0.3)
+	var p0: Vector3 = s.fpv.position
+	main.hud.aim_vec = Vector2(1.0, 0.4)
+	await _wait(0.4)
+	var swayed: bool = s.fpv.position.distance_to(p0) > 0.15
+	await _shot("az_mech_fpv_turn", 0.0)
+	main.hud.aim_vec = Vector2.ZERO
+	await _wait(0.4)
+	var b0: int = s.bolts.size()
+	s._fire_guns()
+	var shot_ok: bool = s.bolts.size() == b0 + 1 and s._fpv_kick > 0.5
+	await _shot("az_mech_fpv_fire", 0.05)
+	_press("zoom")
+	await _wait(0.5)
+	var scoped: bool = s.zoomed and not s.fpv.visible and s.cam.fov < Data.FPV_ZOOM_FOV + 4.0
+	await _shot("az_mech_scope", 0.2)
+	_press("zoom")
+	await _frames(2)
+	var unscoped: bool = not s.zoomed and s.fpv.visible
+	_press("view")
+	await _frames(3)
+	var back_out: bool = s.fpv == null and s.model.visible
+	s.start_transform()
+	await _until(func(): return GS.form == "ship" and s.transform_t <= 0.0, 8.0)
+	if GS.view != view0: s.set_view(view0)
+	_check("v1.7z (owner): VIEW in mech form looks out of the mech's head with its own arms holding a rifle (no ship cockpit), the arms sway with the stick, FIRE shoots from the rifle with a kick, ZOOM (KILL's place) looks down the scope, VIEW again goes back to the chase camera",
+		arms and zoom_btn and swayed and shot_ok and scoped and unscoped and back_out, "arms %s zoom button %s sway %s shot %s scope %s unscope %s back %s" % [arms, zoom_btn, swayed, shot_ok, scoped, unscoped, back_out])
 
 ## v1.7y (owner): progress is saved: the save keeps credits, ships, systems found, jobs and so on; loading puts them
 ## back; a damaged value is ignored; START OVER erases it. (Its own file; the route test never touches a player's save.)

@@ -315,6 +315,9 @@ func _layout() -> void:
 	buttons["kill"] = Rect2(Vector2(S.x - 8 - btn, y2), bs)
 	buttons["thrust"] = Rect2(Vector2(S.x - 8 - btn * 2 - g, y2), bs)
 	buttons["fire"] = Rect2(Vector2(S.x - 8 - btn * 3 - g * 2, y2), bs)   # v1.4l: FIRE on/off, in the empty corner of the block
+	if space and space.mech_fpv():   # v1.7z: looking out of the mech, KILL (no use to a mech) becomes the rifle's ZOOM
+		buttons["zoom"] = buttons["kill"]
+		buttons.erase("kill")
 	# centre strip: MAP · VIEW · LOG · CALL · TARGET · GO TO under the status bars
 	var cl := 8 + _block_w() + 14
 	var avail := S.x - cl * 2
@@ -563,6 +566,12 @@ func _icon(id: String, c: Vector2, s: float, col: Color) -> void:
 			var a2 := c + Vector2(cos(deg_to_rad(160)), sin(deg_to_rad(160))) * s * 0.8
 			draw_colored_polygon(PackedVector2Array([a1 + Vector2(-s * 0.35, -s * 0.1), a1 + Vector2(s * 0.25, -s * 0.05), a1 + Vector2(0, s * 0.4)]), col)
 			draw_colored_polygon(PackedVector2Array([a2 + Vector2(s * 0.35, s * 0.1), a2 + Vector2(-s * 0.25, s * 0.05), a2 + Vector2(0, -s * 0.4)]), col)
+		"zoom":   # v1.7z: a scope reticle with a plus
+			draw_arc(c, s * 0.7, 0, TAU, 28, col, 3.0, true)
+			for k in 4:
+				var ang2 := k * PI / 2.0
+				draw_line(c + Vector2(cos(ang2), sin(ang2)) * s * 0.35, c + Vector2(cos(ang2), sin(ang2)) * s * 0.95, col, 2.5)
+			draw_circle(c, s * 0.1, col)
 		"kill":
 			draw_circle(c, s * 0.55, col, false, 3.0)
 			for k in 4:
@@ -744,7 +753,37 @@ func cockpit_rect() -> Rect2:
 	base += Vector2(-lk.x * mx, clampf(-lk.y * 70.0, -40.0, maxf(0.0, -base.y)))
 	return Rect2(base, sz)
 
+## v1.7z: the scope view: a dark armoured frame round a clear window, cyan corner brackets and side lights, a reticle.
+func _scope() -> void:
+	var w := Rect2(S * Vector2(0.21, 0.17), S * Vector2(0.58, 0.66))
+	var dark := Color(0.03, 0.04, 0.05, 0.96)
+	draw_rect(Rect2(0, 0, S.x, w.position.y), dark)
+	draw_rect(Rect2(0, w.end.y, S.x, S.y - w.end.y), dark)
+	draw_rect(Rect2(0, w.position.y, w.position.x, w.size.y), dark)
+	draw_rect(Rect2(w.end.x, w.position.y, S.x - w.end.x, w.size.y), dark)
+	draw_rect(w.grow(10), Color(0.16, 0.17, 0.19), false, 14.0)
+	draw_rect(w.grow(3), Color(0.08, 0.09, 0.1), false, 4.0)
+	var c := CYAN
+	var L := minf(w.size.x, w.size.y) * 0.16
+	for corner in [w.position, Vector2(w.end.x, w.position.y), w.end, Vector2(w.position.x, w.end.y)]:
+		var sx := 1.0 if corner.x < w.get_center().x else -1.0
+		var sy := 1.0 if corner.y < w.get_center().y else -1.0
+		var p0: Vector2 = corner + Vector2(sx, sy) * 18.0
+		draw_line(p0, p0 + Vector2(sx * L, 0), c, 4.0)
+		draw_line(p0, p0 + Vector2(0, sy * L), c, 4.0)
+	for side in [-1.0, 1.0]:   # glowing side lights
+		var x: float = w.position.x - 24.0 if side < 0.0 else w.end.x + 16.0
+		draw_rect(Rect2(x, w.get_center().y - w.size.y * 0.18, 8, w.size.y * 0.36), Color(c, 0.85))
+	var m := w.get_center()
+	var r := minf(w.size.x, w.size.y) * 0.13
+	draw_arc(m, r, 0, TAU, 40, c, 3.0, true)
+	for k in 4:
+		var d := Vector2.RIGHT.rotated(k * PI / 2.0)
+		draw_line(m + d * r * 0.45, m + d * r * 1.9, c, 2.5)
+	draw_circle(m, 4.0, c, false, 2.0)
+
 func cockpit_texture() -> Texture2D:
+	if GS.form == "mech": return null   # v1.7z: the mech's first-person view has no ship cockpit around it
 	if _cockpit_tex == null and ResourceLoader.exists(COCKPIT_PATH): _cockpit_tex = load(COCKPIT_PATH)
 	return _cockpit_tex
 
@@ -831,6 +870,7 @@ func _draw() -> void:
 	_layout()
 	var cam: Camera3D = space.cam
 	var cockpit := GS.view == "cockpit"
+	if space.zoomed: _scope()   # v1.7z: looking down the rifle's scope (under everything else)
 	if space.in_nebula > 0.0:
 		var lit: float = space.beacon_lit   # v1.4r: a light beacon lights the cloud: the haze thins and warms near the lamp
 		draw_rect(Rect2(Vector2.ZERO, S), Color(space.nebula_color.lerp(Data.BEACON_LIGHT_COLOR, lit * 0.6), 0.36 * space.in_nebula * (1.0 - Data.BEACON_HAZE_CLEAR * lit)))
@@ -927,7 +967,7 @@ func _draw() -> void:
 			var d0 := Vector2(cos(a), sin(a))
 			var r0 := 60.0 + ph * ph * S.x * 0.6
 			draw_line(cc0 + d0 * r0, cc0 + d0 * (r0 + 30 + 160 * ph), Color(0.75, 0.85, 1.0, 0.55 * ph), 1.5 + 2.0 * ph)
-	if cockpit: _cockpit()
+	if cockpit and GS.form != "mech": _cockpit()   # (v1.7z: the mech's first-person view has its own arms instead)
 	# warp spool countdown and the planet warning
 	if space.warp_state == "charging":
 		var left := int(ceil(Data.WARP_CHARGE - space.warp_t))
@@ -1007,6 +1047,7 @@ func _draw() -> void:
 	_corner("thrust", "BOOST" if mech else "THRUST", "thrust", ORANGE, space.boosting, "", 0.0, false, "STICK = DASH" if mech else "")
 	_corner("fire", "FIRE", "guns", RED, space.fire_lock, "", 0.0, space.warp_active() or not space.lane.is_empty(), "ON · TAP OFF" if space.fire_lock else "TAP = ON")
 	_corner("kill", "KILL", "kill", GOLD, space.engine_kill, "", 0.0, mech, "DRIFTING" if space.engine_kill else "ENGINE")
+	_corner("zoom", "ZOOM", "zoom", CYAN, space.zoomed, "", 0.0, false, "SCOPE ON" if space.zoomed else "SCOPE")
 	_pill("map", "MAP")
 	_pill("view", "CHASE" if cockpit else "COCKPIT", false, CYAN, "VIEW")
 	_pill("target", "TARGET", false, CYAN, "NEXT")
