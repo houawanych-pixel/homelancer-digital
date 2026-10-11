@@ -5430,6 +5430,7 @@ func _mech_fpv() -> void:
 	if GS.form != "mech":
 		s.start_transform()
 		await _until(func(): return GS.form == "mech" and s.transform_t <= 0.0, 8.0)
+	if GS.view != "chase": s.set_view("chase")   # (seen from outside first)
 	await _frames(3)
 	var in_hand: bool = s.hand_gun != null and s.hand_gun.visible and s.hand_gun.has_meta("real")   # v1.8h: the gun in its hand, from outside
 	await _shot("az_mech_hand_gun", 0.3)
