@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.8a"
+const VERSION := "v1.8b"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -147,7 +147,7 @@ const VOLLEY_GAP := 0.12              # seconds between missiles of one volley
 const VOLLEY_SPREAD := 26.0           # sideways launch speed so a volley fans out
 const MISSILE_SPEED := 190.0
 const MISSILE_TURN := 2.6             # how hard a missile steers (higher = harder to shake)
-const DODGE_RANGE := 250.0            # a missile can only be shaken inside this distance (boost too early and it just follows you)
+const DODGE_RANGE := 140.0            # v1.8b (owner: "missiles track you too, but timing can beat them"): a missile can only be shaken inside this distance; boost too early and it just follows you (SUPERSEDES 250)
 const DODGE_SIDE_FRAC := 1.15         # ...by moving sideways faster than this x your normal top speed (needs boost)
 const ENEMY_DODGE_CHANCE := 0.3       # chance an enemy tries a side-boost when your missile closes in
 const ENEMY_DODGE_TIME := 0.7

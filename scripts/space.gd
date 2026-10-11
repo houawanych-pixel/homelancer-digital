@@ -2228,7 +2228,7 @@ func fire_missile(heavy := false, k := 0, n := 1, scale := 1.0, forced: Node3D =
 	var t := target if (target and is_instance_valid(target) and target.get_meta("kind", "") == "enemy") else null
 	if forced != null and is_instance_valid(forced): t = forced
 	if t == null: t = _nearest_enemy(900.0)
-	var ground_shot := t == null and surface_mode and _over_blocks()   # EXPERIMENT (v1.5t): no target over the blocks: fire straight, to dig
+	var ground_shot := t == null and ((surface_mode and _over_blocks()) or not surface_mode)   # no target: fire straight (v1.5t: to dig; v1.8b owner: in space too, it blows up on its fuse or on what it meets)
 	if t == null and not ground_shot:
 		message.emit("No hostile target for missile lock.")
 		return false
@@ -3016,6 +3016,11 @@ func _update_missiles(dt: float) -> void:
 		var rbm := _ray_blocks(n.global_position - (v + wv2) * dt, n.global_position) if surface_mode else [null, Vector3.INF]
 		var bfm: BlockField = rbm[0]
 		var dig: Vector3 = rbm[1]
+		if not is_instance_valid(t):   # v1.8b: a free-fired missile goes off on any enemy it passes close to
+			for oe in enemies:
+				if (oe["node"] as Node3D).global_position.distance_to(n.global_position) < (Data.HEAVY_MISSILE_HIT_RADIUS if m.get("heavy", false) else Data.MISSILE_HIT_RADIUS):
+					t = oe["node"]
+					break
 		var ahm: Array = ray_asteroids(n.global_position - (v + wv2) * dt, n.global_position) if not surface_mode and dig == Vector3.INF else []
 		if not ahm.is_empty():   # v1.7x: a missile that meets an asteroid blows a hole in it
 			blast_asteroid(ahm[0], ahm[2], "heavy" if m.get("heavy", false) else "missile")

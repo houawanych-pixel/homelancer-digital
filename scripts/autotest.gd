@@ -940,6 +940,28 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_DBG") != "":
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s := _sp()
+		var offers: Array = Missions.offers(s.sys_id, "liberty_hub")
+		Missions.accept(offers[0])
+		main.open_map()
+		await _frames(2)
+		print("[dbg] pick ", main.navmap.pick_mission())
+		main.navmap.visible = false
+		main._on_map_closed()
+		var p0: Vector3 = Missions.point_pos(s, 0)
+		_tp(p0 + Vector3(0, 0, 650), p0)
+		for i in 8:
+			await _wait(0.5)
+			var t: Node3D = s.target
+			var mw: Dictionary = s.mission_waypoint()
+			print("[dbg] t=", t.name if t else "null", " kind=", t.get_meta("kind", "") if t else "", " mw=", mw.get("node").name if not mw.is_empty() else "-", " mwkind=", (mw.get("node") as Node3D).get_meta("kind", "") if not mw.is_empty() else "", " enemies=", s.enemies.size(), " locks=", s.lock_count("light_missile"), " nav=", s.nav_dest.name if s.nav_dest else "-")
+			if t: s.player.look_at(t.global_position, Vector3.UP)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_FPV") != "":   # v1.7z: the mech first-person view checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -5715,6 +5737,18 @@ func _job_ar() -> void:
 	for ex in [ea, eb]:
 		if is_instance_valid(ex["node"]) and ex in s.enemies: s._damage_enemy(ex, 999999.0)
 	await _frames(3)
+	# ---- v1.8b (owner): in space a missile can be fired with nothing locked: it flies straight and goes off on its fuse
+	var keep_en2: Array = s.enemies
+	s.enemies = []
+	s.target = null
+	GS.missiles = 3
+	var fx0: int = s.missiles_expired
+	var fired_free: bool = s.fire_missile()
+	await _wait(Data.MISSILE_LIFE + 0.4)
+	var free_ok: bool = fired_free and s.missiles_expired > fx0
+	s.enemies = keep_en2
+	_check("v1.8b (owner): in space a missile fires with nothing locked, flies straight and blows on its fuse; enemy missiles can only be shaken in the last %d m (time the sideways boost)" % int(Data.DODGE_RANGE),
+		free_ok and Data.DODGE_RANGE <= 150.0, "fired %s expired %s" % [fired_free, s.missiles_expired > fx0])
 	# ---- 6. a mine in an incoming missile's path decoys it
 	var dc0: int = s.decoyed
 	var em := Node3D.new()
