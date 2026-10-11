@@ -4821,13 +4821,30 @@ func _job_ai() -> void:
 	sg.player.global_position = gp0 + Vector3(0, 0, 200)
 	await _frames(3)
 	var gwave: Array = sg.enemies.filter(func(o): return int(o.get("mission", -1)) == 0)
-	var g_wave: bool = gwave.size() == int(Data.MISSION_GROUP[0]) and gwave.all(func(o): return bool(o.get("provoked", false)))
+	var gn0: int = int(Data.MISSION_GROUP[0]) + int(Data.MISSION_GROUND_MECHS[0])
+	var g_wave: bool = gwave.size() == gn0 and gwave.all(func(o): return bool(o.get("provoked", false)))
+	# v1.8n: the mechs of the wave are on foot: on the ground, upright, walking toward you, never climbing after you
+	var walkers: Array = gwave.filter(func(o): return bool(o.get("walker", false)))
+	sg.player.global_position = gp0 + Vector3(0, 60, 500)
+	var wk0: Vector3 = (walkers[0]["node"] as Node3D).global_position if not walkers.is_empty() else Vector3.ZERO
+	await _wait(1.5)
+	var wk_ok: bool = walkers.size() == int(Data.MISSION_GROUND_MECHS[0])
+	for o in walkers:
+		var wn: Node3D = o["node"]
+		if absf(wn.global_position.y - sg._ground(wn.global_position.x, wn.global_position.z) - Data.WALKER_STAND) > 0.5 or absf((-wn.global_basis.z).y) > 0.05 or not bool(o["mech"]): wk_ok = false
+	var wk1: Vector3 = (walkers[0]["node"] as Node3D).global_position if not walkers.is_empty() else Vector3.ZERO
+	var wk_moved: bool = Vector2(wk1.x - wk0.x, wk1.z - wk0.z).length() > 5.0 and wk1.distance_to(sg.player.global_position) < wk0.distance_to(sg.player.global_position)
+	var fliers_up: bool = gwave.filter(func(o): return not bool(o.get("walker", false))).all(func(o): return (o["node"] as Node3D).global_position.y >= sg._ground((o["node"] as Node3D).global_position.x, (o["node"] as Node3D).global_position.z) + 29.0)
+	var dry: bool = not sg._sea_at(gp0.x, gp0.z) and not sg._sea_at(wk1.x, wk1.z) and str(Surface.PLANETS[gpid]["tiles"][gtile]) != "ocean"
+	_tp(wk1 + Vector3(0, 8, 42), wk1 + Vector3(16, 2, 0))
+	await _shot("ground_mech", 0.4)
+	sg.player.global_position = gp0 + Vector3(0, 0, 200)
 	for o in gwave:   # they are left behind (not killed): the job does not move on, they wait at the point again
 		sg.enemies.erase(o)
 		(o["node"] as Node3D).free()
 	await _frames(3)
 	gwave = sg.enemies.filter(func(o): return int(o.get("mission", -1)) == 0)
-	var g_wait: bool = int(GS.mission.get("stage", -1)) == 0 and gwave.size() == int(Data.MISSION_GROUP[0])
+	var g_wait: bool = int(GS.mission.get("stage", -1)) == 0 and gwave.size() == gn0
 	for o in gwave: sg._destroy_unit(o)
 	await _frames(3)
 	var g_next: bool = int(GS.mission.get("stage", -1)) == 1
@@ -4838,9 +4855,11 @@ func _job_ai() -> void:
 	var gc0: int = GS.credits
 	for o in gwave2: sg._destroy_unit(o)
 	await _frames(3)
-	var g_paid: bool = gwave2.size() == int(Data.MISSION_GROUP[1]) and GS.mission.is_empty() and GS.credits - gc0 >= int(gnd["pay"])
+	var g_paid: bool = gwave2.size() == int(Data.MISSION_GROUP[1]) + int(Data.MISSION_GROUND_MECHS[1]) and GS.mission.is_empty() and GS.credits - gc0 >= int(gnd["pay"])
 	_check("v1.8m (owner): a ground job: the board offers a strike on the planet; in space the planet is the waypoint; down there the waypoint leads across sectors to two points in one sector, a wave waits over the ground at each (left behind, it waits again), and the last kill pays",
 		g_space and g_far and g_alt and g_wave and g_wait and g_next and g_paid, "space %s far %s alt %s wave %s wait %s next %s paid %s (%s, %s)" % [g_space, g_far, g_alt, g_wave, g_wait, g_next, g_paid, gpid, Missions.sector_name(gpid, gtile)])
+	_check("v1.8n (owner): enemy mechs on foot: each wave of a ground job has Assault Mechs walking the ground under the ships: they stay on the ground, upright, and walk toward you; the ships stay in the air",
+		wk_ok and wk_moved and fliers_up and dry, "walkers %d ok %s moved %s fliers up %s dry land %s" % [walkers.size(), wk_ok, wk_moved, fliers_up, dry])
 	await main._load_system(home_sys, "station")
 	await _frames(4)
 	s = _sp()

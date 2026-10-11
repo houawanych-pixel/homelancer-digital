@@ -148,6 +148,16 @@ static func pose_mech(v: Dictionary, back_deg: float, dt: float, tuck := 0.0) ->
 		_bend(sk, v.get(pre + "LowerLeg", -1), tuck * 110.0)             # shins fold back
 	_bend(sk, v.get("Spine", -1), -tuck * 25.0)                          # hunch
 
+## v1.8n: a walking stride: the legs swing opposite ways by `deg` (0 = standing).
+static func stride(v: Dictionary, deg: float) -> void:
+	if v.is_empty() or not v["mech"]: return
+	var sk: Skeleton3D = v["skel"]
+	if not is_instance_valid(sk): return
+	_bend(sk, v.get("LeftUpperLeg", -1), deg)
+	_bend(sk, v.get("RightUpperLeg", -1), -deg)
+	_bend(sk, v.get("LeftLowerLeg", -1), maxf(0.0, -deg) * 0.8)
+	_bend(sk, v.get("RightLowerLeg", -1), maxf(0.0, deg) * 0.8)
+
 ## Rotate a bone about the skeleton's sideways axis (positive = toward the back), relative to its rest pose.
 static func _bend(sk: Skeleton3D, b: int, deg: float) -> void:
 	if b < 0: return

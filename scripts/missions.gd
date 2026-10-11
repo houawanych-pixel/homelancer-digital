@@ -53,14 +53,28 @@ static func offers(sys_id: String, station_id: String) -> Array:
 	if enemy != "" and Surface.has_surface(pid) and not Surface.is_sun(pid):
 		var g := Surface.grid(pid)
 		var tile := rng.randi() % (g * g)
-		var sp: float = Data.MISSION_GROUND_SPREAD
-		var p0 := Vector2(rng.randf_range(-sp, sp), rng.randf_range(-sp, sp))
-		var p1 := Vector2(-p0.x * rng.randf_range(0.5, 1.0), -p0.y * rng.randf_range(0.5, 1.0))
+		for k in g * g:   # v1.8n: a sector with land to stand on (the mechs walk): not the open ocean
+			if str(Surface.PLANETS[pid]["tiles"][tile]) != "ocean": break
+			tile = (tile + 1) % (g * g)
+		var p0 := _dry_point(rng, pid, tile, Vector2.INF)
+		var p1 := _dry_point(rng, pid, tile, p0)
 		out.append({"kind": "ground", "faction": enemy, "slot": 2, "pay": Data.MISSION_PAY["ground"], "title": "Strike on %s: destroy the %s landing party" % [sys["planet"]["name"], enemy],
 			"giver": station_id, "giver_sys": sys_id, "sys": sys_id, "planet": pid, "tile": tile,
-			"brief": "%s have landed on %s, in %s. Fly down into the atmosphere, go to both mission points and destroy them." % [enemy, sys["planet"]["name"], sector_name(pid, tile)],
+			"brief": "%s have landed on %s, in %s. Fly down into the atmosphere, go to both mission points and destroy them: ships overhead and mechs on the ground." % [enemy, sys["planet"]["name"], sector_name(pid, tile)],
 			"points": [{"x": p0.x, "z": p0.y}, {"x": p1.x, "z": p1.y}]})
 	return out
+
+## v1.8n: a ground job's point: on dry land when a few tries find some, and well away from the other point.
+static func _dry_point(rng: RandomNumberGenerator, pid: String, tile: int, other: Vector2) -> Vector2:
+	var sp: float = Data.MISSION_GROUND_SPREAD
+	var best := Vector2.ZERO
+	for k in 10:
+		var p := Vector2(rng.randf_range(-sp, sp), rng.randf_range(-sp, sp))
+		if k == 0: best = p
+		if other != Vector2.INF and p.distance_to(other) < sp * 0.6: continue
+		best = p
+		if Surface.height(pid, tile, p.x, p.y) > 3.0: break
+	return best
 
 ## v1.8m: "sector B2 (city)": how a ground job names its place on the planet.
 static func sector_name(pid: String, tile: int) -> String:
@@ -286,6 +300,7 @@ static func tick(space: SpaceSystem, dt: float) -> void:
 			var boss := ""
 			if kind == "bounty" and last: boss = str(m["id"])
 			m["need"] = space.spawn_mission_group(at, str(m["faction"]), count, int(m["slot"]), boss, stage).size()
+			if kind == "ground": m["need"] = int(m["need"]) + space.spawn_ground_mechs(at, str(m["faction"]), int(Data.MISSION_GROUND_MECHS[1 if last else 0]), stage).size()   # v1.8n
 			m["killed"] = 0
 			m["spawned"] = stage
 			space.message.emit("%s: %s" % ["Mission", "the target's wing is here. Engage." if kind == "bounty" and last else "hostiles at the waypoint. Engage."])

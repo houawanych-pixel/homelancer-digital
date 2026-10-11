@@ -3340,12 +3340,19 @@ func _update_enemies(dt: float) -> void:
 		else:
 			e["orbit"] += dt * 0.25
 			goal = e["home"] + Vector3(cos(e["orbit"]) * 120.0, sin(e["orbit"] * 0.7) * 25.0, sin(e["orbit"]) * 120.0)
+		var walker: bool = e.get("walker", false)   # v1.8n: a mech on foot: it stays on the ground and only turns left / right
+		if walker:
+			goal = (ppos if e["aggro"] and controls and dist > Data.WALKER_HOLD else (n.global_position if e["aggro"] else goal))
+			goal.y = n.global_position.y
 		var fwd := -n.global_basis.z
 		var want := (goal - n.global_position).normalized()
-		var new_fwd := fwd.slerp(want, minf(1.0, dt * float(d["turn"])))
+		if walker and want.length() < 0.5: want = Vector3(to.x, 0, to.z).normalized()   # holding its ground: it keeps facing you
+		var new_fwd := fwd.slerp(want, minf(1.0, dt * float(d["turn"]))) if want.length() > 0.5 else fwd
+		if walker: new_fwd.y = 0.0
 		if new_fwd.length() > 0.01:
 			n.look_at(n.global_position + new_fwd, Vector3.UP)
 		var sp: float = d["speed"] * (1.0 if e["aggro"] else 0.5) * (1.4 if warp_state == "charging" else 1.0)
+		if walker: sp = float(d["speed"]) * Data.WALKER_SPEED * (0.0 if e["aggro"] and dist <= Data.WALKER_HOLD else 1.0)
 		e["vel"] = (e["vel"] as Vector3).lerp(-n.global_basis.z * sp, minf(1.0, dt * 1.5))
 		if float(e.get("dodge_t", 0.0)) > 0.0:   # Job M: side-boost out of a missile's path
 			e["dodge_t"] = float(e["dodge_t"]) - dt
@@ -3353,7 +3360,9 @@ func _update_enemies(dt: float) -> void:
 		if float(e.get("stuck_t", 0.0)) > 0.0:   # v1.5x: a magnetic mine has it: dragged in to the blast point and held there
 			e["stuck_t"] = float(e["stuck_t"]) - dt
 			e["vel"] = ((e["stuck_at"] as Vector3) - n.global_position) * Data.MAG_MINE_PULL
+		if walker and _sea_at(n.global_position.x + e["vel"].x * dt * 8.0, n.global_position.z + e["vel"].z * dt * 8.0) and not _sea_at(n.global_position.x, n.global_position.z): e["vel"] = Vector3.ZERO   # it does not walk into the sea
 		n.global_position += e["vel"] * dt
+		if walker and surface_mode: n.global_position.y = _ground(n.global_position.x, n.global_position.z) + Data.WALKER_STAND
 		if d.get("missiles", false) and e["aggro"] and controls and warp_state != "on" and dist < Data.ENEMY_MISSILE_RANGE:
 			if not e.has("mcd"): e["mcd"] = _rng.randf_range(Data.ENEMY_MISSILE_EVERY[0], Data.ENEMY_MISSILE_EVERY[1]) * 0.5
 			e["mcd"] = float(e["mcd"]) - dt
@@ -3364,6 +3373,7 @@ func _update_enemies(dt: float) -> void:
 		e["cd"] -= dt
 		e["core_cd"] -= dt
 		var facing: bool = (-n.global_basis.z).dot(to.normalized()) > cos(deg_to_rad(12.0))
+		if walker: facing = (-n.global_basis.z).dot(Vector3(to.x, 0, to.z).normalized()) > cos(deg_to_rad(14.0))   # it aims its guns up; only the body has to face you
 		if e["aggro"] and controls and dist < 420.0 and facing:
 			var lead := ppos + vel * (dist / 300.0)
 			var guns := unit_guns(e)
@@ -3401,6 +3411,12 @@ func _unit_fx(e: Dictionary, dt: float, dist: float) -> void:
 	if e["mech"]:
 		var model: Node3D = e["model"]
 		var sp: float = (e["vel"] as Vector3).length() / maxf(1.0, float(e["def"]["speed"]))
+		if e.get("walker", false):   # v1.8n: on foot: upright, arms up to fire, legs striding with its speed
+			model.rotation.x = lerpf(model.rotation.x, 0.0, minf(1.0, dt * 2.0))
+			model.rotation.z = lerpf(model.rotation.z, 0.0, minf(1.0, dt * 2.0))
+			Sections.pose_mech(e["vis"], -35.0 if e["aggro"] else 0.0, dt)
+			Sections.stride(e["vis"], sin(time * Data.WALKER_STRIDE_RATE) * Data.WALKER_STRIDE_DEG * clampf(sp / Data.WALKER_SPEED, 0.0, 1.0))
+			return
 		# forward flight posture + arms back with speed; lean into turns
 		var fwd := -n.global_basis.z
 		var turn: float = (e["prev_fwd"] as Vector3).cross(fwd).y / maxf(dt, 0.001)
@@ -4669,6 +4685,30 @@ func spawn_mission_group(at: Vector3, faction: String, count: int, max_slot: int
 		out.append(e)
 	return out
 
+## v1.8n (owner: enemy mechs): `count` Assault Mechs on foot at a ground job's point. They walk the ground (never fly),
+## turn to face you and fire their arm guns and chest cannon up at you; part of the wave (tagged with its stage).
+func _sea_at(x: float, z: float) -> bool:
+	return surface_mode and _water and _ground(x, z) <= 0.05
+
+func spawn_ground_mechs(at: Vector3, faction: String, count: int, stage: int) -> Array:
+	var out: Array = []
+	for i in count:
+		var a := TAU * float(i) / float(maxi(1, count)) + _rng.randf() * 0.8
+		var p := at + Vector3(cos(a), 0, sin(a)) * _rng.randf_range(60.0, 130.0)
+		for k in 8:   # on dry land when there is some near
+			if not _sea_at(p.x, p.z): break
+			p = at + Vector3(cos(a + k * 0.8), 0, sin(a + k * 0.8)) * (130.0 + 60.0 * k)
+		p.y = _ground(p.x, p.z) + Data.WALKER_STAND
+		var e := spawn_unit("mech", p, p)
+		e["walker"] = true
+		e["group"] = _group_serial
+		e["mission"] = stage
+		e["provoked"] = true
+		_make_generic(e, faction)
+		e["node"].name = "%s Ground Mech %d" % [faction, _enemy_serial]
+		out.append(e)
+	return out
+
 ## v1.5f: the most senior pick a few draws give (roster_pick leans to slot 01; a senior job wants the slot asked for).
 func _pick_senior(faction: String, max_slot: int, want: int) -> Dictionary:
 	if want >= 5:   # the elite soldier (slot 05 is a rank, not one person: always there to send)
@@ -5323,6 +5363,7 @@ func _surface_update(_dt: float) -> void:
 			player.global_position.y = maxf(floor_y, roof - 1.5)
 			if vel.y > 0.0: vel.y = 0.0
 	for e in enemies:
+		if e.get("walker", false): continue   # v1.8n: mechs on foot keep to the ground themselves
 		var n: Node3D = e["node"]
 		var ef := _ground(n.global_position.x, n.global_position.z) + 30.0
 		if n.global_position.y < ef: n.global_position.y = ef
