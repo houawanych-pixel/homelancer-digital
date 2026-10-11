@@ -162,6 +162,7 @@ func open(station_or_planet: Dictionary) -> void:
 	_load_background()
 	show_screen("hub")
 	status.text = "Docked at %s. Shields and energy restored. REPAIR and RESTOCK are at Equipment." % base["name"]
+	if GS.ore_worth(str(base["name"])) > 0: status.text = "Docked at %s. You carry gold / diamond worth %d cr here: sell it under YOUR SHIP." % [base["name"], GS.ore_worth(str(base["name"]))]
 
 func _refresh_credits() -> void:
 	credits_label.text = "CREDITS  %d cr" % GS.credits
@@ -853,9 +854,22 @@ func _ship_page() -> void:
 	c.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	c.name = "Cargo"
 	var lines: Array = []
-	for item in GS.cargo: lines.append("%s (%s)" % [item.get("name", item.get("kind", "?")), item.get("note", item.get("kind", ""))])
+	for item in GS.cargo:
+		if item.get("kind", "") == "ore":   # v1.8l: mined gold / diamond, with what this base pays
+			var op: int = GS.ore_price(str(item["id"]), str(base["name"]))
+			lines.append("%s x%d (%d cr each here = %d cr)" % [Data.ORE_NAME.get(item["id"], "Ore"), int(item["n"]), op, op * int(item["n"])])
+		else: lines.append("%s (%s)" % [item.get("name", item.get("kind", "?")), item.get("note", item.get("kind", ""))])
 	c.text = "CARGO HOLD  %d / %d\n%s" % [GS.cargo.size(), Data.CARGO_HOLD, "\n".join(lines) if not lines.is_empty() else "Empty."]
 	v.add_child(c)
+	var worth: int = GS.ore_worth(str(base["name"]))
+	if worth > 0:
+		var sb := Button.new()
+		sb.name = "SellOre"
+		sb.text = "SELL GOLD / DIAMOND  +%d cr" % worth
+		sb.custom_minimum_size = Vector2(330, 56)
+		sb.add_theme_color_override("font_color", GOLD)
+		sb.pressed.connect(func(): status.text = GS.sell_ore(str(base["name"])); Sfx.play("pickup", -6.0); show_screen("ship"))
+		v.add_child(sb)
 	if not GS.mission.is_empty():
 		var m := _label(18, GOLD)
 		m.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

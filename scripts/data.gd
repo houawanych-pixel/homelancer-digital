@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.8k"
+const VERSION := "v1.8l"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -390,7 +390,11 @@ const MINE_VEINS := {"gold": 6, "diamond": 3}
 const VEIN_DEPTH := {"gold": [25.0, 120.0], "diamond": [80.0, 170.0]}
 const SURFACE_TREASURE_CHANCE := 0.6   # chance a world has a few veins right out on the surface
 const MINING_KEEP := {"gun": 0.75, "thrust": 0.75, "thrust_soft": 0.75, "missile": 0.5, "heavy": 0.35, "special": 0.2}
-const MINE_VALUE := {"gold": 40, "diamond": 120}   # credits per piece you pull in
+const MINE_VALUE := {"gold": 40, "diamond": 120}   # base credits per piece (v1.8l: paid when you SELL it at a base)
+# v1.8l (owner): mined gold / diamond goes into the hold (one stack each in GS.cargo) and is sold at a station or planet
+# base under YOUR SHIP. Every base pays its own fixed share of the base price (from its name, nothing stored).
+const ORE_PRICE_SWING := [0.8, 1.5]
+const ORE_NAME := {"gold": "Gold", "diamond": "Diamond"}
 # v1.6d world generation, part 1. Caves: a few self-contained pockets of winding tunnels (3D noise in a rounded box),
 # sealed. The bottom of the ground (BLOCK_DEPTH_FLOOR down) is the KILL FLOOR under a KILL_CAP of obsidian: dug open
 # it glows; water, lava and rubble reaching it are gone; the ship touching it is destroyed.

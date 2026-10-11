@@ -3910,8 +3910,13 @@ func _update_loot(dt: float) -> void:
 			n.queue_free()
 			loot.remove_at(i)
 		elif d < 14.0:
-			GS.add_credits(int(l["value"]))
-			_popup(n.global_position, ("+%d cr %s" % [int(l["value"]), str(l["gem"])]) if l.has("gem") else "+%d cr" % int(l["value"]), Color(1.0, 0.85, 0.35))
+			if l.has("gem"):   # v1.8l: ore goes into the hold; a base buys it
+				var have := GS.add_ore(str(l["gem"]))
+				_popup(n.global_position, "%s x%d IN HOLD" % [str(l["gem"]).to_upper(), have], Color(1.0, 0.85, 0.35))
+				if have == 1: message.emit("%s is in your hold. Sell it at any station or planet base, under YOUR SHIP." % Data.ORE_NAME.get(l["gem"], "Ore"))
+			else:
+				GS.add_credits(int(l["value"]))
+				_popup(n.global_position, "+%d cr" % int(l["value"]), Color(1.0, 0.85, 0.35))
 			Sfx.play("pickup", -6.0)
 			n.queue_free()
 			loot.remove_at(i)

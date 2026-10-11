@@ -239,6 +239,40 @@ func cast_state(character_id: String) -> Dictionary:
 	if not cast.has(character_id): cast[character_id] = {"alive": true, "current_system": "", "custody": false}
 	return cast[character_id]
 
+## v1.8l: a mined piece goes into the hold: one stack per mineral ({kind: "ore", id, n}).
+func add_ore(mat: String) -> int:
+	for c in cargo:
+		if c.get("kind", "") == "ore" and c.get("id", "") == mat:
+			c["n"] = int(c.get("n", 0)) + 1
+			return int(c["n"])
+	cargo.append({"kind": "ore", "id": mat, "n": 1})
+	return 1
+
+func ore_count(mat: String) -> int:
+	for c in cargo:
+		if c.get("kind", "") == "ore" and c.get("id", "") == mat: return int(c.get("n", 0))
+	return 0
+
+## What this base pays for one piece (its own fixed share of the base price).
+func ore_price(mat: String, base_name: String) -> int:
+	var sw: Array = Data.ORE_PRICE_SWING
+	var k := float(absi((base_name + mat).hash()) % 1000) / 999.0
+	return int(round(float(Data.MINE_VALUE.get(mat, 20)) * lerpf(float(sw[0]), float(sw[1]), k) / 5.0)) * 5
+
+func ore_worth(base_name: String) -> int:
+	var total := 0
+	for c in cargo:
+		if c.get("kind", "") == "ore": total += int(c.get("n", 0)) * ore_price(str(c.get("id", "")), base_name)
+	return total
+
+func sell_ore(base_name: String) -> String:
+	var total := ore_worth(base_name)
+	if total <= 0: return "No gold or diamond in the hold."
+	cargo = cargo.filter(func(c): return c.get("kind", "") != "ore")
+	add_credits(total)
+	save_game()
+	return "Sold for %d cr." % total
+
 func add_credits(n: int) -> void:
 	credits += n
 	changed.emit()

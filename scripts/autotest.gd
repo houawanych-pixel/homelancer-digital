@@ -7350,17 +7350,32 @@ func _craters(s, bf: BlockField, pid: String, t: int) -> void:
 	for b in bf.rubble:
 		if Data.VALUABLE_COLOR.has(str(b.get("mat", ""))): no_rubble = false
 	var cr0: int = GS.credits
+	var cargo14: Array = GS.cargo.duplicate(true)
 	var pp3: Vector3 = s.player.global_position
 	s.player.global_position = gp + Vector3(0, 30, 0)
 	s.tractor()
 	await _wait(3.0)
+	# v1.8l: the pieces go into the hold (no credits yet); a base buys them at its own price
+	var held14: int = GS.ore_count("gold")
+	var unpaid: bool = GS.credits == cr0
+	var one_stack: bool = GS.cargo.filter(func(c): return c.get("kind", "") == "ore" and c.get("id", "") == "gold").size() == 1
+	var pa: int = GS.ore_price("gold", "Liberty Hub")
+	var lo14: int = int(float(Data.MINE_VALUE["gold"]) * float(Data.ORE_PRICE_SWING[0])) - 5
+	var hi14: int = int(float(Data.MINE_VALUE["gold"]) * float(Data.ORE_PRICE_SWING[1])) + 5
+	var worth14: int = GS.ore_worth("Liberty Hub")
+	var sold_line: String = GS.sell_ore("Liberty Hub")
 	var earned: int = GS.credits - cr0
+	var sold_ok: bool = held14 >= by_gun and unpaid and one_stack and pa >= lo14 and pa <= hi14 and worth14 == held14 * pa and earned == worth14 and GS.ore_count("gold") == 0 and sold_line.find("Sold") >= 0 and GS.sell_ore("Liberty Hub").find("No gold") >= 0
+	GS.credits = cr0
+	GS.cargo = cargo14
 	s.player.global_position = pp3
 	bf.restore(snap14)
 	bf.flush()
-	_check("Craters: mining: gold and diamond veins from the seed; a gold layer broken carefully with the light gun drops more pieces (%d) than one blown by a heavy missile (%d); the pieces never turn to rubble; the tractor beam pulls them in (+%d cr)" % [by_gun, by_heavy, earned],
-		vk.has("gold") and vk.has("diamond") and by_gun == 3 and by_heavy <= 2 and gems >= by_gun and no_rubble and earned >= by_gun * int(Data.MINE_VALUE["gold"]),
-		"veins %s gun %d heavy %d gems %d earned %d" % [str(vk.keys()), by_gun, by_heavy, gems, earned])
+	_check("Craters: mining: gold and diamond veins from the seed; a gold layer broken carefully with the light gun drops more pieces (%d) than one blown by a heavy missile (%d); the pieces never turn to rubble; the tractor beam pulls them into the hold (x%d)" % [by_gun, by_heavy, held14],
+		vk.has("gold") and vk.has("diamond") and by_gun == 3 and by_heavy <= 2 and gems >= by_gun and no_rubble and held14 >= by_gun,
+		"veins %s gun %d heavy %d gems %d held %d" % [str(vk.keys()), by_gun, by_heavy, gems, held14])
+	_check("v1.8l (owner): mined gold / diamond goes into the hold as one stack (x%d, no credits yet) and is sold at a base for that base's own price (%d cr each, +%d cr)" % [held14, pa, earned],
+		sold_ok, "held %d unpaid %s stack %s price %d (%d..%d) worth %d earned %d" % [held14, unpaid, one_stack, pa, lo14, hi14, worth14, earned])
 	# 15. world generation part 1 (v1.6d): sealed cave pockets that stand on their own; an obsidian cap over the kill
 	#     floor; dug open, the kill floor takes water and destroys the ship
 	var carved := 0
