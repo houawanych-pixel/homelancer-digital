@@ -196,8 +196,14 @@ func music_mood(dt: float) -> String:
 	return Music.faction_mood(Data.SYSTEMS[space.sys_id].get("faction", "Neutral"))
 
 var _save_t := 0.0
+var _escape_t := 0.0
 func _process(_dt: float) -> void:
 	Music.want(music_mood(_dt))
+	_escape_t += _dt
+	if _escape_t >= 10.0 and state != "title":   # v1.8k: a jailed pilot whose time is up breaks out
+		_escape_t = 0.0
+		for eid in GS.check_escapes():
+			hud.flash_message("%s has escaped custody! The bounty is posted again, now %d cr." % [Data.roster_pilot(str(eid)).get("name", "A prisoner"), Data.bounty_reward(str(eid))])
 	if state == "flight":   # v1.7y: save every so often in flight
 		_save_t += _dt
 		if _save_t >= Data.SAVE_EVERY:
@@ -643,7 +649,8 @@ func dock(n: Node3D) -> void:
 	if info["id"] == "frontier_exchange": GS.meet("amari", "friendly")
 	if info["id"] == "liberty_hub" and GS.kills > 0: visited["liberty_hub_2"] = true
 	hub.open(info)
-	var paid: String = Missions.claim_at(info["id"]) if not GS.mission.is_empty() else GS.claim_bounty()   # v1.5f: a board bounty is paid where it was taken; an old-style one anywhere
+	var wk: String = str(info.get("kind", "station"))   # v1.8k: where they are handed in sets how long they stay locked up
+	var paid: String = Missions.claim_at(info["id"], wk) if not GS.mission.is_empty() else GS.claim_bounty(wk)   # v1.5f: a board bounty is paid where it was taken; an old-style one anywhere
 	if paid != "":
 		hub.status.text = paid
 		hub._refresh_credits()

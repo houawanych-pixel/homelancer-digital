@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.8j"
+const VERSION := "v1.8k"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -455,6 +455,11 @@ const FLASHLIGHT := [Color(1.0, 0.97, 0.9), 3.0, 160.0, 28.0]   # [colour, energ
 const FLASHLIGHT_FLARE := [Color(1.0, 0.95, 0.8, 0.55), 2.2]     # [glare colour, size m]
 const FLASHLIGHT_WATER := [Color(0.55, 1.0, 0.92), 4.0, 70.0, 34.0]   # under water: [colour, energy, range m, cone degrees]
 const UNDERWATER_TINT := Color(0.05, 0.35, 0.45, 0.38)
+# v1.8k (owner): a pilot you hand in breaks out of custody later and is back on the boards: real time, so it carries
+# over between sessions. Handed in at a station: out in 30 minutes; at a planet (more secure): an hour.
+const BOUNTY_ESCAPE_STATION := 1800.0   # s
+const BOUNTY_ESCAPE_PLANET := 3600.0    # s
+const BOUNTY_ESCAPE_BONUS := 0.1        # the bounty goes up this share each time they escape
 const FIRE_TICK := 0.5               # s
 const FIRE_BURN := {"wood": 4.0, "leaf": 1.5, "leaf2": 1.5}   # s a burning layer lasts before it is gone
 const FIRE_SPREAD := {"wood": 0.25, "leaf": 0.5, "leaf2": 0.5}   # chance per tick it catches from a burning neighbour
@@ -1077,7 +1082,8 @@ static func faction_systems(f: String) -> Array:
 	return out
 
 static func rank_mult(rank: int, step: float) -> float: return 1.0 + step * float(maxi(1, rank) - 1)
-static func bounty_reward(id: String) -> int: return BOUNTY_REWARD * int(roster_pilot(id).get("rank", 1))
+static func bounty_reward(id: String) -> int:   # v1.8k: each escape puts the price up
+	return int(BOUNTY_REWARD * int(roster_pilot(id).get("rank", 1)) * (1.0 + BOUNTY_ESCAPE_BONUS * int(GS.bounty_escapes.get(id, 0))))
 
 # ---------------------------------------------------------------- enemies
 const ENEMIES := {

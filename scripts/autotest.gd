@@ -4693,6 +4693,20 @@ func _job_ai() -> void:
 	alive_paid = elsewhere.find("paid at") >= 0 and here.find("paid") >= 0 and GS.credits - credits2 == Data.bounty_reward("savagers_06") and GS.mission.is_empty() and GS.bounty.is_empty() and GS.cargo.is_empty() and "savagers_06" in GS.bounties_done
 	_check("Job AI: a bounty wanted alive (rank %d and up): the pilot bails out, TRACTOR puts them in the hold (YOUR SHIP lists them), the waypoint is the station that gave the job, and only that station pays" % Data.BOUNTY_ALIVE_RANK,
 		pod_ok and held and back_ok and alive_paid, "pod %s held %s back %s paid %s (%s / %s)" % [pod_ok, held, back_ok, alive_paid, elsewhere, here])
+	# ---- v1.8k (owner): the pilot breaks out later (station 30 min, planet 1 h) and is back on the board, worth more
+	var now_s := Time.get_unix_time_from_system()
+	var jailed: bool = GS.bounty_jail.has("savagers_06") and absf(float(GS.bounty_jail["savagers_06"]) - now_s - Data.BOUNTY_ESCAPE_STATION) < 30.0
+	var esc_keep: Dictionary = GS.bounty_escapes.duplicate()
+	var r0: int = Data.bounty_reward("savagers_06")
+	GS.bounty_jail["savagers_06"] = now_s - 1.0
+	var out: Array = GS.check_escapes()
+	var back_on: bool = out == ["savagers_06"] and not ("savagers_06" in GS.bounties_done) and not GS.bounty_jail.has("savagers_06") and Data.bounty_reward("savagers_06") > r0
+	GS.jail("savagers_06", "planet")
+	var planet_h: bool = absf(float(GS.bounty_jail["savagers_06"]) - Time.get_unix_time_from_system() - Data.BOUNTY_ESCAPE_PLANET) < 30.0 and GS.jail_minutes("savagers_06") >= 59
+	GS.bounty_jail.erase("savagers_06")
+	GS.bounty_escapes = esc_keep
+	_check("v1.8k (owner): a pilot you hand in is locked up and breaks out later (station: 30 min, planet: 1 h), back on the board and worth more each time",
+		jailed and back_on and planet_h, "jailed %s back %s planet %s" % [jailed, back_on, planet_h])
 	for i in range(s.loot.size() - 1, -1, -1):
 		(s.loot[i]["node"] as Node3D).queue_free()
 		s.loot.remove_at(i)

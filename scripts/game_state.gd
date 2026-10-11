@@ -44,13 +44,15 @@ var rep := {}                # v1.4r: reputation, one number per rival pair (Fac
 var cast := {}               # v1.4r: named characters' state: character_id -> {alive, current_system, custody}
 var mine_kind := "blast"         # v1.5x: which mine you drop: "blast" or "magnetic" (switched at the Equipment screen)
 var block_deltas := {}       # v1.5t EXPERIMENT: crater notes per block patch ("planet|tile" -> [[x, y, z, kind]]); the ground regrows from the seed and these are re-applied
+var bounty_jail := {}        # v1.8k: pilots you handed in: id -> unix time they break out
+var bounty_escapes := {}     # v1.8k: id -> how many times they have escaped (their price goes up)
 var tutorial_seen: Array = []   # v1.7r: tutorial lesson ids already given (see Data.TUTORIAL)
 var god_mode := false # only used by the automated route test
 
 # ---------------------------------------------------------------- v1.7y saving
 const SAVE_KEYS := ["credits", "ship_id", "owned_ships", "weapon_id", "owned_weapons", "missiles", "heavy_missiles", "mines", "rack",
 	"owned_racks", "slots", "modes", "view", "system_id", "discovered", "last_base", "kills", "met", "mood", "memory", "heat_shield",
-	"bounty", "bounties_done", "mission", "cargo", "missions_done", "rep", "cast", "mine_kind", "block_deltas", "tutorial_seen"]
+	"bounty", "bounties_done", "mission", "cargo", "missions_done", "rep", "cast", "mine_kind", "block_deltas", "tutorial_seen", "bounty_jail", "bounty_escapes"]
 var save_path: String = Data.SAVE_PATH
 var save_enabled := true   # (the route test turns it off, so a test never reads or writes a player's save)
 var saves := 0             # (tests) saves written this session
@@ -187,7 +189,31 @@ func capture_bounty(id: String) -> bool:
 	return true
 
 ## Called on docking: pays a captured bounty. "" = nothing to pay.
-func claim_bounty() -> String:
+## v1.8k: lock a handed-in pilot up; they break out after the time for where they were handed in.
+func jail(id: String, where_kind := "station") -> void:
+	bounty_jail[id] = Time.get_unix_time_from_system() + (Data.BOUNTY_ESCAPE_PLANET if where_kind == "planet" else Data.BOUNTY_ESCAPE_STATION)
+
+## v1.8k: anyone whose time is up breaks out: back on the boards (worth more). Returns their ids.
+func check_escapes() -> Array:
+	var out: Array = []
+	var now := Time.get_unix_time_from_system()
+	for id in bounty_jail.keys():
+		if now < float(bounty_jail[id]): continue
+		bounty_jail.erase(id)
+		bounties_done.erase(id)
+		var p: Dictionary = Data.roster_pilot(str(id))
+		cast_state(str(p.get("character_id", id)))["custody"] = false
+		bounty_escapes[id] = int(bounty_escapes.get(id, 0)) + 1
+		out.append(id)
+	if not out.is_empty(): changed.emit()
+	return out
+
+## Minutes until a jailed pilot breaks out (-1 = not jailed).
+func jail_minutes(id: String) -> int:
+	if not bounty_jail.has(id): return -1
+	return maxi(0, int(ceil((float(bounty_jail[id]) - Time.get_unix_time_from_system()) / 60.0)))
+
+func claim_bounty(where_kind := "station") -> String:
 	if bounty.get("state", "") != "captured": return ""
 	var id: String = bounty["id"]
 	var p: Dictionary = Data.roster_pilot(id)
@@ -195,6 +221,7 @@ func claim_bounty() -> String:
 	bounties_done.append(id)
 	bounty = {}
 	cast_state(p.get("character_id", id))["custody"] = true   # handed over: out of the patrols
+	jail(id, where_kind)   # v1.8k: ...for a while
 	Factions.adjust(str(p.get("faction", "")), -Data.REP_BOUNTY)
 	add_credits(pay)
 	return "Bounty paid: %s handed over. +%d cr." % [p.get("name", "the pilot"), pay]

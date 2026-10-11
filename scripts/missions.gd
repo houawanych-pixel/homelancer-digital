@@ -274,11 +274,11 @@ static func on_kill(space: SpaceSystem, e: Dictionary) -> void:
 	_pay(space, "Bounty on %s: paid on the spot, %d cr." % [p.get("name", "the pilot"), int(m["pay"])])
 
 ## Docking at the giver with the pilot in the hold: paid. "" = nothing to pay here.
-static func claim_at(station_id: String) -> String:
+static func claim_at(station_id: String, where_kind := "station") -> String:
 	var m: Dictionary = GS.mission
 	if m.get("kind", "") != "bounty" or GS.bounty.get("state", "") != "captured": return ""
 	if str(m.get("giver", "")) != station_id: return "%s is in your hold. The bounty is paid at %s." % [Data.roster_pilot(str(m["id"])).get("name", "The pilot"), Data.SYSTEMS[m["giver_sys"]]["station"]["name"]]
-	var said := GS.claim_bounty()
+	var said := GS.claim_bounty(where_kind)
 	GS.cargo = GS.cargo.filter(func(c): return not (c.get("kind", "") == "pilot" and c.get("id", "") == m["id"]))
 	GS.missions_done += 1
 	Factions.adjust(str(Data.SYSTEMS[m["giver_sys"]].get("faction", "")), Data.REP_MISSION)
