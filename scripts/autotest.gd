@@ -4811,6 +4811,21 @@ func _job_ai() -> void:
 	await _wait(0.6)
 	var sg := _sp()
 	var gw1: Dictionary = sg.mission_waypoint()
+	# v1.8o (owner): a planet has only its owner's rival over it; a base's jobs are against its own owner's rival; the soldier threat is always offered
+	var rv: String = Missions.enemy_of(sg.sys_id)
+	var pat: Array = sg.enemies.filter(func(o): return not o.has("mission"))
+	var pat_ok: bool = rv != "" and not pat.is_empty() and pat.all(func(o): return bool(o.get("provoked", false)) and (str(o.get("faction", rv)) == rv))
+	var other_owner := ""
+	for f in Factions.DEFS:
+		if Factions.has_fighters(Factions.rival(f)) and Factions.rival(f) != rv: other_owner = f
+	var o_own: Array = Missions.offers(sg.sys_id, sid, other_owner)
+	var own_ok: bool = other_owner != "" and str(o_own[0]["faction"]) == Factions.rival(other_owner) and str(o_own[0]["kind"]) == "threats"
+	var always := true
+	for sy in Data.SYSTEMS:
+		var oo: Array = Missions.offers(sy, str(Data.SYSTEMS[sy]["station"]["id"]))
+		if oo.size() < 2 or str(oo[0]["kind"]) != "threats" or str(oo[1]["kind"]) != "threats" or str(oo[0]["title"]).find("eliminate the  threat") >= 0: always = false
+	_check("v1.8o (owner): a planet sector's patrol is the rival of the planet's owner (%s), always hostile; a base's jobs are against its own owner's rival; every station's board always offers the soldier threat jobs" % rv,
+		pat_ok and own_ok and always, "patrol %s (%d) owner %s (%s) always %s" % [pat_ok, pat.size(), own_ok, other_owner, always])
 	var g_far: bool = not gw1.is_empty() and (gw1["node"] as Node3D).global_position.x < -Surface.TILE * 0.5 and str(gw1["line"]).find("sector") >= 0 and main._objective().begins_with("MISSION")
 	main._load_surface(gpid, gtile)
 	await _wait(0.6)

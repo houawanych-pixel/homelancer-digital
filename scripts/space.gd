@@ -4432,7 +4432,7 @@ func load_tile(t: int, keep := Vector3.INF) -> void:
 	prng.seed = hash("%s%d" % [planet_id, t])
 	var c := Vector3(prng.randf_range(-1400, 1400), 0, prng.randf_range(-1400, 1400))
 	c.y = _ground(c.x, c.z) + 260.0
-	if enemies.size() < 4: _spawn_group(c, 2)
+	if enemies.size() < 4: _spawn_rival_patrol(c, 2)   # v1.8o (owner): a planet has only its owner's rival over it
 	if keep == Vector3.INF: _update_camera(1.0, true)
 	_corners = Surface.wrap_corners(planet_id, t)
 	_prepared.clear()
@@ -4687,6 +4687,25 @@ func spawn_mission_group(at: Vector3, faction: String, count: int, max_slot: int
 
 ## v1.8n (owner: enemy mechs): `count` Assault Mechs on foot at a ground job's point. They walk the ground (never fly),
 ## turn to face you and fire their arm guns and chest cannon up at you; part of the wave (tagged with its stage).
+## v1.8o (owner): the patrol over a planet sector: soldiers of the rival of the planet's owner (the same enemy its jobs
+## are against), always hostile. A rival with nobody to send leaves the old patrol.
+func _spawn_rival_patrol(center: Vector3, count: int) -> Array:
+	var f := Missions.enemy_of(sys_id)
+	var pool: Array = Factions.DEFS.get(f, {}).get("fighter_pool", [])
+	if f == "" or (pool.is_empty() and roster_pick(f, Data.SURFACE_PATROL_SLOT).is_empty()): return _spawn_group(center, count)
+	_group_serial += 1
+	var out: Array = []
+	for i in count:
+		var soldier := roster_pick(f, Data.SURFACE_PATROL_SLOT)
+		var kind: String = roster_fighter(soldier) if not soldier.is_empty() else str(pool[mini(i, pool.size() - 1)])
+		var e := spawn_unit(kind, center + Vector3(_rng.randf_range(-60, 60), _rng.randf_range(-20, 20), _rng.randf_range(-60, 60)), center)
+		e["group"] = _group_serial
+		e["provoked"] = true
+		if not soldier.is_empty(): assign_roster(e, soldier)
+		else: _make_generic(e, f)
+		out.append(e)
+	return out
+
 func _sea_at(x: float, z: float) -> bool:
 	return surface_mode and _water and _ground(x, z) <= 0.05
 

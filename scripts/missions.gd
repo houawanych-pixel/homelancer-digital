@@ -15,29 +15,33 @@ class_name Missions
 
 ## The board of a station: the same offers for the whole visit (made once per docking from the station's id and the
 ## number of jobs done, so a board changes once you have worked it).
-static func offers(sys_id: String, station_id: String) -> Array:
+## v1.8o: who a base's jobs (and a planet's patrols) are against: its owner's rival; when the rival has no ships, the
+## opening system's rival nation, the owner's raiders, then the nearest permanent enemy with ships. "" = nobody.
+static func enemy_of(sys_id: String, owner := "") -> String:
 	var sys: Dictionary = Data.SYSTEMS[sys_id]
-	var own := str(sys.get("faction", ""))
+	var own := owner if owner != "" else str(sys.get("faction", ""))
 	var enemy := Factions.rival(own) if Factions.has_fighters(Factions.rival(own)) else ""   # v1.8c (owner): the jobs are against the owner's rival
 	if enemy == "": enemy = str(Data.OPENING_SYSTEMS.get(sys_id, {}).get("faction", ""))   # v1.5k: the opening system's rival nation
 	if enemy == "": enemy = Factions.raider_of(own)
-	if enemy == "" and Factions.has_fighters(Factions.rival(own)): enemy = Factions.rival(own)   # the owner's rival nation, if it has ships
 	if enemy == "":   # nobody raids this owner: the nearest permanent enemy with ships does the dirty work
 		for f in Data.MISSION_FALLBACK_ENEMIES:
-			if Factions.has_fighters(f):
-				enemy = f
-				break
+			if Factions.has_fighters(f): return f
+	return enemy
+
+static func offers(sys_id: String, station_id: String, owner := "") -> Array:
+	var sys: Dictionary = Data.SYSTEMS[sys_id]
+	var enemy := enemy_of(sys_id, owner)   # v1.8o (owner): a base's jobs are against ITS owner's rival (a planet base's too)
+	var foe := enemy if enemy != "" else str(Data.ENEMIES[sys["enemy"]]["name"])   # v1.8o: nobody with a roster to send: the system's own raiders (the threats job is always there)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(station_id) + GS.missions_done * 7919
 	var out: Array = []
-	if enemy != "":
-		for hard in [false, true]:
-			var pay := int(Data.MISSION_PAY["threats"] * (Data.MISSION_HARD_MULT if hard else 1.0))
-			out.append({"kind": "threats", "hard": hard, "faction": enemy, "slot": Data.MISSION_HARD_SLOT if hard else 1, "pay": pay,
-				"title": "%s: eliminate the %s threat" % ["ELITE" if hard else "PATROL", enemy], "giver": station_id, "giver_sys": sys_id, "sys": sys_id,
-				"brief": "%s %s have been seen in two places in the %s system. Clear both. %s" % ["Elite" if hard else "", enemy, sys["name"],
-					"Their best soldiers: expect a hard fight." if hard else "Common soldiers."],
-				"points": _points(rng, 2)})
+	for hard in [false, true]:   # v1.8o (owner): destroying enemy soldiers is always on the board
+		var pay := int(Data.MISSION_PAY["threats"] * (Data.MISSION_HARD_MULT if hard else 1.0))
+		out.append({"kind": "threats", "hard": hard, "faction": enemy, "slot": Data.MISSION_HARD_SLOT if hard else 1, "pay": pay,
+			"title": "%s: eliminate the %s threat" % ["ELITE" if hard else "PATROL", foe], "giver": station_id, "giver_sys": sys_id, "sys": sys_id,
+			"brief": "%s %s have been seen in two places in the %s system. Clear both. %s" % ["Elite" if hard else "", foe, sys["name"],
+				"Their best soldiers: expect a hard fight." if hard else "Common soldiers."],
+			"points": _points(rng, 2)})
 	if Factions.has_fighters(enemy) or enemy != "":
 		out.append({"kind": "escort", "faction": enemy, "slot": 2, "pay": Data.MISSION_PAY["escort"], "title": "Escort a freighter to %s" % sys["planet"]["name"],
 			"giver": station_id, "giver_sys": sys_id, "sys": sys_id,

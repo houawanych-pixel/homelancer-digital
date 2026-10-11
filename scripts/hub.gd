@@ -812,7 +812,7 @@ func _missions_page() -> void:
 	var co: Dictionary = Factions.coordinator(Factions.owner_of(base, Data.SYSTEMS[GS.system_id]))
 	l.text = "Work for %s%s. Tap a job to take it (a gold waypoint leads you through it); tap it again to drop it. Tapping another job switches." % [base["name"], (", from %s" % co["name"]) if not co.is_empty() else ""]
 	v.add_child(l)
-	for o in Missions.offers(GS.system_id, base["id"]):
+	for o in Missions.offers(GS.system_id, base["id"], Factions.owner_of(base, Data.SYSTEMS[GS.system_id])):
 		var row := HBoxContainer.new()
 		row.name = "Job_" + str(o["kind"]) + ("_hard" if o.get("hard", false) else "")
 		row.add_theme_constant_override("separation", 14)
