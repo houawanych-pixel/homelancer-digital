@@ -203,7 +203,7 @@ func _process(_dt: float) -> void:
 	if _escape_t >= 10.0 and state != "title":   # v1.8k: a jailed pilot whose time is up breaks out
 		_escape_t = 0.0
 		for eid in GS.check_escapes():
-			hud.flash_message("%s has escaped custody! The bounty is posted again, now %d cr." % [Data.roster_pilot(str(eid)).get("name", "A prisoner"), Data.bounty_reward(str(eid))])
+			hud.flash_message(GS.last_back_line(str(eid)))
 	if state == "flight":   # v1.7y: save every so often in flight
 		_save_t += _dt
 		if _save_t >= Data.SAVE_EVERY:

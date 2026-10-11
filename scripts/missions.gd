@@ -270,6 +270,7 @@ static func on_kill(space: SpaceSystem, e: Dictionary) -> void:
 	GS.bounties_done.append(id)
 	GS.bounty = {}
 	GS.cast_state(str(p.get("character_id", id)))["alive"] = false
+	GS.jail(id, "station")   # v1.8k: back in a new ship later (the boards never run out)
 	Factions.adjust(str(p.get("faction", "")), -Data.REP_BOUNTY)
 	_pay(space, "Bounty on %s: paid on the spot, %d cr." % [p.get("name", "the pilot"), int(m["pay"])])
 

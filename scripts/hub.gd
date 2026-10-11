@@ -763,14 +763,14 @@ func _bounty_page() -> void:
 		t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		t.text = "%02d  %s  ·  %s  ·  %s\nHunt: here in %s   ·   Flies a %s\nReward %d cr  ·  wanted %s" % [int(p["rank"]), str(p["name"]).to_upper(), p["type"], p["faction"],
 			Data.SYSTEMS[GS.system_id]["name"], Data.ENEMIES[p["fighter_primary"]]["name"], Data.bounty_reward(id), "ALIVE" if int(p["rank"]) >= Data.BOUNTY_ALIVE_RANK else "dead"]
-		if int(GS.bounty_escapes.get(id, 0)) > 0: t.text += "  ·  ESCAPED %d×" % int(GS.bounty_escapes[id])   # v1.8k
 		row.add_child(t)
 		var b := Button.new()
 		b.name = "Bounty_" + id
 		b.custom_minimum_size = Vector2(230, 60)
 		var mine: bool = GS.bounty.get("id", "") == id
 		if GS.bounty_jail.has(id):   # v1.8k: locked up for now; breaks out later
-			b.text = "IN CUSTODY\nout in %d min" % GS.jail_minutes(id)
+			var down: bool = not bool(GS.cast_state(str(p.get("character_id", id))).get("alive", true))
+			b.text = ("KILLED\nreplaced in %d min" if down else "IN CUSTODY\nout in %d min") % GS.jail_minutes(id)   # (masked soldiers: another takes the post)
 			b.disabled = true
 		elif id in GS.bounties_done:
 			b.text = "PAID"
