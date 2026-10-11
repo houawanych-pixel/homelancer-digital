@@ -5122,6 +5122,8 @@ func _over_blocks() -> bool:
 var _regions := {}       # Vector4i(tile dx, tile dz, rx, rz) -> BlockField
 ## v1.7m underground light: the ship's flashlight (on under cover) and a few real lights at the nearest glowing things.
 var flashlight: SpotLight3D
+var flare: MeshInstance3D = null   # v1.8j: the lamp's glare
+var underwater := false            # v1.8j: the camera is in water
 var glow_lights: Array = []   # OmniLight3D pool
 var _glow_t := 0.0
 func _update_light(dt: float, bf: BlockField, p: Vector3) -> void:
@@ -5138,7 +5140,28 @@ func _update_light(dt: float, bf: BlockField, p: Vector3) -> void:
 		player.add_child(flashlight)
 		flashlight.position = Vector3(0, 0, -3)
 	if flashlight:
-		flashlight.visible = bf != null and bf.ceiling_above(p.x, p.y - 6.0, p.z) < INF   # under a roof: it comes on
+		# v1.8j: under water (the camera in the blocks' water, or below the sea) the lamp is on, sea-green and shorter
+		var cp: Vector3 = cam.global_position if is_instance_valid(cam) else p
+		var cbf: BlockField = _block_field_at(cp.x, cp.z)
+		underwater = (cbf != null and cbf.fluid_at(cp.x, cp.y, cp.z) == "water") or (_water and cp.y < -1.0 and Surface.height(planet_id, tile, cp.x, cp.z) < cp.y and (cbf == null or cbf.top_at(cp.x, cp.z) < cp.y))
+		var fl: Array = Data.FLASHLIGHT_WATER if underwater else Data.FLASHLIGHT
+		flashlight.light_color = fl[0]
+		flashlight.light_energy = fl[1]
+		flashlight.spot_range = fl[2]
+		flashlight.spot_angle = fl[3]
+		flashlight.visible = underwater or (bf != null and bf.ceiling_above(p.x, p.y - 6.0, p.z) < INF)   # under a roof: it comes on
+		if flare == null:   # the glare at the lamp
+			flare = MeshInstance3D.new()
+			var q := QuadMesh.new()
+			q.size = Vector2.ONE * float(Data.FLASHLIGHT_FLARE[1])
+			flare.mesh = q
+			var fm := _glow_mat(Data.FLASHLIGHT_FLARE[0]).duplicate() as StandardMaterial3D
+			fm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+			flare.material_override = fm
+			flare.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			flashlight.add_child(flare)
+			flare.position = Vector3(0, 0, -0.6)
+		flare.visible = flashlight.visible and not (GS.view == "cockpit")
 	_glow_t -= dt
 	if _glow_t > 0.0: return
 	_glow_t = 0.3

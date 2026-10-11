@@ -871,6 +871,7 @@ func _draw() -> void:
 	var cam: Camera3D = space.cam
 	var cockpit := GS.view == "cockpit"
 	if space.zoomed: _scope()   # v1.7z: looking down the rifle's scope (under everything else)
+	if space.underwater: draw_rect(Rect2(Vector2.ZERO, S), Color(Data.UNDERWATER_TINT, Data.UNDERWATER_TINT.a * (0.85 + 0.15 * sin(t * 1.7))))   # v1.8j: light through water
 	if space.in_nebula > 0.0:
 		var lit: float = space.beacon_lit   # v1.4r: a light beacon lights the cloud: the haze thins and warms near the lamp
 		draw_rect(Rect2(Vector2.ZERO, S), Color(space.nebula_color.lerp(Data.BEACON_LIGHT_COLOR, lit * 0.6), 0.36 * space.in_nebula * (1.0 - Data.BEACON_HAZE_CLEAR * lit)))

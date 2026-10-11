@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.8i"
+const VERSION := "v1.8j"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -450,6 +450,11 @@ const GLOW_LIGHTS := 3               # real lights at the nearest glowing things
 const GLOW_LIGHT := {"lava": [Color(1.0, 0.45, 0.12), 2.2, 34.0], "fire": [Color(1.0, 0.55, 0.15), 2.0, 30.0], "diamond": [Color(0.7, 0.9, 1.0), 1.6, 22.0], "gold": [Color(1.0, 0.8, 0.35), 1.2, 16.0], "kill": [Color(1.0, 0.35, 0.1), 3.0, 60.0]}   # [colour, energy, range m]
 const GLOW_REACH := 140.0            # m: glowing things this near you get a real light
 const FLASHLIGHT := [Color(1.0, 0.97, 0.9), 3.0, 160.0, 28.0]   # [colour, energy, range m, cone degrees]: on underground
+# v1.8j (planet polish): the lamp shows a small glare at the ship's nose when it is on; under water it is always on,
+# turns sea-green and reaches less far, and the view is tinted (light through water).
+const FLASHLIGHT_FLARE := [Color(1.0, 0.95, 0.8, 0.55), 2.2]     # [glare colour, size m]
+const FLASHLIGHT_WATER := [Color(0.55, 1.0, 0.92), 4.0, 70.0, 34.0]   # under water: [colour, energy, range m, cone degrees]
+const UNDERWATER_TINT := Color(0.05, 0.35, 0.45, 0.38)
 const FIRE_TICK := 0.5               # s
 const FIRE_BURN := {"wood": 4.0, "leaf": 1.5, "leaf2": 1.5}   # s a burning layer lasts before it is gone
 const FIRE_SPREAD := {"wood": 0.25, "leaf": 0.5, "leaf2": 0.5}   # chance per tick it catches from a burning neighbour

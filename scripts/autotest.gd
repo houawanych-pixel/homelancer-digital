@@ -6777,6 +6777,21 @@ func _regions() -> void:
 		await get_tree().process_frame
 		await get_tree().process_frame
 		flash_out = s.flashlight != null and s.flashlight.visible
+	# v1.8j: under water (the camera inside the blocks' water) the lamp comes on, sea-green and shorter, with its glare
+	var wet := false
+	var cpw: Vector3 = s.cam.global_position
+	var wbf: BlockField = s._block_field_at(cpw.x, cpw.z)
+	if wbf != null:
+		var stw: float = Data.BLOCK_MIN
+		var cw := clampi(int((cpw.z - wbf.z0) / stw), 0, wbf.n - 1) * wbf.n + clampi(int((cpw.x - wbf.x0) / stw), 0, wbf.n - 1)
+		var kw: int = wbf._k(cpw.y)
+		wbf._set_fluid(cw, kw, "water")
+		var cam_keep: Vector3 = s.cam.global_position
+		s._update_light(0.1, wbf, s.player.global_position)
+		wet = s.underwater and s.flashlight.visible and s.flashlight.light_color.is_equal_approx(Data.FLASHLIGHT_WATER[0]) and s.flare != null
+		wbf._set_fluid(cw, kw, "")
+		s.underwater = false
+	_check("v1.8j (planet polish): under water the ship's lamp comes on, turns sea-green and reaches less far (light through water), with a glare at the lamp and a sea tint on the view", wet, "underwater %s" % wet)
 	for f in s._fields():
 		if glow_ok: break
 		for t9 in (f as BlockField).trees:
