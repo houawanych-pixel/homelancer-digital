@@ -28,6 +28,8 @@ var jumps := 0             # Job K: jumps started this session (tests: a double 
 var jump_log: Array = []   # Job K: [phase, msec, fx.warp, system, ship speed, fx.blur, fx.fade] for the last jump: build, hold, loaded, clear, done
 
 func _ready() -> void:
+	apply_render_scale()   # v1.8e
+	get_viewport().size_changed.connect(apply_render_scale)
 	_input_map()
 	ui = CanvasLayer.new()
 	add_child(ui)
@@ -73,6 +75,19 @@ func _ready() -> void:
 		var runner: Node = load("res://scripts/autotest.gd").new()
 		runner.main = self
 		add_child(runner)
+
+## v1.8e: how much of the screen's resolution the 3D world is drawn at (1 = every pixel).
+static func render_scale_for(px: Vector2i) -> float:
+	return clampf(sqrt(Data.RENDER_PIXELS_MAX / float(maxi(1, px.x * px.y))), Data.RENDER_SCALE_MIN, 1.0)
+
+var render_scale := 1.0
+func apply_render_scale() -> void:
+	var vp := get_viewport()
+	render_scale = render_scale_for(DisplayServer.window_get_size())
+	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
+	vp.scaling_3d_scale = render_scale
+	var touch: bool = DisplayServer.is_touchscreen_available() or OS.has_feature("web_android") or OS.has_feature("web_ios")
+	vp.msaa_3d = Viewport.MSAA_DISABLED if touch and render_scale < 0.99 else Viewport.MSAA_2X
 
 func _web_flag(f: String) -> bool:
 	if OS.has_feature("web"):

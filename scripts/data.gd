@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.8d"
+const VERSION := "v1.8e"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -62,6 +62,11 @@ const SETTINGS_RESET_CONFIRM_S := 3.0 # press Reset again within this many secon
 const SAVE_PATH := "user://homelancer_save.txt"
 const SAVE_EVERY := 30.0
 const SAVE_DELTAS_MAX := 2000000   # characters: crater notes past this size are left out of the save (the ground regrows)
+# v1.8e (owner: smooth on the phone): the 3D world is drawn at most RENDER_PIXELS_MAX pixels and stretched to the
+# screen (phones have very sharp screens: drawing every pixel is the biggest cost); the HUD stays sharp. On touch
+# screens the 3D edge smoothing (MSAA) is off once the picture is scaled.
+const RENDER_PIXELS_MAX := 1000000.0   # about 1333 x 750
+const RENDER_SCALE_MIN := 0.5
 # v1.7z (owner, concept art): the MECH first-person view. VIEW in mech form looks out of the mech's head: its own arms
 # hold a rifle in front of you and sway with the sticks; ZOOM looks down the rifle's scope.
 const FPV_EYE := Vector3(0, 3.4, -0.4)      # the mech's eye, in its own axes (m)

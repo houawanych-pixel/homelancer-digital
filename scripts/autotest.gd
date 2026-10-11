@@ -940,6 +940,13 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_SPEED") != "":   # v1.8e: frame-time probe (script time per frame, by scene)
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _speed_probe()
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_FPV") != "":   # v1.7z: the mech first-person view checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1290,6 +1297,8 @@ func _run() -> void:
 	_press("hangup")
 	_check("Hang up", not main.hud.comms_open or main.hud.comms_mode == "incoming")
 	_save_check()
+	_check("v1.8e (owner: smooth on the phone): the 3D world is drawn at most %d pixels and stretched (a 2400x1080 phone screen: %.2f of its resolution; a 1280x720 one: all of it); the HUD stays sharp" % [int(Data.RENDER_PIXELS_MAX), main.render_scale_for(Vector2i(2400, 1080))],
+		main.render_scale_for(Vector2i(2400, 1080)) < 0.7 and is_equal_approx(main.render_scale_for(Vector2i(1280, 720)), 1.0) and is_equal_approx(get_viewport().scaling_3d_scale, main.render_scale), "scale now %.2f" % main.render_scale)
 	await _mech_fpv()
 	_press("log")
 	await _wait(0.5)
@@ -5330,6 +5339,49 @@ func _asteroid_mining(s: SpaceSystem) -> void:
 	var out_gone: bool = piece == null or not (piece in s.asteroids)
 	_check("v1.8d (owner): big-block asteroids break like the arcade game: lasers wear one down, it splits into 2, each into up to 4, each into up to 4, and the smallest are destroyed (every piece shootable, no loose bits); gold / diamond inside drops pickups (%s); a missile blows a piece apart; pieces past the field's invisible sphere are gone" % ("treasure found" if any_treasure else "no treasure here"),
 		big_blocks and wear and t1 and t2 and t3 and gone and mined and blown and out_gone, "big %s wear %s 2 %s 4 %s 4 %s destroyed %s mined %s (gems %d) missile %s bound %s" % [big_blocks, wear, t1, t2, t3, gone, mined, gems.size(), blown, out_gone])
+
+## v1.8e: average and worst script time per frame (process + physics) in the busy scenes.
+func _probe(label: String, frames := 120) -> Dictionary:
+	var tot := 0.0
+	var worst := 0.0
+	var last := Time.get_ticks_usec()
+	for i in frames:
+		await get_tree().process_frame
+		var now := Time.get_ticks_usec()
+		var ms: float = (now - last) / 1000.0   # wall time of the frame
+		last = now
+		tot += ms
+		worst = maxf(worst, ms)
+	var r := {"label": label, "avg": tot / frames, "worst": worst, "objects": Performance.get_monitor(Performance.OBJECT_NODE_COUNT), "draws": Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)}
+	print("[speed] %-28s avg %5.2f ms  worst %6.2f ms  nodes %d  draws %d" % [label, r["avg"], r["worst"], r["objects"], r["draws"]])
+	return r
+
+func _speed_probe() -> void:
+	var s := _sp()
+	GS.god_mode = true
+	await _probe("flight near station")
+	_tp(s.belt_center + Vector3(0, 30, s.belt_radius * 0.6), s.belt_center)
+	await _probe("asteroid field")
+	var k := 0
+	while s.asteroids.size() < 180 and k < 400:
+		k += 1
+		var a = s.asteroids[k % s.asteroids.size()]
+		if int(a.tier) < 3: s.split_asteroid(a, "gun")
+	await _probe("field, %d pieces" % s.asteroids.size())
+	_tp(s.station.global_position + Vector3(600, 80, 600), s.station.global_position)
+	for i in 8: s.spawn_unit("raider", s.player.global_position - s.player.global_basis.z * (300 + i * 40), s.player.global_position)
+	GS.missiles = 50
+	for i in 6:
+		s.fire_missile()
+		await _wait(0.2)
+	await _probe("combat, 8 enemies + missiles")
+	s.start_transform()
+	await _until(func(): return GS.form == "mech" and s.transform_t <= 0.0, 8.0)
+	s.set_view("cockpit")
+	await _probe("mech first person")
+	s.set_view("chase")
+	main._call_target()
+	await _probe("Kim on the comms")
 
 ## v1.7z (owner, concept art): VIEW in mech form = first person out of the mech's head, its own arms holding a rifle that
 ## sways with the stick; FIRE shoots from the rifle at the crosshair; ZOOM (in KILL's place) looks down the scope.
