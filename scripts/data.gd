@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.8g"
+const VERSION := "v1.8h"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -79,6 +79,10 @@ const FPV_ARM_DIRS := {                      # where the bones point, in the mod
 	"RightUpperArm": Vector3(0.2, -0.42, 0.88), "RightLowerArm": Vector3(0.28, 0.12, 0.95),
 	"LeftUpperArm": Vector3(-0.3, -0.4, 0.86), "LeftLowerArm": Vector3(-0.9, 0.12, 0.45)}
 const FPV_GUN_SCALE := 0.6                  # the rifle's size in the hands
+# v1.8h (owner): his futuristic gun model in the mech's hands (mechs pack); the code-made rifle is the stand-in until it loads
+const FPV_GUN_MODEL := "res://assets/mechs/mech_gun_futuristic.glb"
+const FPV_GUN_LENGTH := 3.6                 # m long in the hands (muzzle at -Z)
+const FPV_GUN_GRIP := Vector3(0.05, 0.3, -0.9)   # where the gun's middle sits from the right hand (m)
 const FPV_GUN_COLORS := {"body": Color(0.86, 0.87, 0.88), "dark": Color(0.12, 0.13, 0.15), "glow": Color(0.3, 0.85, 1.0)}
 
 # ---------------------------------------------------------------- Job K (v1.4g): jump-gate docking + warp tunnel

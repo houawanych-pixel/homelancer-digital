@@ -3987,14 +3987,19 @@ func _build_fpv() -> void:
 		var hl := sk.find_bone("LeftHand")
 		if hr >= 0: hand_r = fpv.to_local(sk.global_transform * sk.get_bone_global_pose(hr).origin)
 		if hl >= 0: hand_l = fpv.to_local(sk.global_transform * sk.get_bone_global_pose(hl).origin)
-	fpv_gun = _fpv_rifle()
+	fpv_gun = _fpv_gun_model()
 	fpv.add_child(fpv_gun)
 	# the rifle sits in the right hand and runs forward past the left one
 	var along := (hand_l - hand_r)
 	along.x *= 0.4
 	var gdir := Vector3(-0.06, 0.03, -1.0).normalized()
-	fpv_gun.transform = Transform3D(Basis.looking_at(gdir, Vector3.UP).scaled(Vector3.ONE * Data.FPV_GUN_SCALE), hand_r + Vector3(-0.15, 0.2, 0.1))
-	fpv_muzzle = fpv_gun.transform * Vector3(0, 0.1, -4.6)
+	if fpv_gun.has_meta("real"):   # v1.8h: the owner's gun, sized to FPV_GUN_LENGTH, its middle just ahead of the right hand
+		var k: float = Data.FPV_GUN_LENGTH / maxf(0.01, float(fpv_gun.get_meta("length")))
+		fpv_gun.transform = Transform3D(Basis.looking_at(gdir, Vector3.UP).scaled(Vector3.ONE * k), hand_r + Data.FPV_GUN_GRIP)
+		fpv_muzzle = fpv_gun.transform * (fpv_gun.get_meta("muzzle") as Vector3)
+	else:
+		fpv_gun.transform = Transform3D(Basis.looking_at(gdir, Vector3.UP).scaled(Vector3.ONE * Data.FPV_GUN_SCALE), hand_r + Vector3(-0.15, 0.2, 0.1))
+		fpv_muzzle = fpv_gun.transform * Vector3(0, 0.1, -4.6)
 	_fpv_base = Vector3.ZERO
 
 ## Point a bone (and so its whole limb) along a direction in the model's own axes.
@@ -4011,6 +4016,28 @@ func _point_bone(sk: Skeleton3D, b: int, child: int, dir: Vector3) -> void:
 func _shadows_off(n: Node) -> void:
 	if n is GeometryInstance3D: (n as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	for c in n.get_children(): _shadows_off(c)
+
+## v1.8h: the owner's gun model when it is here (mechs pack), else the code-made rifle. Meta: real, length, muzzle.
+func _fpv_gun_model() -> Node3D:
+	if not ResourceLoader.exists(Data.FPV_GUN_MODEL): return _fpv_rifle()
+	var ps := load(Data.FPV_GUN_MODEL) as PackedScene
+	if ps == null: return _fpv_rifle()
+	var g := Node3D.new()
+	g.name = "Rifle"
+	var inst: Node3D = ps.instantiate()
+	g.add_child(inst)
+	_shadows_off(inst)
+	var box := AABB()
+	var first := true
+	for mi: MeshInstance3D in inst.find_children("*", "MeshInstance3D", true, false):
+		var b: AABB = mi.transform * mi.get_aabb()
+		box = b if first else box.merge(b)
+		first = false
+	inst.position = -box.get_center()
+	g.set_meta("real", true)
+	g.set_meta("length", box.size.z)
+	g.set_meta("muzzle", Vector3(0, box.size.y * 0.1, -box.size.z * 0.5))
+	return g
 
 ## The rifle: blocky, white plates over black, cyan glow strips and a scope (concept art). Its muzzle is at -Z.
 func _fpv_rifle() -> Node3D:

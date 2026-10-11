@@ -5433,6 +5433,7 @@ func _mech_fpv() -> void:
 	if GS.view != "cockpit": _press("view")
 	await _frames(4)
 	var arms: bool = s.fpv != null and s.fpv.visible and s.fpv_skel != null and s.fpv_gun != null and not s.model.visible and absf(s.cam.fov - Data.FPV_FOV) < 3.0
+	var real_gun: bool = s.fpv_gun != null and s.fpv_gun.has_meta("real") and absf(float(s.fpv_gun.get_meta("length")) * s.fpv_gun.transform.basis.get_scale().x - Data.FPV_GUN_LENGTH) < 0.2   # v1.8h: the owner's gun
 	main.hud._layout()
 	var zoom_btn: bool = main.hud.buttons.has("zoom") and not main.hud.buttons.has("kill") and main.hud.cockpit_texture() == null
 	await _shot("az_mech_fpv", 0.3)
@@ -5461,7 +5462,7 @@ func _mech_fpv() -> void:
 	await _until(func(): return GS.form == "ship" and s.transform_t <= 0.0, 8.0)
 	if GS.view != view0: s.set_view(view0)
 	_check("v1.7z (owner): VIEW in mech form looks out of the mech's head with its own arms holding a rifle (no ship cockpit), the arms sway with the stick, FIRE shoots from the rifle with a kick, ZOOM (KILL's place) looks down the scope, VIEW again goes back to the chase camera",
-		arms and zoom_btn and swayed and shot_ok and scoped and unscoped and back_out, "arms %s zoom button %s sway %s shot %s scope %s unscope %s back %s" % [arms, zoom_btn, swayed, shot_ok, scoped, unscoped, back_out])
+		arms and real_gun and zoom_btn and swayed and shot_ok and scoped and unscoped and back_out, "arms %s owner's gun %s zoom button %s sway %s shot %s scope %s unscope %s back %s" % [arms, real_gun, zoom_btn, swayed, shot_ok, scoped, unscoped, back_out])
 
 ## v1.7y (owner): progress is saved: the save keeps credits, ships, systems found, jobs and so on; loading puts them
 ## back; a damaged value is ignored; START OVER erases it. (Its own file; the route test never touches a player's save.)

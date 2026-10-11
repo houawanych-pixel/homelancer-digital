@@ -322,3 +322,9 @@ mirrored and tinted (`tools/assetkit/tint.py`); all in assets/ships/enemy/placeh
 Covenant 15, Cybermorph 16, Kaijurai 17, Arctides 18, Solarion 19, Elyza 21, Solrath 23 (20, 22 and the big ships 0-7
 saved only). Removed from the game: assets/hangar (all hangar parts, §55), assets/city (b01 tower, h01 hangar, city
 textures), assets/ui/title_network.jpg. Their originals stay in the owner's originals folder.
+
+## Mech weapons (v1.8h)
+
+| owner file | game copy | kind | triangles | texture | mirrored | status |
+|---|---|---|---|---|---|---|
+| futuristic_gun_3d_model.glb (originals/mech_gun_futuristic_ORIGINAL.glb, read-only, 1.89 M tris) | assets/mechs/mech_gun_futuristic.glb (1.4 MB, mechs pack) | mech rifle, muzzle at -Z | 16,988 | 1024 colour + ORM | no | IN GAME: the mech's first-person rifle |
