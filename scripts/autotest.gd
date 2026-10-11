@@ -4542,7 +4542,7 @@ func _job_ai() -> void:
 		elif o["kind"] == "convoy": cvy = o
 	var same: bool = Missions.offers(s.sys_id, sid).map(func(o): return o["title"]) == offers.map(func(o): return o["title"])
 	_check("Job AI: a station's MISSIONS board offers a patrol threats job, an elite threats job (slot 05, paid more) and an escort, from a faction hostile to the owner, the same offers for the whole visit",
-		kinds == ["threats", "threats_hard", "escort", "convoy", "ground"] and int(hard["slot"]) == 5 and int(easy["slot"]) == 1 and int(hard["pay"]) > int(easy["pay"]) and same and Factions.has_fighters(str(easy["faction"])) and (easy["points"] as Array).size() == 2,
+		kinds == ["threats", "threats_hard", "escort", "convoy", "ground", "outlaws"] and int(hard["slot"]) == 5 and int(easy["slot"]) == 1 and int(hard["pay"]) > int(easy["pay"]) and same and Factions.has_fighters(str(easy["faction"])) and (easy["points"] as Array).size() == 2,
 		str(kinds) + " " + str(easy.get("faction", "")))
 	# ---- the hub pages
 	main.hub.open(Data.SYSTEMS[s.sys_id]["station"])
@@ -4750,7 +4750,8 @@ func _job_ai() -> void:
 	GS.mission["spawned"] = 1
 	var fr2: Node3D = s.escort_node
 	var g2: Array = s.spawn_mission_group(fr2.global_position + Vector3(50, 0, 50), str(esc["faction"]), 1, 1, "", 1)
-	await _frames(6)
+	await _until(func(): return GS.mission.is_empty(), 3.0)   # (v1.8p: by game time, not a frame count: fast frames are short)
+	await _frames(2)
 	var failed: bool = GS.mission.is_empty() and not is_instance_valid(s.escort_node)
 	for o in g2:
 		if o in s.enemies: s._destroy_unit(o)
@@ -4797,6 +4798,30 @@ func _job_ai() -> void:
 	await main._load_system(home_sys, "station")
 	await _frames(4)
 	s = _sp()
+	# ---- v1.8p (owner): the outlaws job: the system's own raiders at two points, always offered, paid on the last kill
+	var outl: Dictionary = {}
+	for o in Missions.offers(s.sys_id, sid):
+		if o["kind"] == "outlaws": outl = o
+	Missions.accept(outl)
+	await _frames(2)
+	var o_kinds_ok := true
+	var oc0: int = GS.credits
+	for st in 2:
+		s.player.global_position = Missions.point_pos(s, st) + Vector3(0, 0, 200)
+		await _frames(3)
+		var ow: Array = s.enemies.filter(func(o): return int(o.get("mission", -1)) == st)
+		if ow.size() != int(Data.MISSION_GROUP[st]) or not ow.all(func(o): return o["def"] == Data.ENEMIES[s.sys["enemy"]] and not o.has("faction") and bool(o.get("provoked", false))): o_kinds_ok = false
+		for o in ow: s._destroy_unit(o)
+		await _frames(3)
+	var all_boards := true
+	for sy in Data.SYSTEMS:
+		if not Missions.offers(sy, str(Data.SYSTEMS[sy]["station"]["id"])).any(func(o): return o["kind"] == "outlaws"): all_boards = false
+	_check("v1.8p (owner): every board also offers a job against the system's own outlaws (%s): two points, their ships, paid on the last kill" % str(outl.get("title", "")),
+		not outl.is_empty() and o_kinds_ok and all_boards and GS.mission.is_empty() and GS.credits - oc0 >= int(outl["pay"]), "ships %s boards %s paid %d" % [o_kinds_ok, all_boards, GS.credits - oc0])
+	for e in s.enemies.duplicate():
+		if is_instance_valid(e["node"]): (e["node"] as Node3D).free()
+	s.enemies = []
+	s.target = null
 	# ---- v1.8m (owner): a ground job: the planet is the waypoint in space; down there two points in one sector, a wave at each; paid on the last kill
 	var gnd: Dictionary = {}
 	for o in Missions.offers(s.sys_id, sid):
@@ -4840,9 +4865,15 @@ func _job_ai() -> void:
 	var g_wave: bool = gwave.size() == gn0 and gwave.all(func(o): return bool(o.get("provoked", false)))
 	# v1.8n: the mechs of the wave are on foot: on the ground, upright, walking toward you, never climbing after you
 	var walkers: Array = gwave.filter(func(o): return bool(o.get("walker", false)))
-	sg.player.global_position = gp0 + Vector3(0, 60, 380)
 	var wk0: Vector3 = (walkers[0]["node"] as Node3D).global_position if not walkers.is_empty() else Vector3.ZERO
-	await _wait(1.5)
+	var wdir := Vector3(0, 0, 1)   # stand where the mech has dry land to walk toward you
+	for k in 8:
+		var dv := Vector3(cos(k * TAU / 8.0), 0, sin(k * TAU / 8.0))
+		if not (sg._sea_at(wk0.x + dv.x * 100.0, wk0.z + dv.z * 100.0) or sg._sea_at(wk0.x + dv.x * 200.0, wk0.z + dv.z * 200.0)):
+			wdir = dv
+			break
+	sg.player.global_position = wk0 + wdir * 380.0 + Vector3(0, 60, 0)
+	await _wait(5.0)
 	var wk_ok: bool = walkers.size() == int(Data.MISSION_GROUND_MECHS[0])
 	for o in walkers:
 		var wn: Node3D = o["node"]

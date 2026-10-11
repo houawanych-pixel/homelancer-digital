@@ -66,6 +66,11 @@ static func offers(sys_id: String, station_id: String, owner := "") -> Array:
 			"giver": station_id, "giver_sys": sys_id, "sys": sys_id, "planet": pid, "tile": tile,
 			"brief": "%s have landed on %s, in %s. Fly down into the atmosphere, go to both mission points and destroy them: ships overhead and mechs on the ground." % [enemy, sys["planet"]["name"], sector_name(pid, tile)],
 			"points": [{"x": p0.x, "z": p0.y}, {"x": p1.x, "z": p1.y}]})
+	# v1.8p (owner): the system's own outlaws (raiders / corsairs) are always a job too: there is no end of them
+	var outlaw := str(Data.ENEMIES[sys["enemy"]]["name"])
+	out.append({"kind": "outlaws", "faction": "", "slot": 1, "pay": Data.MISSION_PAY["outlaws"], "title": "%sS: clear the %s threat" % [outlaw.to_upper(), outlaw], "giver": station_id, "giver_sys": sys_id, "sys": sys_id,
+		"brief": "%ss have been seen in two places in the %s system. Clear both. Outlaws, not soldiers: an easier fight, smaller pay." % [outlaw, sys["name"]],
+		"points": _points(rng, 2)})
 	return out
 
 ## v1.8n: a ground job's point: on dry land when a few tries find some, and well away from the other point.
@@ -321,7 +326,7 @@ static func tick(space: SpaceSystem, dt: float) -> void:
 		space.message.emit("Mission: wave cleared. The waypoint moves to point %d of %d." % [int(m["stage"]) + 1, pts.size()])
 	elif kind == "ground":
 		_pay(space, "The landing party is destroyed. %s pays %d cr." % [Data.SYSTEMS[m["giver_sys"]]["station"]["name"], int(m["pay"])])
-	elif kind == "threats":
+	elif kind == "threats" or kind == "outlaws":
 		_pay(space, "Threats eliminated. %s pays %d cr." % [Data.SYSTEMS[m["giver_sys"]]["station"]["name"], int(m["pay"])])
 
 ## True when this bounty is wanted dead (no pod drops: the kill is the job).

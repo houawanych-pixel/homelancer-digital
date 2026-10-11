@@ -3352,7 +3352,7 @@ func _update_enemies(dt: float) -> void:
 		if new_fwd.length() > 0.01:
 			n.look_at(n.global_position + new_fwd, Vector3.UP)
 		var sp: float = d["speed"] * (1.0 if e["aggro"] else 0.5) * (1.4 if warp_state == "charging" else 1.0)
-		if walker: sp = float(d["speed"]) * Data.WALKER_SPEED * (0.0 if e["aggro"] and dist <= Data.WALKER_HOLD else 1.0)
+		if walker: sp = float(d["speed"]) * Data.WALKER_SPEED * (0.0 if e["aggro"] and dist <= Data.WALKER_HOLD else 1.0) * clampf((-n.global_basis.z).dot(want) * 2.0 - 0.6, 0.0, 1.0)   # it turns on the spot first, then walks the way it faces
 		e["vel"] = (e["vel"] as Vector3).lerp(-n.global_basis.z * sp, minf(1.0, dt * 1.5))
 		if float(e.get("dodge_t", 0.0)) > 0.0:   # Job M: side-boost out of a missile's path
 			e["dodge_t"] = float(e["dodge_t"]) - dt
