@@ -131,6 +131,9 @@ func open_comms(from: String, line: String, mode := "talk", hostile := false, fa
 	comms_female = female
 	comms_hostile = hostile
 	if mode == "talk": console_open = false
+	if side == "l" and console_open:   # v1.8s (owner: no layering): a hostile caller takes the left side; the panel there goes away
+		console_open = false
+		if _typer: _typer.visible = false
 	comms_voice_id = voice_id
 	if video != "": _play_video(video)   # v1.7r: an acted clip speaks for itself (its own voice and gestures)
 	elif video_playing() and side == "l": pass   # (a hostile line shows as text while the guide's clip talks)
@@ -200,7 +203,19 @@ func pick_contact(id: String, info: Dictionary) -> void:
 ## LOG = the comms console: drops down under the centre buttons with your contacts (call anyone who is in THIS
 ## star system, like a codec but with names instead of frequencies), the chat log, and a box to type in.
 ## Tap LOG again (or wait) and it rolls back up.
+var console_view := "list"   # v1.8s: what the left panel shows: "list" (LOG: who to call) or "chat" (the text screen of a call)
+
+## The text screen: comes up on the left when you press CALL or tap a caller's screen. CLOSE (or LOG) puts it away.
+func open_chat() -> void:
+	if not console_open or roster_closing: roster_t = 0.0
+	console_view = "chat"
+	console_open = true
+	roster_closing = false
+	roster_idle = 0.0
+	_sync()
+
 func open_log() -> void:
+	console_view = "list"
 	console_open = true
 	roster_t = 0.0
 	roster_closing = false
@@ -223,11 +238,8 @@ func contacts_rect() -> Rect2:   # v1.8r (owner): the call list is on the LEFT; 
 	var e := ease(roster_t, 0.35)
 	return Rect2(-w * (1.0 - e), sp.x, w, sp.y - sp.x)
 
-func msglog_rect() -> Rect2:
-	var w := _panel_w()
-	var sp := _panel_span()
-	var e := ease(roster_t, 0.35)
-	return Rect2(S.x - w * e, sp.x, w, sp.y - sp.x)
+func msglog_rect() -> Rect2:   # v1.8s: the text screen takes the call list's place (one panel, on the left)
+	return contacts_rect()
 
 ## v1.8r (owner): who is on the call list: people you have met who are still on speaking terms with you (not enraged,
 ## and their faction, if they have one, yellow or better). Lose their good will and they drop off the list.
@@ -283,7 +295,7 @@ func side_rect(side: String) -> Rect2:
 	var w := clampf(S.x * 0.14, 150.0, 190.0)
 	var top := 8.0 + btn * 2.0 + 8.0 + 14.0
 	var h := minf(w + 90.0, _home("move").y - stick_r - 10.0 - top)
-	var inset := 8.0 + ((_panel_w() + 6.0) * ease(roster_t, 0.35) if console_open else 0.0)   # v1.4n: a caller floats in NEXT to the console panel
+	var inset := 8.0 + ((_panel_w() + 6.0) * ease(roster_t, 0.35) if console_open and side == "l" else 0.0)   # v1.4n: a caller floats in NEXT to the console panel (v1.8s: the panel is on the left only)
 	return Rect2(inset if side == "l" else S.x - inset - w, top, w, h)
 
 # ---------------------------------------------------------------- layout
@@ -377,7 +389,13 @@ func _layout() -> void:
 	if console_open:
 		var rr := contacts_rect()
 		var lg := msglog_rect()
-		if roster_t > 0.95 and not roster_closing:
+		if roster_t > 0.95 and not roster_closing and console_view == "chat":
+			var hw2 := (lg.size.x - 24.0) / 3.0
+			buttons["chat_close"] = Rect2(lg.end.x - 86, lg.position.y + 3, 78, 26)
+			buttons["type"] = Rect2(lg.position.x + 6, lg.end.y - 44, hw2, 38)
+			buttons["talk"] = Rect2(lg.position.x + 12 + hw2, lg.end.y - 44, hw2, 38)   # v1.5j hold-to-talk
+			buttons["voice"] = Rect2(lg.position.x + 18 + hw2 * 2.0, lg.end.y - 44, hw2, 38)
+		elif roster_t > 0.95 and not roster_closing:
 			buttons["met_hail"] = Rect2(rr.position.x, rr.position.y + 32, rr.size.x - 6, Data.COMMS_ROW_H - 4)   # v1.8q: the first row: your target / control
 			var cn := call_list().size()
 			contact_scroll = clampi(contact_scroll, 0, maxi(0, cn - (contact_rows() - 1)))
@@ -386,10 +404,6 @@ func _layout() -> void:
 				buttons["met_down"] = Rect2(rr.end.x - 54, rr.position.y + 3, 50, 26)
 			for k in mini(cn - contact_scroll, contact_rows() - 1):
 				buttons["met_%d" % k] = Rect2(rr.position.x, rr.position.y + 32 + (k + 1) * Data.COMMS_ROW_H, rr.size.x - 6, Data.COMMS_ROW_H - 4)
-			var hw := (lg.size.x - 24.0) / 3.0
-			buttons["type"] = Rect2(lg.position.x + 6, lg.end.y - 44, hw, 38)
-			buttons["talk"] = Rect2(lg.position.x + 12 + hw, lg.end.y - 44, hw, 38)   # v1.5j hold-to-talk
-			buttons["voice"] = Rect2(lg.position.x + 18 + hw * 2.0, lg.end.y - 44, hw, 38)
 
 # ---------------------------------------------------------------- input
 func _input(e: InputEvent) -> void:
@@ -1590,8 +1604,10 @@ func _dist(d: float) -> String:
 ## Comms console (LOG): contacts on the left (only people in this star system pick up), the chat log on the right,
 ## TYPE and VOICE along the bottom.
 func _roster() -> void:
+	if console_view == "chat":
+		_chat_panel()
+		return
 	var r := contacts_rect()
-	var lg := msglog_rect()
 	# ---- left edge (v1.8r): who you can call. Faces flush left, names beside them; tap a row and the picture comes up on the right.
 	draw_rect(r, Color(0.02, 0.07, 0.14, 0.9))
 	draw_line(Vector2(r.end.x, r.position.y), r.end, CYAN_HI, 2)
@@ -1631,11 +1647,16 @@ func _roster() -> void:
 		_text(Vector2(br.position.x + fs + 8, br.position.y + 18), c["name"], 14, WHITE if ok else Color(1, 1, 1, 0.5), HORIZONTAL_ALIGNMENT_LEFT, tw)
 		var sub: String = "TAP TO SELECT" if ok else "OUT OF RANGE · %s" % Data.SYSTEMS[c["system"]]["name"].to_upper()
 		_text(Vector2(br.position.x + fs + 8, br.position.y + 34), sub, 10, Color(mc, 0.95) if ok else Color(1, 1, 1, 0.45), HORIZONTAL_ALIGNMENT_LEFT, tw)
+
+## v1.8s (owner: less on the screen): the text screen of a call: the message log with TYPE / HOLD TO TALK / VOICE, on the
+## left in place of the call list, with CLOSE. It comes up when you press CALL (or tap a caller's screen).
+func _chat_panel() -> void:
+	var lg := msglog_rect()
 	# ---- right edge (v1.8r): the message log, newest at the top; TYPE and VOICE under it
 	draw_rect(lg, Color(0.02, 0.07, 0.14, 0.9))
-	draw_line(lg.position, Vector2(lg.position.x, lg.end.y), CYAN_HI, 2)
-	_text(lg.position + Vector2(10, 22), "LOG", 15, WHITE)
-	_text(lg.position + Vector2(0, 22), "TAP LOG TO CLOSE", 9, CYAN_HI, HORIZONTAL_ALIGNMENT_RIGHT, lg.size.x - 10)
+	draw_line(Vector2(lg.end.x, lg.position.y), lg.end, CYAN_HI, 2)
+	_text(lg.position + Vector2(10, 22), "MESSAGES", 15, WHITE)
+	if buttons.has("chat_close"): _pill("chat_close", "CLOSE", false, CYAN)
 	var lr := Rect2(lg.position.x + 6, lg.position.y + 32, lg.size.x - 12, lg.size.y - 32 - 50)
 	draw_rect(lr, Color(1, 1, 1, 0.08))
 	var y := lr.position.y + 16
@@ -1651,8 +1672,8 @@ func _roster() -> void:
 		_pill("talk", "LISTENING" if listening else "HOLD TO TALK", listening, GREEN if listening else CYAN, heard_text.left(18) if listening and heard_text != "" else "")
 		_pill("voice", "VOICE", false, CYAN, "ON" if Sfx.voice_on() else "OFF")
 	if _typer.visible:
-		_typer.size = Vector2(minf(420.0, S.x - _panel_w() * 2.0 - 16), 40)
-		_typer.position = Vector2(lg.position.x - 8 - _typer.size.x, lg.end.y - 44)
+		_typer.size = Vector2(minf(420.0, S.x - lg.end.x - side_rect("r").size.x - 32), 40)
+		_typer.position = Vector2(lg.end.x + 8, lg.end.y - 44)
 
 ## TYPE: open the message box (the phone keyboard comes up).
 # ---------------------------------------------------------------- v1.5j hold-to-talk

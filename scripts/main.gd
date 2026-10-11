@@ -346,6 +346,8 @@ func _on_hud(id: String) -> void:
 			if pk == "hail": _call_target()
 			elif pk != "" and hud.in_range(pk): call_character(pk)
 			elif pk != "": hud.flash_message("%s is in %s — out of comms range. Only people in this system can be called." % [Data.CHARACTERS[pk]["name"], Data.SYSTEMS[Data.CHARACTERS[pk]["system"]]["name"]])
+			if hud.slots["l"].is_empty() and hud.slots["r"].get("mode", "") == "talk": hud.open_chat()   # v1.8s (owner): the text screen comes up on the left for the call
+		"chat_close": hud.close_roster()
 		"ground":   # v1.8r (owner): gravity on / off
 			match space.toggle_ground():
 				"on": hud.flash_message("GROUND: walking. THRUST = jump, stick + THRUST = dash." if GS.form == "mech" else "GROUND: coming down to land. THRUST = hop up, stick + THRUST = dash.")
@@ -389,7 +391,7 @@ func _on_hud(id: String) -> void:
 		"jump":   # Job K: the gate prompt docks you to the gate (docking screen), it no longer jumps at once
 			if space.gate_in_range(): dock_gate()
 		"side_l", "side_r":   # tap a comms screen: the console (log, contacts, type) pulls up
-			if hud.comms_mode != "roster": hud.open_log()
+			if hud.comms_mode != "roster": hud.open_chat()   # (v1.8s: the text screen, not the call list)
 		"type": hud.start_typing()
 		"radar":   # tap the radar: the map, where you can set a course or drop a waypoint; a tap on a blip opens its card
 			open_map()

@@ -384,7 +384,7 @@ func _flight_and_comms() -> void:
 	_press("side_l")
 	await _wait(0.5)
 	hud._layout()
-	var console_up: bool = hud.comms_mode == "roster" and hud.buttons.has("met_0") and hud.buttons.has("type")
+	var console_up: bool = hud.comms_mode == "roster" and hud.console_view == "chat" and hud.buttons.has("type") and not hud.buttons.has("met_0")   # (v1.8s: a tapped screen brings up the text screen, one panel)
 	hud.start_typing()
 	hud._typer.text_submitted.emit("Hold the line, Vale.")
 	var logged: bool = "YOU: Hold the line, Vale." in hud.history
@@ -1338,7 +1338,7 @@ func _run() -> void:
 	_check("v1.8q (owner): CALL is inside LOG (no CALL button): the list starts with TARGET / CONTROL; a tapped name shows the picture on the friendly side with CALL under it; 8 buttons on the left and 8 on the right, the centre strip between them",
 		no_call and hail_ok and pick_ok and eight and clear, "no_call %s hail %s pick %s eight %s clear %s" % [no_call, hail_ok, pick_ok, eight, clear])
 	# v1.8r (owner): the call list is on the left, the picked face on the right; only people on speaking terms are listed; it scrolls
-	var left_list: bool = hq.contacts_rect().end.x < hq.S.x * 0.5 and hq.msglog_rect().position.x > hq.S.x * 0.5 and hq.buttons["met_0"].end.x < hq.S.x * 0.5 and hq.side_rect("r").position.x > hq.S.x * 0.5
+	var left_list: bool = hq.contacts_rect().end.x < hq.S.x * 0.5 and not hq.buttons.has("type") and hq.buttons["met_0"].end.x < hq.S.x * 0.5 and hq.side_rect("r").position.x > hq.S.x * 0.5
 	var met_keep: Array = GS.met.duplicate()
 	var mood_keep: Dictionary = GS.mood.duplicate()
 	var first_id: String = hq.contact_at(0)
@@ -1366,8 +1366,29 @@ func _run() -> void:
 	_check("v1.8r (owner): the call list is on the left (face and name), the picked person's picture with CALL on the right; someone who turns against you drops off the list; UP / DOWN scroll it when there are more people than fit",
 		left_list and dropped and back_on and can_scroll and scrolled, "left %s dropped %s back %s scroll %s (%d people) scrolled %s" % [left_list, dropped, back_on, can_scroll, many, scrolled])
 	_press("call_pick")
-	await _wait(0.3)
-	_check("Call a contact from LOG", main.hud.comms_mode == "talk")
+	await _wait(0.6)
+	hq._layout()
+	_check("Call a contact from LOG", hq.slot("r").get("mode", "") == "talk")
+	# v1.8s (owner: less on the screen): one panel, on the left: the list, then (after CALL) the text screen with CLOSE; the picture at the right edge
+	var chat_up: bool = hq.console_open and hq.console_view == "chat" and hq.buttons.has("type") and hq.buttons.has("talk") and hq.buttons.has("voice") and hq.buttons.has("chat_close") and not hq.buttons.has("met_0") \
+		and hq.msglog_rect().end.x < hq.S.x * 0.5 and hq.msglog_rect().encloses(hq.buttons["type"])
+	var edge: bool = hq.side_rect("r").end.x > hq.S.x - 12.0
+	await _shot("log_chat", 0.3)
+	hq.open_comms("Raider pilot", "You are mine.", "incoming", true)   # a hostile caller takes the left side: the panel there goes
+	await _wait(0.2)
+	hq._layout()
+	var no_layer: bool = not hq.console_open and hq.side_rect("l").position.x < 12.0 and not hq.buttons.has("type")
+	hq.close_side("l")
+	_press("side_r")
+	await _wait(0.5)
+	hq._layout()
+	var again: bool = hq.console_open and hq.console_view == "chat" and hq.buttons.has("chat_close")
+	_press("chat_close")
+	await _wait(0.5)
+	hq._layout()
+	var closed: bool = not hq.console_open and hq.slot("r").get("mode", "") == "talk"
+	_check("v1.8s (owner): one panel only, on the left: LOG = the call list; CALL replaces it with the text screen (TYPE / TALK / VOICE, CLOSE) while the picture sits at the right edge; a hostile caller takes the left side and the panel goes; CLOSE puts the text screen away and the call goes on",
+		chat_up and edge and no_layer and again and closed, "chat %s edge %s no_layer %s again %s closed %s" % [chat_up, edge, no_layer, again, closed])
 	_press("hangup")
 	var mines0 := GS.mines
 	var sh0 := GS.shield_charges
@@ -2923,18 +2944,22 @@ func _job_q() -> void:
 	var lg: Rect2 = hud.msglog_rect()
 	var sz: Vector2 = hud.S
 	var mid := Rect2(sz.x * 0.3, 0, sz.x * 0.4, sz.y)
-	var flush: bool = absf(lg.end.x - sz.x) < 1.0 and absf(cr.position.x) < 1.0   # (v1.8r, owner: the call list is on the left now, the log on the right)
-	var clear: bool = not cr.intersects(mid) and not lg.intersects(mid)
-	var rows: bool = hud.buttons.has("met_0") and cr.encloses(hud.buttons["met_0"]) and hud.buttons.has("type") and lg.encloses(hud.buttons["type"]) and lg.encloses(hud.buttons["voice"])
+	var flush: bool = absf(cr.position.x) < 1.0 and lg == cr   # (v1.8s, owner: one panel, on the left: the call list, then the text screen in its place)
+	var clear: bool = not cr.intersects(mid)
+	var rows: bool = hud.buttons.has("met_0") and cr.encloses(hud.buttons["met_0"]) and not hud.buttons.has("type")
+	hud.open_chat()
+	await _wait(0.5)
+	hud._layout()
+	rows = rows and hud.buttons.has("type") and lg.encloses(hud.buttons["type"]) and lg.encloses(hud.buttons["voice"]) and not hud.buttons.has("met_0")
 	await _shot("q_comms_split")
-	_check("Job Q: the comms console is split: the call list flush against the left edge (v1.8r), the message log flush against the right edge, the middle 40% of the screen clear", hud.console_open and flush and clear and rows,
+	_check("Job Q: the comms console is one panel flush against the left edge (v1.8s): the call list, then the text screen in its place; the middle 40% of the screen clear", hud.console_open and flush and clear and rows,
 		"contacts x %d..%d, log x %d..%d of %d, rows in place %s" % [int(cr.position.x), int(cr.end.x), int(lg.position.x), int(lg.end.x), int(sz.x), rows])
 	# a caller floats in beside the panel, not under it; the console stays up while you fly
 	hud.open_comms("Capt. Rennick — Bright Margin", "[smile]Good to see you out here.", "incoming", false, "rennick")
 	await _wait(0.5)
 	hud._layout()
 	var sr: Rect2 = hud.side_rect("r")
-	var beside: bool = sr.end.x <= hud.msglog_rect().position.x + 1.0 and sr.position.x > sz.x * 0.6   # (v1.8r: the right panel is the log)
+	var beside: bool = sr.end.x > sz.x - 12.0 and sr.position.x > sz.x * 0.6   # (v1.8s: nothing on the right but the caller, at the edge)
 	await _shot("q_comms_caller")
 	var ev := InputEventScreenTouch.new()
 	ev.index = 7
@@ -2945,7 +2970,7 @@ func _job_q() -> void:
 	ev.pressed = false
 	hud._input(ev)
 	await _wait(0.4)
-	_check("Job Q: someone calling floats in next to the right panel, and touching the middle of the screen leaves the console up", beside and hud.console_open and not hud.roster_closing,
+	_check("Job Q: a friendly caller comes in at the right edge, and touching the middle of the screen leaves the console up", beside and hud.console_open and not hud.roster_closing,
 		"caller x %d..%d, panel starts %d" % [int(sr.position.x), int(sr.end.x), int(hud.contacts_rect().position.x)])
 	# tapping a name calls that person
 	hud.close_comms()
