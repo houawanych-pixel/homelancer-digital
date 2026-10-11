@@ -5,7 +5,7 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.7z"
+const VERSION := "v1.8a"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -229,16 +229,17 @@ static func ts(size: int) -> int:
 	return maxi(TEXT_FLOOR, int(round(size * TEXT_SCALE)))
 
 # v1.7r (owner): the tutorial. Tap CALL with nothing targeted and the guide teaches the next lesson.
-# The guide is the owner's tech officer ("tutor" in CHARACTERS; her name is a placeholder until the owner names her).
+# The guide is Kim, the owner's tech officer ("tutor" in CHARACTERS; faces tutor_normal / smile / serious / sad).
 # Each lesson can have an acted clip (owner's videos, numbered 1-10): assets/tutor/tutor_<n>.ogv, its own pack
 # "tutor_<n>". With the clip ready it plays in her comms portrait with its own voice; without it the line is spoken.
 const TUTOR_ID := "tutor"
 const TUTOR_HINT := "Need help? Tap CALL with nothing targeted for a lesson."
 const TUTOR_CLIPS := 10
+const TUTOR_VIDEO := false   # v1.8a (owner: the clips stuttered on the phone): Kim talks with pictures and text, not video
 # Each lesson: id, the line (what she says in the clip), "when" (a situation that moves it to the front:
 # "hostiles", "planet", or ""; not "dock": you start next to a station), and "video" (the clip number). The intro always comes first.
 const TUTORIAL := [
-	{"id": "intro", "when": "", "video": 1, "line": "[smile]Oh! Hey, pilot. I'm your tech officer. Need help? Just tap CALL."},
+	{"id": "intro", "when": "", "video": 1, "line": "[smile]Oh! Hey, pilot. I'm Kim, your tech officer. Need help? Just tap CALL."},
 	{"id": "fly", "when": "", "video": 2, "line": "[smile]Hey, it's okay, I gotcha. Left stick flies, right stick aims."},
 	{"id": "fire", "when": "hostiles", "video": 3, "line": "[smile]Ooh, want to shoot something? Tap FIRE once, and it keeps going."},
 	{"id": "missile", "when": "hostiles", "video": 4, "line": "[serious]Okay, focus. Hold the missile button until it locks, then let go."},
@@ -1143,7 +1144,7 @@ const SYSTEM_LINKS := [["solara", "vega"]]
 # Radio contacts. "face" = portrait set in assets/portraits/<face>_<expression>.png (normal, serious, angry, sad, smile);
 # "voice" = mumble pitch (higher = lighter voice). A line may start with [expression] to pick the face for that line.
 const CHARACTERS := {
-	"tutor": {"name": "Tech Officer", "role": "Liberty Hub Tech", "color": Color(0.4, 0.75, 1.0),   # v1.7r: the owner's tutorial guide (name to come); no "system" = reachable anywhere
+	"tutor": {"name": "Kim", "role": "Tech Officer", "color": Color(0.4, 0.75, 1.0),   # v1.7r: the owner's tutorial guide (name to come); no "system" = reachable anywhere
 		"face": "tutor", "voice": 1.35, "female": true,
 		"lines": {"friendly": ["[smile]Need help? Tap CALL with nothing targeted and I'll walk you through it."]}},
 	"vale": {"name": "Cmdr. Vale", "role": "Liberty Hub Control", "system": "solara", "color": Color(0.35, 0.8, 1.0),

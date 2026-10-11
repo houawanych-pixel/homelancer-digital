@@ -434,7 +434,7 @@ func tutor_next() -> String:
 	var first := ""
 	for l in Data.TUTORIAL:
 		if str(l["id"]) in GS.tutorial_seen: continue
-		if not Packs.PACKS.has("tutor_%d" % int(l.get("video", 0))): continue   # (owner's test: only lessons whose clip has arrived)
+		if Data.TUTOR_VIDEO and not Packs.PACKS.has("tutor_%d" % int(l.get("video", 0))): continue   # (clips: only lessons whose clip has arrived)
 		if str(l["id"]) == "intro": return "intro"
 		if now != "" and str(l["when"]) == now: return str(l["id"])
 		if first == "": first = str(l["id"])
@@ -447,6 +447,7 @@ func _lesson(id: String) -> Dictionary:
 
 ## The lesson's acted clip, if it is here ("" = not yet: the line is spoken instead).
 func tutor_clip(l: Dictionary) -> String:
+	if not Data.TUTOR_VIDEO: return ""   # v1.8a: pictures and text
 	var n := int(l.get("video", 0))
 	if n <= 0: return ""
 	var pk := "tutor_%d" % n
