@@ -27,6 +27,7 @@ optional text-to-speech), autotest.gd (route test + showcase), game_state.gd (au
 - Portraits: assets/portraits/<face>_<normal|serious|angry|sad|smile>.png (256 px, cropped from character sheets).
 - Sounds: assets/audio/*.wav from tools/sfx/make_sfx.py (pure synthesis).
 - Source art (not in the build, folders have .gdignore): art/characters (rigged mechs/soldier), art/portraits.
+- Character voice samples (owner-made Grok clips, MP4 + MP3): art/voices, see art/voices/README.md.
 
 ## Tools (tools/shipkit)
 rig_mech.sh (Tripo GLB -> rigged mech), auto_joints.py, rig_humanoid.py, rigfix.py, bonemap.py, grid.py, studio.sh/.gd
