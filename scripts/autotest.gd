@@ -520,7 +520,7 @@ func _galaxy() -> void:
 	await _shot("planet_dock_gate_above", 0.8)
 	_tp(s.tanker.global_position + Vector3(120, 50, 150), s.tanker.global_position)
 	await _shot("big_tanker", 0.8)
-	var tk: Node3D = s.traffic[2]["node"]
+	var tk: Node3D = s.traffic[mini(2, s.traffic.size() - 1)]["node"]   # (v1.8v: fewer cargo ships on the run)
 	_tp(tk.global_position + Vector3(22, 8, 26), tk.global_position)
 	await _shot("tanker", 0.5)
 	var cr: Node3D = s.carrier
