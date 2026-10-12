@@ -297,8 +297,8 @@ func _flight_and_comms() -> void:
 	hud._layout()
 	var fr: Rect2 = hud.buttons.get("form", Rect2())
 	var wr: Rect2 = hud.buttons["warp"]
-	_check("TRANSFORM button in the old STOP spot (STOP removed)", fr.size.x > 0.0 and absf(fr.position.y - wr.position.y) < 1.0 and fr.position.x < wr.position.x
-		and not hud.buttons.has("stop") and hud.buttons.has("map") and hud.buttons.has("goto"), "at %s" % str(fr.position))
+	_check("TRANSFORM button in the old STOP spot (v1.8u: STOP is back, in the top row)", fr.size.x > 0.0 and absf(fr.position.y - wr.position.y) < 1.0 and fr.position.x < wr.position.x
+		and hud.buttons.has("stop") and hud.buttons.has("map") and hud.buttons.has("goto"), "at %s" % str(fr.position))
 	# default cruise: centred stick holds cruise speed; all the way back stops and stays stopped
 	SpaceSystem.cruise_assist = true
 	s.holding = false
