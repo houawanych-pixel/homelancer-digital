@@ -13,7 +13,13 @@ const PACK_PARALLEL := 2
 # ASTEROID_COUNT 34 -> 18, ASTEROID_PIECES_MAX 220 -> 120 and ROSTER_PATROL_SIZE 3 -> 2.
 const PATROL_GROUPS := 2            # patrol wings out in a system at once (each system has 3 patrol points; the first ones are used)
 const TRAFFIC_PER_RUN := 1          # moving cargo ships on each station <-> planet run (was 3: hauler, freighter, tanker)
-const VERSION := "v1.8v"
+# v1.8w (owner): what the one who pays you says when a job is done ({pay} = the credits)
+const CONGRATS := [
+	"[smile]Job done, pilot. {pay} credits are in your account. Good flying.",
+	"[smile]That's the one. Nice work out there. {pay} credits sent.",
+	"[smile]Clean work. {pay} credits, as promised. Come back when you want more.",
+]
+const VERSION := "v1.8w"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.

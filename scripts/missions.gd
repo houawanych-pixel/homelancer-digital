@@ -362,8 +362,11 @@ static func claim_at(station_id: String, where_kind := "station") -> String:
 	GS.changed.emit()
 	return said
 
+static var last_paid := {}   # v1.8w: the job just paid ({giver_sys, pay, title}) for the giver's congratulations call
+
 static func _pay(space: SpaceSystem, said: String) -> void:
 	var m: Dictionary = GS.mission
+	last_paid = {"giver_sys": str(m["giver_sys"]), "pay": int(m["pay"]), "title": str(m.get("title", ""))}
 	GS.add_credits(int(m["pay"]))
 	GS.missions_done += 1
 	Factions.adjust(str(Data.SYSTEMS[m["giver_sys"]].get("faction", "")), Data.REP_MISSION)

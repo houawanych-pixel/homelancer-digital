@@ -4935,6 +4935,11 @@ func _job_ai() -> void:
 	var all_boards := true
 	for sy in Data.SYSTEMS:
 		if not Missions.offers(sy, str(Data.SYSTEMS[sy]["station"]["id"])).any(func(o): return o["kind"] == "outlaws"): all_boards = false
+	await _frames(2)
+	var cg: Dictionary = main.hud.slot("r")
+	var congrats: bool = not cg.is_empty() and not bool(cg.get("hostile", true)) and str(cg.get("line", "")).find(str(int(outl["pay"]))) >= 0
+	_check("v1.8w (owner): a job paid: the one who pays you calls in on the friendly side to say well done, with the credits (%s: %s)" % [str(cg.get("from", "-")), str(cg.get("line", "-"))], congrats)
+	main.hud.close_comms()
 	_check("v1.8p (owner): every board also offers a job against the system's own outlaws (%s): two points, their ships, paid on the last kill" % str(outl.get("title", "")),
 		not outl.is_empty() and o_kinds_ok and all_boards and GS.mission.is_empty() and GS.credits - oc0 >= int(outl["pay"]), "ships %s boards %s paid %d" % [o_kinds_ok, all_boards, GS.credits - oc0])
 	for e in s.enemies.duplicate():

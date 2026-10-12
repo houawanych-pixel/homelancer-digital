@@ -167,7 +167,21 @@ func _connect_space() -> void:
 	space.hail.connect(_on_hail)
 	space.enemy_hail.connect(_on_enemy_hail)
 	space.enemy_chatter.connect(_on_enemy_chatter)
+	space.mission_done.connect(_on_mission_done)   # v1.8w
 	hud.space = space
+
+## v1.8w (owner): a job done: the one who pays you calls in on the friendly side to say well done (the coordinator of
+## the station that gave the job, in their own face and voice; or that station's dispatch).
+func _on_mission_done(said: String) -> void:
+	if said == "failed" or Missions.last_paid.is_empty(): return
+	var lp: Dictionary = Missions.last_paid
+	Missions.last_paid = {}
+	if hud.side_busy(false): return   # (you are already talking to someone on that side)
+	var gsys: Dictionary = Data.SYSTEMS[str(lp["giver_sys"])]
+	var line: String = str(Data.CONGRATS[randi() % Data.CONGRATS.size()]).replace("{pay}", str(int(lp["pay"])))
+	var co: Dictionary = Factions.coordinator(Factions.owner_of(gsys["station"], gsys))
+	if co.is_empty(): hud.open_comms("%s dispatch" % gsys["station"]["name"], line, "incoming", false)
+	else: hud.open_comms("%s — %s" % [co["name"], gsys["station"]["name"]], line, "incoming", false, "gp/" + str(co["id"]), float(co.get("voice", 1.0)), str(co.get("sex", "")) == "female", str(co.get("voice_id", co["id"])))
 
 ## Job L: a damaging collision: the red hit flash, longer for harder hits (shake + sound are in space.gd).
 func _on_collided(_kind: String, _dmg: float, k: float) -> void:
