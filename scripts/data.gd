@@ -7,7 +7,7 @@ extends RefCounted
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
 # v1.8t: the background content packs, in the order they are fetched (PACK_PARALLEL at a time): what the game needs to
 # play first (planet ground, the mech), the big ones (enemy pictures 17 MB, structures 56 MB) last.
-const PACK_ORDER := ["sky", "worlds", "planets", "mechs", "cockpit", "lancer", "ranger", "hauler", "bulk", "enemies", "structures"]
+const PACK_ORDER := ["sky", "worlds", "planets", "mechs", "cockpit", "voice_m1", "voice_m2", "voice_m3", "voice_m4", "voice_f1", "voice_f2", "voice_f3", "voice_f4", "voice_a1", "voice_a2", "voice_r1", "voice_mask", "lancer", "ranger", "hauler", "bulk", "enemies", "structures"]
 const PACK_PARALLEL := 2
 # v1.8v (owner: fewer enemies, asteroids and moving cargo ships, to keep memory low): the lighter numbers below, plus
 # ASTEROID_COUNT 34 -> 18, ASTEROID_PIECES_MAX 220 -> 120 and ROSTER_PATROL_SIZE 3 -> 2.
@@ -19,9 +19,11 @@ const CONGRATS := [
 	"[smile]That's the one. Nice work out there. {pay} credits sent.",
 	"[smile]Clean work. {pay} credits, as promised. Come back when you want more.",
 ]
+# v1.8z (owner): cloned voices. Every fixed radio line is pre-recorded in one of 12 voices cloned from the owner's
+# talking clips (art/voices; who borrows which voice: art/voices/voice_map.csv), one small content pack per voice.
 # v1.8x (owner): every bounty is a capture (BOUNTY_ALIVE_RANK 4 -> 1: destroy the ship, TRACTOR the pilot, hand them in);
 # the threats jobs send ONE rank: PATROL = all level-1 soldiers, ELITE = all level-5 soldiers.
-const VERSION := "v1.8y"
+const VERSION := "v1.8z"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -774,6 +776,31 @@ const LANE_TUNNEL_BACK := 0.42       # share of the lane tunnel's length that tr
 const VOICE_DEFAULT := "read"            # "read" = voice ON (lines are spoken), "bleep" = voice OFF (radio blips)
 const VOICE_DIR := "res://assets/voices/"   # <voice_id>/<line key>.ogg : a character's recorded or generated lines
 const VOICE_KEY_LEN := 60                # letters of the line used for the clip's file name
+# v1.8z: who speaks with which cloned voice (folder under VOICE_DIR, one content pack each). Made by
+# tools/voices/build_voice_lines.py from art/voices/voice_map.csv; a voice_id not listed keeps its own folder.
+const VOICE_POOL := {
+	"amari": "v_f3", "arctides_01_ice_guard": "v_mask", "arctides_02_seryn": "v_f1", "arctides_03_kaldren": "v_m1", "arctides_04_lysara": "v_f3",
+	"arctides_05_house_warden": "v_mask", "arctides_06_vorstane": "v_m4", "ax01": "v_mask", "ax02": "v_mask", "ax03": "v_mask",
+	"ax04": "v_mask", "ax05": "v_mask", "ax06": "v_mask", "banshee": "v_f2", "covenant_01_acolyte": "v_mask",
+	"covenant_02_nerea": "v_f2", "covenant_03_kael": "v_m1", "covenant_04_lyra": "v_a2", "covenant_05_hierarch_guard": "v_mask", "covenant_06_selen": "v_m4",
+	"cybermorph_01_unit": "v_r1", "cybermorph_02_vx_raid": "v_r1", "cybermorph_03_orion_k": "v_r1", "cybermorph_04_nex_m7": "v_r1", "cybermorph_05_ax9": "v_r1",
+	"cybermorph_06_prime_nexus": "v_r1", "elyza_01_soldier": "v_mask", "elyza_02_serin": "v_f1", "elyza_03_cael": "v_m2", "elyza_04_lyra": "v_f3",
+	"elyza_05_elite_guard": "v_mask", "elyza_06_aurelia": "v_f4", "gadversee_01_thrall": "v_mask", "gadversee_02_mireya": "v_f2", "gadversee_03_grath": "v_m3",
+	"gadversee_04_vesh": "v_a2", "gadversee_05_spore_guard": "v_mask", "gadversee_06_mother": "v_f4", "imperium_01_trooper": "v_mask", "imperium_02_vexa": "v_f1",
+	"imperium_03_garrik": "v_m3", "imperium_04_nyx": "v_a2", "imperium_05_dominion_guard": "v_mask", "imperium_06_kraeg": "v_m1", "jackal": "v_f1",
+	"kaijurai_01_containment_trooper": "v_mask", "kaijurai_02_zhara": "v_a2", "kaijurai_03_drakk": "v_a1", "kaijurai_04_syrak": "v_f3", "kaijurai_05_cradle_guard": "v_mask",
+	"kaijurai_06_vorrax": "v_m4", "kessler": "v_m4", "liberator_01_trooper": "v_mask", "liberator_02_lena": "v_f2", "liberator_03_brok": "v_a1",
+	"liberator_04_kai": "v_f3", "liberator_05_vanguard": "v_mask", "liberator_06_marcus": "v_m3", "oduya": "v_f4", "orion_01_survey_trooper": "v_mask",
+	"orion_02_ryan": "v_m2", "orion_03_syra": "v_a2", "orion_04_korvax": "v_a1", "orion_05_vanguard": "v_mask", "orion_06_caleb": "v_m4",
+	"phenom_01_aurelian_guard": "v_mask", "phenom_02_vyrela": "v_f1", "phenom_03_thalen": "v_m4", "phenom_04_isara": "v_a2", "phenom_05_ascendant_guard": "v_mask",
+	"phenom_06_xerathion": "v_m1", "rennick": "v_m3", "revenant": "v_mask", "savagers_01_soldier": "v_mask", "savagers_02_jackal": "v_m2",
+	"savagers_03_razor": "v_f1", "savagers_04_veil": "v_f3", "savagers_05_brakk": "v_m1", "savagers_06_dreadmaw": "v_a1", "solarion_01_trooper": "v_mask",
+	"solarion_02_lira": "v_f2", "solarion_03_taron": "v_m3", "solarion_04_seraph": "v_f1", "solarion_05_guard": "v_mask", "solarion_06_valen": "v_m1",
+	"solrath_01_void_trooper": "v_mask", "solrath_02_velkira": "v_a2", "solrath_03_kharvek": "v_a1", "solrath_04_nyssara": "v_f3", "solrath_05_void_enforcer": "v_mask",
+	"solrath_06_azrath": "v_m1", "tutor": "v_f2", "unity_01_trooper": "v_mask", "unity_02_mira": "v_f2", "unity_03_rowan": "v_m2",
+	"unity_04_selene": "v_f1", "unity_05_elite_guard": "v_mask", "unity_06_elara": "v_f4", "vale": "v_f4", "voss": "v_m1",
+	"wraith": "v_f3",
+}
 
 # ---------------------------------------------------------------- Job W (v1.4s): static faction hub backgrounds
 const HUB_BG_DIR := "res://assets/hub_bg/"

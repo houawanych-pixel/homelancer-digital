@@ -133,6 +133,19 @@ const PACKS := {
 	"sky_genesis": {"folders": ["res://assets/skies"], "match": "genesis.", "probe": "res://assets/skies/genesis.jpg"},
 	"sky_void_2": {"folders": ["res://assets/skies"], "match": "void_2.", "probe": "res://assets/skies/void_2.jpg"},
 	# -- end generated sky packs --
+	# v1.8z: the cloned radio voices, one pack per voice (tools/voices/build_voice_lines.py)
+	"voice_a1": {"folders": ["res://assets/voices/v_a1"], "probe": "res://assets/voices/v_a1/arm_s_gone.ogg"},
+	"voice_a2": {"folders": ["res://assets/voices/v_a2"], "probe": "res://assets/voices/v_a2/arm_s_gone.ogg"},
+	"voice_f1": {"folders": ["res://assets/voices/v_f1"], "probe": "res://assets/voices/v_f1/arm_s_gone.ogg"},
+	"voice_f2": {"folders": ["res://assets/voices/v_f2"], "probe": "res://assets/voices/v_f2/ah_yeah_need_credits_dock_at_a_station_and_grab_a_job.ogg"},
+	"voice_f3": {"folders": ["res://assets/voices/v_f3"], "probe": "res://assets/voices/v_f3/arm_s_gone.ogg"},
+	"voice_f4": {"folders": ["res://assets/voices/v_f4"], "probe": "res://assets/voices/v_f4/arm_s_gone.ogg"},
+	"voice_m1": {"folders": ["res://assets/voices/v_m1"], "probe": "res://assets/voices/v_m1/again_you_are_making_this_easy_to_trace.ogg"},
+	"voice_m2": {"folders": ["res://assets/voices/v_m2"], "probe": "res://assets/voices/v_m2/arm_s_gone.ogg"},
+	"voice_m3": {"folders": ["res://assets/voices/v_m3"], "probe": "res://assets/voices/v_m3/any_time_you_keep_them_off_me_i_keep_you_in_credits.ogg"},
+	"voice_m4": {"folders": ["res://assets/voices/v_m4"], "probe": "res://assets/voices/v_m4/300_credits_that_buys_a_quiet_hour_not_forgiveness.ogg"},
+	"voice_mask": {"folders": ["res://assets/voices/v_mask"], "probe": "res://assets/voices/v_mask/alliance_trooper_unity_patrol_you_are_clear_pilot.ogg"},
+	"voice_r1": {"folders": ["res://assets/voices/v_r1"], "probe": "res://assets/voices/v_r1/arm_s_gone.ogg"},
 	"cockpit": {"folders": ["res://assets/cockpit"], "probe": "res://assets/cockpit/cockpit_b.png"},
 }
 
