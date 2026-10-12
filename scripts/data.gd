@@ -5,7 +5,11 @@ extends RefCounted
 # Beta version shown on the start screen and on the Hova Matrix landing page (which reads it from web_shell.html).
 # Scheme (owner): the letter is the Chief job that shipped it: v1.2x, v1.2y, v1.2z, then v1.3a, v1.3b ...
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
-const VERSION := "v1.8s"
+# v1.8t: the background content packs, in the order they are fetched (PACK_PARALLEL at a time): what the game needs to
+# play first (planet ground, the mech), the big ones (enemy pictures 17 MB, structures 56 MB) last.
+const PACK_ORDER := ["sky", "worlds", "planets", "mechs", "cockpit", "lancer", "ranger", "hauler", "bulk", "enemies", "structures"]
+const PACK_PARALLEL := 2
+const VERSION := "v1.8t"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.

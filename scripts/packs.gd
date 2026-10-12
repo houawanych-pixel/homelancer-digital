@@ -183,6 +183,27 @@ func request(name: String) -> void:
 		state[name] = "failed"
 		pack_ready.emit(name)
 
+## v1.8t: fetch these in order, Data.PACK_PARALLEL at a time (a pack asked for directly with request() still starts at once).
+var _queue: Array = []
+func queue(names: Array) -> void:
+	for n in names:
+		if not is_ready(n) and not (n in _queue): _queue.append(n)
+	_pump()
+
+func _pump() -> void:
+	while not _queue.is_empty():
+		var busy := 0
+		for n in state:
+			if state[n] == "loading": busy += 1
+		if busy >= Data.PACK_PARALLEL: return
+		var nx: String = _queue.pop_front()
+		if is_ready(nx) or state.get(nx, "") == "loading": continue
+		if not OS.has_feature("web"): continue
+		request(nx)
+
+func _ready() -> void:
+	pack_ready.connect(func(_n): _pump())
+
 ## Wait (up to `timeout` s) for a pack, requesting it if needed. Returns true when it is mounted.
 func wait(name: String, timeout := 60.0) -> bool:
 	request(name)

@@ -51,6 +51,7 @@ func _ready() -> void:
 
 func _player() -> AudioStreamPlayer:
 	var p := AudioStreamPlayer.new()
+	p.playback_type = AudioServer.PLAYBACK_TYPE_STREAM   # v1.8t: music is STREAMED. As a web "sample" a whole track is unpacked into one buffer (3.5 min = 80 MB); when the browser refuses that buffer the error stops the content packs arriving (no mech, no docking ring, stuck entering a planet)
 	p.volume_db = -60.0
 	add_child(p)
 	p.finished.connect(func():
