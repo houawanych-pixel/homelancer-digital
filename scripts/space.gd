@@ -4723,14 +4723,14 @@ func mission_point(p: Vector3) -> Node3D:
 
 ## v1.5f: a mission wave: `count` ships of `faction` at `at`, soldiers up to `max_slot`, always hostile to you; with a
 ## `boss_id` the first ship is that named bounty pilot. Tagged with the stage, so the mission knows when it is gone.
-func spawn_mission_group(at: Vector3, faction: String, count: int, max_slot: int, boss_id: String, stage: int) -> Array:
+func spawn_mission_group(at: Vector3, faction: String, count: int, max_slot: int, boss_id: String, stage: int, one_rank := false) -> Array:   # v1.8x: one_rank = every ship of that slot
 	_group_serial += 1
 	var out: Array = []
 	var pool: Array = Factions.DEFS.get(faction, {}).get("fighter_pool", [])
 	for i in count:
 		var soldier: Dictionary = {}
 		if i == 0 and boss_id != "": soldier = Data.roster_pilot(boss_id)
-		else: soldier = _pick_senior(faction, max_slot, max_slot if i == 0 else mini(max_slot, 2))
+		else: soldier = _pick_senior(faction, max_slot, max_slot if (i == 0 or one_rank) else mini(max_slot, 2))
 		var kind := ""
 		if not soldier.is_empty() and Data.ENEMIES.has(str(soldier.get("fighter_primary", ""))): kind = str(soldier["fighter_primary"])
 		elif not pool.is_empty(): kind = pool[mini(i, pool.size() - 1)]

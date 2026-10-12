@@ -19,7 +19,9 @@ const CONGRATS := [
 	"[smile]That's the one. Nice work out there. {pay} credits sent.",
 	"[smile]Clean work. {pay} credits, as promised. Come back when you want more.",
 ]
-const VERSION := "v1.8w"
+# v1.8x (owner): every bounty is a capture (BOUNTY_ALIVE_RANK 4 -> 1: destroy the ship, TRACTOR the pilot, hand them in);
+# the threats jobs send ONE rank: PATROL = all level-1 soldiers, ELITE = all level-5 soldiers.
+const VERSION := "v1.8x"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -649,7 +651,7 @@ const WALKER_STRIDE_DEG := 28.0                 # how far the legs swing at full
 const MISSION_HARD_MULT := 2.2                  # the ELITE threats job pays this much more
 const MISSION_HARD_SLOT := 5                    # ...and sends the slot 05 elites
 const MISSION_FALLBACK_ENEMIES := ["Kaijurai", "Phenom", "Cybermorph", "Solrath"]   # when nobody raids the owner
-const BOUNTY_ALIVE_RANK := 4                    # named pilots of this rank and up are wanted ALIVE (bring them back); below, dead (paid on the spot)
+const BOUNTY_ALIVE_RANK := 1                    # named pilots of this rank and up are wanted ALIVE (bring them back); below, dead (paid on the spot)
 const REP_MISSION := 3.0                        # standing gained with the giver's faction per job done
 const CARGO_HOLD := 8                           # pods and crates a ship carries
 const ESCORT_HULL := 600.0                      # the escorted freighter's hull

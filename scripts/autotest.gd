@@ -4721,7 +4721,7 @@ func _job_ai() -> void:
 	# ---- bounty wanted dead (Razor, rank 3): escort wing, then her wing, paid on the kill
 	var said: String = Missions.accept_bounty("savagers_03")
 	var bm: Dictionary = GS.mission
-	var chain_ok: bool = bm.get("kind", "") == "bounty" and not bool(bm.get("alive", true)) and GS.bounty.get("state", "") == "hunt" and said.find("waypoint") >= 0 and said.find("escort") >= 0
+	var chain_ok: bool = bm.get("kind", "") == "bounty" and bool(bm.get("alive", false)) and GS.bounty.get("state", "") == "hunt" and said.find("waypoint") >= 0 and said.find("escort") >= 0
 	bm["sys"] = s.sys_id
 	GS.bounty["sys"] = s.sys_id
 	var none_yet: bool = s.spawn_bounty().is_empty()   # the chain owns the target now
@@ -4741,8 +4741,11 @@ func _job_ai() -> void:
 	var credits1: int = GS.credits
 	for o in bw: s._destroy_unit(o)
 	await _frames(3)
-	var dead_paid: bool = GS.mission.is_empty() and GS.bounty.is_empty() and "savagers_03" in GS.bounties_done and GS.credits - credits1 >= Data.bounty_reward("savagers_03") and s.loot.all(func(l): return l.get("bounty", "") != "savagers_03")
-	_check("Job AI: a bounty wanted dead (rank under %d): the first waypoint is the escort wing, the second the target's own wing with the target in it; the kill pays on the spot and drops no pilot" % Data.BOUNTY_ALIVE_RANK,
+	var dead_paid: bool = not GS.mission.is_empty() and GS.credits - credits1 < Data.bounty_reward("savagers_03") and s.loot.any(func(l): return l.get("bounty", "") == "savagers_03")   # (v1.8x: a capture: the pilot bails out, nobody pays yet)
+	Missions.abandon()
+	GS.bounty = {}
+	GS.jail("savagers_03", "station")   # (for the v1.8k check below: a target that is gone comes back)
+	_check("Job AI (v1.8x: every bounty is a capture): a low-rank bounty (Razor, rank 3): the first waypoint is the escort wing, the second the target's own wing with the target in it; the kill drops the pilot to TRACTOR in, nothing is paid on the spot",
 		chain_ok and none_yet and escort_ok and boss_ok and dead_paid, "chain %s none %s escort %s boss %s paid %s" % [chain_ok, none_yet, escort_ok, boss_ok, dead_paid])
 	# ---- bounty wanted alive (Dreadmaw, rank 6): the pod, the hold, back to the giver
 	Missions.accept_bounty("savagers_06")
@@ -4917,6 +4920,22 @@ func _job_ai() -> void:
 	_check("v1.8u (owner): every ship can be picked: a tap on a ship's lock box targets it and it stays your target, also at the side of the screen where a stick lives; a touch by the stick itself still moves the stick; STOP is on the left block, TRACTOR on the right",
 		in_zone and no_stick and picked and kept and stick_ok and hu.buttons.has("stop") and hu.buttons["stop"].end.x < hu.S.x * 0.5 and hu.buttons["tractor"].position.x > hu.S.x * 0.5,
 		"zone %s no_stick %s picked %s kept %s stick %s" % [in_zone, no_stick, picked, kept, stick_ok])
+	# ---- v1.8x (owner): PATROL = all level-1 soldiers, ELITE = all level-5 soldiers; every bounty is a capture
+	var thr_f: String = str(easy["faction"])
+	var far_p: Vector3 = s.player.global_position + Vector3(0, 0, -6000)
+	var g1: Array = s.spawn_mission_group(far_p, thr_f, 3, 1, "", 9, true)
+	var g5: Array = s.spawn_mission_group(far_p + Vector3(800, 0, 0), thr_f, 3, 5, "", 9, true)
+	var lv1: bool = g1.size() == 3 and g1.all(func(o): return int(o.get("pilot", {}).get("slot", 0)) == 1)
+	var lv5: bool = g5.size() == 3 and g5.all(func(o): return int(o.get("pilot", {}).get("slot", 0)) == 5)
+	var slots_seen: Array = (g1 + g5).map(func(o): return int(o.get("pilot", {}).get("slot", 0)))
+	for o in g1 + g5:
+		s.enemies.erase(o)
+		(o["node"] as Node3D).free()
+	var all_capture := true
+	for bid in ["savagers_02", "savagers_03", "savagers_04", "savagers_06"]:
+		if int(Data.roster_pilot(bid).get("rank", 1)) < Data.BOUNTY_ALIVE_RANK: all_capture = false
+	_check("v1.8x (owner): the PATROL threats job sends only level-1 soldiers, the ELITE job only level-5 soldiers; every bounty is a capture",
+		lv1 and lv5 and all_capture, "slots %s capture %s" % [str(slots_seen), all_capture])
 	# ---- v1.8p (owner): the outlaws job: the system's own raiders at two points, always offered, paid on the last kill
 	var outl: Dictionary = {}
 	for o in Missions.offers(s.sys_id, sid):

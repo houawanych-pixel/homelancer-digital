@@ -308,7 +308,7 @@ static func tick(space: SpaceSystem, dt: float) -> void:
 			var count: int = Data.MISSION_GROUP[1] if last else Data.MISSION_GROUP[0]
 			var boss := ""
 			if kind == "bounty" and last: boss = str(m["id"])
-			m["need"] = space.spawn_mission_group(at, str(m["faction"]), count, int(m["slot"]), boss, stage).size()
+			m["need"] = space.spawn_mission_group(at, str(m["faction"]), count, int(m["slot"]), boss, stage, kind == "threats").size()   # v1.8x: PATROL = level 1s, ELITE = level 5s
 			if kind == "ground": m["need"] = int(m["need"]) + space.spawn_ground_mechs(at, str(m["faction"]), int(Data.MISSION_GROUND_MECHS[1 if last else 0]), stage).size()   # v1.8n
 			m["killed"] = 0
 			m["spawned"] = stage

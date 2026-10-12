@@ -737,7 +737,7 @@ func _bounty_page() -> void:
 	_board_head(v, "bounty")
 	var l := _label(17, Color(1, 1, 1))
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.text = "Tap a target to track it (a gold waypoint leads you there); tap it again to stop. Tapping another target switches. Rank under %d: destroy the ship, paid on the spot. Rank %d and up: bring the pilot back here alive." % [Data.BOUNTY_ALIVE_RANK, Data.BOUNTY_ALIVE_RANK]
+	l.text = "Tap a target to track it (a gold waypoint leads you there); tap it again to stop. Tapping another target switches. Every bounty is a capture: destroy the ship, TRACTOR the pilot into your hold and bring them back here to be paid."   # v1.8x (owner)
 	v.add_child(l)
 	_standing_rows(v)
 	var posted: Array = Data.bounties_for(Factions.owner_of(base, Data.SYSTEMS[GS.system_id]))   # v1.5l: this station's enemies
