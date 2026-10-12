@@ -9,7 +9,11 @@ extends RefCounted
 # play first (planet ground, the mech), the big ones (enemy pictures 17 MB, structures 56 MB) last.
 const PACK_ORDER := ["sky", "worlds", "planets", "mechs", "cockpit", "lancer", "ranger", "hauler", "bulk", "enemies", "structures"]
 const PACK_PARALLEL := 2
-const VERSION := "v1.8u"
+# v1.8v (owner: fewer enemies, asteroids and moving cargo ships, to keep memory low): the lighter numbers below, plus
+# ASTEROID_COUNT 34 -> 18, ASTEROID_PIECES_MAX 220 -> 120 and ROSTER_PATROL_SIZE 3 -> 2.
+const PATROL_GROUPS := 2            # patrol wings out in a system at once (each system has 3 patrol points; the first ones are used)
+const TRAFFIC_PER_RUN := 1          # moving cargo ships on each station <-> planet run (was 3: hauler, freighter, tanker)
+const VERSION := "v1.8v"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -658,7 +662,7 @@ const CONVOY_WAVE_SHIPS := [3, 4]               # ships in each ambush (the seco
 # v1.7x (owner): asteroids made of blocks, for mining. Rock outside, obsidian streaks, gold / diamond in some cores; no
 # sand or dirt. Zero gravity: broken blocks drift off, and anything floating past the field's invisible sphere is gone.
 const ASTEROIDS_BLOCK := true
-const ASTEROID_COUNT := 34                # block asteroids per field (they replace the old round rocks)
+const ASTEROID_COUNT := 18                # block asteroids per field (they replace the old round rocks)
 const ASTEROID_SIZE := [4, 8]             # blocks across (most are small: the size leans to the low end)
 const ASTEROID_BIG := [3, 11]             # [how many big ones, blocks across]
 const ASTEROID_CELL := 6.0                # m per block (v1.8d owner: big blocks, like the planet; was 3)
@@ -669,7 +673,7 @@ const ASTEROID_SPLIT := [2, 4, 4]                     # pieces each tier splits 
 const ASTEROID_OBSIDIAN_TOUGH := 1.5      # an obsidian-heavy piece is tougher: x(1 + this x its obsidian share)
 const ASTEROID_MISSILE := {"missile": [160.0, 14.0, 70.0], "heavy": [600.0, 30.0, 260.0]}   # [damage to the piece hit, splash radius m, splash damage at the middle]
 const ASTEROID_SPLIT_SPEED := [3.0, 9.0]  # m/s the pieces fly apart
-const ASTEROID_PIECES_MAX := 220          # pieces in a field at once (past it a hit piece is destroyed instead of splitting)
+const ASTEROID_PIECES_MAX := 120          # pieces in a field at once (past it a hit piece is destroyed instead of splitting)
 const ASTEROID_BOUND := 1.3               # the invisible sphere = field radius x this; pieces and pickups drifting past it are gone
 # v1.8f (owner: "a planet like Saturn with rings of asteroids"): Nebulax, a gas giant in a quiet system, has a ring:
 # a see-through band you see from far away, and block asteroids in it you can mine (same rules as the fields).
@@ -963,7 +967,7 @@ const RANK_SPEED_STEP := 0.03    # top speed
 const RANK_REWARD_STEP := 0.5    # kill reward
 const BOUNTY_REWARD := 600       # paid on return: this x rank
 const ALT_FIGHTER_CHANCE := 0.25 # how often a character flies an alternate fighter instead of the primary one
-const ROSTER_PATROL_SIZE := 3    # ships per patrol in a roster faction's own space (other space keeps 2)
+const ROSTER_PATROL_SIZE := 2    # ships per patrol in a roster faction's own space (other space keeps 2)
 const INCURSION_CHANCE := 0.4    # per visit to a rival's system: one small raiding party is there
 const INCURSION_SIZE := 2
 const INCURSION_NAMED_CHANCE := 0.15   # that the party is led by slot 02 instead of two common soldiers

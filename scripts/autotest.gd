@@ -501,7 +501,7 @@ func _galaxy() -> void:
 	_check("New Terra wears a real planet map with a day side, a night side and clouds", s.planet_real and pmap[0] == "earth" and is_instance_valid(s.planet_clouds)
 		and (s.planet.get_meta("surface") as MeshInstance3D).material_override is ShaderMaterial, "map %s" % pmap[0])
 	_check("Planet docking gate: the ring with four arch pieces round it", s.dock_gate != null and s.dock_gate.get_child_count() == 5 and s.DOCK_GATE_TRIS < 16000, "tris %d" % s.DOCK_GATE_TRIS)
-	_check("Traffic: a cargo hauler, a freighter and a tanker on the run, and a big fuel tanker by the planet", s.traffic.size() == 3 and (s.traffic[2]["node"] as Node3D).name.begins_with("Tanker")
+	_check("Traffic: cargo ships on the run (v1.8v: TRAFFIC_PER_RUN), and a big fuel tanker by the planet", s.traffic.size() == Data.TRAFFIC_PER_RUN and (Data.TRAFFIC_PER_RUN < 3 or (s.traffic[2]["node"] as Node3D).name.begins_with("Tanker"))
 		and is_instance_valid(s.tanker) and ShipFactory.has_real_model("tanker") and ShipFactory.has_real_model("fleet3")
 		and ShipFactory.has_real_model("crate_a") and ShipFactory.has_real_model("crate_b") and ShipFactory.has_real_model("crate_c"))
 	main.hud.visible = false
@@ -5104,6 +5104,19 @@ func _job_ai() -> void:
 	GS.cargo = keep["cargo"]
 	GS.last_base = keep["last"]
 	_tp(s.station.global_position + Vector3(0, 40, 420), s.station.global_position)
+	# v1.8v (owner): GO TO always takes you somewhere: nothing picked, no GPS, no job -> the station; a second tap stops it
+	var keep_m: Dictionary = GS.mission
+	GS.mission = {}
+	s.target = null
+	s.nav_dest = null
+	s.autopilot = null
+	_press("goto")
+	var go_home: bool = s.autopilot == s.station
+	_press("goto")
+	var go_off: bool = s.autopilot == null
+	GS.mission = keep_m
+	_check("v1.8v (owner): GO TO with nothing picked and no job flies you to the station; tapping it again stops the autopilot; fewer patrol wings, cargo ships and asteroids out at once",
+		go_home and go_off and Data.PATROL_GROUPS <= 2 and Data.TRAFFIC_PER_RUN <= 1 and Data.ASTEROID_COUNT <= 20, "home %s off %s" % [go_home, go_off])
 
 
 ## Job AJ (v1.5g): ship scan: tap a ship on screen to target it, tap the target box to scan it (in range, takes a moment),

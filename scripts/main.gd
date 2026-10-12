@@ -366,12 +366,12 @@ func _on_hud(id: String) -> void:
 				hud.close_comms()
 				hud.flash_message("Call ended.")
 		"goto":
-			if space.target and is_instance_valid(space.target) and space.target.get_meta("kind", "") != "enemy":
-				space.autopilot = space.target
-				hud.flash_message("Autopilot engaged: %s" % space.target.name)
-			elif space.autopilot != null:
+			if space.autopilot != null and is_instance_valid(space.autopilot):   # v1.8v: a second tap stops it, whatever it is flying to
 				space.autopilot = null
 				hud.flash_message("Autopilot off.")
+			elif space.target and is_instance_valid(space.target) and space.target.get_meta("kind", "") != "enemy":
+				space.autopilot = space.target
+				hud.flash_message("Autopilot engaged: %s" % space.target.name)
 			elif space.nav_dest != null and is_instance_valid(space.nav_dest):   # v1.7v (owner): the GPS destination picked on the map
 				var nd: Node3D = space.nav_dest
 				space.route_go()
@@ -382,8 +382,13 @@ func _on_hud(id: String) -> void:
 				var mn: Node3D = mw["node"]
 				space.autopilot = mn if mn.get_meta("kind", "") != "enemy" else space.waypoint_at(mn.global_position)   # (a hostile is flown TO, not docked with)
 				hud.flash_message("Autopilot engaged: %s" % mw["title"])
-			else:
-				hud.flash_message("Select a station, planet or gate with TARGET or MAP first.")
+			else:   # v1.8v (owner: GO TO always takes you somewhere): nothing picked and no job: the station (on a planet: its base), or the way home
+				var home: Node3D = space.station if is_instance_valid(space.station) and space.station.get_meta("kind", "") == "station" else null
+				if home == null and not space.surface_mode and is_instance_valid(space.gate): home = space.gate
+				if home != null:
+					space.autopilot = home
+					hud.flash_message("Autopilot engaged: %s" % home.name)
+				else: hud.flash_message("Nowhere to fly to here: climb out to orbit, or pick a place on the MAP.")
 		"nav": open_map()
 		"dock":
 			var n: Node3D = space.dock_candidate()

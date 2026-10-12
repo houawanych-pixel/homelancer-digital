@@ -203,7 +203,7 @@ func _setup(id: String, arrival: String, staged: bool) -> void:
 	if staged: await get_tree().process_frame
 	_named_down = {}
 	_incursion = Factions.raider_of(str(sys.get("faction", ""))) if randf() < Data.INCURSION_CHANCE else ""
-	for p in sys["patrols"]: _spawn_group(p, Data.ROSTER_PATROL_SIZE if Factions.replaces_patrols(str(sys.get("faction", ""))) else 2)
+	for p in (sys["patrols"] as Array).slice(0, Data.PATROL_GROUPS): _spawn_group(p, Data.ROSTER_PATROL_SIZE if Factions.replaces_patrols(str(sys.get("faction", ""))) else 2)   # v1.8v: fewer wings
 	spawn_guard()
 	spawn_bounty()
 	_prof("patrols")
@@ -1830,7 +1830,7 @@ func unit_guns(e: Dictionary) -> Array:
 
 func _build_traffic() -> void:
 	for pair in sys["traffic"]:
-		for k in 3:      # a cargo hauler, a freighter and a liquid tanker (water, fuel) on each run
+		for k in Data.TRAFFIC_PER_RUN:      # a cargo hauler, a freighter and a liquid tanker (water, fuel) on each run (v1.8v: fewer)
 			var mk: String = ["fleet", "fleet2", "fleet3"][k]
 			if not ShipFactory.has_real_model(mk): mk = "fleet"
 			var node := Node3D.new()
@@ -1839,7 +1839,7 @@ func _build_traffic() -> void:
 			node.set_meta("kind", "traffic")
 			node.set_meta("radius", 12.0)
 			add_child(node)
-			traffic.append({"node": node, "t": float(k) / 3.0, "dir": 1.0 if k != 1 else -1.0})
+			traffic.append({"node": node, "t": float(k) / float(Data.TRAFFIC_PER_RUN), "dir": 1.0 if k != 1 else -1.0})
 
 ## v1.4q: Savagers space flies the Savagers' own salvaged carrier; everyone else keeps the fleet carrier.
 static func carrier_key(system: Dictionary) -> String:
@@ -1906,7 +1906,7 @@ func _process(dt: float) -> void:
 		respawn_timer += dt
 		if respawn_timer > 40.0:
 			respawn_timer = 0.0
-			for p in sys["patrols"]:
+			for p in (sys["patrols"] as Array).slice(0, Data.PATROL_GROUPS):
 				if p.distance_to(player.global_position) > 700.0: _spawn_group(p, 2)
 
 ## The sun: blooms the closer and the more head-on you look at it; warns inside the heat zone; the sphere destroys the ship.
