@@ -9,7 +9,7 @@ extends RefCounted
 # play first (planet ground, the mech), the big ones (enemy pictures 17 MB, structures 56 MB) last.
 const PACK_ORDER := ["sky", "worlds", "planets", "mechs", "cockpit", "lancer", "ranger", "hauler", "bulk", "enemies", "structures"]
 const PACK_PARALLEL := 2
-const VERSION := "v1.8t"
+const VERSION := "v1.8u"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -611,6 +611,8 @@ const WATER_SHALLOW_DEPTH := 45.0     # shallows turn turquoise above this depth
 # ---------------------------------------------------------------- Job AJ (v1.5g): ship scan (tap a ship to target it, tap the target box to scan it)
 const SCAN_RANGE := 1500.0            # a ship this close can be scanned
 const SCAN_TIME := 1.2                # seconds the scan takes
+const SHIP_TAP_STICK := 34.0          # v1.8u: ...inside a stick's side of the screen the tap must be this close (and clear of the stick itself)
+const SHIP_BOX := 15.0                # v1.8u: the size of the lock box every ship on screen wears
 const SHIP_TAP_RADIUS := 46.0         # a tap this close to a ship on screen targets it
 const SCAN_GOODS := ["Water", "Fuel cells", "Ore", "Medical supplies", "Food rations", "Machine parts", "Electronics", "Coolant", "Scrap metal", "Munitions"]
 const SCAN_ENEMY_GOODS := {"Savagers": ["Scrap metal", "Stolen goods", "Munitions"], "Cybermorph": ["Nanite slurry", "Data cores"], "Kaijurai": ["Behemoth spores", "Bio-resin"],

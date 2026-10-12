@@ -42,12 +42,58 @@ var _rng := RandomNumberGenerator.new()
 static func path(id: String) -> String: return "res://assets/music/%s.ogg" % id
 static func pack(id: String) -> String: return "mus_" + id
 
+## v1.8u (owner: the music is choppy): in the browser the music is played by the BROWSER's own player (an <audio>
+## element fed the plain .ogg from "music/<id>.ogg" next to the game), not mixed inside the game. The game runs on one
+## thread there, so music mixed in the game stutters whenever a frame is slow, and unpacked whole it took 80 MB a
+## track. The browser streams the file on its own thread: smooth, and a few MB. If the browser cannot play the file
+## (js.ok turns false) the game falls back to its own streamed player.
+var web := false
+var _poll := 0.0
+const WEB_JS := """
+window.__hlm = { a: null, ok: true, ended: false, want: null,
+  base: location.href.split('?')[0].replace(/[^/]*$/, ''),
+  fade: function(el, to, stop) { if (el._t) clearInterval(el._t); var from = el.volume, t0 = performance.now();
+    el._t = setInterval(function() { var k = Math.min(1, (performance.now() - t0) / 2200); el.volume = Math.max(0, Math.min(1, from + (to - from) * k));
+      if (k >= 1) { clearInterval(el._t); el._t = null; if (stop) { el.pause(); el.removeAttribute('src'); el.load(); } } }, 60); },
+  play: function(id, vol) { var self = this; if (this.a) this.fade(this.a, 0, true);
+    var n = new Audio(this.base + 'music/' + id + '.ogg'); n.preload = 'auto'; n.volume = 0; this.a = n; this.ended = false; this.want = vol;
+    n.addEventListener('ended', function() { if (self.a === n) self.ended = true; });
+    n.addEventListener('error', function() { if (self.a === n) self.ok = false; });
+    this.go(n, vol); },
+  go: function(n, vol) { var self = this; var p = n.play();
+    if (p && p.catch) p.catch(function(e) { if (self.a !== n) return;
+      if (e && e.name === 'NotAllowedError') { var again = function() { document.removeEventListener('pointerdown', again); document.removeEventListener('keydown', again); if (self.a === n) self.go(n, self.want); };
+        document.addEventListener('pointerdown', again); document.addEventListener('keydown', again); }
+      else if (e && e.name !== 'AbortError') self.ok = false; });
+    this.fade(n, vol, false); },
+  vol: function(v) { this.want = v; if (this.a) this.fade(this.a, v, false); },
+  stop: function() { if (this.a) { this.fade(this.a, 0, true); this.a = null; } }
+};
+"""
+
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_rng.randomize()
 	_a = _player()
 	_b = _player()
 	Packs.pack_ready.connect(_on_pack)
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval(WEB_JS, true)
+		web = true
+
+func _web_vol() -> float: return 0.0 if muted else db_to_linear(VOLUME_DB)
+
+func _process(dt: float) -> void:
+	if not web: return
+	_poll += dt
+	if _poll < 0.5: return
+	_poll = 0.0
+	if not bool(JavaScriptBridge.eval("window.__hlm.ok", true)):   # the browser will not play it: the game's own player takes over
+		web = false
+		JavaScriptBridge.eval("window.__hlm.stop()", true)
+		if track != "": _start(track)
+	elif track != "" and mood != "" and bool(JavaScriptBridge.eval("window.__hlm.ended", true)):
+		_start(_pick(mood))   # the take ended: another take of the same mood
 
 func _player() -> AudioStreamPlayer:
 	var p := AudioStreamPlayer.new()
@@ -64,6 +110,7 @@ func want(m: String) -> void:
 	mood = m
 	if m == "" or takes(m).is_empty():
 		track = ""
+		if web: JavaScriptBridge.eval("window.__hlm.stop()", true)
 		_fade(_a, -60.0, true)
 		return
 	_start(_pick(m))
@@ -77,6 +124,9 @@ func _pick(m: String) -> String:
 
 func _start(id: String) -> void:
 	track = id
+	if web:
+		JavaScriptBridge.eval("window.__hlm.play('%s', %f)" % [id, _web_vol()], true)
+		return
 	if Packs.is_ready(pack(id)): _play(id)
 	else: Packs.request(pack(id))    # keeps playing what it has until the new track arrives
 
@@ -105,6 +155,7 @@ func _fade(p: AudioStreamPlayer, to_db: float, stop: bool) -> void:
 
 func set_muted(m: bool) -> void:
 	muted = m
+	if web: JavaScriptBridge.eval("window.__hlm.vol(%f)" % _web_vol(), true)
 	if _a.playing: _fade(_a, -60.0 if m else VOLUME_DB, false)
 
-func is_playing() -> bool: return _a.playing
+func is_playing() -> bool: return _a.playing or (web and track != "")

@@ -1257,7 +1257,7 @@ func _run() -> void:
 	main.start_game()
 	_check("Godot boot + START", await _until(func(): return main.state == "flight", 10.0))
 	await _wait(1.0)
-	_check("Mobile HUD shown", main.hud.visible and main.hud.buttons.has("slot_0") and main.hud.buttons.has("slot_2") and main.hud.buttons.has("shield") and main.hud.buttons.has("repair") and main.hud.buttons.has("tractor") and main.hud.buttons.has("form") and not main.hud.buttons.has("stop") and main.hud.buttons.has("warp") and main.hud.buttons.has("thrust") and main.hud.buttons.has("kill") and not main.hud.buttons.has("call") and main.hud.buttons.has("log") and main.hud.buttons.has("ground"))   # (v1.8q: CALL is inside LOG)
+	_check("Mobile HUD shown", main.hud.visible and main.hud.buttons.has("slot_0") and main.hud.buttons.has("slot_2") and main.hud.buttons.has("shield") and main.hud.buttons.has("repair") and main.hud.buttons.has("tractor") and main.hud.buttons.has("form") and main.hud.buttons.has("stop") and main.hud.buttons.has("warp") and main.hud.buttons.has("thrust") and main.hud.buttons.has("kill") and not main.hud.buttons.has("call") and main.hud.buttons.has("log") and main.hud.buttons.has("ground"))   # (v1.8q: CALL is inside LOG)
 	await _shot("solara_flight")
 	var s := _sp()
 	s.hail.connect(_on_hail)   # listen from the start: enemies may call as soon as they see you (e.g. a warp spool)
@@ -1329,8 +1329,8 @@ func _run() -> void:
 	var pick_ok: bool = hq.pick == hq.contact_at(0) and psl.get("mode", "") == "pick" and str(psl.get("face", "")) == str(pc.get("face", "")) and str(psl.get("from", "")).begins_with(str(pc["name"])) \
 		and hq.buttons.has("call_pick") and hq.side_rect("r").encloses(hq.buttons["call_pick"]) and hq.comms_mode == "roster" and not hq.slots["l"].has("mode")
 	await _shot("log_pick", 0.3)
-	var lefts := ["shield", "repair", "tractor", "ground", "form", "warp", "special", "lock_a"]
-	var rights: Array = ["slot_0", "slot_1", "slot_2", "lock_b", "fire", "thrust", "lock_c"] + ["zoom" if hq.buttons.has("zoom") else "kill"]
+	var lefts := ["shield", "repair", "stop", "ground", "form", "warp", "special", "lock_a"]   # (v1.8u: STOP on the left, TRACTOR on the right)
+	var rights: Array = ["slot_0", "slot_1", "slot_2", "tractor", "fire", "thrust", "lock_c"] + ["zoom" if hq.buttons.has("zoom") else "kill"]
 	var eight: bool = lefts.all(func(b): return hq.buttons.has(b) and hq.buttons[b].end.x < hq.S.x * 0.5) and rights.all(func(b): return hq.buttons.has(b) and hq.buttons[b].position.x > hq.S.x * 0.5)
 	var clear := true   # the centre strip sits between the two blocks
 	for b in ["map", "view", "log", "target", "goto"]:
@@ -4878,6 +4878,45 @@ func _job_ai() -> void:
 	await main._load_system(home_sys, "station")
 	await _frames(4)
 	s = _sp()
+	# ---- v1.8u (owner): every ship can be picked: a tap on a ship's box targets it, also at the side of the screen where a stick lives
+	var hu: Control = main.hud
+	hu._layout()
+	s.controls = true
+	var ta: Dictionary = s.spawn_unit(s.sys["enemy"], s.cam.project_position(hu.S * 0.5, 420.0), s.player.global_position)
+	var side_px := Vector2(hu.S.x * 0.2, hu.S.y * 0.42)
+	var tb: Dictionary = s.spawn_unit(s.sys["enemy"], s.cam.project_position(side_px, 520.0), s.player.global_position)
+	s.target = ta["node"]
+	var in_zone: bool = hu.stick_zone("move").has_point(side_px) and side_px.distance_to(hu._home("move")) > hu.stick_r * 1.7
+	var tev := InputEventScreenTouch.new()
+	tev.index = 5
+	tev.pressed = true
+	tev.position = s.cam.unproject_position((tb["node"] as Node3D).global_position)
+	hu._input(tev)
+	var no_stick: bool = not hu.owners.values().has("move")
+	tev = tev.duplicate()
+	tev.pressed = false
+	hu._input(tev)
+	var picked: bool = s.target == tb["node"]
+	await _frames(3)
+	var kept: bool = s.target == tb["node"]
+	var hev := InputEventScreenTouch.new()   # a touch by the stick itself still moves the stick
+	hev.index = 6
+	hev.pressed = true
+	hev.position = hu._home("move") + Vector2(10, -10)
+	(tb["node"] as Node3D).global_position = s.cam.project_position(hev.position, 520.0)
+	s.target = ta["node"]
+	hu._input(hev)
+	var stick_ok: bool = hu.owners.get(6, "") == "move" and s.target == ta["node"]
+	hev = hev.duplicate()
+	hev.pressed = false
+	hu._input(hev)
+	for o in [ta, tb]:
+		s.enemies.erase(o)
+		(o["node"] as Node3D).free()
+	s.target = null
+	_check("v1.8u (owner): every ship can be picked: a tap on a ship's lock box targets it and it stays your target, also at the side of the screen where a stick lives; a touch by the stick itself still moves the stick; STOP is on the left block, TRACTOR on the right",
+		in_zone and no_stick and picked and kept and stick_ok and hu.buttons.has("stop") and hu.buttons["stop"].end.x < hu.S.x * 0.5 and hu.buttons["tractor"].position.x > hu.S.x * 0.5,
+		"zone %s no_stick %s picked %s kept %s stick %s" % [in_zone, no_stick, picked, kept, stick_ok])
 	# ---- v1.8p (owner): the outlaws job: the system's own raiders at two points, always offered, paid on the last kill
 	var outl: Dictionary = {}
 	for o in Missions.offers(s.sys_id, sid):

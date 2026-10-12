@@ -27,6 +27,16 @@ func _export_end() -> void:
 		pk.flush()
 		print("[packs] %s: %d files -> %s (%d bytes)" % [name, n, out, FileAccess.get_file_as_bytes(out).size()])
 
+	# v1.8u: the music as plain files too ("music/<id>.ogg"): in the browser the browser's own player streams them
+	var md := DirAccess.open("res://assets/music")
+	if md != null:
+		DirAccess.make_dir_recursive_absolute(_dir.path_join("music"))
+		var nm := 0
+		for f in md.get_files():
+			if not f.ends_with(".ogg"): continue
+			if DirAccess.copy_absolute(ProjectSettings.globalize_path("res://assets/music".path_join(f)), _dir.path_join("music").path_join(f)) == OK: nm += 1
+		print("[packs] music: %d plain files -> %s" % [nm, _dir.path_join("music")])
+
 func _add_folder(pk: PCKPacker, folder: String, match: String) -> int:
 	var n := 0
 	var d := DirAccess.open(folder)

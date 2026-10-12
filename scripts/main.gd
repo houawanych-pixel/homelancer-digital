@@ -354,7 +354,7 @@ func _on_hud(id: String) -> void:
 				"off": hud.flash_message("GROUND off: flying.")
 				"space": hud.flash_message("GROUND works down on a planet.")
 				"warp": hud.flash_message("Drop out of warp first.")
-		"lock_a", "lock_b", "lock_c": hud.flash_message("Locked for now.")
+		"lock_a", "lock_c": hud.flash_message("Locked for now.")
 		"log":
 			if hud.comms_mode == "roster": hud.close_roster()
 			else: hud.open_log()

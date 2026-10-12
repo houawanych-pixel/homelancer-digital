@@ -346,7 +346,7 @@ func _layout() -> void:
 	var y2 := y1 + btn + g
 	var bs := Vector2(btn, btn)
 	# top left: SHIELD · REPAIR · TRACTOR / STOP · WARP
-	var lids := ["shield", "repair", "tractor"]
+	var lids := ["shield", "repair", "stop"]   # v1.8u (owner): STOP is back, where TRACTOR was; TRACTOR moved to the right block
 	for k in 3: buttons[lids[k]] = Rect2(Vector2(8 + k * (btn + g), y1), bs)
 	buttons["form"] = Rect2(Vector2(8, y2), bs)   # TRANSFORM sits where STOP used to be
 	buttons["warp"] = Rect2(Vector2(8 + btn + g, y2), bs)
@@ -354,7 +354,7 @@ func _layout() -> void:
 	# v1.8q (owner): 8 buttons each side. The fourth column: GROUND and three spare buttons (padlocked until they get a job)
 	buttons["ground"] = Rect2(Vector2(8 + 3 * (btn + g), y1), bs)
 	buttons["lock_a"] = Rect2(Vector2(8 + 3 * (btn + g), y2), bs)
-	buttons["lock_b"] = Rect2(Vector2(S.x - 8 - btn * 4 - g * 3, y1), bs)
+	buttons["tractor"] = Rect2(Vector2(S.x - 8 - btn * 4 - g * 3, y1), bs)
 	buttons["lock_c"] = Rect2(Vector2(S.x - 8 - btn * 4 - g * 3, y2), bs)
 	# top right mirrors it: three weapon slots / THRUST · KILL (kill hard against the right edge)
 	for k in 3: buttons["slot_%d" % k] = Rect2(Vector2(S.x - 8 - (3 - k) * btn - (2 - k) * g, y1), bs)
@@ -430,10 +430,12 @@ func _input(e: InputEvent) -> void:
 					roster_idle = 0.0
 					return   # v1.4n: a touch anywhere else flies the ship; LOG (or leaving it alone) closes the console
 			if _mouse_in_kbm(e): return   # Job J: in keyboard + mouse mode the MOUSE flies (left-drag); real touches are unchanged
-			if space.controls and not stick_zone("move").has_point(e.position) and not stick_zone("aim").has_point(e.position):   # v1.5g: tap a ship = target it
-				var tapped: Node3D = space.ship_at_screen(e.position)
+			var on_side: bool = stick_zone("move").has_point(e.position) or stick_zone("aim").has_point(e.position)
+			var by_stick: bool = e.position.distance_to(_home("move")) < stick_r * 1.7 or e.position.distance_to(_home("aim")) < stick_r * 1.7
+			if space.controls and not by_stick:   # v1.5g: tap a ship = target it (v1.8u: also at the sides of the screen, right on its box)
+				var tapped: Node3D = space.ship_at_screen(e.position, Data.SHIP_TAP_STICK if on_side else -1.0)
 				if tapped != null:
-					space.target = tapped
+					space.pick_target(tapped)
 					Sfx.play("button", -14.0)
 					get_viewport().set_input_as_handled()
 					return
@@ -996,6 +998,7 @@ func _draw() -> void:
 		if e["node"] == space.target: continue
 		var ep = _screen(e["node"].global_position)
 		var edist: float = space.player.global_position.distance_to(e["node"].global_position)
+		if ep != null and view.has_point(ep): _brackets(ep, Data.SHIP_BOX, Color(RED if e["node"].get_meta("kind", "enemy") == "enemy" else GOLD, 0.75))   # v1.8u (owner): every ship has a lock box you can tap
 		if ep != null and view.has_point(ep) and edist < 900.0:
 			_enemy_bars(ep + Vector2(-22, -30), 44.0, 4.0, e)
 	for pu in space.popups:
@@ -1108,7 +1111,8 @@ func _draw() -> void:
 	_special_button()   # v1.5o
 	var gm: bool = space.ground_mode   # v1.8r: GROUND: gravity on, walk / land
 	_corner("ground", "GROUND", "ground", GREEN, gm, "", 0.0, false, ("WALKING" if GS.form == "mech" else "LANDED") if gm and space.grounded else ("FALLING" if gm else ("WALK" if GS.form == "mech" else "LAND")))
-	for lid in ["lock_a", "lock_b", "lock_c"]: _padlocked(lid, "")
+	for lid in ["lock_a", "lock_c"]: _padlocked(lid, "")
+	_corner("stop", "STOP", "stop", RED, space.braking or space.holding, "", 0.0, false, "STOPPED" if space.holding else "FULL STOP")
 	if space.warp_state == "charging":
 		var wr: Rect2 = buttons["warp"]
 		draw_rect(Rect2(wr.position + Vector2(8, wr.size.y - 5), Vector2((wr.size.x - 16) * space.warp_t / Data.WARP_CHARGE, 3)), Color(0.8, 0.75, 1.0))

@@ -4274,6 +4274,11 @@ func target_closest() -> Node3D:
 		message.emit("Target: %s" % best.name)
 	return best
 
+## v1.8u (owner: every enemy can be picked): choose this ship as your target (a tap on its box, or TARGET).
+func pick_target(n: Node3D) -> void:
+	target = n
+	message.emit("Target: %s" % n.name)
+
 func cycle_target() -> void:
 	var list := targetables()
 	var i := list.find(target)
@@ -4844,9 +4849,9 @@ func scan_info(n: Node3D) -> Dictionary:
 	return {}
 
 ## v1.5g: the ship drawn nearest a screen point (enemies, traffic), within SHIP_TAP_RADIUS. null = none.
-func ship_at_screen(p: Vector2) -> Node3D:
+func ship_at_screen(p: Vector2, radius := -1.0) -> Node3D:
 	var best: Node3D = null
-	var best_d: float = Data.SHIP_TAP_RADIUS
+	var best_d: float = Data.SHIP_TAP_RADIUS if radius < 0.0 else radius
 	var nodes: Array = []
 	for e in enemies: nodes.append(e["node"])
 	for t in traffic: nodes.append(t["node"])
