@@ -62,6 +62,7 @@ var comms_female := false
 var comms_generic := false   # a generic enemy pilot (face "gp/<id>") is on the line
 var _faces := {}
 var contacts: Array = []
+var planet_map := false   # v1.8y: the planet map is open (on a planet the radar / MAP opens it)
 var pick := ""   # v1.8q: who is picked in LOG ("" = nobody, "hail" = your target / control, or a character id): their picture is up on the friendly side with CALL
 var history: Array = [] # recent messages and calls for LOG
 var roster_t := 1.0 # drop-down animation 0..1
@@ -386,6 +387,18 @@ func _layout() -> void:
 		if sd["mode"] == "talk": buttons["hangup"] = Rect2(sr.end.x - 34, sr.position.y + 2, 32, 22)   # before the body, so it wins
 		if sd["mode"] == "pick": buttons["call_pick"] = Rect2(sr.position.x + 5, sr.end.y - 63, sr.size.x - 10, 58)   # v1.8q: CALL under the picked face
 		buttons["side_" + side] = sr
+	if planet_map:   # v1.8y: the map is up: its own buttons only (it covers the view until closed)
+		if space == null or not space.surface_mode:
+			planet_map = false
+		else:
+			var mr := planet_map_rect()
+			buttons.clear()
+			buttons["pmap_close"] = Rect2(mr.end.x - 96, mr.position.y + 6, 90, 40)
+			var spots: Array = space.base_spots()
+			for i in spots.size():
+				var bp := _pmap_point(mr, int(spots[i]["tile"]), float(spots[i]["x"]), float(spots[i]["z"]))
+				buttons["pmap_b%d" % i] = Rect2(bp - Vector2(70, 22), Vector2(140, 44))
+			return
 	if console_open:
 		var rr := contacts_rect()
 		var lg := msglog_rect()
@@ -733,6 +746,54 @@ func _corner(id: String, label: String, icon: String, col: Color, active := fals
 	if locked:
 		draw_rect(f, Color(0, 0, 0, 0.62))
 		_text(Vector2(f.position.x, f.get_center().y + 6), "LOCKED", 14, GOLD, HORIZONTAL_ALIGNMENT_CENTER, f.size.x)
+
+## v1.8y (owner): the planet map: the sectors (with their land), every base (tap one = fly there), you, and the job.
+func planet_map_rect() -> Rect2:
+	var side := minf(S.y - 40.0, S.x * 0.62)
+	return Rect2(S.x * 0.5 - side * 0.5, S.y * 0.5 - side * 0.5, side, side)
+
+func _pmap_point(mr: Rect2, t: int, x: float, z: float) -> Vector2:
+	var g := Surface.grid(space.planet_id)
+	var inner := Rect2(mr.position + Vector2(10, 52), mr.size - Vector2(20, 62))
+	var cell := inner.size / float(g)
+	return inner.position + Vector2((t % g) + (x + Surface.EDGE) / Surface.TILE, (t / g) + (z + Surface.EDGE) / Surface.TILE) * cell
+
+func _planet_map() -> void:
+	var mr := planet_map_rect()
+	var pid: String = space.planet_id
+	var g := Surface.grid(pid)
+	_box(mr, Color(0.01, 0.05, 0.1, 0.94), Color(CYAN, 0.8), 12, 2)
+	_text(mr.position + Vector2(14, 32), "%s  ·  PLANET MAP" % str(Surface.PLANETS[pid]["name"]).to_upper(), 20, WHITE)
+	_pill("pmap_close", "CLOSE", false, CYAN)
+	var inner := Rect2(mr.position + Vector2(10, 52), mr.size - Vector2(20, 62))
+	var cell := inner.size / float(g)
+	for t2 in g * g:
+		var cr := Rect2(inner.position + Vector2(t2 % g, t2 / g) * cell, cell)
+		var b: Dictionary = Surface.biome(pid, t2)
+		draw_rect(cr.grow(-2), Color((b.get("horizon", Color(0.3, 0.4, 0.5)) as Color).darkened(0.55), 0.9))
+		if t2 == space.tile: draw_rect(cr.grow(-2), Color(CYAN, 0.9), false, 2.0)
+		_text(cr.position + Vector2(6, 18), "%s%d %s" % ["ABCDEFG"[t2 / g], t2 % g + 1, str(b.get("name", "")).to_upper()], 12, Color(1, 1, 1, 0.75))
+	var mi: Dictionary = GS.mission   # the job's point, when it is down here
+	if mi.get("kind", "") == "ground" and str(mi.get("planet", "")) == pid and int(mi.get("stage", 0)) < (mi.get("points", []) as Array).size():
+		var mp: Dictionary = mi["points"][int(mi["stage"])]
+		var mv := _pmap_point(mr, int(mi["tile"]), float(mp["x"]), float(mp["z"]))
+		draw_colored_polygon(PackedVector2Array([mv + Vector2(0, -9), mv + Vector2(9, 0), mv + Vector2(0, 9), mv + Vector2(-9, 0)]), GOLD)
+		_text(mv + Vector2(12, 5), "JOB", 13, GOLD)
+	var spots: Array = space.base_spots()
+	for i in spots.size():
+		var bp := _pmap_point(mr, int(spots[i]["tile"]), float(spots[i]["x"]), float(spots[i]["z"]))
+		var on: bool = held.has("pmap_b%d" % i) or (not space.surf_goal.is_empty() and str(space.surf_goal.get("name", "")) == str(spots[i]["name"]))
+		draw_circle(bp, 7.0, GREEN if not on else GOLD)
+		draw_arc(bp, 11.0, 0, TAU, 20, Color(GREEN, 0.7), 2.0)
+		_text(bp + Vector2(-70, 26), str(spots[i]["name"]), 12, WHITE, HORIZONTAL_ALIGNMENT_CENTER, 140)
+	var pp: Vector3 = space.player.global_position   # you: an arrow the way you face
+	var yv := _pmap_point(mr, space.tile, pp.x, pp.z)
+	var f3: Vector3 = -space.player.global_basis.z
+	var f2 := Vector2(f3.x, f3.z).normalized()
+	if f2 == Vector2.ZERO: f2 = Vector2.UP
+	var sd := Vector2(-f2.y, f2.x)
+	draw_colored_polygon(PackedVector2Array([yv + f2 * 12.0, yv - f2 * 7.0 + sd * 7.0, yv - f2 * 7.0 - sd * 7.0]), CYAN_HI)
+	_text(Vector2(mr.position.x, mr.end.y - 8), "Tap a base to fly there (GO TO).", 12, Color(1, 1, 1, 0.6), HORIZONTAL_ALIGNMENT_CENTER, mr.size.x)
 
 ## v1.8q: a spare button: the frame, a small padlock, its name if it has one.
 func _padlocked(id: String, label: String) -> void:
@@ -1148,6 +1209,7 @@ func _draw() -> void:
 	_stick("aim", "AIM")
 	if comms_open: _comms()
 	_draw_scan()   # v1.5g
+	if planet_map: _planet_map()   # v1.8y
 	_draw_special()   # v1.5o: lock ring + the pilot cut-in (drawn over the view, the HUD stays readable)
 	if damage_flash > 0.0:
 		for i in 6: draw_rect(Rect2(Vector2.ZERO, S), Color(RED, damage_flash * 0.08), false, 60.0 - i * 9.0)
@@ -1343,6 +1405,10 @@ func _radar(rc: Vector2, rr: float, label: bool) -> void:
 			var big: bool = float(x.get_meta("radius", 0.0)) > 100.0
 			items.append([x.global_position, Color(0.5, 0.8, 1.0) if big else GREEN, "planet" if big else "station", null])
 		if radar_range > Data.RADAR_RANGE * 1.2 and space.sun_pos != Vector3.INF: items.append([space.sun_pos, Color(1.0, 0.9, 0.4), "star", null])
+	if space.surface_mode:   # v1.8y (owner): on a planet the radar shows every base (at the rim when far: their way)
+		for b in space.base_spots():
+			if space.station.get_meta("kind", "") == "station" and (b["pos"] as Vector3).distance_to(space.station.global_position) < 200.0: continue
+			items.append([b["pos"], GREEN, "station", null])
 	if mnode != null: items.append([mnode.global_position, GOLD, "mission", null])   # v1.7o: the job's waypoint
 	radar_blips.clear()
 	for it in items:

@@ -4768,6 +4768,63 @@ func _spawn_rival_patrol(center: Vector3, count: int) -> Array:
 		out.append(e)
 	return out
 
+# ---------------------------------------------------------------- v1.8y planet map and bases
+## Metres from this sector's centre to sector t's centre, the short way round the planet.
+func surface_offset(t: int) -> Vector3:
+	if not surface_mode: return Vector3.ZERO
+	var g := Surface.grid(planet_id)
+	var dx := t % g - tile % g
+	var dz := t / g - tile / g
+	if dx * 2 > g: dx -= g
+	elif dx * 2 < -g: dx += g
+	if dz * 2 > g: dz -= g
+	elif dz * 2 < -g: dz += g
+	return Vector3(dx * Surface.TILE, 0.0, dz * Surface.TILE)
+
+## Every base on this planet, where it is from here: [{name, id, tile, x, z, pos}].
+func base_spots() -> Array:
+	var out: Array = []
+	if not surface_mode: return out
+	for l in Surface.PLANETS[planet_id].get("locations", []):
+		var t := int(l["tile"])
+		var lp: Vector2 = l["pos"]
+		out.append({"name": str(l["name"]), "id": str(l.get("id", "")), "tile": t, "x": lp.x, "z": lp.y,
+			"pos": surface_offset(t) + Vector3(lp.x, Surface.pad_top(planet_id, t) + 40.0, lp.y)})
+	return out
+
+## GO TO / the planet map: fly to a base anywhere on the planet (the marker is kept where the base is as you cross sectors).
+var surf_goal := {}
+var _surf_goal_node: Node3D = null
+func set_surface_goal(spot: Dictionary) -> Node3D:
+	surf_goal = spot.duplicate()
+	if not is_instance_valid(_surf_goal_node):
+		_surf_goal_node = Node3D.new()
+		_surf_goal_node.set_meta("kind", "waypoint")
+		_surf_goal_node.set_meta("radius", 30.0)
+		add_child(_surf_goal_node)
+	_surf_goal_node.name = str(spot.get("name", "Base"))
+	autopilot = _surf_goal_node
+	_place_surface_goal()
+	return _surf_goal_node
+
+func _place_surface_goal() -> void:
+	if surf_goal.is_empty() or not is_instance_valid(_surf_goal_node): return
+	if autopilot != _surf_goal_node:   # arrived, or you took the stick: forget it
+		surf_goal = {}
+		return
+	var t := int(surf_goal["tile"])
+	_surf_goal_node.global_position = surface_offset(t) + Vector3(float(surf_goal["x"]), Surface.pad_top(planet_id, t) + 60.0, float(surf_goal["z"]))
+
+func nearest_base() -> Dictionary:
+	var best := {}
+	var bd := INF
+	for b in base_spots():
+		var d: float = (b["pos"] as Vector3).distance_to(player.global_position)
+		if d < bd:
+			bd = d
+			best = b
+	return best
+
 func _sea_at(x: float, z: float) -> bool:
 	return surface_mode and _water and _ground(x, z) <= 0.05
 
@@ -5403,6 +5460,7 @@ func _ground(x: float, z: float) -> float:
 
 ## Ground contact, tile edges (wrap to the next tile) and the ceiling (back to orbit).
 func _surface_update(_dt: float) -> void:
+	_place_surface_goal()   # v1.8y
 	if GS.form == "mech": _mech_dig(_dt)   # EXPERIMENT (v1.5v): the mech digs into block walls by pushing
 	var p := player.global_position
 	_update_regions()

@@ -5094,7 +5094,7 @@ func _job_ai() -> void:
 		await _frames(2)
 		hudg.held["thrust"] = true
 		await _wait(0.25)
-		var q_burst: bool = sg.last_dash == "forward" and sg.boosting and Vector2(sg.vel.x, sg.vel.z).length() > float(GS.ship()["speed"]) * Data.GROUND_WALK * 1.5 and sg.altitude < 12.0
+		var q_burst: bool = sg.last_dash == "forward" and sg.boosting and Vector2(sg.vel.x, sg.vel.z).length() > float(GS.ship()["speed"]) * Data.GROUND_WALK * 1.5 and sg.altitude < 30.0   # (bursting over block steps it can leave the ground for a moment)
 		gr_note += "[burst %s boosting %s h %.0f alt %.0f grounded %s] " % [sg.last_dash, sg.boosting, Vector2(sg.vel.x, sg.vel.z).length(), sg.altitude, sg.grounded]
 		hudg.held.erase("thrust")
 		hudg.move_vec = Vector2.ZERO
@@ -5109,6 +5109,36 @@ func _job_ai() -> void:
 	GS.restore_full()
 	_check("v1.8r (owner): GROUND mode (ship and mech): gravity brings you down to land with no damage and you stand still with the stick centred; THRUST centred = a jump and gravity brings you back; THRUST in the air does nothing; stick + THRUST on the ground = a burst that way; GROUND again = flying",
 		gr_ok, gr_note)
+	# ---- v1.8y (owner): on a planet: every base on the radar and on the planet map (tap = fly there); a job in space points up to orbit
+	var spots_y: Array = sg.base_spots()
+	main.hud.planet_map = false
+	_press("radar")
+	main.hud._layout()
+	var map_up: bool = main.hud.planet_map and main.hud.buttons.has("pmap_close") and main.hud.buttons.has("pmap_b0")
+	await _shot("planet_map", 0.3)
+	var far_i := 0
+	for i in spots_y.size():
+		if int(spots_y[i]["tile"]) != sg.tile: far_i = i
+	_press("pmap_b%d" % far_i)
+	var gnode: Node3D = sg.autopilot
+	var fly_ok: bool = not main.hud.planet_map and gnode != null and str(gnode.name) == str(spots_y[far_i]["name"]) and Vector2(gnode.global_position.x, gnode.global_position.z).distance_to(Vector2((spots_y[far_i]["pos"] as Vector3).x, (spots_y[far_i]["pos"] as Vector3).z)) < 1.0
+	var fly_note: String = "%s -> %s at %s vs %s" % [str(spots_y[far_i]["name"]), str(gnode.name) if gnode != null else "none", str(gnode.global_position) if gnode != null else "-", str(spots_y[far_i]["pos"])]
+	sg.autopilot = null
+	var keep_y: Dictionary = GS.mission
+	GS.mission = {}
+	var thr_y: Dictionary = Missions.offers(sg.sys_id, sid)[0]
+	Missions.accept(thr_y)
+	var upw: Dictionary = sg.mission_waypoint()
+	var up_ok: bool = not upw.is_empty() and (upw["node"] as Node3D).global_position.y > Surface.CEILING and str(upw["line"]).find("orbit") >= 0
+	GS.mission = {}
+	sg.autopilot = null
+	sg.target = null
+	_press("goto")
+	var go_base: bool = sg.autopilot != null and not sg.surf_goal.is_empty()
+	sg.autopilot = null
+	GS.mission = keep_y
+	_check("v1.8y (owner): on a planet: the radar / MAP opens the planet map with every base (%d); tapping one flies you there across sectors; a job out in space points straight up to orbit; GO TO with nothing to do flies to the nearest base" % spots_y.size(),
+		spots_y.size() >= 2 and map_up and fly_ok and up_ok and go_base, "map %s fly %s (%s) up %s goto %s" % [map_up, fly_ok, fly_note, up_ok, go_base])
 	_check("v1.8n (owner): enemy mechs on foot: each wave of a ground job has Assault Mechs walking the ground under the ships: they stay on the ground, upright, and walk toward you; the ships stay in the air",
 		wk_ok and wk_moved and fliers_up and dry, "walkers %d ok %s moved %s fliers up %s dry land %s" % [walkers.size(), wk_ok, wk_moved, fliers_up, dry])
 	await main._load_system(home_sys, "station")

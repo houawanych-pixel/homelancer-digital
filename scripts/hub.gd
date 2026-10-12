@@ -237,8 +237,10 @@ func _scroll_box() -> VBoxContainer:
 	for d in [-1, 1]:
 		var b := Button.new()
 		b.name = "ScrollUp" if d < 0 else "ScrollDown"
-		b.text = "▲\nUP" if d < 0 else "DOWN\n▼"
+		b.text = "UP" if d < 0 else "DOWN"   # v1.8y (owner: one was bigger than the other): plain words, one size
 		b.custom_minimum_size = Vector2(80, 120)
+		b.clip_text = true
+		b.add_theme_font_size_override("font_size", 20)
 		b.anchor_left = 1.0
 		b.anchor_right = 1.0
 		b.anchor_top = 0.0 if d < 0 else 1.0

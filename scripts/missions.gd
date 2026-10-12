@@ -246,7 +246,10 @@ static func waypoint(space: SpaceSystem) -> Dictionary:
 			if not is_instance_valid(space.planet): return {}
 			return {"node": space.planet, "title": space.planet.name, "line": "Strike: fly down into %s's atmosphere, %s" % [space.planet.name, sector_name(str(m["planet"]), int(m["tile"]))], "hops": 0}
 		if space.planet_id != str(m["planet"]): return {}
-	elif space.surface_mode: return {}
+	elif space.surface_mode:   # v1.8y (owner): a job out in space while you are down on a planet: the waypoint is the way up
+		var pp: Vector3 = space.player.global_position
+		var upn := space.mission_point(Vector3(pp.x, Surface.CEILING + 400.0, pp.z))
+		return {"node": upn, "title": "Orbit", "line": "%s: climb above %d m to reach orbit (the job is out in space)" % [m["title"], int(Surface.CEILING)], "hops": 0}
 	# bounty, pilot in the hold: back to the station that gave the job
 	if kind == "bounty" and GS.bounty.get("state", "") == "captured":
 		return _to_place(space, str(m["giver_sys"]), "Dock at %s to hand %s over" % [Data.SYSTEMS[m["giver_sys"]]["station"]["name"], Data.roster_pilot(str(m["id"])).get("name", "the pilot")])

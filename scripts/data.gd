@@ -21,7 +21,7 @@ const CONGRATS := [
 ]
 # v1.8x (owner): every bounty is a capture (BOUNTY_ALIVE_RANK 4 -> 1: destroy the ship, TRACTOR the pilot, hand them in);
 # the threats jobs send ONE rank: PATROL = all level-1 soldiers, ELITE = all level-5 soldiers.
-const VERSION := "v1.8x"
+const VERSION := "v1.8y"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.

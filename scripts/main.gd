@@ -369,6 +369,7 @@ func _on_hud(id: String) -> void:
 				"space": hud.flash_message("GROUND works down on a planet.")
 				"warp": hud.flash_message("Drop out of warp first.")
 		"lock_a", "lock_c": hud.flash_message("Locked for now.")
+		"pmap_close": hud.planet_map = false
 		"log":
 			if hud.comms_mode == "roster": hud.close_roster()
 			else: hud.open_log()
@@ -396,6 +397,10 @@ func _on_hud(id: String) -> void:
 				var mn: Node3D = mw["node"]
 				space.autopilot = mn if mn.get_meta("kind", "") != "enemy" else space.waypoint_at(mn.global_position)   # (a hostile is flown TO, not docked with)
 				hud.flash_message("Autopilot engaged: %s" % mw["title"])
+			elif space.surface_mode and not space.nearest_base().is_empty():   # v1.8y: on a planet: the nearest base, wherever it is
+				var nb: Dictionary = space.nearest_base()
+				space.set_surface_goal(nb)
+				hud.flash_message("Autopilot engaged: %s" % nb["name"])
 			else:   # v1.8v (owner: GO TO always takes you somewhere): nothing picked and no job: the station (on a planet: its base), or the way home
 				var home: Node3D = space.station if is_instance_valid(space.station) and space.station.get_meta("kind", "") == "station" else null
 				if home == null and not space.surface_mode and is_instance_valid(space.gate): home = space.gate
@@ -416,6 +421,14 @@ func _on_hud(id: String) -> void:
 			open_map()
 			if state == "map" and hud.radar_pick != Vector3.INF: navmap.select_near(hud.radar_pick)
 		_:
+			if id.begins_with("pmap_b"):   # v1.8y: a base tapped on the planet map: fly there
+				var spots: Array = space.base_spots()
+				var bi := int(id.substr(6))
+				if bi < spots.size():
+					space.set_surface_goal(spots[bi])
+					hud.planet_map = false
+					hud.flash_message("Autopilot engaged: %s" % spots[bi]["name"])
+				return
 			if id.begins_with("met_"):
 				if id == "met_up" or id == "met_down":   # v1.8r: scroll the call list
 					hud.scroll_contacts(-1 if id == "met_up" else 1)
@@ -604,8 +617,8 @@ func _comms_line() -> String:
 	return "[normal]Traffic control here. Recommended: %s." % o.to_lower()
 
 func open_map() -> void:
-	if space.surface_mode:
-		hud.flash_message("%s — tiles wrap around the planet. Dock at a town for fast travel." % Surface.tile_name(space.planet_id, space.tile))
+	if space.surface_mode:   # v1.8y (owner): on a planet the map is the planet: its sectors, the bases, you and the job
+		hud.planet_map = not hud.planet_map
 		return
 	state = "map"
 	hud.close_comms()
