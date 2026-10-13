@@ -963,6 +963,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_V19B") != "":   # the v1.9b planet docking platform checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_v19b()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_AR") != "":   # the Job AR checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1656,6 +1664,7 @@ func _run() -> void:
 	await _job_at()
 	await _job_ax()
 	await _job_ay()
+	await _job_v19b()
 	await _blocks()
 	await _regions()
 	await _galaxy()
@@ -3424,6 +3433,10 @@ func _job_v() -> void:
 	var again: Dictionary = s.spawn_bounty()
 	var spawn_ok: bool = not_here.is_empty() and not tgt.is_empty() and again == tgt and tgt.get("bounty", "") == "savagers_03" and int(tgt.get("rank", 0)) == 3 and tgt["def"]["name"] == "Redclaw Interceptor"
 	spawn_ok = spawn_ok and s.roster_pick("Savagers", 6).get("id", "") != "savagers_03"
+	var helpers: Array = s.enemies.filter(func(o): return not tgt.is_empty() and o != tgt and int(o.get("group", -1)) == int(tgt.get("group", -2)))
+	_check("v1.9b (owner): a bounty target never flies alone: it turns up with at least six helpers of its own faction, all hostile",
+		helpers.size() >= 6 and helpers.all(func(o): return o.get("provoked", false) and str(o.get("faction", "")) == "Savagers"), "helpers %d" % helpers.size())
+	for o in helpers: s._destroy_unit(o)
 	if not tgt.is_empty():
 		(tgt["node"] as Node3D).global_position = s.player.global_position - s.player.global_basis.z * 120.0
 		s._destroy_unit(tgt)
@@ -4623,8 +4636,14 @@ func _job_ai() -> void:
 		elif o["kind"] == "convoy": cvy = o
 	var same: bool = Missions.offers(s.sys_id, sid).map(func(o): return o["title"]) == offers.map(func(o): return o["title"])
 	_check("Job AI: a station's MISSIONS board offers a patrol threats job, an elite threats job (slot 05, paid more) and an escort, from a faction hostile to the owner, the same offers for the whole visit",
-		kinds == ["threats", "threats_hard", "escort", "convoy", "ground", "land_escort", "outlaws"] and int(hard["slot"]) == 5 and int(easy["slot"]) == 1 and int(hard["pay"]) > int(easy["pay"]) and same and Factions.has_fighters(str(easy["faction"])) and (easy["points"] as Array).size() == 2,
+		kinds == ["threats", "threats_hard", "escort", "convoy", "outlaws"] and int(hard["slot"]) == 5 and int(easy["slot"]) == 1 and int(hard["pay"]) > int(easy["pay"]) and same and Factions.has_fighters(str(easy["faction"])) and (easy["points"] as Array).size() == 2,
 		str(kinds) + " " + str(easy.get("faction", "")))
+	var pbid: String = str(Data.SYSTEMS[s.sys_id]["planet"]["id"])
+	var pkinds: Array = Missions.offers(s.sys_id, pbid, "", "planet").map(func(o): return str(o["kind"]))
+	var base_kinds: Array = []
+	for l in Surface.PLANETS.get(pbid, {}).get("locations", []): base_kinds = Missions.offers(s.sys_id, str(l["id"]), "", "planet").map(func(o): return str(o["kind"]))
+	_check("v1.9b (owner): missions on the planet are only about the planet, missions out in space only about space: a station's board has no planet jobs, the planet's board (its dock or a base down there) only jobs on that planet",
+		not ("ground" in kinds) and not ("land_escort" in kinds) and pkinds == ["ground", "land_escort"] and (base_kinds.is_empty() or base_kinds == pkinds), "station %s planet %s base %s" % [kinds, pkinds, base_kinds])
 	# ---- the hub pages
 	main.hub.open(Data.SYSTEMS[s.sys_id]["station"])
 	await _frames(2)
@@ -4737,7 +4756,7 @@ func _job_ai() -> void:
 	var bw: Array = s.enemies.filter(func(o): return int(o.get("mission", -1)) == 1)
 	var boss: Array = bw.filter(func(o): return o.get("bounty", "") == "savagers_03")
 	var wb: Dictionary = s.mission_waypoint()
-	var boss_ok: bool = bw.size() == Data.MISSION_GROUP[1] and boss.size() == 1 and int(boss[0].get("rank", 0)) == 3 and not wb.is_empty() and wb["node"] == boss[0]["node"]
+	var boss_ok: bool = bw.size() == 1 + Data.BOUNTY_HELPERS and Data.BOUNTY_HELPERS >= 6 and boss.size() == 1 and int(boss[0].get("rank", 0)) == 3 and not wb.is_empty() and wb["node"] == boss[0]["node"]
 	await _shot("ai_bounty_boss", 0.3)
 	var credits1: int = GS.credits
 	for o in bw: s._destroy_unit(o)
@@ -4746,7 +4765,7 @@ func _job_ai() -> void:
 	Missions.abandon()
 	GS.bounty = {}
 	GS.jail("savagers_03", "station")   # (for the v1.8k check below: a target that is gone comes back)
-	_check("Job AI (v1.8x: every bounty is a capture): a low-rank bounty (Razor, rank 3): the first waypoint is the escort wing, the second the target's own wing with the target in it; the kill drops the pilot to TRACTOR in, nothing is paid on the spot",
+	_check("Job AI (v1.8x: every bounty is a capture): a low-rank bounty (Razor, rank 3): the first waypoint is the escort wing, the second the target's own wing with the target in it (v1.9b: the target plus at least six helpers); the kill drops the pilot to TRACTOR in, nothing is paid on the spot",
 		chain_ok and none_yet and escort_ok and boss_ok and dead_paid, "chain %s none %s escort %s boss %s paid %s" % [chain_ok, none_yet, escort_ok, boss_ok, dead_paid])
 	# ---- bounty wanted alive (Dreadmaw, rank 6): the pod, the hold, back to the giver
 	Missions.accept_bounty("savagers_06")
@@ -4968,7 +4987,7 @@ func _job_ai() -> void:
 	s.target = null
 	# ---- v1.8m (owner): a ground job: the planet is the waypoint in space; down there two points in one sector, a wave at each; paid on the last kill
 	var gnd: Dictionary = {}
-	for o in Missions.offers(s.sys_id, sid):
+	for o in Missions.offers(s.sys_id, sid, "", "planet"):
 		if o["kind"] == "ground": gnd = o
 	var g_said: String = Missions.accept(gnd)
 	await _frames(2)
@@ -5147,7 +5166,7 @@ func _job_ai() -> void:
 	var keep_le: Dictionary = GS.mission
 	GS.mission = {}
 	var le: Dictionary = {}
-	for o in Missions.offers(sg.sys_id, sid):
+	for o in Missions.offers(sg.sys_id, sid, "", "planet"):
 		if o["kind"] == "land_escort": le = o
 	Missions.accept(le)
 	sg.player.global_position = Vector3(0, 400, 0)
@@ -6145,55 +6164,55 @@ func _job_ar() -> void:
 	e["aggro"] = false
 	for k in ["hp", "max"]: e[k] = 400.0   # tough enough that only the special decides it
 	s.target = n
-	# 2a. let go too early: charge lost, special still there
+	# 2. v1.9b (owner: the old hold-and-keep-it-in-the-sights was too hard): PRESS SPECIAL with the target off to the
+	# side: the ship turns itself onto it and the missile locks build; a TAP fires at the first lock (1 lock = 1 x launchers)
 	s.special_log.clear()
+	GS.missiles = 20
+	n.global_position = s.player.global_position + s.player.global_basis.x * 300.0   # 90 degrees off the nose
+	var ang0: float = rad_to_deg((-s.player.global_basis.z).angle_to(n.global_position - s.player.global_position))
 	hud.held["special"] = true
-	var t0 := 0.0
-	while t0 < 0.6:   # real time, not frames: a slow screen would finish the lock in 30 frames
-		_ar_hold(s, e, false)
-		await get_tree().process_frame
-		t0 += get_process_delta_time()
-	var charging: bool = s.special_state == "charging"
-	var rolled: bool = absf(s.model.rotation.z) > 0.05
-	hud.held.erase("special")
-	await _frames(3)
-	var lost: bool = "lost" in s.special_log and s.special_state == "idle" and s.special_ready() == "half"
-	# 2b. the target gets out of the sights: lock broken
-	s.special_log.clear()
-	hud.held["special"] = true
-	t0 = 0.0
-	while t0 < 0.3:
-		_ar_hold(s, e, false)
-		await get_tree().process_frame
-		t0 += get_process_delta_time()
-	n.global_position = s.player.global_position + s.player.global_basis.z * 300.0   # behind you
-	await _frames(3)
-	var broken: bool = "broken" in s.special_log and s.special_state == "idle"
-	hud.held.erase("special")
 	await _frames(2)
-	_check("Job AR: holding SPECIAL on a locked target charges it (the ship barrel-rolls); letting go early loses the charge, the target leaving your sights breaks the lock; neither spends it",
-		charging and rolled and lost and broken and s.special_ready() == "half", "charging %s roll %s lost %s broken %s" % [charging, rolled, lost, broken])
-	# ---- 3. the full move: hold through the lock, release, cut-in, beam, swarm
+	var charging: bool = s.special_state == "charging"
+	hud.held.erase("special")   # a tap
+	var m_tap := GS.missiles
+	await _until(func(): return s.special_state == "cutin" or s.special_state == "beam", 4.0)
+	var ang1: float = rad_to_deg((-s.player.global_basis.z).angle_to(n.global_position - s.player.global_position)) if is_instance_valid(n) else 0.0
+	var tap_locks: int = s.special_locks
+	await _until(func(): return "swarm" in s.special_log, Data.SPECIAL_CUTIN_TIME + Data.SPECIAL_BEAM_TIME + 2.0)
+	await _wait(Data.VOLLEY_GAP * 3 + 0.3)
+	var tap_fired: int = m_tap - GS.missiles
+	_check("v1.9b (owner: the special was too hard): one PRESS of SPECIAL turns the ship onto a target off to the side by itself (no lock breaking); a tap fires as soon as there is 1 missile lock, 1 lock = 1 missile per launcher",
+		charging and ang0 > 80.0 and ang1 < Data.LOCK_CONE_DEG + 1.0 and tap_locks == 1 and tap_fired == Data.SPECIAL_LAUNCHERS and GS.special_used["half"],
+		"charging %s angle %.0f -> %.0f locks %d fired %d log %s" % [charging, ang0, ang1, tap_locks, tap_fired, s.special_log])
+	# ---- 3. held on: the locks build to a full rack, then it fires by itself: cut-in, beam, swarm = locks x launchers
+	GS.special_used = {"half": false, "crit": false}
+	for m in s.missiles_live: (m["node"] as Node3D).queue_free()
+	s.missiles_live.clear()
+	if not is_instance_valid(n) or not (n in s.enemies.map(func(o): return o["node"])):
+		e = s.spawn_unit("raider", s.player.global_position - s.player.global_basis.z * 300.0, s.player.global_position)
+		n = e["node"]
+		e["aggro"] = false
+		for k in ["hp", "max"]: e[k] = 400.0
+		s.target = n
 	s.special_log.clear()
 	GS.missiles = 20
 	e["sh"] = float(e["sh_max"])
+	e["hp"] = 400.0
 	var hp0: float = float(e["hp"])
 	hud.held["special"] = true
-	var tl := 0.0
-	while tl < Data.SPECIAL_LOCK_TIME + 0.3:
-		_ar_hold(s, e, true)
-		await get_tree().process_frame
-		tl += get_process_delta_time()
-	hud.held.erase("special")
 	var cut := false
 	var tc := 0.0
-	while tc < Data.SPECIAL_CUTIN_TIME + 0.4 and s.special_state != "beam":
+	var rolled := false
+	while tc < Data.LOCK_STEP * 8 + Data.SPECIAL_CUTIN_TIME + 0.4 and s.special_state != "beam" and "swarm" not in s.special_log:
 		_ar_hold(s, e, true)
+		if s.special_state == "charging": rolled = rolled or absf(s.model.rotation.z) > 0.05
 		if s.special_state == "cutin" and s.special_t > 0.7 and not cut:
 			cut = true
 			await _shot("ar_special_cutin", 0.0)
 		await get_tree().process_frame
 		tc += get_process_delta_time()
+	hud.held.erase("special")
+	var full_locks: int = s.special_locks
 	await _frames(2)
 	var stripped: bool = not is_instance_valid(n) or float(e["sh"]) <= 0.0
 	var hp_hit: bool = not is_instance_valid(n) or float(e["hp"]) < hp0
@@ -6205,9 +6224,9 @@ func _job_ar() -> void:
 	var want: int = mini(GS.max_locks("light_missile") * Data.SPECIAL_LAUNCHERS, 20)
 	var fired: int = m0 - GS.missiles
 	var flagged: int = s.missiles_live.filter(func(m): return m.get("special", false)).size()
-	_check("Job AR: released after the full lock: the pilot cut-in, then the beam strips the shield and goes into the hull (a side-on hit takes a wing), then the swarm fires your real missiles (locks x launchers); the special is spent",
-		cut and stripped and hp_hit and wing and spent and fired == want and s.special_state == "idle",
-		"cutin %s shield %s hull %s wing %s spent %s fired %d/%d (special-flagged in flight %d) log %s" % [cut, stripped, hp_hit, wing, spent, fired, want, flagged, s.special_log])
+	_check("Job AR / v1.9b: SPECIAL held on: the locks build to a full rack and it fires by itself (the ship barrel-rolls meanwhile): the pilot cut-in, then the beam strips the shield and goes into the hull (a side-on hit takes a wing), then the swarm fires your real missiles (locks x launchers: more locks, more missiles); the special is spent",
+		cut and rolled and full_locks == GS.max_locks("light_missile") and stripped and hp_hit and wing and spent and fired == want and s.special_state == "idle",
+		"locks %d roll %s cutin %s shield %s hull %s wing %s spent %s fired %d/%d (special-flagged in flight %d) log %s" % [full_locks, rolled, cut, stripped, hp_hit, wing, spent, fired, want, flagged, s.special_log])
 	# ---- 4. no missiles: the beam still fires, the swarm is empty, no free ammo
 	if is_instance_valid(n): s._damage_enemy(e, 99999.0)
 	await _frames(3)
@@ -6223,7 +6242,7 @@ func _job_ar() -> void:
 	s.target = n
 	s.special_log.clear()
 	hud.held["special"] = true
-	tl = 0.0
+	var tl := 0.0
 	while tl < Data.SPECIAL_LOCK_TIME + 0.3:
 		_ar_hold(s, e, false)
 		await get_tree().process_frame
@@ -6358,7 +6377,7 @@ func _job_as() -> void:
 	var tl := 0.0
 	var w_mid := 0.0
 	var rolled := false
-	while tl < Data.SPECIAL_LOCK_TIME * 0.8:
+	while tl < Data.LOCK_STEP * 2.4:   # (v1.9b: under a full rack of locks, still charging)
 		_ar_hold(s, e, false)
 		await get_tree().process_frame
 		tl += get_process_delta_time()
@@ -6484,6 +6503,58 @@ func _job_ax() -> void:
 ## v1.6g (owner): every enemy you fight on a job (bounty targets, mission groups, escort raiders) is a hostile contact
 ## like the first enemies you meet: red brackets, the lead marker, missile lock. Before, a bounty target from a faction
 ## you were on good terms with showed up as a peaceful (gold) ship you couldn't lock.
+## v1.9b (owner): every planet has a docking ring on a little floating platform: dock there and take that planet's
+## jobs. The main planet's docking gate sits on a deck; each of the other planets gets a dockable platform.
+func _job_v19b() -> void:
+	var s := _sp()
+	if s.surface_mode or main.state != "flight": return
+	var beacon: Node3D = s.planet.get_node_or_null("LandingBeacon") if is_instance_valid(s.planet) else null
+	var deck_ok: bool = beacon != null and beacon.get_node_or_null("DockPlatform") != null
+	var more: Array = s.sys.get("more_planets", [])
+	await _until(func(): return s.platforms.filter(func(x): return is_instance_valid(x)).size() >= more.size(), Data.PH_BUILD_DELAY + 3.0)
+	var live: Array = s.platforms.filter(func(x): return is_instance_valid(x))
+	var plat_ok: bool = live.size() == more.size()
+	var fake: Node3D = null
+	if live.is_empty():   # (no other planet in this system: try the platform on a stand-in world out past the station)
+		var pid: String = ""
+		for k in Surface.PLANETS:
+			if not Surface.is_sun(str(k)) and str(k) != str(s.sys["planet"].get("id", "")) and not (Surface.PLANETS[k].get("locations", []) as Array).is_empty(): pid = str(k)
+		fake = Node3D.new()
+		fake.name = "TestWorld"
+		s.add_child(fake)
+		fake.global_position = s.station.global_position + Vector3(6000, 800, 0)
+		fake.set_meta("info", {"id": "test_world"})
+		fake.set_meta("radius", 600.0)
+		fake.set_meta("kind", "test")
+		s.extras.append(fake)
+		s._build_platform(fake, {"id": pid if pid != "" else "test_world", "name": "Test World", "radius": 600.0})
+		live = s.platforms.filter(func(x): return is_instance_valid(x))
+	var dock_ok := true
+	var board_ok := true
+	var said := ""
+	if not live.is_empty():
+		var pl: Node3D = live[0]
+		var info: Dictionary = pl.get_meta("info")
+		var wp: Node3D = pl.get_parent()
+		var keep := s.player.global_position
+		_tp(pl.global_position + pl.global_basis.y * 110.0 + pl.global_basis.x * 260.0, pl.global_position + pl.global_basis.y * 20.0)
+		await _frames(3)
+		await _shot("v19b_planet_platform", 0.2)
+		_tp(s.dock_point(pl) + pl.global_basis.y * 60.0, pl.global_position)
+		await _frames(3)
+		dock_ok = s.dock_candidate() == pl and s.prompt() == "dock" and str(info.get("kind", "")) == "planet" and wp in s.extras
+		var kinds: Array = Missions.offers(s.sys_id, str(info["id"]), "", "planet").map(func(o): return str(o["kind"]))
+		board_ok = not kinds.is_empty() and kinds.all(func(k): return k in ["ground", "land_escort"] or k == "outlaws")
+		said = "%s: %s" % [info["name"], kinds]
+		_tp(keep, s.station.global_position)
+		await _frames(2)
+	if fake != null:
+		s.extras.erase(fake)
+		s.platforms = s.platforms.filter(func(x): return is_instance_valid(x) and not fake.is_ancestor_of(x))
+		fake.queue_free()
+	_check("v1.9b (owner): every planet has a docking ring on a floating platform: the main planet's gate sits on a deck, and each of the other %d planet(s) here has a platform you can dock at, whose board offers only that planet's jobs" % more.size(),
+		deck_ok and plat_ok and dock_ok and board_ok, "deck %s platforms %d/%d dock %s board %s %s" % [deck_ok, live.size(), more.size(), dock_ok, board_ok, said])
+
 func _job_ay() -> void:
 	var s := _sp()
 	var bad: Array = []
@@ -7534,7 +7605,7 @@ func _craters(s, bf: BlockField, pid: String, t: int) -> void:
 				bf.fluid.erase(c)
 				bf.mats.erase(c)
 				bf.h[c] = base + (tall if i >= wi else 0.0)
-	# 9. the mech digs by pushing into a wall: dirt it tunnels through (no bounce), stone breaks with a bounce, obsidian only bounces
+	# 9. v1.9b (owner): walking into a wall never breaks it, whatever it is made of: it just stops you
 	var snap9: Dictionary = bf.snapshot()
 	var form1: String = GS.form
 	var hull0: float = GS.hull
@@ -7548,14 +7619,14 @@ func _craters(s, bf: BlockField, pid: String, t: int) -> void:
 	for mat in ["dirt", "stone", "obsidian"]:
 		wall.call(26, 40, 26, 35, 31, base_y, 20.0)   # a 20 m wall just east of the mech
 		bf.force_mat = mat
-		s.dig_log = {"soft": 0, "stone": 0, "bounce": 0}
+		s.dig_log = {"soft": 0, "stone": 0, "bounce": 0, "blocked": 0}
 		s._dig_cd = 0.0
 		var backed := false
 		for k in 40:
 			s.player.global_position = Vector3(ax, base_y + 6.0, az)
 			s.vel = Vector3(20.0, 0.0, 0.0)
 			s._mech_dig(0.05)
-			if s.vel.x < -0.1: backed = true
+			if s.vel.x < 0.1: backed = true   # (stopped)
 		res[mat] = {"open": not bf.is_solid(bf.x0 + 31.5 * step, base_y + 6.5, az), "dug": bf.holes.has(wc) or bf.h[wc] < base_y + 19.9,
 			"backed": backed, "log": s.dig_log.duplicate()}
 	bf.force_mat = ""
@@ -7563,10 +7634,10 @@ func _craters(s, bf: BlockField, pid: String, t: int) -> void:
 	s.vel = Vector3.ZERO
 	s.player.global_position = pp2
 	bf.restore(snap9)   # (test only: forget the test digs)
-	var dirt_ok: bool = res["dirt"]["open"] and not res["dirt"]["backed"]
-	var stone_ok: bool = res["stone"]["dug"] and res["stone"]["backed"]
+	var dirt_ok: bool = not res["dirt"]["open"] and not res["dirt"]["dug"] and res["dirt"]["backed"]
+	var stone_ok: bool = not res["stone"]["dug"] and res["stone"]["backed"]
 	var obs_ok: bool = not res["obsidian"]["dug"] and res["obsidian"]["backed"]
-	_check("Craters: the mech digs by pushing into a block wall: it tunnels through dirt (no bounce), breaks stone with a bounce-back each push, only bounces off obsidian; never any damage",
+	_check("v1.9b (owner: walking broke through the floor): walking into a block wall of dirt, stone or obsidian never breaks it, the wall just stops you (only shots break blocks); never any damage",
 		dirt_ok and stone_ok and obs_ok and GS.hull == hull0, str(res))
 	# 10. support and collapse (v1.5y): a shot into a wall digs IN; a stone overhang holds, a sand one falls; a pillar
 	#     cut through at its middle comes down

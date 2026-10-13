@@ -641,9 +641,11 @@ var _world_shader: Shader
 ## to them; no docking or landing yet. Planets wear their type's real map (a flat temporary colour until the "worlds"
 ## pack is in); stations are a small code-made stand-in in the faction's colour.
 var extras: Array = []          # Node3D, meta kind "landmark"
+var platforms: Array = []       # v1.9b: the docking platforms floating over the other planets (dock there for its jobs)
 var extra_worlds: Array = []    # [MeshInstance3D, data] waiting for / wearing the real map
 func _build_extras() -> void:
 	if surface_mode or not extras.is_empty() or not is_inside_tree(): return
+	platforms = platforms.filter(func(x): return is_instance_valid(x))
 	var sphere := SphereMesh.new()
 	sphere.radius = 1.0
 	sphere.height = 2.0
@@ -669,6 +671,7 @@ func _build_extras() -> void:
 		n.add_child(mi)
 		extras.append(n)
 		extra_worlds.append([mi, d])
+		_build_platform(n, d)   # v1.9b
 	var cyl := CylinderMesh.new()
 	cyl.radial_segments = 12
 	cyl.rings = 1
@@ -765,6 +768,76 @@ func _dock_gate() -> void:
 		arch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		dock_gate.add_child(arch)
 
+## v1.9b (owner: every planet gets a docking ring): a small floating platform: a round deck with a landing pad, a glowing
+## rim and lamp posts, room left to build on later, and the docking ring floating over the pad. Its top faces +Y of
+## `parent`.
+func _platform_deck(parent: Node3D, with_ring := true) -> void:
+	var deck := CylinderMesh.new()
+	deck.top_radius = Data.PLATFORM_RADIUS
+	deck.bottom_radius = Data.PLATFORM_RADIUS * 0.82
+	deck.height = 8.0
+	deck.radial_segments = 24
+	deck.rings = 1
+	_mesh(parent, deck, Vector3(0, -4, 0), Color(0.42, 0.45, 0.5))
+	var under := CylinderMesh.new()
+	under.top_radius = Data.PLATFORM_RADIUS * 0.5
+	under.bottom_radius = 6.0
+	under.height = 30.0
+	under.radial_segments = 12
+	under.rings = 1
+	_mesh(parent, under, Vector3(0, -23, 0), Color(0.26, 0.28, 0.32))
+	var pad := CylinderMesh.new()
+	pad.top_radius = Data.PLATFORM_RADIUS * 0.45
+	pad.bottom_radius = pad.top_radius
+	pad.height = 0.6
+	pad.radial_segments = 24
+	pad.rings = 1
+	_mesh(parent, pad, Vector3(0, 0.3, 0), Color(0.95, 0.75, 0.2), Vector3.ONE, Vector3.ZERO, true)
+	var rim := TorusMesh.new()
+	rim.inner_radius = Data.PLATFORM_RADIUS - 2.0
+	rim.outer_radius = Data.PLATFORM_RADIUS + 1.0
+	rim.rings = 32
+	rim.ring_segments = 6
+	_mesh(parent, rim, Vector3.ZERO, Color(0.3, 0.9, 1.0), Vector3.ONE, Vector3.ZERO, true)
+	var post := BoxMesh.new()
+	post.size = Vector3(2.5, 12.0, 2.5)
+	for i in 6:
+		var a := i * TAU / 6.0
+		var at := Vector3(cos(a), 0, sin(a)) * (Data.PLATFORM_RADIUS - 6.0)
+		_mesh(parent, post, at + Vector3(0, 6, 0), Color(0.3, 0.32, 0.36))
+		_mesh(parent, SphereMesh.new(), at + Vector3(0, 13, 0), Color(0.3, 1.0, 0.6), Vector3.ONE * 2.0, Vector3.ZERO, true)
+	if not with_ring: return
+	var ring := TorusMesh.new()   # the docking ring standing over the pad: fly through it to dock
+	ring.inner_radius = 24.0
+	ring.outer_radius = 28.0
+	ring.rings = 32
+	ring.ring_segments = 6
+	_mesh(parent, ring, Vector3(0, 40, 0), Color(0.3, 1.0, 0.6), Vector3.ONE, Vector3.ZERO, true)
+
+## v1.9b: the planet with this id in this system (the main one or one of the others); null = not here.
+func planet_node(pid: String) -> Node3D:
+	if is_instance_valid(planet) and str((planet.get_meta("info", {}) as Dictionary).get("id", sys["planet"].get("id", ""))) == pid: return planet
+	for x in extras:
+		if is_instance_valid(x) and str((x.get_meta("info", {}) as Dictionary).get("id", "")) == pid: return x
+	return planet if is_instance_valid(planet) and pid == str(sys["planet"].get("id", "")) else null
+
+## v1.9b: a dockable platform over one of the other planets (d = its more_planets entry). Docking opens that planet's
+## own board: jobs on that planet only.
+func _build_platform(world: Node3D, d: Dictionary) -> void:
+	var r := float(d["radius"])
+	var toward: Vector3 = (station.global_position - world.global_position).normalized() if is_instance_valid(station) else Vector3.UP
+	var pl := Node3D.new()
+	pl.name = "%s Dock" % d["name"]
+	world.add_child(pl)
+	pl.global_position = world.global_position + toward * (r + Data.PLATFORM_ALT)
+	pl.global_basis = Basis.IDENTITY   # the deck floats level: fly down through the ring onto the pad
+	pl.set_meta("kind", "platform")
+	pl.set_meta("radius", Data.PLATFORM_RADIUS)
+	pl.set_meta("info", {"id": str(d["id"]), "name": pl.name, "kind": "planet", "planet": str(d["id"]),
+		"desc": "Docking platform over %s. Jobs here are on %s." % [d["name"], d["name"]]})
+	_platform_deck(pl)
+	platforms.append(pl)
+
 func _planet_texture(palette: String, seed_text := "") -> ImageTexture:
 	var w := 512
 	var h := 256
@@ -857,6 +930,11 @@ func _build_planet(d: Dictionary) -> void:
 	var dp := dock_point(planet)
 	beacon.global_position = dp
 	beacon.look_at(planet.global_position, Vector3.UP)
+	var deck := Node3D.new()   # v1.9b: the main planet's ring floats on a platform too
+	deck.name = "DockPlatform"
+	beacon.add_child(deck)
+	deck.transform = Transform3D(Basis(Vector3.RIGHT, Vector3(0, 0, 1), Vector3(0, -1, 0)), Vector3(0, 0, -30))   # deck top faces away from the planet, 30 m under the ring
+	_platform_deck(deck, false)   # (the docking gate is its ring)
 	_planet_real()
 	_dock_gate()
 	# placeholders are built a moment after arrival, so they never add to the load hitch of a jump
@@ -876,6 +954,7 @@ func dock_point(n: Node3D) -> Vector3:
 	if n == planet:
 		var toward: Vector3 = (station.global_position - planet.global_position).normalized()
 		return planet.global_position + toward * (float(planet.get_meta("radius")) + 60.0)
+	if n.get_meta("kind", "") == "platform": return n.global_position + n.global_basis.y * 40.0   # v1.9b: through its ring
 	return n.global_position + Vector3(0, 0, 150)
 
 func _build_gate(d: Dictionary) -> void:
@@ -1719,11 +1798,20 @@ func spawn_bounty() -> Dictionary:
 	var p: Dictionary = Data.roster_pilot(GS.bounty["id"])
 	if p.is_empty(): return {}
 	var at: Vector3 = (sys["patrols"][0] as Vector3) + Vector3(0, 70, 0)
+	var fac := str(p.get("faction", ""))
+	if Factions.DEFS.has(fac):   # v1.9b (owner): the target flies with at least six of its own (the boss first)
+		var grp := spawn_mission_group(at, fac, 1 + Data.BOUNTY_HELPERS, mini(int(p.get("slot", 2)), 2), str(p["id"]), -1)
+		if not grp.is_empty():
+			for o in grp: o.erase("mission")
+			return grp[0]
 	var e := spawn_unit(p["fighter_primary"], at, at)
 	assign_roster(e, p)
 	e["bounty"] = p["id"]
 	e["provoked"] = true   # v1.6g: a bounty target is hostile whatever your standing with its faction
 	e["node"].name = "%s (bounty)" % p["name"]
+	for i in Data.BOUNTY_HELPERS:   # (no faction defs: plain wingmen of the system's enemy kind)
+		var h := spawn_unit(sys["enemy"], at + Vector3(_rng.randf_range(-70, 70), _rng.randf_range(-25, 25), _rng.randf_range(-70, 70)), at)
+		h["provoked"] = true
 	return e
 
 ## A bounty ship is gone: its pilot drifts out in a space suit (stand-in model) for the tractor beam.
@@ -2002,6 +2090,8 @@ func _update_player(dt: float) -> void:
 		var ap := _autopilot_input()
 		steer = ap[0]
 		thrust = ap[1]
+	if special_state == "charging" and special_target != null and is_instance_valid(special_target) and controls:
+		steer = _special_steer()   # v1.9b: the special turns the ship onto its target by itself
 	if warp_state == "on": steer *= 0.35 # heavy steering at warp speed
 	# full loops: pitch is not capped. Upside down, left/right steering is mirrored so it still turns the way the
 	# stick points on screen (the camera rolls over with the ship).
@@ -4291,6 +4381,8 @@ func dock_candidate() -> Node3D:
 	if p.distance_to(dock_point(station)) < DOCK_RANGE_STATION: return station
 	var surf := p.distance_to(planet.global_position) - float(planet.get_meta("radius"))
 	if surf < DOCK_RANGE_PLANET: return planet
+	for pl in platforms:   # v1.9b: the other planets' docking platforms
+		if is_instance_valid(pl) and minf(p.distance_to(pl.global_position), p.distance_to(dock_point(pl))) < DOCK_RANGE_STATION: return pl
 	return null
 
 ## v1.4u: which ONE prompt the ship gets: "dock", "jump", "lane" or "". When a station (or planet) and a trade-lane
@@ -4950,6 +5042,11 @@ var special_which := ""         # which earned special this is: "half" | "crit"
 var special_log: Array = []     # what happened, in order (tests)
 var _special_left := 0          # missiles of the special swarm still to launch (they steer harder)
 var _special_break_t := 0.0
+var special_locks := 0          # v1.9b: missile locks the special has built (the swarm = locks x launchers)
+var special_auto := false       # v1.9b: SPECIAL was let go: fire at the first lock
+var _special_lock_t := 0.0
+var _special_was_held := false
+var _special_was_held_prev := false
 var missiles_expired := 0       # player missiles that ran out of life and burst (tests)
 var decoyed := 0                # enemy missiles that hit one of your mines (tests)
 var _beam: MeshInstance3D = null
@@ -4972,43 +5069,66 @@ func special_move() -> String:
 
 func _update_special(dt: float) -> void:
 	special_t += dt
+	var was := _special_was_held
+	_special_was_held = special_held
+	_special_was_held_prev = was
 	if is_instance_valid(model) and ShipFactory.wings_open(model) >= 0.0:   # v1.5p: folding wings swing out for the special
 		var want := 1.0 if special_state != "idle" and special_move() == "wings_out" else 0.0
 		var k := ShipFactory.wings_open(model)
 		if not is_equal_approx(k, want): ShipFactory.set_wings(model, move_toward(k, want, dt * Data.WINGS_OPEN_RATE))
 	match special_state:
 		"idle":
-			if special_held and controls and warp_state == "off" and special_ready() != "" and _special_locked_on(target):
-				special_state = "charging"
-				special_t = 0.0
-				special_target = target
-				special_which = special_ready()
-				_special_break_t = 0.0
-				special_log.append("charge")
-				message.emit("SPECIAL LOCK: hold on target...")
-				Sfx.play("warp_spool", -6.0)
+			var pressed := special_held and not _special_was_held_prev
+			if pressed and controls and warp_state == "off" and special_ready() != "":
+				var t := target if (target != null and is_instance_valid(target) and target.get_meta("kind", "") == "enemy") else _nearest_enemy(Data.SPECIAL_RANGE)
+				if t == null or player.global_position.distance_to(t.global_position) > Data.SPECIAL_RANGE:
+					message.emit("SPECIAL: no hostile in range.")
+				else:
+					special_state = "charging"
+					special_t = 0.0
+					special_target = t
+					target = t
+					special_locks = 0
+					special_auto = false
+					special_which = special_ready()
+					special_log.append("charge")
+					message.emit("SPECIAL: turning to target, locking...")
+					Sfx.play("warp_spool", -6.0)
 		"charging":
+			# v1.9b (owner: "too hard"): press once: the ship turns itself onto the target and the missile locks build
+			# (one per LOCK_STEP while it is in the sights). Let go with 1+ lock = fire now; a tap fires at the first
+			# lock; held to a full rack it fires by itself. More locks, more missiles. No lock breaking any more.
 			special_roll += dt * TAU / Data.SPECIAL_ROLL_TIME
-			var k := clampf(special_t / Data.SPECIAL_LOCK_TIME, 0.0, 1.0)
+			if not special_held: special_auto = true
+			if special_target == null or not is_instance_valid(special_target) or not (special_target in enemies.map(func(o): return o["node"])):
+				if special_locks > 0:
+					var nt := _nearest_enemy(Data.SPECIAL_RANGE)
+					if nt != null:
+						special_target = nt
+						target = nt
+					else:
+						_special_end("SPECIAL: target gone, the charge is kept.")
+						special_log.append("gone")
+						return
+				else:
+					_special_end("SPECIAL: target gone, the charge is kept.")
+					special_log.append("gone")
+					return
+			var full: int = maxi(1, mini(GS.max_locks("light_missile"), maxi(GS.missiles, 1)))
+			if _cone(special_target, Data.LOCK_CONE_DEG, Data.SPECIAL_RANGE):
+				_special_lock_t += dt
+				if _special_lock_t >= Data.LOCK_STEP and special_locks < full:
+					_special_lock_t = 0.0
+					special_locks += 1
+					Sfx.play("button", -8.0)   # a lock tick
+			var k := float(special_locks) / float(full)
 			_booster_particles(dt, k)   # energy building round the weapons
 			if int(time * 20.0) % 2 == 0: _spark(player.global_position + player.global_basis.x * (2.5 if randf() < 0.5 else -2.5) - player.global_basis.z * 2.0, Color(0.5, 0.85, 1.0).lerp(Color(1, 1, 1), k), 2.0 + 4.0 * k, 0.2)
-			# the target tries to break the lock: it jinks sideways now and then
-			_special_break_t += dt
-			if _special_break_t >= 1.0:
-				_special_break_t = 0.0
-				var te := _enemy_entry(special_target)
-				if not te.is_empty() and randf() < Data.SPECIAL_BREAK_CHANCE and float(te.get("dodge_t", 0.0)) <= 0.0:
-					te["dodge_t"] = Data.ENEMY_DODGE_TIME
-					te["dodge_dir"] = (special_target.global_position - player.global_position).cross(Vector3.UP).normalized() * (1.0 if randf() < 0.5 else -1.0)
-			if not _special_locked_on(special_target):
-				_special_end("LOCK BROKEN: the target got out of your sights.")
-				special_log.append("broken")
-				return
-			if not special_held:
-				if special_t >= Data.SPECIAL_LOCK_TIME: _special_fire()
-				else:
-					_special_end("Special charge lost: hold SPECIAL until the lock completes.")
-					special_log.append("lost")
+			if special_locks >= full or (special_auto and special_locks >= 1) or (special_t > Data.SPECIAL_MAX_CHARGE and special_locks >= 1):
+				_special_fire()
+			elif special_t > Data.SPECIAL_MAX_CHARGE + 2.0:
+				_special_end("SPECIAL: couldn't get a lock, the charge is kept.")
+				special_log.append("lost")
 		"cutin":
 			if special_t >= Data.SPECIAL_CUTIN_TIME: _special_beam()
 		"beam":
@@ -5022,6 +5142,7 @@ func _special_end(said: String) -> void:
 	special_state = "idle"
 	special_t = 0.0
 	special_roll = 0.0
+	_special_lock_t = 0.0
 	if said != "": message.emit(said)
 
 ## Lock complete and released: the special is spent; the cut-in plays (the game keeps running under it).
@@ -5076,6 +5197,12 @@ func _special_beam() -> void:
 		special_log.append("wing_" + hit_side)
 	_spark(special_target.global_position, Color(0.7, 0.95, 1.0), 40.0, 0.5)
 
+## v1.9b: stick input that swings the nose onto the special's target (full rate until close, then eases in).
+func _special_steer() -> Vector2:
+	var local := player.global_basis.inverse() * (special_target.global_position - player.global_position).normalized()
+	if local.z > 0.0 and absf(local.x) < 0.2: local.x = 1.0   # dead behind: pick a side and turn
+	return Vector2(clampf(local.x * 4.0, -1, 1), clampf(-local.y * 4.0, -1, 1))
+
 func _aim_beam(to: Vector3) -> void:
 	if not is_instance_valid(_beam): return
 	var from := player.global_position - player.global_basis.z * 6.0
@@ -5090,7 +5217,7 @@ func _special_swarm() -> void:
 	if is_instance_valid(_beam): _beam.queue_free()
 	_beam = null
 	special_log.append("swarm")
-	var n: int = mini(GS.max_locks("light_missile") * Data.SPECIAL_LAUNCHERS, GS.missiles)
+	var n: int = mini(maxi(special_locks, 1) * Data.SPECIAL_LAUNCHERS, GS.missiles)   # v1.9b: the locks you built
 	if n > 0 and is_instance_valid(special_target) and special_target in enemies.map(func(o): return o["node"]):
 		var keep_t := target
 		target = special_target
@@ -5188,12 +5315,12 @@ func waypoint_at(p: Vector3) -> Node3D:
 
 var corner_haze := 0.0   # 0..1 inside the wrap-corner cloud bank
 
-## EXPERIMENT (v1.5v): the mech meets a block wall ahead (higher than a step) and pushes into it. It can't walk into
-## the wall; the push digs it by the same rules as a shot: sand and dirt give way steadily (it plows on), stone breaks
+## EXPERIMENT (v1.5v, changed v1.9b): the mech meets a block wall ahead (higher than a step). It can't walk into the
+## wall, and (v1.9b) pushing no longer digs it. Before v1.9b the push dug it by the same rules as a shot: sand and dirt give way steadily (it plows on), stone breaks
 ## a hit at a time and shoves the mech back each push, obsidian doesn't break and just bounces it off. No damage, ever.
 var _lava_t := 0.0
 var _dig_cd := 0.0
-var dig_log := {"soft": 0, "stone": 0, "bounce": 0}   # (tests)
+var dig_log := {"soft": 0, "stone": 0, "bounce": 0, "blocked": 0}   # (tests)
 func _mech_dig(dt: float) -> void:
 	_dig_cd = maxf(0.0, _dig_cd - dt)
 	if not is_instance_valid(player): return
@@ -5211,28 +5338,11 @@ func _mech_dig(dt: float) -> void:
 	vel -= dir * into   # it can't walk into the wall
 	if bf.is_solid(p.x, body, p.z):
 		player.global_position -= dir * (into * dt + 0.5)   # already in it this frame: step back out
-	var m := bf.mat_point(q.x, body if bf.is_solid(q.x, body, q.z) else p.y + 1.0, q.z)
-	var face := Vector3(q.x, feet + 7.5, q.z)   # v1.5y: it digs a tunnel its own size into the wall
-	if m == "obsidian":
-		if _dig_cd <= 0.0:
-			vel -= dir * Data.MECH_DIG_BOUNCE
-			dig_log["bounce"] += 1
-			_spark(face, Color(0.8, 0.8, 1.0), 2.5)
-			Sfx.play("hull_hit", -16.0)
-			_dig_cd = Data.MECH_DIG_STONE_TICK
-	elif m == "stone":
-		if _dig_cd <= 0.0:
-			_blast_blocks(face, "thrust", bf)
-			vel -= dir * Data.MECH_DIG_BOUNCE
-			dig_log["stone"] += 1
-			_spark(face, bf.tone("stone"), 3.5)
-			Sfx.play("hull_hit", -14.0)
-			_dig_cd = Data.MECH_DIG_STONE_TICK
-	elif _dig_cd <= 0.0:   # sand and dirt: no bounce, it just eats its way on while you push
-		_blast_blocks(face, "thrust_soft", bf)
-		dig_log["soft"] += 1
-		_spark(face, bf.tone(m if m != "" else "dirt"), 3.0)
-		_dig_cd = Data.MECH_DIG_SOFT_TICK
+	# v1.9b (owner: "I'm just walking and breaking through the floor"): walking never breaks blocks any more. The wall
+	# just stops you; the only way to break blocks is shooting them.
+	if _dig_cd <= 0.0:
+		dig_log["blocked"] = int(dig_log.get("blocked", 0)) + 1
+		_dig_cd = Data.MECH_DIG_STONE_TICK
 
 ## EXPERIMENT: the block ground patch on this tile, if there is one (the route test's old 800 m patch).
 func _block_field() -> BlockField:

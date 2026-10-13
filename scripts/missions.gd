@@ -28,7 +28,29 @@ static func enemy_of(sys_id: String, owner := "") -> String:
 			if Factions.has_fighters(f): return f
 	return enemy
 
-static func offers(sys_id: String, station_id: String, owner := "") -> Array:
+## v1.9b (owner): a planet's board (its docking platform or a base down on it) offers only jobs on THAT planet; a
+## station's board only jobs out in space. `where` = "planet" or "station".
+const PLANET_KINDS := ["ground", "land_escort"]
+static func offers(sys_id: String, station_id: String, owner := "", where := "station") -> Array:
+	var pid := planet_of(sys_id, station_id) if where == "planet" else str(Data.SYSTEMS[sys_id]["planet"].get("id", ""))
+	var full := _all_offers(sys_id, station_id, owner, pid)
+	if where != "planet": return full.filter(func(o): return not (str(o["kind"]) in PLANET_KINDS))
+	var out: Array = full.filter(func(o): return str(o["kind"]) in PLANET_KINDS)
+	if out.is_empty():   # nothing to do down there (no rival with ships): the outlaws over this planet
+		var o: Dictionary = full[-1].duplicate(true)
+		o["title"] = "%s over %s" % [o["title"], Surface.PLANETS.get(pid, {}).get("name", "the planet")]
+		out.append(o)
+	return out
+
+## The planet a base belongs to: the planet itself, a base down on it, else the system's main planet.
+static func planet_of(sys_id: String, base_id: String) -> String:
+	if Surface.has_surface(base_id): return base_id
+	for pid in Surface.PLANETS:
+		for l in Surface.PLANETS[pid].get("locations", []):
+			if str(l.get("id", "")) == base_id: return str(pid)
+	return str(Data.SYSTEMS[sys_id]["planet"].get("id", ""))
+
+static func _all_offers(sys_id: String, station_id: String, owner: String, pid: String) -> Array:
 	var sys: Dictionary = Data.SYSTEMS[sys_id]
 	var enemy := enemy_of(sys_id, owner)   # v1.8o (owner): a base's jobs are against ITS owner's rival (a planet base's too)
 	var foe := enemy if enemy != "" else str(Data.ENEMIES[sys["enemy"]]["name"])   # v1.8o: nobody with a roster to send: the system's own raiders (the threats job is always there)
@@ -53,7 +75,8 @@ static func offers(sys_id: String, station_id: String, owner := "") -> Array:
 				"giver": station_id, "giver_sys": sys_id, "sys": sys_id, "dest": dest, "leg": 0,
 				"brief": "A freighter is taking cargo to %s in the %s system. Fly with it to the jump gate, follow it through, and get it to the station there. %s will hit it on both sides of the gate." % [Data.SYSTEMS[dest]["station"]["name"], Data.SYSTEMS[dest]["name"], enemy if enemy != "" else "Raiders"],
 				"points": _points(rng, 2)})
-	var pid := str(sys["planet"].get("id", ""))   # v1.8m: a strike down on the planet (last, so the older offers keep their points)
+	# v1.8m: a strike down on the planet (last, so the older offers keep their points); v1.9b: on the board's own planet
+	var pname: String = str(Surface.PLANETS.get(pid, {}).get("name", sys["planet"]["name"]))
 	if enemy != "" and Surface.has_surface(pid) and not Surface.is_sun(pid):
 		var g := Surface.grid(pid)
 		var tile := rng.randi() % (g * g)
@@ -62,9 +85,9 @@ static func offers(sys_id: String, station_id: String, owner := "") -> Array:
 			tile = (tile + 1) % (g * g)
 		var p0 := _dry_point(rng, pid, tile, Vector2.INF)
 		var p1 := _dry_point(rng, pid, tile, p0)
-		out.append({"kind": "ground", "faction": enemy, "slot": 2, "pay": Data.MISSION_PAY["ground"], "title": "Strike on %s: destroy the %s landing party" % [sys["planet"]["name"], enemy],
+		out.append({"kind": "ground", "faction": enemy, "slot": 2, "pay": Data.MISSION_PAY["ground"], "title": "Strike on %s: destroy the %s landing party" % [pname, enemy],
 			"giver": station_id, "giver_sys": sys_id, "sys": sys_id, "planet": pid, "tile": tile,
-			"brief": "%s have landed on %s, in %s. Fly down into the atmosphere, go to both mission points and destroy them: ships overhead and mechs on the ground." % [enemy, sys["planet"]["name"], sector_name(pid, tile)],
+			"brief": "%s have landed on %s, in %s. Fly down into the atmosphere, go to both mission points and destroy them: ships overhead and mechs on the ground." % [enemy, pname, sector_name(pid, tile)],
 			"points": [{"x": p0.x, "z": p0.y}, {"x": p1.x, "z": p1.y}]})
 	# v1.9a (owner): on the planet: escort a freighter from one base to another (sector to sector)
 	if enemy != "" and Surface.has_surface(pid) and not Surface.is_sun(pid) and (Surface.PLANETS[pid].get("locations", []) as Array).size() >= 2:
@@ -72,9 +95,9 @@ static func offers(sys_id: String, station_id: String, owner := "") -> Array:
 		var ia := rng.randi() % locs.size()
 		var ib := (ia + 1 + rng.randi() % (locs.size() - 1)) % locs.size()
 		out.append({"kind": "land_escort", "faction": enemy, "slot": 2, "pay": Data.MISSION_PAY["land_escort"], "planet": pid, "from": ia, "to": ib,
-			"title": "Escort a freighter on %s: %s to %s" % [sys["planet"]["name"], locs[ia]["name"], locs[ib]["name"]],
+			"title": "Escort a freighter on %s: %s to %s" % [pname, locs[ia]["name"], locs[ib]["name"]],
 			"giver": station_id, "giver_sys": sys_id, "sys": sys_id, "pos": [], "points": [{}, {}],
-			"brief": "A freighter is flying from %s to %s on %s. Go down and stay with it: %s will hit it on the way. It waits for you when you are not with it." % [locs[ia]["name"], locs[ib]["name"], sys["planet"]["name"], enemy]})
+			"brief": "A freighter is flying from %s to %s on %s. Go down and stay with it: %s will hit it on the way. It waits for you when you are not with it." % [locs[ia]["name"], locs[ib]["name"], pname, enemy]})
 	# v1.8p (owner): the system's own outlaws (raiders / corsairs) are always a job too: there is no end of them
 	var outlaw := str(Data.ENEMIES[sys["enemy"]]["name"])
 	out.append({"kind": "outlaws", "faction": "", "slot": 1, "pay": Data.MISSION_PAY["outlaws"], "title": "%sS: clear the %s threat" % [outlaw.to_upper(), outlaw], "giver": station_id, "giver_sys": sys_id, "sys": sys_id,
@@ -256,9 +279,10 @@ static func waypoint(space: SpaceSystem) -> Dictionary:
 	if kind == "ground" or kind == "land_escort":   # v1.8m: in space the planet is the waypoint; down there the points are
 		if not space.surface_mode:
 			if str(m["sys"]) != space.sys_id: return _to_place(space, str(m["sys"]), m["title"])
-			if not is_instance_valid(space.planet): return {}
-			if kind == "land_escort": return {"node": space.planet, "title": space.planet.name, "line": "Escort: fly down into %s's atmosphere to the freighter" % space.planet.name, "hops": 0}
-			return {"node": space.planet, "title": space.planet.name, "line": "Strike: fly down into %s's atmosphere, %s" % [space.planet.name, sector_name(str(m["planet"]), int(m["tile"]))], "hops": 0}
+			var pn: Node3D = space.planet_node(str(m["planet"]))   # v1.9b: a job on one of the other planets points there
+			if pn == null: return {}
+			if kind == "land_escort": return {"node": pn, "title": pn.name, "line": "Escort: fly down into %s's atmosphere to the freighter" % pn.name, "hops": 0}
+			return {"node": pn, "title": pn.name, "line": "Strike: fly down into %s's atmosphere, %s" % [pn.name, sector_name(str(m["planet"]), int(m["tile"]))], "hops": 0}
 		if space.planet_id != str(m["planet"]): return {}
 	elif space.surface_mode:   # v1.8y (owner): a job out in space while you are down on a planet: the waypoint is the way up
 		var pp: Vector3 = space.player.global_position
@@ -328,7 +352,9 @@ static func tick(space: SpaceSystem, dt: float) -> void:
 			var last: bool = stage == pts.size() - 1
 			var count: int = Data.MISSION_GROUP[1] if last else Data.MISSION_GROUP[0]
 			var boss := ""
-			if kind == "bounty" and last: boss = str(m["id"])
+			if kind == "bounty" and last:
+				boss = str(m["id"])
+				count = 1 + Data.BOUNTY_HELPERS   # v1.9b: the target and its six helpers
 			m["need"] = space.spawn_mission_group(at, str(m["faction"]), count, int(m["slot"]), boss, stage, kind == "threats").size()   # v1.8x: PATROL = level 1s, ELITE = level 5s
 			if kind == "ground": m["need"] = int(m["need"]) + space.spawn_ground_mechs(at, str(m["faction"]), int(Data.MISSION_GROUND_MECHS[1 if last else 0]), stage).size()   # v1.8n
 			m["killed"] = 0

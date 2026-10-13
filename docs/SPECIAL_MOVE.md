@@ -1,6 +1,10 @@
 # Special lock-on super move (owner's combat spec, 8 Oct 2026)
 
-Saved as the working spec. Not built yet. Summary:
+**v1.9b (owner: "too hard to do"):** the controls are now: press SPECIAL once and the ship turns itself onto the
+target; missile locks build while it is in the sights (no lock breaking); let go with 1+ lock to fire (a tap fires at
+the first lock, a full rack fires by itself). The more locks, the more missiles in the swarm. See DESIGN.md (v1.9b).
+
+Saved as the working spec. Summary:
 earn the special lock -> cinematic activation -> huge shield-breaking cannon strike -> real-ammo missile swarm ->
 the defender survives through lock breaking, manoeuvring, countermeasures, shields and component durability.
 

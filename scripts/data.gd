@@ -27,7 +27,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v1.9a"
+const VERSION := "v1.9b"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -291,9 +291,10 @@ static func tutor_clip(n: int) -> String: return "res://assets/tutor/tutor_%d.og
 # ---------------------------------------------------------------- Job AR (v1.5o): the special lock-on super move (docs/SPECIAL_MOVE.md)
 const SPECIAL_ARM_AT := [0.5, 0.25]     # hull shares at which the special arms (half, then critical); once each until repaired
 const SPECIAL_RESET_AT := 0.75          # repaired above this, both are ready to earn again
-const SPECIAL_LOCK_TIME := 2.4          # hold SPECIAL this long on a locked target to complete the special lock
+const SPECIAL_LOCK_TIME := 2.4          # (before v1.9b) the old hold-to-lock time; v1.9b builds missile locks instead (LOCK_STEP each)
+const SPECIAL_MAX_CHARGE := 6.0         # v1.9b: with 1+ lock the special fires by itself after this long
 const SPECIAL_CONE_DEG := 25.0          # keep the target inside this cone ...
-const SPECIAL_RANGE := 1300.0           # ... and this range while charging, or the lock breaks
+const SPECIAL_RANGE := 1300.0  # v1.9b: press SPECIAL with a hostile this close           # ... and this range while charging, or the lock breaks
 const SPECIAL_BREAK_CHANCE := 0.55      # chance per second the target jinks to break the lock
 const SPECIAL_ROLL_TIME := 0.8          # one full barrel roll while charging takes this long
 const SPECIAL_CUTIN_TIME := 2.2         # the pilot cut-in
@@ -640,7 +641,10 @@ const SCAN_ENEMY_GOODS := {"Savagers": ["Scrap metal", "Stolen goods", "Munition
 const MISSION_POINT_DIST := [3200.0, 5200.0]   # a mission point lies this far from the station
 const MISSION_ARRIVE := 700.0                   # this close to the point, its wave is there
 const MISSION_PLANET_CLEAR := 900.0             # a point keeps this much clear of a planet's surface
-const MISSION_GROUP := [3, 3]                   # ships in a wave: [first waves, last wave] (the last of a bounty = target + 2)
+const MISSION_GROUP := [3, 3]                   # ships in a wave: [first waves, last wave] (v1.9b: a bounty's last wave = target + BOUNTY_HELPERS)
+const BOUNTY_HELPERS := 6
+const PLATFORM_RADIUS := 70.0                   # v1.9b (owner): every planet's floating docking platform: deck radius (m)
+const PLATFORM_ALT := 260.0                     # ... how far over the planet's surface it floats                       # v1.9b (owner): a bounty target never flies alone: at least six of its own wing with it
 const MISSION_PAY := {"threats": 900, "escort": 700, "convoy": 1600, "ground": 1400, "outlaws": 600, "land_escort": 1200}   # v1.7w: "convoy" = the cargo run into the next system
 # v1.8m (owner): ground jobs. A strike on the system's planet: fly down into the atmosphere, go to two mission points in
 # one sector of the surface and destroy the landing party at each. Paid on the spot when the last one is down.
