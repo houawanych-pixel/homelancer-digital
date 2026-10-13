@@ -1,0 +1,8 @@
+<!doctype html><meta charset=utf-8><script type=module>
+import * as C from './app/clone.mjs';
+C.onStatus(t=>console.log('status',t));
+window.gen=async(text,id,b64)=>{const bin=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));const pcm=await C.speak(text,id,async()=>new Blob([bin],{type:'audio/mpeg'}),{quiet:true});
+ const i=new Int16Array(pcm.length);for(let k=0;k<pcm.length;k++){const x=Math.max(-1,Math.min(1,pcm[k]));i[k]=x<0?x*32768:x*32767}
+ let s='';const u=new Uint8Array(i.buffer);for(let k=0;k<u.length;k+=32768)s+=String.fromCharCode.apply(null,u.subarray(k,k+32768));return {rate:C.sampleRate,b64:btoa(s)}};
+window.ready=true;
+</script>

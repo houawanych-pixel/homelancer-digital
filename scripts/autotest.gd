@@ -3561,7 +3561,8 @@ func _job_x() -> void:
 	var by_fallback: String = Sfx.last_voice
 	_check("Job X: voice ON plays a character's own recorded line when there is one (assets/voices/<voice id>/<line>.ogg); without one the device reads it, or blips if it cannot",
 		clip == "res://assets/voices/_test/radio_check.ogg" and by_clip == "clip" and by_fallback == ("tts" if Sfx.tts_available() else "blip")
-		and Sfx.clip_path("savagers_04_veil", "...Not finished...") == "res://assets/voices/savagers_04_veil/not_finished.ogg", "%s / %s" % [by_clip, by_fallback])
+		and Sfx.clip_path("savagers_04_veil", "...Not finished...") == "res://assets/voices/%s/not_finished.ogg" % Data.VOICE_POOL.get("savagers_04_veil", "savagers_04_veil")
+		and ResourceLoader.exists(Sfx.clip_path("vale", "Channel closed. Good hunting.")), "%s / %s" % [by_clip, by_fallback])   # v1.8z: and a cloned line is there
 	# v1.9a (owner): one voice option: VOICE no longer turns the voice off (no radio blips); an old saved "bleep" is ignored
 	var said: String = Sfx.toggle_voice()
 	hud.open_comms("Test — Radio", "Radio check!", "talk", false, "", 1.0, false, "_test")
@@ -5689,7 +5690,7 @@ func _job_an() -> void:
 	Sfx.voices_override = [{"id": "v_m", "name": "Microsoft David", "language": "en-US"}, {"id": "v_f", "name": "Microsoft Zira", "language": "en-US"}]
 	Sfx.keep_until = 0.0   # (v1.7v: no jumps now, so the job brief may still be reading; nothing talks over it by design)
 	if right: main._pilot_call(tgt[0]["pilot"], false)
-	var razor_voice: bool = Sfx.last_profile.get("preferred_voice", "") == "v_f"
+	var razor_voice: bool = Sfx.last_profile.get("preferred_voice", "") == "v_f" or (Sfx.last_provider == "PRELOADED_AUDIO" and Sfx.last_profile.get("voice_type", "") == "female")   # v1.8z: or her cloned line
 	Sfx.voices_override = []
 	await _shot("an_bounty_target_razor", 0.3)
 	_check("Job AN / v1.7v: LAUNCH returns you to space; the hunt is right here (%d jumps); at the second mission point the target's wing is there with Razor herself, in her Redclaw, targetable, speaking in a woman's voice" % hops,
@@ -5975,7 +5976,7 @@ func _job_ao() -> void:
 	var has_card: bool = card != null and talk != null   # (read now: the page is rebuilt below)
 	Sfx.voices_override = [{"id": "v_m", "name": "Microsoft David", "language": "en-US"}, {"id": "v_f", "name": "Microsoft Zira", "language": "en-US"}]
 	if talk: talk.pressed.emit()
-	var spoke: bool = Sfx.last_profile.get("voice_type", "") == "male" and Sfx.last_profile.get("preferred_voice", "") == "v_m" and Sfx.last_provider == "PHONE_TTS"
+	var spoke: bool = Sfx.last_profile.get("voice_type", "") == "male" and ((Sfx.last_profile.get("preferred_voice", "") == "v_m" and Sfx.last_provider == "PHONE_TTS") or Sfx.last_provider == "PRELOADED_AUDIO")   # v1.8z: or his cloned line
 	Sfx.stop_voice()
 	await _shot("ao_people_at_station", 0.3)
 	main.hub.show_screen("bounty")

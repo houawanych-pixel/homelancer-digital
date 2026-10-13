@@ -63,12 +63,14 @@ func save_prefs() -> void:
 func voice_on() -> bool: return voice_mode == "read"
 
 ## The file a character's spoken line would be: assets/voices/<voice_id>/<the line, lower case, words joined by _>.ogg
+## (v1.8z: <voice_id> is first looked up in Data.VOICE_POOL, the shared cloned-voice folders v_m1, v_f2 ... )
 static func clip_path(voice_id: String, text: String) -> String:
 	var key := ""
 	for ch in text.to_lower():
 		key += ch if (ch >= "a" and ch <= "z") or (ch >= "0" and ch <= "9") else "_"
 	while key.find("__") >= 0: key = key.replace("__", "_")
-	return "%s%s/%s.ogg" % [Data.VOICE_DIR, voice_id, key.strip_edges().trim_prefix("_").trim_suffix("_").left(Data.VOICE_KEY_LEN)]
+	var folder := str(Data.VOICE_POOL.get(voice_id, voice_id))   # v1.8z: the cloned voice this speaker borrows
+	return "%s%s/%s.ogg" % [Data.VOICE_DIR, folder, key.strip_edges().trim_prefix("_").trim_suffix("_").left(Data.VOICE_KEY_LEN)]
 
 func play(n: String, vol_db := 0.0, pitch := 1.0) -> void:
 	if not streams.has(n) or streams[n] == null: return
