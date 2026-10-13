@@ -59,6 +59,17 @@ func _until(cond: Callable, timeout: float) -> bool:
 
 func _sp() -> SpaceSystem: return main.space
 
+## (v1.9b) a bounty target now flies with six helpers: tests that only want the target take the wing away quietly,
+## so it doesn't stay out fighting (breaking asteroids, loading the frame) through the later checks.
+func _clear_wing(tgt: Dictionary) -> void:
+	var s := _sp()
+	if tgt.is_empty(): return
+	var g := int(tgt.get("group", -2))
+	for o in s.enemies.duplicate():
+		if o != tgt and int(o.get("group", -1)) == g:
+			s.enemies.erase(o)
+			if is_instance_valid(o["node"]): (o["node"] as Node3D).queue_free()
+
 func _tp(pos: Vector3, look: Vector3) -> void:
 	var s := _sp()
 	s.player.global_position = pos
@@ -3436,7 +3447,7 @@ func _job_v() -> void:
 	var helpers: Array = s.enemies.filter(func(o): return not tgt.is_empty() and o != tgt and int(o.get("group", -1)) == int(tgt.get("group", -2)))
 	_check("v1.9b (owner): a bounty target never flies alone: it turns up with at least six helpers of its own faction, all hostile",
 		helpers.size() >= 6 and helpers.all(func(o): return o.get("provoked", false) and str(o.get("faction", "")) == "Savagers"), "helpers %d" % helpers.size())
-	for o in helpers: s._destroy_unit(o)
+	_clear_wing(tgt)
 	if not tgt.is_empty():
 		(tgt["node"] as Node3D).global_position = s.player.global_position - s.player.global_basis.z * 120.0
 		s._destroy_unit(tgt)
@@ -3836,6 +3847,7 @@ func _job_ae() -> void:
 	# in the target's own system: the ship, then the drifting pilot, then (pilot aboard) the station
 	GS.bounty["sys"] = s.sys_id               # (test only: bring the hunt to this system)
 	var tgt: Dictionary = s.spawn_bounty()
+	_clear_wing(tgt)
 	var w2: Dictionary = s.mission_waypoint()
 	var ship_ok: bool = not tgt.is_empty() and not w2.is_empty() and w2["node"] == tgt["node"] and int(w2["hops"]) == 0
 	if not tgt.is_empty():
@@ -6580,6 +6592,7 @@ func _job_ay() -> void:
 		GS.mission = {}
 		GS.bounty = {"id": bp, "sys": s.sys_id, "state": "hunt"}
 		var be: Dictionary = s.spawn_bounty()
+		_clear_wing(be)
 		if not be.is_empty(): units.append(be)
 	await _wait(0.3)
 	for e in units:
