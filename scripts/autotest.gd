@@ -3562,17 +3562,17 @@ func _job_x() -> void:
 	_check("Job X: voice ON plays a character's own recorded line when there is one (assets/voices/<voice id>/<line>.ogg); without one the device reads it, or blips if it cannot",
 		clip == "res://assets/voices/_test/radio_check.ogg" and by_clip == "clip" and by_fallback == ("tts" if Sfx.tts_available() else "blip")
 		and Sfx.clip_path("savagers_04_veil", "...Not finished...") == "res://assets/voices/savagers_04_veil/not_finished.ogg", "%s / %s" % [by_clip, by_fallback])
-	# OFF: blips, and the choice is remembered
+	# v1.9a (owner): one voice option: VOICE no longer turns the voice off (no radio blips); an old saved "bleep" is ignored
 	var said: String = Sfx.toggle_voice()
 	hud.open_comms("Test — Radio", "Radio check!", "talk", false, "", 1.0, false, "_test")
-	var off_ok: bool = not Sfx.voice_on() and Sfx.last_voice == "blip" and said.begins_with("Voice OFF")
-	Sfx.voice_mode = "read"
+	var still_on: bool = Sfx.voice_on() and Sfx.last_voice == "clip" and said.begins_with("Voices")
+	var cfv := ConfigFile.new()
+	cfv.load(Sfx.path)
+	cfv.set_value("audio", "voice_mode", "bleep")
+	cfv.save(Sfx.path)
 	Sfx.load_prefs()
-	var kept: bool = not Sfx.voice_on()
-	Sfx.toggle_voice()
-	Sfx.load_prefs()
-	var back: bool = Sfx.voice_on()
-	_check("Job X: VOICE in the comms console turns it OFF (radio blips, even for recorded lines) and ON again, and the choice is remembered", off_ok and kept and back, said)
+	var ignored: bool = Sfx.voice_on()
+	_check("v1.9a (owner): one voice option only: VOICE does not switch to radio blips any more (it replays the line), and an old saved blip choice is ignored", still_on and ignored, said)
 	var who: Dictionary = Data.roster_pilot("savagers_04_veil")
 	main._pilot_call(who, true)
 	_check("Job X: a roster pilot's call looks for that pilot's own voice (voice id from the data, never guessed)", hud.comms_voice_id == "savagers_04_veil" and who["voice_sex"] == "female", hud.comms_voice_id)
