@@ -21,7 +21,11 @@ const CONGRATS := [
 ]
 # v1.8x (owner): every bounty is a capture (BOUNTY_ALIVE_RANK 4 -> 1: destroy the ship, TRACTOR the pilot, hand them in);
 # the threats jobs send ONE rank: PATROL = all level-1 soldiers, ELITE = all level-5 soldiers.
-const VERSION := "v1.8y"
+# v1.9a (owner): the escort job on a planet: a freighter flies from one base to another (sector to sector), the rival
+# hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
+const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
+const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
+const VERSION := "v1.9a"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -635,7 +639,7 @@ const MISSION_POINT_DIST := [3200.0, 5200.0]   # a mission point lies this far f
 const MISSION_ARRIVE := 700.0                   # this close to the point, its wave is there
 const MISSION_PLANET_CLEAR := 900.0             # a point keeps this much clear of a planet's surface
 const MISSION_GROUP := [3, 3]                   # ships in a wave: [first waves, last wave] (the last of a bounty = target + 2)
-const MISSION_PAY := {"threats": 900, "escort": 700, "convoy": 1600, "ground": 1400, "outlaws": 600}   # v1.7w: "convoy" = the cargo run into the next system
+const MISSION_PAY := {"threats": 900, "escort": 700, "convoy": 1600, "ground": 1400, "outlaws": 600, "land_escort": 1200}   # v1.7w: "convoy" = the cargo run into the next system
 # v1.8m (owner): ground jobs. A strike on the system's planet: fly down into the atmosphere, go to two mission points in
 # one sector of the surface and destroy the landing party at each. Paid on the spot when the last one is down.
 const MISSION_GROUND_ALT := 220.0               # a ground job's wave waits this high over the ground

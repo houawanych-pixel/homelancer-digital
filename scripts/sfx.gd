@@ -43,8 +43,8 @@ func load_prefs() -> void:
 	voice_picks = {}
 	var cf := ConfigFile.new()
 	if cf.load(path) != OK: return
-	var m = cf.get_value("audio", "voice_mode", Data.VOICE_DEFAULT)
-	if m is String and m in ["read", "bleep"]: voice_mode = m
+	# v1.9a (owner): one voice only: the character's cloned voice where it is recorded, else the device's own voice.
+	# The "bleep" radio-blip mode is gone (an old saved choice of it is ignored).
 	var vp = cf.get_value("voice_pick", "picks", {})   # v1.5j: the device voice picked per character (new section)
 	if vp is Dictionary: voice_picks = vp
 
@@ -91,11 +91,9 @@ func tts_available() -> bool:
 	_tts_yes = DisplayServer.tts_get_voices().size() > 0
 	return _tts_yes
 
-func toggle_voice() -> String:
-	voice_mode = "bleep" if voice_mode == "read" else "read"
-	save_prefs()
-	if voice_mode == "bleep": return "Voice OFF: radio blips."
-	return "Voice ON: lines are spoken." if tts_available() else "Voice ON. This device cannot read lines aloud yet: recorded voices play, the rest stay as blips."
+func toggle_voice() -> String:   # v1.9a: one voice option now: VOICE just says which and replays the line
+	voice_mode = "read"
+	return "Voices: the character's cloned voice where recorded, otherwise the device voice." if tts_available() else "Voices: cloned voices play; this device has no reading voice yet, so other lines show as text."
 
 # ---------------------------------------------------------------- v1.5j voice providers (see scripts/voice.gd)
 var bed_player: AudioStreamPlayer
@@ -246,10 +244,8 @@ func _process(dt: float) -> void:
 			talking = 0.6 + 0.4 * absf(sin(Time.get_ticks_msec() * 0.02))
 			_talk_gap = 0.09
 		return
-	if _talk_gap <= 0.0 and not voice_player.playing:
-		voice_player.stream = syl[_rng.randi() % syl.size()]
-		voice_player.pitch_scale = _talk_pitch * _rng.randf_range(0.9, 1.12)
-		voice_player.play()
-		talking = 1.0
-		# short pause between 'words' now and then
-		_talk_gap = _rng.randf_range(0.02, 0.05) + (0.16 if _rng.randf() < 0.22 else 0.0)
+	# v1.9a (owner): no "papa papa" radio mumble any more: with no voice to read the line, the face moves and the
+	# text is on screen, silently
+	if _talk_gap <= 0.0:
+		talking = 0.5 + 0.3 * absf(sin(Time.get_ticks_msec() * 0.02))
+		_talk_gap = 0.12

@@ -66,6 +66,15 @@ static func offers(sys_id: String, station_id: String, owner := "") -> Array:
 			"giver": station_id, "giver_sys": sys_id, "sys": sys_id, "planet": pid, "tile": tile,
 			"brief": "%s have landed on %s, in %s. Fly down into the atmosphere, go to both mission points and destroy them: ships overhead and mechs on the ground." % [enemy, sys["planet"]["name"], sector_name(pid, tile)],
 			"points": [{"x": p0.x, "z": p0.y}, {"x": p1.x, "z": p1.y}]})
+	# v1.9a (owner): on the planet: escort a freighter from one base to another (sector to sector)
+	if enemy != "" and Surface.has_surface(pid) and not Surface.is_sun(pid) and (Surface.PLANETS[pid].get("locations", []) as Array).size() >= 2:
+		var locs: Array = Surface.PLANETS[pid]["locations"]
+		var ia := rng.randi() % locs.size()
+		var ib := (ia + 1 + rng.randi() % (locs.size() - 1)) % locs.size()
+		out.append({"kind": "land_escort", "faction": enemy, "slot": 2, "pay": Data.MISSION_PAY["land_escort"], "planet": pid, "from": ia, "to": ib,
+			"title": "Escort a freighter on %s: %s to %s" % [sys["planet"]["name"], locs[ia]["name"], locs[ib]["name"]],
+			"giver": station_id, "giver_sys": sys_id, "sys": sys_id, "pos": [], "points": [{}, {}],
+			"brief": "A freighter is flying from %s to %s on %s. Go down and stay with it: %s will hit it on the way. It waits for you when you are not with it." % [locs[ia]["name"], locs[ib]["name"], sys["planet"]["name"], enemy]})
 	# v1.8p (owner): the system's own outlaws (raiders / corsairs) are always a job too: there is no end of them
 	var outlaw := str(Data.ENEMIES[sys["enemy"]]["name"])
 	out.append({"kind": "outlaws", "faction": "", "slot": 1, "pay": Data.MISSION_PAY["outlaws"], "title": "%sS: clear the %s threat" % [outlaw.to_upper(), outlaw], "giver": station_id, "giver_sys": sys_id, "sys": sys_id,
@@ -240,10 +249,15 @@ static func waypoint(space: SpaceSystem) -> Dictionary:
 	if m.is_empty() or not is_instance_valid(space.player): return {}
 	var kind := str(m["kind"])
 	var stage := int(m["stage"])
-	if kind == "ground":   # v1.8m: in space the planet is the waypoint; down there the points are
+	if kind == "land_escort" and space.surface_mode and space.planet_id == str(m["planet"]):   # v1.9a: the freighter is the waypoint
+		if is_instance_valid(space.escort_node):
+			return {"node": space.escort_node, "title": space.escort_node.name, "line": "Escort: stay with the freighter to %s (hull %d%%)" % [land_base(m, "to")["name"], int(100.0 * float(m["escort_hp"]) / Data.ESCORT_HULL)], "hops": 0}
+		return {}
+	if kind == "ground" or kind == "land_escort":   # v1.8m: in space the planet is the waypoint; down there the points are
 		if not space.surface_mode:
 			if str(m["sys"]) != space.sys_id: return _to_place(space, str(m["sys"]), m["title"])
 			if not is_instance_valid(space.planet): return {}
+			if kind == "land_escort": return {"node": space.planet, "title": space.planet.name, "line": "Escort: fly down into %s's atmosphere to the freighter" % space.planet.name, "hops": 0}
 			return {"node": space.planet, "title": space.planet.name, "line": "Strike: fly down into %s's atmosphere, %s" % [space.planet.name, sector_name(str(m["planet"]), int(m["tile"]))], "hops": 0}
 		if space.planet_id != str(m["planet"]): return {}
 	elif space.surface_mode:   # v1.8y (owner): a job out in space while you are down on a planet: the waypoint is the way up
@@ -293,8 +307,12 @@ static func tick(space: SpaceSystem, dt: float) -> void:
 	var m: Dictionary = GS.mission
 	if m.is_empty() or not is_instance_valid(space.player) or str(m["sys"]) != space.sys_id: return
 	var kind := str(m["kind"])
-	if (kind == "ground") != space.surface_mode: return   # v1.8m: a ground job runs down on the planet, the others in space
-	if kind == "ground" and space.planet_id != str(m.get("planet", "")): return
+	var on_land: bool = kind == "ground" or kind == "land_escort"
+	if on_land != space.surface_mode: return   # v1.8m: a ground job runs down on the planet, the others in space
+	if on_land and space.planet_id != str(m.get("planet", "")): return
+	if kind == "land_escort":
+		_tick_land_escort(space, dt, m)
+		return
 	var stage := int(m["stage"])
 	var pts: Array = m.get("points", [])
 	if kind == "escort":
@@ -380,6 +398,79 @@ static func _pay(space: SpaceSystem, said: String) -> void:
 	space.mission_done.emit(said)
 
 # ---------------------------------------------------------------- v1.7w cargo run
+# ---------------------------------------------------------------- v1.9a escort on a planet
+## A base of the job ("from" / "to"): {name, tile, x, z, g (planet-wide position, metres)}.
+static func land_base(m: Dictionary, which: String) -> Dictionary:
+	var pid := str(m["planet"])
+	var l: Dictionary = Surface.PLANETS[pid]["locations"][int(m[which])]
+	var g := Surface.grid(pid)
+	var t := int(l["tile"])
+	var lp: Vector2 = l["pos"]
+	return {"name": str(l["name"]), "tile": t, "x": lp.x, "z": lp.y, "g": Vector2((t % g) * Surface.TILE + lp.x, (t / g) * Surface.TILE + lp.y)}
+
+## The short way from a to b on a planet that wraps round.
+static func wrap_d(pid: String, a: Vector2, b: Vector2) -> Vector2:
+	var w := float(Surface.grid(pid)) * Surface.TILE
+	var d := b - a
+	d.x = fposmod(d.x + w * 0.5, w) - w * 0.5
+	d.y = fposmod(d.y + w * 0.5, w) - w * 0.5
+	return d
+
+## Where a planet-wide position is from the sector you are flying over.
+static func land_local(space: SpaceSystem, gp: Vector2) -> Vector3:
+	var g := Surface.grid(space.planet_id)
+	var origin := Vector2((space.tile % g) * Surface.TILE, (space.tile / g) * Surface.TILE)
+	var d := wrap_d(space.planet_id, origin, gp)
+	return Vector3(d.x, 0.0, d.y)
+
+static func _tick_land_escort(space: SpaceSystem, dt: float, m: Dictionary) -> void:
+	var a := land_base(m, "from")
+	var b := land_base(m, "to")
+	if (m.get("pos", []) as Array).size() < 2: m["pos"] = [a["g"].x, a["g"].y]
+	var gp := Vector2(float(m["pos"][0]), float(m["pos"][1]))
+	if not is_instance_valid(space.escort_node):
+		if int(m["stage"]) >= 90: return
+		space.make_escort(Vector3.ZERO, Vector3.ZERO)
+		if not is_instance_valid(space.escort_node): return
+	var n: Node3D = space.escort_node
+	var lp := land_local(space, gp)
+	var ground: float = space._ground(lp.x, lp.z) if absf(lp.x) < Surface.EDGE and absf(lp.z) < Surface.EDGE else 0.0
+	var at := lp + Vector3(0, maxf(ground, 0.0) + Data.LAND_ESCORT_ALT, 0)
+	var togo := wrap_d(space.planet_id, gp, b["g"])
+	var trip := maxf(1.0, wrap_d(space.planet_id, a["g"], b["g"]).length())
+	var near: bool = space.player.global_position.distance_to(at) < Data.LAND_ESCORT_WAIT
+	if near and togo.length() > 1.0:   # it only flies on while you are with it
+		gp += togo.normalized() * minf(Data.ESCORT_SPEED * dt, togo.length())
+		m["pos"] = [gp.x, gp.y]
+	n.global_position = n.global_position.lerp(at, minf(1.0, dt * 4.0)) if n.global_position.distance_to(at) < 400.0 else at
+	if togo.length() > 1.0: n.look_at(n.global_position + Vector3(togo.x, 0, togo.y), Vector3.UP)
+	var done: float = 1.0 - togo.length() / trip
+	for i in 2:   # ambushes at a third and two thirds of the way
+		if int(m["spawned"]) < i and done >= (float(i) + 1.0) / 3.0:
+			space.spawn_mission_group(n.global_position + Vector3(Data.ESCORT_AMBUSH * 0.6, 40.0, 0).rotated(Vector3.UP, float(i) * 2.2), str(m["faction"]), Data.MISSION_GROUP[0], int(m["slot"]), "", i)
+			m["spawned"] = i
+			space.message.emit("Mission: %s on the freighter. Keep them off it." % m["faction"])
+	var attackers := 0
+	for o in space.enemies:
+		if o.has("mission") and is_instance_valid(o["node"]) and (o["node"] as Node3D).global_position.distance_to(n.global_position) < Data.ESCORT_RANGE: attackers += 1
+	if attackers > 0:
+		m["escort_hp"] = float(m["escort_hp"]) - Data.ESCORT_FIRE * attackers * dt
+		if float(m["escort_hp"]) <= 0.0:
+			space._explode(n.global_position)
+			n.queue_free()
+			space.escort_node = null
+			m["stage"] = 99
+			space.message.emit("Mission failed: the freighter is lost.")
+			space.mission_done.emit("failed")
+			GS.mission = {}
+			GS.changed.emit()
+			return
+	if togo.length() < Data.ESCORT_DOCK:
+		n.queue_free()
+		space.escort_node = null
+		m["stage"] = 90
+		_pay(space, "The freighter is down at %s. %s pays %d cr." % [b["name"], Data.SYSTEMS[m["giver_sys"]]["station"]["name"], int(m["pay"])])
+
 ## The gate in this system that leads to sys_id (null = none).
 static func gate_to(space: SpaceSystem, sys_id: String) -> Node3D:
 	for g in space.gates:

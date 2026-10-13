@@ -396,7 +396,7 @@ func _on_hud(id: String) -> void:
 				var mw: Dictionary = space.mission_waypoint()
 				var mn: Node3D = mw["node"]
 				space.autopilot = mn if mn.get_meta("kind", "") != "enemy" else space.waypoint_at(mn.global_position)   # (a hostile is flown TO, not docked with)
-				hud.flash_message("Autopilot engaged: %s" % mw["title"])
+				hud.flash_message("Autopilot engaged: %s" % mw["title"])   # (v1.9a: on a planet too: the job's point, the freighter, or the way up)
 			elif space.surface_mode and not space.nearest_base().is_empty():   # v1.8y: on a planet: the nearest base, wherever it is
 				var nb: Dictionary = space.nearest_base()
 				space.set_surface_goal(nb)

@@ -4622,7 +4622,7 @@ func _job_ai() -> void:
 		elif o["kind"] == "convoy": cvy = o
 	var same: bool = Missions.offers(s.sys_id, sid).map(func(o): return o["title"]) == offers.map(func(o): return o["title"])
 	_check("Job AI: a station's MISSIONS board offers a patrol threats job, an elite threats job (slot 05, paid more) and an escort, from a faction hostile to the owner, the same offers for the whole visit",
-		kinds == ["threats", "threats_hard", "escort", "convoy", "ground", "outlaws"] and int(hard["slot"]) == 5 and int(easy["slot"]) == 1 and int(hard["pay"]) > int(easy["pay"]) and same and Factions.has_fighters(str(easy["faction"])) and (easy["points"] as Array).size() == 2,
+		kinds == ["threats", "threats_hard", "escort", "convoy", "ground", "land_escort", "outlaws"] and int(hard["slot"]) == 5 and int(easy["slot"]) == 1 and int(hard["pay"]) > int(easy["pay"]) and same and Factions.has_fighters(str(easy["faction"])) and (easy["points"] as Array).size() == 2,
 		str(kinds) + " " + str(easy.get("faction", "")))
 	# ---- the hub pages
 	main.hub.open(Data.SYSTEMS[s.sys_id]["station"])
@@ -5139,6 +5139,51 @@ func _job_ai() -> void:
 	GS.mission = keep_y
 	_check("v1.8y (owner): on a planet: the radar / MAP opens the planet map with every base (%d); tapping one flies you there across sectors; a job out in space points straight up to orbit; GO TO with nothing to do flies to the nearest base" % spots_y.size(),
 		spots_y.size() >= 2 and map_up and fly_ok and up_ok and go_base, "map %s fly %s (%s) up %s goto %s" % [map_up, fly_ok, fly_note, up_ok, go_base])
+	# ---- v1.9a (owner): escort a freighter from one base to another on the planet; it waits when you are not with it; paid on arrival
+	for e in sg.enemies.duplicate():
+		if is_instance_valid(e["node"]): (e["node"] as Node3D).free()
+	sg.enemies = []
+	var keep_le: Dictionary = GS.mission
+	GS.mission = {}
+	var le: Dictionary = {}
+	for o in Missions.offers(sg.sys_id, sid):
+		if o["kind"] == "land_escort": le = o
+	Missions.accept(le)
+	sg.player.global_position = Vector3(0, 400, 0)
+	await _frames(3)
+	var lm: Dictionary = GS.mission
+	var lfr: Node3D = sg.escort_node
+	var lw: Dictionary = sg.mission_waypoint()
+	var le_way: bool = is_instance_valid(lfr) and not lw.is_empty() and lw["node"] == lfr
+	var gp_a := Vector2(float(lm["pos"][0]), float(lm["pos"][1]))
+	sg.player.global_position = Vector3(0, 0, 9000) + Vector3(0, 400, 0)   # far away: it waits
+	await _wait(0.6)
+	var le_wait: bool = Vector2(float(lm["pos"][0]), float(lm["pos"][1])).distance_to(gp_a) < 1.0
+	var a_b: Dictionary = Missions.land_base(lm, "from")
+	var b_b: Dictionary = Missions.land_base(lm, "to")
+	var dvec: Vector2 = Missions.wrap_d(str(lm["planet"]), a_b["g"], b_b["g"])
+	lm["pos"] = [a_b["g"].x + dvec.x * 0.4, a_b["g"].y + dvec.y * 0.4]   # 40% of the way: the first ambush
+	await _frames(2)
+	sg.player.global_position = sg.escort_node.global_position + Vector3(0, 20, 60)
+	await _frames(4)
+	var lamb: Array = sg.enemies.filter(func(o): return int(o.get("mission", -1)) == 0)
+	var le_amb: bool = lamb.size() == int(Data.MISSION_GROUP[0])
+	for o in lamb: sg._destroy_unit(o)
+	var gp_b := Vector2(float(lm["pos"][0]), float(lm["pos"][1]))
+	await _wait(0.6)
+	var le_moves: bool = Vector2(float(lm["pos"][0]), float(lm["pos"][1])).distance_to(gp_b) > 2.0
+	lm["spawned"] = 1
+	var lc0: int = GS.credits
+	lm["pos"] = [b_b["g"].x - dvec.normalized().x * 100.0, b_b["g"].y - dvec.normalized().y * 100.0]   # nearly there
+	await _frames(2)
+	sg.player.global_position = sg.escort_node.global_position + Vector3(0, 20, 60) if is_instance_valid(sg.escort_node) else sg.player.global_position
+	await _frames(4)
+	var le_paid: bool = GS.mission.is_empty() and GS.credits - lc0 >= int(le["pay"]) and not is_instance_valid(sg.escort_node)
+	var le_note: String = "mission %s credits +%d node %s togo %.0f" % [str(GS.mission.get("kind", "none")), GS.credits - lc0, is_instance_valid(sg.escort_node), Missions.wrap_d(str(lm["planet"]), Vector2(float(lm["pos"][0]), float(lm["pos"][1])), b_b["g"]).length()]
+	main.hud.close_comms()
+	GS.mission = keep_le
+	_check("v1.9a (owner): escort on the planet: a freighter from %s to %s; it is the waypoint; it waits when you are not with it and flies on when you are; ambushed on the way; paid when it reaches the other base" % [str(a_b["name"]), str(b_b["name"])],
+		le_way and le_wait and le_amb and le_moves and le_paid, "way %s wait %s ambush %s moves %s paid %s (%s)" % [le_way, le_wait, le_amb, le_moves, le_paid, le_note])
 	_check("v1.8n (owner): enemy mechs on foot: each wave of a ground job has Assault Mechs walking the ground under the ships: they stay on the ground, upright, and walk toward you; the ships stay in the air",
 		wk_ok and wk_moved and fliers_up and dry, "walkers %d ok %s moved %s fliers up %s dry land %s" % [walkers.size(), wk_ok, wk_moved, fliers_up, dry])
 	await main._load_system(home_sys, "station")

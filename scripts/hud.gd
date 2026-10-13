@@ -1740,7 +1740,7 @@ func _chat_panel() -> void:
 	if roster_t > 0.95 and not roster_closing:
 		_pill("type", "TYPE", _typer.visible, CYAN)
 		_pill("talk", "LISTENING" if listening else "HOLD TO TALK", listening, GREEN if listening else CYAN, heard_text.left(18) if listening and heard_text != "" else "")
-		_pill("voice", "VOICE", false, CYAN, "ON" if Sfx.voice_on() else "OFF")
+		_pill("voice", "VOICE", false, CYAN, "REPLAY")   # v1.9a: one voice option (clone, else device voice): this replays the line
 	if _typer.visible:
 		_typer.size = Vector2(minf(420.0, S.x - lg.end.x - side_rect("r").size.x - 32), 40)
 		_typer.position = Vector2(lg.end.x + 8, lg.end.y - 44)
