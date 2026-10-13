@@ -3404,9 +3404,10 @@ func _job_v() -> void:
 		var sy: Dictionary = Data.SYSTEMS[id]
 		var is_sav: bool = str(sy.get("faction", "")) == "Savagers"
 		if is_sav: n_sav += 1
-		if (str(sy["station"].get("model", "")) == "savagers_cross_station") != is_sav: st_ok = false
+		var sav_model: bool = str(sy["station"].get("model", "")) in ["savagers_cross_station", "st3d_savagers_asteroid"]   # (v1.9d: Ravage Major wears the Living Asteroid Base)
+		if sav_model != is_sav: st_ok = false
 		if SpaceSystem.has_beacon(id, sy) != (is_sav or id == "solara"): st_ok = false
-	_check("Job V: the five Savagers systems wear the Savagers cross station, and each hides a light beacon in its nebula (so does Solara)", st_ok and n_sav == 5
+	_check("Job V: the five Savagers systems wear a Savagers station (the cross station; v1.9d: Ravage Major the Living Asteroid Base), and each hides a light beacon in its nebula (so does Solara)", st_ok and n_sav == 5
 		and ResourceLoader.exists("res://assets/structures/savagers_cross_station.glb") and ResourceLoader.exists("res://assets/structures/light_beacon_station.glb"), "%d Savagers systems" % n_sav)
 	await Packs.wait("structures", 30.0)
 	await _frames(3)
