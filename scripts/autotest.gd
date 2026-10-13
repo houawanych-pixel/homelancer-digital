@@ -981,6 +981,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_ST3D") != "":   # the v1.9d Station3D-Retopo checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_v19d()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_V19B") != "":   # the v1.9b planet docking platform checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1683,6 +1691,7 @@ func _run() -> void:
 	await _job_ax()
 	await _job_ay()
 	await _job_v19b()
+	await _job_v19d()
 	await _blocks()
 	await _regions()
 	await _galaxy()
@@ -3762,8 +3771,8 @@ func _job_z() -> void:
 	for m in ["worlds_end_emporium", "hollow_requiem", "light_beacon_station"]:
 		if not ResourceLoader.exists("res://assets/structures/%s.glb" % m): files = false
 	var fg: Dictionary = Data.SYSTEMS["foggiest"]
-	var data_ok: bool = files and Data.SYSTEMS["omega"]["station"]["model"] == "worlds_end_emporium" and Data.SYSTEMS["shadow"]["station"]["model"] == "hollow_requiem" \
-		and fg["station"]["model"] == "light_beacon_station" and fg["station"].get("lamp", false) and Data.SYSTEMS["nullpoint"]["station"].get("lamp", false) \
+	var data_ok: bool = files and Data.SYSTEMS["omega"]["station"]["model"] == "st3d_omega_emporium" and Data.SYSTEMS["shadow"]["station"]["model"] == "hollow_requiem" \
+		and fg["station"]["model"] == "st3d_foggiest_greywhistle" and fg["station"].get("lamp", false) and Data.SYSTEMS["nullpoint"]["station"].get("lamp", false) \
 		and (fg["nebula"]["center"] as Vector3).is_equal_approx(fg["station"]["pos"]) and fg["nebula"]["color"] == Data.FOG_COLOR
 	main.hud.visible = false
 	var seen_models: Array = []
@@ -3772,7 +3781,8 @@ func _job_z() -> void:
 	for sid in ["foggiest", "omega", "shadow"]:
 		main._load_system(sid, "station")
 		await _wait(1.6)
-		await Packs.wait("structures", 30.0)
+		var mk: String = str(Data.SYSTEMS[sid]["station"].get("model", ""))
+		await Packs.wait(mk if mk.begins_with("st3d_") else "structures", 30.0)   # (v1.9d: a 3D station comes in its own pack)
 		await _frames(4)
 		var sp := _sp()
 		seen_models.append(sp.station_model != null and sp.station.name == Data.SYSTEMS[sid]["station"]["name"])
@@ -6611,6 +6621,114 @@ func _job_ax() -> void:
 ## you were on good terms with showed up as a peaceful (gold) ship you couldn't lock.
 ## v1.9b (owner): every planet has a docking ring on a little floating platform: dock there and take that planet's
 ## jobs. The main planet's docking gate sits on a deck; each of the other planets gets a dockable platform.
+## v1.9d Station3D-Retopo v1 (owner): his 3D stations, each one connected station in three levels of detail, placed in
+## the systems named in their files: Aurelion and Veranthos at their station slots (the other stations there are
+## dockable now), the neutral ones as their system's station, the Living Asteroid Base in Savagers space, and the two
+## Cybermorph battleships roaming Cybernet (not docks).
+func _st3d_tris(path: String) -> int:
+	if not ResourceLoader.exists(path): return -1
+	var inst := (load(path) as PackedScene).instantiate()
+	var n := 0
+	for mi: MeshInstance3D in inst.find_children("*", "MeshInstance3D", true, false):
+		for k in mi.mesh.get_surface_count(): n += (mi.mesh.surface_get_arrays(k)[Mesh.ARRAY_INDEX] as PackedInt32Array).size() / 3
+	inst.free()
+	return n
+
+func _job_v19d() -> void:
+	var shell := FileAccess.get_file_as_string("res://web_shell.html")
+	_check("v1.9d: version label reads \"Homelancer Digital v1.9d\" or later", Data.VERSION >= "v1.9d" and (shell == "" or shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0), Data.VERSION)
+	var sys0: String = GS.system_id
+	# 1. the files: three LODs per station at the owner's counts, one pack each
+	var keys: Array = []
+	for sid in Data.STATION3D:
+		for nm in Data.STATION3D[sid]: keys.append(Data.STATION3D[sid][nm])
+	for r in Data.STATION3D_ROAMERS.get("cybernet", []): keys.append(r[0])
+	var bad: Array = []
+	var counts := {}
+	for k in keys:
+		var t0 := _st3d_tris("res://assets/stations3d/%s.glb" % k)
+		var t1 := _st3d_tris("res://assets/stations3d/%s_lod1.glb" % k)
+		var t2 := _st3d_tris("res://assets/stations3d/%s_lod2.glb" % k)
+		counts[k] = [t0, t1, t2]
+		if not (t0 >= 30000 and t0 <= 60000 and t1 >= 7500 and t1 <= 13000 and t2 >= 1800 and t2 <= 3500 and Packs.PACKS.has(k)): bad.append(k)
+	_check("v1.9d (Station3D-Retopo v1): %d of the owner's stations each come in three levels of detail (about 40k / 10k / 2.5k triangles), each in its own download pack" % keys.size(),
+		keys.size() == 17 and bad.is_empty(), "bad %s counts %s" % [bad, counts])
+	# 2. placed in the systems in their names
+	var placed := true
+	var where: Array = []
+	for sid in Data.STATION3D:
+		var map: Dictionary = Data.STATION3D[sid]
+		if map.has("*") and Data.SYSTEMS[sid]["station"].get("model", "") != map["*"]: placed = false
+		for b in Data.SYSTEMS[sid].get("more_stations", []):
+			if map.has(str(b.get("catalog_name", b["name"]))):
+				if b.get("model", "") != map[str(b.get("catalog_name", b["name"]))] or b["kind"] != "station": placed = false
+				where.append("%s:%s" % [sid, b["name"]])
+	_check("v1.9d: Aurelion and Veranthos wear them at their station slots (their other stations dockable now), Voidtex, Beta-7, Perimeter, Sigma-19, Omega, Foggiest and Radiant as their own station, the Living Asteroid Base in Savagers space (Ravage Major)",
+		placed and where.size() == 5 and Data.SYSTEMS["ravage_major"]["station"]["model"] == "st3d_savagers_asteroid" and Data.SYSTEMS["ravage_major"]["station"].has("model"), str(where))
+	# 3. in Aurelion: the main station wears it, the two other stations do too, and you can dock at one and launch from it
+	main._load_system("aurelion", "station")
+	await _wait(1.0)
+	for k in ["st3d_aurelion_citadel", "st3d_aurelion_tradehub", "st3d_aurelion_shipyard"]: await Packs.wait(k, 30.0)
+	var s := _sp()
+	await _until(func(): return s.docks3d.size() >= 2 and s.docks3d.all(func(n): return n.has_meta("dressed")), Data.PH_BUILD_DELAY + 4.0)
+	var holder: Node3D = s.station_model.get_parent() if s.station_model != null else null
+	var lods: bool = holder != null and holder.has_meta("lod1") and holder.has_meta("lod2") and (holder.get_meta("lod0") as MeshInstance3D).visibility_range_end > 0.0 \
+		and (holder.get_meta("lod2") as MeshInstance3D).visibility_range_begin > 0.0
+	main.hud.visible = false
+	_tp(s.station.global_position + Vector3(260, 120, 380) * 1.6, s.station.global_position)
+	await _shot("st3d_aurelion_citadel", 0.5)
+	var ds: Node3D = s.docks3d[0] if not s.docks3d.is_empty() else null
+	var dock_ok := false
+	var launch_ok := false
+	var hub_txt := ""
+	if ds != null:
+		_tp(ds.global_position + Vector3(240, 90, 300), ds.global_position)
+		await _shot("st3d_aurelion_other", 0.5)
+		main.hud.visible = true
+		s.controls = true
+		_tp(s.dock_point(ds), ds.global_position)
+		await _frames(2)
+		var cand: Node3D = s.dock_candidate()
+		main.dock(ds)
+		await _until(func(): return main.state == "hub", 8.0)
+		hub_txt = main.hub.header.text
+		dock_ok = cand == ds and main.state == "hub" and hub_txt.to_lower().find(str(ds.get_meta("info")["name"]).to_lower()) >= 0
+		main.launch()
+		await _until(func(): return main.state == "flight", 8.0)
+		var s2 := _sp()
+		var near: Node3D = null
+		var ds_name: String = hub_txt
+		for n in s2.docks3d:
+			if is_instance_valid(n) and hub_txt.to_lower().find(str(n.get_meta("info")["name"]).to_lower()) >= 0: near = n
+		launch_ok = near != null and s2.player.global_position.distance_to(near.global_position) < float(near.get_meta("radius")) + 400.0
+	_check("v1.9d: in Aurelion the Citadel wears its 3D model (three LODs by distance) and the Diplomatic and Trade Hub and the Shipyard wear theirs; flying up to one docks there, its hub pages open, and you launch from it again",
+		lods and s.docks3d.size() == 2 and dock_ok and launch_ok, "lods %s docks %d dock %s (%s) launch %s" % [lods, s.docks3d.size(), dock_ok, hub_txt, launch_ok])
+	# 4. Cybernet: the two Cybermorph battleships roam (they move; you cannot dock at them)
+	main._load_system("cybernet", "station")
+	await _wait(1.0)
+	for r in Data.STATION3D_ROAMERS["cybernet"]: await Packs.wait(str(r[0]), 30.0)
+	var sc := _sp()
+	await _until(func(): return sc.roamers.size() == 2 and sc.roamers.all(func(n): return n.has_meta("dressed")), Data.PH_BUILD_DELAY + 4.0)
+	var p0: Array = sc.roamers.map(func(n): return (n as Node3D).global_position)
+	await _wait(1.0)
+	var moved: bool = sc.roamers.size() == 2 and (sc.roamers[0] as Node3D).global_position.distance_to(p0[0]) > Data.ROAMER_SPEED * 0.5
+	var r0: Node3D = sc.roamers[0] if not sc.roamers.is_empty() else null
+	var not_dock := true
+	if r0 != null:
+		main.hud.visible = false
+		_tp(r0.global_position + Vector3(300, 120, 400) * 1.4, r0.global_position)
+		await _shot("st3d_cybermorph_roamer", 0.4)
+		main.hud.visible = true
+		_tp(r0.global_position + Vector3(0, 0, float(r0.get_meta("radius")) + 30.0), r0.global_position)
+		await _frames(2)
+		not_dock = sc.dock_candidate() != r0 and not r0.has_meta("dock")
+	_check("v1.9d: the Hexdominator and the Shardstorm are roaming Cybermorph battleships in Cybernet: they patrol (move) and are not docks",
+		sc.roamers.size() == 2 and moved and not_dock and sc.roamers.all(func(n): return n.has_meta("dressed")), "roamers %d moved %s not a dock %s" % [sc.roamers.size(), moved, not_dock])
+	main._load_system(sys0, "station")
+	await _wait(1.6)
+	main.hud.visible = true
+	_sp().controls = true
+
 func _job_v19b() -> void:
 	var s := _sp()
 	if s.surface_mode or main.state != "flight": return

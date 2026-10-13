@@ -194,6 +194,18 @@ static func apply(systems: Dictionary) -> Dictionary:
 			body["lore"] = row[1]
 	for sid in MODELS:
 		if systems.has(sid): systems[sid]["station"]["model"] = MODELS[sid]
+	for sid in Data.STATION3D:   # v1.9d: the owner's 3D stations (Station3D-Retopo v1)
+		if not systems.has(sid): continue
+		var sys3: Dictionary = systems[sid]
+		var map: Dictionary = Data.STATION3D[sid]
+		if map.has("*"): sys3["station"]["model"] = map["*"]
+		for body3 in sys3.get("more_stations", []):
+			var cat: String = str(body3.get("catalog_name", body3["name"]))
+			if not map.has(cat): continue
+			body3["model"] = map[cat]
+			body3["kind"] = "station"   # a real station now: dock there for its hub pages
+			body3["placeholder"] = false
+			body3["desc"] = str(body3.get("lore", "%s in the %s system." % [body3["name"], sys3["name"]]))
 	for sid in LAMPS:
 		if systems.has(sid): systems[sid]["station"]["lamp"] = true
 	for sid in ON_PLANET:

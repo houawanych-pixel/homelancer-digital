@@ -1039,6 +1039,28 @@ const REP_HUNTER_SIZE := 3       # RED: a hunter group this big meets you when y
 const REP_HUNTER_DIST := 1100.0
 # stations and the light beacon
 const STATION_MODEL_SCALE := {"savagers_cross_station": 1.45, "worlds_end_emporium": 1.6, "hollow_requiem": 2.2}   # x the standard station width
+# v1.9d Station3D-Retopo v1: the owner's 3D stations (assets/stations3d/<key>.glb with _lod1 / _lod2, one pack each,
+# fetched when you enter the system). System -> {catalog station name: model key}; "*" = the system's main station.
+# Aurelion and Veranthos keep their station slots; neutral ones are each system's own station; the Living Asteroid
+# Base is the Savagers' Raider Outpost (Ravage Major: "built on a chunk of a cracked moon"). Ogden's trading post
+# file has not arrived yet, so Ogden keeps its stand-in.
+const STATION3D := {
+	"aurelion": {"*": "st3d_aurelion_citadel", "Diplomatic and Trade Hub": "st3d_aurelion_tradehub", "Aurelion Shipyard": "st3d_aurelion_shipyard"},
+	"veranthos": {"*": "st3d_veranthos_senate", "Diplomatic Summit Station": "st3d_veranthos_summit", "Fleet Headquarters": "st3d_veranthos_fleethq", "Customs Station": "st3d_veranthos_customs"},
+	"voidtex": {"*": "st3d_voidtex_crosswind"}, "beta_7": {"*": "st3d_beta7_pathfinder"}, "perimeter": {"*": "st3d_perimeter_picket"},
+	"sigma_19": {"*": "st3d_sigma19_deepcut"}, "omega": {"*": "st3d_omega_emporium"}, "foggiest": {"*": "st3d_foggiest_greywhistle"},
+	"radiant": {"*": "st3d_radiant_dawnchoir"}, "ravage_major": {"*": "st3d_savagers_asteroid"},
+}
+const STATION3D_ROAMERS := {"cybernet": [["st3d_cyber_hexdominator", "Hexdominator"], ["st3d_cyber_shardstorm", "Shardstorm"]]}   # roaming Cybermorph battleships: [model key, name]
+const STATION3D_SCALE := {"st3d_aurelion_citadel": 1.6, "st3d_veranthos_senate": 1.6}   # x the standard station width (PROVISIONAL; others 1.0)
+const STATION3D_DEFAULT_YAW := 180.0  # the file's front (-Z) turned to face the docking approach (+Z)
+const STATION3D_YAW := {}             # per-model exceptions (degrees)
+const STATION3D_LOD := [2600.0, 7000.0]   # m: LOD0 out to this, LOD1 out to the next, LOD2 beyond
+const STATION3D_HIT := 0.42           # bump sphere radius = this x the station's width (a simple collision hull)
+const ROAMER_ORBIT := 1700.0          # m: the roaming battleships loop round the main station this far out ...
+const ROAMER_SPEED := 22.0            # ... at this speed (m/s) ...
+const ROAMER_BOB := 120.0             # ... rising and falling this much
+const ROAMER_SCALE := 1.4             # x the standard station width
 const BEACON_SYSTEMS := ["solara"]   # extra systems with a light beacon in their nebula (every roster-faction hideout system has one)
 const BEACON_FACTIONS := ["Savagers"]
 const BEACON_SIZE := 150.0           # width of the beacon station

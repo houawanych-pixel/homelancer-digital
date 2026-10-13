@@ -232,6 +232,7 @@ func _prof(step: String) -> void:
 		print("[profile] %s: %d ms" % [step, (now - _prof_t) / 1000])
 	_prof_t = now
 
+var launch_from: Node3D = null   # v1.9d: the 3D station you docked at (you launch from it again)
 func place_player(arrival: String) -> void:
 	var at: Vector3
 	var face: Vector3
@@ -287,9 +288,13 @@ func place_player(arrival: String) -> void:
 	elif arrival == "planet":
 		at = dock_point(planet) + (dock_point(planet) - planet.global_position).normalized() * 40.0
 		face = (station.global_position - at).normalized()
+	elif is_instance_valid(launch_from) and launch_from.has_meta("dock"):   # v1.9d: back out of the station you docked at
+		at = dock_point(launch_from) + Vector3(0, 0, 30)
+		face = Vector3(0, 0, 1)
 	else:
 		at = dock_point(station) + Vector3(0, 0, 30)
 		face = Vector3(0, 0, 1)
+	launch_from = null
 	player.global_position = at
 	_face(face)
 	vel = -player.global_basis.z * 10.0
@@ -508,6 +513,19 @@ func _station_model() -> void:
 	if station_model != null or not is_instance_valid(station) or station.get_meta("kind", "") != "station": return
 	var d: Dictionary = station.get_meta("info")
 	if not d.has("model") or not station.has_meta("body"): return
+	if str(d["model"]).begins_with("st3d_"):   # v1.9d: the owner's 3D stations: three LODs from their own pack
+		var key := str(d["model"])
+		if not Packs.is_ready(key):
+			_want_st3d(key)
+			return
+		var holder := station3d(key)
+		if holder == null: return
+		var body3: Node3D = station.get_meta("body")
+		for ch in body3.get_children():
+			if ch is Node3D and not ch.has_meta("blink"): ch.visible = false
+		body3.add_child(holder)
+		station_model = holder.get_meta("lod0")
+		return
 	var path := "res://assets/structures/%s.glb" % d["model"]
 	if not (Packs.is_ready("structures") and ResourceLoader.exists(path)): return
 	var sc := (load(path) as PackedScene).instantiate()
@@ -523,6 +541,82 @@ func _station_model() -> void:
 		station_model.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		body.add_child(station_model)
 	sc.free()
+
+## v1.9d (Station3D-Retopo v1): one of the owner's 3D stations as a node: LOD0 / LOD1 / LOD2 switched by distance
+## (visibility ranges), scaled to the standard station width (provisional) and turned so its front (-Z in the file)
+## faces the docking approach. Null until its pack is in.
+func station3d(key: String, scale_k := 1.0) -> Node3D:
+	var base := "res://assets/stations3d/%s" % key
+	if not ResourceLoader.exists(base + ".glb"): return null
+	var holder := Node3D.new()
+	holder.name = "Station3D"
+	holder.set_meta("station3d", key)
+	var sc := STATION_WIDTH * float(Data.STATION3D_SCALE.get(key, 1.0)) * scale_k
+	holder.scale = Vector3.ONE * sc
+	holder.rotation_degrees.y = float(Data.STATION3D_YAW.get(key, Data.STATION3D_DEFAULT_YAW))
+	var ranges: Array = Data.STATION3D_LOD   # [LOD0 out to, LOD1 out to] (m)
+	var files := [base + ".glb", base + "_lod1.glb", base + "_lod2.glb"]
+	for i in 3:
+		if not ResourceLoader.exists(files[i]): continue
+		var ps := load(files[i]) as PackedScene
+		if ps == null: continue
+		var inst := ps.instantiate()
+		var found := inst.find_children("*", "MeshInstance3D", true, false)
+		if not found.is_empty():
+			var mi := MeshInstance3D.new()
+			mi.name = "LOD%d" % i
+			mi.mesh = (found[0] as MeshInstance3D).mesh
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			mi.visibility_range_begin = 0.0 if i == 0 else float(ranges[i - 1])
+			mi.visibility_range_end = float(ranges[i]) if i < 2 else 0.0
+			holder.add_child(mi)
+			holder.set_meta("lod%d" % i, mi)
+		inst.free()
+	if not holder.has_meta("lod0"):
+		holder.free()
+		return null
+	return holder
+
+var _st3d_wanted := {}   # v1.9d: station packs asked for in this system
+func _want_st3d(key: String) -> void:
+	if _st3d_wanted.has(key): return
+	_st3d_wanted[key] = true
+	if not Packs.pack_ready.is_connected(_on_st3d_pack): Packs.pack_ready.connect(_on_st3d_pack)
+	Packs.request(key)
+
+func _on_st3d_pack(pk: String) -> void:
+	if not pk.begins_with("st3d_") or surface_mode or not is_inside_tree(): return
+	_station_model()
+	_extras_st3d()
+
+## v1.9d: the other stations of a system that wear a 3D model: dockable (their hub pages), a sphere to bump into.
+var docks3d: Array = []
+func _extras_st3d() -> void:
+	for n: Node3D in docks3d + roamers:
+		if not is_instance_valid(n) or n.has_meta("dressed"): continue
+		var key: String = n.get_meta("station3d")
+		if not Packs.is_ready(key):
+			_want_st3d(key)
+			continue
+		var holder := station3d(key, float(n.get_meta("scale_k", 1.0)))
+		if holder == null: continue
+		for ch in n.get_children():
+			if ch is Node3D and not ch.has_meta("blink"): ch.visible = false
+		n.add_child(holder)
+		n.set_meta("dressed", true)
+
+## v1.9d: Cybermorph battleships that roam the system on a slow loop (not docks).
+var roamers: Array = []
+func _update_roamers(dt: float) -> void:
+	for n: Node3D in roamers:
+		if not is_instance_valid(n): continue
+		var a: float = float(n.get_meta("angle")) + dt * Data.ROAMER_SPEED / Data.ROAMER_ORBIT
+		n.set_meta("angle", a)
+		var c: Vector3 = n.get_meta("centre")
+		var p := c + Vector3(cos(a), 0.0, sin(a)) * Data.ROAMER_ORBIT + Vector3(0, sin(a * 2.0) * Data.ROAMER_BOB, 0)
+		var ahead := c + Vector3(cos(a + 0.05), 0.0, sin(a + 0.05)) * Data.ROAMER_ORBIT
+		n.global_position = p
+		if ahead.distance_to(p) > 0.1: n.look_at(Vector3(ahead.x, p.y, ahead.z), Vector3.UP)
 
 # planet type: deep, shallow, land, high, sea level (-1 = no sea), polar caps, cloud cover, atmosphere tint
 const PLANET_LOOKS := {
@@ -694,6 +788,28 @@ func _build_extras() -> void:
 		_mesh(n, BoxMesh.new(), Vector3.ZERO, Color(0.12, 0.2, 0.42), Vector3(70, 1.2, 14))
 		_mesh(n, BoxMesh.new(), Vector3(0, 24, 0), Color(1.0, 0.85, 0.5), Vector3(2, 2, 2), Vector3.ZERO, true)
 		extras.append(n)
+		if str(d.get("model", "")).begins_with("st3d_"):   # v1.9d: one of the owner's 3D stations: dockable, its own size
+			n.set_meta("station3d", str(d["model"]))
+			n.set_meta("radius", STATION_WIDTH * float(Data.STATION3D_SCALE.get(str(d["model"]), 1.0)) * Data.STATION3D_HIT)
+			n.set_meta("dock", true)
+			docks3d.append(n)
+	for r: Array in Data.STATION3D_ROAMERS.get(sys_id, []):   # v1.9d: roaming Cybermorph battleships
+		var rn := Node3D.new()
+		rn.name = str(r[1])
+		rn.set_meta("kind", "landmark")
+		rn.set_meta("info", {"id": "%s_%s" % [sys_id, r[0]], "name": str(r[1]), "kind": "landmark", "desc": "Roaming Cybermorph battleship. It patrols this system; it is not a dock."})
+		rn.set_meta("station3d", str(r[0]))
+		rn.set_meta("scale_k", Data.ROAMER_SCALE)
+		rn.set_meta("radius", STATION_WIDTH * Data.ROAMER_SCALE * Data.STATION3D_HIT)
+		rn.set_meta("roamer", true)
+		rn.set_meta("angle", float(roamers.size()) * PI + float(absi(hash(sys_id)) % 628) / 100.0)
+		rn.set_meta("centre", (sys["station"]["pos"] as Vector3))
+		add_child(rn)
+		_mesh(rn, cyl, Vector3.ZERO, Color(0.55, 0.2, 0.6), Vector3(20, 60, 20))   # (stand-in until its pack is in)
+		roamers.append(rn)
+		extras.append(rn)
+	_update_roamers(0.0)
+	_extras_st3d()
 	_extra_worlds_real()
 
 func _extra_worlds_real() -> void:
@@ -955,6 +1071,7 @@ func dock_point(n: Node3D) -> Vector3:
 		var toward: Vector3 = (station.global_position - planet.global_position).normalized()
 		return planet.global_position + toward * (float(planet.get_meta("radius")) + 60.0)
 	if n.get_meta("kind", "") == "platform": return n.global_position + n.global_basis.y * 40.0   # v1.9b: through its ring
+	if n.has_meta("dock"): return n.global_position + Vector3(0, 0, float(n.get_meta("radius")) + 60.0)   # v1.9d: in front of its hull
 	return n.global_position + Vector3(0, 0, 150)
 
 func _build_gate(d: Dictionary) -> void:
@@ -1982,6 +2099,7 @@ func _process(dt: float) -> void:
 	_update_loot(dt)
 	_update_asteroids(dt)   # v1.7x
 	_update_effects(dt)
+	if not roamers.is_empty(): _update_roamers(dt)   # v1.9d
 	_collisions(dt)
 	if surface_mode: _surface_update(dt)
 	_update_camera(dt, false)
@@ -4382,6 +4500,8 @@ func dock_candidate() -> Node3D:
 	if surf < DOCK_RANGE_PLANET: return planet
 	for pl in platforms:   # v1.9b: the other planets' docking platforms
 		if is_instance_valid(pl) and minf(p.distance_to(pl.global_position), p.distance_to(dock_point(pl))) < DOCK_RANGE_STATION: return pl
+	for ds in docks3d:   # v1.9d: the system's other stations that wear the owner's 3D model
+		if is_instance_valid(ds) and minf(p.distance_to(ds.global_position) - float(ds.get_meta("radius")), p.distance_to(dock_point(ds))) < DOCK_RANGE_STATION: return ds
 	return null
 
 ## v1.4u: which ONE prompt the ship gets: "dock", "jump", "lane" or "". When a station (or planet) and a trade-lane

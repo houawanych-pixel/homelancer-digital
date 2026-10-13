@@ -702,6 +702,7 @@ func dock(n: Node3D) -> void:
 	hud.visible = false
 	var info: Dictionary = n.get_meta("info")
 	docked_node_kind = info["kind"]
+	space.launch_from = n if n.has_meta("dock") else null   # v1.9d: launch again from the 3D station you docked at
 	fx.caption = "DOCKING"
 	fx.sub = info["name"].to_upper()
 	var p: Node3D = space.player
