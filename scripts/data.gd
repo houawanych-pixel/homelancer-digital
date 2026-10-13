@@ -27,7 +27,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v1.9b"
+const VERSION := "v1.9c"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -291,8 +291,11 @@ static func tutor_clip(n: int) -> String: return "res://assets/tutor/tutor_%d.og
 # ---------------------------------------------------------------- Job AR (v1.5o): the special lock-on super move (docs/SPECIAL_MOVE.md)
 const SPECIAL_ARM_AT := [0.5, 0.25]     # hull shares at which the special arms (half, then critical); once each until repaired
 const SPECIAL_RESET_AT := 0.75          # repaired above this, both are ready to earn again
-const SPECIAL_LOCK_TIME := 2.4          # (before v1.9b) the old hold-to-lock time; v1.9b builds missile locks instead (LOCK_STEP each)
-const SPECIAL_MAX_CHARGE := 6.0         # v1.9b: with 1+ lock the special fires by itself after this long
+const SPECIAL_LOCK_TIME := 2.4          # (before v1.9b) the old hold-to-lock time; the charge now builds missile locks (LOCK_STEP each)
+const SPECIAL_MIN_POWER := 0.35         # v1.9c: a quick tap's beam hits the hull at this share of a full charge (shields still go)
+const SPECIAL_TURN_TIME := 0.6          # v1.9c: on release the ship turns to face the target within this many seconds ...
+const SPECIAL_TURN_RATE := 9.0          # ... swinging round this fast (share of the angle per second) ...
+const SPECIAL_FACE_DEG := 3.0           # ... until it points within this of the target, then fires
 const SPECIAL_CONE_DEG := 25.0          # keep the target inside this cone ...
 const SPECIAL_RANGE := 1300.0  # v1.9b: press SPECIAL with a hostile this close           # ... and this range while charging, or the lock breaks
 const SPECIAL_BREAK_CHANCE := 0.55      # chance per second the target jinks to break the lock
@@ -361,7 +364,8 @@ const BLOCK_DEPTH_FLOOR := 200.0     # nothing digs deeper than this under the o
 const BLOCK_DELTAS_MAX := 4000       # crater notes kept per patch (oldest dropped)
 const BLOCK_CHUNK := 40              # the patch is drawn in squares of this many 5 m cells (only the hit squares redraw)
 const BLOCK_SLICE_BUDGET_MS := 250.0   # v1.7q test: the longest staged slice allowed on the test machine (a phone is a few times slower)
-const BLOCK_CHUNK_REGION := 25       # v1.7q: regions use smaller squares (each redraws quicker: no long stall)
+const BLOCK_CHUNK_REGION := 20   # v1.9c: was 25 (v1.7q): smaller squares, so redrawing one after a hit is a shorter hitch
+const BLOCK_REDRAW_BUDGET_MS := 6.0  # v1.9c: changed ground squares redraw a frame at a time while this much frame time is left (at least one)
 # Tones from the planet's own ground colour, darker = tougher: [mix toward white (+) or black (-), keep saturation]
 # v1.7g (owner's pictures, docs/blocks_look/): dirt is earthy brown under a thin grass cap in the planet's own colour,
 # and the ground is built from blocks of many sizes: long rectangles and big solid cubes, not one size of square.

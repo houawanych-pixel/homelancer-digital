@@ -2090,8 +2090,7 @@ func _update_player(dt: float) -> void:
 		var ap := _autopilot_input()
 		steer = ap[0]
 		thrust = ap[1]
-	if special_state == "charging" and special_target != null and is_instance_valid(special_target) and controls:
-		steer = _special_steer()   # v1.9b: the special turns the ship onto its target by itself
+	if special_state == "turning": steer = Vector2.ZERO   # v1.9c: on release the special turns the ship itself (while you hold it you fly)
 	if warp_state == "on": steer *= 0.35 # heavy steering at warp speed
 	# full loops: pitch is not capped. Upside down, left/right steering is mirrored so it still turns the way the
 	# stick points on screen (the camera rolls over with the ship).
@@ -5043,7 +5042,6 @@ var special_log: Array = []     # what happened, in order (tests)
 var _special_left := 0          # missiles of the special swarm still to launch (they steer harder)
 var _special_break_t := 0.0
 var special_locks := 0          # v1.9b: missile locks the special has built (the swarm = locks x launchers)
-var special_auto := false       # v1.9b: SPECIAL was let go: fire at the first lock
 var _special_lock_t := 0.0
 var _special_was_held := false
 var _special_was_held_prev := false
@@ -5067,6 +5065,33 @@ func special_move() -> String:
 	if GS.form == "mech": return "roll"
 	return str(Data.SHIP_SPECIAL_MOVE.get(str(GS.ship().get("model", "")), "roll"))
 
+var special_power := 1.0   # v1.9c: how charged the special was when let go (0..1): scales the beam's hull damage
+
+## v1.9c: a full charge = a full rack of light-missile locks (at least one).
+func special_full() -> int:
+	return maxi(1, mini(GS.max_locks("light_missile"), maxi(GS.missiles, 1)))
+
+## v1.9c: how charged the special is now (0..1).
+func special_charge() -> float:
+	if special_state == "charging": return float(special_locks) / float(special_full())
+	return special_power if special_state != "idle" else 0.0
+
+## v1.9c: the beam's strength from the charge: SPECIAL_MIN_POWER on a quick tap, 1.0 fully charged.
+func special_factor() -> float:
+	return lerpf(Data.SPECIAL_MIN_POWER, 1.0, special_power)
+
+## v1.9c: what the special will hit: your target if it is a hostile in range, else the nearest hostile in range.
+func _special_pick() -> Node3D:
+	if target != null and is_instance_valid(target) and target.get_meta("kind", "") == "enemy" and target.global_position.distance_to(player.global_position) <= Data.SPECIAL_RANGE: return target
+	return _nearest_enemy(Data.SPECIAL_RANGE)
+
+## v1.9c: turn the ship (or the mech, on its feet) to look along `dir`.
+func _special_face(dir: Vector3) -> void:
+	if GS.form == "mech":
+		yaw = atan2(-dir.x, -dir.z)
+		player.basis = Basis.from_euler(Vector3(pitch, yaw, 0))
+	else: _face(dir)
+
 func _update_special(dt: float) -> void:
 	special_t += dt
 	var was := _special_was_held
@@ -5080,8 +5105,8 @@ func _update_special(dt: float) -> void:
 		"idle":
 			var pressed := special_held and not _special_was_held_prev
 			if pressed and controls and warp_state == "off" and special_ready() != "":
-				var t := target if (target != null and is_instance_valid(target) and target.get_meta("kind", "") == "enemy") else _nearest_enemy(Data.SPECIAL_RANGE)
-				if t == null or player.global_position.distance_to(t.global_position) > Data.SPECIAL_RANGE:
+				var t := _special_pick()
+				if t == null:
 					message.emit("SPECIAL: no hostile in range.")
 				else:
 					special_state = "charging"
@@ -5089,46 +5114,58 @@ func _update_special(dt: float) -> void:
 					special_target = t
 					target = t
 					special_locks = 0
-					special_auto = false
+					_special_lock_t = 0.0
 					special_which = special_ready()
 					special_log.append("charge")
-					message.emit("SPECIAL: turning to target, locking...")
+					message.emit("SPECIAL CHARGING: hold for more missiles, let go to fire")
 					Sfx.play("warp_spool", -6.0)
 		"charging":
-			# v1.9b (owner: "too hard"): press once: the ship turns itself onto the target and the missile locks build
-			# (one per LOCK_STEP while it is in the sights). Let go with 1+ lock = fire now; a tap fires at the first
-			# lock; held to a full rack it fires by itself. More locks, more missiles. No lock breaking any more.
+			# v1.9c (owner): HOLD to charge: the ship does NOT turn while you hold, you fly it yourself. The charge builds
+			# a missile lock every LOCK_STEP (no aiming needed) up to a full rack: the longer you hold, the more missiles
+			# and the harder the beam. LET GO: the ship turns itself to face the target and fires; the beam always hits.
 			special_roll += dt * TAU / Data.SPECIAL_ROLL_TIME
-			if not special_held: special_auto = true
 			if special_target == null or not is_instance_valid(special_target) or not (special_target in enemies.map(func(o): return o["node"])):
-				if special_locks > 0:
-					var nt := _nearest_enemy(Data.SPECIAL_RANGE)
-					if nt != null:
-						special_target = nt
-						target = nt
-					else:
-						_special_end("SPECIAL: target gone, the charge is kept.")
-						special_log.append("gone")
-						return
-				else:
-					_special_end("SPECIAL: target gone, the charge is kept.")
-					special_log.append("gone")
-					return
-			var full: int = maxi(1, mini(GS.max_locks("light_missile"), maxi(GS.missiles, 1)))
-			if _cone(special_target, Data.LOCK_CONE_DEG, Data.SPECIAL_RANGE):
-				_special_lock_t += dt
-				if _special_lock_t >= Data.LOCK_STEP and special_locks < full:
-					_special_lock_t = 0.0
-					special_locks += 1
-					Sfx.play("button", -8.0)   # a lock tick
-			var k := float(special_locks) / float(full)
+				special_target = _special_pick()   # (the target died: the next one in range)
+				if special_target != null: target = special_target
+			var full := special_full()
+			_special_lock_t += dt
+			if _special_lock_t >= Data.LOCK_STEP and special_locks < full:
+				_special_lock_t = 0.0
+				special_locks += 1
+				Sfx.play("button", -8.0)   # a lock tick
+			var k := special_charge()
 			_booster_particles(dt, k)   # energy building round the weapons
 			if int(time * 20.0) % 2 == 0: _spark(player.global_position + player.global_basis.x * (2.5 if randf() < 0.5 else -2.5) - player.global_basis.z * 2.0, Color(0.5, 0.85, 1.0).lerp(Color(1, 1, 1), k), 2.0 + 4.0 * k, 0.2)
-			if special_locks >= full or (special_auto and special_locks >= 1) or (special_t > Data.SPECIAL_MAX_CHARGE and special_locks >= 1):
+			if not special_held:
+				if special_target == null:
+					_special_end("SPECIAL: no hostile in range. The special is still ready.")
+					special_log.append("no_target")
+					return
+				special_locks = maxi(special_locks, 1)   # (a quick tap still fires: one lock)
+				special_power = float(special_locks) / float(full)
+				special_state = "turning"
+				special_t = 0.0
+				special_roll = 0.0
+				target = special_target
+				special_log.append("turn")
+		"turning":   # v1.9c: on release the ship swings round to face the target by itself, then fires
+			if not is_instance_valid(special_target):
+				_special_end("SPECIAL: the target is gone. The special is still ready.")
+				special_log.append("no_target")
+				return
+			var want := special_target.global_position - player.global_position
+			if GS.form == "mech": want.y = 0.0   # (a mech turns on its feet)
+			if want.length() < 0.1:
 				_special_fire()
-			elif special_t > Data.SPECIAL_MAX_CHARGE + 2.0:
-				_special_end("SPECIAL: couldn't get a lock, the charge is kept.")
-				special_log.append("lost")
+				return
+			want = want.normalized()
+			var cur := -player.global_basis.z
+			if GS.form == "mech": cur = Vector3(cur.x, 0.0, cur.z).normalized()
+			if cur.angle_to(want) <= deg_to_rad(Data.SPECIAL_FACE_DEG) or special_t >= Data.SPECIAL_TURN_TIME:
+				_special_face(want)
+				_special_fire()
+			else:
+				_special_face(cur.slerp(want, clampf(dt * Data.SPECIAL_TURN_RATE, 0.0, 1.0)).normalized())
 		"cutin":
 			if special_t >= Data.SPECIAL_CUTIN_TIME: _special_beam()
 		"beam":
@@ -5189,7 +5226,7 @@ func _special_beam() -> void:
 	var side_dot := dir.dot(special_target.global_basis.x)
 	var hit_side := ""
 	if absf(side_dot) > Data.SPECIAL_SIDE_HIT: hit_side = "l" if side_dot > 0.0 else "r"   # struck from the right = the beam lands on its right... (it enters the side facing you)
-	var dmg: float = float(e["sh"]) + float(e["max"]) * Data.SPECIAL_BEAM_OVERFLOW
+	var dmg: float = float(e["sh"]) + float(e["max"]) * Data.SPECIAL_BEAM_OVERFLOW * special_factor()   # v1.9c: shields always go; the hull damage grows with the charge
 	e["sh_cd"] = 6.0   # the shield stays down for a while
 	_damage_enemy(e, dmg)
 	if hit_side != "" and e in enemies and float(e[hit_side]) > 0.0:
@@ -5198,11 +5235,6 @@ func _special_beam() -> void:
 	_spark(special_target.global_position, Color(0.7, 0.95, 1.0), 40.0, 0.5)
 
 ## v1.9b: stick input that swings the nose onto the special's target (full rate until close, then eases in).
-func _special_steer() -> Vector2:
-	var local := player.global_basis.inverse() * (special_target.global_position - player.global_position).normalized()
-	if local.z > 0.0 and absf(local.x) < 0.2: local.x = 1.0   # dead behind: pick a side and turn
-	return Vector2(clampf(local.x * 4.0, -1, 1), clampf(-local.y * 4.0, -1, 1))
-
 func _aim_beam(to: Vector3) -> void:
 	if not is_instance_valid(_beam): return
 	var from := player.global_position - player.global_basis.z * 6.0

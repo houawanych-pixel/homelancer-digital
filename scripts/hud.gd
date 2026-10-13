@@ -663,16 +663,15 @@ func _icon(id: String, c: Vector2, s: float, col: Color) -> void:
 func _special_button() -> void:
 	var st: String = space.special_state
 	var ready: String = space.special_ready()
-	var sub := "PRESS"
+	var sub := "HOLD"
 	var cd := 0.0
-	if st == "charging":   # v1.9b: press = auto-turn + locks; let go to fire
-		var full: int = maxi(1, mini(GS.max_locks("light_missile"), maxi(GS.missiles, 1)))
-		var k := float(space.special_locks) / float(full)
-		sub = "LOCKS %d/%d" % [space.special_locks, full]
-		cd = 1.0 - k
+	if st == "charging":   # v1.9c: hold to charge (missile locks build), let go to turn and fire
+		var full: int = space.special_full()
+		sub = "FULL · LET GO" if space.special_locks >= full else "CHARGE %d/%d" % [space.special_locks, full]
+		cd = 1.0 - space.special_charge()
 	elif st != "idle": sub = "FIRING"
 	elif ready == "": sub = "AT HALF HULL" if not GS.special_used["half"] else ("AT CRITICAL" if not GS.special_used["crit"] else "SPENT")
-	elif ready == "crit": sub = "CRITICAL · PRESS"
+	elif ready == "crit": sub = "CRITICAL · HOLD"
 	var armed := ready != "" or st != "idle"
 	_corner("special", "SPECIAL", "special", GOLD, st != "idle" or (armed and fmod(t, 0.8) < 0.4), "", cd, not armed or space.warp_state != "off", sub)
 
@@ -684,14 +683,13 @@ func _draw_special() -> void:
 		var p: Vector3 = space.special_target.global_position
 		if cam and not cam.is_position_behind(p):
 			var c := cam.unproject_position(p)
-			var full: int = maxi(1, mini(GS.max_locks("light_missile"), maxi(GS.missiles, 1)))
-			var k := float(space.special_locks) / float(full)
+			var k: float = space.special_charge()
 			var rr := lerpf(70.0, 30.0, k)
 			draw_arc(c, rr, -PI / 2, -PI / 2 + TAU * k, 48, GOLD, 4.0, true)
 			for i in 4:
 				var a := i * PI / 2 + t * 2.0
 				draw_line(c + Vector2(cos(a), sin(a)) * (rr + 6), c + Vector2(cos(a), sin(a)) * (rr + 18), Color(GOLD, 0.9), 3.0)
-			_text(c + Vector2(-130, rr + 34), ("%d LOCK%s · LET GO TO FIRE" % [space.special_locks, "" if space.special_locks == 1 else "S"]) if space.special_locks > 0 else "TURNING TO TARGET", 15, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 260)
+			_text(c + Vector2(-130, rr + 34), ("%d MISSILE%s · LET GO TO FIRE" % [space.special_locks, "" if space.special_locks == 1 else "S"]) if space.special_locks > 0 else "CHARGING", 15, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 260)
 	if st != "cutin": return
 	# the cut-in: a slanted band across the middle, the pilot large on it, "SPECIAL ATTACK"; bars and buttons stay visible
 	var k := clampf(space.special_t / Data.SPECIAL_CUTIN_TIME, 0.0, 1.0)

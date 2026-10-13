@@ -145,6 +145,7 @@ var cancel := false  # ...and stops (and frees itself) if this is set while it b
 
 ## Build from the seed. `staged` (v1.7a regions): spread over many frames so flying never stalls (each step is
 ## a few rows, one feature or one mesh chunk); `built` goes true at the end.
+static var perf := {"blast_us": 0, "blasts": 0, "settle_us": 0, "flush_us": 0, "chunks": 0, "worst_blast_us": 0, "worst_chunk_us": 0, "checks_us": 0, "rubble_us": 0, "worst_rubble_us": 0}   # v1.9c: lag probe (tests)
 static var step_max_ms := 0.0   # v1.7q: the longest single slice of a staged build so far (tests: no long stalls)
 var _step_t0 := 0
 func _slice_end() -> void:
@@ -547,6 +548,15 @@ func tone(m: String) -> Color:
 ## anything that lost its support falls (_settle). Returns {broken, chipped, mat}.
 @warning_ignore("integer_division")
 func blast(p: Vector3, kind: String, record := true, effects := true) -> Dictionary:
+	var t0 := Time.get_ticks_usec()
+	var r0 := _blast_body(p, kind, record, effects)
+	var us := Time.get_ticks_usec() - t0
+	perf["blast_us"] += us
+	perf["blasts"] += 1
+	perf["worst_blast_us"] = maxi(int(perf["worst_blast_us"]), us)
+	return r0
+
+func _blast_body(p: Vector3, kind: String, record: bool, effects: bool) -> Dictionary:
 	var spec: Array = Data.BLOCK_BLAST.get(kind, Data.BLOCK_BLAST["gun"])
 	var r: float = spec[0]
 	var power: int = spec[1]
@@ -657,7 +667,9 @@ func blast(p: Vector3, kind: String, record := true, effects := true) -> Diction
 					if kind != "gun" or _rng.randf() < Data.FIRE_GUN_CHANCE: ignite(c, k)
 	if not out.is_empty():
 		res["mat"] = out[0]["mat"]
+		var ts := Time.get_ticks_usec()
 		var fell := _settle(fx0 - 6, fx1 + 6, fz0 - 6, fz1 + 6)
+		perf["settle_us"] += Time.get_ticks_usec() - ts
 		if effects:
 			var flew := _throw(p, r, out)
 			for f in fell.slice(0, clampi(Data.BLOCK_RUBBLE_PER_BLAST - flew, 0, 4)): _piece(f["pos"], minf(float(f["size"]), 8.0) * 0.6, str(f["mat"]), Vector3(_rng.randf_range(-3, 3), -4.0, _rng.randf_range(-3, 3)))
@@ -752,14 +764,19 @@ func _settle_body(cx0: int, cx1: int, cz0: int, cz1: int) -> Array:
 	cz1 = clampi(cz1, 0, n - 1)
 	for pass_i in 12:
 		var changed := false
-		var cells: Array = holes.keys()
-		cells.sort()
-		var dist := _ground_dist()   # v1.7q: every hanging piece's distance to grounded rock, worked out once per pass
+		# v1.9c (owner: "so laggy"): only the holes in the checked box, and their distance to grounded rock worked out
+		# in a window round it (the longest reach), not over every cave of the region (that was ~16k holes a blast)
+		var cells: Array = []
+		for fz0 in range(cz0, cz1 + 1):
+			for fx0 in range(cx0, cx1 + 1):
+				if holes.has(fz0 * n + fx0): cells.append(fz0 * n + fx0)
+		if cells.is_empty(): break
+		var dist := _ground_dist(Rect2i(cx0, cz0, cx1 - cx0 + 1, cz1 - cz0 + 1))   # v1.7q: every hanging piece's distance to grounded rock, once per pass
 		for ci in cells:
 			var i: int = ci
 			var fx := i % n
 			var fz := i / n
-			if fx < cx0 or fx > cx1 or fz < cz0 or fz > cz1 or not holes.has(i): continue
+			if not holes.has(i): continue
 			var sp: Array = spans(i)
 			var j := 1
 			var cut := false
@@ -795,11 +812,17 @@ func _settle_body(cx0: int, cx1: int, cz0: int, cz1: int) -> Array:
 ## out from the grounded rock over all the pieces (the same answer _held finds one piece at a time, far cheaper).
 ## Key Vector3i(x, z, the piece's lowest layer) -> steps; pieces further than the longest reach are left out.
 @warning_ignore("integer_division")
-func _ground_dist() -> Dictionary:
+func _ground_dist(box := Rect2i()) -> Dictionary:
 	var maxd := 13
 	for v in reach_bonus.values(): maxd = maxi(maxd, int(v) + 1)
 	var sp_of := {}
-	for c in holes: sp_of[c] = spans(int(c))
+	if box.size == Vector2i.ZERO:
+		for c in holes: sp_of[c] = spans(int(c))
+	else:   # v1.9c: a piece in the box is never more than maxd steps from the rock that holds it: look that far round it
+		for z in range(maxi(0, box.position.y - maxd), mini(n, box.end.y + maxd)):
+			for x in range(maxi(0, box.position.x - maxd), mini(n, box.end.x + maxd)):
+				var c0 := z * n + x
+				if holes.has(c0): sp_of[c0] = spans(c0)
 	var dist := {}
 	var frontier: Array = []   # [cell, span]
 	var dirs := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
@@ -1707,6 +1730,7 @@ func ignite(c: int, k: int) -> bool:
 
 var _fire_t := 0.0
 var _fire_dirty := false
+var burnt_box := Rect2i()   # v1.9c: where this fire tick burnt rock away (one support check for all of it)
 ## Every FIRE_TICK: what burns long enough is gone (a note, like any change), it catches touching wood and leaves, and
 ## water beside it puts it out. Only near the player (the rest waits, like the fluids).
 @warning_ignore("integer_division")
@@ -1716,6 +1740,7 @@ func _fire_update(dt: float, near: Vector3) -> void:
 		if _fire_dirty: _draw_fire()
 		return
 	_fire_t = 0.0
+	burnt_box = Rect2i()
 	var keys: Array = burning.keys()
 	for key in keys:
 		var kv: Vector2i = key
@@ -1743,10 +1768,12 @@ func _fire_update(dt: float, near: Vector3) -> void:
 		burning[kv] = float(burning[kv]) + Data.FIRE_TICK
 		if float(burning[kv]) >= float(Data.FIRE_BURN.get(m, 2.0)):
 			burning.erase(kv)
-			_edit_layer(pt, "", true)   # burnt away (kept as a note)
+			_edit_layer(pt, "", true, false)   # burnt away (kept as a note)
+			var bx := Rect2i(c % n - 2, c / n - 2, 5, 5)
+			burnt_box = bx if burnt_box.size == Vector2i.ZERO else burnt_box.merge(bx)
 			burned += 1
-	_fire_dirty = true
-	flush()
+	if burnt_box.size != Vector2i.ZERO: _settle(burnt_box.position.x, burnt_box.end.x - 1, burnt_box.position.y, burnt_box.end.y - 1)   # v1.9c: one support check for the whole tick
+	_fire_dirty = true   # (v1.9c: the burnt squares redraw a few a frame like any other change, not all at once)
 	_draw_fire()
 
 ## The flames: a glowing orange block over each burning layer, flickering.
@@ -2394,13 +2421,20 @@ func _set_fluid(c: int, k: int, kind: String) -> void:
 ## Called by the game each frame with the player's position: water and lava only move near the player (the radius of
 ## exposure); everywhere else, and in every sealed pocket, they sit still and cost nothing.
 func fluid_update(dt: float, near: Vector3) -> void:
+	var t0 := Time.get_ticks_usec()
 	if not burning.is_empty(): _fire_update(dt, near)
+	var t1 := Time.get_ticks_usec()
 	_fluid_t += dt
 	if _fluid_t >= Data.FLUID_TICK:
 		_fluid_t = 0.0
 		_fluid_tick += 1
 		fluid_step(near, Data.FLUID_RADIUS, _fluid_tick % Data.LAVA_SLOW == 0)
+	var t2 := Time.get_ticks_usec()
 	if _fluid_dirty: _draw_fluids()
+	var t3 := Time.get_ticks_usec()
+	perf["w_fire_us"] = maxi(int(perf.get("w_fire_us", 0)), t1 - t0)
+	perf["w_step_us"] = maxi(int(perf.get("w_step_us", 0)), t2 - t1)
+	perf["w_fdraw_us"] = maxi(int(perf.get("w_fdraw_us", 0)), t3 - t2)
 
 ## One step of flow: each unit (one 5 m layer of water or lava) falls if it can; otherwise it spills sideways over a
 ## lip, or spreads when there is more on top of it, so a pool finds its level and fills flush. It reacts with what it
@@ -2484,7 +2518,7 @@ func _layer_point(c: int, k: int) -> Vector3:
 ## Change one layer of rock at a point: m = a material (it becomes solid that), "" = it's gone. With `record` the
 ## change is kept as a note ("set:<m>" / "cut"), so the ground regrows the same.
 @warning_ignore("integer_division")
-func _edit_layer(p: Vector3, m: String, record := false) -> void:
+func _edit_layer(p: Vector3, m: String, record := false, settle := true) -> void:
 	if not covers(p.x, p.z): return
 	var step: float = Data.BLOCK_MIN
 	var fx := clampi(int((p.x - x0) / step), 0, n - 1)
@@ -2502,7 +2536,7 @@ func _edit_layer(p: Vector3, m: String, record := false) -> void:
 			ov[k] = m
 			mats[c] = ov
 	_mark(fx, fz, 1)
-	if m == "": _settle(fx - 2, fx + 2, fz - 2, fz + 2)
+	if m == "" and settle: _settle(fx - 2, fx + 2, fz - 2, fz + 2)
 	if record:
 		deltas.append([snappedf(p.x - off.x, 0.01), snappedf(p.y, 0.01), snappedf(p.z - off.y, 0.01), ("set:" + m) if m != "" else "cut"])
 		if deltas.size() > Data.BLOCK_DELTAS_MAX: deltas.remove_at(0)
@@ -2654,6 +2688,14 @@ func _piece_mat(m: String) -> StandardMaterial3D:
 	return mt
 
 func _process(dt: float) -> void:
+	var tr := Time.get_ticks_usec()
+	_process_rubble(dt)
+	var ur := Time.get_ticks_usec() - tr
+	perf["rubble_us"] += ur
+	perf["worst_rubble_us"] = maxi(int(perf["worst_rubble_us"]), ur)
+	if not _dirty.is_empty(): flush(2, Data.BLOCK_REDRAW_BUDGET_MS)
+
+func _process_rubble(dt: float) -> void:
 	for i in range(rubble.size() - 1, -1, -1):
 		var b: Dictionary = rubble[i]
 		var nd := b["node"] as MeshInstance3D
@@ -2705,7 +2747,6 @@ func _process(dt: float) -> void:
 				if float(b["rest"]) > Data.BLOCK_RUBBLE_REST + 3.0:
 					nd.queue_free()
 					rubble.remove_at(i)
-	if not _dirty.is_empty(): flush(2)
 
 # ---------------------------------------------------------------- drawing
 ## Redraw the squares that changed (at most `limit` per call; 0 = all). The ground is one fused surface: same-height
@@ -2782,15 +2823,23 @@ func _sky(cs: Array, covered: bool) -> Array:
 	return out
 
 var _slant_cache := {}
-func flush(limit := 0) -> void:
+func flush(limit := 0, budget_ms := 0.0) -> void:
+	var tc := Time.get_ticks_usec()
 	if not slabs.is_empty(): _slab_check()
 	if not falls.is_empty(): _falls_check()
+	perf["checks_us"] += Time.get_ticks_usec() - tc
 	var done := 0
+	var tf := Time.get_ticks_usec()
 	for k in _dirty.keys():
+		var t1 := Time.get_ticks_usec()
 		_draw_chunk(int(k))
+		perf["worst_chunk_us"] = maxi(int(perf["worst_chunk_us"]), Time.get_ticks_usec() - t1)
 		_dirty.erase(k)
 		done += 1
 		if limit > 0 and done >= limit: break
+		if budget_ms > 0.0 and (Time.get_ticks_usec() - tf) / 1000.0 >= budget_ms: break   # v1.9c: one square at least, then only while there is time
+	perf["flush_us"] += Time.get_ticks_usec() - tf
+	perf["chunks"] += done
 
 @warning_ignore("integer_division")
 func _draw_chunk(k: int) -> void:
@@ -3158,10 +3207,22 @@ func _wall(st: SurfaceTool, p0: Vector3, p1: Vector3, top: float, low: float, cf
 		y = y_end
 
 func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, cs: Array, nrm: Vector3) -> void:
-	for k in [0, 1, 2, 0, 2, 3]:
-		st.set_normal(nrm)
-		st.set_color(cs[k])
-		st.add_vertex([a, b, c, d][k])
+	# v1.9c: the same two triangles without building throwaway arrays per vertex (the ground redraw was most of the lag)
+	var c0: Color = cs[0]
+	var c2: Color = cs[2]
+	st.set_normal(nrm)
+	st.set_color(c0)
+	st.add_vertex(a)
+	st.set_color(cs[1])
+	st.add_vertex(b)
+	st.set_color(c2)
+	st.add_vertex(c)
+	st.set_color(c0)
+	st.add_vertex(a)
+	st.set_color(c2)
+	st.add_vertex(c)
+	st.set_color(cs[3])
+	st.add_vertex(d)
 
 ## Is a tile-local point over the patch?
 func covers(x: float, z: float) -> bool:

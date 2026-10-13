@@ -1,6 +1,8 @@
 # Special lock-on super move (owner's combat spec, 8 Oct 2026)
 
-**v1.9b (owner: "too hard to do"):** the controls are now: press SPECIAL once and the ship turns itself onto the
+**v1.9c (owner):** HOLD SPECIAL to charge (you keep flying; missile locks build by themselves, up to a full rack); LET GO and the ship turns itself to face the target and fires; the beam always hits. Hold longer = more missiles and a harder beam. See DESIGN.md (v1.9c).
+
+**v1.9b (owner: "too hard to do"), replaced by v1.9c:** the controls are now: press SPECIAL once and the ship turns itself onto the
 target; missile locks build while it is in the sights (no lock breaking); let go with 1+ lock to fire (a tap fires at
 the first lock, a full rack fires by itself). The more locks, the more missiles in the swarm. See DESIGN.md (v1.9b).
 

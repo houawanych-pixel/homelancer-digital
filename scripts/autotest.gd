@@ -958,6 +958,13 @@ func _run() -> void:
 		await _speed_probe()
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_PLANET") != "":   # v1.9c: planet lag probe (frame time + block costs by phase)
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _planet_probe()
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_RING") != "":   # v1.8f: the ringed planet only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -5817,6 +5824,64 @@ func _probe(label: String, frames := 120) -> Dictionary:
 	print("[speed] %-28s avg %5.2f ms  worst %6.2f ms  nodes %d  draws %d" % [label, r["avg"], r["worst"], r["objects"], r["draws"]])
 	return r
 
+## v1.9c (owner: "that planet was so laggy"): frame time on the block ground by phase, with what the blocks cost.
+func _planet_probe() -> void:
+	var pid: String = Data.BLOCK_TEST["planet"]
+	var g := Surface.grid(pid)
+	var t := -1
+	for tt in g * g:
+		if tt != int(Data.BLOCK_TEST["tile"]) and not Surface.locations_in(pid, tt).is_empty():
+			t = tt
+			break
+	BlockField.regions_test = true
+	main._load_surface(pid, t)
+	await _wait(0.5)
+	var s := _sp()
+	GS.god_mode = true
+	await _until(func(): return s._regions.size() >= 9 and s._building == null, 40.0)
+	var phase := func(label: String, frames: int, each: Callable) -> void:
+		for k in BlockField.perf.keys(): BlockField.perf[k] = 0
+		var tot := 0.0
+		var worst := 0.0
+		var last := Time.get_ticks_usec()
+		var why := ""
+		for i in frames:
+			var tcb := Time.get_ticks_usec()
+			each.call(i)
+			var cb := (Time.get_ticks_usec() - tcb) / 1000.0
+			var bld: bool = s._building != null
+			await get_tree().process_frame
+			var now := Time.get_ticks_usec()
+			var ms: float = (now - last) / 1000.0
+			last = now
+			tot += ms
+			if ms > worst: why = "frame %d: call %.1f ms, building %s, regions %d, proc %.1f ms" % [i, cb, bld or s._building != null, s._regions.size(), Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0]
+			worst = maxf(worst, ms)
+		var pf: Dictionary = BlockField.perf
+		print("[planet] %-26s avg %6.2f ms worst %7.2f ms | blasts %3d  blast avg %6.2f ms worst %6.2f | settle %7.1f ms | redraw %7.1f ms (%d chunks) | chunk worst %5.1f | checks %6.1f | rubble %6.1f (worst %5.1f) | rubble %d nodes %d" % [label, tot / frames, worst,
+			pf["blasts"], pf["blast_us"] / 1000.0 / maxf(pf["blasts"], 1), pf["worst_blast_us"] / 1000.0, pf["settle_us"] / 1000.0, pf["flush_us"] / 1000.0, pf["chunks"], pf["worst_chunk_us"] / 1000.0, pf["checks_us"] / 1000.0, pf["rubble_us"] / 1000.0, pf["worst_rubble_us"] / 1000.0,
+			s._fields().reduce(func(a, f): return a + (f as BlockField).rubble.size(), 0), Performance.get_monitor(Performance.OBJECT_NODE_COUNT)])
+		print("[planet]     worst ", why, "  fluid %.1f light %.1f regions %.1f ms (fire %.1f step %.1f draw %.1f, fluid units %d)" % [pf.get("worst_fluid_us", 0) / 1000.0, pf.get("worst_light_us", 0) / 1000.0, pf.get("worst_regions_us", 0) / 1000.0, pf.get("w_fire_us", 0) / 1000.0, pf.get("w_step_us", 0) / 1000.0, pf.get("w_fdraw_us", 0) / 1000.0, s._fields().reduce(func(a, f): return a + (f as BlockField).fluid.size(), 0)])
+	await phase.call("idle on the blocks", 90, func(_i): pass)
+	s.start_transform()
+	await _until(func(): return GS.form == "mech" and s.transform_t <= 0.0, 8.0)
+	main.hud.move_vec = Vector2(0, -1)
+	await phase.call("mech walking 6 s", 360, func(_i): pass)
+	main.hud.move_vec = Vector2.ZERO
+	var rng := RandomNumberGenerator.new()
+	var shoot := func(kind: String) -> void:
+		var p: Vector3 = s.player.global_position - s.player.global_basis.z * rng.randf_range(30.0, 90.0) + s.player.global_basis.x * rng.randf_range(-25.0, 25.0)
+		var hit: Array = s._ray_blocks(p + Vector3.UP * 80.0, p + Vector3.DOWN * 200.0)
+		if hit[0] != null: s._blast_blocks(hit[1], kind, hit[0])
+	await phase.call("gun on the ground 4 s", 240, func(i): if i % 4 == 0: shoot.call("gun"))
+	await phase.call("missiles 4 s", 240, func(i): if i % 20 == 0: shoot.call("missile"))
+	await phase.call("super missiles 4 s", 240, func(i): if i % 40 == 0: shoot.call("heavy"))
+	await phase.call("special x2", 180, func(i): if i % 90 == 0: shoot.call("special"))
+	await phase.call("after: idle", 120, func(_i): pass)
+	var holes := 0
+	for f in s._fields(): holes += (f as BlockField).holes.size()
+	print("[planet] holes in the regions now: ", holes)
+
 func _speed_probe() -> void:
 	var s := _sp()
 	GS.god_mode = true
@@ -6176,55 +6241,84 @@ func _job_ar() -> void:
 	e["aggro"] = false
 	for k in ["hp", "max"]: e[k] = 400.0   # tough enough that only the special decides it
 	s.target = n
-	# 2. v1.9b (owner: the old hold-and-keep-it-in-the-sights was too hard): PRESS SPECIAL with the target off to the
-	# side: the ship turns itself onto it and the missile locks build; a TAP fires at the first lock (1 lock = 1 x launchers)
+	# 2. v1.9c (owner): HOLD to charge: with the target 90 degrees off the nose the ship does NOT turn while you hold
+	#    (you fly it); a short hold builds 1 missile lock; LET GO and the ship turns itself to face the target and fires
 	s.special_log.clear()
 	GS.missiles = 20
 	n.global_position = s.player.global_position + s.player.global_basis.x * 300.0   # 90 degrees off the nose
 	var ang0: float = rad_to_deg((-s.player.global_basis.z).angle_to(n.global_position - s.player.global_position))
 	hud.held["special"] = true
-	await _frames(2)
+	var th := 0.0
+	while th < Data.LOCK_STEP * 1.3:
+		e["vel"] = Vector3.ZERO
+		await get_tree().process_frame
+		th += get_process_delta_time()
 	var charging: bool = s.special_state == "charging"
-	hud.held.erase("special")   # a tap
+	var ang_held: float = rad_to_deg((-s.player.global_basis.z).angle_to(n.global_position - s.player.global_position))
+	var held_locks: int = s.special_locks
+	hud.held.erase("special")   # let go
 	var m_tap := GS.missiles
-	await _until(func(): return s.special_state == "cutin" or s.special_state == "beam", 4.0)
-	var ang1: float = rad_to_deg((-s.player.global_basis.z).angle_to(n.global_position - s.player.global_position)) if is_instance_valid(n) else 0.0
+	var ang1 := 180.0
+	var tt := 0.0
+	while tt < Data.SPECIAL_TURN_TIME + 0.5 and s.special_state != "cutin":
+		e["vel"] = Vector3.ZERO
+		await get_tree().process_frame
+		tt += get_process_delta_time()
+	if is_instance_valid(n): ang1 = rad_to_deg((-s.player.global_basis.z).angle_to(n.global_position - s.player.global_position))
+	var weak: bool = s.special_power < 0.5 and s.special_factor() < 0.8
 	var tap_locks: int = s.special_locks
 	await _until(func(): return "swarm" in s.special_log, Data.SPECIAL_CUTIN_TIME + Data.SPECIAL_BEAM_TIME + 2.0)
 	await _wait(Data.VOLLEY_GAP * 3 + 0.3)
 	var tap_fired: int = m_tap - GS.missiles
-	_check("v1.9b (owner: the special was too hard): one PRESS of SPECIAL turns the ship onto a target off to the side by itself (no lock breaking); a tap fires as soon as there is 1 missile lock, 1 lock = 1 missile per launcher",
-		charging and ang0 > 80.0 and ang1 < Data.LOCK_CONE_DEG + 1.0 and tap_locks == 1 and tap_fired == Data.SPECIAL_LAUNCHERS and GS.special_used["half"],
-		"charging %s angle %.0f -> %.0f locks %d fired %d log %s" % [charging, ang0, ang1, tap_locks, tap_fired, s.special_log])
-	# ---- 3. held on: the locks build to a full rack, then it fires by itself: cut-in, beam, swarm = locks x launchers
+	_check("v1.9c (owner): HOLD SPECIAL to charge: the ship does not turn while you hold it (you fly); let go and it turns itself to face the target and fires: a short hold = 1 lock, 1 missile per launcher and a weaker beam",
+		charging and ang0 > 80.0 and ang_held > 70.0 and held_locks == 1 and ang1 <= Data.SPECIAL_FACE_DEG + 2.0 and tap_locks == 1 and weak and tap_fired == Data.SPECIAL_LAUNCHERS and "turn" in s.special_log and GS.special_used["half"],
+		"charging %s angle %.0f -> held %.0f -> fired at %.0f locks %d/%d weak %s fired %d log %s" % [charging, ang0, ang_held, ang1, held_locks, tap_locks, weak, tap_fired, s.special_log])
+	# 2b. pressed with no hostile in range: nothing happens, nothing is spent
 	GS.special_used = {"half": false, "crit": false}
 	for m in s.missiles_live: (m["node"] as Node3D).queue_free()
 	s.missiles_live.clear()
+	if is_instance_valid(n): n.global_position = s.player.global_position + Vector3(0, 0, Data.SPECIAL_RANGE + 3000.0)
+	s.target = null
+	s.special_log.clear()
+	hud.held["special"] = true
+	await _wait(0.3)
+	hud.held.erase("special")
+	await _frames(3)
+	var kept: bool = s.special_state == "idle" and s.special_log.is_empty() and s.special_ready() == "half"
+	_check("v1.9c: SPECIAL with no hostile in range does nothing and keeps the special ready", kept, "log %s state %s ready %s" % [s.special_log, s.special_state, s.special_ready()])
+	# ---- 3. held to a full rack: it stays charged while you hold (no firing by itself); let go: cut-in, full beam, swarm
 	if not is_instance_valid(n) or not (n in s.enemies.map(func(o): return o["node"])):
 		e = s.spawn_unit("raider", s.player.global_position - s.player.global_basis.z * 300.0, s.player.global_position)
 		n = e["node"]
 		e["aggro"] = false
 		for k in ["hp", "max"]: e[k] = 400.0
-		s.target = n
+	s.target = n
 	s.special_log.clear()
 	GS.missiles = 20
 	e["sh"] = float(e["sh_max"])
 	e["hp"] = 400.0
 	var hp0: float = float(e["hp"])
 	hud.held["special"] = true
-	var cut := false
-	var tc := 0.0
 	var rolled := false
-	while tc < Data.LOCK_STEP * 8 + Data.SPECIAL_CUTIN_TIME + 0.4 and s.special_state != "beam" and "swarm" not in s.special_log:
+	var th2 := 0.0
+	var full_n: int = s.special_full()
+	while th2 < Data.LOCK_STEP * (full_n + 2):
 		_ar_hold(s, e, true)
 		if s.special_state == "charging": rolled = rolled or absf(s.model.rotation.z) > 0.05
+		await get_tree().process_frame
+		th2 += get_process_delta_time()
+	var still: bool = s.special_state == "charging" and s.special_locks == full_n and is_equal_approx(s.special_charge(), 1.0)
+	var full_locks: int = s.special_locks
+	hud.held.erase("special")
+	var cut := false
+	var tc := 0.0
+	while tc < Data.SPECIAL_TURN_TIME + Data.SPECIAL_CUTIN_TIME + 0.6 and s.special_state != "beam" and "swarm" not in s.special_log:
+		_ar_hold(s, e, true)
 		if s.special_state == "cutin" and s.special_t > 0.7 and not cut:
 			cut = true
 			await _shot("ar_special_cutin", 0.0)
 		await get_tree().process_frame
 		tc += get_process_delta_time()
-	hud.held.erase("special")
-	var full_locks: int = s.special_locks
 	await _frames(2)
 	var stripped: bool = not is_instance_valid(n) or float(e["sh"]) <= 0.0
 	var hp_hit: bool = not is_instance_valid(n) or float(e["hp"]) < hp0
@@ -6236,9 +6330,9 @@ func _job_ar() -> void:
 	var want: int = mini(GS.max_locks("light_missile") * Data.SPECIAL_LAUNCHERS, 20)
 	var fired: int = m0 - GS.missiles
 	var flagged: int = s.missiles_live.filter(func(m): return m.get("special", false)).size()
-	_check("Job AR / v1.9b: SPECIAL held on: the locks build to a full rack and it fires by itself (the ship barrel-rolls meanwhile): the pilot cut-in, then the beam strips the shield and goes into the hull (a side-on hit takes a wing), then the swarm fires your real missiles (locks x launchers: more locks, more missiles); the special is spent",
-		cut and rolled and full_locks == GS.max_locks("light_missile") and stripped and hp_hit and wing and spent and fired == want and s.special_state == "idle",
-		"locks %d roll %s cutin %s shield %s hull %s wing %s spent %s fired %d/%d (special-flagged in flight %d) log %s" % [full_locks, rolled, cut, stripped, hp_hit, wing, spent, fired, want, flagged, s.special_log])
+	_check("Job AR / v1.9c: SPECIAL held to a full rack stays charged until you let go (the ship barrel-rolls meanwhile); then the pilot cut-in, the full beam strips the shield and goes into the hull (a side-on hit takes a wing), and the swarm fires your real missiles (locks x launchers: hold longer, more missiles); the special is spent",
+		still and cut and rolled and full_locks == GS.max_locks("light_missile") and stripped and hp_hit and wing and spent and fired == want and s.special_state == "idle",
+		"held full %s locks %d roll %s cutin %s shield %s hull %s wing %s spent %s fired %d/%d (special-flagged in flight %d) log %s" % [still, full_locks, rolled, cut, stripped, hp_hit, wing, spent, fired, want, flagged, s.special_log])
 	# ---- 4. no missiles: the beam still fires, the swarm is empty, no free ammo
 	if is_instance_valid(n): s._damage_enemy(e, 99999.0)
 	await _frames(3)
