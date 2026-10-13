@@ -27,7 +27,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v1.9c"
+const VERSION := "v1.9d"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -1045,8 +1045,9 @@ const STATION_MODEL_SCALE := {"savagers_cross_station": 1.45, "worlds_end_empori
 # Base is the Savagers' Raider Outpost (Ravage Major: "built on a chunk of a cracked moon"). Ogden's trading post
 # file has not arrived yet, so Ogden keeps its stand-in.
 const STATION3D := {
-	"aurelion": {"*": "st3d_aurelion_citadel", "Diplomatic and Trade Hub": "st3d_aurelion_tradehub", "Aurelion Shipyard": "st3d_aurelion_shipyard"},
-	"veranthos": {"*": "st3d_veranthos_senate", "Diplomatic Summit Station": "st3d_veranthos_summit", "Fleet Headquarters": "st3d_veranthos_fleethq", "Customs Station": "st3d_veranthos_customs"},
+	# (owner: capitals have 2 stations: the Shipyard, Diplomatic Summit and Customs models are kept in art/stations3d)
+	"aurelion": {"*": "st3d_aurelion_citadel", "Diplomatic and Trade Hub": "st3d_aurelion_tradehub"},
+	"veranthos": {"*": "st3d_veranthos_senate", "Fleet Headquarters": "st3d_veranthos_fleethq"},
 	"voidtex": {"*": "st3d_voidtex_crosswind"}, "beta_7": {"*": "st3d_beta7_pathfinder"}, "perimeter": {"*": "st3d_perimeter_picket"},
 	"sigma_19": {"*": "st3d_sigma19_deepcut"}, "omega": {"*": "st3d_omega_emporium"}, "foggiest": {"*": "st3d_foggiest_greywhistle"},
 	"radiant": {"*": "st3d_radiant_dawnchoir"}, "ravage_major": {"*": "st3d_savagers_asteroid"},

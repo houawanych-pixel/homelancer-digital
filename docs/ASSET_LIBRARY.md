@@ -328,3 +328,28 @@ textures), assets/ui/title_network.jpg. Their originals stay in the owner's orig
 | owner file | game copy | kind | triangles | texture | mirrored | status |
 |---|---|---|---|---|---|---|
 | futuristic_gun_3d_model.glb (originals/mech_gun_futuristic_ORIGINAL.glb, read-only, 1.89 M tris) | assets/mechs/mech_gun_futuristic.glb (1.4 MB, mechs pack) | mech rifle, muzzle at -Z | 16,988 | 1024 colour + ORM | no | IN GAME: the mech's first-person rifle |
+
+
+## v1.9d Station3D-Retopo v1 (stations: one connected piece, three LODs, colour + normal baked from the original onto clean UVs)
+
+Triangles are LOD0 / LOD1 / LOD2. Tools: `tools/assetkit/st_retopo.py` (+ `st_load.py`). Scale is provisional.
+
+| Faction / system | File | Kind | Triangles | Mirrored | Source original | Status |
+|---|---|---|---|---|---|---|
+| Aurelion | st3d_aurelion_citadel.glb (+ _lod1, _lod2) | station | 40000 / 10024 / 2596 | | HOMELANCER_Station3D_Aurelion-CapitalOrbitalCitadel_v2_ORIGINAL.glb | IN GAME: Aurelion main station; 1 loose part joined by struts |
+| Aurelion | st3d_aurelion_tradehub.glb (+ _lod1, _lod2) | station | 40000 / 9998 / 2548 | | HOMELANCER_Station3D_Aurelion-DiplomaticTradeHub_v1_ORIGINAL.glb | IN GAME: Aurelion 2nd station (dockable); 5 loose parts joined by struts |
+| Aurelion | st3d_aurelion_shipyard.glb (+ _lod1, _lod2) | station | 39994 / 9998 / 2666 | | HOMELANCER_Station3D_Aurelion-Shipyard_v1_ORIGINAL.glb | saved (art/stations3d), not placed: capitals have 2 stations; 4 loose parts joined by struts |
+| Beta7 | st3d_beta7_pathfinder.glb (+ _lod1, _lod2) | station | 40000 / 10000 / 2596 | | HOMELANCER_Station3D_Beta7-PathfinderDepot_v1_ORIGINAL.glb | IN GAME: Beta-7 station; 1 loose part joined by struts |
+| Foggiest | st3d_foggiest_greywhistle.glb (+ _lod1, _lod2) | station | 40000 / 10000 / 2524 | | HOMELANCER_Station3D_Foggiest-GreywhistleBeacon_v1_ORIGINAL.glb | IN GAME: Foggiest station; 4 loose parts joined by struts |
+| Omega | st3d_omega_emporium.glb (+ _lod1, _lod2) | station | 40000 / 10000 / 2572 | | HOMELANCER_Station3D_Omega-WorldsEndEmporium_v1_ORIGINAL.glb | IN GAME: Omega station; 3 loose parts joined by struts |
+| Perimeter | st3d_perimeter_picket.glb (+ _lod1, _lod2) | station | 40000 / 10000 / 2500 | | HOMELANCER_Station3D_Perimeter-BorderlinePicket_v1_ORIGINAL.glb | IN GAME: Perimeter station; 0 loose parts joined by struts |
+| Radiant | st3d_radiant_dawnchoir.glb (+ _lod1, _lod2) | station | 40000 / 10000 / 2500 | | HOMELANCER_Station3D_Radiant-DawnchoirShrine_v1_ORIGINAL.glb | IN GAME: Radiant station; 3 loose parts joined by struts |
+| RoamingCybermorph | st3d_cyber_hexdominator.glb (+ _lod1, _lod2) | station | 40000 / 10000 / 2500 | | HOMELANCER_Station3D_RoamingCybermorph-Hexdominator_v1_ORIGINAL.glb | IN GAME: roams Cybernet (not a dock); 0 loose parts joined by struts |
+| RoamingCybermorph | st3d_cyber_shardstorm.glb (+ _lod1, _lod2) | station | 40000 / 10000 / 2500 | | HOMELANCER_Station3D_RoamingCybermorph-Shardstorm_v1_ORIGINAL.glb | IN GAME: roams Cybernet (not a dock); 0 loose parts joined by struts |
+| Savagers | st3d_savagers_asteroid.glb (+ _lod1, _lod2) | station | 40000 / 10040 / 2524 | | HOMELANCER_Station3D_Savagers-LivingAsteroidBase_v1_ORIGINAL.glb | IN GAME: Ravage Major (Savagers) station; 0 loose parts joined by struts |
+| Sigma19 | st3d_sigma19_deepcut.glb (+ _lod1, _lod2) | station | 40000 / 10000 / 2500 | | HOMELANCER_Station3D_Sigma19-DeepcutTransit_v1_ORIGINAL.glb | IN GAME: Sigma-19 station; 0 loose parts joined by struts |
+| Veranthos | st3d_veranthos_customs.glb (+ _lod1, _lod2) | station | 40000 / 10000 / 2500 | | HOMELANCER_Station3D_Veranthos-CustomsInspection_v1_ORIGINAL.glb | saved (art/stations3d), not placed; 0 loose parts joined by struts |
+| Veranthos | st3d_veranthos_summit.glb (+ _lod1, _lod2) | station | 40000 / 10000 / 2500 | | HOMELANCER_Station3D_Veranthos-DiplomaticSummit_v1_ORIGINAL.glb | saved (art/stations3d), not placed; 0 loose parts joined by struts |
+| Veranthos | st3d_veranthos_fleethq.glb (+ _lod1, _lod2) | station | 40000 / 10000 / 2500 | | HOMELANCER_Station3D_Veranthos-FleetHQ_v1_ORIGINAL.glb | IN GAME: Veranthos 2nd station (dockable); 1 loose part joined by struts |
+| Veranthos | st3d_veranthos_senate.glb (+ _lod1, _lod2) | station | 40000 / 9994 / 2500 | | HOMELANCER_Station3D_Veranthos-SenateStation_v1_ORIGINAL.glb | IN GAME: Veranthos main station; 5 loose parts joined by struts |
+| Voidtex | st3d_voidtex_crosswind.glb (+ _lod1, _lod2) | station | 40000 / 10000 / 2524 | | HOMELANCER_Station3D_Voidtex-CrosswindJunction_v1_ORIGINAL.glb | IN GAME: Voidtex station; 0 loose parts joined by struts |

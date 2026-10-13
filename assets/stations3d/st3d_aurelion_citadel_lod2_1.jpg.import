@@ -1,0 +1,37 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://bykg8adb0ex0q"
+path="res://.godot/imported/st3d_aurelion_citadel_lod2_1.jpg-822eaf3d7f2f8ff293078e82385246da.ctex"
+metadata={
+"vram_texture": false
+}
+generator_parameters={
+"md5": "f9159d9a4d707b754161a93ed933f0bd"
+}
+
+[deps]
+
+source_file="res://assets/stations3d/st3d_aurelion_citadel_lod2_1.jpg"
+dest_files=["res://.godot/imported/st3d_aurelion_citadel_lod2_1.jpg-822eaf3d7f2f8ff293078e82385246da.ctex"]
+
+[params]
+
+compress/mode=1
+compress/high_quality=false
+compress/lossy_quality=0.8
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=1
