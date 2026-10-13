@@ -97,25 +97,23 @@ func ship() -> Dictionary: return Data.SHIPS[ship_id]
 func weapon() -> Dictionary: return Data.WEAPONS[weapon_id]
 
 # ---------------------------------------------------------------- v1.9e (owner): a gun or a missile pod on each mount
-## The names of this ship's hardpoints, left to right (index 0 = the left wing).
-func mount_names() -> Array:
-	var n := int(ship()["guns"])
-	match n:
-		1: return ["Nose"]
-		2: return ["Left wing", "Right wing"]
-		3: return ["Left wing", "Nose", "Right wing"]
-		4: return ["Left wing", "Left nose", "Right nose", "Right wing"]
-	var out: Array = []
-	for i in n: out.append("Mount %d" % (i + 1))
-	return out
+## v1.9e (owner): two mounts on each wing: the SHOULDER (close to the core, on the top side) and the TIP (at the end of
+## the wing, on the lower side). Index 0, 1 = left shoulder, left tip; 2, 3 = right shoulder, right tip.
+const MOUNT_NAMES := ["Left shoulder (top)", "Left tip (under)", "Right shoulder (top)", "Right tip (under)"]
+func mount_names() -> Array: return MOUNT_NAMES.duplicate()
 
-## What each mount carries now (always one entry per hardpoint; a missing or unknown one carries the main gun).
+## What each mount carries now: a gun id, a pod id or "empty". A new ship has guns on as many mounts as its "guns"
+## (shoulders first), the rest empty.
 func mount_items() -> Array:
-	var n := int(ship()["guns"])
 	var out: Array = []
-	for i in n:
-		var it: String = str(mounts[i]) if i < mounts.size() else weapon_id
-		if not (Data.WEAPONS.has(it) or Data.MOUNT_PODS.has(it)) or not (it in owned_weapons): it = weapon_id
+	var g := int(ship()["guns"])
+	var dflt := ["shoulder", "shoulder", "tip", "tip"]   # (fill order: both shoulders, then both tips)
+	var order := [0, 2, 1, 3]
+	for i in 4:
+		var it: String
+		if mounts.size() == 4: it = str(mounts[i])
+		else: it = weapon_id if order.find(i) < g else "empty"
+		if it != "empty" and (not (Data.WEAPONS.has(it) or Data.MOUNT_PODS.has(it)) or not (it in owned_weapons)): it = weapon_id
 		out.append(it)
 	return out
 
@@ -126,10 +124,10 @@ func pods_fitted() -> int:
 func fit_mount(i: int, item: String) -> String:
 	var items := mount_items()
 	if i < 0 or i >= items.size(): return "No such mount."
-	if not (item in owned_weapons): return "Buy it first."
+	if item != "empty" and not (item in owned_weapons): return "Buy it first."
 	if items[i] == item: return "Already fitted."
 	items[i] = item
-	if items.all(func(x): return Data.MOUNT_PODS.has(x)): return "Keep at least one gun fitted."
+	if not items.any(func(x): return Data.WEAPONS.has(x)): return "Keep at least one gun fitted."
 	mounts = items
 	for it in items:   # the main gun is the first gun on a mount (the HUD and the mech rifle use it)
 		if Data.WEAPONS.has(it):
@@ -137,6 +135,7 @@ func fit_mount(i: int, item: String) -> String:
 			break
 	missiles = mini(missiles, max_missiles())
 	changed.emit()
+	if item == "empty": return "The %s is empty now." % str(mount_names()[i]).to_lower()
 	var nm: String = Data.WEAPONS[item]["name"] if Data.WEAPONS.has(item) else Data.MOUNT_PODS[item]["name"]
 	return "%s fitted on the %s." % [nm, str(mount_names()[i]).to_lower()]
 

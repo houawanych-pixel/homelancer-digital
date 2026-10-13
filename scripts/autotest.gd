@@ -6673,17 +6673,17 @@ func _job_v19e() -> void:
 	var base_locks: int = GS.max_locks("light_missile")
 	var bought: String = GS.buy_weapon("ion")
 	var pod_msg: String = GS.buy_pod("missile_pod")
-	var fit_msg: String = GS.fit_mount(0, "missile_pod")
+	var fit_msg: String = GS.fit_mount(1, "missile_pod")   # (the left wing tip)
 	var fit2: String = GS.fit_mount(2, "pulse1")
+	GS.fit_mount(3, "empty")
 	var items: Array = GS.mount_items()
 	var names: Array = GS.mount_names()
 	var more_missiles: bool = GS.max_missiles() == base_missiles + int(Data.MOUNT_PODS["missile_pod"]["ammo"])
 	var more_locks: bool = GS.max_locks("light_missile") == base_locks + int(Data.MOUNT_PODS["missile_pod"]["locks"])
-	var all_pods: String = GS.fit_mount(1, "missile_pod")
-	GS.fit_mount(2, "missile_pod")
+	GS.fit_mount(0, "empty")
+	var last_gun: String = GS.fit_mount(2, "empty")   # (the only gun left: refused)
 	var kept_gun: bool = GS.mount_items().any(func(x): return Data.WEAPONS.has(x))
-	GS.fit_mount(1, "ion")
-	GS.fit_mount(2, "pulse1")
+	GS.fit_mount(0, "ion")
 	# fire once: one bolt per gun mount (the pod fires missiles, not bolts)
 	var s := _sp()
 	s.set_player_model()
@@ -6696,12 +6696,12 @@ func _job_v19e() -> void:
 	await _until(func(): return main.state == "hub", 8.0)
 	main.hub.show_screen("equipment")
 	await _frames(3)
-	var page_ok: bool = main.hub.find_child("Mount_0", true, false) != null and main.hub.find_child("Fit_0_missile_pod", true, false) != null and main.hub.find_child("Buy_missile_pod", true, false) != null
+	var page_ok: bool = main.hub.find_child("Mount_3", true, false) != null and main.hub.find_child("Fit_1_missile_pod", true, false) != null and main.hub.find_child("Fit_3_empty", true, false) != null and main.hub.find_child("Buy_missile_pod", true, false) != null
 	await _shot("v19e_loadout_page", 0.3)
 	main.launch()
 	await _until(func(): return main.state == "flight", 8.0)
-	_check("v1.9e (owner): each mount carries its own weapon: a missile pod on the left wing (+missiles, +locks), an Ion Repeater and a Pulse Laser on the others; the guns fire one bolt per gun mount; at least one gun always stays fitted; WEAPONS & GEAR shows a row per mount",
-		names == ["Left wing", "Nose", "Right wing"] and items == ["missile_pod", "ion", "pulse1"] and more_missiles and more_locks and kept_gun and shot == 2 and page_ok,
+	_check("v1.9e (owner): two mounts on each wing (the shoulder near the core on top, the tip underneath at the wing's end), each with its own weapon: an Ion Repeater on the left shoulder, a missile pod on the left tip (+missiles, +locks), a Pulse Laser on the right shoulder, the right tip empty; one bolt per gun mount; at least one gun always stays fitted; WEAPONS & GEAR shows a row per mount",
+		names.size() == 4 and items == ["ion", "missile_pod", "pulse1", "empty"] and more_missiles and more_locks and kept_gun and last_gun.begins_with("Keep") and shot == 2 and page_ok,
 		"items %s (%s / %s / %s) shot %d page %s" % [items, bought, pod_msg, fit_msg, shot, page_ok])
 	for k3 in keep: GS.set(k3, keep[k3])
 	_sp().set_player_model()

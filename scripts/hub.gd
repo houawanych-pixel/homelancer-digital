@@ -368,7 +368,7 @@ func _equipment_page() -> void:
 	v.add_child(lcap)
 	var items: Array = GS.mount_items()
 	var names: Array = GS.mount_names()
-	var fit_opts: Array = Data.WEAPON_ORDER.filter(func(x): return x in GS.owned_weapons) + Data.MOUNT_PODS.keys().filter(func(x): return x in GS.owned_weapons)
+	var fit_opts: Array = Data.WEAPON_ORDER.filter(func(x): return x in GS.owned_weapons) + Data.MOUNT_PODS.keys().filter(func(x): return x in GS.owned_weapons) + ["empty"]
 	for mi in items.size():
 		var mrow := HFlowContainer.new()   # (the buttons wrap: the page never grows wider than the screen)
 		mrow.name = "Mount_%d" % mi
@@ -377,13 +377,13 @@ func _equipment_page() -> void:
 		mrow.add_theme_constant_override("v_separation", 6)
 		var mlab := _label(17, GOLD)
 		mlab.text = "%s:" % str(names[mi]).to_upper()
-		mlab.custom_minimum_size = Vector2(150, 50)
+		mlab.custom_minimum_size = Vector2(215, 50)
 		mrow.add_child(mlab)
 		for opt in fit_opts:
 			var ob := Button.new()
 			ob.name = "Fit_%d_%s" % [mi, opt]
-			ob.custom_minimum_size = Vector2(170, 50)
-			var onm: String = str((Data.WEAPONS[opt] if Data.WEAPONS.has(opt) else Data.MOUNT_PODS[opt]).get("short", opt))
+			ob.custom_minimum_size = Vector2(142, 50)
+			var onm: String = "Empty" if opt == "empty" else str((Data.WEAPONS[opt] if Data.WEAPONS.has(opt) else Data.MOUNT_PODS[opt]).get("short", opt))
 			ob.text = ("[%s]" % onm) if items[mi] == opt else onm
 			ob.disabled = items[mi] == opt
 			ob.clip_text = true
@@ -391,7 +391,7 @@ func _equipment_page() -> void:
 			mrow.add_child(ob)
 		v.add_child(mrow)
 	var cap := _label(16, CYAN)
-	cap.text = "GUNS  ·  your %s carries %d hardpoints. Damage shown per shot." % [GS.ship()["name"], GS.ship()["guns"]]
+	cap.text = "GUNS FOR SALE  ·  your %s has 4 wing mounts (a shoulder and a tip on each wing). Damage shown per shot." % GS.ship()["name"]
 	v.add_child(cap)
 	for id in Data.WEAPON_ORDER:
 		var w: Dictionary = Data.WEAPONS[id]
@@ -507,6 +507,8 @@ func _equipment_page() -> void:
 func _wrap_rows(root: Node) -> void:
 	for l in root.find_children("*", "Label", true, false):
 		var lb := l as Label
+		if lb.get_parent() is VBoxContainer and lb.text.length() > 40:   # captions straight in the list wrap too
+			lb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		if lb.size_flags_horizontal & Control.SIZE_EXPAND:
 			lb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			lb.custom_minimum_size.x = maxf(lb.custom_minimum_size.x, 160.0)

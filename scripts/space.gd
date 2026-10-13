@@ -2295,7 +2295,7 @@ func _update_player(dt: float) -> void:
 	if controls and warp_state == "off" and transform_t <= 0.0:
 		var want := fire_held or fire_lock
 		if GS.is_auto("guns") and _in_fire_cone(target): want = true
-		var cost := Data.ENERGY_PER_GUN * float(GS.ship()["guns"] - GS.pods_fitted())   # (v1.9e: pods use no gun energy)
+		var cost := Data.ENERGY_PER_GUN * float(GS.mount_items().filter(func(x): return Data.WEAPONS.has(x)).size())   # (v1.9e: only fitted guns use gun energy)
 		if want and gun_cd <= 0.0 and GS.energy >= cost:
 			GS.energy -= cost
 			_fire_guns()
@@ -2453,16 +2453,31 @@ func _fire_guns() -> void:
 			continue
 		mount_next[g] = time + 1.0 / float(wg["rate"])
 		next_cd = minf(next_cd, 1.0 / float(wg["rate"]))
-		var off := (g - (guns - 1) / 2.0) * 2.4
-		if off < -0.1 and GS.wing_l <= 0.0: continue   # left wing gone: its guns are gone
-		if off > 0.1 and GS.wing_r <= 0.0: continue
-		var from := player.global_position + player.global_basis.x * off + fwd * 5.0
+		var side := -1.0 if g < 2 else 1.0
+		if side < 0.0 and GS.wing_l <= 0.0: continue   # left wing gone: its guns are gone
+		if side > 0.0 and GS.wing_r <= 0.0: continue
+		var tip: bool = g % 2 == 1   # v1.9e (owner): shoulder = close to the core on top; tip = the wing's end underneath
+		var hw := _ship_half_width()
+		var from := player.global_position + player.global_basis.x * side * hw * (Data.MOUNT_TIP_AT if tip else Data.MOUNT_SHOULDER_AT) \
+			+ player.global_basis.y * (-Data.MOUNT_DROP if tip else Data.MOUNT_DROP) + fwd * 5.0
 		_spawn_bolt(from, aim_dir * float(wg["speed"]) + vel, float(wg["damage"]), wg["color"], "player", float(wg["range"]) / float(wg["speed"]))
 		_spark(from + fwd * 1.5, (wg["color"] as Color).lightened(0.4), 3.2, 0.09)
 	gun_cd = clampf(next_cd, 0.02, 1.0)
 	if _laser_sfx_cd <= 0.0:
 		Sfx.play("laser", -9.0)
 		_laser_sfx_cd = 0.07
+
+## v1.9e: half the player ship's wingspan (m), for where the wing mounts sit.
+var _hw_cache := {}
+func _ship_half_width() -> float:
+	var key := str(GS.ship_id)
+	if _hw_cache.has(key): return _hw_cache[key]
+	var hw := 3.0
+	if is_instance_valid(model):
+		var bb: AABB = ShipFactory._aabb(model, Transform3D.IDENTITY)
+		if bb.size.x > 0.5: hw = bb.size.x * 0.5 * model.scale.x
+	_hw_cache[key] = hw
+	return hw
 
 func _spawn_bolt(from: Vector3, v: Vector3, dmg: float, col: Color, owner: String, life: float) -> void:
 	var mi := MeshInstance3D.new()

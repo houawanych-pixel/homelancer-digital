@@ -27,7 +27,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v1.9e"
+const VERSION := "v1.9f"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -924,6 +924,9 @@ const WEAPONS := {
 const WEAPON_ORDER := ["pulse1", "pulse2", "ion", "plasma"]
 # v1.9e (owner: "equip a weapon on the wing, like a blaster, as well as missiles"): each hardpoint carries a gun or a
 # missile pod. A pod on a mount carries more light missiles and adds locks (so a bigger volley). PROVISIONAL numbers.
+const MOUNT_SHOULDER_AT := 0.3   # v1.9e (owner): the shoulder mount sits this far out along the wing (share of half the span), on top ...
+const MOUNT_TIP_AT := 0.92       # ... the tip mount this far out, underneath ...
+const MOUNT_DROP := 0.5          # ... and this far (m) above / below the wing
 const MOUNT_PODS := {"missile_pod": {"name": "Missile Pod", "short": "Pod", "price": 900, "ammo": 6, "locks": 2, "desc": "A wing pod: +6 light missiles carried and +2 locks per volley."}}
 const MISSILE_PRICE := 10
 const MISSILE_DAMAGE := 45.0 # light missile minimum; it does LIGHT_MISSILE_HULL_FRAC of the target's hull when bigger
