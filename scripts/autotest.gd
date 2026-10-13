@@ -6385,8 +6385,8 @@ func _job_as() -> void:
 		rolled = rolled or absf(s.model.rotation.z) > 0.3
 	await _shot("as_elyza_special_wings", 0.0)
 	main.hud.held.erase("special")
-	await _until(func(): return s.special_state == "idle", 2.0)
-	await _wait(1.0)
+	await _until(func(): return s.special_state == "idle", Data.LOCK_STEP * 3 + Data.SPECIAL_CUTIN_TIME + Data.SPECIAL_BEAM_TIME + 3.0)   # (v1.9b: letting go still fires the move)
+	await _wait(1.5)
 	var w_end: float = ShipFactory.wings_open(s.model)
 	var enemy_real: bool = not (e["node"] as Node3D).get_child(0).get_meta("placeholder", true) if is_instance_valid(e["node"]) else false
 	if is_instance_valid(e["node"]): s._damage_enemy(e, 99999.0)
