@@ -1,0 +1,37 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://b3g1qoeyeu1iu"
+path="res://.godot/imported/wpn_shell_smg_1.jpg-e6a6ebbcd3fbdcd98768ea5a44d5ee0c.ctex"
+metadata={
+"vram_texture": false
+}
+generator_parameters={
+"md5": "6c1a7b6b4986676d8003065feae6d1ce"
+}
+
+[deps]
+
+source_file="res://assets/wing_guns/wpn_shell_smg_1.jpg"
+dest_files=["res://.godot/imported/wpn_shell_smg_1.jpg-e6a6ebbcd3fbdcd98768ea5a44d5ee0c.ctex"]
+
+[params]
+
+compress/mode=1
+compress/high_quality=false
+compress/lossy_quality=0.8
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=1

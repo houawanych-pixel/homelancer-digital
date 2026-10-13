@@ -36,6 +36,7 @@ const PACKS := {
 	"hubbg_kaijurai": {"folders": ["res://assets/hub_bg"], "match": "kaijurai.", "probe": "res://assets/hub_bg/kaijurai.jpg"},
 	"worlds": {"folders": ["res://assets/worlds"], "probe": "res://assets/worlds/earth.jpg"},
 	"structures": {"folders": ["res://assets/structures"], "probe": "res://assets/structures/jump_gate_ring.glb"},
+	"wing_guns": {"folders": ["res://assets/wing_guns"], "probe": "res://assets/wing_guns/wpn_shell_smg.glb"},   # v1.9g: the guns and pods you see on the wing mounts
 	# v1.9d Station3D-Retopo v1: one pack per 3D station (its three LODs), fetched when you enter its system
 	"st3d_aurelion_citadel": {"folders": ["res://assets/stations3d"], "match": "st3d_aurelion_citadel", "probe": "res://assets/stations3d/st3d_aurelion_citadel.glb"},
 	"st3d_aurelion_tradehub": {"folders": ["res://assets/stations3d"], "match": "st3d_aurelion_tradehub", "probe": "res://assets/stations3d/st3d_aurelion_tradehub.glb"},

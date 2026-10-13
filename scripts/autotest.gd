@@ -986,6 +986,7 @@ func _run() -> void:
 		await _until(func(): return main.state == "flight", 10.0)
 		await _wait(1.0)
 		await _job_v19e()
+		await _job_v19g()
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
@@ -1701,6 +1702,7 @@ func _run() -> void:
 	await _job_v19b()
 	await _job_v19d()
 	await _job_v19e()
+	await _job_v19g()
 	await _blocks()
 	await _regions()
 	await _galaxy()
@@ -6631,6 +6633,61 @@ func _job_ax() -> void:
 ## you were on good terms with showed up as a peaceful (gold) ship you couldn't lock.
 ## v1.9b (owner): every planet has a docking ring on a little floating platform: dock there and take that planet's
 ## jobs. The main planet's docking gate sits on a deck; each of the other planets gets a dockable platform.
+## v1.9g (owner's gun models): every gun and the missile pod has the owner's model, and the ship shows what each wing
+## mount carries: the shoulder gun on top near the core, the tip gun hung under the wing's end.
+func _job_v19g() -> void:
+	var s := _sp()
+	var models_ok := true
+	for id in Data.WEAPON_ORDER:
+		if not ShipFactory.has_real_model(str(Data.WEAPONS[id].get("model", ""))): models_ok = false
+	if not ShipFactory.has_real_model(str(Data.MOUNT_PODS["missile_pod"]["model"])): models_ok = false
+	var keep := {}
+	for k2 in ["credits", "ship_id", "weapon_id", "owned_weapons", "mounts", "missiles", "owned_ships"]: keep[k2] = GS.get(k2) if not (GS.get(k2) is Array) else (GS.get(k2) as Array).duplicate()
+	GS.credits = 50000
+	GS.ship_id = "ranger"
+	if not ("ranger" in GS.owned_ships): GS.owned_ships.append("ranger")
+	GS.buy_weapon("bone_rifle")
+	GS.buy_weapon("ion")
+	GS.buy_pod("missile_pod")
+	GS.mounts = ["bone_rifle", "missile_pod", "bone_rifle", "ion"]
+	await Packs.wait("wing_guns", 30.0)
+	s.set_player_model()
+	await _frames(2)
+	var holder: Node3D = s.model.get_node_or_null("WingMounts")
+	var shown: Array = []
+	var placed := true
+	if holder != null:
+		for ch in holder.get_children():
+			shown.append(int(ch.get_meta("mount")))
+			var g: int = ch.get_meta("mount")
+			var lp: Vector3 = (ch as Node3D).position * s.model.scale.x
+			if (g < 2 and lp.x >= 0.0) or (g >= 2 and lp.x <= 0.0): placed = false   # left mounts on the left
+			if (g % 2 == 0 and lp.y <= 0.0) or (g % 2 == 1 and lp.y >= 0.0): placed = false   # shoulders on top, tips under
+			if g % 2 == 1 and absf(lp.x) <= absf(((holder.get_child(0) as Node3D).position * s.model.scale.x).x): placed = false   # tips further out
+	# a close look from the front-left, the world held still
+	s.process_mode = Node.PROCESS_MODE_DISABLED
+	main.hud.visible = false
+	var pb: Basis = s.player.global_basis
+	var hw: float = s._ship_half_width()
+	var vc: Camera3D = main.get_viewport().get_camera_3d()
+	var far_k := 1.0
+	if vc != null:
+		far_k = vc.near
+		vc.near = 0.05
+		vc.global_position = s.player.global_position - pb.z * hw * 2.2 - pb.x * hw * 1.2 + pb.y * hw * 0.8
+		vc.look_at(s.player.global_position, pb.y)
+		await _shot("v19g_wing_guns", 0.2)
+		vc.global_position = s.player.global_position - pb.z * hw * 2.4 - pb.y * hw * 0.7
+		vc.look_at(s.player.global_position, pb.y)
+		await _shot("v19g_wing_guns_below", 0.2)
+		vc.near = far_k
+	main.hud.visible = true
+	s.process_mode = Node.PROCESS_MODE_INHERIT
+	_check("v1.9g (owner's gun models): every gun and the missile pod wear his models, and the wings show the loadout: Crystal-Bone Rifles on both shoulders (on top, near the core), the pod and an Ion gatling under the wing tips",
+		models_ok and holder != null and shown.size() == 4 and placed and Data.WEAPON_ORDER.size() == 7, "models %s shown %s placed %s" % [models_ok, shown, placed])
+	for k3 in keep: GS.set(k3, keep[k3])
+	s.set_player_model()
+
 ## v1.9e (owner): the galaxy chart in the game reads like his map document (each charted system's box: counts and
 ## station names, gates coloured by kind) under fog of war; and each wing mount takes its own gun or a missile pod.
 func _job_v19e() -> void:

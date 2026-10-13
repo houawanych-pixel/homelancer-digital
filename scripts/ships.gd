@@ -72,6 +72,14 @@ const GLB := {
 	"mine": ["res://assets/weapons/mine.glb", 3.2, 0.0],
 	"gatling": ["res://assets/weapons/gatling.glb", 3.0, 0.0],
 	"rocket_pod": ["res://assets/weapons/rocket_pod.glb", 3.0, 0.0],
+	"wpn_shell_smg": ["res://assets/wing_guns/wpn_shell_smg.glb", Data.WING_GUN_LEN, 0.0],   # v1.9g: the owner's wing guns (pack "wing_guns")
+	"wpn_gunnar_rifle": ["res://assets/wing_guns/wpn_gunnar_rifle.glb", Data.WING_GUN_LEN, 0.0],   # v1.9g: the owner's wing guns (pack "wing_guns")
+	"wpn_teal_gatling": ["res://assets/wing_guns/wpn_teal_gatling.glb", Data.WING_GUN_LEN, 0.0],   # v1.9g: the owner's wing guns (pack "wing_guns")
+	"wpn_blue_quad_cannon": ["res://assets/wing_guns/wpn_blue_quad_cannon.glb", Data.WING_GUN_LEN, 0.0],   # v1.9g: the owner's wing guns (pack "wing_guns")
+	"wpn_warden_gun": ["res://assets/wing_guns/wpn_warden_gun.glb", Data.WING_GUN_LEN, 0.0],   # v1.9g: the owner's wing guns (pack "wing_guns")
+	"wpn_crystal_bone_rifle": ["res://assets/wing_guns/wpn_crystal_bone_rifle.glb", Data.WING_GUN_LEN, 0.0],   # v1.9g: the owner's wing guns (pack "wing_guns")
+	"wpn_mech_arm_cannon": ["res://assets/wing_guns/wpn_mech_arm_cannon.glb", Data.WING_GUN_LEN, 0.0],   # v1.9g: the owner's wing guns (pack "wing_guns")
+	"wpn_missile_pod": ["res://assets/wing_guns/wpn_missile_pod.glb", Data.WING_GUN_LEN, 0.0],   # v1.9g: the owner's wing guns (pack "wing_guns")
 	# mechs: rigged 3 m models scaled to small-ship size; yaw 180 so the mech faces -Z like the ships
 	"mech_tan": ["res://assets/mechs/tan_navy_mecha.glb", 11.0, 180.0],
 	"mech_player": ["res://assets/mechs/black_gold_mecha.glb", 9.5, 180.0],   # the player's ship <-> mech frame

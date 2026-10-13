@@ -1585,6 +1585,44 @@ func set_player_model() -> void:
 	player_vis = Sections.setup(model, mech)
 	Sections.set_side_visible(player_vis, "l", GS.wing_l > 0.0)
 	Sections.set_side_visible(player_vis, "r", GS.wing_r > 0.0)
+	_hw_cache.erase(str(GS.ship_id))
+	mount_visuals()
+
+## v1.9g (owner): what each wing mount carries, on the wing: the shoulder gun on top near the core, the tip gun under
+## the wing's end (hung upside down). Models come from the "wing_guns" pack; until it is in, nothing extra shows.
+func mount_visuals() -> void:
+	if not is_instance_valid(model): return
+	var old := model.get_node_or_null("WingMounts")
+	if old != null: old.free()
+	if GS.form == "mech": return
+	if not Packs.is_ready("wing_guns"):
+		if not Packs.pack_ready.is_connected(_on_wing_guns): Packs.pack_ready.connect(_on_wing_guns)
+		Packs.request("wing_guns")
+		return
+	var holder := Node3D.new()
+	holder.name = "WingMounts"
+	model.add_child(holder)
+	var hw := _ship_half_width()
+	var sc: float = maxf(model.scale.x, 0.001)
+	var items: Array = GS.mount_items()
+	for g in items.size():
+		var it: String = items[g]
+		var info: Dictionary = Data.WEAPONS.get(it, Data.MOUNT_PODS.get(it, {}))
+		var key: String = str(info.get("model", ""))
+		if key == "" or not ShipFactory.has_real_model(key): continue
+		var side := -1.0 if g < 2 else 1.0
+		var tip: bool = g % 2 == 1
+		var gun := ShipFactory.build(key)
+		gun.name = "Mount%d" % g
+		gun.position = Vector3(side * hw * (Data.MOUNT_TIP_AT if tip else Data.MOUNT_SHOULDER_AT), -Data.MOUNT_DROP if tip else Data.MOUNT_DROP, 0.0) / sc
+		var share: float = Data.WING_POD_SHARE if Data.MOUNT_PODS.has(it) else Data.WING_GUN_SHARE
+		gun.scale = Vector3.ONE * (_ship_length() * share / Data.WING_GUN_LEN) / sc   # (sized by the ship)
+		if tip: gun.rotation_degrees.z = 180.0   # hung under the wing
+		gun.set_meta("mount", g)
+		holder.add_child(gun)
+
+func _on_wing_guns(pk: String) -> void:
+	if pk == "wing_guns" and is_inside_tree(): mount_visuals()
 
 func is_mech_form() -> bool:
 	return GS.form == "mech"
@@ -2466,6 +2504,12 @@ func _fire_guns() -> void:
 	if _laser_sfx_cd <= 0.0:
 		Sfx.play("laser", -9.0)
 		_laser_sfx_cd = 0.07
+
+## v1.9g: the player ship's length (m), for sizing the wing guns.
+func _ship_length() -> float:
+	if not is_instance_valid(model): return 10.0
+	var bb: AABB = ShipFactory._aabb(model, Transform3D.IDENTITY)
+	return maxf(bb.size.z * model.scale.z, 2.0)
 
 ## v1.9e: half the player ship's wingspan (m), for where the wing mounts sit.
 var _hw_cache := {}
