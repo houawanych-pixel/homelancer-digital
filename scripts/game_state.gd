@@ -8,6 +8,7 @@ var ship_id := "cadet"
 var owned_ships := ["cadet"]
 var weapon_id := "pulse1"
 var owned_weapons := ["pulse1"]
+var mounts: Array = []   # v1.9e: what each hardpoint carries (a gun from Data.WEAPONS or "missile_pod"); [] = every mount the weapon_id
 var hull := 100.0
 var wing_l := 40.0 # left and right wing sections (own health; a destroyed wing takes its guns with it)
 var wing_r := 40.0
@@ -51,7 +52,7 @@ var god_mode := false # only used by the automated route test
 # ---------------------------------------------------------------- v1.7y saving
 const SAVE_KEYS := ["credits", "ship_id", "owned_ships", "weapon_id", "owned_weapons", "missiles", "heavy_missiles", "mines", "rack",
 	"owned_racks", "slots", "modes", "view", "system_id", "discovered", "last_base", "kills", "met", "mood", "memory", "heat_shield",
-	"bounty", "bounties_done", "mission", "cargo", "missions_done", "rep", "cast", "mine_kind", "block_deltas", "tutorial_seen", "bounty_jail"]
+	"bounty", "bounties_done", "mission", "cargo", "missions_done", "rep", "cast", "mine_kind", "block_deltas", "tutorial_seen", "bounty_jail", "mounts"]   # (v1.9e: + mounts)
 var save_path: String = Data.SAVE_PATH
 var save_enabled := true   # (the route test turns it off, so a test never reads or writes a player's save)
 var saves := 0             # (tests) saves written this session
@@ -94,10 +95,64 @@ func erase_save() -> void:
 
 func ship() -> Dictionary: return Data.SHIPS[ship_id]
 func weapon() -> Dictionary: return Data.WEAPONS[weapon_id]
+
+# ---------------------------------------------------------------- v1.9e (owner): a gun or a missile pod on each mount
+## The names of this ship's hardpoints, left to right (index 0 = the left wing).
+func mount_names() -> Array:
+	var n := int(ship()["guns"])
+	match n:
+		1: return ["Nose"]
+		2: return ["Left wing", "Right wing"]
+		3: return ["Left wing", "Nose", "Right wing"]
+		4: return ["Left wing", "Left nose", "Right nose", "Right wing"]
+	var out: Array = []
+	for i in n: out.append("Mount %d" % (i + 1))
+	return out
+
+## What each mount carries now (always one entry per hardpoint; a missing or unknown one carries the main gun).
+func mount_items() -> Array:
+	var n := int(ship()["guns"])
+	var out: Array = []
+	for i in n:
+		var it: String = str(mounts[i]) if i < mounts.size() else weapon_id
+		if not (Data.WEAPONS.has(it) or Data.MOUNT_PODS.has(it)) or not (it in owned_weapons): it = weapon_id
+		out.append(it)
+	return out
+
+func pods_fitted() -> int:
+	return mount_items().filter(func(it): return Data.MOUNT_PODS.has(it)).size()
+
+## Put an owned gun or pod on one mount.
+func fit_mount(i: int, item: String) -> String:
+	var items := mount_items()
+	if i < 0 or i >= items.size(): return "No such mount."
+	if not (item in owned_weapons): return "Buy it first."
+	if items[i] == item: return "Already fitted."
+	items[i] = item
+	if items.all(func(x): return Data.MOUNT_PODS.has(x)): return "Keep at least one gun fitted."
+	mounts = items
+	for it in items:   # the main gun is the first gun on a mount (the HUD and the mech rifle use it)
+		if Data.WEAPONS.has(it):
+			weapon_id = it
+			break
+	missiles = mini(missiles, max_missiles())
+	changed.emit()
+	var nm: String = Data.WEAPONS[item]["name"] if Data.WEAPONS.has(item) else Data.MOUNT_PODS[item]["name"]
+	return "%s fitted on the %s." % [nm, str(mount_names()[i]).to_lower()]
+
+## v1.9e: buy a missile pod (fit it on a mount at Equipment).
+func buy_pod(id: String) -> String:
+	var pd: Dictionary = Data.MOUNT_PODS[id]
+	if id in owned_weapons: return "Already owned: fit it on a mount."
+	if credits < int(pd["price"]): return "Not enough credits (%d needed)." % int(pd["price"])
+	credits -= int(pd["price"])
+	owned_weapons.append(id)
+	changed.emit()
+	return "Bought the %s. Fit it on a wing mount below." % pd["name"]
 func max_hull() -> float: return float(ship()["hull"])
 func wing_max() -> float: return max_hull() * Data.SECTION_SHARE
 func max_shield() -> float: return float(ship()["shield"])
-func max_missiles() -> int: return int(ship()["missiles"])
+func max_missiles() -> int: return int(ship()["missiles"]) + pods_fitted() * int(Data.MOUNT_PODS["missile_pod"]["ammo"])   # v1.9e: pods carry more
 func max_mines() -> int: return int(ship()["mines"])
 func max_heavy() -> int: return int(ship().get("heavy", 2))
 func is_auto(id: String) -> bool: return modes.get(id, "auto") == "auto"
@@ -282,12 +337,14 @@ func buy_weapon(id: String) -> String:
 	if id == weapon_id: return "Already equipped."
 	if id in owned_weapons:
 		weapon_id = id
+		mounts = mount_items().map(func(it): return id if Data.WEAPONS.has(it) else it)   # v1.9e
 		changed.emit()
 		return "Equipped %s." % w["name"]
 	if credits < int(w["price"]): return "Not enough credits (%d needed)." % int(w["price"])
 	credits -= int(w["price"])
 	owned_weapons.append(id)
 	weapon_id = id
+	mounts = mount_items().map(func(it): return id if Data.WEAPONS.has(it) else it)   # v1.9e: on every gun mount; fit mounts one by one below
 	changed.emit()
 	return "Bought and equipped %s." % w["name"]
 
@@ -341,7 +398,7 @@ func buy_rack(id: String) -> String:
 ## Most locks a slot item can hold on one target.
 func max_locks(item: String) -> int:
 	if item == "heavy_missile": return Data.HEAVY_LOCKS
-	return int(Data.MISSILE_RACKS.get(rack, Data.MISSILE_RACKS["triple"])["locks"])
+	return int(Data.MISSILE_RACKS.get(rack, Data.MISSILE_RACKS["triple"])["locks"]) + pods_fitted() * int(Data.MOUNT_PODS["missile_pod"]["locks"])   # v1.9e: each pod adds locks
 
 func buy_mines(n: int) -> String:
 	var room := max_mines() - mines

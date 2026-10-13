@@ -26,6 +26,7 @@ var t := 0.0
 var _drag_from := Vector2.INF
 var _drag_moved := 0.0
 var _hits := {}
+var boxes := 0   # v1.9e (tests): system boxes drawn in the last frame
 var _btns := {}
 var focus := ""      # the front system nearest the centre of view: outlined and named as you pan past it
 var focus_t := 0.0   # 0..1 fade-in of that outline
@@ -42,6 +43,8 @@ func open(system_id: String) -> void:
 	current = system_id
 	selected = system_id
 	expanded = ""
+	fz = 1.0
+	fpan = Vector2.ZERO
 	var net := Galaxy.network()
 	var d: Vector3 = (net["systems"][current]["pos"] as Vector3) - viewer
 	yaw = atan2(d.x, -d.z)   # face your own system
@@ -88,7 +91,10 @@ func _gui_input(e: InputEvent) -> void:
 		pressed = e.pressed
 		released = not e.pressed
 	elif e is InputEventScreenDrag or e is InputEventMouseMotion:
-		if _drag_from != Vector2.INF and expanded == "":
+		if _drag_from != Vector2.INF and expanded == "" and flat:   # v1.9e: drag the chart about when zoomed in
+			_drag_moved += (e.relative as Vector2).length()
+			fpan = _clamp_pan(fpan + (e.relative as Vector2))
+		elif _drag_from != Vector2.INF and expanded == "":
 			var rel: Vector2 = e.relative
 			_drag_moved += rel.length()
 			yaw -= rel.x / get_viewport_rect().size.x * FOV_H
@@ -132,12 +138,30 @@ func press(b: String) -> void:
 				closed.emit()
 		"expand": if selected != "": expanded = selected
 		"mode": flat = not flat
+		"zoom_in": _zoom(Data.MAP_ZOOM_STEP)
+		"zoom_out": _zoom(1.0 / Data.MAP_ZOOM_STEP)
+
+## v1.9e: zoom the chart about the middle of the screen, kept on screen.
+func _zoom(k: float) -> void:
+	var S := get_viewport_rect().size
+	var c := Vector2((378.0 + S.x) * 0.5, (96.0 + S.y) * 0.5)
+	var nz := clampf(fz * k, 1.0, Data.MAP_ZOOM_MAX)
+	var org := Vector2(378.0, 96.0) + fpan
+	fpan = _clamp_pan(c - (c - org) * (nz / fz) - Vector2(378.0, 96.0))
+	fz = nz
+
+func _clamp_pan(p: Vector2) -> Vector2:
+	var S := get_viewport_rect().size
+	var full := Vector2(S.x - 378.0 - 24.0, S.y - 96.0 - 44.0) * fz
+	var room := Vector2(S.x - 378.0 - 24.0, S.y - 96.0 - 44.0)
+	return Vector2(clampf(p.x, -(full.x - room.x) - 300.0, 0.0), clampf(p.y, -(full.y - room.y), 0.0))
 
 # ---------------------------------------------------------------- drawing
 func _draw() -> void:
 	var S := get_viewport_rect().size
 	_hits.clear()
 	_btns.clear()
+	boxes = 0
 	if flat: _draw_flat(S)
 	else:
 		draw_network(self, S, yaw, pitch, t, viewer, current, selected, _hits, true, focus, focus_t, backdrop)
@@ -146,6 +170,11 @@ func _draw() -> void:
 	if expanded == "":
 		_btns["mode"] = mb
 		_button(mb, "3D VIEW" if flat else "FLAT MAP")
+		if flat:   # v1.9e: zoom in to read the boxes
+			_btns["zoom_out"] = Rect2(Vector2(S.x - 440, 16), Vector2(60, 48))
+			_button(_btns["zoom_out"], "-")
+			_btns["zoom_in"] = Rect2(Vector2(S.x - 372, 16), Vector2(60, 48))
+			_button(_btns["zoom_in"], "+")
 	if selected != "" and expanded == "": _info(S)
 	if expanded != "": _system_view(S, expanded)
 	var cb := Rect2(Vector2(S.x - 150, 16), Vector2(130, 48))
@@ -163,10 +192,20 @@ static func fog_state(id: String) -> String:
 	return "fog"
 
 ## The rectangle of the chart and the size of one tile (11 columns A-K, 11 rows 1-11, as on the owner's map).
+static var fz := 1.0             # v1.9e: chart zoom (+ / - buttons)
+static var fpan := Vector2.ZERO  # v1.9e: chart pan (drag the chart)
 static func flat_grid(S: Vector2) -> Array:
 	var org := Vector2(378.0, 96.0)
-	var cell := Vector2((S.x - org.x - 24.0) / 11.0, (S.y - org.y - 44.0) / 11.0)
-	return [org, cell]
+	var cell := Vector2((S.x - org.x - 24.0) / 11.0, (S.y - org.y - 44.0) / 11.0) * fz
+	return [org + fpan, cell]
+
+## v1.9e: what a charted system's box says: [planet count, [[station name, has the owner's 3D model]]].
+static func box_info(id: String) -> Array:
+	if not Data.SYSTEMS.has(id): return [0, []]
+	var sy: Dictionary = Data.SYSTEMS[id]
+	var st: Array = [[str(sy["station"]["name"]), str(sy["station"].get("model", "")).begins_with("st3d_")]]
+	for b in sy.get("more_stations", []): st.append([str(b["name"]), str(b.get("model", "")).begins_with("st3d_")])
+	return [1 + (sy.get("more_planets", []) as Array).size(), st]
 
 static func flat_pos(S: Vector2, col: int, row: int) -> Vector2:
 	var g := flat_grid(S)
@@ -228,7 +267,23 @@ func _draw_flat(S: Vector2) -> void:
 		if st2 == "fog": continue
 		var p: Vector2 = at[id]
 		var s: Dictionary = sys[id]
-		if st2 == "seen":
+		if st2 == "seen" and cell.x >= Data.MAP_BOX_DETAIL:   # v1.9e: zoomed in: the system's box, like the owner's document
+			var fc3: Color = SystemBuilder.FACTIONS[s["faction"]][3]
+			boxes += 1
+			var bi := box_info(id)
+			var tl0 := p - cell * 0.5 + Vector2(6, 4)
+			var fs := clampi(int(cell.x / 10.0), 10, 18)
+			var w := cell.x - 12.0
+			draw_string(font, tl0 + Vector2(0, fs + 4), s["name"], HORIZONTAL_ALIGNMENT_LEFT, w, fs + 2, Color.WHITE)
+			draw_string(font, tl0 + Vector2(0, fs * 2 + 8), "%s · %s" % [s.get("tile", ""), s["faction"]], HORIZONTAL_ALIGNMENT_LEFT, w, fs - 2, fc3.lightened(0.3))
+			draw_string(font, tl0 + Vector2(0, fs * 3 + 12), "%d planet%s · %d station%s" % [bi[0], "" if bi[0] == 1 else "s", (bi[1] as Array).size(), "" if (bi[1] as Array).size() == 1 else "s"], HORIZONTAL_ALIGNMENT_LEFT, w, fs - 1, Color(0.9, 0.95, 1.0))
+			var ly := tl0.y + fs * 4 + 16.0
+			for sn: Array in bi[1]:
+				if ly > p.y + cell.y * 0.5 - 6.0: break
+				draw_string(font, Vector2(tl0.x, ly), ("* " if sn[1] else "· ") + str(sn[0]), HORIZONTAL_ALIGNMENT_LEFT, w, fs - 2, Color(1.0, 0.72, 0.3) if sn[1] else Color(0.72, 0.8, 0.9))
+				ly += fs + 2.0
+			draw_circle(p + Vector2(cell.x * 0.5 - 12.0, -cell.y * 0.5 + 12.0), 5.0, fc3)
+		elif st2 == "seen":
 			var fc2: Color = SystemBuilder.FACTIONS[s["faction"]][3]
 			draw_circle(p, 9.0, fc2)
 			draw_arc(p, 9.0, 0, TAU, 24, Color.WHITE, 1.5, true)
@@ -250,7 +305,7 @@ func _draw_flat(S: Vector2) -> void:
 	var known := 0
 	for id2 in state:
 		if state[id2] == "seen": known += 1
-	draw_string(font, Vector2(24, 64), "%d of %d systems charted  ·  tap a system" % [known, state.size()], HORIZONTAL_ALIGNMENT_LEFT, -1, Data.ts(15), Color(0.7, 0.85, 1.0))
+	draw_string(font, Vector2(24, 64), "%d of %d systems charted  ·  tap a system  ·  + to read the boxes" % [known, state.size()], HORIZONTAL_ALIGNMENT_LEFT, -1, Data.ts(15), Color(0.7, 0.85, 1.0))
 	var ky := S.y - 16.0
 	var kx := org.x
 	for kd in [["jump_gate", "Jump gate"], ["warp_gate", "Warp gate"], ["rift_gate", "Rift gate"]]:
@@ -259,7 +314,7 @@ func _draw_flat(S: Vector2) -> void:
 		draw_string(font, Vector2(kx + 42, ky), kd[1], HORIZONTAL_ALIGNMENT_LEFT, -1, Data.ts(14), Color(0.85, 0.92, 1.0))
 		kx += 150.0
 	draw_arc(Vector2(kx + 8, ky - 5), 7.0, 0, TAU, 16, Color(0.7, 0.8, 0.9, 0.7), 1.5)
-	draw_string(font, Vector2(kx + 22, ky), "? = not charted yet", HORIZONTAL_ALIGNMENT_LEFT, -1, Data.ts(14), Color(0.85, 0.92, 1.0))
+	draw_string(font, Vector2(kx + 22, ky), "? = not charted yet   * = 3D station", HORIZONTAL_ALIGNMENT_LEFT, -1, Data.ts(14), Color(0.85, 0.92, 1.0))
 
 ## The network drawing, shared with the title screen. hits (optional) receives screen positions of systems.
 static func draw_network(ci: CanvasItem, S: Vector2, yaw: float, pitch: float, t: float, viewer: Vector3, current := "", selected := "", hits = null, labels := true, focus := "", focus_k := 1.0, back: Texture2D = null) -> void:
@@ -399,6 +454,14 @@ func _info(S: Vector2) -> void:
 	var status := "FLYABLE" if s["playable"] else ("SURVEYED — no route yet" if s["discovered"] else "UNCHARTED")
 	_text(r.position + Vector2(16, 124), status, 14, DEEP if s["playable"] else MID)
 	var eb := Rect2(r.position + Vector2(16, 140), Vector2(140, 44))
+	if flat:   # v1.9e: the station names (your 3D stations starred)
+		var bi2 := box_info(selected)
+		var r2 := Rect2(r.position + Vector2(0, r.size.y + 8), Vector2(r.size.x, 14 + 22 * (bi2[1] as Array).size()))
+		draw_style_box(sb, r2)
+		var yy := r2.position.y + 26.0
+		for sn2: Array in bi2[1]:
+			_text(Vector2(r2.position.x + 16, yy), ("* " if sn2[1] else "· ") + str(sn2[0]), 14, DEEP if sn2[1] else NAVY)
+			yy += 22.0
 	_btns["expand"] = eb
 	_button(eb, "EXPAND")
 

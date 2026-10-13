@@ -27,7 +27,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v1.9d"
+const VERSION := "v1.9e"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -830,6 +830,9 @@ const MISSILE_RETARGET := 900.0
 const MISSILE_ALERT := 700.0
 # galaxy map (flat, fog of war)
 const MAP_FOG := Color(0.02, 0.03, 0.06)
+const MAP_ZOOM_STEP := 1.6       # v1.9e: each + / - on the galaxy chart zooms this much ...
+const MAP_ZOOM_MAX := 5.0        # ... up to this
+const MAP_BOX_DETAIL := 110.0    # px: a charted tile at least this wide shows its box (counts, station names)
 
 # ---------------------------------------------------------------- Job S (v1.4p): GPS-style navigation map and radar
 const NAV_ORIENT_DEFAULT := "north"     # "north" (north-up, never rotates) | "heading" (the map turns round the ship)
@@ -913,12 +916,15 @@ const SHIP_ORDER := ["cadet", "ranger", "hauler", "elyza", "lancer", "bulk_empty
 
 # ---------------------------------------------------------------- weapons (per gun)
 const WEAPONS := {
-	"pulse1": {"name": "Pulse Laser Mk I", "price": 0, "damage": 8.0, "rate": 4.0, "speed": 420.0, "range": 520.0, "color": Color(0.45, 0.9, 1.0)},
-	"pulse2": {"name": "Pulse Laser Mk II", "price": 600, "damage": 12.0, "rate": 4.5, "speed": 440.0, "range": 540.0, "color": Color(0.5, 1.0, 0.8)},
-	"ion": {"name": "Ion Repeater", "price": 1200, "damage": 9.0, "rate": 7.5, "speed": 470.0, "range": 480.0, "color": Color(0.7, 0.6, 1.0)},
-	"plasma": {"name": "Plasma Driver", "price": 2600, "damage": 26.0, "rate": 2.4, "speed": 340.0, "range": 560.0, "color": Color(1.0, 0.6, 0.25)},
+	"pulse1": {"name": "Pulse Laser Mk I", "short": "Pulse I", "price": 0, "damage": 8.0, "rate": 4.0, "speed": 420.0, "range": 520.0, "color": Color(0.45, 0.9, 1.0)},
+	"pulse2": {"name": "Pulse Laser Mk II", "short": "Pulse II", "price": 600, "damage": 12.0, "rate": 4.5, "speed": 440.0, "range": 540.0, "color": Color(0.5, 1.0, 0.8)},
+	"ion": {"name": "Ion Repeater", "short": "Ion", "price": 1200, "damage": 9.0, "rate": 7.5, "speed": 470.0, "range": 480.0, "color": Color(0.7, 0.6, 1.0)},
+	"plasma": {"name": "Plasma Driver", "short": "Plasma", "price": 2600, "damage": 26.0, "rate": 2.4, "speed": 340.0, "range": 560.0, "color": Color(1.0, 0.6, 0.25)},
 }
 const WEAPON_ORDER := ["pulse1", "pulse2", "ion", "plasma"]
+# v1.9e (owner: "equip a weapon on the wing, like a blaster, as well as missiles"): each hardpoint carries a gun or a
+# missile pod. A pod on a mount carries more light missiles and adds locks (so a bigger volley). PROVISIONAL numbers.
+const MOUNT_PODS := {"missile_pod": {"name": "Missile Pod", "short": "Pod", "price": 900, "ammo": 6, "locks": 2, "desc": "A wing pod: +6 light missiles carried and +2 locks per volley."}}
 const MISSILE_PRICE := 10
 const MISSILE_DAMAGE := 45.0 # light missile minimum; it does LIGHT_MISSILE_HULL_FRAC of the target's hull when bigger
 const LIGHT_MISSILE_HULL_FRAC := 0.3

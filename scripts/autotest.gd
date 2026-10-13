@@ -981,6 +981,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_V19E") != "":   # the v1.9e galaxy chart boxes and wing loadout checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_v19e()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_ST3D") != "":   # the v1.9d Station3D-Retopo checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1692,6 +1700,7 @@ func _run() -> void:
 	await _job_ay()
 	await _job_v19b()
 	await _job_v19d()
+	await _job_v19e()
 	await _blocks()
 	await _regions()
 	await _galaxy()
@@ -6622,6 +6631,81 @@ func _job_ax() -> void:
 ## you were on good terms with showed up as a peaceful (gold) ship you couldn't lock.
 ## v1.9b (owner): every planet has a docking ring on a little floating platform: dock there and take that planet's
 ## jobs. The main planet's docking gate sits on a deck; each of the other planets gets a dockable platform.
+## v1.9e (owner): the galaxy chart in the game reads like his map document (each charted system's box: counts and
+## station names, gates coloured by kind) under fog of war; and each wing mount takes its own gun or a missile pod.
+func _job_v19e() -> void:
+	var shell := FileAccess.get_file_as_string("res://web_shell.html")
+	_check("v1.9e: version label reads \"Homelancer Digital v1.9e\" or later", Data.VERSION >= "v1.9e" and (shell == "" or shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0), Data.VERSION)
+	var S: Vector2 = main.get_viewport().get_visible_rect().size
+	# 1. the chart: zoom in and the charted systems show their boxes; the rest stay fog / unknown contacts
+	var gm = main.galaxymap
+	var disc0: Array = GS.discovered.duplicate()
+	GS.discovered = ["solara", "veranthos", "aurelion", "vega"]
+	gm.open("veranthos")
+	await _wait(0.3)
+	var far_boxes: int = gm.boxes
+	for k in 3: gm.press("zoom_in")
+	var vp: Vector2 = gm.flat_pos(S, 5, 3)   # Veranthos (F4) to the middle of the chart
+	gm.fpan = gm._clamp_pan(gm.fpan + Vector2((378.0 + S.x) * 0.5, (96.0 + S.y) * 0.5) - vp)
+	await _wait(0.3)
+	var near_boxes: int = gm.boxes
+	main.hud.visible = false
+	await _shot("v19e_galaxy_chart_boxes", 0.3)
+	var bi: Array = gm.box_info("veranthos")
+	var fogged := true
+	for tl in GalaxyData.TILES:
+		if gm.fog_state(tl[0]) == "fog" and gm._hits.has(tl[0]): fogged = false
+	gm.press("zoom_out")
+	gm.press("close")
+	GS.discovered = disc0
+	main.hud.visible = true
+	_check("v1.9e (owner): the galaxy chart in the game zooms in to show each charted system's box (planets, stations, station names, * for a 3D station; gates in green / blue / purple), and fog of war hides the rest",
+		far_boxes == 0 and near_boxes >= 1 and near_boxes <= 4 and (bi[1] as Array).size() == 1 + (Data.SYSTEMS["veranthos"]["more_stations"] as Array).size() and (bi[1] as Array).filter(func(x): return x[1]).size() == 2 and fogged,
+		"boxes far %d near %d, Veranthos %s" % [far_boxes, near_boxes, str(bi)])
+	# 2. the wing loadout: buy a missile pod, fit it on the left wing, keep a blaster on the right
+	var keep := {}
+	for k2 in ["credits", "ship_id", "weapon_id", "owned_weapons", "mounts", "missiles", "owned_ships"]: keep[k2] = GS.get(k2) if not (GS.get(k2) is Array) else (GS.get(k2) as Array).duplicate()
+	GS.ship_id = "ranger"
+	if not ("ranger" in GS.owned_ships): GS.owned_ships.append("ranger")
+	GS.credits = 20000
+	GS.mounts = []
+	var base_missiles: int = GS.max_missiles()
+	var base_locks: int = GS.max_locks("light_missile")
+	var bought: String = GS.buy_weapon("ion")
+	var pod_msg: String = GS.buy_pod("missile_pod")
+	var fit_msg: String = GS.fit_mount(0, "missile_pod")
+	var fit2: String = GS.fit_mount(2, "pulse1")
+	var items: Array = GS.mount_items()
+	var names: Array = GS.mount_names()
+	var more_missiles: bool = GS.max_missiles() == base_missiles + int(Data.MOUNT_PODS["missile_pod"]["ammo"])
+	var more_locks: bool = GS.max_locks("light_missile") == base_locks + int(Data.MOUNT_PODS["missile_pod"]["locks"])
+	var all_pods: String = GS.fit_mount(1, "missile_pod")
+	GS.fit_mount(2, "missile_pod")
+	var kept_gun: bool = GS.mount_items().any(func(x): return Data.WEAPONS.has(x))
+	GS.fit_mount(1, "ion")
+	GS.fit_mount(2, "pulse1")
+	# fire once: one bolt per gun mount (the pod fires missiles, not bolts)
+	var s := _sp()
+	s.set_player_model()
+	var b0: int = s.bolts.size()
+	s.mount_next.clear()
+	s._fire_guns()
+	var shot: int = s.bolts.size() - b0
+	# the page: a row per mount with the fit buttons
+	main.dock(s.station)
+	await _until(func(): return main.state == "hub", 8.0)
+	main.hub.show_screen("equipment")
+	await _frames(3)
+	var page_ok: bool = main.hub.find_child("Mount_0", true, false) != null and main.hub.find_child("Fit_0_missile_pod", true, false) != null and main.hub.find_child("Buy_missile_pod", true, false) != null
+	await _shot("v19e_loadout_page", 0.3)
+	main.launch()
+	await _until(func(): return main.state == "flight", 8.0)
+	_check("v1.9e (owner): each mount carries its own weapon: a missile pod on the left wing (+missiles, +locks), an Ion Repeater and a Pulse Laser on the others; the guns fire one bolt per gun mount; at least one gun always stays fitted; WEAPONS & GEAR shows a row per mount",
+		names == ["Left wing", "Nose", "Right wing"] and items == ["missile_pod", "ion", "pulse1"] and more_missiles and more_locks and kept_gun and shot == 2 and page_ok,
+		"items %s (%s / %s / %s) shot %d page %s" % [items, bought, pod_msg, fit_msg, shot, page_ok])
+	for k3 in keep: GS.set(k3, keep[k3])
+	_sp().set_player_model()
+
 ## v1.9d Station3D-Retopo v1 (owner): his 3D stations, each one connected station in three levels of detail, placed in
 ## the systems named in their files: Aurelion and Veranthos at their station slots (the other stations there are
 ## dockable now), the neutral ones as their system's station, the Living Asteroid Base in Savagers space, and the two

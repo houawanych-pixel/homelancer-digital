@@ -172,14 +172,14 @@ func show_screen(s: String) -> void:
 	screen = s
 	_refresh_credits()
 	var sysname: String = Data.SYSTEMS[GS.system_id]["name"]
-	header.text = base["name"].to_upper() if s == "hub" else {"equipment": "EQUIPMENT DEALER", "ships": "SHIP DEALER", "repair": "REPAIR & RESUPPLY", "bounty": "MISSION BOARD", "missions": "MISSION BOARD", "board": "MISSION BOARD", "ship": "YOUR SHIP", "faction": "FACTION", "surface": "PLANET DESTINATIONS"}[s]
+	header.text = base["name"].to_upper() if s == "hub" else {"equipment": "WEAPONS & EQUIPMENT DEALER", "ships": "SHIP DEALER", "repair": "REPAIR & RESUPPLY", "bounty": "MISSION BOARD", "missions": "MISSION BOARD", "board": "MISSION BOARD", "ship": "YOUR SHIP", "faction": "FACTION", "surface": "PLANET DESTINATIONS"}[s]
 	subheader.text = "%s  ·  %s SYSTEM  ·  %s" % ["ORBITAL STATION" if kind == "station" else "PLANET SURFACE", sysname.to_upper(), base["name"]]
 	for box in [left, content]:   # take the old page out at once, so the new buttons keep their own names
 		for c in box.get_children():
 			box.remove_child(c)
 			c.queue_free()
 	preview_vp = null
-	var menu := [["hub", "HUB"], ["equipment", "EQUIPMENT"], ["ships", "SHIP DEALER"], ["repair", "REPAIR / RESUPPLY"], ["board", "MISSION BOARD"], ["ship", "YOUR SHIP"], ["faction", "FACTION"], ["map", "NAVIGATION"]]   # (v1.5k: LAUNCH is its own always-visible button)
+	var menu := [["hub", "HUB"], ["equipment", "WEAPONS & GEAR"], ["ships", "SHIP DEALER"], ["repair", "REPAIR / RESUPPLY"], ["board", "MISSION BOARD"], ["ship", "YOUR SHIP"], ["faction", "FACTION"], ["map", "NAVIGATION"]]   # (v1.5k: LAUNCH is its own always-visible button)
 	if _surface_planet() != "": menu.insert(4, ["surface", "SURFACE TRAVEL"])
 	for m in menu:
 		var b := Button.new()
@@ -362,6 +362,34 @@ func _equipment_page() -> void:
 	var qcap := _label(15, Color(0.8, 0.88, 0.95))
 	qcap.text = "Missiles %d/%d  ·  Heavy %d/%d  ·  Mines %d/%d  ·  Hull %d/%d" % [GS.missiles, GS.max_missiles(), GS.heavy_missiles, GS.max_heavy(), GS.mines, GS.max_mines(), int(GS.hull), int(GS.max_hull())]
 	v.add_child(qcap)
+	var lcap := _label(16, CYAN)
+	lcap.name = "LoadoutCaption"
+	lcap.text = "LOADOUT  ·  what each mount carries. Tap a gun or a pod to fit it."
+	v.add_child(lcap)
+	var items: Array = GS.mount_items()
+	var names: Array = GS.mount_names()
+	var fit_opts: Array = Data.WEAPON_ORDER.filter(func(x): return x in GS.owned_weapons) + Data.MOUNT_PODS.keys().filter(func(x): return x in GS.owned_weapons)
+	for mi in items.size():
+		var mrow := HFlowContainer.new()   # (the buttons wrap: the page never grows wider than the screen)
+		mrow.name = "Mount_%d" % mi
+		mrow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		mrow.add_theme_constant_override("h_separation", 8)
+		mrow.add_theme_constant_override("v_separation", 6)
+		var mlab := _label(17, GOLD)
+		mlab.text = "%s:" % str(names[mi]).to_upper()
+		mlab.custom_minimum_size = Vector2(150, 50)
+		mrow.add_child(mlab)
+		for opt in fit_opts:
+			var ob := Button.new()
+			ob.name = "Fit_%d_%s" % [mi, opt]
+			ob.custom_minimum_size = Vector2(170, 50)
+			var onm: String = str((Data.WEAPONS[opt] if Data.WEAPONS.has(opt) else Data.MOUNT_PODS[opt]).get("short", opt))
+			ob.text = ("[%s]" % onm) if items[mi] == opt else onm
+			ob.disabled = items[mi] == opt
+			ob.clip_text = true
+			ob.pressed.connect(func(): status.text = GS.fit_mount(mi, opt); show_screen("equipment"))
+			mrow.add_child(ob)
+		v.add_child(mrow)
 	var cap := _label(16, CYAN)
 	cap.text = "GUNS  ·  your %s carries %d hardpoints. Damage shown per shot." % [GS.ship()["name"], GS.ship()["guns"]]
 	v.add_child(cap)
@@ -382,6 +410,23 @@ func _equipment_page() -> void:
 		b.pressed.connect(func(): status.text = GS.buy_weapon(id); show_screen("equipment"))
 		row.add_child(b)
 		v.add_child(row)
+	# v1.9e (owner): the missile pod, and what each mount carries (tap a gun or the pod to fit it on that mount)
+	for pid in Data.MOUNT_PODS:
+		var pd: Dictionary = Data.MOUNT_PODS[pid]
+		var prow := HBoxContainer.new()
+		prow.add_theme_constant_override("separation", 14)
+		var pl := _label(18, Color(1, 1, 1))
+		pl.text = "%s   ·   +%d missiles   ·   +%d locks   ·   fits a wing mount" % [pd["name"], int(pd["ammo"]), int(pd["locks"])]
+		pl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		prow.add_child(pl)
+		var pb := Button.new()
+		pb.name = "Buy_" + pid
+		pb.custom_minimum_size = Vector2(230, 54)
+		if pid in GS.owned_weapons: pb.text = "OWNED"; pb.disabled = true
+		else: pb.text = "BUY  %d cr" % int(pd["price"]); pb.disabled = GS.credits < int(pd["price"])
+		pb.pressed.connect(func(): status.text = GS.buy_pod(pid); show_screen("equipment"))
+		prow.add_child(pb)
+		v.add_child(prow)
 	var sep := HSeparator.new()
 	v.add_child(sep)
 	var row2 := HBoxContainer.new()
@@ -456,6 +501,15 @@ func _equipment_page() -> void:
 		b3.pressed.connect(func(): status.text = GS.buy_mines(n); show_screen("equipment"))
 		row3.add_child(b3)
 	v.add_child(row3)
+	_wrap_rows(v)   # v1.9e
+
+## v1.9e: long shop lines wrap instead of pushing the page (and its buttons) off the right of the screen.
+func _wrap_rows(root: Node) -> void:
+	for l in root.find_children("*", "Label", true, false):
+		var lb := l as Label
+		if lb.size_flags_horizontal & Control.SIZE_EXPAND:
+			lb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			lb.custom_minimum_size.x = maxf(lb.custom_minimum_size.x, 160.0)
 
 func _ships_page() -> void:
 	var h := HBoxContainer.new()

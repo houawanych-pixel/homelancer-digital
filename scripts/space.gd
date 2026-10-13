@@ -91,6 +91,7 @@ const TAUNTS := ["Give up, cadet. Power down and we might let you drift home.",
 	"Turn around now and nobody has to hear about this.",
 	"Your escort isn't coming. It's just you and us."]
 var gun_cd := 0.0
+var mount_next := {}   # v1.9e: mount index -> time it can fire again
 var shield_delay := 0.0
 var hit_shake := 0.0
 var autopilot: Node3D = null # fly toward this node when set
@@ -2294,7 +2295,7 @@ func _update_player(dt: float) -> void:
 	if controls and warp_state == "off" and transform_t <= 0.0:
 		var want := fire_held or fire_lock
 		if GS.is_auto("guns") and _in_fire_cone(target): want = true
-		var cost := Data.ENERGY_PER_GUN * float(GS.ship()["guns"])
+		var cost := Data.ENERGY_PER_GUN * float(GS.ship()["guns"] - GS.pods_fitted())   # (v1.9e: pods use no gun energy)
 		if want and gun_cd <= 0.0 and GS.energy >= cost:
 			GS.energy -= cost
 			_fire_guns()
@@ -2440,13 +2441,25 @@ func _fire_guns() -> void:
 			Sfx.play("laser", -9.0)
 			_laser_sfx_cd = 0.07
 		return
-	for g in guns:
+	# v1.9e (owner): each mount fires its own gun at its own rate; a mount with a missile pod does not fire bolts
+	var items: Array = GS.mount_items()
+	var next_cd := 10.0
+	for g in items.size():
+		if not Data.WEAPONS.has(items[g]): continue
+		var wg: Dictionary = Data.WEAPONS[items[g]]
+		var ready_at: float = float(mount_next.get(g, 0.0))
+		if time + 0.001 < ready_at:
+			next_cd = minf(next_cd, ready_at - time)
+			continue
+		mount_next[g] = time + 1.0 / float(wg["rate"])
+		next_cd = minf(next_cd, 1.0 / float(wg["rate"]))
 		var off := (g - (guns - 1) / 2.0) * 2.4
 		if off < -0.1 and GS.wing_l <= 0.0: continue   # left wing gone: its guns are gone
 		if off > 0.1 and GS.wing_r <= 0.0: continue
 		var from := player.global_position + player.global_basis.x * off + fwd * 5.0
-		_spawn_bolt(from, aim_dir * float(w["speed"]) + vel, float(w["damage"]), w["color"], "player", float(w["range"]) / float(w["speed"]))
-		_spark(from + fwd * 1.5, (w["color"] as Color).lightened(0.4), 3.2, 0.09)
+		_spawn_bolt(from, aim_dir * float(wg["speed"]) + vel, float(wg["damage"]), wg["color"], "player", float(wg["range"]) / float(wg["speed"]))
+		_spark(from + fwd * 1.5, (wg["color"] as Color).lightened(0.4), 3.2, 0.09)
+	gun_cd = clampf(next_cd, 0.02, 1.0)
 	if _laser_sfx_cd <= 0.0:
 		Sfx.play("laser", -9.0)
 		_laser_sfx_cd = 0.07
