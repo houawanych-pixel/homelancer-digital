@@ -114,11 +114,23 @@ func mount_items() -> Array:
 		if mounts.size() == 4: it = str(mounts[i])
 		else: it = weapon_id if order.find(i) < g else "empty"
 		if it != "empty" and (not (Data.WEAPONS.has(it) or Data.MOUNT_PODS.has(it)) or not (it in owned_weapons)): it = weapon_id
+		if i % 2 == 1 and is_heavy(it): it = "empty"   # v1.9h: heavy mounts sit on the shoulders only
 		out.append(it)
 	return out
 
 func pods_fitted() -> int:
 	return mount_items().filter(func(it): return Data.MOUNT_PODS.has(it)).size()
+
+## v1.9h: a heavy gun or pod (shoulder mounts only).
+func is_heavy(it: String) -> bool:
+	return bool(Data.WEAPONS.get(it, Data.MOUNT_PODS.get(it, {})).get("heavy", false))
+
+## v1.9h: what all fitted pods add together ("ammo" or "locks").
+func pod_sum(key: String) -> int:
+	var n := 0
+	for it in mount_items():
+		if Data.MOUNT_PODS.has(it): n += int(Data.MOUNT_PODS[it][key])
+	return n
 
 ## Put an owned gun or pod on one mount.
 func fit_mount(i: int, item: String) -> String:
@@ -126,6 +138,7 @@ func fit_mount(i: int, item: String) -> String:
 	if i < 0 or i >= items.size(): return "No such mount."
 	if item != "empty" and not (item in owned_weapons): return "Buy it first."
 	if items[i] == item: return "Already fitted."
+	if i % 2 == 1 and is_heavy(item): return "Heavy mounts go on a shoulder (top, near the core)."
 	items[i] = item
 	if not items.any(func(x): return Data.WEAPONS.has(x)): return "Keep at least one gun fitted."
 	mounts = items
@@ -151,7 +164,7 @@ func buy_pod(id: String) -> String:
 func max_hull() -> float: return float(ship()["hull"])
 func wing_max() -> float: return max_hull() * Data.SECTION_SHARE
 func max_shield() -> float: return float(ship()["shield"])
-func max_missiles() -> int: return int(ship()["missiles"]) + pods_fitted() * int(Data.MOUNT_PODS["missile_pod"]["ammo"])   # v1.9e: pods carry more
+func max_missiles() -> int: return int(ship()["missiles"]) + pod_sum("ammo")   # v1.9e: pods carry more (v1.9h: each pod its own)
 func max_mines() -> int: return int(ship()["mines"])
 func max_heavy() -> int: return int(ship().get("heavy", 2))
 func is_auto(id: String) -> bool: return modes.get(id, "auto") == "auto"
@@ -331,19 +344,26 @@ func add_credits(n: int) -> void:
 	credits += n
 	changed.emit()
 
+## v1.9h: a gun bought or equipped goes on every gun mount it can sit on (a heavy one on the shoulders only).
+func _gun_everywhere(id: String) -> Array:
+	var items := mount_items()
+	for i in items.size():
+		if Data.WEAPONS.has(items[i]) and not (i % 2 == 1 and is_heavy(id)): items[i] = id
+	return items
+
 func buy_weapon(id: String) -> String:
 	var w: Dictionary = Data.WEAPONS[id]
 	if id == weapon_id: return "Already equipped."
 	if id in owned_weapons:
 		weapon_id = id
-		mounts = mount_items().map(func(it): return id if Data.WEAPONS.has(it) else it)   # v1.9e
+		mounts = _gun_everywhere(id)   # v1.9e
 		changed.emit()
 		return "Equipped %s." % w["name"]
 	if credits < int(w["price"]): return "Not enough credits (%d needed)." % int(w["price"])
 	credits -= int(w["price"])
 	owned_weapons.append(id)
 	weapon_id = id
-	mounts = mount_items().map(func(it): return id if Data.WEAPONS.has(it) else it)   # v1.9e: on every gun mount; fit mounts one by one below
+	mounts = _gun_everywhere(id)   # v1.9e: on every gun mount; fit mounts one by one below
 	changed.emit()
 	return "Bought and equipped %s." % w["name"]
 
@@ -397,7 +417,7 @@ func buy_rack(id: String) -> String:
 ## Most locks a slot item can hold on one target.
 func max_locks(item: String) -> int:
 	if item == "heavy_missile": return Data.HEAVY_LOCKS
-	return int(Data.MISSILE_RACKS.get(rack, Data.MISSILE_RACKS["triple"])["locks"]) + pods_fitted() * int(Data.MOUNT_PODS["missile_pod"]["locks"])   # v1.9e: each pod adds locks
+	return int(Data.MISSILE_RACKS.get(rack, Data.MISSILE_RACKS["triple"])["locks"]) + pod_sum("locks")   # v1.9e: each pod adds locks (v1.9h: its own)
 
 func buy_mines(n: int) -> String:
 	var room := max_mines() - mines

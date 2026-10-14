@@ -380,6 +380,7 @@ func _equipment_page() -> void:
 		mlab.custom_minimum_size = Vector2(215, 50)
 		mrow.add_child(mlab)
 		for opt in fit_opts:
+			if mi % 2 == 1 and GS.is_heavy(opt): continue   # v1.9h: heavy = shoulders only
 			var ob := Button.new()
 			ob.name = "Fit_%d_%s" % [mi, opt]
 			ob.custom_minimum_size = Vector2(142, 50)
@@ -399,6 +400,7 @@ func _equipment_page() -> void:
 		row.add_theme_constant_override("separation", 14)
 		var l := _label(18, Color(1, 1, 1) if id != GS.weapon_id else GOLD)
 		l.text = "%s   ·   dmg %d   ·   %.1f/s   ·   range %dm" % [w["name"], w["damage"], w["rate"], w["range"]]
+		if w.get("heavy", false): l.text += "   ·   HEAVY (shoulders)"
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(l)
 		var b := Button.new()
@@ -416,7 +418,7 @@ func _equipment_page() -> void:
 		var prow := HBoxContainer.new()
 		prow.add_theme_constant_override("separation", 14)
 		var pl := _label(18, Color(1, 1, 1))
-		pl.text = "%s   ·   +%d missiles   ·   +%d locks   ·   fits a wing mount" % [pd["name"], int(pd["ammo"]), int(pd["locks"])]
+		pl.text = "%s   ·   +%d missiles   ·   +%d locks   ·   %s" % [pd["name"], int(pd["ammo"]), int(pd["locks"]), "HEAVY (shoulders)" if pd.get("heavy", false) else "fits a wing mount"]
 		pl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		prow.add_child(pl)
 		var pb := Button.new()

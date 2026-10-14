@@ -987,6 +987,7 @@ func _run() -> void:
 		await _wait(1.0)
 		await _job_v19e()
 		await _job_v19g()
+		await _job_v19h()
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
@@ -1703,6 +1704,7 @@ func _run() -> void:
 	await _job_v19d()
 	await _job_v19e()
 	await _job_v19g()
+	await _job_v19h()
 	await _blocks()
 	await _regions()
 	await _galaxy()
@@ -6684,7 +6686,59 @@ func _job_v19g() -> void:
 	main.hud.visible = true
 	s.process_mode = Node.PROCESS_MODE_INHERIT
 	_check("v1.9g (owner's gun models): every gun and the missile pod wear his models, and the wings show the loadout: Crystal-Bone Rifles on both shoulders (on top, near the core), the pod and an Ion gatling under the wing tips",
-		models_ok and holder != null and shown.size() == 4 and placed and Data.WEAPON_ORDER.size() == 7, "models %s shown %s placed %s" % [models_ok, shown, placed])
+		models_ok and holder != null and shown.size() == 4 and placed and Data.WEAPON_ORDER.size() >= 7, "models %s shown %s placed %s" % [models_ok, shown, placed])
+	for k3 in keep: GS.set(k3, keep[k3])
+	s.set_player_model()
+
+## v1.9h (owner's rail guns and heavy mounts): every new gun and pod wears his model; heavy ones fit the shoulders only;
+## each pod adds its own missiles; the wing shows two heavy mounts on the shoulders and light ones under the tips.
+func _job_v19h() -> void:
+	var s := _sp()
+	var models_ok := true
+	for id in Data.WEAPON_ORDER:
+		if not ShipFactory.has_real_model(str(Data.WEAPONS[id].get("model", ""))): models_ok = false
+	for id in Data.MOUNT_PODS:
+		if not ShipFactory.has_real_model(str(Data.MOUNT_PODS[id].get("model", ""))): models_ok = false
+	var keep := {}
+	for k2 in ["credits", "ship_id", "weapon_id", "owned_weapons", "mounts", "missiles", "owned_ships"]: keep[k2] = GS.get(k2) if not (GS.get(k2) is Array) else (GS.get(k2) as Array).duplicate()
+	GS.credits = 90000
+	GS.ship_id = "ranger"
+	if not ("ranger" in GS.owned_ships): GS.owned_ships.append("ranger")
+	GS.mounts = []
+	GS.buy_weapon("rail_lance")
+	GS.buy_weapon("hv_rail")   # a heavy gun bought goes on the shoulders, never under a tip
+	var heavy_off_tips: bool = not GS.mount_items()[1] == "hv_rail" and not GS.mount_items()[3] == "hv_rail"
+	for p in ["rocket_rack", "hv_quad"]: GS.buy_pod(p)
+	var tip_refused: bool = GS.fit_mount(1, "hv_quad").begins_with("Heavy")
+	var base: int = int(GS.ship()["missiles"])
+	GS.fit_mount(0, "hv_quad")
+	GS.fit_mount(1, "rocket_rack")
+	GS.fit_mount(2, "hv_rail")
+	GS.fit_mount(3, "rail_lance")
+	var items: Array = GS.mount_items()
+	var sums_ok: bool = GS.max_missiles() == base + int(Data.MOUNT_PODS["hv_quad"]["ammo"]) + int(Data.MOUNT_PODS["rocket_rack"]["ammo"])
+	await Packs.wait("wing_guns", 30.0)
+	s.set_player_model()
+	await _frames(2)
+	var holder: Node3D = s.model.get_node_or_null("WingMounts")
+	var shown: int = holder.get_child_count() if holder != null else 0
+	s.process_mode = Node.PROCESS_MODE_DISABLED
+	main.hud.visible = false
+	var pb: Basis = s.player.global_basis
+	var hw: float = s._ship_half_width()
+	var vc: Camera3D = main.get_viewport().get_camera_3d()
+	if vc != null:
+		var nr := vc.near
+		vc.near = 0.05
+		vc.global_position = s.player.global_position - pb.z * hw * 2.2 - pb.x * hw * 1.2 + pb.y * hw * 0.8
+		vc.look_at(s.player.global_position, pb.y)
+		await _shot("v19h_heavy_mounts", 0.2)
+		vc.near = nr
+	main.hud.visible = true
+	s.process_mode = Node.PROCESS_MODE_INHERIT
+	_check("v1.9h (owner's rail guns and heavy mounts): all %d guns and %d pods wear his models; a heavy mount is refused under a wing tip and a bought heavy gun stays on the shoulders; each pod adds its own missiles; the wing shows all 4" % [Data.WEAPON_ORDER.size(), Data.MOUNT_PODS.size()],
+		models_ok and heavy_off_tips and tip_refused and items == ["hv_quad", "rocket_rack", "hv_rail", "rail_lance"] and sums_ok and shown == 4,
+		"models %s off_tips %s refused %s items %s sums %s (%d) shown %d" % [models_ok, heavy_off_tips, tip_refused, items, sums_ok, GS.max_missiles(), shown])
 	for k3 in keep: GS.set(k3, keep[k3])
 	s.set_player_model()
 

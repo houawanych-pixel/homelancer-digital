@@ -80,6 +80,18 @@ const GLB := {
 	"wpn_crystal_bone_rifle": ["res://assets/wing_guns/wpn_crystal_bone_rifle.glb", Data.WING_GUN_LEN, 0.0],   # v1.9g: the owner's wing guns (pack "wing_guns")
 	"wpn_mech_arm_cannon": ["res://assets/wing_guns/wpn_mech_arm_cannon.glb", Data.WING_GUN_LEN, 0.0],   # v1.9g: the owner's wing guns (pack "wing_guns")
 	"wpn_missile_pod": ["res://assets/wing_guns/wpn_missile_pod.glb", Data.WING_GUN_LEN, 0.0],   # v1.9g: the owner's wing guns (pack "wing_guns")
+	"wpn_rocket_rack": ["res://assets/wing_guns/wpn_rocket_rack.glb", Data.WING_GUN_LEN, 0.0],   # v1.9h: the owner's rail / heavy mounts
+	"wpn_rail_lance": ["res://assets/wing_guns/wpn_rail_lance.glb", Data.WING_GUN_LEN, 0.0],   # v1.9h: the owner's rail / heavy mounts
+	"wpn_rail_rifle": ["res://assets/wing_guns/wpn_rail_rifle.glb", Data.WING_GUN_LEN, 0.0],   # v1.9h: the owner's rail / heavy mounts
+	"wpn_rail_carbine": ["res://assets/wing_guns/wpn_rail_carbine.glb", Data.WING_GUN_LEN, 0.0],   # v1.9h: the owner's rail / heavy mounts
+	"wpn_twin_cannon": ["res://assets/wing_guns/wpn_twin_cannon.glb", Data.WING_GUN_LEN, 0.0],   # v1.9h: the owner's rail / heavy mounts
+	"wpn_charge_cannon": ["res://assets/wing_guns/wpn_charge_cannon.glb", Data.WING_GUN_LEN, 0.0],   # v1.9h: the owner's rail / heavy mounts
+	"wpn_hv_missile_turret": ["res://assets/wing_guns/wpn_hv_missile_turret.glb", Data.WING_GUN_LEN, 0.0],   # v1.9h: the owner's rail / heavy mounts
+	"wpn_hv_quad_launcher": ["res://assets/wing_guns/wpn_hv_quad_launcher.glb", Data.WING_GUN_LEN, 0.0],   # v1.9h: the owner's rail / heavy mounts
+	"wpn_hv_cannon_turret": ["res://assets/wing_guns/wpn_hv_cannon_turret.glb", Data.WING_GUN_LEN, 0.0],   # v1.9h: the owner's rail / heavy mounts
+	"wpn_hv_rocket_arm": ["res://assets/wing_guns/wpn_hv_rocket_arm.glb", Data.WING_GUN_LEN, 0.0],   # v1.9h: the owner's rail / heavy mounts
+	"wpn_hv_rail_launcher": ["res://assets/wing_guns/wpn_hv_rail_launcher.glb", Data.WING_GUN_LEN, 0.0],   # v1.9h: the owner's rail / heavy mounts
+	"wpn_hv_missile_box": ["res://assets/wing_guns/wpn_hv_missile_box.glb", Data.WING_GUN_LEN, 0.0],   # v1.9h: the owner's rail / heavy mounts
 	# mechs: rigged 3 m models scaled to small-ship size; yaw 180 so the mech faces -Z like the ships
 	"mech_tan": ["res://assets/mechs/tan_navy_mecha.glb", 11.0, 180.0],
 	"mech_player": ["res://assets/mechs/black_gold_mecha.glb", 9.5, 180.0],   # the player's ship <-> mech frame

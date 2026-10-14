@@ -1,0 +1,37 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://dwsq7dks47a20"
+path="res://.godot/imported/wpn_rail_carbine_0.jpg-8a8bfceb9594e5038a7197ac14d381db.ctex"
+metadata={
+"vram_texture": false
+}
+generator_parameters={
+"md5": "5e212ac7b116fc8edae4969e2f999183"
+}
+
+[deps]
+
+source_file="res://assets/wing_guns/wpn_rail_carbine_0.jpg"
+dest_files=["res://.godot/imported/wpn_rail_carbine_0.jpg-8a8bfceb9594e5038a7197ac14d381db.ctex"]
+
+[params]
+
+compress/mode=1
+compress/high_quality=false
+compress/lossy_quality=0.8
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=1

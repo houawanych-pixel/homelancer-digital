@@ -27,7 +27,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v1.9g"
+const VERSION := "v1.9h"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -923,9 +923,17 @@ const WEAPONS := {
 	"warden": {"name": "Warden Gun", "short": "Warden", "model": "wpn_warden_gun", "price": 3800, "damage": 18.0, "rate": 3.6, "speed": 460.0, "range": 560.0, "color": Color(1.0, 0.85, 0.45)},
 	"bone_rifle": {"name": "Crystal-Bone Rifle", "short": "Bone Rifle", "model": "wpn_crystal_bone_rifle", "price": 5200, "damage": 40.0, "rate": 1.6, "speed": 620.0, "range": 780.0, "color": Color(0.85, 0.95, 1.0)},
 	"arm_cannon": {"name": "Mech-Arm Cannon", "short": "Arm Cannon", "model": "wpn_mech_arm_cannon", "price": 7000, "damage": 34.0, "rate": 2.2, "speed": 400.0, "range": 600.0, "color": Color(0.6, 1.0, 0.4)},
+	# v1.9h: the owner's rail guns and heavy mounts (hl_wepmount, hl_hevwepm). "heavy" = shoulder mounts only. PROVISIONAL stats.
+	"rail_carbine": {"name": "Rail Carbine", "short": "Rail Carb", "model": "wpn_rail_carbine", "price": 2000, "damage": 16.0, "rate": 3.0, "speed": 700.0, "range": 650.0, "color": Color(0.6, 0.85, 1.0)},
+	"twin_cannon": {"name": "Twin Cannon", "short": "Twin Cannon", "model": "wpn_twin_cannon", "price": 3200, "damage": 14.0, "rate": 5.0, "speed": 420.0, "range": 520.0, "color": Color(1.0, 0.75, 0.4)},
+	"rail_rifle": {"name": "Rail Rifle", "short": "Rail Rifle", "model": "wpn_rail_rifle", "price": 4400, "damage": 30.0, "rate": 1.8, "speed": 760.0, "range": 760.0, "color": Color(0.55, 0.8, 1.0)},
+	"charge_cannon": {"name": "Charge Cannon", "short": "Charge Cnn", "model": "wpn_charge_cannon", "price": 4800, "damage": 38.0, "rate": 1.6, "speed": 380.0, "range": 580.0, "color": Color(1.0, 0.5, 0.3)},
+	"rail_lance": {"name": "Rail Lance", "short": "Rail Lance", "model": "wpn_rail_lance", "price": 6200, "damage": 52.0, "rate": 1.1, "speed": 820.0, "range": 840.0, "color": Color(0.7, 0.9, 1.0)},
+	"hv_cannon": {"name": "Heavy Cannon Turret", "short": "Hvy Cannon", "model": "wpn_hv_cannon_turret", "price": 9000, "damage": 60.0, "rate": 1.4, "speed": 420.0, "range": 640.0, "color": Color(1.0, 0.55, 0.2), "heavy": true, "share": 0.2},
+	"hv_rail": {"name": "Heavy Rail Launcher", "short": "Hvy Rail", "model": "wpn_hv_rail_launcher", "price": 11000, "damage": 90.0, "rate": 0.8, "speed": 900.0, "range": 900.0, "color": Color(0.6, 0.9, 1.0), "heavy": true, "share": 0.22},
 }
 # v1.9g: three more guns from the owner's models (stats PROVISIONAL: CombatEcon will put every gun in its tier table)
-const WEAPON_ORDER := ["pulse1", "pulse2", "ion", "plasma", "warden", "bone_rifle", "arm_cannon"]
+const WEAPON_ORDER := ["pulse1", "pulse2", "ion", "rail_carbine", "plasma", "twin_cannon", "warden", "rail_rifle", "charge_cannon", "bone_rifle", "rail_lance", "arm_cannon", "hv_cannon", "hv_rail"]
 const WING_GUN_LEN := 2.6        # v1.9g: m, the length the gun models are built at ...
 const WING_GUN_SHARE := 0.3      # ... then sized on the wing to this share of the ship's length ...
 const WING_POD_SHARE := 0.12     # ... and a missile pod to this
@@ -934,7 +942,15 @@ const WING_POD_SHARE := 0.12     # ... and a missile pod to this
 const MOUNT_SHOULDER_AT := 0.3   # v1.9e (owner): the shoulder mount sits this far out along the wing (share of half the span), on top ...
 const MOUNT_TIP_AT := 0.92       # ... the tip mount this far out, underneath ...
 const MOUNT_DROP := 0.5          # ... and this far (m) above / below the wing
-const MOUNT_PODS := {"missile_pod": {"name": "Missile Pod", "short": "Pod", "model": "wpn_missile_pod", "price": 900, "ammo": 6, "locks": 2, "desc": "A wing pod: +6 light missiles carried and +2 locks per volley."}}
+const MOUNT_PODS := {
+	"missile_pod": {"name": "Missile Pod", "short": "Pod", "model": "wpn_missile_pod", "price": 900, "ammo": 6, "locks": 2, "desc": "A wing pod: +6 light missiles carried and +2 locks per volley."},
+	# v1.9h: the owner's missile mounts (the rocket rack's loose caps put back on). "heavy" = shoulder mounts only. PROVISIONAL.
+	"rocket_rack": {"name": "Rocket Rack", "short": "Rack", "model": "wpn_rocket_rack", "price": 1500, "ammo": 9, "locks": 3},
+	"hv_missile_box": {"name": "Heavy Missile Box", "short": "Hvy Box", "model": "wpn_hv_missile_box", "price": 3000, "ammo": 12, "locks": 3, "heavy": true, "share": 0.16},
+	"hv_rocket_arm": {"name": "Heavy Rocket Arm", "short": "Hvy Arm", "model": "wpn_hv_rocket_arm", "price": 3600, "ammo": 12, "locks": 4, "heavy": true, "share": 0.17},
+	"hv_quad": {"name": "Quad Launcher Turret", "short": "Quad Turret", "model": "wpn_hv_quad_launcher", "price": 5200, "ammo": 16, "locks": 4, "heavy": true, "share": 0.18},
+	"hv_missile_turret": {"name": "Missile Turret", "short": "Msl Turret", "model": "wpn_hv_missile_turret", "price": 6000, "ammo": 16, "locks": 5, "heavy": true, "share": 0.18},
+}
 const MISSILE_PRICE := 10
 const MISSILE_DAMAGE := 45.0 # light missile minimum; it does LIGHT_MISSILE_HULL_FRAC of the target's hull when bigger
 const LIGHT_MISSILE_HULL_FRAC := 0.3

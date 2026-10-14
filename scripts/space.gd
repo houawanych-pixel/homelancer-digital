@@ -1615,7 +1615,7 @@ func mount_visuals() -> void:
 		var gun := ShipFactory.build(key)
 		gun.name = "Mount%d" % g
 		gun.position = Vector3(side * hw * (Data.MOUNT_TIP_AT if tip else Data.MOUNT_SHOULDER_AT), -Data.MOUNT_DROP if tip else Data.MOUNT_DROP, 0.0) / sc
-		var share: float = Data.WING_POD_SHARE if Data.MOUNT_PODS.has(it) else Data.WING_GUN_SHARE
+		var share: float = float(info.get("share", Data.WING_POD_SHARE if Data.MOUNT_PODS.has(it) else Data.WING_GUN_SHARE))   # (v1.9h: heavy mounts carry their own)
 		gun.scale = Vector3.ONE * (_ship_length() * share / Data.WING_GUN_LEN) / sc   # (sized by the ship)
 		if tip: gun.rotation_degrees.z = 180.0   # hung under the wing
 		gun.set_meta("mount", g)
