@@ -46,3 +46,11 @@ Checked but not in the repo (too large, source files stay in Drive):
 - Tan/navy mecha (`93bc4f97…glb`, unrigged, twin shoulder cannons, gun pod on right forearm): rigged as
   `tan_navy_mecha_rigged.glb` — 22-bone, `--mech`, 17,328 tris, 3 m, Idle + Walk. Head + antennas on Head; shoulder
   cannons on UpperChest; forearm gun pod rides the right forearm. Joints: `tan_navy_mecha_joints.json` (1 m units).
+- Blue/white mecha (owner's `hl_mecblu.glb`, three views in one file; only the left front view kept, with the part in
+  its hand): rigged as `mecblu_mecha_rigged.glb` — 22-bone, `--mech`, 41,420 tris, 3 m, Idle + Walk. Head + crest on
+  Head. Joints: `mecblu_mecha_joints.json` (1 m units). Not placed in the game yet.
+- White missile mecha (owner's `hl_acmec.glb`; front view kept, the two upright shoulder sticks cut off, the middle
+  copy with two backs dropped): `acmec_mecha_rigged.glb` — 22-bone, `--mech`, 27,749 tris. Shoulder missile packs
+  solid on UpperChest; head on Head; hip bits moved to the thighs, elbow rings to the forearms. Not placed yet.
+- Brown cockpit mecha (owner's `hl_mecbrn.glb`; left front view kept): `mecbrn_mecha_rigged.glb` — 22-bone, `--mech`,
+  33,904 tris. Shoulder boxes solid on UpperChest. Not placed yet.
