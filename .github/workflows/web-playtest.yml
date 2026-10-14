@@ -28,6 +28,8 @@ jobs:
           G=/tmp/godot/Godot_v4.3-stable_linux.x86_64
           $G --headless --path . --editor --import --quit
           $G --headless --path . -- --autotest --quit-after-test | tee route.log
+          grep "RESULT" route.log | sed 's/^/::notice::/' || true
+          grep "^\[route\]" route.log | grep -v "^\[route\] {" | grep ": FAIL" | cut -c1-900 | sed 's/^/::error::/' || true
           grep -qE "RESULT ([0-9]+)/\1 PASS" route.log
           mkdir -p build/web
           $G --headless --path . --export-release Web
