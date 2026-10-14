@@ -9,6 +9,8 @@ var owned_ships := ["cadet"]
 var weapon_id := "pulse1"
 var owned_weapons := ["pulse1"]
 var mounts: Array = []   # v1.9e: what each hardpoint carries (a gun from Data.WEAPONS or "missile_pod"); [] = every mount the weapon_id
+var owned_mechs := ["blackgold"]   # v1.9i: mech frames bought (each gives its arms, core and legs)
+var mech_parts := {"arms": "blackgold", "core": "blackgold", "legs": "blackgold"}   # v1.9i: the frame each part comes from
 var hull := 100.0
 var wing_l := 40.0 # left and right wing sections (own health; a destroyed wing takes its guns with it)
 var wing_r := 40.0
@@ -52,7 +54,7 @@ var god_mode := false # only used by the automated route test
 # ---------------------------------------------------------------- v1.7y saving
 const SAVE_KEYS := ["credits", "ship_id", "owned_ships", "weapon_id", "owned_weapons", "missiles", "heavy_missiles", "mines", "rack",
 	"owned_racks", "slots", "modes", "view", "system_id", "discovered", "last_base", "kills", "met", "mood", "memory", "heat_shield",
-	"bounty", "bounties_done", "mission", "cargo", "missions_done", "rep", "cast", "mine_kind", "block_deltas", "tutorial_seen", "bounty_jail", "mounts"]   # (v1.9e: + mounts)
+	"bounty", "bounties_done", "mission", "cargo", "missions_done", "rep", "cast", "mine_kind", "block_deltas", "tutorial_seen", "bounty_jail", "mounts", "owned_mechs", "mech_parts"]   # (v1.9e: + mounts; v1.9i: + owned_mechs, mech_parts)
 var save_path: String = Data.SAVE_PATH
 var save_enabled := true   # (the route test turns it off, so a test never reads or writes a player's save)
 var saves := 0             # (tests) saves written this session
@@ -87,6 +89,9 @@ func load_game() -> bool:
 	if not Data.SYSTEMS.has(system_id): system_id = "solara"
 	if not Data.SHIPS.has(ship_id): ship_id = "cadet"
 	if not Data.WEAPONS.has(weapon_id): weapon_id = "pulse1"
+	for p in ["arms", "core", "legs"]:   # v1.9i
+		if not Data.MECHS.has(str(mech_parts.get(p, ""))) or not (str(mech_parts.get(p, "")) in owned_mechs): mech_parts[p] = "blackgold"
+	if not ("blackgold" in owned_mechs): owned_mechs.append("blackgold")
 	changed.emit()
 	return true
 
@@ -432,6 +437,39 @@ func buy_mines(n: int) -> String:
 	mines += n
 	changed.emit()
 	return "Loaded %d mine%s for %d credits." % [n, "" if n == 1 else "s", cost]
+
+# ---------------------------------------------------------------- v1.9i (owner): mechs, three swappable parts
+## Buy a mech frame: you own its arms, core and legs, and your mech wears the whole frame.
+func buy_mech(id: String) -> String:
+	if not Data.MECHS.has(id): return "No such frame."
+	var f: Dictionary = Data.MECHS[id]
+	if not (id in owned_mechs):
+		if credits < int(f["price"]): return "Not enough credits (%d needed)." % int(f["price"])
+		credits -= int(f["price"])
+		owned_mechs.append(id)
+	mech_parts = {"arms": id, "core": id, "legs": id}
+	changed.emit()
+	return "%s: all three parts fitted." % f["name"]
+
+## Fit one part (arms / core / legs) from a frame you own. Arms are always a matched pair.
+func fit_mech_part(part: String, id: String) -> String:
+	if not (part in ["arms", "core", "legs"]) or not Data.MECHS.has(id): return "No such part."
+	if not (id in owned_mechs): return "Buy that frame first."
+	if mech_parts.get(part, "") == id: return "Already fitted."
+	mech_parts[part] = id
+	changed.emit()
+	return "%s %s fitted." % [Data.MECHS[id]["name"], str(Data.MECH_PART_NAMES[part]).to_lower()]
+
+## The model key each part comes from.
+func mech_keys() -> Dictionary:
+	var out := {}
+	for p in ["arms", "core", "legs"]: out[p] = str(Data.MECHS[str(mech_parts.get(p, "blackgold"))]["model"])
+	return out
+
+## Mech-form stats from the fitted parts: armor from the core, gun power from the arms, pace from the legs.
+func mech_armor() -> float: return float(Data.MECHS[str(mech_parts["core"])]["armor"])
+func mech_arm() -> float: return float(Data.MECHS[str(mech_parts["arms"])]["arm"])
+func mech_speed() -> float: return float(Data.MECHS[str(mech_parts["legs"])]["speed"])
 
 func buy_ship(id: String) -> String:
 	var s: Dictionary = Data.SHIPS[id]

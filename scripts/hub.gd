@@ -172,14 +172,14 @@ func show_screen(s: String) -> void:
 	screen = s
 	_refresh_credits()
 	var sysname: String = Data.SYSTEMS[GS.system_id]["name"]
-	header.text = base["name"].to_upper() if s == "hub" else {"equipment": "WEAPONS & EQUIPMENT DEALER", "ships": "SHIP DEALER", "repair": "REPAIR & RESUPPLY", "bounty": "MISSION BOARD", "missions": "MISSION BOARD", "board": "MISSION BOARD", "ship": "YOUR SHIP", "faction": "FACTION", "surface": "PLANET DESTINATIONS"}[s]
+	header.text = base["name"].to_upper() if s == "hub" else {"equipment": "WEAPONS & EQUIPMENT DEALER", "ships": "SHIP DEALER", "mechs": "MECH DEALER", "repair": "REPAIR & RESUPPLY", "bounty": "MISSION BOARD", "missions": "MISSION BOARD", "board": "MISSION BOARD", "ship": "YOUR SHIP", "faction": "FACTION", "surface": "PLANET DESTINATIONS"}[s]
 	subheader.text = "%s  ·  %s SYSTEM  ·  %s" % ["ORBITAL STATION" if kind == "station" else "PLANET SURFACE", sysname.to_upper(), base["name"]]
 	for box in [left, content]:   # take the old page out at once, so the new buttons keep their own names
 		for c in box.get_children():
 			box.remove_child(c)
 			c.queue_free()
 	preview_vp = null
-	var menu := [["hub", "HUB"], ["equipment", "WEAPONS & GEAR"], ["ships", "SHIP DEALER"], ["repair", "REPAIR / RESUPPLY"], ["board", "MISSION BOARD"], ["ship", "YOUR SHIP"], ["faction", "FACTION"], ["map", "NAVIGATION"]]   # (v1.5k: LAUNCH is its own always-visible button)
+	var menu := [["hub", "HUB"], ["equipment", "WEAPONS & GEAR"], ["ships", "SHIP DEALER"], ["mechs", "MECH DEALER"], ["repair", "REPAIR / RESUPPLY"], ["board", "MISSION BOARD"], ["ship", "YOUR SHIP"], ["faction", "FACTION"], ["map", "NAVIGATION"]]   # (v1.5k: LAUNCH is its own always-visible button)
 	if _surface_planet() != "": menu.insert(4, ["surface", "SURFACE TRAVEL"])
 	for m in menu:
 		var b := Button.new()
@@ -199,6 +199,11 @@ func show_screen(s: String) -> void:
 			Packs.request("hauler")
 			Packs.request("bulk")
 			_ships_page()
+		"mechs":   # v1.9i: the frames you own come in first (their parts make your mech)
+			for fid in GS.owned_mechs:
+				var pk := ShipFactory.pack_of(str(Data.MECHS[fid]["model"]))
+				if pk != "": Packs.request(pk)
+			_mechs_page()
 		"repair": _repair_page()
 		"board": show_screen(board_tab)
 		"bounty":
@@ -594,6 +599,126 @@ func _ships_page() -> void:
 	hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	hint.offset_top = -26
 	svc.add_child(hint)
+
+## v1.9i (owner): MECH DEALER. A mech is ARMS + CORE (upper body) + LEGS. Buy a frame to own its three parts, then
+## fit each part from any frame you own (the arms are always a matched pair).
+func _mechs_page() -> void:
+	var h := HBoxContainer.new()
+	h.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	h.offset_left = 18
+	h.offset_top = 14
+	h.offset_right = -18
+	h.offset_bottom = -14
+	h.add_theme_constant_override("separation", 16)
+	content.add_child(h)
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	h.add_child(scroll)
+	var list := VBoxContainer.new()
+	list.name = "MechList"
+	list.add_theme_constant_override("separation", 10)
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(list)
+	var cap := _label(17, CYAN)
+	cap.text = "YOUR MECH  ·  Armour %d%%  ·  Gun power x%.2f  ·  Pace x%.2f" % [int(round(GS.mech_armor() * 100.0)), GS.mech_arm(), GS.mech_speed()]
+	cap.name = "MechStats"
+	list.add_child(cap)
+	for part in ["arms", "core", "legs"]:
+		var row := HFlowContainer.new()
+		row.name = "Part_" + part
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_theme_constant_override("h_separation", 8)
+		row.add_theme_constant_override("v_separation", 6)
+		var pl := _label(17, GOLD)
+		pl.text = "%s:" % str(Data.MECH_PART_NAMES[part]).to_upper()
+		pl.custom_minimum_size = Vector2(200, 50)
+		row.add_child(pl)
+		for fid in Data.MECH_ORDER:
+			if not (fid in GS.owned_mechs): continue
+			var b := Button.new()
+			b.name = "Fit_%s_%s" % [part, fid]
+			b.custom_minimum_size = Vector2(150, 50)
+			b.clip_text = true
+			var nm := str(Data.MECHS[fid].get("short", Data.MECHS[fid]["name"]))
+			b.text = ("[%s]" % nm) if GS.mech_parts[part] == fid else nm
+			b.disabled = GS.mech_parts[part] == fid
+			b.pressed.connect(func(): status.text = GS.fit_mech_part(part, fid); show_screen("mechs"))
+			row.add_child(b)
+		list.add_child(row)
+	var cap2 := _label(16, CYAN)
+	cap2.text = "FRAMES  ·  a frame gives you its arms, core and legs. Armour = core, gun power = arms, pace = legs."
+	cap2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	list.add_child(cap2)
+	for fid in Data.MECH_ORDER:
+		var f: Dictionary = Data.MECHS[fid]
+		var r := HBoxContainer.new()
+		r.add_theme_constant_override("separation", 14)
+		var l := _label(17, Color(1, 1, 1))
+		l.text = "%s   ·   armour %d%%  ·  gun x%.2f  ·  pace x%.2f" % [f["name"], int(round(float(f["armor"]) * 100.0)), float(f["arm"]), float(f["speed"])]
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		r.add_child(l)
+		var b := Button.new()
+		b.name = "Mech_" + fid
+		b.custom_minimum_size = Vector2(210, 52)
+		var worn: bool = GS.mech_parts.values().all(func(x): return x == fid)
+		if worn: b.text = "WORN"; b.disabled = true
+		elif fid in GS.owned_mechs: b.text = "WEAR ALL"
+		else: b.text = "BUY  %d cr" % int(f["price"]); b.disabled = GS.credits < int(f["price"])
+		b.pressed.connect(func():
+			status.text = GS.buy_mech(fid)
+			var pk := ShipFactory.pack_of(str(f["model"]))
+			if pk != "": Packs.request(pk)
+			show_screen("mechs"))
+		r.add_child(b)
+		list.add_child(r)
+	# the mech you have fitted, turning in the showroom
+	var svc := SubViewportContainer.new()
+	svc.stretch = true
+	svc.custom_minimum_size = Vector2(300, 300)
+	svc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	h.add_child(svc)
+	preview_vp = SubViewport.new()
+	preview_vp.own_world_3d = true
+	preview_vp.transparent_bg = true
+	svc.add_child(preview_vp)
+	var cam := Camera3D.new()
+	cam.position = Vector3(0, 0.5, 24)
+	cam.fov = 40
+	preview_vp.add_child(cam)
+	var light := DirectionalLight3D.new()
+	light.rotation_degrees = Vector3(-35, 25, 0)
+	preview_vp.add_child(light)
+	var we := WorldEnvironment.new()
+	we.environment = Environment.new()
+	we.environment.background_mode = Environment.BG_CLEAR_COLOR
+	we.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	we.environment.ambient_light_color = Color(0.55, 0.58, 0.68)
+	preview_vp.add_child(we)
+	preview_pivot = Node3D.new()
+	preview_pivot.rotation_degrees.y = 180.0   # (face the camera)
+	preview_vp.add_child(preview_pivot)
+	_mech_preview()
+	if not Packs.pack_ready.is_connected(_on_mech_pack_hub): Packs.pack_ready.connect(_on_mech_pack_hub)
+
+## The fitted mech in the showroom (the Black-Gold frame stands in while a part's pack is still coming).
+func _mech_preview() -> void:
+	if preview_pivot == null or not is_instance_valid(preview_pivot): return
+	for c in preview_pivot.get_children(): c.queue_free()
+	var k: Dictionary = GS.mech_keys()
+	var ready := true
+	for p in k.values():
+		var pk := ShipFactory.pack_of(str(p))
+		if pk != "" and not Packs.is_ready(pk): ready = false
+	var m: Node3D = ShipFactory.build_mech(str(k["core"]), str(k["arms"]), str(k["legs"])) if ready else ShipFactory.build("mech_player")
+	m.name = "MechPreview"
+	preview_pivot.add_child(m)
+	preview_key = "mech"
+
+func _on_mech_pack_hub(pk: String) -> void:
+	if pk.begins_with("mf_") and is_instance_valid(preview_pivot) and preview_key == "mech": _mech_preview()
 
 func _set_preview(id: String) -> void:
 	if preview_pivot == null or not is_instance_valid(preview_pivot): return

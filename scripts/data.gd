@@ -27,7 +27,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v1.9h"
+const VERSION := "v1.9i"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -951,6 +951,34 @@ const MOUNT_PODS := {
 	"hv_quad": {"name": "Quad Launcher Turret", "short": "Quad Turret", "model": "wpn_hv_quad_launcher", "price": 5200, "ammo": 16, "locks": 4, "heavy": true, "share": 0.18},
 	"hv_missile_turret": {"name": "Missile Turret", "short": "Msl Turret", "model": "wpn_hv_missile_turret", "price": 6000, "ammo": 16, "locks": 5, "heavy": true, "share": 0.18},
 }
+# v1.9i (owner): mechs are playable AND fought. Every faction has its own mech; a bigger copy is its boss. A mech is
+# three parts you swap like a ship's wings: ARMS (both, always a pair), CORE (the upper body) and LEGS (the lower body).
+# Buying a frame gives you all three of its parts. Part stats (PROVISIONAL): core "armor" = share of damage it stops
+# in mech form, arms "arm" = x gun damage in mech form, legs "speed" = x walking / flying pace in mech form.
+# Faction picks are guesses from the colours; the owner decides.
+const MECHS := {
+	"blackgold": {"name": "Black-Gold Frame", "short": "Black-Gold", "model": "mech_player", "price": 0, "armor": 0.10, "arm": 1.00, "speed": 1.00},
+	"tannavy": {"name": "Tan-Navy Assault Frame", "short": "Tan-Navy", "model": "mech_tan", "price": 9000, "armor": 0.14, "arm": 1.05, "speed": 0.95},
+	"orange": {"name": "Red-Eye Cannon Frame", "short": "Red-Eye", "model": "mf_orange", "price": 12000, "armor": 0.16, "arm": 1.12, "speed": 0.92},
+	"rifle": {"name": "Gatling Rifle Frame", "short": "Gatling", "model": "mf_rifle", "price": 11000, "armor": 0.12, "arm": 1.15, "speed": 0.97},
+	"minigun_a": {"name": "White Minigun Frame", "short": "White Gun", "model": "mf_minigun_a", "price": 13000, "armor": 0.18, "arm": 1.10, "speed": 0.90},
+	"minigun_b": {"name": "Teal Minigun Frame", "short": "Teal Gun", "model": "mf_minigun_b", "price": 13500, "armor": 0.18, "arm": 1.12, "speed": 0.90},
+	"teal": {"name": "Teal Guardian Frame", "short": "Guardian", "model": "mf_teal", "price": 14000, "armor": 0.22, "arm": 1.00, "speed": 0.88},
+	"white": {"name": "White Lancer Frame", "short": "Lancer", "model": "mf_white", "price": 15000, "armor": 0.10, "arm": 1.08, "speed": 1.15},
+	"headless": {"name": "Headless Frame", "short": "Headless", "model": "mf_headless", "price": 12500, "armor": 0.20, "arm": 1.05, "speed": 0.94},
+	"mecblu": {"name": "Blue-White Frame", "short": "Blue-White", "model": "mf_mecblu", "price": 16000, "armor": 0.15, "arm": 1.10, "speed": 1.08},
+	"acmec": {"name": "Missile Wing Frame", "short": "Missile Wg", "model": "mf_acmec", "price": 18000, "armor": 0.16, "arm": 1.18, "speed": 1.00},
+	"mecbrn": {"name": "Cockpit Brute Frame", "short": "Brute", "model": "mf_mecbrn", "price": 17000, "armor": 0.25, "arm": 1.06, "speed": 0.86},
+}
+const MECH_ORDER := ["blackgold", "tannavy", "rifle", "orange", "headless", "minigun_a", "minigun_b", "teal", "white", "mecblu", "mecbrn", "acmec"]
+const MECH_PART_NAMES := {"arms": "Arms", "core": "Core (upper body)", "legs": "Legs (lower body)"}
+const FACTION_MECH := {"Savagers": "orange", "Imperium": "rifle", "Unity": "white", "Liberator": "minigun_a", "Elyza": "mecblu",
+	"Covenant": "teal", "Solarion": "mecbrn", "Orion": "minigun_b", "Cybermorph": "headless", "Solrath": "acmec", "Kaijurai": "tannavy"}
+const MECH_BOSS_SCALE := 1.8       # a faction's boss mech is its own mech this much bigger ...
+const MECH_BOSS_COUNT := 1         # ... and one of the mechs at a ground mission's last point is the boss
+## the model key a faction's mechs wear (its own frame, else the tan assault mech)
+static func faction_mech_model(faction: String) -> String:
+	return str(MECHS[FACTION_MECH.get(faction, "tannavy")]["model"])
 const MISSILE_PRICE := 10
 const MISSILE_DAMAGE := 45.0 # light missile minimum; it does LIGHT_MISSILE_HULL_FRAC of the target's hull when bigger
 const LIGHT_MISSILE_HULL_FRAC := 0.3
@@ -1276,6 +1304,8 @@ const ENEMIES := {
 	"warboar": {"name": "Warboar Command Fighter", "class": "command fighter", "faction": "Savagers", "model": "savager_warboar", "radius": 11.0, "hull": 160.0, "shield": 90.0, "speed": 42.0, "turn": 1.1, "damage": 8.0, "rate": 2.2, "reward": 500, "missiles": true},
 	# assault mech: two arm guns + a chest cannon; flies with the raiders/corsairs
 	"mech": {"name": "Assault Mech", "hull": 120.0, "shield": 40.0, "speed": 40.0, "turn": 1.2, "damage": 6.0, "rate": 1.4, "reward": 280, "model": "mech_tan", "mech": true, "missiles": true},
+	# v1.9i: a faction's boss mech (its own mech, MECH_BOSS_SCALE bigger; the model comes from FACTION_MECH)
+	"mech_boss": {"name": "Boss Mech", "hull": 620.0, "shield": 220.0, "speed": 34.0, "turn": 1.0, "damage": 11.0, "rate": 1.3, "reward": 2600, "model": "mech_tan", "mech": true, "missiles": true, "boss": true, "radius": 14.0},
 	# Cybermorph (v1.4k): Lockon. Placed in no system yet: no concept sheet or model (the mech body is a stand-in for tests).
 	"lockon": {"name": "Lockon", "faction": "Cybermorph", "hull": 220.0, "shield": 80.0, "speed": 42.0, "turn": 1.2, "damage": 7.0, "rate": 1.4, "reward": 600,
 		"model": "mech_tan", "mech": true, "missiles": true, "signature": "lockon", "stand_in": true},

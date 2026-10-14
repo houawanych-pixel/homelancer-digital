@@ -356,7 +356,7 @@ static func tick(space: SpaceSystem, dt: float) -> void:
 				boss = str(m["id"])
 				count = 1 + Data.BOUNTY_HELPERS   # v1.9b: the target and its six helpers
 			m["need"] = space.spawn_mission_group(at, str(m["faction"]), count, int(m["slot"]), boss, stage, kind == "threats").size()   # v1.8x: PATROL = level 1s, ELITE = level 5s
-			if kind == "ground": m["need"] = int(m["need"]) + space.spawn_ground_mechs(at, str(m["faction"]), int(Data.MISSION_GROUND_MECHS[1 if last else 0]), stage).size()   # v1.8n
+			if kind == "ground": m["need"] = int(m["need"]) + space.spawn_ground_mechs(at, str(m["faction"]), int(Data.MISSION_GROUND_MECHS[1 if last else 0]), stage, Data.MECH_BOSS_COUNT if last else 0).size()   # (v1.9i: the last point has the faction's boss mech)   # v1.8n
 			m["killed"] = 0
 			m["spawned"] = stage
 			space.message.emit("%s: %s" % ["Mission", "the target's wing is here. Engage." if kind == "bounty" and last else "hostiles at the waypoint. Engage."])

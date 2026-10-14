@@ -988,6 +988,7 @@ func _run() -> void:
 		await _job_v19e()
 		await _job_v19g()
 		await _job_v19h()
+		await _job_v19i()
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
@@ -1705,6 +1706,7 @@ func _run() -> void:
 	await _job_v19e()
 	await _job_v19g()
 	await _job_v19h()
+	await _job_v19i()
 	await _blocks()
 	await _regions()
 	await _galaxy()
@@ -6689,6 +6691,91 @@ func _job_v19g() -> void:
 		models_ok and holder != null and shown.size() == 4 and placed and Data.WEAPON_ORDER.size() >= 7, "models %s shown %s placed %s" % [models_ok, shown, placed])
 	for k3 in keep: GS.set(k3, keep[k3])
 	s.set_player_model()
+
+## v1.9i (owner): mechs are playable and fought. 12 frames; each mech is ARMS + CORE + LEGS that swap between frames
+## you own; the player's mech wears its fitted parts; every faction fields its own mech and a bigger boss.
+func _job_v19i() -> void:
+	var s := _sp()
+	var data_ok: bool = Data.MECHS.size() == 12 and Data.MECH_ORDER.size() == 12
+	for id in Data.MECHS:
+		if not ShipFactory.has_real_model(str(Data.MECHS[id]["model"])): data_ok = false
+	for f in Data.FACTION_MECH:
+		if not Data.MECHS.has(Data.FACTION_MECH[f]) or not Factions.has(f): data_ok = false
+	for id in Data.MECHS:
+		var pk := ShipFactory.pack_of(str(Data.MECHS[id]["model"]))
+		if pk != "": await Packs.wait(pk, 30.0)
+	# a mixed mech: one skeleton, three parts from three frames; time it (first build splits, the next is cached)
+	var t0 := Time.get_ticks_usec()
+	var mix := ShipFactory.build_mech("mf_mecbrn", "mf_acmec", "mech_player")
+	var ms_first := (Time.get_ticks_usec() - t0) / 1000.0
+	t0 = Time.get_ticks_usec()
+	var mix2 := ShipFactory.build_mech("mf_mecbrn", "mf_acmec", "mech_player")
+	var ms_cached := (Time.get_ticks_usec() - t0) / 1000.0
+	var info: Dictionary = mix.get_meta("mech_parts", {})
+	var skels := 0
+	var stack: Array = [mix]
+	while not stack.is_empty():
+		var nd: Node = stack.pop_back()
+		if nd is Skeleton3D: skels += 1
+		stack.append_array(nd.get_children())
+	var vis: Dictionary = Sections.setup(mix, true)
+	var mix_ok: bool = int(info.get("arms", 0)) >= 1 and int(info.get("legs", 0)) >= 1 and skels == 1 and vis.get("mech", false)
+	mix.free()
+	mix2.free()
+	# buying and fitting parts
+	var keep := {}
+	for k2 in ["credits", "owned_mechs", "mech_parts", "form"]: keep[k2] = GS.get(k2).duplicate() if (GS.get(k2) is Array or GS.get(k2) is Dictionary) else GS.get(k2)
+	GS.credits = 100000
+	var bought: String = GS.buy_mech("acmec")
+	GS.buy_mech("mecbrn")
+	var refused: bool = GS.fit_mech_part("arms", "orange").begins_with("Buy")
+	GS.fit_mech_part("arms", "acmec")
+	GS.fit_mech_part("legs", "blackgold")
+	var parts_ok: bool = GS.mech_parts == {"arms": "acmec", "core": "mecbrn", "legs": "blackgold"} and refused and GS.mech_keys()["core"] == "mf_mecbrn" \
+		and is_equal_approx(GS.mech_armor(), float(Data.MECHS["mecbrn"]["armor"])) and is_equal_approx(GS.mech_speed(), 1.0)
+	# the player's mech form wears them
+	GS.form = "mech"
+	s.set_player_model()
+	await _frames(2)
+	var keys: Array = s.model.get_meta("mech_keys", [])
+	var player_ok: bool = keys == ["mf_mecbrn", "mf_acmec", "mech_player"] and s.player_vis.get("mech", false)
+	s.process_mode = Node.PROCESS_MODE_DISABLED
+	main.hud.visible = false
+	var vc: Camera3D = main.get_viewport().get_camera_3d()
+	if vc != null:
+		var pb: Basis = s.player.global_basis
+		vc.global_position = s.player.global_position - pb.z * 16.0 + pb.y * 2.0 - pb.x * 5.0
+		vc.look_at(s.player.global_position + pb.y * 1.0, pb.y)
+		await _shot("v19i_player_mixed_mech", 0.2)
+	main.hud.visible = true
+	s.process_mode = Node.PROCESS_MODE_INHERIT
+	# the dealer page (docked, in ship form)
+	GS.form = "ship"
+	s.set_player_model()
+	main.dock(s.station)
+	await _until(func(): return main.state == "hub", 8.0)
+	main.hub.show_screen("mechs")
+	await _frames(3)
+	var page_ok: bool = main.hub.find_child("Part_arms", true, false) != null and main.hub.find_child("Mech_acmec", true, false) != null \
+		and main.hub.find_child("Fit_core_mecbrn", true, false) != null and main.hub.find_child("MechPreview", true, false) != null
+	await _shot("v19i_mech_dealer", 0.4)
+	main.launch()
+	await _until(func(): return main.state == "flight", 8.0)
+	# a faction's own mech, and its boss
+	var at: Vector3 = s.player.global_position - s.player.global_basis.z * 300.0
+	var spawned: Array = s.spawn_ground_mechs(at, "Solrath", 2, 0, 1)
+	var boss: Dictionary = spawned[0] if spawned.size() > 0 else {}
+	var grunt: Dictionary = spawned[1] if spawned.size() > 1 else {}
+	var foes_ok: bool = spawned.size() == 2 and str(boss["model"].name) == "Model_mf_acmec" and str(grunt["model"].name) == "Model_mf_acmec" \
+		and bool(boss.get("boss_mech", false)) and float(boss["max"]) > float(grunt["max"]) * 3.0 and (boss["model"] as Node3D).scale.x > (grunt["model"] as Node3D).scale.x * 1.5
+	for o in spawned:
+		s.enemies.erase(o)
+		if is_instance_valid(o["node"]): (o["node"] as Node3D).queue_free()
+	for k3 in keep: GS.set(k3, keep[k3])
+	s.set_player_model()
+	_check("v1.9i (owner): 12 mech frames; a mech is arms + core + legs swapped between frames you own (one skeleton, the parts skinned to it); your mech form wears them; the MECH DEALER fits them; Solrath fields its own mech and a boss %.1fx bigger" % Data.MECH_BOSS_SCALE,
+		data_ok and mix_ok and parts_ok and player_ok and page_ok and foes_ok,
+		"data %s mix %s (%s, skeletons %d, build %.0f ms first / %.0f ms cached) parts %s (%s) player %s %s page %s foes %s" % [data_ok, mix_ok, info, skels, ms_first, ms_cached, parts_ok, bought, player_ok, keys, page_ok, foes_ok])
 
 ## v1.9h (owner's rail guns and heavy mounts): every new gun and pod wears his model; heavy ones fit the shoulders only;
 ## each pod adds its own missiles; the wing shows two heavy mounts on the shoulders and light ones under the tips.

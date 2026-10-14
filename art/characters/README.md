@@ -54,3 +54,6 @@ Checked but not in the repo (too large, source files stay in Drive):
   solid on UpperChest; head on Head; hip bits moved to the thighs, elbow rings to the forearms. Not placed yet.
 - Brown cockpit mecha (owner's `hl_mecbrn.glb`; left front view kept): `mecbrn_mecha_rigged.glb` — 22-bone, `--mech`,
   33,904 tris. Shoulder boxes solid on UpperChest. Not placed yet.
+- v1.9i: the 12 mech frames are in the game, PRE-CUT into arms / core / legs by `tools/shipkit/mech_bake.gd`
+  (`assets/mechs/*.scn`, `assets/mech_frames/mf_*.scn`). After changing a rig here: copy it to the game folder as a
+  .glb, import, run the bake, then delete the .glb from the game folder (the .scn only needs the textures).

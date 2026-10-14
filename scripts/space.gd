@@ -204,6 +204,7 @@ func _setup(id: String, arrival: String, staged: bool) -> void:
 	if staged: await get_tree().process_frame
 	_named_down = {}
 	_incursion = Factions.raider_of(str(sys.get("faction", ""))) if randf() < Data.INCURSION_CHANCE else ""
+	faction_mech(str(sys.get("faction", "")))   # v1.9i: fetch this space's own mech early (its patrols and ground jobs use it)
 	for p in (sys["patrols"] as Array).slice(0, Data.PATROL_GROUPS): _spawn_group(p, Data.ROSTER_PATROL_SIZE if Factions.replaces_patrols(str(sys.get("faction", ""))) else 2)   # v1.8v: fewer wings
 	spawn_guard()
 	spawn_bounty()
@@ -1574,11 +1575,39 @@ func _build_player() -> void:
 	add_child(player)
 	set_player_model()
 
+## v1.9i: the player's mech, built from the fitted arms / core / legs. Until a part's pack is in, the Black-Gold frame
+## stands in and the mech is rebuilt when the pack arrives.
+func _player_mech_model() -> Node3D:
+	var k: Dictionary = GS.mech_keys()
+	var waiting := false
+	for p in ["arms", "core", "legs"]:
+		var pk := ShipFactory.pack_of(str(k[p]))
+		if pk != "" and not Packs.is_ready(pk):
+			waiting = true
+			if not Packs.pack_ready.is_connected(_on_mech_pack): Packs.pack_ready.connect(_on_mech_pack)
+			Packs.request(pk)
+	if waiting: return ShipFactory.build("mech_player")
+	return ShipFactory.build_mech(str(k["core"]), str(k["arms"]), str(k["legs"]))
+
+func _on_mech_pack(pk: String) -> void:
+	if not pk.begins_with("mf_") or not is_inside_tree() or GS.form != "mech" or transform_t > 0.0: return
+	if is_instance_valid(model) and model.has_meta("mech_keys"): return   # already the fitted mech
+	set_player_model()
+
+## v1.9i: a faction's own mech, if its pack is in (asked for otherwise; the tan assault mech stands in meanwhile).
+func faction_mech(faction: String) -> String:
+	var key := Data.faction_mech_model(faction)
+	var pk := ShipFactory.pack_of(key)
+	if pk != "" and not Packs.is_ready(pk):
+		Packs.request(pk)
+		return "mech_tan"
+	return key
+
 func set_player_model() -> void:
 	if is_instance_valid(model): model.queue_free()
 	if GS.form == "mech" and not Packs.is_ready("mechs"): GS.form = "ship"
 	var mech := GS.form == "mech"
-	model = ShipFactory.build("mech_player" if mech else Data.SHIPS[GS.ship_id]["model"])
+	model = _player_mech_model() if mech else ShipFactory.build(Data.SHIPS[GS.ship_id]["model"])   # (v1.9i: the mech wears its fitted parts)
 	player.add_child(model)
 	model.visible = GS.view != "cockpit"
 	# damage maps between forms: left wing = left arm, right wing = right arm, hull = core
@@ -1764,7 +1793,7 @@ func _ground_move(dt: float, thrust: Vector2, base_speed: float) -> void:
 func _mech_move(dt: float, thrust: Vector2, base_speed: float) -> void:
 	var fwd := -player.global_basis.z
 	var right := player.global_basis.x
-	var sp := base_speed * 0.85
+	var sp := base_speed * 0.85 * GS.mech_speed()   # v1.9i: the legs set the pace
 	dash_t = maxf(0.0, dash_t - dt)
 	dash_cd = maxf(0.0, dash_cd - dt)
 	boosting = false
@@ -1828,7 +1857,8 @@ func _spawn_group(center: Vector3, count: int) -> Array:
 		var fleet: Array = sys.get("enemy_ships", []) if soldier.is_empty() and not _guard_spawn else []
 		if not fleet.is_empty(): kind = fleet[(_fleet_serial + i) % fleet.size()]
 		if fleet.is_empty() and soldier.is_empty() and count >= 2 and i == count - 1 and _rng.randf() < 0.5 and Packs.is_ready("mechs"): kind = "mech"
-		var e := spawn_unit(kind, center + Vector3(_rng.randf_range(-60, 60), _rng.randf_range(-20, 20), _rng.randf_range(-60, 60)), center)
+		var mkey: String = faction_mech(str(sys.get("enemy_faction", own)) if own == "" else own) if kind == "mech" else ""   # v1.9i: the system's faction's own mech
+		var e := spawn_unit(kind, center + Vector3(_rng.randf_range(-60, 60), _rng.randf_range(-20, 20), _rng.randf_range(-60, 60)), center, mkey)
 		e["group"] = _group_serial
 		# the first ship flies under a NAMED squad leader (Scar Jackal, Iron Revenant...); everyone else is a generic
 		# pilot in that leader's wing
@@ -2040,19 +2070,20 @@ func _nearest_generic(r: float) -> Dictionary:
 	return best
 
 ## Spawn one hostile ship or mech with three sections (left / core / right).
-func spawn_unit(kind: String, pos: Vector3, home: Vector3) -> Dictionary:
+func spawn_unit(kind: String, pos: Vector3, home: Vector3, model_key := "", scale_k := 1.0) -> Dictionary:
 	var e: Dictionary = Data.ENEMIES[kind]
 	var is_mech: bool = e.get("mech", false)
-	var mk: String = e.get("model", "enemy")
+	var mk: String = model_key if model_key != "" else str(e.get("model", "enemy"))   # (v1.9i: a faction's own mech)
 	if not (ShipFactory.has_real_model(mk) or mk.begins_with("mech")): mk = "enemy"
 	var n := ShipFactory.build(mk)
+	if scale_k != 1.0: n.scale *= scale_k   # v1.9i: a boss mech is bigger
 	var node := Node3D.new()
 	_enemy_serial += 1
 	node.name = "%s %d" % [e["name"], _enemy_serial]
 	node.add_child(n)
 	node.position = pos
 	node.set_meta("kind", "enemy")
-	node.set_meta("radius", float(e.get("radius", 7.0)))
+	node.set_meta("radius", float(e.get("radius", 7.0)) * maxf(1.0, scale_k * 0.6))
 	var pilots: Array = Data.PILOTS.get(sys["enemy"], [])
 	if not pilots.is_empty() and not is_mech: node.set_meta("pilot", pilots[_enemy_serial % pilots.size()])
 	add_child(node, true)
@@ -2473,7 +2504,7 @@ func _fire_guns() -> void:
 		var muzzle: Vector3 = cam.global_position - cam.global_basis.z * 4.0 if zoomed else fpv.global_transform * fpv_muzzle
 		var at: Vector3 = cam.global_position - cam.global_basis.z * float(w["range"])
 		if aim_dir != fwd: at = lead_point(target)
-		_spawn_bolt(muzzle, (at - muzzle).normalized() * float(w["speed"]) + vel, float(w["damage"]) * guns, w["color"], "player", float(w["range"]) / float(w["speed"]))
+		_spawn_bolt(muzzle, (at - muzzle).normalized() * float(w["speed"]) + vel, float(w["damage"]) * guns * (GS.mech_arm() if GS.form == "mech" else 1.0), w["color"], "player", float(w["range"]) / float(w["speed"]))
 		fpv_shot()
 		if _laser_sfx_cd <= 0.0:
 			Sfx.play("laser", -9.0)
@@ -2498,7 +2529,7 @@ func _fire_guns() -> void:
 		var hw := _ship_half_width()
 		var from := player.global_position + player.global_basis.x * side * hw * (Data.MOUNT_TIP_AT if tip else Data.MOUNT_SHOULDER_AT) \
 			+ player.global_basis.y * (-Data.MOUNT_DROP if tip else Data.MOUNT_DROP) + fwd * 5.0
-		_spawn_bolt(from, aim_dir * float(wg["speed"]) + vel, float(wg["damage"]), wg["color"], "player", float(wg["range"]) / float(wg["speed"]))
+		_spawn_bolt(from, aim_dir * float(wg["speed"]) + vel, float(wg["damage"]) * (GS.mech_arm() if GS.form == "mech" else 1.0), wg["color"], "player", float(wg["range"]) / float(wg["speed"]))
 		_spark(from + fwd * 1.5, (wg["color"] as Color).lightened(0.4), 3.2, 0.09)
 	gun_cd = clampf(next_cd, 0.02, 1.0)
 	if _laser_sfx_cd <= 0.0:
@@ -3617,6 +3648,7 @@ func _popup(at: Vector3, txt: String, col: Color) -> void:
 	if popups.size() > 24: popups.pop_front()
 
 func _player_hit(dmg: float, hit := Vector3.INF) -> void:
+	if GS.form == "mech": dmg *= 1.0 - GS.mech_armor()   # v1.9i: the core's armour
 	Sfx.play("shield_hit" if GS.shield > 0.0 else "hull_hit", -6.0)
 	shield_delay = 3.0
 	hit_shake = 1.0
@@ -3698,7 +3730,7 @@ func _update_enemies(dt: float) -> void:
 			e["vel"] = ((e["stuck_at"] as Vector3) - n.global_position) * Data.MAG_MINE_PULL
 		if walker and _sea_at(n.global_position.x + e["vel"].x * dt * 8.0, n.global_position.z + e["vel"].z * dt * 8.0) and not _sea_at(n.global_position.x, n.global_position.z): e["vel"] = Vector3.ZERO   # it does not walk into the sea
 		n.global_position += e["vel"] * dt
-		if walker and surface_mode: n.global_position.y = _ground(n.global_position.x, n.global_position.z) + Data.WALKER_STAND
+		if walker and surface_mode: n.global_position.y = _ground(n.global_position.x, n.global_position.z) + Data.WALKER_STAND * float(e.get("stand_k", 1.0))   # (v1.9i: a boss stands taller)
 		if d.get("missiles", false) and e["aggro"] and controls and warp_state != "on" and dist < Data.ENEMY_MISSILE_RANGE:
 			if not e.has("mcd"): e["mcd"] = _rng.randf_range(Data.ENEMY_MISSILE_EVERY[0], Data.ENEMY_MISSILE_EVERY[1]) * 0.5
 			e["mcd"] = float(e["mcd"]) - dt
@@ -4366,7 +4398,7 @@ func _build_fpv() -> void:
 	fpv = Node3D.new()
 	fpv.name = "MechFPV"
 	cam.add_child(fpv)
-	var body := ShipFactory.build("mech_player")
+	var body := _player_mech_model()   # v1.9i: the fitted arms show in first person too
 	fpv.add_child(body)
 	_shadows_off(body)
 	fpv_skel = Sections._find_skeleton(body)
@@ -5111,22 +5143,28 @@ func nearest_base() -> Dictionary:
 func _sea_at(x: float, z: float) -> bool:
 	return surface_mode and _water and _ground(x, z) <= 0.05
 
-func spawn_ground_mechs(at: Vector3, faction: String, count: int, stage: int) -> Array:
+func spawn_ground_mechs(at: Vector3, faction: String, count: int, stage: int, bosses := 0) -> Array:
 	var out: Array = []
+	var mkey := faction_mech(faction)   # v1.9i: the faction's own mech; the first `bosses` of them are its boss
 	for i in count:
 		var a := TAU * float(i) / float(maxi(1, count)) + _rng.randf() * 0.8
 		var p := at + Vector3(cos(a), 0, sin(a)) * _rng.randf_range(60.0, 130.0)
-		for k in 8:   # on dry land when there is some near
+		for k in (8 if surface_mode else 0):   # on dry land when there is some near
 			if not _sea_at(p.x, p.z): break
 			p = at + Vector3(cos(a + k * 0.8), 0, sin(a + k * 0.8)) * (130.0 + 60.0 * k)
-		p.y = _ground(p.x, p.z) + Data.WALKER_STAND
-		var e := spawn_unit("mech", p, p)
+		p.y = (_ground(p.x, p.z) if surface_mode else at.y) + Data.WALKER_STAND   # (v1.9i: in space they stand on nothing)
+		var boss: bool = i < bosses
+		if boss: p.y += Data.WALKER_STAND * (Data.MECH_BOSS_SCALE - 1.0)
+		var e := spawn_unit("mech_boss" if boss else "mech", p, p, mkey, Data.MECH_BOSS_SCALE if boss else 1.0)
 		e["walker"] = true
+		if boss:
+			e["stand_k"] = Data.MECH_BOSS_SCALE
+			e["boss_mech"] = true
 		e["group"] = _group_serial
 		e["mission"] = stage
 		e["provoked"] = true
 		_make_generic(e, faction)
-		e["node"].name = "%s Ground Mech %d" % [faction, _enemy_serial]
+		e["node"].name = ("%s Boss Mech %d" if boss else "%s Ground Mech %d") % [faction, _enemy_serial]
 		out.append(e)
 	return out
 

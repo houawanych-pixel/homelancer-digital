@@ -93,8 +93,18 @@ const GLB := {
 	"wpn_hv_rail_launcher": ["res://assets/wing_guns/wpn_hv_rail_launcher.glb", Data.WING_GUN_LEN, 0.0],   # v1.9h: the owner's rail / heavy mounts
 	"wpn_hv_missile_box": ["res://assets/wing_guns/wpn_hv_missile_box.glb", Data.WING_GUN_LEN, 0.0],   # v1.9h: the owner's rail / heavy mounts
 	# mechs: rigged 3 m models scaled to small-ship size; yaw 180 so the mech faces -Z like the ships
-	"mech_tan": ["res://assets/mechs/tan_navy_mecha.glb", 11.0, 180.0],
-	"mech_player": ["res://assets/mechs/black_gold_mecha.glb", 9.5, 180.0],   # the player's ship <-> mech frame
+	"mech_tan": ["res://assets/mechs/tan_navy_mecha.scn", 11.0, 180.0],
+	"mech_player": ["res://assets/mechs/black_gold_mecha.scn", 9.5, 180.0],   # the player's ship <-> mech frame
+	"mf_orange": ["res://assets/mech_frames/mf_orange.scn", 9.5, 180.0],   # v1.9i: a mech frame (pack "mf_orange")
+	"mf_rifle": ["res://assets/mech_frames/mf_rifle.scn", 9.5, 180.0],   # v1.9i: a mech frame (pack "mf_rifle")
+	"mf_minigun_a": ["res://assets/mech_frames/mf_minigun_a.scn", 9.5, 180.0],   # v1.9i: a mech frame (pack "mf_minigun_a")
+	"mf_minigun_b": ["res://assets/mech_frames/mf_minigun_b.scn", 9.5, 180.0],   # v1.9i: a mech frame (pack "mf_minigun_b")
+	"mf_teal": ["res://assets/mech_frames/mf_teal.scn", 9.5, 180.0],   # v1.9i: a mech frame (pack "mf_teal")
+	"mf_white": ["res://assets/mech_frames/mf_white.scn", 9.5, 180.0],   # v1.9i: a mech frame (pack "mf_white")
+	"mf_headless": ["res://assets/mech_frames/mf_headless.scn", 9.5, 180.0],   # v1.9i: a mech frame (pack "mf_headless")
+	"mf_mecblu": ["res://assets/mech_frames/mf_mecblu.scn", 9.5, 180.0],   # v1.9i: a mech frame (pack "mf_mecblu")
+	"mf_acmec": ["res://assets/mech_frames/mf_acmec.scn", 9.5, 180.0],   # v1.9i: a mech frame (pack "mf_acmec")
+	"mf_mecbrn": ["res://assets/mech_frames/mf_mecbrn.scn", 9.5, 180.0],   # v1.9i: a mech frame (pack "mf_mecbrn")
 }
 
 static var _cache := {}
@@ -144,6 +154,32 @@ static func set_wings(root: Node3D, k: float) -> void:
 
 static func wings_open(root: Node3D) -> float:
 	return float(root.get_meta("wings_open", 1.0)) if root and root.has_meta("wings_key") else -1.0
+
+## v1.9i: an unfitted copy of a model's GLB (a mech's arms or legs are borrowed from it; never shown on its own).
+static func raw(key: String) -> Node3D:
+	if not has_real_model(key): return null
+	var scene: PackedScene = _cache.get(key)
+	if scene == null:
+		scene = load(GLB[key][0])
+		_cache[key] = scene
+	return scene.instantiate()
+
+## v1.9i: the pack a model's files come in ("" = always there or the shared mechs pack).
+static func pack_of(key: String) -> String:
+	if key.begins_with("mf_"): return key
+	if key.begins_with("mech_"): return "mechs"
+	return ""
+
+## v1.9i: a mech built from three frames' parts: the core's body and skeleton, the arms' and legs' meshes on it.
+static func build_mech(core_key: String, arms_key: String, legs_key: String) -> Node3D:
+	var m := build(core_key)
+	var arms_src: Node3D = raw(arms_key) if arms_key != core_key else null
+	var legs_src: Node3D = raw(legs_key) if legs_key != core_key else null
+	if arms_src != null or legs_src != null: MechParts.assemble(m, arms_src, legs_src)
+	for n in [arms_src, legs_src]:
+		if n != null: n.free()
+	m.set_meta("mech_keys", [core_key, arms_key, legs_key])
+	return m
 
 ## Scale and centre an imported model once (never re-scaled at runtime).
 static func _fit(root: Node3D, inst: Node3D, length: float) -> void:

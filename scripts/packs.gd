@@ -11,7 +11,18 @@ signal pack_ready(name: String)
 # folders: whole asset folders in the pack. match: only files whose name starts with this. probe: a file that exists
 # once the pack is mounted. The main export leaves these folders out (export_presets.cfg exclude_filter).
 const PACKS := {
-	"mechs": {"folders": ["res://assets/mechs"], "probe": "res://assets/mechs/tan_navy_mecha.glb"},
+	"mechs": {"folders": ["res://assets/mechs"], "probe": "res://assets/mechs/tan_navy_mecha.scn"},
+	# v1.9i: one pack per extra mech frame, fetched when you buy / fit its parts or meet its faction
+	"mf_orange": {"folders": ["res://assets/mech_frames"], "match": "mf_orange", "probe": "res://assets/mech_frames/mf_orange.scn"},
+	"mf_rifle": {"folders": ["res://assets/mech_frames"], "match": "mf_rifle", "probe": "res://assets/mech_frames/mf_rifle.scn"},
+	"mf_minigun_a": {"folders": ["res://assets/mech_frames"], "match": "mf_minigun_a", "probe": "res://assets/mech_frames/mf_minigun_a.scn"},
+	"mf_minigun_b": {"folders": ["res://assets/mech_frames"], "match": "mf_minigun_b", "probe": "res://assets/mech_frames/mf_minigun_b.scn"},
+	"mf_teal": {"folders": ["res://assets/mech_frames"], "match": "mf_teal", "probe": "res://assets/mech_frames/mf_teal.scn"},
+	"mf_white": {"folders": ["res://assets/mech_frames"], "match": "mf_white", "probe": "res://assets/mech_frames/mf_white.scn"},
+	"mf_headless": {"folders": ["res://assets/mech_frames"], "match": "mf_headless", "probe": "res://assets/mech_frames/mf_headless.scn"},
+	"mf_mecblu": {"folders": ["res://assets/mech_frames"], "match": "mf_mecblu", "probe": "res://assets/mech_frames/mf_mecblu.scn"},
+	"mf_acmec": {"folders": ["res://assets/mech_frames"], "match": "mf_acmec", "probe": "res://assets/mech_frames/mf_acmec.scn"},
+	"mf_mecbrn": {"folders": ["res://assets/mech_frames"], "match": "mf_mecbrn", "probe": "res://assets/mech_frames/mf_mecbrn.scn"},
 	"planets": {"folders": ["res://assets/terrain"], "probe": "res://assets/terrain/ground_albedo.jpg"},
 	"ranger": {"folders": ["res://assets/ships/player"], "match": "ranger", "probe": "res://assets/ships/player/ranger.glb"},
 	"bulk": {"folders": ["res://assets/ships/player"], "match": "bulk", "probe": "res://assets/ships/player/bulk_empty.glb"},
