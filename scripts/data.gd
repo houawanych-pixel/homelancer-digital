@@ -27,7 +27,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v1.9i"
+const VERSION := "v1.9j"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -82,6 +82,9 @@ const SETTINGS_RESET_CONFIRM_S := 3.0 # press Reset again within this many secon
 # pays, after a jump and every SAVE_EVERY seconds in flight; START picks up where you left off. Settings > START OVER
 # erases it. The keys are the GameState names and are never renamed.
 const SAVE_PATH := "user://homelancer_save.txt"
+const SAVE_SLOT_PATH := "user://homelancer_save_%d.txt"   # v1.9j (owner): one file per pilot
+const SAVE_SLOTS := 3
+const PILOT_NAME_MAX := 16
 const SAVE_EVERY := 30.0
 const SAVE_DELTAS_MAX := 2000000   # characters: crater notes past this size are left out of the save (the ground regrows)
 # v1.8e (owner: smooth on the phone): the 3D world is drawn at most RENDER_PIXELS_MAX pixels and stretched to the

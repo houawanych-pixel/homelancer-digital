@@ -989,6 +989,7 @@ func _run() -> void:
 		await _job_v19g()
 		await _job_v19h()
 		await _job_v19i()
+		await _job_v19j()
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
@@ -1707,6 +1708,7 @@ func _run() -> void:
 	await _job_v19g()
 	await _job_v19h()
 	await _job_v19i()
+	await _job_v19j()
 	await _blocks()
 	await _regions()
 	await _galaxy()
@@ -6691,6 +6693,52 @@ func _job_v19g() -> void:
 		models_ok and holder != null and shown.size() == 4 and placed and Data.WEAPON_ORDER.size() >= 7, "models %s shown %s placed %s" % [models_ok, shown, placed])
 	for k3 in keep: GS.set(k3, keep[k3])
 	s.set_player_model()
+
+## v1.9j (owner): "they should have their own game, write their own name and it saves it for them": three pilots per
+## device, each its own save file; START opens the picker; the old single save becomes pilot 1.
+func _job_v19j() -> void:
+	var keep := {"save_enabled": GS.save_enabled, "save_path": GS.save_path, "slot": GS.slot, "pilot_name": GS.pilot_name, "credits": GS.credits,
+		"slot_pattern": GS.slot_pattern, "old_save_path": GS.old_save_path}
+	GS.save_enabled = true
+	GS.slot_pattern = "user://route_test_slot_%d.txt"
+	GS.old_save_path = "user://route_test_old_save.txt"
+	for i in range(1, 4): GS.erase_slot(i)
+	# an old single save turns into pilot 1
+	var f := FileAccess.open(GS.old_save_path, FileAccess.WRITE)
+	f.store_string(var_to_str({"credits": 777, "system_id": "solara"}))
+	f.close()
+	GS.migrate_old_save()
+	var migrated: bool = not FileAccess.file_exists(GS.old_save_path) and int(GS.slot_info(1).get("credits", 0)) == 777 and str(GS.slot_info(1)["name"]) == "Pilot 1"
+	# pilot 2 is someone else, with their own name and money
+	GS.use_slot(2)
+	GS.pilot_name = "Ace"
+	GS.credits = 4321
+	var wrote: bool = GS.save_game()
+	var info2: Dictionary = GS.slot_info(2)
+	var own: bool = wrote and str(info2.get("name", "")) == "Ace" and int(info2.get("credits", 0)) == 4321 and int(GS.slot_info(1)["credits"]) == 777 and GS.slot_info(3).is_empty()
+	# the picker on the title screen
+	var t = main.title
+	var vis0: bool = t.visible
+	t.visible = true
+	t._open_slots()
+	await _frames(2)
+	var row2: Node = t.find_child("Slot_2", true, false)
+	var lbl: String = (row2.get_child(0) as Label).text if row2 != null else ""
+	var picker: bool = lbl.contains("Ace") and lbl.contains("4321") and (t.find_child("Play_3", true, false) as Button).text == "NEW PILOT" and t.find_child("Delete_1", true, false) != null
+	await _shot("v19j_pilot_picker", 0.2)
+	(t.find_child("Delete_2", true, false) as Button).pressed.emit()   # first tap only asks
+	await _frames(1)
+	var asked: bool = GS.slot_info(2).size() > 0 and (t.find_child("Delete_2", true, false) as Button).text.begins_with("SURE")
+	(t.find_child("Delete_2", true, false) as Button).pressed.emit()
+	await _frames(1)
+	var deleted: bool = GS.slot_info(2).is_empty() and int(GS.slot_info(1)["credits"]) == 777
+	if t.slots_panel != null: t.slots_panel.queue_free()
+	t.slots_panel = null
+	t.visible = vis0
+	for i in range(1, 4): GS.erase_slot(i)
+	for k in keep: GS.set(k, keep[k])
+	_check("v1.9j (owner): three pilots on one device, each with their own name and save; the picker shows them; DELETE asks first; the old single save became pilot 1",
+		migrated and own and picker and asked and deleted, "migrated %s own %s picker %s ('%s') asked %s deleted %s" % [migrated, own, picker, lbl, asked, deleted])
 
 ## v1.9i (owner): mechs are playable and fought. 12 frames; each mech is ARMS + CORE + LEGS that swap between frames
 ## you own; the player's mech wears its fitted parts; every faction fields its own mech and a bigger boss.

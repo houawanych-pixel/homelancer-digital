@@ -121,7 +121,8 @@ func start_game() -> void:
 		space.controls = false
 	GS.restore_full()
 	_launch_sequence(str(Data.SYSTEMS[GS.system_id]["station"]["name"]) if back else "Liberty Hub", false)   # v1.7n (owner): no radio call at the very start
-	if back: hud.flash_message("Welcome back. Your progress is loaded.")
+	if back: hud.flash_message("Welcome back, %s. Your progress is loaded." % GS.pilot_name if GS.pilot_name != "" else "Welcome back. Your progress is loaded.")
+	else: GS.save_game()   # v1.9j: a new pilot's slot is taken at once (the picker shows the name next time)
 	await get_tree().create_timer(2.6).timeout
 	if state == "flight" and GS.tutorial_seen.is_empty(): hud.flash_message(Data.TUTOR_HINT)   # v1.7r: a quiet hint, no radio noise
 	tutor_prefetch()   # (her first clip downloads while you fly)

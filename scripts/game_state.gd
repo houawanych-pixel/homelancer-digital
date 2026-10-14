@@ -54,12 +54,39 @@ var god_mode := false # only used by the automated route test
 # ---------------------------------------------------------------- v1.7y saving
 const SAVE_KEYS := ["credits", "ship_id", "owned_ships", "weapon_id", "owned_weapons", "missiles", "heavy_missiles", "mines", "rack",
 	"owned_racks", "slots", "modes", "view", "system_id", "discovered", "last_base", "kills", "met", "mood", "memory", "heat_shield",
-	"bounty", "bounties_done", "mission", "cargo", "missions_done", "rep", "cast", "mine_kind", "block_deltas", "tutorial_seen", "bounty_jail", "mounts", "owned_mechs", "mech_parts"]   # (v1.9e: + mounts; v1.9i: + owned_mechs, mech_parts)
+	"bounty", "bounties_done", "mission", "cargo", "missions_done", "rep", "cast", "mine_kind", "block_deltas", "tutorial_seen", "bounty_jail", "mounts", "owned_mechs", "mech_parts", "pilot_name"]   # (v1.9e: + mounts; v1.9i: + owned_mechs, mech_parts; v1.9j: + pilot_name)
 var save_path: String = Data.SAVE_PATH
 var save_enabled := true   # (the route test turns it off, so a test never reads or writes a player's save)
 var saves := 0             # (tests) saves written this session
 
 func has_save() -> bool: return FileAccess.file_exists(save_path)
+
+# ---------------------------------------------------------------- v1.9j (owner): three pilots, each their own save
+## Each slot is its own save file on this device; the title screen picks one (and names a new pilot).
+var slot := 0                # 0 = none picked yet (the old single save path); 1..SAVE_SLOTS once picked
+var pilot_name := ""
+var slot_pattern: String = Data.SAVE_SLOT_PATH   # (the route test points these at its own files)
+var old_save_path: String = Data.SAVE_PATH
+func slot_path(i: int) -> String: return slot_pattern % i
+func use_slot(i: int) -> void:
+	slot = i
+	save_path = slot_path(i)
+## What a slot holds, for the picker: {} = empty.
+func slot_info(i: int) -> Dictionary:
+	var path := slot_path(i)
+	if not FileAccess.file_exists(path): return {}
+	var d = str_to_var(FileAccess.get_file_as_string(path))
+	if not d is Dictionary: return {"name": "Pilot %d" % i, "credits": 0, "system": "", "saved": 0}
+	var sid := str(d.get("system_id", "solara"))
+	return {"name": str(d.get("pilot_name", "")) if str(d.get("pilot_name", "")) != "" else "Pilot %d" % i, "credits": int(d.get("credits", 0)),
+		"system": str(Data.SYSTEMS[sid]["name"]) if Data.SYSTEMS.has(sid) else "", "saved": int(d.get("_saved", 0))}
+func erase_slot(i: int) -> void:
+	if FileAccess.file_exists(slot_path(i)): DirAccess.remove_absolute(ProjectSettings.globalize_path(slot_path(i)))
+## The one save from before slots becomes slot 1, so nobody loses their progress.
+func migrate_old_save() -> void:
+	if not save_enabled: return
+	if FileAccess.file_exists(old_save_path) and not FileAccess.file_exists(slot_path(1)):
+		DirAccess.rename_absolute(ProjectSettings.globalize_path(old_save_path), ProjectSettings.globalize_path(slot_path(1)))
 
 ## Write the progress (not the moment-to-moment hull / shields: you start each session fully repaired at your base).
 func save_game() -> bool:
