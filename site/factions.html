@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#070b14">
+<title>Homelancer — The Factions</title>
+<meta name="description" content="The factions of Homelancer Digital: explorers, empires, elves, machines, smugglers and void lords.">
+<style>
+:root{--bg:#070b14;--ink:#eef2fb;--soft:#a9b4cc;--line:#ffffff1a;--gold:#e9c77b}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+header{padding:max(18px,env(safe-area-inset-top)) 16px 10px;max-width:1180px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px}
+header a.play{text-decoration:none;border:1.5px solid var(--gold);border-radius:999px;padding:8px 16px;font-weight:700;font-size:14px;color:#fff;background:#1a1408}
+.brand{font-weight:800;letter-spacing:.32em;font-size:15px}
+.hero{max-width:1180px;margin:0 auto;padding:22px 16px 8px}
+.hero h1{margin:0;font:700 clamp(34px,8vw,64px)/1.02 Georgia,"Times New Roman",serif;letter-spacing:.02em}
+.hero p{color:var(--soft);max-width:40em;margin:12px 0 0}
+nav.filters{max-width:1180px;margin:16px auto 4px;padding:0 16px;display:flex;flex-wrap:wrap;gap:8px}
+nav.filters button{background:#0f1626;color:var(--soft);border:1px solid var(--line);border-radius:999px;padding:7px 14px;font:600 14px system-ui;cursor:pointer}
+nav.filters button[aria-pressed=true]{color:#fff;border-color:var(--gold);background:#1a1408}
+main{max-width:1180px;margin:0 auto;padding:12px 16px 40px;display:grid;gap:18px;grid-template-columns:repeat(auto-fill,minmax(min(100%,520px),1fr))}
+.card{background:#0c1220;border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column}
+.card button.pic{all:unset;cursor:zoom-in;display:block;aspect-ratio:16/8;background:#000 center/cover no-repeat}
+.card button.pic:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
+.card .txt{padding:14px 16px 16px;border-top:3px solid var(--c)}
+.card h2{margin:0;font:700 22px/1.2 Georgia,serif;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.card h2 small{font:600 12px system-ui;letter-spacing:.14em;text-transform:uppercase;color:var(--c)}
+.card p{margin:6px 0 0;color:var(--soft);font-size:15px}
+.tag{display:inline-block;margin-top:10px;font:600 11px system-ui;letter-spacing:.12em;text-transform:uppercase;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--soft)}
+h3.sec{max-width:1180px;margin:20px auto 0;padding:0 16px;font:700 28px Georgia,serif}
+.ships{max-width:1180px;margin:0 auto;padding:12px 16px 50px;display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(min(100%,360px),1fr))}
+.ships figure{margin:0;background:#0c1220;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.ships button{all:unset;cursor:zoom-in;display:block;aspect-ratio:16/9;background:#000 center/cover no-repeat;width:100%}
+.ships figcaption{padding:8px 12px;color:var(--soft);font-size:14px}
+dialog{border:0;padding:0;background:transparent;max-width:96vw;max-height:94vh}
+dialog::backdrop{background:#000d}
+dialog img{display:block;max-width:96vw;max-height:94vh;border-radius:10px}
+footer{color:#6f7a93;text-align:center;font-size:13px;padding:0 16px 30px}
+@media (prefers-reduced-motion:no-preference){.card,.ships figure{transition:transform .2s}.card:hover,.ships figure:hover{transform:translateY(-2px)}}
+</style>
+</head>
+<body>
+<header><span class="brand">HOMELANCER</span><a class="play" href="./">▶ Play</a></header>
+<section class="hero">
+  <h1>The Factions</h1>
+  <p>A galaxy of nations, houses and outcasts. Every faction has its own people, ships, worlds and story — and every pilot you meet is someone you can talk to.</p>
+</section>
+<nav class="filters" aria-label="Filter factions">
+  <button aria-pressed="true" data-f="all">All</button><button aria-pressed="false" data-f="alliance">Great powers</button><button aria-pressed="false" data-f="enemy">Enemy powers</button><button aria-pressed="false" data-f="free">Free, rising &amp; neutral</button>
+</nav>
+<main id="list"></main>
+<h3 class="sec">Ships</h3>
+<section class="ships" id="ships"></section>
+<footer>© Hova · Homelancer Digital</footer>
+<dialog id="zoom"><img alt=""></dialog>
+<script>
+const F = [
+  ['unity','Unity','The Human Alliance','Many worlds, one future. White, navy and gold; diplomats and defenders of the alliance.','#4c7fe0','alliance'],
+  ['orion','Orion','The Pathfinder Nations','The Exploration Corps: pioneers, scientists and a many-species crew charting the unknown.','#3fae6a','alliance'],
+  ['elyza','Elyza','The Crystal Frontier','Elves of the sky cities, in white, emerald and gold. Nature, harmony, a higher sky.','#2fbf8c','alliance'],
+  ['liberator','Liberator','The Free Systems','Resist, liberate, rebuild together. Freedom fighters of the free worlds.','#ff8a2a','alliance'],
+  ['covenant','Covenant','The Sacred Reach','A cathedral of higher knowledge: faith, science and the light of the stars.','#9a7cf0','alliance'],
+  ['solarion','Solarion','Children of the Sun','The Golden Exchange. Trade connects worlds, peoples and futures.','#e9b949','alliance'],
+  ['imperium','Imperium','The Iron Dominion','Order conquers farther. Discipline, authority and crimson banners.','#d6343d','alliance'],
+  ['vykr','Vykr','Steel Remembers','Honour through strength, peace through dominance. Vengeance never forgets.','#c4263a','free'],
+  ['solrath','Solrath','The Void Dominion','From the void, we claim. Worlds fall; silence endures.','#e0304a','enemy'],
+  ['kaijurai','Kaijurai','Keepers of the Behemoths','Where titans awaken. They bind, hunt and ride the great beasts.','#ff6a22','enemy'],
+  ['cybermorphs','Cybermorphs','The Machine Ascendancy','Steel minds, endless evolution. Machines that adapt, upgrade and dominate.','#e04656','enemy'],
+  ['phenom','Phenom','The Ascendant Houses','Push beyond. Pale houses of phase and ultraviolet light.','#c35bff','enemy'],
+  ['voidborn','Voidborn','We Are the Between','Mystics of the space between stars. Some places are not found; they find you.','#b45cff','free'],
+  ['gadversee','Gadversee','The Sporemother Dominion','The hive grows. Spores, roots and a mother who remembers every world.','#a6d640','enemy'],
+  ['arctides','Arctides','The Frozen Houses','Frozen resolve, endless night. Ice houses that endure.','#8fc8ff','enemy'],
+  ['savagers','Savagers','Scrapworld Rebels','No masters, no borders. Scavenge, survive, stay free.','#c8642c','free'],
+  ['shroud','Shroud','Shadow Traders','The unseen connects worlds. Hidden routes and fair prices — for a price.','#e0a845','free'],
+  ['nexus','Nexus','Connecting Realities','Scientists of every world. Discovery without limits.','#4fb8ff','free'],
+  ['exiles','The Exiles','Still Here','Ruins are not the end. A harbour for strangers and second chances.','#b8bcc6','free'],
+];
+const S = [['ship-unity','Unity capital ship'],['ship-covenant','Covenant cathedral ship'],['ship-solarion','Solarion trade ship'],['ship-imperium','Imperium battleship'],['ship-savagers','Savagers scrap carrier']];
+const label = {alliance:'Great power',enemy:'Enemy power',free:'Free, rising & neutral'};
+const list = document.getElementById('list'), zoom = document.getElementById('zoom');
+list.innerHTML = F.map(([id,n,t,d,c,g]) => `<article class="card" data-g="${g}" style="--c:${c}"><button class="pic" aria-label="View the ${n} banner" data-src="factions/${id}.webp" style="background-image:url('factions/${id}.webp')"></button><div class="txt"><h2>${n} <small>${t}</small></h2><p>${d}</p><span class="tag">${label[g]}</span></div></article>`).join('');
+document.getElementById('ships').innerHTML = S.map(([id,n]) => `<figure><button aria-label="View ${n}" data-src="factions/${id}.webp" style="background-image:url('factions/${id}.webp')"></button><figcaption>${n}</figcaption></figure>`).join('');
+document.addEventListener('click', e => { const b = e.target.closest('[data-src]'); if (b) { zoom.querySelector('img').src = b.dataset.src; zoom.showModal(); } else if (e.target.closest('dialog')) zoom.close(); });
+for (const b of document.querySelectorAll('[data-f]')) b.onclick = () => {
+  for (const x of document.querySelectorAll('[data-f]')) x.setAttribute('aria-pressed', x === b);
+  for (const a of list.children) a.hidden = b.dataset.f !== 'all' && a.dataset.g !== b.dataset.f;
+};
+</script>
+</body>
+</html>

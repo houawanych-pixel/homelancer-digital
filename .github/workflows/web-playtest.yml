@@ -33,6 +33,7 @@ jobs:
           grep -qE "RESULT ([0-9]+)/\1 PASS" route.log
           mkdir -p build/web
           $G --headless --path . --export-release Web
+          cp -r site/factions.html site/factions build/web/   # the factions page and its banners, next to the game
           printf 'Homelancer Digital v1.2\nCommit: %s\nGodot 4.3\n' "$GITHUB_SHA" > build/web/version.txt
           grep "\[route\]" route.log | grep -v "step:" >> build/web/version.txt
       - uses: actions/upload-pages-artifact@v3
