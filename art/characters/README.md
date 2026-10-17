@@ -57,3 +57,4 @@ Checked but not in the repo (too large, source files stay in Drive):
 - v1.9i: the 12 mech frames are in the game, PRE-CUT into arms / core / legs by `tools/shipkit/mech_bake.gd`
   (`assets/mechs/*.scn`, `assets/mech_frames/mf_*.scn`). After changing a rig here: copy it to the game folder as a
   .glb, import, run the bake, then delete the .glb from the game folder (the .scn only needs the textures).
+- phenom_{thalen,xerathion,isara,vyrela,aurelian_guard,ascendant_guard}_rigged.glb (Oct 17 2026): owner's Tripo Phenom set. The Tripo files were side|front|back turnaround sheets in one mesh; the front figure was cut out, mirrored for a clean symmetric body, reduced to ~12-23k tris and rigged (22-bone humanoid, Idle + Walk). Thalen = armored elf, Xerathion = crowned warrior, Isara = elf woman, Vyrela = armored woman, Aurelian Guard = armored knight, Ascendant Guard = mecha armor suit.
