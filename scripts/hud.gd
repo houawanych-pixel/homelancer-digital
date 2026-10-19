@@ -1,7 +1,7 @@
 extends Control
-## Freelancer-style mobile HUD (owner's layout, Sept 30): two mirrored button blocks in the top corners.
-## Top left:  SHIELD · REPAIR · TRACTOR, and under them STOP · WARP.
-## Top right: three weapon slots (default LIGHT MISSILE · HEAVY MISSILE · MINE), and under them THRUST · KILL.
+## Freelancer-style mobile HUD: two button blocks in the top corners (v1.9 owner layout, Oct 19).
+## Top left:  weapons FIRE · LIGHT MISSILE · HEAVY MISSILE · MINE, and under them speed STOP · ENGINE · THRUST · WARP.
+## Top right: defence SHIELD · REPAIR (two spares beside them), and under them TRANSFORM · GROUND · SPECIAL · TRACTOR.
 ## Top centre: colour bars for SHIELD / HULL / ENERGY (no numbers), then MAP · VIEW · LOG · CALL · TARGET · GO TO.
 ## Bottom: FLIGHT stick, dashboard (SPEED · radar · WAYPOINT/SCAN), AIM stick. Lasers fire on their own.
 ## Each finger belongs to whatever it first touched, so dragging a stick never presses a button.
@@ -28,6 +28,7 @@ var origins := {}
 var move_vec := Vector2.ZERO
 var aim_vec := Vector2.ZERO
 var buttons := {} # id -> Rect2 (touch areas)
+var fs_on := false   # v1.9: the browser is in full screen (web only, polled)
 var btn := 94.0 # corner button size
 var log_rect := Rect2()
 var held := {}
@@ -346,22 +347,30 @@ func _layout() -> void:
 	var y1 := 8.0
 	var y2 := y1 + btn + g
 	var bs := Vector2(btn, btn)
-	# top left: SHIELD · REPAIR · TRACTOR / STOP · WARP
-	var lids := ["shield", "repair", "stop"]   # v1.8u (owner): STOP is back, where TRACTOR was; TRACTOR moved to the right block
-	for k in 3: buttons[lids[k]] = Rect2(Vector2(8 + k * (btn + g), y1), bs)
-	buttons["form"] = Rect2(Vector2(8, y2), bs)   # TRANSFORM sits where STOP used to be
-	buttons["warp"] = Rect2(Vector2(8 + btn + g, y2), bs)
-	buttons["special"] = Rect2(Vector2(8 + 2 * (btn + g), y2), bs)   # v1.5o: SPECIAL, held (the free corner of the block)
-	# v1.8q (owner): 8 buttons each side. The fourth column: GROUND and three spare buttons (padlocked until they get a job)
-	buttons["ground"] = Rect2(Vector2(8 + 3 * (btn + g), y1), bs)
-	buttons["lock_a"] = Rect2(Vector2(8 + 3 * (btn + g), y2), bs)
-	buttons["tractor"] = Rect2(Vector2(S.x - 8 - btn * 4 - g * 3, y1), bs)
-	buttons["lock_c"] = Rect2(Vector2(S.x - 8 - btn * 4 - g * 3, y2), bs)
-	# top right mirrors it: three weapon slots / THRUST · KILL (kill hard against the right edge)
-	for k in 3: buttons["slot_%d" % k] = Rect2(Vector2(S.x - 8 - (3 - k) * btn - (2 - k) * g, y1), bs)
-	buttons["kill"] = Rect2(Vector2(S.x - 8 - btn, y2), bs)
-	buttons["thrust"] = Rect2(Vector2(S.x - 8 - btn * 2 - g, y2), bs)
-	buttons["fire"] = Rect2(Vector2(S.x - 8 - btn * 3 - g * 2, y2), bs)   # v1.4l: FIRE on/off, in the empty corner of the block
+	# v1.9 (owner, Oct 19) rearranged, same buttons and same jobs:
+	#   left block:  weapons  FIRE · LIGHT MISSILE · HEAVY MISSILE · MINE (the three slots)
+	#                speed    FULL STOP · ENGINE (kill) · THRUST (boost) · WARP
+	#   right block: defence  SHIELD · REPAIR (outer edge) and the two padlocked spares
+	#                special  TRANSFORM · GROUND · SPECIAL · TRACTOR
+	var lx := func(k: int) -> float: return 8 + k * (btn + g)
+	var rx := func(k: int) -> float: return S.x - 8 - btn * 4 - g * 3 + k * (btn + g)
+	buttons["fire"] = Rect2(Vector2(lx.call(0), y1), bs)
+	for k in 3: buttons["slot_%d" % k] = Rect2(Vector2(lx.call(k + 1), y1), bs)
+	buttons["stop"] = Rect2(Vector2(lx.call(0), y2), bs)
+	buttons["kill"] = Rect2(Vector2(lx.call(1), y2), bs)
+	buttons["thrust"] = Rect2(Vector2(lx.call(2), y2), bs)
+	buttons["warp"] = Rect2(Vector2(lx.call(3), y2), bs)
+	buttons["lock_a"] = Rect2(Vector2(rx.call(0), y1), bs)
+	buttons["lock_c"] = Rect2(Vector2(rx.call(1), y1), bs)
+	buttons["shield"] = Rect2(Vector2(rx.call(2), y1), bs)
+	buttons["repair"] = Rect2(Vector2(rx.call(3), y1), bs)
+	buttons["form"] = Rect2(Vector2(rx.call(0), y2), bs)
+	buttons["ground"] = Rect2(Vector2(rx.call(1), y2), bs)
+	buttons["special"] = Rect2(Vector2(rx.call(2), y2), bs)   # held
+	buttons["tractor"] = Rect2(Vector2(rx.call(3), y2), bs)
+	if OS.has_feature("web") or OS.get_environment("HL_FS_BUTTON") != "":   # v1.9 (owner): FULL SCREEN takes the inner spare
+		buttons["fullscreen"] = buttons["lock_a"]
+		buttons.erase("lock_a")
 	if space and space.mech_fpv():   # v1.7z: looking out of the mech, KILL (no use to a mech) becomes the rifle's ZOOM
 		buttons["zoom"] = buttons["kill"]
 		buttons.erase("kill")
@@ -476,6 +485,8 @@ func _input(e: InputEvent) -> void:
 		elif o2 == "aim": aim_vec = ((e.position - origins["aim"]) / stick_r).limit_length(1.0)
 
 func _process(dt: float) -> void:
+	if OS.has_feature("web") and Engine.get_process_frames() % 30 == 0:   # v1.9: is the browser in full screen (for the FULL / EXIT label)
+		fs_on = bool(JavaScriptBridge.eval("window.__hlFsIsOn ? window.__hlFsIsOn() : false", true))
 	if space == null: return
 	t += dt
 	if vid != null and vid.is_playing() and str(slots["r"].get("video", "")) == "" and str(slots["l"].get("video", "")) == "": vid.stop()   # v1.7r: hung up: the clip stops
@@ -566,6 +577,12 @@ func _text(p: Vector2, txt: String, size := 18, col := WHITE, align := HORIZONTA
 
 func _icon(id: String, c: Vector2, s: float, col: Color) -> void:
 	match id:
+		"fullscreen":   # four corner brackets
+			for sx in [-1.0, 1.0]:
+				for sy in [-1.0, 1.0]:
+					var k := c + Vector2(sx, sy) * s
+					draw_line(k, k - Vector2(sx * s * 0.7, 0), col, 3.0, true)
+					draw_line(k, k - Vector2(0, sy * s * 0.7), col, 3.0, true)
 		"ground":   # v1.8r: an arrow down onto a line
 			draw_line(c + Vector2(-s * 1.1, s * 0.95), c + Vector2(s * 1.1, s * 0.95), col, 3.0, true)
 			draw_line(c + Vector2(0, -s), c + Vector2(0, s * 0.3), col, 3.0, true)
@@ -1158,7 +1175,7 @@ func _draw() -> void:
 	elif space.in_nebula > 0.0: zone = "%s NEBULA — SENSORS DEGRADED" % Data.SYSTEMS[GS.system_id]["nebula"]["name"].to_upper()
 	elif space.in_belt: zone = ("%s RINGS — MINE THE ROCKS" % str(Data.SYSTEMS[GS.system_id]["planet"]["name"]).to_upper()) if space.in_ring(space.player.global_position) else "%s — WATCH FOR ROCKS" % Data.SYSTEMS[GS.system_id]["asteroids"]["name"].to_upper()
 	if zone != "": _text(Vector2(col_w, 164), zone, 14, CYAN_HI, HORIZONTAL_ALIGNMENT_CENTER, S.x - col_w * 2)
-	# top-left block
+	# defence and special moves (right block), speed (left block)
 	var sh_cd: float = space.shield_cd / Data.SHIELD_BOOST_COOLDOWN
 	_corner("shield", "SHIELD", "shield", Color(0.35, 0.7, 1.0), false, str(GS.shield_charges), sh_cd)
 	_corner("repair", "REPAIR", "repair", GREEN, false, str(GS.repairs), space.repair_cd / 1.5)
@@ -1173,11 +1190,12 @@ func _draw() -> void:
 	var gm: bool = space.ground_mode   # v1.8r: GROUND: gravity on, walk / land
 	_corner("ground", "GROUND", "ground", GREEN, gm, "", 0.0, false, ("WALKING" if GS.form == "mech" else "LANDED") if gm and space.grounded else ("FALLING" if gm else ("WALK" if GS.form == "mech" else "LAND")))
 	for lid in ["lock_a", "lock_c"]: _padlocked(lid, "")
+	_corner("fullscreen", "FULL", "fullscreen", CYAN, fs_on, "", 0.0, false, "EXIT" if fs_on else "SCREEN")
 	_corner("stop", "STOP", "stop", RED, space.braking or space.holding, "", 0.0, false, "STOPPED" if space.holding else "FULL STOP")
 	if space.warp_state == "charging":
 		var wr: Rect2 = buttons["warp"]
 		draw_rect(Rect2(wr.position + Vector2(8, wr.size.y - 5), Vector2((wr.size.x - 16) * space.warp_t / Data.WARP_CHARGE, 3)), Color(0.8, 0.75, 1.0))
-	# top-right block: weapon slots, then THRUST · KILL
+	# weapons (left block) and the rest of the speed row
 	for k in GS.slots.size():
 		var item: String = GS.slots[k]
 		var it: Dictionary = Data.SLOT_ITEMS[item]

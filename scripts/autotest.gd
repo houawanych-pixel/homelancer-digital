@@ -304,11 +304,11 @@ func _flight_and_comms() -> void:
 	var s := _sp()
 	var hud: Node = main.hud
 	hud.close_comms()
-	# TRANSFORM sits in the old STOP slot; the centre row loses its MECH pill
+	# TRANSFORM leads the special-moves row (right block); the centre row has no MECH pill
 	hud._layout()
 	var fr: Rect2 = hud.buttons.get("form", Rect2())
 	var wr: Rect2 = hud.buttons["warp"]
-	_check("TRANSFORM button in the old STOP spot (v1.8u: STOP is back, in the top row)", fr.size.x > 0.0 and absf(fr.position.y - wr.position.y) < 1.0 and fr.position.x < wr.position.x
+	_check("TRANSFORM button leads the special-moves row on the right, level with the speed row (v1.9 owner layout)", fr.size.x > 0.0 and absf(fr.position.y - wr.position.y) < 1.0 and fr.position.x > hud.S.x * 0.5
 		and hud.buttons.has("stop") and hud.buttons.has("map") and hud.buttons.has("goto"), "at %s" % str(fr.position))
 	# default cruise: centred stick holds cruise speed; all the way back stops and stays stopped
 	SpaceSystem.cruise_assist = true
@@ -1375,12 +1375,12 @@ func _run() -> void:
 	var pick_ok: bool = hq.pick == hq.contact_at(0) and psl.get("mode", "") == "pick" and str(psl.get("face", "")) == str(pc.get("face", "")) and str(psl.get("from", "")).begins_with(str(pc["name"])) \
 		and hq.buttons.has("call_pick") and hq.side_rect("r").encloses(hq.buttons["call_pick"]) and hq.comms_mode == "roster" and not hq.slots["l"].has("mode")
 	await _shot("log_pick", 0.3)
-	var lefts := ["shield", "repair", "stop", "ground", "form", "warp", "special", "lock_a"]   # (v1.8u: STOP on the left, TRACTOR on the right)
-	var rights: Array = ["slot_0", "slot_1", "slot_2", "tractor", "fire", "thrust", "lock_c"] + ["zoom" if hq.buttons.has("zoom") else "kill"]
+	var lefts: Array = ["fire", "slot_0", "slot_1", "slot_2", "stop", "thrust", "warp"] + ["zoom" if hq.buttons.has("zoom") else "kill"]   # v1.9 (owner): weapons + speed on the left
+	var rights := ["shield", "repair", "fullscreen" if hq.buttons.has("fullscreen") else "lock_a", "lock_c", "form", "ground", "special", "tractor"]   # defence + special moves on the right (FULL SCREEN in the web build)
 	var eight: bool = lefts.all(func(b): return hq.buttons.has(b) and hq.buttons[b].end.x < hq.S.x * 0.5) and rights.all(func(b): return hq.buttons.has(b) and hq.buttons[b].position.x > hq.S.x * 0.5)
 	var clear := true   # the centre strip sits between the two blocks
 	for b in ["map", "view", "log", "target", "goto"]:
-		if hq.buttons[b].position.x < hq.buttons["lock_a"].end.x or hq.buttons[b].end.x > hq.buttons["lock_c"].position.x: clear = false
+		if hq.buttons[b].position.x < hq.buttons["warp"].end.x or hq.buttons[b].end.x > hq.buttons["form"].position.x: clear = false
 	_check("v1.8q (owner): CALL is inside LOG (no CALL button): the list starts with TARGET / CONTROL; a tapped name shows the picture on the friendly side with CALL under it; 8 buttons on the left and 8 on the right, the centre strip between them",
 		no_call and hail_ok and pick_ok and eight and clear, "no_call %s hail %s pick %s eight %s clear %s" % [no_call, hail_ok, pick_ok, eight, clear])
 	# v1.8r (owner): the call list is on the left, the picked face on the right; only people on speaking terms are listed; it scrolls
@@ -2697,8 +2697,10 @@ func _job_o() -> void:
 	GS.modes["guns"] = "manual"
 	main.hud._layout()
 	var b: Dictionary = main.hud.buttons
-	var layout_ok: bool = b.has("fire") and (b["thrust"] as Rect2).position.x > (b["fire"] as Rect2).position.x and (b["kill"] as Rect2).position.x > (b["thrust"] as Rect2).position.x \
-		and is_equal_approx((b["fire"] as Rect2).position.y, (b["thrust"] as Rect2).position.y) and is_equal_approx((b["kill"] as Rect2).end.x, main.hud.S.x - 8.0)
+	# v1.9 (owner): FIRE leads the weapons row top left; the speed row under it reads STOP · ENGINE · THRUST · WARP
+	var layout_ok: bool = b.has("fire") and is_equal_approx((b["fire"] as Rect2).position.x, 8.0) and is_equal_approx((b["fire"] as Rect2).position.y, (b["slot_0"] as Rect2).position.y) \
+		and (b["slot_0"] as Rect2).position.x > (b["fire"] as Rect2).position.x and (b["stop"] as Rect2).position.y > (b["fire"] as Rect2).position.y \
+		and (b["kill"] as Rect2).position.x > (b["stop"] as Rect2).position.x and (b["thrust"] as Rect2).position.x > (b["kill"] as Rect2).position.x and (b["warp"] as Rect2).position.x > (b["thrust"] as Rect2).position.x
 	var bolts0: int = s.bolts.size()
 	_press("fire")
 	await _wait(0.6)

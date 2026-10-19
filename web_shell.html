@@ -172,6 +172,13 @@ $GODOT_HEAD_INCLUDE
     } catch (e) {}
   }
   window.__hlFullscreen = () => { fsLeft = false; goFull(); };
+  // v1.9 (owner): the FULL SCREEN button in the game. In full screen it leaves; otherwise it asks again. The game only
+  // sees the tap a frame later (outside the tap), so the ask is repeated on the same finger's lift, which counts as a tap.
+  window.__hlFsIsOn = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+  window.__hlFsToggle = () => {
+    if (window.__hlFsIsOn()) { fsLeft = true; const ex = document.exitFullscreen || document.webkitExitFullscreen; try { ex && ex.call(document); } catch (e) {} return; }
+    fsLeft = false; goFull();
+  };
   // v1.5j HOLD-TO-TALK: the browser's speech recognition (Chrome on Android, desktop Chrome / Edge). The game polls
   // window.__hlSR: state idle | listening | done | error; text = what was heard so far; err = why it stopped.
   window.__hlSR = { supported: !!(window.SpeechRecognition || window.webkitSpeechRecognition), state: 'idle', text: '', err: '' };
