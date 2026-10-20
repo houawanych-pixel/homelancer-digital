@@ -27,7 +27,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v1.9m"
+const VERSION := "v1.9n"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -652,7 +652,7 @@ const MISSION_GROUP := [3, 3]                   # ships in a wave: [first waves,
 const BOUNTY_HELPERS := 6
 const PLATFORM_RADIUS := 70.0                   # v1.9b (owner): every planet's floating docking platform: deck radius (m)
 const PLATFORM_ALT := 260.0                     # ... how far over the planet's surface it floats                       # v1.9b (owner): a bounty target never flies alone: at least six of its own wing with it
-const MISSION_PAY := {"threats": 900, "escort": 700, "convoy": 1600, "ground": 1400, "outlaws": 600, "land_escort": 1200}   # v1.7w: "convoy" = the cargo run into the next system
+const MISSION_PAY := {"threats": 900, "escort": 700, "convoy": 1600, "ground": 1400, "outlaws": 600, "land_escort": 1200, "invasion": 3600}   # v1.7w: "convoy" = the cargo run into the next system
 # v1.8m (owner): ground jobs. A strike on the system's planet: fly down into the atmosphere, go to two mission points in
 # one sector of the surface and destroy the landing party at each. Paid on the spot when the last one is down.
 const MISSION_GROUND_ALT := 220.0               # a ground job's wave waits this high over the ground
@@ -999,6 +999,15 @@ const TIER_COLORS := [Color(0.25, 0.55, 1.0), Color(0.25, 0.85, 0.35), Color(1.0
 const TIER_NAMES := ["BLUE", "GREEN", "YELLOW", "ORANGE", "RED", "PURPLE", "BLACK", "WHITE", "SILVER", "GOLD"]
 const TIER_PAY_STEP := 400        # each 400 cr of pay = one tier up (1..10)
 static func tier_of_pay(pay: int) -> int: return clampi(int(ceil(float(pay) / TIER_PAY_STEP)), 1, TIER_COLORS.size())
+## v1.9n (owner): SILVER (tier 9): an enemy faction's fleet invades. 3 heavy battleships (the target), 2 warships, a
+## destroyer and a Star Command Station that keeps launching fighters (fewer once it is down). Allies fly with you.
+const INVASION := {"battleships": 3, "warships": 2, "destroyers": 1, "fighters": 20, "wave": 4, "wave_every": 9.0, "station_down_slow": 3.0,
+	"ally_fighters": 6, "ally_frigates": 1, "arrive": 2600.0, "spread": 900.0, "dist": 7000.0}   # dist: how far out from the station the fleet comes in
+const INVASION_DRAW := {"fighter": 2200.0, "capital": 9000.0, "lod_bias": 0.5, "capital_lod_bias": 0.08}   # m drawn to; lod_bias < 1 = simpler meshes sooner
+const CAPITAL_MISSILE_DAMAGE := 120.0   # a light missile on a capital ship (heavy x3.5; a mine as a heavy)
+const CAPITAL_SPECIAL_DAMAGE := 1500.0  # the special beam's hull damage on a capital ship at full charge
+const ALLY_FIGHTER := {"hull": 260.0, "speed": 52.0, "turn": 1.4, "damage": 6.0, "rate": 1.5, "range": 460.0, "hit_r": 7.0}
+const ALLY_FRIGATE := {"hull": 7000.0, "speed": 8.0, "damage": 10.0, "rate": 2.5, "range": 1300.0, "hit_r": 60.0}
 const SPACE_CAM_FAR := 32000.0     # m: the space camera sees this far (was 14000: planets 11-17 km out flickered at the edge)
 const PLANET_SHELL_RANGE := 12000.0   # m: past this a planet's haze and cloud shells are not drawn (no depth fight far away)
 const EPIC_RANK := 4               # a fight with a pilot of this rank or up (or a boss) plays the EPIC battle music
@@ -1281,6 +1290,12 @@ static func bounty_reward(id: String) -> int: return BOUNTY_REWARD * int(roster_
 
 # ---------------------------------------------------------------- enemies
 const ENEMIES := {
+	# v1.9n (owner): the SILVER fleet invasion's big ships (capital = slow, turrets all round, a big hit box; missiles,
+	# mines and the special do set damage to them, not a share of their hull)
+	"inv_battleship": {"name": "Battleship", "model": "savager_carrier", "scale": 1.0, "hull": 9000.0, "shield": 3000.0, "speed": 7.0, "turn": 0.05, "damage": 9.0, "rate": 3.0, "reward": 3000, "capital": true, "hit_r": 62.0, "range": 1300.0, "radius": 70.0},
+	"inv_warship": {"name": "Warship", "model": "savager_cruiser", "scale": 2.0, "hull": 4500.0, "shield": 1500.0, "speed": 10.0, "turn": 0.08, "damage": 8.0, "rate": 2.4, "reward": 1500, "capital": true, "hit_r": 38.0, "range": 1100.0, "radius": 42.0},
+	"inv_destroyer": {"name": "Destroyer", "model": "savager_cruiser", "scale": 1.4, "hull": 3000.0, "shield": 1000.0, "speed": 14.0, "turn": 0.1, "damage": 7.0, "rate": 2.0, "reward": 1000, "capital": true, "hit_r": 28.0, "range": 1000.0, "radius": 30.0},
+	"inv_command": {"name": "Star Command Station", "model": "station", "scale": 1.0, "hull": 12000.0, "shield": 4000.0, "speed": 0.0, "turn": 0.0, "damage": 10.0, "rate": 2.0, "reward": 4000, "capital": true, "hit_r": 72.0, "range": 1400.0, "radius": 80.0},
 	"raider": {"name": "Raider", "hull": 60.0, "shield": 30.0, "speed": 44.0, "turn": 1.3, "damage": 5.0, "rate": 1.6, "reward": 150},
 	"corsair": {"name": "Corsair", "model": "enemy2", "hull": 90.0, "shield": 50.0, "speed": 48.0, "turn": 1.4, "damage": 6.0, "rate": 1.9, "reward": 220, "missiles": true},
 	# v1.4w: stand-in fighters from the owner's Imperium and Liberator ship sets (light for slots 1-3, heavy for 4-6)

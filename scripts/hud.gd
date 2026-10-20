@@ -1302,8 +1302,13 @@ func _enemy_bars(p: Vector2, w: float, h: float, e: Dictionary, labels := false)
 	if float(e["sh_max"]) > 0.0:
 		draw_rect(Rect2(p, Vector2(w * shk, h)), CYAN_HI)
 	var sm: float = maxf(1.0, float(e.get("side_max", 1.0)))
-	_three_part(Rect2(p + Vector2(0, h + 2), Vector2(w, h)), float(e.get("l", sm)) / sm, hk, float(e.get("r", sm)) / sm)
-	if labels:
+	var capital: bool = e["def"].get("capital", false)   # v1.9n: a capital ship has one hull, no wings
+	if capital: draw_rect(Rect2(p + Vector2(0, h + 2), Vector2(w * hk, h)), _hull_col(hk))
+	else: _three_part(Rect2(p + Vector2(0, h + 2), Vector2(w, h)), float(e.get("l", sm)) / sm, hk, float(e.get("r", sm)) / sm)
+	if labels and capital:
+		_text(p + Vector2(w + 6, h + 1), "SH %d" % roundi(float(e["sh"])), 12, CYAN_HI)
+		_text(p + Vector2(w + 6, h * 2 + 12), "HULL %d" % roundi(float(e["hp"])), 12, _hull_col(hk))
+	elif labels:
 		_text(p + Vector2(w + 6, h + 1), "SH %d" % roundi(float(e["sh"])), 12, CYAN_HI)
 		_text(p + Vector2(w + 6, h * 2 + 12), "CORE %d" % roundi(float(e["hp"])), 12, _hull_col(hk))
 		var lab := "ARM" if e.get("mech", false) else "WING"

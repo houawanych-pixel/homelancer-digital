@@ -2092,7 +2092,7 @@ func spawn_unit(kind: String, pos: Vector3, home: Vector3, model_key := "", scal
 	var side_hp: float = float(e["hull"]) * Data.SECTION_SHARE
 	var ent := {"node": node, "model": n, "hp": e["hull"], "max": e["hull"], "sh": e.get("shield", 0.0), "sh_max": e.get("shield", 0.0), "sh_cd": 0.0,
 		"def": e, "vel": Vector3.ZERO, "home": home, "mech": is_mech,
-		"l": side_hp, "r": side_hp, "side_max": side_hp, "vis": Sections.setup(n, is_mech),
+		"l": side_hp, "r": side_hp, "side_max": side_hp, "vis": Sections.setup(n, is_mech) if not e.get("capital", false) else {"l": [], "r": []},   # (v1.9n: a capital ship is not split into wings: its meshes keep their LODs)
 		"spark_l": 0.0, "spark_r": 0.0, "sparks": 0, "gun": 0, "core_cd": _rng.randf_range(1.5, 3.0),
 		"cd": _rng.randf_range(0.5, 2.0), "orbit": _rng.randf() * TAU, "aggro": false, "strafe": _rng.randf_range(-1, 1), "prev_fwd": Vector3.FORWARD}
 	enemies.append(ent)
@@ -2162,6 +2162,7 @@ func _process(dt: float) -> void:
 	_update_nav()   # v1.5i
 	_update_beacon()
 	_update_enemies(dt)
+	if not allies.is_empty(): _update_allies(dt)   # v1.9n
 	_update_traffic(dt)
 	_update_bolts(dt)
 	_update_missiles(dt)
@@ -2719,16 +2720,22 @@ func _update_bolts(dt: float) -> void:
 		n.global_position = to
 		b["life"] -= dt
 		var hit := false
-		if b["owner"] == "player":
+		if b["owner"] == "player" or b["owner"] == "ally":   # v1.9n: allied ships' shots hit the enemy too
 			for e in enemies:
-				if _seg_hit(from, to, e["node"].global_position, 7.5):
-					_damage_enemy(e, b["dmg"], _seg_closest(from, to, e["node"].global_position))
+				if _seg_hit(from, to, e["node"].global_position, float(e["def"].get("hit_r", 7.5))):
+					_damage_enemy(e, b["dmg"], _seg_closest(from, to, e["node"].global_position) if not e["def"].get("capital", false) else Vector3.INF)
 					hit = true
 					break
-		else:
+		elif b["owner"] != "fx":
 			if _seg_hit(from, to, player.global_position, 5.0):
 				_player_hit(b["dmg"], _seg_closest(from, to, player.global_position))
 				hit = true
+			else:
+				for a in allies:   # v1.9n: enemy fire hits your allies as well
+					if is_instance_valid(a["node"]) and _seg_hit(from, to, a["node"].global_position, float(a["hit_r"])):
+						_damage_ally(a, float(b["dmg"]))
+						hit = true
+						break
 		if not hit and surface_mode:   # EXPERIMENT (v1.5t): shots dig the block ground
 			var rb := _ray_blocks(from, to)
 			if rb[0] != null:
@@ -3541,6 +3548,7 @@ func _update_missiles(dt: float) -> void:
 ## Heavy: hits hard (at least HEAVY_MISSILE_HULL_FRAC of the hull). Light: MISSILE_DAMAGE or 30 % of the hull,
 ## times the rack's damage share (a swarm missile is lighter).
 func missile_damage(e: Dictionary, heavy: bool, scale := 1.0) -> float:
+	if (e.get("def", {}) as Dictionary).get("capital", false): return Data.CAPITAL_MISSILE_DAMAGE * (Data.HEAVY_MISSILE_MULT if heavy else scale)   # v1.9n: set damage on a capital ship
 	var full := maxf(Data.MISSILE_DAMAGE, float(e["max"]) * Data.LIGHT_MISSILE_HULL_FRAC)
 	if heavy: return maxf(maxf(Data.HEAVY_MISSILE_DAMAGE, float(e["max"]) * Data.HEAVY_MISSILE_HULL_FRAC), full * Data.HEAVY_MISSILE_MULT)   # v1.5x: = 3.5 regular missiles
 	return full * scale
@@ -3687,8 +3695,17 @@ func _update_enemies(dt: float) -> void:
 		var n: Node3D = e["node"]
 		var d: Dictionary = e["def"]
 		e["sh_cd"] = float(e["sh_cd"]) - dt
-		if e["sh_cd"] <= 0.0: e["sh"] = minf(float(e["sh_max"]), float(e["sh"]) + float(e["sh_max"]) * 0.15 * dt)
-		var to := ppos - n.global_position
+		if e["sh_cd"] <= 0.0: e["sh"] = minf(float(e["sh_max"]), float(e["sh"]) + float(e["sh_max"]) * (0.15 if not d.get("capital", false) else 0.02) * dt)
+		if d.get("capital", false):   # v1.9n: a capital ship: slow, turrets all round
+			_update_capital(e, dt)
+			continue
+		var tpos := ppos   # v1.9n: who it is fighting: you, or one of your allies when one is nearer
+		var tvel := vel
+		var fa: Dictionary = _enemy_foe(e, dt)
+		if not fa.is_empty():
+			tpos = fa["node"].global_position
+			tvel = fa["vel"]
+		var to := tpos - n.global_position
 		var dist := to.length()
 		var was: bool = e["aggro"]
 		var spotting := warp_state == "charging" and dist < 1600.0   # they see the warp charge and come to stop you
@@ -3697,6 +3714,7 @@ func _update_enemies(dt: float) -> void:
 		if e.has("faction"): n.set_meta("kind", "patrol" if peaceful else "enemy")   # v1.4w: a peaceful faction ship is not a hostile contact
 		if peaceful: e["aggro"] = false
 		elif dist < 650.0 or e["aggro"] or spotting: e["aggro"] = dist < (1600.0 if spotting else 1400.0)
+		if e.get("invasion", false): e["aggro"] = true   # v1.9n: an invasion fights whoever is there
 		if e.has("pilot"):
 			# generic pilots chatter instead of hailing; named leaders keep the full hail below
 			if e["aggro"] and not was and warp_state != "on": _chatter(e, "target_acquired")
@@ -3712,7 +3730,7 @@ func _update_enemies(dt: float) -> void:
 		elif e["aggro"] and controls:
 			# attack run: approach, then peel off to the side and come back around
 			var side: Vector3 = player.global_basis.x * float(e["strafe"]) * 90.0
-			goal = ppos + side if dist > 140.0 else n.global_position - to.normalized() * 200.0 + side
+			goal = tpos + side if dist > 140.0 else n.global_position - to.normalized() * 200.0 + side
 		else:
 			e["orbit"] += dt * 0.25
 			goal = e["home"] + Vector3(cos(e["orbit"]) * 120.0, sin(e["orbit"] * 0.7) * 25.0, sin(e["orbit"]) * 120.0)
@@ -3751,7 +3769,7 @@ func _update_enemies(dt: float) -> void:
 		var facing: bool = (-n.global_basis.z).dot(to.normalized()) > cos(deg_to_rad(12.0))
 		if walker: facing = (-n.global_basis.z).dot(Vector3(to.x, 0, to.z).normalized()) > cos(deg_to_rad(14.0))   # it aims its guns up; only the body has to face you
 		if e["aggro"] and controls and dist < 420.0 and facing:
-			var lead := ppos + vel * (dist / 300.0)
+			var lead := tpos + tvel * (dist / 300.0)
 			var guns := unit_guns(e)
 			if e["cd"] <= 0.0 and not guns.is_empty():
 				# alternate between the arm/wing guns that are still attached
@@ -4677,7 +4695,7 @@ func engaged_tier(r := 1500.0) -> int:
 	var t := 0
 	for e in enemies:
 		if not (e.get("aggro", false) and is_instance_valid(e["node"]) and e["node"].global_position.distance_to(player.global_position) < r): continue
-		t = maxi(t, 2 if (e.get("boss_mech", false) or e.has("bounty") or int(e.get("rank", 0)) >= Data.EPIC_RANK) else 1)
+		t = maxi(t, 2 if (e.get("boss_mech", false) or e["def"].get("capital", false) or e.has("bounty") or int(e.get("rank", 0)) >= Data.EPIC_RANK) else 1)
 	return t
 
 func hostiles_near(r: float) -> int:
@@ -5535,6 +5553,7 @@ func _special_beam() -> void:
 	var hit_side := ""
 	if absf(side_dot) > Data.SPECIAL_SIDE_HIT: hit_side = "l" if side_dot > 0.0 else "r"   # struck from the right = the beam lands on its right... (it enters the side facing you)
 	var dmg: float = float(e["sh"]) + float(e["max"]) * Data.SPECIAL_BEAM_OVERFLOW * special_factor()   # v1.9c: shields always go; the hull damage grows with the charge
+	if e["def"].get("capital", false): dmg = float(e["sh"]) + Data.CAPITAL_SPECIAL_DAMAGE * special_factor()   # v1.9n: a set amount on a capital ship
 	e["sh_cd"] = 6.0   # the shield stays down for a while
 	_damage_enemy(e, dmg)
 	if hit_side != "" and e in enemies and float(e[hit_side]) > 0.0:
@@ -5996,3 +6015,262 @@ func shift_tile(dir: Vector2i) -> void:
 
 func pulse_lights(t: float) -> void:
 	pass
+
+# ---------------------------------------------------------------- v1.9n SILVER: the enemy faction's fleet invasion
+## Owner: "it should feel like an actual war, where players need allies and coordinated attacks to win." Solo for now
+## with AI allies (no game server yet); built so other players' ships could later join as more allies.
+var allies: Array = []        # {node, model, hp, max, vel, cd, kind ("fighter"/"frigate"), hit_r, foe (enemy dict), strafe}
+var _inv_wave_t := 0.0
+var inv_here := false         # the fleet was brought in in THIS system visit
+var inv_log: Array = []       # (tests) what the invasion did: "spawn", "wave", "station_down", "won"
+
+## The enemy pieces of the invasion still flying, by role ("battleship", "warship", "destroyer", "command", "fighter").
+func invasion_units(role := "") -> Array:
+	return enemies.filter(func(o): return o.get("invasion", false) and is_instance_valid(o["node"]) and (role == "" or str(o.get("inv_role", "")) == role))
+
+## Bring the fleet in at `at`: the big ships spread round the point, the station behind them, the first fighters, and
+## your allies beside you. `left` = how many battleships are still to kill (a fleet you flew away from comes back as it was).
+func spawn_invasion(at: Vector3, faction: String, left: int, station_up: bool) -> void:
+	var cfg: Dictionary = Data.INVASION
+	var spread: float = cfg["spread"]
+	var roles: Array = []
+	for i in left: roles.append(["battleship", "inv_battleship"])
+	for i in int(cfg["warships"]): roles.append(["warship", "inv_warship"])
+	for i in int(cfg["destroyers"]): roles.append(["destroyer", "inv_destroyer"])
+	var k := 0
+	for r in roles:
+		var ang := TAU * float(k) / float(roles.size())
+		var p: Vector3 = at + Vector3(cos(ang) * spread * (0.5 if r[0] == "battleship" else 0.9), _rng.randf_range(-80, 80), sin(ang) * spread * (0.5 if r[0] == "battleship" else 0.9))
+		_spawn_capital(r[1], r[0], p, at, faction)
+		k += 1
+	if station_up: _spawn_capital("inv_command", "command", at + (at - player.global_position).normalized() * spread * 1.3, at, faction)
+	_inv_fighters(at, faction, int(cfg["fighters"]))
+	_spawn_allies(faction)
+	_inv_wave_t = float(cfg["wave_every"])
+	inv_here = true
+	inv_log.append("spawn")
+
+func _spawn_capital(kind: String, role: String, p: Vector3, home: Vector3, faction: String) -> Dictionary:
+	var d: Dictionary = Data.ENEMIES[kind]
+	var e := spawn_unit(kind, p, home, str(d["model"]), float(d.get("scale", 1.0)))
+	e["invasion"] = true
+	e["inv_role"] = role
+	e["provoked"] = true
+	e["aggro"] = true
+	e["l"] = 0.0   # (no wing sections: a hit goes to the hull)
+	e["r"] = 0.0
+	e["node"].name = "%s %s %d" % [faction if faction != "" else "Enemy", d["name"], _enemy_serial]
+	e["node"].look_at(home + Vector3(0.01, 0, 0), Vector3.UP)
+	if faction != "": e["faction"] = faction
+	_light_model(e["model"], Data.INVASION_DRAW["capital"], Data.INVASION_DRAW["capital_lod_bias"])
+	return e
+
+## v1.9n (phones): a war has many ships. No shadows from them, and small ships are not drawn far away (a dot you
+## could not see anyway); the big ones carry further.
+func _light_model(m: Node, draw_to: float, bias := -1.0) -> void:
+	for c in m.find_children("*", "GeometryInstance3D", true, false):
+		var g := c as GeometryInstance3D
+		g.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		g.visibility_range_end = draw_to
+		g.lod_bias = Data.INVASION_DRAW["lod_bias"] if bias < 0.0 else bias
+
+func _inv_fighters(at: Vector3, faction: String, count: int) -> void:
+	if count <= 0: return
+	for e in spawn_mission_group(at, faction, count, Data.PATROL_MAX_SLOT, "", -9):
+		e["invasion"] = true
+		e["inv_role"] = "fighter"
+		e["aggro"] = true
+		_light_model(e["model"], Data.INVASION_DRAW["fighter"])
+
+## Your side: the giver's faction's fighters and a frigate, flying with you.
+func _spawn_allies(enemy_faction: String) -> void:
+	for a in allies:
+		if is_instance_valid(a["node"]): a["node"].queue_free()
+	allies = []
+	var own: String = str(Data.SYSTEMS[str(GS.mission.get("giver_sys", sys_id))].get("faction", sys.get("faction", "")))
+	var pool: Array = Factions.DEFS.get(own, {}).get("fighter_pool", [])
+	var fk: String = str(Data.ENEMIES.get(str(pool[0]) if not pool.is_empty() else "", {}).get("model", "enemy"))
+	for i in int(Data.INVASION["ally_fighters"]):
+		_spawn_ally("fighter", fk, player.global_position + player.global_basis.x * (40.0 + 25.0 * i) * (1.0 if i % 2 == 0 else -1.0) + player.global_basis.z * 30.0, own)
+	for i in int(Data.INVASION["ally_frigates"]):
+		_spawn_ally("frigate", "carrier", player.global_position + player.global_basis.z * 260.0 + Vector3(0, 60, 0), own)
+
+func _spawn_ally(kind: String, model_key: String, p: Vector3, faction: String) -> void:
+	var cfg: Dictionary = Data.ALLY_FIGHTER if kind == "fighter" else Data.ALLY_FRIGATE
+	var node := Node3D.new()
+	node.name = "%s %s %d" % [faction if faction != "" else "Allied", "fighter" if kind == "fighter" else "frigate", allies.size() + 1]
+	var mdl := ShipFactory.build(model_key if ShipFactory.has_real_model(model_key) else "enemy")
+	node.add_child(mdl)
+	_light_model(mdl, Data.INVASION_DRAW["fighter" if kind == "fighter" else "capital"])
+	node.set_meta("kind", "ally")
+	node.set_meta("radius", float(cfg["hit_r"]))
+	add_child(node)
+	node.global_position = p
+	node.look_at(p - player.global_basis.z, Vector3.UP)
+	allies.append({"node": node, "model": mdl, "hp": float(cfg["hull"]), "max": float(cfg["hull"]), "vel": Vector3.ZERO, "cd": _rng.randf_range(0.3, 1.5),
+		"kind": kind, "hit_r": float(cfg["hit_r"]), "foe": {}, "strafe": _rng.randf_range(-1, 1), "re_t": 0.0})
+
+func _damage_ally(a: Dictionary, dmg: float) -> void:
+	a["hp"] = float(a["hp"]) - dmg
+	_spark(a["node"].global_position, Color(1.0, 0.6, 0.25), 3.0, 0.25)
+	if float(a["hp"]) <= 0.0:
+		_explode(a["node"].global_position)
+		message.emit("%s is down." % a["node"].name)
+		a["node"].queue_free()
+		allies.erase(a)
+
+## An enemy fighter's foe: the nearest ally when one is clearly nearer than you (re-picked about once a second).
+func _enemy_foe(e: Dictionary, dt: float) -> Dictionary:
+	if allies.is_empty(): return {}
+	e["foe_t"] = float(e.get("foe_t", 0.0)) - dt
+	var cur = e.get("foe_ally", {})
+	if float(e["foe_t"]) > 0.0 and cur is Dictionary and not cur.is_empty() and allies.has(cur) and is_instance_valid(cur["node"]): return cur
+	e["foe_t"] = _rng.randf_range(0.8, 1.4)
+	var p: Vector3 = e["node"].global_position
+	var best: Dictionary = {}
+	var bd: float = p.distance_to(player.global_position) * 0.8
+	for a in allies:
+		if not is_instance_valid(a["node"]): continue
+		var dd: float = p.distance_to(a["node"].global_position)
+		if dd < bd:
+			bd = dd
+			best = a
+	e["foe_ally"] = best
+	return best
+
+## A capital ship: drifts slowly round the fleet's point and fires its turrets at whoever is in range (you or allies).
+func _update_capital(e: Dictionary, dt: float) -> void:
+	var n: Node3D = e["node"]
+	var d: Dictionary = e["def"]
+	if float(d["speed"]) > 0.0:
+		e["orbit"] = float(e["orbit"]) + dt * 0.02
+		var goal: Vector3 = (e["home"] as Vector3) + Vector3(cos(e["orbit"]), 0.0, sin(e["orbit"])) * Data.INVASION["spread"] * 0.6
+		var want := (goal - n.global_position)
+		if want.length() > 20.0:
+			var fwd := -n.global_basis.z
+			var nf := fwd.slerp(want.normalized(), minf(1.0, dt * float(d["turn"])))
+			if nf.length() > 0.01: n.look_at(n.global_position + nf, Vector3.UP)
+			n.global_position += -n.global_basis.z * float(d["speed"]) * dt
+	e["cd"] = float(e["cd"]) - dt
+	if float(e["cd"]) > 0.0 or not controls: return
+	e["cd"] = 1.0 / float(d["rate"]) * _rng.randf_range(0.7, 1.3)
+	var rng_m: float = d["range"]
+	var cands: Array = [[player.global_position, vel]]
+	for a in allies:
+		if is_instance_valid(a["node"]): cands.append([a["node"].global_position, a["vel"]])
+	var pick: Array = []
+	var best := rng_m
+	for c in cands:
+		var dd: float = n.global_position.distance_to(c[0])
+		if dd < best:
+			best = dd
+			pick = c
+	if pick.is_empty(): return
+	var hr: float = float(d.get("hit_r", 30.0))
+	var from: Vector3 = n.global_position + Vector3(_rng.randf_range(-1, 1), _rng.randf_range(-0.3, 0.6), _rng.randf_range(-1, 1)) * hr * 0.7
+	var lead: Vector3 = (pick[0] as Vector3) + (pick[1] as Vector3) * (best / 320.0) + Vector3(_rng.randfn(0, 6), _rng.randfn(0, 6), _rng.randfn(0, 6))
+	_spawn_bolt(from, (lead - from).normalized() * 320.0, float(d["damage"]), Color(1.0, 0.3, 0.2), "enemy", best / 300.0 + 0.6)
+	if best < 600.0: Sfx.play("laser_enemy", -14.0 - best / 80.0, 0.6)
+
+## Allies: each fighter takes the nearest enemy fighter (the frigate the nearest big ship), makes attack runs and
+## fires; with nothing in reach they form up on you.
+func _update_allies(dt: float) -> void:
+	for i in range(allies.size() - 1, -1, -1):
+		var a: Dictionary = allies[i]
+		var n: Node3D = a["node"]
+		if not is_instance_valid(n):
+			allies.remove_at(i)
+			continue
+		var cfg: Dictionary = Data.ALLY_FIGHTER if a["kind"] == "fighter" else Data.ALLY_FRIGATE
+		a["re_t"] = float(a["re_t"]) - dt
+		var foe = a["foe"]
+		if float(a["re_t"]) <= 0.0 or not (foe is Dictionary) or foe.is_empty() or not enemies.has(foe) or not is_instance_valid(foe["node"]):
+			a["re_t"] = _rng.randf_range(1.0, 2.0)
+			a["foe"] = _ally_pick(a)
+			foe = a["foe"]
+		var goal: Vector3
+		var tp := Vector3.INF
+		if not foe.is_empty():
+			tp = foe["node"].global_position
+			var to: Vector3 = tp - n.global_position
+			var side: Vector3 = n.global_basis.x * float(a["strafe"]) * 80.0
+			var keep: float = float(foe["def"].get("hit_r", 7.5)) + (140.0 if a["kind"] == "fighter" else 600.0)
+			goal = tp + side if to.length() > keep else n.global_position - to.normalized() * 220.0 + side
+		else:
+			goal = player.global_position + player.global_basis.x * (60.0 * float(a["strafe"])) + player.global_basis.z * 50.0
+		var want := goal - n.global_position
+		if want.length() > 5.0 and float(cfg["speed"]) > 0.0:
+			var fwd := -n.global_basis.z
+			var nf := fwd.slerp(want.normalized(), minf(1.0, dt * float(cfg.get("turn", 0.3))))
+			if nf.length() > 0.01: n.look_at(n.global_position + nf, Vector3.UP)
+		var sp: float = float(cfg["speed"]) * (1.0 if not foe.is_empty() or want.length() > 120.0 else 0.4)
+		a["vel"] = (a["vel"] as Vector3).lerp(-n.global_basis.z * sp, minf(1.0, dt * 1.5))
+		n.global_position += a["vel"] * dt
+		if tp == Vector3.INF or not controls: continue
+		a["cd"] = float(a["cd"]) - dt
+		var dist: float = n.global_position.distance_to(tp)
+		if float(a["cd"]) > 0.0 or dist > float(cfg["range"]) + float(foe["def"].get("hit_r", 7.5)): continue
+		var facing: bool = a["kind"] == "frigate" or (-n.global_basis.z).dot((tp - n.global_position).normalized()) > 0.97
+		if not facing: continue
+		a["cd"] = 1.0 / float(cfg["rate"]) * _rng.randf_range(0.8, 1.2)
+		var from: Vector3 = n.global_position - n.global_basis.z * (5.0 if a["kind"] == "fighter" else 40.0)
+		var lead: Vector3 = tp + (foe["vel"] as Vector3) * (dist / 300.0) + Vector3(_rng.randfn(0, 3), _rng.randfn(0, 3), _rng.randfn(0, 3))
+		_spawn_bolt(from, (lead - from).normalized() * 300.0, float(cfg["damage"]), Color(0.35, 0.8, 1.0), "ally", dist / 280.0 + 0.5)
+
+func _ally_pick(a: Dictionary) -> Dictionary:
+	var p: Vector3 = a["node"].global_position
+	var best: Dictionary = {}
+	var bd := 3000.0
+	for e in enemies:
+		if not is_instance_valid(e["node"]) or not (e.get("aggro", false) or e.get("invasion", false)): continue
+		var cap: bool = e["def"].get("capital", false)
+		var dd: float = p.distance_to(e["node"].global_position) * (1.0 if (a["kind"] == "frigate") == cap else 3.0)   # fighters take fighters first, the frigate the big ships
+		if dd < bd:
+			bd = dd
+			best = e
+	return best
+
+## The invasion, every frame (from Missions.tick): bring it in when you arrive, keep its fighters topped up from the
+## command station (slowly once it is down), and win when the last battleship goes.
+func invasion_tick(dt: float, m: Dictionary) -> void:
+	var at := Missions.point_pos(self, 0)
+	if at == Vector3.INF: return
+	var cfg: Dictionary = Data.INVASION
+	if int(m.get("spawned", -1)) < 0:
+		if player.global_position.distance_to(at) < float(cfg["arrive"]):
+			spawn_invasion(at, str(m["faction"]), int(m.get("left", cfg["battleships"])), not bool(m.get("station_down", false)))
+			m["spawned"] = 0
+			message.emit("SILVER: the %s fleet is here. Destroy the three battleships; your wing is with you." % (str(m["faction"]) if str(m["faction"]) != "" else "enemy"))
+		return
+	if not inv_here:
+		m["spawned"] = -1   # (the fleet was left behind when you went: it is back, as it was, when you return)
+		return
+	var bs := invasion_units("battleship").size()
+	m["left"] = bs
+	if bs == 0:
+		inv_log.append("won")
+		for e in invasion_units():   # what is left of the fleet jumps out
+			if e["def"].get("capital", false):
+				_spark(e["node"].global_position, Color(0.7, 0.85, 1.0), 60.0, 0.5)
+				e["node"].queue_free()
+				enemies.erase(e)
+			else: e["retreat"] = 30.0
+		for a in allies:
+			if is_instance_valid(a["node"]): a["node"].queue_free()
+		allies = []
+		Missions._pay(self, "SILVER: the invasion is broken: the last battleship is down. %s pays %d cr." % [Missions.giver_name(m), int(m["pay"])])
+		return
+	if not bool(m.get("station_down", false)) and invasion_units("command").is_empty():
+		m["station_down"] = true
+		inv_log.append("station_down")
+		message.emit("The Star Command Station is down: their fighters come slower now.")
+	_inv_wave_t -= dt
+	if _inv_wave_t <= 0.0:
+		_inv_wave_t = float(cfg["wave_every"]) * (float(cfg["station_down_slow"]) if bool(m.get("station_down", false)) else 1.0)
+		var room: int = int(cfg["fighters"]) - invasion_units("fighter").size()
+		var n: int = mini(room, int(cfg["wave"]))
+		if n > 0:
+			var st: Array = invasion_units("command")
+			var from: Vector3 = (st[0]["node"].global_position if not st.is_empty() else invasion_units("battleship")[0]["node"].global_position)
+			_inv_fighters(from, str(m["faction"]), n)
+			inv_log.append("wave")

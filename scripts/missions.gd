@@ -37,7 +37,7 @@ static func offers(sys_id: String, station_id: String, owner := "", where := "st
 	if where != "planet": return full.filter(func(o): return not (str(o["kind"]) in PLANET_KINDS))
 	var out: Array = full.filter(func(o): return str(o["kind"]) in PLANET_KINDS)
 	if out.is_empty():   # nothing to do down there (no rival with ships): the outlaws over this planet
-		var o: Dictionary = full[-1].duplicate(true)
+		var o: Dictionary = full.filter(func(x): return str(x["kind"]) == "outlaws")[0].duplicate(true)   # (v1.9n: not the last offer any more)
 		o["title"] = "%s over %s" % [o["title"], Surface.PLANETS.get(pid, {}).get("name", "the planet")]
 		out.append(o)
 	return out
@@ -103,6 +103,12 @@ static func _all_offers(sys_id: String, station_id: String, owner: String, pid: 
 	out.append({"kind": "outlaws", "faction": "", "slot": 1, "pay": Data.MISSION_PAY["outlaws"], "title": "%sS: clear the %s threat" % [outlaw.to_upper(), outlaw], "giver": station_id, "giver_sys": sys_id, "sys": sys_id,
 		"brief": "%ss have been seen in two places in the %s system. Clear both. Outlaws, not soldiers: an easier fight, smaller pay." % [outlaw, sys["name"]],
 		"points": _points(rng, 2)})
+	# v1.9n (owner): SILVER: the rival faction's fleet invades this system (3 battleships to kill; allies fly with you)
+	if enemy != "":
+		out.append({"kind": "invasion", "faction": enemy, "slot": Data.PATROL_MAX_SLOT, "pay": Data.MISSION_PAY["invasion"], "title": "SILVER: %s fleet invasion" % enemy,
+			"giver": station_id, "giver_sys": sys_id, "sys": sys_id, "left": int(Data.INVASION["battleships"]),
+			"brief": "A %s invasion fleet is coming into the %s system: three heavy battleships, two warships, a destroyer and a Star Command Station launching fighters. Our wing and a frigate fly with you. Destroy the three battleships. Knock out the station to slow their fighters. This is a war, not a patrol." % [enemy, sys["name"]],
+			"points": _points(rng, 1).map(func(p): p["dist"] = float(Data.INVASION["dist"]); p["y"] = 0.0; return p)})
 	return out
 
 ## v1.8n: a ground job's point: on dry land when a few tries find some, and well away from the other point.
@@ -293,6 +299,14 @@ static func waypoint(space: SpaceSystem) -> Dictionary:
 		return giver_place(space, m, "Return to %s: hand %s over" % [giver_name(m), Data.roster_pilot(str(m["id"])).get("name", "the pilot")])
 	if str(m["sys"]) != space.sys_id: return _to_place(space, str(m["sys"]), m["title"])
 	match kind:
+		"invasion":   # v1.9n: the fleet's point, then the nearest battleship
+			var bs: Array = space.invasion_units("battleship")
+			if int(m.get("spawned", -1)) >= 0 and not bs.is_empty():
+				bs.sort_custom(func(x, y): return space.player.global_position.distance_to(x["node"].global_position) < space.player.global_position.distance_to(y["node"].global_position))
+				var st: String = "station DOWN" if bool(m.get("station_down", false)) else "station launching fighters"
+				return {"node": bs[0]["node"], "title": bs[0]["node"].name, "line": "SILVER: destroy the battleships (%d of %d left) · %d fighters · %s · %d allies" % [bs.size(), int(Data.INVASION["battleships"]), space.invasion_units("fighter").size(), st, space.allies.size()], "hops": 0}
+			var ip := space.mission_point(point_pos(space, 0))
+			return {"node": ip, "title": "Invasion fleet", "line": "SILVER: fly to the invasion fleet (%d battleship%s)" % [int(m.get("left", 3)), "" if int(m.get("left", 3)) == 1 else "s"], "hops": 0}
 		"escort", "convoy":
 			if is_instance_valid(space.escort_node):
 				return {"node": space.escort_node, "title": space.escort_node.name, "line": "Escort: stay with %s (hull %d%%)" % [space.escort_node.name, int(100.0 * float(m["escort_hp"]) / Data.ESCORT_HULL)], "hops": 0}
@@ -357,6 +371,9 @@ static func tick(space: SpaceSystem, dt: float) -> void:
 		return
 	if kind == "convoy":
 		_tick_convoy(space, dt, m)
+		return
+	if kind == "invasion":   # v1.9n
+		space.invasion_tick(dt, m)
 		return
 	if stage >= pts.size(): return
 	if int(m["spawned"]) < stage:

@@ -993,6 +993,7 @@ func _run() -> void:
 		await _job_v19k()
 		await _job_v19l()
 		await _job_v19m()
+		await _job_v19n()
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
@@ -1715,6 +1716,7 @@ func _run() -> void:
 	await _job_v19k()
 	await _job_v19l()
 	await _job_v19m()
+	await _job_v19n()
 	await _blocks()
 	await _regions()
 	await _galaxy()
@@ -4691,7 +4693,7 @@ func _job_ai() -> void:
 		elif o["kind"] == "convoy": cvy = o
 	var same: bool = Missions.offers(s.sys_id, sid).map(func(o): return o["title"]) == offers.map(func(o): return o["title"])
 	_check("Job AI: a station's MISSIONS board offers a patrol threats job, an elite threats job (slot 05, paid more) and an escort, from a faction hostile to the owner, the same offers for the whole visit",
-		kinds == ["threats", "threats_hard", "escort", "convoy", "outlaws"] and int(hard["slot"]) == 5 and int(easy["slot"]) == 1 and int(hard["pay"]) > int(easy["pay"]) and same and Factions.has_fighters(str(easy["faction"])) and (easy["points"] as Array).size() == 2,
+		kinds == ["threats", "threats_hard", "escort", "convoy", "outlaws", "invasion"] and int(hard["slot"]) == 5 and int(easy["slot"]) == 1 and int(hard["pay"]) > int(easy["pay"]) and same and Factions.has_fighters(str(easy["faction"])) and (easy["points"] as Array).size() == 2,
 		str(kinds) + " " + str(easy.get("faction", "")))
 	var pbid: String = str(Data.SYSTEMS[s.sys_id]["planet"]["id"])
 	var pkinds: Array = Missions.offers(s.sys_id, pbid, "", "planet").map(func(o): return str(o["kind"]))
@@ -8676,3 +8678,99 @@ func _job_v19m() -> void:
 	var scale_ok: bool = Data.TIER_COLORS.size() == 10 and Data.tier_of_pay(1) == 1 and Data.tier_of_pay(999999) == 10 and Data.tier_of_pay(600) < Data.tier_of_pay(1600)
 	_check("v1.9m: every job and bounty picture sits in a frame of its difficulty colour (blue to gold, 10 tiers); the owner's pictures load",
 		frames.size() >= 4 and tiers.size() >= 2 and bframes >= 1 and pics == 6 and scale_ok, "%d job frames, tiers %s, %d bounty frames, %d pictures" % [frames.size(), tiers.keys(), bframes, pics])
+
+
+## v1.9n (owner): SILVER: the rival faction's fleet invasion: 3 battleships (the target), 2 warships, a destroyer, a
+## Star Command Station that keeps 20 fighters up; your allies fight beside you.
+func _job_v19n() -> void:
+	var s: SpaceSystem = main.space
+	var keep := {"mission": GS.mission.duplicate(true), "credits": GS.credits, "hull": GS.hull}
+	var st_id := str(s.station.get_meta("info")["id"])
+	var offers: Array = Missions.offers(s.sys_id, st_id, Factions.owner_of(Data.SYSTEMS[s.sys_id]["station"], Data.SYSTEMS[s.sys_id]))
+	var inv: Dictionary = {}
+	for o in offers:
+		if o["kind"] == "invasion": inv = o
+	var offered: bool = not inv.is_empty() and Data.tier_of_pay(int(inv["pay"])) == 9
+	if inv.is_empty():
+		_check("v1.9n: a SILVER fleet invasion is on the board (tier 9)", false, "no invasion offered here")
+		return
+	GS.mission = {}
+	GS.bounty = {}
+	Missions.accept(inv)
+	GS.hull = GS.max_hull() * 50.0   # (the test pilot does not die watching)
+	var at: Vector3 = Missions.point_pos(s, 0)
+	var far_ok: bool = at.distance_to(s.station.global_position) > 5000.0
+	var wp0: Dictionary = s.mission_waypoint()
+	_tp(at + Vector3(0, 300, 2900), at)   # (just outside: the same view, no fleet yet)
+	await _frames(3)
+	var tb := Time.get_ticks_msec()
+	var fb := Engine.get_frames_drawn()
+	await _wait(2.0)
+	var fps0: float = float(Engine.get_frames_drawn() - fb) / maxf(0.001, float(Time.get_ticks_msec() - tb) / 1000.0)
+	print("[v19n] before: process %.1f ms, prims %d, draws %d" % [Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0, Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME), Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)])
+	_tp(at + Vector3(0, 200, 700), at)
+	await _frames(4)
+	var bs: int = s.invasion_units("battleship").size()
+	var ws: int = s.invasion_units("warship").size()
+	var ds: int = s.invasion_units("destroyer").size()
+	var cs: int = s.invasion_units("command").size()
+	var fs: int = s.invasion_units("fighter").size()
+	var al: int = s.allies.size()
+	var fleet_ok: bool = bs == 3 and ws == 2 and ds == 1 and cs == 1 and fs == int(Data.INVASION["fighters"]) and al == 7
+	var wp: Dictionary = s.mission_waypoint()
+	var line_ok: bool = str(wp0.get("line", "")).begins_with("SILVER") and str(wp.get("line", "")).contains("3 of 3")
+	# the battle runs: allies and the fleet trade fire
+	var hp0 := 0.0
+	for e in s.invasion_units(): hp0 += float(e["hp"]) + float(e["sh"])
+	var ally_hp0 := 0.0
+	for a in s.allies: ally_hp0 += float(a["hp"])
+	var t0 := Time.get_ticks_msec()
+	var fr0 := Engine.get_frames_drawn()
+	var gt0: float = s.time
+	await _until(func(): return s.time >= gt0 + 10.0, 150.0)   # (ten seconds of game time)
+	var pr := 0.0
+	var ph := 0.0
+	for k in 20:
+		await get_tree().process_frame
+		pr += Performance.get_monitor(Performance.TIME_PROCESS)
+		ph += Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS)
+	print("[v19n] avg process %.1f ms, physics %.1f ms, prims %d" % [pr / 20.0 * 1000.0, ph / 20.0 * 1000.0, Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME)])
+	print("[v19n] draw calls %d, process %.1f ms, objects %d, bolts %d" % [Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0, Performance.get_monitor(Performance.OBJECT_NODE_COUNT), s.bolts.size()])
+	var fps: float = float(Engine.get_frames_drawn() - fr0) / maxf(0.001, float(Time.get_ticks_msec() - t0) / 1000.0)
+	await _shot("v19n_fleet_battle", 0.0)
+	var hp1 := 0.0
+	for e in s.invasion_units(): hp1 += float(e["hp"]) + float(e["sh"])
+	var ally_hp1 := 0.0
+	for a in s.allies: ally_hp1 += float(a["hp"])
+	var fight_ok: bool = hp1 < hp0 and (ally_hp1 < ally_hp0 or s.allies.size() < al)
+	# set damage on capitals
+	var b0: Dictionary = s.invasion_units("battleship")[0]
+	var cap_ok: bool = is_equal_approx(s.missile_damage(b0, false), Data.CAPITAL_MISSILE_DAMAGE) and s.missile_damage(b0, true) < float(b0["max"]) * 0.1
+	# the station goes down; the fighters are thinned; a wave tops them up
+	var cmd: Dictionary = s.invasion_units("command")[0]
+	s._destroy_unit(cmd)
+	await _frames(3)
+	var down: bool = bool(GS.mission.get("station_down", false))
+	for e in s.invasion_units("fighter").slice(0, 6): s._destroy_unit(e)
+	var fs_low: int = s.invasion_units("fighter").size()
+	s._inv_wave_t = 0.0
+	await _frames(3)
+	var refill: bool = s.invasion_units("fighter").size() > fs_low and s.inv_log.has("wave")
+	# the three battleships: the job is won and paid
+	var cr0: int = GS.credits
+	for e in s.invasion_units("battleship"):
+		s._destroy_unit(e)
+		await _frames(2)
+	await _frames(4)
+	var won: bool = GS.mission.is_empty() and GS.credits >= cr0 + int(inv["pay"]) and s.allies.is_empty() and s.inv_log.has("won") and s.invasion_units("warship").is_empty()
+	for e in s.invasion_units():
+		s.enemies.erase(e)
+		e["node"].queue_free()
+	GS.mission = keep["mission"]
+	GS.credits = keep["credits"]
+	GS.hull = keep["hull"]
+	_check("v1.9n: a SILVER fleet invasion is on the board (tier 9), far out from the station", offered and far_ok, "pay %d" % int(inv["pay"]))
+	_check("v1.9n: the fleet: 3 battleships, 2 warships, a destroyer, the command station and 20 fighters; 6 allied fighters and a frigate with you",
+		fleet_ok and line_ok, "%d/%d/%d/%d, %d fighters, %d allies; %s" % [bs, ws, ds, cs, fs, al, str(wp.get("line", ""))])
+	_check("v1.9n: allies and the fleet fight each other; missiles do set damage on the big ships", fight_ok and cap_ok, "fleet %d -> %d, allies %d -> %d, %.1f fps (%.1f before)" % [hp0, hp1, ally_hp0, ally_hp1, fps, fps0])
+	_check("v1.9n: the station going down is noticed, waves top the fighters up, the last battleship wins the job and pays", down and refill and won, "down %s, refill %s, won %s" % [down, refill, won])
