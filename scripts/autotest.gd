@@ -992,6 +992,7 @@ func _run() -> void:
 		await _job_v19j()
 		await _job_v19k()
 		await _job_v19l()
+		await _job_v19m()
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
@@ -1713,6 +1714,7 @@ func _run() -> void:
 	await _job_v19j()
 	await _job_v19k()
 	await _job_v19l()
+	await _job_v19m()
 	await _blocks()
 	await _regions()
 	await _galaxy()
@@ -8650,3 +8652,27 @@ func _job_v19l() -> void:
 		started and p_up > 20.0 and rolled and up_v > 5.0 and ut and turned > 150.0 and cam_with and settled, "pitch %.0f, up %.0f m/s, turned %.0f deg, cam %s, settled %s" % [p_up, up_v, turned, cam_with, settled])
 	_check("v1.9l: the stick picks the move: down = dive, left / right = roll that way, forward = burst",
 		pick_dive == "dive" and pick_r == "right" and pick_l == "left" and pick_f == "fwd" and side, "%s %s %s %s side %s" % [pick_dive, pick_r, pick_l, pick_f, side])
+
+
+## v1.9m (owner): the job pictures carry no colour of their own; the board frames each in its difficulty tier's colour.
+func _job_v19m() -> void:
+	main.dock(main.space.station)
+	await _until(func(): return main.state == "hub", 8.0)
+	main.hub.show_screen("missions")
+	await _frames(3)
+	var frames: Array = main.hub.find_children("Tier_*", "PanelContainer", true, false)
+	var tiers := {}
+	for f in frames: tiers[int(f.get_meta("tier"))] = true
+	var pics := 0
+	for k in ["patrol", "elite", "escort", "convoy", "ground", "outlaws"]:
+		if ResourceLoader.exists(Data.MISSION_ICON_DIR + k + ".png"): pics += 1
+	await _shot("v19m_tier_frames", 0.3)
+	main.hub.show_screen("bounty")
+	await _frames(3)
+	var bframes: int = main.hub.find_children("Tier_*", "PanelContainer", true, false).size()
+	await _shot("v19m_bounty_frames", 0.3)
+	main.launch()
+	await _until(func(): return main.state == "flight", 8.0)
+	var scale_ok: bool = Data.TIER_COLORS.size() == 10 and Data.tier_of_pay(1) == 1 and Data.tier_of_pay(999999) == 10 and Data.tier_of_pay(600) < Data.tier_of_pay(1600)
+	_check("v1.9m: every job and bounty picture sits in a frame of its difficulty colour (blue to gold, 10 tiers); the owner's pictures load",
+		frames.size() >= 4 and tiers.size() >= 2 and bframes >= 1 and pics == 6 and scale_ok, "%d job frames, tiers %s, %d bounty frames, %d pictures" % [frames.size(), tiers.keys(), bframes, pics])

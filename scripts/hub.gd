@@ -943,7 +943,8 @@ func _bounty_page() -> void:
 			ph.gradient = Gradient.new()
 			ph.gradient.colors = PackedColorArray([Color(0.35, 0.1, 0.08), Color(0.12, 0.05, 0.05)])
 			pic.texture = ph
-		row.add_child(pic)
+		pic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(tier_frame(pic, Data.tier_of_pay(Data.bounty_reward(id))))   # v1.9m: framed in the difficulty colour
 		var t := _label(Data.BOARD_FONT, CYAN)   # v1.9k (owner): bigger, easier to read
 		t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1017,6 +1018,26 @@ func _mission_icon(o: Dictionary) -> Control:
 	tile.add_child(lab)
 	return tile
 
+## v1.9m (owner): a picture in a frame of its difficulty tier's colour (Data.TIER_COLORS), with a thin light edge
+## round the outside so even the BLACK tier shows on the dark board.
+func tier_frame(inner: Control, tier: int) -> Control:
+	var col: Color = Data.TIER_COLORS[clampi(tier, 1, Data.TIER_COLORS.size()) - 1]
+	var outer := PanelContainer.new()
+	outer.name = "Tier_%d" % tier
+	outer.set_meta("tier", tier)
+	outer.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var so := StyleBoxFlat.new()
+	so.bg_color = col
+	so.border_color = Color(0.85, 0.88, 0.95, 0.9)
+	so.set_border_width_all(1)
+	so.set_corner_radius_all(8)
+	so.set_content_margin_all(4)
+	outer.add_theme_stylebox_override("panel", so)
+	inner.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	outer.add_child(inner)
+	outer.tooltip_text = "Difficulty: %s" % Data.TIER_NAMES[clampi(tier, 1, Data.TIER_NAMES.size()) - 1]
+	return outer
+
 ## v1.7v: the coordinator reads a selected bounty out (same voice as the jobs).
 var last_read := ""   # (tests) the last line read out from the board
 func read_bounty(p: Dictionary) -> void:
@@ -1042,7 +1063,7 @@ func _missions_page() -> void:
 		row.name = "Job_" + str(o["kind"]) + ("_hard" if o.get("hard", false) else "")
 		row.add_theme_constant_override("separation", 14)
 		var mine: bool = Missions.is_current(o)
-		row.add_child(_mission_icon(o))   # v1.9k (owner): every job has a picture, like the bounties' faces
+		row.add_child(tier_frame(_mission_icon(o), Data.tier_of_pay(int(o["pay"]))))   # v1.9k (owner): every job has a picture; v1.9m: in its difficulty colour
 		var t := _label(Data.BOARD_FONT, CYAN)
 		t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

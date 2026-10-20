@@ -992,6 +992,13 @@ const MAN_UTURN_TIME := 0.9        # the U-turn (a second tap in a climb or dive
 const MAN_BOOST := 70.0            # m/s the burst adds
 const MAN_PITCH_DEG := 55.0        # how far the nose goes up (down) in a climb (dive)
 const MAN_SETTLE := 6.0            # how fast it levels out after
+## v1.9m (owner): difficulty tiers, easiest to hardest. The board frames each job's picture (and each bounty face)
+## in its tier's colour. A job's tier comes from its pay, so harder, better-paid work shows a higher colour.
+const TIER_COLORS := [Color(0.25, 0.55, 1.0), Color(0.25, 0.85, 0.35), Color(1.0, 0.9, 0.2), Color(1.0, 0.55, 0.15), Color(0.95, 0.2, 0.2),
+	Color(0.65, 0.3, 0.95), Color(0.04, 0.04, 0.05), Color(0.97, 0.97, 1.0), Color(0.72, 0.75, 0.8), Color(1.0, 0.78, 0.25)]
+const TIER_NAMES := ["BLUE", "GREEN", "YELLOW", "ORANGE", "RED", "PURPLE", "BLACK", "WHITE", "SILVER", "GOLD"]
+const TIER_PAY_STEP := 400        # each 400 cr of pay = one tier up (1..10)
+static func tier_of_pay(pay: int) -> int: return clampi(int(ceil(float(pay) / TIER_PAY_STEP)), 1, TIER_COLORS.size())
 const SPACE_CAM_FAR := 32000.0     # m: the space camera sees this far (was 14000: planets 11-17 km out flickered at the edge)
 const PLANET_SHELL_RANGE := 12000.0   # m: past this a planet's haze and cloud shells are not drawn (no depth fight far away)
 const EPIC_RANK := 4               # a fight with a pilot of this rank or up (or a boss) plays the EPIC battle music
