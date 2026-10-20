@@ -994,6 +994,7 @@ func _run() -> void:
 		await _job_v19l()
 		await _job_v19m()
 		await _job_v19n()
+		await _job_v19o()
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
@@ -1717,6 +1718,7 @@ func _run() -> void:
 	await _job_v19l()
 	await _job_v19m()
 	await _job_v19n()
+	await _job_v19o()
 	await _blocks()
 	await _regions()
 	await _galaxy()
@@ -5673,17 +5675,17 @@ func _job_an() -> void:
 	await _frames(2)
 	var sel1: bool = GS.mission.get("kind", "") == "threats" and not GS.mission.get("hard", true)
 	var hi1: Button = hub.content.find_child("Take_Job_threats", true, false)
-	var lit1: bool = hi1 != null and hi1.text.begins_with("TRACKING")
+	var lit1: bool = hi1 != null and hi1.text == "DISENGAGE"
 	await _shot("an_mission_selected", 0.3)
 	hi1.pressed.emit()
 	await _frames(2)
-	var desel: bool = GS.mission.is_empty() and (hub.content.find_child("Take_Job_threats", true, false) as Button).text == "SELECT"
+	var desel: bool = GS.mission.is_empty() and (hub.content.find_child("Take_Job_threats", true, false) as Button).text == "ACCEPT"
 	(hub.content.find_child("Take_Job_escort", true, false) as Button).pressed.emit()
 	await _frames(2)
 	var sel2: bool = GS.mission.get("kind", "") == "escort"
 	(hub.content.find_child("Take_Job_threats_hard", true, false) as Button).pressed.emit()
 	await _frames(2)
-	var switched: bool = GS.mission.get("kind", "") == "threats" and GS.mission.get("hard", false) and (hub.content.find_child("Take_Job_escort", true, false) as Button).text == "SELECT"
+	var switched: bool = GS.mission.get("kind", "") == "threats" and GS.mission.get("hard", false) and (hub.content.find_child("Take_Job_escort", true, false) as Button).text == "ACCEPT"
 	_check("Job AN: MISSIONS: tap a job = selected (gold, TRACKING), tap it again = cleared, tap another = switched; nothing stays blocked",
 		tabs_ok and sel1 and lit1 and desel and sel2 and switched, "tabs %s sel %s lit %s desel %s sel2 %s switch %s" % [tabs_ok, sel1, lit1, desel, sel2, switched])
 	# ---- v1.8c (owner): a board posts only its owner's rivals: Liberty Hub (Unity) = Imperium wanted pilots
@@ -5711,7 +5713,7 @@ func _job_an() -> void:
 	var w_j: Dictionary = s.mission_waypoint()
 	var way_j: bool = not w_j.is_empty() and str(w_j["line"]).find("mission point 1") >= 0
 	var read_j: bool = hub.last_read.begins_with("Bounty: Jackal")
-	var lit_j: bool = (hub.content.find_child("Bounty_savagers_02", true, false) as Button).text.begins_with("TRACKING")
+	var lit_j: bool = (hub.content.find_child("Bounty_savagers_02", true, false) as Button).text == "DISENGAGE"
 	await _shot("an_bounty_selected", 0.3)
 	(hub.content.find_child("Bounty_savagers_02", true, false) as Button).pressed.emit()
 	await _frames(2)
@@ -5719,7 +5721,7 @@ func _job_an() -> void:
 	(hub.content.find_child("Bounty_savagers_04", true, false) as Button).pressed.emit()
 	await _frames(2)
 	var w_v: Dictionary = s.mission_waypoint()
-	var veil: bool = GS.bounty.get("id", "") == "savagers_04" and not w_v.is_empty() and str(w_v["line"]).find("mission point") >= 0 and (hub.content.find_child("Bounty_savagers_02", true, false) as Button).text == "SELECT"
+	var veil: bool = GS.bounty.get("id", "") == "savagers_04" and not w_v.is_empty() and str(w_v["line"]).find("mission point") >= 0 and (hub.content.find_child("Bounty_savagers_02", true, false) as Button).text == "ACCEPT"
 	(hub.content.find_child("Bounty_savagers_03", true, false) as Button).pressed.emit()
 	await _frames(2)
 	var razor: bool = GS.bounty.get("id", "") == "savagers_03" and str(s.mission_waypoint().get("line", "")).find("mission point") >= 0 and GS.mission.get("sys", "") == s.sys_id
@@ -8774,3 +8776,66 @@ func _job_v19n() -> void:
 		fleet_ok and line_ok, "%d/%d/%d/%d, %d fighters, %d allies; %s" % [bs, ws, ds, cs, fs, al, str(wp.get("line", ""))])
 	_check("v1.9n: allies and the fleet fight each other; missiles do set damage on the big ships", fight_ok and cap_ok, "fleet %d -> %d, allies %d -> %d, %.1f fps (%.1f before)" % [hp0, hp1, ally_hp0, ally_hp1, fps, fps0])
 	_check("v1.9n: the station going down is noticed, waves top the fighters up, the last battleship wins the job and pays", down and refill and won, "down %s, refill %s, won %s" % [down, refill, won])
+
+
+## v1.9o (owner): the board: tap = hear it (phone voice) and ACCEPT / DECLINE; the job you have = CONTINUE / DISENGAGE
+## (even with a prisoner aboard); a prisoner taken to their own people walks free, that faction turns hostile (its
+## board is locked) and the freed pilot hunts you on launch.
+func _job_v19o() -> void:
+	var s: SpaceSystem = main.space
+	var keep := {"mission": GS.mission.duplicate(true), "bounty": GS.bounty.duplicate(true), "cargo": GS.cargo.duplicate(true), "rep": GS.rep.duplicate(true)}
+	GS.mission = {}
+	GS.bounty = {}
+	main.dock(s.station)
+	await _until(func(): return main.state == "hub", 8.0)
+	var hub = main.hub
+	hub.show_screen("missions")
+	await _frames(3)
+	var o0: Dictionary = Missions.offers(GS.system_id, hub.base["id"], Factions.owner_of(hub.base, Data.SYSTEMS[GS.system_id]))[0]
+	hub.pick_row("j:Job_threats", func(): hub.read_job(o0))
+	await _frames(3)
+	var heard: bool = Sfx.last_read_aloud.begins_with("PATROL") and hub.find_child("Decline_Take_Job_threats", true, false) != null and (hub.find_child("Take_Job_threats", true, false) as Button).text == "ACCEPT"
+	await _shot("v19o_heard_accept_decline", 0.3)
+	(hub.find_child("Decline_Take_Job_threats", true, false) as Button).pressed.emit()
+	await _frames(2)
+	var declined: bool = GS.mission.is_empty() and hub.find_child("Decline_Take_Job_threats", true, false) == null
+	(hub.find_child("Take_Job_threats", true, false) as Button).pressed.emit()
+	await _frames(2)
+	var took: bool = GS.mission.get("kind", "") == "threats" and hub.find_child("Continue_Take_Job_threats", true, false) != null and (hub.find_child("Take_Job_threats", true, false) as Button).text == "DISENGAGE"
+	await _shot("v19o_continue_disengage", 0.3)
+	# a prisoner aboard: DISENGAGE lets them go
+	var bid := "savagers_03"
+	GS.mission = {}
+	Missions.accept_bounty(bid)
+	GS.capture_bounty(bid)
+	GS.cargo.append({"kind": "pilot", "id": bid})
+	var blocked: String = Missions._switch_block()
+	var said: String = Missions.disengage()
+	var let_go: bool = blocked.contains("DISENGAGE") and GS.mission.is_empty() and GS.bounty.is_empty() and not GS.cargo.any(func(c): return c.get("kind", "") == "pilot") and said.begins_with("Disengaged")
+	# the prisoner's home: freed, hostile, board locked, chased on launch
+	Missions.accept_bounty(bid)
+	GS.capture_bounty(bid)
+	GS.cargo.append({"kind": "pilot", "id": bid})
+	var home: Dictionary = hub.base.duplicate()
+	home["faction"] = "Savagers"
+	var line: String = main.prisoner_home(home)
+	var freed: bool = line.contains("don't want your business") and GS.bounty.is_empty() and Factions.hostile("Savagers") and main.chaser == bid
+	hub.open(home)
+	hub.show_screen("missions")
+	await _frames(2)
+	var locked: bool = hub.find_child("BoardLocked", true, false) != null and hub.find_child("Take_Job_threats", true, false) == null
+	await _shot("v19o_board_locked", 0.3)
+	hub.open(s.station.get_meta("info"))
+	main.launch()
+	await _until(func(): return main.state == "flight", 8.0)
+	var hunted: bool = main.chaser == "" and s.enemies.any(func(e): return str(e["node"].name).contains("(freed)") and e.get("aggro", false))
+	for e in s.enemies.filter(func(e): return int(e.get("mission", 0)) == -8):
+		s.enemies.erase(e)
+		e["node"].queue_free()
+	GS.mission = keep["mission"]
+	GS.bounty = keep["bounty"]
+	GS.cargo = keep["cargo"]
+	GS.rep = keep["rep"]
+	_check("v1.9o: tap a job = it is read out in the phone voice and shows ACCEPT / DECLINE; DECLINE closes it; ACCEPT takes it; then CONTINUE / DISENGAGE", heard and declined and took, "heard %s declined %s took %s" % [heard, declined, took])
+	_check("v1.9o: DISENGAGE drops a job even with a prisoner aboard (they are let go)", let_go, said)
+	_check("v1.9o: a prisoner brought to their own people walks free; that faction turns hostile, its board is locked, and the freed pilot hunts you on launch", freed and locked and hunted, "freed %s locked %s hunted %s" % [freed, locked, hunted])

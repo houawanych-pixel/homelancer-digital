@@ -27,7 +27,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v1.9n"
+const VERSION := "v1.9o"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -1008,6 +1008,8 @@ const CAPITAL_MISSILE_DAMAGE := 120.0   # a light missile on a capital ship (hea
 const CAPITAL_SPECIAL_DAMAGE := 1500.0  # the special beam's hull damage on a capital ship at full charge
 const ALLY_FIGHTER := {"hull": 260.0, "speed": 52.0, "turn": 1.4, "damage": 6.0, "rate": 1.5, "range": 460.0, "hit_r": 7.0}
 const ALLY_FRIGATE := {"hull": 7000.0, "speed": 8.0, "damage": 10.0, "rate": 2.5, "range": 1300.0, "hit_r": 60.0}
+const PRISONER_HOME_STANDING := -70.0   # v1.9o: your standing with a faction after you bring one of theirs home as a prisoner (hostile)
+const CHASER_WING := 3                  # the freed pilot comes after you with this many ships in all
 const SPACE_CAM_FAR := 32000.0     # m: the space camera sees this far (was 14000: planets 11-17 km out flickered at the edge)
 const PLANET_SHELL_RANGE := 12000.0   # m: past this a planet's haze and cloud shells are not drawn (no depth fight far away)
 const EPIC_RANK := 4               # a fight with a pilot of this rank or up (or a boss) plays the EPIC battle music

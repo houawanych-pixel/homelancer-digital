@@ -761,6 +761,7 @@ func dock(n: Node3D) -> void:
 	if info["id"] == "liberty_hub" and GS.kills > 0: visited["liberty_hub_2"] = true
 	hub.open(info)
 	var wk: String = str(info.get("kind", "station"))   # v1.8k: where they are handed in sets how long they stay locked up
+	var home_free: String = prisoner_home(info)   # v1.9o (owner): a prisoner brought to their own people walks free
 	var was_job: Dictionary = GS.mission.duplicate()
 	var was_bounty: Dictionary = GS.bounty.duplicate()
 	var paid: String = Missions.claim_at(info["id"], wk) if not GS.mission.is_empty() else GS.claim_bounty(wk)   # v1.5f: a board bounty is paid where it was taken; an old-style one anywhere
@@ -768,12 +769,35 @@ func dock(n: Node3D) -> void:
 		hub.status.text = paid
 		hub._refresh_credits()
 		if str(was_job.get("kind", "")) == "bounty" and GS.mission.is_empty(): bounty_thanks(info, was_job, was_bounty)
+	if home_free != "":
+		hub.show_screen("bounty")
+		hub.status.text = home_free
 	GS.save_game()   # v1.7y: docking saves
 	state = "hub"
 	var tw2 := create_tween()
 	tw2.tween_property(fx, "fade", 0.0, 0.6)
 	await tw2.finished
 	fx.caption = ""
+
+## v1.9o (owner: "if I bring a prisoner into their home world, they're gonna be on me"): docking with a prisoner at a
+## base of the prisoner's own faction: their people free them, the job is lost, that faction turns hostile (so the
+## board there is locked: they don't want your business) and the freed pilot comes after you when you launch.
+var chaser := ""   # the roster id of a freed prisoner who hunts you on the next launch
+func prisoner_home(info: Dictionary) -> String:
+	if GS.bounty.get("state", "") != "captured": return ""
+	var id := str(GS.bounty.get("id", ""))
+	var p: Dictionary = Data.roster_pilot(id)
+	var fac := str(p.get("faction", ""))
+	var own: String = Factions.owner_of(info, Data.SYSTEMS[GS.system_id])
+	if fac == "" or own != fac: return ""
+	Missions.release_captive()
+	Missions.abandon()
+	GS.bounty = {}
+	if Factions.has(fac): Factions.adjust(fac, -(Factions.standing(fac) - Data.PRISONER_HOME_STANDING))   # (down to hostile)
+	chaser = id
+	var line := "%s's people pull %s out of your hold: this is their home. The job is lost, %s don't want your business, and %s is coming after you." % [fac, str(p.get("name", "the pilot")), fac, str(p.get("name", "the pilot"))]
+	Sfx.read_aloud(line)
+	return line
 
 ## v1.9k (owner): handing a captive in: the one who posted the bounty says well done, pays, and points you at the
 ## board for the next job (the board opens on the bounties).
@@ -818,6 +842,9 @@ func launch() -> void:
 	space.set_player_model()
 	space.place_player("planet" if docked_node_kind == "planet" else "station")
 	space.spawn_bounty()   # v1.4q: a bounty just accepted for this very system
+	if chaser != "":   # v1.9o: the freed prisoner and a wing come after you
+		space.spawn_chaser(chaser)
+		chaser = ""
 	_launch_sequence(where, GS.mission.is_empty())   # v1.7n: with a job, the brief is read, not cut off by control
 	var mw: Dictionary = space.mission_waypoint()
 	if not mw.is_empty():

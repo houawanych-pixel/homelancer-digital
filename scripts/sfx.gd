@@ -180,6 +180,19 @@ func play_character_voice(character_id: String, dialogue_id: String, text: Strin
 
 ## Start a radio line. pitch ~1.3 lighter voices, ~0.7 deep voices. voice_id = whose recorded voice to look for.
 ## (v1.5j: everything goes through play_character_voice; this keeps the old call working.)
+## v1.9o (owner: "it should read it for you in the phone voice"): the mission board always reads aloud, even with
+## character voices set to blips; nothing earlier holds it back.
+func read_aloud(text: String, voice_id := "", pitch := 1.0, female := false) -> void:
+	var was := voice_mode
+	voice_mode = "read"
+	keep_until = 0.0
+	_last_key = ""
+	stop_voice()
+	play_character_voice(voice_id, "", text, pitch, female)
+	voice_mode = was
+	last_read_aloud = text
+var last_read_aloud := ""
+
 func speak(text: String, pitch := 1.0, female := false, voice_id := "") -> void:
 	play_character_voice(voice_id, "", text, pitch, female)
 

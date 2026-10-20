@@ -245,7 +245,7 @@ static func toggle_bounty(id: String) -> String:
 ## The one thing that can stop a switch: a prisoner in the hold must be handed in first.
 static func _switch_block() -> String:
 	if GS.bounty.get("state", "") == "captured":
-		return "%s is in your hold: hand them in at %s first." % [Data.roster_pilot(str(GS.bounty["id"])).get("name", "The pilot"), Data.SYSTEMS[str(GS.mission.get("giver_sys", GS.system_id))]["station"]["name"]]
+		return "%s is in your hold: hand them in at %s first, or DISENGAGE to let them go." % [Data.roster_pilot(str(GS.bounty["id"])).get("name", "The pilot"), giver_name(GS.mission) if not GS.mission.is_empty() else Data.SYSTEMS[GS.system_id]["station"]["name"]]
 	return ""
 
 ## What the board says is being tracked and where its waypoint leads, from here (works docked: no space needed).
@@ -266,6 +266,27 @@ static func tracking_line(here: String) -> String:
 	return "Tracking: %s. Waypoint: mission point %d of %d in this system." % [m["title"], int(m.get("stage", 0)) + 1, (m.get("points", []) as Array).size()]
 
 ## Drop the job (no pay, no penalty beyond the lost time).
+## v1.9o (owner: "I need to abort a mission"): DISENGAGE: drop the job you have, wherever you are. A prisoner in the
+## hold is let go (out of the hold, back to flying).
+static func disengage() -> String:
+	if GS.mission.is_empty() and GS.bounty.is_empty(): return "No job to drop."
+	var title := str(GS.mission.get("title", "the bounty"))
+	var freed := ""
+	if GS.bounty.get("state", "") == "captured": freed = release_captive()
+	abandon()
+	GS.bounty = {}
+	GS.changed.emit()
+	return "Disengaged: %s.%s Pick another job when you are ready." % [title, (" %s" % freed) if freed != "" else ""]
+
+## The prisoner in the hold walks free (no pay). Returns what to say ("" = nobody aboard).
+static func release_captive() -> String:
+	if GS.bounty.get("state", "") != "captured": return ""
+	var id := str(GS.bounty.get("id", ""))
+	GS.cargo = GS.cargo.filter(func(c): return not (c.get("kind", "") == "pilot" and str(c.get("id", "")) == id))
+	GS.bounty = {}
+	GS.changed.emit()
+	return "%s is out of your hold and free." % Data.roster_pilot(id).get("name", "The pilot")
+
 static func abandon() -> void:
 	if GS.mission.is_empty(): return
 	if GS.mission.get("kind", "") == "bounty" and GS.bounty.get("state", "") == "hunt": GS.bounty = {}

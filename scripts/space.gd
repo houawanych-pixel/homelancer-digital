@@ -6274,3 +6274,19 @@ func invasion_tick(dt: float, m: Dictionary) -> void:
 			var from: Vector3 = (st[0]["node"].global_position if not st.is_empty() else invasion_units("battleship")[0]["node"].global_position)
 			_inv_fighters(from, str(m["faction"]), n)
 			inv_log.append("wave")
+
+
+## v1.9o: a prisoner freed by their own people comes after you on launch, with a wing.
+func spawn_chaser(id: String) -> Array:
+	var p: Dictionary = Data.roster_pilot(id)
+	if p.is_empty() or not is_instance_valid(player): return []
+	var at: Vector3 = player.global_position + player.global_basis.z * 700.0 + Vector3(0, 80, 0)
+	var grp := spawn_mission_group(at, str(p["faction"]), Data.CHASER_WING, int(p.get("slot", 2)), "", -8)
+	if grp.is_empty(): return grp
+	assign_roster(grp[0], p)
+	for e in grp:
+		e["aggro"] = true
+		e["provoked"] = true
+	grp[0]["node"].name = "%s (freed)" % str(p["name"])
+	message.emit("%s is free and coming for you, with a wing." % str(p["name"]))
+	return grp

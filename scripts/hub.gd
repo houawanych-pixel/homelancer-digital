@@ -922,8 +922,9 @@ func _bounty_page() -> void:
 	_board_head(v, "bounty")
 	var l := _label(17, Color(1, 1, 1))
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.text = "Tap a target to track it (a gold waypoint leads you there); tap it again to stop. Tapping another target switches. Every bounty is a capture: destroy the ship, TRACTOR the pilot into your hold and bring them back here to be paid."   # v1.8x (owner)
+	l.text = "Tap a target to hear it. ACCEPT takes the hunt (a gold waypoint leads you there). Every bounty is a capture: destroy the ship, TRACTOR the pilot into your hold and bring them back here to be paid."   # v1.8x (owner); v1.9o: tap = hear, ACCEPT / DECLINE
 	v.add_child(l)
+	if _board_locked(v): return
 	_standing_rows(v)
 	var posted: Array = Data.bounties_for(Factions.owner_of(base, Data.SYSTEMS[GS.system_id]))   # v1.5l: this station's enemies
 	posted.sort_custom(func(a, b): return [str(a["faction"]) != "Savagers", str(a["faction"]), int(a["slot"])] < [str(b["faction"]) != "Savagers", str(b["faction"]), int(b["slot"])])
@@ -951,33 +952,27 @@ func _bounty_page() -> void:
 		t.text = "%02d  %s  ·  %s  ·  %s\nHunt: here in %s   ·   Flies a %s\nReward %d cr  ·  wanted %s" % [int(p["rank"]), str(p["name"]).to_upper(), p["type"], p["faction"],
 			Data.SYSTEMS[GS.system_id]["name"], Data.ENEMIES[p["fighter_primary"]]["name"], Data.bounty_reward(id), "ALIVE" if int(p["rank"]) >= Data.BOUNTY_ALIVE_RANK else "dead"]
 		row.add_child(t)
-		var b := Button.new()
-		b.name = "Bounty_" + id
-		b.custom_minimum_size = Vector2(230, 60)
 		var mine: bool = GS.bounty.get("id", "") == id
+		var shut := ""
 		if GS.bounty_jail.has(id):   # v1.8k: locked up for now; breaks out later
 			var down: bool = not bool(GS.cast_state(str(p.get("character_id", id))).get("alive", true))
-			b.text = ("KILLED\nreplaced in %d min" if down else "IN CUSTODY\nout in %d min") % GS.jail_minutes(id)   # (masked soldiers: another takes the post)
-			b.disabled = true
-		elif id in GS.bounties_done:
-			b.text = "PAID"
-			b.disabled = true
-		elif mine and GS.bounty["state"] == "captured":
-			b.text = "IN YOUR HOLD"
-			b.disabled = true
-		elif mine:
-			b.text = "TRACKING\ntap to stop"
-			b.add_theme_color_override("font_color", GOLD)
-		else:
-			b.text = "SELECT"
-		b.pressed.connect(func():
-			status.text = Missions.toggle_bounty(id)
-			_note_giver()
-			if GS.bounty.get("id", "") == id:   # v1.7v (owner): the bounty is read out when you select it, like a job
-				read_bounty(p)
-			show_screen("bounty"))
-		row.add_child(b)
-		v.add_child(_row_frame(row, mine))
+			shut = ("KILLED\nreplaced in %d min" if down else "IN CUSTODY\nout in %d min") % GS.jail_minutes(id)   # (masked soldiers: another takes the post)
+		elif id in GS.bounties_done: shut = "PAID"
+		var key := "b:" + id
+		_tap_to_hear([row.get_child(0), t], key, func(): read_bounty(p))
+		row.add_child(_board_buttons("Bounty_" + id, key, mine, shut,
+			func():
+				var said := Missions.toggle_bounty(id)
+				status.text = said
+				_note_giver()
+				if GS.bounty.get("id", "") == id and board_pick != key: read_bounty(p)   # v1.7v: read out when taken (unless just heard)
+				board_pick = ""
+				show_screen("bounty"),
+			func():
+				status.text = Missions.disengage()
+				board_pick = ""
+				show_screen("bounty")))
+		v.add_child(_row_frame(row, mine or board_pick == key))
 
 ## v1.9k: the job just taken remembers this dock's name, so the way back and the messages name the right place.
 func _note_giver() -> void:
@@ -1038,6 +1033,86 @@ func tier_frame(inner: Control, tier: int) -> Control:
 	outer.tooltip_text = "Difficulty: %s" % Data.TIER_NAMES[clampi(tier, 1, Data.TIER_NAMES.size()) - 1]
 	return outer
 
+## v1.9o (owner: "make it simple, not everybody wants to read"): tap a job or a bounty (its picture or its words) and
+## it is read out in the phone voice; the row lights up and its buttons are ACCEPT / DECLINE. The job you have shows
+## CONTINUE (launch and fly it) / DISENGAGE (drop it, even with a prisoner aboard: they are let go).
+var board_pick := ""   # the row that was just tapped (heard)
+func _tap_to_hear(parts: Array, key: String, hear: Callable) -> void:
+	for c in parts:
+		var ctl := c as Control
+		ctl.mouse_filter = Control.MOUSE_FILTER_PASS
+		ctl.gui_input.connect(func(ev: InputEvent):
+			var tap: bool = (ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT) or (ev is InputEventScreenTouch and ev.pressed)
+			if not tap: return
+			pick_row(key, hear))
+
+## (tests call this too) the tap on a row: hear it and show ACCEPT / DECLINE.
+func pick_row(key: String, hear: Callable) -> void:
+	board_pick = key
+	hear.call()
+	show_screen(screen)
+
+func _board_buttons(main_name: String, key: String, mine: bool, shut: String, on_accept: Callable, on_drop: Callable) -> Control:
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 8)
+	col.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var b := Button.new()
+	b.name = main_name
+	b.custom_minimum_size = Vector2(230, 56)
+	col.add_child(b)
+	if shut != "":
+		b.text = shut
+		b.disabled = true
+		return col
+	if mine:
+		b.text = "DISENGAGE"
+		b.add_theme_color_override("font_color", Color(1.0, 0.55, 0.5))
+		b.pressed.connect(on_drop)
+		var c := Button.new()
+		c.name = "Continue_" + main_name
+		c.text = "CONTINUE"
+		c.custom_minimum_size = Vector2(230, 56)
+		c.add_theme_color_override("font_color", GOLD)
+		c.pressed.connect(func(): launch_requested.emit())
+		col.add_child(c)
+		col.move_child(c, 0)
+		return col
+	b.text = "ACCEPT"
+	b.add_theme_color_override("font_color", Color(0.55, 1.0, 0.6))
+	b.pressed.connect(on_accept)
+	if board_pick == key:
+		var d := Button.new()
+		d.name = "Decline_" + main_name
+		d.text = "DECLINE"
+		d.custom_minimum_size = Vector2(230, 56)
+		d.pressed.connect(func():
+			board_pick = ""
+			Sfx.stop_voice()
+			show_screen(screen))
+		col.add_child(d)
+	return col
+
+## v1.9o (owner: "they don't want your business"): a base whose people are hostile to you gives you no work.
+func _board_locked(v: VBoxContainer) -> bool:
+	var own: String = Factions.owner_of(base, Data.SYSTEMS[GS.system_id])
+	if own == "" or not Factions.has(own) or not Factions.hostile(own): return false
+	var lk := _label(Data.BOARD_FONT, Color(1.0, 0.5, 0.45))
+	lk.name = "BoardLocked"
+	lk.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lk.text = "LOCKED. %s don't want your business: your standing with them is %s. Raise it (work for their friends, stop hitting their ships) and come back." % [own, Factions.band(own).to_upper()]
+	v.add_child(lk)
+	return true
+
+## A job read out (title, brief, reward) in the coordinator's phone voice.
+func read_job(o: Dictionary) -> void:
+	var said := "%s. %s Reward %d credits." % [str(o["title"]), str(o["brief"]), int(o["pay"])]
+	last_read = said
+	_say_board(said)
+
+func _say_board(line: String) -> void:
+	var co: Dictionary = Factions.coordinator(Factions.owner_of(base, Data.SYSTEMS[GS.system_id]))
+	Sfx.read_aloud(line, str(co.get("voice_id", co.get("id", ""))) if not co.is_empty() else "", float(co.get("voice", 1.0)), str(co.get("sex", "")) == "female")
+
 ## v1.7v: the coordinator reads a selected bounty out (same voice as the jobs).
 var last_read := ""   # (tests) the last line read out from the board
 func read_bounty(p: Dictionary) -> void:
@@ -1045,8 +1120,7 @@ func read_bounty(p: Dictionary) -> void:
 	var line := "Bounty: %s, %s. %s. Reward %d credits, wanted %s. They're in this system: follow the waypoint." % [str(p["name"]), str(p["type"]), str(p["faction"]),
 		Data.bounty_reward(str(p["id"])), "alive" if int(p["rank"]) >= Data.BOUNTY_ALIVE_RANK else "dead"]
 	last_read = line
-	if co.is_empty(): Sfx.speak(line, 1.0, false, "")
-	else: Sfx.play_character_voice(str(co.get("voice_id", co["id"])), "", line, float(co.get("voice", 1.0)), str(co.get("sex", "")) == "female")
+	_say_board(line)
 
 ## v1.5f / v1.5k: the MISSIONS tab: the station's jobs; tap one to take and track it, tap it again to drop it, tap
 ## another to switch.
@@ -1056,8 +1130,9 @@ func _missions_page() -> void:
 	var l := _label(17, Color(1, 1, 1))
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var co: Dictionary = Factions.coordinator(Factions.owner_of(base, Data.SYSTEMS[GS.system_id]))
-	l.text = "Work for %s%s. Tap a job to take it (a gold waypoint leads you through it); tap it again to drop it. Tapping another job switches." % [base["name"], (", from %s" % co["name"]) if not co.is_empty() else ""]
+	l.text = "Work for %s%s. Tap a job to hear it; ACCEPT takes it (a gold waypoint leads you through it). DISENGAGE drops the job you have." % [base["name"], (", from %s" % co["name"]) if not co.is_empty() else ""]
 	v.add_child(l)
+	if _board_locked(v): return
 	for o in Missions.offers(GS.system_id, base["id"], Factions.owner_of(base, Data.SYSTEMS[GS.system_id]), "planet" if str(base.get("kind", "station")) == "planet" else "station"):   # v1.9b
 		var row := HBoxContainer.new()
 		row.name = "Job_" + str(o["kind"]) + ("_hard" if o.get("hard", false) else "")
@@ -1069,22 +1144,21 @@ func _missions_page() -> void:
 		t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		t.text = "%s\n%s\nReward %d cr" % [str(o["title"]).to_upper(), o["brief"], int(o["pay"])]
 		row.add_child(t)
-		var b := Button.new()
-		b.name = "Take_" + row.name
-		b.custom_minimum_size = Vector2(230, 60)
-		b.text = "TRACKING\ntap to stop" if mine else "SELECT"
-		if mine: b.add_theme_color_override("font_color", GOLD)
-		b.pressed.connect(func():
-			status.text = Missions.toggle(o)
-			_note_giver()
-			if Missions.is_current(o):   # v1.7p (owner): the job is read out when you select it (v1.9k: with its reward; dispatch's voice if nobody is posted here)
-				var said := "%s. %s Reward %d credits." % [str(o["title"]), str(o["brief"]), int(o["pay"])]
-				last_read = said
-				if co.is_empty(): Sfx.speak(said, 1.0, false, "")
-				else: Sfx.play_character_voice(str(co.get("voice_id", co["id"])), "", said, float(co.get("voice", 1.0)), str(co.get("sex", "")) == "female")
-			show_screen("missions"))
-		row.add_child(b)
-		v.add_child(_row_frame(row, mine))
+		var key := "j:" + row.name
+		var hear := func(): read_job(o)
+		_tap_to_hear([row.get_child(0), t], key, hear)
+		row.add_child(_board_buttons("Take_" + row.name, key, mine, "",
+			func():
+				status.text = Missions.toggle(o) if not Missions.is_current(o) else status.text
+				_note_giver()
+				if Missions.is_current(o) and board_pick != key: read_job(o)   # v1.7p: read out when taken (unless just heard)
+				board_pick = ""
+				show_screen("missions"),
+			func():
+				status.text = Missions.disengage()
+				board_pick = ""
+				show_screen("missions")))
+		v.add_child(_row_frame(row, mine or board_pick == key))
 
 ## v1.5f: YOUR SHIP: weapons and the hold (and the job you carry, which can be dropped here).
 func _ship_page() -> void:
