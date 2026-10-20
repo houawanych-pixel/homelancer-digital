@@ -991,6 +991,7 @@ func _run() -> void:
 		await _job_v19i()
 		await _job_v19j()
 		await _job_v19k()
+		await _job_v19l()
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
@@ -1711,6 +1712,7 @@ func _run() -> void:
 	await _job_v19i()
 	await _job_v19j()
 	await _job_v19k()
+	await _job_v19l()
 	await _blocks()
 	await _regions()
 	await _galaxy()
@@ -8591,3 +8593,60 @@ func _job_v19k() -> void:
 	_check("v1.9k: handing a captive in: the giver thanks you, pays, and opens the bounty board", thanks_ok, main.last_thanks)
 	_check("v1.9k: every job on the board has a picture tile, bigger board text", icons_ok)
 	_check("v1.9k: music: each system opens on its own track of its faction's set; epic music for the big fights", music_ok, "%d opening tracks, tiers %d/%d" % [firsts.size(), t1, t2])
+
+
+## v1.9l (owner): SPECIAL while it is locked = evasive moves picked by the stick; a second tap in a climb or dive = U-turn.
+func _job_v19l() -> void:
+	var s: SpaceSystem = main.space
+	var hull0: float = GS.hull
+	GS.hull = GS.max_hull()
+	GS.form = "ship"
+	s.set_player_model()
+	for en in s.enemies: en["aggro"] = false
+	_tp(Vector3(600, 3000, 600), Vector3(600, 3000, 0))
+	s.vel = Vector3.ZERO
+	s.pitch = 0.0
+	s.aim = Vector2.ZERO
+	s.move = Vector2.ZERO
+	s.man_log = []
+	# a real tap of the button (held for a frame)
+	s.special_held = true
+	await _frames(2)
+	s.special_held = false
+	var started: bool = s.man_kind == "climb" and s.special_state == "idle"
+	await _until(func(): return s.man_t >= Data.MAN_TIME * 0.5 or s.man_kind != "climb", 4.0)   # (game time, not the clock)
+	var p_up: float = rad_to_deg(s.pitch)
+	var rolled: bool = absf(s.man_roll) > 0.5
+	var up_v: float = s.vel.y
+	await _shot("v19l_climb_roll", 0.0)
+	var yaw0: float = s.yaw
+	s._man_press()   # a second tap mid-climb: U-turn
+	var ut: bool = s.man_kind == "uturn"
+	await _until(func(): return s.man_kind == "", 5.0)
+	await _wait(0.3)
+	var turned: float = rad_to_deg(absf(angle_difference(yaw0, s.yaw)))
+	await _shot("v19l_after_uturn", 0.2)
+	var cam_fwd: Vector3 = -s.cam.global_basis.z
+	var cam_with: bool = cam_fwd.dot(-s.player.global_basis.z) > 0.5
+	var settled: bool = s.man_kind == "" and absf(rad_to_deg(s.pitch)) < 20.0
+	s.aim = Vector2(0, 1)
+	var pick_dive: String = s.man_pick()
+	s.aim = Vector2(1, 0)
+	var pick_r: String = s.man_pick()
+	s.aim = Vector2(-1, 0)
+	var pick_l: String = s.man_pick()
+	s.aim = Vector2.ZERO
+	s.move = Vector2(0, 1)
+	var pick_f: String = s.man_pick()
+	s.move = Vector2.ZERO
+	s._man_start("right")
+	var x0: Vector3 = s.player.global_basis.x
+	var v0: Vector3 = s.vel
+	await _wait(0.4)
+	var side: bool = (s.vel - v0).dot(x0) > 5.0
+	await _wait(1.0)
+	GS.hull = hull0
+	_check("v1.9l: SPECIAL tapped while locked = climb with a barrel roll (nose up, then level); tap again = U-turn, the camera swings round",
+		started and p_up > 20.0 and rolled and up_v > 5.0 and ut and turned > 150.0 and cam_with and settled, "pitch %.0f, up %.0f m/s, turned %.0f deg, cam %s, settled %s" % [p_up, up_v, turned, cam_with, settled])
+	_check("v1.9l: the stick picks the move: down = dive, left / right = roll that way, forward = burst",
+		pick_dive == "dive" and pick_r == "right" and pick_l == "left" and pick_f == "fwd" and side, "%s %s %s %s side %s" % [pick_dive, pick_r, pick_l, pick_f, side])

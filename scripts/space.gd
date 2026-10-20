@@ -2281,6 +2281,9 @@ func _update_player(dt: float) -> void:
 		steer = ap[0]
 		thrust = ap[1]
 	if special_state == "turning": steer = Vector2.ZERO   # v1.9c: on release the special turns the ship itself (while you hold it you fly)
+	if man_kind != "":   # v1.9l: a SPECIAL manoeuvre flies the ship for a moment
+		steer = Vector2.ZERO
+		_man_update(dt)
 	if warp_state == "on": steer *= 0.35 # heavy steering at warp speed
 	# full loops: pitch is not capped. Upside down, left/right steering is mirrored so it still turns the way the
 	# stick points on screen (the camera rolls over with the ship).
@@ -2298,6 +2301,7 @@ func _update_player(dt: float) -> void:
 		model.rotation.z = lerpf(model.rotation.z, -steer.x * 0.55, minf(1.0, dt * 4.0))
 		model.rotation.x = lerpf(model.rotation.x, -steer.y * 0.12 + thrust_arc, minf(1.0, dt * 6.0))
 		if special_state == "charging": model.rotation.z = special_roll   # v1.5o: the barrel roll while the special charges
+		if man_kind != "": model.rotation.z = man_roll   # v1.9l: the manoeuvre's barrel roll
 	var fwd := -player.global_basis.z
 	var right := player.global_basis.x
 	boosting = false
@@ -5361,6 +5365,7 @@ func _update_special(dt: float) -> void:
 					special_log.append("charge")
 					message.emit("SPECIAL CHARGING: hold for more missiles, let go to fire")
 					Sfx.play("warp_spool", -6.0)
+			elif pressed and controls and warp_state == "off" and special_ready() == "": _man_press()   # v1.9l (owner): locked = evasive moves
 		"charging":
 			# v1.9c (owner): HOLD to charge: the ship does NOT turn while you hold, you fly it yourself. The charge builds
 			# a missile lock every LOCK_STEP (no aiming needed) up to a full rack: the longer you hold, the more missiles
@@ -5416,6 +5421,67 @@ func _update_special(dt: float) -> void:
 				mat.albedo_color.a = clampf(1.0 - special_t / Data.SPECIAL_BEAM_TIME, 0.0, 1.0)
 				if is_instance_valid(special_target): _aim_beam(special_target.global_position)
 			if special_t >= Data.SPECIAL_BEAM_TIME: _special_swarm()
+
+# ---------------------------------------------------------------- v1.9l: SPECIAL manoeuvres (while the special is locked)
+## Owner: "special doesn't do anything until you're in danger": until it arms, a tap of SPECIAL is an evasive move,
+## picked by the stick: none or up = climb with a barrel roll (nose up, then level out); forward (left stick) =
+## a forward burst with a roll; left / right = a barrel roll to that side; down = a dive with a roll. Tap again
+## during a climb or a dive = a U-turn: the ship swings round and the chase camera swings with it.
+var man_kind := ""      # "" | climb | dive | fwd | left | right | uturn
+var man_t := 0.0
+var man_roll := 0.0
+var man_dir := 1.0
+var man_yaw0 := 0.0
+var man_log: Array = []
+func man_pick() -> String:
+	var a := aim
+	var m := move
+	if absf(a.x) > 0.5 and absf(a.x) >= absf(a.y): return "left" if a.x < 0.0 else "right"
+	if absf(m.x) > 0.5 and absf(m.x) >= absf(m.y) and a.length() < 0.3: return "left" if m.x < 0.0 else "right"
+	if a.y > 0.5: return "dive"
+	if a.y < -0.5: return "climb"
+	if m.y > 0.4: return "fwd"
+	if m.y < -0.4: return "dive"
+	return "climb"
+func _man_press() -> void:
+	if GS.form == "mech" or transform_t > 0.0 or not lane.is_empty(): return
+	if man_kind == "climb" or man_kind == "dive":
+		_man_start("uturn")
+		return
+	if man_kind != "" and man_kind != "uturn" and man_t < Data.MAN_TIME * 0.5: return
+	_man_start(man_pick())
+func _man_start(k: String) -> void:
+	man_kind = k
+	man_t = 0.0
+	man_dir = -1.0 if k == "left" else 1.0
+	man_yaw0 = yaw
+	autopilot = null   # (your hands are on it)
+	man_log.append(k)
+	Sfx.play("warp_go", -10.0)
+	message.emit({"climb": "CLIMB!", "dive": "DIVE!", "fwd": "BURST!", "left": "ROLL LEFT!", "right": "ROLL RIGHT!", "uturn": "U-TURN!"}[k])
+func _man_update(dt: float) -> void:
+	man_t += dt
+	var d: float = Data.MAN_UTURN_TIME if man_kind == "uturn" else Data.MAN_TIME
+	var k := clampf(man_t / d, 0.0, 1.0)
+	var e := k * k * (3.0 - 2.0 * k)
+	var b := player.global_basis
+	var acc: float = Data.MAN_BOOST / d * 2.0 * (1.0 - k)   # (a burst that fades out)
+	match man_kind:
+		"climb", "dive":
+			var sgn := 1.0 if man_kind == "climb" else -1.0
+			if k < 0.55: pitch = clampf(pitch + sgn * deg_to_rad(Data.MAN_PITCH_DEG) / (0.55 * d) * dt, -PI * 0.45, PI * 0.45)
+			else: pitch = lerp_angle(pitch, 0.0, minf(1.0, dt * Data.MAN_SETTLE))   # then it levels out, facing forward
+			vel += Vector3.UP * sgn * acc * dt
+		"fwd": vel += -b.z * acc * dt
+		"left", "right": vel += b.x * man_dir * acc * dt
+		"uturn":
+			yaw = man_yaw0 + PI * e   # (exactly half a turn)
+			pitch = lerp_angle(pitch, 0.0, minf(1.0, dt * Data.MAN_SETTLE))
+			vel = vel.lerp(-player.global_basis.z * vel.length(), minf(1.0, dt * 4.0))
+	man_roll = -man_dir * TAU * e
+	if k >= 1.0:
+		man_kind = ""
+		man_roll = 0.0
 
 func _special_end(said: String) -> void:
 	special_state = "idle"

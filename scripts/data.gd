@@ -27,7 +27,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v1.9k"
+const VERSION := "v1.9l"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -987,6 +987,11 @@ const BOARD_FONT := 20            # v1.9k: mission and bounty board row text
 const OBJECTIVE_FONT := 17        # v1.9k: the job line at the top of the flight screen
 const OBJECTIVE_TAP_W := 760.0    # its tap area (centred)
 const OBJECTIVE_TAP_H := 40.0
+const MAN_TIME := 1.1              # v1.9l: a SPECIAL manoeuvre (climb, dive, burst, roll), seconds
+const MAN_UTURN_TIME := 0.9        # the U-turn (a second tap in a climb or dive)
+const MAN_BOOST := 70.0            # m/s the burst adds
+const MAN_PITCH_DEG := 55.0        # how far the nose goes up (down) in a climb (dive)
+const MAN_SETTLE := 6.0            # how fast it levels out after
 const SPACE_CAM_FAR := 32000.0     # m: the space camera sees this far (was 14000: planets 11-17 km out flickered at the edge)
 const PLANET_SHELL_RANGE := 12000.0   # m: past this a planet's haze and cloud shells are not drawn (no depth fight far away)
 const EPIC_RANK := 4               # a fight with a pilot of this rank or up (or a boss) plays the EPIC battle music

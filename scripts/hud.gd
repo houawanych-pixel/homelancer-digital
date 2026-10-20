@@ -696,10 +696,11 @@ func _special_button() -> void:
 		sub = "FULL · LET GO" if space.special_locks >= full else "CHARGE %d/%d" % [space.special_locks, full]
 		cd = 1.0 - space.special_charge()
 	elif st != "idle": sub = "FIRING"
-	elif ready == "": sub = "AT HALF HULL" if not GS.special_used["half"] else ("AT CRITICAL" if not GS.special_used["crit"] else "SPENT")
+	elif ready == "": sub = "TAP · STICK"   # v1.9l (owner): until it arms, a tap is an evasive move (stick picks which)
 	elif ready == "crit": sub = "CRITICAL · HOLD"
 	var armed := ready != "" or st != "idle"
-	_corner("special", "SPECIAL", "special", GOLD, st != "idle" or (armed and fmod(t, 0.8) < 0.4), "", cd, not armed or space.warp_state != "off", sub)
+	var evade: bool = not armed and GS.form != "mech"
+	_corner("special", "SPECIAL" if armed else ("EVADE" if evade else "SPECIAL"), "special", GOLD, st != "idle" or (armed and fmod(t, 0.8) < 0.4) or space.man_kind != "", "", cd, (not armed and not evade) or space.warp_state != "off", sub if evade or armed else "AT HALF HULL")
 
 func _draw_special() -> void:
 	if space == null: return
