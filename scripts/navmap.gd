@@ -30,6 +30,9 @@ var btn_tilt := Rect2()
 var btn_zoom_in := Rect2()
 var btn_zoom_out := Rect2()
 var btn_fit := Rect2()
+var btn_m_set := Rect2()   # v1.9p (owner): beside CURRENT MISSION: SET WAYPOINT (blue) and GO (green)
+var btn_m_go := Rect2()
+signal mission_go
 var btn_mission := Rect2()   # v1.7v (owner): CURRENT MISSION, on the left of the map: one tap makes the job the GPS destination
 var btn_card_x := Rect2()
 var card_rect := Rect2()
@@ -186,7 +189,12 @@ func tap(p: Vector2) -> void:
 	if btn_course.has_point(p):
 		if selected != "" and space != null and space.controls: set_course()
 		return
-	if btn_mission.size.x > 0.0 and btn_mission.has_point(p):
+	if btn_m_go.size.x > 0.0 and btn_m_go.has_point(p):   # v1.9p: GO: fly the job, all the way
+		gps_note = pick_mission()
+		visible = false
+		mission_go.emit()
+		return
+	if (btn_m_set.size.x > 0.0 and btn_m_set.has_point(p)) or (btn_mission.size.x > 0.0 and btn_mission.has_point(p)):
 		gps_note = pick_mission()
 		return
 	if selected == "" and space != null:   # v1.5i GPS: the route panel and the destination rows
@@ -548,7 +556,9 @@ func _layout() -> void:
 	btn_zoom_in = Rect2(map_rect.end.x - 10 - 46 * 2 - 8, y, 46, 46)
 	btn_fit = Rect2(map_rect.end.x - 10 - 46, y, 46, 46)
 	compass_pos = Vector2(map_rect.end.x - 46, map_rect.position.y + 58)
-	btn_mission = Rect2(map_rect.position.x + 10, map_rect.position.y + 38, minf(340.0, map_rect.size.x * 0.5), 66) if mission_ready() else Rect2()
+	btn_mission = Rect2(map_rect.position.x + 10, map_rect.position.y + 38, minf(300.0, map_rect.size.x * 0.38), 66) if mission_ready() else Rect2()
+	btn_m_set = Rect2(btn_mission.end.x + 8, btn_mission.position.y, 176, 66) if mission_ready() else Rect2()
+	btn_m_go = Rect2(btn_m_set.end.x + 8, btn_mission.position.y, 110, 66) if mission_ready() else Rect2()
 
 ## How big an object is drawn (pixels): its true size, but never smaller than a readable token.
 func _px(o: Dictionary) -> float:
@@ -722,6 +732,14 @@ func _draw_over() -> void:
 		var tc: Color = Color(0.08, 0.06, 0.0) if on else GOLD
 		_txt(ci, btn_mission.position + Vector2(12, 26), "★ CURRENT MISSION" + ("  ·  SET" if on else "  ·  TAP"), 17, tc, HORIZONTAL_ALIGNMENT_LEFT, btn_mission.size.x - 24)
 		_txt(ci, btn_mission.position + Vector2(12, 52), str(mw.get("title", "")), 14, tc if on else Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, btn_mission.size.x - 24)
+		_btn(ci, btn_m_set, "SET WAYPOINT" if not on else "WAYPOINT SET", true, Color(0.3, 0.6, 1.0), 15)
+		_btn(ci, btn_m_go, "GO", true, GREEN, 24)
+		# where to go, in plain words (the gate to take, the point, the distance)
+		var wl := str(mw.get("line", ""))
+		var dd: float = space.player.global_position.distance_to((mw["node"] as Node3D).global_position)
+		var lr := Rect2(btn_mission.position.x, btn_mission.end.y + 6, btn_m_go.end.x - btn_mission.position.x, 30)
+		ci.draw_rect(lr, Color(0.0, 0.0, 0.0, 0.6))
+		_txt(ci, lr.position + Vector2(10, 21), "%s  ·  %s" % [wl, _dist(dd)], 14, GOLD, HORIZONTAL_ALIGNMENT_LEFT, lr.size.x - 20)
 	if selected == "":
 		var sm := Rect2(card_rect.position, Vector2(card_rect.size.x, minf(250.0, card_rect.size.y * 0.62)))
 		ci.draw_rect(sm, PANEL)

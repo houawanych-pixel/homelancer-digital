@@ -3979,10 +3979,47 @@ func _update_camera(dt: float, snap: bool) -> void:
 	var want := player.global_position + player.global_basis * Vector3(0, up, back)
 	if snap: cam.global_position = want
 	else: cam.global_position = cam.global_position.lerp(want, minf(1.0, dt * 6.0))
+	_cam_clip()
 	var look := player.global_position - player.global_basis.z * 30.0 + player.global_basis.y * 2.6
 	if hit_shake > 0.0: look += Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), 0) * hit_shake * 0.8
 	cam.look_at(look, player.global_basis.y)
 	cam.fov = lerpf(cam.fov, 88.0 if warp_state == "on" else (76.0 if boosting else 70.0), minf(1.0, dt * 2.0))
+
+## v1.9p (owner: "the camera pushes into the ground ... it should stop at the solid and move in, down to first
+## person"): the chase camera never goes inside the ground, a cliff, a block wall or an asteroid. It slides in along
+## the line from the ship to where it wants to be, and right up close the ship itself is hidden (you see from it).
+var _cam_hid := false
+var cam_clipped := 0.0   # (tests) how far the camera was pulled in this frame (0 = not at all)
+func _cam_clip() -> void:
+	cam_clipped = 0.0
+	var pivot: Vector3 = player.global_position + player.global_basis.y * (Data.CAM_PIVOT_UP_MECH if GS.form == "mech" else Data.CAM_PIVOT_UP)
+	var c: Vector3 = cam.global_position
+	var seg := c - pivot
+	var full := seg.length()
+	if full < 0.01: return
+	var f := 1.0
+	if surface_mode:
+		var n := int(Data.CAM_CLIP_STEPS)
+		for i in range(1, n + 1):   # the ground and the blocks along the way
+			var k := float(i) / float(n)
+			var p := pivot + seg * k
+			if p.y < _ground(p.x, p.z) + Data.CAM_CLEAR:
+				f = maxf(0.0, k - 1.0 / float(n))
+				break
+		var rb := _ray_blocks(pivot, c)
+		if rb[0] != null: f = minf(f, pivot.distance_to(rb[1]) / full)
+	elif in_belt_region(c) or in_belt_region(pivot):
+		var ah := ray_asteroids(pivot, c)
+		if not ah.is_empty(): f = minf(f, pivot.distance_to(ah[2]) / full)
+	var hide := false
+	if f < 1.0:
+		var d: float = maxf(0.0, full * f - Data.CAM_CLEAR)
+		cam.global_position = pivot + seg.normalized() * d
+		cam_clipped = full - d
+		hide = d < Data.CAM_FPV_DIST
+	if is_instance_valid(model) and hide != _cam_hid:   # (only what this hid is shown again)
+		model.visible = not hide
+		_cam_hid = hide
 
 func _ambient_anim(dt: float) -> void:
 	if is_instance_valid(planet_clouds): planet_clouds.rotate_y(dt * 0.006)

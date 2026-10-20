@@ -52,6 +52,7 @@ func _ready() -> void:
 	hub.descend_requested.connect(descend_to)
 	navmap.closed.connect(_on_map_closed)
 	navmap.course_set.connect(_on_course)
+	navmap.mission_go.connect(_on_map_mission_go)
 	GS.changed.connect(_on_gs_changed)
 	hud.controls = controls
 	controls.hud = hud
@@ -669,6 +670,19 @@ func _on_map_closed() -> void:
 		state = "flight"
 		space.process_mode = Node.PROCESS_MODE_INHERIT
 		hud.visible = true
+
+## v1.9p (owner): GO beside CURRENT MISSION on the map: back to flying, and the autopilot flies the whole job
+## (through its gates, in to dock), like GO TO.
+func _on_map_mission_go() -> void:
+	_on_map_closed()
+	var mw: Dictionary = space.mission_waypoint()
+	if mw.is_empty(): return
+	var mn: Node3D = mw["node"]
+	space.gps_mission = true
+	space.set_destination(mn)
+	space.autopilot = mn if mn.get_meta("kind", "") != "enemy" else space.waypoint_at(mn.global_position)
+	_mission_auto = true
+	hud.flash_message("Autopilot engaged: %s. %s" % [mw["title"], mw["line"]])
 
 func _on_course(n: Node3D) -> void:
 	_on_map_closed()

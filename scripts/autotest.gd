@@ -995,6 +995,7 @@ func _run() -> void:
 		await _job_v19m()
 		await _job_v19n()
 		await _job_v19o()
+		await _job_v19p()
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
@@ -1719,6 +1720,7 @@ func _run() -> void:
 	await _job_v19m()
 	await _job_v19n()
 	await _job_v19o()
+	await _job_v19p()
 	await _blocks()
 	await _regions()
 	await _galaxy()
@@ -8620,8 +8622,11 @@ func _job_v19l() -> void:
 	await _frames(2)
 	s.special_held = false
 	var started: bool = s.man_kind == "climb" and s.special_state == "idle"
-	await _until(func(): return s.man_t >= Data.MAN_TIME * 0.5 or s.man_kind != "climb", 4.0)   # (game time, not the clock)
-	var p_up: float = rad_to_deg(s.pitch)
+	var pmax := [0.0]
+	await _until(func():
+		pmax[0] = maxf(pmax[0], s.pitch)
+		return s.man_t >= Data.MAN_TIME * 0.5 or s.man_kind != "climb", 4.0)   # (game time, not the clock)
+	var p_up: float = rad_to_deg(maxf(pmax[0], s.pitch))
 	var rolled: bool = absf(s.man_roll) > 0.5
 	var up_v: float = s.vel.y
 	await _shot("v19l_climb_roll", 0.0)
@@ -8839,3 +8844,71 @@ func _job_v19o() -> void:
 	_check("v1.9o: tap a job = it is read out in the phone voice and shows ACCEPT / DECLINE; DECLINE closes it; ACCEPT takes it; then CONTINUE / DISENGAGE", heard and declined and took, "heard %s declined %s took %s" % [heard, declined, took])
 	_check("v1.9o: DISENGAGE drops a job even with a prisoner aboard (they are let go)", let_go, said)
 	_check("v1.9o: a prisoner brought to their own people walks free; that faction turns hostile, its board is locked, and the freed pilot hunts you on launch", freed and locked and hunted, "freed %s locked %s hunted %s" % [freed, locked, hunted])
+
+
+## v1.9p (owner): the chase camera stops at the ground (moves in, to first person) instead of going under it; the map
+## has SET WAYPOINT and GO beside CURRENT MISSION, and GO flies the job all the way.
+func _job_v19p() -> void:
+	var keep := {"mission": GS.mission.duplicate(true), "bounty": GS.bounty.duplicate(true)}
+	# the map
+	var s := _sp()
+	GS.mission = {}
+	GS.bounty = {}
+	var o: Dictionary = Missions.offers(s.sys_id, str(s.station.get_meta("info")["id"]), Factions.owner_of(Data.SYSTEMS[s.sys_id]["station"], Data.SYSTEMS[s.sys_id]))[0]
+	Missions.accept(o)
+	main.open_map()
+	await _frames(3)
+	var nm = main.navmap
+	nm._layout()
+	var has_btns: bool = nm.btn_m_set.size.x > 0.0 and nm.btn_m_go.size.x > 0.0
+	await _shot("v19p_map_mission_buttons", 0.3)
+	nm.tap(nm.btn_m_set.get_center())
+	await _frames(2)
+	var set_ok: bool = s.nav_dest == s.mission_waypoint().get("node") and main.state == "map"
+	nm.tap(nm.btn_m_go.get_center())
+	await _frames(3)
+	var go_ok: bool = main.state == "flight" and main._mission_auto and s.autopilot != null
+	s.autopilot = null
+	main._mission_auto = false
+	s.drop_warp()   # (GO spooled the warp drive for the long leg)
+	await _until(func(): return s.warp_state == "off", 5.0)
+	GS.mission = {}
+	# the camera on a planet
+	await Packs.wait("planets", 60.0)
+	var pc: Vector3 = s.planet.global_position
+	var d := Vector3(0.3, 0.2, 1.0).normalized()
+	_tp(pc + d * (float(s.planet.get_meta("radius")) + 90.0), pc)
+	main.hud.move_vec = Vector2(0, -1)
+	await _until(func(): return main.state == "atmosphere", 8.0)
+	main.hud.move_vec = Vector2.ZERO
+	await _until(func(): return main.state == "flight" and _sp().surface_mode, 30.0)
+	s = _sp()
+	var down: bool = s.surface_mode
+	if not down:
+		_check("v1.9p: on a planet the chase camera stops above the ground", false, "could not get down to the planet (state %s)" % main.state)
+		GS.mission = keep["mission"]
+		GS.bounty = keep["bounty"]
+		return
+	var gx := 120.0
+	var gz := -80.0
+	var gy: float = s._ground(gx, gz)
+	s.player.global_position = Vector3(gx, gy + 2.5, gz)
+	s.pitch = deg_to_rad(70.0)   # nose high: the camera behind and above would be under the ground
+	s.vel = Vector3.ZERO
+	s.player.basis = Basis.from_euler(Vector3(s.pitch, s.yaw, 0))
+	s._update_camera(0.016, true)
+	var cp: Vector3 = s.cam.global_position
+	var above: bool = cp.y >= s._ground(cp.x, cp.z) + 0.3
+	var pulled: bool = s.cam_clipped > 0.5
+	await _shot("v19p_camera_ground", 0.0)
+	s.pitch = 0.0
+	s.player.basis = Basis.from_euler(Vector3(0, s.yaw, 0))
+	s.player.global_position = Vector3(gx, gy + 300.0, gz)
+	s._update_camera(0.016, true)
+	var shown: bool = s.model.visible
+	_tp(Vector3(0, Surface.CEILING - 30.0, 0), Vector3(0, Surface.CEILING + 400.0, -100.0))
+	await _until(func(): return main.state == "flight" and not _sp().surface_mode, 10.0)
+	GS.mission = keep["mission"]
+	GS.bounty = keep["bounty"]
+	_check("v1.9p: the map shows SET WAYPOINT and GO beside the current mission; SET WAYPOINT sets it, GO flies the whole job", has_btns and set_ok and go_ok, "buttons %s set %s go %s" % [has_btns, set_ok, go_ok])
+	_check("v1.9p: on a planet the chase camera stops above the ground (pulled in, not under it) and the ship shows again in the open", down and above and pulled and shown, "down %s above %s pulled %.1f m shown %s" % [down, above, s.cam_clipped, shown])
