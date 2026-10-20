@@ -9,7 +9,8 @@ const MOODS := {
 	"intro": ["theme_1"],                                   # Homelancer game: the main theme
 	"space": ["spaceways_1", "spaceways_2", "spaceways_3", "spaceways_4", "veranthos_1", "veranthos_2", "veranthos_3", "veranthos_4"],   # relaxed travel / drifting
 	"explore": ["interstellar_1", "interstellar_2"],        # exploration, the search
-	"battle": ["rift_1", "rift_2", "rift_3", "rift_4"],     # Rift Gate Collapse: battles and chases
+	"battle": ["rift_1", "rift_2"],                         # Rift Gate Collapse: battles and chases (v1.9k: ordinary fights)
+	"epic": ["rift_3", "rift_4"],                           # v1.9k (owner): the big ones: a boss mech, a bounty, a high-rank pilot
 	"dark": ["bloodwater_1", "bloodwater_2"],               # Bloodwater Corridor: dark faction territory
 	"void": ["void_1", "void_2", "void_3", "void_4"],       # Void Drift: unknown areas, lost, alone
 	"heart": ["stars_1", "stars_2"],                        # Stars Remember Us: heart moments, calm after a victory
@@ -24,10 +25,31 @@ const FACTION_TRACK := {
 	"Imperium": "bloodwater_1", "Enemy": "bloodwater_2", "Hidden": "void_1", "Void": "void_2", "Heart": "veranthos_3",
 }
 const HELD := ["stars_1", "stars_2", "ruins_1", "ruins_2", "ruins_3", "ruins_4", "puzzle_1"]
-static func faction_mood(faction: String) -> String: return "f:" + (faction if FACTION_TRACK.has(faction) else "Neutral")
+## v1.9k (owner: I hear the same track all the time): each faction has a few tracks, and each SYSTEM starts on its
+## own one of them (picked from the system's id, so a system always sounds the same), then the others follow.
+const FACTION_POOL := {
+	"Unity": ["veranthos_1", "veranthos_4", "spaceways_1"], "Elyza": ["interstellar_1", "interstellar_2", "veranthos_2"],
+	"Solarion": ["spaceways_1", "veranthos_4", "spaceways_4"], "Liberator": ["spaceways_2", "spaceways_1", "veranthos_1"],
+	"Savagers": ["spaceways_3", "bloodwater_2", "void_3"], "Neutral": ["spaceways_4", "spaceways_2", "veranthos_2"],
+	"Orion": ["veranthos_2", "interstellar_1", "spaceways_3"], "Covenant": ["interstellar_2", "veranthos_3", "veranthos_1"],
+	"Imperium": ["bloodwater_1", "bloodwater_2", "spaceways_3"], "Enemy": ["bloodwater_2", "void_3", "bloodwater_1"],
+	"Hidden": ["void_1", "void_4", "interstellar_2"], "Void": ["void_2", "void_3", "void_4"], "Heart": ["veranthos_3", "veranthos_1", "interstellar_1"],
+}
+static func faction_mood(faction: String, sys := "") -> String:
+	var f := faction if FACTION_POOL.has(faction) else "Neutral"
+	return "f:" + f + ((":" + sys) if sys != "" else "")
+## A faction mood's takes, starting with the one this system opens on.
 static func takes(m: String) -> Array:
-	if m.begins_with("f:"): return [FACTION_TRACK[m.substr(2)]]
+	if m.begins_with("f:"):
+		var parts := m.substr(2).split(":")
+		var pool: Array = FACTION_POOL.get(parts[0], FACTION_POOL["Neutral"])
+		if parts.size() < 2 or parts[1] == "": return pool.duplicate()
+		var i: int = int(hash(parts[1]) % pool.size())
+		return pool.slice(i) + pool.slice(0, i)
 	return MOODS.get(m, [])
+## v1.9k: the fight music by what you are up against (space.engaged_tier: 2 = epic, 1 = ordinary).
+static func battle_mood(tier: int) -> String: return "epic" if tier >= 2 else "battle"
+static func is_battle(m: String) -> bool: return m == "battle" or m == "epic"
 const VOLUME_DB := -9.0
 const FADE := 2.2
 
@@ -117,6 +139,9 @@ func want(m: String) -> void:
 
 func _pick(m: String) -> String:
 	var tk: Array = takes(m)
+	if m.begins_with("f:") and not _last.has(m):   # v1.9k: a system always opens on its own track
+		_last[m] = tk[0]
+		return tk[0]
 	var id: String = tk[_rng.randi() % tk.size()]
 	if tk.size() > 1 and id == _last.get(m, ""): id = tk[(tk.find(id) + 1) % tk.size()]
 	_last[m] = id

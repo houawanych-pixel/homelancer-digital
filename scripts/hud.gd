@@ -356,8 +356,8 @@ func _layout() -> void:
 	var rx := func(k: int) -> float: return S.x - 8 - btn * 4 - g * 3 + k * (btn + g)
 	buttons["fire"] = Rect2(Vector2(lx.call(0), y1), bs)
 	for k in 3: buttons["slot_%d" % k] = Rect2(Vector2(lx.call(k + 1), y1), bs)
-	buttons["stop"] = Rect2(Vector2(lx.call(0), y2), bs)
-	buttons["kill"] = Rect2(Vector2(lx.call(1), y2), bs)
+	buttons["stop"] = Rect2(Vector2(lx.call(1), y2), bs)   # v1.9k (owner): engine kill, stop, thrust, warp: slowest to fastest
+	buttons["kill"] = Rect2(Vector2(lx.call(0), y2), bs)
 	buttons["thrust"] = Rect2(Vector2(lx.call(2), y2), bs)
 	buttons["warp"] = Rect2(Vector2(lx.call(3), y2), bs)
 	buttons["lock_a"] = Rect2(Vector2(rx.call(0), y1), bs)
@@ -427,11 +427,19 @@ func _layout() -> void:
 			for k in mini(cn - contact_scroll, contact_rows() - 1):
 				buttons["met_%d" % k] = Rect2(rr.position.x, rr.position.y + 32 + (k + 1) * Data.COMMS_ROW_H, rr.size.x - 6, Data.COMMS_ROW_H - 4)
 
+## v1.9k (owner: after a capture I didn't know where to go): the job line at the top is a button. Added after the
+## layout, last, so a real button under it always wins.
+func _objective_button() -> void:
+	if objective != "" and space != null and not space.mission_waypoint().is_empty():
+		var w := minf(S.x - col_w * 2.0, Data.OBJECTIVE_TAP_W)
+		buttons["objective"] = Rect2((S.x - w) * 0.5, 144.0 - Data.OBJECTIVE_TAP_H * 0.5, w, Data.OBJECTIVE_TAP_H)
+
 # ---------------------------------------------------------------- input
 func _input(e: InputEvent) -> void:
 	if not visible or space == null: return
 	if e is InputEventScreenTouch:
 		_layout()
+		_objective_button()
 		if e.pressed:
 			for id in buttons:
 				if (buttons[id] as Rect2).grow(3).has_point(e.position):
@@ -541,6 +549,7 @@ func _mouse_in_kbm(e: InputEvent) -> bool:
 func button_at(p: Vector2) -> String:
 	if not visible: return ""
 	_layout()
+	_objective_button()
 	for id in buttons:
 		if (buttons[id] as Rect2).grow(3).has_point(p): return id
 	return ""
@@ -1025,6 +1034,7 @@ func _cockpit_old() -> void:
 func _draw() -> void:
 	if space == null or not is_instance_valid(space.player): return
 	_layout()
+	_objective_button()
 	var cam: Camera3D = space.cam
 	var cockpit := GS.view == "cockpit"
 	if space.zoomed: _scope()   # v1.7z: looking down the rifle's scope (under everything else)
@@ -1169,7 +1179,8 @@ func _draw() -> void:
 	_status_bars()
 	var line2 := objective
 	if msg_t > 0.0: line2 = msg
-	_text(Vector2(col_w, 144), line2, 15, GOLD if msg_t > 0.0 else WHITE, HORIZONTAL_ALIGNMENT_CENTER, S.x - col_w * 2)
+	if msg_t <= 0.0 and objective != "" and buttons.has("objective"): line2 = objective + "   ▸ TAP"   # v1.9k (owner): tap the job line = waypoint
+	_text(Vector2(col_w, 144), line2, Data.OBJECTIVE_FONT, GOLD if msg_t > 0.0 else WHITE, HORIZONTAL_ALIGNMENT_CENTER, S.x - col_w * 2)
 	var zone := ""
 	if space.surface_mode: zone = "%s  ·  ALT %d m" % [Surface.tile_name(space.planet_id, space.tile), int(space.altitude)]
 	elif space.in_nebula > 0.0: zone = "%s NEBULA — SENSORS DEGRADED" % Data.SYSTEMS[GS.system_id]["nebula"]["name"].to_upper()

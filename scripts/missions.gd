@@ -290,7 +290,7 @@ static func waypoint(space: SpaceSystem) -> Dictionary:
 		return {"node": upn, "title": "Orbit", "line": "%s: climb above %d m to reach orbit (the job is out in space)" % [m["title"], int(Surface.CEILING)], "hops": 0}
 	# bounty, pilot in the hold: back to the station that gave the job
 	if kind == "bounty" and GS.bounty.get("state", "") == "captured":
-		return _to_place(space, str(m["giver_sys"]), "Dock at %s to hand %s over" % [Data.SYSTEMS[m["giver_sys"]]["station"]["name"], Data.roster_pilot(str(m["id"])).get("name", "the pilot")])
+		return giver_place(space, m, "Return to %s: hand %s over" % [giver_name(m), Data.roster_pilot(str(m["id"])).get("name", "the pilot")])
 	if str(m["sys"]) != space.sys_id: return _to_place(space, str(m["sys"]), m["title"])
 	match kind:
 		"escort", "convoy":
@@ -312,6 +312,19 @@ static func waypoint(space: SpaceSystem) -> Dictionary:
 				var where := "" if kind != "ground" or space.tile == int(m["tile"]) else ", in %s" % sector_name(str(m["planet"]), int(m["tile"]))
 				return {"node": mp, "title": "Mission point %d" % (stage + 1), "line": "%s: fly to mission point %d of %d%s" % ["Bounty" if kind == "bounty" else ("Strike" if kind == "ground" else "Threats"), stage + 1, (m["points"] as Array).size(), where], "hops": 0}
 	return {}
+
+## v1.9k: the name of the dock that gave the job (stored when it was taken; older saves: that system's station).
+static func giver_name(m: Dictionary) -> String:
+	return str(m.get("giver_name", Data.SYSTEMS[str(m["giver_sys"])]["station"]["name"]))
+
+## v1.9k: the way back to the dock that gave the job: that very dock when you are in its system (station, a planet's
+## platform or a 3D extra station), else the first gate towards it.
+static func giver_place(space: SpaceSystem, m: Dictionary, line: String) -> Dictionary:
+	if str(m["giver_sys"]) == space.sys_id:
+		for n in [space.station] + space.docks3d + space.platforms:
+			if is_instance_valid(n) and n.has_meta("info") and str((n.get_meta("info") as Dictionary).get("id", "")) == str(m.get("giver", "")):
+				return {"node": n, "title": n.name, "line": line, "hops": 0}
+	return _to_place(space, str(m["giver_sys"]), line)
 
 ## The gate that starts the shortest way to another system, or that system's station when you are there.
 static func _to_place(space: SpaceSystem, sys_id: String, line: String) -> Dictionary:
@@ -400,7 +413,7 @@ static func on_kill(space: SpaceSystem, e: Dictionary) -> void:
 static func claim_at(station_id: String, where_kind := "station") -> String:
 	var m: Dictionary = GS.mission
 	if m.get("kind", "") != "bounty" or GS.bounty.get("state", "") != "captured": return ""
-	if str(m.get("giver", "")) != station_id: return "%s is in your hold. The bounty is paid at %s." % [Data.roster_pilot(str(m["id"])).get("name", "The pilot"), Data.SYSTEMS[m["giver_sys"]]["station"]["name"]]
+	if str(m.get("giver", "")) != station_id: return "%s is in your hold. The bounty is paid at %s." % [Data.roster_pilot(str(m["id"])).get("name", "The pilot"), giver_name(m)]
 	var said := GS.claim_bounty(where_kind)
 	GS.cargo = GS.cargo.filter(func(c): return not (c.get("kind", "") == "pilot" and c.get("id", "") == m["id"]))
 	GS.missions_done += 1

@@ -944,7 +944,7 @@ func _bounty_page() -> void:
 			ph.gradient.colors = PackedColorArray([Color(0.35, 0.1, 0.08), Color(0.12, 0.05, 0.05)])
 			pic.texture = ph
 		row.add_child(pic)
-		var t := _label(17, CYAN)
+		var t := _label(Data.BOARD_FONT, CYAN)   # v1.9k (owner): bigger, easier to read
 		t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		t.text = "%02d  %s  ·  %s  ·  %s\nHunt: here in %s   ·   Flies a %s\nReward %d cr  ·  wanted %s" % [int(p["rank"]), str(p["name"]).to_upper(), p["type"], p["faction"],
@@ -971,11 +971,49 @@ func _bounty_page() -> void:
 			b.text = "SELECT"
 		b.pressed.connect(func():
 			status.text = Missions.toggle_bounty(id)
+			_note_giver()
 			if GS.bounty.get("id", "") == id:   # v1.7v (owner): the bounty is read out when you select it, like a job
 				read_bounty(p)
 			show_screen("bounty"))
 		row.add_child(b)
 		v.add_child(_row_frame(row, mine))
+
+## v1.9k: the job just taken remembers this dock's name, so the way back and the messages name the right place.
+func _note_giver() -> void:
+	if not GS.mission.is_empty() and str(GS.mission.get("giver", "")) == str(base.get("id", "")): GS.mission["giver_name"] = str(base.get("name", ""))
+
+## v1.9k (owner: the other jobs need a picture too): the job's picture (assets/missions/<kind>.png) or, until it is
+## delivered, a tile with the job's kind written on it, the same size as a bounty face.
+static func mission_icon_key(o: Dictionary) -> String:
+	var k := str(o.get("kind", ""))
+	if k == "threats": return "elite" if o.get("hard", false) else "patrol"
+	return k
+func _mission_icon(o: Dictionary) -> Control:
+	var key := mission_icon_key(o)
+	var path := Data.MISSION_ICON_DIR + key + ".png"
+	if ResourceLoader.exists(path):
+		var pic := TextureRect.new()
+		pic.name = "Icon_" + key
+		pic.custom_minimum_size = Vector2(Data.BOUNTY_FACE_PX, Data.BOUNTY_FACE_PX)
+		pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		pic.texture = load(path)
+		return pic
+	var tile := PanelContainer.new()
+	tile.name = "Icon_" + key
+	tile.custom_minimum_size = Vector2(Data.BOUNTY_FACE_PX, Data.BOUNTY_FACE_PX)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.06, 0.12, 0.2)
+	sb.border_color = CYAN
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(6)
+	tile.add_theme_stylebox_override("panel", sb)
+	var lab := _label(15, GOLD)
+	lab.text = {"patrol": "PATROL", "elite": "ELITE", "escort": "ESCORT", "convoy": "CARGO\nRUN", "ground": "GROUND\nSTRIKE", "land_escort": "GROUND\nESCORT", "outlaws": "OUTLAWS"}.get(key, key.to_upper())
+	lab.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lab.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	tile.add_child(lab)
+	return tile
 
 ## v1.7v: the coordinator reads a selected bounty out (same voice as the jobs).
 var last_read := ""   # (tests) the last line read out from the board
@@ -1002,7 +1040,8 @@ func _missions_page() -> void:
 		row.name = "Job_" + str(o["kind"]) + ("_hard" if o.get("hard", false) else "")
 		row.add_theme_constant_override("separation", 14)
 		var mine: bool = Missions.is_current(o)
-		var t := _label(17, CYAN)
+		row.add_child(_mission_icon(o))   # v1.9k (owner): every job has a picture, like the bounties' faces
+		var t := _label(Data.BOARD_FONT, CYAN)
 		t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		t.text = "%s\n%s\nReward %d cr" % [str(o["title"]).to_upper(), o["brief"], int(o["pay"])]
@@ -1014,9 +1053,12 @@ func _missions_page() -> void:
 		if mine: b.add_theme_color_override("font_color", GOLD)
 		b.pressed.connect(func():
 			status.text = Missions.toggle(o)
-			if Missions.is_current(o): last_read = "%s. %s" % [str(o["title"]), str(o["brief"])]
-			if Missions.is_current(o) and not co.is_empty():   # v1.7p (owner): the job is read out when you select it
-				Sfx.play_character_voice(str(co.get("voice_id", co["id"])), "", "%s. %s" % [str(o["title"]), str(o["brief"])], float(co.get("voice", 1.0)), str(co.get("sex", "")) == "female")
+			_note_giver()
+			if Missions.is_current(o):   # v1.7p (owner): the job is read out when you select it (v1.9k: with its reward; dispatch's voice if nobody is posted here)
+				var said := "%s. %s Reward %d credits." % [str(o["title"]), str(o["brief"]), int(o["pay"])]
+				last_read = said
+				if co.is_empty(): Sfx.speak(said, 1.0, false, "")
+				else: Sfx.play_character_voice(str(co.get("voice_id", co["id"])), "", said, float(co.get("voice", 1.0)), str(co.get("sex", "")) == "female")
 			show_screen("missions"))
 		row.add_child(b)
 		v.add_child(_row_frame(row, mine))

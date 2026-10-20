@@ -204,16 +204,41 @@ func music_mood(dt: float) -> String:
 	var fighting: bool = space.hostiles_engaged() > 0
 	if fighting:
 		_fight_t = 0.0
-		return "battle"
+		var bm: String = Music.battle_mood(space.engaged_tier())   # v1.9k (owner): epic music for the big fights
+		if Music.mood == "epic": bm = "epic"   # (once epic, it stays epic until the fight is over)
+		return bm
 	_fight_t += dt
-	if Music.mood == "battle" and _fight_t < 4.0: return "battle"   # do not drop the battle music for a short gap
-	# v1.4l (owner): one song per faction; it stays until you fly into another faction's space
-	return Music.faction_mood(Data.SYSTEMS[space.sys_id].get("faction", "Neutral"))
+	if Music.is_battle(Music.mood) and _fight_t < 4.0: return Music.mood   # do not drop the battle music for a short gap
+	# v1.4l (owner): music by faction; v1.9k: each system opens on its own track of that faction's set
+	return Music.faction_mood(Data.SYSTEMS[space.sys_id].get("faction", "Neutral"), space.sys_id)
+
+## v1.9k (owner: GO TO takes me right there): a job's GO TO carries on: at the job's gate it docks and jumps, in the
+## next system it flies on, and at the job's station it docks. Steering (the autopilot dropped) ends it.
+var _mission_auto := false
+func _mission_auto_step() -> void:
+	if not _mission_auto or state != "flight" or not is_instance_valid(space): return
+	var a: Node3D = space.last_arrived
+	space.last_arrived = null
+	if space.autopilot != null and is_instance_valid(space.autopilot): return
+	if a == null or not is_instance_valid(a):
+		_mission_auto = false   # (the pilot took the stick)
+		return
+	var mw: Dictionary = space.mission_waypoint()
+	var k: String = str(a.get_meta("kind", ""))
+	if k == "gate" and not mw.is_empty() and int(mw.get("hops", 0)) > 0 and space.gate_in_range():
+		if dock_gate(): gate_activate()
+		return
+	if not mw.is_empty() and mw["node"] == a and k != "gate" and space.dock_candidate() == a:
+		_mission_auto = false
+		dock(a)
+		return
+	_mission_auto = false
 
 var _save_t := 0.0
 var _escape_t := 0.0
 func _process(_dt: float) -> void:
 	Music.want(music_mood(_dt))
+	_mission_auto_step()
 	_escape_t += _dt
 	if _escape_t >= 10.0 and state != "title":   # v1.8k: a jailed pilot whose time is up breaks out
 		_escape_t = 0.0
@@ -392,6 +417,8 @@ func _on_hud(id: String) -> void:
 				hud.flash_message("Autopilot engaged: %s" % space.target.name)
 			elif space.nav_dest != null and is_instance_valid(space.nav_dest):   # v1.7v (owner): the GPS destination picked on the map
 				var nd: Node3D = space.nav_dest
+				var mwd: Dictionary = space.mission_waypoint()
+				_mission_auto = not mwd.is_empty() and mwd["node"] == nd   # v1.9k: the job's waypoint: GO TO goes all the way
 				space.route_go()
 				if nd.get_meta("kind", "") == "enemy": space.autopilot = space.waypoint_at(nd.global_position)   # (a hostile is flown TO, not docked with)
 				hud.flash_message("Autopilot engaged: %s" % nd.name)
@@ -399,6 +426,7 @@ func _on_hud(id: String) -> void:
 				var mw: Dictionary = space.mission_waypoint()
 				var mn: Node3D = mw["node"]
 				space.autopilot = mn if mn.get_meta("kind", "") != "enemy" else space.waypoint_at(mn.global_position)   # (a hostile is flown TO, not docked with)
+				_mission_auto = true   # v1.9k: through the gates and in to dock, not just to the next stop
 				hud.flash_message("Autopilot engaged: %s" % mw["title"])   # (v1.9a: on a planet too: the job's point, the freighter, or the way up)
 			elif space.surface_mode and not space.nearest_base().is_empty():   # v1.8y: on a planet: the nearest base, wherever it is
 				var nb: Dictionary = space.nearest_base()
@@ -411,6 +439,13 @@ func _on_hud(id: String) -> void:
 					space.autopilot = home
 					hud.flash_message("Autopilot engaged: %s" % home.name)
 				else: hud.flash_message("Nowhere to fly to here: climb out to orbit, or pick a place on the MAP.")
+		"objective":   # v1.9k (owner): tap the job line: the waypoint is set and shown; GO TO flies it all the way
+			var ow: Dictionary = space.mission_waypoint()
+			if not ow.is_empty():
+				space.gps_mission = true
+				space.set_destination(ow["node"])
+				hud.radar_overview = Data.RADAR_OVERVIEW
+				hud.flash_message("Waypoint set: %s. Tap GO TO." % ow["title"])
 		"nav": open_map()
 		"dock":
 			var n: Node3D = space.dock_candidate()
@@ -726,16 +761,35 @@ func dock(n: Node3D) -> void:
 	if info["id"] == "liberty_hub" and GS.kills > 0: visited["liberty_hub_2"] = true
 	hub.open(info)
 	var wk: String = str(info.get("kind", "station"))   # v1.8k: where they are handed in sets how long they stay locked up
+	var was_job: Dictionary = GS.mission.duplicate()
+	var was_bounty: Dictionary = GS.bounty.duplicate()
 	var paid: String = Missions.claim_at(info["id"], wk) if not GS.mission.is_empty() else GS.claim_bounty(wk)   # v1.5f: a board bounty is paid where it was taken; an old-style one anywhere
 	if paid != "":
 		hub.status.text = paid
 		hub._refresh_credits()
+		if str(was_job.get("kind", "")) == "bounty" and GS.mission.is_empty(): bounty_thanks(info, was_job, was_bounty)
 	GS.save_game()   # v1.7y: docking saves
 	state = "hub"
 	var tw2 := create_tween()
 	tw2.tween_property(fx, "fade", 0.0, 0.6)
 	await tw2.finished
 	fx.caption = ""
+
+## v1.9k (owner): handing a captive in: the one who posted the bounty says well done, pays, and points you at the
+## board for the next job (the board opens on the bounties).
+var last_thanks := ""
+func bounty_thanks(info: Dictionary, job: Dictionary, b: Dictionary) -> void:
+	var who: String = str(Data.roster_pilot(str(job.get("id", b.get("id", "")))).get("name", "the pilot"))
+	var pilot: String = str(GS.pilot_name) if str(GS.pilot_name) != "" else "pilot"
+	var line: String = Data.BOUNTY_THANKS.format({"pilot": pilot, "target": who, "pay": int(job.get("pay", 0))})
+	last_thanks = line
+	var plain: String = line.replace("[smile]", "")
+	var co: Dictionary = Factions.coordinator(Factions.owner_of(info, Data.SYSTEMS[GS.system_id]))
+	if co.is_empty(): Sfx.speak(plain, 1.0, false, "")
+	else: Sfx.play_character_voice(str(co.get("voice_id", co["id"])), "", line, float(co.get("voice", 1.0)), str(co.get("sex", "")) == "female")
+	hub.board_tab = "bounty"
+	hub.show_screen("bounty")
+	hub.status.text = ("%s: " % co["name"] if not co.is_empty() else "") + plain
 
 var _fly_from := Vector3.ZERO
 var _fly_last_k := 1.0
@@ -928,6 +982,15 @@ func jump(gate: Node3D = null) -> void:
 	state = "flight"
 	_jlog("done")
 	hud.flash_message("Welcome to %s." % Data.SYSTEMS[to]["name"])
+	if _mission_auto:   # v1.9k: the job's GO TO flies on in the new system
+		var mw: Dictionary = space.mission_waypoint()
+		if mw.is_empty(): _mission_auto = false
+		else:
+			var mn: Node3D = mw["node"]
+			space.gps_mission = true
+			space.set_destination(mn)
+			space.autopilot = mn if mn.get_meta("kind", "") != "enemy" else space.waypoint_at(mn.global_position)
+			hud.flash_message("Welcome to %s. Autopilot: %s" % [Data.SYSTEMS[to]["name"], mw["title"]])
 
 # ---------------------------------------------------------------- defeat
 func _on_destroyed() -> void:

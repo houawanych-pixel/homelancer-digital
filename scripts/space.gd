@@ -374,7 +374,7 @@ func _build_environment() -> void:
 	add_child(glow)
 	sun_glow = glow
 	cam = Camera3D.new()
-	cam.far = 14000.0
+	cam.far = Data.SPACE_CAM_FAR   # v1.9k (owner: a far planet flickered on and off): far enough for every planet in the system
 	cam.near = 0.5
 	cam.fov = 70.0
 	cam.current = true
@@ -843,6 +843,7 @@ func _planet_real() -> void:
 		cs.rings = 24
 		planet_clouds = MeshInstance3D.new()
 		planet_clouds.mesh = cs
+		planet_clouds.visibility_range_end = Data.PLANET_SHELL_RANGE   # v1.9k (as the haze)
 		var csh := Shader.new()
 		csh.code = CLOUD_SHADER
 		var cm := ShaderMaterial.new()
@@ -1032,6 +1033,7 @@ func _build_planet(d: Dictionary) -> void:
 	atm.material_override = sm2
 	sm2.set_shader_parameter("sun_dir", (sun_pos - planet.global_position).normalized() if sun_pos != Vector3.INF else Vector3(0, 0, 1))
 	atm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	atm.visibility_range_end = Data.PLANET_SHELL_RANGE   # v1.9k: thin shells fight the surface for depth far away (the flicker)
 	planet.add_child(atm)
 	planet.set_meta("halo", atm)
 	# landing beacon ring at the dock point
@@ -2449,6 +2451,7 @@ func _booster_particles(dt: float, k: float) -> void:
 		var col := Color(0.4, 0.8, 1.0).lerp(Color(1.0, 1.0, 1.0), k)
 		_spark_v(at, back * (6.0 + 16.0 * k) + side * 2.0 + vel, col, 0.6 + 1.2 * k, 0.25 + 0.15 * k)
 
+var last_arrived: Node3D = null
 func _autopilot_input() -> Array:
 	var goal: Vector3 = autopilot.global_position
 	var kind: String = autopilot.get_meta("kind", "")
@@ -2462,6 +2465,7 @@ func _autopilot_input() -> Array:
 	var steer := Vector2(clampf(local.x * 3.0, -1, 1), clampf(-local.y * 3.0, -1, 1))
 	var dist := to.length()
 	if dist < 170.0:
+		last_arrived = autopilot   # v1.9k: main sees where the autopilot got to (a job's GO TO carries on through gates)
 		autopilot = null
 		drop_warp()
 		if cruise_assist: braking = true   # stop at the destination instead of cruising past it
@@ -4288,7 +4292,7 @@ func _update_loot(dt: float) -> void:
 				var who: Dictionary = Data.roster_pilot(l["bounty"])
 				GS.cargo.append({"kind": "pilot", "id": l["bounty"], "name": str(who.get("name", "Pilot")), "note": "bounty prisoner"})   # v1.5f: in the hold
 				var m0: Dictionary = GS.mission
-				if m0.get("kind", "") == "bounty": message.emit("%s is in your hold. Bring them back to %s for the %d cr bounty." % [who.get("name", "The pilot"), Data.SYSTEMS[m0["giver_sys"]]["station"]["name"], Data.bounty_reward(l["bounty"])])
+				if m0.get("kind", "") == "bounty": message.emit("%s is in your hold. Tap the MISSION line, then GO TO: back to %s for the %d cr bounty." % [who.get("name", "The pilot"), Missions.giver_name(m0), Data.bounty_reward(l["bounty"])])
 				else: message.emit("%s is in your hold. Dock at any station for the %d cr bounty." % [who.get("name", "The pilot"), Data.bounty_reward(l["bounty"])])
 			Sfx.play("pickup", -6.0)
 			n.queue_free()
@@ -4663,6 +4667,14 @@ func hostiles_engaged(r := 1500.0) -> int:
 	for e in enemies:
 		if e.get("aggro", false) and is_instance_valid(e["node"]) and e["node"].global_position.distance_to(player.global_position) < r: c += 1
 	return c
+
+## v1.9k: how dangerous the fight is: 2 = a boss, a named leader or a rank 4+ pilot is on you, 1 = an ordinary fight.
+func engaged_tier(r := 1500.0) -> int:
+	var t := 0
+	for e in enemies:
+		if not (e.get("aggro", false) and is_instance_valid(e["node"]) and e["node"].global_position.distance_to(player.global_position) < r): continue
+		t = maxi(t, 2 if (e.get("boss_mech", false) or e.has("bounty") or int(e.get("rank", 0)) >= Data.EPIC_RANK) else 1)
+	return t
 
 func hostiles_near(r: float) -> int:
 	var c := 0

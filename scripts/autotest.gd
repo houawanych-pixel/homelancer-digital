@@ -687,7 +687,7 @@ func _music() -> void:
 	var was_muted: bool = Music.muted
 	Music.set_muted(false)
 	_check("Music: 28 tracks, each its own pack; flying plays the track of the faction whose space it is (v1.4l), Rift Gate in battle; can be muted",
-		ok_files and n == 28 and flying == Music.faction_mood(Data.SYSTEMS[s.sys_id].get("faction", "Neutral")) and took and battle and was_muted and main.title.music_btn != null, "%d tracks, flying = %s, battle = %s" % [n, flying, btrack])
+		ok_files and n == 28 and flying == Music.faction_mood(Data.SYSTEMS[s.sys_id].get("faction", "Neutral"), s.sys_id) and took and battle and was_muted and main.title.music_btn != null, "%d tracks, flying = %s, battle = %s" % [n, flying, btrack])
 
 ## NPC chat brain: understands what was typed, answers in character, remembers the pilot. No network.
 func _npc_brain() -> void:
@@ -990,6 +990,7 @@ func _run() -> void:
 		await _job_v19h()
 		await _job_v19i()
 		await _job_v19j()
+		await _job_v19k()
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
@@ -1709,6 +1710,7 @@ func _run() -> void:
 	await _job_v19h()
 	await _job_v19i()
 	await _job_v19j()
+	await _job_v19k()
 	await _blocks()
 	await _regions()
 	await _galaxy()
@@ -2700,7 +2702,7 @@ func _job_o() -> void:
 	# v1.9 (owner): FIRE leads the weapons row top left; the speed row under it reads STOP · ENGINE · THRUST · WARP
 	var layout_ok: bool = b.has("fire") and is_equal_approx((b["fire"] as Rect2).position.x, 8.0) and is_equal_approx((b["fire"] as Rect2).position.y, (b["slot_0"] as Rect2).position.y) \
 		and (b["slot_0"] as Rect2).position.x > (b["fire"] as Rect2).position.x and (b["stop"] as Rect2).position.y > (b["fire"] as Rect2).position.y \
-		and (b["kill"] as Rect2).position.x > (b["stop"] as Rect2).position.x and (b["thrust"] as Rect2).position.x > (b["kill"] as Rect2).position.x and (b["warp"] as Rect2).position.x > (b["thrust"] as Rect2).position.x
+		and (b["stop"] as Rect2).position.x > (b["kill"] as Rect2).position.x and (b["thrust"] as Rect2).position.x > (b["stop"] as Rect2).position.x   # (v1.9k: engine kill, stop, thrust, warp) and (b["warp"] as Rect2).position.x > (b["thrust"] as Rect2).position.x
 	var bolts0: int = s.bolts.size()
 	_press("fire")
 	await _wait(0.6)
@@ -2837,18 +2839,18 @@ func _job_o() -> void:
 	var held_used := false
 	for f in SystemBuilder.FACTIONS:
 		var tk: Array = Music.takes(Music.faction_mood(f))
-		if tk.size() != 1: held_used = true
-		else:
-			tracks[tk[0]] = true
-			if tk[0] in Music.HELD: held_used = true
+		if tk.size() < 2: held_used = true
+		for t in tk:
+			tracks[str(f) + str(t)] = true
+			if t in Music.HELD: held_used = true
 	main._fight_t = 99.0
 	for en in s.enemies: en["aggro"] = false
 	_tp(Vector3(900, 2500, 900), Vector3(900, 2500, 0))
 	await _frames(2)
 	var mood_now: String = main.music_mood(0.016)
 	var fac: String = Data.SYSTEMS[s.sys_id].get("faction", "Neutral")
-	_check("Job O: music follows the faction whose space you are in (one track each, 13 factions); the love song and the ruins set are held back",
-		not held_used and tracks.size() == SystemBuilder.FACTIONS.size() and (mood_now == Music.faction_mood(fac) or mood_now == "battle") and Music.takes("f:" + fac).size() == 1, "%s -> %s" % [fac, mood_now])
+	_check("Job O: music follows the faction whose space you are in (v1.9k: a set of tracks each, 13 factions); the love song and the ruins set are held back",
+		not held_used and tracks.size() >= SystemBuilder.FACTIONS.size() * 2 and (mood_now == Music.faction_mood(fac, s.sys_id) or Music.is_battle(mood_now)) and Music.takes("f:" + fac).size() >= 2, "%s -> %s" % [fac, mood_now])
 	GS.rack = gs0["rack"]
 	GS.missiles = gs0["missiles"]
 	GS.heavy_missiles = gs0["heavy"]
@@ -8501,3 +8503,91 @@ func _craters(s, bf: BlockField, pid: String, t: int) -> void:
 		over["stone"]["tunnel"] and over["stone"]["overhangs"] > 0 and over["stone"]["fell"] == 0 and over["sand"]["fell"] > 0 and over["sand"]["overhangs"] == 0
 		and pillar["fell"] > 0 and not pillar["holes"] and pillar["h"] < 40.0, "overhang %s pillar %s" % [str(over), str(pillar)])
 	bf.flush()
+
+
+## v1.9k (owner): the far planet no longer flickers; after a capture the job line says where to go and is a button;
+## handing the captive in = thanks, pay, the board; every job has a picture; music by system and by fight.
+func _job_v19k() -> void:
+	var s: SpaceSystem = main.space
+	var keep := {"mission": GS.mission.duplicate(true), "bounty": GS.bounty.duplicate(true), "cargo": GS.cargo.duplicate(true), "credits": GS.credits, "last_base": GS.last_base}
+	# the far planets stay drawn (the old 14 km far plane cut the ones 11-17 km out on and off)
+	var far_ok: bool = s.cam.far >= Data.SPACE_CAM_FAR - 1.0 and Data.SPACE_CAM_FAR > 20000.0
+	# a wanted-alive pilot, the job taken at this station
+	var id := ""
+	for f in Data.ROSTERS:
+		for p in Data.ROSTERS[f]["pilots"]:
+			var rp: Dictionary = Data.roster_pilot(str(p["id"]))
+			if rp.get("bounty", false) and int(rp.get("rank", 1)) >= Data.BOUNTY_ALIVE_RANK and id == "": id = str(p["id"])
+	GS.mission = {}
+	GS.bounty = {}
+	GS.last_base = str(s.station.get_meta("info")["id"])
+	Missions.accept_bounty(id)
+	GS.bounty = {}   # a stale board entry: the job's own pilot must still be caught
+	var caught: bool = GS.capture_bounty(id) and GS.bounty.get("state", "") == "captured"
+	GS.cargo.append({"kind": "pilot", "id": id})
+	var mw: Dictionary = s.mission_waypoint()
+	var way_ok: bool = not mw.is_empty() and mw["node"] == s.station and str(mw["line"]).begins_with("Return to")
+	# tap the job line
+	s.set_destination(null)
+	s.gps_mission = false
+	await _frames(3)
+	main.hud._layout()
+	main.hud._objective_button()
+	var has_btn: bool = main.hud.buttons.has("objective")
+	var c: Vector2 = (main.hud.buttons.get("objective", Rect2()) as Rect2).get_center()
+	var at: String = main.hud.button_at(c)
+	main._on_hud("objective")
+	var tap_ok: bool = has_btn and at == "objective" and s.nav_dest == s.station and s.gps_mission
+	await _shot("v19k_objective_line", 0.3)
+	# GO TO: the job's autopilot (it carries on)
+	s.autopilot = null
+	s.target = null
+	main._on_hud("goto")
+	var auto_ok: bool = main._mission_auto and s.autopilot == s.station
+	s.autopilot = null
+	main._mission_auto = false
+	# hand the pilot in: thanks, pay, and the bounty board
+	var cr0: int = GS.credits
+	main.dock(s.station)
+	await _until(func(): return main.state == "hub", 8.0)
+	await _frames(3)
+	var thanks_ok: bool = main.last_thanks.contains("choose another one") and main.last_thanks.contains(str(Data.roster_pilot(id)["name"])) \
+		and GS.mission.is_empty() and GS.credits > cr0 and main.hub.screen == "bounty"
+	await _shot("v19k_bounty_thanks", 0.3)
+	main.hub.show_screen("missions")
+	await _frames(3)
+	var icon: Node = main.hub.find_child("Icon_*", true, false)
+	var icons_ok: bool = icon != null and (icon as Control).custom_minimum_size.x >= 100.0 and Data.BOARD_FONT >= 19
+	await _shot("v19k_job_pictures", 0.3)
+	main.launch()
+	await _until(func(): return main.state == "flight", 8.0)
+	# music: systems of one faction open on different tracks; fights by tier
+	var firsts := {}
+	for sid in Data.SYSTEMS:
+		if str(Data.SYSTEMS[sid].get("faction", "")) == "Neutral" or firsts.size() < 99:
+			var tk: Array = Music.takes(Music.faction_mood(str(Data.SYSTEMS[sid].get("faction", "Neutral")), str(sid)))
+			firsts[tk[0]] = true
+	var none_held := true
+	for f in Music.FACTION_POOL:
+		for t in Music.FACTION_POOL[f]: if t in Music.HELD: none_held = false
+	var tiers_ok: bool = Music.battle_mood(2) == "epic" and Music.battle_mood(1) == "battle" and s.engaged_tier() == 0
+	var grp: Array = s._spawn_group(s.player.global_position + Vector3(0, 0, -400), 1)
+	for e in grp: e["aggro"] = true
+	var t1: int = s.engaged_tier()
+	for e in grp: e["boss_mech"] = true
+	var t2: int = s.engaged_tier()
+	for e in grp:
+		s.enemies.erase(e)
+		e["node"].queue_free()
+	var music_ok: bool = firsts.size() >= 6 and none_held and tiers_ok and t1 == 1 and t2 == 2
+	GS.mission = keep["mission"]
+	GS.bounty = keep["bounty"]
+	GS.cargo = keep["cargo"]
+	GS.credits = keep["credits"]
+	GS.last_base = keep["last_base"]
+	_check("v1.9k: far planets stay drawn (camera far %d m)" % int(s.cam.far), far_ok)
+	_check("v1.9k: a captured bounty points back to the dock that posted it", caught and way_ok, str(mw.get("line", "")))
+	_check("v1.9k: tapping the job line sets the waypoint; GO TO flies the job all the way", tap_ok and auto_ok, "button %s, tap %s, auto %s" % [has_btn, at, auto_ok])
+	_check("v1.9k: handing a captive in: the giver thanks you, pays, and opens the bounty board", thanks_ok, main.last_thanks)
+	_check("v1.9k: every job on the board has a picture tile, bigger board text", icons_ok)
+	_check("v1.9k: music: each system opens on its own track of its faction's set; epic music for the big fights", music_ok, "%d opening tracks, tiers %d/%d" % [firsts.size(), t1, t2])

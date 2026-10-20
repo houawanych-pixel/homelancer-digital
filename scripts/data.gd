@@ -27,7 +27,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v1.9j"
+const VERSION := "v1.9k"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -982,6 +982,16 @@ const MECH_BOSS_COUNT := 1         # ... and one of the mechs at a ground missio
 ## the model key a faction's mechs wear (its own frame, else the tan assault mech)
 static func faction_mech_model(faction: String) -> String:
 	return str(MECHS[FACTION_MECH.get(faction, "tannavy")]["model"])
+# v1.9k (owner): far planets no longer pop; a captured bounty shows the way home; music varies by system and danger
+const BOARD_FONT := 20            # v1.9k: mission and bounty board row text
+const OBJECTIVE_FONT := 17        # v1.9k: the job line at the top of the flight screen
+const OBJECTIVE_TAP_W := 760.0    # its tap area (centred)
+const OBJECTIVE_TAP_H := 40.0
+const SPACE_CAM_FAR := 32000.0     # m: the space camera sees this far (was 14000: planets 11-17 km out flickered at the edge)
+const PLANET_SHELL_RANGE := 12000.0   # m: past this a planet's haze and cloud shells are not drawn (no depth fight far away)
+const EPIC_RANK := 4               # a fight with a pilot of this rank or up (or a boss) plays the EPIC battle music
+const BOUNTY_THANKS := "[smile]Great job, {pilot}. {target} is in our cells now. Here's your {pay} credits. We've got plenty of work, so choose another one."
+const MISSION_ICON_DIR := "res://assets/missions/"   # <kind>.png (patrol, elite, escort, convoy, ground, land_escort, outlaws); a labelled tile until a picture arrives
 const MISSILE_PRICE := 10
 const MISSILE_DAMAGE := 45.0 # light missile minimum; it does LIGHT_MISSILE_HULL_FRAC of the target's hull when bigger
 const LIGHT_MISSILE_HULL_FRAC := 0.3
@@ -1081,7 +1091,7 @@ const ROSTER_PATROL_SIZE := 2    # ships per patrol in a roster faction's own sp
 const INCURSION_CHANCE := 0.4    # per visit to a rival's system: one small raiding party is there
 const INCURSION_SIZE := 2
 const INCURSION_NAMED_CHANCE := 0.15   # that the party is led by slot 02 instead of two common soldiers
-const BOUNTY_FACE_PX := 96        # portrait size on the bounty board
+const BOUNTY_FACE_PX := 112       # portrait size on the bounty board
 const PILOT_POD_LIFE := 100000.0  # a captured-pilot pod never times out
 # reputation: one number per rival pair (-100 .. +100). A faction's standing = its base + its side of that number.
 const REP_BANDS := [["purple", 75.0], ["blue", 40.0], ["green", 5.0], ["yellow", -20.0], ["orange", -60.0], ["red", -1000.0]]   # standing at or above

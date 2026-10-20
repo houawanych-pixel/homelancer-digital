@@ -281,7 +281,11 @@ func accept_bounty(id: String) -> String:
 	return "Bounty accepted: %s (%s). Last seen in the %s system. Destroy the ship, then TRACTOR the pilot in. A mission waypoint is set: follow the gold marker." % [p["name"], p["type"], Data.SYSTEMS[p["sys"]]["name"]]
 
 func capture_bounty(id: String) -> bool:
-	if bounty.get("id", "") != id or bounty.get("state", "") != "hunt": return false
+	if bounty.get("state", "") == "captured": return false
+	if bounty.get("id", "") != id:   # v1.9k: the pilot the bounty JOB is after is always caught (a stale board entry could lose the pod)
+		if not (mission.get("kind", "") == "bounty" and str(mission.get("id", "")) == id): return false
+		bounty = {"id": id, "sys": str(mission.get("sys", system_id)), "state": "hunt"}
+	if bounty.get("state", "") != "hunt": return false
 	bounty["state"] = "captured"
 	changed.emit()
 	return true
