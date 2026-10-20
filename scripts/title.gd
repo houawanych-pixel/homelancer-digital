@@ -164,7 +164,9 @@ var _naming := 0
 
 func _open_slots() -> void:
 	GS.migrate_old_save()
-	if slots_panel != null: slots_panel.queue_free()
+	if slots_panel != null and is_instance_valid(slots_panel):   # (taken out at once, so the new buttons are the only ones found)
+		remove_child(slots_panel)
+		slots_panel.queue_free()
 	slots_panel = PanelContainer.new()
 	slots_panel.name = "SlotsPanel"
 	var bgs := StyleBoxFlat.new()
