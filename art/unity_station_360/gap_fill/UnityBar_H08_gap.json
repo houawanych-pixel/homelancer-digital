@@ -1,0 +1,36 @@
+{
+ "canvas": "art/unity_station_360/photocraft_input/HL_UnityStation_UnityBar_H08_canvas.png",
+ "rows": [
+  684,
+  1148
+ ],
+ "gap": 200,
+ "side": 248,
+ "scale": 2.206896551724138,
+ "front": [
+  996,
+  2668
+ ],
+ "back_right_half": [
+  0,
+  836
+ ],
+ "back_left_half": [
+  2828,
+  3664
+ ],
+ "sheets": {
+  "A": {
+   "gap_px_in_sheet": [
+    547,
+    989
+   ]
+  },
+  "B": {
+   "gap_px_in_sheet": [
+    547,
+    989
+   ]
+  }
+ }
+}

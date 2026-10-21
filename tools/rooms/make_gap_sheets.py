@@ -5,7 +5,8 @@ Nothing is overlapped or cut away: people cut by the picture edge stay as they a
 Sheet = 1536 x 1024 (ChatGPT's landscape size), so the AI does not reframe it.
   join A: front view right edge  -> back view left edge
   join B: back view right edge   -> front view left edge   (the loop point)
-usage: make_gap_sheets.py canvas.png out_prefix [--gap 200]
+usage: make_gap_sheets.py canvas.png out_prefix [--gap 200] [--rows y0 y1]
+   Deluxe Apartment A-721: --rows 724 1076 (drops the black bars and the BACK VIEW / FRONT VIEW labels)
 Also writes out_prefix_gap.json (the numbers patch_gap.py needs)."""
 import sys, json, numpy as np
 from PIL import Image
@@ -17,6 +18,7 @@ c = Image.open(src).convert("RGBA"); a = np.asarray(c)[..., 3] > 0; W = c.width
 cols = a.any(0); edges = np.nonzero(np.diff(cols.astype(int)))[0] + 1
 l_end, f_start, f_end, r_start = map(int, edges[:4])
 rows = np.nonzero(a[:, f_start:f_end].any(1))[0]; y0, y1 = int(rows[0]), int(rows[-1]) + 1
+if "--rows" in args: y0, y1 = int(args[args.index("--rows") + 1]), int(args[args.index("--rows") + 2])   # skip black bars / "FRONT VIEW" labels
 H = y1 - y0
 scale = SH / H
 side = round((SW / scale - GAP) / 2)          # source px kept on each side of the gap
