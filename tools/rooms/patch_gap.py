@@ -5,7 +5,7 @@ Original pixels are kept for both views; only the gap comes from the AI picture.
 Grok/ChatGPT leave a pale fade a few px wide at each edge of the white area, so `--trim` sheet px are dropped from
 each edge of the gap and the clean middle is stretched back to the full gap width (about 6 %, not visible).
 The seam is then softened over a narrow band so there is no hard line.
-usage: patch_gap.py prefix_gap.json filledA.png filledB.png out.jpg [--trim 16] [--soft 5] [--joins joins.png]"""
+usage: patch_gap.py prefix_gap.json filledA.png filledB.png out.jpg [--trim 16]  (use --trim 2 when the white edge lines were already cleaned by hand) [--soft 5] [--joins joins.png]"""
 import sys, json, numpy as np
 from PIL import Image
 from scipy.ndimage import gaussian_filter
