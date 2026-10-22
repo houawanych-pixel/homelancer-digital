@@ -5,7 +5,7 @@ Original pixels are kept for both views; only the gap comes from the AI picture.
 Grok/ChatGPT leave a pale fade a few px wide at each edge of the white area, so `--trim` sheet px are dropped from
 each edge of the gap and the clean middle is stretched back to the full gap width (about 6 %, not visible).
 The seam is then softened over a narrow band so there is no hard line.
-usage: patch_gap.py prefix_gap.json filledA.png filledB.png out.jpg [--trim 16]  (use --trim 2 when the white edge lines were already cleaned by hand) [--soft 5] [--joins joins.png]"""
+usage: patch_gap.py prefix_gap.json filledA.png filledB.png out.jpg [--trim 16]  (use --trim 2 when the white edge lines were already cleaned by hand) [--soft 5] [--match 40] [--joins joins.png]"""
 import sys, json, numpy as np
 from PIL import Image
 from scipy.ndimage import gaussian_filter
@@ -23,7 +23,18 @@ def gap_of(path, key):
     gx0, gx1 = info["sheets"][key]["gap_px_in_sheet"]
     g = Image.open(path).convert("RGB").resize((1536, 1024), Image.LANCZOS)
     return np.asarray(g.crop((gx0 + T, 0, gx1 - T, 1024)).resize((G, H), Image.LANCZOS)).astype(np.float32)
+MATCH = opt("--match", 40)      # source px of the gap, at each edge, whose colour is pulled to the original edge
+def match_edges(gap, left, right):
+    """Remove tint / haze bands at the gap edges: per row, pull the gap's broad colour at each edge to the
+    original view's colour next to it, fading out over MATCH px. Detail is untouched (low frequency only)."""
+    B_ = 6
+    def broad(a): return gaussian_filter(a.mean(axis=1), (12, 0))
+    dl = broad(left[:, -B_:]) - broad(gap[:, :B_]); dr = broad(right[:, :B_]) - broad(gap[:, -B_:])
+    t = np.arange(G) / max(G - 1, 1)
+    wl = np.clip(1 - np.arange(G) / MATCH, 0, 1) ** 2; wr = np.clip(1 - np.arange(G)[::-1] / MATCH, 0, 1) ** 2
+    return gap + dl[:, None, :] * wl[None, :, None] + dr[:, None, :] * wr[None, :, None]
 A, B = gap_of(fa, "A"), gap_of(fb, "B")
+A = match_edges(A, front, back); B = match_edges(B, back, front)
 strip = np.concatenate([front, A, back, B], 1)
 seams = [front.shape[1], front.shape[1] + G, front.shape[1] + G + back.shape[1], 0]
 for s in seams:     # soften each seam over +-SOFT*2 px
