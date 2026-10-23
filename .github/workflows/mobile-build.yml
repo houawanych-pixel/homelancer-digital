@@ -1,0 +1,172 @@
+name: Homelancer mobile build
+# Builds the phone apps from the same project as the web game.
+#  - Android: a test APK every run (debug-signed, for sideloading on your own phone),
+#    and a signed Google Play AAB when the ANDROID_* secrets are set (optionally uploaded
+#    to the Play "internal" testing track when PLAY_SERVICE_ACCOUNT_JSON is set).
+#  - iOS: an App Store build uploaded to TestFlight when the IOS_* / ASC_* secrets are set
+#    (runs on GitHub's macOS 26 runners with Xcode 26, so no Mac of your own is needed).
+# Engine: Godot 4.7.2 (targets Android API 36 and 16 KB page sizes, which Google Play requires;
+# the web build stays on 4.3 until the whole project is moved).
+on:
+  push:
+    branches: [mobile-release]
+  workflow_dispatch:
+    inputs:
+      version_code:
+        description: "Android versionCode / iOS build number (must go up every upload)"
+        required: false
+env:
+  GODOT_VERSION: 4.7.2
+  GODOT_DIR: /tmp/godot
+  VERSION_NAME: "1.9p"
+permissions:
+  contents: read
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      HAS_KEY: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+      HAS_PLAY: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install Godot ${{ env.GODOT_VERSION }} + export templates
+        run: |
+          V=$GODOT_VERSION
+          curl -fL --retry 5 -o /tmp/g.zip https://github.com/godotengine/godot/releases/download/$V-stable/Godot_v$V-stable_linux.x86_64.zip
+          unzip -q /tmp/g.zip -d $GODOT_DIR
+          curl -fL --retry 5 -o /tmp/t.tpz https://github.com/godotengine/godot/releases/download/$V-stable/Godot_v$V-stable_export_templates.tpz
+          mkdir -p ~/.local/share/godot/export_templates/$V.stable
+          unzip -j /tmp/t.tpz 'templates/android_*' 'templates/version.txt' -d ~/.local/share/godot/export_templates/$V.stable
+          rm /tmp/t.tpz
+      - name: Android SDK (API 36)
+        run: |
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null || true
+          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.1.0" > /dev/null
+      - name: Editor settings + debug key
+        run: |
+          mkdir -p ~/.config/godot ~/.local/share/godot/keystores
+          keytool -genkeypair -keystore ~/.local/share/godot/keystores/debug.keystore -storepass android -alias androiddebugkey \
+            -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          cat > ~/.config/godot/editor_settings-4.7.tres <<EOT
+          [gd_resource type="EditorSettings" format=3]
+          [resource]
+          export/android/android_sdk_path = "$ANDROID_SDK_ROOT"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          export/android/debug_keystore = "$HOME/.local/share/godot/keystores/debug.keystore"
+          export/android/debug_keystore_user = "androiddebugkey"
+          export/android/debug_keystore_pass = "android"
+          EOT
+      - name: Version number
+        run: |
+          CODE="${{ github.event.inputs.version_code }}"
+          [ -z "$CODE" ] && CODE=${{ github.run_number }}
+          sed -i "s/^version\/code=.*/version\/code=$CODE/" export_presets.cfg
+          sed -i "s/^version\/name=.*/version\/name=\"$VERSION_NAME\"/" export_presets.cfg
+          echo "VERSION_CODE=$CODE" >> $GITHUB_ENV
+      - name: Import
+        run: $GODOT_DIR/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path . --editor --import --quit
+      - name: Test APK (debug-signed, for your own phone)
+        run: |
+          mkdir -p build/android
+          $GODOT_DIR/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path . --export-debug Android build/android/homelancer-test.apk
+          ls -la build/android
+      - uses: actions/upload-artifact@v4
+        with:
+          name: homelancer-test-apk-${{ env.VERSION_CODE }}
+          path: build/android/homelancer-test.apk
+          retention-days: 14
+      - name: Google Play AAB (signed with your upload key)
+        if: ${{ env.HAS_KEY == 'true' }}
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > /tmp/upload.keystore
+          export GODOT_ANDROID_KEYSTORE_RELEASE_PATH=/tmp/upload.keystore
+          export GODOT_ANDROID_KEYSTORE_RELEASE_USER="${{ secrets.ANDROID_KEY_ALIAS }}"
+          export GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD="${{ secrets.ANDROID_KEYSTORE_PASSWORD }}"
+          G=$GODOT_DIR/Godot_v${GODOT_VERSION}-stable_linux.x86_64
+          # Play needs an App Bundle, which Godot builds with Gradle from the installed build template
+          sed -i 's/^gradle_build\/use_gradle_build=.*/gradle_build\/use_gradle_build=true/; s/^gradle_build\/export_format=.*/gradle_build\/export_format=1/' export_presets.cfg
+          $G --headless --path . --install-android-build-template --quit || true
+          $G --headless --path . --export-release Android build/android/homelancer.aab
+          rm -f /tmp/upload.keystore
+          ls -la build/android
+      - uses: actions/upload-artifact@v4
+        if: ${{ hashFiles('build/android/homelancer.aab') != '' }}
+        with:
+          name: homelancer-play-aab-${{ env.VERSION_CODE }}
+          path: build/android/homelancer.aab
+          retention-days: 30
+      - name: Upload to Google Play internal testing
+        if: ${{ env.HAS_PLAY == 'true' && hashFiles('build/android/homelancer.aab') != '' }}
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.homelancergame.homelancer
+          releaseFiles: build/android/homelancer.aab
+          track: internal
+          status: draft
+
+  ios:
+    runs-on: macos-26
+    timeout-minutes: 90
+    env:
+      HAS_IOS: ${{ secrets.IOS_TEAM_ID != '' && secrets.IOS_DIST_CERT_P12_BASE64 != '' }}
+    steps:
+      - name: Skip unless the Apple secrets are set
+        if: ${{ env.HAS_IOS != 'true' }}
+        run: echo "::notice::iOS skipped - add IOS_TEAM_ID, IOS_DIST_CERT_P12_BASE64, IOS_DIST_CERT_PASSWORD, IOS_PROFILE_BASE64, ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 to build for TestFlight."
+      - uses: actions/checkout@v4
+        if: ${{ env.HAS_IOS == 'true' }}
+      - name: Install Godot ${{ env.GODOT_VERSION }} (macOS) + iOS template
+        if: ${{ env.HAS_IOS == 'true' }}
+        run: |
+          V=$GODOT_VERSION
+          curl -fL --retry 5 -o /tmp/g.zip https://github.com/godotengine/godot/releases/download/$V-stable/Godot_v$V-stable_macos.universal.zip
+          unzip -q /tmp/g.zip -d /tmp
+          curl -fL --retry 5 -o /tmp/t.tpz https://github.com/godotengine/godot/releases/download/$V-stable/Godot_v$V-stable_export_templates.tpz
+          mkdir -p "$HOME/Library/Application Support/Godot/export_templates/$V.stable"
+          unzip -j /tmp/t.tpz 'templates/ios.zip' 'templates/version.txt' -d "$HOME/Library/Application Support/Godot/export_templates/$V.stable"
+      - name: Export the Xcode project
+        if: ${{ env.HAS_IOS == 'true' }}
+        run: |
+          CODE="${{ github.event.inputs.version_code }}"; [ -z "$CODE" ] && CODE=${{ github.run_number }}
+          sed -i '' "s/^application\/app_store_team_id=.*/application\/app_store_team_id=\"${{ secrets.IOS_TEAM_ID }}\"/" export_presets.cfg
+          sed -i '' "s/^application\/version=.*/application\/version=\"$CODE\"/" export_presets.cfg
+          G=/tmp/Godot.app/Contents/MacOS/Godot
+          $G --headless --path . --editor --import --quit
+          mkdir -p build/ios
+          $G --headless --path . --export-release iOS build/ios/Homelancer.xcodeproj
+      - name: Signing (distribution certificate + App Store profile)
+        if: ${{ env.HAS_IOS == 'true' }}
+        run: |
+          KC=$RUNNER_TEMP/build.keychain; PW=$(uuidgen)
+          echo "${{ secrets.IOS_DIST_CERT_P12_BASE64 }}" | base64 -d > $RUNNER_TEMP/dist.p12
+          security create-keychain -p "$PW" $KC && security set-keychain-settings -lut 21600 $KC && security unlock-keychain -p "$PW" $KC
+          security import $RUNNER_TEMP/dist.p12 -P "${{ secrets.IOS_DIST_CERT_PASSWORD }}" -A -t cert -f pkcs12 -k $KC
+          security list-keychain -d user -s $KC
+          security set-key-partition-list -S apple-tool:,apple: -k "$PW" $KC > /dev/null
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "${{ secrets.IOS_PROFILE_BASE64 }}" | base64 -d > ~/Library/MobileDevice/Provisioning\ Profiles/homelancer.mobileprovision
+      - name: Archive, export IPA, upload to TestFlight
+        if: ${{ env.HAS_IOS == 'true' }}
+        run: |
+          cd build/ios
+          xcodebuild -project Homelancer.xcodeproj -scheme Homelancer -configuration Release -archivePath $RUNNER_TEMP/Homelancer.xcarchive \
+            -destination 'generic/platform=iOS' archive DEVELOPMENT_TEAM=${{ secrets.IOS_TEAM_ID }} | tail -20
+          cat > $RUNNER_TEMP/export.plist <<EOT
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+          <key>method</key><string>app-store-connect</string>
+          <key>teamID</key><string>${{ secrets.IOS_TEAM_ID }}</string>
+          <key>uploadSymbols</key><true/>
+          </dict></plist>
+          EOT
+          xcodebuild -exportArchive -archivePath $RUNNER_TEMP/Homelancer.xcarchive -exportOptionsPlist $RUNNER_TEMP/export.plist -exportPath $RUNNER_TEMP/ipa | tail -20
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "${{ secrets.ASC_KEY_P8 }}" > ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8
+          xcrun altool --upload-app -f $RUNNER_TEMP/ipa/*.ipa -t ios --apiKey ${{ secrets.ASC_KEY_ID }} --apiIssuer ${{ secrets.ASC_ISSUER_ID }}
