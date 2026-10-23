@@ -105,6 +105,14 @@ jobs:
           rm -f /tmp/upload.keystore
           ls -la build/android
           test -f $OUT
+      - name: Check what Google Play will see (target API, 16 KB alignment, size)
+        run: |
+          BT=$ANDROID_SDK_ROOT/build-tools/36.1.0
+          $BT/aapt2 dump badging build/android/homelancer-test.apk | grep -E "^package|targetSdkVersion|sdkVersion" | sed 's/^/::notice::APK /'
+          $BT/zipalign -c -P 16 -v 4 build/android/homelancer-test.apk > /tmp/za.txt 2>&1 && echo "::notice::APK 16 KB alignment OK" || (grep -v "(OK" /tmp/za.txt | tail -5 | sed 's/^/::warning::/')
+          AAB=$(ls build/android/*.aab | head -1)
+          curl -fsL -o /tmp/bundletool.jar https://github.com/google/bundletool/releases/download/1.18.1/bundletool-all-1.18.1.jar
+          echo "::notice::AAB targetSdk $(java -jar /tmp/bundletool.jar dump manifest --bundle $AAB --xpath /manifest/uses-sdk/@android:targetSdkVersion) minSdk $(java -jar /tmp/bundletool.jar dump manifest --bundle $AAB --xpath /manifest/uses-sdk/@android:minSdkVersion) size $(du -m $AAB | cut -f1) MB"
       - uses: actions/upload-artifact@v5
         if: ${{ hashFiles('build/android/homelancer-CHECK-not-for-upload.aab') != '' }}
         with:
