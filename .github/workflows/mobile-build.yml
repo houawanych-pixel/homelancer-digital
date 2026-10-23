@@ -29,8 +29,8 @@ jobs:
       HAS_KEY: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
       HAS_PLAY: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON != '' }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
@@ -75,7 +75,7 @@ jobs:
           mkdir -p build/android
           $GODOT_DIR/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path . --export-debug Android build/android/homelancer-test.apk
           ls -la build/android
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: homelancer-test-apk-${{ env.VERSION_CODE }}
           path: build/android/homelancer-test.apk
@@ -99,19 +99,19 @@ jobs:
           G=$GODOT_DIR/Godot_v${GODOT_VERSION}-stable_linux.x86_64
           # Play needs an App Bundle, which Godot builds with Gradle from the installed build template
           sed -i 's/^gradle_build\/use_gradle_build=.*/gradle_build\/use_gradle_build=true/; s/^gradle_build\/export_format=.*/gradle_build\/export_format=1/' export_presets.cfg
-          $G --headless --path . --install-android-build-template --quit || true
-          ls android/build/build.gradle
-          $G --headless --path . --export-release Android $OUT
+          # --install-android-build-template only works together with an export
+          $G --headless --path . --install-android-build-template --export-release Android $OUT 2>&1 | tee /tmp/aab.log || true
+          if [ ! -f "$OUT" ]; then grep -iE "error|fail|exception" /tmp/aab.log | tail -25 | cut -c1-400 | sed 's/^/::error::/'; fi
           rm -f /tmp/upload.keystore
           ls -la build/android
           test -f $OUT
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: ${{ hashFiles('build/android/homelancer-CHECK-not-for-upload.aab') != '' }}
         with:
           name: homelancer-aab-build-check-${{ env.VERSION_CODE }}
           path: build/android/homelancer-CHECK-not-for-upload.aab
           retention-days: 3
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: ${{ hashFiles('build/android/homelancer.aab') != '' }}
         with:
           name: homelancer-play-aab-${{ env.VERSION_CODE }}
@@ -136,7 +136,7 @@ jobs:
       - name: Skip unless the Apple secrets are set
         if: ${{ env.HAS_IOS != 'true' }}
         run: echo "::notice::iOS skipped - add IOS_TEAM_ID, IOS_DIST_CERT_P12_BASE64, IOS_DIST_CERT_PASSWORD, IOS_PROFILE_BASE64, ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 to build for TestFlight."
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         if: ${{ env.HAS_IOS == 'true' }}
       - name: Install Godot ${{ env.GODOT_VERSION }} (macOS) + iOS template
         if: ${{ env.HAS_IOS == 'true' }}
