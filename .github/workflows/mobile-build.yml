@@ -80,20 +80,37 @@ jobs:
           name: homelancer-test-apk-${{ env.VERSION_CODE }}
           path: build/android/homelancer-test.apk
           retention-days: 14
-      - name: Google Play AAB (signed with your upload key)
-        if: ${{ env.HAS_KEY == 'true' }}
+      - name: Google Play AAB (Gradle build; signed with your upload key, or a throwaway check key if none yet)
         run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > /tmp/upload.keystore
+          if [ "$HAS_KEY" = "true" ]; then
+            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > /tmp/upload.keystore
+            export GODOT_ANDROID_KEYSTORE_RELEASE_USER="${{ secrets.ANDROID_KEY_ALIAS }}"
+            export GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD="${{ secrets.ANDROID_KEYSTORE_PASSWORD }}"
+            OUT=build/android/homelancer.aab
+          else
+            # no upload key yet: prove the Play build works with a throwaway key (this AAB can't be uploaded)
+            keytool -genkeypair -keystore /tmp/upload.keystore -storepass checkonly -alias check -keypass checkonly \
+              -keyalg RSA -keysize 2048 -validity 30 -dname "CN=Build check,O=Homelancer,C=US"
+            export GODOT_ANDROID_KEYSTORE_RELEASE_USER=check
+            export GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=checkonly
+            OUT=build/android/homelancer-CHECK-not-for-upload.aab
+          fi
           export GODOT_ANDROID_KEYSTORE_RELEASE_PATH=/tmp/upload.keystore
-          export GODOT_ANDROID_KEYSTORE_RELEASE_USER="${{ secrets.ANDROID_KEY_ALIAS }}"
-          export GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD="${{ secrets.ANDROID_KEYSTORE_PASSWORD }}"
           G=$GODOT_DIR/Godot_v${GODOT_VERSION}-stable_linux.x86_64
           # Play needs an App Bundle, which Godot builds with Gradle from the installed build template
           sed -i 's/^gradle_build\/use_gradle_build=.*/gradle_build\/use_gradle_build=true/; s/^gradle_build\/export_format=.*/gradle_build\/export_format=1/' export_presets.cfg
           $G --headless --path . --install-android-build-template --quit || true
-          $G --headless --path . --export-release Android build/android/homelancer.aab
+          ls android/build/build.gradle
+          $G --headless --path . --export-release Android $OUT
           rm -f /tmp/upload.keystore
           ls -la build/android
+          test -f $OUT
+      - uses: actions/upload-artifact@v4
+        if: ${{ hashFiles('build/android/homelancer-CHECK-not-for-upload.aab') != '' }}
+        with:
+          name: homelancer-aab-build-check-${{ env.VERSION_CODE }}
+          path: build/android/homelancer-CHECK-not-for-upload.aab
+          retention-days: 3
       - uses: actions/upload-artifact@v4
         if: ${{ hashFiles('build/android/homelancer.aab') != '' }}
         with:
