@@ -1,0 +1,37 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://c0sk130bb4rjx"
+path="res://.godot/imported/HL_Station_Elyza_Military_retopo_HL_Station_Elyza_Military_BaseColor.jpg-ecf4edd4046342580d2c85aa74ea29f4.ctex"
+metadata={
+"vram_texture": false
+}
+generator_parameters={
+"md5": "f510216c3ddc7a3e8987c1f523fa3802"
+}
+
+[deps]
+
+source_file="res://assets/stations3d/HL_Station_Elyza_Military_retopo_HL_Station_Elyza_Military_BaseColor.jpg"
+dest_files=["res://.godot/imported/HL_Station_Elyza_Military_retopo_HL_Station_Elyza_Military_BaseColor.jpg-ecf4edd4046342580d2c85aa74ea29f4.ctex"]
+
+[params]
+
+compress/mode=1
+compress/high_quality=false
+compress/lossy_quality=0.8
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=1024
+detect_3d/compress_to=1
