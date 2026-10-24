@@ -1,0 +1,37 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://30je0b8hkce6"
+path="res://.godot/imported/HL_Station_Solrath_Military_retopo_HL_Station_Solrath_Military_Normal.jpg-489bdb3475990ff0f4a9bfcee4f90346.ctex"
+metadata={
+"vram_texture": false
+}
+generator_parameters={
+"md5": "b271e0f34681c8cca4b13a08b041a01a"
+}
+
+[deps]
+
+source_file="res://assets/stations3d/HL_Station_Solrath_Military_retopo_HL_Station_Solrath_Military_Normal.jpg"
+dest_files=["res://.godot/imported/HL_Station_Solrath_Military_retopo_HL_Station_Solrath_Military_Normal.jpg-489bdb3475990ff0f4a9bfcee4f90346.ctex"]
+
+[params]
+
+compress/mode=1
+compress/high_quality=false
+compress/lossy_quality=0.8
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=1024
+detect_3d/compress_to=1
