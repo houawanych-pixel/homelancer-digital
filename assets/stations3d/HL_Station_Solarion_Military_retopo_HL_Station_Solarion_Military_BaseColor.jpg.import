@@ -1,0 +1,37 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://c7ewqqm0m2ryp"
+path="res://.godot/imported/HL_Station_Solarion_Military_retopo_HL_Station_Solarion_Military_BaseColor.jpg-a41bae86634c6dfc291654fde58d580e.ctex"
+metadata={
+"vram_texture": false
+}
+generator_parameters={
+"md5": "347c9a66a23326b8b208eedbb71c2990"
+}
+
+[deps]
+
+source_file="res://assets/stations3d/HL_Station_Solarion_Military_retopo_HL_Station_Solarion_Military_BaseColor.jpg"
+dest_files=["res://.godot/imported/HL_Station_Solarion_Military_retopo_HL_Station_Solarion_Military_BaseColor.jpg-a41bae86634c6dfc291654fde58d580e.ctex"]
+
+[params]
+
+compress/mode=1
+compress/high_quality=false
+compress/lossy_quality=0.8
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=1024
+detect_3d/compress_to=1

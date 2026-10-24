@@ -1,0 +1,37 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://b1qt86jva6cd6"
+path="res://.godot/imported/HL_Station_Solarion_Outpost_retopo_HL_Station_Solarion_Outpost_BaseColor.jpg-1b6a9669b1cf0d7cafe794630864756f.ctex"
+metadata={
+"vram_texture": false
+}
+generator_parameters={
+"md5": "aa6fdde9c3f5706c33ffeb42f829ca5e"
+}
+
+[deps]
+
+source_file="res://assets/stations3d/HL_Station_Solarion_Outpost_retopo_HL_Station_Solarion_Outpost_BaseColor.jpg"
+dest_files=["res://.godot/imported/HL_Station_Solarion_Outpost_retopo_HL_Station_Solarion_Outpost_BaseColor.jpg-1b6a9669b1cf0d7cafe794630864756f.ctex"]
+
+[params]
+
+compress/mode=1
+compress/high_quality=false
+compress/lossy_quality=0.8
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=1024
+detect_3d/compress_to=1
