@@ -27,7 +27,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v1.9p"
+const VERSION := "v1.9q"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -1163,6 +1163,75 @@ const ROAMER_ORBIT := 1700.0          # m: the roaming battleships loop round th
 const ROAMER_SPEED := 22.0            # ... at this speed (m/s) ...
 const ROAMER_BOB := 120.0             # ... rising and falling this much
 const ROAMER_SCALE := 1.4             # x the standard station width
+# v1.9q RETOPO import (owner, Oct 24): 38 stations (12k tris) and 15 planetary buildings (8k tris), static PBR GLBs with
+# their file names kept as delivered: assets/stations3d/HL_Station_<Faction>_<Style>_retopo.glb (one pack each, fetched
+# when you enter the system) and assets/buildings3d/HL_<Faction>_<CommandCenter|Hangar>_v01_retopo.glb (one pack per
+# faction). Textures are imported at 1024 px for phones (the files themselves are untouched).
+# Placed by style: Capital = the faction's homeworld (its main station), Military = a frontline / defence system,
+# Trade = a hub system, Outpost = a fringe system. Applied after STATION3D, so it wins where both name a slot.
+# System -> {"*": main station | catalog station name: second station | "+Name": a station added to the system}.
+const RETOPO_STATIONS := {
+	"sepheron": {"*": "HL_Station_Covenant_Capital_retopo"},          # Covenant capital
+	"valdris": {"*": "HL_Station_Covenant_Military_retopo"},          # borders the Phenom home and Imperium
+	"sanctum_major": {"*": "HL_Station_Covenant_Trade_retopo"},       # Sanctuary Station (links to Sigma-19)
+	"aurelion": {"*": "HL_Station_Elyza_Capital_retopo"},             # Elyza capital
+	"velanthos": {"*": "HL_Station_Elyza_Military_retopo"},           # borders the Solrath home and Unity
+	"crystara": {"*": "HL_Station_Elyza_Trade_retopo"},               # Elyza's inner hub (4 jump links)
+	"malachar": {"*": "HL_Station_Imperium_Capital_retopo"},          # Imperium capital
+	"obsidrath": {"*": "HL_Station_Imperium_Military_retopo"},        # Armory, borders the Phenom home and Covenant
+	"empire_major": {"*": "HL_Station_Imperium_Trade_retopo"},        # Imperial Customs Station
+	"vantara": {"*": "HL_Station_Liberator_Capital_retopo"},          # Liberator capital
+	"exodus_point": {"*": "HL_Station_Liberator_Military_retopo"},    # borders the Gadversee home
+	"dreadholm": {"*": "HL_Station_Orion_Capital_retopo"},            # Orion capital
+	"korrath": {"*": "HL_Station_Orion_Military_retopo"},             # Garrison, borders two Savagers systems
+	"raptian_major": {"*": "HL_Station_Savagers_Capital_retopo"},     # Savagers capital
+	"plundros": {"*": "HL_Station_Savagers_Military_retopo"},         # borders the Cybermorph home and Liberator
+	"synthari_capital": {"*": "HL_Station_Solarion_Capital_retopo"},  # Solarion capital
+	"techanis": {"*": "HL_Station_Solarion_Military_retopo"},         # borders the Arctides home and Unity
+	"crossma_major": {"*": "HL_Station_Solarion_Trade_retopo"},       # Crossma Freeport (4 jump links)
+	"kellova": {"*": "HL_Station_Solarion_Outpost_retopo"},           # Cargo Depot on the far edge
+	"veranthos": {"*": "HL_Station_Unity_Capital_retopo"},            # Unity capital
+	"federis": {"*": "HL_Station_Unity_Military_retopo"},             # borders two Solarion systems
+	"aurentum": {"*": "HL_Station_Unity_Trade_retopo"},               # has the Trade Dock
+	"void_system": {"*": "HL_Station_Solrath_Capital_retopo", "Gate Anchor": "HL_Station_Solrath_Military_retopo"},
+	"kronos": {"*": "HL_Station_Arctides_Capital_retopo", "+Arctides Military Station": "HL_Station_Arctides_Military_retopo"},
+	"cynthara": {"*": "HL_Station_Gadversee_Capital_retopo", "+Gadversee Military Station": "HL_Station_Gadversee_Military_retopo"},
+	"cybernet": {"*": "HL_Station_Cybermorphs_Capital_retopo", "Signal Relay": "HL_Station_Cybermorphs_Military_retopo"},
+	"noctyra": {"*": "HL_Station_Phenom_Capital_retopo", "+Phenom Military Station": "HL_Station_Phenom_Military_retopo"},
+	"genesis": {"*": "HL_Station_Kaijurai_Capital_retopo", "+Kaijurai Military Station": "HL_Station_Kaijurai_Military_retopo"},
+	"rimgate": {"*": "HL_Station_Unclaimed_Capital_retopo"},          # neutral: between the Elyza and Unity capitals
+	"farreach_outpost": {"*": "HL_Station_Unclaimed_Military_retopo"},  # neutral: borders the void and Elyza
+	"void_1": {"*": "HL_Station_Unknown_Capital_retopo"},             # unknown space (the void systems)
+	"void_3": {"*": "HL_Station_Unknown_Military_retopo"},
+}
+const RETOPO_STYLE_SCALE := {"Capital": 1.6, "Military": 1.15, "Trade": 1.3, "Outpost": 0.9}   # x the standard station width
+const RETOPO_ADDED_DIST := 2400.0     # m: an added station sits this far from the main one
+# Planetary buildings: homeworld system -> faction. Its Command Center and Hangar stand on the system's main planet.
+const RETOPO_BUILDINGS := {"sepheron": "Covenant", "aurelion": "Elyza", "malachar": "Imperium", "vantara": "Liberator",
+	"dreadholm": "Orion", "raptian_major": "Savagers", "synthari_capital": "Solarion", "void_system": "Solrath", "veranthos": "Unity"}
+const BUILDING_KINDS := ["CommandCenter", "Hangar"]   # Imperium, Liberator and Solrath have no Hangar file yet
+const BUILDING_WIDTH := {"CommandCenter": 170.0, "Hangar": 140.0}   # m across (the landing pad is 180 m)
+const BUILDING_SPOT := {"CommandCenter": Vector2(-150.0, -420.0), "Hangar": Vector2(180.0, -400.0)}   # m from the sector centre (x east, z south)
+const BUILDING_YAW := {"CommandCenter": 180.0, "Hangar": 180.0}   # the file's front (-Z) turned to face the sector centre
+const BUILDING_SINK := 2.0            # m pushed into the ground so no corner floats on a slope
+const BUILDING_SEARCH_STEP := 160.0   # m between candidate sites when looking for flat ground ...
+const BUILDING_SEARCH_STEPS := 6      # ... this many steps each way round the wanted spot
+const BUILDING_GAP := 40.0            # m kept clear between the two buildings
+const BUILDING_PROBES := [Vector2.ZERO, Vector2(1, 1), Vector2(-1, 1), Vector2(1, -1), Vector2(-1, -1), Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]   # footprint samples (x half-width)
+const BUILDING_FLAT_OK := 45.0        # m: the test accepts this much rise under a footprint (hilly worlds)
+const RETOPO_BOX_PAD := 8.0           # m: the ship's own size added to a model's collision box
+static func is_st3d(model: Variant) -> bool:
+	var m := str(model)
+	return m.begins_with("st3d_") or m.begins_with("HL_Station_")
+## Station width multiplier for a 3D station model (the RETOPO set by its style, the older set from STATION3D_SCALE).
+static func st3d_scale(key: String) -> float:
+	if STATION3D_SCALE.has(key): return float(STATION3D_SCALE[key])
+	if key.begins_with("HL_Station_"):
+		for st in RETOPO_STYLE_SCALE:
+			if key.find("_%s_" % st) >= 0: return float(RETOPO_STYLE_SCALE[st])
+	return 1.0
+static func building_file(faction: String, kind: String) -> String:
+	return "res://assets/buildings3d/HL_%s_%s_v01_retopo.glb" % [faction, kind]
 const BEACON_SYSTEMS := ["solara"]   # extra systems with a light beacon in their nebula (every roster-faction hideout system has one)
 const BEACON_FACTIONS := ["Savagers"]
 const BEACON_SIZE := 150.0           # width of the beacon station

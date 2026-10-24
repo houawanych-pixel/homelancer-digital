@@ -353,3 +353,69 @@ Triangles are LOD0 / LOD1 / LOD2. Tools: `tools/assetkit/st_retopo.py` (+ `st_lo
 | Veranthos | st3d_veranthos_fleethq.glb (+ _lod1, _lod2) | station | 40000 / 10000 / 2500 | | HOMELANCER_Station3D_Veranthos-FleetHQ_v1_ORIGINAL.glb | IN GAME: Veranthos 2nd station (dockable); 1 loose part joined by struts |
 | Veranthos | st3d_veranthos_senate.glb (+ _lod1, _lod2) | station | 40000 / 9994 / 2500 | | HOMELANCER_Station3D_Veranthos-SenateStation_v1_ORIGINAL.glb | IN GAME: Veranthos main station; 5 loose parts joined by struts |
 | Voidtex | st3d_voidtex_crosswind.glb (+ _lod1, _lod2) | station | 40000 / 10000 / 2524 | | HOMELANCER_Station3D_Voidtex-CrosswindJunction_v1_ORIGINAL.glb | IN GAME: Voidtex station; 0 loose parts joined by struts |
+
+## v1.9q RETOPO set (owner's game-ready files, names kept as delivered; 2K colour + normal, imported at 1024 px)
+
+Stations 12,000 triangles, buildings 8,000. Static, no rig. One pack per station, one per faction for buildings. Collision: a box from each mesh's bounds.
+
+| Faction | File | Style | Placed | Why there |
+|---|---|---|---|---|
+| Arctides | HL_Station_Arctides_Capital_retopo.glb | Capital | IN GAME: Kronos — main station (Cryo Station) |  |
+| Arctides | HL_Station_Arctides_Military_retopo.glb | Military | IN GAME: Kronos — added station "Arctides Military Station" |  |
+| Covenant | HL_Station_Covenant_Capital_retopo.glb | Capital | IN GAME: Sepheron — main station (Library Station) | Covenant capital |
+| Covenant | HL_Station_Covenant_Military_retopo.glb | Military | IN GAME: Valdris — main station (Cipher Station) | borders the Phenom home and Imperium |
+| Covenant | HL_Station_Covenant_Trade_retopo.glb | Trade | IN GAME: Sanctum Major — main station (Sanctuary Station) | Sanctuary Station (links to Sigma-19) |
+| Cybermorphs | HL_Station_Cybermorphs_Capital_retopo.glb | Capital | IN GAME: Cybernet — main station (Assimilation Factory) |  |
+| Cybermorphs | HL_Station_Cybermorphs_Military_retopo.glb | Military | IN GAME: Cybernet — second station "Signal Relay" |  |
+| Elyza | HL_Station_Elyza_Capital_retopo.glb | Capital | IN GAME: Aurelion — main station (Aurelion Citadel) | Elyza capital |
+| Elyza | HL_Station_Elyza_Military_retopo.glb | Military | IN GAME: Velanthos — main station (Velanthos Research Platform) | borders the Solrath home and Unity |
+| Elyza | HL_Station_Elyza_Trade_retopo.glb | Trade | IN GAME: Crystara — main station (Crystal Refinery) | Elyza's inner hub (4 jump links) |
+| Gadversee | HL_Station_Gadversee_Capital_retopo.glb | Capital | IN GAME: Cynthara — main station (Spore Station) |  |
+| Gadversee | HL_Station_Gadversee_Military_retopo.glb | Military | IN GAME: Cynthara — added station "Gadversee Military Station" |  |
+| Imperium | HL_Station_Imperium_Capital_retopo.glb | Capital | IN GAME: Malachar — main station (Orbital Command) | Imperium capital |
+| Imperium | HL_Station_Imperium_Military_retopo.glb | Military | IN GAME: Obsidrath — main station (Obsidrath Armory) | Armory, borders the Phenom home and Covenant |
+| Imperium | HL_Station_Imperium_Trade_retopo.glb | Trade | IN GAME: Empire Major — main station (Imperial Customs Station) | Imperial Customs Station |
+| Kaijurai | HL_Station_Kaijurai_Capital_retopo.glb | Capital | IN GAME: Genesis — main station (Kaiju Lair) |  |
+| Kaijurai | HL_Station_Kaijurai_Military_retopo.glb | Military | IN GAME: Genesis — added station "Kaijurai Military Station" |  |
+| Liberator | HL_Station_Liberator_Capital_retopo.glb | Capital | IN GAME: Vantara — main station (Resistance Headquarters) | Liberator capital |
+| Liberator | HL_Station_Liberator_Military_retopo.glb | Military | IN GAME: Exodus Point — main station (Refugee Transit Station) | borders the Gadversee home |
+| Orion | HL_Station_Orion_Capital_retopo.glb | Capital | IN GAME: Dreadholm — main station (Fleet Command) | Orion capital |
+| Orion | HL_Station_Orion_Military_retopo.glb | Military | IN GAME: Korrath — main station (Korrath Garrison) | Garrison, borders two Savagers systems |
+| Phenom | HL_Station_Phenom_Capital_retopo.glb | Capital | IN GAME: Noctyra — main station (Unknown Monolith) |  |
+| Phenom | HL_Station_Phenom_Military_retopo.glb | Military | IN GAME: Noctyra — added station "Phenom Military Station" |  |
+| Savagers | HL_Station_Savagers_Capital_retopo.glb | Capital | IN GAME: Raptian Major — main station (Scrap Citadel) | Savagers capital |
+| Savagers | HL_Station_Savagers_Military_retopo.glb | Military | IN GAME: Plundros — main station (Smuggler Den) | borders the Cybermorph home and Liberator |
+| Solarion | HL_Station_Solarion_Capital_retopo.glb | Capital | IN GAME: Synthari Capital — main station (Grand Exchange) | Solarion capital |
+| Solarion | HL_Station_Solarion_Military_retopo.glb | Military | IN GAME: Techanis — main station (Techanis Lab Station) | borders the Arctides home and Unity |
+| Solarion | HL_Station_Solarion_Outpost_retopo.glb | Outpost | IN GAME: Kellova — main station (Kellova Cargo Depot) | Cargo Depot on the far edge |
+| Solarion | HL_Station_Solarion_Trade_retopo.glb | Trade | IN GAME: Crossma Major — main station (Crossma Freeport) | Crossma Freeport (4 jump links) |
+| Solrath | HL_Station_Solrath_Capital_retopo.glb | Capital | IN GAME: Void System — main station (Void Citadel Station) |  |
+| Solrath | HL_Station_Solrath_Military_retopo.glb | Military | IN GAME: Void System — second station "Gate Anchor" |  |
+| Unclaimed | HL_Station_Unclaimed_Capital_retopo.glb | Capital | IN GAME: Rimgate — main station (Rimgate Control) | neutral: between the Elyza and Unity capitals |
+| Unclaimed | HL_Station_Unclaimed_Military_retopo.glb | Military | IN GAME: Farreach Outpost — main station (Farreach Outpost) | neutral: borders the void and Elyza |
+| Unity | HL_Station_Unity_Capital_retopo.glb | Capital | IN GAME: Veranthos — main station (Senate Station) | Unity capital |
+| Unity | HL_Station_Unity_Military_retopo.glb | Military | IN GAME: Federis — main station (Embassy Station) | borders two Solarion systems |
+| Unity | HL_Station_Unity_Trade_retopo.glb | Trade | IN GAME: Aurentum — main station (Reserve Vault Station) | has the Trade Dock |
+| Unknown | HL_Station_Unknown_Capital_retopo.glb | Capital | IN GAME: Void 1 — main station (Void 1 Beacon) | unknown space (the void systems) |
+| Unknown | HL_Station_Unknown_Military_retopo.glb | Military | IN GAME: Void 3 — main station (Void 3 Beacon) |  |
+
+| Faction | File | Kind | Placed |
+|---|---|---|---|
+| Covenant | HL_Covenant_CommandCenter_v01_retopo.glb | CommandCenter | IN GAME: on Sepheron's planet (main planet of Sepheron, Covenant homeworld), flattest dry ground near the sector centre |
+| Covenant | HL_Covenant_Hangar_v01_retopo.glb | Hangar | IN GAME: on Sepheron's planet (main planet of Sepheron, Covenant homeworld), flattest dry ground near the sector centre |
+| Elyza | HL_Elyza_CommandCenter_v01_retopo.glb | CommandCenter | IN GAME: on Aurelion's planet (main planet of Aurelion, Elyza homeworld), flattest dry ground near the sector centre |
+| Elyza | HL_Elyza_Hangar_v01_retopo.glb | Hangar | IN GAME: on Aurelion's planet (main planet of Aurelion, Elyza homeworld), flattest dry ground near the sector centre |
+| Imperium | HL_Imperium_CommandCenter_v01_retopo.glb | CommandCenter | IN GAME: on Malachar's planet (main planet of Malachar, Imperium homeworld), flattest dry ground near the sector centre |
+| Imperium | HL_Imperium_Hangar_v01_retopo.glb | Hangar | no file delivered yet |
+| Liberator | HL_Liberator_CommandCenter_v01_retopo.glb | CommandCenter | IN GAME: on Vantara's planet (main planet of Vantara, Liberator homeworld), flattest dry ground near the sector centre |
+| Liberator | HL_Liberator_Hangar_v01_retopo.glb | Hangar | no file delivered yet |
+| Orion | HL_Orion_CommandCenter_v01_retopo.glb | CommandCenter | IN GAME: on Dreadholm's planet (main planet of Dreadholm, Orion homeworld), flattest dry ground near the sector centre |
+| Orion | HL_Orion_Hangar_v01_retopo.glb | Hangar | IN GAME: on Dreadholm's planet (main planet of Dreadholm, Orion homeworld), flattest dry ground near the sector centre |
+| Savagers | HL_Savagers_CommandCenter_v01_retopo.glb | CommandCenter | IN GAME: on Raptian Major's planet (main planet of Raptian Major, Savagers homeworld), flattest dry ground near the sector centre |
+| Savagers | HL_Savagers_Hangar_v01_retopo.glb | Hangar | IN GAME: on Raptian Major's planet (main planet of Raptian Major, Savagers homeworld), flattest dry ground near the sector centre |
+| Solarion | HL_Solarion_CommandCenter_v01_retopo.glb | CommandCenter | IN GAME: on Synthari Capital's planet (main planet of Synthari Capital, Solarion homeworld), flattest dry ground near the sector centre |
+| Solarion | HL_Solarion_Hangar_v01_retopo.glb | Hangar | IN GAME: on Synthari Capital's planet (main planet of Synthari Capital, Solarion homeworld), flattest dry ground near the sector centre |
+| Solrath | HL_Solrath_CommandCenter_v01_retopo.glb | CommandCenter | IN GAME: on Void System's planet (main planet of Void System, Solrath homeworld), flattest dry ground near the sector centre |
+| Solrath | HL_Solrath_Hangar_v01_retopo.glb | Hangar | no file delivered yet |
+| Unity | HL_Unity_CommandCenter_v01_retopo.glb | CommandCenter | IN GAME: on Veranthos's planet (main planet of Veranthos, Unity homeworld), flattest dry ground near the sector centre |
+| Unity | HL_Unity_Hangar_v01_retopo.glb | Hangar | IN GAME: on Veranthos's planet (main planet of Veranthos, Unity homeworld), flattest dry ground near the sector centre |

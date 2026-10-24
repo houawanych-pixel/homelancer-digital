@@ -206,6 +206,33 @@ static func apply(systems: Dictionary) -> Dictionary:
 			body3["kind"] = "station"   # a real station now: dock there for its hub pages
 			body3["placeholder"] = false
 			body3["desc"] = str(body3.get("lore", "%s in the %s system." % [body3["name"], sys3["name"]]))
+	for sid in Data.RETOPO_STATIONS:   # v1.9q: the RETOPO set (wins over STATION3D where both name a slot)
+		if not systems.has(sid): continue
+		var sys4: Dictionary = systems[sid]
+		var map4: Dictionary = Data.RETOPO_STATIONS[sid]
+		for slot: String in map4:
+			if slot == "*":
+				sys4["station"]["model"] = map4[slot]
+			elif slot.begins_with("+"):   # a station added to the system, near its main one
+				var nm := slot.substr(1)
+				var rng := RandomNumberGenerator.new()
+				rng.seed = hash("retopo:%s:%s" % [sid, nm])
+				var c: Vector3 = sys4["station"]["pos"]
+				var pos := c
+				for attempt in Data.PH_PLACE_TRIES:
+					var a: float = rng.randf() * TAU + attempt * 0.47
+					pos = c + Vector3(cos(a), 0.0, sin(a)) * (Data.RETOPO_ADDED_DIST + attempt * 300.0) + Vector3(0, rng.randf_range(-150.0, 150.0), 0)
+					if SystemBuilder.clear_of(sys4, pos, Data.PH_STATION_RADIUS * 2.0): break
+				sys4["more_stations"].append({"id": "%s_retopo_%d" % [sid, sys4["more_stations"].size() + 2], "name": nm, "catalog_name": nm,
+					"kind": "station", "placeholder": false, "color": Color(0.5, 0.5, 0.55), "pos": pos, "radius": Data.PH_STATION_RADIUS,
+					"model": map4[slot], "desc": "%s in the %s system." % [nm, sys4["name"]], "retopo_added": true})
+			else:
+				for body4 in sys4.get("more_stations", []):
+					if str(body4.get("catalog_name", body4["name"])) != slot: continue
+					body4["model"] = map4[slot]
+					body4["kind"] = "station"
+					body4["placeholder"] = false
+					body4["desc"] = str(body4.get("lore", "%s in the %s system." % [body4["name"], sys4["name"]]))
 	for sid in LAMPS:
 		if systems.has(sid): systems[sid]["station"]["lamp"] = true
 	for sid in ON_PLANET:

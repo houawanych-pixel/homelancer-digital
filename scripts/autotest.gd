@@ -555,6 +555,7 @@ func _galaxy() -> void:
 	var near_back: bool = back != null and s.player.global_position.distance_to(back.global_position) < 400.0
 	await Packs.wait("sky_veranthos", 40.0)
 	await Packs.wait("structures", 30.0)
+	await Packs.wait(str(Data.SYSTEMS["veranthos"]["station"].get("model", "structures")), 30.0)   # (v1.9q: the RETOPO capital's own pack)
 	await _wait(0.5)
 	var tex: Texture2D = s._pano.panorama if s._pano else null
 	_check("Jump to Veranthos: arrive at the gate that leads back, with its own sky, a sun and the capital's station model",
@@ -572,7 +573,7 @@ func _galaxy() -> void:
 	await _wait(Data.PH_BUILD_DELAY + 0.6)
 	var xw: int = s.extra_worlds.filter(func(w): return (w[0] as MeshInstance3D).material_override is ShaderMaterial).size()
 	_check("Galaxy contents: %d planets and %d stations; Veranthos shows its 5 planets and 4 stations (extras are placeholders you can target)" % [total_p, total_s],
-		total_p == 172 and total_s == 102 and s.extras.size() == 7 and xw == 4 and s.targetables().has(s.extras[0]), "extras %d, real maps %d" % [s.extras.size(), xw])
+		total_p == 172 and total_s == 102 + _retopo_added() and s.extras.size() == 7 and xw == 4 and s.targetables().has(s.extras[0]), "extras %d, real maps %d" % [s.extras.size(), xw])
 	var crowded: Array = []
 	for id4 in Data.SYSTEMS:
 		var sd: Dictionary = Data.SYSTEMS[id4]
@@ -996,6 +997,15 @@ func _run() -> void:
 		await _job_v19n()
 		await _job_v19o()
 		await _job_v19p()
+		await _job_v19q()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
+	if OS.get_environment("HL_V19Q") != "":   # the v1.9q RETOPO import checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_v19q()
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
@@ -1721,6 +1731,7 @@ func _run() -> void:
 	await _job_v19n()
 	await _job_v19o()
 	await _job_v19p()
+	await _job_v19q()
 	await _blocks()
 	await _regions()
 	await _galaxy()
@@ -3435,7 +3446,7 @@ func _job_v() -> void:
 		var sy: Dictionary = Data.SYSTEMS[id]
 		var is_sav: bool = str(sy.get("faction", "")) == "Savagers"
 		if is_sav: n_sav += 1
-		var sav_model: bool = str(sy["station"].get("model", "")) in ["savagers_cross_station", "st3d_savagers_asteroid"]   # (v1.9d: Ravage Major wears the Living Asteroid Base)
+		var sav_model: bool = str(sy["station"].get("model", "")) in ["savagers_cross_station", "st3d_savagers_asteroid"] or str(sy["station"].get("model", "")).begins_with("HL_Station_Savagers_")   # (v1.9d: Ravage Major wears the Living Asteroid Base; v1.9q: the RETOPO Savagers stations)
 		if sav_model != is_sav: st_ok = false
 		if SpaceSystem.has_beacon(id, sy) != (is_sav or id == "solara"): st_ok = false
 	_check("Job V: the five Savagers systems wear a Savagers station (the cross station; v1.9d: Ravage Major the Living Asteroid Base), and each hides a light beacon in its nebula (so does Solara)", st_ok and n_sav == 5
@@ -6970,6 +6981,13 @@ func _job_v19e() -> void:
 ## the systems named in their files: Aurelion and Veranthos at their station slots (the other stations there are
 ## dockable now), the neutral ones as their system's station, the Living Asteroid Base in Savagers space, and the two
 ## Cybermorph battleships roaming Cybernet (not docks).
+## v1.9q: stations the RETOPO set added to systems ("+Name" slots)
+func _retopo_added() -> int:
+	var n := 0
+	for sid in Data.RETOPO_STATIONS:
+		for slot: String in Data.RETOPO_STATIONS[sid]: n += 1 if slot.begins_with("+") else 0
+	return n
+
 func _st3d_tris(path: String) -> int:
 	if not ResourceLoader.exists(path): return -1
 	var inst := (load(path) as PackedScene).instantiate()
@@ -7003,7 +7021,7 @@ func _job_v19d() -> void:
 	var where: Array = []
 	for sid in Data.STATION3D:
 		var map: Dictionary = Data.STATION3D[sid]
-		if map.has("*") and Data.SYSTEMS[sid]["station"].get("model", "") != map["*"]: placed = false
+		if map.has("*") and not Data.RETOPO_STATIONS.get(sid, {}).has("*") and Data.SYSTEMS[sid]["station"].get("model", "") != map["*"]: placed = false   # (v1.9q: the RETOPO set takes over some main slots)
 		for b in Data.SYSTEMS[sid].get("more_stations", []):
 			if map.has(str(b.get("catalog_name", b["name"]))):
 				if b.get("model", "") != map[str(b.get("catalog_name", b["name"]))] or b["kind"] != "station": placed = false
@@ -7013,12 +7031,12 @@ func _job_v19d() -> void:
 	# 3. in Aurelion: the main station wears it, the two other stations do too, and you can dock at one and launch from it
 	main._load_system("aurelion", "station")
 	await _wait(1.0)
-	for k in ["st3d_aurelion_citadel", "st3d_aurelion_tradehub"]: await Packs.wait(k, 30.0)
+	for k in [str(Data.SYSTEMS["aurelion"]["station"]["model"]), "st3d_aurelion_tradehub"]: await Packs.wait(k, 30.0)
 	var s := _sp()
 	await _until(func(): return s.docks3d.size() >= 1 and s.docks3d.all(func(n): return n.has_meta("dressed")), Data.PH_BUILD_DELAY + 4.0)
 	var holder: Node3D = s.station_model.get_parent() if s.station_model != null else null
-	var lods: bool = holder != null and holder.has_meta("lod1") and holder.has_meta("lod2") and (holder.get_meta("lod0") as MeshInstance3D).visibility_range_end > 0.0 \
-		and (holder.get_meta("lod2") as MeshInstance3D).visibility_range_begin > 0.0
+	var lods: bool = holder != null and ((holder.has_meta("lod1") and holder.has_meta("lod2") and (holder.get_meta("lod0") as MeshInstance3D).visibility_range_end > 0.0 \
+		and (holder.get_meta("lod2") as MeshInstance3D).visibility_range_begin > 0.0) or str(holder.get_meta("station3d", "")).begins_with("HL_Station_"))   # (v1.9q: the RETOPO capital is one file)
 	main.hud.visible = false
 	_tp(s.station.global_position + Vector3(260, 120, 380) * 1.6, s.station.global_position)
 	await _shot("st3d_aurelion_citadel", 0.5)
@@ -8786,6 +8804,141 @@ func _job_v19n() -> void:
 ## v1.9o (owner): the board: tap = hear it (phone voice) and ACCEPT / DECLINE; the job you have = CONTINUE / DISENGAGE
 ## (even with a prisoner aboard); a prisoner taken to their own people walks free, that faction turns hostile (its
 ## board is locked) and the freed pilot hunts you on launch.
+## v1.9q RETOPO import: the owner's 38 stations and 15 planetary buildings (file names as delivered), placed by faction
+## and style, each with a simple collision box.
+func _job_v19q() -> void:
+	var sys0: String = GS.system_id
+	# 1. files and packs
+	var st_keys: Array = []
+	for sid in Data.RETOPO_STATIONS:
+		for slot in Data.RETOPO_STATIONS[sid]: st_keys.append(str(Data.RETOPO_STATIONS[sid][slot]))
+	var bad: Array = []
+	for k: String in st_keys:
+		var t := _st3d_tris("res://assets/stations3d/%s.glb" % k)
+		if not (t >= 11000 and t <= 12500 and Packs.PACKS.has(k) and k.ends_with("_retopo")): bad.append("%s:%d" % [k, t])
+	var b_files: Array = []
+	for sid in Data.RETOPO_BUILDINGS:
+		var f: String = Data.RETOPO_BUILDINGS[sid]
+		if not Packs.PACKS.has("bld_%s" % f.to_lower()): bad.append("pack bld_%s" % f)
+		for kind in Data.BUILDING_KINDS:
+			var path := Data.building_file(f, kind)
+			if not ResourceLoader.exists(path): continue
+			var t2 := _st3d_tris(path)
+			b_files.append(path)
+			if t2 < 7500 or t2 > 8500: bad.append("%s:%d" % [path.get_file(), t2])
+	_check("v1.9q (RETOPO): 38 station files (about 12k triangles, one pack each) and 15 planetary building files (about 8k, one pack per faction), names as delivered",
+		st_keys.size() == 38 and b_files.size() == 15 and bad.is_empty(), "stations %d buildings %d bad %s" % [st_keys.size(), b_files.size(), bad])
+	# 2. each one in its own faction's space, in the right slot
+	var wrong: Array = []
+	for sid in Data.RETOPO_STATIONS:
+		var sy: Dictionary = Data.SYSTEMS[sid]
+		var fac := str(sy.get("faction", ""))
+		var role := str(sy.get("role", ""))
+		for slot: String in Data.RETOPO_STATIONS[sid]:
+			var key: String = Data.RETOPO_STATIONS[sid][slot]
+			var ff: String = key.split("_")[2]
+			var own: bool = ff == fac or role == "%s home" % ff or (ff == "Cybermorphs" and role == "Cybermorph home") \
+				or (ff == "Unclaimed" and fac == "Neutral") or (ff == "Unknown" and fac == "Void")
+			var body: Dictionary = sy["station"] if slot == "*" else {}
+			if slot != "*":
+				for b in sy.get("more_stations", []):
+					if str(b.get("catalog_name", b["name"])) == slot.trim_prefix("+"): body = b
+			var cap_ok: bool = not key.contains("_Capital_") or role == "capital" or role.ends_with(" home") or ff in ["Unclaimed", "Unknown"]
+			if not own or body.get("model", "") != key or (slot != "*" and body.get("kind", "") != "station") or not cap_ok: wrong.append("%s/%s" % [sid, slot])
+	_check("v1.9q: every station sits in its own faction's space (Capital at the homeworld, Military on a frontline, Trade at a hub, Outpost on the edge); enemy homes get their Military station beside the main one",
+		wrong.is_empty(), str(wrong))
+	# 3. Veranthos: the Unity capital wears it, big, with a box you bump off
+	main._load_system("veranthos", "station")
+	await _wait(1.0)
+	var key0: String = Data.RETOPO_STATIONS["veranthos"]["*"]
+	await Packs.wait(key0, 30.0)
+	var s := _sp()
+	await _until(func(): return s.station_model != null, Data.PH_BUILD_DELAY + 4.0)
+	var holder: Node3D = s.station_model.get_parent() if s.station_model != null else null
+	var big: bool = holder != null and is_equal_approx(holder.scale.x, s.STATION_WIDTH * Data.RETOPO_STYLE_SCALE["Capital"])
+	var boxed: bool = s.station.has_meta("box_aabb")
+	main.hud.visible = false
+	_tp(s.station.global_position + Vector3(380, 160, 520), s.station.global_position)
+	await _shot("v19q_unity_capital", 0.5)
+	main.hud.visible = true
+	var pushed := false
+	if boxed:
+		var bb: AABB = s.station.get_meta("box_aabb")
+		var hd: Node3D = s.station.get_meta("box_holder")
+		s.controls = true
+		s.player.global_position = hd.global_transform * (bb.get_center() + Vector3(bb.size.x * 0.45, 0, 0))
+		s.vel = Vector3.ZERO
+		await _frames(3)
+		var q: Vector3 = hd.global_transform.affine_inverse() * s.player.global_position
+		pushed = not bb.grow(0.01).has_point(q)
+	_check("v1.9q: in Veranthos the Unity Capital station is the main station, scaled up (x1.6 the standard width), and flying into it pushes you out of its collision box",
+		holder != null and str(holder.get_meta("station3d", "")) == key0 and big and boxed and pushed, "model %s big %s box %s pushed %s" % [holder.get_meta("station3d", "") if holder else "-", big, boxed, pushed])
+	# 4. Kronos: the Arctides home has its Capital and an added Military station beside it
+	main._load_system("kronos", "station")
+	await _wait(1.0)
+	for k in ["HL_Station_Arctides_Capital_retopo", "HL_Station_Arctides_Military_retopo"]: await Packs.wait(k, 30.0)
+	var sk := _sp()
+	await _until(func(): return sk.station_model != null and sk.docks3d.size() >= 1 and sk.docks3d.all(func(n): return n.has_meta("dressed")), Data.PH_BUILD_DELAY + 4.0)
+	var mil: Node3D = sk.docks3d[0] if not sk.docks3d.is_empty() else null
+	if mil != null:
+		main.hud.visible = false
+		_tp(mil.global_position + Vector3(300, 120, 400), mil.global_position)
+		await _shot("v19q_arctides_military", 0.5)
+		main.hud.visible = true
+	_check("v1.9q: Kronos (Arctides home) wears the Arctides Capital, and the Arctides Military station stands beside it with its own collision box",
+		sk.station_model != null and mil != null and str(mil.get_meta("station3d", "")) == "HL_Station_Arctides_Military_retopo" and mil.has_meta("box_aabb"),
+		"main %s added %s" % [sk.station_model != null, mil.get_meta("station3d", "") if mil else "-"])
+	# 5. Aurelion Prime: the Elyza Command Center and Hangar stand on the ground of the homeworld
+	main._load_system("aurelion", "station")
+	await _wait(1.0)
+	await Packs.wait("planets", 60.0)
+	await Packs.wait("bld_elyza", 30.0)
+	var sa := _sp()
+	var pc: Vector3 = sa.planet.global_position
+	var d := Vector3(0.2, 0.3, 1.0).normalized()
+	_tp(pc + d * (float(sa.planet.get_meta("radius")) + 90.0), pc)
+	main.hud.move_vec = Vector2(0, -1)
+	await _until(func(): return main.state == "flight" and _sp().surface_mode, 20.0)
+	main.hud.move_vec = Vector2.ZERO
+	sa = _sp()
+	await _until(func(): return sa.surf_boxes.size() == 2, 6.0)
+	var on_ground := sa.surf_boxes.size() == 2
+	for bx: Array in sa.surf_boxes:
+		var hd2: Node3D = bx[0]
+		var bb2: AABB = bx[1]
+		var bottom: float = hd2.global_position.y + bb2.position.y * hd2.scale.y
+		var half2: float = hd2.get_meta("half", 50.0)
+		var g := INF
+		var gh := -INF
+		for o: Vector2 in Data.BUILDING_PROBES:
+			var gg: float = sa._ground(hd2.global_position.x + o.x * half2, hd2.global_position.z + o.y * half2)
+			g = minf(g, gg)
+			gh = maxf(gh, gg)
+		if absf(bottom - (g - Data.BUILDING_SINK)) > 1.0 or gh - g > Data.BUILDING_FLAT_OK: on_ground = false
+	var cc: Node3D = sa.surf_boxes[0][0] if not sa.surf_boxes.is_empty() else null
+	var solid := false
+	if cc != null:
+		main.hud.visible = false
+		_tp(cc.global_position + Vector3(330, 230, 430), cc.global_position + Vector3(0, 40, 0))
+		await _shot("v19q_elyza_buildings", 0.6)
+		main.hud.visible = true
+		var bb3: AABB = sa.surf_boxes[0][1]
+		sa.controls = true
+		sa.player.global_position = cc.global_transform * (bb3.get_center() + Vector3(0, 0, bb3.size.z * 0.4))
+		sa.vel = Vector3.ZERO
+		await _frames(3)
+		solid = not bb3.grow(0.01).has_point(cc.global_transform.affine_inverse() * sa.player.global_position)
+	_check("v1.9q: landing on Aurelion Prime (Elyza homeworld), the Elyza Command Center and Hangar stand on the ground near the sector centre and are solid (box collision)",
+		on_ground and solid and str(cc.name if cc else "") == "HL_Elyza_CommandCenter", "boxes %d on ground %s solid %s" % [sa.surf_boxes.size(), on_ground, solid])
+	_tp(Vector3(0, Surface.CEILING - 30.0, 0), Vector3(0, Surface.CEILING + 400.0, -100.0))
+	main.hud.move_vec = Vector2(0, -1)
+	await _until(func(): return main.state == "flight" and not _sp().surface_mode, 12.0)
+	main.hud.move_vec = Vector2.ZERO
+	main._load_system(sys0, "station")
+	await _wait(1.6)
+	main.hud.visible = true
+	_sp().controls = true
+
 func _job_v19o() -> void:
 	var s: SpaceSystem = main.space
 	var keep := {"mission": GS.mission.duplicate(true), "bounty": GS.bounty.duplicate(true), "cargo": GS.cargo.duplicate(true), "rep": GS.rep.duplicate(true)}

@@ -203,8 +203,8 @@ static func flat_grid(S: Vector2) -> Array:
 static func box_info(id: String) -> Array:
 	if not Data.SYSTEMS.has(id): return [0, []]
 	var sy: Dictionary = Data.SYSTEMS[id]
-	var st: Array = [[str(sy["station"]["name"]), str(sy["station"].get("model", "")).begins_with("st3d_")]]
-	for b in sy.get("more_stations", []): st.append([str(b["name"]), str(b.get("model", "")).begins_with("st3d_")])
+	var st: Array = [[str(sy["station"]["name"]), Data.is_st3d(sy["station"].get("model", ""))]]
+	for b in sy.get("more_stations", []): st.append([str(b["name"]), Data.is_st3d(b.get("model", ""))])
 	return [1 + (sy.get("more_planets", []) as Array).size(), st]
 
 static func flat_pos(S: Vector2, col: int, row: int) -> Vector2:

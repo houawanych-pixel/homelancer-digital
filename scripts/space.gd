@@ -515,7 +515,7 @@ func _station_model() -> void:
 	if station_model != null or not is_instance_valid(station) or station.get_meta("kind", "") != "station": return
 	var d: Dictionary = station.get_meta("info")
 	if not d.has("model") or not station.has_meta("body"): return
-	if str(d["model"]).begins_with("st3d_"):   # v1.9d: the owner's 3D stations: three LODs from their own pack
+	if Data.is_st3d(d["model"]):   # v1.9d: the owner's 3D stations: three LODs from their own pack (v1.9q: or the RETOPO set)
 		var key := str(d["model"])
 		if not Packs.is_ready(key):
 			_want_st3d(key)
@@ -527,6 +527,7 @@ func _station_model() -> void:
 			if ch is Node3D and not ch.has_meta("blink"): ch.visible = false
 		body3.add_child(holder)
 		station_model = holder.get_meta("lod0")
+		_set_box(station, holder)   # v1.9q: a box to bump into instead of the sphere
 		return
 	var path := "res://assets/structures/%s.glb" % d["model"]
 	if not (Packs.is_ready("structures") and ResourceLoader.exists(path)): return
@@ -553,7 +554,7 @@ func station3d(key: String, scale_k := 1.0) -> Node3D:
 	var holder := Node3D.new()
 	holder.name = "Station3D"
 	holder.set_meta("station3d", key)
-	var sc := STATION_WIDTH * float(Data.STATION3D_SCALE.get(key, 1.0)) * scale_k
+	var sc := STATION_WIDTH * Data.st3d_scale(key) * scale_k
 	holder.scale = Vector3.ONE * sc
 	holder.rotation_degrees.y = float(Data.STATION3D_YAW.get(key, Data.STATION3D_DEFAULT_YAW))
 	var ranges: Array = Data.STATION3D_LOD   # [LOD0 out to, LOD1 out to] (m)
@@ -570,7 +571,7 @@ func station3d(key: String, scale_k := 1.0) -> Node3D:
 			mi.mesh = (found[0] as MeshInstance3D).mesh
 			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			mi.visibility_range_begin = 0.0 if i == 0 else float(ranges[i - 1])
-			mi.visibility_range_end = float(ranges[i]) if i < 2 else 0.0
+			mi.visibility_range_end = float(ranges[i]) if (i < 2 and ResourceLoader.exists(files[i + 1])) else 0.0   # v1.9q: a single-file model stays drawn at any distance
 			holder.add_child(mi)
 			holder.set_meta("lod%d" % i, mi)
 		inst.free()
@@ -578,6 +579,120 @@ func station3d(key: String, scale_k := 1.0) -> Node3D:
 		holder.free()
 		return null
 	return holder
+
+## v1.9q: a simple collision box for a 3D model (the RETOPO stations): the mesh's own bounds, kept in the model's frame
+## so it turns and scales with it. The bump test pushes the ship out through the nearest face.
+func _set_box(n: Node3D, holder: Node3D) -> void:
+	var mi: MeshInstance3D = holder.get_meta("lod0", null)
+	if mi == null or mi.mesh == null: return
+	n.set_meta("box_holder", holder)
+	n.set_meta("box_aabb", mi.transform * mi.mesh.get_aabb())
+
+func _bump_box(body: Node3D) -> void:
+	_push_out_box(body.get_meta("box_holder"), body.get_meta("box_aabb"), "station")
+
+## Push the ship out of a model's box through the nearest face (box = the mesh bounds in the holder's own frame).
+func _push_out_box(hd: Node3D, bb: AABB, kind: String) -> bool:
+	var xf := hd.global_transform
+	var k := maxf(xf.basis.get_scale().x, 0.001)
+	var pad := Data.RETOPO_BOX_PAD / k
+	var q := xf.affine_inverse() * player.global_position
+	var lo := bb.position - Vector3.ONE * pad
+	var hi := bb.end + Vector3.ONE * pad
+	if q.x <= lo.x or q.x >= hi.x or q.y <= lo.y or q.y >= hi.y or q.z <= lo.z or q.z >= hi.z: return false
+	var pens := [q.x - lo.x, hi.x - q.x, q.y - lo.y, hi.y - q.y, q.z - lo.z, hi.z - q.z]
+	var best := 0
+	for i in 6:
+		if pens[i] < pens[best]: best = i
+	var axis := best / 2
+	q[axis] = lo[axis] if best % 2 == 0 else hi[axis]
+	var local_n := Vector3.ZERO
+	local_n[axis] = -1.0 if best % 2 == 0 else 1.0
+	var n2 := (xf.basis * local_n).normalized()
+	player.global_position = xf * q
+	if not (kind == "ground" and ground_mode): collision_damage(kind, -vel.dot(n2))
+	if vel.dot(n2) < 0.0: vel = vel - n2 * vel.dot(n2) * (1.0 if ground_mode else 1.5)
+	if ground_mode and n2.y > 0.7: grounded = true   # standing on a roof
+	return true
+
+## v1.9q RETOPO planetary buildings: a faction's Command Center and Hangar stand on its homeworld (the system's main
+## planet), sat on the ground near the sector centre, each with a simple box to collide with. Built when the
+## faction's building pack is in (asked for on landing).
+var surf_boxes: Array = []   # [holder, AABB]
+func building_faction() -> String:
+	if not surface_mode and planet_id == "": return ""
+	for sid in Data.RETOPO_BUILDINGS:
+		if planet_id == "%s_planet" % sid: return str(Data.RETOPO_BUILDINGS[sid])
+	return ""
+
+func _faction_buildings() -> void:
+	surf_boxes = []
+	var fac := building_faction()
+	if fac == "" or tile != 0 or not is_instance_valid(tile_root): return
+	var pk := "bld_%s" % fac.to_lower()
+	if not Packs.is_ready(pk):
+		if not Packs.pack_ready.is_connected(_on_bld_pack): Packs.pack_ready.connect(_on_bld_pack)
+		Packs.request(pk)
+		return
+	for kind: String in Data.BUILDING_KINDS:
+		var path := Data.building_file(fac, kind)
+		if not ResourceLoader.exists(path): continue
+		var ps := load(path) as PackedScene
+		if ps == null: continue
+		var inst := ps.instantiate()
+		var found := inst.find_children("*", "MeshInstance3D", true, false)
+		var mesh: Mesh = (found[0] as MeshInstance3D).mesh if not found.is_empty() else null
+		inst.free()
+		if mesh == null: continue
+		var mi := MeshInstance3D.new()
+		mi.name = "Mesh"
+		mi.mesh = mesh
+		var holder := Node3D.new()
+		holder.name = "HL_%s_%s" % [fac, kind]
+		holder.set_meta("building", kind)
+		holder.add_child(mi)
+		var bb := mesh.get_aabb()
+		var w: float = float(Data.BUILDING_WIDTH[kind]) / maxf(maxf(bb.size.x, bb.size.z), 0.001)
+		var half := maxf(bb.size.x, bb.size.z) * w * 0.5
+		var site := building_site(Data.BUILDING_SPOT[kind], half, surf_boxes)
+		holder.scale = Vector3.ONE * w
+		holder.rotation_degrees.y = float(Data.BUILDING_YAW[kind])
+		holder.position = Vector3(site.x, site.y - Data.BUILDING_SINK - bb.position.y * w, site.z)
+		holder.set_meta("half", half)
+		tile_root.add_child(holder)
+		surf_boxes.append([holder, bb])
+
+## The flattest dry ground for a building near `want` (sector-local x, z): candidates on a grid round it, scored by how
+## uneven the ground under its footprint is (plus a little for distance), away from buildings already placed.
+## Returns (x, lowest ground under the footprint, z), so no corner floats.
+func building_site(want: Vector2, half: float, placed: Array) -> Vector3:
+	var best := Vector3(want.x, _ground(want.x, want.y), want.y)
+	var best_score := INF
+	var r: int = Data.BUILDING_SEARCH_STEPS
+	for j in range(-r, r + 1):
+		for i in range(-r, r + 1):
+			var c := want + Vector2(i, j) * Data.BUILDING_SEARCH_STEP
+			var clash := false
+			for bx: Array in placed:
+				var hp: Node3D = bx[0]
+				if Vector2(hp.position.x, hp.position.z).distance_to(c) < half + float(hp.get_meta("half", half)) + Data.BUILDING_GAP: clash = true
+			if clash: continue
+			var lo := INF
+			var hi := -INF
+			for o: Vector2 in Data.BUILDING_PROBES:
+				var g := _ground(c.x + o.x * half, c.y + o.y * half)
+				lo = minf(lo, g)
+				hi = maxf(hi, g)
+			if _water and lo < 0.5: continue   # not in the sea
+			var score := (hi - lo) + c.distance_to(want) * 0.02
+			if score < best_score:
+				best_score = score
+				best = Vector3(c.x, lo, c.y)
+	return best
+
+func _on_bld_pack(pk: String) -> void:
+	if not pk.begins_with("bld_") or not surface_mode or not is_inside_tree() or not surf_boxes.is_empty(): return
+	_faction_buildings()
 
 var _st3d_wanted := {}   # v1.9d: station packs asked for in this system
 func _want_st3d(key: String) -> void:
@@ -587,7 +702,7 @@ func _want_st3d(key: String) -> void:
 	Packs.request(key)
 
 func _on_st3d_pack(pk: String) -> void:
-	if not pk.begins_with("st3d_") or surface_mode or not is_inside_tree(): return
+	if not Data.is_st3d(pk) or surface_mode or not is_inside_tree(): return
 	_station_model()
 	_extras_st3d()
 
@@ -606,6 +721,7 @@ func _extras_st3d() -> void:
 			if ch is Node3D and not ch.has_meta("blink"): ch.visible = false
 		n.add_child(holder)
 		n.set_meta("dressed", true)
+		_set_box(n, holder)   # v1.9q
 
 ## v1.9d: Cybermorph battleships that roam the system on a slow loop (not docks).
 var roamers: Array = []
@@ -790,9 +906,9 @@ func _build_extras() -> void:
 		_mesh(n, BoxMesh.new(), Vector3.ZERO, Color(0.12, 0.2, 0.42), Vector3(70, 1.2, 14))
 		_mesh(n, BoxMesh.new(), Vector3(0, 24, 0), Color(1.0, 0.85, 0.5), Vector3(2, 2, 2), Vector3.ZERO, true)
 		extras.append(n)
-		if str(d.get("model", "")).begins_with("st3d_"):   # v1.9d: one of the owner's 3D stations: dockable, its own size
+		if Data.is_st3d(d.get("model", "")):   # v1.9d: one of the owner's 3D stations: dockable, its own size
 			n.set_meta("station3d", str(d["model"]))
-			n.set_meta("radius", STATION_WIDTH * float(Data.STATION3D_SCALE.get(str(d["model"]), 1.0)) * Data.STATION3D_HIT)
+			n.set_meta("radius", STATION_WIDTH * Data.st3d_scale(str(d["model"])) * Data.STATION3D_HIT)
 			n.set_meta("dock", true)
 			docks3d.append(n)
 	for r: Array in Data.STATION3D_ROAMERS.get(sys_id, []):   # v1.9d: roaming Cybermorph battleships
@@ -3936,6 +4052,9 @@ func _collisions(dt: float) -> void:
 				entering = true
 				atmosphere_entered.emit(planet)
 			continue
+		if body.has_meta("box_aabb") and is_instance_valid(body.get_meta("box_holder", null)):   # v1.9q: the model's own box
+			_bump_box(body)
+			continue
 		if d2 < hitr:
 			var n2 := (player.global_position - body.global_position).normalized()
 			player.global_position = body.global_position + n2 * hitr
@@ -4854,6 +4973,7 @@ func load_tile(t: int, keep := Vector3.INF) -> void:
 	_water = Surface.has_water(planet_id, t)
 	_edge_warned = false
 	add_child(tile_root)
+	_faction_buildings()   # v1.9q
 	var b := Surface.biome(planet_id, t)
 	var cols := {"sky": b["sky"], "horizon": b["horizon"], "fog": b["fog"]}
 	if keep == Vector3.INF: _apply_sky(cols, 1.0)
@@ -5991,6 +6111,8 @@ func _surface_update(_dt: float) -> void:
 		player.global_position.y = floor_y
 		if vel.y < 0.0: vel.y = 0.0
 		if not ground_mode: collision_damage("ground", impact)   # Job L (was: > 20 m/s, 0.25 x impact through the shields); v1.8r: GROUND mode lands without a scratch
+	for bx: Array in surf_boxes:   # v1.9q: the faction buildings are solid
+		if is_instance_valid(bx[0]): _push_out_box(bx[0], bx[1], "ground")
 	for fl in _fields(): (fl as BlockField).fluid_update(_dt, player.global_position)   # v1.6b: water and lava move near you
 	_update_light(_dt, bfp, p)   # v1.7m
 	if bfp:   # lava burns
