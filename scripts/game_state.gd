@@ -134,7 +134,7 @@ func weapon() -> Dictionary: return Data.WEAPONS[weapon_id]
 # ---------------------------------------------------------------- v1.9e (owner): a gun or a missile pod on each mount
 ## v1.9e (owner): two mounts on each wing: the SHOULDER (close to the core, on the top side) and the TIP (at the end of
 ## the wing, on the lower side). Index 0, 1 = left shoulder, left tip; 2, 3 = right shoulder, right tip.
-const MOUNT_NAMES := ["Left shoulder (top)", "Left tip (under)", "Right shoulder (top)", "Right tip (under)"]
+const MOUNT_NAMES := ["Left wing inner (top)", "Left wing tip (under)", "Right wing inner (top)", "Right wing tip (under)"]   # (v1.9v: the owner's slot sheet words)
 func mount_names() -> Array: return MOUNT_NAMES.duplicate()
 
 ## What each mount carries now: a gun id, a pod id or "empty". A new ship has guns on as many mounts as its "guns"

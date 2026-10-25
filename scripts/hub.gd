@@ -379,15 +379,35 @@ func _equipment_page() -> void:
 	lcap.name = "LoadoutCaption"
 	var items: Array = GS.mount_items()
 	var names: Array = GS.mount_names()
-	var sel_name: String = "Core (nose)" if eq_sel < 0 else str(names[eq_sel])
-	var sel_item: String = GS.core_item() if eq_sel < 0 else str(items[eq_sel])
-	lcap.text = "FIT  ·  %s  ·  now: %s" % [sel_name.to_upper(), _item_name(sel_item)]
-	v.add_child(lcap)
+	if eq_sel < -1:   # v1.9u (owner): a body bay: light missiles, super missiles or mines, built into every ship
+		var bay: Array = {-2: ["LIGHT MISSILE BAY", GS.missiles, GS.max_missiles(), "Missile_", func(n): return GS.buy_missiles(n)],
+			-3: ["SUPER MISSILE BAY", GS.heavy_missiles, GS.max_heavy(), "Heavy_", func(n): return GS.buy_heavy(n)],
+			-4: ["MINE BAY", GS.mines, GS.max_mines(), "Mine_", func(n): return GS.buy_mines(n)]}[eq_sel]
+		lcap.text = "%s  ·  %d / %d loaded  ·  built into the body. More missiles: fit missile pods on the wings." % [bay[0], int(bay[1]), int(bay[2])]
+		v.add_child(lcap)
+		var brow := HBoxContainer.new()
+		brow.name = "Bay_%d" % -eq_sel
+		brow.add_theme_constant_override("separation", 10)
+		for n in [1, 99]:
+			var bb := Button.new()
+			bb.name = "Bay%s%d" % [bay[3], n]
+			bb.text = "+1" if n == 1 else "FILL"
+			bb.custom_minimum_size = Vector2(130, 50)
+			bb.disabled = int(bay[1]) >= int(bay[2])
+			var buy: Callable = bay[4]
+			bb.pressed.connect(func(): status.text = buy.call(n); show_screen("equipment"))
+			brow.add_child(bb)
+		v.add_child(brow)
+	else:
+		var sel_name: String = "Front gun (nose)" if eq_sel < 0 else str(names[eq_sel])
+		var sel_item: String = GS.core_item() if eq_sel < 0 else str(items[eq_sel])
+		lcap.text = "FIT  ·  %s  ·  now: %s" % [sel_name.to_upper(), _item_name(sel_item)]
+		v.add_child(lcap)
 	var guns_owned: Array = Data.WEAPON_ORDER.filter(func(x): return x in GS.owned_weapons)
 	var fit_opts: Array = guns_owned + Data.MOUNT_PODS.keys().filter(func(x): return x in GS.owned_weapons) + ["empty"]
 	var crow := HFlowContainer.new()
 	crow.name = "Mount_core"
-	crow.visible = eq_sel < 0
+	crow.visible = eq_sel == -1
 	crow.add_theme_constant_override("h_separation", 8)
 	crow.add_theme_constant_override("v_separation", 6)
 	for gid in guns_owned:
@@ -602,7 +622,7 @@ func _loadout_panel(split: HBoxContainer) -> void:
 	var svc := SubViewportContainer.new()
 	svc.name = "LoadoutPreview"
 	svc.stretch = true
-	svc.custom_minimum_size = Vector2(300, 170)
+	svc.custom_minimum_size = Vector2(300, 150)
 	svc.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	col.add_child(svc)
 	preview_vp = SubViewport.new()
@@ -662,7 +682,7 @@ func _loadout_panel(split: HBoxContainer) -> void:
 	# the outline with a dot per mount
 	var mm := Control.new()
 	mm.name = "MountMap"
-	mm.custom_minimum_size = Vector2(300, 150)
+	mm.custom_minimum_size = Vector2(300, 230)
 	mm.mouse_filter = Control.MOUSE_FILTER_STOP
 	col.add_child(mm)
 	mm.draw.connect(func(): _draw_mount_map(mm))
@@ -670,15 +690,15 @@ func _loadout_panel(split: HBoxContainer) -> void:
 		var tap := (e is InputEventScreenTouch and not (e as InputEventScreenTouch).pressed) or (e is InputEventMouseButton and (e as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT and not (e as InputEventMouseButton).pressed)
 		if not tap: return
 		var at: Vector2 = (e as InputEventMouseButton).position if e is InputEventMouseButton else (e as InputEventScreenTouch).position
-		var best := -2
-		var bd := 46.0
+		var best := -9
+		var bd := 30.0
 		var pts := _mount_points(mm.size)
 		for k in pts:
 			var d: float = at.distance_to(pts[k])
 			if d < bd:
 				bd = d
 				best = k
-		if best > -2:
+		if best > -9:
 			eq_sel = best
 			show_screen("equipment"))
 	if not Packs.is_ready("wing_guns"):
@@ -723,47 +743,67 @@ func _dress_mounts(model: Node3D) -> void:
 			if tip: gun.rotation_degrees.z = 180.0
 		holder.add_child(gun)
 
-## Where each mount's dot sits on the outline (key -1 = core, 0-3 = the wing mounts).
-func _mount_points(sz: Vector2) -> Dictionary:
-	var c := Vector2(sz.x * 0.5, sz.y * 0.52)
-	var w := minf(sz.x * 0.46, sz.y * 1.3)
-	return {-1: c + Vector2(0, -sz.y * 0.34), 0: c + Vector2(-w * 0.34, -sz.y * 0.02), 1: c + Vector2(-w * 0.86, sz.y * 0.2),
-		2: c + Vector2(w * 0.34, -sz.y * 0.02), 3: c + Vector2(w * 0.86, sz.y * 0.2)}
+## v1.9u (owner's slot sheet): where each slot sits on his top-down ship outline (assets/ui/ship_slots.png).
+## Body: the gun at the nose (-1), light missiles (-2), super missiles (-3), mines (-4). Wings: 0-3 (inner, tip).
+const SLOT_UV := {-1: Vector2(0.5, 0.201), -2: Vector2(0.407, 0.48), -3: Vector2(0.592, 0.48), -4: Vector2(0.5, 0.727),
+	0: Vector2(0.25, 0.654), 1: Vector2(0.054, 0.719), 2: Vector2(0.75, 0.654), 3: Vector2(0.945, 0.719)}
+const SLOT_TAG := {-1: "GUN", -2: "MSL", -3: "SUPER", -4: "MINES"}
+func _map_rect(sz: Vector2) -> Rect2:
+	var hgt := sz.y - 22.0
+	var wdt := hgt * 332.0 / 400.0
+	if wdt > sz.x - 8.0:
+		wdt = sz.x - 8.0
+		hgt = wdt * 400.0 / 332.0
+	return Rect2((sz.x - wdt) * 0.5, 4.0, wdt, hgt)
 
+func _mount_points(sz: Vector2) -> Dictionary:
+	var r := _map_rect(sz)
+	var out := {}
+	for k in SLOT_UV: out[k] = r.position + r.size * (SLOT_UV[k] as Vector2)
+	return out
+
+static var _slots_tex: Texture2D
 func _draw_mount_map(mm: Control) -> void:
 	var sz := mm.size
 	mm.draw_rect(Rect2(Vector2.ZERO, sz), Color(0.02, 0.05, 0.09, 0.75))
 	mm.draw_rect(Rect2(Vector2.ZERO, sz), Color(0.3, 0.8, 1.0, 0.35), false, 1.5)
-	var c := Vector2(sz.x * 0.5, sz.y * 0.52)
-	var w := minf(sz.x * 0.46, sz.y * 1.3)
-	var h := sz.y
-	var line := Color(0.45, 0.9, 1.0, 0.85)
-	# a top-down outline: the hull down the middle, swept wings either side
-	var hull := PackedVector2Array([c + Vector2(0, -h * 0.44), c + Vector2(w * 0.1, -h * 0.12), c + Vector2(w * 0.12, h * 0.3), c + Vector2(0, h * 0.4),
-		c + Vector2(-w * 0.12, h * 0.3), c + Vector2(-w * 0.1, -h * 0.12), c + Vector2(0, -h * 0.44)])
-	mm.draw_polyline(hull, line, 2.0, true)
-	for sd in [-1.0, 1.0]:
-		var wing := PackedVector2Array([c + Vector2(sd * w * 0.1, -h * 0.08), c + Vector2(sd * w * 0.95, h * 0.16), c + Vector2(sd * w * 0.95, h * 0.27),
-			c + Vector2(sd * w * 0.12, h * 0.24)])
-		mm.draw_polyline(wing, line, 2.0, true)
+	if _slots_tex == null and ResourceLoader.exists("res://assets/ui/ship_slots.png"): _slots_tex = load("res://assets/ui/ship_slots.png")
+	if _slots_tex != null: mm.draw_texture_rect(_slots_tex, _map_rect(sz), false)
 	var items: Array = GS.mount_items()
 	var pts := _mount_points(sz)
 	var font := ThemeDB.fallback_font
+	var r := clampf(_map_rect(sz).size.x * 0.045, 6.0, 11.0)
 	for k in pts:
 		var p: Vector2 = pts[k]
-		var it: String = GS.core_item() if k < 0 else str(items[k])
-		var open: bool = k < 0 or GS.mount_open(k)
 		var col := Color(0.35, 0.38, 0.45)
-		if not open: col = Color(0.2, 0.2, 0.24)
-		elif Data.WEAPONS.has(it): col = Data.WEAPONS[it]["color"]
-		elif Data.MOUNT_PODS.has(it): col = Color(1.0, 0.6, 0.25)
-		if k == eq_sel: mm.draw_circle(p, 17.0, Color(GOLD, 0.9))
-		mm.draw_circle(p, 12.0, Color(0.02, 0.05, 0.09))
-		mm.draw_circle(p, 9.0, col if (open and it != "empty") else Color(col, 0.35))
+		var full := true
+		var open := true
+		match k:
+			-1: col = Data.WEAPONS[GS.core_item()]["color"]
+			-2:
+				col = Color(1.0, 0.85, 0.55)
+				full = GS.missiles > 0
+			-3:
+				col = Data.HEAVY_LOCK_COLOR
+				full = GS.heavy_missiles > 0
+			-4:
+				col = Color(1.0, 0.35, 0.25)
+				full = GS.mines > 0
+			_:
+				var it: String = str(items[k])
+				open = GS.mount_open(k)
+				full = it != "empty"
+				if not open: col = Color(0.2, 0.2, 0.24)
+				elif Data.WEAPONS.has(it): col = Data.WEAPONS[it]["color"]
+				elif Data.MOUNT_PODS.has(it): col = Color(1.0, 0.6, 0.25)
+		if k == eq_sel: mm.draw_circle(p, r + 5.0, Color(GOLD, 0.95))
+		mm.draw_circle(p, r + 2.0, Color(0.02, 0.05, 0.09))
+		mm.draw_circle(p, r, col if (open and full) else Color(col, 0.35))
 		if not open:
-			mm.draw_line(p + Vector2(-6, -6), p + Vector2(6, 6), Color(0.6, 0.6, 0.65), 2.0)
-			mm.draw_line(p + Vector2(-6, 6), p + Vector2(6, -6), Color(0.6, 0.6, 0.65), 2.0)
-	mm.draw_string(font, Vector2(8, sz.y - 8), "TAP A DOT TO FIT IT  ·  CORE AT THE NOSE", HORIZONTAL_ALIGNMENT_LEFT, sz.x - 16, 12, Color(0.75, 0.9, 1.0, 0.8))
+			mm.draw_line(p + Vector2(-r, -r) * 0.6, p + Vector2(r, r) * 0.6, Color(0.6, 0.6, 0.65), 2.0)
+			mm.draw_line(p + Vector2(-r, r) * 0.6, p + Vector2(r, -r) * 0.6, Color(0.6, 0.6, 0.65), 2.0)
+		if SLOT_TAG.has(k): mm.draw_string(font, p + Vector2(-30, r + 13), SLOT_TAG[k], HORIZONTAL_ALIGNMENT_CENTER, 60, 11, Color(0.85, 0.95, 1.0, 0.9))
+	mm.draw_string(font, Vector2(6, sz.y - 6), "TAP A SLOT  ·  WINGS: BLASTERS OR MISSILE PODS", HORIZONTAL_ALIGNMENT_CENTER, sz.x - 12, 11, Color(0.75, 0.9, 1.0, 0.8))
 
 ## v1.9e: long shop lines wrap instead of pushing the page (and its buttons) off the right of the screen.
 func _wrap_rows(root: Node) -> void:
