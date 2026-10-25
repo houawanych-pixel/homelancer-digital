@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v1.9t"
+const VERSION := "v1.9u"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -893,6 +893,7 @@ const COMMS_IDLE_CLOSE := 20.0          # seconds untouched before the console t
 # every ship carries the same racks
 const MISSILE_LOAD := 100
 const HEAVY_LOAD := 50
+const MINE_LOAD := 20      # v1.9u (owner): at least 20 mines on every ship (was 3-10)
 # flight: stick forward builds up to FORWARD_MULT x ship speed (Cadet: 100 m/s); THRUST is an instant burst at
 # BURST_MULT x ship speed (Cadet: 120 m/s) in the stick's direction, straight UP with the stick centred
 const FORWARD_MULT := 100.0 / 46.0
@@ -919,19 +920,19 @@ const MECH_BURST_MULT := 3.2            # mech dash (x its walking pace), also u
 # model: key understood by ShipFactory. "cadet_glb" etc. load real GLBs when present under assets/ships/.
 const SHIPS := {
 	"cadet": {"name": "Cadet", "class": "Starter fighter", "price": 0, "hull": 100, "shield": 60, "speed": 46.0,
-		"turn": 1.7, "guns": 2, "missiles": MISSILE_LOAD, "heavy": HEAVY_LOAD, "mines": 3, "model": "cadet", "desc": "Unity-issue trainer. Light, nimble, forgiving. Twin cannons on top."},
+		"turn": 1.7, "guns": 2, "missiles": MISSILE_LOAD, "heavy": HEAVY_LOAD, "mines": MINE_LOAD, "model": "cadet", "desc": "Unity-issue trainer. Light, nimble, forgiving. Twin cannons on top."},
 	"ranger": {"name": "Ranger", "class": "Patrol fighter", "price": 1500, "hull": 160, "shield": 95, "speed": 50.0,
-		"turn": 1.55, "guns": 3, "missiles": MISSILE_LOAD, "heavy": HEAVY_LOAD, "mines": 4, "model": "ranger", "desc": "Faster frame, thicker plating. A long cannon on top and one on each wing."},
+		"turn": 1.55, "guns": 3, "missiles": MISSILE_LOAD, "heavy": HEAVY_LOAD, "mines": MINE_LOAD, "model": "ranger", "desc": "Faster frame, thicker plating. A long cannon on top and one on each wing."},
 	"hauler": {"name": "Hauler", "class": "Armed cargo ship", "price": 2500, "hull": 320, "shield": 110, "speed": 38.0,
-		"turn": 1.0, "guns": 2, "missiles": MISSILE_LOAD, "heavy": HEAVY_LOAD, "mines": 8, "model": "hauler", "desc": "A cargo ship you can own. The toughest hull on sale, a big rack, and slow."},
+		"turn": 1.0, "guns": 2, "missiles": MISSILE_LOAD, "heavy": HEAVY_LOAD, "mines": MINE_LOAD + 10, "model": "hauler", "desc": "A cargo ship you can own. The toughest hull on sale, a big rack, and slow."},
 	"bulk_empty": {"name": "Frame Freighter", "class": "Empty cargo ship", "price": 4500, "hull": 400, "shield": 150, "speed": 40.0,
-		"turn": 1.0, "guns": 3, "missiles": MISSILE_LOAD, "heavy": HEAVY_LOAD, "mines": 8, "model": "bulk_empty", "desc": "The Bulk Freighter with an empty cargo frame, ready to carry any crate. Lighter, so faster."},
+		"turn": 1.0, "guns": 3, "missiles": MISSILE_LOAD, "heavy": HEAVY_LOAD, "mines": MINE_LOAD + 10, "model": "bulk_empty", "desc": "The Bulk Freighter with an empty cargo frame, ready to carry any crate. Lighter, so faster."},
 	"bulk": {"name": "Bulk Freighter", "class": "Heavy cargo ship", "price": 6000, "hull": 480, "shield": 160, "speed": 34.0,
-		"turn": 0.8, "guns": 3, "missiles": MISSILE_LOAD, "heavy": HEAVY_LOAD, "mines": 10, "model": "bulk", "desc": "The biggest ship you can own. Six engines, a huge hull and rack. Very slow to turn."},
+		"turn": 0.8, "guns": 3, "missiles": MISSILE_LOAD, "heavy": HEAVY_LOAD, "mines": MINE_LOAD + 16, "model": "bulk", "desc": "The biggest ship you can own. Six engines, a huge hull and rack. Very slow to turn."},
 	"lancer": {"name": "Lancer", "class": "Heavy fighter", "price": 4000, "hull": 240, "shield": 140, "speed": 42.0,
-		"turn": 1.25, "guns": 4, "missiles": MISSILE_LOAD, "heavy": HEAVY_LOAD, "mines": 6, "model": "lancer", "desc": "Four cannons: two on the wings, two beside the nose. Heavy shield. Slow to turn."},
+		"turn": 1.25, "guns": 4, "missiles": MISSILE_LOAD, "heavy": HEAVY_LOAD, "mines": MINE_LOAD + 6, "model": "lancer", "desc": "Four cannons: two on the wings, two beside the nose. Heavy shield. Slow to turn."},
 	"elyza": {"name": "Elyza Fighter", "class": "Folding-wing fighter", "price": 3500, "hull": 190, "shield": 130, "speed": 50.0,   # v1.5p
-		"turn": 1.5, "guns": 3, "missiles": MISSILE_LOAD, "heavy": HEAVY_LOAD, "mines": 4, "model": "elyza_fighter", "desc": "Elyza design. The wings fold in to fly and swing out on their arms for the SPECIAL."},
+		"turn": 1.5, "guns": 3, "missiles": MISSILE_LOAD, "heavy": HEAVY_LOAD, "mines": MINE_LOAD, "model": "elyza_fighter", "desc": "Elyza design. The wings fold in to fly and swing out on their arms for the SPECIAL."},
 }
 # v1.3c: all three are the owner's models with weapons mounted (tools/shipkit/make_fleet3.py). Guns = cannons you can see.
 const SHIP_ORDER := ["cadet", "ranger", "hauler", "elyza", "lancer", "bulk_empty", "bulk"]
@@ -952,10 +953,27 @@ const WEAPONS := {
 	"charge_cannon": {"name": "Charge Cannon", "short": "Charge Cnn", "model": "wpn_charge_cannon", "price": 4800, "damage": 38.0, "rate": 1.6, "speed": 380.0, "range": 580.0, "color": Color(1.0, 0.5, 0.3)},
 	"rail_lance": {"name": "Rail Lance", "short": "Rail Lance", "model": "wpn_rail_lance", "price": 6200, "damage": 52.0, "rate": 1.1, "speed": 820.0, "range": 840.0, "color": Color(0.7, 0.9, 1.0)},
 	"hv_cannon": {"name": "Heavy Cannon Turret", "short": "Hvy Cannon", "model": "wpn_hv_cannon_turret", "price": 9000, "damage": 60.0, "rate": 1.4, "speed": 420.0, "range": 640.0, "color": Color(1.0, 0.55, 0.2), "heavy": true, "share": 0.2},
+	# v1.9u (owner): the NEXUS PRISM blasters. Five colours, each splits its damage between shield and hull its own way
+	# ("shield" = the share that hits the shield; the rest goes straight to the hull, past any shield). Shield damage is
+	# lost once the shield is down, so pick the colour for the job. Levels Mk I-V raise damage (BLASTER_LEVEL_DMG each).
+	"nx_blue": {"name": "Nexus Blue Shieldbreaker", "short": "NX Blue", "model": "wpn_shell_smg", "price": 700, "damage": 16.0, "rate": 4.0, "speed": 460.0, "range": 560.0, "color": Color(0.3, 0.6, 1.0), "shield": 1.0, "sound": "blaster_blue", "family": "nexus",
+		"desc": "Shield only: 100% shield, no hull damage."},
+	"nx_green": {"name": "Nexus Green Arc Splitter", "short": "NX Green", "model": "wpn_gunnar_rifle", "price": 800, "damage": 14.0, "rate": 4.2, "speed": 460.0, "range": 560.0, "color": Color(0.3, 1.0, 0.45), "shield": 0.75, "sound": "blaster_green", "family": "nexus",
+		"desc": "75% shield, 25% hull."},
+	"nx_yellow": {"name": "Nexus Yellow Balancer", "short": "NX Yellow", "model": "wpn_warden_gun", "price": 900, "damage": 13.0, "rate": 4.2, "speed": 460.0, "range": 560.0, "color": Color(1.0, 0.88, 0.25), "shield": 0.5, "sound": "blaster_yellow", "family": "nexus",
+		"desc": "50% shield, 50% hull."},
+	"nx_red": {"name": "Nexus Red Ripper", "short": "NX Red", "model": "wpn_twin_cannon", "price": 1000, "damage": 14.0, "rate": 4.0, "speed": 460.0, "range": 560.0, "color": Color(1.0, 0.25, 0.2), "shield": 0.25, "sound": "blaster_red", "family": "nexus",
+		"desc": "25% shield, 75% hull."},
+	"nx_purple": {"name": "Nexus Purple Phase Piercer", "short": "NX Purple", "model": "wpn_rail_carbine", "price": 1400, "damage": 12.0, "rate": 3.6, "speed": 480.0, "range": 580.0, "color": Color(0.75, 0.3, 1.0), "shield": 0.0, "sound": "blaster_purple", "family": "nexus",
+		"desc": "Hull only: passes through shields, 100% hull."},
 	"hv_rail": {"name": "Heavy Rail Launcher", "short": "Hvy Rail", "model": "wpn_hv_rail_launcher", "price": 11000, "damage": 90.0, "rate": 0.8, "speed": 900.0, "range": 900.0, "color": Color(0.6, 0.9, 1.0), "heavy": true, "share": 0.22},
 }
 # v1.9g: three more guns from the owner's models (stats PROVISIONAL: CombatEcon will put every gun in its tier table)
-const WEAPON_ORDER := ["pulse1", "pulse2", "ion", "rail_carbine", "plasma", "twin_cannon", "warden", "rail_rifle", "charge_cannon", "bone_rifle", "rail_lance", "arm_cannon", "hv_cannon", "hv_rail"]
+const NEXUS_BLASTERS := ["nx_blue", "nx_green", "nx_yellow", "nx_red", "nx_purple"]   # v1.9u
+const BLASTER_LEVELS := 5          # v1.9u: Mk I-V
+const BLASTER_LEVEL_DMG := 0.25    # +25% damage per level above Mk I
+const BLASTER_UPGRADE_K := 1.0     # upgrading to the next level costs the gun's price x its current level
+const WEAPON_ORDER := ["pulse1", "nx_blue", "nx_green", "nx_yellow", "nx_red", "nx_purple", "pulse2", "ion", "rail_carbine", "plasma", "twin_cannon", "warden", "rail_rifle", "charge_cannon", "bone_rifle", "rail_lance", "arm_cannon", "hv_cannon", "hv_rail"]
 const WING_GUN_LEN := 2.6        # v1.9g: m, the length the gun models are built at ...
 const WING_GUN_SHARE := 0.3      # ... then sized on the wing to this share of the ship's length ...
 const WING_POD_SHARE := 0.12     # ... and a missile pod to this

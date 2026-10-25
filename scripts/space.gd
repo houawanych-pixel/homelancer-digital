@@ -70,6 +70,7 @@ signal system_used(id: String, text: String)
 var warp_state := "off" # off | charging | on
 var warp_t := 0.0
 var engine_kill := false
+var warp_drift := false   # v1.9u: engines were cut at warp, so the drift carries warp speed
 var braking := false
 var thrust_held := false
 var boosting := false
@@ -2714,7 +2715,13 @@ func _update_player(dt: float) -> void:
 		vel = vel.lerp(fwd * base_speed * Data.WARP_MULT, minf(1.0, dt * 1.2))
 		_booster_particles(dt, 0.5)
 	elif engine_kill:
-		pass # engines off: keep drifting on the current vector while the nose turns freely
+		# engines off: keep drifting on the current vector while the nose turns freely.
+		# v1.9u (owner): THRUST restarts the engines and puts you straight back at full thrust speed
+		if thrust_held and controls and GS.energy > 1.0:
+			engine_kill = false
+			warp_drift = false
+			_boost_was = false
+			message.emit("Engines restarted.")
 	elif braking:
 		vel = vel.lerp(Vector3.ZERO, minf(1.0, dt * 3.0))
 		if vel.length() < 0.6:
@@ -2756,7 +2763,7 @@ func _update_player(dt: float) -> void:
 	if controls and warp_state == "off" and transform_t <= 0.0:
 		var want := fire_held or fire_lock
 		if GS.is_auto("guns") and _in_fire_cone(target): want = true
-		var cost := Data.ENERGY_PER_GUN * float(GS.mount_items().filter(func(x): return Data.WEAPONS.has(x)).size())   # (v1.9e: only fitted guns use gun energy)
+		var cost := Data.ENERGY_PER_GUN * float(1 + GS.mount_items().filter(func(x): return Data.WEAPONS.has(x)).size())   # (v1.9e: only fitted guns use gun energy; v1.9u: + the core gun)
 		if want and gun_cd <= 0.0 and GS.energy >= cost:
 			GS.energy -= cost
 			_fire_guns()
@@ -2770,8 +2777,18 @@ func full_stop() -> void:
 	autopilot = null
 
 func toggle_engine_kill() -> bool:
-	if warp_state == "on" or GS.form == "mech": return false
+	if GS.form == "mech": return false
+	if warp_state == "on":   # v1.9u (owner): KILL at warp = engines off, still drifting at warp speed; turn and shoot freely
+		warp_state = "off"
+		warp_t = 0.0
+		_warp_bulge(-1.0)
+		engine_kill = true
+		warp_drift = true
+		braking = false
+		return true
+	if warp_state == "charging": return false
 	engine_kill = not engine_kill
+	warp_drift = false
 	braking = false
 	return engine_kill
 
@@ -2904,30 +2921,45 @@ func _fire_guns() -> void:
 			Sfx.play("laser", -9.0)
 			_laser_sfx_cd = 0.07
 		return
-	# v1.9e (owner): each mount fires its own gun at its own rate; a mount with a missile pod does not fire bolts
+	# v1.9e (owner): each mount fires its own gun at its own rate; a mount with a missile pod does not fire bolts.
+	# v1.9u (owner): the core gun fires from the nose too, so a core + 2 wing guns = 3 shots forward.
 	var items: Array = GS.mount_items()
+	var slots: Array = ["core"]
+	for g in items.size(): slots.append(g)
 	var next_cd := 10.0
-	for g in items.size():
-		if not Data.WEAPONS.has(items[g]): continue
-		var wg: Dictionary = Data.WEAPONS[items[g]]
+	var sounds := {}
+	var mk := GS.mech_arm() if GS.form == "mech" else 1.0
+	for g in slots:
+		var gid: String = GS.core_item() if g is String else str(items[g])
+		if not Data.WEAPONS.has(gid): continue
+		var wg: Dictionary = Data.WEAPONS[gid]
 		var ready_at: float = float(mount_next.get(g, 0.0))
 		if time + 0.001 < ready_at:
 			next_cd = minf(next_cd, ready_at - time)
 			continue
 		mount_next[g] = time + 1.0 / float(wg["rate"])
 		next_cd = minf(next_cd, 1.0 / float(wg["rate"]))
-		var side := -1.0 if g < 2 else 1.0
-		if side < 0.0 and GS.wing_l <= 0.0: continue   # left wing gone: its guns are gone
-		if side > 0.0 and GS.wing_r <= 0.0: continue
-		var tip: bool = g % 2 == 1   # v1.9e (owner): shoulder = close to the core on top; tip = the wing's end underneath
-		var hw := _ship_half_width()
-		var from := player.global_position + player.global_basis.x * side * hw * (Data.MOUNT_TIP_AT if tip else Data.MOUNT_SHOULDER_AT) \
-			+ player.global_basis.y * (-Data.MOUNT_DROP if tip else Data.MOUNT_DROP) + fwd * 5.0
-		_spawn_bolt(from, aim_dir * float(wg["speed"]) + vel, float(wg["damage"]) * (GS.mech_arm() if GS.form == "mech" else 1.0), wg["color"], "player", float(wg["range"]) / float(wg["speed"]))
+		var from: Vector3
+		if g is String:   # the core: straight out of the nose
+			from = player.global_position + fwd * maxf(5.0, _ship_length() * 0.5) - player.global_basis.y * 0.3
+		else:
+			var side := -1.0 if g < 2 else 1.0
+			if side < 0.0 and GS.wing_l <= 0.0: continue   # left wing gone: its guns are gone
+			if side > 0.0 and GS.wing_r <= 0.0: continue
+			var tip: bool = g % 2 == 1   # v1.9e (owner): shoulder = close to the core on top; tip = the wing's end underneath
+			var hw := _ship_half_width()
+			from = player.global_position + player.global_basis.x * side * hw * (Data.MOUNT_TIP_AT if tip else Data.MOUNT_SHOULDER_AT) \
+				+ player.global_basis.y * (-Data.MOUNT_DROP if tip else Data.MOUNT_DROP) + fwd * 5.0
+		_spawn_bolt(from, aim_dir * float(wg["speed"]) + vel, GS.gun_damage(gid) * mk, wg["color"], "player", float(wg["range"]) / float(wg["speed"]), float(wg.get("shield", -1.0)))
 		_spark(from + fwd * 1.5, (wg["color"] as Color).lightened(0.4), 3.2, 0.09)
+		sounds[str(wg.get("sound", "laser"))] = true
 	gun_cd = clampf(next_cd, 0.02, 1.0)
-	if _laser_sfx_cd <= 0.0:
-		Sfx.play("laser", -9.0)
+	if _laser_sfx_cd <= 0.0 and not sounds.is_empty():
+		var k := 0
+		for snd in sounds:   # v1.9u: each blaster colour has its own sound
+			Sfx.play(snd if Sfx.streams.get(snd) != null else "laser", -9.0 - 3.0 * k)
+			k += 1
+			if k >= 2: break
 		_laser_sfx_cd = 0.07
 
 ## v1.9g: the player ship's length (m), for sizing the wing guns.
@@ -2948,7 +2980,7 @@ func _ship_half_width() -> float:
 	_hw_cache[key] = hw
 	return hw
 
-func _spawn_bolt(from: Vector3, v: Vector3, dmg: float, col: Color, owner: String, life: float) -> void:
+func _spawn_bolt(from: Vector3, v: Vector3, dmg: float, col: Color, owner: String, life: float, sf := -1.0) -> void:
 	var mi := MeshInstance3D.new()
 	mi.mesh = _bolt_mesh
 	mi.material_override = ShipFactory.mat(col, true)
@@ -2967,7 +2999,7 @@ func _spawn_bolt(from: Vector3, v: Vector3, dmg: float, col: Color, owner: Strin
 	head.position = Vector3(0, 0, -6.0)
 	head.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mi.add_child(head)
-	bolts.append({"node": mi, "vel": v, "life": life, "dmg": dmg, "owner": owner})
+	bolts.append({"node": mi, "vel": v, "life": life, "dmg": dmg, "owner": owner, "sf": sf})   # sf: v1.9u shield share (-1 = normal)
 
 static var _head_q: QuadMesh
 static var _head_mats := {}
@@ -3057,12 +3089,13 @@ func fire_volley(heavy: bool, count: int) -> int:
 	lock_time = 0.0
 	return count
 
-func fire_missile(heavy := false, k := 0, n := 1, scale := 1.0, forced: Node3D = null) -> bool:
+func fire_missile(heavy := false, k := 0, n := 1, scale := 1.0, forced: Node3D = null, straight := false) -> bool:
 	if (GS.heavy_missiles if heavy else GS.missiles) <= 0: return false
 	var t := target if (target and is_instance_valid(target) and target.get_meta("kind", "") == "enemy") else null
 	if forced != null and is_instance_valid(forced): t = forced
-	if t == null: t = _nearest_enemy(900.0)
-	var ground_shot := t == null and ((surface_mode and _over_blocks()) or not surface_mode)   # no target: fire straight (v1.5t: to dig; v1.8b owner: in space too, it blows up on its fuse or on what it meets)
+	if t == null and not straight: t = _nearest_enemy(900.0)
+	if straight: t = null   # v1.9u: no lock: straight ahead
+	var ground_shot := t == null and (straight or (surface_mode and _over_blocks()) or not surface_mode)   # no target: fire straight (v1.5t: to dig; v1.8b owner: in space too, it blows up on its fuse or on what it meets)
 	if t == null and not ground_shot:
 		message.emit("No hostile target for missile lock.")
 		return false
@@ -3144,7 +3177,7 @@ func _update_bolts(dt: float) -> void:
 		if b["owner"] == "player" or b["owner"] == "ally":   # v1.9n: allied ships' shots hit the enemy too
 			for e in enemies:
 				if _seg_hit(from, to, e["node"].global_position, float(e["def"].get("hit_r", 7.5))):
-					_damage_enemy(e, b["dmg"], _seg_closest(from, to, e["node"].global_position) if not e["def"].get("capital", false) else Vector3.INF)
+					_damage_enemy(e, b["dmg"], _seg_closest(from, to, e["node"].global_position) if not e["def"].get("capital", false) else Vector3.INF, float(b.get("sf", -1.0)))
 					hit = true
 					break
 		elif b["owner"] != "fx":
@@ -3981,15 +4014,18 @@ func _enemy_entry(n: Node3D) -> Dictionary:
 
 ## Shields soak damage first. What gets through hits the section under the hit point: a wing/arm if the shot
 ## landed on that side (and it is still there), otherwise the core. Missiles and mines (no hit point) hit the core.
-func _damage_enemy(e: Dictionary, dmg: float, hit := Vector3.INF) -> void:
+func _damage_enemy(e: Dictionary, dmg: float, hit := Vector3.INF, sf := -1.0) -> void:
 	e["aggro"] = true
 	e["provoked"] = true
 	e["sh_cd"] = 4.0
 	var at: Vector3 = e["node"].global_position if hit == Vector3.INF else hit
 	var had_shield := float(e["sh"]) > 0.0
 	var to_shield := minf(dmg, float(e["sh"]))
-	e["sh"] = float(e["sh"]) - to_shield
 	var to_hull := dmg - to_shield
+	if sf >= 0.0:   # v1.9u: a Nexus blaster: its shield share hits the shield (lost once it is down), the rest goes straight to the hull
+		to_shield = minf(dmg * sf, float(e["sh"]))
+		to_hull = dmg * (1.0 - sf)
+	e["sh"] = float(e["sh"]) - to_shield
 	if e.has("pilot"): _generic_hit(e, had_shield, to_hull)
 	if to_shield > 0.0:
 		_spark(at, Color(0.4, 0.8, 1.0), 9.0, 0.22)   # shield flare
@@ -4558,9 +4594,14 @@ func trigger_system(id: String) -> bool:
 			var heavy := id == "heavy_missile"
 			if (GS.heavy_missiles if heavy else GS.missiles) <= 0:
 				return _say(id, "No %s missiles left — buy more at Equipment." % ("heavy" if heavy else "light"))
-			if heavy and lock_count("heavy_missile") < 1 and not (surface_mode and _over_blocks() and _nearest_enemy(900.0) == null):
-				return _say(id, "Super missile locking — hold the target in your sights.")   # v1.5x: it needs a full lock
-			var shots := fire_volley(heavy, maxi(1, lock_count("heavy_missile" if heavy else "light_missile")))
+			var locks := lock_count("heavy_missile" if heavy else "light_missile")
+			if locks < 1:   # v1.9u (owner): no lock = the missile flies straight ahead (light and super alike); a lock = it chases
+				if fire_missile(heavy, 0, 1, 1.0, null, true):
+					missile_cd = 1.2
+					system_used.emit(id, "%s missile fired straight — no lock." % ("Super" if heavy else "Light"))
+					return true
+				return false
+			var shots := fire_volley(heavy, locks)
 			if shots > 0:
 				missile_cd = 1.2
 				system_used.emit(id, "%s missile away." % ("Heavy" if heavy else "Light") if shots == 1 else "%d missiles away." % shots)

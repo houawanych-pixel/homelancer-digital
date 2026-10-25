@@ -8,6 +8,8 @@ var ship_id := "cadet"
 var owned_ships := ["cadet"]
 var weapon_id := "pulse1"
 var owned_weapons := ["pulse1"]
+var core_gun := ""        # v1.9u (owner): the gun in the ship's core (fires from the nose, always fitted); "" = the main gun
+var gun_levels: Dictionary = {}   # v1.9u: Mk level of each gun you have upgraded (1 = Mk I)
 var mounts: Array = []   # v1.9e: what each hardpoint carries (a gun from Data.WEAPONS or "missile_pod"); [] = every mount the weapon_id
 var owned_mechs := ["blackgold"]   # v1.9i: mech frames bought (each gives its arms, core and legs)
 var mech_parts := {"arms": "blackgold", "core": "blackgold", "legs": "blackgold"}   # v1.9i: the frame each part comes from
@@ -18,7 +20,7 @@ var shield := 60.0
 var repairs := Data.MAX_REPAIRS
 var missiles := 12
 var heavy_missiles := 2
-var mines := 3
+var mines := 20
 var rack := "swarm"             # missile rack on the LIGHT slot (Data.MISSILE_RACKS); v1.4l: the Six Rack comes fitted
 var owned_racks := ["triple", "swarm"]
 var slots: Array = Data.DEFAULT_SLOTS.duplicate()
@@ -55,7 +57,7 @@ var god_mode := false # only used by the automated route test
 # ---------------------------------------------------------------- v1.7y saving
 const SAVE_KEYS := ["credits", "ship_id", "owned_ships", "weapon_id", "owned_weapons", "missiles", "heavy_missiles", "mines", "rack",
 	"owned_racks", "slots", "modes", "view", "system_id", "discovered", "last_base", "kills", "met", "mood", "memory", "heat_shield",
-	"bounty", "bounties_done", "mission", "cargo", "missions_done", "rep", "cast", "mine_kind", "block_deltas", "tutorial_seen", "bounty_jail", "mounts", "owned_mechs", "mech_parts", "pilot_name"]   # (v1.9e: + mounts; v1.9i: + owned_mechs, mech_parts; v1.9j: + pilot_name)
+	"bounty", "bounties_done", "mission", "cargo", "missions_done", "rep", "cast", "mine_kind", "block_deltas", "tutorial_seen", "bounty_jail", "mounts", "core_gun", "gun_levels", "owned_mechs", "mech_parts", "pilot_name"]   # (v1.9e: + mounts; v1.9i: + owned_mechs, mech_parts; v1.9j: + pilot_name)
 var save_path: String = Data.SAVE_PATH
 var save_enabled := true   # (the route test turns it off, so a test never reads or writes a player's save)
 var saves := 0             # (tests) saves written this session
@@ -142,10 +144,12 @@ func mount_items() -> Array:
 	var g := int(ship()["guns"])
 	var dflt := ["shoulder", "shoulder", "tip", "tip"]   # (fill order: both shoulders, then both tips)
 	var order := [0, 2, 1, 3]
+	var pairs := (g / 2) * 2   # v1.9u (owner): wing guns come in pairs, one each side (the core fires the odd one)
 	for i in 4:
 		var it: String
 		if mounts.size() == 4: it = str(mounts[i])
-		else: it = weapon_id if order.find(i) < g else "empty"
+		else: it = weapon_id if order.find(i) < pairs else "empty"
+		if not mount_open(i): it = "empty"
 		if it != "empty" and (not (Data.WEAPONS.has(it) or Data.MOUNT_PODS.has(it)) or not (it in owned_weapons)): it = weapon_id
 		if i % 2 == 1 and is_heavy(it): it = "empty"   # v1.9h: heavy mounts sit on the shoulders only
 		out.append(it)
@@ -165,10 +169,47 @@ func pod_sum(key: String) -> int:
 		if Data.MOUNT_PODS.has(it): n += int(Data.MOUNT_PODS[it][key])
 	return n
 
+## v1.9u (owner): how many wing mounts this ship has (2 = the shoulders only, 4 = shoulders and tips).
+func wing_slots() -> int:
+	return int(ship().get("slots", 4 if int(ship()["guns"]) >= 3 else 2))
+func mount_open(i: int) -> bool:
+	return i % 2 == 0 or wing_slots() >= 4
+
+## v1.9u (owner): the core gun, fired from the ship's nose on top of the wing guns.
+func core_item() -> String:
+	if core_gun != "" and Data.WEAPONS.has(core_gun) and core_gun in owned_weapons and not is_heavy(core_gun): return core_gun
+	return weapon_id if not is_heavy(weapon_id) else "pulse1"
+
+func fit_core(id: String) -> String:
+	if not Data.WEAPONS.has(id): return "Only a gun fits the core."
+	if not (id in owned_weapons): return "Buy it first."
+	if is_heavy(id): return "Heavy guns go on a shoulder mount, not the core."
+	core_gun = id
+	changed.emit()
+	return "%s fitted in the core." % Data.WEAPONS[id]["name"]
+
+## v1.9u: gun levels (Mk I-V) and what they do.
+func gun_level(id: String) -> int: return clampi(int(gun_levels.get(id, 1)), 1, Data.BLASTER_LEVELS)
+func gun_damage(id: String) -> float:
+	return float(Data.WEAPONS[id]["damage"]) * (1.0 + Data.BLASTER_LEVEL_DMG * float(gun_level(id) - 1))
+func upgrade_cost(id: String) -> int:
+	return int(maxf(300.0, float(Data.WEAPONS[id]["price"])) * Data.BLASTER_UPGRADE_K * float(gun_level(id)))
+func upgrade_gun(id: String) -> String:
+	if not (id in owned_weapons): return "Buy it first."
+	if gun_level(id) >= Data.BLASTER_LEVELS: return "Already Mk %s, the top level." % roman(gun_level(id))
+	var c := upgrade_cost(id)
+	if credits < c: return "Not enough credits (%d needed)." % c
+	credits -= c
+	gun_levels[id] = gun_level(id) + 1
+	changed.emit()
+	return "%s upgraded to Mk %s." % [Data.WEAPONS[id]["name"], roman(gun_level(id))]
+static func roman(n: int) -> String: return ["I", "II", "III", "IV", "V", "VI"][clampi(n - 1, 0, 5)]
+
 ## Put an owned gun or pod on one mount.
 func fit_mount(i: int, item: String) -> String:
 	var items := mount_items()
 	if i < 0 or i >= items.size(): return "No such mount."
+	if not mount_open(i): return "This ship has no wing-tip mounts."
 	if item != "empty" and not (item in owned_weapons): return "Buy it first."
 	if items[i] == item: return "Already fitted."
 	if i % 2 == 1 and is_heavy(item): return "Heavy mounts go on a shoulder (top, near the core)."
@@ -511,6 +552,7 @@ func buy_ship(id: String) -> String:
 		credits -= int(s["price"])
 		owned_ships.append(id)
 	ship_id = id
+	mounts = []   # v1.9u (owner): a new ship starts with its own even loadout (the old wing fit could leave one side bare)
 	restore_full()
 	return "The %s is fuelled, armed and ready." % s["name"]
 

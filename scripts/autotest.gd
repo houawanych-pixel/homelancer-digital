@@ -1000,6 +1000,15 @@ func _run() -> void:
 		await _job_v19q()
 		await _job_v19r()
 		await _job_v19s()
+		await _job_v19u()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
+	if OS.get_environment("HL_V19U") != "":   # the v1.9u combat and equip checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_v19u()
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
@@ -1752,6 +1761,7 @@ func _run() -> void:
 	await _job_v19q()
 	await _job_v19r()
 	await _job_v19s()
+	await _job_v19u()
 	await _blocks()
 	await _regions()
 	await _galaxy()
@@ -6647,10 +6657,10 @@ func _job_ax() -> void:
 	s.missile_cd = 0.0
 	var before: int = GS.heavy_missiles
 	var fired: bool = s.trigger_system("heavy_missile")
-	var held: bool = not fired and GS.heavy_missiles == before
+	var straight: bool = fired and GS.heavy_missiles == before - 1 and not s.missiles_live.is_empty() and s.missiles_live[-1]["target"] == null
 	GS.heavy_missiles = keep_h
-	_check("v1.5x: the super missile takes much longer to lock (%.1f s a lock, regular %.1f s) and goes 1 or 2 at a time; it won't fire without a lock" % [Data.HEAVY_LOCK_STEP, Data.LOCK_STEP],
-		counts == [0, 1, 2, 2] and held, "locks %s, unlocked shot held %s" % [str(counts), held])
+	_check("v1.5x: the super missile takes much longer to lock (%.1f s a lock, regular %.1f s) and goes 1 or 2 at a time; v1.9u (owner): without a lock it flies straight ahead" % [Data.HEAVY_LOCK_STEP, Data.LOCK_STEP],
+		counts == [0, 1, 2, 2] and straight, "locks %s, unlocked shot straight %s" % [str(counts), straight])
 	_check("v1.5x: a mine hits as hard as a super missile", is_equal_approx(s.mine_damage(e), heavy))
 	# the magnetic mine: caught ships are pulled in to the blast point and held there for a few seconds
 	e["sh"] = 1e9   # (test only: it survives the blast)
@@ -6991,8 +7001,8 @@ func _job_v19e() -> void:
 	await _shot("v19e_loadout_page", 0.3)
 	main.launch()
 	await _until(func(): return main.state == "flight", 8.0)
-	_check("v1.9e (owner): two mounts on each wing (the shoulder near the core on top, the tip underneath at the wing's end), each with its own weapon: an Ion Repeater on the left shoulder, a missile pod on the left tip (+missiles, +locks), a Pulse Laser on the right shoulder, the right tip empty; one bolt per gun mount; at least one gun always stays fitted; WEAPONS & GEAR shows a row per mount",
-		names.size() == 4 and items == ["ion", "missile_pod", "pulse1", "empty"] and more_missiles and more_locks and kept_gun and last_gun.begins_with("Keep") and shot == 2 and page_ok,
+	_check("v1.9e (owner): two mounts on each wing (the shoulder near the core on top, the tip underneath at the wing's end), each with its own weapon: an Ion Repeater on the left shoulder, a missile pod on the left tip (+missiles, +locks), a Pulse Laser on the right shoulder, the right tip empty; one bolt per gun mount plus the core gun (v1.9u); at least one gun always stays fitted; WEAPONS & GEAR shows a row per mount",
+		names.size() == 4 and items == ["ion", "missile_pod", "pulse1", "empty"] and more_missiles and more_locks and kept_gun and last_gun.begins_with("Keep") and shot == 3 and page_ok,
 		"items %s (%s / %s / %s) shot %d page %s" % [items, bought, pod_msg, fit_msg, shot, page_ok])
 	for k3 in keep: GS.set(k3, keep[k3])
 	_sp().set_player_model()
@@ -9134,6 +9144,141 @@ func _job_v19s() -> void:
 	_check("v1.9s: the extra clouds are unnamed (no new lore), tint the fog their own colour, and show on the system map (%d clouds)" % on_map, in_extra and on_map == neb.size(), "in extra %s, on map %d" % [in_extra, on_map])
 	_tp(s.station.global_position + Vector3(400, 80, 600), s.station.global_position)
 	await _frames(3)
+
+## v1.9u (owner, Oct 25): engines off at warp keeps the warp speed while you turn and shoot (THRUST = back to full
+## thrust); missiles fly straight without a lock and chase with one; 20+ mines; a core gun on top of the wing guns
+## with an even wing loadout; the five Nexus blasters (shield/hull split, own colour and sound, Mk I-V); the new
+## equip page (your ship on a turntable, a mount map to tap).
+func _job_v19u() -> void:
+	var s := _sp()
+	if s.surface_mode or main.state != "flight": return
+	var keep := {}
+	for k2 in ["credits", "ship_id", "weapon_id", "owned_weapons", "mounts", "missiles", "heavy_missiles", "owned_ships", "core_gun", "gun_levels"]:
+		var v0 = GS.get(k2)
+		keep[k2] = v0.duplicate() if (v0 is Array or v0 is Dictionary) else v0
+	main.hud.move_vec = Vector2.ZERO
+	_tp(s.station.global_position + Vector3(2500, 600, 2500), s.station.global_position + Vector3(9000, 600, 9000))
+	await _frames(2)
+	# 1. warp drift
+	var base: float = float(GS.ship()["speed"])
+	s.warp_state = "on"
+	s.vel = -s.player.global_basis.z * base * Data.WARP_MULT
+	await _frames(2)
+	_press("kill")
+	var y0: float = s.yaw
+	main.hud.aim_vec = Vector2(1, 0)
+	await _wait(0.6)
+	main.hud.aim_vec = Vector2.ZERO
+	var drifting: bool = s.warp_state == "off" and s.engine_kill and s.warp_drift and s.speed_now > base * Data.WARP_MULT * 0.9 and absf(s.yaw - y0) > 0.2
+	var b0: int = s.bolts.size()
+	s.mount_next.clear()
+	s.gun_cd = 0.0
+	var fl0: bool = s.fire_lock
+	s.fire_lock = true
+	GS.energy = Data.ENERGY_MAX
+	await _frames(3)
+	s.fire_lock = fl0
+	var shot_drift: bool = s.bolts.size() > b0
+	await _shot("v19u_warp_drift_firing", 0.1)
+	main.hud.held["thrust"] = true
+	GS.energy = Data.ENERGY_MAX
+	await _wait(0.4)
+	main.hud.held.erase("thrust")
+	await _frames(2)
+	var back: bool = not s.engine_kill and s.speed_now < base * Data.WARP_MULT * 0.5 and s.speed_now > base * 0.8
+	_check("v1.9u (owner): KILL at warp keeps you drifting at warp speed (%d m/s) while you turn and shoot; THRUST restarts the engines at full thrust speed (%d m/s)" % [int(base * Data.WARP_MULT), int(s.speed_now)],
+		drifting and shot_drift and back, "drift %s, shot %s, back to thrust %s" % [drifting, shot_drift, back])
+	_press("stop")
+	await _until(func(): return s.speed_now < 0.7 and not s.braking, 8.0)
+	# 2. missiles: straight without a lock, chasing with one
+	for m in s.missiles_live: m["life"] = 0.0
+	await _frames(2)
+	GS.missiles = 10
+	GS.heavy_missiles = 4
+	s.target = null
+	s.lock_time = 0.0
+	s.missile_cd = 0.0
+	var l_ok: bool = s.trigger_system("light_missile") and s.missiles_live[-1]["target"] == null
+	s.missile_cd = 0.0
+	var h_ok: bool = s.trigger_system("heavy_missile") and s.missiles_live[-1]["target"] == null and s.missiles_live[-1]["heavy"]
+	var grp: Array = s._spawn_group(s.player.global_position - s.player.global_basis.z * 260.0, 1)
+	var e: Dictionary = s.enemies[-1]
+	e["hp"] = 99999.0
+	s.target = e["node"]
+	s.missile_cd = 0.0
+	s.lock_time = Data.LOCK_STEP * 1.2
+	var homing: bool = s.trigger_system("light_missile") and s.missiles_live[-1]["target"] == e["node"]
+	_check("v1.9u (owner): light and super missiles fly straight ahead with no lock, and chase the target once locked", l_ok and h_ok and homing, "light %s super %s homing %s" % [l_ok, h_ok, homing])
+	for m in s.missiles_live: m["life"] = 0.0
+	# 3. mines
+	var mines_ok := true
+	for sid in Data.SHIPS:
+		if int(Data.SHIPS[sid]["mines"]) < 20: mines_ok = false
+	_check("v1.9u (owner): every ship carries at least 20 mines", mines_ok and GS.max_mines() >= 20)
+	# 4. core gun + an even wing loadout
+	GS.credits = 90000
+	if not ("ranger" in GS.owned_ships): GS.owned_ships.append("ranger")
+	GS.ship_id = "cadet"
+	GS.buy_ship("ranger")
+	var items: Array = GS.mount_items()
+	var even: bool = items[0] == items[2] and items[1] == items[3] and Data.WEAPONS.has(items[0])
+	s.set_player_model()
+	await _frames(2)
+	var bc: int = s.bolts.size()
+	s.mount_next.clear()
+	s._fire_guns()
+	var shots: int = s.bolts.size() - bc
+	_check("v1.9u (owner): a new ship's wing guns sit evenly on both sides and the core gun fires from the nose too: core + 2 wing guns = %d shots" % shots, even and shots == 3, "mounts %s" % str(items))
+	# 5. the Nexus blasters
+	var split_ok := true
+	var want := {"nx_blue": [20.0, 0.0], "nx_purple": [0.0, 20.0], "nx_yellow": [10.0, 10.0]}
+	for id in want:
+		var fake := {"node": e["node"], "sh": 100.0, "sh_max": 100.0, "hp": 100.0, "def": e["def"], "vis": e["vis"], "l": 50.0, "r": 50.0}
+		s._damage_enemy(fake, 20.0, Vector3.INF, float(Data.WEAPONS[id]["shield"]))
+		if not (is_equal_approx(100.0 - float(fake["sh"]), want[id][0]) and is_equal_approx(100.0 - float(fake["hp"]), want[id][1])): split_ok = false
+	var bare := {"node": e["node"], "sh": 0.0, "sh_max": 100.0, "hp": 100.0, "def": e["def"], "vis": e["vis"], "l": 50.0, "r": 50.0}
+	s._damage_enemy(bare, 20.0, Vector3.INF, 1.0)
+	var blue_bare: bool = is_equal_approx(float(bare["hp"]), 100.0)
+	var family_ok: bool = Data.NEXUS_BLASTERS.size() == 5
+	var sounds_ok := true
+	var cols := {}
+	for id in Data.NEXUS_BLASTERS:
+		cols[(Data.WEAPONS[id]["color"] as Color).to_html()] = true
+		if Sfx.streams.get(str(Data.WEAPONS[id]["sound"])) == null: sounds_ok = false
+	GS.buy_weapon("nx_red")
+	var d1: float = GS.gun_damage("nx_red")
+	var c1: int = GS.upgrade_cost("nx_red")
+	var up: String = GS.upgrade_gun("nx_red")
+	var leveled: bool = GS.gun_level("nx_red") == 2 and GS.gun_damage("nx_red") > d1 and GS.upgrade_cost("nx_red") > c1
+	_check("v1.9u (owner): five Nexus blasters, five colours and sounds: blue shield only, green 75/25, yellow 50/50, red 25/75, purple hull only (shield damage is lost once it is down); Mk levels raise damage and cost",
+		split_ok and blue_bare and family_ok and cols.size() == 5 and sounds_ok and leveled, "split %s, blue on bare hull %s, sounds %s, levels %s (%s)" % [split_ok, blue_bare, sounds_ok, leveled, up])
+	# 6. the equip page
+	if not ("nx_purple" in GS.owned_weapons): GS.buy_weapon("nx_purple")
+	GS.fit_core("nx_purple")
+	GS.fit_mount(0, "nx_red")
+	GS.fit_mount(2, "nx_red")
+	main.dock(s.station)
+	await _until(func(): return main.state == "hub", 8.0)
+	await Packs.wait("wing_guns", 30.0)
+	main.hub.eq_sel = 0
+	main.hub.show_screen("equipment")
+	await _wait(0.8)
+	var hb = main.hub
+	var tt: Node3D = hb.find_child("Turntable", true, false)
+	var dressed: bool = tt != null and tt.get_child_count() > 0 and tt.get_child(0).get_node_or_null("ShowMounts") != null and tt.get_child(0).get_node("ShowMounts").get_child_count() >= 3
+	var page_ok: bool = hb.find_child("LoadoutPreview", true, false) != null and hb.find_child("MountMap", true, false) != null and hb.find_child("Up_nx_red", true, false) != null \
+		and (hb.find_child("Mount_0", true, false) as Control).visible and not (hb.find_child("Mount_2", true, false) as Control).visible and hb.find_child("FitCore_nx_purple", true, false) != null
+	var y1: float = tt.rotation.y if tt != null else 0.0
+	await _wait(0.5)
+	var turning: bool = tt != null and absf(tt.rotation.y - y1) > 0.05 and absf(tt.rotation.x) < 0.001 and absf(tt.rotation.z) < 0.001
+	await _shot("v19u_equip_page", 0.4)
+	_check("v1.9u (owner): WEAPONS & GEAR shows your ship turning on a platform (yaw only) wearing its guns, a mount map to tap, and only the picked mount's fit buttons", dressed and page_ok and turning,
+		"dressed %s, page %s, turning %s" % [dressed, page_ok, turning])
+	for k2 in keep: GS.set(k2, keep[k2])
+	main.launch()
+	await _until(func(): return main.state == "flight", 8.0)
+	_sp().set_player_model()
+	_sp().controls = true
 
 func _job_v19o() -> void:
 	var s: SpaceSystem = main.space

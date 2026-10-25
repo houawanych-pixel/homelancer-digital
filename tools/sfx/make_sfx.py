@@ -118,3 +118,18 @@ def thoom():
 put(clack(), 0.02); put(chunk(), 0.72); put(lock(), 1.45); put(clack(), 1.47); put(thoom(), 2.85)
 save("transform", out, 0.85)
 print("wrote", sorted(os.listdir(OUT)))
+
+
+# --- v1.9u: the five Nexus blasters, one sound each (blue thin and high ... purple deep and phasing)
+def blaster(name, f0, f1, d, buzz, wob, gain):
+    tt = t(d); n = len(tt)
+    body = sweep(f0, f1, d) * (1 - buzz) + sweep(f0 * 0.5, f1 * 0.5, d, "square") * buzz
+    body *= (1 + wob * np.sin(2 * np.pi * 38 * tt))
+    noise = lowpass(rng.standard_normal(n), 3000) * 0.15
+    save(name, (body + noise) * env(n, 0.001, d * 0.6), gain)
+if True:
+    blaster("blaster_blue", 4200, 1400, 0.12, 0.0, 0.0, 0.5)
+    blaster("blaster_green", 3000, 900, 0.14, 0.25, 0.1, 0.52)
+    blaster("blaster_yellow", 2400, 700, 0.15, 0.4, 0.0, 0.55)
+    blaster("blaster_red", 1500, 380, 0.18, 0.6, 0.15, 0.6)
+    blaster("blaster_purple", 1100, 260, 0.22, 0.35, 0.5, 0.6)
