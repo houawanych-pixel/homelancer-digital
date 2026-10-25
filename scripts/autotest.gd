@@ -1001,6 +1001,15 @@ func _run() -> void:
 		await _job_v19r()
 		await _job_v19s()
 		await _job_v19u()
+		await _job_v19w()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
+	if OS.get_environment("HL_V19W") != "":   # the v1.9w ship level checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_v19w()
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
@@ -1762,6 +1771,7 @@ func _run() -> void:
 	await _job_v19r()
 	await _job_v19s()
 	await _job_v19u()
+	await _job_v19w()
 	await _blocks()
 	await _regions()
 	await _galaxy()
@@ -7002,7 +7012,7 @@ func _job_v19e() -> void:
 	main.launch()
 	await _until(func(): return main.state == "flight", 8.0)
 	_check("v1.9e (owner): two mounts on each wing (the shoulder near the core on top, the tip underneath at the wing's end), each with its own weapon: an Ion Repeater on the left shoulder, a missile pod on the left tip (+missiles, +locks), a Pulse Laser on the right shoulder, the right tip empty; one bolt per gun mount plus the core gun (v1.9u); at least one gun always stays fitted; WEAPONS & GEAR shows a row per mount",
-		names.size() == 4 and items == ["ion", "missile_pod", "pulse1", "empty"] and more_missiles and more_locks and kept_gun and last_gun.begins_with("Keep") and shot == 3 and page_ok,
+		names.size() >= 4 and items.slice(0, 4) == ["ion", "missile_pod", "pulse1", "empty"] and more_missiles and more_locks and kept_gun and last_gun.begins_with("Keep") and shot == GS.core_slots().size() + 2 and page_ok,
 		"items %s (%s / %s / %s) shot %d page %s" % [items, bought, pod_msg, fit_msg, shot, page_ok])
 	for k3 in keep: GS.set(k3, keep[k3])
 	_sp().set_player_model()
@@ -9228,7 +9238,7 @@ func _job_v19u() -> void:
 	s.mount_next.clear()
 	s._fire_guns()
 	var shots: int = s.bolts.size() - bc
-	_check("v1.9u (owner): a new ship's wing guns sit evenly on both sides and the core gun fires from the nose too: core + 2 wing guns = %d shots" % shots, even and shots == 3, "mounts %s" % str(items))
+	_check("v1.9u (owner): a new ship's wing guns sit evenly on both sides and the core gun fires from the nose too: %d front gun(s) + 2 wing guns = %d shots" % [GS.core_slots().size(), shots], even and shots == GS.core_slots().size() + 2, "mounts %s" % str(items))
 	# 5. the Nexus blasters
 	var split_ok := true
 	var want := {"nx_blue": [20.0, 0.0], "nx_purple": [0.0, 20.0], "nx_yellow": [10.0, 10.0]}
@@ -9274,6 +9284,71 @@ func _job_v19u() -> void:
 	await _shot("v19u_equip_page", 0.4)
 	_check("v1.9u (owner): WEAPONS & GEAR shows your ship turning on a platform (yaw only) wearing its guns, a mount map to tap, and only the picked mount's fit buttons", dressed and page_ok and turning,
 		"dressed %s, page %s, turning %s" % [dressed, page_ok, turning])
+	for k2 in keep: GS.set(k2, keep[k2])
+	main.launch()
+	await _until(func(): return main.state == "flight", 8.0)
+	_sp().set_player_model()
+	_sp().controls = true
+
+## v1.9w (owner's three-level slot sheet): Level 1 Core Interceptor 4 core + 2 wing (6), 2 modules; Level 2 Strike
+## Fighter 5 core + 4 wing (9), 4 modules; Level 3 Capital Variant 6 core + 6 wing (12), 6 modules.
+func _job_v19w() -> void:
+	var s := _sp()
+	if s.surface_mode or main.state != "flight": return
+	var keep := {}
+	for k2 in ["credits", "ship_id", "weapon_id", "owned_weapons", "mounts", "owned_ships", "core_gun", "core_gun2", "core_gun3", "modules", "owned_modules", "shield"]:
+		var v0 = GS.get(k2)
+		keep[k2] = v0.duplicate() if (v0 is Array or v0 is Dictionary) else v0
+	var lv_ok := true
+	var want := {"cadet": [1, 4, 2, 2], "ranger": [2, 5, 4, 4], "bulk": [3, 6, 6, 6]}
+	for sid in want:
+		GS.ship_id = sid
+		var core_n: int = GS.core_slots().size() + 3
+		var got := [GS.ship_level(), core_n, GS.wing_slots(), GS.module_slots()]
+		if got != want[sid]: lv_ok = false
+	# a level 3 ship: three front guns, wing guns in pairs on its six slots
+	GS.credits = 90000
+	for sid in ["bulk"]:
+		if not (sid in GS.owned_ships): GS.owned_ships.append(sid)
+	GS.ship_id = "cadet"
+	GS.buy_ship("bulk")
+	if not ("nx_blue" in GS.owned_weapons): GS.buy_weapon("nx_blue")
+	for i in 6: GS.fit_mount(i, "nx_blue")
+	s.set_player_model()
+	await _frames(2)
+	var bc: int = s.bolts.size()
+	s.mount_next.clear()
+	s._fire_guns()
+	var shots: int = s.bolts.size() - bc
+	_check("v1.9w (owner): ship levels: Level 1 has 4 core + 2 wing slots and 2 modules, Level 2 5 + 4 and 4, Level 3 6 + 6 and 6; a Level 3 ship with all six wing slots fitted fires 3 front guns + 6 = %d shots" % shots,
+		lv_ok and shots == 9, "levels %s" % lv_ok)
+	# modules
+	var sh0: float = GS.max_shield()
+	GS.buy_module("shield_generator")
+	GS.fit_module(0, "shield_generator")
+	var sh1: float = GS.max_shield()
+	GS.buy_module("processor_unit")
+	GS.fit_module(1, "processor_unit")
+	s.lock_time = Data.LOCK_STEP * 0.8
+	var faster: bool = s.lock_count("light_missile") >= 1
+	GS.fit_module(2, "shield_generator")   # one of each kind: it moves
+	var moved: bool = GS.module_items()[0] == "" and GS.module_items()[2] == "shield_generator"
+	_check("v1.9w: ability modules: the Shield Generator makes shields 20% stronger, the Processor Unit locks missiles faster, one of each kind at a time", is_equal_approx(sh1, sh0 * 1.2) and faster and moved, "shield %.0f -> %.0f, faster lock %s, moved %s" % [sh0, sh1, faster, moved])
+	main.dock(s.station)
+	await _until(func(): return main.state == "hub", 8.0)
+	main.hub.eq_sel = 100
+	main.hub.show_screen("equipment")
+	await _wait(0.8)
+	var hb = main.hub
+	var page_ok: bool = hb.find_child("ModSlot_5", true, false) != null and hb.find_child("Mod_power_cell", true, false) != null and hb.find_child("MountMap", true, false) != null
+	await _shot("v19w_level3_equip", 0.4)
+	GS.ship_id = "cadet"
+	main.hub.eq_sel = -1
+	main.hub.show_screen("equipment")
+	await _wait(0.5)
+	var small_ok: bool = hb.find_child("ModSlot_1", true, false) != null and hb.find_child("ModSlot_2", true, false) == null
+	await _shot("v19w_level1_equip", 0.4)
+	_check("v1.9w: WEAPONS & GEAR shows the ship's level blueprint with its slots and the module slots it has (6 on Level 3, 2 on Level 1)", page_ok and small_ok, "L3 page %s, L1 page %s" % [page_ok, small_ok])
 	for k2 in keep: GS.set(k2, keep[k2])
 	main.launch()
 	await _until(func(): return main.state == "flight", 8.0)

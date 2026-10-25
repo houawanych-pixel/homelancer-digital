@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bf57r4m7q26e1"
-path="res://.godot/imported/ship_slots.png-8dad7fe29b186498bebc6f75cbd5c452.ctex"
+uid="uid://ctmov3rgf4685"
+path="res://.godot/imported/mod_sensor_array.png-3b8934e54947cbcd0d7610a546932224.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/ship_slots.png"
-dest_files=["res://.godot/imported/ship_slots.png-8dad7fe29b186498bebc6f75cbd5c452.ctex"]
+source_file="res://assets/ui/mod_sensor_array.png"
+dest_files=["res://.godot/imported/mod_sensor_array.png-3b8934e54947cbcd0d7610a546932224.ctex"]
 
 [params]
 

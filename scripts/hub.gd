@@ -379,7 +379,55 @@ func _equipment_page() -> void:
 	lcap.name = "LoadoutCaption"
 	var items: Array = GS.mount_items()
 	var names: Array = GS.mount_names()
-	if eq_sel < -1:   # v1.9u (owner): a body bay: light missiles, super missiles or mines, built into every ship
+	if not GS.level_def()["uv"].has(eq_sel) and eq_sel < 100: eq_sel = -1   # (a slot this ship doesn't have)
+	if eq_sel >= 100 and eq_sel - 100 >= GS.module_slots(): eq_sel = -1
+	var gun_k: int = eq_sel if eq_sel in [-1, -5, -6] else -1
+	if eq_sel >= 100:   # v1.9w: an ability module slot
+		var cur: String = GS.module_items()[eq_sel - 100]
+		lcap.text = "MODULE SLOT %d  ·  now: %s" % [eq_sel - 99, Data.MODULES[cur]["name"] if cur != "" else "empty"]
+		v.add_child(lcap)
+		for mid in Data.MODULE_ORDER:
+			var md: Dictionary = Data.MODULES[mid]
+			var r := HBoxContainer.new()
+			r.name = "Module_" + mid
+			r.add_theme_constant_override("separation", 10)
+			var ic := TextureRect.new()
+			ic.custom_minimum_size = Vector2(52, 44)
+			ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			ic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			if ResourceLoader.exists(str(md["icon"])): ic.texture = load(str(md["icon"]))
+			r.add_child(ic)
+			var ml := _label(17, GOLD if cur == mid else Color(1, 1, 1))
+			ml.text = "%s   ·   %s" % [md["name"], md["desc"]]
+			ml.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			ml.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			r.add_child(ml)
+			var mb := Button.new()
+			mb.name = "Mod_" + mid
+			mb.custom_minimum_size = Vector2(160, 50)
+			var slot: int = eq_sel - 100
+			if cur == mid: mb.text = "FITTED"; mb.disabled = true
+			elif mid in GS.owned_modules:
+				mb.text = "FIT"
+				mb.pressed.connect(func(): status.text = GS.fit_module(slot, mid); show_screen("equipment"))
+			else:
+				mb.text = "BUY  %d cr" % int(md["price"])
+				mb.disabled = GS.credits < int(md["price"])
+				mb.pressed.connect(func():
+					status.text = GS.buy_module(mid)
+					if mid in GS.owned_modules: GS.fit_module(slot, mid)
+					show_screen("equipment"))
+			r.add_child(mb)
+			v.add_child(r)
+		if cur != "":
+			var eb := Button.new()
+			eb.name = "Mod_empty"
+			eb.text = "EMPTY THIS SLOT"
+			eb.custom_minimum_size = Vector2(200, 46)
+			var slot2: int = eq_sel - 100
+			eb.pressed.connect(func(): status.text = GS.fit_module(slot2, ""); show_screen("equipment"))
+			v.add_child(eb)
+	elif eq_sel in [-2, -3, -4]:   # v1.9u (owner): a body bay: light missiles, super missiles or mines, built into every ship
 		var bay: Array = {-2: ["LIGHT MISSILE BAY", GS.missiles, GS.max_missiles(), "Missile_", func(n): return GS.buy_missiles(n)],
 			-3: ["SUPER MISSILE BAY", GS.heavy_missiles, GS.max_heavy(), "Heavy_", func(n): return GS.buy_heavy(n)],
 			-4: ["MINE BAY", GS.mines, GS.max_mines(), "Mine_", func(n): return GS.buy_mines(n)]}[eq_sel]
@@ -399,15 +447,16 @@ func _equipment_page() -> void:
 			brow.add_child(bb)
 		v.add_child(brow)
 	else:
-		var sel_name: String = "Front gun (nose)" if eq_sel < 0 else str(names[eq_sel])
-		var sel_item: String = GS.core_item() if eq_sel < 0 else str(items[eq_sel])
+		var gun_names := {-1: "Front gun", -5: "Second front gun", -6: "Belly gun"}
+		var sel_name: String = gun_names[eq_sel] if eq_sel < 0 else str(names[eq_sel])
+		var sel_item: String = GS.core_item(eq_sel) if eq_sel < 0 else str(items[eq_sel])
 		lcap.text = "FIT  ·  %s  ·  now: %s" % [sel_name.to_upper(), _item_name(sel_item)]
 		v.add_child(lcap)
 	var guns_owned: Array = Data.WEAPON_ORDER.filter(func(x): return x in GS.owned_weapons)
 	var fit_opts: Array = guns_owned + Data.MOUNT_PODS.keys().filter(func(x): return x in GS.owned_weapons) + ["empty"]
 	var crow := HFlowContainer.new()
 	crow.name = "Mount_core"
-	crow.visible = eq_sel == -1
+	crow.visible = eq_sel in [-1, -5, -6]
 	crow.add_theme_constant_override("h_separation", 8)
 	crow.add_theme_constant_override("v_separation", 6)
 	for gid in guns_owned:
@@ -416,10 +465,10 @@ func _equipment_page() -> void:
 		cb.name = "FitCore_" + gid
 		cb.custom_minimum_size = Vector2(150, 50)
 		cb.clip_text = true
-		cb.text = ("[%s]" % Data.WEAPONS[gid]["short"]) if gid == GS.core_item() else str(Data.WEAPONS[gid]["short"])
-		cb.disabled = gid == GS.core_item()
+		cb.text = ("[%s]" % Data.WEAPONS[gid]["short"]) if gid == GS.core_item(gun_k) else str(Data.WEAPONS[gid]["short"])
+		cb.disabled = gid == GS.core_item(gun_k)
 		cb.add_theme_color_override("font_color", (Data.WEAPONS[gid]["color"] as Color).lightened(0.3))
-		cb.pressed.connect(func(): status.text = GS.fit_core(gid); show_screen("equipment"))
+		cb.pressed.connect(func(): status.text = GS.fit_core(gid, gun_k); show_screen("equipment"))
 		crow.add_child(cb)
 	v.add_child(crow)
 	for mi in items.size():
@@ -609,29 +658,33 @@ func _loadout_panel(split: HBoxContainer) -> void:
 	col.add_theme_constant_override("separation", 6)
 	split.add_child(col)
 	var items: Array = GS.mount_items()
-	var open := 0
-	var used := 1   # the core gun
-	for i in 4:
-		if GS.mount_open(i):
-			open += 1
-			if items[i] != "empty": used += 1
-	var t1 := _label(18, GOLD)
+	var core_n: int = GS.core_slots().size() + 3   # front guns + the three bays
+	var wing_used := 0
+	for i in 6:
+		if GS.mount_open(i) and items[i] != "empty": wing_used += 1
+	var t1 := _label(17, GOLD)
 	t1.name = "LoadoutShip"
-	t1.text = "%s  ·  %d / %d SLOTS FITTED" % [str(GS.ship()["name"]).to_upper(), used, open + 1]
+	t1.text = "%s  ·  LEVEL %d  ·  CORE %d  ·  WINGS %d/%d  ·  TOTAL %d" % [str(GS.ship()["name"]).to_upper(), GS.ship_level(), core_n, wing_used, GS.wing_slots(), core_n + GS.wing_slots()]
+	t1.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(t1)
 	var svc := SubViewportContainer.new()
 	svc.name = "LoadoutPreview"
 	svc.stretch = true
-	svc.custom_minimum_size = Vector2(300, 150)
+	svc.custom_minimum_size = Vector2(150, 120)
 	svc.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	col.add_child(svc)
+	var pair := HBoxContainer.new()
+	pair.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	pair.add_theme_constant_override("separation", 6)
+	col.add_child(pair)
+	svc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pair.add_child(svc)
 	preview_vp = SubViewport.new()
 	preview_vp.own_world_3d = true
 	preview_vp.transparent_bg = true
 	svc.add_child(preview_vp)
 	var cam := Camera3D.new()
-	cam.position = Vector3(0, 6.0, 13.5)
-	cam.fov = 44
+	cam.position = Vector3(0, 7.0, 17.0)
+	cam.fov = 46
 	preview_vp.add_child(cam)
 	cam.look_at(Vector3(0, -1.6, 0), Vector3.UP)
 	var light := DirectionalLight3D.new()
@@ -682,16 +735,18 @@ func _loadout_panel(split: HBoxContainer) -> void:
 	# the outline with a dot per mount
 	var mm := Control.new()
 	mm.name = "MountMap"
-	mm.custom_minimum_size = Vector2(300, 230)
+	mm.custom_minimum_size = Vector2(190, 250)
+	mm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mm.size_flags_stretch_ratio = 1.3
 	mm.mouse_filter = Control.MOUSE_FILTER_STOP
-	col.add_child(mm)
+	pair.add_child(mm)
 	mm.draw.connect(func(): _draw_mount_map(mm))
 	mm.gui_input.connect(func(e: InputEvent):
 		var tap := (e is InputEventScreenTouch and not (e as InputEventScreenTouch).pressed) or (e is InputEventMouseButton and (e as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT and not (e as InputEventMouseButton).pressed)
 		if not tap: return
 		var at: Vector2 = (e as InputEventMouseButton).position if e is InputEventMouseButton else (e as InputEventScreenTouch).position
 		var best := -9
-		var bd := 30.0
+		var bd := 24.0
 		var pts := _mount_points(mm.size)
 		for k in pts:
 			var d: float = at.distance_to(pts[k])
@@ -701,6 +756,30 @@ func _loadout_panel(split: HBoxContainer) -> void:
 		if best > -9:
 			eq_sel = best
 			show_screen("equipment"))
+	# v1.9w: the ability module slots (2 / 4 / 6 by level): tap one to fit a module
+	var mcap := _label(14, CYAN)
+	mcap.text = "LEVEL %d ABILITY MODULES (%d)" % [GS.ship_level(), GS.module_slots()]
+	col.add_child(mcap)
+	var mrow := HBoxContainer.new()
+	mrow.name = "ModuleSlots"
+	mrow.add_theme_constant_override("separation", 6)
+	col.add_child(mrow)
+	var mods: Array = GS.module_items()
+	for i in mods.size():
+		var mb := Button.new()
+		mb.name = "ModSlot_%d" % i
+		mb.custom_minimum_size = Vector2(56, 52)
+		mb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		mb.expand_icon = true
+		mb.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		if mods[i] != "" and ResourceLoader.exists(str(Data.MODULES[mods[i]]["icon"])): mb.icon = load(str(Data.MODULES[mods[i]]["icon"]))
+		else: mb.text = "+"
+		mb.tooltip_text = Data.MODULES[mods[i]]["name"] if mods[i] != "" else "Empty module slot"
+		if eq_sel == 100 + i: mb.add_theme_color_override("font_color", GOLD)
+		mb.pressed.connect(func():
+			eq_sel = 100 + i
+			show_screen("equipment"))
+		mrow.add_child(mb)
 	if not Packs.is_ready("wing_guns"):
 		Packs.request("wing_guns")
 		if not Packs.pack_ready.is_connected(_on_eq_pack): Packs.pack_ready.connect(_on_eq_pack)
@@ -721,7 +800,8 @@ func _dress_mounts(model: Node3D) -> void:
 	var hw: float = maxf(bb.size.x * 0.5 * model.scale.x, 1.0)
 	var ln: float = maxf(bb.size.z * model.scale.z, 2.0)
 	var items: Array = GS.mount_items()
-	var slots: Array = [[-1, GS.core_item()]]
+	var slots: Array = []
+	for k in GS.core_slots(): slots.append([k, GS.core_item(k)])
 	for g in items.size(): slots.append([g, items[g]])
 	for pr in slots:
 		var g: int = pr[0]
@@ -734,52 +814,57 @@ func _dress_mounts(model: Node3D) -> void:
 		var share: float = float(info.get("share", Data.WING_POD_SHARE if Data.MOUNT_PODS.has(it) else Data.WING_GUN_SHARE))
 		gun.scale = Vector3.ONE * (ln * share / Data.WING_GUN_LEN) / sc
 		if g < 0:
-			gun.position = Vector3(0.0, -Data.MOUNT_DROP * 1.4, -ln * 0.3) / sc
+			var ox := 0.0
+			if GS.core_slots().size() > 1 and g in [-1, -5]: ox = hw * (0.14 if g == -5 else -0.14)
+			gun.position = Vector3(ox, -Data.MOUNT_DROP * (2.4 if g == -6 else 1.4), -ln * (0.05 if g == -6 else 0.3)) / sc
 			gun.rotation_degrees.z = 180.0
 		else:
-			var side := -1.0 if g < 2 else 1.0
-			var tip: bool = g % 2 == 1
-			gun.position = Vector3(side * hw * (Data.MOUNT_TIP_AT if tip else Data.MOUNT_SHOULDER_AT), -Data.MOUNT_DROP if tip else Data.MOUNT_DROP, 0.0) / sc
+			var side := GS.mount_side(g)
+			var tip: bool = GS.is_tip(g)
+			var at: float = Data.MOUNT_TIP_AT if tip else (Data.MOUNT_MID_AT if g >= 4 else Data.MOUNT_SHOULDER_AT)
+			gun.position = Vector3(side * hw * at, -Data.MOUNT_DROP if tip else Data.MOUNT_DROP, 0.0) / sc
 			if tip: gun.rotation_degrees.z = 180.0
 		holder.add_child(gun)
 
-## v1.9u (owner's slot sheet): where each slot sits on his top-down ship outline (assets/ui/ship_slots.png).
-## Body: the gun at the nose (-1), light missiles (-2), super missiles (-3), mines (-4). Wings: 0-3 (inner, tip).
-const SLOT_UV := {-1: Vector2(0.5, 0.201), -2: Vector2(0.407, 0.48), -3: Vector2(0.592, 0.48), -4: Vector2(0.5, 0.727),
-	0: Vector2(0.25, 0.654), 1: Vector2(0.054, 0.719), 2: Vector2(0.75, 0.654), 3: Vector2(0.945, 0.719)}
-const SLOT_TAG := {-1: "GUN", -2: "MSL", -3: "SUPER", -4: "MINES"}
+## v1.9w (owner's three-level sheet): the ship's level blueprint with a dot on each of its slots.
+## Ids: -1 front gun, -5 second front gun, -6 belly gun, -2 light bay, -3 super bay, -4 mine bay, 0-5 wing slots.
+const SLOT_TAG := {-1: "GUN", -5: "GUN 2", -6: "GUN 3", -2: "MSL", -3: "SUPER", -4: "MINES"}
+var _lvl_tex := {}
+func _level_tex() -> Texture2D:
+	var path: String = GS.level_def()["art"]
+	if not _lvl_tex.has(path) and ResourceLoader.exists(path): _lvl_tex[path] = load(path)
+	return _lvl_tex.get(path)
 func _map_rect(sz: Vector2) -> Rect2:
-	var hgt := sz.y - 22.0
-	var wdt := hgt * 332.0 / 400.0
-	if wdt > sz.x - 8.0:
-		wdt = sz.x - 8.0
-		hgt = wdt * 400.0 / 332.0
-	return Rect2((sz.x - wdt) * 0.5, 4.0, wdt, hgt)
+	var tx := _level_tex()
+	var asp: float = (tx.get_width() / float(tx.get_height())) if tx != null else 0.8
+	var hgt := sz.y - 4.0
+	var wdt := hgt * asp
+	if wdt > sz.x - 4.0:
+		wdt = sz.x - 4.0
+		hgt = wdt / asp
+	return Rect2((sz.x - wdt) * 0.5, 2.0, wdt, hgt)
 
 func _mount_points(sz: Vector2) -> Dictionary:
 	var r := _map_rect(sz)
 	var out := {}
-	for k in SLOT_UV: out[k] = r.position + r.size * (SLOT_UV[k] as Vector2)
+	var uv: Dictionary = GS.level_def()["uv"]
+	for k in uv: out[k] = r.position + r.size * (uv[k] as Vector2)
 	return out
 
-static var _slots_tex: Texture2D
 func _draw_mount_map(mm: Control) -> void:
 	var sz := mm.size
-	mm.draw_rect(Rect2(Vector2.ZERO, sz), Color(0.02, 0.05, 0.09, 0.75))
-	mm.draw_rect(Rect2(Vector2.ZERO, sz), Color(0.3, 0.8, 1.0, 0.35), false, 1.5)
-	if _slots_tex == null and ResourceLoader.exists("res://assets/ui/ship_slots.png"): _slots_tex = load("res://assets/ui/ship_slots.png")
-	if _slots_tex != null: mm.draw_texture_rect(_slots_tex, _map_rect(sz), false)
+	var tx := _level_tex()
+	if tx != null: mm.draw_texture_rect(tx, _map_rect(sz), false)
 	var items: Array = GS.mount_items()
 	var pts := _mount_points(sz)
 	var font := ThemeDB.fallback_font
-	var r := clampf(_map_rect(sz).size.x * 0.045, 6.0, 11.0)
+	var r := clampf(_map_rect(sz).size.x * 0.04, 5.0, 10.0)
 	for k in pts:
 		var p: Vector2 = pts[k]
 		var col := Color(0.35, 0.38, 0.45)
 		var full := true
-		var open := true
 		match k:
-			-1: col = Data.WEAPONS[GS.core_item()]["color"]
+			-1, -5, -6: col = Data.WEAPONS[GS.core_item(k)]["color"]
 			-2:
 				col = Color(1.0, 0.85, 0.55)
 				full = GS.missiles > 0
@@ -791,19 +876,12 @@ func _draw_mount_map(mm: Control) -> void:
 				full = GS.mines > 0
 			_:
 				var it: String = str(items[k])
-				open = GS.mount_open(k)
 				full = it != "empty"
-				if not open: col = Color(0.2, 0.2, 0.24)
-				elif Data.WEAPONS.has(it): col = Data.WEAPONS[it]["color"]
+				if Data.WEAPONS.has(it): col = Data.WEAPONS[it]["color"]
 				elif Data.MOUNT_PODS.has(it): col = Color(1.0, 0.6, 0.25)
-		if k == eq_sel: mm.draw_circle(p, r + 5.0, Color(GOLD, 0.95))
-		mm.draw_circle(p, r + 2.0, Color(0.02, 0.05, 0.09))
-		mm.draw_circle(p, r, col if (open and full) else Color(col, 0.35))
-		if not open:
-			mm.draw_line(p + Vector2(-r, -r) * 0.6, p + Vector2(r, r) * 0.6, Color(0.6, 0.6, 0.65), 2.0)
-			mm.draw_line(p + Vector2(-r, r) * 0.6, p + Vector2(r, -r) * 0.6, Color(0.6, 0.6, 0.65), 2.0)
-		if SLOT_TAG.has(k): mm.draw_string(font, p + Vector2(-30, r + 13), SLOT_TAG[k], HORIZONTAL_ALIGNMENT_CENTER, 60, 11, Color(0.85, 0.95, 1.0, 0.9))
-	mm.draw_string(font, Vector2(6, sz.y - 6), "TAP A SLOT  ·  WINGS: BLASTERS OR MISSILE PODS", HORIZONTAL_ALIGNMENT_CENTER, sz.x - 12, 11, Color(0.75, 0.9, 1.0, 0.8))
+		if k == eq_sel: mm.draw_arc(p, r + 7.0, 0.0, TAU, 24, GOLD, 3.0)
+		mm.draw_circle(p, r, col if full else Color(0.1, 0.12, 0.16, 0.85))
+		mm.draw_arc(p, r, 0.0, TAU, 20, Color(1, 1, 1, 0.85), 1.5)
 
 ## v1.9e: long shop lines wrap instead of pushing the page (and its buttons) off the right of the screen.
 func _wrap_rows(root: Node) -> void:

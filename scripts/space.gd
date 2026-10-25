@@ -2026,11 +2026,12 @@ func mount_visuals() -> void:
 		var info: Dictionary = Data.WEAPONS.get(it, Data.MOUNT_PODS.get(it, {}))
 		var key: String = str(info.get("model", ""))
 		if key == "" or not ShipFactory.has_real_model(key): continue
-		var side := -1.0 if g < 2 else 1.0
-		var tip: bool = g % 2 == 1
+		var side := GS.mount_side(g)
+		var tip: bool = GS.is_tip(g)
 		var gun := ShipFactory.build(key)
 		gun.name = "Mount%d" % g
-		gun.position = Vector3(side * hw * (Data.MOUNT_TIP_AT if tip else Data.MOUNT_SHOULDER_AT), -Data.MOUNT_DROP if tip else Data.MOUNT_DROP, 0.0) / sc
+		var at: float = Data.MOUNT_TIP_AT if tip else (Data.MOUNT_MID_AT if g >= 4 else Data.MOUNT_SHOULDER_AT)
+		gun.position = Vector3(side * hw * at, -Data.MOUNT_DROP if tip else Data.MOUNT_DROP, 0.0) / sc
 		var share: float = float(info.get("share", Data.WING_POD_SHARE if Data.MOUNT_PODS.has(it) else Data.WING_GUN_SHARE))   # (v1.9h: heavy mounts carry their own)
 		gun.scale = Vector3.ONE * (_ship_length() * share / Data.WING_GUN_LEN) / sc   # (sized by the ship)
 		if tip: gun.rotation_degrees.z = 180.0   # hung under the wing
@@ -2640,13 +2641,14 @@ func _sun_heat(dt: float) -> void:
 func _update_player(dt: float) -> void:
 	var s: Dictionary = GS.ship()
 	var base_speed: float = s["speed"]
-	var turn: float = s["turn"]
+	var turn: float = float(s["turn"]) * (1.0 + GS.mod("turn"))   # (v1.9w: + Control Unit)
 	gun_cd = maxf(0.0, gun_cd - dt)
 	shield_delay = maxf(0.0, shield_delay - dt)
 	hit_shake = maxf(0.0, hit_shake - dt * 2.5)
 	call_cd = maxf(0.0, call_cd - dt)
 	chatter_cd = maxf(0.0, chatter_cd - dt)
-	GS.energy = minf(Data.ENERGY_MAX, GS.energy + Data.ENERGY_REGEN * dt)
+	GS.energy = minf(Data.ENERGY_MAX, GS.energy + Data.ENERGY_REGEN * (1.0 + GS.mod("energy_regen")) * dt)   # (v1.9w: + Power Cell)
+	if GS.mod("repair") > 0.0 and shield_delay <= 0.0 and GS.hull < GS.max_hull(): GS.hull = minf(GS.max_hull(), GS.hull + GS.max_hull() * GS.mod("repair") * dt)   # v1.9w: Maintenance Port
 	for k in ["shield_cd", "energy_cd", "repair_cd", "missile_cd", "mine_cd"]: set(k, maxf(0.0, float(get(k)) - dt))
 	if GS.wing_l <= 0.0 or GS.wing_r <= 0.0:
 		player_spark -= dt
@@ -2763,7 +2765,7 @@ func _update_player(dt: float) -> void:
 	if controls and warp_state == "off" and transform_t <= 0.0:
 		var want := fire_held or fire_lock
 		if GS.is_auto("guns") and _in_fire_cone(target): want = true
-		var cost := Data.ENERGY_PER_GUN * float(1 + GS.mount_items().filter(func(x): return Data.WEAPONS.has(x)).size())   # (v1.9e: only fitted guns use gun energy; v1.9u: + the core gun)
+		var cost := Data.ENERGY_PER_GUN * float(GS.core_slots().size() + GS.mount_items().filter(func(x): return Data.WEAPONS.has(x)).size())   # (v1.9e: only fitted guns use gun energy; v1.9u: + the core gun)
 		if want and gun_cd <= 0.0 and GS.energy >= cost:
 			GS.energy -= cost
 			_fire_guns()
@@ -2924,13 +2926,15 @@ func _fire_guns() -> void:
 	# v1.9e (owner): each mount fires its own gun at its own rate; a mount with a missile pod does not fire bolts.
 	# v1.9u (owner): the core gun fires from the nose too, so a core + 2 wing guns = 3 shots forward.
 	var items: Array = GS.mount_items()
-	var slots: Array = ["core"]
+	var slots: Array = []
+	for k in GS.core_slots(): slots.append("core%d" % k)   # v1.9w: 1-3 front guns by ship level
 	for g in items.size(): slots.append(g)
 	var next_cd := 10.0
 	var sounds := {}
 	var mk := GS.mech_arm() if GS.form == "mech" else 1.0
 	for g in slots:
-		var gid: String = GS.core_item() if g is String else str(items[g])
+		var ck: int = int(str(g).substr(4)) if g is String else 0
+		var gid: String = GS.core_item(ck) if g is String else str(items[g])
 		if not Data.WEAPONS.has(gid): continue
 		var wg: Dictionary = Data.WEAPONS[gid]
 		var ready_at: float = float(mount_next.get(g, 0.0))
@@ -2940,15 +2944,19 @@ func _fire_guns() -> void:
 		mount_next[g] = time + 1.0 / float(wg["rate"])
 		next_cd = minf(next_cd, 1.0 / float(wg["rate"]))
 		var from: Vector3
-		if g is String:   # the core: straight out of the nose
-			from = player.global_position + fwd * maxf(5.0, _ship_length() * 0.5) - player.global_basis.y * 0.3
+		if g is String:   # the core: straight out of the nose (level 2+: two side by side; level 3: and one under the belly)
+			var off := Vector3.ZERO
+			if GS.core_slots().size() > 1 and ck in [-1, -5]: off = player.global_basis.x * _ship_half_width() * (0.12 if ck == -5 else -0.12)
+			if ck == -6: off = -player.global_basis.y * 1.2
+			from = player.global_position + fwd * maxf(5.0, _ship_length() * 0.5) - player.global_basis.y * 0.3 + off
 		else:
-			var side := -1.0 if g < 2 else 1.0
+			var side := GS.mount_side(g)
 			if side < 0.0 and GS.wing_l <= 0.0: continue   # left wing gone: its guns are gone
 			if side > 0.0 and GS.wing_r <= 0.0: continue
-			var tip: bool = g % 2 == 1   # v1.9e (owner): shoulder = close to the core on top; tip = the wing's end underneath
+			var tip: bool = GS.is_tip(g)   # v1.9e (owner): shoulder = close to the core on top; tip = the wing's end underneath
 			var hw := _ship_half_width()
-			from = player.global_position + player.global_basis.x * side * hw * (Data.MOUNT_TIP_AT if tip else Data.MOUNT_SHOULDER_AT) \
+			var at: float = Data.MOUNT_TIP_AT if tip else (Data.MOUNT_MID_AT if g >= 4 else Data.MOUNT_SHOULDER_AT)
+			from = player.global_position + player.global_basis.x * side * hw * at \
 				+ player.global_basis.y * (-Data.MOUNT_DROP if tip else Data.MOUNT_DROP) + fwd * 5.0
 		_spawn_bolt(from, aim_dir * float(wg["speed"]) + vel, GS.gun_damage(gid) * mk, wg["color"], "player", float(wg["range"]) / float(wg["speed"]), float(wg.get("shield", -1.0)))
 		_spark(from + fwd * 1.5, (wg["color"] as Color).lightened(0.4), 3.2, 0.09)
@@ -3038,7 +3046,7 @@ func _glow_mat(col: Color) -> StandardMaterial3D:
 ## up to what the rack holds and the ammo left.
 func lock_count(item := "light_missile") -> int:
 	var ammo := GS.heavy_missiles if item == "heavy_missile" else GS.missiles
-	var step: float = Data.HEAVY_LOCK_STEP if item == "heavy_missile" else Data.LOCK_STEP   # v1.5x: the super missile locks slowly
+	var step: float = (Data.HEAVY_LOCK_STEP if item == "heavy_missile" else Data.LOCK_STEP) * (1.0 - GS.mod("lock"))   # v1.5x: the super missile locks slowly (v1.9w: Processor Unit)
 	return mini(mini(GS.max_locks(item), int(lock_time / step)), ammo)
 
 ## v1.9r (owner): the locks are SHARED: they build on the target (one per LOCK_STEP, the heavy missile's slower, one per

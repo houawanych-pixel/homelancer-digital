@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v1.9v"
+const VERSION := "v1.9w"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -969,6 +969,33 @@ const WEAPONS := {
 	"hv_rail": {"name": "Heavy Rail Launcher", "short": "Hvy Rail", "model": "wpn_hv_rail_launcher", "price": 11000, "damage": 90.0, "rate": 0.8, "speed": 900.0, "range": 900.0, "color": Color(0.6, 0.9, 1.0), "heavy": true, "share": 0.22},
 }
 # v1.9g: three more guns from the owner's models (stats PROVISIONAL: CombatEcon will put every gun in its tier table)
+# v1.9w (owner's three-level slot sheet): every ship is a LEVEL. Level 1 Core Interceptor: 4 core slots (front gun,
+# light missile bay, super missile bay, mine bay), 1 wing slot a side, 2 ability modules. Level 2 Strike Fighter: a
+# second front gun (5 core), 2 wing slots a side, 4 modules. Level 3 Capital Variant: a third (belly) gun (6 core),
+# 3 wing slots a side, 6 modules. Wing slot ids: 0/1 left inner/tip, 2/3 right inner/tip, 4/5 left/right middle.
+# Core ids: -1 front gun, -5 second front gun, -6 belly gun, -2 light bay, -3 super bay, -4 mine bay.
+const SHIP_LEVEL := {"cadet": 1, "hauler": 1, "ranger": 2, "elyza": 2, "lancer": 2, "bulk_empty": 3, "bulk": 3}
+const LEVELS := {
+	1: {"name": "Core Interceptor", "art": "res://assets/ui/ship_level1.jpg", "guns": [-1], "wings": [0, 2], "modules": 2,
+		"uv": {-1: Vector2(0.488, 0.362), -2: Vector2(0.371, 0.521), -3: Vector2(0.605, 0.521), -4: Vector2(0.488, 0.67), 0: Vector2(0.163, 0.815), 2: Vector2(0.81, 0.815)}},
+	2: {"name": "Strike Fighter", "art": "res://assets/ui/ship_level2.jpg", "guns": [-1, -5], "wings": [0, 1, 2, 3], "modules": 4,
+		"uv": {-1: Vector2(0.435, 0.263), -5: Vector2(0.563, 0.263), -2: Vector2(0.381, 0.509), -3: Vector2(0.616, 0.509), -4: Vector2(0.5, 0.741),
+			0: Vector2(0.284, 0.728), 1: Vector2(0.137, 0.824), 2: Vector2(0.719, 0.728), 3: Vector2(0.86, 0.824)}},
+	3: {"name": "Capital Variant", "art": "res://assets/ui/ship_level3.jpg", "guns": [-1, -5, -6], "wings": [0, 1, 2, 3, 4, 5], "modules": 6,
+		"uv": {-1: Vector2(0.49, 0.235), -5: Vector2(0.596, 0.235), -2: Vector2(0.442, 0.546), -3: Vector2(0.65, 0.546), -4: Vector2(0.49, 0.818), -6: Vector2(0.596, 0.818),
+			0: Vector2(0.312, 0.715), 4: Vector2(0.246, 0.805), 1: Vector2(0.154, 0.877), 2: Vector2(0.78, 0.715), 5: Vector2(0.848, 0.805), 3: Vector2(0.936, 0.877)}},
+}
+const MOUNT_MID_AT := 0.62   # v1.9w: the middle wing slot (level 3) sits this far out along the wing, on top
+# v1.9w: ABILITY MODULES (names from the owner's sheet; effects PROVISIONAL). One of each kind at a time.
+const MODULE_ORDER := ["power_cell", "shield_generator", "sensor_array", "control_unit", "processor_unit", "maintenance_port"]
+const MODULES := {
+	"power_cell": {"name": "Power Cell", "price": 800, "icon": "res://assets/ui/mod_power_cell.png", "energy_regen": 0.3, "desc": "Energy recharges 30% faster."},
+	"shield_generator": {"name": "Shield Generator", "price": 1000, "icon": "res://assets/ui/mod_shield_generator.png", "shield": 0.2, "desc": "Shields 20% stronger."},
+	"sensor_array": {"name": "Sensor Array", "price": 900, "icon": "res://assets/ui/mod_sensor_array.png", "radar": 0.3, "desc": "Radar reaches 30% farther."},
+	"control_unit": {"name": "Control Unit", "price": 1100, "icon": "res://assets/ui/mod_control_unit.png", "turn": 0.15, "desc": "The ship turns 15% faster."},
+	"processor_unit": {"name": "Processor Unit", "price": 1200, "icon": "res://assets/ui/mod_processor_unit.png", "lock": 0.25, "desc": "Missiles lock 25% faster."},
+	"maintenance_port": {"name": "Maintenance Port", "price": 1400, "icon": "res://assets/ui/mod_maintenance_port.png", "repair": 0.01, "desc": "Repairs 1% of the hull a second when you are not under fire."},
+}
 const NEXUS_BLASTERS := ["nx_blue", "nx_green", "nx_yellow", "nx_red", "nx_purple"]   # v1.9u
 const BLASTER_LEVELS := 5          # v1.9u: Mk I-V
 const BLASTER_LEVEL_DMG := 0.25    # +25% damage per level above Mk I

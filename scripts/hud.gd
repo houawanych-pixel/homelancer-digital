@@ -1430,7 +1430,7 @@ func _radar(rc: Vector2, rr: float, label: bool) -> void:
 			if n2 != null and is_instance_valid(n2) and n2.global_position.y > -500000.0: far2 = maxf(far2, pp.distance_to(n2.global_position))
 		if far2 > 0.0: want_rng = maxf(want_rng, far2 * Data.RADAR_FIT)
 	radar_range = lerpf(radar_range, want_rng, clampf(get_process_delta_time() * Data.RADAR_ZOOM_SPEED, 0.0, 1.0))
-	var rng := radar_range * (1.0 - 0.6 * space.in_nebula * (1.0 - Data.BEACON_SENSOR_HELP * space.beacon_lit))
+	var rng := radar_range * (1.0 + GS.mod("radar")) * (1.0 - 0.6 * space.in_nebula * (1.0 - Data.BEACON_SENSOR_HELP * space.beacon_lit))
 	var heading := NavGrid.orient == "heading"
 	var fwd3: Vector3 = -space.player.global_basis.z
 	var anchor := rc + Vector2(0, rr * Data.RADAR_HEADING_ANCHOR) if heading else rc
