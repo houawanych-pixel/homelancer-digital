@@ -39,6 +39,7 @@ var memory := {} # id -> what that character remembers about you (see scripts/br
 var heat_shield := false # EARLY idea: a ship upgrade that survives the sun (nothing sells it yet)
 var bounty := {}             # v1.4q: the bounty you carry: {id, sys, state: "hunt" | "captured"}; empty = none
 var bounties_done: Array = []   # roster ids already paid
+var mission_fails := 0       # v1.9r: jobs failed by dying (each one restarts)
 var mission := {}            # v1.5f: the job you carry from a MISSIONS board (see scripts/missions.gd); empty = none
 var cargo: Array = []        # v1.5f: the hold: [{kind: "pilot", id, name, note}]
 var missions_done := 0       # v1.5f: jobs paid (the boards change with it)

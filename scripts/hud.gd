@@ -1087,7 +1087,11 @@ func _draw() -> void:
 		if e["node"] == space.target: continue
 		var ep = _screen(e["node"].global_position)
 		var edist: float = space.player.global_position.distance_to(e["node"].global_position)
-		if ep != null and view.has_point(ep): _brackets(ep, Data.SHIP_BOX, Color(RED if e["node"].get_meta("kind", "enemy") == "enemy" else GOLD, 0.75))   # v1.8u (owner): every ship has a lock box you can tap
+		if ep != null and view.has_point(ep):
+			_brackets(ep, Data.SHIP_BOX, Color(RED if e["node"].get_meta("kind", "enemy") == "enemy" else GOLD, 0.95))   # v1.8u (owner): every ship has a lock box you can tap
+			for row in _lock_rows():   # v1.9r: the shared locks on this one: red pips on top, purple underneath
+				var nl := _locks_on(row[0], e["node"])
+				for k in nl: _lock_pip(ep + Vector2((k - (nl - 1) * 0.5) * 12.0, -Data.SHIP_BOX - 22.0 if row[1] else Data.SHIP_BOX + 9.0), row[2], true, 4.5)   # (red above its bars)
 		if ep != null and view.has_point(ep) and edist < 900.0:
 			_enemy_bars(ep + Vector2(-22, -30), 44.0, 4.0, e)
 	for pu in space.popups:
@@ -1116,17 +1120,16 @@ func _draw() -> void:
 						draw_rect(Rect2(lp - Vector2(hs, hs), Vector2(hs, hs) * 2.0), Color(lc, 1.0), false, 3.0)
 						draw_line(lp + Vector2(-hs * 0.45, 0), lp + Vector2(hs * 0.45, 0), lc, 2.0)
 						draw_line(lp + Vector2(0, -hs * 0.45), lp + Vector2(0, hs * 0.45), lc, 2.0)
-					# Job M: missile locks: one pip per lock the fitted rack can hold, filled as they come
-					var item := "light_missile" if "light_missile" in GS.slots else "heavy_missile"
-					var cap: int = mini(GS.max_locks(item), GS.slot_ammo(item))
-					var got: int = space.lock_count(item)
-					for k in cap:
-						var pc: Vector2 = tp + Vector2((k - (cap - 1) * 0.5) * 16.0, -46.0)
-						var dia := PackedVector2Array([pc + Vector2(0, -6), pc + Vector2(6, 0), pc + Vector2(0, 6), pc + Vector2(-6, 0)])
-						if k < got: draw_colored_polygon(dia, RED)
-						dia.append(dia[0])
-						draw_polyline(dia, Color(RED, 0.95), 1.5)
-					if got > 0: _text(tp + Vector2(-60, -74), "LOCK %d" % got, 14, RED, HORIZONTAL_ALIGNMENT_CENTER, 120)
+					# Job M / v1.9r: missile locks. The rack's full count as pips (filled = locks on THIS target; the shared
+					# locks on other hostiles show on their own boxes): light missile RED on top, heavy PURPLE underneath.
+					for row in _lock_rows():
+						var item: String = row[0]
+						var cap: int = mini(GS.max_locks(item), GS.slot_ammo(item))
+						var on_me := _locks_on(item, tgt)
+						var y: float = -46.0 if row[1] else 98.0   # (under the target's bars and their labels)
+						for k in cap: _lock_pip(tp + Vector2((k - (cap - 1) * 0.5) * 16.0, y), row[2], k < on_me, 6.0)
+						var all_n: int = space.lock_count(item)
+						if all_n > 0: _text(tp + Vector2(-70, y - 28.0 if row[1] else y + 26.0), "%s %d/%d" % ["LOCK" if row[1] else "HEAVY", all_n, cap], 14, row[2], HORIZONTAL_ALIGNMENT_CENTER, 140)
 		elif tgt.get_meta("kind", "") != "enemy":
 			_edge_arrow(tgt.global_position, GOLD, view, true)
 	if space.warp_state == "on":
@@ -1328,6 +1331,28 @@ func _edge_arrow(p3: Vector3, col: Color, view: Rect2, big: bool) -> void:
 	var perp := Vector2(-dir.y, dir.x)
 	var s := 16.0 if big else 11.0
 	draw_colored_polygon(PackedVector2Array([at + dir * s * 1.2, at - dir * s * 0.6 + perp * s, at - dir * s * 0.6 - perp * s]), col)
+
+## v1.9r: the missile lock rows to draw: [item, on top?, colour] for each missile type fitted.
+func _lock_rows() -> Array:
+	var out: Array = []
+	if "light_missile" in GS.slots: out.append(["light_missile", true, Data.LIGHT_LOCK_COLOR])
+	if "heavy_missile" in GS.slots: out.append(["heavy_missile", not ("light_missile" in GS.slots), Data.HEAVY_LOCK_COLOR])
+	return out
+
+## v1.9r: how many of the shared locks of `item` sit on node `n` right now.
+var _lock_cache := {}   # item -> [frame, spread]
+func _locks_on(item: String, n: Node3D) -> int:
+	var f := Engine.get_process_frames()
+	if not _lock_cache.has(item) or int(_lock_cache[item][0]) != f: _lock_cache[item] = [f, space.lock_spread(item)]
+	for pr in _lock_cache[item][1]:
+		if pr[0] == n: return int(pr[1])
+	return 0
+
+func _lock_pip(pc: Vector2, col: Color, filled: bool, r: float) -> void:
+	var dia := PackedVector2Array([pc + Vector2(0, -r), pc + Vector2(r, 0), pc + Vector2(0, r), pc + Vector2(-r, 0)])
+	if filled: draw_colored_polygon(dia, col)
+	dia.append(dia[0])
+	draw_polyline(dia, Color(col, 0.95), 1.5)
 
 func _brackets(p: Vector2, s: float, col: Color) -> void:
 	for cr in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:

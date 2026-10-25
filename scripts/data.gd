@@ -7,8 +7,9 @@ extends RefCounted
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
 # v1.8t: the background content packs, in the order they are fetched (PACK_PARALLEL at a time): what the game needs to
 # play first (planet ground, the mech), the big ones (enemy pictures 17 MB, structures 56 MB) last.
-const PACK_ORDER := ["sky", "worlds", "planets", "mechs", "cockpit", "voice_m1", "voice_m2", "voice_m3", "voice_m4", "voice_f1", "voice_f2", "voice_f3", "voice_f4", "voice_a1", "voice_a2", "voice_r1", "voice_mask", "lancer", "ranger", "hauler", "bulk", "enemies", "structures"]
+const PACK_ORDER := ["sky", "worlds", "planets", "mechs", "cockpit", "structures", "voice_m1", "voice_m2", "voice_m3", "voice_m4", "voice_f1", "voice_f2", "voice_f3", "voice_f4", "voice_a1", "voice_a2", "voice_r1", "voice_mask", "lancer", "ranger", "hauler", "bulk", "enemies"]
 const PACK_PARALLEL := 2
+const RING_PACKS := ["ring_gate", "ring_dock"]   # v1.9r (owner: missing dock rings): the jump gate ring and the dock arch, fetched on arrival in every system
 # v1.8v (owner: fewer enemies, asteroids and moving cargo ships, to keep memory low): the lighter numbers below, plus
 # ASTEROID_COUNT 34 -> 18, ASTEROID_PIECES_MAX 220 -> 120 and ROSTER_PATROL_SIZE 3 -> 2.
 const PATROL_GROUPS := 2            # patrol wings out in a system at once (each system has 3 patrol points; the first ones are used)
@@ -27,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v1.9q"
+const VERSION := "v1.9r"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -174,6 +175,10 @@ const LEAD_BOX_RANGE := 6.0           # the box shows inside this x your gun ran
 const LEAD_BOX_ON := 16.0             # px: reticle this close to the box centre = "on target" (box turns green)
 const LOCK_CONE_DEG := 15.0           # keep the target inside this cone to build missile locks
 const LOCK_RANGE := 800.0
+const LOCK_SPREAD_DEG := 32.0         # v1.9r: the shared locks also go to other hostiles inside this wider cone ...
+const LOCK_SPREAD_MAX := 6            # ... at most this many hostiles at once (the target included)
+const LIGHT_LOCK_COLOR := Color(1.0, 0.25, 0.22)   # the light missile's lock counter: red, on top of the box
+const HEAVY_LOCK_COLOR := Color(0.72, 0.35, 1.0)   # the heavy missile's (slower) lock counter: purple, under the box
 const LOCK_STEP := 0.5                # seconds per lock
 const HEAVY_LOCKS := 2                # heavy (super) missile: up to two locks, HEAVY_LOCK_STEP each
 const HEAVY_MISSILE_HULL_FRAC := 0.85 # heavy does at least this share of the target's hull
@@ -638,7 +643,7 @@ const WATER_SHALLOW_DEPTH := 45.0     # shallows turn turquoise above this depth
 const SCAN_RANGE := 1500.0            # a ship this close can be scanned
 const SCAN_TIME := 1.2                # seconds the scan takes
 const SHIP_TAP_STICK := 34.0          # v1.8u: ...inside a stick's side of the screen the tap must be this close (and clear of the stick itself)
-const SHIP_BOX := 15.0                # v1.8u: the size of the lock box every ship on screen wears
+const SHIP_BOX := 18.0                # v1.8u: the size of the lock box every ship on screen wears
 const SHIP_TAP_RADIUS := 46.0         # a tap this close to a ship on screen targets it
 const SCAN_GOODS := ["Water", "Fuel cells", "Ore", "Medical supplies", "Food rations", "Machine parts", "Electronics", "Coolant", "Scrap metal", "Munitions"]
 const SCAN_ENEMY_GOODS := {"Savagers": ["Scrap metal", "Stolen goods", "Munitions"], "Cybermorph": ["Nanite slurry", "Data cores"], "Kaijurai": ["Behemoth spores", "Bio-resin"],

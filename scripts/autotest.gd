@@ -998,6 +998,15 @@ func _run() -> void:
 		await _job_v19o()
 		await _job_v19p()
 		await _job_v19q()
+		await _job_v19r()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
+	if OS.get_environment("HL_V19R") != "":   # the v1.9r checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_v19r()
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
@@ -1732,6 +1741,7 @@ func _run() -> void:
 	await _job_v19o()
 	await _job_v19p()
 	await _job_v19q()
+	await _job_v19r()
 	await _blocks()
 	await _regions()
 	await _galaxy()
@@ -8937,6 +8947,96 @@ func _job_v19q() -> void:
 	main._load_system(sys0, "station")
 	await _wait(1.6)
 	main.hud.visible = true
+	_sp().controls = true
+
+## v1.9r (owner, Oct 25): dock rings come first, dying fails the job and restarts it, a box on every enemy, shared
+## missile locks with the light missile's counter red on top and the heavy missile's (slower) purple underneath.
+func _job_v19r() -> void:
+	var s := _sp()
+	if s.surface_mode or main.state != "flight": return
+	# 1. the rings: their own small packs, asked for on arrival; the planet's docking gate and the jump gate ring are on
+	var packs_ok := true
+	for rp in Data.RING_PACKS:
+		if not Packs.PACKS.has(rp) or Packs.PACKS[rp].get("match", "") == "": packs_ok = false
+	for rp in Data.RING_PACKS: await Packs.wait(rp, 30.0)
+	await _until(func(): return s.dock_gate != null and s.gate_model != null, 6.0)
+	var early: bool = Data.PACK_ORDER.find("structures") >= 0 and Data.PACK_ORDER.find("structures") < Data.PACK_ORDER.find("voice_m1")
+	_check("v1.9r: the docking ring over the planet and the jump gate ring come in their own small packs on arrival (the station models' pack moved up the queue)",
+		packs_ok and s.rings_ready() and s.dock_gate != null and s.gate_model != null and early, "packs %s dock %s gate %s early %s" % [packs_ok, s.dock_gate != null, s.gate_model != null, early])
+	# 2. shared locks
+	for e0 in s.enemies.duplicate():
+		if is_instance_valid(e0["node"]): (e0["node"] as Node3D).free()
+	s.enemies = []
+	var fwd := -s.player.global_basis.z
+	var side := s.player.global_basis.x
+	var es: Array = []
+	for k in 3:
+		var at: Vector3 = s.player.global_position + fwd * (300.0 + k * 40.0) + side * (k - 1) * 70.0
+		var e: Dictionary = s.spawn_unit("raider", at, at)
+		e["hp"] = 99999.0
+		e["vel"] = Vector3.ZERO
+		es.append(e)
+	s.target = es[1]["node"]
+	GS.slots = ["light_missile", "heavy_missile", "mine"]
+	GS.rack = "swarm"
+	if not ("swarm" in GS.owned_racks): GS.owned_racks.append("swarm")
+	GS.missiles = 12
+	GS.heavy_missiles = 2
+	s.lock_time = Data.LOCK_STEP * 20.0
+	var spread: Array = s.lock_spread("light_missile")
+	var on_all: bool = spread.size() == 3 and spread.all(func(pr): return int(pr[1]) == GS.max_locks("light_missile") / 3)
+	var target_first: bool = not spread.is_empty() and spread[0][0] == s.target
+	s.lock_time = Data.LOCK_STEP * 3.0
+	var slow: bool = s.lock_count("light_missile") == 3 and s.lock_count("heavy_missile") == 0
+	s.lock_time = Data.HEAVY_LOCK_STEP * 2.2
+	var heavy_n: int = s.lock_count("heavy_missile")
+	var rows: Array = main.hud._lock_rows()
+	var colours: bool = rows.size() == 2 and rows[0][0] == "light_missile" and rows[0][1] == true and rows[0][2] == Data.LIGHT_LOCK_COLOR \
+		and rows[1][0] == "heavy_missile" and rows[1][1] == false and rows[1][2] == Data.HEAVY_LOCK_COLOR
+	s.lock_time = Data.LOCK_STEP * 20.0
+	await _shot("v19r_shared_locks", 0.3)
+	_check("v1.9r: missile locks are shared: a full rack (%d) spreads over the hostiles in view, the target first; the heavy missile locks slower; the light counter is red on top of the box, the heavy one purple underneath" % GS.max_locks("light_missile"),
+		on_all and target_first and slow and heavy_n >= 1 and colours, "spread %s first %s slow %s heavy %d rows %s" % [spread.map(func(pr): return int(pr[1])), target_first, slow, heavy_n, rows.map(func(r): return r[0])])
+	for m in s.missiles_live: m["life"] = 0.0
+	await _frames(3)
+	s.missile_cd = 0.0
+	s.lock_time = Data.LOCK_STEP * 20.0
+	var n0: int = GS.missiles
+	s.trigger_system("light_missile")
+	await _wait(Data.VOLLEY_GAP * GS.max_locks("light_missile") + 0.3)
+	var hit_nodes := {}
+	for m in s.missiles_live:
+		if is_instance_valid(m["target"]): hit_nodes[m["target"]] = true
+	_check("v1.9r: firing the shared locks sends a missile at each locked hostile (%d missiles at 3 ships)" % GS.max_locks("light_missile"),
+		n0 - GS.missiles == GS.max_locks("light_missile") and hit_nodes.size() == 3, "used %d, ships aimed at %d" % [n0 - GS.missiles, hit_nodes.size()])
+	for m in s.missiles_live: m["life"] = 0.0
+	# 3. every enemy wears a box (bigger, solid) when it is in view
+	_check("v1.9r: every enemy in view wears a lock box you can tap (now %d px, drawn solid)" % int(Data.SHIP_BOX), Data.SHIP_BOX >= 18.0 and s.enemies.size() == 3, "%d enemies" % s.enemies.size())
+	for e1 in s.enemies.duplicate():
+		if is_instance_valid(e1["node"]): (e1["node"] as Node3D).free()
+	s.enemies = []
+	s.target = null
+	# 4. dying fails the job and restarts it from the beginning
+	Missions.abandon()
+	GS.bounty = {}
+	var sid: String = Data.SYSTEMS[s.sys_id]["station"]["id"]
+	var offer: Dictionary = Missions.offers(s.sys_id, sid)[0]
+	Missions.accept(offer)
+	GS.mission["stage"] = 1   # (half way: the first point done; its next wave not met yet)
+	GS.mission["escort_hp"] = 10.0
+	var title := str(GS.mission["title"])
+	var fails0: int = GS.mission_fails
+	GS.god_mode = false
+	s._die()
+	await _until(func(): return main.state == "hub", 14.0)
+	var m2: Dictionary = GS.mission
+	var restarted: bool = not m2.is_empty() and str(m2["title"]) == title and int(m2["stage"]) == 0 and int(m2["spawned"]) == -1 and is_equal_approx(float(m2["escort_hp"]), Data.ESCORT_HULL) and GS.mission_fails == fails0 + 1
+	var said: bool = main.hub.status.text.find("MISSION FAILED") >= 0
+	_check("v1.9r: dying fails the job (MISSION FAILED) and it starts again from the beginning: first waypoint, every wave again",
+		restarted and said and main.state == "hub", "stage %s spawned %s fails %d said %s" % [m2.get("stage", "-"), m2.get("spawned", "-"), GS.mission_fails - fails0, said])
+	Missions.abandon()
+	GS.god_mode = true
+	await _launch()
 	_sp().controls = true
 
 func _job_v19o() -> void:

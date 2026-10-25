@@ -1040,20 +1040,22 @@ func _on_destroyed() -> void:
 	hud.visible = false
 	fx.caption = "SHIP DISABLED"
 	fx.sub = "Rescue tug inbound — towing you to %s" % space.sys["station"]["name"]
+	if not GS.mission.is_empty(): fx.sub = "MISSION FAILED — it restarts from the beginning.   " + fx.sub   # v1.9r
 	var tw := create_tween()
 	tw.tween_property(fx, "fade", 1.0, 2.0).set_delay(1.0)
 	await tw.finished
 	var lost := int(GS.credits * 0.1)
 	GS.credits -= lost
 	GS.restore_full()
-	if space.surface_mode: _load_system(space.sys_id, "station")
+	var failed := Missions.restart_after_death()   # v1.9r: the job fails and starts again from the beginning
+	if space.surface_mode or failed != "": _load_system(space.sys_id, "station")   # (a fresh system: the job's old wave is gone)
 	space.visible = false
 	space.process_mode = Node.PROCESS_MODE_DISABLED
 	space.controls = true
 	var info: Dictionary = space.sys["station"].duplicate()
 	docked_node_kind = "station"
 	hub.open(info)
-	hub.status.text = "Towed in. Repairs complete. Salvage fee: %d credits." % lost
+	hub.status.text = "Towed in. Repairs complete. Salvage fee: %d credits.%s" % [lost, ("  " + failed) if failed != "" else ""]
 	state = "hub"
 	var tw2 := create_tween()
 	tw2.tween_property(fx, "fade", 0.0, 0.6)

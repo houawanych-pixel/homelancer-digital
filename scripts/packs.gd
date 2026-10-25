@@ -47,6 +47,8 @@ const PACKS := {
 	"hubbg_kaijurai": {"folders": ["res://assets/hub_bg"], "match": "kaijurai.", "probe": "res://assets/hub_bg/kaijurai.jpg"},
 	"worlds": {"folders": ["res://assets/worlds"], "probe": "res://assets/worlds/earth.jpg"},
 	"structures": {"folders": ["res://assets/structures"], "probe": "res://assets/structures/jump_gate_ring.glb"},
+	"ring_gate": {"folders": ["res://assets/structures"], "match": "jump_gate_ring", "probe": "res://assets/structures/jump_gate_ring.glb"},   # v1.9r: the rings on their own, fetched first
+	"ring_dock": {"folders": ["res://assets/structures"], "match": "dock_arch", "probe": "res://assets/structures/dock_arch.glb"},
 	"wing_guns": {"folders": ["res://assets/wing_guns"], "probe": "res://assets/wing_guns/wpn_shell_smg.glb"},   # v1.9g: the guns and pods you see on the wing mounts
 	# v1.9d Station3D-Retopo v1: one pack per 3D station (its three LODs), fetched when you enter its system
 	"st3d_aurelion_citadel": {"folders": ["res://assets/stations3d"], "match": "st3d_aurelion_citadel", "probe": "res://assets/stations3d/st3d_aurelion_citadel.glb"},

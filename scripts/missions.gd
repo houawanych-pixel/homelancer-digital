@@ -186,6 +186,7 @@ static func accept(offer: Dictionary) -> String:
 	m["stage"] = 0
 	m["spawned"] = -1
 	m["escort_hp"] = Data.ESCORT_HULL
+	m["start"] = m.duplicate(true)   # v1.9r: how the job looked when taken (dying restarts it from here)
 	GS.mission = m
 	GS.changed.emit()
 	return "Job taken: %s. %s A mission waypoint is set: follow the gold marker." % [m["title"], m["brief"]]
@@ -210,6 +211,7 @@ static func accept_bounty(id: String) -> String:
 		"brief": "%s has been tracked to the %s system with an escort wing. Fly to the first waypoint and deal with the escort; then the waypoint moves to %s. %s" % [p["name"], Data.SYSTEMS[GS.system_id]["name"], p["name"],
 			"Destroy the ship, TRACTOR the pilot in and bring them back here." if alive else "Destroy the ship: paid on the spot."],
 		"points": _points(rng, 2), "stage": 0, "spawned": -1, "escort_hp": 0.0}
+	GS.mission["start"] = GS.mission.duplicate(true)   # v1.9r
 	GS.changed.emit()
 	return "Bounty accepted: %s. %s A mission waypoint is set: follow the gold marker." % [p["name"], GS.mission["brief"]]
 
@@ -286,6 +288,29 @@ static func release_captive() -> String:
 	GS.bounty = {}
 	GS.changed.emit()
 	return "%s is out of your hold and free." % Data.roster_pilot(id).get("name", "The pilot")
+
+## v1.9r (owner: "if you die the mission should be failed and restarted from the beginning"): the job goes back to
+## how it was when taken (first waypoint, every wave again, a fresh freighter); a prisoner in the hold is lost and the
+## bounty is hunted again. Returns what to say ("" = no job).
+static func restart_after_death() -> String:
+	if GS.mission.is_empty(): return ""
+	var m: Dictionary = GS.mission
+	var title := str(m.get("title", "the job"))
+	var fresh: Dictionary = (m.get("start", {}) as Dictionary).duplicate(true)
+	if fresh.is_empty():   # (a job taken before v1.9r)
+		fresh = m.duplicate(true)
+		fresh["stage"] = 0
+		fresh["spawned"] = -1
+		fresh["escort_hp"] = Data.ESCORT_HULL if str(m.get("kind", "")) != "bounty" else 0.0
+	fresh["start"] = fresh.duplicate(true)
+	if not GS.bounty.is_empty() and str(m.get("kind", "")) == "bounty":
+		var id := str(GS.bounty.get("id", ""))
+		GS.cargo = GS.cargo.filter(func(c): return not (c.get("kind", "") == "pilot" and str(c.get("id", "")) == id))
+		GS.bounty = {"id": id, "sys": str(fresh.get("sys", GS.system_id)), "state": "hunt"}
+	GS.mission = fresh
+	GS.mission_fails += 1
+	GS.changed.emit()
+	return "MISSION FAILED: %s. It restarts from the beginning: follow the gold waypoint again." % title
 
 static func abandon() -> void:
 	if GS.mission.is_empty(): return

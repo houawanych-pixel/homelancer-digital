@@ -978,7 +978,7 @@ func _planet_real() -> void:
 func _dock_gate() -> void:
 	if dock_gate != null or surface_mode or not is_instance_valid(planet): return
 	var beacon: Node3D = planet.get_node_or_null("LandingBeacon")
-	if beacon == null or not Packs.is_ready("structures") or not ResourceLoader.exists("res://assets/structures/dock_arch.glb"): return
+	if beacon == null or not rings_ready() or not ResourceLoader.exists("res://assets/structures/dock_arch.glb"): return
 	var meshes: Array = []
 	for path in [GATE_RING_PATH, "res://assets/structures/dock_arch.glb"]:
 		var sc := (load(path) as PackedScene).instantiate()
@@ -1177,12 +1177,13 @@ func _build_planet(d: Dictionary) -> void:
 	get_tree().create_timer(Data.PH_BUILD_DELAY).timeout.connect(_build_extras)
 	if not Packs.pack_ready.is_connected(_on_world_pack): Packs.pack_ready.connect(_on_world_pack)
 	Packs.request("worlds")
+	for rp in Data.RING_PACKS: Packs.request(rp)   # v1.9r: the jump gate ring and the dock arch come first (small), not last with the stations
 
 func _on_world_pack(pk: String) -> void:
 	if pk == "worlds":
 		_planet_real()
 		_extra_worlds_real()
-	if pk == "structures": _dock_gate()
+	if pk == "structures" or pk in Data.RING_PACKS: _dock_gate()
 
 func dock_point(n: Node3D) -> Vector3:
 	if n.get_meta("kind", "") == "waypoint": return n.global_position
@@ -1243,10 +1244,17 @@ func _build_gate(d: Dictionary) -> void:
 	g.add_child(portal)
 	gate_portals.append(portal)
 
+## v1.9r: the gate ring and dock arch models are in: their own small packs, or the whole structures pack.
+func rings_ready() -> bool:
+	if Packs.is_ready("structures"): return true
+	for rp in Data.RING_PACKS:
+		if not Packs.is_ready(rp): return false
+	return true
+
 ## The owner's jump gate ring replaces the code-made ring once the "structures" pack is in.
 func _gate_model() -> void:
 	if gate_model != null or gates.is_empty() or not is_instance_valid(gate_standin): return
-	if not (Packs.is_ready("structures") and ResourceLoader.exists(GATE_RING_PATH)): return
+	if not (rings_ready() and ResourceLoader.exists(GATE_RING_PATH)): return
 	var sc := (load(GATE_RING_PATH) as PackedScene).instantiate()
 	var found := sc.find_children("*", "MeshInstance3D", true, false)
 	if not found.is_empty():
@@ -1262,7 +1270,7 @@ func _gate_model() -> void:
 	sc.free()
 
 func _on_gate_pack(pk: String) -> void:
-	if pk == "structures" and not surface_mode:
+	if (pk == "structures" or pk in Data.RING_PACKS) and not surface_mode:
 		_gate_model()
 		_station_model()
 
@@ -2740,15 +2748,51 @@ func lock_count(item := "light_missile") -> int:
 	var step: float = Data.HEAVY_LOCK_STEP if item == "heavy_missile" else Data.LOCK_STEP   # v1.5x: the super missile locks slowly
 	return mini(mini(GS.max_locks(item), int(lock_time / step)), ammo)
 
-## Fire `count` missiles at the target: the first now, the rest VOLLEY_GAP apart, fanned out.
+## v1.9r (owner): the locks are SHARED: they build on the target (one per LOCK_STEP, the heavy missile's slower, one per
+## HEAVY_LOCK_STEP) up to the rack's full count, and are spread over every hostile in view: the target first, then
+## the nearest others in the wide lock cone, one each in turn. [[node, locks], ...]
+func lock_spread(item := "light_missile") -> Array:
+	var n := lock_count(item)
+	if n <= 0: return []
+	var cands := lock_candidates()
+	if cands.is_empty(): return []
+	var counts := {}
+	for i in n:
+		var c: Node3D = cands[i % cands.size()]
+		counts[c] = int(counts.get(c, 0)) + 1
+	var out: Array = []
+	for c in cands:
+		if counts.has(c): out.append([c, counts[c]])
+	return out
+
+## The hostiles the locks go to: the target, then the nearest others in view inside the wide lock cone.
+func lock_candidates() -> Array:
+	var out: Array = []
+	var t: Node3D = target if is_instance_valid(target) and target.get_meta("kind", "") == "enemy" else null
+	if t == null: return out
+	out.append(t)
+	var others: Array = []
+	for e in enemies:
+		var nd: Node3D = e["node"]
+		if nd == t or not is_instance_valid(nd) or nd.get_meta("kind", "enemy") != "enemy": continue
+		if _cone(nd, Data.LOCK_SPREAD_DEG, Data.LOCK_RANGE): others.append(nd)
+	others.sort_custom(func(a, b): return a.global_position.distance_squared_to(player.global_position) < b.global_position.distance_squared_to(player.global_position))
+	out.append_array(others.slice(0, maxi(0, Data.LOCK_SPREAD_MAX - 1)))
+	return out
+
+## Fire `count` missiles: the first now, the rest VOLLEY_GAP apart, fanned out; each one at the hostile its lock is on.
 func fire_volley(heavy: bool, count: int) -> int:
 	count = clampi(count, 1, GS.heavy_missiles if heavy else GS.missiles)
 	var scale := 1.0 if heavy else float(Data.MISSILE_RACKS.get(GS.rack, Data.MISSILE_RACKS["triple"])["damage"])
 	if count <= 1 and not heavy: scale = 1.0   # a single shot without locks is a full-strength missile
-	if not fire_missile(heavy, 0, count, scale): return 0
+	var aims: Array = []   # v1.9r: one hostile per shot, from the shared locks
+	for pr in lock_spread("heavy_missile" if heavy else "light_missile"):
+		for k in int(pr[1]): aims.append(pr[0])
+	if not fire_missile(heavy, 0, count, scale, aims[0] if not aims.is_empty() else null): return 0
 	var t = missiles_live[-1]["target"]
 	for k in range(1, count):
-		volley_queue.append({"t": Data.VOLLEY_GAP * k, "heavy": heavy, "k": k, "n": count, "scale": scale, "target": t})
+		var tk = aims[k] if k < aims.size() and is_instance_valid(aims[k]) else t
+		volley_queue.append({"t": Data.VOLLEY_GAP * k, "heavy": heavy, "k": k, "n": count, "scale": scale, "target": tk})
 	lock_time = 0.0
 	return count
 
@@ -2794,7 +2838,7 @@ func _missile_node(heavy: bool) -> Node3D:
 		fm.height = 0.7
 		flare.mesh = fm
 		flare.position = Vector3(0, 0, 1.8)
-		flare.material_override = ShipFactory.mat(Color(1.0, 0.85, 0.55), true)
+		flare.material_override = ShipFactory.mat(Data.HEAVY_LOCK_COLOR if heavy else Color(1.0, 0.85, 0.55), true)   # v1.9r: the heavy missile glows purple, like its lock counter
 		mi.add_child(flare)
 	else:
 		var box := MeshInstance3D.new()
