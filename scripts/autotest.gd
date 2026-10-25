@@ -9464,21 +9464,18 @@ func _job_v19z() -> void:
 	for i in Data.NEBULA_ROCKS: s.rocks.pop_back()
 	var mi = s.get_node_or_null("NebulaRocks")
 	if mi != null: mi.queue_free()
-	# the warp tunnel (owner's picture): on at warp, scrolling and turning, gone after
-	var base_sp: float = float(GS.ship()["speed"])
-	_tp(s.station.global_position + Vector3(2600, 700, 2600), s.station.global_position + Vector3(9000, 700, 9000))
-	s.warp_state = "on"
-	s.vel = -s.player.global_basis.z * base_sp * Data.WARP_MULT
-	await _wait(0.9)
-	var wt: MeshInstance3D = s.warp_tunnel
-	var sc0: float = s._wt_scroll
-	await _frames(3)
-	var tun_ok: bool = wt != null and wt.visible and s.warp_tunnel_k > 0.9 and s._wt_scroll > sc0 and ResourceLoader.exists("res://assets/fx/warp_tunnel.jpg")
-	await _shot("v19z_warp_tunnel", 0.1)
-	s.drop_warp()
-	await _wait(0.6)
-	tun_ok = tun_ok and not s.warp_tunnel.visible
-	_check("v1.9z (owner's warp picture): at warp the ship flies down a tunnel of his texture, scrolling forward and turning; it goes when you drop out", tun_ok, "tunnel %s" % tun_ok)
+	# the jump-gate tunnel wears the owner's picture and spins
+	var fx = main.fx
+	fx.begin_warp("tunnel")
+	fx.warp = 1.0
+	fx.pace = 1.0
+	var sp0: float = fx.tex_spin
+	await _frames(4)
+	var tun_ok: bool = fx.tunnel_tex_on and absf(fx.tex_spin - sp0) > 0.0 and (fx._warp_rect.material as ShaderMaterial).get_shader_parameter("use_tex") == true
+	await _shot("v19z_jump_tunnel", 0.1)
+	fx.end_warp()
+	fx.warp = 0.0
+	_check("v1.9z (owner): the jump-gate tunnel is his picture, rushing at you and spinning (the warp drive keeps its plain streaks)", tun_ok, "tunnel %s" % tun_ok)
 	_check("v1.9z (owner): deep in a cloud the sky is gone (you can't see out), and each cloud has its own weather: snow, rain, electric storm or rock field (rocks you can hit)",
 		kinds_ok and sky_gone and seen.values().all(func(x): return x) and rock_ok and Data.NEBULA_STORM_FLASH[1] < Data.NEBULA_FLASH_EVERY[0] + 0.5, "kinds %s, sky gone %s, seen %s, rocks %s" % [kinds_ok, sky_gone, seen, rock_ok])
 	_tp(s.station.global_position + Vector3(400, 80, 600), s.station.global_position)

@@ -28,6 +28,8 @@ var jumping := false   # a gate jump is on (the surface tile change reuses plain
 var booms := 0         # layers that made a boom (tests)
 var tints: Array = []  # one colour per rift layer, taken from the sky pictures
 var _warp_rect: ColorRect
+var tunnel_tex_on := false   # v1.9z: the jump tunnel wears the owner's picture
+var tex_spin := 0.0          # v1.9z: turns of the jump tunnel (it spins)
 var _sky_a: Texture2D
 var _sky_b: Texture2D
 const SKINS := ["tunnel", "cloud", "rift"]
@@ -42,6 +44,9 @@ uniform vec3 color = vec3(0.4, 0.8, 1.0);
 uniform sampler2D sky_a : repeat_enable, filter_linear;
 uniform sampler2D sky_b : repeat_enable, filter_linear;
 uniform sampler2D noise_tex : repeat_enable, filter_linear;
+uniform sampler2D tunnel_tex : source_color, repeat_enable, filter_linear;   // v1.9z: the owner's jump tunnel wall
+uniform bool use_tex = false;
+uniform float tex_spin = 0.0;
 uniform float aspect = 1.78;
 uniform float oval = 1.6;
 uniform float ragged = 0.3;
@@ -55,7 +60,14 @@ void fragment() {
 	float r = length(p) + 0.0001;
 	float th = atan(p.y, p.x) / TAU;
 	vec3 col = vec3(0.0);
-	if (skin == 0) {
+	if (skin == 0 && use_tex) {
+		// v1.9z (owner's jump-gate picture): his unwrapped tunnel wall rushing at you and spinning; streaks run along
+		float depth = 0.26 / r;
+		vec2 tuv = vec2(depth + travel * 0.6, th + tex_spin + depth * twist * 0.08);
+		col = textureLod(tunnel_tex, tuv, 0.0).rgb * 1.25;
+		col *= 0.25 + 0.95 * smoothstep(0.0, 0.42, r);
+		col += vec3(0.85, 0.9, 1.0) * (0.03 / (r * r * 6.0 + 0.04));
+	} else if (skin == 0) {
 		// energy tube: bands of light corkscrewing toward the viewer, a bright far end
 		vec2 tuv = vec2(th * bands + twist * 0.18 / r + spin * 0.25, 0.22 / r + travel * 0.6);
 		float n = nz(tuv) * 0.65 + nz(tuv * vec2(2.0, 0.5) + 0.37) * 0.5;
@@ -170,6 +182,10 @@ func _ready() -> void:
 	wn.frequency = 0.035
 	wn.fractal_octaves = 3
 	wm.set_shader_parameter("noise_tex", ImageTexture.create_from_image(wn.get_seamless_image(128, 128)))
+	if ResourceLoader.exists("res://assets/fx/warp_tunnel.jpg"):   # v1.9z: the owner's jump-gate tunnel picture
+		wm.set_shader_parameter("tunnel_tex", load("res://assets/fx/warp_tunnel.jpg"))
+		wm.set_shader_parameter("use_tex", true)
+		tunnel_tex_on = true
 	set_skies(null, null)
 	for i in 34:
 		puffs.append([rng.randf() * TAU, rng.randf(), rng.randf_range(0.6, 1.4), rng.randf_range(0.8, 1.0)])
@@ -207,6 +223,8 @@ func _process(dt: float) -> void:
 		m.set_shader_parameter("k", warp)
 		m.set_shader_parameter("travel", travel)
 		m.set_shader_parameter("spin", spin)
+		tex_spin = fmod(tex_spin + dt * lerpf(Data.JUMP_TUNNEL_SPIN[0], Data.JUMP_TUNNEL_SPIN[1], pace), 1.0)   # v1.9z (owner): it spins, faster as you speed up
+		m.set_shader_parameter("tex_spin", tex_spin)
 		m.set_shader_parameter("layers", clampi(Data.RIFT_LAYERS if skin == "rift" else Data.CLOUD_LAYERS, 1, 12))
 		var wc := Color.from_hsv(warp_color.h, maxf(warp_color.s, Data.WARP_MIN_COLOUR), warp_color.v)   # a near-white star still gives a coloured tube
 		m.set_shader_parameter("color", Vector3(wc.r, wc.g, wc.b))
