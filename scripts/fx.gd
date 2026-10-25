@@ -28,6 +28,7 @@ var jumping := false   # a gate jump is on (the surface tile change reuses plain
 var booms := 0         # layers that made a boom (tests)
 var tints: Array = []  # one colour per rift layer, taken from the sky pictures
 var _warp_rect: ColorRect
+var warp_tex_on := false     # v1.9z: the warp gate tunnel wears the owner's red picture
 var tunnel_tex_on := false   # v1.9z: the jump tunnel wears the owner's picture
 var tex_spin := 0.0          # v1.9z: turns of the jump tunnel (it spins)
 var _sky_a: Texture2D
@@ -45,6 +46,8 @@ uniform sampler2D sky_a : repeat_enable, filter_linear;
 uniform sampler2D sky_b : repeat_enable, filter_linear;
 uniform sampler2D noise_tex : repeat_enable, filter_linear;
 uniform sampler2D tunnel_tex : source_color, repeat_enable, filter_linear;   // v1.9z: the owner's jump tunnel wall
+uniform sampler2D tunnel_tex_b : source_color, repeat_enable, filter_linear; // v1.9z: the owner's warp gate tunnel wall
+uniform bool use_tex_b = false;
 uniform bool use_tex = false;
 uniform float tex_spin = 0.0;
 uniform float aspect = 1.78;
@@ -60,11 +63,12 @@ void fragment() {
 	float r = length(p) + 0.0001;
 	float th = atan(p.y, p.x) / TAU;
 	vec3 col = vec3(0.0);
-	if (skin == 0 && use_tex) {
-		// v1.9z (owner's jump-gate picture): his unwrapped tunnel wall rushing at you and spinning; streaks run along
+	if ((skin == 0 && use_tex) || (skin == 1 && use_tex_b)) {
+		// v1.9z (owner's pictures): his unwrapped tunnel wall rushing at you and spinning; streaks run along.
+		// Jump gates: the blue one; warp gates: the red one.
 		float depth = 0.26 / r;
 		vec2 tuv = vec2(depth + travel * 0.6, th + tex_spin + depth * twist * 0.08);
-		col = textureLod(tunnel_tex, tuv, 0.0).rgb * 1.25;
+		col = (skin == 0 ? textureLod(tunnel_tex, tuv, 0.0).rgb : textureLod(tunnel_tex_b, tuv, 0.0).rgb) * 1.25;
 		col *= 0.25 + 0.95 * smoothstep(0.0, 0.42, r);
 		col += vec3(0.85, 0.9, 1.0) * (0.03 / (r * r * 6.0 + 0.04));
 	} else if (skin == 0) {
@@ -186,6 +190,10 @@ func _ready() -> void:
 		wm.set_shader_parameter("tunnel_tex", load("res://assets/fx/warp_tunnel.jpg"))
 		wm.set_shader_parameter("use_tex", true)
 		tunnel_tex_on = true
+	if ResourceLoader.exists("res://assets/fx/warp_gate_tunnel.jpg"):   # v1.9z: the owner's warp gate tunnel picture
+		wm.set_shader_parameter("tunnel_tex_b", load("res://assets/fx/warp_gate_tunnel.jpg"))
+		wm.set_shader_parameter("use_tex_b", true)
+		warp_tex_on = true
 	set_skies(null, null)
 	for i in 34:
 		puffs.append([rng.randf() * TAU, rng.randf(), rng.randf_range(0.6, 1.4), rng.randf_range(0.8, 1.0)])

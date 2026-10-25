@@ -9112,7 +9112,7 @@ func _job_v19s() -> void:
 		if (neb[i]["center"] as Vector3).distance_to(sysd["station"]["pos"]) < float(neb[i]["radius"]) + 1000.0: clear = false
 		if (neb[i]["color"] as Color).is_equal_approx(neb[0]["color"]): clear = false
 	_check("v1.9s: every system has its own nebula grown to %.1f km across plus %d more clouds in other sizes and colours, each one batch of smoke puffs (%d puffs in all), clear of the station" % [float(neb[0]["radius"]) * 0.002 if neb.size() > 0 else 0.0, neb.size() - 1, puffs],
-		main_ok and batch_ok and neb.size() == 1 + Data.NEBULA_EXTRA and clear, "%d clouds, main %s, batches %s, clear %s" % [neb.size(), main_ok, batch_ok, clear])
+		main_ok and batch_ok and neb.size() == 1 + Data.NEBULA_EXTRA + neb.filter(func(x): return str(x.get("gate", "")) != "").size() and clear, "%d clouds, main %s, batches %s, clear %s" % [neb.size(), main_ok, batch_ok, clear])
 	if neb.is_empty(): return
 	main.hud.move_vec = Vector2.ZERO
 	var c0: Vector3 = neb[0]["center"]
@@ -9154,25 +9154,20 @@ func _job_v19s() -> void:
 	await _shot("v19s_map_nebulae", 0.3)
 	main.navmap.visible = false
 	main._on_map_closed()
-	var gate_in := false
-	for nd in neb:
-		if str(nd.get("gate", "")) == "": continue
-		for g in sysd["gates"]:
-			if str(g.get("id", "")) == nd["gate"] and (g["pos"] as Vector3).distance_to(nd["center"]) < float(nd["radius"]) * 0.5: gate_in = true
-	var with_gate := 0
+	var warp_n := 0   # v1.9z (owner): every WARP gate hides in its own cloud (no other gate does)
+	var warp_in := 0
+	var other_in := 0
 	for sid in Data.SYSTEMS:
-		for nd in SpaceSystem.nebulae_of(sid, Data.SYSTEMS[sid]):
-			if str(nd.get("gate", "")) != "": with_gate += 1
-	for nd in neb:
-		if str(nd.get("gate", "")) == "": continue
-		for g in sysd["gates"]:
-			if str(g.get("id", "")) != nd["gate"]: continue
-			var gp: Vector3 = g["pos"]
-			var away: Vector3 = (gp - (nd["center"] as Vector3)).normalized() if gp.distance_to(nd["center"]) > 1.0 else Vector3.FORWARD
-			_tp(gp + Vector3(0, 60, 0) + away.cross(Vector3.UP).normalized() * 520.0, gp)
-			await _frames(4)
-			await _shot("v19s_gate_in_cloud", 0.4)
-	_check("v1.9s (owner: gates in the clouds like Freelancer): one of this system's gates sits inside its own cloud (%d of %d systems)" % [with_gate, Data.SYSTEMS.size()], gate_in and with_gate * 2 > Data.SYSTEMS.size(), "gate in a cloud %s" % gate_in)
+		var nbs: Array = SpaceSystem.nebulae_of(sid, Data.SYSTEMS[sid])
+		for g in Data.SYSTEMS[sid]["gates"]:
+			var hid := false
+			for nd in nbs:
+				if str(nd.get("gate", "")) == str(g.get("id", "")) and (g["pos"] as Vector3).distance_to(nd["center"]) < float(nd["radius"]) * 0.5: hid = true
+			if str(g.get("gkind", "")) == "warp":
+				warp_n += 1
+				if hid: warp_in += 1
+			elif hid: other_in += 1
+	_check("v1.9z (owner): every warp gate hides inside its own cloud (%d of %d), and no jump or rift gate does" % [warp_in, warp_n], warp_n > 0 and warp_in == warp_n and other_in == 0, "other gates in clouds %d" % other_in)
 	_check("v1.9s: the extra clouds are unnamed (no new lore), tint the fog their own colour, and show on the system map (%d clouds)" % on_map, in_extra and on_map == neb.size(), "in extra %s, on map %d" % [in_extra, on_map])
 	_tp(s.station.global_position + Vector3(400, 80, 600), s.station.global_position)
 	await _frames(3)
@@ -9464,6 +9459,29 @@ func _job_v19z() -> void:
 	for i in Data.NEBULA_ROCKS: s.rocks.pop_back()
 	var mi = s.get_node_or_null("NebulaRocks")
 	if mi != null: mi.queue_free()
+	# a warp gate: a hole in space (no ring) inside its cloud
+	var wsys := ""
+	for sid in Data.SYSTEMS:
+		for g in Data.SYSTEMS[sid]["gates"]:
+			if str(g.get("gkind", "")) == "warp" and wsys == "": wsys = sid
+	var sys0: String = s.sys_id
+	var hole_ok := false
+	if wsys != "":
+		main._load_system(wsys, "station")
+		await _wait(1.6)
+		var ws := _sp()
+		for g in ws.gates:
+			if not g.get_meta("hole", false): continue
+			hole_ok = g.get_node_or_null("WarpHole") != null and g.get_node_or_null("WarpSparks") != null and not (g.get_meta("standin") as Node3D).get_child_count() > 0
+			var away: Vector3 = (g.global_position - ws.station.global_position).normalized()
+			_tp(g.global_position - away * 330.0 + Vector3(0, 30, 0), g.global_position)
+			await _frames(6)
+			await _shot("v19z_warp_gate_hole", 0.5)
+			break
+		main._load_system(sys0, "station")
+		await _wait(1.6)
+		s = _sp()
+	_check("v1.9z (owner): a warp gate is a Freelancer-style hole: a ragged swirling opening, sparks spiralling in, cloud wisps, no ring (%s)" % wsys, hole_ok)
 	# the jump-gate tunnel wears the owner's picture and spins
 	var fx = main.fx
 	fx.begin_warp("tunnel")
@@ -9473,9 +9491,14 @@ func _job_v19z() -> void:
 	await _frames(4)
 	var tun_ok: bool = fx.tunnel_tex_on and absf(fx.tex_spin - sp0) > 0.0 and (fx._warp_rect.material as ShaderMaterial).get_shader_parameter("use_tex") == true
 	await _shot("v19z_jump_tunnel", 0.1)
+	fx.begin_warp("cloud")
+	await _frames(4)
+	var warp_t_ok: bool = fx.warp_tex_on and (fx._warp_rect.material as ShaderMaterial).get_shader_parameter("use_tex_b") == true
+	await _shot("v19z_warp_gate_tunnel", 0.1)
+	tun_ok = tun_ok and warp_t_ok
 	fx.end_warp()
 	fx.warp = 0.0
-	_check("v1.9z (owner): the jump-gate tunnel is his picture, rushing at you and spinning (the warp drive keeps its plain streaks)", tun_ok, "tunnel %s" % tun_ok)
+	_check("v1.9z (owner): the jump-gate tunnel is his blue picture and the warp-gate tunnel his red one, rushing at you and spinning (the warp drive keeps its plain streaks)", tun_ok, "tunnel %s" % tun_ok)
 	_check("v1.9z (owner): deep in a cloud the sky is gone (you can't see out), and each cloud has its own weather: snow, rain, electric storm or rock field (rocks you can hit)",
 		kinds_ok and sky_gone and seen.values().all(func(x): return x) and rock_ok and Data.NEBULA_STORM_FLASH[1] < Data.NEBULA_FLASH_EVERY[0] + 0.5, "kinds %s, sky gone %s, seen %s, rocks %s" % [kinds_ok, sky_gone, seen, rock_ok])
 	_tp(s.station.global_position + Vector3(400, 80, 600), s.station.global_position)

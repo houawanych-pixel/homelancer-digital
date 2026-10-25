@@ -1212,6 +1212,10 @@ func _build_gate(d: Dictionary) -> void:
 	var standin := Node3D.new()
 	g.add_child(standin)
 	g.set_meta("standin", standin)
+	if str(d.get("gkind", "")) == "warp":   # v1.9z (owner): a warp gate is a Freelancer-style hole in space, no ring
+		g.set_meta("hole", true)
+		gate_portals.append(_warp_hole(g))
+		return
 	var ring := TorusMesh.new()
 	ring.inner_radius = 44.0
 	ring.outer_radius = 52.0
@@ -1245,6 +1249,109 @@ func _build_gate(d: Dictionary) -> void:
 	g.add_child(portal)
 	gate_portals.append(portal)
 
+## v1.9z (owner: "make the warp gates like Freelancer's"): a hole in space, not a ring. A ragged, shifting opening
+## (his red warp picture swirling inside it, see-through in the middle, a bright rim), sparks spiralling into it and a
+## few wisps of cloud round it. Returns the opening (kept with the gate portals).
+const WARP_HOLE_SHADER := """
+shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled, fog_disabled;
+uniform sampler2D tex : source_color, filter_linear_mipmap, repeat_enable;
+uniform sampler2D noise : repeat_enable, filter_linear;
+uniform vec3 rim_col : source_color = vec3(1.0, 0.55, 0.8);
+uniform float power = 1.5;
+void vertex() {
+	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(INV_VIEW_MATRIX[0] * length(MODEL_MATRIX[0].xyz), INV_VIEW_MATRIX[1] * length(MODEL_MATRIX[1].xyz), INV_VIEW_MATRIX[2], MODEL_MATRIX[3]);
+}
+void fragment() {
+	vec2 p = UV * 2.0 - 1.0;
+	float r = length(p);
+	float a = atan(p.y, p.x) / 6.2831853;
+	float t = TIME;
+	float edge = 0.52 + 0.22 * texture(noise, vec2(a * 2.0 + t * 0.03, t * 0.05)).r + 0.14 * texture(noise, vec2(a * 7.0 - t * 0.07, 0.5 + t * 0.09)).r;
+	vec2 tuv = vec2(r * 1.4 - t * 0.35, a + r * 0.7 + t * 0.06);   // the picture swirling into the hole
+	vec3 c = texture(tex, tuv).rgb;
+	float inside = smoothstep(edge, edge - 0.3, r);
+	float rim = exp(-pow((r - edge) * 10.0, 2.0));
+	float core = smoothstep(0.35, 0.0, r);
+	ALBEDO = c * 1.4 + rim_col * rim * 1.2 + vec3(1.0, 0.85, 0.95) * core * 0.5;
+	ALPHA = clamp((inside * (0.25 + 0.55 * smoothstep(0.0, edge, r)) + rim * 0.9 + core * 0.3) * power, 0.0, 1.0);
+}
+"""
+static var _hole_noise: ImageTexture
+func _warp_hole(g: Node3D) -> MeshInstance3D:
+	var q := QuadMesh.new()
+	q.size = Vector2(1, 1)
+	var hole := MeshInstance3D.new()
+	hole.name = "WarpHole"
+	hole.mesh = q
+	var sh := Shader.new()
+	sh.code = WARP_HOLE_SHADER
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	if ResourceLoader.exists("res://assets/fx/warp_gate_tunnel.jpg"): m.set_shader_parameter("tex", load("res://assets/fx/warp_gate_tunnel.jpg"))
+	if _hole_noise == null:
+		var fn := FastNoiseLite.new()
+		fn.seed = 31
+		fn.frequency = 0.03
+		fn.fractal_octaves = 3
+		_hole_noise = ImageTexture.create_from_image(fn.get_seamless_image(128, 128))
+	m.set_shader_parameter("noise", _hole_noise)
+	m.set_shader_parameter("rim_col", Data.WARP_HOLE_RIM)
+	hole.material_override = m
+	hole.scale = Vector3.ONE * Data.WARP_HOLE_SIZE
+	hole.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	hole.extra_cull_margin = Data.WARP_HOLE_SIZE
+	g.add_child(hole)
+	# sparks spiralling in
+	var sp := CPUParticles3D.new()
+	sp.name = "WarpSparks"
+	sp.amount = Data.WARP_HOLE_SPARKS
+	sp.lifetime = 2.6
+	sp.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE_SURFACE
+	sp.emission_sphere_radius = Data.WARP_HOLE_SIZE * 0.7
+	sp.gravity = Vector3.ZERO
+	sp.direction = Vector3.ZERO
+	sp.spread = 180.0
+	sp.initial_velocity_min = 2.0
+	sp.initial_velocity_max = 8.0
+	sp.radial_accel_min = -42.0
+	sp.radial_accel_max = -26.0
+	sp.tangential_accel_min = 18.0
+	sp.tangential_accel_max = 34.0
+	sp.scale_amount_min = 1.2
+	sp.scale_amount_max = 3.2
+	var sq := QuadMesh.new()
+	sq.size = Vector2(1, 1)
+	var smat := StandardMaterial3D.new()
+	smat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	smat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	smat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	smat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	smat.vertex_color_use_as_albedo = true
+	smat.disable_fog = true
+	smat.albedo_texture = _radial_texture(Color.WHITE, 0.0)
+	sq.material = smat
+	sp.mesh = sq
+	var grad := Gradient.new()
+	grad.set_color(0, Color(1.0, 0.85, 0.9, 0.0))
+	grad.add_point(0.25, Color(1.0, 0.6, 0.85, 1.0))
+	grad.set_color(1, Color(Data.WARP_HOLE_RIM, 0.0))
+	sp.color_ramp = grad
+	g.add_child(sp)
+	# wisps of cloud round it
+	for i in 7:
+		var w := MeshInstance3D.new()
+		w.mesh = q
+		var wm := _puff_mat(Data.WARP_HOLE_CLOUD, 0.55, Vector2(0.2, 0.7))
+		w.material_override = wm
+		var a := TAU * i / 7.0 + _rng.randf() * 0.5
+		w.position = Vector3(cos(a), sin(a), _rng.randf_range(-0.3, 0.3)) * Data.WARP_HOLE_SIZE * _rng.randf_range(0.45, 0.75)
+		w.scale = Vector3.ONE * Data.WARP_HOLE_SIZE * _rng.randf_range(0.5, 0.85)
+		w.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		g.add_child(w)
+	g.set_meta("radius", Data.WARP_HOLE_SIZE * 0.45)
+	return hole
+
 ## v1.9r: the gate ring and dock arch models are in: their own small packs, or the whole structures pack.
 func rings_ready() -> bool:
 	if Packs.is_ready("structures"): return true
@@ -1260,6 +1367,7 @@ func _gate_model() -> void:
 	var found := sc.find_children("*", "MeshInstance3D", true, false)
 	if not found.is_empty():
 		for g in gates:
+			if g.get_meta("hole", false): continue   # (a warp gate has no ring)
 			var mi := MeshInstance3D.new()
 			mi.mesh = (found[0] as MeshInstance3D).mesh
 			mi.scale = Vector3.ONE * GATE_RING_SCALE
@@ -1539,22 +1647,20 @@ static func nebulae_of(id: String, s: Dictionary) -> Array:
 	for x in s.get("more_planets", []): avoid.append([x["pos"], float(x.get("radius", 300.0)) + 600.0])
 	for x in s.get("more_stations", []): avoid.append([x["pos"], 700.0])
 	var shifts := [0.11, -0.13, 0.33, -0.3, 0.5]
-	# v1.9s (owner: "warp gates in the clouds like Freelancer"): one gate per system sits inside its own cloud,
-	# a jump gate first (the natural corridors are nebula vortices), else a warp or rift gate
-	var gs: Array = s.get("gates", []).duplicate()
-	gs.sort_custom(func(x, y): return (0 if str(x.get("gkind", "")) == "jump" else 1) < (0 if str(y.get("gkind", "")) == "jump" else 1))
+	# v1.9z (owner: "the warp gates are hidden inside the nebula clouds, wherever they are"): every WARP gate sits in
+	# its own cloud, Freelancer jump-hole style; systems without one have no gate cloud
+	var gs: Array = s.get("gates", []).filter(func(x): return str(x.get("gkind", "")) == "warp")
 	for g in gs:
 		var gp: Vector3 = g["pos"]
 		var gr := minf(rng.randf_range(Data.NEBULA_GATE_RADIUS[0], Data.NEBULA_GATE_RADIUS[1]), gp.distance_to(o) - 1100.0)
 		if gr < Data.NEBULA_GATE_RADIUS[0] * 0.7: continue
 		var c0 := gp + Vector3(rng.randfn(0, 1), rng.randfn(0, 0.4), rng.randfn(0, 1)).normalized() * gr * 0.2
 		if c0.distance_to(out[0]["center"]) < gr + float(out[0]["radius"]) * 0.6: continue
-		var gcol: Color = (n["color"] as Color)
-		gcol.h = fposmod(gcol.h + float(shifts[rng.randi_range(0, shifts.size() - 1)]), 1.0)
+		var gcol: Color = Data.WARP_HOLE_CLOUD.lerp(n["color"], 0.25)   # (the warp gate's red-purple, a touch of the system's)
 		out.append({"name": "", "center": c0, "radius": gr, "color": gcol, "main": false, "gate": str(g.get("id", ""))})
-		break
 	var tries := 0
-	while out.size() < 1 + Data.NEBULA_EXTRA and tries < 120:
+	var gate_clouds := out.size() - 1
+	while out.size() < 1 + gate_clouds + Data.NEBULA_EXTRA and tries < 120:
 		tries += 1
 		var r := rng.randf_range(Data.NEBULA_EXTRA_RADIUS[0], Data.NEBULA_EXTRA_RADIUS[1])
 		var a := rng.randf() * TAU
@@ -4679,6 +4785,7 @@ func _ambient_anim(dt: float) -> void:
 	if is_instance_valid(planet_clouds): planet_clouds.rotate_y(dt * 0.006)
 	for gp in gate_portals:
 		if not is_instance_valid(gp): continue
+		if gp.material_override is ShaderMaterial: continue   # (a warp hole animates in its shader)
 		gp.rotate_object_local(Vector3.UP, dt * 0.8)
 		var pm := gp.material_override as StandardMaterial3D
 		pm.albedo_color.a = 0.4 + 0.15 * sin(time * 2.0)
