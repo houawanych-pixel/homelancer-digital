@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v1.9s"
+const VERSION := "v1.9t"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -789,6 +789,7 @@ const FOG_COLOR := Color(0.62, 0.65, 0.7)
 const NEBULA_SIZE := 3.2              # the system's own nebula is this many times its listed radius (Violet Reach: ~3 km across)
 const NEBULA_EXTRA := 3               # extra unnamed clouds in every system, other sizes and colours
 const NEBULA_EXTRA_RADIUS := [700.0, 1600.0]
+const NEBULA_GATE_RADIUS := [850.0, 1300.0]   # the cloud a gate hides in (Freelancer: gates in the clouds); one of the extras
 const NEBULA_EXTRA_DIST := [2600.0, 5800.0]   # how far from the main station the extra clouds sit
 const NEBULA_PUFFS := 240             # smoke puffs in a full-size cloud (smaller clouds get fewer)
 const NEBULA_PUFF_ALPHA := 0.55

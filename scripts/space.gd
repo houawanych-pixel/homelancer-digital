@@ -1538,6 +1538,20 @@ static func nebulae_of(id: String, s: Dictionary) -> Array:
 	for x in s.get("more_planets", []): avoid.append([x["pos"], float(x.get("radius", 300.0)) + 600.0])
 	for x in s.get("more_stations", []): avoid.append([x["pos"], 700.0])
 	var shifts := [0.11, -0.13, 0.33, -0.3, 0.5]
+	# v1.9s (owner: "warp gates in the clouds like Freelancer"): one gate per system sits inside its own cloud,
+	# a jump gate first (the natural corridors are nebula vortices), else a warp or rift gate
+	var gs: Array = s.get("gates", []).duplicate()
+	gs.sort_custom(func(x, y): return (0 if str(x.get("gkind", "")) == "jump" else 1) < (0 if str(y.get("gkind", "")) == "jump" else 1))
+	for g in gs:
+		var gp: Vector3 = g["pos"]
+		var gr := minf(rng.randf_range(Data.NEBULA_GATE_RADIUS[0], Data.NEBULA_GATE_RADIUS[1]), gp.distance_to(o) - 1100.0)
+		if gr < Data.NEBULA_GATE_RADIUS[0] * 0.7: continue
+		var c0 := gp + Vector3(rng.randfn(0, 1), rng.randfn(0, 0.4), rng.randfn(0, 1)).normalized() * gr * 0.2
+		if c0.distance_to(out[0]["center"]) < gr + float(out[0]["radius"]) * 0.6: continue
+		var gcol: Color = (n["color"] as Color)
+		gcol.h = fposmod(gcol.h + float(shifts[rng.randi_range(0, shifts.size() - 1)]), 1.0)
+		out.append({"name": "", "center": c0, "radius": gr, "color": gcol, "main": false, "gate": str(g.get("id", ""))})
+		break
 	var tries := 0
 	while out.size() < 1 + Data.NEBULA_EXTRA and tries < 120:
 		tries += 1

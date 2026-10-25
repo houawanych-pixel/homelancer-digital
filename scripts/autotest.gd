@@ -9112,6 +9112,25 @@ func _job_v19s() -> void:
 	await _shot("v19s_map_nebulae", 0.3)
 	main.navmap.visible = false
 	main._on_map_closed()
+	var gate_in := false
+	for nd in neb:
+		if str(nd.get("gate", "")) == "": continue
+		for g in sysd["gates"]:
+			if str(g.get("id", "")) == nd["gate"] and (g["pos"] as Vector3).distance_to(nd["center"]) < float(nd["radius"]) * 0.5: gate_in = true
+	var with_gate := 0
+	for sid in Data.SYSTEMS:
+		for nd in SpaceSystem.nebulae_of(sid, Data.SYSTEMS[sid]):
+			if str(nd.get("gate", "")) != "": with_gate += 1
+	for nd in neb:
+		if str(nd.get("gate", "")) == "": continue
+		for g in sysd["gates"]:
+			if str(g.get("id", "")) != nd["gate"]: continue
+			var gp: Vector3 = g["pos"]
+			var away: Vector3 = (gp - (nd["center"] as Vector3)).normalized() if gp.distance_to(nd["center"]) > 1.0 else Vector3.FORWARD
+			_tp(gp + Vector3(0, 60, 0) + away.cross(Vector3.UP).normalized() * 520.0, gp)
+			await _frames(4)
+			await _shot("v19s_gate_in_cloud", 0.4)
+	_check("v1.9s (owner: gates in the clouds like Freelancer): one of this system's gates sits inside its own cloud (%d of %d systems)" % [with_gate, Data.SYSTEMS.size()], gate_in and with_gate * 2 > Data.SYSTEMS.size(), "gate in a cloud %s" % gate_in)
 	_check("v1.9s: the extra clouds are unnamed (no new lore), tint the fog their own colour, and show on the system map (%d clouds)" % on_map, in_extra and on_map == neb.size(), "in extra %s, on map %d" % [in_extra, on_map])
 	_tp(s.station.global_position + Vector3(400, 80, 600), s.station.global_position)
 	await _frames(3)
