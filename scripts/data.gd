@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v1.9r"
+const VERSION := "v1.9s"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -784,6 +784,19 @@ const ROSTER_HAIL := ["[normal]{name}, {faction} patrol. You are clear, pilot.",
 # ---------------------------------------------------------------- Job Z (v1.4v): named stations, three placed models, the fog beacon
 const FOG_RADIUS := 700.0            # Foggiest: the grey cloud that wraps Greywhistle Beacon
 const FOG_COLOR := Color(0.62, 0.65, 0.7)
+# v1.9s (owner: Freelancer-style nebulae): each cloud is hundreds of soft smoke puffs drawn in one batch, real fog inside
+# that thickens the deeper you go, smoke streaming past the ship, lightning flashes, and more clouds per system.
+const NEBULA_SIZE := 3.2              # the system's own nebula is this many times its listed radius (Violet Reach: ~3 km across)
+const NEBULA_EXTRA := 3               # extra unnamed clouds in every system, other sizes and colours
+const NEBULA_EXTRA_RADIUS := [700.0, 1600.0]
+const NEBULA_EXTRA_DIST := [2600.0, 5800.0]   # how far from the main station the extra clouds sit
+const NEBULA_PUFFS := 240             # smoke puffs in a full-size cloud (smaller clouds get fewer)
+const NEBULA_PUFF_ALPHA := 0.55
+const NEBULA_FOG_DENSITY := 0.0034    # fog at the heart of a cloud (things ~600 m off fade into the haze)
+const NEBULA_STREAM := 22             # smoke puffs streaming past the ship inside a cloud
+const NEBULA_STREAM_RANGE := 320.0
+const NEBULA_FLASH_EVERY := [2.5, 8.0]  # seconds between lightning flashes in each cloud
+const NEBULA_HUD_TINT := 0.16         # the screen tint inside a cloud (the fog does most of the work now; was 0.36)
 const STATION_MODEL_YAW := {"hollow_requiem": 90.0}   # degrees: the dead liner lies across the docking approach
 
 # ---------------------------------------------------------------- Job Y (v1.4u): more room, cleaner prompts, lane tunnel

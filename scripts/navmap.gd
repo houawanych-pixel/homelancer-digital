@@ -412,8 +412,11 @@ func _collect() -> void:
 		k += 1
 	var belt: Dictionary = sys["asteroids"]
 	objs["belt"] = {"type": "belt", "name": belt["name"], "pos": belt["center"], "col": Color(0.82, 0.72, 0.56), "r": float(belt["radius"]), "data": belt}
-	var neb: Dictionary = sys["nebula"]
-	objs["nebula"] = {"type": "nebula", "name": neb["name"] + " nebula", "pos": neb["center"], "col": neb["color"], "r": float(neb["radius"]), "data": neb}
+	var nebs := SpaceSystem.nebulae_of(GS.system_id, sys)   # v1.9s: the grown main cloud plus the extra ones
+	for ni in nebs.size():
+		var neb: Dictionary = nebs[ni]
+		objs["nebula" if ni == 0 else "nebula%d" % ni] = {"type": "nebula", "name": (str(neb["name"]) + " nebula") if str(neb["name"]) != "" else "Nebula",
+			"pos": neb["center"], "col": neb["color"], "r": float(neb["radius"]), "data": neb}
 	var star_pos: Vector3 = space.sun_pos if space != null and space.sun_pos != Vector3.INF else -(sys.get("sun_dir", Vector3(0, -0.3, 1)) as Vector3).normalized() * Data.SUN_DIST
 	objs["star"] = {"type": "star", "name": "%s's Star" % sys["name"], "pos": star_pos, "col": sys.get("star", Color(1.0, 0.9, 0.5)), "r": 900.0, "data": {}}
 	if space != null and is_instance_valid(space.player):
@@ -476,7 +479,7 @@ func info(key: String) -> Dictionary:
 			if Data.ASTEROIDS_BLOCK: out["lines"].append("Block asteroids: shoot them to mine. Some hide gold or diamond inside; TRACTOR the pieces in.")
 		"nebula":
 			out["type"] = "Nebula"
-			out["lines"].append("Radar range drops inside it.")
+			out["lines"].append("About %.1f km across. Thick fog inside: radar range drops." % (float(o["r"]) * 2.0 / 1000.0))
 		"star":
 			out["type"] = "Star"
 			out["lines"].append("Too hot to approach: shields and repairs fail close in.")
@@ -505,6 +508,7 @@ func _layout() -> void:
 	# fit the system into the map
 	var pts := [sys["station"]["pos"], sys["planet"]["pos"], sys["gate"]["pos"], sys["asteroids"]["center"], sys["nebula"]["center"]]
 	for gd0 in sys["gates"]: pts.append(gd0["pos"])
+	for nb0 in SpaceSystem.nebulae_of(GS.system_id, sys): pts.append(nb0["center"])   # v1.9s: the extra clouds fit too
 	for xd0 in sys.get("more_planets", []): pts.append(xd0["pos"])
 	var mn := Vector2(1e9, 1e9)
 	var mx := Vector2(-1e9, -1e9)
@@ -596,14 +600,16 @@ func _draw_map() -> void:
 		var rad := Vector2(o["pos"].x, o["pos"].z).length()
 		if rad > 50.0: ci.draw_polyline(view.plane_ring(Vector3.ZERO, rad, Data.NAV_SIDES["orbit"]), Color(PLANET, 0.22), 1.5)
 	# zones lying on the grid
-	var neb: Dictionary = objs["nebula"]
-	var np := PackedVector2Array()
-	for i in 14:
-		var a := TAU * i / 14.0
-		var rr: float = float(neb["r"]) * (0.78 + 0.22 * sin(i * 2.3 + 1.0))
-		np.append(view.to_screen(neb["pos"] + Vector3(cos(a) * rr, 0, sin(a) * rr)))
-	NavGrid.cloud(ci, np, view.to_screen(neb["pos"]), neb["col"])
-	_txt(ci, view.to_screen(neb["pos"]) + Vector2(-90, 5), neb["name"], 14, (neb["col"] as Color).lightened(0.45), HORIZONTAL_ALIGNMENT_CENTER, 180)
+	for nk in objs:
+		if objs[nk]["type"] != "nebula": continue
+		var neb: Dictionary = objs[nk]
+		var np := PackedVector2Array()
+		for i in 14:
+			var a := TAU * i / 14.0
+			var rr: float = float(neb["r"]) * (0.78 + 0.22 * sin(i * 2.3 + 1.0 + nk.length()))
+			np.append(view.to_screen(neb["pos"] + Vector3(cos(a) * rr, 0, sin(a) * rr)))
+		NavGrid.cloud(ci, np, view.to_screen(neb["pos"]), neb["col"])
+		_txt(ci, view.to_screen(neb["pos"]) + Vector2(-90, 5), neb["name"], 14, (neb["col"] as Color).lightened(0.45), HORIZONTAL_ALIGNMENT_CENTER, 180)
 	var belt: Dictionary = objs["belt"]
 	var bc := view.to_screen(belt["pos"])
 	ci.draw_polyline(view.plane_ring(belt["pos"], belt["r"], Data.NAV_SIDES["ring"]), Color(belt["col"], 0.8), 2.0)

@@ -1042,7 +1042,8 @@ func _draw() -> void:
 	if space.underwater: draw_rect(Rect2(Vector2.ZERO, S), Color(Data.UNDERWATER_TINT, Data.UNDERWATER_TINT.a * (0.85 + 0.15 * sin(t * 1.7))))   # v1.8j: light through water
 	if space.in_nebula > 0.0:
 		var lit: float = space.beacon_lit   # v1.4r: a light beacon lights the cloud: the haze thins and warms near the lamp
-		draw_rect(Rect2(Vector2.ZERO, S), Color(space.nebula_color.lerp(Data.BEACON_LIGHT_COLOR, lit * 0.6), 0.36 * space.in_nebula * (1.0 - Data.BEACON_HAZE_CLEAR * lit)))
+		draw_rect(Rect2(Vector2.ZERO, S), Color(space.nebula_tint.lerp(Data.BEACON_LIGHT_COLOR, lit * 0.6), Data.NEBULA_HUD_TINT * space.in_nebula * (1.0 - Data.BEACON_HAZE_CLEAR * lit)))   # (v1.9s: real fog does most of it now)
+		if space.nebula_flash > 0.01: draw_rect(Rect2(Vector2.ZERO, S), Color(0.85, 0.92, 1.0, 0.22 * space.nebula_flash))   # lightning in the cloud
 	if space.sun_surface:   # on a star: everything is seen through a hot yellow haze (your heat shield, if you have one)
 		draw_rect(Rect2(Vector2.ZERO, S), Color(1.0, 0.82, 0.25, 0.16 + 0.04 * sin(t * 3.1)))
 	if space.sun_flare > 0.01:   # sun bloom: washes the view out the closer and more head-on you fly at it
@@ -1187,7 +1188,7 @@ func _draw() -> void:
 	_text(Vector2(col_w, 144), line2, Data.OBJECTIVE_FONT, GOLD if msg_t > 0.0 else WHITE, HORIZONTAL_ALIGNMENT_CENTER, S.x - col_w * 2)
 	var zone := ""
 	if space.surface_mode: zone = "%s  ·  ALT %d m" % [Surface.tile_name(space.planet_id, space.tile), int(space.altitude)]
-	elif space.in_nebula > 0.0: zone = "%s NEBULA — SENSORS DEGRADED" % Data.SYSTEMS[GS.system_id]["nebula"]["name"].to_upper()
+	elif space.in_nebula > 0.0: zone = ("%s NEBULA — SENSORS DEGRADED" % space.nebula_name().to_upper()) if space.nebula_name() != "" else "NEBULA — SENSORS DEGRADED"
 	elif space.in_belt: zone = ("%s RINGS — MINE THE ROCKS" % str(Data.SYSTEMS[GS.system_id]["planet"]["name"]).to_upper()) if space.in_ring(space.player.global_position) else "%s — WATCH FOR ROCKS" % Data.SYSTEMS[GS.system_id]["asteroids"]["name"].to_upper()
 	if zone != "": _text(Vector2(col_w, 164), zone, 14, CYAN_HI, HORIZONTAL_ALIGNMENT_CENTER, S.x - col_w * 2)
 	# defence and special moves (right block), speed (left block)

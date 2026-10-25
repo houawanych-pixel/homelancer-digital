@@ -999,6 +999,15 @@ func _run() -> void:
 		await _job_v19p()
 		await _job_v19q()
 		await _job_v19r()
+		await _job_v19s()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
+	if OS.get_environment("HL_V19S") != "":   # the v1.9s nebula checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_v19s()
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
@@ -1742,6 +1751,7 @@ func _run() -> void:
 	await _job_v19p()
 	await _job_v19q()
 	await _job_v19r()
+	await _job_v19s()
 	await _blocks()
 	await _regions()
 	await _galaxy()
@@ -9038,6 +9048,73 @@ func _job_v19r() -> void:
 	GS.god_mode = true
 	await _launch()
 	_sp().controls = true
+
+## v1.9s (owner, Oct 25): Freelancer-style nebulae: hundreds of soft smoke puffs in one batch per cloud, real fog inside
+## that thickens with depth, smoke streaming past the ship, lightning, and more clouds per system in other sizes and colours.
+func _job_v19s() -> void:
+	var s := _sp()
+	if s.surface_mode or main.state != "flight": return
+	var sysd: Dictionary = Data.SYSTEMS[s.sys_id]
+	var neb: Array = s.nebulae
+	var main_ok: bool = neb.size() >= 1 and is_equal_approx(float(neb[0]["radius"]), float(sysd["nebula"]["radius"]) * Data.NEBULA_SIZE) and float(neb[0]["radius"]) * 2.0 >= 2500.0
+	var batch_ok := true
+	var puffs := 0
+	var cols: Array = []
+	for nd in neb:
+		var mmi: MultiMeshInstance3D = nd["mmi"]
+		if not is_instance_valid(mmi) or mmi.multimesh.instance_count < 100: batch_ok = false
+		else: puffs += mmi.multimesh.instance_count
+		cols.append(nd["color"])
+	var clear := true
+	for i in range(1, neb.size()):
+		if (neb[i]["center"] as Vector3).distance_to(sysd["station"]["pos"]) < float(neb[i]["radius"]) + 1000.0: clear = false
+		if (neb[i]["color"] as Color).is_equal_approx(neb[0]["color"]): clear = false
+	_check("v1.9s: every system has its own nebula grown to %.1f km across plus %d more clouds in other sizes and colours, each one batch of smoke puffs (%d puffs in all), clear of the station" % [float(neb[0]["radius"]) * 0.002 if neb.size() > 0 else 0.0, neb.size() - 1, puffs],
+		main_ok and batch_ok and neb.size() == 1 + Data.NEBULA_EXTRA and clear, "%d clouds, main %s, batches %s, clear %s" % [neb.size(), main_ok, batch_ok, clear])
+	if neb.is_empty(): return
+	main.hud.move_vec = Vector2.ZERO
+	var c0: Vector3 = neb[0]["center"]
+	var r0: float = neb[0]["radius"]
+	_tp(c0 + Vector3(r0 * 1.9, r0 * 0.25, r0 * 0.6), c0)
+	await _frames(3)
+	var out_fog: bool = not s.env.environment.fog_enabled and s.in_nebula == 0.0 and not s._neb_stream.visible
+	await _shot("v19s_nebula_from_outside", 0.4)
+	_tp(c0 + Vector3(r0 * 0.88, 0, 0), c0)
+	await _frames(3)
+	var edge_d: float = s.env.environment.fog_density if s.env.environment.fog_enabled else 0.0
+	_tp(c0 + Vector3(r0 * 0.1, 0, 0), c0 + Vector3(0, 0, -r0))
+	await _frames(3)
+	var deep_d: float = s.env.environment.fog_density if s.env.environment.fog_enabled else 0.0
+	var stream_ok: bool = s._neb_stream.visible
+	await _shot("v19s_nebula_inside", 0.4)
+	_check("v1.9s: inside a cloud real fog closes in and thickens the deeper you go (edge %.4f, heart %.4f), smoke streams past the ship, radar is short" % [edge_d, deep_d],
+		out_fog and edge_d > 0.0 and deep_d > edge_d * 1.5 and stream_ok and s.in_nebula > 0.9, "outside clear %s, stream %s, depth %.2f" % [out_fog, stream_ok, s.in_nebula])
+	var f0: int = s.nebula_flashes
+	s.nebulae[s.nebula_now]["next_flash"] = 0.0
+	var lit := 0.0
+	for i in 8:
+		await _frames(1)
+		lit = maxf(lit, s.nebula_flash)
+	await _shot("v19s_nebula_lightning", 0.1)
+	_check("v1.9s: lightning flashes inside the clouds and lights up the haze round you", s.nebula_flashes > f0 and lit > 0.0, "flashes %d, lit %.2f" % [s.nebula_flashes - f0, lit])
+	var cname := ""
+	if neb.size() > 1:
+		var c1: Vector3 = neb[1]["center"]
+		_tp(c1, c1 + Vector3(0, 0, -100))
+		await _frames(3)
+		cname = main.hud.get("zone_text") if main.hud.get("zone_text") != null else ""
+	var in_extra: bool = neb.size() > 1 and s.nebula_now == 1 and s.nebula_name() == "" and s.nebula_tint.is_equal_approx(neb[1]["color"])
+	main.navmap.open(s)
+	await _frames(2)
+	var on_map := 0
+	for k in main.navmap.objs:
+		if main.navmap.objs[k]["type"] == "nebula": on_map += 1
+	await _shot("v19s_map_nebulae", 0.3)
+	main.navmap.visible = false
+	main._on_map_closed()
+	_check("v1.9s: the extra clouds are unnamed (no new lore), tint the fog their own colour, and show on the system map (%d clouds)" % on_map, in_extra and on_map == neb.size(), "in extra %s, on map %d" % [in_extra, on_map])
+	_tp(s.station.global_position + Vector3(400, 80, 600), s.station.global_position)
+	await _frames(3)
 
 func _job_v19o() -> void:
 	var s: SpaceSystem = main.space

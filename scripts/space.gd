@@ -1520,34 +1520,280 @@ func blast_asteroid(ast, at: Vector3, kind: String) -> int:
 		hit += 1
 	return hit
 
+## v1.9s (owner: Freelancer-style nebulae). Every cloud in a system: the system's own nebula (grown Data.NEBULA_SIZE
+## times) plus Data.NEBULA_EXTRA smaller unnamed clouds in other sizes and colours, placed clear of the station,
+## planets, belt and gates. The same list every time for a system, so the nav map draws the same clouds.
+static func nebulae_of(id: String, s: Dictionary) -> Array:
+	var out: Array = []
+	var n: Dictionary = s.get("nebula", {})
+	if n.is_empty() or float(n.get("radius", 0.0)) <= 1.0: return out
+	out.append({"name": str(n["name"]), "center": n["center"], "radius": float(n["radius"]) * Data.NEBULA_SIZE, "color": n["color"], "main": true})
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(id + "_nebulae")
+	var o: Vector3 = s["station"]["pos"]
+	var avoid: Array = [[o, 1100.0], [s["planet"]["pos"], float(s["planet"]["radius"]) + 700.0]]
+	var belt: Dictionary = s.get("asteroids", {})
+	if not belt.is_empty(): avoid.append([belt["center"], float(belt["radius"]) + 300.0])
+	for g in s.get("gates", []): avoid.append([g["pos"], 600.0])
+	for x in s.get("more_planets", []): avoid.append([x["pos"], float(x.get("radius", 300.0)) + 600.0])
+	for x in s.get("more_stations", []): avoid.append([x["pos"], 700.0])
+	var shifts := [0.11, -0.13, 0.33, -0.3, 0.5]
+	var tries := 0
+	while out.size() < 1 + Data.NEBULA_EXTRA and tries < 120:
+		tries += 1
+		var r := rng.randf_range(Data.NEBULA_EXTRA_RADIUS[0], Data.NEBULA_EXTRA_RADIUS[1])
+		var a := rng.randf() * TAU
+		var dist := rng.randf_range(Data.NEBULA_EXTRA_DIST[0], Data.NEBULA_EXTRA_DIST[1])
+		var c := o + Vector3(cos(a) * dist, rng.randf_range(-350.0, 350.0), sin(a) * dist)
+		var ok := true
+		for av in avoid:
+			if c.distance_to(av[0]) < r + float(av[1]): ok = false
+		for nd in out:
+			if c.distance_to(nd["center"]) < r + float(nd["radius"]) + 500.0: ok = false
+		if not ok: continue
+		var col: Color = (n["color"] as Color)
+		col.h = fposmod(col.h + float(shifts[(out.size() - 1 + rng.randi_range(0, 1)) % shifts.size()]), 1.0)
+		col.s = clampf(col.s * rng.randf_range(0.8, 1.15), 0.25, 0.9)
+		col.v = clampf(col.v * rng.randf_range(0.85, 1.1), 0.55, 1.0)
+		out.append({"name": "", "center": c, "radius": r, "color": col, "main": false})
+	return out
+
+var nebulae: Array = []          # v1.9s: the clouds in this system (see nebulae_of), each with its puff batch and lightning
+var nebula_now := -1             # the cloud you're deepest in (-1: none)
+var nebula_tint := Color.WHITE   # the colour of the haze you're in
+var nebula_flash := 0.0          # 0..1 lightning lighting up the cloud around you
+var nebula_flashes := 0          # lightning flashes so far (checks)
+var _neb_stream: MultiMeshInstance3D
+var _neb_stream_mat: ShaderMaterial
+var _neb_fog_on := false
+static var _puff_tex: ImageTexture
+static var _puff_sh: Shader
+static var _puff_quad: QuadMesh
+
+## One soft smoke puff picture (white, the shader tints it), made once and shared by every cloud.
+static func puff_texture() -> ImageTexture:
+	if _puff_tex != null: return _puff_tex
+	var sz := 128
+	var nz := FastNoiseLite.new()
+	nz.seed = 1977
+	nz.frequency = 0.035
+	nz.fractal_octaves = 4
+	var img := Image.create(sz, sz, false, Image.FORMAT_RGBA8)
+	for y in sz:
+		for x in sz:
+			var d := Vector2(x - sz / 2.0 + 0.5, y - sz / 2.0 + 0.5).length() / (sz / 2.0)
+			var v := (nz.get_noise_2d(x, y) + 1.0) * 0.5
+			var fall := clampf(1.0 - d, 0.0, 1.0)
+			var a := pow(fall, 1.4) * clampf(v * 1.7 - 0.25, 0.0, 1.0)
+			var b := 0.72 + 0.4 * v
+			img.set_pixel(x, y, Color(b, b, b, clampf(a, 0.0, 1.0)))
+	img.generate_mipmaps()
+	_puff_tex = ImageTexture.create_from_image(img)
+	return _puff_tex
+
+## The puff shader: each puff faces the camera, turned its own way, fades out as you get close (so you fly into the fog,
+## not through a flat picture), and lights up white when lightning flashes near it.
+static func puff_shader() -> Shader:
+	if _puff_sh != null: return _puff_sh
+	_puff_sh = Shader.new()
+	_puff_sh.code = """
+shader_type spatial;
+render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
+uniform sampler2D tex : source_color, filter_linear_mipmap, repeat_disable;
+uniform vec4 tint : source_color = vec4(1.0);
+uniform float alpha = 0.3;
+uniform vec2 near_fade = vec2(0.3, 1.0);
+uniform vec3 flash_pos = vec3(0.0);
+uniform float flash_amt = 0.0;
+uniform float flash_r = 600.0;
+varying float v_fade;
+varying float v_fl;
+void vertex() {
+	vec3 wpos = MODEL_MATRIX[3].xyz;
+	float sc = length(MODEL_MATRIX[0].xyz);
+	float h = fract(sin(dot(wpos, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+	float an = h * 6.2831853;
+	vec2 q = mat2(vec2(cos(an), sin(an)), vec2(-sin(an), cos(an))) * VERTEX.xy;
+	VERTEX = vec3(q, 0.0);
+	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(INV_VIEW_MATRIX[0] * sc, INV_VIEW_MATRIX[1] * sc, INV_VIEW_MATRIX[2] * sc, vec4(wpos, 1.0));
+	float d = distance(wpos, INV_VIEW_MATRIX[3].xyz);
+	v_fade = smoothstep(sc * near_fade.x, sc * near_fade.y, d);
+	v_fl = flash_amt * clamp(1.0 - distance(wpos, flash_pos) / flash_r, 0.0, 1.0);
+}
+void fragment() {
+	vec4 t = texture(tex, UV);
+	ALBEDO = t.rgb * tint.rgb * COLOR.rgb + vec3(0.85, 0.92, 1.0) * v_fl * 1.4;
+	ALPHA = clamp(t.a * (alpha * COLOR.a * (1.0 + v_fl * 0.8)) * v_fade, 0.0, 1.0);
+}
+"""
+	return _puff_sh
+
+func _puff_mat(col: Color, a: float, near: Vector2) -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = puff_shader()
+	m.set_shader_parameter("tex", puff_texture())
+	m.set_shader_parameter("tint", col)
+	m.set_shader_parameter("alpha", a)
+	m.set_shader_parameter("near_fade", near)
+	return m
+
 func _build_nebula(d: Dictionary) -> void:
+	nebulae = []
+	nebula_now = -1
+	nebula_flash = 0.0
+	_neb_fog_on = false
 	nebula_center = d["center"]
-	nebula_radius = d["radius"]
 	nebula_color = d["color"]
-	var tex := [_cloud_texture(nebula_color, hash(sys_id)), _cloud_texture(nebula_color.lightened(0.2), hash(sys_id) + 3)]
-	var q := QuadMesh.new()
-	q.size = Vector2(1, 1)
+	nebula_radius = 0.0
+	var list := nebulae_of(sys_id, sys)
+	if list.is_empty(): return
+	nebula_radius = float(list[0]["radius"])
+	if _puff_quad == null:
+		_puff_quad = QuadMesh.new()
+		_puff_quad.size = Vector2(1, 1)
 	var holder := Node3D.new()
 	holder.name = "Nebula"
 	add_child(holder)
-	for i in 26:
-		var mi := MeshInstance3D.new()
-		mi.mesh = q
-		var m := StandardMaterial3D.new()
-		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-		m.albedo_texture = tex[i % 2]
-		m.albedo_color = Color(1, 1, 1, 0.55)
-		m.cull_mode = BaseMaterial3D.CULL_DISABLED
-		m.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
-		mi.material_override = m
-		var dir := Vector3(_rng.randfn(0, 1), _rng.randfn(0, 0.5), _rng.randfn(0, 1)).normalized()
-		mi.position = nebula_center + dir * _rng.randf_range(0.0, nebula_radius * 0.85)
-		var s := _rng.randf_range(260.0, 460.0)
-		mi.scale = Vector3(s, s, s)
-		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		holder.add_child(mi)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(sys_id) + 7
+	for nd: Dictionary in list:
+		var r := float(nd["radius"])
+		var count := int(Data.NEBULA_PUFFS * clampf(r / 1500.0, 0.45, 1.0))
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_colors = true
+		mm.mesh = _puff_quad
+		mm.instance_count = count
+		var lobes: Array = []   # a lumpy cloud: puffs gather round a few lobes, not one ball
+		for i in rng.randi_range(4, 7): lobes.append(Vector3(rng.randfn(0, 1), rng.randfn(0, 0.5), rng.randfn(0, 1)).normalized() * rng.randf_range(0.0, r * 0.5))
+		var pts := PackedVector3Array()
+		for i in count:
+			var p: Vector3 = lobes[i % lobes.size()] + Vector3(rng.randfn(0, 1), rng.randfn(0, 0.6), rng.randfn(0, 1)) * r * 0.27
+			if p.length() > r * 0.9: p = p.normalized() * r * rng.randf_range(0.55, 0.9)
+			var k := p.length() / r
+			var sc := r * rng.randf_range(0.13, 0.36) * (1.2 - 0.5 * k)
+			mm.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ONE * sc), p))
+			var v := rng.randf_range(0.45, 1.3) if rng.randf() < 0.8 else rng.randf_range(0.2, 0.4)   # light and dark smoke
+			var hue := Color(v, v * rng.randf_range(0.9, 1.08), v * rng.randf_range(0.92, 1.15), rng.randf_range(0.45, 1.0) * (1.0 - 0.35 * k))
+			mm.set_instance_color(i, hue)
+			pts.append(p)
+		var mmi := MultiMeshInstance3D.new()
+		mmi.name = "Cloud" if nd["main"] else "Cloud%d" % nebulae.size()
+		mmi.multimesh = mm
+		mmi.position = nd["center"]
+		mmi.custom_aabb = AABB(-Vector3.ONE * r * 1.6, Vector3.ONE * r * 3.2)
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var mat := _puff_mat(nd["color"], Data.NEBULA_PUFF_ALPHA, Vector2(0.3, 1.0))
+		mat.set_shader_parameter("flash_r", r * 0.5)
+		mmi.material_override = mat
+		holder.add_child(mmi)
+		nd["mmi"] = mmi
+		nd["mat"] = mat
+		nd["pts"] = pts
+		nd["next_flash"] = rng.randf_range(0.5, Data.NEBULA_FLASH_EVERY[1])
+		nd["flash_t"] = -1.0
+		nd["flash_at"] = nd["center"]
+		nebulae.append(nd)
+	# smoke streaming past the ship inside a cloud: a few small puffs kept round the player, shown only in the fog
+	var sm := MultiMesh.new()
+	sm.transform_format = MultiMesh.TRANSFORM_3D
+	sm.use_colors = true
+	sm.mesh = _puff_quad
+	sm.instance_count = Data.NEBULA_STREAM
+	for i in Data.NEBULA_STREAM:
+		sm.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ONE * rng.randf_range(28.0, 70.0)), Vector3(0, -1e6, 0)))
+		sm.set_instance_color(i, Color(1, 1, 1, rng.randf_range(0.5, 1.0)))
+	_neb_stream = MultiMeshInstance3D.new()
+	_neb_stream.name = "NebulaStream"
+	_neb_stream.multimesh = sm
+	_neb_stream.top_level = true
+	_neb_stream.custom_aabb = AABB(-Vector3.ONE * 4e6, Vector3.ONE * 8e6)
+	_neb_stream.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_neb_stream_mat = _puff_mat(nebula_color, 0.0, Vector2(0.12, 0.7))
+	_neb_stream.material_override = _neb_stream_mat
+	_neb_stream.visible = false
+	holder.add_child(_neb_stream)
+
+## How deep you are in the deepest cloud (0..1), and which one.
+func _nebula_depth(p: Vector3) -> void:
+	var best := 0.0
+	var idx := -1
+	for i in nebulae.size():
+		var nd: Dictionary = nebulae[i]
+		var r: float = nd["radius"]
+		var k := clampf((r - p.distance_to(nd["center"])) / (r * 0.35), 0.0, 1.0)
+		if k > best:
+			best = k
+			idx = i
+	in_nebula = best
+	nebula_now = idx
+	if idx >= 0: nebula_tint = nebulae[idx]["color"]
+
+func nebula_name() -> String:
+	if nebula_now < 0 or nebula_now >= nebulae.size(): return ""
+	return str(nebulae[nebula_now]["name"])
+
+## Lightning, the fog and the streaming smoke, every frame.
+func _update_nebulae(dt: float) -> void:
+	if nebulae.is_empty() or surface_mode: return
+	var pp: Vector3 = player.global_position
+	nebula_flash = 0.0
+	for i in nebulae.size():
+		var nd: Dictionary = nebulae[i]
+		var r: float = nd["radius"]
+		nd["next_flash"] = float(nd["next_flash"]) - dt
+		if float(nd["next_flash"]) <= 0.0:
+			nd["next_flash"] = _rng.randf_range(Data.NEBULA_FLASH_EVERY[0], Data.NEBULA_FLASH_EVERY[1])
+			var pts: PackedVector3Array = nd["pts"]
+			nd["flash_at"] = (nd["center"] as Vector3) + pts[_rng.randi() % pts.size()]
+			nd["flash_t"] = 0.0
+			nebula_flashes += 1
+			(nd["mat"] as ShaderMaterial).set_shader_parameter("flash_pos", nd["flash_at"])
+			var far := pp.distance_to(nd["flash_at"])
+			if far < r * 1.6: Sfx.play("atmo", -8.0 - 14.0 * clampf(far / (r * 1.6), 0.0, 1.0), _rng.randf_range(0.42, 0.6))   # thunder
+		var ft: float = nd["flash_t"]
+		if ft < 0.0: continue
+		ft += dt
+		nd["flash_t"] = ft
+		var amt := 0.0   # flicker, flicker, then fade
+		if ft < 0.07: amt = 1.0
+		elif ft < 0.13: amt = 0.2
+		elif ft < 0.21: amt = 0.85
+		elif ft < 0.7: amt = 0.85 * (1.0 - (ft - 0.21) / 0.49)
+		else: nd["flash_t"] = -1.0
+		(nd["mat"] as ShaderMaterial).set_shader_parameter("flash_amt", amt)
+		if i == nebula_now: nebula_flash = maxf(nebula_flash, amt * clampf(1.0 - pp.distance_to(nd["flash_at"]) / r, 0.0, 1.0))
+	# real fog inside: thickens the deeper you go
+	var e: Environment = env.environment if is_instance_valid(env) else null
+	if e != null:
+		if in_nebula > 0.001:
+			var clear := 1.0 - Data.BEACON_HAZE_CLEAR * beacon_lit
+			if not _neb_fog_on:
+				e.fog_enabled = true
+				e.fog_mode = Environment.FOG_MODE_EXPONENTIAL
+				e.fog_light_energy = 1.0
+				_neb_fog_on = true
+			e.fog_density = Data.NEBULA_FOG_DENSITY * pow(in_nebula, 1.5) * clear
+			e.fog_light_color = nebula_tint.darkened(0.35).lerp(Data.BEACON_LIGHT_COLOR, beacon_lit * 0.5).lerp(Color(0.85, 0.9, 1.0), nebula_flash * 0.7)
+			e.fog_sky_affect = 0.85 * in_nebula * clear
+		elif _neb_fog_on:
+			e.fog_enabled = false
+			_neb_fog_on = false
+	# smoke streaming past: puffs left behind are put back ahead of the ship
+	if not is_instance_valid(_neb_stream): return
+	_neb_stream.visible = in_nebula > 0.02
+	if not _neb_stream.visible: return
+	_neb_stream_mat.set_shader_parameter("tint", nebula_tint.lightened(0.15))
+	_neb_stream_mat.set_shader_parameter("alpha", 0.5 * in_nebula)
+	var mm := _neb_stream.multimesh
+	var R: float = Data.NEBULA_STREAM_RANGE
+	var ahead: Vector3 = vel.normalized() if vel.length() > 8.0 else -player.global_basis.z
+	for i in mm.instance_count:
+		var t := mm.get_instance_transform(i)
+		if t.origin.distance_to(pp) < R: continue
+		var side := Vector3(_rng.randfn(0, 1), _rng.randfn(0, 0.7), _rng.randfn(0, 1)) * R * 0.45
+		t.origin = pp + ahead * _rng.randf_range(R * 0.35, R * 0.95) + side
+		mm.set_instance_transform(i, t)
 
 ## v1.4r: the light beacon station, hidden in the nebula. Its lamp is a real light (it lights ships, rocks and the
 ## station itself) plus a bright halo that lights up the cloud around it; the cloud puffs nearest the lamp are brightened.
@@ -2285,6 +2531,7 @@ func _process(dt: float) -> void:
 	_update_special(dt)   # v1.5o
 	_update_nav()   # v1.5i
 	_update_beacon()
+	_update_nebulae(dt)   # v1.9s
 	_update_enemies(dt)
 	if not allies.is_empty(): _update_allies(dt)   # v1.9n
 	_update_traffic(dt)
@@ -4104,8 +4351,7 @@ func _collisions(dt: float) -> void:
 			player.global_position = body.global_position + n2 * hitr
 			collision_damage("station" if (body == station or not body.get_meta("info", {}).has("palette")) else "ground", -vel.dot(n2))   # Job L (a planet without a surface is ground)
 			vel = vel - n2 * vel.dot(n2) * 1.5
-	var nd := p.distance_to(nebula_center)
-	in_nebula = 0.0 if nebula_radius <= 1.0 else clampf((nebula_radius - nd) / (nebula_radius * 0.35), 0.0, 1.0)
+	_nebula_depth(p)   # v1.9s: every cloud in the system
 
 var look := Vector2.ZERO   # cockpit free-look (-1..1): the pilot's head turns toward where you steer
 const LOOK_YAW := 0.5      # radians at full look left/right
