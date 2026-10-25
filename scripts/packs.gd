@@ -31,6 +31,11 @@ const PACKS := {
 	"enemies": {"folders": ["res://assets/enemy_pilots"], "probe": "res://assets/enemy_pilots/ax01_normal.jpg"},
 	"intro": {"folders": ["res://assets/intro"], "probe": "res://assets/intro/title_movie.ogv"},
 	# v1.4s: one static interface background per faction; only the one for the station you dock at is fetched
+	"hangar_elyza": {"folders": ["res://assets/hangars"], "match": "elyza_top.", "probe": "res://assets/hangars/elyza_top.jpg"},   # v1.9y: the owner's hangar bay
+	"hangar_orion": {"folders": ["res://assets/hangars"], "match": "orion_top.", "probe": "res://assets/hangars/orion_top.jpg"},   # v1.9y: the owner's hangar bay
+	"hangar_unity": {"folders": ["res://assets/hangars"], "match": "unity_top.", "probe": "res://assets/hangars/unity_top.jpg"},   # v1.9y: the owner's hangar bay
+	"hangar_spare_a": {"folders": ["res://assets/hangars"], "match": "spare_a_top.", "probe": "res://assets/hangars/spare_a_top.jpg"},   # v1.9y: the owner's hangar bay
+	"hangar_spare_b": {"folders": ["res://assets/hangars"], "match": "spare_b_top.", "probe": "res://assets/hangars/spare_b_top.jpg"},   # v1.9y: the owner's hangar bay
 	"hubbg_unity": {"folders": ["res://assets/hub_bg"], "match": "unity.", "probe": "res://assets/hub_bg/unity.jpg"},
 	"hubbg_elyza": {"folders": ["res://assets/hub_bg"], "match": "elyza.", "probe": "res://assets/hub_bg/elyza.jpg"},
 	"hubbg_solarion": {"folders": ["res://assets/hub_bg"], "match": "solarion.", "probe": "res://assets/hub_bg/solarion.jpg"},

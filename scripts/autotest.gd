@@ -1579,7 +1579,9 @@ func _run() -> void:
 	await _shot("hub_station")
 	main.hub.show_screen("equipment")
 	await _wait(0.3)
-	var btn: Button = main.hub.find_child("Buy_pulse2", true, false)
+	(main.hub.find_child("Card_pulse2", true, false) as Button).pressed.emit()   # (v1.9y: pick the card, then BUY)
+	await _frames(2)
+	var btn: Button = main.hub.find_child("ShopBuy", true, false)
 	if btn and not btn.disabled: btn.pressed.emit()
 	await _wait(0.3)
 	_check("Weapon purchase", GS.weapon_id == "pulse2", "weapon=%s credits=%d" % [GS.weapon_id, GS.credits])
@@ -7017,7 +7019,7 @@ func _job_v19e() -> void:
 	await _until(func(): return main.state == "hub", 8.0)
 	main.hub.show_screen("equipment")
 	await _frames(3)
-	var page_ok: bool = main.hub.find_child("Mount_3", true, false) != null and main.hub.find_child("Fit_1_missile_pod", true, false) != null and main.hub.find_child("Fit_3_empty", true, false) != null and main.hub.find_child("Buy_missile_pod", true, false) != null
+	var page_ok: bool = main.hub.find_child("MountMap", true, false) != null and main.hub.find_child("Card_missile_pod", true, false) != null and main.hub.find_child("ShopInstall", true, false) != null and main.hub.find_child("ShopRemove", true, false) != null
 	await _shot("v19e_loadout_page", 0.3)
 	main.launch()
 	await _until(func(): return main.state == "flight", 8.0)
@@ -9281,16 +9283,17 @@ func _job_v19u() -> void:
 	await _until(func(): return main.state == "hub", 8.0)
 	await Packs.wait("wing_guns", 30.0)
 	main.hub.eq_sel = 0
+	main.hub.eq_tab = "weapon"
+	main.hub.eq_card = "nx_red"
 	main.hub.show_screen("equipment")
 	await _wait(0.8)
 	var hb = main.hub
 	var tt: Node3D = hb.find_child("Turntable", true, false)
 	var dressed: bool = tt != null and tt.get_child_count() > 0 and tt.get_child(0).get_node_or_null("ShowMounts") != null and tt.get_child(0).get_node("ShowMounts").get_child_count() >= 3
 	var page_ok: bool = hb.find_child("LoadoutPreview", true, false) != null and hb.find_child("MountMap", true, false) != null and hb.find_child("Up_nx_red", true, false) != null \
-		and (hb.find_child("Mount_0", true, false) as Control).visible and not (hb.find_child("Mount_2", true, false) as Control).visible and hb.find_child("FitCore_nx_purple", true, false) != null
-	var y1: float = tt.rotation.y if tt != null else 0.0
-	await _wait(0.5)
-	var turning: bool = tt != null and absf(tt.rotation.y - y1) > 0.05 and absf(tt.rotation.x) < 0.001 and absf(tt.rotation.z) < 0.001
+		and hb.find_child("ShopInstall", true, false) != null and not (hb.find_child("ShopInstall", true, false) as Button).disabled and hb.find_child("Card_nx_purple", true, false) != null
+	var bcam: Camera3D = hb.find_child("BayCam", true, false)
+	var turning: bool = bcam != null and bcam.projection == Camera3D.PROJECTION_ORTHOGONAL and (-bcam.global_basis.z).dot(Vector3.DOWN) > 0.99   # (v1.9y: the bay is a still top-down view now)
 	await _shot("v19u_equip_page", 0.4)
 	_check("v1.9u (owner): WEAPONS & GEAR shows your ship turning on a platform (yaw only) wearing its guns, a mount map to tap, and only the picked mount's fit buttons", dressed and page_ok and turning,
 		"dressed %s, page %s, turning %s" % [dressed, page_ok, turning])
@@ -9350,7 +9353,7 @@ func _job_v19w() -> void:
 	main.hub.show_screen("equipment")
 	await _wait(0.8)
 	var hb = main.hub
-	var page_ok: bool = hb.find_child("ModSlot_5", true, false) != null and hb.find_child("Mod_power_cell", true, false) != null and hb.find_child("MountMap", true, false) != null
+	var page_ok: bool = hb.find_child("ModSlot_5", true, false) != null and hb.find_child("Card_power_cell", true, false) != null and hb.find_child("MountMap", true, false) != null
 	await _shot("v19w_level3_equip", 0.4)
 	GS.ship_id = "cadet"
 	main.hub.eq_sel = -1
@@ -9377,31 +9380,40 @@ func _job_v19x() -> void:
 	await _until(func(): return main.state == "hub", 8.0)
 	var hb = main.hub
 	hb.eq_filter = "all"
+	hb.eq_tab = "weapon"
 	hb.eq_view = "ship"
 	hb.eq_sel = 0
 	hb.show_screen("equipment")
 	await _wait(0.6)
-	var lay_ok: bool = hb.find_child("Hangar", true, false) != null and not hb.left.visible and hb.find_child("Frame_3", true, false) != null and hb.find_child("SlotInfo", true, false) != null \
-		and hb.find_child("ShopGrid", true, false) != null and hb.find_child("FrameSpec", true, false) != null and (hb.find_child("Frame_2", true, false) as Button).get_theme_color("font_color") == hb.GOLD
+	var lay_ok: bool = hb.find_child("Hangar", true, false) != null and not hb.left.visible and hb.find_child("Frame_3", true, false) != null and hb.find_child("HangarBay", true, false) != null \
+		and hb.find_child("ShopGrid", true, false) != null and hb.find_child("FrameSpec", true, false) != null and hb.find_child("BayArt", true, false) != null and (hb.find_child("BayArt", true, false) as TextureRect).texture != null and (hb.find_child("Frame_2", true, false) as Button).get_theme_color("font_color") == hb.GOLD
 	await _shot("v19x_hangar_ship", 0.3)
+	var hn: String = hb._hangar_name()
+	var bays_ok := true
+	for n in Data.HANGARS:
+		if not Packs.PACKS.has("hangar_" + n) or not ResourceLoader.exists("res://assets/hangars/%s_top.jpg" % n): bays_ok = false
+	_check("v1.9y (owner's hangar bays): Unity, Elyza and Orion stations show their own top-view bay, others a spare; each bay is its own small pack (%s here)" % hn, bays_ok and hn in Data.HANGARS, hn)
 	hb.eq_view = "mech"
 	hb.show_screen("equipment")
 	await _wait(0.4)
 	var mech_ok: bool = hb._eq_mech() and hb._level_tex() != null and str(GS.level_def()["mech_art"]).ends_with("mech_level2.jpg") and hb._mount_points(Vector2(300, 400)).size() == 9
 	await _shot("v19x_hangar_mech", 0.3)
-	(hb.find_child("Filter_ammo", true, false) as Button).pressed.emit()
+	(hb.find_child("Tab_ammo", true, false) as Button).pressed.emit()
 	await _frames(3)
 	var ammo_ok: bool = (hb.find_child("EqAmmo", true, false) as Control).visible and not (hb.find_child("EqBuy", true, false) as Control).visible and hb.find_child("RestockAll", true, false) != null
+	(hb.find_child("Tab_weapon", true, false) as Button).pressed.emit()
+	await _frames(2)
 	(hb.find_child("Filter_blaster", true, false) as Button).pressed.emit()
 	await _frames(3)
-	var bl: Button = hb.find_child("Buy_nx_green", true, false)
-	var filt_ok: bool = bl != null and bl.visible and not (hb.find_child("Buy_pulse2", true, false) as Control).visible
+	var bl: Button = hb.find_child("Card_nx_green", true, false)
+	var filt_ok: bool = bl != null and bl.visible and not (hb.find_child("Card_pulse2", true, false) as Control).visible
 	(hb.find_child("HangarBack", true, false) as Button).pressed.emit()
 	await _frames(2)
 	var back_ok: bool = hb.screen == "hub" and hb.left.visible
 	_check("v1.9x (owner's HANGAR): WEAPONS & GEAR fills the screen with frame select, the blueprint and its slots, SLOT INFO, a shop grid with filters and the specs; SHOW MECH swaps in the mech blueprint; back to the station menu",
 		lay_ok and mech_ok and ammo_ok and filt_ok and back_ok, "layout %s, mech %s, ammo %s, filter %s, back %s" % [lay_ok, mech_ok, ammo_ok, filt_ok, back_ok])
 	hb.eq_filter = "all"
+	hb.eq_tab = "weapon"
 	hb.eq_view = ""
 	GS.ship_id = ship0
 	main.launch()

@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v1.9x"
+const VERSION := "v1.9y"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -985,6 +985,11 @@ const LEVELS := {
 		"uv": {-1: Vector2(0.49, 0.235), -5: Vector2(0.596, 0.235), -2: Vector2(0.442, 0.546), -3: Vector2(0.65, 0.546), -4: Vector2(0.49, 0.818), -6: Vector2(0.596, 0.818),
 			0: Vector2(0.312, 0.715), 4: Vector2(0.246, 0.805), 1: Vector2(0.154, 0.877), 2: Vector2(0.78, 0.715), 5: Vector2(0.848, 0.805), 3: Vector2(0.936, 0.877)}},
 }
+# v1.9y (owner's hangar bays, top view): each picture's landing pad sits in the middle; the number is the pad's height
+# as a share of the picture's height (the ship is sized to fill it). A faction with no bay of its own uses a spare.
+# A looping clip assets/hangars/<name>_top.ogv, when there is one, plays in place of the picture.
+const HANGARS := {"elyza": 0.62, "orion": 0.66, "unity": 0.66, "spare_a": 0.43, "spare_b": 0.4}
+const HANGAR_SPARES := ["spare_a", "spare_b"]
 const MOUNT_MID_AT := 0.62   # v1.9w: the middle wing slot (level 3) sits this far out along the wing, on top
 # v1.9w: ABILITY MODULES (names from the owner's sheet; effects PROVISIONAL). One of each kind at a time.
 const MODULE_ORDER := ["power_cell", "shield_generator", "sensor_array", "control_unit", "processor_unit", "maintenance_port"]

@@ -339,40 +339,286 @@ func _hub_page() -> void:
 	v.add_child(tips)
 
 func _equipment_page() -> void:
-	# v1.9x (owner's HANGAR layout): full width. Frame (level) select on the left, the blueprint with its slots in the
-	# middle, SLOT INFO beside it, the shop as a grid of cards on the right, the ship's specs along the bottom.
-	var root := HBoxContainer.new()
+	# v1.9y (owner's hangar layout + bay art): the docking bay fills the screen (the faction's hangar art, a looping clip
+	# when there is one), YOUR ship on the pad seen from above with a square on every slot, the menu floating on the
+	# left (HANGAR / WEAPON / EQUIPMENT / REPAIR & AMMO), the panel for that section floating on the right.
+	if not GS.level_def()["uv"].has(eq_sel) and eq_sel < 100: eq_sel = -1
+	if eq_sel >= 100 and eq_sel - 100 >= GS.module_slots(): eq_sel = -1
+	if not (eq_tab in ["hangar", "weapon", "module", "ammo"]): eq_tab = "hangar"
+	var root := Control.new()
 	root.name = "Hangar"
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	root.offset_left = 10
-	root.offset_top = 8
-	root.offset_right = -10
-	root.offset_bottom = -8
-	root.add_theme_constant_override("separation", 10)
+	root.clip_contents = true
 	content.add_child(root)
-	var items: Array = GS.mount_items()
-	if not GS.level_def()["uv"].has(eq_sel) and eq_sel < 100: eq_sel = -1   # (a slot this ship doesn't have)
-	if eq_sel >= 100 and eq_sel - 100 >= GS.module_slots(): eq_sel = -1
-	# ---- FRAME SELECT
-	var fcol := VBoxContainer.new()
-	fcol.name = "FrameSelect"
-	fcol.custom_minimum_size = Vector2(150, 0)
-	fcol.add_theme_constant_override("separation", 6)
-	root.add_child(fcol)
+	root.draw.connect(func(): root.draw_rect(Rect2(Vector2.ZERO, root.size), Color(0.05, 0.06, 0.08)))
+	var art := _bay_art()
+	root.add_child(art)
+	# the bay (middle): the ship and its slot squares
+	var bay := Control.new()
+	bay.name = "HangarBay"
+	bay.anchor_right = 0.6
+	bay.anchor_bottom = 1.0
+	bay.offset_left = 206
+	bay.offset_right = -8
+	bay.offset_bottom = -48
+	root.add_child(bay)
+	root.resized.connect(func(): _place_bay_art(art, bay))
+	bay.resized.connect(func(): _place_bay_art(art, bay))
+	get_tree().process_frame.connect(func(): _place_bay_art(art, bay), CONNECT_ONE_SHOT)
+	_hangar_bay(bay)
+	var mods := Control.new()   # the module slots along the bottom of the bay
+	mods.anchor_right = 0.6
+	mods.anchor_top = 1.0
+	mods.anchor_bottom = 1.0
+	mods.offset_left = 206
+	mods.offset_right = -8
+	mods.offset_top = -44
+	root.add_child(mods)
+	_module_strip(mods)
+	# left: the menu
+	var lp := PanelContainer.new()
+	lp.name = "HangarMenu"
+	lp.add_theme_stylebox_override("panel", _glass())
+	lp.anchor_bottom = 1.0
+	lp.offset_left = 4
+	lp.offset_top = 4
+	lp.offset_right = 198
+	lp.clip_contents = true
+	lp.offset_bottom = -4
+	root.add_child(lp)
+	var menu := VBoxContainer.new()
+	menu.add_theme_constant_override("separation", 6)
+	lp.add_child(menu)
 	var back := Button.new()
 	back.name = "HangarBack"
 	back.text = "◀ STATION"
-	back.custom_minimum_size = Vector2(150, 44)
+	back.clip_text = true
+	back.add_theme_font_size_override("font_size", Data.ts(15))
+	back.custom_minimum_size = Vector2(0, 42)
 	back.pressed.connect(func(): show_screen("hub"))
-	fcol.add_child(back)
-	var fl := _label(15, CYAN)
-	fl.text = "MECH FRAME" if _eq_mech() else "SHIP FRAME"
-	fcol.add_child(fl)
+	menu.add_child(back)
+	for tb in [["hangar", "HANGAR"], ["weapon", "WEAPON"], ["module", "EQUIPMENT"], ["ammo", "REPAIR & AMMO"]]:
+		var b := Button.new()
+		b.name = "Tab_" + tb[0]
+		b.text = tb[1]
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.custom_minimum_size = Vector2(0, 52)
+		b.clip_text = true
+		b.add_theme_font_size_override("font_size", Data.ts(16))
+		if eq_tab == tb[0]:
+			b.add_theme_color_override("font_color", GOLD)
+			b.add_theme_stylebox_override("normal", _glass(true))
+		var tid: String = tb[0]
+		b.pressed.connect(func():
+			eq_tab = tid
+			eq_card = ""
+			show_screen("equipment"))
+		menu.add_child(b)
+	var sp := Control.new()
+	sp.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	menu.add_child(sp)
+	var vw := Button.new()
+	vw.name = "EqView"
+	vw.text = "SHOW SHIP" if _eq_mech() else "SHOW MECH"
+	vw.clip_text = true
+	vw.add_theme_font_size_override("font_size", Data.ts(15))
+	vw.custom_minimum_size = Vector2(0, 44)
+	vw.pressed.connect(func():
+		eq_view = "ship" if _eq_mech() else "mech"
+		show_screen("equipment"))
+	menu.add_child(vw)
+	# right: the section's panel
+	var rp := PanelContainer.new()
+	rp.name = "HangarPanel"
+	rp.add_theme_stylebox_override("panel", _glass())
+	rp.anchor_left = 0.6
+	rp.anchor_right = 1.0
+	rp.anchor_bottom = 1.0
+	rp.offset_left = 2
+	rp.offset_top = 4
+	rp.offset_right = -4
+	rp.offset_bottom = -4
+	root.add_child(rp)
+	var shop := VBoxContainer.new()
+	shop.name = "Shop"
+	shop.add_theme_constant_override("separation", 5)
+	rp.add_child(shop)
+	var dock := VBoxContainer.new()   # HANGAR: dock status, the ship's level and its status
+	dock.name = "DockStatus"
+	dock.visible = eq_tab == "hangar"
+	dock.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	dock.add_theme_constant_override("separation", 5)
+	shop.add_child(dock)
+	_dock_status(dock)
+	var sec := VBoxContainer.new()
+	sec.visible = eq_tab != "hangar"
+	sec.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sec.add_theme_constant_override("separation", 5)
+	shop.add_child(sec)
+	_shop_panel(sec)
+
+## The see-through navy panels the hangar floats over the bay (lit = the open menu item).
+func _glass(lit := false) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.03, 0.08, 0.14, 0.86) if not lit else Color(0.06, 0.2, 0.33, 0.95)
+	sb.border_color = Color(0.3, 0.75, 1.0, 0.75)
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(6)
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
+	sb.content_margin_top = 8
+	sb.content_margin_bottom = 8
+	return sb
+
+## HANGAR panel: DOCK STATUS (the level wireframe, your frame among the three) and SHIP STATUS.
+func _dock_status(v: VBoxContainer) -> void:
+	var t := _label(16, CYAN)
+	t.text = "DOCK STATUS  ·  DOCKED  ·  %s" % str(base.get("name", "")).to_upper()
+	t.clip_text = true
+	v.add_child(t)
+	var row := HBoxContainer.new()
+	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	row.add_theme_constant_override("separation", 6)
+	v.add_child(row)
+	var bp := TextureRect.new()
+	bp.name = "DockBlueprint"
+	bp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bp.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	bp.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	var ap: String = GS.level_def()["mech_art" if _eq_mech() else "art"]
+	if ResourceLoader.exists(ap): bp.texture = load(ap)
+	row.add_child(bp)
+	var lv := VBoxContainer.new()
+	lv.add_theme_constant_override("separation", 4)
+	row.add_child(lv)
+	_ship_select(lv)
+	_spec_bar(v)
+
+## The bay art behind everything: the faction's own hangar (its looping clip <name>_top.ogv when there is one, else
+## its picture <name>_top.jpg; each in its own small pack), else a spare bay. Its landing pad sits under the ship.
+func _hangar_name() -> String:
+	var f := str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])).to_lower()
+	if Data.HANGARS.has(f): return f
+	return Data.HANGAR_SPARES[absi(hash(str(base.get("id", base.get("name", ""))))) % Data.HANGAR_SPARES.size()]
+
+func _bay_art() -> Control:
+	var nm := _hangar_name()
+	var vp := "res://assets/hangars/%s_top.ogv" % nm
+	if ResourceLoader.exists(vp):
+		var vsp := VideoStreamPlayer.new()
+		vsp.name = "BayArt"
+		vsp.stream = load(vp)
+		vsp.expand = true
+		vsp.loop = true
+		vsp.autoplay = true
+		vsp.volume_db = -80.0
+		vsp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		return vsp
+	var tr := TextureRect.new()
+	tr.name = "BayArt"
+	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tr.stretch_mode = TextureRect.STRETCH_SCALE
+	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var pk := "hangar_" + nm
+	var path := "res://assets/hangars/%s_top.jpg" % nm
+	if Packs.is_ready(pk) and ResourceLoader.exists(path): tr.texture = load(path)
+	else:
+		Packs.request(pk)
+		if not Packs.pack_ready.is_connected(_on_hangar_pack): Packs.pack_ready.connect(_on_hangar_pack)
+	return tr
+
+func _on_hangar_pack(pk: String) -> void:
+	if visible and screen == "equipment" and pk.begins_with("hangar_"): show_screen("equipment")
+
+## Fit the bay picture to cover the whole page with its landing pad centred on the bay, and size the ship to the pad.
+func _place_bay_art(art: Control, bay: Control) -> void:
+	if not is_instance_valid(art) or not is_instance_valid(bay): return
+	var root := art.get_parent() as Control
+	if root == null: return
+	var asp := 1672.0 / 941.0
+	if art is TextureRect and (art as TextureRect).texture != null: asp = (art as TextureRect).texture.get_width() / float((art as TextureRect).texture.get_height())
+	var centre: Vector2 = bay.position + Vector2(bay.size.x * 0.5, (bay.size.y + 48.0) * 0.5)
+	var pad_k: float = float(Data.HANGARS.get(_hangar_name(), 0.6))
+	var h: float = (bay.size.y + 48.0) * 0.8 / pad_k   # the pad fills the bay's height; the rest of the hangar spreads round it
+	h = maxf(h, 2.0 * maxf(centre.y, root.size.y - centre.y))
+	art.size = Vector2(h * asp, h)
+	art.position = centre - art.size * 0.5
+	var pad_px: float = h * pad_k
+	var cam: Camera3D = bay.find_child("BayCam", true, false)
+	if cam != null and pad_px > 1.0: cam.size = maxf(9.0, 11.5 * bay.size.y / (0.78 * pad_px))   # the ship fills the pad
+	var ov: Control = bay.find_child("MountMap", true, false)
+	if ov != null: ov.queue_redraw()
+
+## The bay: your ship on the pad seen from above (the mech's blueprint in mech view), a square on every slot.
+func _hangar_bay(bay: Control) -> void:
+	if _eq_mech():
+		var mm := Control.new()   # the mech: its level blueprint with the same slots
+		mm.name = "MountMap"
+		mm.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		mm.mouse_filter = Control.MOUSE_FILTER_STOP
+		bay.add_child(mm)
+		mm.draw.connect(func(): _draw_mount_map(mm))
+		mm.gui_input.connect(func(e: InputEvent): _bay_tap(e, _mount_points(mm.size)))
+		return
+	var svc := SubViewportContainer.new()
+	svc.name = "LoadoutPreview"
+	svc.stretch = true
+	svc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	svc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bay.add_child(svc)
+	preview_vp = SubViewport.new()
+	preview_vp.own_world_3d = true
+	preview_vp.transparent_bg = true
+	svc.add_child(preview_vp)
+	var cam := Camera3D.new()
+	cam.name = "BayCam"
+	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
+	cam.size = 15.0
+	cam.position = Vector3(0, 40, 0)
+	preview_vp.add_child(cam)
+	cam.look_at(Vector3.ZERO, Vector3(0, 0, -1))   # straight down, nose up the screen
+	var light := DirectionalLight3D.new()
+	light.rotation_degrees = Vector3(-70, 30, 0)
+	light.light_energy = 1.5
+	preview_vp.add_child(light)
+	var we := WorldEnvironment.new()
+	we.environment = Environment.new()
+	we.environment.background_mode = Environment.BG_CLEAR_COLOR
+	we.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	we.environment.ambient_light_color = Color(0.75, 0.78, 0.85)
+	we.environment.ambient_light_energy = 1.2
+	preview_vp.add_child(we)
+	preview_pivot = Node3D.new()
+	preview_pivot.name = "Turntable"
+	preview_vp.add_child(preview_pivot)
+	var m := ShipFactory.build(Data.SHIPS[GS.ship_id]["model"], true)
+	preview_pivot.add_child(m)
+	preview_key = GS.ship_id
+	var bb0: AABB = ShipFactory._aabb(m, Transform3D.IDENTITY)
+	var span: float = maxf(bb0.size.x * m.scale.x, bb0.size.z * m.scale.z)
+	if span > 0.01:
+		m.scale *= 11.5 / span
+		m.position = -(bb0.get_center() * m.scale)
+	_dress_mounts(m)
+	var ov := Control.new()   # the slot squares, placed where each slot sits on the ship
+	ov.name = "MountMap"
+	ov.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	ov.mouse_filter = Control.MOUSE_FILTER_STOP
+	bay.add_child(ov)
+	ov.draw.connect(func(): _draw_slots(ov, _ship_slot_points(cam, m, ov.size)))
+	ov.gui_input.connect(func(e: InputEvent): _bay_tap(e, _ship_slot_points(cam, m, ov.size)))
+	ov.resized.connect(func(): ov.queue_redraw())
+
+## The three frames (levels): their wireframes, yours lit. A tap on another says which ships are that level.
+func _ship_select(col: Control) -> void:
+	var fl := _label(13, CYAN)
+	fl.text = "MECH LEVEL" if _eq_mech() else "SHIP LEVEL"
+	col.add_child(fl)
 	for lv in [1, 2, 3]:
 		var ld: Dictionary = Data.LEVELS[lv]
 		var fb := Button.new()
 		fb.name = "Frame_%d" % lv
-		fb.custom_minimum_size = Vector2(150, 92)
+		fb.custom_minimum_size = Vector2(120, 62)
 		fb.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		fb.expand_icon = true
 		fb.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -381,84 +627,186 @@ func _equipment_page() -> void:
 		if ResourceLoader.exists(ap): fb.icon = load(ap)
 		fb.text = "LV %d  %s" % [lv, str(ld["mech_name" if _eq_mech() else "name"]).to_upper()]
 		fb.clip_text = true
-		fb.add_theme_font_size_override("font_size", Data.ts(12))
-		if lv == GS.ship_level(): fb.add_theme_color_override("font_color", GOLD)
+		fb.add_theme_font_size_override("font_size", Data.ts(10))
+		if lv == GS.ship_level():
+			fb.add_theme_color_override("font_color", GOLD)
+			fb.add_theme_stylebox_override("normal", _glass(true))
 		var lvv: int = lv
 		fb.pressed.connect(func():
 			if lvv == GS.ship_level(): status.text = "You are flying a Level %d frame." % lvv
 			else:
-				var names: Array = Data.SHIP_LEVEL.keys().filter(func(k): return int(Data.SHIP_LEVEL[k]) == lvv).map(func(k): return Data.SHIPS[k]["name"])
-				status.text = "Level %d frames: %s. Buy one at the SHIP DEALER." % [lvv, ", ".join(names)])
-		fcol.add_child(fb)
-	var vw := Button.new()   # ship / mech blueprint (the same slots: wings = arms)
-	vw.name = "EqView"
-	vw.text = "SHOW SHIP" if _eq_mech() else "SHOW MECH"
-	vw.custom_minimum_size = Vector2(150, 44)
-	vw.pressed.connect(func():
-		eq_view = "ship" if _eq_mech() else "mech"
-		show_screen("equipment"))
-	fcol.add_child(vw)
-	# ---- the blueprint, its modules, the specs
-	var mid := VBoxContainer.new()
-	mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	mid.size_flags_stretch_ratio = 1.15
-	mid.add_theme_constant_override("separation", 6)
-	root.add_child(mid)
-	_loadout_panel(mid)
-	_spec_bar(mid)
-	# ---- SLOT INFO
-	var si := VBoxContainer.new()
-	si.name = "SlotInfo"
-	si.custom_minimum_size = Vector2(200, 0)
-	si.add_theme_constant_override("separation", 6)
-	root.add_child(si)
-	var sit := _label(15, CYAN)
-	sit.text = "SLOT INFO"
-	si.add_child(sit)
-	_turntable(si)
-	var sis := ScrollContainer.new()
-	sis.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	sis.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	si.add_child(sis)
-	var v := VBoxContainer.new()
-	v.name = "EqSlotPanel"
-	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	v.add_theme_constant_override("separation", 6)
-	sis.add_child(v)
-	_slot_info(v, items)
-	# ---- SHOP
-	var shop := VBoxContainer.new()
-	shop.name = "Shop"
-	shop.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	shop.size_flags_stretch_ratio = 1.45
-	shop.add_theme_constant_override("separation", 6)
-	root.add_child(shop)
-	var st := _label(16, GOLD)
-	st.text = "SHOP"
-	shop.add_child(st)
-	var frow := HFlowContainer.new()
-	frow.name = "ShopFilters"
-	frow.add_theme_constant_override("h_separation", 4)
-	frow.add_theme_constant_override("v_separation", 4)
-	shop.add_child(frow)
-	for f in [["all", "ALL"], ["blaster", "BLASTERS"], ["gun", "GUNS"], ["pod", "MISSILE PODS"], ["module", "MODULES"], ["ammo", "AMMO & REPAIR"]]:
-		var b := Button.new()
-		b.name = "Filter_" + f[0]
-		b.text = f[1]
-		b.custom_minimum_size = Vector2(0, 40)
-		b.add_theme_font_size_override("font_size", Data.ts(13))
-		if eq_filter == f[0]: b.add_theme_color_override("font_color", GOLD)
-		var fid: String = f[0]
-		b.pressed.connect(func():
-			eq_filter = fid
+				var nms: Array = Data.SHIP_LEVEL.keys().filter(func(k): return int(Data.SHIP_LEVEL[k]) == lvv).map(func(k): return Data.SHIPS[k]["name"])
+				status.text = "Level %d: %s. Buy one at the SHIP DEALER." % [lvv, ", ".join(nms)])
+		col.add_child(fb)
+
+func _bay_tap(e: InputEvent, pts: Dictionary) -> void:
+	var tap := (e is InputEventScreenTouch and not (e as InputEventScreenTouch).pressed) or (e is InputEventMouseButton and (e as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT and not (e as InputEventMouseButton).pressed)
+	if not tap: return
+	var at: Vector2 = (e as InputEventMouseButton).position if e is InputEventMouseButton else (e as InputEventScreenTouch).position
+	var best := -9
+	var bd := 30.0
+	for k in pts:
+		var d: float = at.distance_to(pts[k])
+		if d < bd:
+			bd = d
+			best = k
+	if best > -9:
+		eq_sel = best
+		show_screen("equipment")
+
+## Where each of the ship's slots sits on screen: the same spots the guns are fitted at, seen by the bay camera.
+func _ship_slot_points(cam: Camera3D, m: Node3D, sz: Vector2) -> Dictionary:
+	var out := {}
+	if not is_instance_valid(cam) or not is_instance_valid(m) or not is_instance_valid(preview_vp): return out
+	var bb: AABB = ShipFactory._aabb(m, Transform3D.IDENTITY)
+	var hw: float = maxf(bb.size.x * 0.5, 0.5)
+	var ln: float = maxf(bb.size.z, 1.0)
+	var c: Vector3 = bb.get_center()
+	var loc := {-2: Vector3(-hw * 0.16, 0, 0.0), -3: Vector3(hw * 0.16, 0, 0.0), -4: Vector3(0, 0, ln * 0.28)}
+	var guns: Array = GS.core_slots()
+	for k in guns:
+		var ox := 0.0
+		if guns.size() > 1 and k in [-1, -5]: ox = hw * (0.14 if k == -5 else -0.14)
+		loc[k] = Vector3(ox, 0, -ln * (0.05 if k == -6 else 0.34))
+	for g in 6:
+		if not GS.mount_open(g): continue
+		var at: float = Data.MOUNT_TIP_AT if GS.is_tip(g) else (Data.MOUNT_MID_AT if g >= 4 else Data.MOUNT_SHOULDER_AT)
+		loc[g] = Vector3(GS.mount_side(g) * hw * at, 0, ln * (0.12 if GS.is_tip(g) else 0.02))
+	var vs := Vector2(preview_vp.size)
+	for k in loc:
+		var wp: Vector3 = m.global_transform * (Vector3(c.x, bb.end.y, c.z) + loc[k])
+		var sp: Vector2 = cam.unproject_position(wp)
+		out[k] = sp * (sz / vs) if vs.x > 0.0 else sp
+	return out
+
+const SLOT_LABEL := {-1: "CORE GUN", -5: "CORE GUN 2", -6: "BELLY GUN", -2: "MISSILES", -3: "SUPER MSL", -4: "MINES",
+	0: "LEFT WING", 1: "LEFT TIP", 4: "LEFT MID", 2: "RIGHT WING", 3: "RIGHT TIP", 5: "RIGHT MID"}
+func _slot_color(k: int) -> Color:
+	var items: Array = GS.mount_items()
+	match k:
+		-1, -5, -6: return Data.WEAPONS[GS.core_item(k)]["color"]
+		-2: return Color(1.0, 0.72, 0.3)
+		-3: return Data.HEAVY_LOCK_COLOR
+		-4: return Color(1.0, 0.3, 0.25)
+	var it: String = str(items[k])
+	if Data.WEAPONS.has(it): return Data.WEAPONS[it]["color"]
+	if Data.MOUNT_PODS.has(it): return Color(1.0, 0.6, 0.25)
+	return Color(0.4, 0.85, 1.0)
+
+## The slot squares: coloured by what they hold ("+" = empty), the picked one gold, each with its name tag.
+func _draw_slots(c: Control, pts: Dictionary) -> void:
+	var font := ThemeDB.fallback_font
+	var items: Array = GS.mount_items()
+	var mid := c.size * 0.5
+	for k in pts:
+		var p: Vector2 = pts[k]
+		var col := _slot_color(k)
+		var empty: bool = k >= 0 and str(items[k]) == "empty"
+		var r := Rect2(p - Vector2(10, 10), Vector2(20, 20))
+		c.draw_rect(r, Color(0.02, 0.06, 0.12, 0.75))
+		c.draw_rect(r, Color(col, 0.25) if empty else Color(col, 0.6))
+		c.draw_rect(r.grow(1.0), GOLD if k == eq_sel else Color(0.75, 0.95, 1.0, 0.9), false, 3.0 if k == eq_sel else 1.5)
+		if empty: c.draw_string(font, p + Vector2(-5, 6), "+", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.9, 0.97, 1.0))
+		var out := (p - mid)
+		out = out.normalized() if out.length() > 4.0 else Vector2(0, -1)
+		var lp := p + out * 46.0 + Vector2(-38, -4)
+		lp.x = clampf(lp.x, 2.0, c.size.x - 78.0)
+		lp.y = clampf(lp.y, 12.0, c.size.y - 4.0)
+		c.draw_rect(Rect2(lp + Vector2(-2, -11), Vector2(80, 15)), Color(0.02, 0.07, 0.13, 0.8))
+		c.draw_string(font, lp, str(SLOT_LABEL.get(k, "")), HORIZONTAL_ALIGNMENT_CENTER, 76, 10, GOLD if k == eq_sel else Color(0.8, 0.95, 1.0))
+
+## The bay floor behind the ship: dark deck plates, a grid, hazard stripes and lights.
+func _draw_bay_floor(c: Control) -> void:
+	var sz := c.size
+	c.draw_rect(Rect2(Vector2.ZERO, sz), Color(0.09, 0.1, 0.12))
+	var step := 46.0
+	var x := fmod(sz.x * 0.5, step) - step
+	while x < sz.x:
+		c.draw_line(Vector2(x, 0), Vector2(x, sz.y), Color(0.16, 0.18, 0.21), 1.0)
+		x += step
+	var y := 0.0
+	while y < sz.y:
+		c.draw_line(Vector2(0, y), Vector2(sz.x, y), Color(0.16, 0.18, 0.21), 1.0)
+		y += step
+	for sd in [0.12, 0.88]:   # the landing lane's hazard edges
+		var lx: float = sz.x * sd
+		var k := 0.0
+		while k < sz.y:
+			c.draw_line(Vector2(lx - 5, k), Vector2(lx + 5, k + 10), Color(0.95, 0.72, 0.15, 0.7), 4.0)
+			k += 18.0
+	for i in 6:
+		c.draw_rect(Rect2(sz.x * 0.04, sz.y * (0.1 + i * 0.16), 6, 22), Color(0.35, 0.8, 1.0, 0.75))
+		c.draw_rect(Rect2(sz.x * 0.96 - 6, sz.y * (0.1 + i * 0.16), 6, 22), Color(0.35, 0.8, 1.0, 0.75))
+	c.draw_arc(sz * 0.5, minf(sz.x, sz.y) * 0.46, 0.0, TAU, 64, Color(0.95, 0.72, 0.15, 0.35), 2.0)
+
+## The ability module slots under the bay (2 / 4 / 6 by level).
+func _module_strip(mid: Control) -> void:
+	var mrow := HBoxContainer.new()
+	mrow.name = "ModuleSlots"
+	mrow.add_theme_constant_override("separation", 4)
+	mid.add_child(mrow)
+	var ml := _label(12, CYAN)
+	ml.text = "MODULES"
+	mrow.add_child(ml)
+	var mods: Array = GS.module_items()
+	for i in mods.size():
+		var mb := Button.new()
+		mb.name = "ModSlot_%d" % i
+		mb.custom_minimum_size = Vector2(40, 40)
+		mb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		mb.expand_icon = true
+		mb.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		if mods[i] != "" and ResourceLoader.exists(str(Data.MODULES[mods[i]]["icon"])): mb.icon = load(str(Data.MODULES[mods[i]]["icon"]))
+		else: mb.text = "+"
+		if eq_sel == 100 + i: mb.add_theme_color_override("font_color", GOLD)
+		mb.pressed.connect(func():
+			eq_sel = 100 + i
+			eq_tab = "module"
 			show_screen("equipment"))
-		frow.add_child(b)
-	var vb := _eq_scroll(shop, "EqBuy", eq_filter != "ammo")
+		mrow.add_child(mb)
+	if not Packs.is_ready("wing_guns"):
+		Packs.request("wing_guns")
+		if not Packs.pack_ready.is_connected(_on_eq_pack): Packs.pack_ready.connect(_on_eq_pack)
+
+## The shop: filters, the card grid, and BUY / INSTALL (UPGRADE for an owned Nexus blaster) for the picked card.
+func _shop_panel(shop: VBoxContainer) -> void:
+	var st := _label(16, GOLD)
+	st.name = "ShopTitle"
+	st.text = {"weapon": "WEAPON SHOP", "module": "EQUIPMENT  ·  ABILITY MODULES", "ammo": "REPAIR & AMMO", "hangar": ""}[eq_tab]
+	shop.add_child(st)
+	var tgt := _label(12, CYAN)
+	tgt.name = "ShopTarget"
+	tgt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	tgt.text = "SLOT: %s  ·  %s" % [_slot_name(eq_sel), _slot_now(eq_sel)]
+	shop.add_child(tgt)
+	var va := _eq_scroll(shop, "EqAmmo", eq_tab == "ammo")   # (built every time; shown on its tab)
+	_ammo_panel(va)
+	if true:
+		var frow := HBoxContainer.new()
+		frow.name = "ShopFilters"
+		frow.visible = eq_tab == "weapon"
+		frow.add_theme_constant_override("separation", 3)
+		shop.add_child(frow)
+		for f in [["all", "ALL"], ["blaster", "BLASTER"], ["gun", "CANNON"], ["pod", "MISSILE"]]:
+			var b := Button.new()
+			b.name = "Filter_" + f[0]
+			b.text = f[1]
+			b.custom_minimum_size = Vector2(0, 34)
+			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			b.clip_text = true
+			b.add_theme_font_size_override("font_size", Data.ts(12))
+			if eq_filter == f[0]: b.add_theme_color_override("font_color", GOLD)
+			var fid: String = f[0]
+			b.pressed.connect(func():
+				eq_filter = fid
+				show_screen("equipment"))
+			frow.add_child(b)
+	var vb := _eq_scroll(shop, "EqBuy", eq_tab in ["weapon", "module"])
 	var grid := GridContainer.new()
 	grid.name = "ShopGrid"
 	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 6)
-	grid.add_theme_constant_override("v_separation", 6)
+	grid.add_theme_constant_override("h_separation", 5)
+	grid.add_theme_constant_override("v_separation", 5)
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vb.add_child(grid)
 	var cards: Array = []
@@ -469,9 +817,152 @@ func _equipment_page() -> void:
 	for mid2 in Data.MODULE_ORDER: cards.append([mid2, "module"])
 	for cd in cards:
 		var c := _card(cd[0], cd[1])
-		c.visible = eq_filter == "all" or eq_filter == cd[1]
+		c.visible = (cd[1] == "module") if eq_tab == "module" else (cd[1] != "module" and (eq_filter == "all" or eq_filter == cd[1]))
 		grid.add_child(c)
-	var va := _eq_scroll(shop, "EqAmmo", eq_filter == "ammo")
+	# BUY / INSTALL
+	var act := HBoxContainer.new()
+	act.name = "ShopActions"
+	act.visible = eq_tab != "ammo"
+	act.add_theme_constant_override("separation", 6)
+	shop.add_child(act)
+	var kind := _card_kind(eq_card)
+	var owned := _card_owned(eq_card, kind)
+	var buy := Button.new()
+	buy.name = "ShopBuy"
+	buy.text = "BUY" if eq_card == "" or not owned else "OWNED"
+	buy.custom_minimum_size = Vector2(0, 50)
+	buy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	buy.disabled = eq_card == "" or owned or GS.credits < _card_price(eq_card, kind)
+	buy.add_theme_color_override("font_color", Color(1.0, 0.78, 0.3))
+	for ab in [buy]: ab.clip_text = true
+	buy.pressed.connect(func(): status.text = _card_buy(eq_card, kind); show_screen("equipment"))
+	act.add_child(buy)
+	if owned and eq_card in Data.NEXUS_BLASTERS:
+		var u := Button.new()
+		u.name = "Up_" + eq_card
+		u.custom_minimum_size = Vector2(0, 50)
+		u.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		u.clip_text = true
+		var lid: String = eq_card
+		if GS.gun_level(lid) >= Data.BLASTER_LEVELS: u.text = "MAX MK %s" % GS.roman(Data.BLASTER_LEVELS); u.disabled = true
+		else: u.text = "MK %s  %d cr" % [GS.roman(GS.gun_level(lid) + 1), GS.upgrade_cost(lid)]; u.disabled = GS.credits < GS.upgrade_cost(lid)
+		u.pressed.connect(func(): status.text = GS.upgrade_gun(lid); show_screen("equipment"))
+		act.add_child(u)
+	var inst := Button.new()
+	inst.name = "ShopInstall"
+	inst.text = "INSTALL"
+	inst.custom_minimum_size = Vector2(0, 50)
+	inst.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	inst.disabled = eq_card == "" or not owned
+	inst.add_theme_color_override("font_color", CYAN)
+	inst.clip_text = true
+	inst.pressed.connect(func(): status.text = _card_install(eq_card, kind); show_screen("equipment"))
+	act.add_child(inst)
+	var rem := Button.new()
+	rem.name = "ShopRemove"
+	rem.text = "REMOVE"
+	rem.custom_minimum_size = Vector2(0, 50)
+	rem.clip_text = true
+	rem.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rem.disabled = not ((eq_sel >= 0 and eq_sel < 100 and str(GS.mount_items()[eq_sel]) != "empty") or (eq_sel >= 100 and GS.module_items()[eq_sel - 100] != ""))
+	rem.pressed.connect(func():
+		status.text = GS.fit_module(eq_sel - 100, "") if eq_sel >= 100 else GS.fit_mount(eq_sel, "empty")
+		show_screen("equipment"))
+	act.add_child(rem)
+
+func _slot_name(k: int) -> String:
+	if k >= 100: return "MODULE %d" % (k - 99)
+	return str(SLOT_LABEL.get(k, "?"))
+func _slot_now(k: int) -> String:
+	if k >= 100:
+		var m: String = GS.module_items()[k - 100]
+		return Data.MODULES[m]["name"] if m != "" else "empty"
+	match k:
+		-2: return "%d / %d light missiles" % [GS.missiles, GS.max_missiles()]
+		-3: return "%d / %d super missiles" % [GS.heavy_missiles, GS.max_heavy()]
+		-4: return "%d / %d mines" % [GS.mines, GS.max_mines()]
+		-1, -5, -6: return _item_name(GS.core_item(k))
+	return _item_name(str(GS.mount_items()[k]))
+
+var eq_card := ""      # v1.9y: the shop card picked (BUY / INSTALL act on it)
+## v1.9y: one card in the shop grid: colour or icon, name, price and type. Tap = pick it; BUY / INSTALL below.
+func _card(id: String, kind: String) -> Control:
+	var d: Dictionary = Data.MODULES[id] if kind == "module" else (Data.MOUNT_PODS[id] if kind == "pod" else Data.WEAPONS[id])
+	var owned := _card_owned(id, kind)
+	var b := Button.new()
+	b.name = "Card_" + id
+	b.custom_minimum_size = Vector2(100, 84)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.clip_text = true
+	b.add_theme_font_size_override("font_size", Data.ts(12))
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	b.expand_icon = true
+	b.icon_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	var tag: String = {"blaster": "BLASTER", "gun": "CANNON", "pod": "MISSILE", "module": "MODULE"}[kind]
+	if kind == "gun" and d.get("heavy", false): tag = "HEAVY"
+	var line2 := ""
+	match kind:
+		"blaster":
+			var sh := int(round(float(d["shield"]) * 100.0))
+			line2 = "%d%% shield / %d%% hull" % [sh, 100 - sh]
+		"gun": line2 = "dmg %d  ·  %.1f/s" % [int(round(GS.gun_damage(id))), float(d["rate"])]
+		"pod": line2 = "+%d missiles · +%d locks" % [int(d["ammo"]), int(d["locks"])]
+		"module": line2 = str(d["desc"])
+	var nm: String = str(d.get("short", d["name"])) if kind != "module" else str(d["name"])
+	if kind in ["blaster", "gun"] and owned: nm += " Mk %s" % GS.roman(GS.gun_level(id))
+	b.text = "%s\n%s\n%s  ·  %s" % [nm.to_upper(), line2, "OWNED" if owned else "%d cr" % int(d["price"]), tag]
+	if kind == "module" and ResourceLoader.exists(str(d["icon"])): b.icon = load(str(d["icon"]))
+	var accent: Color = (d.get("color", Color(1.0, 0.65, 0.3)) as Color) if kind != "module" else CYAN
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.04, 0.09, 0.15, 0.92)
+	sb.border_color = GOLD if id == eq_card else Color(accent, 0.7)
+	sb.set_border_width_all(3 if id == eq_card else 1)
+	sb.border_width_left = 6
+	sb.set_corner_radius_all(6)
+	sb.content_margin_left = 12
+	sb.content_margin_top = 6
+	sb.content_margin_bottom = 6
+	for stn in ["normal", "hover", "pressed", "focus"]: b.add_theme_stylebox_override(stn, sb)
+	b.add_theme_color_override("font_color", Color(1, 1, 1) if not owned else GOLD)
+	b.pressed.connect(func():
+		eq_card = id
+		show_screen("equipment"))
+	return b
+
+func _card_kind(id: String) -> String:
+	if id == "": return ""
+	if Data.MODULES.has(id): return "module"
+	if Data.MOUNT_PODS.has(id): return "pod"
+	return "blaster" if id in Data.NEXUS_BLASTERS else "gun"
+func _card_owned(id: String, kind: String) -> bool:
+	if id == "": return false
+	return (id in GS.owned_modules) if kind == "module" else (id in GS.owned_weapons)
+func _card_price(id: String, kind: String) -> int:
+	if id == "": return 0
+	return int((Data.MODULES[id] if kind == "module" else (Data.MOUNT_PODS[id] if kind == "pod" else Data.WEAPONS[id]))["price"])
+func _card_buy(id: String, kind: String) -> String:
+	match kind:
+		"module": return GS.buy_module(id)
+		"pod": return GS.buy_pod(id)
+		"": return "Pick something in the shop first."
+	return GS.buy_weapon(id)   # (a bought gun goes on every gun slot it fits, as before; INSTALL puts it on one slot)
+## Put the picked card in the picked slot.
+func _card_install(id: String, kind: String) -> String:
+	if id == "": return "Pick something in the shop first."
+	if not _card_owned(id, kind): return "Buy it first."
+	match kind:
+		"module":
+			var slot: int = eq_sel - 100 if eq_sel >= 100 else GS.module_items().find("")
+			if slot < 0: return "Tap a module slot first (all are full)."
+			return GS.fit_module(slot, id)
+		"pod":
+			if eq_sel >= 0 and eq_sel < 100: return GS.fit_mount(eq_sel, id)
+			return "Missile pods go on a wing slot: tap one on the ship."
+	if eq_sel in [-1, -5, -6]: return GS.fit_core(id, eq_sel)
+	if eq_sel >= 0 and eq_sel < 100: return GS.fit_mount(eq_sel, id)
+	return "Guns go on a gun or wing slot: tap one on the ship."
+
+func _ammo_panel(va: VBoxContainer) -> void:
 	# v1.4n: one tap each, right at the top
 	var quick := HBoxContainer.new()
 	quick.add_theme_constant_override("separation", 14)
@@ -572,218 +1063,70 @@ func _equipment_page() -> void:
 	va.add_child(row3)
 	_wrap_rows(va)
 
-var eq_filter := "all"   # v1.9x: the shop's filter
+var eq_filter := "all"   # v1.9x: the weapon shop's filter
 
-## v1.9x: SLOT INFO: what the picked slot holds, what fits it, and your own gear to swap in with one tap.
-func _slot_info(v: VBoxContainer, items: Array) -> void:
-	var names: Array = GS.MECH_MOUNT_NAMES.duplicate() if _eq_mech() else GS.mount_names()
-	var gun_names := {-1: "Front gun", -5: "Second front gun", -6: "Belly gun"}
-	var gun_k: int = eq_sel if eq_sel in [-1, -5, -6] else -1
-	var lcap := _label(15, GOLD)
-	lcap.name = "LoadoutCaption"
-	lcap.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	v.add_child(lcap)
-	var comp := _label(13, Color(0.75, 0.85, 0.95))
-	comp.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	if eq_sel >= 100:
-		var cur: String = GS.module_items()[eq_sel - 100]
-		lcap.text = "MODULE SLOT %d\n%s" % [eq_sel - 99, Data.MODULES[cur]["name"] if cur != "" else "empty"]
-		comp.text = "FITS: ability modules (one of each kind). Buy them in the shop: MODULES."
-		v.add_child(comp)
-		for mid in Data.MODULE_ORDER:
-			if not (mid in GS.owned_modules): continue
-			var mb := Button.new()
-			mb.name = "ModFit_" + mid
-			mb.text = ("[%s]" % Data.MODULES[mid]["name"]) if cur == mid else str(Data.MODULES[mid]["name"])
-			mb.disabled = cur == mid
-			mb.custom_minimum_size = Vector2(0, 42)
-			var slot: int = eq_sel - 100
-			mb.pressed.connect(func(): status.text = GS.fit_module(slot, mid); show_screen("equipment"))
-			v.add_child(mb)
-		if cur != "":
-			var eb := Button.new()
-			eb.name = "Mod_empty"
-			eb.text = "EMPTY THIS SLOT"
-			eb.custom_minimum_size = Vector2(0, 42)
-			var slot2: int = eq_sel - 100
-			eb.pressed.connect(func(): status.text = GS.fit_module(slot2, ""); show_screen("equipment"))
-			v.add_child(eb)
-	elif eq_sel in [-2, -3, -4]:   # a body bay: built into every ship
-		var bay: Array = {-2: ["LIGHT MISSILE BAY", GS.missiles, GS.max_missiles(), "Missile_", func(n): return GS.buy_missiles(n)],
-			-3: ["SUPER MISSILE BAY", GS.heavy_missiles, GS.max_heavy(), "Heavy_", func(n): return GS.buy_heavy(n)],
-			-4: ["MINE BAY", GS.mines, GS.max_mines(), "Mine_", func(n): return GS.buy_mines(n)]}[eq_sel]
-		lcap.text = "%s\n%d / %d loaded" % [bay[0], int(bay[1]), int(bay[2])]
-		comp.text = "Built into the body. More missiles: fit missile pods on the %s." % ("arms" if _eq_mech() else "wings")
-		v.add_child(comp)
-		var brow := HBoxContainer.new()
-		brow.name = "Bay_%d" % -eq_sel
-		brow.add_theme_constant_override("separation", 6)
-		for n in [1, 99]:
-			var bb := Button.new()
-			bb.name = "Bay%s%d" % [bay[3], n]
-			bb.text = "+1" if n == 1 else "FILL"
-			bb.custom_minimum_size = Vector2(90, 46)
-			bb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			bb.disabled = int(bay[1]) >= int(bay[2])
-			var buy: Callable = bay[4]
-			bb.pressed.connect(func(): status.text = buy.call(n); show_screen("equipment"))
-			brow.add_child(bb)
-		v.add_child(brow)
-	else:
-		var sel_item: String = GS.core_item(gun_k) if eq_sel < 0 else str(items[eq_sel])
-		lcap.text = "%s\n%s" % [(gun_names[eq_sel] if eq_sel < 0 else str(names[eq_sel])).to_upper(), _item_name(sel_item)]
-		comp.text = "FITS: blasters and guns (no heavy guns)." if eq_sel < 0 else ("FITS: blasters, guns, missile pods%s." % ("" if GS.is_tip(eq_sel) else ", heavy mounts"))
-		v.add_child(comp)
-		if Data.WEAPONS.has(sel_item) and sel_item in Data.NEXUS_BLASTERS:
-			var u := Button.new()
-			u.name = "Up_" + sel_item
-			u.custom_minimum_size = Vector2(0, 44)
-			if GS.gun_level(sel_item) >= Data.BLASTER_LEVELS: u.text = "MAX MK %s" % GS.roman(Data.BLASTER_LEVELS); u.disabled = true
-			else: u.text = "UPGRADE TO MK %s  ·  %d cr" % [GS.roman(GS.gun_level(sel_item) + 1), GS.upgrade_cost(sel_item)]; u.disabled = GS.credits < GS.upgrade_cost(sel_item)
-			var sid: String = sel_item
-			u.pressed.connect(func(): status.text = GS.upgrade_gun(sid); show_screen("equipment"))
-			v.add_child(u)
-	var own := _label(13, CYAN)
-	own.text = "YOUR GEAR  ·  TAP TO FIT"
-	own.visible = eq_sel in [-1, -5, -6] or (eq_sel >= 0 and eq_sel < 100)
-	v.add_child(own)
-	var guns_owned: Array = Data.WEAPON_ORDER.filter(func(x): return x in GS.owned_weapons)
-	var fit_opts: Array = guns_owned + Data.MOUNT_PODS.keys().filter(func(x): return x in GS.owned_weapons) + ["empty"]
-	var crow := HFlowContainer.new()
-	crow.name = "Mount_core"
-	crow.visible = eq_sel in [-1, -5, -6]
-	crow.add_theme_constant_override("h_separation", 4)
-	crow.add_theme_constant_override("v_separation", 4)
-	for gid in guns_owned:
-		if GS.is_heavy(gid): continue
-		var cb := Button.new()
-		cb.name = "FitCore_" + gid
-		cb.custom_minimum_size = Vector2(92, 40)
-		cb.clip_text = true
-		cb.text = ("[%s]" % Data.WEAPONS[gid]["short"]) if gid == GS.core_item(gun_k) else str(Data.WEAPONS[gid]["short"])
-		cb.disabled = gid == GS.core_item(gun_k)
-		cb.add_theme_font_size_override("font_size", Data.ts(13))
-		cb.add_theme_color_override("font_color", (Data.WEAPONS[gid]["color"] as Color).lightened(0.3))
-		cb.pressed.connect(func(): status.text = GS.fit_core(gid, gun_k); show_screen("equipment"))
-		crow.add_child(cb)
-	v.add_child(crow)
-	for mi in items.size():
-		var mrow := HFlowContainer.new()
-		mrow.name = "Mount_%d" % mi
-		mrow.visible = mi == eq_sel
-		mrow.add_theme_constant_override("h_separation", 4)
-		mrow.add_theme_constant_override("v_separation", 4)
-		if GS.mount_open(mi):
-			for opt in fit_opts:
-				if GS.is_tip(mi) and GS.is_heavy(opt): continue
-				var ob := Button.new()
-				ob.name = "Fit_%d_%s" % [mi, opt]
-				ob.custom_minimum_size = Vector2(92, 40)
-				ob.add_theme_font_size_override("font_size", Data.ts(13))
-				var onm: String = "Empty" if opt == "empty" else str((Data.WEAPONS[opt] if Data.WEAPONS.has(opt) else Data.MOUNT_PODS[opt]).get("short", opt))
-				ob.text = ("[%s]" % onm) if items[mi] == opt else onm
-				ob.disabled = items[mi] == opt
-				ob.clip_text = true
-				if Data.WEAPONS.has(opt): ob.add_theme_color_override("font_color", (Data.WEAPONS[opt]["color"] as Color).lightened(0.3))
-				ob.pressed.connect(func(): status.text = GS.fit_mount(mi, opt); show_screen("equipment"))
-				mrow.add_child(ob)
-		v.add_child(mrow)
-
-## v1.9x: one card in the shop grid: colour or icon, name, price and type. Tap: buy it (and fit it in the picked slot
-## when it fits there); already yours: fit it in the picked slot.
-func _card(id: String, kind: String) -> Control:
-	var d: Dictionary = Data.MODULES[id] if kind == "module" else (Data.MOUNT_PODS[id] if kind == "pod" else Data.WEAPONS[id])
-	var owned: bool = (id in GS.owned_modules) if kind == "module" else (id in GS.owned_weapons)
-	var b := Button.new()
-	b.name = ("Mod_" if kind == "module" else "Buy_") + id
-	b.custom_minimum_size = Vector2(140, 92)
-	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	b.clip_text = true
-	b.add_theme_font_size_override("font_size", Data.ts(12))
-	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	b.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
-	b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	b.expand_icon = true
-	var tag: String = {"blaster": "BLASTER", "gun": "GUN", "pod": "MISSILE", "module": "MODULE"}[kind]
-	if kind == "gun" and d.get("heavy", false): tag = "HEAVY"
-	var line2 := ""
-	match kind:
-		"blaster":
-			var sh := int(round(float(d["shield"]) * 100.0))
-			line2 = "%d%% shield / %d%% hull" % [sh, 100 - sh]
-		"gun": line2 = "dmg %d  ·  %.1f/s" % [int(round(GS.gun_damage(id))), float(d["rate"])]
-		"pod": line2 = "+%d missiles  ·  +%d locks" % [int(d["ammo"]), int(d["locks"])]
-		"module": line2 = str(d["desc"])
-	var nm: String = str(d.get("short", d["name"])) if kind != "module" else str(d["name"])
-	if kind in ["blaster", "gun"] and owned: nm += " Mk %s" % GS.roman(GS.gun_level(id))
-	var price: String = ("OWNED" if owned else "%d cr" % int(d["price"]))
-	if kind in ["blaster", "gun"] and id == GS.weapon_id: price = "EQUIPPED"
-	b.text = "%s\n%s\n%s  ·  %s" % [nm, line2, price, tag]
-	if kind == "module" and ResourceLoader.exists(str(d["icon"])): b.icon = load(str(d["icon"]))
-	elif kind != "module": b.add_theme_color_override("font_color", (d.get("color", Color(1.0, 0.65, 0.3)) as Color).lightened(0.35))
-	if owned and kind == "module": b.add_theme_color_override("font_color", GOLD)
-	if not owned: b.disabled = GS.credits < int(d["price"])
-	if kind in ["blaster", "gun"] and id == GS.weapon_id and not (eq_sel in [-1, -5, -6] or (eq_sel >= 0 and eq_sel < 100)): b.disabled = true
-	b.pressed.connect(func(): status.text = _card_pressed(id, kind); show_screen("equipment"))
-	return b
-
-func _card_pressed(id: String, kind: String) -> String:
-	match kind:
-		"module":
-			var msg := ""
-			if not (id in GS.owned_modules): msg = GS.buy_module(id)
-			if not (id in GS.owned_modules): return msg
-			var slot: int = eq_sel - 100 if eq_sel >= 100 else GS.module_items().find("")
-			if slot < 0: return msg if msg != "" else "Pick a module slot first (all are full)."
-			return GS.fit_module(slot, id)
-		"pod":
-			var msg := ""
-			if not (id in GS.owned_weapons): msg = GS.buy_pod(id)
-			if not (id in GS.owned_weapons): return msg
-			if eq_sel >= 0 and eq_sel < 100: return GS.fit_mount(eq_sel, id)
-			return msg if msg != "" else "Pick a wing slot on the blueprint to fit it."
-		_:
-			if not (id in GS.owned_weapons): return GS.buy_weapon(id)   # (bought guns go on every gun slot they fit, as before)
-			if eq_sel in [-1, -5, -6]: return GS.fit_core(id, eq_sel)
-			if eq_sel >= 0 and eq_sel < 100: return GS.fit_mount(eq_sel, id)
-			return GS.buy_weapon(id)
-
-## v1.9x: the frame's specs along the bottom.
+## v1.9y: SHIP SPECS along the bottom (the concept's strip): the level silhouette, bars, and the big numbers.
 func _spec_bar(parent: Control) -> void:
 	var row := HBoxContainer.new()
 	row.name = "FrameSpec"
-	row.add_theme_constant_override("separation", 12)
+	row.add_theme_constant_override("separation", 10)
 	parent.add_child(row)
+	var ic := TextureRect.new()
+	ic.custom_minimum_size = Vector2(56, 56)
+	ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	ic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	var ap: String = GS.level_def()["mech_art" if _eq_mech() else "art"]
+	if ResourceLoader.exists(ap): ic.texture = load(ap)
+	row.add_child(ic)
 	var bars := VBoxContainer.new()
 	bars.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	bars.add_theme_constant_override("separation", 2)
+	bars.add_theme_constant_override("separation", 1)
 	row.add_child(bars)
+	var t0 := _label(12, CYAN)
+	t0.text = "SHIP SPECS  (LV %d %s)" % [GS.ship_level(), str(GS.level_def()["name"]).to_upper()]
+	bars.add_child(t0)
 	var sp: Dictionary = GS.ship()
-	for it in [["HULL", GS.max_hull(), 500.0], ["SHIELD", GS.max_shield(), 260.0], ["SPEED", float(sp["speed"]), 60.0], ["TURN", float(sp["turn"]) * (1.0 + GS.mod("turn")) * 50.0, 100.0]]:
+	var g2 := GridContainer.new()
+	g2.columns = 2
+	g2.add_theme_constant_override("h_separation", 14)
+	bars.add_child(g2)
+	for it in [["HULL", GS.max_hull(), 500.0], ["SHIELD", GS.max_shield(), 260.0], ["SPEED", float(sp["speed"]), 60.0], ["MANEUVER", float(sp["turn"]) * (1.0 + GS.mod("turn")) * 50.0, 100.0]]:
 		var h := HBoxContainer.new()
-		var l := _label(12, Color(0.8, 0.9, 1.0))
-		l.text = "%s  %d" % [it[0], int(it[1])]
-		l.custom_minimum_size = Vector2(96, 0)
+		h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var l := _label(11, Color(0.8, 0.9, 1.0))
+		l.text = "%s %d" % [it[0], int(it[1])]
+		l.custom_minimum_size = Vector2(92, 0)
 		h.add_child(l)
 		var pb := ProgressBar.new()
 		pb.show_percentage = false
 		pb.max_value = float(it[2])
 		pb.value = minf(float(it[1]), float(it[2]))
-		pb.custom_minimum_size = Vector2(80, 12)
+		pb.custom_minimum_size = Vector2(60, 10)
 		pb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		pb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		var fsb := StyleBoxFlat.new()
 		fsb.bg_color = CYAN
 		pb.add_theme_stylebox_override("fill", fsb)
 		h.add_child(pb)
-		bars.add_child(h)
+		g2.add_child(h)
 	var fire := 0.0
 	for k in GS.core_slots(): fire += GS.gun_damage(GS.core_item(k)) * float(Data.WEAPONS[GS.core_item(k)]["rate"])
 	for it in GS.mount_items():
 		if Data.WEAPONS.has(it): fire += GS.gun_damage(it) * float(Data.WEAPONS[it]["rate"])
-	var nums := _label(13, GOLD)
+	for nb in [["FIREPOWER", "%d/s" % int(fire)], ["DEFENSE", "%d" % int(GS.max_hull() + GS.max_shield())], ["MISSILES", "%d+%d" % [GS.max_missiles(), GS.max_heavy()]], ["MINES", "%d" % GS.max_mines()]]:
+		var cbox := VBoxContainer.new()
+		cbox.add_theme_constant_override("separation", 0)
+		var a1 := _label(10, Color(0.7, 0.85, 1.0))
+		a1.text = nb[0]
+		cbox.add_child(a1)
+		var a2 := _label(17, GOLD)
+		a2.text = nb[1]
+		cbox.add_child(a2)
+		row.add_child(cbox)
+	var nums := _label(1, GOLD)   # (kept for the checks: the same numbers in one line)
 	nums.name = "SpecNumbers"
-	nums.text = "FIREPOWER %d/s\nMISSILES %d · SUPER %d\nMINES %d · LOCKS %d" % [int(fire), GS.max_missiles(), GS.max_heavy(), GS.max_mines(), GS.max_locks("light_missile")]
+	nums.visible = false
+	nums.text = "FIREPOWER %d/s" % int(fire)
 	row.add_child(nums)
 
 ## v1.9u: one gun in the shop: colour chip, name and Mk, what it does, BUY / EQUIP, and UPGRADE for the Nexus blasters.
@@ -965,7 +1308,7 @@ func _eq_scroll(outer: Control, nm: String, show: bool) -> VBoxContainer:
 	sc.add_child(vv)
 	return vv
 
-var eq_tab := "loadout"   # v1.9x: the open WEAPONS & GEAR tab
+var eq_tab := "weapon"   # v1.9y: the open HANGAR tab: "weapon" | "module" | "ammo"
 var eq_view := ""         # v1.9x: "ship" | "mech" blueprint ("" = the form you are flying)
 func _eq_mech() -> bool: return eq_view == "mech" or (eq_view == "" and GS.form == "mech")
 
@@ -1854,7 +2197,7 @@ func _repair_page() -> void:
 func _process(dt: float) -> void:
 	if not visible: return
 	t += dt
-	if preview_pivot and is_instance_valid(preview_pivot): preview_pivot.rotation.y = t * 0.4 + eq_yaw   # (v1.9u: drag turns the equip turntable; yaw only)
+	if preview_pivot and is_instance_valid(preview_pivot) and screen != "equipment": preview_pivot.rotation.y = t * 0.4 + eq_yaw   # (v1.9y: the hangar bay is a still top view)
 	queue_redraw()
 
 # ---------------------------------------------------------------- scenic background
