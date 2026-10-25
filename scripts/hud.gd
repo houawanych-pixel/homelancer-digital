@@ -1188,7 +1188,10 @@ func _draw() -> void:
 	_text(Vector2(col_w, 144), line2, Data.OBJECTIVE_FONT, GOLD if msg_t > 0.0 else WHITE, HORIZONTAL_ALIGNMENT_CENTER, S.x - col_w * 2)
 	var zone := ""
 	if space.surface_mode: zone = "%s  ·  ALT %d m" % [Surface.tile_name(space.planet_id, space.tile), int(space.altitude)]
-	elif space.in_nebula > 0.0: zone = ("%s NEBULA — SENSORS DEGRADED" % space.nebula_name().to_upper()) if space.nebula_name() != "" else "NEBULA — SENSORS DEGRADED"
+	elif space.in_nebula > 0.0:
+		var wx: String = Data.NEBULA_WEATHER_NAME.get(space.nebula_weather(), "")
+		zone = ("%s NEBULA" % space.nebula_name().to_upper()) if space.nebula_name() != "" else "NEBULA"
+		zone += ("  ·  " + wx if wx != "" else "") + "  ·  SENSORS DEGRADED"   # v1.9z: the cloud's weather
 	elif space.in_belt: zone = ("%s RINGS — MINE THE ROCKS" % str(Data.SYSTEMS[GS.system_id]["planet"]["name"]).to_upper()) if space.in_ring(space.player.global_position) else "%s — WATCH FOR ROCKS" % Data.SYSTEMS[GS.system_id]["asteroids"]["name"].to_upper()
 	if zone != "": _text(Vector2(col_w, 164), zone, 14, CYAN_HI, HORIZONTAL_ALIGNMENT_CENTER, S.x - col_w * 2)
 	# defence and special moves (right block), speed (left block)

@@ -1571,6 +1571,8 @@ static func nebulae_of(id: String, s: Dictionary) -> Array:
 		col.s = clampf(col.s * rng.randf_range(0.8, 1.15), 0.25, 0.9)
 		col.v = clampf(col.v * rng.randf_range(0.85, 1.1), 0.55, 1.0)
 		out.append({"name": "", "center": c, "radius": r, "color": col, "main": false})
+	for i in out.size():   # v1.9z: each cloud's own weather (the same every visit)
+		out[i]["weather"] = Data.NEBULA_WEATHERS[absi(hash(id + "_wx%d" % i)) % Data.NEBULA_WEATHERS.size()]
 	return out
 
 var nebulae: Array = []          # v1.9s: the clouds in this system (see nebulae_of), each with its puff batch and lightning
@@ -1706,6 +1708,7 @@ func _build_nebula(d: Dictionary) -> void:
 		nd["mat"] = mat
 		nd["pts"] = pts
 		nd["next_flash"] = rng.randf_range(0.5, Data.NEBULA_FLASH_EVERY[1])
+		if nd["weather"] == "rocks": _nebula_rocks(holder, nd, rng)
 		nd["flash_t"] = -1.0
 		nd["flash_at"] = nd["center"]
 		nebulae.append(nd)
@@ -1748,6 +1751,184 @@ func nebula_name() -> String:
 	if nebula_now < 0 or nebula_now >= nebulae.size(): return ""
 	return str(nebulae[nebula_now]["name"])
 
+## v1.9z: the cloud closing round you: a big shell in the haze's colour round the camera, opaque deep inside, so the
+## sky, stars and far planets are gone (the phone renderer does not fog the sky itself). Nearer things show in front.
+var _dome: MeshInstance3D
+var dome_alpha := 0.0
+func _cloud_dome(a: float, col: Color) -> void:
+	dome_alpha = a
+	if a <= 0.01:
+		if is_instance_valid(_dome): _dome.visible = false
+		return
+	if not is_instance_valid(_dome):
+		_dome = MeshInstance3D.new()
+		_dome.name = "CloudDome"
+		var sm := SphereMesh.new()
+		sm.radius = 1.0
+		sm.height = 2.0
+		sm.radial_segments = 24
+		sm.rings = 12
+		_dome.mesh = sm
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.cull_mode = BaseMaterial3D.CULL_FRONT
+		m.disable_fog = true
+		m.render_priority = -10
+		var nt := NoiseTexture2D.new()   # billowing cloud walls, not a flat colour
+		nt.width = 256
+		nt.height = 256
+		nt.seamless = true
+		var fn := FastNoiseLite.new()
+		fn.frequency = 0.012
+		fn.fractal_octaves = 5
+		nt.noise = fn
+		var gr := Gradient.new()
+		gr.set_color(0, Color(0.35, 0.35, 0.38))
+		gr.set_color(1, Color(1.25, 1.25, 1.3))
+		nt.color_ramp = gr
+		m.albedo_texture = nt
+		m.uv1_scale = Vector3(5, 3, 1)
+		_dome.material_override = m
+		_dome.top_level = true
+		_dome.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_dome.extra_cull_margin = 16384.0
+		add_child(_dome)
+	_dome.visible = true
+	_dome.global_position = cam.global_position if is_instance_valid(cam) else player.global_position
+	_dome.scale = Vector3.ONE * minf(Data.NEBULA_DOME_R, cam.far * 0.9 if is_instance_valid(cam) else Data.NEBULA_DOME_R)
+	(_dome.material_override as StandardMaterial3D).albedo_color = Color(col.darkened(0.15), a)
+	(_dome.material_override as StandardMaterial3D).uv1_offset.x = fmod(time * 0.004, 1.0)   # the walls drift slowly
+
+func nebula_weather() -> String:
+	if nebula_now < 0 or nebula_now >= nebulae.size(): return ""
+	return str(nebulae[nebula_now].get("weather", ""))
+
+## v1.9z: a rock-field cloud: drifting rocks through its middle (they block you like the belt's), one batch.
+func _nebula_rocks(holder: Node3D, nd: Dictionary, rng: RandomNumberGenerator) -> void:
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = _rock_mesh(hash(sys_id) + 91, false)
+	mm.instance_count = Data.NEBULA_ROCKS
+	var r: float = nd["radius"]
+	for i in Data.NEBULA_ROCKS:
+		var p: Vector3 = (nd["center"] as Vector3) + Vector3(rng.randfn(0, 1), rng.randfn(0, 0.5), rng.randfn(0, 1)).normalized() * rng.randf_range(r * 0.08, r * 0.7)
+		var rr := lerpf(6.0, 34.0, pow(rng.randf(), 1.8))
+		mm.set_instance_transform(i, Transform3D(Basis.from_euler(Vector3(rng.randf() * TAU, rng.randf() * TAU, rng.randf() * TAU)).scaled(Vector3.ONE * rr), p))
+		rocks.append([p, rr * 1.05])
+	var mi := MultiMeshInstance3D.new()
+	mi.name = "NebulaRocks"
+	mi.multimesh = mm
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	holder.add_child(mi)
+	nd["rocks_n"] = Data.NEBULA_ROCKS
+
+## v1.9z: the weather round the ship inside a cloud: snow flakes drifting, rain streaks (longer the faster you fly),
+## dust in a rock field. One batch; each flake is kept within NEBULA_WX_RANGE of the ship.
+var _neb_wx: MultiMeshInstance3D
+var _neb_wx_mat: ShaderMaterial
+var _wx_kind := ""
+static var _wx_sh: Shader
+func _weather_shader() -> Shader:
+	if _wx_sh != null: return _wx_sh
+	_wx_sh = Shader.new()
+	_wx_sh.code = """
+shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled;
+uniform vec3 dir = vec3(0.0, -1.0, 0.0);
+uniform float len = 4.0;
+uniform float wid = 0.12;
+uniform vec4 col : source_color = vec4(1.0);
+uniform float alpha = 0.6;
+void vertex() {
+	vec3 w = MODEL_MATRIX[3].xyz;
+	vec3 cam = INV_VIEW_MATRIX[3].xyz;
+	vec3 d = normalize(dir);
+	vec3 side = normalize(cross(d, cam - w) + vec3(0.0001));
+	vec3 p = w + d * VERTEX.y * len + side * VERTEX.x * wid;
+	POSITION = PROJECTION_MATRIX * VIEW_MATRIX * vec4(p, 1.0);
+}
+void fragment() {
+	float edge = 1.0 - abs(UV.x * 2.0 - 1.0);
+	float tail = 1.0 - abs(UV.y * 2.0 - 1.0);
+	ALBEDO = col.rgb;
+	ALPHA = clamp(alpha * edge * tail * 1.6, 0.0, 1.0);
+}
+"""
+	return _wx_sh
+
+func _update_weather(dt: float) -> void:
+	var kind := nebula_weather() if in_nebula > 0.05 else ""
+	if kind == "":
+		if is_instance_valid(_neb_wx): _neb_wx.visible = false
+		return
+	if not is_instance_valid(_neb_wx):
+		var q := QuadMesh.new()
+		q.size = Vector2(1, 1)
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = q
+		mm.instance_count = Data.NEBULA_WX
+		_neb_wx = MultiMeshInstance3D.new()
+		_neb_wx.name = "NebulaWeather"
+		_neb_wx.multimesh = mm
+		_neb_wx.top_level = true
+		_neb_wx.custom_aabb = AABB(-Vector3.ONE * 4e6, Vector3.ONE * 8e6)
+		_neb_wx.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_neb_wx_mat = ShaderMaterial.new()
+		_neb_wx_mat.shader = _weather_shader()
+		_neb_wx.material_override = _neb_wx_mat
+		add_child(_neb_wx)
+		_wx_kind = ""
+	_neb_wx.visible = true
+	var pp: Vector3 = player.global_position
+	var R: float = Data.NEBULA_WX_RANGE
+	var mm2 := _neb_wx.multimesh
+	if kind != _wx_kind:   # scatter afresh round the ship
+		_wx_kind = kind
+		for i in mm2.instance_count:
+			mm2.set_instance_transform(i, Transform3D(Basis(), pp + Vector3(_rng.randf_range(-R, R), _rng.randf_range(-R, R), _rng.randf_range(-R, R))))
+	var fall := Vector3(0.6, -1.0, 0.25).normalized()
+	var fv := Vector3.ZERO
+	var col := Color(1, 1, 1)
+	var alpha := 0.55
+	var ln := 1.0
+	var wd := 0.5
+	match kind:
+		"snow":
+			fv = fall * 5.0
+			col = Color(0.95, 0.97, 1.0)
+			alpha = 0.9
+			ln = 0.9
+			wd = 0.9
+		"rain", "storm":
+			fv = fall * 70.0
+			col = nebula_tint.lightened(0.7)
+			alpha = 0.7
+			wd = 0.16
+		"rocks":
+			fv = Vector3(1.5, -0.4, 0.8)
+			col = Color(0.75, 0.7, 0.62)
+			alpha = 0.6
+			ln = 0.6
+			wd = 0.6
+	var rel := fv - vel   # what the eye sees: the weather's motion against the ship's
+	if kind in ["rain", "storm"]: ln = clampf(rel.length() * 0.07, 2.5, 14.0)
+	elif vel.length() > 40.0: ln = maxf(ln, minf(vel.length() * 0.03, 6.0))   # flakes stretch into streaks at speed
+	_neb_wx_mat.set_shader_parameter("dir", rel.normalized() if rel.length() > 0.1 else Vector3.DOWN)
+	_neb_wx_mat.set_shader_parameter("len", ln)
+	_neb_wx_mat.set_shader_parameter("wid", wd)
+	_neb_wx_mat.set_shader_parameter("col", col.lerp(Color(0.9, 0.95, 1.0), nebula_flash * 0.8))
+	_neb_wx_mat.set_shader_parameter("alpha", alpha * clampf(in_nebula * 1.5, 0.0, 1.0) * (1.0 + nebula_flash))
+	var ahead: Vector3 = vel.normalized() if vel.length() > 8.0 else -player.global_basis.z
+	for i in mm2.instance_count:
+		var t := mm2.get_instance_transform(i)
+		t.origin += fv * dt
+		var off := t.origin - pp
+		if absf(off.x) > R or absf(off.y) > R or absf(off.z) > R:   # left behind: back in front of the ship
+			t.origin = pp + ahead * _rng.randf_range(0.0, R * 0.9) + Vector3(_rng.randf_range(-R, R), _rng.randf_range(-R, R), _rng.randf_range(-R, R)) * 0.8
+		mm2.set_instance_transform(i, t)
+
 ## Lightning, the fog and the streaming smoke, every frame.
 func _update_nebulae(dt: float) -> void:
 	if nebulae.is_empty() or surface_mode: return
@@ -1758,7 +1939,8 @@ func _update_nebulae(dt: float) -> void:
 		var r: float = nd["radius"]
 		nd["next_flash"] = float(nd["next_flash"]) - dt
 		if float(nd["next_flash"]) <= 0.0:
-			nd["next_flash"] = _rng.randf_range(Data.NEBULA_FLASH_EVERY[0], Data.NEBULA_FLASH_EVERY[1])
+			var fe: Array = Data.NEBULA_STORM_FLASH if nd.get("weather", "") == "storm" else Data.NEBULA_FLASH_EVERY
+			nd["next_flash"] = _rng.randf_range(fe[0], fe[1])
 			var pts: PackedVector3Array = nd["pts"]
 			nd["flash_at"] = (nd["center"] as Vector3) + pts[_rng.randi() % pts.size()]
 			nd["flash_t"] = 0.0
@@ -1790,14 +1972,18 @@ func _update_nebulae(dt: float) -> void:
 				_neb_fog_on = true
 			e.fog_density = Data.NEBULA_FOG_DENSITY * pow(in_nebula, 1.5) * clear
 			e.fog_light_color = nebula_tint.darkened(0.35).lerp(Data.BEACON_LIGHT_COLOR, beacon_lit * 0.5).lerp(Color(0.85, 0.9, 1.0), nebula_flash * 0.7)
-			e.fog_sky_affect = 0.85 * in_nebula * clear
+			e.fog_sky_affect = clampf(in_nebula * 1.6, 0.0, 1.0) * clear   # (v1.9z: deep inside, no stars: you can't see out)
+			_cloud_dome(clampf(in_nebula * 1.6, 0.0, 1.0) * clear, e.fog_light_color)
 		elif _neb_fog_on:
 			e.fog_enabled = false
 			_neb_fog_on = false
+			_cloud_dome(0.0, Color.BLACK)
 	# smoke streaming past: puffs left behind are put back ahead of the ship
 	if not is_instance_valid(_neb_stream): return
 	_neb_stream.visible = in_nebula > 0.02
-	if not _neb_stream.visible: return
+	if not _neb_stream.visible:
+		if is_instance_valid(_neb_wx): _neb_wx.visible = false
+		return
 	_neb_stream_mat.set_shader_parameter("tint", nebula_tint.lightened(0.15))
 	_neb_stream_mat.set_shader_parameter("alpha", 0.5 * in_nebula)
 	var mm := _neb_stream.multimesh
@@ -1809,6 +1995,7 @@ func _update_nebulae(dt: float) -> void:
 		var side := Vector3(_rng.randfn(0, 1), _rng.randfn(0, 0.7), _rng.randfn(0, 1)) * R * 0.45
 		t.origin = pp + ahead * _rng.randf_range(R * 0.35, R * 0.95) + side
 		mm.set_instance_transform(i, t)
+	_update_weather(dt)
 
 ## v1.4r: the light beacon station, hidden in the nebula. Its lamp is a real light (it lights ships, rocks and the
 ## station itself) plus a bright halo that lights up the cloud around it; the cloud puffs nearest the lamp are brightened.

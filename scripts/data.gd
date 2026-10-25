@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v1.9y"
+const VERSION := "v1.9z"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -793,10 +793,20 @@ const NEBULA_GATE_RADIUS := [850.0, 1300.0]   # the cloud a gate hides in (Freel
 const NEBULA_EXTRA_DIST := [2600.0, 5800.0]   # how far from the main station the extra clouds sit
 const NEBULA_PUFFS := 240             # smoke puffs in a full-size cloud (smaller clouds get fewer)
 const NEBULA_PUFF_ALPHA := 0.55
-const NEBULA_FOG_DENSITY := 0.0034    # fog at the heart of a cloud (things ~600 m off fade into the haze)
+const NEBULA_FOG_DENSITY := 0.005   # (v1.9z: thicker: deep inside you see a few hundred metres, not the other side)    # fog at the heart of a cloud (things ~600 m off fade into the haze)
 const NEBULA_STREAM := 22             # smoke puffs streaming past the ship inside a cloud
 const NEBULA_STREAM_RANGE := 320.0
 const NEBULA_FLASH_EVERY := [2.5, 8.0]  # seconds between lightning flashes in each cloud
+# v1.9z (owner: "inside a Freelancer cloud you can't see out; it has its own weather"): deep inside, the fog hides the
+# sky completely, and every cloud has its own weather: snow, rain, an electric storm (rain + much more lightning) or a
+# rock field (drifting rocks you can hit, with dust).
+const NEBULA_WEATHERS := ["snow", "rain", "storm", "rocks"]
+const NEBULA_WEATHER_NAME := {"snow": "SNOW", "rain": "RAIN", "storm": "ELECTRIC STORM", "rocks": "ROCK FIELD"}
+const NEBULA_WX := 260               # weather flakes / streaks kept round the ship
+const NEBULA_WX_RANGE := 80.0
+const NEBULA_ROCKS := 26             # drifting rocks in a rock-field cloud
+const NEBULA_STORM_FLASH := [0.8, 2.6]
+const NEBULA_DOME_R := 1400.0       # the cloud shell round the camera (beyond it, only haze)
 const NEBULA_HUD_TINT := 0.16         # the screen tint inside a cloud (the fog does most of the work now; was 0.36)
 const STATION_MODEL_YAW := {"hollow_requiem": 90.0}   # degrees: the dead liner lies across the docking approach
 

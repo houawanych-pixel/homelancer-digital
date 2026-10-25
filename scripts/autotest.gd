@@ -1003,6 +1003,15 @@ func _run() -> void:
 		await _job_v19u()
 		await _job_v19w()
 		await _job_v19x()
+		await _job_v19z()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
+	if OS.get_environment("HL_V19Z") != "":   # the v1.9z cloud weather checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_v19z()
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
@@ -1784,6 +1793,7 @@ func _run() -> void:
 	await _job_v19u()
 	await _job_v19w()
 	await _job_v19x()
+	await _job_v19z()
 	await _blocks()
 	await _regions()
 	await _galaxy()
@@ -9420,6 +9430,44 @@ func _job_v19x() -> void:
 	await _until(func(): return main.state == "flight", 8.0)
 	_sp().set_player_model()
 	_sp().controls = true
+
+## v1.9z (owner: "inside a Freelancer cloud you can't see out; it has its own weather"): deep inside, the sky is gone;
+## each cloud has snow, rain, an electric storm or a rock field.
+func _job_v19z() -> void:
+	var s := _sp()
+	if s.surface_mode or main.state != "flight" or s.nebulae.is_empty(): return
+	main.hud.move_vec = Vector2.ZERO
+	var kinds_ok := true
+	for nd in s.nebulae:
+		if not (str(nd.get("weather", "")) in Data.NEBULA_WEATHERS): kinds_ok = false
+	var nd0: Dictionary = s.nebulae[1] if s.nebulae.size() > 1 else s.nebulae[0]   # (an extra cloud: no light beacon thinning the haze)
+	var keep: String = nd0["weather"]
+	var c0: Vector3 = nd0["center"]
+	var seen := {}
+	var sky_gone := true
+	for k in Data.NEBULA_WEATHERS:
+		nd0["weather"] = k
+		_tp(c0 + Vector3(float(nd0["radius"]) * 0.05, 0, 0), c0 + Vector3(0, 0, -500))
+		s.vel = -s.player.global_basis.z * 30.0
+		await _frames(4)
+		s.vel = Vector3.ZERO
+		seen[k] = s._neb_wx != null and s._neb_wx.visible and s.nebula_weather() == k
+		if s.dome_alpha < 0.99 * (1.0 - Data.BEACON_HAZE_CLEAR * s.beacon_lit) or not s._dome.visible: sky_gone = false   # (a light beacon thins the haze near its lamp)
+		await _shot("v19z_weather_" + k, 0.2)
+	var zone_ok: bool = main.hud.get("zone_text") == null or true
+	nd0["weather"] = keep
+	var rock_ok := true   # a rock-field cloud puts its rocks in the collision list
+	var probe := {"center": c0 + Vector3(0, 9000, 0), "radius": 600.0}
+	var n0: int = s.rocks.size()
+	s._nebula_rocks(s, probe, RandomNumberGenerator.new())
+	rock_ok = s.rocks.size() == n0 + Data.NEBULA_ROCKS
+	for i in Data.NEBULA_ROCKS: s.rocks.pop_back()
+	var mi = s.get_node_or_null("NebulaRocks")
+	if mi != null: mi.queue_free()
+	_check("v1.9z (owner): deep in a cloud the sky is gone (you can't see out), and each cloud has its own weather: snow, rain, electric storm or rock field (rocks you can hit)",
+		kinds_ok and sky_gone and seen.values().all(func(x): return x) and rock_ok and Data.NEBULA_STORM_FLASH[1] < Data.NEBULA_FLASH_EVERY[0] + 0.5, "kinds %s, sky gone %s, seen %s, rocks %s" % [kinds_ok, sky_gone, seen, rock_ok])
+	_tp(s.station.global_position + Vector3(400, 80, 600), s.station.global_position)
+	await _frames(3)
 
 func _job_v19o() -> void:
 	var s: SpaceSystem = main.space
