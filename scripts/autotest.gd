@@ -1653,7 +1653,7 @@ func _run() -> void:
 		await get_tree().process_frame
 	await _shot("asteroid_field")
 	s.move = Vector2.ZERO
-	_check("Asteroid field (v1.7x: block asteroids)", in_belt and s.asteroids.size() >= int(Data.ASTEROID_COUNT * 0.8) and s.rocks.size() == s.asteroids.size(), "asteroids=%d rocks=%d" % [s.asteroids.size(), s.rocks.size()])
+	_check("Asteroid field (v1.7x: block asteroids)", in_belt and s.asteroids.size() >= int(Data.ASTEROID_COUNT * 0.8) and s.rocks.size() - s.nebulae.reduce(func(acc, nd): return acc + int(nd.get("rocks_n", 0)), 0) == s.asteroids.size(), "asteroids=%d rocks=%d" % [s.asteroids.size(), s.rocks.size()])   # (v1.9z: rock-field clouds add their own rocks)
 	await _asteroid_mining(s)
 	# ---- nebula
 	var nc: Vector3 = s.nebula_center
