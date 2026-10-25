@@ -2735,6 +2735,7 @@ func _process(dt: float) -> void:
 	_update_nav()   # v1.5i
 	_update_beacon()
 	_update_nebulae(dt)   # v1.9s
+	_update_warp_tunnel(dt)   # v1.9z
 	_update_enemies(dt)
 	if not allies.is_empty(): _update_allies(dt)   # v1.9n
 	_update_traffic(dt)
@@ -3025,6 +3026,66 @@ func _warp_bulge(k: float) -> void:
 	_bulge.position = Vector3(0, 0, 4.5 + k * 2.0)
 	_bulge.scale = Vector3(1.2 + 2.6 * k, 1.0 + 2.0 * k, 1.6 + 4.0 * k) * pulse
 	(_bulge.material_override as StandardMaterial3D).albedo_color = Color(0.55 + 0.4 * k, 0.7 + 0.25 * k, 1.0, 0.25 + 0.5 * k)
+
+## v1.9z (owner's warp picture): at warp the ship flies down a tunnel of energy: his unwrapped texture wrapped round a
+## long open cylinder round the camera, scrolling forward and slowly turning. It fades in as the drive engages.
+var warp_tunnel: MeshInstance3D
+var warp_tunnel_k := 0.0
+var _wt_scroll := 0.0
+const WARP_TUNNEL_SHADER := """
+shader_type spatial;
+render_mode unshaded, blend_add, cull_disabled, depth_draw_never, shadows_disabled;
+uniform sampler2D tex : source_color, filter_linear_mipmap, repeat_enable;
+uniform float power = 0.0;
+uniform float scroll = 0.0;
+uniform float spin = 0.0;
+void fragment() {
+	vec2 uv = vec2(UV.y * 3.0 + scroll, UV.x * 2.0 + spin);   // the picture's streaks run along the tunnel
+	vec3 c = texture(tex, uv).rgb;
+	float ends = smoothstep(0.0, 0.18, UV.y) * smoothstep(1.0, 0.7, UV.y);
+	ALBEDO = c * 1.3;
+	ALPHA = clamp(power * ends, 0.0, 1.0);
+}
+"""
+func _update_warp_tunnel(dt: float) -> void:
+	var want := 1.0 if warp_state == "on" else (0.25 * clampf(warp_t / Data.WARP_CHARGE, 0.0, 1.0) if warp_state == "charging" else 0.0)
+	warp_tunnel_k = move_toward(warp_tunnel_k, want, dt * (2.0 if want > warp_tunnel_k else 3.0))
+	if warp_tunnel_k <= 0.001:
+		if is_instance_valid(warp_tunnel): warp_tunnel.visible = false
+		return
+	if not is_instance_valid(warp_tunnel):
+		warp_tunnel = MeshInstance3D.new()
+		warp_tunnel.name = "WarpTunnel"
+		var cm := CylinderMesh.new()
+		cm.top_radius = 1.0
+		cm.bottom_radius = 1.0
+		cm.height = 1.0
+		cm.radial_segments = 32
+		cm.rings = 4
+		cm.cap_top = false
+		cm.cap_bottom = false
+		warp_tunnel.mesh = cm
+		var sh := Shader.new()
+		sh.code = WARP_TUNNEL_SHADER
+		var m := ShaderMaterial.new()
+		m.shader = sh
+		if ResourceLoader.exists("res://assets/fx/warp_tunnel.jpg"): m.set_shader_parameter("tex", load("res://assets/fx/warp_tunnel.jpg"))
+		warp_tunnel.material_override = m
+		warp_tunnel.top_level = true
+		warp_tunnel.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		warp_tunnel.extra_cull_margin = 4096.0
+		add_child(warp_tunnel)
+	warp_tunnel.visible = true
+	var c: Vector3 = cam.global_position if is_instance_valid(cam) else player.global_position
+	var fwd: Vector3 = vel.normalized() if vel.length() > 5.0 else -player.global_basis.z
+	var up := Vector3.UP if absf(fwd.dot(Vector3.UP)) < 0.95 else Vector3.RIGHT
+	var b := Basis.looking_at(fwd, up) * Basis(Vector3.RIGHT, PI * 0.5)   # the cylinder's axis (Y) along the flight
+	warp_tunnel.global_transform = Transform3D(b * Basis.from_scale(Vector3(Data.WARP_TUNNEL_R, Data.WARP_TUNNEL_LEN, Data.WARP_TUNNEL_R)), c + fwd * Data.WARP_TUNNEL_LEN * 0.32)   # (scaled along its own axis)
+	_wt_scroll += dt * Data.WARP_TUNNEL_SCROLL * (0.4 + 0.6 * warp_tunnel_k)
+	var m2 := warp_tunnel.material_override as ShaderMaterial
+	m2.set_shader_parameter("power", warp_tunnel_k * Data.WARP_TUNNEL_POWER)
+	m2.set_shader_parameter("scroll", fmod(_wt_scroll, 1000.0))
+	m2.set_shader_parameter("spin", fmod(time * Data.WARP_TUNNEL_SPIN, 1.0))
 
 func drop_warp(why := "") -> void:
 	if warp_state == "off": return
