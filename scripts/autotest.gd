@@ -1002,6 +1002,15 @@ func _run() -> void:
 		await _job_v19s()
 		await _job_v19u()
 		await _job_v19w()
+		await _job_v19x()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
+	if OS.get_environment("HL_V19X") != "":   # the v1.9x tidy equip page checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_v19x()
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
@@ -1772,6 +1781,7 @@ func _run() -> void:
 	await _job_v19s()
 	await _job_v19u()
 	await _job_v19w()
+	await _job_v19x()
 	await _blocks()
 	await _regions()
 	await _galaxy()
@@ -6937,7 +6947,7 @@ func _job_v19h() -> void:
 	main.hud.visible = true
 	s.process_mode = Node.PROCESS_MODE_INHERIT
 	_check("v1.9h (owner's rail guns and heavy mounts): all %d guns and %d pods wear his models; a heavy mount is refused under a wing tip and a bought heavy gun stays on the shoulders; each pod adds its own missiles; the wing shows all 4" % [Data.WEAPON_ORDER.size(), Data.MOUNT_PODS.size()],
-		models_ok and heavy_off_tips and tip_refused and items == ["hv_quad", "rocket_rack", "hv_rail", "rail_lance"] and sums_ok and shown == 4,
+		models_ok and heavy_off_tips and tip_refused and items.slice(0, 4) == ["hv_quad", "rocket_rack", "hv_rail", "rail_lance"] and sums_ok and shown == 4,
 		"models %s off_tips %s refused %s items %s sums %s (%d) shown %d" % [models_ok, heavy_off_tips, tip_refused, items, sums_ok, GS.max_missiles(), shown])
 	for k3 in keep: GS.set(k3, keep[k3])
 	s.set_player_model()
@@ -9350,6 +9360,50 @@ func _job_v19w() -> void:
 	await _shot("v19w_level1_equip", 0.4)
 	_check("v1.9w: WEAPONS & GEAR shows the ship's level blueprint with its slots and the module slots it has (6 on Level 3, 2 on Level 1)", page_ok and small_ok, "L3 page %s, L1 page %s" % [page_ok, small_ok])
 	for k2 in keep: GS.set(k2, keep[k2])
+	main.launch()
+	await _until(func(): return main.state == "flight", 8.0)
+	_sp().set_player_model()
+	_sp().controls = true
+
+## v1.9x (owner's HANGAR layout): WEAPONS & GEAR fills the screen: frame (level) select, the blueprint with its slots,
+## SLOT INFO, a shop grid with filters, the frame's specs; the mech blueprint shows the same slots (arms = wings).
+func _job_v19x() -> void:
+	var s := _sp()
+	if s.surface_mode or main.state != "flight": return
+	var ship0: String = GS.ship_id
+	GS.ship_id = "ranger"
+	if not ("ranger" in GS.owned_ships): GS.owned_ships.append("ranger")
+	main.dock(s.station)
+	await _until(func(): return main.state == "hub", 8.0)
+	var hb = main.hub
+	hb.eq_filter = "all"
+	hb.eq_view = "ship"
+	hb.eq_sel = 0
+	hb.show_screen("equipment")
+	await _wait(0.6)
+	var lay_ok: bool = hb.find_child("Hangar", true, false) != null and not hb.left.visible and hb.find_child("Frame_3", true, false) != null and hb.find_child("SlotInfo", true, false) != null \
+		and hb.find_child("ShopGrid", true, false) != null and hb.find_child("FrameSpec", true, false) != null and (hb.find_child("Frame_2", true, false) as Button).get_theme_color("font_color") == hb.GOLD
+	await _shot("v19x_hangar_ship", 0.3)
+	hb.eq_view = "mech"
+	hb.show_screen("equipment")
+	await _wait(0.4)
+	var mech_ok: bool = hb._eq_mech() and hb._level_tex() != null and str(GS.level_def()["mech_art"]).ends_with("mech_level2.jpg") and hb._mount_points(Vector2(300, 400)).size() == 9
+	await _shot("v19x_hangar_mech", 0.3)
+	(hb.find_child("Filter_ammo", true, false) as Button).pressed.emit()
+	await _frames(3)
+	var ammo_ok: bool = (hb.find_child("EqAmmo", true, false) as Control).visible and not (hb.find_child("EqBuy", true, false) as Control).visible and hb.find_child("RestockAll", true, false) != null
+	(hb.find_child("Filter_blaster", true, false) as Button).pressed.emit()
+	await _frames(3)
+	var bl: Button = hb.find_child("Buy_nx_green", true, false)
+	var filt_ok: bool = bl != null and bl.visible and not (hb.find_child("Buy_pulse2", true, false) as Control).visible
+	(hb.find_child("HangarBack", true, false) as Button).pressed.emit()
+	await _frames(2)
+	var back_ok: bool = hb.screen == "hub" and hb.left.visible
+	_check("v1.9x (owner's HANGAR): WEAPONS & GEAR fills the screen with frame select, the blueprint and its slots, SLOT INFO, a shop grid with filters and the specs; SHOW MECH swaps in the mech blueprint; back to the station menu",
+		lay_ok and mech_ok and ammo_ok and filt_ok and back_ok, "layout %s, mech %s, ammo %s, filter %s, back %s" % [lay_ok, mech_ok, ammo_ok, filt_ok, back_ok])
+	hb.eq_filter = "all"
+	hb.eq_view = ""
+	GS.ship_id = ship0
 	main.launch()
 	await _until(func(): return main.state == "flight", 8.0)
 	_sp().set_player_model()

@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v1.9w"
+const VERSION := "v1.9x"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -976,12 +976,12 @@ const WEAPONS := {
 # Core ids: -1 front gun, -5 second front gun, -6 belly gun, -2 light bay, -3 super bay, -4 mine bay.
 const SHIP_LEVEL := {"cadet": 1, "hauler": 1, "ranger": 2, "elyza": 2, "lancer": 2, "bulk_empty": 3, "bulk": 3}
 const LEVELS := {
-	1: {"name": "Core Interceptor", "art": "res://assets/ui/ship_level1.jpg", "guns": [-1], "wings": [0, 2], "modules": 2,
+	1: {"name": "Core Interceptor", "art": "res://assets/ui/ship_level1.jpg", "mech_name": "Scout Frame", "mech_art": "res://assets/ui/mech_level1.jpg", "mech_uv": {-1: Vector2(0.491, 0.349), -2: Vector2(0.419, 0.429), -3: Vector2(0.564, 0.429), -4: Vector2(0.491, 0.506), 0: Vector2(0.206, 0.494), 2: Vector2(0.777, 0.494)}, "guns": [-1], "wings": [0, 2], "modules": 2,
 		"uv": {-1: Vector2(0.488, 0.362), -2: Vector2(0.371, 0.521), -3: Vector2(0.605, 0.521), -4: Vector2(0.488, 0.67), 0: Vector2(0.163, 0.815), 2: Vector2(0.81, 0.815)}},
-	2: {"name": "Strike Fighter", "art": "res://assets/ui/ship_level2.jpg", "guns": [-1, -5], "wings": [0, 1, 2, 3], "modules": 4,
+	2: {"name": "Strike Fighter", "art": "res://assets/ui/ship_level2.jpg", "mech_name": "Assault Frame", "mech_art": "res://assets/ui/mech_level2.jpg", "mech_uv": {-1: Vector2(0.451, 0.229), -5: Vector2(0.543, 0.229), -2: Vector2(0.400, 0.367), -3: Vector2(0.590, 0.367), -4: Vector2(0.497, 0.471), 0: Vector2(0.206, 0.529), 1: Vector2(0.168, 0.611), 2: Vector2(0.781, 0.529), 3: Vector2(0.819, 0.611)}, "guns": [-1, -5], "wings": [0, 1, 2, 3], "modules": 4,
 		"uv": {-1: Vector2(0.435, 0.263), -5: Vector2(0.563, 0.263), -2: Vector2(0.381, 0.509), -3: Vector2(0.616, 0.509), -4: Vector2(0.5, 0.741),
 			0: Vector2(0.284, 0.728), 1: Vector2(0.137, 0.824), 2: Vector2(0.719, 0.728), 3: Vector2(0.86, 0.824)}},
-	3: {"name": "Capital Variant", "art": "res://assets/ui/ship_level3.jpg", "guns": [-1, -5, -6], "wings": [0, 1, 2, 3, 4, 5], "modules": 6,
+	3: {"name": "Capital Variant", "art": "res://assets/ui/ship_level3.jpg", "mech_name": "Heavy Frame", "mech_art": "res://assets/ui/mech_level3.jpg", "mech_uv": {-1: Vector2(0.475, 0.215), -5: Vector2(0.568, 0.215), -2: Vector2(0.410, 0.362), -3: Vector2(0.629, 0.362), -4: Vector2(0.475, 0.537), -6: Vector2(0.568, 0.537), 0: Vector2(0.285, 0.495), 4: Vector2(0.266, 0.568), 1: Vector2(0.248, 0.632), 2: Vector2(0.754, 0.495), 5: Vector2(0.773, 0.568), 3: Vector2(0.795, 0.632)}, "guns": [-1, -5, -6], "wings": [0, 1, 2, 3, 4, 5], "modules": 6,
 		"uv": {-1: Vector2(0.49, 0.235), -5: Vector2(0.596, 0.235), -2: Vector2(0.442, 0.546), -3: Vector2(0.65, 0.546), -4: Vector2(0.49, 0.818), -6: Vector2(0.596, 0.818),
 			0: Vector2(0.312, 0.715), 4: Vector2(0.246, 0.805), 1: Vector2(0.154, 0.877), 2: Vector2(0.78, 0.715), 5: Vector2(0.848, 0.805), 3: Vector2(0.936, 0.877)}},
 }
