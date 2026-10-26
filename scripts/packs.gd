@@ -11,6 +11,14 @@ signal pack_ready(name: String)
 # folders: whole asset folders in the pack. match: only files whose name starts with this. probe: a file that exists
 # once the pack is mounted. The main export leaves these folders out (export_presets.cfg exclude_filter).
 const PACKS := {
+	"hangar_p_imperium": {"folders": ["res://assets/hangars"], "match": "bay_p_imperium.", "probe": "res://assets/hangars/bay_p_imperium.jpg"},   # v2.8: the owner's planet hangar
+	"hangar_p_unity": {"folders": ["res://assets/hangars"], "match": "bay_p_unity.", "probe": "res://assets/hangars/bay_p_unity.jpg"},   # v2.8: the owner's planet hangar
+	"hangar_p_orion": {"folders": ["res://assets/hangars"], "match": "bay_p_orion.", "probe": "res://assets/hangars/bay_p_orion.jpg"},   # v2.8: the owner's planet hangar
+	"hangar_p_liberator": {"folders": ["res://assets/hangars"], "match": "bay_p_liberator.", "probe": "res://assets/hangars/bay_p_liberator.jpg"},   # v2.8: the owner's planet hangar
+	"hangar_p_savagers": {"folders": ["res://assets/hangars"], "match": "bay_p_savagers.", "probe": "res://assets/hangars/bay_p_savagers.jpg"},   # v2.8: the owner's planet hangar
+	"hangar_p_covenant": {"folders": ["res://assets/hangars"], "match": "bay_p_covenant.", "probe": "res://assets/hangars/bay_p_covenant.jpg"},   # v2.8: the owner's planet hangar
+	"hangar_p_elyza": {"folders": ["res://assets/hangars"], "match": "bay_p_elyza.", "probe": "res://assets/hangars/bay_p_elyza.jpg"},   # v2.8: the owner's planet hangar
+	"hangar_p_solarion": {"folders": ["res://assets/hangars"], "match": "bay_p_solarion.", "probe": "res://assets/hangars/bay_p_solarion.jpg"},   # v2.8: the owner's planet hangar
 	"hangar_unity": {"folders": ["res://assets/hangars"], "match": "bay_unity.", "probe": "res://assets/hangars/bay_unity.jpg"},   # v2.7: the owner's hangar bay (front view)
 	"hangar_orion": {"folders": ["res://assets/hangars"], "match": "bay_orion.", "probe": "res://assets/hangars/bay_orion.jpg"},   # v2.7: the owner's hangar bay (front view)
 	"hangar_solarion": {"folders": ["res://assets/hangars"], "match": "bay_solarion.", "probe": "res://assets/hangars/bay_solarion.jpg"},   # v2.7: the owner's hangar bay (front view)

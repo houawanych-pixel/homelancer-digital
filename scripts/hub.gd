@@ -506,6 +506,8 @@ func _dock_status(v: VBoxContainer) -> void:
 func _hangar_name() -> String:
 	var f := str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])).to_lower()
 	if f.begins_with("liberator"): f = "liberator"
+	if f.begins_with("savager"): f = "savagers"
+	if kind == "planet" and Data.BAYS.has("p_" + f): return "p_" + f   # v2.8 (owner): on a planet, the planet hangar
 	if Data.BAYS.has(f) and not (f in Data.BAY_SPARES): return f
 	return Data.BAY_SPARES[absi(hash(str(base.get("id", base.get("name", ""))))) % Data.BAY_SPARES.size()]
 
