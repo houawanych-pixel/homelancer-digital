@@ -455,20 +455,31 @@ func _sun() -> void:
 	s.vel = Vector3(120, 0, 0)
 	var wrapped := await _until(func(): return _sp().player.global_position.x < 0.0, 6.0)
 	_check("Sun surface loops (fly off one edge, come back on the other)", wrapped and _sp().planet_id == "solara_sun", "x %.0f -> %.0f" % [px, _sp().player.global_position.x])
-	# v1.9z (owner): with the Heat Shield, after a while in the star, her face forms in the fire (and her message plays)
+	# v2.0 (owner): with the Heat Shield, in the cloud bank in a corner of the star's map: the anomaly, then her face in
+	# the fire, gold, speaking a short clip of the Bashar message
 	await Packs.wait("apparition", 30.0)
-	await Packs.wait("sun_message", 30.0)
+	for c in s.her_clips("sun"): Packs.request(c)
 	s = _sp()
-	s._sun_in = Data.SUN_APPARITION_AFTER + 0.1
-	s._sun_done = false
+	var corner_ok: bool = not s._corners.is_empty()
+	if corner_ok:
+		var cn: Vector2 = s._corners[0]
+		_tp(Vector3(cn.x * 0.97, 900.0, cn.y * 0.97), Vector3(0, 900, 0))
+		s.vel = Vector3.ZERO
+	await _until(func(): return s.corner_haze > 0.5, 3.0)
+	var anomaly := await _until(func(): return s.app_phase == "anomaly", Data.SUN_APPARITION_AFTER + 3.0)
+	await _wait(1.0)
+	var anom_ok: bool = anomaly and s.anomaly_k > 0.1 and s.dome_alpha > 0.05 and s._dome_clip == "nebula" and s.speaking()
+	await _shot("sun_anomaly", 0.0)
+	await Packs.wait(s.app_clip, 20.0)
+	var faced := await _until(func(): return s.app_phase == "face", Data.ANOMALY_LEN + 2.0)
+	s.apparition_t = Data.HER_VOICE_DELAY + 3.0
 	await _frames(3)
-	s.apparition_t = 4.0
-	await _frames(3)
-	var sun_app: bool = s.app_sun and s.apparition != null and s.apparition.visible and s._sun_done and (s.apparition.material_override as ShaderMaterial).get_shader_parameter("tint") == Data.SUN_TINT
+	var sun_app: bool = faced and s.app_sun and s.apparition.visible and (s.apparition.material_override as ShaderMaterial).get_shader_parameter("tint") == Data.SUN_TINT
+	var voiced: bool = s.app_clip.begins_with("her_sun_") and s.her_voice != null and s.her_voice.playing and s.app_len < 25.0
 	await _shot("sun_apparition", 0.1)
 	var mod_ok: bool = Data.MODULES.has("heat_shield") and "heat_shield" in Data.MODULE_ORDER
-	var sun_spoke: bool = s.speaking() and s.app_len > 200.0
-	_check("v1.9z (owner): behind a Heat Shield (a module you can buy), her face forms in the star's fire, gold, and stays while her message plays (%.0f s)" % s.app_len, sun_app and mod_ok and sun_spoke, "shown %s, speaking %s" % [sun_app, sun_spoke])
+	_check("v2.0 (owner): behind a Heat Shield, in the cloud bank in a corner of the star's map: an anomaly first (the strange-nebula clip, a hum, the music steps back), then her face forms in the fire, gold, speaking one short clip (%s, %.0f s)" % [s.app_clip, s.app_len],
+		corner_ok and anom_ok and sun_app and voiced and mod_ok, "corner %s, anomaly %s, face %s, voice %s" % [corner_ok, anom_ok, sun_app, voiced])
 	s._end_apparition()
 	# without the shield: shields go, then the hull, then the ship
 	GS.heat_shield = false
@@ -9478,22 +9489,30 @@ func _job_v19z() -> void:
 	anim_ok = anim_ok and dm.get_shader_parameter("anim") == true and s._dome_clip == "storm" and float(dm.get_shader_parameter("fpos")) != f0
 	await _shot("v19z_cloud_anim_storm", 0.2)
 	await Packs.wait("apparition", 30.0)
+	for c in s.her_clips("cloud"): Packs.request(c)
+	for c in s.her_clips("cloud"): await Packs.wait(c, 20.0)
 	var a0: int = s.apparitions
-	var shown: bool = s.show_apparition()
-	s.apparition_t = Data.APPARITION_LEN * 0.5   # (straight to the middle of her clip: her face fully formed)
+	var shown: bool = s.show_apparition(false)
+	s.apparition_t = Data.HER_VOICE_DELAY + 3.0
 	await _frames(3)
-	var app_ok: bool = shown and s.apparitions == a0 + 1 and s.apparition.visible and float((s.apparition.material_override as ShaderMaterial).get_shader_parameter("alpha")) > 0.5
+	var app_ok: bool = shown and s.apparitions == a0 + 1 and s.apparition.visible and float((s.apparition.material_override as ShaderMaterial).get_shader_parameter("alpha")) > 0.5 \
+		and s.app_clip.begins_with("her_cloud_") and s.her_voice != null and s.her_voice.playing and s.speaking()
 	await _shot("v19z_apparition", 0.1)
-	s.apparition_t = Data.APPARITION_LEN - 0.01
-	await _frames(3)
-	app_ok = app_ok and not s.apparition.visible and s.apparition_t < 0.0
-	await Packs.wait("cloud_message", 30.0)
-	var spoke: bool = s.show_apparition(false, true) and s.speaking() and s.app_len > 60.0
+	# a shot through her: she ripples; too many and she is gone, lightning takes your shields
+	s.her_shot(s.apparition.global_position)
+	var rippled: bool = s._ripple > 0.5 and s.app_phase == "face"
+	GS.shield = GS.max_shield()
+	for i in Data.HER_PATIENCE: s.her_shot(s.apparition.global_position)
 	await _frames(2)
-	_tp(s.station.global_position + Vector3(400, 80, 600), s.station.global_position)   # leave the cloud: she goes, voice too
+	var offended: bool = s.app_phase == "calm" and GS.shield <= 0.0 and s.her_flash > 0.3 and not s.her_voice.playing
+	await _shot("v2_her_lightning", 0.0)
+	# leaving the cloud: she is gone at once
+	s.show_apparition(false)
+	_tp(s.station.global_position + Vector3(400, 80, 600), s.station.global_position)
 	await _frames(4)
-	spoke = spoke and not s.speaking() and s.apparition_t < 0.0
-	_check("v1.9z (owner's clip): deep in a cloud her face can form in the smoke ahead, tinted to the cloud, then fade away; rarely she brings her message and stays for it (leaving the cloud ends it)", app_ok and spoke, "shown %s, spoke %s" % [app_ok, spoke])
+	var left_ok: bool = s.app_phase == "" and not s.speaking()
+	_check("v2.0 (owner): in a cloud her face forms and she speaks one short clip of the Mahiru message; shots make her ripple, too many and she vanishes and lightning knocks your shields out; leaving the cloud ends her", app_ok and rippled and offended and left_ok,
+		"shown %s, ripple %s, offended %s, left %s" % [app_ok, rippled, offended, left_ok])
 	_check("v1.9z (owner's looping cloud clips): storm, nebula and smoke loop on the cloud walls, tinted to each cloud (storm clouds wear the storm)", anim_ok, "anim %s clip %s" % [anim_ok, s._dome_clip])
 	nd0["weather"] = keep
 	var rock_ok := true   # a rock-field cloud puts its rocks in the collision list

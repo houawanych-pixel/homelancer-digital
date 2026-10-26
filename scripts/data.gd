@@ -818,19 +818,21 @@ const CLOUD_ANIM := {"storm": "storm", "rain": "smoke", "snow": "smoke", "rocks"
 const CLOUD_ANIM_FRAMES := 48
 # v1.9z (owner's clip: "a face that appears and then disappears"): now and then, deep in a cloud, her face forms in the
 # smoke ahead of you and fades away (64 frames, 8 x 8, 15 s). Once per cloud visit at most, after a while inside.
-const APPARITION_CHANCE := 0.35      # chance per cloud visit
-const APPARITION_AFTER := 6.0        # s deep inside before she can appear
+const APPARITION_CHANCE := 1.0       # chance per cloud visit (v2.0: every visit for now, so the owner can test her; rare later)
+const APPARITION_AFTER := 4.0        # s deep inside before she can appear
 const APPARITION_DIST := 300.0       # m ahead of the camera
 const APPARITION_SIZE := 260.0
 const APPARITION_LEN := 15.0
 # v1.9z (owner): she also waits inside the stars. Fly into a star with the Heat Shield and, after a while, her face
-# forms in the fire and her message plays (assets/voices/sun_message.*, owner's audio, may run ~4 min); she stays
-# while it plays, then fades. Every visit.
-const SUN_APPARITION_AFTER := 8.0
-const SUN_MESSAGE := "res://assets/voices/sun_message"   # .ogg / .mp3, its own pack
+# (v2.0) she waits in the cloud bank in a corner of the star's map; see space.gd "HER".
+const SUN_APPARITION_AFTER := 3.0    # s inside the star's corner cloud bank
 const SUN_TINT := Color(1.0, 0.72, 0.38)
-const CLOUD_MESSAGE := "res://assets/voices/cloud_message"   # v1.9z (owner): her rarer message in an ordinary cloud
-const CLOUD_MESSAGE_SHARE := 0.25    # of her cloud appearances, this share bring the message (and she stays for it)
+const HER_CLIPS := {"sun": 19, "cloud": 33}   # v2.0 (owner): her messages cut at pauses into 10-15 s clips (sun: Bashar, cloud: Mahiru)
+const HER_VOICE_DELAY := 2.0         # s after her face starts forming before her voice fades in
+const HER_VOICE_DB := 0.0
+const HER_PATIENCE := 6              # shots she takes (rippling) before she is offended
+const ANOMALY_LEN := 5.0             # s of anomaly before her face forms
+const ANOMALY_CALM := 3.0            # s for it to calm after she goes
 const CLOUD_ANIM_FPS := 6.4       # the cloud shell round the camera (beyond it, only haze)
 const NEBULA_HUD_TINT := 0.16         # the screen tint inside a cloud (the fog does most of the work now; was 0.36)
 const STATION_MODEL_YAW := {"hollow_requiem": 90.0}   # degrees: the dead liner lies across the docking approach

@@ -1923,6 +1923,7 @@ func _cloud_anim(clip: String) -> Texture2DArray:
 	return arr
 
 var _dome_clip := ""
+var _dome_anim_t := 0.0
 func _cloud_dome(a: float, col: Color, contrast := 1.0, clip := "") -> void:
 	dome_alpha = a
 	if a <= 0.01:
@@ -1971,7 +1972,8 @@ func _cloud_dome(a: float, col: Color, contrast := 1.0, clip := "") -> void:
 	mat.set_shader_parameter("anim", at != null)
 	if at != null:
 		mat.set_shader_parameter("nframes", float(Data.CLOUD_ANIM_FRAMES))
-		mat.set_shader_parameter("fpos", fmod(time * Data.CLOUD_ANIM_FPS, float(Data.CLOUD_ANIM_FRAMES)))
+		_dome_anim_t += get_process_delta_time() * Data.CLOUD_ANIM_FPS * (1.0 + anomaly_k * 1.5)   # (the anomaly stirs harder)
+		mat.set_shader_parameter("fpos", fmod(_dome_anim_t, float(Data.CLOUD_ANIM_FRAMES)))
 		mat.set_shader_parameter("contrast", maxf(contrast, 0.85))
 
 ## The planet's daytime sky colour (from its surface biome), pale toward white; plain white when it has no surface.
@@ -1992,13 +1994,33 @@ func _update_atmo_dome() -> void:
 		return
 	_cloud_dome(clampf(atmo_depth * 1.25, 0.0, 1.0), atmo_color, 0.35, Data.CLOUD_ANIM["atmo"])
 
-## v1.9z (owner's clip): the face in the cloud. Deep in a cloud, once per visit (APPARITION_CHANCE), her face forms in
-## the smoke ahead of you, tinted to the cloud, and fades away again. She drifts with you, always ahead.
+## v2.0 (owner): HER. She only appears inside a nebula cloud: in any cloud in space (for now every visit, so she can be
+## tested; she will be made rare later), and in the cloud bank in a corner of a star's map, behind a Heat Shield.
+## First the ANOMALY: the cloud walls switch to the owner's strange-nebula clip and stir harder, a low hum rises and the
+## music steps back; then her face forms out of the swirl and her voice fades in: one short clip of her message (the
+## star's corner: the Bashar message; ordinary clouds: the Mahiru message), never the same one twice running. When it
+## ends her face melts back into the smoke and the anomaly calms. Shots make her ripple like water; keep shooting and
+## she vanishes, the anomaly flares and lightning knocks your shields out.
 var apparition: MeshInstance3D
-var apparition_t := -1.0     # seconds into her clip (-1 = not showing)
+var apparition_t := -1.0     # seconds into her face (-1 = not showing)
 var apparitions := 0         # times she has shown (checks)
+var app_phase := ""          # "" | "anomaly" | "face" | "calm"
+var app_phase_t := 0.0
+var app_len := Data.APPARITION_LEN   # how long her face stays this time (her clip's length + the fades)
+var app_sun := false
+var app_clip := ""           # the voice clip she speaks this time ("" = none ready)
+var app_hits := 0            # shots taken this visit
+var anomaly_k := 0.0         # 0..1 how strong the anomaly is now
+var her_voice: AudioStreamPlayer
+var _hum: AudioStreamPlayer
 var _app_inside := 0.0
 var _app_rolled := -1        # the cloud whose roll was made this visit
+var _corner_in := 0.0
+var _corner_done := false
+var _next_clip := ""
+var _last_clip := {}
+var _ripple := 0.0
+var _ripple_at := Vector2(0.5, 0.5)
 const APPARITION_SHADER := """
 shader_type spatial;
 render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled, fog_disabled;
@@ -2006,110 +2028,120 @@ uniform sampler2D frames : source_color, filter_linear;
 uniform float fpos = 0.0;
 uniform float alpha = 0.0;
 uniform vec3 tint : source_color = vec3(1.0);
+uniform float ripple = 0.0;
+uniform vec2 ripple_at = vec2(0.5);
 void vertex() {
 	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(INV_VIEW_MATRIX[0] * length(MODEL_MATRIX[0].xyz), INV_VIEW_MATRIX[1] * length(MODEL_MATRIX[1].xyz), INV_VIEW_MATRIX[2], MODEL_MATRIX[3]);
 }
 vec3 fr(float f, vec2 uv) { return texture(frames, (vec2(mod(f, 8.0), floor(f / 8.0)) + uv) / 8.0).rgb; }
 void fragment() {
+	vec2 d = UV - ripple_at;
+	float rr = length(d);
+	vec2 uv = UV + (rr > 0.0001 ? d / rr : vec2(0.0)) * sin(rr * 60.0 - TIME * 14.0) * 0.012 * ripple * smoothstep(0.6, 0.0, rr);   // shots: rings like water
+	uv = clamp(uv, vec2(0.004), vec2(0.996));
 	float f0 = floor(fpos);
 	float f1 = min(f0 + 1.0, 63.0);
-	vec2 uv = clamp(UV, vec2(0.004), vec2(0.996));
 	vec3 c = mix(fr(f0, uv), fr(f1, uv), fpos - f0);
 	vec2 p = (UV - vec2(0.5, 0.46)) * 2.0;
 	float oval = smoothstep(1.0, 0.55, length(p * vec2(1.0, 0.92)));
-	ALBEDO = c * tint * 1.25;
+	ALBEDO = c * tint * 1.25 + vec3(0.6, 0.8, 1.0) * ripple * 0.25 * smoothstep(0.5, 0.0, rr);
 	ALPHA = oval * alpha;
 }
 """
-var app_len := Data.APPARITION_LEN   # how long she stays this time (her message's length in a star)
-var app_sun := false
-var _sun_in := 0.0
-var _sun_done := false
-var sun_voice: AudioStreamPlayer
-func _update_apparition(dt: float) -> void:
-	if surface_mode and sun_surface:   # v1.9z (owner): in a star, behind the heat shield, she speaks
-		if heat_shielded:
-			_sun_in += dt
-			if not _sun_done and apparition_t < 0.0 and _sun_in > Data.SUN_APPARITION_AFTER:
-				if show_apparition(true): _sun_done = true
-		_tick_apparition(dt)
-		return
-	_sun_in = 0.0
-	_sun_done = false
-	if surface_mode or nebulae.is_empty():
-		if apparition_t >= 0.0: _end_apparition()
-		return
-	if in_nebula > 0.85 and nebula_now >= 0:
-		_app_inside += dt
-		if _app_rolled != nebula_now and _app_inside > Data.APPARITION_AFTER and apparition_t < 0.0:
-			_app_rolled = nebula_now
-			if _rng.randf() < Data.APPARITION_CHANCE: show_apparition(false, _rng.randf() < Data.CLOUD_MESSAGE_SHARE)   # (rarely she speaks)
-	else:
-		_app_inside = 0.0
-		if in_nebula < 0.05:
-			_app_rolled = -1
-			if apparition_t >= 0.0 and not app_sun: _end_apparition()   # out of the cloud: she is gone, her voice too
-	_tick_apparition(dt)
 
-func _end_apparition() -> void:
-	apparition_t = -1.0
-	if is_instance_valid(apparition): apparition.visible = false
-	if is_instance_valid(sun_voice): sun_voice.stop()
-
-func _tick_apparition(dt: float) -> void:
-	if apparition_t < 0.0:
-		if is_instance_valid(apparition): apparition.visible = false
-		return
-	apparition_t += dt
-	if apparition_t >= app_len:
-		_end_apparition()
-		return
-	var t := apparition_t
-	var fp: float   # her clip: forms (frames 0-14), holds (14-55, back and forth for a long message), fades (56-63)
-	if app_len <= Data.APPARITION_LEN + 0.1: fp = t / app_len * 64.0
-	elif t < 3.0: fp = t / 3.0 * 14.0
-	elif t > app_len - 3.0: fp = 56.0 + (t - (app_len - 3.0)) / 3.0 * 7.0
-	else: fp = 14.0 + pingpong((t - 3.0) * 3.0, 41.0)
-	var c: Vector3 = cam.global_position if is_instance_valid(cam) else player.global_position
-	var fwd: Vector3 = -cam.global_basis.z if is_instance_valid(cam) else -player.global_basis.z
-	apparition.global_position = apparition.global_position.lerp(c + fwd * Data.APPARITION_DIST + Vector3(0, 30, 0), minf(1.0, dt * 0.8))
-	var fade := minf(app_len * 0.2, 3.0)
-	var a := smoothstep(0.0, fade, t) * (1.0 - smoothstep(app_len - fade, app_len, t))
-	var m := apparition.material_override as ShaderMaterial
-	m.set_shader_parameter("fpos", clampf(fp, 0.0, 63.0))
-	m.set_shader_parameter("alpha", a * (1.0 if app_sun else clampf(in_nebula * 1.2, 0.0, 1.0)))
-	m.set_shader_parameter("tint", Data.SUN_TINT if app_sun else nebula_tint.lerp(Color.WHITE, 0.55))
-
-## The owner's messages, when they are in (each its own pack); null until then.
-func sun_message() -> AudioStream: return _message("sun_message", Data.SUN_MESSAGE)
-func cloud_message() -> AudioStream: return _message("cloud_message", Data.CLOUD_MESSAGE)
-func _message(pk: String, base: String) -> AudioStream:
-	for ext in ["ogg", "mp3"]:
-		var p: String = base + "." + ext
-		if Packs.is_ready(pk) and ResourceLoader.exists(p): return load(p)
-	Packs.request(pk)
+## Her clips: each one its own small pack (her_<set>_NN), fetched just before she needs it.
+func her_clips(set_name: String) -> Array:
+	var n: int = Data.HER_CLIPS.get(set_name, 0)
+	var out: Array = []
+	for i in n: out.append("her_%s_%02d" % [set_name, i + 1])
+	return out
+func _her_stream(clip: String) -> AudioStream:
+	if clip == "": return null
+	var path := "res://assets/voices/her_%s/%s.mp3" % [clip.split("_")[1], clip]
+	if Packs.is_ready(clip) and ResourceLoader.exists(path): return load(path)
 	return null
-func speaking() -> bool: return apparition_t >= 0.0 and is_instance_valid(sun_voice) and sun_voice.playing
+## Pick (and start fetching) the clip she will speak next for a set, never the last one again.
+func _pick_clip(set_name: String) -> String:
+	var all := her_clips(set_name)
+	if all.is_empty(): return ""
+	var c: String = all[_rng.randi() % all.size()]
+	if all.size() > 1 and c == str(_last_clip.get(set_name, "")): c = all[(all.find(c) + 1) % all.size()]
+	Packs.request(c)
+	return c
 
-## Bring her up now (when her picture is in; it is fetched on the way). In a star she brings her message and stays
-## while it plays.
-func show_apparition(in_sun := false, with_message := false) -> bool:
+func speaking() -> bool: return app_phase in ["anomaly", "face"]
+
+func _update_apparition(dt: float) -> void:
+	_ripple = maxf(0.0, _ripple - dt * 0.8)
+	her_flash = maxf(0.0, her_flash - dt * 1.5)
+	var in_sun := surface_mode and sun_surface
+	if in_sun:   # the star: her cloud bank waits in a corner of the map, behind a heat shield
+		if heat_shielded and corner_haze > 0.5:
+			if _next_clip == "": _next_clip = _pick_clip("sun")
+			_corner_in += dt
+			if not _corner_done and app_phase == "" and _corner_in > Data.SUN_APPARITION_AFTER:
+				_corner_done = start_her(true)
+		elif corner_haze < 0.1:
+			_corner_in = 0.0
+			_corner_done = false
+			if app_phase in ["anomaly", "face"]: _her_leave()
+	elif surface_mode:
+		if app_phase != "": _her_leave(true)
+		return
+	else:
+		if nebulae.is_empty(): return
+		if in_nebula > 0.3 and _next_clip == "": _next_clip = _pick_clip("cloud")   # fetch her words on the way in
+		if in_nebula > 0.85 and nebula_now >= 0:
+			_app_inside += dt
+			if _app_rolled != nebula_now and _app_inside > Data.APPARITION_AFTER and app_phase == "":
+				_app_rolled = nebula_now
+				if _rng.randf() < Data.APPARITION_CHANCE: start_her(false)
+		else:
+			_app_inside = 0.0
+			if in_nebula < 0.05:
+				_app_rolled = -1
+				if app_phase in ["anomaly", "face"]: _her_leave(true)   # out of the cloud: she is gone, her voice too
+	_tick_her(dt)
+	if in_sun:   # the anomaly in the star's corner cloud: the owner's strange-nebula clip closes round you, gold
+		if anomaly_k > 0.001: _cloud_dome(anomaly_k * 0.6, Data.SUN_TINT, 1.0, "nebula")
+		elif dome_alpha > 0.0: _cloud_dome(0.0, Color.BLACK)
+
+## Begin: the anomaly first, then her. Returns false when her picture is not in yet (it is fetched).
+func start_her(in_sun: bool) -> bool:
 	var path := "res://assets/fx/apparition_face.jpg"
 	if not (Packs.is_ready("apparition") and ResourceLoader.exists(path)):
 		Packs.request("apparition")
 		return false
 	app_sun = in_sun
-	app_len = Data.APPARITION_LEN
-	if in_sun or with_message:
-		var msg := sun_message() if in_sun else cloud_message()
-		if msg != null:
-			if not is_instance_valid(sun_voice):
-				sun_voice = AudioStreamPlayer.new()
-				sun_voice.name = "SunVoice"
-				add_child(sun_voice)
-			sun_voice.stream = msg
-			sun_voice.play()
-			app_len = maxf(Data.APPARITION_LEN, msg.get_length() + 4.0)
+	app_hits = 0
+	app_clip = _next_clip if _next_clip != "" else _pick_clip("sun" if in_sun else "cloud")
+	_next_clip = ""
+	app_phase = "anomaly"
+	app_phase_t = 0.0
+	apparition_t = -1.0
+	if not is_instance_valid(_hum):
+		_hum = AudioStreamPlayer.new()
+		_hum.name = "AnomalyHum"
+		var hs = Sfx.streams.get("fx_hum")
+		if hs is AudioStreamWAV:
+			hs = (hs as AudioStreamWAV).duplicate()
+			hs.loop_mode = AudioStreamWAV.LOOP_FORWARD
+			hs.loop_end = hs.data.size() / (2 * (2 if hs.stereo else 1))
+		_hum.stream = hs
+		add_child(_hum)
+	if _hum.stream != null:
+		_hum.volume_db = -40.0
+		_hum.pitch_scale = 0.55
+		_hum.play()
+	return true
+
+## Show her face now (also used by the checks to skip the anomaly).
+func show_apparition(in_sun := false, with_voice := true) -> bool:
+	if app_phase == "" and not start_her(in_sun): return false
+	_her_face(with_voice)
+	return true
+
+func _her_face(with_voice: bool) -> void:
 	if not is_instance_valid(apparition):
 		apparition = MeshInstance3D.new()
 		apparition.name = "Apparition"
@@ -2120,7 +2152,7 @@ func show_apparition(in_sun := false, with_message := false) -> bool:
 		sh.code = APPARITION_SHADER
 		var m := ShaderMaterial.new()
 		m.shader = sh
-		m.set_shader_parameter("frames", load(path))
+		m.set_shader_parameter("frames", load("res://assets/fx/apparition_face.jpg"))
 		m.render_priority = -5
 		apparition.material_override = m
 		apparition.top_level = true
@@ -2134,7 +2166,94 @@ func show_apparition(in_sun := false, with_message := false) -> bool:
 	apparition.visible = true
 	apparition_t = 0.0
 	apparitions += 1
-	return true
+	app_phase = "face"
+	app_phase_t = 0.0
+	app_len = Data.APPARITION_LEN
+	var st := _her_stream(app_clip) if with_voice else null
+	if st != null:
+		if not is_instance_valid(her_voice):
+			her_voice = AudioStreamPlayer.new()
+			her_voice.name = "HerVoice"
+			add_child(her_voice)
+		her_voice.stream = st
+		her_voice.volume_db = -30.0
+		her_voice.play()
+		app_len = maxf(8.0, st.get_length() + Data.HER_VOICE_DELAY + 3.0)
+		_last_clip["sun" if app_sun else "cloud"] = app_clip
+
+## She goes: her face melts back into the smoke and the anomaly calms (now = at once, e.g. you left the cloud).
+func _her_leave(now := false) -> void:
+	if is_instance_valid(her_voice): her_voice.stop()
+	if is_instance_valid(_hum) and now: _hum.stop()
+	apparition_t = -1.0
+	if is_instance_valid(apparition): apparition.visible = false
+	app_phase = "" if now else "calm"
+	app_phase_t = 0.0
+	if now: anomaly_k = 0.0
+
+func _end_apparition() -> void: _her_leave(true)
+
+func _tick_her(dt: float) -> void:
+	app_phase_t += dt
+	match app_phase:
+		"anomaly":
+			anomaly_k = clampf(app_phase_t / Data.ANOMALY_LEN, 0.0, 1.0)
+			if is_instance_valid(_hum): _hum.volume_db = lerpf(-40.0, -8.0, anomaly_k)
+			if app_phase_t >= Data.ANOMALY_LEN: _her_face(true)
+		"face":
+			anomaly_k = 1.0
+		"calm":
+			anomaly_k = clampf(1.0 - app_phase_t / Data.ANOMALY_CALM, 0.0, 1.0)
+			if is_instance_valid(_hum): _hum.volume_db = lerpf(-40.0, -8.0, anomaly_k)
+			if anomaly_k <= 0.0:
+				app_phase = ""
+				if is_instance_valid(_hum): _hum.stop()
+		_:
+			anomaly_k = 0.0
+	if app_phase != "face" or not is_instance_valid(apparition):
+		return
+	apparition_t += dt
+	if is_instance_valid(her_voice) and her_voice.playing:   # her voice fades in as her face forms
+		her_voice.volume_db = lerpf(-30.0, Data.HER_VOICE_DB, clampf((apparition_t - Data.HER_VOICE_DELAY) / 1.5 + 0.0, 0.0, 1.0)) if apparition_t > Data.HER_VOICE_DELAY else -30.0
+	if apparition_t >= app_len:
+		_her_leave()
+		return
+	var t := apparition_t
+	var fp: float   # her clip: forms (frames 0-14), holds (14-55, back and forth), melts away (56-63)
+	if t < 3.0: fp = t / 3.0 * 14.0
+	elif t > app_len - 3.0: fp = 56.0 + (t - (app_len - 3.0)) / 3.0 * 7.0
+	else: fp = 14.0 + pingpong((t - 3.0) * 3.0, 41.0)
+	var c: Vector3 = cam.global_position if is_instance_valid(cam) else player.global_position
+	var fwd: Vector3 = -cam.global_basis.z if is_instance_valid(cam) else -player.global_basis.z
+	apparition.global_position = apparition.global_position.lerp(c + fwd * Data.APPARITION_DIST + Vector3(0, 30, 0), minf(1.0, dt * 0.8))
+	var a := smoothstep(0.0, 3.0, t) * (1.0 - smoothstep(app_len - 3.0, app_len, t))
+	var m := apparition.material_override as ShaderMaterial
+	m.set_shader_parameter("fpos", clampf(fp, 0.0, 63.0))
+	m.set_shader_parameter("alpha", a * (1.0 if app_sun else clampf(in_nebula * 1.2, 0.0, 1.0)))
+	m.set_shader_parameter("tint", Data.SUN_TINT if app_sun else nebula_tint.lerp(Color.WHITE, 0.55))
+	m.set_shader_parameter("ripple", _ripple)
+	m.set_shader_parameter("ripple_at", _ripple_at)
+
+## A shot passes through her: she ripples. Too many and she is offended: gone, the anomaly flares, lightning hits you.
+func her_shot(at: Vector3) -> void:
+	if app_phase != "face" or not is_instance_valid(apparition): return
+	var local: Vector3 = apparition.global_transform.affine_inverse() * at
+	_ripple_at = Vector2(clampf(0.5 + local.x, 0.0, 1.0), clampf(0.5 - local.y, 0.0, 1.0)) if is_finite(local.x) else Vector2(0.5, 0.5)
+	_ripple = 1.0
+	app_hits += 1
+	if app_hits >= Data.HER_PATIENCE:
+		_her_leave()
+		anomaly_k = 1.0
+		her_flash = 1.0
+		hit_shake = maxf(hit_shake, 0.8)
+		GS.shield = 0.0
+		shield_delay = maxf(shield_delay, 6.0)
+		GS.changed.emit()
+		Sfx.play("explosion", -2.0, 0.6)
+		Sfx.play("atmo", -2.0, 0.45)
+		message.emit("She is gone. Lightning tears through your shields!")
+
+var her_flash := 0.0   # lightning when she is offended
 
 func nebula_weather() -> String:
 	if nebula_now < 0 or nebula_now >= nebulae.size(): return ""
@@ -2309,7 +2428,7 @@ func _update_nebulae(dt: float) -> void:
 			e.fog_density = Data.NEBULA_FOG_DENSITY * pow(in_nebula, 1.5) * clear
 			e.fog_light_color = nebula_tint.darkened(0.35).lerp(Data.BEACON_LIGHT_COLOR, beacon_lit * 0.5).lerp(Color(0.85, 0.9, 1.0), nebula_flash * 0.7)
 			e.fog_sky_affect = clampf(in_nebula * 1.6, 0.0, 1.0) * clear   # (v1.9z: deep inside, no stars: you can't see out)
-			_cloud_dome(clampf(in_nebula * 1.6, 0.0, 1.0) * clear, e.fog_light_color, 1.0, str(Data.CLOUD_ANIM.get(nebula_weather(), "nebula")))
+			_cloud_dome(clampf(in_nebula * 1.6, 0.0, 1.0) * clear, e.fog_light_color.lerp(Color.WHITE, anomaly_k * 0.15), 1.0 + anomaly_k * 0.4, "nebula" if anomaly_k > 0.05 else str(Data.CLOUD_ANIM.get(nebula_weather(), "nebula")))   # (v2.0: her anomaly first)
 		elif _neb_fog_on:
 			e.fog_enabled = false
 			_neb_fog_on = false
@@ -3707,7 +3826,10 @@ func _update_bolts(dt: float) -> void:
 		n.global_position = to
 		b["life"] -= dt
 		var hit := false
-		if b["owner"] == "player" or b["owner"] == "ally":   # v1.9n: allied ships' shots hit the enemy too
+		if b["owner"] == "player" and app_phase == "face" and is_instance_valid(apparition) and _seg_hit(from, to, apparition.global_position, Data.APPARITION_SIZE * 0.32):
+			her_shot(_seg_closest(from, to, apparition.global_position))   # v2.0: through her: she ripples
+			hit = true
+		elif b["owner"] == "player" or b["owner"] == "ally":   # v1.9n: allied ships' shots hit the enemy too
 			for e in enemies:
 				if _seg_hit(from, to, e["node"].global_position, float(e["def"].get("hit_r", 7.5))):
 					_damage_enemy(e, b["dmg"], _seg_closest(from, to, e["node"].global_position) if not e["def"].get("capital", false) else Vector3.INF, float(b.get("sf", -1.0)))
