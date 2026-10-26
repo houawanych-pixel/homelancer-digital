@@ -49,6 +49,7 @@ func _ready() -> void:
 	hud.typed.connect(_on_typed)
 	hub.launch_requested.connect(launch)
 	hub.map_requested.connect(func(): navmap.open(null))
+	hub.galaxy_requested.connect(func(): galaxymap.open(GS.system_id))   # v3.1: the GALAXY MAP tile on HOME
 	hub.descend_requested.connect(descend_to)
 	navmap.closed.connect(_on_map_closed)
 	navmap.course_set.connect(_on_course)

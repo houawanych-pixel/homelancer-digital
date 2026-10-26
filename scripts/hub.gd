@@ -3,18 +3,23 @@ extends Control
 
 signal launch_requested
 signal map_requested
+signal galaxy_requested   # v3.1: the GALAXY MAP tile on HOME
 signal descend_requested(planet_id: String, location_id: String)
 
 const CYAN := Color(0.4, 0.86, 1.0)
 const GOLD := Color(1.0, 0.82, 0.4)
 const INK := Color(0.03, 0.07, 0.12, 0.74)
+const TAB_H := 54.0        # v3.1: the tab bar
+const TOP_Y := 68.0        # v3.1: station name, credits and LAUNCH sit under the tabs
+const CONTENT_Y := 140.0   # v3.1: where the page starts
+const TILE_H := 150.0      # v3.1: the picture tiles along the bottom of HOME
 
 var base: Dictionary = {} # station or planet info from Data
 var kind := "station"
 var screen := "hub"
 var font: Font = ThemeDB.fallback_font
 var theme_obj: Theme
-var left: VBoxContainer
+var left: BoxContainer   # v3.1: the tab bar along the top (was the menu column)
 var content: Control
 var status: Label
 var header: Label
@@ -48,18 +53,18 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	theme_obj = _make_theme()
 	theme = theme_obj
-	header = _label(40, Color(1, 1, 1))
-	header.position = Vector2(40, 22)
+	header = _label(32, Color(1, 1, 1))
+	header.position = Vector2(28, TOP_Y)
 	add_child(header)
-	subheader = _label(17, CYAN)
-	subheader.position = Vector2(42, 78)
+	subheader = _label(15, CYAN)
+	subheader.position = Vector2(30, TOP_Y + 44)
 	add_child(subheader)
 	credits_label = _label(22, GOLD)
 	credits_label.anchor_left = 1.0
 	credits_label.anchor_right = 1.0
-	credits_label.offset_left = -420
-	credits_label.offset_right = -36
-	credits_label.offset_top = 30
+	credits_label.offset_left = -760
+	credits_label.offset_right = -36 - Data.HUB_LAUNCH_SIZE.x - 20
+	credits_label.offset_top = TOP_Y + 14
 	credits_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	add_child(credits_label)
 	# v1.5k: LAUNCH is always on screen (upper right, under the credits), on every page: you can never be stuck here
@@ -70,8 +75,8 @@ func _ready() -> void:
 	launch_btn.anchor_right = 1.0
 	launch_btn.offset_left = -36 - Data.HUB_LAUNCH_SIZE.x
 	launch_btn.offset_right = -36
-	launch_btn.offset_top = 64
-	launch_btn.offset_bottom = 64 + Data.HUB_LAUNCH_SIZE.y
+	launch_btn.offset_top = TOP_Y
+	launch_btn.offset_bottom = TOP_Y + Data.HUB_LAUNCH_SIZE.y
 	launch_btn.add_theme_font_size_override("font_size", Data.ts(26))
 	launch_btn.add_theme_color_override("font_color", Color(1, 1, 1))
 	launch_btn.add_theme_color_override("font_hover_color", Color(1, 1, 1))
@@ -86,27 +91,33 @@ func _ready() -> void:
 	launch_btn.add_theme_stylebox_override("hover", lsh)
 	launch_btn.add_theme_stylebox_override("pressed", lsh)
 	launch_btn.pressed.connect(func(): launch_requested.emit())
-	left = VBoxContainer.new()
-	left.position = Vector2(40, 130)
-	left.add_theme_constant_override("separation", 8)
+	# v3.1 (owner's concept art): the station's services as a tab bar along the top
+	left = HBoxContainer.new()
+	left.name = "Tabs"
+	left.anchor_right = 1.0
+	left.offset_left = 10
+	left.offset_right = -10
+	left.offset_top = 6
+	left.offset_bottom = 6 + TAB_H
+	left.add_theme_constant_override("separation", 4)
 	add_child(left)
 	content = Panel.new()
 	content.anchor_left = 0.0
 	content.anchor_right = 1.0
 	content.anchor_bottom = 1.0
-	content.offset_left = 330
-	content.offset_top = 130
-	content.offset_right = -36
-	content.offset_bottom = -86
+	content.offset_left = 24
+	content.offset_top = CONTENT_Y
+	content.offset_right = -24
+	content.offset_bottom = -66
 	add_child(content)
-	status = _label(18, GOLD)
+	status = _label(17, GOLD)
 	status.anchor_top = 1.0
 	status.anchor_bottom = 1.0
 	status.anchor_right = 1.0
-	status.offset_left = 330
-	status.offset_top = -70
-	status.offset_bottom = -30
-	status.offset_right = -36
+	status.offset_left = 24
+	status.offset_top = -60
+	status.offset_bottom = -10
+	status.offset_right = -24
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(status)
 	add_child(launch_btn)   # last child: drawn over everything, nothing can cover it
@@ -156,6 +167,26 @@ func _make_theme() -> Theme:
 	th.set_color("font_color", "Button", Color(0.93, 0.97, 1.0))
 	th.set_color("font_disabled_color", "Button", Color(1, 1, 1, 0.35))
 	th.set_stylebox("panel", "Panel", mk.call(Color(INK, Data.HUB_PANEL_ALPHA), Color(CYAN, 0.35)))
+	# v3.1: the top tabs (dark glass, the open one lit blue with a bright edge underneath)
+	th.set_type_variation("HubTab", "Button")
+	var tab := func(bg: Color, edge: Color, under: int) -> StyleBoxFlat:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = bg
+		sb.border_color = edge
+		sb.set_border_width_all(1)
+		sb.border_width_bottom = under
+		sb.corner_radius_top_left = 8
+		sb.corner_radius_top_right = 8
+		sb.content_margin_left = 4
+		sb.content_margin_right = 4
+		return sb
+	th.set_stylebox("normal", "HubTab", tab.call(Color(0.02, 0.05, 0.1, 0.88), Color(CYAN, 0.22), 2))
+	th.set_stylebox("hover", "HubTab", tab.call(Color(0.05, 0.14, 0.24, 0.92), Color(CYAN, 0.6), 2))
+	th.set_stylebox("pressed", "HubTab", tab.call(Color(0.08, 0.26, 0.44, 0.95), CYAN, 4))
+	th.set_stylebox("focus", "HubTab", StyleBoxEmpty.new())
+	th.set_font_size("font_size", "HubTab", Data.ts(15))
+	th.set_color("font_color", "HubTab", Color(0.8, 0.9, 1.0))
+	th.set_color("font_hover_color", "HubTab", Color.WHITE)
 	th.set_font_size("font_size", "Label", Data.ts(18))
 	return th
 
@@ -185,19 +216,28 @@ func show_screen(s: String) -> void:
 	preview_vp = null
 	var hangar := s == "equipment"   # v1.9x: the HANGAR uses the whole width (BACK returns to the station menu)
 	left.visible = not hangar
-	content.offset_left = 24 if hangar else 330
-	content.offset_top = 112 if hangar else 130
-	status.offset_left = 24 if hangar else 330
+	var top := 22.0 if hangar else TOP_Y   # v3.1: no tabs in the hangar, so the name goes back up
+	header.position.y = top
+	subheader.position.y = top + 44.0
+	content.offset_top = 112 if hangar else CONTENT_Y
 	if hangar: header.text = "HANGAR"
-	var menu := [["hub", "HUB"], ["equipment", "WEAPONS & GEAR"], ["ships", "SHIP DEALER"], ["mechs", "MECH DEALER"], ["repair", "REPAIR / RESUPPLY"], ["board", "MISSION BOARD"], ["ship", "YOUR SHIP"], ["faction", "FACTION"], ["map", "NAVIGATION"]]   # (v1.5k: LAUNCH is its own always-visible button)
-	if _surface_planet() != "": menu.insert(4, ["surface", "SURFACE TRAVEL"])
+	# v3.1: HOME is open glass (the station picture shows through); the other pages keep their panel
+	if s == "hub": content.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	else: content.remove_theme_stylebox_override("panel")
+	var menu := [["hub", "HOME"], ["equipment", "HANGAR"], ["ships", "SHIPS"], ["mechs", "MECHS"], ["repair", "REPAIR"], ["board", "MISSIONS"], ["ship", "MY SHIP"], ["faction", "FACTION"], ["map", "NAV MAP"]]   # (v1.5k: LAUNCH is its own always-visible button)
+	if _surface_planet() != "": menu.insert(5, ["surface", "SURFACE"])
 	for m in menu:
 		var b := Button.new()
 		b.text = m[1]
-		b.custom_minimum_size = Vector2(270, 56)
+		b.theme_type_variation = "HubTab"
+		b.custom_minimum_size = Vector2(60, TAB_H)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.clip_text = true
 		b.name = "Btn_" + m[0]
-		if m[0] == s or (m[0] == "board" and s in ["missions", "bounty"]): b.add_theme_color_override("font_color", GOLD)
-		if m[0] == "launch": b.add_theme_color_override("font_color", Color(0.5, 1.0, 0.65))
+		if m[0] == s or (m[0] == "board" and s in ["missions", "bounty"]):
+			b.add_theme_stylebox_override("normal", theme_obj.get_stylebox("pressed", "HubTab"))
+			b.add_theme_stylebox_override("hover", theme_obj.get_stylebox("pressed", "HubTab"))
+			b.add_theme_color_override("font_color", Color.WHITE)
 		b.pressed.connect(_menu.bind(m[0]))
 		left.add_child(b)
 	match s:
@@ -256,6 +296,10 @@ func _scroll_box() -> VBoxContainer:
 		b.custom_minimum_size = Vector2(80, 120)
 		b.clip_text = true
 		b.add_theme_font_size_override("font_size", 20)
+		var tight := (theme_obj.get_stylebox("normal", "Button") as StyleBoxFlat).duplicate() as StyleBoxFlat   # v3.1: "DOWN" fits
+		tight.content_margin_left = 4
+		tight.content_margin_right = 4
+		b.add_theme_stylebox_override("normal", tight)
 		b.anchor_left = 1.0
 		b.anchor_right = 1.0
 		b.anchor_top = 0.0 if d < 0 else 1.0
@@ -324,23 +368,180 @@ func _people_rows(v: VBoxContainer) -> void:
 	v.add_child(row)
 
 func _hub_page() -> void:
-	var v := _page_box()
-	_people_rows(v)
-	var l := _label(22, Color(1, 1, 1))
+	# v3.1 (owner's concept art): HOME = the station card on the left, your pilot and ship on the right, the station
+	# picture open in the middle, and picture tiles for the main services along the bottom.
+	var lc := _home_card(Rect2(0, 0, 360, 0), "StationCard")
+	lc.anchor_bottom = 1.0
+	lc.offset_bottom = -TILE_H - 14.0
+	var v := lc.get_child(0).get_child(0) as VBoxContainer
+	v.add_child(_caption("STATION  ·  " + str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])).to_upper()))
+	var l := _label(15, Color(1, 1, 1))
+	l.name = "Lore"
 	l.text = base.get("desc", "")
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(l)
-	var s := GS.ship()
-	var info := _label(18, CYAN)
-	info.text = "Your ship: %s (%s)   ·   Weapon: %s ×%d   ·   Missiles %d/%d + heavy %d/%d   ·   Mines %d/%d   ·   Hull %d/%d" % [s["name"], s["class"], GS.weapon()["name"], s["guns"], GS.missiles, GS.max_missiles(), GS.heavy_missiles, GS.max_heavy(), GS.mines, GS.max_mines(), int(GS.hull), int(GS.max_hull())]
-	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	v.add_child(info)
-	var tips := _label(17, Color(0.85, 0.9, 0.95))
-	tips.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	var gate: Dictionary = Data.SYSTEMS[GS.system_id]["gate"]
+	_people_rows(v)
 	_standing_rows(v)
-	tips.text = "Local traffic report: hostile %ss patrol the lanes. The %s leads to %s.\nEquipment sells new guns and missiles. The Ship Dealer trades up to heavier hulls. Launch when ready." % [Data.ENEMIES[Data.SYSTEMS[GS.system_id]["enemy"]]["name"].to_lower(), gate["name"], Data.SYSTEMS[gate["to"]]["name"]]
-	v.add_child(tips)
+	var rc := _home_card(Rect2(0, 0, 380, 0), "ShipCard")
+	rc.anchor_left = 1.0
+	rc.anchor_right = 1.0
+	rc.offset_left = -380
+	rc.offset_right = 0
+	rc.anchor_bottom = 1.0
+	rc.offset_bottom = -TILE_H - 14.0
+	var rv := rc.get_child(0).get_child(0) as VBoxContainer
+	rv.add_child(_caption("PILOT"))
+	var pn := _label(18, Color.WHITE)
+	pn.name = "PilotName"
+	pn.text = (GS.pilot_name if GS.pilot_name != "" else "Freelancer").to_upper()
+	rv.add_child(pn)
+	var cr := _label(16, GOLD)
+	cr.text = "%s cr" % _thousands(GS.credits)
+	rv.add_child(cr)
+	var sh := GS.ship()
+	rv.add_child(_caption("CURRENT SHIP"))
+	var sn := _label(16, Color.WHITE)
+	sn.name = "ShipName"
+	sn.text = "%s  ·  %s" % [sh["name"], sh["class"]]
+	sn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	rv.add_child(sn)
+	var best := {"speed": 1.0, "hull": 1.0, "shield": 1.0, "guns": 1.0}
+	for k in Data.SHIPS:
+		for st in best: best[st] = maxf(best[st], float(Data.SHIPS[k][st]))
+	for bar in [["SPEED", float(sh["speed"]) / best["speed"]], ["FIREPOWER", float(sh["guns"]) / best["guns"]],
+			["SHIELD", GS.max_shield() / best["shield"]], ["HULL", float(GS.hull) / best["hull"]]]:
+		rv.add_child(_stat_bar(bar[0], bar[1]))
+	var info := _label(13, CYAN)
+	info.name = "Loadout"
+	info.text = "%s ×%d  ·  Missiles %d/%d  ·  Heavy %d/%d  ·  Mines %d/%d" % [GS.weapon()["name"], sh["guns"], GS.missiles, GS.max_missiles(), GS.heavy_missiles, GS.max_heavy(), GS.mines, GS.max_mines()]
+	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	rv.add_child(info)
+	# the picture tiles (each one opens its page)
+	var row := HBoxContainer.new()
+	row.name = "Tiles"
+	row.anchor_top = 1.0
+	row.anchor_bottom = 1.0
+	row.anchor_right = 1.0
+	row.offset_top = -TILE_H
+	row.add_theme_constant_override("separation", 10)
+	content.add_child(row)
+	var lead: Dictionary = Factions.leader(Factions.owner_of(base, Data.SYSTEMS[GS.system_id]))
+	for tl in [["equipment", "HANGAR", "Weapons & upgrades", "res://assets/ui/weapons/laser_cannon.png"],
+			["ships", "SHIP DEALER", "Buy new ships", "res://assets/ui/ship_lv2.png"],
+			["mechs", "MECH DEALER", "Frames & parts", "res://assets/ui/mech_lv2.png"],
+			["board", "MISSIONS", "Jobs & bounties", "res://assets/missions/escort.png"],
+			["faction", "COMMAND", "Faction & standing", str(lead.get("portrait_clean", ""))],
+			["galaxy", "GALAXY MAP", "Explore & travel", "res://assets/nav/nebula.jpg"]]:
+		row.add_child(_tile(tl[0], tl[1], tl[2], tl[3], row.get_child_count()))
+
+## v3.1: a dark glass card on the HOME page holding a VBox (child 0).
+func _home_card(r: Rect2, nm: String) -> PanelContainer:
+	var pc := PanelContainer.new()
+	pc.name = nm
+	pc.position = r.position
+	pc.custom_minimum_size = Vector2(r.size.x, 0)
+	pc.offset_right = r.size.x
+	pc.add_theme_stylebox_override("panel", _glass())
+	var sc := ScrollContainer.new()   # (more lore or people than fit: the card scrolls instead of growing)
+	sc.name = "Scroll"
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	sc.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	pc.add_child(sc)
+	var v := VBoxContainer.new()
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.add_theme_constant_override("separation", 4)
+	sc.add_child(v)
+	content.add_child(pc)
+	return pc
+
+func _caption(t: String) -> Label:
+	var c := _label(14, CYAN)
+	c.text = t
+	c.add_theme_constant_override("outline_size", 0)
+	return c
+
+func _thousands(n: int) -> String:
+	var s := str(absi(n))
+	var out := ""
+	while s.length() > 3:
+		out = "," + s.substr(s.length() - 3) + out
+		s = s.substr(0, s.length() - 3)
+	return ("-" if n < 0 else "") + s + out
+
+## v3.1: a labelled stat bar (0..1) like the concept art's CURRENT SHIP panel.
+func _stat_bar(nm: String, k: float) -> Control:
+	var h := HBoxContainer.new()
+	h.name = "Stat_" + nm
+	var lb := _label(12, Color(0.85, 0.92, 1.0))
+	lb.text = nm
+	lb.custom_minimum_size = Vector2(130, 0)
+	lb.add_theme_constant_override("outline_size", 0)
+	h.add_child(lb)
+	var bar := Control.new()
+	bar.custom_minimum_size = Vector2(0, 18)
+	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var kk := clampf(k, 0.04, 1.0)
+	bar.draw.connect(func():
+		var y := bar.size.y * 0.5 - 4.0
+		bar.draw_rect(Rect2(0, y, bar.size.x, 8), Color(1, 1, 1, 0.1))
+		bar.draw_rect(Rect2(0, y, bar.size.x * kk, 8), CYAN)
+		bar.draw_rect(Rect2(0, y - 2, bar.size.x * kk, 12), Color(CYAN, 0.18)))
+	h.add_child(bar)
+	return h
+
+## v3.1: a picture tile for HOME: a slice of the station picture behind, the service's own picture on it, the name
+## on a dark strip at the foot with an arrow. Tap = open that page.
+func _tile(id: String, title: String, sub: String, pic_path: String, idx: int) -> Button:
+	var b := Button.new()
+	b.name = "Tile_" + id
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.custom_minimum_size = Vector2(120, TILE_H)
+	for st in ["normal", "hover", "pressed", "focus"]: b.add_theme_stylebox_override(st, StyleBoxEmpty.new())
+	var pic: Texture2D = load(pic_path) if pic_path != "" and ResourceLoader.exists(pic_path) else null
+	var hot := [false]
+	b.mouse_entered.connect(func(): hot[0] = true; b.queue_redraw())
+	b.mouse_exited.connect(func(): hot[0] = false; b.queue_redraw())
+	b.draw.connect(func():
+		var R := Rect2(Vector2.ZERO, b.size)
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.02, 0.05, 0.1, 0.92)
+		sb.set_corner_radius_all(8)
+		b.draw_style_box(sb, R)
+		var art := R.grow(-3)
+		art.size.y -= 50.0
+		if bg_tex != null:   # a different slice of the station picture for each tile
+			var tw := bg_tex.get_width()
+			var th := bg_tex.get_height()
+			var rw := minf(tw * 0.3, th * art.size.x / art.size.y)
+			var rh := rw * art.size.y / art.size.x
+			var src := Rect2((tw - rw) * (0.08 + 0.84 * idx / 5.0), th * 0.35, rw, rh)
+			b.draw_texture_rect_region(bg_tex, art, src, Color(0.42, 0.5, 0.6))
+		if pic != null:
+			var ps := pic.get_size()
+			if pic_path.ends_with(".jpg") or id == "board":   # a picture: fill the tile
+				var k := maxf(art.size.x / ps.x, art.size.y / ps.y)
+				var src2 := Rect2((ps - art.size / k) * 0.5, art.size / k)
+				b.draw_texture_rect_region(pic, art, src2, Color(1, 1, 1, 0.95))
+			else:   # an icon or portrait: stand it in the middle
+				var k2 := minf(art.size.x * 0.8 / ps.x, art.size.y * 0.92 / ps.y)
+				var sz := ps * k2
+				b.draw_texture_rect(pic, Rect2(art.position + (art.size - sz) * Vector2(0.5, 0.55), sz), false)
+		var band := Rect2(R.position + Vector2(0, R.size.y - 52), Vector2(R.size.x, 52))
+		b.draw_rect(band, Color(0.02, 0.05, 0.1, 0.95))
+		b.draw_line(band.position, band.position + Vector2(band.size.x, 0), Color(CYAN, 0.7), 2.0)
+		b.draw_string(font, band.position + Vector2(10, 22), title, HORIZONTAL_ALIGNMENT_LEFT, band.size.x - 34, Data.ts(14), Color.WHITE)
+		b.draw_string(font, band.position + Vector2(10, 44), sub, HORIZONTAL_ALIGNMENT_LEFT, band.size.x - 34, Data.TEXT_FLOOR, Color(0.7, 0.8, 0.9))
+		b.draw_string(font, band.position + Vector2(band.size.x - 24, 36), ">", HORIZONTAL_ALIGNMENT_LEFT, -1, Data.ts(20), CYAN)
+		var edge := StyleBoxFlat.new()
+		edge.draw_center = false
+		edge.border_color = CYAN if hot[0] else Color(CYAN, 0.45)
+		edge.set_border_width_all(2)
+		edge.set_corner_radius_all(8)
+		b.draw_style_box(edge, R))
+	b.pressed.connect(func():
+		if id == "galaxy": galaxy_requested.emit()
+		else: _menu(id))
+	return b
 
 func _equipment_page() -> void:
 	# v1.9y (owner's hangar layout + bay art): the docking bay fills the screen (the faction's hangar art, a looping clip
@@ -2366,7 +2567,7 @@ func _standing_rows(v: VBoxContainer) -> void:
 	flow.add_theme_constant_override("h_separation", 22)
 	for f in order.slice(0, 4):
 		var i: Dictionary = Factions.info(f)
-		var l := _label(17, i["color"])
+		var l := _label(15 if screen == "hub" else 17, i["color"])
 		l.name = "Standing_" + f
 		l.text = "%s: %s" % [Factions.def(f)["display_name"].to_upper(), i["name"]]
 		l.tooltip_text = i["note"]
@@ -2509,9 +2710,11 @@ func _draw() -> void:
 		var blink := 0.5 + 0.5 * sin(t * 3.0)
 		for i in 10:
 			draw_circle(Vector2(S.x * (0.05 + i * 0.1), S.y * 0.6), 4, Color(1.0, 0.8, 0.3, 0.4 + 0.5 * blink))
-	# darken behind UI
-	draw_rect(Rect2(Vector2.ZERO, Vector2(S.x, 118)), Color(0, 0, 0, 0.45))
-	draw_rect(Rect2(Vector2(0, 118), Vector2(326, S.y)), Color(0, 0, 0, 0.35))
+	# darken behind UI (v3.1: a band under the tabs and name, and a fade at the foot for the status line)
+	draw_rect(Rect2(Vector2.ZERO, Vector2(S.x, CONTENT_Y - 4.0)), Color(0, 0, 0, 0.42))
+	draw_line(Vector2(0, CONTENT_Y - 4.0), Vector2(S.x, CONTENT_Y - 4.0), Color(CYAN, 0.25), 1.0)
+	for i in 8:
+		draw_rect(Rect2(0, S.y - 70.0 + i * 9.0, S.x, 9.0), Color(0, 0, 0, 0.05 + i * 0.05))
 
 ## Which planet this base belongs to, if that planet has a surface (orbital port or a town on it).
 func _surface_planet() -> String:

@@ -1263,6 +1263,13 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_UI") != "":   # v3.1 work tool: pictures of the station hub and the galaxy map (no checks)
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _ui_shots()
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_W") != "":   # the Job W checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -3612,6 +3619,30 @@ func _job_v() -> void:
 
 ## Job W (v1.4s): hub reset. Panorama rooms are out of the game; a station is one static faction picture with a
 ## see-through interface over it.
+func _ui_shots() -> void:
+	var s := _sp()
+	s.autopilot = null
+	s.drop_warp()
+	s.vel = Vector3.ZERO
+	var hub = main.hub
+	hub.open(Data.SYSTEMS["solara"]["station"])
+	await Packs.wait("hubbg_unity", 30.0)
+	await _frames(3)
+	await _shot("ui_hub", 0.6)
+	for scr in ["board", "faction", "equipment", "ships", "mechs", "repair", "ship"]:
+		hub.show_screen(scr)
+		await _shot("ui_" + scr, 0.8)
+	hub.show_screen("hub")
+	hub.visible = false
+	for id in ["solara", "plundros", "new_terra"]:
+		if Data.SYSTEMS.has(id) and not (id in GS.discovered): GS.discovered.append(id)
+	main.galaxymap.open(GS.system_id)
+	await _shot("ui_galaxy", 0.6)
+	main.galaxymap.selected = "plundros" if Data.SYSTEMS.has("plundros") else GS.system_id
+	await _shot("ui_galaxy_pick", 0.4)
+	main.galaxymap.fz = 2.2
+	await _shot("ui_galaxy_zoom", 0.4)
+
 func _job_w() -> void:
 	var s := _sp()
 	s.autopilot = null
