@@ -9439,7 +9439,7 @@ func _job_v19x() -> void:
 	hb.eq_view = "mech"
 	hb.show_screen("equipment")
 	await _wait(0.4)
-	var mech_ok: bool = hb._eq_mech() and hb._level_tex() != null and str(GS.level_def()["mech_art"]).ends_with("mech_cut2.png") and hb._mount_points(Vector2(300, 400)).size() == 9
+	var mech_ok: bool = hb._eq_mech() and hb._wicon("nx_purple") != null and hb._wicon("nx_purple").resource_path.contains("mech_weapons") and hb._level_tex() != null and str(GS.level_def()["mech_art"]).ends_with("mech_cut2.png") and hb._mount_points(Vector2(300, 400)).size() == 9
 	await _shot("v19x_hangar_mech", 0.3)
 	(hb.find_child("Tab_ammo", true, false) as Button).pressed.emit()
 	await _frames(3)

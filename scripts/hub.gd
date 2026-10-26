@@ -738,7 +738,7 @@ func _slot_color(k: int) -> Color:
 ## holds one), and a line out to its name tag at the side. Tap the square or its tag to pick that slot.
 var _icon_cache := {}
 func _wicon(id: String) -> Texture2D:
-	var path := Data.weapon_icon(id)
+	var path := Data.weapon_icon(id, _eq_mech())
 	if path == "" or not ResourceLoader.exists(path): return null
 	if not _icon_cache.has(path): _icon_cache[path] = load(path)
 	return _icon_cache[path]
@@ -1063,7 +1063,7 @@ func _card(id: String, kind: String) -> Control:
 	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	pic.custom_minimum_size = Vector2(0, 84 if kind != "module" else 40)
-	var ipath: String = str(d["icon"]) if kind == "module" else Data.weapon_icon(id)
+	var ipath: String = str(d["icon"]) if kind == "module" else Data.weapon_icon(id, _eq_mech())
 	if ipath != "" and ResourceLoader.exists(ipath): pic.texture = load(ipath)
 	col.add_child(pic)
 	for ln in [[nm.to_upper(), 12, Color(1, 1, 1) if not owned else GOLD], [line2, 10, Color(0.7, 0.88, 1.0)],

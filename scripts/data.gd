@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v2.2"
+const VERSION := "v2.3"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -1026,7 +1026,17 @@ const WEAPON_ICON := {"pulse1": "laser_cannon", "pulse2": "beam_laser", "ion": "
 	"nx_red": "nx_red", "nx_purple": "nx_purple", "missile_pod": "missile_pod", "rocket_rack": "homing_missile_rack",
 	"hv_missile_box": "quad_missile_pod", "hv_rocket_arm": "homing_missile_rack", "hv_quad": "quad_missile_pod",
 	"light_missile": "missile_pod", "heavy_missile": "homing_missile_rack"}
-static func weapon_icon(id: String) -> String:
+# v2.2 (owner: "that's a mech rifle"): the mech carries its own weapons, from his mech weapon pictures (his Nexus colours
+# included); the ship's Nexus blasters are his concept laser cannon in each colour
+const MECH_WEAPON_ICON := {"nx_blue": "coil_blue", "nx_green": "twin_green", "nx_yellow": "rifle_yellow", "nx_red": "blaster_red",
+	"nx_purple": "sniper_purple", "pulse1": "cannon_blue", "pulse2": "triple_laser", "ion": "minigun", "plasma": "dish_cannon",
+	"warden": "cannon_blue", "bone_rifle": "sniper_rail", "arm_cannon": "dish_cannon", "rail_carbine": "dual_rail",
+	"twin_cannon": "dual_rail", "rail_rifle": "sniper_rail", "charge_cannon": "dish_cannon", "rail_lance": "sniper_rail",
+	"hv_cannon": "dish_cannon", "hv_rail": "dual_rail", "missile_pod": "missile_rack", "rocket_rack": "missile_rack",
+	"hv_missile_box": "quad_missile", "hv_rocket_arm": "missile_rack", "hv_quad": "quad_missile",
+	"light_missile": "missile_rack", "heavy_missile": "quad_missile"}
+static func weapon_icon(id: String, mech := false) -> String:
+	if mech and MECH_WEAPON_ICON.has(id): return "res://assets/ui/mech_weapons/%s.png" % MECH_WEAPON_ICON[id]
 	return "res://assets/ui/weapons/%s.png" % WEAPON_ICON[id] if WEAPON_ICON.has(id) else ""
 const NEXUS_BLASTERS := ["nx_blue", "nx_green", "nx_yellow", "nx_red", "nx_purple"]   # v1.9u
 const BLASTER_LEVELS := 5          # v1.9u: Mk I-V
