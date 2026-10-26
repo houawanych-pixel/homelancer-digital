@@ -823,6 +823,14 @@ const APPARITION_AFTER := 6.0        # s deep inside before she can appear
 const APPARITION_DIST := 300.0       # m ahead of the camera
 const APPARITION_SIZE := 260.0
 const APPARITION_LEN := 15.0
+# v1.9z (owner): she also waits inside the stars. Fly into a star with the Heat Shield and, after a while, her face
+# forms in the fire and her message plays (assets/voices/sun_message.*, owner's audio, may run ~4 min); she stays
+# while it plays, then fades. Every visit.
+const SUN_APPARITION_AFTER := 8.0
+const SUN_MESSAGE := "res://assets/voices/sun_message"   # .ogg / .mp3, its own pack
+const SUN_TINT := Color(1.0, 0.72, 0.38)
+const CLOUD_MESSAGE := "res://assets/voices/cloud_message"   # v1.9z (owner): her rarer message in an ordinary cloud
+const CLOUD_MESSAGE_SHARE := 0.25    # of her cloud appearances, this share bring the message (and she stays for it)
 const CLOUD_ANIM_FPS := 6.4       # the cloud shell round the camera (beyond it, only haze)
 const NEBULA_HUD_TINT := 0.16         # the screen tint inside a cloud (the fog does most of the work now; was 0.36)
 const STATION_MODEL_YAW := {"hollow_requiem": 90.0}   # degrees: the dead liner lies across the docking approach
@@ -1019,13 +1027,14 @@ const HANGARS := {"elyza": 0.62, "orion": 0.66, "unity": 0.66, "spare_a": 0.43, 
 const HANGAR_SPARES := ["spare_a", "spare_b"]
 const MOUNT_MID_AT := 0.62   # v1.9w: the middle wing slot (level 3) sits this far out along the wing, on top
 # v1.9w: ABILITY MODULES (names from the owner's sheet; effects PROVISIONAL). One of each kind at a time.
-const MODULE_ORDER := ["power_cell", "shield_generator", "sensor_array", "control_unit", "processor_unit", "maintenance_port"]
+const MODULE_ORDER := ["power_cell", "shield_generator", "sensor_array", "control_unit", "processor_unit", "maintenance_port", "heat_shield"]
 const MODULES := {
 	"power_cell": {"name": "Power Cell", "price": 800, "icon": "res://assets/ui/mod_power_cell.png", "energy_regen": 0.3, "desc": "Energy recharges 30% faster."},
 	"shield_generator": {"name": "Shield Generator", "price": 1000, "icon": "res://assets/ui/mod_shield_generator.png", "shield": 0.2, "desc": "Shields 20% stronger."},
 	"sensor_array": {"name": "Sensor Array", "price": 900, "icon": "res://assets/ui/mod_sensor_array.png", "radar": 0.3, "desc": "Radar reaches 30% farther."},
 	"control_unit": {"name": "Control Unit", "price": 1100, "icon": "res://assets/ui/mod_control_unit.png", "turn": 0.15, "desc": "The ship turns 15% faster."},
 	"processor_unit": {"name": "Processor Unit", "price": 1200, "icon": "res://assets/ui/mod_processor_unit.png", "lock": 0.25, "desc": "Missiles lock 25% faster."},
+	"heat_shield": {"name": "Heat Shield", "price": 6000, "icon": "res://assets/ui/mod_shield_generator.png", "desc": "Special armour: the heat inside a star can't hurt you."},   # v1.9z (owner)
 	"maintenance_port": {"name": "Maintenance Port", "price": 1400, "icon": "res://assets/ui/mod_maintenance_port.png", "repair": 0.01, "desc": "Repairs 1% of the hull a second when you are not under fire."},
 }
 const NEXUS_BLASTERS := ["nx_blue", "nx_green", "nx_yellow", "nx_red", "nx_purple"]   # v1.9u

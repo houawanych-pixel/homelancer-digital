@@ -36,6 +36,8 @@ const PACKS := {
 	"hangar_unity": {"folders": ["res://assets/hangars"], "match": "unity_top.", "probe": "res://assets/hangars/unity_top.jpg"},   # v1.9y: the owner's hangar bay
 	"hangar_spare_a": {"folders": ["res://assets/hangars"], "match": "spare_a_top.", "probe": "res://assets/hangars/spare_a_top.jpg"},   # v1.9y: the owner's hangar bay
 	"hangar_spare_b": {"folders": ["res://assets/hangars"], "match": "spare_b_top.", "probe": "res://assets/hangars/spare_b_top.jpg"},   # v1.9y: the owner's hangar bay
+	"sun_message": {"folders": ["res://assets/voices"], "match": "sun_message.", "probe": "res://assets/voices/sun_message.mp3"},   # v1.9z: the owner's message in the stars
+	"cloud_message": {"folders": ["res://assets/voices"], "match": "cloud_message.", "probe": "res://assets/voices/cloud_message.mp3"},   # v1.9z: her message in a cloud
 	"apparition": {"folders": ["res://assets/fx"], "match": "apparition_", "probe": "res://assets/fx/apparition_face.jpg"},   # v1.9z: the face in the cloud
 	"cloudanim_storm": {"folders": ["res://assets/fx"], "match": "cloudanim_storm.", "probe": "res://assets/fx/cloudanim_storm.jpg"},   # v1.9z: the owner's looping cloud clip
 	"cloudanim_nebula": {"folders": ["res://assets/fx"], "match": "cloudanim_nebula.", "probe": "res://assets/fx/cloudanim_nebula.jpg"},   # v1.9z: the owner's looping cloud clip

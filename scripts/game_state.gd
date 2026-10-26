@@ -283,6 +283,8 @@ func buy_pod(id: String) -> String:
 	return "Bought the %s. Fit it on a wing mount below." % pd["name"]
 func max_hull() -> float: return float(ship()["hull"])
 func wing_max() -> float: return max_hull() * Data.SECTION_SHARE
+## v1.9z: the Heat Shield module (or the old flag) keeps you safe inside a star.
+func has_heat_shield() -> bool: return heat_shield or "heat_shield" in module_items()
 func max_shield() -> float: return float(ship()["shield"]) * (1.0 + mod("shield"))   # (v1.9w: + Shield Generator)
 func max_missiles() -> int: return int(ship()["missiles"]) + pod_sum("ammo")   # v1.9e: pods carry more (v1.9h: each pod its own)
 func max_mines() -> int: return int(ship()["mines"])

@@ -455,6 +455,21 @@ func _sun() -> void:
 	s.vel = Vector3(120, 0, 0)
 	var wrapped := await _until(func(): return _sp().player.global_position.x < 0.0, 6.0)
 	_check("Sun surface loops (fly off one edge, come back on the other)", wrapped and _sp().planet_id == "solara_sun", "x %.0f -> %.0f" % [px, _sp().player.global_position.x])
+	# v1.9z (owner): with the Heat Shield, after a while in the star, her face forms in the fire (and her message plays)
+	await Packs.wait("apparition", 30.0)
+	await Packs.wait("sun_message", 30.0)
+	s = _sp()
+	s._sun_in = Data.SUN_APPARITION_AFTER + 0.1
+	s._sun_done = false
+	await _frames(3)
+	s.apparition_t = 4.0
+	await _frames(3)
+	var sun_app: bool = s.app_sun and s.apparition != null and s.apparition.visible and s._sun_done and (s.apparition.material_override as ShaderMaterial).get_shader_parameter("tint") == Data.SUN_TINT
+	await _shot("sun_apparition", 0.1)
+	var mod_ok: bool = Data.MODULES.has("heat_shield") and "heat_shield" in Data.MODULE_ORDER
+	var sun_spoke: bool = s.speaking() and s.app_len > 200.0
+	_check("v1.9z (owner): behind a Heat Shield (a module you can buy), her face forms in the star's fire, gold, and stays while her message plays (%.0f s)" % s.app_len, sun_app and mod_ok and sun_spoke, "shown %s, speaking %s" % [sun_app, sun_spoke])
+	s._end_apparition()
 	# without the shield: shields go, then the hull, then the ship
 	GS.heat_shield = false
 	var sh_gone := await _until(func(): return GS.shield <= 0.0, 5.0)
@@ -9472,7 +9487,13 @@ func _job_v19z() -> void:
 	s.apparition_t = Data.APPARITION_LEN - 0.01
 	await _frames(3)
 	app_ok = app_ok and not s.apparition.visible and s.apparition_t < 0.0
-	_check("v1.9z (owner's clip): deep in a cloud her face can form in the smoke ahead, tinted to the cloud, then fade away", app_ok, "shown %s" % app_ok)
+	await Packs.wait("cloud_message", 30.0)
+	var spoke: bool = s.show_apparition(false, true) and s.speaking() and s.app_len > 60.0
+	await _frames(2)
+	_tp(s.station.global_position + Vector3(400, 80, 600), s.station.global_position)   # leave the cloud: she goes, voice too
+	await _frames(4)
+	spoke = spoke and not s.speaking() and s.apparition_t < 0.0
+	_check("v1.9z (owner's clip): deep in a cloud her face can form in the smoke ahead, tinted to the cloud, then fade away; rarely she brings her message and stays for it (leaving the cloud ends it)", app_ok and spoke, "shown %s, spoke %s" % [app_ok, spoke])
 	_check("v1.9z (owner's looping cloud clips): storm, nebula and smoke loop on the cloud walls, tinted to each cloud (storm clouds wear the storm)", anim_ok, "anim %s clip %s" % [anim_ok, s._dome_clip])
 	nd0["weather"] = keep
 	var rock_ok := true   # a rock-field cloud puts its rocks in the collision list

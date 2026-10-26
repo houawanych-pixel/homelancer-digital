@@ -202,6 +202,7 @@ func music_mood(dt: float) -> String:
 	if state == "hub": return ""    # v1.4l: the love song is held for later (it used to play in the apartment)
 	if not is_instance_valid(space) or not is_instance_valid(space.player): return Music.mood
 	if state != "flight": return Music.mood          # docking, jumping, map: keep what is playing
+	if space.speaking(): return ""                   # v1.9z: she is speaking: the music steps back
 	var fighting: bool = space.hostiles_engaged() > 0
 	if fighting:
 		_fight_t = 0.0

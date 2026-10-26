@@ -2021,39 +2021,95 @@ void fragment() {
 	ALPHA = oval * alpha;
 }
 """
+var app_len := Data.APPARITION_LEN   # how long she stays this time (her message's length in a star)
+var app_sun := false
+var _sun_in := 0.0
+var _sun_done := false
+var sun_voice: AudioStreamPlayer
 func _update_apparition(dt: float) -> void:
-	if surface_mode or nebulae.is_empty(): return
+	if surface_mode and sun_surface:   # v1.9z (owner): in a star, behind the heat shield, she speaks
+		if heat_shielded:
+			_sun_in += dt
+			if not _sun_done and apparition_t < 0.0 and _sun_in > Data.SUN_APPARITION_AFTER:
+				if show_apparition(true): _sun_done = true
+		_tick_apparition(dt)
+		return
+	_sun_in = 0.0
+	_sun_done = false
+	if surface_mode or nebulae.is_empty():
+		if apparition_t >= 0.0: _end_apparition()
+		return
 	if in_nebula > 0.85 and nebula_now >= 0:
 		_app_inside += dt
 		if _app_rolled != nebula_now and _app_inside > Data.APPARITION_AFTER and apparition_t < 0.0:
 			_app_rolled = nebula_now
-			if _rng.randf() < Data.APPARITION_CHANCE: show_apparition()
+			if _rng.randf() < Data.APPARITION_CHANCE: show_apparition(false, _rng.randf() < Data.CLOUD_MESSAGE_SHARE)   # (rarely she speaks)
 	else:
 		_app_inside = 0.0
-		if in_nebula < 0.05: _app_rolled = -1
+		if in_nebula < 0.05:
+			_app_rolled = -1
+			if apparition_t >= 0.0 and not app_sun: _end_apparition()   # out of the cloud: she is gone, her voice too
+	_tick_apparition(dt)
+
+func _end_apparition() -> void:
+	apparition_t = -1.0
+	if is_instance_valid(apparition): apparition.visible = false
+	if is_instance_valid(sun_voice): sun_voice.stop()
+
+func _tick_apparition(dt: float) -> void:
 	if apparition_t < 0.0:
 		if is_instance_valid(apparition): apparition.visible = false
 		return
 	apparition_t += dt
-	if apparition_t >= Data.APPARITION_LEN:
-		apparition_t = -1.0
-		apparition.visible = false
+	if apparition_t >= app_len:
+		_end_apparition()
 		return
-	var k := apparition_t / Data.APPARITION_LEN
+	var t := apparition_t
+	var fp: float   # her clip: forms (frames 0-14), holds (14-55, back and forth for a long message), fades (56-63)
+	if app_len <= Data.APPARITION_LEN + 0.1: fp = t / app_len * 64.0
+	elif t < 3.0: fp = t / 3.0 * 14.0
+	elif t > app_len - 3.0: fp = 56.0 + (t - (app_len - 3.0)) / 3.0 * 7.0
+	else: fp = 14.0 + pingpong((t - 3.0) * 3.0, 41.0)
 	var c: Vector3 = cam.global_position if is_instance_valid(cam) else player.global_position
 	var fwd: Vector3 = -cam.global_basis.z if is_instance_valid(cam) else -player.global_basis.z
 	apparition.global_position = apparition.global_position.lerp(c + fwd * Data.APPARITION_DIST + Vector3(0, 30, 0), minf(1.0, dt * 0.8))
+	var fade := minf(app_len * 0.2, 3.0)
+	var a := smoothstep(0.0, fade, t) * (1.0 - smoothstep(app_len - fade, app_len, t))
 	var m := apparition.material_override as ShaderMaterial
-	m.set_shader_parameter("fpos", minf(k * 64.0, 63.0))
-	m.set_shader_parameter("alpha", (smoothstep(0.0, 0.2, k) * (1.0 - smoothstep(0.85, 1.0, k))) * clampf(in_nebula * 1.2, 0.0, 1.0))
-	m.set_shader_parameter("tint", nebula_tint.lerp(Color.WHITE, 0.55))
+	m.set_shader_parameter("fpos", clampf(fp, 0.0, 63.0))
+	m.set_shader_parameter("alpha", a * (1.0 if app_sun else clampf(in_nebula * 1.2, 0.0, 1.0)))
+	m.set_shader_parameter("tint", Data.SUN_TINT if app_sun else nebula_tint.lerp(Color.WHITE, 0.55))
 
-## Bring her up now (when her picture is in; it is fetched on the way).
-func show_apparition() -> bool:
+## The owner's messages, when they are in (each its own pack); null until then.
+func sun_message() -> AudioStream: return _message("sun_message", Data.SUN_MESSAGE)
+func cloud_message() -> AudioStream: return _message("cloud_message", Data.CLOUD_MESSAGE)
+func _message(pk: String, base: String) -> AudioStream:
+	for ext in ["ogg", "mp3"]:
+		var p: String = base + "." + ext
+		if Packs.is_ready(pk) and ResourceLoader.exists(p): return load(p)
+	Packs.request(pk)
+	return null
+func speaking() -> bool: return apparition_t >= 0.0 and is_instance_valid(sun_voice) and sun_voice.playing
+
+## Bring her up now (when her picture is in; it is fetched on the way). In a star she brings her message and stays
+## while it plays.
+func show_apparition(in_sun := false, with_message := false) -> bool:
 	var path := "res://assets/fx/apparition_face.jpg"
 	if not (Packs.is_ready("apparition") and ResourceLoader.exists(path)):
 		Packs.request("apparition")
 		return false
+	app_sun = in_sun
+	app_len = Data.APPARITION_LEN
+	if in_sun or with_message:
+		var msg := sun_message() if in_sun else cloud_message()
+		if msg != null:
+			if not is_instance_valid(sun_voice):
+				sun_voice = AudioStreamPlayer.new()
+				sun_voice.name = "SunVoice"
+				add_child(sun_voice)
+			sun_voice.stream = msg
+			sun_voice.play()
+			app_len = maxf(Data.APPARITION_LEN, msg.get_length() + 4.0)
 	if not is_instance_valid(apparition):
 		apparition = MeshInstance3D.new()
 		apparition.name = "Apparition"
@@ -3072,7 +3128,7 @@ func _update_sun(dt: float) -> void:
 	var pd := (sun_pos - player.global_position).length()
 	var was := sun_hazard
 	sun_hazard = 1 if pd < sun_radius * Data.SUN_WARN else 0
-	if sun_hazard == 1 and was == 0: message.emit("Hull temperature rising — %s" % ("heat shield holding." if GS.heat_shield else "turn away from the star!"))
+	if sun_hazard == 1 and was == 0: message.emit("Hull temperature rising — %s" % ("heat shield holding." if GS.has_heat_shield() else "turn away from the star!"))
 	if pd < sun_radius and controls and not entering:
 		if warp_state != "off":   # hitting it at warp is a crash, like a planet
 			sun_hazard = 2
@@ -3089,7 +3145,7 @@ func _update_sun(dt: float) -> void:
 ## On a star's surface the heat eats the shields, then the hull, fast. A heat shield (GS.heat_shield) stops it.
 func _sun_heat(dt: float) -> void:
 	sun_flare = 0.0
-	heat_shielded = GS.heat_shield
+	heat_shielded = GS.has_heat_shield()
 	sun_hazard = 0 if heat_shielded else 1
 	if heat_shielded or not controls: return
 	if not _sun_burned:
@@ -5038,7 +5094,7 @@ func trigger_system(id: String) -> bool:
 		return _say(id, "Weapons are locked in the trade lane.")
 	if warp_state != "off" and id in ["guns", "missile", "light_missile", "heavy_missile", "mine"]:
 		return _say(id, "Weapons are locked while the warp drive is active.")
-	if sun_surface and not GS.heat_shield and id in ["shield", "hull"]:
+	if sun_surface and not GS.has_heat_shield() and id in ["shield", "hull"]:
 		return _say(id, "Too hot — shields and repairs cannot hold here. Climb out!")
 	match id:
 		"shield":
