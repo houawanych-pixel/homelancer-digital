@@ -1992,6 +1992,94 @@ func _update_atmo_dome() -> void:
 		return
 	_cloud_dome(clampf(atmo_depth * 1.25, 0.0, 1.0), atmo_color, 0.35, Data.CLOUD_ANIM["atmo"])
 
+## v1.9z (owner's clip): the face in the cloud. Deep in a cloud, once per visit (APPARITION_CHANCE), her face forms in
+## the smoke ahead of you, tinted to the cloud, and fades away again. She drifts with you, always ahead.
+var apparition: MeshInstance3D
+var apparition_t := -1.0     # seconds into her clip (-1 = not showing)
+var apparitions := 0         # times she has shown (checks)
+var _app_inside := 0.0
+var _app_rolled := -1        # the cloud whose roll was made this visit
+const APPARITION_SHADER := """
+shader_type spatial;
+render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled, fog_disabled;
+uniform sampler2D frames : source_color, filter_linear;
+uniform float fpos = 0.0;
+uniform float alpha = 0.0;
+uniform vec3 tint : source_color = vec3(1.0);
+void vertex() {
+	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(INV_VIEW_MATRIX[0] * length(MODEL_MATRIX[0].xyz), INV_VIEW_MATRIX[1] * length(MODEL_MATRIX[1].xyz), INV_VIEW_MATRIX[2], MODEL_MATRIX[3]);
+}
+vec3 fr(float f, vec2 uv) { return texture(frames, (vec2(mod(f, 8.0), floor(f / 8.0)) + uv) / 8.0).rgb; }
+void fragment() {
+	float f0 = floor(fpos);
+	float f1 = min(f0 + 1.0, 63.0);
+	vec2 uv = clamp(UV, vec2(0.004), vec2(0.996));
+	vec3 c = mix(fr(f0, uv), fr(f1, uv), fpos - f0);
+	vec2 p = (UV - vec2(0.5, 0.46)) * 2.0;
+	float oval = smoothstep(1.0, 0.55, length(p * vec2(1.0, 0.92)));
+	ALBEDO = c * tint * 1.25;
+	ALPHA = oval * alpha;
+}
+"""
+func _update_apparition(dt: float) -> void:
+	if surface_mode or nebulae.is_empty(): return
+	if in_nebula > 0.85 and nebula_now >= 0:
+		_app_inside += dt
+		if _app_rolled != nebula_now and _app_inside > Data.APPARITION_AFTER and apparition_t < 0.0:
+			_app_rolled = nebula_now
+			if _rng.randf() < Data.APPARITION_CHANCE: show_apparition()
+	else:
+		_app_inside = 0.0
+		if in_nebula < 0.05: _app_rolled = -1
+	if apparition_t < 0.0:
+		if is_instance_valid(apparition): apparition.visible = false
+		return
+	apparition_t += dt
+	if apparition_t >= Data.APPARITION_LEN:
+		apparition_t = -1.0
+		apparition.visible = false
+		return
+	var k := apparition_t / Data.APPARITION_LEN
+	var c: Vector3 = cam.global_position if is_instance_valid(cam) else player.global_position
+	var fwd: Vector3 = -cam.global_basis.z if is_instance_valid(cam) else -player.global_basis.z
+	apparition.global_position = apparition.global_position.lerp(c + fwd * Data.APPARITION_DIST + Vector3(0, 30, 0), minf(1.0, dt * 0.8))
+	var m := apparition.material_override as ShaderMaterial
+	m.set_shader_parameter("fpos", minf(k * 64.0, 63.0))
+	m.set_shader_parameter("alpha", (smoothstep(0.0, 0.2, k) * (1.0 - smoothstep(0.85, 1.0, k))) * clampf(in_nebula * 1.2, 0.0, 1.0))
+	m.set_shader_parameter("tint", nebula_tint.lerp(Color.WHITE, 0.55))
+
+## Bring her up now (when her picture is in; it is fetched on the way).
+func show_apparition() -> bool:
+	var path := "res://assets/fx/apparition_face.jpg"
+	if not (Packs.is_ready("apparition") and ResourceLoader.exists(path)):
+		Packs.request("apparition")
+		return false
+	if not is_instance_valid(apparition):
+		apparition = MeshInstance3D.new()
+		apparition.name = "Apparition"
+		var q := QuadMesh.new()
+		q.size = Vector2(1, 1)
+		apparition.mesh = q
+		var sh := Shader.new()
+		sh.code = APPARITION_SHADER
+		var m := ShaderMaterial.new()
+		m.shader = sh
+		m.set_shader_parameter("frames", load(path))
+		m.render_priority = -5
+		apparition.material_override = m
+		apparition.top_level = true
+		apparition.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		apparition.extra_cull_margin = Data.APPARITION_SIZE
+		apparition.scale = Vector3.ONE * Data.APPARITION_SIZE
+		add_child(apparition)
+	var c: Vector3 = cam.global_position if is_instance_valid(cam) else player.global_position
+	var fwd: Vector3 = -cam.global_basis.z if is_instance_valid(cam) else -player.global_basis.z
+	apparition.global_position = c + fwd * Data.APPARITION_DIST + Vector3(0, 30, 0)
+	apparition.visible = true
+	apparition_t = 0.0
+	apparitions += 1
+	return true
+
 func nebula_weather() -> String:
 	if nebula_now < 0 or nebula_now >= nebulae.size(): return ""
 	return str(nebulae[nebula_now].get("weather", ""))
@@ -2928,6 +3016,7 @@ func _process(dt: float) -> void:
 	_update_beacon()
 	_update_nebulae(dt)   # v1.9s
 	_update_atmo_dome()   # v1.9z
+	_update_apparition(dt)   # v1.9z
 	_update_enemies(dt)
 	if not allies.is_empty(): _update_allies(dt)   # v1.9n
 	_update_traffic(dt)

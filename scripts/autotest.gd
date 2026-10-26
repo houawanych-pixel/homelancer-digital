@@ -9462,6 +9462,17 @@ func _job_v19z() -> void:
 	await _wait(0.3)
 	anim_ok = anim_ok and dm.get_shader_parameter("anim") == true and s._dome_clip == "storm" and float(dm.get_shader_parameter("fpos")) != f0
 	await _shot("v19z_cloud_anim_storm", 0.2)
+	await Packs.wait("apparition", 30.0)
+	var a0: int = s.apparitions
+	var shown: bool = s.show_apparition()
+	s.apparition_t = Data.APPARITION_LEN * 0.5   # (straight to the middle of her clip: her face fully formed)
+	await _frames(3)
+	var app_ok: bool = shown and s.apparitions == a0 + 1 and s.apparition.visible and float((s.apparition.material_override as ShaderMaterial).get_shader_parameter("alpha")) > 0.5
+	await _shot("v19z_apparition", 0.1)
+	s.apparition_t = Data.APPARITION_LEN - 0.01
+	await _frames(3)
+	app_ok = app_ok and not s.apparition.visible and s.apparition_t < 0.0
+	_check("v1.9z (owner's clip): deep in a cloud her face can form in the smoke ahead, tinted to the cloud, then fade away", app_ok, "shown %s" % app_ok)
 	_check("v1.9z (owner's looping cloud clips): storm, nebula and smoke loop on the cloud walls, tinted to each cloud (storm clouds wear the storm)", anim_ok, "anim %s clip %s" % [anim_ok, s._dome_clip])
 	nd0["weather"] = keep
 	var rock_ok := true   # a rock-field cloud puts its rocks in the collision list

@@ -816,6 +816,13 @@ const NEBULA_DOME_R := 1400.0
 # Which clip a cloud wears goes by its weather; a planet's air wears the smoke.
 const CLOUD_ANIM := {"storm": "storm", "rain": "smoke", "snow": "smoke", "rocks": "nebula", "atmo": "smoke"}
 const CLOUD_ANIM_FRAMES := 48
+# v1.9z (owner's clip: "a face that appears and then disappears"): now and then, deep in a cloud, her face forms in the
+# smoke ahead of you and fades away (64 frames, 8 x 8, 15 s). Once per cloud visit at most, after a while inside.
+const APPARITION_CHANCE := 0.35      # chance per cloud visit
+const APPARITION_AFTER := 6.0        # s deep inside before she can appear
+const APPARITION_DIST := 300.0       # m ahead of the camera
+const APPARITION_SIZE := 260.0
+const APPARITION_LEN := 15.0
 const CLOUD_ANIM_FPS := 6.4       # the cloud shell round the camera (beyond it, only haze)
 const NEBULA_HUD_TINT := 0.16         # the screen tint inside a cloud (the fog does most of the work now; was 0.36)
 const STATION_MODEL_YAW := {"hollow_requiem": 90.0}   # degrees: the dead liner lies across the docking approach
