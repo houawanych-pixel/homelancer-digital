@@ -1044,7 +1044,6 @@ func _draw() -> void:
 		var lit: float = space.beacon_lit   # v1.4r: a light beacon lights the cloud: the haze thins and warms near the lamp
 		draw_rect(Rect2(Vector2.ZERO, S), Color(space.nebula_tint.lerp(Data.BEACON_LIGHT_COLOR, lit * 0.6), Data.NEBULA_HUD_TINT * space.in_nebula * (1.0 - Data.BEACON_HAZE_CLEAR * lit)))   # (v1.9s: real fog does most of it now)
 		if space.nebula_flash > 0.01: draw_rect(Rect2(Vector2.ZERO, S), Color(0.85, 0.92, 1.0, 0.22 * space.nebula_flash))   # lightning in the cloud
-	if space.her_flash > 0.01: draw_rect(Rect2(Vector2.ZERO, S), Color(0.9, 0.95, 1.0, 0.7 * space.her_flash))   # v2.0: her lightning
 	if space.sun_surface:   # on a star: everything is seen through a hot yellow haze (your heat shield, if you have one)
 		draw_rect(Rect2(Vector2.ZERO, S), Color(1.0, 0.82, 0.25, 0.16 + 0.04 * sin(t * 3.1)))
 	if space.sun_flare > 0.01:   # sun bloom: washes the view out the closer and more head-on you fly at it

@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v2.0"
+const VERSION := "v2.1"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -811,33 +811,7 @@ const WARP_HOLE_SPARKS := 120
 const WARP_HOLE_RIM := Color(1.0, 0.45, 0.75)
 const WARP_HOLE_CLOUD := Color(0.75, 0.25, 0.6)   # the cloud each warp gate hides in
 const JUMP_TUNNEL_SPIN := [0.04, 0.22]   # v1.9z (owner): the jump-gate tunnel (his picture) spins, turns a second slow .. full speed
-const NEBULA_DOME_R := 1400.0
-# v1.9z (owner's looping cloud clips, greyscale, tinted to each cloud): 48 frames, 8 x 6 in one picture, ~7.5 s a loop.
-# Which clip a cloud wears goes by its weather; a planet's air wears the smoke.
-const CLOUD_ANIM := {"storm": "storm", "rain": "smoke", "snow": "smoke", "rocks": "nebula", "atmo": "smoke"}
-const CLOUD_ANIM_FRAMES := 48
-# v1.9z (owner's clip: "a face that appears and then disappears"): now and then, deep in a cloud, her face forms in the
-# smoke ahead of you and fades away (64 frames, 8 x 8, 15 s). Once per cloud visit at most, after a while inside.
-const APPARITION_CHANCE := 1.0       # chance per cloud visit (v2.0: every visit for now, so the owner can test her; rare later)
-const APPARITION_AFTER := 4.0        # s deep inside before she can appear
-const APPARITION_DIST := 300.0       # m ahead of the camera
-const APPARITION_SIZE := 260.0
-const APPARITION_LEN := 15.0
-# v1.9z (owner): she also waits inside the stars. Fly into a star with the Heat Shield and, after a while, her face
-# (v2.0) she waits in the cloud bank in a corner of the star's map; see space.gd "HER".
-const SUN_APPARITION_AFTER := 3.0    # s inside the star's corner cloud bank
-const SUN_TINT := Color(1.0, 0.72, 0.38)
-const HER_CLIPS := {"sun": 19, "cloud": 33}   # v2.0 (owner): her messages cut at pauses into 10-15 s clips (sun: Bashar, cloud: Mahiru)
-const HER_VOICE_DELAY := 2.0         # s after her face starts forming before her voice fades in
-const HER_VOICE_DB := 0.0
-const HER_PATIENCE := 6              # shots she takes (rippling) before she is offended
-const ANOMALY_LEN := 5.0             # s of anomaly before her face forms
-const ANOMALY_CALM := 3.0            # s for it to calm after she goes
-const CLOUD_ANIM_FPS := 6.4
-const CLOUD_ANIM_SPAN := 1.7         # v2.0 (owner: one big picture, not tiles): the clip spreads once over the wall ahead (~120 deg wide)
-const CLOUD_ANIM_FOLLOW := 0.25      # how fast that picture eases round after you when you turn
-const HER_SPAN := 0.5               # her face in the wall: ~85 deg tall, giant
-const HER_SHOT_DIST := 120.0         # a shot counts as passing into her once it is this far out       # the cloud shell round the camera (beyond it, only haze)
+const NEBULA_DOME_R := 1400.0       # the cloud shell round the camera (beyond it, only haze)
 const NEBULA_HUD_TINT := 0.16         # the screen tint inside a cloud (the fog does most of the work now; was 0.36)
 const STATION_MODEL_YAW := {"hollow_requiem": 90.0}   # degrees: the dead liner lies across the docking approach
 
