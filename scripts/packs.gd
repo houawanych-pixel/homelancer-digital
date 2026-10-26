@@ -11,6 +11,11 @@ signal pack_ready(name: String)
 # folders: whole asset folders in the pack. match: only files whose name starts with this. probe: a file that exists
 # once the pack is mounted. The main export leaves these folders out (export_presets.cfg exclude_filter).
 const PACKS := {
+	"hangar_p_kaijurai": {"folders": ["res://assets/hangars"], "match": "bay_p_kaijurai.", "probe": "res://assets/hangars/bay_p_kaijurai.jpg"},   # v2.9: the owner's planet hangar
+	"hangar_p_phenom": {"folders": ["res://assets/hangars"], "match": "bay_p_phenom.", "probe": "res://assets/hangars/bay_p_phenom.jpg"},   # v2.9: the owner's planet hangar
+	"hangar_p_cybermorph": {"folders": ["res://assets/hangars"], "match": "bay_p_cybermorph.", "probe": "res://assets/hangars/bay_p_cybermorph.jpg"},   # v2.9: the owner's planet hangar
+	"hangar_p_arctides": {"folders": ["res://assets/hangars"], "match": "bay_p_arctides.", "probe": "res://assets/hangars/bay_p_arctides.jpg"},   # v2.9: the owner's planet hangar
+	"hangar_p_solrath": {"folders": ["res://assets/hangars"], "match": "bay_p_solrath.", "probe": "res://assets/hangars/bay_p_solrath.jpg"},   # v2.9: the owner's planet hangar
 	"hangar_p_imperium": {"folders": ["res://assets/hangars"], "match": "bay_p_imperium.", "probe": "res://assets/hangars/bay_p_imperium.jpg"},   # v2.8: the owner's planet hangar
 	"hangar_p_unity": {"folders": ["res://assets/hangars"], "match": "bay_p_unity.", "probe": "res://assets/hangars/bay_p_unity.jpg"},   # v2.8: the owner's planet hangar
 	"hangar_p_orion": {"folders": ["res://assets/hangars"], "match": "bay_p_orion.", "probe": "res://assets/hangars/bay_p_orion.jpg"},   # v2.8: the owner's planet hangar

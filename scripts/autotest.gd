@@ -9451,7 +9451,7 @@ func _job_v19x() -> void:
 	hb.kind = k0
 	hb.show_screen("equipment")
 	await _wait(0.3)
-	var planet_ok: bool = (pn.begins_with("p_") or not Data.BAYS.has("p_" + hn)) and Packs.PACKS.has("hangar_p_covenant") and Data.BAYS.has("p_savagers")
+	var planet_ok: bool = (pn.begins_with("p_") or not Data.BAYS.has("p_" + hn)) and Packs.PACKS.has("hangar_p_covenant") and Data.BAYS.has("p_savagers") and Data.BAYS.has("p_cybermorph") and Packs.PACKS.has("hangar_p_solrath")
 	_check("v2.8 (owner): docked on a planet, a faction's hangar is its planet hangar (%s)" % pn, planet_ok)
 	_check("v2.7 (owner: no more top view): each faction's hangar is its front-view bay with the ship standing on the pad (others a spare); each bay its own small pack (%s here); the top-view pictures and clips are gone" % hn,
 		bays_ok and Data.BAYS.has(hn) and art_ok and gone_ok and hb.find_child("BayCam", true, false) != null, "%s art %s gone %s" % [hn, art_ok, gone_ok])
