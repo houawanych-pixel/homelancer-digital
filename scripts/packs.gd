@@ -12,6 +12,16 @@ signal pack_ready(name: String)
 # once the pack is mounted. The main export leaves these folders out (export_presets.cfg exclude_filter).
 const PACKS := {
 	"assistant": {"folders": ["res://assets/assistant"], "probe": "res://assets/assistant/idle_a.ogv"},   # v3.7: the owner's station assistant (green screen, keyed in the game)
+	"room_savagers_main_hub": {"folders": ["res://assets/rooms/savagers"], "match": "main_hub.", "probe": "res://assets/rooms/savagers/main_hub.jpg"},   # v3.8: the owner's 360 room
+	"room_savagers_shipyard": {"folders": ["res://assets/rooms/savagers"], "match": "shipyard.", "probe": "res://assets/rooms/savagers/shipyard.jpg"},   # v3.8: the owner's 360 room
+	"room_savagers_mech_dealer": {"folders": ["res://assets/rooms/savagers"], "match": "mech_dealer.", "probe": "res://assets/rooms/savagers/mech_dealer.jpg"},   # v3.8: the owner's 360 room
+	"room_savagers_weapons": {"folders": ["res://assets/rooms/savagers"], "match": "weapons.", "probe": "res://assets/rooms/savagers/weapons.jpg"},   # v3.8: the owner's 360 room
+	"room_savagers_supplies": {"folders": ["res://assets/rooms/savagers"], "match": "supplies.", "probe": "res://assets/rooms/savagers/supplies.jpg"},   # v3.8: the owner's 360 room
+	"room_savagers_mission_center": {"folders": ["res://assets/rooms/savagers"], "match": "mission_center.", "probe": "res://assets/rooms/savagers/mission_center.jpg"},   # v3.8: the owner's 360 room
+	"room_savagers_medical_bay": {"folders": ["res://assets/rooms/savagers"], "match": "medical_bay.", "probe": "res://assets/rooms/savagers/medical_bay.jpg"},   # v3.8: the owner's 360 room
+	"room_savagers_command": {"folders": ["res://assets/rooms/savagers"], "match": "command.", "probe": "res://assets/rooms/savagers/command.jpg"},   # v3.8: the owner's 360 room
+	"room_savagers_private_quarters": {"folders": ["res://assets/rooms/savagers"], "match": "private_quarters.", "probe": "res://assets/rooms/savagers/private_quarters.jpg"},   # v3.8: the owner's 360 room
+	"room_savagers_pilots_lounge": {"folders": ["res://assets/rooms/savagers"], "match": "pilots_lounge.", "probe": "res://assets/rooms/savagers/pilots_lounge.jpg"},   # v3.8: the owner's 360 room
 	"room_liberator_main_hub": {"folders": ["res://assets/rooms/liberator"], "match": "main_hub.", "probe": "res://assets/rooms/liberator/main_hub.jpg"},   # v3.5: the owner's 360 room
 	"room_liberator_shipyard": {"folders": ["res://assets/rooms/liberator"], "match": "shipyard.", "probe": "res://assets/rooms/liberator/shipyard.jpg"},   # v3.5: the owner's 360 room
 	"room_liberator_mech_dealer": {"folders": ["res://assets/rooms/liberator"], "match": "mech_dealer.", "probe": "res://assets/rooms/liberator/mech_dealer.jpg"},   # v3.5: the owner's 360 room

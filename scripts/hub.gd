@@ -483,6 +483,7 @@ func _room_faction() -> String:
 	if room_override != "": return room_override
 	var f := str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])).to_lower()
 	if f.begins_with("liberator"): f = "liberator"
+	if f.begins_with("savager"): f = "savagers"
 	return f if f in Data.ROOM_FACTIONS else ""
 
 ## The room for this page: "" when the faction's rooms are not in yet (the station picture shows instead).
