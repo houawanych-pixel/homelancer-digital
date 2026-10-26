@@ -17,6 +17,9 @@ static var responder: Callable = Callable()
 # ---------------------------------------------------------------- personas
 ## kind: which reply set they use. temper 0..1 (how fast they anger), greed 0..1, warmth 0..1.
 const PERSONAS := {
+	"assistant": {"kind": "control", "temper": 0.05, "greed": 0.0, "warmth": 0.95, "home": "this station",   # v3.7 (owner): the station assistant (name to come)
+		"about": "The station assistant. Helps pilots find their way around the station.",
+		"knows": ["station", "gate", "belt", "nebula", "planet", "work"]},
 	"vale": {"kind": "control", "temper": 0.2, "greed": 0.1, "warmth": 0.7, "home": "Liberty Hub",
 		"about": "Commander Vale runs Liberty Hub traffic control in Solara. Calm, dry, protective of her pilots. Unity officer.",
 		"knows": ["station", "gate", "belt", "nebula", "planet", "raiders", "work"]},

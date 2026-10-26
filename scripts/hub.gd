@@ -36,6 +36,10 @@ var bay_hold := 0.0   # s the turntable waits after you drag it or pick a slot
 var preview_key := ""
 var t := 0.0
 # ship inspector: tap the showroom (or VIEW) to look the ship over: drag to turn it, pinch / wheel to zoom, full stats
+var asst: VideoStreamPlayer   # v3.7 (owner): the station assistant, standing in the HOME room
+var asst_chat: Panel
+var asst_greeted := false
+var asst_idle := 0
 var room_view: ColorRect   # v3.5 (owner): the 360 room you stand in
 var leftwin: Panel         # v3.5: the left digital window
 var show_btn: Button       # v3.5: brings the folded windows back
@@ -75,6 +79,21 @@ func _ready() -> void:
 	room_view.material = rm
 	room_view.visible = false
 	add_child(room_view)
+	asst = VideoStreamPlayer.new()   # v3.7: in front of the room, behind the windows
+	asst.name = "Assistant"
+	asst.expand = true
+	asst.volume_db = -80.0
+	asst.visible = false
+	var am := ShaderMaterial.new()
+	am.shader = Shader.new()
+	am.shader.code = ASST_SHADER
+	am.set_shader_parameter("key", Data.ASST_KEY)
+	asst.material = am
+	asst.finished.connect(_asst_next)
+	asst.gui_input.connect(func(e: InputEvent):
+		if (e is InputEventMouseButton and (e as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT and not (e as InputEventMouseButton).pressed) \
+				or (e is InputEventScreenTouch and not (e as InputEventScreenTouch).pressed): asst_tap())
+	add_child(asst)
 	header = _label(32, Color(1, 1, 1))
 	header.position = Vector2(28, TOP_Y)
 	add_child(header)
@@ -142,6 +161,45 @@ func _ready() -> void:
 	leftwin.offset_bottom = -66
 	leftwin.visible = false
 	add_child(leftwin)
+	asst_chat = Panel.new()   # v3.7: what she says, and a line to type to her
+	asst_chat.name = "AssistantChat"
+	asst_chat.anchor_left = 0.5
+	asst_chat.anchor_right = 0.5
+	asst_chat.offset_left = -240
+	asst_chat.offset_right = 240
+	asst_chat.offset_top = CONTENT_Y
+	asst_chat.offset_bottom = CONTENT_Y + 150
+	asst_chat.visible = false
+	var cv := VBoxContainer.new()
+	cv.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	cv.offset_left = 14
+	cv.offset_top = 10
+	cv.offset_right = -10
+	cv.offset_bottom = -10
+	asst_chat.add_child(cv)
+	var said := _label(16, Color.WHITE)
+	said.name = "Said"
+	said.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	said.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	cv.add_child(said)
+	var row := HBoxContainer.new()
+	cv.add_child(row)
+	var ed := LineEdit.new()
+	ed.name = "AskLine"
+	ed.placeholder_text = "Ask her something..."
+	ed.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ed.text_submitted.connect(func(t: String): asst_ask(t))
+	row.add_child(ed)
+	var sb := Button.new()
+	sb.name = "AskSend"
+	sb.text = "SEND"
+	sb.pressed.connect(func(): asst_ask(ed.text))
+	row.add_child(sb)
+	var xb := Button.new()
+	xb.text = "X"
+	xb.pressed.connect(func(): asst_chat.visible = false)
+	row.add_child(xb)
+	add_child(asst_chat)
 	show_btn = Button.new()
 	show_btn.name = "ShowPanels"
 	show_btn.text = "HIDE PANELS"
@@ -335,6 +393,91 @@ void fragment() {
 }
 """
 
+const ASST_SHADER := """
+shader_type canvas_item;
+uniform vec4 key : source_color = vec4(0.08, 0.75, 0.1, 1.0);
+void fragment() {
+	vec4 c = texture(TEXTURE, UV);
+	float g = c.g - max(c.r, c.b);          // how green it is beyond the other two
+	float a = 1.0 - smoothstep(0.12, 0.32, g);
+	c.g = min(c.g, max(c.r, c.b) + 0.04);  // no green fringe
+	COLOR = vec4(c.rgb, c.a * a);
+}
+"""
+
+## v3.7: she shows on HOME (when her clips are in) and stands at her spot in the room.
+func _asst_show(s: String) -> void:
+	var on := s == "hub" and Packs.is_ready("assistant") and ResourceLoader.exists("res://assets/assistant/idle_a.ogv")
+	if s == "hub" and not Packs.is_ready("assistant"):
+		Packs.request("assistant")
+		if not Packs.pack_ready.is_connected(_on_asst_pack): Packs.pack_ready.connect(_on_asst_pack)
+	if on and not asst.visible:
+		asst.visible = true
+		_asst_play("idle_a")
+	elif not on:
+		asst.visible = false
+		asst.stop()
+		asst_chat.visible = false
+
+func _on_asst_pack(pk: String) -> void:
+	if pk == "assistant" and visible: _asst_show(screen)
+
+func _asst_play(clip: String) -> void:
+	asst.stream = load("res://assets/assistant/%s.ogv" % clip)
+	asst.set_meta("clip", clip)
+	asst.play()
+
+func _asst_next() -> void:
+	if not asst.visible: return
+	asst_idle += 1
+	_asst_play("idle_b" if asst_idle % 3 == 2 else "idle_a")
+
+func _asst_place() -> void:
+	if not asst.visible: return
+	var S := get_viewport_rect().size
+	var h := S.y * Data.ASST_HEIGHT
+	var w := h * 320.0 / 486.0
+	var x := S.x * 0.5
+	if room_view.visible:   # she keeps her spot in the room as you look round
+		var vw: float = float((room_view.material as ShaderMaterial).get_shader_parameter("vis_w"))
+		var d := fposmod(Data.ASST_YAW - room_yaw + 0.5, 1.0) - 0.5
+		x = S.x * 0.5 + d / maxf(vw, 0.01) * S.x
+	asst.size = Vector2(w, h)
+	asst.position = Vector2(x - w * 0.5, S.y - h - 58.0)
+
+## Tap her: she says hello (her own voice the first time), and the talk line opens.
+func asst_tap() -> void:
+	asst_chat.visible = true
+	_asst_play("talk")
+	var said: Label = asst_chat.find_child("Said", true, false)
+	if not asst_greeted:
+		asst_greeted = true
+		_asst_voice()
+		said.text = "Hi, pilot. Ask me anything about the station."
+	else: said.text = "Yes, pilot?"
+
+func _asst_voice() -> void:
+	var ap := AudioStreamPlayer.new()
+	ap.stream = load("res://assets/assistant/greet.mp3")
+	add_child(ap)
+	ap.finished.connect(ap.queue_free)
+	ap.play()
+
+## Ask her something: the brain answers (the rule engine for now; Echo Vision's brain plugs in through Brain.responder).
+func asst_ask(t: String) -> void:
+	if t.strip_edges() == "": return
+	var ed: LineEdit = asst_chat.find_child("AskLine", true, false)
+	ed.text = ""
+	var ctx := {"system": GS.system_id, "hostiles": 0, "kills": GS.kills, "credits": GS.credits, "station": str(base.get("name", ""))}
+	Brain.ask("assistant", t, ctx, func(line: String):
+		var clean := line
+		if clean.begins_with("["): clean = clean.substr(clean.find("]") + 1)
+		clean = clean.strip_edges()
+		if clean != "": clean = clean[0].to_upper() + clean.substr(1)
+		(asst_chat.find_child("Said", true, false) as Label).text = clean
+		_asst_play("talk")
+		if Sfx.voice_on(): Sfx.read_aloud(clean, "", 1.15, true))
+
 func _room_faction() -> String:
 	if room_override != "": return room_override
 	var f := str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])).to_lower()
@@ -437,6 +580,7 @@ func set_panels_hidden(h: bool) -> void:
 ## Where the windows sit for this page (the hangar and HOME keep their own layouts).
 func _layout_windows(s: String) -> void:
 	_show_room(s)
+	_asst_show(s)
 	var split: bool = not (s in ["hub", "equipment"])
 	content.anchor_left = Data.ROOM_SPLIT if split else 0.0
 	content.offset_left = 6.0 if split else 24.0
@@ -2899,6 +3043,7 @@ func _process(dt: float) -> void:
 	if not visible: return
 	t += dt
 	_update_room(dt)
+	_asst_place()
 	if preview_pivot and is_instance_valid(preview_pivot) and screen != "equipment": preview_pivot.rotation.y = t * 0.4 + eq_yaw
 	elif preview_pivot and is_instance_valid(preview_pivot) and screen == "equipment":   # v2.6 (owner): it turns on the platform
 		if bay_hold > 0.0: bay_hold -= dt

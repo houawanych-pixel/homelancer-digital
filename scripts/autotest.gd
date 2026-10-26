@@ -9435,6 +9435,29 @@ func _job_v35() -> void:
 	await _frames(3)
 	var lounge_ok: bool = hb.room_key == "liberator_pilots_lounge" and hb.find_child("Btn_lounge", true, false) != null
 	await _shot("v35_room_lounge", 0.2)
+	# v3.7: the assistant stands in the HOME room, keyed out of her green screen; tap her and ask
+	hb.show_screen("hub")
+	await Packs.wait("assistant", 30.0)
+	await Packs.wait("room_liberator_main_hub", 30.0)
+	hb.show_screen("hub")
+	await _frames(4)
+	var a_on: bool = hb.asst.visible and hb.asst.is_playing() and hb.asst.material is ShaderMaterial
+	var x0: float = hb.asst.position.x
+	hb.look_by(Vector2(-200, 0))
+	await _frames(2)
+	var a_moves: bool = absf(hb.asst.position.x - x0) > 50.0
+	hb.room_yaw = Data.ASST_YAW
+	await _frames(2)
+	hb.asst_tap()
+	await _frames(2)
+	var chat_ok: bool = hb.asst_chat.visible and str(hb.asst.get_meta("clip", "")) == "talk"
+	hb.asst_ask("hello")
+	await _frames(2)
+	var said: String = (hb.asst_chat.find_child("Said", true, false) as Label).text
+	var asked: bool = said != "" and not said.begins_with("Hi, pilot")
+	await _shot("v37_assistant", 0.5)
+	_check("v3.7 (owner): the station assistant stands in the HOME room (green keyed out), keeps her spot as you look round; tap her to talk and the brain answers (%s)" % said,
+		a_on and a_moves and chat_ok and asked, "on %s, moves %s, chat %s, answered %s" % [a_on, a_moves, chat_ok, asked])
 	hb.room_override = ""
 	hb.show_screen("hub")
 	await _frames(2)
