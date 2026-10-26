@@ -60,6 +60,25 @@ window.hlMotionStart = function () {
   } else go();
 };
 </script>
+<script>
+// v3.8 (Homelancer assistant): talk to her. The browser's speech recognition hears one line (MIC) or keeps listening
+// (HANDS-FREE). The game takes what was heard with hlSpeech.take(), and pauses listening while she talks.
+window.hlSpeech = { heard: [], free: false, paused: false, rec: null, on: false,
+  take() { return this.heard.length ? this.heard.shift() : ''; },
+  pause(p) { if (p === this.paused) return; this.paused = p; if (p && this.rec && this.on) { try { this.rec.abort(); } catch (e) {} } else if (!p && this.free && !this.on) window.hlListen(true); } };
+window.hlListen = function (free) {
+  const S = window.SpeechRecognition || window.webkitSpeechRecognition; const H = window.hlSpeech;
+  if (!S) { H.heard.push(''); return; }
+  H.free = !!free;
+  if (H.on) return;
+  const r = new S(); H.rec = r; r.lang = 'en-US'; r.interimResults = false; r.continuous = false; r.maxAlternatives = 1;
+  r.onresult = (e) => { const t = e.results[0][0].transcript; if (t) H.heard.push(t); };
+  r.onend = () => { H.on = false; if (H.free && !H.paused) setTimeout(() => { if (H.free && !H.paused && !H.on) window.hlListen(true); }, 350); };
+  r.onerror = () => { H.on = false; };
+  try { r.start(); H.on = true; } catch (e) { H.on = false; }
+};
+window.hlStopListen = function () { const H = window.hlSpeech; H.free = false; if (H.rec) { try { H.rec.abort(); } catch (e) {} } H.on = false; };
+</script>
 <script>window.__engineScriptFailed = false;</script>
 <script src="$GODOT_URL" onerror="window.__engineScriptFailed = true"></script>
 <script>

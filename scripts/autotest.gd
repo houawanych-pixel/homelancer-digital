@@ -9456,6 +9456,18 @@ func _job_v35() -> void:
 	var said: String = (hb.asst_chat.find_child("Said", true, false) as Label).text
 	var asked: bool = said != "" and not said.begins_with("Hi, pilot")
 	await _shot("v37_assistant", 0.5)
+	# v3.8: talk by voice (what the mic hears goes to her), a hands-free switch, and a log that folds away
+	var log_closed: bool = not (hb.asst_chat.find_child("LogBox", true, false) as Control).visible
+	hb.asst_heard("where is the shipyard")
+	await _frames(2)
+	hb.set_log_open(true)
+	await _frames(2)
+	var log_txt: String = (hb.asst_chat.find_child("LogText", true, false) as Label).text
+	var voice_ok: bool = log_closed and hb.find_child("MicButton", true, false) != null and hb.find_child("HandsFree", true, false) != null \
+		and log_txt.contains("YOU: where is the shipyard") and log_txt.count("HER:") >= 2
+	await _shot("v38_assistant_log", 0.3)
+	hb.set_log_open(false)
+	_check("v3.8 (owner): she has a MIC button and HANDS-FREE talk; what you say goes to her and she answers; the chat log is folded away until you open it", voice_ok, log_txt.replace("\n", " | "))
 	_check("v3.7 (owner): the station assistant stands in the HOME room (green keyed out), keeps her spot as you look round; tap her to talk and the brain answers (%s)" % said,
 		a_on and a_moves and chat_ok and asked, "on %s, moves %s, chat %s, answered %s" % [a_on, a_moves, chat_ok, asked])
 	hb.room_override = ""

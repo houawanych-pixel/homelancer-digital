@@ -39,6 +39,10 @@ var t := 0.0
 var asst: VideoStreamPlayer   # v3.7 (owner): the station assistant, standing in the HOME room
 var asst_chat: Panel
 var asst_greeted := false
+var asst_free := false        # v3.8 (owner): hands-free talk (the mic stays open between lines)
+var asst_log_open := false    # v3.8: the chat log (folded away by default)
+var asst_log: Array = []      # [who, line]
+var _speech_t := 0.0
 var asst_idle := 0
 var room_view: ColorRect   # v3.5 (owner): the 360 room you stand in
 var leftwin: Panel         # v3.5: the left digital window
@@ -163,13 +167,19 @@ func _ready() -> void:
 	add_child(leftwin)
 	asst_chat = Panel.new()   # v3.7: what she says, and a line to type to her
 	asst_chat.name = "AssistantChat"
-	asst_chat.anchor_left = 0.5
+	asst_chat.anchor_left = 0.0   # v3.8: beside her (left of the middle), so she never covers it
 	asst_chat.anchor_right = 0.5
-	asst_chat.offset_left = -240
-	asst_chat.offset_right = 240
+	asst_chat.offset_left = 24
+	asst_chat.offset_right = -110
 	asst_chat.offset_top = CONTENT_Y
-	asst_chat.offset_bottom = CONTENT_Y + 108
+	asst_chat.offset_bottom = CONTENT_Y + 156
 	asst_chat.visible = false
+	var csb := StyleBoxFlat.new()   # (solid, so the card under it doesn't show through)
+	csb.bg_color = Color(0.02, 0.05, 0.1, 0.96)
+	csb.border_color = Color(CYAN, 0.6)
+	csb.set_border_width_all(2)
+	csb.set_corner_radius_all(10)
+	asst_chat.add_theme_stylebox_override("panel", csb)
 	var cv := VBoxContainer.new()
 	cv.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	cv.offset_left = 14
@@ -197,8 +207,44 @@ func _ready() -> void:
 	row.add_child(sb)
 	var xb := Button.new()
 	xb.text = "X"
-	xb.pressed.connect(func(): asst_chat.visible = false)
+	xb.pressed.connect(func(): set_hands_free(false); asst_chat.visible = false)
 	row.add_child(xb)
+	var row2 := HBoxContainer.new()   # v3.8 (owner): talk to her by voice; the log folds away
+	row2.add_theme_constant_override("separation", 6)
+	cv.add_child(row2)
+	var mic := Button.new()
+	mic.name = "MicButton"
+	mic.text = "MIC"
+	mic.custom_minimum_size = Vector2(90, 0)
+	mic.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mic.pressed.connect(func(): asst_listen())
+	row2.add_child(mic)
+	var hf := Button.new()
+	hf.name = "HandsFree"
+	hf.text = "HANDS-FREE OFF"
+	hf.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hf.pressed.connect(func(): set_hands_free(not asst_free))
+	row2.add_child(hf)
+	var lg := Button.new()
+	lg.name = "LogButton"
+	lg.text = "LOG ▼"
+	lg.custom_minimum_size = Vector2(110, 0)
+	lg.pressed.connect(func(): set_log_open(not asst_log_open))
+	row2.add_child(lg)
+	for b2 in [mic, hf, lg]:
+		(b2 as Button).add_theme_font_size_override("font_size", Data.ts(14))
+		(b2 as Button).clip_text = true
+	var logbox := ScrollContainer.new()
+	logbox.name = "LogBox"
+	logbox.visible = false
+	logbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	logbox.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	cv.add_child(logbox)
+	var logtxt := _label(14, Color(0.82, 0.92, 1.0))
+	logtxt.name = "LogText"
+	logtxt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	logtxt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	logbox.add_child(logtxt)
 	add_child(asst_chat)
 	move_child(asst, asst_chat.get_index())   # v3.7 (owner): in front of the windows, so a tap on her always reaches her
 	show_btn = Button.new()
@@ -418,6 +464,7 @@ func _asst_show(s: String) -> void:
 	elif not on:
 		asst.visible = false
 		asst.stop()
+		if asst_free: set_hands_free(false)
 		asst_chat.visible = false
 
 func _on_asst_pack(pk: String) -> void:
@@ -456,6 +503,7 @@ func asst_tap() -> void:
 		_asst_voice()
 		said.text = "Hi, pilot. Ask me anything about the station."
 	else: said.text = "Yes, pilot?"
+	_log("HER", said.text)
 
 func _asst_voice() -> void:
 	var ap := AudioStreamPlayer.new()
@@ -469,6 +517,7 @@ func asst_ask(t: String) -> void:
 	if t.strip_edges() == "": return
 	var ed: LineEdit = asst_chat.find_child("AskLine", true, false)
 	ed.text = ""
+	_log("YOU", t.strip_edges())
 	var ctx := {"system": GS.system_id, "hostiles": 0, "kills": GS.kills, "credits": GS.credits, "station": str(base.get("name", ""))}
 	Brain.ask("assistant", t, ctx, func(line: String):
 		var clean := line
@@ -476,8 +525,61 @@ func asst_ask(t: String) -> void:
 		clean = clean.strip_edges()
 		if clean != "": clean = clean[0].to_upper() + clean.substr(1)
 		(asst_chat.find_child("Said", true, false) as Label).text = clean
+		_log("HER", clean)
 		_asst_play("talk")
-		if Sfx.voice_on(): Sfx.read_aloud(clean, "", 1.15, true))
+		if Sfx.voice_on() or asst_free or _spoke: Sfx.read_aloud(clean, "", 1.15, true)   # (talk to her and she talks back)
+		_spoke = false)
+
+var _spoke := false   # the last question came by voice
+
+## v3.8: the chat log, folded away until you open it.
+func _log(who: String, line: String) -> void:
+	asst_log.append([who, line])
+	if asst_log.size() > 40: asst_log.pop_front()
+	var lt: Label = asst_chat.find_child("LogText", true, false)
+	if lt != null: lt.text = "\n".join(asst_log.map(func(e): return "%s: %s" % [e[0], e[1]]))
+	var lb: ScrollContainer = asst_chat.find_child("LogBox", true, false)
+	if lb != null and lb.visible: lb.set_deferred("scroll_vertical", 100000)
+
+func set_log_open(on: bool) -> void:
+	asst_log_open = on
+	(asst_chat.find_child("LogBox", true, false) as Control).visible = on
+	asst_chat.offset_bottom = CONTENT_Y + (360.0 if on else 156.0)
+	var lgb: Button = asst_chat.find_child("LogButton", true, false)
+	lgb.text = "LOG ▲" if on else "LOG ▼"
+	if on: lgb.add_theme_color_override("font_color", GOLD)
+	else: lgb.remove_theme_color_override("font_color")
+
+## v3.8 (owner): the mic. In the browser game the phone's own speech recognition hears you (it asks for the mic once);
+## MIC hears one line; HANDS-FREE keeps listening between lines (and stops while she talks so she doesn't hear herself).
+func asst_listen() -> void:
+	if not OS.has_feature("web"):
+		status.text = "The mic works in the browser game on your phone."
+		return
+	JavaScriptBridge.eval("window.hlListen && window.hlListen(%s)" % ("true" if asst_free else "false"))
+	(asst_chat.find_child("Said", true, false) as Label).text = "Listening..."
+
+func set_hands_free(on: bool) -> void:
+	asst_free = on
+	var hf: Button = asst_chat.find_child("HandsFree", true, false)
+	if hf != null: hf.text = "HANDS-FREE ON" if on else "HANDS-FREE OFF"
+	if on: asst_listen()
+	elif OS.has_feature("web"): JavaScriptBridge.eval("window.hlStopListen && window.hlStopListen()")
+
+## What the mic heard comes here (also used by the tests).
+func asst_heard(t: String) -> void:
+	if t.strip_edges() == "": return
+	_spoke = true
+	asst_ask(t)
+
+func _poll_speech(dt: float) -> void:
+	if not OS.has_feature("web") or not asst_chat.visible: return
+	_speech_t += dt
+	if _speech_t < 0.2: return
+	_speech_t = 0.0
+	JavaScriptBridge.eval("window.hlSpeech && window.hlSpeech.pause(%s)" % ("true" if Sfx.voice_busy() else "false"))
+	var got = JavaScriptBridge.eval("window.hlSpeech ? window.hlSpeech.take() : ''")
+	if got != null and str(got) != "": asst_heard(str(got))
 
 func _room_faction() -> String:
 	if room_override != "": return room_override
@@ -3046,6 +3148,7 @@ func _process(dt: float) -> void:
 	t += dt
 	_update_room(dt)
 	_asst_place()
+	_poll_speech(dt)
 	if preview_pivot and is_instance_valid(preview_pivot) and screen != "equipment": preview_pivot.rotation.y = t * 0.4 + eq_yaw
 	elif preview_pivot and is_instance_valid(preview_pivot) and screen == "equipment":   # v2.6 (owner): it turns on the platform
 		if bay_hold > 0.0: bay_hold -= dt
