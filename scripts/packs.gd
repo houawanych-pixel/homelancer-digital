@@ -32,6 +32,16 @@ const PACKS := {
 	"room_orion_command": {"folders": ["res://assets/rooms/orion"], "match": "command.", "probe": "res://assets/rooms/orion/command.jpg"},   # the owner's 360 room
 	"room_orion_private_quarters": {"folders": ["res://assets/rooms/orion"], "match": "private_quarters.", "probe": "res://assets/rooms/orion/private_quarters.jpg"},   # the owner's 360 room
 	"room_orion_pilots_lounge": {"folders": ["res://assets/rooms/orion"], "match": "pilots_lounge.", "probe": "res://assets/rooms/orion/pilots_lounge.jpg"},   # the owner's 360 room
+	"room_covenant_main_hub": {"folders": ["res://assets/rooms/covenant"], "match": "main_hub.", "probe": "res://assets/rooms/covenant/main_hub.jpg"},   # the owner's 360 room
+	"room_covenant_shipyard": {"folders": ["res://assets/rooms/covenant"], "match": "shipyard.", "probe": "res://assets/rooms/covenant/shipyard.jpg"},   # the owner's 360 room
+	"room_covenant_mech_dealer": {"folders": ["res://assets/rooms/covenant"], "match": "mech_dealer.", "probe": "res://assets/rooms/covenant/mech_dealer.jpg"},   # the owner's 360 room
+	"room_covenant_weapons": {"folders": ["res://assets/rooms/covenant"], "match": "weapons.", "probe": "res://assets/rooms/covenant/weapons.jpg"},   # the owner's 360 room
+	"room_covenant_supplies": {"folders": ["res://assets/rooms/covenant"], "match": "supplies.", "probe": "res://assets/rooms/covenant/supplies.jpg"},   # the owner's 360 room
+	"room_covenant_mission_center": {"folders": ["res://assets/rooms/covenant"], "match": "mission_center.", "probe": "res://assets/rooms/covenant/mission_center.jpg"},   # the owner's 360 room
+	"room_covenant_medical_bay": {"folders": ["res://assets/rooms/covenant"], "match": "medical_bay.", "probe": "res://assets/rooms/covenant/medical_bay.jpg"},   # the owner's 360 room
+	"room_covenant_command": {"folders": ["res://assets/rooms/covenant"], "match": "command.", "probe": "res://assets/rooms/covenant/command.jpg"},   # the owner's 360 room
+	"room_covenant_private_quarters": {"folders": ["res://assets/rooms/covenant"], "match": "private_quarters.", "probe": "res://assets/rooms/covenant/private_quarters.jpg"},   # the owner's 360 room
+	"room_covenant_pilots_lounge": {"folders": ["res://assets/rooms/covenant"], "match": "pilots_lounge.", "probe": "res://assets/rooms/covenant/pilots_lounge.jpg"},   # the owner's 360 room
 	"room_liberator_main_hub": {"folders": ["res://assets/rooms/liberator"], "match": "main_hub.", "probe": "res://assets/rooms/liberator/main_hub.jpg"},   # v3.5: the owner's 360 room
 	"room_liberator_shipyard": {"folders": ["res://assets/rooms/liberator"], "match": "shipyard.", "probe": "res://assets/rooms/liberator/shipyard.jpg"},   # v3.5: the owner's 360 room
 	"room_liberator_mech_dealer": {"folders": ["res://assets/rooms/liberator"], "match": "mech_dealer.", "probe": "res://assets/rooms/liberator/mech_dealer.jpg"},   # v3.5: the owner's 360 room
