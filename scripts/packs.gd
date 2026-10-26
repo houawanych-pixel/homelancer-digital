@@ -22,6 +22,16 @@ const PACKS := {
 	"room_savagers_command": {"folders": ["res://assets/rooms/savagers"], "match": "command.", "probe": "res://assets/rooms/savagers/command.jpg"},   # v3.8: the owner's 360 room
 	"room_savagers_private_quarters": {"folders": ["res://assets/rooms/savagers"], "match": "private_quarters.", "probe": "res://assets/rooms/savagers/private_quarters.jpg"},   # v3.8: the owner's 360 room
 	"room_savagers_pilots_lounge": {"folders": ["res://assets/rooms/savagers"], "match": "pilots_lounge.", "probe": "res://assets/rooms/savagers/pilots_lounge.jpg"},   # v3.8: the owner's 360 room
+	"room_orion_main_hub": {"folders": ["res://assets/rooms/orion"], "match": "main_hub.", "probe": "res://assets/rooms/orion/main_hub.jpg"},   # the owner's 360 room
+	"room_orion_shipyard": {"folders": ["res://assets/rooms/orion"], "match": "shipyard.", "probe": "res://assets/rooms/orion/shipyard.jpg"},   # the owner's 360 room
+	"room_orion_mech_dealer": {"folders": ["res://assets/rooms/orion"], "match": "mech_dealer.", "probe": "res://assets/rooms/orion/mech_dealer.jpg"},   # the owner's 360 room
+	"room_orion_weapons": {"folders": ["res://assets/rooms/orion"], "match": "weapons.", "probe": "res://assets/rooms/orion/weapons.jpg"},   # the owner's 360 room
+	"room_orion_supplies": {"folders": ["res://assets/rooms/orion"], "match": "supplies.", "probe": "res://assets/rooms/orion/supplies.jpg"},   # the owner's 360 room
+	"room_orion_mission_center": {"folders": ["res://assets/rooms/orion"], "match": "mission_center.", "probe": "res://assets/rooms/orion/mission_center.jpg"},   # the owner's 360 room
+	"room_orion_medical_bay": {"folders": ["res://assets/rooms/orion"], "match": "medical_bay.", "probe": "res://assets/rooms/orion/medical_bay.jpg"},   # the owner's 360 room
+	"room_orion_command": {"folders": ["res://assets/rooms/orion"], "match": "command.", "probe": "res://assets/rooms/orion/command.jpg"},   # the owner's 360 room
+	"room_orion_private_quarters": {"folders": ["res://assets/rooms/orion"], "match": "private_quarters.", "probe": "res://assets/rooms/orion/private_quarters.jpg"},   # the owner's 360 room
+	"room_orion_pilots_lounge": {"folders": ["res://assets/rooms/orion"], "match": "pilots_lounge.", "probe": "res://assets/rooms/orion/pilots_lounge.jpg"},   # the owner's 360 room
 	"room_liberator_main_hub": {"folders": ["res://assets/rooms/liberator"], "match": "main_hub.", "probe": "res://assets/rooms/liberator/main_hub.jpg"},   # v3.5: the owner's 360 room
 	"room_liberator_shipyard": {"folders": ["res://assets/rooms/liberator"], "match": "shipyard.", "probe": "res://assets/rooms/liberator/shipyard.jpg"},   # v3.5: the owner's 360 room
 	"room_liberator_mech_dealer": {"folders": ["res://assets/rooms/liberator"], "match": "mech_dealer.", "probe": "res://assets/rooms/liberator/mech_dealer.jpg"},   # v3.5: the owner's 360 room
