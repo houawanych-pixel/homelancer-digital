@@ -886,10 +886,13 @@ func _stand_model(art: Control, bay: Control) -> void:
 		min_y = minf(min_y, p.y)
 	var k: float = vs.y / bay.size.y   # viewport pixels per screen pixel
 	var mech := m.name == "BayMech"
-	if mech: cam.size = maxf(hi.y - lo.y, 0.1) * vs.y / maxf(art.size.y * Data.MECH_ON_PAD * k, 20.0)
-	else: cam.size = maxf(hi.x - lo.x, 0.1) * vs.y / maxf(art.size.y * Data.SHIP_ON_PAD * k, 20.0)
 	var pad_y: float = float(Data.BAYS.get(_hangar_name(), 0.85))
-	var ty: float = (art.position.y + pad_y * art.size.y - bay.position.y) * k   # where its base goes
+	var feet: float = art.position.y + pad_y * art.size.y - bay.position.y   # (screen px from the bay's top)
+	if mech:   # v3.3 (owner's screenshot): never taller than the room above the pad (its head was cut off)
+		var tall: float = minf(art.size.y * Data.MECH_ON_PAD, feet * 0.9)
+		cam.size = maxf(hi.y - lo.y, 0.1) * vs.y / maxf(tall * k, 20.0)
+	else: cam.size = maxf(hi.x - lo.x, 0.1) * vs.y / maxf(minf(art.size.y * Data.SHIP_ON_PAD, bay.size.x * 0.9) * k, 20.0)
+	var ty: float = feet * k   # where its base goes
 	var tx: float = vs.x * 0.5
 	var base_pt := Vector3(0.0, min_y, 0.0)
 	cam.global_position = base_pt - B.x * ((tx - vs.x * 0.5) * cam.size / vs.y) + B.y * ((ty - vs.y * 0.5) * cam.size / vs.y) + B.z * 80.0

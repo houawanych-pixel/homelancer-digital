@@ -9503,6 +9503,9 @@ func _job_v19x() -> void:
 	var real_mech: bool = hb.find_child("BayMech", true, false) != null and mmap != null and (mmap.get_meta("pts", {}) as Dictionary).size() == 9 \
 		and Data.BAYS.has(hb._hangar_name()) and bart != null and bart.texture != null and bart.texture.resource_path.contains("bay_")
 	await _shot("v24_mech_bay", 0.3)
+	var top_ok := true   # v3.3: the whole mech is inside the bay (its head was cut off on a phone)
+	for pt in (mmap.get_meta("pts", {}) as Dictionary).values(): if (pt as Vector2).y < 0.0: top_ok = false
+	_check("v3.3 (owner's screenshot): the mech fits in the bay, head and all", top_ok)
 	# v2.6 (owner): it stands on the faction bay's round pad and turns on it (drag turns it too)
 	var y0: float = hb.bay_yaw
 	hb.bay_hold = 0.0
