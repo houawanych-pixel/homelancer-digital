@@ -263,11 +263,11 @@ func _process(_dt: float) -> void:
 		else:
 			# outer atmosphere of a planet: haze thickens and the nose glows the deeper (and faster) you go
 			var k: float = space.atmo_depth
-			fx.clouds = k * 0.38
+			fx.clouds = pow(k, 1.3) * 0.8   # v1.9z (owner): the air goes white as you go in, not clear like space
 			fx.heat = k * clampf(space.speed_now / 90.0, 0.25, 1.0) * 0.7
 			if k > 0.0 and is_instance_valid(space.planet):
 				var pid: String = space.planet.get_meta("info")["id"]
-				if Surface.has_surface(pid): fx.cloud_tint = Surface.biome(pid, 4 if Surface.grid(pid) == 3 else 0)["horizon"].lerp(Color.WHITE, 0.5)
+				fx.cloud_tint = space.atmo_color   # (the planet's own sky colour, pale)
 		if not ("rennick" in GS.met) and GS.system_id == "solara" and not hud.comms_open:
 			for tr in space.traffic:
 				if tr["node"].global_position.distance_to(space.player.global_position) < 600.0:
@@ -1085,7 +1085,7 @@ func enter_atmosphere(planet_node: Node3D) -> void:
 	Sfx.play("atmo", -2.0)
 	var tw := create_tween()
 	tw.tween_property(fx, "heat", 1.0, 1.0)
-	tw.parallel().tween_property(fx, "clouds", 0.55, 1.2)
+	tw.parallel().tween_property(fx, "clouds", maxf(0.55, fx.clouds), 1.2)   # (v1.9z: never thins out again on the way in)
 	tw.parallel().tween_method(func(k: float): space.hit_shake = 0.35 + 0.4 * k, 0.0, 1.0, 1.4)
 	tw.tween_property(fx, "clouds", 1.0, 0.5)
 	await tw.finished

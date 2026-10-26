@@ -1861,7 +1861,31 @@ func nebula_name() -> String:
 ## sky, stars and far planets are gone (the phone renderer does not fog the sky itself). Nearer things show in front.
 var _dome: MeshInstance3D
 var dome_alpha := 0.0
-func _cloud_dome(a: float, col: Color) -> void:
+const DOME_SHADER := """
+shader_type spatial;
+render_mode unshaded, blend_mix, cull_front, depth_draw_never, shadows_disabled, fog_disabled;
+uniform sampler2D noise : repeat_enable, filter_linear_mipmap;
+uniform vec4 col : source_color = vec4(1.0);
+uniform float contrast = 1.0;
+uniform float drift = 0.0;
+varying vec3 dir;
+void vertex() { dir = VERTEX; }
+// sampled by direction on all three axes (no seam, no pinch at the top and bottom like a wrapped picture)
+float tri(vec3 p, vec3 w) { return texture(noise, p.yz).r * w.x + texture(noise, p.xz).r * w.y + texture(noise, p.xy).r * w.z; }
+void fragment() {
+	vec3 n = normalize(dir);
+	vec3 w = pow(abs(n), vec3(4.0));
+	w /= (w.x + w.y + w.z);
+	vec3 p = n * 2.2 + vec3(drift, drift * 0.3, drift * 0.6);
+	float v = tri(p, w) * 0.65 + tri(p * 2.7 + 0.37, w) * 0.35;
+	v = clamp((v - 0.5) * 2.4 + 0.5, 0.0, 1.0);   // billows, not a flat wash
+	ALBEDO = col.rgb * mix(1.0, mix(0.4, 1.35, v), contrast);
+	ALPHA = col.a;
+}
+"""
+## The shell round the camera: in a cloud (its colour, billowing) or deep in a planet's atmosphere (bright and even,
+## the sky's colour), so space fades out and the next view fades in without a black gap.
+func _cloud_dome(a: float, col: Color, contrast := 1.0) -> void:
 	dome_alpha = a
 	if a <= 0.01:
 		if is_instance_valid(_dome): _dome.visible = false
@@ -1872,29 +1896,24 @@ func _cloud_dome(a: float, col: Color) -> void:
 		var sm := SphereMesh.new()
 		sm.radius = 1.0
 		sm.height = 2.0
-		sm.radial_segments = 24
-		sm.rings = 12
+		sm.radial_segments = 32
+		sm.rings = 16
 		_dome.mesh = sm
-		var m := StandardMaterial3D.new()
-		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		m.cull_mode = BaseMaterial3D.CULL_FRONT
-		m.disable_fog = true
+		var sh := Shader.new()
+		sh.code = DOME_SHADER
+		var m := ShaderMaterial.new()
+		m.shader = sh
 		m.render_priority = -10
 		var nt := NoiseTexture2D.new()   # billowing cloud walls, not a flat colour
 		nt.width = 256
 		nt.height = 256
 		nt.seamless = true
+		nt.generate_mipmaps = true
 		var fn := FastNoiseLite.new()
 		fn.frequency = 0.012
 		fn.fractal_octaves = 5
 		nt.noise = fn
-		var gr := Gradient.new()
-		gr.set_color(0, Color(0.35, 0.35, 0.38))
-		gr.set_color(1, Color(1.25, 1.25, 1.3))
-		nt.color_ramp = gr
-		m.albedo_texture = nt
-		m.uv1_scale = Vector3(5, 3, 1)
+		m.set_shader_parameter("noise", nt)
 		_dome.material_override = m
 		_dome.top_level = true
 		_dome.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -1903,8 +1922,28 @@ func _cloud_dome(a: float, col: Color) -> void:
 	_dome.visible = true
 	_dome.global_position = cam.global_position if is_instance_valid(cam) else player.global_position
 	_dome.scale = Vector3.ONE * minf(Data.NEBULA_DOME_R, cam.far * 0.9 if is_instance_valid(cam) else Data.NEBULA_DOME_R)
-	(_dome.material_override as StandardMaterial3D).albedo_color = Color(col.darkened(0.15), a)
-	(_dome.material_override as StandardMaterial3D).uv1_offset.x = fmod(time * 0.004, 1.0)   # the walls drift slowly
+	var mat := _dome.material_override as ShaderMaterial
+	mat.set_shader_parameter("col", Color(col.darkened(0.15 * contrast), a))
+	mat.set_shader_parameter("contrast", contrast)
+	mat.set_shader_parameter("drift", fmod(time * 0.01, 100.0))   # the walls drift slowly
+
+## The planet's daytime sky colour (from its surface biome), pale toward white; plain white when it has no surface.
+func _sky_color_of(body: Node3D) -> Color:
+	var pid: String = str(body.get_meta("info", {}).get("id", ""))
+	if pid != "" and Surface.has_surface(pid):
+		var b: Dictionary = Surface.biome(pid, 4 if Surface.grid(pid) == 3 else 0)
+		return (b.get("sky", b.get("horizon", Color.WHITE)) as Color).lerp(Color.WHITE, 0.55)
+	return Color(0.92, 0.95, 1.0)
+
+## v1.9z (owner: "inside the atmosphere it should be white, not space"): the deeper you go into a planet's air, the
+## more the sky's own colour closes round you, so the entry flows into the surface instead of through black space.
+var atmo_color := Color.WHITE
+func _update_atmo_dome() -> void:
+	if surface_mode or in_nebula > 0.001: return
+	if atmo_depth <= 0.0:
+		if dome_alpha > 0.0 and not _neb_fog_on: _cloud_dome(0.0, Color.BLACK)
+		return
+	_cloud_dome(clampf(atmo_depth * 1.25, 0.0, 1.0), atmo_color, 0.35)
 
 func nebula_weather() -> String:
 	if nebula_now < 0 or nebula_now >= nebulae.size(): return ""
@@ -2841,6 +2880,7 @@ func _process(dt: float) -> void:
 	_update_nav()   # v1.5i
 	_update_beacon()
 	_update_nebulae(dt)   # v1.9s
+	_update_atmo_dome()   # v1.9z
 	_update_enemies(dt)
 	if not allies.is_empty(): _update_allies(dt)   # v1.9n
 	_update_traffic(dt)
@@ -4682,6 +4722,7 @@ func _collisions(dt: float) -> void:
 			var outer2 := rad * Data.ATMO_OUTER
 			var inner := rad * Data.ATMO_INNER
 			atmo_depth = clampf((outer2 - d2) / (outer2 - inner), 0.0, 1.0) if warp_state == "off" else 0.0
+			if atmo_depth > 0.0: atmo_color = _sky_color_of(body)
 			if atmo_depth > 0.0:
 				Packs.request("planets")
 				if not _atmo_rumbled:

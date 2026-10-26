@@ -9501,8 +9501,20 @@ func _job_v19z() -> void:
 	_check("v1.9z (owner): the jump-gate tunnel is his blue picture and the warp-gate tunnel his red one, rushing at you and spinning (the warp drive keeps its plain streaks)", tun_ok, "tunnel %s" % tun_ok)
 	_check("v1.9z (owner): deep in a cloud the sky is gone (you can't see out), and each cloud has its own weather: snow, rain, electric storm or rock field (rocks you can hit)",
 		kinds_ok and sky_gone and seen.values().all(func(x): return x) and rock_ok and Data.NEBULA_STORM_FLASH[1] < Data.NEBULA_FLASH_EVERY[0] + 0.5, "kinds %s, sky gone %s, seen %s, rocks %s" % [kinds_ok, sky_gone, seen, rock_ok])
+	# deep in a planet's air the sky closes round you (bright, not black space)
+	var pl: Node3D = s.planet
+	var prad: float = float(pl.get_meta("info")["radius"])
+	var pdir: Vector3 = (s.player.global_position - pl.global_position).normalized()
+	s.controls = false
+	_tp(pl.global_position + pdir * prad * lerpf(Data.ATMO_OUTER, Data.ATMO_INNER, 0.85), pl.global_position)
+	await _frames(4)
+	var atmo_ok: bool = s.atmo_depth > 0.6 and s.dome_alpha > 0.7 and s._dome.visible and s.atmo_color.v > 0.7
+	await _shot("v19z_atmosphere_inside", 0.2)
+	s.controls = true
 	_tp(s.station.global_position + Vector3(400, 80, 600), s.station.global_position)
 	await _frames(3)
+	var gone: bool = not s._dome.visible
+	_check("v1.9z (owner): deep in a planet's atmosphere the sky's own bright colour closes round you instead of black space (the entry flows into the surface), and it clears when you leave", atmo_ok and gone, "depth %.2f shell %.2f colour %s, cleared %s" % [s.atmo_depth, s.dome_alpha, s.atmo_color, gone])
 
 func _job_v19o() -> void:
 	var s: SpaceSystem = main.space
