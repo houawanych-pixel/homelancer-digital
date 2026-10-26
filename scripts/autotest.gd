@@ -9305,7 +9305,10 @@ func _job_v19u() -> void:
 	var page_ok: bool = hb.find_child("LoadoutPreview", true, false) != null and hb.find_child("MountMap", true, false) != null and hb.find_child("Up_nx_red", true, false) != null \
 		and hb.find_child("ShopInstall", true, false) != null and not (hb.find_child("ShopInstall", true, false) as Button).disabled and hb.find_child("Card_nx_purple", true, false) != null
 	var bcam: Camera3D = hb.find_child("BayCam", true, false)
-	var turning: bool = bcam != null and bcam.projection == Camera3D.PROJECTION_ORTHOGONAL and (-bcam.global_basis.z).dot(Vector3.DOWN) > 0.99   # (v1.9y: the bay is a still top-down view now)
+	main.hub.bay_hold = 0.0
+	var yaw0: float = main.hub.bay_yaw
+	await _wait(0.3)
+	var turning: bool = bcam != null and absf(main.hub.bay_yaw - yaw0) > 0.02 and absf(main.hub.preview_pivot.rotation.x) < 0.001 and absf(main.hub.preview_pivot.rotation.z) < 0.001   # (v2.6: it turns on the platform, yaw only)
 	await _shot("v19u_equip_page", 0.4)
 	_check("v1.9u (owner): WEAPONS & GEAR shows your ship turning on a platform (yaw only) wearing its guns, a mount map to tap, and only the picked mount's fit buttons", dressed and page_ok and turning,
 		"dressed %s, page %s, turning %s" % [dressed, page_ok, turning])
