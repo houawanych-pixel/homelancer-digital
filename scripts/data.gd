@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v2.3"
+const VERSION := "v2.4"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -1006,6 +1006,8 @@ const LEVELS := {
 # A looping clip assets/hangars/<name>_top.ogv, when there is one, plays in place of the picture.
 const HANGARS := {"elyza": 0.62, "orion": 0.66, "unity": 0.66, "spare_a": 0.43, "spare_b": 0.4}
 const HANGAR_SPARES := ["spare_a", "spare_b"]
+const MECH_HANGARS := ["mech_blue", "mech_scarlet"]   # v2.4 (owner): the mech's bays, seen from the front (one per station, by turns)
+const MECH_BAY_FILL := 0.8    # the mech stands this much of the bay's height
 const MOUNT_MID_AT := 0.62   # v1.9w: the middle wing slot (level 3) sits this far out along the wing, on top
 # v1.9w: ABILITY MODULES (names from the owner's sheet; effects PROVISIONAL). One of each kind at a time.
 const MODULE_ORDER := ["power_cell", "shield_generator", "sensor_array", "control_unit", "processor_unit", "maintenance_port", "heat_shield"]

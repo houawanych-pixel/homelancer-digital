@@ -497,6 +497,7 @@ func _dock_status(v: VBoxContainer) -> void:
 ## The bay art behind everything: the faction's own hangar (its looping clip <name>_top.ogv when there is one, else
 ## its picture <name>_top.jpg; each in its own small pack), else a spare bay. Its landing pad sits under the ship.
 func _hangar_name() -> String:
+	if _eq_mech(): return Data.MECH_HANGARS[absi(hash(str(base.get("id", base.get("name", ""))))) % Data.MECH_HANGARS.size()]
 	var f := str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])).to_lower()
 	if Data.HANGARS.has(f): return f
 	return Data.HANGAR_SPARES[absi(hash(str(base.get("id", base.get("name", ""))))) % Data.HANGAR_SPARES.size()]
@@ -544,6 +545,13 @@ func _place_bay_art(art: Control, bay: Control) -> void:
 	if root == null: return
 	var asp := 1672.0 / 941.0
 	if art is TextureRect and (art as TextureRect).texture != null: asp = (art as TextureRect).texture.get_width() / float((art as TextureRect).texture.get_height())
+	if _eq_mech():   # v2.4: a front view: cover the page, centred on the bay, its floor along the bottom
+		var hm: float = maxf(root.size.y, (bay.size.x + 400.0) / asp)
+		art.size = Vector2(hm * asp, hm)
+		art.position = Vector2(bay.position.x + bay.size.x * 0.5 - art.size.x * 0.5, root.size.y - hm)
+		var mm0: Control = bay.find_child("MountMap", true, false)
+		if mm0 != null: mm0.queue_redraw()
+		return
 	var centre: Vector2 = bay.position + Vector2(bay.size.x * 0.5, (bay.size.y + 48.0) * 0.5)
 	var pad_k: float = float(Data.HANGARS.get(_hangar_name(), 0.6))
 	var h: float = (bay.size.y + 48.0) * 0.8 / pad_k   # the pad fills the bay's height; the rest of the hangar spreads round it
@@ -558,8 +566,9 @@ func _place_bay_art(art: Control, bay: Control) -> void:
 
 ## The bay: your ship on the pad seen from above (the mech's blueprint in mech view), a square on every slot.
 func _hangar_bay(bay: Control) -> void:
+	if _eq_mech() and _mech_bay(bay): return
 	if _eq_mech():
-		var mm := Control.new()   # the mech: its level blueprint with the same slots
+		var mm := Control.new()   # (until the mech's packs are in: its cut-out picture with the same slots)
 		mm.name = "MountMap"
 		mm.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		mm.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -615,6 +624,88 @@ func _hangar_bay(bay: Control) -> void:
 	ov.draw.connect(func(): _draw_slots(ov, _ship_slot_points(cam, m, ov.size)))
 	ov.gui_input.connect(func(e: InputEvent): _bay_tap(e, _ship_slot_points(cam, m, ov.size), ov))
 	ov.resized.connect(func(): ov.queue_redraw())
+
+## v2.4 (owner: "mech hangar, use the real GLB mech"): your mech, built from its fitted parts, standing in the bay seen
+## from the front, a square on every slot. False while its packs are still coming (the picture stands in meanwhile).
+func _mech_bay(bay: Control) -> bool:
+	var k: Dictionary = GS.mech_keys()
+	var waiting := false
+	for pk in ["mechs"] + k.values().map(func(x): return ShipFactory.pack_of(str(x))):
+		if pk == "" or Packs.is_ready(pk): continue
+		waiting = true
+		Packs.request(pk)
+	if waiting:
+		if not Packs.pack_ready.is_connected(_on_mech_bay_pack): Packs.pack_ready.connect(_on_mech_bay_pack)
+		return false
+	var svc := SubViewportContainer.new()
+	svc.name = "LoadoutPreview"
+	svc.stretch = true
+	svc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	svc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bay.add_child(svc)
+	preview_vp = SubViewport.new()
+	preview_vp.own_world_3d = true
+	preview_vp.transparent_bg = true
+	svc.add_child(preview_vp)
+	var m := ShipFactory.build_mech(str(k["core"]), str(k["arms"]), str(k["legs"]))
+	m.name = "BayMech"
+	preview_pivot = Node3D.new()
+	preview_pivot.name = "Turntable"
+	preview_vp.add_child(preview_pivot)
+	preview_pivot.add_child(m)
+	preview_key = "mech"
+	var bb: AABB = ShipFactory._aabb(m, Transform3D.IDENTITY)
+	var hgt: float = maxf(bb.size.y * m.scale.y, 0.5)
+	var c: Vector3 = bb.get_center() * m.scale
+	var cam := Camera3D.new()
+	cam.name = "BayCam"
+	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
+	cam.size = hgt / Data.MECH_BAY_FILL
+	cam.position = Vector3(c.x, c.y + hgt * 0.06, c.z - 60.0)   # in front of it (its front faces -Z), a touch high: feet near the floor
+	preview_vp.add_child(cam)
+	cam.look_at(Vector3(c.x, c.y + hgt * 0.06, c.z), Vector3.UP)
+	var light := DirectionalLight3D.new()
+	light.rotation_degrees = Vector3(-30, 160, 0)
+	light.light_energy = 1.4
+	preview_vp.add_child(light)
+	var we := WorldEnvironment.new()
+	we.environment = Environment.new()
+	we.environment.background_mode = Environment.BG_CLEAR_COLOR
+	we.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	we.environment.ambient_light_color = Color(0.78, 0.8, 0.88)
+	we.environment.ambient_light_energy = 1.1
+	preview_vp.add_child(we)
+	var ov := Control.new()
+	ov.name = "MountMap"
+	ov.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	ov.mouse_filter = Control.MOUSE_FILTER_STOP
+	bay.add_child(ov)
+	ov.draw.connect(func(): _draw_slots(ov, _mech_slot_points(cam, m, ov.size)))
+	ov.gui_input.connect(func(e: InputEvent): _bay_tap(e, _mech_slot_points(cam, m, ov.size), ov))
+	ov.resized.connect(func(): ov.queue_redraw())
+	return true
+
+func _on_mech_bay_pack(pk: String) -> void:
+	if visible and screen == "equipment" and _eq_mech() and (pk == "mechs" or pk.begins_with("mf_")): show_screen("equipment")
+
+## The mech's slots on screen: the level's slot layout (the owner's sheet) laid over the model's outline as the camera
+## sees it, nudged apart where they crowd.
+func _mech_slot_points(cam: Camera3D, m: Node3D, sz: Vector2) -> Dictionary:
+	var out := {}
+	if not is_instance_valid(cam) or not is_instance_valid(m) or not is_instance_valid(preview_vp): return out
+	var bb: AABB = ShipFactory._aabb(m, Transform3D.IDENTITY)
+	var vs := Vector2(preview_vp.size)
+	if vs.x <= 0.0: return out
+	var lo := Vector2(1e9, 1e9)
+	var hi := Vector2(-1e9, -1e9)
+	for i in 8:
+		var sp: Vector2 = cam.unproject_position(m.global_transform * bb.get_endpoint(i)) * (sz / vs)
+		lo = lo.min(sp)
+		hi = hi.max(sp)
+	var r := Rect2(lo, hi - lo)
+	var uv: Dictionary = GS.level_def()["mech_uv"]
+	for kk in uv: out[kk] = r.position + r.size * (uv[kk] as Vector2)
+	return _spread(out, 34.0)
 
 ## The three frames (levels): their wireframes, yours lit. A tap on another says which ships are that level.
 func _ship_select(col: Control) -> void:
@@ -798,7 +889,7 @@ func _slot_layout(c: Vector2, pts: Dictionary, half: float) -> Dictionary:
 	return out
 
 func _slot_half(c: Control) -> float:
-	if _eq_mech(): return clampf(_map_rect(c.size).size.y * 0.047, 10.0, 22.0)   # (covers the sheet's own squares)
+	if _eq_mech() and c.get_parent() != null and c.get_parent().find_child("BayMech", true, false) == null: return clampf(_map_rect(c.size).size.y * 0.047, 10.0, 22.0)   # (covers the sheet's own squares)
 	return 14.0
 
 func _draw_slots(c: Control, pts: Dictionary) -> void:

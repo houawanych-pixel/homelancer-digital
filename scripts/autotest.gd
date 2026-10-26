@@ -9441,6 +9441,20 @@ func _job_v19x() -> void:
 	await _wait(0.4)
 	var mech_ok: bool = hb._eq_mech() and hb._wicon("nx_purple") != null and hb._wicon("nx_purple").resource_path.contains("mech_weapons") and hb._level_tex() != null and str(GS.level_def()["mech_art"]).ends_with("mech_cut2.png") and hb._mount_points(Vector2(300, 400)).size() == 9
 	await _shot("v19x_hangar_mech", 0.3)
+	# v2.4 (owner): the real mech, built from its parts, standing in a front-view mech bay, a square on each slot
+	await Packs.wait("mechs", 40.0)
+	for pv in GS.mech_keys().values():
+		if ShipFactory.pack_of(str(pv)) != "": await Packs.wait(ShipFactory.pack_of(str(pv)), 40.0)
+	await Packs.wait("hangar_" + hb._hangar_name(), 30.0)
+	hb.show_screen("equipment")
+	await _wait(0.5)
+	var mmap: Control = hb.find_child("MountMap", true, false)
+	var bart: TextureRect = hb.find_child("BayArt", true, false)
+	var real_mech: bool = hb.find_child("BayMech", true, false) != null and mmap != null and (mmap.get_meta("pts", {}) as Dictionary).size() == 9 \
+		and hb._hangar_name() in Data.MECH_HANGARS and bart != null and bart.texture != null and bart.texture.resource_path.contains("mech_")
+	await _shot("v24_mech_bay", 0.3)
+	_check("v2.4 (owner): the mech view shows your real mech (its fitted parts) standing in a front-view mech bay, with a + square on each of its 9 slots", real_mech,
+		"mech %s, bay %s" % [hb.find_child("BayMech", true, false) != null, hb._hangar_name()])
 	(hb.find_child("Tab_ammo", true, false) as Button).pressed.emit()
 	await _frames(3)
 	var ammo_ok: bool = (hb.find_child("EqAmmo", true, false) as Control).visible and not (hb.find_child("EqBuy", true, false) as Control).visible and hb.find_child("RestockAll", true, false) != null
