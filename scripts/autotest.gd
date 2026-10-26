@@ -3636,7 +3636,6 @@ func _ui_shots() -> void:
 	s.vel = Vector3.ZERO
 	var hub = main.hub
 	hub.open(Data.SYSTEMS["solara"]["station"])
-	await Packs.wait("hubbg_unity", 30.0)
 	await _frames(3)
 	await _shot("ui_hub", 0.6)
 	for scr in ["board", "faction", "equipment", "ships", "mechs", "repair", "ship"]:
@@ -3668,72 +3667,40 @@ func _job_w() -> void:
 	for pk in Packs.PACKS:
 		if (pk as String).begins_with("rooms") or pk == "npc": packs_gone = false
 	_check("Job W: the panorama rooms are out of the game: no room or room-person script, no room pictures, no room packs to download", gone and packs_gone and not ("rooms" in hub) and not hub.has_method("has_rooms"))
-	# the picture rule: station's own > faction's > plain neutral
-	var sav_sys: Dictionary = Data.SYSTEMS["plundros"]
-	var own: Dictionary = Factions.hub_background({"ui_background": "phenom"}, sav_sys)
-	var fac: Dictionary = Factions.hub_background(sav_sys["station"], sav_sys)
-	var neutral: Dictionary = Factions.hub_background({}, {"faction": "Neutral"})
-	var files := true
-	var n_bg := 0
-	for f in Factions.DEFS:
-		var nm: String = str(Factions.DEFS[f].get("ui_background", ""))
-		if nm == "": files = false
-		else:
-			n_bg += 1
-			if not Packs.PACKS.has("hubbg_" + nm) or Packs.PACKS["hubbg_" + nm]["probe"] != Data.HUB_BG_DIR + nm + ".jpg": files = false
-			if not OS.has_feature("web") and not ResourceLoader.exists(Data.HUB_BG_DIR + nm + ".jpg"): files = false   # (on the web each one arrives only when you dock there)
-	_check("Job W: the background comes from data: a station's own picture wins, then its faction's, then the plain neutral backdrop; all 14 factions have a picture, each in its own small pack",
-		own["source"] == "station" and own["path"].ends_with("phenom.jpg") and fac["source"] == "faction" and fac["path"].ends_with("savagers.jpg") and fac["pack"] == "hubbg_savagers"
-		and neutral["source"] == "neutral" and neutral["path"] == "" and files and n_bg == 14, "%d pictures" % n_bg)
-	_check("Job W: the six enemy factions have interface art but stay outside the rival pairs (gray, permanent enemies); the eight majors are unchanged",
+	# v3.6 (owner): the faction placeholder pictures are gone; the 360 rooms are the backdrops (a plain backdrop until a
+	# faction's rooms are in)
+	var none_left := not DirAccess.dir_exists_absolute("res://assets/hub_bg")
+	for pk in Packs.PACKS:
+		if (pk as String).begins_with("hubbg_"): none_left = false
+	var neutral: Dictionary = Factions.hub_background(Data.SYSTEMS["plundros"]["station"], Data.SYSTEMS["plundros"])
+	_check("v3.6 (owner): the old faction placeholder pictures are removed (no files, no packs); every station uses its 360 rooms or a plain backdrop",
+		none_left and neutral["path"] == "" and neutral["source"] == "neutral")
+	_check("Job W: the six enemy factions stay outside the rival pairs (gray, permanent enemies); the eight majors are unchanged",
 		Factions.majors().size() == 8 and ["Solrath", "Gadversee", "Arctides", "Cybermorph", "Phenom", "Kaijurai"].all(func(f): return Factions.band(f) == "gray" and Factions.rival(f) == ""))
-	# dock: one fixed picture, the interface over it
 	var base0: Dictionary = hub.base
 	var kind0: String = hub.kind
 	var vis0: bool = hub.visible
 	hub.open(Data.SYSTEMS["solara"]["station"])
-	await Packs.wait("hubbg_unity", 30.0)
 	await _frames(3)
-	var t0: Texture2D = hub.bg_tex
-	var docked_ok: bool = t0 != null and t0.resource_path.ends_with("unity.jpg") and t0.get_size() == Vector2(1280, 720) and hub.bg["source"] == "faction"
-	var ui_ok: bool = hub.left.visible and hub.content.visible and hub.header.visible and hub.launch_btn != null and hub.launch_btn.visible and hub.left.find_child("Btn_faction", true, false) != null
+	var ui_ok: bool = hub.bg_tex == null and hub.left.visible and hub.content.visible and hub.header.visible and hub.launch_btn != null and hub.launch_btn.visible and hub.left.find_child("Btn_faction", true, false) != null
 	await _shot("w_hub_unity", 0.4)
-	var same := true
 	for scr in ["equipment", "ships", "repair", "bounty", "faction", "hub"]:
 		hub.show_screen(scr)
 		await _frames(2)
-		if hub.bg_tex != t0: same = false
 		if scr == "equipment": await _shot("w_equipment_unity", 0.3)
 	var fits: bool = hub.left.position.y + hub.left.get_combined_minimum_size().y <= get_viewport().get_visible_rect().size.y
-	_check("Job W: docking shows the faction's picture, fixed, with the menu over it at once; every service screen keeps that same picture and the menu fits the screen",
-		docked_ok and ui_ok and same and fits, "picture %s, menu %s, same on all screens %s, fits %s" % [docked_ok, ui_ok, same, fits])
+	_check("Job W: docking shows the menu at once on every service screen, and it fits the screen", ui_ok and fits, "menu %s, fits %s" % [ui_ok, fits])
 	var panel: StyleBoxFlat = hub.theme_obj.get_stylebox("panel", "Panel")
 	var btn: StyleBoxFlat = hub.theme_obj.get_stylebox("normal", "Button")
-	_check("Job W: the interface is see-through so the faction art stays visible (panel %d%%, buttons %d%%, a light dark wash for reading)" % [int(Data.HUB_PANEL_ALPHA * 100), int(Data.HUB_BUTTON_ALPHA * 100)],
-		is_equal_approx(panel.bg_color.a, Data.HUB_PANEL_ALPHA) and panel.bg_color.a <= 0.6 and is_equal_approx(btn.bg_color.a, Data.HUB_BUTTON_ALPHA) and Data.HUB_BG_WASH > 0.0 and Data.HUB_BG_WASH < 0.6)
+	_check("Job W: the interface is see-through so the room stays visible (panel %d%%, buttons %d%%)" % [int(Data.HUB_PANEL_ALPHA * 100), int(Data.HUB_BUTTON_ALPHA * 100)],
+		is_equal_approx(panel.bg_color.a, Data.HUB_PANEL_ALPHA) and panel.bg_color.a <= 0.6 and is_equal_approx(btn.bg_color.a, Data.HUB_BUTTON_ALPHA))
 	hub.show_screen("faction")
 	await _frames(3)
 	var fname: Label = hub.content.find_child("FactionName", true, false)
 	_check("Job W: the FACTION page names who runs the station and shows your standing", fname != null and fname.text == "UNITY" and hub.content.find_child("Standing_Unity", true, false) != null)
-	# another owner, another picture; leaving lets it go
-	var sys0: String = GS.system_id
-	GS.system_id = "plundros"
-	hub.open(Data.SYSTEMS["plundros"]["station"])
-	await Packs.wait("hubbg_savagers", 30.0)
-	await _frames(3)
-	var sav_ok: bool = hub.bg_tex != null and hub.bg_tex.resource_path.ends_with("savagers.jpg") and hub.bg_tex != t0
-	await _shot("w_hub_savagers", 0.4)
-	GS.system_id = "vega"
-	var veg: Dictionary = Factions.hub_background(Data.SYSTEMS["vega"]["station"], Data.SYSTEMS["vega"])
-	hub.visible = false
-	await _frames(2)
-	var released: bool = hub.bg_tex == null
-	GS.system_id = sys0
 	hub.base = base0
 	hub.kind = kind0
 	hub.visible = vis0
-	var not_preloaded: bool = not OS.has_feature("web") or not ResourceLoader.exists(Data.HUB_BG_DIR + "phenom.jpg")   # web: a faction you never docked with was never downloaded
-	_check("Job W: a Savagers station shows the Savagers picture; only the current station's picture is held, and it is let go when you leave", sav_ok and released and not_preloaded, "savagers %s, released %s, vega -> %s" % [sav_ok, released, veg["source"]])
 
 ## Job X (v1.4t): voice ON by default; OFF gives the radio blips; a character's own recorded lines win when present.
 func _job_x() -> void:

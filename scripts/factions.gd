@@ -112,16 +112,10 @@ static func raider_of(f: String) -> String:
 	if r != "" and DEFS[r].get("incursion", false) and Data.ROSTERS.has(str(DEFS[r].get("character_roster", ""))): return r
 	return ""
 
-## v1.4s: the static picture behind a station's interface. Priority: the station's own picture (station
-## "ui_background"), then its owner faction's, then none (the hub draws its plain neutral backdrop).
-## Returns {path, pack, source}: source is "station", "faction" or "neutral"; path and pack are "" for neutral.
+## v3.6 (owner): the faction placeholder pictures are gone; stations use their 360 rooms (hub.gd), and a plain
+## backdrop until a faction's rooms are in. Kept so callers get the same shape: always neutral now.
 static func hub_background(station: Dictionary, system: Dictionary) -> Dictionary:
-	var own := str(station.get("ui_background", ""))
-	if own != "": return {"path": Data.HUB_BG_DIR + own + ".jpg", "pack": "hubbg_" + own, "source": "station", "faction": owner_of(station, system)}
-	var f := owner_of(station, system)
-	var name := str(DEFS.get(f, {}).get("ui_background", ""))
-	if name != "": return {"path": Data.HUB_BG_DIR + name + ".jpg", "pack": "hubbg_" + name, "source": "faction", "faction": f}
-	return {"path": "", "pack": "", "source": "neutral", "faction": f}
+	return {"path": "", "pack": "", "source": "neutral", "faction": owner_of(station, system)}
 
 ## Who owns a station or planet: its own "faction" if it has one, else the system's.
 ## v1.5l: a faction's leader (slot 06) and its coordinator (the named slot 02-04 whose role reads like handing out

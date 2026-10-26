@@ -69,20 +69,6 @@ const PACKS := {
 	"intro": {"folders": ["res://assets/intro"], "probe": "res://assets/intro/title_movie.ogv"},
 	# v1.4s: one static interface background per faction; only the one for the station you dock at is fetched
 	# v2.0: her voice clips, one small pack each
-	"hubbg_unity": {"folders": ["res://assets/hub_bg"], "match": "unity.", "probe": "res://assets/hub_bg/unity.jpg"},
-	"hubbg_elyza": {"folders": ["res://assets/hub_bg"], "match": "elyza.", "probe": "res://assets/hub_bg/elyza.jpg"},
-	"hubbg_solarion": {"folders": ["res://assets/hub_bg"], "match": "solarion.", "probe": "res://assets/hub_bg/solarion.jpg"},
-	"hubbg_imperium": {"folders": ["res://assets/hub_bg"], "match": "imperium.", "probe": "res://assets/hub_bg/imperium.jpg"},
-	"hubbg_covenant": {"folders": ["res://assets/hub_bg"], "match": "covenant.", "probe": "res://assets/hub_bg/covenant.jpg"},
-	"hubbg_orion": {"folders": ["res://assets/hub_bg"], "match": "orion.", "probe": "res://assets/hub_bg/orion.jpg"},
-	"hubbg_savagers": {"folders": ["res://assets/hub_bg"], "match": "savagers.", "probe": "res://assets/hub_bg/savagers.jpg"},
-	"hubbg_liberator": {"folders": ["res://assets/hub_bg"], "match": "liberator.", "probe": "res://assets/hub_bg/liberator.jpg"},
-	"hubbg_solrath": {"folders": ["res://assets/hub_bg"], "match": "solrath.", "probe": "res://assets/hub_bg/solrath.jpg"},
-	"hubbg_gadversee": {"folders": ["res://assets/hub_bg"], "match": "gadversee.", "probe": "res://assets/hub_bg/gadversee.jpg"},
-	"hubbg_arctides": {"folders": ["res://assets/hub_bg"], "match": "arctides.", "probe": "res://assets/hub_bg/arctides.jpg"},
-	"hubbg_cybermorphs": {"folders": ["res://assets/hub_bg"], "match": "cybermorphs.", "probe": "res://assets/hub_bg/cybermorphs.jpg"},
-	"hubbg_phenom": {"folders": ["res://assets/hub_bg"], "match": "phenom.", "probe": "res://assets/hub_bg/phenom.jpg"},
-	"hubbg_kaijurai": {"folders": ["res://assets/hub_bg"], "match": "kaijurai.", "probe": "res://assets/hub_bg/kaijurai.jpg"},
 	"worlds": {"folders": ["res://assets/worlds"], "probe": "res://assets/worlds/earth.jpg"},
 	"structures": {"folders": ["res://assets/structures"], "probe": "res://assets/structures/jump_gate_ring.glb"},
 	"ring_gate": {"folders": ["res://assets/structures"], "match": "jump_gate_ring", "probe": "res://assets/structures/jump_gate_ring.glb"},   # v1.9r: the rings on their own, fetched first

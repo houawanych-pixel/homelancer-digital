@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v3.5"
+const VERSION := "v3.6"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -855,7 +855,6 @@ const VOICE_POOL := {
 }
 
 # ---------------------------------------------------------------- Job W (v1.4s): static faction hub backgrounds
-const HUB_BG_DIR := "res://assets/hub_bg/"
 # v3.5 (owner): every station room is a 360 panorama you look round in (drag, the right stick, or turn the phone).
 # Only factions whose rooms are stitched are listed; the rest keep the station picture for now.
 const ROOM_FACTIONS := ["liberator"]
