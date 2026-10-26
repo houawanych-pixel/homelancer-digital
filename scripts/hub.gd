@@ -168,7 +168,7 @@ func _ready() -> void:
 	asst_chat.offset_left = -240
 	asst_chat.offset_right = 240
 	asst_chat.offset_top = CONTENT_Y
-	asst_chat.offset_bottom = CONTENT_Y + 150
+	asst_chat.offset_bottom = CONTENT_Y + 108
 	asst_chat.visible = false
 	var cv := VBoxContainer.new()
 	cv.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -200,6 +200,7 @@ func _ready() -> void:
 	xb.pressed.connect(func(): asst_chat.visible = false)
 	row.add_child(xb)
 	add_child(asst_chat)
+	move_child(asst, asst_chat.get_index())   # v3.7 (owner): in front of the windows, so a tap on her always reaches her
 	show_btn = Button.new()
 	show_btn.name = "ShowPanels"
 	show_btn.text = "HIDE PANELS"
@@ -443,7 +444,7 @@ func _asst_place() -> void:
 		var d := fposmod(Data.ASST_YAW - room_yaw + 0.5, 1.0) - 0.5
 		x = S.x * 0.5 + d / maxf(vw, 0.01) * S.x
 	asst.size = Vector2(w, h)
-	asst.position = Vector2(x - w * 0.5, S.y - h - 58.0)
+	asst.position = Vector2(x - w * 0.5, S.y - h)   # v3.7 (owner): locked to the very bottom (her thighs on the edge)
 
 ## Tap her: she says hello (her own voice the first time), and the talk line opens.
 func asst_tap() -> void:

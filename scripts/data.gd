@@ -860,7 +860,7 @@ const VOICE_POOL := {
 # v3.7 (owner): the station assistant stands in the HOME room (his green-screen clips, keyed in the game). She stays at
 # one spot in the 360 room, so she moves when you look round. Tap her to talk; the brain answers (Echo Vision's later).
 const ASST_YAW := 0.188         # where she stands along the room loop (the front view's middle)
-const ASST_HEIGHT := 0.6        # her height as a share of the screen
+const ASST_HEIGHT := 0.65       # her height as a share of the screen
 const ASST_KEY := Color(0.08, 0.75, 0.1)   # the green to remove
 const ROOM_FACTIONS := ["liberator"]
 const ROOM_OF := {"hub": "main_hub", "ships": "shipyard", "mechs": "mech_dealer", "repair": "supplies", "board": "mission_center",
