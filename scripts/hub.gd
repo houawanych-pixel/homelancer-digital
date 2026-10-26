@@ -591,7 +591,11 @@ func _room_faction() -> String:
 ## The room for this page: "" when the faction's rooms are not in yet (the station picture shows instead).
 func room_for(s: String) -> String:
 	var f := _room_faction()
-	if f == "" or not Data.ROOM_OF.has(s): return ""
+	if f == "": return ""
+	if s == "equipment":   # v3.9 (owner): the hangar's WEAPON tab stands in the weapons room, REPAIR & AMMO in supplies
+		var hr: String = {"weapon": "weapons", "ammo": "supplies"}.get(eq_tab, "")
+		return "%s_%s" % [f, hr] if hr != "" else ""
+	if not Data.ROOM_OF.has(s): return ""
 	return "%s_%s" % [f, Data.ROOM_OF[s]]
 
 func _show_room(s: String) -> void:
@@ -620,7 +624,9 @@ func _show_room(s: String) -> void:
 	_update_room(0.0)
 
 func _on_room_pack(pk: String) -> void:
-	if visible and pk.begins_with("room_") and pk == "room_" + room_for(screen): _show_room(screen)
+	if visible and pk.begins_with("room_") and pk == "room_" + room_for(screen):
+		if screen == "equipment": show_screen("equipment")   # (the bay picture steps aside for the room)
+		else: _show_room(screen)
 
 ## Look round: drag (in screen pixels), the right stick, or the phone itself.
 func look_by(rel: Vector2) -> void:
@@ -1053,8 +1059,10 @@ func _equipment_page() -> void:
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.clip_contents = true
 	content.add_child(root)
-	root.draw.connect(func(): root.draw_rect(Rect2(Vector2.ZERO, root.size), Color(0.05, 0.06, 0.08)))
+	var in_room := room_view.visible   # v3.9: on WEAPON / REPAIR & AMMO the room shows instead of the bay
+	root.draw.connect(func(): if not in_room: root.draw_rect(Rect2(Vector2.ZERO, root.size), Color(0.05, 0.06, 0.08)))
 	var art := _bay_art()
+	art.self_modulate.a = 0.0 if in_room else 1.0
 	root.add_child(art)
 	_bay_art_node = art
 	# the bay (middle): the ship and its slot squares

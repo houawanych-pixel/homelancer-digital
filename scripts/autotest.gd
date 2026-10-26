@@ -9470,6 +9470,35 @@ func _job_v35() -> void:
 	_check("v3.8 (owner): she has a MIC button and HANDS-FREE talk; what you say goes to her and she answers; the chat log is folded away until you open it", voice_ok, log_txt.replace("\n", " | "))
 	_check("v3.7 (owner): the station assistant stands in the HOME room (green keyed out), keeps her spot as you look round; tap her to talk and the brain answers (%s)" % said,
 		a_on and a_moves and chat_ok and asked, "on %s, moves %s, chat %s, answered %s" % [a_on, a_moves, chat_ok, asked])
+	# v3.9 (owner): all ten rooms are used: REPAIR = medical bay; the hangar's WEAPON tab = weapons room, REPAIR & AMMO = supplies
+	hb.show_screen("repair")
+	await Packs.wait("room_liberator_medical_bay", 30.0)
+	await _frames(3)
+	var med_ok: bool = hb.room_key == "liberator_medical_bay"
+	hb.eq_tab = "weapon"
+	hb.show_screen("equipment")
+	await Packs.wait("room_liberator_weapons", 30.0)
+	hb.show_screen("equipment")
+	await _frames(4)
+	var wpn_ok: bool = hb.room_key == "liberator_weapons" and hb.room_view.visible and (hb.find_child("BayArt", true, false) as CanvasItem).self_modulate.a == 0.0
+	await _shot("v39_hangar_weapons_room", 0.3)
+	hb.eq_tab = "ammo"
+	hb.show_screen("equipment")
+	await Packs.wait("room_liberator_supplies", 30.0)
+	hb.show_screen("equipment")
+	await _frames(3)
+	var sup_ok: bool = hb.room_key == "liberator_supplies"
+	hb.eq_tab = "hangar"
+	hb.show_screen("equipment")
+	await _frames(3)
+	var bay_ok: bool = not hb.room_view.visible and (hb.find_child("BayArt", true, false) as CanvasItem).self_modulate.a == 1.0
+	var used := {}
+	for k in Data.ROOM_OF: used[Data.ROOM_OF[k]] = true
+	used["weapons"] = true
+	used["supplies"] = true
+	_check("v3.9 (owner): all ten rooms have a place: REPAIR = medical bay, the hangar's WEAPON tab = weapons room, REPAIR & AMMO = supplies (the HANGAR tab keeps the bay)",
+		med_ok and wpn_ok and sup_ok and bay_ok and used.size() == 10, "med %s, weapons %s, supplies %s, bay %s, rooms %d" % [med_ok, wpn_ok, sup_ok, bay_ok, used.size()])
+	hb.eq_tab = "weapon"
 	hb.room_override = ""
 	hb.show_screen("hub")
 	await _frames(2)
