@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bprcrusji40ge"
-path="res://.godot/imported/ship_level2.jpg-06e5df920a11bdac1670c2130b4bc375.ctex"
+uid="uid://ecghrhv0x2pr"
+path="res://.godot/imported/railgun.png-e11de515631fb6d1fce9b00e9b86e8b1.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/ship_level2.jpg"
-dest_files=["res://.godot/imported/ship_level2.jpg-06e5df920a11bdac1670c2130b4bc375.ctex"]
+source_file="res://assets/ui/weapons/railgun.png"
+dest_files=["res://.godot/imported/railgun.png-e11de515631fb6d1fce9b00e9b86e8b1.ctex"]
 
 [params]
 

@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v2.1"
+const VERSION := "v2.2"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -148,6 +148,7 @@ const PH_STATION_DIST := 1100.0       # the first placeholder station sits this 
 const PH_STATION_STEP := 380.0        # ... and each further one this much farther out
 const PH_STATION_JITTER := 200.0      # random extra distance (0 .. this)
 const PH_STATION_HEIGHT := 160.0      # placeholder stations sit up to this far above / below the system plane
+const PH_STATION_MODEL_K := 0.6      # v2.2: the station model standing in for a station with no model of its own (~90 m)
 const PH_STATION_RADIUS := 42.0       # collision radius of a placeholder station
 const PH_GOTO_STANDOFF := 160.0       # GO TO stops this far off a placeholder's surface
 const PH_BUILD_DELAY := 1.2           # s after a system loads before its placeholders are built (keeps arrival smooth)
@@ -991,12 +992,12 @@ const WEAPONS := {
 # Core ids: -1 front gun, -5 second front gun, -6 belly gun, -2 light bay, -3 super bay, -4 mine bay.
 const SHIP_LEVEL := {"cadet": 1, "hauler": 1, "ranger": 2, "elyza": 2, "lancer": 2, "bulk_empty": 3, "bulk": 3}
 const LEVELS := {
-	1: {"name": "Core Interceptor", "art": "res://assets/ui/ship_level1.jpg", "mech_name": "Scout Frame", "mech_art": "res://assets/ui/mech_level1.jpg", "mech_uv": {-1: Vector2(0.491, 0.349), -2: Vector2(0.419, 0.429), -3: Vector2(0.564, 0.429), -4: Vector2(0.491, 0.506), 0: Vector2(0.206, 0.494), 2: Vector2(0.777, 0.494)}, "guns": [-1], "wings": [0, 2], "modules": 2,
+	1: {"name": "Core Interceptor", "art": "res://assets/ui/ship_lv1.png", "icon": "res://assets/ui/ship_lv1.png", "mech_name": "Scout Frame", "mech_art": "res://assets/ui/mech_cut1.png", "mech_icon": "res://assets/ui/mech_lv1.png", "mech_uv": {-1: Vector2(0.503, 0.308), -2: Vector2(0.410, 0.395), -3: Vector2(0.598, 0.395), -4: Vector2(0.503, 0.479), 0: Vector2(0.134, 0.466), 2: Vector2(0.874, 0.466)}, "guns": [-1], "wings": [0, 2], "modules": 2,
 		"uv": {-1: Vector2(0.488, 0.362), -2: Vector2(0.371, 0.521), -3: Vector2(0.605, 0.521), -4: Vector2(0.488, 0.67), 0: Vector2(0.163, 0.815), 2: Vector2(0.81, 0.815)}},
-	2: {"name": "Strike Fighter", "art": "res://assets/ui/ship_level2.jpg", "mech_name": "Assault Frame", "mech_art": "res://assets/ui/mech_level2.jpg", "mech_uv": {-1: Vector2(0.451, 0.229), -5: Vector2(0.543, 0.229), -2: Vector2(0.400, 0.367), -3: Vector2(0.590, 0.367), -4: Vector2(0.497, 0.471), 0: Vector2(0.206, 0.529), 1: Vector2(0.168, 0.611), 2: Vector2(0.781, 0.529), 3: Vector2(0.819, 0.611)}, "guns": [-1, -5], "wings": [0, 1, 2, 3], "modules": 4,
+	2: {"name": "Strike Fighter", "art": "res://assets/ui/ship_lv2.png", "icon": "res://assets/ui/ship_lv2.png", "mech_name": "Assault Frame", "mech_art": "res://assets/ui/mech_cut2.png", "mech_icon": "res://assets/ui/mech_lv2.png", "mech_uv": {-1: Vector2(0.448, 0.163), -5: Vector2(0.552, 0.163), -2: Vector2(0.390, 0.311), -3: Vector2(0.606, 0.311), -4: Vector2(0.500, 0.423), 0: Vector2(0.169, 0.486), 1: Vector2(0.126, 0.574), 2: Vector2(0.823, 0.486), 3: Vector2(0.866, 0.574)}, "guns": [-1, -5], "wings": [0, 1, 2, 3], "modules": 4,
 		"uv": {-1: Vector2(0.435, 0.263), -5: Vector2(0.563, 0.263), -2: Vector2(0.381, 0.509), -3: Vector2(0.616, 0.509), -4: Vector2(0.5, 0.741),
 			0: Vector2(0.284, 0.728), 1: Vector2(0.137, 0.824), 2: Vector2(0.719, 0.728), 3: Vector2(0.86, 0.824)}},
-	3: {"name": "Capital Variant", "art": "res://assets/ui/ship_level3.jpg", "mech_name": "Heavy Frame", "mech_art": "res://assets/ui/mech_level3.jpg", "mech_uv": {-1: Vector2(0.475, 0.215), -5: Vector2(0.568, 0.215), -2: Vector2(0.410, 0.362), -3: Vector2(0.629, 0.362), -4: Vector2(0.475, 0.537), -6: Vector2(0.568, 0.537), 0: Vector2(0.285, 0.495), 4: Vector2(0.266, 0.568), 1: Vector2(0.248, 0.632), 2: Vector2(0.754, 0.495), 5: Vector2(0.773, 0.568), 3: Vector2(0.795, 0.632)}, "guns": [-1, -5, -6], "wings": [0, 1, 2, 3, 4, 5], "modules": 6,
+	3: {"name": "Capital Variant", "art": "res://assets/ui/ship_lv3.png", "icon": "res://assets/ui/ship_lv3.png", "mech_name": "Heavy Frame", "mech_art": "res://assets/ui/mech_cut3.png", "mech_icon": "res://assets/ui/mech_lv3.png", "mech_uv": {-1: Vector2(0.442, 0.118), -5: Vector2(0.563, 0.118), -2: Vector2(0.358, 0.282), -3: Vector2(0.642, 0.282), -4: Vector2(0.442, 0.477), -6: Vector2(0.563, 0.477), 0: Vector2(0.196, 0.430), 4: Vector2(0.171, 0.511), 1: Vector2(0.148, 0.583), 2: Vector2(0.804, 0.430), 5: Vector2(0.829, 0.511), 3: Vector2(0.857, 0.583)}, "guns": [-1, -5, -6], "wings": [0, 1, 2, 3, 4, 5], "modules": 6,
 		"uv": {-1: Vector2(0.49, 0.235), -5: Vector2(0.596, 0.235), -2: Vector2(0.442, 0.546), -3: Vector2(0.65, 0.546), -4: Vector2(0.49, 0.818), -6: Vector2(0.596, 0.818),
 			0: Vector2(0.312, 0.715), 4: Vector2(0.246, 0.805), 1: Vector2(0.154, 0.877), 2: Vector2(0.78, 0.715), 5: Vector2(0.848, 0.805), 3: Vector2(0.936, 0.877)}},
 }
@@ -1017,6 +1018,16 @@ const MODULES := {
 	"heat_shield": {"name": "Heat Shield", "price": 6000, "icon": "res://assets/ui/mod_shield_generator.png", "desc": "Special armour: the heat inside a star can't hurt you."},   # v1.9z (owner)
 	"maintenance_port": {"name": "Maintenance Port", "price": 1400, "icon": "res://assets/ui/mod_maintenance_port.png", "repair": 0.01, "desc": "Repairs 1% of the hull a second when you are not under fire."},
 }
+# v2.2 (owner): the shop's weapon pictures, cut from his hangar concept (and his blaster, one per Nexus colour)
+const WEAPON_ICON := {"pulse1": "laser_cannon", "pulse2": "beam_laser", "ion": "triple_beam_laser", "plasma": "heavy_cannon",
+	"warden": "light_cannon", "bone_rifle": "sniper_railgun", "arm_cannon": "light_cannon", "rail_carbine": "railgun",
+	"twin_cannon": "twin_cannon", "rail_rifle": "sniper_railgun", "charge_cannon": "heavy_cannon", "rail_lance": "railgun",
+	"hv_cannon": "heavy_cannon", "hv_rail": "dual_railgun", "nx_blue": "nx_blue", "nx_green": "nx_green", "nx_yellow": "nx_yellow",
+	"nx_red": "nx_red", "nx_purple": "nx_purple", "missile_pod": "missile_pod", "rocket_rack": "homing_missile_rack",
+	"hv_missile_box": "quad_missile_pod", "hv_rocket_arm": "homing_missile_rack", "hv_quad": "quad_missile_pod",
+	"light_missile": "missile_pod", "heavy_missile": "homing_missile_rack"}
+static func weapon_icon(id: String) -> String:
+	return "res://assets/ui/weapons/%s.png" % WEAPON_ICON[id] if WEAPON_ICON.has(id) else ""
 const NEXUS_BLASTERS := ["nx_blue", "nx_green", "nx_yellow", "nx_red", "nx_purple"]   # v1.9u
 const BLASTER_LEVELS := 5          # v1.9u: Mk I-V
 const BLASTER_LEVEL_DMG := 0.25    # +25% damage per level above Mk I

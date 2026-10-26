@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://d1wg4nscg67fr"
-path="res://.godot/imported/mech_level1.jpg-3a18843e55c936a7bd8215ff73bbfefc.ctex"
+uid="uid://cd2rq23xvrfwb"
+path="res://.godot/imported/homing_missile_rack.png-0cba28d0420ac64b3d2679f063c0c49f.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/mech_level1.jpg"
-dest_files=["res://.godot/imported/mech_level1.jpg-3a18843e55c936a7bd8215ff73bbfefc.ctex"]
+source_file="res://assets/ui/weapons/homing_missile_rack.png"
+dest_files=["res://.godot/imported/homing_missile_rack.png-0cba28d0420ac64b3d2679f063c0c49f.ctex"]
 
 [params]
 

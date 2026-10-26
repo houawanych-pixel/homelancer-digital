@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://jkd0do4lgp0q"
-path="res://.godot/imported/mech_level2.jpg-4748d181b665aca9943e94731173ef34.ctex"
+uid="uid://bw74uca1s3xsi"
+path="res://.godot/imported/heavy_cannon.png-9dd41fc054183a687592f34eac3be183.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/mech_level2.jpg"
-dest_files=["res://.godot/imported/mech_level2.jpg-4748d181b665aca9943e94731173ef34.ctex"]
+source_file="res://assets/ui/weapons/heavy_cannon.png"
+dest_files=["res://.godot/imported/heavy_cannon.png-9dd41fc054183a687592f34eac3be183.ctex"]
 
 [params]
 

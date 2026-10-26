@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c570nffc8s56c"
-path="res://.godot/imported/mech_level3.jpg-deb63faad04093f9efa8c48d35b2ce3d.ctex"
+uid="uid://4gcajn7mkdkn"
+path="res://.godot/imported/triple_beam_laser.png-684c0ff076941c3bdf2ea99924790ff5.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/mech_level3.jpg"
-dest_files=["res://.godot/imported/mech_level3.jpg-deb63faad04093f9efa8c48d35b2ce3d.ctex"]
+source_file="res://assets/ui/weapons/triple_beam_laser.png"
+dest_files=["res://.godot/imported/triple_beam_laser.png-684c0ff076941c3bdf2ea99924790ff5.ctex"]
 
 [params]
 

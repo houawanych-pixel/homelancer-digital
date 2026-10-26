@@ -888,11 +888,6 @@ func _build_extras() -> void:
 	var cyl := CylinderMesh.new()
 	cyl.radial_segments = 12
 	cyl.rings = 1
-	var tor := TorusMesh.new()
-	tor.inner_radius = 30.0
-	tor.outer_radius = 36.0
-	tor.rings = 24
-	tor.ring_segments = 6
 	for d: Dictionary in sys.get("more_stations", []):
 		var n := Node3D.new()
 		n.name = d["name"]
@@ -902,9 +897,12 @@ func _build_extras() -> void:
 		n.set_meta("radius", Data.PH_STATION_RADIUS)
 		add_child(n)
 		var c: Color = d["color"]
-		_mesh(n, cyl, Vector3.ZERO, c, Vector3(9, 44, 9))
-		_mesh(n, tor, Vector3.ZERO, c.darkened(0.2))
-		_mesh(n, BoxMesh.new(), Vector3.ZERO, Color(0.12, 0.2, 0.42), Vector3(70, 1.2, 14))
+		# v2.2 (owner: "remove this dumb station"): no more pole-and-ring stand-in; the real station model instead
+		if ShipFactory.has_real_model("station"):
+			var sm := ShipFactory.build("station")
+			sm.name = "StationModel"
+			sm.scale = Vector3.ONE * Data.PH_STATION_MODEL_K
+			n.add_child(sm)
 		_mesh(n, BoxMesh.new(), Vector3(0, 24, 0), Color(1.0, 0.85, 0.5), Vector3(2, 2, 2), Vector3.ZERO, true)
 		extras.append(n)
 		if Data.is_st3d(d.get("model", "")):   # v1.9d: one of the owner's 3D stations: dockable, its own size

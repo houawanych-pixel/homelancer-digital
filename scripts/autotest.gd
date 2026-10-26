@@ -9404,12 +9404,42 @@ func _job_v19x() -> void:
 	var bays_ok := true
 	for n in Data.HANGARS:
 		if not Packs.PACKS.has("hangar_" + n) or not ResourceLoader.exists("res://assets/hangars/%s_top.jpg" % n): bays_ok = false
-	var clip_ok: bool = ResourceLoader.exists("res://assets/hangars/%s_top.ogv" % hn) and hb.find_child("BayClip", true, false) != null and (hb.find_child("BayClip", true, false) as VideoStreamPlayer).is_playing() and (hb.find_child("BayClip", true, false) as VideoStreamPlayer).loop
-	_check("v1.9y (owner's hangar bays): Unity, Elyza and Orion stations show their own top-view bay, others a spare; each bay is its own small pack (%s here); v2.0: the bay's own looping animation plays over it" % hn, bays_ok and hn in Data.HANGARS and clip_ok, "%s clip %s" % [hn, clip_ok])
+	var still_ok: bool = hb.find_child("BayClip", true, false) != null and not (hb.find_child("BayClip", true, false) as VideoStreamPlayer).is_playing()
+	# v2.2 (owner): fitting something plays the bay's clip once; tap a "+" on the ship to pick its slot
+	var w0 = GS.mount_items()[0]
+	GS.fit_mount(0, "empty")
+	hb.eq_tab = "hangar"
+	hb.show_screen("equipment")
+	await _frames(3)
+	var ov: Control = hb.find_child("MountMap", true, false)
+	var tag_k: int = hb._slot_at(hb._slot_layout(ov.size, ov.get_meta("pts", {}), hb._slot_half(ov)).get(0, Rect2()).get_center(), ov.get_meta("pts", {}), ov) if ov != null and ov.has_meta("pts") else -9
+	var tapped := false
+	if ov != null and ov.has_meta("pts"):
+		var ev := InputEventMouseButton.new()
+		ev.button_index = MOUSE_BUTTON_LEFT
+		ev.pressed = false
+		ev.position = (ov.get_meta("pts") as Dictionary)[0]
+		hb.eq_sel = -1
+		ov.gui_input.emit(ev)
+		await _frames(3)
+		tapped = hb.eq_sel == 0 and hb.eq_tab == "weapon"
+	hb.eq_card = "pulse1"
+	hb.show_screen("equipment")
+	await _frames(2)
+	(hb.find_child("ShopInstall", true, false) as Button).pressed.emit()
+	await _frames(3)
+	var vc: VideoStreamPlayer = hb.find_child("BayClip", true, false)
+	var played: bool = vc != null and vc.is_playing() and not vc.loop and str(GS.mount_items()[0]) == "pulse1"
+	await _shot("v22_hangar_equip_plays", 0.4)
+	GS.fit_mount(0, str(w0))
+	_check("v2.2 (owner): tap a slot's + (or its tag) on the ship to pick it; fitting a weapon plays the bay's clip once, otherwise the bay rests on its picture",
+		still_ok and tapped and tag_k == 0 and played, "still %s, tap %s, tag %s, played %s" % [still_ok, tapped, tag_k, played])
+	var clip_ok: bool = ResourceLoader.exists("res://assets/hangars/%s_top.ogv" % hn)
+	_check("v1.9y (owner's hangar bays): Unity, Elyza and Orion stations show their own top-view bay, others a spare; each bay is its own small pack (%s here); v2.0: the bay has its own animation" % hn, bays_ok and hn in Data.HANGARS and clip_ok, "%s clip %s" % [hn, clip_ok])
 	hb.eq_view = "mech"
 	hb.show_screen("equipment")
 	await _wait(0.4)
-	var mech_ok: bool = hb._eq_mech() and hb._level_tex() != null and str(GS.level_def()["mech_art"]).ends_with("mech_level2.jpg") and hb._mount_points(Vector2(300, 400)).size() == 9
+	var mech_ok: bool = hb._eq_mech() and hb._level_tex() != null and str(GS.level_def()["mech_art"]).ends_with("mech_cut2.png") and hb._mount_points(Vector2(300, 400)).size() == 9
 	await _shot("v19x_hangar_mech", 0.3)
 	(hb.find_child("Tab_ammo", true, false) as Button).pressed.emit()
 	await _frames(3)

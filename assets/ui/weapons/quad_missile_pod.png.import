@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ubhqx8qn3gbd"
-path="res://.godot/imported/ship_level3.jpg-96cb5de5141e6e5e8f147f4497841e49.ctex"
+uid="uid://b366x61suadl3"
+path="res://.godot/imported/quad_missile_pod.png-2a0a8850fe4ccfe8b3afc1869ece08d8.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/ship_level3.jpg"
-dest_files=["res://.godot/imported/ship_level3.jpg-96cb5de5141e6e5e8f147f4497841e49.ctex"]
+source_file="res://assets/ui/weapons/quad_missile_pod.png"
+dest_files=["res://.godot/imported/quad_missile_pod.png-2a0a8850fe4ccfe8b3afc1869ece08d8.ctex"]
 
 [params]
 

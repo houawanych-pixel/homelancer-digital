@@ -485,7 +485,7 @@ func _dock_status(v: VBoxContainer) -> void:
 	bp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bp.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	bp.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	var ap: String = GS.level_def()["mech_art" if _eq_mech() else "art"]
+	var ap: String = GS.level_def()["mech_icon" if _eq_mech() else "icon"]
 	if ResourceLoader.exists(ap): bp.texture = load(ap)
 	row.add_child(bp)
 	var lv := VBoxContainer.new()
@@ -500,6 +500,10 @@ func _hangar_name() -> String:
 	var f := str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])).to_lower()
 	if Data.HANGARS.has(f): return f
 	return Data.HANGAR_SPARES[absi(hash(str(base.get("id", base.get("name", ""))))) % Data.HANGAR_SPARES.size()]
+
+var bay_play := false   # v2.2: play the bay's clip once on the next build (something was just fitted)
+func _loadout_sig() -> String:
+	return str(GS.mount_items()) + str(GS.core_slots().map(func(k): return GS.core_item(k))) + str(GS.module_items())
 
 func _bay_art() -> Control:
 	var nm := _hangar_name()
@@ -518,8 +522,9 @@ func _bay_art() -> Control:
 			vsp.name = "BayClip"
 			vsp.stream = load(vp)
 			vsp.expand = true
-			vsp.loop = true
-			vsp.autoplay = true
+			vsp.loop = false   # v2.2 (owner): the bay comes alive when you fit something, then rests on its picture
+			vsp.autoplay = bay_play
+			bay_play = false
 			vsp.volume_db = -80.0
 			vsp.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			vsp.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -560,7 +565,7 @@ func _hangar_bay(bay: Control) -> void:
 		mm.mouse_filter = Control.MOUSE_FILTER_STOP
 		bay.add_child(mm)
 		mm.draw.connect(func(): _draw_mount_map(mm))
-		mm.gui_input.connect(func(e: InputEvent): _bay_tap(e, _mount_points(mm.size)))
+		mm.gui_input.connect(func(e: InputEvent): _bay_tap(e, _mount_points(mm.size), mm))
 		return
 	var svc := SubViewportContainer.new()
 	svc.name = "LoadoutPreview"
@@ -608,7 +613,7 @@ func _hangar_bay(bay: Control) -> void:
 	ov.mouse_filter = Control.MOUSE_FILTER_STOP
 	bay.add_child(ov)
 	ov.draw.connect(func(): _draw_slots(ov, _ship_slot_points(cam, m, ov.size)))
-	ov.gui_input.connect(func(e: InputEvent): _bay_tap(e, _ship_slot_points(cam, m, ov.size)))
+	ov.gui_input.connect(func(e: InputEvent): _bay_tap(e, _ship_slot_points(cam, m, ov.size), ov))
 	ov.resized.connect(func(): ov.queue_redraw())
 
 ## The three frames (levels): their wireframes, yours lit. A tap on another says which ships are that level.
@@ -625,7 +630,7 @@ func _ship_select(col: Control) -> void:
 		fb.expand_icon = true
 		fb.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		fb.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
-		var ap: String = ld["mech_art" if _eq_mech() else "art"]
+		var ap: String = ld["mech_icon" if _eq_mech() else "icon"]
 		if ResourceLoader.exists(ap): fb.icon = load(ap)
 		fb.text = "LV %d  %s" % [lv, str(ld["mech_name" if _eq_mech() else "name"]).to_upper()]
 		fb.clip_text = true
@@ -641,10 +646,18 @@ func _ship_select(col: Control) -> void:
 				status.text = "Level %d: %s. Buy one at the SHIP DEALER." % [lvv, ", ".join(nms)])
 		col.add_child(fb)
 
-func _bay_tap(e: InputEvent, pts: Dictionary) -> void:
+func _bay_tap(e: InputEvent, pts: Dictionary, c: Control = null) -> void:
 	var tap := (e is InputEventScreenTouch and not (e as InputEventScreenTouch).pressed) or (e is InputEventMouseButton and (e as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT and not (e as InputEventMouseButton).pressed)
 	if not tap: return
 	var at: Vector2 = (e as InputEventMouseButton).position if e is InputEventMouseButton else (e as InputEventScreenTouch).position
+	var k := _slot_at(at, pts, c)
+	if k > -9:
+		eq_sel = k
+		eq_tab = "ammo" if k in [-2, -3, -4] else "weapon"
+		show_screen("equipment")
+
+## The slot under a tap: its square (with a finger's margin) or its name tag.
+func _slot_at(at: Vector2, pts: Dictionary, c: Control = null) -> int:
 	var best := -9
 	var bd := 30.0
 	for k in pts:
@@ -652,9 +665,11 @@ func _bay_tap(e: InputEvent, pts: Dictionary) -> void:
 		if d < bd:
 			bd = d
 			best = k
-	if best > -9:
-		eq_sel = best
-		show_screen("equipment")
+	if best == -9 and c != null:
+		var tags := _slot_layout(c.size, pts, _slot_half(c))
+		for k in tags:
+			if (tags[k] as Rect2).grow(3.0).has_point(at): return k
+	return best
 
 ## Where each of the ship's slots sits on screen: the same spots the guns are fitted at, seen by the bay camera.
 func _ship_slot_points(cam: Camera3D, m: Node3D, sz: Vector2) -> Dictionary:
@@ -679,7 +694,31 @@ func _ship_slot_points(cam: Camera3D, m: Node3D, sz: Vector2) -> Dictionary:
 		var wp: Vector3 = m.global_transform * (Vector3(c.x, bb.end.y, c.z) + loc[k])
 		var sp: Vector2 = cam.unproject_position(wp)
 		out[k] = sp * (sz / vs) if vs.x > 0.0 else sp
-	return out
+	return _spread(out, 34.0)
+
+## v2.2: on a narrow hull the slots crowd together; nudge them apart (sideways first) so every square can be tapped.
+func _spread(pts: Dictionary, gap: float) -> Dictionary:
+	var ks: Array = pts.keys()
+	for it in 24:
+		var moved := false
+		for i in ks.size():
+			for j in range(i + 1, ks.size()):
+				var a: Vector2 = pts[ks[i]]
+				var b: Vector2 = pts[ks[j]]
+				var d := b - a
+				if absf(d.x) >= gap or absf(d.y) >= gap: continue
+				moved = true
+				var push := (gap - absf(d.x)) * 0.5 + 0.5
+				var dir := signf(d.x) if absf(d.x) > 0.5 else (1.0 if (ks[j] as int) % 2 == 0 else -1.0)
+				if absf(d.y) > absf(d.x) * 1.5:   # stacked: part them up and down instead
+					var py := (gap - absf(d.y)) * 0.5 + 0.5
+					pts[ks[i]] = a - Vector2(0, py * signf(d.y))
+					pts[ks[j]] = b + Vector2(0, py * signf(d.y))
+				else:
+					pts[ks[i]] = a - Vector2(push * dir, 0)
+					pts[ks[j]] = b + Vector2(push * dir, 0)
+		if not moved: break
+	return pts
 
 const SLOT_LABEL := {-1: "CORE GUN", -5: "CORE GUN 2", -6: "BELLY GUN", -2: "MISSILES", -3: "SUPER MSL", -4: "MINES",
 	0: "LEFT WING", 1: "LEFT TIP", 4: "LEFT MID", 2: "RIGHT WING", 3: "RIGHT TIP", 5: "RIGHT MID"}
@@ -695,27 +734,113 @@ func _slot_color(k: int) -> Color:
 	if Data.MOUNT_PODS.has(it): return Color(1.0, 0.6, 0.25)
 	return Color(0.4, 0.85, 1.0)
 
-## The slot squares: coloured by what they hold ("+" = empty), the picked one gold, each with its name tag.
-func _draw_slots(c: Control, pts: Dictionary) -> void:
-	var font := ThemeDB.fallback_font
-	var items: Array = GS.mount_items()
-	var mid := c.size * 0.5
+## v2.2 (owner's concept): every slot is a square on the ship with a "+" when it is empty (the weapon's picture when it
+## holds one), and a line out to its name tag at the side. Tap the square or its tag to pick that slot.
+var _icon_cache := {}
+func _wicon(id: String) -> Texture2D:
+	var path := Data.weapon_icon(id)
+	if path == "" or not ResourceLoader.exists(path): return null
+	if not _icon_cache.has(path): _icon_cache[path] = load(path)
+	return _icon_cache[path]
+
+func _slot_item(k: int) -> String:
+	match k:
+		-1, -5, -6: return GS.core_item(k)
+		-2: return "light_missile"
+		-3: return "heavy_missile"
+		-4: return ""
+	return str(GS.mount_items()[k])
+
+func _slot_sub(k: int) -> String:
+	match k:
+		-2: return "%d / %d" % [GS.missiles, GS.max_missiles()]
+		-3: return "%d / %d" % [GS.heavy_missiles, GS.max_heavy()]
+		-4: return "%d / %d" % [GS.mines, GS.max_mines()]
+	var it := _slot_item(k)
+	if it == "empty" or it == "": return "EMPTY  +"
+	var d: Dictionary = Data.WEAPONS.get(it, Data.MOUNT_PODS.get(it, {}))
+	return str(d.get("short", d.get("name", it))).to_upper()
+
+const TAG_W := 92.0
+const TAG_H := 30.0
+## Where each slot's tag goes: left-hand slots tag out to the left, right-hand to the right, centre ones above/below;
+## tags on one side are spread so they never overlap.
+func _slot_layout(c: Vector2, pts: Dictionary, half: float) -> Dictionary:
+	var mid := c.x * 0.5
+	var sides := {"l": [], "r": [], "t": [], "b": []}
 	for k in pts:
 		var p: Vector2 = pts[k]
-		var col := _slot_color(k)
-		var empty: bool = k >= 0 and str(items[k]) == "empty"
-		var r := Rect2(p - Vector2(10, 10), Vector2(20, 20))
-		c.draw_rect(r, Color(0.02, 0.06, 0.12, 0.75))
-		c.draw_rect(r, Color(col, 0.25) if empty else Color(col, 0.6))
-		c.draw_rect(r.grow(1.0), GOLD if k == eq_sel else Color(0.75, 0.95, 1.0, 0.9), false, 3.0 if k == eq_sel else 1.5)
-		if empty: c.draw_string(font, p + Vector2(-5, 6), "+", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.9, 0.97, 1.0))
-		var out := (p - mid)
-		out = out.normalized() if out.length() > 4.0 else Vector2(0, -1)
-		var lp := p + out * 46.0 + Vector2(-38, -4)
-		lp.x = clampf(lp.x, 2.0, c.size.x - 78.0)
-		lp.y = clampf(lp.y, 12.0, c.size.y - 4.0)
-		c.draw_rect(Rect2(lp + Vector2(-2, -11), Vector2(80, 15)), Color(0.02, 0.07, 0.13, 0.8))
-		c.draw_string(font, lp, str(SLOT_LABEL.get(k, "")), HORIZONTAL_ALIGNMENT_CENTER, 76, 10, GOLD if k == eq_sel else Color(0.8, 0.95, 1.0))
+		var sd := "l" if p.x < mid - 3.0 else ("r" if p.x > mid + 3.0 else "c")
+		if sd == "c":   # a centre slot: low ones tag below, the rest join the shorter side column
+			sd = "b" if p.y > c.y * 0.62 else ("l" if sides["l"].size() <= sides["r"].size() else "r")
+		sides[sd].append(k)
+	var out := {}
+	for sd in ["l", "r"]:
+		var ks: Array = sides[sd]
+		ks.sort_custom(func(a, b): return (pts[a] as Vector2).y < (pts[b] as Vector2).y)
+		var edge := 1e9 if sd == "l" else -1e9
+		for k in ks: edge = minf(edge, pts[k].x) if sd == "l" else maxf(edge, pts[k].x)
+		var x := (edge - half - 22.0 - TAG_W) if sd == "l" else (edge + half + 22.0)
+		x = clampf(x, 2.0, c.x - TAG_W - 2.0)
+		var y := -1e9
+		for k in ks:
+			var ty: float = maxf((pts[k] as Vector2).y - TAG_H * 0.5, y + TAG_H + 4.0)
+			out[k] = Rect2(x, ty, TAG_W, TAG_H)
+			y = ty
+		var over := y + TAG_H - (c.y - 2.0)   # pushed off the bottom: slide the stack back up
+		if over > 0.0:
+			for k in ks: out[k].position.y -= over
+	for sd in ["t", "b"]:
+		for k in sides[sd]:
+			var p: Vector2 = pts[k]
+			var ty: float = (p.y - half - 26.0 - TAG_H) if sd == "t" else (p.y + half + 26.0)
+			out[k] = Rect2(clampf(p.x - TAG_W * 0.5, 2.0, c.x - TAG_W - 2.0), clampf(ty, 2.0, c.y - TAG_H - 2.0), TAG_W, TAG_H)
+	return out
+
+func _slot_half(c: Control) -> float:
+	if _eq_mech(): return clampf(_map_rect(c.size).size.y * 0.047, 10.0, 22.0)   # (covers the sheet's own squares)
+	return 14.0
+
+func _draw_slots(c: Control, pts: Dictionary) -> void:
+	c.set_meta("pts", pts)
+	var font := ThemeDB.fallback_font
+	var half := _slot_half(c)
+	var tags := _slot_layout(c.size, pts, half)
+	for k in pts:   # the lines first, under the squares and tags
+		var p: Vector2 = pts[k]
+		var r: Rect2 = tags[k]
+		var to := Vector2(r.end.x if r.get_center().x < p.x else r.position.x, r.get_center().y)
+		if absf(r.get_center().x - p.x) < TAG_W * 0.5: to = Vector2(p.x, r.end.y if r.get_center().y < p.y else r.position.y)
+		var lc := GOLD if k == eq_sel else Color(0.45, 0.9, 1.0, 0.85)
+		var from := p + (to - p).normalized() * half
+		c.draw_line(from, to, lc, 1.5, true)
+		c.draw_circle(to, 2.5, lc)
+	for k in pts:
+		var p: Vector2 = pts[k]
+		var it := _slot_item(k)
+		var empty: bool = it == "empty" or (k == -2 and GS.missiles <= 0) or (k == -3 and GS.heavy_missiles <= 0) or (k == -4 and GS.mines <= 0)
+		var sq := Rect2(p - Vector2(half, half), Vector2(half, half) * 2.0)
+		var sel: bool = k == eq_sel
+		c.draw_rect(sq.grow(3.0), Color(0.3, 0.85, 1.0, 0.22) if not sel else Color(GOLD, 0.35))   # glow
+		c.draw_rect(sq, Color(0.02, 0.07, 0.13, 0.94))
+		var tex := _wicon(it) if not empty else null
+		if tex != null:
+			var ts := Vector2(tex.get_size())
+			var f := minf((sq.size.x - 4.0) / ts.x, (sq.size.y - 4.0) / ts.y)
+			c.draw_texture_rect(tex, Rect2(sq.get_center() - ts * f * 0.5, ts * f), false)
+		elif k == -4 and not empty:
+			c.draw_circle(sq.get_center(), half * 0.45, Color(1.0, 0.35, 0.25))
+		else:
+			var pl := half * 0.5
+			var pc := Color(0.85, 0.97, 1.0)
+			c.draw_line(sq.get_center() - Vector2(pl, 0), sq.get_center() + Vector2(pl, 0), pc, 2.5)
+			c.draw_line(sq.get_center() - Vector2(0, pl), sq.get_center() + Vector2(0, pl), pc, 2.5)
+		c.draw_rect(sq, GOLD if sel else Color(0.45, 0.9, 1.0), false, 2.5 if sel else 1.5)
+		var r: Rect2 = tags[k]
+		c.draw_rect(r, Color(0.02, 0.07, 0.13, 0.86))
+		c.draw_rect(r, GOLD if sel else Color(0.45, 0.9, 1.0, 0.7), false, 1.0)
+		c.draw_string(font, r.position + Vector2(0, 12), str(SLOT_LABEL.get(k, "")), HORIZONTAL_ALIGNMENT_CENTER, TAG_W, 10, GOLD if sel else Color(0.85, 0.96, 1.0))
+		c.draw_string(font, r.position + Vector2(0, 25), _slot_sub(k), HORIZONTAL_ALIGNMENT_CENTER, TAG_W, 9, Color(0.6, 0.85, 1.0) if not empty else Color(0.55, 0.65, 0.75))
 
 ## The bay floor behind the ship: dark deck plates, a grid, hazard stripes and lights.
 func _draw_bay_floor(c: Control) -> void:
@@ -837,7 +962,11 @@ func _shop_panel(shop: VBoxContainer) -> void:
 	buy.disabled = eq_card == "" or owned or GS.credits < _card_price(eq_card, kind)
 	buy.add_theme_color_override("font_color", Color(1.0, 0.78, 0.3))
 	for ab in [buy]: ab.clip_text = true
-	buy.pressed.connect(func(): status.text = _card_buy(eq_card, kind); show_screen("equipment"))
+	buy.pressed.connect(func():
+		var s0 := _loadout_sig()
+		status.text = _card_buy(eq_card, kind)
+		bay_play = _loadout_sig() != s0
+		show_screen("equipment"))
 	act.add_child(buy)
 	if owned and eq_card in Data.NEXUS_BLASTERS:
 		var u := Button.new()
@@ -858,7 +987,11 @@ func _shop_panel(shop: VBoxContainer) -> void:
 	inst.disabled = eq_card == "" or not owned
 	inst.add_theme_color_override("font_color", CYAN)
 	inst.clip_text = true
-	inst.pressed.connect(func(): status.text = _card_install(eq_card, kind); show_screen("equipment"))
+	inst.pressed.connect(func():
+		var s0 := _loadout_sig()
+		status.text = _card_install(eq_card, kind)
+		bay_play = _loadout_sig() != s0
+		show_screen("equipment"))
 	act.add_child(inst)
 	var rem := Button.new()
 	rem.name = "ShopRemove"
@@ -912,8 +1045,37 @@ func _card(id: String, kind: String) -> Control:
 		"module": line2 = str(d["desc"])
 	var nm: String = str(d.get("short", d["name"])) if kind != "module" else str(d["name"])
 	if kind in ["blaster", "gun"] and owned: nm += " Mk %s" % GS.roman(GS.gun_level(id))
-	b.text = "%s\n%s\n%s  ·  %s" % [nm.to_upper(), line2, "OWNED" if owned else "%d cr" % int(d["price"]), tag]
-	if kind == "module" and ResourceLoader.exists(str(d["icon"])): b.icon = load(str(d["icon"]))
+	# v2.2 (owner's concept): the weapon's picture on top, then name, what it does, price and type
+	b.text = ""
+	b.custom_minimum_size = Vector2(100, 154 if kind != "module" else 100)
+	var col := VBoxContainer.new()
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	col.offset_left = 10
+	col.offset_right = -6
+	col.offset_top = 4
+	col.offset_bottom = -4
+	col.add_theme_constant_override("separation", 0)
+	b.add_child(col)
+	var pic := TextureRect.new()
+	pic.name = "Pic"
+	pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	pic.custom_minimum_size = Vector2(0, 84 if kind != "module" else 40)
+	var ipath: String = str(d["icon"]) if kind == "module" else Data.weapon_icon(id)
+	if ipath != "" and ResourceLoader.exists(ipath): pic.texture = load(ipath)
+	col.add_child(pic)
+	for ln in [[nm.to_upper(), 12, Color(1, 1, 1) if not owned else GOLD], [line2, 10, Color(0.7, 0.88, 1.0)],
+			["%s  ·  %s" % ["OWNED" if owned else "%d cr" % int(d["price"]), tag], 10, GOLD if owned else Color(1.0, 0.82, 0.4)]]:
+		var l := Label.new()
+		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		l.text = ln[0]
+		l.clip_text = true
+		l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		l.add_theme_font_size_override("font_size", Data.ts(ln[1]))
+		l.add_theme_color_override("font_color", ln[2])
+		col.add_child(l)
 	var accent: Color = (d.get("color", Color(1.0, 0.65, 0.3)) as Color) if kind != "module" else CYAN
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.04, 0.09, 0.15, 0.92)
@@ -1077,7 +1239,7 @@ func _spec_bar(parent: Control) -> void:
 	ic.custom_minimum_size = Vector2(56, 56)
 	ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	ic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	var ap: String = GS.level_def()["mech_art" if _eq_mech() else "art"]
+	var ap: String = GS.level_def()["mech_icon" if _eq_mech() else "icon"]
 	if ResourceLoader.exists(ap): ic.texture = load(ap)
 	row.add_child(ic)
 	var bars := VBoxContainer.new()
@@ -1367,12 +1529,12 @@ func _level_tex() -> Texture2D:
 func _map_rect(sz: Vector2) -> Rect2:
 	var tx := _level_tex()
 	var asp: float = (tx.get_width() / float(tx.get_height())) if tx != null else 0.8
-	var hgt := sz.y - 4.0
+	var hgt := sz.y * 0.9
 	var wdt := hgt * asp
-	if wdt > sz.x - 4.0:
-		wdt = sz.x - 4.0
+	if wdt > sz.x * 0.64:   # (room for the tags either side)
+		wdt = sz.x * 0.64
 		hgt = wdt / asp
-	return Rect2((sz.x - wdt) * 0.5, 2.0, wdt, hgt)
+	return Rect2((sz.x - wdt) * 0.5, (sz.y - hgt) * 0.55, wdt, hgt)
 
 func _mount_points(sz: Vector2) -> Dictionary:
 	var r := _map_rect(sz)
@@ -1382,36 +1544,9 @@ func _mount_points(sz: Vector2) -> Dictionary:
 	return out
 
 func _draw_mount_map(mm: Control) -> void:
-	var sz := mm.size
 	var tx := _level_tex()
-	if tx != null: mm.draw_texture_rect(tx, _map_rect(sz), false)
-	var items: Array = GS.mount_items()
-	var pts := _mount_points(sz)
-	var font := ThemeDB.fallback_font
-	var r := clampf(_map_rect(sz).size.x * 0.04, 5.0, 10.0)
-	for k in pts:
-		var p: Vector2 = pts[k]
-		var col := Color(0.35, 0.38, 0.45)
-		var full := true
-		match k:
-			-1, -5, -6: col = Data.WEAPONS[GS.core_item(k)]["color"]
-			-2:
-				col = Color(1.0, 0.85, 0.55)
-				full = GS.missiles > 0
-			-3:
-				col = Data.HEAVY_LOCK_COLOR
-				full = GS.heavy_missiles > 0
-			-4:
-				col = Color(1.0, 0.35, 0.25)
-				full = GS.mines > 0
-			_:
-				var it: String = str(items[k])
-				full = it != "empty"
-				if Data.WEAPONS.has(it): col = Data.WEAPONS[it]["color"]
-				elif Data.MOUNT_PODS.has(it): col = Color(1.0, 0.6, 0.25)
-		if k == eq_sel: mm.draw_arc(p, r + 7.0, 0.0, TAU, 24, GOLD, 3.0)
-		mm.draw_circle(p, r, col if full else Color(0.1, 0.12, 0.16, 0.85))
-		mm.draw_arc(p, r, 0.0, TAU, 20, Color(1, 1, 1, 0.85), 1.5)
+	if tx != null: mm.draw_texture_rect(tx, _map_rect(mm.size), false)
+	_draw_slots(mm, _mount_points(mm.size))
 
 ## v1.9e: long shop lines wrap instead of pushing the page (and its buttons) off the right of the screen.
 func _wrap_rows(root: Node) -> void:
