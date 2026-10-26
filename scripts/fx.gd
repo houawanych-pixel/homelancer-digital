@@ -71,7 +71,7 @@ vec2 bend(float D, float s) {
 }
 void fragment() {
 	vec2 p = (UV - 0.5) * vec2(aspect, 1.0);
-	if (wind > 0.0 && (skin == 0 || (skin == 1 && use_tex_b))) {
+	if (wind > 0.0 && skin == 0) {   // v3.2 (owner): only the jump-gate tunnel winds; the warp-gate tunnel is straight again
 		float s0 = travel * 0.6;
 		float roll = -wind * wind_freq * wind_freq * sin(s0 * wind_freq) * 0.35;   // lean into the bend
 		p = vec2(p.x * cos(roll) - p.y * sin(roll), p.x * sin(roll) + p.y * cos(roll));

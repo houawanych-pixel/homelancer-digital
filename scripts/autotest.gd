@@ -9618,7 +9618,7 @@ func _job_v19z() -> void:
 	tun_ok = tun_ok and wind_ok
 	fx.begin_warp("cloud")
 	await _frames(4)
-	var warp_t_ok: bool = fx.warp_tex_on and (fx._warp_rect.material as ShaderMaterial).get_shader_parameter("use_tex_b") == true
+	var warp_t_ok: bool = fx.warp_tex_on and (fx._warp_rect.material as ShaderMaterial).get_shader_parameter("use_tex_b") == true and str((fx._warp_rect.material as ShaderMaterial).shader.code).contains("if (wind > 0.0 && skin == 0)")
 	await _shot("v19z_warp_gate_tunnel", 0.1)
 	tun_ok = tun_ok and warp_t_ok
 	fx.end_warp()
