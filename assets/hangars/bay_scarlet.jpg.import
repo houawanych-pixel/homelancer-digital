@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dgre18mk6ongf"
-path="res://.godot/imported/spare_b_top.jpg-972123d30a32428db2f48ccf5d2d538e.ctex"
+uid="uid://bst7e68ajehab"
+path="res://.godot/imported/bay_scarlet.jpg-0d19fcc08f16526e4c89446749fcc7ab.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/hangars/spare_b_top.jpg"
-dest_files=["res://.godot/imported/spare_b_top.jpg-972123d30a32428db2f48ccf5d2d538e.ctex"]
+source_file="res://assets/hangars/bay_scarlet.jpg"
+dest_files=["res://.godot/imported/bay_scarlet.jpg-0d19fcc08f16526e4c89446749fcc7ab.ctex"]
 
 [params]
 

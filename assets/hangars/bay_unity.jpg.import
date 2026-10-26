@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://caesteti1mhcb"
-path="res://.godot/imported/mech_elyza_top.jpg-51f512b27306a80f3a60aaa1c01537fa.ctex"
+uid="uid://drtgvjt65mu0u"
+path="res://.godot/imported/bay_unity.jpg-7f73b68bcee805c635c4aad946dc4895.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/hangars/mech_elyza_top.jpg"
-dest_files=["res://.godot/imported/mech_elyza_top.jpg-51f512b27306a80f3a60aaa1c01537fa.ctex"]
+source_file="res://assets/hangars/bay_unity.jpg"
+dest_files=["res://.godot/imported/bay_unity.jpg-7f73b68bcee805c635c4aad946dc4895.ctex"]
 
 [params]
 

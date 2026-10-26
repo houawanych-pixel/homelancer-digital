@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cr8llrakmsbgq"
-path="res://.godot/imported/mech_solarion_top.jpg-0dccb9b02d1083e8e7f52099f87cdc40.ctex"
+uid="uid://7f0n5erqvh4j"
+path="res://.godot/imported/bay_solarion.jpg-57e1149538f4b224aaa2014513de53bc.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/hangars/mech_solarion_top.jpg"
-dest_files=["res://.godot/imported/mech_solarion_top.jpg-0dccb9b02d1083e8e7f52099f87cdc40.ctex"]
+source_file="res://assets/hangars/bay_solarion.jpg"
+dest_files=["res://.godot/imported/bay_solarion.jpg-57e1149538f4b224aaa2014513de53bc.ctex"]
 
 [params]
 

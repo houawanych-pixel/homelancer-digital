@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bcr1nmadw0i1e"
-path="res://.godot/imported/mech_orion_top.jpg-722aff563a4d37954965c21923d4be82.ctex"
+uid="uid://j3465t3hm4p5"
+path="res://.godot/imported/bay_liberator.jpg-7c458482ba5b61ce2518ff919ecd03ca.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/hangars/mech_orion_top.jpg"
-dest_files=["res://.godot/imported/mech_orion_top.jpg-722aff563a4d37954965c21923d4be82.ctex"]
+source_file="res://assets/hangars/bay_liberator.jpg"
+dest_files=["res://.godot/imported/bay_liberator.jpg-7c458482ba5b61ce2518ff919ecd03ca.ctex"]
 
 [params]
 

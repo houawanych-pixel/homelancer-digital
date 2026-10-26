@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ckhgm775nvbni"
-path="res://.godot/imported/mech_scarlet_top.jpg-e5598179088fdfba46fe284370c7492d.ctex"
+uid="uid://dggwefntwkas2"
+path="res://.godot/imported/bay_orion.jpg-84e1feefe8a09d95a5263e8b423a0adc.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/hangars/mech_scarlet_top.jpg"
-dest_files=["res://.godot/imported/mech_scarlet_top.jpg-e5598179088fdfba46fe284370c7492d.ctex"]
+source_file="res://assets/hangars/bay_orion.jpg"
+dest_files=["res://.godot/imported/bay_orion.jpg-84e1feefe8a09d95a5263e8b423a0adc.ctex"]
 
 [params]
 

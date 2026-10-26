@@ -24,6 +24,8 @@ var launch_btn: Button   # v1.5k: always there, upper right
 var board_tab := "missions"   # v1.5k: the MISSION BOARD's open tab: "missions" | "bounty"
 var preview_vp: SubViewport
 var preview_pivot: Node3D
+var _bay_art_node: Control
+var _bay_node: Control
 var bay_yaw := 0.0    # v2.6: the hangar turntable's turn
 var bay_hold := 0.0   # s the turntable waits after you drag it or pick a slot
 var preview_key := ""
@@ -357,6 +359,7 @@ func _equipment_page() -> void:
 	root.draw.connect(func(): root.draw_rect(Rect2(Vector2.ZERO, root.size), Color(0.05, 0.06, 0.08)))
 	var art := _bay_art()
 	root.add_child(art)
+	_bay_art_node = art
 	# the bay (middle): the ship and its slot squares
 	var bay := Control.new()
 	bay.name = "HangarBay"
@@ -369,6 +372,7 @@ func _equipment_page() -> void:
 	root.resized.connect(func(): _place_bay_art(art, bay))
 	bay.resized.connect(func(): _place_bay_art(art, bay))
 	get_tree().process_frame.connect(func(): _place_bay_art(art, bay), CONNECT_ONE_SHOT)
+	_bay_node = bay
 	_hangar_bay(bay)
 	var mods := Control.new()   # the module slots along the bottom of the bay
 	mods.anchor_right = 0.6
@@ -498,46 +502,23 @@ func _dock_status(v: VBoxContainer) -> void:
 	_ship_select(lv)
 	_spec_bar(v)
 
-## The bay art behind everything: the faction's own hangar (its looping clip <name>_top.ogv when there is one, else
-## its picture <name>_top.jpg; each in its own small pack), else a spare bay. Its landing pad sits under the ship.
+## v2.7 (owner): the bay behind everything, a front view: the faction's own (each its own small pack), else a spare.
 func _hangar_name() -> String:
-	if _eq_mech():
-		var fm := str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])).to_lower()
-		if fm.begins_with("liberator"): fm = "liberator"
-		if Data.MECH_BAYS.has(fm) and not fm.begins_with("mech_"): return "mech_" + fm
-		return Data.MECH_HANGARS[absi(hash(str(base.get("id", base.get("name", ""))))) % Data.MECH_HANGARS.size()]
 	var f := str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])).to_lower()
-	if Data.HANGARS.has(f): return f
-	return Data.HANGAR_SPARES[absi(hash(str(base.get("id", base.get("name", ""))))) % Data.HANGAR_SPARES.size()]
-
-var bay_play := false   # v2.2: play the bay's clip once on the next build (something was just fitted)
-func _loadout_sig() -> String:
-	return str(GS.mount_items()) + str(GS.core_slots().map(func(k): return GS.core_item(k))) + str(GS.module_items())
+	if f.begins_with("liberator"): f = "liberator"
+	if Data.BAYS.has(f) and not (f in Data.BAY_SPARES): return f
+	return Data.BAY_SPARES[absi(hash(str(base.get("id", base.get("name", ""))))) % Data.BAY_SPARES.size()]
 
 func _bay_art() -> Control:
 	var nm := _hangar_name()
-	var tr := TextureRect.new()   # the still picture always (under the clip, and shown alone if the clip can't play)
+	var tr := TextureRect.new()
 	tr.name = "BayArt"
 	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	tr.stretch_mode = TextureRect.STRETCH_SCALE
 	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var pk := "hangar_" + nm
-	var path := "res://assets/hangars/%s_top.jpg" % nm
-	if Packs.is_ready(pk) and ResourceLoader.exists(path):
-		tr.texture = load(path)
-		var vp := "res://assets/hangars/%s_top.ogv" % nm   # v2.0 (owner): the bay's looping animation, on top
-		if ResourceLoader.exists(vp):
-			var vsp := VideoStreamPlayer.new()
-			vsp.name = "BayClip"
-			vsp.stream = load(vp)
-			vsp.expand = true
-			vsp.loop = false   # v2.2 (owner): the bay comes alive when you fit something, then rests on its picture
-			vsp.autoplay = bay_play
-			bay_play = false
-			vsp.volume_db = -80.0
-			vsp.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			vsp.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-			tr.add_child(vsp)
+	var path := "res://assets/hangars/bay_%s.jpg" % nm
+	if Packs.is_ready(pk) and ResourceLoader.exists(path): tr.texture = load(path)
 	else:
 		Packs.request(pk)
 		if not Packs.pack_ready.is_connected(_on_hangar_pack): Packs.pack_ready.connect(_on_hangar_pack)
@@ -546,34 +527,21 @@ func _bay_art() -> Control:
 func _on_hangar_pack(pk: String) -> void:
 	if visible and screen == "equipment" and pk.begins_with("hangar_"): show_screen("equipment")
 
-## Fit the bay picture to cover the whole page with its landing pad centred on the bay, and size the ship to the pad.
+## The bay picture covers the page, centred on the bay, its floor along the bottom; the ship or mech stands on its pad.
 func _place_bay_art(art: Control, bay: Control) -> void:
 	if not is_instance_valid(art) or not is_instance_valid(bay): return
 	var root := art.get_parent() as Control
 	if root == null: return
 	var asp := 1672.0 / 941.0
 	if art is TextureRect and (art as TextureRect).texture != null: asp = (art as TextureRect).texture.get_width() / float((art as TextureRect).texture.get_height())
-	if _eq_mech():   # v2.4: a front view: cover the page, centred on the bay, its floor along the bottom
-		var hm: float = maxf(root.size.y, (bay.size.x + 400.0) / asp)
-		art.size = Vector2(hm * asp, hm)
-		art.position = Vector2(bay.position.x + bay.size.x * 0.5 - art.size.x * 0.5, root.size.y - hm)
-		_stand_mech(art, bay)
-		var mm0: Control = bay.find_child("MountMap", true, false)
-		if mm0 != null: mm0.queue_redraw()
-		return
-	var centre: Vector2 = bay.position + Vector2(bay.size.x * 0.5, (bay.size.y + 48.0) * 0.5)
-	var pad_k: float = float(Data.HANGARS.get(_hangar_name(), 0.6))
-	var h: float = (bay.size.y + 48.0) * 0.8 / pad_k   # the pad fills the bay's height; the rest of the hangar spreads round it
-	h = maxf(h, 2.0 * maxf(centre.y, root.size.y - centre.y))
-	art.size = Vector2(h * asp, h)
-	art.position = centre - art.size * 0.5
-	var pad_px: float = h * pad_k
-	var cam: Camera3D = bay.find_child("BayCam", true, false)
-	if cam != null and pad_px > 1.0: cam.size = maxf(9.0, 11.5 * bay.size.y / (0.78 * pad_px))   # the ship fills the pad
-	var ov: Control = bay.find_child("MountMap", true, false)
-	if ov != null: ov.queue_redraw()
+	var hm: float = maxf(root.size.y, (bay.size.x + 400.0) / asp)
+	art.size = Vector2(hm * asp, hm)
+	art.position = Vector2(bay.position.x + bay.size.x * 0.5 - art.size.x * 0.5, root.size.y - hm)
+	_stand_model(art, bay)
+	var mm0: Control = bay.find_child("MountMap", true, false)
+	if mm0 != null: mm0.queue_redraw()
 
-## The bay: your ship on the pad seen from above (the mech's blueprint in mech view), a square on every slot.
+## The bay: your ship (or mech) on the pad, a square on every slot.
 func _hangar_bay(bay: Control) -> void:
 	if _eq_mech() and _mech_bay(bay): return
 	if _eq_mech():
@@ -599,11 +567,10 @@ func _hangar_bay(bay: Control) -> void:
 	cam.name = "BayCam"
 	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
 	cam.size = 15.0
-	cam.position = Vector3(0, 40, 0)
 	preview_vp.add_child(cam)
-	cam.look_at(Vector3.ZERO, Vector3(0, 0, -1))   # straight down, nose up the screen
+	cam.look_at_from_position(Data.SHIP_BAY_VIEW.normalized() * 80.0, Vector3.ZERO, Vector3.UP)   # v2.7: front-right, from above
 	var light := DirectionalLight3D.new()
-	light.rotation_degrees = Vector3(-70, 30, 0)
+	light.rotation_degrees = Vector3(-45, 150, 0)
 	light.light_energy = 1.5
 	preview_vp.add_child(light)
 	var we := WorldEnvironment.new()
@@ -619,11 +586,11 @@ func _hangar_bay(bay: Control) -> void:
 	var m := ShipFactory.build(Data.SHIPS[GS.ship_id]["model"], true)
 	preview_pivot.add_child(m)
 	preview_key = GS.ship_id
-	var bb0: AABB = ShipFactory._aabb(m, Transform3D.IDENTITY)
-	var span: float = maxf(bb0.size.x * m.scale.x, bb0.size.z * m.scale.z)
+	var bb0: AABB = ShipFactory._aabb(m, Transform3D.IDENTITY)   # (in the turntable's space: includes its scale)
+	var span: float = maxf(bb0.size.x, bb0.size.z)
 	if span > 0.01:
 		m.scale *= 11.5 / span
-		m.position = -(bb0.get_center() * m.scale)
+		m.position = -ShipFactory._aabb(m, Transform3D.IDENTITY).get_center()   # centred on the turntable
 	_dress_mounts(m)
 	var ov := Control.new()   # the slot squares, placed where each slot sits on the ship
 	ov.name = "MountMap"
@@ -664,17 +631,16 @@ func _mech_bay(bay: Control) -> bool:
 	preview_pivot.add_child(m)
 	preview_key = "mech"
 	var bb: AABB = ShipFactory._aabb(m, Transform3D.IDENTITY)
-	var hgt: float = maxf(bb.size.y * m.scale.y, 0.5)
-	var c0: Vector3 = bb.get_center() * m.scale
+	var hgt: float = maxf(bb.size.y, 0.5)
+	var c0: Vector3 = bb.get_center()
 	m.position = Vector3(-c0.x, 0.0, -c0.z)   # (centred on the turntable)
 	var c := Vector3(0.0, c0.y, 0.0)
 	var cam := Camera3D.new()
 	cam.name = "BayCam"
 	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
-	cam.size = hgt / 0.8   # (_stand_mech sizes it to the pad)
-	cam.position = Vector3(c.x, c.y + hgt * 0.06, c.z - 60.0)   # in front of it (its front faces -Z), a touch high: feet near the floor
+	cam.size = hgt / 0.8   # (_stand_model sizes it to the pad)
 	preview_vp.add_child(cam)
-	cam.look_at(Vector3(c.x, c.y + hgt * 0.06, c.z), Vector3.UP)
+	cam.look_at_from_position(Vector3(c.x, c.y, c.z - 80.0), c, Vector3.UP)   # in front of it (its front faces -Z)
 	var light := DirectionalLight3D.new()
 	light.rotation_degrees = Vector3(-30, 160, 0)
 	light.light_energy = 1.4
@@ -696,26 +662,33 @@ func _mech_bay(bay: Control) -> bool:
 	ov.resized.connect(func(): ov.queue_redraw())
 	return true
 
-## v2.6 (owner): the mech stands on the bay's round pad: its feet on the pad's centre, sized to the picture.
-func _stand_mech(art: Control, bay: Control) -> void:
+## v2.6/2.7 (owner): the ship or mech stands on the bay's round pad (its base on the pad's centre), sized to the picture.
+func _stand_model(art: Control, bay: Control) -> void:
 	var cam: Camera3D = bay.find_child("BayCam", true, false)
-	var m: Node3D = bay.find_child("BayMech", true, false)
-	if cam == null or m == null or not is_instance_valid(preview_vp): return
-	var nm := _hangar_name()
-	var key := nm.trim_prefix("mech_") if Data.MECH_BAYS.has(nm.trim_prefix("mech_")) else nm
-	var pad_y: float = float(Data.MECH_BAYS.get(key, 0.85))
+	if cam == null or not is_instance_valid(preview_pivot) or preview_pivot.get_child_count() == 0 or not is_instance_valid(preview_vp): return
+	var m := preview_pivot.get_child(0) as Node3D
 	var vs := Vector2(preview_vp.size)
-	if vs.y <= 1.0: return
+	if vs.y <= 1.0 or bay.size.y <= 1.0: return
+	var B: Basis = cam.global_transform.basis
 	var bb: AABB = ShipFactory._aabb(m, Transform3D.IDENTITY)
-	var hgt: float = maxf(bb.size.y * m.scale.y, 0.5)
-	var px: float = maxf(art.size.y * Data.MECH_ON_PAD, 40.0) * vs.y / maxf(bay.size.y, 1.0)   # the mech's height in viewport pixels
-	cam.size = hgt * vs.y / px
-	var feet: float = (art.position.y + pad_y * art.size.y - bay.position.y) * vs.y / maxf(bay.size.y, 1.0)   # where its feet go
-	var bottom: float = bb.position.y * m.scale.y
-	var c := Vector3.ZERO
-	var cy: float = bottom + (feet - vs.y * 0.5) * cam.size / vs.y
-	cam.position = Vector3(c.x, cy, c.z - 60.0)
-	cam.look_at(Vector3(c.x, cy, c.z), Vector3.UP)
+	var lo := Vector2(1e9, 1e9)
+	var hi := Vector2(-1e9, -1e9)
+	var min_y := 1e9
+	for i in 8:   # (its corners as it stands facing you, on the turntable)
+		var p: Vector3 = bb.get_endpoint(i)   # (_aabb already includes the model's own place and scale)
+		var q := Vector2(p.dot(B.x), p.dot(B.y))
+		lo = lo.min(q)
+		hi = hi.max(q)
+		min_y = minf(min_y, p.y)
+	var k: float = vs.y / bay.size.y   # viewport pixels per screen pixel
+	var mech := m.name == "BayMech"
+	if mech: cam.size = maxf(hi.y - lo.y, 0.1) * vs.y / maxf(art.size.y * Data.MECH_ON_PAD * k, 20.0)
+	else: cam.size = maxf(hi.x - lo.x, 0.1) * vs.y / maxf(art.size.y * Data.SHIP_ON_PAD * k, 20.0)
+	var pad_y: float = float(Data.BAYS.get(_hangar_name(), 0.85))
+	var ty: float = (art.position.y + pad_y * art.size.y - bay.position.y) * k   # where its base goes
+	var tx: float = vs.x * 0.5
+	var base_pt := Vector3(0.0, min_y, 0.0)
+	cam.global_position = base_pt - B.x * ((tx - vs.x * 0.5) * cam.size / vs.y) + B.y * ((ty - vs.y * 0.5) * cam.size / vs.y) + B.z * 80.0
 
 func _on_mech_bay_pack(pk: String) -> void:
 	if visible and screen == "equipment" and _eq_mech() and (pk == "mechs" or pk.begins_with("mf_")): show_screen("equipment")
@@ -733,7 +706,7 @@ func _mech_slot_points(cam: Camera3D, m: Node3D, sz: Vector2) -> Dictionary:
 	for kk in uv:   # (the camera looks along +Z, so screen-left is +X)
 		var u: Vector2 = uv[kk]
 		var lp := Vector3(lerpf(bb.end.x, bb.position.x, u.x), lerpf(bb.end.y, bb.position.y, u.y), bb.get_center().z)
-		out[kk] = cam.unproject_position(m.global_transform * lp) * (sz / vs)
+		out[kk] = cam.unproject_position(preview_pivot.global_transform * lp) * (sz / vs)
 	return _spread(out, 34.0) if _facing() else out
 
 ## The three frames (levels): their wireframes, yours lit. A tap on another says which ships are that level.
@@ -825,7 +798,7 @@ func _ship_slot_points(cam: Camera3D, m: Node3D, sz: Vector2) -> Dictionary:
 		loc[g] = Vector3(GS.mount_side(g) * hw * at, 0, ln * (0.12 if GS.is_tip(g) else 0.02))
 	var vs := Vector2(preview_vp.size)
 	for k in loc:
-		var wp: Vector3 = m.global_transform * (Vector3(c.x, bb.end.y, c.z) + loc[k])
+		var wp: Vector3 = preview_pivot.global_transform * (Vector3(c.x, bb.end.y, c.z) + loc[k])
 		var sp: Vector2 = cam.unproject_position(wp)
 		out[k] = sp * (sz / vs) if vs.x > 0.0 else sp
 	return _spread(out, 34.0) if _facing() else out
@@ -1101,9 +1074,7 @@ func _shop_panel(shop: VBoxContainer) -> void:
 	buy.add_theme_color_override("font_color", Color(1.0, 0.78, 0.3))
 	for ab in [buy]: ab.clip_text = true
 	buy.pressed.connect(func():
-		var s0 := _loadout_sig()
 		status.text = _card_buy(eq_card, kind)
-		bay_play = _loadout_sig() != s0
 		show_screen("equipment"))
 	act.add_child(buy)
 	if owned and eq_card in Data.NEXUS_BLASTERS:
@@ -1126,9 +1097,7 @@ func _shop_panel(shop: VBoxContainer) -> void:
 	inst.add_theme_color_override("font_color", CYAN)
 	inst.clip_text = true
 	inst.pressed.connect(func():
-		var s0 := _loadout_sig()
 		status.text = _card_install(eq_card, kind)
-		bay_play = _loadout_sig() != s0
 		show_screen("equipment"))
 	act.add_child(inst)
 	var rem := Button.new()
@@ -1587,11 +1556,11 @@ func _turntable(parent: Control) -> void:
 	var m := ShipFactory.build(Data.SHIPS[GS.ship_id]["model"], true)
 	preview_pivot.add_child(m)
 	preview_key = GS.ship_id
-	var bb0: AABB = ShipFactory._aabb(m, Transform3D.IDENTITY)
-	var span: float = maxf(bb0.size.x * m.scale.x, bb0.size.z * m.scale.z)
+	var bb0: AABB = ShipFactory._aabb(m, Transform3D.IDENTITY)   # (in the turntable's space: includes its scale)
+	var span: float = maxf(bb0.size.x, bb0.size.z)
 	if span > 0.01:
 		m.scale *= 11.5 / span
-		m.position = -(bb0.get_center() * m.scale) + Vector3(0, -1.2, 0)
+		m.position = -ShipFactory._aabb(m, Transform3D.IDENTITY).get_center()   # centred on the turntable + Vector3(0, -1.2, 0)
 	_dress_mounts(m)
 	svc.gui_input.connect(func(e: InputEvent):
 		if e is InputEventScreenDrag: eq_yaw += (e as InputEventScreenDrag).relative.x * 0.012
@@ -2477,6 +2446,7 @@ func _process(dt: float) -> void:
 		if bay_hold > 0.0: bay_hold -= dt
 		else: bay_yaw = fmod(bay_yaw + dt * Data.BAY_SPIN, TAU)
 		preview_pivot.rotation.y = bay_yaw
+		if is_instance_valid(_bay_art_node) and is_instance_valid(_bay_node): _stand_model(_bay_art_node, _bay_node)   # (keeps it on the pad as the page settles)
 		var ov: Control = content.find_child("MountMap", true, false) if is_instance_valid(content) else null
 		if ov != null: ov.queue_redraw()
 	queue_redraw()

@@ -9407,10 +9407,9 @@ func _job_v19x() -> void:
 	hb.bay_yaw = 0.0
 	var hn: String = hb._hangar_name()
 	var bays_ok := true
-	for n in Data.HANGARS:
-		if not Packs.PACKS.has("hangar_" + n) or not ResourceLoader.exists("res://assets/hangars/%s_top.jpg" % n): bays_ok = false
-	var still_ok: bool = hb.find_child("BayClip", true, false) != null and not (hb.find_child("BayClip", true, false) as VideoStreamPlayer).is_playing()
-	# v2.2 (owner): fitting something plays the bay's clip once; tap a "+" on the ship to pick its slot
+	for n in Data.BAYS:
+		if not Packs.PACKS.has("hangar_" + n) or not ResourceLoader.exists("res://assets/hangars/bay_%s.jpg" % n): bays_ok = false
+	# v2.2 (owner): tap a "+" on the ship to pick its slot
 	var w0 = GS.mount_items()[0]
 	GS.fit_mount(0, "empty")
 	hb.eq_tab = "hangar"
@@ -9433,14 +9432,14 @@ func _job_v19x() -> void:
 	await _frames(2)
 	(hb.find_child("ShopInstall", true, false) as Button).pressed.emit()
 	await _frames(3)
-	var vc: VideoStreamPlayer = hb.find_child("BayClip", true, false)
-	var played: bool = vc != null and vc.is_playing() and not vc.loop and str(GS.mount_items()[0]) == "pulse1"
-	await _shot("v22_hangar_equip_plays", 0.4)
+	var fitted: bool = str(GS.mount_items()[0]) == "pulse1"
 	GS.fit_mount(0, str(w0))
-	_check("v2.2 (owner): tap a slot's + (or its tag) on the ship to pick it; fitting a weapon plays the bay's clip once, otherwise the bay rests on its picture",
-		still_ok and tapped and tag_k == 0 and played, "still %s, tap %s, tag %s, played %s" % [still_ok, tapped, tag_k, played])
-	var clip_ok: bool = ResourceLoader.exists("res://assets/hangars/%s_top.ogv" % hn)
-	_check("v1.9y (owner's hangar bays): Unity, Elyza and Orion stations show their own top-view bay, others a spare; each bay is its own small pack (%s here); v2.0: the bay has its own animation" % hn, bays_ok and hn in Data.HANGARS and clip_ok, "%s clip %s" % [hn, clip_ok])
+	_check("v2.2 (owner): tap a slot's + (or its tag) on the ship to pick it, then INSTALL fits the picked weapon there",
+		tapped and tag_k == 0 and fitted, "tap %s, tag %s, fitted %s" % [tapped, tag_k, fitted])
+	var art_ok: bool = (hb.find_child("BayArt", true, false) as TextureRect).texture != null and (hb.find_child("BayArt", true, false) as TextureRect).texture.resource_path.ends_with("bay_%s.jpg" % hn)
+	var gone_ok: bool = not ResourceLoader.exists("res://assets/hangars/unity_top.jpg") and not ResourceLoader.exists("res://assets/hangars/unity_top.ogv")
+	_check("v2.7 (owner: no more top view): each faction's hangar is its front-view bay with the ship standing on the pad (others a spare); each bay its own small pack (%s here); the top-view pictures and clips are gone" % hn,
+		bays_ok and Data.BAYS.has(hn) and art_ok and gone_ok and hb.find_child("BayCam", true, false) != null, "%s art %s gone %s" % [hn, art_ok, gone_ok])
 	hb.eq_view = "mech"
 	hb.show_screen("equipment")
 	await _wait(0.4)
@@ -9456,7 +9455,7 @@ func _job_v19x() -> void:
 	var mmap: Control = hb.find_child("MountMap", true, false)
 	var bart: TextureRect = hb.find_child("BayArt", true, false)
 	var real_mech: bool = hb.find_child("BayMech", true, false) != null and mmap != null and (mmap.get_meta("pts", {}) as Dictionary).size() == 9 \
-		and (hb._hangar_name() in Data.MECH_HANGARS or Data.MECH_BAYS.has(hb._hangar_name().trim_prefix("mech_"))) and bart != null and bart.texture != null and bart.texture.resource_path.contains("mech_")
+		and Data.BAYS.has(hb._hangar_name()) and bart != null and bart.texture != null and bart.texture.resource_path.contains("bay_")
 	await _shot("v24_mech_bay", 0.3)
 	# v2.6 (owner): it stands on the faction bay's round pad and turns on it (drag turns it too)
 	var y0: float = hb.bay_yaw
@@ -9473,7 +9472,7 @@ func _job_v19x() -> void:
 	hb.bay_hold = 99.0
 	await _frames(3)
 	await _shot("v26_mech_turning", 0.0)
-	_check("v2.6 (owner): the mech turns on its bay's platform (and drags round by hand); each faction has its own mech bay", turned and dragged and Data.MECH_BAYS.has("elyza") and Packs.PACKS.has("hangar_mech_imperium"),
+	_check("v2.6 (owner): the mech turns on its bay's platform (and drags round by hand); each faction has its own mech bay", turned and dragged and Data.BAYS.has("elyza") and Packs.PACKS.has("hangar_imperium"),
 		"turn %s, drag %s" % [turned, dragged])
 	_check("v2.4 (owner): the mech view shows your real mech (its fitted parts) standing in a front-view mech bay, with a + square on each of its 9 slots", real_mech,
 		"mech %s, bay %s" % [hb.find_child("BayMech", true, false) != null, hb._hangar_name()])

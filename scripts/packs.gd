@@ -11,6 +11,14 @@ signal pack_ready(name: String)
 # folders: whole asset folders in the pack. match: only files whose name starts with this. probe: a file that exists
 # once the pack is mounted. The main export leaves these folders out (export_presets.cfg exclude_filter).
 const PACKS := {
+	"hangar_unity": {"folders": ["res://assets/hangars"], "match": "bay_unity.", "probe": "res://assets/hangars/bay_unity.jpg"},   # v2.7: the owner's hangar bay (front view)
+	"hangar_orion": {"folders": ["res://assets/hangars"], "match": "bay_orion.", "probe": "res://assets/hangars/bay_orion.jpg"},   # v2.7: the owner's hangar bay (front view)
+	"hangar_solarion": {"folders": ["res://assets/hangars"], "match": "bay_solarion.", "probe": "res://assets/hangars/bay_solarion.jpg"},   # v2.7: the owner's hangar bay (front view)
+	"hangar_liberator": {"folders": ["res://assets/hangars"], "match": "bay_liberator.", "probe": "res://assets/hangars/bay_liberator.jpg"},   # v2.7: the owner's hangar bay (front view)
+	"hangar_imperium": {"folders": ["res://assets/hangars"], "match": "bay_imperium.", "probe": "res://assets/hangars/bay_imperium.jpg"},   # v2.7: the owner's hangar bay (front view)
+	"hangar_elyza": {"folders": ["res://assets/hangars"], "match": "bay_elyza.", "probe": "res://assets/hangars/bay_elyza.jpg"},   # v2.7: the owner's hangar bay (front view)
+	"hangar_blue": {"folders": ["res://assets/hangars"], "match": "bay_blue.", "probe": "res://assets/hangars/bay_blue.jpg"},   # v2.7: the owner's hangar bay (front view)
+	"hangar_scarlet": {"folders": ["res://assets/hangars"], "match": "bay_scarlet.", "probe": "res://assets/hangars/bay_scarlet.jpg"},   # v2.7: the owner's hangar bay (front view)
 	"mechs": {"folders": ["res://assets/mechs"], "probe": "res://assets/mechs/tan_navy_mecha.scn"},
 	# v1.9i: one pack per extra mech frame, fetched when you buy / fit its parts or meet its faction
 	"mf_orange": {"folders": ["res://assets/mech_frames"], "match": "mf_orange", "probe": "res://assets/mech_frames/mf_orange.scn"},
@@ -31,19 +39,6 @@ const PACKS := {
 	"enemies": {"folders": ["res://assets/enemy_pilots"], "probe": "res://assets/enemy_pilots/ax01_normal.jpg"},
 	"intro": {"folders": ["res://assets/intro"], "probe": "res://assets/intro/title_movie.ogv"},
 	# v1.4s: one static interface background per faction; only the one for the station you dock at is fetched
-	"hangar_mech_unity": {"folders": ["res://assets/hangars"], "match": "mech_unity_top.", "probe": "res://assets/hangars/mech_unity_top.jpg"},   # v2.6: the owner's faction mech bay
-	"hangar_mech_orion": {"folders": ["res://assets/hangars"], "match": "mech_orion_top.", "probe": "res://assets/hangars/mech_orion_top.jpg"},   # v2.6: the owner's faction mech bay
-	"hangar_mech_solarion": {"folders": ["res://assets/hangars"], "match": "mech_solarion_top.", "probe": "res://assets/hangars/mech_solarion_top.jpg"},   # v2.6: the owner's faction mech bay
-	"hangar_mech_liberator": {"folders": ["res://assets/hangars"], "match": "mech_liberator_top.", "probe": "res://assets/hangars/mech_liberator_top.jpg"},   # v2.6: the owner's faction mech bay
-	"hangar_mech_imperium": {"folders": ["res://assets/hangars"], "match": "mech_imperium_top.", "probe": "res://assets/hangars/mech_imperium_top.jpg"},   # v2.6: the owner's faction mech bay
-	"hangar_mech_elyza": {"folders": ["res://assets/hangars"], "match": "mech_elyza_top.", "probe": "res://assets/hangars/mech_elyza_top.jpg"},   # v2.6: the owner's faction mech bay
-	"hangar_mech_blue": {"folders": ["res://assets/hangars"], "match": "mech_blue_top.", "probe": "res://assets/hangars/mech_blue_top.jpg"},   # v2.4: the owner's mech bay (front view)
-	"hangar_mech_scarlet": {"folders": ["res://assets/hangars"], "match": "mech_scarlet_top.", "probe": "res://assets/hangars/mech_scarlet_top.jpg"},   # v2.4: the owner's mech bay (front view)
-	"hangar_elyza": {"folders": ["res://assets/hangars"], "match": "elyza_top.", "probe": "res://assets/hangars/elyza_top.jpg"},   # v1.9y: the owner's hangar bay
-	"hangar_orion": {"folders": ["res://assets/hangars"], "match": "orion_top.", "probe": "res://assets/hangars/orion_top.jpg"},   # v1.9y: the owner's hangar bay
-	"hangar_unity": {"folders": ["res://assets/hangars"], "match": "unity_top.", "probe": "res://assets/hangars/unity_top.jpg"},   # v1.9y: the owner's hangar bay
-	"hangar_spare_a": {"folders": ["res://assets/hangars"], "match": "spare_a_top.", "probe": "res://assets/hangars/spare_a_top.jpg"},   # v1.9y: the owner's hangar bay
-	"hangar_spare_b": {"folders": ["res://assets/hangars"], "match": "spare_b_top.", "probe": "res://assets/hangars/spare_b_top.jpg"},   # v1.9y: the owner's hangar bay
 	# v2.0: her voice clips, one small pack each
 	"hubbg_unity": {"folders": ["res://assets/hub_bg"], "match": "unity.", "probe": "res://assets/hub_bg/unity.jpg"},
 	"hubbg_elyza": {"folders": ["res://assets/hub_bg"], "match": "elyza.", "probe": "res://assets/hub_bg/elyza.jpg"},

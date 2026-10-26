@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://deh6ucn6vkne4"
-path="res://.godot/imported/mech_imperium_top.jpg-b4a7f76b9839e3b60c75b24f391d5ebd.ctex"
+uid="uid://bxfn0nx61mwog"
+path="res://.godot/imported/bay_blue.jpg-4957842df6734fd3b328ef0c78d807f1.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/hangars/mech_imperium_top.jpg"
-dest_files=["res://.godot/imported/mech_imperium_top.jpg-b4a7f76b9839e3b60c75b24f391d5ebd.ctex"]
+source_file="res://assets/hangars/bay_blue.jpg"
+dest_files=["res://.godot/imported/bay_blue.jpg-4957842df6734fd3b328ef0c78d807f1.ctex"]
 
 [params]
 
