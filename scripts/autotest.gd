@@ -474,7 +474,7 @@ func _sun() -> void:
 	var faced := await _until(func(): return s.app_phase == "face", Data.ANOMALY_LEN + 2.0)
 	s.apparition_t = Data.HER_VOICE_DELAY + 3.0
 	await _frames(3)
-	var sun_app: bool = faced and s.app_sun and s.apparition.visible and (s.apparition.material_override as ShaderMaterial).get_shader_parameter("tint") == Data.SUN_TINT
+	var sun_app: bool = faced and s.app_sun and s.her_alpha > 0.5 and s._dome.visible and (s._dome.material_override as ShaderMaterial).get_shader_parameter("face_tint") == Data.SUN_TINT
 	var voiced: bool = s.app_clip.begins_with("her_sun_") and s.her_voice != null and s.her_voice.playing and s.app_len < 25.0
 	await _shot("sun_apparition", 0.1)
 	var mod_ok: bool = Data.MODULES.has("heat_shield") and "heat_shield" in Data.MODULE_ORDER
@@ -901,6 +901,12 @@ func _showcase() -> void:
 	await _capture("showcase_call")
 	get_tree().quit()
 
+## An env flag, or on the web the same name in the page address (?autotest&HL_V19Z) to run one job in the browser.
+func _flag(n: String) -> bool:
+	if OS.get_environment(n) != "": return true
+	if OS.has_feature("web"): return str(JavaScriptBridge.eval("location.search", true)).find(n) >= 0
+	return false
+
 func _run() -> void:
 	if OS.get_environment("HL_SOAK") != "":
 		await _soak(int(OS.get_environment("HL_SOAK")))
@@ -1033,7 +1039,7 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
-	if OS.get_environment("HL_V19Z") != "":   # the v1.9z cloud weather checks only
+	if _flag("HL_V19Z"):   # the v1.9z cloud weather checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
 		await _wait(1.0)
@@ -9495,14 +9501,14 @@ func _job_v19z() -> void:
 	var shown: bool = s.show_apparition(false)
 	s.apparition_t = Data.HER_VOICE_DELAY + 3.0
 	await _frames(3)
-	var app_ok: bool = shown and s.apparitions == a0 + 1 and s.apparition.visible and float((s.apparition.material_override as ShaderMaterial).get_shader_parameter("alpha")) > 0.5 \
+	var app_ok: bool = shown and s.apparitions == a0 + 1 and s.her_alpha > 0.5 and float((s._dome.material_override as ShaderMaterial).get_shader_parameter("face_a")) > 0.5 \
 		and s.app_clip.begins_with("her_cloud_") and s.her_voice != null and s.her_voice.playing and s.speaking()
 	await _shot("v19z_apparition", 0.1)
 	# a shot through her: she ripples; too many and she is gone, lightning takes your shields
-	s.her_shot(s.apparition.global_position)
+	s.her_shot(s.cam.global_position + s.her_dir * 400.0)
 	var rippled: bool = s._ripple > 0.5 and s.app_phase == "face"
 	GS.shield = GS.max_shield()
-	for i in Data.HER_PATIENCE: s.her_shot(s.apparition.global_position)
+	for i in Data.HER_PATIENCE: s.her_shot(s.cam.global_position + s.her_dir * 400.0)
 	await _frames(2)
 	var offended: bool = s.app_phase == "calm" and GS.shield <= 0.0 and s.her_flash > 0.3 and not s.her_voice.playing
 	await _shot("v2_her_lightning", 0.0)

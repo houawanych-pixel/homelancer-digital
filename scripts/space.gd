@@ -1865,35 +1865,73 @@ const DOME_SHADER := """
 shader_type spatial;
 render_mode unshaded, blend_mix, cull_front, depth_draw_never, shadows_disabled, fog_disabled;
 uniform sampler2D noise : repeat_enable, filter_linear_mipmap;
-uniform sampler2DArray frames : repeat_enable, filter_linear_mipmap;   // v1.9z: the owner's looping cloud clip
+uniform sampler2DArray frames : filter_linear_mipmap;   // v1.9z: the owner's looping cloud clip
 uniform bool anim = false;
 uniform float fpos = 0.0;
 uniform float nframes = 48.0;
+uniform vec3 a_f = vec3(0.0, 0.0, -1.0);   // v2.0 (owner: "one big image, not tiles"): the clip is spread ONCE over the
+uniform vec3 a_r = vec3(1.0, 0.0, 0.0);    // wall ahead of you (a huge picture filling the view), melting into the
+uniform vec3 a_u = vec3(0.0, 1.0, 0.0);    // still clouds round the sides and behind
+uniform float a_span = 1.7;
+uniform sampler2D face : source_color, filter_linear;   // v2.0: her face, one giant picture in the cloud wall
+uniform float face_a = 0.0;
+uniform float face_f = 0.0;
+uniform vec3 f_f = vec3(0.0, 0.0, -1.0);
+uniform vec3 f_r = vec3(1.0, 0.0, 0.0);
+uniform vec3 f_u = vec3(0.0, 1.0, 0.0);
+uniform float f_span = 0.95;
+uniform vec3 face_tint : source_color = vec3(1.0);
+uniform float ripple = 0.0;
+uniform vec2 ripple_at = vec2(0.5);
 uniform vec4 col : source_color = vec4(1.0);
 uniform float contrast = 1.0;
 uniform float drift = 0.0;
 varying vec3 dir;
 void vertex() { dir = VERTEX; }
-// sampled by direction on all three axes (no seam, no pinch at the top and bottom like a wrapped picture)
+// the still clouds: sampled by direction on all three axes (no seam, no pinch at the top and bottom)
 float tri(vec3 p, vec3 w) { return texture(noise, p.yz).r * w.x + texture(noise, p.xz).r * w.y + texture(noise, p.xy).r * w.z; }
-float trif(vec3 p, vec3 w, float l) { return texture(frames, vec3(p.yz, l)).r * w.x + texture(frames, vec3(p.xz, l)).r * w.y + texture(frames, vec3(p.xy, l)).r * w.z; }
+// one picture over the wall in direction fw: where it falls (0..1) and how much of it shows there
+vec3 wallp(vec3 n, vec3 fw, vec3 rt, vec3 up, float span) {
+	float fz = dot(n, fw);
+	vec2 q = vec2(dot(n, rt), -dot(n, up)) / max(fz, 0.05) / span;
+	float m = fz > 0.05 ? smoothstep(1.0, 0.7, max(abs(q.x), abs(q.y))) : 0.0;
+	return vec3(q * 0.5 + 0.5, m);
+}
+vec3 fr(float f, vec2 uv) { return texture(face, (vec2(mod(f, 8.0), floor(f / 8.0)) + clamp(uv, vec2(0.004), vec2(0.996))) / 8.0).rgb; }
 void fragment() {
 	vec3 n = normalize(dir);
 	vec3 w = pow(abs(n), vec3(4.0));
 	w /= (w.x + w.y + w.z);
 	vec3 p = n * 2.2 + vec3(drift, drift * 0.3, drift * 0.6);
-	float v;
+	float v = tri(p, w) * 0.65 + tri(p * 2.7 + 0.37, w) * 0.35;
+	v = clamp((v - 0.5) * 2.4 + 0.5, 0.0, 1.0);   // billows, not a flat wash
 	if (anim) {   // the clip, its frames blended so the slow loop runs smooth
-		float f0 = floor(fpos);
-		float f1 = mod(f0 + 1.0, nframes);
-		vec3 q = n * 1.6;
-		v = mix(trif(q, w, f0), trif(q, w, f1), fpos - f0);
-	} else {
-		v = tri(p, w) * 0.65 + tri(p * 2.7 + 0.37, w) * 0.35;
-		v = clamp((v - 0.5) * 2.4 + 0.5, 0.0, 1.0);   // billows, not a flat wash
+		vec3 wp = wallp(n, a_f, a_r, a_u, a_span);
+		if (wp.z > 0.0) {
+			float f0 = floor(fpos);
+			float f1 = mod(f0 + 1.0, nframes);
+			float av = mix(texture(frames, vec3(wp.xy, f0)).r, texture(frames, vec3(wp.xy, f1)).r, fpos - f0);
+			v = mix(v, av, wp.z);
+		}
 	}
-	ALBEDO = col.rgb * mix(1.0, mix(0.4, 1.35, v), contrast);
-	ALPHA = col.a;
+	vec3 c = col.rgb * mix(1.0, mix(0.4, 1.35, v), contrast);
+	float fm = 0.0;
+	if (face_a > 0.001) {
+		vec3 fp = wallp(n, f_f, f_r, f_u, f_span);
+		if (fp.z > 0.0) {
+			vec2 d = fp.xy - ripple_at;
+			float rr = length(d);
+			vec2 uv = fp.xy + (rr > 0.0001 ? d / rr : vec2(0.0)) * sin(rr * 60.0 - TIME * 14.0) * 0.012 * ripple * smoothstep(0.6, 0.0, rr);   // shots: rings like water
+			float f0 = floor(face_f);
+			vec3 fc = mix(fr(f0, uv), fr(min(f0 + 1.0, 63.0), uv), face_f - f0);
+			vec2 o = (fp.xy - vec2(0.5, 0.46)) * 2.0;
+			float oval = smoothstep(1.0, 0.5, length(o * vec2(1.0, 0.92))) * fp.z;
+			fm = oval * face_a;
+			c = mix(c, fc * face_tint * 1.3 + vec3(0.6, 0.8, 1.0) * ripple * 0.2 * smoothstep(0.5, 0.0, rr), fm);
+		}
+	}
+	ALBEDO = c;
+	ALPHA = max(col.a, fm * 0.95);
 }
 """
 ## The shell round the camera: in a cloud (its colour, billowing) or deep in a planet's atmosphere (bright and even,
@@ -1970,11 +2008,37 @@ func _cloud_dome(a: float, col: Color, contrast := 1.0, clip := "") -> void:
 		_dome_clip = clip
 		mat.set_shader_parameter("frames", at)
 	mat.set_shader_parameter("anim", at != null)
+	var dt := get_process_delta_time()
+	var look: Vector3 = -cam.global_basis.z if is_instance_valid(cam) else Vector3.FORWARD
+	if _anim_dir == Vector3.ZERO: _anim_dir = look
+	# the one big picture sits ahead of you; it eases round after you when you turn (so you always fly into it)
+	_anim_dir = _anim_dir.slerp(look, clampf(dt * Data.CLOUD_ANIM_FOLLOW, 0.0, 1.0)).normalized()
+	_set_wall(mat, "a_", _anim_dir)
+	mat.set_shader_parameter("a_span", Data.CLOUD_ANIM_SPAN)
 	if at != null:
 		mat.set_shader_parameter("nframes", float(Data.CLOUD_ANIM_FRAMES))
-		_dome_anim_t += get_process_delta_time() * Data.CLOUD_ANIM_FPS * (1.0 + anomaly_k * 1.5)   # (the anomaly stirs harder)
+		_dome_anim_t += dt * Data.CLOUD_ANIM_FPS * (1.0 + anomaly_k * 1.5)   # (the anomaly stirs harder)
 		mat.set_shader_parameter("fpos", fmod(_dome_anim_t, float(Data.CLOUD_ANIM_FRAMES)))
 		mat.set_shader_parameter("contrast", maxf(contrast, 0.85))
+	# her face, giant, in the wall where she formed
+	mat.set_shader_parameter("face_a", her_alpha)
+	if her_alpha > 0.0:
+		if mat.get_shader_parameter("face") == null: mat.set_shader_parameter("face", load("res://assets/fx/apparition_face.jpg"))
+		mat.set_shader_parameter("face_f", her_fpos)
+		_set_wall(mat, "f_", her_dir)
+		mat.set_shader_parameter("f_span", Data.HER_SPAN)
+		mat.set_shader_parameter("face_tint", Data.SUN_TINT if app_sun else nebula_tint.lerp(Color.WHITE, 0.55))
+		mat.set_shader_parameter("ripple", _ripple)
+		mat.set_shader_parameter("ripple_at", _ripple_at)
+
+var _anim_dir := Vector3.ZERO
+## A direction and the two axes across it, for a picture on the cloud wall.
+func _set_wall(mat: ShaderMaterial, pre: String, fw: Vector3) -> void:
+	var up := Vector3.UP if absf(fw.dot(Vector3.UP)) < 0.95 else Vector3.BACK
+	var rt := fw.cross(up).normalized()
+	mat.set_shader_parameter(pre + "f", fw)
+	mat.set_shader_parameter(pre + "r", rt)
+	mat.set_shader_parameter(pre + "u", rt.cross(fw).normalized())
 
 ## The planet's daytime sky colour (from its surface biome), pale toward white; plain white when it has no surface.
 func _sky_color_of(body: Node3D) -> Color:
@@ -2001,7 +2065,9 @@ func _update_atmo_dome() -> void:
 ## star's corner: the Bashar message; ordinary clouds: the Mahiru message), never the same one twice running. When it
 ## ends her face melts back into the smoke and the anomaly calms. Shots make her ripple like water; keep shooting and
 ## she vanishes, the anomaly flares and lightning knocks your shields out.
-var apparition: MeshInstance3D
+var her_alpha := 0.0         # v2.0: how much her face shows in the cloud wall (0..1)
+var her_fpos := 0.0          # her clip frame
+var her_dir := Vector3.FORWARD   # where in the wall she is (fixed where she formed)
 var apparition_t := -1.0     # seconds into her face (-1 = not showing)
 var apparitions := 0         # times she has shown (checks)
 var app_phase := ""          # "" | "anomaly" | "face" | "calm"
@@ -2021,33 +2087,6 @@ var _next_clip := ""
 var _last_clip := {}
 var _ripple := 0.0
 var _ripple_at := Vector2(0.5, 0.5)
-const APPARITION_SHADER := """
-shader_type spatial;
-render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled, fog_disabled;
-uniform sampler2D frames : source_color, filter_linear;
-uniform float fpos = 0.0;
-uniform float alpha = 0.0;
-uniform vec3 tint : source_color = vec3(1.0);
-uniform float ripple = 0.0;
-uniform vec2 ripple_at = vec2(0.5);
-void vertex() {
-	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(INV_VIEW_MATRIX[0] * length(MODEL_MATRIX[0].xyz), INV_VIEW_MATRIX[1] * length(MODEL_MATRIX[1].xyz), INV_VIEW_MATRIX[2], MODEL_MATRIX[3]);
-}
-vec3 fr(float f, vec2 uv) { return texture(frames, (vec2(mod(f, 8.0), floor(f / 8.0)) + uv) / 8.0).rgb; }
-void fragment() {
-	vec2 d = UV - ripple_at;
-	float rr = length(d);
-	vec2 uv = UV + (rr > 0.0001 ? d / rr : vec2(0.0)) * sin(rr * 60.0 - TIME * 14.0) * 0.012 * ripple * smoothstep(0.6, 0.0, rr);   // shots: rings like water
-	uv = clamp(uv, vec2(0.004), vec2(0.996));
-	float f0 = floor(fpos);
-	float f1 = min(f0 + 1.0, 63.0);
-	vec3 c = mix(fr(f0, uv), fr(f1, uv), fpos - f0);
-	vec2 p = (UV - vec2(0.5, 0.46)) * 2.0;
-	float oval = smoothstep(1.0, 0.55, length(p * vec2(1.0, 0.92)));
-	ALBEDO = c * tint * 1.25 + vec3(0.6, 0.8, 1.0) * ripple * 0.25 * smoothstep(0.5, 0.0, rr);
-	ALPHA = oval * alpha;
-}
-"""
 
 ## Her clips: each one its own small pack (her_<set>_NN), fetched just before she needs it.
 func her_clips(set_name: String) -> Array:
@@ -2103,7 +2142,7 @@ func _update_apparition(dt: float) -> void:
 				if app_phase in ["anomaly", "face"]: _her_leave(true)   # out of the cloud: she is gone, her voice too
 	_tick_her(dt)
 	if in_sun:   # the anomaly in the star's corner cloud: the owner's strange-nebula clip closes round you, gold
-		if anomaly_k > 0.001: _cloud_dome(anomaly_k * 0.6, Data.SUN_TINT, 1.0, "nebula")
+		if anomaly_k > 0.001 or her_alpha > 0.0: _cloud_dome(anomaly_k * 0.6, Data.SUN_TINT, 1.0, "nebula")
 		elif dome_alpha > 0.0: _cloud_dome(0.0, Color.BLACK)
 
 ## Begin: the anomaly first, then her. Returns false when her picture is not in yet (it is fetched).
@@ -2142,28 +2181,8 @@ func show_apparition(in_sun := false, with_voice := true) -> bool:
 	return true
 
 func _her_face(with_voice: bool) -> void:
-	if not is_instance_valid(apparition):
-		apparition = MeshInstance3D.new()
-		apparition.name = "Apparition"
-		var q := QuadMesh.new()
-		q.size = Vector2(1, 1)
-		apparition.mesh = q
-		var sh := Shader.new()
-		sh.code = APPARITION_SHADER
-		var m := ShaderMaterial.new()
-		m.shader = sh
-		m.set_shader_parameter("frames", load("res://assets/fx/apparition_face.jpg"))
-		m.render_priority = -5
-		apparition.material_override = m
-		apparition.top_level = true
-		apparition.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		apparition.extra_cull_margin = Data.APPARITION_SIZE
-		apparition.scale = Vector3.ONE * Data.APPARITION_SIZE
-		add_child(apparition)
-	var c: Vector3 = cam.global_position if is_instance_valid(cam) else player.global_position
-	var fwd: Vector3 = -cam.global_basis.z if is_instance_valid(cam) else -player.global_basis.z
-	apparition.global_position = c + fwd * Data.APPARITION_DIST + Vector3(0, 30, 0)
-	apparition.visible = true
+	her_dir = ((-cam.global_basis.z if is_instance_valid(cam) else -player.global_basis.z) + Vector3(0, 0.06, 0)).normalized()   # in the wall ahead of you
+	her_alpha = 0.0
 	apparition_t = 0.0
 	apparitions += 1
 	app_phase = "face"
@@ -2186,7 +2205,7 @@ func _her_leave(now := false) -> void:
 	if is_instance_valid(her_voice): her_voice.stop()
 	if is_instance_valid(_hum) and now: _hum.stop()
 	apparition_t = -1.0
-	if is_instance_valid(apparition): apparition.visible = false
+	her_alpha = 0.0
 	app_phase = "" if now else "calm"
 	app_phase_t = 0.0
 	if now: anomaly_k = 0.0
@@ -2210,7 +2229,8 @@ func _tick_her(dt: float) -> void:
 				if is_instance_valid(_hum): _hum.stop()
 		_:
 			anomaly_k = 0.0
-	if app_phase != "face" or not is_instance_valid(apparition):
+	if app_phase != "face":
+		her_alpha = 0.0
 		return
 	apparition_t += dt
 	if is_instance_valid(her_voice) and her_voice.playing:   # her voice fades in as her face forms
@@ -2223,22 +2243,20 @@ func _tick_her(dt: float) -> void:
 	if t < 3.0: fp = t / 3.0 * 14.0
 	elif t > app_len - 3.0: fp = 56.0 + (t - (app_len - 3.0)) / 3.0 * 7.0
 	else: fp = 14.0 + pingpong((t - 3.0) * 3.0, 41.0)
-	var c: Vector3 = cam.global_position if is_instance_valid(cam) else player.global_position
-	var fwd: Vector3 = -cam.global_basis.z if is_instance_valid(cam) else -player.global_basis.z
-	apparition.global_position = apparition.global_position.lerp(c + fwd * Data.APPARITION_DIST + Vector3(0, 30, 0), minf(1.0, dt * 0.8))
 	var a := smoothstep(0.0, 3.0, t) * (1.0 - smoothstep(app_len - 3.0, app_len, t))
-	var m := apparition.material_override as ShaderMaterial
-	m.set_shader_parameter("fpos", clampf(fp, 0.0, 63.0))
-	m.set_shader_parameter("alpha", a * (1.0 if app_sun else clampf(in_nebula * 1.2, 0.0, 1.0)))
-	m.set_shader_parameter("tint", Data.SUN_TINT if app_sun else nebula_tint.lerp(Color.WHITE, 0.55))
-	m.set_shader_parameter("ripple", _ripple)
-	m.set_shader_parameter("ripple_at", _ripple_at)
+	her_fpos = clampf(fp, 0.0, 63.0)
+	her_alpha = a * (1.0 if app_sun else clampf(in_nebula * 1.2, 0.0, 1.0))
 
 ## A shot passes through her: she ripples. Too many and she is offended: gone, the anomaly flares, lightning hits you.
 func her_shot(at: Vector3) -> void:
-	if app_phase != "face" or not is_instance_valid(apparition): return
-	var local: Vector3 = apparition.global_transform.affine_inverse() * at
-	_ripple_at = Vector2(clampf(0.5 + local.x, 0.0, 1.0), clampf(0.5 - local.y, 0.0, 1.0)) if is_finite(local.x) else Vector2(0.5, 0.5)
+	if app_phase != "face": return
+	var c: Vector3 = cam.global_position if is_instance_valid(cam) else player.global_position
+	var n := (at - c).normalized()   # where on her the shot passes: the same mapping as the wall picture
+	var up := Vector3.UP if absf(her_dir.dot(Vector3.UP)) < 0.95 else Vector3.BACK
+	var rt := her_dir.cross(up).normalized()
+	var u2 := rt.cross(her_dir).normalized()
+	var fz := maxf(n.dot(her_dir), 0.05)
+	_ripple_at = Vector2(clampf(0.5 + n.dot(rt) / fz / Data.HER_SPAN * 0.5, 0.0, 1.0), clampf(0.5 - n.dot(u2) / fz / Data.HER_SPAN * 0.5, 0.0, 1.0))
 	_ripple = 1.0
 	app_hits += 1
 	if app_hits >= Data.HER_PATIENCE:
@@ -3826,8 +3844,9 @@ func _update_bolts(dt: float) -> void:
 		n.global_position = to
 		b["life"] -= dt
 		var hit := false
-		if b["owner"] == "player" and app_phase == "face" and is_instance_valid(apparition) and _seg_hit(from, to, apparition.global_position, Data.APPARITION_SIZE * 0.32):
-			her_shot(_seg_closest(from, to, apparition.global_position))   # v2.0: through her: she ripples
+		if b["owner"] == "player" and app_phase == "face" and her_alpha > 0.3 and is_instance_valid(cam) and to.distance_to(cam.global_position) > Data.HER_SHOT_DIST \
+				and (to - cam.global_position).normalized().dot(her_dir) > cos(atan(Data.HER_SPAN * 0.55)):
+			her_shot(to)   # v2.0: a shot flying on into her in the wall: she ripples
 			hit = true
 		elif b["owner"] == "player" or b["owner"] == "ally":   # v1.9n: allied ships' shots hit the enemy too
 			for e in enemies:

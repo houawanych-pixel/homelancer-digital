@@ -833,7 +833,11 @@ const HER_VOICE_DB := 0.0
 const HER_PATIENCE := 6              # shots she takes (rippling) before she is offended
 const ANOMALY_LEN := 5.0             # s of anomaly before her face forms
 const ANOMALY_CALM := 3.0            # s for it to calm after she goes
-const CLOUD_ANIM_FPS := 6.4       # the cloud shell round the camera (beyond it, only haze)
+const CLOUD_ANIM_FPS := 6.4
+const CLOUD_ANIM_SPAN := 1.7         # v2.0 (owner: one big picture, not tiles): the clip spreads once over the wall ahead (~120 deg wide)
+const CLOUD_ANIM_FOLLOW := 0.25      # how fast that picture eases round after you when you turn
+const HER_SPAN := 0.5               # her face in the wall: ~85 deg tall, giant
+const HER_SHOT_DIST := 120.0         # a shot counts as passing into her once it is this far out       # the cloud shell round the camera (beyond it, only haze)
 const NEBULA_HUD_TINT := 0.16         # the screen tint inside a cloud (the fog does most of the work now; was 0.36)
 const STATION_MODEL_YAW := {"hollow_requiem": 90.0}   # degrees: the dead liner lies across the docking approach
 
