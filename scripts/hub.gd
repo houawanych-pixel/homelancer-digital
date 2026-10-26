@@ -503,25 +503,27 @@ func _hangar_name() -> String:
 
 func _bay_art() -> Control:
 	var nm := _hangar_name()
-	var vp := "res://assets/hangars/%s_top.ogv" % nm
-	if ResourceLoader.exists(vp):
-		var vsp := VideoStreamPlayer.new()
-		vsp.name = "BayArt"
-		vsp.stream = load(vp)
-		vsp.expand = true
-		vsp.loop = true
-		vsp.autoplay = true
-		vsp.volume_db = -80.0
-		vsp.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		return vsp
-	var tr := TextureRect.new()
+	var tr := TextureRect.new()   # the still picture always (under the clip, and shown alone if the clip can't play)
 	tr.name = "BayArt"
 	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	tr.stretch_mode = TextureRect.STRETCH_SCALE
 	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var pk := "hangar_" + nm
 	var path := "res://assets/hangars/%s_top.jpg" % nm
-	if Packs.is_ready(pk) and ResourceLoader.exists(path): tr.texture = load(path)
+	if Packs.is_ready(pk) and ResourceLoader.exists(path):
+		tr.texture = load(path)
+		var vp := "res://assets/hangars/%s_top.ogv" % nm   # v2.0 (owner): the bay's looping animation, on top
+		if ResourceLoader.exists(vp):
+			var vsp := VideoStreamPlayer.new()
+			vsp.name = "BayClip"
+			vsp.stream = load(vp)
+			vsp.expand = true
+			vsp.loop = true
+			vsp.autoplay = true
+			vsp.volume_db = -80.0
+			vsp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			vsp.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			tr.add_child(vsp)
 	else:
 		Packs.request(pk)
 		if not Packs.pack_ready.is_connected(_on_hangar_pack): Packs.pack_ready.connect(_on_hangar_pack)

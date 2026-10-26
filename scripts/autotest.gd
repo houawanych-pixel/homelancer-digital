@@ -9429,7 +9429,8 @@ func _job_v19x() -> void:
 	var bays_ok := true
 	for n in Data.HANGARS:
 		if not Packs.PACKS.has("hangar_" + n) or not ResourceLoader.exists("res://assets/hangars/%s_top.jpg" % n): bays_ok = false
-	_check("v1.9y (owner's hangar bays): Unity, Elyza and Orion stations show their own top-view bay, others a spare; each bay is its own small pack (%s here)" % hn, bays_ok and hn in Data.HANGARS, hn)
+	var clip_ok: bool = ResourceLoader.exists("res://assets/hangars/%s_top.ogv" % hn) and hb.find_child("BayClip", true, false) != null and (hb.find_child("BayClip", true, false) as VideoStreamPlayer).is_playing() and (hb.find_child("BayClip", true, false) as VideoStreamPlayer).loop
+	_check("v1.9y (owner's hangar bays): Unity, Elyza and Orion stations show their own top-view bay, others a spare; each bay is its own small pack (%s here); v2.0: the bay's own looping animation plays over it" % hn, bays_ok and hn in Data.HANGARS and clip_ok, "%s clip %s" % [hn, clip_ok])
 	hb.eq_view = "mech"
 	hb.show_screen("equipment")
 	await _wait(0.4)
