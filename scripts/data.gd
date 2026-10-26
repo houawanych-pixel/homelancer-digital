@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v3.4"
+const VERSION := "v3.5"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -856,6 +856,19 @@ const VOICE_POOL := {
 
 # ---------------------------------------------------------------- Job W (v1.4s): static faction hub backgrounds
 const HUB_BG_DIR := "res://assets/hub_bg/"
+# v3.5 (owner): every station room is a 360 panorama you look round in (drag, the right stick, or turn the phone).
+# Only factions whose rooms are stitched are listed; the rest keep the station picture for now.
+const ROOM_FACTIONS := ["liberator"]
+const ROOM_OF := {"hub": "main_hub", "ships": "shipyard", "mechs": "mech_dealer", "repair": "supplies", "board": "mission_center",
+	"missions": "mission_center", "bounty": "mission_center", "ship": "private_quarters", "faction": "command", "surface": "main_hub",
+	"lounge": "pilots_lounge"}
+const ROOM_FRONT := 0.188       # where the front view's middle sits along the loop (you face it on arrival)
+const ROOM_ZOOM := 1.14         # the loop is this much taller than the screen: room to look up and down a little
+const ROOM_STICK := 0.09        # share of the loop the right stick turns per second at full tilt
+const ROOM_DRIFT := 0.0025      # a slow drift once you leave it alone a while (share per second)
+const ROOM_DRIFT_AFTER := 8.0   # s untouched before it drifts
+const ROOM_WASH := 0.12         # a light dark wash so the panels read
+const ROOM_SPLIT := 0.30        # the left window takes this share of the width; the right window (the page) the rest
 const HUB_BG_WASH := 0.38        # dark wash over the faction picture so text reads (0 = none)
 const HUB_PANEL_ALPHA := 0.5     # the big content panel: see-through so the faction art stays visible
 const HUB_BUTTON_ALPHA := 0.72   # menu and action buttons
@@ -1014,9 +1027,9 @@ const BAYS := {"unity": 0.75, "orion": 0.71, "solarion": 0.72, "liberator": 0.69
 	"p_imperium": 0.65, "p_unity": 0.765, "p_orion": 0.71, "p_liberator": 0.69, "p_savagers": 0.69, "p_covenant": 0.72, "p_elyza": 0.66, "p_solarion": 0.73, "p_kaijurai": 0.76, "p_phenom": 0.76, "p_cybermorph": 0.76, "p_arctides": 0.76, "p_solrath": 0.76}
 const BAY_SPARES := ["blue", "scarlet"]
 const SHIP_ON_PAD := 0.8      # the ship's width as a share of the bay picture's height
-const SHIP_BAY_VIEW := Vector3(0.55, 0.42, -0.72)   # where the camera looks at the ship from: front-right, above
+const SHIP_BAY_VIEW := Vector3(1.0, 0.42, 0.0)   # v3.5 (owner): the ship stands flat, seen from its right side
 const MECH_ON_PAD := 0.62     # the mech's height as a share of the bay picture's height
-const BAY_SPIN := 0.35         # v2.6 (owner): rad/s the ship / mech turns on the hangar platform
+const BAY_SPIN := 0.0          # v3.5 (owner): it stands still; press and drag to turn it (was a slow spin)
 const BAY_SPIN_WAIT := 4.0     # s it waits after you drag it or pick a slot
 const BAY_TAGS_FACING := 0.93  # the slot name tags show while it faces you (cos of its turn)
 const MOUNT_MID_AT := 0.62   # v1.9w: the middle wing slot (level 3) sits this far out along the wing, on top

@@ -11,6 +11,16 @@ signal pack_ready(name: String)
 # folders: whole asset folders in the pack. match: only files whose name starts with this. probe: a file that exists
 # once the pack is mounted. The main export leaves these folders out (export_presets.cfg exclude_filter).
 const PACKS := {
+	"room_liberator_main_hub": {"folders": ["res://assets/rooms/liberator"], "match": "main_hub.", "probe": "res://assets/rooms/liberator/main_hub.jpg"},   # v3.5: the owner's 360 room
+	"room_liberator_shipyard": {"folders": ["res://assets/rooms/liberator"], "match": "shipyard.", "probe": "res://assets/rooms/liberator/shipyard.jpg"},   # v3.5: the owner's 360 room
+	"room_liberator_mech_dealer": {"folders": ["res://assets/rooms/liberator"], "match": "mech_dealer.", "probe": "res://assets/rooms/liberator/mech_dealer.jpg"},   # v3.5: the owner's 360 room
+	"room_liberator_weapons": {"folders": ["res://assets/rooms/liberator"], "match": "weapons.", "probe": "res://assets/rooms/liberator/weapons.jpg"},   # v3.5: the owner's 360 room
+	"room_liberator_supplies": {"folders": ["res://assets/rooms/liberator"], "match": "supplies.", "probe": "res://assets/rooms/liberator/supplies.jpg"},   # v3.5: the owner's 360 room
+	"room_liberator_mission_center": {"folders": ["res://assets/rooms/liberator"], "match": "mission_center.", "probe": "res://assets/rooms/liberator/mission_center.jpg"},   # v3.5: the owner's 360 room
+	"room_liberator_medical_bay": {"folders": ["res://assets/rooms/liberator"], "match": "medical_bay.", "probe": "res://assets/rooms/liberator/medical_bay.jpg"},   # v3.5: the owner's 360 room
+	"room_liberator_command": {"folders": ["res://assets/rooms/liberator"], "match": "command.", "probe": "res://assets/rooms/liberator/command.jpg"},   # v3.5: the owner's 360 room
+	"room_liberator_private_quarters": {"folders": ["res://assets/rooms/liberator"], "match": "private_quarters.", "probe": "res://assets/rooms/liberator/private_quarters.jpg"},   # v3.5: the owner's 360 room
+	"room_liberator_pilots_lounge": {"folders": ["res://assets/rooms/liberator"], "match": "pilots_lounge.", "probe": "res://assets/rooms/liberator/pilots_lounge.jpg"},   # v3.5: the owner's 360 room
 	"hangar_p_kaijurai": {"folders": ["res://assets/hangars"], "match": "bay_p_kaijurai.", "probe": "res://assets/hangars/bay_p_kaijurai.jpg"},   # v2.9: the owner's planet hangar
 	"hangar_p_phenom": {"folders": ["res://assets/hangars"], "match": "bay_p_phenom.", "probe": "res://assets/hangars/bay_p_phenom.jpg"},   # v2.9: the owner's planet hangar
 	"hangar_p_cybermorph": {"folders": ["res://assets/hangars"], "match": "bay_p_cybermorph.", "probe": "res://assets/hangars/bay_p_cybermorph.jpg"},   # v2.9: the owner's planet hangar

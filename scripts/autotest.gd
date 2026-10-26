@@ -1010,7 +1010,16 @@ func _run() -> void:
 		await _job_v19u()
 		await _job_v19w()
 		await _job_v19x()
+		await _job_v35()
 		await _job_v19z()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
+	if _flag("HL_V35"):   # the v3.5 room panorama checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_v35()
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
@@ -1807,6 +1816,7 @@ func _run() -> void:
 	await _job_v19u()
 	await _job_v19w()
 	await _job_v19x()
+	await _job_v35()
 	await _job_v19z()
 	await _blocks()
 	await _regions()
@@ -9339,7 +9349,14 @@ func _job_v19u() -> void:
 	main.hub.bay_hold = 0.0
 	var yaw0: float = main.hub.bay_yaw
 	await _wait(0.3)
-	var turning: bool = bcam != null and absf(main.hub.bay_yaw - yaw0) > 0.02 and absf(main.hub.preview_pivot.rotation.x) < 0.001 and absf(main.hub.preview_pivot.rotation.z) < 0.001   # (v2.6: it turns on the platform, yaw only)
+	var still: bool = absf(main.hub.bay_yaw - yaw0) < 0.001   # v3.5 (owner): it stands still until you drag it
+	var mm0: Control = main.hub.find_child("MountMap", true, false)
+	var dev := InputEventMouseMotion.new()
+	dev.button_mask = MOUSE_BUTTON_MASK_LEFT
+	dev.relative = Vector2(60, 0)
+	if mm0 != null: mm0.gui_input.emit(dev)
+	await _frames(2)
+	var turning: bool = bcam != null and still and absf(main.hub.bay_yaw - yaw0) > 0.3 and absf(main.hub.preview_pivot.rotation.x) < 0.001 and absf(main.hub.preview_pivot.rotation.z) < 0.001   # (yaw only)
 	await _shot("v19u_equip_page", 0.4)
 	_check("v1.9u (owner): WEAPONS & GEAR shows your ship turning on a platform (yaw only) wearing its guns, a mount map to tap, and only the picked mount's fit buttons", dressed and page_ok and turning,
 		"dressed %s, page %s, turning %s" % [dressed, page_ok, turning])
@@ -9416,6 +9433,51 @@ func _job_v19w() -> void:
 
 ## v1.9x (owner's HANGAR layout): WEAPONS & GEAR fills the screen: frame (level) select, the blueprint with its slots,
 ## SLOT INFO, a shop grid with filters, the frame's specs; the mech blueprint shows the same slots (arms = wings).
+## v3.5 (owner): every page stands you in a 360 room (Liberator's are in): the top bar, a left window, the page in a
+## right window, HIDE PANELS to look round; drag looks round; the lounge lists who is here.
+func _job_v35() -> void:
+	var s := _sp()
+	if s.surface_mode or main.state != "flight": return
+	main.dock(s.station)
+	await _until(func(): return main.state == "hub", 8.0)
+	var hb = main.hub
+	hb.room_override = "liberator"
+	hb.show_screen("ships")
+	await Packs.wait("room_liberator_shipyard", 30.0)
+	await _frames(3)
+	var rv: ColorRect = hb.room_view
+	var tex = (rv.material as ShaderMaterial).get_shader_parameter("strip")
+	var room_ok: bool = rv.visible and tex != null and (tex as Texture2D).resource_path.ends_with("liberator/shipyard.jpg") and hb.leftwin.visible \
+		and is_equal_approx(hb.content.anchor_left, Data.ROOM_SPLIT) and hb.leftwin.find_child("RoomName", true, false) != null
+	await _shot("v35_room_shipyard", 0.2)
+	var y0: float = hb.room_yaw
+	var ev := InputEventMouseMotion.new()
+	ev.button_mask = MOUSE_BUTTON_MASK_LEFT
+	ev.relative = Vector2(-300, 40)
+	hb._gui_input(ev)
+	var looked: bool = absf(hb.room_yaw - y0) > 0.01 and hb.room_pitch != 0.0
+	(hb.find_child("ShowPanels", true, false) as Button).pressed.emit()
+	await _frames(2)
+	var folded: bool = hb.panels_hidden and not hb.content.visible and not hb.leftwin.visible and hb.left.visible and hb.launch_btn.visible
+	await _shot("v35_room_panels_hidden", 0.2)
+	(hb.find_child("ShowPanels", true, false) as Button).pressed.emit()
+	await _frames(2)
+	var back: bool = not hb.panels_hidden and hb.content.visible
+	hb.show_screen("lounge")
+	await Packs.wait("room_liberator_pilots_lounge", 30.0)
+	await _frames(3)
+	var lounge_ok: bool = hb.room_key == "liberator_pilots_lounge" and hb.find_child("Btn_lounge", true, false) != null
+	await _shot("v35_room_lounge", 0.2)
+	hb.room_override = ""
+	hb.show_screen("hub")
+	await _frames(2)
+	var other_ok: bool = hb.room_for("hub") == "" or hb._room_faction() != ""
+	_check("v3.5 (owner): pages stand you in a 360 room (Liberator): top bar, left window, page on the right; drag looks round; HIDE PANELS folds both windows (the top bar and LAUNCH stay); a LOUNGE page",
+		room_ok and looked and folded and back and lounge_ok and other_ok, "room %s, look %s, fold %s, back %s, lounge %s, other %s" % [room_ok, looked, folded, back, lounge_ok, other_ok])
+	main.launch()
+	await _until(func(): return main.state == "flight", 8.0)
+	_sp().controls = true
+
 func _job_v19x() -> void:
 	var s := _sp()
 	if s.surface_mode or main.state != "flight": return
@@ -9510,7 +9572,7 @@ func _job_v19x() -> void:
 	var y0: float = hb.bay_yaw
 	hb.bay_hold = 0.0
 	await _wait(0.5)
-	var turned: bool = absf(hb.bay_yaw - y0) > 0.05 and absf(hb.preview_pivot.rotation.y - hb.bay_yaw) < 0.01
+	var turned: bool = absf(hb.bay_yaw - y0) < 0.001 and absf(hb.preview_pivot.rotation.y - hb.bay_yaw) < 0.01   # v3.5: stands still
 	var ev := InputEventMouseMotion.new()
 	ev.button_mask = MOUSE_BUTTON_MASK_LEFT
 	ev.relative = Vector2(100, 0)
@@ -9521,7 +9583,7 @@ func _job_v19x() -> void:
 	hb.bay_hold = 99.0
 	await _frames(3)
 	await _shot("v26_mech_turning", 0.0)
-	_check("v2.6 (owner): the mech turns on its bay's platform (and drags round by hand); each faction has its own mech bay", turned and dragged and Data.BAYS.has("elyza") and Packs.PACKS.has("hangar_imperium"),
+	_check("v2.6/v3.5 (owner): the mech stands still on its bay's platform and drags round by hand; each faction has its own mech bay", turned and dragged and Data.BAYS.has("elyza") and Packs.PACKS.has("hangar_imperium"),
 		"turn %s, drag %s" % [turned, dragged])
 	_check("v2.4 (owner): the mech view shows your real mech (its fitted parts) standing in a front-view mech bay, with a + square on each of its 9 slots", real_mech,
 		"mech %s, bay %s" % [hb.find_child("BayMech", true, false) != null, hb._hangar_name()])

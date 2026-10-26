@@ -36,6 +36,18 @@ var bay_hold := 0.0   # s the turntable waits after you drag it or pick a slot
 var preview_key := ""
 var t := 0.0
 # ship inspector: tap the showroom (or VIEW) to look the ship over: drag to turn it, pinch / wheel to zoom, full stats
+var room_view: ColorRect   # v3.5 (owner): the 360 room you stand in
+var leftwin: Panel         # v3.5: the left digital window
+var show_btn: Button       # v3.5: brings the folded windows back
+var panels_hidden := false # v3.5: both windows folded away (only the top bar stays)
+var look_motion := false   # v3.5: false = drag / stick to look; true = turn the phone
+var room_override := ""    # (tests) pretend the station's faction has rooms
+var room_yaw := 0.0
+var room_pitch := 0.0
+var room_idle := 0.0
+var room_key := ""
+var _motion0 := -999.0
+var _motion_yaw0 := 0.0
 var bg_tex: Texture2D     # v1.4s: ONE static picture behind the interface (station's own > faction's > none)
 var bg := {}              # Factions.hub_background() of the place you are docked at
 var inspect: Control = null
@@ -53,6 +65,16 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	theme_obj = _make_theme()
 	theme = theme_obj
+	room_view = ColorRect.new()
+	room_view.name = "RoomView"
+	room_view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	room_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var rm := ShaderMaterial.new()
+	rm.shader = Shader.new()
+	rm.shader.code = ROOM_SHADER
+	room_view.material = rm
+	room_view.visible = false
+	add_child(room_view)
 	header = _label(32, Color(1, 1, 1))
 	header.position = Vector2(28, TOP_Y)
 	add_child(header)
@@ -110,11 +132,34 @@ func _ready() -> void:
 	content.offset_right = -24
 	content.offset_bottom = -66
 	add_child(content)
+	leftwin = Panel.new()   # v3.5: the left digital window (where you are, your ship, the view buttons)
+	leftwin.name = "LeftWindow"
+	leftwin.offset_left = 24
+	leftwin.offset_top = CONTENT_Y
+	leftwin.anchor_right = Data.ROOM_SPLIT
+	leftwin.offset_right = -6
+	leftwin.anchor_bottom = 1.0
+	leftwin.offset_bottom = -66
+	leftwin.visible = false
+	add_child(leftwin)
+	show_btn = Button.new()
+	show_btn.name = "ShowPanels"
+	show_btn.text = "HIDE PANELS"
+	show_btn.anchor_top = 1.0
+	show_btn.anchor_bottom = 1.0
+	show_btn.offset_left = 24
+	show_btn.offset_right = 214
+	show_btn.offset_top = -64
+	show_btn.offset_bottom = -12
+	show_btn.add_theme_font_size_override("font_size", Data.ts(16))
+	show_btn.visible = false
+	show_btn.pressed.connect(func(): set_panels_hidden(not panels_hidden))
+	add_child(show_btn)
 	status = _label(17, GOLD)
 	status.anchor_top = 1.0
 	status.anchor_bottom = 1.0
 	status.anchor_right = 1.0
-	status.offset_left = 24
+	status.offset_left = 230
 	status.offset_top = -60
 	status.offset_bottom = -10
 	status.offset_right = -24
@@ -207,9 +252,9 @@ func show_screen(s: String) -> void:
 	screen = s
 	_refresh_credits()
 	var sysname: String = Data.SYSTEMS[GS.system_id]["name"]
-	header.text = base["name"].to_upper() if s == "hub" else {"equipment": "WEAPONS & EQUIPMENT DEALER", "ships": "SHIP DEALER", "mechs": "MECH DEALER", "repair": "REPAIR & RESUPPLY", "bounty": "MISSION BOARD", "missions": "MISSION BOARD", "board": "MISSION BOARD", "ship": "YOUR SHIP", "faction": "FACTION", "surface": "PLANET DESTINATIONS"}[s]
+	header.text = base["name"].to_upper() if s == "hub" else {"equipment": "WEAPONS & EQUIPMENT DEALER", "ships": "SHIP DEALER", "mechs": "MECH DEALER", "repair": "REPAIR & RESUPPLY", "bounty": "MISSION BOARD", "missions": "MISSION BOARD", "board": "MISSION BOARD", "ship": "YOUR SHIP", "faction": "FACTION", "surface": "PLANET DESTINATIONS", "lounge": "PILOTS' LOUNGE"}[s]
 	subheader.text = "%s  ·  %s SYSTEM  ·  %s" % ["ORBITAL STATION" if kind == "station" else "PLANET SURFACE", sysname.to_upper(), base["name"]]
-	for box in [left, content]:   # take the old page out at once, so the new buttons keep their own names
+	for box in [left, content, leftwin]:   # take the old page out at once, so the new buttons keep their own names
 		for c in box.get_children():
 			box.remove_child(c)
 			c.queue_free()
@@ -224,7 +269,7 @@ func show_screen(s: String) -> void:
 	# v3.1: HOME is open glass (the station picture shows through); the other pages keep their panel
 	if s == "hub": content.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	else: content.remove_theme_stylebox_override("panel")
-	var menu := [["hub", "HOME"], ["equipment", "HANGAR"], ["ships", "SHIPS"], ["mechs", "MECHS"], ["repair", "REPAIR"], ["board", "MISSIONS"], ["ship", "MY SHIP"], ["faction", "FACTION"], ["map", "NAV MAP"]]   # (v1.5k: LAUNCH is its own always-visible button)
+	var menu := [["hub", "HOME"], ["equipment", "HANGAR"], ["ships", "SHIPS"], ["mechs", "MECHS"], ["repair", "REPAIR"], ["board", "MISSIONS"], ["lounge", "LOUNGE"], ["ship", "MY SHIP"], ["faction", "FACTION"], ["map", "NAV MAP"]]   # (v1.5k: LAUNCH is its own always-visible button)
 	if _surface_planet() != "": menu.insert(5, ["surface", "SURFACE"])
 	for m in menu:
 		var b := Button.new()
@@ -240,7 +285,9 @@ func show_screen(s: String) -> void:
 			b.add_theme_color_override("font_color", Color.WHITE)
 		b.pressed.connect(_menu.bind(m[0]))
 		left.add_child(b)
+	_layout_windows(s)
 	match s:
+		"lounge": _lounge_page()
 		"hub": _hub_page()
 		"equipment": _equipment_page()
 		"ships":
@@ -266,6 +313,206 @@ func show_screen(s: String) -> void:
 		"faction": _faction_page()
 		"surface": _surface_page()
 	queue_redraw()
+
+## v3.5 (owner): the same frame on every page: the top bar, the left digital window, the room in the middle, the page
+## in the right window. HIDE PANELS folds both windows away so you can stand in the room and look round.
+const ROOM_SHADER := """
+shader_type canvas_item;
+uniform sampler2D strip : repeat_enable, filter_linear;
+uniform float yaw = 0.0;
+uniform float pitch = 0.0;
+uniform float vis_w = 0.3;
+uniform float zoom = 1.14;
+uniform float wash = 0.12;
+uniform float band = 0.16;
+void fragment() {
+	float x = yaw + (UV.x - 0.5) * vis_w;
+	float y = 0.5 + (UV.y - 0.5) / zoom + pitch * 0.5 * (1.0 - 1.0 / zoom);
+	vec3 c = texture(strip, vec2(x, y)).rgb * (1.0 - wash);
+	c *= mix(0.5, 1.0, smoothstep(0.0, band, UV.y));   // the top bar reads over it
+	COLOR = vec4(c, 1.0);
+}
+"""
+
+func _room_faction() -> String:
+	if room_override != "": return room_override
+	var f := str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])).to_lower()
+	if f.begins_with("liberator"): f = "liberator"
+	return f if f in Data.ROOM_FACTIONS else ""
+
+## The room for this page: "" when the faction's rooms are not in yet (the station picture shows instead).
+func room_for(s: String) -> String:
+	var f := _room_faction()
+	if f == "" or not Data.ROOM_OF.has(s): return ""
+	return "%s_%s" % [f, Data.ROOM_OF[s]]
+
+func _show_room(s: String) -> void:
+	var key := room_for(s)
+	if key == "":
+		room_view.visible = false
+		room_key = ""
+		return
+	var f := key.get_slice("_", 0)
+	var rn := key.substr(f.length() + 1)
+	var pk := "room_" + key
+	var path := "res://assets/rooms/%s/%s.jpg" % [f, rn]
+	if not (Packs.is_ready(pk) and ResourceLoader.exists(path)):
+		Packs.request(pk)
+		if not Packs.pack_ready.is_connected(_on_room_pack): Packs.pack_ready.connect(_on_room_pack)
+		room_view.visible = false
+		return
+	var m := room_view.material as ShaderMaterial
+	if key != room_key:   # a new room: face its front, and let the last picture go
+		room_key = key
+		room_yaw = Data.ROOM_FRONT
+		room_pitch = 0.0
+		room_idle = 0.0
+		m.set_shader_parameter("strip", load(path))
+	room_view.visible = true
+	_update_room(0.0)
+
+func _on_room_pack(pk: String) -> void:
+	if visible and pk.begins_with("room_") and pk == "room_" + room_for(screen): _show_room(screen)
+
+## Look round: drag (in screen pixels), the right stick, or the phone itself.
+func look_by(rel: Vector2) -> void:
+	var S := get_viewport_rect().size
+	var m := room_view.material as ShaderMaterial
+	room_yaw = fposmod(room_yaw - rel.x / maxf(S.x, 1.0) * float(m.get_shader_parameter("vis_w")), 1.0)
+	room_pitch = clampf(room_pitch - rel.y / maxf(S.y, 1.0) * 2.5, -1.0, 1.0)
+	room_idle = 0.0
+
+func _update_room(dt: float) -> void:
+	if not room_view.visible: return
+	var m := room_view.material as ShaderMaterial
+	var tex: Texture2D = m.get_shader_parameter("strip")
+	var S := get_viewport_rect().size
+	if tex != null and S.y > 0.0:
+		m.set_shader_parameter("vis_w", (S.x / S.y) * (float(tex.get_height()) / float(tex.get_width())) / Data.ROOM_ZOOM)
+	var sx := Input.get_joy_axis(0, JOY_AXIS_RIGHT_X)
+	var sy := Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y)
+	if absf(sx) > 0.2 or absf(sy) > 0.2:   # the right stick looks round (the left stick has nothing to walk in a picture)
+		room_yaw = fposmod(room_yaw + sx * Data.ROOM_STICK * dt, 1.0)
+		room_pitch = clampf(room_pitch + sy * 1.2 * dt, -1.0, 1.0)
+		room_idle = 0.0
+	if look_motion: _motion_look()
+	room_idle += dt
+	if room_idle > Data.ROOM_DRIFT_AFTER and not look_motion: room_yaw = fposmod(room_yaw + Data.ROOM_DRIFT * dt, 1.0)
+	m.set_shader_parameter("yaw", room_yaw)
+	m.set_shader_parameter("pitch", room_pitch)
+	m.set_shader_parameter("zoom", Data.ROOM_ZOOM)
+	m.set_shader_parameter("wash", Data.ROOM_WASH)
+	m.set_shader_parameter("band", 116.0 / maxf(S.y, 1.0))
+
+## v3.5 (owner: "like VR"): with LOOK set to MOTION, turning the phone turns the view (the web page reads the phone's
+## heading; iPhones ask for permission on the next tap).
+func set_look_motion(on: bool) -> void:
+	look_motion = on
+	_motion0 = -999.0
+	if on and OS.has_feature("web"): JavaScriptBridge.eval("window.hlMotionStart && window.hlMotionStart()")
+
+func _motion_look() -> void:
+	var heading := -999.0
+	if OS.has_feature("web"):
+		var a = JavaScriptBridge.eval("(window.hlMotion && window.hlMotion.on && window.hlMotion.a !== null) ? window.hlMotion.a : -999")
+		heading = float(a) if a != null else -999.0
+	else:
+		var g := Input.get_gyroscope()
+		if g != Vector3.ZERO:
+			_motion_yaw0 -= g.y * get_process_delta_time() / TAU
+			room_yaw = fposmod(_motion_yaw0, 1.0)
+		return
+	if heading < -900.0: return
+	if _motion0 < -900.0:
+		_motion0 = heading
+		_motion_yaw0 = room_yaw
+	room_yaw = fposmod(_motion_yaw0 + (_motion0 - heading) / 360.0, 1.0)
+	room_idle = 0.0
+
+func set_panels_hidden(h: bool) -> void:
+	panels_hidden = h
+	_layout_windows(screen)
+
+## Where the windows sit for this page (the hangar and HOME keep their own layouts).
+func _layout_windows(s: String) -> void:
+	_show_room(s)
+	var split: bool = not (s in ["hub", "equipment"])
+	content.anchor_left = Data.ROOM_SPLIT if split else 0.0
+	content.offset_left = 6.0 if split else 24.0
+	content.mouse_filter = Control.MOUSE_FILTER_IGNORE if s == "hub" else Control.MOUSE_FILTER_STOP
+	var fold: bool = panels_hidden and s != "equipment"
+	content.visible = not fold
+	leftwin.visible = split and not fold
+	show_btn.visible = s != "equipment"
+	show_btn.text = "SHOW PANELS" if fold else "HIDE PANELS"
+	if leftwin.visible and leftwin.get_child_count() == 0: _left_window(s)
+
+## v3.5: where a page's model goes: the left window when it is open, else the page itself (h).
+func _left_slot(h: Control) -> Control:
+	var sl: Control = leftwin.find_child("LeftSlot", true, false)
+	return sl if sl != null and leftwin.visible else h
+
+func _left_window(s: String) -> void:
+	var v := VBoxContainer.new()
+	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	v.offset_left = 16
+	v.offset_top = 14
+	v.offset_right = -14
+	v.offset_bottom = -12
+	v.add_theme_constant_override("separation", 6)
+	leftwin.add_child(v)
+	var rn := _label(20, Color.WHITE)
+	rn.name = "RoomName"
+	rn.text = str(Data.ROOM_OF.get(s, s)).replace("_", " ").to_upper()
+	rn.clip_text = true
+	v.add_child(rn)
+	var at := _label(14, CYAN)
+	at.text = "%s  ·  %s" % [str(base.get("name", "")), str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id]))]
+	at.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(at)
+	var sh := GS.ship()
+	var you := _label(14, Color(0.85, 0.92, 1.0))
+	you.name = "YouNow"
+	you.text = "%s\nHull %d / %d  ·  Shield %d\nMissiles %d / %d  ·  Heavy %d / %d\nMines %d / %d" % [str(sh["name"]).to_upper(), int(GS.hull), int(GS.max_hull()), int(GS.max_shield()),
+		GS.missiles, GS.max_missiles(), GS.heavy_missiles, GS.max_heavy(), GS.mines, GS.max_mines()]
+	v.add_child(you)
+	var slot := VBoxContainer.new()   # a page can put its model here (the ship or mech you are looking at)
+	slot.name = "LeftSlot"
+	slot.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(slot)
+	if room_view.visible or room_for(s) != "":
+		var lk := Button.new()
+		lk.name = "LookMode"
+		lk.text = "LOOK: TURN PHONE" if look_motion else "LOOK: DRAG"
+		lk.custom_minimum_size = Vector2(0, 44)
+		lk.clip_text = true
+		lk.add_theme_font_size_override("font_size", Data.ts(15))
+		lk.pressed.connect(func():
+			set_look_motion(not look_motion)
+			lk.text = "LOOK: TURN PHONE" if look_motion else "LOOK: DRAG"
+			status.text = "Turn your phone to look round (tap once more if it asks to allow motion)." if look_motion else "Drag the room, or use the right stick, to look round.")
+		v.add_child(lk)
+
+## v3.5: the pilots' lounge: who is here to talk to.
+func _lounge_page() -> void:
+	var v := _page_box()
+	var cap := _label(18, GOLD)
+	cap.text = "PILOTS' LOUNGE"
+	v.add_child(cap)
+	_people_rows(v)
+	if Factions.people_at(base, Data.SYSTEMS[GS.system_id]).is_empty():
+		var none := _label(16, Color(0.8, 0.88, 1.0))
+		none.text = "No pilots here right now."
+		v.add_child(none)
+
+func _gui_input(e: InputEvent) -> void:
+	if not room_view.visible: return
+	if e is InputEventScreenDrag:
+		look_by((e as InputEventScreenDrag).relative)
+		accept_event()
+	elif e is InputEventMouseMotion and ((e as InputEventMouseMotion).button_mask & MOUSE_BUTTON_MASK_LEFT):
+		look_by((e as InputEventMouseMotion).relative)
+		accept_event()
 
 func _menu(id: String) -> void:
 	if id == "launch": launch_requested.emit()
@@ -1918,9 +2165,9 @@ func _ships_page() -> void:
 	# 3D showroom
 	var svc := SubViewportContainer.new()
 	svc.stretch = true
-	svc.custom_minimum_size = Vector2(340, 300)
+	svc.custom_minimum_size = Vector2(200, 160)
 	svc.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	h.add_child(svc)
+	_left_slot(h).add_child(svc)   # v3.5: the model in the left window, the list on the right
 	preview_vp = SubViewport.new()
 	preview_vp.own_world_3d = true
 	preview_vp.transparent_bg = true
@@ -2029,9 +2276,9 @@ func _mechs_page() -> void:
 	# the mech you have fitted, turning in the showroom
 	var svc := SubViewportContainer.new()
 	svc.stretch = true
-	svc.custom_minimum_size = Vector2(300, 300)
+	svc.custom_minimum_size = Vector2(200, 160)
 	svc.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	h.add_child(svc)
+	_left_slot(h).add_child(svc)   # v3.5: the mech in the left window
 	preview_vp = SubViewport.new()
 	preview_vp.own_world_3d = true
 	preview_vp.transparent_bg = true
@@ -2648,6 +2895,7 @@ func _repair_page() -> void:
 func _process(dt: float) -> void:
 	if not visible: return
 	t += dt
+	_update_room(dt)
 	if preview_pivot and is_instance_valid(preview_pivot) and screen != "equipment": preview_pivot.rotation.y = t * 0.4 + eq_yaw
 	elif preview_pivot and is_instance_valid(preview_pivot) and screen == "equipment":   # v2.6 (owner): it turns on the platform
 		if bay_hold > 0.0: bay_hold -= dt
