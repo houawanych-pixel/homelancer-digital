@@ -1865,6 +1865,10 @@ const DOME_SHADER := """
 shader_type spatial;
 render_mode unshaded, blend_mix, cull_front, depth_draw_never, shadows_disabled, fog_disabled;
 uniform sampler2D noise : repeat_enable, filter_linear_mipmap;
+uniform sampler2DArray frames : repeat_enable, filter_linear_mipmap;   // v1.9z: the owner's looping cloud clip
+uniform bool anim = false;
+uniform float fpos = 0.0;
+uniform float nframes = 48.0;
 uniform vec4 col : source_color = vec4(1.0);
 uniform float contrast = 1.0;
 uniform float drift = 0.0;
@@ -1872,20 +1876,54 @@ varying vec3 dir;
 void vertex() { dir = VERTEX; }
 // sampled by direction on all three axes (no seam, no pinch at the top and bottom like a wrapped picture)
 float tri(vec3 p, vec3 w) { return texture(noise, p.yz).r * w.x + texture(noise, p.xz).r * w.y + texture(noise, p.xy).r * w.z; }
+float trif(vec3 p, vec3 w, float l) { return texture(frames, vec3(p.yz, l)).r * w.x + texture(frames, vec3(p.xz, l)).r * w.y + texture(frames, vec3(p.xy, l)).r * w.z; }
 void fragment() {
 	vec3 n = normalize(dir);
 	vec3 w = pow(abs(n), vec3(4.0));
 	w /= (w.x + w.y + w.z);
 	vec3 p = n * 2.2 + vec3(drift, drift * 0.3, drift * 0.6);
-	float v = tri(p, w) * 0.65 + tri(p * 2.7 + 0.37, w) * 0.35;
-	v = clamp((v - 0.5) * 2.4 + 0.5, 0.0, 1.0);   // billows, not a flat wash
+	float v;
+	if (anim) {   // the clip, its frames blended so the slow loop runs smooth
+		float f0 = floor(fpos);
+		float f1 = mod(f0 + 1.0, nframes);
+		vec3 q = n * 1.6;
+		v = mix(trif(q, w, f0), trif(q, w, f1), fpos - f0);
+	} else {
+		v = tri(p, w) * 0.65 + tri(p * 2.7 + 0.37, w) * 0.35;
+		v = clamp((v - 0.5) * 2.4 + 0.5, 0.0, 1.0);   // billows, not a flat wash
+	}
 	ALBEDO = col.rgb * mix(1.0, mix(0.4, 1.35, v), contrast);
 	ALPHA = col.a;
 }
 """
 ## The shell round the camera: in a cloud (its colour, billowing) or deep in a planet's atmosphere (bright and even,
 ## the sky's colour), so space fades out and the next view fades in without a black gap.
-func _cloud_dome(a: float, col: Color, contrast := 1.0) -> void:
+## v1.9z: the owner's looping cloud clips as a layered texture (one layer a frame), built once per clip from its
+## picture of frames when its pack is in. null until then (the shell shows the still pattern meanwhile).
+static var _anim_tex := {}
+func _cloud_anim(clip: String) -> Texture2DArray:
+	if _anim_tex.has(clip): return _anim_tex[clip]
+	var pk := "cloudanim_" + clip
+	var path := "res://assets/fx/cloudanim_%s.jpg" % clip
+	if not (Packs.is_ready(pk) and ResourceLoader.exists(path)):
+		Packs.request(pk)
+		return null
+	var src: Image = (load(path) as Texture2D).get_image()
+	if src.is_compressed(): src.decompress()
+	src.convert(Image.FORMAT_L8)
+	var fw := src.get_width() / 8
+	var layers: Array[Image] = []
+	for i in Data.CLOUD_ANIM_FRAMES:
+		var fr := src.get_region(Rect2i((i % 8) * fw, (i / 8) * fw, fw, fw))
+		fr.generate_mipmaps()
+		layers.append(fr)
+	var arr := Texture2DArray.new()
+	arr.create_from_images(layers)
+	_anim_tex[clip] = arr
+	return arr
+
+var _dome_clip := ""
+func _cloud_dome(a: float, col: Color, contrast := 1.0, clip := "") -> void:
 	dome_alpha = a
 	if a <= 0.01:
 		if is_instance_valid(_dome): _dome.visible = false
@@ -1926,6 +1964,15 @@ func _cloud_dome(a: float, col: Color, contrast := 1.0) -> void:
 	mat.set_shader_parameter("col", Color(col.darkened(0.15 * contrast), a))
 	mat.set_shader_parameter("contrast", contrast)
 	mat.set_shader_parameter("drift", fmod(time * 0.01, 100.0))   # the walls drift slowly
+	var at: Texture2DArray = _cloud_anim(clip) if clip != "" else null
+	if clip != _dome_clip or (at != null and mat.get_shader_parameter("frames") != at):
+		_dome_clip = clip
+		mat.set_shader_parameter("frames", at)
+	mat.set_shader_parameter("anim", at != null)
+	if at != null:
+		mat.set_shader_parameter("nframes", float(Data.CLOUD_ANIM_FRAMES))
+		mat.set_shader_parameter("fpos", fmod(time * Data.CLOUD_ANIM_FPS, float(Data.CLOUD_ANIM_FRAMES)))
+		mat.set_shader_parameter("contrast", maxf(contrast, 0.85))
 
 ## The planet's daytime sky colour (from its surface biome), pale toward white; plain white when it has no surface.
 func _sky_color_of(body: Node3D) -> Color:
@@ -1943,7 +1990,7 @@ func _update_atmo_dome() -> void:
 	if atmo_depth <= 0.0:
 		if dome_alpha > 0.0 and not _neb_fog_on: _cloud_dome(0.0, Color.BLACK)
 		return
-	_cloud_dome(clampf(atmo_depth * 1.25, 0.0, 1.0), atmo_color, 0.35)
+	_cloud_dome(clampf(atmo_depth * 1.25, 0.0, 1.0), atmo_color, 0.35, Data.CLOUD_ANIM["atmo"])
 
 func nebula_weather() -> String:
 	if nebula_now < 0 or nebula_now >= nebulae.size(): return ""
@@ -2118,7 +2165,7 @@ func _update_nebulae(dt: float) -> void:
 			e.fog_density = Data.NEBULA_FOG_DENSITY * pow(in_nebula, 1.5) * clear
 			e.fog_light_color = nebula_tint.darkened(0.35).lerp(Data.BEACON_LIGHT_COLOR, beacon_lit * 0.5).lerp(Color(0.85, 0.9, 1.0), nebula_flash * 0.7)
 			e.fog_sky_affect = clampf(in_nebula * 1.6, 0.0, 1.0) * clear   # (v1.9z: deep inside, no stars: you can't see out)
-			_cloud_dome(clampf(in_nebula * 1.6, 0.0, 1.0) * clear, e.fog_light_color)
+			_cloud_dome(clampf(in_nebula * 1.6, 0.0, 1.0) * clear, e.fog_light_color, 1.0, str(Data.CLOUD_ANIM.get(nebula_weather(), "nebula")))
 		elif _neb_fog_on:
 			e.fog_enabled = false
 			_neb_fog_on = false

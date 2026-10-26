@@ -9449,7 +9449,20 @@ func _job_v19z() -> void:
 		seen[k] = s._neb_wx != null and s._neb_wx.visible and s.nebula_weather() == k
 		if s.dome_alpha < 0.99 * (1.0 - Data.BEACON_HAZE_CLEAR * s.beacon_lit) or not s._dome.visible: sky_gone = false   # (a light beacon thins the haze near its lamp)
 		await _shot("v19z_weather_" + k, 0.2)
-	var zone_ok: bool = main.hud.get("zone_text") == null or true
+	var anim_ok := true   # the owner's looping clips: built into layered textures, the shell plays the cloud's own
+	for clip in ["storm", "nebula", "smoke"]:
+		await Packs.wait("cloudanim_" + clip, 30.0)
+		var arr: Texture2DArray = s._cloud_anim(clip)
+		if arr == null or arr.get_layers() != Data.CLOUD_ANIM_FRAMES: anim_ok = false
+	nd0["weather"] = "storm"
+	_tp(c0 + Vector3(float(nd0["radius"]) * 0.05, 0, 0), c0 + Vector3(0, 0, -500))
+	await _frames(4)
+	var dm := s._dome.material_override as ShaderMaterial
+	var f0: float = dm.get_shader_parameter("fpos")
+	await _wait(0.3)
+	anim_ok = anim_ok and dm.get_shader_parameter("anim") == true and s._dome_clip == "storm" and float(dm.get_shader_parameter("fpos")) != f0
+	await _shot("v19z_cloud_anim_storm", 0.2)
+	_check("v1.9z (owner's looping cloud clips): storm, nebula and smoke loop on the cloud walls, tinted to each cloud (storm clouds wear the storm)", anim_ok, "anim %s clip %s" % [anim_ok, s._dome_clip])
 	nd0["weather"] = keep
 	var rock_ok := true   # a rock-field cloud puts its rocks in the collision list
 	var probe := {"center": c0 + Vector3(0, 9000, 0), "radius": 600.0}

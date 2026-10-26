@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v1.9z"
+const VERSION := "v2.0"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -811,7 +811,12 @@ const WARP_HOLE_SPARKS := 120
 const WARP_HOLE_RIM := Color(1.0, 0.45, 0.75)
 const WARP_HOLE_CLOUD := Color(0.75, 0.25, 0.6)   # the cloud each warp gate hides in
 const JUMP_TUNNEL_SPIN := [0.04, 0.22]   # v1.9z (owner): the jump-gate tunnel (his picture) spins, turns a second slow .. full speed
-const NEBULA_DOME_R := 1400.0       # the cloud shell round the camera (beyond it, only haze)
+const NEBULA_DOME_R := 1400.0
+# v1.9z (owner's looping cloud clips, greyscale, tinted to each cloud): 48 frames, 8 x 6 in one picture, ~7.5 s a loop.
+# Which clip a cloud wears goes by its weather; a planet's air wears the smoke.
+const CLOUD_ANIM := {"storm": "storm", "rain": "smoke", "snow": "smoke", "rocks": "nebula", "atmo": "smoke"}
+const CLOUD_ANIM_FRAMES := 48
+const CLOUD_ANIM_FPS := 6.4       # the cloud shell round the camera (beyond it, only haze)
 const NEBULA_HUD_TINT := 0.16         # the screen tint inside a cloud (the fog does most of the work now; was 0.36)
 const STATION_MODEL_YAW := {"hollow_requiem": 90.0}   # degrees: the dead liner lies across the docking approach
 
