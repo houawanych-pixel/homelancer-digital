@@ -249,6 +249,7 @@ func _refresh_credits() -> void:
 
 func show_screen(s: String) -> void:
 	close_inspector()
+	_dragged = false   # (a drag left over from the last page must not swallow the next tap)
 	screen = s
 	_refresh_credits()
 	var sysname: String = Data.SYSTEMS[GS.system_id]["name"]
@@ -1194,6 +1195,7 @@ func _ship_select(col: Control) -> void:
 		col.add_child(fb)
 
 func _bay_tap(e: InputEvent, pts: Dictionary, c: Control = null) -> void:
+	if (e is InputEventMouseButton and (e as InputEventMouseButton).pressed) or (e is InputEventScreenTouch and (e as InputEventScreenTouch).pressed): _dragged = false
 	var drag := Vector2.ZERO
 	if e is InputEventScreenDrag: drag = (e as InputEventScreenDrag).relative
 	elif e is InputEventMouseMotion and ((e as InputEventMouseMotion).button_mask & MOUSE_BUTTON_MASK_LEFT): drag = (e as InputEventMouseMotion).relative
