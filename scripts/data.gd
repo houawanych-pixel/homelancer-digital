@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v2.9"
+const VERSION := "v3.0"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -1008,6 +1008,8 @@ const LEVELS := {
 # the picture's height from the top).
 const BAYS := {"unity": 0.75, "orion": 0.71, "solarion": 0.72, "liberator": 0.69, "imperium": 0.63, "elyza": 0.65,
 	"blue": 0.86, "scarlet": 0.92,
+	# v3.0 (owner): more station hangars (space outside)
+	"arctides": 0.7, "phenom": 0.71, "gadversee": 0.72, "solrath": 0.73, "cybermorph": 0.73, "kaijurai": 0.7,
 	# v2.8 (owner): planet hangars (doors open on the world), used when you dock on a planet
 	"p_imperium": 0.65, "p_unity": 0.765, "p_orion": 0.71, "p_liberator": 0.69, "p_savagers": 0.69, "p_covenant": 0.72, "p_elyza": 0.66, "p_solarion": 0.73, "p_kaijurai": 0.76, "p_phenom": 0.76, "p_cybermorph": 0.76, "p_arctides": 0.76, "p_solrath": 0.76}
 const BAY_SPARES := ["blue", "scarlet"]

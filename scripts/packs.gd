@@ -24,6 +24,12 @@ const PACKS := {
 	"hangar_p_covenant": {"folders": ["res://assets/hangars"], "match": "bay_p_covenant.", "probe": "res://assets/hangars/bay_p_covenant.jpg"},   # v2.8: the owner's planet hangar
 	"hangar_p_elyza": {"folders": ["res://assets/hangars"], "match": "bay_p_elyza.", "probe": "res://assets/hangars/bay_p_elyza.jpg"},   # v2.8: the owner's planet hangar
 	"hangar_p_solarion": {"folders": ["res://assets/hangars"], "match": "bay_p_solarion.", "probe": "res://assets/hangars/bay_p_solarion.jpg"},   # v2.8: the owner's planet hangar
+	"hangar_arctides": {"folders": ["res://assets/hangars"], "match": "bay_arctides.", "probe": "res://assets/hangars/bay_arctides.jpg"},   # v3.0: the owner's station hangar
+	"hangar_phenom": {"folders": ["res://assets/hangars"], "match": "bay_phenom.", "probe": "res://assets/hangars/bay_phenom.jpg"},   # v3.0: the owner's station hangar
+	"hangar_gadversee": {"folders": ["res://assets/hangars"], "match": "bay_gadversee.", "probe": "res://assets/hangars/bay_gadversee.jpg"},   # v3.0: the owner's station hangar
+	"hangar_solrath": {"folders": ["res://assets/hangars"], "match": "bay_solrath.", "probe": "res://assets/hangars/bay_solrath.jpg"},   # v3.0: the owner's station hangar
+	"hangar_cybermorph": {"folders": ["res://assets/hangars"], "match": "bay_cybermorph.", "probe": "res://assets/hangars/bay_cybermorph.jpg"},   # v3.0: the owner's station hangar
+	"hangar_kaijurai": {"folders": ["res://assets/hangars"], "match": "bay_kaijurai.", "probe": "res://assets/hangars/bay_kaijurai.jpg"},   # v3.0: the owner's station hangar
 	"hangar_unity": {"folders": ["res://assets/hangars"], "match": "bay_unity.", "probe": "res://assets/hangars/bay_unity.jpg"},   # v2.7: the owner's hangar bay (front view)
 	"hangar_orion": {"folders": ["res://assets/hangars"], "match": "bay_orion.", "probe": "res://assets/hangars/bay_orion.jpg"},   # v2.7: the owner's hangar bay (front view)
 	"hangar_solarion": {"folders": ["res://assets/hangars"], "match": "bay_solarion.", "probe": "res://assets/hangars/bay_solarion.jpg"},   # v2.7: the owner's hangar bay (front view)
