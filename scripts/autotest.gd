@@ -9400,6 +9400,11 @@ func _job_v19x() -> void:
 	var lay_ok: bool = hb.find_child("Hangar", true, false) != null and not hb.left.visible and hb.find_child("Frame_3", true, false) != null and hb.find_child("HangarBay", true, false) != null \
 		and hb.find_child("ShopGrid", true, false) != null and hb.find_child("FrameSpec", true, false) != null and hb.find_child("BayArt", true, false) != null and (hb.find_child("BayArt", true, false) as TextureRect).texture != null and (hb.find_child("Frame_2", true, false) as Button).get_theme_color("font_color") == hb.GOLD
 	await _shot("v19x_hangar_ship", 0.3)
+	hb.bay_yaw = 0.8
+	hb.bay_hold = 99.0
+	await _frames(3)
+	await _shot("v26_ship_turning", 0.0)
+	hb.bay_yaw = 0.0
 	var hn: String = hb._hangar_name()
 	var bays_ok := true
 	for n in Data.HANGARS:
@@ -9451,8 +9456,25 @@ func _job_v19x() -> void:
 	var mmap: Control = hb.find_child("MountMap", true, false)
 	var bart: TextureRect = hb.find_child("BayArt", true, false)
 	var real_mech: bool = hb.find_child("BayMech", true, false) != null and mmap != null and (mmap.get_meta("pts", {}) as Dictionary).size() == 9 \
-		and hb._hangar_name() in Data.MECH_HANGARS and bart != null and bart.texture != null and bart.texture.resource_path.contains("mech_")
+		and (hb._hangar_name() in Data.MECH_HANGARS or Data.MECH_BAYS.has(hb._hangar_name().trim_prefix("mech_"))) and bart != null and bart.texture != null and bart.texture.resource_path.contains("mech_")
 	await _shot("v24_mech_bay", 0.3)
+	# v2.6 (owner): it stands on the faction bay's round pad and turns on it (drag turns it too)
+	var y0: float = hb.bay_yaw
+	hb.bay_hold = 0.0
+	await _wait(0.5)
+	var turned: bool = absf(hb.bay_yaw - y0) > 0.05 and absf(hb.preview_pivot.rotation.y - hb.bay_yaw) < 0.01
+	var ev := InputEventMouseMotion.new()
+	ev.button_mask = MOUSE_BUTTON_MASK_LEFT
+	ev.relative = Vector2(100, 0)
+	var y1: float = hb.bay_yaw
+	mmap.gui_input.emit(ev)
+	var dragged: bool = absf(hb.bay_yaw - y1) > 0.5 and hb.bay_hold > 0.0
+	hb.bay_yaw = 0.5
+	hb.bay_hold = 99.0
+	await _frames(3)
+	await _shot("v26_mech_turning", 0.0)
+	_check("v2.6 (owner): the mech turns on its bay's platform (and drags round by hand); each faction has its own mech bay", turned and dragged and Data.MECH_BAYS.has("elyza") and Packs.PACKS.has("hangar_mech_imperium"),
+		"turn %s, drag %s" % [turned, dragged])
 	_check("v2.4 (owner): the mech view shows your real mech (its fitted parts) standing in a front-view mech bay, with a + square on each of its 9 slots", real_mech,
 		"mech %s, bay %s" % [hb.find_child("BayMech", true, false) != null, hb._hangar_name()])
 	(hb.find_child("Tab_ammo", true, false) as Button).pressed.emit()

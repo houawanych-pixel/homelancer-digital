@@ -31,6 +31,12 @@ const PACKS := {
 	"enemies": {"folders": ["res://assets/enemy_pilots"], "probe": "res://assets/enemy_pilots/ax01_normal.jpg"},
 	"intro": {"folders": ["res://assets/intro"], "probe": "res://assets/intro/title_movie.ogv"},
 	# v1.4s: one static interface background per faction; only the one for the station you dock at is fetched
+	"hangar_mech_unity": {"folders": ["res://assets/hangars"], "match": "mech_unity_top.", "probe": "res://assets/hangars/mech_unity_top.jpg"},   # v2.6: the owner's faction mech bay
+	"hangar_mech_orion": {"folders": ["res://assets/hangars"], "match": "mech_orion_top.", "probe": "res://assets/hangars/mech_orion_top.jpg"},   # v2.6: the owner's faction mech bay
+	"hangar_mech_solarion": {"folders": ["res://assets/hangars"], "match": "mech_solarion_top.", "probe": "res://assets/hangars/mech_solarion_top.jpg"},   # v2.6: the owner's faction mech bay
+	"hangar_mech_liberator": {"folders": ["res://assets/hangars"], "match": "mech_liberator_top.", "probe": "res://assets/hangars/mech_liberator_top.jpg"},   # v2.6: the owner's faction mech bay
+	"hangar_mech_imperium": {"folders": ["res://assets/hangars"], "match": "mech_imperium_top.", "probe": "res://assets/hangars/mech_imperium_top.jpg"},   # v2.6: the owner's faction mech bay
+	"hangar_mech_elyza": {"folders": ["res://assets/hangars"], "match": "mech_elyza_top.", "probe": "res://assets/hangars/mech_elyza_top.jpg"},   # v2.6: the owner's faction mech bay
 	"hangar_mech_blue": {"folders": ["res://assets/hangars"], "match": "mech_blue_top.", "probe": "res://assets/hangars/mech_blue_top.jpg"},   # v2.4: the owner's mech bay (front view)
 	"hangar_mech_scarlet": {"folders": ["res://assets/hangars"], "match": "mech_scarlet_top.", "probe": "res://assets/hangars/mech_scarlet_top.jpg"},   # v2.4: the owner's mech bay (front view)
 	"hangar_elyza": {"folders": ["res://assets/hangars"], "match": "elyza_top.", "probe": "res://assets/hangars/elyza_top.jpg"},   # v1.9y: the owner's hangar bay

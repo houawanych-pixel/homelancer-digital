@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v2.5"
+const VERSION := "v2.6"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -1008,8 +1008,15 @@ const LEVELS := {
 # A looping clip assets/hangars/<name>_top.ogv, when there is one, plays in place of the picture.
 const HANGARS := {"elyza": 0.62, "orion": 0.66, "unity": 0.66, "spare_a": 0.43, "spare_b": 0.4}
 const HANGAR_SPARES := ["spare_a", "spare_b"]
-const MECH_HANGARS := ["mech_blue", "mech_scarlet"]   # v2.4 (owner): the mech's bays, seen from the front (one per station, by turns)
-const MECH_BAY_FILL := 0.8    # the mech stands this much of the bay's height
+const MECH_HANGARS := ["mech_blue", "mech_scarlet"]   # v2.4 (owner): spare mech bays, seen from the front (stations with no faction bay)
+# v2.6 (owner): each faction's own mech bay; the number is where the round pad's centre sits (share of the picture's
+# height from the top). The mech stands on it.
+const MECH_BAYS := {"unity": 0.75, "orion": 0.71, "solarion": 0.72, "liberator": 0.69, "imperium": 0.63, "elyza": 0.65,
+	"mech_blue": 0.86, "mech_scarlet": 0.92}
+const MECH_ON_PAD := 0.62     # the mech's height as a share of the bay picture's height
+const BAY_SPIN := 0.35         # v2.6 (owner): rad/s the ship / mech turns on the hangar platform
+const BAY_SPIN_WAIT := 4.0     # s it waits after you drag it or pick a slot
+const BAY_TAGS_FACING := 0.93  # the slot name tags show while it faces you (cos of its turn)
 const MOUNT_MID_AT := 0.62   # v1.9w: the middle wing slot (level 3) sits this far out along the wing, on top
 # v1.9w: ABILITY MODULES (names from the owner's sheet; effects PROVISIONAL). One of each kind at a time.
 const MODULE_ORDER := ["power_cell", "shield_generator", "sensor_array", "control_unit", "processor_unit", "maintenance_port", "heat_shield"]

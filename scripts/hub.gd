@@ -24,6 +24,8 @@ var launch_btn: Button   # v1.5k: always there, upper right
 var board_tab := "missions"   # v1.5k: the MISSION BOARD's open tab: "missions" | "bounty"
 var preview_vp: SubViewport
 var preview_pivot: Node3D
+var bay_yaw := 0.0    # v2.6: the hangar turntable's turn
+var bay_hold := 0.0   # s the turntable waits after you drag it or pick a slot
 var preview_key := ""
 var t := 0.0
 # ship inspector: tap the showroom (or VIEW) to look the ship over: drag to turn it, pinch / wheel to zoom, full stats
@@ -342,6 +344,8 @@ func _equipment_page() -> void:
 	# v1.9y (owner's hangar layout + bay art): the docking bay fills the screen (the faction's hangar art, a looping clip
 	# when there is one), YOUR ship on the pad seen from above with a square on every slot, the menu floating on the
 	# left (HANGAR / WEAPON / EQUIPMENT / REPAIR & AMMO), the panel for that section floating on the right.
+	bay_yaw = 0.0   # v2.6: each time the page is built it faces you first, then starts turning
+	bay_hold = Data.BAY_SPIN_WAIT
 	if not GS.level_def()["uv"].has(eq_sel) and eq_sel < 100: eq_sel = -1
 	if eq_sel >= 100 and eq_sel - 100 >= GS.module_slots(): eq_sel = -1
 	if not (eq_tab in ["hangar", "weapon", "module", "ammo"]): eq_tab = "hangar"
@@ -497,7 +501,11 @@ func _dock_status(v: VBoxContainer) -> void:
 ## The bay art behind everything: the faction's own hangar (its looping clip <name>_top.ogv when there is one, else
 ## its picture <name>_top.jpg; each in its own small pack), else a spare bay. Its landing pad sits under the ship.
 func _hangar_name() -> String:
-	if _eq_mech(): return Data.MECH_HANGARS[absi(hash(str(base.get("id", base.get("name", ""))))) % Data.MECH_HANGARS.size()]
+	if _eq_mech():
+		var fm := str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])).to_lower()
+		if fm.begins_with("liberator"): fm = "liberator"
+		if Data.MECH_BAYS.has(fm) and not fm.begins_with("mech_"): return "mech_" + fm
+		return Data.MECH_HANGARS[absi(hash(str(base.get("id", base.get("name", ""))))) % Data.MECH_HANGARS.size()]
 	var f := str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])).to_lower()
 	if Data.HANGARS.has(f): return f
 	return Data.HANGAR_SPARES[absi(hash(str(base.get("id", base.get("name", ""))))) % Data.HANGAR_SPARES.size()]
@@ -549,6 +557,7 @@ func _place_bay_art(art: Control, bay: Control) -> void:
 		var hm: float = maxf(root.size.y, (bay.size.x + 400.0) / asp)
 		art.size = Vector2(hm * asp, hm)
 		art.position = Vector2(bay.position.x + bay.size.x * 0.5 - art.size.x * 0.5, root.size.y - hm)
+		_stand_mech(art, bay)
 		var mm0: Control = bay.find_child("MountMap", true, false)
 		if mm0 != null: mm0.queue_redraw()
 		return
@@ -656,11 +665,13 @@ func _mech_bay(bay: Control) -> bool:
 	preview_key = "mech"
 	var bb: AABB = ShipFactory._aabb(m, Transform3D.IDENTITY)
 	var hgt: float = maxf(bb.size.y * m.scale.y, 0.5)
-	var c: Vector3 = bb.get_center() * m.scale
+	var c0: Vector3 = bb.get_center() * m.scale
+	m.position = Vector3(-c0.x, 0.0, -c0.z)   # (centred on the turntable)
+	var c := Vector3(0.0, c0.y, 0.0)
 	var cam := Camera3D.new()
 	cam.name = "BayCam"
 	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
-	cam.size = hgt / Data.MECH_BAY_FILL
+	cam.size = hgt / 0.8   # (_stand_mech sizes it to the pad)
 	cam.position = Vector3(c.x, c.y + hgt * 0.06, c.z - 60.0)   # in front of it (its front faces -Z), a touch high: feet near the floor
 	preview_vp.add_child(cam)
 	cam.look_at(Vector3(c.x, c.y + hgt * 0.06, c.z), Vector3.UP)
@@ -685,6 +696,27 @@ func _mech_bay(bay: Control) -> bool:
 	ov.resized.connect(func(): ov.queue_redraw())
 	return true
 
+## v2.6 (owner): the mech stands on the bay's round pad: its feet on the pad's centre, sized to the picture.
+func _stand_mech(art: Control, bay: Control) -> void:
+	var cam: Camera3D = bay.find_child("BayCam", true, false)
+	var m: Node3D = bay.find_child("BayMech", true, false)
+	if cam == null or m == null or not is_instance_valid(preview_vp): return
+	var nm := _hangar_name()
+	var key := nm.trim_prefix("mech_") if Data.MECH_BAYS.has(nm.trim_prefix("mech_")) else nm
+	var pad_y: float = float(Data.MECH_BAYS.get(key, 0.85))
+	var vs := Vector2(preview_vp.size)
+	if vs.y <= 1.0: return
+	var bb: AABB = ShipFactory._aabb(m, Transform3D.IDENTITY)
+	var hgt: float = maxf(bb.size.y * m.scale.y, 0.5)
+	var px: float = maxf(art.size.y * Data.MECH_ON_PAD, 40.0) * vs.y / maxf(bay.size.y, 1.0)   # the mech's height in viewport pixels
+	cam.size = hgt * vs.y / px
+	var feet: float = (art.position.y + pad_y * art.size.y - bay.position.y) * vs.y / maxf(bay.size.y, 1.0)   # where its feet go
+	var bottom: float = bb.position.y * m.scale.y
+	var c := Vector3.ZERO
+	var cy: float = bottom + (feet - vs.y * 0.5) * cam.size / vs.y
+	cam.position = Vector3(c.x, cy, c.z - 60.0)
+	cam.look_at(Vector3(c.x, cy, c.z), Vector3.UP)
+
 func _on_mech_bay_pack(pk: String) -> void:
 	if visible and screen == "equipment" and _eq_mech() and (pk == "mechs" or pk.begins_with("mf_")): show_screen("equipment")
 
@@ -696,16 +728,13 @@ func _mech_slot_points(cam: Camera3D, m: Node3D, sz: Vector2) -> Dictionary:
 	var bb: AABB = ShipFactory._aabb(m, Transform3D.IDENTITY)
 	var vs := Vector2(preview_vp.size)
 	if vs.x <= 0.0: return out
-	var lo := Vector2(1e9, 1e9)
-	var hi := Vector2(-1e9, -1e9)
-	for i in 8:
-		var sp: Vector2 = cam.unproject_position(m.global_transform * bb.get_endpoint(i)) * (sz / vs)
-		lo = lo.min(sp)
-		hi = hi.max(sp)
-	var r := Rect2(lo, hi - lo)
+	if cos(bay_yaw) < 0.15: return out   # (its back to you: the slots are on its front)
 	var uv: Dictionary = GS.level_def()["mech_uv"]
-	for kk in uv: out[kk] = r.position + r.size * (uv[kk] as Vector2)
-	return _spread(out, 34.0)
+	for kk in uv:   # (the camera looks along +Z, so screen-left is +X)
+		var u: Vector2 = uv[kk]
+		var lp := Vector3(lerpf(bb.end.x, bb.position.x, u.x), lerpf(bb.end.y, bb.position.y, u.y), bb.get_center().z)
+		out[kk] = cam.unproject_position(m.global_transform * lp) * (sz / vs)
+	return _spread(out, 34.0) if _facing() else out
 
 ## The three frames (levels): their wireframes, yours lit. A tap on another says which ships are that level.
 func _ship_select(col: Control) -> void:
@@ -738,16 +767,30 @@ func _ship_select(col: Control) -> void:
 		col.add_child(fb)
 
 func _bay_tap(e: InputEvent, pts: Dictionary, c: Control = null) -> void:
+	var drag := Vector2.ZERO
+	if e is InputEventScreenDrag: drag = (e as InputEventScreenDrag).relative
+	elif e is InputEventMouseMotion and ((e as InputEventMouseMotion).button_mask & MOUSE_BUTTON_MASK_LEFT): drag = (e as InputEventMouseMotion).relative
+	if drag != Vector2.ZERO:   # v2.6: drag sideways to turn it on the platform
+		bay_yaw = fmod(bay_yaw + drag.x * 0.012, TAU)
+		bay_hold = Data.BAY_SPIN_WAIT
+		_dragged = true
+		return
+	if _dragged and ((e is InputEventMouseButton and not (e as InputEventMouseButton).pressed) or (e is InputEventScreenTouch and not (e as InputEventScreenTouch).pressed)):
+		_dragged = false
+		return
 	var tap := (e is InputEventScreenTouch and not (e as InputEventScreenTouch).pressed) or (e is InputEventMouseButton and (e as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT and not (e as InputEventMouseButton).pressed)
 	if not tap: return
 	var at: Vector2 = (e as InputEventMouseButton).position if e is InputEventMouseButton else (e as InputEventScreenTouch).position
 	var k := _slot_at(at, pts, c)
 	if k > -9:
+		bay_yaw = 0.0   # face front so its tags show
+		bay_hold = Data.BAY_SPIN_WAIT
 		eq_sel = k
 		eq_tab = "ammo" if k in [-2, -3, -4] else "weapon"
 		show_screen("equipment")
 
 ## The slot under a tap: its square (with a finger's margin) or its name tag.
+var _dragged := false
 func _slot_at(at: Vector2, pts: Dictionary, c: Control = null) -> int:
 	var best := -9
 	var bd := 30.0
@@ -785,7 +828,7 @@ func _ship_slot_points(cam: Camera3D, m: Node3D, sz: Vector2) -> Dictionary:
 		var wp: Vector3 = m.global_transform * (Vector3(c.x, bb.end.y, c.z) + loc[k])
 		var sp: Vector2 = cam.unproject_position(wp)
 		out[k] = sp * (sz / vs) if vs.x > 0.0 else sp
-	return _spread(out, 34.0)
+	return _spread(out, 34.0) if _facing() else out
 
 ## v2.2: on a narrow hull the slots crowd together; nudge them apart (sideways first) so every square can be tapped.
 func _spread(pts: Dictionary, gap: float) -> Dictionary:
@@ -853,6 +896,7 @@ func _slot_sub(k: int) -> String:
 	return str(d.get("short", d.get("name", it))).to_upper()
 
 const TAG_W := 92.0
+func _facing() -> bool: return cos(bay_yaw) > Data.BAY_TAGS_FACING
 const TAG_H := 30.0
 ## Where each slot's tag goes: left-hand slots tag out to the left, right-hand to the right, centre ones above/below;
 ## tags on one side are spread so they never overlap.
@@ -897,7 +941,9 @@ func _draw_slots(c: Control, pts: Dictionary) -> void:
 	var font := ThemeDB.fallback_font
 	var half := _slot_half(c)
 	var tags := _slot_layout(c.size, pts, half)
+	var show_tags := _facing() or not is_instance_valid(preview_pivot)
 	for k in pts:   # the lines first, under the squares and tags
+		if not show_tags: break
 		var p: Vector2 = pts[k]
 		var r: Rect2 = tags[k]
 		var to := Vector2(r.end.x if r.get_center().x < p.x else r.position.x, r.get_center().y)
@@ -927,6 +973,7 @@ func _draw_slots(c: Control, pts: Dictionary) -> void:
 			c.draw_line(sq.get_center() - Vector2(pl, 0), sq.get_center() + Vector2(pl, 0), pc, 2.5)
 			c.draw_line(sq.get_center() - Vector2(0, pl), sq.get_center() + Vector2(0, pl), pc, 2.5)
 		c.draw_rect(sq, GOLD if sel else Color(0.45, 0.9, 1.0), false, 2.5 if sel else 1.5)
+		if not show_tags: continue
 		var r: Rect2 = tags[k]
 		c.draw_rect(r, Color(0.02, 0.07, 0.13, 0.86))
 		c.draw_rect(r, GOLD if sel else Color(0.45, 0.9, 1.0, 0.7), false, 1.0)
@@ -2425,7 +2472,13 @@ func _repair_page() -> void:
 func _process(dt: float) -> void:
 	if not visible: return
 	t += dt
-	if preview_pivot and is_instance_valid(preview_pivot) and screen != "equipment": preview_pivot.rotation.y = t * 0.4 + eq_yaw   # (v1.9y: the hangar bay is a still top view)
+	if preview_pivot and is_instance_valid(preview_pivot) and screen != "equipment": preview_pivot.rotation.y = t * 0.4 + eq_yaw
+	elif preview_pivot and is_instance_valid(preview_pivot) and screen == "equipment":   # v2.6 (owner): it turns on the platform
+		if bay_hold > 0.0: bay_hold -= dt
+		else: bay_yaw = fmod(bay_yaw + dt * Data.BAY_SPIN, TAU)
+		preview_pivot.rotation.y = bay_yaw
+		var ov: Control = content.find_child("MountMap", true, false) if is_instance_valid(content) else null
+		if ov != null: ov.queue_redraw()
 	queue_redraw()
 
 # ---------------------------------------------------------------- scenic background
