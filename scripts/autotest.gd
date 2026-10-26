@@ -9544,6 +9544,11 @@ func _job_v19z() -> void:
 	await _frames(4)
 	var tun_ok: bool = fx.tunnel_tex_on and absf(fx.tex_spin - sp0) > 0.0 and (fx._warp_rect.material as ShaderMaterial).get_shader_parameter("use_tex") == true
 	await _shot("v19z_jump_tunnel", 0.1)
+	var wind_ok: bool = float((fx._warp_rect.material as ShaderMaterial).get_shader_parameter("wind")) > 0.0
+	fx.travel += 6.0   # further along: the bend swings the other way
+	await _frames(2)
+	await _shot("v25_tunnel_bend_other_way", 0.0)
+	tun_ok = tun_ok and wind_ok
 	fx.begin_warp("cloud")
 	await _frames(4)
 	var warp_t_ok: bool = fx.warp_tex_on and (fx._warp_rect.material as ShaderMaterial).get_shader_parameter("use_tex_b") == true

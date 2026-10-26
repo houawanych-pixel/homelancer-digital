@@ -50,6 +50,8 @@ uniform sampler2D tunnel_tex_b : source_color, repeat_enable, filter_linear; // 
 uniform bool use_tex_b = false;
 uniform bool use_tex = false;
 uniform float tex_spin = 0.0;
+uniform float wind = 0.0;        // v2.5 (owner, MvC2's portal): the tube snakes left then right (S bends); 0 = straight
+uniform float wind_freq = 0.45;
 uniform float aspect = 1.78;
 uniform float oval = 1.6;
 uniform float ragged = 0.3;
@@ -58,8 +60,25 @@ uniform float twist = 0.55;
 uniform float bands = 3.0;
 uniform float alpha = 0.96;
 float nz(vec2 uv) { return textureLod(noise_tex, uv, 0.0).r; }
+// v2.5: a winding tube. The path swings side to side (sin); the camera rides it looking along its heading, so the part
+// of the tube D ahead sits off to the side by (its offset - where the heading points) / D on screen.
+float path_x(float s) { return sin(s * wind_freq); }
+float path_y(float s) { return 0.35 * sin(s * wind_freq * 0.7 + 1.3); }
+vec2 bend(float D, float s) {
+	float dx = path_x(s + D) - path_x(s) - wind_freq * cos(s * wind_freq) * D;
+	float dy = path_y(s + D) - path_y(s) - 0.35 * wind_freq * 0.7 * cos(s * wind_freq * 0.7 + 1.3) * D;
+	return wind * 0.26 * vec2(dx, dy) / max(D, 0.05);
+}
 void fragment() {
 	vec2 p = (UV - 0.5) * vec2(aspect, 1.0);
+	if (wind > 0.0 && (skin == 0 || (skin == 1 && use_tex_b))) {
+		float s0 = travel * 0.6;
+		float roll = -wind * wind_freq * wind_freq * sin(s0 * wind_freq) * 0.35;   // lean into the bend
+		p = vec2(p.x * cos(roll) - p.y * sin(roll), p.x * sin(roll) + p.y * cos(roll));
+		vec2 q = p;
+		for (int i = 0; i < 3; i++) q = p - bend(0.26 / (length(q) + 0.0001), s0);
+		p = q;
+	}
 	float r = length(p) + 0.0001;
 	float th = atan(p.y, p.x) / TAU;
 	vec3 col = vec3(0.0);
@@ -241,6 +260,8 @@ func _process(dt: float) -> void:
 		m.set_shader_parameter("ragged", Data.RIFT_RAGGED)
 		m.set_shader_parameter("mist", Data.RIFT_MIST)
 		m.set_shader_parameter("twist", Data.TUNNEL_TWIST)
+		m.set_shader_parameter("wind", Data.TUNNEL_WIND)
+		m.set_shader_parameter("wind_freq", Data.TUNNEL_WIND_FREQ)
 		m.set_shader_parameter("bands", Data.TUNNEL_BANDS)
 		m.set_shader_parameter("alpha", Data.WARP_ALPHA)
 	queue_redraw()

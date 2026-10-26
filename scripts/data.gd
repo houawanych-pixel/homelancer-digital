@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v2.4"
+const VERSION := "v2.5"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -762,6 +762,8 @@ const RIFT_OVAL := 1.6               # the tear is this much wider than tall
 const RIFT_RAGGED := 0.2             # how torn the edge is (0 = clean oval)
 const RIFT_MIST := 0.6               # coloured mist on each tear's edge
 const RIFT_TINT_MIN_HUE := 0.12      # two tears in a row differ in hue by at least this
+const TUNNEL_WIND := 3.0            # v2.5 (owner, like MvC2's portal): the jump and warp-gate tunnels snake left then right
+const TUNNEL_WIND_FREQ := 0.45       # how tight the S bends are (lower = longer, gentler swoops)
 const TUNNEL_TWIST := 0.55           # jump tunnel: how much the energy bands corkscrew
 const TUNNEL_BANDS := 3.0            # jump tunnel: bands around the tube (whole number)
 const CLOUD_LAYERS := 6              # warp-gate anomaly: gas layers rushing past
