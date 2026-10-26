@@ -1208,6 +1208,7 @@ func _bay_tap(e: InputEvent, pts: Dictionary, c: Control = null) -> void:
 	var tap := (e is InputEventScreenTouch and not (e as InputEventScreenTouch).pressed) or (e is InputEventMouseButton and (e as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT and not (e as InputEventMouseButton).pressed)
 	if not tap: return
 	var at: Vector2 = (e as InputEventMouseButton).position if e is InputEventMouseButton else (e as InputEventScreenTouch).position
+	if c != null and c.has_meta("pts"): pts = c.get_meta("pts")   # v3.5: tap what is drawn (the camera may have moved since)
 	var k := _slot_at(at, pts, c)
 	if k > -9:
 		bay_yaw = 0.0   # face front so its tags show
