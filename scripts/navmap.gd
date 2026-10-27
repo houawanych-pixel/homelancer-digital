@@ -506,7 +506,8 @@ func _layout() -> void:
 	map_rect = Rect2(36, 100, S.x * 0.64, S.y - 130)
 	var sys: Dictionary = Data.SYSTEMS[GS.system_id]
 	# fit the system into the map
-	var pts := [sys["station"]["pos"], sys["planet"]["pos"], sys["gate"]["pos"], sys["asteroids"]["center"], sys["nebula"]["center"]]
+	var pts := [sys["station"]["pos"], sys["planet"]["pos"], sys["asteroids"]["center"], sys["nebula"]["center"]]
+	if not sys["gate"].is_empty(): pts.append(sys["gate"]["pos"])   # (v6.2: an open square has no gate)
 	for gd0 in sys["gates"]: pts.append(gd0["pos"])
 	for nb0 in SpaceSystem.nebulae_of(GS.system_id, sys): pts.append(nb0["center"])   # v1.9s: the extra clouds fit too
 	for xd0 in sys.get("more_planets", []): pts.append(xd0["pos"])

@@ -177,6 +177,7 @@ func _setup(id: String, arrival: String, staged: bool) -> void:
 	_bolt_halo = BoxMesh.new()
 	_bolt_halo.size = Vector3(2.2, 2.2, 18.0)    # soft glow around it, so bolts read at range and on phones
 	_prof("start")
+	Packs.request("kaijurai_fleet")   # v6.2: the enemy-space ships, fetched in the background
 	_build_environment()
 	_prof("environment (sky, sun, camera)")
 	_build_station(sys["station"])
@@ -186,11 +187,15 @@ func _setup(id: String, arrival: String, staged: bool) -> void:
 	_prof("planet")
 	if staged: await get_tree().process_frame
 	for gd in sys["gates"]: _build_gate(gd)
-	gate = gates[0]
-	gate_portal = gate_portals[0]
-	gate_standin = gate.get_meta("standin")
-	_gate_model()
-	if gate_model == null and not Packs.pack_ready.is_connected(_on_gate_pack): Packs.pack_ready.connect(_on_gate_pack)
+	if gates.is_empty():   # v6.2: an open square has no gate: a hidden marker far away stands in (never in range)
+		gate = _placeholder("-", "none", Vector3(0, -1000000, 0), {"name": "-", "to": "", "pos": Vector3(0, -1000000, 0)})
+		gates = [gate]
+	else:
+		gate = gates[0]
+		gate_portal = gate_portals[0]
+		gate_standin = gate.get_meta("standin")
+		_gate_model()
+		if gate_model == null and not Packs.pack_ready.is_connected(_on_gate_pack): Packs.pack_ready.connect(_on_gate_pack)
 	_prof("gate")
 	if staged: await get_tree().process_frame
 	_build_belt(sys["asteroids"])
@@ -206,7 +211,7 @@ func _setup(id: String, arrival: String, staged: bool) -> void:
 	_named_down = {}
 	_incursion = Factions.raider_of(str(sys.get("faction", ""))) if randf() < Data.INCURSION_CHANCE else ""
 	faction_mech(str(sys.get("faction", "")))   # v1.9i: fetch this space's own mech early (its patrols and ground jobs use it)
-	for p in (sys["patrols"] as Array).slice(0, Data.PATROL_GROUPS): _spawn_group(p, Data.ROSTER_PATROL_SIZE if Factions.replaces_patrols(str(sys.get("faction", ""))) else 2)   # v1.8v: fewer wings
+	for p in (sys["patrols"] as Array).slice(0, Data.PATROL_GROUPS): _spawn_group(p, (Data.ROSTER_PATROL_SIZE if Factions.replaces_patrols(str(sys.get("faction", ""))) else 2) + (Data.ENEMY_SPACE_EXTRA if SystemBuilder.is_enemy_space(sys) else 0))   # v1.8v: fewer wings; v6.2: more in enemy space
 	spawn_guard()
 	spawn_bounty()
 	_prof("patrols")
@@ -2588,6 +2593,7 @@ func _spawn_group(center: Vector3, count: int) -> Array:
 		var mkey: String = faction_mech(str(sys.get("enemy_faction", own)) if own == "" else own) if kind == "mech" else ""   # v1.9i: the system's faction's own mech
 		var e := spawn_unit(kind, center + Vector3(_rng.randf_range(-60, 60), _rng.randf_range(-20, 20), _rng.randf_range(-60, 60)), center, mkey)
 		e["group"] = _group_serial
+		if SystemBuilder.is_enemy_space(sys) and not _guard_spawn: enemy_space_power(e)
 		# the first ship flies under a NAMED squad leader (Scar Jackal, Iron Revenant...); everyone else is a generic
 		# pilot in that leader's wing
 		if not soldier.is_empty():
@@ -2691,6 +2697,16 @@ func assign_roster(e: Dictionary, p: Dictionary) -> void:
 		e["node"].name = p["name"]
 		GS.cast_state(p["character_id"])["current_system"] = sys_id
 	apply_rank(e, int(p["rank"]))
+
+## v6.2 (owner): in enemy space their ships are stronger (Data.ENEMY_SPACE_POWER).
+func enemy_space_power(e: Dictionary) -> void:
+	var k: float = Data.ENEMY_SPACE_POWER
+	for key in ["hp", "max", "sh", "sh_max", "l", "r", "side_max"]: e[key] = float(e[key]) * k
+	var d: Dictionary = (e["def"] as Dictionary).duplicate()
+	d["damage"] = float(d["damage"]) * k
+	d["reward"] = int(float(d["reward"]) * k)
+	e["def"] = d
+	e["enemy_space"] = true
 
 ## THE RULE: the higher the number, the stronger the ship (Data.RANK_*).
 func apply_rank(e: Dictionary, rank: int) -> void:
@@ -3829,7 +3845,7 @@ func _lane_clear(a: Vector3, b: Vector3, skip: Array) -> bool:
 func _build_lanes() -> void:
 	lanes.clear()
 	lane = {}
-	if surface_mode: return
+	if surface_mode or SystemBuilder.is_enemy_space(sys) or sys.get("open", false): return   # v6.2 (owner): spaceways only in faction space
 	var pairs: Array = [[station, planet]]
 	for g in gates: pairs.append([station, g])
 	var xfs: Array = []
@@ -5475,6 +5491,7 @@ func cycle_target() -> void:
 	message.emit("Target: %s" % target.name)
 
 func dock_candidate() -> Node3D:
+	if not surface_mode and (SystemBuilder.is_enemy_space(sys) or sys["station"].get("nodock", false)): return null   # v6.2 (owner): you cannot dock in enemy space
 	var p := player.global_position
 	if p.distance_to(station.global_position) < DOCK_RANGE_STATION: return station
 	if p.distance_to(dock_point(station)) < DOCK_RANGE_STATION: return station

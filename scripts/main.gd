@@ -307,7 +307,7 @@ func _objective() -> String:
 	var enemy_name: String = Data.ENEMIES[space.sys["enemy"]]["name"]
 	var st: String = space.sys["station"]["name"]
 	var pl: String = space.sys["planet"]["name"]
-	var gt: String = space.sys["gate"]["name"]
+	var gt: String = str(space.sys["gate"].get("name", "the edge of this space"))
 	if GS.system_id == "solara":
 		if GS.kills == 0: return "OBJECTIVE: Destroy a %s (aim — lasers fire on their own, missiles finish it)" % enemy_name
 		if not visited.has("liberty_hub_2"): return "OBJECTIVE: Dock at %s to repair and spend your credits" % st
@@ -1053,6 +1053,13 @@ func jump(gate: Node3D = null) -> void:
 			hud.flash_message("Welcome to %s. Autopilot: %s" % [Data.SYSTEMS[to]["name"], mw["title"]])
 
 # ---------------------------------------------------------------- defeat
+## v6.2: where the tug takes you from enemy or open space: the system of the last station you docked at, else Solara.
+func friendly_base_system() -> String:
+	for id in Data.SYSTEMS:
+		var sy: Dictionary = Data.SYSTEMS[id]
+		if str(sy["station"].get("id", "")) == GS.last_base and not SystemBuilder.is_enemy_space(sy) and not sy.get("open", false): return id
+	return "solara" if Data.SYSTEMS.has("solara") else Data.SYSTEMS.keys()[0]
+
 func _on_destroyed() -> void:
 	if state != "flight": return
 	state = "dead"
@@ -1067,7 +1074,9 @@ func _on_destroyed() -> void:
 	GS.credits -= lost
 	GS.restore_full()
 	var failed := Missions.restart_after_death()   # v1.9r: the job fails and starts again from the beginning
-	if space.surface_mode or failed != "": _load_system(space.sys_id, "station")   # (a fresh system: the job's old wave is gone)
+	var tow_to: String = space.sys_id
+	if SystemBuilder.is_enemy_space(space.sys) or space.sys.get("open", false): tow_to = friendly_base_system()   # v6.2: never towed into an enemy station
+	if space.surface_mode or failed != "" or tow_to != space.sys_id: _load_system(tow_to, "station")   # (a fresh system: the job's old wave is gone)
 	space.visible = false
 	space.process_mode = Node.PROCESS_MODE_DISABLED
 	space.controls = true
@@ -1145,7 +1154,7 @@ static func board_neighbour(from: String, dc: int, dr: int) -> String:
 	var cells := {}
 	var cols := 0
 	var rows := 0
-	for t in GalaxyData.TILES:
+	for t in GalaxyData.TILES + SystemBuilder.open_rows():   # v6.2: the open squares are real space too
 		if not Data.SYSTEMS.has(t[0]): continue
 		cells[Vector2i(int(t[3]), int(t[4]))] = t[0]
 		cols = maxi(cols, int(t[3]) + 1)

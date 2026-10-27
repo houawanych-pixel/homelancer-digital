@@ -1011,8 +1011,17 @@ func _run() -> void:
 		await _job_v19w()
 		await _job_v19x()
 		await _job_edge()
+		await _job_open()
 		await _job_v35()
 		await _job_v19z()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
+	if _flag("HL_OPEN"):   # the v6.2 open squares and enemy space only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_open()
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
@@ -1021,6 +1030,7 @@ func _run() -> void:
 		await _until(func(): return main.state == "flight", 10.0)
 		await _wait(1.0)
 		await _job_edge()
+		await _job_open()
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
@@ -1826,6 +1836,7 @@ func _run() -> void:
 	await _job_v19w()
 	await _job_v19x()
 	await _job_edge()
+	await _job_open()
 	await _job_v35()
 	await _job_v19z()
 	await _blocks()
@@ -9437,6 +9448,64 @@ func _job_edge() -> void:
 	var arrive_ok: bool = crossed and p.x < -E + 3000.0 and p.x > -E - 10.0 and absf(p.z - 300.0) < 3000.0
 	_check("v6.2 (owner): a system's space is a 1,000 km tile; flying past 500 km east brings you into the next system east (%s > %s), at its west edge; off the board's edge it wraps round (%s > %s)" % [home, east, far, wrapped],
 		E == 500000.0 and wrap_ok and arrive_ok, "crossed %s, arrived at x %.0f km" % [crossed, p.x / 1000.0])
+	main._load_system(home, "station")
+	await _frames(3)
+
+## v6.2 (owner): the 54 open squares are real space (own sky, no gate); the 17 next to an enemy home are that enemy's
+## space: no spaceways, stronger patrols, no docking. The second Kaijurai set flies there, the creatures' tails waving.
+func _job_open() -> void:
+	var s := _sp()
+	if s.surface_mode or main.state != "flight": return
+	var home: String = GS.system_id
+	var open_n := 0
+	var held_n := 0
+	var sky_ok := true
+	for id in Data.SYSTEMS:
+		var sy: Dictionary = Data.SYSTEMS[id]
+		if not sy.get("open", false): continue
+		open_n += 1
+		if SystemBuilder.is_enemy_space(sy): held_n += 1
+		if not (FileAccess.file_exists("res://assets/skies/%s.jpg" % id) and Packs.PACKS.has("sky_" + id)): sky_ok = false
+	_check("v6.2 (owner): all 121 board squares are space you can fly: 67 systems + %d open squares (%d of them enemy-held), each open square with its own sky" % [open_n, held_n],
+		open_n == 54 and held_n == 17 and GalaxyData.TILES.size() + open_n == 121 and sky_ok, "open %d, held %d, skies %s" % [open_n, held_n, sky_ok])
+	# an enemy-held square (Kaijurai space next to Genesis)
+	var held := ""
+	for id in Data.SYSTEMS:
+		if str(Data.SYSTEMS[id].get("held_by", "")) == "Kaijurai": held = id
+	main._load_system(held, "station")
+	await _frames(4)
+	s = _sp()
+	s.player.global_position = s.station.global_position + Vector3(0, 0, 80)
+	await _frames(2)
+	var strong: bool = not s.enemies.is_empty() and s.enemies.all(func(e): return e.get("enemy_space", false) or e.get("guard", false))
+	var e0: Dictionary = s.enemies[0] if not s.enemies.is_empty() else {}
+	var tougher: bool = not e0.is_empty() and float(e0["max"]) >= float(Data.ENEMIES[str(e0["def"].get("model", ""))]["hull"] if Data.ENEMIES.has(str(e0["def"].get("model", ""))) else 0.0) * 1.0
+	var kaij: bool = s.enemies.any(func(e): return str(e["def"].get("faction", "")) == "Kaijurai")
+	var rules: bool = s.lanes.is_empty() and s.dock_candidate() == null and s.gate.global_position.y < -100000.0
+	_check("v6.2 (owner): enemy space (%s): no spaceways, no docking at their outpost, no gate, Kaijurai patrols that are stronger (x%.1f)" % [held, Data.ENEMY_SPACE_POWER],
+		rules and strong and tougher and kaij, "rules %s, strong %s, kaijurai %s" % [rules, strong, kaij])
+	# a free open square: a beacon, nothing to dock at, no spaceways
+	main._load_system("open_" + "a2" if Data.SYSTEMS.has("open_a2") else Data.SYSTEMS.keys().filter(func(k): return Data.SYSTEMS[k].get("open", false) and not SystemBuilder.is_enemy_space(Data.SYSTEMS[k]))[0], "station")
+	await _frames(4)
+	s = _sp()
+	s.player.global_position = s.station.global_position + Vector3(0, 0, 80)
+	await _frames(2)
+	_check("v6.2: a free open square has no spaceways and nothing to dock at", s.lanes.is_empty() and s.dock_candidate() == null, s.sys_id)
+	# the second Kaijurai set: real models, the right length, nose ahead, the creatures' tails moving
+	var models_ok := true
+	var detail := ""
+	for k in ["kaijurai_fang", "kaijurai_ravager", "kaijurai_stalker", "kaijurai_hound", "kaijurai_reaper"]:
+		var m := ShipFactory.build(k)
+		var box: AABB = ShipFactory._aabb(m, Transform3D.IDENTITY)
+		var longest: float = maxf(box.size.x, maxf(box.size.y, box.size.z))
+		var flows: bool = m.find_children("*", "MeshInstance3D", true, false).any(func(mi): return mi.has_meta("flow"))
+		var inst: Node3D = m.get_child(0)
+		var ok: bool = not m.get_meta("placeholder", true) and absf(longest - float(ShipFactory.GLB[k][1])) < 1.0 and flows and is_equal_approx(inst.rotation_degrees.y, float(ShipFactory.GLB[k][2]))
+		if not ok:
+			models_ok = false
+			detail += "%s(len %.1f, flow %s) " % [k, longest, flows]
+		m.free()
+	_check("v6.2 (owner): the second Kaijurai set is in: Fang, Ravager, Stalker, Hound, Reaper (real models, their lengths, turned nose-first), their tails flowing", models_ok, detail)
 	main._load_system(home, "station")
 	await _frames(3)
 

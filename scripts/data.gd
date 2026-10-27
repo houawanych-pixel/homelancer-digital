@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v6.2"
+const VERSION := "v6.3"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -733,10 +733,29 @@ const PHENOM_INTERCEPTOR_LEN := 12.0    # thruster repair: the upright tail cann
 const PHENOM_SCOUT_LEN := 11.0          # thruster repair, same donor
 const PHENOM_HEAVY_LEN := 15.0
 const ALIEN_SHIP_YAW := 0.0
+# v6.2 (owner, Oct 27): the second Kaijurai set (hl_kaiju_fighter, hl_kdest, hl_kaiju_cat, hl_kdog, hl_kbird). Names are
+# guesses from the shapes. Each was checked from above with its yaw: nose up. Creatures and some ships are bigger.
+const KAIJURAI_FANG_LEN := 16.0        # hl_kaiju_fighter: wide spiked fighter (lies across: yaw 90)
+const KAIJURAI_FANG_YAW := 90.0
+const KAIJURAI_RAVAGER_LEN := 48.0     # hl_kdest: the long spined destroyer (its model faces back: yaw 180)
+const KAIJURAI_RAVAGER_YAW := 180.0
+const KAIJURAI_STALKER_LEN := 30.0     # hl_kaiju_cat: tentacled creature ship
+const KAIJURAI_HOUND_LEN := 26.0       # hl_kdog: legged creature ship
+const KAIJURAI_REAPER_LEN := 34.0      # hl_kbird: many-tailed creature (lies across: yaw 90)
+const KAIJURAI_REAPER_YAW := 90.0
+# v6.2 (owner): "the strange tail behind it ... a very strange kind of flow movement": the back of these models waves.
+# key: [tail direction in the model's own axes, wave size (share of the model), waves along the body, speed]
+const SHIP_FLOW := {
+	"kaijurai_stalker": [Vector3(0, 0, 1), 0.06, 5.0, 2.2], "kaijurai_hound": [Vector3(0, 0, 1), 0.04, 4.0, 2.6],
+	"kaijurai_reaper": [Vector3(-1, 0, 0), 0.07, 5.5, 1.9], "kaijurai_ravager": [Vector3(0, 0, -1), 0.02, 3.0, 1.4],
+	"kaijurai_fang": [Vector3(-1, 0, 0), 0.025, 3.5, 3.0],
+}
 # which ships fly the patrols of an enemy home system (by the map's role text). The patrol's ships are taken from this
 # list in turn. Systems not listed keep sys["enemy"].
 const HOME_FLEETS := {
-	"Kaijurai home": ["kaijurai_dart", "kaijurai_heavy", "kaijurai_dart", "kaijurai_gunship"],
+	"Kaijurai home": ["kaijurai_dart", "kaijurai_fang", "kaijurai_heavy", "kaijurai_stalker", "kaijurai_gunship", "kaijurai_reaper", "kaijurai_hound", "kaijurai_ravager"],
+	"Gadversee home": ENEMY_SPACE_FLEET,   # v6.2: no ships of their own yet: Kaijurai stand in (owner)
+	"Arctides home": ENEMY_SPACE_FLEET,
 	"Phenom home": ["phenom_fighter", "phenom_interceptor", "phenom_scout", "phenom_heavy"],
 	"Cybermorph home": ["cybermorph_fighter", "cybermorph_star", "cybermorph_fighter", "cybermorph_fighter"],   # v1.5c
 	"Solrath home": ["solrath_blade_a", "solrath_blade_b", "solrath_batwing", "solrath_spire"],   # v1.5c
@@ -866,6 +885,10 @@ const CALL_FOLD_AFTER := 9.0   # v5.6: s before a greeting folds to its tab
 const CALL_FACE := 170.0       # v5.5 (owner): a caller's face is this big everywhere (flight comms and the talk box)
 const SPACE_EDGE := 500000.0   # v6.2 (owner): each system's space is a 1,000 km tile: 500 km each way from its centre;
                                # past it you cross into the neighbouring tile of the galaxy board (Pac-Man wrap at the board's edge)
+const ENEMY_SPACE_POWER := 1.6   # v6.2 (owner): enemy space is deadlier: hull, shields, damage and pay x this
+const ENEMY_SPACE_EXTRA := 1      # ... and one more ship in every patrol
+const ENEMY_SPACE_FLEET := ["kaijurai_fang", "kaijurai_stalker", "kaijurai_fang", "kaijurai_hound", "kaijurai_reaper", "kaijurai_ravager"]
+const ENEMY_OUTPOST_MODEL := "HL_Station_Kaijurai_Military_retopo"   # v6.2: the outposts in enemy-held squares (Kaijurai stand in for all)   # enemies with no ships of their own fly Kaijurai (owner: placeholders for the rest)
 const ROOM_SND_FRONT := 0.5    # v5.9 (owner): a room third's own sound when you face it (Echo Vision style)
 const ROOM_SND_SEAM := 0.25    # ... each of the two at a join; off screen = silent
 const HUB_MUSIC := 0.1         # v5.9 (owner): the faction's music under the hub, at 10%
@@ -1556,6 +1579,12 @@ const ENEMIES := {
 	"kaijurai_dart": {"name": "Kaijurai Dart Fighter", "class": "fighter", "faction": "Kaijurai", "model": "kaijurai_dart", "hull": 70.0, "shield": 40.0, "speed": 49.0, "turn": 1.5, "damage": 6.0, "rate": 1.7, "reward": 210},
 	"kaijurai_heavy": {"name": "Kaijurai Heavy Fighter", "class": "heavy fighter", "faction": "Kaijurai", "model": "kaijurai_heavy", "radius": 9.0, "hull": 120.0, "shield": 65.0, "speed": 45.0, "turn": 1.25, "damage": 7.0, "rate": 1.9, "reward": 340, "missiles": true},
 	"kaijurai_gunship": {"name": "Kaijurai Gunship", "class": "gunship", "faction": "Kaijurai", "model": "kaijurai_gunship", "radius": 10.0, "hull": 150.0, "shield": 80.0, "speed": 41.0, "turn": 1.1, "damage": 8.0, "rate": 2.0, "reward": 420, "missiles": true},
+	# v6.2: the second Kaijurai set (enemy space; stronger still there, Data.ENEMY_SPACE_POWER)
+	"kaijurai_fang": {"name": "Kaijurai Fang", "class": "fighter", "faction": "Kaijurai", "model": "kaijurai_fang", "radius": 9.0, "hull": 85.0, "shield": 50.0, "speed": 50.0, "turn": 1.5, "damage": 6.5, "rate": 1.7, "reward": 240},
+	"kaijurai_hound": {"name": "Kaijurai Hound", "class": "creature", "faction": "Kaijurai", "model": "kaijurai_hound", "radius": 13.0, "hull": 170.0, "shield": 70.0, "speed": 44.0, "turn": 1.2, "damage": 8.0, "rate": 1.9, "reward": 420, "missiles": true},
+	"kaijurai_stalker": {"name": "Kaijurai Stalker", "class": "creature", "faction": "Kaijurai", "model": "kaijurai_stalker", "radius": 15.0, "hull": 210.0, "shield": 80.0, "speed": 42.0, "turn": 1.1, "damage": 8.5, "rate": 2.0, "reward": 500, "missiles": true},
+	"kaijurai_reaper": {"name": "Kaijurai Reaper", "class": "creature", "faction": "Kaijurai", "model": "kaijurai_reaper", "radius": 17.0, "hull": 240.0, "shield": 90.0, "speed": 40.0, "turn": 1.0, "damage": 9.0, "rate": 2.0, "reward": 560, "missiles": true},
+	"kaijurai_ravager": {"name": "Kaijurai Ravager", "class": "destroyer", "faction": "Kaijurai", "model": "kaijurai_ravager", "radius": 24.0, "hull": 420.0, "shield": 160.0, "speed": 36.0, "turn": 0.8, "damage": 11.0, "rate": 2.2, "reward": 1100, "missiles": true},
 	"phenom_fighter": {"name": "Phenom Fighter", "class": "fighter", "faction": "Phenom", "model": "phenom_fighter", "hull": 70.0, "shield": 45.0, "speed": 49.0, "turn": 1.5, "damage": 6.0, "rate": 1.7, "reward": 210},
 	"phenom_interceptor": {"name": "Phenom Interceptor", "class": "interceptor", "faction": "Phenom", "model": "phenom_interceptor", "hull": 65.0, "shield": 45.0, "speed": 52.0, "turn": 1.6, "damage": 6.0, "rate": 1.8, "reward": 230},
 	"phenom_scout": {"name": "Phenom Scout", "class": "scout", "faction": "Phenom", "model": "phenom_scout", "hull": 55.0, "shield": 40.0, "speed": 53.0, "turn": 1.6, "damage": 5.0, "rate": 1.6, "reward": 180},

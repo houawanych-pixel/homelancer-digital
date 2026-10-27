@@ -29,6 +29,37 @@ const GATE_KINDS := {
 }
 const CENTRE := Vector3(0, 0, -1200)
 
+## v6.2 (owner): the open squares of the 11 x 11 board are real space too: a 1,000 km tile you fly through, with its
+## own sky (art/sky_library spare_NN) and no gate. The ones touching an enemy home are that enemy's space (the galaxy
+## draft's rule: the 8 squares round each enemy home): no spaceways, stronger patrols, an outpost you cannot dock at.
+## Free squares hold only a nav beacon. Same row shape as GalaxyData.TILES.
+static func open_rows() -> Array:
+	var occ := {}
+	var homes := []
+	for t in GalaxyData.TILES:
+		occ[Vector2i(int(t[3]), int(t[4]))] = true
+		if str(t[6]).ends_with(" home") and t[5] == "Enemy": homes.append(t)
+	var rows: Array = []
+	var k := 0
+	for row in 11:
+		for col in 11:
+			var c := Vector2i(col, row)
+			if occ.has(c): continue
+			var tile := "%s%d" % ["ABCDEFGHIJK"[col], row + 1]
+			var holder := ""
+			for h in homes:
+				if absi(int(h[3]) - col) <= 1 and absi(int(h[4]) - row) <= 1 and holder == "": holder = str(h[6]).trim_suffix(" home")
+			k += 1
+			if holder != "":
+				rows.append(["open_" + tile.to_lower(), "%s Space %s" % [holder, tile], tile, col, row, "Enemy", "held by " + holder,
+					"Rogue Planetoid " + tile, "dead", "%s Outpost %s" % [holder, tile], k, holder])
+			else:
+				rows.append(["open_" + tile.to_lower(), "Open Space " + tile, tile, col, row, "Neutral", "open space",
+					"Rogue Planetoid " + tile, "ice", "Nav Beacon " + tile, k, ""])
+	return rows
+
+static func is_enemy_space(sy: Dictionary) -> bool: return str(sy.get("faction", "")) == "Enemy"
+
 static func all(core: Dictionary) -> Dictionary:
 	var out: Dictionary = core.duplicate(true)
 	var rows := {}
@@ -37,6 +68,22 @@ static func all(core: Dictionary) -> Dictionary:
 		if not out.has(t[0]): out[t[0]] = _system(t)
 		out[t[0]]["tile"] = t[2]
 		out[t[0]]["faction"] = t[5]
+	for t in open_rows():   # v6.2: the open squares
+		rows[t[0]] = t
+		var o := _system(t)
+		o["tile"] = t[2]
+		o["faction"] = t[5]
+		o["open"] = true
+		o["sky_file"] = "spare_%02d" % int(t[10])
+		o["traffic"] = []
+		o["station"]["nodock"] = true
+		if t[11] != "":   # an enemy's space: its home's fleet and people patrol it
+			var role: String = str(t[11]) + " home"
+			o["held_by"] = t[11]
+			o["enemy_ships"] = Data.HOME_FLEETS.get(role, Data.ENEMY_SPACE_FLEET)
+			o["enemy_faction"] = Data.HOME_FACTION.get(role, "")
+			o["station"]["model"] = Data.ENEMY_OUTPOST_MODEL
+		out[t[0]] = o
 	for id in out:
 		out[id]["more_planets"] = []
 		out[id]["more_stations"] = []
@@ -48,7 +95,7 @@ static func all(core: Dictionary) -> Dictionary:
 		_link(out, rows, g[0], g[1], g[2])
 		_link(out, rows, g[0], g[2], g[1])
 	for id in out:
-		if not out[id].has("gate"): out[id]["gate"] = out[id]["gates"][0]
+		if not out[id].has("gate"): out[id]["gate"] = out[id]["gates"][0] if not out[id]["gates"].is_empty() else {}
 	# the rest of each system from the catalog: placeholder planets and stations, spread round the system and kept
 	# clear of everything already there (main planet, main station, gates, each other)
 	for e in GalaxyData.EXTRAS:
@@ -162,7 +209,7 @@ static func spread(out: Dictionary) -> void:
 		var o: Vector3 = sy["station"]["pos"]
 		sy["planet"]["pos"] = o + ((sy["planet"]["pos"] as Vector3) - o) * k
 		var done: Array = []
-		for g in sy["gates"] + [sy["gate"]]:
+		for g in sy["gates"] + ([sy["gate"]] if not sy["gate"].is_empty() else []):
 			if done.any(func(d): return is_same(d, g)): continue
 			done.append(g)
 			g["pos"] = o + ((g["pos"] as Vector3) - o) * k
@@ -188,7 +235,7 @@ static func _link(out: Dictionary, rows: Dictionary, kind: String, a: String, b:
 ## Sun surfaces for every system (one looping tile each), merged into Surface.PLANETS.
 static func suns(have: Dictionary) -> Dictionary:
 	var out := {}
-	for t in GalaxyData.TILES:
+	for t in GalaxyData.TILES + open_rows():
 		var pid: String = t[0] + "_sun"
 		if not have.has(pid): out[pid] = {"name": "%s's Star" % t[1], "system": t[0], "grid": 1, "tiles": ["sun"], "locations": [], "sun": true}
 	return out
@@ -200,7 +247,7 @@ static func suns(have: Dictionary) -> Dictionary:
 static func planets(have: Dictionary) -> Dictionary:
 	var out := {}
 	var count := {}
-	for t in GalaxyData.TILES:
+	for t in GalaxyData.TILES + open_rows():
 		count[t[0]] = 0
 		if Data.CORE_SYSTEMS.has(t[0]): continue
 		var pid: String = t[0] + "_planet"

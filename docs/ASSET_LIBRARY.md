@@ -419,3 +419,20 @@ Stations 12,000 triangles, buildings 8,000. Static, no rig. One pack per station
 | Solrath | HL_Solrath_Hangar_v01_retopo.glb | Hangar | no file delivered yet |
 | Unity | HL_Unity_CommandCenter_v01_retopo.glb | CommandCenter | IN GAME: on Veranthos's planet (main planet of Veranthos, Unity homeworld), flattest dry ground near the sector centre |
 | Unity | HL_Unity_Hangar_v01_retopo.glb | Hangar | IN GAME: on Veranthos's planet (main planet of Veranthos, Unity homeworld), flattest dry ground near the sector centre |
+
+## Kaijurai set 2 (owner, Oct 27 2026; v6.3)
+
+Originals: hl_kaiju_fighter, hl_kdest, hl_kaiju_cat, hl_kdog, hl_kbird (sent twice, same file), hl_ksta; hl_Kaijurai_ship_set again (already in, Job AC).
+Each file held one model (the bird two tiny extra bits, saved). Creatures: not mirrored. Names are guesses from the shapes.
+
+| Faction | File | Kind | Triangles | Mirrored | Source | Status |
+|---|---|---|---|---|---|---|
+| Kaijurai | assets/ships/kaijurai/kaijurai_fang.glb | fighter (yaw 90) | 11923 | no | hl_kaiju_fighter | IN GAME |
+| Kaijurai | assets/ships/kaijurai/kaijurai_ravager.glb | destroyer (yaw 180) | 14914 | no | hl_kdest | IN GAME |
+| Kaijurai | assets/ships/kaijurai/kaijurai_stalker.glb | creature ship | 17654 | no | hl_kaiju_cat | IN GAME |
+| Kaijurai | assets/ships/kaijurai/kaijurai_hound.glb | creature ship | 16363 | no | hl_kdog | IN GAME |
+| Kaijurai | assets/ships/kaijurai/kaijurai_reaper.glb | creature ship (yaw 90) | 10952 | no | hl_kbird | IN GAME |
+| Kaijurai | art/ships/kaijurai_set2/kaijurai_station_game.glb | station | ~60000 | no | hl_ksta | saved (enemy outposts use the Kaijurai military station for now) |
+| Kaijurai | art/ships/kaijurai_set2/kaijurai_bird_part1/2_game.glb | loose parts | <1000 | no | hl_kbird | saved |
+
+The creature ships' back halves wave (ShipFactory._flow, Data.SHIP_FLOW). They are their own pack (kaijurai_fleet), not in the first download.

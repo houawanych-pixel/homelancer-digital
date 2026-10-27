@@ -26,6 +26,12 @@ const GLB := {
 	"kaijurai_dart": ["res://assets/ships/enemy/kaijurai_dart.glb", Data.KAIJURAI_DART_LEN, Data.ALIEN_SHIP_YAW],
 	"kaijurai_heavy": ["res://assets/ships/enemy/kaijurai_heavy.glb", Data.KAIJURAI_HEAVY_LEN, Data.ALIEN_SHIP_YAW],
 	"kaijurai_gunship": ["res://assets/ships/enemy/kaijurai_gunship.glb", Data.KAIJURAI_GUNSHIP_LEN, Data.ALIEN_SHIP_YAW],
+	# v6.2: the second Kaijurai set (own pack "kaijurai_fleet", fetched once you fly)
+	"kaijurai_fang": ["res://assets/ships/kaijurai/kaijurai_fang.glb", Data.KAIJURAI_FANG_LEN, Data.KAIJURAI_FANG_YAW],
+	"kaijurai_ravager": ["res://assets/ships/kaijurai/kaijurai_ravager.glb", Data.KAIJURAI_RAVAGER_LEN, Data.KAIJURAI_RAVAGER_YAW],
+	"kaijurai_stalker": ["res://assets/ships/kaijurai/kaijurai_stalker.glb", Data.KAIJURAI_STALKER_LEN, Data.ALIEN_SHIP_YAW],
+	"kaijurai_hound": ["res://assets/ships/kaijurai/kaijurai_hound.glb", Data.KAIJURAI_HOUND_LEN, Data.ALIEN_SHIP_YAW],
+	"kaijurai_reaper": ["res://assets/ships/kaijurai/kaijurai_reaper.glb", Data.KAIJURAI_REAPER_LEN, Data.KAIJURAI_REAPER_YAW],
 	"phenom_fighter": ["res://assets/ships/enemy/phenom_fighter.glb", Data.PHENOM_FIGHTER_LEN, Data.ALIEN_SHIP_YAW],
 	"phenom_interceptor": ["res://assets/ships/enemy/phenom_interceptor.glb", Data.PHENOM_INTERCEPTOR_LEN, Data.ALIEN_SHIP_YAW],
 	"phenom_scout": ["res://assets/ships/enemy/phenom_scout.glb", Data.PHENOM_SCOUT_LEN, Data.ALIEN_SHIP_YAW],
@@ -127,6 +133,7 @@ static func build(key: String, keep := true) -> Node3D:
 		root.add_child(inst)
 		_fit(root, inst, GLB[key][1])
 		root.set_meta("placeholder", false)
+		if Data.SHIP_FLOW.has(key): _flow(inst, Data.SHIP_FLOW[key])
 		if Data.SHIP_WINGS.has(key):   # v1.5p: folding wings start folded (the open form is only for the SPECIAL)
 			root.set_meta("wings_key", key)
 			set_wings(root, 0.0)
@@ -180,6 +187,66 @@ static func build_mech(core_key: String, arms_key: String, legs_key: String) -> 
 		if n != null: n.free()
 	m.set_meta("mech_keys", [core_key, arms_key, legs_key])
 	return m
+
+## v6.2 (owner): a creature ship's back half waves (tentacles, tails): the model's own texture on a material whose
+## vertex step bends it along the tail, more the farther back. Each ship gets its own phase so a pack never moves as one.
+const FLOW_SHADER := """
+shader_type spatial;
+uniform sampler2D albedo_tex : source_color, filter_linear_mipmap;
+uniform sampler2D orm_tex : hint_default_white, filter_linear_mipmap;
+uniform bool has_orm = false;
+uniform vec3 tail = vec3(0.0, 0.0, 1.0);
+uniform float half_len = 0.5;
+uniform float amp = 0.05;
+uniform float freq = 5.0;
+uniform float speed = 2.0;
+uniform float phase = 0.0;
+void vertex() {
+	float t = dot(VERTEX, tail) / half_len;            // -1 at the nose .. +1 at the tail tip
+	float k = smoothstep(-0.2, 1.0, t);
+	k *= k;
+	vec3 side = normalize(cross(tail, vec3(0.0, 1.0, 0.0)) + vec3(0.0001));
+	float w1 = sin(TIME * speed - t * freq + phase);
+	float w2 = sin(TIME * speed * 0.63 - t * freq * 1.7 + phase * 1.9 + 1.3);
+	VERTEX += (side * w1 + vec3(0.0, 1.0, 0.0) * w2 * 0.6) * amp * half_len * 2.0 * k;
+}
+void fragment() {
+	vec4 c = texture(albedo_tex, UV);
+	ALBEDO = c.rgb;
+	if (has_orm) {
+		vec3 o = texture(orm_tex, UV).rgb;
+		ROUGHNESS = o.g;
+		METALLIC = o.b;
+	} else {
+		ROUGHNESS = 0.6;
+		METALLIC = 0.4;
+	}
+}
+"""
+static var _flow_shader: Shader
+static func _flow(inst: Node3D, cfg: Array) -> void:
+	if _flow_shader == null:
+		_flow_shader = Shader.new()
+		_flow_shader.code = FLOW_SHADER
+	for mi: MeshInstance3D in inst.find_children("*", "MeshInstance3D", true, false):
+		if mi.mesh == null: continue
+		var src := mi.mesh.surface_get_material(0) as BaseMaterial3D
+		var box: AABB = mi.mesh.get_aabb()
+		var tail: Vector3 = cfg[0]
+		var m := ShaderMaterial.new()
+		m.shader = _flow_shader
+		if src != null and src.albedo_texture != null: m.set_shader_parameter("albedo_tex", src.albedo_texture)
+		if src != null and src.metallic_texture != null:
+			m.set_shader_parameter("orm_tex", src.metallic_texture)
+			m.set_shader_parameter("has_orm", true)
+		m.set_shader_parameter("tail", tail)
+		m.set_shader_parameter("half_len", maxf(absf(box.size.dot(tail)) * 0.5, 0.001))
+		m.set_shader_parameter("amp", float(cfg[1]))
+		m.set_shader_parameter("freq", float(cfg[2]))
+		m.set_shader_parameter("speed", float(cfg[3]))
+		m.set_shader_parameter("phase", randf() * TAU)
+		mi.material_override = m
+		mi.set_meta("flow", true)
 
 ## Scale and centre an imported model once (never re-scaled at runtime).
 static func _fit(root: Node3D, inst: Node3D, length: float) -> void:

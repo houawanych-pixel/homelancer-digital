@@ -110,6 +110,7 @@ const PACKS := {
 	"hangar_blue": {"folders": ["res://assets/hangars"], "match": "bay_blue.", "probe": "res://assets/hangars/bay_blue.jpg"},   # v2.7: the owner's hangar bay (front view)
 	"hangar_scarlet": {"folders": ["res://assets/hangars"], "match": "bay_scarlet.", "probe": "res://assets/hangars/bay_scarlet.jpg"},   # v2.7: the owner's hangar bay (front view)
 	"mechs": {"folders": ["res://assets/mechs"], "probe": "res://assets/mechs/tan_navy_mecha.scn"},
+	"kaijurai_fleet": {"folders": ["res://assets/ships/kaijurai"], "probe": "res://assets/ships/kaijurai/kaijurai_fang.glb"},   # v6.2: the second Kaijurai set
 	# v1.9i: one pack per extra mech frame, fetched when you buy / fit its parts or meet its faction
 	"mf_orange": {"folders": ["res://assets/mech_frames"], "match": "mf_orange", "probe": "res://assets/mech_frames/mf_orange.scn"},
 	"mf_rifle": {"folders": ["res://assets/mech_frames"], "match": "mf_rifle", "probe": "res://assets/mech_frames/mf_rifle.scn"},
@@ -230,6 +231,60 @@ const PACKS := {
 	"mus_void_3": {"folders": ["res://assets/music"], "match": "void_3.", "probe": "res://assets/music/void_3.ogg"},
 	"mus_void_4": {"folders": ["res://assets/music"], "match": "void_4.", "probe": "res://assets/music/void_4.ogg"},
 	# -- generated sky packs (tools/galaxy/build_game_data.py) --
+	"sky_open_b1": {"folders": ["res://assets/skies"], "match": "open_b1.", "probe": "res://assets/skies/open_b1.jpg"},   # v6.2: open square B1 (spare_01)
+	"sky_open_d1": {"folders": ["res://assets/skies"], "match": "open_d1.", "probe": "res://assets/skies/open_d1.jpg"},   # v6.2: open square D1 (spare_02)
+	"sky_open_e1": {"folders": ["res://assets/skies"], "match": "open_e1.", "probe": "res://assets/skies/open_e1.jpg"},   # v6.2: open square E1 (spare_03)
+	"sky_open_g1": {"folders": ["res://assets/skies"], "match": "open_g1.", "probe": "res://assets/skies/open_g1.jpg"},   # v6.2: open square G1 (spare_04)
+	"sky_open_c2": {"folders": ["res://assets/skies"], "match": "open_c2.", "probe": "res://assets/skies/open_c2.jpg"},   # v6.2: open square C2 (spare_05)
+	"sky_open_g2": {"folders": ["res://assets/skies"], "match": "open_g2.", "probe": "res://assets/skies/open_g2.jpg"},   # v6.2: open square G2 (spare_06)
+	"sky_open_i2": {"folders": ["res://assets/skies"], "match": "open_i2.", "probe": "res://assets/skies/open_i2.jpg"},   # v6.2: open square I2 (spare_07)
+	"sky_open_k2": {"folders": ["res://assets/skies"], "match": "open_k2.", "probe": "res://assets/skies/open_k2.jpg"},   # v6.2: open square K2 (spare_08)
+	"sky_open_b3": {"folders": ["res://assets/skies"], "match": "open_b3.", "probe": "res://assets/skies/open_b3.jpg"},   # v6.2: open square B3 (spare_09)
+	"sky_open_d3": {"folders": ["res://assets/skies"], "match": "open_d3.", "probe": "res://assets/skies/open_d3.jpg"},   # v6.2: open square D3 (spare_10)
+	"sky_open_e3": {"folders": ["res://assets/skies"], "match": "open_e3.", "probe": "res://assets/skies/open_e3.jpg"},   # v6.2: open square E3 (spare_11)
+	"sky_open_h3": {"folders": ["res://assets/skies"], "match": "open_h3.", "probe": "res://assets/skies/open_h3.jpg"},   # v6.2: open square H3 (spare_12)
+	"sky_open_j3": {"folders": ["res://assets/skies"], "match": "open_j3.", "probe": "res://assets/skies/open_j3.jpg"},   # v6.2: open square J3 (spare_13)
+	"sky_open_a4": {"folders": ["res://assets/skies"], "match": "open_a4.", "probe": "res://assets/skies/open_a4.jpg"},   # v6.2: open square A4 (spare_14)
+	"sky_open_c4": {"folders": ["res://assets/skies"], "match": "open_c4.", "probe": "res://assets/skies/open_c4.jpg"},   # v6.2: open square C4 (spare_15)
+	"sky_open_e4": {"folders": ["res://assets/skies"], "match": "open_e4.", "probe": "res://assets/skies/open_e4.jpg"},   # v6.2: open square E4 (spare_16)
+	"sky_open_g4": {"folders": ["res://assets/skies"], "match": "open_g4.", "probe": "res://assets/skies/open_g4.jpg"},   # v6.2: open square G4 (spare_17)
+	"sky_open_i4": {"folders": ["res://assets/skies"], "match": "open_i4.", "probe": "res://assets/skies/open_i4.jpg"},   # v6.2: open square I4 (spare_18)
+	"sky_open_k4": {"folders": ["res://assets/skies"], "match": "open_k4.", "probe": "res://assets/skies/open_k4.jpg"},   # v6.2: open square K4 (spare_19)
+	"sky_open_b5": {"folders": ["res://assets/skies"], "match": "open_b5.", "probe": "res://assets/skies/open_b5.jpg"},   # v6.2: open square B5 (spare_20)
+	"sky_open_d5": {"folders": ["res://assets/skies"], "match": "open_d5.", "probe": "res://assets/skies/open_d5.jpg"},   # v6.2: open square D5 (spare_21)
+	"sky_open_f5": {"folders": ["res://assets/skies"], "match": "open_f5.", "probe": "res://assets/skies/open_f5.jpg"},   # v6.2: open square F5 (spare_22)
+	"sky_open_h5": {"folders": ["res://assets/skies"], "match": "open_h5.", "probe": "res://assets/skies/open_h5.jpg"},   # v6.2: open square H5 (spare_23)
+	"sky_open_j5": {"folders": ["res://assets/skies"], "match": "open_j5.", "probe": "res://assets/skies/open_j5.jpg"},   # v6.2: open square J5 (spare_24)
+	"sky_open_a6": {"folders": ["res://assets/skies"], "match": "open_a6.", "probe": "res://assets/skies/open_a6.jpg"},   # v6.2: open square A6 (spare_25)
+	"sky_open_c6": {"folders": ["res://assets/skies"], "match": "open_c6.", "probe": "res://assets/skies/open_c6.jpg"},   # v6.2: open square C6 (spare_26)
+	"sky_open_e6": {"folders": ["res://assets/skies"], "match": "open_e6.", "probe": "res://assets/skies/open_e6.jpg"},   # v6.2: open square E6 (spare_27)
+	"sky_open_g6": {"folders": ["res://assets/skies"], "match": "open_g6.", "probe": "res://assets/skies/open_g6.jpg"},   # v6.2: open square G6 (spare_28)
+	"sky_open_i6": {"folders": ["res://assets/skies"], "match": "open_i6.", "probe": "res://assets/skies/open_i6.jpg"},   # v6.2: open square I6 (spare_29)
+	"sky_open_k6": {"folders": ["res://assets/skies"], "match": "open_k6.", "probe": "res://assets/skies/open_k6.jpg"},   # v6.2: open square K6 (spare_30)
+	"sky_open_b7": {"folders": ["res://assets/skies"], "match": "open_b7.", "probe": "res://assets/skies/open_b7.jpg"},   # v6.2: open square B7 (spare_31)
+	"sky_open_d7": {"folders": ["res://assets/skies"], "match": "open_d7.", "probe": "res://assets/skies/open_d7.jpg"},   # v6.2: open square D7 (spare_32)
+	"sky_open_f7": {"folders": ["res://assets/skies"], "match": "open_f7.", "probe": "res://assets/skies/open_f7.jpg"},   # v6.2: open square F7 (spare_33)
+	"sky_open_h7": {"folders": ["res://assets/skies"], "match": "open_h7.", "probe": "res://assets/skies/open_h7.jpg"},   # v6.2: open square H7 (spare_34)
+	"sky_open_j7": {"folders": ["res://assets/skies"], "match": "open_j7.", "probe": "res://assets/skies/open_j7.jpg"},   # v6.2: open square J7 (spare_35)
+	"sky_open_c8": {"folders": ["res://assets/skies"], "match": "open_c8.", "probe": "res://assets/skies/open_c8.jpg"},   # v6.2: open square C8 (spare_36)
+	"sky_open_e8": {"folders": ["res://assets/skies"], "match": "open_e8.", "probe": "res://assets/skies/open_e8.jpg"},   # v6.2: open square E8 (spare_37)
+	"sky_open_g8": {"folders": ["res://assets/skies"], "match": "open_g8.", "probe": "res://assets/skies/open_g8.jpg"},   # v6.2: open square G8 (spare_38)
+	"sky_open_i8": {"folders": ["res://assets/skies"], "match": "open_i8.", "probe": "res://assets/skies/open_i8.jpg"},   # v6.2: open square I8 (spare_39)
+	"sky_open_a9": {"folders": ["res://assets/skies"], "match": "open_a9.", "probe": "res://assets/skies/open_a9.jpg"},   # v6.2: open square A9 (spare_40)
+	"sky_open_b9": {"folders": ["res://assets/skies"], "match": "open_b9.", "probe": "res://assets/skies/open_b9.jpg"},   # v6.2: open square B9 (spare_41)
+	"sky_open_d9": {"folders": ["res://assets/skies"], "match": "open_d9.", "probe": "res://assets/skies/open_d9.jpg"},   # v6.2: open square D9 (spare_42)
+	"sky_open_f9": {"folders": ["res://assets/skies"], "match": "open_f9.", "probe": "res://assets/skies/open_f9.jpg"},   # v6.2: open square F9 (spare_43)
+	"sky_open_h9": {"folders": ["res://assets/skies"], "match": "open_h9.", "probe": "res://assets/skies/open_h9.jpg"},   # v6.2: open square H9 (spare_44)
+	"sky_open_i9": {"folders": ["res://assets/skies"], "match": "open_i9.", "probe": "res://assets/skies/open_i9.jpg"},   # v6.2: open square I9 (spare_45)
+	"sky_open_j9": {"folders": ["res://assets/skies"], "match": "open_j9.", "probe": "res://assets/skies/open_j9.jpg"},   # v6.2: open square J9 (spare_46)
+	"sky_open_c10": {"folders": ["res://assets/skies"], "match": "open_c10.", "probe": "res://assets/skies/open_c10.jpg"},   # v6.2: open square C10 (spare_47)
+	"sky_open_e10": {"folders": ["res://assets/skies"], "match": "open_e10.", "probe": "res://assets/skies/open_e10.jpg"},   # v6.2: open square E10 (spare_48)
+	"sky_open_g10": {"folders": ["res://assets/skies"], "match": "open_g10.", "probe": "res://assets/skies/open_g10.jpg"},   # v6.2: open square G10 (spare_49)
+	"sky_open_h10": {"folders": ["res://assets/skies"], "match": "open_h10.", "probe": "res://assets/skies/open_h10.jpg"},   # v6.2: open square H10 (spare_50)
+	"sky_open_b11": {"folders": ["res://assets/skies"], "match": "open_b11.", "probe": "res://assets/skies/open_b11.jpg"},   # v6.2: open square B11 (spare_51)
+	"sky_open_f11": {"folders": ["res://assets/skies"], "match": "open_f11.", "probe": "res://assets/skies/open_f11.jpg"},   # v6.2: open square F11 (spare_52)
+	"sky_open_i11": {"folders": ["res://assets/skies"], "match": "open_i11.", "probe": "res://assets/skies/open_i11.jpg"},   # v6.2: open square I11 (spare_53)
+	"sky_open_j11": {"folders": ["res://assets/skies"], "match": "open_j11.", "probe": "res://assets/skies/open_j11.jpg"},   # v6.2: open square J11 (spare_54)
 	"sky_beta_7": {"folders": ["res://assets/skies"], "match": "beta_7.", "probe": "res://assets/skies/beta_7.jpg"},
 	"sky_void_system": {"folders": ["res://assets/skies"], "match": "void_system.", "probe": "res://assets/skies/void_system.jpg"},
 	"sky_keldrix": {"folders": ["res://assets/skies"], "match": "keldrix.", "probe": "res://assets/skies/keldrix.jpg"},
