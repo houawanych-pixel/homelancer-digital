@@ -9608,9 +9608,9 @@ func _job_fl() -> void:
 	main._on_hud("weapons")
 	s.enemies = keep_en
 	var rr: Rect2 = hud.radar_rect()
-	var placed: bool = hud.buttons.has("view") and hud.buttons["view"].end.y <= rr.position.y + 1.0 and hud.buttons.has("map") and hud.buttons["log"].position.x > hud.S.x * 0.6
+	var placed: bool = hud.buttons.has("view") and hud.buttons["view"].end.x <= rr.position.x + 1.0 and hud.buttons["goto"].end.x <= rr.position.x + 1.0 and hud.buttons.has("radar") and hud.buttons["log"].position.x > hud.S.x * 0.6   # (v7.1: left of the radar; the radar is the map)
 	hud.weapons_pinned = true
-	_check("v7.0 (owner mockup): cruising, the weapons and abilities fold away (the flight row stays); WEAPONS brings them back; COCKPIT / GO TO / MAP sit over the radar, COMMS by the aim stick",
+	_check("v7.0 (owner mockup): cruising, the weapons and abilities fold away (the flight row stays); WEAPONS brings them back; COCKPIT / GO TO left of the radar (the radar is the map), COMMS by the aim stick",
 		hidden and shown and placed, "hidden %s shown %s placed %s" % [hidden, shown, placed])
 	_check("v6.7 (owner, Freelancer): a contact list (left) and ship panel (right) that fold away; tap a contact = target; guns switch on and off; GO TO goes to the job first; kills blow up big (%.0f, a big ship %.0f) with a flash" % [small, big_b],
 		rows_ok and picked and folded and silent and fires and goto_ok and small >= 50.0 and big_b > small * 2.0 and flash_ok,

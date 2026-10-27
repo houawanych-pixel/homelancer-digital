@@ -458,9 +458,9 @@ func radar_rect() -> Rect2:
 	if GS.view == "cockpit" and cockpit_texture():
 		var cr := cockpit_rect()
 		return Rect2(cr.position + cr.size * Vector2(0.433, 0.66), cr.size * Vector2(0.136, 0.155))
-	var c := _console()
-	var mid := clampf(c.size.x * 0.34, 150.0, 220.0)
-	return Rect2(c.get_center().x - mid * 0.5, c.position.y, mid, c.size.y)
+	var g := dash_geo()   # v7.1: the radar globe on the dash
+	var rad: float = g["rad"]
+	return Rect2((g["rc"] as Vector2) - Vector2(rad, rad), Vector2(rad, rad) * 2.0)
 
 ## Where a stick can be grabbed: the bottom corners only (not the radar / middle of the dash).
 func stick_zone(which: String) -> Rect2:
@@ -531,11 +531,9 @@ func _layout() -> void:
 	# list; COMMS (the old LOG / CALL) sits right of the radar; the health bars are on the dash, left of the radar.
 	var pw := clampf((avail - 4 * 6) / 5.0, 66.0, 110.0)
 	# v7.0 (owner mockup): COCKPIT · GO TO · MAP sit right above the radar; COMMS and WEAPONS above the aim stick
-	var ids := ["view", "goto", "map"]
-	var rr0 := radar_rect()
-	var pw2 := clampf(rr0.size.x / 3.0 - 4.0, 60.0, 92.0)
-	var row := pw2 * ids.size() + 6 * (ids.size() - 1)
-	for k in ids.size(): buttons[ids[k]] = Rect2(Vector2(rr0.get_center().x - row * 0.5 + k * (pw2 + 6), rr0.position.y - 44), Vector2(pw2, 38))
+	var dg := dash_geo()   # v7.1 (owner's dash art): COCKPIT and GO TO left of the radar; the radar itself is the MAP
+	buttons["view"] = dg["view"]
+	buttons["goto"] = dg["goto"]
 	buttons["log"] = comms_rect()
 	buttons["weapons"] = Rect2(buttons["log"].position - Vector2(0, 50), buttons["log"].size)
 	log_rect = buttons["log"]
@@ -743,6 +741,14 @@ func _text(p: Vector2, txt: String, size := 18, col := WHITE, align := HORIZONTA
 
 func _icon(id: String, c: Vector2, s: float, col: Color) -> void:
 	match id:
+		"view":   # v7.1: a pilot seat
+			draw_polyline(PackedVector2Array([c + Vector2(-s * 0.5, s), c + Vector2(-s * 0.55, -s * 0.2), c + Vector2(-s * 0.3, -s), c + Vector2(s * 0.3, -s), c + Vector2(s * 0.55, -s * 0.2), c + Vector2(s * 0.5, s)]), col, 2.5, true)
+			draw_line(c + Vector2(-s * 0.9, s * 0.3), c + Vector2(s * 0.9, s * 0.3), col, 2.5)
+			draw_line(c + Vector2(-s * 0.9, s), c + Vector2(s * 0.9, s), col, 2.5)
+			return
+		"goto":   # v7.1: a nav arrow
+			draw_colored_polygon(PackedVector2Array([c + Vector2(s, -s), c + Vector2(-s * 0.15, s), c + Vector2(-s * 0.05, s * 0.05), c + Vector2(-s, -s * 0.15)]), col)
+			return
 		"fullscreen":   # four corner brackets
 			for sx in [-1.0, 1.0]:
 				for sy in [-1.0, 1.0]:
@@ -1409,9 +1415,9 @@ func _draw() -> void:
 	_corner("fire", "FIRE", "guns", RED, space.fire_lock, "", 0.0, space.warp_active() or not space.lane.is_empty(), "ON · TAP OFF" if space.fire_lock else "TAP = ON")
 	_corner("kill", "KILL", "kill", GOLD, space.engine_kill, "", 0.0, mech, "DRIFTING" if space.engine_kill else "ENGINE")
 	_corner("zoom", "ZOOM", "zoom", CYAN, space.zoomed, "", 0.0, false, "SCOPE ON" if space.zoomed else "SCOPE")
-	_pill("view", "CHASE" if cockpit else "COCKPIT", false, CYAN)
-	_pill("goto", "GO TO", space.autopilot != null, CYAN)
-	_pill("map", "MAP", false, CYAN)
+	if cockpit and cockpit_texture():   # (in the cockpit art the dash is the art's own; these two stay as pills)
+		_pill("view", "CHASE", false, CYAN)
+		_pill("goto", "GO TO", space.autopilot != null, CYAN)
 	_pill("log", "COMMS", comms_mode == "roster", CYAN)
 	_pill("weapons", "WEAPONS", weapons_shown(), RED if weapons_shown() else CYAN)
 	if buttons.has("dock"): _pill("dock", "DOCK", true, GREEN, space.dock_candidate().name.to_upper())
@@ -1546,20 +1552,64 @@ func _brackets(p: Vector2, s: float, col: Color) -> void:
 		draw_line(corner, corner - Vector2(0, cr.y * s * 0.45), col, 3)
 
 # ---------------------------------------------------------------- dashboard: SPEED · status/radar · WAYPOINT
+## v7.1 (owner's dash art): one console between the sticks. Left: COCKPIT and GO TO stacked. Middle: the radar globe in
+## its ring (tap = map) with SPEED under it. Right: SHIELDS, HULL (LEFT WING / CORE / RIGHT WING) and ENERGY, each with
+## its percentage. Sized to the gap between the two sticks.
+func dash_geo() -> Dictionary:
+	var l := _home("move").x + stick_r + 14.0
+	var r := _home("aim").x - stick_r - 14.0
+	var h := clampf(S.y * 0.3, 160.0, 240.0)
+	var w := minf(r - l, h * 3.6)
+	var x0 := (l + r) * 0.5 - w * 0.5
+	var y0 := S.y - h - 8.0
+	var btn_w := w * 0.17
+	var rad := minf(h * 0.42, w * 0.15)
+	var rc := Vector2(x0 + btn_w + 10.0 + rad + 6.0, y0 + rad + 8.0)
+	var bars_x := rc.x + rad + 22.0
+	return {"x0": x0, "y0": y0, "w": w, "h": h, "rc": rc, "rad": rad,
+		"view": Rect2(x0, rc.y - rad * 0.62, btn_w, rad * 0.56), "goto": Rect2(x0, rc.y + rad * 0.06, btn_w, rad * 0.56),
+		"speed": Rect2(rc.x - rad * 0.95, rc.y + rad + 8.0, rad * 1.9, minf(30.0, y0 + h - rc.y - rad - 8.0)),
+		"bars": Rect2(bars_x, y0 + 4.0, x0 + w - bars_x, h - 8.0)}
+
+func _dash_frame(r: Rect2, col := CYAN) -> void:   # the cut-corner tech frame of the art
+	var c := minf(14.0, r.size.y * 0.3)
+	var pts := PackedVector2Array([r.position + Vector2(c, 0), Vector2(r.end.x - c, r.position.y), Vector2(r.end.x, r.position.y + c),
+		Vector2(r.end.x, r.end.y - c), Vector2(r.end.x - c, r.end.y), Vector2(r.position.x + c, r.end.y), Vector2(r.position.x, r.end.y - c), Vector2(r.position.x, r.position.y + c)])
+	draw_colored_polygon(pts, Color(0.01, 0.05, 0.1, 0.82))
+	draw_polyline(pts + PackedVector2Array([pts[0]]), Color(col, 0.95), 2.5, true)
+
+func _seg_bar(r: Rect2, v: float, col: Color, segs: int, blink := false) -> void:
+	_dash_frame(Rect2(r.position - Vector2(3, 3), r.size + Vector2(6, 6)), Color(col, 0.6))
+	var sw := r.size.x / segs
+	for i in segs:
+		var sr := Rect2(Vector2(r.position.x + i * sw + 1, r.position.y), Vector2(sw - 2, r.size.y))
+		var fill := clampf(v * segs - i, 0.0, 1.0)
+		draw_rect(sr, Color(0.1, 0.18, 0.25, 0.8))
+		if fill > 0.0: draw_rect(Rect2(sr.position, Vector2(sr.size.x * fill, sr.size.y)), RED if blink else col)
+
 func _dashboard() -> void:
-	var cr := _console()
-	var sw := clampf(cr.size.x * 0.3, 120.0, 190.0)
-	var mid := clampf(cr.size.x * 0.34, 150.0, 220.0)
-	var speed_r := Rect2(cr.get_center().x - mid * 0.5 - 10 - sw, cr.position.y + 26, sw, 76)
-	var screen_r := Rect2(cr.get_center().x - mid * 0.5, cr.position.y, mid, cr.size.y)
 	way_rect = Rect2()
-	# v6.9 (owner, Freelancer): the health bars sit on the dash, left of the radar; the speed is under the radar
-	# v7.0 (owner mockup): health bars RIGHT of the radar with their percentages; SPEED above the buttons over the radar
-	var bars_r := Rect2(screen_r.end.x + 10, screen_r.position.y + 10, clampf(sw + 70, 200.0, 280.0), 74)
-	_status_bars(bars_r, true)
-	var sy := screen_r.position.y - 58
-	_text(Vector2(screen_r.position.x - 60, sy), "SPEED  %d m/s" % int(space.speed_now), 20, CYAN_HI, HORIZONTAL_ALIGNMENT_CENTER, screen_r.size.x + 120)
-	speed_r = Rect2(screen_r.position.x, sy - 18, screen_r.size.x, 22)
+	var g := dash_geo()
+	var rc: Vector2 = g["rc"]
+	var rad: float = g["rad"]
+	# COCKPIT / GO TO
+	for id in ["view", "goto"]:
+		var br: Rect2 = g[id]
+		var on: bool = (id == "goto" and space.autopilot != null) or held.has(id)
+		_dash_frame(br, CYAN if not on else GREEN)
+		_icon("view" if id == "view" else "goto", br.position + Vector2(br.size.y * 0.5 + 4, br.size.y * 0.5), br.size.y * 0.24, CYAN_HI)
+		_text(Vector2(br.position.x + br.size.y * 0.9, br.position.y + br.size.y * 0.5 + 7), ("CHASE" if GS.view == "cockpit" else "COCKPIT") if id == "view" else "GO TO", clampi(int(br.size.y * 0.36), 12, 20), WHITE, HORIZONTAL_ALIGNMENT_LEFT, br.size.x - br.size.y * 0.9)
+	# the radar globe in its ring
+	draw_circle(rc, rad + 10.0, Color(0.01, 0.05, 0.1, 0.85))
+	for k in 12:
+		var a0 := k * TAU / 12.0 + 0.08
+		draw_arc(rc, rad + 9.0, a0, a0 + TAU / 12.0 - 0.16, 8, Color(CYAN, 0.95), 4.0, true)
+	draw_arc(rc, rad + 2.0, 0, TAU, 64, Color(CYAN, 0.55), 1.5, true)
+	_radar(rc, rad - 2.0, false)
+	# SPEED under the radar
+	var sr: Rect2 = g["speed"]
+	_dash_frame(sr)
+	_text(Vector2(sr.position.x, sr.position.y + sr.size.y * 0.5 + 7), "SPEED  %d m/s" % int(space.speed_now), clampi(int(sr.size.y * 0.55), 12, 20), WHITE, HORIZONTAL_ALIGNMENT_CENTER, sr.size.x)
 	var mode := ""
 	if space.warp_state == "on": mode = "WARP"
 	elif space.warp_state == "charging": mode = "WARP CHARGING"
@@ -1567,11 +1617,43 @@ func _dashboard() -> void:
 	elif space.braking: mode = "STOPPING"
 	elif space.boosting: mode = "THRUST"
 	if space.surface_mode and mode == "": mode = "ALT %d m" % int(space.altitude)
-	if mode != "": _text(Vector2(speed_r.position.x, speed_r.end.y + 16), mode, 13, GOLD, HORIZONTAL_ALIGNMENT_CENTER, speed_r.size.x)
-	# centre screen: radar with your ship silhouette
-	_box(screen_r, Color(0.01, 0.06, 0.12, 0.95), Color(CYAN, 0.9), 12, 2)
-	_radar(screen_r.get_center() + Vector2(0, 4), minf(screen_r.size.x, screen_r.size.y) * 0.44, true)
-	_gps_strip(Rect2(cr.get_center().x - 230, cr.position.y - 44, 460, 34))   # v1.5i
+	if mode != "": _text(Vector2(sr.position.x, sr.position.y - 4), mode, 12, GOLD, HORIZONTAL_ALIGNMENT_CENTER, sr.size.x)
+	# SHIELDS / HULL / ENERGY
+	var br2: Rect2 = g["bars"]
+	var ph := br2.size.y
+	var rows := [ph * 0.27, ph * 0.46, ph * 0.27]
+	var y := br2.position.y
+	var fs := clampi(int(ph * 0.1), 11, 20)
+	var sh: float = clampf(GS.shield / maxf(GS.max_shield(), 1.0), 0.0, 1.0)
+	var hu: float = clampf(GS.hull / maxf(GS.max_hull(), 1.0), 0.0, 1.0)
+	var wl: float = clampf(GS.wing_l / maxf(GS.wing_max(), 1.0), 0.0, 1.0)
+	var wr: float = clampf(GS.wing_r / maxf(GS.wing_max(), 1.0), 0.0, 1.0)
+	var en: float = clampf(GS.energy / Data.ENERGY_MAX, 0.0, 1.0)
+	var blink := fmod(t, 0.6) < 0.3
+	for k in 3:
+		var rr := Rect2(br2.position.x, y, br2.size.x, rows[k] - 4.0)
+		_dash_frame(rr)
+		var ix := rr.position.x + 12.0
+		var iw := rr.size.x - 24.0
+		if k == 1:
+			_text(Vector2(ix, rr.position.y + fs + 2), "HULL", fs, WHITE)
+			var cw := iw / 3.0
+			var names := ["LEFT WING", "CORE", "RIGHT WING"]
+			var vals := [wl, hu, wr]
+			for j in 3:
+				var cx := ix + j * cw
+				var col: Color = _hull_col(vals[j])
+				_seg_bar(Rect2(cx + 6, rr.position.y + fs + 10, cw - 16, maxf(8.0, rr.size.y * 0.16)), vals[j], col, 7, vals[j] < 0.25 and blink)
+				_text(Vector2(cx, rr.end.y - fs - 6), names[j], maxi(10, fs - 4), WHITE, HORIZONTAL_ALIGNMENT_CENTER, cw)
+				_text(Vector2(cx, rr.end.y - 4), "%d%%" % int(round(vals[j] * 100.0)), fs, WHITE, HORIZONTAL_ALIGNMENT_CENTER, cw)
+		else:
+			var v: float = sh if k == 0 else en
+			var col2: Color = Color(0.15, 0.6, 1.0) if k == 0 else YELLOW
+			_text(Vector2(ix, rr.position.y + fs + 2), "SHIELDS" if k == 0 else "ENERGY", fs, WHITE)
+			_text(Vector2(ix, rr.position.y + fs + 2), "%d%%" % int(round(v * 100.0)), fs, WHITE, HORIZONTAL_ALIGNMENT_RIGHT, iw)
+			_seg_bar(Rect2(ix, rr.position.y + fs + 8, iw, maxf(8.0, rr.size.y - fs - 16)), v, col2, 20, k == 0 and v < 0.2 and blink)
+		y += rows[k]
+	_gps_strip(Rect2(S.x * 0.5 - 230, g["y0"] - 44, 460, 34))   # v1.5i
 
 ## Radar (Job S, v1.4p): the same GPS-style view as the navigation map, small. A grid, faceted blips, a north
 ## marker, and the course line when one is set. North-up or heading-up, angled or overhead (NavGrid's setting).
