@@ -3678,51 +3678,8 @@ func _draw() -> void:
 		draw_texture_rect_region(bg_tex, Rect2((S.x - src.size.x * k) * 0.5, (S.y - src.size.y * k) * 0.5, src.size.x * k, src.size.y * k), src)
 		draw_rect(Rect2(Vector2.ZERO, S), Color(0.01, 0.02, 0.04, Data.HUB_BG_WASH))
 		draw_rect(Rect2(0, 0, S.x, 116), Color(0, 0, 0, Data.HUB_HEADER_BAND))
-	elif kind == "planet":
-		var sky_top := Color(0.2, 0.42, 0.75) if base.get("palette", "") == "terran" else Color(0.15, 0.45, 0.4)
-		var sky_bot := Color(0.95, 0.75, 0.55) if base.get("palette", "") == "terran" else Color(0.75, 0.9, 0.6)
-		for i in 24:
-			var k := i / 23.0
-			draw_rect(Rect2(0, S.y * k, S.x, S.y / 23.0 + 1), sky_top.lerp(sky_bot, k * 0.8))
-		# distant mountains and towers
-		var pts := PackedVector2Array([Vector2(0, S.y)])
-		for x in range(0, int(S.x) + 40, 40):
-			pts.append(Vector2(x, S.y * 0.68 - 40 * sin(x * 0.011) - 22 * sin(x * 0.037)))
-		pts.append(Vector2(S.x, S.y))
-		draw_colored_polygon(pts, Color(0.18, 0.25, 0.3))
-		for i in 14:
-			var x := S.x * (0.08 + i * 0.065)
-			var h := 60.0 + 90.0 * absf(sin(i * 2.3))
-			draw_rect(Rect2(x, S.y * 0.7 - h, 26, h), Color(0.12, 0.16, 0.2))
-			for w in int(h / 14):
-				draw_rect(Rect2(x + 6, S.y * 0.7 - h + 8 + w * 14, 5, 4), Color(1.0, 0.85, 0.5, 0.7))
-		draw_rect(Rect2(0, S.y * 0.72, S.x, S.y * 0.28), Color(0.1, 0.12, 0.14))
-		for i in 8:
-			draw_line(Vector2(S.x * 0.5, S.y * 0.72), Vector2(S.x * (i / 7.0), S.y), Color(1.0, 0.85, 0.4, 0.25), 2)
-	else:
-		draw_rect(Rect2(Vector2.ZERO, S), Color(0.04, 0.06, 0.09))
-		# hangar window onto space
-		var win := Rect2(S.x * 0.3, 40, S.x * 0.64, S.y * 0.5)
-		draw_rect(win, Color(0.01, 0.02, 0.05))
-		var rng := RandomNumberGenerator.new()
-		rng.seed = hash(base.get("name", ""))
-		for i in 90:
-			draw_circle(win.position + Vector2(rng.randf() * win.size.x, rng.randf() * win.size.y), rng.randf_range(0.6, 1.8), Color(1, 1, 1, rng.randf_range(0.3, 0.9)))
-		draw_circle(win.position + win.size * Vector2(0.78, 0.9), win.size.y * 0.5, Color(0.2, 0.45, 0.8))
-		draw_arc(win.position + win.size * Vector2(0.78, 0.9), win.size.y * 0.5, PI, TAU, 48, Color(0.6, 0.85, 1.0, 0.8), 4)
-		for i in 7:
-			var x := win.position.x + win.size.x * i / 6.0
-			draw_line(Vector2(x, win.position.y), Vector2(x, win.end.y), Color(0.2, 0.24, 0.3), 6)
-		draw_rect(win, Color(0.3, 0.36, 0.45), false, 8)
-		# floor perspective
-		for i in 12:
-			draw_line(Vector2(S.x * 0.5, S.y * 0.6), Vector2(S.x * (i / 11.0) * 1.4 - S.x * 0.2, S.y), Color(0.3, 0.8, 1.0, 0.12), 2)
-		for i in 6:
-			var y := S.y * 0.6 + pow(i / 5.0, 2.0) * S.y * 0.4
-			draw_line(Vector2(0, y), Vector2(S.x, y), Color(0.3, 0.8, 1.0, 0.1), 2)
-		var blink := 0.5 + 0.5 * sin(t * 3.0)
-		for i in 10:
-			draw_circle(Vector2(S.x * (0.05 + i * 0.1), S.y * 0.6), 4, Color(1.0, 0.8, 0.3, 0.4 + 0.5 * blink))
+	else:   # v5.8 (owner): no old placeholder pictures: plain black until the room picture is in
+		draw_rect(Rect2(Vector2.ZERO, S), Color.BLACK)
 	# darken behind UI (v3.1: a band under the tabs and name, and a fade at the foot for the status line)
 	draw_rect(Rect2(Vector2.ZERO, Vector2(S.x, CONTENT_Y - 4.0)), Color(0, 0, 0, 0.42))
 	draw_line(Vector2(0, CONTENT_Y - 4.0), Vector2(S.x, CONTENT_Y - 4.0), Color(CYAN, 0.25), 1.0)

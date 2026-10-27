@@ -747,6 +747,17 @@ func _on_kill(reward: int, who: String) -> void:
 	if not (leader in GS.met): _meet.call_deferred(leader, "enraged")
 
 # ---------------------------------------------------------------- docking / hub / launch
+## v5.8 (owner): nothing from flight (atmosphere smoke, heat, tunnel streaks) carries on into the hub
+func clear_fx() -> void:
+	fx.clouds = 0.0
+	fx.heat = 0.0
+	fx.warp = 0.0
+	fx.blur = 0.0
+	fx.flash = 0.0
+	fx.caption = ""
+	fx.sub = ""
+	fx.queue_redraw()
+
 func dock(n: Node3D) -> void:
 	if state != "flight": return
 	state = "docking"
@@ -766,7 +777,10 @@ func dock(n: Node3D) -> void:
 	tw.tween_method(func(k: float): _fly_along(p, approach, k), 0.0, 1.0, 1.6)
 	tw.tween_method(func(k: float): _fly_along(p, inside, k), 0.0, 1.0, 1.2)
 	tw.parallel().tween_property(fx, "fade", 1.0, 1.0).set_delay(0.3)
+	tw.parallel().tween_property(fx, "clouds", 0.0, 1.0)   # v5.8 (owner): the atmosphere haze clears as you dock
+	tw.parallel().tween_property(fx, "heat", 0.0, 1.0)
 	await tw.finished
+	clear_fx()
 	space.visible = false
 	space.process_mode = Node.PROCESS_MODE_DISABLED
 	GS.dock_service()   # v1.4n: shields and energy only; hull = REPAIR, ammo = RESTOCK at Equipment
@@ -1056,6 +1070,7 @@ func _on_destroyed() -> void:
 	space.controls = true
 	var info: Dictionary = space.sys["station"].duplicate()
 	docked_node_kind = "station"
+	clear_fx()
 	hub.open(info)
 	hub.status.text = "Towed in. Repairs complete. Salvage fee: %d credits.%s" % [lost, ("  " + failed) if failed != "" else ""]
 	state = "hub"
