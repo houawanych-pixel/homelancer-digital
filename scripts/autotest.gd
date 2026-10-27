@@ -9624,6 +9624,13 @@ func _job_v19x() -> void:
 	var bart: TextureRect = hb.find_child("BayArt", true, false)
 	var real_mech: bool = hb.find_child("BayMech", true, false) != null and mmap != null and (mmap.get_meta("pts", {}) as Dictionary).size() == 9 \
 		and Data.BAYS.has(hb._hangar_name()) and bart != null and bart.texture != null and bart.texture.resource_path.contains("bay_")
+	await Packs.wait("assistant", 30.0)
+	hb.show_screen("equipment")
+	await _wait(0.4)
+	var pev: Control = hb.find_child("PadEvee", true, false)
+	_check("v5.1 (owner): Evee stands on the pad beside your mech, a little under its knee, for size", pev != null and pev.size.y > 20.0 and pev.size.y < hb.find_child("MountMap", true, false).size.y * 0.5)
+	mmap = hb.find_child("MountMap", true, false)
+	bart = hb.find_child("BayArt", true, false)
 	await _shot("v24_mech_bay", 0.3)
 	var top_ok := true   # v3.3: the whole mech is inside the bay (its head was cut off on a phone)
 	for pt in (mmap.get_meta("pts", {}) as Dictionary).values(): if (pt as Vector2).y < 0.0: top_ok = false

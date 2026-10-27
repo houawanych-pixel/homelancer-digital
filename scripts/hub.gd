@@ -1401,6 +1401,21 @@ func _mech_bay(bay: Control) -> bool:
 	ov.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	ov.mouse_filter = Control.MOUSE_FILTER_STOP
 	bay.add_child(ov)
+	if Packs.is_ready("assistant") and ResourceLoader.exists("res://assets/assistant/full_idle.ogv"):   # v5.1 (owner): Evee stands beside your mech, for size
+		var pe := VideoStreamPlayer.new()
+		pe.name = "PadEvee"
+		pe.stream = load("res://assets/assistant/full_idle.ogv")
+		pe.loop = true
+		pe.autoplay = true
+		pe.expand = true
+		pe.volume_db = -80.0
+		pe.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var pm := ShaderMaterial.new()
+		pm.shader = Shader.new()
+		pm.shader.code = ASST_SHADER
+		pm.set_shader_parameter("key", Data.ASST_KEY)
+		pe.material = pm
+		bay.add_child(pe)
 	ov.draw.connect(func(): _draw_slots(ov, _mech_slot_points(cam, m, ov.size)))
 	ov.gui_input.connect(func(e: InputEvent): _bay_tap(e, _mech_slot_points(cam, m, ov.size), ov))
 	ov.resized.connect(func(): ov.queue_redraw())
@@ -1436,6 +1451,14 @@ func _stand_model(art: Control, bay: Control) -> void:
 		var by_h: float = maxf(hi.y - lo.y, 0.1) * vs.y / maxf(minf(art.size.y * Data.SHIP_ON_PAD * 0.55, feet * 0.85) * k, 20.0)
 		cam.size = maxf(by_w, by_h)
 	var ty: float = feet * k   # where its base goes
+	var pe: Control = bay.find_child("PadEvee", true, false)
+	if pe != null and mech:   # v5.1: she stands on the pad beside it, her head a little under its knee
+		var mh: float = (hi.y - lo.y) * vs.y / cam.size / k   # the mech's height on screen
+		var mw: float = (hi.x - lo.x) * vs.y / cam.size / k
+		var eh: float = mh * Data.EVEE_VS_MECH / 0.94   # (her clip has a little room above her head)
+		var ew: float = eh * 270.0 / 480.0
+		pe.size = Vector2(ew, eh)
+		pe.position = Vector2(bay.size.x * 0.5 + mw * 0.5 - ew * 0.15, feet - eh * 0.985)
 	var tx: float = vs.x * 0.5
 	var base_pt := Vector3(0.0, min_y, 0.0)
 	cam.global_position = base_pt - B.x * ((tx - vs.x * 0.5) * cam.size / vs.y) + B.y * ((ty - vs.y * 0.5) * cam.size / vs.y) + B.z * 80.0
