@@ -418,6 +418,7 @@ func show_screen(s: String) -> void:
 		"ship": _ship_page()
 		"faction": _faction_page()
 		"surface": _surface_page()
+	if not (s in ["hub", "equipment"]): _wrap_rows(content)   # v4.6: long lines wrap (the page is narrower beside the assistant)
 	queue_redraw()
 
 ## v3.5 (owner): the same frame on every page: the top bar, the left digital window, the room in the middle, the page
@@ -453,9 +454,16 @@ void fragment() {
 """
 
 ## v3.7: she shows on HOME (when her clips are in) and stands at her spot in the room.
+## v4.6 (owner): she stands on every station page (not in the hangar bay, where the shop is), at the right edge.
+func _asst_on(s: String) -> bool:
+	return s != "equipment" and Packs.is_ready("assistant") and ResourceLoader.exists("res://assets/assistant/idle_a.ogv")
+
+func _asst_w() -> float:
+	return get_viewport_rect().size.y * Data.ASST_HEIGHT * 320.0 / 486.0
+
 func _asst_show(s: String) -> void:
-	var on := s == "hub" and Packs.is_ready("assistant") and ResourceLoader.exists("res://assets/assistant/idle_a.ogv")
-	if s == "hub" and not Packs.is_ready("assistant"):
+	var on := _asst_on(s)
+	if s != "equipment" and not Packs.is_ready("assistant"):
 		Packs.request("assistant")
 		if not Packs.pack_ready.is_connected(_on_asst_pack): Packs.pack_ready.connect(_on_asst_pack)
 	if on and not asst.visible:
@@ -468,7 +476,9 @@ func _asst_show(s: String) -> void:
 		asst_chat.visible = false
 
 func _on_asst_pack(pk: String) -> void:
-	if pk == "assistant" and visible: _asst_show(screen)
+	if pk != "assistant" or not visible: return
+	if screen != "equipment": _layout_windows(screen)
+	else: _asst_show(screen)
 
 func _asst_play(clip: String) -> void:
 	asst.stream = load("res://assets/assistant/%s.ogv" % clip)
@@ -485,11 +495,7 @@ func _asst_place() -> void:
 	var S := get_viewport_rect().size
 	var h := S.y * Data.ASST_HEIGHT
 	var w := h * 320.0 / 486.0
-	var x := S.x * 0.5
-	if room_view.visible:   # she keeps her spot in the room as you look round
-		var vw: float = float((room_view.material as ShaderMaterial).get_shader_parameter("vis_w"))
-		var d := fposmod(Data.ASST_YAW - room_yaw + 0.5, 1.0) - 0.5
-		x = S.x * 0.5 + d / maxf(vw, 0.01) * S.x
+	var x := S.x - w * 0.5 - 4.0   # v4.6 (owner): she stands at the right side
 	asst.size = Vector2(w, h)
 	asst.position = Vector2(x - w * 0.5, S.y - h)   # v3.7 (owner): locked to the very bottom (her thighs on the edge)
 
@@ -685,7 +691,8 @@ func _motion_look() -> void:
 
 func set_panels_hidden(h: bool) -> void:
 	panels_hidden = h
-	_layout_windows(screen)
+	if screen == "equipment": show_screen("equipment")
+	else: _layout_windows(screen)
 
 ## Where the windows sit for this page (the hangar and HOME keep their own layouts).
 func _layout_windows(s: String) -> void:
@@ -698,8 +705,10 @@ func _layout_windows(s: String) -> void:
 	var fold: bool = panels_hidden and s != "equipment"
 	content.visible = not fold
 	leftwin.visible = split and not fold
-	show_btn.visible = s != "equipment"
-	show_btn.text = "SHOW PANELS" if fold else "HIDE PANELS"
+	show_btn.visible = true
+	show_btn.text = "SHOW PANELS" if panels_hidden else "HIDE PANELS"
+	var aw := _asst_w() if _asst_on(s) else 0.0   # v4.6: the assistant stands at the right; the page stops short of her
+	content.offset_right = -(aw + 4.0) if aw > 0.0 else -24.0
 	if leftwin.visible and leftwin.get_child_count() == 0: _left_window(s)
 
 ## v3.5: where a page's model goes: the left window when it is open, else the page itself (h).
@@ -1078,7 +1087,30 @@ func _equipment_page() -> void:
 	bay.resized.connect(func(): _place_bay_art(art, bay))
 	get_tree().process_frame.connect(func(): _place_bay_art(art, bay), CONNECT_ONE_SHOT)
 	_bay_node = bay
+	var fold := panels_hidden   # v4.6 (owner): HIDE PANELS in the hangar too: the ship / mech with the whole bay
+	if fold:
+		bay.anchor_right = 1.0
+		bay.offset_left = 8
 	_hangar_bay(bay)
+	for d in [-1, 1]:   # v4.6 (owner): turn it with buttons as well as by dragging
+		var rb := Button.new()
+		rb.name = "TurnLeft" if d < 0 else "TurnRight"
+		rb.text = "⟲" if d < 0 else "⟳"
+		rb.custom_minimum_size = Vector2(54, 54)
+		rb.add_theme_font_size_override("font_size", 28)
+		rb.anchor_top = 1.0
+		rb.anchor_bottom = 1.0
+		rb.anchor_left = 0.0 if d < 0 else 1.0
+		rb.anchor_right = rb.anchor_left
+		rb.offset_left = 120.0 if d < 0 else -174.0
+		rb.offset_right = rb.offset_left + 54.0
+		rb.offset_top = -132.0
+		rb.offset_bottom = -78.0
+		var dd: int = d
+		rb.pressed.connect(func():
+			bay_yaw = fposmod(bay_yaw + dd * PI / 4.0, TAU)
+			bay_hold = Data.BAY_SPIN_WAIT)
+		bay.add_child(rb)
 	var mods := Control.new()   # the module slots along the bottom of the bay
 	mods.anchor_right = 0.6
 	mods.anchor_top = 1.0
@@ -1087,6 +1119,7 @@ func _equipment_page() -> void:
 	mods.offset_right = -8
 	mods.offset_top = -44
 	root.add_child(mods)
+	mods.visible = not fold
 	_module_strip(mods)
 	# left: the menu
 	var lp := PanelContainer.new()
@@ -1098,6 +1131,7 @@ func _equipment_page() -> void:
 	lp.offset_right = 198
 	lp.clip_contents = true
 	lp.offset_bottom = -4
+	lp.visible = not fold
 	root.add_child(lp)
 	var menu := VBoxContainer.new()
 	menu.add_theme_constant_override("separation", 6)
@@ -1151,6 +1185,7 @@ func _equipment_page() -> void:
 	rp.offset_top = 4
 	rp.offset_right = -4
 	rp.offset_bottom = -4
+	rp.visible = not fold
 	root.add_child(rp)
 	var shop := VBoxContainer.new()
 	shop.name = "Shop"
@@ -1587,38 +1622,47 @@ func _slot_sub(k: int) -> String:
 const TAG_W := 92.0
 func _facing() -> bool: return cos(bay_yaw) > Data.BAY_TAGS_FACING
 const TAG_H := 30.0
-## Where each slot's tag goes: left-hand slots tag out to the left, right-hand to the right, centre ones above/below;
-## tags on one side are spread so they never overlap.
+## v4.6 (owner): a clean, fixed layout. The guns on the nose and the mines go on TOP (two names, one under), the
+## missile bays and the belly gun on the BOTTOM (two, one under), the wing slots in a column of up to three down each
+## SIDE. The top strip above the tags is the display box for the picked weapon.
+const HOLO_H := 78.0
+const TOP_ROWS := [[-1, -5], [-4]]
+const BOTTOM_ROWS := [[-2, -3], [-6]]
 func _slot_layout(c: Vector2, pts: Dictionary, half: float) -> Dictionary:
-	var mid := c.x * 0.5
-	var sides := {"l": [], "r": [], "t": [], "b": []}
-	for k in pts:
-		var p: Vector2 = pts[k]
-		var sd := "l" if p.x < mid - 3.0 else ("r" if p.x > mid + 3.0 else "c")
-		if sd == "c":   # a centre slot: low ones tag below, the rest join the shorter side column
-			sd = "b" if p.y > c.y * 0.62 else ("l" if sides["l"].size() <= sides["r"].size() else "r")
-		sides[sd].append(k)
 	var out := {}
-	for sd in ["l", "r"]:
-		var ks: Array = sides[sd]
-		ks.sort_custom(func(a, b): return (pts[a] as Vector2).y < (pts[b] as Vector2).y)
-		var edge := 1e9 if sd == "l" else -1e9
-		for k in ks: edge = minf(edge, pts[k].x) if sd == "l" else maxf(edge, pts[k].x)
-		var x := (edge - half - 22.0 - TAG_W) if sd == "l" else (edge + half + 22.0)
-		x = clampf(x, 2.0, c.x - TAG_W - 2.0)
-		var y := -1e9
+	var mid := c.x * 0.5
+	var place_rows := func(rows: Array, y0: float, dy: float) -> void:
+		var y := y0
+		for row in rows:
+			var ks: Array = (row as Array).filter(func(k): return pts.has(k))
+			if ks.is_empty(): continue
+			if ks.size() == 1: out[ks[0]] = Rect2(mid - TAG_W * 0.5, y, TAG_W, TAG_H)
+			else:
+				out[ks[0]] = Rect2(mid - TAG_W - 6.0, y, TAG_W, TAG_H)
+				out[ks[1]] = Rect2(mid + 6.0, y, TAG_W, TAG_H)
+			y += dy
+	place_rows.call(TOP_ROWS, HOLO_H + 6.0, TAG_H + 4.0)
+	var brows: Array = BOTTOM_ROWS.filter(func(r): return (r as Array).any(func(k): return pts.has(k)))
+	place_rows.call(brows, c.y - 2.0 - brows.size() * (TAG_H + 4.0) + 4.0, TAG_H + 4.0)
+	var top_end := HOLO_H + 6.0 + 2.0 * (TAG_H + 4.0)
+	var bot_start := c.y - 2.0 - 2.0 * (TAG_H + 4.0)
+	# the wing slots (anything not placed yet): a column each side, in the order they sit on the ship, top to bottom
+	var cx := 0.0
+	for k in pts: cx += (pts[k] as Vector2).x
+	cx /= maxf(pts.size(), 1.0)
+	for sd in [-1, 1]:
+		var ks: Array = pts.keys().filter(func(k): return not out.has(k) and signf((pts[k] as Vector2).x - cx + 0.01) == sd)
+		if ks.is_empty(): continue
+		ks.sort_custom(func(a2, b2): return (pts[a2] as Vector2).y < (pts[b2] as Vector2).y)
+		var x := 4.0 if sd < 0 else c.x - TAG_W - 4.0
+		var hgt: float = ks.size() * (TAG_H + 6.0) - 6.0
+		var avg := 0.0
+		for k in ks: avg += (pts[k] as Vector2).y
+		avg /= ks.size()
+		var y: float = clampf(avg - hgt * 0.5, top_end, maxf(top_end, bot_start - hgt))
 		for k in ks:
-			var ty: float = maxf((pts[k] as Vector2).y - TAG_H * 0.5, y + TAG_H + 4.0)
-			out[k] = Rect2(x, ty, TAG_W, TAG_H)
-			y = ty
-		var over := y + TAG_H - (c.y - 2.0)   # pushed off the bottom: slide the stack back up
-		if over > 0.0:
-			for k in ks: out[k].position.y -= over
-	for sd in ["t", "b"]:
-		for k in sides[sd]:
-			var p: Vector2 = pts[k]
-			var ty: float = (p.y - half - 26.0 - TAG_H) if sd == "t" else (p.y + half + 26.0)
-			out[k] = Rect2(clampf(p.x - TAG_W * 0.5, 2.0, c.x - TAG_W - 2.0), clampf(ty, 2.0, c.y - TAG_H - 2.0), TAG_W, TAG_H)
+			out[k] = Rect2(x, y, TAG_W, TAG_H)
+			y += TAG_H + 6.0
 	return out
 
 func _slot_half(c: Control) -> float:
@@ -1631,12 +1675,14 @@ func _draw_slots(c: Control, pts: Dictionary) -> void:
 	var half := _slot_half(c)
 	var tags := _slot_layout(c.size, pts, half)
 	var show_tags := _facing() or not is_instance_valid(preview_pivot)
+	if show_tags and pts.has(eq_sel): _draw_holo(c, eq_sel)
 	for k in pts:   # the lines first, under the squares and tags
 		if not show_tags: break
 		var p: Vector2 = pts[k]
 		var r: Rect2 = tags[k]
 		var to := Vector2(r.end.x if r.get_center().x < p.x else r.position.x, r.get_center().y)
-		if absf(r.get_center().x - p.x) < TAG_W * 0.5: to = Vector2(p.x, r.end.y if r.get_center().y < p.y else r.position.y)
+		if r.end.y < p.y - half: to = Vector2(r.get_center().x, r.end.y)   # a tag above
+		elif r.position.y > p.y + half: to = Vector2(r.get_center().x, r.position.y)   # a tag below
 		var lc := GOLD if k == eq_sel else Color(0.45, 0.9, 1.0, 0.85)
 		var from := p + (to - p).normalized() * half
 		c.draw_line(from, to, lc, 1.5, true)
@@ -1668,6 +1714,37 @@ func _draw_slots(c: Control, pts: Dictionary) -> void:
 		c.draw_rect(r, GOLD if sel else Color(0.45, 0.9, 1.0, 0.7), false, 1.0)
 		c.draw_string(font, r.position + Vector2(0, 12), str(SLOT_LABEL.get(k, "")), HORIZONTAL_ALIGNMENT_CENTER, TAG_W, 10, GOLD if sel else Color(0.85, 0.96, 1.0))
 		c.draw_string(font, r.position + Vector2(0, 25), _slot_sub(k), HORIZONTAL_ALIGNMENT_CENTER, TAG_W, 9, Color(0.6, 0.85, 1.0) if not empty else Color(0.55, 0.65, 0.75))
+
+## v4.6 (owner): the picked slot's weapon, big, in a digital display box at the top of the bay.
+func _draw_holo(c: Control, k: int) -> void:
+	var font := ThemeDB.fallback_font
+	var it := _slot_item(k)
+	var r := Rect2(c.size.x * 0.5 - 150.0, 2.0, 300.0, HOLO_H - 4.0)
+	var glow := Color(0.35, 0.9, 1.0)
+	c.draw_rect(r, Color(0.01, 0.06, 0.12, 0.88))
+	var yy := r.position.y + 3.0
+	while yy < r.end.y:   # scan lines
+		c.draw_line(Vector2(r.position.x + 2, yy), Vector2(r.end.x - 2, yy), Color(glow, 0.06), 1.0)
+		yy += 4.0
+	var L := 12.0
+	for cn in [r.position, Vector2(r.end.x, r.position.y), Vector2(r.position.x, r.end.y), r.end]:   # corner brackets
+		var sx: float = 1.0 if cn.x == r.position.x else -1.0
+		var sy: float = 1.0 if cn.y == r.position.y else -1.0
+		c.draw_line(cn, cn + Vector2(L * sx, 0), glow, 2.0)
+		c.draw_line(cn, cn + Vector2(0, L * sy), glow, 2.0)
+	c.draw_rect(r, Color(glow, 0.35), false, 1.0)
+	var tex := _wicon(it) if not (it == "" or it == "empty") else null
+	var pic := Rect2(r.position + Vector2(10, 8), Vector2(150, r.size.y - 16))
+	if tex != null:
+		var ts := Vector2(tex.get_size())
+		var f := minf(pic.size.x / ts.x, pic.size.y / ts.y)
+		c.draw_texture_rect(tex, Rect2(pic.get_center() - ts * f * 0.5, ts * f), false, Color(0.85, 1.0, 1.0, 0.95))
+	else: c.draw_string(font, pic.position + Vector2(0, pic.size.y * 0.6), "EMPTY", HORIZONTAL_ALIGNMENT_CENTER, pic.size.x, 18, Color(glow, 0.6))
+	var tx := r.position.x + 168.0
+	c.draw_string(font, Vector2(tx, r.position.y + 22), str(SLOT_LABEL.get(k, "")), HORIZONTAL_ALIGNMENT_LEFT, 124, 11, GOLD)
+	c.draw_string(font, Vector2(tx, r.position.y + 42), _slot_sub(k), HORIZONTAL_ALIGNMENT_LEFT, 124, 13, Color.WHITE)
+	var d: Dictionary = Data.WEAPONS.get(it, {})
+	if not d.is_empty(): c.draw_string(font, Vector2(tx, r.position.y + 60), "dmg %d  ·  %.1f/s" % [int(round(GS.gun_damage(it))), float(d["rate"])], HORIZONTAL_ALIGNMENT_LEFT, 124, 11, Color(0.65, 0.88, 1.0))
 
 ## The bay floor behind the ship: dark deck plates, a grid, hazard stripes and lights.
 func _draw_bay_floor(c: Control) -> void:
@@ -2407,6 +2484,7 @@ func _ships_page() -> void:
 		card.add_child(l)
 		var st := _label(15, CYAN)
 		st.text = "Hull %d · Shield %d · Speed %d · Turn %.2f · Guns %d · Missiles %d · Mines %d" % [s["hull"], s["shield"], s["speed"], s["turn"], s["guns"], s["missiles"], s["mines"]]
+		st.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART   # v4.6: wraps beside the assistant
 		card.add_child(st)
 		var row := HBoxContainer.new()
 		var b := Button.new()

@@ -9445,7 +9445,8 @@ func _job_v35() -> void:
 	var x0: float = hb.asst.position.x
 	hb.look_by(Vector2(-200, 0))
 	await _frames(2)
-	var a_moves: bool = absf(hb.asst.position.x - x0) > 50.0
+	var vw0: float = get_viewport().get_visible_rect().size.x
+	var a_moves: bool = absf(hb.asst.position.x - x0) < 1.0 and hb.asst.position.x + hb.asst.size.x > vw0 - 20.0 and hb.content.offset_right < -100.0   # v4.6: she stands at the right, the page stops short of her
 	hb.room_yaw = Data.ASST_YAW
 	await _frames(2)
 	hb.asst_tap()
@@ -9468,13 +9469,13 @@ func _job_v35() -> void:
 	await _shot("v38_assistant_log", 0.3)
 	hb.set_log_open(false)
 	_check("v3.8 (owner): she has a MIC button and HANDS-FREE talk; what you say goes to her and she answers; the chat log is folded away until you open it", voice_ok, log_txt.replace("\n", " | "))
-	_check("v3.7 (owner): the station assistant stands in the HOME room (green keyed out), keeps her spot as you look round; tap her to talk and the brain answers (%s)" % said,
+	_check("v3.7 (owner): the station assistant stands in the HOME room (green keyed out), stands at the right side; tap her to talk and the brain answers (%s)" % said,
 		a_on and a_moves and chat_ok and asked, "on %s, moves %s, chat %s, answered %s" % [a_on, a_moves, chat_ok, asked])
 	# v3.9 (owner): all ten rooms are used: REPAIR = medical bay; the hangar's WEAPON tab = weapons room, REPAIR & AMMO = supplies
 	hb.show_screen("repair")
 	await Packs.wait("room_liberator_medical_bay", 30.0)
 	await _frames(3)
-	var med_ok: bool = hb.room_key == "liberator_medical_bay"
+	var med_ok: bool = hb.room_key == "liberator_medical_bay" and hb.asst.visible   # v4.6: she is on every room page
 	hb.eq_tab = "weapon"
 	hb.show_screen("equipment")
 	await Packs.wait("room_liberator_weapons", 30.0)
@@ -9496,6 +9497,31 @@ func _job_v35() -> void:
 	for k in Data.ROOM_OF: used[Data.ROOM_OF[k]] = true
 	used["weapons"] = true
 	used["supplies"] = true
+	# v4.6 (owner): the hangar's tags in a fixed layout (top 2+1, bottom 2+1, three down each side), the picked
+	# weapon in a display box at the top, turn buttons, and HIDE PANELS for the bay
+	hb.eq_sel = 0
+	hb.show_screen("equipment")
+	await _frames(4)
+	var mmp: Control = hb.find_child("MountMap", true, false)
+	var lay: Dictionary = hb._slot_layout(mmp.size, mmp.get_meta("pts", {}), 14.0) if mmp != null else {}
+	var lay_ok: bool = lay.size() == (mmp.get_meta("pts", {}) as Dictionary).size() and lay.has(-1) and (lay[-1] as Rect2).position.y < 160.0
+	var overl := false
+	for a1 in lay:
+		for b1 in lay:
+			if a1 != b1 and (lay[a1] as Rect2).intersects(lay[b1]): overl = true
+	var y1: float = hb.bay_yaw
+	(hb.find_child("TurnRight", true, false) as Button).pressed.emit()
+	var turn_ok: bool = absf(hb.bay_yaw - y1) > 0.5
+	hb.bay_yaw = 0.0
+	hb.set_panels_hidden(true)
+	await _frames(3)
+	var hid: bool = not (hb.find_child("HangarMenu", true, false) as Control).visible and not (hb.find_child("HangarPanel", true, false) as Control).visible and hb.find_child("MountMap", true, false) != null
+	await _shot("v46_hangar_hidden", 0.3)
+	hb.set_panels_hidden(false)
+	await _frames(3)
+	await _shot("v46_hangar_layout", 0.3)
+	_check("v4.6 (owner): hangar tags in a clean fixed layout (no overlaps), the picked weapon in a display box, turn buttons, HIDE PANELS shows just the bay",
+		lay_ok and not overl and turn_ok and hid, "layout %s, overlap %s, turn %s, hidden %s" % [lay_ok, overl, turn_ok, hid])
 	_check("v3.9 (owner): all ten rooms have a place: REPAIR = medical bay, the hangar's WEAPON tab = weapons room, REPAIR & AMMO = supplies (the HANGAR tab keeps the bay)",
 		med_ok and wpn_ok and sup_ok and bay_ok and used.size() == 10, "med %s, weapons %s, supplies %s, bay %s, rooms %d" % [med_ok, wpn_ok, sup_ok, bay_ok, used.size()])
 	hb.eq_tab = "weapon"
