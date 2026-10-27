@@ -504,8 +504,8 @@ func _galaxy() -> void:
 			if not seen.has(g["to"]):
 				seen[g["to"]] = true
 				todo.append(g["to"])
-	_check("Galaxy: %d systems, each with a star you can enter, a station, a planet and two-way gates; all reachable from Solara" % Data.SYSTEMS.size(),
-		_stars().size() == 67 and bad.is_empty() and seen.size() == _stars().size(), "reachable %d; %s" % [seen.size(), ", ".join(bad.slice(0, 4))])
+	_check("Galaxy: %d star systems, each with a star you can enter, a station, a planet and two-way gates; all reachable from Solara" % _stars().size(),
+		_stars().size() == 67 and bad.is_empty() and _stars().all(func(k): return seen.has(k)), "reachable %d; %s" % [_stars().filter(func(k): return seen.has(k)).size(), ", ".join(bad.slice(0, 4))])   # (v6.5: gates also reach unknown areas)
 	# real planets: NASA maps, a fixed day and night side, clouds, and the docking gate on top of the atmosphere
 	var s := _sp()
 	await Packs.wait("worlds", 40.0)
