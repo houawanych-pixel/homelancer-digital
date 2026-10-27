@@ -1682,8 +1682,15 @@ func _run() -> void:
 	_check("New ship flies", s.model.name.ends_with("lancer"), s.model.name)
 	# ---- real autopilot leg to the planet
 	s.target = s.planet
+	var job_keep: Dictionary = GS.mission.duplicate(true)   # (v6.8: GO TO flies a job first; this leg tests the planet)
+	var bounty_keep: Dictionary = GS.bounty.duplicate(true)
+	GS.mission = {}
+	GS.bounty = {}
+	s.nav_dest = null
 	_press("goto")
 	var arrived := await _until(func(): return s.dock_candidate() == s.planet or s.autopilot == null, 70.0)
+	GS.mission = job_keep
+	GS.bounty = bounty_keep
 	_check("Autopilot + warp to planet", arrived and s.dock_candidate() == s.planet, "dist=%d" % int(s.distance_to(s.planet)))
 	_check("Planet docking", await _dock_at(s.planet), s.planet.name)
 	await _wait(0.6)
