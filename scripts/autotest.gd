@@ -9439,7 +9439,8 @@ func _job_v35() -> void:
 	hb.show_screen("lounge")
 	await Packs.wait("room_liberator_pilots_lounge", 30.0)
 	await _frames(3)
-	var lounge_ok: bool = hb.room_key == "liberator_pilots_lounge" and hb.find_child("Btn_lounge", true, false) != null
+	var lounge_ok: bool = hb.room_key == "liberator_pilots_lounge" and hb.find_child("Btn_lounge", true, false) != null \
+		and hb.room_vid_on and hb.room_vid.is_playing()   # v5.9 (owner): the lounge moves (his animated thirds, joined)
 	await _shot("v35_room_lounge", 0.2)
 	# v3.7: the assistant stands in the HOME room, keyed out of her green screen; tap her and ask
 	hb.show_screen("hub")

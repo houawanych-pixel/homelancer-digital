@@ -373,7 +373,9 @@ func _ready() -> void:
 	Packs.pack_ready.connect(func(pk: String):
 		if visible and pk == bg.get("pack", "-"): _load_background())
 	visibility_changed.connect(func():
-		if not visible: bg_tex = null)   # leaving the station lets the picture go
+		if not visible:
+			bg_tex = null
+			if room_vid != null: room_vid.stop())   # leaving the station lets the picture go
 	visible = false
 
 ## The static faction picture for this station: asked for when you dock, shown as soon as it is in.
@@ -861,6 +863,7 @@ func _show_room(s: String) -> void:
 	if key == "":
 		room_view.visible = false
 		room_key = ""
+		if room_vid != null: room_vid.stop()
 		return
 	var f := key.get_slice("_", 0)
 	var rn := key.substr(f.length() + 1)
@@ -879,8 +882,31 @@ func _show_room(s: String) -> void:
 		room_pitch = 0.0
 		room_idle = 0.0
 		m.set_shader_parameter("strip", load(path))
+		_room_video(path.get_basename() + ".ogv")
+	elif room_vid_on and not room_vid.is_playing(): room_vid.play()   # (back in the same room)
 	room_view.visible = true
 	_update_room(0.0)
+
+## v5.9 (owner): an animated room. The still shows at once; the moving loop takes over once its first frame is in.
+var room_vid: VideoStreamPlayer
+var room_vid_on := false
+func _room_video(vpath: String) -> void:
+	room_vid_on = false
+	if room_vid == null:
+		room_vid = VideoStreamPlayer.new()
+		room_vid.name = "RoomVideo"
+		room_vid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		room_vid.size = Vector2(2, 2)
+		room_vid.modulate.a = 0.0   # (decodes, never drawn itself: the room shader draws its frames)
+		room_vid.loop = true
+		room_vid.volume_db = -80.0
+		add_child(room_vid)
+	room_vid.stop()
+	room_vid.stream = null
+	if not ResourceLoader.exists(vpath): return
+	room_vid.stream = load(vpath)
+	room_vid.play()
+	room_vid_on = true
 
 func _on_room_pack(pk: String) -> void:
 	if visible and pk.begins_with("room_") and pk == "room_" + room_for(screen):
@@ -898,6 +924,9 @@ func look_by(rel: Vector2) -> void:
 func _update_room(dt: float) -> void:
 	if not room_view.visible: return
 	var m := room_view.material as ShaderMaterial
+	if room_vid_on and room_vid.is_playing():
+		var vt := room_vid.get_video_texture()
+		if vt != null and vt.get_width() > 0 and m.get_shader_parameter("strip") != vt: m.set_shader_parameter("strip", vt)
 	var tex: Texture2D = m.get_shader_parameter("strip")
 	var S := get_viewport_rect().size
 	if tex != null and S.y > 0.0:
