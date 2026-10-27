@@ -355,6 +355,7 @@ func _refresh_credits() -> void:
 func show_screen(s: String) -> void:
 	close_inspector()
 	_dragged = false   # (a drag left over from the last page must not swallow the next tap)
+	if s == "equipment" and screen != "equipment": holo_on = false   # v4.7: fresh into the hangar, no box until you tap
 	screen = s
 	_refresh_credits()
 	var sysname: String = Data.SYSTEMS[GS.system_id]["name"]
@@ -1508,6 +1509,7 @@ func _bay_tap(e: InputEvent, pts: Dictionary, c: Control = null) -> void:
 	var k := _slot_at(at, pts, c)
 	if k > -9:
 		bay_yaw = 0.0   # face front so its tags show
+		holo_on = true
 		bay_hold = Data.BAY_SPIN_WAIT
 		eq_sel = k
 		eq_tab = "ammo" if k in [-2, -3, -4] else "weapon"
@@ -1515,6 +1517,7 @@ func _bay_tap(e: InputEvent, pts: Dictionary, c: Control = null) -> void:
 
 ## The slot under a tap: its square (with a finger's margin) or its name tag.
 var _dragged := false
+var holo_on := false   # v4.7: the weapon display box shows after you tap a slot
 func _slot_at(at: Vector2, pts: Dictionary, c: Control = null) -> int:
 	var best := -9
 	var bd := 30.0
@@ -1548,11 +1551,17 @@ func _ship_slot_points(cam: Camera3D, m: Node3D, sz: Vector2) -> Dictionary:
 		var at: float = Data.MOUNT_TIP_AT if GS.is_tip(g) else (Data.MOUNT_MID_AT if g >= 4 else Data.MOUNT_SHOULDER_AT)
 		loc[g] = Vector3(GS.mount_side(g) * hw * at, 0, ln * (0.12 if GS.is_tip(g) else 0.02))
 	var vs := Vector2(preview_vp.size)
+	var shows: Node = m.get_node_or_null("ShowMounts")
 	for k in loc:
-		var wp: Vector3 = preview_pivot.global_transform * (Vector3(c.x, bb.end.y, c.z) + loc[k])
+		# v4.7 (owner's markup): the square sits ON the weapon itself (its fitted model), else where the slot is on the hull
+		var wp: Vector3 = preview_pivot.global_transform * (Vector3(c.x, c.y, c.z) + loc[k])
+		var gun: Node3D = shows.get_node_or_null("Show%d" % k) if shows != null else null
+		if gun != null: wp = gun.global_transform * ShipFactory._aabb(gun, Transform3D.IDENTITY).get_center()
+		elif k in [-2, -3]: wp = preview_pivot.global_transform * Vector3(c.x + loc[k].x * 2.2, bb.position.y + bb.size.y * 0.25, c.z)   # bays: under the body
+		elif k == -4: wp = preview_pivot.global_transform * Vector3(c.x, bb.position.y + bb.size.y * 0.1, c.z)   # mines: under the middle
 		var sp: Vector2 = cam.unproject_position(wp)
 		out[k] = sp * (sz / vs) if vs.x > 0.0 else sp
-	return _spread(out, 34.0) if _facing() else out
+	return _spread(out, 30.0) if _facing() else out
 
 ## v2.2: on a narrow hull the slots crowd together; nudge them apart (sideways first) so every square can be tapped.
 func _spread(pts: Dictionary, gap: float) -> Dictionary:
@@ -1641,10 +1650,11 @@ func _slot_layout(c: Vector2, pts: Dictionary, half: float) -> Dictionary:
 				out[ks[0]] = Rect2(mid - TAG_W - 6.0, y, TAG_W, TAG_H)
 				out[ks[1]] = Rect2(mid + 6.0, y, TAG_W, TAG_H)
 			y += dy
-	place_rows.call(TOP_ROWS, HOLO_H + 6.0, TAG_H + 4.0)
+	var top0: float = (HOLO_H + 6.0) if holo_on else 6.0
+	place_rows.call(TOP_ROWS, top0, TAG_H + 4.0)
 	var brows: Array = BOTTOM_ROWS.filter(func(r): return (r as Array).any(func(k): return pts.has(k)))
 	place_rows.call(brows, c.y - 2.0 - brows.size() * (TAG_H + 4.0) + 4.0, TAG_H + 4.0)
-	var top_end := HOLO_H + 6.0 + 2.0 * (TAG_H + 4.0)
+	var top_end := top0 + 2.0 * (TAG_H + 4.0)
 	var bot_start := c.y - 2.0 - 2.0 * (TAG_H + 4.0)
 	# the wing slots (anything not placed yet): a column each side, in the order they sit on the ship, top to bottom
 	var cx := 0.0
@@ -1675,7 +1685,7 @@ func _draw_slots(c: Control, pts: Dictionary) -> void:
 	var half := _slot_half(c)
 	var tags := _slot_layout(c.size, pts, half)
 	var show_tags := _facing() or not is_instance_valid(preview_pivot)
-	if show_tags and pts.has(eq_sel): _draw_holo(c, eq_sel)
+	if show_tags and holo_on and pts.has(eq_sel): _draw_holo(c, eq_sel)   # v4.7 (owner): only once you tap a weapon
 	for k in pts:   # the lines first, under the squares and tags
 		if not show_tags: break
 		var p: Vector2 = pts[k]
@@ -1683,9 +1693,9 @@ func _draw_slots(c: Control, pts: Dictionary) -> void:
 		var to := Vector2(r.end.x if r.get_center().x < p.x else r.position.x, r.get_center().y)
 		if r.end.y < p.y - half: to = Vector2(r.get_center().x, r.end.y)   # a tag above
 		elif r.position.y > p.y + half: to = Vector2(r.get_center().x, r.position.y)   # a tag below
-		var lc := GOLD if k == eq_sel else Color(0.45, 0.9, 1.0, 0.85)
+		var lc := GOLD if k == eq_sel else Color(0.45, 0.9, 1.0, 0.4)   # v4.7: light leads, the picked one bright
 		var from := p + (to - p).normalized() * half
-		c.draw_line(from, to, lc, 1.5, true)
+		c.draw_line(from, to, lc, 2.0 if k == eq_sel else 1.0, true)
 		c.draw_circle(to, 2.5, lc)
 	for k in pts:
 		var p: Vector2 = pts[k]

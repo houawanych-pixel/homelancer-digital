@@ -9500,6 +9500,7 @@ func _job_v35() -> void:
 	# v4.6 (owner): the hangar's tags in a fixed layout (top 2+1, bottom 2+1, three down each side), the picked
 	# weapon in a display box at the top, turn buttons, and HIDE PANELS for the bay
 	hb.eq_sel = 0
+	hb.holo_on = true
 	hb.show_screen("equipment")
 	await _frames(4)
 	var mmp: Control = hb.find_child("MountMap", true, false)
