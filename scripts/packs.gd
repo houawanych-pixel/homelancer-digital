@@ -52,6 +52,16 @@ const PACKS := {
 	"room_imperium_command": {"folders": ["res://assets/rooms/imperium"], "match": "command.", "probe": "res://assets/rooms/imperium/command.jpg"},   # the owner's 360 room
 	"room_imperium_private_quarters": {"folders": ["res://assets/rooms/imperium"], "match": "private_quarters.", "probe": "res://assets/rooms/imperium/private_quarters.jpg"},   # the owner's 360 room
 	"room_imperium_pilots_lounge": {"folders": ["res://assets/rooms/imperium"], "match": "pilots_lounge.", "probe": "res://assets/rooms/imperium/pilots_lounge.jpg"},   # the owner's 360 room
+	"room_solarion_main_hub": {"folders": ["res://assets/rooms/solarion"], "match": "main_hub.", "probe": "res://assets/rooms/solarion/main_hub.jpg"},   # the owner's 360 room
+	"room_solarion_shipyard": {"folders": ["res://assets/rooms/solarion"], "match": "shipyard.", "probe": "res://assets/rooms/solarion/shipyard.jpg"},   # the owner's 360 room
+	"room_solarion_mech_dealer": {"folders": ["res://assets/rooms/solarion"], "match": "mech_dealer.", "probe": "res://assets/rooms/solarion/mech_dealer.jpg"},   # the owner's 360 room
+	"room_solarion_weapons": {"folders": ["res://assets/rooms/solarion"], "match": "weapons.", "probe": "res://assets/rooms/solarion/weapons.jpg"},   # the owner's 360 room
+	"room_solarion_supplies": {"folders": ["res://assets/rooms/solarion"], "match": "supplies.", "probe": "res://assets/rooms/solarion/supplies.jpg"},   # the owner's 360 room
+	"room_solarion_mission_center": {"folders": ["res://assets/rooms/solarion"], "match": "mission_center.", "probe": "res://assets/rooms/solarion/mission_center.jpg"},   # the owner's 360 room
+	"room_solarion_medical_bay": {"folders": ["res://assets/rooms/solarion"], "match": "medical_bay.", "probe": "res://assets/rooms/solarion/medical_bay.jpg"},   # the owner's 360 room
+	"room_solarion_command": {"folders": ["res://assets/rooms/solarion"], "match": "command.", "probe": "res://assets/rooms/solarion/command.jpg"},   # the owner's 360 room
+	"room_solarion_private_quarters": {"folders": ["res://assets/rooms/solarion"], "match": "private_quarters.", "probe": "res://assets/rooms/solarion/private_quarters.jpg"},   # the owner's 360 room
+	"room_solarion_pilots_lounge": {"folders": ["res://assets/rooms/solarion"], "match": "pilots_lounge.", "probe": "res://assets/rooms/solarion/pilots_lounge.jpg"},   # the owner's 360 room
 	"room_liberator_main_hub": {"folders": ["res://assets/rooms/liberator"], "match": "main_hub.", "probe": "res://assets/rooms/liberator/main_hub.jpg"},   # v3.5: the owner's 360 room
 	"room_liberator_shipyard": {"folders": ["res://assets/rooms/liberator"], "match": "shipyard.", "probe": "res://assets/rooms/liberator/shipyard.jpg"},   # v3.5: the owner's 360 room
 	"room_liberator_mech_dealer": {"folders": ["res://assets/rooms/liberator"], "match": "mech_dealer.", "probe": "res://assets/rooms/liberator/mech_dealer.jpg"},   # v3.5: the owner's 360 room

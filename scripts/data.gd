@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v4.2"
+const VERSION := "v4.3"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -862,7 +862,7 @@ const VOICE_POOL := {
 const ASST_YAW := 0.188         # where she stands along the room loop (the front view's middle)
 const ASST_HEIGHT := 0.65       # her height as a share of the screen
 const ASST_KEY := Color(0.08, 0.75, 0.1)   # the green to remove
-const ROOM_FACTIONS := ["liberator", "savagers", "orion", "covenant", "imperium"]
+const ROOM_FACTIONS := ["liberator", "savagers", "orion", "covenant", "imperium", "solarion"]
 const ROOM_OF := {"hub": "main_hub", "ships": "shipyard", "mechs": "mech_dealer", "repair": "medical_bay", "board": "mission_center",
 	"missions": "mission_center", "bounty": "mission_center", "ship": "private_quarters", "faction": "command", "surface": "main_hub",
 	"lounge": "pilots_lounge"}
