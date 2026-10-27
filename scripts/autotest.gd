@@ -9572,6 +9572,8 @@ func _job_v19x() -> void:
 	hb.show_screen("equipment")
 	await _frames(3)
 	var ov: Control = hb.find_child("MountMap", true, false)
+	hb.eq_sel = 0
+	hb.holo_on = true
 	var tag_k: int = hb._slot_at(hb._slot_layout(ov.size, ov.get_meta("pts", {}), hb._slot_half(ov)).get(0, Rect2()).get_center(), ov.get_meta("pts", {}), ov) if ov != null and ov.has_meta("pts") else -9
 	var tapped := false
 	if ov != null and ov.has_meta("pts"):

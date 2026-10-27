@@ -155,6 +155,7 @@ func _ready() -> void:
 	content.offset_right = -24
 	content.offset_bottom = -66
 	add_child(content)
+	for lb in [header, subheader, credits_label]: move_child(lb, get_child_count() - 1)   # (drawn over the full-screen hangar)
 	leftwin = Panel.new()   # v3.5: the left digital window (where you are, your ship, the view buttons)
 	leftwin.name = "LeftWindow"
 	leftwin.offset_left = 24
@@ -371,7 +372,11 @@ func show_screen(s: String) -> void:
 	var top := 22.0 if hangar else TOP_Y   # v3.1: no tabs in the hangar, so the name goes back up
 	header.position.y = top
 	subheader.position.y = top + 44.0
-	content.offset_top = 112 if hangar else CONTENT_Y
+	content.offset_top = 0.0 if hangar else CONTENT_Y   # v5.2 (owner): the hangar picture runs flush to the top and bottom
+	content.offset_bottom = 0.0 if hangar else -66.0
+	if hangar:
+		content.offset_left = 0.0
+		content.offset_right = 0.0
 	if hangar: header.text = "HANGAR"
 	# v3.1: HOME is open glass (the station picture shows through); the other pages keep their panel
 	if s == "hub": content.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
@@ -457,14 +462,14 @@ void fragment() {
 ## v3.7: she shows on HOME (when her clips are in) and stands at her spot in the room.
 ## v4.6 (owner): she stands on every station page (not in the hangar bay, where the shop is), at the right edge.
 func _asst_on(s: String) -> bool:
-	return s != "equipment" and Packs.is_ready("assistant") and ResourceLoader.exists("res://assets/assistant/idle_a.ogv")
+	return (s != "equipment" or panels_hidden) and Packs.is_ready("assistant") and ResourceLoader.exists("res://assets/assistant/idle_a.ogv")
 
 func _asst_w() -> float:
 	return get_viewport_rect().size.y * Data.ASST_HEIGHT * 320.0 / 486.0
 
 func _asst_show(s: String) -> void:
 	var on := _asst_on(s)
-	if s != "equipment" and not Packs.is_ready("assistant"):
+	if not Packs.is_ready("assistant"):
 		Packs.request("assistant")
 		if not Packs.pack_ready.is_connected(_on_asst_pack): Packs.pack_ready.connect(_on_asst_pack)
 	if on and not asst.visible:
@@ -701,7 +706,7 @@ func _layout_windows(s: String) -> void:
 	_asst_show(s)
 	var split: bool = not (s in ["hub", "equipment"])
 	content.anchor_left = Data.ROOM_SPLIT if split else 0.0
-	content.offset_left = 6.0 if split else 24.0
+	content.offset_left = 6.0 if split else (0.0 if s == "equipment" else 24.0)
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE if s == "hub" else Control.MOUSE_FILTER_STOP
 	var fold: bool = panels_hidden and s != "equipment"
 	content.visible = not fold
@@ -709,7 +714,7 @@ func _layout_windows(s: String) -> void:
 	show_btn.visible = true
 	show_btn.text = "SHOW PANELS" if panels_hidden else "HIDE PANELS"
 	var aw := _asst_w() if _asst_on(s) else 0.0   # v4.6: the assistant stands at the right; the page stops short of her
-	content.offset_right = -(aw + 4.0) if aw > 0.0 else -24.0
+	if s != "equipment": content.offset_right = -(aw + 4.0) if aw > 0.0 else -24.0
 	if leftwin.visible and leftwin.get_child_count() == 0: _left_window(s)
 
 ## v3.5: where a page's model goes: the left window when it is open, else the page itself (h).
@@ -1055,6 +1060,9 @@ func _tile(id: String, title: String, sub: String, pic_path: String, idx: int) -
 		else: _menu(id))
 	return b
 
+const HANG_TOP := 112.0   # v5.2: the panels start under the name and LAUNCH (the bay picture runs under them)
+const HANG_BOT := 58.0    # ... and stop above the status line
+const MOD_H := 86.0       # the ability module tiles
 func _equipment_page() -> void:
 	# v1.9y (owner's hangar layout + bay art): the docking bay fills the screen (the faction's hangar art, a looping clip
 	# when there is one), YOUR ship on the pad seen from above with a square on every slot, the menu floating on the
@@ -1070,7 +1078,8 @@ func _equipment_page() -> void:
 	root.clip_contents = true
 	content.add_child(root)
 	var in_room := room_view.visible   # v3.9: on WEAPON / REPAIR & AMMO the room shows instead of the bay
-	root.draw.connect(func(): if not in_room: root.draw_rect(Rect2(Vector2.ZERO, root.size), Color(0.05, 0.06, 0.08)))
+	root.draw.connect(func():
+		if not in_room: root.draw_rect(Rect2(Vector2.ZERO, root.size), Color(0.05, 0.06, 0.08)))
 	var art := _bay_art()
 	art.self_modulate.a = 0.0 if in_room else 1.0
 	root.add_child(art)
@@ -1082,16 +1091,18 @@ func _equipment_page() -> void:
 	bay.anchor_bottom = 1.0
 	bay.offset_left = 206
 	bay.offset_right = -8
-	bay.offset_bottom = -48
+	bay.offset_top = HANG_TOP
+	bay.offset_bottom = -HANG_BOT - MOD_H - 6.0
 	root.add_child(bay)
 	root.resized.connect(func(): _place_bay_art(art, bay))
 	bay.resized.connect(func(): _place_bay_art(art, bay))
 	get_tree().process_frame.connect(func(): _place_bay_art(art, bay), CONNECT_ONE_SHOT)
 	_bay_node = bay
 	var fold := panels_hidden   # v4.6 (owner): HIDE PANELS in the hangar too: the ship / mech with the whole bay
-	if fold:
+	if fold:   # v5.2: photo mode: the whole bay, no squares, no buttons
 		bay.anchor_right = 1.0
 		bay.offset_left = 8
+		bay.offset_bottom = -HANG_BOT
 	_hangar_bay(bay)
 	for d in [-1, 1]:   # v4.6 (owner): turn it with buttons as well as by dragging
 		var rb := Button.new()
@@ -1105,8 +1116,9 @@ func _equipment_page() -> void:
 		rb.anchor_right = rb.anchor_left
 		rb.offset_left = 120.0 if d < 0 else -174.0
 		rb.offset_right = rb.offset_left + 54.0
-		rb.offset_top = -132.0
-		rb.offset_bottom = -78.0
+		rb.offset_top = -60.0
+		rb.offset_bottom = -6.0
+		rb.visible = not fold
 		var dd: int = d
 		rb.pressed.connect(func():
 			bay_yaw = fposmod(bay_yaw + dd * PI / 4.0, TAU)
@@ -1118,7 +1130,8 @@ func _equipment_page() -> void:
 	mods.anchor_bottom = 1.0
 	mods.offset_left = 206
 	mods.offset_right = -8
-	mods.offset_top = -44
+	mods.offset_top = -HANG_BOT - MOD_H
+	mods.offset_bottom = -HANG_BOT
 	root.add_child(mods)
 	mods.visible = not fold
 	_module_strip(mods)
@@ -1128,10 +1141,10 @@ func _equipment_page() -> void:
 	lp.add_theme_stylebox_override("panel", _glass())
 	lp.anchor_bottom = 1.0
 	lp.offset_left = 4
-	lp.offset_top = 4
+	lp.offset_top = HANG_TOP
 	lp.offset_right = 198
 	lp.clip_contents = true
-	lp.offset_bottom = -4
+	lp.offset_bottom = -HANG_BOT
 	lp.visible = not fold
 	root.add_child(lp)
 	var menu := VBoxContainer.new()
@@ -1165,6 +1178,18 @@ func _equipment_page() -> void:
 	var sp := Control.new()
 	sp.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	menu.add_child(sp)
+	if ResourceLoader.exists("res://assets/portraits/evee_normal.png"):   # v5.2 (owner): call Evee from the hangar
+		var ec := Button.new()
+		ec.name = "EveeCall"
+		ec.icon = load("res://assets/portraits/evee_normal.png")
+		ec.expand_icon = true
+		ec.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		ec.text = "EVEE\nTALK"
+		ec.clip_text = true
+		ec.custom_minimum_size = Vector2(0, 74)
+		ec.add_theme_font_size_override("font_size", Data.ts(13))
+		ec.pressed.connect(func(): asst_tap())
+		menu.add_child(ec)
 	var vw := Button.new()
 	vw.name = "EqView"
 	vw.text = "SHOW SHIP" if _eq_mech() else "SHOW MECH"
@@ -1183,9 +1208,9 @@ func _equipment_page() -> void:
 	rp.anchor_right = 1.0
 	rp.anchor_bottom = 1.0
 	rp.offset_left = 2
-	rp.offset_top = 4
+	rp.offset_top = HANG_TOP
 	rp.offset_right = -4
-	rp.offset_bottom = -4
+	rp.offset_bottom = -HANG_BOT
 	rp.visible = not fold
 	root.add_child(rp)
 	var shop := VBoxContainer.new()
@@ -1278,7 +1303,8 @@ func _place_bay_art(art: Control, bay: Control) -> void:
 	if root == null: return
 	var asp := 1672.0 / 941.0
 	if art is TextureRect and (art as TextureRect).texture != null: asp = (art as TextureRect).texture.get_width() / float((art as TextureRect).texture.get_height())
-	var hm: float = maxf(root.size.y, (bay.size.x + 400.0) / asp)
+	var cx: float = bay.position.x + bay.size.x * 0.5
+	var hm: float = maxf(root.size.y, 2.0 * maxf(cx, root.size.x - cx) / asp)   # v5.2: covers the whole screen, side to side
 	art.size = Vector2(hm * asp, hm)
 	art.position = Vector2(bay.position.x + bay.size.x * 0.5 - art.size.x * 0.5, root.size.y - hm)
 	_stand_model(art, bay)
@@ -1542,10 +1568,9 @@ func _bay_tap(e: InputEvent, pts: Dictionary, c: Control = null) -> void:
 var _dragged := false
 var holo_on := false   # v4.7: the weapon display box shows after you tap a slot
 func _slot_at(at: Vector2, pts: Dictionary, c: Control = null) -> int:
-	if c != null:   # a name tag is an exact target: it wins over a nearby square
+	if c != null and holo_on and pts.has(eq_sel):   # the shown name tag is an exact target
 		var tags := _slot_layout(c.size, pts, _slot_half(c))
-		for k in tags:
-			if (tags[k] as Rect2).has_point(at): return k
+		if tags.has(eq_sel) and (tags[eq_sel] as Rect2).has_point(at): return eq_sel
 	var best := -9
 	var bd := 30.0
 	for k in pts:
@@ -1707,10 +1732,12 @@ func _draw_slots(c: Control, pts: Dictionary) -> void:
 	var font := ThemeDB.fallback_font
 	var half := _slot_half(c)
 	var tags := _slot_layout(c.size, pts, half)
-	var show_tags := _facing() or not is_instance_valid(preview_pivot)
+	if screen == "equipment" and panels_hidden: return   # v5.2 (owner): photo mode, the ship / mech alone
+	var show_tags := (_facing() or not is_instance_valid(preview_pivot)) and holo_on   # v5.2: words only for the slot you tapped
 	if show_tags and holo_on and pts.has(eq_sel): _draw_holo(c, eq_sel)   # v4.7 (owner): only once you tap a weapon
 	for k in pts:   # the lines first, under the squares and tags
 		if not show_tags: break
+		if k != eq_sel: continue
 		var p: Vector2 = pts[k]
 		var r: Rect2 = tags[k]
 		var to := Vector2(r.end.x if r.get_center().x < p.x else r.position.x, r.get_center().y)
@@ -1741,7 +1768,7 @@ func _draw_slots(c: Control, pts: Dictionary) -> void:
 			c.draw_line(sq.get_center() - Vector2(pl, 0), sq.get_center() + Vector2(pl, 0), pc, 2.5)
 			c.draw_line(sq.get_center() - Vector2(0, pl), sq.get_center() + Vector2(0, pl), pc, 2.5)
 		c.draw_rect(sq, GOLD if sel else Color(0.45, 0.9, 1.0), false, 2.5 if sel else 1.5)
-		if not show_tags: continue
+		if not show_tags or k != eq_sel: continue
 		var r: Rect2 = tags[k]
 		c.draw_rect(r, Color(0.02, 0.07, 0.13, 0.86))
 		c.draw_rect(r, GOLD if sel else Color(0.45, 0.9, 1.0, 0.7), false, 1.0)
@@ -1814,14 +1841,22 @@ func _module_strip(mid: Control) -> void:
 	mrow.add_child(ml)
 	var mods: Array = GS.module_items()
 	for i in mods.size():
-		var mb := Button.new()
+		var mb := Button.new()   # v5.2 (owner): bigger tech tiles, the module's picture and name
 		mb.name = "ModSlot_%d" % i
-		mb.custom_minimum_size = Vector2(40, 40)
+		mb.custom_minimum_size = Vector2(72, MOD_H - 4.0)
 		mb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		mb.expand_icon = true
 		mb.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		if mods[i] != "" and ResourceLoader.exists(str(Data.MODULES[mods[i]]["icon"])): mb.icon = load(str(Data.MODULES[mods[i]]["icon"]))
-		else: mb.text = "+"
+		mb.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
+		mb.add_theme_font_size_override("font_size", Data.ts(10))
+		mb.add_theme_stylebox_override("normal", _glass(eq_sel == 100 + i))
+		if mods[i] != "" and ResourceLoader.exists(str(Data.MODULES[mods[i]]["icon"])):
+			mb.icon = load(str(Data.MODULES[mods[i]]["icon"]))
+			mb.text = str(Data.MODULES[mods[i]]["name"]).to_upper()
+		else:
+			mb.text = "+"
+			mb.add_theme_font_size_override("font_size", Data.ts(24))
+		mb.clip_text = true
 		if eq_sel == 100 + i: mb.add_theme_color_override("font_color", GOLD)
 		mb.pressed.connect(func():
 			eq_sel = 100 + i
