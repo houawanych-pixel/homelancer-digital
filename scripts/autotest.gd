@@ -1480,7 +1480,7 @@ func _run() -> void:
 	var left_list: bool = hq.contacts_rect().end.x < hq.S.x * 0.5 and not hq.buttons.has("type") and hq.buttons["met_0"].end.x < hq.S.x * 0.5 and hq.side_rect("r").position.x > hq.S.x * 0.5
 	var met_keep: Array = GS.met.duplicate()
 	var mood_keep: Dictionary = GS.mood.duplicate()
-	var first_id: String = hq.contact_at(0)
+	var first_id: String = hq.contact_at(1) if hq.contact_at(0) == "assistant" else hq.contact_at(0)   # (v5.0: Evee is always on the list)
 	GS.mood[first_id] = "enraged"
 	var dropped: bool = not (first_id in hq.call_list()) and first_id in GS.met
 	GS.mood = mood_keep
