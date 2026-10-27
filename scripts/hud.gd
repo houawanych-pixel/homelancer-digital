@@ -463,7 +463,9 @@ func _fl_panels() -> void:
 func side_rect(side: String) -> Rect2:
 	var w := clampf(S.x * 0.14, 150.0, 190.0)
 	var top := 8.0 + btn * (2.0 if weapons_shown() else 1.0) + 8.0 + 14.0   # v7.2 (owner): panels move up when the weapons row is away
-	var h := minf(w + 90.0, _home("move").y - stick_r - 10.0 - top)
+	var bottom := _home("move").y - stick_r - 12.0
+	var h := minf(w + 90.0, bottom - top)
+	top = bottom - h   # v7.5 (owner): the two windows sit right above the sticks
 	var inset := 8.0 + ((_panel_w() + 6.0) * ease(roster_t, 0.35) if console_open and side == "l" else 0.0)   # v1.4n: a caller floats in NEXT to the console panel (v1.8s: the panel is on the left only)
 	return Rect2(inset if side == "l" else S.x - inset - w, top, w, h)
 
@@ -532,9 +534,8 @@ func _layout() -> void:
 	buttons["lock_c"] = Rect2(Vector2(rx.call(1), y1), bs)
 	buttons["shield"] = Rect2(Vector2(rx.call(2), y1), bs)
 	buttons["repair"] = Rect2(Vector2(rx.call(3), y1), bs)
-	buttons["form"] = Rect2(Vector2(rx.call(0), y2), bs)
-	buttons["ground"] = Rect2(Vector2(rx.call(1), y2), bs)
-	buttons["special"] = Rect2(Vector2(rx.call(2), y2), bs)   # held
+	buttons["form"] = Rect2(Vector2(rx.call(1), y2), bs)   # v7.5: SPECIAL left this row for the dash's super meter
+	buttons["ground"] = Rect2(Vector2(rx.call(2), y2), bs)
 	buttons["tractor"] = Rect2(Vector2(rx.call(3), y2), bs)
 	if OS.has_feature("web") or OS.get_environment("HL_FS_BUTTON") != "":   # v1.9 (owner): FULL SCREEN takes the inner spare
 		buttons["fullscreen"] = buttons["lock_a"]
@@ -552,6 +553,7 @@ func _layout() -> void:
 	var pw := clampf((avail - 4 * 6) / 5.0, 66.0, 110.0)
 	# v7.0 (owner mockup): COCKPIT · GO TO · MAP sit right above the radar; COMMS and WEAPONS above the aim stick
 	var dg := dash_geo()   # v7.1 (owner's dash art): COCKPIT and GO TO left of the radar; the radar itself is the MAP
+	if space and space.controls: buttons["special"] = dg["super_btn"]   # v7.5 (owner): tap the super meter's orb (held)
 	var hm := _home("move")
 	buttons["goto"] = Rect2(hm.x - 70, hm.y - stick_r - 62, 140, 42)   # v7.4: GO TO is in the left window; this is only while that window is away
 	# v7.3 (owner): WEAPONS, COMMS and VIEW sit in the right window (_fl_buttons); when that window is away (a call,
@@ -886,7 +888,101 @@ func _special_button() -> void:
 	elif ready == "crit": sub = "CRITICAL · HOLD"
 	var armed := ready != "" or st != "idle"
 	var evade: bool = not armed and GS.form != "mech"
-	_corner("special", "SPECIAL" if armed else ("EVADE" if evade else "SPECIAL"), "special", GOLD, st != "idle" or (armed and fmod(t, 0.8) < 0.4) or space.man_kind != "", "", cd, (not armed and not evade) or space.warp_state != "off", sub if evade or armed else "AT HALF HULL")
+	_super_meter(armed)
+
+## v7.5 (owner's UI sheet): the octagon-cut square frame for the action buttons: a thin inner line, a bright tab on top.
+func _tech_square(f: Rect2, fill: Color, edge: Color, on: bool) -> void:
+	var c := minf(f.size.x, f.size.y) * 0.16
+	var pts := PackedVector2Array([f.position + Vector2(c, 0), Vector2(f.end.x - c, f.position.y), Vector2(f.end.x, f.position.y + c),
+		Vector2(f.end.x, f.end.y - c), Vector2(f.end.x - c, f.end.y), Vector2(f.position.x + c, f.end.y), Vector2(f.position.x, f.end.y - c), Vector2(f.position.x, f.position.y + c)])
+	draw_colored_polygon(pts, fill)
+	draw_polyline(pts + PackedVector2Array([pts[0]]), edge, 3.0 if on else 2.0, true)
+	var g := f.grow(-5.0)
+	var c2 := c * 0.7
+	var inner := PackedVector2Array([g.position + Vector2(c2, 0), Vector2(g.end.x - c2, g.position.y), Vector2(g.end.x, g.position.y + c2),
+		Vector2(g.end.x, g.end.y - c2), Vector2(g.end.x - c2, g.end.y), Vector2(g.position.x + c2, g.end.y), Vector2(g.position.x, g.end.y - c2), Vector2(g.position.x, g.position.y + c2), g.position + Vector2(c2, 0)])
+	draw_polyline(inner, Color(edge, 0.3), 1.0, true)
+	draw_rect(Rect2(f.position.x + f.size.x * 0.3, f.position.y - 1.0, f.size.x * 0.4, 3.0), Color(edge, 0.95))
+
+## v7.5 (owner's UI sheet): alert panels at the top: yellow WARNING when a missile is locked on you, red DANGER when
+## the hull is critical. A cut frame, a title tab with ///, an icon box on the left and a strip of segments.
+func _alerts() -> void:
+	if space == null or not space.controls or space.player == null: return
+	var list: Array = []
+	var hk: float = GS.hull / maxf(GS.max_hull(), 1.0)
+	if hk < 0.25: list.append(["DANGER", "Hull critical. Repair or get out.", RED, "danger", hk / 0.25])
+	var inbound := 0
+	for m in space.enemy_missiles:
+		if not m.get("lost", false) and is_instance_valid(m["node"]): inbound += 1
+	if inbound > 0: list.append(["WARNING", "Missile lock: %d inbound. Evade!" % inbound if inbound > 1 else "Missile lock. Evade!", GOLD, "warning", 1.0])
+	var y := 112.0
+	for a in list:
+		_alert_panel(Rect2(S.x * 0.5 - 170.0, y, 340.0, 62.0), a[0], a[1], a[2], a[3], a[4])
+		y += 80.0
+
+func _alert_panel(r: Rect2, title: String, line: String, col: Color, icon: String, level: float) -> void:
+	var blink := fmod(t, 0.7) < 0.45
+	var c := 12.0
+	var pts := PackedVector2Array([r.position + Vector2(c, 0), Vector2(r.end.x - c, r.position.y), Vector2(r.end.x, r.position.y + c),
+		Vector2(r.end.x, r.end.y - c), Vector2(r.end.x - c, r.end.y), Vector2(r.position.x + c, r.end.y), Vector2(r.position.x, r.end.y - c), Vector2(r.position.x, r.position.y + c)])
+	draw_colored_polygon(pts, Color(0.02, 0.06, 0.1, 0.9))
+	draw_polyline(pts + PackedVector2Array([pts[0]]), Color(col, 0.95 if blink else 0.6), 2.0, true)
+	# title tab with ///
+	var tx := r.position.x + 64.0
+	var tab := PackedVector2Array([Vector2(tx, r.position.y - 14), Vector2(tx + 168, r.position.y - 14), Vector2(tx + 182, r.position.y + 8), Vector2(tx - 14, r.position.y + 8)])
+	draw_colored_polygon(tab, col)
+	_text(Vector2(tx + 4, r.position.y + 3), title, 15, Color(0.05, 0.05, 0.08), HORIZONTAL_ALIGNMENT_LEFT, 120)
+	for k in 3: draw_line(Vector2(tx + 140 + k * 8, r.position.y + 4), Vector2(tx + 147 + k * 8, r.position.y - 10), Color(0.05, 0.05, 0.08), 3.0)
+	# icon box
+	var ib := Rect2(r.position + Vector2(8, 10), Vector2(46, 44))
+	draw_rect(ib, Color(col, 0.12))
+	draw_rect(ib, Color(col, 0.7), false, 1.5)
+	var ic := ib.get_center()
+	if icon == "warning":
+		draw_polyline(PackedVector2Array([ic + Vector2(0, -15), ic + Vector2(16, 13), ic + Vector2(-16, 13), ic + Vector2(0, -15)]), col, 3.0, true)
+		draw_line(ic + Vector2(0, -5), ic + Vector2(0, 4), col, 3.0)
+		draw_circle(ic + Vector2(0, 9), 2.0, col)
+	else:
+		draw_arc(ic, 15, 0, TAU, 32, col, 2.5, true)
+		for k in 3:
+			var a0 := -PI / 2 + k * TAU / 3.0 - 0.45
+			var fan := PackedVector2Array([ic])
+			for j in 7: fan.append(ic + Vector2.from_angle(a0 + j * 0.15) * 12.0)
+			draw_colored_polygon(fan, col)
+		draw_circle(ic, 3.5, Color(0.02, 0.06, 0.1))
+	_text(Vector2(r.position.x + 64, r.position.y + 34), line, 14, WHITE, HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 74)
+	for k in 8:   # the segment strip
+		var sr := Rect2(r.position.x + 64 + k * 16, r.end.y - 14, 12, 6)
+		if (k + 1) / 8.0 <= maxf(level, 0.13): draw_rect(sr, col)
+		else: draw_rect(sr, Color(col, 0.6), false, 1.0)
+
+## v7.5 (owner): the super meter. A slanted-stripe bar that fills while you fight (hits you land and take); the orb at
+## its end pulses gold when full: tap it for the lightning storm. Until then a tap is an evasive move.
+func _super_meter(armed: bool) -> void:
+	var g := dash_geo()
+	var r: Rect2 = g["super"]
+	var oc: Vector2 = g["orb_c"]
+	var orr: float = g["orb_r"]
+	var k: float = clampf(GS.super_charge, 0.0, 1.0)
+	var pulse := 0.5 + 0.5 * sin(t * 6.0)
+	var col := GOLD if armed else CYAN
+	_dash_frame(Rect2(r.position - Vector2(6, 4), r.size + Vector2(12, 8)), Color(col, 0.8))
+	var n := 22
+	var sw := r.size.x / n
+	var sk := r.size.y * 0.55
+	for i in n:
+		var x := r.position.x + i * sw
+		var lit := (i + 1) / float(n) <= k + 0.001
+		var c2 := Color(GOLD.lerp(WHITE, pulse * 0.4), 1.0) if armed else (Color(0.3, 0.75, 1.0, 0.95) if lit else Color(0.1, 0.18, 0.26, 0.8))
+		draw_colored_polygon(PackedVector2Array([Vector2(x + sk, r.position.y), Vector2(x + sw - 2.0 + sk, r.position.y), Vector2(x + sw - 2.0, r.end.y), Vector2(x, r.end.y)]), c2)
+	draw_line(Vector2(r.end.x + 6.0, oc.y), oc - Vector2(orr, 0), Color(col, 0.8), 2.0)
+	draw_circle(oc, orr + 3.0, Color(0.01, 0.05, 0.1, 0.9))
+	if armed:
+		draw_circle(oc, orr + 4.0 + pulse * 6.0, Color(GOLD, 0.25 * (1.0 - pulse)))
+		draw_circle(oc, orr - 3.0, Color(GOLD.darkened(0.2), 0.55 + 0.35 * pulse))
+	draw_arc(oc, orr, -PI / 2, -PI / 2 + TAU * k, 40, Color(col, 1.0), 3.5, true)
+	draw_arc(oc, orr, 0, TAU, 40, Color(col, 0.35), 1.5, true)
+	_icon("special", oc, orr * 0.5, WHITE if armed else Color(CYAN_HI, 0.8))
 
 func _draw_special() -> void:
 	if space == null: return
@@ -941,10 +1037,8 @@ func _corner(id: String, label: String, icon: String, col: Color, active := fals
 	var r: Rect2 = buttons[id]
 	var down := held.has(id) or float(flash.get(id, 0.0)) > 0.3
 	var on := down or active
-	if not down: _box(Rect2(r.position + Vector2(0, 4), r.size), Color(0.0, 0.03, 0.07, 0.95), Color(0, 0, 0, 0), 14, 0)
-	var f := Rect2(r.position + (Vector2(0, 4) if down else Vector2.ZERO), r.size)
-	_box(f, Color(col.darkened(0.45), 0.92) if on else Color(0.04, 0.12, 0.22, 0.9), Color(col, 1.0) if on else Color(col, 0.75), 14, 3 if on else 2)
-	draw_rect(Rect2(f.position + Vector2(8, 4), Vector2(f.size.x - 16, 2)), Color(1, 1, 1, 0.22))
+	var f := Rect2(r.position + (Vector2(0, 3) if down else Vector2.ZERO), r.size)
+	_tech_square(f, Color(col.darkened(0.45), 0.92) if on else Color(0.02, 0.08, 0.15, 0.88), Color(col, 1.0) if on else Color(col, 0.8), on)
 	_icon(icon, f.position + Vector2(f.size.x * 0.5, f.size.y * 0.4), f.size.x * 0.19, col.lightened(0.25) if icon != "tractor" else col)
 	_text(Vector2(f.position.x, f.end.y - (22 if sub != "" else 11)), label, 15, WHITE, HORIZONTAL_ALIGNMENT_CENTER, f.size.x)
 	if sub != "": _text(Vector2(f.position.x, f.end.y - 7), sub, 11, Color(col.lightened(0.35), 0.95), HORIZONTAL_ALIGNMENT_CENTER, f.size.x)
@@ -1033,7 +1127,7 @@ func comms_rect() -> Rect2:
 ## you open them (WEAPONS); otherwise only the flight row (engine, stop, thrust, warp) stays on screen.
 var weapons_open := false
 var weapons_pinned := false   # (the route test keeps every button up)
-const COMBAT_IDS := ["fire", "slot_0", "slot_1", "slot_2", "lock_a", "lock_c", "shield", "repair", "form", "ground", "special", "tractor"]
+const COMBAT_IDS := ["fire", "slot_0", "slot_1", "slot_2", "lock_a", "lock_c", "shield", "repair", "form", "ground", "tractor"]   # (v7.5: SPECIAL is the super meter on the dash)
 func weapons_shown() -> bool:
 	return weapons_pinned or weapons_open or (space != null and is_instance_valid(space.player) and space.hostiles_engaged() > 0)
 
@@ -1393,6 +1487,7 @@ func _draw() -> void:
 		draw_circle(c, 4, rc2)
 	if cockpit and cockpit_texture(): _status_bars()   # (v6.9: otherwise they are on the dash)
 	_fl_panels()
+	_alerts()
 	# v7.0 (owner: what are those yellow words?): no standing hint line; the job is on the contact list. Short messages
 	# still flash up, small and white, under the top prompt.
 	if msg_t > 0.0: _text(Vector2(col_w, 86), msg, 15, Color(WHITE, minf(1.0, msg_t * 2.0)), HORIZONTAL_ALIGNMENT_CENTER, S.x - col_w * 2)
@@ -1594,8 +1689,12 @@ func dash_geo() -> Dictionary:
 	var bars_x := rc.x + rad + 24.0
 	var bw := x0 + w - bars_x
 	var sp_h := clampf(h * 0.2, 24.0, 32.0)
+	var orb := sp_h * 0.78
+	var oc := Vector2(x0 + w - orb - 2.0, y0 + sp_h * 0.5)
 	return {"x0": x0, "y0": y0, "w": w, "h": h, "rc": rc, "rad": rad,
-		"speed": Rect2(bars_x + bw * 0.5 - 90.0, y0, 180.0, sp_h),
+		"speed": Rect2(bars_x, y0, 170.0, sp_h),   # v7.5 (owner): SPEED to the left
+		"super": Rect2(bars_x + 182.0, y0 + sp_h * 0.18, oc.x - orb - 6.0 - bars_x - 182.0, sp_h * 0.64), "orb_c": oc, "orb_r": orb,
+		"super_btn": Rect2(oc - Vector2(orb + 6.0, orb + 6.0), Vector2(orb + 6.0, orb + 6.0) * 2.0),
 		"bars": Rect2(bars_x, y0 + sp_h + 4.0, bw, h - sp_h - 8.0)}
 
 func _dash_frame(r: Rect2, col := CYAN) -> void:   # the cut-corner tech frame of the art

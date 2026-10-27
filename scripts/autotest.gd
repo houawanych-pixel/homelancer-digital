@@ -307,8 +307,8 @@ func _flight_and_comms() -> void:
 	# TRANSFORM leads the special-moves row (right block); the centre row has no MECH pill
 	hud._layout()
 	var fr: Rect2 = hud.buttons.get("form", Rect2())
-	var wr: Rect2 = hud.buttons["warp"]
-	_check("TRANSFORM button leads the special-moves row on the right, level with the speed row (v1.9 owner layout)", fr.size.x > 0.0 and absf(fr.position.y - wr.position.y) < 1.0 and fr.position.x > hud.S.x * 0.5
+	var wr: Rect2 = hud.buttons.get("fire", hud.buttons["warp"])   # (v7.2: the flight row is on top; TRANSFORM sits level with the weapons row under it)
+	_check("TRANSFORM button leads the special-moves row on the right, level with the weapons row (v1.9 / v7.2 owner layout)", fr.size.x > 0.0 and absf(fr.position.y - wr.position.y) < 1.0 and fr.position.x > hud.S.x * 0.5
 		and hud.buttons.has("stop") and hud.buttons.has("log") and hud.buttons.has("goto"), "at %s" % str(fr.position))   # (v6.9: MAP = the radar)
 	# default cruise: centred stick holds cruise speed; all the way back stops and stays stopped
 	SpaceSystem.cruise_assist = true
@@ -1502,7 +1502,7 @@ func _run() -> void:
 		and hq.buttons.has("call_pick") and hq.side_rect("r").encloses(hq.buttons["call_pick"]) and hq.comms_mode == "roster" and not hq.slots["l"].has("mode")
 	await _shot("log_pick", 0.3)
 	var lefts: Array = ["fire", "slot_0", "slot_1", "slot_2", "stop", "thrust", "warp"] + ["zoom" if hq.buttons.has("zoom") else "kill"]   # v1.9 (owner): weapons + speed on the left
-	var rights := ["shield", "repair", "fullscreen" if hq.buttons.has("fullscreen") else "lock_a", "lock_c", "form", "ground", "special", "tractor"]   # defence + special moves on the right (FULL SCREEN in the web build)
+	var rights := ["shield", "repair", "fullscreen" if hq.buttons.has("fullscreen") else "lock_a", "lock_c", "form", "ground", "tractor"]   # (v7.5: SPECIAL is the super meter on the dash) defence + special moves on the right (FULL SCREEN in the web build)
 	var eight: bool = lefts.all(func(b): return hq.buttons.has(b) and hq.buttons[b].end.x < hq.S.x * 0.5) and rights.all(func(b): return hq.buttons.has(b) and hq.buttons[b].position.x > hq.S.x * 0.5)
 	var clear := true   # the centre strip sits between the two blocks
 	for b in []:   # (v7.4: GO TO is in the left window) (v7.3: VIEW is in the right window now) (v6.9: the top strip is VIEW and GO TO; MAP = radar, TARGET/SCAN in the contact list, COMMS by the radar)
@@ -2855,7 +2855,7 @@ func _job_o() -> void:
 	var b: Dictionary = main.hud.buttons
 	# v1.9 (owner): FIRE leads the weapons row top left; the speed row under it reads STOP · ENGINE · THRUST · WARP
 	var layout_ok: bool = b.has("fire") and is_equal_approx((b["fire"] as Rect2).position.x, 8.0) and is_equal_approx((b["fire"] as Rect2).position.y, (b["slot_0"] as Rect2).position.y) \
-		and (b["slot_0"] as Rect2).position.x > (b["fire"] as Rect2).position.x and (b["stop"] as Rect2).position.y > (b["fire"] as Rect2).position.y \
+		and (b["slot_0"] as Rect2).position.x > (b["fire"] as Rect2).position.x and (b["stop"] as Rect2).position.y < (b["fire"] as Rect2).position.y \
 		and (b["stop"] as Rect2).position.x > (b["kill"] as Rect2).position.x and (b["thrust"] as Rect2).position.x > (b["stop"] as Rect2).position.x   # (v1.9k: engine kill, stop, thrust, warp) and (b["warp"] as Rect2).position.x > (b["thrust"] as Rect2).position.x
 	var bolts0: int = s.bolts.size()
 	_press("fire")
@@ -6386,30 +6386,28 @@ func _job_ar() -> void:
 	var keep_missiles: int = GS.missiles
 	var keep_modes: Dictionary = GS.modes.duplicate()
 	for id in ["guns", "missile", "mine", "hull", "shield", "energy"]: GS.modes[id] = "manual"   # only the special touches the target
-	GS.special_used = {"half": false, "crit": false}
-	# ---- 1. arming: nothing at full hull, "half" at half, "crit" at a quarter, both reset once repaired past 75 %
+	GS.super_charge = 0.0
+	# ---- 1. v7.5 (owner): the super meter fills while you fight: hits you land and hits you take; full = ready
+	var r_empty: String = s.special_ready()
+	var e0: Dictionary = s.spawn_unit("raider", s.player.global_position + Vector3(0, 0, -3000), s.player.global_position)
+	for key in ["hp", "max"]: e0[key] = 99999.0
+	s._damage_enemy(e0, Data.SUPER_FROM_DEALT * 0.5)
+	var half_dealt: float = GS.super_charge
+	var keep_sh: float = GS.shield
+	s._player_hit(Data.SUPER_FROM_TAKEN * 0.5)
+	GS.shield = keep_sh
 	GS.hull = mh * 0.9
 	var r_full: String = s.special_ready()
-	GS.hull = mh * 0.5
-	var r_half: String = s.special_ready()
-	GS.special_used["half"] = true
-	var r_half_spent: String = s.special_ready()
-	GS.hull = mh * 0.2
-	var r_crit: String = s.special_ready()
-	GS.special_used["crit"] = true
-	var r_all_spent: String = s.special_ready()
-	GS.hull = mh * 0.9
-	s.special_ready()
-	var reset_ok: bool = not GS.special_used["half"] and not GS.special_used["crit"]
-	_check("Job AR: the special arms at half hull, again at critical (a quarter), once each; repairing past 75 % earns them back",
-		r_full == "" and r_half == "half" and r_half_spent == "" and r_crit == "crit" and r_all_spent == "" and reset_ok,
-		"full '%s' half '%s' spent '%s' crit '%s' all '%s' reset %s" % [r_full, r_half, r_half_spent, r_crit, r_all_spent, reset_ok])
+	if e0 in s.enemies: s._damage_enemy(e0, 999999.0)
+	_check("v7.5 (owner): the super meter fills as you fight (half from hits landed, half from hits taken) and only then is the special ready; no hull needed",
+		r_empty == "" and absf(half_dealt - 0.5) < 0.02 and GS.super_charge >= 1.0 and r_full == "meter", "empty '%s' dealt %.2f full %.2f '%s'" % [r_empty, half_dealt, GS.super_charge, r_full])
 	var kb_ok: bool = main.controls != null and main.controls.binding("special") == "F"
-	_check("Job AR: a SPECIAL button sits in the free corner of the top-left block (locked until earned), and F holds it on a keyboard",
-		hud.buttons.has("special") and hud.buttons["special"].position.y > hud.buttons["shield"].position.y and kb_ok, "button %s key F %s" % [hud.buttons.has("special"), kb_ok])
+	var dg: Dictionary = hud.dash_geo()
+	_check("v7.5: SPECIAL is the orb at the end of the super meter on the dash (F holds it on a keyboard)",
+		hud.buttons.has("special") and (dg["super_btn"] as Rect2).is_equal_approx(hud.buttons["special"]) and kb_ok, "button %s key F %s" % [hud.buttons.has("special"), kb_ok])
 	# ---- 2. v6.9 (owner): the SPECIAL is an electric storm: every hostile in tractor range is shocked (shields gone,
 	#    frozen for LIGHTNING_STUN seconds) and hit about as hard as a heavy missile; one outside the range is not
-	GS.hull = mh * 0.5
+	GS.super_charge = 1.0
 	_tp(s.station.global_position + Vector3(0, 1500, 5000), s.station.global_position + Vector3(0, 1500, 6000))   # clear of station guns
 	s.fire_lock = false
 	await _frames(3)
@@ -6437,7 +6435,7 @@ func _job_ar() -> void:
 		if (near_e[k]["node"] as Node3D).global_position.distance_to(pos0[k]) > 3.0: frozen = false
 	await _wait(Data.LIGHTNING_STUN * 0.6)
 	var free_again: bool = near_e.all(func(o): return float(o.get("stun", 0.0)) <= 0.0)
-	var spent: bool = GS.special_used["half"] and "lightning" in s.special_log
+	var spent: bool = GS.super_charge == 0.0 and "lightning" in s.special_log
 	await _shot("v69_lightning", 0.0)
 	_check("v6.9 (owner): SPECIAL is a lightning storm: every hostile in tractor range (%d m) loses its shields, freezes for %.0f s and takes heavy-missile damage; one further out is not touched; the special is spent" % [int(s.lightning_range()), Data.LIGHTNING_STUN],
 		shocked and far_ok and frozen and free_again and spent, "shocked %s, far %s, frozen %s, free after %s, spent %s" % [shocked, far_ok, frozen, free_again, spent])
@@ -6445,25 +6443,26 @@ func _job_ar() -> void:
 		if o in s.enemies: s._damage_enemy(o, 99999.0)
 	await _frames(3)
 	# 2b. pressed with nobody in range: nothing happens, nothing is spent
-	GS.special_used = {"half": false, "crit": false}
+	GS.super_charge = 1.0
 	s.special_log.clear()
 	hud.held["special"] = true
 	await _frames(2)
 	hud.held.erase("special")
 	await _frames(2)
-	var kept: bool = s.special_log.is_empty() and s.special_ready() == "half"
+	var kept: bool = s.special_log.is_empty() and s.special_ready() == "meter"
 	_check("v6.9: SPECIAL with no hostile in tractor range does nothing and keeps the special ready", kept, "log %s ready %s" % [s.special_log, s.special_ready()])
-	# ---- 3. at critical hull it comes back once more
-	GS.special_used = {"half": true, "crit": false}
-	GS.hull = mh * 0.2
+	# ---- 3. v7.5: fight on and it fills again
+	GS.super_charge = 0.0
 	var e2: Dictionary = s.spawn_unit("raider", s.player.global_position + fwd * 200.0, s.player.global_position)
-	for key in ["hp", "max"]: e2[key] = 600.0
+	for key in ["hp", "max"]: e2[key] = Data.SUPER_FROM_DEALT * 2.0
+	s._damage_enemy(e2, Data.SUPER_FROM_DEALT)
+	e2["stun"] = 0.0
 	var which: String = s.special_ready()
 	hud.held["special"] = true
 	await _frames(2)
 	hud.held.erase("special")
 	await _frames(2)
-	_check("Job AR / v6.9: at critical hull the special comes back once more (the storm again)", which == "crit" and GS.special_used["crit"] and float(e2.get("stun", 0.0)) > 0.0, "which %s" % which)
+	_check("v7.5: keep fighting and the meter fills again: the storm again", which == "meter" and GS.super_charge < 0.2 and float(e2.get("stun", 0.0)) > 0.0, "which %s" % which)
 	if e2 in s.enemies: s._damage_enemy(e2, 99999.0)
 	await _frames(3)
 	# ---- 5. missiles do not chase forever: out of life they burst
@@ -9603,8 +9602,23 @@ func _job_fl() -> void:
 	s.enemies = []
 	hud._layout()
 	await _shot("v70_cruise_hud", 0.3)
+	# v7.5 (owner's UI sheet): a full super meter, a missile locked on you, a critical hull: the alert panels show
+	var keep_sc: float = GS.super_charge
+	var keep_hl: float = GS.hull
+	var fake := Node3D.new()
+	s.add_child(fake)
+	s.enemy_missiles.append({"node": fake, "lost": false, "vel": Vector3.ZERO, "life": 99.0})
+	GS.super_charge = 1.0
+	GS.hull = GS.max_hull() * 0.15
+	await _shot("v75_alerts", 0.3)
+	var alerts_ok: bool = hud.space.special_ready() == "meter"
+	s.enemy_missiles.erase(s.enemy_missiles.back())
+	fake.queue_free()
+	GS.super_charge = keep_sc
+	GS.hull = keep_hl
+	_check("v7.5 (owner's UI sheet): a full super meter readies the special; WARNING / DANGER alert panels draw", alerts_ok)
 	hud._layout()
-	var hidden: bool = not hud.buttons.has("fire") and not hud.buttons.has("special") and hud.buttons.has("thrust") and hud.buttons.has("weapons")
+	var hidden: bool = not hud.buttons.has("fire") and not hud.buttons.has("tractor") and hud.buttons.has("thrust") and hud.buttons.has("weapons")
 	main._on_hud("weapons")
 	hud._layout()
 	var shown: bool = hud.buttons.has("fire") and hud.buttons.has("shield")

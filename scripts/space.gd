@@ -4502,6 +4502,7 @@ func _enemy_entry(n: Node3D) -> Dictionary:
 ## Shields soak damage first. What gets through hits the section under the hit point: a wing/arm if the shot
 ## landed on that side (and it is still there), otherwise the core. Missiles and mines (no hit point) hit the core.
 func _damage_enemy(e: Dictionary, dmg: float, hit := Vector3.INF, sf := -1.0) -> void:
+	if e["node"].get_meta("kind", "enemy") == "enemy": GS.super_charge = minf(1.0, GS.super_charge + dmg / Data.SUPER_FROM_DEALT)   # v7.5
 	e["aggro"] = true
 	e["provoked"] = true
 	e["sh_cd"] = 4.0
@@ -4610,6 +4611,7 @@ func _popup(at: Vector3, txt: String, col: Color) -> void:
 
 func _player_hit(dmg: float, hit := Vector3.INF) -> void:
 	if GS.form == "mech": dmg *= 1.0 - GS.mech_armor()   # v1.9i: the core's armour
+	GS.super_charge = minf(1.0, GS.super_charge + dmg / Data.SUPER_FROM_TAKEN)   # v7.5 (owner): the super meter builds in a fight
 	Sfx.play("shield_hit" if GS.shield > 0.0 else "hull_hit", -6.0)
 	shield_delay = 3.0
 	hit_shake = 1.0
@@ -6367,11 +6369,8 @@ var _beam: MeshInstance3D = null
 
 ## Which earned special is ready ("half" / "crit" / ""): hull at or under half (then critical), not yet spent.
 func special_ready() -> String:
-	var k: float = GS.hull / maxf(GS.max_hull(), 1.0)
-	if k > Data.SPECIAL_RESET_AT and (GS.special_used["half"] or GS.special_used["crit"]): GS.special_used = {"half": false, "crit": false}
-	if k <= Data.SPECIAL_ARM_AT[1] and not GS.special_used["crit"]: return "crit"
-	if k <= Data.SPECIAL_ARM_AT[0] and not GS.special_used["half"]: return "half"
-	return ""
+	# v7.5 (owner): no more waiting to lose hull: the super meter fills as you fight (hits you land, hits you take)
+	return "meter" if GS.super_charge >= 1.0 else ""
 
 func _special_locked_on(t: Node3D) -> bool:
 	return t != null and is_instance_valid(t) and t.get_meta("kind", "") == "enemy" and _cone(t, Data.SPECIAL_CONE_DEG, Data.SPECIAL_RANGE)
@@ -6577,7 +6576,7 @@ func lightning_special() -> int:
 	if hit == 0:
 		message.emit("SPECIAL: no hostile in tractor range. The special is still ready.")
 		return 0
-	if which != "": GS.special_used[which] = true
+	if which != "": GS.super_charge = 0.0   # v7.5: the meter is spent
 	lightning_log.append(hit)
 	special_log.append("lightning")
 	hit_shake = maxf(hit_shake, 0.6)

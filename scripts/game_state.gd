@@ -50,6 +50,7 @@ var mission_fails := 0       # v1.9r: jobs failed by dying (each one restarts)
 var mission := {}            # v1.5f: the job you carry from a MISSIONS board (see scripts/missions.gd); empty = none
 var cargo: Array = []        # v1.5f: the hold: [{kind: "pilot", id, name, note}]
 var missions_done := 0       # v1.5f: jobs paid (the boards change with it)
+var super_charge := 0.0   # v7.5 (owner): the super meter (0..1): fills while you fight; full = the lightning storm is ready
 var special_used := {"half": false, "crit": false}   # v1.5o: the special earned at half / critical hull has been spent
 var rep := {}                # v1.4r: reputation, one number per rival pair (Factions.axis_key -> -200..200); empty = everyone at their base
 var cast := {}               # v1.4r: named characters' state: character_id -> {alive, current_system, custody}
@@ -318,6 +319,7 @@ func repair_all() -> String:
 	repairs = Data.MAX_REPAIRS
 	shield = max_shield()
 	special_used = {"half": false, "crit": false}
+	super_charge = 0.0
 	changed.emit()
 	return "Hull, wings and repair kits restored."
 
@@ -348,6 +350,7 @@ func restock_all() -> String:
 
 func restore_full() -> void:
 	special_used = {"half": false, "crit": false}
+	super_charge = 0.0
 	hull = max_hull()
 	wing_l = wing_max()
 	wing_r = wing_max()
