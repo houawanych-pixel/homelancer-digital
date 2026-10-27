@@ -443,7 +443,7 @@ func _fl_panels() -> void:
 
 func side_rect(side: String) -> Rect2:
 	var w := clampf(S.x * 0.14, 150.0, 190.0)
-	var top := 8.0 + btn * 2.0 + 8.0 + 14.0
+	var top := 8.0 + btn * (2.0 if weapons_shown() else 1.0) + 8.0 + 14.0   # v7.2 (owner): panels move up when the weapons row is away
 	var h := minf(w + 90.0, _home("move").y - stick_r - 10.0 - top)
 	var inset := 8.0 + ((_panel_w() + 6.0) * ease(roster_t, 0.35) if console_open and side == "l" else 0.0)   # v1.4n: a caller floats in NEXT to the console panel (v1.8s: the panel is on the left only)
 	return Rect2(inset if side == "l" else S.x - inset - w, top, w, h)
@@ -486,8 +486,8 @@ func _block_w() -> float:
 
 func _layout() -> void:
 	S = get_viewport_rect().size
-	stick_r = clampf(S.y * 0.128, 80.0, 100.0)
-	btn = clampf(S.y * 0.13, 84.0, 104.0)
+	stick_r = clampf(S.y * 0.098, 60.0, 78.0)   # v7.2 (owner): smaller, techier sticks
+	btn = clampf(S.y * 0.118, 74.0, 96.0)
 	btn = maxf(56.0, minf(btn, (S.x - 5 * 66.0 - 24.0 - 92.0) / 8.0))   # v1.8q: two blocks of four must leave room for the centre strip
 	col_w = 24.0
 	buttons.clear()
@@ -502,12 +502,13 @@ func _layout() -> void:
 	#                special  TRANSFORM · GROUND · SPECIAL · TRACTOR
 	var lx := func(k: int) -> float: return 8 + k * (btn + g)
 	var rx := func(k: int) -> float: return S.x - 8 - btn * 4 - g * 3 + k * (btn + g)
-	buttons["fire"] = Rect2(Vector2(lx.call(0), y1), bs)
-	for k in 3: buttons["slot_%d" % k] = Rect2(Vector2(lx.call(k + 1), y1), bs)
-	buttons["stop"] = Rect2(Vector2(lx.call(1), y2), bs)   # v1.9k (owner): engine kill, stop, thrust, warp: slowest to fastest
-	buttons["kill"] = Rect2(Vector2(lx.call(0), y2), bs)
-	buttons["thrust"] = Rect2(Vector2(lx.call(2), y2), bs)
-	buttons["warp"] = Rect2(Vector2(lx.call(3), y2), bs)
+	# v7.2 (owner): the flight row sits on the very top; the weapons row pops up under it, so no empty gap above
+	buttons["fire"] = Rect2(Vector2(lx.call(0), y2), bs)
+	for k in 3: buttons["slot_%d" % k] = Rect2(Vector2(lx.call(k + 1), y2), bs)
+	buttons["stop"] = Rect2(Vector2(lx.call(1), y1), bs)   # v1.9k (owner): engine kill, stop, thrust, warp: slowest to fastest
+	buttons["kill"] = Rect2(Vector2(lx.call(0), y1), bs)
+	buttons["thrust"] = Rect2(Vector2(lx.call(2), y1), bs)
+	buttons["warp"] = Rect2(Vector2(lx.call(3), y1), bs)
 	buttons["lock_a"] = Rect2(Vector2(rx.call(0), y1), bs)
 	buttons["lock_c"] = Rect2(Vector2(rx.call(1), y1), bs)
 	buttons["shield"] = Rect2(Vector2(rx.call(2), y1), bs)
@@ -1065,21 +1066,33 @@ func _pill(id: String, label: String, active := false, col := CYAN, sub := "") -
 	if sub != "": _text(r.position + Vector2(0, y + 15), sub, 11, Color(col.lightened(0.2), 0.95), HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
 
 func _stick(which: String, label: String) -> void:
+	# v7.2 (owner): smaller and techier: an octagon ring with tick marks, chevrons and a hex knob
 	var active := owners.values().has(which)
 	var c: Vector2 = origins.get(which, _home(which))
 	var v := move_vec if which == "move" else aim_vec
-	draw_circle(c, stick_r + 8, Color(0.0, 0.05, 0.1, 0.35))
-	draw_circle(c, stick_r, Color(0.02, 0.1, 0.2, 0.62 if active else 0.5))
-	draw_arc(c, stick_r, 0, TAU, 64, CYAN, 4.0, true)
-	draw_arc(c, stick_r - 9, 0, TAU, 64, Color(CYAN, 0.3), 2.0, true)
-	for d in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
-		var tip: Vector2 = c + d * stick_r * 0.78
+	var R := stick_r
+	var oct := PackedVector2Array()
+	for k in 9: oct.append(c + Vector2.from_angle(TAU * k / 8.0 + PI / 8.0) * R)
+	draw_colored_polygon(oct.slice(0, 8), Color(0.01, 0.06, 0.12, 0.6 if active else 0.42))
+	draw_polyline(oct, Color(CYAN, 0.95), 2.5, true)
+	draw_arc(c, R * 0.8, 0, TAU, 48, Color(CYAN, 0.28), 1.5, true)
+	for k in 32:   # tick marks
+		var a := TAU * k / 32.0
+		var l := 7.0 if k % 4 == 0 else 3.5
+		draw_line(c + Vector2.from_angle(a) * (R * 0.8 - l), c + Vector2.from_angle(a) * R * 0.8, Color(CYAN, 0.6 if k % 4 == 0 else 0.3), 1.5)
+	for d in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:   # chevrons on the ring
+		var tip: Vector2 = c + d * (R - 5.0)
 		var perp := Vector2(-d.y, d.x)
-		draw_colored_polygon(PackedVector2Array([tip + d * 9, tip - d * 5 + perp * 9, tip - d * 5 - perp * 9]), CYAN_HI)
-	var knob := c + v * stick_r * 0.6
-	draw_circle(knob, stick_r * 0.34, Color(0.62, 0.8, 0.97, 0.95 if active else 0.85))
-	draw_arc(knob, stick_r * 0.34, 0, TAU, 40, WHITE, 3.0, true)
-	_text(c + Vector2(-60, stick_r * 0.72), label, 16, WHITE, HORIZONTAL_ALIGNMENT_CENTER, 120)
+		draw_polyline(PackedVector2Array([tip - d * 7 + perp * 7, tip, tip - d * 7 - perp * 7]), CYAN_HI, 2.5, true)
+	var knob := c + v * R * 0.55
+	if v.length() > 0.05: draw_line(c, knob, Color(CYAN_HI, 0.5), 2.0, true)
+	var hexp := PackedVector2Array()
+	var kr := R * 0.36
+	for k in 7: hexp.append(knob + Vector2.from_angle(TAU * k / 6.0) * kr)
+	draw_colored_polygon(hexp.slice(0, 6), Color(0.1, 0.32, 0.5, 0.95 if active else 0.85))
+	draw_polyline(hexp, WHITE, 2.0, true)
+	draw_arc(knob, kr * 0.45, 0, TAU, 24, Color(CYAN_HI, 0.9), 2.0, true)
+	_text(c + Vector2(-60, R + 2.0), label, 12, Color(CYAN_HI, 0.9), HORIZONTAL_ALIGNMENT_CENTER, 120)
 
 func _screen(p3: Vector3) -> Variant:
 	var cam: Camera3D = space.cam
@@ -1558,7 +1571,7 @@ func _brackets(p: Vector2, s: float, col: Color) -> void:
 func dash_geo() -> Dictionary:
 	var l := _home("move").x + stick_r + 14.0
 	var r := _home("aim").x - stick_r - 14.0
-	var h := clampf(S.y * 0.3, 160.0, 240.0)
+	var h := clampf(S.y * 0.22, 128.0, 176.0)   # v7.2 (owner): scaled down
 	var w := minf(r - l, h * 3.6)
 	var x0 := (l + r) * 0.5 - w * 0.5
 	var y0 := S.y - h - 8.0
@@ -1643,9 +1656,9 @@ func _dashboard() -> void:
 			for j in 3:
 				var cx := ix + j * cw
 				var col: Color = _hull_col(vals[j])
-				_seg_bar(Rect2(cx + 6, rr.position.y + fs + 10, cw - 16, maxf(8.0, rr.size.y * 0.16)), vals[j], col, 7, vals[j] < 0.25 and blink)
-				_text(Vector2(cx, rr.end.y - fs - 6), names[j], maxi(10, fs - 4), WHITE, HORIZONTAL_ALIGNMENT_CENTER, cw)
-				_text(Vector2(cx, rr.end.y - 4), "%d%%" % int(round(vals[j] * 100.0)), fs, WHITE, HORIZONTAL_ALIGNMENT_CENTER, cw)
+				_seg_bar(Rect2(cx + 6, rr.position.y + fs + 10, cw - 16, 9.0), vals[j], col, 7, vals[j] < 0.25 and blink)
+				# v7.2: name and % on one line under the bar (no overlap at the smaller size)
+				_text(Vector2(cx - 8, rr.end.y - 6), "%s %d%%" % [names[j], int(round(vals[j] * 100.0))], maxi(9, fs - 5), col, HORIZONTAL_ALIGNMENT_CENTER, cw + 16)
 		else:
 			var v: float = sh if k == 0 else en
 			var col2: Color = Color(0.15, 0.6, 1.0) if k == 0 else YELLOW
