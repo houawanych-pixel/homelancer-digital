@@ -79,3 +79,43 @@ No text except the faction name sign.
 The Unity set (Oct 27) has the right CHARACTER style (Epic Seven anime) but the wrong content (travel centre, luggage,
 tourists). The first 7 factions have the right setting but not the anime character style. All 8 factions are redone
 in this guide's style; the new pictures replace the old ones the same way (join images, fill, stitch).
+
+
+## Fill prompt for the join images (perspective through the corners)
+
+```
+HOMELANCER — FILL THE WHITE GAPS (one join image at a time)
+
+This image has two rows. In each row, the LEFT picture and the RIGHT picture are two views of the SAME room
+that meet at a corner. The white gap in the middle is the missing part of the room between them.
+
+Paint ONLY the white gap. Do not change, move, redraw or recolour anything outside it.
+
+PERSPECTIVE (most important):
+- Treat the gap as a CORNER of the room. The left picture's walls run in toward the corner, and the right
+  picture's walls run back out of it. The wall lines, ceiling beams, floor lines, railings and light strips
+  must bend through the corner and carry on into the next wall, like a real wide-angle 360 room.
+- Every line that enters the gap from the left must leave it on the right at the matching height and angle:
+  ceiling edge to ceiling edge, floor edge to floor edge, the balcony/railing to the balcony/railing, the
+  window frames to the window frames.
+- Keep ONE horizon and ONE eye height across the whole row (the same as both pictures). The floor must not
+  tilt, jump or step; walls stay vertical.
+- Depth goes IN toward the corner and back OUT of it: things get smaller toward the corner and larger again
+  coming out. Nothing faces the camera flat in the middle of the gap.
+- The top row and the bottom row are two different corners. Fill each one separately.
+
+STYLE (match the pictures exactly):
+- Epic Seven anime style with Star Citizen-level sci-fi detail; a military space station, not a mall or
+  a travel centre. Same colours, same faction emblem and banners, same lighting and same grain as the
+  pictures on each side.
+- Armed pilots, mercenaries and crew in the same anime style. Keep people small or partly cut off near
+  the edges of the gap; never draw a person split between the two sides, no ghosted or double people,
+  no extra limbs.
+
+DO NOT:
+- No text, words, logos or watermarks (apart from emblems already in the pictures).
+- No black or white borders, no seam lines, no frames, no change to the image size.
+- Do not flip, crop or stretch the image.
+
+Give back the full image at the same size, with both gaps filled.
+```
