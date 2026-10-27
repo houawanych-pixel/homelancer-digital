@@ -1504,8 +1504,8 @@ func _run() -> void:
 	var rights := ["shield", "repair", "fullscreen" if hq.buttons.has("fullscreen") else "lock_a", "lock_c", "form", "ground", "special", "tractor"]   # defence + special moves on the right (FULL SCREEN in the web build)
 	var eight: bool = lefts.all(func(b): return hq.buttons.has(b) and hq.buttons[b].end.x < hq.S.x * 0.5) and rights.all(func(b): return hq.buttons.has(b) and hq.buttons[b].position.x > hq.S.x * 0.5)
 	var clear := true   # the centre strip sits between the two blocks
-	for b in ["map", "view", "log", "target", "goto"]:
-		if hq.buttons[b].position.x < hq.buttons["warp"].end.x or hq.buttons[b].end.x > hq.buttons["form"].position.x: clear = false
+	for b in ["view", "goto"]:   # (v6.9: the top strip is VIEW and GO TO; MAP = radar, TARGET/SCAN in the contact list, COMMS by the radar)
+		if not hq.buttons.has(b) or hq.buttons[b].position.x < hq.buttons["warp"].end.x or hq.buttons[b].end.x > hq.buttons["form"].position.x: clear = false
 	_check("v1.8q (owner): CALL is inside LOG (no CALL button): the list starts with TARGET / CONTROL; a tapped name shows the picture on the friendly side with CALL under it; 8 buttons on the left and 8 on the right, the centre strip between them",
 		no_call and hail_ok and pick_ok and eight and clear, "no_call %s hail %s pick %s eight %s clear %s" % [no_call, hail_ok, pick_ok, eight, clear])
 	# v1.8r (owner): the call list is on the left, the picked face on the right; only people on speaking terms are listed; it scrolls
