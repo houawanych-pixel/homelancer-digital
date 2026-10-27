@@ -9455,7 +9455,7 @@ func _job_v35() -> void:
 	hb.asst_ask("hello")
 	await _frames(2)
 	var said: String = (hb.asst_chat.find_child("Said", true, false) as Label).text
-	var asked: bool = said != "" and not said.begins_with("Hi, pilot")
+	var asked: bool = said != "" and not said.begins_with("Hi, pilot") and Brain.PERSONAS["assistant"]["about"].begins_with("Evee")
 	await _shot("v37_assistant", 0.5)
 	# v3.8: talk by voice (what the mic hears goes to her), a hands-free switch, and a log that folds away
 	var log_closed: bool = not (hb.asst_chat.find_child("LogBox", true, false) as Control).visible

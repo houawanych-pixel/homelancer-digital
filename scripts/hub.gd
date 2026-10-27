@@ -196,7 +196,7 @@ func _ready() -> void:
 	cv.add_child(row)
 	var ed := LineEdit.new()
 	ed.name = "AskLine"
-	ed.placeholder_text = "Ask her something..."
+	ed.placeholder_text = "Ask Evee something..."
 	ed.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	ed.text_submitted.connect(func(t: String): asst_ask(t))
 	row.add_child(ed)
@@ -508,7 +508,7 @@ func asst_tap() -> void:
 	if not asst_greeted:
 		asst_greeted = true
 		_asst_voice()
-		said.text = "Hi, pilot. Ask me anything about the station."
+		said.text = "Hi, pilot. I'm Evee, your helpful android. Ask me anything about the station."
 	else: said.text = "Yes, pilot?"
 	_log("HER", said.text)
 
