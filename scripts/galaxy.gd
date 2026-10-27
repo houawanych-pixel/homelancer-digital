@@ -52,6 +52,7 @@ static func network() -> Dictionary:
 		for g in Data.SYSTEMS[id]["gates"]:
 			var a: String = id
 			var b: String = g["to"]
+			if not (systems.has(a) and systems.has(b)): continue   # v6.5: the unknown areas are not on the map
 			var key := a + "|" + b if a < b else b + "|" + a
 			if seen.has(key): continue
 			seen[key] = true

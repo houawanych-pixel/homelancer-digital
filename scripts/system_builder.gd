@@ -53,12 +53,92 @@ static func open_rows() -> Array:
 			if holder != "":
 				rows.append(["open_" + tile.to_lower(), "%s Space %s" % [holder, tile], tile, col, row, "Enemy", "held by " + holder,
 					"Rogue Planetoid " + tile, "dead", "%s Outpost %s" % [holder, tile], k, holder])
-			else:
-				rows.append(["open_" + tile.to_lower(), "Open Space " + tile, tile, col, row, "Neutral", "open space",
-					"Rogue Planetoid " + tile, "ice", "Nav Beacon " + tile, k, ""])
+			else:   # v6.5 (owner): the unknown areas: not on the map, strange names, no jump gates
+				var nm: String = UNKNOWN_NAMES[(rows.filter(func(r): return r[6] == "unknown").size()) % UNKNOWN_NAMES.size()]
+				rows.append(["open_" + tile.to_lower(), nm, tile, col, row, "Neutral", "unknown",
+					nm + " Prime", ["ice", "dead", "toxic", "gas"][k % 4], "Lost Beacon " + tile, k, ""])
 	return rows
 
 static func is_enemy_space(sy: Dictionary) -> bool: return str(sy.get("faction", "")) == "Enemy"
+static func is_unknown(sy: Dictionary) -> bool: return str(sy.get("role", "")) == "unknown"
+
+## v6.5 (owner): names for the unknown areas (no lore, just strange)
+const UNKNOWN_NAMES := ["Whisperfold", "The Hollow Reach", "Ninefold Drift", "Gloamwake", "Sable Expanse", "Umbral Tide",
+	"The Quiet Maw", "Ashveil", "Lumen Sink", "Driftmother", "The Broken Choir", "Vesper Null", "Cinder Shoals",
+	"The Pale Weave", "Mirelight", "Ossuary Wake", "Starless Fen", "The Unwritten", "Grimglass", "Thornhalo",
+	"Echo Vault", "Silt of Ages", "The Murmur", "Wraithwater", "Blindspire Deep", "Hush Meridian", "Saltgrave",
+	"The Last Lantern", "Coilshadow", "Veilmarrow", "Dusk Orchard", "The Folded Sky", "Ninth Absence", "Rimewhisper",
+	"Gravecradle", "The Unlit Sea", "Nocturne Gap", "Hollowstar", "Sunken Halo", "The Long Static"]
+
+## v6.5 (owner): the unknown areas' gates. No jump gates there: each unknown square has a WARP gate in a nebula cloud
+## and its planet has a RIFT gate in a cloud on its surface. Gates move 3 squares (Pac-Man wrap), mostly into other
+## unknown squares; only a few lead back to the charted systems, so finding the way home is hard.
+## {"warp": {id: to}, "rift": {id: to}} ; rift = planet surface to planet surface (main planets).
+static var _ulinks: Dictionary = {}
+static func unknown_links() -> Dictionary:
+	if not _ulinks.is_empty(): return _ulinks
+	var cell := {}
+	var at := {}
+	var normal := {}
+	for t in GalaxyData.TILES:
+		at[t[0]] = Vector2i(int(t[3]), int(t[4]))
+		cell[at[t[0]]] = t[0]
+		if not (t[5] in ["Enemy", "Hidden"]) and not Data.CORE_SYSTEMS.has(t[0]): normal[t[0]] = true
+	var unk: Array = []
+	for t in open_rows():
+		at[t[0]] = Vector2i(int(t[3]), int(t[4]))
+		cell[at[t[0]]] = t[0]
+		if t[6] == "unknown": unk.append(t[0])
+	var dirs := [Vector2i(3, 0), Vector2i(-3, 0), Vector2i(0, 3), Vector2i(0, -3), Vector2i(3, 3), Vector2i(3, -3), Vector2i(-3, 3), Vector2i(-3, -3)]
+	var away := func(id: String) -> Array:
+		var out: Array = []
+		for d in dirs:
+			var c := Vector2i(posmod(at[id].x + d.x, 11), posmod(at[id].y + d.y, 11))
+			if cell.has(c): out.append(cell[c])
+		return out
+	var maps := {"warp": {}, "rift": {}}
+	for kind in ["warp", "rift"]:
+		var m: Dictionary = maps[kind]
+		for u in unk:
+			if m.has(u): continue
+			var cand: Array = away.call(u)
+			var pick: Array = cand.filter(func(c): return c in unk and not m.has(c) and maps["warp"].get(u, "") != c)
+			if pick.is_empty(): pick = cand.filter(func(c): return normal.has(c) and not m.has(c))
+			if pick.is_empty(): continue
+			m[u] = pick[0]
+			m[pick[0]] = u
+	# every group of unknown squares joined by gates has at least one way back to the charted systems
+	var seen := {}
+	for u in unk:
+		if seen.has(u): continue
+		var group := [u]
+		var todo := [u]
+		seen[u] = true
+		while not todo.is_empty():
+			var x: String = todo.pop_back()
+			for kind in ["warp", "rift"]:
+				var y: String = maps[kind].get(x, "")
+				if y in unk and not seen.has(y):
+					seen[y] = true
+					group.append(y)
+					todo.append(y)
+		var exits: bool = group.any(func(g): return normal.has(maps["warp"].get(g, "")) or normal.has(maps["rift"].get(g, "")))
+		if exits: continue
+		for g in group:   # an extra warp gate out of this pocket
+			var out: Array = away.call(g).filter(func(c): return normal.has(c))
+			if out.is_empty(): continue
+			maps["warp2"] = maps.get("warp2", {})
+			maps["warp2"][g] = out[0]
+			break
+	_ulinks = maps
+	return _ulinks
+
+## The planet a planet-surface rift gate on this planet leads to ("" = none). Main planets only (<system>_planet).
+static func planet_rift(pid: String) -> String:
+	if not pid.ends_with("_planet"): return ""
+	var sid := pid.trim_suffix("_planet")
+	var to: String = unknown_links()["rift"].get(sid, "")
+	return (to + "_planet") if to != "" else ""
 
 static func all(core: Dictionary) -> Dictionary:
 	var out: Dictionary = core.duplicate(true)
@@ -94,6 +174,11 @@ static func all(core: Dictionary) -> Dictionary:
 	for g in GalaxyData.GATES:
 		_link(out, rows, g[0], g[1], g[2])
 		_link(out, rows, g[0], g[2], g[1])
+	var ul := unknown_links()   # v6.5: the unknown areas' warp gates (two-way, 3 squares, wrapping)
+	for a in ul["warp"]: _link(out, rows, "warp", a, ul["warp"][a], true)
+	for a in ul.get("warp2", {}):
+		_link(out, rows, "warp", a, ul["warp2"][a], true)
+		_link(out, rows, "warp", ul["warp2"][a], a, true)
 	for id in out:
 		if not out[id].has("gate"): out[id]["gate"] = out[id]["gates"][0] if not out[id]["gates"].is_empty() else {}
 	# the rest of each system from the catalog: placeholder planets and stations, spread round the system and kept
@@ -221,12 +306,17 @@ static func spread(out: Dictionary) -> void:
 		sy["spread"] = k
 
 ## One gate in system `a` leading to `b`, set in the direction `b` lies on the map (north on the map = -Z in flight).
-static func _link(out: Dictionary, rows: Dictionary, kind: String, a: String, b: String) -> void:
+static func _link(out: Dictionary, rows: Dictionary, kind: String, a: String, b: String, wrap := false) -> void:
 	for g in out[a]["gates"]:
 		if g["to"] == b: return
 	var ta: Array = rows[a]
 	var tb: Array = rows[b]
-	var dir := Vector3(float(tb[3] - ta[3]), 0, float(tb[4] - ta[4])).normalized()
+	var dx: int = int(tb[3]) - int(ta[3])
+	var dz: int = int(tb[4]) - int(ta[4])
+	if wrap:   # (v6.5: the short way round the wrapping board)
+		dx = posmod(dx + 5, 11) - 5
+		dz = posmod(dz + 5, 11) - 5
+	var dir := Vector3(float(dx), 0, float(dz)).normalized()
 	var k: Array = GATE_KINDS[kind]
 	var n: int = out[a]["gates"].size()
 	out[a]["gates"].append({"id": "%s_gate_%s" % [a, b], "name": "%s %s" % [tb[1], k[0]], "pos": CENTRE + dir * float(k[2]) + Vector3(0, 70.0 * n, 0),

@@ -934,7 +934,8 @@ func dock_gate() -> bool:
 	docked_gate = space.near_gate()
 	var info: Dictionary = docked_gate.get_meta("info")
 	space.process_mode = Node.PROCESS_MODE_DISABLED
-	gate_dock.open(docked_gate.name, Data.SYSTEMS[info["to"]]["name"], "%s gate" % str(info.get("gkind", "jump")))
+	var dest: String = str(Surface.PLANETS[info["planet_to"]]["name"]) if info.has("planet_to") else str(Data.SYSTEMS[info["to"]]["name"])   # (v6.5: a planet's rift leads to a planet)
+	gate_dock.open(docked_gate.name, dest, "%s gate" % str(info.get("gkind", "jump")))
 	return true
 
 ## Job K: UNDOCK on the docking screen: back to flight at the gate, no jump.
@@ -1013,7 +1014,11 @@ func jump(gate: Node3D = null) -> void:
 		await get_tree().process_frame
 	await get_tree().process_frame   # the full tunnel is on screen before the load starts
 	if not reduced: _tunnel(1.0)
-	await _load_system(to, "gate:" + from, true)   # v1.5d: built one step a frame; the warp keeps moving over it
+	var pto: String = str(gate.get_meta("info").get("planet_to", ""))
+	if pto != "":   # v6.5 (owner): a planet's rift gate comes out on another planet, at its rift gate
+		_load_surface(pto, 0)
+		space.place_at_rift()
+	else: await _load_system(to, "gate:" + from, true)   # v1.5d: built one step a frame; the warp keeps moving over it
 	space.controls = false
 	if not reduced: _tunnel(1.0)
 	fx.set_skies(null, space.sky_texture(), [here["star"], here["nebula"]["color"], Data.SYSTEMS[to]["star"], Data.SYSTEMS[to]["nebula"]["color"]])   # the far side of the tear

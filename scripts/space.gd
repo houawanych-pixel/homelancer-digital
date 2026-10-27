@@ -1663,14 +1663,14 @@ static func nebulae_of(id: String, s: Dictionary) -> Array:
 	var shifts := [0.11, -0.13, 0.33, -0.3, 0.5]
 	# v1.9z (owner: "the warp gates are hidden inside the nebula clouds, wherever they are"): every WARP gate sits in
 	# its own cloud, Freelancer jump-hole style; systems without one have no gate cloud
-	var gs: Array = s.get("gates", []).filter(func(x): return str(x.get("gkind", "")) == "warp")
+	var gs: Array = s.get("gates", []).filter(func(x): return str(x.get("gkind", "")) in ["warp", "rift"])   # v6.5 (owner): rift gates sit in clouds too
 	for g in gs:
 		var gp: Vector3 = g["pos"]
 		var gr := minf(rng.randf_range(Data.NEBULA_GATE_RADIUS[0], Data.NEBULA_GATE_RADIUS[1]), gp.distance_to(o) - 1100.0)
 		if gr < Data.NEBULA_GATE_RADIUS[0] * 0.7: continue
 		var c0 := gp + Vector3(rng.randfn(0, 1), rng.randfn(0, 0.4), rng.randfn(0, 1)).normalized() * gr * 0.2
 		if c0.distance_to(out[0]["center"]) < gr + float(out[0]["radius"]) * 0.6: continue
-		var gcol: Color = Data.WARP_HOLE_CLOUD.lerp(n["color"], 0.25)   # (the warp gate's red-purple, a touch of the system's)
+		var gcol: Color = (Data.WARP_HOLE_CLOUD if str(g.get("gkind", "")) == "warp" else Data.RIFT_CLOUD).lerp(n["color"], 0.25)   # (the warp gate's red-purple, a touch of the system's)
 		out.append({"name": "", "center": c0, "radius": gr, "color": gcol, "main": false, "gate": str(g.get("id", ""))})
 	var tries := 0
 	var gate_clouds := out.size() - 1
@@ -5711,7 +5711,52 @@ func setup_surface(pid: String, t: int) -> void:
 	belt_radius = 0.0
 	_build_player()
 	load_tile(t)
+	_planet_rift()
 	place_player("port")
+
+## v6.5 (owner): a planet can hold a RIFT gate inside a cloud on its surface; it leads to another planet's surface
+## (most of them in the unknown areas). Only the main planet of a system has one (SystemBuilder.planet_rift).
+var planet_rift_gate: Node3D = null
+func _planet_rift() -> void:
+	var to_pid: String = SystemBuilder.planet_rift(planet_id)
+	if to_pid == "" or not Surface.PLANETS.has(to_pid): return
+	var to_sys: String = str(Surface.PLANETS[to_pid]["system"])
+	var p: Vector3 = Data.PLANET_RIFT_POS
+	p.y = _ground(p.x, p.z) + Data.PLANET_RIFT_HEIGHT
+	_build_gate({"id": planet_id + "_gate_rift", "name": "%s Rift" % Surface.PLANETS[to_pid]["name"], "pos": p, "to": to_sys,
+		"gkind": "rift", "planet_to": to_pid})
+	planet_rift_gate = gates[gates.size() - 1]
+	gates = [planet_rift_gate]
+	gate = planet_rift_gate
+	# the cloud it hides in: soft purple puffs round the gate, thick near it
+	var tex := _radial_texture(Data.RIFT_CLOUD, 0.0)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(planet_id + "rift")
+	for i in 26:
+		var q := MeshInstance3D.new()
+		var qm := QuadMesh.new()
+		var sz := rng.randf_range(220.0, 520.0)
+		qm.size = Vector2(sz, sz)
+		q.mesh = qm
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+		m.albedo_texture = tex
+		m.albedo_color = Color(1, 1, 1, rng.randf_range(0.25, 0.5))
+		m.disable_receive_shadows = true
+		q.material_override = m
+		q.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		planet_rift_gate.add_child(q)
+		q.global_position = p + Vector3(rng.randfn(0, 1), rng.randfn(0, 0.5), rng.randfn(0, 1)).normalized() * rng.randf_range(80.0, 420.0)
+
+## Arriving through a planet rift: come out of this planet's own rift gate.
+func place_at_rift() -> void:
+	if planet_rift_gate == null: return
+	player.global_position = planet_rift_gate.global_position + planet_rift_gate.global_basis.z * 150.0
+	_face(planet_rift_gate.global_basis.z)
+	vel = -player.global_basis.z * 30.0
+	_update_camera(1.0, true)
 
 func _placeholder(nm: String, kind: String, at: Vector3, info: Dictionary) -> Node3D:
 	var n := Node3D.new()

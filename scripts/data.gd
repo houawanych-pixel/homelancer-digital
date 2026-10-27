@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v6.4"
+const VERSION := "v6.5"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -894,6 +894,9 @@ const CALL_FOLD_AFTER := 9.0   # v5.6: s before a greeting folds to its tab
 const CALL_FACE := 170.0       # v5.5 (owner): a caller's face is this big everywhere (flight comms and the talk box)
 const SPACE_EDGE := 500000.0   # v6.2 (owner): each system's space is a 1,000 km tile: 500 km each way from its centre;
                                # past it you cross into the neighbouring tile of the galaxy board (Pac-Man wrap at the board's edge)
+const RIFT_CLOUD := Color(0.55, 0.25, 0.95)   # v6.5: the purple cloud round a rift gate (in space and on planets)
+const PLANET_RIFT_POS := Vector3(1400.0, 0.0, -1400.0)   # where a planet's rift gate stands on its tile (height: above the ground)
+const PLANET_RIFT_HEIGHT := 650.0
 const ENEMY_SPACE_POWER := 1.6   # v6.2 (owner): enemy space is deadlier: hull, shields, damage and pay x this
 const ENEMY_SPACE_EXTRA := 1      # ... and one more ship in every patrol
 const ENEMY_SPACE_FLEET := ["kaijurai_fang", "kaijurai_stalker", "kaijurai_fang", "kaijurai_hound", "kaijurai_reaper", "kaijurai_ravager"]

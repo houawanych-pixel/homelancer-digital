@@ -1014,6 +1014,7 @@ func _run() -> void:
 		await _job_v19x()
 		await _job_edge()
 		await _job_open()
+		await _job_unknown()
 		await _job_v35()
 		await _job_v19z()
 		for r in results: print("[route] ", r)
@@ -1024,6 +1025,7 @@ func _run() -> void:
 		await _until(func(): return main.state == "flight", 10.0)
 		await _wait(1.0)
 		await _job_open()
+		await _job_unknown()
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
@@ -1839,6 +1841,7 @@ func _run() -> void:
 	await _job_v19x()
 	await _job_edge()
 	await _job_open()
+	await _job_unknown()
 	await _job_v35()
 	await _job_v19z()
 	await _blocks()
@@ -9201,11 +9204,11 @@ func _job_v19s() -> void:
 			var hid := false
 			for nd in nbs:
 				if str(nd.get("gate", "")) == str(g.get("id", "")) and (g["pos"] as Vector3).distance_to(nd["center"]) < float(nd["radius"]) * 0.5: hid = true
-			if str(g.get("gkind", "")) == "warp":
+			if str(g.get("gkind", "")) in ["warp", "rift"]:
 				warp_n += 1
 				if hid: warp_in += 1
 			elif hid: other_in += 1
-	_check("v1.9z (owner): every warp gate hides inside its own cloud (%d of %d), and no jump or rift gate does" % [warp_in, warp_n], warp_n > 0 and warp_in == warp_n and other_in == 0, "other gates in clouds %d" % other_in)
+	_check("v1.9z (owner): every warp gate hides inside its own cloud, and (v6.5) every rift gate too (%d of %d); no jump gate does" % [warp_in, warp_n], warp_n > 0 and warp_in == warp_n and other_in == 0, "jump gates in clouds %d" % other_in)
 	_check("v1.9s: the extra clouds are unnamed (no new lore), tint the fog their own colour, and show on the system map (%d clouds)" % on_map, in_extra and on_map == neb.size(), "in extra %s, on map %d" % [in_extra, on_map])
 	_tp(s.station.global_position + Vector3(400, 80, 600), s.station.global_position)
 	await _frames(3)
@@ -9537,6 +9540,52 @@ func _job_open() -> void:
 			detail += "%s(len %.1f, flow %s) " % [k, longest, flows]
 		m.free()
 	_check("v6.2 (owner): the second Kaijurai set is in: Fang, Ravager, Stalker, Hound, Reaper (real models, their lengths, turned nose-first), their tails flowing", models_ok, detail)
+	main._load_system(home, "station")
+	await _frames(3)
+
+## v6.5 (owner): the unknown areas (the unmarked squares): strange names, not on the map, no jump gates; a warp gate in a
+## cloud and a rift gate in a cloud on the planet; gates move 3 squares; only a few lead back to the charted systems.
+func _job_unknown() -> void:
+	var s := _sp()
+	if s.surface_mode or main.state != "flight": return
+	var home: String = GS.system_id
+	var unk: Array = Data.SYSTEMS.keys().filter(func(k): return SystemBuilder.is_unknown(Data.SYSTEMS[k]))
+	var at := {}
+	for t in GalaxyData.TILES + SystemBuilder.open_rows(): at[t[0]] = Vector2i(int(t[3]), int(t[4]))
+	var bad: Array = []
+	var exits := 0
+	var named := {}
+	for u in unk:
+		var sy: Dictionary = Data.SYSTEMS[u]
+		named[sy["name"]] = true
+		var gs: Array = sy["gates"]
+		if gs.is_empty() or gs.any(func(g): return str(g.get("gkind", "")) == "jump"): bad.append(u + " gates")
+		for g in gs:
+			var d := Vector2i(absi(posmod(at[g["to"]].x - at[u].x + 5, 11) - 5), absi(posmod(at[g["to"]].y - at[u].y + 5, 11) - 5))
+			if maxi(d.x, d.y) != 3: bad.append("%s>%s not 3" % [u, g["to"]])
+			if not SystemBuilder.is_unknown(Data.SYSTEMS[g["to"]]): exits += 1
+		if SystemBuilder.planet_rift(u + "_planet") == "": bad.append(u + " no planet rift")
+		if Galaxy.network()["systems"].has(u): bad.append(u + " on the map")
+	_check("v6.5 (owner): %d unknown areas, strange names, off the map, no jump gates; each has a warp gate 3 squares away and a planet with a rift gate; few gates lead home (%d)" % [unk.size(), exits],
+		unk.size() == 37 and named.size() == 37 and bad.is_empty() and exits > 0 and exits < 12, ", ".join(bad.slice(0, 5)))
+	# fly a planet rift: from one unknown planet's surface to another planet's surface
+	var u0: String = unk[0]
+	var pid: String = u0 + "_planet"
+	var to_pid: String = SystemBuilder.planet_rift(pid)
+	main._load_surface(pid, 0)
+	await _frames(3)
+	s = _sp()
+	var rg: Node3D = s.planet_rift_gate
+	var in_cloud: bool = rg != null and rg.get_children().filter(func(c): return c is MeshInstance3D and c.mesh is QuadMesh).size() > 10
+	if rg != null:
+		s.player.global_position = rg.global_position + rg.global_basis.z * 160.0
+		await _frames(2)
+	var docked: bool = main.dock_gate()
+	if docked: main.gate_activate()
+	var arrived := await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.surface_mode and main.space.planet_id == to_pid, 25.0)
+	s = _sp()
+	var near: bool = arrived and s.planet_rift_gate != null and s.player.global_position.distance_to(s.planet_rift_gate.global_position) < 600.0
+	_check("v6.5 (owner): a planet's rift gate sits in a cloud on the surface and takes you to another planet's surface (%s > %s)" % [pid, to_pid], in_cloud and docked and arrived and near, "cloud %s, docked %s, arrived %s, at its gate %s" % [in_cloud, docked, arrived, near])
 	main._load_system(home, "station")
 	await _frames(3)
 
