@@ -1519,6 +1519,10 @@ func _bay_tap(e: InputEvent, pts: Dictionary, c: Control = null) -> void:
 var _dragged := false
 var holo_on := false   # v4.7: the weapon display box shows after you tap a slot
 func _slot_at(at: Vector2, pts: Dictionary, c: Control = null) -> int:
+	if c != null:   # a name tag is an exact target: it wins over a nearby square
+		var tags := _slot_layout(c.size, pts, _slot_half(c))
+		for k in tags:
+			if (tags[k] as Rect2).has_point(at): return k
 	var best := -9
 	var bd := 30.0
 	for k in pts:
@@ -1526,10 +1530,6 @@ func _slot_at(at: Vector2, pts: Dictionary, c: Control = null) -> int:
 		if d < bd:
 			bd = d
 			best = k
-	if best == -9 and c != null:
-		var tags := _slot_layout(c.size, pts, _slot_half(c))
-		for k in tags:
-			if (tags[k] as Rect2).grow(3.0).has_point(at): return k
 	return best
 
 ## Where each of the ship's slots sits on screen: the same spots the guns are fitted at, seen by the bay camera.
