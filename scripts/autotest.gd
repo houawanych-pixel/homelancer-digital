@@ -9502,7 +9502,7 @@ func _job_v35() -> void:
 	hb.room_override = ""
 	hb.show_screen("hub")
 	await _frames(2)
-	var other_ok: bool = hb.room_for("hub") == "" or hb._room_faction() != "" and Packs.PACKS.has("room_savagers_main_hub") and "savagers" in Data.ROOM_FACTIONS and Packs.PACKS.has("room_orion_weapons") and "orion" in Data.ROOM_FACTIONS and "covenant" in Data.ROOM_FACTIONS and "imperium" in Data.ROOM_FACTIONS and "solarion" in Data.ROOM_FACTIONS and Packs.PACKS.has("room_covenant_main_hub")
+	var other_ok: bool = hb.room_for("hub") == "" or hb._room_faction() != "" and Packs.PACKS.has("room_savagers_main_hub") and "savagers" in Data.ROOM_FACTIONS and Packs.PACKS.has("room_orion_weapons") and "orion" in Data.ROOM_FACTIONS and "covenant" in Data.ROOM_FACTIONS and "imperium" in Data.ROOM_FACTIONS and "solarion" in Data.ROOM_FACTIONS and "elyza" in Data.ROOM_FACTIONS and Data.ROOM_FACTIONS.size() == 7 and Packs.PACKS.has("room_covenant_main_hub")
 	_check("v3.5 (owner): pages stand you in a 360 room (Liberator): top bar, left window, page on the right; drag looks round; HIDE PANELS folds both windows (the top bar and LAUNCH stay); a LOUNGE page",
 		room_ok and looked and folded and back and lounge_ok and other_ok, "room %s, look %s, fold %s, back %s, lounge %s, other %s" % [room_ok, looked, folded, back, lounge_ok, other_ok])
 	main.launch()

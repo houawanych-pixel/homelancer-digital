@@ -62,6 +62,16 @@ const PACKS := {
 	"room_solarion_command": {"folders": ["res://assets/rooms/solarion"], "match": "command.", "probe": "res://assets/rooms/solarion/command.jpg"},   # the owner's 360 room
 	"room_solarion_private_quarters": {"folders": ["res://assets/rooms/solarion"], "match": "private_quarters.", "probe": "res://assets/rooms/solarion/private_quarters.jpg"},   # the owner's 360 room
 	"room_solarion_pilots_lounge": {"folders": ["res://assets/rooms/solarion"], "match": "pilots_lounge.", "probe": "res://assets/rooms/solarion/pilots_lounge.jpg"},   # the owner's 360 room
+	"room_elyza_main_hub": {"folders": ["res://assets/rooms/elyza"], "match": "main_hub.", "probe": "res://assets/rooms/elyza/main_hub.jpg"},   # the owner's 360 room
+	"room_elyza_shipyard": {"folders": ["res://assets/rooms/elyza"], "match": "shipyard.", "probe": "res://assets/rooms/elyza/shipyard.jpg"},   # the owner's 360 room
+	"room_elyza_mech_dealer": {"folders": ["res://assets/rooms/elyza"], "match": "mech_dealer.", "probe": "res://assets/rooms/elyza/mech_dealer.jpg"},   # the owner's 360 room
+	"room_elyza_weapons": {"folders": ["res://assets/rooms/elyza"], "match": "weapons.", "probe": "res://assets/rooms/elyza/weapons.jpg"},   # the owner's 360 room
+	"room_elyza_supplies": {"folders": ["res://assets/rooms/elyza"], "match": "supplies.", "probe": "res://assets/rooms/elyza/supplies.jpg"},   # the owner's 360 room
+	"room_elyza_mission_center": {"folders": ["res://assets/rooms/elyza"], "match": "mission_center.", "probe": "res://assets/rooms/elyza/mission_center.jpg"},   # the owner's 360 room
+	"room_elyza_medical_bay": {"folders": ["res://assets/rooms/elyza"], "match": "medical_bay.", "probe": "res://assets/rooms/elyza/medical_bay.jpg"},   # the owner's 360 room
+	"room_elyza_command": {"folders": ["res://assets/rooms/elyza"], "match": "command.", "probe": "res://assets/rooms/elyza/command.jpg"},   # the owner's 360 room
+	"room_elyza_private_quarters": {"folders": ["res://assets/rooms/elyza"], "match": "private_quarters.", "probe": "res://assets/rooms/elyza/private_quarters.jpg"},   # the owner's 360 room
+	"room_elyza_pilots_lounge": {"folders": ["res://assets/rooms/elyza"], "match": "pilots_lounge.", "probe": "res://assets/rooms/elyza/pilots_lounge.jpg"},   # the owner's 360 room
 	"room_liberator_main_hub": {"folders": ["res://assets/rooms/liberator"], "match": "main_hub.", "probe": "res://assets/rooms/liberator/main_hub.jpg"},   # v3.5: the owner's 360 room
 	"room_liberator_shipyard": {"folders": ["res://assets/rooms/liberator"], "match": "shipyard.", "probe": "res://assets/rooms/liberator/shipyard.jpg"},   # v3.5: the owner's 360 room
 	"room_liberator_mech_dealer": {"folders": ["res://assets/rooms/liberator"], "match": "mech_dealer.", "probe": "res://assets/rooms/liberator/mech_dealer.jpg"},   # v3.5: the owner's 360 room
