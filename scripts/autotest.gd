@@ -9425,7 +9425,7 @@ func _job_v35() -> void:
 	var looked: bool = absf(hb.room_yaw - y0) > 0.01 and hb.room_pitch != 0.0
 	(hb.find_child("ShowPanels", true, false) as Button).pressed.emit()
 	await _frames(2)
-	var folded: bool = hb.panels_hidden and not hb.content.visible and not hb.leftwin.visible and hb.left.visible and hb.launch_btn.visible
+	var folded: bool = hb.panels_hidden and not hb.content.visible and not hb.leftwin.visible and not hb.left.visible and not hb.launch_btn.visible and not hb.credits_label.visible and hb.show_btn.visible   # v5.3: no words at all
 	await _shot("v35_room_panels_hidden", 0.2)
 	(hb.find_child("ShowPanels", true, false) as Button).pressed.emit()
 	await _frames(2)
@@ -9532,7 +9532,7 @@ func _job_v35() -> void:
 	hb.show_screen("hub")
 	await _frames(2)
 	var other_ok: bool = hb.room_for("hub") == "" or hb._room_faction() != "" and Packs.PACKS.has("room_savagers_main_hub") and "savagers" in Data.ROOM_FACTIONS and Packs.PACKS.has("room_orion_weapons") and "orion" in Data.ROOM_FACTIONS and "covenant" in Data.ROOM_FACTIONS and "imperium" in Data.ROOM_FACTIONS and "solarion" in Data.ROOM_FACTIONS and "elyza" in Data.ROOM_FACTIONS and Data.ROOM_FACTIONS.size() == 7 and Packs.PACKS.has("room_covenant_main_hub")
-	_check("v3.5 (owner): pages stand you in a 360 room (Liberator): top bar, left window, page on the right; drag looks round; HIDE PANELS folds both windows (the top bar and LAUNCH stay); a LOUNGE page",
+	_check("v3.5 (owner): pages stand you in a 360 room (Liberator): top bar, left window, page on the right; drag looks round; HIDE PANELS folds both windows and every word (one small button brings them back); a LOUNGE page",
 		room_ok and looked and folded and back and lounge_ok and other_ok, "room %s, look %s, fold %s, back %s, lounge %s, other %s" % [room_ok, looked, folded, back, lounge_ok, other_ok])
 	main.launch()
 	await _until(func(): return main.state == "flight", 8.0)

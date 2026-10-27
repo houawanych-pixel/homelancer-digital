@@ -107,7 +107,7 @@ func _ready() -> void:
 	credits_label = _label(22, GOLD)
 	credits_label.anchor_left = 1.0
 	credits_label.anchor_right = 1.0
-	credits_label.offset_left = -760
+	credits_label.offset_left = -36 - Data.HUB_LAUNCH_SIZE.x - 20 - 250   # (v5.3: the box hugs the credits)
 	credits_label.offset_right = -36 - Data.HUB_LAUNCH_SIZE.x - 20
 	credits_label.offset_top = TOP_Y + 14
 	credits_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -156,6 +156,18 @@ func _ready() -> void:
 	content.offset_bottom = -66
 	add_child(content)
 	for lb in [header, subheader, credits_label]: move_child(lb, get_child_count() - 1)   # (drawn over the full-screen hangar)
+	for lb in [header, subheader, credits_label]:   # v5.3 (owner): a dark digital box behind the name and the credits so they read
+		var gb := StyleBoxFlat.new()
+		gb.bg_color = Color(0.01, 0.04, 0.09, 0.78)
+		gb.border_color = Color(CYAN, 0.45)
+		gb.set_border_width_all(1)
+		gb.border_width_left = 3
+		gb.set_corner_radius_all(4)
+		gb.content_margin_left = 10
+		gb.content_margin_right = 10
+		gb.content_margin_top = 1
+		gb.content_margin_bottom = 2
+		lb.add_theme_stylebox_override("normal", gb)
 	leftwin = Panel.new()   # v3.5: the left digital window (where you are, your ship, the view buttons)
 	leftwin.name = "LeftWindow"
 	leftwin.offset_left = 24
@@ -398,6 +410,8 @@ func show_screen(s: String) -> void:
 		b.pressed.connect(_menu.bind(m[0]))
 		left.add_child(b)
 	_layout_windows(s)
+	header.reset_size()   # v5.3: the boxes fit the words
+	subheader.reset_size()
 	match s:
 		"lounge": _lounge_page()
 		"hub": _hub_page()
@@ -697,10 +711,20 @@ func _motion_look() -> void:
 
 func set_panels_hidden(h: bool) -> void:
 	panels_hidden = h
+	_photo_words()
 	if screen == "equipment": show_screen("equipment")
 	else: _layout_windows(screen)
 
 ## Where the windows sit for this page (the hangar and HOME keep their own layouts).
+## v5.3 (owner): with the panels hidden, no words at all (a clean picture of the world): the name, credits, status,
+## tabs and LAUNCH go too; one small button brings everything back.
+func _photo_words() -> void:
+	for n in [header, subheader, credits_label, status, launch_btn]: n.visible = not panels_hidden
+	left.visible = not panels_hidden and screen != "equipment"
+	show_btn.text = "◉" if panels_hidden else "HIDE PANELS"
+	show_btn.offset_right = show_btn.offset_left + (56.0 if panels_hidden else 190.0)
+	show_btn.modulate.a = 0.55 if panels_hidden else 1.0
+
 func _layout_windows(s: String) -> void:
 	_show_room(s)
 	_asst_show(s)
@@ -712,7 +736,7 @@ func _layout_windows(s: String) -> void:
 	content.visible = not fold
 	leftwin.visible = split and not fold
 	show_btn.visible = true
-	show_btn.text = "SHOW PANELS" if panels_hidden else "HIDE PANELS"
+	_photo_words()
 	var aw := _asst_w() if _asst_on(s) else 0.0   # v4.6: the assistant stands at the right; the page stops short of her
 	if s != "equipment": content.offset_right = -(aw + 4.0) if aw > 0.0 else -24.0
 	if leftwin.visible and leftwin.get_child_count() == 0: _left_window(s)
