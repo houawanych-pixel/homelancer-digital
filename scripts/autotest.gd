@@ -9526,6 +9526,8 @@ func _job_v35() -> void:
 	_check("v3.9 (owner): all ten rooms have a place: REPAIR = medical bay, the hangar's WEAPON tab = weapons room, REPAIR & AMMO = supplies (the HANGAR tab keeps the bay)",
 		med_ok and wpn_ok and sup_ok and bay_ok and used.size() == 10, "med %s, weapons %s, supplies %s, bay %s, rooms %d" % [med_ok, wpn_ok, sup_ok, bay_ok, used.size()])
 	hb.eq_tab = "weapon"
+	var on_comms: bool = main.hud.call_list().size() > 0 and main.hud.call_list()[0] == "assistant" and main.hud.in_range("assistant") and main.hud._face_tex("evee", "normal") != null
+	_check("v5.0 (owner): Evee rides in your ship: always first on the comms call list, reachable anywhere, with her own face", on_comms)
 	hb.room_override = ""
 	hb.show_screen("hub")
 	await _frames(2)

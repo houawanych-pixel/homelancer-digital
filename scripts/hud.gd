@@ -245,8 +245,8 @@ func msglog_rect() -> Rect2:   # v1.8s: the text screen takes the call list's pl
 
 ## v1.8r (owner): who is on the call list: people you have met who are still on speaking terms with you (not enraged,
 ## and their faction, if they have one, yellow or better). Lose their good will and they drop off the list.
-func call_list() -> Array:
-	return GS.met.filter(func(id): return Data.CHARACTERS.has(id) and GS.mood.get(id, "neutral") != "enraged" and not (Data.CHARACTERS[id].has("faction") and Factions.hostile(str(Data.CHARACTERS[id]["faction"]))))
+func call_list() -> Array:   # v5.0 (owner): Evee rides with you, so she is always first on the list
+	return ["assistant"] + GS.met.filter(func(id): return id != "assistant").filter(func(id): return Data.CHARACTERS.has(id) and GS.mood.get(id, "neutral") != "enraged" and not (Data.CHARACTERS[id].has("faction") and Factions.hostile(str(Data.CHARACTERS[id]["faction"]))))
 
 var contact_scroll := 0   # the first person shown (UP / DOWN in the list's header)
 func contact_at(k: int) -> String:

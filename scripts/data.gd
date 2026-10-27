@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v4.9"
+const VERSION := "v5.0"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -1605,6 +1605,9 @@ const SYSTEM_LINKS := [["solara", "vega"]]
 # Radio contacts. "face" = portrait set in assets/portraits/<face>_<expression>.png (normal, serious, angry, sad, smile);
 # "voice" = mumble pitch (higher = lighter voice). A line may start with [expression] to pick the face for that line.
 const CHARACTERS := {
+	"assistant": {"name": "Evee", "role": "Your companion (aboard)", "color": Color(0.55, 0.85, 1.0),   # v5.0 (owner): rides in your ship; no "system" = reachable anywhere
+		"face": "evee", "voice": 1.3, "female": true,
+		"lines": {"friendly": ["[smile]I'm right here, pilot. What do you need?"]}},
 	"tutor": {"name": "Kim", "role": "Tech Officer", "color": Color(0.4, 0.75, 1.0),   # v1.7r: the owner's tutorial guide (name to come); no "system" = reachable anywhere
 		"face": "tutor", "voice": 1.35, "female": true,
 		"lines": {"friendly": ["[smile]Need help? Tap CALL with nothing targeted and I'll walk you through it."]}},
