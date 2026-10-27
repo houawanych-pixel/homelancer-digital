@@ -36,6 +36,7 @@ var bay_hold := 0.0   # s the turntable waits after you drag it or pick a slot
 var preview_key := ""
 var t := 0.0
 # ship inspector: tap the showroom (or VIEW) to look the ship over: drag to turn it, pinch / wheel to zoom, full stats
+var asst_hit: Control
 var asst: VideoStreamPlayer   # v3.7 (owner): the station assistant, standing in the HOME room
 var asst_chat: Panel
 var asst_greeted := false
@@ -48,6 +49,8 @@ var _speech_t := 0.0
 var asst_idle := 0
 var room_view: ColorRect   # v3.5 (owner): the 360 room you stand in
 var leftwin: Panel         # v3.5: the left digital window
+var look_ui: Control
+var look_bar: HBoxContainer
 var show_btn: Button       # v3.5: brings the folded windows back
 var panels_hidden := false # v3.5: both windows folded away (only the top bar stays)
 var look_motion := false   # v3.5: false = drag / stick to look; true = turn the phone
@@ -96,10 +99,15 @@ func _ready() -> void:
 	am.set_shader_parameter("key", Data.ASST_KEY)
 	asst.material = am
 	asst.finished.connect(_asst_next)
-	asst.gui_input.connect(func(e: InputEvent):
+	asst.mouse_filter = Control.MOUSE_FILTER_IGNORE   # v5.7: she is big now; only her body takes a tap (asst_hit)
+	asst_hit = Control.new()
+	asst_hit.name = "AssistantHit"
+	asst_hit.mouse_filter = Control.MOUSE_FILTER_STOP
+	asst_hit.gui_input.connect(func(e: InputEvent):
 		if (e is InputEventMouseButton and (e as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT and not (e as InputEventMouseButton).pressed) \
 				or (e is InputEventScreenTouch and not (e as InputEventScreenTouch).pressed): asst_tap())
 	add_child(asst)
+	add_child(asst_hit)
 	header = _label(32, Color(1, 1, 1))
 	header.position = Vector2(28, TOP_Y)
 	add_child(header)
@@ -301,7 +309,8 @@ func _ready() -> void:
 		cc.gui_input.connect(func(e: InputEvent): _call_input(e, sdd))
 		add_child(cc)
 		call_ctl[sd] = cc
-	move_child(asst, asst_chat.get_index())   # v3.7 (owner): in front of the windows, so a tap on her always reaches her
+	move_child(asst, room_view.get_index() + 1)   # v5.7: she stands in the room, behind the windows
+	move_child(asst_hit, asst_chat.get_index())   # v3.7 (owner): in front of the windows, so a tap on her always reaches her
 	show_btn = Button.new()
 	show_btn.name = "ShowPanels"
 	show_btn.text = "HIDE PANELS"
@@ -314,6 +323,40 @@ func _ready() -> void:
 	show_btn.add_theme_font_size_override("font_size", Data.ts(16))
 	show_btn.visible = false
 	show_btn.pressed.connect(func(): set_panels_hidden(not panels_hidden))
+	look_ui = Control.new()   # v5.7: look mode: the two sticks
+	look_ui.name = "LookSticks"
+	look_ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	look_ui.mouse_filter = Control.MOUSE_FILTER_PASS
+	look_ui.visible = false
+	look_ui.draw.connect(_draw_look)
+	look_ui.gui_input.connect(_look_input)
+	add_child(look_ui)
+	look_bar = HBoxContainer.new()   # ... and the bar at the bottom centre (where the radar sits in flight)
+	look_bar.name = "LookBar"
+	look_bar.anchor_left = 0.5
+	look_bar.anchor_right = 0.5
+	look_bar.anchor_top = 1.0
+	look_bar.anchor_bottom = 1.0
+	look_bar.offset_left = -170
+	look_bar.offset_right = 170
+	look_bar.offset_top = -66
+	look_bar.offset_bottom = -12
+	look_bar.add_theme_constant_override("separation", 8)
+	look_bar.visible = false
+	for b in [["Panels", "◉ PANELS"], ["Lock", "LOCK"], ["Call", "CALL EVEE"]]:
+		var bb := Button.new()
+		bb.name = b[0]
+		bb.text = b[1]
+		bb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bb.add_theme_font_size_override("font_size", Data.ts(14))
+		bb.clip_text = true
+		look_bar.add_child(bb)
+	(look_bar.get_node("Panels") as Button).pressed.connect(func(): set_panels_hidden(false))
+	(look_bar.get_node("Lock") as Button).pressed.connect(func():
+		set_look_motion(not look_motion)
+		_photo_words())
+	(look_bar.get_node("Call") as Button).pressed.connect(func(): asst_tap())
+	add_child(look_bar)
 	add_child(show_btn)
 	status = _label(17, GOLD)
 	status.anchor_top = 1.0
@@ -526,8 +569,9 @@ void fragment() {
 func _asst_on(s: String) -> bool:
 	return (s != "equipment" or panels_hidden) and Packs.is_ready("assistant") and ResourceLoader.exists("res://assets/assistant/idle_a.ogv")
 
-func _asst_w() -> float:
-	return get_viewport_rect().size.y * Data.ASST_HEIGHT * 320.0 / 486.0
+func _asst_w() -> float:   # the room the page leaves for her at the right (her body, not the whole clip)
+	var S := get_viewport_rect().size
+	return (S.y - Data.ASST_TOP) / 0.97 * (270.0 / 480.0) * 0.5
 
 func _asst_show(s: String) -> void:
 	var on := _asst_on(s)
@@ -549,6 +593,8 @@ func _on_asst_pack(pk: String) -> void:
 	else: _asst_show(screen)
 
 func _asst_play(clip: String) -> void:
+	if ResourceLoader.exists("res://assets/assistant/full_idle.ogv"):   # v5.7 (owner): she stands full height, idle
+		clip = "full_talk" if clip == "talk" else "full_idle"
 	asst.stream = load("res://assets/assistant/%s.ogv" % clip)
 	asst.set_meta("clip", clip)
 	asst.play()
@@ -556,16 +602,32 @@ func _asst_play(clip: String) -> void:
 func _asst_next() -> void:
 	if not asst.visible: return
 	asst_idle += 1
-	_asst_play("idle_b" if asst_idle % 3 == 2 else "idle_a")
+	_asst_play("idle_b" if asst_idle % 3 == 2 else "idle_a")   # (full body: the idle loop again)
 
+var asst_yaw := -1.0   # v5.7: where she stands in the room (set when the room changes)
 func _asst_place() -> void:
-	if not asst.visible: return
+	if not asst.visible:
+		asst_hit.visible = false
+		return
 	var S := get_viewport_rect().size
-	var h := S.y * Data.ASST_HEIGHT
-	var w := h * 320.0 / 486.0
-	var x := S.x - w * 0.5 - 4.0   # v4.6 (owner): she stands at the right side
+	var full := str(asst.get_meta("clip", "")).begins_with("full")
+	var h := (S.y - Data.ASST_TOP) / 0.97 if full else S.y * Data.ASST_HEIGHT   # v5.7 (owner): head near the menu bar, feet on the floor
+	var w := h * (270.0 / 480.0 if full else 320.0 / 486.0)
+	var x := S.x - w * 0.42   # (no room: she stands at the right)
+	var y := S.y - h
+	if room_view.visible:   # v5.7 (owner): she stays put in the room: she moves with the picture, not with you
+		var m := room_view.material as ShaderMaterial
+		var vw: float = float(m.get_shader_parameter("vis_w"))
+		if asst_yaw < 0.0: asst_yaw = fposmod(room_yaw + (Data.ASST_SCREEN_X - 0.5) * vw, 1.0)
+		var d := fposmod(asst_yaw - room_yaw + 0.5, 1.0) - 0.5
+		x = S.x * 0.5 + d / maxf(vw, 0.01) * S.x
+		var zm := Data.ROOM_ZOOM
+		y -= room_pitch * 0.5 * (1.0 - 1.0 / zm) * zm * S.y
 	asst.size = Vector2(w, h)
-	asst.position = Vector2(x - w * 0.5, S.y - h)   # v3.7 (owner): locked to the very bottom (her thighs on the edge)
+	asst.position = Vector2(x - w * 0.5, y)
+	asst_hit.visible = asst.visible and x > -w and x < S.x + w
+	asst_hit.size = Vector2(w * 0.38, h * 0.8)
+	asst_hit.position = Vector2(x - w * 0.19, y + h * 0.12)
 
 ## v5.6 (owner): one call screen look for the whole game: the same width, portrait, name strip and line on glass as the
 ## flight comms. Station people come up on the LEFT, Evee on the RIGHT; each folds to a small tab (tap to open again).
@@ -812,6 +874,7 @@ func _show_room(s: String) -> void:
 	var m := room_view.material as ShaderMaterial
 	if key != room_key:   # a new room: face its front, and let the last picture go
 		room_key = key
+		asst_yaw = -1.0
 		room_yaw = Data.ROOM_FRONT
 		room_pitch = 0.0
 		room_idle = 0.0
@@ -844,6 +907,11 @@ func _update_room(dt: float) -> void:
 	if absf(sx) > 0.2 or absf(sy) > 0.2:   # the right stick looks round (the left stick has nothing to walk in a picture)
 		room_yaw = fposmod(room_yaw + sx * Data.ROOM_STICK * dt, 1.0)
 		room_pitch = clampf(room_pitch + sy * 1.2 * dt, -1.0, 1.0)
+		room_idle = 0.0
+	var sv: Vector2 = stick_vec["l"] + stick_vec["r"]
+	if sv != Vector2.ZERO and not look_motion:
+		room_yaw = fposmod(room_yaw + sv.x * Data.ROOM_STICK * dt, 1.0)
+		room_pitch = clampf(room_pitch + sv.y * 1.2 * dt, -1.0, 1.0)
 		room_idle = 0.0
 	if look_motion: _motion_look()
 	room_idle += dt
@@ -892,9 +960,79 @@ func _photo_words() -> void:
 	for n in [header, subheader, credits_label, status, launch_btn]: n.visible = not panels_hidden
 	_place_calls()
 	left.visible = not panels_hidden and screen != "equipment"
-	show_btn.text = "◉" if panels_hidden else "HIDE PANELS"
-	show_btn.offset_right = show_btn.offset_left + (56.0 if panels_hidden else 190.0)
-	show_btn.modulate.a = 0.55 if panels_hidden else 1.0
+	show_btn.text = "HIDE PANELS"
+	show_btn.visible = not panels_hidden
+	look_ui.visible = panels_hidden   # v5.7 (owner): look mode: two sticks like flight, the bar in the middle
+	look_bar.visible = panels_hidden
+	var lk: Button = look_bar.get_node("Lock")
+	lk.text = "TILT" if look_motion else "LOCK"
+	look_ui.queue_redraw()
+
+## v5.7 (owner): in look mode both sticks turn the view like the flight's look stick (no walking in a picture). Held
+## sideways it keeps turning all the way round; up and down stop at the edges.
+var stick_vec := {"l": Vector2.ZERO, "r": Vector2.ZERO}
+var stick_own := {}   # touch index -> "l" / "r"
+func stick_r() -> float: return clampf(get_viewport_rect().size.y * 0.128, 80.0, 100.0)
+func stick_home(sd: String) -> Vector2:
+	var S := get_viewport_rect().size
+	var r := stick_r()
+	return Vector2(36.0 + r if sd == "l" else S.x - 36.0 - r, S.y - r - 28.0)
+
+func _draw_look() -> void:
+	if not room_view.visible: return
+	for sd in ["l", "r"]:
+		var c := stick_home(sd)
+		var r := stick_r()
+		var v: Vector2 = stick_vec[sd]
+		look_ui.draw_circle(c, r + 8, Color(0.0, 0.05, 0.1, 0.35))
+		look_ui.draw_circle(c, r, Color(0.02, 0.1, 0.2, 0.5))
+		look_ui.draw_arc(c, r, 0, TAU, 64, CYAN, 4.0, true)
+		look_ui.draw_arc(c, r - 9, 0, TAU, 64, Color(CYAN, 0.3), 2.0, true)
+		for dd in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
+			var tip: Vector2 = c + dd * r * 0.78
+			var perp := Vector2(-dd.y, dd.x)
+			look_ui.draw_colored_polygon(PackedVector2Array([tip + dd * 9, tip - dd * 5 + perp * 9, tip - dd * 5 - perp * 9]), Color(0.6, 0.9, 1.0))
+		var knob := c + v * r * 0.6
+		look_ui.draw_circle(knob, r * 0.34, Color(0.62, 0.8, 0.97, 0.85))
+		look_ui.draw_arc(knob, r * 0.34, 0, TAU, 40, Color.WHITE, 3.0, true)
+
+func _look_input(e: InputEvent) -> void:
+	var idx := -1
+	var pos := Vector2.ZERO
+	var down := false
+	var up := false
+	if e is InputEventScreenTouch:
+		idx = (e as InputEventScreenTouch).index
+		pos = (e as InputEventScreenTouch).position
+		down = (e as InputEventScreenTouch).pressed
+		up = not down
+	elif e is InputEventScreenDrag:
+		idx = (e as InputEventScreenDrag).index
+		pos = (e as InputEventScreenDrag).position
+	elif e is InputEventMouseButton and (e as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+		idx = 99
+		pos = (e as InputEventMouseButton).position
+		down = (e as InputEventMouseButton).pressed
+		up = not down
+	elif e is InputEventMouseMotion and ((e as InputEventMouseMotion).button_mask & MOUSE_BUTTON_MASK_LEFT):
+		idx = 99
+		pos = (e as InputEventMouseMotion).position
+	else: return
+	if down:
+		for sd in ["l", "r"]:
+			if pos.distance_to(stick_home(sd)) < stick_r() * 1.4: stick_own[idx] = sd
+		if not stick_own.has(idx):   # (not on a stick: drag the room as before)
+			look_ui.mouse_filter = Control.MOUSE_FILTER_PASS
+			return
+	if not stick_own.has(idx): return
+	var sd2: String = stick_own[idx]
+	if up:
+		stick_own.erase(idx)
+		stick_vec[sd2] = Vector2.ZERO
+	else: stick_vec[sd2] = ((pos - stick_home(sd2)) / (stick_r() * 0.6)).limit_length(1.0)
+	room_idle = 0.0
+	look_ui.queue_redraw()
+	look_ui.accept_event()
 
 func _layout_windows(s: String) -> void:
 	_show_room(s)

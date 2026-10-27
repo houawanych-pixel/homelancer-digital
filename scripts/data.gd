@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v5.6"
+const VERSION := "v5.7"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -120,7 +120,7 @@ const FPV_GUN_COLORS := {"body": Color(0.86, 0.87, 0.88), "dark": Color(0.12, 0.
 # ---------------------------------------------------------------- Job K (v1.4g): jump-gate docking + warp tunnel
 # Every Job K number lives in this one block. The jump destination logic is unchanged (gate "to" in the galaxy data).
 const JUMP_TUNNEL_BUILD := 0.5        # s: the tunnel builds up (streaks + shake + blur) as the ship pushes through the gate
-const JUMP_TUNNEL_HOLD_MIN := 0.25    # s: shortest time at full tunnel before the swap; the real load time adds to it
+const JUMP_TUNNEL_HOLD_MIN := 1.2     # s: shortest time at full tunnel before the swap; the real load time adds to it
 const JUMP_TUNNEL_CLEAR := 0.3        # s: the tunnel snaps clear once the next system is ready
 const JUMP_SHAKE := 0.35              # camera shake at full tunnel (the atmosphere-entry shake start value)
 const JUMP_BLUR := 0.6                # screen blur at full tunnel (0..1)
@@ -748,8 +748,8 @@ const HOME_FACTION := {"Kaijurai home": "Kaijurai", "Phenom home": "Phenom", "Cy
 # ---------------------------------------------------------------- Job AB (v1.4x): one warp effect, three looks
 # gate kind -> look.  tunnel = jump gate (energy tube), cloud = warp gate (gas anomaly), rift = rift gate (a tear in space)
 const WARP_SKINS := {"jump": "tunnel", "warp": "cloud", "rift": "rift"}
-const WARP_BUILD := {"tunnel": 0.5, "cloud": 1.4, "rift": 3.0}     # s: slow start, then fast
-const WARP_CLEAR := {"tunnel": 0.3, "cloud": 0.9, "rift": 1.1}     # s: ease out on arrival
+const WARP_BUILD := {"tunnel": 1.2, "cloud": 2.0, "rift": 3.0}   # v5.7 (owner: too fast, it skipped): longer     # s: slow start, then fast
+const WARP_CLEAR := {"tunnel": 0.8, "cloud": 1.2, "rift": 1.1}     # s: ease out on arrival
 const WARP_FLASH := {"tunnel": 0.55, "cloud": 0.0, "rift": 0.0}    # white flash on arrival (0 = smooth, no flash)
 const WARP_RINGS := {"tunnel": true, "cloud": false, "rift": false} # (v1.9z: a warp gate is a hole in space: no rings) # fly through the gate rings first (the rift just opens)
 const WARP_PACE_SLOW := 0.45         # layers passing per second at the start ("slow booms")
@@ -864,6 +864,8 @@ const ASST_HEIGHT := 0.65       # her height as a share of the screen
 const EVEE_VS_MECH := 0.27      # v5.1 (owner): Evee beside a mech reaches a little under its knee
 const CALL_FOLD_AFTER := 9.0   # v5.6: s before a greeting folds to its tab
 const CALL_FACE := 170.0       # v5.5 (owner): a caller's face is this big everywhere (flight comms and the talk box)
+const ASST_TOP := 70.0         # v5.7 (owner): her head comes up to just under the menu bar
+const ASST_SCREEN_X := 0.8     # where she stands on arrival (share of the screen width, in the room)
 const ASST_KEY := Color(0.08, 0.75, 0.1)   # the green to remove
 const ROOM_FACTIONS := ["liberator", "savagers", "orion", "covenant", "imperium", "solarion", "elyza"]
 const ROOM_OF := {"hub": "main_hub", "ships": "shipyard", "mechs": "mech_dealer", "repair": "medical_bay", "board": "mission_center",
