@@ -162,7 +162,7 @@ func _ready() -> void:
 		gb.border_color = Color(CYAN, 0.45)
 		gb.set_border_width_all(1)
 		gb.border_width_left = 3
-		gb.set_corner_radius_all(4)
+		tech_cut(gb, 10)
 		gb.content_margin_left = 10
 		gb.content_margin_right = 10
 		gb.content_margin_top = 1
@@ -183,23 +183,52 @@ func _ready() -> void:
 	asst_chat.anchor_left = 0.0   # v3.8: beside her (left of the middle), so she never covers it
 	asst_chat.anchor_right = 0.5
 	asst_chat.offset_left = 24
-	asst_chat.offset_right = -110
+	asst_chat.offset_right = 60
 	asst_chat.offset_top = CONTENT_Y
-	asst_chat.offset_bottom = CONTENT_Y + 156
+	asst_chat.offset_bottom = CONTENT_Y + Data.CALL_FACE + 22.0
 	asst_chat.visible = false
 	var csb := StyleBoxFlat.new()   # (solid, so the card under it doesn't show through)
 	csb.bg_color = Color(0.02, 0.05, 0.1, 0.96)
 	csb.border_color = Color(CYAN, 0.6)
 	csb.set_border_width_all(2)
-	csb.set_corner_radius_all(10)
+	tech_cut(csb, 18)
 	asst_chat.add_theme_stylebox_override("panel", csb)
+	var ch := HBoxContainer.new()   # v5.5 (owner): her face big on the left, like a call in flight
+	ch.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	ch.offset_left = 12
+	ch.offset_top = 10
+	ch.offset_right = -10
+	ch.offset_bottom = -10
+	ch.add_theme_constant_override("separation", 12)
+	asst_chat.add_child(ch)
+	var fp := Panel.new()
+	fp.name = "FaceFrame"
+	fp.custom_minimum_size = Vector2(Data.CALL_FACE, Data.CALL_FACE)
+	fp.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	var fsb := StyleBoxFlat.new()
+	fsb.bg_color = Color(0.02, 0.08, 0.15)
+	fsb.border_color = CYAN
+	fsb.set_border_width_all(2)
+	tech_cut(fsb, 16)
+	fp.add_theme_stylebox_override("panel", fsb)
+	ch.add_child(fp)
+	var face := TextureRect.new()
+	face.name = "Face"
+	face.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	face.offset_left = 3
+	face.offset_top = 3
+	face.offset_right = -3
+	face.offset_bottom = -3
+	face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	if ResourceLoader.exists("res://assets/portraits/evee_normal.png"): face.texture = load("res://assets/portraits/evee_normal.png")
+	fp.add_child(face)
 	var cv := VBoxContainer.new()
-	cv.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	cv.offset_left = 14
-	cv.offset_top = 10
-	cv.offset_right = -10
-	cv.offset_bottom = -10
-	asst_chat.add_child(cv)
+	cv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ch.add_child(cv)
+	var who := _label(14, CYAN)
+	who.text = "EVEE  ·  YOUR COMPANION"
+	cv.add_child(who)
 	var said := _label(16, Color.WHITE)
 	said.name = "Said"
 	said.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -234,7 +263,7 @@ func _ready() -> void:
 	row2.add_child(mic)
 	var hf := Button.new()
 	hf.name = "HandsFree"
-	hf.text = "HANDS-FREE OFF"
+	hf.text = "HANDS-FREE"
 	hf.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hf.pressed.connect(func(): set_hands_free(not asst_free))
 	row2.add_child(hf)
@@ -315,7 +344,7 @@ func _make_theme() -> Theme:
 		sb.bg_color = bg
 		sb.border_color = edge
 		sb.set_border_width_all(2)
-		sb.set_corner_radius_all(10)
+		tech_cut(sb, 12)
 		sb.content_margin_left = 16
 		sb.content_margin_right = 16
 		sb.content_margin_top = 10
@@ -570,7 +599,7 @@ func _log(who: String, line: String) -> void:
 func set_log_open(on: bool) -> void:
 	asst_log_open = on
 	(asst_chat.find_child("LogBox", true, false) as Control).visible = on
-	asst_chat.offset_bottom = CONTENT_Y + (360.0 if on else 156.0)
+	asst_chat.offset_bottom = CONTENT_Y + (380.0 if on else Data.CALL_FACE + 22.0)
 	var lgb: Button = asst_chat.find_child("LogButton", true, false)
 	lgb.text = "LOG ▲" if on else "LOG ▼"
 	if on: lgb.add_theme_color_override("font_color", GOLD)
@@ -588,7 +617,10 @@ func asst_listen() -> void:
 func set_hands_free(on: bool) -> void:
 	asst_free = on
 	var hf: Button = asst_chat.find_child("HandsFree", true, false)
-	if hf != null: hf.text = "HANDS-FREE ON" if on else "HANDS-FREE OFF"
+	if hf != null:
+		hf.text = "● HANDS-FREE" if on else "HANDS-FREE"
+		if on: hf.add_theme_color_override("font_color", Color(0.4, 1.0, 0.6))
+		else: hf.remove_theme_color_override("font_color")
 	if on: asst_listen()
 	elif OS.has_feature("web"): JavaScriptBridge.eval("window.hlStopListen && window.hlStopListen()")
 
@@ -1256,12 +1288,21 @@ func _equipment_page() -> void:
 	_shop_panel(sec)
 
 ## The see-through navy panels the hangar floats over the bay (lit = the open menu item).
+## v5.5 (owner, his blueprint cards): panels are digital screens with cut corners, not plain boxes.
+static func tech_cut(sb: StyleBoxFlat, big := 14) -> StyleBoxFlat:
+	sb.corner_detail = 1   # (a straight cut instead of a round corner)
+	sb.corner_radius_top_left = big
+	sb.corner_radius_bottom_right = big
+	sb.corner_radius_top_right = maxi(3, big / 4)
+	sb.corner_radius_bottom_left = maxi(3, big / 4)
+	return sb
+
 func _glass(lit := false) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.03, 0.08, 0.14, 0.86) if not lit else Color(0.06, 0.2, 0.33, 0.95)
 	sb.border_color = Color(0.3, 0.75, 1.0, 0.75)
 	sb.set_border_width_all(2)
-	sb.set_corner_radius_all(6)
+	tech_cut(sb, 14)
 	sb.content_margin_left = 10
 	sb.content_margin_right = 10
 	sb.content_margin_top = 8
