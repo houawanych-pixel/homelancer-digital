@@ -2155,7 +2155,7 @@ func _controls_j() -> void:
 	main.settings.close()
 	# a real finger (device 0) on the right stick zone still grabs the AIM stick, in either mode
 	var hz: Rect2 = main.hud.stick_zone("aim")
-	var finger := hz.position + hz.size * Vector2(0.6, 0.7)
+	var finger: Vector2 = main.hud._home("aim") + Vector2(10, 10)   # (v7.1: on the stick itself; COMMS/WEAPONS sit above it)
 	var tch := InputEventScreenTouch.new()
 	tch.index = 3
 	tch.position = finger
@@ -2176,8 +2176,11 @@ func _controls_j() -> void:
 	var grabbed_kbm: bool = main.hud.owners.get(3, "") == "aim"
 	tch.pressed = false
 	main.hud._input(tch)
+	main.hud.weapons_pinned = true
+	main.hud._layout()
 	_check("Job J: touch mode is unchanged — no mouse flight, no right-click fire, no Controls list; finger sticks work as before",
-		no_mouse_aim and no_rclick and list_hidden and grabbed and stick_moves and released and grabbed_kbm and main.hud.buttons.has("slot_0") and main.hud.buttons.has("thrust"))
+		no_mouse_aim and no_rclick and list_hidden and grabbed and stick_moves and released and grabbed_kbm and main.hud.buttons.has("slot_0") and main.hud.buttons.has("thrust"),
+		"aim %s rclick %s list %s grab %s moves %s rel %s kbm %s slot %s thrust %s at %s" % [no_mouse_aim, no_rclick, list_hidden, grabbed, stick_moves, released, grabbed_kbm, main.hud.buttons.has("slot_0"), main.hud.buttons.has("thrust"), main.hud.button_at(finger)])
 	# ---- 14. version label
 	var shell := FileAccess.get_file_as_string("res://web_shell.html") if FileAccess.file_exists("res://web_shell.html") else ""
 	# (from v1.4g on: the label must be v1.4f or later and match the page title)
@@ -8614,7 +8617,7 @@ func _job_v19k() -> void:
 	var c: Vector2 = (main.hud.buttons.get("objective", Rect2()) as Rect2).get_center()
 	var at: String = main.hud.button_at(c)
 	main._on_hud("objective")
-	var tap_ok: bool = has_btn and at == "objective" and s.nav_dest == s.station and s.gps_mission
+	var tap_ok: bool = not has_btn   # (v7.0 owner: no yellow job line; GO TO takes you to the job)
 	await _shot("v19k_objective_line", 0.3)
 	# GO TO: the job's autopilot (it carries on)
 	s.autopilot = null
@@ -8664,7 +8667,7 @@ func _job_v19k() -> void:
 	GS.last_base = keep["last_base"]
 	_check("v1.9k: far planets stay drawn (camera far %d m)" % int(s.cam.far), far_ok)
 	_check("v1.9k: a captured bounty points back to the dock that posted it", caught and way_ok, str(mw.get("line", "")))
-	_check("v1.9k: tapping the job line sets the waypoint; GO TO flies the job all the way", tap_ok and auto_ok, "button %s, tap %s, auto %s" % [has_btn, at, auto_ok])
+	_check("v1.9k: no yellow job line (v7.0); GO TO flies the job all the way", tap_ok and auto_ok, "button %s, tap %s, auto %s" % [has_btn, at, auto_ok])
 	_check("v1.9k: handing a captive in: the giver thanks you, pays, and opens the bounty board", thanks_ok, main.last_thanks)
 	_check("v1.9k: every job on the board has a picture tile, bigger board text", icons_ok)
 	_check("v1.9k: music: each system opens on its own track of its faction's set; epic music for the big fights", music_ok, "%d opening tracks, tiers %d/%d" % [firsts.size(), t1, t2])
