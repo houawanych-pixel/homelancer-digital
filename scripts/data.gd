@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v4.4"
+const VERSION := "v4.5"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -1031,7 +1031,7 @@ const BAYS := {"unity": 0.75, "orion": 0.71, "solarion": 0.72, "liberator": 0.69
 	"p_imperium": 0.65, "p_unity": 0.765, "p_orion": 0.71, "p_liberator": 0.69, "p_savagers": 0.69, "p_covenant": 0.72, "p_elyza": 0.66, "p_solarion": 0.73, "p_kaijurai": 0.76, "p_phenom": 0.76, "p_cybermorph": 0.76, "p_arctides": 0.76, "p_solrath": 0.76}
 const BAY_SPARES := ["blue", "scarlet"]
 const SHIP_ON_PAD := 0.8      # the ship's width as a share of the bay picture's height
-const SHIP_BAY_VIEW := Vector3(1.0, 0.42, 0.0)   # v3.5 (owner): the ship stands flat, seen from its right side
+const SHIP_BAY_VIEW := Vector3(0.0, 0.22, -1.0)   # v4.5 (owner): the ship on the pad seen front-on (nose to you), a little from above
 const MECH_ON_PAD := 0.62     # the mech's height as a share of the bay picture's height
 const BAY_SPIN := 0.0          # v3.5 (owner): it stands still; press and drag to turn it (was a slow spin)
 const BAY_SPIN_WAIT := 4.0     # s it waits after you drag it or pick a slot

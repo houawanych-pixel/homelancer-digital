@@ -1395,7 +1395,10 @@ func _stand_model(art: Control, bay: Control) -> void:
 	if mech:   # v3.3 (owner's screenshot): never taller than the room above the pad (its head was cut off)
 		var tall: float = minf(art.size.y * Data.MECH_ON_PAD, feet * 0.9)
 		cam.size = maxf(hi.y - lo.y, 0.1) * vs.y / maxf(tall * k, 20.0)
-	else: cam.size = maxf(hi.x - lo.x, 0.1) * vs.y / maxf(minf(art.size.y * Data.SHIP_ON_PAD, bay.size.x * 0.9) * k, 20.0)
+	else:   # v4.5: front-on, so fit its width AND its height (a long ship seen nose-on is tall, not wide)
+		var by_w: float = maxf(hi.x - lo.x, 0.1) * vs.y / maxf(minf(art.size.y * Data.SHIP_ON_PAD, bay.size.x * 0.9) * k, 20.0)
+		var by_h: float = maxf(hi.y - lo.y, 0.1) * vs.y / maxf(minf(art.size.y * Data.SHIP_ON_PAD * 0.55, feet * 0.85) * k, 20.0)
+		cam.size = maxf(by_w, by_h)
 	var ty: float = feet * k   # where its base goes
 	var tx: float = vs.x * 0.5
 	var base_pt := Vector3(0.0, min_y, 0.0)
