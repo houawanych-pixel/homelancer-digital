@@ -9521,6 +9521,15 @@ func _job_v35() -> void:
 	hb.set_panels_hidden(false)
 	await _frames(3)
 	await _shot("v46_hangar_layout", 0.3)
+	hb.eq_tab = "hangar"
+	hb.eq_view = "ship"
+	hb.show_screen("equipment")
+	await _frames(2)
+	var dbp: TextureRect = hb.find_child("DockBlueprint", true, false)
+	_check("v5.4 (owner): the HANGAR page shows his level blueprint card for your ship", dbp != null and dbp.texture != null and dbp.texture.resource_path.contains("ship_card%d" % GS.ship_level()))
+	await _shot("v54_ship_card", 0.2)
+	hb.eq_tab = "weapon"
+	hb.eq_view = ""
 	_check("v4.6 (owner): hangar tags in a clean fixed layout (no overlaps), the picked weapon in a display box, turn buttons, HIDE PANELS shows just the bay",
 		lay_ok and not overl and turn_ok and hid, "layout %s, overlap %s, turn %s, hidden %s" % [lay_ok, overl, turn_ok, hid])
 	_check("v3.9 (owner): all ten rooms have a place: REPAIR = medical bay, the hangar's WEAPON tab = weapons room, REPAIR & AMMO = supplies (the HANGAR tab keeps the bay)",

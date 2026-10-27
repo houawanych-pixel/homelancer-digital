@@ -1284,6 +1284,8 @@ func _dock_status(v: VBoxContainer) -> void:
 	bp.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	bp.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	var ap: String = GS.level_def()["mech_icon" if _eq_mech() else "icon"]
+	var card := "res://assets/ui/ship_card%d.jpg" % GS.ship_level()   # v5.4 (owner): his level blueprint card for the ship
+	if not _eq_mech() and ResourceLoader.exists(card): ap = card
 	if ResourceLoader.exists(ap): bp.texture = load(ap)
 	row.add_child(bp)
 	var lv := VBoxContainer.new()
