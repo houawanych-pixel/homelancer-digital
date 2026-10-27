@@ -8686,6 +8686,7 @@ func _job_v19l() -> void:
 	s.aim = Vector2.ZERO
 	s.move = Vector2.ZERO
 	s.man_log = []
+	GS.super_charge = 0.0   # (v7.5: an empty super meter = the tap is an evasive move)
 	# a real tap of the button (held for a frame)
 	s.special_held = true
 	await _frames(2)
