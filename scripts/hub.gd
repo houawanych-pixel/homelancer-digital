@@ -574,7 +574,7 @@ func _asst_on(s: String) -> bool:
 
 func _asst_w() -> float:   # the room the page leaves for her at the right (her body, not the whole clip)
 	var S := get_viewport_rect().size
-	return (S.y - Data.ASST_TOP) / 0.97 * (270.0 / 480.0) * 0.5
+	return (S.y - Data.ASST_TOP) * (320.0 / 486.0) * 0.55
 
 func _asst_show(s: String) -> void:
 	var on := _asst_on(s)
@@ -596,8 +596,6 @@ func _on_asst_pack(pk: String) -> void:
 	else: _asst_show(screen)
 
 func _asst_play(clip: String) -> void:
-	if ResourceLoader.exists("res://assets/assistant/full_idle.ogv"):   # v5.7 (owner): she stands full height, idle
-		clip = "full_talk" if clip == "talk" else "full_idle"
 	asst.stream = load("res://assets/assistant/%s.ogv" % clip)
 	asst.set_meta("clip", clip)
 	asst.play()
@@ -613,11 +611,13 @@ func _asst_place() -> void:
 		asst_hit.visible = false
 		return
 	var S := get_viewport_rect().size
-	var full := str(asst.get_meta("clip", "")).begins_with("full")
-	var h := (S.y - Data.ASST_TOP) / 0.97 if full else S.y * Data.ASST_HEIGHT   # v5.7 (owner): head near the menu bar, feet on the floor
-	var w := h * (270.0 / 480.0 if full else 320.0 / 486.0)
+	# v6.1 (owner: full body looked wrong, a giant over the benches): thigh-up, cut by the bottom of the screen like
+	# the people in the foreground, her head just under the menu bar
+	var pad := 0.5 * (Data.ROOM_ZOOM - 1.0) * S.y   # (the most a look up/down moves her: her cut stays below the edge)
+	var h := S.y - Data.ASST_TOP + pad
+	var w := h * 320.0 / 486.0
 	var x := S.x - w * 0.42   # (no room: she stands at the right)
-	var y := S.y - h
+	var y := S.y - h + pad
 	if room_view.visible:   # v5.7 (owner): she stays put in the room: she moves with the picture, not with you
 		var m := room_view.material as ShaderMaterial
 		var vw: float = float(m.get_shader_parameter("vis_w"))
