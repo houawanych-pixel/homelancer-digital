@@ -259,6 +259,7 @@ func _process(_dt: float) -> void:
 		space.cam.global_position = space.station.global_position + Vector3(cos(t * 0.08) * 330, 90, sin(t * 0.08) * 330)
 		space.cam.look_at(space.station.global_position, Vector3.UP)
 	if state == "flight":
+		_check_space_edge()
 		hud.objective = _objective()
 		if space.surface_mode:
 			fx.clouds = space.corner_haze * 0.75   # inside the wrap-corner cloud bank
@@ -1137,6 +1138,83 @@ func enter_atmosphere(planet_node: Node3D) -> void:
 ## Crossing a tile edge. Normally seamless (SUPERSEDES the old "storm on every border"): the next sector was built
 ## ahead of time, so the ground just continues. Only if it isn't ready yet (very fast flight) a quick cloud pass hides
 ## the build.
+## v6.2 (owner): the galaxy board. Each system is one tile (Data.SPACE_EDGE each way from its centre). Flying past an
+## edge crosses into the neighbouring tile in that direction (map east = +X, map south = +Z); empty board squares are
+## crossed on to the next system; off the board's edge you come back in on the far side, Pac-Man style.
+static func board_neighbour(from: String, dc: int, dr: int) -> String:
+	var cells := {}
+	var cols := 0
+	var rows := 0
+	for t in GalaxyData.TILES:
+		if not Data.SYSTEMS.has(t[0]): continue
+		cells[Vector2i(int(t[3]), int(t[4]))] = t[0]
+		cols = maxi(cols, int(t[3]) + 1)
+		rows = maxi(rows, int(t[4]) + 1)
+	var at := Vector2i(-1, -1)
+	for c in cells:
+		if cells[c] == from: at = c
+	if at.x < 0: return ""
+	var c2 := at
+	for i in maxi(cols, rows):
+		c2 = Vector2i(posmod(c2.x + dc, cols), posmod(c2.y + dr, rows))
+		if cells.has(c2): return cells[c2]
+	return ""
+
+var crossing := false
+func _check_space_edge() -> void:
+	if crossing or state != "flight" or not is_instance_valid(space) or space.surface_mode or not is_instance_valid(space.player): return
+	var p: Vector3 = space.player.global_position - SystemBuilder.CENTRE
+	var E := Data.SPACE_EDGE
+	if absf(p.x) <= E and absf(p.z) <= E: return
+	var dc := (1 if p.x > E else -1) if absf(p.x) > E else 0
+	var dr := (1 if p.z > E else -1) if absf(p.z) > E else 0
+	var to := board_neighbour(GS.system_id, dc, dr)
+	if to == "" or to == GS.system_id:
+		space.player.global_position -= Vector3(dc, 0, dr) * 2.0 * E   # (alone on the board: wrap round the same tile)
+		return
+	cross_edge(to, Vector3(p.x - dc * 2.0 * E, p.y, p.z - dr * 2.0 * E))
+
+func cross_edge(to: String, arrive: Vector3) -> void:
+	crossing = true
+	state = "jumping"
+	var from: String = GS.system_id
+	var speed: float = maxf(space.vel.length(), 40.0)
+	var yw: float = space.yaw
+	var pt: float = space.pitch
+	space.controls = false
+	space.autopilot = null
+	space.drop_warp()
+	hud.visible = false
+	fx.begin_warp("cloud")
+	var here: Dictionary = space.sys
+	var cols := [here["star"], here["nebula"]["color"], Data.SYSTEMS[to]["star"], Data.SYSTEMS[to]["nebula"]["color"]]
+	fx.set_skies(space.sky_texture(), null, cols)
+	fx.warp_color = Data.SYSTEMS[to]["star"]
+	fx.caption = "CROSSING INTO %s" % Data.SYSTEMS[to]["name"].to_upper()
+	fx.sub = "LEAVING %s SPACE" % Data.SYSTEMS[from]["name"].to_upper()
+	var tw := create_tween()
+	tw.tween_method(_tunnel, 0.0, 1.0, Data.WARP_BUILD["cloud"])
+	await tw.finished
+	await get_tree().process_frame
+	await _load_system(to, "edge:%f:%f:%f:%f:%f:%f" % [arrive.x, arrive.y, arrive.z, yw, pt, speed], true)
+	space.controls = false
+	fx.set_skies(null, space.sky_texture(), cols)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	fx.caption = "%s SYSTEM" % Data.SYSTEMS[to]["name"].to_upper()
+	fx.sub = "%d KM FROM THE CENTRE" % int(arrive.length() / 1000.0)
+	var tw2 := create_tween()
+	tw2.tween_method(_tunnel, 1.0, 0.0, Data.WARP_CLEAR["cloud"]).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
+	await tw2.finished
+	_tunnel(0.0)
+	fx.end_warp()
+	fx.caption = ""
+	space.controls = true
+	hud.visible = true
+	state = "flight"
+	crossing = false
+	hud.flash_message("Entered %s space." % Data.SYSTEMS[to]["name"])
+
 func _on_tile_edge(dir: Vector2i) -> void:
 	if state != "flight" or space.surf_busy: return
 	var pid: String = space.planet_id

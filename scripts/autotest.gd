@@ -1010,8 +1010,17 @@ func _run() -> void:
 		await _job_v19u()
 		await _job_v19w()
 		await _job_v19x()
+		await _job_edge()
 		await _job_v35()
 		await _job_v19z()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
+	if _flag("HL_EDGE"):   # the v6.2 space-tile edge checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_edge()
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
@@ -1816,6 +1825,7 @@ func _run() -> void:
 	await _job_v19u()
 	await _job_v19w()
 	await _job_v19x()
+	await _job_edge()
 	await _job_v35()
 	await _job_v19z()
 	await _blocks()
@@ -9402,6 +9412,34 @@ func _job_v19w() -> void:
 ## SLOT INFO, a shop grid with filters, the frame's specs; the mech blueprint shows the same slots (arms = wings).
 ## v3.5 (owner): every page stands you in a 360 room (Liberator's are in): the top bar, a left window, the page in a
 ## right window, HIDE PANELS to look round; drag looks round; the lounge lists who is here.
+## v6.2 (owner): each system is a 1,000 km tile; past 500 km you cross into the next system on the board, and the
+## board wraps round Pac-Man style.
+func _job_edge() -> void:
+	var s := _sp()
+	if s.surface_mode or main.state != "flight": return
+	var home: String = GS.system_id
+	var maxc := 0
+	var at := {}
+	for t in GalaxyData.TILES:
+		at[t[0]] = Vector2i(int(t[3]), int(t[4]))
+		maxc = maxi(maxc, int(t[3]))
+	var far := ""   # a system on the board's east edge
+	for id in at:
+		if at[id].x == maxc and Data.SYSTEMS.has(id): far = id
+	var wrapped: String = main.board_neighbour(far, 1, 0)
+	var wrap_ok: bool = wrapped != "" and at[wrapped].x < at[far].x and at[wrapped].y == at[far].y
+	var east: String = main.board_neighbour(home, 1, 0)
+	var E: float = Data.SPACE_EDGE
+	s.autopilot = null
+	s.player.global_position = SystemBuilder.CENTRE + Vector3(E + 50.0, 0.0, 300.0)
+	var crossed := await _until(func(): return GS.system_id == east and main.state == "flight" and not main.crossing, 25.0)
+	var p: Vector3 = main.space.player.global_position - SystemBuilder.CENTRE
+	var arrive_ok: bool = crossed and p.x < -E + 3000.0 and p.x > -E - 10.0 and absf(p.z - 300.0) < 3000.0
+	_check("v6.2 (owner): a system's space is a 1,000 km tile; flying past 500 km east brings you into the next system east (%s > %s), at its west edge; off the board's edge it wraps round (%s > %s)" % [home, east, far, wrapped],
+		E == 500000.0 and wrap_ok and arrive_ok, "crossed %s, arrived at x %.0f km" % [crossed, p.x / 1000.0])
+	main._load_system(home, "station")
+	await _frames(3)
+
 func _job_v35() -> void:
 	var s := _sp()
 	if s.surface_mode or main.state != "flight": return

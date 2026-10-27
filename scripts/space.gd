@@ -273,6 +273,16 @@ func place_player(arrival: String) -> void:
 		vel = -player.global_basis.z * 30.0
 		_update_camera(1.0, true)
 		return
+	if arrival.begins_with("edge:"):
+		# v6.2: flew across the tile border from the next system: come in at this tile's opposite edge, same heading
+		var e := arrival.split(":")
+		player.global_position = SystemBuilder.CENTRE + Vector3(float(e[1]), float(e[2]), float(e[3]))
+		yaw = float(e[4])
+		pitch = float(e[5])
+		player.basis = Basis.from_euler(Vector3(pitch, yaw, 0))
+		vel = -player.global_basis.z * float(e[6])
+		_update_camera(1.0, true)
+		return
 	if arrival == "sunorbit":
 		# climbing out of the star: appear outside its heat zone, on the side facing the system, flying home
 		var sd := sun_pos.normalized()

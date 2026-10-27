@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v6.1"
+const VERSION := "v6.2"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -864,6 +864,8 @@ const ASST_HEIGHT := 0.65       # her height as a share of the screen
 const EVEE_VS_MECH := 0.27      # v5.1 (owner): Evee beside a mech reaches a little under its knee
 const CALL_FOLD_AFTER := 9.0   # v5.6: s before a greeting folds to its tab
 const CALL_FACE := 170.0       # v5.5 (owner): a caller's face is this big everywhere (flight comms and the talk box)
+const SPACE_EDGE := 500000.0   # v6.2 (owner): each system's space is a 1,000 km tile: 500 km each way from its centre;
+                               # past it you cross into the neighbouring tile of the galaxy board (Pac-Man wrap at the board's edge)
 const ROOM_SND_FRONT := 0.5    # v5.9 (owner): a room third's own sound when you face it (Echo Vision style)
 const ROOM_SND_SEAM := 0.25    # ... each of the two at a join; off screen = silent
 const HUB_MUSIC := 0.1         # v5.9 (owner): the faction's music under the hub, at 10%
