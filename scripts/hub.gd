@@ -375,7 +375,8 @@ func _ready() -> void:
 	visibility_changed.connect(func():
 		if not visible:
 			bg_tex = null
-			if room_vid != null: room_vid.stop())   # leaving the station lets the picture go
+			if room_vid != null: room_vid.stop()
+			for p in room_snd: (p as AudioStreamPlayer).volume_db = -80.0)   # leaving the station lets the picture go
 	visible = false
 
 ## The static faction picture for this station: asked for when you dock, shown as soon as it is in.
@@ -864,6 +865,7 @@ func _show_room(s: String) -> void:
 		room_view.visible = false
 		room_key = ""
 		if room_vid != null: room_vid.stop()
+		_room_sounds("")
 		return
 	var f := key.get_slice("_", 0)
 	var rn := key.substr(f.length() + 1)
@@ -901,12 +903,49 @@ func _room_video(vpath: String) -> void:
 		room_vid.loop = true
 		room_vid.volume_db = -80.0
 		add_child(room_vid)
+		move_child(room_vid, 0)   # (at the back: LAUNCH stays the last child, on top of everything)
 	room_vid.stop()
 	room_vid.stream = null
+	_room_sounds(vpath.get_basename())
 	if not ResourceLoader.exists(vpath): return
 	room_vid.stream = load(vpath)
 	room_vid.play()
 	room_vid_on = true
+
+## v5.9 (owner, Echo Vision style): each third of an animated room has its own sound. Facing it: Data.ROOM_SND_FRONT;
+## at a join the two neighbours each Data.ROOM_SND_SEAM; off screen: silent.
+var room_snd: Array = []
+func _room_sounds(base_path: String) -> void:
+	for p in room_snd: (p as AudioStreamPlayer).queue_free()
+	room_snd = []
+	for i in 3:
+		var ap := "%s.a%d.ogg" % [base_path, i + 1]
+		if not ResourceLoader.exists(ap): continue
+		var st: AudioStream = load(ap)
+		if st is AudioStreamOggVorbis: (st as AudioStreamOggVorbis).loop = true
+		var pl := AudioStreamPlayer.new()
+		pl.stream = st
+		pl.volume_db = -80.0
+		pl.set_meta("third", i)
+		add_child(pl)
+		pl.play()
+		room_snd.append(pl)
+
+static func third_level(yaw: float, third: int, vis_w: float) -> float:
+	var d: float = absf(fposmod(yaw - (third + 0.5) / 3.0 + 0.5, 1.0) - 0.5)
+	var seam := 1.0 / 6.0
+	if d <= seam: return lerpf(Data.ROOM_SND_FRONT, Data.ROOM_SND_SEAM, d / seam)
+	var off: float = maxf(vis_w * 0.5, 0.01)
+	return lerpf(Data.ROOM_SND_SEAM, 0.0, clampf((d - seam) / off, 0.0, 1.0))
+
+func _room_sound_levels(dt: float) -> void:
+	if room_snd.is_empty(): return
+	var vw: float = float((room_view.material as ShaderMaterial).get_shader_parameter("vis_w"))
+	for p in room_snd:
+		var pl := p as AudioStreamPlayer
+		var want: float = third_level(room_yaw, int(pl.get_meta("third")), vw) if (room_view.visible and visible) else 0.0
+		var now := db_to_linear(pl.volume_db)
+		pl.volume_db = linear_to_db(maxf(lerpf(now, want, clampf(dt * 8.0, 0.0, 1.0)), 0.0001))
 
 func _on_room_pack(pk: String) -> void:
 	if visible and pk.begins_with("room_") and pk == "room_" + room_for(screen):
@@ -924,6 +963,7 @@ func look_by(rel: Vector2) -> void:
 func _update_room(dt: float) -> void:
 	if not room_view.visible: return
 	var m := room_view.material as ShaderMaterial
+	_room_sound_levels(dt)
 	if room_vid_on and room_vid.is_playing():
 		var vt := room_vid.get_video_texture()
 		if vt != null and vt.get_width() > 0 and m.get_shader_parameter("strip") != vt: m.set_shader_parameter("strip", vt)

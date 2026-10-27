@@ -56,6 +56,7 @@ const FADE := 2.2
 var mood := ""          # what is wanted now ("" = silence)
 var track := ""         # the take that is playing or on its way
 var muted := false
+var vol_db := VOLUME_DB   # v5.9: the level now (the hub plays it quieter, Data.HUB_MUSIC)
 var _a: AudioStreamPlayer
 var _b: AudioStreamPlayer
 var _last := {}         # mood -> last take, so the same one is not picked twice running
@@ -103,7 +104,15 @@ func _ready() -> void:
 		JavaScriptBridge.eval(WEB_JS, true)
 		web = true
 
-func _web_vol() -> float: return 0.0 if muted else db_to_linear(VOLUME_DB)
+func _web_vol() -> float: return 0.0 if muted else db_to_linear(vol_db)
+
+## v5.9 (owner): in the hub the faction's music plays under the room at 10%.
+func set_hub(on: bool) -> void:
+	var to: float = linear_to_db(Data.HUB_MUSIC) if on else VOLUME_DB
+	if is_equal_approx(to, vol_db): return
+	vol_db = to
+	if web: JavaScriptBridge.eval("window.__hlm.vol(%f)" % _web_vol(), true)
+	if _a.playing and not muted: _fade(_a, vol_db, false)
 
 func _process(dt: float) -> void:
 	if not web: return
@@ -169,7 +178,7 @@ func _play(id: String) -> void:
 	_a.stream = st
 	_a.volume_db = -60.0
 	_a.play()
-	_fade(_a, -60.0 if muted else VOLUME_DB, false)
+	_fade(_a, -60.0 if muted else vol_db, false)
 
 func _fade(p: AudioStreamPlayer, to_db: float, stop: bool) -> void:
 	if p.has_meta("tw") and is_instance_valid(p.get_meta("tw")): (p.get_meta("tw") as Tween).kill()
@@ -181,6 +190,6 @@ func _fade(p: AudioStreamPlayer, to_db: float, stop: bool) -> void:
 func set_muted(m: bool) -> void:
 	muted = m
 	if web: JavaScriptBridge.eval("window.__hlm.vol(%f)" % _web_vol(), true)
-	if _a.playing: _fade(_a, -60.0 if m else VOLUME_DB, false)
+	if _a.playing: _fade(_a, -60.0 if m else vol_db, false)
 
 func is_playing() -> bool: return _a.playing or (web and track != "")

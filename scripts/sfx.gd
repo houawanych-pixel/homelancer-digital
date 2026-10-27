@@ -31,7 +31,7 @@ func _ready() -> void:
 		add_child(p)
 		pool.append(p)
 	voice_player = AudioStreamPlayer.new()
-	voice_player.volume_db = -3.0
+	voice_player.volume_db = Data.CALL_VOICE_DB   # v5.9 (owner): call voices at 100%
 	add_child(voice_player)
 	bed_player = AudioStreamPlayer.new()   # v1.5j: the quiet bed behind a line (a machine's hum)
 	bed_player.volume_db = -20.0

@@ -200,7 +200,9 @@ var _calm_t := 0.0      # "calm after a victory" time left
 var _kills_seen := 0
 func music_mood(dt: float) -> String:
 	if state == "title": return "intro"
-	if state == "hub": return ""    # v1.4l: the love song is held for later (it used to play in the apartment)
+	Music.set_hub(state == "hub")
+	if state == "hub":   # v5.9 (owner): the faction's own music under the hub, quiet (Data.HUB_MUSIC)
+		return Music.faction_mood(Data.SYSTEMS.get(GS.system_id, {}).get("faction", "Neutral"), GS.system_id)
 	if not is_instance_valid(space) or not is_instance_valid(space.player): return Music.mood
 	if state != "flight": return Music.mood          # docking, jumping, map: keep what is playing
 	var fighting: bool = space.hostiles_engaged() > 0
