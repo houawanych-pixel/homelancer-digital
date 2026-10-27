@@ -508,7 +508,7 @@ func asst_tap() -> void:
 	if not asst_greeted:
 		asst_greeted = true
 		_asst_voice()
-		said.text = "Hi, pilot. I'm Evee, your helpful android. Ask me anything about the station."
+		said.text = "Hi, pilot. It's Evee. I'm right here with you. Ask me anything."
 	else: said.text = "Yes, pilot?"
 	_log("HER", said.text)
 

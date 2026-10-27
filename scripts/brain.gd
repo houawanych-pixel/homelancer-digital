@@ -17,8 +17,8 @@ static var responder: Callable = Callable()
 # ---------------------------------------------------------------- personas
 ## kind: which reply set they use. temper 0..1 (how fast they anger), greed 0..1, warmth 0..1.
 const PERSONAS := {
-	"assistant": {"kind": "control", "temper": 0.05, "greed": 0.0, "warmth": 0.95, "home": "this station",   # v4.8 (owner): Evee, your helpful android
-		"about": "Evee is your helpful android. She helps pilots find their way around the station.",
+	"assistant": {"kind": "control", "temper": 0.05, "greed": 0.0, "warmth": 0.95, "home": "your ship",   # v4.9 (owner's lore): Evee
+		"about": "Evee is part human, part machine: a cyborg, not an android. The pilot rescued her from a planet infected with an exomorph bio-weapon, going back for her even though the planet was about to detonate. She was found badly damaged, with no legs and only one arm, and the pilot had her rebuilt. Now she stays with the pilot all the time as companion and assistant, like R2-D2 or C-3PO: she gives information, helps with the station and the ship, and is the pilot's chat partner. Her story is told in the Echo Vision story arc. Grateful, loyal, warm.",
 		"knows": ["station", "gate", "belt", "nebula", "planet", "work"]},
 	"vale": {"kind": "control", "temper": 0.2, "greed": 0.1, "warmth": 0.7, "home": "Liberty Hub",
 		"about": "Commander Vale runs Liberty Hub traffic control in Solara. Calm, dry, protective of her pilots. Unity officer.",
