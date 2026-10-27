@@ -211,7 +211,8 @@ func _setup(id: String, arrival: String, staged: bool) -> void:
 	_named_down = {}
 	_incursion = Factions.raider_of(str(sys.get("faction", ""))) if randf() < Data.INCURSION_CHANCE else ""
 	faction_mech(str(sys.get("faction", "")))   # v1.9i: fetch this space's own mech early (its patrols and ground jobs use it)
-	for p in (sys["patrols"] as Array).slice(0, Data.PATROL_GROUPS): _spawn_group(p, (Data.ROSTER_PATROL_SIZE if Factions.replaces_patrols(str(sys.get("faction", ""))) else 2) + (Data.ENEMY_SPACE_EXTRA if SystemBuilder.is_enemy_space(sys) else 0))   # v1.8v: fewer wings; v6.2: more in enemy space
+	if kaiju_space(): _spawn_kaiju_patrols()
+	else: for p in (sys["patrols"] as Array).slice(0, Data.PATROL_GROUPS): _spawn_group(p, (Data.ROSTER_PATROL_SIZE if Factions.replaces_patrols(str(sys.get("faction", ""))) else 2) + (Data.ENEMY_SPACE_EXTRA if SystemBuilder.is_enemy_space(sys) else 0))   # v1.8v: fewer wings; v6.2: more in enemy space
 	spawn_guard()
 	spawn_bounty()
 	_prof("patrols")
@@ -2698,6 +2699,115 @@ func assign_roster(e: Dictionary, p: Dictionary) -> void:
 		GS.cast_state(p["character_id"])["current_system"] = sys_id
 	apply_rank(e, int(p["rank"]))
 
+## v6.4 (owner): space whose patrols are Kaijurai: a pack of Data.KAIJU_PACK fighters and one kaiju (creature or
+## destroyer) instead of the usual pairs.
+func kaiju_space() -> bool:
+	return (sys.get("enemy_ships", []) as Array).has("kaijurai_fang")
+
+func _spawn_kaiju_patrols() -> void:
+	var pts: Array = sys["patrols"]
+	if pts.is_empty(): return
+	_spawn_set(pts[0], Data.KAIJU_PACK_SHIPS)
+	var big: String = Data.KAIJU_BIG[absi(hash(sys_id)) % Data.KAIJU_BIG.size()]
+	_spawn_set(pts[1 % pts.size()], [big])
+
+func _spawn_set(center: Vector3, kinds: Array) -> Array:
+	_group_serial += 1
+	var group: Array = []
+	for k in kinds:
+		var spread: float = 40.0 + float(Data.ENEMIES[k].get("radius", 7.0)) * 2.0
+		var e := spawn_unit(k, center + Vector3(_rng.randf_range(-spread, spread) * 2.0, _rng.randf_range(-spread, spread) * 0.5, _rng.randf_range(-spread, spread) * 2.0), center)
+		e["group"] = _group_serial
+		if SystemBuilder.is_enemy_space(sys): enemy_space_power(e)
+		_make_generic(e, str(e["def"].get("faction", "")))
+		group.append(e)
+	return group
+
+## v6.4 (owner): a kaiju's tentacles. Inside its reach they stretch out toward you (Data.KAIJU_WINDUP to break away);
+## if they get you, one thing is torn off: the shields, then the wings, then the ship.
+func _kaiju_reach(e: Dictionary, ppos: Vector3, dt: float) -> void:
+	var n: Node3D = e["node"]
+	var reach: float = float(e["def"].get("radius", 20.0)) + Data.KAIJU_REACH
+	var near: bool = controls and n.global_position.distance_to(ppos) < reach
+	e["grab_cd"] = float(e.get("grab_cd", 0.0)) - dt
+	e["reach"] = clampf(float(e.get("reach", 0.0)) + (dt if near and e["grab_cd"] <= 0.0 else -dt * 2.0), 0.0, Data.KAIJU_WINDUP)
+	_tentacles(e, ppos, float(e["reach"]) / Data.KAIJU_WINDUP)
+	if near and e["reach"] >= Data.KAIJU_WINDUP:
+		e["reach"] = 0.0
+		e["grab_cd"] = Data.KAIJU_GRAB_EVERY
+		kaiju_grab(e)
+
+## What one grab does. Returns what was torn off ("shields", "wings", "ship").
+func kaiju_grab(e: Dictionary) -> String:
+	hit_shake = 1.4
+	Sfx.play("hull_hit", -2.0, 0.6)
+	var what := ""
+	if GS.god_mode: return "none"
+	if GS.shield > 0.0:
+		GS.shield = 0.0
+		shield_delay = 6.0
+		what = "shields"
+		message.emit("%s tore your shields away! Break off!" % str(e["def"]["name"]))
+	elif GS.wing_l > 0.0 or GS.wing_r > 0.0:
+		for side in ["l", "r"]:
+			if (GS.wing_l if side == "l" else GS.wing_r) <= 0.0: continue
+			if side == "l": GS.wing_l = 0.0
+			else: GS.wing_r = 0.0
+			_blast(Sections.side_point(player_vis, side, model), Data.BLAST_WING, "wing_" + side)
+			Sections.set_side_visible(player_vis, side, false)
+		what = "wings"
+		message.emit("%s ripped your wings off! Get clear!" % str(e["def"]["name"]))
+	else:
+		GS.hull = 0.0
+		what = "ship"
+	GS.changed.emit()
+	if GS.hull <= 0.0 and controls:
+		_explode(player.global_position)
+		controls = false
+		_die()
+	return what
+
+## The tentacles: a few glowing strands from the creature toward you, as long as k (0 = in, 1 = on you).
+func _tentacles(e: Dictionary, ppos: Vector3, k: float) -> void:
+	var n: Node3D = e["node"]
+	var strands: Array = e.get("strands", [])
+	if k <= 0.01:
+		for s in strands: (s as Node3D).visible = false
+		return
+	if strands.is_empty():
+		for i in 4:
+			var mi := MeshInstance3D.new()
+			var cm := CylinderMesh.new()
+			cm.top_radius = 0.5
+			cm.bottom_radius = 1.6
+			cm.height = 1.0
+			cm.radial_segments = 6
+			cm.rings = 1
+			mi.mesh = cm
+			var mat := StandardMaterial3D.new()
+			mat.albedo_color = Color(0.85, 0.1, 0.3)
+			mat.emission_enabled = true
+			mat.emission = Color(1.0, 0.15, 0.35)
+			mat.emission_energy_multiplier = 2.0
+			mi.material_override = mat
+			add_child(mi)
+			strands.append(mi)
+		e["strands"] = strands
+	var from: Vector3 = n.global_position
+	var to: Vector3 = ppos
+	var full: float = from.distance_to(to)
+	for i in strands.size():
+		var s: MeshInstance3D = strands[i]
+		var wob := Vector3(sin(time * 7.0 + i * 1.7), cos(time * 6.0 + i * 2.3), sin(time * 5.0 + i)) * 6.0 * (1.0 - k)
+		var tip: Vector3 = from.lerp(to + wob, k)
+		var len: float = maxf(from.distance_to(tip), 0.1)
+		s.visible = true
+		var dir: Vector3 = (tip - from) / len
+		var up := Vector3.UP if absf(dir.y) < 0.95 else Vector3.RIGHT
+		var b := Basis.looking_at(dir, up).rotated(Basis.looking_at(dir, up).x, PI * 0.5)
+		s.global_transform = Transform3D(b.scaled(Vector3(1.0, len, 1.0)), from.lerp(tip, 0.5))
+	if full < 0.0: pass
+
 ## v6.2 (owner): in enemy space their ships are stronger (Data.ENEMY_SPACE_POWER).
 func enemy_space_power(e: Dictionary) -> void:
 	var k: float = Data.ENEMY_SPACE_POWER
@@ -4459,6 +4569,7 @@ func _destroy_unit(e: Dictionary) -> void:
 	_explode(n.global_position)
 	_spark(n.global_position, Color(1.0, 0.95, 0.85), 40.0, 0.35)
 	enemies.erase(e)
+	for st in e.get("strands", []): (st as Node3D).queue_free()   # v6.4: its tentacles go with it
 	# the wing reacts: the leader went down, or a wingmate did
 	var mates: Array = enemies.filter(func(o): return o.get("group", -1) == e.get("group", -2) and o.has("pilot"))
 	if not mates.is_empty():
@@ -4521,6 +4632,7 @@ func _update_enemies(dt: float) -> void:
 		if d.get("capital", false):   # v1.9n: a capital ship: slow, turrets all round
 			_update_capital(e, dt)
 			continue
+		if d.get("kaiju", false): _kaiju_reach(e, ppos, dt)   # v6.4: the tentacles
 		var tpos := ppos   # v1.9n: who it is fighting: you, or one of your allies when one is nearer
 		var tvel := vel
 		var fa: Dictionary = _enemy_foe(e, dt)

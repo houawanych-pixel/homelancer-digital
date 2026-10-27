@@ -483,9 +483,11 @@ func _system_sky(shot: String) -> void:
 	_check("%s has its own painted 360 sky" % Data.SYSTEMS[GS.system_id]["name"], ok, "%s, %d px wide" % [s.sky_path().get_file(), tex.get_width() if tex else 0])
 
 ## The whole 11 x 11 map as real systems: every one is built from the map tables by SystemBuilder.
+func _stars() -> Array: return Data.SYSTEMS.keys().filter(func(k): return not Data.SYSTEMS[k].get("open", false))   # v6.3: the 67 star systems
+
 func _galaxy() -> void:
 	var bad: Array = []
-	for id in Data.SYSTEMS:
+	for id in _stars():
 		var d: Dictionary = Data.SYSTEMS[id]
 		for k in ["name", "star", "sky_tint", "ambient", "sun_dir", "station", "planet", "gate", "gates", "asteroids", "nebula", "enemy", "patrols", "traffic", "tile"]:
 			if not d.has(k): bad.append("%s lacks %s" % [id, k])
@@ -503,7 +505,7 @@ func _galaxy() -> void:
 				seen[g["to"]] = true
 				todo.append(g["to"])
 	_check("Galaxy: %d systems, each with a star you can enter, a station, a planet and two-way gates; all reachable from Solara" % Data.SYSTEMS.size(),
-		Data.SYSTEMS.size() == 67 and bad.is_empty() and seen.size() == Data.SYSTEMS.size(), "reachable %d; %s" % [seen.size(), ", ".join(bad.slice(0, 4))])
+		_stars().size() == 67 and bad.is_empty() and seen.size() == _stars().size(), "reachable %d; %s" % [seen.size(), ", ".join(bad.slice(0, 4))])
 	# real planets: NASA maps, a fixed day and night side, clouds, and the docking gate on top of the atmosphere
 	var s := _sp()
 	await Packs.wait("worlds", 40.0)
@@ -567,7 +569,7 @@ func _galaxy() -> void:
 	# the whole catalog is in: every planet and station of every system, the extra ones as placeholders
 	var total_p := 0
 	var total_s := 0
-	for id3 in Data.SYSTEMS:
+	for id3 in _stars():
 		total_p += 1 + (Data.SYSTEMS[id3]["more_planets"] as Array).size()
 		total_s += 1 + (Data.SYSTEMS[id3]["more_stations"] as Array).size()
 	await Packs.wait("worlds", 30.0)
@@ -642,7 +644,7 @@ func _galaxy() -> void:
 		await get_tree().process_frame
 		await get_tree().process_frame
 		var t := _sp()
-		if not (is_instance_valid(t.station) and is_instance_valid(t.planet) and is_instance_valid(t.sun_body) and t.gates.size() == (Data.SYSTEMS[id]["gates"] as Array).size() and t.gates.size() >= 1): broke.append(id)
+		if not (is_instance_valid(t.station) and is_instance_valid(t.planet) and is_instance_valid(t.sun_body) and t.gates.size() == maxi((Data.SYSTEMS[id]["gates"] as Array).size(), 1) and t.gates.size() >= 1): broke.append(id)   # (v6.3: an open square has a hidden stand-in gate)
 		if id in ["void_1", "noctyra", "heart", "vortegan", "obsidrath", "crystara", "kronos"]:
 			var tp2: Node3D = t.planet
 			var ts2: Vector3 = (t.sun_pos - tp2.global_position).normalized()
@@ -1758,7 +1760,7 @@ func _run() -> void:
 	await _wait(0.4)
 	await _shot("galaxy_system_vega")
 	var res_after := Performance.get_monitor(Performance.OBJECT_RESOURCE_COUNT)
-	_check("Galaxy map: %d systems shown, data only" % net["systems"].size(), gm.visible and net["systems"].size() == Data.SYSTEMS.size() and playable == net["systems"].size() and no_music.call(Packs.state) == packs_before and res_after - res_before < 20,
+	_check("Galaxy map: %d systems shown, data only" % net["systems"].size(), gm.visible and net["systems"].size() == _stars().size() and playable == net["systems"].size() and no_music.call(Packs.state) == packs_before and res_after - res_before < 20,
 		"links %d, resources +%d" % [net["links"].size(), int(res_after - res_before)])
 	gm.press("close")   # back out of the system chart first
 	var sol: Vector3 = (net["systems"]["solara"]["pos"] as Vector3) - gm.viewer   # look straight at Solara
@@ -4120,7 +4122,7 @@ func _job_ad() -> void:
 	Sfx.stop_voice()
 	var others := true
 	for id in Data.SYSTEMS:
-		if str(Data.SYSTEMS[id].get("role", "")) not in Data.HOME_FACTION and str(Data.SYSTEMS[id].get("enemy_faction", "")) != "": others = false   # v1.5c: Cybernet and the Void System too
+		if str(Data.SYSTEMS[id].get("role", "")) not in Data.HOME_FACTION and str(Data.SYSTEMS[id].get("enemy_faction", "")) != "" and not Data.SYSTEMS[id].has("held_by"): others = false   # v1.5c: Cybernet and the Void System too
 	_tp(s.station.global_position + Vector3(0, 40, 420), s.station.global_position)
 	_check("Job AD: in Genesis and Noctyra the patrols are flown by Kaijurai and Phenom people from the rosters, in their own ships, ranked, always hostile; a hail shows that person's name and voice id; no other system changed",
 		crew_ok and hail_ok and others, "crew %s, hail %s, others %s: %s" % [crew_ok, hail_ok, others, str(seen)])
@@ -4196,7 +4198,7 @@ func _job_ac() -> void:
 	var noc: Dictionary = Data.SYSTEMS.get("noctyra", {})
 	var others := true
 	for id in Data.SYSTEMS:
-		if str(Data.SYSTEMS[id].get("role", "")) not in Data.HOME_FLEETS and not (Data.SYSTEMS[id].get("enemy_ships", []) as Array).is_empty(): others = false   # v1.5c: Cybernet and the Void System fly home fleets too
+		if str(Data.SYSTEMS[id].get("role", "")) not in Data.HOME_FLEETS and not (Data.SYSTEMS[id].get("enemy_ships", []) as Array).is_empty() and not Data.SYSTEMS[id].has("held_by"): others = false   # (v6.3: enemy-held open squares fly their holder's fleet)   # v1.5c: Cybernet and the Void System fly home fleets too
 	var s := _sp()
 	var real_sys: Dictionary = s.sys
 	var flown: Array = []
@@ -9484,6 +9486,35 @@ func _job_open() -> void:
 	var rules: bool = s.lanes.is_empty() and s.dock_candidate() == null and s.gate.global_position.y < -100000.0
 	_check("v6.2 (owner): enemy space (%s): no spaceways, no docking at their outpost, no gate, Kaijurai patrols that are stronger (x%.1f)" % [held, Data.ENEMY_SPACE_POWER],
 		rules and strong and tougher and kaij, "rules %s, strong %s, kaijurai %s" % [rules, strong, kaij])
+	# v6.4 (owner): Kaijurai fighters fly in packs of ten; the kaiju is cruiser-size, tough, fighter-fast, and grabs
+	var groups := {}
+	for e in s.enemies: groups[e["group"]] = groups.get(e["group"], 0) + 1
+	var pack_ok: bool = groups.values().any(func(c): return c >= Data.KAIJU_PACK)
+	var big: Array = s.enemies.filter(func(e): return e["def"].get("kaiju", false) or str(e["def"].get("class", "")) == "destroyer")
+	var big_ok: bool = not big.is_empty() and float(big[0]["max"]) >= 1600.0 and float(big[0]["def"]["speed"]) >= 40.0 and not big[0]["def"].get("capital", false)
+	# the grab: shields, then wings, then the ship
+	var kj := s.spawn_unit("kaijurai_stalker", s.player.global_position + Vector3(0, 0, -300), s.player.global_position)
+	var god0: bool = GS.god_mode
+	GS.god_mode = false   # (the grabs are what is tested)
+	GS.restore_full()
+	var g1: String = s.kaiju_grab(kj)
+	var after1: bool = GS.shield == 0.0 and GS.wing_l > 0.0 and GS.hull > 0.0
+	var g2: String = s.kaiju_grab(kj)
+	var after2: bool = GS.wing_l == 0.0 and GS.wing_r == 0.0 and GS.hull > 0.0
+	GS.restore_full()
+	Sections.set_side_visible(s.player_vis, "l", true)
+	Sections.set_side_visible(s.player_vis, "r", true)
+	# the reach: park inside it and the tentacles stretch out and take the shields
+	kj["node"].global_position = s.player.global_position + Vector3(0, 0, -(30.0 + 20.0))
+	kj["grab_cd"] = 0.0
+	var sh0: float = GS.shield
+	await _wait(Data.KAIJU_WINDUP + 0.5)
+	var reached: bool = sh0 > 0.0 and GS.shield < sh0 * 0.5 and kj.get("strands", []).size() > 0
+	s._destroy_unit(kj)
+	GS.god_mode = god0
+	GS.restore_full()
+	_check("v6.4 (owner): Kaijurai fighters fly in packs of %d; the kaiju (%s) is cruiser-size, hard to kill and fighter-fast; its tentacles reach out and each grab takes your shields, then your wings, then you" % [Data.KAIJU_PACK, str(big[0]["def"]["name"]) if not big.is_empty() else "-"],
+		pack_ok and big_ok and g1 == "shields" and after1 and g2 == "wings" and after2 and reached, "pack %s %s, big %s, grabs %s/%s, reach %s" % [pack_ok, str(groups.values()), big_ok, g1, g2, reached])
 	# a free open square: a beacon, nothing to dock at, no spaceways
 	main._load_system("open_" + "a2" if Data.SYSTEMS.has("open_a2") else Data.SYSTEMS.keys().filter(func(k): return Data.SYSTEMS[k].get("open", false) and not SystemBuilder.is_enemy_space(Data.SYSTEMS[k]))[0], "station")
 	await _frames(4)

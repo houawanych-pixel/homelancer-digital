@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v6.3"
+const VERSION := "v6.4"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -737,12 +737,21 @@ const ALIEN_SHIP_YAW := 0.0
 # guesses from the shapes. Each was checked from above with its yaw: nose up. Creatures and some ships are bigger.
 const KAIJURAI_FANG_LEN := 16.0        # hl_kaiju_fighter: wide spiked fighter (lies across: yaw 90)
 const KAIJURAI_FANG_YAW := 90.0
-const KAIJURAI_RAVAGER_LEN := 48.0     # hl_kdest: the long spined destroyer (its model faces back: yaw 180)
+const KAIJURAI_RAVAGER_LEN := 140.0     # hl_kdest: the long spined destroyer (its model faces back: yaw 180)
 const KAIJURAI_RAVAGER_YAW := 180.0
-const KAIJURAI_STALKER_LEN := 30.0     # hl_kaiju_cat: tentacled creature ship
-const KAIJURAI_HOUND_LEN := 26.0       # hl_kdog: legged creature ship
-const KAIJURAI_REAPER_LEN := 34.0      # hl_kbird: many-tailed creature (lies across: yaw 90)
+const KAIJURAI_STALKER_LEN := 95.0     # hl_kaiju_cat: tentacled creature ship
+const KAIJURAI_HOUND_LEN := 80.0       # hl_kdog: legged creature ship
+const KAIJURAI_REAPER_LEN := 115.0      # hl_kbird: many-tailed creature (lies across: yaw 90)
 const KAIJURAI_REAPER_YAW := 90.0
+# v6.4 (owner): the kaiju creatures are cruiser / destroyer size and take a lot to bring down, but fly like fighters.
+# Come close and their tentacles reach out; each grab tears one thing off: first your shields, then your wings, then you.
+# Their fighters fly in packs of at least ten, with lasers and missiles.
+const KAIJU_REACH := 45.0          # m past the creature's own size where the tentacles can take you
+const KAIJU_WINDUP := 0.7          # s the tentacles stretch out before they grab (time to break away)
+const KAIJU_GRAB_EVERY := 2.0      # s between grabs
+const KAIJU_PACK := 10             # fighters in a Kaijurai fighter pack
+const KAIJU_PACK_SHIPS := ["kaijurai_fang", "kaijurai_dart", "kaijurai_fang", "kaijurai_heavy", "kaijurai_fang", "kaijurai_dart", "kaijurai_fang", "kaijurai_gunship", "kaijurai_fang", "kaijurai_dart"]
+const KAIJU_BIG := ["kaijurai_stalker", "kaijurai_hound", "kaijurai_reaper", "kaijurai_ravager"]
 # v6.2 (owner): "the strange tail behind it ... a very strange kind of flow movement": the back of these models waves.
 # key: [tail direction in the model's own axes, wave size (share of the model), waves along the body, speed]
 const SHIP_FLOW := {
@@ -1576,15 +1585,15 @@ const ENEMIES := {
 	"solrath_spire": {"name": "Solrath Spire", "class": "gunship", "faction": "Solrath", "model": "solrath_spire", "radius": 10.0, "hull": 150.0, "shield": 80.0, "speed": 41.0, "turn": 1.1, "damage": 8.0, "rate": 2.0, "reward": 420, "missiles": true},
 	"liberator_cross": {"name": "Liberator Cross Fighter", "class": "light fighter", "faction": "Liberator", "model": "liberator_cross", "hull": 55.0, "shield": 35.0, "speed": 52.0, "turn": 1.6, "damage": 5.0, "rate": 1.6, "reward": 160},
 	# v1.4y: the owner's Kaijurai and Phenom sets (permanent enemies: no roster, no reputation; they fly their home systems' patrols)
-	"kaijurai_dart": {"name": "Kaijurai Dart Fighter", "class": "fighter", "faction": "Kaijurai", "model": "kaijurai_dart", "hull": 70.0, "shield": 40.0, "speed": 49.0, "turn": 1.5, "damage": 6.0, "rate": 1.7, "reward": 210},
+	"kaijurai_dart": {"name": "Kaijurai Dart Fighter", "class": "fighter", "faction": "Kaijurai", "model": "kaijurai_dart", "hull": 70.0, "shield": 40.0, "speed": 49.0, "turn": 1.5, "damage": 6.0, "rate": 1.7, "reward": 210, "missiles": true},
 	"kaijurai_heavy": {"name": "Kaijurai Heavy Fighter", "class": "heavy fighter", "faction": "Kaijurai", "model": "kaijurai_heavy", "radius": 9.0, "hull": 120.0, "shield": 65.0, "speed": 45.0, "turn": 1.25, "damage": 7.0, "rate": 1.9, "reward": 340, "missiles": true},
 	"kaijurai_gunship": {"name": "Kaijurai Gunship", "class": "gunship", "faction": "Kaijurai", "model": "kaijurai_gunship", "radius": 10.0, "hull": 150.0, "shield": 80.0, "speed": 41.0, "turn": 1.1, "damage": 8.0, "rate": 2.0, "reward": 420, "missiles": true},
 	# v6.2: the second Kaijurai set (enemy space; stronger still there, Data.ENEMY_SPACE_POWER)
-	"kaijurai_fang": {"name": "Kaijurai Fang", "class": "fighter", "faction": "Kaijurai", "model": "kaijurai_fang", "radius": 9.0, "hull": 85.0, "shield": 50.0, "speed": 50.0, "turn": 1.5, "damage": 6.5, "rate": 1.7, "reward": 240},
-	"kaijurai_hound": {"name": "Kaijurai Hound", "class": "creature", "faction": "Kaijurai", "model": "kaijurai_hound", "radius": 13.0, "hull": 170.0, "shield": 70.0, "speed": 44.0, "turn": 1.2, "damage": 8.0, "rate": 1.9, "reward": 420, "missiles": true},
-	"kaijurai_stalker": {"name": "Kaijurai Stalker", "class": "creature", "faction": "Kaijurai", "model": "kaijurai_stalker", "radius": 15.0, "hull": 210.0, "shield": 80.0, "speed": 42.0, "turn": 1.1, "damage": 8.5, "rate": 2.0, "reward": 500, "missiles": true},
-	"kaijurai_reaper": {"name": "Kaijurai Reaper", "class": "creature", "faction": "Kaijurai", "model": "kaijurai_reaper", "radius": 17.0, "hull": 240.0, "shield": 90.0, "speed": 40.0, "turn": 1.0, "damage": 9.0, "rate": 2.0, "reward": 560, "missiles": true},
-	"kaijurai_ravager": {"name": "Kaijurai Ravager", "class": "destroyer", "faction": "Kaijurai", "model": "kaijurai_ravager", "radius": 24.0, "hull": 420.0, "shield": 160.0, "speed": 36.0, "turn": 0.8, "damage": 11.0, "rate": 2.2, "reward": 1100, "missiles": true},
+	"kaijurai_fang": {"name": "Kaijurai Fang", "class": "fighter", "faction": "Kaijurai", "model": "kaijurai_fang", "radius": 9.0, "hull": 110.0, "shield": 60.0, "speed": 50.0, "turn": 1.5, "damage": 7.0, "rate": 1.6, "reward": 260, "missiles": true},
+	"kaijurai_hound": {"name": "Kaijurai Hound", "class": "kaiju cruiser", "faction": "Kaijurai", "model": "kaijurai_hound", "radius": 26.0, "hull": 1600.0, "shield": 400.0, "speed": 46.0, "turn": 1.25, "damage": 10.0, "rate": 2.2, "reward": 2400, "kaiju": true},
+	"kaijurai_stalker": {"name": "Kaijurai Stalker", "class": "kaiju cruiser", "faction": "Kaijurai", "model": "kaijurai_stalker", "radius": 30.0, "hull": 1900.0, "shield": 450.0, "speed": 45.0, "turn": 1.2, "damage": 10.0, "rate": 2.2, "reward": 2800, "kaiju": true},
+	"kaijurai_reaper": {"name": "Kaijurai Reaper", "class": "kaiju destroyer", "faction": "Kaijurai", "model": "kaijurai_reaper", "radius": 36.0, "hull": 2400.0, "shield": 550.0, "speed": 44.0, "turn": 1.15, "damage": 11.0, "rate": 2.2, "reward": 3400, "kaiju": true},
+	"kaijurai_ravager": {"name": "Kaijurai Ravager", "class": "destroyer", "faction": "Kaijurai", "model": "kaijurai_ravager", "radius": 40.0, "hull": 3000.0, "shield": 800.0, "speed": 42.0, "turn": 1.0, "damage": 12.0, "rate": 1.8, "reward": 4000, "missiles": true},
 	"phenom_fighter": {"name": "Phenom Fighter", "class": "fighter", "faction": "Phenom", "model": "phenom_fighter", "hull": 70.0, "shield": 45.0, "speed": 49.0, "turn": 1.5, "damage": 6.0, "rate": 1.7, "reward": 210},
 	"phenom_interceptor": {"name": "Phenom Interceptor", "class": "interceptor", "faction": "Phenom", "model": "phenom_interceptor", "hull": 65.0, "shield": 45.0, "speed": 52.0, "turn": 1.6, "damage": 6.0, "rate": 1.8, "reward": 230},
 	"phenom_scout": {"name": "Phenom Scout", "class": "scout", "faction": "Phenom", "model": "phenom_scout", "hull": 55.0, "shield": 40.0, "speed": 53.0, "turn": 1.6, "damage": 5.0, "rate": 1.6, "reward": 180},
