@@ -4644,6 +4644,12 @@ func _update_enemies(dt: float) -> void:
 		if d.get("capital", false):   # v1.9n: a capital ship: slow, turrets all round
 			_update_capital(e, dt)
 			continue
+		if float(e.get("stun", 0.0)) > 0.0:   # v6.9: shocked by the lightning: frozen, shields down, sparking
+			e["stun"] = float(e["stun"]) - dt
+			e["vel"] = Vector3.ZERO
+			e["sh"] = 0.0
+			if _rng.randf() < dt * 8.0: _lightning_arc(n.global_position + Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), _rng.randfn(0, 1)) * 6.0, n.global_position)
+			continue
 		if d.get("kaiju", false): _kaiju_reach(e, ppos, dt)   # v6.4: the tentacles
 		var tpos := ppos   # v1.9n: who it is fighting: you, or one of your allies when one is nearer
 		var tvel := vel
@@ -6415,6 +6421,8 @@ func _update_special(dt: float) -> void:
 		"idle":
 			var pressed := special_held and not _special_was_held_prev
 			if pressed and controls and warp_state == "off" and special_ready() != "":
+				lightning_special()   # v6.9 (owner): the electric storm replaces the old charge-and-beam special
+			elif false:
 				var t := _special_pick()
 				if t == null:
 					message.emit("SPECIAL: no hostile in range.")
@@ -6546,6 +6554,74 @@ func _man_update(dt: float) -> void:
 	if k >= 1.0:
 		man_kind = ""
 		man_roll = 0.0
+
+## v6.9 (owner): the electric storm. Returns how many hostiles it caught.
+var lightning_log: Array = []
+func lightning_range() -> float: return Data.LOOT_RANGE * Data.LIGHTNING_RANGE_MULT
+func lightning_special() -> int:
+	var which := special_ready()
+	var R := lightning_range()
+	var pp := player.global_position
+	var hit := 0
+	for e in enemies.duplicate():
+		var n: Node3D = e["node"]
+		if not is_instance_valid(n) or n.global_position.distance_to(pp) > R + float(n.get_meta("radius", 7.0)): continue
+		if n.get_meta("kind", "enemy") != "enemy": continue
+		e["stun"] = Data.LIGHTNING_STUN
+		e["sh"] = 0.0
+		e["sh_cd"] = Data.LIGHTNING_STUN + 2.0
+		e["vel"] = Vector3.ZERO
+		_lightning_arc(pp, n.global_position)
+		_damage_enemy(e, Data.LIGHTNING_DAMAGE)
+		hit += 1
+	if hit == 0:
+		message.emit("SPECIAL: no hostile in tractor range. The special is still ready.")
+		return 0
+	if which != "": GS.special_used[which] = true
+	lightning_log.append(hit)
+	special_log.append("lightning")
+	hit_shake = maxf(hit_shake, 0.6)
+	screen_flash = maxf(screen_flash, 0.35)
+	_spark(pp, Data.LIGHTNING_COLOR, 30.0, 0.4)
+	Sfx.play("explosion", -4.0, 1.6)
+	message.emit("LIGHTNING STORM! %d stunned." % hit)
+	return hit
+
+## A jagged bolt from a to b: short-lived glowing segments.
+func _lightning_arc(a: Vector3, b: Vector3) -> void:
+	var holder := Node3D.new()
+	add_child(holder)
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mat.albedo_color = Data.LIGHTNING_COLOR
+	var box := BoxMesh.new()
+	for strand in 2:
+		var pts: Array = [a]
+		var segs := 9
+		var side := (b - a).cross(Vector3.UP).normalized()
+		if side.length() < 0.1: side = Vector3.RIGHT
+		var up := side.cross(b - a).normalized()
+		for i in range(1, segs):
+			var k := float(i) / segs
+			var j: float = a.distance_to(b) * 0.06
+			pts.append(a.lerp(b, k) + side * _rng.randf_range(-j, j) + up * _rng.randf_range(-j, j))
+		pts.append(b)
+		for i in pts.size() - 1:
+			var p0: Vector3 = pts[i]
+			var p1: Vector3 = pts[i + 1]
+			var mi := MeshInstance3D.new()
+			mi.mesh = box
+			mi.material_override = mat
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			holder.add_child(mi)
+			var d := p1 - p0
+			var l := maxf(d.length(), 0.01)
+			var bz := d / l
+			var bx := bz.cross(Vector3.UP if absf(bz.y) < 0.95 else Vector3.RIGHT).normalized()
+			var by := bz.cross(bx)
+			mi.global_transform = Transform3D(Basis(bx * 0.9, by * 0.9, bz * l), (p0 + p1) * 0.5)
+	get_tree().create_timer(0.35).timeout.connect(holder.queue_free)
 
 func _special_end(said: String) -> void:
 	special_state = "idle"

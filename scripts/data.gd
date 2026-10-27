@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v6.8"
+const VERSION := "v6.9"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -1276,6 +1276,14 @@ const DEFAULT_SLOTS := ["light_missile", "heavy_missile", "mine"]
 const SECTION_SHARE := 0.4
 const LOOT_RANGE := 700.0
 const TRACTOR_TIME := 4.0
+# v6.9 (owner): the SPECIAL is now an electric storm: every hostile in tractor range is shocked: shields gone, frozen in
+# place for a few seconds, and hit about as hard as a heavy (super) missile. Same rules for when it is ready (half hull,
+# then critical); until then a tap is still an evasive move.
+const RADAR_HEADING_UP := true      # v6.9 (owner: why is it pointing down?): the radar turns round you; you always point up
+const LIGHTNING_RANGE_MULT := 1.0    # x the tractor's reach (Data.LOOT_RANGE)
+const LIGHTNING_STUN := 3.0          # s frozen, shields down
+const LIGHTNING_DAMAGE := 120.0      # = HEAVY_MISSILE_DAMAGE
+const LIGHTNING_COLOR := Color(0.6, 0.85, 1.0)
 const REPAIR_AMOUNT := 0.4 # fraction of max hull
 
 # ---------------------------------------------------------------- Job U (v1.4q): the true Savagers ships

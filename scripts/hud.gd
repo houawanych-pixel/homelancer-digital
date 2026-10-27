@@ -299,7 +299,8 @@ func close_comms() -> void:
 ## Each folds to a small tab. A call on that side covers it while it lasts.
 var cl_open := true
 var sp_open := true
-const FL_ROWS := 7
+const FL_ROWS := 6
+const FL_TGT_H := 74.0   # v6.9: the target block on top of the contact list (name, distance, shield + hull, SCAN, NEXT)
 func fl_rect(side: String) -> Rect2:
 	var sr := side_rect(side)
 	var open: bool = cl_open if side == "l" else sp_open
@@ -336,9 +337,13 @@ func _fl_buttons() -> void:
 		if not (cl_open if side == "l" else sp_open): continue
 		if side == "l":
 			var list := fl_contacts()
+			var bw2: float = (r.size.x - 14) * 0.5
+			buttons["target"] = Rect2(r.position + Vector2(4, 30 + FL_TGT_H - 26), Vector2(bw2, 24))   # v6.9: NEXT target
+			if space.target != null and is_instance_valid(space.target): buttons["scan"] = Rect2(r.position + Vector2(10 + bw2, 30 + FL_TGT_H - 26), Vector2(bw2, 24))
+			var y1: float = 30 + FL_TGT_H + 4
 			for i in mini(FL_ROWS, list.size() - cl_scroll):
-				buttons["cl_%d" % (cl_scroll + i)] = Rect2(r.position + Vector2(4, 30 + i * 24), Vector2(r.size.x - 8, 22))
-			if list.size() > FL_ROWS: buttons["cl_more"] = Rect2(r.position + Vector2(4, 30 + FL_ROWS * 24), Vector2(r.size.x - 8, 20))
+				buttons["cl_%d" % (cl_scroll + i)] = Rect2(r.position + Vector2(4, y1 + i * 24), Vector2(r.size.x - 8, 22))
+			if list.size() > FL_ROWS: buttons["cl_more"] = Rect2(r.position + Vector2(4, y1 + FL_ROWS * 24), Vector2(r.size.x - 8, 20))
 		else:
 			var gs := gun_rows()
 			for i in gs.size(): buttons["gun_%s" % str(gs[i][0])] = Rect2(r.position + Vector2(4, 82 + i * 22), Vector2(r.size.x - 8, 20))
@@ -369,6 +374,36 @@ func fl_tap(id: String) -> bool:
 	else: return false
 	return true
 
+## v6.9: the target (or the job) on top of the contact list, with its shield and hull, and SCAN / NEXT under it.
+func _fl_target(r: Rect2) -> void:
+	draw_rect(r, Color(0.0, 0.0, 0.0, 0.25))
+	var wp: Node3D = space.target
+	var label := "TARGET"
+	if not (wp and is_instance_valid(wp)):
+		var mwb: Dictionary = space.mission_waypoint()
+		if not mwb.is_empty():
+			wp = mwb["node"]
+			label = "MISSION"
+	if wp and is_instance_valid(wp):
+		var col := RED if wp.get_meta("kind", "") == "enemy" else GOLD
+		_text(r.position + Vector2(6, 15), "%s  %s" % [label, _dist(space.distance_to(wp))], 12, CYAN_HI, HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 12)
+		_text(r.position + Vector2(6, 31), wp.name, 13, col, HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 12)
+		var th: float = space.target_health() if wp == space.target else -1.0
+		if th >= 0.0:
+			var ts: float = space.target_shield()
+			var bw := r.size.x - 12
+			if ts >= 0.0:
+				draw_rect(Rect2(r.position + Vector2(6, 36), Vector2(bw, 4)), Color(0, 0, 0, 0.6))
+				draw_rect(Rect2(r.position + Vector2(6, 36), Vector2(bw * ts, 4)), Color(0.45, 0.75, 1.0))
+			draw_rect(Rect2(r.position + Vector2(6, 42), Vector2(bw, 4)), Color(0, 0, 0, 0.6))
+			draw_rect(Rect2(r.position + Vector2(6, 42), Vector2(bw * th, 4)), _hull_col(th))
+	else: _text(r.position + Vector2(6, 22), "NO TARGET", 12, Color(1, 1, 1, 0.55))
+	for id in ["target", "scan"]:
+		if not buttons.has(id): continue
+		var br: Rect2 = buttons[id]
+		_box(br, Color(CYAN, 0.18), Color(CYAN, 0.7), 6, 1)
+		_text(Vector2(br.position.x, br.position.y + 17), "NEXT ▸" if id == "target" else "SCAN", 12, WHITE, HORIZONTAL_ALIGNMENT_CENTER, br.size.x)
+
 func _fl_panels() -> void:
 	for side in ["l", "r"]:
 		if not fl_shown(side): continue
@@ -380,15 +415,16 @@ func _fl_panels() -> void:
 		if side == "l":
 			var list := fl_contacts()
 			var tg: Node3D = space.target
+			_fl_target(Rect2(r.position + Vector2(4, 28), Vector2(r.size.x - 8, FL_TGT_H)))
 			for i in mini(FL_ROWS, list.size() - cl_scroll):
 				var c: Dictionary = list[cl_scroll + i]
-				var y: float = r.position.y + 30 + i * 24
+				var y: float = r.position.y + 30 + FL_TGT_H + 4 + i * 24
 				var sel: bool = c["node"] == tg
 				if sel: draw_rect(Rect2(r.position.x + 4, y, r.size.x - 8, 22), Color(c["col"], 0.22))
 				draw_circle(Vector2(r.position.x + 13, y + 11), 4, c["col"])
 				_text(Vector2(r.position.x + 22, y + 16), _dist(space.player.global_position.distance_to(c["node"].global_position)), 12, Color(c["col"], 0.9), HORIZONTAL_ALIGNMENT_LEFT, 56)
 				_text(Vector2(r.position.x + 80, y + 16), c["name"], 12, WHITE if sel else Color(WHITE, 0.85), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 86)
-			if list.size() > FL_ROWS: _text(Vector2(r.position.x, r.position.y + 30 + FL_ROWS * 24 + 14), "▾ %d more" % (list.size() - FL_ROWS - cl_scroll) if cl_scroll + FL_ROWS < list.size() else "▴ top", 11, CYAN_HI, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
+			if list.size() > FL_ROWS: _text(Vector2(r.position.x, r.position.y + 30 + FL_TGT_H + 4 + FL_ROWS * 24 + 14), "▾ %d more" % (list.size() - FL_ROWS - cl_scroll) if cl_scroll + FL_ROWS < list.size() else "▴ top", 11, CYAN_HI, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
 		else:
 			var x: float = r.position.x + 8
 			var bw: float = r.size.x - 16
@@ -488,13 +524,15 @@ func _layout() -> void:
 	# centre strip: MAP · VIEW · LOG · CALL · TARGET · GO TO under the status bars
 	var cl := 8 + _block_w() + 14
 	var avail := S.x - cl * 2
+	# v6.9 (owner): the top strip is just VIEW and GO TO. MAP = tap the radar; TARGET NEXT and SCAN live in the contact
+	# list; COMMS (the old LOG / CALL) sits right of the radar; the health bars are on the dash, left of the radar.
 	var pw := clampf((avail - 4 * 6) / 5.0, 66.0, 110.0)
-	var row := pw * 5 + 24
-	var ids := ["map", "view", "log", "target", "goto"]   # v1.8q (owner): CALL lives inside LOG now
-	for k in 5: buttons[ids[k]] = Rect2(Vector2(S.x * 0.5 - row * 0.5 + k * (pw + 6), 78), Vector2(pw, 44))
+	var ids := ["view", "goto"]
+	var row := pw * ids.size() + 6 * (ids.size() - 1)
+	for k in ids.size(): buttons[ids[k]] = Rect2(Vector2(S.x * 0.5 - row * 0.5 + k * (pw + 6), 12), Vector2(pw, 50))   # (up top: the bars moved to the dash)
+	buttons["log"] = comms_rect()
 	log_rect = buttons["log"]
 	if space and space.controls and not console_open: buttons["radar"] = radar_rect()
-	if space and space.controls and way_rect != Rect2() and space.target != null and is_instance_valid(space.target): buttons["scan"] = way_rect   # v1.5g: tap the target box = SCAN
 	if not scan.is_empty(): buttons["scan_close"] = scan_rect()
 	if space and space.controls:
 		var db := Rect2(S.x * 0.5 - 130, 176, 260, 60)
@@ -808,6 +846,7 @@ func _special_button() -> void:
 		sub = "FULL · LET GO" if space.special_locks >= full else "CHARGE %d/%d" % [space.special_locks, full]
 		cd = 1.0 - space.special_charge()
 	elif st != "idle": sub = "FIRING"
+	elif ready != "": sub = "LIGHTNING"   # v6.9: the electric storm
 	elif ready == "": sub = "TAP · STICK"   # v1.9l (owner): until it arms, a tap is an evasive move (stick picks which)
 	elif ready == "crit": sub = "CRITICAL · HOLD"
 	var armed := ready != "" or st != "idle"
@@ -950,16 +989,28 @@ func _padlocked(id: String, label: String) -> void:
 	if label != "": _text(Vector2(f.position.x, f.end.y - 11), label, 14, Color(1, 1, 1, 0.7), HORIZONTAL_ALIGNMENT_CENTER, f.size.x)
 
 ## Freelancer-style status: segmented colour bars, no numbers. Shield blue, hull green→yellow→red, energy gold.
-func _status_bars() -> void:
+## v6.9: right of the radar on the dash: COMMS (calls and the log).
+func comms_rect() -> Rect2:
+	var cr := _console()
+	var sw := clampf(cr.size.x * 0.3, 120.0, 190.0)
+	var mid := clampf(cr.size.x * 0.34, 150.0, 220.0)
+	return Rect2(cr.get_center().x + mid * 0.5 + 10, cr.position.y + 40, sw, 52)
+
+func _status_bars(at := Rect2()) -> void:
 	var w := clampf(S.x - (8 + _block_w() + 14) * 2 - 60, 220.0, 420.0)
 	var x := S.x * 0.5 - w * 0.5 + 16
+	var y0 := 6.0
+	if at != Rect2():   # v6.9: drawn on the dash
+		w = at.size.x - 44.0
+		x = at.position.x + 38.0
+		y0 = at.position.y
 	var rows := [["shield", GS.shield / GS.max_shield(), Color(0.35, 0.7, 1.0)],
 		["hull", GS.hull / GS.max_hull(), _hull_col(GS.hull / GS.max_hull())],
 		["energy", GS.energy / Data.ENERGY_MAX, YELLOW]]
-	_box(Rect2(x - 38, 6, w + 44, 66), Color(0.01, 0.05, 0.1, 0.72), Color(CYAN, 0.45), 10, 1)
+	_box(Rect2(x - 38, y0, w + 44, 66), Color(0.01, 0.05, 0.1, 0.72), Color(CYAN, 0.45), 10, 1)
 	# (v1.8q, owner: the round green ship picture beside the bars is gone; the hull bar already shows left / core / right)
 	for k in 3:
-		var y := 12.0 + k * 20.0
+		var y := y0 + 6.0 + k * 20.0
 		var v: float = clampf(rows[k][1], 0.0, 1.0)
 		var col: Color = rows[k][2]
 		var low := v < 0.25 and k < 2 and fmod(t, 0.6) < 0.3
@@ -1294,7 +1345,7 @@ func _draw() -> void:
 		for d in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
 			draw_line(c + d * 20, c + d * 52, Color(rc2, 0.95), 2.5)
 		draw_circle(c, 4, rc2)
-	_status_bars()
+	if cockpit and cockpit_texture(): _status_bars()   # (v6.9: otherwise they are on the dash)
 	_fl_panels()
 	var line2 := objective
 	if msg_t > 0.0: line2 = msg
@@ -1345,11 +1396,9 @@ func _draw() -> void:
 	_corner("fire", "FIRE", "guns", RED, space.fire_lock, "", 0.0, space.warp_active() or not space.lane.is_empty(), "ON · TAP OFF" if space.fire_lock else "TAP = ON")
 	_corner("kill", "KILL", "kill", GOLD, space.engine_kill, "", 0.0, mech, "DRIFTING" if space.engine_kill else "ENGINE")
 	_corner("zoom", "ZOOM", "zoom", CYAN, space.zoomed, "", 0.0, false, "SCOPE ON" if space.zoomed else "SCOPE")
-	_pill("map", "MAP")
 	_pill("view", "CHASE" if cockpit else "COCKPIT", false, CYAN, "VIEW")
-	_pill("target", "TARGET", false, CYAN, "NEXT")
 	_pill("goto", "GO TO", space.autopilot != null, CYAN, "AUTO")
-	_pill("log", "LOG", comms_mode == "roster", CYAN, "CALL")
+	if cockpit and cockpit_texture(): _pill("log", "COMMS", comms_mode == "roster", CYAN, "CALLS · LOG")
 	if buttons.has("dock"): _pill("dock", "DOCK", true, GREEN, space.dock_candidate().name.to_upper())
 	if buttons.has("lane"):
 		if space.lane.is_empty(): _pill("lane", "TRADE LANE", true, CYAN, "TO %s" % str(space.lane_candidate().get("to", "")).to_upper())
@@ -1485,11 +1534,12 @@ func _dashboard() -> void:
 	var mid := clampf(cr.size.x * 0.34, 150.0, 220.0)
 	var speed_r := Rect2(cr.get_center().x - mid * 0.5 - 10 - sw, cr.position.y + 26, sw, 76)
 	var screen_r := Rect2(cr.get_center().x - mid * 0.5, cr.position.y, mid, cr.size.y)
-	var way_r := Rect2(cr.get_center().x + mid * 0.5 + 10, cr.position.y + 26, sw, 86)
-	way_rect = way_r
-	_box(speed_r, PANEL, EDGE, 10, 2)
-	_text(Vector2(speed_r.position.x, speed_r.position.y + 26), "SPEED", 16, CYAN_HI, HORIZONTAL_ALIGNMENT_CENTER, speed_r.size.x)
-	_text(Vector2(speed_r.position.x, speed_r.position.y + 60), "%d m/s" % int(space.speed_now), 26, WHITE, HORIZONTAL_ALIGNMENT_CENTER, speed_r.size.x)
+	way_rect = Rect2()
+	# v6.9 (owner, Freelancer): the health bars sit on the dash, left of the radar; the speed is under the radar
+	var bars_r := Rect2(speed_r.position + Vector2(-20, -6), Vector2(sw + 20, 74))
+	_status_bars(bars_r)
+	_text(Vector2(bars_r.position.x, bars_r.position.y + 66 + 22), "SPEED  %d m/s" % int(space.speed_now), 16, WHITE, HORIZONTAL_ALIGNMENT_CENTER, bars_r.size.x)
+	speed_r = Rect2(bars_r.position.x, bars_r.position.y + 70, bars_r.size.x, 24)
 	var mode := ""
 	if space.warp_state == "on": mode = "WARP"
 	elif space.warp_state == "charging": mode = "WARP CHARGING"
@@ -1501,7 +1551,7 @@ func _dashboard() -> void:
 	# centre screen: radar with your ship silhouette
 	_box(screen_r, Color(0.01, 0.06, 0.12, 0.95), Color(CYAN, 0.9), 12, 2)
 	_radar(screen_r.get_center() + Vector2(0, 4), minf(screen_r.size.x, screen_r.size.y) * 0.44, true)
-	_way_box(way_r)
+	_pill("log", "COMMS", comms_mode == "roster", CYAN, "CALLS · LOG")
 	_gps_strip(Rect2(cr.get_center().x - 230, cr.position.y - 44, 460, 34))   # v1.5i
 
 ## Radar (Job S, v1.4p): the same GPS-style view as the navigation map, small. A grid, faceted blips, a north
@@ -1548,7 +1598,7 @@ func _radar(rc: Vector2, rr: float, label: bool) -> void:
 		if far2 > 0.0: want_rng = maxf(want_rng, far2 * Data.RADAR_FIT)
 	radar_range = lerpf(radar_range, want_rng, clampf(get_process_delta_time() * Data.RADAR_ZOOM_SPEED, 0.0, 1.0))
 	var rng := radar_range * (1.0 + GS.mod("radar")) * (1.0 - 0.6 * space.in_nebula * (1.0 - Data.BEACON_SENSOR_HELP * space.beacon_lit))
-	var heading := NavGrid.orient == "heading"
+	var heading := Data.RADAR_HEADING_UP or NavGrid.orient == "heading"   # v6.9 (owner): the radar's arrow always points up
 	var fwd3: Vector3 = -space.player.global_basis.z
 	var anchor := rc + Vector2(0, rr * Data.RADAR_HEADING_ANCHOR) if heading else rc
 	radar_view.major_px = 44.0

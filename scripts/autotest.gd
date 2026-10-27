@@ -309,7 +309,7 @@ func _flight_and_comms() -> void:
 	var fr: Rect2 = hud.buttons.get("form", Rect2())
 	var wr: Rect2 = hud.buttons["warp"]
 	_check("TRANSFORM button leads the special-moves row on the right, level with the speed row (v1.9 owner layout)", fr.size.x > 0.0 and absf(fr.position.y - wr.position.y) < 1.0 and fr.position.x > hud.S.x * 0.5
-		and hud.buttons.has("stop") and hud.buttons.has("map") and hud.buttons.has("goto"), "at %s" % str(fr.position))
+		and hud.buttons.has("stop") and hud.buttons.has("log") and hud.buttons.has("goto"), "at %s" % str(fr.position))   # (v6.9: MAP = the radar)
 	# default cruise: centred stick holds cruise speed; all the way back stops and stays stopped
 	SpaceSystem.cruise_assist = true
 	s.holding = false
@@ -4549,7 +4549,7 @@ func _job_s() -> void:
 	var rn_north: Vector2 = hud.radar_north - rc
 	var key_ok: bool = NavGrid.orient == "north"
 	_check("Job S: the north marker is always there: straight up in north-up, turned to true north in heading-up (map and radar), and the keybind toggles it",
-		is_zero_approx(n_ang0) and absf(n_ang1 + PI * 0.5) < 0.02 and rn_heading.x < -10.0 and absf(rn_heading.y) < 6.0 and rn_north.y < -10.0 and absf(rn_north.x) < 2.0 and key_ok,
+		is_zero_approx(n_ang0) and absf(n_ang1 + PI * 0.5) < 0.02 and rn_heading.x < -10.0 and absf(rn_heading.y) < 6.0 and (rn_north.y < -10.0 and absf(rn_north.x) < 2.0 or Data.RADAR_HEADING_UP and rn_north.x < -10.0) and key_ok,   # (v6.9: the radar stays heading-up)
 		"map north %.2f / %.2f rad; radar N at (%d,%d) heading-up, (%d,%d) north-up" % [n_ang0, n_ang1, int(rn_heading.x), int(rn_heading.y), int(rn_north.x), int(rn_north.y)])
 	# ---- 6. angled and overhead: same layout, the angled view has depth
 	main.open_map()
@@ -5460,7 +5460,7 @@ func _job_aj() -> void:
 	var picked: bool = s.target == n
 	# scan it: the target box is the button
 	await _frames(2)
-	var has_btn: bool = hud.buttons.has("scan")
+	var has_btn: bool = hud.buttons.has("scan") or not hud.fl_shown("l")   # (v6.9: SCAN is in the contact list; a call covers it)
 	main._on_hud("scan")
 	var running: bool = hud.scan_t > 0.0 and hud.scan.is_empty()
 	await _shot("aj_scanning", 0.2)
@@ -6403,136 +6403,64 @@ func _job_ar() -> void:
 	var kb_ok: bool = main.controls != null and main.controls.binding("special") == "F"
 	_check("Job AR: a SPECIAL button sits in the free corner of the top-left block (locked until earned), and F holds it on a keyboard",
 		hud.buttons.has("special") and hud.buttons["special"].position.y > hud.buttons["shield"].position.y and kb_ok, "button %s key F %s" % [hud.buttons.has("special"), kb_ok])
-	# ---- 2. a target dead ahead; hold SPECIAL at half hull
+	# ---- 2. v6.9 (owner): the SPECIAL is an electric storm: every hostile in tractor range is shocked (shields gone,
+	#    frozen for LIGHTNING_STUN seconds) and hit about as hard as a heavy missile; one outside the range is not
 	GS.hull = mh * 0.5
 	_tp(s.station.global_position + Vector3(0, 1500, 5000), s.station.global_position + Vector3(0, 1500, 6000))   # clear of station guns
 	s.fire_lock = false
 	await _frames(3)
 	var fwd := -s.player.global_basis.z
-	var e: Dictionary = s.spawn_unit("raider", s.player.global_position + fwd * 300.0, s.player.global_position)
-	var n: Node3D = e["node"]
-	e["aggro"] = false
-	for k in ["hp", "max"]: e[k] = 400.0   # tough enough that only the special decides it
-	s.target = n
-	# 2. v1.9c (owner): HOLD to charge: with the target 90 degrees off the nose the ship does NOT turn while you hold
-	#    (you fly it); a short hold builds 1 missile lock; LET GO and the ship turns itself to face the target and fires
-	s.special_log.clear()
-	GS.missiles = 20
-	n.global_position = s.player.global_position + s.player.global_basis.x * 300.0   # 90 degrees off the nose
-	var ang0: float = rad_to_deg((-s.player.global_basis.z).angle_to(n.global_position - s.player.global_position))
-	hud.held["special"] = true
-	var th := 0.0
-	while th < Data.LOCK_STEP * 1.3:
-		e["vel"] = Vector3.ZERO
-		await get_tree().process_frame
-		th += get_process_delta_time()
-	var charging: bool = s.special_state == "charging"
-	var ang_held: float = rad_to_deg((-s.player.global_basis.z).angle_to(n.global_position - s.player.global_position))
-	var held_locks: int = s.special_locks
-	hud.held.erase("special")   # let go
-	var m_tap := GS.missiles
-	var ang1 := 180.0
-	var tt := 0.0
-	while tt < Data.SPECIAL_TURN_TIME + 0.5 and s.special_state != "cutin":
-		e["vel"] = Vector3.ZERO
-		await get_tree().process_frame
-		tt += get_process_delta_time()
-	if is_instance_valid(n): ang1 = rad_to_deg((-s.player.global_basis.z).angle_to(n.global_position - s.player.global_position))
-	var weak: bool = s.special_power < 0.5 and s.special_factor() < 0.8
-	var tap_locks: int = s.special_locks
-	await _until(func(): return "swarm" in s.special_log, Data.SPECIAL_CUTIN_TIME + Data.SPECIAL_BEAM_TIME + 2.0)
-	await _wait(Data.VOLLEY_GAP * 3 + 0.3)
-	var tap_fired: int = m_tap - GS.missiles
-	_check("v1.9c (owner): HOLD SPECIAL to charge: the ship does not turn while you hold it (you fly); let go and it turns itself to face the target and fires: a short hold = 1 lock, 1 missile per launcher and a weaker beam",
-		charging and ang0 > 80.0 and ang_held > 70.0 and held_locks == 1 and ang1 <= Data.SPECIAL_FACE_DEG + 2.0 and tap_locks == 1 and weak and tap_fired == Data.SPECIAL_LAUNCHERS and "turn" in s.special_log and GS.special_used["half"],
-		"charging %s angle %.0f -> held %.0f -> fired at %.0f locks %d/%d weak %s fired %d log %s" % [charging, ang0, ang_held, ang1, held_locks, tap_locks, weak, tap_fired, s.special_log])
-	# 2b. pressed with no hostile in range: nothing happens, nothing is spent
-	GS.special_used = {"half": false, "crit": false}
-	for m in s.missiles_live: (m["node"] as Node3D).queue_free()
-	s.missiles_live.clear()
-	if is_instance_valid(n): n.global_position = s.player.global_position + Vector3(0, 0, Data.SPECIAL_RANGE + 3000.0)
-	s.target = null
+	var near_e: Array = []
+	for k in 3:
+		var en: Dictionary = s.spawn_unit("raider", s.player.global_position + fwd * 250.0 + s.player.global_basis.x * (k - 1) * 120.0, s.player.global_position)
+		en["aggro"] = true
+		for key in ["hp", "max"]: en[key] = 600.0
+		near_e.append(en)
+	var far_e: Dictionary = s.spawn_unit("raider", s.player.global_position + fwd * (s.lightning_range() + 900.0), s.player.global_position)
+	far_e["aggro"] = false
+	far_e["sh"] = float(far_e["sh_max"])
 	s.special_log.clear()
 	hud.held["special"] = true
-	await _wait(0.3)
-	hud.held.erase("special")
-	await _frames(3)
-	var kept: bool = s.special_state == "idle" and s.special_log.is_empty() and s.special_ready() == "half"
-	_check("v1.9c: SPECIAL with no hostile in range does nothing and keeps the special ready", kept, "log %s state %s ready %s" % [s.special_log, s.special_state, s.special_ready()])
-	# ---- 3. held to a full rack: it stays charged while you hold (no firing by itself); let go: cut-in, full beam, swarm
-	if not is_instance_valid(n) or not (n in s.enemies.map(func(o): return o["node"])):
-		e = s.spawn_unit("raider", s.player.global_position - s.player.global_basis.z * 300.0, s.player.global_position)
-		n = e["node"]
-		e["aggro"] = false
-		for k in ["hp", "max"]: e[k] = 400.0
-	s.target = n
-	s.special_log.clear()
-	GS.missiles = 20
-	e["sh"] = float(e["sh_max"])
-	e["hp"] = 400.0
-	var hp0: float = float(e["hp"])
-	hud.held["special"] = true
-	var rolled := false
-	var th2 := 0.0
-	var full_n: int = s.special_full()
-	while th2 < Data.LOCK_STEP * (full_n + 2):
-		_ar_hold(s, e, true)
-		if s.special_state == "charging": rolled = rolled or absf(s.model.rotation.z) > 0.05
-		await get_tree().process_frame
-		th2 += get_process_delta_time()
-	var still: bool = s.special_state == "charging" and s.special_locks == full_n and is_equal_approx(s.special_charge(), 1.0)
-	var full_locks: int = s.special_locks
-	hud.held.erase("special")
-	var cut := false
-	var tc := 0.0
-	while tc < Data.SPECIAL_TURN_TIME + Data.SPECIAL_CUTIN_TIME + 0.6 and s.special_state != "beam" and "swarm" not in s.special_log:
-		_ar_hold(s, e, true)
-		if s.special_state == "cutin" and s.special_t > 0.7 and not cut:
-			cut = true
-			await _shot("ar_special_cutin", 0.0)
-		await get_tree().process_frame
-		tc += get_process_delta_time()
 	await _frames(2)
-	var stripped: bool = not is_instance_valid(n) or float(e["sh"]) <= 0.0
-	var hp_hit: bool = not is_instance_valid(n) or float(e["hp"]) < hp0
-	var wing: bool = "wing_l" in s.special_log or "wing_r" in s.special_log
-	var spent: bool = GS.special_used["half"] and s.special_ready() == ""
-	var m0 := GS.missiles
-	await _until(func(): return "swarm" in s.special_log, Data.SPECIAL_BEAM_TIME + 2.0)
-	await _wait(Data.VOLLEY_GAP * 14 + 0.3)
-	var want: int = mini(GS.max_locks("light_missile") * Data.SPECIAL_LAUNCHERS, 20)
-	var fired: int = m0 - GS.missiles
-	var flagged: int = s.missiles_live.filter(func(m): return m.get("special", false)).size()
-	_check("Job AR / v1.9c: SPECIAL held to a full rack stays charged until you let go (the ship barrel-rolls meanwhile); then the pilot cut-in, the full beam strips the shield and goes into the hull (a side-on hit takes a wing), and the swarm fires your real missiles (locks x launchers: hold longer, more missiles); the special is spent",
-		still and cut and rolled and full_locks == GS.max_locks("light_missile") and stripped and hp_hit and wing and spent and fired == want and s.special_state == "idle",
-		"held full %s locks %d roll %s cutin %s shield %s hull %s wing %s spent %s fired %d/%d (special-flagged in flight %d) log %s" % [still, full_locks, rolled, cut, stripped, hp_hit, wing, spent, fired, want, flagged, s.special_log])
-	# ---- 4. no missiles: the beam still fires, the swarm is empty, no free ammo
-	if is_instance_valid(n): s._damage_enemy(e, 99999.0)
+	hud.held.erase("special")
+	await _frames(2)
+	var pos0: Array = near_e.map(func(o): return (o["node"] as Node3D).global_position)
+	var shocked: bool = near_e.all(func(o): return float(o.get("stun", 0.0)) > 0.0 and float(o["sh"]) == 0.0 and float(o["hp"]) <= 600.0 - Data.LIGHTNING_DAMAGE * 0.5)
+	var far_ok: bool = float(far_e.get("stun", 0.0)) <= 0.0 and float(far_e["sh"]) > 0.0
+	await _wait(Data.LIGHTNING_STUN * 0.6)
+	var frozen := true
+	for k in near_e.size():
+		if (near_e[k]["node"] as Node3D).global_position.distance_to(pos0[k]) > 3.0: frozen = false
+	await _wait(Data.LIGHTNING_STUN * 0.6)
+	var free_again: bool = near_e.all(func(o): return float(o.get("stun", 0.0)) <= 0.0)
+	var spent: bool = GS.special_used["half"] and "lightning" in s.special_log
+	await _shot("v69_lightning", 0.0)
+	_check("v6.9 (owner): SPECIAL is a lightning storm: every hostile in tractor range (%d m) loses its shields, freezes for %.0f s and takes heavy-missile damage; one further out is not touched; the special is spent" % [int(s.lightning_range()), Data.LIGHTNING_STUN],
+		shocked and far_ok and frozen and free_again and spent, "shocked %s, far %s, frozen %s, free after %s, spent %s" % [shocked, far_ok, frozen, free_again, spent])
+	for o in near_e + [far_e]:
+		if o in s.enemies: s._damage_enemy(o, 99999.0)
 	await _frames(3)
-	for m in s.missiles_live: (m["node"] as Node3D).queue_free()   # (v1.7u: last part's swarm would blow its splash on the next target)
-	s.missiles_live.clear()
+	# 2b. pressed with nobody in range: nothing happens, nothing is spent
+	GS.special_used = {"half": false, "crit": false}
+	s.special_log.clear()
+	hud.held["special"] = true
+	await _frames(2)
+	hud.held.erase("special")
+	await _frames(2)
+	var kept: bool = s.special_log.is_empty() and s.special_ready() == "half"
+	_check("v6.9: SPECIAL with no hostile in tractor range does nothing and keeps the special ready", kept, "log %s ready %s" % [s.special_log, s.special_ready()])
+	# ---- 3. at critical hull it comes back once more
 	GS.special_used = {"half": true, "crit": false}
 	GS.hull = mh * 0.2
-	GS.missiles = 0
-	var e2: Dictionary = s.spawn_unit("raider", s.player.global_position + fwd * 300.0, s.player.global_position)
-	n = e2["node"]
-	e = e2
-	e2["aggro"] = false
-	s.target = n
-	s.special_log.clear()
+	var e2: Dictionary = s.spawn_unit("raider", s.player.global_position + fwd * 200.0, s.player.global_position)
+	for key in ["hp", "max"]: e2[key] = 600.0
+	var which: String = s.special_ready()
 	hud.held["special"] = true
-	var tl := 0.0
-	while tl < Data.SPECIAL_LOCK_TIME + 0.3:
-		_ar_hold(s, e, false)
-		await get_tree().process_frame
-		tl += get_process_delta_time()
-	var which: String = s.special_which
+	await _frames(2)
 	hud.held.erase("special")
-	await _until(func(): return "swarm" in s.special_log, Data.SPECIAL_CUTIN_TIME + Data.SPECIAL_BEAM_TIME + 2.0)
-	_check("Job AR: at critical hull the special comes back once more; with no missiles left the beam still fires and the swarm is empty (no free ammunition)",
-		which == "crit" and "beam" in s.special_log and "swarm" in s.special_log and GS.missiles == 0 and GS.special_used["crit"],
-		"which %s log %s missiles %d" % [which, s.special_log, GS.missiles])
-	if is_instance_valid(n): s._damage_enemy(e2, 99999.0)
+	await _frames(2)
+	_check("Job AR / v6.9: at critical hull the special comes back once more (the storm again)", which == "crit" and GS.special_used["crit"] and float(e2.get("stun", 0.0)) > 0.0, "which %s" % which)
+	if e2 in s.enemies: s._damage_enemy(e2, 99999.0)
 	await _frames(3)
 	# ---- 5. missiles do not chase forever: out of life they burst
 	GS.missiles = 5
@@ -6675,8 +6603,8 @@ func _job_as() -> void:
 	GS.special_used = {"half": false, "crit": false}
 	s.set_player_model()
 	var other_roll: bool = s.special_move() == "roll" or keep_ship == "elyza"
-	_check("Job AS: each ship has its own special move: holding SPECIAL in the Elyza fighter swings its wings out while it barrel-rolls, and they fold back after; a ship without its own move just rolls",
-		move_ok and w0 == 0.0 and w_mid > 0.8 and rolled and w_end < 0.05 and other_roll and enemy_real,
+	_check("Job AS: each ship has its own special move set (the Elyza fighter's is its wings; v6.9: the SPECIAL itself is now the lightning storm); the wings sit folded after; a ship without its own move just rolls",
+		move_ok and w0 == 0.0 and w_end < 0.05 and other_roll and enemy_real,
 		"wings %.2f -> %.2f -> %.2f roll %s, enemy model real %s" % [w0, w_mid, w_end, rolled, enemy_real])
 
 
