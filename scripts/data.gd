@@ -119,9 +119,9 @@ const FPV_GUN_COLORS := {"body": Color(0.86, 0.87, 0.88), "dark": Color(0.12, 0.
 
 # ---------------------------------------------------------------- Job K (v1.4g): jump-gate docking + warp tunnel
 # Every Job K number lives in this one block. The jump destination logic is unchanged (gate "to" in the galaxy data).
-const JUMP_TUNNEL_BUILD := 0.5        # s: the tunnel builds up (streaks + shake + blur) as the ship pushes through the gate
+const JUMP_TUNNEL_BUILD := 1.2        # s: the tunnel builds up (streaks + shake + blur) as the ship pushes through the gate
 const JUMP_TUNNEL_HOLD_MIN := 1.2     # s: shortest time at full tunnel before the swap; the real load time adds to it
-const JUMP_TUNNEL_CLEAR := 0.3        # s: the tunnel snaps clear once the next system is ready
+const JUMP_TUNNEL_CLEAR := 0.8        # s: the tunnel snaps clear once the next system is ready
 const JUMP_SHAKE := 0.35              # camera shake at full tunnel (the atmosphere-entry shake start value)
 const JUMP_BLUR := 0.6                # screen blur at full tunnel (0..1)
 const JUMP_BLUR_PX := 6.0             # blur radius in pixels at blur 1
