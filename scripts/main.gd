@@ -418,6 +418,13 @@ func _on_hud(id: String) -> void:
 			if hud.comms_open:
 				hud.close_comms()
 				hud.flash_message("Call ended.")
+		"goto_t":   # v7.3 (owner): GO TO in the target window flies to the picked target
+			if space.target and is_instance_valid(space.target):
+				var tg: Node3D = space.target
+				_mission_auto = false
+				space.set_destination(tg)
+				space.autopilot = tg if tg.get_meta("kind", "") != "enemy" else space.waypoint_at(tg.global_position)
+				hud.flash_message("Autopilot engaged: %s" % tg.name)
 		"goto":
 			if space.autopilot != null and is_instance_valid(space.autopilot):   # v1.8v: a second tap stops it, whatever it is flying to
 				space.autopilot = null
