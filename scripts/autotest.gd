@@ -9562,11 +9562,16 @@ func _job_unknown() -> void:
 		if gs.is_empty() or gs.any(func(g): return str(g.get("gkind", "")) == "jump"): bad.append(u + " gates")
 		for g in gs:
 			var d := Vector2i(absi(posmod(at[g["to"]].x - at[u].x + 5, 11) - 5), absi(posmod(at[g["to"]].y - at[u].y + 5, 11) - 5))
-			if maxi(d.x, d.y) != 3: bad.append("%s>%s not 3" % [u, g["to"]])
+			if not (maxi(d.x, d.y) in [3, 4]): bad.append("%s>%s warp %d" % [u, g["to"], maxi(d.x, d.y)])
 			if not SystemBuilder.is_unknown(Data.SYSTEMS[g["to"]]): exits += 1
-		if SystemBuilder.planet_rift(u + "_planet") == "": bad.append(u + " no planet rift")
+		var rp: String = SystemBuilder.planet_rift(u + "_planet")
+		if rp == "": bad.append(u + " no planet rift")
+		else:
+			var rs: String = rp.trim_suffix("_planet")
+			var rd := Vector2i(absi(posmod(at[rs].x - at[u].x + 5, 11) - 5), absi(posmod(at[rs].y - at[u].y + 5, 11) - 5))
+			if not (maxi(rd.x, rd.y) in [5, 6]): bad.append("%s>%s rift %d" % [u, rs, maxi(rd.x, rd.y)])
 		if Galaxy.network()["systems"].has(u): bad.append(u + " on the map")
-	_check("v6.5 (owner): %d unknown areas, strange names, off the map, no jump gates; each has a warp gate 3 squares away and a planet with a rift gate; few gates lead home (%d)" % [unk.size(), exits],
+	_check("v6.5 (owner): %d unknown areas, strange names, off the map, no jump gates; each has a warp gate 3-4 squares away and a planet with a rift gate 5-6 squares away; few gates lead home (%d)" % [unk.size(), exits],
 		unk.size() == 37 and named.size() == 37 and bad.is_empty() and exits > 0 and exits < 12, ", ".join(bad.slice(0, 5)))
 	# fly a planet rift: from one unknown planet's surface to another planet's surface
 	var u0: String = unk[0]

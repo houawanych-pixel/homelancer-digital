@@ -89,19 +89,21 @@ static func unknown_links() -> Dictionary:
 		at[t[0]] = Vector2i(int(t[3]), int(t[4]))
 		cell[at[t[0]]] = t[0]
 		if t[6] == "unknown": unk.append(t[0])
-	var dirs := [Vector2i(3, 0), Vector2i(-3, 0), Vector2i(0, 3), Vector2i(0, -3), Vector2i(3, 3), Vector2i(3, -3), Vector2i(-3, 3), Vector2i(-3, -3)]
-	var away := func(id: String) -> Array:
+	var dirs := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(-1, -1)]
+	var reach := {"warp": Data.WARP_GATE_SQUARES, "rift": Data.RIFT_GATE_SQUARES}   # v6.5 (owner): warp 3-4 squares, rift 5-6
+	var away := func(id: String, kind: String) -> Array:
 		var out: Array = []
-		for d in dirs:
-			var c := Vector2i(posmod(at[id].x + d.x, 11), posmod(at[id].y + d.y, 11))
-			if cell.has(c): out.append(cell[c])
+		for n in reach[kind]:
+			for d in dirs:
+				var c := Vector2i(posmod(at[id].x + d.x * n, 11), posmod(at[id].y + d.y * n, 11))
+				if cell.has(c) and not (cell[c] in out): out.append(cell[c])
 		return out
 	var maps := {"warp": {}, "rift": {}}
 	for kind in ["warp", "rift"]:
 		var m: Dictionary = maps[kind]
 		for u in unk:
 			if m.has(u): continue
-			var cand: Array = away.call(u)
+			var cand: Array = away.call(u, kind)
 			var pick: Array = cand.filter(func(c): return c in unk and not m.has(c) and maps["warp"].get(u, "") != c)
 			if pick.is_empty(): pick = cand.filter(func(c): return normal.has(c) and not m.has(c))
 			if pick.is_empty(): continue
@@ -125,7 +127,7 @@ static func unknown_links() -> Dictionary:
 		var exits: bool = group.any(func(g): return normal.has(maps["warp"].get(g, "")) or normal.has(maps["rift"].get(g, "")))
 		if exits: continue
 		for g in group:   # an extra warp gate out of this pocket
-			var out: Array = away.call(g).filter(func(c): return normal.has(c))
+			var out: Array = away.call(g, "warp").filter(func(c): return normal.has(c))
 			if out.is_empty(): continue
 			maps["warp2"] = maps.get("warp2", {})
 			maps["warp2"][g] = out[0]
