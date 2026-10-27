@@ -39,6 +39,8 @@ var t := 0.0
 var asst: VideoStreamPlayer   # v3.7 (owner): the station assistant, standing in the HOME room
 var asst_chat: Panel
 var asst_greeted := false
+var calls := {"l": {}, "r": {}}   # v5.6 (owner): the same call screens as in flight: {from, sub, line, face, min}
+var call_ctl := {}
 var asst_free := false        # v3.8 (owner): hands-free talk (the mic stays open between lines)
 var asst_log_open := false    # v3.8: the chat log (folded away by default)
 var asst_log: Array = []      # [who, line]
@@ -211,6 +213,7 @@ func _ready() -> void:
 	fsb.set_border_width_all(2)
 	tech_cut(fsb, 16)
 	fp.add_theme_stylebox_override("panel", fsb)
+	fp.visible = false   # v5.6: her face is in the call screen now
 	ch.add_child(fp)
 	var face := TextureRect.new()
 	face.name = "Face"
@@ -227,12 +230,12 @@ func _ready() -> void:
 	cv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	ch.add_child(cv)
 	var who := _label(14, CYAN)
-	who.text = "EVEE  ·  YOUR COMPANION"
+	who.text = "TALK TO EVEE"
 	cv.add_child(who)
 	var said := _label(16, Color.WHITE)
 	said.name = "Said"
 	said.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	said.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	said.visible = false   # (shown in the call screen)
 	cv.add_child(said)
 	var row := HBoxContainer.new()
 	cv.add_child(row)
@@ -249,7 +252,7 @@ func _ready() -> void:
 	row.add_child(sb)
 	var xb := Button.new()
 	xb.text = "X"
-	xb.pressed.connect(func(): set_hands_free(false); asst_chat.visible = false)
+	xb.pressed.connect(func(): set_hands_free(false); close_call("r"))
 	row.add_child(xb)
 	var row2 := HBoxContainer.new()   # v3.8 (owner): talk to her by voice; the log folds away
 	row2.add_theme_constant_override("separation", 6)
@@ -288,6 +291,16 @@ func _ready() -> void:
 	logtxt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	logbox.add_child(logtxt)
 	add_child(asst_chat)
+	for sd in ["l", "r"]:   # v5.6: a call screen each side, the same look and size as a call in flight
+		var cc := Control.new()
+		cc.name = "Call_" + sd
+		cc.visible = false
+		cc.mouse_filter = Control.MOUSE_FILTER_STOP
+		var sdd: String = sd
+		cc.draw.connect(func(): _draw_call(cc, sdd))
+		cc.gui_input.connect(func(e: InputEvent): _call_input(e, sdd))
+		add_child(cc)
+		call_ctl[sd] = cc
 	move_child(asst, asst_chat.get_index())   # v3.7 (owner): in front of the windows, so a tap on her always reaches her
 	show_btn = Button.new()
 	show_btn.name = "ShowPanels"
@@ -387,7 +400,13 @@ func open(station_or_planet: Dictionary) -> void:
 	kind = base.get("kind", "station")
 	visible = true
 	_load_background()
+	calls = {"l": {}, "r": {}}
 	show_screen("hub")
+	var folk: Array = Factions.people_at(base, Data.SYSTEMS[GS.system_id])   # v5.6 (owner): whoever greets you, on the left
+	if not folk.is_empty():
+		var p: Dictionary = folk[0]["pilot"]
+		open_call("l", str(p["name"]), str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])) + " · " + ("leader" if folk[0]["role"] == "leader" else "coordinator"),
+			("%s. Welcome to %s." % [str(p["name"]), base["name"]]) if folk[0]["role"] == "leader" else ("%s here. Welcome to %s. I have work for you on the Mission Board." % [p["name"], base["name"]]), str(p["portrait_clean"]), Data.CALL_FOLD_AFTER)
 	status.text = "Docked at %s. Shields and energy restored. REPAIR and RESTOCK are at Equipment." % base["name"]
 	if GS.ore_worth(str(base["name"])) > 0: status.text = "Docked at %s. You carry gold / diamond worth %d cr here: sell it under YOUR SHIP." % [base["name"], GS.ore_worth(str(base["name"]))]
 
@@ -548,6 +567,121 @@ func _asst_place() -> void:
 	asst.size = Vector2(w, h)
 	asst.position = Vector2(x - w * 0.5, S.y - h)   # v3.7 (owner): locked to the very bottom (her thighs on the edge)
 
+## v5.6 (owner): one call screen look for the whole game: the same width, portrait, name strip and line on glass as the
+## flight comms. Station people come up on the LEFT, Evee on the RIGHT; each folds to a small tab (tap to open again).
+func call_rect(sd: String) -> Rect2:
+	var S := get_viewport_rect().size
+	var w := clampf(S.x * 0.14, 150.0, 190.0)   # (hud.side_rect)
+	var h := w + 90.0
+	var top := CONTENT_Y + 4.0
+	if calls[sd].get("min", false): return Rect2(8.0 if sd == "l" else S.x - 8.0 - 150.0, top, 150.0, 52.0)
+	return Rect2(8.0 if sd == "l" else S.x - 8.0 - w, top, w, h)
+
+func open_call(sd: String, who: String, sub: String, line: String, face: String, fold_after := 0.0) -> void:
+	calls[sd] = {"from": who, "sub": sub, "line": line, "face": face, "min": false, "fold": fold_after}
+	_place_calls()
+
+func close_call(sd: String) -> void:
+	calls[sd] = {}
+	_place_calls()
+	if sd == "r":
+		asst_chat.visible = false
+		if asst_free: set_hands_free(false)
+		_asst_show(screen)
+
+func _place_calls() -> void:
+	for sd in ["l", "r"]:
+		var c: Control = call_ctl[sd]
+		c.visible = not calls[sd].is_empty() and not panels_hidden
+		if not c.visible: continue
+		var r := call_rect(sd)
+		c.position = r.position
+		c.size = r.size
+		c.queue_redraw()
+	if not calls["r"].is_empty() and not calls["r"].get("min", false):   # Evee is on the call: her standing figure steps aside
+		asst.visible = false
+	var cr := call_rect("r")   # the talk line sits beside her screen
+	asst_chat.anchor_left = 1.0
+	asst_chat.anchor_right = 1.0
+	asst_chat.offset_right = -(get_viewport_rect().size.x - cr.position.x) - 8.0
+	asst_chat.offset_left = asst_chat.offset_right - 460.0
+	asst_chat.offset_top = cr.position.y
+	asst_chat.offset_bottom = cr.position.y + (330.0 if asst_log_open else 104.0)
+
+var _face_cache := {}
+func _call_face(path: String) -> Texture2D:
+	if path == "" or not ResourceLoader.exists(path): return null
+	if not _face_cache.has(path): _face_cache[path] = load(path)
+	return _face_cache[path]
+
+func _draw_call(c: Control, sd: String) -> void:
+	var d: Dictionary = calls[sd]
+	if d.is_empty(): return
+	var r := Rect2(Vector2.ZERO, c.size)
+	var acc := CYAN
+	var font := ThemeDB.fallback_font
+	var tex := _call_face(str(d["face"]))
+	if d.get("min", false):   # the folded tab: face + name, tap to open
+		_tech_box(c, r, acc, 0.85)
+		if tex != null: c.draw_texture_rect(tex, Rect2(4, 4, 44, 44), false)
+		c.draw_string(font, Vector2(54, 22), str(d["from"]).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 58, 12, Color.WHITE)
+		c.draw_string(font, Vector2(54, 40), "TAP TO OPEN", HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 58, 9, Color(acc, 0.9))
+		return
+	_tech_box(c, r, acc, 0.5)
+	var head := Rect2(0, 0, r.size.x, 26)   # name strip, with the fold button
+	c.draw_rect(head, Color(acc.darkened(0.45), 0.9))
+	c.draw_string(font, Vector2(6, 18), str(d["from"]).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 34, 14, Color.WHITE)
+	var fb := Rect2(r.size.x - 26, 2, 22, 22)
+	c.draw_rect(fb, Color(0.02, 0.06, 0.12, 0.9))
+	c.draw_line(Vector2(fb.position.x + 5, fb.get_center().y), Vector2(fb.end.x - 5, fb.get_center().y), Color.WHITE, 2.0)
+	var pr := Rect2(6, 30, r.size.x - 12, r.size.x - 12)
+	pr.size.y = minf(pr.size.y, r.size.y - 30 - 70)
+	if tex != null:
+		var src := Rect2(Vector2.ZERO, tex.get_size())
+		var asp := pr.size.x / pr.size.y
+		if asp > 1.0: src = Rect2(0, src.size.y * (1.0 - 1.0 / asp) * 0.3, src.size.x, src.size.y / asp)
+		c.draw_texture_rect_region(tex, pr, src)
+	for k in int(pr.size.y / 4.0): c.draw_line(Vector2(pr.position.x, pr.position.y + k * 4), Vector2(pr.end.x, pr.position.y + k * 4), Color(0, 0.1, 0.2, 0.12), 1)
+	c.draw_rect(pr, Color(acc, 0.7), false, 1.5)
+	var tr := Rect2(5, pr.end.y + 5, r.size.x - 10, r.size.y - pr.end.y - 10)   # the line, on white see-through glass
+	c.draw_rect(tr, Color(1, 1, 1, 0.7))
+	c.draw_rect(tr, Color(acc, 0.8), false, 1.5)
+	c.draw_string(font, tr.position + Vector2(5, 12), str(d.get("sub", "FRIENDLY")).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, tr.size.x - 10, 9, acc.darkened(0.45))
+	c.draw_multiline_string(font, tr.position + Vector2(5, 26), str(d["line"]), HORIZONTAL_ALIGNMENT_LEFT, tr.size.x - 10, 13, maxi(1, int((tr.size.y - 16) / 15.0)), Color(0.03, 0.07, 0.13))
+
+## v5.6 (owner's tech UI references): a see-through digital screen: cut corners, corner brackets and a little tab.
+func _tech_box(c: CanvasItem, r: Rect2, acc: Color, fill := 0.6) -> void:
+	var k := 10.0
+	var pts := PackedVector2Array([r.position + Vector2(k, 0), Vector2(r.end.x - 3, r.position.y), Vector2(r.end.x, r.position.y + 3),
+		Vector2(r.end.x, r.end.y - k), Vector2(r.end.x - k, r.end.y), Vector2(r.position.x + 3, r.end.y), Vector2(r.position.x, r.end.y - 3),
+		Vector2(r.position.x, r.position.y + k)])
+	c.draw_colored_polygon(pts, Color(0.02, 0.07, 0.14, fill))
+	var loop := pts.duplicate()
+	loop.append(pts[0])
+	c.draw_polyline(loop, Color(acc, 0.85), 1.5, true)
+	var L := 14.0   # corner brackets just outside
+	c.draw_line(r.position + Vector2(-3, k + 4), r.position + Vector2(-3, k + 4 + L), acc, 2.0)
+	c.draw_line(r.end + Vector2(3, -k - 4), r.end + Vector2(3, -k - 4 - L), acc, 2.0)
+	c.draw_rect(Rect2(r.position.x + r.size.x * 0.55, r.position.y - 3, r.size.x * 0.3, 3), Color(acc, 0.8))   # the tab on top
+
+func _call_input(e: InputEvent, sd: String) -> void:
+	var tap := (e is InputEventMouseButton and (e as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT and not (e as InputEventMouseButton).pressed) or (e is InputEventScreenTouch and not (e as InputEventScreenTouch).pressed)
+	if not tap: return
+	var at: Vector2 = (e as InputEventMouseButton).position if e is InputEventMouseButton else (e as InputEventScreenTouch).position
+	var d: Dictionary = calls[sd]
+	if d.is_empty(): return
+	if d.get("min", false):
+		d["min"] = false
+		if sd == "r": asst_chat.visible = true
+	elif at.y < 28.0 and at.x > call_ctl[sd].size.x - 30.0:   # the fold button
+		d["min"] = true
+		if sd == "r":
+			asst_chat.visible = false
+			if asst_free: set_hands_free(false)
+			_asst_show(screen)
+	elif sd == "r": asst_chat.visible = true   # tap her screen: talk
+	_place_calls()
+
 ## Tap her: she says hello (her own voice the first time), and the talk line opens.
 func asst_tap() -> void:
 	asst_chat.visible = true
@@ -558,6 +692,7 @@ func asst_tap() -> void:
 		_asst_voice()
 		said.text = "Hi, pilot. It's Evee. I'm right here with you. Ask me anything."
 	else: said.text = "Yes, pilot?"
+	open_call("r", "Evee", "Your companion · live", said.text, "res://assets/portraits/evee_normal.png")   # v5.6: the same call screen as in flight
 	_log("HER", said.text)
 
 func _asst_voice() -> void:
@@ -580,6 +715,9 @@ func asst_ask(t: String) -> void:
 		clean = clean.strip_edges()
 		if clean != "": clean = clean[0].to_upper() + clean.substr(1)
 		(asst_chat.find_child("Said", true, false) as Label).text = clean
+		if not calls["r"].is_empty():
+			calls["r"]["line"] = clean
+			call_ctl["r"].queue_redraw()
 		_log("HER", clean)
 		_asst_play("talk")
 		if Sfx.voice_on() or asst_free or _spoke: Sfx.read_aloud(clean, "", 1.15, true)   # (talk to her and she talks back)
@@ -599,7 +737,7 @@ func _log(who: String, line: String) -> void:
 func set_log_open(on: bool) -> void:
 	asst_log_open = on
 	(asst_chat.find_child("LogBox", true, false) as Control).visible = on
-	asst_chat.offset_bottom = CONTENT_Y + (380.0 if on else Data.CALL_FACE + 22.0)
+	_place_calls()
 	var lgb: Button = asst_chat.find_child("LogButton", true, false)
 	lgb.text = "LOG ▲" if on else "LOG ▼"
 	if on: lgb.add_theme_color_override("font_color", GOLD)
@@ -752,6 +890,7 @@ func set_panels_hidden(h: bool) -> void:
 ## tabs and LAUNCH go too; one small button brings everything back.
 func _photo_words() -> void:
 	for n in [header, subheader, credits_label, status, launch_btn]: n.visible = not panels_hidden
+	_place_calls()
 	left.visible = not panels_hidden and screen != "equipment"
 	show_btn.text = "◉" if panels_hidden else "HIDE PANELS"
 	show_btn.offset_right = show_btn.offset_left + (56.0 if panels_hidden else 190.0)
@@ -933,6 +1072,7 @@ func _people_rows(v: VBoxContainer) -> void:
 		tb.custom_minimum_size = Vector2(110, 38)
 		var line := ("%s, %s. Welcome to %s." % [p["name"], str(Data.ROSTERS[p["faction"]].get("title", p["faction"])), base["name"]]) if who["role"] == "leader" else ("%s here. I have work for you on the Mission Board." % p["name"])
 		tb.pressed.connect(func():
+			open_call("l", str(p["name"]), "at this station", line, str(p["portrait_clean"]))   # v5.6: the same call screen
 			status.text = "%s: %s" % [p["name"], line]
 			Sfx.play_character_voice(str(p.get("voice_id", p["id"])), "", line, float(p.get("voice", 1.0)), str(p.get("sex", "")) == "female"))
 		col.add_child(tb)
@@ -3372,6 +3512,13 @@ func _process(dt: float) -> void:
 	t += dt
 	_update_room(dt)
 	_asst_place()
+	for sd in ["l", "r"]:   # v5.6: a greeting folds itself away after a while (like an incoming call in flight)
+		var cd: Dictionary = calls[sd]
+		if cd.is_empty() or cd.get("min", false) or float(cd.get("fold", 0.0)) <= 0.0: continue
+		cd["fold"] = float(cd["fold"]) - dt
+		if float(cd["fold"]) <= 0.0:
+			cd["min"] = true
+			_place_calls()
 	_poll_speech(dt)
 	if preview_pivot and is_instance_valid(preview_pivot) and screen != "equipment": preview_pivot.rotation.y = t * 0.4 + eq_yaw
 	elif preview_pivot and is_instance_valid(preview_pivot) and screen == "equipment":   # v2.6 (owner): it turns on the platform

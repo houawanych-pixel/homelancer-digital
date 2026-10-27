@@ -9451,7 +9451,7 @@ func _job_v35() -> void:
 	await _frames(2)
 	hb.asst_tap()
 	await _frames(2)
-	var chat_ok: bool = hb.asst_chat.visible and str(hb.asst.get_meta("clip", "")) == "talk"
+	var chat_ok: bool = hb.asst_chat.visible and str(hb.asst.get_meta("clip", "")) == "talk" and not hb.calls["r"].is_empty() and hb.call_ctl["r"].visible   # v5.6: her call screen on the right
 	hb.asst_ask("hello")
 	await _frames(2)
 	var said: String = (hb.asst_chat.find_child("Said", true, false) as Label).text
@@ -9472,6 +9472,7 @@ func _job_v35() -> void:
 	_check("v3.7 (owner): the station assistant stands in the HOME room (green keyed out), stands at the right side; tap her to talk and the brain answers (%s)" % said,
 		a_on and a_moves and chat_ok and asked, "on %s, moves %s, chat %s, answered %s" % [a_on, a_moves, chat_ok, asked])
 	# v3.9 (owner): all ten rooms are used: REPAIR = medical bay; the hangar's WEAPON tab = weapons room, REPAIR & AMMO = supplies
+	hb.close_call("r")   # (her call from the chat test is over: she stands in the room again)
 	hb.show_screen("repair")
 	await Packs.wait("room_liberator_medical_bay", 30.0)
 	await _frames(3)
@@ -9536,6 +9537,26 @@ func _job_v35() -> void:
 		med_ok and wpn_ok and sup_ok and bay_ok and used.size() == 10, "med %s, weapons %s, supplies %s, bay %s, rooms %d" % [med_ok, wpn_ok, sup_ok, bay_ok, used.size()])
 	hb.eq_tab = "weapon"
 	var on_comms: bool = main.hud.call_list().size() > 0 and main.hud.call_list()[0] == "assistant" and main.hud.in_range("assistant") and main.hud._face_tex("evee", "normal") != null
+	# v5.6 (owner): the same call screens as in flight: station person LEFT, Evee RIGHT, both fold to a tab
+	hb.open(Data.SYSTEMS["solara"]["station"])
+	await _frames(3)
+	hb.asst_tap()
+	await _frames(2)
+	var cl_ok: bool = not hb.calls["l"].is_empty() and hb.call_ctl["l"].visible and hb.call_ctl["l"].position.x < 40.0
+	var cr_ok: bool = hb.call_ctl["r"].visible and hb.call_ctl["r"].position.x > get_viewport().get_visible_rect().size.x * 0.7
+	var same_w: bool = absf(hb.call_rect("r").size.x - main.hud.side_rect("r").size.x) < 1.0
+	await _shot("v56_calls", 0.3)
+	var ev2 := InputEventMouseButton.new()
+	ev2.button_index = MOUSE_BUTTON_LEFT
+	ev2.pressed = false
+	ev2.position = Vector2(hb.call_ctl["l"].size.x - 12.0, 12.0)
+	hb._call_input(ev2, "l")
+	await _frames(2)
+	var folded2: bool = hb.calls["l"].get("min", false) and hb.call_ctl["l"].size.y < 60.0
+	await _shot("v56_calls_folded", 0.2)
+	_check("v5.6 (owner): the same call screens as in flight: the station's person on the left, Evee on the right, the same size; each folds to a tab",
+		cl_ok and cr_ok and same_w and folded2, "left %s, right %s, same size %s, fold %s" % [cl_ok, cr_ok, same_w, folded2])
+	hb.close_call("r")
 	_check("v5.0 (owner): Evee rides in your ship: always first on the comms call list, reachable anywhere, with her own face", on_comms)
 	hb.room_override = ""
 	hb.show_screen("hub")
