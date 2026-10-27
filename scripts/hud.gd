@@ -307,6 +307,7 @@ func fl_rect(side: String) -> Rect2:
 	if not open: return Rect2(sr.position, Vector2(sr.size.x, 26))
 	var w := clampf(S.x * 0.2, 190.0, 250.0)
 	var r := Rect2(sr.position.x if side == "l" else sr.end.x - w, sr.position.y, w, sr.size.y)
+	if side == "r": r.size.y = minf(r.size.y, comms_rect().position.y - 58.0 - r.position.y)   # (v7.0: clear of WEAPONS and COMMS)
 	return r
 
 func fl_shown(side: String) -> bool:
@@ -518,6 +519,8 @@ func _layout() -> void:
 	if OS.has_feature("web") or OS.get_environment("HL_FS_BUTTON") != "":   # v1.9 (owner): FULL SCREEN takes the inner spare
 		buttons["fullscreen"] = buttons["lock_a"]
 		buttons.erase("lock_a")
+	if not weapons_shown():
+		for id in COMBAT_IDS: buttons.erase(id)
 	if space and space.mech_fpv():   # v1.7z: looking out of the mech, KILL (no use to a mech) becomes the rifle's ZOOM
 		buttons["zoom"] = buttons["kill"]
 		buttons.erase("kill")
@@ -527,15 +530,19 @@ func _layout() -> void:
 	# v6.9 (owner): the top strip is just VIEW and GO TO. MAP = tap the radar; TARGET NEXT and SCAN live in the contact
 	# list; COMMS (the old LOG / CALL) sits right of the radar; the health bars are on the dash, left of the radar.
 	var pw := clampf((avail - 4 * 6) / 5.0, 66.0, 110.0)
-	var ids := ["view", "goto"]
-	var row := pw * ids.size() + 6 * (ids.size() - 1)
-	for k in ids.size(): buttons[ids[k]] = Rect2(Vector2(S.x * 0.5 - row * 0.5 + k * (pw + 6), 12), Vector2(pw, 50))   # (up top: the bars moved to the dash)
+	# v7.0 (owner mockup): COCKPIT · GO TO · MAP sit right above the radar; COMMS and WEAPONS above the aim stick
+	var ids := ["view", "goto", "map"]
+	var rr0 := radar_rect()
+	var pw2 := clampf(rr0.size.x / 3.0 - 4.0, 60.0, 92.0)
+	var row := pw2 * ids.size() + 6 * (ids.size() - 1)
+	for k in ids.size(): buttons[ids[k]] = Rect2(Vector2(rr0.get_center().x - row * 0.5 + k * (pw2 + 6), rr0.position.y - 44), Vector2(pw2, 38))
 	buttons["log"] = comms_rect()
+	buttons["weapons"] = Rect2(buttons["log"].position - Vector2(0, 50), buttons["log"].size)
 	log_rect = buttons["log"]
 	if space and space.controls and not console_open: buttons["radar"] = radar_rect()
 	if not scan.is_empty(): buttons["scan_close"] = scan_rect()
 	if space and space.controls:
-		var db := Rect2(S.x * 0.5 - 130, 176, 260, 60)
+		var db := Rect2(S.x * 0.5 - 130, 8, 260, 58)   # v7.0 (owner): DOCK and the other prompts at the very top
 		var pr: String = space.prompt()   # v1.4u: one prompt, the nearest thing wins
 		if pr != "": buttons[pr] = db
 	_fl_buttons()   # v6.7: the Freelancer-style contact list (left) and ship panel (right)
@@ -580,7 +587,7 @@ func _layout() -> void:
 ## v1.9k (owner: after a capture I didn't know where to go): the job line at the top is a button. Added after the
 ## layout, last, so a real button under it always wins.
 func _objective_button() -> void:
-	if objective != "" and space != null and not space.mission_waypoint().is_empty():
+	if false and objective != "" and space != null and not space.mission_waypoint().is_empty():   # (v7.0: the job line is gone; tap the target box for the job)
 		var w := minf(S.x - col_w * 2.0, Data.OBJECTIVE_TAP_W)
 		buttons["objective"] = Rect2((S.x - w) * 0.5, 144.0 - Data.OBJECTIVE_TAP_H * 0.5, w, Data.OBJECTIVE_TAP_H)
 
@@ -989,14 +996,20 @@ func _padlocked(id: String, label: String) -> void:
 	if label != "": _text(Vector2(f.position.x, f.end.y - 11), label, 14, Color(1, 1, 1, 0.7), HORIZONTAL_ALIGNMENT_CENTER, f.size.x)
 
 ## Freelancer-style status: segmented colour bars, no numbers. Shield blue, hull green→yellow→red, energy gold.
-## v6.9: right of the radar on the dash: COMMS (calls and the log).
+## v7.0 (owner mockup): COMMS sits above the aim stick, on the right.
 func comms_rect() -> Rect2:
-	var cr := _console()
-	var sw := clampf(cr.size.x * 0.3, 120.0, 190.0)
-	var mid := clampf(cr.size.x * 0.34, 150.0, 220.0)
-	return Rect2(cr.get_center().x + mid * 0.5 + 10, cr.position.y + 40, sw, 52)
+	var h := _home("aim")
+	return Rect2(h.x - 70, h.y - stick_r - 62, 140, 42)
 
-func _status_bars(at := Rect2()) -> void:
+## v7.0 (owner): weapons and abilities pop up only when you fight. They show while hostiles are engaging you, or when
+## you open them (WEAPONS); otherwise only the flight row (engine, stop, thrust, warp) stays on screen.
+var weapons_open := false
+var weapons_pinned := false   # (the route test keeps every button up)
+const COMBAT_IDS := ["fire", "slot_0", "slot_1", "slot_2", "lock_a", "lock_c", "shield", "repair", "form", "ground", "special", "tractor"]
+func weapons_shown() -> bool:
+	return weapons_pinned or weapons_open or (space != null and is_instance_valid(space.player) and space.hostiles_engaged() > 0)
+
+func _status_bars(at := Rect2(), pct := false) -> void:
 	var w := clampf(S.x - (8 + _block_w() + 14) * 2 - 60, 220.0, 420.0)
 	var x := S.x * 0.5 - w * 0.5 + 16
 	var y0 := 6.0
@@ -1015,11 +1028,12 @@ func _status_bars(at := Rect2()) -> void:
 		var col: Color = rows[k][2]
 		var low := v < 0.25 and k < 2 and fmod(t, 0.6) < 0.3
 		_icon(rows[k][0], Vector2(x - 18, y + 7), 7.0, RED if low else col)
+		if pct: _text(Vector2(x + w - 40, y + 13), "%d%%" % int(round(v * 100.0)), 12, WHITE, HORIZONTAL_ALIGNMENT_RIGHT, 40)
 		if k == 1:
-			_three_part(Rect2(Vector2(x, y + 2), Vector2(w - 8, 11)), GS.wing_l / GS.wing_max(), v, GS.wing_r / GS.wing_max(), low)
+			_three_part(Rect2(Vector2(x, y + 2), Vector2(w - (52 if pct else 8), 11)), GS.wing_l / GS.wing_max(), v, GS.wing_r / GS.wing_max(), low)
 			continue
 		var segs := 20
-		var sw := (w - 8) / segs
+		var sw := (w - (52 if pct else 8)) / segs
 		for i in segs:
 			var fill := clampf(v * segs - i, 0.0, 1.0)
 			var sr := Rect2(Vector2(x + i * sw, y + 2), Vector2(sw - 2, 11))
@@ -1347,10 +1361,9 @@ func _draw() -> void:
 		draw_circle(c, 4, rc2)
 	if cockpit and cockpit_texture(): _status_bars()   # (v6.9: otherwise they are on the dash)
 	_fl_panels()
-	var line2 := objective
-	if msg_t > 0.0: line2 = msg
-	if msg_t <= 0.0 and objective != "" and buttons.has("objective"): line2 = objective + "   ▸ TAP"   # v1.9k (owner): tap the job line = waypoint
-	_text(Vector2(col_w, 144), line2, Data.OBJECTIVE_FONT, GOLD if msg_t > 0.0 else WHITE, HORIZONTAL_ALIGNMENT_CENTER, S.x - col_w * 2)
+	# v7.0 (owner: what are those yellow words?): no standing hint line; the job is on the contact list. Short messages
+	# still flash up, small and white, under the top prompt.
+	if msg_t > 0.0: _text(Vector2(col_w, 86), msg, 15, Color(WHITE, minf(1.0, msg_t * 2.0)), HORIZONTAL_ALIGNMENT_CENTER, S.x - col_w * 2)
 	var zone := ""
 	if space.surface_mode: zone = "%s  ·  ALT %d m" % [Surface.tile_name(space.planet_id, space.tile), int(space.altitude)]
 	elif space.in_nebula > 0.0:
@@ -1396,14 +1409,19 @@ func _draw() -> void:
 	_corner("fire", "FIRE", "guns", RED, space.fire_lock, "", 0.0, space.warp_active() or not space.lane.is_empty(), "ON · TAP OFF" if space.fire_lock else "TAP = ON")
 	_corner("kill", "KILL", "kill", GOLD, space.engine_kill, "", 0.0, mech, "DRIFTING" if space.engine_kill else "ENGINE")
 	_corner("zoom", "ZOOM", "zoom", CYAN, space.zoomed, "", 0.0, false, "SCOPE ON" if space.zoomed else "SCOPE")
-	_pill("view", "CHASE" if cockpit else "COCKPIT", false, CYAN, "VIEW")
-	_pill("goto", "GO TO", space.autopilot != null, CYAN, "AUTO")
-	if cockpit and cockpit_texture(): _pill("log", "COMMS", comms_mode == "roster", CYAN, "CALLS · LOG")
+	_pill("view", "CHASE" if cockpit else "COCKPIT", false, CYAN)
+	_pill("goto", "GO TO", space.autopilot != null, CYAN)
+	_pill("map", "MAP", false, CYAN)
+	_pill("log", "COMMS", comms_mode == "roster", CYAN)
+	_pill("weapons", "WEAPONS", weapons_shown(), RED if weapons_shown() else CYAN)
 	if buttons.has("dock"): _pill("dock", "DOCK", true, GREEN, space.dock_candidate().name.to_upper())
 	if buttons.has("lane"):
 		if space.lane.is_empty(): _pill("lane", "TRADE LANE", true, CYAN, "TO %s" % str(space.lane_candidate().get("to", "")).to_upper())
 		else: _pill("lane", "IN LANE · %d m/s" % int(space.speed_now), true, CYAN, "TAP TO LEAVE · TO %s" % str(space.lane.get("to", "")).to_upper())
-	if buttons.has("jump"): _pill("jump", "%s GATE" % str(space.near_gate().get_meta("info").get("gkind", "warp")).to_upper() if space.sys.get("generated", false) else "WARP GATE", true, GOLD, "DOCK · TO %s" % Data.SYSTEMS[space.near_gate().get_meta("info")["to"]]["name"].to_upper())
+	if buttons.has("jump"):
+		var gi: Dictionary = space.near_gate().get_meta("info")
+		var dest: String = str(Surface.PLANETS[gi["planet_to"]]["name"]) if gi.has("planet_to") and Surface.PLANETS.has(gi["planet_to"]) else str(Data.SYSTEMS.get(str(gi.get("to", "")), {}).get("name", "?"))   # (v6.9: a planet's rift leads to a planet)
+		_pill("jump", "%s GATE" % str(gi.get("gkind", "warp")).to_upper() if space.sys.get("generated", false) or gi.has("planet_to") else "WARP GATE", true, GOLD, "DOCK · TO %s" % dest.to_upper())
 	if not (cockpit and cockpit_texture()): _dashboard()   # the cockpit art has its own dash screens
 	_stick("move", "FLIGHT")
 	_stick("aim", "AIM")
@@ -1536,10 +1554,12 @@ func _dashboard() -> void:
 	var screen_r := Rect2(cr.get_center().x - mid * 0.5, cr.position.y, mid, cr.size.y)
 	way_rect = Rect2()
 	# v6.9 (owner, Freelancer): the health bars sit on the dash, left of the radar; the speed is under the radar
-	var bars_r := Rect2(speed_r.position + Vector2(-20, -6), Vector2(sw + 20, 74))
-	_status_bars(bars_r)
-	_text(Vector2(bars_r.position.x, bars_r.position.y + 66 + 22), "SPEED  %d m/s" % int(space.speed_now), 16, WHITE, HORIZONTAL_ALIGNMENT_CENTER, bars_r.size.x)
-	speed_r = Rect2(bars_r.position.x, bars_r.position.y + 70, bars_r.size.x, 24)
+	# v7.0 (owner mockup): health bars RIGHT of the radar with their percentages; SPEED above the buttons over the radar
+	var bars_r := Rect2(screen_r.end.x + 10, screen_r.position.y + 10, clampf(sw + 70, 200.0, 280.0), 74)
+	_status_bars(bars_r, true)
+	var sy := screen_r.position.y - 58
+	_text(Vector2(screen_r.position.x - 60, sy), "SPEED  %d m/s" % int(space.speed_now), 20, CYAN_HI, HORIZONTAL_ALIGNMENT_CENTER, screen_r.size.x + 120)
+	speed_r = Rect2(screen_r.position.x, sy - 18, screen_r.size.x, 22)
 	var mode := ""
 	if space.warp_state == "on": mode = "WARP"
 	elif space.warp_state == "charging": mode = "WARP CHARGING"
@@ -1551,7 +1571,6 @@ func _dashboard() -> void:
 	# centre screen: radar with your ship silhouette
 	_box(screen_r, Color(0.01, 0.06, 0.12, 0.95), Color(CYAN, 0.9), 12, 2)
 	_radar(screen_r.get_center() + Vector2(0, 4), minf(screen_r.size.x, screen_r.size.y) * 0.44, true)
-	_pill("log", "COMMS", comms_mode == "roster", CYAN, "CALLS · LOG")
 	_gps_strip(Rect2(cr.get_center().x - 230, cr.position.y - 44, 460, 34))   # v1.5i
 
 ## Radar (Job S, v1.4p): the same GPS-style view as the navigation map, small. A grid, faceted blips, a north

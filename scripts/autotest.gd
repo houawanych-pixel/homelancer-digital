@@ -885,6 +885,7 @@ func _flag(n: String) -> bool:
 	return false
 
 func _run() -> void:
+	main.hud.weapons_pinned = true   # (v7.0: every button up for the checks; the pop-up has its own check)
 	if OS.get_environment("HL_SOAK") != "":
 		await _soak(int(OS.get_environment("HL_SOAK")))
 		return
@@ -9592,6 +9593,25 @@ func _job_fl() -> void:
 			s.enemies.erase(e)
 			(e["node"] as Node3D).free()
 	s.target = null
+	# v7.0 (owner mockup): cruising, the weapons and abilities fold away; WEAPONS (or a fight) brings them back
+	hud.weapons_pinned = false
+	hud.weapons_open = false
+	var keep_en: Array = s.enemies
+	s.enemies = []
+	hud._layout()
+	await _shot("v70_cruise_hud", 0.3)
+	hud._layout()
+	var hidden: bool = not hud.buttons.has("fire") and not hud.buttons.has("special") and hud.buttons.has("thrust") and hud.buttons.has("weapons")
+	main._on_hud("weapons")
+	hud._layout()
+	var shown: bool = hud.buttons.has("fire") and hud.buttons.has("shield")
+	main._on_hud("weapons")
+	s.enemies = keep_en
+	var rr: Rect2 = hud.radar_rect()
+	var placed: bool = hud.buttons.has("view") and hud.buttons["view"].end.y <= rr.position.y + 1.0 and hud.buttons.has("map") and hud.buttons["log"].position.x > hud.S.x * 0.6
+	hud.weapons_pinned = true
+	_check("v7.0 (owner mockup): cruising, the weapons and abilities fold away (the flight row stays); WEAPONS brings them back; COCKPIT / GO TO / MAP sit over the radar, COMMS by the aim stick",
+		hidden and shown and placed, "hidden %s shown %s placed %s" % [hidden, shown, placed])
 	_check("v6.7 (owner, Freelancer): a contact list (left) and ship panel (right) that fold away; tap a contact = target; guns switch on and off; GO TO goes to the job first; kills blow up big (%.0f, a big ship %.0f) with a flash" % [small, big_b],
 		rows_ok and picked and folded and silent and fires and goto_ok and small >= 50.0 and big_b > small * 2.0 and flash_ok,
 		"rows %s, picked %s, folded %s, guns off %s on %s, goto %s, flash %s" % [rows_ok, picked, folded, silent, fires, goto_ok, flash_ok])

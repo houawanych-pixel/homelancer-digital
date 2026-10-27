@@ -320,6 +320,9 @@ func _objective() -> String:
 func _on_hud(id: String) -> void:
 	if state != "flight": return
 	if hud.fl_tap(id): return   # v6.7: the contact list and ship panel
+	if id == "weapons":   # v7.0: open / fold the weapons and abilities
+		hud.weapons_open = not hud.weapons_open
+		return
 	if id.begins_with("sys_"):
 		var sid := id.substr(4)
 		if sid == "guns":
