@@ -9425,7 +9425,13 @@ func _job_v35() -> void:
 	var looked: bool = absf(hb.room_yaw - y0) > 0.01 and hb.room_pitch != 0.0
 	(hb.find_child("ShowPanels", true, false) as Button).pressed.emit()
 	await _frames(2)
-	var folded: bool = hb.panels_hidden and not hb.content.visible and not hb.leftwin.visible and not hb.left.visible and not hb.launch_btn.visible and not hb.credits_label.visible and hb.show_btn.visible   # v5.3: no words at all
+	var folded: bool = hb.panels_hidden and not hb.content.visible and not hb.leftwin.visible and not hb.left.visible and not hb.launch_btn.visible and not hb.credits_label.visible and not hb.show_btn.visible \
+		and hb.look_ui.visible and hb.look_bar.visible and hb.look_bar.get_node("Lock") != null   # v5.3: no words at all; v5.7: look mode: sticks + PANELS / LOCK / CALL bar
+	hb.stick_vec["r"] = Vector2(1, 0)   # v5.7: holding a stick sideways keeps turning
+	var ys: float = hb.room_yaw
+	await _frames(10)
+	hb.stick_vec["r"] = Vector2.ZERO
+	folded = folded and absf(hb.room_yaw - ys) > 0.001
 	await _shot("v35_room_panels_hidden", 0.2)
 	(hb.find_child("ShowPanels", true, false) as Button).pressed.emit()
 	await _frames(2)
@@ -9446,12 +9452,13 @@ func _job_v35() -> void:
 	hb.look_by(Vector2(-200, 0))
 	await _frames(2)
 	var vw0: float = get_viewport().get_visible_rect().size.x
-	var a_moves: bool = absf(hb.asst.position.x - x0) < 1.0 and hb.asst.position.x + hb.asst.size.x > vw0 - 20.0 and hb.content.offset_right < -100.0   # v4.6: she stands at the right, the page stops short of her
+	var vh0: float = get_viewport().get_visible_rect().size.y
+	var a_moves: bool = absf(hb.asst.position.x - x0) > 5.0 and hb.asst.size.y > vh0 * 0.8 and hb.content.offset_right < -100.0   # v5.7 (owner): full height, and she moves with the room, not the screen
 	hb.room_yaw = Data.ASST_YAW
 	await _frames(2)
 	hb.asst_tap()
 	await _frames(2)
-	var chat_ok: bool = hb.asst_chat.visible and str(hb.asst.get_meta("clip", "")) == "talk" and not hb.calls["r"].is_empty() and hb.call_ctl["r"].visible   # v5.6: her call screen on the right
+	var chat_ok: bool = hb.asst_chat.visible and str(hb.asst.get_meta("clip", "")).ends_with("talk") and not hb.calls["r"].is_empty() and hb.call_ctl["r"].visible   # v5.6: her call screen on the right
 	hb.asst_ask("hello")
 	await _frames(2)
 	var said: String = (hb.asst_chat.find_child("Said", true, false) as Label).text
