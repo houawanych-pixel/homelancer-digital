@@ -319,6 +319,7 @@ func _objective() -> String:
 # ---------------------------------------------------------------- HUD buttons
 func _on_hud(id: String) -> void:
 	if state != "flight": return
+	if hud.fl_tap(id): return   # v6.7: the contact list and ship panel
 	if id.begins_with("sys_"):
 		var sid := id.substr(4)
 		if sid == "guns":
@@ -418,22 +419,24 @@ func _on_hud(id: String) -> void:
 			if space.autopilot != null and is_instance_valid(space.autopilot):   # v1.8v: a second tap stops it, whatever it is flying to
 				space.autopilot = null
 				hud.flash_message("Autopilot off.")
-			elif space.target and is_instance_valid(space.target) and space.target.get_meta("kind", "") != "enemy":
-				space.autopilot = space.target
-				hud.flash_message("Autopilot engaged: %s" % space.target.name)
-			elif space.nav_dest != null and is_instance_valid(space.nav_dest):   # v1.7v (owner): the GPS destination picked on the map
-				var nd: Node3D = space.nav_dest
-				var mwd: Dictionary = space.mission_waypoint()
-				_mission_auto = not mwd.is_empty() and mwd["node"] == nd   # v1.9k: the job's waypoint: GO TO goes all the way
-				space.route_go()
-				if nd.get_meta("kind", "") == "enemy": space.autopilot = space.waypoint_at(nd.global_position)   # (a hostile is flown TO, not docked with)
-				hud.flash_message("Autopilot engaged: %s" % nd.name)
-			elif not space.mission_waypoint().is_empty():   # v1.5a: nothing picked: fly the mission waypoint
+			# v6.7 (owner: I get lost): GO TO goes to the MISSION first, then your waypoint, and only then the target you picked
+			elif not space.mission_waypoint().is_empty():
 				var mw: Dictionary = space.mission_waypoint()
 				var mn: Node3D = mw["node"]
+				space.gps_mission = true
+				space.set_destination(mn)
 				space.autopilot = mn if mn.get_meta("kind", "") != "enemy" else space.waypoint_at(mn.global_position)   # (a hostile is flown TO, not docked with)
 				_mission_auto = true   # v1.9k: through the gates and in to dock, not just to the next stop
 				hud.flash_message("Autopilot engaged: %s" % mw["title"])   # (v1.9a: on a planet too: the job's point, the freighter, or the way up)
+			elif space.nav_dest != null and is_instance_valid(space.nav_dest):   # v1.7v (owner): the GPS destination picked on the map
+				var nd: Node3D = space.nav_dest
+				_mission_auto = false
+				space.route_go()
+				if nd.get_meta("kind", "") == "enemy": space.autopilot = space.waypoint_at(nd.global_position)   # (a hostile is flown TO, not docked with)
+				hud.flash_message("Autopilot engaged: %s" % nd.name)
+			elif space.target and is_instance_valid(space.target):   # (v6.7: a hostile you picked too: flown to, not docked with)
+				space.autopilot = space.target if space.target.get_meta("kind", "") != "enemy" else space.waypoint_at(space.target.global_position)
+				hud.flash_message("Autopilot engaged: %s" % space.target.name)
 			elif space.surface_mode and not space.nearest_base().is_empty():   # v1.8y: on a planet: the nearest base, wherever it is
 				var nb: Dictionary = space.nearest_base()
 				space.set_surface_goal(nb)

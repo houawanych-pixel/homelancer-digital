@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v6.7"
+const VERSION := "v6.8"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -242,7 +242,10 @@ const WEAVE_FADE := 120.0             # no weave inside this distance of the tar
 # explosions: [flash size, fireballs, debris bits, later pops, seconds between pops]
 const BLAST_WING := [15.0, 9, 8, 2, 0.16]
 const BLAST_DEATH := [44.0, 20, 18, 6, 0.2]
-const BLAST_ENEMY := [24.0, 10, 8, 2, 0.14]
+const BLAST_ENEMY := [52.0, 18, 14, 5, 0.15]   # v6.7 (owner: massive explosions, like Freelancer): was [24, 10, 8, 2, 0.14]
+const BLAST_SIZE_PER_RADIUS := 0.12            # bigger ships blow up bigger: x (1 + this x (radius - 7))
+const BLAST_SCREEN_FLASH := 0.55               # a white flash on screen when a ship goes up close by (0..1)
+const BLAST_FLASH_RANGE := 600.0
 # trade lanes: rings in a row between two places in one system. Dock a ring and the ship is carried down the chain.
 const LANE_RING_GAP := 900.0          # metres between rings
 const LANE_MAX_RINGS := 8
@@ -825,7 +828,7 @@ const NEBULA_EXTRA_DIST := [2600.0, 5800.0]   # how far from the main station th
 const NEBULA_PUFFS := 240             # smoke puffs in a full-size cloud (smaller clouds get fewer)
 const NEBULA_PUFF_ALPHA := 0.55
 const NEBULA_FOG_DENSITY := 0.005   # (v1.9z: thicker: deep inside you see a few hundred metres, not the other side)    # fog at the heart of a cloud (things ~600 m off fade into the haze)
-const NEBULA_STREAM := 22             # smoke puffs streaming past the ship inside a cloud
+const NEBULA_STREAM := 40             # smoke puffs streaming past the ship inside a cloud
 const NEBULA_STREAM_RANGE := 320.0
 const NEBULA_FLASH_EVERY := [2.5, 8.0]  # seconds between lightning flashes in each cloud
 # v1.9z (owner: "inside a Freelancer cloud you can't see out; it has its own weather"): deep inside, the fog hides the
@@ -842,6 +845,11 @@ const WARP_HOLE_SPARKS := 120
 const WARP_HOLE_RIM := Color(1.0, 0.45, 0.75)
 const WARP_HOLE_CLOUD := Color(0.75, 0.25, 0.6)   # the cloud each warp gate hides in
 const JUMP_TUNNEL_SPIN := [0.04, 0.22]   # v1.9z (owner): the jump-gate tunnel (his picture) spins, turns a second slow .. full speed
+const NEBULA_MIST := Color(0.93, 0.95, 1.0)   # v6.7 (owner): white mist inside a cloud, like Freelancer
+const NEBULA_MIST_MIX := 0.65      # how far toward white (0 = the cloud's own colour)
+const NEBULA_DOME_SCALE := 0.55    # the cloud wall's noise is stretched this much (no repeating tiles)
+const NEBULA_DOME_CONTRAST := 0.45 # soft billows, not a hard pattern
+const NEBULA_STREAM_ALPHA := 0.75  # the smoke rushing past the ship
 const NEBULA_DOME_R := 1400.0       # the cloud shell round the camera (beyond it, only haze)
 const NEBULA_HUD_TINT := 0.16         # the screen tint inside a cloud (the fog does most of the work now; was 0.36)
 const STATION_MODEL_YAW := {"hollow_requiem": 90.0}   # degrees: the dead liner lies across the docking approach

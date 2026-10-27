@@ -14,6 +14,7 @@ var core_gun3 := ""       # v1.9w: the belly gun (level 3)
 var modules: Array = []   # v1.9w: the ability module in each module slot ("" = empty)
 var owned_modules: Array = []        # v1.9u (owner): the gun in the ship's core (fires from the nose, always fitted); "" = the main gun
 var gun_levels: Dictionary = {}   # v1.9u: Mk level of each gun you have upgraded (1 = Mk I)
+var gun_off := {}         # v6.7 (owner, Freelancer weapon list): guns switched off ("core0", 0, 1 ...); this flight only
 var mounts: Array = []   # v1.9e: what each hardpoint carries (a gun from Data.WEAPONS or "missile_pod"); [] = every mount the weapon_id
 var owned_mechs := ["blackgold"]   # v1.9i: mech frames bought (each gives its arms, core and legs)
 var mech_parts := {"arms": "blackgold", "core": "blackgold", "legs": "blackgold"}   # v1.9i: the frame each part comes from

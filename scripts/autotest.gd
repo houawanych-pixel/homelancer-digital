@@ -1015,8 +1015,17 @@ func _run() -> void:
 		await _job_edge()
 		await _job_open()
 		await _job_unknown()
+		await _job_fl()
 		await _job_v35()
 		await _job_v19z()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
+	if _flag("HL_FL"):   # the v6.7 Freelancer panels only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_fl()
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
@@ -1842,6 +1851,7 @@ func _run() -> void:
 	await _job_edge()
 	await _job_open()
 	await _job_unknown()
+	await _job_fl()
 	await _job_v35()
 	await _job_v19z()
 	await _blocks()
@@ -9593,6 +9603,63 @@ func _job_unknown() -> void:
 	_check("v6.5 (owner): a planet's rift gate sits in a cloud on the surface and takes you to another planet's surface (%s > %s)" % [pid, to_pid], in_cloud and docked and arrived and near, "cloud %s, docked %s, arrived %s, at its gate %s" % [in_cloud, docked, arrived, near])
 	main._load_system(home, "station")
 	await _frames(3)
+
+## v6.7 (owner, from Freelancer): the contact list (left) and ship panel (right), both fold away; tap a contact = target;
+## guns switch on and off; GO TO goes to the mission first; kills blow up big.
+func _job_fl() -> void:
+	var s := _sp()
+	if s.surface_mode or main.state != "flight": return
+	var hud = main.hud
+	var grp: Array = s._spawn_group(s.player.global_position + Vector3(0, 0, -900), 2)
+	await _frames(3)
+	hud.slots = {"l": {}, "r": {}}   # (no call covering the panels)
+	hud.console_open = false
+	hud._layout()
+	var list: Array = hud.fl_contacts()
+	await _shot("v67_freelancer_panels", 0.4)
+	var rows_ok: bool = hud.buttons.has("cl_0") and hud.buttons.has("fl_tab_l") and hud.buttons.has("fl_tab_r") and list.size() >= 2
+	var i_e := -1
+	for i in list.size():
+		if list[i]["node"] == grp[1]["node"]: i_e = i
+	main._on_hud("cl_%d" % i_e)
+	var picked: bool = s.target == grp[1]["node"]
+	main._on_hud("fl_tab_l")
+	hud._layout()
+	var folded: bool = not hud.cl_open and not hud.buttons.has("cl_0")
+	main._on_hud("fl_tab_l")
+	# guns: switch every gun off, fire, nothing comes out; back on
+	var gr: Array = hud.gun_rows()
+	for g in gr: main._on_hud("gun_" + str(g[0]))
+	var b0: int = s.bolts.size()
+	s._fire_guns()
+	var silent: bool = s.bolts.size() == b0 and GS.gun_off.size() == gr.size()
+	for g in gr: main._on_hud("gun_" + str(g[0]))
+	s.mount_next = {}
+	s._fire_guns()
+	var fires: bool = s.bolts.size() > b0 and GS.gun_off.is_empty()
+	# GO TO: with a job, the job comes first even with a target picked
+	var goto_ok := true
+	if not s.mission_waypoint().is_empty():
+		s.autopilot = null
+		s.pick_target(grp[0]["node"])
+		main._on_hud("goto")
+		var mn: Node3D = s.mission_waypoint()["node"]
+		goto_ok = s.autopilot != null and (s.autopilot == mn or s.autopilot.global_position.distance_to(mn.global_position) < 5.0)
+		s.autopilot = null
+	# a kill: a big blast, bigger for a bigger ship
+	s._explode(s.player.global_position + Vector3(0, 0, -200), 7.0)
+	var small: float = float(s.last_blast["size"])
+	s._explode(s.player.global_position + Vector3(0, 0, -200), 30.0)
+	var big_b: float = float(s.last_blast["size"])
+	var flash_ok: bool = s.screen_flash > 0.1
+	for e in grp:
+		if e in s.enemies:
+			s.enemies.erase(e)
+			(e["node"] as Node3D).free()
+	s.target = null
+	_check("v6.7 (owner, Freelancer): a contact list (left) and ship panel (right) that fold away; tap a contact = target; guns switch on and off; GO TO goes to the job first; kills blow up big (%.0f, a big ship %.0f) with a flash" % [small, big_b],
+		rows_ok and picked and folded and silent and fires and goto_ok and small >= 50.0 and big_b > small * 2.0 and flash_ok,
+		"rows %s, picked %s, folded %s, guns off %s on %s, goto %s, flash %s" % [rows_ok, picked, folded, silent, fires, goto_ok, flash_ok])
 
 func _job_v35() -> void:
 	var s := _sp()

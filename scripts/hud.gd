@@ -293,6 +293,117 @@ func close_comms() -> void:
 	_sync()
 
 ## Where a side screen sits: under the corner buttons, clear of the sticks.
+# ---------------------------------------------------------------- v6.7 (owner, from Freelancer): contact list + ship panel
+## LEFT, where the enemy calls come in: the contact list. Tap a row = target it (its red arrow then points the way).
+## RIGHT, where your calls come in: hull, shield, repairs, and every gun on the ship to switch on or off.
+## Each folds to a small tab. A call on that side covers it while it lasts.
+var cl_open := true
+var sp_open := true
+const FL_ROWS := 7
+func fl_rect(side: String) -> Rect2:
+	var sr := side_rect(side)
+	var open: bool = cl_open if side == "l" else sp_open
+	if not open: return Rect2(sr.position, Vector2(sr.size.x, 26))
+	var w := clampf(S.x * 0.2, 190.0, 250.0)
+	var r := Rect2(sr.position.x if side == "l" else sr.end.x - w, sr.position.y, w, sr.size.y)
+	return r
+
+func fl_shown(side: String) -> bool:
+	return space != null and space.controls and slots[side].is_empty() and not console_open and not planet_map
+
+## The contacts on the list: ships nearest first (hostiles, then others), then the places.
+func fl_contacts() -> Array:
+	var out: Array = []
+	var p: Vector3 = space.player.global_position
+	var ships: Array = space.enemies.duplicate()
+	ships.sort_custom(func(a, b): return a["node"].global_position.distance_to(p) < b["node"].global_position.distance_to(p))
+	for e in ships:
+		var hostile: bool = e["node"].get_meta("kind", "enemy") == "enemy" and Factions.hostile(str(e["def"].get("faction", "Enemy")))
+		out.append({"node": e["node"], "name": str(e["node"].name), "kind": "ship", "col": RED if hostile else GOLD})
+	for tr in space.traffic:
+		if is_instance_valid(tr["node"]): out.append({"node": tr["node"], "name": str(tr["node"].name), "kind": "ship", "col": GREEN})
+	for n in [space.station, space.planet] + space.gates:
+		if is_instance_valid(n) and n.get_meta("kind", "") != "none" and n.visible: out.append({"node": n, "name": str(n.name), "kind": str(n.get_meta("kind", "")), "col": CYAN})
+	return out
+
+var cl_scroll := 0
+func _fl_buttons() -> void:
+	if space == null: return
+	for side in ["l", "r"]:
+		if not fl_shown(side): continue
+		var r := fl_rect(side)
+		buttons["fl_tab_" + side] = Rect2(r.position, Vector2(r.size.x, 26))
+		if not (cl_open if side == "l" else sp_open): continue
+		if side == "l":
+			var list := fl_contacts()
+			for i in mini(FL_ROWS, list.size() - cl_scroll):
+				buttons["cl_%d" % (cl_scroll + i)] = Rect2(r.position + Vector2(4, 30 + i * 24), Vector2(r.size.x - 8, 22))
+			if list.size() > FL_ROWS: buttons["cl_more"] = Rect2(r.position + Vector2(4, 30 + FL_ROWS * 24), Vector2(r.size.x - 8, 20))
+		else:
+			var gs := gun_rows()
+			for i in gs.size(): buttons["gun_%s" % str(gs[i][0])] = Rect2(r.position + Vector2(4, 82 + i * 22), Vector2(r.size.x - 8, 20))
+
+## [slot key, name] for every gun on the ship (front guns, then the wing mounts).
+func gun_rows() -> Array:
+	var out: Array = []
+	for k in GS.core_slots():
+		var gid: String = GS.core_item(k)
+		if Data.WEAPONS.has(gid): out.append(["core%d" % k, str(Data.WEAPONS[gid]["name"])])
+	var items: Array = GS.mount_items()
+	for g in items.size():
+		if Data.WEAPONS.has(str(items[g])): out.append([str(g), str(Data.WEAPONS[str(items[g])]["name"])])
+	return out
+
+func fl_tap(id: String) -> bool:
+	if id == "fl_tab_l": cl_open = not cl_open
+	elif id == "fl_tab_r": sp_open = not sp_open
+	elif id == "cl_more": cl_scroll = (cl_scroll + FL_ROWS) if cl_scroll + FL_ROWS < fl_contacts().size() else 0
+	elif id.begins_with("cl_"):
+		var list := fl_contacts()
+		var i := int(id.substr(3))
+		if i < list.size() and is_instance_valid(list[i]["node"]): space.pick_target(list[i]["node"])
+	elif id.begins_with("gun_"):
+		var k := id.substr(4)
+		if GS.gun_off.has(k): GS.gun_off.erase(k)
+		else: GS.gun_off[k] = true
+	else: return false
+	return true
+
+func _fl_panels() -> void:
+	for side in ["l", "r"]:
+		if not fl_shown(side): continue
+		var r := fl_rect(side)
+		var open: bool = cl_open if side == "l" else sp_open
+		_box(r, Color(PANEL, 0.72), Color(EDGE, 0.8), 8, 2)
+		_text(r.position + Vector2(8, 18), ("CONTACTS" if side == "l" else "SHIP") + ("  ▾" if open else "  ▸"), 13, CYAN_HI)
+		if not open: continue
+		if side == "l":
+			var list := fl_contacts()
+			var tg: Node3D = space.target
+			for i in mini(FL_ROWS, list.size() - cl_scroll):
+				var c: Dictionary = list[cl_scroll + i]
+				var y: float = r.position.y + 30 + i * 24
+				var sel: bool = c["node"] == tg
+				if sel: draw_rect(Rect2(r.position.x + 4, y, r.size.x - 8, 22), Color(c["col"], 0.22))
+				draw_circle(Vector2(r.position.x + 13, y + 11), 4, c["col"])
+				_text(Vector2(r.position.x + 22, y + 16), _dist(space.player.global_position.distance_to(c["node"].global_position)), 12, Color(c["col"], 0.9), HORIZONTAL_ALIGNMENT_LEFT, 56)
+				_text(Vector2(r.position.x + 80, y + 16), c["name"], 12, WHITE if sel else Color(WHITE, 0.85), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 86)
+			if list.size() > FL_ROWS: _text(Vector2(r.position.x, r.position.y + 30 + FL_ROWS * 24 + 14), "▾ %d more" % (list.size() - FL_ROWS - cl_scroll) if cl_scroll + FL_ROWS < list.size() else "▴ top", 11, CYAN_HI, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
+		else:
+			var x: float = r.position.x + 8
+			var bw: float = r.size.x - 16
+			var y0: float = r.position.y + 30
+			_text(Vector2(x, y0 + 10), "HULL %d%%" % int(100.0 * GS.hull / maxf(GS.max_hull(), 1.0)), 12, GREEN, HORIZONTAL_ALIGNMENT_LEFT, bw * 0.5)
+			_text(Vector2(x + bw * 0.5, y0 + 10), "SHIELD %d%%" % int(100.0 * GS.shield / maxf(GS.max_shield(), 1.0)), 12, Color(0.45, 0.75, 1.0), HORIZONTAL_ALIGNMENT_LEFT, bw * 0.5)
+			_text(Vector2(x, y0 + 30), "REPAIR KITS %d   SHIELD CELLS %d" % [GS.repairs, GS.shield_charges], 11, Color(WHITE, 0.85), HORIZONTAL_ALIGNMENT_LEFT, bw)
+			var gs := gun_rows()
+			for i in gs.size():
+				var on: bool = not GS.gun_off.has(str(gs[i][0]))
+				var y: float = r.position.y + 82 + i * 22
+				draw_rect(Rect2(x - 4, y, bw + 8, 20), Color(GREEN if on else RED, 0.14))
+				_text(Vector2(x, y + 15), "%d  %s" % [i + 1, gs[i][1]], 12, GREEN if on else Color(RED, 0.8), HORIZONTAL_ALIGNMENT_LEFT, bw - 34)
+				_text(Vector2(x + bw - 34, y + 15), "ON" if on else "OFF", 11, GREEN if on else RED, HORIZONTAL_ALIGNMENT_RIGHT, 34)
+
 func side_rect(side: String) -> Rect2:
 	var w := clampf(S.x * 0.14, 150.0, 190.0)
 	var top := 8.0 + btn * 2.0 + 8.0 + 14.0
@@ -389,6 +500,7 @@ func _layout() -> void:
 		var db := Rect2(S.x * 0.5 - 130, 176, 260, 60)
 		var pr: String = space.prompt()   # v1.4u: one prompt, the nearest thing wins
 		if pr != "": buttons[pr] = db
+	_fl_buttons()   # v6.7: the Freelancer-style contact list (left) and ship panel (right)
 	for side in ["l", "r"]:
 		var sd: Dictionary = slots[side]
 		if sd.is_empty(): continue
@@ -1044,6 +1156,7 @@ func _draw() -> void:
 		var lit: float = space.beacon_lit   # v1.4r: a light beacon lights the cloud: the haze thins and warms near the lamp
 		draw_rect(Rect2(Vector2.ZERO, S), Color(space.nebula_tint.lerp(Data.BEACON_LIGHT_COLOR, lit * 0.6), Data.NEBULA_HUD_TINT * space.in_nebula * (1.0 - Data.BEACON_HAZE_CLEAR * lit)))   # (v1.9s: real fog does most of it now)
 		if space.nebula_flash > 0.01: draw_rect(Rect2(Vector2.ZERO, S), Color(0.85, 0.92, 1.0, 0.22 * space.nebula_flash))   # lightning in the cloud
+	if space.screen_flash > 0.01: draw_rect(Rect2(Vector2.ZERO, S), Color(1.0, 0.93, 0.8, space.screen_flash))   # v6.7: a big blast close by
 	if space.sun_surface:   # on a star: everything is seen through a hot yellow haze (your heat shield, if you have one)
 		draw_rect(Rect2(Vector2.ZERO, S), Color(1.0, 0.82, 0.25, 0.16 + 0.04 * sin(t * 3.1)))
 	if space.sun_flare > 0.01:   # sun bloom: washes the view out the closer and more head-on you fly at it
@@ -1182,6 +1295,7 @@ func _draw() -> void:
 			draw_line(c + d * 20, c + d * 52, Color(rc2, 0.95), 2.5)
 		draw_circle(c, 4, rc2)
 	_status_bars()
+	_fl_panels()
 	var line2 := objective
 	if msg_t > 0.0: line2 = msg
 	if msg_t <= 0.0 and objective != "" and buttons.has("objective"): line2 = objective + "   ▸ TAP"   # v1.9k (owner): tap the job line = waypoint

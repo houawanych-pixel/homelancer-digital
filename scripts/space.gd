@@ -1882,6 +1882,9 @@ uniform sampler2D noise : repeat_enable, filter_linear_mipmap;
 uniform vec4 col : source_color = vec4(1.0);
 uniform float contrast = 1.0;
 uniform float drift = 0.0;
+uniform float scale = 2.2;        // v6.7: the nebula uses a big scale (no repeating pattern)
+uniform float flash = 0.0;        // v6.7 (owner): lightning lights the cloud walls from inside
+uniform vec3 flash_dir = vec3(0.0, 0.0, -1.0);
 varying vec3 dir;
 void vertex() { dir = VERTEX; }
 // sampled by direction on all three axes (no seam, no pinch at the top and bottom like a wrapped picture)
@@ -1890,10 +1893,13 @@ void fragment() {
 	vec3 n = normalize(dir);
 	vec3 w = pow(abs(n), vec3(4.0));
 	w /= (w.x + w.y + w.z);
-	vec3 p = n * 2.2 + vec3(drift, drift * 0.3, drift * 0.6);
+	vec3 p = n * scale + vec3(drift, drift * 0.3, drift * 0.6);
 	float v = tri(p, w) * 0.65 + tri(p * 2.7 + 0.37, w) * 0.35;
 	v = clamp((v - 0.5) * 2.4 + 0.5, 0.0, 1.0);   // billows, not a flat wash
-	ALBEDO = col.rgb * mix(1.0, mix(0.4, 1.35, v), contrast);
+	vec3 c = col.rgb * mix(1.0, mix(0.4, 1.35, v), contrast);
+	float lit = pow(max(dot(n, normalize(flash_dir)), 0.0), 3.0) * flash;   // the bolt's side of the cloud glows
+	c += vec3(0.85, 0.92, 1.0) * (lit * (0.6 + 0.8 * v) + flash * 0.25);
+	ALBEDO = c;
 	ALPHA = col.a;
 }
 """
@@ -1940,6 +1946,10 @@ func _cloud_dome(a: float, col: Color, contrast := 1.0) -> void:
 	mat.set_shader_parameter("col", Color(col.darkened(0.15 * contrast), a))
 	mat.set_shader_parameter("contrast", contrast)
 	mat.set_shader_parameter("drift", fmod(time * 0.01, 100.0))   # the walls drift slowly
+	var neb: bool = in_nebula > 0.001
+	mat.set_shader_parameter("scale", Data.NEBULA_DOME_SCALE if neb else 2.2)
+	mat.set_shader_parameter("flash", nebula_flash if neb else 0.0)
+	if neb and nebula_now >= 0 and nebula_now < nebulae.size(): mat.set_shader_parameter("flash_dir", (nebulae[nebula_now]["flash_at"] as Vector3) - _dome.global_position)
 
 ## The planet's daytime sky colour (from its surface biome), pale toward white; plain white when it has no surface.
 func _sky_color_of(body: Node3D) -> Color:
@@ -2130,9 +2140,10 @@ func _update_nebulae(dt: float) -> void:
 				e.fog_light_energy = 1.0
 				_neb_fog_on = true
 			e.fog_density = Data.NEBULA_FOG_DENSITY * pow(in_nebula, 1.5) * clear
-			e.fog_light_color = nebula_tint.darkened(0.35).lerp(Data.BEACON_LIGHT_COLOR, beacon_lit * 0.5).lerp(Color(0.85, 0.9, 1.0), nebula_flash * 0.7)
+			# v6.7 (owner, Freelancer): inside it is a white, misty, smoky cloud, tinted only a little by the cloud's colour
+			e.fog_light_color = nebula_tint.lerp(Data.NEBULA_MIST, Data.NEBULA_MIST_MIX).lerp(Data.BEACON_LIGHT_COLOR, beacon_lit * 0.5).lerp(Color(0.92, 0.95, 1.0), nebula_flash * 0.7)
 			e.fog_sky_affect = clampf(in_nebula * 1.6, 0.0, 1.0) * clear   # (v1.9z: deep inside, no stars: you can't see out)
-			_cloud_dome(clampf(in_nebula * 1.6, 0.0, 1.0) * clear, e.fog_light_color)
+			_cloud_dome(clampf(in_nebula * 1.6, 0.0, 1.0) * clear, e.fog_light_color, Data.NEBULA_DOME_CONTRAST)
 		elif _neb_fog_on:
 			e.fog_enabled = false
 			_neb_fog_on = false
@@ -2143,8 +2154,8 @@ func _update_nebulae(dt: float) -> void:
 	if not _neb_stream.visible:
 		if is_instance_valid(_neb_wx): _neb_wx.visible = false
 		return
-	_neb_stream_mat.set_shader_parameter("tint", nebula_tint.lightened(0.15))
-	_neb_stream_mat.set_shader_parameter("alpha", 0.5 * in_nebula)
+	_neb_stream_mat.set_shader_parameter("tint", nebula_tint.lerp(Data.NEBULA_MIST, Data.NEBULA_MIST_MIX).lightened(0.1))
+	_neb_stream_mat.set_shader_parameter("alpha", Data.NEBULA_STREAM_ALPHA * in_nebula)
 	var mm := _neb_stream.multimesh
 	var R: float = Data.NEBULA_STREAM_RANGE
 	var ahead: Vector3 = vel.normalized() if vel.length() > 8.0 else -player.global_basis.z
@@ -3403,6 +3414,7 @@ func _fire_guns() -> void:
 		var ck: int = int(str(g).substr(4)) if g is String else 0
 		var gid: String = GS.core_item(ck) if g is String else str(items[g])
 		if not Data.WEAPONS.has(gid): continue
+		if GS.gun_off.has(str(g)): continue   # v6.7: switched off on the weapons list
 		var wg: Dictionary = Data.WEAPONS[gid]
 		var ready_at: float = float(mount_next.get(g, 0.0))
 		if time + 0.001 < ready_at:
@@ -4566,7 +4578,7 @@ func _break_section(e: Dictionary, side: String) -> void:
 ## Core reaches zero: a much bigger blast, then the unit shrinks away inside the flash and is removed.
 func _destroy_unit(e: Dictionary) -> void:
 	var n: Node3D = e["node"]
-	_explode(n.global_position)
+	_explode(n.global_position, float(n.get_meta("radius", 7.0)))
 	_spark(n.global_position, Color(1.0, 0.95, 0.85), 40.0, 0.35)
 	enemies.erase(e)
 	for st in e.get("strands", []): (st as Node3D).queue_free()   # v6.4: its tentacles go with it
@@ -5006,12 +5018,19 @@ func _spark_tex() -> ImageTexture:
 	if _spark_texture == null: _spark_texture = _radial_texture(Color.WHITE, 0.08)
 	return _spark_texture
 
-func _explode(at: Vector3) -> void:
+var screen_flash := 0.0   # v6.7: read by the HUD (a close blast whites out the view for a moment)
+func _explode(at: Vector3, radius := 7.0) -> void:
 	var dd := at.distance_to(player.global_position)
 	if dd < 1500.0: Sfx.play("explosion", -2.0 - dd / 90.0)
-	_blast(at, Data.BLAST_ENEMY, "unit")
+	var k: float = 1.0 + Data.BLAST_SIZE_PER_RADIUS * maxf(radius - 7.0, 0.0)
+	var spec: Array = Data.BLAST_ENEMY.duplicate()
+	spec[0] = float(spec[0]) * k
+	spec[3] = int(spec[3]) + int(k)
+	_blast(at, spec, "unit")
+	if dd < Data.BLAST_FLASH_RANGE * k: screen_flash = maxf(screen_flash, Data.BLAST_SCREEN_FLASH * (1.0 - dd / (Data.BLAST_FLASH_RANGE * k)))
 
 func _update_effects(dt: float) -> void:
+	screen_flash = maxf(0.0, screen_flash - dt * 1.8)
 	for i in range(effects.size() - 1, -1, -1):
 		var f: Dictionary = effects[i]
 		f["life"] -= dt
