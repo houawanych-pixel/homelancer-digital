@@ -1505,7 +1505,7 @@ func _run() -> void:
 	var rights := ["shield", "repair", "fullscreen" if hq.buttons.has("fullscreen") else "lock_a", "lock_c", "form", "ground", "special", "tractor"]   # defence + special moves on the right (FULL SCREEN in the web build)
 	var eight: bool = lefts.all(func(b): return hq.buttons.has(b) and hq.buttons[b].end.x < hq.S.x * 0.5) and rights.all(func(b): return hq.buttons.has(b) and hq.buttons[b].position.x > hq.S.x * 0.5)
 	var clear := true   # the centre strip sits between the two blocks
-	for b in ["goto"]:   # (v7.3: VIEW is in the right window now) (v6.9: the top strip is VIEW and GO TO; MAP = radar, TARGET/SCAN in the contact list, COMMS by the radar)
+	for b in []:   # (v7.4: GO TO is in the left window) (v7.3: VIEW is in the right window now) (v6.9: the top strip is VIEW and GO TO; MAP = radar, TARGET/SCAN in the contact list, COMMS by the radar)
 		if not hq.buttons.has(b) or hq.buttons[b].position.x < hq.buttons["warp"].end.x or hq.buttons[b].end.x > hq.buttons["form"].position.x: clear = false
 	_check("v1.8q (owner): CALL is inside LOG (no CALL button): the list starts with TARGET / CONTROL; a tapped name shows the picture on the friendly side with CALL under it; 8 buttons on the left and 8 on the right, the centre strip between them",
 		no_call and hail_ok and pick_ok and eight and clear, "no_call %s hail %s pick %s eight %s clear %s" % [no_call, hail_ok, pick_ok, eight, clear])
@@ -9612,10 +9612,10 @@ func _job_fl() -> void:
 	s.enemies = keep_en
 	var rr: Rect2 = hud.radar_rect()
 	var fr: Rect2 = hud.fl_rect("r")
-	var placed: bool = hud.buttons["goto"].end.x <= rr.position.x + 1.0 and hud.buttons.has("radar") \
-		and ["weapons", "log", "view"].all(func(b): return hud.buttons.has(b) and fr.encloses(hud.buttons[b])) and hud.buttons.has("goto_t") == (s.target != null)   # (v7.3: GO TO by the radar; WEAPONS / COMMS / VIEW in the right window)
+	var placed: bool = hud.fl_rect("l").encloses(hud.buttons["goto"]) and hud.buttons.has("radar") and hud.buttons.has("target") \
+		and ["weapons", "log", "view"].all(func(b): return hud.buttons.has(b) and fr.encloses(hud.buttons[b]))   # (v7.3: GO TO by the radar; WEAPONS / COMMS / VIEW in the right window)
 	hud.weapons_pinned = true
-	_check("v7.0 (owner mockup): cruising, the weapons and abilities fold away (the flight row stays); WEAPONS brings them back; GO TO left of the radar (the radar is the map); WEAPONS / COMMS / VIEW in the right window (v7.3)",
+	_check("v7.0 (owner mockup): cruising, the weapons and abilities fold away (the flight row stays); WEAPONS brings them back; GO TO beside NEXT in the left window (v7.4; the radar is the map); WEAPONS / COMMS / VIEW in the right window (v7.3)",
 		hidden and shown and placed, "hidden %s shown %s placed %s" % [hidden, shown, placed])
 	_check("v6.7 (owner, Freelancer): a contact list (left) and ship panel (right) that fold away; tap a contact = target; guns switch on and off; GO TO goes to the job first; kills blow up big (%.0f, a big ship %.0f) with a flash" % [small, big_b],
 		rows_ok and picked and folded and silent and fires and goto_ok and small >= 50.0 and big_b > small * 2.0 and flash_ok,

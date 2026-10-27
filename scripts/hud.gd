@@ -348,9 +348,9 @@ func _fl_buttons() -> void:
 			var list := fl_contacts()
 			var bw2: float = (r.size.x - 16) / 3.0
 			buttons["target"] = Rect2(r.position + Vector2(4, 30 + FL_TGT_H - 26), Vector2(bw2, 24))   # v6.9: NEXT target
+			buttons["goto"] = Rect2(r.position + Vector2(8 + bw2, 30 + FL_TGT_H - 26), Vector2(bw2, 24))   # v7.4 (owner): GO TO next to NEXT (job, waypoint, then target)
 			if space.target != null and is_instance_valid(space.target):
-				buttons["scan"] = Rect2(r.position + Vector2(8 + bw2, 30 + FL_TGT_H - 26), Vector2(bw2, 24))
-				buttons["goto_t"] = Rect2(r.position + Vector2(12 + bw2 * 2, 30 + FL_TGT_H - 26), Vector2(bw2, 24))   # v7.3: fly to the target
+				buttons["scan"] = Rect2(r.position + Vector2(12 + bw2 * 2, 30 + FL_TGT_H - 26), Vector2(bw2, 24))
 			var y1: float = 30 + FL_TGT_H + 4
 			for i in mini(FL_ROWS, list.size() - cl_scroll):
 				buttons["cl_%d" % (cl_scroll + i)] = Rect2(r.position + Vector2(4, y1 + i * 24), Vector2(r.size.x - 8, 22))
@@ -409,12 +409,12 @@ func _fl_target(r: Rect2) -> void:
 			draw_rect(Rect2(r.position + Vector2(6, 42), Vector2(bw, 4)), Color(0, 0, 0, 0.6))
 			draw_rect(Rect2(r.position + Vector2(6, 42), Vector2(bw * th, 4)), _hull_col(th))
 	else: _text(r.position + Vector2(6, 22), "NO TARGET", 12, Color(1, 1, 1, 0.55))
-	for id in ["target", "scan", "goto_t"]:
+	for id in ["target", "goto", "scan"]:
 		if not buttons.has(id): continue
 		var br: Rect2 = buttons[id]
-		var on: bool = id == "goto_t" and space.autopilot != null and space.autopilot == space.target
+		var on: bool = id == "goto" and space.autopilot != null
 		_box(br, Color(GREEN if on else CYAN, 0.18), Color(GREEN if on else CYAN, 0.7), 6, 1)
-		_text(Vector2(br.position.x, br.position.y + 17), {"target": "NEXT ▸", "scan": "SCAN", "goto_t": "GO TO"}[id], 12, WHITE, HORIZONTAL_ALIGNMENT_CENTER, br.size.x)
+		_text(Vector2(br.position.x, br.position.y + 17), {"target": "NEXT ▸", "scan": "SCAN", "goto": "GO TO"}[id], 12, WHITE, HORIZONTAL_ALIGNMENT_CENTER, br.size.x)
 
 func _fl_panels() -> void:
 	for side in ["l", "r"]:
@@ -552,7 +552,8 @@ func _layout() -> void:
 	var pw := clampf((avail - 4 * 6) / 5.0, 66.0, 110.0)
 	# v7.0 (owner mockup): COCKPIT · GO TO · MAP sit right above the radar; COMMS and WEAPONS above the aim stick
 	var dg := dash_geo()   # v7.1 (owner's dash art): COCKPIT and GO TO left of the radar; the radar itself is the MAP
-	buttons["goto"] = dg["goto"]
+	var hm := _home("move")
+	buttons["goto"] = Rect2(hm.x - 70, hm.y - stick_r - 62, 140, 42)   # v7.4: GO TO is in the left window; this is only while that window is away
 	# v7.3 (owner): WEAPONS, COMMS and VIEW sit in the right window (_fl_buttons); when that window is away (a call,
 	# the comms console, the planet map) COMMS and VIEW stay reachable above the aim stick
 	buttons["log"] = comms_rect()
@@ -1440,7 +1441,7 @@ func _draw() -> void:
 	_corner("fire", "FIRE", "guns", RED, space.fire_lock, "", 0.0, space.warp_active() or not space.lane.is_empty(), "ON · TAP OFF" if space.fire_lock else "TAP = ON")
 	_corner("kill", "KILL", "kill", GOLD, space.engine_kill, "", 0.0, mech, "DRIFTING" if space.engine_kill else "ENGINE")
 	_corner("zoom", "ZOOM", "zoom", CYAN, space.zoomed, "", 0.0, false, "SCOPE ON" if space.zoomed else "SCOPE")
-	if cockpit and cockpit_texture():   # (in the cockpit art the dash is the art's own; GO TO stays as a pill)
+	if not fl_shown("l"):   # v7.4: GO TO lives in the left window; only when it's away does it float above the flight stick
 		_pill("goto", "GO TO", space.autopilot != null, CYAN)
 	if not fl_shown("r"):   # v7.3: these live in the right window; only when it's away do they float above the aim stick
 		_pill("log", "COMMS", comms_mode == "roster", CYAN)
@@ -1584,17 +1585,18 @@ func dash_geo() -> Dictionary:
 	var l := _home("move").x + stick_r + 14.0
 	var r := _home("aim").x - stick_r - 14.0
 	var h := clampf(S.y * 0.22, 128.0, 176.0)   # v7.2 (owner): scaled down
-	var w := minf(r - l, h * 3.6)
+	# v7.4 (owner): no buttons on the dash: a bigger radar on the left, the bars stretched wide, SPEED on top of them
+	var w := minf(r - l, h * 4.4)
 	var x0 := (l + r) * 0.5 - w * 0.5
 	var y0 := S.y - h - 8.0
-	var btn_w := w * 0.17
-	var rad := minf(h * 0.42, w * 0.15)
-	var rc := Vector2(x0 + btn_w + 10.0 + rad + 6.0, y0 + rad + 8.0)
-	var bars_x := rc.x + rad + 22.0
+	var rad := minf(h * 0.47, w * 0.13)
+	var rc := Vector2(x0 + rad + 12.0, y0 + h * 0.5 + 2.0)
+	var bars_x := rc.x + rad + 24.0
+	var bw := x0 + w - bars_x
+	var sp_h := clampf(h * 0.2, 24.0, 32.0)
 	return {"x0": x0, "y0": y0, "w": w, "h": h, "rc": rc, "rad": rad,
-		"view": Rect2(x0, rc.y - rad * 0.62, btn_w, rad * 0.56), "goto": Rect2(x0, rc.y - rad * 0.3, btn_w, rad * 0.6),
-		"speed": Rect2(rc.x - rad * 0.95, rc.y + rad + 8.0, rad * 1.9, minf(30.0, y0 + h - rc.y - rad - 8.0)),
-		"bars": Rect2(bars_x, y0 + 4.0, x0 + w - bars_x, h - 8.0)}
+		"speed": Rect2(bars_x + bw * 0.5 - 90.0, y0, 180.0, sp_h),
+		"bars": Rect2(bars_x, y0 + sp_h + 4.0, bw, h - sp_h - 8.0)}
 
 func _dash_frame(r: Rect2, col := CYAN) -> void:   # the cut-corner tech frame of the art
 	var c := minf(14.0, r.size.y * 0.3)
@@ -1618,12 +1620,6 @@ func _dashboard() -> void:
 	var rc: Vector2 = g["rc"]
 	var rad: float = g["rad"]
 	# COCKPIT / GO TO
-	for id in ["goto"]:   # v7.3 (owner): COCKPIT/VIEW moved into the right window; GO TO stays by the radar
-		var br: Rect2 = g[id]
-		var on: bool = (id == "goto" and space.autopilot != null) or held.has(id)
-		_dash_frame(br, CYAN if not on else GREEN)
-		_icon("view" if id == "view" else "goto", br.position + Vector2(br.size.y * 0.5 + 4, br.size.y * 0.5), br.size.y * 0.24, CYAN_HI)
-		_text(Vector2(br.position.x + br.size.y * 0.9, br.position.y + br.size.y * 0.5 + 7), ("CHASE" if GS.view == "cockpit" else "COCKPIT") if id == "view" else "GO TO", clampi(int(br.size.y * 0.36), 12, 20), WHITE, HORIZONTAL_ALIGNMENT_LEFT, br.size.x - br.size.y * 0.9)
 	# the radar globe in its ring
 	draw_circle(rc, rad + 10.0, Color(0.01, 0.05, 0.1, 0.85))
 	for k in 12:
