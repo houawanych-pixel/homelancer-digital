@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v6.6"
+const VERSION := "v6.7"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -910,7 +910,7 @@ const CALL_VOICE_DB := 0.0     # v5.9 (owner): calls (Evee, the station's people
 const ASST_TOP := 70.0         # v5.7 (owner): her head comes up to just under the menu bar
 const ASST_SCREEN_X := 0.8     # where she stands on arrival (share of the screen width, in the room)
 const ASST_KEY := Color(0.08, 0.75, 0.1)   # the green to remove
-const ROOM_FACTIONS := ["liberator", "savagers", "orion", "covenant", "imperium", "solarion", "elyza"]
+const ROOM_FACTIONS := ["liberator", "savagers", "orion", "covenant", "imperium", "solarion", "elyza", "unity"]
 const ROOM_OF := {"hub": "main_hub", "ships": "shipyard", "mechs": "mech_dealer", "repair": "medical_bay", "board": "mission_center",
 	"missions": "mission_center", "bounty": "mission_center", "ship": "private_quarters", "faction": "command", "surface": "main_hub",
 	"lounge": "pilots_lounge"}

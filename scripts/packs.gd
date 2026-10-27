@@ -72,6 +72,16 @@ const PACKS := {
 	"room_elyza_command": {"folders": ["res://assets/rooms/elyza"], "match": "command.", "probe": "res://assets/rooms/elyza/command.jpg"},   # the owner's 360 room
 	"room_elyza_private_quarters": {"folders": ["res://assets/rooms/elyza"], "match": "private_quarters.", "probe": "res://assets/rooms/elyza/private_quarters.jpg"},   # the owner's 360 room
 	"room_elyza_pilots_lounge": {"folders": ["res://assets/rooms/elyza"], "match": "pilots_lounge.", "probe": "res://assets/rooms/elyza/pilots_lounge.jpg"},   # the owner's 360 room
+	"room_unity_main_hub": {"folders": ["res://assets/rooms/unity"], "match": "main_hub.", "probe": "res://assets/rooms/unity/main_hub.jpg"},   # the owner's 360 room
+	"room_unity_shipyard": {"folders": ["res://assets/rooms/unity"], "match": "shipyard.", "probe": "res://assets/rooms/unity/shipyard.jpg"},   # the owner's 360 room
+	"room_unity_mech_dealer": {"folders": ["res://assets/rooms/unity"], "match": "mech_dealer.", "probe": "res://assets/rooms/unity/mech_dealer.jpg"},   # the owner's 360 room
+	"room_unity_weapons": {"folders": ["res://assets/rooms/unity"], "match": "weapons.", "probe": "res://assets/rooms/unity/weapons.jpg"},   # the owner's 360 room
+	"room_unity_supplies": {"folders": ["res://assets/rooms/unity"], "match": "supplies.", "probe": "res://assets/rooms/unity/supplies.jpg"},   # the owner's 360 room
+	"room_unity_mission_center": {"folders": ["res://assets/rooms/unity"], "match": "mission_center.", "probe": "res://assets/rooms/unity/mission_center.jpg"},   # the owner's 360 room
+	"room_unity_medical_bay": {"folders": ["res://assets/rooms/unity"], "match": "medical_bay.", "probe": "res://assets/rooms/unity/medical_bay.jpg"},   # the owner's 360 room
+	"room_unity_command": {"folders": ["res://assets/rooms/unity"], "match": "command.", "probe": "res://assets/rooms/unity/command.jpg"},   # the owner's 360 room
+	"room_unity_private_quarters": {"folders": ["res://assets/rooms/unity"], "match": "private_quarters.", "probe": "res://assets/rooms/unity/private_quarters.jpg"},   # the owner's 360 room
+	"room_unity_pilots_lounge": {"folders": ["res://assets/rooms/unity"], "match": "pilots_lounge.", "probe": "res://assets/rooms/unity/pilots_lounge.jpg"},   # the owner's 360 room
 	"room_liberator_main_hub": {"folders": ["res://assets/rooms/liberator"], "match": "main_hub.", "probe": "res://assets/rooms/liberator/main_hub.jpg"},   # v3.5: the owner's 360 room
 	"room_liberator_shipyard": {"folders": ["res://assets/rooms/liberator"], "match": "shipyard.", "probe": "res://assets/rooms/liberator/shipyard.jpg"},   # v3.5: the owner's 360 room
 	"room_liberator_mech_dealer": {"folders": ["res://assets/rooms/liberator"], "match": "mech_dealer.", "probe": "res://assets/rooms/liberator/mech_dealer.jpg"},   # v3.5: the owner's 360 room
