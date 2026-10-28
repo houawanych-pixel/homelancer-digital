@@ -1266,7 +1266,7 @@ const WARP_MULT := 65.0 # x ship speed (v9.0 owner, Freelancer-size systems: ~3 
 const THRUST_MULT := 2.0 # afterburner x ship speed
 const CRUISE := 0.55     # default cruise (x ship speed) with the left stick centred; full back = stop
 # The sun (see docs/DESIGN.md §15): a sphere far out toward the system's edge, with a billboard glow on it.
-const SUN_DIST := 40000.0        # from the system centre: far past the gate (~4,200) and everything else
+const SUN_DIST := 80000.0        # from the system centre: far past the gate (~4,200) and everything else
 const SUN_RADIUS := 20000.0      # the sphere: ~5x the biggest planet (v9.0: planets grew x3; was 5,500). Touching it destroys the ship
 const SUN_WARN := 1.5            # heat warning inside this many radii
 const SUN_BLOOM_RANGE := 25000.0 # the screen bloom builds over this distance from the surface
