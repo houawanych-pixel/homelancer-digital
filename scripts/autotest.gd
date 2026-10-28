@@ -9421,13 +9421,24 @@ func _job_v91_origin() -> void:
 	s._update_camera(1.0, true)
 	await _frames(4)
 	_o_rec.clear()
-	RenderingServer.frame_pre_draw.connect(_o_pre)
-	RenderingServer.frame_post_draw.connect(_o_shot)
-	get_tree().process_frame.connect(_o_move)
-	await _frames(45)
-	get_tree().process_frame.disconnect(_o_move)
-	RenderingServer.frame_pre_draw.disconnect(_o_pre)
-	RenderingServer.frame_post_draw.disconnect(_o_shot)
+	if DisplayServer.get_name() == "headless":   # (CI draws nothing: do the shift by hand each frame, as the draw would)
+		for i in 45:
+			_o_move()
+			await get_tree().process_frame
+			s._unshift()
+			s._update_camera(0.016, false)
+			s._shift_for_draw()
+			_o_pre()
+			s._unshift()
+	else:
+		RenderingServer.frame_pre_draw.connect(_o_pre)
+		RenderingServer.frame_post_draw.connect(_o_shot)
+		get_tree().process_frame.connect(_o_move)
+		await _frames(45)
+		get_tree().process_frame.disconnect(_o_move)
+		RenderingServer.frame_pre_draw.disconnect(_o_pre)
+		RenderingServer.frame_post_draw.disconnect(_o_shot)
+	await get_tree().process_frame
 	var logic_ok: bool = s.position == Vector3.ZERO and s.player.global_position.x > 400000.0
 	var near_ok := _o_rec.size() > 20
 	var sx: Array = []
