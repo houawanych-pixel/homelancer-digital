@@ -307,8 +307,8 @@ func _flight_and_comms() -> void:
 	# TRANSFORM leads the special-moves row (right block); the centre row has no MECH pill
 	hud._layout()
 	var fr: Rect2 = hud.buttons.get("form", Rect2())
-	var wr: Rect2 = hud.buttons.get("fire", hud.buttons["warp"])   # (v7.2: the flight row is on top; TRANSFORM sits level with the weapons row under it)
-	_check("TRANSFORM button leads the special-moves row on the right, level with the weapons row (v1.9 / v7.2 owner layout)", fr.size.x > 0.0 and absf(fr.position.y - wr.position.y) < 1.0 and fr.position.x > hud.S.x * 0.5
+	var wr: Rect2 = hud.buttons["stop"]
+	_check("TRANSFORM (MECH) sits on the console's right wing by the radar, above STOP (v7.6 owner console)", fr.size.x > 0.0 and fr.end.y < wr.position.y and fr.position.x > hud.S.x * 0.5
 		and hud.buttons.has("stop") and hud.buttons.has("log") and hud.buttons.has("goto"), "at %s" % str(fr.position))   # (v6.9: MAP = the radar)
 	# default cruise: centred stick holds cruise speed; all the way back stops and stays stopped
 	SpaceSystem.cruise_assist = true
@@ -1501,8 +1501,8 @@ func _run() -> void:
 	var pick_ok: bool = hq.pick == hq.contact_at(0) and psl.get("mode", "") == "pick" and str(psl.get("face", "")) == str(pc.get("face", "")) and str(psl.get("from", "")).begins_with(str(pc["name"])) \
 		and hq.buttons.has("call_pick") and hq.side_rect("r").encloses(hq.buttons["call_pick"]) and hq.comms_mode == "roster" and not hq.slots["l"].has("mode")
 	await _shot("log_pick", 0.3)
-	var lefts: Array = ["fire", "slot_0", "slot_1", "slot_2", "stop", "thrust", "warp"] + ["zoom" if hq.buttons.has("zoom") else "kill"]   # v1.9 (owner): weapons + speed on the left
-	var rights := ["shield", "repair", "fullscreen" if hq.buttons.has("fullscreen") else "lock_a", "lock_c", "form", "ground", "tractor"]   # (v7.5: SPECIAL is the super meter on the dash) defence + special moves on the right (FULL SCREEN in the web build)
+	var lefts: Array = ["fire", "thrust", "shield", "repair"] + ["zoom" if hq.buttons.has("zoom") else "kill"]   # v7.6 (owner's console): left wing
+	var rights := ["stop", "warp", "form", "special"]   # v7.6: right wing   # (v7.5: SPECIAL is the super meter on the dash) defence + special moves on the right (FULL SCREEN in the web build)
 	var eight: bool = lefts.all(func(b): return hq.buttons.has(b) and hq.buttons[b].end.x < hq.S.x * 0.5) and rights.all(func(b): return hq.buttons.has(b) and hq.buttons[b].position.x > hq.S.x * 0.5)
 	var clear := true   # the centre strip sits between the two blocks
 	for b in []:   # (v7.4: GO TO is in the left window) (v7.3: VIEW is in the right window now) (v6.9: the top strip is VIEW and GO TO; MAP = radar, TARGET/SCAN in the contact list, COMMS by the radar)
@@ -2854,9 +2854,9 @@ func _job_o() -> void:
 	main.hud._layout()
 	var b: Dictionary = main.hud.buttons
 	# v1.9 (owner): FIRE leads the weapons row top left; the speed row under it reads STOP · ENGINE · THRUST · WARP
-	var layout_ok: bool = b.has("fire") and is_equal_approx((b["fire"] as Rect2).position.x, 8.0) and is_equal_approx((b["fire"] as Rect2).position.y, (b["slot_0"] as Rect2).position.y) \
-		and (b["slot_0"] as Rect2).position.x > (b["fire"] as Rect2).position.x and (b["stop"] as Rect2).position.y < (b["fire"] as Rect2).position.y \
-		and (b["stop"] as Rect2).position.x > (b["kill"] as Rect2).position.x and (b["thrust"] as Rect2).position.x > (b["stop"] as Rect2).position.x   # (v1.9k: engine kill, stop, thrust, warp) and (b["warp"] as Rect2).position.x > (b["thrust"] as Rect2).position.x
+	var layout_ok: bool = b.has("fire") and is_equal_approx((b["fire"] as Rect2).position.y, (b["kill"] as Rect2).position.y) \
+		and (b["kill"] as Rect2).position.x > (b["fire"] as Rect2).position.x and (b["thrust"] as Rect2).position.x > (b["kill"] as Rect2).position.x \
+		and (b["stop"] as Rect2).position.x > (b["thrust"] as Rect2).position.x and (b["warp"] as Rect2).position.x > (b["stop"] as Rect2).position.x   # (v7.6 console: FIRE · ENGINE KILL · THRUST | radar | STOP · WARP)   # (v1.9k: engine kill, stop, thrust, warp) and (b["warp"] as Rect2).position.x > (b["thrust"] as Rect2).position.x
 	var bolts0: int = s.bolts.size()
 	_press("fire")
 	await _wait(0.6)
@@ -5133,8 +5133,8 @@ func _job_ai() -> void:
 		s.enemies.erase(o)
 		(o["node"] as Node3D).free()
 	s.target = null
-	_check("v1.8u (owner): every ship can be picked: a tap on a ship's lock box targets it and it stays your target, also at the side of the screen where a stick lives; a touch by the stick itself still moves the stick; STOP is on the left block, TRACTOR on the right",
-		in_zone and no_stick and picked and kept and stick_ok and hu.buttons.has("stop") and hu.buttons["stop"].end.x < hu.S.x * 0.5 and hu.buttons["tractor"].position.x > hu.S.x * 0.5,
+	_check("v1.8u (owner): every ship can be picked: a tap on a ship's lock box targets it and it stays your target, also at the side of the screen where a stick lives; a touch by the stick itself still moves the stick; STOP is on the console's right wing, THRUST on the left (v7.6)",
+		in_zone and no_stick and picked and kept and stick_ok and hu.buttons.has("stop") and hu.buttons["stop"].position.x > hu.S.x * 0.5 and hu.buttons["thrust"].end.x < hu.S.x * 0.5,   # (v7.6 console: STOP right of the radar, THRUST left)
 		"zone %s no_stick %s picked %s kept %s stick %s" % [in_zone, no_stick, picked, kept, stick_ok])
 	# ---- v1.8x (owner): PATROL = all level-1 soldiers, ELITE = all level-5 soldiers; every bounty is a capture
 	var thr_f: String = str(easy["faction"])
