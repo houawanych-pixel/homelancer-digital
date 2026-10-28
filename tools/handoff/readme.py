@@ -67,7 +67,7 @@ Nothing in the repo or on Google Drive was changed or overwritten.
 ## Map space for planning
 
 - Each system is a 1,000 km square tile: 500,000 m each way from the centre (SPACE_EDGE). Crossing it moves you to the neighbouring board square (the board wraps).
-- Everything placed in a system today sits within about 5-20 km of the centre, so every object has more than 480 km to the border. See margin_to_tile_border_m in the placements CSV.
+- Everything placed in a system today sits within about 4-22 km of the centre (median 8.7 km), so every object has at least 477 km to the border. See margin_to_tile_border_m in the placements CSV.
 - Planet surface tile: 5,000 m square (2,500 m each way).
 """
 open(H + '/00_README.md', 'w').write(txt)
