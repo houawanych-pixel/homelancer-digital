@@ -9732,7 +9732,7 @@ func _job_v35() -> void:
 	var rv: ColorRect = hb.room_view
 	var tex = (rv.material as ShaderMaterial).get_shader_parameter("strip")
 	var room_ok: bool = rv.visible and tex != null and (tex as Texture2D).resource_path.ends_with("liberator/shipyard.jpg") and hb.leftwin.visible \
-		and is_equal_approx(hb.content.anchor_left, Data.ROOM_SPLIT) and hb.leftwin.find_child("RoomName", true, false) != null
+		and (is_equal_approx(hb.content.anchor_left, Data.ROOM_SPLIT) or is_equal_approx(hb.content.anchor_left, 1.0 - Data.HUB_PANEL_FRAC)) and hb.leftwin.find_child("RoomName", true, false) != null
 	await _shot("v35_room_shipyard", 0.2)
 	var y0: float = hb.room_yaw
 	var ev := InputEventMouseMotion.new()
@@ -9773,7 +9773,7 @@ func _job_v35() -> void:
 	await _frames(2)
 	var vw0: float = get_viewport().get_visible_rect().size.x
 	var vh0: float = get_viewport().get_visible_rect().size.y
-	var a_moves: bool = absf(hb.asst.position.x - x0) > 5.0 and (hb.asst.size.y > vh0 * 0.8 or not hb.asst_ref.is_empty()) and hb.content.offset_right < -100.0   # v5.7 (owner): she moves with the room, not the screen (v8.0: sized to the nearest person)
+	var a_moves: bool = absf(hb.asst.position.x - x0) > 5.0 and (hb.asst.size.y > vh0 * 0.8 or not hb.asst_ref.is_empty()) and is_equal_approx(hb.content.anchor_left, 1.0 - Data.HUB_PANEL_FRAC)   # (v8.5: the page is the one panel on the right; she stands left of it) v5.7 (owner): she moves with the room, not the screen (v8.0: sized to the nearest person)
 	# v8.0 (owner): her head on the nearest person's head line, her feet on their floor line, in every room with people
 	var match_ok := true
 	var shots := 0
@@ -9898,9 +9898,10 @@ func _job_v35() -> void:
 	await _frames(3)
 	hb.asst_tap()
 	await _frames(2)
-	var cl_ok: bool = not hb.calls["l"].is_empty() and hb.call_ctl["l"].visible and hb.call_ctl["l"].position.x < 40.0
-	var cr_ok: bool = hb.call_ctl["r"].visible and hb.call_ctl["r"].position.x > get_viewport().get_visible_rect().size.x * 0.7
-	var same_w: bool = absf(hb.call_rect("r").size.x - main.hud.side_rect("r").size.x) < 1.0
+	var pnl: Rect2 = hb.content.get_global_rect().grow(1.0)   # v8.5 (owner, hub spec): both calls come up inside the one panel, stacked
+	var cl_ok: bool = not hb.calls["l"].is_empty() and hb.call_ctl["l"].visible and pnl.encloses(hb.call_rect("l"))
+	var cr_ok: bool = hb.call_ctl["r"].visible and pnl.encloses(hb.call_rect("r")) and hb.call_rect("r").position.y > hb.call_rect("l").position.y
+	var same_w: bool = absf(hb.call_rect("r").size.x - hb.call_rect("l").size.x) < 1.0
 	await _shot("v56_calls", 0.3)
 	var ev2 := InputEventMouseButton.new()
 	ev2.button_index = MOUSE_BUTTON_LEFT
@@ -9910,7 +9911,7 @@ func _job_v35() -> void:
 	await _frames(2)
 	var folded2: bool = hb.calls["l"].get("min", false) and hb.call_ctl["l"].size.y < 60.0
 	await _shot("v56_calls_folded", 0.2)
-	_check("v5.6 (owner): the same call screens as in flight: the station's person on the left, Evee on the right, the same size; each folds to a tab",
+	_check("v5.6 / v8.5 (owner): the call screens come up in the one panel: the station's person, then Evee, the same size; each folds to a tab",
 		cl_ok and cr_ok and same_w and folded2, "left %s, right %s, same size %s, fold %s" % [cl_ok, cr_ok, same_w, folded2])
 	hb.close_call("r")
 	_check("v5.0 (owner): Evee rides in your ship: always first on the comms call list, reachable anywhere, with her own face", on_comms)

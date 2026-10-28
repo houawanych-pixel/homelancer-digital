@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v8.4"
+const VERSION := "v8.5"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -916,7 +916,7 @@ const ROOM_SND_SEAM := 0.25    # ... each of the two at a join; off screen = sil
 const HUB_MUSIC := 0.1         # v5.9 (owner): the faction's music under the hub, at 10%
 const CALL_VOICE_DB := 0.0     # v5.9 (owner): calls (Evee, the station's people) at 100%
 const ASST_TOP := 70.0         # v5.7 (owner): her head comes up to just under the menu bar
-const ASST_SCREEN_X := 0.8     # where she stands on arrival (share of the screen width, in the room)
+const ASST_SCREEN_X := 0.42    # where she stands on arrival (v8.5: left of the right-hand panel)
 const ASST_KEY := Color(0.08, 0.75, 0.1)   # the green to remove
 const ROOM_FACTIONS := ["liberator", "savagers", "orion", "covenant", "imperium", "solarion", "elyza", "unity"]
 const ROOM_OF := {"hub": "main_hub", "ships": "shipyard", "mechs": "mech_dealer", "repair": "medical_bay", "board": "mission_center",
@@ -928,6 +928,7 @@ const ROOM_STICK := 0.09        # share of the loop the right stick turns per se
 const ROOM_DRIFT := 0.0025      # a slow drift once you leave it alone a while (share per second)
 const ROOM_DRIFT_AFTER := 8.0   # s untouched before it drifts
 const ROOM_WASH := 0.12         # a light dark wash so the panels read
+const HUB_PANEL_FRAC := 0.4    # v8.5 (owner, hub spec): the one floating panel on the right takes this share of the width
 const ROOM_SPLIT := 0.30        # the left window takes this share of the width; the right window (the page) the rest
 const HUB_BG_WASH := 0.38        # dark wash over the faction picture so text reads (0 = none)
 const HUB_PANEL_ALPHA := 0.5     # the big content panel: see-through so the faction art stays visible

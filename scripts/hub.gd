@@ -739,8 +739,19 @@ func call_rect(sd: String) -> Rect2:
 	var w := clampf(S.x * 0.14, 150.0, 190.0)   # (hud.side_rect)
 	var h := w + 90.0
 	var top := CONTENT_Y + 4.0
+	if _calls_in_panel():   # v8.5 (owner, hub spec): calls come up inside the one panel, stacked at its top
+		var pr := content.get_global_rect()
+		var y := pr.position.y + 8.0
+		for k in ["l", "r"]:
+			if calls[k].is_empty(): continue
+			var hk := 52.0 if calls[k].get("min", false) else 176.0
+			if k == sd: return Rect2(pr.position.x + 8.0, y, pr.size.x - 16.0, hk)
+			y += hk + 6.0
 	if calls[sd].get("min", false): return Rect2(8.0 if sd == "l" else S.x - 8.0 - 150.0, top, 150.0, 52.0)
 	return Rect2(8.0 if sd == "l" else S.x - 8.0 - w, top, w, h)
+
+func _calls_in_panel() -> bool:
+	return _panel_page(screen) and content != null and content.visible and not panel_min
 
 func open_call(sd: String, who: String, sub: String, line: String, face: String, fold_after := 0.0) -> void:
 	calls[sd] = {"from": who, "sub": sub, "line": line, "face": face, "min": false, "fold": fold_after}
@@ -766,6 +777,14 @@ func _place_calls() -> void:
 	if not calls["r"].is_empty() and not calls["r"].get("min", false):   # Evee is on the call: her standing figure steps aside
 		asst.visible = false
 	var cr := call_rect("r")   # the talk line sits beside her screen
+	if _calls_in_panel():   # v8.5: in the panel, under her call
+		asst_chat.anchor_left = 0.0
+		asst_chat.anchor_right = 0.0
+		asst_chat.offset_left = cr.position.x
+		asst_chat.offset_right = cr.end.x
+		asst_chat.offset_top = cr.end.y + 6.0
+		asst_chat.offset_bottom = cr.end.y + 6.0 + (330.0 if asst_log_open else 150.0)
+		return
 	asst_chat.anchor_left = 1.0
 	asst_chat.anchor_right = 1.0
 	asst_chat.offset_right = -(get_viewport_rect().size.x - cr.position.x) - 8.0
@@ -792,13 +811,24 @@ func _draw_call(c: Control, sd: String) -> void:
 		c.draw_string(font, Vector2(54, 22), str(d["from"]).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 58, 12, Color.WHITE)
 		c.draw_string(font, Vector2(54, 40), "TAP TO OPEN", HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 58, 9, Color(acc, 0.9))
 		return
-	_tech_box(c, r, acc, 0.5)
+	_tech_box(c, r, acc, 0.97 if r.size.x > r.size.y * 1.4 else 0.5)   # (v8.5: solid in the panel, so the page under it doesn't show through)
 	var head := Rect2(0, 0, r.size.x, 26)   # name strip, with the fold button
 	c.draw_rect(head, Color(acc.darkened(0.45), 0.9))
 	c.draw_string(font, Vector2(6, 18), str(d["from"]).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 34, 14, Color.WHITE)
 	var fb := Rect2(r.size.x - 26, 2, 22, 22)
 	c.draw_rect(fb, Color(0.02, 0.06, 0.12, 0.9))
 	c.draw_line(Vector2(fb.position.x + 5, fb.get_center().y), Vector2(fb.end.x - 5, fb.get_center().y), Color.WHITE, 2.0)
+	if r.size.x > r.size.y * 1.4:   # v8.5: a wide call (inside the panel): the face on the left, the line beside it
+		var fs := r.size.y - 36.0
+		var pf := Rect2(6, 30, fs, fs)
+		if tex != null: c.draw_texture_rect(tex, pf, false)
+		c.draw_rect(pf, Color(acc, 0.7), false, 1.5)
+		var tw := Rect2(pf.end.x + 8, 30, r.size.x - pf.end.x - 14, fs)
+		c.draw_rect(tw, Color(1, 1, 1, 0.7))
+		c.draw_rect(tw, Color(acc, 0.8), false, 1.5)
+		c.draw_string(font, tw.position + Vector2(6, 14), str(d.get("sub", "FRIENDLY")).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, tw.size.x - 12, 10, acc.darkened(0.45))
+		c.draw_multiline_string(font, tw.position + Vector2(6, 32), str(d["line"]), HORIZONTAL_ALIGNMENT_LEFT, tw.size.x - 12, 15, maxi(1, int((tw.size.y - 24) / 18.0)), Color(0.03, 0.07, 0.13))
+		return
 	var pr := Rect2(6, 30, r.size.x - 12, r.size.x - 12)
 	pr.size.y = minf(pr.size.y, r.size.y - 30 - 70)
 	if tex != null:
@@ -1204,21 +1234,70 @@ func _look_input(e: InputEvent) -> void:
 	look_ui.queue_redraw()
 	look_ui.accept_event()
 
+## v8.5 (owner, hub spec): one floating panel on the right for every page; only the dealers (SHIPS, MECHS) keep the
+## left window, because the model you are looking at stands in it. The panel folds to a small tab (panel_min).
+var panel_min := false
+var panel_tab: Button
+func _panel_page(s: String) -> bool: return not (s in ["equipment", "ships", "mechs"])
 func _layout_windows(s: String) -> void:
 	_show_room(s)
 	_asst_show(s)
 	var split: bool = not (s in ["hub", "equipment"])
-	content.anchor_left = Data.ROOM_SPLIT if split else 0.0
-	content.offset_left = 6.0 if split else (0.0 if s == "equipment" else 24.0)
-	content.mouse_filter = Control.MOUSE_FILTER_IGNORE if s == "hub" else Control.MOUSE_FILTER_STOP
+	var one: bool = _panel_page(s)
+	content.anchor_left = (1.0 - Data.HUB_PANEL_FRAC) if one else (Data.ROOM_SPLIT if split else 0.0)
+	content.offset_left = 6.0 if (split or one) else (0.0 if s == "equipment" else 24.0)
+	content.mouse_filter = Control.MOUSE_FILTER_STOP if s != "equipment" else content.mouse_filter
 	var fold: bool = panels_hidden and s != "equipment"
-	content.visible = not fold
-	leftwin.visible = split and not fold
+	content.visible = not fold and not (one and panel_min)
+	leftwin.visible = split and not one and not fold
 	show_btn.visible = true
 	_photo_words()
-	var aw := _asst_w() if _asst_on(s) else 0.0   # v4.6: the assistant stands at the right; the page stops short of her
-	if s != "equipment": content.offset_right = -(aw + 4.0) if aw > 0.0 else -24.0
+	if s != "equipment": content.offset_right = -24.0   # (v8.5: Evee stands left of the panel now)
 	if leftwin.visible and leftwin.get_child_count() == 0: _left_window(s)
+	if one and s != "hub":
+		var g := StyleBoxFlat.new()   # the panel's glass: see-through, so the station shows behind it
+		g.bg_color = Color(0.01, 0.05, 0.1, 0.72)
+		g.border_color = Color(CYAN, 0.7)
+		g.set_border_width_all(2)
+		tech_cut(g, 16)
+		content.add_theme_stylebox_override("panel", g)
+	_panel_tab_place(s)
+
+func _panel_tab_place(s: String) -> void:
+	if panel_tab == null:
+		panel_tab = Button.new()   # v8.5: the folded panel: a small tab at the right edge
+		panel_tab.name = "PanelTab"
+		panel_tab.anchor_left = 1.0
+		panel_tab.anchor_right = 1.0
+		panel_tab.offset_left = -64
+		panel_tab.offset_right = -10
+		panel_tab.offset_top = CONTENT_Y
+		panel_tab.offset_bottom = CONTENT_Y + 54
+		panel_tab.text = "◀"
+		panel_tab.add_theme_font_size_override("font_size", Data.ts(22))
+		panel_tab.pressed.connect(func(): set_panel_min(false))
+		add_child(panel_tab)
+	panel_tab.visible = _panel_page(s) and panel_min and not panels_hidden
+	if call_ctl.has("l"): _place_calls()   # (v8.5: calls follow the panel)
+
+func set_panel_min(on: bool) -> void:
+	panel_min = on
+	_layout_windows(screen)
+
+## v8.5: the panel's title bar: the page name and the fold button.
+func _panel_head(v: VBoxContainer, title: String) -> void:
+	var hb := HBoxContainer.new()
+	hb.name = "PanelHead"
+	var t := Control.new()   # (the page's own caption names it; this just pushes the fold button right)
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hb.add_child(t)
+	var mn := Button.new()
+	mn.name = "PanelMin"
+	mn.text = "—"
+	mn.custom_minimum_size = Vector2(46, 38)
+	mn.pressed.connect(func(): set_panel_min(true))
+	hb.add_child(mn)
+	v.add_child(hb)
 
 ## v3.5: where a page's model goes: the left window when it is open, else the page itself (h).
 func _left_slot(h: Control) -> Control:
@@ -1362,6 +1441,7 @@ func _page_box() -> VBoxContainer:
 	v.offset_bottom = -18
 	v.add_theme_constant_override("separation", 10)
 	content.add_child(v)
+	if _panel_page(screen): _panel_head(v, header.text)   # v8.5: every page in the one panel has its title and fold button
 	return v
 
 ## v1.5l: the people of this station (coordinator; the leader too at a capital): face, name, role, and TALK.
@@ -1406,6 +1486,8 @@ func _people_rows(v: VBoxContainer) -> void:
 func _hub_page() -> void:
 	# v3.1 (owner's concept art): HOME = the station card on the left, your pilot and ship on the right, the station
 	# picture open in the middle, and picture tiles for the main services along the bottom.
+	_hub_panel()
+	return
 	var lc := _home_card(Rect2(0, 0, 360, 0), "StationCard")
 	var v := lc.get_child(0).get_child(0) as VBoxContainer
 	v.add_child(_caption("STATION  ·  " + str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])).to_upper()))
@@ -1450,6 +1532,69 @@ func _hub_page() -> void:
 	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	rv.add_child(info)
 	# v8.2 (owner: less is more): no row of picture tiles; the top bar's five categories open every page
+
+## v8.5 (owner, hub spec): HOME is the one panel on the right: the station (who runs it, who is here, your
+## standing), then you and your ship. It scrolls; the fold button tucks it away.
+func _hub_panel() -> void:
+	var g := StyleBoxFlat.new()
+	g.bg_color = Color(0.01, 0.05, 0.1, 0.72)
+	g.border_color = Color(CYAN, 0.7)
+	g.set_border_width_all(2)
+	tech_cut(g, 16)
+	content.add_theme_stylebox_override("panel", g)
+	var outer := VBoxContainer.new()
+	outer.name = "HubPanel"
+	outer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	outer.offset_left = 16
+	outer.offset_top = 12
+	outer.offset_right = -14
+	outer.offset_bottom = -12
+	content.add_child(outer)
+	_panel_head(outer, "STATION")
+	var sc := ScrollContainer.new()
+	sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	outer.add_child(sc)
+	var v := VBoxContainer.new()
+	v.name = "StationCard"
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.add_theme_constant_override("separation", 6)
+	sc.add_child(v)
+	v.add_child(_caption(str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])).to_upper() + "  ·  " + str(base["name"]).to_upper()))
+	var l := _label(15, Color(1, 1, 1))
+	l.name = "Lore"
+	l.text = base.get("desc", "")
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(l)
+	_people_rows(v)
+	_standing_rows(v)
+	var rv := VBoxContainer.new()
+	rv.name = "ShipCard"
+	rv.add_theme_constant_override("separation", 4)
+	v.add_child(rv)
+	rv.add_child(_caption("PILOT"))
+	var pn := _label(18, Color.WHITE)
+	pn.name = "PilotName"
+	pn.text = (GS.pilot_name if GS.pilot_name != "" else "Freelancer").to_upper()
+	rv.add_child(pn)
+	var sh := GS.ship()
+	rv.add_child(_caption("CURRENT SHIP"))
+	var sn := _label(16, Color.WHITE)
+	sn.name = "ShipName"
+	sn.text = "%s  ·  %s" % [sh["name"], sh["class"]]
+	sn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	rv.add_child(sn)
+	var best := {"speed": 1.0, "hull": 1.0, "shield": 1.0, "guns": 1.0}
+	for k in Data.SHIPS:
+		for st in best: best[st] = maxf(best[st], float(Data.SHIPS[k][st]))
+	for bar in [["SPEED", float(sh["speed"]) / best["speed"]], ["FIREPOWER", float(sh["guns"]) / best["guns"]],
+			["SHIELD", GS.max_shield() / best["shield"]], ["HULL", float(GS.hull) / best["hull"]]]:
+		rv.add_child(_stat_bar(bar[0], bar[1]))
+	var info := _label(13, CYAN)
+	info.name = "Loadout"
+	info.text = "%s ×%d  ·  Missiles %d/%d  ·  Heavy %d/%d  ·  Mines %d/%d" % [GS.weapon()["name"], sh["guns"], GS.missiles, GS.max_missiles(), GS.heavy_missiles, GS.max_heavy(), GS.mines, GS.max_mines()]
+	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	rv.add_child(info)
 
 ## v3.1: a dark glass card on the HOME page holding a VBox (child 0).
 func _home_card(r: Rect2, nm: String) -> PanelContainer:
