@@ -166,6 +166,9 @@ func draw_grid(ci: CanvasItem, rect: Rect2, circle_r := 0.0, through: Array = []
 		var w := to_world(corner)
 		mn = Vector2(minf(mn.x, w.x), minf(mn.y, w.z))
 		mx = Vector2(maxf(mx.x, w.x), maxf(mx.y, w.z))
+	var lim := rect.size.length() / maxf(k, 0.000001) * 1.2   # v8.9: an angled view reaches toward the horizon: keep the grid to what is near
+	mn = Vector2(maxf(mn.x, center.x - lim), maxf(mn.y, center.z - lim))
+	mx = Vector2(minf(mx.x, center.x + lim), minf(mx.y, center.z + lim))
 	var out := {"major": 0, "minor": 0, "ticks": 0, "through": 0, "spacing": lv[0][0], "labels": []}
 	var major_step: float = lv[0][0]
 	for li in [1, 0]:   # minor first, major on top
