@@ -395,6 +395,7 @@ func _build_environment() -> void:
 	cam.near = 0.5
 	cam.fov = 70.0
 	cam.current = true
+	cam.top_level = true   # v9.1: placed by _set_cam / the draw shift, never moved with the system
 	add_child(cam)
 
 var _pano: PanoramaSkyMaterial
@@ -1909,6 +1910,7 @@ func _build_nebula(d: Dictionary) -> void:
 	_neb_stream.name = "NebulaStream"
 	_neb_stream.multimesh = sm
 	_neb_stream.top_level = true
+	_neb_stream.add_to_group("hl_top")   # v9.1: moved with the draw shift
 	_neb_stream.custom_aabb = AABB(-Vector3.ONE * 4e6, Vector3.ONE * 8e6)
 	_neb_stream.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_neb_stream_mat = _puff_mat(nebula_color, 0.0, Vector2(0.12, 0.7))
@@ -2000,6 +2002,7 @@ func _cloud_dome(a: float, col: Color, contrast := 1.0) -> void:
 		m.set_shader_parameter("noise", nt)
 		_dome.material_override = m
 		_dome.top_level = true
+		_dome.add_to_group("hl_top")
 		_dome.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_dome.extra_cull_margin = 16384.0
 		add_child(_dome)
@@ -2106,6 +2109,7 @@ func _update_weather(dt: float) -> void:
 		_neb_wx.name = "NebulaWeather"
 		_neb_wx.multimesh = mm
 		_neb_wx.top_level = true
+		_neb_wx.add_to_group("hl_top")
 		_neb_wx.custom_aabb = AABB(-Vector3.ONE * 4e6, Vector3.ONE * 8e6)
 		_neb_wx.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_neb_wx_mat = ShaderMaterial.new()
@@ -3062,7 +3066,7 @@ func _build_carrier() -> void:
 	add_child(carrier)
 	var st: Vector3 = station.global_position
 	carrier.global_position = st + Vector3(-420, 60, -180)
-	carrier.look_at(carrier.global_position + Vector3(1, 0, 0.3), Vector3.UP)
+	face(carrier, Vector3(1, 0, 0.3))
 	# a big liquid tanker (water, fuel) holding station off the planet, on the station's side
 	if ShipFactory.has_real_model("tanker") and is_instance_valid(planet):
 		tanker = Node3D.new()
@@ -3073,7 +3077,7 @@ func _build_carrier() -> void:
 		add_child(tanker)
 		var out: Vector3 = (st - planet.global_position).normalized()
 		tanker.global_position = planet.global_position + out * (float(planet.get_meta("radius")) + 520.0) + out.cross(Vector3.UP).normalized() * 380.0
-		tanker.look_at(tanker.global_position + out.cross(Vector3.UP).normalized(), Vector3.UP)
+		face(tanker, out.cross(Vector3.UP).normalized())
 
 # ---------------------------------------------------------------- per frame
 var _mem_reported := false
@@ -3111,6 +3115,7 @@ func _process(dt: float) -> void:
 	_collisions(dt)
 	if surface_mode: _surface_update(dt)
 	_update_camera(dt, false)
+	_queue_shift()   # v9.1: the floating origin for this frame's drawing (hooks itself up once)
 	_update_sun(dt)
 	_ambient_anim(dt)
 	if not is_instance_valid(target): target = null
@@ -3664,7 +3669,7 @@ func _spawn_bolt(from: Vector3, v: Vector3, dmg: float, col: Color, owner: Strin
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mi)
 	mi.global_position = from
-	mi.look_at(from + v, Vector3.UP)
+	face(mi, v)
 	var halo := MeshInstance3D.new()
 	halo.mesh = _bolt_halo
 	halo.material_override = _glow_mat(col)
@@ -4042,6 +4047,7 @@ func _trail_new(src: Node3D) -> void:
 	mi.material_override = _trail_mat
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mi.top_level = true
+	mi.add_to_group("hl_top")
 	add_child(mi)
 	mi.global_transform = Transform3D.IDENTITY
 	trails.append({"mi": mi, "im": im, "src": src, "pts": [], "t": 0.0})
@@ -4572,7 +4578,7 @@ func _update_enemy_missiles(dt: float) -> void:
 		m["vel"] = v
 		var wv := Vector3.ZERO if m["lost"] else weave(m, v, dist, dt)
 		n.global_position += (v + wv) * dt
-		if v.length() > 0.1: n.look_at(n.global_position + v + wv, Vector3.UP)
+		if v.length() > 0.1: face(n, v + wv)
 		m["life"] -= dt
 		if m.has("sig"):
 			m["vel"] = v
@@ -4638,7 +4644,7 @@ func _update_missiles(dt: float) -> void:
 		m["vel"] = v
 		var wv2 := weave(m, v, n.global_position.distance_to(t.global_position), dt) if is_instance_valid(t) else Vector3.ZERO
 		n.global_position += (v + wv2) * dt
-		if v.length() > 0.1: n.look_at(n.global_position + v + wv2, Vector3.UP)
+		if v.length() > 0.1: face(n, v + wv2)
 		m["life"] -= dt
 		_missile_trail(n)
 		var done: bool = m["life"] <= 0.0
@@ -4895,7 +4901,7 @@ func _update_enemies(dt: float) -> void:
 		var new_fwd := fwd.slerp(want, minf(1.0, dt * float(d["turn"]))) if want.length() > 0.5 else fwd
 		if walker: new_fwd.y = 0.0
 		if new_fwd.length() > 0.01:
-			n.look_at(n.global_position + new_fwd, Vector3.UP)
+			face(n, new_fwd)
 		var sp: float = d["speed"] * (1.0 if e["aggro"] else 0.5) * (1.4 if warp_state == "charging" else 1.0)
 		if walker: sp = float(d["speed"]) * Data.WALKER_SPEED * (0.0 if e["aggro"] and dist <= Data.WALKER_HOLD else 1.0) * clampf((-n.global_basis.z).dot(want) * 2.0 - 0.6, 0.0, 1.0)   # it turns on the spot first, then walks the way it faces
 		e["vel"] = (e["vel"] as Vector3).lerp(-n.global_basis.z * sp, minf(1.0, dt * 1.5))
@@ -4982,7 +4988,7 @@ func _update_traffic(dt: float) -> void:
 		var p := a.lerp(b, t["t"]) + Vector3(0, 40.0 + 30.0 * t["dir"], 0)
 		var dir: Vector3 = (b - a).normalized() * float(t["dir"])
 		n.global_position = p
-		n.look_at(p + dir, Vector3.UP)
+		face(n, dir)
 
 # ---------------------------------------------------------------- Job L: collision damage
 var collide_grace := 0.0        # s left in the grace window after a damaging hit
@@ -5113,28 +5119,29 @@ const LOOK_YAW := 0.5      # radians at full look left/right
 const LOOK_PITCH := 0.22   # radians at full look up/down (less: you shouldn't see past the canopy art)
 
 func _update_camera(dt: float, snap: bool) -> void:
-	var prev_ship := _cam_prev_ship
 	if is_instance_valid(player): _cam_prev_ship = player.global_position
 	_sync_fpv(dt)
 	_sync_hand_gun()
+	# v9.1 (owner: 1,000 km systems): the camera is worked out as an offset from the ship (rel), never from its own far-out
+	# world position, so it stays exact when the frame is drawn with the world shifted near zero (see _shift_for_draw)
 	if GS.view == "cockpit" and GS.form == "mech" and is_instance_valid(player):   # v1.7z: out of the mech's head, rifle in hand
 		var mb := player.global_basis
-		cam.global_position = player.global_position + mb * Data.FPV_EYE
-		var ahead2 := cam.global_position - mb.z * 80.0
+		var rel0: Vector3 = mb * Data.FPV_EYE
+		var ahead2 := rel0 - mb.z * 80.0
 		if hit_shake > 0.0: ahead2 += Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), 0) * hit_shake * 1.2
-		cam.look_at(ahead2, mb.y)
+		_set_cam(rel0, ahead2, mb.y)
 		cam.fov = lerpf(cam.fov, Data.FPV_ZOOM_FOV if zoomed else Data.FPV_FOV, minf(1.0, dt * 8.0) if not snap else 1.0)
 		return
 	if GS.view == "cockpit":
 		# pilot's eye: fixed to the hull, tiny lag-free shake on hits. The head turns with the aim stick (free-look),
 		# so you can look out of the side and top glass; the crosshair shows where the nose really points.
 		look = look.lerp(aim if controls else Vector2.ZERO, minf(1.0, dt * 3.0))
-		cam.global_position = player.global_position + player.global_basis * Vector3(0, 0.9, -1.2)
 		var b := player.global_basis
+		var rel1: Vector3 = b * Vector3(0, 0.9, -1.2)
 		var dir: Vector3 = (Basis(b.y, -look.x * LOOK_YAW) * Basis(b.x, -look.y * LOOK_PITCH)) * -b.z
-		var ahead := cam.global_position + dir * 60.0
+		var ahead := rel1 + dir * 60.0
 		if hit_shake > 0.0: ahead += Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), 0) * hit_shake * 1.2
-		cam.look_at(ahead, b.y)
+		_set_cam(rel1, ahead, b.y)
 		cam.fov = lerpf(cam.fov, 92.0 if warp_state == "on" else (82.0 if boosting else 76.0), minf(1.0, dt * 2.0))
 		return
 	var back := 15.0 + (4.0 if warp_state == "on" else (1.5 if boosting else 0.0))
@@ -5142,31 +5149,54 @@ func _update_camera(dt: float, snap: bool) -> void:
 	if GS.form == "mech":   # the mech stands taller: sit the camera higher and further back so it doesn't block the reticle
 		back += 8.0
 		up = 5.5
-	var want := player.global_position + player.global_basis * Vector3(0, up, back)
-	if snap: cam.global_position = want
-	else:   # v8.9: the lag is on the offset from the ship, not on the world position (at warp / lane speed the camera kept falling km behind)
-		var off := cam.global_position - prev_ship
-		if off.length() > 400.0: off = want - player.global_position   # (a jump: start fresh)
-		off = off.lerp(want - player.global_position, minf(1.0, dt * 6.0))
-		cam.global_position = player.global_position + off
-	_cam_clip()
-	var look := player.global_position - player.global_basis.z * 30.0 + player.global_basis.y * 2.6
-	if hit_shake > 0.0: look += Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), 0) * hit_shake * 0.8
-	cam.look_at(look, player.global_basis.y)
+	var want_rel: Vector3 = player.global_basis * Vector3(0, up, back)
+	var off: Vector3 = want_rel
+	if not snap:   # v8.9: the lag is on the offset from the ship, not on the world position (at warp / lane speed the camera kept falling km behind)
+		off = _cam_off
+		if off.length() > 400.0 or off == Vector3.ZERO: off = want_rel   # (a jump: start fresh)
+		off = off.lerp(want_rel, minf(1.0, dt * 6.0))
+	_cam_off = off
+	var rel := _cam_clip(off)
+	var look_rel := -player.global_basis.z * 30.0 + player.global_basis.y * 2.6
+	if hit_shake > 0.0: look_rel += Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), 0) * hit_shake * 0.8
+	_set_cam(rel, look_rel, player.global_basis.y)
 	cam.fov = lerpf(cam.fov, 88.0 if warp_state == "on" else (76.0 if boosting else 70.0), minf(1.0, dt * 2.0))
+
+## v9.1: turns a node to face along dir (like look_at(position + dir), but exact far from the centre, where a small
+## step added to a big position rounds away and look_at fails)
+static func face(n: Node3D, dir: Vector3, up := Vector3.UP) -> void:
+	if dir.length_squared() < 1e-12: return
+	var dn := dir.normalized()
+	if absf(dn.dot(up.normalized())) > 0.9999: return
+	var s0 := n.scale
+	n.global_transform = Transform3D(Basis.looking_at(dn, up), n.global_position)
+	n.scale = s0
+
+## v9.1: puts the camera at the ship + rel, looking at the ship + look_rel (both offsets from the ship)
+func _set_cam(rel: Vector3, look_rel: Vector3, up_v: Vector3) -> void:
+	var fwd := look_rel - rel
+	var bas := cam.global_basis
+	if fwd.length() > 0.0001 and absf(fwd.normalized().dot(up_v.normalized())) < 0.9999: bas = Basis.looking_at(fwd, up_v)
+	_cam_rel = rel
+	_cam_basis = bas
+	_cam_frame = Engine.get_process_frames()
+	cam.global_transform = Transform3D(bas, player.global_position + rel)
 
 ## v1.9p (owner: "the camera pushes into the ground ... it should stop at the solid and move in, down to first
 ## person"): the chase camera never goes inside the ground, a cliff, a block wall or an asteroid. It slides in along
 ## the line from the ship to where it wants to be, and right up close the ship itself is hidden (you see from it).
+## v9.1: takes and returns the camera's offset from the ship.
 var _cam_hid := false
 var cam_clipped := 0.0   # (tests) how far the camera was pulled in this frame (0 = not at all)
-func _cam_clip() -> void:
+func _cam_clip(rel: Vector3) -> Vector3:
 	cam_clipped = 0.0
-	var pivot: Vector3 = player.global_position + player.global_basis.y * (Data.CAM_PIVOT_UP_MECH if GS.form == "mech" else Data.CAM_PIVOT_UP)
-	var c: Vector3 = cam.global_position
-	var seg := c - pivot
+	var P: Vector3 = player.global_position
+	var pivot_rel: Vector3 = player.global_basis.y * (Data.CAM_PIVOT_UP_MECH if GS.form == "mech" else Data.CAM_PIVOT_UP)
+	var pivot: Vector3 = P + pivot_rel
+	var c: Vector3 = P + rel
+	var seg := rel - pivot_rel
 	var full := seg.length()
-	if full < 0.01: return
+	if full < 0.01: return rel
 	var f := 1.0
 	if surface_mode:
 		var n := int(Data.CAM_CLIP_STEPS)
@@ -5182,14 +5212,75 @@ func _cam_clip() -> void:
 		var ah := ray_asteroids(pivot, c)
 		if not ah.is_empty(): f = minf(f, pivot.distance_to(ah[2]) / full)
 	var hide := false
+	var out := rel
 	if f < 1.0:
 		var d: float = maxf(0.0, full * f - Data.CAM_CLEAR)
-		cam.global_position = pivot + seg.normalized() * d
+		out = pivot_rel + seg.normalized() * d
 		cam_clipped = full - d
 		hide = d < Data.CAM_FPV_DIST
 	if is_instance_valid(model) and hide != _cam_hid:   # (only what this hid is shown again)
 		model.visible = not hide
 		_cam_hid = hide
+	return out
+
+## v9.1 (owner: 1,000 km systems without the shaking): a floating origin for drawing only. Far from the centre a 32-bit
+## position is only good to a few cm, so the ship and camera jitter against each other. Just before each frame is drawn
+## the whole system is moved so the ship sits near zero (the shift is a multiple of ORIGIN_GRID, so it changes rarely
+## and world-space effects don't slide), the camera is put back at its exact offset from the ship, and as soon as the
+## frame is drawn everything goes back. Game logic, saves and the maps never see the shift.
+var _cam_rel := Vector3.ZERO
+var _cam_off := Vector3.ZERO
+var _cam_basis := Basis()
+var _cam_frame := -1
+var draw_shift := Vector3.ZERO   # (tests) the shift used for the last frame drawn
+var _shifted := false
+var _shift_logic_cam := Transform3D()
+var _shift_tops: Array = []
+var shift_frames := 0   # (tests) frames drawn shifted
+func _queue_shift() -> void:
+	if not _shift_hooked:
+		_shift_hooked = true
+		RenderingServer.frame_post_draw.connect(_unshift)
+		get_tree().process_frame.connect(_unshift)
+		get_tree().physics_frame.connect(_unshift)
+		var late := _LateShift.new()   # processed after every other node, so the shift is queued after the HUD's redraws
+		late.sp = self
+		late.name = "LateShift"
+		add_child(late)
+var _shift_hooked := false
+class _LateShift extends Node:
+	var sp: Node
+	func _ready() -> void: process_priority = 100000
+	func _process(_dt: float) -> void: if is_instance_valid(sp): sp._shift_for_draw.call_deferred()
+
+func _shift_for_draw() -> void:
+	if _shifted or not is_inside_tree() or not is_instance_valid(player) or not is_instance_valid(cam): return
+	if get_viewport().get_camera_3d() != cam: return
+	var P: Vector3 = player.global_position
+	var g: float = Data.ORIGIN_GRID
+	var A := Vector3(roundf(P.x / g) * g, roundf(P.y / g) * g, roundf(P.z / g) * g)
+	_shifted = true
+	draw_shift = A
+	_shift_logic_cam = cam.global_transform
+	_shift_tops.clear()
+	if A != Vector3.ZERO:
+		position = -A
+		for n in get_tree().get_nodes_in_group("hl_top"):   # world nodes that ignore their parent (trails, the cloud dome ...)
+			if n is Node3D and is_ancestor_of(n):
+				(n as Node3D).global_position -= A
+				_shift_tops.append(n)
+		shift_frames += 1
+	if _cam_frame == Engine.get_process_frames(): cam.global_transform = Transform3D(_cam_basis, (P - A) + _cam_rel)
+	else: cam.global_position -= A   # (the camera was placed some other way this frame: just move it with the system)
+
+func _unshift() -> void:
+	if not _shifted: return
+	_shifted = false
+	position = Vector3.ZERO
+	for n in _shift_tops:
+		if is_instance_valid(n): (n as Node3D).global_position += draw_shift
+	_shift_tops.clear()
+	if is_instance_valid(cam): cam.global_transform = _shift_logic_cam
 
 func _ambient_anim(dt: float) -> void:
 	if is_instance_valid(planet_clouds): planet_clouds.rotate_y(dt * 0.006)
@@ -6041,6 +6132,7 @@ func _build_surface_env() -> void:
 	cam.near = 0.5
 	cam.fov = 70.0
 	cam.current = true
+	cam.top_level = true   # v9.1 (see _shift_for_draw)
 	add_child(cam)
 
 ## Swap the loaded tile: frees the old tile, its enemies and effects, builds the new one. The player is untouched.
@@ -7407,7 +7499,7 @@ func _spawn_capital(kind: String, role: String, p: Vector3, home: Vector3, facti
 	e["l"] = 0.0   # (no wing sections: a hit goes to the hull)
 	e["r"] = 0.0
 	e["node"].name = "%s %s %d" % [faction if faction != "" else "Enemy", d["name"], _enemy_serial]
-	e["node"].look_at(home + Vector3(0.01, 0, 0), Vector3.UP)
+	face(e["node"], home - p + Vector3(0.01, 0, 0))
 	if faction != "": e["faction"] = faction
 	_light_model(e["model"], Data.INVASION_DRAW["capital"], Data.INVASION_DRAW["capital_lod_bias"])
 	return e
@@ -7453,7 +7545,7 @@ func _spawn_ally(kind: String, model_key: String, p: Vector3, faction: String) -
 	node.set_meta("radius", float(cfg["hit_r"]))
 	add_child(node)
 	node.global_position = p
-	node.look_at(p - player.global_basis.z, Vector3.UP)
+	face(node, -player.global_basis.z)
 	allies.append({"node": node, "model": mdl, "hp": float(cfg["hull"]), "max": float(cfg["hull"]), "vel": Vector3.ZERO, "cd": _rng.randf_range(0.3, 1.5),
 		"kind": kind, "hit_r": float(cfg["hit_r"]), "foe": {}, "strafe": _rng.randf_range(-1, 1), "re_t": 0.0})
 
@@ -7496,7 +7588,7 @@ func _update_capital(e: Dictionary, dt: float) -> void:
 		if want.length() > 20.0:
 			var fwd := -n.global_basis.z
 			var nf := fwd.slerp(want.normalized(), minf(1.0, dt * float(d["turn"])))
-			if nf.length() > 0.01: n.look_at(n.global_position + nf, Vector3.UP)
+			if nf.length() > 0.01: face(n, nf)
 			n.global_position += -n.global_basis.z * float(d["speed"]) * dt
 	e["cd"] = float(e["cd"]) - dt
 	if float(e["cd"]) > 0.0 or not controls: return
@@ -7549,7 +7641,7 @@ func _update_allies(dt: float) -> void:
 		if want.length() > 5.0 and float(cfg["speed"]) > 0.0:
 			var fwd := -n.global_basis.z
 			var nf := fwd.slerp(want.normalized(), minf(1.0, dt * float(cfg.get("turn", 0.3))))
-			if nf.length() > 0.01: n.look_at(n.global_position + nf, Vector3.UP)
+			if nf.length() > 0.01: face(n, nf)
 		var sp: float = float(cfg["speed"]) * (1.0 if not foe.is_empty() or want.length() > 120.0 else 0.4)
 		a["vel"] = (a["vel"] as Vector3).lerp(-n.global_basis.z * sp, minf(1.0, dt * 1.5))
 		n.global_position += a["vel"] * dt

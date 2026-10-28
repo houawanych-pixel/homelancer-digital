@@ -204,10 +204,15 @@ func draw_grid(ci: CanvasItem, rect: Rect2, circle_r := 0.0, through: Array = []
 		var tp := PackedVector2Array()
 		var half := tick * 0.28
 		for axis in 2:
-			var lo2: float = mn.x if axis == 0 else mn.y
-			var hi2: float = mx.x if axis == 0 else mx.y
-			var lo3: float = mn.y if axis == 0 else mn.x
-			var hi3: float = mx.y if axis == 0 else mx.x
+			# v9.1: the ruler marks stay within a few big squares of the view's centre (a whole-tile view used to ask for
+			# tens of thousands of marks, so none were drawn at all)
+			var tl: float = major_step * 3.0
+			var cx: float = center.x if axis == 0 else center.z
+			var cz: float = center.z if axis == 0 else center.x
+			var lo2: float = maxf(mn.x if axis == 0 else mn.y, cx - tl)
+			var hi2: float = minf(mx.x if axis == 0 else mx.y, cx + tl)
+			var lo3: float = maxf(mn.y if axis == 0 else mn.x, cz - tl)
+			var hi3: float = minf(mx.y if axis == 0 else mx.x, cz + tl)
 			var m0 := int(floor(lo2 / major_step))
 			var m1 := int(ceil(hi2 / major_step))
 			var t0 := int(floor(lo3 / tick))

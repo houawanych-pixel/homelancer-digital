@@ -1053,6 +1053,7 @@ func _run() -> void:
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
 		await _wait(1.0)
+		await _job_v91_origin()
 		await _job_edge()
 		await _job_open()
 		for r in results: print("[route] ", r)
@@ -1866,6 +1867,7 @@ func _run() -> void:
 	await _job_v19u()
 	await _job_v19w()
 	await _job_v19x()
+	await _job_v91_origin()
 	await _job_edge()
 	await _job_open()
 	await _job_unknown()
@@ -9395,6 +9397,54 @@ func _job_v19w() -> void:
 ## SLOT INFO, a shop grid with filters, the frame's specs; the mech blueprint shows the same slots (arms = wings).
 ## v3.5 (owner): every page stands you in a 360 room (Liberator's are in): the top bar, a left window, the page in a
 ## right window, HIDE PANELS to look round; drag looks round; the lounge lists who is here.
+## v9.1 (owner: "1,000 km ... I just hope it doesn't shake"): far out in a 1,000 km system the frame is drawn with the
+## world shifted so the ship sits near zero, the camera keeps its exact offset, the ship holds still on screen while
+## it flies, and the shift is gone again for the game logic.
+var _o_rec: Array = []
+func _o_pre() -> void:
+	var s := _sp()
+	if not is_instance_valid(s.player): return
+	_o_rec.append([s.position, s.player.global_position, s.cam.unproject_position(s.player.global_position), s.draw_shift])
+func _o_shot() -> void:
+	var d := OS.get_environment("HL_ORIGIN_SHOTS")
+	if d == "" or _o_rec.size() < 10 or _o_rec.size() > 30: return
+	get_viewport().get_texture().get_image().save_png("%s/f%02d.png" % [d, _o_rec.size()])
+func _o_move() -> void:
+	var s := _sp()
+	if is_instance_valid(s.player): s.player.global_position += Vector3(0.371, 0.113, -0.921) * 2.71828   # (an untidy step, so rounding shows)
+func _job_v91_origin() -> void:
+	var s := _sp()
+	if s.surface_mode or main.state != "flight": return
+	var keep: Vector3 = s.player.global_position
+	s.autopilot = null
+	s.player.global_position = SystemBuilder.CENTRE + Vector3(437123.4, 1530.7, -401987.6)
+	s._update_camera(1.0, true)
+	await _frames(4)
+	_o_rec.clear()
+	RenderingServer.frame_pre_draw.connect(_o_pre)
+	RenderingServer.frame_post_draw.connect(_o_shot)
+	get_tree().process_frame.connect(_o_move)
+	await _frames(45)
+	get_tree().process_frame.disconnect(_o_move)
+	RenderingServer.frame_pre_draw.disconnect(_o_pre)
+	RenderingServer.frame_post_draw.disconnect(_o_shot)
+	var logic_ok: bool = s.position == Vector3.ZERO and s.player.global_position.x > 400000.0
+	var near_ok := _o_rec.size() > 20
+	var sx: Array = []
+	for r in _o_rec.slice(8):
+		if (r[1] as Vector3).length() > 16000.0 or (r[3] as Vector3) == Vector3.ZERO: near_ok = false
+		sx.append(r[2])
+	var mean := Vector2.ZERO
+	for v in sx: mean += v
+	mean /= maxf(1.0, sx.size())
+	var spread := 0.0
+	for v in sx: spread = maxf(spread, (v as Vector2).distance_to(mean))
+	_check("v9.1 (owner): 1,000 km systems: far out the frame is drawn with the system shifted near zero (the ship within 16 km of it), the ship holds still on screen while flying (spread %.3f px), and the game logic never sees the shift" % spread,
+		Data.SPACE_EDGE == 500000.0 and logic_ok and near_ok and spread < 0.25, "frames %d, last drawn ship %s, shift %s" % [_o_rec.size(), str(_o_rec[-1][1]) if _o_rec.size() else "-", str(_o_rec[-1][3]) if _o_rec.size() else "-"])
+	s.player.global_position = keep
+	s._update_camera(1.0, true)
+	await _frames(3)
+
 ## v6.2 (owner): each system is a 1,000 km tile; past 500 km you cross into the next system on the board, and the
 ## board wraps round Pac-Man style.
 func _job_edge() -> void:
@@ -9418,8 +9468,8 @@ func _job_edge() -> void:
 	var crossed := await _until(func(): return GS.system_id == east and main.state == "flight" and not main.crossing, 25.0)
 	var p: Vector3 = main.space.player.global_position - SystemBuilder.CENTRE
 	var arrive_ok: bool = crossed and p.x < -E + 3000.0 and p.x > -E - 10.0 and absf(p.z - 300.0) < 3000.0
-	_check("v6.2 (owner): a system's space is one tile (v8.9: 500 km); flying past its east edge brings you into the next system east (%s > %s), at its west edge; off the board's edge it wraps round (%s > %s)" % [home, east, far, wrapped],
-		E == 250000.0 and wrap_ok and arrive_ok, "crossed %s, arrived at x %.0f km" % [crossed, p.x / 1000.0])
+	_check("v6.2 (owner): a system's space is one tile (v9.1: 1,000 km again); flying past its east edge brings you into the next system east (%s > %s), at its west edge; off the board's edge it wraps round (%s > %s)" % [home, east, far, wrapped],
+		E == 500000.0 and wrap_ok and arrive_ok, "crossed %s, arrived at x %.0f km" % [crossed, p.x / 1000.0])
 	main._load_system(home, "station")
 	await _frames(3)
 

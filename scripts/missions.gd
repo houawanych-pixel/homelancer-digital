@@ -545,7 +545,7 @@ static func _tick_land_escort(space: SpaceSystem, dt: float, m: Dictionary) -> v
 		gp += togo.normalized() * minf(Data.ESCORT_SPEED * dt, togo.length())
 		m["pos"] = [gp.x, gp.y]
 	n.global_position = n.global_position.lerp(at, minf(1.0, dt * 4.0)) if n.global_position.distance_to(at) < 400.0 else at
-	if togo.length() > 1.0: n.look_at(n.global_position + Vector3(togo.x, 0, togo.y), Vector3.UP)
+	if togo.length() > 1.0: SpaceSystem.face(n, Vector3(togo.x, 0, togo.y))
 	var done: float = 1.0 - togo.length() / trip
 	for i in 2:   # ambushes at a third and two thirds of the way
 		if int(m["spawned"]) < i and done >= (float(i) + 1.0) / 3.0:

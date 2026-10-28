@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v9.0"
+const VERSION := "v9.1"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -824,11 +824,11 @@ const FOG_RADIUS := 700.0            # Foggiest: the grey cloud that wraps Greyw
 const FOG_COLOR := Color(0.62, 0.65, 0.7)
 # v1.9s (owner: Freelancer-style nebulae): each cloud is hundreds of soft smoke puffs drawn in one batch, real fog inside
 # that thickens the deeper you go, smoke streaming past the ship, lightning flashes, and more clouds per system.
-const NEBULA_SIZE := 48.0             # the system's own nebula is this many times its listed radius (v9.0 owner, Freelancer: ~40 km across; was 3.2)
+const NEBULA_SIZE := 72.0             # the system's own nebula is this many times its listed radius (v9.0 owner, Freelancer: ~40 km across; was 3.2)
 const NEBULA_EXTRA := 3               # extra unnamed clouds in every system, other sizes and colours
-const NEBULA_EXTRA_RADIUS := [9000.0, 22000.0]   # v9.0: was 700-1600
-const NEBULA_GATE_RADIUS := [6000.0, 10000.0]   # the cloud a gate hides in (Freelancer: gates in the clouds); one of the extras (v9.0: was 850-1300)
-const NEBULA_EXTRA_DIST := [45000.0, 175000.0]   # how far from the main station the extra clouds sit (v9.0: was 2.6-5.8 km)
+const NEBULA_EXTRA_RADIUS := [13000.0, 33000.0]   # v9.1: 1,000 km systems (v8.9: 9-22 km; was 700-1600)
+const NEBULA_GATE_RADIUS := [9000.0, 15000.0]   # the cloud a gate hides in (Freelancer: gates in the clouds); one of the extras (v9.0: was 850-1300)
+const NEBULA_EXTRA_DIST := [90000.0, 350000.0]   # how far from the main station the extra clouds sit (v9.0: was 2.6-5.8 km)
 const NEBULA_AVOID_K := 8.0          # v9.0: the clouds keep this many times their old gaps from stations, planets and the field
 const NEBULA_PUFFS := 240             # smoke puffs in a full-size cloud (smaller clouds get fewer)
 const NEBULA_PUFF_ALPHA := 0.55
@@ -863,13 +863,13 @@ const STATION_MODEL_YAW := {"hollow_requiem": 90.0}   # degrees: the dead liner 
 const SYSTEM_SPREAD := 1.8           # every system: planets, gates, belt, nebula and patrols sit this much farther from the main station (v1.5m: was 1.4)
 # v9.0 (owner, Freelancer maps: "use the whole tile"): after SYSTEM_SPREAD each system is fanned out again (same shape, just
 # bigger) so its typical object sits about SYSTEM_REACH out; the fan stays between these limits
-const SYSTEM_REACH := 115000.0       # v9.0: a typical object (60th percentile) ends up about this far from the main station
-const SYSTEM_FAN := [6.0, 60.0]
-const SYSTEM_EDGE_SOFT := 190000.0   # past this, places are pulled in toward the centre (they bunch a little near the border)
-const FIELD_GROW := 30.0             # v9.0: asteroid fields grow this much (380 m radius -> ~11 km)
-const PLANET_GROW := 3.0             # v9.0: planets grow this much (so they read across a 400 km system)
+const SYSTEM_REACH := 230000.0       # v9.0: a typical object (60th percentile) ends up about this far from the main station
+const SYSTEM_FAN := [6.0, 120.0]
+const SYSTEM_EDGE_SOFT := 380000.0   # past this, places are pulled in toward the centre (they bunch a little near the border)
+const FIELD_GROW := 45.0             # v9.0: asteroid fields grow this much (380 m radius -> ~11 km)
+const PLANET_GROW := 4.0             # v9.0: planets grow this much (so they read across a 400 km system)
 const SUN_KEEP_OUT := 2.2            # v9.0: nothing is placed within this many sun radii of the sun
-const UNKNOWN_ORBITS := {"station": 45000.0, "planet": 105000.0, "asteroids": 150000.0, "nebula": 120000.0, "gate": 190000.0, "extra": [70000.0, 200000.0]}   # v9.0 (owner): the unknown areas: the sun in the middle, everything on orbits round it
+const UNKNOWN_ORBITS := {"station": 90000.0, "planet": 210000.0, "asteroids": 300000.0, "nebula": 240000.0, "gate": 380000.0, "extra": [140000.0, 400000.0]}   # v9.0 (owner): the unknown areas: the sun in the middle, everything on orbits round it
 const DOCK_RANGE_STATION := 190.0    # was 260: you must be this close to a station (or its docking mouth) for DOCK
 const DOCK_RANGE_PLANET := 240.0     # was 300: measured from the planet's surface
 const LANE_TUNNEL_BACK := 0.42       # share of the lane tunnel's length that trails BEHIND the ship (so the camera never sees its rim)
@@ -917,8 +917,9 @@ const CALL_FACE := 170.0       # v5.5 (owner): a caller's face is this big every
 const MAP_CELLS := 8            # v9.0 (owner, Freelancer): the system map is an 8 x 8 grid, columns A-H, rows 1-8
 const SYS_MAP_FOG := Color(0.0, 0.0, 0.01, 0.9)    # v9.0: unseen map squares stay dark ...
 const SYS_MAP_SEEN := Color(0.07, 0.19, 0.34, 0.9)   # ... the ones you have seen are lit
-const FOG_REVEAL := 45000.0      # v9.0: the map squares within this of your ship are uncovered as you fly (fog of war)
-const SPACE_EDGE := 250000.0   # v9.0: 500 km tile (250 km each way; positions shake past ~250 km). v6.2 (owner): each system's space is one tile;
+const FOG_REVEAL := 90000.0      # v9.0: the map squares within this of your ship are uncovered as you fly (fog of war)
+const ORIGIN_GRID := 20000.0   # v9.1: the draw shift moves the world in steps of this (m): the ship is drawn within 10 km of zero
+const SPACE_EDGE := 500000.0   # v9.1 (owner): 1,000 km tile (500 km each way; the draw shift keeps it steady). v8.9: 500 km. v6.2 (owner): each system's space is one tile;
                                # past it you cross into the neighbouring tile of the galaxy board (Pac-Man wrap at the board's edge)
 const WARP_GATE_SQUARES := [3, 4]   # v6.5 (owner): how far a warp gate in the unknown reaches (squares, with the wrap)
 const RIFT_GATE_SQUARES := [5, 6]   # ... and a rift gate
@@ -1226,7 +1227,7 @@ const CAM_PIVOT_UP_MECH := 4.0   # ... and above a mech
 const CAM_CLEAR := 1.2           # it stays this far off the ground / a wall
 const CAM_CLIP_STEPS := 8        # ground samples along the line
 const CAM_FPV_DIST := 3.0        # pulled in closer than this: the ship is hidden (you look from it)
-const SPACE_CAM_FAR := 600000.0    # m: the space camera sees this far (v9.0: the whole 500 km tile; was 32 km)
+const SPACE_CAM_FAR := 1200000.0    # m: the space camera sees this far (v9.0: the whole 500 km tile; was 32 km)
 const PLANET_SHELL_RANGE := 12000.0   # m: past this a planet's haze and cloud shells are not drawn (no depth fight far away)
 const EPIC_RANK := 4               # a fight with a pilot of this rank or up (or a boss) plays the EPIC battle music
 const BOUNTY_THANKS := "[smile]Great job, {pilot}. {target} is in our cells now. Here's your {pay} credits. We've got plenty of work, so choose another one."
