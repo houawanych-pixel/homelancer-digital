@@ -1028,6 +1028,10 @@ func _run() -> void:
 		load("res://tools/handoff/dump.gd").run(OS.get_environment("HL_DUMP"))
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_TOOL") != "":   # tools/handoff: a tool node that does its own work and quits
+		var tool_node: Node = load(OS.get_environment("HL_TOOL")).new()
+		get_tree().root.add_child(tool_node)
+		return
 	if _flag("HL_FL"):   # the v6.7 Freelancer panels only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)

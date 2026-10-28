@@ -2389,6 +2389,8 @@ func mount_visuals() -> void:
 		gun.name = "Mount%d" % g
 		var at: float = Data.MOUNT_TIP_AT if tip else (Data.MOUNT_MID_AT if g >= 4 else Data.MOUNT_SHOULDER_AT)
 		gun.position = Vector3(side * hw * at, -Data.MOUNT_DROP if tip else Data.MOUNT_DROP, 0.0) / sc
+		var mn := ShipFactory.mount_node(model, g)   # v8.8: the model's own mount, when it has one
+		if mn != null: gun.position = model.global_transform.affine_inverse() * mn.global_position
 		var share: float = float(info.get("share", Data.WING_POD_SHARE if Data.MOUNT_PODS.has(it) else Data.WING_GUN_SHARE))   # (v1.9h: heavy mounts carry their own)
 		gun.scale = Vector3.ONE * (_ship_length() * share / Data.WING_GUN_LEN) / sc   # (sized by the ship)
 		if tip: gun.rotation_degrees.z = 180.0   # hung under the wing
@@ -3525,6 +3527,8 @@ func _fire_guns() -> void:
 			if GS.core_slots().size() > 1 and ck in [-1, -5]: off = player.global_basis.x * _ship_half_width() * (0.3 if ck == -5 else -0.3)   # v8.6 (owner: see every gun): wider apart
 			if ck == -6: off = -player.global_basis.y * 1.2
 			from = player.global_position + fwd * maxf(5.0, _ship_length() * 0.5) - player.global_basis.y * 0.3 + off
+			var cmn := _mount_node(ck)   # v8.8: fire from the model's own gun mount when it has one
+			if cmn != null: from = cmn.global_position + fwd * maxf(3.0, _ship_length() * 0.3)
 		else:
 			var side := GS.mount_side(g)
 			if side < 0.0 and GS.wing_l <= 0.0: continue   # left wing gone: its guns are gone
@@ -3534,6 +3538,8 @@ func _fire_guns() -> void:
 			var at: float = Data.MOUNT_TIP_AT if tip else (Data.MOUNT_MID_AT if g >= 4 else Data.MOUNT_SHOULDER_AT)
 			from = player.global_position + player.global_basis.x * side * hw * at \
 				+ player.global_basis.y * (-Data.MOUNT_DROP if tip else Data.MOUNT_DROP) + fwd * 5.0
+			var wmn := _mount_node(g)
+			if wmn != null: from = wmn.global_position + fwd * 5.0
 		# v8.6 (owner: one shot showing for many guns): each gun's bolt angles in from its own muzzle to meet at the aim point
 		var meet: Vector3 = player.global_position + aim_dir * clampf(float(wg["range"]) * 0.45, 250.0, 700.0)
 		var bdir: Vector3 = (meet - from).normalized()
@@ -3557,6 +3563,17 @@ func _ship_length() -> float:
 
 ## v1.9e: half the player ship's wingspan (m), for where the wing mounts sit.
 var _hw_cache := {}
+var _mount_nodes := {}
+func _mount_node(g: int) -> Node3D:   # v8.8: cached lookup of the player model's named mount (null = use the rule)
+	if not is_instance_valid(model): return null
+	var key := "%d:%d" % [model.get_instance_id(), g]
+	if _mount_nodes.has(key):
+		var n = _mount_nodes[key]
+		return n if is_instance_valid(n) else null
+	var found := ShipFactory.mount_node(model, g)
+	_mount_nodes[key] = found
+	return found
+
 func _ship_half_width() -> float:
 	var key := str(GS.ship_id)
 	if _hw_cache.has(key): return _hw_cache[key]

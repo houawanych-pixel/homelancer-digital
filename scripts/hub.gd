@@ -3151,6 +3151,8 @@ func _dress_mounts(model: Node3D) -> void:
 			var at: float = Data.MOUNT_TIP_AT if tip else (Data.MOUNT_MID_AT if g >= 4 else Data.MOUNT_SHOULDER_AT)
 			gun.position = Vector3(side * hw * at, -Data.MOUNT_DROP if tip else Data.MOUNT_DROP, 0.0) / sc
 			if tip: gun.rotation_degrees.z = 180.0
+		var smn := ShipFactory.mount_node(model, g)   # v8.8: the model's own mount, when it has one
+		if smn != null and model.is_inside_tree(): gun.position = model.global_transform.affine_inverse() * smn.global_position
 		holder.add_child(gun)
 
 ## v1.9w (owner's three-level sheet): the ship's level blueprint with a dot on each of its slots.

@@ -116,6 +116,23 @@ const GLB := {
 static var _cache := {}
 static var _mats := {}
 
+## v8.8 (owner: rebuilt Cadet): a model may carry named weapon mounts (empties "mount_<name>"). The game uses them when
+## present, else the old rule (share of the half span). Slots: -1 / -5 front guns, -6 belly, 0-5 wing slots.
+static func mount_name(g: int) -> String:
+	match g:
+		-1: return "gun_front_L"
+		-5: return "gun_front_R"
+		-6: return "gun_belly"
+	if g < 0: return ""
+	var sd := "R" if GS.mount_side(g) > 0.0 else "L"
+	var spot := "tip_bot" if GS.is_tip(g) else ("mid_top" if g >= 4 else "root_top")
+	return "wing_%s_%s" % [sd, spot]
+
+static func mount_node(model: Node, g: int) -> Node3D:
+	var nm := mount_name(g)
+	if nm == "" or model == null: return null
+	return model.find_child("mount_" + nm, true, false) as Node3D
+
 static func has_real_model(key: String) -> bool:
 	return GLB.has(key) and ResourceLoader.exists(GLB[key][0])
 
