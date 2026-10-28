@@ -9742,7 +9742,36 @@ func _job_v35() -> void:
 	await _frames(2)
 	var vw0: float = get_viewport().get_visible_rect().size.x
 	var vh0: float = get_viewport().get_visible_rect().size.y
-	var a_moves: bool = absf(hb.asst.position.x - x0) > 5.0 and hb.asst.size.y > vh0 * 0.8 and hb.content.offset_right < -100.0   # v5.7 (owner): full height, and she moves with the room, not the screen
+	var a_moves: bool = absf(hb.asst.position.x - x0) > 5.0 and (hb.asst.size.y > vh0 * 0.8 or not hb.asst_ref.is_empty()) and hb.content.offset_right < -100.0   # v5.7 (owner): she moves with the room, not the screen (v8.0: sized to the nearest person)
+	# v8.0 (owner): her head on the nearest person's head line, her feet on their floor line, in every room with people
+	var match_ok := true
+	var shots := 0
+	for rk in ["main_hub", "pilots_lounge", "shipyard", "mission_center"]:
+		var scr: String = {"main_hub": "hub", "pilots_lounge": "lounge", "shipyard": "ships", "mission_center": "missions"}[rk]
+		await Packs.wait("room_liberator_" + rk, 30.0)
+		hb.panels_hidden = true
+		hb.show_screen(scr)
+		hb._asst_show(scr)
+		await _frames(4)
+		if not hb.asst.visible or hb.room_key != "liberator_" + rk: continue
+		hb.asst_yaw = -1.0
+		hb._asst_place()
+		var mt: Dictionary = hb.asst_ref
+		if mt.is_empty(): continue
+		var zm: float = Data.ROOM_ZOOM
+		var sh: float = hb.room_pitch * 0.5 * (1.0 - 1.0 / zm) * zm * vh0
+		var want_head: float = vh0 * (0.5 + (float(mt["top"]) - 0.5) * zm) - sh
+		var cl: Dictionary = hb.ASST_FULL if hb.asst_full else hb.ASST_THIGH
+		var head_y: float = hb.asst.position.y + float(cl["top"]) * hb.asst.size.y
+		var feet_y: float = head_y + hb.asst.size.y * float(cl["body"])
+		var want_feet: float = vh0 * (0.5 + (float(mt["feet"]) - 0.5) * zm) - sh
+		if absf(head_y - want_head) > 2.0 or absf(feet_y - want_feet) > 2.0: match_ok = false
+		await _shot("v80_evee_" + rk, 0.3)
+		shots += 1
+	hb.panels_hidden = false
+	hb.show_screen("hub")
+	await _frames(3)
+	_check("v8.0 (owner): Evee stands as tall as the nearest person by her spot: same head line, same floor line (full body, thigh-up or upper body as the screen cuts her)", match_ok and shots >= 2, "rooms %d" % shots)
 	hb.room_yaw = Data.ASST_YAW
 	await _frames(2)
 	hb.asst_tap()

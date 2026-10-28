@@ -596,6 +596,9 @@ func _on_asst_pack(pk: String) -> void:
 	else: _asst_show(screen)
 
 func _asst_play(clip: String) -> void:
+	asst.set_meta("want", clip)
+	if asst_full: clip = {"idle_a": "full_idle", "idle_b": "full_idle", "talk": "full_talk"}.get(clip, clip)   # v8.0: feet on screen = the full-body clip
+	if not ResourceLoader.exists("res://assets/assistant/%s.ogv" % clip): clip = str(asst.get_meta("want"))
 	asst.stream = load("res://assets/assistant/%s.ogv" % clip)
 	asst.set_meta("clip", clip)
 	asst.play()
@@ -605,12 +608,75 @@ func _asst_next() -> void:
 	asst_idle += 1
 	_asst_play("idle_b" if asst_idle % 3 == 2 else "idle_a")   # (full body: the idle loop again)
 
+const RoomPeople := preload("res://scripts/room_people.gd")   # v8.0: the people on each room's floor (tools/rooms/evee_people.py)
 var asst_yaw := -1.0   # v5.7: where she stands in the room (set when the room changes)
+var asst_full := false   # v8.0: her feet show on screen: the full-body clip
+var asst_ref := {}       # v8.0: the person she is matched to (tests)
+# Her body in each clip, as fractions of the frame: head top, and how tall her whole body is.
+const ASST_THIGH := {"top": 0.029, "body": 1.548, "aspect": 320.0 / 486.0}   # (the frame stops mid-thigh, 63 % down her body)
+const ASST_FULL := {"top": 0.021, "body": 0.948, "aspect": 270.0 / 480.0}
+
+## v8.0 (owner): the nearest person standing by Evee's spot, from RoomPeople: {top, feet} as fractions of the
+## panorama's height (feet worked out from the room's perspective when the bottom of the picture cuts them off).
+func asst_match(key: String, yaw: float) -> Dictionary:
+	if not RoomPeople.ROOMS.has(key): return {}
+	var rd: Dictionary = RoomPeople.ROOMS[key]
+	var best: Array = []
+	for span in [0.05, 0.12]:
+		for p in rd["people"]:
+			var dx: float = absf(fposmod(float(p[0]) - yaw + 0.5, 1.0) - 0.5)
+			if dx <= span and (best.is_empty() or float(p[2]) > float(best[2])): best = p
+		if not best.is_empty(): break
+	if best.is_empty(): return {}
+	var top: float = best[1]
+	var feet: float = top + float(best[2])
+	if int(best[3]) == 0:   # cut off by the bottom: the perspective fit h = a * feet + b says where the feet are
+		var a: float = rd["fit"][0]
+		var b: float = rd["fit"][1]
+		var est := (top + b) / (1.0 - a) if absf(1.0 - a) > 0.05 else -1.0
+		var seen := 1.0 - top
+		if est < 1.0 or est - top > seen * 2.2: est = top + seen / 0.7   # (a fit that makes no sense: about 70 % of them shows)
+		feet = est
+	return {"top": top, "feet": feet, "x": best[0], "h": best[2]}
+
 func _asst_place() -> void:
 	if not asst.visible:
 		asst_hit.visible = false
 		return
 	var S := get_viewport_rect().size
+	if room_view.visible and room_key != "":
+		var m0 := room_view.material as ShaderMaterial
+		var vw0: float = float(m0.get_shader_parameter("vis_w"))
+		if asst_yaw < 0.0: asst_yaw = fposmod(room_yaw + (Data.ASST_SCREEN_X - 0.5) * vw0, 1.0)
+		var mt := asst_match(room_key, asst_yaw)
+		if not mt.is_empty():
+			# v8.0 (owner): her head on the same line as the nearest person's, her feet on the same floor line:
+			# full body when her feet are on screen, thigh-up (or just her upper body) when the screen cuts her off
+			asst_ref = mt
+			var zm := Data.ROOM_ZOOM
+			var shift := room_pitch * 0.5 * (1.0 - 1.0 / zm) * zm * S.y
+			var yh := S.y * (0.5 + (float(mt["top"]) - 0.5) * zm) - shift
+			var yf := S.y * (0.5 + (float(mt["feet"]) - 0.5) * zm) - shift
+			var body := yf - yh
+			var full := yf <= S.y + 2.0 or yh + body * 0.63 < S.y
+			if full != asst_full:
+				asst_full = full
+				_asst_play(str(asst.get_meta("want", "idle_a")))
+			var cl: Dictionary = ASST_FULL if full else ASST_THIGH
+			var fh: float = body / float(cl["body"])
+			var fw: float = fh * float(cl["aspect"])
+			var d0 := fposmod(asst_yaw - room_yaw + 0.5, 1.0) - 0.5
+			var x0 := S.x * 0.5 + d0 / maxf(vw0, 0.01) * S.x
+			asst.size = Vector2(fw, fh)
+			asst.position = Vector2(x0 - fw * 0.5, yh - float(cl["top"]) * fh)
+			asst_hit.visible = x0 > -fw and x0 < S.x + fw
+			asst_hit.size = Vector2(fw * 0.38, minf(fh, S.y - asst.position.y) * 0.8)
+			asst_hit.position = Vector2(x0 - fw * 0.19, yh)
+			return
+	asst_ref = {}
+	if asst_full:
+		asst_full = false
+		_asst_play(str(asst.get_meta("want", "idle_a")))
 	# v6.1 (owner: full body looked wrong, a giant over the benches): thigh-up, cut by the bottom of the screen like
 	# the people in the foreground, her head just under the menu bar
 	var pad := 0.5 * (Data.ROOM_ZOOM - 1.0) * S.y   # (the most a look up/down moves her: her cut stays below the edge)

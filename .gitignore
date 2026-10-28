@@ -3,3 +3,4 @@ build/
 *.import.tmp
 shipkit_out/
 __pycache__/
+tools/rooms/.yolo/
