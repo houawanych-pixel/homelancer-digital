@@ -196,7 +196,7 @@ func _planet_surface() -> void:
 	var out := await _until(func(): return main.state == "flight" and not _sp().surface_mode, 8.0)
 	main.hud.move_vec = Vector2.ZERO
 	s = _sp()
-	_check("Climb to orbit", out and s.distance_to(s.planet) < 400.0, "alt above planet %d" % int(s.distance_to(s.planet)))
+	_check("Climb to orbit", out and s.distance_to(s.planet) < maxf(400.0, float(s.planet.get_meta("radius")) * 0.45), "alt above planet %d" % int(s.distance_to(s.planet)))
 	# Option B: dock at the planet, choose a surface destination, arrive there
 	var docked := await _dock_at(s.planet)
 	main.hub.show_screen("surface")
@@ -1699,7 +1699,7 @@ func _run() -> void:
 	GS.bounty = {}
 	s.nav_dest = null
 	_press("goto")
-	var arrived := await _until(func(): return s.dock_candidate() == s.planet or s.autopilot == null, 70.0)
+	var arrived := await _until(func(): return s.dock_candidate() == s.planet or s.autopilot == null, 110.0)   # (v8.9: the planet is ~80 km out now)
 	GS.mission = job_keep
 	GS.bounty = bounty_keep
 	_check("Autopilot + warp to planet", arrived and s.dock_candidate() == s.planet, "dist=%d" % int(s.distance_to(s.planet)))
@@ -3808,28 +3808,32 @@ func _job_y() -> void:
 	s.vel = Vector3.ZERO
 	var shell := FileAccess.get_file_as_string("res://web_shell.html")
 	_check("Job Y: version label reads \"Homelancer Digital v1.4u\" or later", Data.VERSION >= "v1.4u" and (shell == "" or shell.find("<title>Homelancer Digital %s</title>" % Data.VERSION) >= 0), Data.VERSION)
-	# more room: everything sits SYSTEM_SPREAD times farther from the main station, sizes unchanged
+	# more room (v8.9 owner, Freelancer maps): every system is fanned out (same shape) to fill its tile, the planets
+	# and fields grow, and nothing leaves the tile
 	var k: float = Data.SYSTEM_SPREAD
 	var core_ok := true
 	for id in Data.CORE_SYSTEMS:
 		var c: Dictionary = Data.CORE_SYSTEMS[id]
 		var n: Dictionary = Data.SYSTEMS[id]
 		var o: Vector3 = c["station"]["pos"]
+		var kk: float = float(n.get("spread", 0.0))
 		if not (n["station"]["pos"] as Vector3).is_equal_approx(o): core_ok = false
-		if not (n["planet"]["pos"] as Vector3).is_equal_approx(o + ((c["planet"]["pos"] as Vector3) - o) * k) or float(n["planet"]["radius"]) != float(c["planet"]["radius"]): core_ok = false
-		if not (n["nebula"]["center"] as Vector3).is_equal_approx(o + ((c["nebula"]["center"] as Vector3) - o) * k): core_ok = false
-		if not (n["gate"]["pos"] as Vector3).is_equal_approx(o + ((c["gate"]["pos"] as Vector3) - o) * k): core_ok = false
+		var want_pl: Vector3 = o + ((c["planet"]["pos"] as Vector3) - o) * kk
+		if (n["planet"]["pos"] as Vector3).distance_to(want_pl) > 0.2 * want_pl.distance_to(o) or not is_equal_approx(float(n["planet"]["radius"]), float(c["planet"]["radius"]) * Data.PLANET_GROW): core_ok = false
 	var all_ok := true
 	var nearest := INF
+	var reach := 0.0
 	for id in Data.SYSTEMS:
 		var sy: Dictionary = Data.SYSTEMS[id]
-		if float(sy.get("spread", 0.0)) != k: all_ok = false
+		if float(sy.get("spread", 0.0)) < k * Data.SYSTEM_FAN[0] - 0.01: all_ok = false
 		var d: float = (sy["planet"]["pos"] as Vector3).distance_to(sy["station"]["pos"]) - float(sy["planet"]["radius"])
 		nearest = minf(nearest, d)
+		for pp in SystemBuilder._positions(sy):
+			reach = maxf(reach, maxf(absf((pp as Vector3).x), absf((pp as Vector3).z)))
 		for g in sy["gates"]:
 			if (g["pos"] as Vector3).distance_to(sy["station"]["pos"]) < 900.0 * k: all_ok = false
-	_check("Job Y: every system has more room: planets, gates, belt, nebula and patrols sit %.1f times farther from the main station, and nothing changed size" % k,
-		k > 1.2 and core_ok and all_ok and s.planet.global_position.is_equal_approx(Data.SYSTEMS[s.sys_id]["planet"]["pos"]), "%d systems, closest planet surface %d m from its station" % [Data.SYSTEMS.size(), int(nearest)])
+	_check("Job Y (v8.9): every system is fanned out to fill its tile (same shape, about %d km across), planets and fields grow, nothing leaves the tile" % int(Data.SYSTEM_REACH * 2.0 / 1000.0),
+		k > 1.2 and core_ok and all_ok and reach < Data.SPACE_EDGE and nearest > 5000.0 and s.planet.global_position.is_equal_approx(Data.SYSTEMS[s.sys_id]["planet"]["pos"]), "%d systems, closest planet surface %d m from its station, farthest object %d km out" % [Data.SYSTEMS.size(), int(nearest), int(reach / 1000.0)])
 	# docking needs you closer
 	var st: Vector3 = s.station.global_position
 	_tp(st + Vector3(Data.DOCK_RANGE_STATION + 45.0, 0, -200), st)
@@ -4028,7 +4032,7 @@ func _job_ae() -> void:
 	await _frames(2)
 	var nm: Control = main.navmap
 	var ppos: Vector3 = s.player.global_position
-	var centred: bool = Vector2(nm.center.x, nm.center.z).distance_to(Vector2(ppos.x, ppos.z)) < 1.0
+	var centred: bool = Vector2(nm.center.x, nm.center.z).length() < 1.0 and ppos != Vector3.INF   # v8.9 (owner, Freelancer): the whole square, its middle in the middle
 	var all_in := true
 	var sysd: Dictionary = Data.SYSTEMS[GS.system_id]
 	for pt in [sysd["station"]["pos"], sysd["planet"]["pos"], sysd["asteroids"]["center"], sysd["nebula"]["center"]] + sysd["gates"].map(func(g): return g["pos"]):
@@ -4037,7 +4041,7 @@ func _job_ae() -> void:
 	await _shot("ae_map_centred_mission", 0.3)
 	main.navmap.visible = false
 	main._on_map_closed()
-	_check("Job AE: the map opens centred on you and zoomed out until the whole system fits round you, with the mission marker on it", centred and all_in and nm.zoom == 1.0 and not w1.is_empty(), "centred %s, all in view %s" % [centred, all_in])
+	_check("Job AE: the map opens on the system's whole square (v8.9, Freelancer), everything in view, with the mission marker on it", centred and all_in and nm.zoom == 1.0 and not w1.is_empty(), "centred %s, all in view %s" % [centred, all_in])
 	# in the target's own system: the ship, then the drifting pilot, then (pilot aboard) the station
 	GS.bounty["sys"] = s.sys_id               # (test only: bring the hunt to this system)
 	var tgt: Dictionary = s.spawn_bounty()
@@ -4569,8 +4573,8 @@ func _job_s() -> void:
 	main.open_map()
 	await _frames(3)
 	var c3: Vector3 = nm.view.center
-	var far_pt := c3 + Vector3(0, 0, -3000)   # (v1.5e: the map is zoomed out further now that it fits the system round the player, so the depth is read 3 km out)
-	var near_pt := c3 + Vector3(0, 0, 3000)
+	var far_pt := c3 + Vector3(0, 0, -Data.SPACE_EDGE * 0.5)   # (v8.9: the map shows the whole tile, so the depth is read half way to its edge)
+	var near_pt := c3 + Vector3(0, 0, Data.SPACE_EDGE * 0.5)
 	var a_far: Vector2 = nm.view.to_screen(far_pt)
 	var a_near: Vector2 = nm.view.to_screen(near_pt)
 	var depth_ok: bool = nm.view.angled and nm.view.persp(far_pt) < 0.97 and nm.view.persp(near_pt) > 1.03 and (nm.view.anchor.y - a_far.y) < (a_near.y - nm.view.anchor.y)
@@ -5567,7 +5571,7 @@ func _job_al() -> void:
 	if nm.dest_rows.has(pkey): nm.tap((nm.dest_rows[pkey] as Rect2).get_center())
 	await _frames(3)
 	var picked: bool = s.nav_dest == s.planet and s.autopilot == null and nm.route.get("name", "") == str(s.planet.name)
-	var eta_ok: bool = absf(float(nm.route.get("eta", 0.0)) - s.distance_to(s.planet) / s.eff_speed()) < 0.5
+	var eta_ok: bool = absf(float(nm.route.get("eta", 0.0)) - s.nav_eta()) < 0.5   # (v8.9: with 20 km/s lanes the GPS often goes by lane: the route's own ETA)
 	await _shot("al_gps_route_map", 0.3)
 	_check("Job AL: the map lists the system's known places nearest first (stations, planet, gates with where they go, asteroid field; no ships), and tapping one makes it the GPS destination with a blue A -> B route, distance and ETA (no autopilot)",
 		has_all and sorted_ok and shown and picked and eta_ok, "%s sorted %s shown %d picked %s eta %s" % [str(kinds), sorted_ok, nm.dest_rows.size(), picked, eta_ok])
@@ -5586,6 +5590,8 @@ func _job_al() -> void:
 	var strip_ok: bool = not g0.is_empty() and g0["name"] == str(s.planet.name) and float(g1["dist"]) < float(g0["dist"]) - 800.0 and float(g1["k"]) > float(g0["k"]) and float(g2["dist"]) > float(g0["dist"])
 	await _shot("al_gps_strip", 0.3)
 	# ETA follows the effective speed: faster in a lane, at warp
+	var lanes_keep: Array = s.lanes   # (v8.9: read the direct ETA: with the lanes this far apart the GPS would pick a lane)
+	s.lanes = []
 	var e_fly: float = s.nav_eta()
 	s.warp_state = "on"
 	var e_warp: float = s.nav_eta()
@@ -5593,6 +5599,7 @@ func _job_al() -> void:
 	s.lane = {"to": "test"}
 	var e_lane: float = s.nav_eta()
 	s.lane = {}
+	s.lanes = lanes_keep
 	var eta_mode: bool = e_warp < e_fly and e_lane < e_warp
 	_check("Job AL: in flight the HUD strip shows A -> B with the name, distance and ETA; the marker closes on B as you fly toward it and falls back if you fly away; the ETA uses the lane's speed in a lane and warp speed at warp",
 		strip_ok and eta_mode, "strip %s (%s / %s / %s) eta fly %.0f warp %.0f lane %.0f" % [strip_ok, str(g0.get("dist", 0)), str(g1.get("dist", 0)), str(g2.get("dist", 0)), e_fly, e_warp, e_lane])
@@ -6301,7 +6308,7 @@ func _job_ap() -> void:
 					if q2.distance_to(r[0]) < float(r[1]) + Data.LANE_RING_RADIUS: hits += 1
 	_check("Job AP: no trade lane runs through an asteroid field in any of the %d systems (the field sits at least its radius + %d m off every lane line), and no rock of this system touches a built lane" % [Data.SYSTEMS.size(), int(Data.LANE_BELT_CLEAR)],
 		bad.is_empty() and hits == 0 and s.lanes.size() >= 2, "blocked %s, rocks on lanes %d, lanes %d" % [str(bad.slice(0, 6)), hits, s.lanes.size()])
-	_check("Job AP: systems are roomier: everything sits %.1fx farther from the main station (was 1.4)" % Data.SYSTEM_SPREAD, Data.SYSTEM_SPREAD > 1.4 and float(Data.SYSTEMS["solara"].get("spread", 0.0)) == Data.SYSTEM_SPREAD)
+	_check("Job AP: systems are roomier: everything sits %.1fx farther from the main station (was 1.4), then fanned out to fill the tile (v8.9)" % Data.SYSTEM_SPREAD, Data.SYSTEM_SPREAD > 1.4 and float(Data.SYSTEMS["solara"].get("spread", 0.0)) >= Data.SYSTEM_SPREAD * Data.SYSTEM_FAN[0])
 	# fastest route: a far gate with a lane to it -> by lane; something close -> direct
 	_tp(s.station.global_position + Vector3(0, 40, 420), s.station.global_position)
 	await _frames(2)
@@ -9410,8 +9417,8 @@ func _job_edge() -> void:
 	var crossed := await _until(func(): return GS.system_id == east and main.state == "flight" and not main.crossing, 25.0)
 	var p: Vector3 = main.space.player.global_position - SystemBuilder.CENTRE
 	var arrive_ok: bool = crossed and p.x < -E + 3000.0 and p.x > -E - 10.0 and absf(p.z - 300.0) < 3000.0
-	_check("v6.2 (owner): a system's space is a 1,000 km tile; flying past 500 km east brings you into the next system east (%s > %s), at its west edge; off the board's edge it wraps round (%s > %s)" % [home, east, far, wrapped],
-		E == 500000.0 and wrap_ok and arrive_ok, "crossed %s, arrived at x %.0f km" % [crossed, p.x / 1000.0])
+	_check("v6.2 (owner): a system's space is one tile (v8.9: 500 km); flying past its east edge brings you into the next system east (%s > %s), at its west edge; off the board's edge it wraps round (%s > %s)" % [home, east, far, wrapped],
+		E == 250000.0 and wrap_ok and arrive_ok, "crossed %s, arrived at x %.0f km" % [crossed, p.x / 1000.0])
 	main._load_system(home, "station")
 	await _frames(3)
 

@@ -35,6 +35,10 @@ var btn_m_go := Rect2()
 signal mission_go
 var btn_mission := Rect2()   # v1.7v (owner): CURRENT MISSION, on the left of the map: one tap makes the job the GPS destination
 var btn_card_x := Rect2()
+var list_open := true        # v8.9 (owner): the place list is a fold-down on the left, like the flight CONTACTS
+var list_head := Rect2()
+var list_rect := Rect2()
+var tile_view := true         # v8.9 (owner, Freelancer): north-up shows the whole square of the system
 var card_rect := Rect2()
 var compass_pos := Vector2.ZERO
 var map_rect := Rect2()
@@ -186,8 +190,11 @@ func tap(p: Vector2) -> void:
 		visible = false
 		closed.emit()
 		return
-	if btn_course.has_point(p):
-		if selected != "" and space != null and space.controls: set_course()
+	if selected != "" and btn_course.has_point(p):
+		if space != null and space.controls: set_course()
+		return
+	if list_head.has_point(p):   # v8.9: fold the place list away to see the map
+		list_open = not list_open
 		return
 	if btn_m_go.size.x > 0.0 and btn_m_go.has_point(p):   # v1.9p: GO: fly the job, all the way
 		gps_note = pick_mission()
@@ -197,7 +204,7 @@ func tap(p: Vector2) -> void:
 	if (btn_m_set.size.x > 0.0 and btn_m_set.has_point(p)) or (btn_mission.size.x > 0.0 and btn_mission.has_point(p)):
 		gps_note = pick_mission()
 		return
-	if selected == "" and space != null:   # v1.5i GPS: the route panel and the destination rows
+	if list_open and space != null:   # v1.5i GPS: the route panel and the destination rows (v8.9: the fold-down list)
 		for k in route_btns:
 			if (route_btns[k] as Rect2).has_point(p):
 				var parts: PackedStringArray = str(k).split("_")
@@ -257,6 +264,7 @@ func pick(p: Vector2) -> String:
 	var best := ""
 	var best_d: float = Data.NAV_HIT_RADIUS
 	for k in hits:
+		if not objs[k].get("seen", true): continue
 		var d := (hits[k] as Vector2).distance_to(p)
 		var reach: float = maxf(Data.NAV_HIT_RADIUS, float(objs[k].get("px", 0.0)))
 		if d < reach and (best == "" or d < best_d):
@@ -306,7 +314,7 @@ func dest_list() -> Array:
 	var rest: Array = []
 	for k in objs:
 		var o: Dictionary = objs[k]
-		if o.get("ship", false) or k == "star": continue
+		if o.get("ship", false) or k == "star" or not o.get("seen", true): continue
 		var kind: String = {"planet": "Planet", "station": "Station", "gate": "Gate", "belt": "Asteroid field", "nebula": "Nebula", "beacon": "Beacon"}.get(str(o["type"]), str(o["type"]).capitalize())
 		if o["type"] == "gate": kind = "%s Gate > %s" % [str(o["data"].get("gkind", "jump")).capitalize(), Data.SYSTEMS[o["data"]["to"]]["name"]]
 		rest.append({"key": k, "name": str(o["name"]), "kind": kind, "dist": pp.distance_to(o["pos"])})
@@ -417,7 +425,7 @@ func _collect() -> void:
 		var neb: Dictionary = nebs[ni]
 		objs["nebula" if ni == 0 else "nebula%d" % ni] = {"type": "nebula", "name": (str(neb["name"]) + " nebula") if str(neb["name"]) != "" else "Nebula",
 			"pos": neb["center"], "col": neb["color"], "r": float(neb["radius"]), "data": neb}
-	var star_pos: Vector3 = space.sun_pos if space != null and space.sun_pos != Vector3.INF else -(sys.get("sun_dir", Vector3(0, -0.3, 1)) as Vector3).normalized() * Data.SUN_DIST
+	var star_pos: Vector3 = space.sun_pos if space != null and space.sun_pos != Vector3.INF else SystemBuilder.sun_pos_of(sys)
 	objs["star"] = {"type": "star", "name": "%s's Star" % sys["name"], "pos": star_pos, "col": sys.get("star", Color(1.0, 0.9, 0.5)), "r": 900.0, "data": {}}
 	if space != null and is_instance_valid(space.player):
 		var i := 0
@@ -430,6 +438,14 @@ func _collect() -> void:
 			if is_instance_valid(tr["node"]):
 				objs["traffic%d" % i] = {"type": "traffic", "name": str((tr["node"] as Node3D).name), "pos": (tr["node"] as Node3D).global_position, "col": GREEN, "r": 8.0, "data": {}, "node": tr["node"], "ship": true}
 			i += 1
+
+## v8.9 (owner, Freelancer fog of war): what you have not flown near stays hidden on the map. The main station, the
+## main planet, the gates and the star are charted from the start.
+func _mark_seen() -> void:
+	for k in objs:
+		var o: Dictionary = objs[k]
+		var always: bool = o.get("main", false) or o["type"] in ["gate", "star", "enemy", "traffic"]
+		o["seen"] = always or GS.seen_at(GS.system_id, o["pos"])
 
 func _extra_at(p: Vector3) -> Node3D:
 	if space == null: return null
@@ -503,28 +519,17 @@ func info(key: String) -> Dictionary:
 # ---------------------------------------------------------------- layout and projection
 func _layout() -> void:
 	var S := get_viewport_rect().size
-	map_rect = Rect2(36, 100, S.x * 0.64, S.y - 130)
+	# v8.9 (owner, Freelancer maps): the map fills the screen; a fold-down place list on the left, the info card on the
+	# right only when something is picked, GALAXY / CLOSE in the top bar.
+	map_rect = Rect2(16, 72, S.x - 32, S.y - 88)
 	var sys: Dictionary = Data.SYSTEMS[GS.system_id]
-	# fit the system into the map
-	var pts := [sys["station"]["pos"], sys["planet"]["pos"], sys["asteroids"]["center"], sys["nebula"]["center"]]
-	if not sys["gate"].is_empty(): pts.append(sys["gate"]["pos"])   # (v6.2: an open square has no gate)
-	for gd0 in sys["gates"]: pts.append(gd0["pos"])
-	for nb0 in SpaceSystem.nebulae_of(GS.system_id, sys): pts.append(nb0["center"])   # v1.9s: the extra clouds fit too
-	for xd0 in sys.get("more_planets", []): pts.append(xd0["pos"])
-	var mn := Vector2(1e9, 1e9)
-	var mx := Vector2(-1e9, -1e9)
-	for p in pts:
-		mn = Vector2(minf(mn.x, p.x), minf(mn.y, p.z))
-		mx = Vector2(maxf(mx.x, p.x), maxf(mx.y, p.z))
-	center = Vector3((mn.x + mx.x) * 0.5, 0, (mn.y + mx.y) * 0.5)
-	var span := (mx - mn) + Vector2(1200, 1200)
-	if space != null and is_instance_valid(space.player):   # v1.5e: in flight the map is centred on YOU, zoomed out until the whole system fits round you
-		var pp0: Vector3 = space.player.global_position
-		center = Vector3(pp0.x, 0, pp0.z)
-		var reach := 0.0
-		for p in pts: reach = maxf(reach, maxf(absf(p.x - pp0.x), absf(p.z - pp0.z)))
-		span = Vector2(reach, reach) * 2.0 + Vector2(1200, 1200)
-	var fit_k := minf(map_rect.size.x / span.x, map_rect.size.y / span.y)
+	var E: float = Data.SPACE_EDGE
+	var pts: Array = SystemBuilder._positions(sys) if sys.has("more_planets") else [sys["station"]["pos"], sys["planet"]["pos"]]
+	center = Vector3.ZERO
+	var span := Vector2(E, E) * 2.0 * 1.08
+	var lw0 := minf(340.0, map_rect.size.x * 0.3) + 20.0 if list_open else 0.0   # v8.9: the square sits in the space the list leaves
+	var free_w := map_rect.size.x - lw0
+	var fit_k := minf(free_w / span.x, (map_rect.size.y - 40.0) / span.y)
 	var angled := NavGrid.tilt == "angled"
 	var depth: float = map_rect.size.y * 0.5 * Data.NAV_DEPTH
 	if heading_up():
@@ -532,25 +537,30 @@ func _layout() -> void:
 		var pp: Vector3 = space.player.global_position
 		view.setup(Vector2(map_rect.size.x * 0.5, map_rect.size.y * Data.NAV_HEADING_ANCHOR), Vector3(pp.x, 0, pp.z), scale_k, -space.player.global_basis.z, angled, depth)
 	else:
-		scale_k = fit_k * zoom * (0.94 if angled else 1.0)
-		view.setup(map_rect.size * 0.5, center + pan, scale_k, Vector3.ZERO, angled, depth)
+		scale_k = fit_k * zoom * (0.9 if angled else 1.0)
+		view.setup(Vector2(lw0 + free_w * 0.5, map_rect.size.y * 0.5 - 10.0), center + pan, scale_k, Vector3.ZERO, angled, depth)
 	clip.position = map_rect.position
 	clip.size = map_rect.size
 	canvas.position = Vector2.ZERO
 	canvas.size = map_rect.size
 	_collect()
+	_mark_seen()
 	hits.clear()
 	for key in objs:
 		var o: Dictionary = objs[key]
 		hits[key] = _w2m(o["pos"])
 		o["px"] = _px(o)
-	# the right column
-	var sm := Rect2(map_rect.end.x + 20, 100, S.x - map_rect.end.x - 56, 250)
-	var bh := 58.0
-	btn_close = Rect2(sm.position.x + sm.size.x * 0.5 + 5, S.y - 30 - bh, sm.size.x * 0.5 - 5, bh)
-	btn_galaxy = Rect2(sm.position.x, S.y - 30 - bh, sm.size.x * 0.5 - 5, bh)
-	btn_course = Rect2(sm.position.x, btn_close.position.y - 10 - bh, sm.size.x, bh)
-	card_rect = Rect2(sm.position.x, 100, sm.size.x, btn_course.position.y - 12 - 100)
+	# top bar
+	var bh := 50.0
+	btn_close = Rect2(S.x - 16 - 140, 12, 140, bh)
+	btn_galaxy = Rect2(btn_close.position.x - 10 - 140, 12, 140, bh)
+	# the place list (left) and the info card (right), both over the map
+	var lw := minf(340.0, map_rect.size.x * 0.3)
+	list_head = Rect2(map_rect.position.x + 10, map_rect.position.y + 10, lw, 44)
+	list_rect = Rect2(list_head.position.x, list_head.end.y + 4, lw, map_rect.size.y - 140) if list_open else Rect2()
+	var cw := minf(340.0, map_rect.size.x * 0.3)
+	card_rect = Rect2(map_rect.end.x - 10 - cw, map_rect.position.y + 10, cw, map_rect.size.y - 150)
+	btn_course = Rect2(card_rect.position.x, card_rect.end.y + 8, cw, 56)
 	btn_card_x = Rect2(card_rect.end.x - 50, card_rect.position.y + 6, 44, 44)
 	# view buttons along the bottom of the map
 	var y := map_rect.end.y - 56.0
@@ -560,10 +570,12 @@ func _layout() -> void:
 	btn_zoom_out = Rect2(map_rect.end.x - 10 - 46 * 3 - 16, y, 46, 46)
 	btn_zoom_in = Rect2(map_rect.end.x - 10 - 46 * 2 - 8, y, 46, 46)
 	btn_fit = Rect2(map_rect.end.x - 10 - 46, y, 46, 46)
-	compass_pos = Vector2(map_rect.end.x - 46, map_rect.position.y + 58)
-	btn_mission = Rect2(map_rect.position.x + 10, map_rect.position.y + 38, minf(300.0, map_rect.size.x * 0.38), 66) if mission_ready() else Rect2()
-	btn_m_set = Rect2(btn_mission.end.x + 8, btn_mission.position.y, 176, 66) if mission_ready() else Rect2()
-	btn_m_go = Rect2(btn_m_set.end.x + 8, btn_mission.position.y, 110, 66) if mission_ready() else Rect2()
+	compass_pos = Vector2(map_rect.end.x - 210, map_rect.end.y - 34)
+	var mx0 := S.x * 0.40
+	btn_mission = Rect2(mx0, 12, minf(300.0, btn_galaxy.position.x - mx0 - 290), bh) if mission_ready() else Rect2()
+	btn_m_set = Rect2(btn_mission.end.x + 8, 12, 170, bh) if mission_ready() else Rect2()
+	btn_m_go = Rect2(btn_m_set.end.x + 8, 12, 90, bh) if mission_ready() else Rect2()
+	if pts.is_empty(): return
 
 ## How big an object is drawn (pixels): its true size, but never smaller than a readable token.
 func _px(o: Dictionary) -> float:
@@ -581,9 +593,8 @@ func _draw() -> void:
 	_layout()
 	draw_rect(Rect2(Vector2.ZERO, S), Color(0.01, 0.03, 0.06, 0.96))
 	var sys: Dictionary = Data.SYSTEMS[GS.system_id]
-	_txt(self, Vector2(36, 50), "NAVIGATION — %s SYSTEM" % sys["name"].to_upper(), 30, CYAN)
-	_txt(self, Vector2(38, 78), "Tap anything to identify it, then SET COURSE to fly there on autopilot." if space != null and space.controls else "Plan your route. Launch to fly it.", 16, Color(0.85, 0.9, 0.95))
-	draw_rect(map_rect, Color(0.012, 0.045, 0.08))
+	_txt(self, Vector2(24, 48), "%s  ·  %s" % [sys["name"].to_upper(), sys.get("tile", "")], 28, CYAN)
+	draw_rect(map_rect, Color(0.01, 0.02, 0.045))
 
 # ---------------------------------------------------------------- the map itself (clipped to the map window)
 func _draw_map() -> void:
@@ -593,16 +604,18 @@ func _draw_map() -> void:
 	var through: Array = []
 	for key in objs:
 		if objs[key]["type"] in ["planet", "station", "gate", "star"]: through.append(objs[key]["pos"])
-	grid_stats = view.draw_grid(ci, local, 0.0, through, true, font)
+	grid_stats = view.draw_grid(ci, local, 0.0, through, false, font, 0.35)
+	_draw_tile(ci, sys)
 	# orbit paths: a polygon circle through each planet, round the middle of the system
 	for key in objs:
 		var o: Dictionary = objs[key]
 		if o["type"] != "planet": continue
+		if not sys.get("sun_center", false) or not o.get("seen", true): continue   # v8.9: orbits only round a sun in the middle
 		var rad := Vector2(o["pos"].x, o["pos"].z).length()
 		if rad > 50.0: ci.draw_polyline(view.plane_ring(Vector3.ZERO, rad, Data.NAV_SIDES["orbit"]), Color(PLANET, 0.22), 1.5)
 	# zones lying on the grid
 	for nk in objs:
-		if objs[nk]["type"] != "nebula": continue
+		if objs[nk]["type"] != "nebula" or not objs[nk].get("seen", true): continue
 		var neb: Dictionary = objs[nk]
 		var np := PackedVector2Array()
 		for i in 14:
@@ -613,6 +626,14 @@ func _draw_map() -> void:
 		_txt(ci, view.to_screen(neb["pos"]) + Vector2(-90, 5), neb["name"], 14, (neb["col"] as Color).lightened(0.45), HORIZONTAL_ALIGNMENT_CENTER, 180)
 	var belt: Dictionary = objs["belt"]
 	var bc := view.to_screen(belt["pos"])
+	if belt.get("seen", true): _draw_belt(ci, belt, bc)
+	# patrol areas
+	for p in sys["patrols"]:
+		if GS.seen_at(GS.system_id, p): ci.draw_polyline(view.plane_ring(p, 2500.0, 12), Color(RED, 0.4), 1.5)
+	_draw_lanes(ci, sys)
+	_draw_rest(ci, sys, local)
+
+func _draw_belt(ci: CanvasItem, belt: Dictionary, bc: Vector2) -> void:
 	ci.draw_polyline(view.plane_ring(belt["pos"], belt["r"], Data.NAV_SIDES["ring"]), Color(belt["col"], 0.8), 2.0)
 	ci.draw_polyline(view.plane_ring(belt["pos"], float(belt["r"]) * 0.55, Data.NAV_SIDES["ring"]), Color(belt["col"], 0.3), 1.0)
 	for i in 26:
@@ -620,9 +641,55 @@ func _draw_map() -> void:
 		var rp: Vector3 = belt["pos"] + Vector3(cos(a2), 0, sin(a2)) * float(belt["r"]) * (0.25 + 0.75 * fmod(i * 0.37, 1.0))
 		NavGrid.rock(ci, view.to_screen(rp), clampf(float(belt["r"]) * scale_k * 0.09, 3.0, 14.0) * (0.7 + 0.5 * fmod(i * 0.61, 1.0)), belt["col"], i)
 	_txt(ci, bc + Vector2(-90, float(belt["px"]) * 0.8 + 20), belt["name"], 14, (belt["col"] as Color).lightened(0.2), HORIZONTAL_ALIGNMENT_CENTER, 180)
-	# patrol areas
-	for p in sys["patrols"]:
-		ci.draw_polyline(view.plane_ring(p, 150.0, 12), Color(RED, 0.4), 1.5)
+
+## v8.9 (owner, Freelancer maps): the system's square: 8 x 8 squares A-H / 1-8, a bright border where the system
+## ends, and the fog over the squares you have not flown near yet.
+func _draw_tile(ci: CanvasItem, sys: Dictionary) -> void:
+	var E: float = Data.SPACE_EDGE
+	var n: int = Data.MAP_CELLS
+	var w := 2.0 * E / n
+	for row in n:   # the squares you have seen are lit; the rest stay dark (fog of war)
+		for col in n:
+			var x0 := -E + col * w
+			var z0 := -E + row * w
+			var quad := PackedVector2Array([view.to_screen(Vector3(x0, 0, z0)), view.to_screen(Vector3(x0 + w, 0, z0)), view.to_screen(Vector3(x0 + w, 0, z0 + w)), view.to_screen(Vector3(x0, 0, z0 + w))])
+			NavGrid.fill(ci, quad, Data.SYS_MAP_SEEN if GS.cell_seen(GS.system_id, Vector2i(col, row)) else Data.SYS_MAP_FOG)
+	var lines := PackedVector2Array()
+	for i in range(1, n):
+		var v := -E + i * w
+		lines.append(view.to_screen(Vector3(v, 0, -E)))
+		lines.append(view.to_screen(Vector3(v, 0, E)))
+		lines.append(view.to_screen(Vector3(-E, 0, v)))
+		lines.append(view.to_screen(Vector3(E, 0, v)))
+	ci.draw_multiline(lines, Color(CYAN, 0.42), 1.6)
+	var border := PackedVector2Array([view.to_screen(Vector3(-E, 0, -E)), view.to_screen(Vector3(E, 0, -E)), view.to_screen(Vector3(E, 0, E)), view.to_screen(Vector3(-E, 0, E)), view.to_screen(Vector3(-E, 0, -E))])
+	ci.draw_polyline(border, Color(CYAN, 0.35), 8.0)
+	ci.draw_polyline(border, Color(CYAN.lightened(0.35), 0.95), 2.5)
+	for i in n:   # the square names round the edge
+		var mid := -E + (i + 0.5) * w
+		_txt(ci, view.to_screen(Vector3(mid, 0, -E)) + Vector2(-10, -10), "ABCDEFGHIJK"[i], 18, Color(GOLD, 0.95))
+		_txt(ci, view.to_screen(Vector3(mid, 0, E)) + Vector2(-10, 26), "ABCDEFGHIJK"[i], 18, Color(GOLD, 0.95))
+		_txt(ci, view.to_screen(Vector3(-E, 0, mid)) + Vector2(-26, 7), str(i + 1), 18, Color(GOLD, 0.95))
+		_txt(ci, view.to_screen(Vector3(E, 0, mid)) + Vector2(10, 7), str(i + 1), 18, Color(GOLD, 0.95))
+
+## v8.9 (owner, Freelancer maps): the trade lanes as dotted lines (in flight: the real lanes; docked: from the data).
+func _draw_lanes(ci: CanvasItem, sys: Dictionary) -> void:
+	var segs: Array = []
+	if space != null and not space.lanes.is_empty():
+		for ln in space.lanes:
+			var rows: Array = ln["up"]
+			if rows.size() >= 2: segs.append([rows[0], rows[-1], rows])
+	elif not SystemBuilder.is_enemy_space(sys) and not sys.get("open", false):
+		segs.append([sys["station"]["pos"], sys["planet"]["pos"], []])
+		for g in sys["gates"]: segs.append([sys["station"]["pos"], g["pos"], []])
+	for sg in segs:
+		var a := view.to_screen(sg[0])
+		var b := view.to_screen(sg[1])
+		ci.draw_line(a, b, Color(Data.LANE_TINT, 0.25), 7.0)
+		ci.draw_line(a, b, Color(Data.LANE_TINT, 0.85), 2.0)
+		for rp in sg[2]: ci.draw_circle(view.to_screen(rp), 3.0, Color(Data.LANE_TINT.lightened(0.4), 0.9))
+
+func _draw_rest(ci: CanvasItem, sys: Dictionary, local: Rect2) -> void:
 	# the course: under the bodies, over the grid
 	route = {}
 	var dest_n: Node3D = null
@@ -665,6 +732,7 @@ func _draw_map() -> void:
 	order.sort_custom(func(a4, b4): return (hits[a4] as Vector2).y < (hits[b4] as Vector2).y)
 	for key in order:
 		var o2: Dictionary = objs[key]
+		if not o2.get("seen", true): continue   # v8.9: still in the fog
 		var c := view.to_screen(o2["pos"])
 		var r: float = o2["px"]
 		if not local.grow(r * 2.0 + 160.0).has_point(c): continue   # outside the map window
@@ -702,7 +770,7 @@ func _draw_map() -> void:
 		var pp := view.to_screen(space.player.global_position)
 		var fw: Vector3 = -space.player.global_basis.z
 		var dir := Vector2(fw.x, fw.z).rotated(view.rot)
-		for rr2 in [400.0, 1200.0]:   # range rings
+		for rr2 in [Data.FOG_REVEAL]:   # v8.9: the ring you uncover the map within
 			ci.draw_polyline(view.plane_ring(space.player.global_position, rr2, Data.NAV_SIDES["ring"]), Color(1, 1, 1, 0.16), 1.0)
 		NavGrid.fill(ci, NavGrid.poly(pp, 22.0, 12), Color(1, 1, 1, 0.1))
 		NavGrid.dart(ci, pp, 17.0, dir, Color.WHITE, true)
@@ -725,59 +793,49 @@ func _draw_over() -> void:
 	var sys: Dictionary = Data.SYSTEMS[GS.system_id]
 	# compass: always there, always points at true north
 	NavGrid.compass(ci, compass_pos, 26.0, view.north_angle(), font)
-	_txt(ci, map_rect.position + Vector2(12, 24), ("HEADING-UP" if heading_up() else "NORTH-UP") + ("  ·  ANGLED" if NavGrid.tilt == "angled" else "  ·  OVERHEAD") + "  ·  grid %s" % _dist(float(grid_stats.get("spacing", 0.0))), 13, Color(CYAN.lightened(0.3), 0.9))
 	_btn(ci, btn_orient, "HEADING-UP" if not heading_up() else "NORTH-UP", space != null, CYAN, 16)
 	_btn(ci, btn_tilt, "OVERHEAD" if NavGrid.tilt == "angled" else "ANGLED", true, CYAN, 16)
 	_btn(ci, btn_zoom_out, "−", zoom > Data.NAV_ZOOM[0] + 0.001, CYAN, 26)
 	_btn(ci, btn_zoom_in, "+", zoom < Data.NAV_ZOOM[1] - 0.001, CYAN, 26)
 	_btn(ci, btn_fit, "FIT", true, CYAN, 14)
-	if btn_mission.size.x > 0.0:   # v1.7v: CURRENT MISSION
+	if btn_mission.size.x > 0.0:   # v1.7v: CURRENT MISSION (v8.9: in the top bar)
 		var mw: Dictionary = space.mission_waypoint()
 		var on: bool = space.gps_mission and space.nav_dest != null and space.nav_dest == mw.get("node")
 		ci.draw_rect(btn_mission, Color(GOLD, 0.85) if on else Color(0.12, 0.09, 0.02, 0.88))
 		ci.draw_rect(btn_mission, GOLD, false, 2.5)
 		var tc: Color = Color(0.08, 0.06, 0.0) if on else GOLD
-		_txt(ci, btn_mission.position + Vector2(12, 26), "★ CURRENT MISSION" + ("  ·  SET" if on else "  ·  TAP"), 17, tc, HORIZONTAL_ALIGNMENT_LEFT, btn_mission.size.x - 24)
-		_txt(ci, btn_mission.position + Vector2(12, 52), str(mw.get("title", "")), 14, tc if on else Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, btn_mission.size.x - 24)
-		_btn(ci, btn_m_set, "SET WAYPOINT" if not on else "WAYPOINT SET", true, Color(0.3, 0.6, 1.0), 15)
-		_btn(ci, btn_m_go, "GO", true, GREEN, 24)
-		# where to go, in plain words (the gate to take, the point, the distance)
-		var wl := str(mw.get("line", ""))
-		var dd: float = space.player.global_position.distance_to((mw["node"] as Node3D).global_position)
-		var lr := Rect2(btn_mission.position.x, btn_mission.end.y + 6, btn_m_go.end.x - btn_mission.position.x, 30)
-		ci.draw_rect(lr, Color(0.0, 0.0, 0.0, 0.6))
-		_txt(ci, lr.position + Vector2(10, 21), "%s  ·  %s" % [wl, _dist(dd)], 14, GOLD, HORIZONTAL_ALIGNMENT_LEFT, lr.size.x - 20)
-	if selected == "":
-		var sm := Rect2(card_rect.position, Vector2(card_rect.size.x, minf(250.0, card_rect.size.y * 0.62)))
-		ci.draw_rect(sm, PANEL)
-		ci.draw_rect(sm, Color(CYAN, 0.35), false, 2)
-		if space != null and is_instance_valid(space.player):   # v1.5i GPS: tap a place to make it the destination
-			_dest_panel(ci, Rect2(card_rect.position, card_rect.size))
-			var can0 := false
-			_btn(ci, btn_course, "SET COURSE", can0, GREEN)
-			_btn(ci, btn_galaxy, "GALAXY", true, CYAN)
-			_btn(ci, btn_close, "CLOSE", true, CYAN)
-			return
-		_txt(ci, sm.position + Vector2(14, 28), "KNOWN SPACE", 16, CYAN)
-		_txt(ci, sm.position + Vector2(14, 52), "%s  ·  tile %s  ·  %s" % [sys["name"], sys.get("tile", "?"), sys.get("faction", "")], 15, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, sm.size.x - 28)
-		var gy := 78.0
-		for gd in sys["gates"]:
-			if gy > sm.size.y - 40: break
-			var known2: bool = gd["to"] in GS.discovered
-			_txt(ci, sm.position + Vector2(14, gy), "%s > %s" % [gd["name"], Data.SYSTEMS[gd["to"]]["name"] + ("" if known2 else "  (uncharted)")], 14, GOLD if known2 else Color(1, 1, 1, 0.6), HORIZONTAL_ALIGNMENT_LEFT, sm.size.x - 28)
-			gy += 22.0
-		_txt(ci, sm.position + Vector2(14, sm.size.y - 14), "%d of %d systems charted." % [GS.discovered.size(), Data.SYSTEMS.size()], 13, Color(0.85, 0.9, 0.95), HORIZONTAL_ALIGNMENT_LEFT, sm.size.x - 28)
-		var hint := Rect2(sm.position.x, sm.end.y + 12, sm.size.x, card_rect.end.y - sm.end.y - 12)
-		ci.draw_rect(hint, PANEL)
-		ci.draw_rect(hint, Color(CYAN, 0.35), false, 2)
-		_txt(ci, hint.position + Vector2(14, 30), "No destination selected.", 16, Color(1, 1, 1, 0.75))
-		ci.draw_multiline_string(font, hint.position + Vector2(14, 54), "Tap a planet, station, gate or ship to see what it is. Pinch or use + and − to zoom.", HORIZONTAL_ALIGNMENT_LEFT, hint.size.x - 28, 14, 4, Color(1, 1, 1, 0.6))
-	else:
+		_txt(ci, btn_mission.position + Vector2(10, 21), "★ MISSION" + ("  ·  SET" if on else ""), 15, tc, HORIZONTAL_ALIGNMENT_LEFT, btn_mission.size.x - 20)
+		_txt(ci, btn_mission.position + Vector2(10, 42), str(mw.get("title", "")), 12, tc if on else Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, btn_mission.size.x - 20)
+		_btn(ci, btn_m_set, "SET WAYPOINT" if not on else "WAYPOINT SET", true, Color(0.3, 0.6, 1.0), 14)
+		_btn(ci, btn_m_go, "GO", true, GREEN, 22)
+	_btn(ci, btn_galaxy, "GALAXY", true, CYAN, 18)
+	_btn(ci, btn_close, "CLOSE", true, CYAN, 18)
+	# v8.9 (owner): the place list folds down on the left, like CONTACTS in flight
+	var hc := Color(0.02, 0.06, 0.1, 0.9)
+	ci.draw_rect(list_head, hc)
+	ci.draw_rect(list_head, Color(CYAN, 0.6), false, 2)
+	_txt(ci, list_head.position + Vector2(12, 29), ("▾ " if list_open else "▸ ") + "PLACES" + ("" if space == null else "  ·  %d" % dest_list().size()), 17, CYAN, HORIZONTAL_ALIGNMENT_LEFT, list_head.size.x - 24)
+	if list_open:
+		if space != null and is_instance_valid(space.player): _dest_panel(ci, list_rect)
+		else: _known_panel(ci, list_rect, sys)
+	if selected != "":
 		_card(ci)
-	var can := selected != "" and space != null and space.controls
-	_btn(ci, btn_course, "SET COURSE", can, GREEN)
-	_btn(ci, btn_galaxy, "GALAXY", true, CYAN)
-	_btn(ci, btn_close, "CLOSE", true, CYAN)
+		var can := space != null and space.controls
+		_btn(ci, btn_course, "SET COURSE", can, GREEN)
+
+## Docked (no ship in space): what is known about this system.
+func _known_panel(ci: CanvasItem, sm: Rect2, sys: Dictionary) -> void:
+	ci.draw_rect(sm, PANEL)
+	ci.draw_rect(sm, Color(CYAN, 0.35), false, 2)
+	_txt(ci, sm.position + Vector2(14, 28), "KNOWN SPACE", 16, CYAN)
+	_txt(ci, sm.position + Vector2(14, 52), "%s  ·  tile %s  ·  %s" % [sys["name"], sys.get("tile", "?"), sys.get("faction", "")], 15, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, sm.size.x - 28)
+	var gy := 78.0
+	for gd in sys["gates"]:
+		if gy > sm.size.y - 40: break
+		var known2: bool = gd["to"] in GS.discovered
+		_txt(ci, sm.position + Vector2(14, gy), "%s > %s" % [gd["name"], Data.SYSTEMS[gd["to"]]["name"] + ("" if known2 else "  (uncharted)")], 14, GOLD if known2 else Color(1, 1, 1, 0.6), HORIZONTAL_ALIGNMENT_LEFT, sm.size.x - 28)
+		gy += 22.0
+	_txt(ci, sm.position + Vector2(14, sm.size.y - 14), "%d of %d systems charted." % [GS.discovered.size(), Data.SYSTEMS.size()], 13, Color(0.85, 0.9, 0.95), HORIZONTAL_ALIGNMENT_LEFT, sm.size.x - 28)
 
 var dest_rows := {}   # key -> Rect2 (screen) of the destination list rows drawn last frame
 
@@ -824,9 +882,9 @@ func _dest_panel(ci: CanvasItem, rc: Rect2) -> void:
 		var rr := Rect2(rc.position.x + 8, y, rc.size.x - 16, 34)
 		var mine: bool = cur != null and (str(cur.name) == str(r["name"]).validate_node_name() or str(cur.name) == r["name"] or (r["key"] != "mission" and _node(str(r["key"])) == cur))
 		ci.draw_rect(rr, Color(col, 0.28) if mine else Color(1, 1, 1, 0.04))
-		_txt(ci, rr.position + Vector2(8, 15), str(r["name"]), 13, GOLD if r["key"] == "mission" else Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, rr.size.x - 130)
+		_txt(ci, rr.position + Vector2(8, 15), str(r["name"]), 13, GOLD if r["key"] == "mission" else Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, rr.size.x - 112)
 		_txt(ci, rr.position + Vector2(8, 29), str(r["kind"]), 10, Color(0.75, 0.85, 0.95), HORIZONTAL_ALIGNMENT_LEFT, rr.size.x - 130)
-		_txt(ci, rr.position + Vector2(rr.size.x - 92, 22), _dist(float(r["dist"])), 13, CYAN, HORIZONTAL_ALIGNMENT_RIGHT, 80)
+		_txt(ci, rr.position + Vector2(rr.size.x - 100, 22), _dist(float(r["dist"])), 13, CYAN, HORIZONTAL_ALIGNMENT_RIGHT, 92)
 		dest_rows[str(r["key"])] = Rect2(rr.position + position, rr.size)
 		y += 37.0
 

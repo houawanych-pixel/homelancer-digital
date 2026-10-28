@@ -38,6 +38,29 @@ var view := "chase" # "chase" or "cockpit"
 var form := "ship" # "ship" or "mech" (the player frame transforms between them; damage carries over)
 var system_id := "solara"
 var discovered := ["solara"]
+var explored := {}   # v8.9 (owner, Freelancer fog of war): system id -> bit mask of the 8 x 8 map squares you have seen
+## v8.9: the map square (col, row: 0..7, A..H / 1..8) a point of a system lies in.
+static func map_cell(p: Vector3) -> Vector2i:
+	var E: float = Data.SPACE_EDGE
+	var n: int = Data.MAP_CELLS
+	return Vector2i(clampi(int(floor((p.x + E) / (2.0 * E / n))), 0, n - 1), clampi(int(floor((p.z + E) / (2.0 * E / n))), 0, n - 1))
+func cell_seen(sys: String, c: Vector2i) -> bool:
+	return (int(explored.get(sys, 0)) >> (c.y * Data.MAP_CELLS + c.x)) & 1 == 1
+func seen_at(sys: String, p: Vector3) -> bool: return cell_seen(sys, map_cell(p))
+## Mark every square within `r` of a point as seen. Returns true when something new was seen.
+func explore(sys: String, p: Vector3, r: float) -> bool:
+	var m: int = int(explored.get(sys, 0))
+	var before := m
+	var n: int = Data.MAP_CELLS
+	var E: float = Data.SPACE_EDGE
+	var w := 2.0 * E / n
+	for row in n:
+		for col in n:
+			var lo := Vector2(-E + col * w, -E + row * w)
+			var q := Vector2(clampf(p.x, lo.x, lo.x + w), clampf(p.z, lo.y, lo.y + w))
+			if q.distance_to(Vector2(p.x, p.z)) <= r: m |= 1 << (row * n + col)
+	explored[sys] = m
+	return m != before
 var last_base := "liberty_hub"
 var kills := 0
 var met: Array = [] # character ids, most recent first
@@ -62,7 +85,7 @@ var god_mode := false # only used by the automated route test
 
 # ---------------------------------------------------------------- v1.7y saving
 const SAVE_KEYS := ["credits", "ship_id", "owned_ships", "weapon_id", "owned_weapons", "missiles", "heavy_missiles", "mines", "rack",
-	"owned_racks", "slots", "modes", "view", "system_id", "discovered", "last_base", "kills", "met", "mood", "memory", "heat_shield",
+	"owned_racks", "slots", "modes", "view", "system_id", "discovered", "explored", "last_base", "kills", "met", "mood", "memory", "heat_shield",
 	"bounty", "bounties_done", "mission", "cargo", "missions_done", "rep", "cast", "mine_kind", "block_deltas", "tutorial_seen", "bounty_jail", "mounts", "core_gun", "core_gun2", "core_gun3", "modules", "owned_modules", "gun_levels", "owned_mechs", "mech_parts", "pilot_name"]   # (v1.9e: + mounts; v1.9i: + owned_mechs, mech_parts; v1.9j: + pilot_name)
 var save_path: String = Data.SAVE_PATH
 var save_enabled := true   # (the route test turns it off, so a test never reads or writes a player's save)

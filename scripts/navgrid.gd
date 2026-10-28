@@ -156,8 +156,9 @@ func _clip(a: Vector2, b: Vector2, rect: Rect2, circle_r: float) -> Array:
 ## Draw the grid into `rect` (or into the circle of radius circle_r round its centre). `through` = world points
 ## that must sit on a grid crossing: a pair of lines is drawn through each. Returns what was drawn, for the tests:
 ## {"major": n, "minor": n, "ticks": n, "through": n, "spacing": metres between major lines, "labels": [...]}
-func draw_grid(ci: CanvasItem, rect: Rect2, circle_r := 0.0, through: Array = [], labels := false, font: Font = null) -> Dictionary:
+func draw_grid(ci: CanvasItem, rect: Rect2, circle_r := 0.0, through: Array = [], labels := false, font: Font = null, dim := 1.0) -> Dictionary:
 	var lv := levels(k, major_px)
+	for li0 in lv.size(): lv[li0] = [lv[li0][0], lv[li0][1], float(lv[li0][2]) * dim]   # v8.9: the system map draws this grid faintly under its A-H / 1-8 squares
 	# the part of the world this window can see
 	var mn := Vector2(INF, INF)
 	var mx := Vector2(-INF, -INF)
@@ -234,7 +235,7 @@ func draw_grid(ci: CanvasItem, rect: Rect2, circle_r := 0.0, through: Array = []
 			op.append(seg3[0])
 			op.append(seg3[1])
 	if op.size() >= 2:
-		ci.draw_multiline(op, Color(CYAN, Data.NAV_GRID_ALPHA[1] * 1.6), 1.0)
+		ci.draw_multiline(op, Color(CYAN, Data.NAV_GRID_ALPHA[1] * 1.6 * dim), 1.0)
 		out["through"] = op.size() / 2
 	if labels and font != null:
 		for lb in out["labels"]:

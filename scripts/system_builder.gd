@@ -289,11 +289,20 @@ static func _system(t: Array) -> Dictionary:
 	}
 
 ## v1.4u: more room. Everything in a system moves Data.SYSTEM_SPREAD times farther from its main station (sizes stay).
+## v8.9 (owner, Freelancer maps): then the whole system fans out again (same shape) until its farthest object sits about
+## Data.SYSTEM_REACH from the centre, fields and planets grow, nothing sits on the sun, and the unknown areas are laid
+## out round a sun in the middle.
 static func spread(out: Dictionary) -> void:
-	var k: float = Data.SYSTEM_SPREAD
 	for id in out:
 		var sy: Dictionary = out[id]
 		var o: Vector3 = sy["station"]["pos"]
+		var k: float = Data.SYSTEM_SPREAD
+		var ds: Array = []
+		for p0 in _positions(sy): ds.append(Vector2((p0 as Vector3).x - o.x, (p0 as Vector3).z - o.z).length() * Data.SYSTEM_SPREAD)
+		ds.sort()
+		var typical: float = ds[int(ds.size() * 0.6)] if not ds.is_empty() else 1.0   # (a typical distance, not the odd far planet)
+		var fan: float = clampf(Data.SYSTEM_REACH / maxf(typical, 1.0), Data.SYSTEM_FAN[0], Data.SYSTEM_FAN[1])
+		k *= fan
 		sy["planet"]["pos"] = o + ((sy["planet"]["pos"] as Vector3) - o) * k
 		var done: Array = []
 		for g in sy["gates"] + ([sy["gate"]] if not sy["gate"].is_empty() else []):
@@ -306,6 +315,90 @@ static func spread(out: Dictionary) -> void:
 		sy["patrols"] = pts
 		for x in sy["more_planets"] + sy["more_stations"]: x["pos"] = o + ((x["pos"] as Vector3) - o) * k
 		sy["spread"] = k
+		sy["fan"] = fan
+		# sizes: the fields and the planets grow so they read at this scale
+		sy["asteroids"]["radius"] = float(sy["asteroids"].get("radius", 380.0)) * Data.FIELD_GROW
+		sy["planet"]["radius"] = float(sy["planet"]["radius"]) * Data.PLANET_GROW
+		for x in sy["more_planets"]: x["radius"] = float(x["radius"]) * Data.PLANET_GROW
+		if is_unknown(sy): _orbit_layout(id, sy)
+		_keep_off_sun(sy)
+		_keep_in_tile(sy)
+
+## v8.9: one place, pulled in toward the centre if it would sit past Data.SYSTEM_EDGE_SOFT (the far ones bunch up
+## a little near the border instead of running off the tile).
+static func _soft(p: Vector3) -> Vector3:
+	var flat := Vector2(p.x, p.z)
+	var d := flat.length()
+	var soft: float = Data.SYSTEM_EDGE_SOFT
+	if d <= soft: return p
+	var d2 := minf(soft + (d - soft) * 0.25, Data.SPACE_EDGE * 0.86)
+	flat = flat / d * d2
+	return Vector3(flat.x, p.y, flat.y)
+
+## Every place in a system (for measuring and moving).
+static func _positions(sy: Dictionary) -> Array:
+	var out: Array = [sy["station"]["pos"], sy["planet"]["pos"], sy["asteroids"]["center"], sy["nebula"]["center"]]
+	for g in sy["gates"]: out.append(g["pos"])
+	for x in sy["more_planets"] + sy["more_stations"]: out.append(x["pos"])
+	return out
+
+## Where the sun sits: in the middle of an unknown area, else far out along its light (space.gd uses the same rule).
+static func sun_pos_of(sy: Dictionary) -> Vector3:
+	if sy.get("sun_center", false): return Vector3.ZERO
+	return -(sy.get("sun_dir", Vector3(0, -0.3, 1)) as Vector3).normalized() * Data.SUN_DIST
+
+## v8.9 (owner): the unknown areas: the sun in the middle and everything on its own orbit round it (each keeps its bearing).
+static func _orbit_layout(id: String, sy: Dictionary) -> void:
+	sy["sun_center"] = true
+	var O: Dictionary = Data.UNKNOWN_ORBITS
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash("orbits:" + id)
+	var put := func(p: Vector3, r: float) -> Vector3:
+		var a := atan2(p.z, p.x) if Vector2(p.x, p.z).length() > 1.0 else rng.randf() * TAU
+		return Vector3(cos(a) * r, clampf(p.y, -3000.0, 3000.0), sin(a) * r)
+	var st_old: Vector3 = sy["station"]["pos"]
+	sy["station"]["pos"] = put.call(st_old, O["station"])
+	var shift: Vector3 = (sy["station"]["pos"] as Vector3) - st_old
+	sy["planet"]["pos"] = put.call(sy["planet"]["pos"], O["planet"])
+	sy["asteroids"]["center"] = put.call(sy["asteroids"]["center"], O["asteroids"])
+	sy["nebula"]["center"] = put.call(sy["nebula"]["center"], O["nebula"])
+	for g in sy["gates"]: g["pos"] = put.call(g["pos"], O["gate"])
+	if not sy["gate"].is_empty() and not sy["gates"].any(func(d): return is_same(d, sy["gate"])): sy["gate"]["pos"] = put.call(sy["gate"]["pos"], O["gate"])
+	for x in sy["more_planets"] + sy["more_stations"]: x["pos"] = put.call(x["pos"], rng.randf_range(O["extra"][0], O["extra"][1]))
+	var pts: Array = []
+	for p in sy["patrols"]: pts.append((p as Vector3) + shift)   # the patrols stay round the station
+	sy["patrols"] = pts
+	sy["sun_dir"] = ((sy["station"]["pos"] as Vector3).normalized() + Vector3(0, -0.3, 0)).normalized()   # the light runs out from the middle
+
+## v8.9: nothing is placed on (or too near) the sun: anything inside SUN_KEEP_OUT sun radii is pushed straight out.
+static func _keep_off_sun(sy: Dictionary) -> void:
+	var sp := sun_pos_of(sy)
+	var keep: float = Data.SUN_RADIUS * (0.35 if sy.get("small_sun", false) else 1.0) * Data.SUN_KEEP_OUT
+	var push := func(p: Vector3, r: float) -> Vector3:
+		var need := keep + r
+		var d := p - sp
+		if d.length() >= need: return p
+		if d.length() < 1.0: d = Vector3(1, 0, 0)
+		return sp + d.normalized() * need
+	sy["station"]["pos"] = push.call(sy["station"]["pos"], 2000.0)
+	sy["planet"]["pos"] = push.call(sy["planet"]["pos"], float(sy["planet"]["radius"]) * 1.5)
+	sy["asteroids"]["center"] = push.call(sy["asteroids"]["center"], float(sy["asteroids"]["radius"]))
+	sy["nebula"]["center"] = push.call(sy["nebula"]["center"], float(sy["nebula"].get("radius", 400.0)) * Data.NEBULA_SIZE)
+	for g in sy["gates"]: g["pos"] = push.call(g["pos"], 2000.0)
+	for x in sy["more_planets"] + sy["more_stations"]: x["pos"] = push.call(x["pos"], float(x.get("radius", 100.0)) * 1.5 + 1000.0)
+
+## v8.9: everything stays inside the tile, a margin in from its edge (the border is where you cross to the next square).
+static func _keep_in_tile(sy: Dictionary) -> void:
+	var lim: float = Data.SPACE_EDGE * 0.88
+	var clampv := func(p: Vector3) -> Vector3:
+		var q := _soft(p)
+		return Vector3(clampf(q.x, -lim, lim), q.y, clampf(q.z, -lim, lim))
+	sy["station"]["pos"] = clampv.call(sy["station"]["pos"])
+	sy["planet"]["pos"] = clampv.call(sy["planet"]["pos"])
+	sy["asteroids"]["center"] = clampv.call(sy["asteroids"]["center"])
+	sy["nebula"]["center"] = clampv.call(sy["nebula"]["center"])
+	for g in sy["gates"]: g["pos"] = clampv.call(g["pos"])
+	for x in sy["more_planets"] + sy["more_stations"]: x["pos"] = clampv.call(x["pos"])
 
 ## One gate in system `a` leading to `b`, set in the direction `b` lies on the map (north on the map = -Z in flight).
 static func _link(out: Dictionary, rows: Dictionary, kind: String, a: String, b: String, wrap := false) -> void:

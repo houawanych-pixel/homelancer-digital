@@ -354,7 +354,7 @@ func _build_environment() -> void:
 	add_child(sun)
 	# The sun: an invisible sphere holds its place (and is the kill line); a bright core you can see from anywhere
 	# and a billboard glow ride on it. It sits far out, toward the edge of the system but not on the border.
-	sun_pos = -d * Data.SUN_DIST
+	sun_pos = SystemBuilder.sun_pos_of(sys)   # v8.9: in the middle of an unknown area, else far out along its light
 	var core := MeshInstance3D.new()
 	var sm := SphereMesh.new()
 	sm.radius = sun_radius
@@ -1488,11 +1488,71 @@ func _build_belt(d: Dictionary) -> void:
 		mmi.name = "Asteroids%d" % v
 		add_child(mmi)
 
+## v8.9 (owner, Freelancer fields): the field is a zone tens of km wide. Seen from anywhere it is a cloud of plain
+## rocks (one batch per rock shape, a fixed count however big the field: cheap). The mineable block asteroids are few
+## and are kept in a bubble round the ship while you are inside the zone (Freelancer's trick: rocks only near you).
+var field_rocks: Array = []        # [centre, radius] of the scenery rocks (solid: you bump off them)
+var _bubble_t := 0.0
+func _build_field_rocks(d: Dictionary, holder: Node3D) -> void:
+	field_rocks.clear()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(sys_id) + 41
+	var r: float = belt_radius
+	var per: int = Data.FIELD_ROCKS / 3
+	for v in 3:
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = _rock_mesh(hash(sys_id) + 90 + v, bool(d.get("ice", false)))
+		mm.instance_count = per
+		for i in per:
+			var a := rng.randf() * TAU
+			var dist := sqrt(rng.randf()) * r
+			var p: Vector3 = belt_center + Vector3(cos(a) * dist, rng.randfn(0.0, r * Data.FIELD_THICK), sin(a) * dist * 0.85)
+			var sz := lerpf(Data.FIELD_ROCK_SIZE[0], Data.FIELD_ROCK_SIZE[1], pow(rng.randf(), 2.4))
+			var bs := Basis.from_euler(Vector3(rng.randf() * TAU, rng.randf() * TAU, rng.randf() * TAU)).scaled(Vector3.ONE * sz)
+			mm.set_instance_transform(i, Transform3D(bs, p))
+			field_rocks.append([p, sz * 1.05])
+		var mmi := MultiMeshInstance3D.new()
+		mmi.multimesh = mm
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mmi.name = "FieldRocks%d" % v
+		holder.add_child(mmi)
+
+## v8.9: inside the zone, mineable block asteroids that fell far behind are moved ahead of the ship (whole ones only).
+func _asteroid_bubble(dt: float) -> void:
+	_bubble_t -= dt
+	if _bubble_t > 0.0 or asteroids.is_empty() or not is_instance_valid(player): return
+	_bubble_t = 0.5
+	var pp := player.global_position
+	if pp.distance_to(belt_center) > belt_radius: return
+	var R: float = Data.ASTEROID_BUBBLE
+	var ahead: Vector3 = vel.normalized() if vel.length() > 5.0 else -player.global_basis.z
+	for ast in asteroids:
+		if not is_instance_valid(ast) or ast.has_meta("ring") or ast.vel != Vector3.ZERO or str(ast.name).begins_with("AsteroidPiece"): continue
+		if ast.global_position.distance_to(pp) < R: continue
+		for k in 8:
+			var side := Vector3(_rng.randfn(0, 1), _rng.randfn(0, 0.4), _rng.randfn(0, 1)) * R * 0.5
+			var c: Vector3 = pp + ahead * _rng.randf_range(R * 0.4, R * 0.95) + side
+			if c.distance_to(belt_center) > belt_radius: continue
+			var clear := true
+			for o in asteroids:
+				if o != ast and is_instance_valid(o) and (o as Node3D).global_position.distance_to(c) < float(o.radius) + float(ast.radius) + 10.0: clear = false
+			if c.distance_to(pp) < float(ast.radius) + 60.0: clear = false
+			if not clear: continue
+			ast.global_position = c
+			if ast.has_meta("rock"): (ast.get_meta("rock") as Array)[0] = c
+			bubble_moves += 1
+			break
+var bubble_moves := 0   # (checks)
+var _fog_t := 0.0
+var _cam_prev_ship := Vector3.ZERO
+
 ## v1.7x: the field as block asteroids: a few big ones and many small, spread through the field without overlapping.
 func _build_block_belt(d: Dictionary) -> void:
 	var holder := Node3D.new()
 	holder.name = "Asteroids"
 	add_child(holder)
+	_build_field_rocks(d, holder)
 	var big: int = int(Data.ASTEROID_BIG[0])
 	for i in Data.ASTEROID_COUNT:
 		var size: int = int(Data.ASTEROID_BIG[1]) if i < big else int(round(lerpf(float(Data.ASTEROID_SIZE[0]), float(Data.ASTEROID_SIZE[1]), pow(_rng.randf(), 1.8))))
@@ -1500,7 +1560,7 @@ func _build_block_belt(d: Dictionary) -> void:
 		var p := Vector3.INF
 		for k in 12:
 			var a := _rng.randf() * TAU
-			var dist := sqrt(_rng.randf()) * maxf(10.0, belt_radius - r)
+			var dist := sqrt(_rng.randf()) * minf(Data.ASTEROID_BUBBLE, maxf(10.0, belt_radius - r))   # v8.9: they start in a bubble at the field's heart
 			var c: Vector3 = belt_center + Vector3(cos(a) * dist, _rng.randfn(0.0, 30.0), sin(a) * dist * 0.8)
 			var clear := true
 			for o in rocks:
@@ -1523,6 +1583,7 @@ func _build_block_belt(d: Dictionary) -> void:
 ## Every frame: the asteroids tumble, broken pieces drift apart, and anything past the field's invisible sphere is gone.
 func _update_asteroids(dt: float) -> void:
 	if asteroids.is_empty(): return
+	_asteroid_bubble(dt)
 	var near: bool = is_instance_valid(player) and (player.global_position.distance_to(belt_center) < belt_radius + 3000.0 or in_ring(player.global_position, 3000.0))
 	var bound: float = belt_radius * Data.ASTEROID_BOUND
 	for k in range(asteroids.size() - 1, -1, -1):
@@ -1654,19 +1715,21 @@ static func nebulae_of(id: String, s: Dictionary) -> Array:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(id + "_nebulae")
 	var o: Vector3 = s["station"]["pos"]
-	var avoid: Array = [[o, 1100.0], [s["planet"]["pos"], float(s["planet"]["radius"]) + 700.0]]
+	var K: float = Data.NEBULA_AVOID_K   # v8.9: the old gaps, scaled up with the systems
+	var avoid: Array = [[o, 1100.0 * K], [s["planet"]["pos"], float(s["planet"]["radius"]) + 700.0 * K]]
 	var belt: Dictionary = s.get("asteroids", {})
-	if not belt.is_empty(): avoid.append([belt["center"], float(belt["radius"]) + 300.0])
-	for g in s.get("gates", []): avoid.append([g["pos"], 600.0])
-	for x in s.get("more_planets", []): avoid.append([x["pos"], float(x.get("radius", 300.0)) + 600.0])
-	for x in s.get("more_stations", []): avoid.append([x["pos"], 700.0])
+	if not belt.is_empty(): avoid.append([belt["center"], float(belt["radius"]) + 300.0 * K])
+	for g in s.get("gates", []): avoid.append([g["pos"], 600.0 * K])
+	for x in s.get("more_planets", []): avoid.append([x["pos"], float(x.get("radius", 300.0)) + 600.0 * K])
+	for x in s.get("more_stations", []): avoid.append([x["pos"], 700.0 * K])
+	avoid.append([SystemBuilder.sun_pos_of(s), Data.SUN_RADIUS * Data.SUN_KEEP_OUT])
 	var shifts := [0.11, -0.13, 0.33, -0.3, 0.5]
 	# v1.9z (owner: "the warp gates are hidden inside the nebula clouds, wherever they are"): every WARP gate sits in
 	# its own cloud, Freelancer jump-hole style; systems without one have no gate cloud
 	var gs: Array = s.get("gates", []).filter(func(x): return str(x.get("gkind", "")) in ["warp", "rift"])   # v6.5 (owner): rift gates sit in clouds too
 	for g in gs:
 		var gp: Vector3 = g["pos"]
-		var gr := minf(rng.randf_range(Data.NEBULA_GATE_RADIUS[0], Data.NEBULA_GATE_RADIUS[1]), gp.distance_to(o) - 1100.0)
+		var gr := minf(rng.randf_range(Data.NEBULA_GATE_RADIUS[0], Data.NEBULA_GATE_RADIUS[1]), gp.distance_to(o) - 1100.0 * K)
 		if gr < Data.NEBULA_GATE_RADIUS[0] * 0.7: continue
 		var c0 := gp + Vector3(rng.randfn(0, 1), rng.randfn(0, 0.4), rng.randfn(0, 1)).normalized() * gr * 0.2
 		if c0.distance_to(out[0]["center"]) < gr + float(out[0]["radius"]) * 0.6: continue
@@ -1679,12 +1742,13 @@ static func nebulae_of(id: String, s: Dictionary) -> Array:
 		var r := rng.randf_range(Data.NEBULA_EXTRA_RADIUS[0], Data.NEBULA_EXTRA_RADIUS[1])
 		var a := rng.randf() * TAU
 		var dist := rng.randf_range(Data.NEBULA_EXTRA_DIST[0], Data.NEBULA_EXTRA_DIST[1])
-		var c := o + Vector3(cos(a) * dist, rng.randf_range(-350.0, 350.0), sin(a) * dist)
+		var c := o + Vector3(cos(a) * dist, rng.randf_range(-3500.0, 3500.0), sin(a) * dist)
+		if absf(c.x) > Data.SPACE_EDGE * 0.85 or absf(c.z) > Data.SPACE_EDGE * 0.85: continue   # v8.9: inside the tile
 		var ok := true
 		for av in avoid:
 			if c.distance_to(av[0]) < r + float(av[1]): ok = false
 		for nd in out:
-			if c.distance_to(nd["center"]) < r + float(nd["radius"]) + 500.0: ok = false
+			if c.distance_to(nd["center"]) < r + float(nd["radius"]) + 500.0 * K: ok = false
 		if not ok: continue
 		var col: Color = (n["color"] as Color)
 		col.h = fposmod(col.h + float(shifts[(out.size() - 1 + rng.randi_range(0, 1)) % shifts.size()]), 1.0)
@@ -3022,6 +3086,10 @@ func _process(dt: float) -> void:
 		if OS.has_feature("web") or OS.get_environment("HL_PROFILE") != "": print(memory_report())
 	if not is_instance_valid(player): return
 	_update_player(dt)
+	_fog_t -= dt
+	if _fog_t <= 0.0 and not surface_mode:   # v8.9 (owner, Freelancer): the map uncovers round you as you fly
+		_fog_t = 1.0
+		GS.explore(sys_id, player.global_position, Data.FOG_REVEAL)
 	Missions.tick(self, dt)   # v1.5f
 	_update_special(dt)   # v1.5o
 	_update_nav()   # v1.5i
@@ -3244,7 +3312,10 @@ func _update_player(dt: float) -> void:
 	elif GS.form == "mech" and warp_state == "off":
 		_mech_move(dt, thrust, base_speed)
 	elif warp_state == "on":
-		vel = vel.lerp(fwd * base_speed * Data.WARP_MULT, minf(1.0, dt * 1.2))
+		var wsp: float = base_speed * Data.WARP_MULT
+		if autopilot != null and is_instance_valid(autopilot):   # v8.9: at ~3 km/s the autopilot eases off as it closes in (no overshoot)
+			wsp = minf(wsp, maxf(base_speed * 4.0, (autopilot.global_position.distance_to(player.global_position) - 400.0) / Data.WARP_EASE))
+		vel = vel.lerp(fwd * wsp, minf(1.0, dt * 1.2))
 		_booster_particles(dt, 0.5)
 	elif engine_kill:
 		# engines off: keep drifting on the current vector while the nose turns freely.
@@ -3414,7 +3485,9 @@ func _autopilot_input() -> Array:
 	var aligned := local.z < -0.97
 	# long legs: spool the warp drive while flying on, warp, drop out near the destination (and before any atmosphere)
 	if warp_state == "off" and aligned and dist > 1500.0 and planet_hazard == 0: request_warp()
-	if warp_state == "on" and (dist < 650.0 or planet_hazard > 0): drop_warp("Autopilot: dropping out of warp.")
+	var drop_d := 650.0
+	if kind == "planet": drop_d = maxf(650.0, float(autopilot.get_meta("radius")) * (Data.ATMO_OUTER - 1.0) + 450.0)   # v8.9: out of warp before the air
+	if warp_state == "on" and (dist < drop_d or planet_hazard > 0): drop_warp("Autopilot: dropping out of warp.")
 	var th := 1.0 if local.z < -0.3 else 0.2
 	return [steer, Vector2(0, th)]
 
@@ -4958,7 +5031,17 @@ func _collisions(dt: float) -> void:
 			collision_damage("asteroid", vel.dot(-nrm), player.global_position - nrm * 3.5)
 			vel = vel - nrm * vel.dot(nrm) * 1.6
 			p = player.global_position
-	elif in_belt:
+	if in_belt and not field_rocks.is_empty():   # v8.9: the field's scenery rocks are solid too
+		for fr in field_rocks:
+			var fd: float = p.distance_to(fr[0])
+			var frr: float = float(fr[1]) * 0.8 + 3.5
+			if fd < frr:
+				var fn: Vector3 = (p - (fr[0] as Vector3)).normalized()
+				player.global_position = (fr[0] as Vector3) + fn * frr
+				collision_damage("asteroid", vel.dot(-fn), player.global_position - fn * 3.5)
+				vel = vel - fn * vel.dot(fn) * 1.6
+				p = player.global_position
+	if in_belt and asteroids.is_empty():
 		for r in rocks:
 			var d: float = p.distance_to(r[0])
 			var rr: float = r[1] + 3.5
@@ -4978,7 +5061,7 @@ func _collisions(dt: float) -> void:
 			# warp near a planet is deadly: warn inside 1.8x the outer atmosphere, destroy at the atmosphere line
 			var outer := rad * Data.ATMO_OUTER
 			planet_hazard = 0
-			if warp_state == "on" and d2 < outer * 1.8:
+			if warp_state == "on" and d2 < outer * 1.8 and (autopilot == null or d2 < outer * 1.05):   # (v8.9: the autopilot brakes and drops out itself)
 				planet_hazard = 1
 				if d2 < outer and controls:
 					planet_hazard = 2
@@ -5030,6 +5113,8 @@ const LOOK_YAW := 0.5      # radians at full look left/right
 const LOOK_PITCH := 0.22   # radians at full look up/down (less: you shouldn't see past the canopy art)
 
 func _update_camera(dt: float, snap: bool) -> void:
+	var prev_ship := _cam_prev_ship
+	if is_instance_valid(player): _cam_prev_ship = player.global_position
 	_sync_fpv(dt)
 	_sync_hand_gun()
 	if GS.view == "cockpit" and GS.form == "mech" and is_instance_valid(player):   # v1.7z: out of the mech's head, rifle in hand
@@ -5059,7 +5144,11 @@ func _update_camera(dt: float, snap: bool) -> void:
 		up = 5.5
 	var want := player.global_position + player.global_basis * Vector3(0, up, back)
 	if snap: cam.global_position = want
-	else: cam.global_position = cam.global_position.lerp(want, minf(1.0, dt * 6.0))
+	else:   # v8.9: the lag is on the offset from the ship, not on the world position (at warp / lane speed the camera kept falling km behind)
+		var off := cam.global_position - prev_ship
+		if off.length() > 400.0: off = want - player.global_position   # (a jump: start fresh)
+		off = off.lerp(want - player.global_position, minf(1.0, dt * 6.0))
+		cam.global_position = player.global_position + off
 	_cam_clip()
 	var look := player.global_position - player.global_basis.z * 30.0 + player.global_basis.y * 2.6
 	if hit_shake > 0.0: look += Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), 0) * hit_shake * 0.8
