@@ -158,7 +158,7 @@ func _clip(a: Vector2, b: Vector2, rect: Rect2, circle_r: float) -> Array:
 ## {"major": n, "minor": n, "ticks": n, "through": n, "spacing": metres between major lines, "labels": [...]}
 func draw_grid(ci: CanvasItem, rect: Rect2, circle_r := 0.0, through: Array = [], labels := false, font: Font = null, dim := 1.0) -> Dictionary:
 	var lv := levels(k, major_px)
-	for li0 in lv.size(): lv[li0] = [lv[li0][0], lv[li0][1], float(lv[li0][2]) * dim]   # v8.9: the system map draws this grid faintly under its A-H / 1-8 squares
+	var dm := dim   # v8.9: the system map draws this grid faintly under its A-H / 1-8 squares
 	# the part of the world this window can see
 	var mn := Vector2(INF, INF)
 	var mx := Vector2(-INF, -INF)
@@ -189,11 +189,11 @@ func draw_grid(ci: CanvasItem, rect: Rect2, circle_r := 0.0, through: Array = []
 				if li == 0 and labels: out["labels"].append([seg[0], seg[1], ("X " if axis == 0 else "Z ") + _km(v)])
 		if pts.size() >= 2:
 			if li == 0:
-				ci.draw_multiline(pts, Color(CYAN, lv[0][2] * 0.35), Data.NAV_GRID_WIDTH[0] + 4.0)   # glow under the bold lines
-				ci.draw_multiline(pts, Color(CYAN.lightened(0.25), lv[0][2]), Data.NAV_GRID_WIDTH[0])
+				ci.draw_multiline(pts, Color(CYAN, lv[0][2] * 0.35 * dm), Data.NAV_GRID_WIDTH[0] + 4.0)   # glow under the bold lines
+				ci.draw_multiline(pts, Color(CYAN.lightened(0.25), lv[0][2] * dm), Data.NAV_GRID_WIDTH[0])
 				out["major"] = pts.size() / 2
 			else:
-				ci.draw_multiline(pts, Color(CYAN, lv[1][2]), Data.NAV_GRID_WIDTH[1])
+				ci.draw_multiline(pts, Color(CYAN, lv[1][2] * dm), Data.NAV_GRID_WIDTH[1])
 				out["minor"] = pts.size() / 2
 	# micro-ticks: ruler marks along the major lines
 	if lv[2][2] > 0.02:
@@ -222,7 +222,7 @@ func draw_grid(ci: CanvasItem, rect: Rect2, circle_r := 0.0, through: Array = []
 					tp.append(seg2[0])
 					tp.append(seg2[1])
 		if tp.size() >= 2:
-			ci.draw_multiline(tp, Color(CYAN.lightened(0.3), lv[2][2]), 1.0)
+			ci.draw_multiline(tp, Color(CYAN.lightened(0.3), lv[2][2] * dm), 1.0)
 			out["ticks"] = tp.size() / 2
 	# a grid crossing under every object
 	var op := PackedVector2Array()

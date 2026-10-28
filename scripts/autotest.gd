@@ -4609,7 +4609,8 @@ func _job_s() -> void:
 	for gx in range(1, 12):
 		for gy in range(1, 8):
 			var cand: Vector2 = nm.map_rect.position + nm.map_rect.size * Vector2(gx / 12.0, gy / 9.0)
-			if nm.pick(cand) == "" and not nm.btn_orient.has_point(cand) and not nm.btn_tilt.has_point(cand) and empty == Vector2.INF: empty = cand
+			var on_panel: bool = nm.list_head.has_point(cand) or nm.list_rect.has_point(cand) or nm.card_rect.has_point(cand) or nm.btn_course.has_point(cand)   # (v8.9: the fold-down list and the card sit over the map)
+			if nm.pick(cand) == "" and not on_panel and not nm.btn_orient.has_point(cand) and not nm.btn_tilt.has_point(cand) and empty == Vector2.INF: empty = cand
 	nm.tap(empty)
 	var out_closed: bool = nm.selected == ""
 	nm.tap(empty)
