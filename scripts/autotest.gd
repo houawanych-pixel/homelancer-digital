@@ -2854,9 +2854,9 @@ func _job_o() -> void:
 	main.hud._layout()
 	var b: Dictionary = main.hud.buttons
 	# v1.9 (owner): FIRE leads the weapons row top left; the speed row under it reads STOP · ENGINE · THRUST · WARP
-	var layout_ok: bool = b.has("fire") and is_equal_approx((b["fire"] as Rect2).position.y, (b["kill"] as Rect2).position.y) \
+	var layout_ok: bool = b.has("fire") and (b["fire"] as Rect2).end.y <= (b["kill"] as Rect2).position.y \
 		and (b["kill"] as Rect2).position.x > (b["fire"] as Rect2).position.x and (b["thrust"] as Rect2).position.x > (b["kill"] as Rect2).position.x \
-		and (b["stop"] as Rect2).position.x > (b["thrust"] as Rect2).position.x and (b["warp"] as Rect2).position.x > (b["stop"] as Rect2).position.x   # (v7.6 console: FIRE · ENGINE KILL · THRUST | radar | STOP · WARP)   # (v1.9k: engine kill, stop, thrust, warp) and (b["warp"] as Rect2).position.x > (b["thrust"] as Rect2).position.x
+		and (b["stop"] as Rect2).position.x > (b["thrust"] as Rect2).position.x and (b["warp"] as Rect2).position.x > (b["stop"] as Rect2).position.x   # (v7.7 ring console: FIRE over MISSILE 1, then ENGINE KILL · THRUST | radar | STOP · WARP)   # (v1.9k: engine kill, stop, thrust, warp) and (b["warp"] as Rect2).position.x > (b["thrust"] as Rect2).position.x
 	var bolts0: int = s.bolts.size()
 	_press("fire")
 	await _wait(0.6)
