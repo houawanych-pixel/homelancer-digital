@@ -9619,18 +9619,21 @@ func _job_fl() -> void:
 	GS.hull = keep_hl
 	_check("v7.5 (owner's UI sheet): a full super meter readies the special; WARNING / DANGER alert panels draw", alerts_ok)
 	hud._layout()
-	var hidden: bool = not hud.buttons.has("fire") and not hud.buttons.has("tractor") and hud.buttons.has("thrust") and hud.buttons.has("weapons")
+	var hidden: bool = not hud.buttons.has("tractor") and hud.buttons.has("fire") and hud.buttons.has("thrust") and hud.buttons.has("weapons")   # (v7.6: the console always shows; only TRACTOR / GROUND pop up)
 	main._on_hud("weapons")
 	hud._layout()
-	var shown: bool = hud.buttons.has("fire") and hud.buttons.has("shield")
+	var shown: bool = hud.buttons.has("tractor") and hud.buttons.has("ground")
 	main._on_hud("weapons")
 	s.enemies = keep_en
 	var rr: Rect2 = hud.radar_rect()
 	var fr: Rect2 = hud.fl_rect("r")
 	var placed: bool = hud.fl_rect("l").encloses(hud.buttons["goto"]) and hud.buttons.has("radar") and hud.buttons.has("target") \
-		and ["weapons", "log", "view"].all(func(b): return hud.buttons.has(b) and fr.encloses(hud.buttons[b]))   # (v7.3: GO TO by the radar; WEAPONS / COMMS / VIEW in the right window)
+		and ["weapons", "log"].all(func(b): return hud.buttons.has(b) and fr.encloses(hud.buttons[b])) \
+		and (hud.buttons["view"] as Rect2).is_equal_approx(hud.dash_geo()["speed"]) \
+		and ["fire", "kill", "thrust", "shield", "repair"].all(func(b): return hud.buttons.has(b) and (hud.buttons[b] as Rect2).end.x <= rr.position.x) \
+		and ["stop", "warp", "form", "special"].all(func(b): return hud.buttons.has(b) and (hud.buttons[b] as Rect2).position.x >= rr.end.x)   # (v7.6: the console: left wing, radar, right wing; SPEED = the view button)
 	hud.weapons_pinned = true
-	_check("v7.0 (owner mockup): cruising, the weapons and abilities fold away (the flight row stays); WEAPONS brings them back; GO TO beside NEXT in the left window (v7.4; the radar is the map); WEAPONS / COMMS / VIEW in the right window (v7.3)",
+	_check("v7.0 (owner mockup): cruising, the weapons and abilities fold away (the flight row stays); WEAPONS brings them back; GO TO beside NEXT in the left window (v7.4; the radar is the map); WEAPONS / COMMS in the right window; v7.6 console: shield, hull and four buttons left of the radar, power, super and four right; SPEED is the view button",
 		hidden and shown and placed, "hidden %s shown %s placed %s" % [hidden, shown, placed])
 	_check("v6.7 (owner, Freelancer): a contact list (left) and ship panel (right) that fold away; tap a contact = target; guns switch on and off; GO TO goes to the job first; kills blow up big (%.0f, a big ship %.0f) with a flash" % [small, big_b],
 		rows_ok and picked and folded and silent and fires and goto_ok and small >= 50.0 and big_b > small * 2.0 and flash_ok,
