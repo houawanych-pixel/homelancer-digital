@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v8.9"
+const VERSION := "v9.0"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -247,16 +247,16 @@ const BLAST_SIZE_PER_RADIUS := 0.12            # bigger ships blow up bigger: x 
 const BLAST_SCREEN_FLASH := 0.55               # a white flash on screen when a ship goes up close by (0..1)
 const BLAST_FLASH_RANGE := 600.0
 # trade lanes: rings in a row between two places in one system. Dock a ring and the ship is carried down the chain.
-const LANE_RING_GAP := 7000.0         # metres between rings (v8.9: systems fill their tile, lanes run 50-200 km)
+const LANE_RING_GAP := 7000.0         # metres between rings (v9.0: systems fill their tile, lanes run 50-200 km)
 const LANE_MAX_RINGS := 24
 const LANE_MIN_LEN := 1400.0          # shorter runs get no lane
 const LANE_RING_RADIUS := 34.0
 const LANE_STACK := 110.0             # the two directions sit this far apart, one ring above the other
 const LANE_STANDOFF := 330.0          # the end rings sit this far from the station / planet surface / gate
 const LANE_DOCK_RANGE := 240.0        # the LANE prompt shows inside this distance of a ring
-const LANE_SPEED := 20000.0           # cruise in the lane (m/s) (v8.9 owner, Freelancer-size systems: any lane ride ~10-30 s; was 650)
+const LANE_SPEED := 20000.0           # cruise in the lane (m/s) (v9.0 owner, Freelancer-size systems: any lane ride ~10-30 s; was 650)
 const LANE_RAMP := 2.5                # seconds to reach it
-const LANE_SLOW_DIST := 26000.0       # start slowing this far from the last ring (v8.9: was 700 at 650 m/s)
+const LANE_SLOW_DIST := 26000.0       # start slowing this far from the last ring (v9.0: was 700 at 650 m/s)
 const LANE_EXIT_SPEED := 50.0
 const LANE_TINT := Color(0.35, 0.85, 1.0)
 const LANE_TUNNEL_LEN := 640.0        # the energy tunnel that rides on the ship (v1.4u: was 240; long enough to pass behind the camera)
@@ -696,10 +696,10 @@ const CONVOY_WAVE_SHIPS := [3, 4]               # ships in each ambush (the seco
 # v1.7x (owner): asteroids made of blocks, for mining. Rock outside, obsidian streaks, gold / diamond in some cores; no
 # sand or dirt. Zero gravity: broken blocks drift off, and anything floating past the field's invisible sphere is gone.
 const ASTEROIDS_BLOCK := true
-const FIELD_ROCKS := 600               # v8.9: scenery rocks drawn through a whole field (3 batches; fixed, however big the field)
+const FIELD_ROCKS := 600               # v9.0: scenery rocks drawn through a whole field (3 batches; fixed, however big the field)
 const FIELD_ROCK_SIZE := [14.0, 260.0]   # their size range (m), most small
 const FIELD_THICK := 0.12               # how thick the field is (share of its radius, up and down)
-const ASTEROID_BUBBLE := 2500.0         # v8.9: the mineable block asteroids stay within this of you inside the field
+const ASTEROID_BUBBLE := 2500.0         # v9.0: the mineable block asteroids stay within this of you inside the field
 const ASTEROID_COUNT := 18                # block asteroids per field (they replace the old round rocks)
 const ASTEROID_SIZE := [4, 8]             # blocks across (most are small: the size leans to the low end)
 const ASTEROID_BIG := [3, 11]             # [how many big ones, blocks across]
@@ -824,12 +824,12 @@ const FOG_RADIUS := 700.0            # Foggiest: the grey cloud that wraps Greyw
 const FOG_COLOR := Color(0.62, 0.65, 0.7)
 # v1.9s (owner: Freelancer-style nebulae): each cloud is hundreds of soft smoke puffs drawn in one batch, real fog inside
 # that thickens the deeper you go, smoke streaming past the ship, lightning flashes, and more clouds per system.
-const NEBULA_SIZE := 48.0             # the system's own nebula is this many times its listed radius (v8.9 owner, Freelancer: ~40 km across; was 3.2)
+const NEBULA_SIZE := 48.0             # the system's own nebula is this many times its listed radius (v9.0 owner, Freelancer: ~40 km across; was 3.2)
 const NEBULA_EXTRA := 3               # extra unnamed clouds in every system, other sizes and colours
-const NEBULA_EXTRA_RADIUS := [9000.0, 22000.0]   # v8.9: was 700-1600
-const NEBULA_GATE_RADIUS := [6000.0, 10000.0]   # the cloud a gate hides in (Freelancer: gates in the clouds); one of the extras (v8.9: was 850-1300)
-const NEBULA_EXTRA_DIST := [45000.0, 175000.0]   # how far from the main station the extra clouds sit (v8.9: was 2.6-5.8 km)
-const NEBULA_AVOID_K := 8.0          # v8.9: the clouds keep this many times their old gaps from stations, planets and the field
+const NEBULA_EXTRA_RADIUS := [9000.0, 22000.0]   # v9.0: was 700-1600
+const NEBULA_GATE_RADIUS := [6000.0, 10000.0]   # the cloud a gate hides in (Freelancer: gates in the clouds); one of the extras (v9.0: was 850-1300)
+const NEBULA_EXTRA_DIST := [45000.0, 175000.0]   # how far from the main station the extra clouds sit (v9.0: was 2.6-5.8 km)
+const NEBULA_AVOID_K := 8.0          # v9.0: the clouds keep this many times their old gaps from stations, planets and the field
 const NEBULA_PUFFS := 240             # smoke puffs in a full-size cloud (smaller clouds get fewer)
 const NEBULA_PUFF_ALPHA := 0.55
 const NEBULA_FOG_DENSITY := 0.005   # (v1.9z: thicker: deep inside you see a few hundred metres, not the other side)    # fog at the heart of a cloud (things ~600 m off fade into the haze)
@@ -861,15 +861,15 @@ const STATION_MODEL_YAW := {"hollow_requiem": 90.0}   # degrees: the dead liner 
 
 # ---------------------------------------------------------------- Job Y (v1.4u): more room, cleaner prompts, lane tunnel
 const SYSTEM_SPREAD := 1.8           # every system: planets, gates, belt, nebula and patrols sit this much farther from the main station (v1.5m: was 1.4)
-# v8.9 (owner, Freelancer maps: "use the whole tile"): after SYSTEM_SPREAD each system is fanned out again (same shape, just
+# v9.0 (owner, Freelancer maps: "use the whole tile"): after SYSTEM_SPREAD each system is fanned out again (same shape, just
 # bigger) so its typical object sits about SYSTEM_REACH out; the fan stays between these limits
-const SYSTEM_REACH := 115000.0       # v8.9: a typical object (60th percentile) ends up about this far from the main station
+const SYSTEM_REACH := 115000.0       # v9.0: a typical object (60th percentile) ends up about this far from the main station
 const SYSTEM_FAN := [6.0, 60.0]
 const SYSTEM_EDGE_SOFT := 190000.0   # past this, places are pulled in toward the centre (they bunch a little near the border)
-const FIELD_GROW := 30.0             # v8.9: asteroid fields grow this much (380 m radius -> ~11 km)
-const PLANET_GROW := 3.0             # v8.9: planets grow this much (so they read across a 400 km system)
-const SUN_KEEP_OUT := 2.2            # v8.9: nothing is placed within this many sun radii of the sun
-const UNKNOWN_ORBITS := {"station": 45000.0, "planet": 105000.0, "asteroids": 150000.0, "nebula": 120000.0, "gate": 190000.0, "extra": [70000.0, 200000.0]}   # v8.9 (owner): the unknown areas: the sun in the middle, everything on orbits round it
+const FIELD_GROW := 30.0             # v9.0: asteroid fields grow this much (380 m radius -> ~11 km)
+const PLANET_GROW := 3.0             # v9.0: planets grow this much (so they read across a 400 km system)
+const SUN_KEEP_OUT := 2.2            # v9.0: nothing is placed within this many sun radii of the sun
+const UNKNOWN_ORBITS := {"station": 45000.0, "planet": 105000.0, "asteroids": 150000.0, "nebula": 120000.0, "gate": 190000.0, "extra": [70000.0, 200000.0]}   # v9.0 (owner): the unknown areas: the sun in the middle, everything on orbits round it
 const DOCK_RANGE_STATION := 190.0    # was 260: you must be this close to a station (or its docking mouth) for DOCK
 const DOCK_RANGE_PLANET := 240.0     # was 300: measured from the planet's surface
 const LANE_TUNNEL_BACK := 0.42       # share of the lane tunnel's length that trails BEHIND the ship (so the camera never sees its rim)
@@ -914,11 +914,11 @@ const ASST_HEIGHT := 0.65       # her height as a share of the screen
 const EVEE_VS_MECH := 0.27      # v5.1 (owner): Evee beside a mech reaches a little under its knee
 const CALL_FOLD_AFTER := 9.0   # v5.6: s before a greeting folds to its tab
 const CALL_FACE := 170.0       # v5.5 (owner): a caller's face is this big everywhere (flight comms and the talk box)
-const MAP_CELLS := 8            # v8.9 (owner, Freelancer): the system map is an 8 x 8 grid, columns A-H, rows 1-8
-const SYS_MAP_FOG := Color(0.0, 0.0, 0.01, 0.9)    # v8.9: unseen map squares stay dark ...
+const MAP_CELLS := 8            # v9.0 (owner, Freelancer): the system map is an 8 x 8 grid, columns A-H, rows 1-8
+const SYS_MAP_FOG := Color(0.0, 0.0, 0.01, 0.9)    # v9.0: unseen map squares stay dark ...
 const SYS_MAP_SEEN := Color(0.07, 0.19, 0.34, 0.9)   # ... the ones you have seen are lit
-const FOG_REVEAL := 45000.0      # v8.9: the map squares within this of your ship are uncovered as you fly (fog of war)
-const SPACE_EDGE := 250000.0   # v8.9: 500 km tile (250 km each way; positions shake past ~250 km). v6.2 (owner): each system's space is one tile;
+const FOG_REVEAL := 45000.0      # v9.0: the map squares within this of your ship are uncovered as you fly (fog of war)
+const SPACE_EDGE := 250000.0   # v9.0: 500 km tile (250 km each way; positions shake past ~250 km). v6.2 (owner): each system's space is one tile;
                                # past it you cross into the neighbouring tile of the galaxy board (Pac-Man wrap at the board's edge)
 const WARP_GATE_SQUARES := [3, 4]   # v6.5 (owner): how far a warp gate in the unknown reaches (squares, with the wrap)
 const RIFT_GATE_SQUARES := [5, 6]   # ... and a rift gate
@@ -1226,7 +1226,7 @@ const CAM_PIVOT_UP_MECH := 4.0   # ... and above a mech
 const CAM_CLEAR := 1.2           # it stays this far off the ground / a wall
 const CAM_CLIP_STEPS := 8        # ground samples along the line
 const CAM_FPV_DIST := 3.0        # pulled in closer than this: the ship is hidden (you look from it)
-const SPACE_CAM_FAR := 600000.0    # m: the space camera sees this far (v8.9: the whole 500 km tile; was 32 km)
+const SPACE_CAM_FAR := 600000.0    # m: the space camera sees this far (v9.0: the whole 500 km tile; was 32 km)
 const PLANET_SHELL_RANGE := 12000.0   # m: past this a planet's haze and cloud shells are not drawn (no depth fight far away)
 const EPIC_RANK := 4               # a fight with a pilot of this rank or up (or a boss) plays the EPIC battle music
 const BOUNTY_THANKS := "[smile]Great job, {pilot}. {target} is in our cells now. Here's your {pay} credits. We've got plenty of work, so choose another one."
@@ -1260,13 +1260,13 @@ const MAX_ENERGY_CELLS := 5
 const WARP_CHARGE := 5.0 # seconds of spool; you can keep flying while it charges (SUPERSEDES: warp needed a full stop)
 const ATMO_OUTER := 1.3   # planet radius x: outer atmosphere (haze, glow, rumble, surface data starts loading)
 const ATMO_INNER := 1.02  # planet radius x: entry sphere (commits to the surface)
-const WARP_EASE := 2.2   # v8.9: the autopilot's warp speed is at most (distance left) / this many seconds
-const WARP_MULT := 65.0 # x ship speed (v8.9 owner, Freelancer-size systems: ~3 km/s for the Cadet; was 6)
+const WARP_EASE := 2.2   # v9.0: the autopilot's warp speed is at most (distance left) / this many seconds
+const WARP_MULT := 65.0 # x ship speed (v9.0 owner, Freelancer-size systems: ~3 km/s for the Cadet; was 6)
 const THRUST_MULT := 2.0 # afterburner x ship speed
 const CRUISE := 0.55     # default cruise (x ship speed) with the left stick centred; full back = stop
 # The sun (see docs/DESIGN.md §15): a sphere far out toward the system's edge, with a billboard glow on it.
 const SUN_DIST := 40000.0        # from the system centre: far past the gate (~4,200) and everything else
-const SUN_RADIUS := 15000.0      # the sphere: ~5x the biggest planet (v8.9: planets grew x3; was 5,500). Touching it destroys the ship
+const SUN_RADIUS := 15000.0      # the sphere: ~5x the biggest planet (v9.0: planets grew x3; was 5,500). Touching it destroys the ship
 const SUN_WARN := 1.5            # heat warning inside this many radii
 const SUN_BLOOM_RANGE := 25000.0 # the screen bloom builds over this distance from the surface
 const SUN_SHIELD_SECS := 3.0     # on the sun's surface without a heat shield: shields are gone in this long...
