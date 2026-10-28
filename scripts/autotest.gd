@@ -9659,7 +9659,7 @@ func _job_fl() -> void:
 	_check("v7.7 (owner): a long contact list scrolls with a drag (%d of %d rows hidden) and a tap still picks the row" % [maxs, hud.fl_contacts().size()],
 		maxs > 0 and scrolled == mini(3, maxs) and tapped_ok and prow.size.x > 0.0, "max %d scrolled %d tapped %s" % [maxs, scrolled, tapped_ok])
 	hud._layout()
-	var hidden: bool = not hud.buttons.has("tractor") and hud.buttons.has("fire") and hud.buttons.has("thrust") and hud.buttons.has("weapons")   # (v7.6: the console always shows; only TRACTOR / GROUND pop up)
+	var hidden: bool = not hud.buttons.has("ground") and hud.buttons.has("tractor") and hud.buttons.has("fire") and hud.buttons.has("thrust") and hud.buttons.has("weapons")   # (v7.6: the console always shows; only TRACTOR / GROUND pop up)
 	main._on_hud("weapons")
 	hud._layout()
 	var shown: bool = hud.buttons.has("tractor") and hud.buttons.has("ground")

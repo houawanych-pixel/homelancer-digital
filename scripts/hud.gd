@@ -1192,7 +1192,7 @@ func comms_rect() -> Rect2:
 ## you open them (WEAPONS); otherwise only the flight row (engine, stop, thrust, warp) stays on screen.
 var weapons_open := false
 var weapons_pinned := false   # (the route test keeps every button up)
-const COMBAT_IDS := ["ground", "tractor"]   # (v7.6: the rest live on the console)   # (v7.5: SPECIAL is the super meter on the dash)
+const COMBAT_IDS := ["ground"]   # (v7.6: the rest live on the console; v7.8 owner: TRACTOR always shows)   # (v7.5: SPECIAL is the super meter on the dash)
 func weapons_shown() -> bool:
 	return weapons_pinned or weapons_open or (space != null and is_instance_valid(space.player) and space.hostiles_engaged() > 0)
 
@@ -1762,8 +1762,8 @@ func dash_geo() -> Dictionary:
 	# Two blocks of six buttons, one each side:
 	#   FIRE · TRANSFORM · SHIELD REPAIR        HULL REPAIR · SUPER · MINE
 	#   MISSILE 1 · ENGINE KILL · THRUST        STOP · WARP · MISSILE 2
-	var ro := clampf(S.y * 0.2, 104.0, 160.0)
-	var rad := ro - 46.0
+	var ro := clampf(S.y * 0.155, 92.0, 124.0)   # v7.8 (owner): smaller, so your ship shows above it
+	var rad := ro - 40.0
 	var rc := Vector2(S.x * 0.5, S.y - ro - 6.0)
 	var xl0 := _home("move").x + stick_r + 16.0
 	var xl1 := rc.x - ro - 12.0
@@ -1779,11 +1779,14 @@ func dash_geo() -> Dictionary:
 	var lb := func(k: int, y: float) -> Rect2: return Rect2(lx0 + k * (bsz + gap), y, bsz, bsz)
 	var rb := func(k: int, y: float) -> Rect2: return Rect2(rx0 + k * (bsz + gap), y, bsz, bsz)
 	return {"rc": rc, "rad": rad, "ro": ro,
-		"speed": Rect2(rc.x - 96.0, rc.y - ro - 30.0, 192.0, 44.0),
+		"speed": Rect2(rc.x - 86.0, rc.y - ro - 24.0, 172.0, 40.0),
 		"fire": lb.call(0, by1), "form": lb.call(1, by1), "shield": lb.call(2, by1),
 		"missile1": lb.call(0, by2), "kill": lb.call(1, by2), "thrust": lb.call(2, by2),
 		"repair": rb.call(0, by1), "special": rb.call(1, by1), "super_btn": rb.call(1, by1), "mine": rb.call(2, by1),
 		"stop": rb.call(0, by2), "warp": rb.call(1, by2), "missile2": rb.call(2, by2)}
+
+func _ring_hull_col(v: float) -> Color:
+	return YELLOW if v > 0.5 else (ORANGE if v > 0.25 else RED)
 
 ## A ring gauge: `segs` blocks along the arc a0 -> a1 (radians, Godot's y-down angles), lit from a0 by v.
 func _ring_gauge(c: Vector2, r: float, w: float, a0: float, a1: float, v: float, col: Color, segs: int, blink := false) -> void:
@@ -1849,24 +1852,24 @@ func _dashboard() -> void:
 	# the rings' backing
 	draw_circle(rc, ro + 4.0, Color(0.01, 0.04, 0.09, 0.88))
 	draw_arc(rc, ro + 4.0, 0, TAU, 96, Color(CYAN, 0.8), 2.0, true)
-	draw_arc(rc, rad + 27.0, 0, TAU, 96, Color(CYAN, 0.4), 1.5, true)
+	draw_arc(rc, rad + 22.0, 0, TAU, 96, Color(CYAN, 0.4), 1.5, true)
 	# outer ring: SHIELD over the top (left to right), POWER low left, SUPER low right (both fill upward from the bottom)
 	var sh: float = clampf(GS.shield / maxf(GS.max_shield(), 1.0), 0.0, 1.0)
 	var en: float = clampf(GS.energy / Data.ENERGY_MAX, 0.0, 1.0)
 	var sup: float = clampf(GS.super_charge, 0.0, 1.0)
-	var orr := ro - 9.0
-	_ring_gauge(rc, orr, 14.0, PI + 0.06, TAU - 0.06, sh, Color(0.2, 0.7, 1.0), 16, sh < 0.2 and blink)
-	_ring_gauge(rc, orr, 14.0, PI * 0.5 + 0.06, PI - 0.06, en, GREEN, 8)
-	_ring_gauge(rc, orr, 14.0, PI * 0.5 - 0.06, 0.06, sup, ORANGE.lerp(WHITE, 0.45 * pulse) if sup >= 1.0 else ORANGE, 8)
+	var orr := ro - 8.0
+	_ring_gauge(rc, orr, 12.0, PI + 0.06, TAU - 0.06, sh, Color(0.2, 0.7, 1.0), 16, sh < 0.2 and blink)
+	_ring_gauge(rc, orr, 12.0, PI * 0.5 + 0.06, PI - 0.06, en, GREEN, 8)
+	_ring_gauge(rc, orr, 12.0, PI * 0.5 - 0.06, 0.06, sup, ORANGE.lerp(WHITE, 0.45 * pulse) if sup >= 1.0 else ORANGE, 8)
 	if sup >= 1.0: draw_arc(rc, orr, 0.06, PI * 0.5 - 0.06, 24, Color(ORANGE, 0.3 * pulse), 24.0, true)
 	# inner ring: the hull. BODY on top, L WING and R WING low on each side
 	var hu: float = clampf(GS.hull / maxf(GS.max_hull(), 1.0), 0.0, 1.0)
 	var wl: float = clampf(GS.wing_l / maxf(GS.wing_max(), 1.0), 0.0, 1.0)
 	var wr: float = clampf(GS.wing_r / maxf(GS.wing_max(), 1.0), 0.0, 1.0)
-	var hr := rad + 15.0
-	_ring_gauge(rc, hr, 12.0, -PI * 0.78, -PI * 0.22, hu, _hull_col(hu), 10, hu < 0.25 and blink)
-	_ring_gauge(rc, hr, 12.0, PI * 0.95, PI * 0.55, wl, _hull_col(wl), 6, wl < 0.25 and blink)
-	_ring_gauge(rc, hr, 12.0, PI * 0.05, PI * 0.45, wr, _hull_col(wr), 6, wr < 0.25 and blink)
+	var hr := rad + 13.0   # v7.8 (owner): the hull ring is yellow (orange, then red as it breaks)
+	_ring_gauge(rc, hr, 10.0, -PI * 0.78, -PI * 0.22, hu, _ring_hull_col(hu), 10, hu < 0.25 and blink)
+	_ring_gauge(rc, hr, 10.0, PI * 0.95, PI * 0.55, wl, _ring_hull_col(wl), 6, wl < 0.25 and blink)
+	_ring_gauge(rc, hr, 10.0, PI * 0.05, PI * 0.45, wr, _ring_hull_col(wr), 6, wr < 0.25 and blink)
 	# the radar (tap = map)
 	draw_circle(rc, rad + 2.0, Color(0.01, 0.05, 0.1, 0.9))
 	draw_arc(rc, rad + 2.0, 0, TAU, 64, Color(CYAN, 0.6), 1.5, true)
