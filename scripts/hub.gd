@@ -536,7 +536,7 @@ func show_screen(s: String) -> void:
 					sb2.add_theme_stylebox_override("hover", ul)
 				sb2.pressed.connect(_menu.bind(str(pg[0])))
 				subtabs.add_child(sb2)
-	subtabs.visible = subtabs.get_child_count() > 0 and not hangar
+	subtabs.visible = subtabs.get_child_count() > 0 and not hangar and not panels_hidden
 	_layout_windows(s)
 	header.reset_size()   # v5.3: the boxes fit the words
 	subheader.reset_size()
@@ -1127,6 +1127,7 @@ func set_panels_hidden(h: bool) -> void:
 ## tabs and LAUNCH go too; one small button brings everything back.
 func _photo_words() -> void:
 	for n in [header, subheader, credits_label, status, launch_btn]: n.visible = not panels_hidden
+	if subtabs: subtabs.visible = not panels_hidden and subtabs.get_child_count() > 0 and screen != "equipment"   # v8.4: the small page row goes too
 	_place_calls()
 	left.visible = not panels_hidden and screen != "equipment"
 	show_btn.text = "HIDE PANELS"

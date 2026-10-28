@@ -9757,9 +9757,9 @@ func _job_v35() -> void:
 	await Packs.wait("room_liberator_pilots_lounge", 30.0)
 	await _frames(3)
 	var lounge_ok: bool = hb.room_key == "liberator_pilots_lounge" and hb.find_child("Btn_lounge", true, false) != null \
-		and hb.room_vid_on and hb.room_vid.is_playing() \
-		and hb.room_snd.size() == 3 and absf(hb.third_level(1.0 / 6.0, 0, 0.16) - 0.5) < 0.01 and absf(hb.third_level(1.0 / 3.0, 0, 0.16) - 0.25) < 0.01 \
-		and absf(hb.third_level(1.0 / 3.0, 1, 0.16) - 0.25) < 0.01 and hb.third_level(1.0 / 6.0, 2, 0.16) == 0.0 and absf(db_to_linear(Music.vol_db) - Data.HUB_MUSIC) < 0.01   # v5.9: its sound: 50% faced, 25% each at a join, 0 off screen; music 10%
+		and (not ResourceLoader.exists("res://assets/rooms/liberator/pilots_lounge.ogv") or (hb.room_vid_on and hb.room_vid.is_playing() and hb.room_snd.size() == 3)) \
+		and absf(hb.third_level(1.0 / 6.0, 0, 0.16) - 0.5) < 0.01 and absf(hb.third_level(1.0 / 3.0, 0, 0.16) - 0.25) < 0.01 \
+		and absf(hb.third_level(1.0 / 3.0, 1, 0.16) - 0.25) < 0.01 and hb.third_level(1.0 / 6.0, 2, 0.16) == 0.0 and absf(db_to_linear(Music.vol_db) - Data.HUB_MUSIC) < 0.01   # v5.9: its sound: 50% faced, 25% each at a join, 0 off screen; music 10% (v8.4: the clips wait for the new art's animation)
 	await _shot("v35_room_lounge", 0.2)
 	# v3.7: the assistant stands in the HOME room, keyed out of her green screen; tap her and ask
 	hb.show_screen("hub")
