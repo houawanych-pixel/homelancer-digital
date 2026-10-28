@@ -1024,6 +1024,10 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_DUMP") != "":   # tools/handoff: dump the model table and the system layouts, then stop
+		load("res://tools/handoff/dump.gd").run(OS.get_environment("HL_DUMP"))
+		get_tree().quit()
+		return
 	if _flag("HL_FL"):   # the v6.7 Freelancer panels only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
