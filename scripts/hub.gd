@@ -457,7 +457,11 @@ func open(station_or_planet: Dictionary) -> void:
 	visible = true
 	_load_background()
 	calls = {"l": {}, "r": {}}
+	lockdown = lockdown_due()
 	show_screen("hub")
+	if lockdown:
+		_start_lockdown()
+		return
 	var folk: Array = Factions.people_at(base, Data.SYSTEMS[GS.system_id])   # v5.6 (owner): whoever greets you, on the left
 	if not folk.is_empty():
 		var p: Dictionary = folk[0]["pilot"]
@@ -465,6 +469,44 @@ func open(station_or_planet: Dictionary) -> void:
 			("%s. Welcome to %s." % [str(p["name"]), base["name"]]) if folk[0]["role"] == "leader" else ("%s here. Welcome to %s. I have work for you on the Mission Board." % [p["name"], base["name"]]), str(p["portrait_clean"]), Data.CALL_FOLD_AFTER)
 	status.text = "Docked at %s. Shields and energy restored. REPAIR and RESTOCK are at Equipment." % base["name"]
 	if GS.ore_worth(str(base["name"])) > 0: status.text = "Docked at %s. You carry gold / diamond worth %d cr here: sell it under YOUR SHIP." % [base["name"], GS.ore_worth(str(base["name"]))]
+
+## v9.2 (owner): the lockdown. A station whose people are HOSTILE to you (or worse) sounds the alarm when you dock:
+## security comes for you, you can't launch, and you have to fight through the hub to the hangar (Breakout).
+var lockdown := false
+var breakout: Breakout
+func lockdown_due() -> bool:
+	if not Data.BREAKOUT_ON or kind != "station": return false
+	var own: String = Factions.owner_of(base, Data.SYSTEMS[GS.system_id])
+	return own != "" and Factions.has(own) and Factions.hostile(own)
+
+func lockdown_faction() -> String:
+	var f := str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])).to_lower()
+	if f.begins_with("liberator"): f = "liberator"
+	if f.begins_with("savager"): f = "savagers"
+	return f
+
+func _start_lockdown() -> void:
+	var f := lockdown_faction()
+	for r in Data.BREAKOUT_ROOMS:
+		if Packs.PACKS.has("room_hostile_%s_%s" % [f, r]): Packs.request("room_hostile_%s_%s" % [f, r])
+	launch_btn.disabled = true
+	launch_btn.text = "LOCKED"
+	status.text = "LOCKDOWN. %s security is coming for you: fight your way to the hangar." % str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id]))
+	if breakout == null:
+		breakout = Breakout.new()
+		breakout.name = "Breakout"
+		add_child(breakout)
+		breakout.cleared.connect(_end_lockdown)
+	move_child(breakout, get_child_count() - 1)
+	breakout.start(f, Data.BREAKOUT_ROOMS)
+	_asst_show(screen)
+
+func _end_lockdown() -> void:
+	lockdown = false
+	launch_btn.disabled = false
+	launch_btn.text = "LAUNCH"
+	show_screen("equipment")
+	status.text = "You fought your way to the hangar. Get in and LAUNCH before more of them come."
 
 func _refresh_credits() -> void:
 	credits_label.text = "CREDITS  %d cr" % GS.credits
@@ -604,6 +646,7 @@ void fragment() {
 ## v3.7: she shows on HOME (when her clips are in) and stands at her spot in the room.
 ## v4.6 (owner): she stands on every station page (not in the hangar bay, where the shop is), at the right edge.
 func _asst_on(s: String) -> bool:
+	if lockdown: return false   # v9.2 (owner): Evee is not with you in a lockdown
 	return (s != "equipment" or panels_hidden) and Packs.is_ready("assistant") and ResourceLoader.exists("res://assets/assistant/idle_a.ogv")
 
 func _asst_w() -> float:   # the room the page leaves for her at the right (her body, not the whole clip)

@@ -888,6 +888,9 @@ func _fly_along(p: Node3D, goal: Vector3, k: float) -> void:
 
 func launch() -> void:
 	if state != "hub": return
+	if hub.lockdown:   # v9.2 (owner): no launching in a lockdown until you reach the hangar
+		hub.status.text = "LOCKED DOWN. Fight your way to the hangar first."
+		return
 	state = "launching"
 	hub.visible = false
 	var where: String = hub.base["name"]

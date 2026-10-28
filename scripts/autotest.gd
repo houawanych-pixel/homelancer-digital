@@ -1053,6 +1053,7 @@ func _run() -> void:
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
 		await _wait(1.0)
+		await _job_v92_breakout()
 		await _job_v91_origin()
 		await _job_edge()
 		await _job_open()
@@ -1700,7 +1701,7 @@ func _run() -> void:
 	GS.bounty = {}
 	s.nav_dest = null
 	_press("goto")
-	var arrived := await _until(func(): return s.dock_candidate() == s.planet or s.autopilot == null, 110.0)   # (v8.9: the planet is ~80 km out now)
+	var arrived := await _until(func(): return s.dock_candidate() == s.planet or s.autopilot == null, 200.0)   # (v9.1: the planet is ~160 km out now)
 	GS.mission = job_keep
 	GS.bounty = bounty_keep
 	_check("Autopilot + warp to planet", arrived and s.dock_candidate() == s.planet, "dist=%d" % int(s.distance_to(s.planet)))
@@ -1867,6 +1868,7 @@ func _run() -> void:
 	await _job_v19u()
 	await _job_v19w()
 	await _job_v19x()
+	await _job_v92_breakout()
 	await _job_v91_origin()
 	await _job_edge()
 	await _job_open()
@@ -9397,18 +9399,95 @@ func _job_v19w() -> void:
 ## SLOT INFO, a shop grid with filters, the frame's specs; the mech blueprint shows the same slots (arms = wings).
 ## v3.5 (owner): every page stands you in a 360 room (Liberator's are in): the top bar, a left window, the page in a
 ## right window, HIDE PANELS to look round; drag looks round; the lounge lists who is here.
-## v9.1 (owner: "1,000 km ... I just hope it doesn't shake"): far out in a 1,000 km system the frame is drawn with the
-## world shifted so the ship sits near zero, the camera keeps its exact offset, the ship holds still on screen while
-## it flies, and the shift is gone again for the game logic.
+## v9.2 (owner): dock where they are HOSTILE to you: the alarm, no launching, Evee stays away, and a cover fight in
+## each room to the hangar (five soldiers and a squad leader); duck or side-step to dodge, the sight fires on its own.
+func _job_v92_breakout() -> void:
+	var s := _sp()
+	if s.surface_mode or main.state != "flight": return
+	var rep0: Dictionary = GS.rep.duplicate()
+	var info: Dictionary = s.station.get_meta("info")
+	var own: String = Factions.owner_of(info, Data.SYSTEMS[GS.system_id])
+	if Factions.has(own): Factions.adjust(own, -(Factions.standing(own) + 70.0))
+	main.dock(s.station)
+	await _until(func(): return main.state == "hub", 8.0)
+	await _frames(3)
+	var hb = main.hub
+	var bo: Breakout = hb.breakout
+	var lock_ok: bool = Factions.hostile(own) and hb.lockdown and bo != null and bo.visible and hb.launch_btn.disabled and not hb.asst.visible
+	main.launch()
+	await _frames(2)
+	lock_ok = lock_ok and main.state == "hub"
+	var room_ok: bool = bo != null and bo.strip != null and bo.enemies.size() == Data.BREAKOUT_SOLDIERS + 1 and bo.enemies.filter(func(e): return e["leader"]).size() == 1
+	var art_ok := false   # the four factions with lockdown pictures get them; the rest get their normal room, lit red
+	if bo != null:
+		var probe := Breakout.new()
+		probe.faction = "liberator"
+		var lt: Texture2D = probe._room_texture("main_hub")
+		art_ok = lt != null and lt.resource_path.contains("rooms_hostile") and (bo.strip.resource_path.contains("rooms_hostile") or bo.tint.g < 0.9)
+		probe.free()
+	await _shot("v92_lockdown", 0.3)
+	var duck_ok := false
+	var side_ok := false
+	var hit_ok := false
+	var fire_ok := false
+	if bo != null:
+		for e in bo.enemies: e["t"] = 99.0   # (everyone stays down while each move is tried)
+		var e0: Dictionary = bo.enemies[0]
+		# 1. ducked: the shot misses
+		bo.stick_hold = Vector2(0, 1)
+		await _frames(2)
+		var hp0 := bo.hp
+		var dg0 := bo.dodged
+		e0["state"] = "aim"; e0["lane"] = 0; e0["t"] = 0.02
+		await _frames(4)
+		duck_ok = bo.ducked and bo.hp == hp0 and bo.dodged == dg0 + 1
+		# 2. side-stepped right while it aimed at the middle: misses
+		bo.stick_hold = Vector2(1, 0)
+		await _frames(2)
+		e0["state"] = "aim"; e0["lane"] = 0; e0["t"] = 0.02
+		await _frames(4)
+		side_ok = bo.lane == 1 and bo.hp == hp0 and bo.dodged == dg0 + 2
+		# 3. standing in its line: hit
+		bo.stick_hold = Vector2.ZERO
+		await _frames(2)
+		e0["state"] = "aim"; e0["lane"] = 0; e0["t"] = 0.02
+		await _frames(4)
+		hit_ok = bo.hp < hp0 and bo.hits_taken >= 1
+		await _shot("v92_aiming", 0.1)
+		# 4. the sight on an enemy out of cover: it fires on its own until they drop
+		var e1: Dictionary = bo.enemies[1]
+		e1["state"] = "up"; e1["t"] = 99.0
+		bo.aim_at(e1)
+		await _until(func(): return e1["hp"] <= 0.0, 4.0)
+		fire_ok = e1["hp"] <= 0.0 and bo.shots_fired >= 3
+		bo.stick_hold = null
+	# through every room to the hangar
+	var rooms_seen := 0
+	for r in Data.BREAKOUT_ROOMS.size():
+		if bo == null or not bo.visible: break
+		rooms_seen += 1
+		for e in bo.enemies: e["hp"] = 0.0
+		await _until(func(): return bo.room_i > r or not bo.visible, 5.0)
+	await _frames(3)
+	var out_ok: bool = rooms_seen == Data.BREAKOUT_ROOMS.size() and not hb.lockdown and not bo.visible and hb.screen == "equipment" and not hb.launch_btn.disabled
+	_check("v9.2 (owner): docking where they are hostile starts a lockdown (alarm, LAUNCH locked, Evee away) in the lockdown picture; each room has 5 soldiers + a squad leader; ducking and side-stepping dodge their shots, standing in the line gets you hit, the sight fires on its own; clear %d rooms to reach the hangar and launch" % Data.BREAKOUT_ROOMS.size(),
+		lock_ok and room_ok and art_ok and duck_ok and side_ok and hit_ok and fire_ok and out_ok,
+		"own %s lock %s room %s art %s duck %s side %s hit %s fire %s out %s (rooms %d)" % [own, lock_ok, room_ok, art_ok, duck_ok, side_ok, hit_ok, fire_ok, out_ok, rooms_seen])
+	GS.rep = rep0
+	main.launch()
+	await _until(func(): return main.state == "flight", 8.0)
+	await _frames(3)
+
+## v9.1 (owner: "1,000 km ... I just hope it doesn't shake"): far out in a 1,000 km system the renderer gets the
+## system moved so the ship sits near zero, the camera keeps its exact offset, the ship holds still in view while it
+## flies, and the nodes and game logic never see the shift.
 var _o_rec: Array = []
 func _o_pre() -> void:
 	var s := _sp()
 	if not is_instance_valid(s.player): return
-	_o_rec.append([s.position, s.player.global_position, s.cam.unproject_position(s.player.global_position), s.draw_shift])
-func _o_shot() -> void:
-	var d := OS.get_environment("HL_ORIGIN_SHOTS")
-	if d == "" or _o_rec.size() < 10 or _o_rec.size() > 30: return
-	get_viewport().get_texture().get_image().save_png("%s/f%02d.png" % [d, _o_rec.size()])
+	var A: Vector3 = s.draw_shift
+	var drawn_ship: Vector3 = s.player.global_position - A
+	_o_rec.append([drawn_ship, s.drawn_cam.affine_inverse() * drawn_ship, A, s.player.global_position])
 func _o_move() -> void:
 	var s := _sp()
 	if is_instance_valid(s.player): s.player.global_position += Vector3(0.371, 0.113, -0.921) * 2.71828   # (an untidy step, so rounding shows)
@@ -9421,37 +9500,32 @@ func _job_v91_origin() -> void:
 	s._update_camera(1.0, true)
 	await _frames(4)
 	_o_rec.clear()
-	if DisplayServer.get_name() == "headless":   # (CI draws nothing: do the shift by hand each frame, as the draw would)
-		for i in 45:
-			_o_move()
-			await get_tree().process_frame
-			s._unshift()
-			s._update_camera(0.016, false)
-			s._shift_for_draw()
+	var headless := DisplayServer.get_name() == "headless"   # (CI draws nothing: call the draw step by hand)
+	if not headless: RenderingServer.frame_pre_draw.connect(_o_pre)
+	for i in 45:
+		_o_move()
+		await get_tree().process_frame
+		await get_tree().process_frame
+		if headless:
+			s._pre_draw()
 			_o_pre()
-			s._unshift()
-	else:
-		RenderingServer.frame_pre_draw.connect(_o_pre)
-		RenderingServer.frame_post_draw.connect(_o_shot)
-		get_tree().process_frame.connect(_o_move)
-		await _frames(45)
-		get_tree().process_frame.disconnect(_o_move)
-		RenderingServer.frame_pre_draw.disconnect(_o_pre)
-		RenderingServer.frame_post_draw.disconnect(_o_shot)
-	await get_tree().process_frame
-	var logic_ok: bool = s.position == Vector3.ZERO and s.player.global_position.x > 400000.0
+	if not headless: RenderingServer.frame_pre_draw.disconnect(_o_pre)
+	if OS.get_environment("HL_ORIGIN_SHOTS") != "":   # (tools) a picture far out, and one at the station
+		get_viewport().get_texture().get_image().save_png(OS.get_environment("HL_ORIGIN_SHOTS") + "/far.png")
 	var near_ok := _o_rec.size() > 20
-	var sx: Array = []
+	var logic_ok := true
+	var cs: Array = []
 	for r in _o_rec.slice(8):
-		if (r[1] as Vector3).length() > 16000.0 or (r[3] as Vector3) == Vector3.ZERO: near_ok = false
-		sx.append(r[2])
-	var mean := Vector2.ZERO
-	for v in sx: mean += v
-	mean /= maxf(1.0, sx.size())
+		if (r[0] as Vector3).length() > 16000.0 or (r[2] as Vector3) == Vector3.ZERO: near_ok = false
+		if (r[3] as Vector3).x < 400000.0: logic_ok = false   # the node itself stays where the game put it
+		cs.append(r[1])
+	var mean := Vector3.ZERO
+	for v in cs: mean += v
+	mean /= maxf(1.0, cs.size())
 	var spread := 0.0
-	for v in sx: spread = maxf(spread, (v as Vector2).distance_to(mean))
-	_check("v9.1 (owner): 1,000 km systems: far out the frame is drawn with the system shifted near zero (the ship within 16 km of it), the ship holds still on screen while flying (spread %.3f px), and the game logic never sees the shift" % spread,
-		Data.SPACE_EDGE == 500000.0 and logic_ok and near_ok and spread < 0.25, "frames %d, last drawn ship %s, shift %s" % [_o_rec.size(), str(_o_rec[-1][1]) if _o_rec.size() else "-", str(_o_rec[-1][3]) if _o_rec.size() else "-"])
+	for v in cs: spread = maxf(spread, (v as Vector3).distance_to(mean))
+	_check("v9.1 (owner): 1,000 km systems: far out the renderer gets the system moved near zero (the ship within 16 km of it), the ship holds still in the camera's view while flying (spread %.4f m), and the game never sees the shift" % spread,
+		Data.SPACE_EDGE == 500000.0 and logic_ok and near_ok and spread < 0.002 and s.shift_frames > 0, "frames %d, last drawn ship %s, shift %s" % [_o_rec.size(), str(_o_rec[-1][0]) if _o_rec.size() else "-", str(_o_rec[-1][2]) if _o_rec.size() else "-"])
 	s.player.global_position = keep
 	s._update_camera(1.0, true)
 	await _frames(3)

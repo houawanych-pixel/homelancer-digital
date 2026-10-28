@@ -1323,6 +1323,7 @@ func _warp_hole(g: Node3D) -> MeshInstance3D:
 	sp.amount = Data.WARP_HOLE_SPARKS
 	sp.lifetime = 2.6
 	sp.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE_SURFACE
+	sp.local_coords = true   # v9.1: drawn with the system when it is shifted for drawing
 	sp.emission_sphere_radius = Data.WARP_HOLE_SIZE * 0.7
 	sp.gravity = Vector3.ZERO
 	sp.direction = Vector3.ZERO
@@ -1910,7 +1911,6 @@ func _build_nebula(d: Dictionary) -> void:
 	_neb_stream.name = "NebulaStream"
 	_neb_stream.multimesh = sm
 	_neb_stream.top_level = true
-	_neb_stream.add_to_group("hl_top")   # v9.1: moved with the draw shift
 	_neb_stream.custom_aabb = AABB(-Vector3.ONE * 4e6, Vector3.ONE * 8e6)
 	_neb_stream.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_neb_stream_mat = _puff_mat(nebula_color, 0.0, Vector2(0.12, 0.7))
@@ -2002,7 +2002,6 @@ func _cloud_dome(a: float, col: Color, contrast := 1.0) -> void:
 		m.set_shader_parameter("noise", nt)
 		_dome.material_override = m
 		_dome.top_level = true
-		_dome.add_to_group("hl_top")
 		_dome.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_dome.extra_cull_margin = 16384.0
 		add_child(_dome)
@@ -2109,7 +2108,6 @@ func _update_weather(dt: float) -> void:
 		_neb_wx.name = "NebulaWeather"
 		_neb_wx.multimesh = mm
 		_neb_wx.top_level = true
-		_neb_wx.add_to_group("hl_top")
 		_neb_wx.custom_aabb = AABB(-Vector3.ONE * 4e6, Vector3.ONE * 8e6)
 		_neb_wx.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_neb_wx_mat = ShaderMaterial.new()
@@ -3115,7 +3113,7 @@ func _process(dt: float) -> void:
 	_collisions(dt)
 	if surface_mode: _surface_update(dt)
 	_update_camera(dt, false)
-	_queue_shift()   # v9.1: the floating origin for this frame's drawing (hooks itself up once)
+	_hook_draw_shift()   # v9.1: the floating origin for drawing (hooks itself up once)
 	_update_sun(dt)
 	_ambient_anim(dt)
 	if not is_instance_valid(target): target = null
@@ -4047,7 +4045,6 @@ func _trail_new(src: Node3D) -> void:
 	mi.material_override = _trail_mat
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mi.top_level = true
-	mi.add_to_group("hl_top")
 	add_child(mi)
 	mi.global_transform = Transform3D.IDENTITY
 	trails.append({"mi": mi, "im": im, "src": src, "pts": [], "t": 0.0})
@@ -5123,7 +5120,7 @@ func _update_camera(dt: float, snap: bool) -> void:
 	_sync_fpv(dt)
 	_sync_hand_gun()
 	# v9.1 (owner: 1,000 km systems): the camera is worked out as an offset from the ship (rel), never from its own far-out
-	# world position, so it stays exact when the frame is drawn with the world shifted near zero (see _shift_for_draw)
+	# world position, so it stays exact when the frame is drawn with the world shifted near zero (see _pre_draw)
 	if GS.view == "cockpit" and GS.form == "mech" and is_instance_valid(player):   # v1.7z: out of the mech's head, rifle in hand
 		var mb := player.global_basis
 		var rel0: Vector3 = mb * Data.FPV_EYE
@@ -5224,63 +5221,64 @@ func _cam_clip(rel: Vector3) -> Vector3:
 	return out
 
 ## v9.1 (owner: 1,000 km systems without the shaking): a floating origin for drawing only. Far from the centre a 32-bit
-## position is only good to a few cm, so the ship and camera jitter against each other. Just before each frame is drawn
-## the whole system is moved so the ship sits near zero (the shift is a multiple of ORIGIN_GRID, so it changes rarely
-## and world-space effects don't slide), the camera is put back at its exact offset from the ship, and as soon as the
-## frame is drawn everything goes back. Game logic, saves and the maps never see the shift.
+## position is only good to a few cm, so the ship and camera jitter against each other. Just before each frame is drawn,
+## every visible thing in the system is handed to the renderer moved by -A (A = the ship's position rounded to
+## ORIGIN_GRID, so it changes rarely), and the camera at its exact offset from the ship. Only the renderer's copy moves:
+## the nodes, game logic, timers, saves and the maps never see the shift.
 var _cam_rel := Vector3.ZERO
 var _cam_off := Vector3.ZERO
 var _cam_basis := Basis()
 var _cam_frame := -1
 var draw_shift := Vector3.ZERO   # (tests) the shift used for the last frame drawn
-var _shifted := false
-var _shift_logic_cam := Transform3D()
-var _shift_tops: Array = []
-var shift_frames := 0   # (tests) frames drawn shifted
-func _queue_shift() -> void:
-	if not _shift_hooked:
-		_shift_hooked = true
-		RenderingServer.frame_post_draw.connect(_unshift)
-		get_tree().process_frame.connect(_unshift)
-		get_tree().physics_frame.connect(_unshift)
-		var late := _LateShift.new()   # processed after every other node, so the shift is queued after the HUD's redraws
-		late.sp = self
-		late.name = "LateShift"
-		add_child(late)
+var drawn_cam := Transform3D()   # (tests) the camera as the renderer got it
+var shift_frames := 0            # (tests) frames drawn shifted
 var _shift_hooked := false
-class _LateShift extends Node:
-	var sp: Node
-	func _ready() -> void: process_priority = 100000
-	func _process(_dt: float) -> void: if is_instance_valid(sp): sp._shift_for_draw.call_deferred()
+var _vis: Array = []
+var _vis_dirty := true
+func _hook_draw_shift() -> void:
+	if _shift_hooked: return
+	_shift_hooked = true
+	RenderingServer.frame_pre_draw.connect(_pre_draw)
+	get_tree().node_added.connect(_vis_changed)
+	get_tree().node_removed.connect(_vis_changed)
+func _vis_changed(n: Node) -> void:
+	if n is VisualInstance3D and is_ancestor_of(n): _vis_dirty = true
+func _exit_tree() -> void:
+	if _shift_hooked:
+		_shift_hooked = false
+		if RenderingServer.frame_pre_draw.is_connected(_pre_draw): RenderingServer.frame_pre_draw.disconnect(_pre_draw)
+		if get_tree().node_added.is_connected(_vis_changed): get_tree().node_added.disconnect(_vis_changed)
+		if get_tree().node_removed.is_connected(_vis_changed): get_tree().node_removed.disconnect(_vis_changed)
+func _collect_vis(n: Node) -> void:
+	for c in n.get_children():
+		if c is VisualInstance3D and c != cam: _vis.append(c)
+		_collect_vis(c)
 
-func _shift_for_draw() -> void:
-	if _shifted or not is_inside_tree() or not is_instance_valid(player) or not is_instance_valid(cam): return
+func _pre_draw() -> void:
+	if not is_inside_tree() or not is_instance_valid(player) or not is_instance_valid(cam): return
 	if get_viewport().get_camera_3d() != cam: return
 	var P: Vector3 = player.global_position
 	var g: float = Data.ORIGIN_GRID
 	var A := Vector3(roundf(P.x / g) * g, roundf(P.y / g) * g, roundf(P.z / g) * g)
-	_shifted = true
+	var last := draw_shift
 	draw_shift = A
-	_shift_logic_cam = cam.global_transform
-	_shift_tops.clear()
-	if A != Vector3.ZERO:
-		position = -A
-		for n in get_tree().get_nodes_in_group("hl_top"):   # world nodes that ignore their parent (trails, the cloud dome ...)
-			if n is Node3D and is_ancestor_of(n):
-				(n as Node3D).global_position -= A
-				_shift_tops.append(n)
-		shift_frames += 1
-	if _cam_frame == Engine.get_process_frames(): cam.global_transform = Transform3D(_cam_basis, (P - A) + _cam_rel)
-	else: cam.global_position -= A   # (the camera was placed some other way this frame: just move it with the system)
-
-func _unshift() -> void:
-	if not _shifted: return
-	_shifted = false
-	position = Vector3.ZERO
-	for n in _shift_tops:
-		if is_instance_valid(n): (n as Node3D).global_position += draw_shift
-	_shift_tops.clear()
-	if is_instance_valid(cam): cam.global_transform = _shift_logic_cam
+	if A == Vector3.ZERO and last == Vector3.ZERO:
+		drawn_cam = cam.global_transform
+		return
+	if _vis_dirty:
+		_vis.clear()
+		_collect_vis(self)
+		_vis_dirty = false
+	var RS := RenderingServer
+	for v in _vis:
+		if not is_instance_valid(v) or not (v as Node).is_inside_tree(): continue
+		var gt: Transform3D = (v as Node3D).global_transform
+		gt.origin -= A
+		RS.instance_set_transform((v as VisualInstance3D).get_instance(), gt)
+	if _cam_frame == Engine.get_process_frames(): drawn_cam = Transform3D(_cam_basis, (P - A) + _cam_rel)
+	else: drawn_cam = Transform3D(cam.global_basis, cam.global_position - A)   # (the camera was placed some other way this frame)
+	RS.camera_set_transform(cam.get_camera_rid(), drawn_cam)
+	if A != Vector3.ZERO: shift_frames += 1
 
 func _ambient_anim(dt: float) -> void:
 	if is_instance_valid(planet_clouds): planet_clouds.rotate_y(dt * 0.006)
@@ -6132,7 +6130,7 @@ func _build_surface_env() -> void:
 	cam.near = 0.5
 	cam.fov = 70.0
 	cam.current = true
-	cam.top_level = true   # v9.1 (see _shift_for_draw)
+	cam.top_level = true   # v9.1 (see _pre_draw)
 	add_child(cam)
 
 ## Swap the loaded tile: frees the old tile, its enemies and effects, builds the new one. The player is untouched.

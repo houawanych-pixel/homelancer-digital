@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v9.1"
+const VERSION := "v9.2"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -1267,7 +1267,7 @@ const THRUST_MULT := 2.0 # afterburner x ship speed
 const CRUISE := 0.55     # default cruise (x ship speed) with the left stick centred; full back = stop
 # The sun (see docs/DESIGN.md §15): a sphere far out toward the system's edge, with a billboard glow on it.
 const SUN_DIST := 40000.0        # from the system centre: far past the gate (~4,200) and everything else
-const SUN_RADIUS := 15000.0      # the sphere: ~5x the biggest planet (v9.0: planets grew x3; was 5,500). Touching it destroys the ship
+const SUN_RADIUS := 20000.0      # the sphere: ~5x the biggest planet (v9.0: planets grew x3; was 5,500). Touching it destroys the ship
 const SUN_WARN := 1.5            # heat warning inside this many radii
 const SUN_BLOOM_RANGE := 25000.0 # the screen bloom builds over this distance from the surface
 const SUN_SHIELD_SECS := 3.0     # on the sun's surface without a heat shield: shields are gone in this long...
@@ -1772,3 +1772,21 @@ const CHATTER := {
 	"enemy_warp": ["He's spooling warp — stop him!", "Warp signature! Don't let him jump!"],
 	"critical_damage": ["Critical damage!", "Hull critical — I can't hold!"],
 }
+
+# ---------------------------------------------------------------- v9.2 (owner): the hub lockdown (Breakout)
+# Dock where your standing is HOSTILE or worse: the alarm goes off, no launching until you fight through to the hangar.
+const BREAKOUT_ON := true
+const BREAKOUT_ROOMS := ["main_hub", "pilots_lounge", "shipyard"]   # the way to the hangar, one fight each
+const BREAKOUT_SOLDIERS := 5           # plus their squad leader, in every room
+const BREAKOUT_HP := 100.0             # yours, full again in every room
+const BREAKOUT_SOLDIER_HP := 30.0
+const BREAKOUT_LEADER_HP := 90.0
+const BREAKOUT_SOLDIER_DMG := 9.0      # a shot that finds you
+const BREAKOUT_LEADER_DMG := 16.0
+const BREAKOUT_SHOT_DMG := 10.0        # yours
+const BREAKOUT_FIRE_RATE := 7.0        # your shots a second while the sight is on someone
+const BREAKOUT_AIM_TIME := 0.9         # s an enemy aims (the red line) before it fires: time to duck or side-step
+const BREAKOUT_HIDE := [1.2, 3.2]      # s an enemy stays down between peeks
+const BREAKOUT_CLEAR_PAUSE := 1.6
+const BREAKOUT_DOWN_PAUSE := 2.2
+const BREAKOUT_SIREN_SECONDS := 4.0
