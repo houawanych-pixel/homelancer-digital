@@ -461,7 +461,7 @@ func _fl_panels() -> void:
 		var open: bool = cl_open if side == "l" else sp_open
 		_box(r, Color(PANEL, 0.72), Color(EDGE, 0.8), 8, 2)
 		_text(r.position + Vector2(8, 18), ("CONTACTS" if side == "l" else "SHIP") + ("  ▾" if open else "  ▸"), 13, CYAN_HI)
-		if side == "r": _card_ship(r)
+		pass   # (v7.8 owner: no YOUR SHIP card: the rings round the radar already show it)
 		if side == "r":   # v7.3: WEAPONS · COMMS · VIEW
 			var lit := [weapons_shown(), console_open or comms_open]
 			var names := ["WEAPONS", "COMMS"]
@@ -515,7 +515,7 @@ func _scrollbar(r: Rect2, top: float, at: int, fit: int, total: int) -> void:
 
 func side_rect(side: String) -> Rect2:
 	var w := clampf(S.x * 0.14, 150.0, 190.0)
-	var top := 8.0 + btn * 0.72 + 8.0 + 70.0   # v7.6: under the small top buttons, room for the target / ship card
+	var top := 8.0 + 70.0   # v7.6: room for the target card above (v7.8: the small buttons moved down to the console)
 	var bottom := _home("move").y - stick_r - 12.0
 	var h := minf(w + 90.0, bottom - top)
 	top = bottom - h   # v7.5 (owner): the two windows sit right above the sticks
@@ -576,11 +576,14 @@ func _layout() -> void:
 		var it: String = GS.slots[k]
 		var key := "missile1" if it == "light_missile" else ("missile2" if it == "heavy_missile" else ("mine" if it == "mine" else ""))
 		if key != "": buttons["slot_%d" % k] = dg[key]
-	var sb := Vector2(btn, btn) * 0.72
-	buttons["tractor"] = Rect2(Vector2(8, 8), sb)
-	buttons["ground"] = Rect2(Vector2(16 + sb.x, 8), sb)
+	# v7.8 (owner): TRACTOR and FULL SCREEN sit down with the other buttons: on top of each block, by the radar
+	var sb := Vector2(dg["small"], dg["small"])
+	var lt: Rect2 = dg["shield"]
+	var rt: Rect2 = dg["repair"]
+	buttons["tractor"] = Rect2(Vector2(lt.end.x - sb.x, lt.position.y - 6.0 - sb.y), sb)
+	buttons["ground"] = Rect2(buttons["tractor"].position - Vector2(sb.x + 6.0, 0), sb)
 	if OS.has_feature("web") or OS.get_environment("HL_FS_BUTTON") != "":   # v1.9 (owner): FULL SCREEN
-		buttons["fullscreen"] = Rect2(Vector2(S.x - 8 - sb.x, 8), sb)
+		buttons["fullscreen"] = Rect2(Vector2(rt.position.x, rt.position.y - 6.0 - sb.y), sb)
 	if not weapons_shown():
 		for id in COMBAT_IDS: buttons.erase(id)
 	if space and space.mech_fpv():   # v1.7z: looking out of the mech, KILL (no use to a mech) becomes the rifle's ZOOM
@@ -1778,7 +1781,7 @@ func dash_geo() -> Dictionary:
 	var rx0 := xr0
 	var lb := func(k: int, y: float) -> Rect2: return Rect2(lx0 + k * (bsz + gap), y, bsz, bsz)
 	var rb := func(k: int, y: float) -> Rect2: return Rect2(rx0 + k * (bsz + gap), y, bsz, bsz)
-	return {"rc": rc, "rad": rad, "ro": ro,
+	return {"rc": rc, "rad": rad, "ro": ro, "small": roundf(bsz * 0.68),
 		"speed": Rect2(rc.x - 86.0, rc.y - ro - 24.0, 172.0, 40.0),
 		"fire": lb.call(0, by1), "form": lb.call(1, by1), "shield": lb.call(2, by1),
 		"missile1": lb.call(0, by2), "kill": lb.call(1, by2), "thrust": lb.call(2, by2),
