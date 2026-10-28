@@ -885,6 +885,8 @@ func _flag(n: String) -> bool:
 	return false
 
 func _run() -> void:
+	main.hud.cl_open = true   # (v8.0: the windows start folded; the checks read them open)
+	main.hud.sp_open = true
 	main.hud.weapons_pinned = true   # (v7.0: every button up for the checks; the pop-up has its own check)
 	if OS.get_environment("HL_SOAK") != "":
 		await _soak(int(OS.get_environment("HL_SOAK")))
@@ -1501,8 +1503,8 @@ func _run() -> void:
 	var pick_ok: bool = hq.pick == hq.contact_at(0) and psl.get("mode", "") == "pick" and str(psl.get("face", "")) == str(pc.get("face", "")) and str(psl.get("from", "")).begins_with(str(pc["name"])) \
 		and hq.buttons.has("call_pick") and hq.side_rect("r").encloses(hq.buttons["call_pick"]) and hq.comms_mode == "roster" and not hq.slots["l"].has("mode")
 	await _shot("log_pick", 0.3)
-	var lefts: Array = ["fire", "thrust", "shield", "form"] + ["zoom" if hq.buttons.has("zoom") else "kill"]   # v7.7 (owner's ring console): left block
-	var rights := ["stop", "warp", "repair", "special"]   # v7.7: right block   # (v7.5: SPECIAL is the super meter on the dash) defence + special moves on the right (FULL SCREEN in the web build)
+	var lefts: Array = ["fire", "thrust", "shield", "form", "tractor", "special"] + ["zoom" if hq.buttons.has("zoom") else "kill"]   # v8.0 (owner): eight a side
+	var rights := ["stop", "warp", "repair", "goto", "ground"]   # v8.0: right block   # (v7.5: SPECIAL is the super meter on the dash) defence + special moves on the right (FULL SCREEN in the web build)
 	var eight: bool = lefts.all(func(b): return hq.buttons.has(b) and hq.buttons[b].end.x < hq.S.x * 0.5) and rights.all(func(b): return hq.buttons.has(b) and hq.buttons[b].position.x > hq.S.x * 0.5)
 	var clear := true   # the centre strip sits between the two blocks
 	for b in []:   # (v7.4: GO TO is in the left window) (v7.3: VIEW is in the right window now) (v6.9: the top strip is VIEW and GO TO; MAP = radar, TARGET/SCAN in the contact list, COMMS by the radar)
@@ -9613,11 +9615,18 @@ func _job_fl() -> void:
 	GS.hull = GS.max_hull() * 0.15
 	await _shot("v75_alerts", 0.3)
 	var alerts_ok: bool = hud.space.special_ready() == "meter"
-	s.enemy_missiles.erase(s.enemy_missiles.back())
-	fake.queue_free()
+	if not s.enemy_missiles.is_empty() and s.enemy_missiles.back()["node"] == fake: s.enemy_missiles.erase(s.enemy_missiles.back())
+	if is_instance_valid(fake): fake.queue_free()
 	GS.super_charge = keep_sc
 	GS.hull = keep_hl
 	_check("v7.5 (owner's UI sheet): a full super meter readies the special; WARNING / DANGER alert panels draw", alerts_ok)
+	hud.cl_open = false
+	hud.sp_open = false
+	await _shot("v80_folded", 0.3)
+	var fold_ok: bool = hud.fl_rect("l").end.y <= (hud.dash_geo()["blk_l"] as Rect2).position.y and hud.fl_rect("r").end.y <= (hud.dash_geo()["blk_r"] as Rect2).position.y
+	hud.cl_open = true
+	hud.sp_open = true
+	_check("v8.0 (owner): folded, the CONTACTS and SHIP windows sit right on top of their button blocks", fold_ok)
 	# v7.7 (owner): the windows scroll: a drag on the contact list moves it, a tap still picks the row
 	var extra: Array = []
 	for k in 12:
@@ -9659,19 +9668,19 @@ func _job_fl() -> void:
 	_check("v7.7 (owner): a long contact list scrolls with a drag (%d of %d rows hidden) and a tap still picks the row" % [maxs, hud.fl_contacts().size()],
 		maxs > 0 and scrolled == mini(3, maxs) and tapped_ok and prow.size.x > 0.0, "max %d scrolled %d tapped %s" % [maxs, scrolled, tapped_ok])
 	hud._layout()
-	var hidden: bool = not hud.buttons.has("ground") and hud.buttons.has("tractor") and hud.buttons.has("fire") and hud.buttons.has("thrust") and hud.buttons.has("weapons")   # (v7.6: the console always shows; only TRACTOR / GROUND pop up)
+	var hidden: bool = hud.buttons.has("ground") and hud.buttons.has("tractor") and hud.buttons.has("fire")   # (v8.0: all on the console now) and hud.buttons.has("thrust") and hud.buttons.has("weapons")   # (v7.6: the console always shows; only TRACTOR / GROUND pop up)
 	main._on_hud("weapons")
 	hud._layout()
-	var shown: bool = hud.buttons.has("tractor") and hud.buttons.has("ground")
+	var shown: bool = hud.buttons.has("tractor") and hud.buttons.has("ground") and hud.buttons.has("special")
 	main._on_hud("weapons")
 	s.enemies = keep_en
 	var rr: Rect2 = hud.radar_rect()
 	var fr: Rect2 = hud.fl_rect("r")
-	var placed: bool = hud.fl_rect("l").encloses(hud.buttons["goto"]) and hud.buttons.has("radar") and hud.buttons.has("target") \
+	var placed: bool = hud.fl_rect("l").encloses(hud.buttons["goto_l"]) and hud.buttons.has("goto") and hud.buttons.has("radar") and hud.buttons.has("target") \
 		and ["weapons", "log"].all(func(b): return hud.buttons.has(b) and fr.encloses(hud.buttons[b])) \
 		and (hud.buttons["view"] as Rect2).is_equal_approx(hud.dash_geo()["speed"]) \
-		and ["fire", "kill", "thrust", "shield", "form"].all(func(b): return hud.buttons.has(b) and (hud.buttons[b] as Rect2).end.x <= rr.position.x) \
-		and ["stop", "warp", "repair", "special"].all(func(b): return hud.buttons.has(b) and (hud.buttons[b] as Rect2).position.x >= rr.end.x)   # (v7.6: the console: left wing, radar, right wing; SPEED = the view button)
+		and ["fire", "kill", "thrust", "shield", "form", "tractor", "special"].all(func(b): return hud.buttons.has(b) and (hud.buttons[b] as Rect2).end.x <= rr.position.x) \
+		and ["stop", "warp", "repair", "goto", "ground"].all(func(b): return hud.buttons.has(b) and (hud.buttons[b] as Rect2).position.x >= rr.end.x)   # (v7.6: the console: left wing, radar, right wing; SPEED = the view button)
 	hud.weapons_pinned = true
 	_check("v7.0 (owner mockup): cruising, the weapons and abilities fold away (the flight row stays); WEAPONS brings them back; GO TO beside NEXT in the left window (v7.4; the radar is the map); WEAPONS / COMMS in the right window; v7.6 console: shield, hull and four buttons left of the radar, power, super and four right; SPEED is the view button",
 		hidden and shown and placed, "hidden %s shown %s placed %s" % [hidden, shown, placed])

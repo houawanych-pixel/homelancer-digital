@@ -342,6 +342,7 @@ func _on_hud(id: String) -> void:
 	if id.begins_with("slot_"):
 		space.fire_slot(int(id.substr(5)))
 		return
+	if id == "goto_l": id = "goto"   # v8.0: the contact window's GO TO = the console's
 	match id:
 		"missile": space.trigger_system("missile")
 		"shield": space.trigger_system("shield")

@@ -297,15 +297,18 @@ func close_comms() -> void:
 ## LEFT, where the enemy calls come in: the contact list. Tap a row = target it (its red arrow then points the way).
 ## RIGHT, where your calls come in: hull, shield, repairs, and every gun on the ship to switch on or off.
 ## Each folds to a small tab. A call on that side covers it while it lasts.
-var cl_open := true
-var sp_open := true
+var cl_open := false   # v8.0 (owner): the windows start folded on top of the buttons; tap to open them out to the sides
+var sp_open := false
 const FL_ROWS := 6
 const FL_TAB_H := 30.0   # v7.3: the WEAPONS / COMMS / VIEW row under the right window's title
 const FL_TGT_H := 26.0   # v7.6: just the NEXT · GO TO · SCAN row (the target itself is the red card above)   # v6.9: the target block on top of the contact list (name, distance, shield + hull, SCAN, NEXT)
 func fl_rect(side: String) -> Rect2:
 	var sr := side_rect(side)
 	var open: bool = cl_open if side == "l" else sp_open
-	if not open: return Rect2(sr.position if side == "l" else Vector2(sr.end.x - clampf(S.x * 0.2, 190.0, 250.0), sr.position.y), Vector2(sr.size.x if side == "l" else clampf(S.x * 0.2, 190.0, 250.0), 26.0 if side == "l" else 26.0 + FL_TAB_H))
+	if not open:   # v8.0 (owner): folded, the title sits right on top of its button block, clear of the sides
+		var blk: Rect2 = dash_geo()["blk_l" if side == "l" else "blk_r"]
+		var hh := 26.0 if side == "l" else 26.0 + FL_TAB_H
+		return Rect2(blk.position.x, blk.position.y - 8.0 - hh, blk.size.x, hh)
 	var w := clampf(S.x * 0.2, 190.0, 250.0)
 	var r := Rect2(sr.position.x if side == "l" else sr.end.x - w, sr.position.y, w, sr.size.y)
 	return r
@@ -358,7 +361,7 @@ func _fl_buttons() -> void:
 			var list := fl_contacts()
 			var bw2: float = (r.size.x - 16) / 3.0
 			buttons["target"] = Rect2(r.position + Vector2(4, 30 + FL_TGT_H - 26), Vector2(bw2, 24))   # v6.9: NEXT target
-			buttons["goto"] = Rect2(r.position + Vector2(8 + bw2, 30 + FL_TGT_H - 26), Vector2(bw2, 24))   # v7.4 (owner): GO TO next to NEXT (job, waypoint, then target)
+			buttons["goto_l"] = Rect2(r.position + Vector2(8 + bw2, 30 + FL_TGT_H - 26), Vector2(bw2, 24))   # v7.4 (owner): GO TO next to NEXT (job, waypoint, then target)
 			if space.target != null and is_instance_valid(space.target):
 				buttons["scan"] = Rect2(r.position + Vector2(12 + bw2 * 2, 30 + FL_TGT_H - 26), Vector2(bw2, 24))
 			var y1: float = 30 + FL_TGT_H + 4
@@ -399,13 +402,13 @@ func fl_tap(id: String) -> bool:
 
 ## v6.9: the target (or the job) on top of the contact list, with its shield and hull, and SCAN / NEXT under it.
 func _fl_target(r: Rect2) -> void:   # v7.6: the row of NEXT · GO TO · SCAN (the target is the red card above)
-	for id in ["target", "goto", "scan"]:
+	for id in ["target", "goto_l", "scan"]:
 		if not buttons.has(id): continue
 		var br: Rect2 = buttons[id]
-		var on: bool = id == "goto" and space.autopilot != null
-		var bc: Color = {"target": GOLD, "goto": GREEN, "scan": CYAN}[id]   # v7.7 (owner): NEXT yellow, GO TO green
+		var on: bool = id == "goto_l" and space.autopilot != null
+		var bc: Color = {"target": GOLD, "goto_l": GREEN, "scan": CYAN}[id]   # v7.7 (owner): NEXT yellow, GO TO green
 		_box(br, Color(bc, 0.35 if on else 0.16), Color(bc, 0.85), 6, 1)
-		_text(Vector2(br.position.x, br.position.y + 17), {"target": "NEXT ▸", "scan": "SCAN", "goto": "GO TO"}[id], 12, WHITE, HORIZONTAL_ALIGNMENT_CENTER, br.size.x)
+		_text(Vector2(br.position.x, br.position.y + 17), {"target": "NEXT ▸", "scan": "SCAN", "goto_l": "GO TO"}[id], 12, WHITE, HORIZONTAL_ALIGNMENT_CENTER, br.size.x)
 
 ## v7.6 (owner's mockup): the enemy card over the contact list: only while there are hostiles. Your target if it is
 ## hostile, else the nearest hostile that is after you.
@@ -577,20 +580,15 @@ func _layout() -> void:
 		var key := "missile1" if it == "light_missile" else ("missile2" if it == "heavy_missile" else ("mine" if it == "mine" else ""))
 		if key != "": buttons["slot_%d" % k] = dg[key]
 	# v7.8 (owner): TRACTOR and FULL SCREEN sit down with the other buttons: on top of each block, by the radar
-	var sb := Vector2(dg["small"], dg["small"])
-	var lt: Rect2 = dg["shield"]
-	var rt: Rect2 = dg["repair"]
-	buttons["tractor"] = Rect2(Vector2(lt.end.x - sb.x, lt.position.y - 6.0 - sb.y), sb)
-	buttons["ground"] = Rect2(buttons["tractor"].position - Vector2(sb.x + 6.0, 0), sb)
+	for id in ["tractor", "ground", "goto"]: buttons[id] = dg[id]
 	if OS.has_feature("web") or OS.get_environment("HL_FS_BUTTON") != "":   # v1.9 (owner): FULL SCREEN
-		buttons["fullscreen"] = Rect2(Vector2(rt.position.x, rt.position.y - 6.0 - sb.y), sb)
+		buttons["fullscreen"] = dg["fullscreen"]
 	if not weapons_shown():
 		for id in COMBAT_IDS: buttons.erase(id)
 	if space and space.mech_fpv():   # v1.7z: looking out of the mech, KILL (no use to a mech) becomes the rifle's ZOOM
 		buttons["zoom"] = buttons["kill"]
 		buttons.erase("kill")
-	var hm := _home("move")
-	buttons["goto"] = Rect2(hm.x - 70, hm.y - stick_r - 62, 140, 42)   # v7.4: GO TO is in the left window; this is only while that window is away
+	var hm := _home("move")   # v7.4: GO TO is in the left window; this is only while that window is away
 	# v7.3 (owner): WEAPONS, COMMS and VIEW sit in the right window (_fl_buttons); when that window is away (a call,
 	# the comms console, the planet map) COMMS and VIEW stay reachable above the aim stick
 	buttons["log"] = comms_rect()
@@ -1195,7 +1193,7 @@ func comms_rect() -> Rect2:
 ## you open them (WEAPONS); otherwise only the flight row (engine, stop, thrust, warp) stays on screen.
 var weapons_open := false
 var weapons_pinned := false   # (the route test keeps every button up)
-const COMBAT_IDS := ["ground"]   # (v7.6: the rest live on the console; v7.8 owner: TRACTOR always shows)   # (v7.5: SPECIAL is the super meter on the dash)
+const COMBAT_IDS := []   # (v7.6: the rest live on the console; v7.8 owner: TRACTOR always shows)   # (v7.5: SPECIAL is the super meter on the dash)
 func weapons_shown() -> bool:
 	return weapons_pinned or weapons_open or (space != null and is_instance_valid(space.player) and space.hostiles_engaged() > 0)
 
@@ -1620,8 +1618,7 @@ func _draw() -> void:
 	_corner("fire", "FIRE", "guns", RED, space.fire_lock, "", 0.0, space.warp_active() or not space.lane.is_empty(), "ON · TAP OFF" if space.fire_lock else "TAP = ON")
 	_corner("kill", "ENGINE KILL", "kill", GOLD, space.engine_kill, "", 0.0, mech, "DRIFTING" if space.engine_kill else "ENGINE")
 	_corner("zoom", "ZOOM", "zoom", CYAN, space.zoomed, "", 0.0, false, "SCOPE ON" if space.zoomed else "SCOPE")
-	if not fl_shown("l"):   # v7.4: GO TO lives in the left window; only when it's away does it float above the flight stick
-		_pill("goto", "GO TO", space.autopilot != null, CYAN)
+	_corner("goto", "GO TO", "goto", GREEN, space.autopilot != null)   # v8.0 (owner): GO TO on the console too
 	if not fl_shown("r"):   # v7.3: these live in the right window; only when it's away do they float above the aim stick
 		_pill("log", "COMMS", comms_mode == "roster", CYAN)
 	if buttons.has("dock"): _pill("dock", "DOCK", true, GREEN, space.dock_candidate().name.to_upper())
@@ -1765,28 +1762,32 @@ func dash_geo() -> Dictionary:
 	# Two blocks of six buttons, one each side:
 	#   FIRE · TRANSFORM · SHIELD REPAIR        HULL REPAIR · SUPER · MINE
 	#   MISSILE 1 · ENGINE KILL · THRUST        STOP · WARP · MISSILE 2
-	var ro := clampf(S.y * 0.155, 92.0, 124.0)   # v7.8 (owner): smaller, so your ship shows above it
-	var rad := ro - 40.0
+	var ro := clampf(S.y * 0.135, 84.0, 112.0)   # v7.8 / v8.0 (owner): smaller, so your ship shows above it
+	var rad := ro - 38.0
 	var rc := Vector2(S.x * 0.5, S.y - ro - 6.0)
 	var xl0 := _home("move").x + stick_r + 16.0
 	var xl1 := rc.x - ro - 12.0
 	var xr0 := rc.x + ro + 12.0
 	var ww := xl1 - xl0
 	var gap := 6.0
-	var bsz := clampf((ww - gap * 2.0) / 3.0, 48.0, S.y * 0.12)
+	var bsz := clampf((ww - gap * 3.0) / 4.0, 44.0, S.y * 0.11)   # v8.0 (owner): eight buttons a side
 	var by2 := S.y - 8.0 - bsz
 	var by1 := by2 - gap - bsz
-	var row := bsz * 3.0 + gap * 2.0
+	var row := bsz * 4.0 + gap * 3.0
 	var lx0 := xl1 - row
 	var rx0 := xr0
 	var lb := func(k: int, y: float) -> Rect2: return Rect2(lx0 + k * (bsz + gap), y, bsz, bsz)
 	var rb := func(k: int, y: float) -> Rect2: return Rect2(rx0 + k * (bsz + gap), y, bsz, bsz)
-	return {"rc": rc, "rad": rad, "ro": ro, "small": roundf(bsz * 0.68),
-		"speed": Rect2(rc.x - 86.0, rc.y - ro - 24.0, 172.0, 40.0),
-		"fire": lb.call(0, by1), "form": lb.call(1, by1), "shield": lb.call(2, by1),
-		"missile1": lb.call(0, by2), "kill": lb.call(1, by2), "thrust": lb.call(2, by2),
-		"repair": rb.call(0, by1), "special": rb.call(1, by1), "super_btn": rb.call(1, by1), "mine": rb.call(2, by1),
-		"stop": rb.call(0, by2), "warp": rb.call(1, by2), "missile2": rb.call(2, by2)}
+	# v8.0 (owner): eight a side. Left: TRACTOR over SUPER on the outside, then the six. Right: the six, then
+	# FULL SCREEN over GROUND on the outside; GO TO takes the old SUPER spot.
+	return {"rc": rc, "rad": rad, "ro": ro, "bsz": bsz,
+		"speed": Rect2(rc.x - 82.0, rc.y - ro - 22.0, 164.0, 38.0),
+		"blk_l": Rect2(lx0, by1, row, bsz * 2.0 + gap), "blk_r": Rect2(rx0, by1, row, bsz * 2.0 + gap),
+		"tractor": lb.call(0, by1), "special": lb.call(0, by2), "super_btn": lb.call(0, by2),
+		"fire": lb.call(1, by1), "form": lb.call(2, by1), "shield": lb.call(3, by1),
+		"missile1": lb.call(1, by2), "kill": lb.call(2, by2), "thrust": lb.call(3, by2),
+		"repair": rb.call(0, by1), "goto": rb.call(1, by1), "mine": rb.call(2, by1), "fullscreen": rb.call(3, by1),
+		"stop": rb.call(0, by2), "warp": rb.call(1, by2), "missile2": rb.call(2, by2), "ground": rb.call(3, by2)}
 
 func _ring_hull_col(v: float) -> Color:
 	return YELLOW if v > 0.5 else (ORANGE if v > 0.25 else RED)
