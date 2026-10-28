@@ -3125,7 +3125,10 @@ func _update_player(dt: float) -> void:
 	hit_shake = maxf(0.0, hit_shake - dt * 2.5)
 	call_cd = maxf(0.0, call_cd - dt)
 	chatter_cd = maxf(0.0, chatter_cd - dt)
-	GS.energy = minf(Data.ENERGY_MAX, GS.energy + Data.ENERGY_REGEN * (1.0 + GS.mod("energy_regen")) * dt)   # (v1.9w: + Power Cell)
+	if cloaked:   # v8.3 (owner): the cloak burns power; when it runs out you show again
+		GS.energy = maxf(0.0, GS.energy - Data.CLOAK_DRAIN * dt)
+		if GS.energy <= 0.0 or GS.form == "mech": set_cloak(false)
+	else: GS.energy = minf(Data.ENERGY_MAX, GS.energy + Data.ENERGY_REGEN * (1.0 + GS.mod("energy_regen")) * dt)   # (v1.9w: + Power Cell)
 	if GS.mod("repair") > 0.0 and shield_delay <= 0.0 and GS.hull < GS.max_hull(): GS.hull = minf(GS.max_hull(), GS.hull + GS.max_hull() * GS.mod("repair") * dt)   # v1.9w: Maintenance Port
 	for k in ["shield_cd", "energy_cd", "repair_cd", "missile_cd", "mine_cd"]: set(k, maxf(0.0, float(get(k)) - dt))
 	if GS.wing_l <= 0.0 or GS.wing_r <= 0.0:
@@ -3275,6 +3278,7 @@ func toggle_engine_kill() -> bool:
 ## Warp spools for WARP_CHARGE seconds while you keep flying (no stop needed). Weapons lock from the first second;
 ## nearby enemies see the charge and close in to stop you. Tap WARP again during the spool to cancel.
 func request_warp() -> String:
+	if cloaked and warp_state == "off": return "cloaked"   # v8.3 (owner): no warp while cloaked
 	if warp_state == "on":
 		drop_warp("Warp disengaged.")
 		return "off"
@@ -3380,7 +3384,53 @@ func lead_point(t: Node3D) -> Vector3:
 	var d := t.global_position.distance_to(player.global_position)
 	return t.global_position + (tv - vel) * (d / float(GS.weapon()["speed"]))
 
+## v8.3 (owner): CLOAK: you go see-through and hostiles lose you. You can fly, thrust, kill the engine and stop; no
+## weapons, no warp. It burns power (CLOAK_DRAIN) and drops when the power runs out.
+var cloaked := false
+func set_cloak(on: bool) -> bool:
+	if on and (GS.form == "mech" or warp_state != "off"):
+		message.emit("Can't cloak in warp." if warp_state != "off" else "Mechs have no cloak.")
+		return false
+	if on and GS.energy < 10.0:
+		message.emit("Not enough power to cloak.")
+		return false
+	cloaked = on
+	if on:
+		fire_lock = false
+		for m in enemy_missiles: m["lost"] = true   # their missiles lose you
+		for e in enemies:
+			if not e.get("invasion", false): e["aggro"] = false
+	_cloak_look(on)
+	message.emit("CLOAKED. No weapons, no warp. Power draining." if on else "Cloak off.")
+	Sfx.play("warp_go", -8.0, 0.7 if on else 1.3)
+	return true
+
+func _cloak_look(on: bool) -> void:
+	if not is_instance_valid(model): return
+	for gi in model.find_children("*", "GeometryInstance3D", true, false):
+		(gi as GeometryInstance3D).transparency = Data.CLOAK_ALPHA if on else 0.0
+
+## v8.3 (owner): TARGET: the hostile closest to you and most in front of you, so you can lock on at once.
+func target_front() -> Node3D:
+	var pp := player.global_position
+	var fwd := -player.global_basis.z
+	var best: Node3D = null
+	var bs := INF
+	for e in enemies:
+		var n: Node3D = e["node"]
+		if not is_instance_valid(n) or n.get_meta("kind", "enemy") != "enemy": continue
+		var to := n.global_position - pp
+		var d := to.length()
+		var front := fwd.dot(to / maxf(d, 0.01))
+		var on_screen := not cam.is_position_behind(n.global_position)
+		var score := d * (2.0 - front) * (1.0 if on_screen and front > 0.3 else 4.0)
+		if score < bs:
+			bs = score
+			best = n
+	return best
+
 func _fire_guns() -> void:
+	if cloaked: return
 	var w: Dictionary = GS.weapon()
 	gun_cd = 1.0 / float(w["rate"])
 	var guns: int = GS.ship()["guns"]
@@ -4609,7 +4659,13 @@ func _popup(at: Vector3, txt: String, col: Color) -> void:
 	popups.append({"pos": at + Vector3(_rng.randf_range(-2, 2), 4, 0), "text": txt, "col": col, "life": 0.9})
 	if popups.size() > 24: popups.pop_front()
 
+var deflected := 0   # v8.3: shots knocked away by a barrel roll
 func _player_hit(dmg: float, hit := Vector3.INF) -> void:
+	if Data.ROLL_DEFLECT and man_kind != "" and GS.form != "mech":   # v8.3 (owner, Star Fox): rolling knocks the fire away
+		deflected += 1
+		_spark(hit if hit != Vector3.INF else player.global_position, Color(0.7, 0.95, 1.0), 4.0, 0.25)
+		Sfx.play("shield_hit", -12.0, 1.6)
+		return
 	if GS.form == "mech": dmg *= 1.0 - GS.mech_armor()   # v1.9i: the core's armour
 	GS.super_charge = minf(1.0, GS.super_charge + dmg / Data.SUPER_FROM_TAKEN)   # v7.5 (owner): the super meter builds in a fight
 	Sfx.play("shield_hit" if GS.shield > 0.0 else "hull_hit", -6.0)
@@ -4666,7 +4722,7 @@ func _update_enemies(dt: float) -> void:
 		# v1.4r: a faction you are on speaking terms with (yellow or better) leaves you alone until you shoot at it
 		var peaceful: bool = e.has("faction") and not e.get("provoked", false) and not Factions.hostile(e["faction"])
 		if e.has("faction"): n.set_meta("kind", "patrol" if peaceful else "enemy")   # v1.4w: a peaceful faction ship is not a hostile contact
-		if peaceful: e["aggro"] = false
+		if peaceful or (cloaked and not e.get("invasion", false)): e["aggro"] = false   # (v8.3: cloaked, they can't see you)
 		elif dist < 650.0 or e["aggro"] or spotting: e["aggro"] = dist < (1600.0 if spotting else 1400.0)
 		if e.get("invasion", false): e["aggro"] = true   # v1.9n: an invasion fights whoever is there
 		if e.has("pilot"):
@@ -5063,6 +5119,8 @@ func trigger_system(id: String) -> bool:
 		return _say(id, "Weapons are locked while transforming.")
 	if not lane.is_empty() and id in ["guns", "missile", "light_missile", "heavy_missile", "mine"]:
 		return _say(id, "Weapons are locked in the trade lane.")
+	if cloaked and id in ["guns", "missile", "light_missile", "heavy_missile", "mine"]:
+		return _say(id, "Weapons are offline while cloaked.")
 	if warp_state != "off" and id in ["guns", "missile", "light_missile", "heavy_missile", "mine"]:
 		return _say(id, "Weapons are locked while the warp drive is active.")
 	if sun_surface and not GS.has_heat_shield() and id in ["shield", "hull"]:
@@ -6550,6 +6608,12 @@ func _man_update(dt: float) -> void:
 			pitch = lerp_angle(pitch, 0.0, minf(1.0, dt * Data.MAN_SETTLE))
 			vel = vel.lerp(-player.global_basis.z * vel.length(), minf(1.0, dt * 4.0))
 	man_roll = -man_dir * TAU * e
+	if man_kind != "uturn":   # v8.3 (owner): two swirls wind round the ship as it rolls
+		var bb := player.global_basis
+		for j in 2:
+			var ang := man_t * TAU * 2.2 + PI * j
+			var rr := 7.0 + 2.0 * sin(man_t * 9.0)
+			_spark(player.global_position + (bb.x * cos(ang) + bb.y * sin(ang)) * rr - bb.z * (2.0 - 8.0 * k), Color(0.55, 0.9, 1.0) if j == 0 else Color(0.85, 0.95, 1.0), 2.2, 0.35)
 	if k >= 1.0:
 		man_kind = ""
 		man_roll = 0.0
@@ -6558,6 +6622,9 @@ func _man_update(dt: float) -> void:
 var lightning_log: Array = []
 func lightning_range() -> float: return Data.LOOT_RANGE * Data.LIGHTNING_RANGE_MULT
 func lightning_special() -> int:
+	if cloaked:
+		message.emit("SPECIAL: weapons are offline while cloaked.")
+		return 0
 	var which := special_ready()
 	var R := lightning_range()
 	var pp := player.global_position

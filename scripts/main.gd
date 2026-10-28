@@ -388,6 +388,7 @@ func _on_hud(id: String) -> void:
 				"mech": hud.flash_message("Mechs have no warp drive — transform to SHIP to warp.")
 				"busy": hud.flash_message("Finish transforming first.")
 				"cancelled": hud.flash_message("Warp charge cancelled. Weapons unlocked.")
+				"cloaked": hud.flash_message("No warp while cloaked. Drop the cloak first.")
 				"off": hud.flash_message("Dropped out of warp. Weapons unlocked.")
 		"call":   # (v1.8q: no button of its own any more; LOG -> TARGET / CONTROL -> CALL lands here)
 			_call_target()
@@ -406,6 +407,13 @@ func _on_hud(id: String) -> void:
 				"space": hud.flash_message("GROUND works down on a planet.")
 				"warp": hud.flash_message("Drop out of warp first.")
 		"lock_a", "lock_c": hud.flash_message("Locked for now.")
+		"cloak": space.set_cloak(not space.cloaked)   # v8.3 (owner)
+		"tgt_front":   # v8.3 (owner): TARGET = the hostile in front of you, closest
+			var tf: Node3D = space.target_front()
+			if tf == null: hud.flash_message("No hostiles around.")
+			else:
+				space.pick_target(tf)
+				hud.flash_message("Target: %s" % tf.name)
 		"fullscreen":   # v1.9 (owner): the browser's full screen on / off (hides the address bar where the phone allows it)
 			if OS.has_feature("web"): JavaScriptBridge.eval("window.__hlFsToggle && window.__hlFsToggle()", true)
 		"pmap_close": hud.planet_map = false

@@ -301,13 +301,13 @@ var cl_open := false   # v8.0 (owner): the windows start folded on top of the bu
 var sp_open := false
 const FL_ROWS := 6
 const FL_TAB_H := 30.0   # v7.3: the WEAPONS / COMMS / VIEW row under the right window's title
-const FL_TGT_H := 26.0   # v7.6: just the NEXT · GO TO · SCAN row (the target itself is the red card above)   # v6.9: the target block on top of the contact list (name, distance, shield + hull, SCAN, NEXT)
+const FL_TGT_H := 30.0   # v7.6: just the NEXT · GO TO · SCAN row (the target itself is the red card above)   # v6.9: the target block on top of the contact list (name, distance, shield + hull, SCAN, NEXT)
 func fl_rect(side: String) -> Rect2:
 	var sr := side_rect(side)
 	var open: bool = cl_open if side == "l" else sp_open
 	if not open:   # v8.0 (owner): folded, the title sits right on top of its button block, clear of the sides
 		var blk: Rect2 = dash_geo()["blk_l" if side == "l" else "blk_r"]
-		var hh := 26.0 if side == "l" else 26.0 + FL_TAB_H
+		var hh := 26.0 + FL_TAB_H
 		return Rect2(blk.position.x, blk.position.y - 8.0 - hh, blk.size.x, hh)
 	var w := clampf(S.x * 0.2, 190.0, 250.0)
 	var r := Rect2(sr.position.x if side == "l" else sr.end.x - w, sr.position.y, w, sr.size.y)
@@ -356,14 +356,14 @@ func _fl_buttons() -> void:
 		buttons["fl_tab_" + side] = Rect2(r.position, Vector2(r.size.x, 26))
 		if side == "r":
 			for i in FL_TABS.size(): buttons[FL_TABS[i]] = fl_tab_rect(i)
+		else:   # v8.3 (owner): TARGET (the one in front of you) · NEXT · GO TO (· SCAN), there even when folded
+			var ids := ["tgt_front", "target", "goto_l"]
+			if space.target != null and is_instance_valid(space.target): ids.append("scan")
+			var bw2: float = (r.size.x - 8.0 - 4.0 * (ids.size() - 1)) / ids.size()
+			for i in ids.size(): buttons[ids[i]] = Rect2(r.position + Vector2(4.0 + i * (bw2 + 4.0), 28.0), Vector2(bw2, 26.0))
 		if not (cl_open if side == "l" else sp_open): continue
 		if side == "l":
 			var list := fl_contacts()
-			var bw2: float = (r.size.x - 16) / 3.0
-			buttons["target"] = Rect2(r.position + Vector2(4, 30 + FL_TGT_H - 26), Vector2(bw2, 24))   # v6.9: NEXT target
-			buttons["goto_l"] = Rect2(r.position + Vector2(8 + bw2, 30 + FL_TGT_H - 26), Vector2(bw2, 24))   # v7.4 (owner): GO TO next to NEXT (job, waypoint, then target)
-			if space.target != null and is_instance_valid(space.target):
-				buttons["scan"] = Rect2(r.position + Vector2(12 + bw2 * 2, 30 + FL_TGT_H - 26), Vector2(bw2, 24))
 			var y1: float = 30 + FL_TGT_H + 4
 			cl_scroll = clampi(cl_scroll, 0, list_max_scroll("l"))
 			for i in mini(cl_rows_fit(), list.size() - cl_scroll):
@@ -402,13 +402,13 @@ func fl_tap(id: String) -> bool:
 
 ## v6.9: the target (or the job) on top of the contact list, with its shield and hull, and SCAN / NEXT under it.
 func _fl_target(r: Rect2) -> void:   # v7.6: the row of NEXT · GO TO · SCAN (the target is the red card above)
-	for id in ["target", "goto_l", "scan"]:
+	for id in ["tgt_front", "target", "goto_l", "scan"]:
 		if not buttons.has(id): continue
 		var br: Rect2 = buttons[id]
 		var on: bool = id == "goto_l" and space.autopilot != null
-		var bc: Color = {"target": GOLD, "goto_l": GREEN, "scan": CYAN}[id]   # v7.7 (owner): NEXT yellow, GO TO green
+		var bc: Color = {"tgt_front": RED, "target": GOLD, "goto_l": GREEN, "scan": CYAN}[id]   # v7.7 (owner): NEXT yellow, GO TO green
 		_box(br, Color(bc, 0.35 if on else 0.16), Color(bc, 0.85), 6, 1)
-		_text(Vector2(br.position.x, br.position.y + 17), {"target": "NEXT ▸", "scan": "SCAN", "goto_l": "GO TO"}[id], 12, WHITE, HORIZONTAL_ALIGNMENT_CENTER, br.size.x)
+		_text(Vector2(br.position.x, br.position.y + 17), {"tgt_front": "TARGET", "target": "NEXT ▸", "scan": "SCAN", "goto_l": "GO TO"}[id], 12, WHITE, HORIZONTAL_ALIGNMENT_CENTER, br.size.x)
 
 ## v7.6 (owner's mockup): the enemy card over the contact list: only while there are hostiles. Your target if it is
 ## hostile, else the nearest hostile that is after you.
@@ -465,6 +465,7 @@ func _fl_panels() -> void:
 		_box(r, Color(PANEL, 0.72), Color(EDGE, 0.8), 8, 2)
 		_text(r.position + Vector2(8, 18), ("CONTACTS" if side == "l" else "SHIP") + ("  ▾" if open else "  ▸"), 13, CYAN_HI)
 		pass   # (v7.8 owner: no YOUR SHIP card: the rings round the radar already show it)
+		if side == "l": _fl_target(Rect2())   # v8.3: TARGET · NEXT · GO TO, folded or open
 		if side == "r":   # v7.3: WEAPONS · COMMS · VIEW
 			var lit := [weapons_shown(), console_open or comms_open]
 			var names := ["WEAPONS", "COMMS"]
@@ -477,7 +478,6 @@ func _fl_panels() -> void:
 		if side == "l":
 			var list := fl_contacts()
 			var tg: Node3D = space.target
-			_fl_target(Rect2(r.position + Vector2(4, 28), Vector2(r.size.x - 8, FL_TGT_H)))
 			_card_target(r)
 			_scrollbar(r, 30.0 + FL_TGT_H + 4.0, cl_scroll, cl_rows_fit(), list.size())
 			for i in mini(cl_rows_fit(), list.size() - cl_scroll):
@@ -532,9 +532,6 @@ func _home(which: String) -> Vector2:
 
 ## The radar screen (chase: centre dash panel; cockpit: the art's centre screen). It is a button: tap = radar map.
 func radar_rect() -> Rect2:
-	if GS.view == "cockpit" and cockpit_texture():
-		var cr := cockpit_rect()
-		return Rect2(cr.position + cr.size * Vector2(0.433, 0.66), cr.size * Vector2(0.136, 0.155))
 	var g := dash_geo()   # v7.1: the radar globe on the dash
 	var rad: float = g["rad"]
 	return Rect2((g["rc"] as Vector2) - Vector2(rad, rad), Vector2(rad, rad) * 2.0)
@@ -580,9 +577,8 @@ func _layout() -> void:
 		var key := "missile1" if it == "light_missile" else ("missile2" if it == "heavy_missile" else ("mine" if it == "mine" else ""))
 		if key != "": buttons["slot_%d" % k] = dg[key]
 	# v7.8 (owner): TRACTOR and FULL SCREEN sit down with the other buttons: on top of each block, by the radar
-	for id in ["tractor", "ground", "goto"]: buttons[id] = dg[id]
-	if OS.has_feature("web") or OS.get_environment("HL_FS_BUTTON") != "":   # v1.9 (owner): FULL SCREEN
-		buttons["fullscreen"] = dg["fullscreen"]
+	for id in ["tractor", "ground", "cloak"]: buttons[id] = dg[id]
+	buttons["fullscreen"] = dg["speed"]   # v8.3 (owner): the SPEED readout is the full-screen button
 	if not weapons_shown():
 		for id in COMBAT_IDS: buttons.erase(id)
 	if space and space.mech_fpv():   # v1.7z: looking out of the mech, KILL (no use to a mech) becomes the rifle's ZOOM
@@ -592,7 +588,7 @@ func _layout() -> void:
 	# v7.3 (owner): WEAPONS, COMMS and VIEW sit in the right window (_fl_buttons); when that window is away (a call,
 	# the comms console, the planet map) COMMS and VIEW stay reachable above the aim stick
 	buttons["log"] = comms_rect()
-	buttons["view"] = dg["speed"]   # v7.6 (owner): the SPEED readout is the cockpit button
+	buttons["view"] = dg["view"]   # v8.3 (owner): COCKPIT is a console button
 	log_rect = buttons["log"]
 	if space and space.controls and not console_open: buttons["radar"] = radar_rect()
 	if not scan.is_empty(): buttons["scan_close"] = scan_rect()
@@ -821,6 +817,11 @@ func _text(p: Vector2, txt: String, size := 18, col := WHITE, align := HORIZONTA
 
 func _icon(id: String, c: Vector2, s: float, col: Color) -> void:
 	match id:
+		"cloak":   # v8.3: an eye, crossed
+			draw_arc(c + Vector2(0, s * 0.9), s * 1.3, -PI * 0.78, -PI * 0.22, 16, col, 2.5, true)
+			draw_arc(c - Vector2(0, s * 0.9), s * 1.3, PI * 0.22, PI * 0.78, 16, col, 2.5, true)
+			draw_circle(c, s * 0.35, col)
+			draw_line(c + Vector2(-s, s), c + Vector2(s, -s), col, 2.5)
 		"view":   # v7.1: a pilot seat
 			draw_polyline(PackedVector2Array([c + Vector2(-s * 0.5, s), c + Vector2(-s * 0.55, -s * 0.2), c + Vector2(-s * 0.3, -s), c + Vector2(s * 0.3, -s), c + Vector2(s * 0.55, -s * 0.2), c + Vector2(s * 0.5, s)]), col, 2.5, true)
 			draw_line(c + Vector2(-s * 0.9, s * 0.3), c + Vector2(s * 0.9, s * 0.3), col, 2.5)
@@ -944,7 +945,7 @@ func _special_button() -> void:
 	elif ready == "crit": sub = "CRITICAL · HOLD"
 	var armed := ready != "" or st != "idle"
 	var evade: bool = not armed and GS.form != "mech"
-	if cockpit_texture() and GS.view == "cockpit": _icon_btn("special", "special", ORANGE, armed, "", 0.0, armed)   # (v7.6: else the console draws it)
+	pass   # (v8.3: the console draws SUPER)
 
 ## v7.5 (owner's UI sheet): the octagon-cut square frame for the action buttons: a thin inner line, a bright tab on top.
 func _tech_square(f: Rect2, fill: Color, edge: Color, on: bool) -> void:
@@ -1492,6 +1493,8 @@ func _draw() -> void:
 		var tcol := RED if tgt.get_meta("kind", "") == "enemy" else GOLD
 		if tp != null and view.has_point(tp):
 			_brackets(tp, 30.0, tcol)
+			var ya: Vector2 = tp + Vector2(0, -48)   # v8.3 (owner): a yellow arrow over the one you're locked on
+			draw_colored_polygon(PackedVector2Array([ya + Vector2(0, 12), ya + Vector2(-11, -6), ya + Vector2(11, -6)]), YELLOW)
 			if tgt.get_meta("kind", "") == "enemy":
 				var e2: Dictionary = space._enemy_entry(tgt)
 				if not e2.is_empty(): _enemy_bars(tp + Vector2(-40, 38), 80.0, 7.0, e2, true)
@@ -1565,7 +1568,7 @@ func _draw() -> void:
 		for d in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
 			draw_line(c + d * 20, c + d * 52, Color(rc2, 0.95), 2.5)
 		draw_circle(c, 4, rc2)
-	if cockpit and cockpit_texture(): _status_bars()   # (v6.9: otherwise they are on the dash)
+	pass   # (v8.3 owner: the cockpit view uses the same console with the radar rings; no bars on top)
 	_fl_panels()
 	_alerts()
 	# v7.0 (owner: what are those yellow words?): no standing hint line; the job is on the contact list. Short messages
@@ -1581,12 +1584,10 @@ func _draw() -> void:
 	if zone != "": _text(Vector2(col_w, 164), zone, 14, CYAN_HI, HORIZONTAL_ALIGNMENT_CENTER, S.x - col_w * 2)
 	# defence and special moves (right block), speed (left block)
 	var sh_cd: float = space.shield_cd / Data.SHIELD_BOOST_COOLDOWN
-	if cockpit and cockpit_texture():   # (v7.6: on the console otherwise)
-		_corner("shield", "SHIELD", "shield", Color(0.35, 0.7, 1.0), false, str(GS.shield_charges), sh_cd)
-		_corner("repair", "REPAIR", "repair", GREEN, false, str(GS.repairs), space.repair_cd / 1.5)
+	pass   # (v7.6 / v8.3: SHIELD and REPAIR are drawn by the console)
 	_corner("tractor", "TRACTOR", "tractor", Color(0.45, 0.9, 1.0), space.tractor_t > 0.0, str(space.loot.size()) if space.loot.size() > 0 else "")
 	var tf: bool = space.transform_t > 0.0
-	if cockpit and cockpit_texture(): _corner("form", "…" if tf else ("SHIP" if GS.form == "mech" else "MECH"), "form", GOLD, tf, "", 0.0, space.warp_state != "off", "TRANSFORM")
+	pass   # (v8.3: TRANSFORM is drawn by the console)
 	var wsub := ""
 	if space.warp_state == "charging": wsub = "%d s" % int(ceil(Data.WARP_CHARGE - space.warp_t))
 	elif space.warp_state == "on": wsub = "DROP OUT"
@@ -1595,7 +1596,7 @@ func _draw() -> void:
 	var gm: bool = space.ground_mode   # v1.8r: GROUND: gravity on, walk / land
 	_corner("ground", "GROUND", "ground", GREEN, gm, "", 0.0, false, ("WALKING" if GS.form == "mech" else "LANDED") if gm and space.grounded else ("FALLING" if gm else ("WALK" if GS.form == "mech" else "LAND")))
 	for lid in ["lock_a", "lock_c"]: _padlocked(lid, "")
-	_corner("fullscreen", "FULL", "fullscreen", CYAN, fs_on, "", 0.0, false, "EXIT" if fs_on else "SCREEN")
+	pass   # (v8.3: FULL SCREEN is the SPEED readout)
 	_corner("stop", "STOP", "stop", RED, space.braking or space.holding, "", 0.0, false, "STOPPED" if space.holding else "FULL STOP")
 	if space.warp_state == "charging":
 		var wr: Rect2 = buttons["warp"]
@@ -1618,7 +1619,8 @@ func _draw() -> void:
 	_corner("fire", "FIRE", "guns", RED, space.fire_lock, "", 0.0, space.warp_active() or not space.lane.is_empty(), "ON · TAP OFF" if space.fire_lock else "TAP = ON")
 	_corner("kill", "ENGINE KILL", "kill", GOLD, space.engine_kill, "", 0.0, mech, "DRIFTING" if space.engine_kill else "ENGINE")
 	_corner("zoom", "ZOOM", "zoom", CYAN, space.zoomed, "", 0.0, false, "SCOPE ON" if space.zoomed else "SCOPE")
-	_corner("goto", "GO TO", "goto", GREEN, space.autopilot != null)   # v8.0 (owner): GO TO on the console too
+	_corner("cloak", "CLOAK", "cloak", Color(0.7, 0.5, 1.0), space.cloaked)   # v8.3 (owner): fly unseen; no weapons, no warp
+	_corner("view", "CHASE" if GS.view == "cockpit" else "COCKPIT", "view", CYAN, GS.view == "cockpit")
 	if not fl_shown("r"):   # v7.3: these live in the right window; only when it's away do they float above the aim stick
 		_pill("log", "COMMS", comms_mode == "roster", CYAN)
 	if buttons.has("dock"): _pill("dock", "DOCK", true, GREEN, space.dock_candidate().name.to_upper())
@@ -1629,7 +1631,7 @@ func _draw() -> void:
 		var gi: Dictionary = space.near_gate().get_meta("info")
 		var dest: String = str(Surface.PLANETS[gi["planet_to"]]["name"]) if gi.has("planet_to") and Surface.PLANETS.has(gi["planet_to"]) else str(Data.SYSTEMS.get(str(gi.get("to", "")), {}).get("name", "?"))   # (v6.9: a planet's rift leads to a planet)
 		_pill("jump", "%s GATE" % str(gi.get("gkind", "warp")).to_upper() if space.sys.get("generated", false) or gi.has("planet_to") else "WARP GATE", true, GOLD, "DOCK · TO %s" % dest.to_upper())
-	if not (cockpit and cockpit_texture()): _dashboard()   # the cockpit art has its own dash screens
+	_dashboard()   # v8.3 (owner): the console in the cockpit view too
 	_stick("move", "FLIGHT")
 	_stick("aim", "AIM")
 	if comms_open: _comms()
@@ -1723,6 +1725,10 @@ func _edge_arrow(p3: Vector3, col: Color, view: Rect2, big: bool) -> void:
 	var perp := Vector2(-dir.y, dir.x)
 	var s := 16.0 if big else 11.0
 	draw_colored_polygon(PackedVector2Array([at + dir * s * 1.2, at - dir * s * 0.6 + perp * s, at - dir * s * 0.6 - perp * s]), col)
+	if big and space.target != null and is_instance_valid(space.target) and space.target.global_position.is_equal_approx(p3):   # v8.3 (owner): your target: a yellow arrow on top
+		var a2 := at - dir * s * 1.3
+		var s2 := s * 0.7
+		draw_colored_polygon(PackedVector2Array([a2 + dir * s2 * 1.2, a2 - dir * s2 * 0.6 + perp * s2, a2 - dir * s2 * 0.6 - perp * s2]), YELLOW)
 
 ## v1.9r: the missile lock rows to draw: [item, on top?, colour] for each missile type fitted.
 func _lock_rows() -> Array:
@@ -1786,7 +1792,7 @@ func dash_geo() -> Dictionary:
 		"tractor": lb.call(0, by1), "special": lb.call(0, by2), "super_btn": lb.call(0, by2),
 		"fire": lb.call(1, by1), "form": lb.call(2, by1), "shield": lb.call(3, by1),
 		"missile1": lb.call(1, by2), "kill": lb.call(2, by2), "thrust": lb.call(3, by2),
-		"repair": rb.call(0, by1), "goto": rb.call(1, by1), "mine": rb.call(2, by1), "fullscreen": rb.call(3, by1),
+		"repair": rb.call(0, by1), "cloak": rb.call(1, by1), "mine": rb.call(2, by1), "view": rb.call(3, by1),   # v8.3 (owner): CLOAK, COCKPIT
 		"stop": rb.call(0, by2), "warp": rb.call(1, by2), "missile2": rb.call(2, by2), "ground": rb.call(3, by2)}
 
 func _ring_hull_col(v: float) -> Color:
@@ -1885,9 +1891,9 @@ func _dashboard() -> void:
 	var sr: Rect2 = g["speed"]
 	var pts := PackedVector2Array([sr.position + Vector2(16, 0), Vector2(sr.end.x - 16, sr.position.y), sr.end - Vector2(0, 10), Vector2(sr.end.x - 10, sr.end.y),
 		Vector2(sr.position.x + 10, sr.end.y), Vector2(sr.position.x, sr.end.y - 10), sr.position + Vector2(16, 0)])
-	draw_colored_polygon(pts.slice(0, 6), Color(0.01, 0.06, 0.12, 0.92 if not held.has("view") else 0.6))
+	draw_colored_polygon(pts.slice(0, 6), Color(0.01, 0.06, 0.12, 0.92 if not held.has("fullscreen") else 0.6))
 	draw_polyline(pts, Color(CYAN, 0.95), 2.5, true)
-	_icon("view", sr.position + Vector2(24, sr.size.y * 0.5), 11.0, CYAN_HI)
+	_icon("fullscreen", sr.position + Vector2(24, sr.size.y * 0.5), 11.0, CYAN_HI)
 	_text(Vector2(sr.position.x + 40, sr.position.y + 22), "%d m/s" % int(space.speed_now), 20, WHITE, HORIZONTAL_ALIGNMENT_CENTER, sr.size.x - 48)
 	var mode := ""
 	if space.warp_state == "on": mode = "WARP"
@@ -1896,7 +1902,7 @@ func _dashboard() -> void:
 	elif space.braking: mode = "STOPPING"
 	elif space.boosting: mode = "THRUST"
 	if space.surface_mode and mode == "": mode = "ALT %d m" % int(space.altitude)
-	_text(Vector2(sr.position.x + 40, sr.end.y - 6), mode if mode != "" else ("CHASE VIEW" if GS.view == "cockpit" else "COCKPIT VIEW"), 11, GOLD if mode != "" else CYAN_HI, HORIZONTAL_ALIGNMENT_CENTER, sr.size.x - 48)
+	_text(Vector2(sr.position.x + 40, sr.end.y - 6), mode if mode != "" else ("EXIT FULL SCREEN" if fs_on else "FULL SCREEN"), 11, GOLD if mode != "" else CYAN_HI, HORIZONTAL_ALIGNMENT_CENTER, sr.size.x - 48)
 	# the four square buttons that used to be round
 	var sh_cd: float = space.shield_cd / Data.SHIELD_BOOST_COOLDOWN
 	_corner("shield", "SHIELD REPAIR", "shield", Color(0.35, 0.7, 1.0), false, str(GS.shield_charges), sh_cd)

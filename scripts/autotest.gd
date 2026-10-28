@@ -309,7 +309,7 @@ func _flight_and_comms() -> void:
 	var fr: Rect2 = hud.buttons.get("form", Rect2())
 	var wr: Rect2 = hud.buttons.get("kill", hud.buttons["thrust"])
 	_check("TRANSFORM sits in the console's left block, over ENGINE KILL (v7.7 owner ring console)", fr.size.x > 0.0 and fr.end.y < wr.position.y and fr.end.x < hud.S.x * 0.5
-		and hud.buttons.has("stop") and hud.buttons.has("log") and hud.buttons.has("goto"), "at %s" % str(fr.position))   # (v6.9: MAP = the radar)
+		and hud.buttons.has("stop") and hud.buttons.has("log") and hud.buttons.has("cloak"), "at %s" % str(fr.position))   # (v6.9: MAP = the radar)
 	# default cruise: centred stick holds cruise speed; all the way back stops and stays stopped
 	SpaceSystem.cruise_assist = true
 	s.holding = false
@@ -1504,7 +1504,7 @@ func _run() -> void:
 		and hq.buttons.has("call_pick") and hq.side_rect("r").encloses(hq.buttons["call_pick"]) and hq.comms_mode == "roster" and not hq.slots["l"].has("mode")
 	await _shot("log_pick", 0.3)
 	var lefts: Array = ["fire", "thrust", "shield", "form", "tractor", "special"] + ["zoom" if hq.buttons.has("zoom") else "kill"]   # v8.0 (owner): eight a side
-	var rights := ["stop", "warp", "repair", "goto", "ground"]   # v8.0: right block   # (v7.5: SPECIAL is the super meter on the dash) defence + special moves on the right (FULL SCREEN in the web build)
+	var rights := ["stop", "warp", "repair", "cloak", "ground"]   # v8.0 / v8.3: right block   # (v7.5: SPECIAL is the super meter on the dash) defence + special moves on the right (FULL SCREEN in the web build)
 	var eight: bool = lefts.all(func(b): return hq.buttons.has(b) and hq.buttons[b].end.x < hq.S.x * 0.5) and rights.all(func(b): return hq.buttons.has(b) and hq.buttons[b].position.x > hq.S.x * 0.5)
 	var clear := true   # the centre strip sits between the two blocks
 	for b in []:   # (v7.4: GO TO is in the left window) (v7.3: VIEW is in the right window now) (v6.9: the top strip is VIEW and GO TO; MAP = radar, TARGET/SCAN in the contact list, COMMS by the radar)
@@ -9620,6 +9620,37 @@ func _job_fl() -> void:
 	GS.super_charge = keep_sc
 	GS.hull = keep_hl
 	_check("v7.5 (owner's UI sheet): a full super meter readies the special; WARNING / DANGER alert panels draw", alerts_ok)
+	# v8.3 (owner): TARGET picks the hostile in front of you; CLOAK hides you (no guns, no warp); a barrel roll deflects fire
+	var fwd3: Vector3 = -s.player.global_basis.z
+	var e_front: Dictionary = s.spawn_unit("raider", s.player.global_position + fwd3 * 500.0, s.player.global_position)
+	var e_back: Dictionary = s.spawn_unit("raider", s.player.global_position - fwd3 * 300.0, s.player.global_position)
+	for ee in [e_front, e_back]: ee["aggro"] = true
+	s.target = e_back["node"]
+	main._on_hud("tgt_front")
+	var front_ok: bool = s.target == e_front["node"]
+	GS.energy = Data.ENERGY_MAX
+	main._on_hud("cloak")
+	await _frames(3)
+	var b0c: int = s.bolts.size()
+	s._fire_guns()
+	var no_guns: bool = s.bolts.size() == b0c and s.request_warp() == "cloaked"
+	var lost: bool = not e_front["aggro"] and not e_back["aggro"]
+	var drains: bool = GS.energy < Data.ENERGY_MAX
+	main._on_hud("cloak")
+	var uncloaked: bool = not s.cloaked
+	var keep_h: float = GS.hull
+	var keep_s2: float = GS.shield
+	s._man_start("left")
+	s._player_hit(50.0)
+	var deflect_ok: bool = GS.hull == keep_h and GS.shield == keep_s2 and s.deflected > 0
+	await _wait(Data.MAN_TIME + 0.2)
+	for ee in [e_front, e_back]:
+		if ee in s.enemies: s._damage_enemy(ee, 999999.0)
+	await _frames(2)
+	hud.close_comms()   # (their hail would cover the contact list for the next checks)
+	for sd in ["l", "r"]: hud.slots[sd] = {}
+	_check("v8.3 (owner): TARGET takes the hostile in front of you; CLOAK: hostiles lose you, no guns, no warp, power drains; a barrel roll deflects fire",
+		front_ok and no_guns and lost and drains and uncloaked and deflect_ok, "front %s guns/warp %s lost %s drain %s off %s deflect %s" % [front_ok, no_guns, lost, drains, uncloaked, deflect_ok])
 	hud.cl_open = false
 	hud.sp_open = false
 	await _shot("v80_folded", 0.3)
@@ -9676,11 +9707,11 @@ func _job_fl() -> void:
 	s.enemies = keep_en
 	var rr: Rect2 = hud.radar_rect()
 	var fr: Rect2 = hud.fl_rect("r")
-	var placed: bool = hud.fl_rect("l").encloses(hud.buttons["goto_l"]) and hud.buttons.has("goto") and hud.buttons.has("radar") and hud.buttons.has("target") \
+	var placed: bool = hud.fl_rect("l").encloses(hud.buttons["goto_l"]) and hud.fl_rect("l").encloses(hud.buttons["tgt_front"]) and hud.buttons.has("cloak") and hud.buttons.has("radar") and hud.buttons.has("target") \
 		and ["weapons", "log"].all(func(b): return hud.buttons.has(b) and fr.encloses(hud.buttons[b])) \
-		and (hud.buttons["view"] as Rect2).is_equal_approx(hud.dash_geo()["speed"]) \
+		and (hud.buttons["fullscreen"] as Rect2).is_equal_approx(hud.dash_geo()["speed"]) and (hud.buttons["view"] as Rect2).is_equal_approx(hud.dash_geo()["view"]) \
 		and ["fire", "kill", "thrust", "shield", "form", "tractor", "special"].all(func(b): return hud.buttons.has(b) and (hud.buttons[b] as Rect2).end.x <= rr.position.x) \
-		and ["stop", "warp", "repair", "goto", "ground"].all(func(b): return hud.buttons.has(b) and (hud.buttons[b] as Rect2).position.x >= rr.end.x)   # (v7.6: the console: left wing, radar, right wing; SPEED = the view button)
+		and ["stop", "warp", "repair", "cloak", "view", "ground"].all(func(b): return hud.buttons.has(b) and (hud.buttons[b] as Rect2).position.x >= rr.end.x)   # (v7.6: the console: left wing, radar, right wing; SPEED = the view button)
 	hud.weapons_pinned = true
 	_check("v7.0 (owner mockup): cruising, the weapons and abilities fold away (the flight row stays); WEAPONS brings them back; GO TO beside NEXT in the left window (v7.4; the radar is the map); WEAPONS / COMMS in the right window; v7.6 console: shield, hull and four buttons left of the radar, power, super and four right; SPEED is the view button",
 		hidden and shown and placed, "hidden %s shown %s placed %s" % [hidden, shown, placed])

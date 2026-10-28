@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v8.2"
+const VERSION := "v8.3"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -1280,6 +1280,9 @@ const TRACTOR_TIME := 4.0
 # place for a few seconds, and hit about as hard as a heavy (super) missile. Same rules for when it is ready (half hull,
 # then critical); until then a tap is still an evasive move.
 const RADAR_HEADING_UP := true      # v6.9 (owner: why is it pointing down?): the radar turns round you; you always point up
+const CLOAK_DRAIN := 7.0            # v8.3 (owner): energy per second while cloaked (it drops when the power runs out)
+const CLOAK_ALPHA := 0.82            # v8.3: how see-through the ship goes
+const ROLL_DEFLECT := true           # v8.3 (owner, Star Fox): a barrel roll knocks incoming fire away
 const SUPER_FROM_DEALT := 1800.0     # v7.5 (owner): damage you deal that fills the super meter once
 const SUPER_FROM_TAKEN := 450.0      # v7.5: damage you take that fills it once (fighting back pays more than soaking)
 const LIGHTNING_RANGE_MULT := 1.0    # x the tractor's reach (Data.LOOT_RANGE)
