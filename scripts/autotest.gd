@@ -3622,7 +3622,7 @@ func _job_v() -> void:
 	var btn: Button = main.hub.content.find_child("Bounty_savagers_03", true, false)
 	var names: Array = Data.bounties().filter(func(b): return b["faction"] == "Savagers").map(func(b): return b["name"])
 	var stand: Label = main.hub.content.find_child("Standing_Savagers", true, false)
-	var board_ok: bool = btn != null and not btn.disabled and names == ["Jackal", "Razor", "Veil", "Dreadmaw"] and main.hub.left.find_child("Btn_board", true, false) != null
+	var board_ok: bool = btn != null and not btn.disabled and names == ["Jackal", "Razor", "Veil", "Dreadmaw"] and main.hub.find_child("Btn_board", true, false) != null
 	var stand_ok: bool = stand != null and stand.text == "SAVAGERS: HOSTILE" and main.hub.content.find_child("Standing_Unity", true, false) != null
 	await _shot("v_bounty_board", 0.3)
 	if btn: btn.pressed.emit()
@@ -3731,7 +3731,7 @@ func _job_w() -> void:
 	var vis0: bool = hub.visible
 	hub.open(Data.SYSTEMS["solara"]["station"])
 	await _frames(3)
-	var ui_ok: bool = hub.bg_tex == null and hub.left.visible and hub.content.visible and hub.header.visible and hub.launch_btn != null and hub.launch_btn.visible and hub.left.find_child("Btn_faction", true, false) != null
+	var ui_ok: bool = hub.bg_tex == null and hub.left.visible and hub.content.visible and hub.header.visible and hub.launch_btn != null and hub.launch_btn.visible and hub.left.find_child("Cat_pilot", true, false) != null
 	await _shot("w_hub_unity", 0.4)
 	for scr in ["equipment", "ships", "repair", "bounty", "faction", "hub"]:
 		hub.show_screen(scr)
@@ -4848,7 +4848,7 @@ func _job_ai() -> void:
 	main.hub.show_screen("missions")
 	await _frames(2)
 	var take: Button = main.hub.content.find_child("Take_Job_threats", true, false)
-	var rows_ok: bool = take != null and not take.disabled and main.hub.content.find_child("Job_threats_hard", true, false) != null and main.hub.content.find_child("Job_escort", true, false) != null and main.hub.left.find_child("Btn_board", true, false) != null
+	var rows_ok: bool = take != null and not take.disabled and main.hub.content.find_child("Job_threats_hard", true, false) != null and main.hub.content.find_child("Job_escort", true, false) != null and main.hub.find_child("Btn_board", true, false) != null
 	await _shot("ai_missions_board", 0.3)
 	if take: take.pressed.emit()
 	await _frames(2)

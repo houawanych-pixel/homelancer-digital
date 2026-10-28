@@ -20,6 +20,7 @@ var screen := "hub"
 var font: Font = ThemeDB.fallback_font
 var theme_obj: Theme
 var left: BoxContainer   # v3.1: the tab bar along the top (was the menu column)
+var subtabs: HBoxContainer   # v8.2: the pages of the active category
 var content: Control
 var status: Label
 var header: Label
@@ -117,9 +118,9 @@ func _ready() -> void:
 	credits_label = _label(22, GOLD)
 	credits_label.anchor_left = 1.0
 	credits_label.anchor_right = 1.0
-	credits_label.offset_left = -36 - Data.HUB_LAUNCH_SIZE.x - 20 - 250   # (v5.3: the box hugs the credits)
-	credits_label.offset_right = -36 - Data.HUB_LAUNCH_SIZE.x - 20
-	credits_label.offset_top = TOP_Y + 14
+	credits_label.offset_left = -36 - 250   # (v5.3: the box hugs the credits)
+	credits_label.offset_right = -36
+	credits_label.offset_top = 12   # v8.2 (owner's mockup): the credits sit up in the top bar, right
 	credits_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	add_child(credits_label)
 	# v1.5k: LAUNCH is always on screen (upper right, under the credits), on every page: you can never be stuck here
@@ -153,9 +154,18 @@ func _ready() -> void:
 	left.offset_left = 10
 	left.offset_right = -10
 	left.offset_top = 6
-	left.offset_bottom = 6 + TAB_H
-	left.add_theme_constant_override("separation", 4)
+	left.offset_bottom = 6 + TAB_H - 8
+	left.alignment = BoxContainer.ALIGNMENT_CENTER   # v8.2: the five categories in the middle of the top bar
+	left.add_theme_constant_override("separation", 6)
 	add_child(left)
+	subtabs = HBoxContainer.new()   # v8.2: the active category's pages, small, under it
+	subtabs.name = "SubTabs"
+	subtabs.anchor_right = 1.0
+	subtabs.offset_top = 6 + TAB_H - 4
+	subtabs.offset_bottom = 6 + TAB_H + 28
+	subtabs.alignment = BoxContainer.ALIGNMENT_CENTER
+	subtabs.add_theme_constant_override("separation", 10)
+	add_child(subtabs)
 	content = Panel.new()
 	content.anchor_left = 0.0
 	content.anchor_right = 1.0
@@ -467,7 +477,7 @@ func show_screen(s: String) -> void:
 	_refresh_credits()
 	var sysname: String = Data.SYSTEMS[GS.system_id]["name"]
 	header.text = base["name"].to_upper() if s == "hub" else {"equipment": "WEAPONS & EQUIPMENT DEALER", "ships": "SHIP DEALER", "mechs": "MECH DEALER", "repair": "REPAIR & RESUPPLY", "bounty": "MISSION BOARD", "missions": "MISSION BOARD", "board": "MISSION BOARD", "ship": "YOUR SHIP", "faction": "FACTION", "surface": "PLANET DESTINATIONS", "lounge": "PILOTS' LOUNGE"}[s]
-	subheader.text = "%s  ·  %s SYSTEM  ·  %s" % ["ORBITAL STATION" if kind == "station" else "PLANET SURFACE", sysname.to_upper(), base["name"]]
+	subheader.text = "%s  ·  %s  ·  %s SYSTEM" % [str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])).to_upper(), "ORBITAL STATION" if kind == "station" else "PLANET SURFACE", sysname.to_upper()]   # v8.2 (owner): faction and station
 	for box in [left, content, leftwin]:   # take the old page out at once, so the new buttons keep their own names
 		for c in box.get_children():
 			box.remove_child(c)
@@ -487,22 +497,46 @@ func show_screen(s: String) -> void:
 	# v3.1: HOME is open glass (the station picture shows through); the other pages keep their panel
 	if s == "hub": content.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	else: content.remove_theme_stylebox_override("panel")
-	var menu := [["hub", "HOME"], ["equipment", "HANGAR"], ["ships", "SHIPS"], ["mechs", "MECHS"], ["repair", "REPAIR"], ["board", "MISSIONS"], ["lounge", "LOUNGE"], ["ship", "MY SHIP"], ["faction", "FACTION"], ["map", "NAV MAP"]]   # (v1.5k: LAUNCH is its own always-visible button)
-	if _surface_planet() != "": menu.insert(5, ["surface", "SURFACE"])
-	for m in menu:
+	# v8.2 (owner, hub panel spec): five categories instead of ten tabs; the active one shows its pages in a small
+	# row underneath (HANGAR -> SHIPS · MECHS · WEAPONS). A category with one page is that page's button.
+	for c in subtabs.get_children():
+		subtabs.remove_child(c)
+		c.queue_free()
+	var cat := nav_cat(s)
+	for cg in nav_cats():
+		var pages: Array = cg[2]
 		var b := Button.new()
-		b.text = m[1]
+		b.text = cg[1]
 		b.theme_type_variation = "HubTab"
-		b.custom_minimum_size = Vector2(60, TAB_H)
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.custom_minimum_size = Vector2(118, TAB_H - 8)
 		b.clip_text = true
-		b.name = "Btn_" + m[0]
-		if m[0] == s or (m[0] == "board" and s in ["missions", "bounty"]):
+		b.name = ("Btn_" + str(pages[0][0])) if pages.size() == 1 else ("Cat_" + str(cg[0]))
+		if cg[0] == cat:
 			b.add_theme_stylebox_override("normal", theme_obj.get_stylebox("pressed", "HubTab"))
 			b.add_theme_stylebox_override("hover", theme_obj.get_stylebox("pressed", "HubTab"))
 			b.add_theme_color_override("font_color", Color.WHITE)
-		b.pressed.connect(_menu.bind(m[0]))
+		b.pressed.connect(_menu.bind(str(pages[0][0])))
 		left.add_child(b)
+		if cg[0] == cat and pages.size() > 1:
+			for pg in pages:
+				var sb2 := Button.new()
+				sb2.text = pg[1]
+				sb2.name = "Btn_" + str(pg[0])
+				sb2.flat = true
+				sb2.custom_minimum_size = Vector2(104, 30)
+				sb2.add_theme_font_size_override("font_size", Data.ts(15))
+				var on: bool = pg[0] == s or (pg[0] == "board" and s in ["missions", "bounty"])
+				sb2.add_theme_color_override("font_color", Color.WHITE if on else Color(CYAN, 0.75))
+				if on:
+					var ul := StyleBoxFlat.new()
+					ul.bg_color = Color(0, 0, 0, 0)
+					ul.border_color = CYAN
+					ul.border_width_bottom = 3
+					sb2.add_theme_stylebox_override("normal", ul)
+					sb2.add_theme_stylebox_override("hover", ul)
+				sb2.pressed.connect(_menu.bind(str(pg[0])))
+				subtabs.add_child(sb2)
+	subtabs.visible = subtabs.get_child_count() > 0 and not hangar
 	_layout_windows(s)
 	header.reset_size()   # v5.3: the boxes fit the words
 	subheader.reset_size()
@@ -1252,6 +1286,21 @@ func _gui_input(e: InputEvent) -> void:
 		look_by((e as InputEventMouseMotion).relative)
 		accept_event()
 
+## v8.2 (owner): the hub's five categories and their pages.
+func nav_cats() -> Array:
+	var hubp: Array = [["hub", "STATION"], ["board", "MISSIONS"], ["map", "NAV MAP"]]
+	if _surface_planet() != "": hubp.insert(2, ["surface", "SURFACE"])
+	return [["hub", "HUB", hubp], ["lounge", "LOUNGE", [["lounge", "LOUNGE"]]],
+		["hangar", "HANGAR", [["ships", "SHIPS"], ["mechs", "MECHS"], ["equipment", "WEAPONS"]]],
+		["supplies", "SUPPLIES", [["repair", "REPAIR & AMMO"]]], ["pilot", "PILOT", [["ship", "MY SHIP"], ["faction", "FACTION"]]]]
+
+func nav_cat(s: String) -> String:
+	if s in ["missions", "bounty"]: s = "board"
+	for cg in nav_cats():
+		for pg in cg[2]:
+			if pg[0] == s: return cg[0]
+	return "hub"
+
 func _menu(id: String) -> void:
 	if id == "launch": launch_requested.emit()
 	elif id == "map": map_requested.emit()
@@ -1357,8 +1406,6 @@ func _hub_page() -> void:
 	# v3.1 (owner's concept art): HOME = the station card on the left, your pilot and ship on the right, the station
 	# picture open in the middle, and picture tiles for the main services along the bottom.
 	var lc := _home_card(Rect2(0, 0, 360, 0), "StationCard")
-	lc.anchor_bottom = 1.0
-	lc.offset_bottom = -TILE_H - 14.0
 	var v := lc.get_child(0).get_child(0) as VBoxContainer
 	v.add_child(_caption("STATION  ·  " + str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])).to_upper()))
 	var l := _label(15, Color(1, 1, 1))
@@ -1373,8 +1420,7 @@ func _hub_page() -> void:
 	rc.anchor_right = 1.0
 	rc.offset_left = -380
 	rc.offset_right = 0
-	rc.anchor_bottom = 1.0
-	rc.offset_bottom = -TILE_H - 14.0
+
 	var rv := rc.get_child(0).get_child(0) as VBoxContainer
 	rv.add_child(_caption("PILOT"))
 	var pn := _label(18, Color.WHITE)
@@ -1402,23 +1448,7 @@ func _hub_page() -> void:
 	info.text = "%s ×%d  ·  Missiles %d/%d  ·  Heavy %d/%d  ·  Mines %d/%d" % [GS.weapon()["name"], sh["guns"], GS.missiles, GS.max_missiles(), GS.heavy_missiles, GS.max_heavy(), GS.mines, GS.max_mines()]
 	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	rv.add_child(info)
-	# the picture tiles (each one opens its page)
-	var row := HBoxContainer.new()
-	row.name = "Tiles"
-	row.anchor_top = 1.0
-	row.anchor_bottom = 1.0
-	row.anchor_right = 1.0
-	row.offset_top = -TILE_H
-	row.add_theme_constant_override("separation", 10)
-	content.add_child(row)
-	var lead: Dictionary = Factions.leader(Factions.owner_of(base, Data.SYSTEMS[GS.system_id]))
-	for tl in [["equipment", "HANGAR", "Weapons & upgrades", "res://assets/ui/weapons/laser_cannon.png"],
-			["ships", "SHIP DEALER", "Buy new ships", "res://assets/ui/ship_lv2.png"],
-			["mechs", "MECH DEALER", "Frames & parts", "res://assets/ui/mech_lv2.png"],
-			["board", "MISSIONS", "Jobs & bounties", "res://assets/missions/escort.png"],
-			["faction", "COMMAND", "Faction & standing", str(lead.get("portrait_clean", ""))],
-			["galaxy", "GALAXY MAP", "Explore & travel", "res://assets/nav/nebula.jpg"]]:
-		row.add_child(_tile(tl[0], tl[1], tl[2], tl[3], row.get_child_count()))
+	# v8.2 (owner: less is more): no row of picture tiles; the top bar's five categories open every page
 
 ## v3.1: a dark glass card on the HOME page holding a VBox (child 0).
 func _home_card(r: Rect2, nm: String) -> PanelContainer:
