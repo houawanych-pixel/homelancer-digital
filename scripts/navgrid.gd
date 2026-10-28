@@ -114,7 +114,7 @@ static func levels(scale_k: float, base_px: float = Data.NAV_GRID_MAJOR_PX) -> A
 	return [
 		[major, mpx, Data.NAV_GRID_ALPHA[0]],
 		[major / 5.0, mpx / 5.0, lerpf(Data.NAV_GRID_ALPHA[1], Data.NAV_GRID_ALPHA[0], t)],
-		[major / 25.0, mpx / 25.0, lerpf(0.0, Data.NAV_GRID_ALPHA[2], clampf((mpx / 25.0 - 7.0) / 10.0, 0.0, 1.0))],
+		[major / 25.0, mpx / 25.0, lerpf(0.0, Data.NAV_GRID_ALPHA[2], clampf((mpx / 25.0 - 3.0) / 10.0, 0.0, 1.0))],   # (v8.9: ticks show once 3 px apart; was 7)
 	]
 
 ## Clip a segment to a rectangle (Liang-Barsky). Returns [] when it misses.
