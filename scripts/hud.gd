@@ -335,6 +335,16 @@ func fl_contacts() -> Array:
 	return out
 
 var cl_scroll := 0
+var gun_scroll := 0
+var _list_drag := {}   # v7.7 (owner): touch index -> {y, s0, side, moved}: a drag on a list scrolls it, a tap picks the row
+const CL_ROW_H := 24.0
+const GUN_ROW_H := 22.0
+func cl_rows_fit() -> int:
+	return maxi(2, int((fl_rect("l").size.y - (30.0 + FL_TGT_H + 4.0) - 6.0) / CL_ROW_H))
+func gun_rows_fit() -> int:
+	return maxi(1, int((fl_rect("r").size.y - (82.0 + FL_TAB_H) - 6.0) / GUN_ROW_H))
+func list_max_scroll(side: String) -> int:
+	return maxi(0, (fl_contacts().size() - cl_rows_fit()) if side == "l" else (gun_rows().size() - gun_rows_fit()))
 func _fl_buttons() -> void:
 	if space == null: return
 	for side in ["l", "r"]:
@@ -352,12 +362,14 @@ func _fl_buttons() -> void:
 			if space.target != null and is_instance_valid(space.target):
 				buttons["scan"] = Rect2(r.position + Vector2(12 + bw2 * 2, 30 + FL_TGT_H - 26), Vector2(bw2, 24))
 			var y1: float = 30 + FL_TGT_H + 4
-			for i in mini(FL_ROWS, list.size() - cl_scroll):
-				buttons["cl_%d" % (cl_scroll + i)] = Rect2(r.position + Vector2(4, y1 + i * 24), Vector2(r.size.x - 8, 22))
-			if list.size() > FL_ROWS: buttons["cl_more"] = Rect2(r.position + Vector2(4, y1 + FL_ROWS * 24), Vector2(r.size.x - 8, 20))
+			cl_scroll = clampi(cl_scroll, 0, list_max_scroll("l"))
+			for i in mini(cl_rows_fit(), list.size() - cl_scroll):
+				buttons["cl_%d" % (cl_scroll + i)] = Rect2(r.position + Vector2(4, y1 + i * CL_ROW_H), Vector2(r.size.x - 14, 22))
 		else:
 			var gs := gun_rows()
-			for i in gs.size(): buttons["gun_%s" % str(gs[i][0])] = Rect2(r.position + Vector2(4, 82 + FL_TAB_H + i * 22), Vector2(r.size.x - 8, 20))
+			gun_scroll = clampi(gun_scroll, 0, list_max_scroll("r"))
+			for i in mini(gun_rows_fit(), gs.size() - gun_scroll):
+				buttons["gun_%s" % str(gs[gun_scroll + i][0])] = Rect2(r.position + Vector2(4, 82 + FL_TAB_H + i * GUN_ROW_H), Vector2(r.size.x - 14, 20))
 
 ## [slot key, name] for every gun on the ship (front guns, then the wing mounts).
 func gun_rows() -> Array:
@@ -391,7 +403,8 @@ func _fl_target(r: Rect2) -> void:   # v7.6: the row of NEXT · GO TO · SCAN (t
 		if not buttons.has(id): continue
 		var br: Rect2 = buttons[id]
 		var on: bool = id == "goto" and space.autopilot != null
-		_box(br, Color(GREEN if on else CYAN, 0.18), Color(GREEN if on else CYAN, 0.7), 6, 1)
+		var bc: Color = {"target": GOLD, "goto": GREEN, "scan": CYAN}[id]   # v7.7 (owner): NEXT yellow, GO TO green
+		_box(br, Color(bc, 0.35 if on else 0.16), Color(bc, 0.85), 6, 1)
 		_text(Vector2(br.position.x, br.position.y + 17), {"target": "NEXT ▸", "scan": "SCAN", "goto": "GO TO"}[id], 12, WHITE, HORIZONTAL_ALIGNMENT_CENTER, br.size.x)
 
 ## v7.6 (owner's mockup): the enemy card over the contact list: only while there are hostiles. Your target if it is
@@ -425,10 +438,10 @@ func _card(r: Rect2, col: Color, title: String, k_sh: float, k_hp: float) -> voi
 	if k_sh >= 0.0: _seg_bar(Rect2(br.position, Vector2(br.size.x, 5)), k_sh, Color(0.45, 0.75, 1.0), 12)
 	_seg_bar(Rect2(br.position + Vector2(0, 10), Vector2(br.size.x, 8)), k_hp, col if col != CYAN else Color(0.3, 0.75, 1.0), 12, k_hp < 0.25 and fmod(t, 0.6) < 0.3)
 
-func _jet_icon(c: Vector2, s2: float, col: Color) -> void:
-	draw_colored_polygon(PackedVector2Array([c + Vector2(0, -s2), c + Vector2(s2 * 0.18, -s2 * 0.3), c + Vector2(s2, s2 * 0.25), c + Vector2(s2, s2 * 0.42),
-		c + Vector2(s2 * 0.18, s2 * 0.2), c + Vector2(s2 * 0.2, s2 * 0.7), c + Vector2(s2 * 0.45, s2), c + Vector2(-s2 * 0.45, s2), c + Vector2(-s2 * 0.2, s2 * 0.7),
-		c + Vector2(-s2 * 0.18, s2 * 0.2), c + Vector2(-s2, s2 * 0.42), c + Vector2(-s2, s2 * 0.25), c + Vector2(-s2 * 0.18, -s2 * 0.3)]), col)
+func _jet_icon(c: Vector2, s2: float, col: Color) -> void:   # v7.7 (owner): a delta fighter, no tail
+	draw_colored_polygon(PackedVector2Array([c + Vector2(0, -s2), c + Vector2(s2 * 0.2, -s2 * 0.25), c + Vector2(s2, s2 * 0.42), c + Vector2(s2, s2 * 0.6),
+		c + Vector2(s2 * 0.24, s2 * 0.45), c + Vector2(s2 * 0.16, s2 * 0.62), c + Vector2(-s2 * 0.16, s2 * 0.62), c + Vector2(-s2 * 0.24, s2 * 0.45),
+		c + Vector2(-s2, s2 * 0.6), c + Vector2(-s2, s2 * 0.42), c + Vector2(-s2 * 0.2, -s2 * 0.25)]), col)
 
 func _card_target(r: Rect2) -> void:
 	var e := card_enemy()
@@ -452,7 +465,7 @@ func _fl_panels() -> void:
 		if side == "r":   # v7.3: WEAPONS · COMMS · VIEW
 			var lit := [weapons_shown(), console_open or comms_open]
 			var names := ["WEAPONS", "COMMS"]
-			var cols := [RED, CYAN]
+			var cols := [Color(0.25, 0.6, 1.0), Color(0.7, 0.45, 1.0)]   # v7.7 (owner): WEAPONS blue, COMMS purple
 			for i in 2:
 				var tr: Rect2 = fl_tab_rect(i)
 				_box(tr, Color(cols[i], 0.3 if lit[i] else 0.12), Color(cols[i], 0.85), 6, 1)
@@ -463,7 +476,8 @@ func _fl_panels() -> void:
 			var tg: Node3D = space.target
 			_fl_target(Rect2(r.position + Vector2(4, 28), Vector2(r.size.x - 8, FL_TGT_H)))
 			_card_target(r)
-			for i in mini(FL_ROWS, list.size() - cl_scroll):
+			_scrollbar(r, 30.0 + FL_TGT_H + 4.0, cl_scroll, cl_rows_fit(), list.size())
+			for i in mini(cl_rows_fit(), list.size() - cl_scroll):
 				var c: Dictionary = list[cl_scroll + i]
 				var y: float = r.position.y + 30 + FL_TGT_H + 4 + i * 24
 				var sel: bool = c["node"] == tg
@@ -471,7 +485,7 @@ func _fl_panels() -> void:
 				draw_circle(Vector2(r.position.x + 13, y + 11), 4, c["col"])
 				_text(Vector2(r.position.x + 22, y + 16), _dist(space.player.global_position.distance_to(c["node"].global_position)), 12, Color(c["col"], 0.9), HORIZONTAL_ALIGNMENT_LEFT, 56)
 				_text(Vector2(r.position.x + 80, y + 16), c["name"], 12, WHITE if sel else Color(WHITE, 0.85), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 86)
-			if list.size() > FL_ROWS: _text(Vector2(r.position.x, r.position.y + 30 + FL_TGT_H + 4 + FL_ROWS * 24 + 14), "▾ %d more" % (list.size() - FL_ROWS - cl_scroll) if cl_scroll + FL_ROWS < list.size() else "▴ top", 11, CYAN_HI, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
+			pass
 		else:
 			var x: float = r.position.x + 8
 			var bw: float = r.size.x - 16
@@ -480,12 +494,24 @@ func _fl_panels() -> void:
 			_text(Vector2(x + bw * 0.5, y0 + 10), "SHIELD %d%%" % int(100.0 * GS.shield / maxf(GS.max_shield(), 1.0)), 12, Color(0.45, 0.75, 1.0), HORIZONTAL_ALIGNMENT_LEFT, bw * 0.5)
 			_text(Vector2(x, y0 + 30), "REPAIR KITS %d   SHIELD CELLS %d" % [GS.repairs, GS.shield_charges], 11, Color(WHITE, 0.85), HORIZONTAL_ALIGNMENT_LEFT, bw)
 			var gs := gun_rows()
-			for i in gs.size():
+			_scrollbar(r, 82.0 + FL_TAB_H, gun_scroll, gun_rows_fit(), gs.size())
+			bw -= 6.0
+			for i2 in mini(gun_rows_fit(), gs.size() - gun_scroll):
+				var i := gun_scroll + i2
 				var on: bool = not GS.gun_off.has(str(gs[i][0]))
-				var y: float = r.position.y + 82 + FL_TAB_H + i * 22
+				var y: float = r.position.y + 82 + FL_TAB_H + i2 * GUN_ROW_H
 				draw_rect(Rect2(x - 4, y, bw + 8, 20), Color(GREEN if on else RED, 0.14))
 				_text(Vector2(x, y + 15), "%d  %s" % [i + 1, gs[i][1]], 12, GREEN if on else Color(RED, 0.8), HORIZONTAL_ALIGNMENT_LEFT, bw - 34)
 				_text(Vector2(x + bw - 34, y + 15), "ON" if on else "OFF", 11, GREEN if on else RED, HORIZONTAL_ALIGNMENT_RIGHT, 34)
+
+## v7.7 (owner): a thin scroll bar down a window's right edge when its list is longer than the window.
+func _scrollbar(r: Rect2, top: float, at: int, fit: int, total: int) -> void:
+	if total <= fit: return
+	var tr := Rect2(r.end.x - 7.0, r.position.y + top, 3.0, r.size.y - top - 6.0)
+	draw_rect(tr, Color(CYAN, 0.18))
+	var h := maxf(14.0, tr.size.y * fit / float(total))
+	var y := tr.position.y + (tr.size.y - h) * (at / float(maxi(1, total - fit)))
+	draw_rect(Rect2(tr.position.x - 1.0, y, 5.0, h), Color(CYAN_HI, 0.9))
 
 func side_rect(side: String) -> Rect2:
 	var w := clampf(S.x * 0.14, 150.0, 190.0)
@@ -629,6 +655,10 @@ func _input(e: InputEvent) -> void:
 			for id in buttons:
 				if (buttons[id] as Rect2).grow(3).has_point(e.position):
 					owners[e.index] = id
+					if (id.begins_with("cl_") and id != "cl_more") or id.begins_with("gun_"):   # v7.7: a list row: scroll on drag, pick on release
+						_list_drag[e.index] = {"y": e.position.y, "s0": cl_scroll if id.begins_with("cl_") else gun_scroll, "side": "l" if id.begins_with("cl_") else "r", "moved": false, "id": id}
+						get_viewport().set_input_as_handled()
+						return
 					held[id] = true
 					Sfx.play("button", -14.0)
 					if id == "radar": radar_pick = radar_pick_at(e.position)   # v1.4p: which blip the tap landed on, if any
@@ -663,6 +693,14 @@ func _input(e: InputEvent) -> void:
 		else:
 			var o: String = owners.get(e.index, "")
 			owners.erase(e.index)
+			if _list_drag.has(e.index):
+				var ld: Dictionary = _list_drag[e.index]
+				_list_drag.erase(e.index)
+				if not ld["moved"]:
+					Sfx.play("button", -14.0)
+					pressed.emit(str(ld["id"]))
+				get_viewport().set_input_as_handled()
+				return
 			if o == "move":
 				move_vec = Vector2.ZERO
 				origins.erase("move")
@@ -673,6 +711,17 @@ func _input(e: InputEvent) -> void:
 				held.erase(o)
 				if o == "talk": talk_release()
 	elif e is InputEventScreenDrag:
+		if _list_drag.has(e.index):
+			var ld2: Dictionary = _list_drag[e.index]
+			var dy: float = e.position.y - float(ld2["y"])
+			if absf(dy) > 10.0: ld2["moved"] = true
+			if ld2["moved"]:
+				var rh := CL_ROW_H if ld2["side"] == "l" else GUN_ROW_H
+				var ns := clampi(int(ld2["s0"]) - int(round(dy / rh)), 0, list_max_scroll(ld2["side"]))
+				if ld2["side"] == "l": cl_scroll = ns
+				else: gun_scroll = ns
+			get_viewport().set_input_as_handled()
+			return
 		var o2: String = owners.get(e.index, "")
 		if o2 == "move": move_vec = ((e.position - origins["move"]) / stick_r).limit_length(1.0)
 		elif o2 == "aim": aim_vec = ((e.position - origins["aim"]) / stick_r).limit_length(1.0)
@@ -1050,8 +1099,13 @@ func _corner(id: String, label: String, icon: String, col: Color, active := fals
 	_tech_square(f, Color(col.darkened(0.45), 0.92) if on else Color(0.02, 0.08, 0.15, 0.88), Color(col, 1.0) if on else Color(col, 0.8), on)
 	var small := f.size.x < 92.0   # v7.6 (owner: clean and tight): console buttons show an icon and a name only
 	if small: sub = ""
-	_icon(icon, f.position + Vector2(f.size.x * 0.5, f.size.y * 0.42), f.size.x * 0.19, col.lightened(0.25) if icon != "tractor" else col)
-	_text(Vector2(f.position.x, f.end.y - (22 if sub != "" else 9)), label, clampi(int(f.size.x * 0.145), 10, 15), WHITE, HORIZONTAL_ALIGNMENT_CENTER, f.size.x)
+	_icon(icon, f.position + Vector2(f.size.x * 0.5, f.size.y * (0.36 if small and label.length() > 9 and label.find(" ") > 0 else 0.42)), f.size.x * 0.19, col.lightened(0.25) if icon != "tractor" else col)
+	var fs := clampi(int(f.size.x * 0.145), 10, 15)
+	if small and label.length() > 9 and label.find(" ") > 0:   # v7.7: SHIELD REPAIR / HULL REPAIR on two lines
+		var sp := label.find(" ")
+		_text(Vector2(f.position.x, f.end.y - 9 - fs), label.substr(0, sp), fs, WHITE, HORIZONTAL_ALIGNMENT_CENTER, f.size.x)
+		_text(Vector2(f.position.x, f.end.y - 7), label.substr(sp + 1), fs, WHITE, HORIZONTAL_ALIGNMENT_CENTER, f.size.x)
+	else: _text(Vector2(f.position.x, f.end.y - (22 if sub != "" else 9)), label, fs, WHITE, HORIZONTAL_ALIGNMENT_CENTER, f.size.x)
 	if sub != "": _text(Vector2(f.position.x, f.end.y - 7), sub, 11, Color(col.lightened(0.35), 0.95), HORIZONTAL_ALIGNMENT_CENTER, f.size.x)
 	if badge != "":
 		var bc := f.position + Vector2(f.size.x - 17, 17)
@@ -1703,34 +1757,45 @@ func _brackets(p: Vector2, s: float, col: Color) -> void:
 ## its ring (tap = map) with SPEED under it. Right: SHIELDS, HULL (LEFT WING / CORE / RIGHT WING) and ENERGY, each with
 ## its percentage. Sized to the gap between the two sticks.
 func dash_geo() -> Dictionary:
-	var rad := clampf(S.y * 0.125, 66.0, 100.0)
-	var rc := Vector2(S.x * 0.5, S.y - rad - 12.0)
+	# v7.7 (owner's ring mockup): the radar in the middle of two rings. Inner ring: the hull (BODY on top, L WING and
+	# R WING low on each side). Outer ring: SHIELD over the top, POWER low left, SUPER low right. SPEED sits on top.
+	# Two blocks of six buttons, one each side:
+	#   FIRE · TRANSFORM · SHIELD REPAIR        HULL REPAIR · SUPER · MINE
+	#   MISSILE 1 · ENGINE KILL · THRUST        STOP · WARP · MISSILE 2
+	var ro := clampf(S.y * 0.2, 104.0, 160.0)
+	var rad := ro - 46.0
+	var rc := Vector2(S.x * 0.5, S.y - ro - 6.0)
 	var xl0 := _home("move").x + stick_r + 16.0
-	var xr1 := _home("aim").x - stick_r - 16.0
-	var xl1 := rc.x - rad - 14.0
-	var xr0 := rc.x + rad + 14.0
+	var xl1 := rc.x - ro - 12.0
+	var xr0 := rc.x + ro + 12.0
 	var ww := xl1 - xl0
 	var gap := 6.0
-	var bsz := clampf((ww - gap * 3.0) / 4.0, 48.0, S.y * 0.11)
-	var by := S.y - 8.0 - bsz
-	var bh := clampf(S.y * 0.04, 20.0, 30.0)
-	var ib := bh + 18.0
-	var y2 := by - 12.0 - bh
-	var y1 := y2 - 16.0 - bh
-	var row := bsz * 4.0 + gap * 3.0
-	var lx0 := xl0 + (ww - row) * 0.5
-	var rx0 := xr0 + (ww - row) * 0.5
-	var lb := func(k: int) -> Rect2: return Rect2(lx0 + k * (bsz + gap), by, bsz, bsz)
-	var rb := func(k: int) -> Rect2: return Rect2(rx0 + k * (bsz + gap), by, bsz, bsz)
-	var icon_at := func(x: float, y: float) -> Rect2: return Rect2(x, y + bh * 0.5 - ib * 0.5, ib, ib)
-	return {"rc": rc, "rad": rad, "x0": xl0, "y0": y1 - 16.0, "w": xr1 - xl0, "h": S.y - y1 + 16.0, "ib": ib,
-		"speed": Rect2(rc.x - 96.0, rc.y - rad - 52.0, 192.0, 44.0),
-		"shield_bar": Rect2(xl0, y1, ww - ib - 10.0, bh), "hull_bar": Rect2(xl0, y2, ww - ib - 10.0, bh),
-		"power_bar": Rect2(xr0 + ib + 10.0, y1, ww - ib - 10.0, bh), "super_bar": Rect2(xr0 + ib + 10.0, y2, ww - ib - 10.0, bh),
-		"shield": icon_at.call(xl1 - ib, y1), "repair": icon_at.call(xl1 - ib, y2), "form": icon_at.call(xr0, y1), "special": icon_at.call(xr0, y2),
-		"super_btn": icon_at.call(xr0, y2),
-		"missile1": lb.call(0), "fire": lb.call(1), "kill": lb.call(2), "thrust": lb.call(3),
-		"stop": rb.call(0), "warp": rb.call(1), "mine": rb.call(2), "missile2": rb.call(3)}
+	var bsz := clampf((ww - gap * 2.0) / 3.0, 48.0, S.y * 0.12)
+	var by2 := S.y - 8.0 - bsz
+	var by1 := by2 - gap - bsz
+	var row := bsz * 3.0 + gap * 2.0
+	var lx0 := xl1 - row
+	var rx0 := xr0
+	var lb := func(k: int, y: float) -> Rect2: return Rect2(lx0 + k * (bsz + gap), y, bsz, bsz)
+	var rb := func(k: int, y: float) -> Rect2: return Rect2(rx0 + k * (bsz + gap), y, bsz, bsz)
+	return {"rc": rc, "rad": rad, "ro": ro,
+		"speed": Rect2(rc.x - 96.0, rc.y - ro - 30.0, 192.0, 44.0),
+		"fire": lb.call(0, by1), "form": lb.call(1, by1), "shield": lb.call(2, by1),
+		"missile1": lb.call(0, by2), "kill": lb.call(1, by2), "thrust": lb.call(2, by2),
+		"repair": rb.call(0, by1), "special": rb.call(1, by1), "super_btn": rb.call(1, by1), "mine": rb.call(2, by1),
+		"stop": rb.call(0, by2), "warp": rb.call(1, by2), "missile2": rb.call(2, by2)}
+
+## A ring gauge: `segs` blocks along the arc a0 -> a1 (radians, Godot's y-down angles), lit from a0 by v.
+func _ring_gauge(c: Vector2, r: float, w: float, a0: float, a1: float, v: float, col: Color, segs: int, blink := false) -> void:
+	var step := (a1 - a0) / segs
+	var pad := signf(step) * minf(0.025, absf(step) * 0.18)
+	for i in segs:
+		var b0 := a0 + i * step + pad
+		var b1 := a0 + (i + 1) * step - pad
+		var lit := (i + 1) / float(segs) <= v + 0.0001
+		var part := clampf(v * segs - i, 0.0, 1.0)
+		draw_arc(c, r, b0, b1, 6, Color(0.08, 0.15, 0.22, 0.85), w, true)
+		if part > 0.0: draw_arc(c, r, b0, b0 + (b1 - b0) * part, 6, (RED if blink else col) if not lit or part > 0.0 else col, w, true)
 
 func _dash_frame(r: Rect2, col := CYAN) -> void:   # the cut-corner tech frame of the art
 	var c := minf(14.0, r.size.y * 0.3)
@@ -1778,11 +1843,42 @@ func _dashboard() -> void:
 	var g := dash_geo()
 	var rc: Vector2 = g["rc"]
 	var rad: float = g["rad"]
-	# SPEED (tap = cockpit / chase view)
+	var ro: float = g["ro"]
+	var blink := fmod(t, 0.6) < 0.3
+	var pulse := 0.5 + 0.5 * sin(t * 6.0)
+	# the rings' backing
+	draw_circle(rc, ro + 4.0, Color(0.01, 0.04, 0.09, 0.88))
+	draw_arc(rc, ro + 4.0, 0, TAU, 96, Color(CYAN, 0.8), 2.0, true)
+	draw_arc(rc, rad + 27.0, 0, TAU, 96, Color(CYAN, 0.4), 1.5, true)
+	# outer ring: SHIELD over the top (left to right), POWER low left, SUPER low right (both fill upward from the bottom)
+	var sh: float = clampf(GS.shield / maxf(GS.max_shield(), 1.0), 0.0, 1.0)
+	var en: float = clampf(GS.energy / Data.ENERGY_MAX, 0.0, 1.0)
+	var sup: float = clampf(GS.super_charge, 0.0, 1.0)
+	var orr := ro - 9.0
+	_ring_gauge(rc, orr, 14.0, PI + 0.06, TAU - 0.06, sh, Color(0.2, 0.7, 1.0), 16, sh < 0.2 and blink)
+	_ring_gauge(rc, orr, 14.0, PI * 0.5 + 0.06, PI - 0.06, en, GREEN, 8)
+	_ring_gauge(rc, orr, 14.0, PI * 0.5 - 0.06, 0.06, sup, ORANGE.lerp(WHITE, 0.45 * pulse) if sup >= 1.0 else ORANGE, 8)
+	if sup >= 1.0: draw_arc(rc, orr, 0.06, PI * 0.5 - 0.06, 24, Color(ORANGE, 0.3 * pulse), 24.0, true)
+	# inner ring: the hull. BODY on top, L WING and R WING low on each side
+	var hu: float = clampf(GS.hull / maxf(GS.max_hull(), 1.0), 0.0, 1.0)
+	var wl: float = clampf(GS.wing_l / maxf(GS.wing_max(), 1.0), 0.0, 1.0)
+	var wr: float = clampf(GS.wing_r / maxf(GS.wing_max(), 1.0), 0.0, 1.0)
+	var hr := rad + 15.0
+	_ring_gauge(rc, hr, 12.0, -PI * 0.78, -PI * 0.22, hu, _hull_col(hu), 10, hu < 0.25 and blink)
+	_ring_gauge(rc, hr, 12.0, PI * 0.95, PI * 0.55, wl, _hull_col(wl), 6, wl < 0.25 and blink)
+	_ring_gauge(rc, hr, 12.0, PI * 0.05, PI * 0.45, wr, _hull_col(wr), 6, wr < 0.25 and blink)
+	# the radar (tap = map)
+	draw_circle(rc, rad + 2.0, Color(0.01, 0.05, 0.1, 0.9))
+	draw_arc(rc, rad + 2.0, 0, TAU, 64, Color(CYAN, 0.6), 1.5, true)
+	_radar(rc, rad - 2.0, false)
+	_text(rc + Vector2(-40, -hr + 20), "BODY", 10, Color(WHITE, 0.85), HORIZONTAL_ALIGNMENT_CENTER, 80)
+	_text(rc + Vector2(-hr - 6, hr * 0.5), "L WING", 10, Color(WHITE, 0.85), HORIZONTAL_ALIGNMENT_CENTER, 50)
+	_text(rc + Vector2(hr - 44, hr * 0.5), "R WING", 10, Color(WHITE, 0.85), HORIZONTAL_ALIGNMENT_CENTER, 50)
+	# SPEED on top (tap = cockpit / chase view)
 	var sr: Rect2 = g["speed"]
 	var pts := PackedVector2Array([sr.position + Vector2(16, 0), Vector2(sr.end.x - 16, sr.position.y), sr.end - Vector2(0, 10), Vector2(sr.end.x - 10, sr.end.y),
 		Vector2(sr.position.x + 10, sr.end.y), Vector2(sr.position.x, sr.end.y - 10), sr.position + Vector2(16, 0)])
-	draw_colored_polygon(pts.slice(0, 6), Color(0.01, 0.06, 0.12, 0.9 if not held.has("view") else 0.6))
+	draw_colored_polygon(pts.slice(0, 6), Color(0.01, 0.06, 0.12, 0.92 if not held.has("view") else 0.6))
 	draw_polyline(pts, Color(CYAN, 0.95), 2.5, true)
 	_icon("view", sr.position + Vector2(24, sr.size.y * 0.5), 11.0, CYAN_HI)
 	_text(Vector2(sr.position.x + 40, sr.position.y + 22), "%d m/s" % int(space.speed_now), 20, WHITE, HORIZONTAL_ALIGNMENT_CENTER, sr.size.x - 48)
@@ -1794,42 +1890,14 @@ func _dashboard() -> void:
 	elif space.boosting: mode = "THRUST"
 	if space.surface_mode and mode == "": mode = "ALT %d m" % int(space.altitude)
 	_text(Vector2(sr.position.x + 40, sr.end.y - 6), mode if mode != "" else ("CHASE VIEW" if GS.view == "cockpit" else "COCKPIT VIEW"), 11, GOLD if mode != "" else CYAN_HI, HORIZONTAL_ALIGNMENT_CENTER, sr.size.x - 48)
-	# the radar (tap = map)
-	draw_circle(rc, rad + 10.0, Color(0.01, 0.05, 0.1, 0.85))
-	for k in 12:
-		var a0 := k * TAU / 12.0 + 0.08
-		draw_arc(rc, rad + 9.0, a0, a0 + TAU / 12.0 - 0.16, 8, Color(CYAN, 0.95), 4.0, true)
-	draw_arc(rc, rad + 2.0, 0, TAU, 64, Color(CYAN, 0.55), 1.5, true)
-	_radar(rc, rad - 2.0, false)
-	# the bars
-	var sh: float = clampf(GS.shield / maxf(GS.max_shield(), 1.0), 0.0, 1.0)
-	var hu: float = clampf(GS.hull / maxf(GS.max_hull(), 1.0), 0.0, 1.0)
-	var wl: float = clampf(GS.wing_l / maxf(GS.wing_max(), 1.0), 0.0, 1.0)
-	var wr: float = clampf(GS.wing_r / maxf(GS.wing_max(), 1.0), 0.0, 1.0)
-	var en: float = clampf(GS.energy / Data.ENERGY_MAX, 0.0, 1.0)
-	var blink := fmod(t, 0.6) < 0.3
-	_console_bar(g["shield_bar"], "SHIELD", sh, Color(0.2, 0.7, 1.0), 16, sh < 0.2 and blink)
-	var hb: Rect2 = g["hull_bar"]   # HULL in three: left wing, the core (the big middle), right wing
-	_text(Vector2(hb.position.x + 10, hb.position.y - 4), "HULL", 12, Color(WHITE, 0.92))
-	var parts := [[wl, 0.27], [hu, 0.46], [wr, 0.27]]
-	var x := hb.position.x
-	for pt in parts:
-		var pw: float = hb.size.x * float(pt[1])
-		_seg_bar(Rect2(x + 3.0, hb.position.y + 3.0, pw - 8.0, hb.size.y - 6.0), pt[0], _hull_col(pt[0]), 4 if pt[1] < 0.3 else 7, pt[0] < 0.25 and blink)
-		x += pw
-	_console_bar(g["power_bar"], "POWER", en, GREEN, 16)
-	# the super meter (fills as you fight; full = the button pulses: tap for the lightning storm)
-	var k_sup: float = clampf(GS.super_charge, 0.0, 1.0)
-	var full := k_sup >= 1.0
-	_console_bar(g["super_bar"], "SUPER", k_sup, GOLD.lerp(WHITE, 0.4 * (0.5 + 0.5 * sin(t * 6.0))) if full else ORANGE, 16)
-	# the icon buttons by the radar
+	# the four square buttons that used to be round
 	var sh_cd: float = space.shield_cd / Data.SHIELD_BOOST_COOLDOWN
-	_icon_btn("shield", "shield", Color(0.35, 0.7, 1.0), false, str(GS.shield_charges), sh_cd)
-	_icon_btn("repair", "repair", GOLD, false, str(GS.repairs), space.repair_cd / 1.5)
-	_icon_btn("form", "form", GREEN, space.transform_t > 0.0)
+	_corner("shield", "SHIELD REPAIR", "shield", Color(0.35, 0.7, 1.0), false, str(GS.shield_charges), sh_cd)
+	_corner("repair", "HULL REPAIR", "repair", GOLD, false, str(GS.repairs), space.repair_cd / 1.5)
+	_corner("form", "TRANSFORM", "form", GREEN, space.transform_t > 0.0, "", 0.0, space.warp_state != "off")
 	var armed: bool = space.special_ready() != "" or space.special_state != "idle"
-	_icon_btn("special", "special", ORANGE, armed, "", 0.0, armed)
-	_gps_strip(Rect2(S.x * 0.5 - 230, (g["speed"] as Rect2).position.y - 44, 460, 34))   # v1.5i
+	_corner("special", "SUPER", "special", ORANGE, armed and pulse > 0.4, "", 0.0, false)
+	_gps_strip(Rect2(S.x * 0.5 - 230, sr.position.y - 44, 460, 34))   # v1.5i
 
 ## Radar (Job S, v1.4p): the same GPS-style view as the navigation map, small. A grid, faceted blips, a north
 ## marker, and the course line when one is set. North-up or heading-up, angled or overhead (NavGrid's setting).

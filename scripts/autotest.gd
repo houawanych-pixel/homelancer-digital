@@ -307,8 +307,8 @@ func _flight_and_comms() -> void:
 	# TRANSFORM leads the special-moves row (right block); the centre row has no MECH pill
 	hud._layout()
 	var fr: Rect2 = hud.buttons.get("form", Rect2())
-	var wr: Rect2 = hud.buttons["stop"]
-	_check("TRANSFORM (MECH) sits on the console's right wing by the radar, above STOP (v7.6 owner console)", fr.size.x > 0.0 and fr.end.y < wr.position.y and fr.position.x > hud.S.x * 0.5
+	var wr: Rect2 = hud.buttons.get("kill", hud.buttons["thrust"])
+	_check("TRANSFORM sits in the console's left block, over ENGINE KILL (v7.7 owner ring console)", fr.size.x > 0.0 and fr.end.y < wr.position.y and fr.end.x < hud.S.x * 0.5
 		and hud.buttons.has("stop") and hud.buttons.has("log") and hud.buttons.has("goto"), "at %s" % str(fr.position))   # (v6.9: MAP = the radar)
 	# default cruise: centred stick holds cruise speed; all the way back stops and stays stopped
 	SpaceSystem.cruise_assist = true
@@ -1501,8 +1501,8 @@ func _run() -> void:
 	var pick_ok: bool = hq.pick == hq.contact_at(0) and psl.get("mode", "") == "pick" and str(psl.get("face", "")) == str(pc.get("face", "")) and str(psl.get("from", "")).begins_with(str(pc["name"])) \
 		and hq.buttons.has("call_pick") and hq.side_rect("r").encloses(hq.buttons["call_pick"]) and hq.comms_mode == "roster" and not hq.slots["l"].has("mode")
 	await _shot("log_pick", 0.3)
-	var lefts: Array = ["fire", "thrust", "shield", "repair"] + ["zoom" if hq.buttons.has("zoom") else "kill"]   # v7.6 (owner's console): left wing
-	var rights := ["stop", "warp", "form", "special"]   # v7.6: right wing   # (v7.5: SPECIAL is the super meter on the dash) defence + special moves on the right (FULL SCREEN in the web build)
+	var lefts: Array = ["fire", "thrust", "shield", "form"] + ["zoom" if hq.buttons.has("zoom") else "kill"]   # v7.7 (owner's ring console): left block
+	var rights := ["stop", "warp", "repair", "special"]   # v7.7: right block   # (v7.5: SPECIAL is the super meter on the dash) defence + special moves on the right (FULL SCREEN in the web build)
 	var eight: bool = lefts.all(func(b): return hq.buttons.has(b) and hq.buttons[b].end.x < hq.S.x * 0.5) and rights.all(func(b): return hq.buttons.has(b) and hq.buttons[b].position.x > hq.S.x * 0.5)
 	var clear := true   # the centre strip sits between the two blocks
 	for b in []:   # (v7.4: GO TO is in the left window) (v7.3: VIEW is in the right window now) (v6.9: the top strip is VIEW and GO TO; MAP = radar, TARGET/SCAN in the contact list, COMMS by the radar)
@@ -9618,6 +9618,46 @@ func _job_fl() -> void:
 	GS.super_charge = keep_sc
 	GS.hull = keep_hl
 	_check("v7.5 (owner's UI sheet): a full super meter readies the special; WARNING / DANGER alert panels draw", alerts_ok)
+	# v7.7 (owner): the windows scroll: a drag on the contact list moves it, a tap still picks the row
+	var extra: Array = []
+	for k in 12:
+		var ex: Dictionary = s.spawn_unit("raider", s.player.global_position + Vector3(4000 + k * 300, 0, -6000), s.player.global_position)
+		ex["aggro"] = false
+		extra.append(ex)
+	hud.cl_scroll = 0
+	hud._layout()
+	var maxs: int = hud.list_max_scroll("l")
+	var row0: Rect2 = hud.buttons.get("cl_0", Rect2())
+	var tch := InputEventScreenTouch.new()
+	tch.index = 7
+	tch.position = row0.get_center()
+	tch.pressed = true
+	hud._input(tch)
+	var drg := InputEventScreenDrag.new()
+	drg.index = 7
+	drg.position = row0.get_center() - Vector2(0, hud.CL_ROW_H * 3.2)
+	hud._input(drg)
+	var scrolled: int = hud.cl_scroll
+	tch.pressed = false
+	tch.position = drg.position
+	hud._input(tch)
+	var tg_keep = s.target
+	hud._layout()
+	var pick_id := "cl_%d" % hud.cl_scroll
+	var prow: Rect2 = hud.buttons.get(pick_id, Rect2())
+	tch.pressed = true
+	tch.position = prow.get_center()
+	hud._input(tch)
+	tch.pressed = false
+	hud._input(tch)
+	await _frames(2)
+	var want: Node3D = hud.fl_contacts()[hud.cl_scroll]["node"]
+	var tapped_ok: bool = s.target == want
+	for ex in extra:
+		if ex in s.enemies: s._damage_enemy(ex, 999999.0)
+	hud.cl_scroll = 0
+	_check("v7.7 (owner): a long contact list scrolls with a drag (%d of %d rows hidden) and a tap still picks the row" % [maxs, hud.fl_contacts().size()],
+		maxs > 0 and scrolled == mini(3, maxs) and tapped_ok and prow.size.x > 0.0, "max %d scrolled %d tapped %s" % [maxs, scrolled, tapped_ok])
 	hud._layout()
 	var hidden: bool = not hud.buttons.has("tractor") and hud.buttons.has("fire") and hud.buttons.has("thrust") and hud.buttons.has("weapons")   # (v7.6: the console always shows; only TRACTOR / GROUND pop up)
 	main._on_hud("weapons")
@@ -9630,8 +9670,8 @@ func _job_fl() -> void:
 	var placed: bool = hud.fl_rect("l").encloses(hud.buttons["goto"]) and hud.buttons.has("radar") and hud.buttons.has("target") \
 		and ["weapons", "log"].all(func(b): return hud.buttons.has(b) and fr.encloses(hud.buttons[b])) \
 		and (hud.buttons["view"] as Rect2).is_equal_approx(hud.dash_geo()["speed"]) \
-		and ["fire", "kill", "thrust", "shield", "repair"].all(func(b): return hud.buttons.has(b) and (hud.buttons[b] as Rect2).end.x <= rr.position.x) \
-		and ["stop", "warp", "form", "special"].all(func(b): return hud.buttons.has(b) and (hud.buttons[b] as Rect2).position.x >= rr.end.x)   # (v7.6: the console: left wing, radar, right wing; SPEED = the view button)
+		and ["fire", "kill", "thrust", "shield", "form"].all(func(b): return hud.buttons.has(b) and (hud.buttons[b] as Rect2).end.x <= rr.position.x) \
+		and ["stop", "warp", "repair", "special"].all(func(b): return hud.buttons.has(b) and (hud.buttons[b] as Rect2).position.x >= rr.end.x)   # (v7.6: the console: left wing, radar, right wing; SPEED = the view button)
 	hud.weapons_pinned = true
 	_check("v7.0 (owner mockup): cruising, the weapons and abilities fold away (the flight row stays); WEAPONS brings them back; GO TO beside NEXT in the left window (v7.4; the radar is the map); WEAPONS / COMMS in the right window; v7.6 console: shield, hull and four buttons left of the radar, power, super and four right; SPEED is the view button",
 		hidden and shown and placed, "hidden %s shown %s placed %s" % [hidden, shown, placed])
