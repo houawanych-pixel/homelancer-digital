@@ -1277,6 +1277,7 @@ func _panel_tab_place(s: String) -> void:
 		panel_tab.add_theme_font_size_override("font_size", Data.ts(22))
 		panel_tab.pressed.connect(func(): set_panel_min(false))
 		add_child(panel_tab)
+		if launch_btn != null: move_child(launch_btn, get_child_count() - 1)   # (LAUNCH stays on top of everything)
 	panel_tab.visible = _panel_page(s) and panel_min and not panels_hidden
 	if call_ctl.has("l"): _place_calls()   # (v8.5: calls follow the panel)
 
