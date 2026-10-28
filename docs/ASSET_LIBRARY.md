@@ -436,3 +436,8 @@ Each file held one model (the bird two tiny extra bits, saved). Creatures: not m
 | Kaijurai | art/ships/kaijurai_set2/kaijurai_bird_part1/2_game.glb | loose parts | <1000 | no | hl_kbird | saved |
 
 The creature ships' back halves wave (ShipFactory._flow, Data.SHIP_FLOW). They are their own pack (kaijurai_fleet), not in the first download.
+
+## Player ships (remodels)
+| Faction | File | Kind | Triangles | Mirrored | Source original | Status |
+|---|---|---|---|---|---|---|
+| Unity | assets/ships/player/cadet_v2.glb | player starter fighter (Body + Nacelle_L/R, level 1: 4 core + 1 per wing mounts) | 21384 | built half + mirrored | HL_Remodel_Cadet_Pack_v1 (GPT redesign sheet; original cadet_ship.glb untouched) | IN GAME (v9.8) |

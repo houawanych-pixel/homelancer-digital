@@ -5,7 +5,7 @@ extends RefCounted
 
 # key -> [glb path, target length, extra yaw degrees applied after import]
 const GLB := {
-	"cadet": ["res://assets/ships/player/cadet_ship.glb", 9.0, 0.0],   # v1.4l: model rebuilt nose-first, cannons forward
+	"cadet": ["res://assets/ships/player/cadet_v2.glb", 9.0, 0.0],   # v9.8 (owner): the remodelled Cadet (laptop Blender build, 9 m, nose -Z, level 1: 4 core + 1 per wing mounts, tilting nacelles)
 	"ranger": ["res://assets/ships/player/ranger.glb", 10.5, 0.0],
 	"lancer": ["res://assets/ships/player/lancer.glb", 12.0, 0.0],
 	"bulk_empty": ["res://assets/ships/player/bulk_empty.glb", 19.0, 0.0],
@@ -129,8 +129,17 @@ static func mount_name(g: int) -> String:
 	return "wing_%s_%s" % [sd, spot]
 
 static func mount_node(model: Node, g: int) -> Node3D:
+	if model == null: return null
+	# v9.8 (owner: the Cadet is level 1 = 4 core mounts + 1 per wing): a level-1 ship's single core gun sits on the
+	# nose centre ("mount_gun_nose"); its built-in bays are "mount_missile_light" (-2), "mount_missile_super" (-3)
+	# and "mount_mine" (-4). Models without them keep the old names / the spacing rule.
+	if g == -1:
+		var nose := model.find_child("mount_gun_nose", true, false) as Node3D
+		if nose != null: return nose
+	var bay: String = {-2: "missile_light", -3: "missile_super", -4: "mine"}.get(g, "")
+	if bay != "": return model.find_child("mount_" + bay, true, false) as Node3D
 	var nm := mount_name(g)
-	if nm == "" or model == null: return null
+	if nm == "": return null
 	return model.find_child("mount_" + nm, true, false) as Node3D
 
 static func has_real_model(key: String) -> bool:
@@ -165,6 +174,22 @@ static func build(key: String, keep := true) -> Node3D:
 		"carrier": _carrier(root, Color(0.62, 0.66, 0.72), Color(0.35, 0.8, 1.0))
 		_: _fighter(root, Color.WHITE, Color.CYAN, 1.0, 2)
 	return root
+
+## v9.8 (owner: Harrier-style engines): the remodelled Cadet's two side engines (with their wings) are their own nodes
+## "Nacelle_L" / "Nacelle_R", pivoted on the engine centre. They only turn about the left-right axis (pitch), never
+## sideways: 0 = nozzles back (flying forward), 90 = nozzles down (going up), 180 = nozzles forward (backing up),
+## -90 = nozzles up (going down). Returns the nacelle nodes (empty for ships without them).
+static func nacelles(root: Node) -> Array:
+	if root == null: return []
+	var out: Array = []
+	for nm in ["Nacelle_L", "Nacelle_R"]:
+		var n := root.find_child(nm, true, false) as Node3D
+		if n != null: out.append(n)
+	return out
+
+static func set_nacelle_tilt(nodes: Array, deg: float) -> void:
+	for n in nodes:
+		if is_instance_valid(n): (n as Node3D).rotation.x = deg_to_rad(deg)
 
 ## v1.5p folding wings: k = 0 folded in (how it flies), 1 = swung out (the SPECIAL). No-op for other ships.
 static func set_wings(root: Node3D, k: float) -> void:

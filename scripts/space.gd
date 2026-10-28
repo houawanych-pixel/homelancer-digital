@@ -3088,6 +3088,7 @@ func _process(dt: float) -> void:
 		if OS.has_feature("web") or OS.get_environment("HL_PROFILE") != "": print(memory_report())
 	if not is_instance_valid(player): return
 	_update_player(dt)
+	_update_nacelles(dt)   # v9.8
 	_fog_t -= dt
 	if _fog_t <= 0.0 and not surface_mode:   # v8.9 (owner, Freelancer): the map uncovers round you as you fly
 		_fog_t = 1.0
@@ -3631,6 +3632,28 @@ func _fire_guns() -> void:
 			if k >= 2: break
 		_laser_sfx_cd = 0.07
 
+## v9.8 (owner: Harrier-style engines): the Cadet's side engines turn with the way you move: nozzles back when you
+## fly forward, down when you climb, forward when you back up, up when you dive. Pitch only (never sideways), eased.
+var _nac: Array = []
+var _nac_model_id := 0
+var nacelle_deg := 0.0
+func _update_nacelles(dt: float) -> void:
+	if not is_instance_valid(model) or GS.form == "mech": return
+	if model.get_instance_id() != _nac_model_id:
+		_nac_model_id = model.get_instance_id()
+		_nac = ShipFactory.nacelles(model)
+		nacelle_deg = 0.0
+	if _nac.is_empty(): return
+	var lv: Vector3 = player.global_basis.inverse() * vel
+	var fwd := -lv.z
+	var up := lv.y
+	var want := 0.0
+	if Vector2(fwd, up).length() > Data.NACELLE_MIN_SPEED and warp_state == "off":
+		want = rad_to_deg(atan2(up, fwd))   # 0 forward, 90 up, 180 back, -90 down
+	var d := wrapf(want - nacelle_deg, -180.0, 180.0)
+	nacelle_deg = wrapf(nacelle_deg + clampf(d, -Data.NACELLE_TURN_DEG_S * dt, Data.NACELLE_TURN_DEG_S * dt), -180.0, 180.0)
+	ShipFactory.set_nacelle_tilt(_nac, nacelle_deg)
+
 ## v1.9g: the player ship's length (m), for sizing the wing guns.
 func _ship_length() -> float:
 	if not is_instance_valid(model): return 10.0
@@ -3791,6 +3814,8 @@ func fire_missile(heavy := false, k := 0, n := 1, scale := 1.0, forced: Node3D =
 	var mi := _missile_node(heavy)
 	add_child(mi)
 	mi.global_position = player.global_position - player.global_basis.y * 1.5
+	var bay := _mount_node(-3 if heavy else -2)   # v9.8: out of the ship's own missile bay when it has one
+	if bay != null: mi.global_position = bay.global_position - player.global_basis.y * 0.4
 	var fan := Vector3.ZERO   # a volley fans out left/right and a little up
 	if n > 1:
 		var a := (float(k) / float(n - 1) - 0.5) * 2.0
@@ -5478,6 +5503,8 @@ func deploy_mine() -> bool:
 	mi.add_child(light)
 	add_child(mi)
 	mi.global_position = player.global_position + player.global_basis.z * 10.0
+	var mbay := _mount_node(-4)   # v9.8: dropped from the ship's own mine bay, then pushed out behind
+	if mbay != null: mi.global_position = mbay.global_position + player.global_basis.z * 8.0 - player.global_basis.y * 1.0
 	var magnetic := GS.mine_kind == "magnetic"
 	if magnetic: light.material_override = ShipFactory.mat(Color(0.3, 0.6, 1.0), true)   # a blue light: the magnetic one
 	mines_live.append({"node": mi, "arm": 1.0, "life": 60.0, "vel": vel * 0.2, "magnetic": magnetic})

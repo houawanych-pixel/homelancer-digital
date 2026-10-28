@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v9.7"
+const VERSION := "v9.8"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -1047,6 +1047,9 @@ const SHIPS := {
 }
 # v1.3c: all three are the owner's models with weapons mounted (tools/shipkit/make_fleet3.py). Guns = cannons you can see.
 const SHIP_ORDER := ["cadet", "ranger", "hauler", "elyza", "lancer", "bulk_empty", "bulk"]
+# v9.8 (owner): the remodelled Cadet's Harrier-style side engines (Nacelle_L / Nacelle_R in the model)
+const NACELLE_MIN_SPEED := 4.0     # m/s: below this the engines rest pointing back
+const NACELLE_TURN_DEG_S := 220.0  # how fast they swing (degrees per second)
 
 # ---------------------------------------------------------------- weapons (per gun)
 const WEAPONS := {

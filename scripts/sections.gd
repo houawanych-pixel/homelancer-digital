@@ -59,7 +59,11 @@ static func _split_ship(root: Node3D) -> Dictionary:
 			w.material_override = mi.material_override
 			w.cast_shadow = mi.cast_shadow
 			w.name = "Wing" + ("L" if k == 1 else "R")
-			mi.get_parent().add_child(w)
+			if str(mi.name).begins_with("Nacelle"):   # v9.8: a tilting engine keeps its pieces on itself so they turn with it
+				w.transform = Transform3D.IDENTITY
+				mi.add_child(w)
+			else:
+				mi.get_parent().add_child(w)
 			(v["l"] if k == 1 else v["r"]).append(w)
 	return v
 

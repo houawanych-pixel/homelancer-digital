@@ -1387,6 +1387,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_CADET2") != "":   # the v9.8 remodelled Cadet checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_cadet2()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_O") != "":   # the Job O checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1870,6 +1878,7 @@ func _run() -> void:
 	await _job_v19x()
 	await _job_v92_breakout()
 	await _job_v91_origin()
+	await _job_cadet2()
 	await _job_edge()
 	await _job_open()
 	await _job_unknown()
@@ -2844,6 +2853,62 @@ func _art_n() -> void:
 
 ## Job O (v1.4l): guns forward, red lead box, six locks, FIRE toggle, shield-first collisions, ribbon trails that
 ## weave, explosions, trade lanes, a surface on every planet, music by faction, the Aurelion Citadel hub.
+## v9.8 (owner): the remodelled Cadet (laptop Blender build): real model, 9 m, nose to -Z, level 1 mounts (4 core + 1 per wing),
+## and the Harrier-style side engines (Nacelle_L / Nacelle_R) that pitch with the way you move (never sideways).
+func _job_cadet2() -> void:
+	var s := _sp()
+	var m := ShipFactory.build("cadet", false)
+	add_child(m)
+	var bb: AABB = ShipFactory._aabb(m, Transform3D.IDENTITY)
+	var longest: float = maxf(bb.size.x, maxf(bb.size.y, bb.size.z))
+	# level 1 (owner): 4 core mounts (nose gun, light missiles, super missiles, mines) + 1 wing mount per side, on the engines
+	var mounts := 0
+	for g in [-1, -2, -3, -4, 0, 2]:
+		if ShipFactory.mount_node(m, g) != null: mounts += 1
+	var all_mounts := m.find_children("mount_*", "", true, false).size()
+	var nac := ShipFactory.nacelles(m)
+	var wl := ShipFactory.mount_node(m, 0)
+	var on_engines: bool = wl != null and wl.get_parent() != null and str(wl.get_parent().name).begins_with("Nacelle")
+	var front := ShipFactory.mount_node(m, -1)
+	var nose_fwd: bool = front != null and (m.global_transform.affine_inverse() * front.global_position).z < 0.0
+	_check("v9.8: the Cadet is the remodelled model (real GLB, about 9 m long, centred, nose to -Z, level 1 mounts only: 4 core + 1 per wing on the engines, two tilting side engines)",
+		str(ShipFactory.GLB["cadet"][0]).ends_with("cadet_v2.glb") and not m.get_meta("placeholder", true) and absf(bb.size.z - 9.0) < 0.6
+		and absf(longest - bb.size.z) < 0.01 and bb.get_center().length() < 0.6 and mounts == 6 and all_mounts == 6 and on_engines and nac.size() == 2 and nose_fwd,
+		"len %.2f centre %s mounts %d/%d nacelles %d" % [bb.size.z, str(bb.get_center()), mounts, all_mounts, nac.size()])
+	m.queue_free()
+	# in flight: the player's own Cadet
+	var gs0: String = GS.ship_id
+	GS.ship_id = "cadet"
+	s.set_player_model()
+	await _wait(0.3)
+	var pn := ShipFactory.nacelles(s.model)
+	var on_nac := true
+	for n in pn:
+		for c in (n as Node).get_children():
+			if c is MeshInstance3D and str(c.name).begins_with("Wing"): on_nac = on_nac and c.get_parent() == n
+	var res := {}
+	for case in [["up", s.player.global_basis.y * 30.0, 90.0], ["back", s.player.global_basis.z * 30.0, 180.0], ["down", -s.player.global_basis.y * 30.0, -90.0], ["forward", -s.player.global_basis.z * 30.0, 0.0]]:
+		for i in 60:
+			s.vel = case[1]
+			s._update_nacelles(1.0 / 30.0)
+		res[case[0]] = s.nacelle_deg
+		var r0: float = (pn[0] as Node3D).rotation.x if not pn.is_empty() else 0.0
+		res[case[0] + "_rot"] = rad_to_deg(r0)
+	var near := func(a: float, b: float) -> bool: return absf(wrapf(a - b, -180.0, 180.0)) < 3.0
+	var ok: bool = pn.size() == 2 and near.call(res["up"], 90.0) and near.call(res["back"], 180.0) and near.call(res["down"], -90.0) and near.call(res["forward"], 0.0) \
+		and near.call(res["up_rot"], 90.0) and on_nac
+	var side_ok := true
+	for n in pn: side_ok = side_ok and absf((n as Node3D).rotation.y) < 0.001 and absf((n as Node3D).rotation.z) < 0.001
+	_check("v9.8: the Cadet's side engines pitch like a Harrier with the way it moves (up 90, back 180, down -90, forward 0), never sideways, and their wing pieces turn with them",
+		ok and side_ok, str(res))
+	s.vel = s.player.global_basis.y * 30.0
+	for i in 40: s._update_nacelles(1.0 / 30.0)
+	s.vel = Vector3.ZERO
+	await _shot("cadet2_hover_tilt", 0.1)
+	for i in 60: s._update_nacelles(1.0 / 30.0)
+	await _shot("cadet2_flight", 0.3)
+	GS.ship_id = gs0
+
 func _job_o() -> void:
 	var s := _sp()
 	var shell := FileAccess.get_file_as_string("res://web_shell.html")
