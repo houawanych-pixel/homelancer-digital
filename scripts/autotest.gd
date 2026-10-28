@@ -9649,6 +9649,24 @@ func _job_fl() -> void:
 	await _frames(2)
 	hud.close_comms()   # (their hail would cover the contact list for the next checks)
 	for sd in ["l", "r"]: hud.slots[sd] = {}
+	# v8.6 (owner): every gun shows its own bolt (spread muzzles, angled in to meet); a shield hit flashes the force field
+	GS.shield = GS.max_shield()
+	s.mount_next.clear()
+	var nb0: int = s.bolts.size()
+	s._fire_guns()
+	var fired: Array = s.bolts.slice(nb0)
+	var gun_n: int = main.hud.gun_rows().filter(func(g): return not GS.gun_off.has(str(g[0]))).size()
+	var spread := 0.0
+	for b in fired: spread = maxf(spread, (b["node"] as Node3D).global_position.distance_to((fired[0]["node"] as Node3D).global_position))
+	var guns_ok: bool = fired.size() == gun_n and (gun_n < 2 or spread > 1.0)
+	s.shield_hit(s.player.global_position + s.player.global_basis.x * 5.0)
+	var bubble_ok: bool = s.shield_flash == 1.0 and s._bubble != null and is_instance_valid(s._bubble)
+	await get_tree().process_frame
+	bubble_ok = bubble_ok and s._bubble.visible and s.shield_flash > 0.0
+	await _wait(0.8)
+	var bubble_gone: bool = not s._bubble.visible
+	_check("v8.6 (owner): every gun fires its own bolt (%d guns, %d bolts, %.1f m apart); a shield hit flashes the force field and it fades" % [gun_n, fired.size(), spread],
+		guns_ok and bubble_ok and bubble_gone, "guns %s bubble %s gone %s" % [guns_ok, bubble_ok, bubble_gone])
 	_check("v8.3 (owner): TARGET takes the hostile in front of you; CLOAK: hostiles lose you, no guns, no warp, power drains; a barrel roll deflects fire",
 		front_ok and no_guns and lost and drains and uncloaked and deflect_ok, "front %s guns/warp %s lost %s drain %s off %s deflect %s" % [front_ok, no_guns, lost, drains, uncloaked, deflect_ok])
 	hud.cl_open = false

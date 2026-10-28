@@ -3116,7 +3116,54 @@ func _sun_heat(dt: float) -> void:
 		controls = false
 		_die()
 
+## v8.6 (owner): a hit on your shield shows the force field: a see-through bubble round the ship that flashes, brightest
+## where the shot landed, then fades back to nothing.
+var shield_flash := 0.0
+var _bubble: MeshInstance3D
+const BUBBLE_SHADER := """
+shader_type spatial;
+render_mode unshaded, blend_add, cull_disabled, depth_draw_never;
+uniform vec4 col : source_color = vec4(0.35, 0.75, 1.0, 1.0);
+uniform float k = 0.0;
+uniform vec3 hit_dir = vec3(0.0, 0.0, -1.0);
+varying vec3 ln;
+void vertex() { ln = normalize(VERTEX); }
+void fragment() {
+	float rim = pow(1.0 - abs(dot(NORMAL, VIEW)), 2.5);
+	float spot = pow(max(dot(ln, normalize(hit_dir)), 0.0), 6.0);
+	float hexes = 0.5 + 0.5 * sin(ln.x * 40.0) * sin(ln.y * 40.0) * sin(ln.z * 40.0);
+	ALBEDO = col.rgb;
+	ALPHA = clamp((rim * 0.8 + spot * 1.4) * (0.6 + 0.4 * hexes) * k, 0.0, 1.0);
+}
+"""
+func shield_hit(at: Vector3) -> void:
+	if not is_instance_valid(player): return
+	if _bubble == null or not is_instance_valid(_bubble):
+		_bubble = MeshInstance3D.new()
+		_bubble.name = "ShieldBubble"
+		var sm := SphereMesh.new()
+		sm.radial_segments = 32
+		sm.rings = 16
+		_bubble.mesh = sm
+		var mt := ShaderMaterial.new()
+		var sh := Shader.new()
+		sh.code = BUBBLE_SHADER
+		mt.shader = sh
+		_bubble.material_override = mt
+		_bubble.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		player.add_child(_bubble)
+	var r := maxf(_ship_length(), _ship_half_width() * 2.0) * 0.62
+	(_bubble.mesh as SphereMesh).radius = r
+	(_bubble.mesh as SphereMesh).height = r * 2.0
+	var d := (at - player.global_position) if at != Vector3.INF else -player.global_basis.z
+	(_bubble.material_override as ShaderMaterial).set_shader_parameter("hit_dir", player.global_basis.inverse() * d.normalized())
+	shield_flash = 1.0
+
 func _update_player(dt: float) -> void:
+	if shield_flash > 0.0 and _bubble != null and is_instance_valid(_bubble):
+		shield_flash = maxf(0.0, shield_flash - dt * 2.2)
+		_bubble.visible = shield_flash > 0.0
+		(_bubble.material_override as ShaderMaterial).set_shader_parameter("k", shield_flash)
 	var s: Dictionary = GS.ship()
 	var base_speed: float = s["speed"]
 	var turn: float = float(s["turn"]) * (1.0 + GS.mod("turn"))   # (v1.9w: + Control Unit)
@@ -3475,7 +3522,7 @@ func _fire_guns() -> void:
 		var from: Vector3
 		if g is String:   # the core: straight out of the nose (level 2+: two side by side; level 3: and one under the belly)
 			var off := Vector3.ZERO
-			if GS.core_slots().size() > 1 and ck in [-1, -5]: off = player.global_basis.x * _ship_half_width() * (0.12 if ck == -5 else -0.12)
+			if GS.core_slots().size() > 1 and ck in [-1, -5]: off = player.global_basis.x * _ship_half_width() * (0.3 if ck == -5 else -0.3)   # v8.6 (owner: see every gun): wider apart
 			if ck == -6: off = -player.global_basis.y * 1.2
 			from = player.global_position + fwd * maxf(5.0, _ship_length() * 0.5) - player.global_basis.y * 0.3 + off
 		else:
@@ -3487,7 +3534,10 @@ func _fire_guns() -> void:
 			var at: float = Data.MOUNT_TIP_AT if tip else (Data.MOUNT_MID_AT if g >= 4 else Data.MOUNT_SHOULDER_AT)
 			from = player.global_position + player.global_basis.x * side * hw * at \
 				+ player.global_basis.y * (-Data.MOUNT_DROP if tip else Data.MOUNT_DROP) + fwd * 5.0
-		_spawn_bolt(from, aim_dir * float(wg["speed"]) + vel, GS.gun_damage(gid) * mk, wg["color"], "player", float(wg["range"]) / float(wg["speed"]), float(wg.get("shield", -1.0)))
+		# v8.6 (owner: one shot showing for many guns): each gun's bolt angles in from its own muzzle to meet at the aim point
+		var meet: Vector3 = player.global_position + aim_dir * clampf(float(wg["range"]) * 0.45, 250.0, 700.0)
+		var bdir: Vector3 = (meet - from).normalized()
+		_spawn_bolt(from, bdir * float(wg["speed"]) + vel, GS.gun_damage(gid) * mk, wg["color"], "player", float(wg["range"]) / float(wg["speed"]), float(wg.get("shield", -1.0)))
 		_spark(from + fwd * 1.5, (wg["color"] as Color).lightened(0.4), 3.2, 0.09)
 		sounds[str(wg.get("sound", "laser"))] = true
 	gun_cd = clampf(next_cd, 0.02, 1.0)
@@ -4667,6 +4717,7 @@ func _player_hit(dmg: float, hit := Vector3.INF) -> void:
 		Sfx.play("shield_hit", -12.0, 1.6)
 		return
 	if GS.form == "mech": dmg *= 1.0 - GS.mech_armor()   # v1.9i: the core's armour
+	if GS.shield > 0.0: shield_hit(hit)   # v8.6 (owner): the shield lights up round the ship like a force field
 	GS.super_charge = minf(1.0, GS.super_charge + dmg / Data.SUPER_FROM_TAKEN)   # v7.5 (owner): the super meter builds in a fight
 	Sfx.play("shield_hit" if GS.shield > 0.0 else "hull_hit", -6.0)
 	shield_delay = 3.0

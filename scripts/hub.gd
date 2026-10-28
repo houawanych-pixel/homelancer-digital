@@ -631,7 +631,7 @@ func _on_asst_pack(pk: String) -> void:
 
 func _asst_play(clip: String) -> void:
 	asst.set_meta("want", clip)
-	if asst_full: clip = {"idle_a": "full_idle", "idle_b": "full_idle", "talk": "full_talk"}.get(clip, clip)   # v8.0: feet on screen = the full-body clip
+	if asst_full: clip = {"idle_a": "still_idle", "idle_b": "still_idle", "talk": "still_talk"}.get(clip, clip)   # v8.0: feet on screen = the full-body clip (v8.6 owner: a steady one, feet planted, no stepping)
 	if not ResourceLoader.exists("res://assets/assistant/%s.ogv" % clip): clip = str(asst.get_meta("want"))
 	asst.stream = load("res://assets/assistant/%s.ogv" % clip)
 	asst.set_meta("clip", clip)
@@ -659,7 +659,7 @@ func asst_match(key: String, yaw: float) -> Dictionary:
 	for span in [0.05, 0.12]:
 		for p in rd["people"]:
 			var dx: float = absf(fposmod(float(p[0]) - yaw + 0.5, 1.0) - 0.5)
-			if dx <= span and (best.is_empty() or float(p[2]) > float(best[2])): best = p
+			if dx <= span and float(p[1]) + float(p[2]) > 0.68 and (best.is_empty() or float(p[2]) > float(best[2])): best = p   # (v8.6: someone on the main floor, not up on a platform or a balcony)
 		if not best.is_empty(): break
 	if best.is_empty(): return {}
 	var top: float = best[1]
@@ -692,6 +692,13 @@ func _asst_place() -> void:
 			var yh := S.y * (0.5 + (float(mt["top"]) - 0.5) * zm) - shift
 			var yf := S.y * (0.5 + (float(mt["feet"]) - 0.5) * zm) - shift
 			var body := yf - yh
+			if body < S.y * 0.42 or body > S.y * 1.9:   # v8.6 (owner: proportions off in places): too small or too big = the old thigh-up stance
+				asst_ref = {}
+				if asst_full:
+					asst_full = false
+					_asst_play(str(asst.get_meta("want", "idle_a")))
+				_asst_place_default(S)
+				return
 			var full := yf <= S.y + 2.0 or yh + body * 0.63 < S.y
 			if full != asst_full:
 				asst_full = full
@@ -711,6 +718,9 @@ func _asst_place() -> void:
 	if asst_full:
 		asst_full = false
 		_asst_play(str(asst.get_meta("want", "idle_a")))
+	_asst_place_default(S)
+
+func _asst_place_default(S: Vector2) -> void:
 	# v6.1 (owner: full body looked wrong, a giant over the benches): thigh-up, cut by the bottom of the screen like
 	# the people in the foreground, her head just under the menu bar
 	var pad := 0.5 * (Data.ROOM_ZOOM - 1.0) * S.y   # (the most a look up/down moves her: her cut stays below the edge)
