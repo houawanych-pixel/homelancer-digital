@@ -1387,6 +1387,11 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_GRID10") != "":   # the v10.3 10 x 10 system map checks only
+		await _job_grid10()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_ELYZA2") != "":   # the v10 remodelled Elyza fighter checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1897,6 +1902,7 @@ func _run() -> void:
 	await _job_cadet2()
 	await _job_v99_hub()
 	await _job_elyza2()
+	await _job_grid10()
 	await _job_edge()
 	await _job_open()
 	await _job_unknown()
@@ -2910,6 +2916,25 @@ func _job_v99_hub() -> void:
 		clear and list_clear and went_up and back and fs_ok and boxed == hb.subtabs.get_child_count() and boxed > 0,
 		"clear %s list %s up %s back %s fs %s (%s, hidden %s, vis %s, fs %s hide %s) boxed %d/%d" % [clear, list_clear, went_up, back, fs_ok, fs.text if fs else "none", hb.panels_hidden, fs.visible if fs else false, fs.get_global_rect() if fs else Rect2(), hb.show_btn.get_global_rect(), boxed, hb.subtabs.get_child_count()])
 	hb.visible = false
+
+## v10.3 (owner: "1,000 km, ten squares A-J"): the system map is 10 x 10 (100 km a square); the seen squares still
+## work, and an older save's 8 x 8 fog carries over.
+func _job_grid10() -> void:
+	var keep: Dictionary = GS.explored.duplicate()
+	GS.explored.erase("grid10_test")
+	var fresh := not GS.cell_seen("grid10_test", Vector2i(9, 9))
+	var c := GS.map_cell(Vector3(Data.SPACE_EDGE - 1000.0, 0, Data.SPACE_EDGE - 1000.0))
+	GS.explore("grid10_test", Vector3(Data.SPACE_EDGE - 1000.0, 0, Data.SPACE_EDGE - 1000.0), 1000.0)
+	var corner := GS.cell_seen("grid10_test", Vector2i(9, 9)) and not GS.cell_seen("grid10_test", Vector2i(0, 0))
+	GS.explored["grid10_old"] = 1   # an old save: only the 8 x 8 square A1 seen
+	var old_ok := GS.cell_seen("grid10_old", Vector2i(0, 0)) and not GS.cell_seen("grid10_old", Vector2i(5, 5))
+	GS.explore("grid10_old", Vector3.ZERO, 1000.0)
+	var old_kept := GS.cell_seen("grid10_old", Vector2i(0, 0)) and GS.cell_seen("grid10_old", Vector2i(5, 5))
+	var json_ok := typeof(JSON.parse_string(JSON.stringify(GS.explored))["grid10_test"]) == TYPE_STRING
+	GS.explored = keep
+	_check("v10.3: the system map is 10 x 10 squares A-J / 1-10 (100 km each over the 1,000 km system), the fog of war still marks seen squares, and an old 8 x 8 save carries over",
+		Data.MAP_CELLS == 10 and absf(2.0 * Data.SPACE_EDGE / Data.MAP_CELLS - 100000.0) < 1.0 and fresh and c == Vector2i(9, 9) and corner and old_ok and old_kept and json_ok,
+		"cells %d, corner %s, old %s/%s, json %s" % [Data.MAP_CELLS, corner, old_ok, old_kept, json_ok])
 
 ## v10 (owner): the Elyza fighter remodel (laptop Blender build from the GPT sheet, white / emerald / gold).
 func _job_elyza2() -> void:
