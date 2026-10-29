@@ -1387,6 +1387,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_ELYZA2") != "":   # the v10 remodelled Elyza fighter checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_elyza2()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_V99") != "":   # the v9.9 station page fixes only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1888,6 +1896,7 @@ func _run() -> void:
 	await _job_v91_origin()
 	await _job_cadet2()
 	await _job_v99_hub()
+	await _job_elyza2()
 	await _job_edge()
 	await _job_open()
 	await _job_unknown()
@@ -2899,8 +2908,40 @@ func _job_v99_hub() -> void:
 	await _shot("v99_board", 0.3)
 	_check("v9.9 (owner): a call at the panel's top no longer covers the board's UP tab or its list (UP scrolls back up, the page moves back when the call goes); FULL SCREEN button on the station pages; the page names under the tabs sit in see-through dark boxes",
 		clear and list_clear and went_up and back and fs_ok and boxed == hb.subtabs.get_child_count() and boxed > 0,
-		"clear %s list %s up %s back %s fs %s (%s, hidden %s) boxed %d/%d" % [clear, list_clear, went_up, back, fs_ok, fs.text if fs else "none", hb.panels_hidden, boxed, hb.subtabs.get_child_count()])
+		"clear %s list %s up %s back %s fs %s (%s, hidden %s, vis %s, fs %s hide %s) boxed %d/%d" % [clear, list_clear, went_up, back, fs_ok, fs.text if fs else "none", hb.panels_hidden, fs.visible if fs else false, fs.get_global_rect() if fs else Rect2(), hb.show_btn.get_global_rect(), boxed, hb.subtabs.get_child_count()])
 	hb.visible = false
+
+## v10 (owner): the Elyza fighter remodel (laptop Blender build from the GPT sheet, white / emerald / gold).
+func _job_elyza2() -> void:
+	var s := _sp()
+	var m := ShipFactory.build("elyza_fighter", false)
+	add_child(m)
+	var bb: AABB = ShipFactory._aabb(m, Transform3D.IDENTITY)
+	var mounts := 0
+	for g in [-1, -2, -3, -4, 0, 2]:
+		if ShipFactory.mount_node(m, g) != null: mounts += 1
+	var all_mounts := m.find_children("mount_*", "", true, false).size()
+	var wl := m.find_child("WingL", true, false) as Node3D
+	var wr := m.find_child("WingR", true, false) as Node3D
+	var wm := ShipFactory.mount_node(m, 0)
+	var wm2 := ShipFactory.mount_node(m, 2)
+	var on_wings: bool = wm != null and wm2 != null and str(wm.get_parent().name).begins_with("Wing") and str(wm2.get_parent().name).begins_with("Wing")
+	var front := ShipFactory.mount_node(m, -1)
+	var nose_fwd: bool = front != null and (m.global_transform.affine_inverse() * front.global_position).z < -bb.size.z * 0.4
+	var tuck: float = Data.SHIP_WINGS["elyza_fighter"]
+	var folded: bool = wl != null and wr != null and is_equal_approx(wl.position.x, tuck) and is_equal_approx(wr.position.x, -tuck)
+	var w_fold: float = ShipFactory._aabb(m, Transform3D.IDENTITY).size.x
+	ShipFactory.set_wings(m, 1.0)
+	var w_open: float = ShipFactory._aabb(m, Transform3D.IDENTITY).size.x
+	_check("v10: the Elyza fighter is the remodelled model (real GLB, 12 m, centred, nose to -Z, level 1 mounts: 4 core + 1 per wing on the pods; the pods on their arms fold in to fly and swing out for the SPECIAL)",
+		str(ShipFactory.GLB["elyza_fighter"][0]).ends_with("elyza_fighter_v2.glb") and not m.get_meta("placeholder", true) and absf(bb.size.z - Data.ELYZA_FIGHTER_LEN) < 0.6
+		and bb.get_center().length() < 0.8 and mounts == 6 and all_mounts == 6 and on_wings and nose_fwd and folded and w_open > w_fold + 1.5,
+		"len %.2f centre %s mounts %d/%d wings %s folded %s width %.1f -> %.1f" % [bb.size.z, str(bb.get_center()), mounts, all_mounts, on_wings, folded, w_fold, w_open])
+	m.queue_free()
+	var e: Dictionary = s.spawn_unit("elyza_fighter", s.player.global_position - s.player.global_basis.z * 40.0, s.player.global_position)
+	e["aggro"] = false
+	await _wait(0.4)
+	await _shot("elyza2_in_flight", 0.3)
 
 func _job_cadet2() -> void:
 	var s := _sp()

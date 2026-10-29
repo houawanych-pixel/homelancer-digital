@@ -301,7 +301,8 @@ game uses are below. Names are guesses from the shapes. Parts are upright, front
 
 | Faction / set | File | Source piece | Triangles | Mirrored | Status |
 |---|---|---|---|---|---|
-| Elyza | assets/ships/enemy/elyza_fighter.glb | hlselyza piece 0 (open form) | 45556 | yes | IN GAME: Elyza fighter pool + ship dealer; nodes Body / WingL / WingR |
+| Elyza | assets/ships/enemy/elyza_fighter_v2.glb | v10 laptop Blender remodel from the GPT sheet (white / emerald / gold) | 23361 | yes | IN GAME: Elyza fighter pool + ship dealer; nodes Body / WingL / WingR (pod + arm); level 1 mounts |
+| Elyza | assets/ships/enemy/elyza_fighter.glb | hlselyza piece 0 (open form) | 45556 | no | kept: the pre-v10 Elyza fighter |
 | Elyza | (saved) elyza_fighter_closed_orig | hlselyza piece 1 (closed form, uneven) | 14667 | no | saved only: the owner chose the open form |
 | Hangar | hangar_launch_pad.glb | hlmpad | 28715 | no | IN GAME (hangar centre, solid plate behind its frame) |
 | Hangar | hangar_mech_bay.glb | hlhang2 | 43550 | no | IN GAME x2 |

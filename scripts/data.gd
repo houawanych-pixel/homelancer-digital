@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v9.9"
+const VERSION := "v10"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -565,7 +565,7 @@ const PLACEHOLDER_SHIPS := {"Savagers": "ph_savagers", "Liberator": "ph_liberato
 	"Elyza": "ph_elyza", "Covenant": "ph_covenant", "Solarion": "ph_solarion", "Orion": "ph_orion", "Cybermorph": "ph_cybermorph",
 	"Solrath": "ph_solrath", "Gadversee": "ph_gadversee", "Arctides": "ph_arctides", "Phenom": "ph_phenom", "Kaijurai": "ph_kaijurai"}
 const ELYZA_FIGHTER_LEN := 12.0
-const SHIP_WINGS := {"elyza_fighter": 0.125}          # model key -> how far the wings fold in (model units; 0 = open)
+const SHIP_WINGS := {"elyza_fighter": 1.2}            # model key -> how far the wings fold in (model units; 0 = open). v10: the remodel is in metres (12 m)
 const SHIP_SPECIAL_MOVE := {"elyza_fighter": "wings_out"}   # model key -> its own special move ("roll" when not listed)
 const WINGS_OPEN_RATE := 2.5                          # wings open / close per second (fraction of the way)
 

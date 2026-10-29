@@ -380,6 +380,7 @@ func _ready() -> void:
 	fs_btn.offset_top = -124
 	fs_btn.offset_bottom = -72
 	fs_btn.add_theme_font_size_override("font_size", Data.ts(16))
+	fs_btn.grow_vertical = Control.GROW_DIRECTION_BEGIN   # (a bigger text size grows it upward, never over HIDE PANELS)
 	fs_btn.visible = false
 	fs_btn.pressed.connect(toggle_fullscreen)
 	add_child(fs_btn)

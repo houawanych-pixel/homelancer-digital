@@ -45,7 +45,7 @@ const GLB := {
 	"solrath_blade_b": ["res://assets/ships/enemy/solrath_blade_b.glb", Data.SOLRATH_BLADE_LEN, Data.ALIEN_SHIP_YAW],
 	"solrath_batwing": ["res://assets/ships/enemy/solrath_batwing.glb", Data.SOLRATH_BATWING_LEN, Data.ALIEN_SHIP_YAW],
 	"solrath_spire": ["res://assets/ships/enemy/solrath_spire.glb", Data.SOLRATH_SPIRE_LEN, Data.ALIEN_SHIP_YAW],
-	"elyza_fighter": ["res://assets/ships/enemy/elyza_fighter.glb", Data.ELYZA_FIGHTER_LEN, Data.ALIEN_SHIP_YAW],   # v1.5p: folding wings (Body / WingL / WingR)
+	"elyza_fighter": ["res://assets/ships/enemy/elyza_fighter_v2.glb", Data.ELYZA_FIGHTER_LEN, Data.ALIEN_SHIP_YAW],   # v10 (owner): the laptop remodel (white / emerald / gold); folding wings (Body / WingL / WingR = pod + arm)
 	# v1.5q: the owner's placeholder fighters, one per faction in its own colour (until each faction's real ships come)
 	"placeholder_savagers": ["res://assets/ships/enemy/placeholder_savagers.glb", Data.PLACEHOLDER_SHIP_LEN, 0.0],
 	"placeholder_liberator": ["res://assets/ships/enemy/placeholder_liberator.glb", Data.PLACEHOLDER_SHIP_LEN, 0.0],
