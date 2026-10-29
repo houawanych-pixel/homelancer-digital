@@ -9456,19 +9456,19 @@ func _job_v92_breakout() -> void:
 		var hp0 := bo.hp
 		var dg0 := bo.dodged
 		e0["state"] = "aim"; e0["lane"] = 0; e0["t"] = 0.02
-		await _frames(4)
+		await _until(func(): return e0["state"] != "aim", 2.0)
 		duck_ok = bo.ducked and bo.hp == hp0 and bo.dodged == dg0 + 1
 		# 2. side-stepped right while it aimed at the middle: misses
 		bo.stick_hold = Vector2(1, 0)
 		await _frames(2)
 		e0["state"] = "aim"; e0["lane"] = 0; e0["t"] = 0.02
-		await _frames(4)
+		await _until(func(): return e0["state"] != "aim", 2.0)
 		side_ok = bo.lane == 1 and bo.hp == hp0 and bo.dodged == dg0 + 2
 		# 3. standing in its line: hit
 		bo.stick_hold = Vector2.ZERO
 		await _frames(2)
 		e0["state"] = "aim"; e0["lane"] = 0; e0["t"] = 0.02
-		await _frames(4)
+		await _until(func(): return e0["state"] != "aim", 2.0)
 		hit_ok = bo.hp < hp0 and bo.hits_taken >= 1
 		# 4. the force field: shots on a patrolling guard bounce off
 		var e1: Dictionary = bo.enemies[1]
@@ -9494,7 +9494,7 @@ func _job_v92_breakout() -> void:
 		var h2: int = int(e2["hp"])
 		bo.duel_side = "left"; bo.duel_t = 0.05; bo.duel_phase = "windup"
 		bo.stick_hold = Vector2(1, 0)   # left strike -> step right
-		await _frames(6)
+		await _until(func(): return bo.counters > c0, 2.0)   # (waits on game time: headless frames are very short)
 		var good: bool = bo.counters == c0 + 1 and int(e2["hp"]) == h2 - 1
 		await _shot("v96_blades", 0.0)
 		var cu0 := bo.cuts
@@ -9502,7 +9502,7 @@ func _job_v92_breakout() -> void:
 		if not bo.duel.is_empty():
 			bo.duel_side = "high"; bo.duel_t = 0.05; bo.duel_phase = "windup"
 			bo.stick_hold = Vector2(-1, 0)   # a high strike: side-stepping is wrong (duck it)
-			await _frames(6)
+			await _until(func(): return bo.cuts > cu0, 2.0)
 		var bad: bool = bo.cuts == cu0 + 1 and bo.hp < hpd
 		blade_ok = good and bad and Breakout.dodge_for("right") == "left" and Breakout.dodge_for("high") == "duck"
 		bo.duel = {}
