@@ -3760,11 +3760,13 @@ void fragment() {
 	vec3 wp = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	float n1 = sin(wp.x * 1.7 + TIME * 23.0) * sin(wp.y * 2.3 - TIME * 17.0) * sin(wp.z * 1.9 + TIME * 29.0);
 	float n2 = sin(wp.x * 3.1 - TIME * 31.0) * sin(wp.z * 2.7 + TIME * 19.0);
-	float arc = smoothstep(0.80, 0.97, abs(n1)) + 0.6 * smoothstep(0.88, 0.99, abs(n2));
-	float crackle = arc * (0.12 * glass + zap * 1.6);
-	vec3 bolt = vec3(0.75, 0.9, 1.0) * crackle * 2.2;
-	ALBEDO = mix(vec3(0.0), tint.rgb * (0.18 + fr * 1.5), glass) + bolt;
-	ALPHA = clamp(glass * (0.07 + fr * 0.6) + crackle + zap * fr * 0.5, 0.0, 1.0);
+	float flick = step(0.35, fract(sin(floor(TIME * 24.0) * 12.9898) * 43758.5453));   // the bolts jump about
+	float arc = smoothstep(0.55, 0.9, abs(n1)) * flick + 0.8 * smoothstep(0.7, 0.95, abs(n2)) * (1.0 - flick);
+	float crackle = arc * (0.12 * glass + zap * 2.2);
+	vec3 bolt = vec3(0.7, 0.88, 1.0) * crackle * 2.5;
+	vec3 halo = vec3(0.35, 0.65, 1.0) * zap * (0.35 + fr * 1.6);   // the whole hull glows electric blue while it crackles
+	ALBEDO = mix(vec3(0.0), tint.rgb * (0.18 + fr * 1.5), glass) + bolt + halo;
+	ALPHA = clamp(glass * (0.07 + fr * 0.6) + crackle + zap * (0.25 + fr * 0.6), 0.0, 1.0);
 }
 """
 var _cloak_glass: ShaderMaterial = null

@@ -1925,7 +1925,7 @@ func _dashboard() -> void:
 			var a := fmod(k * 2.399 + t * 3.7, TAU)
 			var r1 := fmod(k * 0.37 + t * 1.3, 1.0) * rad
 			draw_line(rc + Vector2.from_angle(a) * r1, rc + Vector2.from_angle(a + 0.25) * r1, Color(0.8, 0.6, 1.0, 0.5), 1.5)
-		_text(rc + Vector2(-50, rad * 0.55), "CLOAK · LOW", 11, Color(0.85, 0.7, 1.0), HORIZONTAL_ALIGNMENT_CENTER, 100)
+		_text(rc + Vector2(-50, -rad * 0.2), "CLOAK · LOW", 11, Color(0.85, 0.7, 1.0), HORIZONTAL_ALIGNMENT_CENTER, 100)
 	_text(rc + Vector2(-40, -hr + 20), "BODY", 10, Color(WHITE, 0.85), HORIZONTAL_ALIGNMENT_CENTER, 80)
 	_text(rc + Vector2(-hr - 6, hr * 0.5), "L WING", 10, Color(WHITE, 0.85), HORIZONTAL_ALIGNMENT_CENTER, 50)
 	_text(rc + Vector2(hr - 44, hr * 0.5), "R WING", 10, Color(WHITE, 0.85), HORIZONTAL_ALIGNMENT_CENTER, 50)
@@ -1987,9 +1987,9 @@ func _down_tabs() -> void:
 		var on: bool = held.has(id) or (id == "log" and console_open)
 		_box(r, Color(0.02, 0.08, 0.15, 0.9 if on else 0.72), Color(CYAN if id == "dock_up" else Color(0.7, 0.45, 1.0), 0.9), 12, 2)
 		if id == "dock_up":
-			var c := r.get_center() + Vector2(-30, 0)
+			var c := Vector2(r.position.x + 16, r.get_center().y)
 			draw_polyline(PackedVector2Array([c + Vector2(-6, 3), c + Vector2(0, -3), c + Vector2(6, 3)]), CYAN_HI, 2.5, true)
-			_text(Vector2(r.position.x + 22, r.position.y + 19), "CONSOLE", 12, WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 26)
+			_text(Vector2(r.position.x + 26, r.position.y + 19), "CONSOLE", 12, WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 30)
 		else:
 			_text(Vector2(r.position.x, r.position.y + 19), "COMMS", 12, WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
 
