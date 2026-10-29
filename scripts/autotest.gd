@@ -1387,6 +1387,87 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_GATEPICS") != "":   # (work tool) pictures of a warp gate and a rift gate for the map cards
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		for kind in ["warp", "rift"]:
+			var gsys := ""
+			for sid in Data.SYSTEMS:
+				for g in Data.SYSTEMS[sid]["gates"]:
+					if str(g.get("gkind", "")) == kind and gsys == "": gsys = sid
+			if gsys == "": continue
+			main._load_system(gsys, "station")
+			await _wait(2.0)
+			var ws := _sp()
+			ws.controls = false
+			main.hud.visible = false
+			for g in ws.gates:
+				if str((g.get_meta("data", {}) as Dictionary).get("gkind", "")) != kind and not (kind == "warp" and g.get_meta("hole", false)): continue
+				var away: Vector3 = (g.global_position - ws.station.global_position).normalized()
+				_tp(g.global_position - away * 230.0 + Vector3(0, 25, 0), g.global_position)
+				ws.target = null
+				ws.model.visible = false
+				await _frames(10)
+				await _shot("gatepic_" + kind, 0.6)
+				break
+			main.hud.visible = true
+		var fx = main.fx
+		fx.begin_warp("cloud")
+		fx.warp = 1.0
+		fx.pace = 1.0
+		for k in 3:
+			await _wait(0.45)
+			await _shot("warp_tunnel_%d" % k, 0.0)
+		fx.end_warp()
+		fx.warp = 0.0
+		get_tree().quit()
+		return
+	if OS.get_environment("HL_FIRETEST") != "":   # (work tool) where every gun's bolt starts, per ship
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s := _sp()
+		s.controls = false
+		for sid in ["cadet", "lancer", "elyza", "ranger"]:
+			GS.ship_id = sid
+			GS.form = "ship"
+			s.set_player_model()
+			await _frames(3)
+			s.mount_next.clear()
+			var n0: int = s.bolts.size()
+			s._fire_guns()
+			await _shot("fire0_" + sid, 0.0)
+			var offs := []
+			for i in range(n0, s.bolts.size()):
+				var b: Node3D = s.bolts[i]["node"]
+				var l: Vector3 = s.player.global_basis.inverse() * (b.global_position - s.player.global_position)
+				offs.append("(%.1f, %.1f, %.1f)" % [l.x, l.y, l.z])
+			print("[fire] %s: mounts %s, core %s, %d bolts from %s" % [sid, str(GS.mount_items()), str(GS.core_slots()), s.bolts.size() - n0, ", ".join(offs)])
+			s.fire_lock = true
+			s.controls = true
+			main.hud.move_vec = Vector2.ZERO
+			GS.energy = Data.ENERGY_MAX
+			await _wait(1.0)
+			await _shot("fireA_" + sid, 0.0)
+			await _wait(0.1)
+			var ds := []
+			for b in s.bolts: ds.append(int((b["node"] as Node3D).global_position.distance_to(s.player.global_position)))
+			print("[fire] holding: %d bolts at %s m" % [s.bolts.size(), str(ds)])
+			await _shot("fire_" + sid, 0.0)
+			s.fire_lock = false
+			s.controls = false
+			await _wait(0.6)
+		get_tree().quit()
+		return
+	if OS.get_environment("HL_V106") != "":   # the v10.6 map / gate / guns checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_v106()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_V104") != "":   # the v10.4 camera rise, bigger clouds / fields, buoys checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1912,6 +1993,7 @@ func _run() -> void:
 	await _job_elyza2()
 	await _job_grid10()
 	await _job_v104()
+	await _job_v106()
 	await _job_edge()
 	await _job_open()
 	await _job_unknown()
@@ -2925,6 +3007,95 @@ func _job_v99_hub() -> void:
 		clear and list_clear and went_up and back and fs_ok and boxed == hb.subtabs.get_child_count() and boxed > 0,
 		"clear %s list %s up %s back %s fs %s (%s, hidden %s, vis %s, fs %s hide %s) boxed %d/%d" % [clear, list_clear, went_up, back, fs_ok, fs.text if fs else "none", hb.panels_hidden, fs.visible if fs else false, fs.get_global_rect() if fs else Rect2(), hb.show_btn.get_global_rect(), boxed, hb.subtabs.get_child_count()])
 	hb.visible = false
+
+## v10.6 (owner, phone shots): the galaxy map pinches and pulses where you are (unknown areas too) and zooms right in
+## to show a system's star and planets; a warp gate's card says WARP GATE with the warp hole's picture; the warp tunnel
+## is alive and pink; and every gun on the ship shows its own shot.
+func _job_v106() -> void:
+	var s := _sp()
+	if s.surface_mode or main.state != "flight": return
+	var gm = main.galaxymap
+	var disc0: Array = GS.discovered.duplicate()
+	GS.discovered = ["solara", "veranthos", "aurelion", "vega"]
+	gm.open("solara")
+	await _wait(0.2)
+	var z0: float = gm.fz
+	var c := Vector2(900, 400)
+	for ev in [[0, c + Vector2(-60, 0), true], [1, c + Vector2(60, 0), true]]:
+		var te := InputEventScreenTouch.new(); te.index = ev[0]; te.position = ev[1]; te.pressed = ev[2]; gm._gui_input(te)
+	var de := InputEventScreenDrag.new(); de.index = 1; de.position = c + Vector2(180, 0); gm._gui_input(de)
+	var pinched: bool = gm.fz > z0 * 1.5
+	for i in [0, 1]:
+		var tu := InputEventScreenTouch.new(); tu.index = i; tu.position = c; tu.pressed = false; gm._gui_input(tu)
+	for k in 6: gm.press("zoom_in")
+	var S: Vector2 = main.get_viewport().get_visible_rect().size
+	var sp: Vector2 = gm.flat_pos(S, 5, 2)
+	gm.fpan = gm._clamp_pan(gm.fpan + Vector2((378.0 + S.x) * 0.5, (96.0 + S.y) * 0.5) - sp)
+	gm.queue_redraw()
+	await _wait(0.3)
+	main.hud.visible = false
+	await _shot("v106_galaxy_orrery", 0.2)
+	var deep: bool = gm.fz >= 8.0 and gm.flat_grid(S)[1].x >= Data.MAP_ORRERY_DETAIL
+	gm.press("close")
+	# an unknown area: the card is plain words and YOU pulses on its tile
+	var open_id := ""
+	for sid in Data.SYSTEMS:
+		if not Galaxy.network()["systems"].has(sid) and str(Data.SYSTEMS[sid].get("tile", "")) != "": open_id = sid; break
+	gm.open("solara")
+	gm.current = open_id; gm.selected = open_id
+	gm.queue_redraw()
+	await _wait(0.2)
+	await _shot("v106_galaxy_unknown_area", 0.1)
+	var you_ok: bool = gm._hits.has(open_id)
+	gm.press("close")
+	GS.discovered = disc0
+	main.hud.visible = true
+	_check("v10.6 (owner): the galaxy map pinches to zoom (two fingers), zooms right in to show a system's star, orbits and planets, and pulses YOU where you are, an unknown area too (with a plain card, no raw data)",
+		pinched and deep and you_ok and open_id != "", "pinch %s (zoom %.2f), deep %s, unknown %s YOU %s" % [pinched, gm.fz, deep, open_id, you_ok])
+	# the warp gate card
+	var wsys := ""
+	for sid in Data.SYSTEMS:
+		for g in Data.SYSTEMS[sid]["gates"]:
+			if str(g.get("gkind", "")) == "warp" and wsys == "": wsys = sid
+	var nm = main.navmap
+	var card_ok := false
+	if wsys != "":
+		var keep_sys: String = nm.sys_id if "sys_id" in nm else ""
+		var gi := 0
+		for g in Data.SYSTEMS[wsys]["gates"]:
+			if str(g.get("gkind", "")) == "warp": break
+			gi += 1
+		var d: Dictionary = Data.SYSTEMS[wsys]["gates"][gi]
+		card_ok = str(d.get("gkind", "")) == "warp" and ResourceLoader.exists(Data.NAV_TYPE_PICTURES["warp_gate"])
+	_check("v10.6 (owner): a warp gate's map card says WARP GATE and shows the warp hole's picture, not the jump-gate ring", card_ok, wsys)
+	# the warp tunnel: alive and pink
+	var fx = main.fx
+	fx.begin_warp("cloud")
+	fx.warp = 1.0
+	fx.pace = 1.0
+	await _wait(0.3)
+	await _shot("v106_warp_tunnel", 0.0)
+	var wm := fx._warp_rect.material as ShaderMaterial
+	var tun_ok: bool = str(wm.shader.code).contains("pulse_speed") and str(wm.get_shader_parameter("hole_tint")) == str(Data.WARP_TUNNEL_TINT)
+	fx.end_warp()
+	fx.warp = 0.0
+	_check("v10.6 (owner: \"the warp gate looks so alive\"): the warp tunnel takes the gate's pink, breathes, pulses rings at you and its wall flows (no rigid spinning picture)", tun_ok)
+	# every gun shows its shot
+	var keep_ship: String = GS.ship_id
+	GS.ship_id = "lancer"
+	s.set_player_model()
+	await _frames(3)
+	s.mount_next.clear()
+	var b0: int = s.gun_beams
+	var n0: int = s.bolts.size()
+	s._fire_guns()
+	var guns_fired: int = s.bolts.size() - n0
+	await _shot("v106_every_gun_fires", 0.0)
+	var beams: int = s.gun_beams - b0
+	GS.ship_id = keep_ship
+	s.set_player_model()
+	_check("v10.6 (owner: \"why aren't my wing weapons shooting, like Freelancer?\"): every gun throws its own beam from its own muzzle (%d guns on the Lancer) and the streams meet far out at the target, not in one dot 250 m ahead" % guns_fired,
+		guns_fired >= 5 and beams == guns_fired and Data.GUN_MEET_MIN >= 500.0 and Data.CAM_UP > 2.2, "guns %d, beams %d" % [guns_fired, beams])
 
 ## v10.4 (owner): the chase camera trails climbs and slides (the ship rises up the screen when it goes up), the clouds
 ## and fields are Freelancer-big, every cloud has a line of light buoys showing the way, rocks sit in the main cloud,

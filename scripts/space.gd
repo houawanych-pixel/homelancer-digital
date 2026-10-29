@@ -173,9 +173,9 @@ func _setup(id: String, arrival: String, staged: bool) -> void:
 	sun_radius = Data.SUN_RADIUS * (0.35 if sys.get("small_sun", false) else 1.0)
 	_rng.seed = hash(id)
 	_bolt_mesh = BoxMesh.new()
-	_bolt_mesh.size = Vector3(0.6, 0.6, 14.0)   # bright core
+	_bolt_mesh.size = Vector3(Data.BOLT_CORE_W, Data.BOLT_CORE_W, Data.BOLT_LEN)   # bright core (v10.6: a longer streak, Freelancer style)
 	_bolt_halo = BoxMesh.new()
-	_bolt_halo.size = Vector3(2.2, 2.2, 18.0)    # soft glow around it, so bolts read at range and on phones
+	_bolt_halo.size = Vector3(Data.BOLT_HALO_W, Data.BOLT_HALO_W, Data.BOLT_LEN * 1.3)    # soft glow around it, so bolts read at range and on phones
 	_prof("start")
 	Packs.request("kaijurai_fleet")   # v6.2: the enemy-space ships, fetched in the background
 	_build_environment()
@@ -3903,10 +3903,15 @@ func _fire_guns() -> void:
 			var wmn := _mount_node(g)
 			if wmn != null: from = wmn.global_position + fwd * 5.0
 		# v8.6 (owner: one shot showing for many guns): each gun's bolt angles in from its own muzzle to meet at the aim point
-		var meet: Vector3 = player.global_position + aim_dir * clampf(float(wg["range"]) * 0.45, 250.0, 700.0)
+		# v10.6 (owner: "why aren't my wing weapons shooting, like Freelancer?"): they always fired, but met only 250 m
+		# out, so every stream merged into one dot. Now they meet at the target (or far out), each gun its own streak.
+		var meet_d: float = clampf(float(wg["range"]) * Data.GUN_MEET_K, Data.GUN_MEET_MIN, Data.GUN_MEET_MAX)
+		if aim_dir != fwd and target and is_instance_valid(target): meet_d = clampf(player.global_position.distance_to(target.global_position), 60.0, float(wg["range"]))
+		var meet: Vector3 = player.global_position + aim_dir * meet_d
 		var bdir: Vector3 = (meet - from).normalized()
 		_spawn_bolt(from, bdir * float(wg["speed"]) + vel, GS.gun_damage(gid) * mk, wg["color"], "player", float(wg["range"]) / float(wg["speed"]), float(wg.get("shield", -1.0)))
-		_spark(from + fwd * 1.5, (wg["color"] as Color).lightened(0.4), 3.2, 0.09)
+		_spark(from + fwd * 1.5, (wg["color"] as Color).lightened(0.4), Data.GUN_FLASH_SIZE, 0.11)   # each gun's own muzzle flash
+		_gun_beam(from, bdir, wg["color"])
 		sounds[str(wg.get("sound", "laser"))] = true
 	gun_cd = clampf(next_cd, 0.02, 1.0)
 	if _laser_sfx_cd <= 0.0 and not sounds.is_empty():
@@ -3916,6 +3921,38 @@ func _fire_guns() -> void:
 			k += 1
 			if k >= 2: break
 		_laser_sfx_cd = 0.07
+
+## v10.6 (owner: "why aren't all my weapons shooting, like Freelancer?"): every gun did fire, but its bolt is gone into
+## the distance in a frame, so all you saw was one dot at the crosshair. Now each shot also throws a short bright beam
+## from its own muzzle that fades in a blink: you see every gun on the ship firing, its own line toward the target.
+static var _beam_box: BoxMesh
+static var _beam_mats := {}
+func _gun_beam(from: Vector3, dir: Vector3, col: Color) -> void:
+	if _beam_box == null:
+		_beam_box = BoxMesh.new(); _beam_box.size = Vector3(1, 1, 1)
+	var k := col.to_html()
+	if not _beam_mats.has(k):
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		m.cull_mode = BaseMaterial3D.CULL_DISABLED
+		m.albedo_color = Color(col.lightened(0.45), 0.85)
+		_beam_mats[k] = m
+	var b := MeshInstance3D.new()
+	b.mesh = _beam_box
+	b.material_override = _beam_mats[k]
+	b.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(b)
+	var L: float = Data.GUN_BEAM_LEN
+	b.global_position = from + dir * L * 0.5
+	face(b, dir)
+	b.scale = Vector3(Data.GUN_BEAM_W, Data.GUN_BEAM_W, L)
+	gun_beams += 1
+	var tw := create_tween()
+	tw.tween_property(b, "scale", Vector3(0.05, 0.05, L), Data.GUN_BEAM_TIME)
+	tw.tween_callback(b.queue_free)
+var gun_beams := 0   # (checks) beams thrown so far
 
 ## v9.8 (owner: Harrier-style engines): the Cadet's side engines turn with the way you move: nozzles back when you
 ## fly forward, down when you climb, forward when you back up, up when you dive. Pitch only (never sideways), eased.
@@ -3984,7 +4021,7 @@ func _spawn_bolt(from: Vector3, v: Vector3, dmg: float, col: Color, owner: Strin
 	var head := MeshInstance3D.new()   # glowing head: keeps bolts readable when they fly straight away from the camera
 	head.mesh = _bolt_head_mesh()
 	head.material_override = _head_mat(col)
-	head.position = Vector3(0, 0, -6.0)
+	head.position = Vector3(0, 0, -Data.BOLT_LEN * 0.45)   # (at the streak's front)
 	head.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mi.add_child(head)
 	bolts.append({"node": mi, "vel": v, "life": life, "dmg": dmg, "owner": owner, "sf": sf})   # sf: v1.9u shield share (-1 = normal)
@@ -3994,7 +4031,7 @@ static var _head_mats := {}
 func _bolt_head_mesh() -> QuadMesh:
 	if _head_q == null:
 		_head_q = QuadMesh.new()
-		_head_q.size = Vector2(5.5, 5.5)
+		_head_q.size = Vector2(Data.BOLT_HEAD, Data.BOLT_HEAD)   # (v10.6: 5.5 -> bigger, every gun reads)
 	return _head_q
 func _head_mat(col: Color) -> StandardMaterial3D:
 	var k := col.to_html()
@@ -5453,7 +5490,7 @@ func _update_camera(dt: float, snap: bool) -> void:
 		cam.fov = lerpf(cam.fov, 92.0 if warp_state == "on" else (82.0 if boosting else 76.0), minf(1.0, dt * 2.0))
 		return
 	var back := 15.0 + (4.0 if warp_state == "on" else (1.5 if boosting else 0.0))
-	var up := 2.2
+	var up := Data.CAM_UP   # v10.6: a little higher, so every gun's stream shows above the ship (not hidden behind it)
 	if GS.form == "mech":   # the mech stands taller: sit the camera higher and further back so it doesn't block the reticle
 		back += 8.0
 		up = 5.5
@@ -6349,9 +6386,9 @@ func setup_surface(pid: String, t: int) -> void:
 	sys = Data.SYSTEMS[sys_id]
 	_rng.seed = hash(pid)
 	_bolt_mesh = BoxMesh.new()
-	_bolt_mesh.size = Vector3(0.6, 0.6, 14.0)
+	_bolt_mesh.size = Vector3(Data.BOLT_CORE_W, Data.BOLT_CORE_W, Data.BOLT_LEN)
 	_bolt_halo = BoxMesh.new()
-	_bolt_halo.size = Vector3(2.2, 2.2, 18.0)
+	_bolt_halo.size = Vector3(Data.BOLT_HALO_W, Data.BOLT_HALO_W, Data.BOLT_LEN * 1.3)
 	_build_surface_env()
 	var far := Vector3(0, -1000000, 0)
 	planet = _placeholder(sys["planet"]["name"], "planet", far, sys["planet"])

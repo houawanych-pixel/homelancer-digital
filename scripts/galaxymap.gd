@@ -83,7 +83,40 @@ static func focus_of(S: Vector2, yaw: float, pitch: float, viewer: Vector3) -> S
 			best = id
 	return best
 
+## v10.6 (owner: "the galaxy map should let me zoom in and out by pinching"): two fingers pinch the chart (phone),
+## a trackpad pinch or the mouse wheel too (desktop); the zoom centres on the fingers.
+var _touches := {}
+var _pinch_d := 0.0
+func _pinch(e: InputEvent) -> bool:
+	if not flat or expanded != "": return false
+	if e is InputEventMagnifyGesture:
+		_zoom(e.factor, e.position); return true
+	if e is InputEventMouseButton and e.pressed and e.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+		_zoom(1.15 if e.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0 / 1.15, e.position); return true
+	if e is InputEventScreenTouch:
+		if e.pressed: _touches[e.index] = e.position
+		else: _touches.erase(e.index)
+		_pinch_d = 0.0
+		if _touches.size() >= 2:
+			var ks := _touches.keys(); _pinch_d = (_touches[ks[0]] as Vector2).distance_to(_touches[ks[1]])
+			_drag_from = Vector2.INF   # (two fingers: no tap, no drag)
+			_drag_moved = 99.0
+			return true
+		return false
+	if e is InputEventScreenDrag and _touches.size() >= 2:
+		_touches[e.index] = e.position
+		var ks := _touches.keys()
+		var a: Vector2 = _touches[ks[0]]; var b: Vector2 = _touches[ks[1]]
+		var d := a.distance_to(b)
+		if _pinch_d > 1.0 and d > 1.0: _zoom(d / _pinch_d, (a + b) * 0.5)
+		_pinch_d = d
+		return true
+	return false
+
 func _gui_input(e: InputEvent) -> void:
+	if _pinch(e):
+		accept_event()
+		return
 	var pos := Vector2.INF
 	var pressed := false
 	var released := false
@@ -147,9 +180,9 @@ func press(b: String) -> void:
 		"zoom_out": _zoom(1.0 / Data.MAP_ZOOM_STEP)
 
 ## v1.9e: zoom the chart about the middle of the screen, kept on screen.
-func _zoom(k: float) -> void:
+func _zoom(k: float, at := Vector2.INF) -> void:
 	var S := get_viewport_rect().size
-	var c := Vector2((378.0 + S.x) * 0.5, (96.0 + S.y) * 0.5)
+	var c := Vector2((378.0 + S.x) * 0.5, (96.0 + S.y) * 0.5) if at == Vector2.INF else at
 	var nz := clampf(fz * k, 1.0, Data.MAP_ZOOM_MAX)
 	var org := Vector2(378.0, 96.0) + fpan
 	fpan = _clamp_pan(c - (c - org) * (nz / fz) - Vector2(378.0, 96.0))
@@ -284,7 +317,14 @@ func _draw_flat(S: Vector2) -> void:
 		if st2 == "fog": continue
 		var p: Vector2 = at[id]
 		var s: Dictionary = sys[id]
-		if st2 == "seen" and cell.x >= Data.MAP_BOX_DETAIL:   # v1.9e: zoomed in: the system's box, like the owner's document
+		if st2 == "seen" and cell.x >= Data.MAP_ORRERY_DETAIL:   # v10.6 (owner: pinch in to see the star and its planets)
+			boxes += 1
+			var stp: Vector2 = _orrery(id, p, cell)
+			if id == current:
+				_you_pulse(stp)   # (zoomed in: YOU sits at the main station, not on the star)
+				_hits[id] = p
+				continue
+		elif st2 == "seen" and cell.x >= Data.MAP_BOX_DETAIL:   # v1.9e: zoomed in: the system's box, like the owner's document
 			var fc3: Color = SystemBuilder.FACTIONS[s["faction"]][3]
 			boxes += 1
 			var bi := box_info(id)
@@ -311,15 +351,25 @@ func _draw_flat(S: Vector2) -> void:
 			draw_circle(p, 11.0, Color(0.5, 0.62, 0.78, 0.12))
 			draw_arc(p, 9.0, 0, TAU, 20, Color(0.7, 0.8, 0.92, 0.7), 1.5, true)
 			draw_string(font, p + Vector2(-10, 6), "?", HORIZONTAL_ALIGNMENT_CENTER, 20, Data.ts(13), Color(0.85, 0.92, 1.0, 0.85))
-		if id == current:
-			draw_arc(p, 18.0 + 2.5 * sin(t * 3.0), 0, TAU, 32, Color(1.0, 0.85, 0.4), 2.5, true)
-			_tag(p + Vector2(0, -26.0), "YOU", Color(1.0, 0.85, 0.4))
+		if id == current: _you_pulse(p)
 		if id == selected:
 			for cn in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
 				var q: Vector2 = p + cn * 20.0
 				draw_line(q, q - Vector2(cn.x * 9, 0), Color.WHITE, 2.0)
 				draw_line(q, q - Vector2(0, cn.y * 9), Color.WHITE, 2.0)
 		_hits[id] = p
+	# v10.6 (owner: "it needs to pulse to tell you what system you're at"): in an unknown area (not on the charts) you
+	# still get the pulse, on its tile
+	if not sys.has(current) and Data.SYSTEMS.has(current):
+		var tl2: String = str(Data.SYSTEMS[current].get("tile", ""))
+		if tl2.length() >= 2:
+			var cc := "ABCDEFGHIJK".find(tl2[0]); var rr := int(tl2.substr(1)) - 1
+			if cc >= 0 and rr >= 0:
+				var yp: Vector2 = flat_pos(S, cc, rr)
+				draw_circle(yp, 7.0, Color(1.0, 0.85, 0.4))
+				_you_pulse(yp)
+				_tag(yp + Vector2(0, 30.0), str(Data.SYSTEMS[current]["name"]).to_upper(), Color(0.85, 0.9, 1.0))
+				_hits[current] = yp
 	# heading and keys
 	draw_string(font, Vector2(24, 40), "GALAXY MAP", HORIZONTAL_ALIGNMENT_LEFT, -1, Data.ts(26), Color.WHITE)
 	var known := 0
@@ -528,7 +578,54 @@ func _title(S: Vector2) -> void:
 	var n: int = Galaxy.network()["systems"].size()
 	_text(Vector2(S.x - 340, ly + 5), "%d systems · %d links · map data only" % [n, Galaxy.network()["links"].size()], 12, MID, HORIZONTAL_ALIGNMENT_RIGHT, 320)
 
+## v10.6: zoomed right in, a charted system's tile shows the system itself, laid out as it really is (its 1,000 km
+## square shrunk into the tile): the star glowing, each planet on its orbit round the star, the stations and gates.
+func _orrery(id: String, p: Vector2, cell: Vector2) -> Vector2:
+	var d: Dictionary = Data.SYSTEMS[id]
+	var r := Rect2(p - cell * 0.5, cell).grow(-2.0)
+	draw_rect(r, Color(0.01, 0.02, 0.05, 0.88))
+	var fc: Color = SystemBuilder.FACTIONS[d.get("faction", "Neutral")][3] if SystemBuilder.FACTIONS.has(d.get("faction", "Neutral")) else Color(0.6, 0.7, 0.9)
+	draw_rect(r, Color(fc, 0.5), false, 1.5)
+	var E: float = Data.SPACE_EDGE
+	var to2 := func(v: Vector3) -> Vector2: return p + Vector2(clampf(v.x / E, -1.0, 1.0), clampf(v.z / E, -1.0, 1.0)) * (cell * 0.46)
+	var sun: Vector3 = SystemBuilder.sun_pos_of(d)
+	var sp: Vector2 = to2.call(sun)
+	var sun_in := absf(sun.x) < E and absf(sun.z) < E
+	var bodies: Array = [[d["planet"]["pos"], float(d["planet"].get("radius", 1000.0)), d["planet"].get("name", "")]]
+	for x in d.get("more_planets", []): bodies.append([x["pos"], float(x.get("radius", 600.0)), x.get("name", "")])
+	if sun_in:
+		for b in bodies: draw_arc(sp, (to2.call(b[0]) as Vector2).distance_to(sp), 0, TAU, 64, Color(0.55, 0.75, 1.0, 0.22), 1.0, true)
+		for k in 3: draw_circle(sp, cell.x * (0.05 - k * 0.012) + 1.0 * sin(t * 2.0), Color(1.0, 0.85, 0.5, 0.25 + k * 0.3))
+	else:   # the star is far off this square: its light comes from that side
+		var dir := (sp - p).normalized()
+		draw_circle(p + dir * cell.x * 0.44, cell.x * 0.03, Color(1.0, 0.85, 0.5, 0.9))
+	var fs := clampi(int(cell.x / 22.0), 10, 15)
+	for b in bodies:
+		var bp: Vector2 = to2.call(b[0])
+		draw_circle(bp, clampf(float(b[1]) / 4000.0, 3.0, 9.0) * cell.x / 300.0 + 2.0, Color(0.45, 0.75, 1.0))
+		if b[2] != "": draw_string(font, bp + Vector2(6, -4), str(b[2]), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0.75, 0.88, 1.0, 0.9))
+	var sts: Array = [d["station"]] + (d.get("more_stations", []) as Array)
+	for st in sts:
+		var q: Vector2 = to2.call(st["pos"])
+		draw_rect(Rect2(q - Vector2(3, 3), Vector2(6, 6)), Color(0.4, 1.0, 0.6))
+	for g in d.get("gates", []):
+		draw_arc(to2.call(g["pos"]), 4.0, 0, TAU, 12, link_color(str(g.get("gkind", "jump")) + "_gate"), 1.5, true)
+	draw_string(font, r.position + Vector2(6, fs + 4), str(d["name"]).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 12, fs + 2, Color.WHITE)
+	return to2.call(d["station"]["pos"])
+
+## v10.6: where you are: rings pulsing out from the system (a sonar ping) and a YOU tag, easy to find at a glance.
+func _you_pulse(p: Vector2) -> void:
+	var gold := Color(1.0, 0.85, 0.4)
+	for k in 3:
+		var ph := fposmod(t * 0.8 + k / 3.0, 1.0)
+		draw_arc(p, 14.0 + ph * 38.0, 0, TAU, 40, Color(gold, (1.0 - ph) * 0.85), 3.0 - ph * 2.0, true)
+	draw_arc(p, 18.0 + 2.5 * sin(t * 3.0), 0, TAU, 32, gold, 2.5, true)
+	_tag(p + Vector2(0, -28.0), "YOU", gold)
+
 func _info(S: Vector2) -> void:
+	if not Galaxy.network()["systems"].has(selected):   # v10.6 (owner phone shot: the card printed raw data): an unknown area
+		_info_unknown(S)
+		return
 	var s: Dictionary = Galaxy.network()["systems"][selected]
 	if not flat:
 		_info_blueprint(S, s)
@@ -564,6 +661,25 @@ func _info(S: Vector2) -> void:
 	var eb := Rect2(Vector2(r.position.x, r.end.y + 10), Vector2(r.size.x, 54))
 	_btns["expand"] = eb
 	_button(eb, "OPEN SYSTEM  »", true)
+
+## v10.6: you are in (or picked) one of the unknown areas, which are not on the charts: a plain card, no raw data.
+func _info_unknown(S: Vector2) -> void:
+	var r := Rect2(Vector2(24, 86), Vector2(330, 222))
+	draw_style_box(_glass_box(), r)
+	var d: Dictionary = Data.SYSTEMS.get(selected, {})
+	_text(r.position + Vector2(16, 26), "SELECTED SYSTEM", Data.ts(12), Color(0.55, 0.8, 1.0))
+	_text(r.position + Vector2(16, 58), str(d.get("name", "Unknown area")).to_upper(), Data.ts(20), Color.WHITE)
+	_text(r.position + Vector2(16, 84), "Unknown area · tile %s" % str(d.get("tile", "?")), Data.ts(13), Color(0.75, 0.8, 0.9))
+	_text(r.position + Vector2(16, 110), "Off the charts: no gates on the map.", Data.ts(13), Color.WHITE)
+	var bi2 := box_info(selected)
+	var yy := r.position.y + 140.0
+	for sn2: Array in (bi2[1] as Array).slice(0, 2):
+		_text(Vector2(r.position.x + 16, yy), "· " + str(sn2[0]), Data.ts(13), Color(0.55, 0.8, 1.0))
+		yy += 20.0
+	if Data.SYSTEMS.has(selected):
+		var eb := Rect2(Vector2(r.position.x, r.end.y + 10), Vector2(r.size.x, 54))
+		_btns["expand"] = eb
+		_button(eb, "OPEN SYSTEM  »", true)
 
 func _info_blueprint(S: Vector2, s: Dictionary) -> void:
 	var r := Rect2(Vector2(24, 86), Vector2(330, 196))

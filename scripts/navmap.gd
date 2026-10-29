@@ -483,7 +483,9 @@ func info(key: String) -> Dictionary:
 			out["lines"].append("Services: %s" % ("  ·  ".join(sv) if not sv.is_empty() else "none yet (landmark)"))
 			if d.has("desc"): out["lines"].append(d["desc"])
 		"gate":
-			out["type"] = "Jump Gate"
+			var gk: String = str(d.get("gkind", "jump"))   # v10.6 (owner): a warp gate says WARP GATE and shows the warp hole
+			out["type"] = {"warp": "Warp Gate", "rift": "Rift Gate"}.get(gk, "Jump Gate")
+			if gk == "warp": pic_type = "warp_gate"
 			var dest: String = Data.SYSTEMS[d["to"]]["name"]
 			out["destination"] = dest
 			out["name"] = "%s > %s" % [o["name"], dest]

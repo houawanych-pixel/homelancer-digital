@@ -854,6 +854,7 @@ const NEBULA_STORM_FLASH := [0.8, 2.6]
 const WARP_HOLE_SIZE := 240.0          # v1.9z (owner): the warp gate as a Freelancer-style hole: its size (m)
 const WARP_HOLE_SPARKS := 120
 const WARP_HOLE_RIM := Color(1.0, 0.45, 0.75)
+const WARP_TUNNEL_TINT := Color(1.0, 0.42, 0.82)   # v10.6 (owner: "that amazing pink, alive"): the warp tunnel takes the gate's pink
 const WARP_HOLE_CLOUD := Color(0.75, 0.25, 0.6)   # the cloud each warp gate hides in
 const JUMP_TUNNEL_SPIN := [0.04, 0.22]   # v1.9z (owner): the jump-gate tunnel (his picture) spins, turns a second slow .. full speed
 const NEBULA_MIST := Color(0.93, 0.95, 1.0)   # v6.7 (owner): white mist inside a cloud, like Freelancer
@@ -971,7 +972,8 @@ const MISSILE_ALERT := 700.0
 # galaxy map (flat, fog of war)
 const MAP_FOG := Color(0.02, 0.03, 0.06)
 const MAP_ZOOM_STEP := 1.6       # v1.9e: each + / - on the galaxy chart zooms this much ...
-const MAP_ZOOM_MAX := 5.0        # ... up to this
+const MAP_ZOOM_MAX := 10.0       # ... up to this (v10.6: was 5; pinch right in to see a system's star and planets)
+const MAP_ORRERY_DETAIL := 260.0  # v10.6: a charted tile at least this wide shows the system itself (star, orbits, planets)
 const MAP_BOX_DETAIL := 110.0    # px: a charted tile at least this wide shows its box (counts, station names)
 
 # ---------------------------------------------------------------- Job S (v1.4p): GPS-style navigation map and radar
@@ -995,7 +997,7 @@ const NAV_PIN_PULSE := 0.18
 const NAV_SIDES := {"planet": 16, "star": 12, "orbit": 18, "ring": 16}   # polygon circles: 12 to 20 straight sides
 const NAV_TYPE_PICTURES := {            # info-card picture per type, used when the object has no picture of its own
 	"planet": "res://assets/nav/planet.jpg", "moon": "res://assets/nav/moon.jpg", "station": "res://assets/nav/station.jpg",
-	"gate": "res://assets/nav/gate.jpg", "belt": "res://assets/nav/asteroids.jpg", "nebula": "res://assets/nav/nebula.jpg",
+	"gate": "res://assets/nav/gate.jpg", "warp_gate": "res://assets/nav/warp_gate.jpg", "belt": "res://assets/nav/asteroids.jpg", "nebula": "res://assets/nav/nebula.jpg",
 	"star": "res://assets/nav/star.jpg", "enemy": "res://assets/nav/ship_hostile.jpg", "traffic": "res://assets/nav/ship_trader.jpg",
 	"ship": "res://assets/nav/ship_friendly.jpg"}
 const NAV_STATION_SERVICES := ["Equipment", "Ship Dealer", "Repair / Resupply", "Navigation"]   # a dockable station with no "services" list
@@ -1232,6 +1234,18 @@ const ALLY_FIGHTER := {"hull": 260.0, "speed": 52.0, "turn": 1.4, "damage": 6.0,
 const ALLY_FRIGATE := {"hull": 7000.0, "speed": 8.0, "damage": 10.0, "rate": 2.5, "range": 1300.0, "hit_r": 60.0}
 const PRISONER_HOME_STANDING := -70.0   # v1.9o: your standing with a faction after you bring one of theirs home as a prisoner (hostile)
 const CHASER_WING := 3                  # the freed pilot comes after you with this many ships in all
+const BOLT_HEAD := 7.0            # the glowing head (m; was 5.5): bolts flying straight away from the camera still read
+const BOLT_LEN := 30.0            # v10.6 (owner: Freelancer lasers from every gun): a laser bolt's streak (m; was 14)
+const BOLT_CORE_W := 0.6
+const BOLT_HALO_W := 1.5
+const GUN_MEET_K := 0.85           # the guns' streams meet this share of their range ahead (was 0.45, min 250 m) ...
+const GUN_MEET_MIN := 600.0
+const GUN_MEET_MAX := 1100.0       # ... or at the locked target
+const GUN_FLASH_SIZE := 4.6        # each gun's muzzle flash (was 3.2)
+const GUN_BEAM_LEN := 70.0        # v10.6: the blink of a beam each gun throws as it fires (m) ...
+const GUN_BEAM_W := 0.7
+const GUN_BEAM_TIME := 0.09        # ... gone in this long (s)
+const CAM_UP := 3.6               # v10.6 (owner: see every gun fire): the chase camera sits this high (was 2.2)
 const CAM_SWAY_K := 0.09          # v10.4 (owner): the chase camera trails sliding moves: metres per m/s of climb / slide
 const CAM_SWAY_UP := 3.2          # ... at most this far (climbing lifts the ship up the screen, diving drops it)
 const CAM_SWAY_SIDE := 2.6        # ... and this far sideways

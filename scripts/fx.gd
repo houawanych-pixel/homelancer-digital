@@ -49,6 +49,10 @@ uniform sampler2D tunnel_tex : source_color, repeat_enable, filter_linear;   // 
 uniform sampler2D tunnel_tex_b : source_color, repeat_enable, filter_linear; // v1.9z: the owner's warp gate tunnel wall
 uniform bool use_tex_b = false;
 uniform bool use_tex = false;
+uniform vec3 hole_tint = vec3(1.0, 0.45, 0.85);   // v10.6: the warp gate's living pink
+uniform float tint_amt = 0.6;
+uniform float flow = 0.16;
+uniform float pulse_speed = 2.6;
 uniform float tex_spin = 0.0;
 uniform float wind = 0.0;        // v2.5 (owner, MvC2's portal): the tube snakes left then right (S bends); 0 = straight
 uniform float wind_freq = 0.45;
@@ -82,7 +86,25 @@ void fragment() {
 	float r = length(p) + 0.0001;
 	float th = atan(p.y, p.x) / TAU;
 	vec3 col = vec3(0.0);
-	if ((skin == 0 && use_tex) || (skin == 1 && use_tex_b)) {
+	if (skin == 1 && use_tex_b) {
+		// v10.6 (owner: "the warp gate looks so alive ... the tunnel needs that feel, pulsing, that pink"): the warp
+		// tunnel is the gate's hole from the inside. The owner's wall picture flows (noise warps it, not a rigid spin),
+		// takes the gate's pink, breathes, rings of light rush out at you, and bright energy veins crawl along it.
+		float depth = 0.26 / r;
+		float t = TIME;
+		vec2 w = vec2(nz(vec2(th * 3.0 + t * 0.05, depth * 0.15 - t * 0.1)), nz(vec2(th * 5.0 - t * 0.07, depth * 0.2 + t * 0.13))) - 0.5;
+		vec2 tuv = vec2(depth + travel * 0.6, th + tex_spin + depth * twist * 0.08) + w * flow;
+		vec3 c = textureLod(tunnel_tex_b, tuv, 0.0).rgb;
+		float lum = dot(c, vec3(0.3, 0.5, 0.2));
+		c = mix(c, hole_tint * lum * 2.0 + c * 0.25, tint_amt);
+		float ring = pow(0.5 + 0.5 * sin((depth * 2.2 - t * pulse_speed) * 3.14159), 10.0);
+		float breath = 0.82 + 0.28 * sin(t * 2.4) * sin(t * 0.9 + 1.0);
+		col = c * 1.35 * breath + mix(hole_tint, vec3(1.0), 0.35) * ring * 0.6 * smoothstep(0.05, 0.3, r);
+		float v = nz(vec2(th * 6.0 + t * 0.2 + w.x, depth * 0.6 - t * 0.8));
+		col += mix(hole_tint, vec3(1.0), 0.45) * smoothstep(0.7, 0.9, v) * 0.85;
+		col *= 0.25 + 0.95 * smoothstep(0.0, 0.42, r);
+		col += vec3(1.0, 0.86, 0.96) * (0.04 / (r * r * 6.0 + 0.04)) * breath;
+	} else if (skin == 0 && use_tex) {
 		// v1.9z (owner's pictures): his unwrapped tunnel wall rushing at you and spinning; streaks run along.
 		// Jump gates: the blue one; warp gates: the red one.
 		float depth = 0.26 / r;
@@ -212,6 +234,7 @@ func _ready() -> void:
 	if ResourceLoader.exists("res://assets/fx/warp_gate_tunnel.jpg"):   # v1.9z: the owner's warp gate tunnel picture
 		wm.set_shader_parameter("tunnel_tex_b", load("res://assets/fx/warp_gate_tunnel.jpg"))
 		wm.set_shader_parameter("use_tex_b", true)
+		wm.set_shader_parameter("hole_tint", Data.WARP_TUNNEL_TINT)   # v10.6: the gate's pink, alive
 		warp_tex_on = true
 	set_skies(null, null)
 	for i in 34:
