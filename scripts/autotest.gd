@@ -10166,6 +10166,47 @@ func _job_fl() -> void:
 	hud.cl_open = true
 	hud.sp_open = true
 	_check("v8.0 (owner): folded, the CONTACTS and SHIP windows sit right on top of their button blocks", fold_ok)
+	# v10.6 (owner): round fold tabs on the radar; the tab under it pushes everything down; the cloak crackles, then goes glass and locks every tool
+	main._on_hud("dock_l")
+	hud._layout()
+	var l_gone: bool = not hud.buttons.has("fire") and not hud.buttons.has("tractor") and hud.buttons.has("warp") and not hud.fl_shown("l") and hud.buttons.has("dock_l")
+	await _shot("v106_fold_left", 0.3)
+	main._on_hud("dock_r")
+	hud._layout()
+	var both_gone: bool = not hud.buttons.has("warp") and not hud.buttons.has("cloak") and hud.buttons.has("radar") and not hud.fl_shown("r")
+	await _shot("v106_radar_only", 0.3)
+	main._on_hud("dock_l")
+	main._on_hud("dock_r")
+	main._on_hud("dock_down")
+	hud._layout()
+	var down_ok: bool = hud.buttons.has("dock_up") and hud.buttons.has("log") and not hud.buttons.has("radar") and not hud.buttons.has("fire")
+	await _shot("v106_pushed_down", 0.3)
+	main._on_hud("dock_up")
+	hud._layout()
+	var back_ok: bool = hud.buttons.has("fire") and hud.buttons.has("warp") and hud.buttons.has("radar") and hud.buttons.has("dock_down")
+	_check("v10.6 (owner): the radar's side tabs fold the left / right tools away, the tab under it pushes everything down (COMMS and a tab to bring it back stay), and back up",
+		l_gone and both_gone and down_ok and back_ok, "left %s both %s down %s back %s" % [l_gone, both_gone, down_ok, back_ok])
+	GS.energy = Data.ENERGY_MAX
+	main._on_hud("cloak")
+	await _wait(0.3)
+	await _shot("v106_cloak_zap", 0.0)
+	var zapping: bool = s.cloak_zap > 0.0
+	await _wait(Data.CLOAK_ZAP + 0.2)
+	await _shot("v106_cloak_glass", 0.0)
+	var glassy: bool = s._cloak_glass_on
+	var ms0: int = GS.slot_ammo("light_missile")
+	main._on_hud("kill")
+	main._on_hud("warp")
+	var locked_ok: bool = not s.engine_kill and s.warp_state == "off"
+	hud.held["thrust"] = true
+	await _frames(2)
+	var no_thrust: bool = not s.thrust_held
+	hud.held.erase("thrust")
+	main._on_hud("cloak")
+	await _wait(Data.CLOAK_ZAP + 0.2)
+	var paint_back: bool = not s._cloak_glass_on and not s.cloaked
+	_check("v10.6 (owner): CLOAK crackles with electricity, then the ship goes see-through glass; thrust, engine kill and warp are locked; dropping it brings the paint back",
+		zapping and glassy and locked_ok and no_thrust and paint_back and GS.slot_ammo("light_missile") == ms0, "zap %s glass %s locked %s thrust %s back %s" % [zapping, glassy, locked_ok, no_thrust, paint_back])
 	# v7.7 (owner): the windows scroll: a drag on the contact list moves it, a tap still picks the row
 	var extra: Array = []
 	for k in 12:

@@ -323,6 +323,7 @@ static func spread(out: Dictionary) -> void:
 		if is_unknown(sy): _orbit_layout(id, sy)
 		_keep_off_sun(sy)
 		_keep_in_tile(sy)
+		_sun_off_lanes(sy)
 		_station_out_of_cloud(sy)
 
 ## v10.4 (owner: bigger Freelancer clouds): the bigger main cloud must not swallow the main station (unless the station
@@ -364,7 +365,47 @@ static func _positions(sy: Dictionary) -> Array:
 ## Where the sun sits: in the middle of an unknown area, else far out along its light (space.gd uses the same rule).
 static func sun_pos_of(sy: Dictionary) -> Vector3:
 	if sy.get("sun_center", false): return Vector3.ZERO
-	return -(sy.get("sun_dir", Vector3(0, -0.3, 1)) as Vector3).normalized() * Data.SUN_DIST
+	return -(sy.get("sun_dir", Vector3(0, -0.3, 1)) as Vector3).normalized() * float(sy.get("sun_dist", Data.SUN_DIST))
+
+## v10.6 (owner: "that sun is so close to the trade lanes ... things should be fanned out"): the sun keeps its size but
+## swings round the system (same height, same distance) to the bearing farthest from every trade-lane line and place;
+## if no bearing is clear enough it also backs off, out toward the edge of the tile. The light follows it.
+static func _sun_off_lanes(sy: Dictionary) -> void:
+	if sy.get("sun_center", false): return
+	var sr: float = Data.SUN_RADIUS * (0.35 if sy.get("small_sun", false) else 1.0)
+	var need: float = sr * Data.SUN_LANE_CLEAR
+	var st: Vector3 = sy["station"]["pos"]
+	var segs: Array = [[st, sy["planet"]["pos"]]]
+	for g in sy["gates"]: segs.append([st, g["pos"]])
+	var dots: Array = [[sy["planet"]["pos"], float(sy["planet"]["radius"])], [sy["asteroids"]["center"], float(sy["asteroids"].get("radius", 400.0))]]
+	for x in sy["more_planets"]: dots.append([x["pos"], float(x["radius"])])
+	for x in sy["more_stations"]: dots.append([x["pos"], 600.0])
+	var gap := func(sp: Vector3) -> float:
+		var best := INF
+		for sg in segs: best = minf(best, sp.distance_to(Geometry3D.get_closest_point_to_segment(sp, sg[0], sg[1])))
+		for d in dots: best = minf(best, sp.distance_to(d[0]) - float(d[1]))
+		return best
+	var d0: Vector3 = (sy.get("sun_dir", Vector3(0, -0.3, 1)) as Vector3).normalized()
+	var dist: float = Data.SUN_DIST
+	if gap.call(-d0 * dist) >= need: return
+	var a0 := atan2(d0.z, d0.x)
+	var flat := Vector2(d0.x, d0.z).length()
+	var lim: float = Data.SPACE_EDGE * 0.8
+	while dist <= lim:
+		var best_d := d0
+		var best_g := -INF
+		for k in 72:
+			var a := a0 + k * TAU / 72.0
+			var dd := Vector3(cos(a) * flat, d0.y, sin(a) * flat)
+			var gg: float = gap.call(-dd * dist)
+			if gg > best_g + 1.0:
+				best_g = gg
+				best_d = dd
+		if best_g >= need or dist >= lim:
+			sy["sun_dir"] = best_d
+			sy["sun_dist"] = dist
+			return
+		dist = minf(lim, dist * 1.35)
 
 ## v8.9 (owner): the unknown areas: the sun in the middle and everything on its own orbit round it (each keeps its bearing).
 static func _orbit_layout(id: String, sy: Dictionary) -> void:

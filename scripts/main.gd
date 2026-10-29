@@ -320,6 +320,9 @@ func _objective() -> String:
 func _on_hud(id: String) -> void:
 	if state != "flight": return
 	if hud.fl_tap(id): return   # v6.7: the contact list and ship panel
+	if space.cloaked and not (id in ["cloak", "view", "radar", "fullscreen", "scan", "scan_close", "hangup", "side_l", "side_r", "call_pick"]):   # v10.6 (owner): cloaked, every tool is locked: you only fly and look around
+		hud.flash_message("Cloaked: everything is locked. You can only fly. Tap CLOAK to drop it.")
+		return
 	if id == "weapons":   # v7.0: open / fold the weapons and abilities
 		hud.weapons_open = not hud.weapons_open
 		return

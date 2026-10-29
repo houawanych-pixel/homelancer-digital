@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v10.5"
+const VERSION := "v10.6"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -873,7 +873,8 @@ const SYSTEM_REACH := 230000.0       # v9.0: a typical object (60th percentile) 
 const SYSTEM_FAN := [6.0, 120.0]
 const SYSTEM_EDGE_SOFT := 380000.0   # past this, places are pulled in toward the centre (they bunch a little near the border)
 const FIELD_GROW := 95.0             # v10.4 (owner): ~2.1x (fields ~36 km out from their middle, was ~17). v9.0: asteroid fields grow this much (380 m radius -> ~11 km)
-const PLANET_GROW := 4.0             # v9.0: planets grow this much (so they read across a 400 km system)
+const PLANET_GROW := 8.0             # v10.6 (owner): twice the size again (was 4.0). v9.0: planets grow this much (so they read across a 400 km system)
+const SUN_LANE_CLEAR := 3.2         # v10.6 (owner: "the sun is so close to the trade lanes"): the sun keeps this many of its radii from every lane line and place
 const SUN_KEEP_OUT := 2.2            # v9.0: nothing is placed within this many sun radii of the sun
 const UNKNOWN_ORBITS := {"station": 90000.0, "planet": 210000.0, "asteroids": 300000.0, "nebula": 240000.0, "gate": 380000.0, "extra": [140000.0, 400000.0]}   # v9.0 (owner): the unknown areas: the sun in the middle, everything on orbits round it
 const DOCK_RANGE_STATION := 190.0    # was 260: you must be this close to a station (or its docking mouth) for DOCK
@@ -1315,6 +1316,8 @@ const TRACTOR_TIME := 4.0
 # then critical); until then a tap is still an evasive move.
 const RADAR_HEADING_UP := true      # v6.9 (owner: why is it pointing down?): the radar turns round you; you always point up
 const CLOAK_DRAIN := 7.0            # v8.3 (owner): energy per second while cloaked (it drops when the power runs out)
+const CLOAK_ZAP := 1.4             # v10.6 (owner): seconds of electric crackle round the ship as the cloak comes on (and off)
+const CLOAK_RADAR := 0.3            # v10.6 (owner: "it's draining your radar"): the radar shows only this share of its range while cloaked
 const CLOAK_ALPHA := 0.82            # v8.3: how see-through the ship goes
 const ROLL_DEFLECT := true           # v8.3 (owner, Star Fox): a barrel roll knocks incoming fire away
 const SUPER_FROM_DEALT := 1800.0     # v7.5 (owner): damage you deal that fills the super meter once
@@ -1463,12 +1466,13 @@ static func is_st3d(model: Variant) -> bool:
 	var m := str(model)
 	return m.begins_with("st3d_") or m.begins_with("HL_Station_")
 ## Station width multiplier for a 3D station model (the RETOPO set by its style, the older set from STATION3D_SCALE).
+const STATION_GROW := 2.0   # v10.6 (owner: "stations need to be bigger, twice the size"): every 3D station model
 static func st3d_scale(key: String) -> float:
-	if STATION3D_SCALE.has(key): return float(STATION3D_SCALE[key])
+	if STATION3D_SCALE.has(key): return float(STATION3D_SCALE[key]) * STATION_GROW
 	if key.begins_with("HL_Station_"):
 		for st in RETOPO_STYLE_SCALE:
-			if key.find("_%s_" % st) >= 0: return float(RETOPO_STYLE_SCALE[st])
-	return 1.0
+			if key.find("_%s_" % st) >= 0: return float(RETOPO_STYLE_SCALE[st]) * STATION_GROW
+	return STATION_GROW
 static func building_file(faction: String, kind: String) -> String:
 	return "res://assets/buildings3d/HL_%s_%s_v01_retopo.glb" % [faction, kind]
 const BEACON_SYSTEMS := ["solara"]   # extra systems with a light beacon in their nebula (every roster-faction hideout system has one)

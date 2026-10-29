@@ -297,6 +297,9 @@ func close_comms() -> void:
 ## LEFT, where the enemy calls come in: the contact list. Tap a row = target it (its red arrow then points the way).
 ## RIGHT, where your calls come in: hull, shield, repairs, and every gun on the ship to switch on or off.
 ## Each folds to a small tab. A call on that side covers it while it lasts.
+var dock_l := true      # v10.6 (owner): the left tools (button block + CONTACTS) are out; the round tab on the radar folds them
+var dock_r := true      # the right tools (button block + SHIP)
+var dock_down := false  # the tab under the radar pushed everything down: only the target, the crosshair and the sticks
 var cl_open := false   # v8.0 (owner): the windows start folded on top of the buttons; tap to open them out to the sides
 var sp_open := false
 const FL_ROWS := 6
@@ -320,7 +323,7 @@ func fl_tab_rect(i: int) -> Rect2:
 	return Rect2(r.position + Vector2(4.0 + i * (bw + 4.0), 28.0), Vector2(bw, 26.0))
 
 func fl_shown(side: String) -> bool:
-	return space != null and space.controls and slots[side].is_empty() and not console_open and not planet_map
+	return space != null and space.controls and slots[side].is_empty() and not console_open and not planet_map and not dock_down and (dock_l if side == "l" else dock_r)
 
 ## The contacts on the list: ships nearest first (hostiles, then others), then the places.
 func fl_contacts() -> Array:
@@ -386,7 +389,11 @@ func gun_rows() -> Array:
 	return out
 
 func fl_tap(id: String) -> bool:
-	if id == "fl_tab_l": cl_open = not cl_open
+	if id == "dock_l": dock_l = not dock_l   # v10.6 (owner): the round tabs on the radar fold each side away
+	elif id == "dock_r": dock_r = not dock_r
+	elif id == "dock_down": dock_down = true   # the tab under the radar pushes the whole console down
+	elif id == "dock_up": dock_down = false
+	elif id == "fl_tab_l": cl_open = not cl_open
 	elif id == "fl_tab_r": sp_open = not sp_open
 	elif id == "cl_more": cl_scroll = (cl_scroll + FL_ROWS) if cl_scroll + FL_ROWS < fl_contacts().size() else 0
 	elif id.begins_with("cl_"):
@@ -604,6 +611,7 @@ func _layout() -> void:
 		if sd["mode"] == "talk": buttons["hangup"] = Rect2(sr.end.x - 34, sr.position.y + 2, 32, 22)   # before the body, so it wins
 		if sd["mode"] == "pick": buttons["call_pick"] = Rect2(sr.position.x + 5, sr.end.y - 63, sr.size.x - 10, 58)   # v1.8q: CALL under the picked face
 		buttons["side_" + side] = sr
+	if space and space.controls and not planet_map: _dock_filter(dg)
 	if planet_map:   # v1.8y: the map is up: its own buttons only (it covers the view until closed)
 		if space == null or not space.surface_mode:
 			planet_map = false
@@ -634,6 +642,27 @@ func _layout() -> void:
 				buttons["met_down"] = Rect2(rr.end.x - 54, rr.position.y + 3, 50, 26)
 			for k in mini(cn - contact_scroll, contact_rows() - 1):
 				buttons["met_%d" % k] = Rect2(rr.position.x, rr.position.y + 32 + (k + 1) * Data.COMMS_ROW_H, rr.size.x - 6, Data.COMMS_ROW_H - 4)
+
+## v10.6 (owner): the fold tabs. Folded sides lose their buttons; pushed down, only calls, the comms console and the
+## two small tabs at the bottom stay (the target box, the crosshair and the sticks are not buttons).
+const DOWN_KEEP := ["hangup", "call_pick", "side_l", "side_r", "chat_close", "type", "talk", "voice", "met_hail", "met_up", "met_down"]
+func _dock_filter(dg: Dictionary) -> void:
+	var tabs := {}
+	if dock_down:
+		for id in buttons.keys():
+			if not (id in DOWN_KEEP or str(id).begins_with("met_")): buttons.erase(id)
+		tabs["dock_up"] = Rect2(S.x * 0.5 - 54.0, S.y - 30.0, 108.0, 28.0)
+		tabs["log"] = Rect2(S.x * 0.5 + 62.0, S.y - 30.0, 92.0, 28.0)   # COMMS: bring the calls up without the rest
+	else:
+		for side in ["l", "r"]:
+			if dock_l if side == "l" else dock_r: continue
+			var blk: Rect2 = (dg["blk_l"] if side == "l" else dg["blk_r"]).grow(4.0)
+			for id in buttons.keys():
+				if blk.encloses(buttons[id]): buttons.erase(id)
+		if not dock_r: buttons.erase("log")
+		for k in ["l", "r", "b"]: tabs["dock_" + ("down" if k == "b" else k)] = dg["tab_" + k]
+	tabs.merge(buttons)   # the tabs win a tap over anything they touch
+	buttons = tabs
 
 ## v1.9k (owner: after a capture I didn't know where to go): the job line at the top is a button. Added after the
 ## layout, last, so a real button under it always wins.
@@ -742,8 +771,8 @@ func _process(dt: float) -> void:
 	if a == Vector2.ZERO and controls: a = controls.mouse_steer(S)   # Job J: left-drag steer / mouse flight (keyboard + mouse only)
 	space.aim = a * a.length()
 	space.fire_held = controls.held("fire") if controls else Input.is_action_pressed("fire")   # Job J: right-click by default
-	space.thrust_held = held.has("thrust") or (controls != null and controls.held("afterburner"))   # Job J: afterburner key (Tab)
-	space.special_held = held.has("special") or (controls != null and controls.held("special"))   # v1.5o: SPECIAL (F)
+	space.thrust_held = (held.has("thrust") or (controls != null and controls.held("afterburner"))) and not space.cloaked   # Job J: afterburner key (Tab) (v10.6: no thrust while cloaked)
+	space.special_held = (held.has("special") or (controls != null and controls.held("special"))) and not space.cloaked   # v1.5o: SPECIAL (F)
 	if console_open:
 		if roster_closing:
 			roster_t = maxf(0.0, roster_t - dt * 6.0)
@@ -1094,6 +1123,7 @@ func _draw_special() -> void:
 ## One big corner button: raised face, icon, label, optional count badge and cooldown ring.
 func _corner(id: String, label: String, icon: String, col: Color, active := false, badge := "", cd := 0.0, locked := false, sub := "") -> void:
 	if not buttons.has(id): return
+	if space != null and space.cloaked and not (id in ["cloak", "view"]): locked = true   # v10.6 (owner): cloaked, every tool is locked
 	var r: Rect2 = buttons[id]
 	var down := held.has(id) or float(flash.get(id, 0.0)) > 0.3
 	var on := down or active
@@ -1436,7 +1466,7 @@ func _draw() -> void:
 	if space.sun_flare > 0.01:   # sun bloom: washes the view out the closer and more head-on you fly at it
 		var sc: Color = (space.sys["star"] as Color).lerp(Color.WHITE, 0.55)
 		draw_rect(Rect2(Vector2.ZERO, S), Color(sc, minf(0.92, space.sun_flare * 0.95)))
-	for n in [space.station, space.planet, space.gate]:
+	for n in ([] if dock_down else [space.station, space.planet, space.gate]):   # (v10.6: pushed down, no labels)
 		if not n.visible and n.get_meta("kind", "") != "station": continue
 		if n.get_meta("kind", "") == "none": continue
 		var pos: Vector3 = space.dock_point(n) if n != space.gate else n.global_position
@@ -1446,7 +1476,7 @@ func _draw() -> void:
 			draw_arc(sp, 14, 0, TAU, 4, Color(col, 0.85), 2.0)
 			_text(sp + Vector2(20, 6), "%s  %s" % [n.name, _dist(space.distance_to(n))], 14, Color(col, 0.95))
 	# v1.5a: the mission waypoint: a gold marker with what it is and how far, and an arrow at the screen edge when it is out of view
-	var mw: Dictionary = space.mission_waypoint()
+	var mw: Dictionary = {} if dock_down else space.mission_waypoint()
 	if not mw.is_empty():
 		var mnode: Node3D = mw["node"]
 		var view := Rect2(Vector2(col_w + 30, 40), Vector2(S.x - col_w * 2 - 60, S.y - 80))
@@ -1457,20 +1487,21 @@ func _draw() -> void:
 			_text(msp + Vector2(18, -8), "MISSION  " + _dist(space.distance_to(mnode)), 14, GOLD)
 		else:
 			_edge_arrow(mnode.global_position, GOLD, view, true)
-	if is_instance_valid(space.waypoint):
+	if not dock_down and is_instance_valid(space.waypoint):
 		var wsp = _screen(space.waypoint.global_position)
 		if wsp != null:
 			draw_colored_polygon(PackedVector2Array([wsp + Vector2(0, -10), wsp + Vector2(10, 0), wsp + Vector2(0, 10), wsp + Vector2(-10, 0)]), Color(GOLD, 0.9))
 			_text(wsp + Vector2(16, 6), "WAYPOINT  " + _dist(space.distance_to(space.waypoint)), 14, GOLD)
 		elif space.autopilot == space.waypoint:
 			_edge_arrow(space.waypoint.global_position, GOLD, Rect2(Vector2(col_w + 30, 40), Vector2(S.x - col_w * 2 - 60, S.y - 80)), true)
-	for tr in space.traffic:
+	for tr in ([] if dock_down else space.traffic):
 		var tp0 = _screen(tr["node"].global_position)
 		if tp0 != null and space.player.global_position.distance_to(tr["node"].global_position) < 900.0:
 			_brackets(tp0, 18.0, Color(GREEN, 0.85))
 	# off-screen hostiles: red arrows at the view edge; friendlies green
 	var view := Rect2(Vector2(col_w + 30, 40), Vector2(S.x - col_w * 2 - 60, S.y - 80))
 	for e in space.enemies:
+		if dock_down and e["node"] != space.target: continue   # v10.6: pushed down, only your target shows
 		_edge_arrow(e["node"].global_position, RED, view, e["node"] == space.target)
 		if e["node"] == space.target: continue
 		var ep = _screen(e["node"].global_position)
@@ -1581,7 +1612,7 @@ func _draw() -> void:
 		zone = ("%s NEBULA" % space.nebula_name().to_upper()) if space.nebula_name() != "" else "NEBULA"
 		zone += ("  ·  " + wx if wx != "" else "") + "  ·  SENSORS DEGRADED"   # v1.9z: the cloud's weather
 	elif space.in_belt: zone = ("%s RINGS — MINE THE ROCKS" % str(Data.SYSTEMS[GS.system_id]["planet"]["name"]).to_upper()) if space.in_ring(space.player.global_position) else "%s — WATCH FOR ROCKS" % Data.SYSTEMS[GS.system_id]["asteroids"]["name"].to_upper()
-	if zone != "": _text(Vector2(col_w, 164), zone, 14, CYAN_HI, HORIZONTAL_ALIGNMENT_CENTER, S.x - col_w * 2)
+	if zone != "" and not dock_down: _text(Vector2(col_w, 164), zone, 14, CYAN_HI, HORIZONTAL_ALIGNMENT_CENTER, S.x - col_w * 2)
 	# defence and special moves (right block), speed (left block)
 	var sh_cd: float = space.shield_cd / Data.SHIELD_BOOST_COOLDOWN
 	pass   # (v7.6 / v8.3: SHIELD and REPAIR are drawn by the console)
@@ -1621,7 +1652,7 @@ func _draw() -> void:
 	_corner("zoom", "ZOOM", "zoom", CYAN, space.zoomed, "", 0.0, false, "SCOPE ON" if space.zoomed else "SCOPE")
 	_corner("cloak", "CLOAK", "cloak", Color(0.7, 0.5, 1.0), space.cloaked)   # v8.3 (owner): fly unseen; no weapons, no warp
 	_corner("view", "CHASE" if GS.view == "cockpit" else "COCKPIT", "view", CYAN, GS.view == "cockpit")
-	if not fl_shown("r"):   # v7.3: these live in the right window; only when it's away do they float above the aim stick
+	if not fl_shown("r") and not dock_down:   # v7.3: these live in the right window; only when it's away do they float above the aim stick
 		_pill("log", "COMMS", comms_mode == "roster", CYAN)
 	if buttons.has("dock"): _pill("dock", "DOCK", true, GREEN, space.dock_candidate().name.to_upper())
 	if buttons.has("lane"):
@@ -1631,7 +1662,8 @@ func _draw() -> void:
 		var gi: Dictionary = space.near_gate().get_meta("info")
 		var dest: String = str(Surface.PLANETS[gi["planet_to"]]["name"]) if gi.has("planet_to") and Surface.PLANETS.has(gi["planet_to"]) else str(Data.SYSTEMS.get(str(gi.get("to", "")), {}).get("name", "?"))   # (v6.9: a planet's rift leads to a planet)
 		_pill("jump", "%s GATE" % str(gi.get("gkind", "warp")).to_upper() if space.sys.get("generated", false) or gi.has("planet_to") else "WARP GATE", true, GOLD, "DOCK · TO %s" % dest.to_upper())
-	_dashboard()   # v8.3 (owner): the console in the cockpit view too
+	if dock_down: _down_tabs()   # v10.6 (owner): everything pushed down: just two small tabs
+	else: _dashboard()   # v8.3 (owner): the console in the cockpit view too
 	_stick("move", "FLIGHT")
 	_stick("aim", "AIM")
 	if comms_open: _comms()
@@ -1770,10 +1802,10 @@ func dash_geo() -> Dictionary:
 	#   MISSILE 1 · ENGINE KILL · THRUST        STOP · WARP · MISSILE 2
 	var ro := clampf(S.y * 0.135, 84.0, 112.0)   # v7.8 / v8.0 (owner): smaller, so your ship shows above it
 	var rad := ro - 38.0
-	var rc := Vector2(S.x * 0.5, S.y - ro - 6.0)
+	var rc := Vector2(S.x * 0.5, S.y - ro - 24.0)   # v10.6: lifted a little for the fold-down tab under it
 	var xl0 := _home("move").x + stick_r + 16.0
-	var xl1 := rc.x - ro - 12.0
-	var xr0 := rc.x + ro + 12.0
+	var xl1 := rc.x - ro - 20.0   # v10.6: room for the round fold tabs on each side of the radar
+	var xr0 := rc.x + ro + 20.0
 	var ww := xl1 - xl0
 	var gap := 6.0
 	var bsz := clampf((ww - gap * 3.0) / 4.0, 44.0, S.y * 0.11)   # v8.0 (owner): eight buttons a side
@@ -1787,6 +1819,8 @@ func dash_geo() -> Dictionary:
 	# v8.0 (owner): eight a side. Left: TRACTOR over SUPER on the outside, then the six. Right: the six, then
 	# FULL SCREEN over GROUND on the outside; GO TO takes the old SUPER spot.
 	return {"rc": rc, "rad": rad, "ro": ro, "bsz": bsz,
+		"tab_l": Rect2(rc.x - ro - 20.0, rc.y - 36.0, 28.0, 72.0), "tab_r": Rect2(rc.x + ro - 8.0, rc.y - 36.0, 28.0, 72.0),
+		"tab_b": Rect2(rc.x - 42.0, rc.y + ro + 2.0, 84.0, 22.0),
 		"speed": Rect2(rc.x - 82.0, rc.y - ro - 22.0, 164.0, 38.0),
 		"blk_l": Rect2(lx0, by1, row, bsz * 2.0 + gap), "blk_r": Rect2(rx0, by1, row, bsz * 2.0 + gap),
 		"tractor": lb.call(0, by1), "special": lb.call(0, by2), "super_btn": lb.call(0, by2),
@@ -1868,10 +1902,11 @@ func _dashboard() -> void:
 	var en: float = clampf(GS.energy / Data.ENERGY_MAX, 0.0, 1.0)
 	var sup: float = clampf(GS.super_charge, 0.0, 1.0)
 	var orr := ro - 8.0
-	_ring_gauge(rc, orr, 12.0, PI + 0.06, TAU - 0.06, sh, Color(0.2, 0.7, 1.0), 16, sh < 0.2 and blink)
-	_ring_gauge(rc, orr, 12.0, PI * 0.5 + 0.06, PI - 0.06, en, GREEN, 8)
-	_ring_gauge(rc, orr, 12.0, PI * 0.5 - 0.06, 0.06, sup, ORANGE.lerp(WHITE, 0.45 * pulse) if sup >= 1.0 else ORANGE, 8)
-	if sup >= 1.0: draw_arc(rc, orr, 0.06, PI * 0.5 - 0.06, 24, Color(ORANGE, 0.3 * pulse), 24.0, true)
+	# v10.6 (owner: "an even split, like a pie"): three equal thirds: SHIELD over the top, POWER low left, SUPER low right
+	_ring_gauge(rc, orr, 12.0, PI * 7.0 / 6.0 + 0.06, PI * 11.0 / 6.0 - 0.06, sh, Color(0.2, 0.7, 1.0), 10, sh < 0.2 and blink)
+	_ring_gauge(rc, orr, 12.0, PI * 0.5 + 0.06, PI * 7.0 / 6.0 - 0.06, en, GREEN, 10)
+	_ring_gauge(rc, orr, 12.0, PI * 0.5 - 0.06, -PI / 6.0 + 0.06, sup, ORANGE.lerp(WHITE, 0.45 * pulse) if sup >= 1.0 else ORANGE, 10)
+	if sup >= 1.0: draw_arc(rc, orr, -PI / 6.0 + 0.06, PI * 0.5 - 0.06, 24, Color(ORANGE, 0.3 * pulse), 24.0, true)
 	# inner ring: the hull. BODY on top, L WING and R WING low on each side
 	var hu: float = clampf(GS.hull / maxf(GS.max_hull(), 1.0), 0.0, 1.0)
 	var wl: float = clampf(GS.wing_l / maxf(GS.wing_max(), 1.0), 0.0, 1.0)
@@ -1884,6 +1919,13 @@ func _dashboard() -> void:
 	draw_circle(rc, rad + 2.0, Color(0.01, 0.05, 0.1, 0.9))
 	draw_arc(rc, rad + 2.0, 0, TAU, 64, Color(CYAN, 0.6), 1.5, true)
 	_radar(rc, rad - 2.0, false)
+	if space.cloaked:   # v10.6 (owner): the cloak drains the radar: short range, purple static
+		draw_circle(rc, rad, Color(0.45, 0.2, 0.8, 0.22 + 0.08 * sin(t * 9.0)))
+		for k in 14:
+			var a := fmod(k * 2.399 + t * 3.7, TAU)
+			var r1 := fmod(k * 0.37 + t * 1.3, 1.0) * rad
+			draw_line(rc + Vector2.from_angle(a) * r1, rc + Vector2.from_angle(a + 0.25) * r1, Color(0.8, 0.6, 1.0, 0.5), 1.5)
+		_text(rc + Vector2(-50, rad * 0.55), "CLOAK · LOW", 11, Color(0.85, 0.7, 1.0), HORIZONTAL_ALIGNMENT_CENTER, 100)
 	_text(rc + Vector2(-40, -hr + 20), "BODY", 10, Color(WHITE, 0.85), HORIZONTAL_ALIGNMENT_CENTER, 80)
 	_text(rc + Vector2(-hr - 6, hr * 0.5), "L WING", 10, Color(WHITE, 0.85), HORIZONTAL_ALIGNMENT_CENTER, 50)
 	_text(rc + Vector2(hr - 44, hr * 0.5), "R WING", 10, Color(WHITE, 0.85), HORIZONTAL_ALIGNMENT_CENTER, 50)
@@ -1911,6 +1953,45 @@ func _dashboard() -> void:
 	var armed: bool = space.special_ready() != "" or space.special_state != "idle"
 	_corner("special", "SUPER", "special", ORANGE, armed and pulse > 0.4, "", 0.0, false)
 	_gps_strip(Rect2(S.x * 0.5 - 230, sr.position.y - 44, 460, 34))   # v1.5i
+	_dock_tabs(g)
+
+## v10.6 (owner): round fold tabs hugging the radar ring. Left / right fold that side's tools; the one underneath
+## pushes the whole console down. The arrow points the way the tab will move things.
+func _dock_tabs(g: Dictionary) -> void:
+	var rc: Vector2 = g["rc"]
+	var ro: float = g["ro"]
+	var R := ro + 11.0
+	for k in ["l", "r", "b"]:
+		var id: String = "dock_down" if k == "b" else "dock_" + k
+		if not buttons.has(id): continue
+		var mid: float = PI if k == "l" else (0.0 if k == "r" else PI * 0.5)
+		var span := 0.3 if k != "b" else 0.26
+		var down := held.has(id)
+		var open: bool = dock_l if k == "l" else (dock_r if k == "r" else true)
+		draw_arc(rc, R, mid - span, mid + span, 16, Color(0.02, 0.08, 0.15, 0.95), 14.0, true)
+		draw_arc(rc, R + 7.0, mid - span, mid + span, 16, Color(CYAN, 1.0 if down else 0.85), 2.0, true)
+		draw_arc(rc, R - 7.0, mid - span, mid + span, 16, Color(CYAN, 0.45), 1.5, true)
+		var c := rc + Vector2.from_angle(mid) * R
+		var out := Vector2.from_angle(mid)   # away from the radar
+		var dir := out if open else -out   # open: the arrow says "fold in"; folded: "bring out"
+		if k == "b": dir = Vector2.DOWN
+		dir = -dir if k != "b" else dir
+		var side := Vector2(-dir.y, dir.x)
+		draw_polyline(PackedVector2Array([c - dir * 3.0 + side * 5.0, c + dir * 3.0, c - dir * 3.0 - side * 5.0]), CYAN_HI, 2.5, true)
+
+## v10.6 (owner): pushed down: a small tab to bring everything back up, and COMMS beside it.
+func _down_tabs() -> void:
+	for id in ["dock_up", "log"]:
+		if not buttons.has(id): continue
+		var r: Rect2 = buttons[id]
+		var on: bool = held.has(id) or (id == "log" and console_open)
+		_box(r, Color(0.02, 0.08, 0.15, 0.9 if on else 0.72), Color(CYAN if id == "dock_up" else Color(0.7, 0.45, 1.0), 0.9), 12, 2)
+		if id == "dock_up":
+			var c := r.get_center() + Vector2(-30, 0)
+			draw_polyline(PackedVector2Array([c + Vector2(-6, 3), c + Vector2(0, -3), c + Vector2(6, 3)]), CYAN_HI, 2.5, true)
+			_text(Vector2(r.position.x + 22, r.position.y + 19), "CONSOLE", 12, WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 26)
+		else:
+			_text(Vector2(r.position.x, r.position.y + 19), "COMMS", 12, WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
 
 ## Radar (Job S, v1.4p): the same GPS-style view as the navigation map, small. A grid, faceted blips, a north
 ## marker, and the course line when one is set. North-up or heading-up, angled or overhead (NavGrid's setting).
@@ -1956,6 +2037,7 @@ func _radar(rc: Vector2, rr: float, label: bool) -> void:
 		if far2 > 0.0: want_rng = maxf(want_rng, far2 * Data.RADAR_FIT)
 	radar_range = lerpf(radar_range, want_rng, clampf(get_process_delta_time() * Data.RADAR_ZOOM_SPEED, 0.0, 1.0))
 	var rng := radar_range * (1.0 + GS.mod("radar")) * (1.0 - 0.6 * space.in_nebula * (1.0 - Data.BEACON_SENSOR_HELP * space.beacon_lit))
+	if space.cloaked: rng *= Data.CLOAK_RADAR   # v10.6 (owner): the cloak drains the radar
 	var heading := Data.RADAR_HEADING_UP or NavGrid.orient == "heading"   # v6.9 (owner): the radar's arrow always points up
 	var fwd3: Vector3 = -space.player.global_basis.z
 	var anchor := rc + Vector2(0, rr * Data.RADAR_HEADING_ANCHOR) if heading else rc

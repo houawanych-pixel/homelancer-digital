@@ -606,6 +606,7 @@ func _set_box(n: Node3D, holder: Node3D) -> void:
 	if mi == null or mi.mesh == null: return
 	n.set_meta("box_holder", holder)
 	n.set_meta("box_aabb", mi.transform * mi.mesh.get_aabb())
+	if n.has_meta("front_z"): n.remove_meta("front_z")
 
 func _bump_box(body: Node3D) -> void:
 	_push_out_box(body.get_meta("box_holder"), body.get_meta("box_aabb"), "station")
@@ -1210,7 +1211,20 @@ func dock_point(n: Node3D) -> Vector3:
 		return planet.global_position + toward * (float(planet.get_meta("radius")) + 60.0)
 	if n.get_meta("kind", "") == "platform": return n.global_position + n.global_basis.y * 40.0   # v1.9b: through its ring
 	if n.has_meta("dock"): return n.global_position + Vector3(0, 0, float(n.get_meta("radius")) + 60.0)   # v1.9d: in front of its hull
-	return n.global_position + Vector3(0, 0, 150)
+	return n.global_position + Vector3(0, 0, maxf(150.0, _front_z(n) + 60.0))   # v10.6: in front of the (bigger) hull
+
+## v10.6 (owner: stations twice the size): how far a station's model box reaches out of its front (+Z), cached.
+func _front_z(n: Node3D) -> float:
+	if not n.has_meta("box_aabb") or not n.has_meta("box_holder"): return 0.0
+	var hd: Node3D = n.get_meta("box_holder")
+	if not is_instance_valid(hd): return 0.0
+	if n.has_meta("front_z"): return float(n.get_meta("front_z"))
+	var bb: AABB = n.get_meta("box_aabb")
+	var xf := n.global_transform.affine_inverse() * hd.global_transform
+	var z := 0.0
+	for i in 8: z = maxf(z, (xf * bb.get_endpoint(i)).z)
+	n.set_meta("front_z", z)
+	return z
 
 func _build_gate(d: Dictionary) -> void:
 	var g := Node3D.new()
@@ -3445,6 +3459,7 @@ func _update_player(dt: float) -> void:
 	hit_shake = maxf(0.0, hit_shake - dt * 2.5)
 	call_cd = maxf(0.0, call_cd - dt)
 	chatter_cd = maxf(0.0, chatter_cd - dt)
+	_tick_cloak(dt)   # v10.6: the crackle and the glass look
 	if cloaked:   # v8.3 (owner): the cloak burns power; when it runs out you show again
 		GS.energy = maxf(0.0, GS.energy - Data.CLOAK_DRAIN * dt)
 		if GS.energy <= 0.0 or GS.form == "mech": set_cloak(false)
@@ -3722,18 +3737,87 @@ func set_cloak(on: bool) -> bool:
 	cloaked = on
 	if on:
 		fire_lock = false
+		boosting = false   # v10.6 (owner): you can't even thrust; just fly normal and look around
 		for m in enemy_missiles: m["lost"] = true   # their missiles lose you
 		for e in enemies:
 			if not e.get("invasion", false): e["aggro"] = false
 	_cloak_look(on)
-	message.emit("CLOAKED. No weapons, no warp. Power draining." if on else "Cloak off.")
+	message.emit("CLOAKED. Fly only: weapons, thrust and warp are locked. Power and radar draining." if on else "Cloak off.")
 	Sfx.play("warp_go", -8.0, 0.7 if on else 1.3)
 	return true
 
+## v10.6 (owner: "cloak doesn't have an effect"): electricity crackles round the ship first (CLOAK_ZAP s), then the
+## ship turns to see-through glass (a rim of light, the stars through it). Dropping the cloak crackles again, then the
+## real paint comes back. (The old per-mesh transparency does nothing in the phone renderer.)
+const CLOAK_SHADER := """
+shader_type spatial;
+render_mode unshaded, cull_back, depth_draw_never, blend_mix;
+uniform float zap = 0.0;
+uniform float glass = 0.0;
+uniform vec4 tint : source_color = vec4(0.55, 0.82, 1.0, 1.0);
+void fragment() {
+	float fr = pow(1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0), 2.4);
+	vec3 wp = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	float n1 = sin(wp.x * 1.7 + TIME * 23.0) * sin(wp.y * 2.3 - TIME * 17.0) * sin(wp.z * 1.9 + TIME * 29.0);
+	float n2 = sin(wp.x * 3.1 - TIME * 31.0) * sin(wp.z * 2.7 + TIME * 19.0);
+	float arc = smoothstep(0.80, 0.97, abs(n1)) + 0.6 * smoothstep(0.88, 0.99, abs(n2));
+	float crackle = arc * (0.12 * glass + zap * 1.6);
+	vec3 bolt = vec3(0.75, 0.9, 1.0) * crackle * 2.2;
+	ALBEDO = mix(vec3(0.0), tint.rgb * (0.18 + fr * 1.5), glass) + bolt;
+	ALPHA = clamp(glass * (0.07 + fr * 0.6) + crackle + zap * fr * 0.5, 0.0, 1.0);
+}
+"""
+var _cloak_glass: ShaderMaterial = null
+var _cloak_zapm: ShaderMaterial = null
+var cloak_zap := 0.0          # seconds of crackle left
+var _cloak_glass_on := false  # the glass look is on the model right now
+func _cloak_mats() -> void:
+	if _cloak_glass != null: return
+	var sh := Shader.new()
+	sh.code = CLOAK_SHADER
+	_cloak_glass = ShaderMaterial.new()
+	_cloak_glass.shader = sh
+	_cloak_glass.set_shader_parameter("glass", 1.0)
+	_cloak_zapm = ShaderMaterial.new()
+	_cloak_zapm.shader = sh
+	_cloak_zapm.set_shader_parameter("glass", 0.0)
+
 func _cloak_look(on: bool) -> void:
 	if not is_instance_valid(model): return
+	_cloak_mats()
+	cloak_zap = Data.CLOAK_ZAP
 	for gi in model.find_children("*", "GeometryInstance3D", true, false):
-		(gi as GeometryInstance3D).transparency = Data.CLOAK_ALPHA if on else 0.0
+		(gi as GeometryInstance3D).material_overlay = _cloak_zapm   # the crackle first, over the real paint
+	Sfx.play("fx_static", -4.0, 1.4)
+
+## Each frame: the crackle fades; when it is done the glass goes on (cloaked) or the real paint comes back.
+func _tick_cloak(dt: float) -> void:
+	if cloak_zap <= 0.0:
+		if _cloak_glass_on != cloaked and is_instance_valid(model): _cloak_swap(cloaked)
+		return
+	cloak_zap = maxf(0.0, cloak_zap - dt)
+	var k := cloak_zap / Data.CLOAK_ZAP
+	var z := k * (0.6 + 0.4 * sin(Time.get_ticks_msec() * 0.05))
+	_cloak_zapm.set_shader_parameter("zap", z)
+	_cloak_glass.set_shader_parameter("zap", z * 0.6)
+	if cloaked and not _cloak_glass_on and k < 0.5: _cloak_swap(true)   # half way through the crackle the ship goes clear
+	if cloak_zap <= 0.0:
+		for gi in model.find_children("*", "GeometryInstance3D", true, false) if is_instance_valid(model) else []:
+			(gi as GeometryInstance3D).material_overlay = null
+		if not cloaked and _cloak_glass_on: _cloak_swap(false)
+
+func _cloak_swap(glass: bool) -> void:
+	_cloak_glass_on = glass
+	if not is_instance_valid(model): return
+	for gi in model.find_children("*", "GeometryInstance3D", true, false):
+		var g := gi as GeometryInstance3D
+		if glass:
+			if not g.has_meta("pre_cloak"): g.set_meta("pre_cloak", g.material_override)
+			g.material_override = _cloak_glass
+		elif g.has_meta("pre_cloak"):
+			g.material_override = g.get_meta("pre_cloak")
+			g.remove_meta("pre_cloak")
+	if not glass: Sfx.play("fx_static", -10.0, 0.8)
 
 ## v8.3 (owner): TARGET: the hostile closest to you and most in front of you, so you can lock on at once.
 func target_front() -> Node3D:
