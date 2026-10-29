@@ -217,6 +217,8 @@ static func raw(key: String) -> Node3D:
 static func pack_of(key: String) -> String:
 	if key.begins_with("mf_"): return key
 	if key.begins_with("mech_"): return "mechs"
+	if key in ["ranger", "lancer", "hauler"]: return key   # v10.2: the player ships that come in their own pack
+	if key in ["bulk", "bulk_empty"]: return "bulk"
 	return ""
 
 ## v1.9i: a mech built from three frames' parts: the core's body and skeleton, the arms' and legs' meshes on it.

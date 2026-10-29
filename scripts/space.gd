@@ -2413,10 +2413,24 @@ func faction_mech(faction: String) -> String:
 		return "mech_tan"
 	return key
 
+func _on_ship_pack(pk: String) -> void:
+	if not is_inside_tree() or GS.form != "ship" or transform_t > 0.0: return
+	if pk != ShipFactory.pack_of(str(Data.SHIPS[GS.ship_id]["model"])): return
+	if is_instance_valid(model) and not model.get_meta("placeholder", true): return
+	set_player_model()
+
 func set_player_model() -> void:
 	if is_instance_valid(model): model.queue_free()
 	if GS.form == "mech" and not Packs.is_ready("mechs"): GS.form = "ship"
 	var mech := GS.form == "mech"
+	# v10.2 (owner, phone shots: "why does the game look like this"): a bought ship whose model comes in its own pack
+	# (Ranger, Lancer, Hauler, Bulk) was only fetched on the ship dealer page, so flying straight out after loading the
+	# game showed the stand-in box. Fetch it here too and swap the real ship in when it arrives.
+	if not mech:
+		var spk := ShipFactory.pack_of(str(Data.SHIPS[GS.ship_id]["model"]))
+		if spk != "" and not Packs.is_ready(spk):
+			if not Packs.pack_ready.is_connected(_on_ship_pack): Packs.pack_ready.connect(_on_ship_pack)
+			Packs.request(spk)
 	model = _player_mech_model() if mech else ShipFactory.build(Data.SHIPS[GS.ship_id]["model"])   # (v1.9i: the mech wears its fitted parts)
 	player.add_child(model)
 	model.visible = GS.view != "cockpit"
