@@ -642,7 +642,7 @@ func _draw_belt(ci: CanvasItem, belt: Dictionary, bc: Vector2) -> void:
 		NavGrid.rock(ci, view.to_screen(rp), clampf(float(belt["r"]) * scale_k * 0.09, 3.0, 14.0) * (0.7 + 0.5 * fmod(i * 0.61, 1.0)), belt["col"], i)
 	_txt(ci, bc + Vector2(-90, float(belt["px"]) * 0.8 + 20), belt["name"], 14, (belt["col"] as Color).lightened(0.2), HORIZONTAL_ALIGNMENT_CENTER, 180)
 
-## v8.9 (owner, Freelancer maps): the system's square: 8 x 8 squares A-H / 1-8, a bright border where the system
+## v8.9 (owner, Freelancer maps): the system's square: 10 x 10 squares A-J / 1-10 (v10.3; was 8 x 8), a bright border where the system
 ## ends, and the fog over the squares you have not flown near yet.
 func _draw_tile(ci: CanvasItem, sys: Dictionary) -> void:
 	var E: float = Data.SPACE_EDGE

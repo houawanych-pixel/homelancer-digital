@@ -38,18 +38,33 @@ var view := "chase" # "chase" or "cockpit"
 var form := "ship" # "ship" or "mech" (the player frame transforms between them; damage carries over)
 var system_id := "solara"
 var discovered := ["solara"]
-var explored := {}   # v8.9 (owner, Freelancer fog of war): system id -> bit mask of the 8 x 8 map squares you have seen
+var explored := {}   # v8.9 (owner, Freelancer fog of war): system id -> the 10 x 10 map squares you have seen (v10.3: a "0"/"1" string; v8.9: a bit mask of 8 x 8)
 ## v8.9: the map square (col, row: 0..7, A..H / 1..8) a point of a system lies in.
 static func map_cell(p: Vector3) -> Vector2i:
 	var E: float = Data.SPACE_EDGE
 	var n: int = Data.MAP_CELLS
 	return Vector2i(clampi(int(floor((p.x + E) / (2.0 * E / n))), 0, n - 1), clampi(int(floor((p.z + E) / (2.0 * E / n))), 0, n - 1))
+## v10.3 (owner: "1,000 km, ten squares A-J"): the seen squares are a string of "0" / "1", one per square, row by row
+## (100 squares no longer fit in one number). An older save's 8 x 8 number is turned into the new squares it covers.
+func _seen_mask(sys: String) -> String:
+	var n: int = Data.MAP_CELLS
+	var v = explored.get(sys, "")
+	if typeof(v) == TYPE_STRING and (v as String).length() == n * n: return v
+	var out := "0".repeat(n * n)
+	if typeof(v) == TYPE_INT or typeof(v) == TYPE_FLOAT:
+		var old := int(v)
+		for row in n:
+			for col in n:
+				var oc := int(floor((col + 0.5) * 8.0 / n))
+				var orow := int(floor((row + 0.5) * 8.0 / n))
+				if (old >> (orow * 8 + oc)) & 1 == 1: out[row * n + col] = "1"
+	return out
 func cell_seen(sys: String, c: Vector2i) -> bool:
-	return (int(explored.get(sys, 0)) >> (c.y * Data.MAP_CELLS + c.x)) & 1 == 1
+	return _seen_mask(sys)[c.y * Data.MAP_CELLS + c.x] == "1"
 func seen_at(sys: String, p: Vector3) -> bool: return cell_seen(sys, map_cell(p))
 ## Mark every square within `r` of a point as seen. Returns true when something new was seen.
 func explore(sys: String, p: Vector3, r: float) -> bool:
-	var m: int = int(explored.get(sys, 0))
+	var m: String = _seen_mask(sys)
 	var before := m
 	var n: int = Data.MAP_CELLS
 	var E: float = Data.SPACE_EDGE
@@ -58,7 +73,7 @@ func explore(sys: String, p: Vector3, r: float) -> bool:
 		for col in n:
 			var lo := Vector2(-E + col * w, -E + row * w)
 			var q := Vector2(clampf(p.x, lo.x, lo.x + w), clampf(p.z, lo.y, lo.y + w))
-			if q.distance_to(Vector2(p.x, p.z)) <= r: m |= 1 << (row * n + col)
+			if q.distance_to(Vector2(p.x, p.z)) <= r: m[row * n + col] = "1"
 	explored[sys] = m
 	return m != before
 var last_base := "liberty_hub"
