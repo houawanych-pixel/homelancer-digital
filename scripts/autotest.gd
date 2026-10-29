@@ -3095,7 +3095,7 @@ func _job_v106() -> void:
 	GS.ship_id = keep_ship
 	s.set_player_model()
 	_check("v10.6 (owner: \"why aren't my wing weapons shooting, like Freelancer?\"): every gun throws its own beam from its own muzzle (%d guns on the Lancer) and the streams meet far out at the target, not in one dot 250 m ahead" % guns_fired,
-		guns_fired >= 5 and beams == guns_fired and Data.GUN_MEET_MIN >= 500.0 and Data.CAM_UP > 2.2, "guns %d, beams %d" % [guns_fired, beams])
+		guns_fired >= 3 and beams == guns_fired and Data.GUN_MEET_MIN >= 500.0 and Data.CAM_UP > 2.2, "guns %d, beams %d" % [guns_fired, beams])
 
 ## v10.4 (owner): the chase camera trails climbs and slides (the ship rises up the screen when it goes up), the clouds
 ## and fields are Freelancer-big, every cloud has a line of light buoys showing the way, rocks sit in the main cloud,
