@@ -418,7 +418,7 @@ func _flight_and_comms() -> void:
 func _sun() -> void:
 	var s := _sp()
 	var sp: Vector3 = s.sun_pos
-	var far_ok: bool = sp.length() > 30000.0 and Data.SUN_RADIUS >= 5.0 * float(s.planet.get_meta("radius")) and sp.distance_to(s.gate.global_position) > 20000.0 and is_instance_valid(s.sun_glow)
+	var far_ok: bool = sp.length() > 30000.0 and Data.SUN_RADIUS >= 2.5 * float(s.planet.get_meta("radius")) and sp.distance_to(s.gate.global_position) > 20000.0 and is_instance_valid(s.sun_glow)
 	main.hud.visible = false
 	s._face(sp - s.player.global_position)
 	await _shot("sun_from_the_station", 0.6)
@@ -433,7 +433,7 @@ func _sun() -> void:
 	await _wait(0.8)
 	var flare_away: float = s.sun_flare
 	_check("Sun: far out on its sphere, blooms when you fly at it, not when you look away", far_ok and flare_far < 0.2 and flare_mid > flare_far + 0.25 and flare_away < 0.05,
-		"%.0f m out, 5.5x the planet; bloom %.2f from the station, %.2f at 9 km, %.2f looking away" % [sp.length(), flare_far, flare_mid, flare_away])
+		"%.0f m out, %.1fx the planet; bloom %.2f from the station, %.2f at 9 km, %.2f looking away" % [sp.length(), Data.SUN_RADIUS / float(s.planet.get_meta("radius")), flare_far, flare_mid, flare_away])
 	_tp(sp - dir * (Data.SUN_RADIUS * Data.SUN_WARN - 400.0), sp)
 	var warned := await _until(func(): return s.sun_hazard == 1, 2.0)
 	await _shot("sun_heat_warning", 0.0)
@@ -9203,7 +9203,7 @@ func _job_v19q() -> void:
 	var s := _sp()
 	await _until(func(): return s.station_model != null, Data.PH_BUILD_DELAY + 4.0)
 	var holder: Node3D = s.station_model.get_parent() if s.station_model != null else null
-	var big: bool = holder != null and is_equal_approx(holder.scale.x, s.STATION_WIDTH * Data.RETOPO_STYLE_SCALE["Capital"])
+	var big: bool = holder != null and is_equal_approx(holder.scale.x, s.STATION_WIDTH * Data.RETOPO_STYLE_SCALE["Capital"] * Data.STATION_GROW)
 	var boxed: bool = s.station.has_meta("box_aabb")
 	main.hud.visible = false
 	_tp(s.station.global_position + Vector3(380, 160, 520), s.station.global_position)
