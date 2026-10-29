@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v9.5"
+const VERSION := "v9.6"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -1775,21 +1775,30 @@ const CHATTER := {
 
 # ---------------------------------------------------------------- v9.2 (owner): the hub lockdown (Breakout)
 # Dock where your standing is HOSTILE or worse: the alarm goes off, no launching until you fight through to the hangar.
+# v9.6 (owner's rules): force fields (open only while a guard fires), hits by rank, zones, laser blade duels, waves.
 const BREAKOUT_ON := true
 const BREAKOUT_ROOMS := ["main_hub", "pilots_lounge", "shipyard"]   # the way to the hangar, one fight each
-const BREAKOUT_SOLDIERS := 5           # plus their squad leader, in every room
+const BREAKOUT_WAVES := [[5], [5], [5, 10]]     # guards per wave, room by room (the hangar: five, then ten); then the boss
+const BREAKOUT_MAX_ON_FLOOR := 5                # guards on the floor at once (the rest wait to walk in)
+# the floor's zones, one guard each: [x from, x to, depth 0 = back .. 1 = front] (fractions of the screen)
+const BREAKOUT_ZONES := [[0.08, 0.30, 0.0], [0.40, 0.60, 0.0], [0.70, 0.92, 0.0], [0.14, 0.38, 0.75], [0.62, 0.86, 0.75]]
+const BREAKOUT_BOSS_ZONE := [0.38, 0.62, 0.45]
+const BREAKOUT_SOLDIER_SLOTS := [1, 1, 1, 1, 5]   # roster slots of the guards (01 common trooper, 05 elite guard)
+const BREAKOUT_LEADER_SLOTS := [2, 3, 4]         # the named member who leads each room, in turn ...
+const BREAKOUT_FINAL_LEADER := 6                 # ... and the faction's leader holds the hangar
 const BREAKOUT_HP := 100.0             # yours, full again in every room
-const BREAKOUT_SOLDIER_HP := 30.0
-const BREAKOUT_LEADER_HP := 90.0
-const BREAKOUT_SOLDIER_DMG := 9.0      # a shot that finds you
-const BREAKOUT_LEADER_DMG := 16.0
-const BREAKOUT_SHOT_DMG := 10.0        # yours
-const BREAKOUT_FIRE_RATE := 7.0        # your shots a second while the sight is on someone
-const BREAKOUT_AIM_TIME := 0.9         # s an enemy aims (the red line) before it fires: time to duck or side-step
-const BREAKOUT_HIDE := [1.2, 3.2]      # s an enemy stays down between peeks
+const BREAKOUT_DMG_BASE := 4.0         # a shot that finds you: base + per rank of the shooter
+const BREAKOUT_DMG_PER_RANK := 2.0
+const BREAKOUT_BLADE_DMG := 14.0       # a blade strike you misread
+const BREAKOUT_FIRE_RATE := 3.0        # your shots a second while the sight is on someone (one hit each)
+const BREAKOUT_AIM_TIME := 0.9         # s a guard aims (the red line, field down) before it fires: time to duck or side-step
+const BREAKOUT_FIRE_TIME := 0.7        # s it stays open after the shot
+const BREAKOUT_CALM := [1.4, 3.4]      # s a guard patrols behind its field between shots
+const BREAKOUT_WALK := 0.07            # how fast guards pace their zone (screen widths a second)
+const BREAKOUT_RUSH_CHANCE := 0.18     # a guard runs at you instead of firing: blades
+const BREAKOUT_RUSH_TIME := 1.1
+const BREAKOUT_DUEL_WINDUP := 1.0      # s from the blade going up to the strike landing
+const BREAKOUT_DUEL_RECOVER := 0.6
 const BREAKOUT_CLEAR_PAUSE := 1.6
 const BREAKOUT_DOWN_PAUSE := 2.2
 const BREAKOUT_SIREN_SECONDS := 4.0
-const BREAKOUT_SOLDIER_SLOTS := [1, 1, 1, 1, 5]   # v9.3: roster slots of the five soldiers (01 common, 05 elite guard)
-const BREAKOUT_LEADER_SLOTS := [2, 3, 4]         # the named member leading each room, in turn ...
-const BREAKOUT_FINAL_LEADER := 6                 # ... and the faction's leader holds the hangar

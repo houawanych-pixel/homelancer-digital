@@ -9417,10 +9417,13 @@ func _job_v92_breakout() -> void:
 	main.launch()
 	await _frames(2)
 	lock_ok = lock_ok and main.state == "hub"
-	var room_ok: bool = bo != null and bo.strip != null and bo.enemies.size() == Data.BREAKOUT_SOLDIERS + 1 and bo.enemies.filter(func(e): return e["leader"]).size() == 1
-	# v9.3 (owner): the station's own people: the faction's six, cut out, names from the roster; a named squad leader
+	# v9.6 (owner's rules): the first wave walks in (5 guards, each in its own zone); force fields; hits by rank
+	var room_ok: bool = bo != null and bo.strip != null and bo.enemies.size() == Data.BREAKOUT_MAX_ON_FLOOR and int(bo.waves()[0]) == 5 \
+		and bo.enemies.all(func(e): return float(e["x"]) >= float(e["x0"]) - 0.001 and float(e["x"]) <= float(e["x1"]) + 0.001) \
+		and bo.enemies.map(func(e): return int(e["zone"])).size() == Data.BREAKOUT_ZONES.size()
+	# v9.3 (owner): the station's own people: the faction's six, cut out, names from the roster
 	var cast_ok: bool = bo != null and bo.cast.size() == 6 and bo.cast.values().all(func(c): return c["full"] != null and c["portrait"] != null) \
-		and not bo.squad_leader.is_empty() and str(bo.squad_leader["name"]) != "" and int(bo.enemies[-1]["slot"]) in Data.BREAKOUT_LEADER_SLOTS
+		and not bo.squad_leader.is_empty() and str(bo.squad_leader["name"]) != ""
 	var cast_names: Array = bo.cast.values().map(func(c): return c["name"]) if bo != null else []
 	var art_ok := false   # the four factions with lockdown pictures get them; the rest get their normal room, lit red
 	if bo != null:
@@ -9433,10 +9436,20 @@ func _job_v92_breakout() -> void:
 	var duck_ok := false
 	var side_ok := false
 	var hit_ok := false
+	var field_ok := false
 	var fire_ok := false
+	var rank_ok := false
+	var zone_ok := false
+	var blade_ok := false
 	if bo != null:
-		for e in bo.enemies: e["t"] = 99.0   # (everyone stays down while each move is tried)
+		for e in bo.enemies: e["t"] = 99.0   # (everyone keeps patrolling while each move is tried)
 		var e0: Dictionary = bo.enemies[0]
+		# zones: a guard paces only its own stretch of the floor
+		var xs: Array = []
+		for i in 40:
+			await get_tree().process_frame
+			xs.append(float(e0["x"]))
+		zone_ok = xs.min() >= float(e0["x0"]) - 0.001 and xs.max() <= float(e0["x1"]) + 0.001 and xs.max() - xs.min() > 0.005
 		# 1. ducked: the shot misses
 		bo.stick_hold = Vector2(0, 1)
 		await _frames(2)
@@ -9457,20 +9470,58 @@ func _job_v92_breakout() -> void:
 		e0["state"] = "aim"; e0["lane"] = 0; e0["t"] = 0.02
 		await _frames(4)
 		hit_ok = bo.hp < hp0 and bo.hits_taken >= 1
-		await _shot("v92_aiming", 0.1)
-		# 4. the sight on an enemy out of cover: it fires on its own until they drop
+		# 4. the force field: shots on a patrolling guard bounce off
 		var e1: Dictionary = bo.enemies[1]
-		e1["state"] = "up"; e1["t"] = 99.0
+		e1["state"] = "patrol"; e1["t"] = 99.0
+		var hp1: int = int(e1["hp"])
+		var sb0 := bo.shield_blocks
 		bo.aim_at(e1)
-		await _until(func(): return e1["hp"] <= 0.0, 4.0)
-		fire_ok = e1["hp"] <= 0.0 and bo.shots_fired >= 3
+		await _wait(0.8)
+		field_ok = bo.shielded(e1) and int(e1["hp"]) == hp1 and bo.shield_blocks > sb0
+		# 5. its field drops while it fires: now the sight's shots land, one hit each, rank hits to drop it
+		e1["state"] = "fire"; e1["t"] = 99.0
+		bo.aim_at(e1)
+		await _until(func(): return int(e1["hp"]) <= 0, 6.0)
+		fire_ok = int(e1["hp"]) <= 0
+		rank_ok = bo.enemies.all(func(e): return int(e["max"]) == int(bo.cast.get(int(e["slot"]), {}).get("rank", e["slot"]))) and bo.enemies.any(func(e): return int(e["max"]) == 5)
+		await _shot("v96_fields", 0.1)
+		# 6. blades: a guard rushes in; read the strike and step away from it (or duck a high one) to counter
+		var e2: Dictionary = bo.enemies[2]
+		for e in bo.enemies:
+			if int(e["hp"]) >= 3: e2 = e   # (a guard who takes more than one hit: the elite)
+		bo.start_duel(e2)
+		var c0 := bo.counters
+		var h2: int = int(e2["hp"])
+		bo.duel_side = "left"; bo.duel_t = 0.05; bo.duel_phase = "windup"
+		bo.stick_hold = Vector2(1, 0)   # left strike -> step right
+		await _frames(6)
+		var good: bool = bo.counters == c0 + 1 and int(e2["hp"]) == h2 - 1
+		await _shot("v96_blades", 0.0)
+		var cu0 := bo.cuts
+		var hpd := bo.hp
+		if not bo.duel.is_empty():
+			bo.duel_side = "high"; bo.duel_t = 0.05; bo.duel_phase = "windup"
+			bo.stick_hold = Vector2(-1, 0)   # a high strike: side-stepping is wrong (duck it)
+			await _frames(6)
+		var bad: bool = bo.cuts == cu0 + 1 and bo.hp < hpd
+		blade_ok = good and bad and Breakout.dodge_for("right") == "left" and Breakout.dodge_for("high") == "duck"
+		bo.duel = {}
 		bo.stick_hold = null
-	# through every room to the hangar
+	# through every room to the hangar: each room's waves, then its boss
 	var rooms_seen := 0
+	var boss_seen := 0
+	var hangar_waves := 0
 	for r in Data.BREAKOUT_ROOMS.size():
 		if bo == null or not bo.visible: break
 		rooms_seen += 1
-		for e in bo.enemies: e["hp"] = 0.0
+		if r == Data.BREAKOUT_ROOMS.size() - 1: hangar_waves = bo.waves().size()
+		var guard := 0
+		while bo.visible and bo.room_i == r and guard < 400:
+			guard += 1
+			bo.queue.clear()
+			for e in bo.enemies: e["hp"] = 0
+			if bo.boss_out: boss_seen = maxi(boss_seen, r + 1)
+			await _frames(2)
 		await _until(func(): return bo.room_i > r or not bo.visible, 5.0)
 	await _frames(3)
 	var out_ok: bool = rooms_seen == Data.BREAKOUT_ROOMS.size() and not hb.lockdown and not bo.visible and hb.screen == "equipment" and not hb.launch_btn.disabled
@@ -9484,9 +9535,9 @@ func _job_v92_breakout() -> void:
 	hb.show_screen("equipment")
 	await _frames(2)
 	out_ok = out_ok and swap_ok
-	_check("v9.2 (owner): docking where they are hostile starts a lockdown (alarm, LAUNCH locked, Evee away) in the lockdown picture; each room has 5 soldiers + a squad leader (v9.3: the faction's own cut-out people, a named leader); ducking and side-stepping dodge their shots, standing in the line gets you hit, the sight fires on its own; clear %d rooms to reach the hangar and launch" % Data.BREAKOUT_ROOMS.size(),
-		lock_ok and room_ok and art_ok and cast_ok and duck_ok and side_ok and hit_ok and fire_ok and out_ok,
-		"own %s lock %s room %s art %s cast %s %s duck %s side %s hit %s fire %s out %s (rooms %d)" % [own, lock_ok, room_ok, art_ok, cast_ok, cast_names, duck_ok, side_ok, hit_ok, fire_ok, out_ok, rooms_seen])
+	_check("v9.2 / v9.6 (owner): docking where they are hostile starts a lockdown (alarm, LAUNCH locked, Evee away); the station's own people (cut out, roster names) walk in, 5 at a time, each pacing its own zone; force fields stop your shots until a guard fires; hits by rank (1-6); duck / side-step dodge their shots; a rush means blades: step away from the strike (duck a high one) to counter; waves, then a boss, room by room through %d rooms to the hangar" % Data.BREAKOUT_ROOMS.size(),
+		lock_ok and room_ok and art_ok and cast_ok and zone_ok and duck_ok and side_ok and hit_ok and field_ok and fire_ok and rank_ok and blade_ok and boss_seen == Data.BREAKOUT_ROOMS.size() and hangar_waves == 2 and out_ok,
+		"own %s lock %s room %s art %s cast %s %s zone %s duck %s side %s hit %s field %s fire %s rank %s blade %s bosses %d hangar waves %d out %s (rooms %d)" % [own, lock_ok, room_ok, art_ok, cast_ok, cast_names, zone_ok, duck_ok, side_ok, hit_ok, field_ok, fire_ok, rank_ok, blade_ok, boss_seen, hangar_waves, out_ok, rooms_seen])
 	GS.rep = rep0
 	main.launch()
 	await _until(func(): return main.state == "flight", 8.0)
@@ -10026,12 +10077,12 @@ func _job_v35() -> void:
 	var all_rooms := ["main_hub", "shipyard", "mech_dealer", "weapons", "supplies", "mission_center", "medical_bay", "command", "private_quarters", "pilots_lounge"]
 	hb.show_screen("supplies")
 	await _frames(3)
-	var sup_ok: bool = hb.room_key == "liberator_supplies"
+	var sup_room_ok: bool = hb.room_key == "liberator_supplies"
 	hb.show_screen("command")
 	await _frames(3)
-	var cmd_ok: bool = hb.room_key == "liberator_command"
+	var cmd_room_ok: bool = hb.room_key == "liberator_command"
 	_check("v9.5 (owner): all ten rooms have their own link in the hub menu (SUPPLIES > REPAIR & AMMO = supplies room, SUPPLIES > MEDICAL BAY, HUB > COMMAND = command room ...)",
-		all_rooms.all(func(r): return linked.has(r)) and sup_ok and cmd_ok, "linked %s, supplies %s, command %s" % [linked.keys(), sup_ok, cmd_ok])
+		all_rooms.all(func(r): return linked.has(r)) and sup_room_ok and cmd_room_ok, "linked %s, supplies %s, command %s" % [linked.keys(), sup_room_ok, cmd_room_ok])
 	hb.show_screen("repair")
 	await _frames(3)
 	hb.eq_tab = "weapon"
