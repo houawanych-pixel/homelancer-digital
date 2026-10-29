@@ -5607,7 +5607,7 @@ func _job_ai() -> void:
 		gr_note += "[burst %s boosting %s h %.0f alt %.0f grounded %s] " % [sg.last_dash, sg.boosting, Vector2(sg.vel.x, sg.vel.z).length(), sg.altitude, sg.grounded]
 		hudg.held.erase("thrust")
 		hudg.move_vec = Vector2.ZERO
-		await _wait(2.0)
+		await _wait(3.0)   # (v10.5: slow CI frames left it at 1.5 m/s after 2 s, right on the line)
 		var q_stopped: bool = Vector2(sg.vel.x, sg.vel.z).length() < 1.5
 		gr_note += "[stop h %.1f grounded %s alt %.0f] " % [Vector2(sg.vel.x, sg.vel.z).length(), sg.grounded, sg.altitude]
 		_press("ground")
