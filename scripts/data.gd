@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v9.4"
+const VERSION := "v9.5"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -940,7 +940,7 @@ const ASST_KEY := Color(0.08, 0.75, 0.1)   # the green to remove
 const ROOM_FACTIONS := ["liberator", "savagers", "orion", "covenant", "imperium", "solarion", "elyza", "unity"]
 const ROOM_OF := {"hub": "main_hub", "ships": "shipyard", "mechs": "mech_dealer", "repair": "medical_bay", "board": "mission_center",
 	"missions": "mission_center", "bounty": "mission_center", "ship": "private_quarters", "faction": "command", "surface": "main_hub",
-	"lounge": "pilots_lounge"}
+	"lounge": "pilots_lounge", "supplies": "supplies", "command": "command"}   # v9.5: SUPPLIES and COMMAND have their own links
 const ROOM_FRONT := 0.188       # where the front view's middle sits along the loop (you face it on arrival)
 const ROOM_ZOOM := 1.14         # the loop is this much taller than the screen: room to look up and down a little
 const ROOM_STICK := 0.09        # share of the loop the right stick turns per second at full tilt

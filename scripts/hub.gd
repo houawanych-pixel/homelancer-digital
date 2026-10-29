@@ -468,7 +468,7 @@ func open(station_or_planet: Dictionary) -> void:
 		var p: Dictionary = folk[0]["pilot"]
 		open_call("l", str(p["name"]), str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])) + " · " + ("leader" if folk[0]["role"] == "leader" else "coordinator"),
 			("%s. Welcome to %s." % [str(p["name"]), base["name"]]) if folk[0]["role"] == "leader" else ("%s here. Welcome to %s. I have work for you on the Mission Board." % [p["name"], base["name"]]), str(p["portrait_clean"]), Data.CALL_FOLD_AFTER)
-	status.text = "Docked at %s. Shields and energy restored. REPAIR and RESTOCK are at Equipment." % base["name"]
+	status.text = "Docked at %s. Shields and energy restored. REPAIR and RESTOCK are at SUPPLIES." % base["name"]
 	if GS.ore_worth(str(base["name"])) > 0: status.text = "Docked at %s. You carry gold / diamond worth %d cr here: sell it under YOUR SHIP." % [base["name"], GS.ore_worth(str(base["name"]))]
 
 ## v9.2 (owner): the lockdown. A station whose people are HOSTILE to you (or worse) sounds the alarm when you dock:
@@ -520,7 +520,7 @@ func show_screen(s: String) -> void:
 	screen = s
 	_refresh_credits()
 	var sysname: String = Data.SYSTEMS[GS.system_id]["name"]
-	header.text = base["name"].to_upper() if s == "hub" else {"equipment": "WEAPONS & EQUIPMENT DEALER", "ships": "SHIP DEALER", "mechs": "MECH DEALER", "repair": "REPAIR & RESUPPLY", "bounty": "MISSION BOARD", "missions": "MISSION BOARD", "board": "MISSION BOARD", "ship": "YOUR SHIP", "faction": "FACTION", "surface": "PLANET DESTINATIONS", "lounge": "PILOTS' LOUNGE"}[s]
+	header.text = base["name"].to_upper() if s == "hub" else {"equipment": "WEAPONS & EQUIPMENT DEALER", "ships": "SHIP DEALER", "mechs": "MECH DEALER", "repair": "MEDICAL BAY", "supplies": "SUPPLIES", "command": "COMMAND", "bounty": "MISSION BOARD", "missions": "MISSION BOARD", "board": "MISSION BOARD", "ship": "YOUR SHIP", "faction": "FACTION", "surface": "PLANET DESTINATIONS", "lounge": "PILOTS' LOUNGE"}[s]
 	subheader.text = "%s  ·  %s  ·  %s SYSTEM" % [str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])).to_upper(), "ORBITAL STATION" if kind == "station" else "PLANET SURFACE", sysname.to_upper()]   # v8.2 (owner): faction and station
 	for box in [left, content, leftwin]:   # take the old page out at once, so the new buttons keep their own names
 		for c in box.get_children():
@@ -599,7 +599,7 @@ func show_screen(s: String) -> void:
 				var pk := ShipFactory.pack_of(str(Data.MECHS[fid]["model"]))
 				if pk != "": Packs.request(pk)
 			_mechs_page()
-		"repair": _repair_page()
+		"repair", "supplies": _repair_page()   # v9.5: in the medical bay, or in the supplies room
 		"board": show_screen(board_tab)
 		"bounty":
 			board_tab = "bounty"
@@ -608,7 +608,7 @@ func show_screen(s: String) -> void:
 			board_tab = "missions"
 			_missions_page()
 		"ship": _ship_page()
-		"faction": _faction_page()
+		"faction", "command": _faction_page()   # v9.5: COMMAND (hub) shows the faction page in the command room
 		"surface": _surface_page()
 	if not (s in ["hub", "equipment"]): _wrap_rows(content)   # v4.6: long lines wrap (the page is narrower beside the assistant)
 	queue_redraw()
@@ -1430,11 +1430,12 @@ func _gui_input(e: InputEvent) -> void:
 
 ## v8.2 (owner): the hub's five categories and their pages.
 func nav_cats() -> Array:
-	var hubp: Array = [["hub", "STATION"], ["board", "MISSIONS"], ["map", "NAV MAP"]]
-	if _surface_planet() != "": hubp.insert(2, ["surface", "SURFACE"])
+	# v9.5 (owner: "10 rooms ... get to them from proper links"): every room has its own link
+	var hubp: Array = [["hub", "STATION"], ["board", "MISSION BOARD"], ["command", "COMMAND"], ["map", "NAV MAP"]]
+	if _surface_planet() != "": hubp.insert(3, ["surface", "SURFACE"])
 	return [["hub", "HUB", hubp], ["lounge", "LOUNGE", [["lounge", "LOUNGE"]]],
-		["hangar", "HANGAR", [["ships", "SHIPS"], ["mechs", "MECHS"], ["equipment", "WEAPONS"]]],
-		["supplies", "SUPPLIES", [["repair", "REPAIR & AMMO"]]], ["pilot", "PILOT", [["ship", "MY SHIP"], ["faction", "FACTION"]]]]
+		["hangar", "HANGAR", [["ships", "SHIPYARD"], ["mechs", "MECHS"], ["equipment", "WEAPONS"]]],
+		["supplies", "SUPPLIES", [["supplies", "REPAIR & AMMO"], ["repair", "MEDICAL BAY"]]], ["pilot", "PILOT", [["ship", "MY QUARTERS"], ["faction", "FACTION"]]]]
 
 func nav_cat(s: String) -> String:
 	if s in ["missions", "bounty"]: s = "board"
@@ -3613,7 +3614,7 @@ func _board_head(v: VBoxContainer, tab: String) -> void:
 		var b := Button.new()
 		b.name = "Tab_" + tb[0]
 		b.text = tb[1]
-		b.custom_minimum_size = Vector2(200, 50)
+		b.custom_minimum_size = Vector2(160, 50)   # v9.5: both fit beside the UP / DOWN tabs
 		b.toggle_mode = true
 		b.button_pressed = tb[0] == tab
 		if tb[0] == tab: b.add_theme_color_override("font_color", GOLD)
@@ -3641,6 +3642,20 @@ func _row_frame(row: Control, on: bool) -> PanelContainer:
 	pc.add_theme_stylebox_override("panel", sb)
 	pc.mouse_filter = Control.MOUSE_FILTER_PASS   # v1.7v: a drag on a row scrolls the list
 	row.mouse_filter = Control.MOUSE_FILTER_PASS
+	if row is HBoxContainer and row.get_child_count() == 3:   # v9.5 (owner, mission board): picture | words over the buttons,
+		var t := row.get_child(1) as Control                   # so the words get the panel's width (one word a line before)
+		var bt := row.get_child(2) as Control
+		var right := VBoxContainer.new()
+		right.name = "Text"
+		right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		right.add_theme_constant_override("separation", 8)
+		right.mouse_filter = Control.MOUSE_FILTER_PASS
+		row.remove_child(t)
+		row.remove_child(bt)
+		right.add_child(t)
+		right.add_child(bt)
+		bt.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		row.add_child(right)
 	pc.add_child(row)
 	return pc
 
@@ -4009,7 +4024,7 @@ func _repair_page() -> void:
 	b.name = "RepairAll"
 	b.custom_minimum_size = Vector2(360, 60)
 	b.disabled = not GS.needs_repair()
-	b.pressed.connect(func(): status.text = GS.repair_all(); show_screen("repair"))
+	b.pressed.connect(func(): status.text = GS.repair_all(); show_screen(screen))
 	v.add_child(b)
 	var b2 := Button.new()   # v1.4n: ammo is billed, same button as at Equipment
 	var rc := GS.restock_cost()
@@ -4017,7 +4032,7 @@ func _repair_page() -> void:
 	b2.name = "RestockAll"
 	b2.custom_minimum_size = Vector2(360, 60)
 	b2.disabled = rc <= 0
-	b2.pressed.connect(func(): status.text = GS.restock_all(); show_screen("repair"))
+	b2.pressed.connect(func(): status.text = GS.restock_all(); show_screen(screen))
 	v.add_child(b2)
 
 func _process(dt: float) -> void:

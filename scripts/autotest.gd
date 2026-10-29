@@ -10016,6 +10016,24 @@ func _job_v35() -> void:
 	await Packs.wait("room_liberator_medical_bay", 30.0)
 	await _frames(3)
 	var med_ok: bool = hb.room_key == "liberator_medical_bay" and hb.asst.visible   # v4.6: she is on every room page
+	# v9.5 (owner: "10 rooms ... get to them from proper links"): each of the ten rooms has its own menu link
+	var linked := {}
+	for cg in hb.nav_cats():
+		for pg in cg[2]:
+			var pid: String = pg[0]
+			if pid == "equipment": linked["weapons"] = true
+			elif Data.ROOM_OF.has(pid): linked[Data.ROOM_OF[pid]] = true
+	var all_rooms := ["main_hub", "shipyard", "mech_dealer", "weapons", "supplies", "mission_center", "medical_bay", "command", "private_quarters", "pilots_lounge"]
+	hb.show_screen("supplies")
+	await _frames(3)
+	var sup_ok: bool = hb.room_key == "liberator_supplies"
+	hb.show_screen("command")
+	await _frames(3)
+	var cmd_ok: bool = hb.room_key == "liberator_command"
+	_check("v9.5 (owner): all ten rooms have their own link in the hub menu (SUPPLIES > REPAIR & AMMO = supplies room, SUPPLIES > MEDICAL BAY, HUB > COMMAND = command room ...)",
+		all_rooms.all(func(r): return linked.has(r)) and sup_ok and cmd_ok, "linked %s, supplies %s, command %s" % [linked.keys(), sup_ok, cmd_ok])
+	hb.show_screen("repair")
+	await _frames(3)
 	hb.eq_tab = "weapon"
 	hb.show_screen("equipment")
 	await Packs.wait("room_liberator_weapons", 30.0)
