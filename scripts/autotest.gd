@@ -1387,6 +1387,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_V99") != "":   # the v9.9 station page fixes only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_v99_hub()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_CADET2") != "":   # the v9.8 remodelled Cadet checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1879,6 +1887,7 @@ func _run() -> void:
 	await _job_v92_breakout()
 	await _job_v91_origin()
 	await _job_cadet2()
+	await _job_v99_hub()
 	await _job_edge()
 	await _job_open()
 	await _job_unknown()
@@ -2855,6 +2864,43 @@ func _art_n() -> void:
 ## weave, explosions, trade lanes, a surface on every planet, music by faction, the Aurelion Citadel hub.
 ## v9.8 (owner): the remodelled Cadet (laptop Blender build): real model, 9 m, nose to -Z, level 1 mounts (4 core + 1 per wing),
 ## and the Harrier-style side engines (Nacelle_L / Nacelle_R) that pitch with the way you move (never sideways).
+## v9.9 (owner, phone shots): FULL SCREEN on the station pages; the board's UP tab and list start under a call at
+## the panel's top (it hid the UP tab, so the list could not go back up); the small page names sit in see-through boxes.
+func _job_v99_hub() -> void:
+	var s := _sp()
+	var hb = main.hub
+	hb.open(Data.SYSTEMS[s.sys_id]["station"])
+	await _frames(2)
+	hb.show_screen("missions")
+	hb.open_call("l", "Test Caller", "AT THIS STATION", "I have work for you on the Mission Board.", "")
+	await _frames(4)
+	var up: Button = hb.content.find_child("ScrollUp", true, false)
+	var down: Button = hb.content.find_child("ScrollDown", true, false)
+	var cr: Rect2 = hb.call_rect("l")
+	var clear: bool = up != null and down != null and up.get_global_rect().position.y >= cr.end.y - 1.0 and up.get_global_rect().end.y <= down.get_global_rect().position.y
+	var sc: ScrollContainer = hb.content.find_child("Scroll", true, false)
+	var list_clear: bool = sc != null and sc.get_global_rect().position.y >= cr.end.y - 1.0
+	await _shot("v99_board_call", 0.3)
+	if up != null and sc != null:
+		sc.scroll_vertical = 400
+		up.pressed.emit()
+		await _wait(0.4)
+	var went_up: bool = sc != null and sc.scroll_vertical < 400
+	hb.close_call("l")
+	await _frames(4)
+	var back: bool = up != null and is_equal_approx(up.offset_top, 18.0)
+	var fs: Button = hb.find_child("FullScreen", true, false)
+	var fs_ok: bool = fs != null and fs.visible and fs.text.find("FULL SCREEN") >= 0 and not fs.get_global_rect().intersects(hb.show_btn.get_global_rect())
+	var boxed := 0
+	for c in hb.subtabs.get_children():
+		var st = (c as Button).get_theme_stylebox("normal")
+		if not (c as Button).flat and st is StyleBoxFlat and (st as StyleBoxFlat).bg_color.a >= 0.5: boxed += 1
+	await _shot("v99_board", 0.3)
+	_check("v9.9 (owner): a call at the panel's top no longer covers the board's UP tab or its list (UP scrolls back up, the page moves back when the call goes); FULL SCREEN button on the station pages; the page names under the tabs sit in see-through dark boxes",
+		clear and list_clear and went_up and back and fs_ok and boxed == hb.subtabs.get_child_count() and boxed > 0,
+		"clear %s list %s up %s back %s fs %s boxed %d/%d" % [clear, list_clear, went_up, back, fs_ok, boxed, hb.subtabs.get_child_count()])
+	hb.visible = false
+
 func _job_cadet2() -> void:
 	var s := _sp()
 	var m := ShipFactory.build("cadet", false)

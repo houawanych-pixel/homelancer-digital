@@ -53,6 +53,8 @@ var leftwin: Panel         # v3.5: the left digital window
 var look_ui: Control
 var look_bar: HBoxContainer
 var show_btn: Button       # v3.5: brings the folded windows back
+var fs_btn: Button         # v9.9 (owner): FULL SCREEN on the station pages too
+var _call_top := -1.0      # v9.9: how far the page starts below the calls stacked at the panel's top
 var panels_hidden := false # v3.5: both windows folded away (only the top bar stays)
 var look_motion := false   # v3.5: false = drag / stick to look; true = turn the phone
 var room_override := ""    # (tests) pretend the station's faction has rooms
@@ -369,6 +371,19 @@ func _ready() -> void:
 	(look_bar.get_node("Call") as Button).pressed.connect(func(): asst_tap())
 	add_child(look_bar)
 	add_child(show_btn)
+	fs_btn = Button.new()   # v9.9 (owner: "no full screen button"): the browser's full screen on / off, above HIDE PANELS
+	fs_btn.name = "FullScreen"
+	fs_btn.anchor_top = 1.0
+	fs_btn.anchor_bottom = 1.0
+	fs_btn.offset_left = 24
+	fs_btn.offset_right = 214
+	fs_btn.offset_top = -124
+	fs_btn.offset_bottom = -72
+	fs_btn.add_theme_font_size_override("font_size", Data.ts(16))
+	fs_btn.visible = false
+	fs_btn.pressed.connect(toggle_fullscreen)
+	add_child(fs_btn)
+	_fs_text()
 	status = _label(17, GOLD)
 	status.anchor_top = 1.0
 	status.anchor_bottom = 1.0
@@ -566,18 +581,22 @@ func show_screen(s: String) -> void:
 				var sb2 := Button.new()
 				sb2.text = pg[1]
 				sb2.name = "Btn_" + str(pg[0])
-				sb2.flat = true
+				sb2.flat = false   # v9.9: (a flat button draws no box at all)
 				sb2.custom_minimum_size = Vector2(104, 30)
 				sb2.add_theme_font_size_override("font_size", Data.ts(15))
 				var on: bool = pg[0] == s or (pg[0] == "board" and s in ["missions", "bounty"])
-				sb2.add_theme_color_override("font_color", Color.WHITE if on else Color(CYAN, 0.75))
-				if on:
-					var ul := StyleBoxFlat.new()
-					ul.bg_color = Color(0, 0, 0, 0)
-					ul.border_color = CYAN
-					ul.border_width_bottom = 3
-					sb2.add_theme_stylebox_override("normal", ul)
-					sb2.add_theme_stylebox_override("hover", ul)
+				sb2.add_theme_color_override("font_color", Color.WHITE if on else Color(0.62, 0.92, 1.0))
+				sb2.add_theme_color_override("font_hover_color", Color.WHITE)
+				# v9.9 (owner: "hard to read the top options"): each page name sits in its own see-through dark box
+				var ul := StyleBoxFlat.new()
+				ul.bg_color = Color(0.01, 0.05, 0.1, 0.72 if on else 0.6)
+				ul.border_color = CYAN if on else Color(CYAN, 0.35)
+				ul.set_border_width_all(1)
+				ul.border_width_bottom = 3 if on else 1
+				ul.set_corner_radius_all(4)
+				ul.content_margin_left = 12
+				ul.content_margin_right = 12
+				for st in ["normal", "hover", "pressed", "focus"]: sb2.add_theme_stylebox_override(st, ul)
 				sb2.pressed.connect(_menu.bind(str(pg[0])))
 				subtabs.add_child(sb2)
 	subtabs.visible = subtabs.get_child_count() > 0 and not hangar and not panels_hidden
@@ -1213,6 +1232,45 @@ func set_panels_hidden(h: bool) -> void:
 	if screen == "equipment": show_screen("equipment")
 	else: _layout_windows(screen)
 
+## v9.9 (owner): FULL SCREEN on the station pages (the flight's SPEED button does the same in space).
+func toggle_fullscreen() -> void:
+	if OS.has_feature("web"): JavaScriptBridge.eval("window.__hlFsToggle && window.__hlFsToggle()", true)
+	else:
+		var full := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if full else DisplayServer.WINDOW_MODE_FULLSCREEN)
+	get_tree().create_timer(0.5).timeout.connect(_fs_text)
+
+func _fs_text() -> void:
+	if fs_btn == null: return
+	var on := false
+	if OS.has_feature("web"): on = bool(JavaScriptBridge.eval("!!(window.__hlFsIsOn && window.__hlFsIsOn())", true))
+	else: on = DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
+	fs_btn.text = "EXIT FULL SCREEN" if on else "FULL SCREEN"
+
+## v9.9 (owner: "the mission text can't scroll up"): the calls stack at the top of the one panel, so the page
+## (its list and its UP tab) starts under them instead of hiding beneath them.
+func _call_inset() -> float:
+	if not _calls_in_panel(): return 0.0
+	var y := 0.0
+	for k in ["l", "r"]:
+		if not calls[k].is_empty(): y += (52.0 if calls[k].get("min", false) else 176.0) + 6.0
+	if y > 0.0 and asst_chat != null and asst_chat.visible and not calls["r"].is_empty():
+		y += (330.0 if asst_log_open else 150.0) + 6.0
+	return y
+
+func _apply_call_inset() -> void:
+	var ins := _call_inset()
+	if is_equal_approx(ins, _call_top): return
+	_call_top = ins
+	if content == null: return
+	for c in content.get_children():
+		if c is Control and (c as Control).has_meta("top0"):
+			var top := float(c.get_meta("top0")) + ins
+			var room := content.size.y - (138.0 + 126.0 if c.name == "ScrollUp" else 140.0)   # (keeps UP above DOWN, and the list a usable height)
+			if room > 0.0: top = minf(top, maxf(float(c.get_meta("top0")), room))
+			(c as Control).offset_top = top
+			if c.name == "ScrollUp": (c as Control).offset_bottom = top + 120.0
+
 ## Where the windows sit for this page (the hangar and HOME keep their own layouts).
 ## v5.3 (owner): with the panels hidden, no words at all (a clean picture of the world): the name, credits, status,
 ## tabs and LAUNCH go too; one small button brings everything back.
@@ -1223,6 +1281,9 @@ func _photo_words() -> void:
 	left.visible = not panels_hidden and screen != "equipment"
 	show_btn.text = "HIDE PANELS"
 	show_btn.visible = not panels_hidden
+	if fs_btn:
+		fs_btn.visible = not panels_hidden
+		_fs_text()
 	look_ui.visible = panels_hidden   # v5.7 (owner): look mode: two sticks like flight, the bar in the middle
 	look_bar.visible = panels_hidden
 	var lk: Button = look_bar.get_node("Lock")
@@ -1460,6 +1521,8 @@ func _scroll_box() -> VBoxContainer:
 	sc.offset_bottom = -12
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	sc.offset_right = -96   # v1.7v (owner: "I can't scroll down"): room for the big UP / DOWN tabs on the right
+	sc.set_meta("top0", 18.0)
+	_call_top = -1.0   # (v9.9: _process moves it under any calls)
 	content.add_child(sc)
 	var v := VBoxContainer.new()
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1485,6 +1548,7 @@ func _scroll_box() -> VBoxContainer:
 		b.offset_right = -8
 		b.offset_top = 18.0 if d < 0 else -138.0
 		b.offset_bottom = b.offset_top + 120.0
+		if d < 0: b.set_meta("top0", 18.0)
 		b.pressed.connect(func(): scroll_board(sc, d))
 		content.add_child(b)
 	return v
@@ -1502,6 +1566,8 @@ func _page_box() -> VBoxContainer:
 	v.offset_top = 18
 	v.offset_right = -24
 	v.offset_bottom = -18
+	v.set_meta("top0", 18.0)
+	_call_top = -1.0
 	v.add_theme_constant_override("separation", 10)
 	content.add_child(v)
 	if _panel_page(screen): _panel_head(v, header.text)   # v8.5: every page in the one panel has its title and fold button
@@ -4040,6 +4106,7 @@ func _process(dt: float) -> void:
 	t += dt
 	_update_room(dt)
 	_asst_place()
+	_apply_call_inset()
 	for sd in ["l", "r"]:   # v5.6: a greeting folds itself away after a while (like an incoming call in flight)
 		var cd: Dictionary = calls[sd]
 		if cd.is_empty() or cd.get("min", false) or float(cd.get("fold", 0.0)) <= 0.0: continue
