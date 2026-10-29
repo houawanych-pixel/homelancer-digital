@@ -9418,6 +9418,10 @@ func _job_v92_breakout() -> void:
 	await _frames(2)
 	lock_ok = lock_ok and main.state == "hub"
 	var room_ok: bool = bo != null and bo.strip != null and bo.enemies.size() == Data.BREAKOUT_SOLDIERS + 1 and bo.enemies.filter(func(e): return e["leader"]).size() == 1
+	# v9.3 (owner): the station's own people: the faction's six, cut out, names from the roster; a named squad leader
+	var cast_ok: bool = bo != null and bo.cast.size() == 6 and bo.cast.values().all(func(c): return c["full"] != null and c["portrait"] != null) \
+		and not bo.squad_leader.is_empty() and str(bo.squad_leader["name"]) != "" and int(bo.enemies[-1]["slot"]) in Data.BREAKOUT_LEADER_SLOTS
+	var cast_names: Array = bo.cast.values().map(func(c): return c["name"]) if bo != null else []
 	var art_ok := false   # the four factions with lockdown pictures get them; the rest get their normal room, lit red
 	if bo != null:
 		var probe := Breakout.new()
@@ -9470,9 +9474,9 @@ func _job_v92_breakout() -> void:
 		await _until(func(): return bo.room_i > r or not bo.visible, 5.0)
 	await _frames(3)
 	var out_ok: bool = rooms_seen == Data.BREAKOUT_ROOMS.size() and not hb.lockdown and not bo.visible and hb.screen == "equipment" and not hb.launch_btn.disabled
-	_check("v9.2 (owner): docking where they are hostile starts a lockdown (alarm, LAUNCH locked, Evee away) in the lockdown picture; each room has 5 soldiers + a squad leader; ducking and side-stepping dodge their shots, standing in the line gets you hit, the sight fires on its own; clear %d rooms to reach the hangar and launch" % Data.BREAKOUT_ROOMS.size(),
-		lock_ok and room_ok and art_ok and duck_ok and side_ok and hit_ok and fire_ok and out_ok,
-		"own %s lock %s room %s art %s duck %s side %s hit %s fire %s out %s (rooms %d)" % [own, lock_ok, room_ok, art_ok, duck_ok, side_ok, hit_ok, fire_ok, out_ok, rooms_seen])
+	_check("v9.2 (owner): docking where they are hostile starts a lockdown (alarm, LAUNCH locked, Evee away) in the lockdown picture; each room has 5 soldiers + a squad leader (v9.3: the faction's own cut-out people, a named leader); ducking and side-stepping dodge their shots, standing in the line gets you hit, the sight fires on its own; clear %d rooms to reach the hangar and launch" % Data.BREAKOUT_ROOMS.size(),
+		lock_ok and room_ok and art_ok and cast_ok and duck_ok and side_ok and hit_ok and fire_ok and out_ok,
+		"own %s lock %s room %s art %s cast %s %s duck %s side %s hit %s fire %s out %s (rooms %d)" % [own, lock_ok, room_ok, art_ok, cast_ok, cast_names, duck_ok, side_ok, hit_ok, fire_ok, out_ok, rooms_seen])
 	GS.rep = rep0
 	main.launch()
 	await _until(func(): return main.state == "flight", 8.0)

@@ -6,7 +6,11 @@ extends Control
 ## Left stick: down = duck behind your own cover, left / right = side-step out and back. Right stick (or the mouse, or
 ## a drag on the right half) aims; you fire on your own while the sight is on an enemy who is out of cover.
 ## Enemies pop up, aim (a red line shows who and where) and fire at the spot you were in: duck or side-step to dodge.
-## Evee is not with you here. Placeholder soldiers are drawn shapes until the owner's animated NPCs are in.
+## Evee is not with you here.
+## v9.3 (owner): the station's own people fight you: the faction's cast (assets/characters/<faction>/, the owner's
+## green-screen art cut out): four common soldiers and an elite guard, led by one of the named members (a different one
+## in each room; the faction's leader holds the hangar). They rise from cover, sway, flinch when hit and fall. The
+## squad leader's square portrait sits under your health. A faction with no cast yet still gets the drawn figures.
 
 signal cleared            # made it to the hangar
 signal room_changed(i: int)
@@ -43,8 +47,11 @@ var _siren_pb: AudioStreamGeneratorPlayback
 var _siren_phase := 0.0
 var _siren_t := 0.0
 var font: Font = ThemeDB.fallback_font
+var cast := {}            # slot -> {"name", "full": Texture2D, "portrait": Texture2D} (v9.3)
+var squad_leader := {}    # (tests) the named member leading this room
 
-const COLORS := {"liberator": Color(0.2, 0.75, 0.7), "savagers": Color(0.95, 0.45, 0.15), "elyza": Color(0.35, 0.55, 1.0), "orion": Color(0.3, 0.85, 0.45)}
+const COLORS := {"liberator": Color(0.2, 0.75, 0.7), "savagers": Color(0.95, 0.45, 0.15), "elyza": Color(0.35, 0.55, 1.0), "orion": Color(0.3, 0.85, 0.45),
+	"unity": Color(0.4, 0.7, 1.0), "covenant": Color(0.75, 0.6, 1.0), "imperium": Color(0.95, 0.25, 0.25), "solarion": Color(1.0, 0.8, 0.3)}
 
 func start(fac: String, room_list: Array) -> void:
 	faction = fac
@@ -55,7 +62,32 @@ func start(fac: String, room_list: Array) -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = true
 	_start_siren()
+	_load_cast()
 	_enter_room()
+
+## v9.3: the faction's six people from the roster (names from the game's lore), with their cut-out pictures.
+func _load_cast() -> void:
+	cast = {}
+	var fk := ""
+	for k in Data.ROSTERS:
+		var kl := str(k).to_lower()
+		if kl == faction or kl.begins_with(faction) or faction.begins_with(kl): fk = str(k)
+	if fk == "": return
+	for p in Data.ROSTERS[fk].get("pilots", []):
+		var cid := str(p.get("character_id", ""))
+		if cid == "": continue
+		var fp := "res://assets/characters/%s/%s_full.webp" % [faction, cid]
+		var pp := "res://assets/characters/%s/%s_portrait.webp" % [faction, cid]
+		cast[int(p.get("slot", 0))] = {"name": str(p.get("name", "")), "id": cid,
+			"full": load(fp) if ResourceLoader.exists(fp) else null, "portrait": load(pp) if ResourceLoader.exists(pp) else null}
+
+func _slot_for(i: int, leader: bool) -> int:
+	if leader:
+		if room_i == rooms.size() - 1 and cast.has(Data.BREAKOUT_FINAL_LEADER): return Data.BREAKOUT_FINAL_LEADER
+		var ls: Array = Data.BREAKOUT_LEADER_SLOTS
+		return int(ls[room_i % ls.size()])
+	var ss: Array = Data.BREAKOUT_SOLDIER_SLOTS
+	return int(ss[i % ss.size()])
 
 func _enter_room() -> void:
 	hp = Data.BREAKOUT_HP
@@ -79,7 +111,9 @@ func _enter_room() -> void:
 		var mx: float = Data.BREAKOUT_LEADER_HP if leader else Data.BREAKOUT_SOLDIER_HP
 		enemies.append({"x": clampf(x, 0.08, 0.92), "y": lerpf(0.56, 0.7, depth), "s": lerpf(0.75, 1.15, depth) * (1.18 if leader else 1.0),
 			"cover": ["table", "crate", "console"][_rng.randi() % 3] if not leader else "table", "hp": mx, "max": mx, "leader": leader,
-			"state": "hide", "t": _rng.randf_range(0.6, 2.8), "lane": 0, "flash": 0.0})
+			"state": "hide", "t": _rng.randf_range(0.6, 2.8), "lane": 0, "flash": 0.0,
+			"slot": _slot_for(i, leader), "pop": 0.0, "dead_t": 0.0, "muzzle": 0.0, "sway": _rng.randf_range(0.0, TAU), "flip": _rng.randf() < 0.5})
+	squad_leader = cast.get(enemies[-1]["slot"], {})
 	room_changed.emit(room_i)
 	queue_redraw()
 
@@ -181,7 +215,11 @@ func next_room() -> void:
 
 func _update_enemies(dt: float) -> void:
 	for e in enemies:
-		if e["hp"] <= 0.0: continue
+		e["pop"] = move_toward(float(e["pop"]), 1.0 if exposed(e) else 0.0, dt * 5.0)   # v9.3: rise from / drop behind cover
+		e["muzzle"] = maxf(0.0, float(e["muzzle"]) - dt)
+		if e["hp"] <= 0.0:
+			e["dead_t"] = float(e["dead_t"]) + dt
+			continue
 		e["t"] -= dt
 		e["flash"] = maxf(0.0, e["flash"] - dt)
 		match e["state"]:
@@ -202,6 +240,7 @@ func _update_enemies(dt: float) -> void:
 
 func _enemy_fire(e: Dictionary) -> void:
 	var from := _enemy_head(e)
+	e["muzzle"] = 0.09
 	var to := Vector2(size.x * (0.5 + 0.28 * float(e["lane"])), size.y * 0.98)
 	_tracers.append({"a": from, "b": to, "t": 0.12, "col": Color(1.0, 0.25, 0.2)})
 	Sfx.play("blaster_red", -8.0)
@@ -255,7 +294,7 @@ func _enemy_h(e: Dictionary) -> float:
 func _enemy_rect(e: Dictionary) -> Rect2:
 	var b := _enemy_base(e)
 	var h := _enemy_h(e)
-	var w := h * 0.42
+	var w := h * (0.55 if cast.get(int(e.get("slot", 0)), {}).get("full") != null else 0.42)
 	return Rect2(b.x - w * 0.5, b.y - h, w, h * 0.6)   # (the part above the cover)
 
 func _enemy_head(e: Dictionary) -> Vector2:
@@ -312,6 +351,10 @@ func _draw() -> void:
 	_draw_sticks(S)
 
 func _draw_enemy(e: Dictionary, col: Color) -> void:
+	var who: Dictionary = cast.get(int(e.get("slot", 0)), {})
+	if who.get("full") != null:
+		_draw_person(e, who, col)
+		return
 	var b := _enemy_base(e)
 	var h := _enemy_h(e)
 	var w := h * 0.42
@@ -330,6 +373,12 @@ func _draw_enemy(e: Dictionary, col: Color) -> void:
 		var bw := w * 1.1   # their health
 		draw_rect(Rect2(b.x - bw * 0.5, top - 4, bw, 4), Color(0, 0, 0, 0.6))
 		draw_rect(Rect2(b.x - bw * 0.5, top - 4, bw * float(e["hp"]) / float(e["max"]), 4), Color(1, 0.3, 0.25))
+	_draw_cover(e)
+
+func _draw_cover(e: Dictionary) -> void:
+	var b := _enemy_base(e)
+	var h := _enemy_h(e)
+	var w := h * 0.42
 	# the cover in front of them
 	var cw := w * (2.6 if e["cover"] == "table" else 1.8)
 	var chh := h * (0.42 if e["cover"] == "table" else 0.48)
@@ -347,6 +396,46 @@ func _draw_enemy(e: Dictionary, col: Color) -> void:
 			draw_rect(cr, Color(0.12, 0.13, 0.16))
 			draw_rect(Rect2(cr.position + Vector2(6, 6), Vector2(cr.size.x - 12, cr.size.y * 0.35)), Color(0.2, 0.5, 0.8, 0.8))
 
+## v9.3: one of the faction's people: the cut-out picture rises from behind the cover (the cover hides the legs),
+## sways a little, flashes when hit, shows a muzzle flash when it fires, and topples and fades when it falls.
+func _draw_person(e: Dictionary, who: Dictionary, col: Color) -> void:
+	var tex: Texture2D = who["full"]
+	var b := _enemy_base(e)
+	var h := _enemy_h(e)
+	var full_h := h * 1.95                        # the whole body; about the top 55% shows over the cover
+	var full_w := full_h * float(tex.get_width()) / float(tex.get_height())
+	var cover_top := b.y - h * 0.45
+	var dead: bool = e["hp"] <= 0.0
+	var pop: float = float(e["pop"]) if not dead else 1.0
+	var top := lerpf(cover_top + h * 0.06, b.y - h, pop)   # hidden: the head sits just below the cover's edge
+	var sway := sin(_alarm_t * 1.7 + float(e["sway"])) * h * 0.015 * pop
+	var rect := Rect2(b.x - full_w * 0.5 + sway, top, full_w, full_h)
+	var mod := Color(1, 1, 1)
+	if e["flash"] > 0.0: mod = Color(2.2, 1.4, 1.4)
+	if dead:
+		var k := clampf(float(e["dead_t"]) / 0.7, 0.0, 1.0)
+		mod.a = 1.0 - k
+		var piv := Vector2(b.x, cover_top)
+		draw_set_transform(piv, (-1.0 if e["flip"] else 1.0) * k * 1.2, Vector2.ONE)
+		rect.position -= piv
+		rect.position.y += k * h * 0.5
+	if mod.a > 0.01:
+		var vis := 1.0 if dead else clampf((cover_top - rect.position.y) / full_h + 0.02, 0.0, 1.0)
+		var src := Rect2(0, 0, tex.get_width(), tex.get_height() * vis)
+		var dst := Rect2(rect.position, Vector2(rect.size.x, rect.size.y * vis))
+		draw_texture_rect_region(tex, dst, src, mod)   # (only the part above the cover is drawn: the cover hides the rest)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	if e["muzzle"] > 0.0 and not dead:
+		var mp := Vector2(rect.position.x + rect.size.x * (0.22 if e["flip"] else 0.78), rect.position.y + full_h * 0.36)
+		draw_circle(mp, h * 0.07, Color(1.0, 0.85, 0.4, 0.9))
+		draw_circle(mp, h * 0.035, Color(1, 1, 1))
+	if not dead and pop > 0.5:
+		if e["leader"]: draw_string(font, Vector2(b.x - 110, rect.position.y - 10), "SQUAD LEADER · " + str(who["name"]).to_upper(), HORIZONTAL_ALIGNMENT_CENTER, 220, 15, col)
+		var bw := full_w * 0.5
+		draw_rect(Rect2(b.x - bw * 0.5, rect.position.y - 4, bw, 4), Color(0, 0, 0, 0.6))
+		draw_rect(Rect2(b.x - bw * 0.5, rect.position.y - 4, bw * float(e["hp"]) / float(e["max"]), 4), Color(1, 0.3, 0.25))
+	_draw_cover(e)
+
 func _draw_hud(S: Vector2, pulse: float) -> void:
 	draw_rect(Rect2(0, 0, S.x, 44), Color(0.25, 0, 0, 0.55 + 0.25 * pulse))
 	var left := enemies.filter(func(e): return e["hp"] > 0.0).size()
@@ -356,6 +445,16 @@ func _draw_hud(S: Vector2, pulse: float) -> void:
 	draw_rect(Rect2(16, 54, bw, 14), Color(0, 0, 0, 0.6))
 	draw_rect(Rect2(16, 54, bw * maxf(0.0, hp) / Data.BREAKOUT_HP, 14), Color(0.4, 1.0, 0.6))
 	draw_string(font, Vector2(16 + bw + 10, 67), "DUCKING" if ducked else ("SIDE-STEP %s" % ("LEFT" if lane < 0 else "RIGHT") if lane != 0 else ""), HORIZONTAL_ALIGNMENT_LEFT, 240, 16, Color(1, 1, 1))
+	var por: Texture2D = squad_leader.get("portrait") if not squad_leader.is_empty() else null
+	if por != null:   # v9.3: the squad leader, square portrait fitted whole into a square frame
+		var box := Rect2(16, 78, 120, 120)
+		draw_rect(box, Color(0, 0, 0, 0.55))
+		var sc := minf(box.size.x / por.get_width(), box.size.y / por.get_height())
+		var ps := Vector2(por.get_width(), por.get_height()) * sc
+		draw_texture_rect(por, Rect2(box.position + (box.size - ps) * 0.5, ps), false)
+		draw_rect(box, Color(1, 0.35, 0.3, 0.9), false, 2.0)
+		draw_string(font, Vector2(16, 216), str(squad_leader["name"]).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, 260, 16, Color(1, 0.9, 0.85))
+		draw_string(font, Vector2(16, 234), "SQUAD LEADER", HORIZONTAL_ALIGNMENT_LEFT, 260, 13, Color(1, 0.55, 0.5))
 	if state == "clear":
 		draw_string(font, Vector2(0, S.y * 0.4), "ROOM CLEAR" if room_i < rooms.size() - 1 else "HANGAR REACHED", HORIZONTAL_ALIGNMENT_CENTER, S.x, 48, Color(0.5, 1, 0.6))
 	elif state == "down":

@@ -4,3 +4,7 @@ build/
 shipkit_out/
 __pycache__/
 tools/rooms/.yolo/
+
+# v9.3: full-size character cut-outs (rebuild with tools/characters/process_chars.py)
+art/characters/*/
+art/characters/process.json

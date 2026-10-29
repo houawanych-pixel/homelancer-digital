@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v9.2"
+const VERSION := "v9.3"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -1790,3 +1790,6 @@ const BREAKOUT_HIDE := [1.2, 3.2]      # s an enemy stays down between peeks
 const BREAKOUT_CLEAR_PAUSE := 1.6
 const BREAKOUT_DOWN_PAUSE := 2.2
 const BREAKOUT_SIREN_SECONDS := 4.0
+const BREAKOUT_SOLDIER_SLOTS := [1, 1, 1, 1, 5]   # v9.3: roster slots of the five soldiers (01 common, 05 elite guard)
+const BREAKOUT_LEADER_SLOTS := [2, 3, 4]         # the named member leading each room, in turn ...
+const BREAKOUT_FINAL_LEADER := 6                 # ... and the faction's leader holds the hangar

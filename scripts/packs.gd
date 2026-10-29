@@ -118,6 +118,14 @@ const PACKS := {
 	"room_hostile_savagers_shipyard": {"folders": ["res://assets/rooms_hostile/savagers"], "match": "shipyard.", "probe": "res://assets/rooms_hostile/savagers/shipyard.jpg"},   # v9.2 (owner): the room in a lockdown
 	"room_hostile_savagers_supplies": {"folders": ["res://assets/rooms_hostile/savagers"], "match": "supplies.", "probe": "res://assets/rooms_hostile/savagers/supplies.jpg"},   # v9.2 (owner): the room in a lockdown
 	"room_hostile_savagers_weapons": {"folders": ["res://assets/rooms_hostile/savagers"], "match": "weapons.", "probe": "res://assets/rooms_hostile/savagers/weapons.jpg"},   # v9.2 (owner): the room in a lockdown
+	"chars_covenant": {"folders": ["res://assets/characters/covenant"], "match": "", "probe": "res://assets/characters/covenant/covenant_01_acolyte_full.webp"},   # v9.3 (owner): the faction's cast, cut out
+	"chars_elyza": {"folders": ["res://assets/characters/elyza"], "match": "", "probe": "res://assets/characters/elyza/elyza_01_soldier_full.webp"},   # v9.3 (owner): the faction's cast, cut out
+	"chars_imperium": {"folders": ["res://assets/characters/imperium"], "match": "", "probe": "res://assets/characters/imperium/imperium_01_trooper_full.webp"},   # v9.3 (owner): the faction's cast, cut out
+	"chars_liberator": {"folders": ["res://assets/characters/liberator"], "match": "", "probe": "res://assets/characters/liberator/liberator_01_trooper_full.webp"},   # v9.3 (owner): the faction's cast, cut out
+	"chars_orion": {"folders": ["res://assets/characters/orion"], "match": "", "probe": "res://assets/characters/orion/orion_01_survey_trooper_full.webp"},   # v9.3 (owner): the faction's cast, cut out
+	"chars_savagers": {"folders": ["res://assets/characters/savagers"], "match": "", "probe": "res://assets/characters/savagers/savagers_01_soldier_full.webp"},   # v9.3 (owner): the faction's cast, cut out
+	"chars_solarion": {"folders": ["res://assets/characters/solarion"], "match": "", "probe": "res://assets/characters/solarion/solarion_01_trooper_full.webp"},   # v9.3 (owner): the faction's cast, cut out
+	"chars_unity": {"folders": ["res://assets/characters/unity"], "match": "", "probe": "res://assets/characters/unity/unity_01_trooper_full.webp"},   # v9.3 (owner): the faction's cast, cut out
 	"room_liberator_main_hub": {"folders": ["res://assets/rooms/liberator"], "match": "main_hub.", "probe": "res://assets/rooms/liberator/main_hub.jpg"},   # v3.5: the owner's 360 room
 	"room_liberator_shipyard": {"folders": ["res://assets/rooms/liberator"], "match": "shipyard.", "probe": "res://assets/rooms/liberator/shipyard.jpg"},   # v3.5: the owner's 360 room
 	"room_liberator_mech_dealer": {"folders": ["res://assets/rooms/liberator"], "match": "mech_dealer.", "probe": "res://assets/rooms/liberator/mech_dealer.jpg"},   # v3.5: the owner's 360 room

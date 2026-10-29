@@ -489,6 +489,7 @@ func _start_lockdown() -> void:
 	var f := lockdown_faction()
 	for r in Data.BREAKOUT_ROOMS:
 		if Packs.PACKS.has("room_hostile_%s_%s" % [f, r]): Packs.request("room_hostile_%s_%s" % [f, r])
+	if Packs.PACKS.has("chars_" + f): Packs.request("chars_" + f)   # v9.3: the faction's people
 	launch_btn.disabled = true
 	launch_btn.text = "LOCKED"
 	status.text = "LOCKDOWN. %s security is coming for you: fight your way to the hangar." % str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id]))

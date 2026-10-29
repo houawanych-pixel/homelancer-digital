@@ -1,0 +1,1447 @@
+{
+ "count": 48,
+ "source_drive_folder": "12TpjsJs19bin1QUkbUTwf4P0hCLpagHx",
+ "note": "Sources are the owner's originals, kept unchanged on Drive. Masters are full-size transparent cut-outs; game copies are half-size bodies and 512 px portraits. Masters (art/characters/, 245 MB) are not kept in the repo: rebuild them with tools/characters/process_chars.py from the Drive originals.",
+ "characters": [
+  {
+   "character_id": "covenant_01_acolyte",
+   "faction": "Covenant",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / COVENANT / covenant_01_acolyte_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/covenant/covenant_01_acolyte_full_body.webp",
+   "game_full_body": "assets/characters/covenant/covenant_01_acolyte_full.webp",
+   "silhouette_bbox_px": [
+    110,
+    5,
+    824,
+    1655
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / COVENANT / covenant_01_acolyte_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/covenant/covenant_01_acolyte_thigh_up_square.webp",
+   "game_portrait": "assets/characters/covenant/covenant_01_acolyte_portrait.webp",
+   "display_name": "Covenant Acolyte",
+   "roster_slot": 1,
+   "roster_type": "Level 1 Common Covenant Officer",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Covenant\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Covenant\"]"
+  },
+  {
+   "character_id": "covenant_02_nerea",
+   "faction": "Covenant",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / COVENANT / covenant_02_nerea_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/covenant/covenant_02_nerea_full_body.webp",
+   "game_full_body": "assets/characters/covenant/covenant_02_nerea_full.webp",
+   "silhouette_bbox_px": [
+    138,
+    21,
+    820,
+    1653
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / COVENANT / covenant_02_nerea_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/covenant/covenant_02_nerea_thigh_up_square.webp",
+   "game_portrait": "assets/characters/covenant/covenant_02_nerea_portrait.webp",
+   "display_name": "Nerea Solis",
+   "roster_slot": 2,
+   "roster_type": "Level 2 Recon Pilot",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Covenant\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Covenant\"]"
+  },
+  {
+   "character_id": "covenant_03_kael",
+   "faction": "Covenant",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / COVENANT / covenant_03_kael_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/covenant/covenant_03_kael_full_body.webp",
+   "game_full_body": "assets/characters/covenant/covenant_03_kael_full.webp",
+   "silhouette_bbox_px": [
+    116,
+    35,
+    850,
+    1647
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / COVENANT / covenant_03_kael_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/covenant/covenant_03_kael_thigh_up_square.webp",
+   "game_portrait": "assets/characters/covenant/covenant_03_kael_portrait.webp",
+   "display_name": "Kael Varis",
+   "roster_slot": 3,
+   "roster_type": "Level 3 Squadron Leader",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Covenant\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Covenant\"]"
+  },
+  {
+   "character_id": "covenant_04_lyra",
+   "faction": "Covenant",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / COVENANT / covenant_04_lyra_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/covenant/covenant_04_lyra_full_body.webp",
+   "game_full_body": "assets/characters/covenant/covenant_04_lyra_full.webp",
+   "silhouette_bbox_px": [
+    98,
+    9,
+    855,
+    1652
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / COVENANT / covenant_04_lyra_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/covenant/covenant_04_lyra_thigh_up_square.webp",
+   "game_portrait": "assets/characters/covenant/covenant_04_lyra_portrait.webp",
+   "display_name": "Lyra Shan",
+   "roster_slot": 4,
+   "roster_type": "Level 4 Celestial Priest / Elite Pilot",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Covenant\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Covenant\"]"
+  },
+  {
+   "character_id": "covenant_05_hierarch_guard",
+   "faction": "Covenant",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / COVENANT / covenant_05_hierarch_guard_full_body.png",
+   "source_full_body_px": [
+    940,
+    1672
+   ],
+   "master_full_body": "art/characters/covenant/covenant_05_hierarch_guard_full_body.webp",
+   "game_full_body": "assets/characters/covenant/covenant_05_hierarch_guard_full.webp",
+   "silhouette_bbox_px": [
+    91,
+    2,
+    861,
+    1654
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / COVENANT / covenant_05_hierarch_guard_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/covenant/covenant_05_hierarch_guard_thigh_up_square.webp",
+   "game_portrait": "assets/characters/covenant/covenant_05_hierarch_guard_portrait.webp",
+   "display_name": "Hierarch Guard",
+   "roster_slot": 5,
+   "roster_type": "Level 5 Elite Pilot / Sacred Guard",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Covenant\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Covenant\"]"
+  },
+  {
+   "character_id": "covenant_06_selen",
+   "faction": "Covenant",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / COVENANT / covenant_06_selen_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/covenant/covenant_06_selen_full_body.webp",
+   "game_full_body": "assets/characters/covenant/covenant_06_selen_full.webp",
+   "silhouette_bbox_px": [
+    74,
+    19,
+    854,
+    1654
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / COVENANT / covenant_06_selen_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/covenant/covenant_06_selen_thigh_up_square.webp",
+   "game_portrait": "assets/characters/covenant/covenant_06_selen_portrait.webp",
+   "display_name": "Archon Selen",
+   "roster_slot": 6,
+   "roster_type": "Level 6 High Council Commander",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Covenant\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Covenant\"]"
+  },
+  {
+   "character_id": "elyza_01_soldier",
+   "faction": "Elyza",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / ELYZA / elyza_01_soldier_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/elyza/elyza_01_soldier_full_body.webp",
+   "game_full_body": "assets/characters/elyza/elyza_01_soldier_full.webp",
+   "silhouette_bbox_px": [
+    158,
+    29,
+    793,
+    1628
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / ELYZA / elyza_01_soldier_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/elyza/elyza_01_soldier_thigh_up_square.webp",
+   "game_portrait": "assets/characters/elyza/elyza_01_soldier_portrait.webp",
+   "display_name": "Elyza Security Trooper",
+   "roster_slot": 1,
+   "roster_type": "Level 1 Common Security Soldier",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Elyza\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Elyza\"]"
+  },
+  {
+   "character_id": "elyza_02_serin",
+   "faction": "Elyza",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / ELYZA / elyza_02_serin_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/elyza/elyza_02_serin_full_body.webp",
+   "game_full_body": "assets/characters/elyza/elyza_02_serin_full.webp",
+   "silhouette_bbox_px": [
+    79,
+    24,
+    860,
+    1646
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / ELYZA / elyza_02_serin_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/elyza/elyza_02_serin_thigh_up_square.webp",
+   "game_portrait": "assets/characters/elyza/elyza_02_serin_portrait.webp",
+   "display_name": "Serin Vale",
+   "roster_slot": 2,
+   "roster_type": "Level 2 Vanguard Pilot",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Elyza\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Elyza\"]"
+  },
+  {
+   "character_id": "elyza_03_cael",
+   "faction": "Elyza",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / ELYZA / elyza_03_cael_full_body.png",
+   "source_full_body_px": [
+    940,
+    1672
+   ],
+   "master_full_body": "art/characters/elyza/elyza_03_cael_full_body.webp",
+   "game_full_body": "assets/characters/elyza/elyza_03_cael_full.webp",
+   "silhouette_bbox_px": [
+    107,
+    19,
+    861,
+    1647
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / ELYZA / elyza_03_cael_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/elyza/elyza_03_cael_thigh_up_square.webp",
+   "game_portrait": "assets/characters/elyza/elyza_03_cael_portrait.webp",
+   "display_name": "Cael Rhyn",
+   "roster_slot": 3,
+   "roster_type": "Level 3 Bounty / Pursuit Specialist",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Elyza\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Elyza\"]"
+  },
+  {
+   "character_id": "elyza_04_lyra",
+   "faction": "Elyza",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / ELYZA / elyza_04_lyra_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/elyza/elyza_04_lyra_full_body.webp",
+   "game_full_body": "assets/characters/elyza/elyza_04_lyra_full.webp",
+   "silhouette_bbox_px": [
+    137,
+    16,
+    831,
+    1654
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / ELYZA / elyza_04_lyra_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/elyza/elyza_04_lyra_thigh_up_square.webp",
+   "game_portrait": "assets/characters/elyza/elyza_04_lyra_portrait.webp",
+   "display_name": "Lyra Vey",
+   "roster_slot": 4,
+   "roster_type": "Level 4 Ace Specialist",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Elyza\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Elyza\"]"
+  },
+  {
+   "character_id": "elyza_05_elite_guard",
+   "faction": "Elyza",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / ELYZA / elyza_05_elite_guard_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/elyza/elyza_05_elite_guard_full_body.webp",
+   "game_full_body": "assets/characters/elyza/elyza_05_elite_guard_full.webp",
+   "silhouette_bbox_px": [
+    134,
+    30,
+    789,
+    1639
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / ELYZA / elyza_05_elite_guard_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/elyza/elyza_05_elite_guard_thigh_up_square.webp",
+   "game_portrait": "assets/characters/elyza/elyza_05_elite_guard_portrait.webp",
+   "display_name": "Elyza Elite Guard",
+   "roster_slot": 5,
+   "roster_type": "Level 5 Elite Military Guard",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Elyza\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Elyza\"]"
+  },
+  {
+   "character_id": "elyza_06_aurelia",
+   "faction": "Elyza",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / ELYZA / elyza_06_aurelia_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/elyza/elyza_06_aurelia_full_body.webp",
+   "game_full_body": "assets/characters/elyza/elyza_06_aurelia_full.webp",
+   "silhouette_bbox_px": [
+    113,
+    5,
+    835,
+    1660
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / ELYZA / elyza_06_aurelia_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/elyza/elyza_06_aurelia_thigh_up_square.webp",
+   "game_portrait": "assets/characters/elyza/elyza_06_aurelia_portrait.webp",
+   "display_name": "Aurelia Voss",
+   "roster_slot": 6,
+   "roster_type": "Level 6 House Captain / Faction Commander",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Elyza\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Elyza\"]"
+  },
+  {
+   "character_id": "imperium_01_trooper",
+   "faction": "Imperium",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / IMPERIUM / imperium_01_trooper_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/imperium/imperium_01_trooper_full_body.webp",
+   "game_full_body": "assets/characters/imperium/imperium_01_trooper_full.webp",
+   "silhouette_bbox_px": [
+    126,
+    10,
+    799,
+    1627
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / IMPERIUM / imperium_01_trooper_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/imperium/imperium_01_trooper_thigh_up_square.webp",
+   "game_portrait": "assets/characters/imperium/imperium_01_trooper_portrait.webp",
+   "display_name": "Imperium Trooper",
+   "roster_slot": 1,
+   "roster_type": "Level 1 Common Dominion Soldier",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Imperium\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Imperium\"]"
+  },
+  {
+   "character_id": "imperium_02_vexa",
+   "faction": "Imperium",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / IMPERIUM / imperium_02_vexa_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/imperium/imperium_02_vexa_full_body.webp",
+   "game_full_body": "assets/characters/imperium/imperium_02_vexa_full.webp",
+   "silhouette_bbox_px": [
+    186,
+    18,
+    762,
+    1657
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / IMPERIUM / imperium_02_vexa_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/imperium/imperium_02_vexa_thigh_up_square.webp",
+   "game_portrait": "assets/characters/imperium/imperium_02_vexa_portrait.webp",
+   "display_name": "Vexa Drak",
+   "roster_slot": 2,
+   "roster_type": "Level 2 Strike Pilot",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Imperium\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Imperium\"]"
+  },
+  {
+   "character_id": "imperium_03_garrik",
+   "faction": "Imperium",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / IMPERIUM / imperium_03_garrik_full_body.png",
+   "source_full_body_px": [
+    940,
+    1672
+   ],
+   "master_full_body": "art/characters/imperium/imperium_03_garrik_full_body.webp",
+   "game_full_body": "assets/characters/imperium/imperium_03_garrik_full.webp",
+   "silhouette_bbox_px": [
+    151,
+    28,
+    760,
+    1621
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / IMPERIUM / imperium_03_garrik_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/imperium/imperium_03_garrik_thigh_up_square.webp",
+   "game_portrait": "assets/characters/imperium/imperium_03_garrik_portrait.webp",
+   "display_name": "Garrik Rend",
+   "roster_slot": 3,
+   "roster_type": "Level 3 Veteran Pilot",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Imperium\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Imperium\"]"
+  },
+  {
+   "character_id": "imperium_04_nyx",
+   "faction": "Imperium",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / IMPERIUM / imperium_04_nyx_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/imperium/imperium_04_nyx_full_body.webp",
+   "game_full_body": "assets/characters/imperium/imperium_04_nyx_full.webp",
+   "silhouette_bbox_px": [
+    115,
+    18,
+    859,
+    1651
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / IMPERIUM / imperium_04_nyx_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/imperium/imperium_04_nyx_thigh_up_square.webp",
+   "game_portrait": "assets/characters/imperium/imperium_04_nyx_portrait.webp",
+   "display_name": "Nyx Dar'Kesh",
+   "roster_slot": 4,
+   "roster_type": "Level 4 Assassin / Elite Pilot",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Imperium\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Imperium\"]"
+  },
+  {
+   "character_id": "imperium_05_dominion_guard",
+   "faction": "Imperium",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / IMPERIUM / imperium_05_dominion_guard_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/imperium/imperium_05_dominion_guard_full_body.webp",
+   "game_full_body": "assets/characters/imperium/imperium_05_dominion_guard_full.webp",
+   "silhouette_bbox_px": [
+    10,
+    13,
+    919,
+    1617
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / IMPERIUM / imperium_05_dominion_guard_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/imperium/imperium_05_dominion_guard_thigh_up_square.webp",
+   "game_portrait": "assets/characters/imperium/imperium_05_dominion_guard_portrait.webp",
+   "display_name": "Dominion Guard",
+   "roster_slot": 5,
+   "roster_type": "Level 5 Elite Soldier / Command Guard",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Imperium\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Imperium\"]"
+  },
+  {
+   "character_id": "imperium_06_kraeg",
+   "faction": "Imperium",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / IMPERIUM / imperium_06_kraeg_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/imperium/imperium_06_kraeg_full_body.webp",
+   "game_full_body": "assets/characters/imperium/imperium_06_kraeg_full.webp",
+   "silhouette_bbox_px": [
+    56,
+    29,
+    893,
+    1635
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / IMPERIUM / imperium_06_kraeg_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/imperium/imperium_06_kraeg_thigh_up_square.webp",
+   "game_portrait": "assets/characters/imperium/imperium_06_kraeg_portrait.webp",
+   "display_name": "Lord Kraeg",
+   "roster_slot": 6,
+   "roster_type": "Level 6 Faction Commander",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Imperium\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Imperium\"]"
+  },
+  {
+   "character_id": "liberator_01_trooper",
+   "faction": "Liberator",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / LIBERATOR / liberator_01_trooper_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/liberator/liberator_01_trooper_full_body.webp",
+   "game_full_body": "assets/characters/liberator/liberator_01_trooper_full.webp",
+   "silhouette_bbox_px": [
+    149,
+    19,
+    821,
+    1621
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / LIBERATOR / liberator_01_trooper_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/liberator/liberator_01_trooper_thigh_up_square.webp",
+   "game_portrait": "assets/characters/liberator/liberator_01_trooper_portrait.webp",
+   "display_name": "Liberator Trooper",
+   "roster_slot": 1,
+   "roster_type": "Level 1 Common Freedom Fighter",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Liberator\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Liberator\"]"
+  },
+  {
+   "character_id": "liberator_02_lena",
+   "faction": "Liberator",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / LIBERATOR / liberator_02_lena_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/liberator/liberator_02_lena_full_body.webp",
+   "game_full_body": "assets/characters/liberator/liberator_02_lena_full.webp",
+   "silhouette_bbox_px": [
+    154,
+    5,
+    773,
+    1645
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / LIBERATOR / liberator_02_lena_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/liberator/liberator_02_lena_thigh_up_square.webp",
+   "game_portrait": "assets/characters/liberator/liberator_02_lena_portrait.webp",
+   "display_name": "Lena Torres",
+   "roster_slot": 2,
+   "roster_type": "Level 2 Tactical Officer",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Liberator\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Liberator\"]"
+  },
+  {
+   "character_id": "liberator_03_brok",
+   "faction": "Liberator",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / LIBERATOR / liberator_03_brok_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/liberator/liberator_03_brok_full_body.webp",
+   "game_full_body": "assets/characters/liberator/liberator_03_brok_full.webp",
+   "silhouette_bbox_px": [
+    117,
+    47,
+    784,
+    1625
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / LIBERATOR / liberator_03_brok_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/liberator/liberator_03_brok_thigh_up_square.webp",
+   "game_portrait": "assets/characters/liberator/liberator_03_brok_portrait.webp",
+   "display_name": "Brok Tal",
+   "roster_slot": 3,
+   "roster_type": "Level 3 Chief Engineer",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Liberator\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Liberator\"]"
+  },
+  {
+   "character_id": "liberator_04_kai",
+   "faction": "Liberator",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / LIBERATOR / liberator_04_kai_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/liberator/liberator_04_kai_full_body.webp",
+   "game_full_body": "assets/characters/liberator/liberator_04_kai_full.webp",
+   "silhouette_bbox_px": [
+    207,
+    27,
+    744,
+    1648
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / LIBERATOR / liberator_04_kai_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/liberator/liberator_04_kai_thigh_up_square.webp",
+   "game_portrait": "assets/characters/liberator/liberator_04_kai_portrait.webp",
+   "display_name": "Kai Mori",
+   "roster_slot": 4,
+   "roster_type": "Level 4 Recon Pilot",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Liberator\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Liberator\"]"
+  },
+  {
+   "character_id": "liberator_05_vanguard",
+   "faction": "Liberator",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / LIBERATOR / liberator_05_vanguard_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/liberator/liberator_05_vanguard_full_body.webp",
+   "game_full_body": "assets/characters/liberator/liberator_05_vanguard_full.webp",
+   "silhouette_bbox_px": [
+    27,
+    24,
+    906,
+    1651
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / LIBERATOR / liberator_05_vanguard_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/liberator/liberator_05_vanguard_thigh_up_square.webp",
+   "game_portrait": "assets/characters/liberator/liberator_05_vanguard_portrait.webp",
+   "display_name": "Liberator Vanguard",
+   "roster_slot": 5,
+   "roster_type": "Level 5 Elite Guard",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Liberator\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Liberator\"]"
+  },
+  {
+   "character_id": "liberator_06_marcus",
+   "faction": "Liberator",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / LIBERATOR / liberator_06_marcus_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/liberator/liberator_06_marcus_full_body.webp",
+   "game_full_body": "assets/characters/liberator/liberator_06_marcus_full.webp",
+   "silhouette_bbox_px": [
+    80,
+    33,
+    866,
+    1641
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / LIBERATOR / liberator_06_marcus_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/liberator/liberator_06_marcus_thigh_up_square.webp",
+   "game_portrait": "assets/characters/liberator/liberator_06_marcus_portrait.webp",
+   "display_name": "Marcus Vale",
+   "roster_slot": 6,
+   "roster_type": "Level 6 Fleet Commander",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Liberator\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Liberator\"]"
+  },
+  {
+   "character_id": "orion_01_survey_trooper",
+   "faction": "Orion",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / ORION / orion_01_survey_trooper_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/orion/orion_01_survey_trooper_full_body.webp",
+   "game_full_body": "assets/characters/orion/orion_01_survey_trooper_full.webp",
+   "silhouette_bbox_px": [
+    152,
+    50,
+    765,
+    1634
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / ORION / orion_01_survey_trooper_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/orion/orion_01_survey_trooper_thigh_up_square.webp",
+   "game_portrait": "assets/characters/orion/orion_01_survey_trooper_portrait.webp",
+   "display_name": "Orion Survey Trooper",
+   "roster_slot": 1,
+   "roster_type": "Level 1 Exploration Infantry / Common Soldier",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Orion\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Orion\"]"
+  },
+  {
+   "character_id": "orion_02_ryan",
+   "faction": "Orion",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / ORION / orion_02_ryan_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/orion/orion_02_ryan_full_body.webp",
+   "game_full_body": "assets/characters/orion/orion_02_ryan_full.webp",
+   "silhouette_bbox_px": [
+    191,
+    41,
+    748,
+    1631
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / ORION / orion_02_ryan_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/orion/orion_02_ryan_thigh_up_square.webp",
+   "game_portrait": "assets/characters/orion/orion_02_ryan_portrait.webp",
+   "display_name": "Ryan Solace",
+   "roster_slot": 2,
+   "roster_type": "Level 2 Explorer Pilot",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Orion\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Orion\"]"
+  },
+  {
+   "character_id": "orion_03_syra",
+   "faction": "Orion",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / ORION / orion_03_syra_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/orion/orion_03_syra_full_body.webp",
+   "game_full_body": "assets/characters/orion/orion_03_syra_full.webp",
+   "silhouette_bbox_px": [
+    189,
+    35,
+    829,
+    1646
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / ORION / orion_03_syra_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/orion/orion_03_syra_thigh_up_square.webp",
+   "game_portrait": "assets/characters/orion/orion_03_syra_portrait.webp",
+   "display_name": "Syra N'Tel",
+   "roster_slot": 3,
+   "roster_type": "Level 3 Xenologist / Pilot",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Orion\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Orion\"]"
+  },
+  {
+   "character_id": "orion_04_korvax",
+   "faction": "Orion",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / ORION / orion_04_korvax_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/orion/orion_04_korvax_full_body.webp",
+   "game_full_body": "assets/characters/orion/orion_04_korvax_full.webp",
+   "silhouette_bbox_px": [
+    190,
+    17,
+    806,
+    1640
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / ORION / orion_04_korvax_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/orion/orion_04_korvax_thigh_up_square.webp",
+   "game_portrait": "assets/characters/orion/orion_04_korvax_portrait.webp",
+   "display_name": "Korvax",
+   "roster_slot": 4,
+   "roster_type": "Level 4 Science Officer",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Orion\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Orion\"]"
+  },
+  {
+   "character_id": "orion_05_vanguard",
+   "faction": "Orion",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / ORION / orion_05_vanguard_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/orion/orion_05_vanguard_full_body.webp",
+   "game_full_body": "assets/characters/orion/orion_05_vanguard_full.webp",
+   "silhouette_bbox_px": [
+    118,
+    54,
+    902,
+    1628
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / ORION / orion_05_vanguard_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/orion/orion_05_vanguard_thigh_up_square.webp",
+   "game_portrait": "assets/characters/orion/orion_05_vanguard_portrait.webp",
+   "display_name": "Orion Vanguard",
+   "roster_slot": 5,
+   "roster_type": "Level 5 Elite Exploration Guard",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Orion\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Orion\"]"
+  },
+  {
+   "character_id": "orion_06_caleb",
+   "faction": "Orion",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / ORION / orion_06_caleb_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/orion/orion_06_caleb_full_body.webp",
+   "game_full_body": "assets/characters/orion/orion_06_caleb_full.webp",
+   "silhouette_bbox_px": [
+    106,
+    14,
+    822,
+    1641
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / ORION / orion_06_caleb_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/orion/orion_06_caleb_thigh_up_square.webp",
+   "game_portrait": "assets/characters/orion/orion_06_caleb_portrait.webp",
+   "display_name": "Admiral Caleb Rynn",
+   "roster_slot": 6,
+   "roster_type": "Level 6 Expedition Commander",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Orion\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Orion\"]"
+  },
+  {
+   "character_id": "savagers_01_soldier",
+   "faction": "Savagers",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / SAVAGERS / savagers_01_soldier_full_body.png",
+   "source_full_body_px": [
+    940,
+    1672
+   ],
+   "master_full_body": "art/characters/savagers/savagers_01_soldier_full_body.webp",
+   "game_full_body": "assets/characters/savagers/savagers_01_soldier_full.webp",
+   "silhouette_bbox_px": [
+    134,
+    25,
+    805,
+    1631
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / SAVAGERS / savagers_01_soldier_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/savagers/savagers_01_soldier_thigh_up_square.webp",
+   "game_portrait": "assets/characters/savagers/savagers_01_soldier_portrait.webp",
+   "display_name": "Soldier",
+   "roster_slot": 1,
+   "roster_type": "Level 1 Grunt",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Savagers\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Savagers\"]"
+  },
+  {
+   "character_id": "savagers_02_jackal",
+   "faction": "Savagers",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / SAVAGERS / savagers_02_jackal_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/savagers/savagers_02_jackal_full_body.webp",
+   "game_full_body": "assets/characters/savagers/savagers_02_jackal_full.webp",
+   "silhouette_bbox_px": [
+    111,
+    19,
+    856,
+    1647
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / SAVAGERS / savagers_02_jackal_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/savagers/savagers_02_jackal_thigh_up_square.webp",
+   "game_portrait": "assets/characters/savagers/savagers_02_jackal_portrait.webp",
+   "display_name": "Jackal",
+   "roster_slot": 2,
+   "roster_type": "Level 2 Raider",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Savagers\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Savagers\"]"
+  },
+  {
+   "character_id": "savagers_03_razor",
+   "faction": "Savagers",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / SAVAGERS / savagers_03_razor_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/savagers/savagers_03_razor_full_body.webp",
+   "game_full_body": "assets/characters/savagers/savagers_03_razor_full.webp",
+   "silhouette_bbox_px": [
+    146,
+    12,
+    847,
+    1654
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / SAVAGERS / savagers_03_razor_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/savagers/savagers_03_razor_thigh_up_square.webp",
+   "game_portrait": "assets/characters/savagers/savagers_03_razor_portrait.webp",
+   "display_name": "Razor",
+   "roster_slot": 3,
+   "roster_type": "Level 3 Assault Raider",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Savagers\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Savagers\"]"
+  },
+  {
+   "character_id": "savagers_04_veil",
+   "faction": "Savagers",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / SAVAGERS / savagers_04_veil_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/savagers/savagers_04_veil_full_body.webp",
+   "game_full_body": "assets/characters/savagers/savagers_04_veil_full.webp",
+   "silhouette_bbox_px": [
+    149,
+    20,
+    775,
+    1651
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / SAVAGERS / savagers_04_veil_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/savagers/savagers_04_veil_thigh_up_square.webp",
+   "game_portrait": "assets/characters/savagers/savagers_04_veil_portrait.webp",
+   "display_name": "Veil",
+   "roster_slot": 4,
+   "roster_type": "Level 4 Ace Pilot",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Savagers\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Savagers\"]"
+  },
+  {
+   "character_id": "savagers_05_brakk",
+   "faction": "Savagers",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / SAVAGERS / savagers_05_brakk_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/savagers/savagers_05_brakk_full_body.webp",
+   "game_full_body": "assets/characters/savagers/savagers_05_brakk_full.webp",
+   "silhouette_bbox_px": [
+    95,
+    31,
+    836,
+    1637
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / SAVAGERS / savagers_05_brakk_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/savagers/savagers_05_brakk_thigh_up_square.webp",
+   "game_portrait": "assets/characters/savagers/savagers_05_brakk_portrait.webp",
+   "display_name": "Brakk",
+   "roster_slot": 5,
+   "roster_type": "Level 5 Lieutenant",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Savagers\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Savagers\"]"
+  },
+  {
+   "character_id": "savagers_06_dreadmaw",
+   "faction": "Savagers",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / SAVAGERS / savagers_06_dreadmaw_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/savagers/savagers_06_dreadmaw_full_body.webp",
+   "game_full_body": "assets/characters/savagers/savagers_06_dreadmaw_full.webp",
+   "silhouette_bbox_px": [
+    34,
+    55,
+    904,
+    1635
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / SAVAGERS / savagers_06_dreadmaw_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/savagers/savagers_06_dreadmaw_thigh_up_square.webp",
+   "game_portrait": "assets/characters/savagers/savagers_06_dreadmaw_portrait.webp",
+   "display_name": "Dreadmaw",
+   "roster_slot": 6,
+   "roster_type": "Level 6 Gang Boss",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Savagers\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Savagers\"]"
+  },
+  {
+   "character_id": "solarion_01_trooper",
+   "faction": "Solarion",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / SOLARION / solarion_01_trooper_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/solarion/solarion_01_trooper_full_body.webp",
+   "game_full_body": "assets/characters/solarion/solarion_01_trooper_full.webp",
+   "silhouette_bbox_px": [
+    155,
+    28,
+    783,
+    1621
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / SOLARION / solarion_01_trooper_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/solarion/solarion_01_trooper_thigh_up_square.webp",
+   "game_portrait": "assets/characters/solarion/solarion_01_trooper_portrait.webp",
+   "display_name": "Solarion Trooper",
+   "roster_slot": 1,
+   "roster_type": "Level 1 Common Solarion Soldier",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Solarion\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Solarion\"]"
+  },
+  {
+   "character_id": "solarion_02_lira",
+   "faction": "Solarion",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / SOLARION / solarion_02_lira_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/solarion/solarion_02_lira_full_body.webp",
+   "game_full_body": "assets/characters/solarion/solarion_02_lira_full.webp",
+   "silhouette_bbox_px": [
+    221,
+    16,
+    788,
+    1639
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / SOLARION / solarion_02_lira_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/solarion/solarion_02_lira_thigh_up_square.webp",
+   "game_portrait": "assets/characters/solarion/solarion_02_lira_portrait.webp",
+   "display_name": "Lira Suntide",
+   "roster_slot": 2,
+   "roster_type": "Level 2 Recon Pilot",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Solarion\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Solarion\"]"
+  },
+  {
+   "character_id": "solarion_03_taron",
+   "faction": "Solarion",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / SOLARION / solarion_03_taron_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/solarion/solarion_03_taron_full_body.webp",
+   "game_full_body": "assets/characters/solarion/solarion_03_taron_full.webp",
+   "silhouette_bbox_px": [
+    140,
+    15,
+    778,
+    1634
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / SOLARION / solarion_03_taron_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/solarion/solarion_03_taron_thigh_up_square.webp",
+   "game_portrait": "assets/characters/solarion/solarion_03_taron_portrait.webp",
+   "display_name": "Taron Kael",
+   "roster_slot": 3,
+   "roster_type": "Level 3 Veteran Pilot",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Solarion\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Solarion\"]"
+  },
+  {
+   "character_id": "solarion_04_seraph",
+   "faction": "Solarion",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / SOLARION / solarion_04_seraph_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/solarion/solarion_04_seraph_full_body.webp",
+   "game_full_body": "assets/characters/solarion/solarion_04_seraph_full.webp",
+   "silhouette_bbox_px": [
+    130,
+    22,
+    837,
+    1649
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / SOLARION / solarion_04_seraph_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/solarion/solarion_04_seraph_thigh_up_square.webp",
+   "game_portrait": "assets/characters/solarion/solarion_04_seraph_portrait.webp",
+   "display_name": "Seraph Nova",
+   "roster_slot": 4,
+   "roster_type": "Level 4 Ace Pilot",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Solarion\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Solarion\"]"
+  },
+  {
+   "character_id": "solarion_05_guard",
+   "faction": "Solarion",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / SOLARION / solarion_05_guard_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/solarion/solarion_05_guard_full_body.webp",
+   "game_full_body": "assets/characters/solarion/solarion_05_guard_full.webp",
+   "silhouette_bbox_px": [
+    112,
+    50,
+    779,
+    1627
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / SOLARION / solarion_05_guard_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/solarion/solarion_05_guard_thigh_up_square.webp",
+   "game_portrait": "assets/characters/solarion/solarion_05_guard_portrait.webp",
+   "display_name": "Solarion Guard",
+   "roster_slot": 5,
+   "roster_type": "Level 5 Elite Soldier",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Solarion\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Solarion\"]"
+  },
+  {
+   "character_id": "solarion_06_valen",
+   "faction": "Solarion",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / SOLARION / solarion_06_valen_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/solarion/solarion_06_valen_full_body.webp",
+   "game_full_body": "assets/characters/solarion/solarion_06_valen_full.webp",
+   "silhouette_bbox_px": [
+    56,
+    31,
+    886,
+    1628
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / SOLARION / solarion_06_valen_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/solarion/solarion_06_valen_thigh_up_square.webp",
+   "game_portrait": "assets/characters/solarion/solarion_06_valen_portrait.webp",
+   "display_name": "Valen Aurex",
+   "roster_slot": 6,
+   "roster_type": "Level 6 Solarion High Commander",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Solarion\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Solarion\"]"
+  },
+  {
+   "character_id": "unity_01_trooper",
+   "faction": "Unity",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / UNITY / unity_01_trooper_full_body.png",
+   "source_full_body_px": [
+    940,
+    1672
+   ],
+   "master_full_body": "art/characters/unity/unity_01_trooper_full_body.webp",
+   "game_full_body": "assets/characters/unity/unity_01_trooper_full.webp",
+   "silhouette_bbox_px": [
+    144,
+    30,
+    812,
+    1639
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / UNITY / unity_01_trooper_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/unity/unity_01_trooper_thigh_up_square.webp",
+   "game_portrait": "assets/characters/unity/unity_01_trooper_portrait.webp",
+   "display_name": "Alliance Trooper",
+   "roster_slot": 1,
+   "roster_type": "Level 1 Common Alliance Soldier",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Unity\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Unity\"]"
+  },
+  {
+   "character_id": "unity_02_mira",
+   "faction": "Unity",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / UNITY / unity_02_mira_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/unity/unity_02_mira_full_body.webp",
+   "game_full_body": "assets/characters/unity/unity_02_mira_full.webp",
+   "silhouette_bbox_px": [
+    97,
+    18,
+    781,
+    1635
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / UNITY / unity_02_mira_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/unity/unity_02_mira_thigh_up_square.webp",
+   "game_portrait": "assets/characters/unity/unity_02_mira_portrait.webp",
+   "display_name": "Mira Dane",
+   "roster_slot": 2,
+   "roster_type": "Level 2 Academy Pilot",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Unity\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Unity\"]"
+  },
+  {
+   "character_id": "unity_03_rowan",
+   "faction": "Unity",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / UNITY / unity_03_rowan_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/unity/unity_03_rowan_full_body.webp",
+   "game_full_body": "assets/characters/unity/unity_03_rowan_full.webp",
+   "silhouette_bbox_px": [
+    131,
+    24,
+    762,
+    1648
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / UNITY / unity_03_rowan_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/unity/unity_03_rowan_thigh_up_square.webp",
+   "game_portrait": "assets/characters/unity/unity_03_rowan_portrait.webp",
+   "display_name": "Rowan Hale",
+   "roster_slot": 3,
+   "roster_type": "Level 3 Specialist Pilot",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Unity\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Unity\"]"
+  },
+  {
+   "character_id": "unity_04_selene",
+   "faction": "Unity",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / UNITY / unity_04_selene_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/unity/unity_04_selene_full_body.webp",
+   "game_full_body": "assets/characters/unity/unity_04_selene_full.webp",
+   "silhouette_bbox_px": [
+    82,
+    25,
+    856,
+    1637
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / UNITY / unity_04_selene_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/unity/unity_04_selene_thigh_up_square.webp",
+   "game_portrait": "assets/characters/unity/unity_04_selene_portrait.webp",
+   "display_name": "Selene Ward",
+   "roster_slot": 4,
+   "roster_type": "Level 4 Elite Ace Pilot",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Unity\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Unity\"]"
+  },
+  {
+   "character_id": "unity_05_elite_guard",
+   "faction": "Unity",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / UNITY / unity_05_elite_guard_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/unity/unity_05_elite_guard_full_body.webp",
+   "game_full_body": "assets/characters/unity/unity_05_elite_guard_full.webp",
+   "silhouette_bbox_px": [
+    118,
+    10,
+    816,
+    1652
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / UNITY / unity_05_elite_guard_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/unity/unity_05_elite_guard_thigh_up_square.webp",
+   "game_portrait": "assets/characters/unity/unity_05_elite_guard_portrait.webp",
+   "display_name": "Unity Elite Guard",
+   "roster_slot": 5,
+   "roster_type": "Level 5 Elite Military Guard",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Unity\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Unity\"]"
+  },
+  {
+   "character_id": "unity_06_elara",
+   "faction": "Unity",
+   "source_full_body": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / UNITY / unity_06_elara_full_body.png",
+   "source_full_body_px": [
+    941,
+    1672
+   ],
+   "master_full_body": "art/characters/unity/unity_06_elara_full_body.webp",
+   "game_full_body": "assets/characters/unity/unity_06_elara_full.webp",
+   "silhouette_bbox_px": [
+    79,
+    12,
+    855,
+    1657
+   ],
+   "silhouette_clipped": false,
+   "source_portrait": "Google Drive folder 12TpjsJs19bin1QUkbUTwf4P0hCLpagHx / UNITY / unity_06_elara_thigh_up_square.png",
+   "source_portrait_px": [
+    1254,
+    1254
+   ],
+   "master_portrait": "art/characters/unity/unity_06_elara_thigh_up_square.webp",
+   "game_portrait": "assets/characters/unity/unity_06_elara_portrait.webp",
+   "display_name": "Commander Elara Voss",
+   "roster_slot": 6,
+   "roster_type": "Level 6 Alliance Commander",
+   "animation_status": "flat illustration (not layered, not rigged); used as a cut-out that rises from cover, sways, flinches and falls in the hub lockdown",
+   "hostility_reference": "Factions.hostile(\"Unity\"): the player's standing band (Data.REP_INFO, orange/red/gray = hostile); base_standing in Factions.DEFS[\"Unity\"]"
+  }
+ ]
+}
