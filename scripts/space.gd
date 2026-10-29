@@ -212,6 +212,7 @@ func _setup(id: String, arrival: String, staged: bool) -> void:
 	_named_down = {}
 	_incursion = Factions.raider_of(str(sys.get("faction", ""))) if randf() < Data.INCURSION_CHANCE else ""
 	faction_mech(str(sys.get("faction", "")))   # v1.9i: fetch this space's own mech early (its patrols and ground jobs use it)
+	if SystemBuilder.is_unknown(sys): _spawn_kaiju_nests()   # v10.8 (owner): the unknown areas hold Kaijurai carriers
 	if kaiju_space(): _spawn_kaiju_patrols()
 	else: for p in (sys["patrols"] as Array).slice(0, Data.PATROL_GROUPS): _spawn_group(p, (Data.ROSTER_PATROL_SIZE if Factions.replaces_patrols(str(sys.get("faction", ""))) else 2) + (Data.ENEMY_SPACE_EXTRA if SystemBuilder.is_enemy_space(sys) else 0))   # v1.8v: fewer wings; v6.2: more in enemy space
 	spawn_guard()
@@ -2583,6 +2584,65 @@ func _build_player() -> void:
 	add_child(player)
 	set_player_model()
 
+## v10.8 (owner: "these are unknown areas ... battleships where a lot of ships keep coming out until you neutralize
+## them; the bigger the ship the more come out: vessels 5, battleships 10, stations 15"): every unknown area holds a
+## Kaijurai nest. Each carrier keeps up to its brood of fighters in the air, launching a new one every few seconds while
+## you are near, until it is destroyed; then its launches stop (the ones already out fight on). The total in the air is
+## capped so phones keep up.
+var nests: Array = []   # [{ent, kind, brood, kids, cd, woke}]
+var nest_launches := 0   # (checks)
+func _spawn_kaiju_nests() -> void:
+	nests.clear()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(sys_id + "_nests")
+	var pts: Array = sys.get("patrols", [])
+	var anchor: Vector3 = sys["planet"]["pos"]
+	var plan: Array = ["vessel", "battleship"]
+	if rng.randf() < Data.NEST_HIVE_CHANCE: plan.append("station")
+	for i in plan.size():
+		var kind: String = plan[i]
+		var nd: Dictionary = Data.KAIJU_NEST[kind]
+		var base: Vector3 = (pts[i % pts.size()] as Vector3) if not pts.is_empty() else anchor
+		if kind == "station": base = anchor + ((sys["station"]["pos"] as Vector3) - anchor).normalized() * (float(sys["planet"]["radius"]) * 2.2 + 6000.0)
+		var pos := base + Vector3(rng.randf_range(-1, 1), rng.randf_range(-0.2, 0.2), rng.randf_range(-1, 1)) * 1500.0
+		var e := spawn_unit(str(nd["unit"]), pos, pos, "", float(nd.get("scale", 1.0)))
+		e["nest"] = kind
+		(e["node"] as Node3D).set_meta("nest", kind)
+		nests.append({"ent": e, "kind": kind, "brood": int(nd["brood"]), "kids": [], "cd": rng.randf_range(0.5, 2.0), "woke": false})
+
+func nest_alive(nt: Dictionary) -> bool:
+	return enemies.has(nt["ent"]) and is_instance_valid(nt["ent"]["node"])
+
+func nest_brood_out() -> int:
+	var n := 0
+	for nt in nests: n += (nt["kids"] as Array).size()
+	return n
+
+func _update_nests(dt: float) -> void:
+	if nests.is_empty() or not is_instance_valid(player): return
+	var pp := player.global_position
+	for nt in nests:
+		nt["kids"] = (nt["kids"] as Array).filter(func(k): return enemies.has(k) and is_instance_valid(k["node"]))
+		if not nest_alive(nt): continue
+		var cn: Node3D = nt["ent"]["node"]
+		if cn.global_position.distance_to(pp) > Data.NEST_WAKE: continue
+		if not nt["woke"]:
+			nt["woke"] = true
+			message.emit("%s launching fighters! Destroy it to stop them." % str(nt["ent"]["def"]["name"]))
+		nt["cd"] = float(nt["cd"]) - dt
+		if float(nt["cd"]) > 0.0 or (nt["kids"] as Array).size() >= int(nt["brood"]) or nest_brood_out() >= Data.NEST_MAX_OUT: continue
+		nt["cd"] = Data.NEST_LAUNCH_EVERY
+		var kk: String = Data.NEST_FIGHTERS[_rng.randi() % Data.NEST_FIGHTERS.size()]
+		var out_dir := (pp - cn.global_position).normalized()
+		var r: float = float(nt["ent"]["def"].get("radius", 30.0)) * float(Data.KAIJU_NEST[nt["kind"]].get("scale", 1.0))
+		var at: Vector3 = cn.global_position + out_dir * (r + 25.0) + Vector3(_rng.randfn(0, 1), _rng.randfn(0, 0.3), _rng.randfn(0, 1)) * 15.0
+		var kid := spawn_unit(kk, at, cn.global_position)
+		kid["aggro"] = true
+		kid["vel"] = out_dir * 60.0
+		(nt["kids"] as Array).append(kid)
+		nest_launches += 1
+
+
 ## v1.9i: the player's mech, built from the fitted arms / core / legs. Until a part's pack is in, the Black-Gold frame
 ## stands in and the mech is rebuilt when the pack arrives.
 func _player_mech_model() -> Node3D:
@@ -3307,6 +3367,7 @@ func _process(dt: float) -> void:
 		GS.explore(sys_id, player.global_position, Data.FOG_REVEAL)
 	Missions.tick(self, dt)   # v1.5f
 	_update_special(dt)   # v1.5o
+	_update_nests(dt)   # v10.8
 	_update_nav()   # v1.5i
 	_update_beacon()
 	_update_buoys()   # v10.4

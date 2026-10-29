@@ -1460,6 +1460,14 @@ func _run() -> void:
 			await _wait(0.6)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_V108") != "":   # the v10.8 Kaijurai nests only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_v108()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_V106") != "":   # the v10.6 map / gate / guns checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1994,6 +2002,7 @@ func _run() -> void:
 	await _job_grid10()
 	await _job_v104()
 	await _job_v106()
+	await _job_v108()
 	await _job_edge()
 	await _job_open()
 	await _job_unknown()
@@ -3007,6 +3016,51 @@ func _job_v99_hub() -> void:
 		clear and list_clear and went_up and back and fs_ok and boxed == hb.subtabs.get_child_count() and boxed > 0,
 		"clear %s list %s up %s back %s fs %s (%s, hidden %s, vis %s, fs %s hide %s) boxed %d/%d" % [clear, list_clear, went_up, back, fs_ok, fs.text if fs else "none", hb.panels_hidden, fs.visible if fs else false, fs.get_global_rect() if fs else Rect2(), hb.show_btn.get_global_rect(), boxed, hb.subtabs.get_child_count()])
 	hb.visible = false
+
+## v10.8 (owner): the unknown areas hold Kaijurai carriers (a vessel 5, a battleship 10, sometimes a hive station 15)
+## that keep launching fighters while you are near, until you destroy them.
+func _job_v108() -> void:
+	var s := _sp()
+	if s.surface_mode or main.state != "flight": return
+	var sys0: String = s.sys_id
+	var uid := ""
+	for sid in Data.SYSTEMS:
+		if SystemBuilder.is_unknown(Data.SYSTEMS[sid]) and uid == "": uid = sid
+	if uid == "":
+		_check("v10.8: an unknown area exists to hold a Kaijurai nest", false)
+		return
+	GS.god_mode = true
+	main._load_system(uid, "station")
+	await _wait(2.0)
+	s = _sp()
+	var kinds: Array = s.nests.map(func(x): return x["kind"])
+	var broods: Array = s.nests.map(func(x): return x["brood"])
+	var bs: Dictionary = {}
+	for nt in s.nests:
+		if nt["kind"] == "battleship": bs = nt
+	var launched_ok := false
+	var stop_ok := false
+	if not bs.is_empty():
+		var cn: Node3D = bs["ent"]["node"]
+		_tp(cn.global_position + Vector3(0, 300, 1800), cn.global_position)
+		var l0: int = s.nest_launches
+		await _wait(7.5)
+		launched_ok = s.nest_launches - l0 >= 2 and (bs["kids"] as Array).size() >= 2
+		await _shot("v108_kaiju_battleship_launching", 0.2)
+		s._damage_enemy(bs["ent"], 1e9)
+		await _wait(0.5)
+		var l1: int = s.nest_launches
+		await _wait(4.0)
+		var still: int = 0
+		for nt in s.nests:
+			if nt != bs and s.nest_alive(nt) and (nt["ent"]["node"] as Node3D).global_position.distance_to(s.player.global_position) < Data.NEST_WAKE: still += 1
+		stop_ok = not s.nest_alive(bs) and (still > 0 or s.nest_launches == l1)
+	_check("v10.8 (owner: \"vessels 5, battleships 10, stations 15\"): an unknown area holds Kaijurai carriers (%s) that keep launching fighters while you are near (up to their brood, %d in the air at most), and a destroyed carrier launches no more" % [", ".join(kinds), Data.NEST_MAX_OUT],
+		kinds.has("vessel") and kinds.has("battleship") and broods.has(5) and broods.has(10) and launched_ok and stop_ok and Data.KAIJU_NEST["station"]["brood"] == 15,
+		"%s in %s, launched %s, stops %s" % [str(kinds), uid, launched_ok, stop_ok])
+	main._load_system(sys0, "station")
+	await _wait(1.6)
+	GS.god_mode = false
 
 ## v10.6 (owner, phone shots): the galaxy map pinches and pulses where you are (unknown areas too) and zooms right in
 ## to show a system's star and planets; a warp gate's card says WARP GATE with the warp hole's picture; the warp tunnel

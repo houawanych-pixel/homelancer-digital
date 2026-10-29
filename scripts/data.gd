@@ -758,6 +758,15 @@ const KAIJU_WINDUP := 0.7          # s the tentacles stretch out before they gra
 const KAIJU_GRAB_EVERY := 2.0      # s between grabs
 const KAIJU_PACK := 10             # fighters in a Kaijurai fighter pack
 const KAIJU_PACK_SHIPS := ["kaijurai_fang", "kaijurai_dart", "kaijurai_fang", "kaijurai_heavy", "kaijurai_fang", "kaijurai_dart", "kaijurai_fang", "kaijurai_gunship", "kaijurai_fang", "kaijurai_dart"]
+const KAIJU_NEST := {   # v10.8 (owner): the carriers in the unknown areas and how many fighters each keeps in the air
+	"vessel": {"unit": "kaijurai_hound", "brood": 5},
+	"battleship": {"unit": "kaijurai_reaper", "brood": 10},
+	"station": {"unit": "kaiju_hive", "brood": 15, "scale": 2.6}}
+const NEST_FIGHTERS := ["kaijurai_fang", "kaijurai_dart", "kaijurai_fang", "kaijurai_heavy"]
+const NEST_WAKE := 6000.0          # a carrier launches only while you are this close (m)
+const NEST_LAUNCH_EVERY := 3.0     # s between launches from one carrier
+const NEST_MAX_OUT := 18           # fighters from all the nests in the air at once, at most (phones)
+const NEST_HIVE_CHANCE := 0.4      # share of unknown areas that also hold a Kaijurai hive station
 const KAIJU_BIG := ["kaijurai_stalker", "kaijurai_hound", "kaijurai_reaper", "kaijurai_ravager"]
 # v6.2 (owner): "the strange tail behind it ... a very strange kind of flow movement": the back of these models waves.
 # key: [tail direction in the model's own axes, wave size (share of the model), waves along the body, speed]
@@ -1635,6 +1644,7 @@ const ENEMIES := {
 	"inv_battleship": {"name": "Battleship", "model": "savager_carrier", "scale": 1.0, "hull": 9000.0, "shield": 3000.0, "speed": 7.0, "turn": 0.05, "damage": 9.0, "rate": 3.0, "reward": 3000, "capital": true, "hit_r": 62.0, "range": 1300.0, "radius": 70.0},
 	"inv_warship": {"name": "Warship", "model": "savager_cruiser", "scale": 2.0, "hull": 4500.0, "shield": 1500.0, "speed": 10.0, "turn": 0.08, "damage": 8.0, "rate": 2.4, "reward": 1500, "capital": true, "hit_r": 38.0, "range": 1100.0, "radius": 42.0},
 	"inv_destroyer": {"name": "Destroyer", "model": "savager_cruiser", "scale": 1.4, "hull": 3000.0, "shield": 1000.0, "speed": 14.0, "turn": 0.1, "damage": 7.0, "rate": 2.0, "reward": 1000, "capital": true, "hit_r": 28.0, "range": 1000.0, "radius": 30.0},
+	"kaiju_hive": {"name": "Kaijurai Hive", "class": "hive station", "faction": "Kaijurai", "model": "kaijurai_ravager", "scale": 1.0, "hull": 9000.0, "shield": 3000.0, "speed": 0.0, "turn": 0.0, "damage": 10.0, "rate": 1.6, "reward": 3500, "capital": true, "hit_r": 90.0, "range": 1300.0, "radius": 40.0},   # v10.8: a placeholder hive (the Ravager, grown) until a real one is made
 	"inv_command": {"name": "Star Command Station", "model": "station", "scale": 1.0, "hull": 12000.0, "shield": 4000.0, "speed": 0.0, "turn": 0.0, "damage": 10.0, "rate": 2.0, "reward": 4000, "capital": true, "hit_r": 72.0, "range": 1400.0, "radius": 80.0},
 	"raider": {"name": "Raider", "hull": 60.0, "shield": 30.0, "speed": 44.0, "turn": 1.3, "damage": 5.0, "rate": 1.6, "reward": 150},
 	"corsair": {"name": "Corsair", "model": "enemy2", "hull": 90.0, "shield": 50.0, "speed": 48.0, "turn": 1.4, "damage": 6.0, "rate": 1.9, "reward": 220, "missiles": true},
