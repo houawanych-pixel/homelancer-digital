@@ -2871,6 +2871,7 @@ func _job_v99_hub() -> void:
 	var hb = main.hub
 	hb.open(Data.SYSTEMS[s.sys_id]["station"])
 	await _frames(2)
+	if hb.panels_hidden: hb.set_panels_hidden(false)   # (an earlier check can leave them folded)
 	hb.show_screen("missions")
 	hb.open_call("l", "Test Caller", "AT THIS STATION", "I have work for you on the Mission Board.", "")
 	await _frames(4)
@@ -2898,7 +2899,7 @@ func _job_v99_hub() -> void:
 	await _shot("v99_board", 0.3)
 	_check("v9.9 (owner): a call at the panel's top no longer covers the board's UP tab or its list (UP scrolls back up, the page moves back when the call goes); FULL SCREEN button on the station pages; the page names under the tabs sit in see-through dark boxes",
 		clear and list_clear and went_up and back and fs_ok and boxed == hb.subtabs.get_child_count() and boxed > 0,
-		"clear %s list %s up %s back %s fs %s boxed %d/%d" % [clear, list_clear, went_up, back, fs_ok, boxed, hb.subtabs.get_child_count()])
+		"clear %s list %s up %s back %s fs %s (%s, hidden %s) boxed %d/%d" % [clear, list_clear, went_up, back, fs_ok, fs.text if fs else "none", hb.panels_hidden, boxed, hb.subtabs.get_child_count()])
 	hb.visible = false
 
 func _job_cadet2() -> void:
