@@ -6953,8 +6953,8 @@ func _update_special(dt: float) -> void:
 	var was := _special_was_held
 	_special_was_held = special_held
 	_special_was_held_prev = was
-	if is_instance_valid(model) and ShipFactory.wings_open(model) >= 0.0:   # v1.5p: folding wings swing out for the special
-		var want := 1.0 if special_state != "idle" and special_move() == "wings_out" else 0.0
+	if is_instance_valid(model) and ShipFactory.wings_open(model) >= 0.0:   # v10.5 (owner): the arms stay out, and swing in for warp
+		var want := 0.0 if warp_state != "off" else 1.0
 		var k := ShipFactory.wings_open(model)
 		if not is_equal_approx(k, want): ShipFactory.set_wings(model, move_toward(k, want, dt * Data.WINGS_OPEN_RATE))
 	match special_state:

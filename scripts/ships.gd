@@ -160,9 +160,9 @@ static func build(key: String, keep := true) -> Node3D:
 		_fit(root, inst, GLB[key][1])
 		root.set_meta("placeholder", false)
 		if Data.SHIP_FLOW.has(key): _flow(inst, Data.SHIP_FLOW[key])
-		if Data.SHIP_WINGS.has(key):   # v1.5p: folding wings start folded (the open form is only for the SPECIAL)
-			root.set_meta("wings_key", key)
-			set_wings(root, 0.0)
+		if Data.SHIP_WINGS.has(key):   # v10.5 (owner: "the arms come inward when it goes into warp"): folding wings start OUT
+			root.set_meta("wings_key", key)   # (they fly and fight open, like the sheet; they swing in only for warp)
+			set_wings(root, 1.0)
 		return root
 	root.set_meta("placeholder", true)
 	match key:

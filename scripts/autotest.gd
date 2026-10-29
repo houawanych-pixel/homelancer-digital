@@ -3031,11 +3031,12 @@ func _job_elyza2() -> void:
 	var front := ShipFactory.mount_node(m, -1)
 	var nose_fwd: bool = front != null and (m.global_transform.affine_inverse() * front.global_position).z < -bb.size.z * 0.4
 	var tuck: float = Data.SHIP_WINGS["elyza_fighter"]
+	var w_open: float = ShipFactory._aabb(m, Transform3D.IDENTITY).size.x   # (v10.5: built with the arms out)
+	ShipFactory.set_wings(m, 0.0)
 	var folded: bool = wl != null and wr != null and is_equal_approx(wl.position.x, tuck) and is_equal_approx(wr.position.x, -tuck)
 	var w_fold: float = ShipFactory._aabb(m, Transform3D.IDENTITY).size.x
 	ShipFactory.set_wings(m, 1.0)
-	var w_open: float = ShipFactory._aabb(m, Transform3D.IDENTITY).size.x
-	_check("v10: the Elyza fighter is the remodelled model (real GLB, 12 m, centred, nose to -Z, level 1 mounts: 4 core + 1 per wing on the pods; the pods on their arms fold in to fly and swing out for the SPECIAL)",
+	_check("v10: the Elyza fighter is the remodelled model (real GLB, 12 m, centred, nose to -Z, level 1 mounts: 4 core + 1 per wing on the pods; the pods on their arms; v10.5: out to fly, in for warp)",
 		str(ShipFactory.GLB["elyza_fighter"][0]).ends_with("elyza_fighter_v2.glb") and not m.get_meta("placeholder", true) and absf(bb.size.z - Data.ELYZA_FIGHTER_LEN) < 0.6
 		and bb.get_center().length() < 0.8 and mounts == 6 and all_mounts == 6 and on_wings and nose_fwd and folded and w_open > w_fold + 1.5,
 		"len %.2f centre %s mounts %d/%d wings %s folded %s width %.1f -> %.1f" % [bb.size.z, str(bb.get_center()), mounts, all_mounts, on_wings, folded, w_fold, w_open])
@@ -3044,6 +3045,24 @@ func _job_elyza2() -> void:
 	e["aggro"] = false
 	await _wait(0.4)
 	await _shot("elyza2_in_flight", 0.3)
+	# v10.5 (owner: "the arms come inward when it goes into warp"): flying the Elyza, the arms are out; warp folds them in
+	var keep_ship: String = GS.ship_id
+	GS.ship_id = "elyza"
+	GS.form = "ship"
+	s.set_player_model()
+	await _frames(2)
+	var out0: float = ShipFactory.wings_open(s.model)
+	var ws0: String = s.warp_state
+	s.warp_state = "charging"
+	for i in 12: s._update_special(0.1)
+	var in_warp: float = ShipFactory.wings_open(s.model)
+	s.warp_state = ws0
+	for i in 12: s._update_special(0.1)
+	var after: float = ShipFactory.wings_open(s.model)
+	GS.ship_id = keep_ship
+	s.set_player_model()
+	_check("v10.5 (owner): the Elyza flies and fights with its arms out (like the sheet) and swings them in when it warps, out again after",
+		out0 == 1.0 and in_warp == 0.0 and after == 1.0, "out %.2f, warping %.2f, after %.2f" % [out0, in_warp, after])
 
 func _job_cadet2() -> void:
 	var s := _sp()
@@ -6826,13 +6845,13 @@ func _job_as() -> void:
 	var wr := m.find_child("WingR", true, false) as Node3D
 	var body := m.find_child("Body", true, false)
 	var tuck: float = Data.SHIP_WINGS["elyza_fighter"]
+	var opened: bool = (is_equal_approx(wl.position.x, 0.0) and is_equal_approx(wr.position.x, 0.0) if wl and wr else false) and ShipFactory.wings_open(m) == 1.0   # (v10.5: built open)
+	var box2: AABB = ShipFactory._aabb(m, Transform3D.IDENTITY)
+	ShipFactory.set_wings(m, 0.0)
 	var folded: bool = wl != null and wr != null and is_equal_approx(wl.position.x, tuck) and is_equal_approx(wr.position.x, -tuck) and ShipFactory.wings_open(m) == 0.0
 	var box: AABB = ShipFactory._aabb(m, Transform3D.IDENTITY)
-	ShipFactory.set_wings(m, 1.0)
-	var opened: bool = is_equal_approx(wl.position.x, 0.0) and is_equal_approx(wr.position.x, 0.0) if wl and wr else false
-	var box2: AABB = ShipFactory._aabb(m, Transform3D.IDENTITY)
 	var wider: bool = box2.size.x > box.size.x * 1.3
-	_check("Job AS: the Elyza fighter is the owner's model (one file, Body + WingL + WingR), nose at -Z, about %d m; it flies with the wings folded in, and they swing out on their arms" % int(Data.ELYZA_FIGHTER_LEN),
+	_check("Job AS: the Elyza fighter is the owner's model (one file, Body + WingL + WingR), nose at -Z, about %d m; v10.5: it flies with the arms out and folds them in (for warp)" % int(Data.ELYZA_FIGHTER_LEN),
 		ShipFactory.has_real_model("elyza_fighter") and not m.get_meta("placeholder", true) and body != null and folded and opened and wider and absf(box.size.z - Data.ELYZA_FIGHTER_LEN) < 1.5 and is_equal_approx(float(ShipFactory.GLB["elyza_fighter"][2]), 0.0),
 		"folded %s opened %s width %.1f -> %.1f length %.1f" % [folded, opened, box.size.x, box2.size.x, box.size.z])
 	m.free()
@@ -6883,8 +6902,8 @@ func _job_as() -> void:
 	GS.special_used = {"half": false, "crit": false}
 	s.set_player_model()
 	var other_roll: bool = s.special_move() == "roll" or keep_ship == "elyza"
-	_check("Job AS: each ship has its own special move set (the Elyza fighter's is its wings; v6.9: the SPECIAL itself is now the lightning storm); the wings sit folded after; a ship without its own move just rolls",
-		move_ok and w0 == 0.0 and w_end < 0.05 and other_roll and enemy_real,
+	_check("Job AS: each ship has its own special move set (the Elyza fighter's is its wings; v6.9: the SPECIAL itself is now the lightning storm); v10.5: the arms stay out through it (they only fold for warp); a ship without its own move just rolls",
+		move_ok and w0 == 1.0 and w_end > 0.95 and other_roll and enemy_real,
 		"wings %.2f -> %.2f -> %.2f roll %s, enemy model real %s" % [w0, w_mid, w_end, rolled, enemy_real])
 
 
