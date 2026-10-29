@@ -60,6 +60,7 @@ var room_yaw := 0.0
 var room_pitch := 0.0
 var room_idle := 0.0
 var room_key := ""
+var room_hostile := false   # v9.3: the lockdown version of the room is showing
 var _motion0 := -999.0
 var _motion_yaw0 := 0.0
 var bg_tex: Texture2D     # v1.4s: ONE static picture behind the interface (station's own > faction's > none)
@@ -1055,20 +1056,26 @@ func _show_room(s: String) -> void:
 	var rn := key.substr(f.length() + 1)
 	var pk := "room_" + key
 	var path := "res://assets/rooms/%s/%s.jpg" % [f, rn]
+	var hostile_room := false
+	if lockdown_due() and Packs.PACKS.has("room_hostile_" + key):   # v9.3 (owner): their people want you gone: the wrecked, red-lit room
+		pk = "room_hostile_" + key
+		path = "res://assets/rooms_hostile/%s/%s.jpg" % [f, rn]
+		hostile_room = true
 	if not (Packs.is_ready(pk) and ResourceLoader.exists(path)):
 		Packs.request(pk)
 		if not Packs.pack_ready.is_connected(_on_room_pack): Packs.pack_ready.connect(_on_room_pack)
 		room_view.visible = false
 		return
 	var m := room_view.material as ShaderMaterial
-	if key != room_key:   # a new room: face its front, and let the last picture go
+	if key != room_key or hostile_room != room_hostile:   # a new room: face its front, and let the last picture go
 		room_key = key
+		room_hostile = hostile_room
 		asst_yaw = -1.0
 		room_yaw = Data.ROOM_FRONT
 		room_pitch = 0.0
 		room_idle = 0.0
 		m.set_shader_parameter("strip", load(path))
-		_room_video(path.get_basename() + ".ogv")
+		_room_video(path.get_basename() + ".ogv" if not hostile_room else "")
 	elif room_vid_on and not room_vid.is_playing(): room_vid.play()   # (back in the same room)
 	room_view.visible = true
 	_update_room(0.0)
@@ -1132,7 +1139,7 @@ func _room_sound_levels(dt: float) -> void:
 		pl.volume_db = linear_to_db(maxf(lerpf(now, want, clampf(dt * 8.0, 0.0, 1.0)), 0.0001))
 
 func _on_room_pack(pk: String) -> void:
-	if visible and pk.begins_with("room_") and pk == "room_" + room_for(screen):
+	if visible and pk.begins_with("room_") and (pk == "room_" + room_for(screen) or pk == "room_hostile_" + room_for(screen)):
 		if screen == "equipment": show_screen("equipment")   # (the bay picture steps aside for the room)
 		else: _show_room(screen)
 

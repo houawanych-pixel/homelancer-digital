@@ -64,6 +64,18 @@ func start(fac: String, room_list: Array) -> void:
 	_start_siren()
 	_load_cast()
 	_enter_room()
+	if not Packs.pack_ready.is_connected(_on_pack): Packs.pack_ready.connect(_on_pack)
+
+## v9.3: on the web the lockdown pictures and the cast arrive a moment later: swap them in as they land.
+func _on_pack(pk: String) -> void:
+	if not visible or state == "done": return
+	if pk == "chars_" + faction:
+		var keep_leader := int(enemies[-1]["slot"]) if not enemies.is_empty() else 0
+		_load_cast()
+		squad_leader = cast.get(keep_leader, {})
+	elif room_i < rooms.size() and pk == "room_hostile_%s_%s" % [faction, rooms[room_i]]:
+		strip = _room_texture(str(rooms[room_i]))
+	queue_redraw()
 
 ## v9.3: the faction's six people from the roster (names from the game's lore), with their cut-out pictures.
 func _load_cast() -> void:

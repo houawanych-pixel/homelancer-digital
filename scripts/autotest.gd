@@ -9474,6 +9474,16 @@ func _job_v92_breakout() -> void:
 		await _until(func(): return bo.room_i > r or not bo.visible, 5.0)
 	await _frames(3)
 	var out_ok: bool = rooms_seen == Data.BREAKOUT_ROOMS.size() and not hb.lockdown and not bo.visible and hb.screen == "equipment" and not hb.launch_btn.disabled
+	# v9.3 (owner): while their people are hostile, the hub pages show the lockdown pictures where there are some
+	var ro0: String = hb.room_override
+	hb.room_override = "liberator"   # (a faction with lockdown pictures, standing in for this station's)
+	hb.show_screen("hub")
+	await _frames(3)
+	var swap_ok: bool = hb.room_hostile and hb.room_view.visible and hb.room_key == "liberator_main_hub"
+	hb.room_override = ro0
+	hb.show_screen("equipment")
+	await _frames(2)
+	out_ok = out_ok and swap_ok
 	_check("v9.2 (owner): docking where they are hostile starts a lockdown (alarm, LAUNCH locked, Evee away) in the lockdown picture; each room has 5 soldiers + a squad leader (v9.3: the faction's own cut-out people, a named leader); ducking and side-stepping dodge their shots, standing in the line gets you hit, the sight fires on its own; clear %d rooms to reach the hangar and launch" % Data.BREAKOUT_ROOMS.size(),
 		lock_ok and room_ok and art_ok and cast_ok and duck_ok and side_ok and hit_ok and fire_ok and out_ok,
 		"own %s lock %s room %s art %s cast %s %s duck %s side %s hit %s fire %s out %s (rooms %d)" % [own, lock_ok, room_ok, art_ok, cast_ok, cast_names, duck_ok, side_ok, hit_ok, fire_ok, out_ok, rooms_seen])
