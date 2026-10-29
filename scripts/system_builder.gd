@@ -323,6 +323,25 @@ static func spread(out: Dictionary) -> void:
 		if is_unknown(sy): _orbit_layout(id, sy)
 		_keep_off_sun(sy)
 		_keep_in_tile(sy)
+		_station_out_of_cloud(sy)
+
+## v10.4 (owner: bigger Freelancer clouds): the bigger main cloud must not swallow the main station (unless the station
+## is a lighthouse that lives in the fog): its middle slides straight away from the station until the station is clear.
+static func _station_out_of_cloud(sy: Dictionary) -> void:
+	if sy["station"].get("lamp", false): return
+	var R: float = float(sy["nebula"].get("radius", 0.0)) * Data.NEBULA_SIZE
+	if R <= 1.0: return
+	var st: Vector3 = sy["station"]["pos"]
+	var c: Vector3 = sy["nebula"]["center"]
+	var need: float = R + Data.NEBULA_STATION_GAP
+	var off := Vector3(c.x - st.x, 0.0, c.z - st.z)
+	if off.length() >= need: return
+	if off.length() < 1.0: off = Vector3(st.x, 0.0, st.z) * -1.0 if Vector2(st.x, st.z).length() > 1.0 else Vector3(1, 0, 0)
+	var nc := st + off.normalized() * need
+	var lim: float = Data.SPACE_EDGE * 0.92
+	if absf(nc.x) > lim or absf(nc.z) > lim:   # (pushed off the tile: go the other way, toward the middle)
+		nc = st - off.normalized() * need
+	sy["nebula"]["center"] = Vector3(clampf(nc.x, -lim, lim), c.y, clampf(nc.z, -lim, lim))
 
 ## v8.9: one place, pulled in toward the centre if it would sit past Data.SYSTEM_EDGE_SOFT (the far ones bunch up
 ## a little near the border instead of running off the tile).

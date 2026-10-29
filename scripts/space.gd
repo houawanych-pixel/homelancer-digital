@@ -203,6 +203,7 @@ func _setup(id: String, arrival: String, staged: bool) -> void:
 	_prof("asteroid belt")
 	_build_nebula(sys["nebula"])
 	_build_beacon()
+	_build_buoys()   # v10.4
 	_prof("nebula")
 	if staged: await get_tree().process_frame
 	_build_player()
@@ -1757,6 +1758,21 @@ static func nebulae_of(id: String, s: Dictionary) -> Array:
 		col.s = clampf(col.s * rng.randf_range(0.8, 1.15), 0.25, 0.9)
 		col.v = clampf(col.v * rng.randf_range(0.85, 1.1), 0.55, 1.0)
 		out.append({"name": "", "center": c, "radius": r, "color": col, "main": false})
+	# v10.4 (owner: Freelancer clouds with things in them): a cloud sits over part of the asteroid field, so one side of
+	# the field is lost in the haze (it keeps clear of the station and the other clouds; skipped if it can't)
+	if not belt.is_empty() and float(belt.get("radius", 0.0)) > 1.0:
+		var br: float = float(belt["radius"])
+		for t in 8:
+			var a2 := rng.randf() * TAU
+			var bc: Vector3 = (belt["center"] as Vector3) + Vector3(cos(a2), 0.0, sin(a2)) * br * Data.BELT_CLOUD_OFF
+			var bcr: float = br * Data.BELT_CLOUD_SIZE
+			var ok2: bool = bc.distance_to(o) > bcr + Data.NEBULA_STATION_GAP and absf(bc.x) < Data.SPACE_EDGE * 0.9 and absf(bc.z) < Data.SPACE_EDGE * 0.9
+			for nd in out:
+				if bc.distance_to(nd["center"]) < bcr + float(nd["radius"]) * 0.8: ok2 = false
+			if not ok2: continue
+			var bcol: Color = (n["color"] as Color).lerp(Color(0.62, 0.55, 0.48), 0.45)   # dusty, rock-coloured
+			out.append({"name": "", "center": bc, "radius": bcr, "color": bcol, "main": false, "belt": true})
+			break
 	for i in out.size():   # v1.9z: each cloud's own weather (the same every visit)
 		out[i]["weather"] = Data.NEBULA_WEATHERS[absi(hash(id + "_wx%d" % i)) % Data.NEBULA_WEATHERS.size()]
 	return out
@@ -1894,7 +1910,7 @@ func _build_nebula(d: Dictionary) -> void:
 		nd["mat"] = mat
 		nd["pts"] = pts
 		nd["next_flash"] = rng.randf_range(0.5, Data.NEBULA_FLASH_EVERY[1])
-		if nd["weather"] == "rocks": _nebula_rocks(holder, nd, rng)
+		if nd["weather"] == "rocks" or nd["main"]: _nebula_rocks(holder, nd, rng)   # (v10.4: the main cloud always has rocks)
 		nd["flash_t"] = -1.0
 		nd["flash_at"] = nd["center"]
 		nebulae.append(nd)
@@ -2046,9 +2062,15 @@ func _nebula_rocks(holder: Node3D, nd: Dictionary, rng: RandomNumberGenerator) -
 	mm.mesh = _rock_mesh(hash(sys_id) + 91, false)
 	mm.instance_count = Data.NEBULA_ROCKS
 	var r: float = nd["radius"]
+	# v10.4 (owner: "they had asteroids in the clouds"): the rocks gather in a few drifting clumps (Freelancer style),
+	# some of them along the buoy line, so flying through the murk you pass real rock fields, not one rock a km
+	var clumps: Array = []
+	for k in Data.NEBULA_ROCK_CLUMPS:
+		clumps.append((nd["center"] as Vector3) + Vector3(rng.randfn(0, 1), rng.randfn(0, 0.35), rng.randfn(0, 1)).normalized() * rng.randf_range(r * 0.05, r * 0.6))
+	var cr: float = minf(r * 0.12, Data.NEBULA_ROCK_CLUMP_R)
 	for i in Data.NEBULA_ROCKS:
-		var p: Vector3 = (nd["center"] as Vector3) + Vector3(rng.randfn(0, 1), rng.randfn(0, 0.5), rng.randfn(0, 1)).normalized() * rng.randf_range(r * 0.08, r * 0.7)
-		var rr := lerpf(6.0, 34.0, pow(rng.randf(), 1.8))
+		var p: Vector3 = (clumps[i % clumps.size()] as Vector3) + Vector3(rng.randfn(0, 1), rng.randfn(0, 0.45), rng.randfn(0, 1)) * cr * 0.5
+		var rr := lerpf(Data.NEBULA_ROCK_SIZE[0], Data.NEBULA_ROCK_SIZE[1], pow(rng.randf(), 2.0))
 		mm.set_instance_transform(i, Transform3D(Basis.from_euler(Vector3(rng.randf() * TAU, rng.randf() * TAU, rng.randf() * TAU)).scaled(Vector3.ONE * rr), p))
 		rocks.append([p, rr * 1.05])
 	var mi := MultiMeshInstance3D.new()
@@ -2368,6 +2390,168 @@ func _beacon_model() -> void:
 		beacon_model.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		body.add_child(beacon_model)
 	sc.free()
+
+## v10.4 (owner: "the satellite with a light beacon is good to have in those clouds, to show direction"): every cloud
+## has a line of small beacon buoys running through it, from the side facing the main station to its gate (a gate
+## cloud) or out the far side. Their lights shine through the fog and a pulse runs along the line toward the way out,
+## so inside the murk you can always see which way to go. One batch of lights per cloud (the pulse is in the shader),
+## plus the owner's beacon model, small, under each light once the structures pack is in.
+var buoys: Array = []        # [{pos, cloud, i, n}] every buoy in the system (checks, the haze near a lamp)
+var _buoy_holder: Node3D
+static var _buoy_sh: Shader
+static func buoy_shader() -> Shader:
+	if _buoy_sh != null: return _buoy_sh
+	_buoy_sh = Shader.new()
+	_buoy_sh.code = """
+shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled, fog_disabled;
+uniform sampler2D tex : source_color, filter_linear_mipmap, repeat_disable;
+uniform vec4 tint : source_color = vec4(1.0);
+uniform float rate = 0.5;
+uniform float min_ang = 0.02;
+varying float v_k;
+void vertex() {
+	vec3 wpos = MODEL_MATRIX[3].xyz;
+	float d = distance(wpos, INV_VIEW_MATRIX[3].xyz);
+	float sc = max(length(MODEL_MATRIX[0].xyz), d * min_ang);
+	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(INV_VIEW_MATRIX[0] * sc, INV_VIEW_MATRIX[1] * sc, INV_VIEW_MATRIX[2] * sc, vec4(wpos, 1.0));
+	float idx = INSTANCE_CUSTOM.x;
+	float n = max(INSTANCE_CUSTOM.y, 1.0);
+	float ph = fract(TIME * rate * 4.0 / n - idx / n);
+	v_k = 0.35 + 0.65 * pow(1.0 - min(ph, 1.0 - ph) * 2.0, 6.0) + INSTANCE_CUSTOM.z;
+}
+void fragment() {
+	vec4 t = texture(tex, UV);
+	ALBEDO = tint.rgb * t.rgb * v_k;
+	ALPHA = t.a * clamp(v_k, 0.0, 1.0);
+}
+"""
+	return _buoy_sh
+
+## Where a cloud's buoys go: from its edge facing the main station to its gate (or out the far side), evenly.
+static func buoy_points(nd: Dictionary, station_pos: Vector3, gate_pos: Vector3, n: int) -> Array:
+	var c: Vector3 = nd["center"]
+	var r: float = float(nd["radius"])
+	var to_st := station_pos - c
+	to_st.y = 0.0
+	var dir := to_st.normalized() if to_st.length() > 1.0 else Vector3(1, 0, 0)
+	var a := c + dir * r * Data.BUOY_REACH
+	var b := gate_pos if gate_pos != Vector3.INF else c - dir * r * Data.BUOY_REACH
+	var side := dir.cross(Vector3.UP).normalized()
+	var out: Array = []
+	for i in n:
+		var k := float(i) / float(maxi(n - 1, 1))
+		var p := a.lerp(b, k) + side * sin(k * PI) * r * 0.12   # a gentle bend: a lane, not a ruler line
+		out.append(p)
+	return out
+
+func _build_buoys() -> void:
+	buoys.clear()
+	if is_instance_valid(_buoy_holder): _buoy_holder.queue_free()
+	_buoy_holder = null
+	if surface_mode or nebulae.is_empty(): return
+	_buoy_holder = Node3D.new()
+	_buoy_holder.name = "Buoys"
+	add_child(_buoy_holder)
+	var st: Vector3 = sys["station"]["pos"]
+	var mat := ShaderMaterial.new()
+	mat.shader = buoy_shader()
+	mat.set_shader_parameter("tex", _buoy_glow_tex())
+	mat.set_shader_parameter("tint", Data.BEACON_LIGHT_COLOR)
+	mat.set_shader_parameter("rate", Data.BUOY_PULSE_RATE)
+	var q := QuadMesh.new()
+	q.size = Vector2(1, 1)
+	for ci in nebulae.size():
+		var nd: Dictionary = nebulae[ci]
+		var gp := Vector3.INF
+		if str(nd.get("gate", "")) != "":
+			for g in sys.get("gates", []):
+				if str(g.get("id", "")) == str(nd["gate"]): gp = g["pos"]
+		var n: int = Data.BUOYS_PER_CLOUD
+		var pts := buoy_points(nd, st, gp, n)
+		var c: Vector3 = nd["center"]
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_custom_data = true
+		mm.mesh = q
+		mm.instance_count = n * 2   # the soft halo and the bright star at each lamp
+		for i in n:
+			var lp: Vector3 = (pts[i] as Vector3) - c
+			mm.set_instance_transform(i * 2, Transform3D(Basis().scaled(Vector3.ONE * Data.BUOY_GLOW), lp))
+			mm.set_instance_custom_data(i * 2, Color(i, n, 0.0, 0.0))
+			mm.set_instance_transform(i * 2 + 1, Transform3D(Basis().scaled(Vector3.ONE * Data.BUOY_GLOW * 0.22), lp))
+			mm.set_instance_custom_data(i * 2 + 1, Color(i, n, 0.6, 0.0))
+			buoys.append({"pos": pts[i], "cloud": ci, "i": i, "n": n})
+		var mmi := MultiMeshInstance3D.new()
+		mmi.name = "BuoyLights%d" % ci
+		mmi.multimesh = mm
+		mmi.position = c
+		mmi.material_override = mat
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mmi.custom_aabb = AABB(-Vector3.ONE * float(nd["radius"]) * 2.0, Vector3.ONE * float(nd["radius"]) * 4.0)
+		_buoy_holder.add_child(mmi)
+	_buoy_models()
+	if not Packs.is_ready("structures") and not Packs.pack_ready.is_connected(_on_buoy_pack): Packs.pack_ready.connect(_on_buoy_pack)
+
+func _on_buoy_pack(pk: String) -> void:
+	if pk == "structures" and is_inside_tree(): _buoy_models()
+
+## The owner's beacon model, small, under each buoy light (one batch per cloud), once the structures pack is in.
+func _buoy_models() -> void:
+	if not is_instance_valid(_buoy_holder) or _buoy_holder.has_node("BuoyModels0"): return
+	var path := "res://assets/structures/light_beacon_station.glb"
+	if not (Packs.is_ready("structures") and ResourceLoader.exists(path)): return
+	var sc := (load(path) as PackedScene).instantiate()
+	var found := sc.find_children("*", "MeshInstance3D", true, false)
+	var mesh: Mesh = (found[0] as MeshInstance3D).mesh if not found.is_empty() else null
+	sc.free()
+	if mesh == null: return
+	for ci in nebulae.size():
+		var c: Vector3 = nebulae[ci]["center"]
+		var mine := buoys.filter(func(b): return int(b["cloud"]) == ci)
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = mesh
+		mm.instance_count = mine.size()
+		for k in mine.size():
+			var lamp_up := Vector3(0, Data.BEACON_LAMP_Y * Data.BUOY_SIZE, 0)
+			mm.set_instance_transform(k, Transform3D(Basis(Vector3.UP, float(k) * 0.9).scaled(Vector3.ONE * Data.BUOY_SIZE), (mine[k]["pos"] as Vector3) - c - lamp_up))
+		var mmi := MultiMeshInstance3D.new()
+		mmi.name = "BuoyModels%d" % ci
+		mmi.multimesh = mm
+		mmi.position = c
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_buoy_holder.add_child(mmi)
+
+static var _buoy_tex: ImageTexture
+static func _buoy_glow_tex() -> ImageTexture:
+	if _buoy_tex != null: return _buoy_tex
+	var gi := Image.create(64, 64, false, Image.FORMAT_RGBA8)
+	for y in 64:
+		for x in 64:
+			var r := Vector2(x - 31.5, y - 31.5).length() / 32.0
+			var a := clampf(1.0 - r, 0.0, 1.0)
+			gi.set_pixel(x, y, Color(1, 1, 1, pow(a, 1.8) * 0.7 + pow(a, 8.0) * 0.3))
+	gi.generate_mipmaps()
+	_buoy_tex = ImageTexture.create_from_image(gi)
+	return _buoy_tex
+
+## Near a buoy its light thins the haze a little, like the big beacon (the strongest wins).
+var buoy_near := 0.0   # (checks) 0..1 how close the nearest buoy is
+var _buoy_t := 0.0
+func _update_buoys() -> void:
+	if buoys.is_empty() or not is_instance_valid(player) or nebula_now < 0: 
+		buoy_near = 0.0
+		return
+	_buoy_t -= get_process_delta_time()
+	if _buoy_t <= 0.0:
+		_buoy_t = 0.25
+		var pp := player.global_position
+		var best := INF
+		for b in buoys:
+			if int(b["cloud"]) == nebula_now: best = minf(best, pp.distance_to(b["pos"]))
+		buoy_near = clampf(1.0 - best / Data.BUOY_LIGHT_RANGE, 0.0, 1.0)
+	beacon_lit = maxf(beacon_lit, buoy_near * Data.BUOY_HAZE)
 
 ## The lamp breathes.
 func _update_beacon() -> void:
@@ -3111,6 +3295,7 @@ func _process(dt: float) -> void:
 	_update_special(dt)   # v1.5o
 	_update_nav()   # v1.5i
 	_update_beacon()
+	_update_buoys()   # v10.4
 	_update_nebulae(dt)   # v1.9s
 	_update_atmo_dome()   # v1.9z
 	_update_enemies(dt)
@@ -5154,6 +5339,7 @@ var look := Vector2.ZERO   # cockpit free-look (-1..1): the pilot's head turns t
 const LOOK_YAW := 0.5      # radians at full look left/right
 const LOOK_PITCH := 0.22   # radians at full look up/down (less: you shouldn't see past the canopy art)
 
+var cam_sway := Vector2.ZERO   # v10.4: (side, up) the chase camera trails the ship's sliding moves by (m, ship axes)
 func _update_camera(dt: float, snap: bool) -> void:
 	if is_instance_valid(player): _cam_prev_ship = player.global_position
 	_sync_fpv(dt)
@@ -5185,7 +5371,16 @@ func _update_camera(dt: float, snap: bool) -> void:
 	if GS.form == "mech":   # the mech stands taller: sit the camera higher and further back so it doesn't block the reticle
 		back += 8.0
 		up = 5.5
-	var want_rel: Vector3 = player.global_basis * Vector3(0, up, back)
+	# v10.4 (owner: "when it goes up, the ship should rise above the target level"): the camera lags behind sliding
+	# moves, so climbing lifts the ship up the screen (diving drops it, sliding sideways moves it across), then it
+	# settles back when you level off. Only the camera's place moves, not where it looks along, so the aim stays true.
+	var lv: Vector3 = player.global_basis.inverse() * vel
+	var sway_want := Vector2.ZERO
+	if warp_state == "off" and not snap:
+		sway_want = Vector2(clampf(-lv.x * Data.CAM_SWAY_K, -Data.CAM_SWAY_SIDE, Data.CAM_SWAY_SIDE),
+			clampf(-lv.y * Data.CAM_SWAY_K, -Data.CAM_SWAY_UP, Data.CAM_SWAY_UP))
+	cam_sway = sway_want if snap else cam_sway.lerp(sway_want, minf(1.0, dt * Data.CAM_SWAY_EASE))
+	var want_rel: Vector3 = player.global_basis * Vector3(cam_sway.x, up + cam_sway.y, back)
 	var off: Vector3 = want_rel
 	if not snap:   # v8.9: the lag is on the offset from the ship, not on the world position (at warp / lane speed the camera kept falling km behind)
 		off = _cam_off
@@ -5193,7 +5388,7 @@ func _update_camera(dt: float, snap: bool) -> void:
 		off = off.lerp(want_rel, minf(1.0, dt * 6.0))
 	_cam_off = off
 	var rel := _cam_clip(off)
-	var look_rel := -player.global_basis.z * 30.0 + player.global_basis.y * 2.6
+	var look_rel := -player.global_basis.z * 30.0 + player.global_basis.y * 2.6 + player.global_basis * Vector3(cam_sway.x, cam_sway.y, 0.0)
 	if hit_shake > 0.0: look_rel += Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), 0) * hit_shake * 0.8
 	_set_cam(rel, look_rel, player.global_basis.y)
 	cam.fov = lerpf(cam.fov, 88.0 if warp_state == "on" else (76.0 if boosting else 70.0), minf(1.0, dt * 2.0))

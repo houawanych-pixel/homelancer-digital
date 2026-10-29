@@ -1387,6 +1387,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_V104") != "":   # the v10.4 camera rise, bigger clouds / fields, buoys checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_v104()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_GRID10") != "":   # the v10.3 10 x 10 system map checks only
 		await _job_grid10()
 		for r in results: print("[route] ", r)
@@ -1903,6 +1911,7 @@ func _run() -> void:
 	await _job_v99_hub()
 	await _job_elyza2()
 	await _job_grid10()
+	await _job_v104()
 	await _job_edge()
 	await _job_open()
 	await _job_unknown()
@@ -2916,6 +2925,74 @@ func _job_v99_hub() -> void:
 		clear and list_clear and went_up and back and fs_ok and boxed == hb.subtabs.get_child_count() and boxed > 0,
 		"clear %s list %s up %s back %s fs %s (%s, hidden %s, vis %s, fs %s hide %s) boxed %d/%d" % [clear, list_clear, went_up, back, fs_ok, fs.text if fs else "none", hb.panels_hidden, fs.visible if fs else false, fs.get_global_rect() if fs else Rect2(), hb.show_btn.get_global_rect(), boxed, hb.subtabs.get_child_count()])
 	hb.visible = false
+
+## v10.4 (owner): the chase camera trails climbs and slides (the ship rises up the screen when it goes up), the clouds
+## and fields are Freelancer-big, every cloud has a line of light buoys showing the way, rocks sit in the main cloud,
+## and a dusty cloud hangs over part of the asteroid field.
+func _job_v104() -> void:
+	var s := _sp()
+	if s.surface_mode or main.state != "flight": return
+	var keep_ctl: bool = s.controls
+	s.controls = false
+	var P: Vector3 = s.player.global_position
+	_tp(P, P - s.player.global_basis.z * 100.0)
+	var b: Basis = s.player.global_basis
+	var rest: Vector3 = b.inverse() * (s.cam.global_position - s.player.global_position)
+	for i in 60:
+		s.vel = b.y * 60.0
+		s._update_camera(0.05, false)
+	var up_rel: Vector3 = b.inverse() * (s.cam.global_position - s.player.global_position)
+	var shot_up := s.cam.unproject_position(s.player.global_position)
+	for i in 60:
+		s.vel = Vector3.ZERO
+		s._update_camera(0.05, false)
+	var settle: Vector3 = b.inverse() * (s.cam.global_position - s.player.global_position)
+	var shot_rest := s.cam.unproject_position(s.player.global_position)
+	for i in 60:
+		s.vel = b.x * 60.0
+		s._update_camera(0.05, false)
+	var side_rel: Vector3 = b.inverse() * (s.cam.global_position - s.player.global_position)
+	s.vel = Vector3.ZERO
+	s._update_camera(1.0, true)
+	s.controls = keep_ctl
+	var cam_ok: bool = up_rel.y < rest.y - Data.CAM_SWAY_UP * 0.8 and shot_up.y < shot_rest.y - 5.0 and absf(settle.y - rest.y) < 0.2 and side_rel.x < rest.x - Data.CAM_SWAY_SIDE * 0.8
+	_check("v10.4 (owner: \"when it goes up, the ship should rise above the target level\"): the chase camera trails a climb (the ship rides up the screen), settles back when level, and trails slides sideways",
+		cam_ok, "rest y %.2f, climbing y %.2f (ship on screen %.0f -> %.0f px), settled %.2f, sliding x %.2f" % [rest.y, up_rel.y, shot_rest.y, shot_up.y, settle.y, side_rel.x])
+	# the clouds and fields
+	var neb: Array = s.nebulae
+	var main_r: float = float(neb[0]["radius"]) if not neb.is_empty() else 0.0
+	var belt_cloud := neb.filter(func(x): return x.get("belt", false)).size()
+	var big_ok: bool = main_r * 2.0 >= 100000.0 and s.belt_radius >= 25000.0 and belt_cloud == 1
+	_check("v10.4 (owner: Freelancer-big clouds and fields): the main cloud is %.0f km across, the asteroid field %.0f km out from its middle, and a dusty cloud hangs over part of the field" % [main_r * 0.002, s.belt_radius / 1000.0],
+		big_ok, "main %.0f km, field %.0f km, field cloud %d" % [main_r * 0.002, s.belt_radius / 1000.0, belt_cloud])
+	# the buoys
+	var per_ok := true
+	for ci in neb.size():
+		if s.buoys.filter(func(x): return int(x["cloud"]) == ci).size() != Data.BUOYS_PER_CLOUD: per_ok = false
+	var b0: Array = s.buoys.filter(func(x): return int(x["cloud"]) == 0)
+	var in_cloud := true
+	for x in b0:
+		if (x["pos"] as Vector3).distance_to(neb[0]["center"]) > float(neb[0]["radius"]) * 1.01: in_cloud = false
+	var toward: bool = b0.size() >= 2 and (b0[0]["pos"] as Vector3).distance_to(s.sys["station"]["pos"]) < (b0[-1]["pos"] as Vector3).distance_to(s.sys["station"]["pos"])
+	var lights = s._buoy_holder.get_node_or_null("BuoyLights0") if is_instance_valid(s._buoy_holder) else null
+	var fogfree: bool = lights != null and ((lights as MultiMeshInstance3D).material_override as ShaderMaterial).shader.code.find("fog_disabled") >= 0
+	_check("v10.4 (owner: \"the satellite with a light beacon ... to show direction\"): every cloud has a line of %d light buoys through it, from the side facing the station toward the way out, shining through the fog" % Data.BUOYS_PER_CLOUD,
+		per_ok and s.buoys.size() == neb.size() * Data.BUOYS_PER_CLOUD and in_cloud and toward and fogfree, "%d buoys in %d clouds, in cloud %s, toward %s, fog-free %s" % [s.buoys.size(), neb.size(), in_cloud, toward, fogfree])
+	# inside the main cloud next to a buoy: the haze thins a little and the rocks are there
+	var nb: Vector3 = b0[int(b0.size() / 2)]["pos"]
+	_tp(nb + Vector3(0, 0, 200.0), nb)
+	await _frames(20)
+	var rocks_ok: bool = s.get_node_or_null("Nebula") != null and s.get_node("Nebula").find_child("NebulaRocks", true, false) != null
+	await _shot("v104_cloud_buoys", 0.3)
+	_check("v10.4: inside the main cloud you see the buoy lights and pass rock clumps (the main cloud always has rocks); next to a buoy the haze thins a little",
+		rocks_ok and s.nebula_now == 0 and s.buoy_near > 0.5, "rocks %s, in cloud %d, near %.2f" % [rocks_ok, s.nebula_now, s.buoy_near])
+	var e0: Vector3 = b0[0]["pos"]
+	var e1: Vector3 = b0[1]["pos"]
+	_tp(e0 + (e0 - e1).normalized() * 1500.0 + Vector3(0, 150, 0), e1)
+	await _frames(10)
+	await _shot("v104_buoy_line", 0.3)
+	_tp(P, P - s.player.global_basis.z * 100.0)
+	await _frames(4)
 
 ## v10.3 (owner: "1,000 km, ten squares A-J"): the system map is 10 x 10 (100 km a square); the seen squares still
 ## work, and an older save's 8 x 8 fog carries over.
@@ -9302,7 +9379,7 @@ func _job_v19s() -> void:
 		if (neb[i]["center"] as Vector3).distance_to(sysd["station"]["pos"]) < float(neb[i]["radius"]) + 1000.0: clear = false
 		if (neb[i]["color"] as Color).is_equal_approx(neb[0]["color"]): clear = false
 	_check("v1.9s: every system has its own nebula grown to %.1f km across plus %d more clouds in other sizes and colours, each one batch of smoke puffs (%d puffs in all), clear of the station" % [float(neb[0]["radius"]) * 0.002 if neb.size() > 0 else 0.0, neb.size() - 1, puffs],
-		main_ok and batch_ok and neb.size() == 1 + Data.NEBULA_EXTRA + neb.filter(func(x): return str(x.get("gate", "")) != "").size() and clear, "%d clouds, main %s, batches %s, clear %s" % [neb.size(), main_ok, batch_ok, clear])
+		main_ok and batch_ok and neb.size() == 1 + Data.NEBULA_EXTRA + neb.filter(func(x): return str(x.get("gate", "")) != "" or x.get("belt", false)).size() and clear, "%d clouds, main %s, batches %s, clear %s" % [neb.size(), main_ok, batch_ok, clear])
 	if neb.is_empty(): return
 	main.hud.move_vec = Vector2.ZERO
 	var c0: Vector3 = neb[0]["center"]

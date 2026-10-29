@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v10.3"
+const VERSION := "v10.4"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -696,7 +696,7 @@ const CONVOY_WAVE_SHIPS := [3, 4]               # ships in each ambush (the seco
 # v1.7x (owner): asteroids made of blocks, for mining. Rock outside, obsidian streaks, gold / diamond in some cores; no
 # sand or dirt. Zero gravity: broken blocks drift off, and anything floating past the field's invisible sphere is gone.
 const ASTEROIDS_BLOCK := true
-const FIELD_ROCKS := 600               # v9.0: scenery rocks drawn through a whole field (3 batches; fixed, however big the field)
+const FIELD_ROCKS := 900               # v10.4: more for the bigger fields. v9.0: scenery rocks drawn through a whole field (3 batches; fixed, however big the field)
 const FIELD_ROCK_SIZE := [14.0, 260.0]   # their size range (m), most small
 const FIELD_THICK := 0.12               # how thick the field is (share of its radius, up and down)
 const ASTEROID_BUBBLE := 2500.0         # v9.0: the mineable block asteroids stay within this of you inside the field
@@ -824,10 +824,13 @@ const FOG_RADIUS := 700.0            # Foggiest: the grey cloud that wraps Greyw
 const FOG_COLOR := Color(0.62, 0.65, 0.7)
 # v1.9s (owner: Freelancer-style nebulae): each cloud is hundreds of soft smoke puffs drawn in one batch, real fog inside
 # that thickens the deeper you go, smoke streaming past the ship, lightning flashes, and more clouds per system.
-const NEBULA_SIZE := 72.0             # the system's own nebula is this many times its listed radius (v9.0 owner, Freelancer: ~40 km across; was 3.2)
+const NEBULA_SIZE := 165.0            # v10.4 (owner: "Freelancer clouds were huge"): ~2.3x (main cloud ~150 km across, was ~65). the system's own nebula is this many times its listed radius (v9.0 owner, Freelancer: ~40 km across; was 3.2)
+const BELT_CLOUD_OFF := 0.55         # v10.4: the field's cloud sits this share of the field's radius off its middle ...
+const BELT_CLOUD_SIZE := 0.75        # ... and is this share of the field's radius
+const NEBULA_STATION_GAP := 8000.0   # v10.4: the main station stays this far outside its system's (bigger) cloud
 const NEBULA_EXTRA := 3               # extra unnamed clouds in every system, other sizes and colours
-const NEBULA_EXTRA_RADIUS := [13000.0, 33000.0]   # v9.1: 1,000 km systems (v8.9: 9-22 km; was 700-1600)
-const NEBULA_GATE_RADIUS := [9000.0, 15000.0]   # the cloud a gate hides in (Freelancer: gates in the clouds); one of the extras (v9.0: was 850-1300)
+const NEBULA_EXTRA_RADIUS := [32000.0, 70000.0]   # v10.4: ~2.5x. v9.1: 1,000 km systems (v8.9: 9-22 km; was 700-1600)
+const NEBULA_GATE_RADIUS := [18000.0, 30000.0]   # v10.4: 2x. the cloud a gate hides in (Freelancer: gates in the clouds); one of the extras (v9.0: was 850-1300)
 const NEBULA_EXTRA_DIST := [90000.0, 350000.0]   # how far from the main station the extra clouds sit (v9.0: was 2.6-5.8 km)
 const NEBULA_AVOID_K := 8.0          # v9.0: the clouds keep this many times their old gaps from stations, planets and the field
 const NEBULA_PUFFS := 240             # smoke puffs in a full-size cloud (smaller clouds get fewer)
@@ -843,7 +846,10 @@ const NEBULA_WEATHERS := ["snow", "rain", "storm", "rocks"]
 const NEBULA_WEATHER_NAME := {"snow": "SNOW", "rain": "RAIN", "storm": "ELECTRIC STORM", "rocks": "ROCK FIELD"}
 const NEBULA_WX := 260               # weather flakes / streaks kept round the ship
 const NEBULA_WX_RANGE := 80.0
-const NEBULA_ROCKS := 26             # drifting rocks in a rock-field cloud
+const NEBULA_ROCKS := 140            # rocks in a rock-field cloud and in every main cloud (v10.4: 26 -> 140, in clumps)
+const NEBULA_ROCK_CLUMPS := 5        # v10.4: they gather in this many clumps ...
+const NEBULA_ROCK_CLUMP_R := 3500.0  # ... about this wide (m)
+const NEBULA_ROCK_SIZE := [8.0, 90.0]   # their size range (m), most small (was 6-34)
 const NEBULA_STORM_FLASH := [0.8, 2.6]
 const WARP_HOLE_SIZE := 240.0          # v1.9z (owner): the warp gate as a Freelancer-style hole: its size (m)
 const WARP_HOLE_SPARKS := 120
@@ -866,7 +872,7 @@ const SYSTEM_SPREAD := 1.8           # every system: planets, gates, belt, nebul
 const SYSTEM_REACH := 230000.0       # v9.0: a typical object (60th percentile) ends up about this far from the main station
 const SYSTEM_FAN := [6.0, 120.0]
 const SYSTEM_EDGE_SOFT := 380000.0   # past this, places are pulled in toward the centre (they bunch a little near the border)
-const FIELD_GROW := 45.0             # v9.0: asteroid fields grow this much (380 m radius -> ~11 km)
+const FIELD_GROW := 95.0             # v10.4 (owner): ~2.1x (fields ~36 km out from their middle, was ~17). v9.0: asteroid fields grow this much (380 m radius -> ~11 km)
 const PLANET_GROW := 4.0             # v9.0: planets grow this much (so they read across a 400 km system)
 const SUN_KEEP_OUT := 2.2            # v9.0: nothing is placed within this many sun radii of the sun
 const UNKNOWN_ORBITS := {"station": 90000.0, "planet": 210000.0, "asteroids": 300000.0, "nebula": 240000.0, "gate": 380000.0, "extra": [140000.0, 400000.0]}   # v9.0 (owner): the unknown areas: the sun in the middle, everything on orbits round it
@@ -1225,6 +1231,10 @@ const ALLY_FIGHTER := {"hull": 260.0, "speed": 52.0, "turn": 1.4, "damage": 6.0,
 const ALLY_FRIGATE := {"hull": 7000.0, "speed": 8.0, "damage": 10.0, "rate": 2.5, "range": 1300.0, "hit_r": 60.0}
 const PRISONER_HOME_STANDING := -70.0   # v1.9o: your standing with a faction after you bring one of theirs home as a prisoner (hostile)
 const CHASER_WING := 3                  # the freed pilot comes after you with this many ships in all
+const CAM_SWAY_K := 0.09          # v10.4 (owner): the chase camera trails sliding moves: metres per m/s of climb / slide
+const CAM_SWAY_UP := 3.2          # ... at most this far (climbing lifts the ship up the screen, diving drops it)
+const CAM_SWAY_SIDE := 2.6        # ... and this far sideways
+const CAM_SWAY_EASE := 2.4        # how fast it catches up (per second); level off and the ship settles back
 const CAM_PIVOT_UP := 1.2        # v1.9p: the chase camera's line of sight starts this high above the ship (m)
 const CAM_PIVOT_UP_MECH := 4.0   # ... and above a mech
 const CAM_CLEAR := 1.2           # it stays this far off the ground / a wall
@@ -1476,6 +1486,13 @@ const BEACON_PULSE_RATE := 0.7       # breaths per second (x TAU)
 const BEACON_PUFFS := 7              # lit cloud puffs round the lamp
 const BEACON_PUFF_ALPHA := 0.22
 const BEACON_HAZE_CLEAR := 0.75      # next to the lamp the nebula haze on screen thins by this share and takes the lamp's colour
+const BUOYS_PER_CLOUD := 12         # v10.4 (owner: beacons in the clouds to show direction): buoys in a line through every cloud
+const BUOY_REACH := 0.92             # the line starts / ends this share of the cloud's radius out from its middle
+const BUOY_GLOW := 380.0             # the halo of a buoy light (m); far off it never shrinks below a small dot (shader)
+const BUOY_SIZE := 45.0              # the owner's beacon model under each buoy light (m wide)
+const BUOY_PULSE_RATE := 0.5         # how fast the pulse runs along the line toward the way out
+const BUOY_LIGHT_RANGE := 900.0      # next to a buoy its light thins the haze ...
+const BUOY_HAZE := 0.6               # ... by up to this share of the big beacon's effect
 const BEACON_SENSOR_HELP := 0.7      # ... and the sensors get this share of their range back
 static var ROSTERS: Dictionary = RosterData.merged(ROSTERS_CORE)   # v1.4w: Savagers (below) + the seven casts in roster_data.gd
 const ROSTERS_CORE := {
