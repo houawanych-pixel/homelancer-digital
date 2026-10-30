@@ -11,7 +11,7 @@ const HudStick := preload("res://scripts/hud.gd")
 const GOLD := Color(1.0, 0.82, 0.4)
 const INK := Color(0.03, 0.07, 0.12, 0.74)
 const TAB_H := 54.0        # v3.1: the tab bar
-const TOP_Y := 68.0        # v3.1: station name, credits and LAUNCH sit under the tabs
+const TOP_Y := 56.0        # v11.2 (owner: "push the station title up a little"; was 68). v3.1: station name, credits and LAUNCH sit under the tabs
 const CONTENT_Y := 140.0   # v3.1: where the page starts
 const TILE_H := 150.0      # v3.1: the picture tiles along the bottom of HOME
 
@@ -1351,13 +1351,20 @@ func _look_input(e: InputEvent) -> void:
 var panel_min := false
 var panel_tab: Button
 func _panel_page(s: String) -> bool: return not (s in ["equipment", "ships", "mechs"])
+## v11.2 (owner): width of the one panel: 2 wide for every 3 tall (it fills the height between the top bar and the bottom row).
+func panel_w() -> float:
+	var S := get_viewport_rect().size
+	return clampf((S.y - CONTENT_Y - 66.0) * Data.HUB_PANEL_ASPECT, 240.0, S.x * 0.45)
+
 func _layout_windows(s: String) -> void:
 	_show_room(s)
 	_asst_show(s)
 	var split: bool = not (s in ["hub", "equipment"])
 	var one: bool = _panel_page(s)
-	content.anchor_left = (1.0 - Data.HUB_PANEL_FRAC) if one else (Data.ROOM_SPLIT if split else 0.0)
-	content.offset_left = 6.0 if (split or one) else (0.0 if s == "equipment" else 24.0)
+	content.anchor_left = 1.0 if one else (Data.ROOM_SPLIT if split else 0.0)
+	content.offset_left = 6.0 if split else (0.0 if s == "equipment" else 24.0)
+	if one:   # v11.2 (owner): the panel is a 2 x 3 portrait scroll window at the right
+		content.offset_left = -24.0 - panel_w()
 	content.mouse_filter = Control.MOUSE_FILTER_STOP if s != "equipment" else content.mouse_filter
 	var fold: bool = panels_hidden and s != "equipment"
 	content.visible = not fold and not (one and panel_min)
@@ -1368,8 +1375,8 @@ func _layout_windows(s: String) -> void:
 	if leftwin.visible and leftwin.get_child_count() == 0: _left_window(s)
 	if one and s != "hub":
 		var g := StyleBoxFlat.new()   # the panel's glass: see-through, so the station shows behind it
-		g.bg_color = Color(0.01, 0.05, 0.1, 0.72)
-		g.border_color = Color(CYAN, 0.7)
+		g.bg_color = Data.HUB_GLASS   # v11.2 (owner): light-blue see-through glass
+		g.border_color = Color(0.6, 0.9, 1.0, 0.85)
 		g.set_border_width_all(2)
 		tech_cut(g, 16)
 		content.add_theme_stylebox_override("panel", g)
@@ -1570,14 +1577,15 @@ func _people_rows(v: VBoxContainer) -> void:
 	var head := _label(18, GOLD)
 	head.text = "AT THIS STATION"
 	v.add_child(head)
-	var row := HBoxContainer.new()
+	var row := VBoxContainer.new()   # v11.2 (owner: "things should not fall outside the panel"): one person per line
 	row.name = "People"
-	row.add_theme_constant_override("separation", 18)
+	row.add_theme_constant_override("separation", 10)
 	for who in folk:
 		var p: Dictionary = who["pilot"]
 		var card := HBoxContainer.new()
 		card.name = "Person_" + str(p["id"])
 		card.add_theme_constant_override("separation", 8)
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var pic := TextureRect.new()
 		pic.custom_minimum_size = Vector2(72, 72)
 		pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -1585,7 +1593,9 @@ func _people_rows(v: VBoxContainer) -> void:
 		if ResourceLoader.exists(str(p["portrait_clean"])): pic.texture = load(str(p["portrait_clean"]))
 		card.add_child(pic)
 		var col := VBoxContainer.new()
+		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var nm := _label(16, Color(1, 1, 1))
+		nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		nm.text = "%s\n%s" % [str(p["name"]), "Leader · " + str(p["type"]).trim_prefix("Level 6 ") if who["role"] == "leader" else "Coordinator · " + str(p["type"]).substr(8)]
 		col.add_child(nm)
 		var tb := Button.new()
@@ -1656,8 +1666,8 @@ func _hub_page() -> void:
 ## standing), then you and your ship. It scrolls; the fold button tucks it away.
 func _hub_panel() -> void:
 	var g := StyleBoxFlat.new()
-	g.bg_color = Color(0.01, 0.05, 0.1, 0.72)
-	g.border_color = Color(CYAN, 0.7)
+	g.bg_color = Data.HUB_GLASS   # v11.2 (owner): light-blue see-through glass
+	g.border_color = Color(0.6, 0.9, 1.0, 0.85)
 	g.set_border_width_all(2)
 	tech_cut(g, 16)
 	content.add_theme_stylebox_override("panel", g)

@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.1"
+const VERSION := "v11.2"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -254,7 +254,7 @@ const LANE_RING_RADIUS := 34.0
 const LANE_STACK := 110.0             # the two directions sit this far apart, one ring above the other
 const LANE_STANDOFF := 330.0          # the end rings sit this far from the station / planet surface / gate
 const LANE_DOCK_RANGE := 240.0        # the LANE prompt shows inside this distance of a ring
-const LANE_SPEED := 20000.0           # cruise in the lane (m/s) (v9.0 owner, Freelancer-size systems: any lane ride ~10-30 s; was 650)
+const LANE_SPEED := 10000.0           # cruise in the lane (m/s) (v11.2 owner: half; was 20000) (v9.0 owner, Freelancer-size systems: any lane ride ~10-30 s; was 650)
 const LANE_RAMP := 2.5                # seconds to reach it
 const LANE_SLOW_DIST := 26000.0       # start slowing this far from the last ring (v9.0: was 700 at 650 m/s)
 const LANE_EXIT_SPEED := 50.0
@@ -969,6 +969,8 @@ const ROOM_STICK := 0.09        # share of the loop the right stick turns per se
 const ROOM_DRIFT := 0.0025      # a slow drift once you leave it alone a while (share per second)
 const ROOM_DRIFT_AFTER := 8.0   # s untouched before it drifts
 const ROOM_WASH := 0.12         # a light dark wash so the panels read
+const HUB_PANEL_ASPECT := 2.0 / 3.0   # v11.2 (owner): the one panel is a 2 x 3 portrait window (width = height x this)
+const HUB_GLASS := Color(0.3, 0.62, 0.9, 0.3)   # v11.2 (owner): its light-blue see-through glass
 const HUB_PANEL_FRAC := 0.4    # v8.5 (owner, hub spec): the one floating panel on the right takes this share of the width
 const ROOM_SPLIT := 0.30        # the left window takes this share of the width; the right window (the page) the rest
 const HUB_BG_WASH := 0.38        # dark wash over the faction picture so text reads (0 = none)

@@ -10600,7 +10600,7 @@ func _job_fl() -> void:
 	main._on_hud("dock_r")
 	main._on_hud("dock_down")
 	hud._layout()
-	var down_ok: bool = hud.buttons.has("dock_up") and hud.buttons.has("log") and not hud.buttons.has("radar") and not hud.buttons.has("fire")
+	var down_ok: bool = hud.buttons.has("dock_up") and hud.buttons.has("log") and hud.buttons.has("goto_l") and hud.buttons.has("tgt_front") and not hud.buttons.has("radar") and not hud.buttons.has("fire")   # (v11.2: GO TO and TARGET stay too)
 	await _shot("v106_pushed_down", 0.3)
 	main._on_hud("dock_up")
 	hud._layout()
@@ -10702,7 +10702,7 @@ func _job_v35() -> void:
 	var rv: ColorRect = hb.room_view
 	var tex = (rv.material as ShaderMaterial).get_shader_parameter("strip")
 	var room_ok: bool = rv.visible and tex != null and (tex as Texture2D).resource_path.ends_with("liberator/shipyard.jpg") and hb.leftwin.visible \
-		and (is_equal_approx(hb.content.anchor_left, Data.ROOM_SPLIT) or is_equal_approx(hb.content.anchor_left, 1.0 - Data.HUB_PANEL_FRAC)) and hb.leftwin.find_child("RoomName", true, false) != null
+		and (is_equal_approx(hb.content.anchor_left, Data.ROOM_SPLIT) or is_equal_approx(hb.content.anchor_left, 1.0)) and hb.leftwin.find_child("RoomName", true, false) != null
 	await _shot("v35_room_shipyard", 0.2)
 	var y0: float = hb.room_yaw
 	var ev := InputEventMouseMotion.new()
@@ -10743,7 +10743,7 @@ func _job_v35() -> void:
 	await _frames(2)
 	var vw0: float = get_viewport().get_visible_rect().size.x
 	var vh0: float = get_viewport().get_visible_rect().size.y
-	var a_moves: bool = absf(hb.asst.position.x - x0) > 5.0 and (hb.asst.size.y > vh0 * 0.8 or not hb.asst_ref.is_empty()) and is_equal_approx(hb.content.anchor_left, 1.0 - Data.HUB_PANEL_FRAC)   # (v8.5: the page is the one panel on the right; she stands left of it) v5.7 (owner): she moves with the room, not the screen (v8.0: sized to the nearest person)
+	var a_moves: bool = absf(hb.asst.position.x - x0) > 5.0 and (hb.asst.size.y > vh0 * 0.8 or not hb.asst_ref.is_empty()) and is_equal_approx(hb.content.anchor_left, 1.0)   # (v8.5: the page is the one panel on the right; she stands left of it) v5.7 (owner): she moves with the room, not the screen (v8.0: sized to the nearest person)
 	# v8.0 (owner): her head on the nearest person's head line, her feet on their floor line, in every room with people
 	var match_ok := true
 	var shots := 0

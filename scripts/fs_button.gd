@@ -3,7 +3,8 @@ extends CanvasLayer
 ## top-left corner, on every screen (flight, rooms, maps, docks). Four corner brackets; they point in when you are
 ## already full screen. Tap = the browser's full screen on / off.
 
-const SIZE := 52.0
+const SIZE := 44.0   # (v11.2: a little lower, so the station title can sit higher)
+const WIDTH := 176.0   # v11.2 (owner: "the full screen should say full screen"): icon + the words
 const MARGIN := 8.0
 const CYAN := Color(0.35, 0.85, 1.0)
 
@@ -15,7 +16,7 @@ func _ready() -> void:
 	btn = Control.new()
 	btn.name = "FsButton"
 	btn.position = Vector2(MARGIN, MARGIN)
-	btn.size = Vector2(SIZE, SIZE)
+	btn.size = Vector2(WIDTH, SIZE)
 	btn.mouse_filter = Control.MOUSE_FILTER_STOP
 	btn.tooltip_text = "Full screen"
 	btn.draw.connect(_draw_btn)
@@ -53,7 +54,7 @@ func _draw_btn() -> void:
 	sb.set_border_width_all(2)
 	sb.set_corner_radius_all(10)
 	btn.draw_style_box(sb, r)
-	var c := r.get_center()
+	var c := Vector2(SIZE * 0.5, SIZE * 0.5)   # the brackets sit on the left, the words on the right
 	var h := SIZE * 0.26   # bracket corner distance from the middle
 	var l := SIZE * 0.14   # bracket arm length
 	for sx in [-1.0, 1.0]:
@@ -66,3 +67,6 @@ func _draw_btn() -> void:
 				dx = -dx
 				dy = -dy
 			btn.draw_polyline(PackedVector2Array([p + dx, p, p + dy]), Color(0.85, 0.97, 1.0), 3.0, true)
+	var f: Font = ThemeDB.fallback_font
+	var txt := "EXIT FULL" if on else "FULL SCREEN"
+	btn.draw_string(f, Vector2(SIZE - 4.0, SIZE * 0.5 + 6.0), txt, HORIZONTAL_ALIGNMENT_CENTER, WIDTH - SIZE - 4.0, 16, Color(0.85, 0.97, 1.0))

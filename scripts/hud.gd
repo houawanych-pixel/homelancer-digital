@@ -603,6 +603,10 @@ func _layout() -> void:
 		# v11.1 (owner: "a huge long button at the very top; it should just be DOCK, and if you don't want to you fly
 		# by"): one small button just above the right-hand block, under your right thumb. It goes when you pass.
 		var db := Rect2(dg["blk_r"].position.x, dg["blk_r"].position.y - 62.0, 132.0, 54.0)
+		if dock_r and not dock_down and slots["r"].is_empty() and not console_open and not planet_map:   # v11.2 (owner: "move DOCK up a little, it's blocking words"): over the SHIP window, not on it
+			db.position.y = dg["blk_r"].position.y - 8.0 - (26.0 + FL_TAB_H) - 60.0
+		if dock_down:   # v11.2 (owner): everything pushed down: DOCK / LEAVE LANE sit bottom centre, over the tabs
+			db = Rect2(S.x * 0.5 - 70.0, S.y - TAB_B_H - 2.0 - 64.0, 140.0, 54.0)
 		var pr: String = space.prompt()   # v1.4u: one prompt, the nearest thing wins
 		if pr != "": buttons[pr] = db
 	_fl_buttons()   # v6.7: the Freelancer-style contact list (left) and ship panel (right)
@@ -655,6 +659,8 @@ func _dock_filter(dg: Dictionary) -> void:
 			if not (id in DOWN_KEEP or str(id).begins_with("met_")): buttons.erase(id)
 		tabs["dock_up"] = Rect2(S.x * 0.5 - 78.0, S.y - TAB_B_H - 2.0, 156.0, TAB_B_H)   # v11.1: as big as the HIDE tab
 		tabs["log"] = Rect2(S.x * 0.5 + 86.0, S.y - TAB_B_H - 2.0, 110.0, TAB_B_H)   # COMMS: bring the calls up without the rest
+		tabs["goto_l"] = Rect2(S.x * 0.5 - 86.0 - 110.0, S.y - TAB_B_H - 2.0, 110.0, TAB_B_H)   # v11.2 (owner): GO TO the objective, on the left
+		tabs["tgt_front"] = Rect2(S.x * 0.5 - 86.0 - 110.0 - 8.0 - 110.0, S.y - TAB_B_H - 2.0, 110.0, TAB_B_H)   # and TARGET (the hostile in front)
 	else:
 		for side in ["l", "r"]:
 			if dock_l if side == "l" else dock_r: continue
@@ -2006,6 +2012,13 @@ func _chevron(c: Vector2, dir: Vector2, h: float) -> void:
 
 ## v10.6 (owner): pushed down: a small tab to bring everything back up, and COMMS beside it.
 func _down_tabs() -> void:
+	for id in ["tgt_front", "goto_l"]:   # v11.2 (owner): TARGET and GO TO on the left of CONSOLE
+		if not buttons.has(id): continue
+		var r2: Rect2 = buttons[id]
+		var c2: Color = RED if id == "tgt_front" else GREEN
+		var on2: bool = held.has(id) or (id == "goto_l" and space.autopilot != null)
+		_box(r2, Color(c2, 0.32) if on2 else Color(0.02, 0.08, 0.15, 0.72), Color(c2, 0.9), 12, 2)
+		_text(Vector2(r2.position.x, r2.position.y + 23), "TARGET" if id == "tgt_front" else "GO TO", 14, WHITE, HORIZONTAL_ALIGNMENT_CENTER, r2.size.x)
 	for id in ["dock_up", "log"]:
 		if not buttons.has(id): continue
 		var r: Rect2 = buttons[id]
