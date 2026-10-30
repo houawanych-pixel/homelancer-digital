@@ -3045,27 +3045,52 @@ func _job_v99_hub() -> void:
 	hb.show_screen("missions")
 	hb.open_call("l", "Test Caller", "AT THIS STATION", "I have work for you on the Mission Board.", "")
 	await _frames(4)
-	var up: Button = hb.content.find_child("ScrollUp", true, false)
-	var down: Button = hb.content.find_child("ScrollDown", true, false)
 	var cr: Rect2 = hb.call_rect("l")
-	var clear: bool = up != null and down != null and up.get_global_rect().position.y >= cr.end.y - 1.0 and up.get_global_rect().end.y <= down.get_global_rect().position.y
+	var clear: bool = hb.content.find_child("ScrollUp", true, false) == null   # (v11.3 owner: no UP / DOWN tabs, the list is dragged)
 	var sc: ScrollContainer = hb.content.find_child("Scroll", true, false)
 	var list_clear: bool = sc != null and sc.get_global_rect().position.y >= cr.end.y - 1.0
 	await _shot("v99_board_call", 0.3)
-	if up != null and sc != null:
+	if sc != null:
 		sc.scroll_vertical = 400
-		up.pressed.emit()
+		hb.scroll_board(sc, -1)
 		await _wait(0.4)
 	var went_up: bool = sc != null and sc.scroll_vertical < 400
 	hb.close_call("l")
 	await _frames(4)
-	var back: bool = up != null and is_equal_approx(up.offset_top, 18.0)
+	var back: bool = sc != null and is_equal_approx(sc.offset_top, 18.0)   # (v11.3: the list itself moves back)
 	var fs: Button = hb.find_child("FullScreen", true, false)
 	var fs_ok: bool = Fs.btn.visible and Fs.visible and not Fs.btn.get_global_rect().intersects(hb.show_btn.get_global_rect())   # (v11.1: the one corner button)
 	var boxed := 0
 	for c in hb.subtabs.get_children():
 		var st = (c as Button).get_theme_stylebox("normal")
 		if not (c as Button).flat and st is StyleBoxFlat and (st as StyleBoxFlat).bg_color.a >= 0.5: boxed += 1
+	# v11.3 (owner): drag the list by hand; a drag is not a tap; each row starts with MISSION BRIEF, then ACCEPT / DECLINE
+	var drag_ok := false
+	if sc != null:
+		sc.scroll_vertical = 0
+		var p0: Vector2 = sc.get_global_rect().get_center()
+		var t0 := InputEventScreenTouch.new(); t0.index = 0; t0.position = p0; t0.pressed = true
+		hb._input(t0)
+		var dr := InputEventScreenDrag.new(); dr.index = 0; dr.position = p0 - Vector2(0, 120)
+		hb._input(dr)
+		drag_ok = hb.board_dragged and sc.scroll_vertical > 0
+		var t1 := InputEventScreenTouch.new(); t1.index = 0; t1.position = dr.position; t1.pressed = false
+		hb._input(t1)
+	hb.board_pick = ""
+	hb.show_screen("missions")
+	await _frames(2)
+	var brief: Button = null
+	for c in hb.content.find_children("Brief_*", "Button", true, false):
+		if (c as Button).visible: brief = c; break
+	var brief_ok: bool = brief != null and brief.text == "MISSION BRIEF"
+	if brief != null:
+		hb.board_dragged = false
+		brief.pressed.emit()
+		await _frames(2)
+	var decl_ok: bool = hb.content.find_children("Decline_*", "Button", true, false).size() == 1
+	hb.board_pick = ""
+	_check("v11.3 (owner): the board list is dragged by hand (no UP / DOWN), and each job starts with MISSION BRIEF, which reads it and brings up ACCEPT / DECLINE",
+		drag_ok and brief_ok and decl_ok, "drag %s brief %s decline %s" % [drag_ok, brief_ok, decl_ok])
 	await _shot("v99_board", 0.3)
 	_check("v9.9 (owner): a call at the panel's top no longer covers the board's UP tab or its list (UP scrolls back up, the page moves back when the call goes); FULL SCREEN button on the station pages; the page names under the tabs sit in see-through dark boxes",
 		clear and list_clear and went_up and back and fs_ok and boxed == hb.subtabs.get_child_count() and boxed > 0,
@@ -3660,7 +3685,7 @@ func _job_o() -> void:
 		await _until(func(): return s.lane.is_empty() or float(s.lane.get("speed", 0.0)) > Data.LANE_SPEED * 0.9, 6.0)
 		var fast: bool = s.speed_now > Data.LANE_SPEED * 0.8 and is_instance_valid(s.lane_tunnel) and s.lane_tunnel.visible
 		await _shot("trade_lane_ride", 0.05)
-		await _until(func(): return s.lane.is_empty(), 30.0)
+		await _until(func(): return s.lane.is_empty(), 70.0)   # (v11.2: lanes at half speed take twice as long)
 		var n: int = (ln0["up"] as Array).size()
 		var at_end: bool = s.player.global_position.distance_to(ln0["up"][n - 1]) < 80.0
 		_check("Job O: docking a ring locks the controls and weapons and carries the ship ring to ring at lane speed inside an energy tunnel on the ship, then lets go at the last ring",
@@ -6583,7 +6608,7 @@ func _job_an() -> void:
 	var y0: int = sc.scroll_vertical if sc else -1
 	hub.scroll_board(sc, 1)
 	await _wait(0.4)
-	var scrolled: bool = sc != null and sc.scroll_vertical > y0 and hub.content.find_child("ScrollUp", true, false) != null and hub.content.find_child("ScrollDown", true, false) != null
+	var scrolled: bool = sc != null and sc.scroll_vertical > y0 and hub.content.find_child("ScrollUp", true, false) == null
 	await _shot("av_board_scrolled", 0.2)
 	hub.scroll_board(sc, -1)
 	await _wait(0.4)

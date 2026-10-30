@@ -1517,7 +1517,7 @@ func _scroll_box() -> VBoxContainer:
 	sc.offset_right = -14
 	sc.offset_bottom = -12
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	sc.offset_right = -96   # v1.7v (owner: "I can't scroll down"): room for the big UP / DOWN tabs on the right
+	board_sc = sc   # v11.3 (owner: "remove the up and down arrows, just hand-scroll"): drag the list itself
 	sc.set_meta("top0", 18.0)
 	_call_top = -1.0   # (v9.9: _process moves it under any calls)
 	content.add_child(sc)
@@ -1526,31 +1526,29 @@ func _scroll_box() -> VBoxContainer:
 	v.mouse_filter = Control.MOUSE_FILTER_PASS
 	v.add_theme_constant_override("separation", 10)
 	sc.add_child(v)
-	for d in [-1, 1]:
-		var b := Button.new()
-		b.name = "ScrollUp" if d < 0 else "ScrollDown"
-		b.text = "UP" if d < 0 else "DOWN"   # v1.8y (owner: one was bigger than the other): plain words, one size
-		b.custom_minimum_size = Vector2(80, 120)
-		b.clip_text = true
-		b.add_theme_font_size_override("font_size", 20)
-		var tight := (theme_obj.get_stylebox("normal", "Button") as StyleBoxFlat).duplicate() as StyleBoxFlat   # v3.1: "DOWN" fits
-		tight.content_margin_left = 4
-		tight.content_margin_right = 4
-		b.add_theme_stylebox_override("normal", tight)
-		b.anchor_left = 1.0
-		b.anchor_right = 1.0
-		b.anchor_top = 0.0 if d < 0 else 1.0
-		b.anchor_bottom = b.anchor_top
-		b.offset_left = -88
-		b.offset_right = -8
-		b.offset_top = 18.0 if d < 0 else -138.0
-		b.offset_bottom = b.offset_top + 120.0
-		if d < 0: b.set_meta("top0", 18.0)
-		b.pressed.connect(func(): scroll_board(sc, d))
-		content.add_child(b)
 	return v
 
-## v1.7v: the UP / DOWN tabs move a board list most of a screen at a time.
+## v11.3 (owner): a board list scrolls by dragging it with a finger (or the mouse). A drag never counts as a tap.
+var board_sc: ScrollContainer = null
+var _bd_from := Vector2.INF   # where the finger went down on the list (INF = not on it)
+var _bd_y0 := 0
+var board_dragged := false
+func _input(e: InputEvent) -> void:
+	if not visible or board_sc == null or not is_instance_valid(board_sc) or not board_sc.is_visible_in_tree(): return
+	if e is InputEventScreenTouch:
+		var st := e as InputEventScreenTouch
+		if st.index != 0: return
+		if st.pressed:
+			board_dragged = false
+			_bd_from = st.position if board_sc.get_global_rect().has_point(st.position) else Vector2.INF
+			_bd_y0 = board_sc.scroll_vertical
+		else: _bd_from = Vector2.INF
+	elif e is InputEventScreenDrag and _bd_from != Vector2.INF and (e as InputEventScreenDrag).index == 0:
+		var dy: float = (e as InputEventScreenDrag).position.y - _bd_from.y
+		if absf(dy) > Data.BOARD_DRAG_START: board_dragged = true
+		if board_dragged: board_sc.scroll_vertical = int(_bd_y0 - dy)
+
+## (tests) move a board list most of a screen at a time.
 func scroll_board(sc: ScrollContainer, d: int) -> void:
 	var step: float = maxf(160.0, sc.size.y * 0.7)
 	var to: float = clampf(sc.scroll_vertical + d * step, 0.0, maxf(0.0, sc.get_v_scroll_bar().max_value - sc.size.y))
@@ -3767,7 +3765,8 @@ func _bounty_page() -> void:
 			shut = ("KILLED\nreplaced in %d min" if down else "IN CUSTODY\nout in %d min") % GS.jail_minutes(id)   # (masked soldiers: another takes the post)
 		elif id in GS.bounties_done: shut = "PAID"
 		var key := "b:" + id
-		_tap_to_hear([row.get_child(0), t], key, func(): read_bounty(p))
+		var hear_b := func(): read_bounty(p)
+		_tap_to_hear([row.get_child(0), t], key, hear_b)
 		row.add_child(_board_buttons("Bounty_" + id, key, mine, shut,
 			func():
 				var said := Missions.toggle_bounty(id)
@@ -3779,7 +3778,7 @@ func _bounty_page() -> void:
 			func():
 				status.text = Missions.disengage()
 				board_pick = ""
-				show_screen("bounty")))
+				show_screen("bounty"), hear_b))
 		v.add_child(_row_frame(row, mine or board_pick == key))
 
 ## v1.9k: the job just taken remembers this dock's name, so the way back and the messages name the right place.
@@ -3850,8 +3849,8 @@ func _tap_to_hear(parts: Array, key: String, hear: Callable) -> void:
 		var ctl := c as Control
 		ctl.mouse_filter = Control.MOUSE_FILTER_PASS
 		ctl.gui_input.connect(func(ev: InputEvent):
-			var tap: bool = (ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT) or (ev is InputEventScreenTouch and ev.pressed)
-			if not tap: return
+			var tap: bool = (ev is InputEventScreenTouch and not ev.pressed)   # v11.3: on the lift, and only if the finger didn't drag the list
+			if not tap or board_dragged: return
 			pick_row(key, hear))
 
 ## (tests call this too) the tap on a row: hear it and show ACCEPT / DECLINE.
@@ -3860,7 +3859,7 @@ func pick_row(key: String, hear: Callable) -> void:
 	hear.call()
 	show_screen(screen)
 
-func _board_buttons(main_name: String, key: String, mine: bool, shut: String, on_accept: Callable, on_drop: Callable) -> Control:
+func _board_buttons(main_name: String, key: String, mine: bool, shut: String, on_accept: Callable, on_drop: Callable, hear: Callable = Callable()) -> Control:
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 8)
 	col.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -3887,7 +3886,17 @@ func _board_buttons(main_name: String, key: String, mine: bool, shut: String, on
 		return col
 	b.text = "ACCEPT"
 	b.add_theme_color_override("font_color", Color(0.55, 1.0, 0.6))
-	b.pressed.connect(on_accept)
+	b.pressed.connect(func(): if not board_dragged: on_accept.call())
+	if board_pick != key and hear.is_valid():   # v11.3 (owner): first MISSION BRIEF (read out); then ACCEPT / DECLINE
+		b.visible = false
+		var mb := Button.new()
+		mb.name = "Brief_" + main_name
+		mb.text = "MISSION BRIEF"
+		mb.custom_minimum_size = Vector2(230, 56)
+		mb.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
+		mb.pressed.connect(func(): if not board_dragged: pick_row(key, hear))
+		col.add_child(mb)
+		col.move_child(mb, 0)
 	if board_pick == key:
 		var d := Button.new()
 		d.name = "Decline_" + main_name
@@ -3965,7 +3974,7 @@ func _missions_page() -> void:
 			func():
 				status.text = Missions.disengage()
 				board_pick = ""
-				show_screen("missions")))
+				show_screen("missions"), hear))
 		v.add_child(_row_frame(row, mine or board_pick == key))
 
 ## v1.5f: YOUR SHIP: weapons and the hold (and the job you carry, which can be dropped here).
