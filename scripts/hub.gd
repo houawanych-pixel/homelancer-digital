@@ -40,7 +40,12 @@ var t := 0.0
 # ship inspector: tap the showroom (or VIEW) to look the ship over: drag to turn it, pinch / wheel to zoom, full stats
 var asst_hit: Control
 var asst: VideoStreamPlayer   # v3.7 (owner): the station assistant, standing in the HOME room
-var asst_chat: Panel
+var asst_chat: Panel       # v11.4: the comms bar under the call screen
+var comms_panel: Panel     # v11.4 (owner): CONTACTS / chat LOG, on the left like the flight comms
+var comms_view := ""       # "" | "contacts" | "log"
+var comms_big := false     # the log brought big into the middle (FULL)
+var typing := false        # the type line is out (TYPE)
+var talk_side := "r"       # whose call you are talking to
 var asst_greeted := false
 var calls := {"l": {}, "r": {}}   # v5.6 (owner): the same call screens as in flight: {from, sub, line, face, min}
 var call_ctl := {}
@@ -202,117 +207,125 @@ func _ready() -> void:
 	leftwin.offset_bottom = -66
 	leftwin.visible = false
 	add_child(leftwin)
-	asst_chat = Panel.new()   # v3.7: what she says, and a line to type to her
+	asst_chat = Panel.new()   # v11.4 (owner): the comms bar under the call screen: CONTACTS, LOG, MIC, HANDS-FREE, TYPE
 	asst_chat.name = "AssistantChat"
-	asst_chat.anchor_left = 0.0   # v3.8: beside her (left of the middle), so she never covers it
-	asst_chat.anchor_right = 0.5
-	asst_chat.offset_left = 24
-	asst_chat.offset_right = 60
-	asst_chat.offset_top = CONTENT_Y
-	asst_chat.offset_bottom = CONTENT_Y + Data.CALL_FACE + 22.0
 	asst_chat.visible = false
-	var csb := StyleBoxFlat.new()   # (solid, so the card under it doesn't show through)
-	csb.bg_color = Color(0.02, 0.05, 0.1, 0.96)
+	var csb := StyleBoxFlat.new()   # (solid, so the room under it doesn't fight the words)
+	csb.bg_color = Color(0.02, 0.05, 0.1, 0.92)
 	csb.border_color = Color(CYAN, 0.6)
 	csb.set_border_width_all(2)
-	tech_cut(csb, 18)
+	tech_cut(csb, 10)
 	asst_chat.add_theme_stylebox_override("panel", csb)
-	var ch := HBoxContainer.new()   # v5.5 (owner): her face big on the left, like a call in flight
-	ch.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	ch.offset_left = 12
-	ch.offset_top = 10
-	ch.offset_right = -10
-	ch.offset_bottom = -10
-	ch.add_theme_constant_override("separation", 12)
-	asst_chat.add_child(ch)
-	var fp := Panel.new()
-	fp.name = "FaceFrame"
-	fp.custom_minimum_size = Vector2(Data.CALL_FACE, Data.CALL_FACE)
-	fp.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	var fsb := StyleBoxFlat.new()
-	fsb.bg_color = Color(0.02, 0.08, 0.15)
-	fsb.border_color = CYAN
-	fsb.set_border_width_all(2)
-	tech_cut(fsb, 16)
-	fp.add_theme_stylebox_override("panel", fsb)
-	fp.visible = false   # v5.6: her face is in the call screen now
-	ch.add_child(fp)
-	var face := TextureRect.new()
-	face.name = "Face"
-	face.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	face.offset_left = 3
-	face.offset_top = 3
-	face.offset_right = -3
-	face.offset_bottom = -3
-	face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	if ResourceLoader.exists("res://assets/portraits/evee_normal.png"): face.texture = load("res://assets/portraits/evee_normal.png")
-	fp.add_child(face)
 	var cv := VBoxContainer.new()
-	cv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	ch.add_child(cv)
-	var who := _label(14, CYAN)
-	who.text = "TALK TO EVEE"
-	cv.add_child(who)
+	cv.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	cv.offset_left = 6
+	cv.offset_top = 6
+	cv.offset_right = -6
+	cv.offset_bottom = -6
+	cv.add_theme_constant_override("separation", 5)
+	asst_chat.add_child(cv)
 	var said := _label(16, Color.WHITE)
 	said.name = "Said"
-	said.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	said.visible = false   # (shown in the call screen)
+	said.visible = false   # (the line shows in the call screen)
 	cv.add_child(said)
-	var row := HBoxContainer.new()
+	var small := StyleBoxFlat.new()   # small buttons: thin margins so three fit across the call's width
+	small.bg_color = Color(0.03, 0.1, 0.18, 0.95)
+	small.border_color = Color(CYAN, 0.6)
+	small.set_border_width_all(1)
+	tech_cut(small, 6)
+	small.content_margin_left = 3
+	small.content_margin_right = 3
+	var row1 := HBoxContainer.new()
+	row1.add_theme_constant_override("separation", 5)
+	cv.add_child(row1)
+	var row2 := HBoxContainer.new()
+	row2.add_theme_constant_override("separation", 5)
+	cv.add_child(row2)
+	var row3 := HBoxContainer.new()
+	cv.add_child(row3)
+	var mk := func(nm: String, txt: String, row: HBoxContainer, f: Callable) -> Button:
+		var bb := Button.new()
+		bb.name = nm
+		bb.text = txt
+		bb.custom_minimum_size = Vector2(0, 40)
+		bb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bb.clip_text = true
+		bb.add_theme_font_size_override("font_size", Data.ts(13))
+		for st in ["normal", "hover", "pressed"]: bb.add_theme_stylebox_override(st, small)
+		bb.pressed.connect(f)
+		row.add_child(bb)
+		return bb
+	mk.call("ContactsButton", "CONTACTS", row1, func(): open_comms("" if comms_view == "contacts" else "contacts"))
+	mk.call("LogButton", "LOG", row2, func(): set_log_open(not asst_log_open))
+	mk.call("MicButton", "MIC", row2, func(): asst_listen())
+	mk.call("TypeButton", "TYPE", row2, func(): set_typing(not typing))
+	mk.call("HandsFree", "HANDS-FREE", row3, func(): set_hands_free(not asst_free))
+	var row := HBoxContainer.new()   # the type line: only when TYPE is on (the phone keyboard comes up)
+	row.name = "TypeRow"
+	row.visible = false
 	cv.add_child(row)
 	var ed := LineEdit.new()
 	ed.name = "AskLine"
-	ed.placeholder_text = "Ask Evee something..."
+	ed.placeholder_text = "Say something..."
 	ed.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ed.add_theme_font_size_override("font_size", Data.ts(14))
 	ed.text_submitted.connect(func(t: String): asst_ask(t))
 	row.add_child(ed)
 	var sb := Button.new()
 	sb.name = "AskSend"
 	sb.text = "SEND"
+	sb.add_theme_font_size_override("font_size", Data.ts(13))
+	for st in ["normal", "hover", "pressed"]: sb.add_theme_stylebox_override(st, small)
 	sb.pressed.connect(func(): asst_ask(ed.text))
 	row.add_child(sb)
-	var xb := Button.new()
-	xb.text = "X"
-	xb.pressed.connect(func(): set_hands_free(false); close_call("r"))
-	row.add_child(xb)
-	var row2 := HBoxContainer.new()   # v3.8 (owner): talk to her by voice; the log folds away
-	row2.add_theme_constant_override("separation", 6)
-	cv.add_child(row2)
-	var mic := Button.new()
-	mic.name = "MicButton"
-	mic.text = "MIC"
-	mic.custom_minimum_size = Vector2(90, 0)
-	mic.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	mic.pressed.connect(func(): asst_listen())
-	row2.add_child(mic)
-	var hf := Button.new()
-	hf.name = "HandsFree"
-	hf.text = "HANDS-FREE"
-	hf.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hf.pressed.connect(func(): set_hands_free(not asst_free))
-	row2.add_child(hf)
-	var lg := Button.new()
-	lg.name = "LogButton"
-	lg.text = "LOG ▼"
-	lg.custom_minimum_size = Vector2(110, 0)
-	lg.pressed.connect(func(): set_log_open(not asst_log_open))
-	row2.add_child(lg)
-	for b2 in [mic, hf, lg]:
-		(b2 as Button).add_theme_font_size_override("font_size", Data.ts(14))
-		(b2 as Button).clip_text = true
-	var logbox := ScrollContainer.new()
-	logbox.name = "LogBox"
-	logbox.visible = false
-	logbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	logbox.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	cv.add_child(logbox)
-	var logtxt := _label(14, Color(0.82, 0.92, 1.0))
-	logtxt.name = "LogText"
-	logtxt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	logtxt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	logbox.add_child(logtxt)
 	add_child(asst_chat)
+	# v11.4 (owner): CONTACTS and the chat LOG come up on the LEFT, like the flight comms; FULL brings the log big into the middle
+	comms_panel = Panel.new()
+	comms_panel.name = "CommsPanel"
+	comms_panel.visible = false
+	var cpb := StyleBoxFlat.new()
+	cpb.bg_color = Color(0.02, 0.06, 0.12, 0.93)
+	cpb.border_color = Color(CYAN, 0.75)
+	cpb.set_border_width_all(2)
+	tech_cut(cpb, 12)
+	comms_panel.add_theme_stylebox_override("panel", cpb)
+	var pv := VBoxContainer.new()
+	pv.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	pv.offset_left = 10
+	pv.offset_top = 8
+	pv.offset_right = -10
+	pv.offset_bottom = -10
+	pv.add_theme_constant_override("separation", 6)
+	comms_panel.add_child(pv)
+	var ph := HBoxContainer.new()
+	ph.add_theme_constant_override("separation", 6)
+	pv.add_child(ph)
+	var ttl := _label(17, Color.WHITE)
+	ttl.name = "CommsTitle"
+	ttl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ttl.clip_text = true
+	ph.add_child(ttl)
+	for bdef in [["CommsFull", "FULL"], ["CommsClose", "X"]]:
+		var hb2 := Button.new()
+		hb2.name = bdef[0]
+		hb2.text = bdef[1]
+		hb2.custom_minimum_size = Vector2(64 if bdef[1] == "FULL" else 44, 38)
+		hb2.add_theme_font_size_override("font_size", Data.ts(14))
+		for st in ["normal", "hover", "pressed"]: hb2.add_theme_stylebox_override(st, small)
+		ph.add_child(hb2)
+	(ph.get_node("CommsFull") as Button).pressed.connect(func(): comms_big = not comms_big; _place_calls())
+	(ph.get_node("CommsClose") as Button).pressed.connect(func(): open_comms(""))
+	var psc := ScrollContainer.new()
+	psc.name = "CommsScroll"
+	psc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	psc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	pv.add_child(psc)
+	var pl := VBoxContainer.new()
+	pl.name = "CommsList"
+	pl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pl.add_theme_constant_override("separation", 6)
+	psc.add_child(pl)
+	add_child(comms_panel)
 	for sd in ["l", "r"]:   # v5.6: a call screen each side, the same look and size as a call in flight
 		var cc := Control.new()
 		cc.name = "Call_" + sd
@@ -475,16 +488,20 @@ func open(station_or_planet: Dictionary) -> void:
 	visible = true
 	_load_background()
 	calls = {"l": {}, "r": {}}
+	comms_view = ""
+	comms_big = false
+	typing = false
 	lockdown = lockdown_due()
 	show_screen("hub")
 	if lockdown:
 		_start_lockdown()
 		return
-	var folk: Array = Factions.people_at(base, Data.SYSTEMS[GS.system_id])   # v5.6 (owner): whoever greets you, on the left
+	var folk: Array = Factions.people_at(base, Data.SYSTEMS[GS.system_id])   # v5.6 (owner): whoever greets you (v11.4: your side = right)
 	if not folk.is_empty():
 		var p: Dictionary = folk[0]["pilot"]
-		open_call("l", str(p["name"]), str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])) + " · " + ("leader" if folk[0]["role"] == "leader" else "coordinator"),
-			("%s. Welcome to %s." % [str(p["name"]), base["name"]]) if folk[0]["role"] == "leader" else ("%s here. Welcome to %s. I have work for you on the Mission Board." % [p["name"], base["name"]]), str(p["portrait_clean"]), Data.CALL_FOLD_AFTER)
+		open_call(side_for(str(p.get("faction", ""))), str(p["name"]), str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])) + " · " + ("leader" if folk[0]["role"] == "leader" else "coordinator"),
+			("%s. Welcome to %s." % [str(p["name"]), base["name"]]) if folk[0]["role"] == "leader" else ("%s here. Welcome to %s. I have work for you on the Mission Board." % [p["name"], base["name"]]), str(p["portrait_clean"]), Data.CALL_FOLD_AFTER,
+			{"id": str(p["id"]), "voice_id": str(p.get("voice_id", p["id"])), "voice": float(p.get("voice", 1.0)), "female": str(p.get("sex", "")) == "female"})
 	status.text = "Docked at %s. Shields and energy restored. REPAIR and RESTOCK are at SUPPLIES." % base["name"]
 	if GS.ore_worth(str(base["name"])) > 0: status.text = "Docked at %s. You carry gold / diamond worth %d cr here: sell it under YOUR SHIP." % [base["name"], GS.ore_worth(str(base["name"]))]
 
@@ -687,8 +704,6 @@ func _asst_show(s: String) -> void:
 	elif not on:
 		asst.visible = false
 		asst.stop()
-		if asst_free: set_hands_free(false)
-		asst_chat.visible = false
 
 func _on_asst_pack(pk: String) -> void:
 	if pk != "assistant" or not visible: return
@@ -749,6 +764,10 @@ func _asst_place() -> void:
 		var vw0: float = float(m0.get_shader_parameter("vis_w"))
 		if asst_yaw < 0.0: asst_yaw = fposmod(room_yaw + (Data.ASST_SCREEN_X - 0.5) * vw0, 1.0)
 		var mt := asst_match(room_key, asst_yaw)
+		var rn := room_key.substr(room_key.find("_") + 1)
+		if Data.ASST_ROOM_STAND.has(rn):   # v11.4 (owner: "Evee is too short in the lounge"): everyone there sits; she stands on the floor in front
+			var st: Array = Data.ASST_ROOM_STAND[rn]
+			mt = {"top": float(st[0]), "feet": float(st[1]), "x": asst_yaw, "h": float(st[1]) - float(st[0])}
 		if not mt.is_empty():
 			# v8.0 (owner): her head on the same line as the nearest person's, her feet on the same floor line:
 			# full body when her feet are on screen, thigh-up (or just her upper body) when the screen cuts her off
@@ -809,64 +828,94 @@ func _asst_place_default(S: Vector2) -> void:
 	asst_hit.position = Vector2(x - w * 0.19, y + h * 0.12)
 
 ## v5.6 (owner): one call screen look for the whole game: the same width, portrait, name strip and line on glass as the
-## flight comms. Station people come up on the LEFT, Evee on the RIGHT; each folds to a small tab (tap to open again).
+## flight comms. v11.4 (owner): like flight, the people on YOUR side (this station's people, Evee) come up on the RIGHT,
+## anyone else on the LEFT; one person per side; "—" folds it to a small tab, "X" hangs up. With no call on the right a
+## small COMMS tab stays there (tap = your contacts). The comms bar (CONTACTS, LOG, MIC, HANDS, TYPE) sits under the call.
+func call_w() -> float:
+	return clampf(get_viewport_rect().size.x * 0.14, 150.0, 190.0)   # (hud.side_rect)
+
 func call_rect(sd: String) -> Rect2:
 	var S := get_viewport_rect().size
-	var w := clampf(S.x * 0.14, 150.0, 190.0)   # (hud.side_rect)
-	var h := w + 90.0
+	var w := call_w()
 	var top := CONTENT_Y + 4.0
-	if _calls_in_panel():   # v8.5 (owner, hub spec): calls come up inside the one panel, stacked at its top
-		var pr := content.get_global_rect()
-		var y := pr.position.y + 8.0
-		for k in ["l", "r"]:
-			if calls[k].is_empty(): continue
-			var hk := 52.0 if calls[k].get("min", false) else 176.0
-			if k == sd: return Rect2(pr.position.x + 8.0, y, pr.size.x - 16.0, hk)
-			y += hk + 6.0
-	if calls[sd].get("min", false): return Rect2(8.0 if sd == "l" else S.x - 8.0 - 150.0, top, 150.0, 52.0)
-	return Rect2(8.0 if sd == "l" else S.x - 8.0 - w, top, w, h)
+	var x := 8.0 if sd == "l" else S.x - 8.0 - w
+	if calls[sd].is_empty() or calls[sd].get("min", false): return Rect2(x, top, w, 52.0)
+	return Rect2(x, top, w, w + 90.0)
 
 func _calls_in_panel() -> bool:
-	return _panel_page(screen) and content != null and content.visible and not panel_min
+	return false   # v11.4 (owner): the calls stand at the screen's sides, never inside the page
 
-func open_call(sd: String, who: String, sub: String, line: String, face: String, fold_after := 0.0) -> void:
-	calls[sd] = {"from": who, "sub": sub, "line": line, "face": face, "min": false, "fold": fold_after}
+## The width the right-hand comms column keeps clear of the page.
+func right_reserve() -> float:
+	return 8.0 + call_w() + 14.0
+
+## Where the left tablet / page starts: clear of a call on the left.
+func left_reserve() -> float:
+	return (8.0 + call_w() + 14.0) if _call_open("l") else 24.0
+
+func _call_open(sd: String) -> bool:
+	return not calls[sd].is_empty() and not calls[sd].get("min", false) and not panels_hidden
+
+func open_call(sd: String, who: String, sub: String, line: String, face: String, fold_after := 0.0, extra := {}) -> void:
+	calls[sd] = {"from": who, "sub": sub, "line": line, "face": face, "min": false, "fold": fold_after, "id": "assistant" if who == "Evee" else ""}
+	calls[sd].merge(extra, true)
+	talk_side = sd
+	_log(who.to_upper(), line)
 	_place_calls()
 
 func close_call(sd: String) -> void:
+	if calls[sd].is_empty(): return
 	calls[sd] = {}
+	if talk_side == sd: talk_side = "r" if sd == "l" else "l"
+	if asst_free and (calls["l"].is_empty() and calls["r"].is_empty()): set_hands_free(false)
+	if calls["l"].is_empty() and calls["r"].is_empty(): set_typing(false)
 	_place_calls()
-	if sd == "r":
-		asst_chat.visible = false
-		if asst_free: set_hands_free(false)
-		_asst_show(screen)
+	_asst_show(screen)
+
+## v11.4: is the right-hand COMMS tab up (no call on the right)?
+func comms_tab_on() -> bool:
+	return calls["r"].is_empty() and not panels_hidden and screen != "equipment" and not lockdown
 
 func _place_calls() -> void:
+	if not call_ctl.has("l"): return
 	for sd in ["l", "r"]:
 		var c: Control = call_ctl[sd]
-		c.visible = not calls[sd].is_empty() and not panels_hidden
+		c.visible = not panels_hidden and (not calls[sd].is_empty() or (sd == "r" and comms_tab_on()))
 		if not c.visible: continue
 		var r := call_rect(sd)
 		c.position = r.position
 		c.size = r.size
 		c.queue_redraw()
-	if not calls["r"].is_empty() and not calls["r"].get("min", false):   # Evee is on the call: her standing figure steps aside
+	if _call_open("r") and str(calls["r"].get("id", "")) == "assistant":   # Evee is on the call: her standing figure steps aside
 		asst.visible = false
-	var cr := call_rect("r")   # the talk line sits beside her screen
-	if _calls_in_panel():   # v8.5: in the panel, under her call
-		asst_chat.anchor_left = 0.0
-		asst_chat.anchor_right = 0.0
-		asst_chat.offset_left = cr.position.x
-		asst_chat.offset_right = cr.end.x
-		asst_chat.offset_top = cr.end.y + 6.0
-		asst_chat.offset_bottom = cr.end.y + 6.0 + (330.0 if asst_log_open else 150.0)
-		return
-	asst_chat.anchor_left = 1.0
-	asst_chat.anchor_right = 1.0
-	asst_chat.offset_right = -(get_viewport_rect().size.x - cr.position.x) - 8.0
-	asst_chat.offset_left = asst_chat.offset_right - 460.0
-	asst_chat.offset_top = cr.position.y
-	asst_chat.offset_bottom = cr.position.y + (330.0 if asst_log_open else 104.0)
+	# the comms bar under the call you are talking to
+	var ts := talk_side if _call_open(talk_side) else ("r" if _call_open("r") else ("l" if _call_open("l") else ""))
+	talk_side = ts if ts != "" else talk_side
+	asst_chat.visible = ts != ""
+	if ts != "":
+		var cr := call_rect(ts)
+		asst_chat.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		asst_chat.position = Vector2(cr.position.x, cr.end.y + 6.0)
+		asst_chat.size = Vector2(cr.size.x, 151.0 + (48.0 if typing else 0.0))
+	# CONTACTS / LOG on the left (beside a call there), or big in the middle
+	comms_panel.visible = comms_view != "" and not panels_hidden
+	if comms_panel.visible:
+		var S := get_viewport_rect().size
+		var top := CONTENT_Y + 4.0
+		var bot := S.y - 72.0
+		var w := clampf(S.x * 0.26, 260.0, 380.0)
+		var x := left_reserve() - 6.0 if _call_open("l") else 8.0
+		if comms_big and comms_view == "log":
+			w = minf(S.x * 0.56, 860.0)
+			x = (S.x - w) * 0.5
+		comms_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		comms_panel.position = Vector2(x, top)
+		comms_panel.size = Vector2(w, bot - top)
+		(comms_panel.find_child("CommsFull", true, false) as Control).visible = comms_view == "log"
+		(comms_panel.find_child("CommsFull", true, false) as Button).text = "SMALL" if comms_big else "FULL"
+		move_child(comms_panel, get_child_count() - 1)
+		if launch_btn != null: move_child(launch_btn, get_child_count() - 1)
+	_place_tablets()
 
 var _face_cache := {}
 func _call_face(path: String) -> Texture2D:
@@ -876,10 +925,16 @@ func _call_face(path: String) -> Texture2D:
 
 func _draw_call(c: Control, sd: String) -> void:
 	var d: Dictionary = calls[sd]
-	if d.is_empty(): return
 	var r := Rect2(Vector2.ZERO, c.size)
-	var acc := CYAN
 	var font := ThemeDB.fallback_font
+	if d.is_empty():   # v11.4: the COMMS tab (no call on the right): Evee's face, tap = your contacts
+		_tech_box(c, r, CYAN, 0.85)
+		var et := _call_face("res://assets/portraits/evee_normal.png")
+		if et != null: c.draw_texture_rect(et, Rect2(4, 4, 44, 44), false)
+		c.draw_string(font, Vector2(54, 22), "COMMS", HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 58, 15, Color.WHITE)
+		c.draw_string(font, Vector2(54, 40), "TAP: CONTACTS", HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 58, 9, Color(CYAN, 0.9))
+		return
+	var acc := CYAN if sd == "r" else Color(1.0, 0.36, 0.3)
 	var tex := _call_face(str(d["face"]))
 	if d.get("min", false):   # the folded tab: face + name, tap to open
 		_tech_box(c, r, acc, 0.85)
@@ -887,24 +942,18 @@ func _draw_call(c: Control, sd: String) -> void:
 		c.draw_string(font, Vector2(54, 22), str(d["from"]).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 58, 12, Color.WHITE)
 		c.draw_string(font, Vector2(54, 40), "TAP TO OPEN", HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 58, 9, Color(acc, 0.9))
 		return
-	_tech_box(c, r, acc, 0.97 if r.size.x > r.size.y * 1.4 else 0.5)   # (v8.5: solid in the panel, so the page under it doesn't show through)
-	var head := Rect2(0, 0, r.size.x, 26)   # name strip, with the fold button
+	_tech_box(c, r, acc, 0.5)
+	var head := Rect2(0, 0, r.size.x, 26)   # name strip, with fold (—) and hang up (X)
 	c.draw_rect(head, Color(acc.darkened(0.45), 0.9))
-	c.draw_string(font, Vector2(6, 18), str(d["from"]).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 34, 14, Color.WHITE)
-	var fb := Rect2(r.size.x - 26, 2, 22, 22)
+	c.draw_string(font, Vector2(6, 18), str(d["from"]).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 62, 13, Color.WHITE)
+	var fb := Rect2(r.size.x - 52, 2, 22, 22)
 	c.draw_rect(fb, Color(0.02, 0.06, 0.12, 0.9))
 	c.draw_line(Vector2(fb.position.x + 5, fb.get_center().y), Vector2(fb.end.x - 5, fb.get_center().y), Color.WHITE, 2.0)
-	if r.size.x > r.size.y * 1.4:   # v8.5: a wide call (inside the panel): the face on the left, the line beside it
-		var fs := r.size.y - 36.0
-		var pf := Rect2(6, 30, fs, fs)
-		if tex != null: c.draw_texture_rect(tex, pf, false)
-		c.draw_rect(pf, Color(acc, 0.7), false, 1.5)
-		var tw := Rect2(pf.end.x + 8, 30, r.size.x - pf.end.x - 14, fs)
-		c.draw_rect(tw, Color(1, 1, 1, 0.7))
-		c.draw_rect(tw, Color(acc, 0.8), false, 1.5)
-		c.draw_string(font, tw.position + Vector2(6, 14), str(d.get("sub", "FRIENDLY")).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, tw.size.x - 12, 10, acc.darkened(0.45))
-		c.draw_multiline_string(font, tw.position + Vector2(6, 32), str(d["line"]), HORIZONTAL_ALIGNMENT_LEFT, tw.size.x - 12, 15, maxi(1, int((tw.size.y - 24) / 18.0)), Color(0.03, 0.07, 0.13))
-		return
+	var xb := Rect2(r.size.x - 26, 2, 22, 22)
+	c.draw_rect(xb, Color(0.75, 0.12, 0.1, 0.95))
+	c.draw_line(xb.position + Vector2(6, 6), xb.end - Vector2(6, 6), Color.WHITE, 2.0)
+	c.draw_line(Vector2(xb.end.x - 6, xb.position.y + 6), Vector2(xb.position.x + 6, xb.end.y - 6), Color.WHITE, 2.0)
+	if talk_side == sd and _call_open("l") and _call_open("r"): c.draw_rect(Rect2(0, 26, r.size.x, 2), Color(GOLD, 0.9))   # (the one you are talking to)
 	var pr := Rect2(6, 30, r.size.x - 12, r.size.x - 12)
 	pr.size.y = minf(pr.size.y, r.size.y - 30 - 70)
 	if tex != null:
@@ -940,22 +989,120 @@ func _call_input(e: InputEvent, sd: String) -> void:
 	if not tap: return
 	var at: Vector2 = (e as InputEventMouseButton).position if e is InputEventMouseButton else (e as InputEventScreenTouch).position
 	var d: Dictionary = calls[sd]
-	if d.is_empty(): return
+	if d.is_empty():   # the COMMS tab: your contacts
+		open_comms("" if comms_view == "contacts" else "contacts")
+		return
+	var w: float = call_ctl[sd].size.x
 	if d.get("min", false):
 		d["min"] = false
-		if sd == "r": asst_chat.visible = true
-	elif at.y < 28.0 and at.x > call_ctl[sd].size.x - 30.0:   # the fold button
+		talk_side = sd
+	elif at.y < 28.0 and at.x > w - 28.0: close_call(sd)   # X = hang up
+	elif at.y < 28.0 and at.x > w - 56.0:   # — = fold away
 		d["min"] = true
-		if sd == "r":
-			asst_chat.visible = false
-			if asst_free: set_hands_free(false)
-			_asst_show(screen)
-	elif sd == "r": asst_chat.visible = true   # tap her screen: talk
+		if asst_free and not _call_open("l" if sd == "r" else "r"): set_hands_free(false)
+		_asst_show(screen)
+	else: talk_side = sd   # tap a call: talk to that person
 	_place_calls()
 
-## Tap her: she says hello (her own voice the first time), and the talk line opens.
+## v11.4 (owner): call someone from CONTACTS or a TALK button: your side on the right, anyone else on the left.
+func side_for(faction: String) -> String:
+	return "l" if faction != "" and Factions.has(faction) and Factions.hostile(faction) else "r"
+
+func call_person(p: Dictionary, sub: String, line: String) -> void:
+	var sd := side_for(str(p.get("faction", "")))
+	open_call(sd, str(p["name"]), sub, line, str(p.get("portrait_clean", "")), 0.0,
+		{"id": str(p["id"]), "voice_id": str(p.get("voice_id", p["id"])), "voice": float(p.get("voice", 1.0)), "female": str(p.get("sex", "")) == "female"})
+	status.text = "%s: %s" % [p["name"], line]
+	Sfx.play_character_voice(str(p.get("voice_id", p["id"])), "", line, float(p.get("voice", 1.0)), str(p.get("sex", "")) == "female")
+
+## Call a character you have met (the flight call list): only people in this star system pick up.
+func call_character(id: String) -> void:
+	var c: Dictionary = Data.CHARACTERS[id]
+	var face := "res://assets/portraits/%s_normal.png" % str(c.get("face", ""))
+	var line := "%s here. Go ahead, pilot." % str(c["name"])
+	open_call(side_for(str(c.get("faction", ""))), str(c["name"]), "in this system", line, face, 0.0, {"id": id, "voice_id": id, "voice": float(c.get("voice", 1.0)), "female": bool(c.get("female", false))})
+	status.text = "%s: %s" % [c["name"], line]
+	if Sfx.voice_on(): Sfx.read_aloud(line, "", float(c.get("voice", 1.0)), bool(c.get("female", false)))
+
+## v11.4: CONTACTS / LOG on the left ("" closes it).
+func open_comms(view: String) -> void:
+	comms_view = view
+	asst_log_open = view == "log"
+	if view != "log": comms_big = false
+	var lst: VBoxContainer = comms_panel.find_child("CommsList", true, false)
+	for c in lst.get_children():
+		lst.remove_child(c)
+		c.queue_free()
+	var ttl: Label = comms_panel.find_child("CommsTitle", true, false)
+	if view == "contacts":
+		ttl.text = "CONTACTS"
+		_fill_contacts(lst)
+	elif view == "log":
+		ttl.text = "CHAT LOG"
+		var lt := _label(15, Color(0.85, 0.93, 1.0))
+		lt.name = "LogText"
+		lt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		lt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		lst.add_child(lt)
+		_log_text()
+	for bn in ["ContactsButton", "LogButton"]:
+		var b: Button = asst_chat.find_child(bn, true, false)
+		if (bn == "ContactsButton" and view == "contacts") or (bn == "LogButton" and view == "log"): b.add_theme_color_override("font_color", GOLD)
+		else: b.remove_theme_color_override("font_color")
+	_place_calls()
+
+func _contact_row(lst: VBoxContainer, id: String, nm: String, sub: String, face: String, ok: bool, f: Callable) -> void:
+	var b := Button.new()
+	b.name = "Contact_" + id
+	b.text = "%s\n%s" % [nm.to_upper(), sub]
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	b.custom_minimum_size = Vector2(0, 66)
+	b.clip_text = true
+	b.disabled = not ok
+	b.add_theme_font_size_override("font_size", Data.ts(14))
+	b.add_theme_constant_override("icon_max_width", 54)
+	var tx := _call_face(face)
+	if tx != null: b.icon = tx
+	b.expand_icon = true
+	b.pressed.connect(func():
+		open_comms("")
+		f.call())
+	lst.add_child(b)
+
+func _fill_contacts(lst: VBoxContainer) -> void:
+	_contact_row(lst, "assistant", "Evee", "Always with you", "res://assets/portraits/evee_normal.png", true, func(): asst_tap())
+	for who in Factions.people_at(base, Data.SYSTEMS[GS.system_id]):
+		var p: Dictionary = who["pilot"]
+		var line := _greeting(who)
+		_contact_row(lst, str(p["id"]), str(p["name"]), ("Leader" if who["role"] == "leader" else "Coordinator") + " · at this station", str(p["portrait_clean"]), true, func(): call_person(p, "at this station", line))
+	for id in GS.met:
+		if id == "assistant" or not Data.CHARACTERS.has(id) or GS.mood.get(id, "neutral") == "enraged": continue
+		var c: Dictionary = Data.CHARACTERS[id]
+		var here: bool = c.get("system", GS.system_id) == GS.system_id
+		var sub := "In this system" if here else "Out of range · %s" % str(Data.SYSTEMS.get(c.get("system", ""), {}).get("name", "far away"))
+		var cid: String = id
+		_contact_row(lst, cid, str(c["name"]), sub, "res://assets/portraits/%s_normal.png" % str(c.get("face", "")), here, func(): call_character(cid))
+
+func _greeting(who: Dictionary) -> String:
+	var p: Dictionary = who["pilot"]
+	if who["role"] == "leader": return "%s, %s. Welcome to %s." % [p["name"], str(Data.ROSTERS[p["faction"]].get("title", p["faction"])), base["name"]]
+	return "%s here. I have work for you on the Mission Board." % p["name"]
+
+## v11.4 (owner): TYPE brings up the line to type in (and the phone keyboard).
+func set_typing(on: bool) -> void:
+	typing = on
+	var tr: Control = asst_chat.find_child("TypeRow", true, false)
+	if tr == null: return
+	tr.visible = on
+	var tb: Button = asst_chat.find_child("TypeButton", true, false)
+	if on:
+		tb.add_theme_color_override("font_color", GOLD)
+		(asst_chat.find_child("AskLine", true, false) as LineEdit).call_deferred("grab_focus")
+	else: tb.remove_theme_color_override("font_color")
+	_place_calls()
+
+## Tap her: she says hello (her own voice the first time), and her call comes up on the right.
 func asst_tap() -> void:
-	asst_chat.visible = true
 	_asst_play("talk")
 	var said: Label = asst_chat.find_child("Said", true, false)
 	if not asst_greeted:
@@ -963,8 +1110,7 @@ func asst_tap() -> void:
 		_asst_voice()
 		said.text = "Hi, pilot. It's Evee. I'm right here with you. Ask me anything."
 	else: said.text = "Yes, pilot?"
-	open_call("r", "Evee", "Your companion · live", said.text, "res://assets/portraits/evee_normal.png")   # v5.6: the same call screen as in flight
-	_log("HER", said.text)
+	open_call("r", "Evee", "Your companion · live", said.text, "res://assets/portraits/evee_normal.png", 0.0, {"id": "assistant"})   # v5.6: the same call screen as in flight
 
 func _asst_voice() -> void:
 	var ap := AudioStreamPlayer.new()
@@ -973,46 +1119,58 @@ func _asst_voice() -> void:
 	ap.finished.connect(ap.queue_free)
 	ap.play()
 
-## Ask her something: the brain answers (the rule engine for now; Echo Vision's brain plugs in through Brain.responder).
+## Say something to whoever you are talking to (Evee, or the person on the call): the brain answers (the rule engine
+## for now; Echo Vision's brain plugs in through Brain.responder).
 func asst_ask(t: String) -> void:
 	if t.strip_edges() == "": return
 	var ed: LineEdit = asst_chat.find_child("AskLine", true, false)
 	ed.text = ""
+	if not _call_open(talk_side):
+		if _call_open("r"): talk_side = "r"
+		elif _call_open("l"): talk_side = "l"
+		else: asst_tap()
+	var sd := talk_side
+	var d: Dictionary = calls[sd]
+	var id := str(d.get("id", "assistant"))
+	if id == "": id = "assistant"
 	_log("YOU", t.strip_edges())
 	var ctx := {"system": GS.system_id, "hostiles": 0, "kills": GS.kills, "credits": GS.credits, "station": str(base.get("name", ""))}
-	Brain.ask("assistant", t, ctx, func(line: String):
+	Brain.ask(id, t, ctx, func(line: String):
 		var clean := line
 		if clean.begins_with("["): clean = clean.substr(clean.find("]") + 1)
 		clean = clean.strip_edges()
 		if clean != "": clean = clean[0].to_upper() + clean.substr(1)
 		(asst_chat.find_child("Said", true, false) as Label).text = clean
-		if not calls["r"].is_empty():
-			calls["r"]["line"] = clean
-			call_ctl["r"].queue_redraw()
-		_log("HER", clean)
-		_asst_play("talk")
-		if Sfx.voice_on() or asst_free or _spoke: Sfx.read_aloud(clean, "", 1.15, true)   # (talk to her and she talks back)
+		if not calls[sd].is_empty():
+			calls[sd]["line"] = clean
+			call_ctl[sd].queue_redraw()
+		_log(str(d.get("from", "Evee")).to_upper(), clean)
+		var loud := Sfx.voice_on() or asst_free or _spoke
+		if id == "assistant":
+			_asst_play("talk")
+			if loud: Sfx.read_aloud(clean, "", 1.15, true)   # (talk to her and she talks back)
+		elif loud: Sfx.play_character_voice(str(d.get("voice_id", id)), "", clean, float(d.get("voice", 1.0)), bool(d.get("female", false)))
 		_spoke = false)
 
 var _spoke := false   # the last question came by voice
 
-## v3.8: the chat log, folded away until you open it.
+## v3.8: the chat log (v11.4: everyone you talk to, with their names; open it with LOG).
 func _log(who: String, line: String) -> void:
+	if line.strip_edges() == "": return
 	asst_log.append([who, line])
-	if asst_log.size() > 40: asst_log.pop_front()
-	var lt: Label = asst_chat.find_child("LogText", true, false)
-	if lt != null: lt.text = "\n".join(asst_log.map(func(e): return "%s: %s" % [e[0], e[1]]))
-	var lb: ScrollContainer = asst_chat.find_child("LogBox", true, false)
-	if lb != null and lb.visible: lb.set_deferred("scroll_vertical", 100000)
+	if asst_log.size() > 60: asst_log.pop_front()
+	_log_text()
+
+func _log_text() -> void:
+	if comms_panel == null: return
+	var lt: Label = comms_panel.find_child("LogText", true, false)
+	if lt == null: return
+	lt.text = "\n".join(asst_log.map(func(e): return "%s: %s" % [e[0], e[1]])) if not asst_log.is_empty() else "Nothing said yet."
+	var sc: ScrollContainer = comms_panel.find_child("CommsScroll", true, false)
+	sc.set_deferred("scroll_vertical", 100000)
 
 func set_log_open(on: bool) -> void:
-	asst_log_open = on
-	(asst_chat.find_child("LogBox", true, false) as Control).visible = on
-	_place_calls()
-	var lgb: Button = asst_chat.find_child("LogButton", true, false)
-	lgb.text = "LOG ▲" if on else "LOG ▼"
-	if on: lgb.add_theme_color_override("font_color", GOLD)
-	else: lgb.remove_theme_color_override("font_color")
+	open_comms("log" if on else "")
 
 ## v3.8 (owner): the mic. In the browser game the phone's own speech recognition hears you (it asks for the mic once);
 ## MIC hears one line; HANDS-FREE keeps listening between lines (and stops while she talks so she doesn't hear herself).
@@ -1022,6 +1180,7 @@ func asst_listen() -> void:
 		return
 	JavaScriptBridge.eval("window.hlListen && window.hlListen(%s)" % ("true" if asst_free else "false"))
 	(asst_chat.find_child("Said", true, false) as Label).text = "Listening..."
+	status.text = "Listening..."
 
 func set_hands_free(on: bool) -> void:
 	asst_free = on
@@ -1361,26 +1520,56 @@ func _layout_windows(s: String) -> void:
 	_asst_show(s)
 	var split: bool = not (s in ["hub", "equipment"])
 	var one: bool = _panel_page(s)
-	content.anchor_left = 1.0 if one else (Data.ROOM_SPLIT if split else 0.0)
-	content.offset_left = 6.0 if split else (0.0 if s == "equipment" else 24.0)
-	if one:   # v11.2 (owner): the panel is a 2 x 3 portrait scroll window at the right
-		content.offset_left = -24.0 - panel_w()
 	content.mouse_filter = Control.MOUSE_FILTER_STOP if s != "equipment" else content.mouse_filter
 	var fold: bool = panels_hidden and s != "equipment"
 	content.visible = not fold and not (one and panel_min)
 	leftwin.visible = split and not one and not fold
 	show_btn.visible = true
-	_photo_words()
-	if s != "equipment": content.offset_right = -24.0   # (v8.5: Evee stands left of the panel now)
+	if s == "equipment":   # (the hangar uses the whole screen)
+		content.anchor_left = 0.0
+		content.anchor_right = 1.0
+		content.clip_contents = false
+	else:
+		content.clip_contents = true   # v11.4 (owner: "nothing outside"): a page never spills out of its tablet
+		leftwin.clip_contents = true
+	_photo_words()   # (places the calls, and the tablets beside them)
 	if leftwin.visible and leftwin.get_child_count() == 0: _left_window(s)
-	if one and s != "hub":
+	if (one and s != "hub") or two_tablets(s):
 		var g := StyleBoxFlat.new()   # the panel's glass: see-through, so the station shows behind it
 		g.bg_color = Data.HUB_GLASS   # v11.2 (owner): light-blue see-through glass
 		g.border_color = Color(0.6, 0.9, 1.0, 0.85)
 		g.set_border_width_all(2)
 		tech_cut(g, 16)
 		content.add_theme_stylebox_override("panel", g)
+		if two_tablets(s): leftwin.add_theme_stylebox_override("panel", g)
+	else: leftwin.remove_theme_stylebox_override("panel")
 	_panel_tab_place(s)
+
+## v11.4 (owner): the MISSION BOARD is a big landscape window (3 wide for 2 tall); the SHIPYARD and MECHS have two
+## 2 x 3 tablets, one each side.
+func board_page(s: String) -> bool: return s in ["missions", "bounty", "board"]
+func two_tablets(s: String) -> bool: return s in ["ships", "mechs"]
+
+## The tablets sit between the calls: the page clear of the comms column on the right, the left tablet clear of a
+## call on the left.
+func _place_tablets() -> void:
+	if content == null or screen == "equipment": return
+	var S := get_viewport_rect().size
+	var rr := right_reserve()
+	var pw := panel_w()
+	if board_page(screen): pw = clampf((S.y - CONTENT_Y - 66.0) * Data.HUB_BOARD_ASPECT, 240.0, S.x - rr - left_reserve() - 8.0)
+	content.anchor_left = 1.0
+	content.anchor_right = 1.0
+	content.offset_right = -rr
+	content.offset_left = -rr - pw
+	if two_tablets(screen):
+		leftwin.anchor_left = 0.0
+		leftwin.anchor_right = 0.0
+		leftwin.offset_left = left_reserve()
+		leftwin.offset_right = left_reserve() + panel_w()
+	if panel_tab != null:
+		panel_tab.offset_right = -rr
+		panel_tab.offset_left = -rr - 54.0
 
 func _panel_tab_place(s: String) -> void:
 	if panel_tab == null:
@@ -1555,16 +1744,22 @@ func scroll_board(sc: ScrollContainer, d: int) -> void:
 	create_tween().tween_property(sc, "scroll_vertical", int(to), 0.25)
 
 func _page_box() -> VBoxContainer:
+	# v11.4 (owner: "nothing outside, scroll"): every page in a tablet scrolls by hand when it is longer than the tablet
+	var sc := ScrollContainer.new()
+	sc.name = "PageScroll"
+	sc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	sc.offset_left = 20
+	sc.offset_top = 14
+	sc.offset_right = -14
+	sc.offset_bottom = -14
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	content.add_child(sc)
+	board_sc = sc
 	var v := VBoxContainer.new()
-	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	v.offset_left = 24
-	v.offset_top = 18
-	v.offset_right = -24
-	v.offset_bottom = -18
-	v.set_meta("top0", 18.0)
-	_call_top = -1.0
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.mouse_filter = Control.MOUSE_FILTER_PASS
 	v.add_theme_constant_override("separation", 10)
-	content.add_child(v)
+	sc.add_child(v)
 	if _panel_page(screen): _panel_head(v, header.text)   # v8.5: every page in the one panel has its title and fold button
 	return v
 
@@ -1600,11 +1795,8 @@ func _people_rows(v: VBoxContainer) -> void:
 		tb.name = "Talk_" + str(p["id"])
 		tb.text = "TALK"
 		tb.custom_minimum_size = Vector2(110, 38)
-		var line := ("%s, %s. Welcome to %s." % [p["name"], str(Data.ROSTERS[p["faction"]].get("title", p["faction"])), base["name"]]) if who["role"] == "leader" else ("%s here. I have work for you on the Mission Board." % p["name"])
-		tb.pressed.connect(func():
-			open_call("l", str(p["name"]), "at this station", line, str(p["portrait_clean"]))   # v5.6: the same call screen
-			status.text = "%s: %s" % [p["name"], line]
-			Sfx.play_character_voice(str(p.get("voice_id", p["id"])), "", line, float(p.get("voice", 1.0)), str(p.get("sex", "")) == "female"))
+		var line := _greeting(who)
+		tb.pressed.connect(func(): call_person(p, "at this station", line))   # v11.4: your side's people come up on the right
 		col.add_child(tb)
 		card.add_child(col)
 		row.add_child(card)
@@ -3334,6 +3526,7 @@ func _ships_page() -> void:
 		var card := VBoxContainer.new()
 		var l := _label(19, GOLD if id == GS.ship_id else Color(1, 1, 1))
 		l.text = "%s  —  %s%s" % [s["name"].to_upper(), s["class"], "   (CURRENT)" if id == GS.ship_id else ""]
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART   # v11.4: the tablet is narrow
 		card.add_child(l)
 		var st := _label(15, CYAN)
 		st.text = "Hull %d · Shield %d · Speed %d · Turn %.2f · Guns %d · Missiles %d · Mines %d" % [s["hull"], s["shield"], s["speed"], s["turn"], s["guns"], s["missiles"], s["mines"]]
@@ -3342,7 +3535,9 @@ func _ships_page() -> void:
 		var row := HBoxContainer.new()
 		var b := Button.new()
 		b.name = "Ship_" + id
-		b.custom_minimum_size = Vector2(220, 50)
+		b.custom_minimum_size = Vector2(0, 50)   # v11.4: the two buttons share the tablet's width
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.clip_text = true
 		if id == GS.ship_id: b.text = "FLYING"; b.disabled = true
 		elif id in GS.owned_ships: b.text = "SWITCH"
 		else: b.text = "BUY  %d cr" % s["price"]; b.disabled = GS.credits < int(s["price"])
@@ -3350,7 +3545,7 @@ func _ships_page() -> void:
 		row.add_child(b)
 		var pv := Button.new()
 		pv.text = "VIEW"
-		pv.custom_minimum_size = Vector2(100, 50)
+		pv.custom_minimum_size = Vector2(96, 50)
 		pv.pressed.connect(func(): _set_preview(id); open_inspector(id))
 		row.add_child(pv)
 		card.add_child(row)
@@ -3425,7 +3620,7 @@ func _mechs_page() -> void:
 		row.add_theme_constant_override("v_separation", 6)
 		var pl := _label(17, GOLD)
 		pl.text = "%s:" % str(Data.MECH_PART_NAMES[part]).to_upper()
-		pl.custom_minimum_size = Vector2(200, 50)
+		pl.custom_minimum_size = Vector2(0, 50)
 		row.add_child(pl)
 		for fid in Data.MECH_ORDER:
 			if not (fid in GS.owned_mechs): continue
@@ -3445,8 +3640,8 @@ func _mechs_page() -> void:
 	list.add_child(cap2)
 	for fid in Data.MECH_ORDER:
 		var f: Dictionary = Data.MECHS[fid]
-		var r := HBoxContainer.new()
-		r.add_theme_constant_override("separation", 14)
+		var r := VBoxContainer.new()   # v11.4: the words over the button (the tablet is narrow)
+		r.add_theme_constant_override("separation", 4)
 		var l := _label(17, Color(1, 1, 1))
 		l.text = "%s   ·   armour %d%%  ·  gun x%.2f  ·  pace x%.2f" % [f["name"], int(round(float(f["armor"]) * 100.0)), float(f["arm"]), float(f["speed"])]
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -3454,7 +3649,7 @@ func _mechs_page() -> void:
 		r.add_child(l)
 		var b := Button.new()
 		b.name = "Mech_" + fid
-		b.custom_minimum_size = Vector2(210, 52)
+		b.custom_minimum_size = Vector2(0, 52)
 		var worn: bool = GS.mech_parts.values().all(func(x): return x == fid)
 		if worn: b.text = "WORN"; b.disabled = true
 		elif fid in GS.owned_mechs: b.text = "WEAR ALL"
@@ -4006,8 +4201,8 @@ func _ship_page() -> void:
 	if worth > 0:
 		var sb := Button.new()
 		sb.name = "SellOre"
-		sb.text = "SELL GOLD / DIAMOND  +%d cr" % worth
-		sb.custom_minimum_size = Vector2(330, 56)
+		sb.text = "SELL ORE  +%d cr" % worth
+		sb.custom_minimum_size = Vector2(0, 56)
 		sb.add_theme_color_override("font_color", GOLD)
 		sb.pressed.connect(func(): status.text = GS.sell_ore(str(base["name"])); Sfx.play("pickup", -6.0); show_screen("ship"))
 		v.add_child(sb)
@@ -4097,7 +4292,7 @@ func _repair_page() -> void:
 	var b := Button.new()
 	b.text = "REPAIR NOW  ·  FREE"
 	b.name = "RepairAll"
-	b.custom_minimum_size = Vector2(360, 60)
+	b.custom_minimum_size = Vector2(0, 60)
 	b.disabled = not GS.needs_repair()
 	b.pressed.connect(func(): status.text = GS.repair_all(); show_screen(screen))
 	v.add_child(b)
@@ -4105,7 +4300,7 @@ func _repair_page() -> void:
 	var rc := GS.restock_cost()
 	b2.text = "RESTOCK ALL  ·  %d cr" % rc if rc > 0 else "RESTOCK ALL  ·  FULL"
 	b2.name = "RestockAll"
-	b2.custom_minimum_size = Vector2(360, 60)
+	b2.custom_minimum_size = Vector2(0, 60)
 	b2.disabled = rc <= 0
 	b2.pressed.connect(func(): status.text = GS.restock_all(); show_screen(screen))
 	v.add_child(b2)

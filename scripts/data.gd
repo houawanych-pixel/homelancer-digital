@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.3"
+const VERSION := "v11.4"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -970,6 +970,8 @@ const ROOM_DRIFT := 0.0025      # a slow drift once you leave it alone a while (
 const ROOM_DRIFT_AFTER := 8.0   # s untouched before it drifts
 const ROOM_WASH := 0.12         # a light dark wash so the panels read
 const BOARD_DRAG_START := 12.0   # v11.3: px a finger moves on a board list before it scrolls instead of tapping
+const HUB_BOARD_ASPECT := 1.5   # v11.4 (owner): the MISSION BOARD is a big landscape window, 3 wide for 2 tall
+const ASST_ROOM_STAND := {"pilots_lounge": [0.24, 0.93]}   # v11.4 (owner): rooms where everyone sits: Evee's head and feet lines (share of the room picture's height)
 const HUB_PANEL_ASPECT := 2.0 / 3.0   # v11.2 (owner): the one panel is a 2 x 3 portrait window (width = height x this)
 const HUB_GLASS := Color(0.3, 0.62, 0.9, 0.3)   # v11.2 (owner): its light-blue see-through glass
 const HUB_PANEL_FRAC := 0.4    # v8.5 (owner, hub spec): the one floating panel on the right takes this share of the width

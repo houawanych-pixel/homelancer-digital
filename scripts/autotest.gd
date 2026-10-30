@@ -1488,6 +1488,15 @@ func _run() -> void:
 			await _wait(0.6)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_V114") != "":   # the v11.4 station comms / tablets checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_v114()
+		await _job_v99_hub()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_V111") != "":   # the v11.1 HUD checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -2058,6 +2067,7 @@ func _run() -> void:
 	await _job_v109()
 	await _job_v11()
 	await _job_v111()
+	await _job_v114()
 	await _job_edge()
 	await _job_open()
 	await _job_unknown()
@@ -3048,7 +3058,7 @@ func _job_v99_hub() -> void:
 	var cr: Rect2 = hb.call_rect("l")
 	var clear: bool = hb.content.find_child("ScrollUp", true, false) == null   # (v11.3 owner: no UP / DOWN tabs, the list is dragged)
 	var sc: ScrollContainer = hb.content.find_child("Scroll", true, false)
-	var list_clear: bool = sc != null and sc.get_global_rect().position.y >= cr.end.y - 1.0
+	var list_clear: bool = sc != null and not sc.get_global_rect().intersects(cr)   # (v11.4: calls stand beside the page, never on it)
 	await _shot("v99_board_call", 0.3)
 	if sc != null:
 		sc.scroll_vertical = 400
@@ -3096,6 +3106,107 @@ func _job_v99_hub() -> void:
 		clear and list_clear and went_up and back and fs_ok and boxed == hb.subtabs.get_child_count() and boxed > 0,
 		"clear %s list %s up %s back %s fs %s (%s, hidden %s, vis %s, fs %s hide %s) boxed %d/%d" % [clear, list_clear, went_up, back, fs_ok, fs.text if fs else "none", hb.panels_hidden, fs.visible if fs else false, fs.get_global_rect() if fs else Rect2(), hb.show_btn.get_global_rect(), boxed, hb.subtabs.get_child_count()])
 	hb.visible = false
+
+## v11.4 (owner, station screenshots): the station comms work like flight: your side (this station's people, Evee) on
+## the RIGHT, anyone else on the LEFT, one person per side, "—" folds and "X" hangs up; a COMMS tab when nobody is on;
+## the comms bar (CONTACTS, LOG, MIC, HANDS, TYPE) under the call; CONTACTS and the LOG come up on the left, FULL brings
+## the log big into the middle. The page tablets sit clear of the calls and never spill; the board is a big 3:2
+## landscape; the shipyard has two 2 x 3 tablets; Evee stands tall in the lounge.
+func _job_v114() -> void:
+	var hb = main.hub
+	hb.open(Data.SYSTEMS["veranthos"]["station"])
+	await _frames(3)
+	if hb.panels_hidden: hb.set_panels_hidden(false)
+	var S: Vector2 = hb.get_viewport_rect().size
+	var greet_r: bool = not hb.calls["r"].is_empty() and hb.calls["l"].is_empty() and hb.call_rect("r").end.x > S.x - 12.0
+	hb.show_screen("supplies")
+	await _frames(3)
+	var pr: Rect2 = hb.content.get_global_rect()
+	var clear_r: bool = pr.end.x <= hb.call_rect("r").position.x and not pr.intersects(hb.asst_chat.get_global_rect())
+	var bar_ok: bool = hb.asst_chat.visible
+	for bn in ["ContactsButton", "LogButton", "MicButton", "HandsFree", "TypeButton"]:
+		var bb: Button = hb.asst_chat.find_child(bn, true, false)
+		if bb == null or not hb.asst_chat.get_global_rect().encloses(bb.get_global_rect()): bar_ok = false
+	var sc: ScrollContainer = hb.content.find_child("PageScroll", true, false)
+	var spill := false
+	for c in hb.content.find_children("*", "Control", true, false):
+		if (c as Control).is_visible_in_tree() and not (c is ScrollBar) and (c as Control).get_global_rect().end.x > pr.end.x + 1.0: spill = true
+	var page_ok: bool = hb.content.clip_contents and sc != null and not spill
+	await _shot("v114_supplies", 0.3)
+	hb.open_comms("contacts")
+	await _frames(2)
+	var cp: Rect2 = hb.comms_panel.get_global_rect()
+	var evee_row: Button = hb.comms_panel.find_child("Contact_assistant", true, false)
+	var rows: int = hb.comms_panel.find_children("Contact_*", "Button", true, false).size()
+	var contacts_ok: bool = hb.comms_panel.visible and evee_row != null and rows >= 2 and cp.position.x < S.x * 0.3 and evee_row.icon != null
+	await _shot("v114_contacts", 0.3)
+	if evee_row != null: evee_row.pressed.emit()
+	await _frames(2)
+	var one_r: bool = str(hb.calls["r"].get("id", "")) == "assistant" and hb.comms_view == "" and hb.calls["l"].is_empty()
+	hb.set_typing(true)
+	await _frames(2)
+	var type_ok: bool = (hb.asst_chat.find_child("TypeRow", true, false) as Control).visible and hb.asst_chat.get_global_rect().end.y < S.y
+	hb.asst_ask("hello")
+	await _frames(2)
+	hb.set_typing(false)
+	hb.set_log_open(true)
+	await _frames(2)
+	var lt: Label = hb.comms_panel.find_child("LogText", true, false)
+	var small: Rect2 = hb.comms_panel.get_global_rect()
+	var log_ok: bool = lt != null and lt.text.contains("YOU: hello") and lt.text.contains("EVEE:") and small.position.x < S.x * 0.3
+	(hb.comms_panel.find_child("CommsFull", true, false) as Button).pressed.emit()
+	await _frames(2)
+	var big: Rect2 = hb.comms_panel.get_global_rect()
+	var big_ok: bool = absf(big.get_center().x - S.x * 0.5) < 4.0 and big.size.x > small.size.x
+	await _shot("v114_log_full", 0.3)
+	hb.set_log_open(false)
+	var ev := InputEventMouseButton.new()
+	ev.button_index = MOUSE_BUTTON_LEFT
+	ev.pressed = false
+	ev.position = Vector2(hb.call_ctl["r"].size.x - 40.0, 12.0)
+	hb._call_input(ev, "r")
+	await _frames(2)
+	var fold_ok: bool = hb.calls["r"].get("min", false) and not hb.asst_chat.visible
+	hb._call_input(ev, "r")   # (tap the tab: it opens again)
+	await _frames(1)
+	ev.position = Vector2(hb.call_ctl["r"].size.x - 12.0, 12.0)
+	hb._call_input(ev, "r")
+	await _frames(2)
+	var hang_ok: bool = hb.calls["r"].is_empty() and hb.call_ctl["r"].visible and hb.call_ctl["r"].size.y < 60.0   # (the COMMS tab)
+	ev.position = Vector2(20.0, 20.0)
+	hb._call_input(ev, "r")
+	await _frames(2)
+	var tab_ok: bool = hb.comms_view == "contacts"
+	hb.open_comms("")
+	hb.show_screen("ships")
+	await _frames(3)
+	var lw: Rect2 = hb.leftwin.get_global_rect()
+	var rw: Rect2 = hb.content.get_global_rect()
+	var two_ok: bool = hb.leftwin.visible and hb.content.visible and absf(lw.size.x - hb.panel_w()) < 2.0 and absf(rw.size.x - hb.panel_w()) < 2.0 and lw.end.x < rw.position.x and lw.size.y > lw.size.x
+	hb.open_call("l", "Test Rival", "hostile", "You're a long way from home, pilot.", "", 0.0, {"id": "vale"})
+	await _frames(2)
+	var lw2: Rect2 = hb.leftwin.get_global_rect()
+	var moved: bool = lw2.position.x >= hb.call_rect("l").end.x and hb.call_rect("l").position.x < 12.0
+	await _shot("v114_ships_two_tablets", 0.4)
+	hb.close_call("l")
+	hb.show_screen("missions")
+	await _frames(3)
+	var bp: Rect2 = hb.content.get_global_rect()
+	var board_ok: bool = bp.size.x >= bp.size.y * 1.3 and bp.end.x <= hb.call_rect("r").position.x
+	await _shot("v114_board", 0.3)
+	hb.show_screen("lounge")
+	await Packs.wait("room_unity_pilots_lounge", 30.0)
+	hb.show_screen("lounge")
+	await _frames(4)
+	var ev_ok: bool = not hb.room_key.ends_with("pilots_lounge") or (hb.asst.visible and hb.asst_full and hb.asst.size.y > S.y * 0.7)
+	await _shot("v114_lounge_evee", 0.4)
+	hb.visible = false
+	_check("v11.4 (owner): station comms like flight: your side's greeting on the RIGHT, the comms bar (CONTACTS, LOG, MIC, HANDS, TYPE) under the call, CONTACTS and LOG on the left (FULL = big in the middle), \"—\" folds, X hangs up, a COMMS tab opens your contacts",
+		greet_r and bar_ok and contacts_ok and one_r and type_ok and log_ok and big_ok and fold_ok and hang_ok and tab_ok,
+		"greet %s bar %s contacts %s (%d rows) evee %s type %s log %s full %s fold %s hang %s tab %s" % [greet_r, bar_ok, contacts_ok, rows, one_r, type_ok, log_ok, big_ok, fold_ok, hang_ok, tab_ok])
+	_check("v11.4 (owner): the page tablets sit clear of the calls and never spill (they scroll), the MISSION BOARD is a big landscape window, the SHIPYARD has two 2 x 3 tablets (the left one moves clear of a call on the left), Evee stands tall in the lounge",
+		clear_r and page_ok and two_ok and moved and board_ok and ev_ok,
+		"clear %s page %s two %s (%s %s) moved %s board %s (%s) evee %s (%s %s)" % [clear_r, page_ok, two_ok, lw, rw, moved, board_ok, bp, ev_ok, hb.room_key, hb.asst.size])
 
 ## v11.1 (owner): bigger fold tabs (the side ones at the far outside of the blocks, folding into the radar's side; a
 ## big HIDE tab under it), one FULL SCREEN button in the same corner on every screen (not on SPEED any more), a small
@@ -10809,14 +10920,15 @@ func _job_v35() -> void:
 	var asked: bool = said != "" and not said.begins_with("Hi, pilot") and Brain.PERSONAS["assistant"]["about"].begins_with("Evee")
 	await _shot("v37_assistant", 0.5)
 	# v3.8: talk by voice (what the mic hears goes to her), a hands-free switch, and a log that folds away
-	var log_closed: bool = not (hb.asst_chat.find_child("LogBox", true, false) as Control).visible
+	var log_closed: bool = not hb.comms_panel.visible   # (v11.4: the log comes up on the left)
 	hb.asst_heard("where is the shipyard")
 	await _frames(2)
 	hb.set_log_open(true)
 	await _frames(2)
-	var log_txt: String = (hb.asst_chat.find_child("LogText", true, false) as Label).text
+	var lt0: Label = hb.comms_panel.find_child("LogText", true, false)
+	var log_txt: String = lt0.text if lt0 != null else ""
 	var voice_ok: bool = log_closed and hb.find_child("MicButton", true, false) != null and hb.find_child("HandsFree", true, false) != null \
-		and log_txt.contains("YOU: where is the shipyard") and log_txt.count("HER:") >= 2
+		and log_txt.contains("YOU: where is the shipyard") and log_txt.count("EVEE:") >= 2
 	await _shot("v38_assistant_log", 0.3)
 	hb.set_log_open(false)
 	_check("v3.8 (owner): she has a MIC button and HANDS-FREE talk; what you say goes to her and she answers; the chat log is folded away until you open it", voice_ok, log_txt.replace("\n", " | "))
@@ -10906,26 +11018,26 @@ func _job_v35() -> void:
 		med_ok and wpn_ok and sup_ok and bay_ok and used.size() == 10, "med %s, weapons %s, supplies %s, bay %s, rooms %d" % [med_ok, wpn_ok, sup_ok, bay_ok, used.size()])
 	hb.eq_tab = "weapon"
 	var on_comms: bool = main.hud.call_list().size() > 0 and main.hud.call_list()[0] == "assistant" and main.hud.in_range("assistant") and main.hud._face_tex("evee", "normal") != null
-	# v5.6 (owner): the same call screens as in flight: station person LEFT, Evee RIGHT, both fold to a tab
+	# v5.6 (owner): the same call screens as in flight (v11.4: your side's people and Evee on the RIGHT, one at a time; fold / hang up)
 	hb.open(Data.SYSTEMS["solara"]["station"])
 	await _frames(3)
+	var folk_r: bool = not hb.calls["r"].is_empty() and str(hb.calls["r"].get("id", "")) != "assistant" and hb.calls["l"].is_empty()
 	hb.asst_tap()
 	await _frames(2)
-	var pnl: Rect2 = hb.content.get_global_rect().grow(1.0)   # v8.5 (owner, hub spec): both calls come up inside the one panel, stacked
-	var cl_ok: bool = not hb.calls["l"].is_empty() and hb.call_ctl["l"].visible and pnl.encloses(hb.call_rect("l"))
-	var cr_ok: bool = hb.call_ctl["r"].visible and pnl.encloses(hb.call_rect("r")) and hb.call_rect("r").position.y > hb.call_rect("l").position.y
-	var same_w: bool = absf(hb.call_rect("r").size.x - hb.call_rect("l").size.x) < 1.0
+	var Sv: Vector2 = hb.get_viewport_rect().size
+	var cr_ok: bool = hb.call_ctl["r"].visible and str(hb.calls["r"].get("id", "")) == "assistant" and hb.call_rect("r").end.x > Sv.x - 12.0 and hb.calls["l"].is_empty()
+	var same_w: bool = absf(hb.call_rect("r").size.x - hb.call_w()) < 1.0
 	await _shot("v56_calls", 0.3)
 	var ev2 := InputEventMouseButton.new()
 	ev2.button_index = MOUSE_BUTTON_LEFT
 	ev2.pressed = false
-	ev2.position = Vector2(hb.call_ctl["l"].size.x - 12.0, 12.0)
-	hb._call_input(ev2, "l")
+	ev2.position = Vector2(hb.call_ctl["r"].size.x - 40.0, 12.0)
+	hb._call_input(ev2, "r")
 	await _frames(2)
-	var folded2: bool = hb.calls["l"].get("min", false) and hb.call_ctl["l"].size.y < 60.0
+	var folded2: bool = hb.calls["r"].get("min", false) and hb.call_ctl["r"].size.y < 60.0
 	await _shot("v56_calls_folded", 0.2)
-	_check("v5.6 / v8.5 (owner): the call screens come up in the one panel: the station's person, then Evee, the same size; each folds to a tab",
-		cl_ok and cr_ok and same_w and folded2, "left %s, right %s, same size %s, fold %s" % [cl_ok, cr_ok, same_w, folded2])
+	_check("v5.6 / v11.4 (owner): the station's person greets you on the RIGHT (your side), Evee takes that screen when you call her (one per side), the flight call size; \"—\" folds it to a tab",
+		folk_r and cr_ok and same_w and folded2, "greet right %s, evee %s, same size %s, fold %s" % [folk_r, cr_ok, same_w, folded2])
 	hb.close_call("r")
 	_check("v5.0 (owner): Evee rides in your ship: always first on the comms call list, reachable anywhere, with her own face", on_comms)
 	hb.room_override = ""
