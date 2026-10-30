@@ -49,6 +49,13 @@ uniform sampler2D tunnel_tex : source_color, repeat_enable, filter_linear;   // 
 uniform sampler2D tunnel_tex_b : source_color, repeat_enable, filter_linear; // v1.9z: the owner's warp gate tunnel wall
 uniform bool use_tex_b = false;
 uniform bool use_tex = false;
+uniform bool organic = true;     // v10.9: the rift's wormhole is a living, see-through tube (false = the old tear)
+uniform vec3 organ_a : source_color = vec3(0.32, 0.05, 0.22);   // deep flesh
+uniform vec3 organ_b : source_color = vec3(0.85, 0.32, 0.55);   // lit tissue
+uniform vec3 organ_c : source_color = vec3(1.0, 0.6, 0.85);     // veins / glow
+uniform float membrane = 0.55;
+uniform float bolt_rate = 0.55;
+uniform vec3 bolt_col : source_color = vec3(0.55, 0.8, 1.0);
 uniform vec3 hole_tint = vec3(1.0, 0.45, 0.85);   // v10.6: the warp gate's living pink
 uniform float tint_amt = 0.6;
 uniform float flow = 0.16;
@@ -141,6 +148,55 @@ void fragment() {
 		col *= 1.0 - 0.45 * smoothstep(0.35, 1.0, r);
 		col += mix(color, vec3(1.0), 0.5) * (0.03 / (r * r * 5.0 + 0.05));
 	} else {
+		if (organic) {
+		// v10.9 (owner: "a wormhole ... like a small organism inside a person's body, floating through a clear tube; not
+		// clear, transparent, a fleshy vibe, the inside of an organ, something bigger; and electricity starting way in the
+		// distance and coming at you"): a see-through membrane tube with veins rushes past (it breathes, a wave squeezes
+		// along it), and through it a much bigger living tube moves slowly; lightning is born far down the tunnel and
+		// races out past you. No spinning.
+		float t = TIME;
+		float squeeze = 1.0 + 0.07 * sin(t * 1.6 - 0.26 / r * 1.4) + 0.03 * sin(t * 2.7 + th * 12.566);
+		float rq = r * squeeze;
+		float depth = 0.26 / rq;
+		float sway = 0.06 * sin(t * 0.7) ;
+		// the big outer organ, far away and slow, seen through the membrane
+		float d2 = 0.11 / rq;
+		vec2 ouv = vec2(d2 + travel * 0.18, th + sway + 0.03 * sin(t * 0.4));
+		float o1 = nz(ouv * vec2(1.3, 3.0)) * 0.6 + nz(ouv * vec2(3.1, 7.0) + 0.3) * 0.4;
+		float folds = smoothstep(0.35, 0.75, o1);
+		float opulse = 0.75 + 0.25 * sin(t * 1.1 + d2 * 3.0);
+		vec3 outer = mix(organ_a * 0.25, organ_b, folds) * opulse;
+		outer += organ_c * pow(smoothstep(0.6, 0.95, o1), 3.0) * 0.8 * opulse;
+		// the near membrane: translucent, veined, rushing past
+		vec2 muv = vec2(depth + travel * 0.6, th + sway * 0.5);
+		float cells = nz(muv * vec2(2.0, 6.0));
+		float vein = 1.0 - abs(nz(muv * vec2(1.2, 4.0) + 0.17) * 2.0 - 1.0);
+		vein = pow(smoothstep(0.75, 1.0, vein), 2.0);
+		float wet = pow(nz(muv * vec2(4.0, 10.0) + 0.6), 6.0);
+		vec3 tissue = mix(organ_a, organ_b * 1.2, cells * 0.5) * (0.55 + 0.45 * cells);
+		float see = membrane;   // how much of the outer organ shows through
+		col = mix(tissue, outer, see * (0.7 + 0.3 * cells)) + organ_c * vein * 0.9 + vec3(1.0, 0.9, 0.95) * wet * 0.35;
+		// lightning born far away, racing toward you along the wall
+		for (int k2 = 0; k2 < 4; k2++) {
+			float kk = float(k2);
+			float ph = fract(t * bolt_rate + kk * 0.27 + 0.13 * sin(kk * 3.1));
+			float a0 = fract(kk * 0.318 + floor(t * bolt_rate + kk * 0.27) * 0.618);
+			float zr = 0.02 + pow(ph, 2.2) * 1.1;   // its head moves out from the centre (toward you)
+			float span = 0.08 + 0.25 * ph;
+			float along = (r - (zr - span)) / span;
+			if (along > 0.0 && along < 1.0) {
+				float jag = (nz(vec2(r * 9.0 + kk, t * 6.0)) - 0.5) * 0.06 + (nz(vec2(r * 31.0 - kk, t * 11.0)) - 0.5) * 0.02;
+				float da = abs(fract(th - a0 - jag + 0.5) - 0.5) * r * 6.2832;
+				float w = 0.004 + 0.01 * ph;
+				float core = exp(-pow(da / w, 2.0));
+				float glow = exp(-da / (w * 6.0));
+				float fade = smoothstep(0.0, 0.15, along) * smoothstep(1.0, 0.7, along) * smoothstep(1.0, 0.85, ph);
+				col += (bolt_col * glow * 0.6 + vec3(1.0) * core) * fade;
+			}
+		}
+		col *= 0.3 + 0.9 * smoothstep(0.0, 0.4, r);
+		col += mix(organ_c, vec3(1.0), 0.6) * (0.035 / (r * r * 6.0 + 0.04)) * (0.8 + 0.2 * sin(t * 2.0));
+		} else {
 		// tear in space: sheets of sky, each with a ragged oval rip, turning opposite ways, far to near
 		float f = fract(travel);
 		float fl = floor(travel);
@@ -168,6 +224,7 @@ void fragment() {
 			} else {
 				col += tint * exp(-(edge - rr) * 9.0) * mist * 0.45 * seen;
 			}
+		}
 		}
 	}
 	COLOR = vec4(col, clamp(k, 0.0, 1.0) * alpha);
@@ -236,6 +293,7 @@ func _ready() -> void:
 		wm.set_shader_parameter("use_tex_b", true)
 		wm.set_shader_parameter("hole_tint", Data.WARP_TUNNEL_TINT)   # v10.6: the gate's pink, alive
 		warp_tex_on = true
+	wm.set_shader_parameter("organic", true)   # v10.9: the rift's wormhole is the living tube
 	set_skies(null, null)
 	for i in 34:
 		puffs.append([rng.randf() * TAU, rng.randf(), rng.randf_range(0.6, 1.4), rng.randf_range(0.8, 1.0)])

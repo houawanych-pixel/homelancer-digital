@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v10.8"
+const VERSION := "v10.9"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -801,6 +801,11 @@ const WARP_PACE_FAST := 4.2          # layers passing per second at full speed (
 const WARP_SPIN_SLOW := 0.15         # turns per second at the start
 const WARP_SPIN_FAST := 1.3          # turns per second at full speed
 const WARP_BOOM_BELOW := 0.75        # each passing layer makes a boom while the pace is below this share of full speed
+const RIFT_STAR_R := 58.0            # v10.9 (owner): the rift gate is a six-pointed star this big (point radius, m) ...
+const RIFT_STAR_BAND := 4.5          # ... its frame this thick
+const RIFT_STAR_GLOW := Color(0.78, 0.55, 1.0)   # the electric violet round it
+const RIFT_BOLT_BOW := 0.55          # how far a bolt bows out from its chord (share of its length)
+const RIFT_BOLT_RATE := 0.45         # bolts per second per pair of points (each boils up, bows, snaps)
 const RIFT_LAYERS := 10              # sheets of sky in the tear (1..12)
 const RIFT_OVAL := 1.6               # the tear is this much wider than tall
 const RIFT_RAGGED := 0.2             # how torn the edge is (0 = clean oval)

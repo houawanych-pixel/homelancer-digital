@@ -1247,6 +1247,9 @@ func _build_gate(d: Dictionary) -> void:
 		g.set_meta("hole", true)
 		gate_portals.append(_warp_hole(g))
 		return
+	if str(d.get("gkind", "")) == "rift":   # v10.9 (owner): a rift gate is a six-pointed star with a window to elsewhere
+		gate_portals.append(_rift_star(g))
+		return
 	var ring := TorusMesh.new()
 	ring.inner_radius = 44.0
 	ring.outer_radius = 52.0
@@ -1279,6 +1282,154 @@ func _build_gate(d: Dictionary) -> void:
 	portal.material_override = pm
 	g.add_child(portal)
 	gate_portals.append(portal)
+
+## v10.9 (owner: "the rift gate: a six-sided star; electricity lighting it up round the edge; inside it a real rip, a
+## cut-out: when you look in through that window there's a whole other dimension, but from outside you see nothing of
+## it; the electricity boils up between two points, bows out, breaks at the top of its middle, and another starts").
+## A hexagram frame (its own shape, not a ring), a star-shaped window that shows another sky by the way you look into
+## it (it moves like a real window, not a picture on a card), and bolts that grow, bow and snap between the points.
+const RIFT_WINDOW_SHADER := """
+shader_type spatial;
+render_mode unshaded, cull_disabled, shadows_disabled, fog_disabled, depth_draw_opaque;
+uniform sampler2D noise : repeat_enable, filter_linear;
+uniform vec3 sky_a : source_color = vec3(0.05, 0.35, 0.32);
+uniform vec3 sky_b : source_color = vec3(0.55, 1.0, 0.75);
+uniform vec3 rim_col : source_color = vec3(0.85, 0.55, 1.0);
+varying vec3 wpos;
+void vertex() { wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
+float hash(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+void fragment() {
+	vec3 d = normalize(wpos - CAMERA_POSITION_WORLD);
+	vec2 e = vec2(atan(d.z, d.x) / 6.2832 + 0.5, acos(clamp(d.y, -1.0, 1.0)) / 3.1416);
+	float t = TIME;
+	float n1 = texture(noise, e * vec2(2.0, 1.0) + vec2(t * 0.004, 0.0)).r;
+	float n2 = texture(noise, e * vec2(5.0, 2.5) - vec2(t * 0.007, t * 0.003)).r;
+	vec3 c = mix(sky_a * 0.35, sky_b, smoothstep(0.45, 0.85, n1 * 0.65 + n2 * 0.5));
+	c += sky_b * pow(smoothstep(0.55, 1.0, n2), 4.0) * 0.8;
+	vec3 cell = floor(d * 160.0);
+	float st = step(0.985, hash(cell));
+	c += vec3(0.9, 1.0, 0.95) * st * (0.6 + 0.4 * sin(t * 3.0 + hash(cell + 1.0) * 30.0));
+	float rim = pow(clamp(UV.x, 0.0, 1.0), 6.0);   // UV.x: 0 at the middle, 1 at the star's edge
+	float flick = 0.7 + 0.3 * sin(t * 13.0 + UV.y * 40.0) * sin(t * 7.0);
+	ALBEDO = mix(c, rim_col * 1.6, rim * flick);
+}
+"""
+const RIFT_BOLT_SHADER := """
+shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled, fog_disabled;
+uniform sampler2D noise : repeat_enable, filter_linear;
+uniform vec3 col : source_color = vec3(0.75, 0.6, 1.0);
+uniform float offset = 0.0;
+uniform float rate = 0.45;
+void fragment() {
+	float t = TIME * rate + offset;
+	float ph = fract(t);
+	float cyc = floor(t);
+	float x = UV.x;
+	float y = 1.0 - UV.y;                       // 0 on the chord between the two points, up = bowing out
+	float bow = smoothstep(0.0, 0.75, ph) * 0.8; // it boils up ...
+	float jag = (texture(noise, vec2(x * 3.0 + cyc * 0.37, TIME * 2.3)).r - 0.5) * 0.22 + (texture(noise, vec2(x * 11.0 - cyc, TIME * 5.0)).r - 0.5) * 0.08;
+	float yb = bow * sin(3.1416 * x) + jag * sin(3.1416 * x) + 0.04;
+	float dist = abs(y - yb);
+	float core = exp(-pow(dist / 0.018, 2.0));
+	float glow = exp(-dist / 0.09);
+	float gap = smoothstep(0.78, 1.0, ph) * 0.5;   // ... and snaps at the top of its middle
+	float open = smoothstep(gap - 0.02, gap + 0.02, abs(x - 0.5));
+	float a = (core + glow * 0.45) * open * smoothstep(0.0, 0.05, ph) * (1.0 - smoothstep(0.96, 1.0, ph));
+	a *= smoothstep(0.0, 0.04, x) * smoothstep(1.0, 0.96, x);
+	ALBEDO = mix(col, vec3(1.0), core * 0.7) * a * 2.2;
+	ALPHA = clamp(a, 0.0, 1.0);
+}
+"""
+static var _rift_noise: ImageTexture
+func _rift_star(g: Node3D) -> MeshInstance3D:
+	var R: float = Data.RIFT_STAR_R
+	var ri: float = R / sqrt(3.0)
+	var pts: Array = []   # the hexagram outline: 6 points, 6 inner corners
+	for i in 12:
+		var a := PI * 0.5 + i * TAU / 12.0
+		var rr: float = R if i % 2 == 0 else ri
+		pts.append(Vector3(cos(a) * rr, sin(a) * rr, 0.0))
+	if _rift_noise == null:
+		var fn := FastNoiseLite.new(); fn.seed = 77; fn.frequency = 0.02; fn.fractal_octaves = 4
+		_rift_noise = ImageTexture.create_from_image(fn.get_seamless_image(256, 256))
+	# the window: a star-shaped fan (UV.x = 0 middle .. 1 edge)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in 12:
+		var a: Vector3 = pts[i]; var b: Vector3 = pts[(i + 1) % 12]
+		st.set_uv(Vector2(0.0, float(i) / 12.0)); st.add_vertex(Vector3.ZERO)
+		st.set_uv(Vector2(1.0, float(i) / 12.0)); st.add_vertex(a)
+		st.set_uv(Vector2(1.0, float(i + 1) / 12.0)); st.add_vertex(b)
+	var win := MeshInstance3D.new()
+	win.name = "RiftWindow"
+	win.mesh = st.commit()
+	var sh := Shader.new(); sh.code = RIFT_WINDOW_SHADER
+	var wm := ShaderMaterial.new(); wm.shader = sh
+	wm.set_shader_parameter("noise", _rift_noise)
+	wm.set_shader_parameter("rim_col", Data.RIFT_STAR_GLOW)
+	win.material_override = wm
+	win.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	g.add_child(win)
+	# the frame: a thick hexagram band (its own shape), dark metal with a glowing inner lip
+	var fr := SurfaceTool.new()
+	fr.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var W: float = Data.RIFT_STAR_BAND
+	var Dp: float = W * 0.8
+	for i in 12:
+		var a: Vector3 = pts[i]; var b: Vector3 = pts[(i + 1) % 12]
+		var ao: Vector3 = a + a.normalized() * W; var bo: Vector3 = b + b.normalized() * W
+		for z in [-Dp, Dp]:
+			var zz := Vector3(0, 0, z)
+			fr.add_vertex(a + zz); fr.add_vertex(ao + zz); fr.add_vertex(bo + zz)
+			fr.add_vertex(a + zz); fr.add_vertex(bo + zz); fr.add_vertex(b + zz)
+		for q in [[a, b], [ao, bo]]:
+			var p0: Vector3 = q[0]; var p1: Vector3 = q[1]
+			fr.add_vertex(p0 + Vector3(0, 0, -Dp)); fr.add_vertex(p1 + Vector3(0, 0, -Dp)); fr.add_vertex(p1 + Vector3(0, 0, Dp))
+			fr.add_vertex(p0 + Vector3(0, 0, -Dp)); fr.add_vertex(p1 + Vector3(0, 0, Dp)); fr.add_vertex(p0 + Vector3(0, 0, Dp))
+	fr.generate_normals()
+	var frame := MeshInstance3D.new()
+	frame.name = "RiftFrame"
+	frame.mesh = fr.commit()
+	var fm := StandardMaterial3D.new()
+	fm.albedo_color = Color(0.16, 0.13, 0.22)
+	fm.metallic = 0.8
+	fm.roughness = 0.35
+	fm.emission_enabled = true
+	fm.emission = Data.RIFT_STAR_GLOW * 0.35
+	fm.cull_mode = BaseMaterial3D.CULL_DISABLED
+	frame.material_override = fm
+	g.add_child(frame)
+	# the bolts: point to point round the star, each on its own clock (boil up, bow, snap, start again)
+	var bsh := Shader.new(); bsh.code = RIFT_BOLT_SHADER
+	for i in 12:
+		var a: Vector3 = pts[i]; var b: Vector3 = pts[(i + 2) % 12] if i % 2 == 0 else pts[(i + 1) % 12]
+		if i % 2 == 1: continue   # outer point to outer point (6 bolts round the outside)
+		var L: float = a.distance_to(b)
+		var mid: Vector3 = (a + b) * 0.5
+		var outward: Vector3 = mid.normalized()
+		var H: float = L * Data.RIFT_BOLT_BOW
+		var q := QuadMesh.new(); q.size = Vector2(L, H)
+		var bm := MeshInstance3D.new()
+		bm.name = "RiftBolt%d" % (i / 2)
+		bm.mesh = q
+		var along: Vector3 = (b - a).normalized()
+		bm.transform = Transform3D(Basis(along, outward, along.cross(outward)), mid + outward * H * 0.5)
+		var mm := ShaderMaterial.new(); mm.shader = bsh
+		mm.set_shader_parameter("noise", _rift_noise)
+		mm.set_shader_parameter("col", Data.RIFT_STAR_GLOW)
+		mm.set_shader_parameter("offset", float(i) * 0.37)
+		mm.set_shader_parameter("rate", Data.RIFT_BOLT_RATE * (0.8 + 0.08 * float(i % 5)))
+		bm.material_override = mm
+		bm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		g.add_child(bm)
+	var lamp := OmniLight3D.new()
+	lamp.light_color = Data.RIFT_STAR_GLOW
+	lamp.light_energy = 3.0
+	lamp.omni_range = R * 4.0
+	g.add_child(lamp)
+	g.set_meta("rift_star", true)
+	return win
 
 ## v1.9z (owner: "make the warp gates like Freelancer's"): a hole in space, not a ring. A ragged, shifting opening
 ## (his red warp picture swirling inside it, see-through in the middle, a bright rim), sparks spiralling into it and a

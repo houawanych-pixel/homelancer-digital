@@ -1387,6 +1387,34 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_RIFTPICS") != "":   # (work tool) the v10.9 rift gate and its wormhole
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s := _sp()
+		s.controls = false
+		main.hud.visible = false
+		var P: Vector3 = s.player.global_position
+		var fwd: Vector3 = -s.player.global_basis.z
+		s._build_gate({"id": "test_gate_rift", "name": "Test Rift", "pos": P + fwd * 150.0, "to": "solara", "gkind": "rift"})
+		s.target = null
+		var g: Node3D = s.gates[s.gates.size() - 1]
+		g.look_at(g.global_position + fwd, Vector3.UP)
+		s.model.visible = false
+		for k in 3:
+			_tp(P + Vector3(k * 60.0 - 60.0, 20.0, 0.0), g.global_position)
+			await _wait(0.7)
+			await _shot("rift_gate_%d" % k, 0.0)
+		var fx = main.fx
+		fx.begin_warp("rift")
+		fx.warp = 1.0
+		fx.pace = 1.0
+		for k in 3:
+			await _wait(0.5)
+			await _shot("rift_tunnel_%d" % k, 0.0)
+		fx.end_warp()
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_GATEPICS") != "":   # (work tool) pictures of a warp gate and a rift gate for the map cards
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -1458,6 +1486,14 @@ func _run() -> void:
 			s.fire_lock = false
 			s.controls = false
 			await _wait(0.6)
+		get_tree().quit()
+		return
+	if OS.get_environment("HL_V109") != "":   # the v10.9 rift gate + wormhole only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_v109()
+		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
 	if OS.get_environment("HL_V108") != "":   # the v10.8 Kaijurai nests only
@@ -2003,6 +2039,7 @@ func _run() -> void:
 	await _job_v104()
 	await _job_v106()
 	await _job_v108()
+	await _job_v109()
 	await _job_edge()
 	await _job_open()
 	await _job_unknown()
@@ -3016,6 +3053,37 @@ func _job_v99_hub() -> void:
 		clear and list_clear and went_up and back and fs_ok and boxed == hb.subtabs.get_child_count() and boxed > 0,
 		"clear %s list %s up %s back %s fs %s (%s, hidden %s, vis %s, fs %s hide %s) boxed %d/%d" % [clear, list_clear, went_up, back, fs_ok, fs.text if fs else "none", hb.panels_hidden, fs.visible if fs else false, fs.get_global_rect() if fs else Rect2(), hb.show_btn.get_global_rect(), boxed, hb.subtabs.get_child_count()])
 	hb.visible = false
+
+## v10.9 (owner): the rift gate is a six-pointed star whose window shows another dimension (it moves with the way you
+## look in, like a real window) with bolts boiling up, bowing and snapping between its points; its wormhole is a living,
+## see-through tube with lightning racing at you from far away.
+func _job_v109() -> void:
+	var s := _sp()
+	if s.surface_mode or main.state != "flight": return
+	var P: Vector3 = s.player.global_position
+	var n0: int = s.gates.size()
+	s._build_gate({"id": "test_gate_rift", "name": "Test Rift", "pos": P - s.player.global_basis.z * 400.0, "to": s.sys_id, "gkind": "rift"})
+	var g: Node3D = s.gates[s.gates.size() - 1]
+	var win := g.get_node_or_null("RiftWindow") as MeshInstance3D
+	var bolts := g.find_children("RiftBolt*", "MeshInstance3D", false, false).size()
+	var ring_gone: bool = (g.get_meta("standin") as Node3D).get_child_count() == 0
+	var window_ok: bool = win != null and str((win.material_override as ShaderMaterial).shader.code).contains("CAMERA_POSITION_WORLD")
+	await _frames(2)
+	s.gates.erase(g)
+	s.gate_portals.erase(win)
+	g.queue_free()
+	var fx = main.fx
+	fx.begin_warp("rift")
+	fx.warp = 1.0
+	fx.pace = 1.0
+	await _wait(0.3)
+	await _shot("v109_rift_wormhole", 0.0)
+	var wm := fx._warp_rect.material as ShaderMaterial
+	var worm_ok: bool = wm.get_shader_parameter("organic") == true and str(wm.shader.code).contains("bolt_rate")
+	fx.end_warp()
+	fx.warp = 0.0
+	_check("v10.9 (owner): the rift gate is a six-pointed star (no ring), a window into another dimension that moves as you look in, %d bolts boiling between its points; going through is a living see-through tube with lightning coming at you" % bolts,
+		window_ok and bolts == 6 and ring_gone and worm_ok and s.gates.size() == n0, "window %s, bolts %d, ring gone %s, wormhole %s" % [window_ok, bolts, ring_gone, worm_ok])
 
 ## v10.8 (owner): the unknown areas hold Kaijurai carriers (a vessel 5, a battleship 10, sometimes a hive station 15)
 ## that keep launching fighters while you are near, until you destroy them.
