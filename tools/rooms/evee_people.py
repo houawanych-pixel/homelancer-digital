@@ -58,7 +58,7 @@ for path in sorted(glob.glob(os.path.join(root, '*', '*.jpg'))):
     for x, y, w, h, c in ps:
         top, hh = y / H, h / H
         if top + hh < 0.5 or hh < 0.18: continue   # (only people standing on the main floor, not the balconies)
-        rows.append([round((x + w / 2) / W, 4), round(top, 4), round(hh, 4), 1 if y + h < H * 0.975 else 0])
+        rows.append([round(float((x + w / 2) / W), 4), round(float(top), 4), round(float(hh), 4), 1 if y + h < H * 0.975 else 0])
     data['%s_%s' % (f, rn)] = {'people': rows, 'fit': fit(rows)}
     print('%s_%s: %d floor people, fit %s' % (f, rn, len(rows), data['%s_%s' % (f, rn)]['fit']))
 with open('scripts/room_people.gd', 'w') as o:
