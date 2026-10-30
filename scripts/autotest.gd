@@ -1488,6 +1488,14 @@ func _run() -> void:
 			await _wait(0.6)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_V11") != "":   # the v11 docking / lane-mouth checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_v11()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_V109") != "":   # the v10.9 rift gate + wormhole only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -2040,6 +2048,7 @@ func _run() -> void:
 	await _job_v106()
 	await _job_v108()
 	await _job_v109()
+	await _job_v11()
 	await _job_edge()
 	await _job_open()
 	await _job_unknown()
@@ -3053,6 +3062,48 @@ func _job_v99_hub() -> void:
 		clear and list_clear and went_up and back and fs_ok and boxed == hb.subtabs.get_child_count() and boxed > 0,
 		"clear %s list %s up %s back %s fs %s (%s, hidden %s, vis %s, fs %s hide %s) boxed %d/%d" % [clear, list_clear, went_up, back, fs_ok, fs.text if fs else "none", hb.panels_hidden, fs.visible if fs else false, fs.get_global_rect() if fs else Rect2(), hb.show_btn.get_global_rect(), boxed, hb.subtabs.get_child_count()])
 	hb.visible = false
+
+## v11 (owner: "I can't dock at the station"; "the close trade lanes pull together at the entrance"): next to any side
+## of a (now twice as big) station's hull you can dock; the trade-lane mouths round a station sit clear of its hull and
+## never inside each other's rings.
+func _job_v11() -> void:
+	var s := _sp()
+	if s.surface_mode or main.state != "flight": return
+	var sys0: String = s.sys_id
+	main._load_system("vantara", "station")   # (the owner's shot: Resistance Headquarters, a 3D station)
+	await _wait(2.0)
+	s = _sp()
+	await _until(func(): return s.station.has_meta("box_aabb"), 20.0)
+	var dock_ok := false
+	var note := ""
+	if s.station.has_meta("box_aabb"):
+		var hd: Node3D = s.station.get_meta("box_holder")
+		var bb: AABB = s.station.get_meta("box_aabb")
+		var side: Vector3 = hd.global_transform * Vector3(bb.end.x, bb.get_center().y, bb.get_center().z)
+		var out: Vector3 = (side - s.station.global_position); out.y = 0.0
+		var at: Vector3 = side + out.normalized() * 120.0
+		_tp(at, s.station.global_position)
+		await _frames(2)
+		var far_c: bool = at.distance_to(s.station.global_position) > Data.DOCK_RANGE_STATION and at.distance_to(s.dock_point(s.station)) > Data.DOCK_RANGE_STATION
+		dock_ok = s.dock_candidate() == s.station
+		note = "beside the hull (%.0f m from its middle, hull %.0f m): %s" % [at.distance_to(s.station.global_position), s.hull_distance(s.station), dock_ok]
+		if not far_c: note += " (the old rule would have allowed it too)"
+	var mouths: Array = []
+	for ln in s.lanes:
+		if str(ln["a"]) == s.station.name: mouths.append([ln["up"][0], ln["down"][0]])
+	var apart := true
+	for i in mouths.size():
+		for j in range(i + 1, mouths.size()):
+			for a in mouths[i]:
+				for b in mouths[j]:
+					if (a as Vector3).distance_to(b) < Data.LANE_RING_RADIUS * 2.3: apart = false
+	var clear_hull := true
+	for m in mouths:
+		if (m[0] as Vector3).distance_to(s.station.global_position) < s._station_reach(): clear_hull = false
+	main._load_system(sys0, "station")
+	await _wait(1.6)
+	_check("v11 (owner): you can dock beside any side of a station's hull (stations are twice the size), and the trade-lane mouths round a station are clear of its hull and of each other's rings",
+		dock_ok and apart and clear_hull, "%s; %d mouths apart %s, clear of hull %s" % [note, mouths.size(), apart, clear_hull])
 
 ## v10.9 (owner): the rift gate is a six-pointed star whose window shows another dimension (it moves with the way you
 ## look in, like a real window) with bolts boiling up, bowing and snapping between its points; its wormhole is a living,

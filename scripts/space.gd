@@ -4716,6 +4716,22 @@ func _lane_clear(a: Vector3, b: Vector3, skip: Array) -> bool:
 		if _seg_hit(a, b, q[0], q[1]): return false
 	return true
 
+## v10.10: would a pair of lane rings at c (stacked along up) sit inside rings already placed?
+func _ring_crowded(c: Vector3, up: Vector3, placed: Array) -> bool:
+	var need: float = Data.LANE_RING_RADIUS * 2.4
+	for q: Vector3 in placed:
+		if (c + up * Data.LANE_STACK * 0.5).distance_to(q) < need or (c - up * Data.LANE_STACK * 0.5).distance_to(q) < need: return true
+	return false
+
+## v10.10: how far the main station's hull reaches out from its middle (its model's box; 0 with no box).
+func _station_reach() -> float:
+	if not is_instance_valid(station) or not station.has_meta("box_aabb") or not is_instance_valid(station.get_meta("box_holder", null)): return 0.0
+	var hd: Node3D = station.get_meta("box_holder")
+	var bb: AABB = station.get_meta("box_aabb")
+	var sc: Vector3 = hd.global_transform.basis.get_scale()
+	var e: Vector3 = bb.size * 0.5 * sc
+	return Vector2(e.x, e.z).length()
+
 func _build_lanes() -> void:
 	lanes.clear()
 	lane = {}
@@ -4723,14 +4739,22 @@ func _build_lanes() -> void:
 	var pairs: Array = [[station, planet]]
 	for g in gates: pairs.append([station, g])
 	var xfs: Array = []
+	var placed: Array = []   # v10.10: every ring drawn so far (lanes keep apart)
 	for pr in pairs:
 		var a: Node3D = pr[0]
 		var b: Node3D = pr[1]
 		var dir := (b.global_position - a.global_position).normalized()
-		var ra: float = (float(a.get_meta("radius", 80.0)) if a != station else 120.0) + Data.LANE_STANDOFF
+		var ra: float = (float(a.get_meta("radius", 80.0)) if a != station else maxf(120.0, _station_reach())) + Data.LANE_STANDOFF   # v10.10: clear of the (twice as big) station
 		var rb: float = (float(b.get_meta("radius", 0.0)) if b == planet else 60.0) + Data.LANE_STANDOFF
 		var p0 := a.global_position + dir * ra
 		var p1 := b.global_position - dir * rb
+		# v10.10 (owner: "the close trade lanes ... pull together at the entrance, not good"): a lane whose mouth would sit
+		# in another lane's rings starts further out, so the mouths round a station never tangle
+		var up0 := Vector3.UP if absf(dir.y) < 0.9 else Vector3.RIGHT
+		up0 = (up0 - dir * up0.dot(dir)).normalized()
+		for tries in 30:
+			if not _ring_crowded(p0, up0, placed): break
+			p0 += dir * Data.LANE_RING_RADIUS * 1.5
 		var length := p0.distance_to(p1)
 		if length < Data.LANE_MIN_LEN or (p1 - p0).dot(dir) <= 0.0 or not _lane_clear(p0, p1, [a, b]): continue
 		var n := clampi(int(ceil(length / Data.LANE_RING_GAP)) + 1, 2, Data.LANE_MAX_RINGS)
@@ -4738,12 +4762,16 @@ func _build_lanes() -> void:
 		up = (up - dir * up.dot(dir)).normalized()
 		var ln := {"a": a.name, "b": b.name, "up": [], "down": [], "dir": dir}
 		var basis := Basis.looking_at(dir, up).scaled(Vector3.ONE * Data.LANE_RING_RADIUS)
+		var mine: Array = []
 		for k in n:
 			var c := p0.lerp(p1, float(k) / float(n - 1))
 			ln["up"].append(c + up * Data.LANE_STACK * 0.5)
 			ln["down"].append(c - up * Data.LANE_STACK * 0.5)
+			if k > 0 and k < n - 1 and _ring_crowded(c, up, placed): continue   # (no ring drawn through another lane's ring)
 			xfs.append(Transform3D(basis, ln["up"][k]))
 			xfs.append(Transform3D(basis, ln["down"][k]))
+			mine.append(ln["up"][k]); mine.append(ln["down"][k])
+		placed.append_array(mine)
 		lanes.append(ln)
 		# the green light marks each live mouth: where you get on
 		for mouth: Vector3 in [ln["up"][0], ln["down"][n - 1]]:
@@ -6509,6 +6537,7 @@ func dock_candidate() -> Node3D:
 	var p := player.global_position
 	if p.distance_to(station.global_position) < DOCK_RANGE_STATION: return station
 	if p.distance_to(dock_point(station)) < DOCK_RANGE_STATION: return station
+	if hull_distance(station) < DOCK_RANGE_STATION: return station   # v10.10 (owner: "I can't dock at the station"): the stations are twice the size now, so close to ANY side of the hull counts
 	var surf := p.distance_to(planet.global_position) - float(planet.get_meta("radius"))
 	if surf < DOCK_RANGE_PLANET: return planet
 	for pl in platforms:   # v1.9b: the other planets' docking platforms
@@ -6534,7 +6563,16 @@ func prompt() -> String:
 func dock_distance(n: Node3D) -> float:
 	var p := player.global_position
 	if n == planet: return p.distance_to(planet.global_position) - float(planet.get_meta("radius"))
-	return minf(p.distance_to(n.global_position), p.distance_to(dock_point(n)))
+	return minf(minf(p.distance_to(n.global_position), p.distance_to(dock_point(n))), hull_distance(n))
+
+## v10.10: how far the ship is from a station's hull (its model's box), INF when it has no box.
+func hull_distance(n: Node3D) -> float:
+	if not is_instance_valid(n) or not n.has_meta("box_aabb") or not is_instance_valid(n.get_meta("box_holder", null)): return INF
+	var hd: Node3D = n.get_meta("box_holder")
+	var bb: AABB = n.get_meta("box_aabb")
+	var lp: Vector3 = hd.global_transform.affine_inverse() * player.global_position
+	var q := Vector3(clampf(lp.x, bb.position.x, bb.end.x), clampf(lp.y, bb.position.y, bb.end.y), clampf(lp.z, bb.position.z, bb.end.z))
+	return (hd.global_transform * q).distance_to(player.global_position)
 
 func gate_in_range() -> bool:
 	return player.global_position.distance_to(near_gate().global_position) < GATE_RANGE
