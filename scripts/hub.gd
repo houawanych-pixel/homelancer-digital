@@ -896,7 +896,8 @@ func _place_calls() -> void:
 		var cr := call_rect(ts)
 		asst_chat.set_anchors_preset(Control.PRESET_TOP_LEFT)
 		asst_chat.position = Vector2(cr.position.x, cr.end.y + 6.0)
-		asst_chat.size = Vector2(cr.size.x, 151.0 + (48.0 if typing else 0.0))
+		var cv: Control = asst_chat.get_child(0)
+		asst_chat.size = Vector2(cr.size.x, cv.get_combined_minimum_size().y + 12.0)   # (fits its buttons at any text size)
 	# CONTACTS / LOG on the left (beside a call there), or big in the middle
 	comms_panel.visible = comms_view != "" and not panels_hidden
 	if comms_panel.visible:
@@ -1513,7 +1514,7 @@ func _panel_page(s: String) -> bool: return not (s in ["equipment", "ships", "me
 ## v11.2 (owner): width of the one panel: 2 wide for every 3 tall (it fills the height between the top bar and the bottom row).
 func panel_w() -> float:
 	var S := get_viewport_rect().size
-	return clampf((S.y - CONTENT_Y - 66.0) * Data.HUB_PANEL_ASPECT, 240.0, S.x * 0.45)
+	return clampf((S.y - CONTENT_Y - 66.0) * Data.HUB_PANEL_ASPECT, 240.0, minf(S.x * 0.45, (S.x - right_reserve() - 24.0 - 16.0) * 0.5))   # (v11.4: two always fit side by side)
 
 func _layout_windows(s: String) -> void:
 	_show_room(s)
@@ -1557,7 +1558,10 @@ func _place_tablets() -> void:
 	var S := get_viewport_rect().size
 	var rr := right_reserve()
 	var pw := panel_w()
-	if board_page(screen): pw = clampf((S.y - CONTENT_Y - 66.0) * Data.HUB_BOARD_ASPECT, 240.0, S.x - rr - left_reserve() - 8.0)
+	content.offset_bottom = -66.0
+	if board_page(screen):   # (3 wide for 2 tall; on a tall screen it is shorter rather than narrower)
+		pw = clampf((S.y - CONTENT_Y - 66.0) * Data.HUB_BOARD_ASPECT, 240.0, S.x - rr - left_reserve() - 8.0)
+		content.offset_bottom = minf(-66.0, CONTENT_Y + pw / Data.HUB_BOARD_ASPECT - S.y)
 	content.anchor_left = 1.0
 	content.anchor_right = 1.0
 	content.offset_right = -rr
