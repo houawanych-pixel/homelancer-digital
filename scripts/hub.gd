@@ -1300,6 +1300,7 @@ func _room_sounds(base_path: String) -> void:
 		pl.volume_db = -80.0
 		pl.set_meta("third", i)
 		add_child(pl)
+		move_child(pl, 0)   # (v11.5: at the back, so LAUNCH stays the last child, on top of everything)
 		pl.play()
 		room_snd.append(pl)
 
