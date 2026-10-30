@@ -12,6 +12,7 @@ GS="*res://scripts/game_state.gd"
 Sfx="*res://scripts/sfx.gd"
 Packs="*res://scripts/packs.gd"
 Music="*res://scripts/music.gd"
+Fs="*res://scripts/fs_button.gd"
 
 [editor_plugins]
 

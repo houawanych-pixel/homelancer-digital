@@ -45,16 +45,31 @@ func _ready() -> void:
 	dest_label.add_theme_font_size_override("font_size", Data.ts(30))
 	dest_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(dest_label)
-	activate_btn = _button("ACTIVATE JUMP", Vector2(340, 96), 32)
+	activate_btn = _button("ACTIVATE JUMP", Vector2(340, 96), 32, Color(0.12, 0.6, 0.28))   # v11.1 (owner): green to go
 	activate_btn.pressed.connect(press_activate)
 	v.add_child(activate_btn)
-	undock_btn = _button("UNDOCK", Vector2(340, 60), 20)
+	undock_btn = _button("UNDOCK", Vector2(340, 60), 20, Color(0.85, 0.45, 0.08))   # v11.1 (owner): orange to back out
 	undock_btn.pressed.connect(press_undock)
 	v.add_child(undock_btn)
 
-func _button(txt: String, sz: Vector2, fs: int) -> Button:
+func _button(txt: String, sz: Vector2, fs: int, col := Color(0, 0, 0, 0)) -> Button:
 	var b := Button.new()
 	b.text = txt
+	if col.a > 0.0:
+		for st in ["normal", "hover", "pressed", "disabled"]:
+			var sb := StyleBoxFlat.new()
+			var c: Color = col
+			if st == "hover": c = col.lightened(0.15)
+			if st == "pressed": c = col.darkened(0.2)
+			if st == "disabled": c = col.darkened(0.55)
+			sb.bg_color = c
+			sb.border_color = col.lightened(0.4)
+			sb.set_border_width_all(2)
+			sb.set_corner_radius_all(10)
+			b.add_theme_stylebox_override(st, sb)
+		b.add_theme_color_override("font_color", Color.WHITE)
+		b.add_theme_color_override("font_hover_color", Color.WHITE)
+		b.add_theme_color_override("font_pressed_color", Color.WHITE)
 	b.custom_minimum_size = sz          # thumb-sized
 	b.focus_mode = Control.FOCUS_NONE
 	b.add_theme_font_size_override("font_size", Data.ts(fs))

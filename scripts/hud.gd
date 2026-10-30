@@ -585,7 +585,7 @@ func _layout() -> void:
 		if key != "": buttons["slot_%d" % k] = dg[key]
 	# v7.8 (owner): TRACTOR and FULL SCREEN sit down with the other buttons: on top of each block, by the radar
 	for id in ["tractor", "ground", "cloak"]: buttons[id] = dg[id]
-	buttons["fullscreen"] = dg["speed"]   # v8.3 (owner): the SPEED readout is the full-screen button
+	# (v11.1 (owner): FULL SCREEN left the SPEED readout: one button in the top-left corner on every screen, FsButton)
 	if not weapons_shown():
 		for id in COMBAT_IDS: buttons.erase(id)
 	if space and space.mech_fpv():   # v1.7z: looking out of the mech, KILL (no use to a mech) becomes the rifle's ZOOM
@@ -600,7 +600,9 @@ func _layout() -> void:
 	if space and space.controls and not console_open: buttons["radar"] = radar_rect()
 	if not scan.is_empty(): buttons["scan_close"] = scan_rect()
 	if space and space.controls:
-		var db := Rect2(S.x * 0.5 - 150, 8, 300, 44)   # v7.0 (owner): DOCK and the other prompts at the very top
+		# v11.1 (owner: "a huge long button at the very top; it should just be DOCK, and if you don't want to you fly
+		# by"): one small button just above the right-hand block, under your right thumb. It goes when you pass.
+		var db := Rect2(dg["blk_r"].position.x, dg["blk_r"].position.y - 62.0, 132.0, 54.0)
 		var pr: String = space.prompt()   # v1.4u: one prompt, the nearest thing wins
 		if pr != "": buttons[pr] = db
 	_fl_buttons()   # v6.7: the Freelancer-style contact list (left) and ship panel (right)
@@ -645,14 +647,14 @@ func _layout() -> void:
 
 ## v10.6 (owner): the fold tabs. Folded sides lose their buttons; pushed down, only calls, the comms console and the
 ## two small tabs at the bottom stay (the target box, the crosshair and the sticks are not buttons).
-const DOWN_KEEP := ["hangup", "call_pick", "side_l", "side_r", "chat_close", "type", "talk", "voice", "met_hail", "met_up", "met_down"]
+const DOWN_KEEP := ["dock", "lane", "jump", "hangup", "call_pick", "side_l", "side_r", "chat_close", "type", "talk", "voice", "met_hail", "met_up", "met_down"]
 func _dock_filter(dg: Dictionary) -> void:
 	var tabs := {}
 	if dock_down:
 		for id in buttons.keys():
 			if not (id in DOWN_KEEP or str(id).begins_with("met_")): buttons.erase(id)
-		tabs["dock_up"] = Rect2(S.x * 0.5 - 54.0, S.y - 30.0, 108.0, 28.0)
-		tabs["log"] = Rect2(S.x * 0.5 + 62.0, S.y - 30.0, 92.0, 28.0)   # COMMS: bring the calls up without the rest
+		tabs["dock_up"] = Rect2(S.x * 0.5 - 78.0, S.y - TAB_B_H - 2.0, 156.0, TAB_B_H)   # v11.1: as big as the HIDE tab
+		tabs["log"] = Rect2(S.x * 0.5 + 86.0, S.y - TAB_B_H - 2.0, 110.0, TAB_B_H)   # COMMS: bring the calls up without the rest
 	else:
 		for side in ["l", "r"]:
 			if dock_l if side == "l" else dock_r: continue
@@ -1271,14 +1273,20 @@ func _square(id: String, label: String, active := false, col := CYAN, sub := "")
 func _pill(id: String, label: String, active := false, col := CYAN, sub := "") -> void:
 	if not buttons.has(id): return
 	var r: Rect2 = buttons[id]
-	if id in ["dock", "lane", "jump", "land", "launch"] and r.position.y < 20.0:   # v7.6 (owner's mockup): « DOCK • LIBERTY HUB »
-		_prompt_pill(r, label + ("  •  " + sub if sub != "" else ""), col, held.has(id) or active)
+	if id in ["dock", "lane", "jump", "land", "launch"]:   # v11.1 (owner): just the word, small
+		_prompt_btn(r, label, col, held.has(id))
 		return
 	var on := held.has(id) or active
 	_box(r, Color(col, 0.35) if on else PANEL, Color(col, 0.95 if on else 0.65), 10, 2)
 	var y := r.size.y * 0.5 + (6.0 if sub == "" else 0.0)
 	_text(r.position + Vector2(0, y), label, 16, WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
 	if sub != "": _text(r.position + Vector2(0, y + 15), sub, 11, Color(col.lightened(0.2), 0.95), HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
+
+func _prompt_btn(r: Rect2, txt: String, col: Color, on: bool) -> void:
+	var pulse := 0.5 + 0.5 * sin(t * 4.0)
+	_box(r.grow(3.0 + 2.0 * pulse), Color(0, 0, 0, 0), Color(col, 0.25 + 0.35 * pulse), 13, 2)
+	_box(r, Color(col.darkened(0.55), 0.95 if on else 0.82), Color(col, 1.0), 11, 3)
+	_text(Vector2(r.position.x, r.get_center().y + 8.0), txt, 22 if txt.length() <= 6 else 16, WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
 
 func _prompt_pill(r: Rect2, txt: String, col: Color, on: bool) -> void:
 	var c := r.size.y * 0.5
@@ -1299,20 +1307,24 @@ func _stick(which: String, label: String) -> void:
 	var active := owners.values().has(which)
 	var c: Vector2 = origins.get(which, _home(which))
 	var v := move_vec if which == "move" else aim_vec
-	var R := stick_r
-	draw_circle(c, R, Color(0.01, 0.06, 0.12, 0.45 if active else 0.3))
+	draw_stick(self, c, stick_r, v, active)
+
+## v11.1 (owner: "anything that's using the old analog stick, replace it with the new one"): the flight stick look,
+## shared by every screen that has sticks (the station rooms too).
+static func draw_stick(ci: CanvasItem, c: Vector2, R: float, v: Vector2, active: bool) -> void:
+	ci.draw_circle(c, R, Color(0.01, 0.06, 0.12, 0.45 if active else 0.3))
 	for k in 4:
 		var a0 := k * TAU / 4.0 - PI / 4.0 + 0.12
-		draw_arc(c, R - 4.0, a0, a0 + TAU / 4.0 - 0.24, 24, Color(CYAN, 0.95 if active else 0.75), 7.0, true)
-		draw_arc(c, R + 4.0, a0 + 0.3, a0 + TAU / 4.0 - 0.54, 16, Color(CYAN, 0.35), 2.0, true)
-	draw_arc(c, R * 0.66, 0, TAU, 56, Color(CYAN, 0.5), 2.0, true)
+		ci.draw_arc(c, R - 4.0, a0, a0 + TAU / 4.0 - 0.24, 24, Color(CYAN, 0.95 if active else 0.75), 7.0, true)
+		ci.draw_arc(c, R + 4.0, a0 + 0.3, a0 + TAU / 4.0 - 0.54, 16, Color(CYAN, 0.35), 2.0, true)
+	ci.draw_arc(c, R * 0.66, 0, TAU, 56, Color(CYAN, 0.5), 2.0, true)
 	var knob := c + v * R * 0.55
 	var d := R * 0.34
 	var dia := PackedVector2Array([knob + Vector2(0, -d), knob + Vector2(d, 0), knob + Vector2(0, d), knob + Vector2(-d, 0)])
-	draw_colored_polygon(dia, Color(0.2, 0.55, 0.85, 0.75 if active else 0.55))
-	draw_polyline(dia + PackedVector2Array([dia[0]]), Color(CYAN_HI, 0.95), 3.0, true)
+	ci.draw_colored_polygon(dia, Color(0.2, 0.55, 0.85, 0.75 if active else 0.55))
+	ci.draw_polyline(dia + PackedVector2Array([dia[0]]), Color(CYAN_HI, 0.95), 3.0, true)
 	var d2 := d * 0.62
-	draw_polyline(PackedVector2Array([knob + Vector2(0, -d2), knob + Vector2(d2, 0), knob + Vector2(0, d2), knob + Vector2(-d2, 0), knob + Vector2(0, -d2)]), Color(WHITE, 0.4), 1.5, true)
+	ci.draw_polyline(PackedVector2Array([knob + Vector2(0, -d2), knob + Vector2(d2, 0), knob + Vector2(0, d2), knob + Vector2(-d2, 0), knob + Vector2(0, -d2)]), Color(WHITE, 0.4), 1.5, true)
 
 func _screen(p3: Vector3) -> Variant:
 	var cam: Camera3D = space.cam
@@ -1654,14 +1666,11 @@ func _draw() -> void:
 	_corner("view", "CHASE" if GS.view == "cockpit" else "COCKPIT", "view", CYAN, GS.view == "cockpit")
 	if not fl_shown("r") and not dock_down:   # v7.3: these live in the right window; only when it's away do they float above the aim stick
 		_pill("log", "COMMS", comms_mode == "roster", CYAN)
-	if buttons.has("dock"): _pill("dock", "DOCK", true, GREEN, space.dock_candidate().name.to_upper())
-	if buttons.has("lane"):
-		if space.lane.is_empty(): _pill("lane", "TRADE LANE", true, CYAN, "TO %s" % str(space.lane_candidate().get("to", "")).to_upper())
-		else: _pill("lane", "IN LANE · %d m/s" % int(space.speed_now), true, CYAN, "TAP TO LEAVE · TO %s" % str(space.lane.get("to", "")).to_upper())
-	if buttons.has("jump"):
-		var gi: Dictionary = space.near_gate().get_meta("info")
-		var dest: String = str(Surface.PLANETS[gi["planet_to"]]["name"]) if gi.has("planet_to") and Surface.PLANETS.has(gi["planet_to"]) else str(Data.SYSTEMS.get(str(gi.get("to", "")), {}).get("name", "?"))   # (v6.9: a planet's rift leads to a planet)
-		_pill("jump", "%s GATE" % str(gi.get("gkind", "warp")).to_upper() if space.sys.get("generated", false) or gi.has("planet_to") else "WARP GATE", true, GOLD, "DOCK · TO %s" % dest.to_upper())
+	if buttons.has("dock"): _pill("dock", "DOCK", true, GREEN)   # v11.1 (owner): just DOCK; the name is on the target box
+	if buttons.has("lane"): _pill("lane", "LANE" if space.lane.is_empty() else "LEAVE LANE", true, CYAN)
+	if buttons.has("jump"): _pill("jump", "JUMP", true, GOLD)
+	if buttons.has("land"): _pill("land", "LAND", true, GREEN)
+	if buttons.has("launch"): _pill("launch", "LAUNCH", true, GREEN)
 	if dock_down: _down_tabs()   # v10.6 (owner): everything pushed down: just two small tabs
 	else: _dashboard()   # v8.3 (owner): the console in the cockpit view too
 	_stick("move", "FLIGHT")
@@ -1794,6 +1803,8 @@ func _brackets(p: Vector2, s: float, col: Color) -> void:
 ## v7.1 (owner's dash art): one console between the sticks. Left: COCKPIT and GO TO stacked. Middle: the radar globe in
 ## its ring (tap = map) with SPEED under it. Right: SHIELDS, HULL (LEFT WING / CORE / RIGHT WING) and ENERGY, each with
 ## its percentage. Sized to the gap between the two sticks.
+const TAB_W := 40.0     # v11.1 (owner: "the fold tabs are so small"): the side tabs' width
+const TAB_B_H := 34.0   # and the HIDE tab under the radar
 func dash_geo() -> Dictionary:
 	# v7.7 (owner's ring mockup): the radar in the middle of two rings. Inner ring: the hull (BODY on top, L WING and
 	# R WING low on each side). Outer ring: SHIELD over the top, POWER low left, SUPER low right. SPEED sits on top.
@@ -1802,12 +1813,12 @@ func dash_geo() -> Dictionary:
 	#   MISSILE 1 · ENGINE KILL · THRUST        STOP · WARP · MISSILE 2
 	var ro := clampf(S.y * 0.135, 84.0, 112.0)   # v7.8 / v8.0 (owner): smaller, so your ship shows above it
 	var rad := ro - 38.0
-	var rc := Vector2(S.x * 0.5, S.y - ro - 24.0)   # v10.6: lifted a little for the fold-down tab under it
+	var rc := Vector2(S.x * 0.5, S.y - ro - TAB_B_H - 2.0)   # v10.6 / v11.1: lifted for the (bigger) HIDE tab under it
 	var xl0 := _home("move").x + stick_r + 16.0
-	var xl1 := rc.x - ro - 20.0   # v10.6: room for the round fold tabs on each side of the radar
-	var xr0 := rc.x + ro + 20.0
-	var ww := xl1 - xl0
+	var xl1 := rc.x - ro - 10.0
+	var xr0 := rc.x + ro + 10.0
 	var gap := 6.0
+	var ww := xl1 - xl0 - TAB_W - gap   # v11.1 (owner): the side tab sits at the far outside end of each block
 	var bsz := clampf((ww - gap * 3.0) / 4.0, 44.0, S.y * 0.11)   # v8.0 (owner): eight buttons a side
 	var by2 := S.y - 8.0 - bsz
 	var by1 := by2 - gap - bsz
@@ -1819,8 +1830,11 @@ func dash_geo() -> Dictionary:
 	# v8.0 (owner): eight a side. Left: TRACTOR over SUPER on the outside, then the six. Right: the six, then
 	# FULL SCREEN over GROUND on the outside; GO TO takes the old SUPER spot.
 	return {"rc": rc, "rad": rad, "ro": ro, "bsz": bsz,
-		"tab_l": Rect2(rc.x - ro - 20.0, rc.y - 36.0, 28.0, 72.0), "tab_r": Rect2(rc.x + ro - 8.0, rc.y - 36.0, 28.0, 72.0),
-		"tab_b": Rect2(rc.x - 42.0, rc.y + ro + 2.0, 84.0, 22.0),
+		# v11.1 (owner: "bigger; the side one on the far outside of all the buttons; pushed, it folds into the side of
+		# the radar"): out = a tall tab at the outer end of the block; folded = a thick arc hugging the radar's side.
+		"tab_l": Rect2(lx0 - gap - TAB_W, by1, TAB_W, bsz * 2.0 + gap) if dock_l else Rect2(rc.x - ro - 30.0, rc.y - ro * 0.55, 34.0, ro * 1.1),
+		"tab_r": Rect2(rx0 + row + gap, by1, TAB_W, bsz * 2.0 + gap) if dock_r else Rect2(rc.x + ro - 4.0, rc.y - ro * 0.55, 34.0, ro * 1.1),
+		"tab_b": Rect2(rc.x - 78.0, rc.y + ro + 2.0, 156.0, TAB_B_H),
 		"speed": Rect2(rc.x - 82.0, rc.y - ro - 22.0, 164.0, 38.0),
 		"blk_l": Rect2(lx0, by1, row, bsz * 2.0 + gap), "blk_r": Rect2(rx0, by1, row, bsz * 2.0 + gap),
 		"tractor": lb.call(0, by1), "special": lb.call(0, by2), "super_btn": lb.call(0, by2),
@@ -1933,10 +1947,9 @@ func _dashboard() -> void:
 	var sr: Rect2 = g["speed"]
 	var pts := PackedVector2Array([sr.position + Vector2(16, 0), Vector2(sr.end.x - 16, sr.position.y), sr.end - Vector2(0, 10), Vector2(sr.end.x - 10, sr.end.y),
 		Vector2(sr.position.x + 10, sr.end.y), Vector2(sr.position.x, sr.end.y - 10), sr.position + Vector2(16, 0)])
-	draw_colored_polygon(pts.slice(0, 6), Color(0.01, 0.06, 0.12, 0.92 if not held.has("fullscreen") else 0.6))
+	draw_colored_polygon(pts.slice(0, 6), Color(0.01, 0.06, 0.12, 0.92))
 	draw_polyline(pts, Color(CYAN, 0.95), 2.5, true)
-	_icon("fullscreen", sr.position + Vector2(24, sr.size.y * 0.5), 11.0, CYAN_HI)
-	_text(Vector2(sr.position.x + 40, sr.position.y + 22), "%d m/s" % int(space.speed_now), 20, WHITE, HORIZONTAL_ALIGNMENT_CENTER, sr.size.x - 48)
+	_text(Vector2(sr.position.x + 8, sr.position.y + 22), "%d m/s" % int(space.speed_now), 20, WHITE, HORIZONTAL_ALIGNMENT_CENTER, sr.size.x - 16)
 	var mode := ""
 	if space.warp_state == "on": mode = "WARP"
 	elif space.warp_state == "charging": mode = "WARP CHARGING"
@@ -1944,7 +1957,7 @@ func _dashboard() -> void:
 	elif space.braking: mode = "STOPPING"
 	elif space.boosting: mode = "THRUST"
 	if space.surface_mode and mode == "": mode = "ALT %d m" % int(space.altitude)
-	_text(Vector2(sr.position.x + 40, sr.end.y - 6), mode if mode != "" else ("EXIT FULL SCREEN" if fs_on else "FULL SCREEN"), 11, GOLD if mode != "" else CYAN_HI, HORIZONTAL_ALIGNMENT_CENTER, sr.size.x - 48)
+	_text(Vector2(sr.position.x + 8, sr.end.y - 6), mode if mode != "" else "SPEED", 11, GOLD if mode != "" else CYAN_HI, HORIZONTAL_ALIGNMENT_CENTER, sr.size.x - 16)
 	# the four square buttons that used to be round
 	var sh_cd: float = space.shield_cd / Data.SHIELD_BOOST_COOLDOWN
 	_corner("shield", "SHIELD REPAIR", "shield", Color(0.35, 0.7, 1.0), false, str(GS.shield_charges), sh_cd)
@@ -1955,29 +1968,41 @@ func _dashboard() -> void:
 	_gps_strip(Rect2(S.x * 0.5 - 230, sr.position.y - 44, 460, 34))   # v1.5i
 	_dock_tabs(g)
 
-## v10.6 (owner): round fold tabs hugging the radar ring. Left / right fold that side's tools; the one underneath
-## pushes the whole console down. The arrow points the way the tab will move things.
+## v10.6 / v11.1 (owner): the fold tabs. Out, a side's tab stands at the far outside end of its button block with an
+## arrow pointing in; pushed, the side folds away and its tab wraps round the radar's side as a thick arc (arrow out).
+## The HIDE tab under the radar pushes the whole console down.
 func _dock_tabs(g: Dictionary) -> void:
 	var rc: Vector2 = g["rc"]
 	var ro: float = g["ro"]
-	var R := ro + 11.0
 	for k in ["l", "r", "b"]:
 		var id: String = "dock_down" if k == "b" else "dock_" + k
 		if not buttons.has(id): continue
-		var mid: float = PI if k == "l" else (0.0 if k == "r" else PI * 0.5)
-		var span := 0.3 if k != "b" else 0.26
+		var r: Rect2 = buttons[id]
 		var down := held.has(id)
 		var open: bool = dock_l if k == "l" else (dock_r if k == "r" else true)
-		draw_arc(rc, R, mid - span, mid + span, 16, Color(0.02, 0.08, 0.15, 0.95), 14.0, true)
-		draw_arc(rc, R + 7.0, mid - span, mid + span, 16, Color(CYAN, 1.0 if down else 0.85), 2.0, true)
-		draw_arc(rc, R - 7.0, mid - span, mid + span, 16, Color(CYAN, 0.45), 1.5, true)
-		var c := rc + Vector2.from_angle(mid) * R
-		var out := Vector2.from_angle(mid)   # away from the radar
-		var dir := out if open else -out   # open: the arrow says "fold in"; folded: "bring out"
-		if k == "b": dir = Vector2.DOWN
-		dir = -dir if k != "b" else dir
-		var side := Vector2(-dir.y, dir.x)
-		draw_polyline(PackedVector2Array([c - dir * 3.0 + side * 5.0, c + dir * 3.0, c - dir * 3.0 - side * 5.0]), CYAN_HI, 2.5, true)
+		var toward := Vector2.RIGHT if k == "l" else Vector2.LEFT   # toward the radar
+		if k == "b":
+			_box(r, Color(0.02, 0.08, 0.15, 0.95 if down else 0.82), Color(CYAN, 0.95), 12, 2)
+			var c := Vector2(r.position.x + 22.0, r.get_center().y)
+			draw_polyline(PackedVector2Array([c + Vector2(-8, -4), c + Vector2(0, 4), c + Vector2(8, -4)]), CYAN_HI, 3.0, true)
+			_text(Vector2(r.position.x + 34.0, r.position.y + 23.0), "HIDE", 14, WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 44.0)
+		elif open:
+			_box(r, Color(0.02, 0.08, 0.15, 0.95 if down else 0.82), Color(CYAN, 0.95), 12, 2)
+			_chevron(r.get_center(), toward, 9.0)
+		else:
+			var mid: float = PI if k == "l" else 0.0
+			var R := ro + 14.0
+			var span := 0.5
+			draw_arc(rc, R, mid - span, mid + span, 24, Color(0.02, 0.08, 0.15, 0.95), 26.0, true)
+			draw_arc(rc, R + 13.0, mid - span, mid + span, 24, Color(CYAN, 1.0 if down else 0.9), 2.5, true)
+			draw_arc(rc, R - 13.0, mid - span, mid + span, 24, Color(CYAN, 0.5), 1.5, true)
+			_chevron(rc + Vector2.from_angle(mid) * R, -toward, 8.0)
+
+func _chevron(c: Vector2, dir: Vector2, h: float) -> void:
+	var side := Vector2(-dir.y, dir.x)
+	for o in [-0.45, 0.45]:
+		var cc: Vector2 = c + dir * h * o
+		draw_polyline(PackedVector2Array([cc - dir * h * 0.4 + side * h * 0.8, cc + dir * h * 0.4, cc - dir * h * 0.4 - side * h * 0.8]), CYAN_HI, 3.0, true)
 
 ## v10.6 (owner): pushed down: a small tab to bring everything back up, and COMMS beside it.
 func _down_tabs() -> void:
@@ -1987,11 +2012,11 @@ func _down_tabs() -> void:
 		var on: bool = held.has(id) or (id == "log" and console_open)
 		_box(r, Color(0.02, 0.08, 0.15, 0.9 if on else 0.72), Color(CYAN if id == "dock_up" else Color(0.7, 0.45, 1.0), 0.9), 12, 2)
 		if id == "dock_up":
-			var c := Vector2(r.position.x + 16, r.get_center().y)
-			draw_polyline(PackedVector2Array([c + Vector2(-6, 3), c + Vector2(0, -3), c + Vector2(6, 3)]), CYAN_HI, 2.5, true)
-			_text(Vector2(r.position.x + 26, r.position.y + 19), "CONSOLE", 12, WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 30)
+			var c := Vector2(r.position.x + 22, r.get_center().y)
+			draw_polyline(PackedVector2Array([c + Vector2(-8, 4), c + Vector2(0, -4), c + Vector2(8, 4)]), CYAN_HI, 3.0, true)
+			_text(Vector2(r.position.x + 34, r.position.y + 23), "CONSOLE", 14, WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 44)
 		else:
-			_text(Vector2(r.position.x, r.position.y + 19), "COMMS", 12, WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
+			_text(Vector2(r.position.x, r.position.y + 23), "COMMS", 14, WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
 
 ## Radar (Job S, v1.4p): the same GPS-style view as the navigation map, small. A grid, faceted blips, a north
 ## marker, and the course line when one is set. North-up or heading-up, angled or overhead (NavGrid's setting).

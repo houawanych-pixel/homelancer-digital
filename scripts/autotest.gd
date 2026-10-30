@@ -1488,6 +1488,14 @@ func _run() -> void:
 			await _wait(0.6)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_V111") != "":   # the v11.1 HUD checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_v111()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_V11") != "":   # the v11 docking / lane-mouth checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -2049,6 +2057,7 @@ func _run() -> void:
 	await _job_v108()
 	await _job_v109()
 	await _job_v11()
+	await _job_v111()
 	await _job_edge()
 	await _job_open()
 	await _job_unknown()
@@ -3052,7 +3061,7 @@ func _job_v99_hub() -> void:
 	await _frames(4)
 	var back: bool = up != null and is_equal_approx(up.offset_top, 18.0)
 	var fs: Button = hb.find_child("FullScreen", true, false)
-	var fs_ok: bool = fs != null and fs.visible and fs.text.find("FULL SCREEN") >= 0 and not fs.get_global_rect().intersects(hb.show_btn.get_global_rect())
+	var fs_ok: bool = Fs.btn.visible and Fs.visible and not Fs.btn.get_global_rect().intersects(hb.show_btn.get_global_rect())   # (v11.1: the one corner button)
 	var boxed := 0
 	for c in hb.subtabs.get_children():
 		var st = (c as Button).get_theme_stylebox("normal")
@@ -3062,6 +3071,74 @@ func _job_v99_hub() -> void:
 		clear and list_clear and went_up and back and fs_ok and boxed == hb.subtabs.get_child_count() and boxed > 0,
 		"clear %s list %s up %s back %s fs %s (%s, hidden %s, vis %s, fs %s hide %s) boxed %d/%d" % [clear, list_clear, went_up, back, fs_ok, fs.text if fs else "none", hb.panels_hidden, fs.visible if fs else false, fs.get_global_rect() if fs else Rect2(), hb.show_btn.get_global_rect(), boxed, hb.subtabs.get_child_count()])
 	hb.visible = false
+
+## v11.1 (owner): bigger fold tabs (the side ones at the far outside of the blocks, folding into the radar's side; a
+## big HIDE tab under it), one FULL SCREEN button in the same corner on every screen (not on SPEED any more), a small
+## DOCK button instead of the long bar at the top, the jump gate's green ACTIVATE JUMP / orange UNDOCK, and the
+## station rooms' look sticks drawn like the flight sticks.
+func _job_v111() -> void:
+	var s := _sp()
+	if s.surface_mode or main.state != "flight": return
+	var hud = main.hud
+	hud.dock_l = true
+	hud.dock_r = true
+	hud.dock_down = false
+	hud._layout()
+	await _frames(2)
+	var b: Dictionary = hud.buttons
+	var tl: Rect2 = b.get("dock_l", Rect2())
+	var tr: Rect2 = b.get("dock_r", Rect2())
+	var tb: Rect2 = b.get("dock_down", Rect2())
+	var outer := true
+	for id in ["fire", "kill", "thrust", "shield", "form", "tractor", "special", "missile1"]:
+		if b.has(id) and (b[id] as Rect2).position.x < tl.end.x: outer = false
+	for id in ["stop", "warp", "repair", "cloak", "view", "ground", "mine", "missile2"]:
+		if b.has(id) and (b[id] as Rect2).end.x > tr.position.x: outer = false
+	var big: bool = tl.size.x >= 40.0 and tl.size.y >= 90.0 and tr.size.x >= 40.0 and tb.size.x >= 150.0 and tb.size.y >= 34.0
+	var fs_rect: Rect2 = Fs.btn.get_global_rect()
+	var fs_ok: bool = Fs.btn.visible and not b.has("fullscreen") and fs_rect.position.x < 20.0 and fs_rect.position.y < 20.0 and fs_rect.size.x >= 48.0
+	await _shot("v111_tabs_out", 0.2)
+	main._on_hud("dock_l")
+	hud._layout()
+	var g: Dictionary = hud.dash_geo()
+	var tl2: Rect2 = hud.buttons.get("dock_l", Rect2())
+	var folds_in: bool = tl2.end.x <= g["rc"].x - g["ro"] + 10.0 and tl2.end.x >= g["rc"].x - g["ro"] - 4.0 and not hud.buttons.has("fire")
+	await _shot("v111_left_folded", 0.2)
+	main._on_hud("dock_l")
+	main._on_hud("dock_down")
+	hud._layout()
+	var down_ok: bool = not hud.buttons.has("fire") and not hud.buttons.has("warp") and hud.buttons.has("dock_up") and (hud.buttons["dock_up"] as Rect2).size.y >= 34.0
+	await _shot("v111_hidden", 0.2)
+	main._on_hud("dock_up")
+	hud._layout()
+	# the small DOCK button: by the station, under the right thumb, not a bar at the top
+	var dp: Vector3 = s.dock_point(s.station)
+	_tp(dp + (s.station.global_position - dp).normalized() * -20.0, s.station.global_position)
+	await _frames(3)
+	hud._layout()
+	var pr: String = s.prompt()
+	var pb: Rect2 = hud.buttons.get(pr, Rect2())
+	var small: bool = pr != "" and pb.size.x <= 140.0 and pb.size.y <= 60.0 and pb.position.y > hud.S.y * 0.5
+	await _shot("v111_dock_button", 0.2)
+	# the jump gate's buttons
+	var gd = main.gate_dock
+	var ga: StyleBoxFlat = gd.activate_btn.get_theme_stylebox("normal") as StyleBoxFlat
+	var gu: StyleBoxFlat = gd.undock_btn.get_theme_stylebox("normal") as StyleBoxFlat
+	var gate_ok: bool = ga != null and gu != null and ga.bg_color.g > ga.bg_color.r * 1.5 and gu.bg_color.r > gu.bg_color.g and gu.bg_color.g > gu.bg_color.b
+	# the rooms' look sticks: the same drawer as the flight sticks
+	var hub_src: String = (main.hub.get_script() as Script).source_code
+	var sticks_ok: bool = hub_src.contains("HudStick.draw_stick(") and not hub_src.contains("draw_arc(c, r * 0.5")
+	var hb = main.hub
+	hb.open(Data.SYSTEMS[s.sys_id]["station"])
+	await _frames(2)
+	hb.set_panels_hidden(true)
+	await _shot("v111_room_sticks", 0.4)
+	var fs_room: bool = Fs.btn.visible and Fs.btn.get_global_rect().position.x < 20.0
+	hb.set_panels_hidden(false)
+	hb.visible = false
+	_check("v11.1 (owner): big fold tabs (sides at the far outside of the button blocks, folded = wrapped round the radar's side; a big HIDE tab hides the console), one FULL SCREEN button top-left on every screen, a small DOCK button above the right block, the gate's green ACTIVATE JUMP / orange UNDOCK, the rooms' sticks like flight",
+		outer and big and fs_ok and folds_in and down_ok and small and gate_ok and sticks_ok and fs_room,
+		"outer %s big %s (l %s r %s b %s) fs %s %s fold %s (%s) down %s dock '%s' %s %s gate %s sticks %s room fs %s" % [outer, big, tl, tr, tb, fs_ok, fs_rect, folds_in, tl2, down_ok, pr, pb, small, gate_ok, sticks_ok, fs_room])
 
 ## v11 (owner: "I can't dock at the station"; "the close trade lanes pull together at the entrance"): next to any side
 ## of a (now twice as big) station's hull you can dock; the trade-lane mouths round a station sit clear of its hull and
@@ -10602,7 +10679,7 @@ func _job_fl() -> void:
 	var fr: Rect2 = hud.fl_rect("r")
 	var placed: bool = hud.fl_rect("l").encloses(hud.buttons["goto_l"]) and hud.fl_rect("l").encloses(hud.buttons["tgt_front"]) and hud.buttons.has("cloak") and hud.buttons.has("radar") and hud.buttons.has("target") \
 		and ["weapons", "log"].all(func(b): return hud.buttons.has(b) and fr.encloses(hud.buttons[b])) \
-		and (hud.buttons["fullscreen"] as Rect2).is_equal_approx(hud.dash_geo()["speed"]) and (hud.buttons["view"] as Rect2).is_equal_approx(hud.dash_geo()["view"]) \
+		and not hud.buttons.has("fullscreen") and (hud.buttons["view"] as Rect2).is_equal_approx(hud.dash_geo()["view"]) \
 		and ["fire", "kill", "thrust", "shield", "form", "tractor", "special"].all(func(b): return hud.buttons.has(b) and (hud.buttons[b] as Rect2).end.x <= rr.position.x) \
 		and ["stop", "warp", "repair", "cloak", "view", "ground"].all(func(b): return hud.buttons.has(b) and (hud.buttons[b] as Rect2).position.x >= rr.end.x)   # (v7.6: the console: left wing, radar, right wing; SPEED = the view button)
 	hud.weapons_pinned = true

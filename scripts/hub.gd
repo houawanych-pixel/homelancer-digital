@@ -7,6 +7,7 @@ signal galaxy_requested   # v3.1: the GALAXY MAP tile on HOME
 signal descend_requested(planet_id: String, location_id: String)
 
 const CYAN := Color(0.4, 0.86, 1.0)
+const HudStick := preload("res://scripts/hud.gd")
 const GOLD := Color(1.0, 0.82, 0.4)
 const INK := Color(0.03, 0.07, 0.12, 0.74)
 const TAB_H := 54.0        # v3.1: the tab bar
@@ -1282,9 +1283,7 @@ func _photo_words() -> void:
 	left.visible = not panels_hidden and screen != "equipment"
 	show_btn.text = "HIDE PANELS"
 	show_btn.visible = not panels_hidden
-	if fs_btn:
-		fs_btn.visible = not panels_hidden
-		_fs_text()
+	if fs_btn: fs_btn.visible = false   # v11.1 (owner): the one FULL SCREEN button lives top-left on every screen (Fs)
 	look_ui.visible = panels_hidden   # v5.7 (owner): look mode: two sticks like flight, the bar in the middle
 	look_bar.visible = panels_hidden
 	var lk: Button = look_bar.get_node("Lock")
@@ -1307,17 +1306,7 @@ func _draw_look() -> void:
 		var c := stick_home(sd)
 		var r := stick_r()
 		var v: Vector2 = stick_vec[sd]
-		look_ui.draw_circle(c, r + 8, Color(0.0, 0.05, 0.1, 0.35))
-		look_ui.draw_circle(c, r, Color(0.02, 0.1, 0.2, 0.5))
-		look_ui.draw_arc(c, r, 0, TAU, 64, CYAN, 4.0, true)
-		look_ui.draw_arc(c, r - 9, 0, TAU, 64, Color(CYAN, 0.3), 2.0, true)
-		for dd in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
-			var tip: Vector2 = c + dd * r * 0.78
-			var perp := Vector2(-dd.y, dd.x)
-			look_ui.draw_colored_polygon(PackedVector2Array([tip + dd * 9, tip - dd * 5 + perp * 9, tip - dd * 5 - perp * 9]), Color(0.6, 0.9, 1.0))
-		var knob := c + v * r * 0.6
-		look_ui.draw_circle(knob, r * 0.34, Color(0.62, 0.8, 0.97, 0.85))
-		look_ui.draw_arc(knob, r * 0.34, 0, TAU, 40, Color.WHITE, 3.0, true)
+		HudStick.draw_stick(look_ui, c, r, v, stick_own.values().has(sd))   # v11.1 (owner): the same new stick as in flight
 
 func _look_input(e: InputEvent) -> void:
 	var idx := -1
