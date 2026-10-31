@@ -3198,15 +3198,22 @@ func _job_v114() -> void:
 	await Packs.wait("room_unity_pilots_lounge", 30.0)
 	hb.show_screen("lounge")
 	await _frames(4)
-	var ev_ok: bool = not hb.room_key.ends_with("pilots_lounge") or (hb.asst.visible and hb.asst_full and hb.asst.size.y > S.y * 0.7)
+	var ev_ok: bool = not hb.room_key.ends_with("pilots_lounge") or (hb.asst.visible and hb.asst.size.y > S.y * 0.7)
+	# v11.6 (owner: "put Evee right on top of the seam to hide the defect", closest view): in a moving room she stands on its worst seam
+	var ws: float = hb.worst_seam(hb.room_key)
+	var seam_ok: bool = ws < 0.0 or (hb.asst_seam and is_equal_approx(hb.asst_yaw, ws) and not hb.asst_full and hb.asst.size.y > S.y * 0.9)
 	await _shot("v114_lounge_evee", 0.4)
+	hb.show_screen("hub")
+	await _frames(3)
+	hb.room_yaw = hb.asst_yaw
+	await _shot("v116_evee_on_seam", 0.6)
 	hb.visible = false
 	_check("v11.4 (owner): station comms like flight: your side's greeting on the RIGHT, the comms bar (CONTACTS, LOG, MIC, HANDS, TYPE) under the call, CONTACTS and LOG on the left (FULL = big in the middle), \"—\" folds, X hangs up, a COMMS tab opens your contacts",
 		greet_r and bar_ok and contacts_ok and one_r and type_ok and log_ok and big_ok and fold_ok and hang_ok and tab_ok,
 		"greet %s bar %s contacts %s (%d rows) evee %s type %s log %s full %s fold %s hang %s tab %s" % [greet_r, bar_ok, contacts_ok, rows, one_r, type_ok, log_ok, big_ok, fold_ok, hang_ok, tab_ok])
 	_check("v11.4 (owner): the page tablets sit clear of the calls and never spill (they scroll), the MISSION BOARD is a big landscape window, the SHIPYARD has two 2 x 3 tablets (the left one moves clear of a call on the left), Evee stands tall in the lounge",
-		clear_r and page_ok and two_ok and moved and board_ok and ev_ok,
-		"clear %s page %s two %s (%s %s) moved %s board %s (%s) evee %s (%s %s)" % [clear_r, page_ok, two_ok, lw, rw, moved, board_ok, bp, ev_ok, hb.room_key, hb.asst.size])
+		clear_r and page_ok and two_ok and moved and board_ok and ev_ok and seam_ok,
+		"clear %s page %s two %s (%s %s) moved %s board %s (%s) evee %s (%s %s) seam %s (%.3f)" % [clear_r, page_ok, two_ok, lw, rw, moved, board_ok, bp, ev_ok, hb.room_key, hb.asst.size, seam_ok, ws])
 
 ## v11.1 (owner): bigger fold tabs (the side ones at the far outside of the blocks, folding into the radar's side; a
 ## big HIDE tab under it), one FULL SCREEN button in the same corner on every screen (not on SPEED any more), a small

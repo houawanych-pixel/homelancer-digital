@@ -723,6 +723,23 @@ func _asst_next() -> void:
 	asst_idle += 1
 	_asst_play("idle_b" if asst_idle % 3 == 2 else "idle_a")   # (full body: the idle loop again)
 
+var asst_seam := false   # v11.6 (owner): she stands on the moving room's worst seam, close up, to hide it
+## v11.6: the worst seam of this moving room (share of the loop), or -1 (tools/rooms/v2_animate.py writes room_seams.gd).
+func worst_seam(key: String) -> float:
+	if not ResourceLoader.exists("res://scripts/room_seams.gd"): return -1.0
+	var rs: Dictionary = load("res://scripts/room_seams.gd").ROOMS
+	if not rs.has(key) or not ResourceLoader.exists(_room_ogv(key)): return -1.0
+	if Data.ROOM_SEAM_PICK.has(key): return float(Data.ROOM_SEAM_PICK[key])   # (picked by eye where the score misses it)
+	var d: Dictionary = rs[key]
+	var best := 0
+	for i in (d["bad"] as Array).size():
+		if float(d["bad"][i]) > float(d["bad"][best]): best = i
+	return float(d["seams"][best])
+
+func _room_ogv(key: String) -> String:
+	var f := key.get_slice("_", 0)
+	return "res://assets/rooms/%s/%s.ogv" % [f, key.substr(f.length() + 1)]
+
 const RoomPeople := preload("res://scripts/room_people.gd")   # v8.0: the people on each room's floor (tools/rooms/evee_people.py)
 var asst_yaw := -1.0   # v5.7: where she stands in the room (set when the room changes)
 var asst_full := false   # v8.0: her feet show on screen: the full-body clip
@@ -759,7 +776,7 @@ func _asst_place() -> void:
 		asst_hit.visible = false
 		return
 	var S := get_viewport_rect().size
-	if room_view.visible and room_key != "":
+	if room_view.visible and room_key != "" and not asst_seam:
 		var m0 := room_view.material as ShaderMaterial
 		var vw0: float = float(m0.get_shader_parameter("vis_w"))
 		if asst_yaw < 0.0: asst_yaw = fposmod(room_yaw + (Data.ASST_SCREEN_X - 0.5) * vw0, 1.0)
@@ -1230,6 +1247,7 @@ func _show_room(s: String) -> void:
 	if key == "":
 		room_view.visible = false
 		room_key = ""
+		asst_seam = false
 		if room_vid != null: room_vid.stop()
 		_room_sounds("")
 		return
@@ -1252,6 +1270,9 @@ func _show_room(s: String) -> void:
 		room_key = key
 		room_hostile = hostile_room
 		asst_yaw = -1.0
+		var ws := worst_seam(key) if not hostile_room else -1.0
+		asst_seam = ws >= 0.0
+		if asst_seam: asst_yaw = ws
 		room_yaw = Data.ROOM_FRONT
 		room_pitch = 0.0
 		room_idle = 0.0
