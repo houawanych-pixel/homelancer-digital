@@ -4823,8 +4823,10 @@ func _build_lanes() -> void:
 	lanes.clear()
 	lane = {}
 	if surface_mode or SystemBuilder.is_enemy_space(sys) or sys.get("open", false): return   # v6.2 (owner): spaceways only in faction space
-	var pairs: Array = [[station, planet]]
-	for g in gates: pairs.append([station, g])
+	# v11.10 (owner: "like waypoints"): a lane network, not every lane out of the station (SystemBuilder.lane_tree)
+	var nodes: Array = [station, planet] + gates
+	var pairs: Array = []
+	for e in SystemBuilder.lane_tree(nodes.map(func(n): return (n as Node3D).global_position)): pairs.append([nodes[e[0]], nodes[e[1]]])
 	var xfs: Array = []
 	var placed: Array = []   # v10.10: every ring drawn so far (lanes keep apart)
 	for pr in pairs:
@@ -4910,18 +4912,22 @@ func _build_lanes() -> void:
 	for i in Data.LANE_LIGHT_RINGS:
 		var rm := MeshInstance3D.new()
 		rm.name = "LaneLightRing%d" % i
-		var tor := TorusMesh.new()
-		tor.inner_radius = Data.LANE_TUNNEL_RADIUS * 0.93
-		tor.outer_radius = Data.LANE_TUNNEL_RADIUS
-		tor.rings = 48
-		tor.ring_segments = 6
-		rm.mesh = tor
-		var lm := StandardMaterial3D.new()
-		lm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		lm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-		lm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		lm.albedo_color = Color(Data.LANE_TINT.lerp(Color.WHITE, 0.45), 0.0)
-		lm.no_depth_test = false
+		var band := CylinderMesh.new()   # v11.10 (owner: "faded, stretched and transparent, not solid white"): a soft band of light
+		band.top_radius = Data.LANE_TUNNEL_RADIUS * 0.96
+		band.bottom_radius = Data.LANE_TUNNEL_RADIUS * 0.96
+		band.height = Data.LANE_RING_STRETCH
+		band.radial_segments = 48
+		band.rings = 1
+		band.cap_top = false
+		band.cap_bottom = false
+		rm.mesh = band
+		var lsh := Shader.new()
+		lsh.code = LANE_LIGHT_RING_SHADER
+		var lm := ShaderMaterial.new()
+		lm.shader = lsh
+		lm.set_shader_parameter("tint", Data.LANE_TINT.lerp(Color.WHITE, 0.3))
+		lm.set_shader_parameter("alpha", 0.0)
+		lm.set_shader_parameter("glow", Data.LANE_RING_GLOW)
 		rm.material_override = lm
 		rm.rotation_degrees = Vector3(90, 0, 0)   # (a torus lies flat: stand it up across the lane)
 		rm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -5010,6 +5016,19 @@ func _lane_update(dt: float) -> void:
 	_lane_rings(dt, clampf(sp / Data.LANE_SPEED, 0.0, 1.0) if not lane.is_empty() else -1.0)
 	if is_instance_valid(model): model.rotation = model.rotation.lerp(Vector3.ZERO, minf(1.0, dt * 4.0))
 
+const LANE_LIGHT_RING_SHADER := """
+shader_type spatial;
+render_mode unshaded, blend_add, cull_disabled, depth_draw_never, shadows_disabled;
+uniform vec3 tint : source_color = vec3(0.5, 0.9, 1.0);
+uniform float alpha = 0.0;
+uniform float glow = 0.45;
+void fragment() {
+	float band = pow(sin(UV.y * 3.14159), 3.0);   // brightest in the middle of the band, fading to nothing at both ends
+	float shimmer = 0.85 + 0.15 * sin(UV.x * 6.2832 * 6.0 + TIME * 3.0);
+	ALBEDO = tint;
+	ALPHA = clamp(band * shimmer * alpha * glow, 0.0, 1.0);
+}
+"""
 ## v11.7: the rings of light in a lane: they come from far ahead and rush past round you (power < 0 = off).
 func _lane_rings(dt: float, power: float) -> void:
 	var on := power >= 0.0
@@ -5024,8 +5043,10 @@ func _lane_rings(dt: float, power: float) -> void:
 		var f := fposmod(lane_ring_t / float(n) + float(i) / float(n), 1.0)
 		var z := -far + f * (far + 120.0)   # far ahead -> past the camera
 		rm.position = Vector3(0, 0, z)
-		var a := smoothstep(0.0, 0.25, f) * (1.0 - smoothstep(0.85, 1.0, f)) * (0.35 + 0.65 * maxf(power, 0.25))
-		(rm.material_override as StandardMaterial3D).albedo_color.a = a
+		# fades in far ahead, out as it passes; and the whole set fades away as the ship slows at the lane's end
+		var a := smoothstep(0.0, 0.3, f) * (1.0 - smoothstep(0.7, 0.95, f)) * smoothstep(0.2, 0.7, power)
+		(rm.material_override as ShaderMaterial).set_shader_parameter("alpha", a)
+		rm.visible = a > 0.003
 
 ## Passing a ring: it lights up and throws a splash.
 func _lane_pass(at: Vector3, dir: Vector3) -> void:

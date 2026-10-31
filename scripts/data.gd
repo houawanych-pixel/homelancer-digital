@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.9"
+const VERSION := "v11.10"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -260,6 +260,9 @@ const LANE_SLOW_DIST := 26000.0       # start slowing this far from the last rin
 const LANE_EXIT_SPEED := 50.0
 const LANE_TINT := Color(0.35, 0.85, 1.0)
 const LANE_TUNNEL_LEN := 640.0        # the energy tunnel that rides on the ship (v1.4u: was 240; long enough to pass behind the camera)
+const LANE_MIN_SPREAD := 30.0         # v11.10 (owner): degrees two lanes leaving one place must be apart; closer = chain from the nearer place
+const LANE_RING_STRETCH := 110.0      # v11.10 (owner): each light ring is a soft band this long along the lane
+const LANE_RING_GLOW := 0.45          # v11.10: how bright the band is at its middle (see-through)
 const LANE_LIGHT_RINGS := 7           # v11.7 (owner): rings of light rushing past in a lane
 const LANE_RING_PACE := [0.8, 4.0]     # v11.7: rings passing per second, slow -> full lane speed
 const LANE_TUNNEL_RADIUS := 46.0       # v1.4u: was 15; wide enough that the chase camera sits inside it

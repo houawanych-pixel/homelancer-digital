@@ -213,19 +213,57 @@ static func all(core: Dictionary) -> Dictionary:
 	clear_lanes(out)   # v1.5m: the freeways never run through the rocks
 	return out
 
+## v11.10 (owner: "not all lanes should start from the centre; like waypoints"): the trade-lane network. points[0] is
+## the main station, then the planet, then the gates. Each place (nearest first) is linked from the connected place
+## nearest to it whose new lane leaves at least Data.LANE_MIN_SPREAD degrees from the lanes already there, so two lanes
+## never run side by side out of the station: a far gate behind a nearer one is reached from that one.
+## Returns [[from, to], ...] as indices into points.
+static func lane_tree(points: Array) -> Array:
+	var edges: Array = []
+	if points.size() < 2: return edges
+	var connected: Array = [0]
+	var order: Array = range(1, points.size())
+	var p0: Vector3 = points[0]
+	order.sort_custom(func(a, b): return p0.distance_to(points[a]) < p0.distance_to(points[b]))
+	var lim: float = cos(deg_to_rad(Data.LANE_MIN_SPREAD))
+	for t in order:
+		var pt: Vector3 = points[t]
+		var best := -1
+		var best_d := INF
+		var fallback := 0
+		var fb_d := INF
+		for s in connected:
+			var ps: Vector3 = points[s]
+			var d := ps.distance_to(pt)
+			var dir := (pt - ps).normalized()
+			var ok := true
+			for e in edges:
+				var other := -1
+				if e[0] == s: other = e[1]
+				elif e[1] == s: other = e[0]
+				if other < 0: continue
+				if dir.dot(((points[other] as Vector3) - ps).normalized()) > lim: ok = false
+			if d < fb_d: fb_d = d; fallback = s
+			if ok and d < best_d: best_d = d; best = s
+		edges.append([best if best >= 0 else fallback, t])
+		connected.append(t)
+	return edges
+
 ## v1.5m: the asteroid field is moved off every trade-lane line (station -> planet, station -> each gate): its middle is
 ## pushed sideways, level, until the lane passes at least its radius + LANE_BELT_CLEAR away. Lanes stay straight.
 static func clear_lanes(out: Dictionary) -> void:
 	for id in out:
 		var sy: Dictionary = out[id]
-		var a: Vector3 = sy["station"]["pos"]
-		var ends: Array = [sy["planet"]["pos"]]
-		for g in sy["gates"]: ends.append(g["pos"])
+		var pts: Array = [sy["station"]["pos"], sy["planet"]["pos"]]
+		for g in sy["gates"]: pts.append(g["pos"])
+		var segs: Array = lane_tree(pts).map(func(e): return [pts[e[0]], pts[e[1]]])   # v11.10: the lane network
 		var belt: Dictionary = sy["asteroids"]
 		var need: float = float(belt.get("radius", 400.0)) + Data.LANE_BELT_CLEAR
 		for it in 12:
 			var moved := false
-			for b in ends:
+			for sg in segs:
+				var a: Vector3 = sg[0]
+				var b: Vector3 = sg[1]
 				var c: Vector3 = belt["center"]
 				var q := Geometry3D.get_closest_point_to_segment(c, a, b)
 				var off := Vector3(c.x - q.x, 0.0, c.z - q.z)
@@ -375,8 +413,9 @@ static func _sun_off_lanes(sy: Dictionary) -> void:
 	var sr: float = Data.SUN_RADIUS * (0.35 if sy.get("small_sun", false) else 1.0)
 	var need: float = sr * Data.SUN_LANE_CLEAR
 	var st: Vector3 = sy["station"]["pos"]
-	var segs: Array = [[st, sy["planet"]["pos"]]]
-	for g in sy["gates"]: segs.append([st, g["pos"]])
+	var pts: Array = [st, sy["planet"]["pos"]]
+	for g in sy["gates"]: pts.append(g["pos"])
+	var segs: Array = lane_tree(pts).map(func(e): return [pts[e[0]], pts[e[1]]])   # v11.10: the lane network
 	var dots: Array = [[sy["planet"]["pos"], float(sy["planet"]["radius"])], [sy["asteroids"]["center"], float(sy["asteroids"].get("radius", 400.0))]]
 	for x in sy["more_planets"]: dots.append([x["pos"], float(x["radius"])])
 	for x in sy["more_stations"]: dots.append([x["pos"], 600.0])

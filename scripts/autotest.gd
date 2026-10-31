@@ -3201,7 +3201,7 @@ func _job_v114() -> void:
 	hb.show_screen("missions")
 	await _frames(3)
 	var bp: Rect2 = hb.content.get_global_rect()
-	var board_ok: bool = bp.size.x >= bp.size.y * 1.3 and bp.end.x <= hb.call_rect("r").position.x
+	var board_ok: bool = bp.size.x >= bp.size.y * 1.3 and not bp.intersects(hb.call_rect("r")) and hb.call_rect("r").position.x > hb.launch_btn.get_global_rect().end.x   # (v11.10: COMMS tab up beside LAUNCH, the board goes right)
 	await _shot("v114_board", 0.3)
 	hb.show_screen("lounge")
 	await Packs.wait("room_unity_pilots_lounge", 30.0)
@@ -3389,9 +3389,11 @@ func _job_v109() -> void:
 		s._lane_rings(0.5, 1.0)
 		var z0: float = (s.lane_rings[0] as Node3D).position.z
 		s._lane_rings(0.05, 1.0)
-		lr_ok = (s.lane_rings[0] as Node3D).visible and (s.lane_rings[0] as Node3D).position.z > z0   # (moving back past you)
+		lr_ok = s.lane_rings.any(func(r): return (r as Node3D).visible) and (s.lane_rings[0] as Node3D).position.z > z0   # (moving back past you)
+		s._lane_rings(0.05, 0.05)   # (v11.10: slowing at the lane's end, they fade away)
+		lr_ok = lr_ok and not s.lane_rings.any(func(r): return (r as Node3D).visible)
 		s._lane_rings(0.0, -1.0)
-		lr_ok = lr_ok and not (s.lane_rings[0] as Node3D).visible
+		lr_ok = lr_ok and not s.lane_rings.any(func(r): return (r as Node3D).visible)
 	_check("v11.7 (owner): the rift gate has no frame (a sheet that ripples like cloth, more sparks, more cloud); the rift tube is clearer with the sky outside; rings of light rush out at you in every tunnel (the warp gate's now the right way) and in the trade lanes",
 		cloth_ok and rings_ok and lr_ok, "cloth %s rings %s lane rings %s" % [cloth_ok, rings_ok, lr_ok])
 
@@ -7173,10 +7175,10 @@ func _job_ap() -> void:
 	var bad: Array = []
 	for id in Data.SYSTEMS:
 		var sy: Dictionary = Data.SYSTEMS[id]
-		var a: Vector3 = sy["station"]["pos"]
 		var need: float = float(sy["asteroids"].get("radius", 400.0)) + Data.LANE_BELT_CLEAR - 1.0
-		for b in [sy["planet"]["pos"]] + sy["gates"].map(func(g): return g["pos"]):
-			var q := Geometry3D.get_closest_point_to_segment(sy["asteroids"]["center"], a, b)
+		var pts: Array = [sy["station"]["pos"], sy["planet"]["pos"]] + sy["gates"].map(func(g): return g["pos"])
+		for e in SystemBuilder.lane_tree(pts):   # (v11.10: the lane network)
+			var q := Geometry3D.get_closest_point_to_segment(sy["asteroids"]["center"], pts[e[0]], pts[e[1]])
 			if Vector2(q.x - sy["asteroids"]["center"].x, q.z - sy["asteroids"]["center"].z).length() < need: bad.append(id)
 	# in the system you are in: no rock sits on a built lane
 	var s := _sp()

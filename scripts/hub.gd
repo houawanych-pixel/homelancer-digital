@@ -855,7 +855,9 @@ func call_rect(sd: String) -> Rect2:
 	var w := call_w()
 	var top := CONTENT_Y + 4.0
 	var x := 8.0 if sd == "l" else S.x - 8.0 - w
-	if calls[sd].is_empty() or calls[sd].get("min", false): return Rect2(x, top, w, 52.0)
+	if calls[sd].is_empty() or calls[sd].get("min", false):
+		if sd == "r": return Rect2(x, TOP_Y, w, Data.HUB_LAUNCH_SIZE.y)   # v11.10 (owner): the COMMS tab sits up in the top bar, right of LAUNCH
+		return Rect2(x, top, w, 52.0)
 	return Rect2(x, top, w, w + 90.0)
 
 func _calls_in_panel() -> bool:
@@ -863,7 +865,7 @@ func _calls_in_panel() -> bool:
 
 ## The width the right-hand comms column keeps clear of the page.
 func right_reserve() -> float:
-	return 8.0 + call_w() + 14.0
+	return (8.0 + call_w() + 14.0) if _call_open("r") else 24.0   # v11.10 (owner): with no call open the page goes all the way right
 
 ## Where the left tablet / page starts: clear of a call on the left.
 func left_reserve() -> float:
@@ -933,6 +935,11 @@ func _place_calls() -> void:
 		move_child(comms_panel, get_child_count() - 1)
 		if launch_btn != null: move_child(launch_btn, get_child_count() - 1)
 	_place_tablets()
+	if launch_btn != null:   # v11.10: LAUNCH moves left to make room for the COMMS tab beside it
+		launch_btn.offset_right = -(8.0 + call_w() + 10.0)
+		launch_btn.offset_left = launch_btn.offset_right - Data.HUB_LAUNCH_SIZE.x
+		credits_label.offset_right = launch_btn.offset_right
+		credits_label.offset_left = credits_label.offset_right - 250.0
 
 var _face_cache := {}
 func _call_face(path: String) -> Texture2D:
@@ -1333,7 +1340,8 @@ static func third_level(yaw: float, third: int, vis_w: float) -> float:
 
 func _room_sound_levels(dt: float) -> void:
 	if room_snd.is_empty(): return
-	var vw: float = float((room_view.material as ShaderMaterial).get_shader_parameter("vis_w"))
+	var vv = (room_view.material as ShaderMaterial).get_shader_parameter("vis_w")
+	var vw: float = float(vv) if vv != null else 0.25   # (not set until the room has been drawn once)
 	for p in room_snd:
 		var pl := p as AudioStreamPlayer
 		var want: float = third_level(room_yaw, int(pl.get_meta("third")), vw) if (room_view.visible and visible) else 0.0
