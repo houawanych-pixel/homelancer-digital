@@ -7,7 +7,7 @@ extends RefCounted
 # Change it in BOTH places for every job: here and the hl-version meta + title in web_shell.html (a test checks it).
 # v1.8t: the background content packs, in the order they are fetched (PACK_PARALLEL at a time): what the game needs to
 # play first (planet ground, the mech), the big ones (enemy pictures 17 MB, structures 56 MB) last.
-const PACK_ORDER := ["sky", "worlds", "planets", "mechs", "cockpit", "structures", "voice_m1", "voice_m2", "voice_m3", "voice_m4", "voice_f1", "voice_f2", "voice_f3", "voice_f4", "voice_a1", "voice_a2", "voice_r1", "voice_mask", "lancer", "ranger", "hauler", "bulk", "enemies"]
+const PACK_ORDER := ["sky", "worlds", "planets", "mechs", "cockpit", "structures", "voice_m1", "voice_m2", "voice_m3", "voice_m4", "voice_f1", "voice_f2", "voice_f3", "voice_f4", "voice_a1", "voice_a2", "voice_r1", "voice_mask", "lancer", "ranger", "hauler", "enemies"]
 const PACK_PARALLEL := 2
 const RING_PACKS := ["ring_gate", "ring_dock"]   # v1.9r (owner: missing dock rings): the jump gate ring and the dock arch, fetched on arrival in every system
 # v1.8v (owner: fewer enemies, asteroids and moving cargo ships, to keep memory low): the lighter numbers below, plus
@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.7"
+const VERSION := "v11.8"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -1070,17 +1070,13 @@ const SHIPS := {
 		"turn": 1.55, "guns": 3, "missiles": MISSILE_LOAD, "heavy": HEAVY_LOAD, "mines": MINE_LOAD, "model": "ranger", "desc": "Faster frame, thicker plating. A long cannon on top and one on each wing."},
 	"hauler": {"name": "Hauler", "class": "Armed cargo ship", "price": 2500, "hull": 320, "shield": 110, "speed": 38.0,
 		"turn": 1.0, "guns": 2, "missiles": MISSILE_LOAD, "heavy": HEAVY_LOAD, "mines": MINE_LOAD + 10, "model": "hauler", "desc": "A cargo ship you can own. The toughest hull on sale, a big rack, and slow."},
-	"bulk_empty": {"name": "Frame Freighter", "class": "Empty cargo ship", "price": 4500, "hull": 400, "shield": 150, "speed": 40.0,
-		"turn": 1.0, "guns": 3, "missiles": MISSILE_LOAD, "heavy": HEAVY_LOAD, "mines": MINE_LOAD + 10, "model": "bulk_empty", "desc": "The Bulk Freighter with an empty cargo frame, ready to carry any crate. Lighter, so faster."},
-	"bulk": {"name": "Bulk Freighter", "class": "Heavy cargo ship", "price": 6000, "hull": 480, "shield": 160, "speed": 34.0,
-		"turn": 0.8, "guns": 3, "missiles": MISSILE_LOAD, "heavy": HEAVY_LOAD, "mines": MINE_LOAD + 16, "model": "bulk", "desc": "The biggest ship you can own. Six engines, a huge hull and rack. Very slow to turn."},
 	"lancer": {"name": "Lancer", "class": "Heavy fighter", "price": 4000, "hull": 240, "shield": 140, "speed": 42.0,
 		"turn": 1.25, "guns": 4, "missiles": MISSILE_LOAD, "heavy": HEAVY_LOAD, "mines": MINE_LOAD + 6, "model": "lancer", "desc": "Four cannons: two on the wings, two beside the nose. Heavy shield. Slow to turn."},
 	"elyza": {"name": "Elyza Fighter", "class": "Folding-wing fighter", "price": 3500, "hull": 190, "shield": 130, "speed": 50.0,   # v1.5p
 		"turn": 1.5, "guns": 3, "missiles": MISSILE_LOAD, "heavy": HEAVY_LOAD, "mines": MINE_LOAD, "model": "elyza_fighter", "desc": "Elyza design. Flies with its armoured arms out; they swing in when it warps."},
 }
 # v1.3c: all three are the owner's models with weapons mounted (tools/shipkit/make_fleet3.py). Guns = cannons you can see.
-const SHIP_ORDER := ["cadet", "ranger", "hauler", "elyza", "lancer", "bulk_empty", "bulk"]
+const SHIP_ORDER := ["cadet", "ranger", "hauler", "elyza", "lancer"]   # v11.8 (owner): the two freighters are gone (bad designs; the new heavy freighter replaces them)
 # v9.8 (owner): the remodelled Cadet's Harrier-style side engines (Nacelle_L / Nacelle_R in the model)
 const NACELLE_MIN_SPEED := 4.0     # m/s: below this the engines rest pointing back
 const NACELLE_TURN_DEG_S := 220.0  # how fast they swing (degrees per second)
@@ -1122,7 +1118,7 @@ const WEAPONS := {
 # second front gun (5 core), 2 wing slots a side, 4 modules. Level 3 Capital Variant: a third (belly) gun (6 core),
 # 3 wing slots a side, 6 modules. Wing slot ids: 0/1 left inner/tip, 2/3 right inner/tip, 4/5 left/right middle.
 # Core ids: -1 front gun, -5 second front gun, -6 belly gun, -2 light bay, -3 super bay, -4 mine bay.
-const SHIP_LEVEL := {"cadet": 1, "hauler": 1, "ranger": 2, "elyza": 2, "lancer": 2, "bulk_empty": 3, "bulk": 3}
+const SHIP_LEVEL := {"cadet": 1, "hauler": 1, "ranger": 2, "elyza": 2, "lancer": 2}   # (level 3: the new heavy freighter, when it comes in)
 const LEVELS := {
 	1: {"name": "Core Interceptor", "art": "res://assets/ui/ship_lv1.png", "icon": "res://assets/ui/ship_lv1.png", "mech_name": "Scout Frame", "mech_art": "res://assets/ui/mech_cut1.png", "mech_icon": "res://assets/ui/mech_lv1.png", "mech_uv": {-1: Vector2(0.503, 0.308), -2: Vector2(0.410, 0.395), -3: Vector2(0.598, 0.395), -4: Vector2(0.503, 0.479), 0: Vector2(0.134, 0.466), 2: Vector2(0.874, 0.466)}, "guns": [-1], "wings": [0, 2], "modules": 2,
 		"uv": {-1: Vector2(0.488, 0.362), -2: Vector2(0.371, 0.521), -3: Vector2(0.605, 0.521), -4: Vector2(0.488, 0.67), 0: Vector2(0.163, 0.815), 2: Vector2(0.81, 0.815)}},

@@ -1,0 +1,51 @@
+{
+ "strip": [
+  4448,
+  452
+ ],
+ "cuts": [
+  1136,
+  2521,
+  4140
+ ],
+ "overlap": 40,
+ "frame": [
+  1920,
+  1080
+ ],
+ "parts": [
+  {
+   "file": "v2_unity_main_hub_part1.png",
+   "strip_x0": 1096,
+   "strip_w": 1465,
+   "frame_rect": [
+    0,
+    244,
+    1920,
+    592
+   ]
+  },
+  {
+   "file": "v2_unity_main_hub_part2.png",
+   "strip_x0": 2481,
+   "strip_w": 1699,
+   "frame_rect": [
+    0,
+    284,
+    1920,
+    511
+   ]
+  },
+  {
+   "file": "v2_unity_main_hub_part3.png",
+   "strip_x0": 4100,
+   "strip_w": 1524,
+   "frame_rect": [
+    0,
+    255,
+    1920,
+    569
+   ]
+  }
+ ]
+}

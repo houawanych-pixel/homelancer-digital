@@ -8,8 +8,6 @@ const GLB := {
 	"cadet": ["res://assets/ships/player/cadet_v2.glb", 9.0, 0.0],   # v9.8 (owner): the remodelled Cadet (laptop Blender build, 9 m, nose -Z, level 1: 4 core + 1 per wing mounts, tilting nacelles)
 	"ranger": ["res://assets/ships/player/ranger.glb", 10.5, 0.0],
 	"lancer": ["res://assets/ships/player/lancer.glb", 12.0, 0.0],
-	"bulk_empty": ["res://assets/ships/player/bulk_empty.glb", 19.0, 0.0],
-	"bulk": ["res://assets/ships/player/bulk.glb", 19.0, 0.0],
 	"hauler": ["res://assets/ships/player/hauler.glb", 15.0, 0.0],
 	# v1.4q: the owner's true Savagers set (split from hl_SAVAGERS_ship_set) replaces the old raider and corsair models
 	"enemy": ["res://assets/ships/enemy/savager_skirmish.glb", Data.SAVAGER_SKIRMISH_LEN, Data.SAVAGER_SKIRMISH_YAW],
@@ -218,7 +216,6 @@ static func pack_of(key: String) -> String:
 	if key.begins_with("mf_"): return key
 	if key.begins_with("mech_"): return "mechs"
 	if key in ["ranger", "lancer", "hauler"]: return key   # v10.2: the player ships that come in their own pack
-	if key in ["bulk", "bulk_empty"]: return "bulk"
 	return ""
 
 ## v1.9i: a mech built from three frames' parts: the core's body and skeleton, the arms' and legs' meshes on it.

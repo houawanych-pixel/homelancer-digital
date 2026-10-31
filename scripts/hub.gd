@@ -630,7 +630,6 @@ func show_screen(s: String) -> void:
 			Packs.request("lancer")
 			Packs.request("ranger")
 			Packs.request("hauler")
-			Packs.request("bulk")
 			_ships_page()
 		"mechs":   # v1.9i: the frames you own come in first (their parts make your mech)
 			for fid in GS.owned_mechs:

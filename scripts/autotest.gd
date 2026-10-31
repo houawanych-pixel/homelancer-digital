@@ -1864,7 +1864,7 @@ func _run() -> void:
 	var sb: Button = main.hub.find_child("Ship_lancer", true, false)
 	if sb and not sb.disabled: sb.pressed.emit()
 	await _wait(0.4)
-	_check("Ship purchase (Lancer, 4 cannons); the dealer sells seven real ships (v1.5p: + the Elyza fighter)", GS.ship_id == "lancer" and int(GS.ship()["guns"]) == 4 and Data.SHIP_ORDER == ["cadet", "ranger", "hauler", "elyza", "lancer", "bulk_empty", "bulk"] and ShipFactory.has_real_model("bulk_empty") and ShipFactory.has_real_model("ranger") and ShipFactory.has_real_model("hauler") and ShipFactory.has_real_model("bulk"), "ship=%s hull=%d" % [GS.ship_id, int(GS.max_hull())])
+	_check("Ship purchase (Lancer, 4 cannons); the dealer sells five real ships (v11.8 owner: the two freighters are gone)", GS.ship_id == "lancer" and int(GS.ship()["guns"]) == 4 and Data.SHIP_ORDER == ["cadet", "ranger", "hauler", "elyza", "lancer"] and not Data.SHIPS.has("bulk") and not Data.SHIPS.has("bulk_empty") and ShipFactory.has_real_model("ranger") and ShipFactory.has_real_model("hauler"), "ship=%s hull=%d" % [GS.ship_id, int(GS.max_hull())])
 	main.hub.open_inspector("lancer")
 	await _wait(0.4)
 	var cam0: Vector3 = main.hub.insp_cam.position
@@ -10208,28 +10208,15 @@ func _job_v19w() -> void:
 		var v0 = GS.get(k2)
 		keep[k2] = v0.duplicate() if (v0 is Array or v0 is Dictionary) else v0
 	var lv_ok := true
-	var want := {"cadet": [1, 4, 2, 2], "ranger": [2, 5, 4, 4], "bulk": [3, 6, 6, 6]}
+	var want := {"cadet": [1, 4, 2, 2], "ranger": [2, 5, 4, 4]}   # (v11.8: level 3 waits for the new heavy freighter; the old freighters are gone)
 	for sid in want:
 		GS.ship_id = sid
 		var core_n: int = GS.core_slots().size() + 3
 		var got := [GS.ship_level(), core_n, GS.wing_slots(), GS.module_slots()]
 		if got != want[sid]: lv_ok = false
-	# a level 3 ship: three front guns, wing guns in pairs on its six slots
 	GS.credits = 90000
-	for sid in ["bulk"]:
-		if not (sid in GS.owned_ships): GS.owned_ships.append(sid)
 	GS.ship_id = "cadet"
-	GS.buy_ship("bulk")
-	if not ("nx_blue" in GS.owned_weapons): GS.buy_weapon("nx_blue")
-	for i in 6: GS.fit_mount(i, "nx_blue")
-	s.set_player_model()
-	await _frames(2)
-	var bc: int = s.bolts.size()
-	s.mount_next.clear()
-	s._fire_guns()
-	var shots: int = s.bolts.size() - bc
-	_check("v1.9w (owner): ship levels: Level 1 has 4 core + 2 wing slots and 2 modules, Level 2 5 + 4 and 4, Level 3 6 + 6 and 6; a Level 3 ship with all six wing slots fitted fires 3 front guns + 6 = %d shots" % shots,
-		lv_ok and shots == 9, "levels %s" % lv_ok)
+	_check("v1.9w (owner): ship levels: Level 1 has 4 core + 2 wing slots and 2 modules, Level 2 5 + 4 and 4 (Level 3 comes with the new heavy freighter)", lv_ok, "levels %s" % lv_ok)
 	# modules
 	var sh0: float = GS.max_shield()
 	GS.buy_module("shield_generator")

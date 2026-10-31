@@ -162,6 +162,8 @@ func load_game() -> bool:
 		if typeof(v) == typeof(cur) or (typeof(cur) in [TYPE_INT, TYPE_FLOAT] and typeof(v) in [TYPE_INT, TYPE_FLOAT]): set(k, v)
 	if not Data.SYSTEMS.has(system_id): system_id = "solara"
 	if not Data.SHIPS.has(ship_id): ship_id = "cadet"
+	owned_ships = owned_ships.filter(func(x): return Data.SHIPS.has(str(x)))   # v11.8: ships that left the game (the freighters)
+	if not ("cadet" in owned_ships): owned_ships.append("cadet")
 	if not Data.WEAPONS.has(weapon_id): weapon_id = "pulse1"
 	for p in ["arms", "core", "legs"]:   # v1.9i
 		if not Data.MECHS.has(str(mech_parts.get(p, ""))) or not (str(mech_parts.get(p, "")) in owned_mechs): mech_parts[p] = "blackgold"
