@@ -10314,7 +10314,33 @@ func _job_v19w() -> void:
 ## right window, HIDE PANELS to look round; drag looks round; the lounge lists who is here.
 ## v9.2 (owner): dock where they are HOSTILE to you: the alarm, no launching, Evee stays away, and a cover fight in
 ## each room to the hangar (five soldiers and a squad leader); duck or side-step to dodge, the sight fires on its own.
+## v11.15 (owner): Orion's lockdown: every guard is its helmeted soldier; one boss, the marshal with a blade, only at the hangar.
+func _breakout_orion_check() -> void:
+	var probe := Breakout.new()
+	probe.faction = "orion"
+	probe.rooms = Data.BREAKOUT_ROOMS.duplicate()
+	probe._load_cast()
+	var art: Dictionary = Data.BREAKOUT_ART["orion"]
+	var guard_tex: Texture2D = load(str(art["guard"]))
+	var guards_ok: bool = probe.cast.size() >= 6 and probe.cast.keys().all(func(k): return int(k) == Data.BREAKOUT_FINAL_LEADER or (probe.cast[k]["full"] as Texture2D).get_size() == guard_tex.get_size())
+	var boss_ok: bool = str(probe.cast[Data.BREAKOUT_FINAL_LEADER]["name"]) == str(art["boss_name"]) and probe.cast[Data.BREAKOUT_FINAL_LEADER]["full"] != null
+	probe.room_i = 0
+	probe.wave_i = probe.waves().size() - 1
+	probe.queue = []
+	probe.enemies = []
+	probe._waves_step()
+	var no_mid_boss: bool = probe.state == "clear" and not probe.boss_out
+	probe.room_i = probe.rooms.size() - 1
+	probe.state = "fight"
+	probe.wave_i = probe.waves().size() - 1
+	probe._waves_step()
+	var hangar_boss: bool = probe.boss_out and probe.enemies.size() == 1 and bool(probe.enemies[0]["boss"])
+	probe.free()
+	_check("v11.15 (owner): Orion's lockdown: every guard is the helmeted Orion soldier, ONE boss (%s, laser blade) and only at the hangar" % str(art["boss_name"]),
+		guards_ok and boss_ok and no_mid_boss and hangar_boss, "guards %s boss %s no mid boss %s hangar boss %s" % [guards_ok, boss_ok, no_mid_boss, hangar_boss])
+
 func _job_v92_breakout() -> void:
+	_breakout_orion_check()
 	var s := _sp()
 	if s.surface_mode or main.state != "flight": return
 	var rep0: Dictionary = GS.rep.duplicate()

@@ -112,6 +112,19 @@ func _load_cast() -> void:
 		var pp := "res://assets/characters/%s/%s_portrait.webp" % [faction, cid]
 		cast[int(p.get("slot", 0))] = {"name": str(p.get("name", "")), "id": cid, "rank": int(p.get("rank", p.get("slot", 1))),
 			"full": load(fp) if ResourceLoader.exists(fp) else null, "portrait": load(pp) if ResourceLoader.exists(pp) else null}
+	var art: Dictionary = Data.BREAKOUT_ART.get(faction, {})
+	if art.is_empty(): return
+	# v11.15 (owner): the faction's soldier is every guard; its marshal is the one boss, with a laser blade
+	var ld := func(path: String) -> Texture2D: return load(path) if ResourceLoader.exists(path) else null
+	for slot in cast:
+		if int(slot) == Data.BREAKOUT_FINAL_LEADER:
+			cast[slot]["name"] = str(art["boss_name"])
+			cast[slot]["full"] = ld.call(str(art["boss"]))
+			cast[slot]["portrait"] = ld.call(str(art["boss_portrait"]))
+		else:
+			cast[slot]["name"] = "%s Security" % faction.capitalize()
+			cast[slot]["full"] = ld.call(str(art["guard"]))
+			cast[slot]["portrait"] = ld.call(str(art["guard_portrait"]))
 
 func _boss_slot() -> int:
 	if room_i == rooms.size() - 1: return Data.BREAKOUT_FINAL_LEADER
@@ -271,6 +284,9 @@ func _waves_step() -> void:
 	if wave_i < waves().size() - 1:
 		wave_i += 1
 		_start_wave()
+	elif not boss_out and bool(Data.BREAKOUT_ART.get(faction, {}).get("one_boss", false)) and room_i < rooms.size() - 1:
+		state = "clear"   # (v11.15: only one boss, at the hangar)
+		state_t = 0.0
 	elif not boss_out:
 		boss_out = true
 		squad_leader = cast.get(_boss_slot(), {})
@@ -319,7 +335,7 @@ func _update_enemies(dt: float) -> void:
 					e["x"] = e["x0"]
 					e["dir"] = 1.0
 				if e["t"] <= 0.0 and not hold:
-					if duel.is_empty() and not e["boss"] and _rng.randf() < Data.BREAKOUT_RUSH_CHANCE and enemies.all(func(o): return o["state"] != "rush"):
+					if duel.is_empty() and (not e["boss"] or Data.BREAKOUT_ART.get(faction, {}).has("boss_rush")) and _rng.randf() < (float(Data.BREAKOUT_ART[faction]["boss_rush"]) if e["boss"] and Data.BREAKOUT_ART.has(faction) else Data.BREAKOUT_RUSH_CHANCE) and enemies.all(func(o): return o["state"] != "rush"):
 						e["state"] = "rush"
 						e["rush"] = 0.0
 					else:
@@ -591,7 +607,8 @@ func _draw_hud(S: Vector2, pulse: float) -> void:
 	if state == "clear":
 		draw_string(font, Vector2(0, S.y * 0.4), "ROOM CLEAR" if room_i < rooms.size() - 1 else "HANGAR REACHED", HORIZONTAL_ALIGNMENT_CENTER, S.x, 48, Color(0.5, 1, 0.6))
 	elif state == "down":
-		draw_string(font, Vector2(0, S.y * 0.4), "YOU WENT DOWN. AGAIN...", HORIZONTAL_ALIGNMENT_CENTER, S.x, 44, Color(1, 0.4, 0.35))
+		var arrested := boss_out and Data.BREAKOUT_ART.has(faction)   # v11.15 (owner): the marshal came to arrest you
+		draw_string(font, Vector2(0, S.y * 0.4), ("ARRESTED BY %s. BREAK FREE..." % str(Data.BREAKOUT_ART[faction]["boss_name"]).to_upper()) if arrested else "YOU WENT DOWN. AGAIN...", HORIZONTAL_ALIGNMENT_CENTER, S.x, 44 if not arrested else 34, Color(1, 0.4, 0.35))
 
 func _draw_sticks(S: Vector2) -> void:
 	var lc := Vector2(130, S.y - 130)

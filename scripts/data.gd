@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.14"
+const VERSION := "v11.15"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -1867,6 +1867,14 @@ const CHATTER := {
 # Dock where your standing is HOSTILE or worse: the alarm goes off, no launching until you fight through to the hangar.
 # v9.6 (owner's rules): force fields (open only while a guard fires), hits by rank, zones, laser blade duels, waves.
 const BREAKOUT_ON := true
+# v11.15 (owner): a faction's own lockdown art: every guard is its helmeted soldier, and ONE boss (the marshal who
+# comes to arrest you, laser blade) holds the hangar; the rooms before it end with no boss. boss_rush = how often he
+# closes in for a blade duel instead of firing.
+const BREAKOUT_ART := {
+	"orion": {"guard": "res://assets/characters/orion/orion_guard_full.webp", "guard_portrait": "res://assets/characters/orion/orion_guard_portrait.webp",
+		"boss": "res://assets/characters/orion/orion_warden_full.webp", "boss_portrait": "res://assets/characters/orion/orion_warden_portrait.webp",
+		"boss_name": "Marshal Kade Voss", "one_boss": true, "boss_rush": 0.55},
+}
 const BREAKOUT_ROOMS := ["main_hub", "pilots_lounge", "shipyard"]   # the way to the hangar, one fight each
 const BREAKOUT_WAVES := [[5], [5], [5, 10]]     # guards per wave, room by room (the hangar: five, then ten); then the boss
 const BREAKOUT_MAX_ON_FLOOR := 5                # guards on the floor at once (the rest wait to walk in)
