@@ -4,9 +4,9 @@
   462
  ],
  "cuts": [
-  863,
-  2184,
-  3896
+  1817,
+  2774,
+  4251
  ],
  "overlap": 40,
  "frame": [
@@ -16,35 +16,35 @@
  "parts": [
   {
    "file": "v2_liberator_pilots_lounge_part1.png",
-   "strip_x0": 823,
-   "strip_w": 1401,
+   "strip_x0": 1777,
+   "strip_w": 1037,
    "frame_rect": [
     0,
-    223,
+    112,
     1920,
-    633
+    855
    ]
   },
   {
    "file": "v2_liberator_pilots_lounge_part2.png",
-   "strip_x0": 2144,
-   "strip_w": 1792,
+   "strip_x0": 2734,
+   "strip_w": 1557,
    "frame_rect": [
     0,
-    292,
+    255,
     1920,
-    495
+    570
    ]
   },
   {
    "file": "v2_liberator_pilots_lounge_part3.png",
-   "strip_x0": 3856,
-   "strip_w": 1495,
+   "strip_x0": 4211,
+   "strip_w": 2094,
    "frame_rect": [
     0,
-    243,
+    328,
     1920,
-    593
+    424
    ]
   }
  ]
