@@ -10915,7 +10915,7 @@ func _job_v35() -> void:
 	await _frames(2)
 	var vw0: float = get_viewport().get_visible_rect().size.x
 	var vh0: float = get_viewport().get_visible_rect().size.y
-	var a_moves: bool = absf(hb.asst.position.x - x0) > 5.0 and (hb.asst.size.y > vh0 * 0.8 or not hb.asst_ref.is_empty()) and is_equal_approx(hb.content.anchor_left, 1.0)   # (v8.5: the page is the one panel on the right; she stands left of it) v5.7 (owner): she moves with the room, not the screen (v8.0: sized to the nearest person)
+	var a_moves: bool = absf(hb.asst.position.x - x0) > 5.0 and (hb.asst.size.y > vh0 * 0.8 or not hb.asst_ref.is_empty()) and (is_equal_approx(hb.content.anchor_left, 1.0) or is_equal_approx(hb.content.anchor_left, 0.0))   # (v11.11: the page is the box on the left) v5.7 (owner): she moves with the room, not the screen (v8.0: sized to the nearest person)
 	# v8.0 (owner): her head on the nearest person's head line, her feet on their floor line, in every room with people
 	var match_ok := true
 	var shots := 0

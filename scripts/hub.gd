@@ -848,7 +848,7 @@ func _asst_place_default(S: Vector2) -> void:
 ## anyone else on the LEFT; one person per side; "—" folds it to a small tab, "X" hangs up. With no call on the right a
 ## small COMMS tab stays there (tap = your contacts). The comms bar (CONTACTS, LOG, MIC, HANDS, TYPE) sits under the call.
 func call_w() -> float:
-	return clampf(get_viewport_rect().size.x * 0.14, 150.0, 190.0)   # (hud.side_rect)
+	return clampf(get_viewport_rect().size.x * 0.17, 170.0, 230.0)   # v11.11 (owner): bigger, the ID portrait-style
 
 func call_rect(sd: String) -> Rect2:
 	var S := get_viewport_rect().size
@@ -858,7 +858,11 @@ func call_rect(sd: String) -> Rect2:
 	if calls[sd].is_empty() or calls[sd].get("min", false):
 		if sd == "r": return Rect2(x, TOP_Y, w, Data.HUB_LAUNCH_SIZE.y)   # v11.10 (owner): the COMMS tab sits up in the top bar, right of LAUNCH
 		return Rect2(x, top, w, 52.0)
-	return Rect2(x, top, w, w + 90.0)
+	# v11.11 (owner): a tall ID portrait (4 wide for 5 tall), shorter on a low screen so the comms bar still fits
+	var bar := 150.0
+	if asst_chat != null and asst_chat.get_child_count() > 0: bar = (asst_chat.get_child(0) as Control).get_combined_minimum_size().y + 18.0
+	var h := minf(30.0 + (w - 12.0) * Data.CALL_PORTRAIT_TALL + 84.0, get_viewport_rect().size.y - top - bar - 70.0)
+	return Rect2(x, top, w, maxf(h, w * 0.75 + 110.0))
 
 func _calls_in_panel() -> bool:
 	return false   # v11.4 (owner): the calls stand at the screen's sides, never inside the page
@@ -922,8 +926,8 @@ func _place_calls() -> void:
 		var S := get_viewport_rect().size
 		var top := CONTENT_Y + 4.0
 		var bot := S.y - 72.0
-		var w := clampf(S.x * 0.26, 260.0, 380.0)
-		var x := left_reserve() - 6.0 if _call_open("l") else 8.0
+		var w := maxf(panel_w(), 260.0)   # v11.11 (owner): the left box switches to your contacts / log
+		var x := left_reserve()
 		if comms_big and comms_view == "log":
 			w = minf(S.x * 0.56, 860.0)
 			x = (S.x - w) * 0.5
@@ -934,6 +938,9 @@ func _place_calls() -> void:
 		(comms_panel.find_child("CommsFull", true, false) as Button).text = "SMALL" if comms_big else "FULL"
 		move_child(comms_panel, get_child_count() - 1)
 		if launch_btn != null: move_child(launch_btn, get_child_count() - 1)
+		if screen != "equipment":   # (only one box on the left at a time)
+			content.visible = false
+			leftwin.visible = false
 	_place_tablets()
 	if launch_btn != null:   # v11.10: LAUNCH moves left to make room for the COMMS tab beside it
 		launch_btn.offset_right = -(8.0 + call_w() + 10.0)
@@ -966,7 +973,7 @@ func _draw_call(c: Control, sd: String) -> void:
 		c.draw_string(font, Vector2(54, 22), str(d["from"]).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 58, 12, Color.WHITE)
 		c.draw_string(font, Vector2(54, 40), "TAP TO OPEN", HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 58, 9, Color(acc, 0.9))
 		return
-	_tech_box(c, r, acc, 0.5)
+	_tech_box(c, r, acc, Data.HUB_DARK_GLASS.a)
 	var head := Rect2(0, 0, r.size.x, 26)   # name strip, with fold (—) and hang up (X)
 	c.draw_rect(head, Color(acc.darkened(0.45), 0.9))
 	c.draw_string(font, Vector2(6, 18), str(d["from"]).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 62, 13, Color.WHITE)
@@ -978,8 +985,8 @@ func _draw_call(c: Control, sd: String) -> void:
 	c.draw_line(xb.position + Vector2(6, 6), xb.end - Vector2(6, 6), Color.WHITE, 2.0)
 	c.draw_line(Vector2(xb.end.x - 6, xb.position.y + 6), Vector2(xb.position.x + 6, xb.end.y - 6), Color.WHITE, 2.0)
 	if talk_side == sd and _call_open("l") and _call_open("r"): c.draw_rect(Rect2(0, 26, r.size.x, 2), Color(GOLD, 0.9))   # (the one you are talking to)
-	var pr := Rect2(6, 30, r.size.x - 12, r.size.x - 12)
-	pr.size.y = minf(pr.size.y, r.size.y - 30 - 70)
+	var pr := Rect2(6, 30, r.size.x - 12, (r.size.x - 12) * Data.CALL_PORTRAIT_TALL)
+	pr.size.y = minf(pr.size.y, r.size.y - 30 - 84)
 	if tex != null:
 		var src := Rect2(Vector2.ZERO, tex.get_size())
 		var asp := pr.size.x / pr.size.y
@@ -987,11 +994,11 @@ func _draw_call(c: Control, sd: String) -> void:
 		c.draw_texture_rect_region(tex, pr, src)
 	for k in int(pr.size.y / 4.0): c.draw_line(Vector2(pr.position.x, pr.position.y + k * 4), Vector2(pr.end.x, pr.position.y + k * 4), Color(0, 0.1, 0.2, 0.12), 1)
 	c.draw_rect(pr, Color(acc, 0.7), false, 1.5)
-	var tr := Rect2(5, pr.end.y + 5, r.size.x - 10, r.size.y - pr.end.y - 10)   # the line, on white see-through glass
-	c.draw_rect(tr, Color(1, 1, 1, 0.7))
+	var tr := Rect2(5, pr.end.y + 5, r.size.x - 10, r.size.y - pr.end.y - 10)   # the line: v11.11 (owner) white words on dark blue glass
+	c.draw_rect(tr, Color(0.01, 0.04, 0.1, 0.92))
 	c.draw_rect(tr, Color(acc, 0.8), false, 1.5)
-	c.draw_string(font, tr.position + Vector2(5, 12), str(d.get("sub", "FRIENDLY")).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, tr.size.x - 10, 9, acc.darkened(0.45))
-	c.draw_multiline_string(font, tr.position + Vector2(5, 26), str(d["line"]), HORIZONTAL_ALIGNMENT_LEFT, tr.size.x - 10, 13, maxi(1, int((tr.size.y - 16) / 15.0)), Color(0.03, 0.07, 0.13))
+	c.draw_string(font, tr.position + Vector2(5, 12), str(d.get("sub", "FRIENDLY")).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, tr.size.x - 10, 10, acc.lightened(0.2))
+	c.draw_multiline_string(font, tr.position + Vector2(5, 28), str(d["line"]), HORIZONTAL_ALIGNMENT_LEFT, tr.size.x - 10, 14, maxi(1, int((tr.size.y - 16) / 16.0)), Color.WHITE)
 
 ## v5.6 (owner's tech UI references): a see-through digital screen: cut corners, corner brackets and a little tab.
 func _tech_box(c: CanvasItem, r: Rect2, acc: Color, fill := 0.6) -> void:
@@ -1073,7 +1080,8 @@ func open_comms(view: String) -> void:
 		var b: Button = asst_chat.find_child(bn, true, false)
 		if (bn == "ContactsButton" and view == "contacts") or (bn == "LogButton" and view == "log"): b.add_theme_color_override("font_color", GOLD)
 		else: b.remove_theme_color_override("font_color")
-	_place_calls()
+	if view == "" and content != null and screen != "": _layout_windows(screen)   # (the page comes back in the left box)
+	else: _place_calls()
 
 func _contact_row(lst: VBoxContainer, id: String, nm: String, sub: String, face: String, ok: bool, f: Callable) -> void:
 	var b := Button.new()
@@ -1566,7 +1574,7 @@ func _layout_windows(s: String) -> void:
 	if leftwin.visible and leftwin.get_child_count() == 0: _left_window(s)
 	if (one and s != "hub") or two_tablets(s):
 		var g := StyleBoxFlat.new()   # the panel's glass: see-through, so the station shows behind it
-		g.bg_color = Data.HUB_GLASS   # v11.2 (owner): light-blue see-through glass
+		g.bg_color = Data.HUB_GLASS   # v11.11 (owner): darker blue see-through glass (light blue was hard to read)
 		g.border_color = Color(0.6, 0.9, 1.0, 0.85)
 		g.set_border_width_all(2)
 		tech_cut(g, 16)
@@ -1591,18 +1599,28 @@ func _place_tablets() -> void:
 	if board_page(screen):   # (3 wide for 2 tall; on a tall screen it is shorter rather than narrower)
 		pw = clampf((S.y - CONTENT_Y - 66.0) * Data.HUB_BOARD_ASPECT, 240.0, S.x - rr - left_reserve() - 8.0)
 		content.offset_bottom = minf(-66.0, CONTENT_Y + pw / Data.HUB_BOARD_ASPECT - S.y)
-	content.anchor_left = 1.0
-	content.anchor_right = 1.0
-	content.offset_right = -rr
-	content.offset_left = -rr - pw
+	if two_tablets(screen):   # (the second tablet at the right)
+		content.anchor_left = 1.0
+		content.anchor_right = 1.0
+		content.offset_right = -rr
+		content.offset_left = -rr - pw
+	else:   # v11.11 (owner): the page is the box on the LEFT (2 x 3; the mission board grows into a 3 x 2 tablet)
+		var lr := left_reserve()
+		content.anchor_left = 0.0
+		content.anchor_right = 0.0
+		content.offset_left = lr
+		content.offset_right = lr + pw
 	if two_tablets(screen):
 		leftwin.anchor_left = 0.0
 		leftwin.anchor_right = 0.0
 		leftwin.offset_left = left_reserve()
 		leftwin.offset_right = left_reserve() + panel_w()
-	if panel_tab != null:
-		panel_tab.offset_right = -rr
-		panel_tab.offset_left = -rr - 54.0
+	if panel_tab != null:   # (the folded page: a tab at the left)
+		panel_tab.anchor_left = 0.0
+		panel_tab.anchor_right = 0.0
+		panel_tab.offset_left = left_reserve()
+		panel_tab.offset_right = left_reserve() + 54.0
+		panel_tab.text = "▶"
 
 func _panel_tab_place(s: String) -> void:
 	if panel_tab == null:
@@ -1889,7 +1907,7 @@ func _hub_page() -> void:
 ## standing), then you and your ship. It scrolls; the fold button tucks it away.
 func _hub_panel() -> void:
 	var g := StyleBoxFlat.new()
-	g.bg_color = Data.HUB_GLASS   # v11.2 (owner): light-blue see-through glass
+	g.bg_color = Data.HUB_GLASS   # v11.11 (owner): darker blue see-through glass (light blue was hard to read)
 	g.border_color = Color(0.6, 0.9, 1.0, 0.85)
 	g.set_border_width_all(2)
 	tech_cut(g, 16)
