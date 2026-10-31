@@ -11,7 +11,11 @@ signal pack_ready(name: String)
 # folders: whole asset folders in the pack. match: only files whose name starts with this. probe: a file that exists
 # once the pack is mounted. The main export leaves these folders out (export_presets.cfg exclude_filter).
 const PACKS := {
-	"assistant": {"folders": ["res://assets/assistant"], "probe": "res://assets/assistant/idle_a.ogv"},   # v3.7: the owner's station assistant (green screen, keyed in the game)
+	"assistant": {"folders": ["res://assets/assistant"], "probe": "res://assets/assistant/idle_a.ogv"},
+	"crew_orion_lyra": {"folders": ["res://assets/crew/orion"], "match": "lyra_", "probe": "res://assets/crew/orion/lyra_idle.ogv"},   # v11.14: Orion's crew (one pack each)
+	"crew_orion_sable": {"folders": ["res://assets/crew/orion"], "match": "sable_", "probe": "res://assets/crew/orion/sable_idle.ogv"},
+	"crew_orion_iri": {"folders": ["res://assets/crew/orion"], "match": "iri_", "probe": "res://assets/crew/orion/iri_idle.ogv"},
+	"crew_orion_garrick": {"folders": ["res://assets/crew/orion"], "match": "garrick_", "probe": "res://assets/crew/orion/garrick_idle.ogv"},   # v3.7: the owner's station assistant (green screen, keyed in the game)
 	"room_savagers_main_hub": {"folders": ["res://assets/rooms/savagers"], "match": "main_hub.", "probe": "res://assets/rooms/savagers/main_hub.jpg"},   # v3.8: the owner's 360 room
 	"room_savagers_shipyard": {"folders": ["res://assets/rooms/savagers"], "match": "shipyard.", "probe": "res://assets/rooms/savagers/shipyard.jpg"},   # v3.8: the owner's 360 room
 	"room_savagers_mech_dealer": {"folders": ["res://assets/rooms/savagers"], "match": "mech_dealer.", "probe": "res://assets/rooms/savagers/mech_dealer.jpg"},   # v3.8: the owner's 360 room

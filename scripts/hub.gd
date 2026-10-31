@@ -39,6 +39,7 @@ var preview_key := ""
 var t := 0.0
 # ship inspector: tap the showroom (or VIEW) to look the ship over: drag to turn it, pinch / wheel to zoom, full stats
 var asst_hit: Control
+var crew: StationCrew   # v11.14
 var asst: VideoStreamPlayer   # v3.7 (owner): the station assistant, standing in the HOME room
 var asst_chat: Panel       # v11.4: the comms bar under the call screen
 var comms_panel: Panel     # v11.4 (owner): CONTACTS / chat LOG, on the left like the flight comms
@@ -118,6 +119,9 @@ func _ready() -> void:
 				or (e is InputEventScreenTouch and not (e as InputEventScreenTouch).pressed): asst_tap())
 	add_child(asst)
 	add_child(asst_hit)
+	crew = StationCrew.new()   # v11.14 (owner): the faction's crew stand in the rooms like Evee
+	add_child(crew)
+	crew.setup(self)
 	header = _label(32, Color(1, 1, 1))
 	header.position = Vector2(28, TOP_Y)
 	add_child(header)
@@ -1272,6 +1276,7 @@ func _show_room(s: String) -> void:
 	if key == "":
 		room_view.visible = false
 		room_key = ""
+		crew.room_changed("")
 		asst_seam = false
 		if room_vid != null: room_vid.stop()
 		_room_sounds("")
@@ -1305,6 +1310,7 @@ func _show_room(s: String) -> void:
 		_room_video(path.get_basename() + ".ogv" if not hostile_room else "")
 	elif room_vid_on and not room_vid.is_playing(): room_vid.play()   # (back in the same room)
 	room_view.visible = true
+	crew.room_changed(key if not hostile_room else "")
 	_update_room(0.0)
 
 ## v5.9 (owner): an animated room. The still shows at once; the moving loop takes over once its first frame is in.
@@ -4380,6 +4386,7 @@ func _process(dt: float) -> void:
 	t += dt
 	_update_room(dt)
 	_asst_place()
+	crew.tick(dt)
 	_apply_call_inset()
 	for sd in ["l", "r"]:   # v5.6: a greeting folds itself away after a while (like an incoming call in flight)
 		var cd: Dictionary = calls[sd]

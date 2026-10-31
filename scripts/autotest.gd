@@ -1503,6 +1503,7 @@ func _run() -> void:
 		await _wait(1.0)
 		await _job_v114()
 		await _job_v99_hub()
+		await _job_v1114()
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
@@ -3121,6 +3122,46 @@ func _job_v99_hub() -> void:
 ## the comms bar (CONTACTS, LOG, MIC, HANDS, TYPE) under the call; CONTACTS and the LOG come up on the left, FULL brings
 ## the log big into the middle. The page tablets sit clear of the calls and never spill; the board is a big 3:2
 ## landscape; the shipyard has two 2 x 3 tablets; Evee stands tall in the lounge.
+## v11.14 (owner): the faction crew stand in the rooms like Evee: Orion's four walk in, idle, walk aside, talk.
+func _job_v1114() -> void:
+	var hb = main.hub
+	hb.open(Data.SYSTEMS[GS.system_id]["station"])
+	hb.room_override = "orion"   # (stand in Orion's rooms)
+	await _frames(1)
+	var turn := int(Time.get_unix_time_from_system() / Data.CREW_VISIT_S)
+	var homes_ok := true
+	for c in Data.CREW["orion"]:
+		var seen := false
+		for k in 12:
+			if StationCrew.room_of(c, k) == str(c["home"]): seen = true
+		if not seen: homes_ok = false
+	var lyra: Dictionary = Data.CREW["orion"][0]
+	var room: String = StationCrew.room_of(lyra, turn)
+	var page := ""
+	for s2 in Data.ROOM_OF:
+		if Data.ROOM_OF[s2] == room and not (s2 in ["missions", "bounty", "surface", "faction"]): page = s2
+	hb.show_screen(page)
+	await Packs.wait("room_orion_" + room, 30.0)
+	await _frames(3)
+	hb.show_screen(page)
+	await _frames(6)
+	var here: bool = str(hb.crew.who.get("id", "")) == "orion_lyra" and hb.crew.vid.visible and hb.crew.vid.is_playing()
+	await _shot("v1114_crew_" + room, 0.4)
+	hb.crew.next_walk = 0.0
+	hb.crew.state = "idle"
+	await _frames(3)
+	var walked: bool = hb.crew.state == "walk" and hb.crew.crew_log.has("walk")
+	await _wait(1.5)
+	await _shot("v1114_crew_walk", 0.0)
+	hb.crew.tap()
+	await _frames(3)
+	var talk: bool = hb.crew.state == "talk" and str(hb.calls["r"].get("from", "")) == "Lyra Ashwind" and hb.crew.voice.playing
+	await _shot("v1114_crew_talk", 0.3)
+	hb.close_call("r")
+	hb.room_override = ""
+	_check("v11.14 (owner): Orion's crew stand in its rooms like Evee (each spends time in their home room and visits others): Lyra walks in at the %s, walks aside, and on a tap talks in her own voice with her call on the right" % room,
+		homes_ok and here and walked and talk, "homes %s here %s walked %s talk %s (%s)" % [homes_ok, here, walked, talk, str(hb.crew.crew_log)])
+
 func _job_v114() -> void:
 	var hb = main.hub
 	hb.open(Data.SYSTEMS["veranthos"]["station"])

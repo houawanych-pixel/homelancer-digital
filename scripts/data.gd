@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.13"
+const VERSION := "v11.14"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -968,6 +968,29 @@ const CALL_VOICE_DB := 0.0     # v5.9 (owner): calls (Evee, the station's people
 const ASST_TOP := 70.0         # v5.7 (owner): her head comes up to just under the menu bar
 const ASST_SCREEN_X := 0.42    # where she stands on arrival (v8.5: left of the right-hand panel)
 const ASST_KEY := Color(0.08, 0.75, 0.1)   # the green to remove
+# v11.14 (owner): a faction's crew stand in its station rooms like Evee (scripts/crew.gd). Clips in
+# assets/crew/<faction>/<file>_{idle,talk,walk_fwd,walk_side}.ogv (magenta screen), <file>_greet.mp3, <file>_face.png.
+# home = their own room; also = the rooms they visit in turn (they move every CREW_VISIT_S seconds).
+const CREW := {
+	"orion": [
+		{"id": "orion_lyra", "file": "lyra", "name": "Lyra Ashwind", "role": "Mission Officer", "home": "mission_center", "also": ["command", "main_hub"], "female": true,
+			"line": "The Imperium moved two wings into Dreadholm. I have work, if you have the nerve."},
+		{"id": "orion_sable", "file": "sable", "name": "Sable Venn", "role": "Hangar Pilot", "home": "shipyard", "also": ["pilots_lounge", "mech_dealer"], "female": true,
+			"line": "You flew that bucket in here? Fine. Let's make it worth something, pilot."},
+		{"id": "orion_iri", "file": "iri", "name": "Iri Valen", "role": "Quartermaster", "home": "supplies", "also": ["medical_bay", "pilots_lounge"], "female": true,
+			"line": "Missiles, shields, repair kits. Pay first. Cry later."},
+		{"id": "orion_garrick", "file": "garrick", "name": "Garrick Holt", "role": "Armory Sergeant", "home": "weapons", "also": ["main_hub", "pilots_lounge"], "female": false,
+			"line": "Pick a gun that fits your hands, not your ego."},
+	],
+}
+const CREW_VISIT_S := 600.0         # how often the crew change rooms (s of real time)
+const CREW_SCREEN_X := 0.62         # where they stand on arrival (share of the screen, between the page and the calls)
+const CREW_HEIGHT := 0.66           # their full-body clip's height (share of the screen)
+const CREW_FEET := 0.98             # their feet line (share of the screen)
+const CREW_ASPECT := 2.0 / 3.0      # clip width / height
+const CREW_WALK_EVERY := [14.0, 26.0]   # s between their walks to the side
+const CREW_WALK_SPAN := 0.035       # how far a walk takes them (share of the loop)
+const CREW_WALK_TIME := 4.0         # the side-walk clip's length (s)
 const ROOM_FACTIONS := ["liberator", "savagers", "orion", "covenant", "imperium", "solarion", "elyza", "unity"]
 const ROOM_OF := {"hub": "main_hub", "ships": "shipyard", "mechs": "mech_dealer", "repair": "medical_bay", "board": "mission_center",
 	"missions": "mission_center", "bounty": "mission_center", "ship": "private_quarters", "faction": "command", "surface": "main_hub",
