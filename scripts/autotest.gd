@@ -5730,7 +5730,7 @@ func _job_ai() -> void:
 		elif o["kind"] == "convoy": cvy = o
 	var same: bool = Missions.offers(s.sys_id, sid).map(func(o): return o["title"]) == offers.map(func(o): return o["title"])
 	_check("Job AI: a station's MISSIONS board offers a patrol threats job, an elite threats job (slot 05, paid more) and an escort, from a faction hostile to the owner, the same offers for the whole visit",
-		kinds == ["threats", "threats_hard", "escort", "convoy", "outlaws", "invasion"] and int(hard["slot"]) == 5 and int(easy["slot"]) == 1 and int(hard["pay"]) > int(easy["pay"]) and same and Factions.has_fighters(str(easy["faction"])) and (easy["points"] as Array).size() == 2,
+		kinds == ["threats", "threats_hard", "escort", "convoy", "outlaws", "invasion"] and int(hard["slot"]) == 5 and int(easy["slot"]) == Data.MISSION_PATROL_SLOT and int(hard["pay"]) > int(easy["pay"]) and same and Factions.has_fighters(str(easy["faction"])) and (easy["points"] as Array).size() == 2,
 		str(kinds) + " " + str(easy.get("faction", "")))
 	var pbid: String = str(Data.SYSTEMS[s.sys_id]["planet"]["id"])
 	var pkinds: Array = Missions.offers(s.sys_id, pbid, "", "planet").map(func(o): return str(o["kind"]))
@@ -5768,7 +5768,7 @@ func _job_ai() -> void:
 	_tp(p0 + Vector3(0, 0, 300), p0)
 	await _frames(4)
 	var wave: Array = s.enemies.filter(func(o): return int(o.get("mission", -1)) == 0)
-	var wave_ok: bool = wave.size() == Data.MISSION_GROUP[0] and wave.all(func(o): return str(o.get("faction", "")) == str(m["faction"]) and o.get("provoked", false) and int(o.get("pilot", {}).get("slot", 9)) <= 1 and (o["node"] as Node3D).get_meta("kind", "") == "enemy")
+	var wave_ok: bool = wave.size() == Data.MISSION_GROUP[0] and wave.all(func(o): return str(o.get("faction", "")) == str(m["faction"]) and o.get("provoked", false) and int(o.get("pilot", {}).get("slot", 9)) <= Data.MISSION_PATROL_SLOT and (o["node"] as Node3D).get_meta("kind", "") == "enemy")
 	var w1: Dictionary = s.mission_waypoint()
 	var way2: bool = not w1.is_empty() and wave.any(func(o): return o["node"] == w1["node"]) and str(w1["line"]).find("Destroy") >= 0
 	main.hud.queue_redraw()
@@ -5784,7 +5784,7 @@ func _job_ai() -> void:
 	for o in wave2: s._destroy_unit(o)
 	await _frames(3)
 	var paid: bool = GS.mission.is_empty() and GS.credits - credits0 >= int(easy["pay"]) and GS.missions_done >= 1 and s.mission_waypoint().is_empty()
-	_check("Job AI: a threats job: the waypoint is mission point 1 (far from the station); reaching it brings the wave (that faction's slot-01 soldiers, hostile), the waypoint moves to the nearest of them, the cleared wave moves it to point 2, and the second wave cleared pays on the spot",
+	_check("Job AI: a threats job: the waypoint is mission point 1 (far from the station); reaching it brings the wave (that faction's veteran soldiers, v11.13: slot 03, hostile), the waypoint moves to the nearest of them, the cleared wave moves it to point 2, and the second wave cleared pays on the spot",
 		way1 and far_ok and wave_ok and way2 and moved and wave2.size() == Data.MISSION_GROUP[1] and paid, "way1 %s far %s wave %s (%d) way2 %s moved %s wave2 %d paid %s" % [way1, far_ok, wave_ok, wave.size(), way2, moved, wave2.size(), paid])
 	# ---- threats, hard: the elites
 	Missions.accept(hard)
