@@ -1,0 +1,51 @@
+{
+ "strip": [
+  4448,
+  462
+ ],
+ "cuts": [
+  863,
+  2184,
+  3896
+ ],
+ "overlap": 40,
+ "frame": [
+  1920,
+  1080
+ ],
+ "parts": [
+  {
+   "file": "v2_liberator_pilots_lounge_part1.png",
+   "strip_x0": 823,
+   "strip_w": 1401,
+   "frame_rect": [
+    0,
+    223,
+    1920,
+    633
+   ]
+  },
+  {
+   "file": "v2_liberator_pilots_lounge_part2.png",
+   "strip_x0": 2144,
+   "strip_w": 1792,
+   "frame_rect": [
+    0,
+    292,
+    1920,
+    495
+   ]
+  },
+  {
+   "file": "v2_liberator_pilots_lounge_part3.png",
+   "strip_x0": 3856,
+   "strip_w": 1495,
+   "frame_rect": [
+    0,
+    243,
+    1920,
+    593
+   ]
+  }
+ ]
+}
