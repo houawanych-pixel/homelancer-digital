@@ -7135,15 +7135,34 @@ func nav_plan() -> Dictionary:
 	if not lane.is_empty():
 		return {"via": "lane", "t": 0.0, "entry": p, "exit": p, "lane_name": "%s - %s" % [lane.get("a", ""), lane.get("b", "")], "riding": true}
 	var best := direct
+	# v11.11: the lanes are a waypoint network, so the way may take several lanes in a row (lane, short hop, lane).
+	# The plan names the FIRST lane (entry / exit); at its end the plan is made again from there.
+	var legs := []
 	for ln in lanes:
 		for way in [["up", 0], ["down", -1]]:
 			var rings: Array = ln[way[0]]
 			if rings.size() < 2: continue
 			var en: Vector3 = rings[0] if way[1] == 0 else rings[-1]
 			var ex: Vector3 = rings[-1] if way[1] == 0 else rings[0]
-			var t := _leg_time(p.distance_to(en)) + en.distance_to(ex) / Data.LANE_SPEED + Data.LANE_RAMP * 2.0 + _leg_time(ex.distance_to(goal))
-			if t < float(best["t"]) * (Data.GPS_LANE_GAIN if best["via"] == "direct" else 1.0):
-				best = {"via": "lane", "t": t, "entry": en, "exit": ex, "lane_name": "%s - %s" % [ln["a"], ln["b"]]}
+			legs.append([en, ex, en.distance_to(ex) / Data.LANE_SPEED + Data.LANE_RAMP * 2.0, "%s - %s" % [ln["a"], ln["b"]]])
+	var tt := []
+	var first := []
+	for i in legs.size():
+		tt.append(_leg_time(p.distance_to(legs[i][0])) + float(legs[i][2]))
+		first.append(i)
+	for _k in 3:
+		for i in legs.size():
+			for j in legs.size():
+				if i == j: continue
+				var c: float = float(tt[i]) + _leg_time((legs[i][1] as Vector3).distance_to(legs[j][0])) + float(legs[j][2])
+				if c < float(tt[j]):
+					tt[j] = c
+					first[j] = first[i]
+	for i in legs.size():
+		var t: float = float(tt[i]) + _leg_time((legs[i][1] as Vector3).distance_to(goal))
+		if t < float(best["t"]) * (Data.GPS_LANE_GAIN if best["via"] == "direct" else 1.0):
+			var f: Array = legs[first[i]]
+			best = {"via": "lane", "t": t, "entry": f[0], "exit": f[1], "lane_name": f[3], "last_exit": legs[i][1]}
 	return best
 
 ## v1.5m GO: the autopilot flies the route, every stop in turn.

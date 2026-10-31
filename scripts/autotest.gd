@@ -6694,14 +6694,19 @@ func _job_an() -> void:
 	main.state = "hub"
 	await _frames(2)
 	var launch_ok := true
+	var launch_why := ""
 	for scr in ["hub", "equipment", "ships", "repair", "board", "missions", "bounty", "ship", "faction"]:
 		hub.show_screen(scr)
 		await _frames(1)
 		var lr: Rect2 = hub.launch_btn.get_global_rect()
-		if not (hub.launch_btn.visible and Rect2(Vector2.ZERO, hub.get_viewport_rect().size).encloses(lr) and hub.launch_btn.get_index() == hub.get_child_count() - 1): launch_ok = false
+		if not (hub.launch_btn.visible and Rect2(Vector2.ZERO, hub.get_viewport_rect().size).encloses(lr) and hub.launch_btn.get_index() == hub.get_child_count() - 1):
+			launch_ok = false
+			launch_why += "%s: vis %s rect %s idx %d/%d; " % [scr, hub.launch_btn.visible, lr, hub.launch_btn.get_index(), hub.get_child_count() - 1]
 		for c in hub.left.get_children():
-			if (c as Control).get_global_rect().intersects(lr): launch_ok = false
-	_check("Job AN: the hub's green LAUNCH button is on screen, upper right, on every page (hub, equipment, ship dealer, repair, mission board, missions, bounties, your ship, faction) and nothing covers it", launch_ok)
+			if (c as Control).visible and (c as Control).get_global_rect().intersects(lr):
+				launch_ok = false
+				launch_why += "%s: %s covers; " % [scr, c.name]
+	_check("Job AN: the hub's green LAUNCH button is on screen, upper right, on every page (hub, equipment, ship dealer, repair, mission board, missions, bounties, your ship, faction) and nothing covers it", launch_ok, launch_why)
 	# ---- 3. MISSION BOARD -> MISSIONS: select, deselect, select another
 	hub.show_screen("board")   # (opens the tab last used)
 	await _frames(2)
@@ -10927,6 +10932,9 @@ func _job_v35() -> void:
 		hb._asst_show(scr)
 		await _frames(4)
 		if not hb.asst.visible or hb.room_key != "liberator_" + rk: continue
+		if hb.asst_seam:   # (v11.6: a moving room with a seam: she stands close up on the seam instead, checked in v11.4)
+			shots += 1
+			continue
 		hb.asst_yaw = -1.0
 		hb._asst_place()
 		var mt: Dictionary = hb.asst_ref
