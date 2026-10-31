@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.8"
+const VERSION := "v11.9"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -957,8 +957,8 @@ const ENEMY_SPACE_POWER := 1.6   # v6.2 (owner): enemy space is deadlier: hull, 
 const ENEMY_SPACE_EXTRA := 1      # ... and one more ship in every patrol
 const ENEMY_SPACE_FLEET := ["kaijurai_fang", "kaijurai_stalker", "kaijurai_fang", "kaijurai_hound", "kaijurai_reaper", "kaijurai_ravager"]
 const ENEMY_OUTPOST_MODEL := "HL_Station_Kaijurai_Military_retopo"   # v6.2: the outposts in enemy-held squares (Kaijurai stand in for all)   # enemies with no ships of their own fly Kaijurai (owner: placeholders for the rest)
-const ROOM_SND_FRONT := 0.5    # v5.9 (owner): a room third's own sound when you face it (Echo Vision style)
-const ROOM_SND_SEAM := 0.25    # ... each of the two at a join; off screen = silent
+const ROOM_SND_FRONT := 0.75   # v11.9 (owner): a room part's own sound when you face its middle (was 0.5)
+const ROOM_SND_SEAM := 0.5     # v11.9 (owner): each of the two at a join (was 0.25); turned out of view = silent
 const HUB_MUSIC := 0.1         # v5.9 (owner): the faction's music under the hub, at 10%
 const CALL_VOICE_DB := 0.0     # v5.9 (owner): calls (Evee, the station's people) at 100%
 const ASST_TOP := 70.0         # v5.7 (owner): her head comes up to just under the menu bar
