@@ -1,0 +1,51 @@
+{
+ "strip": [
+  4448,
+  462
+ ],
+ "cuts": [
+  827,
+  1734,
+  4064
+ ],
+ "overlap": 40,
+ "frame": [
+  1920,
+  1080
+ ],
+ "parts": [
+  {
+   "file": "v2_liberator_command_part1.png",
+   "strip_x0": 787,
+   "strip_w": 987,
+   "frame_rect": [
+    0,
+    90,
+    1920,
+    899
+   ]
+  },
+  {
+   "file": "v2_liberator_command_part2.png",
+   "strip_x0": 1694,
+   "strip_w": 2410,
+   "frame_rect": [
+    0,
+    356,
+    1920,
+    368
+   ]
+  },
+  {
+   "file": "v2_liberator_command_part3.png",
+   "strip_x0": 4024,
+   "strip_w": 1291,
+   "frame_rect": [
+    0,
+    196,
+    1920,
+    687
+   ]
+  }
+ ]
+}

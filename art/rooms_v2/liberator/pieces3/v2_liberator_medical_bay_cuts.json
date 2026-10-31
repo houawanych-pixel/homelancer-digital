@@ -1,0 +1,51 @@
+{
+ "strip": [
+  4448,
+  464
+ ],
+ "cuts": [
+  409,
+  1971,
+  3533
+ ],
+ "overlap": 40,
+ "frame": [
+  1920,
+  1080
+ ],
+ "parts": [
+  {
+   "file": "v2_liberator_medical_bay_part1.png",
+   "strip_x0": 369,
+   "strip_w": 1642,
+   "frame_rect": [
+    0,
+    268,
+    1920,
+    543
+   ]
+  },
+  {
+   "file": "v2_liberator_medical_bay_part2.png",
+   "strip_x0": 1931,
+   "strip_w": 1642,
+   "frame_rect": [
+    0,
+    268,
+    1920,
+    543
+   ]
+  },
+  {
+   "file": "v2_liberator_medical_bay_part3.png",
+   "strip_x0": 3493,
+   "strip_w": 1404,
+   "frame_rect": [
+    0,
+    222,
+    1920,
+    635
+   ]
+  }
+ ]
+}
