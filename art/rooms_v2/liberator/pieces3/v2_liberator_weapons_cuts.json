@@ -1,0 +1,51 @@
+{
+ "strip": [
+  4448,
+  462
+ ],
+ "cuts": [
+  1264,
+  3028,
+  4069
+ ],
+ "overlap": 40,
+ "frame": [
+  1920,
+  1080
+ ],
+ "parts": [
+  {
+   "file": "v2_liberator_weapons_part1.png",
+   "strip_x0": 1224,
+   "strip_w": 1844,
+   "frame_rect": [
+    0,
+    299,
+    1920,
+    481
+   ]
+  },
+  {
+   "file": "v2_liberator_weapons_part2.png",
+   "strip_x0": 2988,
+   "strip_w": 1121,
+   "frame_rect": [
+    0,
+    144,
+    1920,
+    791
+   ]
+  },
+  {
+   "file": "v2_liberator_weapons_part3.png",
+   "strip_x0": 4029,
+   "strip_w": 1723,
+   "frame_rect": [
+    0,
+    282,
+    1920,
+    515
+   ]
+  }
+ ]
+}
