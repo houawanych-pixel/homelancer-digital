@@ -2,7 +2,10 @@
 """Rooms V2, three-piece cut (owner, v11.8): cut a room's 360 strip into 3 pieces for the video generator, with the
 cuts only where NOBODY stands (a person cut in two animates as two halves that don't match).
 
-    <venv with opencv 4.10>/bin/python tools/rooms/v2_cut3.py <faction> <room>
+    <venv with opencv 4.10>/bin/python tools/rooms/v2_cut3.py <faction> <room> [--span 0.15] [--cuts x1,x2,x3]
+
+A crowded room: try --span 0.15 (cuts may move further from equal thirds to find a gap). Still through someone: pick 3
+clear columns by eye on the preview (preview x = strip x / 2) and pass --cuts.
 
 Finds the people in art/rooms_v2/<f>/pano/<room>_360.png (YOLOv4-tiny, as evee_people.py), picks 3 cut columns clear
 of everyone and as close to equal thirds as it can, and writes each piece (+ OV px overlap each side) into a 1920x1080
@@ -51,7 +54,14 @@ def people(im):
 
 
 def main():
-    f, room = sys.argv[1], sys.argv[2]
+    args = sys.argv[1:]
+    manual = None
+    global Data_SPAN
+    if "--span" in args:   # how far a cut may move from its equal third (share of the strip), e.g. 0.15 for a crowded room
+        i = args.index("--span"); Data_SPAN = float(args[i + 1]); del args[i:i + 2]
+    if "--cuts" in args:   # cut columns picked by eye, e.g. --cuts 812,2170,3744 (strip pixels, as in the preview x 2)
+        i = args.index("--cuts"); manual = sorted(int(v) for v in args[i + 1].split(",")); del args[i:i + 2]
+    f, room = args[0], args[1]
     pano = cv2.imread(os.path.join(ROOT, "art/rooms_v2", f, "pano", room + "_360.png"))
     H, W = pano.shape[:2]
     boxes = people(pano)
@@ -82,6 +92,12 @@ def main():
         score = total + 2.0 * (max(widths) - min(widths)) / W
         if best is None or score < best[0]: best = (score, cs, widths)
     _, cuts, widths = best
+    if manual:
+        if len(manual) != 3: sys.exit("--cuts needs 3 columns")
+        cuts = manual
+        widths = [cuts[1] - cuts[0], cuts[2] - cuts[1], W - cuts[2] + cuts[0]]
+        hit = [c for c in cuts if busy[c % W]]
+        if hit: print("WARNING: these cuts touch a person's box:", hit)
     out_dir = os.path.join(ROOT, "art/rooms_v2", f, "pieces3")
     os.makedirs(out_dir, exist_ok=True)
     wrap = np.concatenate([pano, pano, pano], axis=1)
