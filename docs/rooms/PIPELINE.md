@@ -51,7 +51,9 @@ Only after STOP 3 is approved may the rest of the faction's clips be made, and o
   left or right edge, nobody walks toward the camera, nobody appears or vanishes.
 - The outer 70 px at the left and right edges stay calm (that is where the parts join).
 - Life: screens flicker, lights pulse, drones and carts glide, ships move outside the windows.
-- Ambient MP3 per part. MP4 + MP3 only, never WAV.
+- Ambient MP3 per part. MP4 + MP3 only, never WAV. Each part's sound is its own (what that part of the room sounds
+  like), because the game plays them by where you look: the part you face at 75%, both parts at a join at 50%,
+  a part turned out of view silent (owner's standing rule for every 360 room; Data.ROOM_SND_FRONT / ROOM_SND_SEAM).
 - Make the faction's FIRST clip only (main_hub part 2), send it, and wait for STOP 3. Then the rest.
 
 ## After animating (no more stops until the game)
