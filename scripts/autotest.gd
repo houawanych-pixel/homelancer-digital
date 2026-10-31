@@ -3339,6 +3339,14 @@ func _job_v109() -> void:
 	var bolts := g.find_children("RiftBolt*", "MeshInstance3D", false, false).size()
 	var ring_gone: bool = (g.get_meta("standin") as Node3D).get_child_count() == 0
 	var window_ok: bool = win != null and str((win.material_override as ShaderMaterial).shader.code).contains("CAMERA_POSITION_WORLD")
+	# v11.7 (owner): no frame, the sheet ripples like cloth, more sparks and clouds round it
+	var cloth_ok: bool = g.get_node_or_null("RiftFrame") == null and win != null and str((win.material_override as ShaderMaterial).shader.code).contains("cloth") \
+		and win.mesh.get_faces().size() > 3000 and g.get_node_or_null("RiftSparks") != null and g.get_node_or_null("RiftMist") != null \
+		and g.find_children("RiftArc*", "MeshInstance3D", false, false).size() == 6
+	var gp: Vector3 = g.global_position
+	_tp(gp + g.global_basis.z * 230.0, gp)
+	await _frames(2)
+	await _shot("v117_rift_gate_cloth", 1.0)
 	await _frames(2)
 	s.gates.erase(g)
 	s.gate_portals.erase(win)
@@ -3351,10 +3359,32 @@ func _job_v109() -> void:
 	await _shot("v109_rift_wormhole", 0.0)
 	var wm := fx._warp_rect.material as ShaderMaterial
 	var worm_ok: bool = wm.get_shader_parameter("organic") == true and str(wm.shader.code).contains("bolt_rate")
+	var code: String = str(wm.shader.code)
+	var rings_ok: bool = code.contains("light_rings(depth, travel") and code.count("light_rings(depth, travel") >= 2 and code.contains("depth * 2.2 + t * pulse_speed") and code.contains("clarity")
+	fx.begin_warp("tunnel")
+	fx.warp = 1.0
+	fx.pace = 1.0
+	await _wait(0.3)
+	await _shot("v117_jump_tunnel_rings", 0.0)
+	fx.begin_warp("cloud")
+	fx.warp = 1.0
+	fx.pace = 1.0
+	await _wait(0.3)
+	await _shot("v117_warp_tunnel_rings", 0.0)
 	fx.end_warp()
 	fx.warp = 0.0
 	_check("v10.9 (owner): the rift gate is a six-pointed star (no ring), a window into another dimension that moves as you look in, %d bolts boiling between its points; going through is a living see-through tube with lightning coming at you" % bolts,
 		window_ok and bolts == 6 and ring_gone and worm_ok and s.gates.size() == n0, "window %s, bolts %d, ring gone %s, wormhole %s" % [window_ok, bolts, ring_gone, worm_ok])
+	var lr_ok: bool = s.lane_rings.size() == Data.LANE_LIGHT_RINGS
+	if lr_ok:
+		s._lane_rings(0.5, 1.0)
+		var z0: float = (s.lane_rings[0] as Node3D).position.z
+		s._lane_rings(0.05, 1.0)
+		lr_ok = (s.lane_rings[0] as Node3D).visible and (s.lane_rings[0] as Node3D).position.z > z0   # (moving back past you)
+		s._lane_rings(0.0, -1.0)
+		lr_ok = lr_ok and not (s.lane_rings[0] as Node3D).visible
+	_check("v11.7 (owner): the rift gate has no frame (a sheet that ripples like cloth, more sparks, more cloud); the rift tube is clearer with the sky outside; rings of light rush out at you in every tunnel (the warp gate's now the right way) and in the trade lanes",
+		cloth_ok and rings_ok and lr_ok, "cloth %s rings %s lane rings %s" % [cloth_ok, rings_ok, lr_ok])
 
 ## v10.8 (owner): the unknown areas hold Kaijurai carriers (a vessel 5, a battleship 10, sometimes a hive station 15)
 ## that keep launching fighters while you are near, until you destroy them.

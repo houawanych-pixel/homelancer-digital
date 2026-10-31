@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.6"
+const VERSION := "v11.7"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -260,6 +260,8 @@ const LANE_SLOW_DIST := 26000.0       # start slowing this far from the last rin
 const LANE_EXIT_SPEED := 50.0
 const LANE_TINT := Color(0.35, 0.85, 1.0)
 const LANE_TUNNEL_LEN := 640.0        # the energy tunnel that rides on the ship (v1.4u: was 240; long enough to pass behind the camera)
+const LANE_LIGHT_RINGS := 7           # v11.7 (owner): rings of light rushing past in a lane
+const LANE_RING_PACE := [0.8, 4.0]     # v11.7: rings passing per second, slow -> full lane speed
 const LANE_TUNNEL_RADIUS := 46.0       # v1.4u: was 15; wide enough that the chase camera sits inside it
 const LANE_SPLASH := 0.5              # seconds of ring glow as you pass
 # planet type -> surface biome for the one-tile surfaces on every planet (scripts/surface.gd)
@@ -802,7 +804,10 @@ const WARP_SPIN_SLOW := 0.15         # turns per second at the start
 const WARP_SPIN_FAST := 1.3          # turns per second at full speed
 const WARP_BOOM_BELOW := 0.75        # each passing layer makes a boom while the pace is below this share of full speed
 const RIFT_STAR_R := 58.0            # v10.9 (owner): the rift gate is a six-pointed star this big (point radius, m) ...
-const RIFT_STAR_BAND := 4.5          # ... its frame this thick
+const RIFT_STAR_BAND := 4.5          # ... its frame this thick (v11.7: no frame any more)
+const RIFT_CLOTH := 5.0              # v11.7 (owner): the sheet ripples like fabric this far (m)
+const RIFT_SPARKS := 140             # v11.7: sparks thrown off its edge
+const RIFT_MIST_PUFFS := 28          # v11.7: cloud puffs boiling round it
 const RIFT_STAR_GLOW := Color(0.78, 0.55, 1.0)   # the electric violet round it
 const RIFT_BOLT_BOW := 0.55          # how far a bolt bows out from its chord (share of its length)
 const RIFT_BOLT_RATE := 0.45         # bolts per second per pair of points (each boils up, bows, snaps)

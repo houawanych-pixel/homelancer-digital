@@ -1295,8 +1295,21 @@ uniform sampler2D noise : repeat_enable, filter_linear;
 uniform vec3 sky_a : source_color = vec3(0.05, 0.35, 0.32);
 uniform vec3 sky_b : source_color = vec3(0.55, 1.0, 0.75);
 uniform vec3 rim_col : source_color = vec3(0.85, 0.55, 1.0);
+uniform float cloth = 5.0;   // v11.7 (owner: "just a sheet, moving like fabric"): how far the sheet ripples (m)
 varying vec3 wpos;
-void vertex() { wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
+varying float crest;
+void vertex() {
+	float t = TIME;
+	vec2 q = VERTEX.xy;
+	float r = UV.x;
+	float w = sin(q.x * 0.07 + t * 1.3) * cos(q.y * 0.06 - t * 1.05) + 0.6 * sin((q.x + q.y) * 0.11 + t * 2.1)
+		+ 0.35 * sin(length(q) * 0.16 - t * 2.7) + 0.25 * sin(q.y * 0.21 + t * 3.3);
+	VERTEX.z += w * cloth * (0.3 + 0.7 * r);
+	float ang = atan(q.y, q.x);
+	VERTEX.xy *= 1.0 + r * r * (0.035 * sin(ang * 7.0 + t * 3.1) + 0.02 * sin(ang * 13.0 - t * 4.7));   // the loose edge flutters
+	crest = w;
+	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+}
 float hash(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
 void fragment() {
 	vec3 d = normalize(wpos - CAMERA_POSITION_WORLD);
@@ -1311,7 +1324,8 @@ void fragment() {
 	c += vec3(0.9, 1.0, 0.95) * st * (0.6 + 0.4 * sin(t * 3.0 + hash(cell + 1.0) * 30.0));
 	float rim = pow(clamp(UV.x, 0.0, 1.0), 6.0);   // UV.x: 0 at the middle, 1 at the star's edge
 	float flick = 0.7 + 0.3 * sin(t * 13.0 + UV.y * 40.0) * sin(t * 7.0);
-	ALBEDO = mix(c, rim_col * 1.6, rim * flick);
+	c *= 0.82 + 0.22 * crest;   // the folds catch the light
+	ALBEDO = mix(c, rim_col * 1.9, rim * flick);
 }
 """
 const RIFT_BOLT_SHADER := """
@@ -1356,11 +1370,20 @@ func _rift_star(g: Node3D) -> MeshInstance3D:
 	# the window: a star-shaped fan (UV.x = 0 middle .. 1 edge)
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var NR := 12   # v11.7: a fine grid, so the sheet can ripple like cloth
+	var NM := 6
 	for i in 12:
 		var a: Vector3 = pts[i]; var b: Vector3 = pts[(i + 1) % 12]
-		st.set_uv(Vector2(0.0, float(i) / 12.0)); st.add_vertex(Vector3.ZERO)
-		st.set_uv(Vector2(1.0, float(i) / 12.0)); st.add_vertex(a)
-		st.set_uv(Vector2(1.0, float(i + 1) / 12.0)); st.add_vertex(b)
+		for ri2 in NR:
+			for mj in NM:
+				var quad: Array = []
+				for c2 in [[ri2, mj], [ri2 + 1, mj], [ri2 + 1, mj + 1], [ri2, mj + 1]]:
+					var rr2: float = float(c2[0]) / NR
+					var mm2: float = float(c2[1]) / NM
+					quad.append([a.lerp(b, mm2) * rr2, Vector2(rr2, (float(i) + mm2) / 12.0)])
+				for tri in [[0, 1, 2], [0, 2, 3]]:
+					for vi in tri:
+						st.set_uv(quad[vi][1]); st.add_vertex(quad[vi][0])
 	var win := MeshInstance3D.new()
 	win.name = "RiftWindow"
 	win.mesh = st.commit()
@@ -1368,38 +1391,11 @@ func _rift_star(g: Node3D) -> MeshInstance3D:
 	var wm := ShaderMaterial.new(); wm.shader = sh
 	wm.set_shader_parameter("noise", _rift_noise)
 	wm.set_shader_parameter("rim_col", Data.RIFT_STAR_GLOW)
+	wm.set_shader_parameter("cloth", Data.RIFT_CLOTH)
 	win.material_override = wm
 	win.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	g.add_child(win)
-	# the frame: a thick hexagram band (its own shape), dark metal with a glowing inner lip
-	var fr := SurfaceTool.new()
-	fr.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var W: float = Data.RIFT_STAR_BAND
-	var Dp: float = W * 0.8
-	for i in 12:
-		var a: Vector3 = pts[i]; var b: Vector3 = pts[(i + 1) % 12]
-		var ao: Vector3 = a + a.normalized() * W; var bo: Vector3 = b + b.normalized() * W
-		for z in [-Dp, Dp]:
-			var zz := Vector3(0, 0, z)
-			fr.add_vertex(a + zz); fr.add_vertex(ao + zz); fr.add_vertex(bo + zz)
-			fr.add_vertex(a + zz); fr.add_vertex(bo + zz); fr.add_vertex(b + zz)
-		for q in [[a, b], [ao, bo]]:
-			var p0: Vector3 = q[0]; var p1: Vector3 = q[1]
-			fr.add_vertex(p0 + Vector3(0, 0, -Dp)); fr.add_vertex(p1 + Vector3(0, 0, -Dp)); fr.add_vertex(p1 + Vector3(0, 0, Dp))
-			fr.add_vertex(p0 + Vector3(0, 0, -Dp)); fr.add_vertex(p1 + Vector3(0, 0, Dp)); fr.add_vertex(p0 + Vector3(0, 0, Dp))
-	fr.generate_normals()
-	var frame := MeshInstance3D.new()
-	frame.name = "RiftFrame"
-	frame.mesh = fr.commit()
-	var fm := StandardMaterial3D.new()
-	fm.albedo_color = Color(0.16, 0.13, 0.22)
-	fm.metallic = 0.8
-	fm.roughness = 0.35
-	fm.emission_enabled = true
-	fm.emission = Data.RIFT_STAR_GLOW * 0.35
-	fm.cull_mode = BaseMaterial3D.CULL_DISABLED
-	frame.material_override = fm
-	g.add_child(frame)
+	# v11.7 (owner): no frame round it any more: just the sheet
 	# the bolts: point to point round the star, each on its own clock (boil up, bow, snap, start again)
 	var bsh := Shader.new(); bsh.code = RIFT_BOLT_SHADER
 	for i in 12:
@@ -1423,6 +1419,95 @@ func _rift_star(g: Node3D) -> MeshInstance3D:
 		bm.material_override = mm
 		bm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		g.add_child(bm)
+	# v11.7 (owner: "more sparks"): a second set of arcs, bowing further out and faster, on their own clocks
+	for i in 6:
+		var a: Vector3 = pts[i * 2]; var b: Vector3 = pts[(i * 2 + 2) % 12]
+		var L: float = a.distance_to(b)
+		var mid: Vector3 = (a + b) * 0.5
+		var outward: Vector3 = mid.normalized()
+		var H: float = L * Data.RIFT_BOLT_BOW * 1.5
+		var q := QuadMesh.new(); q.size = Vector2(L * 1.05, H)
+		var bm := MeshInstance3D.new()
+		bm.name = "RiftArc%d" % i
+		bm.mesh = q
+		var along: Vector3 = (b - a).normalized()
+		bm.transform = Transform3D(Basis(along, outward, along.cross(outward)), mid + outward * H * 0.5 + Vector3(0, 0, 1.5))
+		var mm := ShaderMaterial.new(); mm.shader = bsh
+		mm.set_shader_parameter("noise", _rift_noise)
+		mm.set_shader_parameter("col", Data.RIFT_STAR_GLOW.lerp(Color(0.6, 0.85, 1.0), 0.5))
+		mm.set_shader_parameter("offset", float(i) * 0.61 + 0.5)
+		mm.set_shader_parameter("rate", Data.RIFT_BOLT_RATE * 1.6)
+		bm.material_override = mm
+		bm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		g.add_child(bm)
+	# sparks thrown off the sheet's edge
+	var edge := PackedVector3Array()
+	for i in 12:
+		for k in 5: edge.append((pts[i] as Vector3).lerp(pts[(i + 1) % 12], k / 5.0))
+	var sp := CPUParticles3D.new()
+	sp.name = "RiftSparks"
+	sp.amount = Data.RIFT_SPARKS
+	sp.lifetime = 0.9
+	sp.emission_shape = CPUParticles3D.EMISSION_SHAPE_POINTS
+	sp.emission_points = edge
+	sp.direction = Vector3(0, 0, 1)
+	sp.spread = 180.0
+	sp.initial_velocity_min = 6.0
+	sp.initial_velocity_max = 28.0
+	sp.gravity = Vector3.ZERO
+	sp.damping_min = 4.0
+	sp.damping_max = 10.0
+	sp.scale_amount_min = 0.6
+	sp.scale_amount_max = 1.6
+	var sq := QuadMesh.new(); sq.size = Vector2(1.2, 1.2)
+	var smat := StandardMaterial3D.new()
+	smat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	smat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	smat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	smat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	smat.vertex_color_use_as_albedo = true
+	smat.albedo_texture = _radial_texture(Color(1, 1, 1), 0.6)
+	sq.material = smat
+	sp.mesh = sq
+	var ramp := Gradient.new()
+	ramp.set_color(0, Color(1.0, 0.95, 1.0, 1.0))
+	ramp.set_color(1, Color(Data.RIFT_STAR_GLOW, 0.0))
+	sp.color_ramp = ramp
+	g.add_child(sp)
+	# v11.7 (owner: "more cloud"): slow purple clouds boiling round it
+	var mist := CPUParticles3D.new()
+	mist.name = "RiftMist"
+	mist.amount = Data.RIFT_MIST_PUFFS
+	mist.lifetime = 9.0
+	mist.preprocess = 9.0
+	mist.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	mist.emission_sphere_radius = R * 1.25
+	mist.direction = Vector3(0, 0, 1)
+	mist.spread = 180.0
+	mist.initial_velocity_min = 1.0
+	mist.initial_velocity_max = 5.0
+	mist.gravity = Vector3.ZERO
+	mist.angular_velocity_min = -8.0
+	mist.angular_velocity_max = 8.0
+	mist.scale_amount_min = 0.7
+	mist.scale_amount_max = 1.6
+	var mq := QuadMesh.new(); mq.size = Vector2(R * 0.9, R * 0.9)
+	var mmat := StandardMaterial3D.new()
+	mmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mmat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	mmat.vertex_color_use_as_albedo = true
+	mmat.albedo_texture = _cloud_texture(Color(1, 1, 1), 91)
+	mmat.disable_receive_shadows = true
+	mq.material = mmat
+	mist.mesh = mq
+	var mr := Gradient.new()
+	mr.set_color(0, Color(Data.RIFT_CLOUD, 0.0))
+	mr.add_point(0.3, Color(Data.RIFT_CLOUD.lightened(0.2), 0.42))
+	mr.add_point(0.75, Color(Data.RIFT_STAR_GLOW, 0.3))
+	mr.set_color(mr.get_point_count() - 1, Color(Data.RIFT_CLOUD, 0.0))
+	mist.color_ramp = mr
+	g.add_child(mist)
 	var lamp := OmniLight3D.new()
 	lamp.light_color = Data.RIFT_STAR_GLOW
 	lamp.light_energy = 3.0
@@ -4654,6 +4739,8 @@ var lanes: Array = []            # {"a": name, "b": name, "up": [Vector3...], "d
 var lane := {}                   # the ride in progress: {"i": lane index, "fwd": bool, "k": next ring, "speed", "t"}
 var lane_stats := {"docks": 0, "passes": 0, "exits": 0}
 var lane_tunnel: MeshInstance3D
+var lane_rings: Array = []     # v11.7: the rings of light that rush past in a lane
+var lane_ring_t := 0.0
 var _lane_mm: MultiMeshInstance3D
 var _lane_lights: Array = []
 
@@ -4818,6 +4905,29 @@ func _build_lanes() -> void:
 	lane_tunnel.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	lane_tunnel.visible = false
 	player.add_child(lane_tunnel)
+	# v11.7 (owner: "the trade lanes need little tunnels: rings of light you pass through"): rings of light rush past
+	lane_rings = []
+	for i in Data.LANE_LIGHT_RINGS:
+		var rm := MeshInstance3D.new()
+		rm.name = "LaneLightRing%d" % i
+		var tor := TorusMesh.new()
+		tor.inner_radius = Data.LANE_TUNNEL_RADIUS * 0.93
+		tor.outer_radius = Data.LANE_TUNNEL_RADIUS
+		tor.rings = 48
+		tor.ring_segments = 6
+		rm.mesh = tor
+		var lm := StandardMaterial3D.new()
+		lm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		lm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		lm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		lm.albedo_color = Color(Data.LANE_TINT.lerp(Color.WHITE, 0.45), 0.0)
+		lm.no_depth_test = false
+		rm.material_override = lm
+		rm.rotation_degrees = Vector3(90, 0, 0)   # (a torus lies flat: stand it up across the lane)
+		rm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		rm.visible = false
+		player.add_child(rm)
+		lane_rings.append(rm)
 
 ## The ring you could dock right now: nearest live ring inside LANE_DOCK_RANGE (one with a ring after it).
 ## Returns {} or {"i": lane, "fwd": bool, "k": ring index, "to": destination name, "pos": Vector3}.
@@ -4858,6 +4968,7 @@ func lane_abort() -> void:
 	lane = {}
 	vel = -player.global_basis.z * Data.LANE_EXIT_SPEED
 	if is_instance_valid(lane_tunnel): lane_tunnel.visible = false
+	_lane_rings(0.0, -1.0)
 
 func _lane_update(dt: float) -> void:
 	var ln: Dictionary = lanes[lane["i"]]
@@ -4896,7 +5007,25 @@ func _lane_update(dt: float) -> void:
 	if is_instance_valid(lane_tunnel):
 		lane_tunnel.visible = not lane.is_empty()
 		(lane_tunnel.material_override as ShaderMaterial).set_shader_parameter("power", clampf(sp / Data.LANE_SPEED, 0.0, 1.0))
+	_lane_rings(dt, clampf(sp / Data.LANE_SPEED, 0.0, 1.0) if not lane.is_empty() else -1.0)
 	if is_instance_valid(model): model.rotation = model.rotation.lerp(Vector3.ZERO, minf(1.0, dt * 4.0))
+
+## v11.7: the rings of light in a lane: they come from far ahead and rush past round you (power < 0 = off).
+func _lane_rings(dt: float, power: float) -> void:
+	var on := power >= 0.0
+	lane_ring_t += dt * lerpf(Data.LANE_RING_PACE[0], Data.LANE_RING_PACE[1], maxf(power, 0.0))
+	var n := lane_rings.size()
+	var far: float = Data.LANE_TUNNEL_LEN * 0.95
+	for i in n:
+		var rm: MeshInstance3D = lane_rings[i]
+		if not is_instance_valid(rm): continue
+		rm.visible = on
+		if not on: continue
+		var f := fposmod(lane_ring_t / float(n) + float(i) / float(n), 1.0)
+		var z := -far + f * (far + 120.0)   # far ahead -> past the camera
+		rm.position = Vector3(0, 0, z)
+		var a := smoothstep(0.0, 0.25, f) * (1.0 - smoothstep(0.85, 1.0, f)) * (0.35 + 0.65 * maxf(power, 0.25))
+		(rm.material_override as StandardMaterial3D).albedo_color.a = a
 
 ## Passing a ring: it lights up and throws a splash.
 func _lane_pass(at: Vector3, dir: Vector3) -> void:

@@ -70,7 +70,16 @@ uniform float mist = 0.85;
 uniform float twist = 0.55;
 uniform float bands = 3.0;
 uniform float alpha = 0.96;
+uniform float ring_amt = 0.55;    // v11.7 (owner): rings of light you pass through, in every tunnel
+uniform float clarity = 0.72;     // v11.7 (owner: "the tube more clear, floating in a much bigger world"): how much of the sky shows through the rift's tube
 float nz(vec2 uv) { return textureLod(noise_tex, uv, 0.0).r; }
+// v11.7 (owner): a ring of light rushing out at you (it comes from far down the tunnel and passes round you).
+// depth = how far down the tunnel this pixel looks; rings sit at fixed places along the tunnel, so riding forward they grow.
+float light_rings(float depth, float go, float r) {
+	float ph = depth * 1.4 + go;   // (riding forward, depth at a ring shrinks: it grows out at you)
+	float ring = pow(0.5 + 0.5 * cos(ph * 6.2832), 24.0);
+	return ring * smoothstep(0.04, 0.22, r) * smoothstep(9.0, 2.5, depth);
+}
 // v2.5: a winding tube. The path swings side to side (sin); the camera rides it looking along its heading, so the part
 // of the tube D ahead sits off to the side by (its offset - where the heading points) / D on screen.
 float path_x(float s) { return sin(s * wind_freq); }
@@ -104,7 +113,7 @@ void fragment() {
 		vec3 c = textureLod(tunnel_tex_b, tuv, 0.0).rgb;
 		float lum = dot(c, vec3(0.3, 0.5, 0.2));
 		c = mix(c, hole_tint * lum * 2.0 + c * 0.25, tint_amt);
-		float ring = pow(0.5 + 0.5 * sin((depth * 2.2 - t * pulse_speed) * 3.14159), 10.0);
+		float ring = pow(0.5 + 0.5 * sin((depth * 2.2 + t * pulse_speed) * 3.14159), 10.0);   // (v11.7 owner: they rush OUT at you, not away)
 		float breath = 0.82 + 0.28 * sin(t * 2.4) * sin(t * 0.9 + 1.0);
 		col = c * 1.35 * breath + mix(hole_tint, vec3(1.0), 0.35) * ring * 0.6 * smoothstep(0.05, 0.3, r);
 		float v = nz(vec2(th * 6.0 + t * 0.2 + w.x, depth * 0.6 - t * 0.8));
@@ -119,6 +128,7 @@ void fragment() {
 		col = (skin == 0 ? textureLod(tunnel_tex, tuv, 0.0).rgb : textureLod(tunnel_tex_b, tuv, 0.0).rgb) * 1.25;
 		col *= 0.25 + 0.95 * smoothstep(0.0, 0.42, r);
 		col += vec3(0.85, 0.9, 1.0) * (0.03 / (r * r * 6.0 + 0.04));
+		col += mix(color, vec3(1.0), 0.6) * light_rings(depth, travel * 0.84, r) * ring_amt;   // v11.7: rings of light you pass through
 	} else if (skin == 0) {
 		// energy tube: bands of light corkscrewing toward the viewer, a bright far end
 		vec2 tuv = vec2(th * bands + twist * 0.18 / r + spin * 0.25, 0.22 / r + travel * 0.6);
@@ -176,6 +186,16 @@ void fragment() {
 		vec3 tissue = mix(organ_a, organ_b * 1.2, cells * 0.5) * (0.55 + 0.45 * cells);
 		float see = membrane;   // how much of the outer organ shows through
 		col = mix(tissue, outer, see * (0.7 + 0.3 * cells)) + organ_c * vein * 0.9 + vec3(1.0, 0.9, 0.95) * wet * 0.35;
+		// v11.7 (owner: "see a small skybox in there; the tube more clear; floating in a much bigger world"): through the
+		// clear tube, the sky of the place you are going, huge and slow round you
+		vec3 dv = normalize(vec3(p.x, p.y, 0.85));
+		float yaw = atan(dv.x, dv.z) / 6.2832 + 0.5 + t * 0.006 + travel * 0.004;
+		vec3 sky = textureLod(sky_b, vec2(yaw, acos(clamp(dv.y, -1.0, 1.0)) / 3.14159), 0.0).rgb;
+		vec3 sky2 = textureLod(sky_a, vec2(yaw * 2.0 + 0.3, acos(clamp(dv.y, -1.0, 1.0)) / 3.14159), 0.0).rgb;
+		vec3 world = mix(sky2, sky, smoothstep(0.0, 1.0, min(travel * 0.15, 1.0))) * 1.25;
+		float thin = clarity * (0.75 + 0.25 * (1.0 - cells));
+		col = mix(col, world + organ_c * vein * 0.6, thin);
+		col += mix(organ_c, vec3(1.0), 0.5) * light_rings(depth, travel * 0.84, r) * ring_amt;   // rings of light you pass through
 		// lightning born far away, racing toward you along the wall
 		for (int k2 = 0; k2 < 4; k2++) {
 			float kk = float(k2);
