@@ -524,8 +524,20 @@ func lockdown_faction() -> String:
 	if f.begins_with("savager"): f = "savagers"
 	return f
 
-func _start_lockdown() -> void:
+## v11.17 (owner): "an alarm test button": start the lockdown here on demand (the faction with fighter clips when this
+## station's own have none yet), to try the fight from any station.
+func test_alarm() -> void:
+	if lockdown: return
 	var f := lockdown_faction()
+	if not Data.BREAKOUT_ART.has(f) and not Data.BREAKOUT_ART.is_empty(): f = str(Data.BREAKOUT_ART.keys()[0])
+	lockdown = true
+	show_screen("hub")
+	_start_lockdown(f)
+
+func _start_lockdown(force_faction := "") -> void:
+	var f := lockdown_faction() if force_faction == "" else force_faction
+	var art0: Dictionary = Data.BREAKOUT_ART.get(f, {})
+	if art0.has("anim_pack"): Packs.request(str(art0["anim_pack"]))   # v11.17: the moving fighters
 	for r in Data.BREAKOUT_ROOMS:
 		if Packs.PACKS.has("room_hostile_%s_%s" % [f, r]): Packs.request("room_hostile_%s_%s" % [f, r])
 	if Packs.PACKS.has("chars_" + f): Packs.request("chars_" + f)   # v9.3: the faction's people
@@ -1982,6 +1994,13 @@ func _hub_panel() -> void:
 	info.text = "%s ×%d  ·  Missiles %d/%d  ·  Heavy %d/%d  ·  Mines %d/%d" % [GS.weapon()["name"], sh["guns"], GS.missiles, GS.max_missiles(), GS.heavy_missiles, GS.max_heavy(), GS.mines, GS.max_mines()]
 	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	rv.add_child(info)
+	var at := Button.new()   # v11.17 (owner): try the lockdown fight here
+	at.name = "AlarmTest"
+	at.text = "TEST ALARM (LOCKDOWN)"
+	at.custom_minimum_size = Vector2(0, 44)
+	at.add_theme_color_override("font_color", Color(1, 0.45, 0.4))
+	at.pressed.connect(test_alarm)
+	rv.add_child(at)
 
 ## v3.1: a dark glass card on the HOME page holding a VBox (child 0).
 func _home_card(r: Rect2, nm: String) -> PanelContainer:

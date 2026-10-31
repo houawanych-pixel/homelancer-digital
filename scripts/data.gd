@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.16"
+const VERSION := "v11.17"
 const ESCORT_FREIGHTER_LEN := 90.0   # v11.16 (owner): the escort / cargo-run freighter is a big ship (m long), not fighter-sized (was 16)
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
@@ -1874,7 +1874,8 @@ const BREAKOUT_ON := true
 const BREAKOUT_ART := {
 	"orion": {"guard": "res://assets/characters/orion/orion_guard_full.webp", "guard_portrait": "res://assets/characters/orion/orion_guard_portrait.webp",
 		"boss": "res://assets/characters/orion/orion_warden_full.webp", "boss_portrait": "res://assets/characters/orion/orion_warden_portrait.webp",
-		"boss_name": "Marshal Kade Voss", "one_boss": true, "boss_rush": 0.55},
+		"boss_name": "Marshal Kade Voss", "one_boss": true, "boss_rush": 0.55,
+		"anim": "res://assets/characters/orion/anim", "anim_pack": "anim_orion"},   # v11.17: the owner's clips as sprite sheets (tools/crew/clip_sheet.py)
 }
 const BREAKOUT_ROOMS := ["main_hub", "pilots_lounge", "shipyard"]   # the way to the hangar, one fight each
 const BREAKOUT_WAVES := [[5], [5], [5, 10]]     # guards per wave, room by room (the hangar: five, then ten); then the boss

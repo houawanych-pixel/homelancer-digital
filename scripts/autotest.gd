@@ -3159,6 +3159,22 @@ func _job_v1114() -> void:
 	await _shot("v1114_crew_talk", 0.3)
 	hb.close_call("r")
 	hb.room_override = ""
+	# v11.17 (owner): the TEST ALARM button on the station page starts the lockdown fight here
+	hb.show_screen("hub")
+	await _frames(2)
+	var ab: Button = hb.find_child("AlarmTest", true, false)
+	var has_btn: bool = ab != null
+	if has_btn: ab.pressed.emit()   # (the page is rebuilt: the button is a new one after this)
+	await _frames(20)
+	var alarm_ok: bool = has_btn and hb.lockdown and hb.breakout != null and hb.breakout.visible and hb.breakout.faction == "orion" and hb.launch_btn.disabled
+	await _shot("v1117_alarm_test", 0.5)
+	if hb.breakout != null:
+		hb.breakout.visible = false
+		hb.breakout._stop_siren()
+		hb.breakout.set_process(false)
+	hb._end_lockdown()
+	if hb.breakout != null: hb.breakout.set_process(true)
+	_check("v11.17 (owner): a TEST ALARM button on the station page starts the lockdown fight on demand (Orion's fighters)", alarm_ok, "button %s" % has_btn)
 	_check("v11.14 (owner): Orion's crew stand in its rooms like Evee (each spends time in their home room and visits others): Lyra walks in at the %s, walks aside, and on a tap talks in her own voice with her call on the right" % room,
 		homes_ok and here and walked and talk, "homes %s here %s walked %s talk %s (%s)" % [homes_ok, here, walked, talk, str(hb.crew.crew_log)])
 
@@ -10336,7 +10352,11 @@ func _breakout_orion_check() -> void:
 	probe.wave_i = probe.waves().size() - 1
 	probe._waves_step()
 	var hangar_boss: bool = probe.boss_out and probe.enemies.size() == 1 and bool(probe.enemies[0]["boss"])
+	var anim_ok: bool = not probe.sheet("guard_idle").is_empty() and not probe.sheet("guard_shoot").is_empty() and not probe.sheet("guard_fall").is_empty() \
+		and not probe.sheet("boss_blade").is_empty() and str(probe.anim_of({"boss": false, "hp": 1, "state": "fire"})[0]) == "guard_shoot" \
+		and str(probe.anim_of({"boss": true, "hp": 1, "state": "rush"})[0]) == "boss_blade" and str(probe.anim_of({"boss": false, "hp": 0, "state": "patrol"})[0]) == "guard_fall"
 	probe.free()
+	_check("v11.17 (owner's clips): Orion's lockdown fighters move: guards idle, shoot and fall; the marshal swings his blade", anim_ok)
 	_check("v11.15 (owner): Orion's lockdown: every guard is the helmeted Orion soldier, ONE boss (%s, laser blade) and only at the hangar" % str(art["boss_name"]),
 		guards_ok and boss_ok and no_mid_boss and hangar_boss, "guards %s boss %s no mid boss %s hangar boss %s" % [guards_ok, boss_ok, no_mid_boss, hangar_boss])
 

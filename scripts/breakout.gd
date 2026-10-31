@@ -76,6 +76,7 @@ const COLORS := {"liberator": Color(0.2, 0.75, 0.7), "savagers": Color(0.95, 0.4
 
 func start(fac: String, room_list: Array) -> void:
 	faction = fac
+	_sheets = {}   # (v11.17: this faction's clips)
 	rooms = room_list
 	room_i = 0
 	_rng.seed = hash(fac + str(Time.get_ticks_msec()))
@@ -316,6 +317,7 @@ func _update_enemies(dt: float) -> void:
 		e["muzzle"] = maxf(0.0, float(e["muzzle"]) - dt)
 		e["ripple"] = maxf(0.0, float(e["ripple"]) - dt)
 		e["flash"] = maxf(0.0, float(e["flash"]) - dt)
+		e["anim_t"] = float(e.get("anim_t", 0.0)) + dt   # v11.17: the clip's clock
 		if e["hp"] <= 0:
 			e["dead_t"] = float(e["dead_t"]) + dt
 			continue
@@ -509,6 +511,54 @@ func _draw() -> void:
 	_draw_hud(S, pulse)
 	_draw_sticks(S)
 
+## v11.17 (owner's clips): a faction's fighters move: idle, shoot (the guards), blade (the boss), fall / hit.
+## Sprite sheets made by tools/crew/clip_sheet.py: {tex, frames, cols, fw, fh, fps, foot, stand}.
+var _sheets := {}
+func sheet(name: String) -> Dictionary:
+	if _sheets.has(name): return _sheets[name]
+	var art: Dictionary = Data.BREAKOUT_ART.get(faction, {})
+	var d := {}
+	if art.has("anim"):
+		var base := "%s/%s" % [str(art["anim"]), name]
+		if ResourceLoader.exists(base + ".webp") and FileAccess.file_exists(base + ".json"):
+			var j: Variant = JSON.parse_string(FileAccess.get_file_as_string(base + ".json"))
+			if j is Dictionary:
+				d = j
+				d["tex"] = load(base + ".webp")
+	if not d.is_empty(): _sheets[name] = d   # (not cached while its pack is still on the way)
+	return d
+
+## Which clip a fighter plays now, and how far into it.
+func anim_of(e: Dictionary) -> Array:
+	var boss: bool = e["boss"]
+	var dead: bool = e["hp"] <= 0
+	var clip := "idle"
+	if dead: clip = "hit" if boss else "fall"
+	elif boss and (e["state"] in ["aim", "fire", "rush", "duel"]): clip = "blade"
+	elif e["state"] in ["aim", "fire"]: clip = "shoot"
+	var nm := ("boss_" if boss else "guard_") + clip
+	if str(e.get("anim", "")) != nm:
+		e["anim"] = nm
+		e["anim_t"] = 0.0
+	return [nm, float(e.get("anim_t", 0.0)), clip in ["idle", "blade"]]
+
+## Draw one fighter's current frame with its feet on `foot` and standing `h` tall. False = no sheet (use the picture).
+func _draw_anim(e: Dictionary, foot: Vector2, h: float, mod: Color) -> bool:
+	var a := anim_of(e)
+	var sh := sheet(str(a[0]))
+	if sh.is_empty(): return false
+	var n := int(sh["frames"])
+	var fi := int(float(a[1]) * float(sh["fps"]))
+	fi = fi % n if a[2] else mini(fi, n - 1)
+	var cols := int(sh["cols"])
+	var fw := float(sh["fw"])
+	var fh := float(sh["fh"])
+	var src := Rect2((fi % cols) * fw, (fi / cols) * fh, fw, fh)
+	var k := h / float(sh["stand"])
+	var ft: Array = sh["foot"]
+	draw_texture_rect_region(sh["tex"], Rect2(foot - Vector2(float(ft[0]), float(ft[1])) * k, Vector2(fw, fh) * k), src, mod)
+	return true
+
 ## One guard: the cut-out picture (or a drawn figure), its force field round it while it is up, its hits left.
 func _draw_guard(e: Dictionary, col: Color) -> void:
 	var who: Dictionary = cast.get(int(e["slot"]), {})
@@ -517,12 +567,25 @@ func _draw_guard(e: Dictionary, col: Color) -> void:
 	var dead: bool = e["hp"] <= 0
 	var mod := Color(1, 1, 1)
 	if e["flash"] > 0.0: mod = Color(2.2, 1.4, 1.4)
+	if not sheet("guard_idle").is_empty():   # v11.17: the moving fighters (they fall in their own clip)
+		if dead:
+			var kd := clampf((float(e["dead_t"]) - 3.0) / 0.6, 0.0, 1.0)
+			if kd >= 1.0: return
+			mod.a = 1.0 - kd
+		_draw_anim(e, b, h, mod)
+		_draw_guard_marks(e, b, h, col, dead)
+		return
 	if dead:
 		var k := clampf(float(e["dead_t"]) / 0.7, 0.0, 1.0)
 		if k >= 1.0: return
 		mod.a = 1.0 - k
 		draw_set_transform(b, (-1.0 if e["flip"] else 1.0) * k * 1.3, Vector2.ONE)
 	var o := Vector2.ZERO if dead else b
+	_draw_guard_still(e, who, o, h, mod, col, dead)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	_draw_guard_marks(e, b, h, col, dead)
+
+func _draw_guard_still(e: Dictionary, who: Dictionary, o: Vector2, h: float, mod: Color, col: Color, dead: bool) -> void:
 	var bob := sin(_alarm_t * 6.0 + float(e["id"])) * h * 0.008 if e["state"] in ["patrol", "enter", "rush"] else 0.0
 	var tex: Texture2D = who.get("full")
 	if tex != null:
@@ -533,7 +596,9 @@ func _draw_guard(e: Dictionary, col: Color) -> void:
 		draw_rect(Rect2(o + Vector2(-w2 * 0.5, -h * 0.78), Vector2(w2, h * 0.78)), Color(0.1, 0.1, 0.12, mod.a))
 		draw_circle(o + Vector2(0, -h * 0.88), w2 * 0.35, Color(0.1, 0.1, 0.12, mod.a))
 		draw_rect(Rect2(o + Vector2(-w2 * 0.5, -h * 0.78), Vector2(w2, h * 0.05)), Color(col, mod.a))
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+func _draw_guard_marks(e: Dictionary, b: Vector2, h: float, col: Color, dead: bool) -> void:
+	var who: Dictionary = cast.get(int(e["slot"]), {})
 	if dead: return
 	if shielded(e):   # the force field
 		var c := Vector2(b.x, b.y - h * 0.5)
@@ -543,7 +608,7 @@ func _draw_guard(e: Dictionary, col: Color) -> void:
 		for i in 41: pts.append(c + Vector2(cos(TAU * i / 40.0) * rr.x, sin(TAU * i / 40.0) * rr.y))
 		draw_colored_polygon(pts, Color(col.r, col.g, col.b, fa))
 		draw_polyline(pts, Color(col.lightened(0.4), minf(1.0, 0.45 + float(e["ripple"]) * 2.0)), 2.0)
-	if e["muzzle"] > 0.0:
+	if e["muzzle"] > 0.0 and sheet("guard_idle").is_empty():   # (the clips have their own muzzle flash)
 		var mp := b + Vector2(h * (0.12 if e["flip"] else -0.12), -h * 0.62)
 		draw_circle(mp, h * 0.05, Color(1.0, 0.85, 0.4, 0.9))
 		draw_circle(mp, h * 0.025, Color(1, 1, 1))
@@ -564,9 +629,11 @@ func _draw_duel(S: Vector2, col: Color) -> void:
 	var wind := (1.0 - clampf(duel_t / Data.BREAKOUT_DUEL_WINDUP, 0.0, 1.0)) if duel_phase == "windup" else 0.0
 	var lean: float = float({"left": -1.0, "right": 1.0, "high": 0.0}.get(duel_side, 0.0)) * wind * S.x * 0.03
 	var c := Vector2(S.x * 0.5 + lean - float(lane) * S.x * 0.12, S.y * 1.12 + (S.y * 0.06 if ducked else 0.0))
-	if tex != null:
+	var dm := Color(2.0, 1.4, 1.4) if duel["flash"] > 0.0 else Color(1, 1, 1)
+	if _draw_anim(duel, c, h, dm): pass   # v11.17: the marshal swings his blade (the owner's clip)
+	elif tex != null:
 		var w := h * float(tex.get_width()) / float(tex.get_height())
-		draw_texture_rect(tex, Rect2(c + Vector2(-w * 0.5, -h), Vector2(w, h)), false, Color(2.0, 1.4, 1.4) if duel["flash"] > 0.0 else Color(1, 1, 1))
+		draw_texture_rect(tex, Rect2(c + Vector2(-w * 0.5, -h), Vector2(w, h)), false, dm)
 	if duel_phase == "windup":   # the laser blade, raised on the side the strike comes from
 		var root := c + Vector2(0, -h * 0.55)
 		var tip: Vector2

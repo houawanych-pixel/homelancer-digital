@@ -126,6 +126,7 @@ const PACKS := {
 	"chars_elyza": {"folders": ["res://assets/characters/elyza"], "match": "", "probe": "res://assets/characters/elyza/elyza_01_soldier_full.webp"},   # v9.3 (owner): the faction's cast, cut out
 	"chars_imperium": {"folders": ["res://assets/characters/imperium"], "match": "", "probe": "res://assets/characters/imperium/imperium_01_trooper_full.webp"},   # v9.3 (owner): the faction's cast, cut out
 	"chars_liberator": {"folders": ["res://assets/characters/liberator"], "match": "", "probe": "res://assets/characters/liberator/liberator_01_trooper_full.webp"},   # v9.3 (owner): the faction's cast, cut out
+	"anim_orion": {"folders": ["res://assets/characters/orion/anim"], "match": "", "probe": "res://assets/characters/orion/anim/guard_idle.webp"},   # v11.17: Orion's lockdown fighters, moving
 	"chars_orion": {"folders": ["res://assets/characters/orion"], "match": "", "probe": "res://assets/characters/orion/orion_01_survey_trooper_full.webp"},   # v9.3 (owner): the faction's cast, cut out
 	"chars_savagers": {"folders": ["res://assets/characters/savagers"], "match": "", "probe": "res://assets/characters/savagers/savagers_01_soldier_full.webp"},   # v9.3 (owner): the faction's cast, cut out
 	"chars_solarion": {"folders": ["res://assets/characters/solarion"], "match": "", "probe": "res://assets/characters/solarion/solarion_01_trooper_full.webp"},   # v9.3 (owner): the faction's cast, cut out
