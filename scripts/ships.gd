@@ -64,6 +64,7 @@ const GLB := {
 	"pilot_pod": ["res://assets/cargo/spacesuit_pilot.glb", 4.0, 0.0],   # stand-in: the soldier in the space suit
 	"savager_carrier": ["res://assets/ships/enemy/savager_carrier.glb", Data.SAVAGER_CARRIER_LEN, Data.SAVAGER_CARRIER_YAW],
 	"fleet": ["res://assets/ships/civilian/cargo_ship.glb", 16.0, 0.0],
+	"escort_freighter": ["res://assets/ships/civilian/cargo_ship.glb", Data.ESCORT_FREIGHTER_LEN, 0.0],   # v11.16 (owner: "the freight cargo ship is missing"): the escort job's freighter, big enough to see
 	"fleet2": ["res://assets/ships/civilian/freighter.glb", 20.0, 0.0],
 	"fleet3": ["res://assets/ships/civilian/tanker.glb", 34.0, 0.0],
 	"crate_a": ["res://assets/cargo/crate_a.glb", 3.4, 0.0],

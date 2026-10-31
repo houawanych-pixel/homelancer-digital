@@ -7418,9 +7418,9 @@ func make_escort(from := Vector3.INF, goal := Vector3.INF) -> void:   # v1.7w: t
 	if is_instance_valid(escort_node) or not is_instance_valid(station) or not is_instance_valid(planet): return
 	var node := Node3D.new()
 	node.name = "Freighter %s (escort)" % sys["name"]
-	node.add_child(ShipFactory.build("fleet" if ShipFactory.has_real_model("fleet") else "enemy"))
+	node.add_child(ShipFactory.build("escort_freighter" if ShipFactory.has_real_model("escort_freighter") else "enemy"))
 	node.set_meta("kind", "traffic")
-	node.set_meta("radius", 12.0)
+	node.set_meta("radius", Data.ESCORT_FREIGHTER_LEN * 0.4)
 	add_child(node)
 	var a := dock_point(station) + Vector3(0, 60, 0) if from == Vector3.INF else from
 	var b := planet_dock_point() if goal == Vector3.INF else goal

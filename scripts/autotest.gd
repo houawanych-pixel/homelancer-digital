@@ -5968,6 +5968,7 @@ func _job_ai() -> void:
 	for o in raid: (o["node"] as Node3D).global_position = fr.global_position + Vector3(60, 0, 60)   # on it
 	_tp(fr.global_position + Vector3(0, 30, 200), fr.global_position)
 	await _shot("ai_escort_ambush", 0.3)
+	var fr_big: bool = fr_ok and ShipFactory.has_real_model("escort_freighter")
 	await _frames(20)
 	var hurt: bool = float(GS.mission.get("escort_hp", 0.0)) < hull0 and not GS.mission.is_empty()
 	for o in raid: s._destroy_unit(o)
@@ -5980,7 +5981,7 @@ func _job_ai() -> void:
 	await _frames(4)
 	var arrived: bool = GS.mission.is_empty() and GS.credits - credits3 == int(esc["pay"]) and not is_instance_valid(s.escort_node)
 	_check("Job AI: an escort job: a freighter leaves the station for the planet and is the waypoint; a third of the way raiders ambush it and it loses hull while they are close; with them gone it stops losing hull; when it reaches the planet you are paid",
-		fr_ok and fr_way and moving and raid_ok and hurt and safe and arrived, "freighter %s way %s moving %s raid %s hurt %s safe %s arrived %s" % [fr_ok, fr_way, moving, raid_ok, hurt, safe, arrived])
+		fr_ok and fr_big and fr_way and moving and raid_ok and hurt and safe and arrived, "freighter %s way %s moving %s raid %s hurt %s safe %s arrived %s" % [fr_ok, fr_way, moving, raid_ok, hurt, safe, arrived])
 	# ---- a lost freighter fails the job
 	Missions.accept(esc)
 	await _frames(3)
