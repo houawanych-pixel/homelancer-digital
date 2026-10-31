@@ -869,7 +869,7 @@ func call_rect(sd: String) -> Rect2:
 func comms_up() -> bool:
 	if left == null: return true
 	var S := get_viewport_rect().size
-	var tabs_end := 0.0
+	var tabs_end := S.x * 0.5 + left.get_combined_minimum_size().x * 0.5   # (the tabs sit centred; known before the bar lays out)
 	for c in left.get_children():
 		if c is Control and (c as Control).visible and (c as Control).get_global_rect().position.y < TOP_Y + Data.HUB_LAUNCH_SIZE.y:
 			tabs_end = maxf(tabs_end, (c as Control).get_global_rect().end.x)
