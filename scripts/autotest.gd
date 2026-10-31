@@ -1488,6 +1488,15 @@ func _run() -> void:
 			await _wait(0.6)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_V35") != "":   # the v3.5 room page checks + the v1.9w levels
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_v19w()
+		await _job_v35()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_V114") != "":   # the v11.4 station comms / tablets checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -10215,7 +10224,8 @@ func _job_v19w() -> void:
 		var got := [GS.ship_level(), core_n, GS.wing_slots(), GS.module_slots()]
 		if got != want[sid]: lv_ok = false
 	GS.credits = 90000
-	GS.ship_id = "cadet"
+	GS.ship_id = "ranger"   # (v11.8: the Level 2 ship carries the module checks until the new Level 3 freighter)
+	if not ("ranger" in GS.owned_ships): GS.owned_ships.append("ranger")
 	_check("v1.9w (owner): ship levels: Level 1 has 4 core + 2 wing slots and 2 modules, Level 2 5 + 4 and 4 (Level 3 comes with the new heavy freighter)", lv_ok, "levels %s" % lv_ok)
 	# modules
 	var sh0: float = GS.max_shield()
@@ -10235,15 +10245,15 @@ func _job_v19w() -> void:
 	main.hub.show_screen("equipment")
 	await _wait(0.8)
 	var hb = main.hub
-	var page_ok: bool = hb.find_child("ModSlot_5", true, false) != null and hb.find_child("Card_power_cell", true, false) != null and hb.find_child("MountMap", true, false) != null
-	await _shot("v19w_level3_equip", 0.4)
+	var page_ok: bool = hb.find_child("ModSlot_3", true, false) != null and hb.find_child("ModSlot_4", true, false) == null and hb.find_child("Card_power_cell", true, false) != null and hb.find_child("MountMap", true, false) != null
+	await _shot("v19w_level2_equip", 0.4)
 	GS.ship_id = "cadet"
 	main.hub.eq_sel = -1
 	main.hub.show_screen("equipment")
 	await _wait(0.5)
 	var small_ok: bool = hb.find_child("ModSlot_1", true, false) != null and hb.find_child("ModSlot_2", true, false) == null
 	await _shot("v19w_level1_equip", 0.4)
-	_check("v1.9w: WEAPONS & GEAR shows the ship's level blueprint with its slots and the module slots it has (6 on Level 3, 2 on Level 1)", page_ok and small_ok, "L3 page %s, L1 page %s" % [page_ok, small_ok])
+	_check("v1.9w: WEAPONS & GEAR shows the ship's level blueprint with its slots and the module slots it has (4 on Level 2, 2 on Level 1)", page_ok and small_ok, "L2 page %s, L1 page %s" % [page_ok, small_ok])
 	for k2 in keep: GS.set(k2, keep[k2])
 	main.launch()
 	await _until(func(): return main.state == "flight", 8.0)
@@ -10861,7 +10871,7 @@ func _job_v35() -> void:
 	await _frames(3)
 	var rv: ColorRect = hb.room_view
 	var tex = (rv.material as ShaderMaterial).get_shader_parameter("strip")
-	var room_ok: bool = rv.visible and tex != null and (tex as Texture2D).resource_path.ends_with("liberator/shipyard.jpg") and hb.leftwin.visible \
+	var room_ok: bool = rv.visible and tex != null and hb.room_key == "liberator_shipyard" and ((tex as Texture2D).resource_path.ends_with("liberator/shipyard.jpg") or hb.room_vid_on) and hb.leftwin.visible \
 		and (is_equal_approx(hb.content.anchor_left, Data.ROOM_SPLIT) or is_equal_approx(hb.content.anchor_left, 1.0)) and hb.leftwin.find_child("RoomName", true, false) != null
 	await _shot("v35_room_shipyard", 0.2)
 	var y0: float = hb.room_yaw
