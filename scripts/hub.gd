@@ -4198,6 +4198,12 @@ func read_bounty(p: Dictionary) -> void:
 
 ## v1.5f / v1.5k: the MISSIONS tab: the station's jobs; tap one to take and track it, tap it again to drop it, tap
 ## another to switch.
+## v11.13 (owner): "Difficulty ★★★☆☆ (YELLOW)": five stars over the ten colour tiers.
+func difficulty_text(pay: int) -> String:
+	var tier := Data.tier_of_pay(pay)
+	var stars := clampi(int(ceil(float(tier) / 2.0)), 1, 5)
+	return "Difficulty %s%s %s" % ["★".repeat(stars), "☆".repeat(5 - stars), Data.TIER_NAMES[tier - 1]]
+
 func _missions_page() -> void:
 	var v := _scroll_box()
 	_board_head(v, "missions")
@@ -4207,7 +4213,9 @@ func _missions_page() -> void:
 	l.text = "Work for %s%s. Tap a job to hear it; ACCEPT takes it (a gold waypoint leads you through it). DISENGAGE drops the job you have." % [base["name"], (", from %s" % co["name"]) if not co.is_empty() else ""]
 	v.add_child(l)
 	if _board_locked(v): return
-	for o in Missions.offers(GS.system_id, base["id"], Factions.owner_of(base, Data.SYSTEMS[GS.system_id]), "planet" if str(base.get("kind", "station")) == "planet" else "station"):   # v1.9b
+	var jobs: Array = Missions.offers(GS.system_id, base["id"], Factions.owner_of(base, Data.SYSTEMS[GS.system_id]), "planet" if str(base.get("kind", "station")) == "planet" else "station")   # v1.9b
+	jobs.sort_custom(func(a, b): return int(a["pay"]) < int(b["pay"]))   # v11.13 (owner): easiest first, each one harder than the one before
+	for o in jobs:
 		var row := HBoxContainer.new()
 		row.name = "Job_" + str(o["kind"]) + ("_hard" if o.get("hard", false) else "")
 		row.add_theme_constant_override("separation", 14)
@@ -4216,7 +4224,7 @@ func _missions_page() -> void:
 		var t := _label(Data.BOARD_FONT, CYAN)
 		t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		t.text = "%s\n%s\nReward %d cr" % [str(o["title"]).to_upper(), o["brief"], int(o["pay"])]
+		t.text = "%s\n%s\nReward %d cr  ·  %s" % [str(o["title"]).to_upper(), o["brief"], int(o["pay"]), difficulty_text(int(o["pay"]))]   # v11.13 (owner): difficulty and reward
 		row.add_child(t)
 		var key := "j:" + row.name
 		var hear := func(): read_job(o)

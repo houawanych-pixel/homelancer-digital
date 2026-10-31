@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.12b"
+const VERSION := "v11.13"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -680,6 +680,7 @@ const WALKER_HOLD := 220.0                      # m: this close (flat distance o
 const WALKER_STRIDE_RATE := 5.0                 # leg swings (rad / s)
 const WALKER_STRIDE_DEG := 28.0                 # how far the legs swing at full walk
 const MISSION_HARD_MULT := 2.2                  # the ELITE threats job pays this much more
+const MISSION_PATROL_SLOT := 3                  # v11.13 (owner: "common soldiers ... should be more elite"): PATROL sends level-3 veterans (was level 1)
 const MISSION_HARD_SLOT := 5                    # ...and sends the slot 05 elites
 const MISSION_FALLBACK_ENEMIES := ["Kaijurai", "Phenom", "Cybermorph", "Solrath"]   # when nobody raids the owner
 const BOUNTY_ALIVE_RANK := 1                    # named pilots of this rank and up are wanted ALIVE (bring them back); below, dead (paid on the spot)
@@ -1251,7 +1252,8 @@ const TIER_PAY_STEP := 400        # each 400 cr of pay = one tier up (1..10)
 static func tier_of_pay(pay: int) -> int: return clampi(int(ceil(float(pay) / TIER_PAY_STEP)), 1, TIER_COLORS.size())
 ## v1.9n (owner): SILVER (tier 9): an enemy faction's fleet invades. 3 heavy battleships (the target), 2 warships, a
 ## destroyer and a Star Command Station that keeps launching fighters (fewer once it is down). Allies fly with you.
-const INVASION := {"battleships": 3, "warships": 2, "destroyers": 1, "fighters": 20, "wave": 4, "wave_every": 9.0, "station_down_slow": 3.0,
+# v11.13 (owner: "too hard, just one battleship"): 1 battleship, no warships or destroyer, 12 fighters (was 3 / 2 / 1 / 20)
+const INVASION := {"battleships": 1, "warships": 0, "destroyers": 0, "fighters": 12, "wave": 3, "wave_every": 9.0, "station_down_slow": 3.0,
 	"ally_fighters": 6, "ally_frigates": 1, "arrive": 2600.0, "spread": 900.0, "dist": 7000.0}   # dist: how far out from the station the fleet comes in
 const INVASION_DRAW := {"fighter": 2200.0, "capital": 9000.0, "lod_bias": 0.5, "capital_lod_bias": 0.08}   # m drawn to; lod_bias < 1 = simpler meshes sooner
 const CAPITAL_MISSILE_DAMAGE := 120.0   # a light missile on a capital ship (heavy x3.5; a mine as a heavy)

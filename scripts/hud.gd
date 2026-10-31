@@ -360,7 +360,7 @@ func _fl_buttons() -> void:
 		if side == "r":
 			for i in FL_TABS.size(): buttons[FL_TABS[i]] = fl_tab_rect(i)
 		else:   # v8.3 (owner): TARGET (the one in front of you) · NEXT · GO TO (· SCAN), there even when folded
-			var ids := ["tgt_front", "target", "goto_l"]
+			var ids := ["tgt_front", "target"]   # (v11.13: GO TO is its own big button by the radar)
 			if space.target != null and is_instance_valid(space.target): ids.append("scan")
 			var bw2: float = (r.size.x - 8.0 - 4.0 * (ids.size() - 1)) / ids.size()
 			for i in ids.size(): buttons[ids[i]] = Rect2(r.position + Vector2(4.0 + i * (bw2 + 4.0), 28.0), Vector2(bw2, 26.0))
@@ -608,6 +608,17 @@ func _layout() -> void:
 		if dock_down:   # v11.2 (owner): everything pushed down: DOCK / LEAVE LANE sit bottom centre, over the tabs
 			db = Rect2(S.x * 0.5 - 70.0, S.y - TAB_B_H - 2.0 - 64.0, 140.0, 54.0)
 		var pr: String = space.prompt()   # v1.4u: one prompt, the nearest thing wins
+		# v11.13 (owner): GO TO is as big as DOCK, on the other side of the radar: the most important button (the
+		# next objective, autopilot and warp all the way). Pushed down: it sits in the middle, sharing with DOCK.
+		var gb := Rect2(dg["blk_l"].end.x - 132.0, dg["blk_l"].position.y - 62.0, 132.0, 54.0)
+		if dock_l and not dock_down and slots["l"].is_empty() and not console_open and not planet_map:
+			gb.position.y = minf(gb.position.y, fl_rect("l").position.y - 60.0) if fl_rect("l").intersects(gb) else gb.position.y
+		if dock_down:
+			gb = Rect2(S.x * 0.5 - 70.0, S.y - TAB_B_H - 2.0 - 64.0, 140.0, 54.0)
+			if pr != "":   # (shares the middle with DOCK / LANE / JUMP)
+				gb.position.x = S.x * 0.5 - 146.0
+				db.position.x = S.x * 0.5 + 6.0
+		if not planet_map: buttons["goto"] = gb
 		if pr != "": buttons[pr] = db
 	_fl_buttons()   # v6.7: the Freelancer-style contact list (left) and ship panel (right)
 	for side in ["l", "r"]:
@@ -651,7 +662,7 @@ func _layout() -> void:
 
 ## v10.6 (owner): the fold tabs. Folded sides lose their buttons; pushed down, only calls, the comms console and the
 ## two small tabs at the bottom stay (the target box, the crosshair and the sticks are not buttons).
-const DOWN_KEEP := ["dock", "lane", "jump", "hangup", "call_pick", "side_l", "side_r", "chat_close", "type", "talk", "voice", "met_hail", "met_up", "met_down"]
+const DOWN_KEEP := ["goto", "dock", "lane", "jump", "hangup", "call_pick", "side_l", "side_r", "chat_close", "type", "talk", "voice", "met_hail", "met_up", "met_down"]
 func _dock_filter(dg: Dictionary) -> void:
 	var tabs := {}
 	if dock_down:
@@ -659,8 +670,7 @@ func _dock_filter(dg: Dictionary) -> void:
 			if not (id in DOWN_KEEP or str(id).begins_with("met_")): buttons.erase(id)
 		tabs["dock_up"] = Rect2(S.x * 0.5 - 78.0, S.y - TAB_B_H - 2.0, 156.0, TAB_B_H)   # v11.1: as big as the HIDE tab
 		tabs["log"] = Rect2(S.x * 0.5 + 86.0, S.y - TAB_B_H - 2.0, 110.0, TAB_B_H)   # COMMS: bring the calls up without the rest
-		tabs["goto_l"] = Rect2(S.x * 0.5 - 86.0 - 110.0, S.y - TAB_B_H - 2.0, 110.0, TAB_B_H)   # v11.2 (owner): GO TO the objective, on the left
-		tabs["tgt_front"] = Rect2(S.x * 0.5 - 86.0 - 110.0 - 8.0 - 110.0, S.y - TAB_B_H - 2.0, 110.0, TAB_B_H)   # and TARGET (the hostile in front)
+		tabs["tgt_front"] = Rect2(S.x * 0.5 - 86.0 - 110.0, S.y - TAB_B_H - 2.0, 110.0, TAB_B_H)   # TARGET (the hostile in front); v11.13: GO TO is the big button above
 	else:
 		for side in ["l", "r"]:
 			if dock_l if side == "l" else dock_r: continue
@@ -1672,6 +1682,7 @@ func _draw() -> void:
 	_corner("view", "CHASE" if GS.view == "cockpit" else "COCKPIT", "view", CYAN, GS.view == "cockpit")
 	if not fl_shown("r") and not dock_down:   # v7.3: these live in the right window; only when it's away do they float above the aim stick
 		_pill("log", "COMMS", comms_mode == "roster", CYAN)
+	if buttons.has("goto"): _prompt_btn(buttons["goto"], "AUTO ON" if space.autopilot != null else "GO TO", GREEN, held.has("goto") or space.autopilot != null)   # v11.13 (owner)
 	if buttons.has("dock"): _pill("dock", "DOCK", true, GREEN)   # v11.1 (owner): just DOCK; the name is on the target box
 	if buttons.has("lane"): _pill("lane", "LANE" if space.lane.is_empty() else "LEAVE LANE", true, CYAN)
 	if buttons.has("jump"): _pill("jump", "JUMP", true, GOLD)

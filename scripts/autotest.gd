@@ -9699,9 +9699,9 @@ func _job_v19n() -> void:
 	var cs: int = s.invasion_units("command").size()
 	var fs: int = s.invasion_units("fighter").size()
 	var al: int = s.allies.size()
-	var fleet_ok: bool = bs == 3 and ws == 2 and ds == 1 and cs == 1 and fs == int(Data.INVASION["fighters"]) and al == 7
+	var fleet_ok: bool = bs == int(Data.INVASION["battleships"]) and ws == int(Data.INVASION["warships"]) and ds == int(Data.INVASION["destroyers"]) and cs == 1 and fs == int(Data.INVASION["fighters"]) and al == 7
 	var wp: Dictionary = s.mission_waypoint()
-	var line_ok: bool = str(wp0.get("line", "")).begins_with("SILVER") and str(wp.get("line", "")).contains("3 of 3")
+	var line_ok: bool = str(wp0.get("line", "")).begins_with("SILVER") and str(wp.get("line", "")).contains("%d of %d" % [int(Data.INVASION["battleships"]), int(Data.INVASION["battleships"])])
 	# the battle runs: allies and the fleet trade fire
 	var hp0 := 0.0
 	for e in s.invasion_units(): hp0 += float(e["hp"]) + float(e["sh"])
@@ -9753,7 +9753,7 @@ func _job_v19n() -> void:
 	GS.credits = keep["credits"]
 	GS.hull = keep["hull"]
 	_check("v1.9n: a SILVER fleet invasion is on the board (tier 9), far out from the station", offered and far_ok, "pay %d" % int(inv["pay"]))
-	_check("v1.9n: the fleet: 3 battleships, 2 warships, a destroyer, the command station and 20 fighters; 6 allied fighters and a frigate with you",
+	_check("v1.9n / v11.13: the fleet: %d battleship(s), the command station and %d fighters;" % [int(Data.INVASION["battleships"]), int(Data.INVASION["fighters"])] + " 6 allied fighters and a frigate with you",
 		fleet_ok and line_ok, "%d/%d/%d/%d, %d fighters, %d allies; %s" % [bs, ws, ds, cs, fs, al, str(wp.get("line", ""))])
 	_check("v1.9n: allies and the fleet fight each other; missiles do set damage on the big ships", fight_ok and cap_ok, "fleet %d -> %d, allies %d -> %d, %.1f fps (%.1f before)" % [hp0, hp1, ally_hp0, ally_hp1, fps, fps0])
 	_check("v1.9n: the station going down is noticed, waves top the fighters up, the last battleship wins the job and pays", down and refill and won, "down %s, refill %s, won %s" % [down, refill, won])
@@ -10777,7 +10777,7 @@ func _job_fl() -> void:
 	main._on_hud("dock_r")
 	main._on_hud("dock_down")
 	hud._layout()
-	var down_ok: bool = hud.buttons.has("dock_up") and hud.buttons.has("log") and hud.buttons.has("goto_l") and hud.buttons.has("tgt_front") and not hud.buttons.has("radar") and not hud.buttons.has("fire")   # (v11.2: GO TO and TARGET stay too)
+	var down_ok: bool = hud.buttons.has("dock_up") and hud.buttons.has("log") and hud.buttons.has("goto") and hud.buttons.has("tgt_front") and not hud.buttons.has("radar") and not hud.buttons.has("fire")   # (v11.2: GO TO and TARGET stay too)
 	await _shot("v106_pushed_down", 0.3)
 	main._on_hud("dock_up")
 	hud._layout()
@@ -10854,7 +10854,7 @@ func _job_fl() -> void:
 	s.enemies = keep_en
 	var rr: Rect2 = hud.radar_rect()
 	var fr: Rect2 = hud.fl_rect("r")
-	var placed: bool = hud.fl_rect("l").encloses(hud.buttons["goto_l"]) and hud.fl_rect("l").encloses(hud.buttons["tgt_front"]) and hud.buttons.has("cloak") and hud.buttons.has("radar") and hud.buttons.has("target") \
+	var placed: bool = hud.buttons.has("goto") and (hud.buttons["goto"] as Rect2).end.x <= rr.position.x and hud.fl_rect("l").encloses(hud.buttons["tgt_front"]) and hud.buttons.has("cloak") and hud.buttons.has("radar") and hud.buttons.has("target") \
 		and ["weapons", "log"].all(func(b): return hud.buttons.has(b) and fr.encloses(hud.buttons[b])) \
 		and not hud.buttons.has("fullscreen") and (hud.buttons["view"] as Rect2).is_equal_approx(hud.dash_geo()["view"]) \
 		and ["fire", "kill", "thrust", "shield", "form", "tractor", "special"].all(func(b): return hud.buttons.has(b) and (hud.buttons[b] as Rect2).end.x <= rr.position.x) \

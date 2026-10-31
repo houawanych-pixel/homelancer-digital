@@ -59,10 +59,10 @@ static func _all_offers(sys_id: String, station_id: String, owner: String, pid: 
 	var out: Array = []
 	for hard in [false, true]:   # v1.8o (owner): destroying enemy soldiers is always on the board
 		var pay := int(Data.MISSION_PAY["threats"] * (Data.MISSION_HARD_MULT if hard else 1.0))
-		out.append({"kind": "threats", "hard": hard, "faction": enemy, "slot": Data.MISSION_HARD_SLOT if hard else 1, "pay": pay,
+		out.append({"kind": "threats", "hard": hard, "faction": enemy, "slot": Data.MISSION_HARD_SLOT if hard else Data.MISSION_PATROL_SLOT, "pay": pay,
 			"title": "%s: eliminate the %s threat" % ["ELITE" if hard else "PATROL", foe], "giver": station_id, "giver_sys": sys_id, "sys": sys_id,
 			"brief": "%s %s have been seen in two places in the %s system. Clear both. %s" % ["Elite" if hard else "", foe, sys["name"],
-				"Their best soldiers: expect a hard fight." if hard else "Common soldiers."],
+				"Their best soldiers: expect a hard fight." if hard else "Veteran soldiers: a real fight."],
 			"points": _points(rng, 2)})
 	if Factions.has_fighters(enemy) or enemy != "":
 		out.append({"kind": "escort", "faction": enemy, "slot": 2, "pay": Data.MISSION_PAY["escort"], "title": "Escort a freighter to %s" % sys["planet"]["name"],
@@ -107,7 +107,7 @@ static func _all_offers(sys_id: String, station_id: String, owner: String, pid: 
 	if enemy != "":
 		out.append({"kind": "invasion", "faction": enemy, "slot": Data.PATROL_MAX_SLOT, "pay": Data.MISSION_PAY["invasion"], "title": "SILVER: %s fleet invasion" % enemy,
 			"giver": station_id, "giver_sys": sys_id, "sys": sys_id, "left": int(Data.INVASION["battleships"]),
-			"brief": "A %s invasion fleet is coming into the %s system: three heavy battleships, two warships, a destroyer and a Star Command Station launching fighters. Our wing and a frigate fly with you. Destroy the three battleships. Knock out the station to slow their fighters. This is a war, not a patrol." % [enemy, sys["name"]],
+			"brief": "A %s invasion fleet is coming into the %s system: one heavy battleship and a Star Command Station launching fighters. Our wing and a frigate fly with you. Destroy the battleship. Knock out the station to slow their fighters. This is a war, not a patrol." % [enemy, sys["name"]],
 			"points": _points(rng, 1).map(func(p): p["dist"] = float(Data.INVASION["dist"]); p["y"] = 0.0; return p)})
 	return out
 
