@@ -2750,7 +2750,7 @@ func _combat_m() -> void:
 	GS.missiles = 2
 	var l_ammo: int = s.lock_count()
 	GS.missiles = 6
-	_check("Job M: locks stack one per %.1f s: Triple Rack holds 3, heavy holds 1, never more than the missiles left" % Data.LOCK_STEP, l0 == 0 and l1 == 1 and l3 == 3 and lh == 1 and l_ammo == 2, "%d %d %d heavy %d ammo-capped %d" % [l0, l1, l3, lh, l_ammo])
+	_check("Job M: locks stack one per %.1f s: Triple Rack holds 3, heavy one per %.1f s (v11.12), never more than the missiles left" % [Data.LOCK_STEP, Data.HEAVY_LOCK_STEP], l0 == 0 and l1 == 1 and l3 == 3 and lh == mini(int(Data.LOCK_STEP * 9.0 / Data.HEAVY_LOCK_STEP), 2) and l_ammo == 2, "%d %d %d heavy %d ammo-capped %d" % [l0, l1, l3, lh, l_ammo])
 	s.lock_time = 0.0
 	n.global_position = s.player.global_position - s.player.global_basis.z * 300.0
 	await _wait(0.6)
@@ -2773,9 +2773,9 @@ func _combat_m() -> void:
 		"missiles left %d, in flight %d" % [GS.missiles, s.missiles_live.size() - before])
 	for m in s.missiles_live: m["life"] = 0.0
 	await _frames(3)
-	# ---- heavy: one lock only
+	# ---- heavy: one lock = one super missile (v11.12: more locks fire more)
 	s.missile_cd = 0.0
-	s.lock_time = Data.LOCK_STEP * 9.0
+	s.lock_time = Data.HEAVY_LOCK_STEP * 1.2
 	e["hp"] = 99999.0
 	var live1: int = s.missiles_live.size()
 	s.trigger_system("heavy_missile")
@@ -3201,7 +3201,7 @@ func _job_v114() -> void:
 	hb.show_screen("missions")
 	await _frames(3)
 	var bp: Rect2 = hb.content.get_global_rect()
-	var board_ok: bool = bp.size.x >= bp.size.y * 1.3 and not bp.intersects(hb.call_rect("r")) and hb.call_rect("r").position.x > hb.launch_btn.get_global_rect().end.x   # (v11.10: COMMS tab up beside LAUNCH, the board goes right)
+	var board_ok: bool = bp.size.x >= bp.size.y * 1.3 and not bp.intersects(hb.call_rect("r")) and (hb.call_rect("r").position.x > hb.launch_btn.get_global_rect().end.x or not hb.comms_up())   # (v11.10: COMMS tab up beside LAUNCH, the board goes right)
 	await _shot("v114_board", 0.3)
 	hb.show_screen("lounge")
 	await Packs.wait("room_unity_pilots_lounge", 30.0)
@@ -7575,7 +7575,7 @@ func _job_ax() -> void:
 	var heavy: float = s.missile_damage(e, true)
 	_check("v1.5x: one super missile hits as hard as about %.1f regular missiles (%d vs %d)" % [heavy / light, int(heavy), int(light)], heavy >= light * 3.0 and heavy <= light * 4.0 + 1.0)
 	var keep_h: int = GS.heavy_missiles
-	GS.heavy_missiles = maxi(2, GS.heavy_missiles)
+	GS.heavy_missiles = maxi(6, GS.heavy_missiles)
 	var counts := []
 	for lt in [1.0, Data.HEAVY_LOCK_STEP + 0.1, Data.HEAVY_LOCK_STEP * 2.0 + 0.1, 20.0]:
 		s.lock_time = lt

@@ -856,7 +856,7 @@ func call_rect(sd: String) -> Rect2:
 	var top := CONTENT_Y + 4.0
 	var x := 8.0 if sd == "l" else S.x - 8.0 - w
 	if calls[sd].is_empty() or calls[sd].get("min", false):
-		if sd == "r": return Rect2(x, TOP_Y, w, Data.HUB_LAUNCH_SIZE.y)   # v11.10 (owner): the COMMS tab sits up in the top bar, right of LAUNCH
+		if sd == "r" and comms_up(): return Rect2(x, TOP_Y, w, Data.HUB_LAUNCH_SIZE.y)   # v11.10 (owner): the COMMS tab sits up in the top bar, right of LAUNCH
 		return Rect2(x, top, w, 52.0)
 	# v11.11 (owner): a tall ID portrait (4 wide for 5 tall), shorter on a low screen so the comms bar still fits
 	var bar := 150.0
@@ -864,12 +864,23 @@ func call_rect(sd: String) -> Rect2:
 	var h := minf(30.0 + (w - 12.0) * Data.CALL_PORTRAIT_TALL + 84.0, get_viewport_rect().size.y - top - bar - 70.0)
 	return Rect2(x, top, w, maxf(h, w * 0.75 + 110.0))
 
+## v11.12: is there room in the top bar for the COMMS tab right of LAUNCH (the page tabs end before LAUNCH would
+## start)? On a narrow screen the tab sits under LAUNCH instead and LAUNCH keeps its corner.
+func comms_up() -> bool:
+	if left == null: return true
+	var S := get_viewport_rect().size
+	var tabs_end := 0.0
+	for c in left.get_children():
+		if c is Control and (c as Control).visible and (c as Control).get_global_rect().position.y < TOP_Y + Data.HUB_LAUNCH_SIZE.y:
+			tabs_end = maxf(tabs_end, (c as Control).get_global_rect().end.x)
+	return tabs_end + 12.0 < S.x - (8.0 + call_w() + 10.0) - Data.HUB_LAUNCH_SIZE.x
+
 func _calls_in_panel() -> bool:
 	return false   # v11.4 (owner): the calls stand at the screen's sides, never inside the page
 
 ## The width the right-hand comms column keeps clear of the page.
 func right_reserve() -> float:
-	return (8.0 + call_w() + 14.0) if _call_open("r") else 24.0   # v11.10 (owner): with no call open the page goes all the way right
+	return (8.0 + call_w() + 14.0) if (_call_open("r") or (comms_tab_on() and not comms_up())) else 24.0   # (v11.12b: the COMMS tab under LAUNCH on a narrow screen) v11.10 (owner): with no call open the page goes all the way right
 
 ## Where the left tablet / page starts: clear of a call on the left.
 func left_reserve() -> float:
@@ -943,7 +954,7 @@ func _place_calls() -> void:
 			leftwin.visible = false
 	_place_tablets()
 	if launch_btn != null:   # v11.10: LAUNCH moves left to make room for the COMMS tab beside it
-		launch_btn.offset_right = -(8.0 + call_w() + 10.0)
+		launch_btn.offset_right = -(8.0 + call_w() + 10.0) if comms_up() else -36.0
 		launch_btn.offset_left = launch_btn.offset_right - Data.HUB_LAUNCH_SIZE.x
 		credits_label.offset_right = launch_btn.offset_right
 		credits_label.offset_left = credits_label.offset_right - 250.0
