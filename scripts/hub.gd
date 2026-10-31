@@ -40,6 +40,7 @@ var t := 0.0
 # ship inspector: tap the showroom (or VIEW) to look the ship over: drag to turn it, pinch / wheel to zoom, full stats
 var asst_hit: Control
 var crew: StationCrew   # v11.14
+var alarm_btn: Button   # v11.18
 var asst: VideoStreamPlayer   # v3.7 (owner): the station assistant, standing in the HOME room
 var asst_chat: Panel       # v11.4: the comms bar under the call screen
 var comms_panel: Panel     # v11.4 (owner): CONTACTS / chat LOG, on the left like the flight comms
@@ -342,6 +343,22 @@ func _ready() -> void:
 		call_ctl[sd] = cc
 	move_child(asst, room_view.get_index() + 1)   # v5.7: she stands in the room, behind the windows
 	move_child(asst_hit, asst_chat.get_index())   # v3.7 (owner): in front of the windows, so a tap on her always reaches her
+	alarm_btn = Button.new()   # v11.18 (owner): a red ALARM button on every station screen to test the lockdown fight
+	alarm_btn.name = "AlarmButton"
+	alarm_btn.text = "⚠ ALARM"
+	alarm_btn.position = Vector2(196, 8)
+	alarm_btn.size = Vector2(150, 42)
+	alarm_btn.add_theme_font_size_override("font_size", Data.ts(16))
+	alarm_btn.add_theme_color_override("font_color", Color.WHITE)
+	for st in ["normal", "hover", "pressed", "focus"]:
+		var rb := StyleBoxFlat.new()
+		rb.bg_color = Color(0.75, 0.08, 0.06, 0.95) if st != "pressed" else Color(1.0, 0.2, 0.15)
+		rb.border_color = Color(1, 0.6, 0.55)
+		rb.set_border_width_all(2)
+		rb.set_corner_radius_all(6)
+		alarm_btn.add_theme_stylebox_override(st, rb)
+	alarm_btn.pressed.connect(test_alarm)
+	add_child(alarm_btn)
 	show_btn = Button.new()
 	show_btn.name = "ShowPanels"
 	show_btn.text = "HIDE PANELS"
@@ -528,6 +545,7 @@ func lockdown_faction() -> String:
 ## station's own have none yet), to try the fight from any station.
 func test_alarm() -> void:
 	if lockdown: return
+	if screen == "equipment": show_screen("hub")
 	var f := lockdown_faction()
 	if not Data.BREAKOUT_ART.has(f) and not Data.BREAKOUT_ART.is_empty(): f = str(Data.BREAKOUT_ART.keys()[0])
 	lockdown = true
@@ -554,6 +572,7 @@ func _start_lockdown(force_faction := "") -> void:
 	_asst_show(screen)
 
 func _end_lockdown() -> void:
+	if alarm_btn != null: alarm_btn.visible = true
 	lockdown = false
 	launch_btn.disabled = false
 	launch_btn.text = "LAUNCH"
@@ -1504,6 +1523,10 @@ func _apply_call_inset() -> void:
 ## tabs and LAUNCH go too; one small button brings everything back.
 func _photo_words() -> void:
 	for n in [header, subheader, credits_label, status, launch_btn]: n.visible = not panels_hidden
+	if alarm_btn != null:   # v11.18: on every screen, on top, except during the fight itself
+		alarm_btn.visible = not lockdown
+		move_child(alarm_btn, get_child_count() - 1)
+		if launch_btn != null: move_child(launch_btn, get_child_count() - 1)   # (LAUNCH stays the top one)
 	if subtabs: subtabs.visible = not panels_hidden and subtabs.get_child_count() > 0 and screen != "equipment"   # v8.4: the small page row goes too
 	_place_calls()
 	left.visible = not panels_hidden and screen != "equipment"

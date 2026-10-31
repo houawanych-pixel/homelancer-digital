@@ -3162,8 +3162,14 @@ func _job_v1114() -> void:
 	# v11.17 (owner): the TEST ALARM button on the station page starts the lockdown fight here
 	hb.show_screen("hub")
 	await _frames(2)
+	hb.show_screen("missions")
+	await _frames(2)
+	var red: Button = hb.alarm_btn
+	var red_ok: bool = red != null and red.visible and red.is_visible_in_tree() and red.get_index() >= hb.get_child_count() - 3
+	hb.show_screen("hub")
+	await _frames(2)
 	var ab: Button = hb.find_child("AlarmTest", true, false)
-	var has_btn: bool = ab != null
+	var has_btn: bool = ab != null and red_ok
 	if has_btn: ab.pressed.emit()   # (the page is rebuilt: the button is a new one after this)
 	await _frames(20)
 	var alarm_ok: bool = has_btn and hb.lockdown and hb.breakout != null and hb.breakout.visible and hb.breakout.faction == "orion" and hb.launch_btn.disabled
@@ -3174,7 +3180,7 @@ func _job_v1114() -> void:
 		hb.breakout.set_process(false)
 	hb._end_lockdown()
 	if hb.breakout != null: hb.breakout.set_process(true)
-	_check("v11.17 (owner): a TEST ALARM button on the station page starts the lockdown fight on demand (Orion's fighters)", alarm_ok, "button %s" % has_btn)
+	_check("v11.17 (owner): a TEST ALARM button on the station page (and a red ALARM button on every station screen, v11.18) starts the lockdown fight on demand (Orion's fighters)", alarm_ok, "button %s red %s" % [has_btn, red_ok])
 	_check("v11.14 (owner): Orion's crew stand in its rooms like Evee (each spends time in their home room and visits others): Lyra walks in at the %s, walks aside, and on a tap talks in her own voice with her call on the right" % room,
 		homes_ok and here and walked and talk, "homes %s here %s walked %s talk %s (%s)" % [homes_ok, here, walked, talk, str(hb.crew.crew_log)])
 
