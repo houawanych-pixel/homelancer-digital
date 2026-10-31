@@ -1,0 +1,51 @@
+{
+ "strip": [
+  4448,
+  460
+ ],
+ "cuts": [
+  1013,
+  2262,
+  4158
+ ],
+ "overlap": 40,
+ "frame": [
+  1920,
+  1080
+ ],
+ "parts": [
+  {
+   "file": "v2_liberator_shipyard_part1.png",
+   "strip_x0": 973,
+   "strip_w": 1329,
+   "frame_rect": [
+    0,
+    207,
+    1920,
+    665
+   ]
+  },
+  {
+   "file": "v2_liberator_shipyard_part2.png",
+   "strip_x0": 2222,
+   "strip_w": 1976,
+   "frame_rect": [
+    0,
+    316,
+    1920,
+    447
+   ]
+  },
+  {
+   "file": "v2_liberator_shipyard_part3.png",
+   "strip_x0": 4118,
+   "strip_w": 1383,
+   "frame_rect": [
+    0,
+    220,
+    1920,
+    639
+   ]
+  }
+ ]
+}

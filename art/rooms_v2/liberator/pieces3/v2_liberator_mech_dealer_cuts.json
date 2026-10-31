@@ -1,0 +1,51 @@
+{
+ "strip": [
+  4448,
+  435
+ ],
+ "cuts": [
+  812,
+  2170,
+  3744
+ ],
+ "overlap": 40,
+ "frame": [
+  1920,
+  1080
+ ],
+ "parts": [
+  {
+   "file": "v2_liberator_mech_dealer_part1.png",
+   "strip_x0": 772,
+   "strip_w": 1438,
+   "frame_rect": [
+    0,
+    249,
+    1920,
+    581
+   ]
+  },
+  {
+   "file": "v2_liberator_mech_dealer_part2.png",
+   "strip_x0": 2130,
+   "strip_w": 1654,
+   "frame_rect": [
+    0,
+    287,
+    1920,
+    505
+   ]
+  },
+  {
+   "file": "v2_liberator_mech_dealer_part3.png",
+   "strip_x0": 3704,
+   "strip_w": 1596,
+   "frame_rect": [
+    0,
+    278,
+    1920,
+    523
+   ]
+  }
+ ]
+}

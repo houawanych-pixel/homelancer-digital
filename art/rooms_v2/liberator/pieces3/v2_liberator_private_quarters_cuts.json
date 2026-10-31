@@ -1,0 +1,51 @@
+{
+ "strip": [
+  4448,
+  462
+ ],
+ "cuts": [
+  1161,
+  2569,
+  4113
+ ],
+ "overlap": 40,
+ "frame": [
+  1920,
+  1080
+ ],
+ "parts": [
+  {
+   "file": "v2_liberator_private_quarters_part1.png",
+   "strip_x0": 1121,
+   "strip_w": 1488,
+   "frame_rect": [
+    0,
+    242,
+    1920,
+    596
+   ]
+  },
+  {
+   "file": "v2_liberator_private_quarters_part2.png",
+   "strip_x0": 2529,
+   "strip_w": 1624,
+   "frame_rect": [
+    0,
+    267,
+    1920,
+    546
+   ]
+  },
+  {
+   "file": "v2_liberator_private_quarters_part3.png",
+   "strip_x0": 4073,
+   "strip_w": 1576,
+   "frame_rect": [
+    0,
+    258,
+    1920,
+    563
+   ]
+  }
+ ]
+}
