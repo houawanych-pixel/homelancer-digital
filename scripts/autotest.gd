@@ -7586,8 +7586,8 @@ func _job_ax() -> void:
 	var fired: bool = s.trigger_system("heavy_missile")
 	var straight: bool = fired and GS.heavy_missiles == before - 1 and not s.missiles_live.is_empty() and s.missiles_live[-1]["target"] == null
 	GS.heavy_missiles = keep_h
-	_check("v1.5x: the super missile takes much longer to lock (%.1f s a lock, regular %.1f s) and goes 1 or 2 at a time; v1.9u (owner): without a lock it flies straight ahead" % [Data.HEAVY_LOCK_STEP, Data.LOCK_STEP],
-		counts == [0, 1, 2, 2] and straight, "locks %s, unlocked shot straight %s" % [str(counts), straight])
+	_check("v1.5x: the super missile takes much longer to lock (%.1f s a lock, regular %.1f s) and v11.12 (owner) holds more locks the longer you lock (one missile per lock); v1.9u (owner): without a lock it flies straight ahead" % [Data.HEAVY_LOCK_STEP, Data.LOCK_STEP],
+		counts.slice(0, 3) == [0, 1, 2] and int(counts[3]) > 2 and int(counts[3]) <= GS.max_locks("heavy_missile") and straight, "locks %s, unlocked shot straight %s" % [str(counts), straight])
 	_check("v1.5x: a mine hits as hard as a super missile", is_equal_approx(s.mine_damage(e), heavy))
 	# the magnetic mine: caught ships are pulled in to the blast point and held there for a few seconds
 	e["sh"] = 1e9   # (test only: it survives the blast)

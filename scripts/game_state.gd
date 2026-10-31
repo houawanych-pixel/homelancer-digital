@@ -586,8 +586,15 @@ func buy_rack(id: String) -> String:
 
 ## Most locks a slot item can hold on one target.
 func max_locks(item: String) -> int:
-	if item == "heavy_missile": return Data.HEAVY_LOCKS
-	return int(Data.MISSILE_RACKS.get(rack, Data.MISSILE_RACKS["triple"])["locks"]) + pod_sum("locks")   # v1.9e: each pod adds locks (v1.9h: its own)
+	if item == "heavy_missile": return Data.HEAVY_LOCKS + pod_locks(true)   # v11.12 (owner): a heavy box / turret adds super-missile locks
+	return int(Data.MISSILE_RACKS.get(rack, Data.MISSILE_RACKS["triple"])["locks"]) + pod_locks(false)   # v1.9e: each pod adds locks (v1.9h: its own)
+
+## v11.12: the locks the fitted pods add, light pods to the light missile, heavy ones to the super missile.
+func pod_locks(heavy: bool) -> int:
+	var n := 0
+	for it in mount_items():
+		if Data.MOUNT_PODS.has(it) and bool(Data.MOUNT_PODS[it].get("heavy", false)) == heavy: n += int(Data.MOUNT_PODS[it].get("locks", 0))
+	return n
 
 func buy_mines(n: int) -> String:
 	var room := max_mines() - mines

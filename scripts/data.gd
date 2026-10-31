@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.11"
+const VERSION := "v11.12"
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
@@ -181,7 +181,7 @@ const LOCK_SPREAD_MAX := 6            # ... at most this many hostiles at once (
 const LIGHT_LOCK_COLOR := Color(1.0, 0.25, 0.22)   # the light missile's lock counter: red, on top of the box
 const HEAVY_LOCK_COLOR := Color(0.72, 0.35, 1.0)   # the heavy missile's (slower) lock counter: purple, under the box
 const LOCK_STEP := 0.5                # seconds per lock
-const HEAVY_LOCKS := 2                # heavy (super) missile: up to two locks, HEAVY_LOCK_STEP each
+const HEAVY_LOCKS := 4                # v11.12 (owner: "fire more if lock on more"): up to four super-missile locks (+ heavy pods), one missile per lock
 const HEAVY_MISSILE_HULL_FRAC := 0.85 # heavy does at least this share of the target's hull
 # the rack on the LIGHT slot. "triple" comes with every ship; "swarm" is bought at Equipment.
 const MISSILE_RACKS := {
@@ -1300,7 +1300,7 @@ const BLAST_HEAVY_MISSILE := [30.0, 12, 10, 3, 0.15]   # its explosion ([flash s
 # (you send off 1 or 2). Mines are as strong as a super missile; two kinds, both with a blast radius: BLAST (the
 # old one) and MAGNETIC (it pulls the ships it hits in and holds them stuck for a few seconds).
 const HEAVY_MISSILE_MULT := 3.5        # a super missile = this many full regular missiles
-const HEAVY_LOCK_STEP := 2.5           # s per super-missile lock (regular: LOCK_STEP)
+const HEAVY_LOCK_STEP := 1.6           # s per super-missile lock (v11.12: was 2.5, so four locks build in a fight)
 const MAG_MINE_HOLD := 3.5             # s a magnetic mine holds the ships it caught
 const MAG_MINE_PULL := 4.0             # how hard it drags them in to the blast point
 const MINE_PRICE := 60
@@ -1658,7 +1658,7 @@ static func bounty_reward(id: String) -> int: return BOUNTY_REWARD * int(roster_
 const ENEMIES := {
 	# v1.9n (owner): the SILVER fleet invasion's big ships (capital = slow, turrets all round, a big hit box; missiles,
 	# mines and the special do set damage to them, not a share of their hull)
-	"inv_battleship": {"name": "Battleship", "model": "savager_carrier", "scale": 1.0, "hull": 9000.0, "shield": 3000.0, "speed": 7.0, "turn": 0.05, "damage": 9.0, "rate": 3.0, "reward": 3000, "capital": true, "hit_r": 62.0, "range": 1300.0, "radius": 70.0},
+	"inv_battleship": {"name": "Battleship", "model": "savager_carrier", "scale": 1.0, "hull": 4500.0, "shield": 1500.0, "speed": 7.0, "turn": 0.05, "damage": 9.0, "rate": 3.0, "reward": 3000, "capital": true, "hit_r": 62.0, "range": 1300.0, "radius": 70.0},
 	"inv_warship": {"name": "Warship", "model": "savager_cruiser", "scale": 2.0, "hull": 4500.0, "shield": 1500.0, "speed": 10.0, "turn": 0.08, "damage": 8.0, "rate": 2.4, "reward": 1500, "capital": true, "hit_r": 38.0, "range": 1100.0, "radius": 42.0},
 	"inv_destroyer": {"name": "Destroyer", "model": "savager_cruiser", "scale": 1.4, "hull": 3000.0, "shield": 1000.0, "speed": 14.0, "turn": 0.1, "damage": 7.0, "rate": 2.0, "reward": 1000, "capital": true, "hit_r": 28.0, "range": 1000.0, "radius": 30.0},
 	"kaiju_hive": {"name": "Kaijurai Hive", "class": "hive station", "faction": "Kaijurai", "model": "kaijurai_ravager", "scale": 1.0, "hull": 9000.0, "shield": 3000.0, "speed": 0.0, "turn": 0.0, "damage": 10.0, "rate": 1.6, "reward": 3500, "capital": true, "hit_r": 90.0, "range": 1300.0, "radius": 40.0},   # v10.8: a placeholder hive (the Ravager, grown) until a real one is made
