@@ -24,7 +24,16 @@ Data_SPAN = 0.07   # each cut may move this share of the strip from its equal th
 D = os.path.join(ROOT, "tools/rooms/.yolo")
 
 
+def _weights():
+    os.makedirs(D, exist_ok=True)
+    import urllib.request
+    for name, url in [("yolov4-tiny.weights", "https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4-tiny.weights"),
+                      ("yolov4-tiny.cfg", "https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4-tiny.cfg")]:
+        if not os.path.exists(os.path.join(D, name)): urllib.request.urlretrieve(url, os.path.join(D, name))
+
+
 def people(im):
+    _weights()
     net = cv2.dnn.readNetFromDarknet(os.path.join(D, "yolov4-tiny.cfg"), os.path.join(D, "yolov4-tiny.weights"))
     ln = [net.getLayerNames()[i - 1] for i in net.getUnconnectedOutLayers().flatten()]
     H, W = im.shape[:2]
