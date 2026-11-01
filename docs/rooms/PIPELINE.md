@@ -4,6 +4,28 @@ Every image and video prompt starts with the STYLE block in `docs/rooms/STYLE_PR
 Nothing gets animated until the owner has approved the exact frames that will be animated: animation costs credits,
 so every mistake is caught on a still picture first.
 
+## THE WORKFLOW (owner, Nov 1 2026) – one room at a time, the owner approves each step
+Roles: Grok = room prompt + seam-fill prompts. Owner = makes the images (ChatGPT) and animates. Claude = cut,
+stitch, check, cut in 3, reassemble, push.
+1. ROOM SHEET: one 16:9 image, TOP half = 180 deg FRONT, BOTTOM half = 180 deg BACK, same camera at the room's
+   centre, one straight horizon at the same height in both; plain wall / columns / floor at all four outer edges
+   (no people or big objects on an edge); characters at middle distance (nearest ~25-30% of panel height), the
+   bottom third of the floor open; emblem only on screens / holo panels.
+2. CUT IN HALF (Claude): exactly horizontally, no cropping, resizing or white space. FRONT | BACK end to end: two
+   seams, A = FRONT right -> BACK left, B = BACK right -> FRONT left (the wrap).
+3. CHECK THE SEAMS (Claude): horizon, balcony / rail / floor line heights, people scale; show close crops. A seam
+   that lines up is kept. One that doesn't gets a seam image: last ~25% of one strip | a white gap only as wide as
+   needed | first ~25% of the next, same height. Grok writes the fill prompt, the owner fills it.
+4. PUT FILLS BACK (Claude): crop white bands, scale back to the seam image's exact size, register to the untouched
+   sides, use only the gap pixels, blend a narrow band, never cut a person. Shifted architecture or doubled /
+   broken people = reject, refill. The owner approves the seam crops.
+5. STITCH 360 -> art/rooms_v2/<f>/pano/<room>_360.png (check the wrap seam too).
+6. CUT 3 PARTS: tools/rooms/v2_cut3.py; give the owner the 3 parts cropped to the strip (no white bands).
+7. OWNER ANIMATES the 3 parts -> 3 MP4s (A = part1, B = part2, C = part3).
+8. REASSEMBLE + PUSH (Claude): tools/rooms/v2_animate3.py -> assets/rooms/<f>/<room>.*; pull --rebase, push to
+   homelancer-v1.2; the web playtest must pass. Small glitches at seams are fine (game characters hide them).
+9. NEXT ROOM.
+
 ## Owner's fixes (Nov 1 2026): NO room animation until these hold and the owner approves
 - ONE ROOM AT A TIME: show the owner the picture (then the joins, then the stitched 360) and wait for "approved"
   before the next room. No batch runs until the owner trusts the output.
