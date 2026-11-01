@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.22"
+const VERSION := "v11.23"
 const STATION_SIZE := 2.0   # v11.21 (owner: "double the size of all space stations")
 const ESCORT_FREIGHTER_LEN := 180.0   # v11.16 (owner): the escort / cargo-run freighter is a big ship (m long), not fighter-sized (was 16)
 
@@ -1917,4 +1917,6 @@ const BREAKOUT_ADVANCE_CHANCE := 0.5   # each move: step up (else fire)
 const BREAKOUT_CATCH_TIME := 3.2       # s at the front layer before they catch you
 const BREAKOUT_TURN := 0.32          # v11.21 (owner: "360"): the LAYERS fight's view turns this share of the room a second (left stick)
 const BREAKOUT_VIEW := 0.3           # share of the room's loop on screen
+const BREAKOUT_FALL_SPEED := 2.0     # v11.23 (owner: "they fall down slow"): the fall clips play this much faster
+const BREAKOUT_DEAD_SHOW := 2.4      # s a fallen one stays before it fades
 const BREAKOUT_BOLT_TIME := 0.75       # s a laser bolt takes to reach you (time to dodge)

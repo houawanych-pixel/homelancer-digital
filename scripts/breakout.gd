@@ -114,7 +114,7 @@ func _on_pack(pk: String) -> void:
 	if pk == "chars_" + faction:
 		_load_cast()
 		squad_leader = cast.get(_boss_slot(), {})
-	elif room_i < rooms.size() and pk == "room_hostile_%s_%s" % [faction, rooms[room_i]]:
+	elif room_i < rooms.size() and (pk == "room_hostile_%s_%s" % [faction, rooms[room_i]] or pk == "room_%s_%s" % [faction, rooms[room_i]]):
 		strip = _room_texture(str(rooms[room_i]))
 	queue_redraw()
 
@@ -300,6 +300,10 @@ func _process(dt: float) -> void:
 	_tracers = _tracers.filter(func(t): return t["t"] > 0.0)
 	for p in _pops: p["t"] -= dt
 	_pops = _pops.filter(func(p): return p["t"] > 0.0)
+	if strip == null and room_i < rooms.size() and fmod(_alarm_t, 0.5) < dt:   # v11.23: the room picture is still on its way: ask again, swap it in when it lands
+		Packs.request("room_hostile_%s_%s" % [faction, rooms[room_i]])
+		Packs.request("room_%s_%s" % [faction, rooms[room_i]])
+		strip = _room_texture(str(rooms[room_i]))
 	match state:
 		"fight":
 			_read_sticks(dt)
@@ -503,6 +507,8 @@ func shoot(e: Dictionary) -> void:
 	var from := Vector2(size.x * (0.5 + 0.18 * float(lane)), size.y)
 	_tracers.append({"a": from, "b": _enemy_rect(e).get_center(), "t": 0.06, "col": Color(0.5, 0.9, 1.0)})
 	Sfx.play("rifle_heavy" if layered() else "blaster_blue", -12.0, 1.25 if layered() else 1.0)
+	var er := _enemy_rect(e)
+	e["head"] = aim.y * size.y < er.position.y + er.size.y * 0.2   # v11.23 (owner): a headshot falls its own way
 	if shielded(e):
 		e["ripple"] = 0.25
 		shield_blocks += 1
@@ -663,7 +669,7 @@ func _draw() -> void:
 		var sc := Color(1, 0.35, 0.3) if open else (Color(0.5, 0.85, 1.0) if tgt != null else Color(1, 1, 1, 0.9))
 		draw_arc(a, 26, 0, TAU, 32, sc, 3.0)
 		for d in [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]: draw_line(a + d * 14, a + d * 38, sc, 3.0)
-	for p in _pops: draw_string(font, p["p"] - Vector2(160, 30), p["text"], HORIZONTAL_ALIGNMENT_CENTER, 320, 26, p["col"])
+	for p in _pops: draw_string(font, p["p"] - Vector2(S.x * 0.45, 30), p["text"], HORIZONTAL_ALIGNMENT_CENTER, S.x * 0.9, 26, p["col"])   # (v11.23: whole lines, not cut off)
 	_draw_hud(S, pulse)
 	_draw_sticks(S)
 
@@ -702,7 +708,7 @@ func anim_of(e: Dictionary) -> Array:
 	var boss: bool = e["boss"]
 	var dead: bool = e["hp"] <= 0
 	var clip := "idle"
-	if dead: clip = "hit" if boss else "fall"
+	if dead: clip = "hit" if boss else ("fall_head" if e.get("head", false) and not sheet("guard_fall_head").is_empty() else "fall")
 	elif boss and (e["state"] in ["aim", "fire", "rush", "duel"]): clip = "blade"
 	elif e["state"] in ["aim", "fire"]: clip = "shoot"
 	elif e["state"] in ["enter", "run"]: clip = "run"   # v11.20: running sideways (the side-view clip, flipped to go left)
@@ -720,7 +726,7 @@ func _draw_anim(e: Dictionary, foot: Vector2, h: float, mod: Color) -> bool:
 	var sh := sheet(str(a[0]))
 	if sh.is_empty(): return false
 	var n := int(sh["frames"])
-	var fi := int(float(a[1]) * float(sh["fps"]))
+	var fi := int(float(a[1]) * float(sh["fps"]) * (Data.BREAKOUT_FALL_SPEED if (e["hp"] <= 0) else 1.0))   # v11.23 (owner): the falls play faster
 	fi = fi % n if a[2] else mini(fi, n - 1)
 	var cols := int(sh["cols"])
 	var fw := float(sh["fw"])
@@ -744,7 +750,7 @@ func _draw_guard(e: Dictionary, col: Color) -> void:
 	if e["flash"] > 0.0: mod = Color(2.2, 1.4, 1.4)
 	if not sheet("guard_idle").is_empty():   # v11.17: the moving fighters (they fall in their own clip)
 		if dead:
-			var kd := clampf((float(e["dead_t"]) - 3.0) / 0.6, 0.0, 1.0)
+			var kd := clampf((float(e["dead_t"]) - Data.BREAKOUT_DEAD_SHOW) / 0.5, 0.0, 1.0)
 			if kd >= 1.0: return
 			mod.a = 1.0 - kd
 		_draw_anim(e, b, h, mod)

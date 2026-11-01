@@ -10364,7 +10364,8 @@ func _breakout_orion_check() -> void:
 		and not probe.sheet("boss_blade").is_empty() and str(probe.anim_of({"boss": false, "hp": 1, "state": "fire"})[0]) == "guard_shoot" \
 		and str(probe.anim_of({"boss": true, "hp": 1, "state": "rush"})[0]) == "boss_blade" and str(probe.anim_of({"boss": false, "hp": 0, "state": "patrol"})[0]) == "guard_fall" \
 		and str(probe.anim_of({"boss": false, "hp": 1, "state": "run"})[0]) == "guard_run" and str(probe.anim_of({"boss": false, "hp": 1, "state": "advance"})[0]) == "guard_charge" \
-		and str(probe.anim_of({"boss": true, "hp": 1, "state": "enter"})[0]) == "boss_run"
+		and str(probe.anim_of({"boss": true, "hp": 1, "state": "enter"})[0]) == "boss_run" \
+		and str(probe.anim_of({"boss": false, "hp": 0, "state": "patrol", "head": true})[0]) == "guard_fall_head"
 	# v11.19 (owner): the LAYERS fight: they step up layer by layer, bolts you dodge, caught at the front
 	probe.enemies = []
 	probe.bolts = []
