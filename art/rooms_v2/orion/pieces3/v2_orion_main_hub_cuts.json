@@ -1,12 +1,12 @@
 {
  "strip": [
-  4448,
-  464
+  4036,
+  470
  ],
  "cuts": [
-  522,
-  1830,
-  3176
+  668,
+  2045,
+  3740
  ],
  "overlap": 40,
  "frame": [
@@ -16,35 +16,35 @@
  "parts": [
   {
    "file": "v2_orion_main_hub_part1.png",
-   "strip_x0": 482,
-   "strip_w": 1388,
+   "strip_x0": 628,
+   "strip_w": 1457,
    "frame_rect": [
     0,
-    219,
+    230,
     1920,
-    642
+    619
    ]
   },
   {
    "file": "v2_orion_main_hub_part2.png",
-   "strip_x0": 1790,
-   "strip_w": 1426,
+   "strip_x0": 2005,
+   "strip_w": 1775,
    "frame_rect": [
     0,
-    227,
+    286,
     1920,
-    625
+    508
    ]
   },
   {
    "file": "v2_orion_main_hub_part3.png",
-   "strip_x0": 3136,
-   "strip_w": 1874,
+   "strip_x0": 3700,
+   "strip_w": 1044,
    "frame_rect": [
     0,
-    302,
+    108,
     1920,
-    475
+    864
    ]
   }
  ]
