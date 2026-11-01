@@ -56,6 +56,24 @@ var stick_hold: Variant = null   # (tests) a left stick held in place
 var _rng := RandomNumberGenerator.new()
 var _fire_cd := 0.0
 var _tracers: Array = []  # {a, b, t, col}
+var bolts: Array = []     # v11.19: enemy laser bolts on their way to you {from, lane, t, rank}
+var caught_by := ""       # v11.19: who caught you (the front layer)
+
+## v11.19 (owner): the LAYERS fight (4 layers, they close in, bolts you dodge, caught at the front).
+func layered() -> bool:
+	return bool(Data.BREAKOUT_ART.get(faction, {}).get("layers", false))
+
+func _layer_of(depth: float) -> int:
+	var best := 0
+	for i in Data.BREAKOUT_LAYER_DEPTH.size():
+		if absf(float(Data.BREAKOUT_LAYER_DEPTH[i]) - depth) < absf(float(Data.BREAKOUT_LAYER_DEPTH[best]) - depth): best = i
+	return best
+
+func _lerp_layers(arr: Array, depth: float) -> float:
+	var n := arr.size() - 1
+	var f := clampf(depth, 0.0, 1.0) * n
+	var i := mini(int(f), n - 1)
+	return lerpf(float(arr[i]), float(arr[i + 1]), f - i)
 var _pops: Array = []     # {p, text, t, col}
 var _alarm_t := 0.0
 var _pan := 0.0
@@ -144,6 +162,8 @@ func _enter_room() -> void:
 	state_t = 0.0
 	duel = {}
 	_tracers.clear()
+	bolts.clear()
+	caught_by = ""
 	_pops.clear()
 	_pan = _rng.randf_range(0.05, 0.75)
 	strip = _room_texture(str(rooms[room_i]))
@@ -152,6 +172,9 @@ func _enter_room() -> void:
 	boss_out = false
 	squad_leader = cast.get(_boss_slot(), {})
 	_start_wave()
+	if layered():   # v11.19 (owner: "I don't know how to play"): the rules, once per room
+		_pops.append({"p": Vector2(size.x * 0.5, size.y * 0.42), "text": "SHOOT THEM BEFORE THEY REACH THE FRONT", "t": 3.0, "col": Color(1, 0.9, 0.5)})
+		_pops.append({"p": Vector2(size.x * 0.5, size.y * 0.5), "text": "LEFT STICK: DODGE THE GREEN BOLTS", "t": 3.0, "col": Color(0.6, 1, 0.7)})
 	room_changed.emit(room_i)
 	queue_redraw()
 
@@ -189,6 +212,14 @@ func _spawn(slot: int, zi: int, boss: bool, at_once := false) -> Dictionary:
 		"x": x if at_once else (-0.08 if from_left else 1.08), "goal": x, "dir": 1.0 if from_left else -1.0,
 		"state": "patrol" if at_once else "enter", "t": _rng.randf_range(Data.BREAKOUT_CALM[0], Data.BREAKOUT_CALM[1]) + (0.6 if at_once else 0.0),
 		"lane": 0, "flash": 0.0, "dead_t": 0.0, "muzzle": 0.0, "ripple": 0.0, "rush": 0.0, "flip": _rng.randf() < 0.5, "leader": boss}
+	if layered():   # v11.19: in at the back layer, running in from a side
+		e["depth"] = 0.0
+		e["layer"] = 0
+		e["x"] = -0.06 if from_left else 1.06
+		e["goal"] = _rng.randf_range(0.12, 0.88)
+		e["state"] = "enter"
+		e["catch"] = Data.BREAKOUT_CATCH_TIME
+		e["t"] = _rng.randf_range(Data.BREAKOUT_LAYER_WAIT[0], Data.BREAKOUT_LAYER_WAIT[1])
 	enemies.append(e)
 	return e
 
@@ -310,9 +341,13 @@ func next_room() -> void:
 
 ## A guard's force field is up unless it is firing (the aim and the shot), dead, or blade-fighting you.
 func shielded(e: Dictionary) -> bool:
+	if layered(): return false   # v11.19: no force fields
 	return e["hp"] > 0 and not (e["state"] in ["aim", "fire"]) and duel.get("id", -1) != e["id"]
 
 func _update_enemies(dt: float) -> void:
+	if layered():
+		_update_layers(dt)
+		return
 	for e in enemies:
 		e["muzzle"] = maxf(0.0, float(e["muzzle"]) - dt)
 		e["ripple"] = maxf(0.0, float(e["ripple"]) - dt)
@@ -358,7 +393,76 @@ func _update_enemies(dt: float) -> void:
 				e["x"] = lerpf(float(e["x"]), 0.5, dt * 2.0)
 				if e["rush"] >= 1.0: start_duel(e)
 
+## v11.19: the LAYERS fight. Run in, stand, fire (bolts) or step up a layer; at the front the catch clock runs.
+func _update_layers(dt: float) -> void:
+	for b in bolts: b["t"] = float(b["t"]) + dt / Data.BREAKOUT_BOLT_TIME
+	for b in bolts.filter(func(o): return float(o["t"]) >= 1.0): _bolt_lands(b)
+	bolts = bolts.filter(func(o): return float(o["t"]) < 1.0)
+	for e in enemies:
+		e["muzzle"] = maxf(0.0, float(e["muzzle"]) - dt)
+		e["flash"] = maxf(0.0, float(e["flash"]) - dt)
+		e["anim_t"] = float(e.get("anim_t", 0.0)) + dt
+		if e["hp"] <= 0:
+			e["dead_t"] = float(e["dead_t"]) + dt
+			continue
+		e["t"] -= dt
+		if int(e.get("layer", 0)) >= Data.BREAKOUT_LAYER_DEPTH.size() - 1 and e["state"] != "advance":
+			e["catch"] = float(e["catch"]) - dt
+			if float(e["catch"]) <= 0.0 and caught_by == "":
+				caught_by = str(cast.get(int(e["slot"]), {}).get("name", "SECURITY"))
+				hp = 0.0
+		match e["state"]:
+			"enter", "run":   # running sideways to its spot on this layer
+				e["x"] = move_toward(float(e["x"]), float(e["goal"]), dt * Data.BREAKOUT_RUN)
+				e["flip"] = float(e["goal"]) < float(e["x"])
+				if absf(float(e["x"]) - float(e["goal"])) < 0.003: e["state"] = "patrol"
+			"patrol":
+				if e["t"] <= 0.0:
+					var front: bool = int(e["layer"]) >= Data.BREAKOUT_LAYER_DEPTH.size() - 1
+					if not front and _rng.randf() < Data.BREAKOUT_ADVANCE_CHANCE:
+						e["state"] = "advance"
+						e["from_d"] = float(e["depth"])
+						e["from_x"] = float(e["x"])
+						e["layer"] = int(e["layer"]) + 1
+						e["goal"] = clampf(float(e["x"]) + _rng.randf_range(-0.3, 0.3), 0.1, 0.9)
+						e["adv"] = 0.0
+					else:
+						e["state"] = "aim"
+						e["t"] = Data.BREAKOUT_AIM_TIME * (0.8 if e["boss"] else 1.0)
+						e["lane"] = lane
+			"advance":   # stepping up one layer (and across a little)
+				e["adv"] = minf(1.0, float(e["adv"]) + dt / Data.BREAKOUT_ADVANCE_TIME)
+				var k := float(e["adv"])
+				e["depth"] = lerpf(float(e["from_d"]), float(Data.BREAKOUT_LAYER_DEPTH[int(e["layer"])]), k)
+				e["x"] = lerpf(float(e["from_x"]), float(e["goal"]), k)
+				if k >= 1.0:
+					e["state"] = "patrol"
+					e["t"] = _rng.randf_range(Data.BREAKOUT_LAYER_WAIT[0], Data.BREAKOUT_LAYER_WAIT[1])
+			"aim":
+				if e["t"] <= 0.0:
+					_enemy_fire(e)
+					e["state"] = "fire"
+					e["t"] = Data.BREAKOUT_FIRE_TIME
+			"fire":
+				if e["t"] <= 0.0:
+					e["state"] = "patrol"
+					e["t"] = _rng.randf_range(Data.BREAKOUT_LAYER_WAIT[0], Data.BREAKOUT_LAYER_WAIT[1])
+
+## A bolt arrives: it hits if you are still where it was aimed (side-step or duck to dodge it).
+func _bolt_lands(b: Dictionary) -> void:
+	if ducked or lane != int(b["lane"]):
+		dodged += 1
+		return
+	hp -= Data.BREAKOUT_DMG_PER_RANK * float(b["rank"]) + Data.BREAKOUT_DMG_BASE
+	hits_taken += 1
+	Sfx.play("hull_hit", -6.0)
+
 func _enemy_fire(e: Dictionary) -> void:
+	if layered():   # v11.19: a muzzle flash and a real bolt on its way (no line off the screen)
+		e["muzzle"] = 0.12
+		bolts.append({"from": _enemy_muzzle(e), "lane": int(e["lane"]), "t": 0.0, "rank": int(e["rank"])})
+		Sfx.play("rifle_heavy", -6.0)
+		return
 	var from := _enemy_head(e)
 	e["muzzle"] = 0.09
 	var to := Vector2(size.x * (0.5 + 0.28 * float(e["lane"])), size.y * 0.98)
@@ -384,7 +488,7 @@ func shoot(e: Dictionary) -> void:
 	shots_fired += 1
 	var from := Vector2(size.x * (0.5 + 0.18 * float(lane)), size.y)
 	_tracers.append({"a": from, "b": _enemy_rect(e).get_center(), "t": 0.06, "col": Color(0.5, 0.9, 1.0)})
-	Sfx.play("blaster_blue", -12.0)
+	Sfx.play("rifle_heavy" if layered() else "blaster_blue", -12.0, 1.25 if layered() else 1.0)
 	if shielded(e):
 		e["ripple"] = 0.25
 		shield_blocks += 1
@@ -402,7 +506,7 @@ func _hurt(e: Dictionary) -> void:
 func target_under_sight() -> Variant:
 	var p := aim * size
 	for e in enemies:
-		if e["hp"] > 0 and e["state"] != "enter" and _enemy_rect(e).has_point(p): return e
+		if e["hp"] > 0 and (e["state"] != "enter" or layered()) and _enemy_rect(e).has_point(p): return e
 	return null
 
 ## ---------------------------------------------------------------- the laser blade duel
@@ -450,12 +554,13 @@ func _view_off() -> Vector2:   # side-stepping moves the view; ducking drops it
 	return Vector2(-float(lane) * size.x * 0.06, size.y * (0.08 if ducked else 0.0))
 
 func _enemy_scale(e: Dictionary) -> float:
+	if layered(): return _lerp_layers(Data.BREAKOUT_LAYER_SCALE, float(e["depth"])) * (1.1 if e["boss"] else 1.0)
 	var s := lerpf(0.78, 1.08, float(e["depth"]))
 	if e["state"] == "rush": s *= lerpf(1.0, 1.7, float(e["rush"]))
 	return s * (1.12 if e["boss"] else 1.0)
 
 func _enemy_base(e: Dictionary) -> Vector2:   # where its feet are
-	var y := lerpf(0.66, 0.84, float(e["depth"]))
+	var y := lerpf(0.66, 0.84, float(e["depth"])) if not layered() else _lerp_layers(Data.BREAKOUT_LAYER_FEET, float(e["depth"]))
 	if e["state"] == "rush": y = lerpf(y, 0.98, float(e["rush"]))
 	return Vector2(float(e["x"]) * size.x, y * size.y) + _view_off()
 
@@ -467,6 +572,9 @@ func _enemy_rect(e: Dictionary) -> Rect2:   # the body you can hit
 	var h := _enemy_h(e)
 	var w := h * 0.3
 	return Rect2(b.x - w * 0.5, b.y - h * 0.95, w, h * 0.8)
+
+func _enemy_muzzle(e: Dictionary) -> Vector2:   # v11.19: the rifle's end (the shooting clip holds it at chest height)
+	return _enemy_base(e) - Vector2(0, _enemy_h(e) * 0.6)
 
 func _enemy_head(e: Dictionary) -> Vector2:
 	var b := _enemy_base(e)
@@ -495,7 +603,20 @@ func _draw() -> void:
 	for e in order:
 		if duel.get("id", -1) != e["id"]: _draw_guard(e, col)
 	for t in _tracers: draw_line(t["a"], t["b"], t["col"], 4.0)
+	for b in bolts: _draw_bolt(b, S)
 	for e in enemies:   # who is about to fire, and at which spot
+		if layered():
+			if e["hp"] > 0 and e["muzzle"] > 0.0:   # the muzzle flash
+				var mp := _enemy_muzzle(e)
+				draw_circle(mp, _enemy_h(e) * 0.06, Color(0.5, 1.0, 0.6, 0.9))
+				draw_circle(mp, _enemy_h(e) * 0.03, Color(1, 1, 1))
+			if e["hp"] > 0 and int(e.get("layer", 0)) >= Data.BREAKOUT_LAYER_DEPTH.size() - 1 and e["state"] != "advance":   # the catch clock
+				var hb := _enemy_head(e) - Vector2(40, 34)
+				var k := clampf(float(e["catch"]) / Data.BREAKOUT_CATCH_TIME, 0.0, 1.0)
+				draw_rect(Rect2(hb, Vector2(80, 8)), Color(0, 0, 0, 0.6))
+				draw_rect(Rect2(hb, Vector2(80 * k, 8)), Color(1, 0.25 + 0.5 * k, 0.2))
+				draw_string(font, hb - Vector2(20, 6), "CATCHING YOU", HORIZONTAL_ALIGNMENT_CENTER, 120, 13, Color(1, 0.5, 0.4))
+			continue
 		if e["hp"] > 0 and e["state"] == "aim":
 			var to := Vector2(S.x * (0.5 + 0.28 * float(e["lane"])), S.y * 0.98)
 			draw_line(_enemy_head(e), to, Color(1, 0.1, 0.1, 0.35 + 0.4 * pulse), 2.0)
@@ -510,6 +631,18 @@ func _draw() -> void:
 	for p in _pops: draw_string(font, p["p"] - Vector2(160, 30), p["text"], HORIZONTAL_ALIGNMENT_CENTER, 320, 26, p["col"])
 	_draw_hud(S, pulse)
 	_draw_sticks(S)
+
+## v11.19: a bolt flying at you: a glowing streak that grows as it comes, aimed at the spot you were in.
+func _draw_bolt(b: Dictionary, S: Vector2) -> void:
+	var k := clampf(float(b["t"]), 0.0, 1.0)
+	var to := Vector2(S.x * (0.5 + 0.28 * float(b["lane"])), S.y * 0.9) + _view_off() * 0.5
+	var p: Vector2 = (b["from"] as Vector2).lerp(to, k * k)
+	var dir := (to - (b["from"] as Vector2)).normalized()
+	var ln := lerpf(10.0, 90.0, k * k)
+	var wd := lerpf(3.0, 22.0, k * k)
+	draw_line(p - dir * ln, p, Color(0.3, 1.0, 0.45, 0.35), wd * 2.2)
+	draw_line(p - dir * ln, p, Color(0.6, 1.0, 0.7, 0.9), wd)
+	draw_line(p - dir * ln * 0.7, p, Color(1, 1, 1, 0.95), wd * 0.35)
 
 ## v11.17 (owner's clips): a faction's fighters move: idle, shoot (the guards), blade (the boss), fall / hit.
 ## Sprite sheets made by tools/crew/clip_sheet.py: {tex, frames, cols, fw, fh, fps, foot, stand}.
@@ -674,8 +807,8 @@ func _draw_hud(S: Vector2, pulse: float) -> void:
 	if state == "clear":
 		draw_string(font, Vector2(0, S.y * 0.4), "ROOM CLEAR" if room_i < rooms.size() - 1 else "HANGAR REACHED", HORIZONTAL_ALIGNMENT_CENTER, S.x, 48, Color(0.5, 1, 0.6))
 	elif state == "down":
-		var arrested := boss_out and Data.BREAKOUT_ART.has(faction)   # v11.15 (owner): the marshal came to arrest you
-		draw_string(font, Vector2(0, S.y * 0.4), ("ARRESTED BY %s. BREAK FREE..." % str(Data.BREAKOUT_ART[faction]["boss_name"]).to_upper()) if arrested else "YOU WENT DOWN. AGAIN...", HORIZONTAL_ALIGNMENT_CENTER, S.x, 44 if not arrested else 34, Color(1, 0.4, 0.35))
+		var arrested := (boss_out and Data.BREAKOUT_ART.has(faction)) or caught_by != ""   # v11.15 (owner): the marshal came to arrest you
+		draw_string(font, Vector2(0, S.y * 0.4), ("CAUGHT BY %s. BREAK FREE..." % caught_by.to_upper() if caught_by != "" else "ARRESTED BY %s. BREAK FREE..." % str(Data.BREAKOUT_ART[faction]["boss_name"]).to_upper()) if arrested else "YOU WENT DOWN. AGAIN...", HORIZONTAL_ALIGNMENT_CENTER, S.x, 44 if not arrested else 34, Color(1, 0.4, 0.35))
 
 func _draw_sticks(S: Vector2) -> void:
 	var lc := Vector2(130, S.y - 130)

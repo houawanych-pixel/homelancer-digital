@@ -3174,6 +3174,8 @@ func _job_v1114() -> void:
 	await _frames(20)
 	var alarm_ok: bool = has_btn and hb.lockdown and hb.breakout != null and hb.breakout.visible and hb.breakout.faction == "orion" and hb.launch_btn.disabled
 	await _shot("v1117_alarm_test", 0.5)
+	await _wait(4.0)
+	await _shot("v1119_layers_fight", 0.0)
 	if hb.breakout != null:
 		hb.breakout.visible = false
 		hb.breakout._stop_siren()
@@ -10361,7 +10363,37 @@ func _breakout_orion_check() -> void:
 	var anim_ok: bool = not probe.sheet("guard_idle").is_empty() and not probe.sheet("guard_shoot").is_empty() and not probe.sheet("guard_fall").is_empty() \
 		and not probe.sheet("boss_blade").is_empty() and str(probe.anim_of({"boss": false, "hp": 1, "state": "fire"})[0]) == "guard_shoot" \
 		and str(probe.anim_of({"boss": true, "hp": 1, "state": "rush"})[0]) == "boss_blade" and str(probe.anim_of({"boss": false, "hp": 0, "state": "patrol"})[0]) == "guard_fall"
+	# v11.19 (owner): the LAYERS fight: they step up layer by layer, bolts you dodge, caught at the front
+	probe.enemies = []
+	probe.bolts = []
+	probe.hp = 100.0
+	var lg: Dictionary = probe._spawn(1, 0, false, true)
+	var start_back: bool = probe.layered() and float(lg["depth"]) == 0.0 and int(lg["layer"]) == 0
+	lg["state"] = "advance"
+	lg["from_d"] = 0.67
+	lg["from_x"] = 0.5
+	lg["layer"] = 3
+	lg["goal"] = 0.5
+	lg["adv"] = 0.0
+	for i in 40: probe._update_layers(0.05)
+	var at_front: bool = is_equal_approx(float(lg["depth"]), 1.0) and lg["state"] in ["patrol", "aim", "fire"]
+	var big: bool = probe._enemy_scale(lg) > 1.2
+	lg["t"] = 99.0
+	lg["state"] = "patrol"
+	lg["catch"] = Data.BREAKOUT_CATCH_TIME
+	probe.bolts = [{"from": Vector2.ZERO, "lane": 0, "t": 0.0, "rank": 1}]
+	probe.lane = 1   # side-stepped: it misses
+	for i in 20: probe._update_layers(0.05)
+	var dodge_ok: bool = probe.dodged >= 1 and probe.hp == 100.0
+	probe.lane = 0
+	probe.bolts = [{"from": Vector2.ZERO, "lane": 0, "t": 0.0, "rank": 1}]
+	for i in 20: probe._update_layers(0.05)
+	var hit_ok: bool = probe.hp < 100.0
+	for i in 60: probe._update_layers(0.05)
+	var caught_ok: bool = probe.hp <= 0.0 and probe.caught_by != ""
 	probe.free()
+	_check("v11.19 (owner): Orion's fight in 4 layers: soldiers come in at the back, step up layer by layer (bigger), fire real bolts you dodge by side-stepping, and one at the front layer for %.1f s catches you" % Data.BREAKOUT_CATCH_TIME,
+		start_back and at_front and big and dodge_ok and hit_ok and caught_ok, "back %s front %s big %s dodge %s hit %s caught %s" % [start_back, at_front, big, dodge_ok, hit_ok, caught_ok])
 	_check("v11.17 (owner's clips): Orion's lockdown fighters move: guards idle, shoot and fall; the marshal swings his blade", anim_ok)
 	_check("v11.15 (owner): Orion's lockdown: every guard is the helmeted Orion soldier, ONE boss (%s, laser blade) and only at the hangar" % str(art["boss_name"]),
 		guards_ok and boss_ok and no_mid_boss and hangar_boss, "guards %s boss %s no mid boss %s hangar boss %s" % [guards_ok, boss_ok, no_mid_boss, hangar_boss])
