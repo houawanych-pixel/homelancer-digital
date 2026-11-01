@@ -11060,7 +11060,8 @@ func _job_fl() -> void:
 	var ms0: int = GS.slot_ammo("light_missile")
 	main._on_hud("kill")
 	main._on_hud("warp")
-	var locked_ok: bool = not s.engine_kill and s.warp_state == "off"
+	var locked_ok: bool = s.engine_kill and s.warp_state == "off"   # (v11.25 owner: ENGINE KILL works cloaked; warp stays locked)
+	main._on_hud("kill")
 	hud.held["thrust"] = true
 	await _frames(2)
 	var no_thrust: bool = not s.thrust_held
@@ -11068,7 +11069,7 @@ func _job_fl() -> void:
 	main._on_hud("cloak")
 	await _wait(Data.CLOAK_ZAP + 0.2)
 	var paint_back: bool = not s._cloak_glass_on and not s.cloaked
-	_check("v10.6 (owner): CLOAK crackles with electricity, then the ship goes see-through glass; thrust, engine kill and warp are locked; dropping it brings the paint back",
+	_check("v10.6 (owner): CLOAK crackles with electricity, then the ship goes see-through glass; thrust and warp are locked (v11.25: engine kill works); dropping it brings the paint back",
 		zapping and glassy and locked_ok and no_thrust and paint_back and GS.slot_ammo("light_missile") == ms0, "zap %s glass %s locked %s thrust %s back %s" % [zapping, glassy, locked_ok, no_thrust, paint_back])
 	# v7.7 (owner): the windows scroll: a drag on the contact list moves it, a tap still picks the row
 	var extra: Array = []
