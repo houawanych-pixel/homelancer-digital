@@ -111,7 +111,7 @@ static func _all_offers(sys_id: String, station_id: String, owner: String, pid: 
 		var st0: Vector3 = sys["station"]["pos"]
 		var v: Vector3 = (cl["center"] as Vector3) - st0
 		for which in ["ship", "base"]:
-			var pk := "disturbance_" + which
+			var pk: String = "disturbance_" + str(which)
 			out.append({"kind": "disturbance", "target": which, "faction": enemy, "slot": Data.PATROL_MAX_SLOT, "pay": Data.MISSION_PAY[pk],
 				"title": "Investigate enemy disturbance: %s" % ("a battleship in the %s cloud" if which == "ship" else "a hidden base in the %s cloud") % str(cl.get("name", "nebula")),
 				"giver": station_id, "giver_sys": sys_id, "sys": sys_id, "cloud": str(cl.get("name", "")),

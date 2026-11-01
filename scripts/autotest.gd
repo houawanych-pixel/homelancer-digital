@@ -1552,7 +1552,6 @@ func _run() -> void:
 		await _until(func(): return main.state == "flight", 10.0)
 		await _wait(1.0)
 		await _job_v11()
-	await _job_v1125()
 		await _job_v1125()
 		for r in results: print("[route] ", r)
 		get_tree().quit()
@@ -2110,6 +2109,7 @@ func _run() -> void:
 	await _job_v108()
 	await _job_v109()
 	await _job_v11()
+	await _job_v1125()
 	await _job_v111()
 	await _job_v114()
 	await _job_edge()
@@ -3287,11 +3287,11 @@ func _job_v1125() -> void:
 		dm["stage"] = 0
 		dm["spawned"] = -1
 		GS.mission = dm
-		var at: Vector3 = Missions.point_pos(s, 0)
+		var dat: Vector3 = Missions.point_pos(s, 0)
 		var in_cloud := false
 		for cl in s.nebulae:
-			if at.distance_to(cl["center"]) < float(cl["radius"]) * 1.2: in_cloud = true
-		s.player.global_position = at + Vector3(0, 200, 1200)
+			if dat.distance_to(cl["center"]) < float(cl["radius"]) * 1.2: in_cloud = true
+		s.player.global_position = dat + Vector3(0, 200, 1200)
 		s.dist_log.clear()
 		s.disturbance_tick(0.1, dm)
 		var bs: Array = s.invasion_units("battleship")
