@@ -77,6 +77,8 @@ func _lerp_layers(arr: Array, depth: float) -> float:
 var _pops: Array = []     # {p, text, t, col}
 var _alarm_t := 0.0
 var _pan := 0.0
+var view_yaw := 0.0       # v11.21: where you face in the 360 room (share of the loop; LAYERS fight)
+var turn := 0.0           # the left stick's turn (-1 .. 1)
 var _lstick := Vector2.ZERO
 var _touch_l := -1
 var _touch_r := -1
@@ -166,6 +168,7 @@ func _enter_room() -> void:
 	caught_by = ""
 	_pops.clear()
 	_pan = _rng.randf_range(0.05, 0.75)
+	view_yaw = _rng.randf()
 	strip = _room_texture(str(rooms[room_i]))
 	enemies.clear()
 	wave_i = 0
@@ -174,7 +177,7 @@ func _enter_room() -> void:
 	_start_wave()
 	if layered():   # v11.19 (owner: "I don't know how to play"): the rules, once per room
 		_pops.append({"p": Vector2(size.x * 0.5, size.y * 0.42), "text": "SHOOT THEM BEFORE THEY REACH THE FRONT", "t": 3.0, "col": Color(1, 0.9, 0.5)})
-		_pops.append({"p": Vector2(size.x * 0.5, size.y * 0.5), "text": "LEFT STICK: DODGE THE GREEN BOLTS", "t": 3.0, "col": Color(0.6, 1, 0.7)})
+		_pops.append({"p": Vector2(size.x * 0.5, size.y * 0.5), "text": "LEFT STICK: TURN ROUND · DOWN TO DUCK THE BOLTS", "t": 3.0, "col": Color(0.6, 1, 0.7)})
 	room_changed.emit(room_i)
 	queue_redraw()
 
@@ -215,8 +218,9 @@ func _spawn(slot: int, zi: int, boss: bool, at_once := false) -> Dictionary:
 	if layered():   # v11.19: in at the back layer, running in from a side
 		e["depth"] = 0.0
 		e["layer"] = 0
-		e["x"] = -0.06 if from_left else 1.06
-		e["goal"] = _rng.randf_range(0.12, 0.88)
+		var spot := view_yaw + _rng.randf_range(-0.5, 0.5)   # v11.21: anywhere round the room
+		e["goal"] = spot
+		e["x"] = spot + (-1.0 if from_left else 1.0) * Data.BREAKOUT_VIEW * 0.4
 		e["state"] = "enter"
 		e["catch"] = Data.BREAKOUT_CATCH_TIME
 		e["t"] = _rng.randf_range(Data.BREAKOUT_LAYER_WAIT[0], Data.BREAKOUT_LAYER_WAIT[1])
@@ -277,6 +281,11 @@ func _read_sticks(dt: float) -> void:
 
 ## The left stick: pushed down = duck; left / right = side-step; let go = back to your spot.
 func set_stance(l: Vector2) -> void:
+	if layered():   # v11.21 (owner): the left stick turns you round the room (held = all the way round); down = duck
+		ducked = l.y > 0.55 and absf(l.y) >= absf(l.x)
+		turn = l.x if absf(l.x) > 0.2 and not ducked else 0.0
+		lane = 0
+		return
 	ducked = l.y > 0.55 and absf(l.y) >= absf(l.x)
 	lane = 0
 	if not ducked and absf(l.x) > 0.5: lane = -1 if l.x < 0.0 else 1
@@ -394,7 +403,12 @@ func _update_enemies(dt: float) -> void:
 				if e["rush"] >= 1.0: start_duel(e)
 
 ## v11.19: the LAYERS fight. Run in, stand, fire (bolts) or step up a layer; at the front the catch clock runs.
+## v11.21: a spot in the room (share of the loop) on screen (share of the width; outside 0..1 = behind you / aside).
+func screen_x(a: float) -> float:
+	return 0.5 + (fposmod(a - view_yaw + 0.5, 1.0) - 0.5) / Data.BREAKOUT_VIEW
+
 func _update_layers(dt: float) -> void:
+	view_yaw = fposmod(view_yaw + turn * Data.BREAKOUT_TURN * dt, 1.0)
 	for b in bolts: b["t"] = float(b["t"]) + dt / Data.BREAKOUT_BOLT_TIME
 	for b in bolts.filter(func(o): return float(o["t"]) >= 1.0): _bolt_lands(b)
 	bolts = bolts.filter(func(o): return float(o["t"]) < 1.0)
@@ -413,7 +427,7 @@ func _update_layers(dt: float) -> void:
 				hp = 0.0
 		match e["state"]:
 			"enter", "run":   # running sideways to its spot on this layer
-				e["x"] = move_toward(float(e["x"]), float(e["goal"]), dt * Data.BREAKOUT_RUN)
+				e["x"] = move_toward(float(e["x"]), float(e["goal"]), dt * Data.BREAKOUT_RUN * Data.BREAKOUT_VIEW)
 				e["flip"] = float(e["goal"]) < float(e["x"])
 				if absf(float(e["x"]) - float(e["goal"])) < 0.003: e["state"] = "patrol"
 			"patrol":
@@ -424,7 +438,7 @@ func _update_layers(dt: float) -> void:
 						e["from_d"] = float(e["depth"])
 						e["from_x"] = float(e["x"])
 						e["layer"] = int(e["layer"]) + 1
-						e["goal"] = clampf(float(e["x"]) + _rng.randf_range(-0.3, 0.3), 0.1, 0.9)
+						e["goal"] = float(e["x"]) + _rng.randf_range(-0.3, 0.3) * Data.BREAKOUT_VIEW
 						e["adv"] = 0.0
 					else:
 						e["state"] = "aim"
@@ -450,7 +464,7 @@ func _update_layers(dt: float) -> void:
 
 ## A bolt arrives: it hits if you are still where it was aimed (side-step or duck to dodge it).
 func _bolt_lands(b: Dictionary) -> void:
-	if ducked or lane != int(b["lane"]):
+	if ducked:
 		dodged += 1
 		return
 	hp -= Data.BREAKOUT_DMG_PER_RANK * float(b["rank"]) + Data.BREAKOUT_DMG_BASE
@@ -460,7 +474,7 @@ func _bolt_lands(b: Dictionary) -> void:
 func _enemy_fire(e: Dictionary) -> void:
 	if layered():   # v11.19: a muzzle flash and a real bolt on its way (no line off the screen)
 		e["muzzle"] = 0.12
-		bolts.append({"from": _enemy_muzzle(e), "lane": int(e["lane"]), "t": 0.0, "rank": int(e["rank"])})
+		bolts.append({"from": _enemy_muzzle(e), "e": e, "lane": 0, "t": 0.0, "rank": int(e["rank"])})   # (it comes from them wherever they are as you turn)
 		Sfx.play("rifle_heavy", -6.0)
 		return
 	var from := _enemy_head(e)
@@ -551,6 +565,7 @@ func _update_duel(dt: float) -> void:
 
 ## ---------------------------------------------------------------- layout (shared by drawing, aiming and the tests)
 func _view_off() -> Vector2:   # side-stepping moves the view; ducking drops it
+	if layered(): return Vector2(0.0, size.y * (0.08 if ducked else 0.0))
 	return Vector2(-float(lane) * size.x * 0.06, size.y * (0.08 if ducked else 0.0))
 
 func _enemy_scale(e: Dictionary) -> float:
@@ -562,7 +577,8 @@ func _enemy_scale(e: Dictionary) -> float:
 func _enemy_base(e: Dictionary) -> Vector2:   # where its feet are
 	var y := lerpf(0.66, 0.84, float(e["depth"])) if not layered() else _lerp_layers(Data.BREAKOUT_LAYER_FEET, float(e["depth"]))
 	if e["state"] == "rush": y = lerpf(y, 0.98, float(e["rush"]))
-	return Vector2(float(e["x"]) * size.x, y * size.y) + _view_off()
+	var sx := screen_x(float(e["x"])) if layered() else float(e["x"])
+	return Vector2(sx * size.x, y * size.y) + _view_off()
 
 func _enemy_h(e: Dictionary) -> float:
 	return size.y * 0.42 * _enemy_scale(e)
@@ -590,9 +606,17 @@ func _draw() -> void:
 	if strip != null:
 		var th := float(strip.get_height())
 		var vw := th * S.x / S.y * 0.86
-		var sx := clampf(_pan * float(strip.get_width()) + off.x * 0.6, 0.0, strip.get_width() - vw)
 		var sy := th * 0.07 + off.y * 0.25
-		draw_texture_rect_region(strip, Rect2(Vector2.ZERO, S), Rect2(sx, sy, vw, th * 0.86), tint)
+		if layered():   # v11.21: the whole room round you (the loop wraps)
+			var W := float(strip.get_width())
+			var vw2 := W * Data.BREAKOUT_VIEW
+			var x0 := fposmod(view_yaw * W - vw2 * 0.5, W)
+			var first := minf(vw2, W - x0)
+			draw_texture_rect_region(strip, Rect2(0, 0, S.x * first / vw2, S.y), Rect2(x0, sy, first, th * 0.86), tint)
+			if first < vw2: draw_texture_rect_region(strip, Rect2(S.x * first / vw2, 0, S.x * (vw2 - first) / vw2, S.y), Rect2(0, sy, vw2 - first, th * 0.86), tint)
+		else:
+			var sx := clampf(_pan * float(strip.get_width()) + off.x * 0.6, 0.0, strip.get_width() - vw)
+			draw_texture_rect_region(strip, Rect2(Vector2.ZERO, S), Rect2(sx, sy, vw, th * 0.86), tint)
 	else:
 		draw_rect(Rect2(Vector2.ZERO, S), Color(0.18, 0.03, 0.03))
 	var pulse := 0.5 + 0.5 * sin(_alarm_t * TAU * 1.1)
@@ -604,6 +628,17 @@ func _draw() -> void:
 		if duel.get("id", -1) != e["id"]: _draw_guard(e, col)
 	for t in _tracers: draw_line(t["a"], t["b"], t["col"], 4.0)
 	for b in bolts: _draw_bolt(b, S)
+	if layered():   # v11.21: the ones round the side or behind you: red arrows at the edge (closer = bigger)
+		for e in enemies:
+			if e["hp"] <= 0: continue
+			var sxe := screen_x(float(e["x"]))
+			if sxe > -0.02 and sxe < 1.02: continue
+			var left := sxe < 0.5
+			var ex := 18.0 if left else S.x - 18.0
+			var ey := _lerp_layers(Data.BREAKOUT_LAYER_FEET, float(e["depth"])) * S.y - S.y * 0.2
+			var sz := 10.0 + 12.0 * float(e["depth"])
+			var dirx := -1.0 if left else 1.0
+			draw_colored_polygon(PackedVector2Array([Vector2(ex + dirx * sz, ey), Vector2(ex - dirx * sz * 0.4, ey - sz), Vector2(ex - dirx * sz * 0.4, ey + sz)]), Color(1, 0.2, 0.15, 0.6 + 0.4 * pulse))
 	for e in enemies:   # who is about to fire, and at which spot
 		if layered():
 			if e["hp"] > 0 and e["muzzle"] > 0.0:   # the muzzle flash
@@ -636,8 +671,9 @@ func _draw() -> void:
 func _draw_bolt(b: Dictionary, S: Vector2) -> void:
 	var k := clampf(float(b["t"]), 0.0, 1.0)
 	var to := Vector2(S.x * (0.5 + 0.28 * float(b["lane"])), S.y * 0.9) + _view_off() * 0.5
-	var p: Vector2 = (b["from"] as Vector2).lerp(to, k * k)
-	var dir := (to - (b["from"] as Vector2)).normalized()
+	var fr: Vector2 = _enemy_muzzle(b["e"]) if b.has("e") else b["from"]
+	var p: Vector2 = fr.lerp(to, k * k)
+	var dir := (to - fr).normalized()
 	var ln := lerpf(10.0, 90.0, k * k)
 	var wd := lerpf(3.0, 22.0, k * k)
 	draw_line(p - dir * ln, p, Color(0.3, 1.0, 0.45, 0.35), wd * 2.2)
@@ -821,7 +857,7 @@ func _draw_sticks(S: Vector2) -> void:
 	var rc := Vector2(S.x - 130, S.y - 130)
 	for c in [lc, rc]: draw_arc(c, 80, 0, TAU, 40, Color(1, 1, 1, 0.25), 3.0)
 	draw_circle(lc + _lstick * 60.0, 30, Color(1, 1, 1, 0.3))
-	draw_string(font, lc + Vector2(-80, 104), "DUCK / SIDE-STEP", HORIZONTAL_ALIGNMENT_CENTER, 160, 14, Color(1, 1, 1, 0.6))
+	draw_string(font, lc + Vector2(-120, 104), "TURN 360 · DOWN = DUCK" if layered() else "DUCK / SIDE-STEP", HORIZONTAL_ALIGNMENT_CENTER, 240, 14, Color(1, 1, 1, 0.6))
 	draw_string(font, rc + Vector2(-80, 104), "AIM (AUTO FIRE)", HORIZONTAL_ALIGNMENT_CENTER, 160, 14, Color(1, 1, 1, 0.6))
 
 ## ---------------------------------------------------------------- the alarm (a two-tone siren, made on the fly)

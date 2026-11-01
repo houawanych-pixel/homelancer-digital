@@ -118,7 +118,7 @@ const DOCK_RING_SCALE := 26.0      # docking gate ring: opening radius, the same
 const DOCK_ARCH_SCALE := 140.0     # the arch piece is about 0.64 long: 90 m when placed
 const DOCK_GATE_TRIS := 5316 + 4 * 2264
 var station_model: MeshInstance3D   # the owner's station model, for stations whose data says "model"
-const STATION_WIDTH := 170.0       # the model is 1.0 wide; its ring then sits where the code-made ring was
+const STATION_WIDTH := 170.0 * Data.STATION_SIZE   # the model is 1.0 wide; its ring then sits where the code-made ring was (v11.21 owner: every station twice as big)
 const STATION_TRIS := 14900
 var nebula_center := Vector3.ZERO
 var nebula_radius := 0.0

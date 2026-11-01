@@ -10384,18 +10384,25 @@ func _breakout_orion_check() -> void:
 	lg["state"] = "patrol"
 	lg["catch"] = Data.BREAKOUT_CATCH_TIME
 	probe.bolts = [{"from": Vector2.ZERO, "lane": 0, "t": 0.0, "rank": 1}]
-	probe.lane = 1   # side-stepped: it misses
+	probe.ducked = true   # v11.21: ducked: it misses
 	for i in 20: probe._update_layers(0.05)
 	var dodge_ok: bool = probe.dodged >= 1 and probe.hp == 100.0
-	probe.lane = 0
+	probe.ducked = false
 	probe.bolts = [{"from": Vector2.ZERO, "lane": 0, "t": 0.0, "rank": 1}]
+	# v11.21 (owner): the room is 360: the left stick turns the view; someone behind you is off the screen until you turn
+	probe.view_yaw = 0.0
+	var behind: bool = probe.screen_x(0.5) < -0.5 or probe.screen_x(0.5) > 1.5
+	probe.set_stance(Vector2(1, 0))
+	probe._update_layers(1.0)
+	var turned: bool = probe.view_yaw > 0.2 and probe.turn > 0.0
+	probe.set_stance(Vector2.ZERO)
 	for i in 20: probe._update_layers(0.05)
 	var hit_ok: bool = probe.hp < 100.0
 	for i in 60: probe._update_layers(0.05)
 	var caught_ok: bool = probe.hp <= 0.0 and probe.caught_by != ""
 	probe.free()
-	_check("v11.19 (owner): Orion's fight in 4 layers: soldiers come in at the back, step up layer by layer (bigger), fire real bolts you dodge by side-stepping, and one at the front layer for %.1f s catches you" % Data.BREAKOUT_CATCH_TIME,
-		start_back and at_front and big and dodge_ok and hit_ok and caught_ok, "back %s front %s big %s dodge %s hit %s caught %s" % [start_back, at_front, big, dodge_ok, hit_ok, caught_ok])
+	_check("v11.19 (owner): Orion's fight in 4 layers: soldiers come in at the back, step up layer by layer (bigger), fire real bolts you duck under, all round you in a 360 room you turn with the left stick (v11.21), and one at the front layer for %.1f s catches you" % Data.BREAKOUT_CATCH_TIME,
+		start_back and at_front and big and dodge_ok and hit_ok and caught_ok and behind and turned, "back %s front %s big %s dodge %s hit %s caught %s 360 %s turn %s" % [start_back, at_front, big, dodge_ok, hit_ok, caught_ok, behind, turned])
 	_check("v11.17 (owner's clips): Orion's lockdown fighters move: guards idle, shoot and fall; the marshal swings his blade", anim_ok)
 	_check("v11.15 (owner): Orion's lockdown: every guard is the helmeted Orion soldier, ONE boss (%s, laser blade) and only at the hangar" % str(art["boss_name"]),
 		guards_ok and boss_ok and no_mid_boss and hangar_boss, "guards %s boss %s no mid boss %s hangar boss %s" % [guards_ok, boss_ok, no_mid_boss, hangar_boss])

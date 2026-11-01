@@ -72,7 +72,7 @@ const GLB := {
 	"crate_c": ["res://assets/cargo/crate_c.glb", 3.4, 0.0],
 	"tanker": ["res://assets/ships/civilian/big_tanker.glb", 110.0, 0.0],
 	"carrier": ["res://assets/ships/civilian/carrier.glb", 130.0, 0.0],
-	"station": ["res://assets/stations/station.glb", 150.0, 0.0],
+	"station": ["res://assets/stations/station.glb", 150.0 * Data.STATION_SIZE, 0.0],   # v11.21: twice as big
 	"missile": ["res://assets/weapons/missile.glb", 3.4, 0.0],
 	"mine": ["res://assets/weapons/mine.glb", 3.2, 0.0],
 	"gatling": ["res://assets/weapons/gatling.glb", 3.0, 0.0],

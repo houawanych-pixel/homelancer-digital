@@ -1982,7 +1982,7 @@ func _dashboard() -> void:
 	_corner("form", "TRANSFORM", "form", GREEN, space.transform_t > 0.0, "", 0.0, space.warp_state != "off")
 	var armed: bool = space.special_ready() != "" or space.special_state != "idle"
 	_corner("special", "SUPER", "special", ORANGE, armed and pulse > 0.4, "", 0.0, false)
-	_gps_strip(Rect2(S.x * 0.5 - 230, sr.position.y - 44, 460, 34))   # v1.5i
+	_gps_strip(Rect2(S.x * 0.5 - 230, 8, 460, 34))   # v1.5i; v11.21 (owner): up at the top, out of the way
 	_dock_tabs(g)
 
 ## v10.6 / v11.1 (owner): the fold tabs. Out, a side's tab stands at the far outside end of its button block with an
