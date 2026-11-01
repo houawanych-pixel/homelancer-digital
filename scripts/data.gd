@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.19"
+const VERSION := "v11.20"
 const ESCORT_FREIGHTER_LEN := 90.0   # v11.16 (owner): the escort / cargo-run freighter is a big ship (m long), not fighter-sized (was 16)
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls

@@ -669,11 +669,14 @@ func anim_of(e: Dictionary) -> Array:
 	if dead: clip = "hit" if boss else "fall"
 	elif boss and (e["state"] in ["aim", "fire", "rush", "duel"]): clip = "blade"
 	elif e["state"] in ["aim", "fire"]: clip = "shoot"
+	elif e["state"] in ["enter", "run"]: clip = "run"   # v11.20: running sideways (the side-view clip, flipped to go left)
+	elif e["state"] == "advance": clip = "run" if boss else "charge"   # stepping up a layer: running at you
 	var nm := ("boss_" if boss else "guard_") + clip
+	if clip in ["run", "charge"] and sheet(nm).is_empty(): nm = ("boss_" if boss else "guard_") + "idle"
 	if str(e.get("anim", "")) != nm:
 		e["anim"] = nm
 		e["anim_t"] = 0.0
-	return [nm, float(e.get("anim_t", 0.0)), clip in ["idle", "blade"]]
+	return [nm, float(e.get("anim_t", 0.0)), clip in ["idle", "blade", "run", "charge"]]
 
 ## Draw one fighter's current frame with its feet on `foot` and standing `h` tall. False = no sheet (use the picture).
 func _draw_anim(e: Dictionary, foot: Vector2, h: float, mod: Color) -> bool:
@@ -689,7 +692,10 @@ func _draw_anim(e: Dictionary, foot: Vector2, h: float, mod: Color) -> bool:
 	var src := Rect2((fi % cols) * fw, (fi / cols) * fh, fw, fh)
 	var k := h / float(sh["stand"])
 	var ft: Array = sh["foot"]
+	var flip: bool = str(a[0]).ends_with("_run") and float(e.get("goal", 0.5)) < float(e.get("x", 0.5))   # (the clip runs right)
+	if flip: draw_set_transform(Vector2(foot.x * 2.0, 0.0), 0.0, Vector2(-1, 1))
 	draw_texture_rect_region(sh["tex"], Rect2(foot - Vector2(float(ft[0]), float(ft[1])) * k, Vector2(fw, fh) * k), src, mod)
+	if flip: draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	return true
 
 ## One guard: the cut-out picture (or a drawn figure), its force field round it while it is up, its hits left.

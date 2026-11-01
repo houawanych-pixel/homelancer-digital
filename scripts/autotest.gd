@@ -10362,7 +10362,9 @@ func _breakout_orion_check() -> void:
 	var hangar_boss: bool = probe.boss_out and probe.enemies.size() == 1 and bool(probe.enemies[0]["boss"])
 	var anim_ok: bool = not probe.sheet("guard_idle").is_empty() and not probe.sheet("guard_shoot").is_empty() and not probe.sheet("guard_fall").is_empty() \
 		and not probe.sheet("boss_blade").is_empty() and str(probe.anim_of({"boss": false, "hp": 1, "state": "fire"})[0]) == "guard_shoot" \
-		and str(probe.anim_of({"boss": true, "hp": 1, "state": "rush"})[0]) == "boss_blade" and str(probe.anim_of({"boss": false, "hp": 0, "state": "patrol"})[0]) == "guard_fall"
+		and str(probe.anim_of({"boss": true, "hp": 1, "state": "rush"})[0]) == "boss_blade" and str(probe.anim_of({"boss": false, "hp": 0, "state": "patrol"})[0]) == "guard_fall" \
+		and str(probe.anim_of({"boss": false, "hp": 1, "state": "run"})[0]) == "guard_run" and str(probe.anim_of({"boss": false, "hp": 1, "state": "advance"})[0]) == "guard_charge" \
+		and str(probe.anim_of({"boss": true, "hp": 1, "state": "enter"})[0]) == "boss_run"
 	# v11.19 (owner): the LAYERS fight: they step up layer by layer, bolts you dodge, caught at the front
 	probe.enemies = []
 	probe.bolts = []
