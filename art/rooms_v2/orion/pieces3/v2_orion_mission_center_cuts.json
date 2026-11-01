@@ -1,12 +1,12 @@
 {
  "strip": [
   4448,
-  464
+  462
  ],
  "cuts": [
-  792,
-  2976,
-  4080
+  57,
+  1770,
+  3236
  ],
  "overlap": 40,
  "frame": [
@@ -16,35 +16,35 @@
  "parts": [
   {
    "file": "v2_orion_mission_center_part1.png",
-   "strip_x0": 752,
-   "strip_w": 2264,
+   "strip_x0": 17,
+   "strip_w": 1793,
    "frame_rect": [
     0,
-    343,
+    292,
     1920,
-    393
+    495
    ]
   },
   {
    "file": "v2_orion_mission_center_part2.png",
-   "strip_x0": 2936,
-   "strip_w": 1184,
+   "strip_x0": 1730,
+   "strip_w": 1546,
    "frame_rect": [
     0,
-    164,
+    253,
     1920,
-    752
+    574
    ]
   },
   {
    "file": "v2_orion_mission_center_part3.png",
-   "strip_x0": 4040,
-   "strip_w": 1240,
+   "strip_x0": 3196,
+   "strip_w": 1349,
    "frame_rect": [
     0,
-    181,
+    211,
     1920,
-    718
+    658
    ]
   }
  ]
