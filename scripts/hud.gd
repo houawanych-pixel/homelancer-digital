@@ -598,7 +598,9 @@ func _layout() -> void:
 	buttons["view"] = dg["view"]   # v8.3 (owner): COCKPIT is a console button
 	log_rect = buttons["log"]
 	if space and space.controls and not console_open: buttons["radar"] = radar_rect()
-	if not scan.is_empty(): buttons["scan_close"] = scan_rect()
+	if not scan.is_empty():
+		buttons["scan_view"] = scan_view_rect()   # v11.28 (before the card, so it wins the tap)
+		buttons["scan_close"] = scan_rect()
 	if space and space.controls:
 		# v11.1 (owner: "a huge long button at the very top; it should just be DOCK, and if you don't want to you fly
 		# by"): one small button just above the right-hand block, under your right thumb. It goes when you pass.
@@ -2273,8 +2275,10 @@ var scan_t := 0.0           # > 0 while a scan is running
 func start_scan() -> String:
 	var n: Node3D = space.target
 	if n == null or not is_instance_valid(n): return "No target to scan."
-	if space.scan_info(n).is_empty(): return "%s is not a ship." % n.name
-	if space.distance_to(n) > Data.SCAN_RANGE: return "Too far to scan: get within %s." % _dist(Data.SCAN_RANGE)
+	var si: Dictionary = space.scan_info(n)
+	if si.is_empty(): return "%s can't be scanned." % n.name
+	var reach: float = Data.SCAN_RANGE * (3.0 if si.get("structure", false) else 1.0) + (float(n.get_meta("radius", 0.0)) if si.get("structure", false) else 0.0)   # v11.28: big things scan from further out
+	if space.distance_to(n) > reach: return "Too far to scan: get within %s." % _dist(reach)
 	scan_node = n
 	scan = {}
 	scan_t = Data.SCAN_TIME
@@ -2287,7 +2291,12 @@ func close_scan() -> void:
 	scan_t = 0.0
 
 func scan_rect() -> Rect2:
-	return Rect2(S.x * 0.5 - 250, 132, 500, 64 + 30 * maxi(1, (scan.get("lines", []) as Array).size()))
+	return Rect2(S.x * 0.5 - 250, 132, 500, 64 + 30 * maxi(1, (scan.get("lines", []) as Array).size()) + 52)
+
+## v11.28 (owner: "bring that view into anything you scan"): the 3D VIEW button along the bottom of the scan card.
+func scan_view_rect() -> Rect2:
+	var rc := scan_rect()
+	return Rect2(rc.end.x - 176, rc.end.y - 50, 160, 40)
 
 func _tick_scan(dt: float) -> void:
 	if scan_node == null: return
@@ -2324,6 +2333,9 @@ func _draw_scan() -> void:
 		_text(Vector2(rc.position.x + 16, y), str(ln[0]), 12, GOLD)
 		_text(Vector2(rc.position.x + 110, y), str(ln[1]), 13, WHITE, HORIZONTAL_ALIGNMENT_LEFT, rc.size.x - 126)
 		y += 30
+	var vb := scan_view_rect()
+	_box(vb, Color(0.05, 0.25, 0.4, 0.95), CYAN_HI, 8, 2)
+	_text(vb.position + Vector2(0, 26), "3D VIEW", 15, WHITE, HORIZONTAL_ALIGNMENT_CENTER, vb.size.x)
 	if sp != null: draw_arc(sp, 34.0, 0, TAU, 32, Color(col, 0.8), 2.0)
 
 ## Waypoint box: autopilot destination, else the current target.

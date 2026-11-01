@@ -360,6 +360,7 @@ func _on_hud(id: String) -> void:
 		"target": space.cycle_target()
 		"scan": hud.flash_message(hud.start_scan())   # v1.5g
 		"scan_close": hud.close_scan()
+		"scan_view": open_scan_view()   # v11.28
 		"view":
 			space.set_view("cockpit" if GS.view == "chase" else "chase")
 			hud.flash_message("View: %s" % (("first person: the mech's eyes" if GS.form == "mech" else "first-person cockpit") if GS.view == "cockpit" else "chase camera"))
@@ -1343,6 +1344,33 @@ func descend_to(pid: String, loc_id: String) -> void:
 
 ## v11.25 (owner: START pauses, SELECT swaps a weapon slot, e.g. the super missile for the NUKE): the flight stops while
 ## the menu is up (the space scene stops processing); RESUME, START again or SELECT again carries on.
+## v11.28 (owner: "do it for the ship scan ... the pinch view for anything: ships, stations, buildings, mechs"):
+## the scanned thing in the Station Viewer (rotate, zoom, key screens). The flight holds still while it is open.
+var scan_viewer: StationViewer = null
+func open_scan_view() -> StationViewer:
+	var n: Node3D = hud.scan_node
+	if n == null or not is_instance_valid(n) or hud.scan.is_empty(): return null
+	if is_instance_valid(scan_viewer): scan_viewer.queue_free()
+	var layer := CanvasLayer.new()
+	layer.layer = 110   # over the HUD, under the corner FULL SCREEN button
+	add_child(layer)
+	var sv := StationViewer.new()
+	var key: String = space.scan_model_key(n)
+	sv.single = key == "" or not ResourceLoader.exists("res://assets/stations3d/%s.glb" % key) and not Packs.PACKS.has(key)
+	layer.add_child(sv)
+	if sv.single: sv.show_copy(n, str(hud.scan["title"]))
+	else: sv.show_key(key)
+	scan_viewer = sv
+	space.process_mode = Node.PROCESS_MODE_DISABLED
+	hud.visible = false
+	controls.blocked = true
+	sv.tree_exited.connect(func():
+		layer.queue_free()
+		if is_instance_valid(space) and not hud.pause_menu: space.process_mode = Node.PROCESS_MODE_INHERIT
+		hud.visible = true
+		controls.blocked = false)
+	return sv
+
 func set_paused(on: bool) -> void:
 	hud.pause_menu = on
 	if space != null: space.process_mode = Node.PROCESS_MODE_DISABLED if on else Node.PROCESS_MODE_INHERIT

@@ -1415,6 +1415,14 @@ func _run() -> void:
 		fx.end_warp()
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_V1128") != "":   # the v11.28 scan 3D VIEW checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_v1128()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_V1127") != "":   # the v11.27 Station Viewer checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -3540,6 +3548,78 @@ func _job_v1127() -> void:
 	_check("v11.27 (owner): STATION VIEWER in COMMAND: any station on a light-blue / magenta key screen, drag / zoom, FRONT/BACK/LEFT/RIGHT/TOP/BOTTOM/3-4, flat or perspective, hide the buttons, no ring",
 		btn != null and key == "HL_Station_Orion_Capital_retopo" and n0 >= 20 and ortho_ok and next_ok and no_ring and Fs.visible,
 		"button %s first %s (%d stations) ortho %s next %s no ring %s" % [btn != null, key, n0, ortho_ok, next_ok, no_ring])
+
+## v11.28 (owner: "do it for the ship scan ... the pinch view for anything you scan: ships, stations, buildings, mechs"):
+## scan an enemy and the station; 3D VIEW opens the viewer on a copy of each; the flight holds still; CLOSE gives it back.
+func _job_v1128() -> void:
+	main._load_system("dreadholm", "station")
+	await _wait(2.0)
+	var s = _sp()
+	var hud = main.hud
+	var res: Array = []
+	# 1) an enemy ship right in front
+	var g: Array = s.spawn_mission_group(s.player.global_position - s.player.global_basis.z * 300.0, "Savagers", 1, 3, "", 7)
+	var n: Node3D = g[0]["node"] if not g.is_empty() else null
+	if not g.is_empty():
+		g[0]["hp"] = 1.0e6   # (the auto-guns fire at it: keep it alive)
+		g[0]["max"] = 1.0e6
+	var ship_ok := false
+	var copy_n := 0
+	if n != null:
+		n.global_position = s.player.global_position - s.player.global_basis.z * 300.0
+		s.target = n
+		hud.close_scan()
+		hud.start_scan()
+		await _wait(Data.SCAN_TIME + 0.4)
+		var btn_ok: bool = hud.button_at(hud.scan_view_rect().get_center()) == "scan_view"
+		var sv: StationViewer = main.open_scan_view()
+		await _frames(4)
+		if sv != null:
+			copy_n = sv.pivot.find_children("*", "MeshInstance3D", true, false).size()
+			ship_ok = btn_ok and sv.single and copy_n > 0 and s.process_mode == Node.PROCESS_MODE_DISABLED and not hud.visible
+			sv._hide_ui(true)
+			await _frames(2)
+			await _shot("v1128_ship_blue", 0.2)
+			sv.bg_mode = 1; sv._apply_bg(); sv.snap("FRONT")
+			await _frames(2)
+			await _shot("v1128_ship_magenta_front", 0.2)
+			sv._hide_ui(false)
+			await _frames(2)
+			await _shot("v1128_ship_ui", 0.2)
+			sv.queue_free()
+			await _frames(3)
+	var back_ok: bool = hud.visible and s.process_mode != Node.PROCESS_MODE_DISABLED and not main.controls.blocked
+	res.append("ship %s (%d meshes) back %s" % [ship_ok, copy_n, back_ok])
+	for e in g:
+		if e in s.enemies: s._destroy_unit(e)
+	await _frames(2)
+	# 2) the station: scans as a structure, opens on its own model
+	s.player.global_position = s.station.global_position + Vector3(0, 0, 900)
+	s.target = s.station
+	hud.close_scan()
+	var said: String = hud.start_scan()
+	await _wait(0.3)
+	said += " tgt=%s node=%s" % [s.target.name if s.target else "null", hud.scan_node.name if hud.scan_node else "null"]
+	await _wait(Data.SCAN_TIME + 0.1)
+	var st_ok := false
+	var sv2: StationViewer = main.open_scan_view()
+	await _frames(4)
+	if sv2 != null:
+		var k: String = sv2.keys[sv2.idx] if not sv2.single else ""
+		st_ok = k == "HL_Station_Orion_Capital_retopo"
+		var t0 := Time.get_ticks_msec()
+		while sv2.pivot.get_child_count() == 0 and Time.get_ticks_msec() - t0 < 20000: await _frames(2)
+		sv2._hide_ui(true)
+		await _frames(3)
+		await _shot("v1128_station", 0.2)
+		sv2.queue_free()
+		await _frames(3)
+	res.append("station %s (%s) scan %s key '%s' sv %s" % [st_ok, said, not hud.scan.is_empty(), s.scan_model_key(s.station), sv2 != null])
+	s.target = null
+	hud.close_scan()
+	_check("v11.28 (owner): SCAN any ship, mech or station, then 3D VIEW opens it in the viewer (rotate, zoom, key screens); the flight holds still and comes back on CLOSE",
+		ship_ok and back_ok and st_ok and hud.visible, " · ".join(res))
+
 
 ## v11 (owner: "I can't dock at the station"; "the close trade lanes pull together at the entrance"): next to any side
 ## of a (now twice as big) station's hull you can dock; the trade-lane mouths round a station sit clear of its hull and
@@ -6636,7 +6716,7 @@ func _job_aj() -> void:
 	var fr: Node3D = s.traffic[0]["node"] if not s.traffic.is_empty() else null
 	var civ: Dictionary = s.scan_info(fr) if fr != null else {}
 	var civ_ok: bool = not civ.is_empty() and not civ["hostile"] and str(civ["lines"][1][1]) == "none" and str(civ["lines"][2][1]).find(" t") >= 0
-	var station_none: bool = s.scan_info(s.station).is_empty()
+	var station_none: bool = s.scan_info(s.station).get("structure", false)   # v11.28: a station scans as a structure (3D VIEW), not a ship
 	# the panel closes when the target changes
 	s.target = n
 	hud.scan_node = n
@@ -6644,7 +6724,7 @@ func _job_aj() -> void:
 	s.target = s.station
 	await _frames(2)
 	var closed: bool = hud.scan.is_empty() and hud.scan_node == null
-	_check("Job AJ: too far away nothing is scanned; a freighter scans as an unarmed civilian with its cargo; a station is not a ship; the panel closes when you pick another target",
+	_check("Job AJ: too far away nothing is scanned; a freighter scans as an unarmed civilian with its cargo; a station scans as a structure (v11.28), not a ship; the panel closes when you pick another target",
 		far_ok and civ_ok and station_none and closed, "far %s civ %s station %s closed %s" % [far_ok, civ_ok, station_none, closed])
 	for o in g:
 		if o in s.enemies: s._destroy_unit(o)

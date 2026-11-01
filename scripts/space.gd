@@ -7412,7 +7412,26 @@ func scan_info(n: Node3D) -> Dictionary:
 		var lines2: Array = [["SHIP", "Civilian hauler"], ["WEAPONS", "none"], ["CARGO", ", ".join(cargo2)]]
 		if n == escort_node: lines2.append(["JOB", "escort this ship (hull %d%%)" % int(100.0 * float(GS.mission.get("escort_hp", 0.0)) / Data.ESCORT_HULL)])
 		return {"title": n.name.to_upper(), "sub": "%s  ·  civilian" % str(sys.get("faction", "")), "lines": lines2, "hostile": false}
+	# v11.28 (owner: "anything you scan: ships, stations, buildings"): stations, landmarks, gates and beacons scan too
+	if n == planet: return {}
+	var info: Dictionary = n.get_meta("info", {}) if n.get_meta("info", {}) is Dictionary else {}
+	var kind := str(n.get_meta("kind", info.get("kind", "")))
+	if n == station or n in extras or n in gates or n == beacon:
+		var what := "Station" if (n == station or n.has_meta("dock")) else ("Battleship" if n.has_meta("roamer") else ("Jump gate" if n in gates else (kind.capitalize() if kind != "" else "Structure")))
+		var lines3: Array = [["TYPE", what]]
+		if info.has("desc"): lines3.append(["INFO", str(info["desc"])])
+		lines3.append(["3D", "tap 3D VIEW to turn it round"])
+		return {"title": n.name.to_upper(), "sub": "%s  ·  %s" % [str(sys.get("faction", "Unaligned")), what.to_lower()], "lines": lines3, "hostile": false, "structure": true}
 	return {}
+
+## v11.28: the station model key behind a scanned thing ("" = none): the system's own station, a 3D dock, a roamer.
+func scan_model_key(n: Node3D) -> String:
+	if n == null or not is_instance_valid(n): return ""
+	if n.has_meta("station3d"): return str(n.get_meta("station3d"))
+	if n == station:
+		var d: Dictionary = station.get_meta("info", {})
+		if Data.is_st3d(str(d.get("model", ""))): return str(d["model"])
+	return ""
 
 ## v1.5g: the ship drawn nearest a screen point (enemies, traffic), within SHIP_TAP_RADIUS. null = none.
 func ship_at_screen(p: Vector2, radius := -1.0) -> Node3D:

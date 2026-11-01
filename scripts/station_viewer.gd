@@ -5,6 +5,8 @@ class_name StationViewer
 ## COMMAND. Any 3D station in the game on a flat key-colour backdrop: drag to turn, pinch / wheel to zoom, snap to
 ## FRONT (the docking face, -Z) / BACK / LEFT / RIGHT / TOP / BOTTOM / 3-4, flat (orthographic) or perspective, and HIDE to clear the buttons
 ## for a clean picture (tap anywhere to bring them back). Made for taking true turnaround images to rework a station.
+## v11.28 (owner: "do it for the ship scan ... bring that view into anything you scan: ships, stations, buildings, mechs"):
+## show_copy() puts a copy of ANY scanned thing in the same viewer (its meshes only: no ring, no lights, nearest LOD).
 
 const KEY_BLUE := Color(0.55, 0.82, 1.0)     # light blue screen (for green / red / gold stations)
 const KEY_MAGENTA := Color(1.0, 0.0, 1.0)    # magenta screen (for blue / cyan stations)
@@ -29,6 +31,8 @@ var status: Label
 var _touches := {}
 var _pinch0 := 0.0
 var _loading := false
+var single := false          # v11.28: showing one scanned thing (no ◀ ▶ through the stations)
+var arrows: Array = []
 
 static func station_keys() -> Array:
 	var out: Array = []
@@ -83,6 +87,7 @@ func _ready() -> void:
 	svc.gui_input.connect(_input_view)
 	_build_ui()
 	_apply_bg()
+	if single: return   # show_copy() fills it
 	var start := 0
 	var here: Dictionary = Data.RETOPO_STATIONS.get(GS.system_id, Data.STATION3D.get(GS.system_id, {}))
 	if here.has("*") and keys.has(here["*"]): start = keys.find(here["*"])   # opens on this system's own station
@@ -109,7 +114,8 @@ func _build_ui() -> void:
 	top.add_theme_constant_override("separation", 10)
 	top.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	ui.add_child(top)
-	top.add_child(_button("◀", func(): show_station(idx - 1), 56))
+	arrows.append(_button("◀", func(): show_station(idx - 1), 56))
+	top.add_child(arrows[0])
 	name_label = Label.new()
 	name_label.name = "StationName"
 	name_label.custom_minimum_size = Vector2(420, 44)
@@ -120,7 +126,8 @@ func _build_ui() -> void:
 	name_label.add_theme_color_override("font_outline_color", Color(0, 0, 0))
 	name_label.add_theme_constant_override("outline_size", 6)
 	top.add_child(name_label)
-	top.add_child(_button("▶", func(): show_station(idx + 1), 56))
+	arrows.append(_button("▶", func(): show_station(idx + 1), 56))
+	top.add_child(arrows[1])
 	var side := VBoxContainer.new()   # views + display
 	side.set_anchors_and_offsets_preset(Control.PRESET_CENTER_RIGHT)
 	side.offset_left = -170
@@ -197,6 +204,12 @@ func show_station(i: int) -> void:
 	if ps == null: return
 	var inst: Node3D = ps.instantiate()
 	pivot.add_child(inst)
+	_fit(inst)
+	status.text = "Drag to turn · pinch or scroll to zoom · %s" % key
+	_camera()
+
+## Centre a model on its bounds and scale it to a unit radius.
+func _fit(inst: Node3D) -> void:
 	var box := AABB(); var first := true
 	for mi in inst.find_children("*", "MeshInstance3D", true, false):
 		var m := mi as MeshInstance3D
@@ -208,7 +221,51 @@ func show_station(i: int) -> void:
 	var r := maxf(box.size.length() * 0.5, 0.001)
 	inst.scale = Vector3.ONE / r
 	inst.position = -box.get_center() / r
-	status.text = "Drag to turn · pinch or scroll to zoom · %s" % key
+
+## v11.28: open on a station by its model key (the scan of a station or a roaming battleship).
+func show_key(key: String) -> bool:
+	var i := keys.find(key)
+	if i < 0: return false
+	single = false
+	for b in arrows: b.visible = true
+	show_station(i)
+	return true
+
+## v11.28: a copy of any thing in the game (a scanned ship, mech, building): its visible meshes in its own frame
+## (so FRONT is its nose), no rings, only the nearest LOD. The original is left alone.
+func show_copy(src: Node3D, title: String) -> void:
+	single = true
+	for b in arrows: b.visible = false
+	for c in pivot.get_children(): c.queue_free()
+	name_label.text = title
+	var holder := Node3D.new()
+	pivot.add_child(holder)
+	var n := 0
+	for mi in src.find_children("*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		if m.mesh == null or not m.is_visible_in_tree() or m.mesh is TorusMesh: continue
+		if m.visibility_range_begin > 0.0: continue   # a far LOD
+		# level it: the top model node under the thing banks in a turn; keep its turn and scale, drop the roll
+		var top: Node3D = m
+		while top.get_parent() != src and top.get_parent() is Node3D: top = top.get_parent()
+		var e := top.rotation
+		var rest := Transform3D(Basis.from_euler(Vector3(e.x, e.y, 0.0)).scaled(top.scale), top.position)
+		var inv := rest * top.global_transform.affine_inverse()
+		var c := MeshInstance3D.new()
+		c.mesh = m.mesh
+		c.skin = m.skin
+		c.material_override = m.material_override
+		for si in m.get_surface_override_material_count():
+			c.set_surface_override_material(si, m.get_surface_override_material(si))
+		c.transform = inv * m.global_transform
+		holder.add_child(c)
+		n += 1
+	if n == 0:
+		status.text = "Nothing to show for %s yet." % title
+		return
+	_fit(holder)
+	dist = 2.7   # (a ship: a little more room round it)
+	status.text = "Drag to turn · pinch or scroll to zoom · scanned: %s" % title
 	_camera()
 
 func snap(v: String) -> void:
