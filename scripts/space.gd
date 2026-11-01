@@ -8579,9 +8579,15 @@ func disturbance_tick(dt: float, m: Dictionary) -> void:
 		else: m["spawned"] = -1
 		return
 	if invasion_units(str(dc["role"])).is_empty():
+		# v11.30 (owner): with the big one down no more fighters come; clear the ones left, then you are paid
+		if not bool(m.get("big_down", false)):
+			m["big_down"] = true
+			dist_log.append("big_down")
+			message.emit("GREAT JOB! The hidden %s is destroyed: no more fighters are coming. Finish the rest for your reward." % ("battleship" if str(m["target"]) == "ship" else "station"))
+		var left := invasion_units().filter(func(o): return float(o.get("retreat", 0.0)) <= 0.0).size()
+		if left > 0: return
 		dist_log.append("won")
-		for e in invasion_units(): e["retreat"] = 30.0
-		Missions._pay(self, "DISTURBANCE: the hidden %s is destroyed. %s pays %d cr." % ["battleship" if str(m["target"]) == "ship" else "station", Missions.giver_name(m), int(m["pay"])])
+		Missions._pay(self, "DISTURBANCE: the area is clear. %s pays %d cr." % [Missions.giver_name(m), int(m["pay"])])
 		return
 	_dist_t -= dt
 	if _dist_t <= 0.0:   # their fighters, topped back up (no end to them while the big one stands)

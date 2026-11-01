@@ -371,6 +371,9 @@ static func waypoint(space: SpaceSystem) -> Dictionary:
 		"disturbance":   # v11.26: the cloud, then the hidden battleship / station
 			var dc: Dictionary = Data.DISTURBANCE[str(m.get("target", "ship"))]
 			var tg: Array = space.invasion_units(str(dc["role"]))
+			if int(m.get("spawned", -1)) >= 0 and tg.is_empty() and not space.invasion_units().is_empty():   # v11.30: the big one is down: the rest
+				var rest: Array = space.invasion_units()
+				return {"node": rest[0]["node"], "title": rest[0]["node"].name, "line": "DISTURBANCE: finish the rest · %d left" % rest.size(), "hops": 0}
 			if int(m.get("spawned", -1)) >= 0 and not tg.is_empty():
 				return {"node": tg[0]["node"], "title": tg[0]["node"].name, "line": "DISTURBANCE: destroy the %s · %d fighters out" % ["battleship" if str(m["target"]) == "ship" else "hidden station", space.invasion_units("fighter").size()], "hops": 0}
 			return {"node": space.mission_point(point_pos(space, 0)), "title": "Enemy disturbance", "line": "DISTURBANCE: investigate the %s cloud" % str(m.get("cloud", "nebula")), "hops": 0}

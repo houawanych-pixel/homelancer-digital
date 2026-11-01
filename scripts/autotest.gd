@@ -3322,7 +3322,13 @@ func _job_v1125() -> void:
 		for e3 in bs: s._destroy_unit(e3)
 		await _frames(2)
 		s.disturbance_tick(0.1, dm)
-		var won: bool = s.dist_log.has("won") and GS.credits >= cr0 + int(dm["pay"])
+		var n_left: int = s.invasion_units().size()
+		for i in 3: s.disturbance_tick(Data.DISTURBANCE["refill_every"] + 0.1, dm)
+		var no_more: bool = s.dist_log.has("big_down") and not s.dist_log.has("won") and s.invasion_units().size() <= n_left and n_left > 0   # v11.30: no more come; the rest must be cleared
+		for e5 in s.invasion_units(): s._destroy_unit(e5)
+		await _frames(2)
+		s.disturbance_tick(0.1, dm)
+		var won: bool = no_more and s.dist_log.has("won") and GS.credits >= cr0 + int(dm["pay"])
 		dist_ok = in_cloud and bs.size() == 1 and fs0 == int(Data.DISTURBANCE["ship"]["fighters"]) and refilled and won and int(dm["pay"]) >= 9000
 		dist_detail = "offers %d cloud %s ship %d fighters %d refilled %s won %s" % [dist_offers.size(), in_cloud, bs.size(), fs0, refilled, won]
 		for e4 in s.invasion_units():
