@@ -9894,7 +9894,7 @@ func _job_v19q() -> void:
 		s.vel = Vector3.ZERO
 		await _frames(3)
 		var q: Vector3 = hd.global_transform.affine_inverse() * s.player.global_position
-		pushed = not bb.grow(0.01).has_point(q)
+		pushed = not bb.has_point(q)   # (v11.21: the box is twice as big, so its pad is under 0.01 of the model's own units)
 	_check("v1.9q: in Veranthos the Unity Capital station is the main station, scaled up (x1.6 the standard width), and flying into it pushes you out of its collision box",
 		holder != null and str(holder.get_meta("station3d", "")) == key0 and big and boxed and pushed, "model %s big %s box %s pushed %s" % [holder.get_meta("station3d", "") if holder else "-", big, boxed, pushed])
 	# 4. Kronos: the Arctides home has its Capital and an added Military station beside it
