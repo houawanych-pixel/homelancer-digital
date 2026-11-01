@@ -49,6 +49,21 @@ def locate(frame, piece):
     return best
 
 
+def sift_locate(frame, piece):
+    """v11.32: feature match (works when the generator re-framed the part: zoomed, shifted, extended the ceiling/floor)."""
+    sift = cv2.SIFT_create(4000)
+    k1, d1 = sift.detectAndCompute(cv2.cvtColor(piece, cv2.COLOR_BGR2GRAY), None)
+    k2, d2 = sift.detectAndCompute(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY), None)
+    if d1 is None or d2 is None: return 0, None
+    ms = [a for a, b in cv2.BFMatcher().knnMatch(d1, d2, k=2) if a.distance < 0.75 * b.distance]
+    if len(ms) < 12: return 0, None
+    p1 = np.float32([k1[m.queryIdx].pt for m in ms]); p2 = np.float32([k2[m.trainIdx].pt for m in ms])
+    M, inl = cv2.estimateAffinePartial2D(p1, p2, ransacReprojThreshold=4)
+    if M is None: return 0, None
+    sc = float(np.hypot(M[0, 0], M[1, 0]))
+    return int(inl.sum()), (int(round(M[0, 2])), int(round(M[1, 2])), int(round(piece.shape[1] * sc)), int(round(piece.shape[0] * sc)))
+
+
 def main():
     f, room, cdir = sys.argv[1], sys.argv[2], sys.argv[3]
     pano = cv2.imread(os.path.join(ROOT, "art/rooms_v2", f, "pano", room + "_360.png"))
@@ -72,6 +87,9 @@ def main():
         x0, w = int(pt["strip_x0"]), int(pt["strip_w"])
         piece = wrap[:, x0:x0 + w]
         score, rect = locate(fr, piece)
+        n, r2 = sift_locate(fr, piece)
+        if r2 is not None and n >= 40:
+            print("part %d: features %d -> %s" % (i + 1, n, r2)); score, rect = 1.0, r2
         print("part %d: found at %s in %dx%d (match %.2f)" % (i + 1, rect, fr.shape[1], fr.shape[0], score))
         if score < 0.45: print("  WARNING: weak match: check this clip by eye")
         caps.append(cap); places.append(rect); spans.append((x0, w))
