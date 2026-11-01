@@ -1,0 +1,51 @@
+{
+ "strip": [
+  4224,
+  470
+ ],
+ "cuts": [
+  1104,
+  3019,
+  3803
+ ],
+ "overlap": 40,
+ "frame": [
+  1920,
+  1080
+ ],
+ "parts": [
+  {
+   "file": "v2_orion_weapons2_part1.png",
+   "strip_x0": 1064,
+   "strip_w": 1995,
+   "frame_rect": [
+    0,
+    314,
+    1920,
+    452
+   ]
+  },
+  {
+   "file": "v2_orion_weapons2_part2.png",
+   "strip_x0": 2979,
+   "strip_w": 864,
+   "frame_rect": [
+    0,
+    18,
+    1920,
+    1044
+   ]
+  },
+  {
+   "file": "v2_orion_weapons2_part3.png",
+   "strip_x0": 3763,
+   "strip_w": 1605,
+   "frame_rect": [
+    0,
+    259,
+    1920,
+    562
+   ]
+  }
+ ]
+}

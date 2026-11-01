@@ -1,0 +1,51 @@
+{
+ "strip": [
+  4225,
+  470
+ ],
+ "cuts": [
+  283,
+  1610,
+  3026
+ ],
+ "overlap": 40,
+ "frame": [
+  1920,
+  1080
+ ],
+ "parts": [
+  {
+   "file": "v2_orion_shipyard3_part1.png",
+   "strip_x0": 243,
+   "strip_w": 1407,
+   "frame_rect": [
+    0,
+    219,
+    1920,
+    641
+   ]
+  },
+  {
+   "file": "v2_orion_shipyard3_part2.png",
+   "strip_x0": 1570,
+   "strip_w": 1496,
+   "frame_rect": [
+    0,
+    238,
+    1920,
+    603
+   ]
+  },
+  {
+   "file": "v2_orion_shipyard3_part3.png",
+   "strip_x0": 2986,
+   "strip_w": 1562,
+   "frame_rect": [
+    0,
+    251,
+    1920,
+    578
+   ]
+  }
+ ]
+}
