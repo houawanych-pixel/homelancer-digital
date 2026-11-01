@@ -1439,7 +1439,7 @@ func _run() -> void:
 			for el in [0.25, 0.9]:
 				for az in range(0, 360, 60 if el < 0.5 else 120):
 					var dir := Vector3(cos(deg_to_rad(az)), el, sin(deg_to_rad(az))).normalized()
-					_tp(sc + dir * rad * 2.6, sc)
+					_tp(sc + dir * rad * float(OS.get_environment("HL_STATIONPICS_DIST") if OS.get_environment("HL_STATIONPICS_DIST") != "" else "2.6"), sc)
 					ws.target = null
 					await _frames(12)
 					await _shot("station_%s_%02d" % [sid, k], 0.5)
