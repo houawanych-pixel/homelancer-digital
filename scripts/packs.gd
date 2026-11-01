@@ -171,6 +171,7 @@ const PACKS := {
 	"hangar_scarlet": {"folders": ["res://assets/hangars"], "match": "bay_scarlet.", "probe": "res://assets/hangars/bay_scarlet.jpg"},   # v2.7: the owner's hangar bay (front view)
 	"mechs": {"folders": ["res://assets/mechs"], "probe": "res://assets/mechs/tan_navy_mecha.scn"},
 	"kaijurai_fleet": {"folders": ["res://assets/ships/kaijurai"], "probe": "res://assets/ships/kaijurai/kaijurai_fang.glb"},   # v6.2: the second Kaijurai set
+	"faction_fleet": {"folders": ["res://assets/ships/fleet"], "probe": "res://assets/ships/fleet/elyza_battleship.glb"},   # v11.32: the 8 factions' battleships, cruisers, frigates, starfighters
 	# v1.9i: one pack per extra mech frame, fetched when you buy / fit its parts or meet its faction
 	"mf_orange": {"folders": ["res://assets/mech_frames"], "match": "mf_orange", "probe": "res://assets/mech_frames/mf_orange.scn"},
 	"mf_rifle": {"folders": ["res://assets/mech_frames"], "match": "mf_rifle", "probe": "res://assets/mech_frames/mf_rifle.scn"},

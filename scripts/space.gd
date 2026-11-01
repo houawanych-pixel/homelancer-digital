@@ -178,6 +178,7 @@ func _setup(id: String, arrival: String, staged: bool) -> void:
 	_bolt_halo.size = Vector3(Data.BOLT_HALO_W, Data.BOLT_HALO_W, Data.BOLT_LEN * 1.3)    # soft glow around it, so bolts read at range and on phones
 	_prof("start")
 	Packs.request("kaijurai_fleet")   # v6.2: the enemy-space ships, fetched in the background
+	Packs.request("faction_fleet")   # v11.32: the factions' battleships and starfighters
 	_build_environment()
 	_prof("environment (sky, sun, camera)")
 	_build_station(sys["station"])
@@ -731,7 +732,7 @@ func _on_st3d_pack(pk: String) -> void:
 var docks3d: Array = []
 func _extras_st3d() -> void:
 	for n: Node3D in docks3d + roamers:
-		if not is_instance_valid(n) or n.has_meta("dressed"): continue
+		if not is_instance_valid(n) or n.has_meta("dressed") or not n.has_meta("station3d"): continue
 		var key: String = n.get_meta("station3d")
 		if not Packs.is_ready(key):
 			_want_st3d(key)
@@ -745,15 +746,17 @@ func _extras_st3d() -> void:
 		_set_box(n, holder)   # v1.9q
 
 ## v1.9d: Cybermorph battleships that roam the system on a slow loop (not docks).
+## v11.32: also a capital's own fleet (Data.FACTION_FLEET), on its own loop ("orbit", "speed", "side" metas).
 var roamers: Array = []
 func _update_roamers(dt: float) -> void:
 	for n: Node3D in roamers:
 		if not is_instance_valid(n): continue
-		var a: float = float(n.get_meta("angle")) + dt * Data.ROAMER_SPEED / Data.ROAMER_ORBIT
+		var orb: float = float(n.get_meta("orbit", Data.ROAMER_ORBIT)) + float(n.get_meta("side", 0.0))
+		var a: float = float(n.get_meta("angle")) + dt * float(n.get_meta("speed", Data.ROAMER_SPEED)) / float(n.get_meta("orbit", Data.ROAMER_ORBIT))
 		n.set_meta("angle", a)
 		var c: Vector3 = n.get_meta("centre")
-		var p := c + Vector3(cos(a), 0.0, sin(a)) * Data.ROAMER_ORBIT + Vector3(0, sin(a * 2.0) * Data.ROAMER_BOB, 0)
-		var ahead := c + Vector3(cos(a + 0.05), 0.0, sin(a + 0.05)) * Data.ROAMER_ORBIT
+		var p := c + Vector3(cos(a), 0.0, sin(a)) * orb + Vector3(0, sin(a * 2.0) * Data.ROAMER_BOB, 0)
+		var ahead := c + Vector3(cos(a + 0.05), 0.0, sin(a + 0.05)) * orb
 		n.global_position = p
 		if ahead.distance_to(p) > 0.1: n.look_at(Vector3(ahead.x, p.y, ahead.z), Vector3.UP)
 
@@ -945,9 +948,58 @@ func _build_extras() -> void:
 		_mesh(rn, cyl, Vector3.ZERO, Color(0.55, 0.2, 0.6), Vector3(20, 60, 20))   # (stand-in until its pack is in)
 		roamers.append(rn)
 		extras.append(rn)
+	_fleet_guard()
 	_update_roamers(0.0)
 	_extras_st3d()
 	_extra_worlds_real()
+
+## v11.32 (owner: "put them in the game, where they need to go"): a faction's capital system has its fleet out: the
+## battleship with its cruiser, frigate and two starfighters, looping round the main station (not hostile; scan them).
+var fleet_guard: Array = []
+func _on_fleet_pack(pk: String) -> void:
+	if pk != "faction_fleet" or surface_mode or not is_inside_tree(): return
+	Packs.pack_ready.disconnect(_on_fleet_pack)
+	_fleet_guard()
+	_update_roamers(0.0)
+
+func _fleet_guard() -> void:
+	for n in fleet_guard:
+		if is_instance_valid(n):
+			roamers.erase(n)
+			extras.erase(n)
+			n.queue_free()
+	fleet_guard = []
+	if not Packs.is_ready("faction_fleet"):
+		if not Packs.pack_ready.is_connected(_on_fleet_pack): Packs.pack_ready.connect(_on_fleet_pack)
+		return
+	if surface_mode or str(sys.get("role", "")) != "capital": return
+	var fl: Dictionary = Data.FACTION_FLEET.get(str(sys.get("faction", "")), {})
+	if fl.is_empty(): return
+	var ships: Array = [["battleship", fl["battleship"]], ["cruiser", fl["cruiser"]], ["frigate", fl["frigate"]], ["starfighter", fl["starfighter"]], ["starfighter", fl["starfighter"]]]
+	var a0 := float(absi(hash(sys_id)) % 628) / 100.0
+	for i in ships.size():
+		var key: String = ships[i][1]
+		if key == "" or not ShipFactory.has_real_model(key): continue
+		var d: Dictionary = Data.ENEMIES[key]
+		var n := Node3D.new()
+		n.name = "%s%s" % [d["name"], "" if i < 4 else " 2"]
+		n.set_meta("kind", "landmark")
+		n.set_meta("info", {"id": "%s_fleet_%d" % [sys_id, i], "name": n.name, "kind": "landmark", "desc": "%s %s on patrol round the capital. Not a dock." % [str(sys.get("faction", "")), str(ships[i][0])]})
+		n.set_meta("radius", float(d.get("radius", 10.0)))
+		n.set_meta("roamer", true)
+		n.set_meta("fleet", str(ships[i][0]))
+		n.set_meta("orbit", Data.FLEET_GUARD_ORBIT)
+		n.set_meta("speed", Data.FLEET_GUARD_SPEED)
+		n.set_meta("side", float(Data.FLEET_GUARD_SIDE[i]))
+		n.set_meta("angle", a0 - float(Data.FLEET_GUARD_GAP[i]))
+		n.set_meta("centre", (sys["station"]["pos"] as Vector3))
+		add_child(n)
+		var m := ShipFactory.build(key)
+		m.name = "FleetModel"
+		n.add_child(m)
+		roamers.append(n)
+		extras.append(n)
+		fleet_guard.append(n)
 
 func _extra_worlds_real() -> void:
 	if surface_mode or not Packs.is_ready("worlds"): return
@@ -8334,7 +8386,16 @@ func spawn_invasion(at: Vector3, faction: String, left: int, station_up: bool) -
 
 func _spawn_capital(kind: String, role: String, p: Vector3, home: Vector3, faction: String) -> Dictionary:
 	var d: Dictionary = Data.ENEMIES[kind]
-	var e := spawn_unit(kind, p, home, str(d["model"]), float(d.get("scale", 1.0)))
+	var model := str(d["model"])
+	var sc := float(d.get("scale", 1.0))
+	# v11.32: a faction with its own fleet brings it (battleship / cruiser / frigate) instead of the stand-in models
+	var fl: Dictionary = Data.FACTION_FLEET.get(faction, {})
+	var own := str(fl.get({"battleship": "battleship", "flagship": "battleship", "warship": "cruiser", "destroyer": "frigate"}.get(role, ""), ""))
+	if own == "" and role == "destroyer": own = str(fl.get("cruiser", ""))
+	if own != "" and ShipFactory.has_real_model(own):
+		model = own
+		sc = float({"flagship": 1.6, "warship": 1.6, "destroyer": 1.4}.get(role, 1.0))   # (about the stand-ins' sizes, so the hit boxes still fit)
+	var e := spawn_unit(kind, p, home, model, sc)
 	e["invasion"] = true
 	e["inv_role"] = role
 	e["provoked"] = true

@@ -5,6 +5,38 @@ extends RefCounted
 
 # key -> [glb path, target length, extra yaw degrees applied after import]
 const GLB := {
+	# v11.32 (owner): the all-factions fleet sheet: battleship, cruiser, frigate, starfighter per faction (nose -Z, top views checked)
+	"elyza_battleship": ["res://assets/ships/fleet/elyza_battleship.glb", Data.FLEET_BATTLESHIP_LEN, Data.FLEET_YAW],
+	"elyza_cruiser": ["res://assets/ships/fleet/elyza_cruiser.glb", Data.FLEET_CRUISER_LEN, Data.FLEET_YAW],
+	"elyza_starfighter": ["res://assets/ships/fleet/elyza_starfighter.glb", Data.FLEET_STARFIGHTER_LEN, Data.FLEET_STARFIGHTER_YAW],
+	"unity_battleship": ["res://assets/ships/fleet/unity_battleship.glb", Data.FLEET_BATTLESHIP_LEN, Data.FLEET_YAW],
+	"unity_cruiser": ["res://assets/ships/fleet/unity_cruiser.glb", Data.FLEET_CRUISER_LEN, Data.FLEET_YAW],
+	"unity_frigate": ["res://assets/ships/fleet/unity_frigate.glb", Data.FLEET_FRIGATE_LEN, Data.FLEET_YAW],
+	"unity_starfighter": ["res://assets/ships/fleet/unity_starfighter.glb", Data.FLEET_STARFIGHTER_LEN, Data.FLEET_STARFIGHTER_YAW],
+	"solarion_battleship": ["res://assets/ships/fleet/solarion_battleship.glb", Data.FLEET_BATTLESHIP_LEN, Data.FLEET_YAW],
+	"solarion_cruiser": ["res://assets/ships/fleet/solarion_cruiser.glb", Data.FLEET_CRUISER_LEN, Data.FLEET_YAW],
+	"solarion_frigate": ["res://assets/ships/fleet/solarion_frigate.glb", Data.FLEET_FRIGATE_LEN, Data.FLEET_YAW],
+	"solarion_starfighter": ["res://assets/ships/fleet/solarion_starfighter.glb", Data.FLEET_STARFIGHTER_LEN, Data.FLEET_STARFIGHTER_YAW],
+	"imperium_battleship": ["res://assets/ships/fleet/imperium_battleship.glb", Data.FLEET_BATTLESHIP_LEN, Data.FLEET_YAW],
+	"imperium_cruiser": ["res://assets/ships/fleet/imperium_cruiser.glb", Data.FLEET_CRUISER_LEN, Data.FLEET_YAW],
+	"imperium_frigate": ["res://assets/ships/fleet/imperium_frigate.glb", Data.FLEET_FRIGATE_LEN, Data.FLEET_YAW],
+	"imperium_starfighter": ["res://assets/ships/fleet/imperium_starfighter.glb", Data.FLEET_STARFIGHTER_LEN, Data.FLEET_STARFIGHTER_YAW],
+	"covenant_battleship": ["res://assets/ships/fleet/covenant_battleship.glb", Data.FLEET_BATTLESHIP_LEN, Data.FLEET_YAW],
+	"covenant_cruiser": ["res://assets/ships/fleet/covenant_cruiser.glb", Data.FLEET_CRUISER_LEN, Data.FLEET_YAW],
+	"covenant_frigate": ["res://assets/ships/fleet/covenant_frigate.glb", Data.FLEET_FRIGATE_LEN, Data.FLEET_YAW],
+	"covenant_starfighter": ["res://assets/ships/fleet/covenant_starfighter.glb", Data.FLEET_STARFIGHTER_LEN, Data.FLEET_STARFIGHTER_YAW],
+	"orion_battleship": ["res://assets/ships/fleet/orion_battleship.glb", Data.FLEET_BATTLESHIP_LEN, Data.FLEET_YAW],
+	"orion_cruiser": ["res://assets/ships/fleet/orion_cruiser.glb", Data.FLEET_CRUISER_LEN, Data.FLEET_YAW],
+	"orion_frigate": ["res://assets/ships/fleet/orion_frigate.glb", Data.FLEET_FRIGATE_LEN, Data.FLEET_YAW],
+	"orion_starfighter": ["res://assets/ships/fleet/orion_starfighter.glb", Data.FLEET_STARFIGHTER_LEN, Data.FLEET_STARFIGHTER_YAW],
+	"savagers_battleship": ["res://assets/ships/fleet/savagers_battleship.glb", Data.FLEET_BATTLESHIP_LEN, Data.FLEET_YAW],
+	"savagers_cruiser": ["res://assets/ships/fleet/savagers_cruiser.glb", Data.FLEET_CRUISER_LEN, Data.FLEET_YAW],
+	"savagers_frigate": ["res://assets/ships/fleet/savagers_frigate.glb", Data.FLEET_FRIGATE_LEN, Data.FLEET_YAW],
+	"savagers_starfighter": ["res://assets/ships/fleet/savagers_starfighter.glb", Data.FLEET_STARFIGHTER_LEN, Data.FLEET_STARFIGHTER_YAW],
+	"liberator_battleship": ["res://assets/ships/fleet/liberator_battleship.glb", Data.FLEET_BATTLESHIP_LEN, Data.FLEET_YAW],
+	"liberator_cruiser": ["res://assets/ships/fleet/liberator_cruiser.glb", Data.FLEET_CRUISER_LEN, Data.FLEET_YAW],
+	"liberator_frigate": ["res://assets/ships/fleet/liberator_frigate.glb", Data.FLEET_FRIGATE_LEN, Data.FLEET_YAW],
+	"liberator_starfighter": ["res://assets/ships/fleet/liberator_starfighter.glb", Data.FLEET_STARFIGHTER_LEN, Data.FLEET_STARFIGHTER_YAW],
 	"cadet": ["res://assets/ships/player/cadet_v2.glb", 9.0, 0.0],   # v9.8 (owner): the remodelled Cadet (laptop Blender build, 9 m, nose -Z, level 1: 4 core + 1 per wing mounts, tilting nacelles)
 	"ranger": ["res://assets/ships/player/ranger.glb", 10.5, 0.0],
 	"lancer": ["res://assets/ships/player/lancer.glb", 12.0, 0.0],
@@ -217,6 +249,7 @@ static func pack_of(key: String) -> String:
 	if key.begins_with("mf_"): return key
 	if key.begins_with("mech_"): return "mechs"
 	if key in ["ranger", "lancer", "hauler"]: return key   # v10.2: the player ships that come in their own pack
+	if GLB.has(key) and str(GLB[key][0]).begins_with("res://assets/ships/fleet/"): return "faction_fleet"   # v11.32
 	return ""
 
 ## v1.9i: a mech built from three frames' parts: the core's body and skeleton, the arms' and legs' meshes on it.

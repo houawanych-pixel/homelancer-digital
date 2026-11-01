@@ -442,3 +442,39 @@ The creature ships' back halves wave (ShipFactory._flow, Data.SHIP_FLOW). They a
 | Faction | File | Kind | Triangles | Mirrored | Source original | Status |
 |---|---|---|---|---|---|---|
 | Unity | assets/ships/player/cadet_v2.glb | player starter fighter (Body + Nacelle_L/R, level 1: 4 core + 1 per wing mounts) | 21384 | built half + mirrored | HL_Remodel_Cadet_Pack_v1 (GPT redesign sheet; original cadet_ship.glb untouched) | IN GAME (v9.8) |
+
+## v11.32 Faction fleets (HL_AllFactions_FlagshipSheet_v1: battleship, cruiser, frigate, starfighter per faction; pack "faction_fleet")
+| Faction | File | Kind | Triangles | Mirrored | Source original | Status |
+|---|---|---|---|---|---|---|
+| Covenant | assets/ships/fleet/covenant_battleship.glb | battleship | 51982 | yes | HL_AllFactions_FlagshipSheet_v1 | IN GAME: patrols its capital; invasion battleship |
+| Covenant | assets/ships/fleet/covenant_cruiser.glb | cruiser | 22266 | yes | HL_AllFactions_FlagshipSheet_v1 | IN GAME: capital patrol; invasion warship |
+| Covenant | assets/ships/fleet/covenant_frigate.glb | frigate | 21750 | yes | HL_AllFactions_FlagshipSheet_v1 | IN GAME: capital patrol; invasion destroyer |
+| Covenant | assets/ships/fleet/covenant_starfighter.glb | starfighter | 10696 | yes | HL_AllFactions_FlagshipSheet_v1 | IN GAME: for sale in the SHIPYARD; capital patrol |
+| Elyza | assets/ships/fleet/elyza_battleship.glb | battleship | 6266 | yes | HL_AllFactions_FlagshipSheet_v1 | IN GAME: patrols its capital; invasion battleship |
+| Elyza | assets/ships/fleet/elyza_cruiser.glb | cruiser | 4114 | yes | HL_AllFactions_FlagshipSheet_v1 | IN GAME: capital patrol; invasion warship |
+| Elyza | assets/ships/fleet/elyza_starfighter.glb | starfighter | 10122 | yes | HL_AllFactions_FlagshipSheet_v1 | IN GAME: for sale in the SHIPYARD; capital patrol |
+| Imperium | assets/ships/fleet/imperium_battleship.glb | battleship | 24970 | yes | HL_AllFactions_FlagshipSheet_v1 | IN GAME: patrols its capital; invasion battleship |
+| Imperium | assets/ships/fleet/imperium_cruiser.glb | cruiser | 17094 | yes | HL_AllFactions_FlagshipSheet_v1 | IN GAME: capital patrol; invasion warship |
+| Imperium | assets/ships/fleet/imperium_frigate.glb | frigate | 21662 | yes | HL_AllFactions_FlagshipSheet_v1 | IN GAME: capital patrol; invasion destroyer |
+| Imperium | assets/ships/fleet/imperium_starfighter.glb | starfighter | 12400 | yes | HL_AllFactions_FlagshipSheet_v1 | IN GAME: for sale in the SHIPYARD; capital patrol |
+| Liberator | assets/ships/fleet/liberator_battleship.glb | battleship | 38166 | yes | HL_AllFactions_FlagshipSheet_v1 | IN GAME: patrols its capital; invasion battleship |
+| Liberator | assets/ships/fleet/liberator_cruiser.glb | cruiser | 12290 | yes | HL_AllFactions_FlagshipSheet_v1 | IN GAME: capital patrol; invasion warship |
+| Liberator | assets/ships/fleet/liberator_frigate.glb | frigate | 15170 | yes | HL_AllFactions_FlagshipSheet_v1 | IN GAME: capital patrol; invasion destroyer |
+| Liberator | assets/ships/fleet/liberator_starfighter.glb | starfighter | 6472 | yes | HL_AllFactions_FlagshipSheet_v1 | IN GAME: for sale in the SHIPYARD; capital patrol |
+| Orion | assets/ships/fleet/orion_battleship.glb | battleship | 39248 | yes | HL_AllFactions_FlagshipSheet_v1 | IN GAME: patrols its capital; invasion battleship |
+| Orion | assets/ships/fleet/orion_cruiser.glb | cruiser | 12848 | yes | HL_AllFactions_FlagshipSheet_v1 | IN GAME: capital patrol; invasion warship |
+| Orion | assets/ships/fleet/orion_frigate.glb | frigate | 20634 | yes | HL_AllFactions_FlagshipSheet_v1 | IN GAME: capital patrol; invasion destroyer |
+| Orion | assets/ships/fleet/orion_starfighter.glb | starfighter | 8752 | yes | HL_AllFactions_FlagshipSheet_v1 | IN GAME: for sale in the SHIPYARD; capital patrol |
+| Savagers | assets/ships/fleet/savagers_battleship.glb | battleship | 59446 | yes | HL_AllFactions_FlagshipSheet_v1 | IN GAME: patrols its capital; invasion battleship |
+| Savagers | assets/ships/fleet/savagers_cruiser.glb | cruiser | 14636 | yes | HL_AllFactions_FlagshipSheet_v1 | IN GAME: capital patrol; invasion warship |
+| Savagers | assets/ships/fleet/savagers_frigate.glb | frigate | 13420 | yes | HL_AllFactions_FlagshipSheet_v1 | IN GAME: capital patrol; invasion destroyer |
+| Savagers | assets/ships/fleet/savagers_starfighter.glb | starfighter | 8358 | yes | HL_AllFactions_FlagshipSheet_v1 | IN GAME: for sale in the SHIPYARD; capital patrol |
+| Solarion | assets/ships/fleet/solarion_battleship.glb | battleship | 56710 | yes | HL_AllFactions_FlagshipSheet_v1 | IN GAME: patrols its capital; invasion battleship |
+| Solarion | assets/ships/fleet/solarion_cruiser.glb | cruiser | 11974 | yes | HL_AllFactions_FlagshipSheet_v1 | IN GAME: capital patrol; invasion warship |
+| Solarion | assets/ships/fleet/solarion_frigate.glb | frigate | 15208 | yes | HL_AllFactions_FlagshipSheet_v1 | IN GAME: capital patrol; invasion destroyer |
+| Solarion | assets/ships/fleet/solarion_starfighter.glb | starfighter | 8626 | yes | HL_AllFactions_FlagshipSheet_v1 | IN GAME: for sale in the SHIPYARD; capital patrol |
+| Unity | assets/ships/fleet/unity_battleship.glb | battleship | 36310 | yes | HL_AllFactions_FlagshipSheet_v1 | IN GAME: patrols its capital; invasion battleship |
+| Unity | assets/ships/fleet/unity_cruiser.glb | cruiser | 5846 | yes | HL_AllFactions_FlagshipSheet_v1 | IN GAME: capital patrol; invasion warship |
+| Unity | assets/ships/fleet/unity_frigate.glb | frigate | 19498 | yes | HL_AllFactions_FlagshipSheet_v1 | IN GAME: capital patrol; invasion destroyer |
+| Unity | assets/ships/fleet/unity_starfighter.glb | starfighter | 9028 | yes | HL_AllFactions_FlagshipSheet_v1 | IN GAME: for sale in the SHIPYARD; capital patrol |
+| Imperium | (work set only) imperium_starfighter front-view twin | starfighter | | yes | HL_AllFactions_FlagshipSheet_v1 | saved, not placed |

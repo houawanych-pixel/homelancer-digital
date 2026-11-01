@@ -1415,6 +1415,14 @@ func _run() -> void:
 		fx.end_warp()
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_V1132") != "":   # the v11.32 fleet checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_v1132()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_V1128") != "":   # the v11.28 scan 3D VIEW checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -3256,7 +3264,7 @@ func _job_v1125() -> void:
 	var swapped: bool = GS.slots[1] == "nuke"
 	main._on_hud("pm_resume")
 	await _frames(2)
-	await _shot("v1129_nuke_button", 0.2)
+	await _shot("v1132_nuke_button", 0.2)
 	var resumed: bool = not hud.pause_menu and s.process_mode == Node.PROCESS_MODE_INHERIT
 	# the nuke: 3x the hit, a first blast twice as wide, then a second bigger one
 	var e: Dictionary = s.spawn_unit("ph_unity", s.player.global_position - s.player.global_basis.z * 300.0, s.player.global_position)
@@ -3557,6 +3565,92 @@ func _job_v1127() -> void:
 	_check("v11.27 (owner): STATION VIEWER in COMMAND: any station on a light-blue / magenta key screen, drag / zoom, FRONT/BACK/LEFT/RIGHT/TOP/BOTTOM/3-4, flat or perspective, hide the buttons, no ring",
 		btn != null and key == "HL_Station_Orion_Capital_retopo" and n0 >= 20 and ortho_ok and next_ok and no_ring and Fs.visible,
 		"button %s first %s (%d stations) ortho %s next %s no ring %s" % [btn != null, key, n0, ortho_ok, next_ok, no_ring])
+
+## v11.32 (owner: "the battleships were a success ... name them, put them in the game, where they need to go, put
+## those little ships for sale as faction fighters"): every fleet model is real and nose-first; a capital has its fleet
+## out round the station; an invasion brings the faction's own battleship; the starfighters are in the SHIPYARD.
+func _job_v1132() -> void:
+	var res: Array = []
+	var missing: Array = []
+	var bad_len: Array = []
+	for f in Data.FACTION_FLEET:
+		for role in ["battleship", "cruiser", "frigate", "starfighter"]:
+			var k: String = Data.FACTION_FLEET[f][role]
+			if k == "": continue
+			if not ShipFactory.has_real_model(k):
+				missing.append(k)
+				continue
+			var m := ShipFactory.build(k)
+			var box := AABB(); var first := true
+			for mi in m.find_children("*", "MeshInstance3D", true, false):
+				var b: AABB = (mi as MeshInstance3D).transform * (mi as MeshInstance3D).get_aabb()
+				var par := (mi as Node3D).get_parent() as Node3D
+				while par != null and par != m:
+					b = par.transform * b
+					par = par.get_parent() as Node3D
+				box = b if first else box.merge(b)
+				first = false
+			var want: float = ShipFactory.GLB[k][1]
+			if absf(box.size.z - want) > want * 0.08 or box.size.z < box.size.x * 0.9: bad_len.append("%s %.0fx%.0f" % [k, box.size.x, box.size.z])
+			m.free()
+	res.append("missing %s long-way %s" % [missing, bad_len])
+	# the capital's fleet (Elyza: Aurelion)
+	main._load_system("aurelion", "station")
+	await _wait(2.0)
+	var s := _sp()
+	var names: Array = s.fleet_guard.map(func(n): return str(n.name))
+	var guard_ok: bool = s.fleet_guard.size() >= 4 and names.has("Elyza Battleship")
+	var bs: Node3D = s.fleet_guard[0] if not s.fleet_guard.is_empty() else null
+	var moved := false
+	if bs != null:
+		var p0: Vector3 = bs.global_position
+		await _wait(1.0)
+		moved = bs.global_position.distance_to(p0) > 5.0
+		var info: Dictionary = s.scan_info(bs)
+		guard_ok = guard_ok and info.get("structure", false)
+		# look at it
+		s.player.global_position = bs.global_position + Vector3(420, 90, 420)
+		await _frames(2)
+		s.process_mode = Node.PROCESS_MODE_DISABLED   # (hold the camera on the fleet for the picture)
+		main.hud.visible = false
+		var mid: Vector3 = bs.global_position
+		s.cam.global_position = mid + (s.player.global_position - mid).normalized() * 330.0 + Vector3(0, 60, 0)
+		s.cam.look_at(mid, Vector3.UP)
+		await _frames(3)
+		await _shot("v1132_elyza_fleet", 0.2)
+		s.cam.global_position = mid + Vector3(0, 0, 0) + bs.global_basis.z * -260.0 + Vector3(0, 40, 0)
+		s.cam.look_at(mid, Vector3.UP)
+		await _frames(3)
+		await _shot("v1132_elyza_fleet_front", 0.2)
+		main.hud.visible = true
+		s.process_mode = Node.PROCESS_MODE_INHERIT
+	res.append("guard %s %s moved %s" % [guard_ok, names, moved])
+	# an Imperium invasion brings its own battleship
+	var inv_ok := false
+	s.spawn_invasion(s.player.global_position - s.player.global_basis.z * 900.0, "Imperium", 1, false)
+	await _frames(3)
+	for e in s.invasion_units("battleship"):
+		if str(e.get("model_key", "")) == "imperium_battleship" or e["node"].find_child("Model_imperium_battleship", true, false) != null: inv_ok = true
+	res.append("invasion %s" % inv_ok)
+	for e in s.invasion_units(""): s._destroy_unit(e)
+	for a in s.allies:
+		if is_instance_valid(a["node"]): a["node"].queue_free()
+	s.allies = []
+	# the SHIPYARD sells them
+	var sale_ok: bool = Data.FLEET_FIGHTERS_FOR_SALE.size() == 8
+	for k in Data.FLEET_FIGHTERS_FOR_SALE: sale_ok = sale_ok and k in Data.SHIP_ORDER and Data.SHIPS.has(k) and ShipFactory.has_real_model(str(Data.SHIPS[k]["model"]))
+	var hb = main.hub
+	hb.open(Data.SYSTEMS["aurelion"]["station"])
+	await _frames(2)
+	hb.show_screen("ships")
+	await _frames(3)
+	var btn: Button = hb.find_child("Ship_elyza_starfighter", true, false)
+	sale_ok = sale_ok and btn != null
+	await _shot("v1132_shipyard", 0.3)
+	hb.visible = false
+	res.append("sale %s" % sale_ok)
+	_check("v11.32 (owner): the fleet sheet in the game: 8 factions' battleship, cruiser, frigate and starfighter, real and nose-first; the capital's fleet loops its station; an invasion brings the faction's battleship; the starfighters are for sale",
+		missing.is_empty() and bad_len.is_empty() and guard_ok and moved and inv_ok and sale_ok, " · ".join(res))
 
 ## v11.28 (owner: "do it for the ship scan ... the pinch view for anything you scan: ships, stations, buildings, mechs"):
 ## scan an enemy and the station; 3D VIEW opens the viewer on a copy of each; the flight holds still; CLOSE gives it back.

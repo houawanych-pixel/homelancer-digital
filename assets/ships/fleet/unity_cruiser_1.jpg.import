@@ -1,0 +1,37 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://cr17b8m1ffu3s"
+path="res://.godot/imported/unity_cruiser_1.jpg-47ab65b2ec3e1e53a790fa9354a035a1.ctex"
+metadata={
+"vram_texture": false
+}
+generator_parameters={
+"md5": "4dd37120f3dd9b0331355389f748a526"
+}
+
+[deps]
+
+source_file="res://assets/ships/fleet/unity_cruiser_1.jpg"
+dest_files=["res://.godot/imported/unity_cruiser_1.jpg-47ab65b2ec3e1e53a790fa9354a035a1.ctex"]
+
+[params]
+
+compress/mode=0
+compress/high_quality=false
+compress/lossy_quality=0.7
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=1
