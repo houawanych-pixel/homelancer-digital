@@ -1415,6 +1415,38 @@ func _run() -> void:
 		fx.end_warp()
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_STATIONPICS") != "":   # (work tool) in-game pictures round a system's station, HL_STATIONPICS=sys1,sys2
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		for sid in OS.get_environment("HL_STATIONPICS").split(","):
+			main._load_system(sid, "station")
+			await _wait(2.0)
+			var ws := _sp()
+			await _until(func(): return ws.station.has_meta("box_aabb"), 25.0)
+			await _wait(1.5)
+			ws.controls = false
+			main.hud.visible = false
+			ws.model.visible = false
+			var sc: Vector3 = ws.station.global_position
+			var rad := 400.0
+			if ws.station.has_meta("box_aabb"):
+				var hd: Node3D = ws.station.get_meta("box_holder")
+				var bb: AABB = ws.station.get_meta("box_aabb")
+				sc = hd.global_transform * bb.get_center()
+				rad = (hd.global_transform.basis * bb.size).length() * 0.5
+			var k := 0
+			for el in [0.25, 0.9]:
+				for az in range(0, 360, 60 if el < 0.5 else 120):
+					var dir := Vector3(cos(deg_to_rad(az)), el, sin(deg_to_rad(az))).normalized()
+					_tp(sc + dir * rad * 2.6, sc)
+					ws.target = null
+					await _frames(12)
+					await _shot("station_%s_%02d" % [sid, k], 0.5)
+					k += 1
+			main.hud.visible = true
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_GATEPICS") != "":   # (work tool) pictures of a warp gate and a rift gate for the map cards
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
