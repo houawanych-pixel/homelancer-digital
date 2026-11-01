@@ -1359,13 +1359,28 @@ func _room_video(vpath: String) -> void:
 		room_vid.volume_db = -80.0
 		add_child(room_vid)
 		move_child(room_vid, 0)   # (at the back: LAUNCH stays the last child, on top of everything)
+		room_vid.finished.connect(_room_vid_next)
 	room_vid.stop()
 	room_vid.stream = null
 	_room_sounds(vpath.get_basename())
+	room_takes = []
+	room_take = 0
 	if not ResourceLoader.exists(vpath): return
+	room_takes = [vpath]
+	var b := vpath.get_basename() + ".b.ogv"   # v11.35 (owner: "2 varieties: one loop, then it goes to the next")
+	if ResourceLoader.exists(b): room_takes.append(b)
+	room_vid.loop = room_takes.size() == 1
 	room_vid.stream = load(vpath)
 	room_vid.play()
 	room_vid_on = true
+
+var room_takes: Array = []   # v11.35: the moving room's takes, played one after another
+var room_take := 0
+func _room_vid_next() -> void:
+	if not room_vid_on or room_takes.size() < 2: return
+	room_take = (room_take + 1) % room_takes.size()
+	room_vid.stream = load(str(room_takes[room_take]))
+	room_vid.play()
 
 ## v5.9 (owner, Echo Vision style): each third of an animated room has its own sound. Facing it: Data.ROOM_SND_FRONT;
 ## at a join the two neighbours each Data.ROOM_SND_SEAM; off screen: silent.
