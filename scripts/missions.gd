@@ -113,10 +113,10 @@ static func _all_offers(sys_id: String, station_id: String, owner: String, pid: 
 		for which in ["ship", "base"]:
 			var pk: String = "disturbance_" + str(which)
 			out.append({"kind": "disturbance", "target": which, "faction": enemy, "slot": Data.PATROL_MAX_SLOT, "pay": Data.MISSION_PAY[pk],
-				"title": "Investigate enemy disturbance: %s" % ("a battleship in the %s cloud" if which == "ship" else "a hidden base in the %s cloud") % str(cl.get("name", "nebula")),
+				"title": "Investigate enemy disturbance: %s" % ("a battleship in the %s cloud" if which == "ship" else "a flagship in the %s cloud") % str(cl.get("name", "nebula")),
 				"giver": station_id, "giver_sys": sys_id, "sys": sys_id, "cloud": str(cl.get("name", "")),
 				"brief": "Something is hiding in the %s nebula cloud in the %s system. Fly in and find it: our scans say %s %s. Their fighters keep coming (%d out at all times) until you destroy the %s. A hard fight: take nukes." % [str(cl.get("name", "")), sys["name"],
-					"a %s battleship" % enemy if which == "ship" else "a hidden %s station" % enemy, "with a wing that never stops", int(Data.DISTURBANCE[which]["fighters"]), "battleship" if which == "ship" else "station"],
+					"a %s battleship" % enemy if which == "ship" else "a %s flagship and a cruiser" % enemy, "with a wing that never stops", int(Data.DISTURBANCE[which]["fighters"]), "battleship" if which == "ship" else "flagship and the cruiser"],
 				"points": [{"dir": atan2(v.z, v.x), "dist": Vector2(v.x, v.z).length(), "y": 0.0}]})
 	# v1.9n (owner): SILVER: the rival faction's fleet invades this system (3 battleships to kill; allies fly with you)
 	if enemy != "":
@@ -370,12 +370,12 @@ static func waypoint(space: SpaceSystem) -> Dictionary:
 			return {"node": ip, "title": "Invasion fleet", "line": "SILVER: fly to the invasion fleet (%d battleship%s)" % [int(m.get("left", 3)), "" if int(m.get("left", 3)) == 1 else "s"], "hops": 0}
 		"disturbance":   # v11.26: the cloud, then the hidden battleship / station
 			var dc: Dictionary = Data.DISTURBANCE[str(m.get("target", "ship"))]
-			var tg: Array = space.invasion_units(str(dc["role"]))
+			var tg: Array = space.invasion_units(str(dc["role"])) + (space.invasion_units("warship") if dc.has("escort") else [])
 			if int(m.get("spawned", -1)) >= 0 and tg.is_empty() and not space.invasion_units().is_empty():   # v11.30: the big one is down: the rest
 				var rest: Array = space.invasion_units()
 				return {"node": rest[0]["node"], "title": rest[0]["node"].name, "line": "DISTURBANCE: finish the rest · %d left" % rest.size(), "hops": 0}
 			if int(m.get("spawned", -1)) >= 0 and not tg.is_empty():
-				return {"node": tg[0]["node"], "title": tg[0]["node"].name, "line": "DISTURBANCE: destroy the %s · %d fighters out" % ["battleship" if str(m["target"]) == "ship" else "hidden station", space.invasion_units("fighter").size()], "hops": 0}
+				return {"node": tg[0]["node"], "title": tg[0]["node"].name, "line": "DISTURBANCE: destroy the %s · %d fighters out" % ["battleship" if str(m["target"]) == "ship" else ("flagship" if tg[0]["inv_role"] == "flagship" else "cruiser"), space.invasion_units("fighter").size()], "hops": 0}
 			return {"node": space.mission_point(point_pos(space, 0)), "title": "Enemy disturbance", "line": "DISTURBANCE: investigate the %s cloud" % str(m.get("cloud", "nebula")), "hops": 0}
 		"escort", "convoy":
 			if is_instance_valid(space.escort_node):

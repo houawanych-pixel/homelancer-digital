@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.30"
+const VERSION := "v11.31"
 const STATION_SIZE := 2.0   # v11.21 (owner: "double the size of all space stations")
 const ESCORT_FREIGHTER_LEN := 180.0   # v11.16 (owner): the escort / cargo-run freighter is a big ship (m long), not fighter-sized (was 16)
 
@@ -1378,7 +1378,9 @@ const SLOT_ITEMS := {
 # v11.25 (owner): the NUKE: 3x a super missile's hit, twice its blast, and a second, bigger blast after it.
 # v11.26 (owner): INVESTIGATE ENEMY DISTURBANCE: a hidden enemy in one of the system's nebula clouds. Their fighters
 # keep coming (topped up to the number) until you destroy the battleship, or the hidden station.
-const DISTURBANCE := {"ship": {"capital": "inv_battleship", "role": "battleship", "fighters": 10}, "base": {"capital": "inv_command", "role": "command", "fighters": 15},
+# v11.31 (owner: "not a space station: a big high-level ship, and a cruiser"): "base" is now a FLAGSHIP (a huge
+# destroyer) with a CRUISER escort; both must go before the fighters stop. Stand-in models until each faction has its own.
+const DISTURBANCE := {"ship": {"capital": "inv_battleship", "role": "battleship", "fighters": 10}, "base": {"capital": "inv_flagship", "role": "flagship", "escort": "inv_warship", "fighters": 15},
 	"arrive": 3000.0, "refill_every": 4.0, "wave": 4}
 const NUKE_MAX := 30
 const NUKE_PRICE := 400               # expensive (a super missile is 50); the hard jobs pay for them
@@ -1702,6 +1704,7 @@ const ENEMIES := {
 	# v1.9n (owner): the SILVER fleet invasion's big ships (capital = slow, turrets all round, a big hit box; missiles,
 	# mines and the special do set damage to them, not a share of their hull)
 	"inv_battleship": {"name": "Battleship", "model": "savager_carrier", "scale": 1.0, "hull": 4500.0, "shield": 1500.0, "speed": 7.0, "turn": 0.05, "damage": 9.0, "rate": 3.0, "reward": 3000, "capital": true, "hit_r": 62.0, "range": 1300.0, "radius": 70.0},
+	"inv_flagship": {"name": "Flagship", "model": "savager_carrier", "scale": 1.8, "hull": 7000.0, "shield": 2500.0, "speed": 5.0, "turn": 0.04, "damage": 10.0, "rate": 3.4, "reward": 5000, "capital": true, "hit_r": 105.0, "range": 1500.0, "radius": 120.0},   # v11.31: the huge destroyer
 	"inv_warship": {"name": "Warship", "model": "savager_cruiser", "scale": 2.0, "hull": 4500.0, "shield": 1500.0, "speed": 10.0, "turn": 0.08, "damage": 8.0, "rate": 2.4, "reward": 1500, "capital": true, "hit_r": 38.0, "range": 1100.0, "radius": 42.0},
 	"inv_destroyer": {"name": "Destroyer", "model": "savager_cruiser", "scale": 1.4, "hull": 3000.0, "shield": 1000.0, "speed": 14.0, "turn": 0.1, "damage": 7.0, "rate": 2.0, "reward": 1000, "capital": true, "hit_r": 28.0, "range": 1000.0, "radius": 30.0},
 	"kaiju_hive": {"name": "Kaijurai Hive", "class": "hive station", "faction": "Kaijurai", "model": "kaijurai_ravager", "scale": 1.0, "hull": 9000.0, "shield": 3000.0, "speed": 0.0, "turn": 0.0, "damage": 10.0, "rate": 1.6, "reward": 3500, "capital": true, "hit_r": 90.0, "range": 1300.0, "radius": 40.0},   # v10.8: a placeholder hive (the Ravager, grown) until a real one is made

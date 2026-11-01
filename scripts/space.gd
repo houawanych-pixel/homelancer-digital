@@ -8570,20 +8570,21 @@ func disturbance_tick(dt: float, m: Dictionary) -> void:
 	if int(m.get("spawned", -1)) < 0 or not inv_here:
 		if player.global_position.distance_to(at) < float(cfg["arrive"]):
 			_spawn_capital(str(dc["capital"]), str(dc["role"]), at, at + Vector3(0, 0, 400), str(m["faction"]))
+			if dc.has("escort"): _spawn_capital(str(dc["escort"]), "warship", at + Vector3(420, 60, -300), at, str(m["faction"]))   # v11.31: the cruiser escort
 			_inv_fighters(at, str(m["faction"]), int(dc["fighters"]))
 			inv_here = true
 			m["spawned"] = 0
 			_dist_t = float(cfg["refill_every"])
 			dist_log.append("spawn")
-			message.emit("DISTURBANCE: a hidden %s in the cloud! Their fighters keep coming until it is destroyed." % ("battleship" if str(m["target"]) == "ship" else "station"))
+			message.emit("DISTURBANCE: %s in the cloud! Their fighters keep coming until %s." % (["a hidden battleship", "it is destroyed"] if str(m["target"]) == "ship" else ["a flagship with a cruiser escort", "both are destroyed"]))
 		else: m["spawned"] = -1
 		return
-	if invasion_units(str(dc["role"])).is_empty():
+	if invasion_units(str(dc["role"])).is_empty() and (not dc.has("escort") or invasion_units("warship").is_empty()):
 		# v11.30 (owner): with the big one down no more fighters come; clear the ones left, then you are paid
 		if not bool(m.get("big_down", false)):
 			m["big_down"] = true
 			dist_log.append("big_down")
-			message.emit("GREAT JOB! The hidden %s is destroyed: no more fighters are coming. Finish the rest for your reward." % ("battleship" if str(m["target"]) == "ship" else "station"))
+			message.emit("GREAT JOB! The %s is destroyed: no more fighters are coming. Finish the rest for your reward." % ("battleship" if str(m["target"]) == "ship" else "flagship and its cruiser"))
 		var left := invasion_units().filter(func(o): return float(o.get("retreat", 0.0)) <= 0.0).size()
 		if left > 0: return
 		dist_log.append("won")
@@ -8594,7 +8595,8 @@ func disturbance_tick(dt: float, m: Dictionary) -> void:
 		_dist_t = float(cfg["refill_every"])
 		var n: int = mini(int(dc["fighters"]) - invasion_units("fighter").size(), int(cfg["wave"]))
 		if n > 0:
-			_inv_fighters(invasion_units(str(dc["role"]))[0]["node"].global_position, str(m["faction"]), n)
+			var src: Array = invasion_units(str(dc["role"])) + invasion_units("warship")
+			_inv_fighters(src[0]["node"].global_position, str(m["faction"]), n)
 			dist_log.append("refill")
 
 ## v1.9o: a prisoner freed by their own people comes after you on launch, with a wing.
