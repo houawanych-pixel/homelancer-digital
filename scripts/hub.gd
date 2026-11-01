@@ -3916,6 +3916,14 @@ func close_inspector() -> void:
 	inspect = null
 	_touches.clear()
 
+## v11.27: the Station Viewer (scripts/station_viewer.gd) over the whole station page.
+func open_station_viewer() -> StationViewer:
+	var old := get_node_or_null("StationViewer")
+	if old: old.queue_free()
+	var sv := StationViewer.new()
+	add_child(sv)
+	return sv
+
 ## Everything about a ship, as shown in the inspector.
 static func ship_sheet(id: String) -> String:
 	var s: Dictionary = Data.SHIPS[id]
@@ -4366,6 +4374,15 @@ func _faction_page() -> void:
 	title.name = "FactionName"
 	title.text = str(d.get("display_name", f if f != "" else "Independent")).to_upper()
 	v.add_child(title)
+	var sv := Button.new()   # v11.27 (owner): look any station over on a key-colour screen, for reference pictures
+	sv.name = "StationViewerButton"
+	sv.text = "STATION VIEWER"
+	sv.focus_mode = Control.FOCUS_NONE
+	sv.add_theme_font_size_override("font_size", Data.ts(17))
+	sv.custom_minimum_size = Vector2(260, 48)
+	sv.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	sv.pressed.connect(open_station_viewer)
+	v.add_child(sv)
 	var l := _label(19, Color(1, 1, 1))
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	if d.is_empty():

@@ -1415,6 +1415,14 @@ func _run() -> void:
 		fx.end_warp()
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_V1127") != "":   # the v11.27 Station Viewer checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_v1127()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_STATIONPICS") != "":   # (work tool) in-game pictures round a system's station, HL_STATIONPICS=sys1,sys2
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -3485,6 +3493,53 @@ func _job_v111() -> void:
 	_check("v11.1 (owner): big fold tabs (sides at the far outside of the button blocks, folded = wrapped round the radar's side; a big HIDE tab hides the console), one FULL SCREEN button top-left on every screen, a small DOCK button above the right block, the gate's green ACTIVATE JUMP / orange UNDOCK, the rooms' sticks like flight",
 		outer and big and fs_ok and folds_in and down_ok and small and gate_ok and sticks_ok and fs_room,
 		"outer %s big %s (l %s r %s b %s) fs %s %s fold %s (%s) down %s dock '%s' %s %s gate %s sticks %s room fs %s" % [outer, big, tl, tr, tb, fs_ok, fs_rect, folds_in, tl2, down_ok, pr, pb, small, gate_ok, sticks_ok, fs_room])
+
+## v11.27 (owner: "something like the ship viewer for the stations, in the command room: rotate it, a light blue screen
+## and a magenta one to cut it out, no ring"): the Station Viewer.
+func _job_v1127() -> void:
+	var s := _sp()
+	if s.surface_mode or main.state != "flight": return
+	main._load_system("dreadholm", "station")
+	await _wait(2.0)
+	var hb = main.hub
+	var sys0: String = GS.system_id
+	GS.system_id = "dreadholm"
+	hb.open(Data.SYSTEMS["dreadholm"]["station"])
+	await _frames(2)
+	hb.show_screen("command")
+	await _frames(3)
+	var btn: Button = hb.find_child("StationViewerButton", true, false)
+	var sv = hb.open_station_viewer()
+	await _until(func(): return sv.pivot.get_child_count() > 0 and not sv._loading, 30.0)
+	await _frames(4)
+	var key: String = sv.keys[sv.idx]
+	for bg in [0, 1]:
+		sv.bg_mode = bg
+		sv._apply_bg()
+		for v in ["FRONT", "RIGHT", "TOP", "3/4"]:
+			sv.snap(v)
+			sv._hide_ui(true)
+			await _frames(3)
+			await _shot("v1127_%s_%s" % [["blue", "magenta"][bg], v.replace("/", "-")], 0.15)
+			sv._hide_ui(false)
+	sv.ortho = true
+	sv._camera()
+	var ortho_ok: bool = sv.cam.projection == Camera3D.PROJECTION_ORTHOGONAL
+	await _shot("v1127_ui", 0.2)
+	var n0: int = sv.keys.size()
+	sv.show_station(sv.idx + 1)
+	await _until(func(): return not sv._loading and sv.pivot.get_child_count() > 0, 30.0)
+	var next_ok: bool = sv.keys[sv.idx] != key
+	var no_ring := true
+	for m in sv.vp.find_children("*", "MeshInstance3D", true, false):
+		if (m as MeshInstance3D).mesh is TorusMesh: no_ring = false
+	sv.queue_free()
+	await _frames(2)
+	hb.visible = false
+	GS.system_id = sys0
+	_check("v11.27 (owner): STATION VIEWER in COMMAND: any station on a light-blue / magenta key screen, drag / zoom, FRONT/BACK/LEFT/RIGHT/TOP/BOTTOM/3-4, flat or perspective, hide the buttons, no ring",
+		btn != null and key == "HL_Station_Orion_Capital_retopo" and n0 >= 20 and ortho_ok and next_ok and no_ring and Fs.visible,
+		"button %s first %s (%d stations) ortho %s next %s no ring %s" % [btn != null, key, n0, ortho_ok, next_ok, no_ring])
 
 ## v11 (owner: "I can't dock at the station"; "the close trade lanes pull together at the entrance"): next to any side
 ## of a (now twice as big) station's hull you can dock; the trade-lane mouths round a station sit clear of its hull and
