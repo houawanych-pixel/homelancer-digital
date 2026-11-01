@@ -13,6 +13,8 @@ faction calls for it: humans plus alien races (elf-eared, horned, furred beast-f
 androids), mixed men and women, all in the same Epic Seven anime style.
 Lighting: bright and clear, the room well lit by the faction's colours; space or a planet visible through windows.
 Animation keeps the SAME style: every frame stays anime splash-art; no switch to realistic motion or textures.
+NO MIRRORING (owner): never mirror, flip or copy one side of the picture onto the other; no symmetric
+mirror-image rooms, ships or people. Every part of the room is drawn once, different on each side.
 ```
 
 Per faction, add after it: the faction's colours, the station and system names, and the room.
