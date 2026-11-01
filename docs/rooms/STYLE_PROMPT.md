@@ -13,6 +13,14 @@ faction calls for it: humans plus alien races (elf-eared, horned, furred beast-f
 androids), mixed men and women, all in the same Epic Seven anime style.
 Lighting: bright and clear, the room well lit by the faction's colours; space or a planet visible through windows.
 Animation keeps the SAME style: every frame stays anime splash-art; no switch to realistic motion or textures.
+FUTURE, NOT A HOTEL (owner, Nov 1 2026): no flags or cloth banners: digital wall screens, holo panels and light
+strips show the faction emblem, and only a few of them. No present-day games (no pool tables): holo strategy or
+dogfight tables, VR pods, holo arcade. No padded sofas or armchairs: sleek curved modular seating with glowing
+trim, lounge pods, floating-look benches.
+PEOPLE (owner, Nov 1 2026): more of them, at middle distance: close enough to read as Epic Seven characters (species,
+outfits: humans and aliens in futuristic clothes) but never in the camera's face; the nearest at most ~40% of the
+frame height; tiny far-back silhouettes only in the big hub rooms. Full body, busy, nobody posing at the camera,
+different people in every room.
 NO MIRRORING (owner): never mirror, flip or copy one side of the picture onto the other; no symmetric
 mirror-image rooms, ships or people. Every part of the room is drawn once, different on each side.
 ```

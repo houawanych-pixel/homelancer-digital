@@ -4,6 +4,14 @@ Every image and video prompt starts with the STYLE block in `docs/rooms/STYLE_PR
 Nothing gets animated until the owner has approved the exact frames that will be animated: animation costs credits,
 so every mistake is caught on a still picture first.
 
+## Owner's fixes (Nov 1 2026): NO room animation until these hold and the owner approves
+- ONE ROOM AT A TIME: show the owner the picture (then the joins, then the stitched 360) and wait for "approved"
+  before the next room. No batch runs until the owner trusts the output.
+- Seams: every object appears ONCE across a join. A gap fill must never repeat what is beside it (no second plant,
+  flag, chair or couch at the seam); the two gap fills differ. Check each stitched 360 at both joins for doubles
+  before cutting parts.
+- Content: see STYLE_PROMPT.md (no flags or banners, no pool tables or old sofas, more people at middle distance).
+
 ## The four STOP points (the owner says "approved" before the next step)
 
 | Stop | What the owner sees | What it costs if skipped |
