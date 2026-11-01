@@ -4409,8 +4409,10 @@ func _fix_button(v: Control) -> void:
 	var need: bool = GS.needs_repair() or rc > 0
 	var fb := Button.new()
 	fb.name = "FixAndRestock"
-	fb.text = ("REPAIR & RESTOCK  ·  %d cr" % rc) if need else "REPAIR & RESTOCK  ·  ALL FULL"
+	fb.text = ("FIX & RESTOCK  %d cr" % rc) if need else "FIX & RESTOCK · FULL"
 	fb.custom_minimum_size = Vector2(0, 56)
+	fb.clip_text = true   # (never wider than its tablet)
+	fb.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	fb.disabled = not need
 	fb.add_theme_color_override("font_color", Color(0.55, 1.0, 0.65))
 	fb.pressed.connect(func():
