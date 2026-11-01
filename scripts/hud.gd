@@ -581,7 +581,7 @@ func _layout() -> void:
 	for id in ["fire", "kill", "thrust", "stop", "warp", "shield", "repair", "form", "special"]: buttons[id] = dg[id]
 	for k in GS.slots.size():
 		var it: String = GS.slots[k]
-		var key := "missile1" if it == "light_missile" else ("missile2" if it == "heavy_missile" else ("mine" if it == "mine" else ""))
+		var key: String = ["missile1", "missile2", "mine"][k] if k < 3 else ""   # v11.29 (owner): a slot keeps its spot whatever is fitted (the NUKE takes MISSILE 2's)
 		if key != "": buttons["slot_%d" % k] = dg[key]
 	# v7.8 (owner): TRACTOR and FULL SCREEN sit down with the other buttons: on top of each block, by the radar
 	for id in ["tractor", "ground", "cloak"]: buttons[id] = dg[id]
@@ -735,9 +735,9 @@ func _dock_filter(dg: Dictionary) -> void:
 		tabs["start"] = Rect2(S.x * 0.5 - 104.0, yb, 98.0, 38.0)
 		tabs["select"] = Rect2(S.x * 0.5 + 6.0, yb, 98.0, 38.0)
 	else:
-		var tb: Rect2 = dg["tab_b"]
-		tabs["start"] = Rect2(tb.position.x - 92.0, tb.position.y, 86.0, tb.size.y)
-		tabs["select"] = Rect2(tb.end.x + 6.0, tb.position.y, 86.0, tb.size.y)
+		var sp: Rect2 = dg["speed"]   # v11.29 (owner): just above the SPEED box
+		tabs["start"] = Rect2(sp.get_center().x - 92.0, sp.position.y - 40.0, 86.0, 32.0)
+		tabs["select"] = Rect2(sp.get_center().x + 6.0, sp.position.y - 40.0, 86.0, 32.0)
 	tabs.merge(buttons)   # the tabs win a tap over anything they touch
 	buttons = tabs
 	if pause_menu: _pause_buttons()

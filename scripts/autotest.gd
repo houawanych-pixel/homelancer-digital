@@ -3256,6 +3256,7 @@ func _job_v1125() -> void:
 	var swapped: bool = GS.slots[1] == "nuke"
 	main._on_hud("pm_resume")
 	await _frames(2)
+	await _shot("v1129_nuke_button", 0.2)
 	var resumed: bool = not hud.pause_menu and s.process_mode == Node.PROCESS_MODE_INHERIT
 	# the nuke: 3x the hit, a first blast twice as wide, then a second bigger one
 	var e: Dictionary = s.spawn_unit("ph_unity", s.player.global_position - s.player.global_basis.z * 300.0, s.player.global_position)
@@ -3272,7 +3273,9 @@ func _job_v1125() -> void:
 	var first_ok: bool = not s.nuke_log.is_empty() and str(s.nuke_log[-1][0]) == "first" and is_equal_approx(float(s.nuke_log[-1][1]), Data.HEAVY_MISSILE_BLAST_RADIUS * Data.NUKE_BLAST_K) and int(s.nuke_log[-1][2]) >= 1
 	await _wait(float(Data.NUKE_SECOND[0]) + 0.3)
 	var second_ok: bool = s.nuke_log.size() >= 2 and str(s.nuke_log[-1][0]) == "second" and float(s.nuke_log[-1][1]) > float(s.nuke_log[-2][1])
-	var fired: bool = s.trigger_system("nuke") and GS.nukes == 2 and s.missiles_live[-1].get("nuke", false)
+	hud._layout()
+	var nuke_btn: bool = hud.buttons.has("slot_1")   # v11.29 (owner): the NUKE has its button where MISSILE 2 was
+	var fired: bool = nuke_btn and s.trigger_system("nuke") and GS.nukes == 2 and s.missiles_live[-1].get("nuke", false)
 	for m in s.missiles_live: m["life"] = 0.0
 	GS.slots = keep
 	# cloaked: even the invasion's big ships stop shooting you; ENGINE KILL still works
