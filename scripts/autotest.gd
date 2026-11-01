@@ -3632,6 +3632,33 @@ func _job_v1132() -> void:
 	for e in s.invasion_units("battleship"):
 		if str(e.get("model_key", "")) == "imperium_battleship" or e["node"].find_child("Model_imperium_battleship", true, false) != null: inv_ok = true
 	res.append("invasion %s" % inv_ok)
+	# v11.33: the battleship's hangar: 15 out at a time, 90 in all, then none; 35 nukes destroy it
+	var bse: Dictionary = {}
+	for e in s.invasion_units("battleship"): bse = e
+	var hang_ok := false
+	var nuke_ok := false
+	if not bse.is_empty():
+		s.process_mode = Node.PROCESS_MODE_DISABLED   # (no fighting while counting)
+		bse["node"].global_position = s.player.global_position - s.player.global_basis.z * 2500.0
+		var l0: int = s.carrier_launches
+		for i in 40: s._update_carriers(2.0)
+		var first_out: int = s.carrier_launches - l0
+		var total := first_out
+		for round_i in 12:   # shoot down what is out, let more come
+			for c in s.carriers:
+				if c["ent"] == bse:
+					for k in (c["kids"] as Array).duplicate(): s._destroy_unit(k)
+			for i in 40: s._update_carriers(2.0)
+			total = s.carrier_launches - l0
+		hang_ok = first_out == 15 and total == 90 and s.hangar_left(bse) == 0
+		res.append("hangar first %d total %d left %d" % [first_out, total, s.hangar_left(bse)])
+		var hits := 0
+		while s.enemies.has(bse) and hits < 60:
+			s._damage_enemy(bse, s.fleet_nuke_damage(bse))
+			hits += 1
+		nuke_ok = hits == Data.FLEET_NUKES_TO_KILL["battleship"] and GS.max_nukes() == 50 and GS.max_mines() >= 50
+		res.append("nukes %d" % hits)
+		s.process_mode = Node.PROCESS_MODE_INHERIT
 	for e in s.invasion_units(""): s._destroy_unit(e)
 	for a in s.allies:
 		if is_instance_valid(a["node"]): a["node"].queue_free()
@@ -3649,8 +3676,8 @@ func _job_v1132() -> void:
 	await _shot("v1132_shipyard", 0.3)
 	hb.visible = false
 	res.append("sale %s" % sale_ok)
-	_check("v11.32 (owner): the fleet sheet in the game: 8 factions' battleship, cruiser, frigate and starfighter, real and nose-first; the capital's fleet loops its station; an invasion brings the faction's battleship; the starfighters are for sale",
-		missing.is_empty() and bad_len.is_empty() and guard_ok and moved and inv_ok and sale_ok, " · ".join(res))
+	_check("v11.32 (owner): the fleet sheet in the game: 8 factions' battleship, cruiser, frigate and starfighter, real and nose-first; the capital's fleet loops its station; an invasion brings the faction's battleship; the starfighters are for sale; v11.33: a battleship launches 15 at a time, 90 in all, and 35 nukes destroy it; 50 nukes, 50 mines",
+		missing.is_empty() and bad_len.is_empty() and guard_ok and moved and inv_ok and sale_ok and hang_ok and nuke_ok, " · ".join(res))
 
 ## v11.28 (owner: "do it for the ship scan ... the pinch view for anything you scan: ships, stations, buildings, mechs"):
 ## scan an enemy and the station; 3D VIEW opens the viewer on a copy of each; the flight holds still; CLOSE gives it back.

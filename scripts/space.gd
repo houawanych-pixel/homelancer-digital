@@ -2931,6 +2931,71 @@ func _update_nests(dt: float) -> void:
 		nest_launches += 1
 
 
+## v11.33 (owner: "they carry 90 fighters, only 15 at a time to prevent lag; after those are gone, or the battleship
+## is, no more come out; a cruiser holds 30"): a fleet battleship or cruiser launches its faction's starfighters from
+## its hangar while you are near, keeping at most its "out" number flying, until its hangar is empty or it is destroyed.
+var carriers: Array = []   # [{ent, left, out, kids, cd, woke, fighter}]
+var carrier_launches := 0  # (checks)
+func _make_carrier(e: Dictionary) -> void:
+	var role := str(e["def"].get("carrier", ""))
+	var cfg: Array = Data.FLEET_CARRIER.get(role, [0, 0])
+	if int(cfg[0]) <= 0: return
+	var fl: Dictionary = Data.FACTION_FLEET.get(str(e["def"].get("faction", "")), {})
+	var fk := str(fl.get("starfighter", ""))
+	if fk == "": return
+	carriers.append({"ent": e, "left": int(cfg[0]), "out": int(cfg[1]), "kids": [], "cd": 1.0, "woke": false, "fighter": fk})
+
+## How many fighters a carrier still has in its hangar (-1 = not a carrier).
+func hangar_left(e: Dictionary) -> int:
+	for c in carriers:
+		if c["ent"] == e: return int(c["left"])
+	return -1
+
+func _update_carriers(dt: float) -> void:
+	if carriers.is_empty() or not is_instance_valid(player): return
+	var pp := player.global_position
+	carriers = carriers.filter(func(c): return enemies.has(c["ent"]) and is_instance_valid(c["ent"]["node"]))   # destroyed: its launches stop
+	for c in carriers:
+		c["kids"] = (c["kids"] as Array).filter(func(k): return enemies.has(k) and is_instance_valid(k["node"]))
+		if int(c["left"]) <= 0: continue
+		var cn: Node3D = c["ent"]["node"]
+		if cn.global_position.distance_to(pp) > Data.FLEET_LAUNCH_WAKE: continue
+		if not c["woke"]:
+			c["woke"] = true
+			message.emit("%s is launching fighters (%d aboard)! Destroy it to stop them." % [str(c["ent"]["def"]["name"]), int(c["left"])])
+		c["cd"] = float(c["cd"]) - dt
+		if float(c["cd"]) > 0.0 or (c["kids"] as Array).size() >= int(c["out"]): continue
+		c["cd"] = Data.FLEET_LAUNCH_EVERY
+		var out_dir := (pp - cn.global_position).normalized()
+		var r: float = float(c["ent"]["def"].get("hit_r", 30.0))
+		var at: Vector3 = cn.global_position + out_dir * (r + 40.0) + Vector3(_rng.randfn(0, 1), _rng.randfn(0, 0.3), _rng.randfn(0, 1)) * 30.0
+		var kid := spawn_unit(str(c["fighter"]), at, cn.global_position)
+		kid["aggro"] = true
+		kid["provoked"] = true
+		kid["vel"] = out_dir * 70.0
+		if c["ent"].has("faction"): kid["faction"] = c["ent"]["faction"]
+		if c["ent"].get("invasion", false):
+			kid["invasion"] = true
+			kid["inv_role"] = "fighter"
+		(c["kids"] as Array).append(kid)
+		c["left"] = int(c["left"]) - 1
+		carrier_launches += 1
+
+## v11.33: is a fleet carrier in this fight (so the old endless top-ups stop: its hangar is the limit)?
+func _fleet_carrying() -> bool:
+	for c in carriers:
+		if c["ent"].get("invasion", false): return true
+	return false
+
+## v11.33: one direct nuke hit on a fleet ship: its whole hull and shield over Data.FLEET_NUKES_TO_KILL.
+func fleet_nuke_damage(e: Dictionary) -> float:
+	return (float(e["max"]) + float(e.get("sh_max", 0.0))) / float(Data.FLEET_NUKES_TO_KILL[str(e["def"]["carrier"])]) + 0.01
+
+## v11.33: the extra reach of a big ship: hits count on its hull, not only near its middle.
+func _hull_r(e: Dictionary) -> float:
+	var d: Dictionary = e.get("def", {})
+	return float(d.get("hit_r", 0.0)) if d.has("carrier") else 0.0
+
 ## v1.9i: the player's mech, built from the fitted arms / core / legs. Until a part's pack is in, the Black-Gold frame
 ## stands in and the mech is rebuilt when the pack arrives.
 func _player_mech_model() -> Node3D:
@@ -3656,6 +3721,7 @@ func _process(dt: float) -> void:
 	Missions.tick(self, dt)   # v1.5f
 	_update_special(dt)   # v1.5o
 	_update_nests(dt)   # v10.8
+	_update_carriers(dt)   # v11.33
 	_update_nav()   # v1.5i
 	_update_beacon()
 	_update_buoys()   # v10.4
@@ -5454,10 +5520,12 @@ func _update_missiles(dt: float) -> void:
 			_blast_blocks(dig, "heavy" if m.get("heavy", false) else "missile", bfm)
 			_blast(dig, Data.BLAST_ENEMY if m.get("heavy", false) else Data.BLAST_WING, "ground")
 			done = true
-		elif is_instance_valid(t) and n.global_position.distance_to(t.global_position) < (Data.HEAVY_MISSILE_HIT_RADIUS if m.get("heavy", false) else Data.MISSILE_HIT_RADIUS):
+		elif is_instance_valid(t) and n.global_position.distance_to(t.global_position) < (Data.HEAVY_MISSILE_HIT_RADIUS if m.get("heavy", false) else Data.MISSILE_HIT_RADIUS) + _hull_r(_enemy_entry(t)) * 0.8:
 			var e := _enemy_entry(t)
 			if not e.is_empty():
-				_damage_enemy(e, missile_damage(e, m.get("heavy", false), float(m.get("scale", 1.0))) * (Data.NUKE_MULT if m.get("nuke", false) else 1.0))
+				if m.get("nuke", false) and e["def"].has("carrier"):   # v11.33 (owner: "35 nukes to blow up one of those battleships")
+					_damage_enemy(e, fleet_nuke_damage(e))
+				else: _damage_enemy(e, missile_damage(e, m.get("heavy", false), float(m.get("scale", 1.0))) * (Data.NUKE_MULT if m.get("nuke", false) else 1.0))
 			if m.get("nuke", false): _blast(n.global_position, Data.BLAST_NUKE, "heavy_missile")   # v11.25: the nuke's blast (the second one follows)
 			elif m.get("heavy", false): _blast(n.global_position, Data.BLAST_HEAVY_MISSILE, "heavy_missile")   # v1.5w: the super missile's big explosion
 			else: _spark(n.global_position, Color(1, 0.6, 0.2), 8.0)
@@ -6322,7 +6390,7 @@ func _update_mines(dt: float) -> void:
 			var prey: Node3D = null
 			var pd := 170.0
 			for e in enemies:
-				var d0: float = e["node"].global_position.distance_to(n.global_position)
+				var d0: float = maxf(0.0, e["node"].global_position.distance_to(n.global_position) - _hull_r(e) * 0.8)   # (v11.33: to a big ship's hull)
 				if d0 < pd:
 					pd = d0
 					prey = e["node"]
@@ -6337,7 +6405,7 @@ func _update_mines(dt: float) -> void:
 		if boom:
 			_explode(n.global_position)
 			for e in enemies.duplicate():
-				var d: float = e["node"].global_position.distance_to(n.global_position)
+				var d: float = maxf(0.0, e["node"].global_position.distance_to(n.global_position) - _hull_r(e) * 0.8)
 				if d < Data.MINE_RADIUS:
 					if m.get("magnetic", false):   # v1.5x: caught: pulled in and held stuck for a few seconds
 						e["stuck_t"] = Data.MAG_MINE_HOLD
@@ -7922,7 +7990,7 @@ func _nuke_splash(at: Vector3, r: float, k: float, hit: Node3D, which: String) -
 	var n := 0
 	for e in enemies.duplicate():
 		var en: Node3D = e["node"]
-		if en == hit or not is_instance_valid(en): continue
+		if en == hit or not is_instance_valid(en) or e["def"].has("carrier"): continue   # (v11.33: the fleet ships count direct nuke hits only)
 		var d := en.global_position.distance_to(at)
 		if d >= r: continue
 		_damage_enemy(e, missile_damage(e, true, 1.0) * k * Data.MISSILE_SPLASH * (1.0 - d / r))
@@ -8393,9 +8461,12 @@ func _spawn_capital(kind: String, role: String, p: Vector3, home: Vector3, facti
 	var own := str(fl.get({"battleship": "battleship", "flagship": "battleship", "warship": "cruiser", "destroyer": "frigate"}.get(role, ""), ""))
 	if own == "" and role == "destroyer": own = str(fl.get("cruiser", ""))
 	if own != "" and ShipFactory.has_real_model(own):
+		kind = own   # v11.33: the fleet ship's own record (its true size, hit box, hangar and nuke rule)
+		d = Data.ENEMIES[kind]
 		model = own
-		sc = float({"flagship": 1.6, "warship": 1.6, "destroyer": 1.4}.get(role, 1.0))   # (about the stand-ins' sizes, so the hit boxes still fit)
+		sc = 1.0
 	var e := spawn_unit(kind, p, home, model, sc)
+	_make_carrier(e)
 	e["invasion"] = true
 	e["inv_role"] = role
 	e["provoked"] = true
@@ -8612,6 +8683,7 @@ func invasion_tick(dt: float, m: Dictionary) -> void:
 		_inv_wave_t = float(cfg["wave_every"]) * (float(cfg["station_down_slow"]) if bool(m.get("station_down", false)) else 1.0)
 		var room: int = int(cfg["fighters"]) - invasion_units("fighter").size()
 		var n: int = mini(room, int(cfg["wave"]))
+		if _fleet_carrying(): n = 0   # v11.33: the faction's battleship launches its own fighters instead
 		if n > 0:
 			var st: Array = invasion_units("command")
 			var from: Vector3 = (st[0]["node"].global_position if not st.is_empty() else invasion_units("battleship")[0]["node"].global_position)
@@ -8655,6 +8727,7 @@ func disturbance_tick(dt: float, m: Dictionary) -> void:
 	if _dist_t <= 0.0:   # their fighters, topped back up (no end to them while the big one stands)
 		_dist_t = float(cfg["refill_every"])
 		var n: int = mini(int(dc["fighters"]) - invasion_units("fighter").size(), int(cfg["wave"]))
+		if _fleet_carrying(): n = 0   # v11.33: the faction's own battleship / cruiser launch from their hangars instead
 		if n > 0:
 			var src: Array = invasion_units(str(dc["role"])) + invasion_units("warship")
 			_inv_fighters(src[0]["node"].global_position, str(m["faction"]), n)
