@@ -2,7 +2,8 @@ import sys, os, numpy as np
 from PIL import Image
 E=560; X=300
 SEAM = os.environ.get("STITCH_SEAM", "") != ""   # v6.7: cut along the best-matching path (no ghosted people) instead of a wide crossfade
-F = 10                                           # feather either side of the cut (px)
+F = int(os.environ.get("STITCH_FEATHER", "10")) # feather either side of the cut (px)
+MATCH = os.environ.get("STITCH_MATCH", "") != ""  # v11.26 (owner: "bad seams"): match the fill's colour and sharpness to the originals
 def blend(a, b):
   """a and b cover the same X columns; returns the mix: a on the left, b on the right."""
   if not SEAM:
@@ -48,6 +49,22 @@ W=fr.shape[1]
 # align each filled row to the originals it overlaps (left piece)
 d1=shift_of(fr[:,W-E:], r1[:,:E]); r1=roll(r1,d1[1],d1[2])
 d2=shift_of(bk[:,W-E:], r2[:,:E]); r2=roll(r2,d2[1],d2[2])
+def match(fill, left_ref, right_ref):
+  """v11.26: a filled row (re-drawn softer, a little lighter or darker) brought to the originals it joins: a per-channel
+  gain + offset fitted on both of its overlaps, then a light unsharp mask on the painted gap only."""
+  if not MATCH: return fill
+  ov = np.concatenate([fill[:, :E].reshape(-1, 3), fill[:, -E:].reshape(-1, 3)])
+  rf = np.concatenate([left_ref.reshape(-1, 3), right_ref.reshape(-1, 3)])
+  out = fill.copy()
+  for c in range(3):
+    g = rf[:, c].std() / max(ov[:, c].std(), 1e-3); o = rf[:, c].mean() - g * ov[:, c].mean()
+    out[..., c] = fill[..., c] * g + o
+  blur = np.array(Image.fromarray(out.clip(0, 255).astype(np.uint8)).filter(__import__("PIL.ImageFilter", fromlist=["x"]).GaussianBlur(1.6))).astype(float)
+  sharp = out + (out - blur) * 0.8
+  gap = out.copy(); gap[:, E:-E] = sharp[:, E:-E]
+  return gap
+r1 = match(r1, fr[:, W-E:], bk[:, :E])
+r2 = match(r2, bk[:, W-E:], fr[:, :E])
 s=join(join(join(fr,r1),bk),r2)
 L=s.shape[1]-E
 f=s[:,:L].copy(); tail=s[:,L:]          # tail redraws front[0:E]

@@ -5,8 +5,8 @@
  ],
  "cuts": [
   343,
-  1908,
-  3387
+  1615,
+  3093
  ],
  "overlap": 40,
  "frame": [
@@ -17,18 +17,18 @@
   {
    "file": "v2_orion_private_quarters_part1.png",
    "strip_x0": 303,
-   "strip_w": 1645,
+   "strip_w": 1352,
    "frame_rect": [
     0,
-    270,
+    212,
     1920,
-    539
+    656
    ]
   },
   {
    "file": "v2_orion_private_quarters_part2.png",
-   "strip_x0": 1868,
-   "strip_w": 1559,
+   "strip_x0": 1575,
+   "strip_w": 1558,
    "frame_rect": [
     0,
     255,
@@ -38,13 +38,13 @@
   },
   {
    "file": "v2_orion_private_quarters_part3.png",
-   "strip_x0": 3347,
-   "strip_w": 1484,
+   "strip_x0": 3053,
+   "strip_w": 1778,
    "frame_rect": [
     0,
-    241,
+    290,
     1920,
-    598
+    499
    ]
   }
  ]

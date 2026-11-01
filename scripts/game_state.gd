@@ -25,7 +25,8 @@ var shield := 60.0
 var repairs := Data.MAX_REPAIRS
 var missiles := 12
 var heavy_missiles := 2
-var mines := 20
+var mines := 30
+var nukes := Data.NUKE_MAX   # v11.25 (owner)
 var rack := "swarm"             # missile rack on the LIGHT slot (Data.MISSILE_RACKS); v1.4l: the Six Rack comes fitted
 var owned_racks := ["triple", "swarm"]
 var slots: Array = Data.DEFAULT_SLOTS.duplicate()
@@ -99,7 +100,7 @@ var tutorial_seen: Array = []   # v1.7r: tutorial lesson ids already given (see 
 var god_mode := false # only used by the automated route test
 
 # ---------------------------------------------------------------- v1.7y saving
-const SAVE_KEYS := ["credits", "ship_id", "owned_ships", "weapon_id", "owned_weapons", "missiles", "heavy_missiles", "mines", "rack",
+const SAVE_KEYS := ["credits", "ship_id", "owned_ships", "weapon_id", "owned_weapons", "missiles", "heavy_missiles", "mines", "nukes", "rack",
 	"owned_racks", "slots", "modes", "view", "system_id", "discovered", "explored", "last_base", "kills", "met", "mood", "memory", "heat_shield",
 	"bounty", "bounties_done", "mission", "cargo", "missions_done", "rep", "cast", "mine_kind", "block_deltas", "tutorial_seen", "bounty_jail", "mounts", "core_gun", "core_gun2", "core_gun3", "modules", "owned_modules", "gun_levels", "owned_mechs", "mech_parts", "pilot_name"]   # (v1.9e: + mounts; v1.9i: + owned_mechs, mech_parts; v1.9j: + pilot_name)
 var save_path: String = Data.SAVE_PATH
@@ -329,7 +330,8 @@ func wing_max() -> float: return max_hull() * Data.SECTION_SHARE
 func has_heat_shield() -> bool: return heat_shield or "heat_shield" in module_items()
 func max_shield() -> float: return float(ship()["shield"]) * (1.0 + mod("shield"))   # (v1.9w: + Shield Generator)
 func max_missiles() -> int: return int(ship()["missiles"]) + pod_sum("ammo")   # v1.9e: pods carry more (v1.9h: each pod its own)
-func max_mines() -> int: return int(ship()["mines"])
+func max_mines() -> int: return maxi(int(ship()["mines"]), Data.MINES_MAX)   # v11.25 (owner): 30 mines
+func max_nukes() -> int: return Data.NUKE_MAX
 func max_heavy() -> int: return int(ship().get("heavy", 2))
 func is_auto(id: String) -> bool: return modes.get(id, "auto") == "auto"
 
@@ -368,7 +370,7 @@ func needs_repair() -> bool:
 
 ## What a full RESTOCK would cost right now (light + heavy missiles + mines).
 func restock_cost() -> int:
-	return maxi(0, max_missiles() - missiles) * Data.MISSILE_PRICE + maxi(0, max_heavy() - heavy_missiles) * Data.HEAVY_MISSILE_PRICE + maxi(0, max_mines() - mines) * Data.MINE_PRICE
+	return maxi(0, max_missiles() - missiles) * Data.MISSILE_PRICE + maxi(0, max_heavy() - heavy_missiles) * Data.HEAVY_MISSILE_PRICE + maxi(0, max_mines() - mines) * Data.MINE_PRICE + maxi(0, max_nukes() - nukes) * Data.NUKE_PRICE
 
 ## RESTOCK: fill every rack and bill it in one go. Short of credits it loads what you can afford, light missiles first.
 func restock_all() -> String:
@@ -380,11 +382,17 @@ func restock_all() -> String:
 		missiles = max_missiles()
 		heavy_missiles = max_heavy()
 		mines = max_mines()
+		nukes = max_nukes()
 		changed.emit()
 		return "Restocked everything for %d credits." % cost
 	buy_missiles(9999)
 	buy_heavy(9999)
 	buy_mines(9999)
+	var nn := mini(max_nukes() - nukes, credits / Data.NUKE_PRICE)   # (nukes last: the dear ones)
+	if nn > 0:
+		credits -= nn * Data.NUKE_PRICE
+		nukes += nn
+		changed.emit()
 	if credits == before: return "Not enough credits to restock."
 	return "Loaded what %d credits would buy. Racks are not full." % (before - credits)
 
@@ -399,6 +407,7 @@ func restore_full() -> void:
 	missiles = max_missiles()
 	mines = max_mines()
 	heavy_missiles = max_heavy()
+	nukes = max_nukes()
 	energy = Data.ENERGY_MAX
 	shield_charges = Data.MAX_SHIELD_CHARGES
 	energy_cells = Data.MAX_ENERGY_CELLS
@@ -571,6 +580,7 @@ func slot_ammo(item: String) -> int:
 		"light_missile": return missiles
 		"heavy_missile": return heavy_missiles
 		"mine": return mines
+		"nuke": return nukes
 	return 0
 
 ## Buy a missile rack, or fit one you already own.
@@ -586,6 +596,7 @@ func buy_rack(id: String) -> String:
 
 ## Most locks a slot item can hold on one target.
 func max_locks(item: String) -> int:
+	if item == "nuke": return 1   # v11.25: one at a time
 	if item == "heavy_missile": return Data.HEAVY_LOCKS + pod_locks(true)   # v11.12 (owner): a heavy box / turret adds super-missile locks
 	return int(Data.MISSILE_RACKS.get(rack, Data.MISSILE_RACKS["triple"])["locks"]) + pod_locks(false)   # v1.9e: each pod adds locks (v1.9h: its own)
 

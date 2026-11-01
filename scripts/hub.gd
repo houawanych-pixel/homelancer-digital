@@ -1982,6 +1982,7 @@ func _hub_panel() -> void:
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.add_theme_constant_override("separation", 6)
 	sc.add_child(v)
+	_fix_button(v)   # v11.25 (owner): repair and restock right from the station page
 	v.add_child(_caption(str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])).to_upper() + "  ·  " + str(base["name"]).to_upper()))
 	var l := _label(15, Color(1, 1, 1))
 	l.name = "Lore"
@@ -4095,6 +4096,7 @@ func _note_giver() -> void:
 static func mission_icon_key(o: Dictionary) -> String:
 	var k := str(o.get("kind", ""))
 	if k == "threats": return "elite" if o.get("hard", false) else "patrol"
+	if k == "disturbance": return "invasion"   # v11.26: (its own picture later)
 	return k
 func _mission_icon(o: Dictionary) -> Control:
 	var key := mission_icon_key(o)
@@ -4301,7 +4303,7 @@ func _ship_page() -> void:
 	w.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	w.name = "Weapons"
 	var slots: Array = []
-	for it in GS.slots: slots.append("%s %s %d/%d" % [Data.SLOT_ITEMS[it]["label"], Data.SLOT_ITEMS[it]["sub"], GS.slot_ammo(it), {"light_missile": GS.max_missiles(), "heavy_missile": GS.max_heavy(), "mine": GS.max_mines()}[it]])
+	for it in GS.slots: slots.append("%s %s %d/%d" % [Data.SLOT_ITEMS[it]["label"], Data.SLOT_ITEMS[it]["sub"], GS.slot_ammo(it), {"light_missile": GS.max_missiles(), "heavy_missile": GS.max_heavy(), "mine": GS.max_mines(), "nuke": GS.max_nukes()}[it]])
 	w.text = "WEAPONS\nGuns: %s ×%d   ·   Hull %d/%d   ·   Shield %d\nRacks: %s" % [GS.weapon()["name"], sh["guns"], int(GS.hull), int(sh["hull"]), int(sh["shield"]), "   ·   ".join(slots)]
 	v.add_child(w)
 	var c := _label(18, CYAN)
@@ -4401,8 +4403,26 @@ func _faction_page() -> void:
 			strip.add_child(col)
 		v.add_child(strip)
 
+## v11.25 (owner: "the button where you just fix your ship and restock right away"): one tap, both.
+func _fix_button(v: Control) -> void:
+	var rc := GS.restock_cost()
+	var need: bool = GS.needs_repair() or rc > 0
+	var fb := Button.new()
+	fb.name = "FixAndRestock"
+	fb.text = ("REPAIR & RESTOCK  ·  %d cr" % rc) if need else "REPAIR & RESTOCK  ·  ALL FULL"
+	fb.custom_minimum_size = Vector2(0, 56)
+	fb.disabled = not need
+	fb.add_theme_color_override("font_color", Color(0.55, 1.0, 0.65))
+	fb.pressed.connect(func():
+		var a := GS.repair_all() if GS.needs_repair() else ""
+		var b := GS.restock_all() if GS.restock_cost() > 0 else ""
+		status.text = (a + "  " + b).strip_edges()
+		show_screen(screen))
+	v.add_child(fb)
+
 func _repair_page() -> void:
 	var v := _page_box()
+	_fix_button(v)   # v11.25: first, so it is never scrolled out of sight
 	var l := _label(20, Color(1, 1, 1))
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.text = "Hull %d/%d  ·  Shield %d/%d  ·  Repair kits %d/%d  ·  Shield charges %d/%d  ·  Energy cells %d/%d  ·  Missiles %d/%d  ·  Mines %d/%d\n\nDocking crews repair every ship that lands here, free of charge for Unity-registered pilots." % [int(GS.hull), int(GS.max_hull()), int(GS.shield), int(GS.max_shield()), GS.repairs, Data.MAX_REPAIRS, GS.shield_charges, Data.MAX_SHIELD_CHARGES, GS.energy_cells, Data.MAX_ENERGY_CELLS, GS.missiles, GS.max_missiles(), GS.mines, GS.max_mines()]

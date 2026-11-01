@@ -1,12 +1,12 @@
 {
  "strip": [
   4448,
-  462
+  464
  ],
  "cuts": [
-  1673,
-  2542,
-  4332
+  1084,
+  2280,
+  3772
  ],
  "overlap": 40,
  "frame": [
@@ -16,35 +16,35 @@
  "parts": [
   {
    "file": "v2_orion_mech_dealer_part1.png",
-   "strip_x0": 1633,
-   "strip_w": 949,
+   "strip_x0": 1044,
+   "strip_w": 1276,
    "frame_rect": [
     0,
-    72,
+    191,
     1920,
-    935
+    698
    ]
   },
   {
    "file": "v2_orion_mech_dealer_part2.png",
-   "strip_x0": 2502,
-   "strip_w": 1870,
+   "strip_x0": 2240,
+   "strip_w": 1572,
    "frame_rect": [
     0,
-    303,
+    256,
     1920,
-    474
+    567
    ]
   },
   {
    "file": "v2_orion_mech_dealer_part3.png",
-   "strip_x0": 4292,
-   "strip_w": 1869,
+   "strip_x0": 3732,
+   "strip_w": 1840,
    "frame_rect": [
     0,
-    302,
+    298,
     1920,
-    475
+    484
    ]
   }
  ]

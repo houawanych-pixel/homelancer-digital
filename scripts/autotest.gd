@@ -1552,6 +1552,8 @@ func _run() -> void:
 		await _until(func(): return main.state == "flight", 10.0)
 		await _wait(1.0)
 		await _job_v11()
+	await _job_v1125()
+		await _job_v1125()
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
@@ -3201,7 +3203,7 @@ func _job_v1114() -> void:
 	hb.show_screen("hub")
 	await _frames(2)
 	var ab: Button = hb.find_child("AlarmTest", true, false)
-	var has_btn: bool = ab != null and red_ok
+	var has_btn: bool = ab != null and red_ok and hb.find_child("FixAndRestock", true, false) != null   # (v11.25: REPAIR & RESTOCK on the station page)
 	if has_btn: ab.pressed.emit()   # (the page is rebuilt: the button is a new one after this)
 	await _frames(20)
 	var alarm_ok: bool = has_btn and hb.lockdown and hb.breakout != null and hb.breakout.visible and hb.breakout.faction == "orion" and hb.launch_btn.disabled
@@ -3217,6 +3219,101 @@ func _job_v1114() -> void:
 	_check("v11.17 (owner): a TEST ALARM button on the station page (and a red ALARM button on every station screen, v11.18) starts the lockdown fight on demand (Orion's fighters)", alarm_ok, "button %s red %s" % [has_btn, red_ok])
 	_check("v11.14 (owner): Orion's crew stand in its rooms like Evee (each spends time in their home room and visits others): Lyra walks in at the %s, walks aside, and on a tap talks in her own voice with her call on the right" % room,
 		homes_ok and here and walked and talk, "homes %s here %s walked %s talk %s (%s)" % [homes_ok, here, walked, talk, str(hb.crew.crew_log)])
+
+## v11.25 (owner): the NUKE (3x a super missile, twice the blast, a second bigger blast), START / SELECT (pause and swap
+## a weapon slot), cloak hides you from everyone (engine kill works cloaked), one-tap REPAIR & RESTOCK.
+func _job_v1125() -> void:
+	var s := _sp()
+	var hud = main.hud
+	if main.state != "flight": return
+	# START pauses, SELECT swaps a slot to the NUKE
+	hud._layout()
+	var has_ss: bool = hud.buttons.has("start") and hud.buttons.has("select")
+	main._on_hud("start")
+	await _frames(2)
+	var paused: bool = hud.pause_menu and s.process_mode == Node.PROCESS_MODE_DISABLED and hud.buttons.has("pm_slot_1") and not hud.buttons.has("fire")
+	await _shot("v1125_pause_menu", 0.2)
+	var keep: Array = GS.slots.duplicate()
+	for i in 4:
+		if GS.slots[1] == "nuke": break
+		main._on_hud("pm_slot_1")
+	var swapped: bool = GS.slots[1] == "nuke"
+	main._on_hud("pm_resume")
+	await _frames(2)
+	var resumed: bool = not hud.pause_menu and s.process_mode == Node.PROCESS_MODE_INHERIT
+	# the nuke: 3x the hit, a first blast twice as wide, then a second bigger one
+	var e: Dictionary = s.spawn_unit("ph_unity", s.player.global_position - s.player.global_basis.z * 300.0, s.player.global_position)
+	var near: Dictionary = s.spawn_unit("ph_unity", s.player.global_position - s.player.global_basis.z * 300.0 + Vector3(60, 0, 0), s.player.global_position)
+	e["hp"] = 99999.0
+	near["hp"] = 99999.0
+	s.target = e["node"]
+	s.missile_cd = 0.0
+	s.lock_time = 0.0
+	GS.nukes = 3
+	s.nuke_log.clear()
+	var at: Vector3 = (e["node"] as Node3D).global_position
+	s.missile_blast(at, {"heavy": true, "nuke": true}, e["node"])
+	var first_ok: bool = not s.nuke_log.is_empty() and str(s.nuke_log[-1][0]) == "first" and is_equal_approx(float(s.nuke_log[-1][1]), Data.HEAVY_MISSILE_BLAST_RADIUS * Data.NUKE_BLAST_K) and int(s.nuke_log[-1][2]) >= 1
+	await _wait(float(Data.NUKE_SECOND[0]) + 0.3)
+	var second_ok: bool = s.nuke_log.size() >= 2 and str(s.nuke_log[-1][0]) == "second" and float(s.nuke_log[-1][1]) > float(s.nuke_log[-2][1])
+	var fired: bool = s.trigger_system("nuke") and GS.nukes == 2 and s.missiles_live[-1].get("nuke", false)
+	for m in s.missiles_live: m["life"] = 0.0
+	GS.slots = keep
+	# cloaked: even the invasion's big ships stop shooting you; ENGINE KILL still works
+	var inv: Dictionary = s.spawn_unit("ph_unity", s.player.global_position - s.player.global_basis.z * 200.0, s.player.global_position)
+	inv["invasion"] = true
+	GS.energy = Data.ENERGY_MAX
+	s.set_cloak(true)
+	await _frames(4)
+	var hidden: bool = s.cloaked and not inv["aggro"]
+	main._on_hud("kill")
+	await _frames(2)
+	var kill_ok: bool = s.engine_kill
+	main._on_hud("kill")
+	s.set_cloak(false)
+	for o in [e, near, inv]:
+		if o in s.enemies:
+			s.enemies.erase(o)
+			(o["node"] as Node3D).free()
+	# v11.26 (owner): INVESTIGATE ENEMY DISTURBANCE: in a cloud, a hidden battleship whose 10 fighters keep coming until it falls
+	var offers: Array = Missions.offers(s.sys_id, str(s.station.get_meta("info")["id"]))
+	var dist_offers: Array = offers.filter(func(o): return str(o["kind"]) == "disturbance")
+	var dist_ok := false
+	var dist_detail := "no nebula here"
+	if not dist_offers.is_empty():
+		var keep_m: Dictionary = GS.mission
+		var cr0: int = GS.credits
+		var dm: Dictionary = dist_offers.filter(func(o): return str(o["target"]) == "ship")[0].duplicate(true)
+		dm["stage"] = 0
+		dm["spawned"] = -1
+		GS.mission = dm
+		var at: Vector3 = Missions.point_pos(s, 0)
+		var in_cloud := false
+		for cl in s.nebulae:
+			if at.distance_to(cl["center"]) < float(cl["radius"]) * 1.2: in_cloud = true
+		s.player.global_position = at + Vector3(0, 200, 1200)
+		s.dist_log.clear()
+		s.disturbance_tick(0.1, dm)
+		var bs: Array = s.invasion_units("battleship")
+		var fs0: int = s.invasion_units("fighter").size()
+		for e2 in s.invasion_units("fighter").slice(0, 6): s._destroy_unit(e2)
+		await _frames(2)
+		for i in 3: s.disturbance_tick(Data.DISTURBANCE["refill_every"] + 0.1, dm)
+		var refilled: bool = s.invasion_units("fighter").size() >= int(Data.DISTURBANCE["ship"]["fighters"]) - 2 and s.dist_log.has("refill")
+		for e3 in bs: s._destroy_unit(e3)
+		await _frames(2)
+		s.disturbance_tick(0.1, dm)
+		var won: bool = s.dist_log.has("won") and GS.credits >= cr0 + int(dm["pay"])
+		dist_ok = in_cloud and bs.size() == 1 and fs0 == int(Data.DISTURBANCE["ship"]["fighters"]) and refilled and won and int(dm["pay"]) >= 9000
+		dist_detail = "offers %d cloud %s ship %d fighters %d refilled %s won %s" % [dist_offers.size(), in_cloud, bs.size(), fs0, refilled, won]
+		for e4 in s.invasion_units():
+			s.enemies.erase(e4)
+			(e4["node"] as Node3D).queue_free()
+		GS.mission = keep_m
+	_check("v11.26 (owner): INVESTIGATE ENEMY DISTURBANCE (battleship or hidden station, in a nebula cloud): its fighters keep coming (10 / 15 out) until the big one is destroyed; big pay", dist_ok or dist_detail == "no nebula here", dist_detail)
+	_check("v11.25 (owner): START pauses and SELECT swaps a weapon slot (here MISSILE 2 -> NUKE); the NUKE hits 3x a super missile, blasts twice as wide, then a second, bigger blast; cloaked, even an invasion ship loses you, and ENGINE KILL still works",
+		has_ss and paused and swapped and resumed and first_ok and second_ok and fired and hidden and kill_ok,
+		"buttons %s paused %s swapped %s resumed %s first %s second %s fired %s hidden %s kill %s" % [has_ss, paused, swapped, resumed, first_ok, second_ok, fired, hidden, kill_ok])
 
 func _job_v114() -> void:
 	var hb = main.hub
@@ -5827,7 +5924,7 @@ func _job_ai() -> void:
 		elif o["kind"] == "convoy": cvy = o
 	var same: bool = Missions.offers(s.sys_id, sid).map(func(o): return o["title"]) == offers.map(func(o): return o["title"])
 	_check("Job AI: a station's MISSIONS board offers a patrol threats job, an elite threats job (slot 05, paid more) and an escort, from a faction hostile to the owner, the same offers for the whole visit",
-		kinds == ["threats", "threats_hard", "escort", "convoy", "outlaws", "invasion"] and int(hard["slot"]) == 5 and int(easy["slot"]) == Data.MISSION_PATROL_SLOT and int(hard["pay"]) > int(easy["pay"]) and same and Factions.has_fighters(str(easy["faction"])) and (easy["points"] as Array).size() == 2,
+		kinds.filter(func(k): return k != "disturbance") == ["threats", "threats_hard", "escort", "convoy", "outlaws", "invasion"] and int(hard["slot"]) == 5 and int(easy["slot"]) == Data.MISSION_PATROL_SLOT and int(hard["pay"]) > int(easy["pay"]) and same and Factions.has_fighters(str(easy["faction"])) and (easy["points"] as Array).size() == 2,
 		str(kinds) + " " + str(easy.get("faction", "")))
 	var pbid: String = str(Data.SYSTEMS[s.sys_id]["planet"]["id"])
 	var pkinds: Array = Missions.offers(s.sys_id, pbid, "", "planet").map(func(o): return str(o["kind"]))

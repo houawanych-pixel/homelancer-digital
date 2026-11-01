@@ -3614,6 +3614,7 @@ func _process(dt: float) -> void:
 	_update_traffic(dt)
 	_update_bolts(dt)
 	_update_missiles(dt)
+	_update_nukes(dt)
 	_update_trails(dt)
 	_update_blasts(dt)
 	_update_mines(dt)
@@ -4412,7 +4413,7 @@ func fire_volley(heavy: bool, count: int) -> int:
 	return count
 
 func fire_missile(heavy := false, k := 0, n := 1, scale := 1.0, forced: Node3D = null, straight := false) -> bool:
-	if (GS.heavy_missiles if heavy else GS.missiles) <= 0: return false
+	if (GS.nukes if _firing_nuke else (GS.heavy_missiles if heavy else GS.missiles)) <= 0: return false
 	var t := target if (target and is_instance_valid(target) and target.get_meta("kind", "") == "enemy") else null
 	if forced != null and is_instance_valid(forced): t = forced
 	if t == null and not straight: t = _nearest_enemy(900.0)
@@ -4421,7 +4422,8 @@ func fire_missile(heavy := false, k := 0, n := 1, scale := 1.0, forced: Node3D =
 	if t == null and not ground_shot:
 		message.emit("No hostile target for missile lock.")
 		return false
-	if heavy: GS.heavy_missiles -= 1
+	if _firing_nuke: GS.nukes -= 1   # v11.25
+	elif heavy: GS.heavy_missiles -= 1
 	else: GS.missiles -= 1
 	var te := _enemy_entry(t) if t != null else {}
 	if te.has("pilot"): _chatter(te, "missile_incoming", true)
@@ -4440,7 +4442,7 @@ func fire_missile(heavy := false, k := 0, n := 1, scale := 1.0, forced: Node3D =
 		var a := (float(k) / float(n - 1) - 0.5) * 2.0
 		fan = (player.global_basis.x * a + player.global_basis.y * (1.0 - absf(a)) * 0.5) * Data.VOLLEY_SPREAD
 	missiles_live.append({"node": mi, "vel": -player.global_basis.z * (Data.MISSILE_SPEED if ground_shot else 90.0) + vel + fan, "target": t, "life": Data.MISSILE_LIFE, "heavy": heavy, "scale": scale, "shaken": ground_shot,
-		"wp": _rng.randf() * TAU, "wf": _rng.randf_range(Data.WEAVE_HZ[0], Data.WEAVE_HZ[1]), "wo": _rng.randf() * TAU, "special": _special_left > 0})
+		"wp": _rng.randf() * TAU, "wf": _rng.randf_range(Data.WEAVE_HZ[0], Data.WEAVE_HZ[1]), "wo": _rng.randf() * TAU, "special": _special_left > 0, "nuke": _firing_nuke})
 	if _special_left > 0: _special_left -= 1
 	_trail_new(mi)
 	Sfx.play("missile", -4.0 if k == 0 else -9.0)
@@ -5403,8 +5405,9 @@ func _update_missiles(dt: float) -> void:
 		elif is_instance_valid(t) and n.global_position.distance_to(t.global_position) < (Data.HEAVY_MISSILE_HIT_RADIUS if m.get("heavy", false) else Data.MISSILE_HIT_RADIUS):
 			var e := _enemy_entry(t)
 			if not e.is_empty():
-				_damage_enemy(e, missile_damage(e, m.get("heavy", false), float(m.get("scale", 1.0))))
-			if m.get("heavy", false): _blast(n.global_position, Data.BLAST_HEAVY_MISSILE, "heavy_missile")   # v1.5w: the super missile's big explosion
+				_damage_enemy(e, missile_damage(e, m.get("heavy", false), float(m.get("scale", 1.0))) * (Data.NUKE_MULT if m.get("nuke", false) else 1.0))
+			if m.get("nuke", false): _blast(n.global_position, Data.BLAST_NUKE, "heavy_missile")   # v11.25: the nuke's blast (the second one follows)
+			elif m.get("heavy", false): _blast(n.global_position, Data.BLAST_HEAVY_MISSILE, "heavy_missile")   # v1.5w: the super missile's big explosion
 			else: _spark(n.global_position, Color(1, 0.6, 0.2), 8.0)
 			missile_blast(n.global_position, m, t)
 			done = true
@@ -5605,7 +5608,8 @@ func _update_enemies(dt: float) -> void:
 		if e.has("faction"): n.set_meta("kind", "patrol" if peaceful else "enemy")   # v1.4w: a peaceful faction ship is not a hostile contact
 		if peaceful or (cloaked and not e.get("invasion", false)): e["aggro"] = false   # (v8.3: cloaked, they can't see you)
 		elif dist < 650.0 or e["aggro"] or spotting: e["aggro"] = dist < (1600.0 if spotting else 1400.0)
-		if e.get("invasion", false): e["aggro"] = true   # v1.9n: an invasion fights whoever is there
+		if e.get("invasion", false): e["aggro"] = not cloaked or not fa.is_empty()   # v1.9n: an invasion fights whoever is there (v11.25: not you while cloaked)
+		if cloaked and fa.is_empty(): e["aggro"] = false   # v11.25 (owner: "they stop shooting me, cause I disappeared")
 		if e.has("pilot"):
 			# generic pilots chatter instead of hailing; named leaders keep the full hail below
 			if e["aggro"] and not was and warp_state != "on": _chatter(e, "target_acquired")
@@ -6108,13 +6112,13 @@ func _update_effects(dt: float) -> void:
 # ---------------------------------------------------------------- cockpit systems (AUTO / MANUAL)
 ## Manually trigger one of the six systems. Returns false when it could not run.
 func trigger_system(id: String) -> bool:
-	if transform_t > 0.0 and id in ["guns", "missile", "light_missile", "heavy_missile", "mine"]:
+	if transform_t > 0.0 and id in ["guns", "missile", "light_missile", "heavy_missile", "mine", "nuke"]:
 		return _say(id, "Weapons are locked while transforming.")
-	if not lane.is_empty() and id in ["guns", "missile", "light_missile", "heavy_missile", "mine"]:
+	if not lane.is_empty() and id in ["guns", "missile", "light_missile", "heavy_missile", "mine", "nuke"]:
 		return _say(id, "Weapons are locked in the trade lane.")
-	if cloaked and id in ["guns", "missile", "light_missile", "heavy_missile", "mine"]:
+	if cloaked and id in ["guns", "missile", "light_missile", "heavy_missile", "mine", "nuke"]:
 		return _say(id, "Weapons are offline while cloaked.")
-	if warp_state != "off" and id in ["guns", "missile", "light_missile", "heavy_missile", "mine"]:
+	if warp_state != "off" and id in ["guns", "missile", "light_missile", "heavy_missile", "mine", "nuke"]:
 		return _say(id, "Weapons are locked while the warp drive is active.")
 	if sun_surface and not GS.has_heat_shield() and id in ["shield", "hull"]:
 		return _say(id, "Too hot — shields and repairs cannot hold here. Climb out!")
@@ -6166,6 +6170,19 @@ func trigger_system(id: String) -> bool:
 			return false
 		"mine":
 			return deploy_mine()
+		"nuke":   # v11.25 (owner): one nuke, on a super-missile lock (or straight ahead)
+			if missile_cd > 0.0: return false
+			if GS.nukes <= 0: return _say(id, "No nukes left — restock at a station.")
+			var lk := lock_count("heavy_missile")
+			var tgt: Node3D = target if (lk > 0 and target != null and is_instance_valid(target)) else null
+			_firing_nuke = true
+			var ok := fire_missile(true, 0, 1, 1.0, tgt, tgt == null)
+			_firing_nuke = false
+			if ok:
+				missile_cd = 1.6
+				lock_time = 0.0
+				system_used.emit(id, "NUKE away. %d left." % GS.nukes)
+			return ok
 	return false
 
 func _say(id: String, t: String) -> bool:
@@ -7805,9 +7822,17 @@ func _special_swarm() -> void:
 ## super missile), and every enemy inside takes splash, falling off to the edge (the one it hit already took full).
 var blast_shapes := 0   # (tests) blast shapes shown
 var blast_log: Array = []   # (tests) [radius, star, enemies splashed]
+var _firing_nuke := false
+var nuke_later: Array = []   # v11.25: the nukes' second blasts still to come {at, t}
+var nuke_log: Array = []     # (tests) [first / second, radius, enemies hit]
 func missile_blast(at: Vector3, m: Dictionary, hit: Node3D) -> void:
 	var heavy: bool = m.get("heavy", false)
 	var r: float = Data.HEAVY_MISSILE_BLAST_RADIUS if heavy else Data.MISSILE_BLAST_RADIUS
+	if m.get("nuke", false):   # v11.25 (owner): twice the blast at 3x the damage, then a second, bigger one
+		r *= Data.NUKE_BLAST_K
+		nuke_later.append({"at": at, "t": float(Data.NUKE_SECOND[0])})
+		_nuke_splash(at, r, Data.NUKE_MULT, hit, "first")
+		return
 	_blast_shape(at, r, heavy)
 	var n := 0
 	for e in enemies.duplicate():
@@ -7819,6 +7844,29 @@ func missile_blast(at: Vector3, m: Dictionary, hit: Node3D) -> void:
 		n += 1
 	blast_log.append([r, heavy, n])
 	if blast_log.size() > 20: blast_log.pop_front()
+
+## v11.25: a nuke's splash: everyone inside r takes damage falling off to the edge.
+func _nuke_splash(at: Vector3, r: float, k: float, hit: Node3D, which: String) -> void:
+	_blast_shape(at, r, true)
+	var n := 0
+	for e in enemies.duplicate():
+		var en: Node3D = e["node"]
+		if en == hit or not is_instance_valid(en): continue
+		var d := en.global_position.distance_to(at)
+		if d >= r: continue
+		_damage_enemy(e, missile_damage(e, true, 1.0) * k * Data.MISSILE_SPLASH * (1.0 - d / r))
+		n += 1
+	nuke_log.append([which, r, n])
+	if nuke_log.size() > 10: nuke_log.pop_front()
+
+func _update_nukes(dt: float) -> void:
+	for b in nuke_later: b["t"] = float(b["t"]) - dt
+	for b in nuke_later.filter(func(o): return float(o["t"]) <= 0.0):
+		_blast(b["at"], Data.BLAST_NUKE_2, "heavy_missile")
+		Sfx.play("explosion", 0.0, 0.6)
+		hit_shake = maxf(hit_shake, 0.6)
+		_nuke_splash(b["at"], Data.HEAVY_MISSILE_BLAST_RADIUS * float(Data.NUKE_SECOND[1]), float(Data.NUKE_SECOND[2]), null, "second")
+	nuke_later = nuke_later.filter(func(o): return float(o["t"]) > 0.0)
 
 var _blast_mat: StandardMaterial3D = null
 func _blast_shape(at: Vector3, r: float, star: bool) -> void:
@@ -8370,7 +8418,7 @@ func _update_capital(e: Dictionary, dt: float) -> void:
 	if float(e["cd"]) > 0.0 or not controls: return
 	e["cd"] = 1.0 / float(d["rate"]) * _rng.randf_range(0.7, 1.3)
 	var rng_m: float = d["range"]
-	var cands: Array = [[player.global_position, vel]]
+	var cands: Array = [] if cloaked else [[player.global_position, vel]]   # v11.25 (owner): cloaked, the big ships can't see you either
 	for a in allies:
 		if is_instance_valid(a["node"]): cands.append([a["node"].global_position, a["vel"]])
 	var pick: Array = []
@@ -8490,6 +8538,39 @@ func invasion_tick(dt: float, m: Dictionary) -> void:
 			_inv_fighters(from, str(m["faction"]), n)
 			inv_log.append("wave")
 
+
+## v11.26 (owner): INVESTIGATE ENEMY DISTURBANCE. In the cloud: the hidden battleship (or station) and its fighters,
+## always topped back up to their number until the big one is destroyed; then the rest run and the job pays.
+var _dist_t := 0.0
+var dist_log: Array = []   # (tests) "spawn", "refill", "won"
+func disturbance_tick(dt: float, m: Dictionary) -> void:
+	var at := Missions.point_pos(self, 0)
+	if at == Vector3.INF: return
+	var cfg: Dictionary = Data.DISTURBANCE
+	var dc: Dictionary = cfg[str(m.get("target", "ship"))]
+	if int(m.get("spawned", -1)) < 0 or not inv_here:
+		if player.global_position.distance_to(at) < float(cfg["arrive"]):
+			_spawn_capital(str(dc["capital"]), str(dc["role"]), at, at + Vector3(0, 0, 400), str(m["faction"]))
+			_inv_fighters(at, str(m["faction"]), int(dc["fighters"]))
+			inv_here = true
+			m["spawned"] = 0
+			_dist_t = float(cfg["refill_every"])
+			dist_log.append("spawn")
+			message.emit("DISTURBANCE: a hidden %s in the cloud! Their fighters keep coming until it is destroyed." % ("battleship" if str(m["target"]) == "ship" else "station"))
+		else: m["spawned"] = -1
+		return
+	if invasion_units(str(dc["role"])).is_empty():
+		dist_log.append("won")
+		for e in invasion_units(): e["retreat"] = 30.0
+		Missions._pay(self, "DISTURBANCE: the hidden %s is destroyed. %s pays %d cr." % ["battleship" if str(m["target"]) == "ship" else "station", Missions.giver_name(m), int(m["pay"])])
+		return
+	_dist_t -= dt
+	if _dist_t <= 0.0:   # their fighters, topped back up (no end to them while the big one stands)
+		_dist_t = float(cfg["refill_every"])
+		var n: int = mini(int(dc["fighters"]) - invasion_units("fighter").size(), int(cfg["wave"]))
+		if n > 0:
+			_inv_fighters(invasion_units(str(dc["role"]))[0]["node"].global_position, str(m["faction"]), n)
+			dist_log.append("refill")
 
 ## v1.9o: a prisoner freed by their own people comes after you on launch, with a wing.
 func spawn_chaser(id: String) -> Array:

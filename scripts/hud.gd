@@ -662,7 +662,54 @@ func _layout() -> void:
 
 ## v10.6 (owner): the fold tabs. Folded sides lose their buttons; pushed down, only calls, the comms console and the
 ## two small tabs at the bottom stay (the target box, the crosshair and the sticks are not buttons).
-const DOWN_KEEP := ["goto", "dock", "lane", "jump", "hangup", "call_pick", "side_l", "side_r", "chat_close", "type", "talk", "voice", "met_hail", "met_up", "met_down"]
+const DOWN_KEEP := ["start", "select", "goto", "dock", "lane", "jump", "hangup", "call_pick", "side_l", "side_r", "chat_close", "type", "talk", "voice", "met_hail", "met_up", "met_down"]
+## v11.25 (owner): the pause menu (START / SELECT): the flight stops; each weapon slot can take any weapon (the NUKE
+## too); RESUME carries on.
+var pause_menu := false
+func pause_rect() -> Rect2:
+	var w := minf(S.x - 40.0, 620.0)
+	var h := minf(S.y - 40.0, 380.0)
+	return Rect2((S.x - w) * 0.5, (S.y - h) * 0.5, w, h)
+
+func _pause_buttons() -> void:
+	buttons.clear()
+	var r := pause_rect()
+	var bw := (r.size.x - 40.0) / 3.0
+	for k in GS.slots.size():
+		buttons["pm_slot_%d" % k] = Rect2(r.position.x + 10.0 + k * (bw + 10.0), r.position.y + 110.0, bw, 120.0)
+	buttons["pm_resume"] = Rect2(r.position.x + r.size.x * 0.5 - 120.0, r.end.y - 74.0, 240.0, 56.0)
+
+func _draw_pause() -> void:
+	var r := pause_rect()
+	draw_rect(Rect2(Vector2.ZERO, S), Color(0, 0, 0, 0.55))
+	_box(r, Color(0.02, 0.06, 0.12, 0.95), Color(CYAN, 0.9), 14, 2)
+	_text(Vector2(r.position.x, r.position.y + 40.0), "PAUSED", 30, WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
+	_text(Vector2(r.position.x, r.position.y + 76.0), "Tap a slot to change its weapon", 15, Color(CYAN, 0.9), HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
+	for k in GS.slots.size():
+		var id := "pm_slot_%d" % k
+		if not buttons.has(id): continue
+		var br: Rect2 = buttons[id]
+		var item: String = GS.slots[k]
+		var col: Color = Color(0.75, 0.4, 1.0) if item == "nuke" else (RED if item == "heavy_missile" else (ORANGE if item == "light_missile" else GOLD))
+		_box(br, Color(col, 0.25 if held.has(id) else 0.12), Color(col, 0.95), 10, 2)
+		_text(Vector2(br.position.x, br.position.y + 26.0), "SLOT %d" % (k + 1), 13, Color(1, 1, 1, 0.7), HORIZONTAL_ALIGNMENT_CENTER, br.size.x)
+		_text(Vector2(br.position.x, br.position.y + 62.0), {"light_missile": "MISSILE", "heavy_missile": "SUPER MISSILE", "mine": "MINE", "nuke": "NUKE"}.get(item, item.to_upper()), 20, WHITE, HORIZONTAL_ALIGNMENT_CENTER, br.size.x)
+		_text(Vector2(br.position.x, br.position.y + 94.0), "%d left  ·  TAP TO SWAP" % GS.slot_ammo(item), 12, Color(col.lightened(0.3), 0.95), HORIZONTAL_ALIGNMENT_CENTER, br.size.x)
+	if buttons.has("pm_resume"):
+		_prompt_btn(buttons["pm_resume"], "RESUME", GREEN, held.has("pm_resume"))
+
+## START / SELECT under the radar: little angled tabs.
+func _draw_start_select() -> void:
+	for id in ["start", "select"]:
+		if not buttons.has(id): continue
+		var r: Rect2 = buttons[id]
+		var on := held.has(id) or pause_menu
+		var lean := 10.0 if id == "start" else -10.0   # (angled in toward the radar)
+		var pts := PackedVector2Array([r.position + Vector2(maxf(lean, 0.0), 0), Vector2(r.end.x + minf(lean, 0.0), r.position.y), Vector2(r.end.x - maxf(lean, 0.0), r.end.y), Vector2(r.position.x - minf(lean, 0.0), r.end.y)])
+		draw_colored_polygon(pts, Color(0.02, 0.08, 0.15, 0.95 if on else 0.82))
+		draw_polyline(pts + PackedVector2Array([pts[0]]), Color(0.75, 0.4, 1.0) if id == "select" else Color(CYAN, 0.95), 2.0, true)
+		_text(Vector2(r.position.x, r.get_center().y + 5.0), id.to_upper(), 13, WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
+
 func _dock_filter(dg: Dictionary) -> void:
 	var tabs := {}
 	if dock_down:
@@ -679,8 +726,19 @@ func _dock_filter(dg: Dictionary) -> void:
 				if blk.encloses(buttons[id]): buttons.erase(id)
 		if not dock_r: buttons.erase("log")
 		for k in ["l", "r", "b"]: tabs["dock_" + ("down" if k == "b" else k)] = dg["tab_" + k]
+	# v11.25 (owner): START (pause) and SELECT (swap a weapon slot, e.g. for the NUKE) beside the HIDE tab under the
+	# radar, angled in; pushed down, they stand as a small pair on top of the collapsed row
+	if dock_down:
+		var yb := S.y - TAB_B_H - 2.0 - 64.0 - 46.0
+		tabs["start"] = Rect2(S.x * 0.5 - 104.0, yb, 98.0, 38.0)
+		tabs["select"] = Rect2(S.x * 0.5 + 6.0, yb, 98.0, 38.0)
+	else:
+		var tb: Rect2 = dg["tab_b"]
+		tabs["start"] = Rect2(tb.position.x - 92.0, tb.position.y, 86.0, tb.size.y)
+		tabs["select"] = Rect2(tb.end.x + 6.0, tb.position.y, 86.0, tb.size.y)
 	tabs.merge(buttons)   # the tabs win a tap over anything they touch
 	buttons = tabs
+	if pause_menu: _pause_buttons()
 
 ## v1.9k (owner: after a capture I didn't know where to go): the job line at the top is a button. Added after the
 ## layout, last, so a real button under it always wins.
@@ -1141,7 +1199,7 @@ func _draw_special() -> void:
 ## One big corner button: raised face, icon, label, optional count badge and cooldown ring.
 func _corner(id: String, label: String, icon: String, col: Color, active := false, badge := "", cd := 0.0, locked := false, sub := "") -> void:
 	if not buttons.has(id): return
-	if space != null and space.cloaked and not (id in ["cloak", "view"]): locked = true   # v10.6 (owner): cloaked, every tool is locked
+	if space != null and space.cloaked and not (id in ["cloak", "view", "kill"]): locked = true   # (v11.25: ENGINE KILL works cloaked)   # v10.6 (owner): cloaked, every tool is locked
 	var r: Rect2 = buttons[id]
 	var down := held.has(id) or float(flash.get(id, 0.0)) > 0.3
 	var on := down or active
@@ -1665,13 +1723,14 @@ func _draw() -> void:
 		var item: String = GS.slots[k]
 		var it: Dictionary = Data.SLOT_ITEMS[item]
 		var ammo := GS.slot_ammo(item)
-		var scol := ORANGE if item == "light_missile" else (RED if item == "heavy_missile" else GOLD)
+		var scol := ORANGE if item == "light_missile" else (RED if item == "heavy_missile" else (Color(0.75, 0.4, 1.0) if item == "nuke" else GOLD))
 		var cdk: float = (space.mine_cd / 2.5) if item == "mine" else (space.missile_cd / 1.2)
 		var ssub: String = it["sub"]
-		if item != "mine":   # Job M: how many this button fires, and the locks held right now
+		if item == "nuke": ssub = "LOCK" if space.lock_count("heavy_missile") > 0 else "STRAIGHT"
+		elif item != "mine":   # Job M: how many this button fires, and the locks held right now
 			var lk: int = space.lock_count(item)
 			ssub = "LOCK %d/%d" % [lk, GS.max_locks(item)] if lk > 0 else "MISSILE ×%d" % GS.max_locks(item)
-		var nm: String = {"light_missile": "MISSILE 1", "heavy_missile": "MISSILE 2", "mine": "MINE"}.get(item, str(it["label"]))   # v7.6 (owner's names)
+		var nm: String = {"light_missile": "MISSILE 1", "heavy_missile": "MISSILE 2", "mine": "MINE", "nuke": "NUKE"}.get(item, str(it["label"]))   # v7.6 (owner's names)
 		_corner("slot_%d" % k, nm, it["icon"], scol, false, "%d" % ammo, cdk, space.warp_active(), ssub)
 	var mech: bool = GS.form == "mech"
 	_corner("thrust", "JUMP" if gm else ("BOOST" if mech else "THRUST"), "thrust", ORANGE, space.boosting, "", 0.0, false, "STICK = DASH" if mech or gm else "")
@@ -1690,6 +1749,8 @@ func _draw() -> void:
 	if buttons.has("launch"): _pill("launch", "LAUNCH", true, GREEN)
 	if dock_down: _down_tabs()   # v10.6 (owner): everything pushed down: just two small tabs
 	else: _dashboard()   # v8.3 (owner): the console in the cockpit view too
+	_draw_start_select()
+	if pause_menu: _draw_pause()
 	_stick("move", "FLIGHT")
 	_stick("aim", "AIM")
 	if comms_open: _comms()

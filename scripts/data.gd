@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.24"
+const VERSION := "v11.26"
 const STATION_SIZE := 2.0   # v11.21 (owner: "double the size of all space stations")
 const ESCORT_FREIGHTER_LEN := 180.0   # v11.16 (owner): the escort / cargo-run freighter is a big ship (m long), not fighter-sized (was 16)
 
@@ -668,7 +668,7 @@ const MISSION_GROUP := [3, 3]                   # ships in a wave: [first waves,
 const BOUNTY_HELPERS := 6
 const PLATFORM_RADIUS := 70.0                   # v1.9b (owner): every planet's floating docking platform: deck radius (m)
 const PLATFORM_ALT := 260.0                     # ... how far over the planet's surface it floats                       # v1.9b (owner): a bounty target never flies alone: at least six of its own wing with it
-const MISSION_PAY := {"threats": 900, "escort": 700, "convoy": 1600, "ground": 1400, "outlaws": 600, "land_escort": 1200, "invasion": 3600}   # v1.7w: "convoy" = the cargo run into the next system
+const MISSION_PAY := {"threats": 900, "escort": 700, "convoy": 1600, "ground": 1400, "outlaws": 600, "land_escort": 1200, "invasion": 3600, "disturbance_ship": 9000, "disturbance_base": 14000}   # v1.7w: "convoy" = the cargo run into the next system
 # v1.8m (owner): ground jobs. A strike on the system's planet: fly down into the atmosphere, go to two mission points in
 # one sector of the surface and destroy the landing party at each. Paid on the spot when the last one is down.
 const MISSION_GROUND_ALT := 220.0               # a ground job's wave waits this high over the ground
@@ -983,6 +983,8 @@ const CREW := {
 			"line": "Missiles, shields, repair kits. Pay first. Cry later."},
 		{"id": "orion_garrick", "file": "garrick", "name": "Garrick Holt", "role": "Armory Sergeant", "home": "weapons", "also": ["main_hub", "pilots_lounge"], "female": false,
 			"line": "Pick a gun that fits your hands, not your ego."},
+		{"id": "orion_vael", "file": "vael", "name": "Vael Korrin", "role": "Recon Scout", "home": "pilots_lounge", "also": ["main_hub", "shipyard"], "female": false,
+			"line": "Back from the deep clouds. Something out there is hiding a lot of guns."},   # v11.25 (owner's new character; name to be confirmed)
 	],
 }
 const CREW_VISIT_S := 600.0         # how often the crew change rooms (s of real time)
@@ -1371,7 +1373,21 @@ const SLOT_ITEMS := {
 	"light_missile": {"label": "LIGHT", "sub": "MISSILE", "icon": "missile"},
 	"heavy_missile": {"label": "HEAVY", "sub": "MISSILE", "icon": "heavy"},
 	"mine": {"label": "MINE", "sub": "", "icon": "mine"},
+	"nuke": {"label": "NUKE", "sub": "", "icon": "heavy"},   # v11.25 (owner): fitted with SELECT (the pause menu)
 }
+# v11.25 (owner): the NUKE: 3x a super missile's hit, twice its blast, and a second, bigger blast after it.
+# v11.26 (owner): INVESTIGATE ENEMY DISTURBANCE: a hidden enemy in one of the system's nebula clouds. Their fighters
+# keep coming (topped up to the number) until you destroy the battleship, or the hidden station.
+const DISTURBANCE := {"ship": {"capital": "inv_battleship", "role": "battleship", "fighters": 10}, "base": {"capital": "inv_command", "role": "command", "fighters": 15},
+	"arrive": 3000.0, "refill_every": 4.0, "wave": 4}
+const NUKE_MAX := 30
+const NUKE_PRICE := 400               # expensive (a super missile is 50); the hard jobs pay for them
+const NUKE_MULT := 3.0
+const NUKE_BLAST_K := 2.0             # x the super missile's blast radius
+const NUKE_SECOND := [0.7, 3.0, 1.5]  # the second blast: after s, x the super radius, x the super splash damage
+const BLAST_NUKE := [80.0, 26, 22, 6, 0.12]
+const BLAST_NUKE_2 := [140.0, 34, 28, 8, 0.1]
+const MINES_MAX := 30                 # v11.25 (owner): every ship carries 30 mines
 const DEFAULT_SLOTS := ["light_missile", "heavy_missile", "mine"]
 # Loot pods dropped by destroyed ships; the tractor beam pulls them in.
 # Three-part damage: each side section (wing / arm) has this share of the unit's hull as its own health.

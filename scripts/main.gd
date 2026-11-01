@@ -320,7 +320,10 @@ func _objective() -> String:
 func _on_hud(id: String) -> void:
 	if state != "flight": return
 	if hud.fl_tap(id): return   # v6.7: the contact list and ship panel
-	if space.cloaked and not (id in ["cloak", "view", "radar", "fullscreen", "scan", "scan_close", "hangup", "side_l", "side_r", "call_pick"]):   # v10.6 (owner): cloaked, every tool is locked: you only fly and look around
+	if id in ["start", "select", "pm_resume"] or id.begins_with("pm_slot_"):   # v11.25 (owner): the pause menu
+		_pause_input(id)
+		return
+	if space.cloaked and not (id in ["cloak", "kill", "engine_kill", "view", "radar", "fullscreen", "scan", "scan_close", "hangup", "side_l", "side_r", "call_pick"]):   # v10.6 (owner): cloaked, every tool is locked: you only fly and look around
 		hud.flash_message("Cloaked: everything is locked. You can only fly. Tap CLOAK to drop it.")
 		return
 	if id == "weapons":   # v7.0: open / fold the weapons and abilities
@@ -1337,3 +1340,26 @@ func descend_to(pid: String, loc_id: String) -> void:
 	visited[loc_id] = true
 	await get_tree().create_timer(0.6).timeout
 	_launch_sequence(l["name"])
+
+## v11.25 (owner: START pauses, SELECT swaps a weapon slot, e.g. the super missile for the NUKE): the flight stops while
+## the menu is up (the space scene stops processing); RESUME, START again or SELECT again carries on.
+func set_paused(on: bool) -> void:
+	hud.pause_menu = on
+	if space != null: space.process_mode = Node.PROCESS_MODE_DISABLED if on else Node.PROCESS_MODE_INHERIT
+	hud.queue_redraw()
+
+func _pause_input(id: String) -> void:
+	if id in ["start", "select"]: set_paused(not hud.pause_menu)
+	elif id == "pm_resume": set_paused(false)
+	elif id.begins_with("pm_slot_"):
+		var k := int(id.substr(8))
+		var order: Array = Data.SLOT_ITEMS.keys()
+		var cur: String = GS.slots[k]
+		var nxt := cur
+		for i in order.size():   # the next weapon not already in another slot
+			nxt = str(order[(order.find(nxt) + 1) % order.size()])
+			if not (nxt in GS.slots) or nxt == cur: break
+		GS.slots[k] = nxt
+		GS.changed.emit()
+		hud.flash_message("Slot %d: %s" % [k + 1, {"light_missile": "missile", "heavy_missile": "super missile", "mine": "mine", "nuke": "NUKE"}.get(nxt, nxt)])
+

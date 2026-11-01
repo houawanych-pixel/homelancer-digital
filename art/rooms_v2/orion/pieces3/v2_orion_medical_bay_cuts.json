@@ -4,9 +4,9 @@
   462
  ],
  "cuts": [
-  1834,
-  3042,
-  4213
+  847,
+  2478,
+  4131
  ],
  "overlap": 40,
  "frame": [
@@ -16,35 +16,35 @@
  "parts": [
   {
    "file": "v2_orion_medical_bay_part1.png",
-   "strip_x0": 1794,
-   "strip_w": 1288,
+   "strip_x0": 807,
+   "strip_w": 1711,
    "frame_rect": [
     0,
-    195,
+    281,
     1920,
-    689
+    518
    ]
   },
   {
    "file": "v2_orion_medical_bay_part2.png",
-   "strip_x0": 3002,
-   "strip_w": 1251,
+   "strip_x0": 2438,
+   "strip_w": 1733,
    "frame_rect": [
     0,
-    185,
+    284,
     1920,
-    709
+    512
    ]
   },
   {
    "file": "v2_orion_medical_bay_part3.png",
-   "strip_x0": 4173,
-   "strip_w": 2149,
+   "strip_x0": 4091,
+   "strip_w": 1244,
    "frame_rect": [
     0,
-    333,
+    183,
     1920,
-    413
+    713
    ]
   }
  ]

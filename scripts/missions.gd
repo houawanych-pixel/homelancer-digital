@@ -103,6 +103,21 @@ static func _all_offers(sys_id: String, station_id: String, owner: String, pid: 
 	out.append({"kind": "outlaws", "faction": "", "slot": 1, "pay": Data.MISSION_PAY["outlaws"], "title": "%sS: clear the %s threat" % [outlaw.to_upper(), outlaw], "giver": station_id, "giver_sys": sys_id, "sys": sys_id,
 		"brief": "%ss have been seen in two places in the %s system. Clear both. Outlaws, not soldiers: an easier fight, smaller pay." % [outlaw, sys["name"]],
 		"points": _points(rng, 2)})
+	# v11.26 (owner): INVESTIGATE ENEMY DISTURBANCE: a hidden enemy in one of the system's nebula clouds (only where
+	# the system has a cloud): a battleship (10 fighters always out) or a hidden station (15); hard, big pay
+	var clouds: Array = SpaceSystem.nebulae_of(sys_id, sys)
+	if enemy != "" and not clouds.is_empty():
+		var cl: Dictionary = clouds[rng.randi() % clouds.size()]
+		var st0: Vector3 = sys["station"]["pos"]
+		var v: Vector3 = (cl["center"] as Vector3) - st0
+		for which in ["ship", "base"]:
+			var pk := "disturbance_" + which
+			out.append({"kind": "disturbance", "target": which, "faction": enemy, "slot": Data.PATROL_MAX_SLOT, "pay": Data.MISSION_PAY[pk],
+				"title": "Investigate enemy disturbance: %s" % ("a battleship in the %s cloud" if which == "ship" else "a hidden base in the %s cloud") % str(cl.get("name", "nebula")),
+				"giver": station_id, "giver_sys": sys_id, "sys": sys_id, "cloud": str(cl.get("name", "")),
+				"brief": "Something is hiding in the %s nebula cloud in the %s system. Fly in and find it: our scans say %s %s. Their fighters keep coming (%d out at all times) until you destroy the %s. A hard fight: take nukes." % [str(cl.get("name", "")), sys["name"],
+					"a %s battleship" % enemy if which == "ship" else "a hidden %s station" % enemy, "with a wing that never stops", int(Data.DISTURBANCE[which]["fighters"]), "battleship" if which == "ship" else "station"],
+				"points": [{"dir": atan2(v.z, v.x), "dist": Vector2(v.x, v.z).length(), "y": 0.0}]})
 	# v1.9n (owner): SILVER: the rival faction's fleet invades this system (3 battleships to kill; allies fly with you)
 	if enemy != "":
 		out.append({"kind": "invasion", "faction": enemy, "slot": Data.PATROL_MAX_SLOT, "pay": Data.MISSION_PAY["invasion"], "title": "SILVER: %s fleet invasion" % enemy,
@@ -353,6 +368,12 @@ static func waypoint(space: SpaceSystem) -> Dictionary:
 				return {"node": bs[0]["node"], "title": bs[0]["node"].name, "line": "SILVER: destroy the battleships (%d of %d left) · %d fighters · %s · %d allies" % [bs.size(), int(Data.INVASION["battleships"]), space.invasion_units("fighter").size(), st, space.allies.size()], "hops": 0}
 			var ip := space.mission_point(point_pos(space, 0))
 			return {"node": ip, "title": "Invasion fleet", "line": "SILVER: fly to the invasion fleet (%d battleship%s)" % [int(m.get("left", 3)), "" if int(m.get("left", 3)) == 1 else "s"], "hops": 0}
+		"disturbance":   # v11.26: the cloud, then the hidden battleship / station
+			var dc: Dictionary = Data.DISTURBANCE[str(m.get("target", "ship"))]
+			var tg: Array = space.invasion_units(str(dc["role"]))
+			if int(m.get("spawned", -1)) >= 0 and not tg.is_empty():
+				return {"node": tg[0]["node"], "title": tg[0]["node"].name, "line": "DISTURBANCE: destroy the %s · %d fighters out" % ["battleship" if str(m["target"]) == "ship" else "hidden station", space.invasion_units("fighter").size()], "hops": 0}
+			return {"node": space.mission_point(point_pos(space, 0)), "title": "Enemy disturbance", "line": "DISTURBANCE: investigate the %s cloud" % str(m.get("cloud", "nebula")), "hops": 0}
 		"escort", "convoy":
 			if is_instance_valid(space.escort_node):
 				return {"node": space.escort_node, "title": space.escort_node.name, "line": "Escort: stay with %s (hull %d%%)" % [space.escort_node.name, int(100.0 * float(m["escort_hp"]) / Data.ESCORT_HULL)], "hops": 0}
@@ -420,6 +441,9 @@ static func tick(space: SpaceSystem, dt: float) -> void:
 		return
 	if kind == "invasion":   # v1.9n
 		space.invasion_tick(dt, m)
+		return
+	if kind == "disturbance":   # v11.26
+		space.disturbance_tick(dt, m)
 		return
 	if stage >= pts.size(): return
 	if int(m["spawned"]) < stage:
