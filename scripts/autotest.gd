@@ -940,6 +940,14 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_JOBV") != "":   # the Job V checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_v()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_AX") != "":   # the v1.5x super missile / mine checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -5110,6 +5118,7 @@ func _job_v() -> void:
 	s.assign_roster(calm, Data.roster_pilot("savagers_01"))
 	await _wait(0.6)
 	var holds: bool = Factions.band("Savagers") == "yellow" and not calm["aggro"]
+	var why := "band %s prov %s war %s inv %s" % [Factions.band("Savagers"), calm.get("provoked", false), calm.get("war", false), calm.get("invasion", false)]
 	s._damage_enemy(calm, 1.0)
 	await _frames(3)
 	var provoked: bool = calm["aggro"]
@@ -5119,7 +5128,7 @@ func _job_v() -> void:
 	s._destroy_unit(calm)
 	var rep_drop: bool = is_equal_approx(Factions.standing("Savagers"), before - Data.REP_KILL) and is_equal_approx(Factions.standing("Liberator"), lib0 + Data.REP_KILL)
 	_check("Job V: hostile (orange) Savagers attack on sight; cautious (yellow) ones hold fire until you shoot first; destroying one costs standing with them and gains it with their rival",
-		attacks and holds and provoked and rep_drop, "attacks %s, holds %s, provoked %s, rep %s" % [attacks, holds, provoked, rep_drop])
+		attacks and holds and provoked and rep_drop, "attacks %s, holds %s, provoked %s, rep %s (%s)" % [attacks, holds, provoked, rep_drop, why])
 	GS.rep = {}
 	s.sys = real_sys.duplicate()
 	s.sys["faction"] = "Savagers"

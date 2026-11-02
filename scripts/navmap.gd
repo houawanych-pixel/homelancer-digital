@@ -682,8 +682,11 @@ func _draw_lanes(ci: CanvasItem, sys: Dictionary) -> void:
 			var rows: Array = ln["up"]
 			if rows.size() >= 2: segs.append([rows[0], rows[-1], rows])
 	elif not SystemBuilder.is_enemy_space(sys) and not sys.get("open", false):
-		segs.append([sys["station"]["pos"], sys["planet"]["pos"], []])
-		for g in sys["gates"]: segs.append([sys["station"]["pos"], g["pos"], []])
+		# v11.48 (owner: "fix trade lanes"): docked, the map drew a star of lanes out of the station; draw the real lane
+		# network (SystemBuilder.lane_tree, as in flight): a lane close to another one chains on from the nearer place
+		var pts: Array = [sys["station"]["pos"], sys["planet"]["pos"]]
+		for g in sys["gates"]: pts.append(g["pos"])
+		for e in SystemBuilder.lane_tree(pts): segs.append([pts[e[0]], pts[e[1]], []])
 	for sg in segs:
 		var a := view.to_screen(sg[0])
 		var b := view.to_screen(sg[1])
