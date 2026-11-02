@@ -1955,7 +1955,7 @@ func _run() -> void:
 	GS.bounty = {}
 	s.nav_dest = null
 	_press("goto")
-	var arrived := await _until(func(): return s.dock_candidate() == s.planet or s.autopilot == null, 200.0)   # (v9.1: the planet is ~160 km out now)
+	var arrived := await _until(func(): return s.dock_candidate() == s.planet or s.autopilot == null, 320.0)   # (v9.1: the planet is ~160 km out now; v11.38: more time, the fleet patrols cost a little speed on slow machines)
 	GS.mission = job_keep
 	GS.bounty = bounty_keep
 	_check("Autopilot + warp to planet", arrived and s.dock_candidate() == s.planet, "dist=%d" % int(s.distance_to(s.planet)))
