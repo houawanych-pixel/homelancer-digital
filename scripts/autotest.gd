@@ -3628,8 +3628,21 @@ func _job_v1132() -> void:
 		s._damage_enemy(ce, 5.0)
 		for i in 40: s._update_carriers(2.0)
 		var cr_ok: bool = s.carrier_launches - l1 == 5 and s.hangar_left(ce) == 25
-		peace_ok = calm and angry and cr_ok
-		res.append("peace %s angry %s cruiser %s" % [calm, angry, cr_ok])
+		# v11.39: no threat (you flew off): the fighters turn for home and land, back in the hangar
+		s.player.global_position = bs.global_position + Vector3(0, 0, 12000)
+		s._update_carriers(0.1)
+		var bc: Dictionary = {}
+		for c in s.carriers:
+			if c["ent"] == be: bc = c
+		var nk: int = (bc.get("kids", []) as Array).size()
+		var left0: int = s.hangar_left(be)
+		var turning: bool = nk > 0 and (bc["kids"] as Array).all(func(k): return k.get("recall", false))
+		var ld0: int = s.carrier_landed
+		for k in bc.get("kids", []): k["node"].global_position = bs.global_position + Vector3(0, 20, 0)
+		s._update_carriers(0.1)
+		var home_ok: bool = turning and s.carrier_landed - ld0 == nk and s.hangar_left(be) == left0 + nk and (bc["kids"] as Array).is_empty()
+		peace_ok = calm and angry and cr_ok and home_ok
+		res.append("peace %s angry %s cruiser %s home %s (turn %s landed %d left %d)" % [calm, angry, cr_ok, home_ok, turning, s.carrier_landed - ld0, s.hangar_left(be)])
 		s.process_mode = Node.PROCESS_MODE_DISABLED   # (hold the camera on it for the picture)
 		main.hud.visible = false
 		var mid: Vector3 = bs.global_position
@@ -3703,7 +3716,7 @@ func _job_v1132() -> void:
 	await _shot("v1132_shipyard", 0.3)
 	hb.visible = false
 	res.append("sale %s" % sale_ok)
-	_check("v11.32 (owner): the fleet sheet in the game: 8 factions' battleship, cruiser, frigate and starfighter, real and nose-first; the battleship and cruiser patrol its systems, peaceful until provoked (cruiser 5 out of 30); an invasion brings the faction's battleship; the starfighters are for sale; v11.33: a battleship launches 15 at a time, 90 in all, and 35 nukes destroy it; 50 nukes, 50 mines",
+	_check("v11.32 (owner): the fleet sheet in the game: 8 factions' battleship, cruiser, frigate and starfighter, real and nose-first; the battleship and cruiser patrol its systems, peaceful until provoked (cruiser 5 out of 30), the fighters land again when the threat is gone; an invasion brings the faction's battleship; the starfighters are for sale; v11.33: a battleship launches 15 at a time, 90 in all, and 35 nukes destroy it; 50 nukes, 50 mines",
 		missing.is_empty() and bad_len.is_empty() and guard_ok and moved and inv_ok and sale_ok and hang_ok and nuke_ok, " · ".join(res))
 
 ## v11.28 (owner: "do it for the ship scan ... the pinch view for anything you scan: ships, stations, buildings, mechs"):

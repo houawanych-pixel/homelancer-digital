@@ -3035,9 +3035,15 @@ func _update_carriers(dt: float) -> void:
 	carriers = carriers.filter(func(c): return enemies.has(c["ent"]) and is_instance_valid(c["ent"]["node"]))   # destroyed: its launches stop
 	for c in carriers:
 		c["kids"] = (c["kids"] as Array).filter(func(k): return enemies.has(k) and is_instance_valid(k["node"]))
-		if int(c["left"]) <= 0 or fleet_peaceful(c["ent"]): continue   # (v11.38: a patrol launches only once it is hostile to you)
 		var cn: Node3D = c["ent"]["node"]
-		if cn.global_position.distance_to(pp) > Data.FLEET_LAUNCH_WAKE: continue
+		# v11.39 (owner: "when there's no more threat the fighters return into the big ship and disappear, for less lag"):
+		# you are far away, cloaked, or it is at peace with you again: its fighters fly home and land (back in the hangar)
+		var threat: bool = not fleet_peaceful(c["ent"]) and not cloaked and cn.global_position.distance_to(pp) <= Data.FLEET_LAUNCH_WAKE
+		if not threat:
+			_recall_kids(c, cn)
+			continue
+		for k in c["kids"]: k.erase("recall")
+		if int(c["left"]) <= 0: continue
 		if not c["woke"]:
 			c["woke"] = true
 			message.emit("%s is launching fighters (%d aboard)! Destroy it to stop them." % [str(c["ent"]["node"].name), int(c["left"])])
@@ -3058,6 +3064,28 @@ func _update_carriers(dt: float) -> void:
 		(c["kids"] as Array).append(kid)
 		c["left"] = int(c["left"]) - 1
 		carrier_launches += 1
+
+## v11.39: no threat left: the carrier's fighters turn for home; each one that reaches the hull lands (it is gone, and
+## back in the hangar). With all of them in, a patrol you are on good terms with calms down again.
+var carrier_landed := 0   # (checks)
+func _recall_kids(c: Dictionary, cn: Node3D) -> void:
+	var r: float = float(c["ent"]["def"].get("hit_r", 30.0))
+	for k in (c["kids"] as Array).duplicate():
+		var kn: Node3D = k["node"]
+		k["recall"] = true
+		k["aggro"] = false
+		k["provoked"] = false
+		k["home"] = cn.global_position
+		if kn.global_position.distance_to(cn.global_position) < r + Data.FLEET_LAND_GAP:
+			enemies.erase(k)
+			kn.queue_free()
+			(c["kids"] as Array).erase(k)
+			c["left"] = int(c["left"]) + 1
+			carrier_landed += 1
+	if (c["kids"] as Array).is_empty():
+		c["woke"] = false
+		if c["ent"].get("fleet_patrol", false) and not Factions.hostile(str(c["ent"].get("faction", ""))) and cn.global_position.distance_to(player.global_position) > Data.FLEET_LAUNCH_WAKE:
+			c["ent"]["provoked"] = false   # (out of sight, it goes back to its patrol)
 
 ## v11.33: is a fleet carrier in this fight (so the old endless top-ups stop: its hangar is the limit)?
 func _fleet_carrying() -> bool:
@@ -5803,7 +5831,7 @@ func _update_enemies(dt: float) -> void:
 		var was: bool = e["aggro"]
 		var spotting := warp_state == "charging" and dist < 1600.0   # they see the warp charge and come to stop you
 		# v1.4r: a faction you are on speaking terms with (yellow or better) leaves you alone until you shoot at it
-		var peaceful: bool = e.has("faction") and not e.get("provoked", false) and not Factions.hostile(e["faction"])
+		var peaceful: bool = (e.has("faction") and not e.get("provoked", false) and not Factions.hostile(e["faction"])) or e.get("recall", false)   # (v11.39: a fighter flying home to its carrier)
 		if e.has("faction"): n.set_meta("kind", "patrol" if peaceful else "enemy")   # v1.4w: a peaceful faction ship is not a hostile contact
 		if peaceful or (cloaked and not e.get("invasion", false)): e["aggro"] = false   # (v8.3: cloaked, they can't see you)
 		elif dist < 650.0 or e["aggro"] or spotting: e["aggro"] = dist < (1600.0 if spotting else 1400.0)
@@ -5825,6 +5853,7 @@ func _update_enemies(dt: float) -> void:
 			# attack run: approach, then peel off to the side and come back around
 			var side: Vector3 = player.global_basis.x * float(e["strafe"]) * 90.0
 			goal = tpos + side if dist > 140.0 else n.global_position - to.normalized() * 200.0 + side
+		elif e.get("recall", false): goal = e["home"]   # v11.39: straight back to its carrier
 		else:
 			e["orbit"] += dt * 0.25
 			goal = e["home"] + Vector3(cos(e["orbit"]) * 120.0, sin(e["orbit"] * 0.7) * 25.0, sin(e["orbit"]) * 120.0)
@@ -5839,7 +5868,7 @@ func _update_enemies(dt: float) -> void:
 		if walker: new_fwd.y = 0.0
 		if new_fwd.length() > 0.01:
 			face(n, new_fwd)
-		var sp: float = d["speed"] * (1.0 if e["aggro"] else 0.5) * (1.4 if warp_state == "charging" else 1.0)
+		var sp: float = d["speed"] * (1.0 if e["aggro"] or e.get("recall", false) else 0.5) * (1.4 if warp_state == "charging" else 1.0)
 		if walker: sp = float(d["speed"]) * Data.WALKER_SPEED * (0.0 if e["aggro"] and dist <= Data.WALKER_HOLD else 1.0) * clampf((-n.global_basis.z).dot(want) * 2.0 - 0.6, 0.0, 1.0)   # it turns on the spot first, then walks the way it faces
 		e["vel"] = (e["vel"] as Vector3).lerp(-n.global_basis.z * sp, minf(1.0, dt * 1.5))
 		if float(e.get("dodge_t", 0.0)) > 0.0:   # Job M: side-boost out of a missile's path

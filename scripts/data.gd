@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.38"
+const VERSION := "v11.39"
 const STATION_SIZE := 2.0   # v11.21 (owner: "double the size of all space stations")
 const ESCORT_FREIGHTER_LEN := 180.0   # v11.16 (owner): the escort / cargo-run freighter is a big ship (m long), not fighter-sized (was 16)
 
@@ -1476,7 +1476,8 @@ const FLEET_PATROL_LOOP := {"battleship": 1400.0, "cruiser": 900.0}
 const FLEET_GUARD_ON := false
 const FLEET_NUKES_TO_KILL := {"battleship": 35, "cruiser": 15, "frigate": 6}
 const FLEET_LAUNCH_EVERY := 1.6        # s between launches from one carrier
-const FLEET_LAUNCH_WAKE := 9000.0      # m: they launch once you are this close
+const FLEET_LAUNCH_WAKE := 9000.0      # m: they launch once you are this close (and fly home when you are further)
+const FLEET_LAND_GAP := 60.0           # m from the hull: a fighter flying home lands (v11.39)
 # Each faction's battleship (with its cruiser, frigate and two starfighters) patrols round the main station of the
 # faction's capital system, not hostile; scan it and 3D VIEW it. They follow one loop, one behind the other.
 const FLEET_GUARD_ORBIT := 2600.0      # m from the station
