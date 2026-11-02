@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 30   # enough to reach the push's first commit (a deeper push just counts as code: smoke runs)
       - name: Art-only push?
         id: kind
         run: echo "art_only=$(tools/ci/art_only.sh '${{ github.event.before }}' '${{ github.sha }}')" >> "$GITHUB_OUTPUT"
