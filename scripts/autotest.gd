@@ -1931,7 +1931,7 @@ func _run() -> void:
 	var sb: Button = main.hub.find_child("Ship_lancer", true, false)
 	if sb and not sb.disabled: sb.pressed.emit()
 	await _wait(0.4)
-	_check("Ship purchase (Lancer, 4 cannons); the dealer sells five real ships (v11.8 owner: the two freighters are gone)", GS.ship_id == "lancer" and int(GS.ship()["guns"]) == 4 and Data.SHIP_ORDER == ["cadet", "ranger", "hauler", "elyza", "lancer"] and not Data.SHIPS.has("bulk") and not Data.SHIPS.has("bulk_empty") and ShipFactory.has_real_model("ranger") and ShipFactory.has_real_model("hauler"), "ship=%s hull=%d" % [GS.ship_id, int(GS.max_hull())])
+	_check("Ship purchase (Lancer, 4 cannons); the dealer sells five real ships (v11.8 owner: the two freighters are gone) and the 8 faction starfighters (v11.32)", GS.ship_id == "lancer" and int(GS.ship()["guns"]) == 4 and Data.SHIP_ORDER == ["cadet", "ranger", "hauler", "elyza", "lancer"] + Data.FLEET_FIGHTERS_FOR_SALE and not Data.SHIPS.has("bulk") and not Data.SHIPS.has("bulk_empty") and ShipFactory.has_real_model("ranger") and ShipFactory.has_real_model("hauler"), "ship=%s hull=%d" % [GS.ship_id, int(GS.max_hull())])
 	main.hub.open_inspector("lancer")
 	await _wait(0.4)
 	var cam0: Vector3 = main.hub.insp_cam.position
