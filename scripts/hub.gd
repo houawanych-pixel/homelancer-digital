@@ -762,7 +762,7 @@ var asst_seam := false   # v11.6 (owner): she stands on the moving room's worst 
 func worst_seam(key: String) -> float:
 	if not ResourceLoader.exists("res://scripts/room_seams.gd"): return -1.0
 	var rs: Dictionary = load("res://scripts/room_seams.gd").ROOMS
-	if Data.ROOM_FILE.has(key): key = key.get_slice("_", 0) + "_" + str(Data.ROOM_FILE[key])
+	key = key.get_slice("_", 0) + "_" + room_file(key)
 	if not rs.has(key) or not ResourceLoader.exists(_room_ogv(key)): return -1.0
 	if Data.ROOM_SEAM_PICK.has(key): return float(Data.ROOM_SEAM_PICK[key])   # (picked by eye where the score misses it)
 	var d: Dictionary = rs[key]
@@ -1294,6 +1294,15 @@ func _room_faction() -> String:
 	return f if f in Data.ROOM_FACTIONS else ""
 
 ## The room for this page: "" when the faction's rooms are not in yet (the station picture shows instead).
+## v11.41: the file name of room `key` ("orion_shipyard") in this station's room set (Data.ROOM_SETS / STATION_ROOM_SET).
+func room_file(key: String, sys_id := "") -> String:
+	var f := key.get_slice("_", 0)
+	var rn := key.substr(f.length() + 1)
+	if sys_id == "": sys_id = str(GS.system_id)
+	var set_id := str(Data.STATION_ROOM_SET.get(sys_id, "1"))
+	var sets: Dictionary = Data.ROOM_SETS.get(f, {})
+	return str((sets.get(set_id, {}) as Dictionary).get(rn, rn))
+
 func room_for(s: String) -> String:
 	var f := _room_faction()
 	if f == "": return ""
@@ -1316,7 +1325,7 @@ func _show_room(s: String) -> void:
 	var f := key.get_slice("_", 0)
 	var rn := key.substr(f.length() + 1)
 	var pk := "room_" + key
-	var path := "res://assets/rooms/%s/%s.jpg" % [f, str(Data.ROOM_FILE.get(key, rn))]   # v11.40: a newer take of the room (Data.ROOM_FILE)
+	var path := "res://assets/rooms/%s/%s.jpg" % [f, room_file(key)]   # v11.41: this station's room set (Data.ROOM_SETS)
 	var hostile_room := false
 	if lockdown_due() and Packs.PACKS.has("room_hostile_" + key):   # v9.3 (owner): their people want you gone: the wrecked, red-lit room
 		pk = "room_hostile_" + key
