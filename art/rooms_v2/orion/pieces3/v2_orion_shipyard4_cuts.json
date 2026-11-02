@@ -6,7 +6,7 @@
  "cuts": [
   1778,
   3429,
-  5269
+  5268
  ],
  "overlap": 40,
  "frame": [
@@ -28,7 +28,7 @@
   {
    "file": "v2_orion_shipyard4_part2.png",
    "strip_x0": 3389,
-   "strip_w": 1920,
+   "strip_w": 1919,
    "frame_rect": [
     0,
     241,
@@ -38,8 +38,8 @@
   },
   {
    "file": "v2_orion_shipyard4_part3.png",
-   "strip_x0": 5229,
-   "strip_w": 1959,
+   "strip_x0": 5228,
+   "strip_w": 1960,
    "frame_rect": [
     0,
     247,
