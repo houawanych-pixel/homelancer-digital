@@ -29,8 +29,11 @@ const CONGRATS := [
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
 const VERSION := "v11.40"
+<<<<<<< Updated upstream
 ## v11.40 (owner): a room shown from a newer take of its 360 (the old files stay): room key -> file name in assets/rooms/<faction>/
 const ROOM_FILE := {"orion_shipyard": "shipyard4"}
+=======
+>>>>>>> Stashed changes
 const STATION_SIZE := 2.0   # v11.21 (owner: "double the size of all space stations")
 const ESCORT_FREIGHTER_LEN := 180.0   # v11.16 (owner): the escort / cargo-run freighter is a big ship (m long), not fighter-sized (was 16)
 
@@ -1476,6 +1479,18 @@ const FLEET_CARRIER := {"battleship": [90, 15], "cruiser": [30, 5], "frigate": [
 const FLEET_PATROL_AT := {"battleship": 3200.0, "cruiser": 2600.0}
 const FLEET_PATROL_LOOP := {"battleship": 1400.0, "cruiser": 900.0}
 const FLEET_GUARD_ON := false
+# v11.40 (owner: rival battleships that see each other fight, the fighters swarm out, only while you are near enough to
+# see it, "that's how we prevent lag"): in a fleet faction's system (not its capital) the rival's battleship raids now
+# and then; seen within FLEET_CLASH_SIGHT of each other while you are within FLEET_CLASH_WATCH, they close to
+# FLEET_CLASH_RANGE and trade fire, and launch fighters (the same hangars: 15 out of 90) that dogfight each other.
+const FLEET_CLASH_CHANCE := 0.35
+const FLEET_CLASH_APART := 4200.0      # m between the two loops' centres
+const FLEET_CLASH_SIGHT := 6000.0      # m: the battleships see each other
+const FLEET_CLASH_WATCH := 9000.0      # m: you must be this close for the battle to run (out of sight it holds still)
+const FLEET_CLASH_RANGE := 1300.0      # m: they close to this and hold, trading fire
+const FLEET_CLASH_SPEED_K := 2.0       # x their patrol speed while closing
+const FLEET_CLASH_DMG_K := 1.5         # x a turret shot, battleship on battleship (a battle lasts a few minutes)
+const FLEET_NPC_HIT := 0.55            # a fighter's shot at a rival ship lands this often
 const FLEET_NUKES_TO_KILL := {"battleship": 35, "cruiser": 15, "frigate": 6}
 const FLEET_LAUNCH_EVERY := 1.6        # s between launches from one carrier
 const FLEET_LAUNCH_WAKE := 9000.0      # m: they launch once you are this close (and fly home when you are further)

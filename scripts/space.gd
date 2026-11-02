@@ -1005,6 +1005,7 @@ func _on_fleet_pack(pk: String) -> void:
 ## out on a wide loop. They are real ships (scan, shoot, destroy); peaceful until provoked or your standing turns
 ## hostile, then their guns open up and their hangars launch.
 var fleet_patrols: Array = []
+var force_clash := false   # (tests: always bring the raider)
 func _fleet_patrols() -> void:
 	fleet_patrols = []
 	if surface_mode: return
@@ -1033,6 +1034,26 @@ func _fleet_patrols() -> void:
 		_make_carrier(e)
 		fleet_patrols.append(e)
 		k += 1
+	# v11.40: now and then the rival's battleship raids here (its loop passes within sight of the home battleship's)
+	var rv := Factions.rival(fac)
+	var rfl: Dictionary = Data.FACTION_FLEET.get(rv, {})
+	if rfl.is_empty() or fleet_patrols.is_empty() or str(sys.get("role", "")) == "capital" or randf() >= Data.FLEET_CLASH_CHANCE and not force_clash: return
+	var rkey := str(rfl.get("battleship", ""))
+	if not ShipFactory.has_real_model(rkey): return
+	var hb: Dictionary = fleet_patrols[0]
+	var away: Vector3 = ((hb["home"] as Vector3) - c0).normalized().rotated(Vector3.UP, 0.9)
+	var rhome: Vector3 = (hb["home"] as Vector3) + away * Data.FLEET_CLASH_APART
+	var re := spawn_unit(rkey, rhome + Vector3(-float(Data.FLEET_PATROL_LOOP["battleship"]), 0, 0), rhome)
+	re["faction"] = rv
+	re["fleet_patrol"] = true
+	re["raider"] = true
+	re["loop_r"] = float(Data.FLEET_PATROL_LOOP["battleship"])
+	re["orbit"] = PI
+	re["aggro"] = false
+	re["provoked"] = false
+	(re["node"] as Node3D).name = "%s Battleship (raiding)" % rv
+	_make_carrier(re)
+	fleet_patrols.append(re)
 
 ## v11.38: is this patrol ship still leaving you alone (not provoked, your standing not orange / red)?
 func fleet_peaceful(e: Dictionary) -> bool:
@@ -3038,11 +3059,14 @@ func _update_carriers(dt: float) -> void:
 		var cn: Node3D = c["ent"]["node"]
 		# v11.39 (owner: "when there's no more threat the fighters return into the big ship and disappear, for less lag"):
 		# you are far away, cloaked, or it is at peace with you again: its fighters fly home and land (back in the hangar)
-		var threat: bool = not fleet_peaceful(c["ent"]) and not cloaked and cn.global_position.distance_to(pp) <= Data.FLEET_LAUNCH_WAKE
+		var war_on: bool = not (c["ent"].get("war_foe", {}) as Dictionary).is_empty() and enemies.has(c["ent"]["war_foe"]) and clash_watched(c["ent"])   # v11.40
+		var threat: bool = war_on or (not fleet_peaceful(c["ent"]) and not cloaked and cn.global_position.distance_to(pp) <= Data.FLEET_LAUNCH_WAKE)
 		if not threat:
 			_recall_kids(c, cn)
 			continue
-		for k in c["kids"]: k.erase("recall")
+		for k in c["kids"]:
+			k.erase("recall")
+			if war_on: k["war"] = true
 		if int(c["left"]) <= 0: continue
 		if not c["woke"]:
 			c["woke"] = true
@@ -3051,11 +3075,13 @@ func _update_carriers(dt: float) -> void:
 		if float(c["cd"]) > 0.0 or (c["kids"] as Array).size() >= int(c["out"]): continue
 		c["cd"] = Data.FLEET_LAUNCH_EVERY
 		var out_dir := (pp - cn.global_position).normalized()
+		if war_on: out_dir = ((c["ent"]["war_foe"]["node"] as Node3D).global_position - cn.global_position).normalized()
 		var r: float = float(c["ent"]["def"].get("hit_r", 30.0))
 		var at: Vector3 = cn.global_position + out_dir * (r + 40.0) + Vector3(_rng.randfn(0, 1), _rng.randfn(0, 0.3), _rng.randfn(0, 1)) * 30.0
 		var kid := spawn_unit(str(c["fighter"]), at, cn.global_position)
 		kid["aggro"] = true
-		kid["provoked"] = true
+		kid["provoked"] = not war_on or not fleet_peaceful(c["ent"])   # (v11.40: launched for a fleet battle, it leaves you alone if its ship does)
+		kid["war"] = war_on
 		kid["vel"] = out_dir * 70.0
 		if c["ent"].has("faction"): kid["faction"] = c["ent"]["faction"]
 		if c["ent"].get("invasion", false):
@@ -3086,6 +3112,72 @@ func _recall_kids(c: Dictionary, cn: Node3D) -> void:
 		c["woke"] = false
 		if c["ent"].get("fleet_patrol", false) and not Factions.hostile(str(c["ent"].get("faction", ""))) and cn.global_position.distance_to(player.global_position) > Data.FLEET_LAUNCH_WAKE:
 			c["ent"]["provoked"] = false   # (out of sight, it goes back to its patrol)
+
+## v11.40 (owner: "when two rival battleships see each other they fight; the ships swarm out; a little big battle by
+## themselves. That only happens if you are in range to see it: that's how we prevent lag"): now and then a rival's
+## battleship raids a fleet faction's system. When the two come within sight of each other AND you are near enough to
+## watch, they close in and trade fire, and their hangars launch fighters that dogfight. Out of your sight it all holds
+## still (no damage, no launches; the fighters fly home).
+var clash_log: Array = []   # (checks) "seen", "down <name>"
+func clash_watched(e: Dictionary) -> bool:
+	return is_instance_valid(player) and e["node"].global_position.distance_to(player.global_position) < Data.FLEET_CLASH_WATCH
+
+func _update_clash() -> void:
+	for e in fleet_patrols:
+		if not enemies.has(e) or not is_instance_valid(e["node"]) or str(e["def"].get("carrier", "")) != "battleship": continue
+		var cur: Dictionary = e.get("war_foe", {})
+		if not cur.is_empty() and enemies.has(cur) and is_instance_valid(cur["node"]): continue
+		e["war_foe"] = {}
+		for o in fleet_patrols:
+			if o == e or not enemies.has(o) or str(o["def"].get("carrier", "")) != "battleship": continue
+			if Factions.rival(str(e.get("faction", ""))) != str(o.get("faction", "")): continue
+			if e["node"].global_position.distance_to(o["node"].global_position) > Data.FLEET_CLASH_SIGHT or not clash_watched(e): continue
+			e["war_foe"] = o
+			o["war_foe"] = e
+			clash_log.append("seen")
+			message.emit("%s and %s have spotted each other: battle stations!" % [e["node"].name, o["node"].name])
+
+## A ship of the fleet battle the fighter belongs to: the nearest of the rival faction's ships in it.
+func _war_foe(e: Dictionary, dt: float) -> Dictionary:
+	e["foe_t"] = float(e.get("foe_t", 0.0)) - dt
+	var cur = e.get("foe_npc", {})
+	if float(e["foe_t"]) > 0.0 and cur is Dictionary and not cur.is_empty() and enemies.has(cur) and is_instance_valid(cur["node"]): return cur
+	e["foe_t"] = _rng.randf_range(0.8, 1.4)
+	var rv := Factions.rival(str(e.get("faction", "")))
+	var p: Vector3 = e["node"].global_position
+	var best: Dictionary = {}
+	var bd := Data.FLEET_CLASH_SIGHT
+	for o in enemies:
+		if str(o.get("faction", "")) != rv or not (o.get("war", false) or o.has("war_foe")) or not is_instance_valid(o["node"]): continue
+		var dd: float = p.distance_to(o["node"].global_position) * (1.0 if not o["def"].get("capital", false) else 1.6)   # (fighters first)
+		if dd < bd:
+			bd = dd
+			best = o
+	e["foe_npc"] = best
+	return best
+
+## Damage from one NPC to another (a fleet battle): shields, then hull. Not yours: no reward, no standing change.
+var npc_kills := 0   # (checks)
+func _npc_hit(e: Dictionary, dmg: float) -> void:
+	if not enemies.has(e) or not is_instance_valid(e["node"]): return
+	var sh := minf(float(e["sh"]), dmg)
+	e["sh"] = float(e["sh"]) - sh
+	e["hp"] = float(e["hp"]) - (dmg - sh)
+	e["sh_cd"] = 4.0
+	if float(e["hp"]) > 0.0: return
+	var n: Node3D = e["node"]
+	_explode(n.global_position, float(n.get_meta("radius", 7.0)))
+	_spark(n.global_position, Color(1.0, 0.95, 0.85), 40.0, 0.35)
+	enemies.erase(e)
+	if target == n: target = null
+	npc_kills += 1
+	if e["def"].get("capital", false):
+		clash_log.append("down %s" % n.name)
+		message.emit("%s is destroyed!" % n.name)
+	n.set_meta("kind", "wreck")
+	var tw := n.create_tween()
+	tw.tween_property(n, "scale", Vector3.ONE * 0.05, 0.6 if e["def"].get("capital", false) else 0.35).set_ease(Tween.EASE_IN)
+	tw.tween_callback(n.queue_free)
 
 ## v11.33: is a fleet carrier in this fight (so the old endless top-ups stop: its hangar is the limit)?
 func _fleet_carrying() -> bool:
@@ -3828,6 +3920,7 @@ func _process(dt: float) -> void:
 	Missions.tick(self, dt)   # v1.5f
 	_update_special(dt)   # v1.5o
 	_update_nests(dt)   # v10.8
+	_update_clash()   # v11.40
 	_update_carriers(dt)   # v11.33
 	_update_nav()   # v1.5i
 	_update_beacon()
@@ -5834,6 +5927,7 @@ func _update_enemies(dt: float) -> void:
 		var peaceful: bool = (e.has("faction") and not e.get("provoked", false) and not Factions.hostile(e["faction"])) or e.get("recall", false)   # (v11.39: a fighter flying home to its carrier)
 		if e.has("faction"): n.set_meta("kind", "patrol" if peaceful else "enemy")   # v1.4w: a peaceful faction ship is not a hostile contact
 		if peaceful or (cloaked and not e.get("invasion", false)): e["aggro"] = false   # (v8.3: cloaked, they can't see you)
+		if e.get("war", false) and not fa.is_empty() and fa.has("def"): e["aggro"] = true   # v11.40: fighting the rival's ships
 		elif dist < 650.0 or e["aggro"] or spotting: e["aggro"] = dist < (1600.0 if spotting else 1400.0)
 		if e.get("invasion", false): e["aggro"] = not cloaked or not fa.is_empty()   # v1.9n: an invasion fights whoever is there (v11.25: not you while cloaked)
 		if cloaked and fa.is_empty(): e["aggro"] = false   # v11.25 (owner: "they stop shooting me, cause I disappeared")
@@ -5901,7 +5995,9 @@ func _update_enemies(dt: float) -> void:
 				var sx := -1.0 if guns[e["gun"]] == "l" else 1.0
 				var from: Vector3 = n.global_position + n.global_basis.x * sx * 3.0 - n.global_basis.z * 5.0
 				var jitter := Vector3(_rng.randfn(0, 4), _rng.randfn(0, 4), _rng.randfn(0, 4))
-				_spawn_bolt(from, (lead + jitter - from).normalized() * 300.0, d["damage"], Color(1.0, 0.35, 0.25), "enemy", 1.6)
+				var at_npc: bool = fa.has("def")   # v11.40: shooting at a rival's ship (not at you): the shot only hits that ship
+				_spawn_bolt(from, (lead + jitter - from).normalized() * 300.0, d["damage"], Color(1.0, 0.35, 0.25), "fx" if at_npc else "enemy", 1.6)
+				if at_npc and _rng.randf() < Data.FLEET_NPC_HIT: _npc_hit(fa, float(d["damage"]))
 				if dist < 450.0: Sfx.play("laser_enemy", -12.0 - dist / 60.0)
 			if e["mech"] and e["core_cd"] <= 0.0:
 				# chest cannon: slower, heavier, keeps working when both arms are gone
@@ -8644,6 +8740,9 @@ func _damage_ally(a: Dictionary, dmg: float) -> void:
 
 ## An enemy fighter's foe: the nearest ally when one is clearly nearer than you (re-picked about once a second).
 func _enemy_foe(e: Dictionary, dt: float) -> Dictionary:
+	if e.get("war", false) and not e.get("recall", false):   # v11.40: a fighter in a fleet battle goes for the rival's ships
+		var wf := _war_foe(e, dt)
+		if not wf.is_empty(): return wf
 	if allies.is_empty(): return {}
 	e["foe_t"] = float(e.get("foe_t", 0.0)) - dt
 	var cur = e.get("foe_ally", {})
@@ -8669,7 +8768,23 @@ func _update_capital(e: Dictionary, dt: float) -> void:
 	if e.get("fleet_patrol", false):
 		n.set_meta("kind", "patrol" if peaceful else "enemy")
 		e["aggro"] = not peaceful
-	if float(d["speed"]) > 0.0:
+	var foe: Dictionary = e.get("war_foe", {})
+	var at_war: bool = not foe.is_empty() and enemies.has(foe) and is_instance_valid(foe["node"]) and clash_watched(e)
+	if at_war:   # v11.40: a fleet battle: close on the rival battleship, then hold there trading fire
+		var tw: Vector3 = foe["node"].global_position - n.global_position
+		if tw.length() > Data.FLEET_CLASH_RANGE:
+			var nf2 := (-n.global_basis.z).slerp(tw.normalized(), minf(1.0, dt * float(d["turn"])))
+			if nf2.length() > 0.01: face(n, nf2)
+			n.global_position += -n.global_basis.z * float(d["speed"]) * Data.FLEET_CLASH_SPEED_K * dt
+		e["war_cd"] = float(e.get("war_cd", 0.0)) - dt
+		if float(e["war_cd"]) <= 0.0:
+			e["war_cd"] = 1.0 / float(d["rate"]) * _rng.randf_range(0.7, 1.3)
+			var hr0: float = float(d.get("hit_r", 30.0))
+			var f0: Vector3 = n.global_position + Vector3(_rng.randf_range(-1, 1), _rng.randf_range(-0.3, 0.6), _rng.randf_range(-1, 1)) * hr0 * 0.7
+			var to0: Vector3 = foe["node"].global_position + Vector3(_rng.randfn(0, 1), _rng.randfn(0, 0.4), _rng.randfn(0, 1)) * float(foe["def"].get("hit_r", 30.0)) * 0.5
+			_spawn_bolt(f0, (to0 - f0).normalized() * 320.0, 0.0, Color(1.0, 0.45, 0.2), "fx", f0.distance_to(to0) / 320.0)
+			_npc_hit(foe, float(d["damage"]) * Data.FLEET_CLASH_DMG_K)
+	elif float(d["speed"]) > 0.0:
 		var lr: float = float(e.get("loop_r", Data.INVASION["spread"] * 0.6))
 		e["orbit"] = float(e["orbit"]) + dt * float(d["speed"]) / maxf(lr, 1.0) * (1.0 if e.has("loop_r") else 0.0) + (0.0 if e.has("loop_r") else dt * 0.02)
 		var goal: Vector3 = (e["home"] as Vector3) + Vector3(cos(e["orbit"]), 0.0, sin(e["orbit"])) * lr

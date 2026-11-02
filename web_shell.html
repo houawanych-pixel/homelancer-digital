@@ -235,7 +235,7 @@ window.hlStopListen = function () { const H = window.hlSpeech; H.free = false; i
   };
   window.__hlListenStop = () => { try { if (hlRec) hlRec.stop(); } catch (e) { window.__hlSR.state = 'done'; } };
   document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) fsLeft = true; });
-  // v11.39 (owner: the phone's "to exit full screen" note popped up mid-fight and covered the buttons): a tap on the game
+  // v11.40 (owner: the phone's "to exit full screen" note popped up mid-fight and covered the buttons): a tap on the game
   // only asks for full screen until it has been on once; after that only START and the FULL SCREEN button ask, so the
   // phone's note never comes up in the middle of a fight.
   let fsOnce = false;

@@ -3657,6 +3657,65 @@ func _job_v1132() -> void:
 				if s.enemies.has(k): s._destroy_unit(k)
 	guard_ok = guard_ok and peace_ok
 	res.append("patrol %s %s moved %s" % [guard_ok, names, moved])
+	# v11.40: rival battleships that see each other fight (only while you are near enough to see it)
+	var clash_ok := false
+	main._load_system("crystara", "station")
+	await _wait(2.0)
+	s = _sp()
+	for e in s.fleet_patrols.duplicate():
+		if s.enemies.has(e):
+			s.enemies.erase(e)
+			e["node"].queue_free()
+	s.carriers.clear()
+	s.force_clash = true
+	s._fleet_patrols()
+	var raid: Array = s.fleet_patrols.filter(func(e): return e.get("raider", false))
+	if raid.size() == 1:
+		var hb: Dictionary = s.fleet_patrols[0]
+		var rb: Dictionary = raid[0]
+		var far: Vector3 = hb["node"].global_position + Vector3(0, 0, 30000)
+		s.player.global_position = far
+		rb["node"].global_position = hb["node"].global_position + Vector3(3500, 0, 0)
+		s._update_clash()
+		var unseen: bool = s.clash_log.is_empty()   # (you are not there: nothing happens)
+		s.player.global_position = hb["node"].global_position + Vector3(1700, 400, 2500)
+		s._update_clash()
+		var seen: bool = s.clash_log.has("seen") and hb.get("war_foe", {}) == rb
+		for i in 40: s._update_carriers(2.0)
+		var both_out: int = 0
+		for c in s.carriers: both_out += (c["kids"] as Array).filter(func(k): return k.get("war", false)).size()
+		var sh0: float = float(rb["sh"]) + float(rb["hp"])
+		await _wait(4.0)
+		var hurt: bool = float(rb["sh"]) + float(rb["hp"]) < sh0
+		s.process_mode = Node.PROCESS_MODE_DISABLED
+		main.hud.visible = false
+		var mid: Vector3 = (hb["node"].global_position + rb["node"].global_position) * 0.5
+		s.cam.global_position = mid + Vector3(0, 700, 2600)
+		s.cam.look_at(mid, Vector3.UP)
+		await _frames(3)
+		await _shot("v1140_fleet_battle", 0.2)
+		main.hud.visible = true
+		s.process_mode = Node.PROCESS_MODE_INHERIT
+		# you fly off: it holds still, the fighters head home
+		s.player.global_position = far
+		await _frames(2)
+		var hp1: float = float(rb["hp"])
+		await _wait(1.0)
+		var still: bool = absf(float(rb["hp"]) - hp1) < 0.01   # (no damage out of your sight)
+		var homing := true
+		for c in s.carriers:
+			for k in c["kids"]: homing = homing and k.get("recall", false)
+		clash_ok = unseen and seen and both_out == 30 and hurt and homing and still
+		res.append("clash unseen %s seen %s out %d hurt %s home %s still %s" % [unseen, seen, both_out, hurt, homing, still])
+		for e in s.enemies.duplicate():
+			if e.get("fleet_patrol", false) or e.get("war", false):
+				s.enemies.erase(e)
+				e["node"].queue_free()
+		s.carriers.clear()
+	else: res.append("clash: no raider")
+	main._load_system("aurelion", "station")
+	await _wait(2.0)
+	s = _sp()
 	# an Imperium invasion brings its own battleship
 	var inv_ok := false
 	s.spawn_invasion(s.player.global_position - s.player.global_basis.z * 900.0, "Imperium", 1, false)
@@ -3716,8 +3775,8 @@ func _job_v1132() -> void:
 	await _shot("v1132_shipyard", 0.3)
 	hb.visible = false
 	res.append("sale %s" % sale_ok)
-	_check("v11.32 (owner): the fleet sheet in the game: 8 factions' battleship, cruiser, frigate and starfighter, real and nose-first; the battleship and cruiser patrol its systems, peaceful until provoked (cruiser 5 out of 30), the fighters land again when the threat is gone; an invasion brings the faction's battleship; the starfighters are for sale; v11.33: a battleship launches 15 at a time, 90 in all, and 35 nukes destroy it; 50 nukes, 50 mines",
-		missing.is_empty() and bad_len.is_empty() and guard_ok and moved and inv_ok and sale_ok and hang_ok and nuke_ok, " · ".join(res))
+	_check("v11.32 (owner): the fleet sheet in the game: 8 factions' battleship, cruiser, frigate and starfighter, real and nose-first; the battleship and cruiser patrol its systems, peaceful until provoked (cruiser 5 out of 30), the fighters land again when the threat is gone; rival battleships in sight of each other fight while you watch; an invasion brings the faction's battleship; the starfighters are for sale; v11.33: a battleship launches 15 at a time, 90 in all, and 35 nukes destroy it; 50 nukes, 50 mines",
+		missing.is_empty() and bad_len.is_empty() and guard_ok and moved and inv_ok and sale_ok and hang_ok and nuke_ok and clash_ok, " · ".join(res))
 
 ## v11.28 (owner: "do it for the ship scan ... the pinch view for anything you scan: ships, stations, buildings, mechs"):
 ## scan an enemy and the station; 3D VIEW opens the viewer on a copy of each; the flight holds still; CLOSE gives it back.
