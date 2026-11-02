@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.50"
+const VERSION := "v11.51"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1490,7 +1490,7 @@ const FLEET_GUARD_ON := false
 # shield down, fly into the side hangar as a MECH: inside (scripts/boarding.gd) their mechs come three at a time, ten
 # in all, then the boss; grab the bounty it drops, blow the reactor core (= the battleship is destroyed, like the 35
 # nukes) and get out through the hangar before the countdown ends. Solarion first (the owner is in their space).
-const BOARDABLE := ["Solarion"]
+const BOARDABLE := ["Elyza", "Unity", "Solarion", "Imperium", "Covenant", "Orion", "Savagers", "Liberator"]   # (owner, by voice: "now we could do everyone": every fleet faction; one shared inside in its own colours and mechs)
 const BOARD_BAY_REACH := 90.0          # m from the side hangar's opening: in you go (as a mech)
 const BOARD_MECHS := [3, 10]           # [most at once, in all]
 const BOARD_ESCAPE := 90.0             # s to get out after the core blows
