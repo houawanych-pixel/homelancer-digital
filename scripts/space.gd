@@ -610,6 +610,41 @@ func _set_box(n: Node3D, holder: Node3D) -> void:
 	n.set_meta("box_aabb", mi.transform * mi.mesh.get_aabb())
 	if n.has_meta("front_z"): n.remove_meta("front_z")
 
+## v11.37 (owner: "there was a mission with battleships and I flew through it. It needs to be solid"): the big ships
+## (every capital: battleships, cruisers, frigates, the fleet patrols) get a box from their own mesh bounds, in the
+## model's frame so it turns with the ship; flying into it pushes you out and hurts like hitting a station.
+func _ship_box(node: Node3D, model: Node3D) -> void:
+	var box := AABB(); var first := true
+	for mi in model.find_children("*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		if m.mesh == null: continue
+		var xf := Transform3D.IDENTITY
+		var c: Node = m
+		while c != null and c != model:   # (the mesh's frame relative to the model root, without needing the tree)
+			if c is Node3D: xf = (c as Node3D).transform * xf
+			c = c.get_parent()
+		var b: AABB = xf * m.get_aabb()
+		box = b if first else box.merge(b)
+		first = false
+	if first: return
+	node.set_meta("box_holder", model)
+	node.set_meta("box_aabb", box)
+	node.set_meta("ship_box", true)
+
+var ship_bumps := 0   # (checks)
+func _bump_ships() -> void:
+	if not is_instance_valid(player) or warp_state != "off": return
+	var p := player.global_position
+	for e in enemies:
+		var n: Node3D = e["node"]
+		if not n.has_meta("ship_box") or not is_instance_valid(n): continue
+		if n.global_position.distance_to(p) > float(e["def"].get("hit_r", 60.0)) * 4.0 + 200.0: continue
+		if _push_out_box(n.get_meta("box_holder"), n.get_meta("box_aabb"), "station"): ship_bumps += 1
+	for n in fleet_guard:
+		if not is_instance_valid(n) or not n.has_meta("ship_box"): continue
+		if n.global_position.distance_to(p) > float(n.get_meta("radius", 60.0)) * 4.0 + 200.0: continue
+		if _push_out_box(n.get_meta("box_holder"), n.get_meta("box_aabb"), "station"): ship_bumps += 1
+
 func _bump_box(body: Node3D) -> void:
 	_push_out_box(body.get_meta("box_holder"), body.get_meta("box_aabb"), "station")
 
@@ -997,6 +1032,7 @@ func _fleet_guard() -> void:
 		var m := ShipFactory.build(key)
 		m.name = "FleetModel"
 		n.add_child(m)
+		if str(ships[i][0]) != "starfighter": _ship_box(n, m)   # v11.37: solid
 		roamers.append(n)
 		extras.append(n)
 		fleet_guard.append(n)
@@ -3651,6 +3687,7 @@ func spawn_unit(kind: String, pos: Vector3, home: Vector3, model_key := "", scal
 		"l": side_hp, "r": side_hp, "side_max": side_hp, "vis": Sections.setup(n, is_mech) if not e.get("capital", false) else {"l": [], "r": []},   # (v1.9n: a capital ship is not split into wings: its meshes keep their LODs)
 		"spark_l": 0.0, "spark_r": 0.0, "sparks": 0, "gun": 0, "core_cd": _rng.randf_range(1.5, 3.0),
 		"cd": _rng.randf_range(0.5, 2.0), "orbit": _rng.randf() * TAU, "aggro": false, "strafe": _rng.randf_range(-1, 1), "prev_fwd": Vector3.FORWARD}
+	if e.get("capital", false): _ship_box(node, n)   # v11.37 (owner: "I fly through it, it needs to be solid")
 	enemies.append(ent)
 	return ent
 
@@ -5970,6 +6007,7 @@ func _collisions(dt: float) -> void:
 			player.global_position = body.global_position + n2 * hitr
 			collision_damage("station" if (body == station or not body.get_meta("info", {}).has("palette")) else "ground", -vel.dot(n2))   # Job L (a planet without a surface is ground)
 			vel = vel - n2 * vel.dot(n2) * 1.5
+	_bump_ships()   # v11.37
 	_nebula_depth(p)   # v1.9s: every cloud in the system
 
 var look := Vector2.ZERO   # cockpit free-look (-1..1): the pilot's head turns toward where you steer

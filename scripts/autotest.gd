@@ -3652,11 +3652,20 @@ func _job_v1132() -> void:
 			total = s.carrier_launches - l0
 		hang_ok = first_out == 15 and total == 90 and s.hangar_left(bse) == 0
 		res.append("hangar first %d total %d left %d" % [first_out, total, s.hangar_left(bse)])
+		# v11.37: solid: flown into the middle, you are pushed out of its hull
+		var b0: int = s.ship_bumps
+		var pp0: Vector3 = s.player.global_position
+		s.player.global_position = bse["node"].global_position + Vector3(0, 2, 0)
+		s._bump_ships()
+		var out_d: float = s.player.global_position.distance_to(bse["node"].global_position)
+		var solid_ok: bool = s.ship_bumps > b0 and out_d > 15.0 and bse["node"].has_meta("ship_box")
+		s.player.global_position = pp0
+		res.append("solid %s (pushed %.0f m)" % [solid_ok, out_d])
 		var hits := 0
 		while s.enemies.has(bse) and hits < 60:
 			s._damage_enemy(bse, s.fleet_nuke_damage(bse))
 			hits += 1
-		nuke_ok = hits == Data.FLEET_NUKES_TO_KILL["battleship"] and GS.max_nukes() == 50 and GS.max_mines() >= 50
+		nuke_ok = hits == Data.FLEET_NUKES_TO_KILL["battleship"] and GS.max_nukes() == 50 and GS.max_mines() >= 50 and solid_ok
 		res.append("nukes %d" % hits)
 		s.process_mode = Node.PROCESS_MODE_INHERIT
 	for e in s.invasion_units(""): s._destroy_unit(e)
