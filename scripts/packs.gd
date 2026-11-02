@@ -28,7 +28,7 @@ const PACKS := {
 	"room_savagers_private_quarters": {"folders": ["res://assets/rooms/savagers"], "match": "private_quarters.", "probe": "res://assets/rooms/savagers/private_quarters.jpg"},   # v3.8: the owner's 360 room
 	"room_savagers_pilots_lounge": {"folders": ["res://assets/rooms/savagers"], "match": "pilots_lounge.", "probe": "res://assets/rooms/savagers/pilots_lounge.jpg"},   # v3.8: the owner's 360 room
 	"room_orion_main_hub": {"folders": ["res://assets/rooms/orion"], "match": "main_hub.", "probe": "res://assets/rooms/orion/main_hub.jpg"},   # the owner's 360 room
-	"room_orion_shipyard": {"folders": ["res://assets/rooms/orion"], "match": "shipyard.", "probe": "res://assets/rooms/orion/shipyard.jpg"},   # the owner's 360 room
+	"room_orion_shipyard": {"folders": ["res://assets/rooms/orion"], "match": "shipyard", "probe": "res://assets/rooms/orion/shipyard4.jpg"},   # v11.40: + shipyard4 (the owner's hangar C, moving)   # the owner's 360 room
 	"room_orion_mech_dealer": {"folders": ["res://assets/rooms/orion"], "match": "mech_dealer.", "probe": "res://assets/rooms/orion/mech_dealer.jpg"},   # the owner's 360 room
 	"room_orion_weapons": {"folders": ["res://assets/rooms/orion"], "match": "weapons.", "probe": "res://assets/rooms/orion/weapons.jpg"},   # the owner's 360 room
 	"room_orion_supplies": {"folders": ["res://assets/rooms/orion"], "match": "supplies.", "probe": "res://assets/rooms/orion/supplies.jpg"},   # the owner's 360 room

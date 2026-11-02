@@ -762,6 +762,7 @@ var asst_seam := false   # v11.6 (owner): she stands on the moving room's worst 
 func worst_seam(key: String) -> float:
 	if not ResourceLoader.exists("res://scripts/room_seams.gd"): return -1.0
 	var rs: Dictionary = load("res://scripts/room_seams.gd").ROOMS
+	if Data.ROOM_FILE.has(key): key = key.get_slice("_", 0) + "_" + str(Data.ROOM_FILE[key])
 	if not rs.has(key) or not ResourceLoader.exists(_room_ogv(key)): return -1.0
 	if Data.ROOM_SEAM_PICK.has(key): return float(Data.ROOM_SEAM_PICK[key])   # (picked by eye where the score misses it)
 	var d: Dictionary = rs[key]
@@ -1315,7 +1316,7 @@ func _show_room(s: String) -> void:
 	var f := key.get_slice("_", 0)
 	var rn := key.substr(f.length() + 1)
 	var pk := "room_" + key
-	var path := "res://assets/rooms/%s/%s.jpg" % [f, rn]
+	var path := "res://assets/rooms/%s/%s.jpg" % [f, str(Data.ROOM_FILE.get(key, rn))]   # v11.40: a newer take of the room (Data.ROOM_FILE)
 	var hostile_room := false
 	if lockdown_due() and Packs.PACKS.has("room_hostile_" + key):   # v9.3 (owner): their people want you gone: the wrecked, red-lit room
 		pk = "room_hostile_" + key
