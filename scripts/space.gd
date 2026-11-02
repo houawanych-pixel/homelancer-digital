@@ -4468,6 +4468,7 @@ func _update_player(dt: float) -> void:
 		vel = vel.lerp(fwd * wsp, minf(1.0, dt * 1.2))
 		_booster_particles(dt, 0.5)
 	elif engine_kill:
+		if warp_drift: _booster_particles(dt, 0.35)   # v11.47 (owner, Freelancer): still flying at warp speed: the warp look stays while every weapon works
 		# engines off: keep drifting on the current vector while the nose turns freely.
 		# v1.9u (owner): THRUST restarts the engines and puts you straight back at full thrust speed
 		if thrust_held and controls and GS.energy > 1.0:
@@ -4528,6 +4529,11 @@ func full_stop() -> void:
 	engine_kill = false
 	braking = true
 	autopilot = null
+
+## v11.47: the warp look (wide view, camera pulled back, booster glow) stays while you drift at warp speed with the
+## engines killed - weapons, missiles and specials all work then (Freelancer cruise-kill).
+func warp_look() -> bool:
+	return warp_state == "on" or (engine_kill and warp_drift and speed_now > float(GS.ship()["speed"]) * Data.WARP_MULT * 0.5)
 
 func toggle_engine_kill() -> bool:
 	if GS.form == "mech": return false
@@ -6528,9 +6534,9 @@ func _update_camera(dt: float, snap: bool) -> void:
 		var ahead := rel1 + dir * 60.0
 		if hit_shake > 0.0: ahead += Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), 0) * hit_shake * 1.2
 		_set_cam(rel1, ahead, b.y)
-		cam.fov = lerpf(cam.fov, 92.0 if warp_state == "on" else (82.0 if boosting else 76.0), minf(1.0, dt * 2.0))
+		cam.fov = lerpf(cam.fov, 92.0 if warp_look() else (82.0 if boosting else 76.0), minf(1.0, dt * 2.0))
 		return
-	var back := 15.0 + (4.0 if warp_state == "on" else (1.5 if boosting else 0.0))
+	var back := 15.0 + (4.0 if warp_look() else (1.5 if boosting else 0.0))
 	var up := Data.CAM_UP   # v10.6: a little higher, so every gun's stream shows above the ship (not hidden behind it)
 	if GS.form == "mech":   # the mech stands taller: sit the camera higher and further back so it doesn't block the reticle
 		back += 8.0
@@ -6555,7 +6561,7 @@ func _update_camera(dt: float, snap: bool) -> void:
 	var look_rel := -player.global_basis.z * 30.0 + player.global_basis.y * 2.6 + player.global_basis * Vector3(cam_sway.x, cam_sway.y, 0.0)
 	if hit_shake > 0.0: look_rel += Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), 0) * hit_shake * 0.8
 	_set_cam(rel, look_rel, player.global_basis.y)
-	cam.fov = lerpf(cam.fov, 88.0 if warp_state == "on" else (76.0 if boosting else 70.0), minf(1.0, dt * 2.0))
+	cam.fov = lerpf(cam.fov, 88.0 if warp_look() else (76.0 if boosting else 70.0), minf(1.0, dt * 2.0))
 
 ## v9.1: turns a node to face along dir (like look_at(position + dir), but exact far from the centre, where a small
 ## step added to a big position rounds away and look_at fails)
