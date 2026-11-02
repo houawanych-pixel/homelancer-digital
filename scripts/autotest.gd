@@ -3594,37 +3594,56 @@ func _job_v1132() -> void:
 			if absf(box.size.z - want) > want * 0.08 or box.size.z < box.size.x * 0.9: bad_len.append("%s %.0fx%.0f" % [k, box.size.x, box.size.z])
 			m.free()
 	res.append("missing %s long-way %s" % [missing, bad_len])
-	# the capital's fleet (Elyza: Aurelion)
+	# v11.38: the patrols: the faction's battleship and cruiser out in its systems, peaceful until you shoot (or your standing is bad)
 	main._load_system("aurelion", "station")
 	await _wait(2.0)
 	var s := _sp()
-	var names: Array = s.fleet_guard.map(func(n): return str(n.name))
-	var guard_ok: bool = s.fleet_guard.size() >= 4 and names.has("Elyza Battleship")
-	var bs: Node3D = s.fleet_guard[0] if not s.fleet_guard.is_empty() else null
+	var names: Array = s.fleet_patrols.map(func(e): return str(e["node"].name))
+	var guard_ok: bool = s.fleet_patrols.size() == 2 and names.has("Elyza Battleship") and names.has("Elyza Cruiser") and s.fleet_guard.is_empty()
+	var bs: Node3D = s.fleet_patrols[0]["node"] if not s.fleet_patrols.is_empty() else null
 	var moved := false
+	var peace_ok := false
 	if bs != null:
+		var be: Dictionary = s.fleet_patrols[0]
 		var p0: Vector3 = bs.global_position
-		await _wait(1.0)
-		moved = bs.global_position.distance_to(p0) > 5.0
+		await _wait(1.5)
+		moved = bs.global_position.distance_to(p0) > 3.0
 		var info: Dictionary = s.scan_info(bs)
-		guard_ok = guard_ok and info.get("structure", false)
-		# look at it
-		s.player.global_position = bs.global_position + Vector3(420, 90, 420)
+		guard_ok = guard_ok and not info.is_empty()
+		# peaceful: no launches, no "enemy" contact, while you are near and on good terms
+		s.player.global_position = bs.global_position + Vector3(0, 300, 1200)
+		var l0: int = s.carrier_launches
+		for i in 10: s._update_carriers(2.0)
 		await _frames(2)
-		s.process_mode = Node.PROCESS_MODE_DISABLED   # (hold the camera on the fleet for the picture)
+		var calm: bool = s.carrier_launches == l0 and s.fleet_peaceful(be) and bs.get_meta("kind", "") == "patrol"
+		# shoot it: it turns hostile and the hangar opens (15 out at most)
+		s._damage_enemy(be, 5.0)
+		for i in 40: s._update_carriers(2.0)
+		await _frames(2)
+		var angry: bool = not s.fleet_peaceful(be) and bs.get_meta("kind", "") == "enemy" and s.carrier_launches - l0 == 15
+		# the cruiser: 5 out at a time
+		var ce: Dictionary = s.fleet_patrols[1]
+		s.player.global_position = ce["node"].global_position + Vector3(0, 200, 900)
+		var l1: int = s.carrier_launches
+		s._damage_enemy(ce, 5.0)
+		for i in 40: s._update_carriers(2.0)
+		var cr_ok: bool = s.carrier_launches - l1 == 5 and s.hangar_left(ce) == 25
+		peace_ok = calm and angry and cr_ok
+		res.append("peace %s angry %s cruiser %s" % [calm, angry, cr_ok])
+		s.process_mode = Node.PROCESS_MODE_DISABLED   # (hold the camera on it for the picture)
 		main.hud.visible = false
 		var mid: Vector3 = bs.global_position
-		s.cam.global_position = mid + (s.player.global_position - mid).normalized() * 330.0 + Vector3(0, 60, 0)
+		s.cam.global_position = mid + Vector3(500, 120, 500)
 		s.cam.look_at(mid, Vector3.UP)
 		await _frames(3)
-		await _shot("v1132_elyza_fleet", 0.2)
-		s.cam.global_position = mid + Vector3(0, 0, 0) + bs.global_basis.z * -260.0 + Vector3(0, 40, 0)
-		s.cam.look_at(mid, Vector3.UP)
-		await _frames(3)
-		await _shot("v1132_elyza_fleet_front", 0.2)
+		await _shot("v1132_elyza_patrol", 0.2)
 		main.hud.visible = true
 		s.process_mode = Node.PROCESS_MODE_INHERIT
-	res.append("guard %s %s moved %s" % [guard_ok, names, moved])
+		for c in s.carriers.duplicate():
+			for k in (c["kids"] as Array).duplicate():
+				if s.enemies.has(k): s._destroy_unit(k)
+	guard_ok = guard_ok and peace_ok
+	res.append("patrol %s %s moved %s" % [guard_ok, names, moved])
 	# an Imperium invasion brings its own battleship
 	var inv_ok := false
 	s.spawn_invasion(s.player.global_position - s.player.global_basis.z * 900.0, "Imperium", 1, false)
@@ -3640,16 +3659,15 @@ func _job_v1132() -> void:
 	if not bse.is_empty():
 		s.process_mode = Node.PROCESS_MODE_DISABLED   # (no fighting while counting)
 		bse["node"].global_position = s.player.global_position - s.player.global_basis.z * 2500.0
-		var l0: int = s.carrier_launches
 		for i in 40: s._update_carriers(2.0)
-		var first_out: int = s.carrier_launches - l0
+		var first_out: int = 90 - s.hangar_left(bse)
 		var total := first_out
 		for round_i in 12:   # shoot down what is out, let more come
 			for c in s.carriers:
 				if c["ent"] == bse:
 					for k in (c["kids"] as Array).duplicate(): s._destroy_unit(k)
 			for i in 40: s._update_carriers(2.0)
-			total = s.carrier_launches - l0
+			total = 90 - s.hangar_left(bse)
 		hang_ok = first_out == 15 and total == 90 and s.hangar_left(bse) == 0
 		res.append("hangar first %d total %d left %d" % [first_out, total, s.hangar_left(bse)])
 		# v11.37: solid: flown into the middle, you are pushed out of its hull
@@ -3685,7 +3703,7 @@ func _job_v1132() -> void:
 	await _shot("v1132_shipyard", 0.3)
 	hb.visible = false
 	res.append("sale %s" % sale_ok)
-	_check("v11.32 (owner): the fleet sheet in the game: 8 factions' battleship, cruiser, frigate and starfighter, real and nose-first; the capital's fleet loops its station; an invasion brings the faction's battleship; the starfighters are for sale; v11.33: a battleship launches 15 at a time, 90 in all, and 35 nukes destroy it; 50 nukes, 50 mines",
+	_check("v11.32 (owner): the fleet sheet in the game: 8 factions' battleship, cruiser, frigate and starfighter, real and nose-first; the battleship and cruiser patrol its systems, peaceful until provoked (cruiser 5 out of 30); an invasion brings the faction's battleship; the starfighters are for sale; v11.33: a battleship launches 15 at a time, 90 in all, and 35 nukes destroy it; 50 nukes, 50 mines",
 		missing.is_empty() and bad_len.is_empty() and guard_ok and moved and inv_ok and sale_ok and hang_ok and nuke_ok, " · ".join(res))
 
 ## v11.28 (owner: "do it for the ship scan ... the pinch view for anything you scan: ships, stations, buildings, mechs"):

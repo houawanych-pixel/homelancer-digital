@@ -218,6 +218,7 @@ func _setup(id: String, arrival: String, staged: bool) -> void:
 	else: for p in (sys["patrols"] as Array).slice(0, Data.PATROL_GROUPS): _spawn_group(p, (Data.ROSTER_PATROL_SIZE if Factions.replaces_patrols(str(sys.get("faction", ""))) else 2) + (Data.ENEMY_SPACE_EXTRA if SystemBuilder.is_enemy_space(sys) else 0))   # v1.8v: fewer wings; v6.2: more in enemy space
 	spawn_guard()
 	spawn_bounty()
+	_fleet_patrols()   # v11.38
 	_prof("patrols")
 	if staged: await get_tree().process_frame
 	_build_traffic()
@@ -996,6 +997,46 @@ func _on_fleet_pack(pk: String) -> void:
 	Packs.pack_ready.disconnect(_on_fleet_pack)
 	_fleet_guard()
 	_update_roamers(0.0)
+	if fleet_patrols.is_empty(): _fleet_patrols()
+
+## v11.38 (owner: "put battleships out in the star systems on patrol: if you attack it, or your reputation is bad
+## (orange or red), it attacks you, 15 fighters launched at a time, 90 in all, or destroy the battleship; a cruiser on
+## patrol launches 5 at a time, 30 in all"): every system of a faction with a fleet has its battleship and its cruiser
+## out on a wide loop. They are real ships (scan, shoot, destroy); peaceful until provoked or your standing turns
+## hostile, then their guns open up and their hangars launch.
+var fleet_patrols: Array = []
+func _fleet_patrols() -> void:
+	fleet_patrols = []
+	if surface_mode: return
+	var fac := str(sys.get("faction", ""))
+	var fl: Dictionary = Data.FACTION_FLEET.get(fac, {})
+	if fl.is_empty(): return
+	if not Packs.is_ready("faction_fleet"):
+		if not Packs.pack_ready.is_connected(_on_fleet_pack): Packs.pack_ready.connect(_on_fleet_pack)
+		return
+	var c0: Vector3 = sys["station"]["pos"]
+	var a0 := float(absi(hash(sys_id + "_fleet")) % 628) / 100.0
+	var k := 0
+	for role in ["battleship", "cruiser"]:
+		var key := str(fl.get(role, ""))
+		if key == "" or not ShipFactory.has_real_model(key): continue
+		var ang := a0 + PI * float(k)
+		var home: Vector3 = c0 + Vector3(cos(ang), 0.0, sin(ang)) * float(Data.FLEET_PATROL_AT[role])
+		var e := spawn_unit(key, home + Vector3(float(Data.FLEET_PATROL_LOOP[role]), 0, 0), home)
+		e["faction"] = fac
+		e["fleet_patrol"] = true
+		e["loop_r"] = float(Data.FLEET_PATROL_LOOP[role])
+		e["orbit"] = 0.0
+		e["aggro"] = false
+		e["provoked"] = false
+		(e["node"] as Node3D).name = "%s %s" % [fac, str(e["def"]["name"]).trim_prefix(fac + " ")]
+		_make_carrier(e)
+		fleet_patrols.append(e)
+		k += 1
+
+## v11.38: is this patrol ship still leaving you alone (not provoked, your standing not orange / red)?
+func fleet_peaceful(e: Dictionary) -> bool:
+	return e.get("fleet_patrol", false) and not e.get("provoked", false) and not Factions.hostile(str(e.get("faction", "")))
 
 func _fleet_guard() -> void:
 	for n in fleet_guard:
@@ -1004,6 +1045,7 @@ func _fleet_guard() -> void:
 			extras.erase(n)
 			n.queue_free()
 	fleet_guard = []
+	if not Data.FLEET_GUARD_ON: return   # v11.38: the real patrols (_fleet_patrols) took its place
 	if not Packs.is_ready("faction_fleet"):
 		if not Packs.pack_ready.is_connected(_on_fleet_pack): Packs.pack_ready.connect(_on_fleet_pack)
 		return
@@ -2993,12 +3035,12 @@ func _update_carriers(dt: float) -> void:
 	carriers = carriers.filter(func(c): return enemies.has(c["ent"]) and is_instance_valid(c["ent"]["node"]))   # destroyed: its launches stop
 	for c in carriers:
 		c["kids"] = (c["kids"] as Array).filter(func(k): return enemies.has(k) and is_instance_valid(k["node"]))
-		if int(c["left"]) <= 0: continue
+		if int(c["left"]) <= 0 or fleet_peaceful(c["ent"]): continue   # (v11.38: a patrol launches only once it is hostile to you)
 		var cn: Node3D = c["ent"]["node"]
 		if cn.global_position.distance_to(pp) > Data.FLEET_LAUNCH_WAKE: continue
 		if not c["woke"]:
 			c["woke"] = true
-			message.emit("%s is launching fighters (%d aboard)! Destroy it to stop them." % [str(c["ent"]["def"]["name"]), int(c["left"])])
+			message.emit("%s is launching fighters (%d aboard)! Destroy it to stop them." % [str(c["ent"]["node"].name), int(c["left"])])
 		c["cd"] = float(c["cd"]) - dt
 		if float(c["cd"]) > 0.0 or (c["kids"] as Array).size() >= int(c["out"]): continue
 		c["cd"] = Data.FLEET_LAUNCH_EVERY
@@ -8594,9 +8636,14 @@ func _enemy_foe(e: Dictionary, dt: float) -> Dictionary:
 func _update_capital(e: Dictionary, dt: float) -> void:
 	var n: Node3D = e["node"]
 	var d: Dictionary = e["def"]
+	var peaceful := fleet_peaceful(e)   # v11.38: a patrol that leaves you alone
+	if e.get("fleet_patrol", false):
+		n.set_meta("kind", "patrol" if peaceful else "enemy")
+		e["aggro"] = not peaceful
 	if float(d["speed"]) > 0.0:
-		e["orbit"] = float(e["orbit"]) + dt * 0.02
-		var goal: Vector3 = (e["home"] as Vector3) + Vector3(cos(e["orbit"]), 0.0, sin(e["orbit"])) * Data.INVASION["spread"] * 0.6
+		var lr: float = float(e.get("loop_r", Data.INVASION["spread"] * 0.6))
+		e["orbit"] = float(e["orbit"]) + dt * float(d["speed"]) / maxf(lr, 1.0) * (1.0 if e.has("loop_r") else 0.0) + (0.0 if e.has("loop_r") else dt * 0.02)
+		var goal: Vector3 = (e["home"] as Vector3) + Vector3(cos(e["orbit"]), 0.0, sin(e["orbit"])) * lr
 		var want := (goal - n.global_position)
 		if want.length() > 20.0:
 			var fwd := -n.global_basis.z
@@ -8604,7 +8651,7 @@ func _update_capital(e: Dictionary, dt: float) -> void:
 			if nf.length() > 0.01: face(n, nf)
 			n.global_position += -n.global_basis.z * float(d["speed"]) * dt
 	e["cd"] = float(e["cd"]) - dt
-	if float(e["cd"]) > 0.0 or not controls: return
+	if float(e["cd"]) > 0.0 or not controls or peaceful: return
 	e["cd"] = 1.0 / float(d["rate"]) * _rng.randf_range(0.7, 1.3)
 	var rng_m: float = d["range"]
 	var cands: Array = [] if cloaked else [[player.global_position, vel]]   # v11.25 (owner): cloaked, the big ships can't see you either

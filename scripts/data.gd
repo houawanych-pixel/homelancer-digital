@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.37"
+const VERSION := "v11.38"
 const STATION_SIZE := 2.0   # v11.21 (owner: "double the size of all space stations")
 const ESCORT_FREIGHTER_LEN := 180.0   # v11.16 (owner): the escort / cargo-run freighter is a big ship (m long), not fighter-sized (was 16)
 
@@ -1467,7 +1467,13 @@ const FACTION_FLEET := {
 # v11.33 (owner: "it should only take like 35 nukes to blow up one of those battleships; they carry 90 fighters but
 # only 15 at a time, to prevent lag; once those are gone, or the battleship is, no more come out; a cruiser holds 30"):
 # [fighters carried, most out at once]; nukes = how many direct nuke hits destroy it (its whole hull and shield).
-const FLEET_CARRIER := {"battleship": [90, 15], "cruiser": [30, 10], "frigate": [0, 0]}
+const FLEET_CARRIER := {"battleship": [90, 15], "cruiser": [30, 5], "frigate": [0, 0]}   # (v11.38 owner: a cruiser launches 5 at a time)
+# v11.38 (owner: battleships out on patrol in the star systems): each system of a fleet faction has its battleship and
+# cruiser out, this far from the station (m), each on its own loop of this radius; peaceful unless provoked or your
+# standing with the faction is orange / red. They replace the capital's looping display fleet (FLEET_GUARD_ON).
+const FLEET_PATROL_AT := {"battleship": 3200.0, "cruiser": 2600.0}
+const FLEET_PATROL_LOOP := {"battleship": 1400.0, "cruiser": 900.0}
+const FLEET_GUARD_ON := false
 const FLEET_NUKES_TO_KILL := {"battleship": 35, "cruiser": 15, "frigate": 6}
 const FLEET_LAUNCH_EVERY := 1.6        # s between launches from one carrier
 const FLEET_LAUNCH_WAKE := 9000.0      # m: they launch once you are this close
