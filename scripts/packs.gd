@@ -30,7 +30,7 @@ const PACKS := {
 	"room_orion_main_hub": {"folders": ["res://assets/rooms/orion"], "match": "main_hub.", "probe": "res://assets/rooms/orion/main_hub.jpg"},   # the owner's 360 room
 	"room_orion_shipyard": {"folders": ["res://assets/rooms/orion"], "match": "shipyard", "probe": "res://assets/rooms/orion/shipyard4.jpg"},   # v11.40: + shipyard4 (the owner's hangar C, moving)   # the owner's 360 room
 	"room_orion_mech_dealer": {"folders": ["res://assets/rooms/orion"], "match": "mech_dealer.", "probe": "res://assets/rooms/orion/mech_dealer.jpg"},   # the owner's 360 room
-	"room_orion_weapons": {"folders": ["res://assets/rooms/orion"], "match": "weapons.", "probe": "res://assets/rooms/orion/weapons.jpg"},   # the owner's 360 room
+	"room_orion_weapons": {"folders": ["res://assets/rooms/orion"], "match": "weapons", "probe": "res://assets/rooms/orion/weapons2.jpg"},   # v11.42: + weapons2 (moving weapons mall)   # the owner's 360 room
 	"room_orion_supplies": {"folders": ["res://assets/rooms/orion"], "match": "supplies.", "probe": "res://assets/rooms/orion/supplies.jpg"},   # the owner's 360 room
 	"room_orion_mission_center": {"folders": ["res://assets/rooms/orion"], "match": "mission_center.", "probe": "res://assets/rooms/orion/mission_center.jpg"},   # the owner's 360 room
 	"room_orion_medical_bay": {"folders": ["res://assets/rooms/orion"], "match": "medical_bay.", "probe": "res://assets/rooms/orion/medical_bay.jpg"},   # the owner's 360 room
