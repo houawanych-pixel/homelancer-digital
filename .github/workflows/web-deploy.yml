@@ -1,0 +1,60 @@
+name: Homelancer web deploy
+# Nov 2 2026 (owner): every push to homelancer-v1.2 deploys the website. Only a fast smoke check runs first (boots,
+# main menu, a game starts, a station docks, a room clip plays: well under 2 min). Art-only pushes skip it.
+# The full 535-check route test is its own workflow (playtest-full.yml) and never blocks a deploy.
+on:
+  push:
+    branches: [homelancer-v1.2]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  build:
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Art-only push?
+        id: kind
+        run: echo "art_only=$(tools/ci/art_only.sh '${{ github.event.before }}' '${{ github.sha }}')" >> "$GITHUB_OUTPUT"
+      - name: Install pinned Godot 4.3
+        run: |
+          curl -fL --retry 5 --retry-delay 5 -o /tmp/godot.zip https://github.com/godotengine/godot-builds/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          curl -fL --retry 5 --retry-delay 5 -o /tmp/templates.tpz https://github.com/godotengine/godot-builds/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz
+          mkdir -p ~/.local/share/godot/export_templates/4.3.stable
+          unzip -j /tmp/templates.tpz templates/web_nothreads_release.zip -d ~/.local/share/godot/export_templates/4.3.stable
+      - name: Import
+        run: /tmp/godot/Godot_v4.3-stable_linux.x86_64 --headless --path . --editor --import --quit
+      - name: Smoke check (boot, menu, dock, room clip)
+        if: steps.kind.outputs.art_only != 'true'
+        timeout-minutes: 4
+        run: |
+          HL_SMOKE=1 /tmp/godot/Godot_v4.3-stable_linux.x86_64 --headless --path . -- --autotest --quit-after-test | tee smoke.log
+          grep "^\[route\]" smoke.log | grep ": FAIL" | sed 's/^/::error::/' || true
+          grep -qE "RESULT ([0-9]+)/\1 PASS" smoke.log
+      - name: Export
+        run: |
+          mkdir -p build/web
+          /tmp/godot/Godot_v4.3-stable_linux.x86_64 --headless --path . --export-release Web
+          cp -r site/factions.html site/factions build/web/   # the factions page and its banners, next to the game
+          printf 'Homelancer Digital v1.2\nCommit: %s\nGodot 4.3\nArt-only: %s\n' "$GITHUB_SHA" "${{ steps.kind.outputs.art_only }}" > build/web/version.txt
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

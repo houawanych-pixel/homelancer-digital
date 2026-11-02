@@ -1,0 +1,54 @@
+name: Homelancer full playtest
+# Nov 2 2026 (owner): the full 535-check route test runs on its own - nightly, on demand (Run workflow), and after each
+# code push to homelancer-v1.2 (art-only pushes skip it). It reports failures (red run + one error line per failing
+# check) but never blocks a deploy. Checks in autotest.gd FLAKY print KNOWN-FLAKY and don't count until they're fixed.
+# (GitHub runs the nightly schedule from the default branch's copy of this file.)
+on:
+  push:
+    branches: [homelancer-v1.2]
+    paths-ignore:
+      - 'assets/**'
+      - 'art/**'
+      - 'docs/**'
+      - '**.png'
+      - '**.jpg'
+      - '**.webp'
+      - '**.ogv'
+      - '**.ogg'
+      - '**.mp3'
+      - '**.mp4'
+      - '**.import'
+  schedule:
+    - cron: '17 9 * * *'   # 3:17 AM Chicago
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: playtest-full
+  cancel-in-progress: true
+jobs:
+  route:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: homelancer-v1.2
+      - name: Install pinned Godot 4.3
+        run: |
+          curl -fL --retry 5 --retry-delay 5 -o /tmp/godot.zip https://github.com/godotengine/godot-builds/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip
+          unzip -q /tmp/godot.zip -d /tmp/godot
+      - name: Full route test
+        run: |
+          G=/tmp/godot/Godot_v4.3-stable_linux.x86_64
+          $G --headless --path . --editor --import --quit
+          $G --headless --path . -- --autotest --quit-after-test | tee route.log
+          grep "RESULT" route.log | sed 's/^/::notice::/' || true
+          grep "^\[route\]" route.log | grep -v "^\[route\] {" | grep ": KNOWN-FLAKY" | cut -c1-600 | sed 's/^/::warning::/' || true
+          grep "^\[route\]" route.log | grep -v "^\[route\] {" | grep ": FAIL" | cut -c1-900 | sed 's/^/::error::/' || true
+          grep -qE "RESULT ([0-9]+)/\1 PASS" route.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: route-log
+          path: route.log

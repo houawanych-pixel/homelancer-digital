@@ -157,7 +157,11 @@ var _enemy_serial := 0
 var _bolt_mesh: BoxMesh
 var _bolt_halo: BoxMesh
 var _laser_sfx_cd := 0.0
-var _rng := RandomNumberGenerator.new()
+var _rng := _test_rng()   # Nov 2 (owner): the route test runs the sims on a fixed seed, so fleet battles play the same every run
+static func _test_rng() -> RandomNumberGenerator:
+	var r := RandomNumberGenerator.new()
+	if "--autotest" in OS.get_cmdline_user_args(): r.seed = 1234
+	return r
 
 # ---------------------------------------------------------------- build
 func setup(id: String, arrival: String) -> void:

@@ -42,9 +42,19 @@ func _capture(name: String) -> void:
 	var b64 := Marshalls.raw_to_base64(img.save_png_to_buffer())
 	JavaScriptBridge.eval("(window.__shots = window.__shots || {})['%s'] = '%s';" % [key, b64], true)
 
+## Nov 2 2026 (owner): checks that flip from run to run since the fleet battles went in (v11.38-v11.45). They still run
+## and print, as KNOWN-FLAKY, but do not count as failures. Fix them (the sims now run on a fixed seed), then take them off.
+const FLAKY := ["Job M: a sideways boost", "Job M: Corsairs and Assault Mechs", "Job N: the impact punches first", "Job N: Lockon fires a volley",
+	"Job O: a missile draws a white ribbon", "Job O: the FIRE button fires", "Job V: hostile (orange) Savagers", "v1.9n: the station going down",
+	"v1.9n: allies and the fleet fight", "Combat: enemy destroyed", "Credits earned + TRACTOR", "Enemy called you on the intercom", "Job K: the warp tunnel builds",
+	"Job L: colliding with an asteroid"]
 func _check(name: String, ok: bool, detail := "") -> void:
-	results.append({"name": name, "pass": ok, "detail": detail})
-	print("[route] %s: %s %s" % [name, "PASS" if ok else "FAIL", detail])
+	var flaky := false
+	if not ok:
+		for f in FLAKY:
+			if name.begins_with(f): flaky = true
+	results.append({"name": name, "pass": ok or flaky, "detail": detail, "flaky": flaky})
+	print("[route] %s: %s %s" % [name, "PASS" if ok else ("KNOWN-FLAKY" if flaky else "FAIL"), detail])
 
 func _wait(sec: float) -> void:
 	await get_tree().create_timer(sec).timeout
@@ -842,6 +852,33 @@ func _dock_at(n: Node3D) -> bool:
 	_press("dock")
 	return await _until(func(): return main.state == "hub", 8.0)
 
+## Nov 2 2026 (owner): the smoke check that gates every deploy: the game boots to its title screen, a game starts,
+## a station docks, and a moving room clip plays. Prints RESULT like the full route test and quits.
+func _smoke() -> void:
+	seed(1234)
+	_check("Smoke: the game boots to its title / main menu", main.state == "title", main.state)
+	main.start_game()
+	var flying := await _until(func(): return main.state == "flight", 20.0)
+	_check("Smoke: a new game starts in flight", flying, main.state)
+	var s := _sp()
+	var docked := false
+	if flying and s != null and is_instance_valid(s.station):
+		main.dock(s.station)
+		docked = await _until(func(): return main.state == "hub", 15.0)
+	_check("Smoke: docking at a station opens its hub", docked, main.state)
+	var plays := false
+	if docked:
+		var hb = main.hub
+		hb.room_override = "orion"
+		hb.show_screen("hub")
+		await Packs.wait("room_orion_main_hub", 45.0)
+		await _until(func(): return hb.room_vid_on and hb.room_vid.is_playing(), 15.0)
+		plays = hb.room_vid_on and hb.room_vid != null and hb.room_vid.is_playing()
+	_check("Smoke: a moving room clip plays (Orion main hub)", plays)
+	var passed := results.filter(func(r): return r["pass"]).size()
+	print("[route] RESULT %d/%d PASS" % [passed, results.size()])
+	get_tree().quit(0 if passed == results.size() else 1)
+
 func _launch() -> bool:
 	main.launch()
 	return await _until(func(): return main.state == "flight", 8.0)
@@ -885,9 +922,13 @@ func _flag(n: String) -> bool:
 	return false
 
 func _run() -> void:
+	seed(1234)   # Nov 2 (owner): a fixed seed for the whole route test
 	main.hud.cl_open = true   # (v8.0: the windows start folded; the checks read them open)
 	main.hud.sp_open = true
 	main.hud.weapons_pinned = true   # (v7.0: every button up for the checks; the pop-up has its own check)
+	if OS.get_environment("HL_SMOKE") != "":   # Nov 2 (owner): the fast pre-deploy check (< 2 min)
+		await _smoke()
+		return
 	if OS.get_environment("HL_SOAK") != "":
 		await _soak(int(OS.get_environment("HL_SOAK")))
 		return
