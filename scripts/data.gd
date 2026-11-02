@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.48"
+const VERSION := "v11.49"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1428,6 +1428,7 @@ const TRACTOR_TIME := 4.0
 const RADAR_HEADING_UP := true      # v6.9 (owner: why is it pointing down?): the radar turns round you; you always point up
 const CLOAK_DRAIN := 7.0            # v8.3 (owner): energy per second while cloaked (it drops when the power runs out)
 const CLOAK_ZAP := 1.4             # v10.6 (owner): seconds of electric crackle round the ship as the cloak comes on (and off)
+const CLOAK_COCKPIT_ALPHA := 0.5   # v11.49 (owner): the cockpit view while cloaked: half see-through, ice-blue
 const CLOAK_RADAR := 0.3            # v10.6 (owner: "it's draining your radar"): the radar shows only this share of its range while cloaked
 const CLOAK_ALPHA := 0.82            # v8.3: how see-through the ship goes
 const ROLL_DEFLECT := true           # v8.3 (owner, Star Fox): a barrel roll knocks incoming fire away

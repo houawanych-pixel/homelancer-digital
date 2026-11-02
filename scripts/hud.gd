@@ -1462,7 +1462,13 @@ func _cockpit() -> void:
 	var tex := cockpit_texture()
 	if tex:
 		var cr := cockpit_rect()
-		draw_texture_rect(tex, cr, false)
+		var mod := Color.WHITE
+		if space != null and (space.cloaked or space.cloak_zap > 0.0):   # v11.49 (owner): cloaked, the cockpit is see-through glass too
+			var z: float = clampf(space.cloak_zap / maxf(0.01, Data.CLOAK_ZAP), 0.0, 1.0)
+			var fl := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.05)
+			var a: float = Data.CLOAK_COCKPIT_ALPHA if space.cloaked else 1.0
+			mod = Color(0.62 + 0.38 * z * fl, 0.85 + 0.15 * z * fl, 1.0, lerpf(a, 1.0, z * 0.5))
+		draw_texture_rect(tex, cr, false, mod)
 		_cockpit_instruments(cr)
 		return
 	_cockpit_old()
