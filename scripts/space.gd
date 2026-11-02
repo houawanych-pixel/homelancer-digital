@@ -6254,8 +6254,8 @@ func _update_enemies(dt: float) -> void:
 		# v1.4r: a faction you are on speaking terms with (yellow or better) leaves you alone until you shoot at it
 		var peaceful: bool = (e.has("faction") and not e.get("provoked", false) and not Factions.hostile(e["faction"])) or e.get("recall", false)   # (v11.39: a fighter flying home to its carrier)
 		if e.has("faction"): n.set_meta("kind", "patrol" if peaceful else "enemy")   # v1.4w: a peaceful faction ship is not a hostile contact
-		if peaceful or (cloaked and not e.get("invasion", false)): e["aggro"] = false   # (v8.3: cloaked, they can't see you)
-		if e.get("war", false) and not fa.is_empty() and fa.has("def"): e["aggro"] = true   # v11.41: fighting the rival's ships
+		if e.get("war", false) and not fa.is_empty() and fa.has("def"): e["aggro"] = true   # v11.41: fighting the rival's ships (its target is the foe, not you)
+		elif peaceful or (cloaked and not e.get("invasion", false)): e["aggro"] = false   # (v8.3: cloaked, they can't see you) (v11.50: one chain again - v11.41 split it, so a peaceful ship near you turned on you)
 		elif dist < 650.0 or e["aggro"] or spotting: e["aggro"] = dist < (1600.0 if spotting else 1400.0)
 		if e.get("invasion", false): e["aggro"] = not cloaked or not fa.is_empty()   # v1.9n: an invasion fights whoever is there (v11.25: not you while cloaked)
 		if cloaked and fa.is_empty(): e["aggro"] = false   # v11.25 (owner: "they stop shooting me, cause I disappeared")
