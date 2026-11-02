@@ -3657,7 +3657,7 @@ func _job_v1132() -> void:
 				if s.enemies.has(k): s._destroy_unit(k)
 	guard_ok = guard_ok and peace_ok
 	res.append("patrol %s %s moved %s" % [guard_ok, names, moved])
-	# v11.40: rival battleships that see each other fight (only while you are near enough to see it)
+	# v11.41: rival battleships that see each other fight (only while you are near enough to see it)
 	var clash_ok := false
 	main._load_system("crystara", "station")
 	await _wait(2.0)
@@ -3693,7 +3693,7 @@ func _job_v1132() -> void:
 		s.cam.global_position = mid + Vector3(0, 700, 2600)
 		s.cam.look_at(mid, Vector3.UP)
 		await _frames(3)
-		await _shot("v1140_fleet_battle", 0.2)
+		await _shot("v1141_fleet_battle", 0.2)
 		main.hud.visible = true
 		s.process_mode = Node.PROCESS_MODE_INHERIT
 		# you fly off: it holds still, the fighters head home

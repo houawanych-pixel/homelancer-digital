@@ -1034,7 +1034,7 @@ func _fleet_patrols() -> void:
 		_make_carrier(e)
 		fleet_patrols.append(e)
 		k += 1
-	# v11.40: now and then the rival's battleship raids here (its loop passes within sight of the home battleship's)
+	# v11.41: now and then the rival's battleship raids here (its loop passes within sight of the home battleship's)
 	var rv := Factions.rival(fac)
 	var rfl: Dictionary = Data.FACTION_FLEET.get(rv, {})
 	if rfl.is_empty() or fleet_patrols.is_empty() or str(sys.get("role", "")) == "capital" or randf() >= Data.FLEET_CLASH_CHANCE and not force_clash: return
@@ -3059,7 +3059,7 @@ func _update_carriers(dt: float) -> void:
 		var cn: Node3D = c["ent"]["node"]
 		# v11.39 (owner: "when there's no more threat the fighters return into the big ship and disappear, for less lag"):
 		# you are far away, cloaked, or it is at peace with you again: its fighters fly home and land (back in the hangar)
-		var war_on: bool = not (c["ent"].get("war_foe", {}) as Dictionary).is_empty() and enemies.has(c["ent"]["war_foe"]) and clash_watched(c["ent"])   # v11.40
+		var war_on: bool = not (c["ent"].get("war_foe", {}) as Dictionary).is_empty() and enemies.has(c["ent"]["war_foe"]) and clash_watched(c["ent"])   # v11.41
 		var threat: bool = war_on or (not fleet_peaceful(c["ent"]) and not cloaked and cn.global_position.distance_to(pp) <= Data.FLEET_LAUNCH_WAKE)
 		if not threat:
 			_recall_kids(c, cn)
@@ -3080,7 +3080,7 @@ func _update_carriers(dt: float) -> void:
 		var at: Vector3 = cn.global_position + out_dir * (r + 40.0) + Vector3(_rng.randfn(0, 1), _rng.randfn(0, 0.3), _rng.randfn(0, 1)) * 30.0
 		var kid := spawn_unit(str(c["fighter"]), at, cn.global_position)
 		kid["aggro"] = true
-		kid["provoked"] = not war_on or not fleet_peaceful(c["ent"])   # (v11.40: launched for a fleet battle, it leaves you alone if its ship does)
+		kid["provoked"] = not war_on or not fleet_peaceful(c["ent"])   # (v11.41: launched for a fleet battle, it leaves you alone if its ship does)
 		kid["war"] = war_on
 		kid["vel"] = out_dir * 70.0
 		if c["ent"].has("faction"): kid["faction"] = c["ent"]["faction"]
@@ -3113,7 +3113,7 @@ func _recall_kids(c: Dictionary, cn: Node3D) -> void:
 		if c["ent"].get("fleet_patrol", false) and not Factions.hostile(str(c["ent"].get("faction", ""))) and cn.global_position.distance_to(player.global_position) > Data.FLEET_LAUNCH_WAKE:
 			c["ent"]["provoked"] = false   # (out of sight, it goes back to its patrol)
 
-## v11.40 (owner: "when two rival battleships see each other they fight; the ships swarm out; a little big battle by
+## v11.41 (owner: "when two rival battleships see each other they fight; the ships swarm out; a little big battle by
 ## themselves. That only happens if you are in range to see it: that's how we prevent lag"): now and then a rival's
 ## battleship raids a fleet faction's system. When the two come within sight of each other AND you are near enough to
 ## watch, they close in and trade fire, and their hangars launch fighters that dogfight. Out of your sight it all holds
@@ -3920,7 +3920,7 @@ func _process(dt: float) -> void:
 	Missions.tick(self, dt)   # v1.5f
 	_update_special(dt)   # v1.5o
 	_update_nests(dt)   # v10.8
-	_update_clash()   # v11.40
+	_update_clash()   # v11.41
 	_update_carriers(dt)   # v11.33
 	_update_nav()   # v1.5i
 	_update_beacon()
@@ -5927,7 +5927,7 @@ func _update_enemies(dt: float) -> void:
 		var peaceful: bool = (e.has("faction") and not e.get("provoked", false) and not Factions.hostile(e["faction"])) or e.get("recall", false)   # (v11.39: a fighter flying home to its carrier)
 		if e.has("faction"): n.set_meta("kind", "patrol" if peaceful else "enemy")   # v1.4w: a peaceful faction ship is not a hostile contact
 		if peaceful or (cloaked and not e.get("invasion", false)): e["aggro"] = false   # (v8.3: cloaked, they can't see you)
-		if e.get("war", false) and not fa.is_empty() and fa.has("def"): e["aggro"] = true   # v11.40: fighting the rival's ships
+		if e.get("war", false) and not fa.is_empty() and fa.has("def"): e["aggro"] = true   # v11.41: fighting the rival's ships
 		elif dist < 650.0 or e["aggro"] or spotting: e["aggro"] = dist < (1600.0 if spotting else 1400.0)
 		if e.get("invasion", false): e["aggro"] = not cloaked or not fa.is_empty()   # v1.9n: an invasion fights whoever is there (v11.25: not you while cloaked)
 		if cloaked and fa.is_empty(): e["aggro"] = false   # v11.25 (owner: "they stop shooting me, cause I disappeared")
@@ -5995,7 +5995,7 @@ func _update_enemies(dt: float) -> void:
 				var sx := -1.0 if guns[e["gun"]] == "l" else 1.0
 				var from: Vector3 = n.global_position + n.global_basis.x * sx * 3.0 - n.global_basis.z * 5.0
 				var jitter := Vector3(_rng.randfn(0, 4), _rng.randfn(0, 4), _rng.randfn(0, 4))
-				var at_npc: bool = fa.has("def")   # v11.40: shooting at a rival's ship (not at you): the shot only hits that ship
+				var at_npc: bool = fa.has("def")   # v11.41: shooting at a rival's ship (not at you): the shot only hits that ship
 				_spawn_bolt(from, (lead + jitter - from).normalized() * 300.0, d["damage"], Color(1.0, 0.35, 0.25), "fx" if at_npc else "enemy", 1.6)
 				if at_npc and _rng.randf() < Data.FLEET_NPC_HIT: _npc_hit(fa, float(d["damage"]))
 				if dist < 450.0: Sfx.play("laser_enemy", -12.0 - dist / 60.0)
@@ -8740,7 +8740,7 @@ func _damage_ally(a: Dictionary, dmg: float) -> void:
 
 ## An enemy fighter's foe: the nearest ally when one is clearly nearer than you (re-picked about once a second).
 func _enemy_foe(e: Dictionary, dt: float) -> Dictionary:
-	if e.get("war", false) and not e.get("recall", false):   # v11.40: a fighter in a fleet battle goes for the rival's ships
+	if e.get("war", false) and not e.get("recall", false):   # v11.41: a fighter in a fleet battle goes for the rival's ships
 		var wf := _war_foe(e, dt)
 		if not wf.is_empty(): return wf
 	if allies.is_empty(): return {}
@@ -8770,7 +8770,7 @@ func _update_capital(e: Dictionary, dt: float) -> void:
 		e["aggro"] = not peaceful
 	var foe: Dictionary = e.get("war_foe", {})
 	var at_war: bool = not foe.is_empty() and enemies.has(foe) and is_instance_valid(foe["node"]) and clash_watched(e)
-	if at_war:   # v11.40: a fleet battle: close on the rival battleship, then hold there trading fire
+	if at_war:   # v11.41: a fleet battle: close on the rival battleship, then hold there trading fire
 		var tw: Vector3 = foe["node"].global_position - n.global_position
 		if tw.length() > Data.FLEET_CLASH_RANGE:
 			var nf2 := (-n.global_basis.z).slerp(tw.normalized(), minf(1.0, dt * float(d["turn"])))

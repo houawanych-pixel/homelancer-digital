@@ -28,12 +28,9 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.40"
-<<<<<<< Updated upstream
+const VERSION := "v11.41"
 ## v11.40 (owner): a room shown from a newer take of its 360 (the old files stay): room key -> file name in assets/rooms/<faction>/
 const ROOM_FILE := {"orion_shipyard": "shipyard4"}
-=======
->>>>>>> Stashed changes
 const STATION_SIZE := 2.0   # v11.21 (owner: "double the size of all space stations")
 const ESCORT_FREIGHTER_LEN := 180.0   # v11.16 (owner): the escort / cargo-run freighter is a big ship (m long), not fighter-sized (was 16)
 
@@ -1479,7 +1476,7 @@ const FLEET_CARRIER := {"battleship": [90, 15], "cruiser": [30, 5], "frigate": [
 const FLEET_PATROL_AT := {"battleship": 3200.0, "cruiser": 2600.0}
 const FLEET_PATROL_LOOP := {"battleship": 1400.0, "cruiser": 900.0}
 const FLEET_GUARD_ON := false
-# v11.40 (owner: rival battleships that see each other fight, the fighters swarm out, only while you are near enough to
+# v11.41 (owner: rival battleships that see each other fight, the fighters swarm out, only while you are near enough to
 # see it, "that's how we prevent lag"): in a fleet faction's system (not its capital) the rival's battleship raids now
 # and then; seen within FLEET_CLASH_SIGHT of each other while you are within FLEET_CLASH_WATCH, they close to
 # FLEET_CLASH_RANGE and trade fire, and launch fighters (the same hangars: 15 out of 90) that dogfight each other.
