@@ -1,0 +1,51 @@
+{
+ "strip": [
+  5370,
+  598
+ ],
+ "cuts": [
+  1595,
+  3731,
+  5203
+ ],
+ "overlap": 40,
+ "frame": [
+  1920,
+  1080
+ ],
+ "parts": [
+  {
+   "file": "v2_orion_command3_part1.png",
+   "strip_x0": 1555,
+   "strip_w": 2216,
+   "frame_rect": [
+    0,
+    281,
+    1920,
+    518
+   ]
+  },
+  {
+   "file": "v2_orion_command3_part2.png",
+   "strip_x0": 3691,
+   "strip_w": 1552,
+   "frame_rect": [
+    0,
+    170,
+    1920,
+    740
+   ]
+  },
+  {
+   "file": "v2_orion_command3_part3.png",
+   "strip_x0": 5163,
+   "strip_w": 1842,
+   "frame_rect": [
+    0,
+    228,
+    1920,
+    623
+   ]
+  }
+ ]
+}

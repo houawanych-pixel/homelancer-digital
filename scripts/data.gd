@@ -28,15 +28,15 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.43"
+const VERSION := "v11.44"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
 ## station uses (by system id); a station not listed uses set "1".
 const ROOM_SETS := {
-	"orion": {"2": {"shipyard": "shipyard4", "weapons": "weapons2"}, "3": {"shipyard": "shipyard2"}},   # set 3: hangar A   # set 2: the owner's Nov 1 Fleet Command sheets (more rooms join as they are animated)
+	"orion": {"2": {"shipyard": "shipyard4", "weapons": "weapons2"}, "3": {"shipyard": "shipyard2"}, "4": {"shipyard": "shipyard3"}},   # set 3: hangar A; set 4: hangar B   # set 2: the owner's Nov 1 Fleet Command sheets (more rooms join as they are animated)
 }
-const STATION_ROOM_SET := {"dreadholm": "2", "korrath": "3"}   # Fleet Command (Orion capital); Korrath Garrison
+const STATION_ROOM_SET := {"dreadholm": "2", "korrath": "3", "battlespire": "4"}   # Fleet Command (Orion capital); Korrath Garrison
 const STATION_SIZE := 2.0   # v11.21 (owner: "double the size of all space stations")
 const ESCORT_FREIGHTER_LEN := 180.0   # v11.16 (owner): the escort / cargo-run freighter is a big ship (m long), not fighter-sized (was 16)
 
