@@ -3325,8 +3325,11 @@ func _job_v1125() -> void:
 		var fs0: int = s.invasion_units("fighter").size()
 		for e2 in s.invasion_units("fighter").slice(0, 6): s._destroy_unit(e2)
 		await _frames(2)
+		var cl0: int = s.carrier_launches
 		for i in 3: s.disturbance_tick(Data.DISTURBANCE["refill_every"] + 0.1, dm)
-		var refilled: bool = s.invasion_units("fighter").size() >= int(Data.DISTURBANCE["ship"]["fighters"]) - 2 and s.dist_log.has("refill")
+		if s._fleet_carrying():   # v11.33: a faction fleet battleship launches from its hangar (15 out) instead of the top-ups
+			for i in 12: s._update_carriers(2.0)
+		var refilled: bool = s.invasion_units("fighter").size() >= int(Data.DISTURBANCE["ship"]["fighters"]) - 2 and (s.dist_log.has("refill") or s.carrier_launches > cl0)
 		for e3 in bs: s._destroy_unit(e3)
 		await _frames(2)
 		s.disturbance_tick(0.1, dm)
@@ -4990,7 +4993,7 @@ func _job_v() -> void:
 	var attacks: bool = hot["aggro"]
 	s.enemies.erase(hot)
 	(hot["node"] as Node3D).free()
-	Factions.adjust("Savagers", 30.0)   # -40 -> -10: yellow, cautious
+	Factions.adjust("Savagers", -10.0 - Factions.standing("Savagers"))   # -> -10: yellow, cautious (v11.38: from wherever it is: the Savagers' patrol battleship may have been in a fight)
 	var calm: Dictionary = s.spawn_unit("scrapfang", s.player.global_position + up * 420.0 + fwd * 60.0, s.player.global_position + up * 420.0)
 	s.assign_roster(calm, Data.roster_pilot("savagers_01"))
 	await _wait(0.6)
@@ -10263,7 +10266,8 @@ func _job_v19n() -> void:
 	var line_ok: bool = str(wp0.get("line", "")).begins_with("SILVER") and str(wp.get("line", "")).contains("%d of %d" % [int(Data.INVASION["battleships"]), int(Data.INVASION["battleships"])])
 	# the battle runs: allies and the fleet trade fire
 	var hp0 := 0.0
-	for e in s.invasion_units(): hp0 += float(e["hp"]) + float(e["sh"])
+	var units0: Array = s.invasion_units()   # (v11.33: a fleet battleship launches fresh fighters: count the ones there at the start)
+	for e in units0: hp0 += float(e["hp"]) + float(e["sh"])
 	var ally_hp0 := 0.0
 	for a in s.allies: ally_hp0 += float(a["hp"])
 	var t0 := Time.get_ticks_msec()
@@ -10281,7 +10285,7 @@ func _job_v19n() -> void:
 	var fps: float = float(Engine.get_frames_drawn() - fr0) / maxf(0.001, float(Time.get_ticks_msec() - t0) / 1000.0)
 	await _shot("v19n_fleet_battle", 0.0)
 	var hp1 := 0.0
-	for e in s.invasion_units(): hp1 += float(e["hp"]) + float(e["sh"])
+	for e in units0: hp1 += (float(e["hp"]) + float(e["sh"])) if s.enemies.has(e) else 0.0
 	var ally_hp1 := 0.0
 	for a in s.allies: ally_hp1 += float(a["hp"])
 	var fight_ok: bool = hp1 < hp0 and (ally_hp1 < ally_hp0 or s.allies.size() < al)
@@ -10296,8 +10300,11 @@ func _job_v19n() -> void:
 	for e in s.invasion_units("fighter").slice(0, 6): s._destroy_unit(e)
 	var fs_low: int = s.invasion_units("fighter").size()
 	s._inv_wave_t = 0.0
+	var cl0: int = s.carrier_launches
+	if s._fleet_carrying():   # v11.33: the faction's battleship launches from its hangar instead of the waves
+		for i in 6: s._update_carriers(2.0)
 	await _frames(3)
-	var refill: bool = s.invasion_units("fighter").size() > fs_low and s.inv_log.has("wave")
+	var refill: bool = s.invasion_units("fighter").size() > fs_low and (s.inv_log.has("wave") or s.carrier_launches > cl0)
 	# the three battleships: the job is won and paid
 	var cr0: int = GS.credits
 	for e in s.invasion_units("battleship"):
