@@ -171,6 +171,8 @@ func _connect_space() -> void:
 	space.enemy_hail.connect(_on_enemy_hail)
 	space.enemy_chatter.connect(_on_enemy_chatter)
 	space.mission_done.connect(_on_mission_done)   # v1.8w
+	space.board_request.connect(board_battleship)   # v11.45
+	space.board_exit.connect(leave_boarding)
 	hud.space = space
 
 ## v1.8w (owner): a job done: the one who pays you calls in on the friendly side to say well done (the coordinator of
@@ -297,6 +299,7 @@ func _web_state() -> void:
 	JavaScriptBridge.eval("window.__hlstate = %s;" % JSON.stringify(d), true)
 
 func _objective() -> String:
+	if space.boarding: return space.board_line()   # v11.45
 	if space.surface_mode:
 		var gw: Dictionary = space.mission_waypoint()   # v1.8m: a ground job comes first down here too
 		if not gw.is_empty(): return "MISSION: %s" % gw["line"]
@@ -1391,3 +1394,59 @@ func _pause_input(id: String) -> void:
 		GS.changed.emit()
 		hud.flash_message("Slot %d: %s" % [k + 1, {"light_missile": "missile", "heavy_missile": "super missile", "mine": "mine", "nuke": "NUKE"}.get(nxt, nxt)])
 
+# ---------------------------------------------------------------- v11.45 BOARDING (owner: "go inside the battleship as a mech")
+## The mech reached a battleship's open side hangar (its shield tower is down): the inside is loaded as its own small
+## level; coming out puts you back beside it (or where it was, if you blew its reactor).
+var board_from := {}
+func board_battleship(e: Dictionary) -> void:
+	if state != "flight" or not is_instance_valid(space) or GS.form != "mech": return
+	state = "boarding"
+	board_from = {"sys": space.sys_id, "pos": space.player.global_position, "name": str(e["node"].name), "faction": str(e.get("faction", ""))}
+	space.controls = false
+	hud.visible = false
+	fx.caption = "BOARDING"
+	fx.sub = board_from["name"].to_upper()
+	Sfx.play("whoosh", -2.0, 0.8)
+	var tw := create_tween()
+	tw.tween_property(fx, "fade", 1.0, 0.5)
+	await tw.finished
+	_new_space("Boarding")
+	space.setup_boarding({"sys": board_from["sys"], "faction": board_from["faction"], "name": board_from["name"]})
+	_connect_space()
+	var tw2 := create_tween()
+	tw2.tween_property(fx, "fade", 0.0, 0.6)
+	await tw2.finished
+	fx.caption = ""
+	fx.sub = ""
+	space.controls = true
+	hud.visible = true
+	state = "flight"
+
+func leave_boarding(won: bool) -> void:
+	if state != "flight" or board_from.is_empty(): return
+	state = "boarding"
+	space.controls = false
+	hud.visible = false
+	fx.caption = "BATTLESHIP DESTROYED" if won else "OUT"
+	fx.sub = board_from["name"].to_upper()
+	var tw := create_tween()
+	tw.tween_property(fx, "fade", 1.0, 0.4)
+	await tw.finished
+	if won:
+		Boarding.sunk[board_from["sys"]] = true
+		GS.credits += Data.BOARD_PAY
+		GS.kills += 1
+	_load_system(board_from["sys"], "station")
+	space.player.global_position = (board_from["pos"] as Vector3) + Vector3(0, 0, 900.0 if won else 300.0)
+	space.vel = Vector3.ZERO
+	space._update_camera(1.0, true)
+	var tw2 := create_tween()
+	tw2.tween_property(fx, "fade", 0.0, 0.6)
+	await tw2.finished
+	fx.caption = ""
+	fx.sub = ""
+	space.controls = true
+	hud.visible = true
+	state = "flight"
+	if won: hud.flash_message("You made it out. The %s goes up behind you: +%d cr." % [board_from["name"], Data.BOARD_PAY])
+	board_from = {}

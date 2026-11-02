@@ -1415,6 +1415,14 @@ func _run() -> void:
 		fx.end_warp()
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_V1145") != "":   # the v11.45 boarding checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_v1145()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_V1132") != "":   # the v11.32 fleet checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -3568,6 +3576,110 @@ func _job_v1127() -> void:
 	_check("v11.27 (owner): STATION VIEWER in COMMAND: any station on a light-blue / magenta key screen, drag / zoom, FRONT/BACK/LEFT/RIGHT/TOP/BOTTOM/3-4, flat or perspective, hide the buttons, no ring",
 		btn != null and key == "HL_Station_Orion_Capital_retopo" and n0 >= 20 and ortho_ok and next_ok and no_ring and Fs.visible,
 		"button %s first %s (%d stations) ortho %s next %s no ring %s" % [btn != null, key, n0, ortho_ok, next_ok, no_ring])
+
+## v11.45 (owner: "I want to go inside the battleship as a mech; shoot down the shield tower, fly into the open side
+## hangar, fight their mechs three at a time, ten in all, then the boss; grab the bounty; blow the reactor; 90 s out")
+func _job_v1145() -> void:
+	var res: Array = []
+	main._load_system("synthari_capital", "station")
+	await _wait(2.0)
+	var s := _sp()
+	var bs: Dictionary = {}
+	for e in s.fleet_patrols:
+		if str(e["def"].get("carrier", "")) == "battleship": bs = e
+	var parts_ok: bool = not bs.is_empty() and (bs.get("parts", []) as Array).size() == 4
+	res.append("parts %s" % parts_ok)
+	if not parts_ok:
+		_check("v11.45: boarding", false, " · ".join(res))
+		return
+	# look at it with its marks
+	s.player.global_position = bs["node"].global_position + Vector3(0, 120, 520)
+	s.process_mode = Node.PROCESS_MODE_DISABLED
+	main.hud.visible = false
+	s.cam.global_position = bs["node"].global_position + Vector3(260, 160, 420)
+	s.cam.look_at(bs["node"].global_position, Vector3.UP)
+	await _frames(3)
+	await _shot("v1145_parts", 0.2)
+	main.hud.visible = true
+	s.process_mode = Node.PROCESS_MODE_INHERIT
+	# the shield tower, the bridge, the turrets
+	var by_role := {}
+	for pe in bs["parts"]: by_role[pe["part_role"]] = pe
+	var sh0: float = float(bs["sh_max"])
+	s._destroy_unit(by_role["tower"])
+	var shield_ok: bool = bs.get("shield_down", false) and float(bs["sh_max"]) == 0.0 and sh0 > 0.0 and is_instance_valid(bs.get("bay_node", null))
+	s._destroy_unit(by_role["bridge"])
+	var p0: Vector3 = bs["node"].global_position
+	await _wait(0.6)
+	var stopped: bool = bs.get("engines_out", false) and bs["node"].global_position.distance_to(p0) < 0.5
+	s._destroy_unit(by_role["turret_l"])
+	s._destroy_unit(by_role["turret_r"])
+	var silent: bool = bs.get("guns_out", false)
+	res.append("shield %s stopped %s guns %s" % [shield_ok, stopped, silent])
+	# not as a ship; then as a mech into the hangar
+	var form0: String = GS.form
+	GS.form = "ship"
+	s.player.global_position = (bs["bay_node"] as Node3D).global_position + Vector3(0, 0, 30)
+	await _frames(3)
+	var ship_kept_out: bool = not s.boarding and main.state == "flight"
+	GS.form = "mech"
+	await _until(func(): return is_instance_valid(main.space) and main.space.boarding and main.state == "flight", 15.0)
+	s = _sp()
+	var inside_ok: bool = s.boarding and s.surf_boxes.size() >= 10 and Boarding.inside(s.player.global_position)
+	await _wait(0.5)
+	await _shot("v1145_inside_bay", 0.2)
+	res.append("ship kept out %s inside %s walls %d" % [ship_kept_out, inside_ok, s.surf_boxes.size()])
+	# the passage holds two mechs side by side (more than 2 x a mech's width with room)
+	var pw: float = float(Boarding.ROOMS["passage"][1]) - float(Boarding.ROOMS["passage"][0])
+	var wide_ok: bool = pw >= 40.0
+	# their mechs: three at a time, ten in all
+	var most := 0
+	var cfg: Array = Data.BOARD_MECHS
+	for step in 200:
+		s.board["cd"] = 0.0
+		s._board_steps(0.1)
+		most = maxi(most, (s.board["kids"] as Array).size())
+		if str(s.board["phase"]) != "mechs": break
+		if (s.board["kids"] as Array).size() >= int(cfg[0]) or int(s.board["spawned"]) >= int(cfg[1]):
+			if step == 2:
+				s.player.global_position = Vector3(0, 6, -300)
+				await _frames(3)
+				await _shot("v1145_hall_fight", 0.2)
+			for k in (s.board["kids"] as Array).duplicate(): s._destroy_unit(k)
+	var mechs_ok: bool = most == int(cfg[0]) and int(s.board["spawned"]) == int(cfg[1]) and str(s.board["phase"]) == "boss" and not (s.board["boss"] as Dictionary).is_empty()
+	res.append("mechs most %d of %d, boss %s" % [most, int(s.board["spawned"]), str(s.board["phase"])])
+	# the core holds until the bounty is taken
+	var core: Dictionary = s.board["core"]
+	var hp_c: float = float(core["hp"])
+	s._damage_enemy(core, 500.0)
+	var locked_ok: bool = float(core["hp"]) == hp_c
+	s._destroy_unit(s.board["boss"])
+	s._board_steps(0.1)
+	var pod_ok: bool = str(s.board["phase"]) == "bounty" and is_instance_valid(s.board["pod"])
+	var cr0: int = GS.credits
+	s.player.global_position = (s.board["pod"] as Node3D).global_position + Vector3(4, 1, 0)
+	s._board_steps(0.1)
+	var grab_ok: bool = s.board["bounty"] and str(s.board["phase"]) == "core" and GS.credits == cr0 + Data.BOARD_BOUNTY_PAY and not core.get("locked", true)
+	res.append("locked %s pod %s grab %s" % [locked_ok, pod_ok, grab_ok])
+	while s.enemies.has(core): s._damage_enemy(core, 600.0)
+	var esc_ok: bool = str(s.board["phase"]) == "escape" and is_equal_approx(float(s.board["escape"]), Data.BOARD_ESCAPE)
+	s.player.global_position = Vector3(0, 6, -330)
+	await _frames(3)
+	await _shot("v1145_escape", 0.2)
+	# out through the hangar: back in space, the battleship gone, paid
+	var cr1: int = GS.credits
+	s.player.global_position = Boarding.EXIT_AT + Vector3(0, 6, 0)
+	await _until(func(): return is_instance_valid(main.space) and not main.space.boarding and main.state == "flight", 15.0)
+	s = _sp()
+	var gone := true
+	for e in s.fleet_patrols:
+		if str(e["def"].get("carrier", "")) == "battleship": gone = false
+	var out_ok: bool = not s.boarding and Boarding.sunk.has("synthari_capital") and gone and GS.credits == cr1 + Data.BOARD_PAY
+	res.append("escape %s out %s" % [esc_ok, out_ok])
+	Boarding.sunk.erase("synthari_capital")
+	GS.form = form0
+	_check("v11.45 (owner): BOARDING a Solarion battleship: shoot off its shield tower (the side hangar opens), bridge (it stops) and turrets (its guns stop); only a mech gets in; inside their mechs come 3 at a time, 10 in all, then the boss; the bounty unlocks the core; blow it and get out (90 s): the battleship is gone and you are paid",
+		parts_ok and shield_ok and stopped and silent and ship_kept_out and inside_ok and wide_ok and mechs_ok and locked_ok and pod_ok and grab_ok and esc_ok and out_ok, " · ".join(res))
 
 ## v11.32 (owner: "the battleships were a success ... name them, put them in the game, where they need to go, put
 ## those little ships for sale as faction fighters"): every fleet model is real and nose-first; a capital has its fleet

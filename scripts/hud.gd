@@ -1694,7 +1694,8 @@ func _draw() -> void:
 	# still flash up, small and white, under the top prompt.
 	if msg_t > 0.0: _text(Vector2(col_w, 86), msg, 15, Color(WHITE, minf(1.0, msg_t * 2.0)), HORIZONTAL_ALIGNMENT_CENTER, S.x - col_w * 2)
 	var zone := ""
-	if space.surface_mode: zone = "%s  ·  ALT %d m" % [Surface.tile_name(space.planet_id, space.tile), int(space.altitude)]
+	if space.boarding: zone = "ABOARD THE %s" % str(space.board.get("ship", "BATTLESHIP")).to_upper()   # v11.45
+	elif space.surface_mode: zone = "%s  ·  ALT %d m" % [Surface.tile_name(space.planet_id, space.tile), int(space.altitude)]
 	elif space.in_nebula > 0.0:
 		var wx: String = Data.NEBULA_WEATHER_NAME.get(space.nebula_weather(), "")
 		zone = ("%s NEBULA" % space.nebula_name().to_upper()) if space.nebula_name() != "" else "NEBULA"

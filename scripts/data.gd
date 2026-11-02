@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.44"
+const VERSION := "v11.45"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1483,6 +1483,27 @@ const FLEET_CARRIER := {"battleship": [90, 15], "cruiser": [30, 5], "frigate": [
 const FLEET_PATROL_AT := {"battleship": 3200.0, "cruiser": 2600.0}
 const FLEET_PATROL_LOOP := {"battleship": 1400.0, "cruiser": 900.0}
 const FLEET_GUARD_ON := false
+# v11.42 (owner: "I want to go inside the battleship as a mech"): BOARDING. A boardable faction's battleship has parts
+# you can shoot off: the SHIELD TOWER on top (its power: down = the shield is off and the open side hangar lets you in),
+# the BRIDGE at the front (down = it stops moving) and the TURRETS on its back (all down = its guns stop). With the
+# shield down, fly into the side hangar as a MECH: inside (scripts/boarding.gd) their mechs come three at a time, ten
+# in all, then the boss; grab the bounty it drops, blow the reactor core (= the battleship is destroyed, like the 35
+# nukes) and get out through the hangar before the countdown ends. Solarion first (the owner is in their space).
+const BOARDABLE := ["Solarion"]
+const BOARD_BAY_REACH := 90.0          # m from the side hangar's opening: in you go (as a mech)
+const BOARD_MECHS := [3, 10]           # [most at once, in all]
+const BOARD_ESCAPE := 90.0             # s to get out after the core blows
+const BOARD_PAY := 9000                # cr for the battleship
+const BOARD_BOUNTY_PAY := 3000         # cr for the bounty pilot
+const BOARD_GRAB := 26.0               # m: walk the mech up to the bounty pilot to take him
+const BOARD_PARTS := {   # part: [enemy kind, where on the hull (x: -1 port .. 1 starboard, y: -1 keel .. 1 top, z: -1 nose .. 1 tail)]
+	"tower": ["ship_tower", Vector3(0.0, 1.0, 0.1)],
+	"bridge": ["ship_bridge", Vector3(0.0, 0.35, -0.82)],
+	"turret_l": ["ship_turret", Vector3(-0.75, 0.75, -0.3)],
+	"turret_r": ["ship_turret", Vector3(0.75, 0.75, -0.3)],
+}
+const BOARD_BAY_AT := Vector3(1.0, 0.0, 0.15)   # the open side hangar (starboard, amidships)
+
 # v11.41 (owner: rival battleships that see each other fight, the fighters swarm out, only while you are near enough to
 # see it, "that's how we prevent lag"): in a fleet faction's system (not its capital) the rival's battleship raids now
 # and then; seen within FLEET_CLASH_SIGHT of each other while you are within FLEET_CLASH_WATCH, they close to
@@ -1779,6 +1800,10 @@ static func bounty_reward(id: String) -> int: return BOUNTY_REWARD * int(roster_
 
 # ---------------------------------------------------------------- enemies
 const ENEMIES := {
+	"ship_tower": {"name": "Shield Tower", "class": "shield generator", "model": "none", "scale": 1.0, "hull": 1600.0, "shield": 0.0, "speed": 0.0, "turn": 0.0, "damage": 0.0, "rate": 0.5, "reward": 700, "capital": true, "hit_r": 22.0, "range": 0.0, "radius": 20.0},   # v11.42
+	"ship_bridge": {"name": "Bridge", "class": "bridge and drive", "model": "none", "scale": 1.0, "hull": 1300.0, "shield": 0.0, "speed": 0.0, "turn": 0.0, "damage": 0.0, "rate": 0.5, "reward": 600, "capital": true, "hit_r": 20.0, "range": 0.0, "radius": 18.0},
+	"ship_turret": {"name": "Turret", "class": "gun turret", "model": "none", "scale": 1.0, "hull": 520.0, "shield": 0.0, "speed": 0.0, "turn": 0.0, "damage": 7.0, "rate": 1.4, "reward": 250, "capital": true, "hit_r": 13.0, "range": 1100.0, "radius": 12.0},
+	"ship_core": {"name": "Reactor Core", "class": "reactor", "model": "none", "scale": 1.0, "hull": 1800.0, "shield": 0.0, "speed": 0.0, "turn": 0.0, "damage": 0.0, "rate": 0.5, "reward": 0, "capital": true, "hit_r": 26.0, "range": 0.0, "radius": 24.0},
 	"elyza_battleship": {"name": "Elyza Battleship", "class": "battleship", "faction": "Elyza", "model": "elyza_battleship", "scale": 1.0, "hull": 5000.0, "shield": 1800.0, "speed": 7.0, "turn": 0.05, "damage": 9.0, "rate": 3.0, "reward": 3200, "capital": true, "hit_r": 85.0, "range": 1400.0, "radius": 105.0, "carrier": "battleship"},   # v11.32
 	"elyza_cruiser": {"name": "Elyza Cruiser", "class": "cruiser", "faction": "Elyza", "model": "elyza_cruiser", "scale": 1.0, "hull": 2600.0, "shield": 900.0, "speed": 12.0, "turn": 0.09, "damage": 7.5, "rate": 2.2, "reward": 1200, "capital": true, "hit_r": 32.0, "range": 1200.0, "radius": 38.0, "carrier": "cruiser"},
 	"elyza_starfighter": {"name": "Elyza Starfighter", "class": "fighter", "faction": "Elyza", "model": "elyza_starfighter", "radius": 7.0, "hull": 80.0, "shield": 50.0, "speed": 50.0, "turn": 1.5, "damage": 6.0, "rate": 1.7, "reward": 230, "missiles": true},
