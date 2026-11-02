@@ -5153,7 +5153,7 @@ func _build_lanes() -> void:
 		var a: Node3D = pr[0]
 		var b: Node3D = pr[1]
 		var dir := (b.global_position - a.global_position).normalized()
-		var ra: float = (float(a.get_meta("radius", 80.0)) if a != station else maxf(120.0, _station_reach())) + Data.LANE_STANDOFF   # v10.10: clear of the (twice as big) station
+		var ra: float = (float(a.get_meta("radius", 80.0)) if a != station else maxf(120.0, _station_reach()) + Data.LANE_STATION_EXTRA) + Data.LANE_STANDOFF   # v11.43 (owner: rings too close to the station): further out; v10.10: clear of the (twice as big) station
 		var rb: float = (float(b.get_meta("radius", 0.0)) if b == planet else 60.0) + Data.LANE_STANDOFF
 		var p0 := a.global_position + dir * ra
 		var p1 := b.global_position - dir * rb

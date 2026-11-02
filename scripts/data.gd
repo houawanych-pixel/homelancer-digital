@@ -28,15 +28,15 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.42"
+const VERSION := "v11.43"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
 ## station uses (by system id); a station not listed uses set "1".
 const ROOM_SETS := {
-	"orion": {"2": {"shipyard": "shipyard4", "weapons": "weapons2"}},   # set 2: the owner's Nov 1 Fleet Command sheets (more rooms join as they are animated)
+	"orion": {"2": {"shipyard": "shipyard4", "weapons": "weapons2"}, "3": {"shipyard": "shipyard2"}},   # set 3: hangar A   # set 2: the owner's Nov 1 Fleet Command sheets (more rooms join as they are animated)
 }
-const STATION_ROOM_SET := {"dreadholm": "2"}   # Fleet Command (Orion capital)
+const STATION_ROOM_SET := {"dreadholm": "2", "korrath": "3"}   # Fleet Command (Orion capital); Korrath Garrison
 const STATION_SIZE := 2.0   # v11.21 (owner: "double the size of all space stations")
 const ESCORT_FREIGHTER_LEN := 180.0   # v11.16 (owner): the escort / cargo-run freighter is a big ship (m long), not fighter-sized (was 16)
 
@@ -263,6 +263,7 @@ const LANE_MIN_LEN := 1400.0          # shorter runs get no lane
 const LANE_RING_RADIUS := 34.0
 const LANE_STACK := 110.0             # the two directions sit this far apart, one ring above the other
 const LANE_STANDOFF := 330.0          # the end rings sit this far from the station / planet surface / gate
+const LANE_STATION_EXTRA := 700.0     # v11.43 (owner): the station end ring sits this much further out again (big spiky stations)
 const LANE_DOCK_RANGE := 240.0        # the LANE prompt shows inside this distance of a ring
 const LANE_SPEED := 10000.0           # cruise in the lane (m/s) (v11.2 owner: half; was 20000) (v9.0 owner, Freelancer-size systems: any lane ride ~10-30 s; was 650)
 const LANE_RAMP := 2.5                # seconds to reach it

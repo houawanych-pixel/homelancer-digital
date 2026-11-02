@@ -730,10 +730,10 @@ func _dock_filter(dg: Dictionary) -> void:
 		for k in ["l", "r", "b"]: tabs["dock_" + ("down" if k == "b" else k)] = dg["tab_" + k]
 	# v11.25 (owner): START (pause) and SELECT (swap a weapon slot, e.g. for the NUKE) beside the HIDE tab under the
 	# radar, angled in; pushed down, they stand as a small pair on top of the collapsed row
-	if dock_down:
-		var yb := S.y - TAB_B_H - 2.0 - 64.0 - 46.0
-		tabs["start"] = Rect2(S.x * 0.5 - 104.0, yb, 98.0, 38.0)
-		tabs["select"] = Rect2(S.x * 0.5 + 6.0, yb, 98.0, 38.0)
+	if dock_down:   # v11.43 (owner: "for better visible gameplay"): collapsed, they join the bottom row (START | TARGET | CONSOLE | COMMS | SELECT)
+		var yb := S.y - TAB_B_H - 2.0
+		tabs["start"] = Rect2(S.x * 0.5 - 196.0 - 8.0 - 98.0, yb, 98.0, TAB_B_H)
+		tabs["select"] = Rect2(S.x * 0.5 + 196.0 + 8.0, yb, 98.0, TAB_B_H)
 	else:
 		var sp: Rect2 = dg["speed"]   # v11.29 (owner): just above the SPEED box
 		tabs["start"] = Rect2(sp.get_center().x - 92.0, sp.position.y - 40.0, 86.0, 32.0)
