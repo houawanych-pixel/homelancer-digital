@@ -1098,6 +1098,8 @@ func _dreadholm() -> void:
 	await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.sys_id == "dreadholm", 15.0)
 	await _wait(1.0)
 	var s := _sp()
+	await _until(func(): return not s.extras.is_empty() or not s.hidden_extras.is_empty(), 6.0)   # (the extra stations are built PH_BUILD_DELAY after arrival)
+	await _frames(2)
 	var sy: Dictionary = Data.SYSTEMS["dreadholm"]
 	# 1. three stations: the hub, the ally, the hidden rival
 	var names: Array = [str(sy["station"]["name"])]
@@ -1176,6 +1178,7 @@ func _dreadholm() -> void:
 	for e in _sp().fleet_patrols:
 		if (e["node"] as Node3D).get_meta("dock", false) or (e["node"] in _sp().docks3d): no_dock = false
 	_check("Battleships (allied ones too) have no dock option", no_dock)
+	await _dreadholm_layout()
 	await _job_v1145()
 
 ## v11.63 (owner's freighter block): both freighter types spawn on the lanes, a booster hit slows the ship (it is not
@@ -1283,6 +1286,43 @@ func _warp_kill() -> void:
 		"warp %s %.0f m/s; drift %s; turned %.2f rad; kept %s; guns %s missile %s; thrust kept %s (%.0f m/s)" % [on, v_warp, drift, turned, kept, shot, mis, boost_kept, s.speed_now])
 	main._on_hud("kill")
 
+## v11.65 (owner's Dreadholm map talk-through): the star by the lava world, Covenant at D.5 8.5, Vassal at B.5 6.5, the
+## gates further out, every planned lane built (with the T choke points and the outer ring), and no lane through the
+## new rock field, the storm cloud, the asteroid belt or the star.
+func _dreadholm_layout() -> void:
+	var s := _sp()
+	var sy: Dictionary = s.sys
+	var W: float = 2.0 * Data.SPACE_EDGE / Data.MAP_CELLS
+	var at := func(p: Vector3, c: Array) -> bool: return Vector2(p.x, p.z).distance_to(Vector2(SystemBuilder.cell_pos(c).x, SystemBuilder.cell_pos(c).z)) < W * 0.05
+	var cov := false
+	var vas := false
+	for x in sy["more_stations"]: if str(x["name"]) == "Covenant Embassy": cov = at.call(x["pos"], [4.5, 8.5])
+	for x in sy["more_planets"]: if str(x["name"]) == "Vassal": vas = at.call(x["pos"], [2.5, 6.5])
+	var sun_ok: bool = at.call(SystemBuilder.sun_pos_of(sy), [5.5, 4.5])
+	var far := true
+	for g in s.gates: if g.global_position.distance_to(s.station.global_position) < 150000.0: far = false
+	_check("Dreadholm map: the star sits by the lava world (E.5 4.5), Covenant at D.5 8.5, Vassal at B.5 6.5, the jump gates further out",
+		sun_ok and cov and vas and far, "sun %s covenant %s vassal %s gates out %s" % [sun_ok, cov, vas, far])
+	var plan: int = sy["lane_plan"].size()
+	var meet := {}
+	for ln in s.lanes:
+		for k in ["a", "b"]: meet[str(ln[k])] = int(meet.get(str(ln[k]), 0)) + 1
+	var tees := true
+	for jn in sy["junctions"]: if int(meet.get(str(jn), 0)) < 3: tees = false
+	var cov_lane: bool = s.lanes.any(func(l): return str(l["b"]) == "Covenant Embassy" and str(l["a"]) == "South Choke Point")
+	var avoid: Array = [[SystemBuilder.sun_pos_of(sy), Data.SUN_RADIUS * 1.2, "star"], [s.belt_center, s.belt_radius, "belt"]]
+	for c in sy["layout_clouds"]: avoid.append([c["center"], float(c["radius"]), str(c["name"])])
+	if not sy.get("nebula", {}).is_empty(): avoid.append([sy["nebula"]["center"], float(sy["nebula"]["radius"]) * Data.NEBULA_SIZE, "the Veil (main cloud)"])
+	var through := []
+	for ln in s.lanes:
+		var pts: Array = ln["up"]
+		for i in pts.size() - 1:
+			for av in avoid:
+				var q: Vector3 = Geometry3D.get_closest_point_to_segment(av[0], pts[i], pts[i + 1])
+				if Vector2(q.x - av[0].x, q.z - av[0].z).length() < float(av[1]) and not (str(av[2]) in through): through.append("%s (%s-%s)" % [av[2], ln["a"], ln["b"]])
+	_check("Dreadholm lanes: all %d planned lanes built, every choke point is a T (3+ lanes), Fleet Command reaches Covenant through the South choke point, no lane runs through the rock field, the storm cloud, the Veil, the belt or the star" % plan,
+		s.lanes.size() == plan and tees and cov_lane and through.is_empty(), "built %d / %d, tees %s %s, covenant lane %s, through %s" % [s.lanes.size(), plan, tees, meet, cov_lane, through])
+
 func _smoke_core() -> void:
 	_check("Core: the game boots to its title / main menu", main.state == "title", main.state)
 	main.start_game()
@@ -1367,7 +1407,21 @@ func _run() -> void:
 		print("[route] sun ", cell.call(SystemBuilder.sun_pos_of(s.sys)))
 		print("[route] belt ", cell.call(s.sys["asteroids"]["center"]), " r ", s.sys["asteroids"].get("radius", 0))
 		print("[route] nebula ", cell.call(s.sys["nebula"]["center"]))
-		for ln in s.lanes: print("[route] lane ", ln["a"], " -> ", ln["b"])
+		for ln in s.lanes: print("[route] lane ", ln["a"], " -> ", ln["b"], "  rings ", (ln["up"] as Array).size())
+		for nd in s.nebulae: print("[route] cloud ", nd["name"], " ", cell.call(nd["center"]), " r ", int(nd["radius"]), " ", nd.get("weather", ""))
+		print("[route] plan ", s.sys.get("lane_plan", []).size(), " lanes built ", s.lanes.size())
+		var J := {"lanes": [], "clouds": [], "pts": []}
+		for ln in s.lanes: J["lanes"].append([ln["up"][0].x, ln["up"][0].z, ln["up"][-1].x, ln["up"][-1].z])
+		for nd in s.nebulae: J["clouds"].append([nd["center"].x, nd["center"].z, nd["radius"], str(nd["name"]), str(nd.get("weather", ""))])
+		J["pts"].append(["Fleet Command", s.station.global_position.x, s.station.global_position.z, "hub"])
+		J["pts"].append([s.planet.name, s.planet.global_position.x, s.planet.global_position.z, "planet"])
+		for g in s.gates: J["pts"].append([g.name, g.global_position.x, g.global_position.z, "gate"])
+		for x in s.sys["more_stations"] + s.sys["more_planets"]: J["pts"].append([x["name"], x["pos"].x, x["pos"].z, x["kind"]])
+		for jn in s.sys.get("junctions", {}): J["pts"].append([jn, s.sys["junctions"][jn].x, s.sys["junctions"][jn].z, "junction"])
+		var sp: Vector3 = SystemBuilder.sun_pos_of(s.sys)
+		J["pts"].append(["Star", sp.x, sp.z, "sun"])
+		J["belt"] = [s.belt_center.x, s.belt_center.z, s.belt_radius]
+		print("[json] ", JSON.stringify(J))
 		get_tree().quit()
 		return
 	if OS.get_environment("HL_FLIGHT") != "":   # v11.64: engine kill at warp (+ the core smoke group)

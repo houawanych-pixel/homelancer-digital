@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.64"
+const VERSION := "v11.65"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -51,6 +51,31 @@ const SYSTEM_ROLES := {
 			"desc": "A Unity listening post hidden in the Dreadholm Veil, spying on Fleet Command."},
 		"spy": {"type": "contact", "at": "hub", "faction": "Unity", "name": "Veil Informant",
 			"desc": "A covert contact at Fleet Command who trades word on the hidden Unity post."},
+	},
+}
+## v11.65 (owner, Dreadholm map talk-through, Nov 3): a system laid out by hand, in MAP SQUARES [column, row] as the map
+## reads them (A = 1 ... J = 10 across, 1 ... 10 down; .5 = the middle of a square). The star sits right by the lava world
+## (that's why it burns red hot), the Covenant embassy and Vassal are moved, the jump gates sit further out, and the trade
+## lanes are a network: spokes from Fleet Command plus an OUTER RING, meeting at CHOKE POINTS (one lane in, a T out to two
+## places). A rock field and a storm cloud sit on the straight lines, so the lanes go round them.
+const SYSTEM_LAYOUT := {
+	"dreadholm": {
+		"sun": [5.5, 4.5],
+		"planets": {"Vassal": [2.5, 6.5]},
+		"stations": {"Covenant Embassy": [4.5, 8.5]},
+		"gate_push": 2.0,
+		"clouds": [
+			{"name": "Cinder Shards", "at": [7.0, 4.6], "radius": 26000.0, "weather": "rocks", "color": Color(0.78, 0.42, 0.26)},
+			{"name": "Ember Veil", "at": [5.0, 4.6], "radius": 30000.0, "weather": "storm", "color": Color(0.85, 0.3, 0.22)},
+		],
+		"junctions": {"South Choke Point": [6.8, 7.5], "East Choke Point": [7.6, 6.9], "Northeast Choke Point": [8.0, 3.6]},
+		"lanes": [
+			["hub", "planet"], ["hub", "South Choke Point"], ["South Choke Point", "Covenant Embassy"], ["South Choke Point", "gate:korrath"],
+			["hub", "East Choke Point"], ["East Choke Point", "gate:battlespire"], ["East Choke Point", "Northeast Choke Point"], ["Northeast Choke Point", "gate:foggiest"], ["Northeast Choke Point", "planet"],
+			["planet", "gate:heart"], ["planet", "gate:ogden"],
+			["gate:korrath", "gate:ogden"], ["gate:korrath", "Covenant Embassy"], ["Covenant Embassy", "gate:battlespire"],
+			["gate:battlespire", "gate:foggiest"], ["gate:foggiest", "gate:heart"], ["gate:heart", "gate:ogden"],
+		],
 	},
 }
 ## v11.57 (owner's Orion planet biomes, Planet_biome art on Drive; originals in art/reference/planet_cards): each main

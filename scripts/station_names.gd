@@ -245,6 +245,7 @@ static func apply(systems: Dictionary) -> Dictionary:
 		fg["nebula"]["color"] = Data.FOG_COLOR
 		fg["nebula"]["name"] = "The Grey"
 	_apply_roles(systems)
+	SystemBuilder.apply_layouts(systems)   # v11.65 (owner): hand-made layouts (Dreadholm)
 	for sid in Data.PLANET_BIOMES:   # v11.57: the owner's planet biomes and their map cards
 		if not systems.has(sid): continue
 		var pl: Dictionary = systems[sid]["planet"]

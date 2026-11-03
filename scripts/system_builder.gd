@@ -213,6 +213,63 @@ static func all(core: Dictionary) -> Dictionary:
 	clear_lanes(out)   # v1.5m: the freeways never run through the rocks
 	return out
 
+## v11.65: a map square [column, row] (A = 1 across, 1 down; 5.5 = the middle of E) as a point in the system.
+static func cell_pos(c: Array, y := 0.0) -> Vector3:
+	var w: float = 2.0 * Data.SPACE_EDGE / float(Data.MAP_CELLS)
+	return Vector3((float(c[0]) - 1.0) * w - Data.SPACE_EDGE, y, (float(c[1]) - 1.0) * w - Data.SPACE_EDGE)
+
+## v11.65 (owner): the hand-made layouts (Data.SYSTEM_LAYOUT): the star, moved planets and stations, the gates pushed out,
+## the extra clouds, the choke points and the lane plan. Runs last, after the roles are placed.
+static func apply_layouts(systems: Dictionary) -> void:
+	for sid in Data.SYSTEM_LAYOUT:
+		if not systems.has(sid): continue
+		var sy: Dictionary = systems[sid]
+		var L: Dictionary = Data.SYSTEM_LAYOUT[sid]
+		if L.has("sun"):
+			var sp := cell_pos(L["sun"])
+			sy["sun_center"] = false
+			sy["sun_dir"] = -sp.normalized()
+			sy["sun_dist"] = sp.length()
+		for x in sy.get("more_planets", []):
+			if (L.get("planets", {}) as Dictionary).has(str(x["name"])): x["pos"] = cell_pos(L["planets"][str(x["name"])], (x["pos"] as Vector3).y)
+		for x in sy.get("more_stations", []):
+			if (L.get("stations", {}) as Dictionary).has(str(x["name"])): x["pos"] = cell_pos(L["stations"][str(x["name"])], (x["pos"] as Vector3).y)
+		var st: Vector3 = sy["station"]["pos"]
+		var k: float = float(L.get("gate_push", 1.0))
+		var lim: float = Data.SPACE_EDGE * 0.96
+		for g in sy["gates"]:
+			var p: Vector3 = st + ((g["pos"] as Vector3) - st) * k
+			g["pos"] = Vector3(clampf(p.x, -lim, lim), p.y, clampf(p.z, -lim, lim))
+		var clouds: Array = []
+		for c in L.get("clouds", []):
+			clouds.append({"name": str(c["name"]), "center": cell_pos(c["at"]), "radius": float(c["radius"]), "color": c["color"], "main": false, "weather": str(c.get("weather", "storm")), "layout": true})
+		sy["layout_clouds"] = clouds
+		var j := {}
+		for jn in L.get("junctions", {}): j[jn] = cell_pos(L["junctions"][jn])
+		sy["junctions"] = j
+		sy["lane_plan"] = (L.get("lanes", []) as Array).duplicate(true)
+
+## v11.65: where a lane-plan name sits: "hub", "planet", "gate:<system id>", a choke point, or a station / planet by name.
+static func layout_point(sy: Dictionary, key: String) -> Vector3:
+	if key == "hub": return sy["station"]["pos"]
+	if key == "planet": return sy["planet"]["pos"]
+	if key.begins_with("gate:"):
+		for g in sy["gates"]:
+			if str(g["to"]) == key.substr(5): return g["pos"]
+	if (sy.get("junctions", {}) as Dictionary).has(key): return sy["junctions"][key]
+	for x in sy.get("more_stations", []) + sy.get("more_planets", []):
+		if str(x["name"]) == key: return x["pos"]
+	return Vector3.INF
+
+## v11.65: the planned lanes as [from, to] points (a plan entry whose ends don't exist is left out).
+static func layout_segments(sy: Dictionary) -> Array:
+	var out: Array = []
+	for e in sy.get("lane_plan", []):
+		var a := layout_point(sy, str(e[0]))
+		var b := layout_point(sy, str(e[1]))
+		if a != Vector3.INF and b != Vector3.INF: out.append([a, b])
+	return out
+
 ## v11.10 (owner: "not all lanes should start from the centre; like waypoints"): the trade-lane network. points[0] is
 ## the main station, then the planet, then the gates. Each place (nearest first) is linked from the connected place
 ## nearest to it whose new lane leaves at least Data.LANE_MIN_SPREAD degrees from the lanes already there, so two lanes

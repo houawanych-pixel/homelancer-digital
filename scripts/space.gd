@@ -2436,6 +2436,7 @@ static func nebulae_of(id: String, s: Dictionary) -> Array:
 	var n: Dictionary = s.get("nebula", {})
 	if n.is_empty() or float(n.get("radius", 0.0)) <= 1.0: return out
 	out.append({"name": str(n["name"]), "center": n["center"], "radius": float(n["radius"]) * Data.NEBULA_SIZE, "color": n["color"], "main": true})
+	for lc in s.get("layout_clouds", []): out.append((lc as Dictionary).duplicate())   # v11.65: the layout's own clouds (a rock field, a storm)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(id + "_nebulae")
 	var o: Vector3 = s["station"]["pos"]
@@ -2495,6 +2496,7 @@ static func nebulae_of(id: String, s: Dictionary) -> Array:
 			out.append({"name": "", "center": bc, "radius": bcr, "color": bcol, "main": false, "belt": true})
 			break
 	for i in out.size():   # v1.9z: each cloud's own weather (the same every visit)
+		if out[i].has("weather"): continue   # (v11.65: a layout cloud keeps its own)
 		out[i]["weather"] = Data.NEBULA_WEATHERS[absi(hash(id + "_wx%d" % i)) % Data.NEBULA_WEATHERS.size()]
 	return out
 
@@ -5634,6 +5636,66 @@ func _lane_clear(a: Vector3, b: Vector3, skip: Array) -> bool:
 		if _seg_hit(a, b, q[0], q[1]): return false
 	return true
 
+## v11.65 (owner: "trade lanes with choke points, A to B, then C from B like a T"): the system's lane plan as node pairs.
+## Choke points are made here: an empty marker with a ring of lights, where one lane ends and two others start.
+var junctions: Array = []
+func _layout_pairs() -> Array:
+	for jn in junctions:
+		if is_instance_valid(jn): jn.queue_free()
+	junctions.clear()
+	var by := {}
+	for key in sys.get("junctions", {}):
+		var jn := Node3D.new()
+		jn.name = str(key)
+		jn.position = sys["junctions"][key]
+		jn.set_meta("kind", "junction")
+		jn.set_meta("radius", 0.0)
+		jn.set_meta("info", {"name": str(key), "kind": "junction", "desc": "A trade-lane choke point: lanes meet here and split."})
+		add_child(jn)
+		var lamp := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = 14.0
+		sm.height = 28.0
+		lamp.mesh = sm
+		var mat := StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.albedo_color = Color(1.0, 0.7, 0.2)
+		lamp.material_override = mat
+		jn.add_child(lamp)
+		junctions.append(jn)
+		by[str(key)] = jn
+	var find := func(key: String) -> Node3D:
+		if key == "hub": return station
+		if key == "planet": return planet
+		if by.has(key): return by[key]
+		if key.begins_with("gate:"):
+			for g: Node3D in gates:
+				if str((g.get_meta("info", {}) as Dictionary).get("to", "")) == key.substr(5): return g
+			return null
+		for x: Node3D in extras:
+			if str(x.name) == key: return x
+		# (the extra stations are built a moment later: the lane ends at a marker where the station will be)
+		for d: Dictionary in sys.get("more_stations", []) + sys.get("more_planets", []):
+			if str(d["name"]) != key: continue
+			var an := Node3D.new()
+			an.name = "LaneEnd " + key
+			an.set_meta("label", key)
+			an.position = d["pos"]
+			var rr: float = float(d.get("radius", Data.PH_STATION_RADIUS))
+			if Data.is_st3d(str(d.get("model", ""))): rr = STATION_WIDTH * Data.st3d_scale(str(d["model"])) * Data.STATION3D_HIT
+			an.set_meta("radius", rr)
+			add_child(an)
+			junctions.append(an)
+			by[key] = an
+			return an
+		return null
+	var out: Array = []
+	for e in sys["lane_plan"]:
+		var a: Node3D = find.call(str(e[0]))
+		var b: Node3D = find.call(str(e[1]))
+		if a != null and b != null: out.append([a, b])
+	return out
+
 ## v10.10: would a pair of lane rings at c (stacked along up) sit inside rings already placed?
 func _ring_crowded(c: Vector3, up: Vector3, placed: Array) -> bool:
 	var need: float = Data.LANE_RING_RADIUS * 2.4
@@ -5657,7 +5719,9 @@ func _build_lanes() -> void:
 	# v11.10 (owner: "like waypoints"): a lane network, not every lane out of the station (SystemBuilder.lane_tree)
 	var nodes: Array = [station, planet] + gates
 	var pairs: Array = []
-	for e in SystemBuilder.lane_tree(nodes.map(func(n): return (n as Node3D).global_position)): pairs.append([nodes[e[0]], nodes[e[1]]])
+	if sys.has("lane_plan"): pairs = _layout_pairs()   # v11.65 (owner): the hand-made network with its choke points
+	else:
+		for e in SystemBuilder.lane_tree(nodes.map(func(n): return (n as Node3D).global_position)): pairs.append([nodes[e[0]], nodes[e[1]]])
 	var xfs: Array = []
 	var placed: Array = []   # v10.10: every ring drawn so far (lanes keep apart)
 	for pr in pairs:
@@ -5666,6 +5730,8 @@ func _build_lanes() -> void:
 		var dir := (b.global_position - a.global_position).normalized()
 		var ra: float = (float(a.get_meta("radius", 80.0)) if a != station else maxf(120.0, _station_reach()) + Data.LANE_STATION_EXTRA) + Data.LANE_STANDOFF   # v11.43 (owner: rings too close to the station): further out; v10.10: clear of the (twice as big) station
 		var rb: float = (float(b.get_meta("radius", 0.0)) if b == planet else 60.0) + Data.LANE_STANDOFF
+		if sys.has("lane_plan"):   # v11.65: either end can be anything (a choke point has no size)
+			rb = (float(b.get_meta("radius", 0.0)) if b != station else maxf(120.0, _station_reach()) + Data.LANE_STATION_EXTRA) + Data.LANE_STANDOFF
 		var p0 := a.global_position + dir * ra
 		var p1 := b.global_position - dir * rb
 		# v10.10 (owner: "the close trade lanes ... pull together at the entrance, not good"): a lane whose mouth would sit
@@ -5680,7 +5746,7 @@ func _build_lanes() -> void:
 		var n := clampi(int(ceil(length / Data.LANE_RING_GAP)) + 1, 2, Data.LANE_MAX_RINGS)
 		var up := Vector3.UP if absf(dir.y) < 0.9 else Vector3.RIGHT
 		up = (up - dir * up.dot(dir)).normalized()
-		var ln := {"a": a.name, "b": b.name, "up": [], "down": [], "dir": dir}
+		var ln := {"a": str(a.get_meta("label", a.name)), "b": str(b.get_meta("label", b.name)), "up": [], "down": [], "dir": dir}
 		var basis := Basis.looking_at(dir, up).scaled(Vector3.ONE * Data.LANE_RING_RADIUS)
 		var mine: Array = []
 		for k in n:

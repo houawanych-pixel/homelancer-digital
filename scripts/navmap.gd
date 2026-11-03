@@ -682,6 +682,8 @@ func _draw_lanes(ci: CanvasItem, sys: Dictionary) -> void:
 		for ln in space.lanes:
 			var rows: Array = ln["up"]
 			if rows.size() >= 2: segs.append([rows[0], rows[-1], rows])
+	elif sys.has("lane_plan"):   # v11.65: the hand-made network
+		for sg in SystemBuilder.layout_segments(sys): segs.append([sg[0], sg[1], []])
 	elif not SystemBuilder.is_enemy_space(sys) and not sys.get("open", false):
 		# v11.48 (owner: "fix trade lanes"): docked, the map drew a star of lanes out of the station; draw the real lane
 		# network (SystemBuilder.lane_tree, as in flight): a lane close to another one chains on from the nearer place
@@ -694,6 +696,11 @@ func _draw_lanes(ci: CanvasItem, sys: Dictionary) -> void:
 		ci.draw_line(a, b, Color(Data.LANE_TINT, 0.25), 7.0)
 		ci.draw_line(a, b, Color(Data.LANE_TINT, 0.85), 2.0)
 		for rp in sg[2]: ci.draw_circle(view.to_screen(rp), 3.0, Color(Data.LANE_TINT.lightened(0.4), 0.9))
+	for jn in sys.get("junctions", {}):   # v11.65: the choke points, where lanes meet and split
+		var jp := view.to_screen(sys["junctions"][jn])
+		ci.draw_circle(jp, 7.0, Color(1.0, 0.7, 0.2, 0.95))
+		ci.draw_arc(jp, 11.0, 0, TAU, 20, Color(1.0, 0.8, 0.4, 0.9), 2.0)
+		_txt(ci, jp + Vector2(12, -8), str(jn).to_upper(), 12, Color(1.0, 0.8, 0.4, 0.95))
 
 func _draw_rest(ci: CanvasItem, sys: Dictionary, local: Rect2) -> void:
 	# the course: under the bodies, over the grid
