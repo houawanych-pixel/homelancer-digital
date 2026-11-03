@@ -245,6 +245,12 @@ static func apply(systems: Dictionary) -> Dictionary:
 		fg["nebula"]["color"] = Data.FOG_COLOR
 		fg["nebula"]["name"] = "The Grey"
 	_apply_roles(systems)
+	for sid in Data.PLANET_BIOMES:   # v11.57: the owner's planet biomes and their map cards
+		if not systems.has(sid): continue
+		var pl: Dictionary = systems[sid]["planet"]
+		pl["palette"] = str(Data.PLANET_BIOMES[sid])
+		pl["biome"] = str(Data.PLANET_BIOMES[sid])
+		if Data.PLANET_CARDS.has(sid): pl["card"] = str(Data.PLANET_CARDS[sid])
 	return systems
 
 ## v11.54 (owner): the system roles (Data.SYSTEM_ROLES): the hub keeps its name, the catalog placeholders go, and the ally

@@ -463,6 +463,8 @@ static func picture(own_path: String, type: String) -> Array:
 
 ## Which world map a planet wears (same rule as the 3D planet in flight), "" when the worlds pack is not in yet.
 static func planet_picture(d: Dictionary) -> String:
+	var card := str(d.get("card", ""))   # v11.57 (owner): the planet's own card art (Orion biomes) wins over the world texture
+	if card != "" and ResourceLoader.exists(card): return card
 	if not Packs.is_ready("worlds"): return ""
 	var v: Array = SpaceSystem.PLANET_MAPS.get(d.get("palette", "terran"), SpaceSystem.PLANET_MAPS["terran"])
 	return "res://assets/worlds/%s.jpg" % v[absi(hash(d["id"])) % v.size()][0]

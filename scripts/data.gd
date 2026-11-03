@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.56"
+const VERSION := "v11.57"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -53,6 +53,20 @@ const SYSTEM_ROLES := {
 			"desc": "A covert contact at Fleet Command who trades word on the hidden Unity post."},
 	},
 }
+## v11.57 (owner's Orion planet biomes, Planet_biome art on Drive; originals in art/reference/planet_cards): each main
+## planet's biome (its palette in flight) and its map card picture. Vortegan is a desert now (v3), not a gas giant.
+const PLANET_BIOMES := {"dreadholm": "lava", "korrath": "dead", "battlespire": "desert", "ironvast": "desert", "omicron_major": "terran", "vortegan": "desert"}
+const PLANET_CARDS := {"dreadholm": "res://assets/planet_cards/dreadholm.jpg", "korrath": "res://assets/planet_cards/korrath.jpg",
+	"battlespire": "res://assets/planet_cards/battlespire.jpg", "ironvast": "res://assets/planet_cards/ironvast.jpg",
+	"omicron_major": "res://assets/planet_cards/omicron_major.jpg", "vortegan": "res://assets/planet_cards/vortegan.jpg"}
+## v11.57 (owner): a planet's own hub: its 10 rooms (assets/rooms/<faction>/planet_<system>_<room>.jpg|ogv, e.g.
+## planet_dreadholm_main_hub) under its own sky; any room missing falls back to the system's main station hub room.
+const PLANET_HUB_ROOMS := {"dreadholm": ["main_hub", "command", "mech_dealer", "medical_bay", "mission_center", "pilots_lounge", "private_quarters", "shipyard", "supplies", "weapons"]}
+const PLANET_HUB_SKY := {"dreadholm": Color(1.0, 0.62, 0.45)}   # lava-sky light on the planet's rooms
+## v11.57 (owner): Dreadholm natives: magma-skinned people (cracked obsidian skin, glowing magma seams), Orion explorers
+## and pioneers, not enemies. NPCs in the Dreadholm hubs (planet and Fleet Command); their pictures come later
+## (assets/crew/orion/<file>_face.png etc., like the other crew). Look prompt for the art in docs/rooms/ANIMATE_PROMPT.md.
+const MAGMA_NATIVES := {"faction": "Orion", "where": ["dreadholm"], "look": "magma-skinned people: cracked obsidian skin with glowing magma seams; Orion explorers and pioneers in white-and-forest-green Exploration Corps gear; Epic Seven anime splash-art style with sci-fi MMO detail"}
 const ALLY_ROOMS := ["main_hub", "supplies", "medical_bay", "mission_center", "weapons"]    # the 5 pages of an ally station (one shared art set)
 const RIVAL_ROOMS := ["main_hub", "supplies", "medical_bay", "mission_center", "weapons"]   # the 5 pages of a rival station
 const HIDDEN_FIND_RANGE := 2500.0   # m: fly this close to a hidden station (or scan it) and it is charted for good

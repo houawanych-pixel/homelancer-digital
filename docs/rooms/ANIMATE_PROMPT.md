@@ -28,3 +28,11 @@ Characters at middle distance or further. No readable text. Same anime style, co
 
 Mistakes that wasted renders: "rushing / constant movement" made everyone run; "calm / relaxed" made only 2-3 people move.
 Fix = MANY people moving at NORMAL speed.
+
+## Dreadholm natives (owner, Nov 2 2026) - art prompt for the NPC cutouts
+
+Magma-skinned people, part of Orion as explorers and pioneers (not enemies): cracked obsidian-black skin with glowing
+orange magma seams running through it, ember eyes; Orion Exploration Corps gear (white coat, dark forest-green panels and
+cloak, brown leather straps, compass-star patches, glowing green star-map tablet). Epic Seven anime splash-art style with
+sci-fi MMO detail. Full body, standing, magenta (#FF00FF) background for the cutout. Use them as NPCs in the Dreadholm
+hubs (the lava planet and Fleet Command): idle, talk, walk-forward and walk-side clips like the other crew.

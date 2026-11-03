@@ -1299,7 +1299,10 @@ func room_file(key: String, sys_id := "") -> String:
 	var f := key.get_slice("_", 0)
 	var rn := key.substr(f.length() + 1)
 	if sys_id == "": sys_id = str(GS.system_id)
-	var set_id := str(Data.STATION_ROOM_SET.get(sys_id, "1"))
+	if kind == "planet" and Data.PLANET_HUB_ROOMS.has(sys_id) and rn in Data.PLANET_HUB_ROOMS[sys_id]:   # v11.57: the planet's own room
+		var pf := "planet_%s_%s" % [sys_id, rn]
+		if ResourceLoader.exists("res://assets/rooms/%s/%s.jpg" % [f, pf]): return pf
+	var set_id := str(Data.STATION_ROOM_SET.get(sys_id, "1"))   # (a planet room not in yet: the system's main station room)
 	var sets: Dictionary = Data.ROOM_SETS.get(f, {})
 	return str((sets.get(set_id, {}) as Dictionary).get(rn, rn))
 
@@ -1357,6 +1360,7 @@ func _show_room(s: String) -> void:
 	elif room_vid_on and not room_vid.is_playing(): room_vid.play()   # (back in the same room)
 	room_view.visible = true
 	room_view.modulate = base.get("tint", Color.WHITE) if base.get("role", "") == "ally" else Color.WHITE   # v11.54: ally stations: one art set, told apart by tint
+	if kind == "planet" and Data.PLANET_HUB_SKY.has(str(GS.system_id)): room_view.modulate = Data.PLANET_HUB_SKY[str(GS.system_id)]   # v11.57: the lava sky's light
 	crew.room_changed(key if not hostile_room else "")
 	_update_room(0.0)
 

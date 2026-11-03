@@ -885,9 +885,109 @@ func _smoke() -> void:
 		plays = hb.room_vid_on and hb.room_vid != null and hb.room_vid.is_playing()
 	_check("Smoke: a moving room clip plays (Orion main hub)", plays)
 	if shots and docked: await _shot("smoke_hub", 1.0)
+
+func _finish_group() -> void:
 	var passed := results.filter(func(r): return r["pass"]).size()
 	print("[route] RESULT %d/%d PASS" % [passed, results.size()])
 	get_tree().quit(0 if passed == results.size() else 1)
+
+## v11.57 (owner's Dreadholm update): tests/systems/dreadholm - stations, hidden rival, planet set + fallback, boarding,
+## Repair Reputation. Run: HL_DREADHOLM=1 (tests/systems/dreadholm/run.sh).
+func _dreadholm() -> void:
+	if main.state == "hub": main.launch()
+	await _until(func(): return main.state == "flight", 10.0)
+	main._load_system("dreadholm", "station")
+	await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.sys_id == "dreadholm", 15.0)
+	await _wait(1.0)
+	var s := _sp()
+	var sy: Dictionary = Data.SYSTEMS["dreadholm"]
+	# 1. three stations: the hub, the ally, the hidden rival
+	var names: Array = [str(sy["station"]["name"])]
+	for b in sy["more_stations"]: names.append("%s (%s, %s)" % [b["name"], b["role"], b["faction"]])
+	var rival: Dictionary = {}
+	var ally: Dictionary = {}
+	for b in sy["more_stations"]:
+		if b["role"] == "rival": rival = b
+		if b["role"] == "ally": ally = b
+	var three: bool = sy["more_stations"].size() == 2 and not ally.is_empty() and not rival.is_empty() and str(ally["faction"]) == "Covenant" and str(rival["faction"]) == "Unity" and bool(rival["hidden"])
+	GS.found_stations.erase(str(rival.get("id", "")))
+	main.navmap.open(s)
+	await _frames(2)
+	var on_map_before := false
+	for k in main.navmap.objs:
+		if str(main.navmap.objs[k]["name"]) == str(rival.get("name", "")): on_map_before = true
+	main.navmap.visible = false
+	main._on_map_closed()
+	var rnode: Node3D = null
+	for n: Node3D in s.hidden_extras: if str((n.get_meta("info", {}) as Dictionary).get("id", "")) == str(rival.get("id", "")): rnode = n
+	var neb: Dictionary = sy.get("nebula", {})
+	var in_veil: bool = rnode != null and not neb.is_empty() and rnode.global_position.distance_to(neb["center"]) < float(neb["radius"]) * Data.NEBULA_SIZE
+	var hidden_ok: bool = rnode != null and not (rnode in s.extras) and not on_map_before and in_veil
+	if rnode != null: _tp(rnode.global_position + Vector3(0, 0, Data.HIDDEN_FIND_RANGE * 0.6), rnode.global_position)
+	await _until(func(): return rnode != null and rnode in s.extras, 3.0)
+	main.navmap.open(s)
+	await _frames(2)
+	var on_map_after := false
+	for k in main.navmap.objs:
+		if str(main.navmap.objs[k]["name"]) == str(rival.get("name", "")): on_map_after = true
+	main.navmap.visible = false
+	main._on_map_closed()
+	var found_ok: bool = rnode != null and rnode in s.extras and rnode in s.docks3d and on_map_after and str(rival["id"]) in GS.found_stations
+	_check("Dreadholm: 3 stations (Fleet Command hub, Covenant ally, Unity rival); the rival is hidden in the Veil, off the map until found, then charted and dockable",
+		three and hidden_ok and found_ok, "%s · three %s hidden %s in veil %s found %s" % [", ".join(names), three, hidden_ok, in_veil, found_ok])
+	# 2. the planet's own set loads, with fallback to the Fleet Command hub; the lava card on the map
+	main.dock(s.planet)
+	var on_planet := await _until(func(): return main.state == "hub", 10.0)
+	var hb = main.hub
+	var pf: String = hb.room_file("orion_main_hub") if on_planet else ""
+	var want_own := ResourceLoader.exists("res://assets/rooms/orion/planet_dreadholm_main_hub.jpg")
+	var fallback_ok: bool = on_planet and hb.kind == "planet" and (pf == "planet_dreadholm_main_hub" if want_own else pf == "main_hub")
+	var card_ok: bool = NavGrid.planet_picture(sy["planet"]) == "res://assets/planet_cards/dreadholm.jpg" and str(sy["planet"]["palette"]) == "lava" and str(Data.SYSTEMS["vortegan"]["planet"]["palette"]) == "desert"
+	_check("Dreadholm planet: its own 10-room set loads (or falls back to the Fleet Command hub room when a picture is missing); the map card is the lava art; Orion biomes set",
+		fallback_ok and card_ok, "on planet %s room %s (own art %s) card %s" % [on_planet, pf, want_own, card_ok])
+	# 3. Repair Reputation at the ally station: charges credits, raises standing (never past green)
+	if main.state == "hub": main.launch()
+	await _until(func(): return main.state == "flight", 10.0)
+	s = _sp()
+	var an: Node3D = null
+	for n: Node3D in s.extras: if str((n.get_meta("info", {}) as Dictionary).get("role", "")) == "ally": an = n
+	var rep_ok := false
+	var rep_txt := "no ally node"
+	if an != null:
+		main.dock(an)
+		await _until(func(): return main.state == "hub", 10.0)
+		hb = main.hub
+		Factions.adjust("Covenant", -40.0 - Factions.standing("Covenant"))
+		GS.credits = 50000
+		var c0 := GS.credits
+		var st0 := Factions.standing("Covenant")
+		var listed: bool = "Covenant" in hb.rep_repair_factions()
+		var cost: int = hb.rep_repair_cost("Covenant")
+		hb.repair_rep("Covenant")
+		var paid: bool = GS.credits == c0 - cost and cost > int(Data.REP_REPAIR_BASE)
+		var rose: bool = Factions.standing("Covenant") > st0
+		for i in 12: hb.repair_rep("Covenant")
+		var capped: bool = Factions.standing("Covenant") <= Data.REP_REPAIR_UNTIL + 0.01
+		rep_ok = hb.base.get("role", "") == "ally" and listed and paid and rose and capped
+		rep_txt = "ally %s listed %s cost %d paid %s rose %.0f -> %.0f capped %s" % [hb.base.get("role", ""), listed, cost, paid, st0, Factions.standing("Covenant"), capped]
+		main.launch()
+		await _until(func(): return main.state == "flight", 10.0)
+	_check("Dreadholm ally station: REPAIR REPUTATION charges credits (dearer the lower you are) and raises your standing, up to green", rep_ok, rep_txt)
+	# 4. battleships: shield-gated access, no dock option, infiltration in mech mode, 3 rooms, generator, hangar escape
+	var no_dock := true
+	for e in _sp().fleet_patrols:
+		if (e["node"] as Node3D).get_meta("dock", false) or (e["node"] in _sp().docks3d): no_dock = false
+	_check("Battleships (allied ones too) have no dock option", no_dock)
+	await _job_v1145()
+
+func _smoke_core() -> void:
+	_check("Core: the game boots to its title / main menu", main.state == "title", main.state)
+	main.start_game()
+	var flying := await _until(func(): return main.state == "flight", 20.0)
+	_check("Core: a new game starts in flight", flying, main.state)
+	var fsb: Control = Fs.btn
+	var S2: Vector2 = get_viewport().get_visible_rect().size
+	_check("Core: the FULL SCREEN button sits bottom middle", absf(fsb.get_global_rect().get_center().x - S2.x * 0.5) < 4.0 and fsb.get_global_rect().end.y > S2.y * 0.85, str(fsb.get_global_rect()))
 
 func _launch() -> bool:
 	main.launch()
@@ -938,6 +1038,12 @@ func _run() -> void:
 	main.hud.weapons_pinned = true   # (v7.0: every button up for the checks; the pop-up has its own check)
 	if OS.get_environment("HL_SMOKE") != "":   # Nov 2 (owner): the fast pre-deploy check (< 2 min)
 		await _smoke()
+		_finish_group()
+		return
+	if OS.get_environment("HL_DREADHOLM") != "":   # v11.57: tests/systems/dreadholm (+ the core smoke group)
+		await _smoke_core()
+		await _dreadholm()
+		_finish_group()
 		return
 	if OS.get_environment("HL_SOAK") != "":
 		await _soak(int(OS.get_environment("HL_SOAK")))
@@ -10254,7 +10360,8 @@ func _job_v19k() -> void:
 			firsts[tk[0]] = true
 	var none_held := true
 	for f in Music.FACTION_POOL:
-		for t in Music.FACTION_POOL[f]: if t in Music.HELD: none_held = false
+		for t in Music.FACTION_POOL[f]:
+			if t in Music.HELD: none_held = false
 	var tiers_ok: bool = Music.battle_mood(2) == "epic" and Music.battle_mood(1) == "battle" and s.engaged_tier() == 0
 	var grp: Array = s._spawn_group(s.player.global_position + Vector3(0, 0, -400), 1)
 	for e in grp: e["aggro"] = true
@@ -11966,7 +12073,8 @@ func _job_v19x() -> void:
 	bart = hb.find_child("BayArt", true, false)
 	await _shot("v24_mech_bay", 0.3)
 	var top_ok := true   # v3.3: the whole mech is inside the bay (its head was cut off on a phone)
-	for pt in (mmap.get_meta("pts", {}) as Dictionary).values(): if (pt as Vector2).y < 0.0: top_ok = false
+	for pt in (mmap.get_meta("pts", {}) as Dictionary).values():
+		if (pt as Vector2).y < 0.0: top_ok = false
 	_check("v3.3 (owner's screenshot): the mech fits in the bay, head and all", top_ok)
 	# v2.6 (owner): it stands on the faction bay's round pad and turns on it (drag turns it too)
 	var y0: float = hb.bay_yaw
