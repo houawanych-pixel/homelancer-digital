@@ -187,6 +187,8 @@ func _setup(id: String, arrival: String, staged: bool) -> void:
 	_prof("start")
 	Packs.request("kaijurai_fleet")   # v6.2: the enemy-space ships, fetched in the background
 	Packs.request("faction_fleet")   # v11.32: the factions' battleships and starfighters
+	Packs.request("faction_fighters")   # v11.68: their Level 2 and Level 3 fighters
+	Packs.request("cargo_ships")   # v11.68: the lane freighters
 	_build_environment()
 	_prof("environment (sky, sun, camera)")
 	_build_station(sys["station"])
@@ -1395,7 +1397,7 @@ func _fleet_guard() -> void:
 	if surface_mode or str(sys.get("role", "")) != "capital": return
 	var fl: Dictionary = Data.FACTION_FLEET.get(str(sys.get("faction", "")), {})
 	if fl.is_empty(): return
-	var ships: Array = [["battleship", fl["battleship"]], ["cruiser", fl["cruiser"]], ["frigate", fl["frigate"]], ["starfighter", fl["starfighter"]], ["starfighter", fl["starfighter"]]]
+	var ships: Array = [["battleship", fl["battleship"]], ["cruiser", fl["cruiser"]], ["frigate", fl["frigate"]], ["starfighter", fl.get("fighter_l2", fl["starfighter"])], ["starfighter", fl.get("fighter_l3", fl["starfighter"])]]   # (v11.68: its Level 2 and Level 3 fighters)
 	var a0 := float(absi(hash(sys_id)) % 628) / 100.0
 	for i in ships.size():
 		var key: String = ships[i][1]
@@ -3366,7 +3368,22 @@ func _make_carrier(e: Dictionary) -> void:
 	var fl: Dictionary = Data.FACTION_FLEET.get(str(e["def"].get("faction", "")), {})
 	var fk := str(fl.get("starfighter", ""))
 	if fk == "": return
-	carriers.append({"ent": e, "left": int(cfg[0]), "out": int(cfg[1]), "kids": [], "cd": 1.0, "woke": false, "fighter": fk})
+	carriers.append({"ent": e, "left": int(cfg[0]), "out": int(cfg[1]), "kids": [], "cd": 1.0, "woke": false, "fighter": fk,
+		"lineup": [fk, str(fl.get("fighter_l2", fk)), str(fl.get("fighter_l3", fk))], "mix": Data.FLEET_LAUNCH_MIX.get(role, [1.0, 0.0, 0.0])})   # v11.68: Level 2 and 3 come out too
+
+## v11.68: which fighter a carrier sends out next: its faction's starfighter, Level 2 or Level 3 by the carrier's mix
+## (a Level 2 / 3 only once its model pack is in).
+func launch_pick(c: Dictionary) -> String:
+	var line: Array = c.get("lineup", [c["fighter"]])
+	var mix: Array = c.get("mix", [1.0])
+	var r := _rng.randf()
+	var acc := 0.0
+	for i in mini(line.size(), mix.size()):
+		acc += float(mix[i])
+		if r <= acc:
+			var k := str(line[i])
+			return k if i == 0 or ShipFactory.has_real_model(k) else str(line[0])
+	return str(line[0])
 
 ## How many fighters a carrier still has in its hangar (-1 = not a carrier).
 func hangar_left(e: Dictionary) -> int:
@@ -3402,7 +3419,7 @@ func _update_carriers(dt: float) -> void:
 		if war_on: out_dir = ((c["ent"]["war_foe"]["node"] as Node3D).global_position - cn.global_position).normalized()
 		var r: float = float(c["ent"]["def"].get("hit_r", 30.0))
 		var at: Vector3 = cn.global_position + out_dir * (r + 40.0) + Vector3(_rng.randfn(0, 1), _rng.randfn(0, 0.3), _rng.randfn(0, 1)) * 30.0
-		var kid := spawn_unit(str(c["fighter"]), at, cn.global_position)
+		var kid := spawn_unit(launch_pick(c), at, cn.global_position)
 		kid["aggro"] = true
 		kid["provoked"] = not war_on or not fleet_peaceful(c["ent"])   # (v11.41: launched for a fleet battle, it leaves you alone if its ship does)
 		kid["war"] = war_on
@@ -4239,7 +4256,15 @@ func _build_freighters() -> void:
 	freighters.clear()
 	_freighter_wait = 0.0
 	if lanes.is_empty(): return
+	if not Packs.is_ready("cargo_ships"):   # (v11.68: their pack is still coming: they start once it is in)
+		if not Packs.pack_ready.is_connected(_on_cargo_pack): Packs.pack_ready.connect(_on_cargo_pack)
+		return
 	for k in Data.FREIGHTERS_PER_SYSTEM: spawn_freighter(cargo_faction(sys), 1 + k % 2, k)
+
+func _on_cargo_pack(pk: String) -> void:
+	if pk != "cargo_ships" or not is_inside_tree() or surface_mode: return
+	if Packs.pack_ready.is_connected(_on_cargo_pack): Packs.pack_ready.disconnect(_on_cargo_pack)
+	if freighters.is_empty(): _build_freighters()
 
 ## One freighter of `typ` (1 or 2) on lane k % lanes, running up or down it.
 func spawn_freighter(fac: String, typ: int, k: int) -> Dictionary:

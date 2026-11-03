@@ -1394,6 +1394,40 @@ func _board_fx() -> void:
 	_check("Nuke: a spiked ball (%d spikes), grows to the first blast, holds, grows again to the second, and turns slowly" % Data.NUKE_SPIKES,
 		fx != null and spikes == Data.NUKE_SPIKES and twice and turned > 0.3, "spikes %d, size %.0f then %.0f (blasts %.0f / %.0f m), turned %.2f rad" % [spikes, s1, s2, float(lg[1]), float(lg[2]), turned])
 
+## v11.68 (owner's fighter sheet): every faction has a Level 2 and a Level 3 fighter (16 models, own pack), Level 3
+## bigger than Level 2; they fly for their faction (carriers launch them, patrols bring them) and the dealer sells them.
+func _fighters_l2l3() -> void:
+	var s := _sp()
+	var models := true
+	var bigger := true
+	var lens := []
+	for f in Data.FACTION_FLEET:
+		var fl: Dictionary = Data.FACTION_FLEET[f]
+		for k in ["fighter_l2", "fighter_l3"]:
+			var key := str(fl.get(k, ""))
+			if key == "" or not ShipFactory.has_real_model(key) or not Data.ENEMIES.has(key) or not Data.SHIPS.has(key) or not (key in Data.SHIP_ORDER): models = false
+		var a: Array = []
+		for k in ["fighter_l2", "fighter_l3"]:
+			var m := ShipFactory.build(str(fl.get(k, "")))
+			add_child(m)
+			var bb: AABB = ShipFactory._aabb(m, Transform3D.IDENTITY)
+			a.append(bb.size.z)
+			m.queue_free()
+		if a[1] <= a[0]: bigger = false
+		lens.append("%s %.0f/%.0f" % [f, a[0], a[1]])
+	var pack_ok: bool = ShipFactory.pack_of("orion_fighter_l2") == "faction_fighters" and ShipFactory.pack_of("cargo_orion_t1") == "cargo_ships"
+	_check("Fighters: all 8 factions have a Level 2 and Level 3 fighter (enemy, for sale, in their own pack); Level 3 is bigger", models and bigger and pack_ok, "models %s bigger %s packs %s | %s" % [models, bigger, pack_ok, ", ".join(lens)])
+	var c := {"fighter": "orion_starfighter", "lineup": ["orion_starfighter", "orion_fighter_l2", "orion_fighter_l3"], "mix": Data.FLEET_LAUNCH_MIX["battleship"]}
+	var seen := {}
+	for i in 200: seen[s.launch_pick(c)] = true
+	var e: Dictionary = s.spawn_unit("orion_fighter_l3", s.player.global_position - s.player.global_basis.z * 400.0, s.player.global_position)
+	await _frames(2)
+	var spawned: bool = e.has("node") and is_instance_valid(e["node"]) and not bool(e["model"].get_meta("placeholder", true)) if e.has("model") else false
+	if e in s.enemies:
+		s.enemies.erase(e)
+		(e["node"] as Node3D).free()
+	_check("Fighters: a battleship launches its starfighters, Level 2s and Level 3s; a Level 3 flies with its real model", seen.size() == 3 and spawned, "launched %s, L3 real model %s" % [seen.keys(), spawned])
+
 func _smoke_core() -> void:
 	_check("Core: the game boots to its title / main menu", main.state == "title", main.state)
 	main.start_game()
@@ -1500,6 +1534,28 @@ func _run() -> void:
 		await _warp_kill()
 		_finish_group()
 		return
+	if OS.get_environment("HL_FIGHTERSHOT") != "":   # v11.68: a picture of Level 2 / Level 3 fighters flying past
+		await _smoke_core()
+		var s := _sp()
+		var p: Node3D = s.player
+		s.controls = false
+		s.vel = Vector3.ZERO
+		var i := 0
+		for f in ["orion", "imperium", "covenant"]:
+			for lv in ["l2", "l3"]:
+				var at: Vector3 = p.global_position - p.global_basis.z * 90.0 + p.global_basis.x * (-45.0 + i * 18.0) + Vector3(0, 6.0 + (i % 2) * 4.0, 0)
+				var e: Dictionary = s.spawn_unit("%s_fighter_%s" % [f, lv], at, at + p.global_basis.x * 50.0)
+				e["aggro"] = false
+				e["speed_k"] = 0.0
+				i += 1
+		await _wait(0.4)
+		for e in s.enemies:
+			e["vel"] = Vector3.ZERO
+			SpaceSystem.face(e["node"], p.global_basis.x + p.global_basis.z * 0.6)
+		await _wait(0.05)
+		await _capture("fighters_l2l3")
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_FXSHOT") != "":   # v11.66: pictures of a ship blast and the nuke (HL_SHOT_DIR)
 		await _smoke_core()
 		var s := _sp()
@@ -1536,6 +1592,11 @@ func _run() -> void:
 	if OS.get_environment("HL_BOARD") != "":   # v11.66: boarding mission battleships, explosions, the nuke (+ the core smoke group)
 		await _smoke_core()
 		await _board_fx()
+		_finish_group()
+		return
+	if OS.get_environment("HL_FIGHTERS") != "":   # v11.68: the Level 2 / Level 3 faction fighters (+ the core smoke group)
+		await _smoke_core()
+		await _fighters_l2l3()
 		_finish_group()
 		return
 	if OS.get_environment("HL_CARGO") != "":   # v11.63: the lane freighters (+ the core smoke group)
@@ -2607,7 +2668,7 @@ func _run() -> void:
 	var sb: Button = main.hub.find_child("Ship_lancer", true, false)
 	if sb and not sb.disabled: sb.pressed.emit()
 	await _wait(0.4)
-	_check("Ship purchase (Lancer, 4 cannons); the dealer sells five real ships (v11.8 owner: the two freighters are gone) and the 8 faction starfighters (v11.32)", GS.ship_id == "lancer" and int(GS.ship()["guns"]) == 4 and Data.SHIP_ORDER == ["cadet", "ranger", "hauler", "elyza", "lancer"] + Data.FLEET_FIGHTERS_FOR_SALE and not Data.SHIPS.has("bulk") and not Data.SHIPS.has("bulk_empty") and ShipFactory.has_real_model("ranger") and ShipFactory.has_real_model("hauler"), "ship=%s hull=%d" % [GS.ship_id, int(GS.max_hull())])
+	_check("Ship purchase (Lancer, 4 cannons); the dealer sells five real ships (v11.8 owner: the two freighters are gone) and the 8 faction starfighters (v11.32)", GS.ship_id == "lancer" and int(GS.ship()["guns"]) == 4 and Data.SHIP_ORDER == ["cadet", "ranger", "hauler", "elyza", "lancer"] + Data.FLEET_FIGHTERS_FOR_SALE + Data.FLEET_FIGHTERS_L2L3 and not Data.SHIPS.has("bulk") and not Data.SHIPS.has("bulk_empty") and ShipFactory.has_real_model("ranger") and ShipFactory.has_real_model("hauler"), "ship=%s hull=%d" % [GS.ship_id, int(GS.max_hull())])
 	main.hub.open_inspector("lancer")
 	await _wait(0.4)
 	var cam0: Vector3 = main.hub.insp_cam.position

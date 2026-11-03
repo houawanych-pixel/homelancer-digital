@@ -98,6 +98,23 @@ const GLB := {
 	"fleet": ["res://assets/ships/civilian/cargo_ship.glb", 16.0, 0.0],
 	"escort_freighter": ["res://assets/ships/civilian/cargo_ship.glb", Data.ESCORT_FREIGHTER_LEN, 0.0],   # v11.16 (owner: "the freight cargo ship is missing"): the escort job's freighter, big enough to see
 	"fleet2": ["res://assets/ships/civilian/freighter.glb", 20.0, 0.0],
+	# v11.68 (owner's fighter sheet): each faction's Level 2 and Level 3 fighters (nose -Z; the length is the model's widest side)
+	"elyza_fighter_l2": ["res://assets/ships/fighters/HL_Elyza_Fighter_L2.glb", 13.0, 0.0],
+	"elyza_fighter_l3": ["res://assets/ships/fighters/HL_Elyza_Fighter_L3.glb", 21.8, 0.0],
+	"unity_fighter_l2": ["res://assets/ships/fighters/HL_Unity_Fighter_L2.glb", 12.99, 0.0],
+	"unity_fighter_l3": ["res://assets/ships/fighters/HL_Unity_Fighter_L3.glb", 18.51, 0.0],
+	"solarion_fighter_l2": ["res://assets/ships/fighters/HL_Solarion_Fighter_L2.glb", 13.0, 0.0],
+	"solarion_fighter_l3": ["res://assets/ships/fighters/HL_Solarion_Fighter_L3.glb", 22.39, 0.0],
+	"imperium_fighter_l2": ["res://assets/ships/fighters/HL_Imperium_Fighter_L2.glb", 13.01, 0.0],
+	"imperium_fighter_l3": ["res://assets/ships/fighters/HL_Imperium_Fighter_L3.glb", 20.65, 0.0],
+	"covenant_fighter_l2": ["res://assets/ships/fighters/HL_Covenant_Fighter_L2.glb", 14.13, 0.0],
+	"covenant_fighter_l3": ["res://assets/ships/fighters/HL_Covenant_Fighter_L3.glb", 24.27, 0.0],
+	"orion_fighter_l2": ["res://assets/ships/fighters/HL_Orion_Fighter_L2.glb", 13.22, 0.0],
+	"orion_fighter_l3": ["res://assets/ships/fighters/HL_Orion_Fighter_L3.glb", 21.78, 0.0],
+	"savagers_fighter_l2": ["res://assets/ships/fighters/HL_Savagers_Fighter_L2.glb", 13.62, 0.0],
+	"savagers_fighter_l3": ["res://assets/ships/fighters/HL_Savagers_Fighter_L3.glb", 22.52, 0.0],
+	"liberator_fighter_l2": ["res://assets/ships/fighters/HL_Liberator_Fighter_L2.glb", 14.57, 0.0],
+	"liberator_fighter_l3": ["res://assets/ships/fighters/HL_Liberator_Fighter_L3.glb", 22.15, 0.0],
 	# v11.63: the lane freighters (nose -Z, built at their real length)
 	"cargo_elyza_t1": ["res://assets/ships/cargo/HL_Cargo_Elyza_T1_v1.glb", Data.FREIGHTER_LEN[0], 0.0],
 	"cargo_elyza_t2": ["res://assets/ships/cargo/HL_Cargo_Elyza_T2_v1.glb", Data.FREIGHTER_LEN[1], 0.0],
@@ -267,6 +284,8 @@ static func pack_of(key: String) -> String:
 	if key.begins_with("mech_"): return "mechs"
 	if key in ["ranger", "lancer", "hauler"]: return key   # v10.2: the player ships that come in their own pack
 	if GLB.has(key) and str(GLB[key][0]).begins_with("res://assets/ships/fleet/"): return "faction_fleet"   # v11.32
+	if GLB.has(key) and str(GLB[key][0]).begins_with("res://assets/ships/fighters/"): return "faction_fighters"   # v11.68
+	if GLB.has(key) and str(GLB[key][0]).begins_with("res://assets/ships/cargo/"): return "cargo_ships"   # v11.68 (the v11.63 freighters, in their own pack)
 	return ""
 
 ## v1.9i: a mech built from three frames' parts: the core's body and skeleton, the arms' and legs' meshes on it.
