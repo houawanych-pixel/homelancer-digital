@@ -425,8 +425,8 @@ func _ready() -> void:
 	status.anchor_bottom = 1.0
 	status.anchor_right = 1.0
 	status.offset_left = 230
-	status.offset_top = -60
-	status.offset_bottom = -10
+	status.offset_top = -106   # v11.53: up, clear of the FULL SCREEN button now bottom middle
+	status.offset_bottom = -56
 	status.offset_right = -24
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(status)

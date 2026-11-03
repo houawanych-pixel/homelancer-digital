@@ -705,7 +705,7 @@ func _draw_rest(ci: CanvasItem, sys: Dictionary, local: Rect2) -> void:
 		var a3 := view.to_screen(space.player.global_position)
 		var b3 := view.to_screen(dest_n.global_position)
 		var dist: float = space.distance_to(dest_n)
-		route = {"from": a3 + map_rect.position, "to": b3 + map_rect.position, "dist": dist, "eta": space.nav_eta() if dest_n == space.nav_dest else dist / maxf(space.eff_speed(), 1.0), "name": str(dest_n.name)}
+		route = {"from": a3 + map_rect.position, "to": b3 + map_rect.position, "dist": dist, "eta": space.nav_eta() if dest_n == space.nav_dest else space.trip_time(dist), "name": str(dest_n.name)}
 		var plan: Dictionary = space.nav_plan() if dest_n == space.nav_dest else {}
 		if plan.get("via", "") == "lane" and not plan.get("riding", false):   # v1.5m: fastest by trade lane: fly to its mouth, ride it, fly on
 			var e3 := view.to_screen(plan["entry"])
@@ -735,6 +735,7 @@ func _draw_rest(ci: CanvasItem, sys: Dictionary, local: Rect2) -> void:
 	# bodies, far ones first so near ones overlap them in the angled view
 	var order: Array = objs.keys()
 	order.sort_custom(func(a4, b4): return (hits[a4] as Vector2).y < (hits[b4] as Vector2).y)
+	var placed: Array = []   # v11.53 (owner: labels overlap round F4-F6): label boxes drawn so far; a new one steps clear
 	for key in order:
 		var o2: Dictionary = objs[key]
 		if not o2.get("seen", true): continue   # v8.9: still in the fog
@@ -754,7 +755,22 @@ func _draw_rest(ci: CanvasItem, sys: Dictionary, local: Rect2) -> void:
 			var main_obj: bool = o2.get("main", false) or o2["type"] == "gate"
 			var label: String = o2["name"]
 			if o2["type"] == "gate": label = "%s > %s" % [o2["name"], Data.SYSTEMS[o2["data"]["to"]]["name"]]
-			_txt(ci, c + Vector2(r + 8, 6), label, 16 if main_obj else 13, o2["col"] if main_obj else Color(o2["col"], 0.85))
+			var fs: int = 16 if main_obj else 13
+			var lw: float = ThemeDB.fallback_font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+			var at := c + Vector2(r + 8, 6)
+			var box := Rect2(at + Vector2(0, -fs), Vector2(lw, fs + 4.0))
+			for tries in 8:   # right, then below / above, then the left side
+				var hit := false
+				for q: Rect2 in placed:
+					if q.intersects(box): hit = true; break
+				if not hit: break
+				var step: Array = [Vector2(0, fs + 4.0), Vector2(0, -(fs + 4.0)), Vector2(0, 2.0 * (fs + 4.0)), Vector2(0, -2.0 * (fs + 4.0))]
+				var dx := 0.0 if tries < 4 else -(lw + 2.0 * r + 16.0)
+				at = c + Vector2(r + 8 + dx, 6) + (step[tries % 4] as Vector2)
+				box = Rect2(at + Vector2(0, -fs), Vector2(lw, fs + 4.0))
+			placed.append(box)
+			if (at - (c + Vector2(r + 8, 6))).length() > fs: ci.draw_line(c + Vector2(r * 0.7, 0), at + Vector2(-2, -fs * 0.35), Color(o2["col"], 0.45), 1.0)   # (a leader line back to its icon)
+			_txt(ci, at, label, fs, o2["col"] if main_obj else Color(o2["col"], 0.85))
 	if selected == "point" and way_pos != Vector3.INF:
 		var wp := view.to_screen(way_pos)
 		NavGrid.fill(ci, PackedVector2Array([wp + Vector2(0, -12), wp + Vector2(12, 0), wp + Vector2(0, 12), wp + Vector2(-12, 0)]), GOLD)
@@ -856,12 +872,11 @@ func _dest_panel(ci: CanvasItem, rc: Rect2) -> void:
 	var stops: Array = space.nav_route
 	if not stops.is_empty():
 		var lens: Array = space.route_lengths()
-		var spd: float = maxf(space.eff_speed(), 1.0)
 		var d0: Node3D = stops[0]
 		var dr := Rect2(rc.position.x + 8, y - 18, rc.size.x - 16, 52)
 		ci.draw_rect(dr, Color(col, 0.22))
 		_txt(ci, dr.position + Vector2(8, 20), "GOING TO: %s" % d0.name, 14, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, dr.size.x - 160)
-		_txt(ci, dr.position + Vector2(8, 42), "%s  ·  ETA %s%s" % [_dist(lens[1]), _eta(lens[1] / spd), ("  ·  %d stops" % stops.size()) if stops.size() > 1 else ""], 12, col, HORIZONTAL_ALIGNMENT_LEFT, dr.size.x - 160)
+		_txt(ci, dr.position + Vector2(8, 42), "%s  ·  ETA %s%s" % [_dist(lens[1]), _eta(space.trip_time(lens[1])), ("  ·  %d stops" % stops.size()) if stops.size() > 1 else ""], 12, col, HORIZONTAL_ALIGNMENT_LEFT, dr.size.x - 160)
 		var gb := Rect2(dr.end.x - 148, dr.position.y + 8, 70, 36)   # fly it on autopilot
 		ci.draw_rect(gb, Color(0.15, 0.6, 0.3, 0.85) if not space.nav_go else Color(0.15, 0.6, 0.3, 0.4))
 		_txt(ci, gb.position + Vector2(0, 24), "GO", 16, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, gb.size.x)

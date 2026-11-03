@@ -608,7 +608,7 @@ func _layout() -> void:
 		if dock_r and not dock_down and slots["r"].is_empty() and not console_open and not planet_map:   # v11.2 (owner: "move DOCK up a little, it's blocking words"): over the SHIP window, not on it
 			db.position.y = dg["blk_r"].position.y - 8.0 - (26.0 + FL_TAB_H) - 60.0
 		if dock_down:   # v11.2 (owner): everything pushed down: DOCK / LEAVE LANE sit bottom centre, over the tabs
-			db = Rect2(S.x * 0.5 - 70.0, S.y - TAB_B_H - 2.0 - 64.0, 140.0, 54.0)
+			db = Rect2(S.x * 0.5 - 70.0, S.y - TAB_B_H - 2.0 - 64.0 - FS_LIFT, 140.0, 54.0)   # (v11.53: over the FULL SCREEN button)
 		var pr: String = space.prompt()   # v1.4u: one prompt, the nearest thing wins
 		# v11.13 (owner): GO TO is as big as DOCK, on the other side of the radar: the most important button (the
 		# next objective, autopilot and warp all the way). Pushed down: it sits in the middle, sharing with DOCK.
@@ -616,7 +616,7 @@ func _layout() -> void:
 		if dock_l and not dock_down and slots["l"].is_empty() and not console_open and not planet_map:
 			gb.position.y = minf(gb.position.y, fl_rect("l").position.y - 60.0) if fl_rect("l").intersects(gb) else gb.position.y
 		if dock_down:
-			gb = Rect2(S.x * 0.5 - 70.0, S.y - TAB_B_H - 2.0 - 64.0, 140.0, 54.0)
+			gb = Rect2(S.x * 0.5 - 70.0, S.y - TAB_B_H - 2.0 - 64.0 - FS_LIFT, 140.0, 54.0)
 			if pr != "":   # (shares the middle with DOCK / LANE / JUMP)
 				gb.position.x = S.x * 0.5 - 146.0
 				db.position.x = S.x * 0.5 + 6.0
@@ -738,6 +738,12 @@ func _dock_filter(dg: Dictionary) -> void:
 		var sp: Rect2 = dg["speed"]   # v11.29 (owner): just above the SPEED box
 		tabs["start"] = Rect2(sp.get_center().x - 92.0, sp.position.y - 40.0, 86.0, 32.0)
 		tabs["select"] = Rect2(sp.get_center().x + 6.0, sp.position.y - 40.0, 86.0, 32.0)
+	# v11.53 (owner): the universal FULL SCREEN button (Fs) sits bottom middle, just above the bottom row; pushed down it
+	# is right over the collapsed row, otherwise beside the HIDE tab under the radar
+	if dock_down: fs_slot = Rect2(S.x * 0.5 - 75.0, S.y - TAB_B_H - 2.0 - 4.0 - FS_H, 150.0, FS_H)
+	else:   # (the console fills the bottom: it stands centred over START / SELECT, above the radar)
+		var st: Rect2 = tabs["start"]
+		fs_slot = Rect2(st.end.x + 3.0 - 75.0, st.position.y - 4.0 - FS_H, 150.0, FS_H)
 	tabs.merge(buttons)   # the tabs win a tap over anything they touch
 	buttons = tabs
 	if pause_menu: _pause_buttons()
@@ -1891,6 +1897,9 @@ func _brackets(p: Vector2, s: float, col: Color) -> void:
 ## its ring (tap = map) with SPEED under it. Right: SHIELDS, HULL (LEFT WING / CORE / RIGHT WING) and ENERGY, each with
 ## its percentage. Sized to the gap between the two sticks.
 const TAB_W := 40.0     # v11.1 (owner: "the fold tabs are so small"): the side tabs' width
+const FS_H := 32.0       # v11.53: the FULL SCREEN button's height in flight
+const FS_LIFT := 38.0    # v11.53: GO TO / DOCK sit this much higher when pushed down (the button is under them)
+var fs_slot := Rect2()   # v11.53: where the universal FULL SCREEN button goes in flight (fs_button.gd reads it)
 const TAB_B_H := 34.0   # and the HIDE tab under the radar
 func dash_geo() -> Dictionary:
 	# v7.7 (owner's ring mockup): the radar in the middle of two rings. Inner ring: the hull (BODY on top, L WING and

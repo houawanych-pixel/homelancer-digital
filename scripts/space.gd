@@ -7790,7 +7790,13 @@ func nav_eta() -> float:
 	if nav_dest == null or not is_instance_valid(nav_dest): return -1.0
 	var pl := nav_plan()
 	if pl.get("via", "") == "lane": return float(pl["t"])
-	return distance_to(nav_dest) / maxf(eff_speed(), 1.0)
+	return trip_time(distance_to(nav_dest))
+
+## v11.53 (owner: "ETA 189:59 for 288 km at 9 m/s"): how long a trip of d metres really takes: at warp or in a lane at
+## that speed, otherwise the way GO TO flies it (full forward speed, or warp for a long way) - never crawling cruise.
+func trip_time(d: float) -> float:
+	if not lane.is_empty() or warp_state == "on": return d / maxf(eff_speed(), 1.0)
+	return minf(_leg_time(d), d / maxf(speed_now, 1.0))
 
 ## v1.5m FASTEST ROUTE to the GPS destination: straight there, or by a trade lane (fly to its mouth, ride it, fly
 ## on). {via: "direct" | "lane", t, entry, exit, lane_name} with times in seconds; a lane is chosen when it beats

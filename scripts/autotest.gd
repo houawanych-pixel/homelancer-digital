@@ -861,11 +861,20 @@ func _smoke() -> void:
 	var flying := await _until(func(): return main.state == "flight", 20.0)
 	_check("Smoke: a new game starts in flight", flying, main.state)
 	var s := _sp()
+	var shots := OS.get_environment("HL_SHOT_DIR") != ""
+	if shots and flying:   # (review pictures only when asked: HL_SHOT_DIR)
+		await _shot("smoke_flight", 1.0)
+		main.hud.dock_down = true
+		await _shot("smoke_flight_pushed_down", 0.5)
+		main.hud.dock_down = false
 	var docked := false
 	if flying and s != null and is_instance_valid(s.station):
 		main.dock(s.station)
 		docked = await _until(func(): return main.state == "hub", 15.0)
 	_check("Smoke: docking at a station opens its hub", docked, main.state)
+	var fsb: Control = Fs.btn
+	var S2: Vector2 = get_viewport().get_visible_rect().size
+	_check("Smoke: the FULL SCREEN button sits bottom middle", absf(fsb.get_global_rect().get_center().x - S2.x * 0.5) < 4.0 and fsb.get_global_rect().end.y > S2.y * 0.85, str(fsb.get_global_rect()))
 	var plays := false
 	if docked:
 		var hb = main.hub
@@ -875,6 +884,7 @@ func _smoke() -> void:
 		await _until(func(): return hb.room_vid_on and hb.room_vid.is_playing(), 15.0)
 		plays = hb.room_vid_on and hb.room_vid != null and hb.room_vid.is_playing()
 	_check("Smoke: a moving room clip plays (Orion main hub)", plays)
+	if shots and docked: await _shot("smoke_hub", 1.0)
 	var passed := results.filter(func(r): return r["pass"]).size()
 	print("[route] RESULT %d/%d PASS" % [passed, results.size()])
 	get_tree().quit(0 if passed == results.size() else 1)
