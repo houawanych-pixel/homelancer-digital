@@ -1,0 +1,51 @@
+{
+ "strip": [
+  3204,
+  470
+ ],
+ "cuts": [
+  37,
+  1314,
+  2290
+ ],
+ "overlap": 40,
+ "frame": [
+  1920,
+  1080
+ ],
+ "parts": [
+  {
+   "file": "v2_orion_planet_dreadholm_shipyard_part1.png",
+   "strip_x0": 3201,
+   "strip_w": 1357,
+   "frame_rect": [
+    0,
+    207,
+    1920,
+    665
+   ]
+  },
+  {
+   "file": "v2_orion_planet_dreadholm_shipyard_part2.png",
+   "strip_x0": 1274,
+   "strip_w": 1056,
+   "frame_rect": [
+    0,
+    112,
+    1920,
+    855
+   ]
+  },
+  {
+   "file": "v2_orion_planet_dreadholm_shipyard_part3.png",
+   "strip_x0": 2250,
+   "strip_w": 1031,
+   "frame_rect": [
+    0,
+    102,
+    1920,
+    875
+   ]
+  }
+ ]
+}

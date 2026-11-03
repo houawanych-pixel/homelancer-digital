@@ -1,0 +1,51 @@
+{
+ "strip": [
+  3204,
+  470
+ ],
+ "cuts": [
+  862,
+  1611,
+  3011
+ ],
+ "overlap": 40,
+ "frame": [
+  1920,
+  1080
+ ],
+ "parts": [
+  {
+   "file": "v2_orion_planet_dreadholm_medical_bay_part1.png",
+   "strip_x0": 822,
+   "strip_w": 829,
+   "frame_rect": [
+    7,
+    0,
+    1905,
+    1080
+   ]
+  },
+  {
+   "file": "v2_orion_planet_dreadholm_medical_bay_part2.png",
+   "strip_x0": 1571,
+   "strip_w": 1480,
+   "frame_rect": [
+    0,
+    235,
+    1920,
+    610
+   ]
+  },
+  {
+   "file": "v2_orion_planet_dreadholm_medical_bay_part3.png",
+   "strip_x0": 2971,
+   "strip_w": 1135,
+   "frame_rect": [
+    0,
+    142,
+    1920,
+    795
+   ]
+  }
+ ]
+}

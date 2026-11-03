@@ -1,0 +1,51 @@
+{
+ "strip": [
+  3204,
+  470
+ ],
+ "cuts": [
+  158,
+  1343,
+  2405
+ ],
+ "overlap": 40,
+ "frame": [
+  1920,
+  1080
+ ],
+ "parts": [
+  {
+   "file": "v2_orion_planet_dreadholm_supplies_part1.png",
+   "strip_x0": 118,
+   "strip_w": 1265,
+   "frame_rect": [
+    0,
+    183,
+    1920,
+    713
+   ]
+  },
+  {
+   "file": "v2_orion_planet_dreadholm_supplies_part2.png",
+   "strip_x0": 1303,
+   "strip_w": 1142,
+   "frame_rect": [
+    0,
+    145,
+    1920,
+    790
+   ]
+  },
+  {
+   "file": "v2_orion_planet_dreadholm_supplies_part3.png",
+   "strip_x0": 2365,
+   "strip_w": 1037,
+   "frame_rect": [
+    0,
+    105,
+    1920,
+    870
+   ]
+  }
+ ]
+}

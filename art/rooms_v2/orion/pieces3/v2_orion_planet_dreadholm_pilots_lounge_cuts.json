@@ -1,0 +1,51 @@
+{
+ "strip": [
+  3204,
+  470
+ ],
+ "cuts": [
+  857,
+  2044,
+  2980
+ ],
+ "overlap": 40,
+ "frame": [
+  1920,
+  1080
+ ],
+ "parts": [
+  {
+   "file": "v2_orion_planet_dreadholm_pilots_lounge_part1.png",
+   "strip_x0": 817,
+   "strip_w": 1267,
+   "frame_rect": [
+    0,
+    184,
+    1920,
+    712
+   ]
+  },
+  {
+   "file": "v2_orion_planet_dreadholm_pilots_lounge_part2.png",
+   "strip_x0": 2004,
+   "strip_w": 1016,
+   "frame_rect": [
+    0,
+    96,
+    1920,
+    888
+   ]
+  },
+  {
+   "file": "v2_orion_planet_dreadholm_pilots_lounge_part3.png",
+   "strip_x0": 2940,
+   "strip_w": 1161,
+   "frame_rect": [
+    0,
+    151,
+    1920,
+    777
+   ]
+  }
+ ]
+}

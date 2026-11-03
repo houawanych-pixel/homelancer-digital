@@ -1347,7 +1347,7 @@ func room_file(key: String, sys_id := "") -> String:
 	if sys_id == "": sys_id = str(GS.system_id)
 	if kind == "planet" and Data.PLANET_HUB_ROOMS.has(sys_id) and rn in Data.PLANET_HUB_ROOMS[sys_id]:   # v11.57: the planet's own room
 		var pf := "planet_%s_%s" % [sys_id, rn]
-		if ResourceLoader.exists("res://assets/rooms/%s/%s.jpg" % [f, pf]): return pf
+		if ResourceLoader.exists("res://assets/rooms/%s/%s.jpg" % [f, pf]) or Packs.PACKS.has("room_%s_%s" % [f, pf]): return pf   # (v11.72: or in its own pack, still coming)
 	var set_id := str(Data.STATION_ROOM_SET.get(sys_id, "1"))   # (a planet room not in yet: the system's main station room)
 	var sets: Dictionary = Data.ROOM_SETS.get(f, {})
 	return str((sets.get(set_id, {}) as Dictionary).get(rn, rn))
@@ -1380,6 +1380,7 @@ func _show_room(s: String) -> void:
 	var rn := key.substr(f.length() + 1)
 	var pk := "room_" + key
 	var path := "res://assets/rooms/%s/%s.jpg" % [f, room_file(key)]   # v11.41: this station's room set (Data.ROOM_SETS)
+	if room_file(key).begins_with("planet_"): pk = "room_%s_%s" % [f, room_file(key)]   # v11.72: a planet's own room comes in its own pack
 	var hostile_room := false
 	if lockdown_due() and Packs.PACKS.has("room_hostile_" + key):   # v9.3 (owner): their people want you gone: the wrecked, red-lit room
 		pk = "room_hostile_" + key
@@ -1406,7 +1407,7 @@ func _show_room(s: String) -> void:
 	elif room_vid_on and not room_vid.is_playing(): room_vid.play()   # (back in the same room)
 	room_view.visible = true
 	room_view.modulate = base.get("tint", Color.WHITE) if base.get("role", "") == "ally" else Color.WHITE   # v11.54: ally stations: one art set, told apart by tint
-	if kind == "planet" and Data.PLANET_HUB_SKY.has(str(GS.system_id)): room_view.modulate = Data.PLANET_HUB_SKY[str(GS.system_id)]   # v11.57: the lava sky's light
+	if kind == "planet" and Data.PLANET_HUB_SKY.has(str(GS.system_id)) and not room_file(key).begins_with("planet_"): room_view.modulate = Data.PLANET_HUB_SKY[str(GS.system_id)]   # v11.57: the lava sky's light
 	crew.room_changed(key if not hostile_room else "")
 	_update_room(0.0)
 
@@ -1486,7 +1487,7 @@ func _room_sound_levels(dt: float) -> void:
 		pl.volume_db = linear_to_db(maxf(lerpf(now, want, clampf(dt * 8.0, 0.0, 1.0)), 0.0001))
 
 func _on_room_pack(pk: String) -> void:
-	if visible and pk.begins_with("room_") and (pk == "room_" + room_for(screen) or pk == "room_hostile_" + room_for(screen)):
+	if visible and pk.begins_with("room_") and (pk == "room_" + room_for(screen) or pk == "room_hostile_" + room_for(screen) or (room_for(screen) != "" and pk == "room_%s_%s" % [room_for(screen).get_slice("_", 0), room_file(room_for(screen))])):
 		if screen == "equipment": show_screen("equipment")   # (the bay picture steps aside for the room)
 		else: _show_room(screen)
 

@@ -1,0 +1,51 @@
+{
+ "strip": [
+  3204,
+  470
+ ],
+ "cuts": [
+  1262,
+  2238,
+  3158
+ ],
+ "overlap": 40,
+ "frame": [
+  1920,
+  1080
+ ],
+ "parts": [
+  {
+   "file": "v2_orion_planet_dreadholm_weapons_part1.png",
+   "strip_x0": 1222,
+   "strip_w": 1056,
+   "frame_rect": [
+    0,
+    112,
+    1920,
+    855
+   ]
+  },
+  {
+   "file": "v2_orion_planet_dreadholm_weapons_part2.png",
+   "strip_x0": 2198,
+   "strip_w": 1000,
+   "frame_rect": [
+    0,
+    89,
+    1920,
+    902
+   ]
+  },
+  {
+   "file": "v2_orion_planet_dreadholm_weapons_part3.png",
+   "strip_x0": 3118,
+   "strip_w": 1388,
+   "frame_rect": [
+    0,
+    215,
+    1920,
+    650
+   ]
+  }
+ ]
+}
