@@ -34,6 +34,9 @@ var walk_from := 0.0
 var walk_to := 0.0
 var shown_key := ""
 var crew_log: Array = []       # (tests) what they did
+var force := {}               # (tests) this crew member in whatever room
+var scale_ref := {}            # v11.60: the biggest person on the floor ({top, feet}: shares of the panorama)
+var body_px := 0.0             # (tests) their drawn body height
 
 func setup(h: Node) -> void:
 	hub = h
@@ -96,7 +99,7 @@ func room_changed(key: String) -> void:
 	hit.visible = false
 	if key == "" or not ("_" in key): return
 	var f := key.get_slice("_", 0)
-	var c := in_room(f, key.substr(f.length() + 1))
+	var c := in_room(f, key.substr(f.length() + 1)) if force.is_empty() else force.duplicate()
 	if c.is_empty(): return
 	c = c.duplicate()
 	c["faction"] = f
@@ -109,7 +112,14 @@ func room_changed(key: String) -> void:
 	if not ResourceLoader.exists(clip_path("idle")):
 		who = {}
 		return
+	# v11.60 (owner: "use them to cover the seams ... in good spots"): they stand on a seam of the moving room (the
+	# second worst one; Evee covers the worst), sized to the biggest people in the picture
 	yaw = -1.0
+	var sm: Array = hub.seams_by_badness(key)
+	if sm.size() >= 2: yaw = float(sm[1])
+	elif sm.size() == 1 and not hub.asst_seam: yaw = float(sm[0])
+	if yaw >= 0.0: who["_home_yaw"] = yaw
+	scale_ref = hub.biggest_person(key)
 	_play("walk_fwd" if ResourceLoader.exists(clip_path("walk_fwd")) else "idle")
 	state = "in"
 	next_walk = randf_range(Data.CREW_WALK_EVERY[0], Data.CREW_WALK_EVERY[1])
@@ -175,10 +185,18 @@ func _place() -> void:
 	var zm := Data.ROOM_ZOOM
 	var shift := float(hub.room_pitch) * 0.5 * (1.0 - 1.0 / zm) * zm * S.y
 	var h := S.y * Data.CREW_HEIGHT
+	var feet := S.y * Data.CREW_FEET - shift
+	if not scale_ref.is_empty():   # v11.60: the same head and floor lines as the biggest person in the room
+		var yh := S.y * (0.5 + (float(scale_ref["top"]) - 0.5) * zm) - shift
+		var yf := S.y * (0.5 + (float(scale_ref["feet"]) - 0.5) * zm) - shift
+		var body := yf - yh
+		if body > S.y * 0.25 and body < S.y * 1.6:
+			h = body / Data.CREW_BODY_SHARE
+			feet = yf + h * Data.CREW_FOOT_PAD
 	if state == "in":   # walking in: they come a little closer as they arrive
 		h *= lerpf(0.86, 1.0, clampf(state_t / 4.0, 0.0, 1.0))
+	body_px = h * Data.CREW_BODY_SHARE
 	var w := h * Data.CREW_ASPECT
-	var feet := S.y * Data.CREW_FEET - shift
 	vid.size = Vector2(w, h)
 	vid.position = Vector2(x - w * 0.5, feet - h)
 	vid.visible = x > -w and x < S.x + w

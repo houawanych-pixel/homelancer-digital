@@ -1076,6 +1076,7 @@ var board := {}              # the inside's state (phase, mechs, boss, bounty, c
 var _board_asked := false
 var _board_said_t := 0.0
 var board_refused := 0       # (tests) "shields up" refusals shown
+var _board_pending = null    # v11.60: BOARD pressed as a ship: the battleship to go into once the mech is out
 func _boardable(e: Dictionary) -> void:
 	var n: Node3D = e["node"]
 	if not n.has_meta("box_aabb") or not is_instance_valid(n.get_meta("box_holder", null)): return
@@ -1094,7 +1095,7 @@ func _boardable(e: Dictionary) -> void:
 
 ## v11.55: is this battleship's hangar open (its shield stripped to 0)?
 static func board_open(e: Dictionary) -> bool:
-	return e.get("boardable", false) and float(e.get("sh", 1.0)) <= 0.0
+	return e.get("boardable", false) and (float(e.get("sh", 1.0)) <= 0.0 or e.get("shield_broken", false))
 
 ## A glowing mark on a part, so you can see what to shoot (tower cyan, bridge orange, turrets red).
 func _part_mark(role: String, r: float) -> Node3D:
@@ -1127,29 +1128,46 @@ func _board_outside() -> void:
 	_board_said_t = maxf(0.0, _board_said_t - get_process_delta_time())
 	for e in fleet_patrols:
 		if not enemies.has(e) or not is_instance_valid(e.get("bay_node", null)): continue
+		if float(e.get("sh", 1.0)) <= 0.0 and e.get("boardable", false): e["shield_broken"] = true   # v11.60 (owner): once broken it stays down
 		var open := board_open(e)
 		e["shield_down"] = open
 		if (e["bay_node"] as Node3D).visible != open:
 			(e["bay_node"] as Node3D).visible = open
-			if open: message.emit("%s: SHIELD DOWN! The side hangar (green light) is open. Go in as a MECH." % str(e["node"].name))
-		var bp: Vector3 = (e["bay_node"] as Node3D).global_position
-		if bp.distance_to(player.global_position) > Data.BOARD_BAY_REACH: continue
-		if not open:   # v11.55 (owner): refused while the shield is up
-			if _board_said_t <= 0.0:
-				_board_said_t = 4.0
-				board_refused += 1
-				message.emit("SHIELDS UP: the hangar is sealed. Strip its shield to 0 to board.")
-			continue
-		if GS.form != "mech":   # v11.56 (owner): at the open hangar the ship turns into its mech to go in
-			if transform_t <= 0.0 and _board_said_t <= 0.0:
-				_board_said_t = 4.0
-				start_transform()
-				message.emit("Hangar open: transforming to MECH to board.")
-			continue
-		if not _board_asked:
+			if open: message.emit("%s: SHIELD DESTROYED! It stays down: fly close and press BOARD." % str(e["node"].name))
+		if not open and _near_ship(e) and _board_said_t <= 0.0:   # (refused while the shield is up)
+			_board_said_t = 4.0
+			board_refused += 1
+			message.emit("SHIELDS UP: the hangar is sealed. Strip its shield to 0 to board.")
+	if _board_pending != null and GS.form == "mech" and transform_t <= 0.0:   # (BOARD pressed as a ship: in once the mech is out)
+		var bp: Dictionary = _board_pending
+		_board_pending = null
+		if enemies.has(bp) and not _board_asked:
 			_board_asked = true
-			board_request.emit(e)
-		return
+			board_request.emit(bp)
+
+## v11.60 (owner: "fly next to the ship and it gives you the option"): close to a battleship whose shield is broken.
+func _near_ship(e: Dictionary) -> bool:
+	var n: Node3D = e["node"]
+	return is_instance_valid(n) and n.global_position.distance_to(player.global_position) < float(e["def"].get("hit_r", 200.0)) + Data.BOARD_NEAR
+
+func board_candidate() -> Dictionary:
+	if boarding or not is_instance_valid(player): return {}
+	for e in fleet_patrols:
+		if enemies.has(e) and board_open(e) and _near_ship(e): return e
+	return {}
+
+## BOARD pressed: the ship turns into its mech first if it has to, then in you go.
+func board_now() -> bool:
+	var e := board_candidate()
+	if e.is_empty() or _board_asked: return false
+	if GS.form != "mech":
+		_board_pending = e
+		if transform_t <= 0.0: start_transform()
+		message.emit("Transforming to MECH to board.")
+		return true
+	_board_asked = true
+	board_request.emit(e)
+	return true
 
 ## Inside: the battleship's decks as a level (scripts/boarding.gd), the planet-surface code with a flat deck.
 func setup_boarding(info: Dictionary) -> void:
@@ -6232,7 +6250,7 @@ func _update_enemies(dt: float) -> void:
 		var n: Node3D = e["node"]
 		var d: Dictionary = e["def"]
 		e["sh_cd"] = float(e["sh_cd"]) - dt
-		if e["sh_cd"] <= 0.0: e["sh"] = minf(float(e["sh_max"]), float(e["sh"]) + float(e["sh_max"]) * (0.15 if not d.get("capital", false) else 0.02) * dt)
+		if e["sh_cd"] <= 0.0 and not e.get("shield_broken", false): e["sh"] = minf(float(e["sh_max"]), float(e["sh"]) + float(e["sh_max"]) * (0.15 if not d.get("capital", false) else 0.02) * dt)
 		if d.get("capital", false):   # v1.9n: a capital ship: slow, turrets all round
 			_update_capital(e, dt)
 			continue
@@ -7379,6 +7397,7 @@ func prompt() -> String:
 		if not lc.is_empty() and player.global_position.distance_to(lc["pos"]) < dock_distance(dc): return "lane"
 		return "dock"
 	if gate_in_range(): return "jump"
+	if not board_candidate().is_empty(): return "board"   # v11.60 (owner)
 	return "lane" if not lc.is_empty() else ""
 
 ## How far the ship is from being docked with this station or planet (station: its body or docking mouth; planet: its surface).

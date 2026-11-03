@@ -776,6 +776,33 @@ func _asst_next() -> void:
 	_asst_play("idle_b" if asst_idle % 3 == 2 else "idle_a")   # (full body: the idle loop again)
 
 var asst_seam := false   # v11.6 (owner): she stands on the moving room's worst seam, close up, to hide it
+## v11.60: the RoomPeople / room_seams key for what is on screen (this station's room set: e.g. orion_shipyard4).
+func people_key(key: String) -> String:
+	if key == "": return key
+	return key.get_slice("_", 0) + "_" + room_file(key)
+
+## v11.60 (owner): the seams of this moving room, worst first (shares of the loop).
+func seams_by_badness(key: String) -> Array:
+	if not ResourceLoader.exists("res://scripts/room_seams.gd"): return []
+	var rs: Dictionary = load("res://scripts/room_seams.gd").ROOMS
+	var k2 := people_key(key)
+	if not rs.has(k2): return []
+	var d: Dictionary = rs[k2]
+	var idx: Array = range((d["bad"] as Array).size())
+	idx.sort_custom(func(a, b): return float(d["bad"][a]) > float(d["bad"][b]))
+	return idx.map(func(i): return float(d["seams"][i]))
+
+## v11.60 (owner: "the biggest characters, scaled to the biggest people"): the tallest person standing on this room's
+## floor with their feet in the picture: {top, feet} as shares of the panorama's height ({} = none known).
+func biggest_person(key: String) -> Dictionary:
+	var k2 := people_key(key)
+	if not RoomPeople.ROOMS.has(k2): return {}
+	var best: Array = []
+	for p in RoomPeople.ROOMS[k2]["people"]:
+		if int(p[3]) == 1 and float(p[1]) + float(p[2]) > 0.68 and (best.is_empty() or float(p[2]) > float(best[2])): best = p
+	if best.is_empty(): return {}
+	return {"top": float(best[1]), "feet": float(best[1]) + float(best[2])}
+
 ## v11.6: the worst seam of this moving room (share of the loop), or -1 (tools/rooms/v2_animate.py writes room_seams.gd).
 func worst_seam(key: String) -> float:
 	if not ResourceLoader.exists("res://scripts/room_seams.gd"): return -1.0
@@ -804,6 +831,7 @@ const ASST_FULL := {"top": 0.021, "body": 0.948, "aspect": 270.0 / 480.0}
 ## v8.0 (owner): the nearest person standing by Evee's spot, from RoomPeople: {top, feet} as fractions of the
 ## panorama's height (feet worked out from the room's perspective when the bottom of the picture cuts them off).
 func asst_match(key: String, yaw: float) -> Dictionary:
+	key = people_key(key)
 	if not RoomPeople.ROOMS.has(key): return {}
 	var rd: Dictionary = RoomPeople.ROOMS[key]
 	var best: Array = []
@@ -1919,44 +1947,58 @@ func _page_box() -> VBoxContainer:
 	if _panel_page(screen): _panel_head(v, header.text)   # v8.5: every page in the one panel has its title and fold button
 	return v
 
-## v1.5l: the people of this station (coordinator; the leader too at a capital): face, name, role, and TALK.
+## v1.5l: the people of this station. v11.60 (owner: "take that big box out ... just a character call: a character image,
+## TALK, and that quick message"): one small call card: the station's coordinator (the one with work for you), their
+## face, name, quick line and TALK. (Everyone else is in CONTACTS.)
 func _people_rows(v: VBoxContainer) -> void:
 	var folk: Array = Factions.people_at(base, Data.SYSTEMS[GS.system_id])
 	if folk.is_empty(): return
-	var head := _label(18, GOLD)
-	head.text = "AT THIS STATION"
-	v.add_child(head)
-	var row := VBoxContainer.new()   # v11.2 (owner: "things should not fall outside the panel"): one person per line
-	row.name = "People"
-	row.add_theme_constant_override("separation", 10)
-	for who in folk:
-		var p: Dictionary = who["pilot"]
-		var card := HBoxContainer.new()
-		card.name = "Person_" + str(p["id"])
-		card.add_theme_constant_override("separation", 8)
-		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var pic := TextureRect.new()
-		pic.custom_minimum_size = Vector2(72, 72)
-		pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		if ResourceLoader.exists(str(p["portrait_clean"])): pic.texture = load(str(p["portrait_clean"]))
-		card.add_child(pic)
-		var col := VBoxContainer.new()
-		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var nm := _label(16, Color(1, 1, 1))
-		nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		nm.text = "%s\n%s" % [str(p["name"]), "Leader · " + str(p["type"]).trim_prefix("Level 6 ") if who["role"] == "leader" else "Coordinator · " + str(p["type"]).substr(8)]
-		col.add_child(nm)
-		var tb := Button.new()
-		tb.name = "Talk_" + str(p["id"])
-		tb.text = "TALK"
-		tb.custom_minimum_size = Vector2(110, 38)
-		var line := _greeting(who)
-		tb.pressed.connect(func(): call_person(p, "at this station", line))   # v11.4: your side's people come up on the right
-		col.add_child(tb)
-		card.add_child(col)
-		row.add_child(card)
-	v.add_child(row)
+	var who: Dictionary = folk[0]
+	for f in folk:
+		if f["role"] == "coordinator": who = f
+	var p: Dictionary = who["pilot"]
+	var card := PanelContainer.new()
+	card.name = "Greeter"
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.02, 0.08, 0.15, 0.7)
+	sb.border_color = Color(0.35, 0.85, 1.0, 0.7)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(8)
+	sb.content_margin_left = 6
+	sb.content_margin_right = 6
+	sb.content_margin_top = 6
+	sb.content_margin_bottom = 6
+	card.add_theme_stylebox_override("panel", sb)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	card.add_child(row)
+	var pic := TextureRect.new()
+	pic.name = "Person_" + str(p["id"])
+	pic.custom_minimum_size = Vector2(52, 52)
+	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	if ResourceLoader.exists(str(p["portrait_clean"])): pic.texture = load(str(p["portrait_clean"]))
+	row.add_child(pic)
+	var col := VBoxContainer.new()
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.add_theme_constant_override("separation", 2)
+	row.add_child(col)
+	var line := _greeting(who)
+	var nm := _label(14, GOLD)
+	nm.text = str(p["name"])
+	nm.clip_text = true
+	col.add_child(nm)
+	var msg := _label(12, Color(1, 1, 1))
+	msg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	msg.text = line
+	col.add_child(msg)
+	var tb := Button.new()
+	tb.name = "Talk_" + str(p["id"])
+	tb.text = "TALK"
+	tb.custom_minimum_size = Vector2(0, 32)
+	tb.pressed.connect(func(): call_person(p, "at this station", line))   # v11.4: your side's people come up on the right
+	col.add_child(tb)
+	v.add_child(card)
 
 func _hub_page() -> void:
 	# v3.1 (owner's concept art): HOME = the station card on the left, your pilot and ship on the right, the station

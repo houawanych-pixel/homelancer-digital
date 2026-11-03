@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.59"
+const VERSION := "v11.60"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1034,6 +1034,8 @@ const CREW_SCREEN_X := 0.62         # where they stand on arrival (share of the 
 const CREW_HEIGHT := 0.66           # their full-body clip's height (share of the screen)
 const CREW_FEET := 0.98             # their feet line (share of the screen)
 const CREW_ASPECT := 2.0 / 3.0      # clip width / height
+const CREW_BODY_SHARE := 0.9        # v11.60: how much of the clip's height the person fills (head to feet)
+const CREW_FOOT_PAD := 0.03         # v11.60: the clip's empty strip under their feet (share of its height)
 const CREW_WALK_EVERY := [14.0, 26.0]   # s between their walks to the side
 const CREW_WALK_SPAN := 0.035       # how far a walk takes them (share of the loop)
 const CREW_WALK_TIME := 4.0         # the side-walk clip's length (s)
@@ -2077,6 +2079,7 @@ const BS_INTERIOR_TITLES := {"bs_hangar": "Breach hangar", "bs_spine": "Reactor 
 const BS_INTERIOR_FALLBACK := {"bs_hangar": "shipyard", "bs_spine": "command", "bs_generator": "mech_dealer"}
 const BS_INTERIOR_WAVES := [[5], [5, 8], [6, 10]]   # crew / soldiers per wave, room by room; then the room's boss
 const BS_ESCAPE_TIME := 4.0                          # s: the run back to the hangar before you fly out
+const BOARD_NEAR := 700.0                            # v11.60: BOARD shows within this many metres of a battleship's hull (shield broken)
 const REP_INFILTRATE := 15.0                         # standing lost with a faction whose battleship you infiltrate (owner: allies too)
 const BREAKOUT_ROOMS := ["main_hub", "pilots_lounge", "shipyard"]   # the way to the hangar, one fight each
 const BREAKOUT_WAVES := [[5], [5], [5, 10]]     # guards per wave, room by room (the hangar: five, then ten); then the boss

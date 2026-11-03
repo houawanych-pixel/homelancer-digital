@@ -40,7 +40,9 @@ func slot() -> Rect2:
 		var key := "fs_exit_slot" if on else "fs_slot"   # v11.58 (owner): FULL SCREEN in the top bar; EXIT FULL at the right end of the bottom row
 		var r: Rect2 = m.hud.get(key) if m.hud.get(key) != null else Rect2()
 		if r.size.x > 0.0: return r
-	return Rect2(S.x * 0.5 - WIDTH * 0.5, S.y - SIZE - MARGIN, WIDTH, SIZE)
+	# v11.60 (owner: it covered PANELS / LOCK / CALL EVEE in every room): on the station pages it sits at the right end of
+	# the bottom bar (just right of the HIDE-PANELS bar: PANELS · LOCK · CALL EVEE), never on a button
+	return Rect2(S.x * 0.5 + 178.0, S.y - 12.0 - SIZE, WIDTH, SIZE)
 
 func _place() -> void:
 	var r := slot()

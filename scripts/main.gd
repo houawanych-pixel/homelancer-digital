@@ -422,8 +422,9 @@ func _on_hud(id: String) -> void:
 				"warp": hud.flash_message("Drop out of warp first.")
 		"lock_a", "lock_c": hud.flash_message("Locked for now.")
 		"cloak": space.set_cloak(not space.cloaked)   # v8.3 (owner)
+		"board":   # v11.60 (owner): BOARD the battleship whose shield you broke
+			if not space.board_now(): hud.flash_message("Get closer, with its shield broken.")
 		"tgt_front":   # v8.3 (owner): TARGET = the hostile in front of you, closest
-			hud.target_menu = not hud.target_menu   # v11.58 (owner): TARGET opens NEXT + SCAN under it
 			var tf: Node3D = space.target_front()
 			if tf == null: hud.flash_message("No hostiles around.")
 			else:

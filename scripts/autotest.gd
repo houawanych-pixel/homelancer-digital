@@ -875,7 +875,15 @@ func _smoke() -> void:
 	_check("Smoke: docking at a station opens its hub", docked, main.state)
 	var fsb: Control = Fs.btn
 	var S2: Vector2 = get_viewport().get_visible_rect().size
-	_check("Smoke: the FULL SCREEN button sits bottom middle", absf(fsb.get_global_rect().get_center().x - S2.x * 0.5) < 4.0 and fsb.get_global_rect().end.y > S2.y * 0.85, str(fsb.get_global_rect()))
+	var hb0 = main.hub
+	var clash := ""
+	for hide in [false, true]:
+		hb0.set_panels_hidden(hide)
+		await _frames(3)
+		for c in [hb0.show_btn, hb0.back_hub, hb0.launch_btn, hb0.alarm_btn] + (hb0.look_bar.get_children() if hb0.look_bar != null else []):
+			if c != null and (c as Control).is_visible_in_tree() and (c as Control).get_global_rect().intersects(fsb.get_global_rect()): clash = str(c.name)
+	hb0.set_panels_hidden(false)
+	_check("Smoke: in the rooms FULL SCREEN sits at the bottom bar's right end, on no button", fsb.get_global_rect().end.y > S2.y * 0.85 and fsb.get_global_rect().position.x > S2.x * 0.5 and clash == "", str(fsb.get_global_rect()) + " " + clash)
 	var plays := false
 	if docked:
 		var hb = main.hub
@@ -896,17 +904,17 @@ func _hud_checks() -> void:
 	for down in [false, true]:
 		hud.dock_down = down
 		hud._layout()
-		var tb_ok: bool = hud.buttons.has("start") and hud.buttons.has("select") and hud.buttons.has("goto") and hud.fs_slot.size.x > 0.0 and hud.top_speed.size.x > 0.0
-		for id in ["start", "select", "goto"]:
-			if hud.buttons.has(id) and (hud.buttons[id] as Rect2).position.y > 50.0: tb_ok = false
-		if hud.fs_slot.position.y > 50.0 or hud.top_speed.position.y > 50.0: tb_ok = false
+		var tb_ok: bool = hud.buttons.has("start") and hud.buttons.has("select") and hud.buttons.has("goto") and hud.fs_slot.size.x > 0.0 and hud.top_speed.size.x > 0.0 and hud.fs_exit_slot == hud.fs_slot
+		for id in ["start", "select"]:
+			if hud.buttons.has(id) and (hud.buttons[id] as Rect2).position.y > 90.0: tb_ok = false
+		if hud.fs_slot.position.y > 90.0 or hud.top_speed.position.y > 90.0 or hud.top_gps.position.y > 20.0: tb_ok = false
+		if absf(hud.top_gps.get_center().x - hud.S.x * 0.5) > 2.0 or absf(hud.top_speed.get_center().x - hud.S.x * 0.5) > 2.0: tb_ok = false
 		if not tb_ok: bad.append("top bar (down %s)" % down)
 		for id in hud.buttons:
 			var r: Rect2 = hud.buttons[id]
 			if r.intersects(hud.fs_exit_slot.grow(-1.0)): bad.append("EXIT FULL over %s (down %s)" % [id, down])
 			if r.intersects(hud.fs_slot.grow(-1.0)): bad.append("FULL SCREEN over %s (down %s)" % [id, down])
-		if hud.fs_exit_slot.end.y < hud.S.y - 40.0 or hud.fs_exit_slot.position.x < hud.S.x * 0.5: bad.append("EXIT FULL not bottom right (down %s)" % down)
-	_check("HUD: one top bar (START, SELECT, FULL SCREEN, SPEED, GO TO, A -> B); EXIT FULL at the bottom row's right end and FULL SCREEN never cover a button, collapsed or expanded", bad.is_empty(), ", ".join(bad))
+	_check("HUD (v11.60): the navigation readout top middle; under it START · SPEED · SELECT · FULL SCREEN (one spot, on or off); GO TO in the SHIP window (and the collapsed row); FULL SCREEN never covers a button", bad.is_empty(), ", ".join(bad))
 	# DOCK at the top centre when in range
 	var dock_ok := false
 	if is_instance_valid(s.station):
@@ -915,20 +923,18 @@ func _hud_checks() -> void:
 		hud._layout()
 		if hud.buttons.has("dock"):
 			var dr: Rect2 = hud.buttons["dock"]
-			dock_ok = absf(dr.get_center().x - hud.S.x * 0.5) < 4.0 and dr.position.y < 100.0
+			dock_ok = absf(dr.get_center().x - hud.S.x * 0.5) < 4.0 and dr.position.y < 140.0 and not dr.intersects(hud.fs_slot) and not dr.intersects(hud.top_speed)
 	_check("HUD: DOCK appears as the top-centre box when you are in range", dock_ok, str(hud.buttons.get("dock", "no dock")))
-	# TARGET opens NEXT + SCAN (no separate NEXT / SCAN row)
+	# TARGET · NEXT · SCAN always (no long red bar); SHIP window: WEAPONS · COMMS · GO TO
 	var menu_ok := true
 	for down in [false, true]:
 		hud.dock_down = down
-		hud.target_menu = false
 		hud._layout()
-		var closed_ok: bool = not hud.buttons.has("target") and not hud.buttons.has("scan") and hud.buttons.has("tgt_front")
-		main._on_hud("tgt_front")
-		hud._layout()
-		var open_ok: bool = hud.target_menu and hud.buttons.has("target") and hud.buttons.has("scan")
-		main._on_hud("target")
-		if not (closed_ok and open_ok and not hud.target_menu): menu_ok = false
+		if not (hud.buttons.has("tgt_front") and hud.buttons.has("target") and hud.buttons.has("scan") and hud.buttons.has("goto")): menu_ok = false
+	hud.dock_down = false
+	hud._layout()
+	var gr: Rect2 = hud.buttons.get("goto", Rect2())
+	if not hud.fl_rect("r").encloses(gr): menu_ok = false
 	hud.dock_down = true
 	hud._layout()
 	var clear_ok := true   # pushed down: nothing but the row, the sticks and the top bar
@@ -936,7 +942,7 @@ func _hud_checks() -> void:
 		var r: Rect2 = hud.buttons[id]
 		if r.position.y > 110.0 and r.end.y < hud.S.y - 50.0 and not str(id).begins_with("met_"): clear_ok = false
 	hud.dock_down = false
-	_check("HUD: one TARGET opens NEXT + SCAN; with HIDE pressed the middle of the screen (the ship) is clear", menu_ok and clear_ok, "menu %s clear %s" % [menu_ok, clear_ok])
+	_check("HUD: TARGET · NEXT · SCAN always in the contacts row; GO TO in the SHIP window; with HIDE pressed the middle of the screen (the ship) is clear", menu_ok and clear_ok, "menu %s clear %s" % [menu_ok, clear_ok])
 
 ## v11.59 (owner's ROOMS block): no ship in the rooms but the hangar / shipyard; the weapons room is shop + loadout;
 ## the hangar turns left / right only; the ship viewer (magenta / green, free turn, zoom, exit); every page returns to
@@ -1035,6 +1041,37 @@ func _rooms_ui() -> void:
 		if hb.screen != "hub": stuck.append(sc)
 	hb.show_screen("hub")
 	_check("Every room has a visible ◀ MAIN HUB that always works", stuck.is_empty() and not hb.back_hub.visible, ", ".join(stuck))
+	# the greeter: one small call card (face, name, quick line, TALK), not the old people box
+	hb.show_screen("hub")
+	await _frames(3)
+	var gr: Control = hb.find_child("Greeter", true, false)
+	var gtalk: bool = gr != null and gr.find_child("Talk_*", true, false) != null
+	var one: bool = hb.find_children("Person_*", "", true, false).size() == 1
+	_check("Rooms: the greeter is one small character call (face, name, quick line, TALK)", gr != null and gtalk and one, "card %s talk %s one %s" % [gr != null, gtalk, one])
+	# crew: on a seam, sized to the biggest people
+	hb.crew.force = (Data.CREW["orion"] as Array)[0]
+	hb.crew.room_changed("")
+	hb.crew.room_changed(hb.room_key)
+	await Packs.wait(hb.crew.pack_name(hb.crew.force.duplicate().merged({"faction": "orion"})), 30.0)
+	hb.crew.room_changed("")
+	hb.crew.room_changed(hb.room_key)
+	await _frames(5)
+	hb.crew.force = {}
+	var key: String = hb.room_key
+	var sm: Array = hb.seams_by_badness(key)
+	var big: Dictionary = hb.biggest_person(key)
+	var cr = hb.crew
+	var crew_ok := false
+	var ctxt := "no crew here (%s, seams %d)" % [key, sm.size()]
+	if not cr.who.is_empty() and not sm.is_empty():
+		await _frames(3)
+		var on_seam: bool = sm.any(func(x): return absf(fposmod(float(x) - float(cr.who.get("_home_yaw", -1.0)) + 0.5, 1.0) - 0.5) < 0.002)
+		var want: float = 0.0
+		if not big.is_empty(): want = (float(big["feet"]) - float(big["top"])) * Data.ROOM_ZOOM * get_viewport().get_visible_rect().size.y
+		var sized: bool = big.is_empty() or absf(cr.body_px - want) < want * 0.25
+		crew_ok = on_seam and sized
+		ctxt = "on seam %s body %.0f px (biggest %.0f)" % [on_seam, cr.body_px, want]
+	_check("Rooms: the walking crew stand on a seam, sized to the biggest people in the room", crew_ok, ctxt)
 	hb.room_override = ""
 
 func _finish_group() -> void:
@@ -3929,14 +3966,12 @@ func _job_v1145() -> void:
 	bs["sh_cd"] = 99.0
 	await _frames(3)
 	var opened: bool = SpaceSystem.board_open(bs) and (bs["bay_node"] as Node3D).visible
-	bs["sh"] = 5.0
-	await _frames(3)
-	var closed_again: bool = not SpaceSystem.board_open(bs) and not (bs["bay_node"] as Node3D).visible
-	bs["sh"] = 0.0
-	await _frames(3)
+	bs["sh_cd"] = 0.0
+	await _wait(1.0)   # (v11.60 owner: once broken the shield stays down, no regen)
+	var stays_down: bool = float(bs["sh"]) <= 0.0 and SpaceSystem.board_open(bs) and (bs["bay_node"] as Node3D).visible
 	GS.form = form_a
-	res.append("refused while shield up %s, open at 0 %s, closes when it comes back %s" % [refused, opened, closed_again])
-	var shield_ok := refused and opened and closed_again
+	res.append("refused while shield up %s, open at 0 %s, stays down %s" % [refused, opened, stays_down])
+	var shield_ok := refused and opened and stays_down
 	var stopped := true
 	var silent := true
 	# v11.56 (owner): at the open hangar the ship turns into its mech and goes in: 3 rooms (breach hangar, reactor spine,
@@ -3946,7 +3981,12 @@ func _job_v1145() -> void:
 	GS.form = "ship"
 	s._board_said_t = 0.0
 	s._board_asked = false
-	s.player.global_position = (bs["bay_node"] as Node3D).global_position + Vector3(0, 0, 30)
+	s.player.global_position = (bs["node"] as Node3D).global_position + Vector3(0, 0, float(bs["def"].get("hit_r", 200.0)) + Data.BOARD_NEAR * 0.5)
+	await _frames(3)
+	main.hud._layout()
+	var board_btn: bool = s.prompt() == "board" and main.hud.buttons.has("board")   # v11.60 (owner): BOARD next to the ship
+	res.append("BOARD button %s" % board_btn)
+	main._on_hud("board")
 	await _until(func(): return main.state == "interior", 12.0)
 	var went_in: bool = main.state == "interior" and GS.form == "mech" and main.interior != null and main.interior.visible and main.interior.interior and main.interior.rooms == Data.BS_INTERIOR_ROOMS
 	await _wait(0.5)
@@ -3965,8 +4005,8 @@ func _job_v1145() -> void:
 	var out_ok: bool = main.state == "flight" and not s.enemies.has(bs) and GS.credits >= cr0 + Data.BOARD_PAY and GS.form == "mech"
 	res.append("3 rooms then escape %s, out + paid + battleship gone %s" % [rooms_ok, out_ok])
 	if GS.form == "mech": s.start_transform()
-	_check("v11.56 (owner): BOARDING a battleship: one shield + hull, no shoot-off parts; SHIELDS UP while its shield is above 0, the hangar opens at 0 and shuts again when it comes back; the ship turns into its mech and goes in; 3 rooms (breach hangar, reactor spine, generator core) with alarm waves; generator down, back to the hangar, fly out: the battleship is gone and you are paid; infiltrating costs standing",
-		parts_ok and shield_ok and went_in and rep_hit and rooms_ok and out_ok, " · ".join(res))
+	_check("v11.60 (owner): BOARDING a battleship: one shield + hull, no shoot-off parts; SHIELDS UP while its shield is above 0; once broken it stays down; BOARD shows next to the ship; the ship turns into its mech and goes in; 3 rooms (breach hangar, reactor spine, generator core) with alarm waves; generator down, back to the hangar, fly out: the battleship is gone and you are paid; infiltrating costs standing",
+		parts_ok and shield_ok and board_btn and went_in and rep_hit and rooms_ok and out_ok, " · ".join(res))
 
 ## v11.32 (owner: "the battleships were a success ... name them, put them in the game, where they need to go, put
 ## those little ships for sale as faction fighters"): every fleet model is real and nose-first; a capital has its fleet

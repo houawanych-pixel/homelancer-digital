@@ -316,10 +316,10 @@ func fl_rect(side: String) -> Rect2:
 	var r := Rect2(sr.position.x if side == "l" else sr.end.x - w, sr.position.y, w, sr.size.y)
 	return r
 
-const FL_TABS := ["weapons", "log"]   # v7.6 (owner): WEAPONS and COMMS in the right window (SPEED is the cockpit button)
+const FL_TABS := ["weapons", "log", "goto"]   # v7.6 (owner): WEAPONS and COMMS in the right window; v11.60 (owner): + GO TO
 func fl_tab_rect(i: int) -> Rect2:
 	var r := fl_rect("r")
-	var bw := (r.size.x - 12.0) / 2.0
+	var bw := (r.size.x - 16.0) / 3.0
 	return Rect2(r.position + Vector2(4.0 + i * (bw + 4.0), 28.0), Vector2(bw, 26.0))
 
 func fl_shown(side: String) -> bool:
@@ -360,8 +360,7 @@ func _fl_buttons() -> void:
 		if side == "r":
 			for i in FL_TABS.size(): buttons[FL_TABS[i]] = fl_tab_rect(i)
 		else:   # v8.3 (owner): TARGET (the one in front of you) · NEXT · GO TO (· SCAN), there even when folded
-			var ids := ["tgt_front"]   # v11.58 (owner): one TARGET; tapping it opens NEXT + SCAN beside it
-			if target_menu: ids.append_array(["target", "scan"])
+			var ids := ["tgt_front", "target", "scan"]   # v11.60 (owner): TARGET · NEXT · SCAN, always (no long red bar)
 			var bw2: float = (r.size.x - 8.0 - 4.0 * (ids.size() - 1)) / ids.size()
 			for i in ids.size(): buttons[ids[i]] = Rect2(r.position + Vector2(4.0 + i * (bw2 + 4.0), 28.0), Vector2(bw2, 26.0))
 		if not (cl_open if side == "l" else sp_open): continue
@@ -474,10 +473,10 @@ func _fl_panels() -> void:
 		pass   # (v7.8 owner: no YOUR SHIP card: the rings round the radar already show it)
 		if side == "l": _fl_target(Rect2())   # v8.3: TARGET · NEXT · GO TO, folded or open
 		if side == "r":   # v7.3: WEAPONS · COMMS · VIEW
-			var lit := [weapons_shown(), console_open or comms_open]
-			var names := ["WEAPONS", "COMMS"]
-			var cols := [Color(0.25, 0.6, 1.0), Color(0.7, 0.45, 1.0)]   # v7.7 (owner): WEAPONS blue, COMMS purple
-			for i in 2:
+			var lit := [weapons_shown(), console_open or comms_open, space.autopilot != null]
+			var names := ["WEAPONS", "COMMS", "AUTO ON" if space.autopilot != null else "GO TO"]
+			var cols := [Color(0.25, 0.6, 1.0), Color(0.7, 0.45, 1.0), GREEN]   # v7.7 (owner): WEAPONS blue, COMMS purple; GO TO green
+			for i in 3:
 				var tr: Rect2 = fl_tab_rect(i)
 				_box(tr, Color(cols[i], 0.3 if lit[i] else 0.12), Color(cols[i], 0.85), 6, 1)
 				_text(Vector2(tr.position.x, tr.position.y + 18), names[i], 12, WHITE, HORIZONTAL_ALIGNMENT_CENTER, tr.size.x)
@@ -620,7 +619,7 @@ func _layout() -> void:
 			if pr != "":   # (shares the middle with DOCK / LANE / JUMP)
 				gb.position.x = S.x * 0.5 - 146.0
 				db.position.x = S.x * 0.5 + 6.0
-		if pr != "": buttons[pr] = Rect2(S.x * 0.5 - 80.0, TOP_BAR_Y + TOP_BAR_H + 8.0, 160.0, 46.0)   # v11.58 (owner): DOCK is the top-centre box
+		if pr != "": buttons[pr] = Rect2(S.x * 0.5 - 80.0, TOP_BAR_Y + TOP_BAR_H * 2.0 + 12.0, 160.0, 46.0)   # v11.58 (owner): DOCK is the top-centre box (v11.60: under the second row)
 		_prompt_now = pr
 	_fl_buttons()   # v6.7: the Freelancer-style contact list (left) and ship panel (right)
 	for side in ["l", "r"]:
@@ -664,7 +663,7 @@ func _layout() -> void:
 
 ## v10.6 (owner): the fold tabs. Folded sides lose their buttons; pushed down, only calls, the comms console and the
 ## two small tabs at the bottom stay (the target box, the crosshair and the sticks are not buttons).
-const DOWN_KEEP := ["start", "select", "goto", "dock", "lane", "jump", "hangup", "call_pick", "side_l", "side_r", "chat_close", "type", "talk", "voice", "met_hail", "met_up", "met_down"]
+const DOWN_KEEP := ["start", "select", "goto", "dock", "board", "target", "scan", "lane", "jump", "hangup", "call_pick", "side_l", "side_r", "chat_close", "type", "talk", "voice", "met_hail", "met_up", "met_down"]
 ## v11.25 (owner): the pause menu (START / SELECT): the flight stops; each weapon slot can take any weapon (the NUKE
 ## too); RESUME carries on.
 var pause_menu := false
@@ -733,45 +732,39 @@ func _dock_filter(dg: Dictionary) -> void:
 	# shows as the box at the top centre, just under it. EXIT FULL (when full screen) sits at the right end of the
 	# bottom row. The bottom keeps only the action grids, the radar and the sticks.
 	_top_bar(tabs)
-	if dock_down:
-		fs_exit_slot = Rect2(tabs["log"].end.x + 8.0, S.y - TAB_B_H - 2.0, 132.0, TAB_B_H)
-	else:
-		var br: Rect2 = dg["blk_r"]
-		var x0: float = maxf(br.end.x, (dg["tab_r"] as Rect2).end.x) + 8.0
-		var x1: float = S.x - stick_r * 2.0 - 40.0   # (clear of the aim stick)
-		fs_exit_slot = Rect2(x0, S.y - TAB_B_H - 2.0, clampf(x1 - x0, 96.0, 132.0), TAB_B_H)
-	if target_menu and buttons.has("tgt_front") == false and tabs.has("tgt_front"):   # collapsed: NEXT + SCAN pop up over TARGET
+	if dock_down:   # v11.60: collapsed row: TARGET · NEXT · SCAN | CONSOLE | COMMS · GO TO
+		var yb := S.y - TAB_B_H - 2.0
 		var tr: Rect2 = tabs["tgt_front"]
-		tabs["target"] = Rect2(tr.position.x - 4.0, tr.position.y - 40.0, tr.size.x * 0.5 + 2.0, 34.0)
-		tabs["scan"] = Rect2(tr.position.x + tr.size.x * 0.5 + 6.0, tr.position.y - 40.0, tr.size.x * 0.5 + 2.0, 34.0)
+		tabs["target"] = Rect2(tr.position.x - 8.0 - 96.0, yb, 96.0, TAB_B_H)
+		tabs["scan"] = Rect2(tabs["target"].position.x - 8.0 - 86.0, yb, 86.0, TAB_B_H)
+		var lr: Rect2 = tabs["log"]
+		tabs["goto"] = Rect2(lr.end.x + 8.0, yb, 104.0, TAB_B_H)
 	tabs.merge(buttons)   # the tabs win a tap over anything they touch
 	buttons = tabs
 	if pause_menu: _pause_buttons()
 
-## v11.58 (owner): the top bar's rects, centred: START · SELECT · FULL SCREEN · SPEED · GO TO · A -> B / ETA.
+## v11.60 (owner): the top: the navigation readout (A -> B / ETA) on the very top in the middle; under it one row
+## START · SPEED · SELECT · FULL SCREEN; DOCK / LANE / JUMP / BOARD under that. GO TO is in the SHIP window.
 func _top_bar(tabs: Dictionary) -> void:
-	var y := TOP_BAR_Y
-	var h := TOP_BAR_H
+	var gw: float = clampf(S.x * 0.42, 320.0, 560.0)
+	top_gps = Rect2((S.x - gw) * 0.5, TOP_BAR_Y, gw, TOP_BAR_H)
+	var y2: float = TOP_BAR_Y + TOP_BAR_H + 4.0
 	var gap := 6.0
-	var ws := [84.0, 84.0, 150.0, 118.0, 100.0]
-	var fixed := 0.0
-	for w in ws: fixed += w
-	var gw: float = clampf(S.x - col_w * 2.0 - 60.0 - fixed - gap * ws.size(), 220.0, 440.0)
-	var total: float = fixed + gw + gap * ws.size()
-	var x: float = (S.x - total) * 0.5
-	tabs["start"] = Rect2(x, y, ws[0], h); x += ws[0] + gap
-	tabs["select"] = Rect2(x, y, ws[1], h); x += ws[1] + gap
-	fs_slot = Rect2(x, y, ws[2], h); x += ws[2] + gap
-	top_speed = Rect2(x, y, ws[3], h); x += ws[3] + gap
-	if not planet_map: tabs["goto"] = Rect2(x, y, ws[4], h)
-	x += ws[4] + gap
-	top_gps = Rect2(x, y, gw, h)
+	var ws := [84.0, 118.0, 84.0, 150.0]
+	var total := gap * 3.0
+	for w in ws: total += w
+	var x: float = S.x * 0.5 - (ws[0] + gap + ws[1] * 0.5)   # (SPEED sits right under the middle)
+	tabs["start"] = Rect2(x, y2, ws[0], TOP_BAR_H); x += ws[0] + gap
+	top_speed = Rect2(x, y2, ws[1], TOP_BAR_H); x += ws[1] + gap
+	tabs["select"] = Rect2(x, y2, ws[2], TOP_BAR_H); x += ws[2] + gap
+	fs_slot = Rect2(x, y2, ws[3], TOP_BAR_H)
+	fs_exit_slot = fs_slot   # (one place, on or off)
 
 func _top_bar_draw() -> void:
-	for id in ["start", "select", "goto"]:
+	for id in ["start", "select"]:
 		if not buttons.has(id): continue
 		var r: Rect2 = buttons[id]
-		var col: Color = {"start": CYAN, "select": Color(0.75, 0.4, 1.0), "goto": GREEN}[id]
+		var col: Color = {"start": CYAN, "select": Color(0.75, 0.4, 1.0)}[id]
 		var on: bool = held.has(id) or (id == "start" and pause_menu) or (id == "goto" and space.autopilot != null)
 		_box(r, Color(col, 0.32) if on else Color(0.02, 0.08, 0.15, 0.86), Color(col, 0.95), 8, 2)
 		var txt: String = {"start": "START", "select": "SELECT", "goto": "AUTO ON" if space.autopilot != null else "GO TO"}[id]
@@ -792,13 +785,6 @@ func _top_bar_draw() -> void:
 		gps_drawn = {}
 		_box(top_gps, Color(0.02, 0.08, 0.15, 0.6), Color(Data.GPS_ROUTE_COLOR, 0.45), 8, 1)
 		_text(Vector2(top_gps.position.x, top_gps.position.y + 22.0), "NO COURSE  ·  GO TO or the map sets one", 12, Color(WHITE, 0.6), HORIZONTAL_ALIGNMENT_CENTER, top_gps.size.x)
-	if target_menu:   # NEXT + SCAN under TARGET (collapsed row, or the contacts window)
-		for id in ["target", "scan"]:
-			if not buttons.has(id) or (fl_shown("l") and not dock_down): continue
-			var r2: Rect2 = buttons[id]
-			var c2: Color = GOLD if id == "target" else CYAN
-			_box(r2, Color(0.02, 0.08, 0.15, 0.9), Color(c2, 0.95), 8, 2)
-			_text(Vector2(r2.position.x, r2.position.y + 22.0), "NEXT ▸" if id == "target" else "SCAN", 14, WHITE, HORIZONTAL_ALIGNMENT_CENTER, r2.size.x)
 
 ## v1.9k (owner: after a capture I didn't know where to go): the job line at the top is a button. Added after the
 ## layout, last, so a real button under it always wins.
@@ -1756,7 +1742,7 @@ func _draw() -> void:
 	_alerts()
 	# v7.0 (owner: what are those yellow words?): no standing hint line; the job is on the contact list. Short messages
 	# still flash up, small and white, under the top prompt.
-	if msg_t > 0.0: _text(Vector2(col_w, TOP_BAR_Y + TOP_BAR_H + 74.0), msg, 15, Color(WHITE, minf(1.0, msg_t * 2.0)), HORIZONTAL_ALIGNMENT_CENTER, S.x - col_w * 2)
+	if msg_t > 0.0: _text(Vector2(col_w, TOP_BAR_Y + TOP_BAR_H * 2.0 + 86.0), msg, 15, Color(WHITE, minf(1.0, msg_t * 2.0)), HORIZONTAL_ALIGNMENT_CENTER, S.x - col_w * 2)
 	var zone := ""
 	if space.boarding: zone = "ABOARD THE %s" % str(space.board.get("ship", "BATTLESHIP")).to_upper()   # v11.45
 	elif space.surface_mode: zone = "%s  ·  ALT %d m" % [Surface.tile_name(space.planet_id, space.tile), int(space.altitude)]
@@ -1808,7 +1794,8 @@ func _draw() -> void:
 	_corner("view", "CHASE" if GS.view == "cockpit" else "COCKPIT", "view", CYAN, GS.view == "cockpit")
 	if not fl_shown("r") and not dock_down:   # v7.3: these live in the right window; only when it's away do they float above the aim stick
 		_pill("log", "COMMS", comms_mode == "roster", CYAN)
-	if buttons.has("dock"): _prompt_btn(buttons["dock"], "DOCK", GREEN, held.has("dock"))   # v11.58 (owner): the top-centre box
+	if buttons.has("dock"): _prompt_btn(buttons["dock"], "DOCK", GREEN, held.has("dock"))
+	if buttons.has("board"): _prompt_btn(buttons["board"], "BOARD", ORANGE, held.has("board"))   # v11.60 (owner)   # v11.58 (owner): the top-centre box
 	if buttons.has("lane"): _pill("lane", "LANE" if space.lane.is_empty() else "LEAVE LANE", true, CYAN)
 	if buttons.has("jump"): _pill("jump", "JUMP", true, GOLD)
 	if buttons.has("land"): _pill("land", "LAND", true, GREEN)
@@ -2145,13 +2132,14 @@ func _chevron(c: Vector2, dir: Vector2, h: float) -> void:
 
 ## v10.6 (owner): pushed down: a small tab to bring everything back up, and COMMS beside it.
 func _down_tabs() -> void:
-	for id in ["tgt_front", "goto_l"]:   # v11.2 (owner): TARGET and GO TO on the left of CONSOLE
+	for id in ["scan", "target", "tgt_front", "goto"]:   # v11.60 (owner): SCAN · NEXT · TARGET | CONSOLE | COMMS · GO TO
 		if not buttons.has(id): continue
 		var r2: Rect2 = buttons[id]
-		var c2: Color = RED if id == "tgt_front" else GREEN
-		var on2: bool = held.has(id) or (id == "goto_l" and space.autopilot != null)
+		var c2: Color = {"tgt_front": RED, "target": GOLD, "scan": CYAN, "goto": GREEN}[id]
+		var on2: bool = held.has(id) or (id == "goto" and space.autopilot != null)
 		_box(r2, Color(c2, 0.32) if on2 else Color(0.02, 0.08, 0.15, 0.72), Color(c2, 0.9), 12, 2)
-		_text(Vector2(r2.position.x, r2.position.y + 23), "TARGET" if id == "tgt_front" else "GO TO", 14, WHITE, HORIZONTAL_ALIGNMENT_CENTER, r2.size.x)
+		var t2: String = {"tgt_front": "TARGET", "target": "NEXT ▸", "scan": "SCAN", "goto": "AUTO ON" if space.autopilot != null else "GO TO"}[id]
+		_text(Vector2(r2.position.x, r2.position.y + 23), t2, 14, WHITE, HORIZONTAL_ALIGNMENT_CENTER, r2.size.x)
 	for id in ["dock_up", "log"]:
 		if not buttons.has(id): continue
 		var r: Rect2 = buttons[id]
