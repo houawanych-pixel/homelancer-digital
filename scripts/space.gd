@@ -132,6 +132,8 @@ var belt_radius := 0.0
 var rocks: Array = [] # [Vector3 pos, float radius]
 var enemies: Array = [] # Dictionaries
 var traffic: Array = []
+var freighters: Array = []   # v11.63: the lane freighters {node, type, faction, lane, track, s, hp, max, boost_hp, boost_max, len, dead}
+var _freighter_wait := 0.0   # v11.63: s until a destroyed freighter is replaced
 var tanker: Node3D           # the big liquid tanker by the planet
 var bolts: Array = []
 var missiles_live: Array = []
@@ -233,6 +235,7 @@ func _setup(id: String, arrival: String, staged: bool) -> void:
 	if staged: await get_tree().process_frame
 	_build_lanes()
 	_prof("trade lanes")
+	_build_freighters()   # v11.63
 	place_player(arrival)
 	spawn_hunters()
 	set_process(true)
@@ -4218,6 +4221,155 @@ func _build_carrier() -> void:
 		tanker.global_position = planet.global_position + out * (float(planet.get_meta("radius")) + 520.0) + out.cross(Vector3.UP).normalized() * 380.0
 		face(tanker, out.cross(Vector3.UP).normalized())
 
+# ---------------------------------------------------------------- v11.63: lane freighters (owner's freighter block)
+## The system's cargo faction: its own faction when it has a freighter, otherwise one picked from the system name.
+static func cargo_faction(system: Dictionary) -> String:
+	var f := str(system.get("faction", ""))
+	if Data.CARGO_SHIPS.has(f): return f
+	return Data.CARGO_FACTIONS[absi(hash(str(system.get("name", "")))) % Data.CARGO_FACTIONS.size()]
+
+func _build_freighters() -> void:
+	for f in freighters:
+		if is_instance_valid(f["node"]): f["node"].queue_free()
+	freighters.clear()
+	_freighter_wait = 0.0
+	if lanes.is_empty(): return
+	for k in Data.FREIGHTERS_PER_SYSTEM: spawn_freighter(cargo_faction(sys), 1 + k % 2, k)
+
+## One freighter of `typ` (1 or 2) on lane k % lanes, running up or down it.
+func spawn_freighter(fac: String, typ: int, k: int) -> Dictionary:
+	if lanes.is_empty(): return {}
+	var key: String = Data.CARGO_SHIPS[fac]["t%d" % typ]
+	var node := Node3D.new()
+	node.name = "%s Freighter %s-%d" % [fac, "I" if typ == 1 else "II", k + 1]
+	var model := ShipFactory.build(key)
+	model.name = "Model"
+	node.add_child(model)
+	node.set_meta("kind", "traffic")
+	node.set_meta("freighter", true)
+	var ln: float = Data.FREIGHTER_LEN[typ - 1]
+	node.set_meta("radius", ln * 0.5)
+	add_child(node)
+	var hp: float = Data.FREIGHTER_HP[typ - 1]
+	var bh: float = hp * Data.FREIGHTER_BOOSTER_SHARE
+	var f := {"node": node, "key": key, "faction": fac, "type": typ, "lane": k % lanes.size(), "track": "up" if k % 2 == 0 else "down",
+		"s": 0.0, "hp": hp, "max": hp, "boost_hp": bh, "boost_max": bh, "len": ln, "dead": false}
+	f["s"] = _fr_len(f) * (0.25 + 0.5 * float(k % 2))
+	freighters.append(f)
+	_move_freighter(f, 0.0)
+	return f
+
+func _fr_path(f: Dictionary) -> Array:
+	var ln: Dictionary = lanes[int(f["lane"]) % lanes.size()]
+	var pts: Array = (ln["up"] as Array).duplicate() if f["track"] == "up" else (ln["down"] as Array).duplicate()
+	if f["track"] == "down": pts.reverse()   # (the "up" rings run A -> B, the "down" rings B -> A)
+	return pts
+
+func _fr_len(f: Dictionary) -> float:
+	var pts := _fr_path(f)
+	var t := 0.0
+	for i in pts.size() - 1: t += (pts[i] as Vector3).distance_to(pts[i + 1])
+	return t
+
+## The freighter's speed now: full, or a crawl once the booster is broken.
+static func freighter_speed(f: Dictionary) -> float:
+	return Data.FREIGHTER_SPEED * (Data.FREIGHTER_CRAWL if float(f["boost_hp"]) <= 0.0 else 1.0)
+
+func _move_freighter(f: Dictionary, dt: float) -> void:
+	var pts := _fr_path(f)
+	if pts.size() < 2: return
+	f["s"] = float(f["s"]) + freighter_speed(f) * dt
+	var total := _fr_len(f)
+	if float(f["s"]) >= total:   # end of the lane: back the other way on the other track
+		f["track"] = "down" if f["track"] == "up" else "up"
+		f["s"] = 0.0
+		pts = _fr_path(f)
+	var left := float(f["s"])
+	for i in pts.size() - 1:
+		var a: Vector3 = pts[i]
+		var b: Vector3 = pts[i + 1]
+		var d := a.distance_to(b)
+		if left <= d or i == pts.size() - 2:
+			var n: Node3D = f["node"]
+			n.global_position = a.lerp(b, clampf(left / maxf(d, 0.001), 0.0, 1.0))
+			face(n, b - a)
+			return
+		left -= d
+
+func _update_freighters(dt: float) -> void:
+	for i in range(freighters.size() - 1, -1, -1):
+		var f: Dictionary = freighters[i]
+		if f["dead"] or not is_instance_valid(f["node"]):
+			freighters.remove_at(i)
+			continue
+		_move_freighter(f, dt)
+	if _freighter_wait > 0.0:
+		_freighter_wait -= dt
+		if _freighter_wait <= 0.0:
+			var have := {1: 0, 2: 0}
+			for f in freighters: have[int(f["type"])] += 1
+			spawn_freighter(cargo_faction(sys), 1 if have[1] <= have[2] else 2, freighters.size())
+
+## The freighter dictionary behind a node ({} = not a freighter).
+func freighter_of(n: Node3D) -> Dictionary:
+	for f in freighters:
+		if f["node"] == n: return f
+	return {}
+
+## Which zone of the hull a point is in: "head" (front), "booster" (rear) or "body", by where it sits along the spine.
+static func freighter_zone(f: Dictionary, p: Vector3) -> String:
+	var n: Node3D = f["node"]
+	var lz: float = (n.global_transform.affine_inverse() * p).z   # nose is -Z
+	var u := clampf((lz + float(f["len"]) * 0.5) / float(f["len"]), 0.0, 1.0)   # 0 = nose, 1 = tail
+	var z: Dictionary = Data.FREIGHTER_ZONES[int(f["type"]) - 1]
+	if u < float(z["head"]): return "head"
+	if u > 1.0 - float(z["booster"]): return "booster"
+	return "body"
+
+## A world point at the middle of a zone (tests, effects).
+static func freighter_zone_point(f: Dictionary, zone: String) -> Vector3:
+	var z: Dictionary = Data.FREIGHTER_ZONES[int(f["type"]) - 1]
+	var L: float = f["len"]
+	var u: float = {"head": float(z["head"]) * 0.5, "booster": 1.0 - float(z["booster"]) * 0.5}.get(zone, 0.5)
+	var n: Node3D = f["node"]
+	return n.global_transform * Vector3(0, 0, -L * 0.5 + u * L)
+
+## The zone a shot from -> to hits ("" = a miss): the segment against the spine, within the hull's half-thickness.
+func freighter_seg_zone(f: Dictionary, from: Vector3, to: Vector3) -> String:
+	if f["dead"] or not is_instance_valid(f["node"]): return ""
+	var n: Node3D = f["node"]
+	var c := n.global_position
+	var L: float = f["len"]
+	if _seg_closest(from, to, c).distance_to(c) > L * 0.5 + 8.0: return ""
+	var ax := -n.global_basis.z.normalized()
+	var r: float = Data.FREIGHTER_HIT_R[int(f["type"]) - 1]
+	var steps := 8
+	for k in steps + 1:   # walk the spine from tail to nose, nearest point of the shot to each spot
+		var q := c + ax * lerpf(-L * 0.5, L * 0.5, float(k) / float(steps))
+		var sp := _seg_closest(from, to, q)
+		if sp.distance_to(q) <= r: return freighter_zone(f, sp)
+	return ""
+
+## Damage to a freighter: every hit takes hull; hits on the booster also wear the booster, and once it breaks the
+## freighter crawls. The ship is only destroyed when the whole hull is gone.
+func hit_freighter(f: Dictionary, dmg: float, zone: String) -> void:
+	if f["dead"]: return
+	var n: Node3D = f["node"]
+	if zone == "booster" and float(f["boost_hp"]) > 0.0:
+		f["boost_hp"] = float(f["boost_hp"]) - dmg
+		if float(f["boost_hp"]) <= 0.0:
+			_explode(freighter_zone_point(f, "booster"), 6.0)
+			message.emit("%s: booster destroyed, it's crawling." % n.name)
+	f["hp"] = float(f["hp"]) - dmg
+	_spark(freighter_zone_point(f, zone), Color(1, 0.8, 0.5), 3.0, 0.25)
+	if float(f["hp"]) <= 0.0:
+		f["dead"] = true
+		_explode(n.global_position, float(f["len"]) * 0.4)
+		message.emit("%s destroyed." % n.name)
+		if target == n: target = null
+		n.queue_free()
+		_freighter_wait = Data.FREIGHTER_RESPAWN
+
 # ---------------------------------------------------------------- per frame
 var _mem_reported := false
 ## v11.54 (owner: "it shows on the map only once scanned / discovered"): fly within HIDDEN_FIND_RANGE of a hidden
@@ -4266,6 +4418,7 @@ func _process(dt: float) -> void:
 	_update_enemies(dt)
 	if not allies.is_empty(): _update_allies(dt)   # v1.9n
 	_update_traffic(dt)
+	if not freighters.is_empty() or _freighter_wait > 0.0: _update_freighters(dt)   # v11.63
 	_update_bolts(dt)
 	_update_missiles(dt)
 	_update_nukes(dt)
@@ -5166,6 +5319,13 @@ func _update_bolts(dt: float) -> void:
 					_damage_enemy(e, b["dmg"], _seg_closest(from, to, e["node"].global_position) if not e["def"].get("capital", false) else Vector3.INF, float(b.get("sf", -1.0)))
 					hit = true
 					break
+			if not hit:   # v11.63: the lane freighters (head / body / booster)
+				for f in freighters:
+					var fz := freighter_seg_zone(f, from, to)
+					if fz != "":
+						hit_freighter(f, float(b["dmg"]), fz)
+						hit = true
+						break
 		elif b["owner"] != "fx":
 			if _seg_hit(from, to, player.global_position, 5.0):
 				_player_hit(b["dmg"], _seg_closest(from, to, player.global_position))
@@ -8090,6 +8250,10 @@ func scan_info(n: Node3D) -> Dictionary:
 		var cargo2: Array = []
 		for k in 2 + h % 2: cargo2.append("%s %d t" % [Data.SCAN_GOODS[(h / (k + 1) + k * 3) % Data.SCAN_GOODS.size()], 10 + (h / (k + 2)) % 60])
 		var lines2: Array = [["SHIP", "Civilian hauler"], ["WEAPONS", "none"], ["CARGO", ", ".join(cargo2)]]
+		var fr := freighter_of(n)   # v11.63
+		if not fr.is_empty():
+			lines2[0] = ["SHIP", "%s freighter, type %s" % [fr["faction"], "I" if int(fr["type"]) == 1 else "II"]]
+			lines2.append(["HULL", "%d / %d   booster %d%%" % [int(fr["hp"]), int(fr["max"]), int(100.0 * maxf(0.0, float(fr["boost_hp"])) / float(fr["boost_max"]))]])
 		if n == escort_node: lines2.append(["JOB", "escort this ship (hull %d%%)" % int(100.0 * float(GS.mission.get("escort_hp", 0.0)) / Data.ESCORT_HULL)])
 		return {"title": n.name.to_upper(), "sub": "%s  ·  civilian" % str(sys.get("faction", "")), "lines": lines2, "hostile": false}
 	# v11.28 (owner: "anything you scan: ships, stations, buildings"): stations, landmarks, gates and beacons scan too
@@ -8120,6 +8284,7 @@ func ship_at_screen(p: Vector2, radius := -1.0) -> Node3D:
 	var nodes: Array = []
 	for e in enemies: nodes.append(e["node"])
 	for t in traffic: nodes.append(t["node"])
+	for f in freighters: nodes.append(f["node"])   # v11.63
 	if is_instance_valid(escort_node): nodes.append(escort_node)
 	for n in nodes:
 		if not is_instance_valid(n) or cam.is_position_behind(n.global_position): continue

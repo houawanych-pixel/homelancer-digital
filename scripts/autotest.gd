@@ -1178,6 +1178,60 @@ func _dreadholm() -> void:
 	_check("Battleships (allied ones too) have no dock option", no_dock)
 	await _job_v1145()
 
+## v11.63 (owner's freighter block): both freighter types spawn on the lanes, a booster hit slows the ship (it is not
+## destroyed until the hull is gone), and the head is the same size on both types. Run: HL_CARGO=1.
+func _cargo() -> void:
+	if main.state == "hub": main.launch()
+	await _until(func(): return main.state == "flight", 10.0)
+	var s := _sp()
+	if s.lanes.is_empty():
+		main._load_system("solara", "station")
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and not main.space.lanes.is_empty(), 15.0)
+		s = _sp()
+	await _wait(0.5)
+	var types := {}
+	var on_lane := true
+	for f in s.freighters:
+		types[int(f["type"])] = true
+		var p: Vector3 = (f["node"] as Node3D).global_position
+		var near := INF
+		for ln in s.lanes:
+			for q in ln["up"] + ln["down"]: near = minf(near, p.distance_to(q))
+		if near > Data.LANE_RING_GAP: on_lane = false
+	_check("Cargo: both freighter types fly the trade lanes", types.has(1) and types.has(2) and on_lane, "types %s on lane %s (%d lanes)" % [types.keys(), on_lane, s.lanes.size()])
+	var f1: Dictionary = {}
+	for f in s.freighters:
+		if int(f["type"]) == 1: f1 = f
+	var ok := false
+	var txt := "no type 1"
+	if not f1.is_empty():
+		var n: Node3D = f1["node"]
+		var bp: Vector3 = s.freighter_zone_point(f1, "booster")
+		var side: Vector3 = n.global_basis.x
+		var zone: String = s.freighter_seg_zone(f1, bp + side * 40.0, bp - side * 40.0)
+		var v0: float = s.freighter_speed(f1)
+		s.hit_freighter(f1, float(f1["boost_max"]) + 1.0, zone)
+		var v1: float = s.freighter_speed(f1)
+		var p0 := n.global_position
+		await _wait(1.0)
+		var moved := n.global_position.distance_to(p0) if is_instance_valid(n) else -1.0
+		ok = zone == "booster" and absf(v1 - v0 * Data.FREIGHTER_CRAWL) < 0.01 and not f1["dead"] and float(f1["hp"]) > 0.0 and moved < v0 * 0.3
+		txt = "zone %s speed %.1f -> %.1f, moved %.1f m in 1 s, hull %d, alive %s" % [zone, v0, v1, moved, int(f1["hp"]), not f1["dead"]]
+	_check("Cargo: a broken booster leaves the freighter crawling (~10% speed), not destroyed", ok, txt)
+	var heads: Array = []
+	var bodies: Array = []
+	for t in [1, 2]:
+		var m := ShipFactory.build(Data.CARGO_SHIPS["Orion"]["t%d" % t])
+		add_child(m)
+		var box: AABB = ShipFactory._aabb(m, Transform3D.IDENTITY)
+		var L := box.size.z
+		var z: Dictionary = Data.FREIGHTER_ZONES[t - 1]
+		heads.append(L * float(z["head"]))
+		bodies.append(L * (1.0 - float(z["head"]) - float(z["booster"])))
+		m.queue_free()
+	var same: bool = absf(heads[0] - heads[1]) < 0.6 and absf(heads[0] - Data.FREIGHTER_HEAD_LEN) < 1.0 and bodies[1] > bodies[0] * 1.5 and bodies[0] > heads[0]
+	_check("Cargo: the head is the Cadet's size on both types; type 2's body is much bigger", same, "head %.1f / %.1f m, body %.1f / %.1f m" % [heads[0], heads[1], bodies[0], bodies[1]])
+
 func _smoke_core() -> void:
 	_check("Core: the game boots to its title / main menu", main.state == "title", main.state)
 	main.start_game()
@@ -1241,6 +1295,11 @@ func _run() -> void:
 	if OS.get_environment("HL_ROOMS") != "":   # v11.59: the rooms UI checks (+ the core group)
 		await _smoke_core()
 		await _rooms_ui()
+		_finish_group()
+		return
+	if OS.get_environment("HL_CARGO") != "":   # v11.63: the lane freighters (+ the core smoke group)
+		await _smoke_core()
+		await _cargo()
 		_finish_group()
 		return
 	if OS.get_environment("HL_DREADHOLM") != "":   # v11.57: tests/systems/dreadholm (+ the core smoke group)

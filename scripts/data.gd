@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.62"
+const VERSION := "v11.63"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -72,6 +72,23 @@ const RIVAL_ROOMS := ["main_hub", "supplies", "medical_bay", "mission_center", "
 const HIDDEN_FIND_RANGE := 2500.0   # m: fly this close to a hidden station (or scan it) and it is charted for good
 const STATION_SIZE := 2.0   # v11.21 (owner: "double the size of all space stations")
 const ESCORT_FREIGHTER_LEN := 180.0   # v11.16 (owner): the escort / cargo-run freighter is a big ship (m long), not fighter-sized (was 16)
+# v11.63 (owner's freighter block, Nov 3): cargo freighters fly the trade lanes. One object with three zones: the FRONT
+# HEAD (cockpit, the size of the Cadet on every freighter), the CARGO BODY, the REAR BOOSTER. Type 1 is the normal size;
+# type 2 has the same head and a much bigger body (and a booster to match). Hit the booster until it breaks and the
+# freighter crawls at FREIGHTER_CRAWL of its speed; it only blows up when its whole hull is gone. No escorts.
+# Stand-in models: the side views cut from the owner's 8-faction freight sheet (Tripo), one per faction.
+const CARGO_FACTIONS := ["Elyza", "Unity", "Solarion", "Imperium", "Covenant", "Orion", "Savagers", "Liberator"]   # sheet row order
+const CARGO_SHIPS := {"Elyza": {"t1": "cargo_elyza_t1", "t2": "cargo_elyza_t2"}, "Unity": {"t1": "cargo_unity_t1", "t2": "cargo_unity_t2"}, "Solarion": {"t1": "cargo_solarion_t1", "t2": "cargo_solarion_t2"}, "Imperium": {"t1": "cargo_imperium_t1", "t2": "cargo_imperium_t2"}, "Covenant": {"t1": "cargo_covenant_t1", "t2": "cargo_covenant_t2"}, "Orion": {"t1": "cargo_orion_t1", "t2": "cargo_orion_t2"}, "Savagers": {"t1": "cargo_savagers_t1", "t2": "cargo_savagers_t2"}, "Liberator": {"t1": "cargo_liberator_t1", "t2": "cargo_liberator_t2"}}
+const FREIGHTER_HEAD_LEN := 9.0                 # m: the head, the Cadet's length, the same on both types
+const FREIGHTER_LEN := [32.0, 46.1]             # m nose to tail: type 1, type 2 (the GLBs are built to these)
+const FREIGHTER_ZONES := [{"head": 0.28, "booster": 0.17}, {"head": 0.195, "booster": 0.118}]   # share of the length from the nose / from the tail
+const FREIGHTER_HIT_R := [4.5, 6.0]             # m: the hull's half-thickness (shots closer than this to the spine hit)
+const FREIGHTER_HP := [900.0, 1600.0]           # whole hull
+const FREIGHTER_BOOSTER_SHARE := 0.25           # the booster breaks after this share of the hull, taken on the booster
+const FREIGHTER_SPEED := 55.0                   # m/s along the lane
+const FREIGHTER_CRAWL := 0.1                    # booster broken: this share of the speed
+const FREIGHTERS_PER_SYSTEM := 2                # one of each type, on the trade lanes
+const FREIGHTER_RESPAWN := 90.0                 # s after one is destroyed, another starts on the lanes
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
 # Every Job J number and default lives in this one block. Phone/touch controls do not use any of it.
