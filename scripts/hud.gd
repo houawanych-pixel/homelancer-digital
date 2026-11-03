@@ -360,8 +360,8 @@ func _fl_buttons() -> void:
 		if side == "r":
 			for i in FL_TABS.size(): buttons[FL_TABS[i]] = fl_tab_rect(i)
 		else:   # v8.3 (owner): TARGET (the one in front of you) · NEXT · GO TO (· SCAN), there even when folded
-			var ids := ["tgt_front", "target"]   # (v11.13: GO TO is its own big button by the radar)
-			if space.target != null and is_instance_valid(space.target): ids.append("scan")
+			var ids := ["tgt_front"]   # v11.58 (owner): one TARGET; tapping it opens NEXT + SCAN beside it
+			if target_menu: ids.append_array(["target", "scan"])
 			var bw2: float = (r.size.x - 8.0 - 4.0 * (ids.size() - 1)) / ids.size()
 			for i in ids.size(): buttons[ids[i]] = Rect2(r.position + Vector2(4.0 + i * (bw2 + 4.0), 28.0), Vector2(bw2, 26.0))
 		if not (cl_open if side == "l" else sp_open): continue
@@ -620,8 +620,8 @@ func _layout() -> void:
 			if pr != "":   # (shares the middle with DOCK / LANE / JUMP)
 				gb.position.x = S.x * 0.5 - 146.0
 				db.position.x = S.x * 0.5 + 6.0
-		if not planet_map: buttons["goto"] = gb
-		if pr != "": buttons[pr] = db
+		if pr != "": buttons[pr] = Rect2(S.x * 0.5 - 80.0, TOP_BAR_Y + TOP_BAR_H + 8.0, 160.0, 46.0)   # v11.58 (owner): DOCK is the top-centre box
+		_prompt_now = pr
 	_fl_buttons()   # v6.7: the Freelancer-style contact list (left) and ship panel (right)
 	for side in ["l", "r"]:
 		var sd: Dictionary = slots[side]
@@ -728,25 +728,77 @@ func _dock_filter(dg: Dictionary) -> void:
 				if blk.encloses(buttons[id]): buttons.erase(id)
 		if not dock_r: buttons.erase("log")
 		for k in ["l", "r", "b"]: tabs["dock_" + ("down" if k == "b" else k)] = dg["tab_" + k]
-	# v11.25 (owner): START (pause) and SELECT (swap a weapon slot, e.g. for the NUKE) beside the HIDE tab under the
-	# radar, angled in; pushed down, they stand as a small pair on top of the collapsed row
-	if dock_down:   # v11.43 (owner: "for better visible gameplay"): collapsed, they join the bottom row (START | TARGET | CONSOLE | COMMS | SELECT)
-		var yb := S.y - TAB_B_H - 2.0
-		tabs["start"] = Rect2(S.x * 0.5 - 196.0 - 8.0 - 98.0, yb, 98.0, TAB_B_H)
-		tabs["select"] = Rect2(S.x * 0.5 + 196.0 + 8.0, yb, 98.0, TAB_B_H)
+	# v11.58 (owner: "clear the bottom so the ship is visible"): ONE bar across the top, built round the mission A -> B
+	# bar: START · SELECT · FULL SCREEN · SPEED · GO TO · A -> B / ETA, one row of word buttons. DOCK (or LANE / JUMP)
+	# shows as the box at the top centre, just under it. EXIT FULL (when full screen) sits at the right end of the
+	# bottom row. The bottom keeps only the action grids, the radar and the sticks.
+	_top_bar(tabs)
+	if dock_down:
+		fs_exit_slot = Rect2(tabs["log"].end.x + 8.0, S.y - TAB_B_H - 2.0, 132.0, TAB_B_H)
 	else:
-		var sp: Rect2 = dg["speed"]   # v11.29 (owner): just above the SPEED box
-		tabs["start"] = Rect2(sp.get_center().x - 92.0, sp.position.y - 40.0, 86.0, 32.0)
-		tabs["select"] = Rect2(sp.get_center().x + 6.0, sp.position.y - 40.0, 86.0, 32.0)
-	# v11.53 (owner): the universal FULL SCREEN button (Fs) sits bottom middle, just above the bottom row; pushed down it
-	# is right over the collapsed row, otherwise beside the HIDE tab under the radar
-	if dock_down: fs_slot = Rect2(S.x * 0.5 - 75.0, S.y - TAB_B_H - 2.0 - 4.0 - FS_H, 150.0, FS_H)
-	else:   # (the console fills the bottom: it stands centred over START / SELECT, above the radar)
-		var st: Rect2 = tabs["start"]
-		fs_slot = Rect2(st.end.x + 3.0 - 75.0, st.position.y - 4.0 - FS_H, 150.0, FS_H)
+		var br: Rect2 = dg["blk_r"]
+		var x0: float = maxf(br.end.x, (dg["tab_r"] as Rect2).end.x) + 8.0
+		var x1: float = S.x - stick_r * 2.0 - 40.0   # (clear of the aim stick)
+		fs_exit_slot = Rect2(x0, S.y - TAB_B_H - 2.0, clampf(x1 - x0, 96.0, 132.0), TAB_B_H)
+	if target_menu and buttons.has("tgt_front") == false and tabs.has("tgt_front"):   # collapsed: NEXT + SCAN pop up over TARGET
+		var tr: Rect2 = tabs["tgt_front"]
+		tabs["target"] = Rect2(tr.position.x - 4.0, tr.position.y - 40.0, tr.size.x * 0.5 + 2.0, 34.0)
+		tabs["scan"] = Rect2(tr.position.x + tr.size.x * 0.5 + 6.0, tr.position.y - 40.0, tr.size.x * 0.5 + 2.0, 34.0)
 	tabs.merge(buttons)   # the tabs win a tap over anything they touch
 	buttons = tabs
 	if pause_menu: _pause_buttons()
+
+## v11.58 (owner): the top bar's rects, centred: START · SELECT · FULL SCREEN · SPEED · GO TO · A -> B / ETA.
+func _top_bar(tabs: Dictionary) -> void:
+	var y := TOP_BAR_Y
+	var h := TOP_BAR_H
+	var gap := 6.0
+	var ws := [84.0, 84.0, 150.0, 118.0, 100.0]
+	var fixed := 0.0
+	for w in ws: fixed += w
+	var gw: float = clampf(S.x - col_w * 2.0 - 60.0 - fixed - gap * ws.size(), 220.0, 440.0)
+	var total: float = fixed + gw + gap * ws.size()
+	var x: float = (S.x - total) * 0.5
+	tabs["start"] = Rect2(x, y, ws[0], h); x += ws[0] + gap
+	tabs["select"] = Rect2(x, y, ws[1], h); x += ws[1] + gap
+	fs_slot = Rect2(x, y, ws[2], h); x += ws[2] + gap
+	top_speed = Rect2(x, y, ws[3], h); x += ws[3] + gap
+	if not planet_map: tabs["goto"] = Rect2(x, y, ws[4], h)
+	x += ws[4] + gap
+	top_gps = Rect2(x, y, gw, h)
+
+func _top_bar_draw() -> void:
+	for id in ["start", "select", "goto"]:
+		if not buttons.has(id): continue
+		var r: Rect2 = buttons[id]
+		var col: Color = {"start": CYAN, "select": Color(0.75, 0.4, 1.0), "goto": GREEN}[id]
+		var on: bool = held.has(id) or (id == "start" and pause_menu) or (id == "goto" and space.autopilot != null)
+		_box(r, Color(col, 0.32) if on else Color(0.02, 0.08, 0.15, 0.86), Color(col, 0.95), 8, 2)
+		var txt: String = {"start": "START", "select": "SELECT", "goto": "AUTO ON" if space.autopilot != null else "GO TO"}[id]
+		_text(Vector2(r.position.x, r.position.y + 23.0), txt, 15, WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
+	var sr := top_speed   # the SPEED readout (with the flight mode under it)
+	_box(sr, Color(0.02, 0.08, 0.15, 0.86), Color(CYAN, 0.8), 8, 2)
+	var mode := ""
+	if space.warp_state == "on": mode = "WARP"
+	elif space.warp_state == "charging": mode = "CHARGING"
+	elif space.engine_kill: mode = "DRIFT"
+	elif space.braking: mode = "STOPPING"
+	elif space.boosting: mode = "THRUST"
+	if space.surface_mode and mode == "": mode = "ALT %d m" % int(space.altitude)
+	_text(Vector2(sr.position.x, sr.position.y + 19.0), "%d m/s" % int(space.speed_now), 17, WHITE, HORIZONTAL_ALIGNMENT_CENTER, sr.size.x)
+	_text(Vector2(sr.position.x, sr.end.y - 3.0), mode if mode != "" else "SPEED", 9, GOLD if mode != "" else CYAN_HI, HORIZONTAL_ALIGNMENT_CENTER, sr.size.x)
+	if space.nav_dest != null and is_instance_valid(space.nav_dest): _gps_strip(top_gps)
+	else:
+		gps_drawn = {}
+		_box(top_gps, Color(0.02, 0.08, 0.15, 0.6), Color(Data.GPS_ROUTE_COLOR, 0.45), 8, 1)
+		_text(Vector2(top_gps.position.x, top_gps.position.y + 22.0), "NO COURSE  ·  GO TO or the map sets one", 12, Color(WHITE, 0.6), HORIZONTAL_ALIGNMENT_CENTER, top_gps.size.x)
+	if target_menu:   # NEXT + SCAN under TARGET (collapsed row, or the contacts window)
+		for id in ["target", "scan"]:
+			if not buttons.has(id) or (fl_shown("l") and not dock_down): continue
+			var r2: Rect2 = buttons[id]
+			var c2: Color = GOLD if id == "target" else CYAN
+			_box(r2, Color(0.02, 0.08, 0.15, 0.9), Color(c2, 0.95), 8, 2)
+			_text(Vector2(r2.position.x, r2.position.y + 22.0), "NEXT ▸" if id == "target" else "SCAN", 14, WHITE, HORIZONTAL_ALIGNMENT_CENTER, r2.size.x)
 
 ## v1.9k (owner: after a capture I didn't know where to go): the job line at the top is a button. Added after the
 ## layout, last, so a real button under it always wins.
@@ -1704,7 +1756,7 @@ func _draw() -> void:
 	_alerts()
 	# v7.0 (owner: what are those yellow words?): no standing hint line; the job is on the contact list. Short messages
 	# still flash up, small and white, under the top prompt.
-	if msg_t > 0.0: _text(Vector2(col_w, 86), msg, 15, Color(WHITE, minf(1.0, msg_t * 2.0)), HORIZONTAL_ALIGNMENT_CENTER, S.x - col_w * 2)
+	if msg_t > 0.0: _text(Vector2(col_w, TOP_BAR_Y + TOP_BAR_H + 74.0), msg, 15, Color(WHITE, minf(1.0, msg_t * 2.0)), HORIZONTAL_ALIGNMENT_CENTER, S.x - col_w * 2)
 	var zone := ""
 	if space.boarding: zone = "ABOARD THE %s" % str(space.board.get("ship", "BATTLESHIP")).to_upper()   # v11.45
 	elif space.surface_mode: zone = "%s  ·  ALT %d m" % [Surface.tile_name(space.planet_id, space.tile), int(space.altitude)]
@@ -1756,15 +1808,14 @@ func _draw() -> void:
 	_corner("view", "CHASE" if GS.view == "cockpit" else "COCKPIT", "view", CYAN, GS.view == "cockpit")
 	if not fl_shown("r") and not dock_down:   # v7.3: these live in the right window; only when it's away do they float above the aim stick
 		_pill("log", "COMMS", comms_mode == "roster", CYAN)
-	if buttons.has("goto"): _prompt_btn(buttons["goto"], "AUTO ON" if space.autopilot != null else "GO TO", GREEN, held.has("goto") or space.autopilot != null)   # v11.13 (owner)
-	if buttons.has("dock"): _pill("dock", "DOCK", true, GREEN)   # v11.1 (owner): just DOCK; the name is on the target box
+	if buttons.has("dock"): _prompt_btn(buttons["dock"], "DOCK", GREEN, held.has("dock"))   # v11.58 (owner): the top-centre box
 	if buttons.has("lane"): _pill("lane", "LANE" if space.lane.is_empty() else "LEAVE LANE", true, CYAN)
 	if buttons.has("jump"): _pill("jump", "JUMP", true, GOLD)
 	if buttons.has("land"): _pill("land", "LAND", true, GREEN)
 	if buttons.has("launch"): _pill("launch", "LAUNCH", true, GREEN)
 	if dock_down: _down_tabs()   # v10.6 (owner): everything pushed down: just two small tabs
 	else: _dashboard()   # v8.3 (owner): the console in the cockpit view too
-	_draw_start_select()
+	_top_bar_draw()   # v11.58 (owner): START · SELECT · FULL SCREEN · SPEED · GO TO · A -> B
 	if pause_menu: _draw_pause()
 	_stick("move", "FLIGHT")
 	_stick("aim", "AIM")
@@ -1897,6 +1948,13 @@ func _brackets(p: Vector2, s: float, col: Color) -> void:
 ## its ring (tap = map) with SPEED under it. Right: SHIELDS, HULL (LEFT WING / CORE / RIGHT WING) and ENERGY, each with
 ## its percentage. Sized to the gap between the two sticks.
 const TAB_W := 40.0     # v11.1 (owner: "the fold tabs are so small"): the side tabs' width
+const TOP_BAR_Y := 6.0   # v11.58 (owner): the top bar
+const TOP_BAR_H := 34.0
+var target_menu := false # v11.58: TARGET's NEXT + SCAN are open
+var fs_exit_slot := Rect2()   # v11.58: EXIT FULL (when full screen): the right end of the bottom row
+var top_speed := Rect2()      # v11.58: the SPEED readout in the top bar
+var top_gps := Rect2()        # v11.58: the mission A -> B bar in the top bar
+var _prompt_now := ""
 const FS_H := 32.0       # v11.53: the FULL SCREEN button's height in flight
 const FS_LIFT := 38.0    # v11.53: GO TO / DOCK sit this much higher when pushed down (the button is under them)
 var fs_slot := Rect2()   # v11.53: where the universal FULL SCREEN button goes in flight (fs_button.gd reads it)
@@ -2039,21 +2097,7 @@ func _dashboard() -> void:
 	_text(rc + Vector2(-40, -hr + 20), "BODY", 10, Color(WHITE, 0.85), HORIZONTAL_ALIGNMENT_CENTER, 80)
 	_text(rc + Vector2(-hr - 6, hr * 0.5), "L WING", 10, Color(WHITE, 0.85), HORIZONTAL_ALIGNMENT_CENTER, 50)
 	_text(rc + Vector2(hr - 44, hr * 0.5), "R WING", 10, Color(WHITE, 0.85), HORIZONTAL_ALIGNMENT_CENTER, 50)
-	# SPEED on top (tap = cockpit / chase view)
-	var sr: Rect2 = g["speed"]
-	var pts := PackedVector2Array([sr.position + Vector2(16, 0), Vector2(sr.end.x - 16, sr.position.y), sr.end - Vector2(0, 10), Vector2(sr.end.x - 10, sr.end.y),
-		Vector2(sr.position.x + 10, sr.end.y), Vector2(sr.position.x, sr.end.y - 10), sr.position + Vector2(16, 0)])
-	draw_colored_polygon(pts.slice(0, 6), Color(0.01, 0.06, 0.12, 0.92))
-	draw_polyline(pts, Color(CYAN, 0.95), 2.5, true)
-	_text(Vector2(sr.position.x + 8, sr.position.y + 22), "%d m/s" % int(space.speed_now), 20, WHITE, HORIZONTAL_ALIGNMENT_CENTER, sr.size.x - 16)
-	var mode := ""
-	if space.warp_state == "on": mode = "WARP"
-	elif space.warp_state == "charging": mode = "WARP CHARGING"
-	elif space.engine_kill: mode = "DRIFT"
-	elif space.braking: mode = "STOPPING"
-	elif space.boosting: mode = "THRUST"
-	if space.surface_mode and mode == "": mode = "ALT %d m" % int(space.altitude)
-	_text(Vector2(sr.position.x + 8, sr.end.y - 6), mode if mode != "" else "SPEED", 11, GOLD if mode != "" else CYAN_HI, HORIZONTAL_ALIGNMENT_CENTER, sr.size.x - 16)
+	# (v11.58: SPEED moved to the top bar)
 	# the four square buttons that used to be round
 	var sh_cd: float = space.shield_cd / Data.SHIELD_BOOST_COOLDOWN
 	_corner("shield", "SHIELD REPAIR", "shield", Color(0.35, 0.7, 1.0), false, str(GS.shield_charges), sh_cd)
@@ -2061,8 +2105,7 @@ func _dashboard() -> void:
 	_corner("form", "TRANSFORM", "form", GREEN, space.transform_t > 0.0, "", 0.0, space.warp_state != "off")
 	var armed: bool = space.special_ready() != "" or space.special_state != "idle"
 	_corner("special", "SUPER", "special", ORANGE, armed and pulse > 0.4, "", 0.0, false)
-	_gps_strip(Rect2(S.x * 0.5 - 230, 8, 460, 34))   # v1.5i; v11.21 (owner): up at the top, out of the way
-	_dock_tabs(g)
+	_dock_tabs(g)   # (v11.58: the A -> B bar and SPEED are in the top bar now)
 
 ## v10.6 / v11.1 (owner): the fold tabs. Out, a side's tab stands at the far outside end of its button block with an
 ## arrow pointing in; pushed, the side folds away and its tab wraps round the radar's side as a thick arc (arrow out).

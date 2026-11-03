@@ -360,8 +360,12 @@ func _on_hud(id: String) -> void:
 			var tm: String = space.tractor()
 			hud.flash_message(tm)
 			if space.tractor_t > 0.0: Sfx.play("tractor", -6.0)
-		"target": space.cycle_target()
-		"scan": hud.flash_message(hud.start_scan())   # v1.5g
+		"target":
+			space.cycle_target()
+			hud.target_menu = false
+		"scan":
+			hud.flash_message(hud.start_scan())   # v1.5g
+			hud.target_menu = false
 		"scan_close": hud.close_scan()
 		"scan_view": open_scan_view()   # v11.28
 		"view":
@@ -419,6 +423,7 @@ func _on_hud(id: String) -> void:
 		"lock_a", "lock_c": hud.flash_message("Locked for now.")
 		"cloak": space.set_cloak(not space.cloaked)   # v8.3 (owner)
 		"tgt_front":   # v8.3 (owner): TARGET = the hostile in front of you, closest
+			hud.target_menu = not hud.target_menu   # v11.58 (owner): TARGET opens NEXT + SCAN under it
 			var tf: Node3D = space.target_front()
 			if tf == null: hud.flash_message("No hostiles around.")
 			else:

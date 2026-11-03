@@ -861,6 +861,7 @@ func _smoke() -> void:
 	var flying := await _until(func(): return main.state == "flight", 20.0)
 	_check("Smoke: a new game starts in flight", flying, main.state)
 	var s := _sp()
+	if flying: await _hud_checks()
 	var shots := OS.get_environment("HL_SHOT_DIR") != ""
 	if shots and flying:   # (review pictures only when asked: HL_SHOT_DIR)
 		await _shot("smoke_flight", 1.0)
@@ -885,6 +886,57 @@ func _smoke() -> void:
 		plays = hb.room_vid_on and hb.room_vid != null and hb.room_vid.is_playing()
 	_check("Smoke: a moving room clip plays (Orion main hub)", plays)
 	if shots and docked: await _shot("smoke_hub", 1.0)
+
+## v11.58 (owner's HUD block): the top bar, DOCK top-centre, TARGET -> NEXT + SCAN, EXIT FULL clear of every button,
+## the bottom clear when pushed down.
+func _hud_checks() -> void:
+	var hud = main.hud
+	var s := _sp()
+	var bad: Array = []
+	for down in [false, true]:
+		hud.dock_down = down
+		hud._layout()
+		var tb_ok: bool = hud.buttons.has("start") and hud.buttons.has("select") and hud.buttons.has("goto") and hud.fs_slot.size.x > 0.0 and hud.top_speed.size.x > 0.0
+		for id in ["start", "select", "goto"]:
+			if hud.buttons.has(id) and (hud.buttons[id] as Rect2).position.y > 50.0: tb_ok = false
+		if hud.fs_slot.position.y > 50.0 or hud.top_speed.position.y > 50.0: tb_ok = false
+		if not tb_ok: bad.append("top bar (down %s)" % down)
+		for id in hud.buttons:
+			var r: Rect2 = hud.buttons[id]
+			if r.intersects(hud.fs_exit_slot.grow(-1.0)): bad.append("EXIT FULL over %s (down %s)" % [id, down])
+			if r.intersects(hud.fs_slot.grow(-1.0)): bad.append("FULL SCREEN over %s (down %s)" % [id, down])
+		if hud.fs_exit_slot.end.y < hud.S.y - 40.0 or hud.fs_exit_slot.position.x < hud.S.x * 0.5: bad.append("EXIT FULL not bottom right (down %s)" % down)
+	_check("HUD: one top bar (START, SELECT, FULL SCREEN, SPEED, GO TO, A -> B); EXIT FULL at the bottom row's right end and FULL SCREEN never cover a button, collapsed or expanded", bad.is_empty(), ", ".join(bad))
+	# DOCK at the top centre when in range
+	var dock_ok := false
+	if is_instance_valid(s.station):
+		_tp(s.dock_point(s.station) + (s.dock_point(s.station) - s.station.global_position).normalized() * 120.0, s.dock_point(s.station))
+		await _frames(4)
+		hud._layout()
+		if hud.buttons.has("dock"):
+			var dr: Rect2 = hud.buttons["dock"]
+			dock_ok = absf(dr.get_center().x - hud.S.x * 0.5) < 4.0 and dr.position.y < 100.0
+	_check("HUD: DOCK appears as the top-centre box when you are in range", dock_ok, str(hud.buttons.get("dock", "no dock")))
+	# TARGET opens NEXT + SCAN (no separate NEXT / SCAN row)
+	var menu_ok := true
+	for down in [false, true]:
+		hud.dock_down = down
+		hud.target_menu = false
+		hud._layout()
+		var closed_ok: bool = not hud.buttons.has("target") and not hud.buttons.has("scan") and hud.buttons.has("tgt_front")
+		main._on_hud("tgt_front")
+		hud._layout()
+		var open_ok: bool = hud.target_menu and hud.buttons.has("target") and hud.buttons.has("scan")
+		main._on_hud("target")
+		if not (closed_ok and open_ok and not hud.target_menu): menu_ok = false
+	hud.dock_down = true
+	hud._layout()
+	var clear_ok := true   # pushed down: nothing but the row, the sticks and the top bar
+	for id in hud.buttons:
+		var r: Rect2 = hud.buttons[id]
+		if r.position.y > 110.0 and r.end.y < hud.S.y - 50.0 and not str(id).begins_with("met_"): clear_ok = false
+	hud.dock_down = false
+	_check("HUD: one TARGET opens NEXT + SCAN; with HIDE pressed the middle of the screen (the ship) is clear", menu_ok and clear_ok, "menu %s clear %s" % [menu_ok, clear_ok])
 
 func _finish_group() -> void:
 	var passed := results.filter(func(r): return r["pass"]).size()
