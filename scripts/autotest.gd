@@ -1466,55 +1466,85 @@ func _fighters_l2l3() -> void:
 func _board_walkthrough() -> Dictionary:
 	var s := _sp()
 	var res: Array = []
-	var layout_ok: bool = Boarding.ROOMS.size() >= 10 and s.board_doors.size() >= Boarding.ROOMS.size() - 1
+	var y := func(x: float, z: float) -> float: return Boarding.floor_at(Vector3(x, 0, z)) + 6.0
+	var layout_ok: bool = Boarding.ROOMS.size() >= 14 and s.board_doors.size() >= Boarding.ROOMS.size() - 1
 	var esc: Dictionary = {}
 	var seal: Dictionary = {}
 	for d in s.board_doors:
 		if Boarding.is_door(d, Boarding.ESCAPE_DOOR): esc = d
 		if Boarding.is_door(d, Boarding.SEAL_DOOR): seal = d
-	layout_ok = layout_ok and not esc.is_empty() and bool(esc["locked"]) and not seal.is_empty()
-	res.append("%d rooms, %d doors, way out locked %s" % [Boarding.ROOMS.size(), s.board_doors.size(), bool(esc.get("locked", false))])
+	# the way in and the way out are both joined door to door; the way out is short enough to run in the time
+	var joined := true
+	for route in [Boarding.ROUTE_IN, Boarding.ROUTE_OUT]:
+		for k in range(1, route.size()):
+			if Boarding.joint(route[k - 1], route[k]).is_empty(): joined = false
+	var run := 0.0
+	var prev := Boarding.CORE_AT
+	for k in Boarding.ROUTE_OUT.slice(1):
+		var r: Array = Boarding.ROOMS[k]["r"]
+		var c := Vector3((float(r[0]) + float(r[1])) * 0.5, 0, (float(r[2]) + float(r[3])) * 0.5)
+		run += Vector2(c.x - prev.x, c.z - prev.z).length()
+		prev = c
+	run += Boarding.EXIT_X - prev.x
+	var walk: float = float(GS.ship()["speed"]) * Data.GROUND_WALK
+	var in_time: bool = run / walk < Data.BOARD_ESCAPE * 0.85
+	layout_ok = layout_ok and not esc.is_empty() and bool(esc["locked"]) and not seal.is_empty() and joined and in_time
+	res.append("%d areas, %d doors, joined %s, way out locked %s, run out %.0f m = %.0f s walking" % [Boarding.ROOMS.size(), s.board_doors.size(), joined, bool(esc.get("locked", false)), run, run / walk])
 	var first: Dictionary = {}
 	for d in s.board_doors:
-		if Boarding.is_door(d, ["bay", "c1"]): first = d
-	_tp(Vector3(0, 6, -45), Vector3(0, 6, -200))
+		if Boarding.is_door(d, ["lbay", "t1"]): first = d
+	_tp(Vector3(-350, y.call(-350, 0), 0), Vector3(0, 0, 0))
 	await _wait(1.4)
 	var opens: bool = not first.is_empty() and float(first["open"]) > 0.95
 	var e0: int = s.enemies.size()
-	_tp(Vector3(0, 6, -230), Vector3(0, 6, -300))
+	_tp(Vector3(-60, y.call(-60, 0), 0), Vector3(-60, 0, 200))
 	await _frames(4)
-	var guards: bool = (s.board["woke"] as Dictionary).has("guard") and s.enemies.size() >= e0 + int(Boarding.ROOMS["guard"][6])
-	res.append("door slides open %s, guard room mechs %s" % [opens, guards])
-	_tp(Vector3(0, 6, -600), Vector3(0, 6, -700))
+	var guards: bool = (s.board["woke"] as Dictionary).has("muster") and s.enemies.size() >= e0 + int(Boarding.ROOMS["muster"]["guards"])
+	var on_deck: bool = absf(s.player.global_position.y - y.call(-60, 0)) < 3.0
+	res.append("door slides open %s, muster hall mechs %s, on the sunken deck %s" % [opens, guards, on_deck])
+	# the bridge: its mech, then the hostage
+	_tp(Vector3(-60, y.call(-60, -400), -400), Vector3(-60, 40, -480))
+	await _frames(4)
+	var bm: Dictionary = s.board.get("bridge", {})
+	if not bm.is_empty() and s.enemies.has(bm): s._destroy_unit(bm)
+	await _frames(4)
+	var hp: Node3D = s.board.get("hostage")
+	if is_instance_valid(hp): _tp(Vector3(hp.global_position.x, y.call(hp.global_position.x, hp.global_position.z), hp.global_position.z), hp.global_position + Vector3(0, 0, 10))
+	await _frames(4)
+	var hostage: bool = not bm.is_empty() and bool(s.board["hostage_pay"])
+	res.append("bridge mech -> hostage freed %s" % hostage)
+	# the reactor: the shut way out holds, their boss, the shield, the blast
+	_tp(Vector3(114, y.call(114, 800), 800), Vector3(114, -100, 700))
 	await _frames(3)
-	s.player.global_position = Vector3(0, 6, -619.0)   # (walking into the shut door from the hall)
+	s.player.global_position = Vector3(114, y.call(114, 800), 781.0)   # (walking into the shut door from the reactor side)
 	await _frames(3)
-	var blocked: bool = s.player.global_position.z > -619.5
-	for k in s.board["guards"].get("hall", []):
+	var blocked: bool = s.player.global_position.z > 780.5
+	var boss: Dictionary = s.board.get("boss", {})
+	var shielded: bool = not boss.is_empty() and bool(s.board["core"].get("locked", false)) and (s.board["shield"] as Node3D).visible
+	for k in s.board["guards"].get("reactor", []) + ([boss] if not boss.is_empty() else []):
 		if s.enemies.has(k): s._destroy_unit(k)
 	await _frames(4)
 	var core: Dictionary = s.board["core"]
-	var unlocked: bool = not bool(core.get("locked", true))
+	var unlocked: bool = not bool(core.get("locked", true)) and not (s.board["shield"] as Node3D).visible
 	s._damage_enemy(core, 999999.0)
 	await _frames(4)
 	var escape: bool = str(s.board["phase"]) == "escape" and absf(float(s.board["escape"]) - Data.BOARD_ESCAPE) < 1.0 and bool(seal["sealed"]) and not bool(esc["locked"]) and s._board_path.visible
-	res.append("locked door blocks %s, hall clear -> core open %s, core down -> sealed / way out open / %d s %s" % [blocked, unlocked, int(Data.BOARD_ESCAPE), escape])
+	res.append("shut door blocks %s, boss + shielded reactor %s, boss down -> shield down %s, reactor down -> sealed / way out open / %d s %s" % [blocked, shielded, unlocked, int(Data.BOARD_ESCAPE), escape])
 	var cr0 := GS.credits
-	_tp(Vector3(0, 6, -800), Vector3(0, 6, -900))
+	_tp(Vector3(400, y.call(400, 120), 120), Vector3(500, 6, 120))
 	await _frames(3)
-	s.player.global_position = Vector3(0, 6, Boarding.EXIT_Z - 2.0)
+	s.player.global_position = Vector3(Boarding.EXIT_X + 2.0, 6, 120)
 	await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and not main.space.boarding and not main.space.post_wave.is_empty(), 12.0)
 	var s2 := _sp()
 	var wave: int = (s2.post_wave.get("kids", []) as Array).size()
-	var waited: bool = wave == Data.BOARD_WAVE and GS.credits == cr0
+	var waited: bool = wave == Data.BOARD_WAVE and GS.credits == cr0 + (Data.BOARD_BOUNTY_PAY if hostage else 0)
 	for k in (s2.post_wave.get("kids", []) as Array).duplicate():
 		if s2.enemies.has(k): s2._destroy_unit(k)
 	await _frames(4)
 	var paid: bool = s2.post_wave.is_empty() and GS.credits >= cr0 + Data.BOARD_PAY
-	res.append("out: %d ships waiting, none paid yet %s; all down -> paid %s" % [wave, waited, paid])
+	res.append("out the starboard side: %d ships waiting, battleship not paid yet %s; all down -> paid %s" % [wave, waited, paid])
 	if GS.form == "mech": s2.start_transform()
-	return {"ok": layout_ok and opens and guards and blocked and unlocked and escape and waited and paid, "txt": " · ".join(res)}
-
+	return {"ok": layout_ok and opens and guards and on_deck and hostage and blocked and shielded and unlocked and escape and waited and paid, "txt": " · ".join(res)}
 func _smoke_core() -> void:
 	_check("Core: the game boots to its title / main menu", main.state == "title", main.state)
 	main.start_game()
@@ -1643,7 +1673,7 @@ func _run() -> void:
 		await _capture("fighters_l2l3")
 		get_tree().quit()
 		return
-	if OS.get_environment("HL_BOARDSHOT") != "":   # v11.70: pictures of the boarding run (HL_SHOT_DIR)
+	if OS.get_environment("HL_BOARDSHOT") != "":   # v11.71: pictures of the boarding run (HL_SHOT_DIR)
 		await _smoke_core()
 		var s := _sp()
 		var mb: Dictionary = s._spawn_capital("inv_battleship", "battleship", s.player.global_position - s.player.global_basis.z * 2500.0, s.player.global_position, "Unity")
@@ -1652,30 +1682,28 @@ func _run() -> void:
 		main.board_battleship(mb)
 		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding, 15.0)
 		s = _sp()
+		var y := func(x: float, z: float) -> float: return Boarding.floor_at(Vector3(x, 0, z)) + 6.0
 		await _wait(1.0)
-		_tp(Vector3(0, 6, -40), Vector3(0, 6, -200))
-		await _wait(1.6)
-		await _capture("board_bay")
-		_tp(Vector3(0, 6, -196), Vector3(0, 6, -260))
-		await _wait(1.5)
-		await _capture("board_guard")
-		_tp(Vector3(0, 6, -446), Vector3(0, 6, -530))
-		await _wait(1.2)
-		await _capture("board_hall")
-		for k in s.board["guards"].get("hall", []):
+		for shot in [["bay", Vector3(-395, 0, 0), Vector3(0, 0, 0)], ["tunnel", Vector3(-290, 0, 0), Vector3(-100, 0, 0)], ["muster", Vector3(-150, 0, 0), Vector3(40, 0, 50)],
+				["ramp", Vector3(-26, 0, 530), Vector3(-26, -100, 800)], ["reactor", Vector3(-26, 0, 800), Vector3(0, -80, 940)], ["bridge", Vector3(-60, 0, -340), Vector3(-60, 40, -480)]]:
+			var at: Vector3 = shot[1]
+			_tp(Vector3(at.x, y.call(at.x, at.z), at.z), shot[2])
+			await _wait(1.3)
+			await _capture("board_" + str(shot[0]))
+		_tp(Vector3(-26, y.call(-26, 820), 820), Vector3(0, -80, 940))
+		await _frames(3)
+		for k in s.board["guards"].get("reactor", []) + [s.board.get("boss", {})]:
 			if s.enemies.has(k): s._destroy_unit(k)
 		await _frames(3)
 		s._damage_enemy(s.board["core"], 999999.0)
 		await _wait(1.5)
-		_tp(Vector3(0, 6, -590), Vector3(0, 6, -700))
+		_tp(Vector3(114, y.call(114, 600), 600), Vector3(114, -40, 400))
 		await _wait(1.2)
 		await _capture("board_escape")
-		s.player.global_position = Vector3(0, 6, Boarding.EXIT_Z - 2.0)
+		s.player.global_position = Vector3(Boarding.EXIT_X + 2.0, 6, 120)
 		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and not main.space.boarding and not main.space.post_wave.is_empty(), 12.0)
-		await _wait(0.2)
+		await _wait(0.3)
 		await _capture("board_out")
-		await _wait(0.6)
-		await _capture("board_out2")
 		get_tree().quit()
 		return
 	if OS.get_environment("HL_FXSHOT") != "":   # v11.66: pictures of a ship blast and the nuke (HL_SHOT_DIR)
