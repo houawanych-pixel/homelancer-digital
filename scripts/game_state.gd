@@ -39,6 +39,7 @@ var view := "chase" # "chase" or "cockpit"
 var form := "ship" # "ship" or "mech" (the player frame transforms between them; damage carries over)
 var system_id := "solara"
 var discovered := ["solara"]
+var found_stations: Array = []   # v11.54: hidden stations you have found (station ids): they stay on the map
 var explored := {}   # v8.9 (owner, Freelancer fog of war): system id -> the 10 x 10 map squares you have seen (v10.3: a "0"/"1" string; v8.9: a bit mask of 8 x 8)
 ## v8.9: the map square (col, row: 0..7, A..H / 1..8) a point of a system lies in.
 static func map_cell(p: Vector3) -> Vector2i:
@@ -102,7 +103,7 @@ var god_mode := false # only used by the automated route test
 # ---------------------------------------------------------------- v1.7y saving
 const SAVE_KEYS := ["credits", "ship_id", "owned_ships", "weapon_id", "owned_weapons", "missiles", "heavy_missiles", "mines", "nukes", "rack",
 	"owned_racks", "slots", "modes", "view", "system_id", "discovered", "explored", "last_base", "kills", "met", "mood", "memory", "heat_shield",
-	"bounty", "bounties_done", "mission", "cargo", "missions_done", "rep", "cast", "mine_kind", "block_deltas", "tutorial_seen", "bounty_jail", "mounts", "core_gun", "core_gun2", "core_gun3", "modules", "owned_modules", "gun_levels", "owned_mechs", "mech_parts", "pilot_name"]   # (v1.9e: + mounts; v1.9i: + owned_mechs, mech_parts; v1.9j: + pilot_name)
+	"bounty", "bounties_done", "mission", "cargo", "missions_done", "rep", "cast", "mine_kind", "block_deltas", "tutorial_seen", "bounty_jail", "mounts", "core_gun", "core_gun2", "core_gun3", "modules", "owned_modules", "gun_levels", "owned_mechs", "mech_parts", "pilot_name", "found_stations"]   # (v1.9e: + mounts; v1.9i: + owned_mechs, mech_parts; v1.9j: + pilot_name)
 var save_path: String = Data.SAVE_PATH
 var save_enabled := true   # (the route test turns it off, so a test never reads or writes a player's save)
 var saves := 0             # (tests) saves written this session

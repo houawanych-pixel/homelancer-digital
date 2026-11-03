@@ -242,7 +242,9 @@ static func box_info(id: String) -> Array:
 	if not Data.SYSTEMS.has(id): return [0, []]
 	var sy: Dictionary = Data.SYSTEMS[id]
 	var st: Array = [[str(sy["station"]["name"]), Data.is_st3d(sy["station"].get("model", ""))]]
-	for b in sy.get("more_stations", []): st.append([str(b["name"]), Data.is_st3d(b.get("model", ""))])
+	for b in sy.get("more_stations", []):
+		if b.get("hidden", false) and not (str(b.get("id", "")) in GS.found_stations): continue   # v11.54: hidden until found
+		st.append([str(b["name"]), Data.is_st3d(b.get("model", ""))])
 	return [1 + (sy.get("more_planets", []) as Array).size(), st]
 
 static func flat_pos(S: Vector2, col: int, row: int) -> Vector2:
@@ -604,7 +606,7 @@ func _orrery(id: String, p: Vector2, cell: Vector2) -> Vector2:
 		var bp: Vector2 = to2.call(b[0])
 		draw_circle(bp, clampf(float(b[1]) / 4000.0, 3.0, 9.0) * cell.x / 300.0 + 2.0, Color(0.45, 0.75, 1.0))
 		if b[2] != "": draw_string(font, bp + Vector2(6, -4), str(b[2]), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0.75, 0.88, 1.0, 0.9))
-	var sts: Array = [d["station"]] + (d.get("more_stations", []) as Array)
+	var sts: Array = [d["station"]] + (d.get("more_stations", []) as Array).filter(func(b): return not b.get("hidden", false) or str(b.get("id", "")) in GS.found_stations)   # v11.54
 	for st in sts:
 		var q: Vector2 = to2.call(st["pos"])
 		draw_rect(Rect2(q - Vector2(3, 3), Vector2(6, 6)), Color(0.4, 1.0, 0.6))

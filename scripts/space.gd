@@ -919,6 +919,7 @@ var _world_shader: Shader
 ## to them; no docking or landing yet. Planets wear their type's real map (a flat temporary colour until the "worlds"
 ## pack is in); stations are a small code-made stand-in in the faction's colour.
 var extras: Array = []          # Node3D, meta kind "landmark"
+var hidden_extras: Array = []   # v11.54 (owner): hidden stations not found yet: off the map, the lists and the dock until you fly near
 var platforms: Array = []       # v1.9b: the docking platforms floating over the other planets (dock there for its jobs)
 var extra_worlds: Array = []    # [MeshInstance3D, data] waiting for / wearing the real map
 func _build_extras() -> void:
@@ -969,12 +970,14 @@ func _build_extras() -> void:
 			sm.scale = Vector3.ONE * Data.PH_STATION_MODEL_K
 			n.add_child(sm)
 		_mesh(n, BoxMesh.new(), Vector3(0, 24, 0), Color(1.0, 0.85, 0.5), Vector3(2, 2, 2), Vector3.ZERO, true)
-		extras.append(n)
+		var secret: bool = d.get("hidden", false) and not (str(d.get("id", "")) in GS.found_stations)   # v11.54: a hidden rival station
+		if secret: hidden_extras.append(n)
+		else: extras.append(n)
 		if Data.is_st3d(d.get("model", "")):   # v1.9d: one of the owner's 3D stations: dockable, its own size
 			n.set_meta("station3d", str(d["model"]))
 			n.set_meta("radius", STATION_WIDTH * Data.st3d_scale(str(d["model"])) * Data.STATION3D_HIT)
 			n.set_meta("dock", true)
-			docks3d.append(n)
+			if not secret: docks3d.append(n)
 	for r: Array in Data.STATION3D_ROAMERS.get(sys_id, []):   # v1.9d: roaming Cybermorph battleships
 		var rn := Node3D.new()
 		rn.name = str(r[1])
@@ -4222,8 +4225,26 @@ func _build_carrier() -> void:
 
 # ---------------------------------------------------------------- per frame
 var _mem_reported := false
+## v11.54 (owner: "it shows on the map only once scanned / discovered"): fly within HIDDEN_FIND_RANGE of a hidden
+## station (it sits in the nebula fog) and it is charted for good: on the map, in the lists, dockable.
+func _find_hidden() -> void:
+	for n: Node3D in hidden_extras.duplicate():
+		if not is_instance_valid(n) or not is_instance_valid(player): continue
+		if n.global_position.distance_to(player.global_position) > Data.HIDDEN_FIND_RANGE: continue
+		reveal_hidden(n)
+
+func reveal_hidden(n: Node3D) -> void:
+	hidden_extras.erase(n)
+	extras.append(n)
+	if n.get_meta("dock", false): docks3d.append(n)
+	var d: Dictionary = n.get_meta("info", {})
+	if not (str(d.get("id", "")) in GS.found_stations): GS.found_stations.append(str(d.get("id", "")))
+	message.emit("Hidden station found: %s. It is on your map now." % str(d.get("name", n.name)))
+	Sfx.play("ui_ok", -4.0)
+
 func _process(dt: float) -> void:
 	time += dt
+	if not hidden_extras.is_empty() and Engine.get_process_frames() % 20 == 0: _find_hidden()
 	warp_flash = maxf(0.0, warp_flash - dt)
 	_follow_mission(dt)
 	if not _mem_reported and time > 3.0:

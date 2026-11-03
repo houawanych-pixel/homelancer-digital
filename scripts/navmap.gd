@@ -416,6 +416,7 @@ func _collect() -> void:
 		k += 1
 	k = 1
 	for xd: Dictionary in sys.get("more_stations", []):
+		if xd.get("hidden", false) and not (str(xd.get("id", "")) in GS.found_stations): continue   # v11.54: hidden until found
 		objs["station%d" % k] = {"type": "station", "name": xd["name"], "pos": xd["pos"], "col": GREEN.darkened(0.15), "r": 45.0, "data": xd, "node": _extra_at(xd["pos"])}
 		k += 1
 	var belt: Dictionary = sys["asteroids"]

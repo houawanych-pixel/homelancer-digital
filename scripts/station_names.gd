@@ -244,7 +244,40 @@ static func apply(systems: Dictionary) -> Dictionary:
 		fg["nebula"]["radius"] = Data.FOG_RADIUS
 		fg["nebula"]["color"] = Data.FOG_COLOR
 		fg["nebula"]["name"] = "The Grey"
+	_apply_roles(systems)
 	return systems
+
+## v11.54 (owner): the system roles (Data.SYSTEM_ROLES): the hub keeps its name, the catalog placeholders go, and the ally
+## and rival stations are added (real, dockable 3D stations). A hidden rival sits inside the system's main nebula.
+static func _apply_roles(systems: Dictionary) -> void:
+	for sid in Data.SYSTEM_ROLES:
+		if not systems.has(sid): continue
+		var sys: Dictionary = systems[sid]
+		var roles: Dictionary = Data.SYSTEM_ROLES[sid]
+		if roles.has("hub"): sys["station"]["name"] = str(roles["hub"]["name"])
+		sys["station"]["role"] = "hub"
+		sys["more_stations"] = []   # (Drydock, Orbital Battery Ring, Dreadholm Shipyard ... merged into the hub)
+		sys["spy"] = roles.get("spy", {})
+		for role in ["ally", "rival"]:
+			if not roles.has(role): continue
+			var r: Dictionary = roles[role]
+			var rng := RandomNumberGenerator.new()
+			rng.seed = hash("role:%s:%s" % [sid, role])
+			var pos: Vector3 = sys["station"]["pos"]
+			var neb: Dictionary = sys.get("nebula", {})
+			if r.get("in_nebula", false) and not neb.is_empty():
+				var nr: float = float(neb["radius"]) * Data.NEBULA_SIZE
+				pos = (neb["center"] as Vector3) + Vector3(rng.randf_range(-1, 1), rng.randf_range(-0.2, 0.2), rng.randf_range(-1, 1)).normalized() * nr * 0.3
+			else:
+				var c: Vector3 = sys["station"]["pos"]
+				for attempt in Data.PH_PLACE_TRIES:
+					var a: float = rng.randf() * TAU + attempt * 0.47
+					pos = c + Vector3(cos(a), 0.0, sin(a)) * (Data.RETOPO_ADDED_DIST + attempt * 300.0) + Vector3(0, rng.randf_range(-150.0, 150.0), 0)
+					if SystemBuilder.clear_of(sys, pos, Data.PH_STATION_RADIUS * 2.0): break
+			sys["more_stations"].append({"id": "%s_%s" % [sid, role], "name": str(r["name"]), "catalog_name": str(r["name"]), "kind": "station",
+				"placeholder": false, "color": Color(0.5, 0.5, 0.55), "pos": pos, "radius": Data.PH_STATION_RADIUS, "model": str(r["model"]),
+				"faction": str(r["faction"]), "role": role, "hidden": bool(r.get("hidden", false)), "tint": r.get("tint", Color.WHITE),
+				"desc": str(r.get("desc", "%s in the %s system." % [r["name"], sys["name"]])), "retopo_added": true})
 
 ## How many stations carry a proper name.
 static func count() -> int:

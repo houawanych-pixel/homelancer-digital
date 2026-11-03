@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.53"
+const VERSION := "v11.54"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -37,6 +37,25 @@ const ROOM_SETS := {
 	"orion": {"2": {"shipyard": "shipyard4", "weapons": "weapons2", "private_quarters": "private_quarters2"}, "3": {"shipyard": "shipyard2"}, "4": {"shipyard": "shipyard3"}},   # set 3: hangar A; set 4: hangar B   # set 2: the owner's Nov 1 Fleet Command sheets (more rooms join as they are animated)
 }
 const STATION_ROOM_SET := {"dreadholm": "2", "korrath": "3", "battlespire": "4"}   # Fleet Command (Orion capital); Korrath Garrison
+## v11.54 (owner, Dreadholm update): every star system has four ROLES. HUB = the home faction's own station (the system's
+## main station, its full room set); ALLY = an allied faction's station (the Galaxy Bible's allies; small ally stations
+## share ONE art set, told apart by tint only); RIVAL = the rival faction's station, often HIDDEN (in the system's main
+## nebula, off the map until you find it); SPY = a covert contact (a person at the hub) or a small hidden outpost.
+## A system listed here drops its catalog placeholder stations. Dreadholm is the first one filled in.
+const SYSTEM_ROLES := {
+	"dreadholm": {
+		"hub": {"name": "Fleet Command"},
+		"ally": {"name": "Covenant Embassy", "faction": "Covenant", "model": "HL_Station_Covenant_Trade_retopo", "tint": Color(0.82, 0.74, 1.0),
+			"desc": "Covenant embassy station: Orion's allies keep an envoy, a trader and a medic here."},
+		"rival": {"name": "Unity Listening Post", "faction": "Unity", "model": "HL_Station_Unity_Military_retopo", "hidden": true, "in_nebula": true,
+			"desc": "A Unity listening post hidden in the Dreadholm Veil, spying on Fleet Command."},
+		"spy": {"type": "contact", "at": "hub", "faction": "Unity", "name": "Veil Informant",
+			"desc": "A covert contact at Fleet Command who trades word on the hidden Unity post."},
+	},
+}
+const ALLY_ROOMS := ["main_hub", "supplies", "medical_bay", "mission_center", "weapons"]    # the 5 pages of an ally station (one shared art set)
+const RIVAL_ROOMS := ["main_hub", "supplies", "medical_bay", "mission_center", "weapons"]   # the 5 pages of a rival station
+const HIDDEN_FIND_RANGE := 2500.0   # m: fly this close to a hidden station (or scan it) and it is charted for good
 const STATION_SIZE := 2.0   # v11.21 (owner: "double the size of all space stations")
 const ESCORT_FREIGHTER_LEN := 180.0   # v11.16 (owner): the escort / cargo-run freighter is a big ship (m long), not fighter-sized (was 16)
 

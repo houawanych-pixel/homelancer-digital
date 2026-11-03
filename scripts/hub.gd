@@ -1310,7 +1310,12 @@ func room_for(s: String) -> String:
 		var hr: String = {"weapon": "weapons", "ammo": "supplies"}.get(eq_tab, "")
 		return "%s_%s" % [f, hr] if hr != "" else ""
 	if not Data.ROOM_OF.has(s): return ""
-	return "%s_%s" % [f, Data.ROOM_OF[s]]
+	var rn: String = Data.ROOM_OF[s]
+	# v11.54 (owner): an ally or rival station has 5 rooms (one shared art set); its other pages stand in its main hub
+	var role := str(base.get("role", ""))
+	if role == "ally" and not (rn in Data.ALLY_ROOMS): rn = "main_hub"
+	if role == "rival" and not (rn in Data.RIVAL_ROOMS): rn = "main_hub"
+	return "%s_%s" % [f, rn]
 
 func _show_room(s: String) -> void:
 	var key := room_for(s)
@@ -1351,6 +1356,7 @@ func _show_room(s: String) -> void:
 		_room_video(path.get_basename() + ".ogv" if not hostile_room else "")
 	elif room_vid_on and not room_vid.is_playing(): room_vid.play()   # (back in the same room)
 	room_view.visible = true
+	room_view.modulate = base.get("tint", Color.WHITE) if base.get("role", "") == "ally" else Color.WHITE   # v11.54: ally stations: one art set, told apart by tint
 	crew.room_changed(key if not hostile_room else "")
 	_update_room(0.0)
 
