@@ -133,7 +133,7 @@ func open_comms(from: String, line: String, mode := "talk", hostile := false, fa
 	comms_female = female
 	comms_hostile = hostile
 	if mode == "talk": console_open = false
-	if side == "l" and console_open:   # v1.8s (owner: no layering): a hostile caller takes the left side; the panel there goes away
+	if false and side == "l" and console_open:   # (v11.64: the console is on the right now, a caller on the left leaves it alone) v1.8s (owner: no layering): a hostile caller takes the left side; the panel there goes away
 		console_open = false
 		if _typer: _typer.visible = false
 	comms_voice_id = voice_id
@@ -238,7 +238,7 @@ func contacts_rect() -> Rect2:   # v1.8r (owner): the call list is on the LEFT; 
 	var w := _panel_w()
 	var sp := _panel_span()
 	var e := ease(roster_t, 0.35)
-	return Rect2(-w * (1.0 - e), sp.x, w, sp.y - sp.x)
+	return Rect2(S.x - w * e, sp.x, w, sp.y - sp.x)   # v11.64 (owner: "COMMS should only switch the RIGHT screen"): the right edge
 
 func msglog_rect() -> Rect2:   # v1.8s: the text screen takes the call list's place (one panel, on the left)
 	return contacts_rect()
@@ -323,7 +323,7 @@ func fl_tab_rect(i: int) -> Rect2:
 	return Rect2(r.position + Vector2(4.0 + i * (bw + 4.0), 28.0), Vector2(bw, 26.0))
 
 func fl_shown(side: String) -> bool:
-	return space != null and space.controls and slots[side].is_empty() and not console_open and not planet_map and not dock_down and (dock_l if side == "l" else dock_r)
+	return space != null and space.controls and slots[side].is_empty() and not (console_open and side == "r") and not planet_map and not dock_down and (dock_l if side == "l" else dock_r)
 
 ## The contacts on the list: ships nearest first (hostiles, then others), then the places.
 func fl_contacts() -> Array:
@@ -528,7 +528,7 @@ func side_rect(side: String) -> Rect2:
 	var bottom := _home("move").y - stick_r - 12.0
 	var h := minf(w + 90.0, bottom - top)
 	top = bottom - h   # v7.5 (owner): the two windows sit right above the sticks
-	var inset := 8.0 + ((_panel_w() + 6.0) * ease(roster_t, 0.35) if console_open and side == "l" else 0.0)   # v1.4n: a caller floats in NEXT to the console panel (v1.8s: the panel is on the left only)
+	var inset := 8.0 + ((_panel_w() + 6.0) * ease(roster_t, 0.35) if console_open and side == "r" else 0.0)   # v1.4n: a caller floats in NEXT to the console panel (v1.8s: the panel is on the left only)
 	return Rect2(inset if side == "l" else S.x - inset - w, top, w, h)
 
 # ---------------------------------------------------------------- layout
@@ -612,7 +612,7 @@ func _layout() -> void:
 		# v11.13 (owner): GO TO is as big as DOCK, on the other side of the radar: the most important button (the
 		# next objective, autopilot and warp all the way). Pushed down: it sits in the middle, sharing with DOCK.
 		var gb := Rect2(dg["blk_l"].end.x - 132.0, dg["blk_l"].position.y - 62.0, 132.0, 54.0)
-		if dock_l and not dock_down and slots["l"].is_empty() and not console_open and not planet_map:
+		if dock_l and not dock_down and slots["l"].is_empty() and not planet_map:   # (v11.64: COMMS leaves the left side alone)
 			gb.position.y = minf(gb.position.y, fl_rect("l").position.y - 60.0) if fl_rect("l").intersects(gb) else gb.position.y
 		if dock_down:
 			gb = Rect2(S.x * 0.5 - 70.0, S.y - TAB_B_H - 2.0 - 64.0 - FS_LIFT, 140.0, 54.0)

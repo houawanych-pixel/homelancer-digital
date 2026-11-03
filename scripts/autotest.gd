@@ -1232,6 +1232,57 @@ func _cargo() -> void:
 	var same: bool = absf(heads[0] - heads[1]) < 0.6 and absf(heads[0] - Data.FREIGHTER_HEAD_LEN) < 1.0 and bodies[1] > bodies[0] * 1.5 and bodies[0] > heads[0]
 	_check("Cargo: the head is the Cadet's size on both types; type 2's body is much bigger", same, "head %.1f / %.1f m, body %.1f / %.1f m" % [heads[0], heads[1], bodies[0], bodies[1]])
 
+## v11.64 (owner: "engine kill at warp doesn't neutralize the warp"): KILL at warp (also on GO TO) keeps the warp speed,
+## lets go of the autopilot, you can turn and every weapon fires; THRUST in that drift keeps the speed (swung to the nose).
+func _warp_kill() -> void:
+	var s := _sp()
+	GS.energy = Data.ENERGY_MAX
+	s.autopilot = s.gates[0] if not s.gates.is_empty() else s.planet
+	s.player.look_at(s.autopilot.global_position)
+	s.yaw = s.player.rotation.y
+	s.pitch = s.player.rotation.x
+	s.request_warp()
+	var on := await _until(func(): return s.warp_state == "on", 12.0)
+	await _wait(0.5)
+	var v_warp: float = s.speed_now
+	main._on_hud("kill")
+	# v11.64 (owner: "COMMS should only switch the right screen"): the console comes up on the right; the left window stays
+	var hud = main.hud
+	var l_before: bool = hud.fl_shown("l")
+	hud.open_log()
+	await _wait(1.0)
+	var cr: Rect2 = hud.contacts_rect()
+	var right_side: bool = cr.position.x > hud.S.x * 0.5 and cr.end.x <= hud.S.x + 1.0
+	var l_after: bool = hud.fl_shown("l")
+	var r_gone: bool = not hud.fl_shown("r")
+	_check("Flight: COMMS opens on the right screen only; the left window stays as it was", right_side and l_after == l_before and r_gone,
+		"panel %s, left window %s -> %s, right window hidden %s" % [cr, l_before, l_after, r_gone])
+	hud.close_roster()
+	await _wait(0.3)
+	var drift: bool = s.engine_kill and s.warp_drift and s.autopilot == null and s.warp_state == "off"
+	var y0: float = s.yaw
+	main.hud.aim_vec = Vector2(1, 0)
+	await _wait(1.0)
+	main.hud.aim_vec = Vector2.ZERO
+	var turned: float = absf(angle_difference(y0, s.yaw))
+	var kept: bool = s.speed_now > v_warp * 0.9 and s.warp_state == "off"
+	GS.energy = Data.ENERGY_MAX
+	s.gun_cd = 0.0
+	var nb: int = s.bolts.size()
+	s.fire_lock = true
+	await _wait(0.5)
+	s.fire_lock = false
+	var shot: bool = s.bolts.size() > nb
+	var mis: bool = s.trigger_system("missile")
+	main.hud.held["thrust"] = true
+	await _wait(1.0)
+	main.hud.held.erase("thrust")
+	var boost_kept: bool = s.engine_kill and s.speed_now > v_warp * 0.9 and s.vel.normalized().dot(-s.player.global_basis.z) > 0.8
+	_check("Flight: KILL at warp (on GO TO too) keeps the warp speed, drops the autopilot, turns, fires guns and missiles; THRUST keeps the speed, swung to the nose",
+		on and drift and turned > 0.3 and kept and shot and mis and boost_kept,
+		"warp %s %.0f m/s; drift %s; turned %.2f rad; kept %s; guns %s missile %s; thrust kept %s (%.0f m/s)" % [on, v_warp, drift, turned, kept, shot, mis, boost_kept, s.speed_now])
+	main._on_hud("kill")
+
 func _smoke_core() -> void:
 	_check("Core: the game boots to its title / main menu", main.state == "title", main.state)
 	main.start_game()
@@ -1295,6 +1346,33 @@ func _run() -> void:
 	if OS.get_environment("HL_ROOMS") != "":   # v11.59: the rooms UI checks (+ the core group)
 		await _smoke_core()
 		await _rooms_ui()
+		_finish_group()
+		return
+	if OS.get_environment("HL_MAPDUMP") != "":
+		main.start_game()
+		await _until(func(): return main.state == "flight", 20.0)
+		main._load_system("dreadholm", "station")
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.sys_id == "dreadholm", 15.0)
+		await _wait(1.0)
+		var s := _sp()
+		var E: float = Data.SPACE_EDGE
+		var w: float = 2.0 * E / Data.MAP_CELLS
+		var cell := func(p: Vector3) -> String: return "%s%.1f / col %.2f row %.2f" % ["ABCDEFGHIJK"[int((p.x + E) / w)], (p.z + E) / w + 1.0, (p.x + E) / w + 1.0, (p.z + E) / w + 1.0]
+		print("[route] cells ", Data.MAP_CELLS, " edge ", E)
+		print("[route] station ", s.station.name, " ", cell.call(s.station.global_position))
+		print("[route] planet ", s.planet.name, " ", cell.call(s.planet.global_position), " r ", s.planet.get_meta("radius"))
+		for g in s.gates: print("[route] gate ", g.name, " ", cell.call(g.global_position))
+		for x in s.extras: print("[route] extra ", x.name, " ", cell.call(x.global_position))
+		for d in s.docks3d: print("[route] dock3d ", d.name, " ", cell.call(d.global_position))
+		print("[route] sun ", cell.call(SystemBuilder.sun_pos_of(s.sys)))
+		print("[route] belt ", cell.call(s.sys["asteroids"]["center"]), " r ", s.sys["asteroids"].get("radius", 0))
+		print("[route] nebula ", cell.call(s.sys["nebula"]["center"]))
+		for ln in s.lanes: print("[route] lane ", ln["a"], " -> ", ln["b"])
+		get_tree().quit()
+		return
+	if OS.get_environment("HL_FLIGHT") != "":   # v11.64: engine kill at warp (+ the core smoke group)
+		await _smoke_core()
+		await _warp_kill()
 		_finish_group()
 		return
 	if OS.get_environment("HL_CARGO") != "":   # v11.63: the lane freighters (+ the core smoke group)

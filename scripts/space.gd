@@ -4643,8 +4643,16 @@ func _update_player(dt: float) -> void:
 	elif engine_kill:
 		if warp_drift: _booster_particles(dt, 0.35)   # v11.47 (owner, Freelancer): still flying at warp speed: the warp look stays while every weapon works
 		# engines off: keep drifting on the current vector while the nose turns freely.
+		# v11.64 (owner): drifting at warp speed, THRUST keeps the momentum: same speed, swung round to where the nose points
+		if warp_drift and thrust_held and controls and GS.energy > 1.0:
+			boosting = true
+			GS.energy = maxf(0.0, GS.energy - Data.THRUST_ENERGY * dt)
+			var keep_v := maxf(vel.length(), base_speed * Data.BURST_MULT)
+			var vd := vel.normalized() if vel.length() > 0.1 else fwd
+			vel = vd.slerp(fwd, minf(1.0, dt * Data.DRIFT_BOOST_RATE)).normalized() * keep_v   # (turn the vector, keep its length)
+			_booster_particles(dt, 0.5)
 		# v1.9u (owner): THRUST restarts the engines and puts you straight back at full thrust speed
-		if thrust_held and controls and GS.energy > 1.0:
+		elif thrust_held and controls and GS.energy > 1.0:
 			engine_kill = false
 			warp_drift = false
 			_boost_was = false
@@ -4717,6 +4725,7 @@ func toggle_engine_kill() -> bool:
 		engine_kill = true
 		warp_drift = true
 		braking = false
+		autopilot = null   # v11.64 (owner: "engine kill doesn't neutralize the warp"): GO TO let go too, or it kept steering and re-armed the warp
 		return true
 	if warp_state == "charging": return false
 	engine_kill = not engine_kill

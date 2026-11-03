@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.63"
+const VERSION := "v11.64"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -87,6 +87,7 @@ const FREIGHTER_HP := [900.0, 1600.0]           # whole hull
 const FREIGHTER_BOOSTER_SHARE := 0.25           # the booster breaks after this share of the hull, taken on the booster
 const FREIGHTER_SPEED := 55.0                   # m/s along the lane
 const FREIGHTER_CRAWL := 0.1                    # booster broken: this share of the speed
+const DRIFT_BOOST_RATE := 1.6               # v11.64: THRUST in a warp-speed drift swings the momentum to the nose this fast (same speed)
 const FREIGHTERS_PER_SYSTEM := 2                # one of each type, on the trade lanes
 const FREIGHTER_RESPAWN := 90.0                 # s after one is destroyed, another starts on the lanes
 

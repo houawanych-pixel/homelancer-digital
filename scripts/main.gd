@@ -392,7 +392,7 @@ func _on_hud(id: String) -> void:
 			elif not space.lane_enter(): hud.flash_message("No trade-lane ring in range.")
 		"kill":
 			if GS.form == "mech": hud.flash_message("Mechs don't drift — use BOOST with the stick to dash any direction.")
-			elif space.warp_state == "on" and space.toggle_engine_kill(): hud.flash_message("Engines OFF at warp — drifting at warp speed. Turn and shoot; THRUST to restart.")
+			elif space.warp_state == "on" and space.toggle_engine_kill(): hud.flash_message("Engines OFF at warp: drifting at warp speed. Turn, shoot, use your abilities; THRUST swings the speed to your nose. KILL again restarts the engines.")
 			elif space.warp_active(): hud.flash_message("Wait for the warp drive to finish spooling.")
 			else: hud.flash_message("Engines OFF — drifting. You can still turn and shoot; THRUST restarts them." if space.toggle_engine_kill() else "Engines restarted.")
 		"warp":
