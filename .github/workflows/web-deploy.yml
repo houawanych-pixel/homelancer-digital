@@ -15,12 +15,17 @@ concurrency:
   cancel-in-progress: true
 jobs:
   build:
-    timeout-minutes: 20
+    timeout-minutes: 40
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 30   # enough to reach the push's first commit (a deeper push just counts as code: smoke runs)
+          filter: blob:none # Nov 3 2026: only download the files we check out, not 30 commits of art history
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |   # art/ (2.7 GB source pictures) is never part of the game build
+            /*
+            !/art/
       - name: Art-only push?
         id: kind
         run: echo "art_only=$(tools/ci/art_only.sh '${{ github.event.before }}' '${{ github.sha }}')" >> "$GITHUB_OUTPUT"

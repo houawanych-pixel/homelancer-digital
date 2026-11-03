@@ -5850,6 +5850,7 @@ func _layout_pairs() -> Array:
 			var rr: float = float(d.get("radius", Data.PH_STATION_RADIUS))
 			if Data.is_st3d(str(d.get("model", ""))): rr = STATION_WIDTH * Data.st3d_scale(str(d["model"])) * Data.STATION3D_HIT
 			an.set_meta("radius", rr)
+			if d in sys.get("more_planets", []): an.set_meta("planet_end", true)
 			add_child(an)
 			junctions.append(an)
 			by[key] = an
@@ -5898,6 +5899,9 @@ func _build_lanes() -> void:
 		var rb: float = (float(b.get_meta("radius", 0.0)) if b == planet else 60.0) + Data.LANE_STANDOFF
 		if sys.has("lane_plan"):   # v11.65: either end can be anything (a choke point has no size)
 			rb = (float(b.get_meta("radius", 0.0)) if b != station else maxf(120.0, _station_reach()) + Data.LANE_STATION_EXTRA) + Data.LANE_STANDOFF
+		# v11.73 (owner: "the trade lane is too close to the planet"): a lane into a planet stops well out of its air
+		if _is_planet_end(a): ra = lane_planet_end(float(a.get_meta("radius", 0.0)))
+		if _is_planet_end(b): rb = lane_planet_end(float(b.get_meta("radius", 0.0)))
 		var p0 := a.global_position + dir * ra
 		var p1 := b.global_position - dir * rb
 		# v10.10 (owner: "the close trade lanes ... pull together at the entrance, not good"): a lane whose mouth would sit
@@ -10057,3 +10061,12 @@ func spawn_chaser(id: String) -> Array:
 	grp[0]["node"].name = "%s (freed)" % str(p["name"])
 	message.emit("%s is free and coming for you, with a wing." % str(p["name"]))
 	return grp
+
+
+# v11.73 (owner: trade lane too close to the planet): is this lane end a planet (main, extra, or its lane marker)?
+func _is_planet_end(n: Node3D) -> bool:
+	return n == planet or bool(n.get_meta("planet_end", false)) or (str(n.get_meta("kind", "")) == "landmark" and n.get_meta("info", {}).has("radius"))
+
+
+static func lane_planet_end(radius: float) -> float:
+	return radius * Data.ATMO_OUTER + Data.LANE_PLANET_STANDOFF
