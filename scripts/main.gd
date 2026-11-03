@@ -1461,7 +1461,7 @@ func _interior_cleared() -> void:
 	tw.tween_property(fx, "fade", 1.0, 0.4)
 	await tw.finished
 	space.process_mode = Node.PROCESS_MODE_INHERIT
-	Boarding.sunk[board_from["sys"]] = true
+	if bool(_interior_ship.get("fleet_patrol", false)): Boarding.sunk[board_from["sys"]] = true   # (v11.66: a mission battleship is not the system's own)
 	GS.credits += Data.BOARD_PAY
 	GS.kills += 1
 	var e := _interior_ship
@@ -1493,7 +1493,7 @@ func leave_boarding(won: bool) -> void:
 	tw.tween_property(fx, "fade", 1.0, 0.4)
 	await tw.finished
 	if won:
-		Boarding.sunk[board_from["sys"]] = true
+		if bool(_interior_ship.get("fleet_patrol", false)): Boarding.sunk[board_from["sys"]] = true
 		GS.credits += Data.BOARD_PAY
 		GS.kills += 1
 	_load_system(board_from["sys"], "station")

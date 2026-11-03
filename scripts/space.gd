@@ -1129,9 +1129,12 @@ func _part_down(_pe: Dictionary) -> void:
 func _board_outside() -> void:
 	if boarding or not is_instance_valid(player) or not controls: return
 	_board_said_t = maxf(0.0, _board_said_t - get_process_delta_time())
-	for e in fleet_patrols:
-		if not enemies.has(e) or not is_instance_valid(e.get("bay_node", null)): continue
+	for e in enemies:
+		if not e.get("boardable", false) or not is_instance_valid(e.get("bay_node", null)): continue
 		if float(e.get("sh", 1.0)) <= 0.0 and e.get("boardable", false): e["shield_broken"] = true   # v11.60 (owner): once broken it stays down
+		if not e.get("shield_broken", false) and float(e["hp"]) <= float(e["max"]) * Data.BOARD_HP_OPEN:   # v11.66 (owner): hull at half = the shield generator is gone
+			e["shield_broken"] = true
+			e["sh"] = 0.0
 		var open := board_open(e)
 		e["shield_down"] = open
 		if (e["bay_node"] as Node3D).visible != open:
@@ -1155,8 +1158,8 @@ func _near_ship(e: Dictionary) -> bool:
 
 func board_candidate() -> Dictionary:
 	if boarding or not is_instance_valid(player): return {}
-	for e in fleet_patrols:
-		if enemies.has(e) and board_open(e) and _near_ship(e): return e
+	for e in enemies:   # (v11.66: any boardable battleship, the mission ones too)
+		if e.get("boardable", false) and board_open(e) and _near_ship(e): return e
 	return {}
 
 ## BOARD pressed: the ship turns into its mech first if it has to, then in you go.
@@ -5995,6 +5998,7 @@ func _blast(at: Vector3, spec: Array, kind := "") -> void:
 	_spark(at, Color(1.0, 0.72, 0.3), size * 0.75, 0.7)
 	_spark(at, Color(1.0, 0.38, 0.12), size * 0.5, 1.1)
 	_ring_fx(at, Color(1.0, 0.85, 0.6, 0.6), size * 0.12, 0.5, 3.5)
+	_burst_fx(at, size)   # v11.66 (owner: "sparks, particles, amazing effects when ships explode")
 	for i in int(spec[1]):
 		var d := Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), _rng.randfn(0, 1)).normalized()
 		_spark_v(at + d * size * 0.08, d * _rng.randf_range(4.0, 16.0) * size * 0.06, Color(1.0, _rng.randf_range(0.45, 0.85), 0.2), _rng.randf_range(0.2, 0.42) * size, _rng.randf_range(0.6, 1.3))
@@ -6338,7 +6342,7 @@ func _damage_enemy(e: Dictionary, dmg: float, hit := Vector3.INF, sf := -1.0) ->
 	if e["node"].get_meta("kind", "enemy") == "enemy": GS.super_charge = minf(1.0, GS.super_charge + dmg / Data.SUPER_FROM_DEALT)   # v7.5
 	e["aggro"] = true
 	e["provoked"] = true
-	e["sh_cd"] = 4.0
+	e["sh_cd"] = Data.BOARD_SHIELD_DELAY if e.get("boardable", false) else 4.0   # v11.66 (owner): a battleship's shield takes a while to come back
 	var at: Vector3 = e["node"].global_position if hit == Vector3.INF else hit
 	var had_shield := float(e["sh"]) > 0.0
 	var to_shield := minf(dmg, float(e["sh"]))
@@ -6485,7 +6489,7 @@ func _update_enemies(dt: float) -> void:
 		var n: Node3D = e["node"]
 		var d: Dictionary = e["def"]
 		e["sh_cd"] = float(e["sh_cd"]) - dt
-		if e["sh_cd"] <= 0.0 and not e.get("shield_broken", false): e["sh"] = minf(float(e["sh_max"]), float(e["sh"]) + float(e["sh_max"]) * (0.15 if not d.get("capital", false) else 0.02) * dt)
+		if e["sh_cd"] <= 0.0 and not e.get("shield_broken", false): e["sh"] = minf(float(e["sh_max"]), float(e["sh"]) + float(e["sh_max"]) * (0.15 if not d.get("capital", false) else (Data.BOARD_SHIELD_REGEN if e.get("boardable", false) else 0.02)) * dt)
 		if d.get("capital", false):   # v1.9n: a capital ship: slow, turrets all round
 			_update_capital(e, dt)
 			continue
@@ -8786,7 +8790,8 @@ func missile_blast(at: Vector3, m: Dictionary, hit: Node3D) -> void:
 
 ## v11.25: a nuke's splash: everyone inside r takes damage falling off to the edge.
 func _nuke_splash(at: Vector3, r: float, k: float, hit: Node3D, which: String) -> void:
-	_blast_shape(at, r, true)
+	if which == "first": _nuke_fx(at, r, Data.HEAVY_MISSILE_BLAST_RADIUS * float(Data.NUKE_SECOND[1]))   # v11.66: the spiked star (it grows again for the second blast)
+	else: blast_shapes += 1
 	var n := 0
 	for e in enemies.duplicate():
 		var en: Node3D = e["node"]
@@ -8858,6 +8863,172 @@ func _blast_shape(at: Vector3, r: float, star: bool) -> void:
 func _expire_burst(at: Vector3) -> void:
 	_spark(at, Color(1.0, 0.7, 0.3), 22.0, 0.45)
 	_spark(at, Color(1.0, 0.95, 0.8), 10.0, 0.25)
+
+# ---------------------------------------------------------------- v11.66 (owner: "better explosions: sparks, particles")
+## A burst of real particles on top of the fireball: white-hot streaking sparks, glowing embers that drift and fade,
+## smoke that swells, and tumbling hull debris. Sized by the blast; a few at a time (phones), only near you.
+var fx_bursts := 0      # (tests) bursts started
+var _fx_live := 0
+var _fx_res := {}
+func _fx_mat(kind: String) -> StandardMaterial3D:
+	if _fx_res.has(kind): return _fx_res[kind]
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.vertex_color_use_as_albedo = true
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	if kind in ["spark", "ember", "nuke"]: m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	if kind == "smoke": m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	_fx_res[kind] = m
+	return m
+
+func _fx_grad(cols: Array) -> Gradient:
+	var g := Gradient.new()
+	g.offsets = PackedFloat32Array(range(cols.size()).map(func(i): return float(i) / float(cols.size() - 1)))
+	g.colors = PackedColorArray(cols)
+	return g
+
+func _fx_parts(amount: int, life: float, v0: float, v1: float, damp: float, mesh: Mesh, mat: Material, ramp: Gradient) -> CPUParticles3D:
+	var p := CPUParticles3D.new()
+	p.amount = maxi(1, amount)
+	p.lifetime = life
+	p.one_shot = true
+	p.explosiveness = 0.95
+	p.randomness = 0.6
+	p.direction = Vector3(0, 0, 1)
+	p.spread = 180.0
+	p.gravity = Vector3.ZERO
+	p.initial_velocity_min = v0
+	p.initial_velocity_max = v1
+	p.damping_min = damp * 0.6
+	p.damping_max = damp
+	p.mesh = mesh
+	p.material_override = mat
+	p.color_ramp = ramp
+	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	p.emitting = true
+	return p
+
+func _burst_fx(at: Vector3, size: float, scale_k := 1.0) -> void:
+	if not is_instance_valid(player) or _fx_live >= Data.FX_BURST_MAX: return
+	var k: float = clampf(size / 52.0, 0.3, 4.0) * scale_k
+	if at.distance_to(player.global_position) > Data.FX_BURST_RANGE * maxf(1.0, k): return
+	fx_bursts += 1
+	_fx_live += 1
+	var root := Node3D.new()
+	root.name = "BurstFX"
+	add_child(root)
+	root.global_position = at
+	var q: float = clampf(k, 0.5, 2.5)   # (how many: grows slower than the size)
+	var spark := BoxMesh.new()
+	spark.size = Vector3(0.22, 3.2, 0.22) * clampf(k, 0.6, 3.5)
+	var sp := _fx_parts(int(Data.FX_SPARKS * q), 0.9, 70.0 * k, 210.0 * k, 3.0, spark, _fx_mat("spark"),
+		_fx_grad([Color(1.0, 0.95, 0.7, 1), Color(1.0, 0.7, 0.25, 1), Color(1.0, 0.4, 0.08, 0.8), Color(0.8, 0.15, 0.05, 0)]))
+	sp.particle_flag_align_y = true   # (each spark a streak along its flight)
+	sp.scale_amount_min = 0.5
+	root.add_child(sp)
+	var ember := SphereMesh.new()
+	ember.radius = 0.55 * clampf(k, 0.6, 3.5)
+	ember.height = ember.radius * 2.0
+	ember.radial_segments = 6
+	ember.rings = 3
+	root.add_child(_fx_parts(int(Data.FX_EMBERS * q), 2.4, 12.0 * k, 75.0 * k, 1.2, ember, _fx_mat("ember"),
+		_fx_grad([Color(1.0, 0.95, 0.7, 1), Color(1.0, 0.55, 0.15, 1), Color(0.9, 0.2, 0.05, 0.7), Color(0.3, 0.05, 0.0, 0)])))
+	var puff := QuadMesh.new()
+	puff.size = Vector2.ONE * 16.0 * k
+	var sm := _fx_parts(int(Data.FX_SMOKE * minf(q, 1.6)), 3.2, 3.0 * k, 16.0 * k, 0.6, puff, _fx_mat("smoke"),
+		_fx_grad([Color(0.35, 0.3, 0.28, 0.0), Color(0.3, 0.27, 0.26, 0.55), Color(0.2, 0.2, 0.22, 0.35), Color(0.15, 0.15, 0.17, 0)]))
+	var grow := Curve.new()
+	grow.add_point(Vector2(0, 0.35))
+	grow.add_point(Vector2(1, 1.8))
+	sm.scale_amount_curve = grow
+	sm.angle_max = 360.0
+	root.add_child(sm)
+	var chunk := BoxMesh.new()
+	chunk.size = Vector3(1.4, 0.7, 1.0) * clampf(k, 0.6, 3.5)
+	var db := _fx_parts(int(Data.FX_DEBRIS * q), 3.0, 18.0 * k, 65.0 * k, 0.4, chunk, _fx_mat("debris"),
+		_fx_grad([Color(1.0, 0.6, 0.3, 1), Color(0.32, 0.3, 0.32, 1), Color(0.25, 0.24, 0.26, 1), Color(0.2, 0.2, 0.22, 0)]))
+	db.angular_velocity_min = -280.0
+	db.angular_velocity_max = 280.0
+	db.scale_amount_min = 0.35
+	db.scale_amount_max = 1.3
+	root.add_child(db)
+	get_tree().create_timer(3.4).timeout.connect(func():
+		_fx_live -= 1
+		if is_instance_valid(root): root.queue_free())
+
+## v11.66 (owner: "the nuke is just a sphere: a pointed sphere with lots of spikes, a slow spin, a double growth"):
+## a glowing core with spikes all round, white-hot inside an orange shell. It grows to the first blast, holds, then
+## grows again (to the second, bigger blast) while it turns slowly, and fades. Sparks and embers burst at each step.
+var nuke_fx_log: Array = []   # (tests) [spikes, r1, r2]
+func _nuke_fx(at: Vector3, r1: float, r2: float) -> void:
+	blast_shapes += 1
+	var root := Node3D.new()
+	root.name = "NukeFX"
+	add_child(root)
+	root.global_position = at
+	var hot := StandardMaterial3D.new()
+	hot.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	hot.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	hot.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	hot.cull_mode = BaseMaterial3D.CULL_DISABLED
+	hot.albedo_color = Color(1.0, 0.9, 0.6, 0.95)
+	var shell := hot.duplicate() as StandardMaterial3D
+	shell.albedo_color = Color(1.0, 0.45, 0.12, 0.55)
+	var spike_m := hot.duplicate() as StandardMaterial3D
+	spike_m.albedo_color = Color(1.0, 0.7, 0.3, 0.85)
+	var core := MeshInstance3D.new()
+	var cs := SphereMesh.new()
+	cs.radius = 0.42
+	cs.height = 0.84
+	core.mesh = cs
+	core.material_override = hot
+	root.add_child(core)
+	var sh := MeshInstance3D.new()
+	var ss := SphereMesh.new()
+	ss.radius = 0.6
+	ss.height = 1.2
+	sh.mesh = ss
+	sh.material_override = shell
+	root.add_child(sh)
+	var cone := CylinderMesh.new()
+	cone.top_radius = 0.0
+	cone.bottom_radius = 0.1
+	cone.height = 1.0
+	cone.radial_segments = 8
+	var n: int = Data.NUKE_SPIKES
+	var gold := PI * (3.0 - sqrt(5.0))
+	for i in n:   # spikes spread evenly round the ball (a Fibonacci sphere), each its own length
+		var y := 1.0 - (float(i) + 0.5) / float(n) * 2.0
+		var rr := sqrt(maxf(0.0, 1.0 - y * y))
+		var dv := Vector3(cos(gold * i) * rr, y, sin(gold * i) * rr)
+		var ln := _rng.randf_range(0.45, 1.0)
+		var spk := MeshInstance3D.new()
+		spk.mesh = cone
+		spk.material_override = spike_m
+		spk.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var b := Basis.looking_at(dv, Vector3.FORWARD if absf(dv.y) > 0.95 else Vector3.UP) * Basis(Vector3.RIGHT, -PI * 0.5)
+		spk.transform = Transform3D(b.scaled(Vector3(1.0, ln, 1.0)), dv * (0.4 + ln * 0.5))
+		root.add_child(spk)
+	for c in root.get_children(): (c as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.rotation = Vector3(_rng.randf() * TAU, _rng.randf() * TAU, 0.0)
+	root.scale = Vector3.ONE * r1 * 0.05
+	nuke_fx_log.append([n, r1, r2])
+	if nuke_fx_log.size() > 10: nuke_fx_log.pop_front()
+	var T: Array = Data.NUKE_FX_TIMES   # [first grow, hold, second grow, fade]
+	var tw := root.create_tween()
+	tw.tween_property(root, "scale", Vector3.ONE * r1 * 0.75 * Data.NUKE_FX_SIZE, float(T[0])).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(float(T[1]))
+	tw.tween_property(root, "scale", Vector3.ONE * r2 * 0.75 * Data.NUKE_FX_SIZE, float(T[2])).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_callback(func(): _burst_fx(at, Data.BLAST_NUKE_2[0], 1.6))
+	tw.tween_property(hot, "albedo_color:a", 0.0, float(T[3]))
+	tw.parallel().tween_property(shell, "albedo_color:a", 0.0, float(T[3]))
+	tw.parallel().tween_property(spike_m, "albedo_color:a", 0.0, float(T[3]))
+	tw.tween_callback(root.queue_free)
+	var total: float = float(T[0]) + float(T[1]) + float(T[2]) + float(T[3])
+	var spin := root.create_tween()   # the slow spin, start to end
+	spin.tween_property(root, "rotation:y", root.rotation.y + Data.NUKE_SPIN * total, total)
+	_burst_fx(at, Data.BLAST_NUKE[0], 1.3)
 
 var waypoint: Node3D = null   # the player's own map waypoint (radar map -> tap anywhere -> SET COURSE)
 
@@ -9281,6 +9452,7 @@ func _spawn_capital(kind: String, role: String, p: Vector3, home: Vector3, facti
 	face(e["node"], home - p + Vector3(0.01, 0, 0))
 	if faction != "": e["faction"] = faction
 	_light_model(e["model"], Data.INVASION_DRAW["capital"], Data.INVASION_DRAW["capital_lod_bias"])
+	if role in ["battleship", "flagship"]: _boardable(e)   # v11.66 (owner: "can't board the battleship on the mission"): mission / invasion battleships too
 	return e
 
 ## v1.9n (phones): a war has many ships. No shadows from them, and small ships are not drawn far away (a dot you

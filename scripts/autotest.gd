@@ -1323,6 +1323,65 @@ func _dreadholm_layout() -> void:
 	_check("Dreadholm lanes: all %d planned lanes built, every choke point is a T (3+ lanes), Fleet Command reaches Covenant through the South choke point, no lane runs through the rock field, the storm cloud, the Veil, the belt or the star" % plan,
 		s.lanes.size() == plan and tees and cov_lane and through.is_empty(), "built %d / %d, tees %s %s, covenant lane %s, through %s" % [s.lanes.size(), plan, tees, meet, cov_lane, through])
 
+## v11.66 (owner): a MISSION battleship can be boarded once its shield is down (the shield takes a while to come back),
+## or once its hull is at half (then the shield never comes back); explosions throw real sparks, embers, smoke and
+## debris; the nuke is a spiked ball that grows, holds, grows again and turns slowly.
+func _board_fx() -> void:
+	var s := _sp()
+	var p: Node3D = s.player
+	var at: Vector3 = p.global_position - p.global_basis.z * 2500.0
+	var e: Dictionary = s._spawn_capital("inv_battleship", "battleship", at, at + Vector3(0, 0, 400), "Unity")
+	await _frames(3)
+	var boardable: bool = e.get("boardable", false)
+	e["sh"] = 1.0
+	s._damage_enemy(e, 5.0)
+	await _frames(3)
+	var slow: bool = is_equal_approx(float(e["sh_cd"]) + 0.1, Data.BOARD_SHIELD_DELAY + 0.1) or float(e["sh_cd"]) > 10.0
+	var open1: bool = s.board_open(e)
+	_tp(e["node"].global_position + Vector3(0, 0, float(e["def"].get("hit_r", 200.0)) + 200.0), e["node"].global_position)
+	await _frames(3)
+	var cand: bool = s.board_candidate() == e
+	_check("Boarding: a MISSION battleship can be boarded once its shield is down (BOARD shows close by); its shield waits %d s before it starts back" % int(Data.BOARD_SHIELD_DELAY),
+		boardable and open1 and cand and slow, "boardable %s open %s BOARD %s shield wait %.1f s" % [boardable, open1, cand, float(e["sh_cd"])])
+	var e2: Dictionary = s._spawn_capital("inv_battleship", "battleship", at + Vector3(3000, 0, 0), at, "Orion")
+	await _frames(3)
+	e2["sh"] = e2["sh_max"]
+	e2["hp"] = float(e2["max"]) * 0.49
+	await _frames(3)
+	var half_open: bool = e2.get("shield_broken", false) and float(e2["sh"]) <= 0.0
+	e2["sh_cd"] = 0.0
+	await _wait(1.0)
+	var stays: bool = float(e2["sh"]) <= 0.0 and s.board_open(e2)
+	_check("Boarding: hull at half opens the hangar even with the shield up, and that shield never comes back", half_open and stays, "open %s stays down %s (sh %.0f)" % [half_open, stays, float(e2["sh"])])
+	for o in [e, e2]:
+		if o in s.enemies:
+			s.enemies.erase(o)
+			(o["node"] as Node3D).free()
+	var b0: int = s.fx_bursts
+	var bat: Vector3 = p.global_position - p.global_basis.z * 300.0
+	s._explode(bat, 30.0)
+	await _frames(2)
+	var parts := 0
+	for c in s.get_children():
+		if c.name.begins_with("BurstFX"): parts += c.get_children().filter(func(x): return x is CPUParticles3D).size()
+	_check("Explosions: a ship blowing up throws sparks, embers, smoke and debris (particles)", s.fx_bursts > b0 and parts >= 4, "bursts %d -> %d, particle systems %d" % [b0, s.fx_bursts, parts])
+	s.missile_blast(bat, {"heavy": true, "nuke": true}, null)
+	await _frames(2)
+	var fx: Node3D = null
+	for c in s.get_children():
+		if c.name.begins_with("NukeFX"): fx = c
+	var lg: Array = s.nuke_fx_log[-1] if not s.nuke_fx_log.is_empty() else [0, 0.0, 0.0]
+	var spikes: int = fx.get_children().size() - 2 if fx != null else 0
+	var rot0: float = fx.rotation.y if fx != null else 0.0
+	await _wait(float(Data.NUKE_FX_TIMES[0]) + float(Data.NUKE_FX_TIMES[1]) * 0.5)
+	var s1: float = fx.scale.x if is_instance_valid(fx) else 0.0
+	await _wait(float(Data.NUKE_FX_TIMES[1]) * 0.5 + float(Data.NUKE_FX_TIMES[2]) + 0.1)
+	var s2: float = fx.scale.x if is_instance_valid(fx) else 0.0
+	var turned: float = absf((fx.rotation.y if is_instance_valid(fx) else rot0) - rot0)
+	var twice: bool = absf(s1 - float(lg[1]) * 0.75 * Data.NUKE_FX_SIZE) < float(lg[1]) * 0.15 and s2 > s1 * 1.2
+	_check("Nuke: a spiked ball (%d spikes), grows to the first blast, holds, grows again to the second, and turns slowly" % Data.NUKE_SPIKES,
+		fx != null and spikes == Data.NUKE_SPIKES and twice and turned > 0.3, "spikes %d, size %.0f then %.0f (blasts %.0f / %.0f m), turned %.2f rad" % [spikes, s1, s2, float(lg[1]), float(lg[2]), turned])
+
 func _smoke_core() -> void:
 	_check("Core: the game boots to its title / main menu", main.state == "title", main.state)
 	main.start_game()
@@ -1427,6 +1486,34 @@ func _run() -> void:
 	if OS.get_environment("HL_FLIGHT") != "":   # v11.64: engine kill at warp (+ the core smoke group)
 		await _smoke_core()
 		await _warp_kill()
+		_finish_group()
+		return
+	if OS.get_environment("HL_FXSHOT") != "":   # v11.66: pictures of a ship blast and the nuke (HL_SHOT_DIR)
+		await _smoke_core()
+		var s := _sp()
+		var p: Node3D = s.player
+		s.controls = false
+		s.vel = Vector3.ZERO
+		var bat: Vector3 = p.global_position - p.global_basis.z * 260.0 + Vector3(0, 30, 0)
+		s._explode(bat, 30.0)
+		await _wait(0.12)
+		await _capture("fx_blast_a")
+		await _wait(0.35)
+		await _capture("fx_blast_b")
+		await _wait(3.0)
+		var nat: Vector3 = p.global_position - p.global_basis.z * 900.0 + Vector3(0, 60, 0)
+		s.missile_blast(nat, {"heavy": true, "nuke": true}, null)
+		await _wait(0.45)
+		await _capture("fx_nuke_a")
+		await _wait(0.75)
+		await _capture("fx_nuke_b")
+		await _wait(0.5)
+		await _capture("fx_nuke_c")
+		get_tree().quit()
+		return
+	if OS.get_environment("HL_BOARD") != "":   # v11.66: boarding mission battleships, explosions, the nuke (+ the core smoke group)
+		await _smoke_core()
+		await _board_fx()
 		_finish_group()
 		return
 	if OS.get_environment("HL_CARGO") != "":   # v11.63: the lane freighters (+ the core smoke group)
