@@ -1693,7 +1693,7 @@ func _layout_windows(s: String) -> void:
 	var one: bool = _panel_page(s)
 	content.mouse_filter = Control.MOUSE_FILTER_STOP if s != "equipment" else content.mouse_filter
 	var fold: bool = panels_hidden and s != "equipment"
-	content.visible = not fold and not (one and panel_min)
+	content.visible = not fold and not (one and panel_min) and s != "hub"   # v11.61 (owner): no text box on the hub: the room, and the call on the right
 	leftwin.visible = split and not one and not fold
 	show_btn.visible = true
 	if s == "equipment":   # (the hangar uses the whole screen)
@@ -2388,12 +2388,12 @@ func _equipment_page() -> void:
 	var rp := PanelContainer.new()
 	rp.name = "HangarPanel"
 	rp.add_theme_stylebox_override("panel", _glass())
-	rp.anchor_left = 0.6
+	rp.anchor_left = 0.5 if (in_room and eq_tab == "weapon") else 0.6   # v11.61: the weapons room's panel is wider
 	rp.anchor_right = 1.0
 	rp.anchor_bottom = 1.0
 	rp.offset_left = 2
 	rp.offset_top = HANG_TOP
-	rp.offset_right = -4
+	rp.offset_right = -4 if not in_room else -(right_reserve() - 20.0)   # v11.61: clear of a call on the right
 	rp.offset_bottom = -HANG_BOT
 	rp.visible = not fold
 	root.add_child(rp)
@@ -2413,7 +2413,8 @@ func _equipment_page() -> void:
 	sec.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	sec.add_theme_constant_override("separation", 5)
 	shop.add_child(sec)
-	_shop_panel(sec)
+	if room_view.visible and eq_tab == "weapon": _weapons_room(sec)   # v11.61 (owner: "an easier layout"): the weapons room
+	else: _shop_panel(sec)
 
 ## The see-through navy panels the hangar floats over the bay (lit = the open menu item).
 ## v5.5 (owner, his blueprint cards): panels are digital screens with cut corners, not plain boxes.
@@ -3063,6 +3064,210 @@ func _module_strip(mid: Control) -> void:
 		if not Packs.pack_ready.is_connected(_on_eq_pack): Packs.pack_ready.connect(_on_eq_pack)
 
 ## The shop: filters, the card grid, and BUY / INSTALL (UPGRADE for an owned Nexus blaster) for the picked card.
+## v11.61 (owner: "the weapons room needs a better, easier layout"): three plain steps, top to bottom.
+##   1 · YOUR GUN SLOTS: one button per gun slot (what is on it now); tap one.
+##   2 · WEAPONS: one row per weapon (picture, name, what it does, price / OWNED), filtered ALL · BLASTER · CANNON · MISSILE.
+##   3 · ONE big button that says what it will do: BUY & EQUIP · 700 cr  /  EQUIP ON LEFT WING  /  EQUIPPED; REMOVE and
+##       the Mk upgrade sit beside it. The result line is right under it (no message over the buttons).
+var shop_result := ""
+const GUN_SLOTS := [-1, -5, -6, 0, 1, 4, 2, 3, 5]   # core guns, then the wing mounts (missiles and mines are in REPAIR & AMMO)
+func _weapons_room(v: VBoxContainer) -> void:
+	status.text = ""
+	var slots: Array = GUN_SLOTS.filter(func(k): return (GS.level_def()["uv"] as Dictionary).has(k))
+	if not (eq_sel in slots) and not slots.is_empty(): eq_sel = slots[0]
+	var h1 := _label(15, GOLD)
+	h1.text = "1 · PICK A GUN SLOT"
+	v.add_child(h1)
+	var sg := GridContainer.new()
+	sg.name = "SlotPicker"
+	sg.columns = 3
+	sg.add_theme_constant_override("h_separation", 4)
+	sg.add_theme_constant_override("v_separation", 4)
+	v.add_child(sg)
+	for k in slots:
+		var b := Button.new()
+		b.name = "Slot_%d" % int(k)
+		b.text = "%s\n%s" % [_slot_name(int(k)), _slot_now(int(k))]
+		b.clip_text = true
+		b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		b.custom_minimum_size = Vector2(0, 44)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.add_theme_font_size_override("font_size", Data.ts(11))
+		if eq_sel == int(k):
+			b.add_theme_color_override("font_color", GOLD)
+			b.add_theme_stylebox_override("normal", _glass(true))
+		var kk: int = int(k)
+		b.pressed.connect(func():
+			eq_sel = kk
+			shop_result = ""
+			show_screen("equipment"))
+		sg.add_child(b)
+	var h2 := _label(15, GOLD)
+	h2.text = "2 · PICK A WEAPON"
+	v.add_child(h2)
+	var frow := HBoxContainer.new()
+	frow.name = "ShopFilters"
+	frow.add_theme_constant_override("separation", 3)
+	v.add_child(frow)
+	for f in [["all", "ALL"], ["blaster", "BLASTER"], ["gun", "CANNON"], ["pod", "MISSILE"]]:
+		var fb := Button.new()
+		fb.name = "Filter_" + f[0]
+		fb.text = f[1]
+		fb.custom_minimum_size = Vector2(0, 32)
+		fb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		fb.clip_text = true
+		fb.add_theme_font_size_override("font_size", Data.ts(12))
+		if eq_filter == f[0]:
+			fb.add_theme_color_override("font_color", GOLD)
+			fb.add_theme_stylebox_override("normal", _glass(true))
+		var fid: String = f[0]
+		fb.pressed.connect(func():
+			eq_filter = fid
+			show_screen("equipment"))
+		frow.add_child(fb)
+	var list := _eq_scroll(v, "EqBuy", true)
+	list.add_theme_constant_override("separation", 4)
+	var wing: bool = eq_sel >= 0 and eq_sel < 100
+	var cards: Array = []
+	for id in Data.NEXUS_BLASTERS: cards.append([id, "blaster"])
+	for id in Data.WEAPON_ORDER:
+		if not (id in Data.NEXUS_BLASTERS): cards.append([id, "gun"])
+	if wing:
+		for pid in Data.MOUNT_PODS: cards.append([pid, "pod"])   # (missile pods fit the wing slots only)
+	for cd in cards:
+		if eq_filter != "all" and eq_filter != cd[1]: continue
+		list.add_child(_weapon_row(str(cd[0]), str(cd[1])))
+	# 3 · the one button
+	var kind := _card_kind(eq_card)
+	var owned := _card_owned(eq_card, kind)
+	var now_id: String = GS.core_item(eq_sel) if eq_sel in [-1, -5, -6] else (str(GS.mount_items()[eq_sel]) if wing else "")
+	var act := HBoxContainer.new()
+	act.name = "ShopActions"
+	act.add_theme_constant_override("separation", 6)
+	v.add_child(act)
+	var main_b := Button.new()
+	main_b.name = "ShopMain"
+	main_b.custom_minimum_size = Vector2(0, 54)
+	main_b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	main_b.size_flags_stretch_ratio = 2.2
+	main_b.clip_text = true
+	main_b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	main_b.add_theme_font_size_override("font_size", Data.ts(14))
+	if eq_card == "":
+		main_b.text = "PICK A WEAPON"
+		main_b.disabled = true
+	elif not owned:
+		main_b.text = "BUY & EQUIP  ·  %d cr" % _card_price(eq_card, kind)
+		main_b.disabled = GS.credits < _card_price(eq_card, kind)
+		main_b.add_theme_color_override("font_color", Color(0.55, 1.0, 0.65))
+	elif now_id == eq_card:
+		main_b.text = "EQUIPPED ON %s" % _slot_name(eq_sel)
+		main_b.disabled = true
+	else:
+		main_b.text = "EQUIP ON %s" % _slot_name(eq_sel)
+		main_b.add_theme_color_override("font_color", CYAN)
+	main_b.pressed.connect(func():
+		shop_result = buy_and_equip(eq_card, kind) if not _card_owned(eq_card, kind) else _card_install(eq_card, kind)
+		show_screen("equipment"))
+	act.add_child(main_b)
+	if owned and eq_card in Data.NEXUS_BLASTERS:
+		var u := Button.new()
+		u.name = "Up_" + eq_card
+		u.custom_minimum_size = Vector2(0, 54)
+		u.add_theme_font_size_override("font_size", Data.ts(13))
+		u.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		u.clip_text = true
+		var lid: String = eq_card
+		if GS.gun_level(lid) >= Data.BLASTER_LEVELS:
+			u.text = "MAX MK"
+			u.disabled = true
+		else:
+			u.text = "MK %s  %d cr" % [GS.roman(GS.gun_level(lid) + 1), GS.upgrade_cost(lid)]
+			u.disabled = GS.credits < GS.upgrade_cost(lid)
+		u.pressed.connect(func(): shop_result = GS.upgrade_gun(lid); show_screen("equipment"))
+		act.add_child(u)
+	if wing and now_id != "empty" and now_id != "":
+		var rem := Button.new()
+		rem.name = "ShopRemove"
+		rem.text = "REMOVE"
+		rem.custom_minimum_size = Vector2(0, 54)
+		rem.add_theme_font_size_override("font_size", Data.ts(13))
+		rem.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		rem.clip_text = true
+		rem.pressed.connect(func():
+			shop_result = GS.fit_mount(eq_sel, "empty")
+			show_screen("equipment"))
+		act.add_child(rem)
+	var res := _label(13, Color(0.8, 0.95, 1.0))
+	res.name = "ShopResult"
+	res.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	res.text = shop_result
+	v.add_child(res)
+
+## One weapon as a row: picture, name (Mk if owned), what it does, price or OWNED (and ON if it is on the picked slot).
+func _weapon_row(id: String, kind: String) -> Control:
+	var d: Dictionary = Data.MOUNT_PODS[id] if kind == "pod" else Data.WEAPONS[id]
+	var owned := _card_owned(id, kind)
+	var b := Button.new()
+	b.name = "Card_" + id
+	b.custom_minimum_size = Vector2(0, 58)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.clip_contents = true
+	if eq_card == id:
+		var sb := _glass(true)
+		sb.border_color = GOLD
+		b.add_theme_stylebox_override("normal", sb)
+		b.add_theme_stylebox_override("hover", sb)
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	row.offset_left = 6
+	row.offset_right = -8
+	row.add_theme_constant_override("separation", 8)
+	b.add_child(row)
+	var pic := TextureRect.new()
+	pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pic.custom_minimum_size = Vector2(84, 0)
+	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	var ip: String = Data.weapon_icon(id, _eq_mech())
+	if ip != "" and ResourceLoader.exists(ip): pic.texture = load(ip)
+	row.add_child(pic)
+	var col := VBoxContainer.new()
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_theme_constant_override("separation", 0)
+	row.add_child(col)
+	var nm: String = str(d.get("short", d["name"]))
+	if kind in ["blaster", "gun"] and owned: nm += " Mk %s" % GS.roman(GS.gun_level(id))
+	var line2 := ""
+	match kind:
+		"blaster":
+			var sh := int(round(float(d["shield"]) * 100.0))
+			line2 = "%d%% shield · %d%% hull" % [sh, 100 - sh]
+		"gun": line2 = "dmg %d · %.1f shots/s" % [int(round(GS.gun_damage(id))), float(d["rate"])]
+		"pod": line2 = "+%d missiles · +%d locks" % [int(d["ammo"]), int(d["locks"])]
+	for ln in [[nm.to_upper(), 13, GOLD if owned else Color(1, 1, 1)], [line2, 11, Color(0.7, 0.88, 1.0)]]:
+		var l := Label.new()
+		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		l.text = ln[0]
+		l.clip_text = true
+		l.add_theme_font_size_override("font_size", Data.ts(int(ln[1])))
+		l.add_theme_color_override("font_color", ln[2])
+		col.add_child(l)
+	var pr := Label.new()
+	pr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pr.text = "OWNED" if owned else "%d cr" % int(d["price"])
+	pr.add_theme_font_size_override("font_size", Data.ts(13))
+	pr.add_theme_color_override("font_color", GOLD if owned else Color(1.0, 0.82, 0.4))
+	row.add_child(pr)
+	b.pressed.connect(func():
+		eq_card = id
+		shop_result = ""
+		show_screen("equipment"))
+	return b
+
 func _shop_panel(shop: VBoxContainer) -> void:
 	var st := _label(16, GOLD)
 	st.name = "ShopTitle"
@@ -3184,9 +3389,19 @@ func _shop_panel(shop: VBoxContainer) -> void:
 
 ## v11.59: buy the picked card and put it straight on the picked slot (or the first slot it fits).
 func buy_and_equip(id: String, kind: String) -> String:
+	if _card_owned(id, kind): return _card_install(id, kind)
+	# v11.61: buying a gun used to put it on every gun slot; BUY & EQUIP puts it on the picked slot only
+	var keep := {"weapon_id": GS.weapon_id, "mounts": (GS.mounts as Array).duplicate(true), "core_gun": GS.core_gun, "core_gun2": GS.core_gun2, "core_gun3": GS.core_gun3}
 	var a := _card_buy(id, kind)
 	if not _card_owned(id, kind): return a
-	return (a + "  " + _card_install(id, kind)).strip_edges()
+	if kind in ["blaster", "gun"]:
+		GS.weapon_id = keep["weapon_id"]
+		GS.mounts = keep["mounts"]
+		GS.core_gun = keep["core_gun"]
+		GS.core_gun2 = keep["core_gun2"]
+		GS.core_gun3 = keep["core_gun3"]
+	var b := _card_install(id, kind)
+	return "Bought %s.  %s" % [str((Data.MOUNT_PODS[id] if kind == "pod" else Data.WEAPONS[id])["name"]), b]
 
 ## v11.59 (owner: "buy weapons, select, equip and combine-equip right away, from a side panel"): the ship's slots as
 ## buttons (no ship in the weapons room): tap one, then a card, then INSTALL or BUY & EQUIP.
@@ -4656,6 +4871,7 @@ func _fix_button(v: Control) -> void:
 func _repair_page() -> void:
 	var v := _page_box()
 	_fix_button(v)   # v11.25: first, so it is never scrolled out of sight
+	if str(base.get("role", "")) == "ally": _rep_buttons(v)   # v11.61: Repair Reputation lives here now (the hub box is gone)
 	if _board_locked(v): return   # v11.55 (owner): low standing locks the services too
 	var l := _label(20, Color(1, 1, 1))
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

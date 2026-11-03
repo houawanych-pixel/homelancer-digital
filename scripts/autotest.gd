@@ -989,11 +989,21 @@ func _rooms_ui() -> void:
 		hb.eq_card = card
 		hb.show_screen("equipment")
 		await _frames(2)
-		var be: Button = hb.find_child("ShopBuyEquip", true, false)
+		var be: Button = hb.find_child("ShopMain", true, false)
 		if be != null: be.emit_signal("pressed")
 		await _frames(2)
-		equip_ok = card in GS.owned_weapons and str(GS.mount_items()[wing]) == card
-	_check("Weapons room = shop + loadout: pick a slot in the side panel, BUY & EQUIP fits it right away", picker and equip_ok, "picker %s wing %d card %s fitted %s" % [picker, wing, card, str(GS.mount_items()[wing]) if wing >= 0 else "-"])
+		var others: int = 0
+		for k2 in (GS.level_def()["uv"] as Dictionary).keys():
+			if int(k2) >= 0 and int(k2) < 100 and int(k2) != wing and str(GS.mount_items()[int(k2)]) == card: others += 1
+		equip_ok = card in GS.owned_weapons and str(GS.mount_items()[wing]) == card and others == 0 and GS.core_item(-1) != card
+	if shots: await _shot("rooms_weapons_after", 0.5)
+	var hub_box: bool = false
+	hb.show_screen("hub")
+	await _frames(2)
+	hub_box = hb.content.visible
+	_check("Hub: no text box on the left (the room and the call on the right)", not hub_box)
+	hb.eq_tab = "weapon"
+	_check("Weapons room = 3 steps: pick a slot, pick a weapon, one BUY & EQUIP button fits it right away", picker and equip_ok, "picker %s wing %d card %s fitted %s" % [picker, wing, card, str(GS.mount_items()[wing]) if wing >= 0 else "-"])
 	# the hangar: turn left / right only
 	hb.eq_tab = "hangar"
 	hb.show_screen("equipment")
