@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.68"
+const VERSION := "v11.69"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -63,18 +63,19 @@ const SYSTEM_LAYOUT := {
 		"sun": [5.5, 4.5],
 		"planets": {"Vassal": [2.5, 6.5]},
 		"stations": {"Covenant Embassy": [4.5, 8.5]},
-		"gate_push": 2.0,
+		"gates": {"ogden": [3.5, 5.5], "heart": [6.5, 2.8], "foggiest": [9.0, 5.5], "korrath": [3.3, 9.0], "battlespire": [7.8, 9.0]},   # v11.69 (owner's map marks): in off the edge squares
 		"clouds": [
 			{"name": "Cinder Shards", "at": [7.0, 4.6], "radius": 26000.0, "weather": "rocks", "color": Color(0.78, 0.42, 0.26)},
 			{"name": "Ember Veil", "at": [5.0, 4.6], "radius": 30000.0, "weather": "storm", "color": Color(0.85, 0.3, 0.22)},
 		],
 		"junctions": {"South Choke Point": [6.8, 7.5], "East Choke Point": [7.6, 6.9], "Northeast Choke Point": [8.0, 3.6]},
-		"lanes": [
-			["hub", "planet"], ["hub", "South Choke Point"], ["South Choke Point", "Covenant Embassy"], ["South Choke Point", "gate:korrath"],
-			["hub", "East Choke Point"], ["East Choke Point", "gate:battlespire"], ["East Choke Point", "Northeast Choke Point"], ["Northeast Choke Point", "gate:foggiest"], ["Northeast Choke Point", "planet"],
-			["planet", "gate:heart"], ["planet", "gate:ogden"],
+		"lanes": [   # v11.69: lanes may cross clouds, never asteroids or the star; none runs through a station
+			["hub", "planet"], ["hub", "South Choke Point"], ["South Choke Point", "Covenant Embassy"], ["South Choke Point", "gate:battlespire"],
+			["hub", "East Choke Point"], ["East Choke Point", "gate:battlespire"], ["East Choke Point", "Northeast Choke Point"],
+			["Northeast Choke Point", "gate:foggiest"], ["Northeast Choke Point", "planet"], ["Northeast Choke Point", "gate:heart"],
+			["planet", "gate:heart"], ["hub", "gate:ogden"],
 			["gate:korrath", "gate:ogden"], ["gate:korrath", "Covenant Embassy"], ["Covenant Embassy", "gate:battlespire"],
-			["gate:battlespire", "gate:foggiest"], ["gate:foggiest", "gate:heart"], ["gate:heart", "gate:ogden"],
+			["gate:battlespire", "gate:foggiest"], ["gate:heart", "gate:ogden"],
 		],
 	},
 }
@@ -1037,6 +1038,7 @@ const SYS_MAP_FOG := Color(0.0, 0.0, 0.01, 0.9)    # v9.0: unseen map squares st
 const SYS_MAP_SEEN := Color(0.07, 0.19, 0.34, 0.9)   # ... the ones you have seen are lit
 const FOG_REVEAL := 90000.0      # v9.0: the map squares within this of your ship are uncovered as you fly (fog of war)
 const ORIGIN_GRID := 20000.0   # v9.1: the draw shift moves the world in steps of this (m): the ship is drawn within 10 km of zero
+const PLACE_EDGE := 0.78   # v11.69 (owner: "nothing in the border squares except asteroids or clouds"): stations, planets and gates stay inside this share of the edge (the outer ring of map squares starts at 0.8)
 const SPACE_EDGE := 500000.0   # v9.1 (owner): 1,000 km tile (500 km each way; the draw shift keeps it steady). v8.9: 500 km. v6.2 (owner): each system's space is one tile;
                                # past it you cross into the neighbouring tile of the galaxy board (Pac-Man wrap at the board's edge)
 const WARP_GATE_SQUARES := [3, 4]   # v6.5 (owner): how far a warp gate in the unknown reaches (squares, with the wrap)

@@ -2502,7 +2502,8 @@ static func nebulae_of(id: String, s: Dictionary) -> Array:
 			break
 	for i in out.size():   # v1.9z: each cloud's own weather (the same every visit)
 		if out[i].has("weather"): continue   # (v11.65: a layout cloud keeps its own)
-		out[i]["weather"] = Data.NEBULA_WEATHERS[absi(hash(id + "_wx%d" % i)) % Data.NEBULA_WEATHERS.size()]
+		var wl: Array = Data.NEBULA_WEATHERS if not s.has("lane_plan") else Data.NEBULA_WEATHERS.filter(func(w): return w != "rocks")   # v11.69: in a hand-laid system only the planned rock field has rocks off the main cloud (the lanes keep clear of asteroids)
+		out[i]["weather"] = wl[absi(hash(id + "_wx%d" % i)) % wl.size()]
 	return out
 
 var nebulae: Array = []          # v1.9s: the clouds in this system (see nebulae_of), each with its puff batch and lightning

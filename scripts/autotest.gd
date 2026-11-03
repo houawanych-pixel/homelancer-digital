@@ -1300,8 +1300,22 @@ func _dreadholm_layout() -> void:
 	for x in sy["more_planets"]: if str(x["name"]) == "Vassal": vas = at.call(x["pos"], [2.5, 6.5])
 	var sun_ok: bool = at.call(SystemBuilder.sun_pos_of(sy), [5.5, 4.5])
 	var far := true
-	for g in s.gates: if g.global_position.distance_to(s.station.global_position) < 150000.0: far = false
-	_check("Dreadholm map: the star sits by the lava world (E.5 4.5), Covenant at D.5 8.5, Vassal at B.5 6.5, the jump gates further out",
+	var edge_bad: Array = []
+	var pl: float = Data.SPACE_EDGE * 0.8
+	for sid in Data.SYSTEMS:
+		var S2: Dictionary = Data.SYSTEMS[sid]
+		var pts2: Array = [["station", S2["station"]["pos"]], ["planet", S2["planet"]["pos"]]]
+		for g in S2.get("gates", []): pts2.append([str(g["name"]), g["pos"]])
+		for x in S2.get("more_planets", []) + S2.get("more_stations", []): pts2.append([str(x["name"]), x["pos"]])
+		for q in pts2:
+			if absf((q[1] as Vector3).x) >= pl or absf((q[1] as Vector3).z) >= pl: edge_bad.append("%s: %s" % [sid, q[0]])
+	_check("Map edge: no station, planet or jump gate in the border squares of any system (only asteroids and clouds)", edge_bad.is_empty(), "%d out: %s" % [edge_bad.size(), edge_bad.slice(0, 8)])
+	var gates_ok := true
+	for gk in Data.SYSTEM_LAYOUT["dreadholm"]["gates"]:
+		for g in sy["gates"]:
+			if str(g["to"]) == str(gk) and not at.call(g["pos"], Data.SYSTEM_LAYOUT["dreadholm"]["gates"][gk]): gates_ok = false
+	far = far and gates_ok
+	_check("Dreadholm map: the star sits by the lava world (E.5 4.5), Covenant at D.5 8.5, Vassal at B.5 6.5, the jump gates where the owner marked them",
 		sun_ok and cov and vas and far, "sun %s covenant %s vassal %s gates out %s" % [sun_ok, cov, vas, far])
 	var plan: int = sy["lane_plan"].size()
 	var meet := {}
@@ -1311,8 +1325,13 @@ func _dreadholm_layout() -> void:
 	for jn in sy["junctions"]: if int(meet.get(str(jn), 0)) < 3: tees = false
 	var cov_lane: bool = s.lanes.any(func(l): return str(l["b"]) == "Covenant Embassy" and str(l["a"]) == "South Choke Point")
 	var avoid: Array = [[SystemBuilder.sun_pos_of(sy), Data.SUN_RADIUS * 1.2, "star"], [s.belt_center, s.belt_radius, "belt"]]
-	for c in sy["layout_clouds"]: avoid.append([c["center"], float(c["radius"]), str(c["name"])])
-	if not sy.get("nebula", {}).is_empty(): avoid.append([sy["nebula"]["center"], float(sy["nebula"]["radius"]) * Data.NEBULA_SIZE, "the Veil (main cloud)"])
+	for c in sy["layout_clouds"]:
+		if str(c.get("weather", "")) == "rocks": avoid.append([c["center"], float(c["radius"]), str(c["name"])])
+	for nd in s.nebulae:   # every cloud with rocks in it: the rocks gather within 0.6 of its radius
+		if not nd.get("layout", false) and (str(nd.get("weather", "")) == "rocks" or nd["main"]): avoid.append([nd["center"], float(nd["radius"]) * 0.65, "rocks in %s" % (str(nd["name"]) if str(nd["name"]) != "" else "a cloud")])
+	var stn: Array = []   # (and never through a station on the way)
+	for x in sy["more_stations"]: stn.append([x["pos"], 3000.0, str(x["name"])])
+	# (v11.69 owner: lanes may cross clouds, just not asteroids)
 	var through := []
 	for ln in s.lanes:
 		var pts: Array = ln["up"]
@@ -1320,7 +1339,11 @@ func _dreadholm_layout() -> void:
 			for av in avoid:
 				var q: Vector3 = Geometry3D.get_closest_point_to_segment(av[0], pts[i], pts[i + 1])
 				if Vector2(q.x - av[0].x, q.z - av[0].z).length() < float(av[1]) and not (str(av[2]) in through): through.append("%s (%s-%s)" % [av[2], ln["a"], ln["b"]])
-	_check("Dreadholm lanes: all %d planned lanes built, every choke point is a T (3+ lanes), Fleet Command reaches Covenant through the South choke point, no lane runs through the rock field, the storm cloud, the Veil, the belt or the star" % plan,
+			for st in stn:
+				if str(st[2]) == str(ln["a"]) or str(st[2]) == str(ln["b"]): continue
+				var q2: Vector3 = Geometry3D.get_closest_point_to_segment(st[0], pts[i], pts[i + 1])
+				if q2.distance_to(st[0]) < float(st[1]) and not (str(st[2]) in through): through.append("%s (%s-%s)" % [st[2], ln["a"], ln["b"]])
+	_check("Dreadholm lanes: all %d planned lanes built, every choke point is a T (3+ lanes), Fleet Command reaches Covenant through the South choke point, no lane runs through the asteroids (belt, rock field) or the star" % plan,
 		s.lanes.size() == plan and tees and cov_lane and through.is_empty(), "built %d / %d, tees %s %s, covenant lane %s, through %s" % [s.lanes.size(), plan, tees, meet, cov_lane, through])
 
 ## v11.66 (owner): a MISSION battleship can be boarded once its shield is down (the shield takes a while to come back),

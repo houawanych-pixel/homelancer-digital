@@ -236,9 +236,10 @@ static func apply_layouts(systems: Dictionary) -> void:
 			if (L.get("stations", {}) as Dictionary).has(str(x["name"])): x["pos"] = cell_pos(L["stations"][str(x["name"])], (x["pos"] as Vector3).y)
 		var st: Vector3 = sy["station"]["pos"]
 		var k: float = float(L.get("gate_push", 1.0))
-		var lim: float = Data.SPACE_EDGE * 0.96
+		var lim: float = Data.SPACE_EDGE * Data.PLACE_EDGE
 		for g in sy["gates"]:
 			var p: Vector3 = st + ((g["pos"] as Vector3) - st) * k
+			if (L.get("gates", {}) as Dictionary).has(str(g["to"])): p = cell_pos(L["gates"][str(g["to"])], p.y)   # v11.69: set by hand
 			g["pos"] = Vector3(clampf(p.x, -lim, lim), p.y, clampf(p.z, -lim, lim))
 		var clouds: Array = []
 		for c in L.get("clouds", []):
@@ -549,12 +550,16 @@ static func _keep_in_tile(sy: Dictionary) -> void:
 	var clampv := func(p: Vector3) -> Vector3:
 		var q := _soft(p)
 		return Vector3(clampf(q.x, -lim, lim), q.y, clampf(q.z, -lim, lim))
-	sy["station"]["pos"] = clampv.call(sy["station"]["pos"])
-	sy["planet"]["pos"] = clampv.call(sy["planet"]["pos"])
+	var pl: float = Data.SPACE_EDGE * Data.PLACE_EDGE   # v11.69 (owner): places stay out of the border squares (fields and clouds may sit there)
+	var place := func(p: Vector3) -> Vector3:
+		var q := _soft(p)
+		return Vector3(clampf(q.x, -pl, pl), q.y, clampf(q.z, -pl, pl))
+	sy["station"]["pos"] = place.call(sy["station"]["pos"])
+	sy["planet"]["pos"] = place.call(sy["planet"]["pos"])
 	sy["asteroids"]["center"] = clampv.call(sy["asteroids"]["center"])
 	sy["nebula"]["center"] = clampv.call(sy["nebula"]["center"])
-	for g in sy["gates"]: g["pos"] = clampv.call(g["pos"])
-	for x in sy["more_planets"] + sy["more_stations"]: x["pos"] = clampv.call(x["pos"])
+	for g in sy["gates"]: g["pos"] = place.call(g["pos"])
+	for x in sy["more_planets"] + sy["more_stations"]: x["pos"] = place.call(x["pos"])
 
 ## One gate in system `a` leading to `b`, set in the direction `b` lies on the map (north on the map = -Z in flight).
 static func _link(out: Dictionary, rows: Dictionary, kind: String, a: String, b: String, wrap := false) -> void:
