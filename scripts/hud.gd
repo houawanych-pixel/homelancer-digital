@@ -1744,14 +1744,16 @@ func _draw() -> void:
 	# still flash up, small and white, under the top prompt.
 	if msg_t > 0.0: _text(Vector2(col_w, TOP_BAR_Y + TOP_BAR_H * 2.0 + 86.0), msg, 15, Color(WHITE, minf(1.0, msg_t * 2.0)), HORIZONTAL_ALIGNMENT_CENTER, S.x - col_w * 2)
 	var zone := ""
-	if space.boarding: zone = "ABOARD THE %s" % str(space.board.get("ship", "BATTLESHIP")).to_upper()   # v11.45
+	if space.boarding: zone = space.board_line()   # v11.70: where you are, what to do, the escape timer
 	elif space.surface_mode: zone = "%s  ·  ALT %d m" % [Surface.tile_name(space.planet_id, space.tile), int(space.altitude)]
 	elif space.in_nebula > 0.0:
 		var wx: String = Data.NEBULA_WEATHER_NAME.get(space.nebula_weather(), "")
 		zone = ("%s NEBULA" % space.nebula_name().to_upper()) if space.nebula_name() != "" else "NEBULA"
 		zone += ("  ·  " + wx if wx != "" else "") + "  ·  SENSORS DEGRADED"   # v1.9z: the cloud's weather
 	elif space.in_belt: zone = ("%s RINGS — MINE THE ROCKS" % str(Data.SYSTEMS[GS.system_id]["planet"]["name"]).to_upper()) if space.in_ring(space.player.global_position) else "%s — WATCH FOR ROCKS" % Data.SYSTEMS[GS.system_id]["asteroids"]["name"].to_upper()
-	if zone != "" and not dock_down: _text(Vector2(col_w, 164), zone, 14, CYAN_HI, HORIZONTAL_ALIGNMENT_CENTER, S.x - col_w * 2)
+	if zone != "" and not dock_down:   # (v11.70: under the flashed messages, not on them)
+		var esc: bool = space.boarding and str(space.board.get("phase", "")) == "escape"
+		_text(Vector2(col_w, TOP_BAR_Y + TOP_BAR_H * 2.0 + 110.0), zone, 18 if esc else 14, Color(1.0, 0.35, 0.25) if esc else CYAN_HI, HORIZONTAL_ALIGNMENT_CENTER, S.x - col_w * 2)
 	# defence and special moves (right block), speed (left block)
 	var sh_cd: float = space.shield_cd / Data.SHIELD_BOOST_COOLDOWN
 	pass   # (v7.6 / v8.3: SHIELD and REPAIR are drawn by the console)

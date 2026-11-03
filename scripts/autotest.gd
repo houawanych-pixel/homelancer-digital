@@ -1273,9 +1273,8 @@ func _warp_kill() -> void:
 	s.gun_cd = 0.0
 	var nb: int = s.bolts.size()
 	s.fire_lock = true
-	await _wait(0.5)
+	var shot: bool = await _until(func(): return s.bolts.size() > nb or s.shots_fired > 0 if "shots_fired" in s else s.bolts.size() > nb, 1.5)
 	s.fire_lock = false
-	var shot: bool = s.bolts.size() > nb
 	var mis: bool = s.trigger_system("missile")
 	main.hud.held["thrust"] = true
 	await _wait(1.0)
@@ -1416,6 +1415,15 @@ func _board_fx() -> void:
 	var twice: bool = absf(s1 - float(lg[1]) * 0.75 * Data.NUKE_FX_SIZE) < float(lg[1]) * 0.15 and s2 > s1 * 1.2
 	_check("Nuke: a spiked ball (%d spikes), grows to the first blast, holds, grows again to the second, and turns slowly" % Data.NUKE_SPIKES,
 		fx != null and spikes == Data.NUKE_SPIKES and twice and turned > 0.3, "spikes %d, size %.0f then %.0f (blasts %.0f / %.0f m), turned %.2f rad" % [spikes, s1, s2, float(lg[1]), float(lg[2]), turned])
+	# the full run, from a MISSION battleship
+	var mb: Dictionary = s._spawn_capital("inv_battleship", "battleship", s.player.global_position - s.player.global_basis.z * 2500.0, s.player.global_position, "Unity")
+	await _frames(3)
+	GS.form = "mech"
+	main.board_battleship(mb)
+	await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding, 15.0)
+	var inside: bool = is_instance_valid(main.space) and main.space.boarding
+	var wk: Dictionary = await _board_walkthrough() if inside else {"ok": false, "txt": "never got in"}
+	_check("Boarding run (owner): a mech through corridors and sliding doors, guards in each room, the core, the way back seals, 90 s to the OTHER exit, out: the battleship blows, %d ships wait, clear them and Command pays" % Data.BOARD_WAVE, inside and bool(wk["ok"]), str(wk["txt"]))
 
 ## v11.68 (owner's fighter sheet): every faction has a Level 2 and a Level 3 fighter (16 models, own pack), Level 3
 ## bigger than Level 2; they fly for their faction (carriers launch them, patrols bring them) and the dealer sells them.
@@ -1450,6 +1458,62 @@ func _fighters_l2l3() -> void:
 		s.enemies.erase(e)
 		(e["node"] as Node3D).free()
 	_check("Fighters: a battleship launches its starfighters, Level 2s and Level 3s; a Level 3 flies with its real model", seen.size() == 3 and spawned, "launched %s, L3 real model %s" % [seen.keys(), spawned])
+
+## v11.70 (owner): the boarding run, start to end, inside the battleship (call once the mech is inside): the doors slide
+## open as you walk up (the way out is locked), each room's guards come when you walk in, the core's shield drops once
+## the hall is clear, the core blows: the way you came seals, the far door opens, 90 s; out through the aft launch bay,
+## the battleship goes up, 20 fighters wait outside, clear them and you are paid. Returns {ok, txt}.
+func _board_walkthrough() -> Dictionary:
+	var s := _sp()
+	var res: Array = []
+	var layout_ok: bool = Boarding.ROOMS.size() >= 10 and s.board_doors.size() >= Boarding.ROOMS.size() - 1
+	var esc: Dictionary = {}
+	var seal: Dictionary = {}
+	for d in s.board_doors:
+		if Boarding.is_door(d, Boarding.ESCAPE_DOOR): esc = d
+		if Boarding.is_door(d, Boarding.SEAL_DOOR): seal = d
+	layout_ok = layout_ok and not esc.is_empty() and bool(esc["locked"]) and not seal.is_empty()
+	res.append("%d rooms, %d doors, way out locked %s" % [Boarding.ROOMS.size(), s.board_doors.size(), bool(esc.get("locked", false))])
+	var first: Dictionary = {}
+	for d in s.board_doors:
+		if Boarding.is_door(d, ["bay", "c1"]): first = d
+	_tp(Vector3(0, 6, -45), Vector3(0, 6, -200))
+	await _wait(1.4)
+	var opens: bool = not first.is_empty() and float(first["open"]) > 0.95
+	var e0: int = s.enemies.size()
+	_tp(Vector3(0, 6, -230), Vector3(0, 6, -300))
+	await _frames(4)
+	var guards: bool = (s.board["woke"] as Dictionary).has("guard") and s.enemies.size() >= e0 + int(Boarding.ROOMS["guard"][6])
+	res.append("door slides open %s, guard room mechs %s" % [opens, guards])
+	_tp(Vector3(0, 6, -600), Vector3(0, 6, -700))
+	await _frames(3)
+	s.player.global_position = Vector3(0, 6, -619.0)   # (walking into the shut door from the hall)
+	await _frames(3)
+	var blocked: bool = s.player.global_position.z > -619.5
+	for k in s.board["guards"].get("hall", []):
+		if s.enemies.has(k): s._destroy_unit(k)
+	await _frames(4)
+	var core: Dictionary = s.board["core"]
+	var unlocked: bool = not bool(core.get("locked", true))
+	s._damage_enemy(core, 999999.0)
+	await _frames(4)
+	var escape: bool = str(s.board["phase"]) == "escape" and absf(float(s.board["escape"]) - Data.BOARD_ESCAPE) < 1.0 and bool(seal["sealed"]) and not bool(esc["locked"]) and s._board_path.visible
+	res.append("locked door blocks %s, hall clear -> core open %s, core down -> sealed / way out open / %d s %s" % [blocked, unlocked, int(Data.BOARD_ESCAPE), escape])
+	var cr0 := GS.credits
+	_tp(Vector3(0, 6, -800), Vector3(0, 6, -900))
+	await _frames(3)
+	s.player.global_position = Vector3(0, 6, Boarding.EXIT_Z - 2.0)
+	await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and not main.space.boarding and not main.space.post_wave.is_empty(), 12.0)
+	var s2 := _sp()
+	var wave: int = (s2.post_wave.get("kids", []) as Array).size()
+	var waited: bool = wave == Data.BOARD_WAVE and GS.credits == cr0
+	for k in (s2.post_wave.get("kids", []) as Array).duplicate():
+		if s2.enemies.has(k): s2._destroy_unit(k)
+	await _frames(4)
+	var paid: bool = s2.post_wave.is_empty() and GS.credits >= cr0 + Data.BOARD_PAY
+	res.append("out: %d ships waiting, none paid yet %s; all down -> paid %s" % [wave, waited, paid])
+	if GS.form == "mech": s2.start_transform()
+	return {"ok": layout_ok and opens and guards and blocked and unlocked and escape and waited and paid, "txt": " · ".join(res)}
 
 func _smoke_core() -> void:
 	_check("Core: the game boots to its title / main menu", main.state == "title", main.state)
@@ -1577,6 +1641,41 @@ func _run() -> void:
 			SpaceSystem.face(e["node"], p.global_basis.x + p.global_basis.z * 0.6)
 		await _wait(0.05)
 		await _capture("fighters_l2l3")
+		get_tree().quit()
+		return
+	if OS.get_environment("HL_BOARDSHOT") != "":   # v11.70: pictures of the boarding run (HL_SHOT_DIR)
+		await _smoke_core()
+		var s := _sp()
+		var mb: Dictionary = s._spawn_capital("inv_battleship", "battleship", s.player.global_position - s.player.global_basis.z * 2500.0, s.player.global_position, "Unity")
+		await _frames(3)
+		GS.form = "mech"
+		main.board_battleship(mb)
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding, 15.0)
+		s = _sp()
+		await _wait(1.0)
+		_tp(Vector3(0, 6, -40), Vector3(0, 6, -200))
+		await _wait(1.6)
+		await _capture("board_bay")
+		_tp(Vector3(0, 6, -196), Vector3(0, 6, -260))
+		await _wait(1.5)
+		await _capture("board_guard")
+		_tp(Vector3(0, 6, -446), Vector3(0, 6, -530))
+		await _wait(1.2)
+		await _capture("board_hall")
+		for k in s.board["guards"].get("hall", []):
+			if s.enemies.has(k): s._destroy_unit(k)
+		await _frames(3)
+		s._damage_enemy(s.board["core"], 999999.0)
+		await _wait(1.5)
+		_tp(Vector3(0, 6, -590), Vector3(0, 6, -700))
+		await _wait(1.2)
+		await _capture("board_escape")
+		s.player.global_position = Vector3(0, 6, Boarding.EXIT_Z - 2.0)
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and not main.space.boarding and not main.space.post_wave.is_empty(), 12.0)
+		await _wait(0.2)
+		await _capture("board_out")
+		await _wait(0.6)
+		await _capture("board_out2")
 		get_tree().quit()
 		return
 	if OS.get_environment("HL_FXSHOT") != "":   # v11.66: pictures of a ship blast and the nuke (HL_SHOT_DIR)
@@ -4381,25 +4480,21 @@ func _job_v1145() -> void:
 	var board_btn: bool = s.prompt() == "board" and main.hud.buttons.has("board")   # v11.60 (owner): BOARD next to the ship
 	res.append("BOARD button %s" % board_btn)
 	main._on_hud("board")
-	await _until(func(): return main.state == "interior", 12.0)
-	var went_in: bool = main.state == "interior" and GS.form == "mech" and main.interior != null and main.interior.visible and main.interior.interior and main.interior.rooms == Data.BS_INTERIOR_ROOMS
-	await _wait(0.5)
-	await _shot("v1156_interior_hangar", 0.3)
+	await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding, 15.0)
+	var went_in: bool = is_instance_valid(main.space) and main.space.boarding and GS.form == "mech"
 	var rep_hit: bool = Factions.standing(str(bs.get("faction", ""))) < st0 or not Factions.normal(str(bs.get("faction", "")))
 	res.append("auto-transform + in %s, rep down %s" % [went_in, rep_hit])
 	var rooms_ok := went_in
+	var out_ok := false
 	if went_in:
-		for i in 3:   # (each room cleared)
-			main.interior.state = "clear"
-			main.interior.state_t = 99.0
-			await _frames(2)
-		rooms_ok = main.interior.state == "escape" and main.interior.escaped
-	await _until(func(): return main.state == "flight", Data.BS_ESCAPE_TIME + 6.0)
-	s = _sp()
-	var out_ok: bool = main.state == "flight" and not s.enemies.has(bs) and GS.credits >= cr0 + Data.BOARD_PAY and GS.form == "mech"
-	res.append("3 rooms then escape %s, out + paid + battleship gone %s" % [rooms_ok, out_ok])
+		var wk: Dictionary = await _board_walkthrough()
+		rooms_ok = bool(wk["ok"])
+		res.append(str(wk["txt"]))
+		s = _sp()
+		out_ok = main.state == "flight" and not s.boarding and GS.credits >= cr0 + Data.BOARD_PAY
+	res.append("out, wave cleared, paid %s" % out_ok)
 	if GS.form == "mech": s.start_transform()
-	_check("v11.60 (owner): BOARDING a battleship: one shield + hull, no shoot-off parts; SHIELDS UP while its shield is above 0; once broken it stays down; BOARD shows next to the ship; the ship turns into its mech and goes in; 3 rooms (breach hangar, reactor spine, generator core) with alarm waves; generator down, back to the hangar, fly out: the battleship is gone and you are paid; infiltrating costs standing",
+	_check("v11.60 (owner): BOARDING a battleship: one shield + hull, no shoot-off parts; SHIELDS UP while its shield is above 0; once broken it stays down; BOARD shows next to the ship; the ship turns into its mech and goes in (v11.70: the corridor run, the core, the other exit, the wave outside, then paid); infiltrating costs standing",
 		parts_ok and shield_ok and board_btn and went_in and rep_hit and rooms_ok and out_ok, " · ".join(res))
 
 ## v11.32 (owner: "the battleships were a success ... name them, put them in the game, where they need to go, put

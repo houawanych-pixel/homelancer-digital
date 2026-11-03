@@ -1205,13 +1205,16 @@ func setup_boarding(info: Dictionary) -> void:
 	var root := Node3D.new()
 	root.name = "BattleshipInside"
 	add_child(root)
-	surf_boxes = Boarding.build(root, tint)
+	var built: Dictionary = Boarding.build(root, tint)
+	surf_boxes = built["boxes"]
+	board_doors = built["doors"]
+	_board_alarm = built["alarm"]
+	_board_path = built["path"]
 	ground_mode = true
 	player.global_position = Boarding.START_AT + Vector3(0, 6.0, 0)
 	_face(Vector3(0, 0, -1))
 	vel = Vector3.ZERO
-	board = {"phase": "mechs", "faction": fac, "ship": str(info.get("name", "%s Battleship" % fac)), "spawned": 0, "kids": [], "cd": 2.0,
-		"boss": {}, "boss_at": Boarding.BOSS_AT, "pod": null, "bounty": false, "escape": -1.0, "core": {}, "said": -1}
+	board = {"phase": "fight", "faction": fac, "ship": str(info.get("name", "%s Battleship" % fac)), "guards": {}, "woke": {}, "escape": -1.0, "core": {}, "said": -1, "room": "bay"}
 	var core := spawn_unit("ship_core", Boarding.CORE_AT + Vector3(0, 22, 0), Boarding.CORE_AT, "none")
 	for c in (core["node"] as Node3D).get_children():
 		if c is Node3D: (c as Node3D).visible = false
@@ -1220,7 +1223,7 @@ func setup_boarding(info: Dictionary) -> void:
 	core["locked"] = true
 	core["board_core"] = true
 	board["core"] = core
-	message.emit("Inside the %s. Their mechs are coming: fight through to the reactor hall." % board["ship"])
+	message.emit("Inside the %s. Find your way through the corridors to the REACTOR HALL and blow the core." % board["ship"])
 	_update_camera(1.0, true)
 
 func _build_board_env(tint: Color) -> void:
@@ -1229,8 +1232,8 @@ func _build_board_env(tint: Color) -> void:
 	e.background_mode = Environment.BG_COLOR
 	e.background_color = Color(0.02, 0.02, 0.03)
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	e.ambient_light_color = Color(0.75, 0.75, 0.8).lerp(tint, 0.15)
-	e.ambient_light_energy = 1.0
+	e.ambient_light_color = Color(0.55, 0.57, 0.62).lerp(tint, 0.15)
+	e.ambient_light_energy = 0.35   # (v11.70: a dark ship, lit by its lamps; it was washed out white)
 	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	e.glow_enabled = true
 	env.environment = e
@@ -1287,6 +1290,7 @@ func _board_update(dt: float) -> void:
 		player.global_position.y = roof
 		if vel.y > 0.0: vel.y = 0.0
 	for bx: Array in surf_boxes: _push_out_box(bx[0], bx[1], "ground")
+	_board_doors(dt)
 	if player.global_position.z > 2.0 and board.get("phase", "") != "out":   # (the open side: out you go only by the exit)
 		player.global_position.z = 2.0
 		if vel.z > 0.0: vel.z = 0.0
@@ -1300,58 +1304,35 @@ func _board_update(dt: float) -> void:
 func _board_steps(dt: float) -> void:
 	if not controls: return
 	var fac := str(board["faction"])
+	var here := Boarding.room_at(player.global_position)
+	if here != "": board["room"] = here
+	# a room's guards come at you the first time you walk in (the aft bay's only once the core is gone)
+	if here != "" and not (board["woke"] as Dictionary).has(here) and int(Boarding.ROOMS[here][6]) > 0 and (here != "exit" or str(board["phase"]) == "escape"):
+		board["woke"][here] = true
+		var r: Array = Boarding.ROOMS[here]
+		var kids: Array = []
+		for k in spawn_ground_mechs(Vector3((float(r[0]) + float(r[1])) * 0.5, 0, (float(r[2]) + float(r[3])) * 0.5), fac, int(r[6]), -42, 0):
+			k["aggro"] = true
+			k["provoked"] = true
+			var px := _rng.randf_range(float(r[0]) + 14.0, float(r[1]) - 14.0)
+			var pz := _rng.randf_range(float(r[2]) + 14.0, float(r[2]) + (float(r[3]) - float(r[2])) * 0.45)   # (the far side of the room)
+			(k["node"] as Node3D).global_position = Vector3(px, Data.WALKER_STAND, pz)
+			kids.append(k)
+		board["guards"][here] = kids
+		message.emit("%s: %d of their mechs!" % [str(r[5]), kids.size()])
 	match str(board["phase"]):
-		"mechs":   # three at a time, ten in all
-			board["kids"] = (board["kids"] as Array).filter(func(k): return enemies.has(k) and is_instance_valid(k["node"]))
-			board["cd"] = float(board["cd"]) - dt
-			var cfg: Array = Data.BOARD_MECHS
-			if int(board["spawned"]) < int(cfg[1]) and (board["kids"] as Array).size() < int(cfg[0]) and float(board["cd"]) <= 0.0:
-				board["cd"] = 2.5
-				var door: Vector3 = Boarding.MECH_DOORS[int(board["spawned"]) % Boarding.MECH_DOORS.size()]
-				for k in spawn_ground_mechs(door, fac, 1, -42, 0):
-					k["aggro"] = true
-					(k["node"] as Node3D).global_position = Vector3(door.x, Data.WALKER_STAND, door.z)
-					(board["kids"] as Array).append(k)
-				board["spawned"] = int(board["spawned"]) + 1
-			if int(board["spawned"]) >= int(cfg[1]) and (board["kids"] as Array).is_empty():
-				board["phase"] = "boss"
-				var b: Array = spawn_ground_mechs(Boarding.BOSS_AT, fac, 1, -42, 1)
-				if not b.is_empty():
-					board["boss"] = b[0]
-					b[0]["aggro"] = true
-					(b[0]["node"] as Node3D).global_position = Vector3(Boarding.BOSS_AT.x, Data.WALKER_STAND * Data.MECH_BOSS_SCALE, Boarding.BOSS_AT.z)
-				message.emit("All ten down. Here comes their BOSS MECH!")
-		"boss":
-			var bs: Dictionary = board["boss"]
-			if not bs.is_empty() and enemies.has(bs) and is_instance_valid(bs["node"]):
-				board["boss_at"] = (bs["node"] as Node3D).global_position
-				return
-			var at: Vector3 = board["boss_at"]
-			var pod := Node3D.new()
-			pod.name = "Bounty Pilot"
-			pod.add_child(_part_mark("bounty", 14.0))
-			add_child(pod)
-			pod.global_position = Boarding.keep_in(Vector3(at.x, 5.0, at.z), 14.0)
-			board["pod"] = pod
-			board["phase"] = "bounty"
-			message.emit("The boss's pilot ejected: walk the mech over and GRAB HIM (bounty).")
-		"bounty":
-			var pod: Node3D = board["pod"]
-			if is_instance_valid(pod) and Vector2(pod.global_position.x - player.global_position.x, pod.global_position.z - player.global_position.z).length() < Data.BOARD_GRAB:
-				pod.queue_free()
-				board["bounty"] = true
-				GS.credits += Data.BOARD_BOUNTY_PAY
-				board["phase"] = "core"
-				(board["core"] as Dictionary)["locked"] = false
-				message.emit("Bounty pilot taken (+%d cr). The core's blast shield is down: BLOW THE REACTOR!" % Data.BOARD_BOUNTY_PAY)
+		"fight":   # the core's shield is up while the hall's guards stand
+			var core: Dictionary = board["core"]
+			if bool(core.get("locked", false)) and (board["woke"] as Dictionary).has("hall") and room_guards_left("hall") == 0:
+				core["locked"] = false
+				message.emit("The hall is clear: the core's shield is DOWN. BLOW THE REACTOR!")
 		"escape":
 			board["escape"] = float(board["escape"]) - dt
 			var left := int(ceil(float(board["escape"])))
 			if left != int(board["said"]) and (left % 10 == 0 or left <= 5):
 				board["said"] = left
-				message.emit("REACTOR CRITICAL: %d s! Get back to the hangar!" % left)
-			var ex: Vector3 = Boarding.EXIT_AT
-			if Vector2(player.global_position.x - ex.x, player.global_position.z - ex.z).length() < 30.0:
+				message.emit("%d SECONDS!" % left)
+			if player.global_position.z < Boarding.EXIT_Z:
 				board["phase"] = "out"
 				board_exit.emit(true)
 			elif float(board["escape"]) <= 0.0:
@@ -1362,22 +1343,101 @@ func _board_steps(dt: float) -> void:
 				controls = false
 				_die()
 
-## The core blew: the countdown to get out.
+## How many of a room's guard mechs are still standing.
+func room_guards_left(room: String) -> int:
+	return (board["guards"].get(room, []) as Array).filter(func(k): return enemies.has(k) and is_instance_valid(k["node"])).size()
+
+## v11.70: the sliding doors. A door opens as you walk up to it, unless it is locked (the way out, until the core blows)
+## or sealed (the way you came, after); shut, it is a solid wall. Its stripe is green when it will open, red when not.
+var board_doors: Array = []
+var _board_alarm: Array = []
+var _board_path: Node3D = null
+func _board_doors(dt: float) -> void:
+	var pp := player.global_position
+	for d in board_doors:
+		var shut: bool = bool(d["locked"]) or bool(d["sealed"])
+		var near: bool = Vector2(pp.x - (d["center"] as Vector3).x, pp.z - (d["center"] as Vector3).z).length() < Boarding.DOOR_OPEN_AT
+		var want := 0.0 if shut or not near else 1.0
+		d["open"] = move_toward(float(d["open"]), want, dt * 1.6)
+		for mi: MeshInstance3D in d["panels"]:
+			mi.position = (mi.get_meta("closed_at") as Vector3) + (mi.get_meta("open_off") as Vector3) * float(d["open"])
+			var st := mi.get_node_or_null("Stripe") as MeshInstance3D
+			if st != null:
+				var want_col := Color(1.0, 0.2, 0.15) if shut else Color(0.3, 1.0, 0.45)
+				if not st.has_meta("col") or st.get_meta("col") != want_col:
+					st.set_meta("col", want_col)
+					st.material_override = ShipFactory.mat(want_col, true)
+		if float(d["open"]) < 0.8: _push_out_box(d["box"][0], d["box"][1], "ground")
+
+## The core blew: the way you came seals, the far door opens, 90 s to the aft launch bay.
 func _core_down() -> void:
 	board["phase"] = "escape"
 	board["escape"] = Data.BOARD_ESCAPE
 	hit_shake = 1.2
-	message.emit("REACTOR BREACHED! %d seconds: back the way you came, to the hangar!" % int(Data.BOARD_ESCAPE))
+	for d in board_doors:
+		if Boarding.is_door(d, Boarding.SEAL_DOOR): d["sealed"] = true
+		if Boarding.is_door(d, Boarding.ESCAPE_DOOR): d["locked"] = false
+	for l: OmniLight3D in _board_alarm:
+		if is_instance_valid(l): l.light_color = Color(1.0, 0.2, 0.12)   # red alarm light everywhere
+	if is_instance_valid(_board_path): _board_path.visible = true
+	Sfx.play("explosion", 0.0, 0.5)
+	message.emit("REACTOR BREACHED! The way you came is SEALED. %d seconds: follow the green lights to the AFT LAUNCH BAY!" % int(Data.BOARD_ESCAPE))
 
 ## The objective line inside (main shows it at the top).
 func board_line() -> String:
+	var where: String = str(Boarding.ROOMS.get(str(board.get("room", "")), [0, 0, 0, 0, 0, ""])[5])
 	match str(board.get("phase", "")):
-		"mechs": return "BOARDING: fight their mechs (%d of %d)  ·  then the boss" % [int(board["spawned"]) - (board["kids"] as Array).size(), int(Data.BOARD_MECHS[1])]
-		"boss": return "BOARDING: destroy the BOSS MECH"
-		"bounty": return "BOARDING: grab the bounty pilot"
-		"core": return "BOARDING: blow the REACTOR CORE"
-		"escape": return "ESCAPE: %d s  ·  back to the hangar" % int(ceil(maxf(0.0, float(board["escape"]))))
+		"fight":
+			var core: Dictionary = board.get("core", {})
+			if not bool(core.get("locked", true)): return "%s  ·  BLOW THE REACTOR CORE" % where
+			if str(board.get("room", "")) == "hall": return "%s  ·  destroy its guards (%d left) to drop the core's shield" % [where, room_guards_left("hall")]
+			return "%s  ·  find the REACTOR HALL (west or east way round)%s" % [where, "  ·  its guards are waiting" if (board["woke"] as Dictionary).has("hall") else ""]
+		"escape": return "ESCAPE: %d s  ·  %s  ·  out through the AFT LAUNCH BAY" % [int(ceil(maxf(0.0, float(board["escape"])))), where]
 	return "BOARDING"
+
+# ---------------------------------------------------------------- v11.70: out of the ship, the wave waiting outside
+## (owner: "I fly outside the ship, big explosion; 20 ships waiting; Command congratulates me; destroy all threats,
+## receive payment"). The battleship goes up behind you; its faction's fighters close in; clear them all to be paid.
+var post_wave: Dictionary = {}   # {faction, kids, pay, mission}
+func start_post_wave(fac: String, ship_at: Vector3, pay: int, mission: bool) -> void:
+	var pp := player.global_position
+	for k in 5:   # the battleship blowing up: the big blast, and more going off across it
+		blast_pending.append({"t": 0.25 * k, "at": ship_at + Vector3(_rng.randfn(0, 1), _rng.randfn(0, 0.4), _rng.randfn(0, 1)) * 90.0, "size": 160.0})
+	_explode(ship_at, 60.0)
+	_burst_fx(ship_at, 300.0, 2.0)
+	hit_shake = 1.0
+	var fl: Dictionary = Data.FACTION_FLEET.get(fac, {})
+	var kids: Array = []
+	var lineup: Array = [str(fl.get("starfighter", "")), str(fl.get("fighter_l2", "")), str(fl.get("fighter_l3", ""))].filter(func(k): return k != "" and Data.ENEMIES.has(k))
+	var c := {"fighter": lineup[0] if not lineup.is_empty() else "", "lineup": lineup, "mix": Data.FLEET_LAUNCH_MIX["battleship"]}
+	for i in Data.BOARD_WAVE:
+		var a := TAU * float(i) / float(Data.BOARD_WAVE)
+		var at := pp + Vector3(cos(a), _rng.randf_range(-0.25, 0.25), sin(a)) * _rng.randf_range(Data.BOARD_WAVE_AT[0], Data.BOARD_WAVE_AT[1])
+		var e: Dictionary = {}
+		if not lineup.is_empty(): e = spawn_unit(launch_pick(c), at, pp)
+		else:
+			var g := spawn_mission_group(at, fac, 1, Data.PATROL_MAX_SLOT, "", -7)
+			if not g.is_empty(): e = g[0]
+		if e.is_empty(): continue
+		e["aggro"] = true
+		e["provoked"] = true
+		if fac != "": e["faction"] = fac
+		e["post_wave"] = true
+		kids.append(e)
+	post_wave = {"faction": fac, "kids": kids, "pay": pay, "mission": mission}
+
+func _update_post_wave() -> void:
+	if post_wave.is_empty(): return
+	var left: int = (post_wave["kids"] as Array).filter(func(k): return enemies.has(k) and is_instance_valid(k["node"])).size()
+	post_wave["left"] = left
+	if left > 0: return
+	var pay: int = int(post_wave["pay"])
+	GS.credits += pay
+	GS.kills += 1
+	message.emit("COMMAND: All threats destroyed. Outstanding work, pilot. Payment sent: +%d cr." % pay)
+	if bool(post_wave["mission"]) and not GS.mission.is_empty() and str(GS.mission.get("kind", "")) == "disturbance":
+		Missions._pay(self, "COMMAND: the disturbance is over. %s pays %d cr." % [Missions.giver_name(GS.mission), int(GS.mission["pay"])])
+	post_wave = {}
 
 ## v11.38: is this patrol ship still leaving you alone (not provoked, your standing not orange / red)?
 func fleet_peaceful(e: Dictionary) -> bool:
@@ -4450,6 +4510,7 @@ func _process(dt: float) -> void:
 	if not allies.is_empty(): _update_allies(dt)   # v1.9n
 	_update_traffic(dt)
 	if not _pieces.is_empty(): _update_pieces(dt)   # v11.67: burning wreck pieces
+	if not post_wave.is_empty(): _update_post_wave()   # v11.70
 	if not freighters.is_empty() or _freighter_wait > 0.0: _update_freighters(dt)   # v11.63
 	_update_bolts(dt)
 	_update_missiles(dt)
@@ -6364,7 +6425,7 @@ func _enemy_entry(n: Node3D) -> Dictionary:
 ## landed on that side (and it is still there), otherwise the core. Missiles and mines (no hit point) hit the core.
 func _damage_enemy(e: Dictionary, dmg: float, hit := Vector3.INF, sf := -1.0) -> void:
 	if e.get("locked", false):   # v11.45: the reactor core can't be hurt yet (grab the bounty first)
-		if _rng.randf() < 0.1: message.emit("The core's blast shield is up: take the bounty pilot first.")
+		if _rng.randf() < 0.1: message.emit("The core's shield is up while the hall's guards stand.")
 		return
 	if e["node"].get_meta("kind", "enemy") == "enemy": GS.super_charge = minf(1.0, GS.super_charge + dmg / Data.SUPER_FROM_DEALT)   # v7.5
 	e["aggro"] = true
@@ -9616,7 +9677,7 @@ func _spawn_capital(kind: String, role: String, p: Vector3, home: Vector3, facti
 	e["aggro"] = true
 	e["l"] = 0.0   # (no wing sections: a hit goes to the hull)
 	e["r"] = 0.0
-	e["node"].name = "%s %s %d" % [faction if faction != "" else "Enemy", d["name"], _enemy_serial]
+	e["node"].name = ("%s %d" % [d["name"], _enemy_serial]) if faction != "" and str(d["name"]).begins_with(faction) else "%s %s %d" % [faction if faction != "" else "Enemy", d["name"], _enemy_serial]   # (v11.70: no "Unity Unity Battleship")
 	face(e["node"], home - p + Vector3(0.01, 0, 0))
 	if faction != "": e["faction"] = faction
 	_light_model(e["model"], Data.INVASION_DRAW["capital"], Data.INVASION_DRAW["capital_lod_bias"])
@@ -9873,6 +9934,7 @@ func disturbance_tick(dt: float, m: Dictionary) -> void:
 	if at == Vector3.INF: return
 	var cfg: Dictionary = Data.DISTURBANCE
 	var dc: Dictionary = cfg[str(m.get("target", "ship"))]
+	if bool(m.get("boarded", false)): return   # v11.70: you blew it up from inside; the wave outside settles the job
 	if int(m.get("spawned", -1)) < 0 or not inv_here:
 		if player.global_position.distance_to(at) < float(cfg["arrive"]):
 			_spawn_capital(str(dc["capital"]), str(dc["role"]), at, at + Vector3(0, 0, 400), str(m["faction"]))

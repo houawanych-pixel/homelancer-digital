@@ -1411,21 +1411,14 @@ var interior: Breakout
 var _interior_layer: CanvasLayer
 var _interior_ship: Dictionary = {}
 func board_battleship(e: Dictionary) -> void:
+	# v11.70 (owner: "that mini game was whack"): inside the battleship as a MECH in ground mode (Boarding / space
+	# setup_boarding): corridors and doors, guard mechs, the core, then 90 s to find the other way out
 	if state != "flight" or not is_instance_valid(space) or GS.form != "mech": return
 	state = "boarding"
 	_interior_ship = e
-	board_from = {"sys": space.sys_id, "pos": space.player.global_position, "name": str(e["node"].name), "faction": str(e.get("faction", ""))}
-	var f := str(board_from["faction"]).to_lower()
-	if f.begins_with("liberator"): f = "liberator"
-	if f.begins_with("savager"): f = "savagers"
+	board_from = {"sys": space.sys_id, "pos": space.player.global_position, "ship_at": (e["node"] as Node3D).global_position, "name": str(e["node"].name),
+		"faction": str(e.get("faction", "")), "fleet": bool(e.get("fleet_patrol", false)), "mission": bool(e.get("invasion", false))}
 	if Factions.normal(str(board_from["faction"])): Factions.adjust(str(board_from["faction"]), -Data.REP_INFILTRATE)
-	for rk in Data.BS_INTERIOR_ROOMS:   # (the station rooms that stand in until the battleship pictures are in)
-		var fb := str(Data.BS_INTERIOR_FALLBACK[rk])
-		for pk in ["room_hostile_%s_%s" % [f, fb], "room_%s_%s" % [f, fb]]:
-			if Packs.PACKS.has(pk): Packs.request(pk)
-	if Packs.PACKS.has("chars_" + f): Packs.request("chars_" + f)
-	var art0: Dictionary = Data.BREAKOUT_ART.get(f, {})
-	if art0.has("anim_pack"): Packs.request(str(art0["anim_pack"]))
 	space.controls = false
 	hud.visible = false
 	fx.caption = "BOARDING"
@@ -1434,24 +1427,18 @@ func board_battleship(e: Dictionary) -> void:
 	var tw := create_tween()
 	tw.tween_property(fx, "fade", 1.0, 0.5)
 	await tw.finished
-	space.process_mode = Node.PROCESS_MODE_DISABLED   # (the fight outside holds still while you are inside)
-	if _interior_layer == null:
-		_interior_layer = CanvasLayer.new()
-		_interior_layer.layer = 60
-		add_child(_interior_layer)
-		interior = Breakout.new()
-		interior.name = "BattleshipInterior"
-		_interior_layer.add_child(interior)
-		interior.cleared.connect(_interior_cleared)
-	interior.start(f, Data.BS_INTERIOR_ROOMS, true)
+	_new_space("Boarding")
+	space.setup_boarding({"sys": board_from["sys"], "faction": board_from["faction"], "name": board_from["name"]})
+	_connect_space()
 	var tw2 := create_tween()
 	tw2.tween_property(fx, "fade", 0.0, 0.6)
 	await tw2.finished
 	fx.caption = ""
 	fx.sub = ""
-	state = "interior"
+	space.controls = true
+	hud.visible = true
+	state = "flight"
 
-## The generator is down and you are back in the hangar: out you fly, the battleship blows behind you.
 func _interior_cleared() -> void:
 	if state != "interior": return
 	state = "boarding"
@@ -1483,30 +1470,38 @@ func _interior_cleared() -> void:
 	_interior_ship = {}
 
 func leave_boarding(won: bool) -> void:
+	# v11.70 (owner): out of the launch bay you fly, the battleship blows up behind you, and 20 of its fighters are
+	# waiting. Command congratulates you; clear every one of them and you are paid.
 	if state != "flight" or board_from.is_empty(): return
 	state = "boarding"
 	space.controls = false
 	hud.visible = false
-	fx.caption = "BATTLESHIP DESTROYED" if won else "OUT"
+	fx.caption = "OUT!" if won else "OUT"
 	fx.sub = board_from["name"].to_upper()
 	var tw := create_tween()
 	tw.tween_property(fx, "fade", 1.0, 0.4)
 	await tw.finished
 	if won:
-		if bool(_interior_ship.get("fleet_patrol", false)): Boarding.sunk[board_from["sys"]] = true
-		GS.credits += Data.BOARD_PAY
-		GS.kills += 1
+		if bool(board_from.get("fleet", false)): Boarding.sunk[board_from["sys"]] = true
+		if bool(board_from.get("mission", false)) and not GS.mission.is_empty() and str(GS.mission.get("kind", "")) == "disturbance": GS.mission["boarded"] = true
 	_load_system(board_from["sys"], "station")
-	space.player.global_position = (board_from["pos"] as Vector3) + Vector3(0, 0, 900.0 if won else 300.0)
+	var ship_at: Vector3 = board_from.get("ship_at", board_from["pos"])
+	space.player.global_position = ship_at + Vector3(0, 60.0, 1200.0 if won else 300.0)
+	SpaceSystem.face(space.player, ship_at - space.player.global_position)
+	space.yaw = space.player.rotation.y
+	space.pitch = space.player.rotation.x
 	space.vel = Vector3.ZERO
 	space._update_camera(1.0, true)
 	var tw2 := create_tween()
 	tw2.tween_property(fx, "fade", 0.0, 0.6)
 	await tw2.finished
+	if won: space.start_post_wave(str(board_from["faction"]), ship_at, Data.BOARD_PAY, bool(board_from.get("mission", false)))   # (once you can see it go up)
 	fx.caption = ""
 	fx.sub = ""
 	space.controls = true
 	hud.visible = true
 	state = "flight"
-	if won: hud.flash_message("You made it out. The %s goes up behind you: +%d cr." % [board_from["name"], Data.BOARD_PAY])
+	if GS.form == "mech": space.start_transform()   # (out in space: back into the ship)
+	if won: hud.flash_message("COMMAND: Outstanding, pilot! The %s is gone. %d of their fighters are on you: destroy all threats." % [board_from["name"], Data.BOARD_WAVE])
 	board_from = {}
+	_interior_ship = {}

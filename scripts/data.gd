@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.69"
+const VERSION := "v11.70"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1622,7 +1622,9 @@ const BOARDABLE := ["Elyza", "Unity", "Solarion", "Imperium", "Covenant", "Orion
 const BOARD_BAY_REACH := 90.0          # m from the side hangar's opening: in you go (as a mech)
 const BOARD_MECHS := [3, 10]           # [most at once, in all]
 const BOARD_ESCAPE := 90.0             # s to get out after the core blows
-const BOARD_PAY := 9000                # cr for the battleship
+const BOARD_PAY := 9000                # cr for the battleship (v11.70: paid once the wave outside is down)
+const BOARD_WAVE := 20                 # v11.70 (owner): the ships waiting outside when you get out
+const BOARD_WAVE_AT := [700.0, 1400.0]   # m from you
 const BOARD_BOUNTY_PAY := 3000         # cr for the bounty pilot
 const BOARD_GRAB := 26.0               # m: walk the mech up to the bounty pilot to take him
 const BOARD_PARTS := {   # part: [enemy kind, where on the hull (x: -1 port .. 1 starboard, y: -1 keel .. 1 top, z: -1 nose .. 1 tail)]
