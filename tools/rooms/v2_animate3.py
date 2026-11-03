@@ -94,6 +94,10 @@ def main():
         n, r2 = sift_locate(fr, piece)
         if r2 is not None and n >= 40:
             print("part %d: features %d -> %s" % (i + 1, n, r2)); score, rect = 1.0, r2
+        elif r2 is not None and n >= 12 and score < 0.45:   # weak template match: a few good features still beat it
+            print("part %d: few features %d -> %s" % (i + 1, n, r2)); score, rect = 0.45, r2
+        if os.environ.get("HL_PLACE%d" % (i + 1)):   # by eye: HL_PLACE1=x,y,w,h (where the part sits in its clip)
+            rect = tuple(int(v) for v in os.environ["HL_PLACE%d" % (i + 1)].split(",")); score = 1.0
         print("part %d: found at %s in %dx%d (match %.2f)" % (i + 1, rect, fr.shape[1], fr.shape[0], score))
         if score < 0.45: print("  WARNING: weak match: check this clip by eye")
         caps.append(cap); places.append(rect); spans.append((x0, w))
