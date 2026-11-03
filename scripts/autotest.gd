@@ -3646,35 +3646,37 @@ func _job_v1145() -> void:
 	var bs: Dictionary = {}
 	for e in s.fleet_patrols:
 		if str(e["def"].get("carrier", "")) == "battleship": bs = e
-	var parts_ok: bool = not bs.is_empty() and (bs.get("parts", []) as Array).size() == 4
-	res.append("parts %s" % parts_ok)
+	# v11.55 (owner): no shoot-off parts; the hangar opens only with the shield at 0, and closes when it comes back
+	var parts_ok: bool = not bs.is_empty() and bs.get("boardable", false) and (bs.get("parts", []) as Array).is_empty() and is_instance_valid(bs.get("bay_node", null))
+	res.append("one shield + hull, no parts %s" % parts_ok)
 	if not parts_ok:
 		_check("v11.45: boarding", false, " · ".join(res))
 		return
-	# look at it with its marks
-	s.player.global_position = bs["node"].global_position + Vector3(0, 120, 520)
-	s.process_mode = Node.PROCESS_MODE_DISABLED
-	main.hud.visible = false
-	s.cam.global_position = bs["node"].global_position + Vector3(260, 160, 420)
-	s.cam.look_at(bs["node"].global_position, Vector3.UP)
+	var form_a: String = GS.form
+	GS.form = "mech"
+	bs["sh"] = float(bs["sh_max"])
+	s._board_asked = true   # (only look: no boarding yet)
+	s.player.global_position = (bs["bay_node"] as Node3D).global_position + Vector3(0, 0, 30)
+	var r0: int = s.board_refused
+	s._board_said_t = 0.0
+	s._board_asked = false
 	await _frames(3)
-	await _shot("v1145_parts", 0.2)
-	main.hud.visible = true
-	s.process_mode = Node.PROCESS_MODE_INHERIT
-	# the shield tower, the bridge, the turrets
-	var by_role := {}
-	for pe in bs["parts"]: by_role[pe["part_role"]] = pe
-	var sh0: float = float(bs["sh_max"])
-	s._destroy_unit(by_role["tower"])
-	var shield_ok: bool = bs.get("shield_down", false) and float(bs["sh_max"]) == 0.0 and sh0 > 0.0 and is_instance_valid(bs.get("bay_node", null))
-	s._destroy_unit(by_role["bridge"])
-	var p0: Vector3 = bs["node"].global_position
-	await _wait(0.6)
-	var stopped: bool = bs.get("engines_out", false) and bs["node"].global_position.distance_to(p0) < 0.5
-	s._destroy_unit(by_role["turret_l"])
-	s._destroy_unit(by_role["turret_r"])
-	var silent: bool = bs.get("guns_out", false)
-	res.append("shield %s stopped %s guns %s" % [shield_ok, stopped, silent])
+	var refused: bool = s.board_refused > r0 and not s.boarding and not (bs["bay_node"] as Node3D).visible
+	s.player.global_position = (bs["bay_node"] as Node3D).global_position + Vector3(0, 0, 3000)
+	bs["sh"] = 0.0
+	bs["sh_cd"] = 99.0
+	await _frames(3)
+	var opened: bool = SpaceSystem.board_open(bs) and (bs["bay_node"] as Node3D).visible
+	bs["sh"] = 5.0
+	await _frames(3)
+	var closed_again: bool = not SpaceSystem.board_open(bs) and not (bs["bay_node"] as Node3D).visible
+	bs["sh"] = 0.0
+	await _frames(3)
+	GS.form = form_a
+	res.append("refused while shield up %s, open at 0 %s, closes when it comes back %s" % [refused, opened, closed_again])
+	var shield_ok := refused and opened and closed_again
+	var stopped := true
+	var silent := true
 	# not as a ship; then as a mech into the hangar
 	var form0: String = GS.form
 	GS.form = "ship"

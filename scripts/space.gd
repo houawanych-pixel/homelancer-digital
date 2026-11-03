@@ -1067,45 +1067,34 @@ func _fleet_patrols() -> void:
 	fleet_patrols.append(re)
 
 # ---------------------------------------------------------------- v11.45 BOARDING (owner: "go inside the battleship")
-## Outside: a boardable battleship gets its parts (Data.BOARD_PARTS) as their own targets on its hull: the SHIELD TOWER,
-## the BRIDGE, two TURRETS. Each shows as a glowing mark; shoot it off. Tower down = no shield, the side hangar is open.
+## Outside (v11.55 owner: "NO destructible top/front pieces on battleships: shield, then one hull"): a boardable
+## battleship has one shield and one hull. Strip the SHIELD to 0 and its side hangar opens (green light); while the shield
+## is above 0 a mech at the hangar is refused ("SHIELDS UP"). The shield comes back as usual (4 s after the last hit,
+## then 2 %/s for capitals) and the hangar closes again the moment it is above 0.
 var boarding := false        # this scene is the inside of a battleship
 var board := {}              # the inside's state (phase, mechs, boss, bounty, core, escape timer)
 var _board_asked := false
 var _board_said_t := 0.0
+var board_refused := 0       # (tests) "shields up" refusals shown
 func _boardable(e: Dictionary) -> void:
 	var n: Node3D = e["node"]
 	if not n.has_meta("box_aabb") or not is_instance_valid(n.get_meta("box_holder", null)): return
 	var hd: Node3D = n.get_meta("box_holder")
 	var bb: AABB = n.get_meta("box_aabb")
 	e["parts"] = []
-	e["turrets_left"] = 0
-	for pk: String in Data.BOARD_PARTS:
-		var cfg: Array = Data.BOARD_PARTS[pk]
-		var lp: Vector3 = bb.get_center() + bb.size * 0.5 * (cfg[1] as Vector3)
-		var gp: Vector3 = hd.global_transform * lp
-		var pe := spawn_unit(str(cfg[0]), gp, gp, "none")
-		var pn: Node3D = pe["node"]
-		for c in pn.get_children():
-			if c is Node3D: (c as Node3D).visible = false
-		for m in ["ship_box", "box_holder", "box_aabb"]:
-			if pn.has_meta(m): pn.remove_meta(m)
-		pn.reparent(hd)
-		pn.position = lp
-		pn.add_child(_part_mark(pk, float(pe["def"]["hit_r"])))
-		pn.name = "%s %s" % [str(e.get("faction", "")), str(pe["def"]["name"])]
-		pe["part_of"] = e
-		pe["part_role"] = pk
-		pe["faction"] = e.get("faction", "")
-		pe["fleet_patrol"] = true
-		pe["aggro"] = false
-		pe["provoked"] = false
-		enemies.erase(pe)
-		enemies.push_front(pe)   # (tested before the hull's big sphere, so a shot on the part hits the part)
-		(e["parts"] as Array).append(pe)
-		if pk.begins_with("turret"): e["turrets_left"] = int(e["turrets_left"]) + 1
 	e["bay_local"] = bb.get_center() + bb.size * 0.5 * Data.BOARD_BAY_AT
 	e["bay_holder"] = hd
+	var bay := _part_mark("bay", 46.0)
+	bay.material_override = ShipFactory.mat(Color(0.3, 1.0, 0.45), true)
+	hd.add_child(bay)
+	bay.position = e["bay_local"]
+	bay.visible = false   # (lit only while the shield is at 0)
+	e["bay_node"] = bay
+	e["boardable"] = true
+
+## v11.55: is this battleship's hangar open (its shield stripped to 0)?
+static func board_open(e: Dictionary) -> bool:
+	return e.get("boardable", false) and float(e.get("sh", 1.0)) <= 0.0
 
 ## A glowing mark on a part, so you can see what to shoot (tower cyan, bridge orange, turrets red).
 func _part_mark(role: String, r: float) -> Node3D:
@@ -1129,41 +1118,28 @@ func _part_mark(role: String, r: float) -> Node3D:
 	mi.add_child(halo)
 	return mi
 
-func _part_down(pe: Dictionary) -> void:
-	var par: Dictionary = pe["part_of"]
-	if not enemies.has(par): return
-	var nm := str(par["node"].name)
-	match str(pe["part_role"]):
-		"tower":
-			par["shield_down"] = true
-			par["sh"] = 0.0
-			par["sh_max"] = 0.0
-			var hd: Node3D = par.get("bay_holder", null)
-			if is_instance_valid(hd):
-				var bay := _part_mark("bay", 46.0)
-				bay.material_override = ShipFactory.mat(Color(0.3, 1.0, 0.45), true)
-				hd.add_child(bay)
-				bay.position = par["bay_local"]
-				par["bay_node"] = bay
-			message.emit("%s: SHIELD TOWER DOWN! Its shield is off: the side hangar (green light) is open. Go in as a MECH." % nm)
-		"bridge":
-			par["engines_out"] = true
-			message.emit("%s: bridge destroyed, it has stopped dead." % nm)
-		_:
-			par["turrets_left"] = int(par.get("turrets_left", 1)) - 1
-			if int(par["turrets_left"]) <= 0:
-				par["guns_out"] = true
-				message.emit("%s: all turrets down, its guns are silent." % nm)
-			else: message.emit("%s: a turret is down." % nm)
+func _part_down(_pe: Dictionary) -> void:
+	pass   # (v11.55: battleships have no shoot-off parts any more)
 
 ## The open side hangar: a mech that reaches it goes in (main loads the inside).
 func _board_outside() -> void:
 	if boarding or not is_instance_valid(player) or not controls: return
 	_board_said_t = maxf(0.0, _board_said_t - get_process_delta_time())
 	for e in fleet_patrols:
-		if not e.get("shield_down", false) or not enemies.has(e) or not is_instance_valid(e.get("bay_node", null)): continue
+		if not enemies.has(e) or not is_instance_valid(e.get("bay_node", null)): continue
+		var open := board_open(e)
+		e["shield_down"] = open
+		if (e["bay_node"] as Node3D).visible != open:
+			(e["bay_node"] as Node3D).visible = open
+			if open: message.emit("%s: SHIELD DOWN! The side hangar (green light) is open. Go in as a MECH." % str(e["node"].name))
 		var bp: Vector3 = (e["bay_node"] as Node3D).global_position
 		if bp.distance_to(player.global_position) > Data.BOARD_BAY_REACH: continue
+		if not open:   # v11.55 (owner): refused while the shield is up
+			if _board_said_t <= 0.0:
+				_board_said_t = 4.0
+				board_refused += 1
+				message.emit("SHIELDS UP: the hangar is sealed. Strip its shield to 0 to board.")
+			continue
 		if GS.form != "mech":
 			if _board_said_t <= 0.0:
 				_board_said_t = 4.0

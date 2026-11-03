@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.54"
+const VERSION := "v11.55"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1579,6 +1579,10 @@ const REP_INFO := {
 	"gray": {"name": "ENEMY", "color": Color(0.62, 0.64, 0.68), "hostile": true, "note": "Permanent enemy. No diplomacy."},
 }
 const REP_LIMIT := 100.0
+const REP_REPAIR_UNTIL := 5.0     # v11.55 (owner): Repair Reputation at an ally station lifts you back to this (green), no further
+const REP_REPAIR_STEP := 10.0     # standing gained per repair
+const REP_REPAIR_BASE := 1500.0   # credits for one step at the green line ...
+const REP_REPAIR_SCALE := 40.0    # ... and +100 % for every this many points below it
 const REP_KILL := 1.5            # standing lost with a faction per ship of theirs you destroy, x the pilot's rank
 const REP_BOUNTY := 6.0          # extra standing lost when you hand in one of their named pilots
 const REP_RIVAL_SHARE := 1.0     # the rival gains this share of what the faction lost (one shared number per pair)

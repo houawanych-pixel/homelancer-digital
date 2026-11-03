@@ -2014,6 +2014,7 @@ func _hub_panel() -> void:
 	v.add_theme_constant_override("separation", 6)
 	sc.add_child(v)
 	_fix_button(v)   # v11.25 (owner): repair and restock right from the station page
+	if str(base.get("role", "")) == "ally": _rep_buttons(v)   # v11.55 (owner): an ally station mends your standing, for credits
 	v.add_child(_caption(str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])).to_upper() + "  ·  " + str(base["name"]).to_upper()))
 	var l := _label(15, Color(1, 1, 1))
 	l.name = "Lore"
@@ -4452,6 +4453,44 @@ func _faction_page() -> void:
 		v.add_child(strip)
 
 ## v11.25 (owner: "the button where you just fix your ship and restock right away"): one tap, both.
+## v11.55 (owner: "ALLY stations offer Repair Reputation for credits, scaled cost"): one button per faction you can mend
+## here (this ally's own faction and the system's home faction) while your standing with it is below green.
+func rep_repair_factions() -> Array:
+	var out: Array = []
+	for f in [str(base.get("faction", "")), str(Data.SYSTEMS[GS.system_id].get("faction", ""))]:
+		if f != "" and Factions.normal(f) and not (f in out) and Factions.standing(f) < Data.REP_REPAIR_UNTIL: out.append(f)
+	return out
+
+## What one REPAIR REPUTATION step costs with faction f: the worse your standing, the dearer.
+static func rep_repair_cost(f: String) -> int:
+	var low: float = maxf(0.0, Data.REP_REPAIR_UNTIL - Factions.standing(f))
+	return int(round(Data.REP_REPAIR_BASE * (1.0 + low / Data.REP_REPAIR_SCALE)))
+
+## Pay and raise your standing with f by REP_REPAIR_STEP (never past green). Returns the message ("" = not done).
+func repair_rep(f: String) -> String:
+	var cost := rep_repair_cost(f)
+	if GS.credits < cost: return "Not enough credits: %d cr needed." % cost
+	GS.credits -= cost
+	var to: float = minf(Data.REP_REPAIR_STEP, Data.REP_REPAIR_UNTIL - Factions.standing(f))
+	Factions.adjust(f, maxf(to, 0.0))
+	GS.changed.emit()
+	return "Reputation repaired with %s: now %s (%d cr)." % [f, Factions.band(f).to_upper(), cost]
+
+func _rep_buttons(v: Control) -> void:
+	for f in rep_repair_factions():
+		var rb := Button.new()
+		rb.name = "RepairRep_" + str(f)
+		rb.text = "REPAIR REPUTATION · %s  %d cr" % [str(f).to_upper(), rep_repair_cost(f)]
+		rb.custom_minimum_size = Vector2(0, 52)
+		rb.clip_text = true
+		rb.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		rb.add_theme_color_override("font_color", Color(0.75, 0.85, 1.0))
+		rb.disabled = GS.credits < rep_repair_cost(f)
+		rb.pressed.connect(func():
+			status.text = repair_rep(f)
+			show_screen(screen))
+		v.add_child(rb)
+
 func _fix_button(v: Control) -> void:
 	var rc := GS.restock_cost()
 	var need: bool = GS.needs_repair() or rc > 0
@@ -4462,6 +4501,10 @@ func _fix_button(v: Control) -> void:
 	fb.clip_text = true   # (never wider than its tablet)
 	fb.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	fb.disabled = not need
+	var own: String = Factions.owner_of(base, Data.SYSTEMS[GS.system_id])
+	if own != "" and Factions.has(own) and Factions.hostile(own):   # v11.55 (owner): low standing locks this faction's services
+		fb.text = "SERVICES LOCKED · %s" % Factions.band(own).to_upper()
+		fb.disabled = true
 	fb.add_theme_color_override("font_color", Color(0.55, 1.0, 0.65))
 	fb.pressed.connect(func():
 		var a := GS.repair_all() if GS.needs_repair() else ""
@@ -4473,6 +4516,7 @@ func _fix_button(v: Control) -> void:
 func _repair_page() -> void:
 	var v := _page_box()
 	_fix_button(v)   # v11.25: first, so it is never scrolled out of sight
+	if _board_locked(v): return   # v11.55 (owner): low standing locks the services too
 	var l := _label(20, Color(1, 1, 1))
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.text = "Hull %d/%d  ·  Shield %d/%d  ·  Repair kits %d/%d  ·  Shield charges %d/%d  ·  Energy cells %d/%d  ·  Missiles %d/%d  ·  Mines %d/%d\n\nDocking crews repair every ship that lands here, free of charge for Unity-registered pilots." % [int(GS.hull), int(GS.max_hull()), int(GS.shield), int(GS.max_shield()), GS.repairs, Data.MAX_REPAIRS, GS.shield_charges, Data.MAX_SHIELD_CHARGES, GS.energy_cells, Data.MAX_ENERGY_CELLS, GS.missiles, GS.max_missiles(), GS.mines, GS.max_mines()]
