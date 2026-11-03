@@ -1140,10 +1140,11 @@ func _board_outside() -> void:
 				board_refused += 1
 				message.emit("SHIELDS UP: the hangar is sealed. Strip its shield to 0 to board.")
 			continue
-		if GS.form != "mech":
-			if _board_said_t <= 0.0:
+		if GS.form != "mech":   # v11.56 (owner): at the open hangar the ship turns into its mech to go in
+			if transform_t <= 0.0 and _board_said_t <= 0.0:
 				_board_said_t = 4.0
-				message.emit("Only a MECH can board: TRANSFORM, then fly into the hangar.")
+				start_transform()
+				message.emit("Hangar open: transforming to MECH to board.")
 			continue
 		if not _board_asked:
 			_board_asked = true

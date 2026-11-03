@@ -94,7 +94,14 @@ var font: Font = ThemeDB.fallback_font
 const COLORS := {"liberator": Color(0.2, 0.75, 0.7), "savagers": Color(0.95, 0.45, 0.15), "elyza": Color(0.35, 0.55, 1.0), "orion": Color(0.3, 0.85, 0.45),
 	"unity": Color(0.4, 0.7, 1.0), "covenant": Color(0.75, 0.6, 1.0), "imperium": Color(0.95, 0.25, 0.25), "solarion": Color(1.0, 0.8, 0.3)}
 
-func start(fac: String, room_list: Array) -> void:
+## v11.56 (owner, battleship interiors): the same fight inside a battleship: 3 rooms (Data.BS_INTERIOR_ROOMS: breach
+## hangar, reactor spine, generator core), an alarm and waves in each; clear the generator core and the escape carries you
+## back to the hangar, where you board and fly away (cleared).
+var interior := false
+var escaped := false
+func start(fac: String, room_list: Array, inside_ship := false) -> void:
+	interior = inside_ship
+	escaped = false
 	faction = fac
 	_sheets = {}   # (v11.17: this faction's clips)
 	rooms = room_list
@@ -182,7 +189,7 @@ func _enter_room() -> void:
 	queue_redraw()
 
 func waves() -> Array:
-	var w: Array = Data.BREAKOUT_WAVES
+	var w: Array = Data.BS_INTERIOR_WAVES if interior else Data.BREAKOUT_WAVES
 	return w[mini(room_i, w.size() - 1)]
 
 func _start_wave() -> void:
@@ -228,6 +235,11 @@ func _spawn(slot: int, zi: int, boss: bool, at_once := false) -> Dictionary:
 	return e
 
 func _room_texture(rn: String) -> Texture2D:
+	if rn.begins_with("bs_"):   # v11.56: a battleship room in the faction's own style; until its picture is in, a station room lit red
+		var bp := "res://assets/rooms_battleship/%s/%s.jpg" % [faction, rn.substr(3)]
+		tint = Color(1, 1, 1)
+		if ResourceLoader.exists(bp): return load(bp)
+		rn = str(Data.BS_INTERIOR_FALLBACK.get(rn, "main_hub"))
 	var hp_path := "res://assets/rooms_hostile/%s/%s.jpg" % [faction, rn]
 	tint = Color(1, 1, 1)
 	if ResourceLoader.exists(hp_path): return load(hp_path)
@@ -316,6 +328,10 @@ func _process(dt: float) -> void:
 			else: _waves_step()
 		"clear":
 			if state_t > Data.BREAKOUT_CLEAR_PAUSE: next_room()
+		"escape":   # v11.56: running back through the hangar to your mech
+			if state_t > Data.BS_ESCAPE_TIME:
+				room_i = rooms.size()
+				next_room()
 		"down":
 			if state_t > Data.BREAKOUT_DOWN_PAUSE: _enter_room()   # back up, same room, from its first wave
 	queue_redraw()
@@ -344,6 +360,16 @@ func _waves_step() -> void:
 
 func next_room() -> void:
 	room_i += 1
+	if interior and room_i >= rooms.size() and not escaped:   # v11.56: the generator is down: run for the hangar
+		escaped = true
+		room_i = rooms.size() - 1
+		state = "escape"
+		state_t = 0.0
+		enemies.clear()
+		bolts.clear()
+		strip = _room_texture(str(rooms[0]))
+		_pops.append({"p": Vector2(size.x * 0.5, size.y * 0.3), "text": "GENERATOR DESTROYED! BACK TO THE HANGAR", "t": Data.BS_ESCAPE_TIME, "col": Color(1, 0.85, 0.3)})
+		return
 	if room_i >= rooms.size():
 		state = "done"
 		visible = false
@@ -836,8 +862,11 @@ func _draw_hud(S: Vector2, pulse: float) -> void:
 	draw_rect(Rect2(0, 0, S.x, 44), Color(0.25, 0, 0, 0.55 + 0.25 * pulse))
 	var left := enemies.filter(func(e): return e["hp"] > 0).size() + queue.size()
 	var wtxt := "BOSS" if boss_out else "WAVE %d/%d" % [wave_i + 1, waves().size()]
-	draw_string(font, Vector2(16, 30), "LOCKDOWN  ·  %s SECURITY  ·  TO THE HANGAR (%d/%d)  ·  %s  ·  %d LEFT" % [faction.to_upper(), room_i + 1, rooms.size(), wtxt, left],
-		HORIZONTAL_ALIGNMENT_LEFT, S.x - 32, 20, Color(1, 0.9, 0.85))
+	var head := "LOCKDOWN  ·  %s SECURITY  ·  TO THE HANGAR (%d/%d)  ·  %s  ·  %d LEFT" % [faction.to_upper(), room_i + 1, rooms.size(), wtxt, left]
+	if interior:   # v11.56: inside a battleship: the room's name and the goal
+		var rk := str(rooms[mini(room_i, rooms.size() - 1)])
+		head = "ALARM  ·  %s BATTLESHIP  ·  %s (%d/%d)  ·  %s  ·  %d LEFT" % [faction.to_upper(), str(Data.BS_INTERIOR_TITLES.get(rk, rk)).to_upper(), room_i + 1, rooms.size(), wtxt, left]
+	draw_string(font, Vector2(16, 30), head, HORIZONTAL_ALIGNMENT_LEFT, S.x - 32, 20, Color(1, 0.9, 0.85))
 	var bw := 280.0
 	draw_rect(Rect2(16, 54, bw, 14), Color(0, 0, 0, 0.6))
 	draw_rect(Rect2(16, 54, bw * maxf(0.0, hp) / Data.BREAKOUT_HP, 14), Color(0.4, 1.0, 0.6))
@@ -853,7 +882,10 @@ func _draw_hud(S: Vector2, pulse: float) -> void:
 		draw_string(font, Vector2(16, 216), str(squad_leader["name"]).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, 260, 16, Color(1, 0.9, 0.85))
 		draw_string(font, Vector2(16, 234), "SQUAD LEADER  ·  RANK %d" % _rank_of(_boss_slot()), HORIZONTAL_ALIGNMENT_LEFT, 260, 13, Color(1, 0.55, 0.5))
 	if state == "clear":
-		draw_string(font, Vector2(0, S.y * 0.4), "ROOM CLEAR" if room_i < rooms.size() - 1 else "HANGAR REACHED", HORIZONTAL_ALIGNMENT_CENTER, S.x, 48, Color(0.5, 1, 0.6))
+		var done_txt := "ROOM CLEAR" if room_i < rooms.size() - 1 else ("GENERATOR DESTROYED" if interior else "HANGAR REACHED")
+		draw_string(font, Vector2(0, S.y * 0.4), done_txt, HORIZONTAL_ALIGNMENT_CENTER, S.x, 48, Color(0.5, 1, 0.6))
+	elif state == "escape":
+		draw_string(font, Vector2(0, S.y * 0.4), "ESCAPE! BOARD YOUR MECH AND FLY OUT  %d" % int(ceil(Data.BS_ESCAPE_TIME - state_t)), HORIZONTAL_ALIGNMENT_CENTER, S.x, 40, Color(1, 0.85, 0.3))
 	elif state == "down":
 		var arrested := (boss_out and Data.BREAKOUT_ART.has(faction)) or caught_by != ""   # v11.15 (owner): the marshal came to arrest you
 		draw_string(font, Vector2(0, S.y * 0.4), ("CAUGHT BY %s. BREAK FREE..." % caught_by.to_upper() if caught_by != "" else "ARRESTED BY %s. BREAK FREE..." % str(Data.BREAKOUT_ART[faction]["boss_name"]).to_upper()) if arrested else "YOU WENT DOWN. AGAIN...", HORIZONTAL_ALIGNMENT_CENTER, S.x, 44 if not arrested else 34, Color(1, 0.4, 0.35))

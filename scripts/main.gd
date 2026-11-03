@@ -1398,10 +1398,28 @@ func _pause_input(id: String) -> void:
 ## The mech reached a battleship's open side hangar (its shield tower is down): the inside is loaded as its own small
 ## level; coming out puts you back beside it (or where it was, if you blew its reactor).
 var board_from := {}
+## v11.56 (owner: "exactly 3 military-style panoramas per battleship"): boarding is the 360 alarm fight in three rooms
+## (breach hangar, reactor spine, generator core; Breakout in interior mode). Clear the generator core, run back to the
+## hangar and fly out: the battleship goes down and pays. Infiltrating costs standing with that faction (allies too).
+var interior: Breakout
+var _interior_layer: CanvasLayer
+var _interior_ship: Dictionary = {}
 func board_battleship(e: Dictionary) -> void:
 	if state != "flight" or not is_instance_valid(space) or GS.form != "mech": return
 	state = "boarding"
+	_interior_ship = e
 	board_from = {"sys": space.sys_id, "pos": space.player.global_position, "name": str(e["node"].name), "faction": str(e.get("faction", ""))}
+	var f := str(board_from["faction"]).to_lower()
+	if f.begins_with("liberator"): f = "liberator"
+	if f.begins_with("savager"): f = "savagers"
+	if Factions.normal(str(board_from["faction"])): Factions.adjust(str(board_from["faction"]), -Data.REP_INFILTRATE)
+	for rk in Data.BS_INTERIOR_ROOMS:   # (the station rooms that stand in until the battleship pictures are in)
+		var fb := str(Data.BS_INTERIOR_FALLBACK[rk])
+		for pk in ["room_hostile_%s_%s" % [f, fb], "room_%s_%s" % [f, fb]]:
+			if Packs.PACKS.has(pk): Packs.request(pk)
+	if Packs.PACKS.has("chars_" + f): Packs.request("chars_" + f)
+	var art0: Dictionary = Data.BREAKOUT_ART.get(f, {})
+	if art0.has("anim_pack"): Packs.request(str(art0["anim_pack"]))
 	space.controls = false
 	hud.visible = false
 	fx.caption = "BOARDING"
@@ -1410,9 +1428,42 @@ func board_battleship(e: Dictionary) -> void:
 	var tw := create_tween()
 	tw.tween_property(fx, "fade", 1.0, 0.5)
 	await tw.finished
-	_new_space("Boarding")
-	space.setup_boarding({"sys": board_from["sys"], "faction": board_from["faction"], "name": board_from["name"]})
-	_connect_space()
+	space.process_mode = Node.PROCESS_MODE_DISABLED   # (the fight outside holds still while you are inside)
+	if _interior_layer == null:
+		_interior_layer = CanvasLayer.new()
+		_interior_layer.layer = 60
+		add_child(_interior_layer)
+		interior = Breakout.new()
+		interior.name = "BattleshipInterior"
+		_interior_layer.add_child(interior)
+		interior.cleared.connect(_interior_cleared)
+	interior.start(f, Data.BS_INTERIOR_ROOMS, true)
+	var tw2 := create_tween()
+	tw2.tween_property(fx, "fade", 0.0, 0.6)
+	await tw2.finished
+	fx.caption = ""
+	fx.sub = ""
+	state = "interior"
+
+## The generator is down and you are back in the hangar: out you fly, the battleship blows behind you.
+func _interior_cleared() -> void:
+	if state != "interior": return
+	state = "boarding"
+	fx.caption = "BATTLESHIP DESTROYED"
+	fx.sub = str(board_from.get("name", "")).to_upper()
+	var tw := create_tween()
+	tw.tween_property(fx, "fade", 1.0, 0.4)
+	await tw.finished
+	space.process_mode = Node.PROCESS_MODE_INHERIT
+	Boarding.sunk[board_from["sys"]] = true
+	GS.credits += Data.BOARD_PAY
+	GS.kills += 1
+	var e := _interior_ship
+	if not e.is_empty() and space.enemies.has(e) and is_instance_valid(e["node"]):
+		space.player.global_position = (e["node"] as Node3D).global_position + Vector3(0, 0, 900.0)
+		space._destroy_unit(e)
+	space.vel = Vector3.ZERO
+	space._update_camera(1.0, true)
 	var tw2 := create_tween()
 	tw2.tween_property(fx, "fade", 0.0, 0.6)
 	await tw2.finished
@@ -1421,6 +1472,9 @@ func board_battleship(e: Dictionary) -> void:
 	space.controls = true
 	hud.visible = true
 	state = "flight"
+	hud.flash_message("Battleship destroyed: +%d cr. Your standing with %s fell for the infiltration." % [Data.BOARD_PAY, str(board_from.get("faction", ""))])
+	board_from = {}
+	_interior_ship = {}
 
 func leave_boarding(won: bool) -> void:
 	if state != "flight" or board_from.is_empty(): return

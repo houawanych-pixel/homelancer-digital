@@ -3677,70 +3677,34 @@ func _job_v1145() -> void:
 	var shield_ok := refused and opened and closed_again
 	var stopped := true
 	var silent := true
-	# not as a ship; then as a mech into the hangar
-	var form0: String = GS.form
+	# v11.56 (owner): at the open hangar the ship turns into its mech and goes in: 3 rooms (breach hangar, reactor spine,
+	# generator core), alarm waves; clear the generator, run back to the hangar, fly out: the battleship is gone, you are paid
+	var cr0 := GS.credits
+	var st0: float = Factions.standing(str(bs.get("faction", "")))
 	GS.form = "ship"
+	s._board_said_t = 0.0
+	s._board_asked = false
 	s.player.global_position = (bs["bay_node"] as Node3D).global_position + Vector3(0, 0, 30)
-	await _frames(3)
-	var ship_kept_out: bool = not s.boarding and main.state == "flight"
-	GS.form = "mech"
-	await _until(func(): return is_instance_valid(main.space) and main.space.boarding and main.state == "flight", 15.0)
-	s = _sp()
-	var inside_ok: bool = s.boarding and s.surf_boxes.size() >= 10 and Boarding.inside(s.player.global_position)
+	await _until(func(): return main.state == "interior", 12.0)
+	var went_in: bool = main.state == "interior" and GS.form == "mech" and main.interior != null and main.interior.visible and main.interior.interior and main.interior.rooms == Data.BS_INTERIOR_ROOMS
 	await _wait(0.5)
-	await _shot("v1145_inside_bay", 0.2)
-	res.append("ship kept out %s inside %s walls %d" % [ship_kept_out, inside_ok, s.surf_boxes.size()])
-	# the passage holds two mechs side by side (more than 2 x a mech's width with room)
-	var pw: float = float(Boarding.ROOMS["passage"][1]) - float(Boarding.ROOMS["passage"][0])
-	var wide_ok: bool = pw >= 40.0
-	# their mechs: three at a time, ten in all
-	var most := 0
-	var cfg: Array = Data.BOARD_MECHS
-	for step in 200:
-		s.board["cd"] = 0.0
-		s._board_steps(0.1)
-		most = maxi(most, (s.board["kids"] as Array).size())
-		if str(s.board["phase"]) != "mechs": break
-		if (s.board["kids"] as Array).size() >= int(cfg[0]) or int(s.board["spawned"]) >= int(cfg[1]):
-			if step == 2:
-				s.player.global_position = Vector3(0, 6, -300)
-				await _frames(3)
-				await _shot("v1145_hall_fight", 0.2)
-			for k in (s.board["kids"] as Array).duplicate(): s._destroy_unit(k)
-	var mechs_ok: bool = most == int(cfg[0]) and int(s.board["spawned"]) == int(cfg[1]) and str(s.board["phase"]) == "boss" and not (s.board["boss"] as Dictionary).is_empty()
-	res.append("mechs most %d of %d, boss %s" % [most, int(s.board["spawned"]), str(s.board["phase"])])
-	# the core holds until the bounty is taken
-	var core: Dictionary = s.board["core"]
-	var hp_c: float = float(core["hp"])
-	s._damage_enemy(core, 500.0)
-	var locked_ok: bool = float(core["hp"]) == hp_c
-	s._destroy_unit(s.board["boss"])
-	s._board_steps(0.1)
-	var pod_ok: bool = str(s.board["phase"]) == "bounty" and is_instance_valid(s.board["pod"])
-	var cr0: int = GS.credits
-	s.player.global_position = (s.board["pod"] as Node3D).global_position + Vector3(4, 1, 0)
-	s._board_steps(0.1)
-	var grab_ok: bool = s.board["bounty"] and str(s.board["phase"]) == "core" and GS.credits == cr0 + Data.BOARD_BOUNTY_PAY and not core.get("locked", true)
-	res.append("locked %s pod %s grab %s" % [locked_ok, pod_ok, grab_ok])
-	while s.enemies.has(core): s._damage_enemy(core, 600.0)
-	var esc_ok: bool = str(s.board["phase"]) == "escape" and is_equal_approx(float(s.board["escape"]), Data.BOARD_ESCAPE)
-	s.player.global_position = Vector3(0, 6, -330)
-	await _frames(3)
-	await _shot("v1145_escape", 0.2)
-	# out through the hangar: back in space, the battleship gone, paid
-	var cr1: int = GS.credits
-	s.player.global_position = Boarding.EXIT_AT + Vector3(0, 6, 0)
-	await _until(func(): return is_instance_valid(main.space) and not main.space.boarding and main.state == "flight", 15.0)
+	await _shot("v1156_interior_hangar", 0.3)
+	var rep_hit: bool = Factions.standing(str(bs.get("faction", ""))) < st0 or not Factions.normal(str(bs.get("faction", "")))
+	res.append("auto-transform + in %s, rep down %s" % [went_in, rep_hit])
+	var rooms_ok := went_in
+	if went_in:
+		for i in 3:   # (each room cleared)
+			main.interior.state = "clear"
+			main.interior.state_t = 99.0
+			await _frames(2)
+		rooms_ok = main.interior.state == "escape" and main.interior.escaped
+	await _until(func(): return main.state == "flight", Data.BS_ESCAPE_TIME + 6.0)
 	s = _sp()
-	var gone := true
-	for e in s.fleet_patrols:
-		if str(e["def"].get("carrier", "")) == "battleship": gone = false
-	var out_ok: bool = not s.boarding and Boarding.sunk.has("synthari_capital") and gone and GS.credits == cr1 + Data.BOARD_PAY
-	res.append("escape %s out %s" % [esc_ok, out_ok])
-	Boarding.sunk.erase("synthari_capital")
-	GS.form = form0
-	_check("v11.45 (owner): BOARDING a Solarion battleship: shoot off its shield tower (the side hangar opens), bridge (it stops) and turrets (its guns stop); only a mech gets in; inside their mechs come 3 at a time, 10 in all, then the boss; the bounty unlocks the core; blow it and get out (90 s): the battleship is gone and you are paid",
-		parts_ok and shield_ok and stopped and silent and ship_kept_out and inside_ok and wide_ok and mechs_ok and locked_ok and pod_ok and grab_ok and esc_ok and out_ok, " · ".join(res))
+	var out_ok: bool = main.state == "flight" and not s.enemies.has(bs) and GS.credits >= cr0 + Data.BOARD_PAY and GS.form == "mech"
+	res.append("3 rooms then escape %s, out + paid + battleship gone %s" % [rooms_ok, out_ok])
+	if GS.form == "mech": s.start_transform()
+	_check("v11.56 (owner): BOARDING a battleship: one shield + hull, no shoot-off parts; SHIELDS UP while its shield is above 0, the hangar opens at 0 and shuts again when it comes back; the ship turns into its mech and goes in; 3 rooms (breach hangar, reactor spine, generator core) with alarm waves; generator down, back to the hangar, fly out: the battleship is gone and you are paid; infiltrating costs standing",
+		parts_ok and shield_ok and went_in and rep_hit and rooms_ok and out_ok, " · ".join(res))
 
 ## v11.32 (owner: "the battleships were a success ... name them, put them in the game, where they need to go, put
 ## those little ships for sale as faction fighters"): every fleet model is real and nose-first; a capital has its fleet

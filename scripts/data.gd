@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.55"
+const VERSION := "v11.56"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -2055,6 +2055,15 @@ const BREAKOUT_ART := {
 		"boss_name": "Marshal Kade Voss", "one_boss": true, "boss_rush": 0.55,
 		"anim": "res://assets/characters/orion/anim", "anim_pack": "anim_orion", "layers": true},   # v11.17: the owner's clips as sprite sheets (tools/crew/clip_sheet.py)
 }
+## v11.56 (owner): a battleship's inside: exactly 3 military rooms in its faction's own style (pictures:
+## assets/rooms_battleship/<faction>/hangar.jpg, spine.jpg, generator.jpg; until they are in, a station room lit red).
+## Alarm, waves pour in from all sides; clear one room to open the next; the generator core is the goal; then back out.
+const BS_INTERIOR_ROOMS := ["bs_hangar", "bs_spine", "bs_generator"]
+const BS_INTERIOR_TITLES := {"bs_hangar": "Breach hangar", "bs_spine": "Reactor spine", "bs_generator": "Generator core"}
+const BS_INTERIOR_FALLBACK := {"bs_hangar": "shipyard", "bs_spine": "command", "bs_generator": "mech_dealer"}
+const BS_INTERIOR_WAVES := [[5], [5, 8], [6, 10]]   # crew / soldiers per wave, room by room; then the room's boss
+const BS_ESCAPE_TIME := 4.0                          # s: the run back to the hangar before you fly out
+const REP_INFILTRATE := 15.0                         # standing lost with a faction whose battleship you infiltrate (owner: allies too)
 const BREAKOUT_ROOMS := ["main_hub", "pilots_lounge", "shipyard"]   # the way to the hangar, one fight each
 const BREAKOUT_WAVES := [[5], [5], [5, 10]]     # guards per wave, room by room (the hangar: five, then ten); then the boss
 const BREAKOUT_MAX_ON_FLOOR := 5                # guards on the floor at once (the rest wait to walk in)
