@@ -62,6 +62,7 @@ var look_ui: Control
 var look_bar: HBoxContainer
 var show_btn: Button       # v3.5: brings the folded windows back
 var fs_btn: Button         # v9.9 (owner): FULL SCREEN on the station pages too
+var back_hub: Button       # v11.59: ◀ MAIN HUB, on every page but the hub
 var _call_top := -1.0      # v9.9: how far the page starts below the calls stacked at the panel's top
 var panels_hidden := false # v3.5: both windows folded away (only the top bar stays)
 var look_motion := false   # v3.5: false = drag / stick to look; true = turn the phone
@@ -371,6 +372,21 @@ func _ready() -> void:
 	show_btn.add_theme_font_size_override("font_size", Data.ts(16))
 	show_btn.visible = false
 	show_btn.pressed.connect(func(): set_panels_hidden(not panels_hidden))
+	back_hub = Button.new()   # v11.59 (owner: "stuck in a room with no way back"): ◀ MAIN HUB on every page but the hub, always on top
+	back_hub.name = "BackToHub"
+	back_hub.text = "◀ MAIN HUB"
+	back_hub.anchor_top = 1.0
+	back_hub.anchor_bottom = 1.0
+	back_hub.offset_left = 222
+	back_hub.offset_right = 392
+	back_hub.offset_top = -64
+	back_hub.offset_bottom = -12
+	back_hub.add_theme_font_size_override("font_size", Data.ts(16))
+	back_hub.add_theme_color_override("font_color", Color(0.55, 1.0, 0.65))
+	back_hub.visible = false
+	back_hub.pressed.connect(func():
+		if panels_hidden: set_panels_hidden(false)
+		show_screen("hub"))
 	look_ui = Control.new()   # v5.7: look mode: the two sticks
 	look_ui.name = "LookSticks"
 	look_ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -430,6 +446,7 @@ func _ready() -> void:
 	status.offset_right = -24
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(status)
+	add_child(back_hub)
 	add_child(launch_btn)   # last child: drawn over everything, nothing can cover it
 	GS.changed.connect(_refresh_credits)
 	Packs.pack_ready.connect(func(pk: String):
@@ -584,6 +601,7 @@ func _refresh_credits() -> void:
 
 func show_screen(s: String) -> void:
 	close_inspector()
+	if back_hub != null: back_hub.visible = s != "hub" and s != "equipment" and not lockdown   # v11.59: always a way back (the hangar has its own ◀ STATION)
 	_dragged = false   # (a drag left over from the last page must not swallow the next tap)
 	if s == "equipment" and screen != "equipment": holo_on = false   # v4.7: fresh into the hangar, no box until you tap
 	screen = s
@@ -2214,7 +2232,11 @@ func _equipment_page() -> void:
 		bay.anchor_right = 1.0
 		bay.offset_left = 8
 		bay.offset_bottom = -HANG_BOT
-	_hangar_bay(bay)
+	# v11.59 (owner): the ship / mech stands only in the HANGAR (and the shipyard); in the weapons room, supplies and the
+	# others the room's people and counters show, and the slots are picked from the side panel instead
+	var model_here := not in_room
+	if model_here: _hangar_bay(bay)
+	bay.visible = model_here
 	for d in [-1, 1]:   # v4.6 (owner): turn it with buttons as well as by dragging
 		var rb := Button.new()
 		rb.name = "TurnLeft" if d < 0 else "TurnRight"
@@ -2229,7 +2251,7 @@ func _equipment_page() -> void:
 		rb.offset_right = rb.offset_left + 54.0
 		rb.offset_top = -60.0
 		rb.offset_bottom = -6.0
-		rb.visible = not fold
+		rb.visible = not fold and model_here
 		var dd: int = d
 		rb.pressed.connect(func():
 			bay_yaw = fposmod(bay_yaw + dd * PI / 4.0, TAU)
@@ -2244,7 +2266,7 @@ func _equipment_page() -> void:
 	mods.offset_top = -HANG_BOT - MOD_H
 	mods.offset_bottom = -HANG_BOT
 	root.add_child(mods)
-	mods.visible = not fold
+	mods.visible = not fold and model_here
 	_module_strip(mods)
 	# left: the menu
 	var lp := PanelContainer.new()
@@ -2301,6 +2323,15 @@ func _equipment_page() -> void:
 		ec.add_theme_font_size_override("font_size", Data.ts(13))
 		ec.pressed.connect(func(): asst_tap())
 		menu.add_child(ec)
+	if eq_tab == "hangar":   # v11.59 (owner): SHIP VIEWER: the ship / mech on a magenta or green screen, any angle, zoom
+		var sv := Button.new()
+		sv.name = "ShipViewer"
+		sv.text = "SHIP VIEWER" if not _eq_mech() else "MECH VIEWER"
+		sv.clip_text = true
+		sv.add_theme_font_size_override("font_size", Data.ts(15))
+		sv.custom_minimum_size = Vector2(0, 44)
+		sv.pressed.connect(open_ship_viewer)
+		menu.add_child(sv)
 	var vw := Button.new()
 	vw.name = "EqView"
 	vw.text = "SHOW SHIP" if _eq_mech() else "SHOW MECH"
@@ -3000,6 +3031,7 @@ func _shop_panel(shop: VBoxContainer) -> void:
 	tgt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	tgt.text = "SLOT: %s  ·  %s" % [_slot_name(eq_sel), _slot_now(eq_sel)]
 	shop.add_child(tgt)
+	if room_view.visible and eq_tab == "weapon": _slot_picker(shop)   # v11.59: no ship in the room: pick the slot here
 	var va := _eq_scroll(shop, "EqAmmo", eq_tab == "ammo")   # (built every time; shown on its tab)
 	_ammo_panel(va)
 	if true:
@@ -3071,6 +3103,19 @@ func _shop_panel(shop: VBoxContainer) -> void:
 		else: u.text = "MK %s  %d cr" % [GS.roman(GS.gun_level(lid) + 1), GS.upgrade_cost(lid)]; u.disabled = GS.credits < GS.upgrade_cost(lid)
 		u.pressed.connect(func(): status.text = GS.upgrade_gun(lid); show_screen("equipment"))
 		act.add_child(u)
+	if eq_card != "" and not owned and kind != "":   # v11.59 (owner): buy and fit it in one go
+		var be := Button.new()
+		be.name = "ShopBuyEquip"
+		be.text = "BUY & EQUIP"
+		be.custom_minimum_size = Vector2(0, 50)
+		be.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		be.clip_text = true
+		be.disabled = GS.credits < _card_price(eq_card, kind)
+		be.add_theme_color_override("font_color", Color(0.55, 1.0, 0.65))
+		be.pressed.connect(func():
+			status.text = buy_and_equip(eq_card, kind)
+			show_screen("equipment"))
+		act.add_child(be)
 	var inst := Button.new()
 	inst.name = "ShopInstall"
 	inst.text = "INSTALL"
@@ -3094,6 +3139,55 @@ func _shop_panel(shop: VBoxContainer) -> void:
 		status.text = GS.fit_module(eq_sel - 100, "") if eq_sel >= 100 else GS.fit_mount(eq_sel, "empty")
 		show_screen("equipment"))
 	act.add_child(rem)
+
+## v11.59: buy the picked card and put it straight on the picked slot (or the first slot it fits).
+func buy_and_equip(id: String, kind: String) -> String:
+	var a := _card_buy(id, kind)
+	if not _card_owned(id, kind): return a
+	return (a + "  " + _card_install(id, kind)).strip_edges()
+
+## v11.59 (owner: "buy weapons, select, equip and combine-equip right away, from a side panel"): the ship's slots as
+## buttons (no ship in the weapons room): tap one, then a card, then INSTALL or BUY & EQUIP.
+func _slot_picker(v: VBoxContainer) -> void:
+	var cap := _label(12, CYAN)
+	cap.text = "YOUR SLOTS  ·  tap one, then a weapon"
+	v.add_child(cap)
+	var grid := GridContainer.new()
+	grid.name = "SlotPicker"
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 4)
+	grid.add_theme_constant_override("v_separation", 4)
+	v.add_child(grid)
+	var keys: Array = (GS.level_def()["uv"] as Dictionary).keys()
+	keys.sort()
+	for k in keys:
+		var b := Button.new()
+		b.name = "Slot_%d" % int(k)
+		b.text = "%s\n%s" % [_slot_name(int(k)), _slot_now(int(k))]
+		b.clip_text = true
+		b.custom_minimum_size = Vector2(0, 46)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.add_theme_font_size_override("font_size", Data.ts(11))
+		if eq_sel == int(k): b.add_theme_color_override("font_color", GOLD)
+		var kk: int = int(k)
+		b.pressed.connect(func():
+			eq_sel = kk
+			show_screen("equipment"))
+		grid.add_child(b)
+
+## v11.59 (owner): SHIP VIEWER from the hangar: your ship (or mech) alone on a solid magenta / green screen; drag to
+## turn any way, pinch / scroll to zoom; CLOSE goes back to the hangar.
+func open_ship_viewer() -> StationViewer:
+	var sv := open_station_viewer()
+	await get_tree().process_frame
+	var m: Node3D
+	if _eq_mech():
+		var k: Dictionary = GS.mech_keys()
+		m = ShipFactory.build_mech(str(k["core"]), str(k["arms"]), str(k["legs"]))
+	else: m = ShipFactory.build(Data.SHIPS[GS.ship_id]["model"], true)
+	sv.key_screens([StationViewer.KEY_MAGENTA, StationViewer.KEY_GREEN], ["MAGENTA", "GREEN SCREEN"])
+	sv.show_model(m, str(Data.SHIPS[GS.ship_id]["name"]).to_upper() if not _eq_mech() else "YOUR MECH")
+	return sv
 
 func _slot_name(k: int) -> String:
 	if k >= 100: return "MODULE %d" % (k - 99)

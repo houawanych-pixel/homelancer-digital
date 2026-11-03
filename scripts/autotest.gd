@@ -938,6 +938,105 @@ func _hud_checks() -> void:
 	hud.dock_down = false
 	_check("HUD: one TARGET opens NEXT + SCAN; with HIDE pressed the middle of the screen (the ship) is clear", menu_ok and clear_ok, "menu %s clear %s" % [menu_ok, clear_ok])
 
+## v11.59 (owner's ROOMS block): no ship in the rooms but the hangar / shipyard; the weapons room is shop + loadout;
+## the hangar turns left / right only; the ship viewer (magenta / green, free turn, zoom, exit); every page returns to
+## the main hub.
+func _rooms_ui() -> void:
+	var s := _sp()
+	main.dock(s.station)
+	await _until(func(): return main.state == "hub", 10.0)
+	var hb = main.hub
+	hb.room_override = "orion"
+	var shots := OS.get_environment("HL_SHOT_DIR") != ""
+	# ship hidden in the weapons room (and the other rooms), shown in the hangar
+	var seen := {}
+	for t in ["weapon", "ammo", "hangar"]:
+		hb.eq_tab = t
+		hb.show_screen("equipment")
+		await _frames(4)
+		var bay: Control = hb.find_child("HangarBay", true, false)
+		var has_model: bool = bay != null and bay.visible and bay.find_child("LoadoutPreview", true, false) != null
+		seen[t] = has_model
+		if shots: await _shot("rooms_eq_" + t, 0.6)
+	var others_clear := true
+	for sc in ["hub", "supplies", "repair", "command", "lounge", "board"]:
+		hb.show_screen(sc)
+		await _frames(3)
+		if hb.content.find_child("LoadoutPreview", true, false) != null: others_clear = false
+	var model_ok: bool = not seen["weapon"] and not seen["ammo"] and seen["hangar"] and others_clear
+	_check("Rooms: the ship / mech stands only in the HANGAR (not in the weapons room, supplies or the other rooms)", model_ok, "%s others clear %s" % [seen, others_clear])
+	# weapons room: pick a slot, BUY & EQUIP in one go
+	hb.eq_tab = "weapon"
+	hb.show_screen("equipment")
+	await _frames(3)
+	var picker: bool = hb.find_child("SlotPicker", true, false) != null
+	var wing := -1
+	for k in (GS.level_def()["uv"] as Dictionary).keys():
+		if int(k) >= 0 and int(k) < 100: wing = int(k)
+	var card := ""
+	for id in Data.NEXUS_BLASTERS:
+		if not (id in GS.owned_weapons): card = id
+	GS.credits = 900000
+	var equip_ok := false
+	if wing >= 0 and card != "":
+		hb.eq_sel = wing
+		hb.eq_card = card
+		hb.show_screen("equipment")
+		await _frames(2)
+		var be: Button = hb.find_child("ShopBuyEquip", true, false)
+		if be != null: be.emit_signal("pressed")
+		await _frames(2)
+		equip_ok = card in GS.owned_weapons and str(GS.mount_items()[wing]) == card
+	_check("Weapons room = shop + loadout: pick a slot in the side panel, BUY & EQUIP fits it right away", picker and equip_ok, "picker %s wing %d card %s fitted %s" % [picker, wing, card, str(GS.mount_items()[wing]) if wing >= 0 else "-"])
+	# the hangar: turn left / right only
+	hb.eq_tab = "hangar"
+	hb.show_screen("equipment")
+	await _frames(4)
+	var y0: float = hb.bay_yaw
+	var tl: Button = hb.find_child("TurnLeft", true, false)
+	if tl: tl.emit_signal("pressed")
+	await _frames(3)
+	var turned: bool = absf(hb.bay_yaw - y0) > 0.1
+	var level := true
+	if hb.preview_pivot != null and is_instance_valid(hb.preview_pivot): level = absf(hb.preview_pivot.rotation.x) < 0.01 and absf(hb.preview_pivot.rotation.z) < 0.01
+	_check("Hangar: the ship on the pad turns left / right only", turned and level and hb.find_child("ShipViewer", true, false) != null, "turned %s level %s viewer button %s" % [turned, level, hb.find_child("ShipViewer", true, false) != null])
+	# the ship viewer
+	var sv = await hb.open_ship_viewer()
+	await _frames(4)
+	var magenta: bool = sv.env.background_color.is_equal_approx(StationViewer.KEY_MAGENTA)
+	if shots: await _shot("rooms_viewer_magenta", 0.5)
+	var bgb: Button = sv.find_child("BgButton", true, false)
+	if bgb: bgb.emit_signal("pressed")
+	var green: bool = sv.env.background_color.is_equal_approx(StationViewer.KEY_GREEN)
+	var yw: float = sv.yaw
+	var pt: float = sv.pitch
+	sv.turn(Vector2(40, 60))
+	var free_turn: bool = absf(sv.yaw - yw) > 0.01 and absf(sv.pitch - pt) > 0.01
+	var d0: float = sv.dist
+	sv.zoom(0.8)
+	var zoomed: bool = sv.dist < d0
+	var shown: bool = sv.pivot.get_child_count() > 0
+	sv.queue_free()
+	await _frames(3)
+	var back: bool = main.state == "hub" and hb.screen == "equipment" and hb.get_node_or_null("StationViewer") == null
+	_check("Ship viewer: solid magenta <-> green screen, turns any way, zooms; CLOSE returns to the hangar", magenta and green and free_turn and zoomed and shown and back,
+		"magenta %s green %s free %s zoom %s model %s back %s" % [magenta, green, free_turn, zoomed, shown, back])
+	# every page has a working way back to the main hub
+	var stuck: Array = []
+	for sc in ["equipment", "ships", "mechs", "repair", "supplies", "command", "bounty", "missions", "board", "ship", "faction", "lounge"]:
+		hb.show_screen(sc)
+		await _frames(2)
+		var bk: Button = hb.back_hub if sc != "equipment" else hb.find_child("HangarBack", true, false)   # (the hangar: its own ◀ STATION)
+		if bk == null or not bk.is_visible_in_tree():
+			stuck.append(sc + " (no button)")
+			continue
+		bk.emit_signal("pressed")
+		await _frames(2)
+		if hb.screen != "hub": stuck.append(sc)
+	hb.show_screen("hub")
+	_check("Every room has a visible ◀ MAIN HUB that always works", stuck.is_empty() and not hb.back_hub.visible, ", ".join(stuck))
+	hb.room_override = ""
+
 func _finish_group() -> void:
 	var passed := results.filter(func(r): return r["pass"]).size()
 	print("[route] RESULT %d/%d PASS" % [passed, results.size()])
@@ -1037,9 +1136,9 @@ func _smoke_core() -> void:
 	main.start_game()
 	var flying := await _until(func(): return main.state == "flight", 20.0)
 	_check("Core: a new game starts in flight", flying, main.state)
+	await _frames(3)
 	var fsb: Control = Fs.btn
-	var S2: Vector2 = get_viewport().get_visible_rect().size
-	_check("Core: the FULL SCREEN button sits bottom middle", absf(fsb.get_global_rect().get_center().x - S2.x * 0.5) < 4.0 and fsb.get_global_rect().end.y > S2.y * 0.85, str(fsb.get_global_rect()))
+	_check("Core: in flight FULL SCREEN sits in the top bar", fsb.get_global_rect().position.y < 50.0 and fsb.get_global_rect().is_equal_approx(main.hud.fs_slot), str(fsb.get_global_rect()))
 
 func _launch() -> bool:
 	main.launch()
@@ -1090,6 +1189,11 @@ func _run() -> void:
 	main.hud.weapons_pinned = true   # (v7.0: every button up for the checks; the pop-up has its own check)
 	if OS.get_environment("HL_SMOKE") != "":   # Nov 2 (owner): the fast pre-deploy check (< 2 min)
 		await _smoke()
+		_finish_group()
+		return
+	if OS.get_environment("HL_ROOMS") != "":   # v11.59: the rooms UI checks (+ the core group)
+		await _smoke_core()
+		await _rooms_ui()
 		_finish_group()
 		return
 	if OS.get_environment("HL_DREADHOLM") != "":   # v11.57: tests/systems/dreadholm (+ the core smoke group)

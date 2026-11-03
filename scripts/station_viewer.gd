@@ -11,6 +11,7 @@ class_name StationViewer
 const KEY_BLUE := Color(0.55, 0.82, 1.0)     # light blue screen (for green / red / gold stations)
 const KEY_MAGENTA := Color(1.0, 0.0, 1.0)    # magenta screen (for blue / cyan stations)
 const KEY_SPACE := Color(0.02, 0.04, 0.08)   # dark, for just looking
+const KEY_GREEN := Color(0.0, 1.0, 0.0)      # v11.59 (owner): green screen, for the ship viewer
 const VIEWS := {"FRONT": Vector2(PI, 0.0), "BACK": Vector2(0.0, 0.0), "LEFT": Vector2(-PI / 2, 0.0), "RIGHT": Vector2(PI / 2, 0.0),
 	"TOP": Vector2(0.0, PI / 2 - 0.001), "BOTTOM": Vector2(0.0, -PI / 2 + 0.001), "3/4": Vector2(0.75, 0.35)}
 
@@ -20,7 +21,9 @@ var yaw := 0.75
 var pitch := 0.35
 var dist := 2.3              # in model radii
 var ortho := false
-var bg_mode := 0             # 0 light blue, 1 magenta, 2 space
+var bg_mode := 0             # 0 light blue, 1 magenta, 2 space (or the ship viewer's own list)
+var bg_list: Array = [KEY_BLUE, KEY_MAGENTA, KEY_SPACE]
+var bg_names: Array = ["LIGHT BLUE", "MAGENTA", "SPACE"]
 var vp: SubViewport
 var cam: Camera3D
 var pivot: Node3D
@@ -148,8 +151,8 @@ func _build_ui() -> void:
 	var bgb := _button("SCREEN: LIGHT BLUE", Callable(), 230)
 	bgb.name = "BgButton"
 	bgb.pressed.connect(func():
-		bg_mode = (bg_mode + 1) % 3
-		bgb.text = "SCREEN: " + ["LIGHT BLUE", "MAGENTA", "SPACE"][bg_mode]
+		bg_mode = (bg_mode + 1) % bg_list.size()
+		bgb.text = "SCREEN: " + str(bg_names[bg_mode])
 		_apply_bg())
 	bot.add_child(bgb)
 	var ob := _button("PERSPECTIVE", Callable(), 170)
@@ -173,15 +176,17 @@ func _build_ui() -> void:
 	status.text = "Drag to turn · pinch or scroll to zoom"
 	ui.add_child(status)
 
+func _enter_tree() -> void:
+	Fs.visible = false   # v11.59: its own buttons only (the FULL SCREEN button sat on PERSPECTIVE)
+
 func _hide_ui(h: bool) -> void:
 	ui.visible = not h
-	Fs.visible = not h   # the corner FULL SCREEN button goes too, for a clean picture
 
 func _exit_tree() -> void:
 	Fs.visible = true
 
 func _apply_bg() -> void:
-	env.background_color = [KEY_BLUE, KEY_MAGENTA, KEY_SPACE][bg_mode]
+	env.background_color = bg_list[bg_mode % bg_list.size()]
 
 ## Load station i (wrapping), fit it to the view (centred on its bounds, scaled to a unit radius).
 func show_station(i: int) -> void:
@@ -233,6 +238,23 @@ func show_key(key: String) -> bool:
 
 ## v11.28: a copy of any thing in the game (a scanned ship, mech, building): its visible meshes in its own frame
 ## (so FRONT is its nose), no rings, only the nearest LOD. The original is left alone.
+## v11.59: the ship viewer's screens (magenta / green), starting on the first.
+func key_screens(cols: Array, names: Array) -> void:
+	bg_list = cols
+	bg_names = names
+	bg_mode = 0
+	var bgb := find_child("BgButton", true, false) as Button
+	if bgb: bgb.text = "SCREEN: " + str(bg_names[0])
+	_apply_bg()
+
+## v11.59: a freshly built model (the player's ship or mech) in the viewer: put it in the world for a moment, copy it in.
+func show_model(m: Node3D, title: String) -> void:
+	var tmp := Node3D.new()
+	vp.add_child(tmp)
+	tmp.add_child(m)
+	show_copy(m, title)
+	tmp.queue_free()
+
 func show_copy(src: Node3D, title: String) -> void:
 	single = true
 	for b in arrows: b.visible = false
