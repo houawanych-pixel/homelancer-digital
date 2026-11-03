@@ -4423,6 +4423,7 @@ func _process(dt: float) -> void:
 	_update_enemies(dt)
 	if not allies.is_empty(): _update_allies(dt)   # v1.9n
 	_update_traffic(dt)
+	if not _pieces.is_empty(): _update_pieces(dt)   # v11.67: burning wreck pieces
 	if not freighters.is_empty() or _freighter_wait > 0.0: _update_freighters(dt)   # v11.63
 	_update_bolts(dt)
 	_update_missiles(dt)
@@ -6441,6 +6442,10 @@ func _destroy_unit(e: Dictionary) -> void:
 	Missions.on_kill(self, e)   # v1.5f: a bounty wanted dead is paid here
 	if target == n: target = null
 	n.set_meta("kind", "wreck")
+	if _breakup(e):   # v11.67 (owner, Freelancer: "really good explosions for the fighters"): the ship breaks into burning pieces
+		n.visible = false
+		n.queue_free()
+		return
 	var tw := n.create_tween()
 	tw.tween_property(n, "scale", Vector3.ONE * 0.05, 0.35).set_ease(Tween.EASE_IN)
 	tw.tween_callback(n.queue_free)
@@ -8877,8 +8882,11 @@ func _fx_mat(kind: String) -> StandardMaterial3D:
 	m.vertex_color_use_as_albedo = true
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	if kind in ["spark", "ember", "nuke"]: m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	if kind == "smoke": m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	if kind in ["spark", "ember", "nuke", "fire"]: m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	if kind in ["smoke", "fire", "trail_fire", "trail_smoke"]:
+		m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		m.albedo_texture = _fire_puff_tex()
+	if kind == "trail_fire": m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	_fx_res[kind] = m
 	return m
 
@@ -8953,6 +8961,34 @@ func _burst_fx(at: Vector3, size: float, scale_k := 1.0) -> void:
 	db.scale_amount_min = 0.35
 	db.scale_amount_max = 1.3
 	root.add_child(db)
+	# v11.67 (owner, Freelancer): a billowing fireball of soft fire puffs (white-hot -> orange -> red -> smoke), and a
+	# quick light that lights up the ships and rocks round it
+	var fq := QuadMesh.new()
+	fq.size = Vector2.ONE * 21.0 * k
+	var fb := _fx_parts(int(Data.FX_FIRE * q), 1.2, 6.0 * k, 34.0 * k, 2.0, fq, _fx_mat("fire"),
+		_fx_grad([Color(1.0, 1.0, 0.9, 1), Color(1.0, 0.8, 0.35, 1), Color(1.0, 0.45, 0.1, 0.9), Color(0.6, 0.12, 0.04, 0.6), Color(0.15, 0.1, 0.1, 0)]))
+	var fgrow := Curve.new()
+	fgrow.add_point(Vector2(0, 0.25))
+	fgrow.add_point(Vector2(0.3, 1.0))
+	fgrow.add_point(Vector2(1, 1.5))
+	fb.scale_amount_curve = fgrow
+	fb.angle_max = 360.0
+	fb.angular_velocity_min = -60.0
+	fb.angular_velocity_max = 60.0
+	root.add_child(fb)
+	if _fx_lights < Data.FX_LIGHTS:
+		_fx_lights += 1
+		var lt := OmniLight3D.new()
+		lt.light_color = Color(1.0, 0.72, 0.38)
+		lt.light_energy = 7.0
+		lt.omni_range = 60.0 * k + 40.0
+		lt.shadow_enabled = false
+		root.add_child(lt)
+		var ltw := lt.create_tween()
+		ltw.tween_property(lt, "light_energy", 0.0, 0.5).set_ease(Tween.EASE_OUT)
+		ltw.tween_callback(func():
+			_fx_lights -= 1
+			lt.queue_free())
 	get_tree().create_timer(3.4).timeout.connect(func():
 		_fx_live -= 1
 		if is_instance_valid(root): root.queue_free())
@@ -9029,6 +9065,112 @@ func _nuke_fx(at: Vector3, r1: float, r2: float) -> void:
 	var spin := root.create_tween()   # the slow spin, start to end
 	spin.tween_property(root, "rotation:y", root.rotation.y + Data.NUKE_SPIN * total, total)
 	_burst_fx(at, Data.BLAST_NUKE[0], 1.3)
+
+var _fx_lights := 0
+static var _puff_texture: ImageTexture
+## v11.67: a soft, lumpy puff (radial fade x noise) for the fireball, the smoke and the burning trails.
+func _fire_puff_tex() -> ImageTexture:
+	if _puff_texture != null: return _puff_texture
+	var sz := 64
+	var nz := FastNoiseLite.new()
+	nz.seed = 7
+	nz.frequency = 0.09
+	nz.fractal_octaves = 3
+	var img := Image.create(sz, sz, false, Image.FORMAT_RGBA8)
+	for y in sz:
+		for x in sz:
+			var d := Vector2(x - sz / 2.0 + 0.5, y - sz / 2.0 + 0.5).length() / (sz / 2.0)
+			var a := clampf(1.0 - d, 0.0, 1.0)
+			a = pow(a, 1.5) * clampf(0.55 + nz.get_noise_2d(x, y) * 0.9, 0.0, 1.0)
+			img.set_pixel(x, y, Color(1, 1, 1, clampf(a * 1.4, 0.0, 1.0)))
+	_puff_texture = ImageTexture.create_from_image(img)
+	return _puff_texture
+
+## v11.67 (owner, Freelancer: "the fighters need really good explosions"): the ship breaks apart. Its own pieces (or
+## chunks of it, for a one-piece model) fly off tumbling, each trailing fire and black smoke, then pop and are gone.
+## false = too far away / nothing to break (the old shrink is used).
+var breakups := 0   # (tests)
+func _breakup(e: Dictionary) -> bool:
+	var n: Node3D = e["node"]
+	if not is_instance_valid(n) or not is_instance_valid(player) or n.global_position.distance_to(player.global_position) > Data.FX_BURST_RANGE: return false
+	var meshes: Array = n.find_children("*", "MeshInstance3D", true, false).filter(func(m): return (m as MeshInstance3D).mesh != null and (m as MeshInstance3D).is_visible_in_tree())
+	if meshes.is_empty(): return false
+	meshes.sort_custom(func(a, b): return (a as MeshInstance3D).get_aabb().get_volume() > (b as MeshInstance3D).get_aabb().get_volume())
+	var c := n.global_position
+	var r: float = maxf(float(n.get_meta("radius", 7.0)), 3.0)
+	var v0: Vector3 = e.get("vel", Vector3.ZERO) if e.get("vel", Vector3.ZERO) is Vector3 else Vector3.ZERO
+	var pieces: Array = []
+	if meshes.size() >= 3:   # its own parts: the biggest few
+		for m in meshes.slice(0, Data.FX_PIECES): pieces.append([m, (m as MeshInstance3D).global_transform])
+	else:   # one-piece model: the same hull, broken into smaller chunks
+		var m0: MeshInstance3D = meshes[0]
+		for i in Data.FX_PIECES:
+			var off := Vector3(_rng.randfn(0, 1), _rng.randfn(0, 0.5), _rng.randfn(0, 1)).normalized() * r * 0.3
+			var xf: Transform3D = m0.global_transform
+			xf.basis = xf.basis.scaled(Vector3.ONE * _rng.randf_range(0.32, 0.5))
+			xf.origin += off
+			pieces.append([m0, xf])
+	breakups += 1
+	for pc in pieces:
+		var src: MeshInstance3D = pc[0]
+		var mi := MeshInstance3D.new()
+		mi.mesh = src.mesh
+		for si in src.get_surface_override_material_count(): mi.set_surface_override_material(si, src.get_surface_override_material(si))
+		mi.material_override = src.material_override
+		var burnt := StandardMaterial3D.new()   # (scorched: a dark overlay)
+		burnt.albedo_color = Color(0.05, 0.03, 0.02, 0.45)
+		burnt.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mi.material_overlay = burnt
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(mi)
+		mi.global_transform = pc[1]
+		var out := (mi.global_position - c)
+		out = out.normalized() if out.length() > 0.3 else Vector3(_rng.randfn(0, 1), _rng.randfn(0, 0.5), _rng.randfn(0, 1)).normalized()
+		var vel := v0 * 0.6 + out * _rng.randf_range(12.0, 30.0) * clampf(r / 7.0, 1.0, 4.0)
+		var spin := Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), _rng.randfn(0, 1)) * _rng.randf_range(1.5, 4.0)
+		# the trail: fire at the piece, smoke left behind it (world space, so it streams out behind)
+		var tq := QuadMesh.new()
+		tq.size = Vector2.ONE * clampf(r * 0.8, 3.5, 22.0)
+		var fire := _fx_parts(28, 0.5, 0.0, 3.0, 0.0, tq, _fx_mat("trail_fire"), _fx_grad([Color(1.0, 0.9, 0.5, 1), Color(1.0, 0.5, 0.12, 0.9), Color(0.5, 0.1, 0.03, 0)]))
+		fire.one_shot = false
+		fire.explosiveness = 0.0
+		fire.local_coords = false
+		mi.add_child(fire)
+		var tq2 := QuadMesh.new()
+		tq2.size = Vector2.ONE * clampf(r * 1.1, 5.0, 30.0)
+		var smoke := _fx_parts(22, 1.6, 0.0, 2.0, 0.0, tq2, _fx_mat("trail_smoke"), _fx_grad([Color(0.3, 0.27, 0.25, 0.0), Color(0.18, 0.16, 0.16, 0.6), Color(0.1, 0.1, 0.1, 0)]))
+		smoke.one_shot = false
+		smoke.explosiveness = 0.0
+		smoke.local_coords = false
+		var sg := Curve.new()
+		sg.add_point(Vector2(0, 0.5))
+		sg.add_point(Vector2(1, 2.0))
+		smoke.scale_amount_curve = sg
+		mi.add_child(smoke)
+		var life := _rng.randf_range(Data.FX_PIECE_LIFE[0], Data.FX_PIECE_LIFE[1])
+		_pieces.append({"node": mi, "vel": vel, "spin": spin, "life": life, "fire": fire, "smoke": smoke, "r": r})
+	return true
+
+var _pieces: Array = []
+func _update_pieces(dt: float) -> void:
+	for i in range(_pieces.size() - 1, -1, -1):
+		var p: Dictionary = _pieces[i]
+		var mi: MeshInstance3D = p["node"]
+		if not is_instance_valid(mi):
+			_pieces.remove_at(i)
+			continue
+		p["life"] = float(p["life"]) - dt
+		p["vel"] = (p["vel"] as Vector3) * (1.0 - 0.25 * dt)
+		mi.global_position += (p["vel"] as Vector3) * dt
+		var sp: Vector3 = p["spin"]
+		mi.rotate(sp.normalized(), sp.length() * dt)
+		if float(p["life"]) <= 0.0:   # it burns out with a last small pop; its smoke lingers a moment
+			_spark(mi.global_position, Color(1.0, 0.7, 0.3), float(p["r"]) * 1.6, 0.35)
+			(p["fire"] as CPUParticles3D).emitting = false
+			(p["smoke"] as CPUParticles3D).emitting = false
+			mi.visible = false
+			get_tree().create_timer(1.7).timeout.connect(mi.queue_free)
+			_pieces.remove_at(i)
 
 var waypoint: Node3D = null   # the player's own map waypoint (radar map -> tap anywhere -> SET COURSE)
 

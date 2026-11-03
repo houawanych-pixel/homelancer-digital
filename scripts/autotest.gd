@@ -1364,6 +1364,18 @@ func _board_fx() -> void:
 	var parts := 0
 	for c in s.get_children():
 		if c.name.begins_with("BurstFX"): parts += c.get_children().filter(func(x): return x is CPUParticles3D).size()
+	s._spawn_group(p.global_position - p.global_basis.z * 200.0, 1)
+	var fe: Dictionary = s.enemies[s.enemies.size() - 1]
+	var bk0: int = s.breakups
+	s._destroy_unit(fe)
+	await _frames(2)
+	var burning: int = s._pieces.size()
+	var moving := false
+	if burning > 0:
+		var pp: Vector3 = (s._pieces[0]["node"] as Node3D).global_position
+		await _wait(0.3)
+		moving = s._pieces.size() > 0 and (s._pieces[0]["node"] as Node3D).global_position.distance_to(pp) > 1.0
+	_check("Explosions (Freelancer): a fighter breaks into burning pieces that tumble away trailing fire and smoke", s.breakups == bk0 + 1 and burning >= 3 and moving, "breakups %d -> %d, pieces %d, flying %s" % [bk0, s.breakups, burning, moving])
 	_check("Explosions: a ship blowing up throws sparks, embers, smoke and debris (particles)", s.fx_bursts > b0 and parts >= 4, "bursts %d -> %d, particle systems %d" % [b0, s.fx_bursts, parts])
 	s.missile_blast(bat, {"heavy": true, "nuke": true}, null)
 	await _frames(2)
@@ -1494,13 +1506,23 @@ func _run() -> void:
 		var p: Node3D = s.player
 		s.controls = false
 		s.vel = Vector3.ZERO
-		var bat: Vector3 = p.global_position - p.global_basis.z * 260.0 + Vector3(0, 30, 0)
-		s._explode(bat, 30.0)
-		await _wait(0.12)
-		await _capture("fx_blast_a")
-		await _wait(0.35)
-		await _capture("fx_blast_b")
-		await _wait(3.0)
+		s._spawn_group(p.global_position - p.global_basis.z * 120.0 + Vector3(0, 12, 0), 1)
+		var fe: Dictionary = s.enemies[s.enemies.size() - 1]
+		fe["aggro"] = false
+		await _wait(0.3)
+		fe["node"].global_position = p.global_position - p.global_basis.z * 110.0 + Vector3(0, 12, 0)
+		fe["vel"] = Vector3.ZERO
+		await _capture("fx_fighter_0")
+		s._destroy_unit(fe)
+		await _wait(0.1)
+		await _capture("fx_fighter_a")
+		await _wait(0.4)
+		await _capture("fx_fighter_b")
+		await _wait(0.8)
+		await _capture("fx_fighter_c")
+		await _wait(1.0)
+		await _capture("fx_fighter_d")
+		await _wait(2.5)
 		var nat: Vector3 = p.global_position - p.global_basis.z * 900.0 + Vector3(0, 60, 0)
 		s.missile_blast(nat, {"heavy": true, "nuke": true}, null)
 		await _wait(0.45)
