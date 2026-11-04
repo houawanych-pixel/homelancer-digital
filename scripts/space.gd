@@ -815,7 +815,8 @@ func _planet_bases() -> void:
 	for i in list.size():
 		var site: Dictionary = list[i]
 		var lay: Array = Surface.compound(site) if site.get("bunker", false) else []   # v12.1: a bunker is a compound of 3-6 parts
-		var h := _ground_prop("res://assets/bases3d/%s.glb" % str(site["file"]), Data.BUNKER_WIDTH if site.get("bunker", false) else Data.BASE_WIDTH, site["spot"], true, float(lay[0][3]) if not lay.is_empty() else 0.0)   # (on its own pad)
+		var spot: Vector2 = site["spot"]
+		var h := _ground_prop("res://assets/bases3d/%s.glb" % str(site["file"]), float(lay[0][2]) if not lay.is_empty() else Data.BASE_WIDTH, spot + (lay[0][1] as Vector2 if not lay.is_empty() else Vector2.ZERO), true, float(lay[0][3]) if not lay.is_empty() else 0.0)   # (on its own pad; v12.2: a fort's gate tower)
 		if h == null: continue
 		h.name = str(site["name"])
 		h.set_meta("base", str(site["file"]))
@@ -824,8 +825,8 @@ func _planet_bases() -> void:
 		planet_bases.append(h)
 		if not lay.is_empty():   # v12.1 (owner: "use the bunker assets to design a 3 to 6 combination to create a facility")
 			for pc in lay.slice(1):
-				var pp := Vector2(h.position.x, h.position.z) + (pc[1] as Vector2)
-				var ph := _ground_prop("res://assets/bases3d/%s.glb" % str(pc[0]), float(pc[2]), pp, true, float(pc[3]))
+				var pp := spot + (pc[1] as Vector2)
+				var ph := _ground_prop("res://assets/bases3d/%s.glb" % str(pc[0]), float(pc[2]), pp, true, float(pc[3]), pc[4] if pc.size() > 4 else Vector3.ONE)
 				if ph != null: ph.name = "%s %s" % [str(site["name"]), str(pc[0]).trim_prefix("HL_Asset_")]
 			continue
 		if str(site["side"]) == "hostile":   # its defences: gun batteries either side and a generator behind
@@ -841,7 +842,7 @@ func _on_bases_pack(pk: String) -> void:
 	_planet_bases()
 
 ## One model stood on the ground at (sector-local) `want`, `width` m across, with a box to bump into. Null if missing.
-func _ground_prop(path: String, width: float, want: Vector2, exact := false, rot := 0.0) -> Node3D:
+func _ground_prop(path: String, width: float, want: Vector2, exact := false, rot := 0.0, stretch := Vector3.ONE) -> Node3D:
 	if not ResourceLoader.exists(path): return null
 	var ps := load(path) as PackedScene
 	if ps == null: return null
@@ -852,7 +853,7 @@ func _ground_prop(path: String, width: float, want: Vector2, exact := false, rot
 	var w: float = width / maxf(maxf(bb.size.x, bb.size.z), 0.001)
 	var half := maxf(bb.size.x, bb.size.z) * w * 0.5
 	var site := Vector3(want.x, _ground(want.x, want.y), want.y) if exact else building_site(want, half, surf_boxes)
-	holder.scale = Vector3.ONE * w
+	holder.scale = Vector3.ONE * w * stretch
 	holder.rotation.y = rot
 	holder.position = Vector3(site.x, site.y - Data.BUILDING_SINK - bb.position.y * w, site.z)
 	holder.set_meta("half", half)
@@ -1122,7 +1123,7 @@ func _hidden_ally_ship() -> void:
 	var fac2: String = facs[absi(hash(sys_id + "_hidden_ally")) % facs.size()]
 	var key := str(Data.FACTION_FLEET[fac2].get("battleship", ""))
 	if key == "" or not ShipFactory.has_real_model(key) or Boarding.sunk.has(sys_id): return
-	var spots: Array = nebulae_of(sys_id, sys).filter(func(nb): return not bool(nb.get("main", false))).map(func(nb): return nb["center"])
+	var spots: Array = nebulae_of(sys_id, sys).filter(func(nb): return not bool(nb.get("main", false)) and not bool(nb.get("backdrop", false))).map(func(nb): return nb["center"])
 	if sys.has("asteroids") and float(sys["asteroids"].get("radius", 0.0)) > 1.0: spots.append(sys["asteroids"]["center"])
 	if spots.is_empty(): return
 	var home: Vector3 = spots[absi(hash(sys_id + "_hide")) % spots.size()]
@@ -1476,22 +1477,39 @@ func _board_steps(dt: float) -> void:
 	if here != "":   # v12.0 (owner: "a fog of war map as I travel through it"): the areas you have been in
 		if not board.has("seen"): board["seen"] = {}
 		board["seen"][here] = true
-	# an area's guards come at you the first time you walk in (the forward hold's only on the way out)
-	if here != "" and not (board["woke"] as Dictionary).has(here) and int(Boarding.ROOMS[here]["guards"]) > 0 and (here != "fhold" or str(board["phase"]) == "escape"):
+	# v12.2 (owner: "they need to spawn in the room before I get in there"): the guards of the rooms next to yours are
+	# already standing in them, waiting; they come at you when you walk in (or see you close up). The forward hold's
+	# only on the way out.
+	if here != "":
+		if not board.has("nbrs"): board["nbrs"] = {}
+		if not (board["nbrs"] as Dictionary).has(here):
+			var nb: Array = []
+			for k2 in Boarding.ROOMS: if k2 != here and not Boarding.joint(here, k2).is_empty(): nb.append(k2)
+			board["nbrs"][here] = nb
+		for rk in [here] + (board["nbrs"][here] as Array):
+			if (board["woke"] as Dictionary).has(rk) or int(Boarding.ROOMS[rk]["guards"]) <= 0: continue
+			if rk == "fhold" and str(board["phase"]) != "escape": continue
+			board["woke"][rk] = true
+			var R2: Dictionary = Boarding.ROOMS[rk]
+			var r2: Array = R2["r"]
+			var waiting: Array = []
+			for k in spawn_ground_mechs(Vector3((float(r2[0]) + float(r2[1])) * 0.5, 0, (float(r2[2]) + float(r2[3])) * 0.5), fac, int(R2["guards"]), -42, 0):
+				k["aggro"] = rk == here
+				k["provoked"] = true
+				var q := Vector3(_rng.randf_range(float(r2[0]) + 20.0, float(r2[1]) - 20.0), 0, _rng.randf_range(float(r2[2]) + 20.0, float(r2[3]) - 20.0))
+				(k["node"] as Node3D).global_position = Vector3(q.x, Boarding.floor_of(rk, q.x, q.z) + Data.WALKER_STAND, q.z)
+				waiting.append(k)
+			board["guards"][rk] = waiting
+	if here != "" and not (board.get("alarm", {}) as Dictionary).has(here) and (here != "fhold" or str(board["phase"]) == "escape"):
+		if not board.has("alarm"): board["alarm"] = {}
+		board["alarm"][here] = true
 		board["woke"][here] = true
+		var kids: Array = (board["guards"].get(here, []) as Array).filter(func(k): return enemies.has(k) and is_instance_valid(k["node"]))
+		for k in kids: k["aggro"] = true
 		var R: Dictionary = Boarding.ROOMS[here]
-		var r: Array = R["r"]
-		var kids: Array = []
-		for k in spawn_ground_mechs(Vector3((float(r[0]) + float(r[1])) * 0.5, 0, (float(r[2]) + float(r[3])) * 0.5), fac, int(R["guards"]), -42, 0):
-			k["aggro"] = true
-			k["provoked"] = true
-			var q := Vector3(_rng.randf_range(float(r[0]) + 20.0, float(r[1]) - 20.0), 0, _rng.randf_range(float(r[2]) + 20.0, float(r[3]) - 20.0))
-			(k["node"] as Node3D).global_position = Vector3(q.x, Boarding.floor_of(here, q.x, q.z) + Data.WALKER_STAND, q.z)
-			kids.append(k)
 		if here == "reactor": _board_boss(fac)
 		if here == "bridge": _board_bridge(fac, kids)
-		board["guards"][here] = kids
-		message.emit("%s: %d of their mechs!" % [str(R["label"]), kids.size() + (1 if here == "reactor" else 0)])
+		if not kids.is_empty() or here == "reactor": message.emit("%s: %d of their mechs!" % [str(R["label"]), kids.size() + (1 if here == "reactor" else 0)])
 	if here == "bridge" or not (board.get("bridge", {}) as Dictionary).is_empty(): _bridge_tick()
 	match str(board["phase"]):
 		"fight":   # the reactor's shield is up until their boss is down
@@ -2779,6 +2797,16 @@ static func nebulae_of(id: String, s: Dictionary) -> Array:
 		col.s = clampf(col.s * rng.randf_range(0.8, 1.15), 0.25, 0.9)
 		col.v = clampf(col.v * rng.randf_range(0.85, 1.1), 0.55, 1.0)
 		out.append({"name": "", "center": c, "radius": r, "color": col, "main": false})
+	# v12.2 (owner: "some of them can be pushed back and scaled up like Freelancer ... make it big"): two or three huge
+	# backdrop clouds out past the edge of the system, in the system's own colours, seen from anywhere in it
+	for bi in Data.NEBULA_BACKDROPS:
+		var ba := rng.randf() * TAU
+		var bdist := Data.SPACE_EDGE * rng.randf_range(1.35, 1.7)
+		var bcol: Color = (n["color"] as Color)
+		bcol.h = fposmod(bcol.h + float(shifts[bi % shifts.size()]), 1.0)
+		bcol.s = clampf(bcol.s * 1.2, 0.45, 0.95)
+		out.append({"name": "", "center": Vector3(cos(ba) * bdist, rng.randf_range(-60000.0, 60000.0), sin(ba) * bdist), "radius": rng.randf_range(Data.NEBULA_BACKDROP_R[0], Data.NEBULA_BACKDROP_R[1]),
+			"color": bcol, "main": false, "backdrop": true, "weather": "storm"})
 	# v10.4 (owner: Freelancer clouds with things in them): a cloud sits over part of the asteroid field, so one side of
 	# the field is lost in the haze (it keeps clear of the station and the other clouds; skipped if it can't)
 	if not belt.is_empty() and float(belt.get("radius", 0.0)) > 1.0:
@@ -2864,7 +2892,10 @@ void vertex() {
 }
 void fragment() {
 	vec4 t = texture(tex, UV);
-	ALBEDO = t.rgb * tint.rgb * COLOR.rgb + vec3(0.85, 0.92, 1.0) * v_fl * 1.4;
+	vec3 c = t.rgb * tint.rgb * min(COLOR.rgb, vec3(1.05));   // v12.2 (owner: "why is it always white?"): the cloud's own colour, never washed to white
+	float l = dot(c, vec3(0.299, 0.587, 0.114));
+	c = mix(vec3(l), c, 1.35);
+	ALBEDO = c + tint.rgb * v_fl * 1.2;
 	ALPHA = clamp(t.a * (alpha * COLOR.a * (1.0 + v_fl * 0.8)) * v_fade, 0.0, 1.0);
 }
 """
@@ -7191,7 +7222,22 @@ func collision_damage(kind: String, impact: float, at := Vector3.INF) -> float:
 		_die()
 	return dealt
 
+## v12.2 (owner: "a button so I can sidestep"): a quick dash to the side (the way the move stick leans, else right),
+## in a ship or the mech, on a short cooldown.
+var sidestep_t := 0.0
+var sidestep_cd := 0.0
+func sidestep(lean: float) -> void:
+	if not controls or sidestep_cd > 0.0 or not lane.is_empty() or warp_state == "on": return
+	var side := player.global_basis.x * (-1.0 if lean < -0.2 else 1.0)
+	side.y = 0.0
+	vel += side.normalized() * Data.SIDESTEP_SPEED
+	sidestep_t = 0.35
+	sidestep_cd = Data.SIDESTEP_CD
+	Sfx.play("whoosh", -8.0, 1.4)
+
 func _collisions(dt: float) -> void:
+	sidestep_t = maxf(0.0, sidestep_t - dt)
+	sidestep_cd = maxf(0.0, sidestep_cd - dt)
 	if not lane.is_empty(): return   # nothing is solid while the lane carries you
 	collide_grace = maxf(0.0, collide_grace - dt)
 	var p := player.global_position
@@ -9074,7 +9120,16 @@ func _update_special(dt: float) -> void:
 		"beam":
 			if is_instance_valid(_beam):
 				var mat := _beam.material_override as StandardMaterial3D
-				mat.albedo_color.a = clampf(1.0 - special_t / Data.SPECIAL_BEAM_TIME, 0.0, 1.0)
+				var fade := clampf(1.0 - special_t / Data.SPECIAL_BEAM_TIME, 0.0, 1.0)
+				var nc := _super_cols.size()
+				if nc > 0:   # the colours run through the beam, the glow a step behind
+					var ph := special_t * Data.SUPER_CYCLE_HZ * float(nc)
+					var c0: Color = _super_cols[int(ph) % nc].lerp(_super_cols[(int(ph) + 1) % nc], fmod(ph, 1.0))
+					mat.albedo_color = Color(c0, fade)
+					if is_instance_valid(_beam_glow):
+						var c1: Color = _super_cols[(int(ph) + 1) % nc].lerp(_super_cols[(int(ph) + 2) % nc], fmod(ph, 1.0))
+						(_beam_glow.material_override as StandardMaterial3D).albedo_color = Color(c1, 0.4 * fade * (0.75 + 0.25 * sin(special_t * 30.0)))
+				else: mat.albedo_color.a = fade
 				if is_instance_valid(special_target): _aim_beam(special_target.global_position)
 			if special_t >= Data.SPECIAL_BEAM_TIME: _special_swarm()
 
@@ -9250,11 +9305,31 @@ func _special_beam() -> void:
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	mat.albedo_color = Color(0.55, 0.85, 1.0, 1.0)
+	# v12.2 (owner: "the super should feel more amazing: an outer glow, more colours ... primary colours if there's not
+	# many enemies, primary and secondary if there's a lot ... a bass sound and a sound wave")
+	_super_cols = Data.SUPER_PRIMARY if hostiles_engaged(2500.0) < Data.SUPER_MANY else Data.SUPER_PRIMARY + Data.SUPER_SECONDARY
+	mat.albedo_color = _super_cols[0]
 	_beam.material_override = mat
 	add_child(_beam)
+	_beam_glow = MeshInstance3D.new()   # the outer glow round the beam
+	var gm := CylinderMesh.new()
+	gm.top_radius = Data.SPECIAL_BEAM_WIDTH * 3.2
+	gm.bottom_radius = Data.SPECIAL_BEAM_WIDTH * 2.2
+	gm.height = 1.0
+	_beam_glow.mesh = gm
+	var gmat := StandardMaterial3D.new()
+	gmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	gmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	gmat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	gmat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	gmat.albedo_color = Color(_super_cols[1 % _super_cols.size()], 0.35)
+	_beam_glow.material_override = gmat
+	_beam.add_child(_beam_glow)
 	_aim_beam(special_target.global_position)
-	Sfx.play("explosion", -2.0)
+	Sfx.play("super_wave", 2.0)
+	Sfx.play("explosion", -6.0, 0.6)
+	_super_waves(player.global_position, special_target.global_position)
+	super_fx_log.append(_super_cols.size())
 	var rbs := _ray_blocks(player.global_position, special_target.global_position) if surface_mode else [null, Vector3.INF]
 	var bfs: BlockField = rbs[0]
 	var dig: Vector3 = rbs[1]
@@ -9275,6 +9350,51 @@ func _special_beam() -> void:
 		_break_section(e, hit_side)
 		special_log.append("wing_" + hit_side)
 	_spark(special_target.global_position, Color(0.7, 0.95, 1.0), 40.0, 0.5)
+
+var _beam_glow: MeshInstance3D = null
+var _super_cols: Array = []
+var super_fx_log: Array = []   # (tests) how many colours each super used
+## v12.2: the super's shock waves: coloured rings that burst out round you and the target, one colour each, and
+## rings spiralling along the beam.
+func _super_waves(from: Vector3, to: Vector3) -> void:
+	var tm := TorusMesh.new()
+	tm.inner_radius = 0.85
+	tm.outer_radius = 1.0
+	tm.rings = 32
+	tm.ring_segments = 6
+	var nc := maxi(_super_cols.size(), 1)
+	for i in nc + 2:
+		var mi := MeshInstance3D.new()
+		mi.mesh = tm
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		m.cull_mode = BaseMaterial3D.CULL_DISABLED
+		var col: Color = _super_cols[i % nc] if not _super_cols.is_empty() else Color(0.6, 0.9, 1.0)
+		m.albedo_color = Color(col, 0.9)
+		mi.material_override = m
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(mi)
+		var at: Vector3 = to if i % 2 == 0 else from
+		var along: bool = i >= nc   # the last rings stand along the beam
+		var dir := (to - from).normalized()
+		if along:
+			at = from.lerp(to, 0.3 + 0.4 * float(i - nc))
+			var bx := dir.cross(Vector3.UP if absf(dir.y) < 0.95 else Vector3.RIGHT).normalized()
+			mi.global_transform = Transform3D(Basis(bx, dir, bx.cross(dir)), at)   # (the ring's axis along the beam)
+		else:
+			mi.global_position = at
+			mi.rotation = Vector3(_rng.randf_range(-0.6, 0.6), _rng.randf() * TAU, _rng.randf_range(-0.6, 0.6))
+		mi.scale = Vector3.ONE * 4.0
+		var tw := create_tween()
+		var delay := 0.08 * float(i)
+		var grow: float = Data.SUPER_WAVE_R * (0.6 if along else 1.0) * (1.0 + 0.25 * float(i % nc))
+		tw.tween_property(mi, "scale", Vector3.ONE * grow, 0.9).set_delay(delay).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+		tw.parallel().tween_property(m, "albedo_color:a", 0.0, 0.9).set_delay(delay)
+		tw.tween_callback(mi.queue_free)
+	screen_flash = maxf(screen_flash, 0.5)
+	hit_shake = maxf(hit_shake, 0.9)
 
 ## v1.9b: stick input that swings the nose onto the special's target (full rate until close, then eases in).
 func _aim_beam(to: Vector3) -> void:

@@ -266,28 +266,58 @@ static func facility_sites(planet_id: String) -> Array:
 	_fac_cache[planet_id] = out
 	return out
 
-## v12.1 (owner: "use the bunker assets to design a 3 to 6 combination to create a facility"): the parts of a bunker
-## facility, joined into one complex: the entrance tower in the middle, then (by level: 3 parts at level 1 up to 6 at
-## level 4) towers built onto its sides, generators against its back and gun batteries on the corners, in one of a few
-## plans (a row, an L, a courtyard, a cross), turned to its own bearing. Each part: [file, offset (x, z), width, turn].
+## v12.2 (owner: "think of it like a sandcastle: towers, walls ... rotate it, make them face outward ... that long piece,
+## scale it up, that could be a wall ... design it"): a bunker facility is a little fort. Its corners (3 at level 1 up
+## to 6 at level 4: a triangle, square, pentagon or hexagon, turned to its own bearing) each have a tower facing out;
+## the long gun battery, stretched, is the wall between them; the front wall is split by the big gate tower (the way
+## in, facing out); a generator stands in the courtyard. Offsets are from the fort's middle (the site's spot).
+## Each part: [file, offset (x, z), width (m), turn, stretch (x, y, z)]; the gate tower comes first.
 static func compound(site: Dictionary) -> Array:
 	var rng := RandomNumberGenerator.new()
-	rng.seed = hash("compound:" + str(site.get("name", "")))
+	rng.seed = hash("fort:" + str(site.get("name", "")))
 	var W: float = Data.BUNKER_WIDTH
 	var n := clampi(2 + int(site.get("difficulty", 1)), 3, 6)
-	var plans := {
-		"row": [["HL_Asset_BunkerPillar", Vector2(0.9, 0), 0.8], ["HL_Asset_Generator", Vector2(0, -0.78), 0.5], ["HL_Asset_BunkerPillar", Vector2(-0.9, 0), 0.8], ["HL_Asset_GunBattery", Vector2(1.55, 0.55), 0.42], ["HL_Asset_GunBattery", Vector2(-1.55, 0.55), 0.42]],
-		"ell": [["HL_Asset_BunkerPillar", Vector2(0.88, 0), 0.75], ["HL_Asset_BunkerPillar", Vector2(0, -0.88), 0.75], ["HL_Asset_Generator", Vector2(0.85, -0.85), 0.55], ["HL_Asset_GunBattery", Vector2(-0.8, 0.75), 0.42], ["HL_Asset_GunBattery", Vector2(1.6, 0.6), 0.42]],
-		"court": [["HL_Asset_Generator", Vector2(0, -0.8), 0.55], ["HL_Asset_GunBattery", Vector2(1.0, 0.7), 0.42], ["HL_Asset_GunBattery", Vector2(-1.0, 0.7), 0.42], ["HL_Asset_BunkerPillar", Vector2(1.05, -0.6), 0.7], ["HL_Asset_BunkerPillar", Vector2(-1.05, -0.6), 0.7]],
-		"cross": [["HL_Asset_Generator", Vector2(0, -0.8), 0.5], ["HL_Asset_BunkerPillar", Vector2(0.85, 0), 0.7], ["HL_Asset_BunkerPillar", Vector2(-0.85, 0), 0.7], ["HL_Asset_Generator", Vector2(0, 0.85), 0.5], ["HL_Asset_GunBattery", Vector2(1.25, 1.1), 0.42]]}
-	var keys: Array = plans.keys()
-	var plan: Array = plans[keys[rng.randi() % keys.size()]]
-	var turn := float(rng.randi() % 4) * PI * 0.5 + rng.randf_range(-0.2, 0.2)
-	var out: Array = [["HL_Asset_BunkerPillar", Vector2.ZERO, W, turn]]
-	for i in n - 1:
-		var pc: Array = plan[i]
-		var off: Vector2 = (pc[1] as Vector2).rotated(-turn) * W
-		out.append([pc[0], off, float(pc[2]) * W, turn + (PI if (pc[1] as Vector2).y > 0.5 else 0.0)])
+	var turn := rng.randf() * TAU
+	var Rc := W * Data.FORT_RADIUS
+	var face := func(dir: Vector2) -> float: return atan2(dir.x, dir.y)   # a part's +z turned to point along dir
+	var corners: Array = []
+	for i in n:
+		var a := turn + TAU * (float(i) + 0.5) / float(n)
+		var jit := rng.randf_range(0.92, 1.08)   # (a little uneven, like it was built)
+		corners.append(Vector2(cos(a), sin(a)) * Rc * jit)
+	var gate_dir := Vector2(cos(turn), sin(turn))   # the front wall's middle is at angle `turn`
+	var out: Array = []
+	var gate_at: Vector2 = ((corners[n - 1] as Vector2) + (corners[0] as Vector2)) * 0.5
+	out.append(["HL_Asset_BunkerPillar", gate_at, W * Data.FORT_GATE_W, face.call(gate_dir), Vector3.ONE])
+	var tower_w := W * Data.FORT_TOWER_W
+	var wall_h := W * Data.FORT_WALL_H
+	var wk: float = wall_h / 0.52          # the battery is 0.98 long, 0.52 high, 0.30 deep
+	for i in n:
+		var c: Vector2 = corners[i]
+		out.append(["HL_Asset_BunkerPillar", c, tower_w, face.call(c.normalized()), Vector3.ONE])
+	for i in n:
+		var A: Vector2 = corners[i]
+		var B: Vector2 = corners[(i + 1) % n]
+		var segs: Array = [[A, B]]
+		if i == n - 1:   # the front wall: split round the gate
+			var gap := (B - A).normalized() * W * Data.FORT_GATE_W * 0.55
+			segs = [[A, gate_at - gap], [gate_at + gap, B]]
+		for sg in segs:
+			var p: Vector2 = sg[0]
+			var q: Vector2 = sg[1]
+			var d := q - p
+			var inset := d.normalized() * tower_w * 0.42   # (the wall runs into the towers, not through them)
+			if i != n - 1 or sg == segs[0]: p += inset
+			if i != n - 1 or sg == segs[1]: q -= inset
+			d = q - p
+			if d.length() < W * 0.2: continue
+			var mid := (p + q) * 0.5
+			var outward := mid.normalized()
+			var th := atan2(-d.y, d.x)   # the battery's long side (x) along the wall
+			if Vector2(sin(th), cos(th)).dot(outward) < 0.0: th += PI   # its front (+z) out
+			out.append(["HL_Asset_GunBattery", mid, 0.98 * wk, th, Vector3(d.length() / (0.98 * wk), 1.0, 1.0)])
+	out.append(["HL_Asset_Generator", -gate_dir * Rc * 0.35, W * 0.5, face.call(gate_dir), Vector3.ONE])
+	if n >= 5: out.append(["HL_Asset_Generator", -gate_dir.rotated(PI * 0.5) * Rc * 0.3, W * 0.4, face.call(gate_dir), Vector3.ONE])
 	return out
 
 static func base_pads(planet_id: String) -> Array:

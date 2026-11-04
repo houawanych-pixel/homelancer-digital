@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.1"
+const VERSION := "v12.2"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1014,6 +1014,8 @@ const NEBULA_EXTRA_RADIUS := [45000.0, 90000.0]   # v11.97 (owner): bigger. was 
 const NEBULA_GATE_RADIUS := [18000.0, 30000.0]   # v10.4: 2x. the cloud a gate hides in (Freelancer: gates in the clouds); one of the extras (v9.0: was 850-1300)
 const NEBULA_EXTRA_DIST := [90000.0, 350000.0]   # how far from the main station the extra clouds sit (v9.0: was 2.6-5.8 km)
 const NEBULA_AVOID_K := 8.0          # v9.0: the clouds keep this many times their old gaps from stations, planets and the field
+const NEBULA_BACKDROPS := 3          # v12.2: huge clouds out past the system edge (backdrop only)
+const NEBULA_BACKDROP_R := [160000.0, 260000.0]
 const NEBULA_PUFFS := 240             # smoke puffs in a full-size cloud (smaller clouds get fewer)
 const NEBULA_PUFF_ALPHA := 0.55
 const NEBULA_FOG_DENSITY := 0.005   # (v1.9z: thicker: deep inside you see a few hundred metres, not the other side)    # fog at the heart of a cloud (things ~600 m off fade into the haze)
@@ -1880,6 +1882,18 @@ const BASE_PAD_R := 230.0        # v11.92: m: the flat land pad under a base (bl
 const BASE_PAD_MIN_H := 8.0      # m: a pad never sits lower than this (above the sea: an island in the ocean)
 const BUNKER_WIDTH := 120.0     # v11.96: m: a bunker entrance (a facility without a faction base over it)
 const FACILITY_NEAR := 420.0    # m from a facility: ENTER shows
+# v12.2 (owner): the super's colours: primary when few hostiles are on you, primary and secondary when many
+const SUPER_PRIMARY := [Color(1.0, 0.15, 0.15), Color(0.2, 0.45, 1.0), Color(1.0, 0.9, 0.15)]
+const SUPER_SECONDARY := [Color(0.7, 0.2, 1.0), Color(0.2, 1.0, 0.35), Color(1.0, 0.55, 0.1)]
+const SUPER_MANY := 4          # this many hostiles engaged or more: all six colours
+const SUPER_CYCLE_HZ := 1.6    # how fast the colours run through the beam
+const SUPER_WAVE_R := 120.0    # how far the shock rings burst out
+const SIDESTEP_SPEED := 160.0   # v12.2: m/s added sideways by SIDESTEP
+const SIDESTEP_CD := 1.2
+const FORT_RADIUS := 1.45     # v12.2: a bunker fort's corners sit this many bunker widths from its middle
+const FORT_GATE_W := 0.9      # the gate tower, in bunker widths
+const FORT_TOWER_W := 0.55    # a corner tower
+const FORT_WALL_H := 0.32     # the walls' height, in bunker widths
 const STATION_INFIL_LEVEL := 3   # v11.99: an alien station is infiltrated as a level 3 facility
 const FACILITY_PAY := 3500      # cr x difficulty for clearing a facility
 const BASE_PART_WIDTH := 45.0    # m: a gun battery / generator beside a hostile base

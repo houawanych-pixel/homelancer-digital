@@ -362,9 +362,12 @@ func _on_hud(id: String) -> void:
 			var tm: String = space.tractor()
 			hud.flash_message(tm)
 			if space.tractor_t > 0.0: Sfx.play("tractor", -6.0)
-		"target":
+		"target", "dash_next":   # (v12.2: NEXT on the console too)
 			space.cycle_target()
 			hud.target_menu = false
+		"dash_tgt": _on_hud("tgt_front")
+		"sidestep": space.sidestep(hud.move_vec.x if "move_vec" in hud else 0.0)
+		"spare_l": pass
 		"scan":
 			hud.flash_message(hud.start_scan())   # v1.5g
 			hud.target_menu = false

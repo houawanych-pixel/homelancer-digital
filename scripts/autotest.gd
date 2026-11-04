@@ -1904,7 +1904,8 @@ func _run() -> void:
 		print("[bases] ", s.planet_bases.map(func(h): return [h.name, h.position]))
 		for h: Node3D in s.planet_bases:
 			var at: Vector3 = h.global_position
-			_tp(at + Vector3(260.0, 140.0, 260.0), at)
+			var k := float(OS.get_environment("HL_BASEUP")) if OS.get_environment("HL_BASEUP") != "" else 1.0   # (v12.2: further back and up to see a whole fort)
+			_tp(at + Vector3(260.0, 140.0 * k, 260.0) * k, at)
 			await _wait(1.2)
 			await _capture("base_" + str(h.name).replace(" ", "_"))
 		get_tree().quit()

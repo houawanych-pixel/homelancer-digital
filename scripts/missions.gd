@@ -105,7 +105,7 @@ static func _all_offers(sys_id: String, station_id: String, owner: String, pid: 
 		"points": _points(rng, 2)})
 	# v11.26 (owner): INVESTIGATE ENEMY DISTURBANCE: a hidden enemy in one of the system's nebula clouds (only where
 	# the system has a cloud): a battleship (10 fighters always out) or a hidden station (15); hard, big pay
-	var clouds: Array = SpaceSystem.nebulae_of(sys_id, sys)
+	var clouds: Array = SpaceSystem.nebulae_of(sys_id, sys).filter(func(c): return not bool(c.get("backdrop", false)))   # (v12.2: not the backdrop clouds)
 	if enemy != "" and not clouds.is_empty():
 		var cl: Dictionary = clouds[rng.randi() % clouds.size()]
 		var st0: Vector3 = sys["station"]["pos"]

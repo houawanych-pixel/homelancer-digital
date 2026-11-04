@@ -493,6 +493,7 @@ func _collect() -> void:
 	var nebs := SpaceSystem.nebulae_of(GS.system_id, sys)   # v1.9s: the grown main cloud plus the extra ones
 	for ni in nebs.size():
 		var neb: Dictionary = nebs[ni]
+		if bool(neb.get("backdrop", false)): continue   # (v12.2: the backdrop clouds are past the map's edge)
 		objs["nebula" if ni == 0 else "nebula%d" % ni] = {"type": "nebula", "name": (str(neb["name"]) + " nebula") if str(neb["name"]) != "" else "Nebula",
 			"pos": neb["center"], "col": neb["color"], "r": float(neb["radius"]), "data": neb}
 	if space != null and is_instance_valid(space.player):   # v11.97 (owner): trade lanes you can pick on the map and fly into

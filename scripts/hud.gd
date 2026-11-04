@@ -583,7 +583,7 @@ func _layout() -> void:
 		var key: String = ["missile1", "missile2", "mine"][k] if k < 3 else ""   # v11.29 (owner): a slot keeps its spot whatever is fitted (the NUKE takes MISSILE 2's)
 		if key != "": buttons["slot_%d" % k] = dg[key]
 	# v7.8 (owner): TRACTOR and FULL SCREEN sit down with the other buttons: on top of each block, by the radar
-	for id in ["tractor", "ground", "cloak"]: buttons[id] = dg[id]
+	for id in ["tractor", "ground", "cloak", "dash_next", "dash_tgt", "sidestep", "spare_l"]: buttons[id] = dg[id]
 	# (v11.1 (owner): FULL SCREEN left the SPEED readout: one button in the top-left corner on every screen, FsButton)
 	if not weapons_shown():
 		for id in COMBAT_IDS: buttons.erase(id)
@@ -973,6 +973,11 @@ func _text(p: Vector2, txt: String, size := 18, col := WHITE, align := HORIZONTA
 
 func _icon(id: String, c: Vector2, s: float, col: Color) -> void:
 	match id:
+		"target":   # v12.2: a crosshair
+			draw_arc(c, s * 0.9, 0, TAU, 20, col, 2.5, true)
+			for d in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]: draw_line(c + d * s * 0.45, c + d * s * 1.3, col, 2.5, true)
+		"sidestep":   # v12.2: a dash to the side
+			for k in 2: draw_polyline(PackedVector2Array([c + Vector2(-s * 0.2 + k * s * 0.6, -s * 0.7), c + Vector2(s * 0.4 + k * s * 0.6, 0), c + Vector2(-s * 0.2 + k * s * 0.6, s * 0.7)]), col, 3.0, true)
 		"cloak":   # v8.3: an eye, crossed
 			draw_arc(c + Vector2(0, s * 0.9), s * 1.3, -PI * 0.78, -PI * 0.22, 16, col, 2.5, true)
 			draw_arc(c - Vector2(0, s * 0.9), s * 1.3, PI * 0.22, PI * 0.78, 16, col, 2.5, true)
@@ -1856,7 +1861,10 @@ func _draw() -> void:
 	_special_button()   # v1.5o
 	var gm: bool = space.ground_mode   # v1.8r: GROUND: gravity on, walk / land
 	_corner("ground", "GROUND", "ground", GREEN, gm, "", 0.0, false, ("WALKING" if GS.form == "mech" else "LANDED") if gm and space.grounded else ("FALLING" if gm else ("WALK" if GS.form == "mech" else "LAND")))
-	for lid in ["lock_a", "lock_c"]: _padlocked(lid, "")
+	for lid in ["lock_a", "lock_c", "spare_l"]: _padlocked(lid, "")
+	_corner("dash_next", "NEXT", "target", GOLD, false)   # v12.2: switch targets
+	_corner("dash_tgt", "TARGET", "target", RED, false)
+	_corner("sidestep", "SIDESTEP", "sidestep", Color(0.55, 0.9, 1.0), space.sidestep_t > 0.0, "", clampf(space.sidestep_cd / Data.SIDESTEP_CD, 0.0, 1.0))
 	pass   # (v8.3: FULL SCREEN is the SPEED readout)
 	_corner("stop", "STOP", "stop", RED, space.braking or space.holding, "", 0.0, false, "STOPPED" if space.holding else "FULL STOP")
 	if space.warp_state == "charging":
@@ -2095,10 +2103,10 @@ func dash_geo() -> Dictionary:
 	var xr0 := rc.x + ro + 10.0
 	var gap := 6.0
 	var ww := xl1 - xl0 - TAB_W - gap   # v11.1 (owner): the side tab sits at the far outside end of each block
-	var bsz := clampf((ww - gap * 3.0) / 4.0, 44.0, S.y * 0.11)   # v8.0 (owner): eight buttons a side
+	var bsz := clampf((ww - gap * 4.0) / 5.0, 40.0, S.y * 0.11)   # v8.0 (owner): eight buttons a side; v12.2: ten (a column more each side)
 	var by2 := S.y - 8.0 - bsz
 	var by1 := by2 - gap - bsz
-	var row := bsz * 4.0 + gap * 3.0
+	var row := bsz * 5.0 + gap * 4.0
 	var lx0 := xl1 - row
 	var rx0 := xr0
 	var lb := func(k: int, y: float) -> Rect2: return Rect2(lx0 + k * (bsz + gap), y, bsz, bsz)
@@ -2113,11 +2121,16 @@ func dash_geo() -> Dictionary:
 		"tab_b": Rect2(rc.x - 78.0, rc.y + ro + 2.0, 156.0, TAB_B_H),
 		"speed": Rect2(rc.x - 82.0, rc.y - ro - 22.0, 164.0, 38.0),
 		"blk_l": Rect2(lx0, by1, row, bsz * 2.0 + gap), "blk_r": Rect2(rx0, by1, row, bsz * 2.0 + gap),
-		"tractor": lb.call(0, by1), "special": lb.call(0, by2), "super_btn": lb.call(0, by2),
-		"fire": lb.call(1, by1), "form": lb.call(2, by1), "shield": lb.call(3, by1),
-		"missile1": lb.call(1, by2), "kill": lb.call(2, by2), "thrust": lb.call(3, by2),
+		# v12.2 (owner: "another column ... on the right SIDESTEP and on top of that the SPECIAL; on the left NEXT, and one
+		# that's not anything yet"): left outside NEXT over a spare; SUPER moved to the right outside over SIDESTEP;
+		# TARGET (the hostile in front) takes SUPER's old place
+		"dash_next": lb.call(0, by1), "spare_l": lb.call(0, by2),
+		"tractor": lb.call(1, by1), "dash_tgt": lb.call(1, by2),
+		"fire": lb.call(2, by1), "form": lb.call(3, by1), "shield": lb.call(4, by1),
+		"missile1": lb.call(2, by2), "kill": lb.call(3, by2), "thrust": lb.call(4, by2),
 		"repair": rb.call(0, by1), "cloak": rb.call(1, by1), "mine": rb.call(2, by1), "view": rb.call(3, by1),   # v8.3 (owner): CLOAK, COCKPIT
-		"stop": rb.call(0, by2), "warp": rb.call(1, by2), "missile2": rb.call(2, by2), "ground": rb.call(3, by2)}
+		"stop": rb.call(0, by2), "warp": rb.call(1, by2), "missile2": rb.call(2, by2), "ground": rb.call(3, by2),
+		"special": rb.call(4, by1), "super_btn": rb.call(4, by1), "sidestep": rb.call(4, by2)}
 
 func _ring_hull_col(v: float) -> Color:
 	return YELLOW if v > 0.5 else (ORANGE if v > 0.25 else RED)
