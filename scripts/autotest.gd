@@ -1741,6 +1741,18 @@ func _run() -> void:
 		await _rooms_ui()
 		_finish_group()
 		return
+	if OS.get_environment("HL_SYSDUMP") != "":   # (prints every system's planets and stations as JSON, for the room checklist)
+		var dump := {}
+		for id in Data.SYSTEMS:
+			var sd: Dictionary = Data.SYSTEMS[id]
+			dump[id] = {"name": sd.get("name", id), "faction": str(sd.get("faction", "")), "planet": sd.get("planet", {}).get("name", ""), "ptype": str(sd.get("planet", {}).get("type", "")),
+				"station": sd.get("station", {}).get("name", ""), "more_planets": (sd.get("more_planets", []) as Array).map(func(x): return [str(x.get("name", "")), str(x.get("type", ""))]),
+				"more_stations": (sd.get("more_stations", []) as Array).map(func(x): return [str(x.get("name", "")), str(x.get("role", "")), str(x.get("faction", "")), bool(x.get("hidden", false))]),
+				"star": str(sd.get("star", "")), "small_sun": sd.get("small_sun", false), "role": str(sd.get("role", "")), "tile": str(sd.get("tile", "")),
+				"pinfo": _dump_d(sd.get("planet", {})), "mpinfo": (sd.get("more_planets", []) as Array).map(func(x): return _dump_d(x))}
+		print("[sysdump] ", JSON.stringify(dump))
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_MAPDUMP") != "":
 		main.start_game()
 		await _until(func(): return main.state == "flight", 20.0)
@@ -13270,3 +13282,10 @@ func _job_v19p() -> void:
 	GS.bounty = keep["bounty"]
 	_check("v1.9p: the map shows SET WAYPOINT and GO beside the current mission; SET WAYPOINT sets it, GO flies the whole job", has_btns and set_ok and go_ok, "buttons %s set %s go %s" % [has_btns, set_ok, go_ok])
 	_check("v1.9p: on a planet the chase camera stops above the ground (pulled in, not under it) and the ship shows again in the open", down and above and pulled and shown, "down %s above %s pulled %.1f m shown %s" % [down, above, s.cam_clipped, shown])
+
+func _dump_d(d) -> Dictionary:   # (HL_SYSDUMP: the plain fields of a planet dict)
+	var o := {}
+	if d is Dictionary:
+		for k in d:
+			if d[k] is String or d[k] is bool or d[k] is int or d[k] is float: o[k] = d[k]
+	return o
