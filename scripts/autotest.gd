@@ -1464,6 +1464,16 @@ func _fighters_l2l3() -> void:
 		s.enemies.erase(e)
 		(e["node"] as Node3D).free()
 	_check("Fighters: a battleship launches its starfighters, Level 2s and Level 3s; a Level 3 flies with its real model", seen.size() == 3 and spawned, "launched %s, L3 real model %s" % [seen.keys(), spawned])
+	# v11.88 (owner): a Level 2 is twice as strong as a Level 1, a Level 3 three times (hull, shields, damage)
+	var str_ok := true
+	for f in Data.FACTION_FLEET:
+		var fl: Dictionary = Data.FACTION_FLEET[f]
+		var l1: Dictionary = Data.ENEMIES[str(fl["starfighter"])]
+		for lv in [[2, "fighter_l2"], [3, "fighter_l3"]]:
+			var lx: Dictionary = Data.ENEMIES[str(fl[lv[1]])]
+			for k in ["hull", "shield", "damage"]:
+				if absf(float(lx[k]) - float(l1[k]) * int(lv[0])) > 0.01: str_ok = false
+	_check("Fighter levels: Level 2 is twice a Level 1's hull, shields and damage, Level 3 three times (all 8 factions)", str_ok, "ok %s" % str_ok)
 	# v11.87 (owner): Level 1 for regular soldiers, Level 2 for bounties / elites, Level 3 at the faction's home
 	var sid0: String = s.sys_id
 	s.sys_id = "korrath"   # (an Orion system that is not its home)
