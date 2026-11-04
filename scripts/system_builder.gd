@@ -303,181 +303,336 @@ static func auto_layouts(systems: Dictionary) -> Dictionary:
 	return out
 
 static func _auto_layout(sid: String, sy: Dictionary) -> Dictionary:
+	# v11.98 (owner: Rimgate, "look at this mess ... you can't have parallel trade lanes ... we need networks that are
+	# bigger in the space area"): the places are spread over the whole map (gates out near the edge, each on its own
+	# bearing; the worlds and stations in the open between), the lanes are one clean network (a shortest tree that never
+	# crosses itself, never leaves a place two ways at a narrow angle, never runs beside another lane, never passes
+	# close by a place it doesn't stop at, plus a loop or two), lanes that would leave a place close together merge
+	# first at a named choke point, and the star goes in the biggest open space, off every lane. Seeded by the id.
 	var rng := RandomNumberGenerator.new()
-	rng.seed = hash("develop:" + sid)
-	var lo := 1.9
-	var hi := float(Data.MAP_CELLS) - 0.9
+	rng.seed = hash("develop2:" + sid)
+	var lo := 2.2
+	var hi := float(Data.MAP_CELLS) + 1.0 - 1.2
+	var mid := Vector2((lo + hi) * 0.5, (lo + hi) * 0.5)
 	var clampc := func(c: Vector2) -> Vector2: return Vector2(clampf(c.x, lo, hi), clampf(c.y, lo, hi))
-	var hub: Vector2 = clampc.call(cell_of(sy["station"]["pos"]))
-	var pl: Vector2 = clampc.call(cell_of(sy["planet"]["pos"]))
-	var sun: Vector2 = cell_of(sun_pos_of(sy))
-	var sun_r: float = Data.SUN_RADIUS * Data.SUN_KEEP_OUT / (2.0 * Data.SPACE_EDGE / float(Data.MAP_CELLS)) + 0.25
-	var L := {"hub": [hub.x, hub.y], "planet": [pl.x, pl.y]}
-	var taken: Array = [hub, pl, sun]
+	var w: float = 2.0 * Data.SPACE_EDGE / float(Data.MAP_CELLS)
+	var sun_r: float = Data.SUN_RADIUS * Data.SUN_KEEP_OUT / w
+	var hub: Vector2 = cell_of(sy["station"]["pos"])
+	hub = Vector2(clampf(hub.x, mid.x - 1.6, mid.x + 1.6), clampf(hub.y, mid.y - 1.6, mid.y + 1.6))
+	var L := {"hub": [hub.x, hub.y]}
+	var nodes: Array = [["hub", hub]]   # [lane name, cell]
+	var taken: Array = [hub]
 	var far := func(c: Vector2, d: float) -> bool:
 		for q: Vector2 in taken: if q.distance_to(c) < d: return false
 		return true
-	var pick := func(near: Vector2, rmin: float, rmax: float, d: float) -> Vector2:
-		for i in 40:
-			var a := rng.randf() * TAU
-			var c: Vector2 = clampc.call(near + Vector2(cos(a), sin(a)) * rng.randf_range(rmin, rmax))
-			if far.call(c, d) and c.distance_to(sun) > sun_r + 0.6: return c
-		return clampc.call(near + Vector2(rmin, 0.0))
-	# gates: in off the edge squares, spread round the system
+	# gates: out toward the edge on the bearing they lead (so the galaxy reads right), spread apart
 	var gates := {}
-	var gcells: Array = []
+	var gl: Array = []
 	for g in sy.get("gates", []):
-		var gc: Vector2 = cell_of(g["pos"])
-		var gd := gc - hub
-		if gd.length() < 0.1: gd = Vector2(rng.randf_range(-1, 1), rng.randf_range(-1, 1))
-		gc = clampc.call(hub + gd.normalized() * maxf(gd.length(), rng.randf_range(3.0, 3.8)))   # (gates sit out toward the edge)
-		if not far.call(gc, 1.0) or gc.distance_to(sun) < sun_r + 0.6: gc = pick.call(hub, 2.8, 4.0, 1.0)
-		gates[str(g["to"])] = [gc.x, gc.y]
-		gcells.append([str(g["to"]), gc])
+		var gd: Vector2 = cell_of(g["pos"]) - mid
+		gl.append([str(g["to"]), atan2(gd.y, gd.x) if gd.length() > 0.05 else rng.randf() * TAU])
+	gl.sort_custom(func(a, b): return float(a[1]) < float(b[1]))
+	var gap: float = TAU / maxf(float(gl.size()), 1.0) * 0.7
+	for pass_i in 6:   # push neighbours apart until each pair is at least `gap` apart in bearing
+		for i in gl.size():
+			for j in gl.size():
+				if i == j: continue
+				var da: float = wrapf(float(gl[j][1]) - float(gl[i][1]), -PI, PI)
+				if absf(da) < gap: gl[j][1] = float(gl[i][1]) + signf(da if da != 0.0 else 1.0) * gap
+	for gx in gl:
+		var r: float = rng.randf_range(3.0, 3.6)
+		var gc: Vector2 = clampc.call(mid + Vector2(cos(float(gx[1])), sin(float(gx[1]))) * r)
+		gates[str(gx[0])] = [gc.x, gc.y]
+		nodes.append(["gate:" + str(gx[0]), gc])
 		taken.append(gc)
 	L["gates"] = gates
+	# a place in the open: the sampled spot farthest from everything taken, within [rmin, rmax] of `near`
+	var open_spot := func(near: Vector2, rmin: float, rmax: float) -> Vector2:
+		var best := Vector2.INF
+		var best_s := -INF
+		for i in 160:
+			var a := rng.randf() * TAU
+			var c: Vector2 = clampc.call(near + Vector2(cos(a), sin(a)) * rng.randf_range(rmin, rmax))
+			var s := INF
+			for q: Vector2 in taken: s = minf(s, q.distance_to(c))
+			if s > best_s:
+				best_s = s
+				best = c
+		return best
+	# the main planet: near the hub, in the open
+	var pl: Vector2 = open_spot.call(hub, 1.6, 2.6)
+	L["planet"] = [pl.x, pl.y]
+	nodes.append(["planet", pl])
+	taken.append(pl)
+	# the other worlds and stations already in the system, moved out into the open
+	var mp := {}
+	var ms := {}
+	for x in sy.get("more_planets", []):
+		var c: Vector2 = open_spot.call(mid, 1.5, 4.0)
+		mp[str(x["name"])] = [c.x, c.y]
+		nodes.append([str(x["name"]), c])
+		taken.append(c)
+	for x in sy.get("more_stations", []):
+		var c: Vector2 = open_spot.call(mid, 1.5, 4.0)
+		ms[str(x["name"])] = [c.x, c.y]
+		if not bool(x.get("hidden", false)): nodes.append([str(x["name"]), c])
+		taken.append(c)
+	L["planets"] = mp
+	L["stations"] = ms
 	# a second world, when the system has only the one
-	var places: Array = []   # [lane name, cell]
 	if (sy.get("more_planets", []) as Array).is_empty():
-		var x2: Vector2 = pick.call(hub, 2.4, 3.6, 1.3)
+		var x2: Vector2 = open_spot.call(mid, 2.0, 4.0)
 		taken.append(x2)
 		var pal: String = ["ice", "desert", "dead", "gas", "ocean", "jungle", "toxic"][rng.randi() % 7]
 		var nm: String = str(sy["name"]) + str([" II", " Minor", " Secundus", "'s Moon"][rng.randi() % 4])
 		L["add_planets"] = [{"name": nm, "palette": pal, "at": [x2.x, x2.y], "radius": rng.randf_range(520.0, 820.0)}]
-		places.append([nm, x2])
-	# the faction's ally station and a hidden rival post in a nebula, a spy at the hub
+		nodes.append([nm, x2])
+	# the fundamentals (owner): a friendly station, a hidden rival post in a nebula and a spy at the hub. A faction's
+	# system gets its ally and its rival; neutral space gets a Liberator freeport and a hidden Savagers den.
 	var fac := str(sy.get("faction", ""))
 	var adds: Array = []
+	var ally := ""
+	var rival := ""
 	if fac in MAJORS:
-		var ally: String = ALLIES.get(fac, "")
-		var rival := Factions.rival(fac)
-		if ally != "":
-			var ac: Vector2 = pick.call(hub, 2.0, 3.2, 1.2)
-			taken.append(ac)
-			var an: String = "%s %s" % [ally, ["Embassy", "Freeport", "Relay", "Depot"][rng.randi() % 4]]
-			adds.append({"name": an, "faction": ally, "model": "HL_Station_%s_Military_retopo" % ally, "at": [ac.x, ac.y], "role": "ally",
-				"desc": "%s station: %s's allies trade, repair and pass word here." % [ally, fac]})
-			places.append([an, ac])
-		if rival != "":
-			var rc: Vector2 = pick.call(Vector2(float(Data.MAP_CELLS) + 1.0, float(Data.MAP_CELLS) + 1.0) - hub, 0.5, 2.5, 1.6)
-			taken.append(rc)
-			L["nebula"] = [rc.x, rc.y]
-			adds.append({"name": "%s Watch Post" % rival, "faction": rival, "model": "HL_Station_%s_Military_retopo" % rival, "at": [rc.x, rc.y], "role": "rival", "hidden": true,
-				"desc": "A %s post hidden in the system's nebula, watching %s's lanes." % [rival, fac]})
-			L["spy"] = {"type": "contact", "at": "hub", "faction": rival, "name": "Dockside Informant", "desc": "A contact at the hub who sells word on the hidden %s post." % rival}
+		ally = str(ALLIES.get(fac, ""))
+		rival = Factions.rival(fac)
+	elif fac == "Neutral":
+		ally = "Liberator"
+		rival = "Savagers"
+	if ally != "":
+		var ac: Vector2 = open_spot.call(mid, 2.0, 3.8)
+		taken.append(ac)
+		var an: String = "%s %s" % [ally, ["Embassy", "Freeport", "Relay", "Depot"][rng.randi() % 4]] if fac != "Neutral" else "%s Freeport" % ally
+		adds.append({"name": an, "faction": ally, "model": "HL_Station_%s_Military_retopo" % ally, "at": [ac.x, ac.y], "role": "ally",
+			"desc": ("%s station: %s's allies trade, repair and pass word here." % [ally, fac]) if fac != "Neutral" else "A Liberator freeport: free traders, repairs and work, no questions asked."})
+		nodes.append([an, ac])
+	if rival != "" and rival != fac:
+		var rc: Vector2 = open_spot.call(Vector2(2.0 * mid.x, 2.0 * mid.y) - hub, 0.0, 2.2)   # (the far side of the system from the hub)
+		taken.append(rc)
+		L["nebula"] = [rc.x, rc.y]
+		var rn: String = "%s Watch Post" % rival if fac != "Neutral" else "Savagers Den"
+		adds.append({"name": rn, "faction": rival, "model": "HL_Station_%s_Military_retopo" % rival, "at": [rc.x, rc.y], "role": "rival", "hidden": true,
+			"desc": ("A %s post hidden in the system's nebula, watching %s's lanes." % [rival, fac]) if fac != "Neutral" else "A pirate den hidden in the nebula, preying on the lanes."})
+		L["spy"] = {"type": "contact", "at": "hub", "faction": rival, "name": "Dockside Informant", "desc": "A contact at the hub who sells word on the hidden %s post." % rival}
 	L["add_stations"] = adds
-	# choke points between the hub and the places beyond it, and the lanes through them
-	var lanes: Array = [["hub", "planet"]]
-	var juncs := {}
-	var dests: Array = []
-	for gc in gcells: dests.append(["gate:" + str(gc[0]), gc[1]])
-	dests.append_array(places)
-	dests.sort_custom(func(a, b): return atan2((a[1] as Vector2).y - hub.y, (a[1] as Vector2).x - hub.x) < atan2((b[1] as Vector2).y - hub.y, (b[1] as Vector2).x - hub.x))
-	var groups: Array = []   # neighbours in bearing share a choke point (2 or 3 to a choke)
-	var i := 0
-	while i < dests.size():
-		var n := 2 if dests.size() - i != 3 else 3
-		groups.append(dests.slice(i, i + n))
-		i += n
-	var segs: Array = [[hub, pl]]
-	var cn := ["North", "East", "South", "West", "Outer", "Inner"]
-	for gi in groups.size():
-		var grp: Array = groups[gi]
-		if grp.size() == 1:
-			lanes.append(["hub", grp[0][0]])
-			segs.append([hub, grp[0][1]])
-			continue
-		var mid := Vector2.ZERO
-		for d in grp: mid += d[1]
-		mid /= float(grp.size())
-		var jc: Vector2 = clampc.call(hub.lerp(mid, 0.55))
-		if jc.distance_to(sun) < sun_r + 0.4: jc = clampc.call(jc + (jc - sun).normalized() * (sun_r + 0.6 - jc.distance_to(sun)))
-		var dirn := jc - hub
-		var jname: String = "%s Choke Point" % (cn[0] if dirn.y < -abs(dirn.x) else (cn[2] if dirn.y > abs(dirn.x) else (cn[1] if dirn.x > 0 else cn[3])))
-		var base_jn := jname
-		var nth := 2
-		while juncs.has(jname):   # (two on the same side: Crossing, then numbered)
-			jname = base_jn.replace("Choke Point", "Crossing") if nth == 2 else "%s %d" % [base_jn, nth]
-			nth += 1
-		juncs[jname] = [jc.x, jc.y]
-		lanes.append(["hub", jname])
-		segs.append([hub, jc])
-		for d in grp:
-			lanes.append([jname, d[0]])
-			segs.append([jc, d[1]])
-	# the planet joins the nearest gate too, so the network has a loop
-	if not gcells.is_empty():
-		var best: Array = gcells[0]
-		for gc in gcells: if (gc[1] as Vector2).distance_to(pl) < (best[1] as Vector2).distance_to(pl): best = gc
-		lanes.append(["planet", "gate:" + str(best[0])])
-		segs.append([pl, best[1]])
-	# a lane that would pass the star goes round it through a choke point beside it
-	var where := func(k: String) -> Vector2:
-		if k == "hub": return hub
-		if k == "planet": return pl
-		if juncs.has(k): return Vector2(juncs[k][0], juncs[k][1])
-		for gc in gcells: if "gate:" + str(gc[0]) == k: return gc[1]
-		for pc in places: if str(pc[0]) == k: return pc[1]
-		return Vector2.INF
-	var ok_lanes: Array = []
-	var nd := 0
-	for ln in lanes:
-		var a2: Vector2 = where.call(str(ln[0]))
-		var b2: Vector2 = where.call(str(ln[1]))
-		if a2 == Vector2.INF or b2 == Vector2.INF or _seg_d(sun, a2, b2) >= sun_r + 0.25:
-			ok_lanes.append(ln)
-			continue
-		var m := (a2 + b2) * 0.5
-		var side := m - sun
-		if side.length() < 0.01: side = (b2 - a2).orthogonal()
-		var done_ln := false
-		for sg in [1.0, -1.0]:   # round the star on the near side, else the far side
-			var dc: Vector2 = clampc.call(sun + side.normalized() * sg * (sun_r + 0.9))
-			if _seg_d(sun, a2, dc) >= sun_r + 0.25 and _seg_d(sun, dc, b2) >= sun_r + 0.25:
-				nd += 1
-				var dn := "%s Bypass %d" % [str(sy["name"]), nd]
-				juncs[dn] = [dc.x, dc.y]
-				ok_lanes.append([ln[0], dn])
-				ok_lanes.append([dn, ln[1]])
-				done_ln = true
-				break
-		if done_ln: continue
-		var keys: Array = ["hub", "planet"] + juncs.keys() + places.map(func(q): return q[0]) + gcells.map(func(q): return "gate:" + str(q[0]))
-		for k2 in keys:   # else from any place the far end can see past the star
-			var c2: Vector2 = where.call(str(k2))
-			if str(k2) == str(ln[1]) or c2 == Vector2.INF: continue
-			if _seg_d(sun, c2, b2) >= sun_r + 0.25:
-				ok_lanes.append([k2, ln[1]])
-				break
-	lanes = ok_lanes
+	# the lane network
+	var net := _lane_net(nodes, rng)
+	var juncs: Dictionary = net["junctions"]
+	var segs: Array = net["segs"]
 	L["junctions"] = juncs
-	L["lanes"] = lanes
-	# clouds and asteroid fields: one of each on the edge squares, more inside; rocks kept off every lane line
+	L["lanes"] = net["lanes"]
+	# the star: the open spot farthest from every lane and place
+	var all_pts: Array = taken.duplicate()
+	for jn in juncs: all_pts.append(Vector2(juncs[jn][0], juncs[jn][1]))
+	var clear := func(c: Vector2) -> float:
+		var s := INF
+		for q: Vector2 in all_pts: s = minf(s, q.distance_to(c))
+		for sg in segs: s = minf(s, _seg_d(c, sg[0], sg[1]))
+		return s
+	var sun := mid
+	var sun_s := -INF
+	for i in 300:
+		var c := Vector2(rng.randf_range(lo, hi), rng.randf_range(lo, hi))
+		var s: float = clear.call(c)
+		if s > sun_s:
+			sun_s = s
+			sun = c
+	L["sun"] = [sun.x, sun.y]
+	all_pts.append(sun)
+	# the asteroid field: in the open, off the lanes (its middle at least its size + a gap from every lane)
+	if sy.has("asteroids"):
+		var br: float = float(sy["asteroids"].get("radius", 0.0)) / w
+		var bc := mid
+		var bs := -INF
+		for i in 300:
+			var c := Vector2(rng.randf_range(lo, hi), rng.randf_range(lo, hi))
+			var s: float = clear.call(c) - br
+			if c.distance_to(sun) < sun_r + br + 0.5: continue
+			if s > bs:
+				bs = s
+				bc = c
+		L["belt"] = [bc.x, bc.y]
+		all_pts.append(bc)
+	# clouds: big storms on two edge squares and in the open inside (lanes may run through them); one rock field
+	# inside, kept off every lane
 	var clouds: Array = []
 	var off_lanes := func(c: Vector2, r_cells: float) -> bool:
 		for sg in segs: if _seg_d(c, sg[0], sg[1]) < r_cells + 0.35: return false
 		return true
-	var edge_spots := [Vector2(1.0, rng.randf_range(2.0, 9.0)), Vector2(float(Data.MAP_CELLS), rng.randf_range(2.0, 9.0)), Vector2(rng.randf_range(2.0, 9.0), 1.0), Vector2(rng.randf_range(2.0, 9.0), float(Data.MAP_CELLS))]
+	var N := float(Data.MAP_CELLS)
+	var edge_spots := [Vector2(1.0, rng.randf_range(2.0, N - 1.0)), Vector2(N + 1.0 - 0.0, rng.randf_range(2.0, N - 1.0)), Vector2(rng.randf_range(2.0, N - 1.0), 1.0), Vector2(rng.randf_range(2.0, N - 1.0), N + 1.0)]
 	for k in 2:
-		var e: Vector2 = edge_spots[(int(rng.randi() % 4) + k) % 4]
+		var e: Vector2 = edge_spots[(int(rng.randi() % 4) + k * 2) % 4]
 		var rocks := k == 0
 		clouds.append({"name": "%s %s" % [str(sy["name"]), ROCK_NAMES[rng.randi() % ROCK_NAMES.size()] if rocks else CLOUD_NAMES[rng.randi() % CLOUD_NAMES.size()]],
 			"at": [e.x, e.y], "radius": rng.randf_range(22000.0, 30000.0) if rocks else rng.randf_range(40000.0, 60000.0), "weather": "rocks" if rocks else "storm", "color": CLOUD_COLS[rng.randi() % CLOUD_COLS.size()]})
 	var inner := 0
-	for tries in 90:
-		if inner >= 5: break   # v11.97 (owner): more clouds, and bigger (storms only: the rock field stays its size)
-		var c := Vector2(rng.randf_range(2.2, float(Data.MAP_CELLS) - 1.2), rng.randf_range(2.2, float(Data.MAP_CELLS) - 1.2))
+	for tries in 120:
+		if inner >= 5: break
+		var c := Vector2(rng.randf_range(lo, hi), rng.randf_range(lo, hi))
 		var rocks := inner == 1
 		var r := rng.randf_range(16000.0, 26000.0) if rocks else rng.randf_range(30000.0, 50000.0)
-		var rc2 := r / (2.0 * Data.SPACE_EDGE / float(Data.MAP_CELLS))
-		if not far.call(c, 0.9) or c.distance_to(sun) < sun_r + rc2: continue
-		if rocks and not off_lanes.call(c, rc2): continue
+		var rc2 := r / w
+		var ok := c.distance_to(sun) > sun_r + rc2
+		for q: Vector2 in all_pts: if q.distance_to(c) < (rc2 + 0.3 if rocks else 0.7): ok = false   # (a storm may wrap round a place a little; rocks never)
+		if ok and rocks and not off_lanes.call(c, rc2): ok = false
+		if not ok: continue
 		clouds.append({"name": "%s %s" % [str(sy["name"]), ROCK_NAMES[rng.randi() % ROCK_NAMES.size()] if rocks else CLOUD_NAMES[rng.randi() % CLOUD_NAMES.size()]],
 			"at": [c.x, c.y], "radius": r, "weather": "rocks" if rocks else "storm", "color": CLOUD_COLS[rng.randi() % CLOUD_COLS.size()]})
-		taken.append(c)
+		all_pts.append(c)
 		inner += 1
 	L["clouds"] = clouds
 	return L
+
+## v11.98: does segment a-b properly cross segment c-d?
+static func _crosses(a: Vector2, b: Vector2, c: Vector2, d: Vector2) -> bool:
+	var o := func(p: Vector2, q: Vector2, r: Vector2) -> float: return (q - p).cross(r - p)
+	var d1: float = o.call(c, d, a)
+	var d2: float = o.call(c, d, b)
+	var d3: float = o.call(a, b, c)
+	var d4: float = o.call(a, b, d)
+	return d1 * d2 < 0.0 and d3 * d4 < 0.0
+
+static func _seg_seg_d(a: Vector2, b: Vector2, c: Vector2, d: Vector2) -> float:
+	if _crosses(a, b, c, d): return 0.0
+	return minf(minf(_seg_d(a, c, d), _seg_d(b, c, d)), minf(_seg_d(c, a, b), _seg_d(d, a, b)))
+
+## v11.98: may lane a-b join `edges` (each [ia, ib]) over `pts`? No crossing, no narrow angle where it meets another
+## lane at a place, no running beside a lane it doesn't touch, no passing close by a place it doesn't stop at.
+static func _lane_ok(pts: Array, edges: Array, ia: int, ib: int, min_ang: float, sep: float, pass_d: float) -> bool:
+	var a: Vector2 = pts[ia]
+	var b: Vector2 = pts[ib]
+	for k in pts.size():
+		if k != ia and k != ib and _seg_d(pts[k], a, b) < pass_d: return false
+	var ca := cos(deg_to_rad(min_ang))
+	for e in edges:
+		var ea: int = e[0]
+		var eb: int = e[1]
+		if (ea == ia and eb == ib) or (ea == ib and eb == ia): return false
+		var share := -1
+		var other := -1
+		var mine := -1
+		if ea == ia or ea == ib: share = ea; other = eb
+		elif eb == ia or eb == ib: share = eb; other = ea
+		if share >= 0:
+			mine = ib if share == ia else ia
+			var d1: Vector2 = ((pts[mine] as Vector2) - (pts[share] as Vector2)).normalized()
+			var d2: Vector2 = ((pts[other] as Vector2) - (pts[share] as Vector2)).normalized()
+			if d1.dot(d2) > ca: return false
+			continue
+		if _seg_seg_d(a, b, pts[ea], pts[eb]) < sep: return false
+	return true
+
+## v11.98: the lane network over `nodes` ([name, cell]): a shortest tree (Kruskal) that keeps the rules above, loosened
+## only if a place can't be reached otherwise; a loop or two where they save a long way round; then each pair of lanes
+## leaving one place within 55 degrees of each other merges first at a choke point. Returns lanes, junctions, segs.
+static func _lane_net(nodes: Array, rng: RandomNumberGenerator) -> Dictionary:
+	var pts: Array = nodes.map(func(n): return n[1])
+	var n := pts.size()
+	var cand: Array = []
+	for i in n:
+		for j in range(i + 1, n): cand.append([i, j, (pts[i] as Vector2).distance_to(pts[j])])
+	cand.sort_custom(func(a, b): return float(a[2]) < float(b[2]))
+	var comp: Array = range(n)
+	var root := func(x: int) -> int:
+		while comp[x] != x: x = comp[x]
+		return x
+	var edges: Array = []
+	for rules in [[40.0, 0.8, 0.6], [30.0, 0.5, 0.45], [18.0, 0.3, 0.3], [0.0, 0.0, 0.15]]:
+		for c in cand:
+			var ra: int = root.call(int(c[0]))
+			var rb: int = root.call(int(c[1]))
+			if ra == rb: continue
+			if not _lane_ok(pts, edges, int(c[0]), int(c[1]), rules[0], rules[1], rules[2]): continue
+			edges.append([int(c[0]), int(c[1])])
+			comp[ra] = rb
+	# loops: a lane where the network's way round is far longer than straight across
+	var adj := func() -> Array:
+		var g: Array = []
+		for i in n: g.append([])
+		for e in edges:
+			var l: float = (pts[e[0]] as Vector2).distance_to(pts[e[1]])
+			g[e[0]].append([e[1], l])
+			g[e[1]].append([e[0], l])
+		return g
+	var path_len := func(s: int, t: int) -> float:
+		var g: Array = adj.call()
+		var dist: Array = []
+		dist.resize(n)
+		dist.fill(INF)
+		dist[s] = 0.0
+		var todo: Array = range(n)
+		while not todo.is_empty():
+			var u: int = todo[0]
+			for v in todo: if float(dist[v]) < float(dist[u]): u = v
+			todo.erase(u)
+			for nb in g[u]:
+				if float(dist[u]) + float(nb[1]) < float(dist[nb[0]]): dist[nb[0]] = float(dist[u]) + float(nb[1])
+		return float(dist[t])
+	var loops := 0
+	for c in cand:
+		if loops >= 2: break
+		if float(c[2]) > 4.5: break
+		if not _lane_ok(pts, edges, int(c[0]), int(c[1]), 40.0, 0.8, 0.6): continue
+		if float(path_len.call(int(c[0]), int(c[1]))) < float(c[2]) * 1.9: continue
+		edges.append([int(c[0]), int(c[1])])
+		loops += 1
+	# choke points: two lanes leaving a place within 55 degrees share their first stretch to a junction
+	var names: Array = nodes.map(func(x): return str(x[0]))
+	var juncs := {}
+	var cmid := Vector2.ZERO
+	for p: Vector2 in pts: cmid += p
+	cmid /= float(maxi(n, 1))
+	var lanes: Array = []
+	var used := {}
+	var cc := cos(deg_to_rad(55.0))
+	for s in n:
+		var inc: Array = []
+		for ei in edges.size():
+			var e: Array = edges[ei]
+			if used.has(ei): continue
+			if e[0] == s or e[1] == s: inc.append(ei)
+		var best := []
+		var best_dot := cc
+		for x in inc.size():
+			for y in range(x + 1, inc.size()):
+				var e1: Array = edges[inc[x]]
+				var e2: Array = edges[inc[y]]
+				var o1: int = e1[1] if e1[0] == s else e1[0]
+				var o2: int = e2[1] if e2[0] == s else e2[0]
+				var d1: Vector2 = ((pts[o1] as Vector2) - (pts[s] as Vector2)).normalized()
+				var d2: Vector2 = ((pts[o2] as Vector2) - (pts[s] as Vector2)).normalized()
+				if d1.dot(d2) > best_dot:
+					best_dot = d1.dot(d2)
+					best = [inc[x], inc[y], o1, o2]
+		if best.is_empty(): continue
+		var p0: Vector2 = pts[s]
+		var l1: float = p0.distance_to(pts[best[2]])
+		var l2: float = p0.distance_to(pts[best[3]])
+		var bis: Vector2 = (((pts[best[2]] as Vector2) - p0).normalized() + ((pts[best[3]] as Vector2) - p0).normalized()).normalized()
+		var jc: Vector2 = p0 + bis * minf(l1, l2) * 0.45
+		var dirn := jc - cmid
+		var jname: String = "%s Choke Point" % ("North" if dirn.y < -absf(dirn.x) else ("South" if dirn.y > absf(dirn.x) else ("East" if dirn.x > 0 else "West")))
+		var base_jn := jname
+		var nth := 2
+		while juncs.has(jname):
+			jname = base_jn.replace("Choke Point", "Crossing") if nth == 2 else "%s %d" % [base_jn, nth]
+			nth += 1
+		juncs[jname] = [jc.x, jc.y]
+		used[best[0]] = true
+		used[best[1]] = true
+		lanes.append([names[s], jname])
+		lanes.append([jname, names[best[2]]])
+		lanes.append([jname, names[best[3]]])
+	for ei in edges.size():
+		if used.has(ei): continue
+		lanes.append([names[edges[ei][0]], names[edges[ei][1]]])
+	var where := func(k: String) -> Vector2:
+		if juncs.has(k): return Vector2(juncs[k][0], juncs[k][1])
+		return pts[names.find(k)]
+	var segs: Array = []
+	for ln in lanes: segs.append([where.call(str(ln[0])), where.call(str(ln[1]))])
+	return {"lanes": lanes, "junctions": juncs, "segs": segs}
 
 ## v11.65: where a lane-plan name sits: "hub", "planet", "gate:<system id>", a choke point, or a station / planet by name.
 static func layout_point(sy: Dictionary, key: String) -> Vector3:

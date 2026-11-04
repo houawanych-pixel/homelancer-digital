@@ -1577,9 +1577,26 @@ func _develop_check() -> Dictionary:
 				if (a + ab * t2).distance_to(c) < float(rc["radius"]): bad.append("%s: %s through %s" % [sid, ln, rc["name"]])
 		for g in sy["gates"]:
 			var cc: Vector2 = SystemBuilder.cell_of(g["pos"])
-			if cc.x < 1.5 or cc.y < 1.5 or cc.x > float(Data.MAP_CELLS) - 0.5 or cc.y > float(Data.MAP_CELLS) - 0.5: bad.append("%s: gate %s on an edge square" % [sid, g["to"]])
+			if cc.x < 2.0 or cc.y < 2.0 or cc.x > float(Data.MAP_CELLS) or cc.y > float(Data.MAP_CELLS): bad.append("%s: gate %s on an edge square" % [sid, g["to"]])
 			if not gates_in.has("gate:" + str(g["to"])): bad.append("%s: no lane to gate %s" % [sid, g["to"]])
 		if (sy.get("more_planets", []) as Array).is_empty(): bad.append("%s: one world only" % sid)
+		# v11.98 (owner: Rimgate, "you can't have parallel trade lanes"): no two lanes that don't meet run within 20 km of
+		# each other, and two lanes leaving one place are at least 18 degrees apart. The hand-made systems are the owner's.
+		if Data.SYSTEM_LAYOUT.has(sid): continue
+		var segs: Array = SystemBuilder.layout_segments(sy).map(func(sg): return [SystemBuilder.cell_of(sg[0]), SystemBuilder.cell_of(sg[1])])
+		for i in segs.size():
+			for j in range(i + 1, segs.size()):
+				var A: Array = segs[i]
+				var B: Array = segs[j]
+				var shared := Vector2.INF
+				for pa: Vector2 in A: for pb: Vector2 in B: if pa.distance_to(pb) < 0.01: shared = pa
+				if shared == Vector2.INF:
+					if SystemBuilder._seg_seg_d(A[0], A[1], B[0], B[1]) < 0.2: bad.append("%s: lanes side by side" % sid)
+				else:
+					var oa: Vector2 = A[1] if (A[0] as Vector2).distance_to(shared) < 0.01 else A[0]
+					var ob: Vector2 = B[1] if (B[0] as Vector2).distance_to(shared) < 0.01 else B[0]
+					if (oa - shared).normalized().dot((ob - shared).normalized()) > cos(deg_to_rad(18.0)): bad.append("%s: two lanes leave one place together" % sid)
+		if str(sy.get("faction", "")) == "Neutral" and not (sy.get("more_stations", []) as Array).any(func(x): return str(x.get("role", "")) == "ally"): bad.append("%s: neutral space with no freeport" % sid)
 	return {"n": n, "bad": bad}
 
 ## v11.96 (owner: Armored Core facilities): every difficulty builds a facility whose halls and tunnels join up along the
@@ -1770,6 +1787,31 @@ func _run() -> void:
 		await _smoke_core()
 		await _rooms_ui()
 		_finish_group()
+		return
+	if OS.get_environment("HL_LAYDUMP") != "":   # v11.98: every system's layout in map squares, for the map pictures (tools/maps/render_maps.py)
+		var lay := {}
+		var C := func(p: Vector3) -> Array: var c := SystemBuilder.cell_of(p); return [snappedf(c.x, 0.01), snappedf(c.y, 0.01)]
+		for id in Data.SYSTEMS:
+			var sd: Dictionary = Data.SYSTEMS[id]
+			if not sd.has("station") or not sd.has("planet"): continue
+			var w: float = 2.0 * Data.SPACE_EDGE / float(Data.MAP_CELLS)
+			var o := {"name": sd.get("name", id), "faction": str(sd.get("faction", "")), "tile": str(sd.get("tile", "")), "hub": [sd["station"]["name"], C.call(sd["station"]["pos"])],
+				"planets": [[sd["planet"]["name"], C.call(sd["planet"]["pos"]), float(sd["planet"].get("radius", 800.0)) / w]], "stations": [], "gates": [], "junctions": [], "lanes": [], "clouds": [],
+				"sun": [C.call(SystemBuilder.sun_pos_of(sd)), Data.SUN_RADIUS * Data.SUN_KEEP_OUT / w]}
+			for x in sd.get("more_planets", []): o["planets"].append([x["name"], C.call(x["pos"]), float(x.get("radius", 500.0)) / w])
+			for x in sd.get("more_stations", []): o["stations"].append([x["name"], C.call(x["pos"]), str(x.get("faction", "")), bool(x.get("hidden", false))])
+			for g in sd.get("gates", []): o["gates"].append([str(g["name"]), C.call(g["pos"]), str(g.get("gkind", "jump"))])
+			for jn in sd.get("junctions", {}): o["junctions"].append([jn, C.call(sd["junctions"][jn])])
+			if sd.has("lane_plan"):
+				for sg in SystemBuilder.layout_segments(sd): o["lanes"].append([C.call(sg[0]), C.call(sg[1])])
+			for nb in SpaceSystem.nebulae_of(id, sd): o["clouds"].append([C.call(nb["center"]), float(nb["radius"]) / w, (nb["color"] as Color).to_html(false), str(nb.get("weather", ""))])
+			if sd.has("asteroids") and float(sd["asteroids"].get("radius", 0.0)) > 1.0: o["belt"] = [C.call(sd["asteroids"]["center"]), float(sd["asteroids"]["radius"]) / w]
+			lay[id] = o
+		var lf := FileAccess.open(OS.get_environment("HL_LAYDUMP"), FileAccess.WRITE)
+		lf.store_string(JSON.stringify(lay))
+		lf.close()
+		print("[laydump] ", lay.size())
+		get_tree().quit()
 		return
 	if OS.get_environment("HL_SYSDUMP") != "":   # (prints every system's planets and stations as JSON, for the room checklist)
 		var dump := {}
