@@ -1492,6 +1492,10 @@ func _fighters_l2l3() -> void:
 			if not ResourceLoader.exists("res://assets/bases3d/%s.glb" % str(b[0])) or not Data.SYSTEMS.has(sid): bases_ok = false
 	for part in ["HL_Asset_GunBattery", "HL_Asset_Generator", "HL_Asset_BunkerPillar"]: if not ResourceLoader.exists("res://assets/bases3d/%s.glb" % part): bases_ok = false
 	_check("Bases: the 15 approved faction bases stand on their factions' worlds (own pack), with the 3 base parts", bases_ok and nb == 15, "ok %s bases %d" % [bases_ok, nb])
+	var fc := _facility_check()
+	_check("Facilities: levels 1-4 each build a maze of shaped halls and hex / pentagon tunnels, joined in and out, deeper and bigger with the level, out the east exit shaft", fc["ok"], fc["txt"])
+	var sites: Array = Surface.facility_sites("new_terra")
+	_check("Facilities: every world has 2 to 4 (New Terra: its Research Dome, then bunker entrances), levels 1 upward", sites.size() >= 2 and sites.size() <= 4 and int(sites[0]["difficulty"]) == 1, "%d sites: %s" % [sites.size(), sites.map(func(x): return "%s L%d" % [x["name"], x["difficulty"]])])
 	# v11.88 (owner): a Level 2 is twice as strong as a Level 1, a Level 3 three times (hull, shields, damage)
 	var str_ok := true
 	for f in Data.FACTION_FLEET:
@@ -1547,6 +1551,44 @@ func _develop_check() -> Dictionary:
 			if not gates_in.has("gate:" + str(g["to"])): bad.append("%s: no lane to gate %s" % [sid, g["to"]])
 		if (sy.get("more_planets", []) as Array).is_empty(): bad.append("%s: one world only" % sid)
 	return {"n": n, "bad": bad}
+
+## v11.96 (owner: Armored Core facilities): every difficulty builds a facility whose halls and tunnels join up along the
+## way in and the way out, never overlap, get deeper and bigger with the level, and come out at the most-east exit.
+func _facility_check() -> Dictionary:
+	var res: Array = []
+	var ok := true
+	var prev_rooms := 0
+	for d in [1, 2, 3, 4]:
+		var L: Dictionary = Boarding.facility("test_world:site%d" % d, d, "Test %d" % d)
+		Boarding.use(L)
+		var joined := true
+		for route in [L["route_in"], L["route_out"]]:
+			for i in (route as Array).size() - 1:
+				if Boarding.joint(str(route[i]), str(route[i + 1])).is_empty():
+					joined = false
+					res.append("gap %s-%s" % [route[i], route[i + 1]])
+		var overlap := false
+		var ks: Array = (L["rooms"] as Dictionary).keys()
+		for i in ks.size():
+			for j in range(i + 1, ks.size()):
+				var A: Array = L["rooms"][ks[i]]["r"]
+				var B: Array = L["rooms"][ks[j]]["r"]
+				if float(A[0]) < float(B[1]) - 1.0 and float(B[0]) < float(A[1]) - 1.0 and float(A[2]) < float(B[3]) - 1.0 and float(B[2]) < float(A[3]) - 1.0:
+					overlap = true
+					res.append("overlap %s %s" % [ks[i], ks[j]])
+		var east := true
+		for k in ks: if float(L["rooms"][k]["r"][1]) > float(L["rooms"]["sbay"]["r"][1]) + 0.5: east = false
+		var shapes := {}
+		var xs := {}
+		for k in ks:
+			shapes[str(L["rooms"][k].get("shape", "tunnel"))] = true
+			if L["rooms"][k].has("xsec"): xs[str(L["rooms"][k]["xsec"])] = true
+		var n: int = ks.size()
+		if not joined or overlap or not east or n <= prev_rooms: ok = false
+		prev_rooms = n
+		res.append("L%d: %d areas, %d levels, joined %s overlap %s exit-east %s shapes %s tunnels %s" % [d, n, int(L["info"]["levels"]), joined, overlap, east, shapes.keys(), xs.keys()])
+	Boarding.use_ship()
+	return {"ok": ok, "txt": " | ".join(res)}
 
 ## v11.70 (owner): the boarding run, start to end, inside the battleship (call once the mech is inside): the doors slide
 ## open as you walk up (the way out is locked), each room's guards come when you walk in, the core's shield drops once

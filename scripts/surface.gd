@@ -239,18 +239,42 @@ static var _no_pads := false
 static var _base_pad_cache := {}   # planet id -> [[tile, Vector2 tile-local, radius, height]]
 ## The faction bases' pads on this planet (Data.PLANET_BASES; the system whose main world it is), worked out once:
 ## each at its spot on tile 0, at the ground's own height there (never below Data.BASE_PAD_MIN_H, over the sea).
+## v11.96 (owner: "every planet has bases with Armored Core tunnels ... 2 at the minimum, 3 or 4 at the most"): the
+## facilities on a world, on its first sector: the faction's own bases first (Data.PLANET_BASES), then bunker entrances
+## (the base parts) up to 2-4 in all. Each: {name, file, side, difficulty 1..4, spot (sector-local x, z)}. Seeded.
+static var _fac_cache := {}
+static func facility_sites(planet_id: String) -> Array:
+	if _fac_cache.has(planet_id): return _fac_cache[planet_id]
+	var sid := ""
+	for k in Data.SYSTEMS:
+		if str((Data.SYSTEMS[k].get("planet", {}) as Dictionary).get("id", "")) == planet_id: sid = k
+	var pname := planet_id.replace("_planet", "").replace("_", " ").capitalize()
+	if sid != "": pname = str(Data.SYSTEMS[sid]["planet"].get("name", pname))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash("facilities:" + planet_id)
+	var n := 2 + rng.randi() % 3
+	var out: Array = []
+	for b in (Data.PLANET_BASES.get(sid, []) as Array):
+		out.append({"name": str(b[1]), "file": str(b[0]), "side": str(b[2])})
+	var words := ["Deep Works", "Old Mine", "Sump Bunker", "Signal Vault", "Foundry Shaft", "Cold Store", "Relay Bunker", "Pit Station"]
+	while out.size() < n:
+		out.append({"name": "%s %s" % [pname, words[rng.randi() % words.size()]], "file": "HL_Asset_BunkerPillar", "side": "hostile", "bunker": true})
+	for i in out.size():
+		out[i]["difficulty"] = clampi(i + 1, 1, 4)
+		out[i]["spot"] = Data.BASE_SPOTS[i % Data.BASE_SPOTS.size()]
+		out[i]["planet"] = planet_id
+	_fac_cache[planet_id] = out
+	return out
+
 static func base_pads(planet_id: String) -> Array:
 	if _base_pad_cache.has(planet_id): return _base_pad_cache[planet_id]
 	_base_pad_cache[planet_id] = []
-	var sid := ""
-	for k in Data.PLANET_BASES:
-		if Data.SYSTEMS.has(k) and str((Data.SYSTEMS[k].get("planet", {}) as Dictionary).get("id", "")) == planet_id: sid = k
-	if sid == "": return []
+	var list: Array = facility_sites(planet_id)
+	if list.is_empty(): return []
 	var out: Array = []
-	var list: Array = Data.PLANET_BASES[sid]
 	_no_pads = true
 	for i in list.size():
-		var spot: Vector2 = Data.BASE_SPOTS[i % Data.BASE_SPOTS.size()]
+		var spot: Vector2 = list[i]["spot"]
 		var hs := 0.0
 		for o: Vector2 in [Vector2.ZERO, Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]:
 			hs += height(planet_id, 0, spot.x + o.x * Data.BASE_PAD_R * 0.6, spot.y + o.y * Data.BASE_PAD_R * 0.6)

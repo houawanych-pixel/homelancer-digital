@@ -766,25 +766,22 @@ var planet_bases: Array = []   # (tests) the base holders on this sector
 func _planet_bases() -> void:
 	planet_bases = []
 	if tile != 0 or not is_instance_valid(tile_root) or planet_id == "": return
-	var sid := ""
-	for k in Data.PLANET_BASES:   # (the system whose main world this is: "solara" -> new_terra, "dreadholm" -> dreadholm_planet)
-		if Data.SYSTEMS.has(k) and str((Data.SYSTEMS[k].get("planet", {}) as Dictionary).get("id", "")) == planet_id: sid = k
-	if sid == "": return
-	var list: Array = Data.PLANET_BASES.get(sid, [])
+	var list: Array = Surface.facility_sites(planet_id)   # v11.96: every world: its faction bases, then bunker entrances (2-4)
 	if list.is_empty(): return
 	if not Packs.is_ready("bases3d"):
 		if not Packs.pack_ready.is_connected(_on_bases_pack): Packs.pack_ready.connect(_on_bases_pack)
 		Packs.request("bases3d")
 		return
 	for i in list.size():
-		var b: Array = list[i]
-		var h := _ground_prop("res://assets/bases3d/%s.glb" % str(b[0]), Data.BASE_WIDTH, Data.BASE_SPOTS[i % Data.BASE_SPOTS.size()], true)   # (on its own pad)
+		var site: Dictionary = list[i]
+		var h := _ground_prop("res://assets/bases3d/%s.glb" % str(site["file"]), Data.BUNKER_WIDTH if site.get("bunker", false) else Data.BASE_WIDTH, site["spot"], true)   # (on its own pad)
 		if h == null: continue
-		h.name = str(b[1])
-		h.set_meta("base", str(b[0]))
-		h.set_meta("side", str(b[2]))
+		h.name = str(site["name"])
+		h.set_meta("base", str(site["file"]))
+		h.set_meta("side", str(site["side"]))
+		h.set_meta("facility", site)
 		planet_bases.append(h)
-		if str(b[2]) == "hostile":   # its defences: gun batteries either side and a generator behind
+		if str(site["side"]) == "hostile":   # its defences: gun batteries either side and a generator behind
 			for k in 3:
 				var part := "HL_Asset_GunBattery" if k < 2 else "HL_Asset_Generator"
 				var off := Vector2((-1.0 if k == 0 else 1.0) * Data.BASE_WIDTH * 0.75, 0.0) if k < 2 else Vector2(0.0, -Data.BASE_WIDTH * 0.8)
@@ -1227,7 +1224,26 @@ func board_candidate() -> Dictionary:
 	return {}
 
 ## BOARD pressed: the ship turns into its mech first if it has to, then in you go.
+## v11.96: the facility you are close enough to go into (down on a world, not already inside), or {}.
+func facility_candidate() -> Dictionary:
+	if not surface_mode or boarding or not is_instance_valid(player): return {}
+	for h: Node3D in planet_bases:
+		if is_instance_valid(h) and h.has_meta("facility") and Vector2(h.global_position.x - player.global_position.x, h.global_position.z - player.global_position.z).length() < Data.FACILITY_NEAR:
+			return h.get_meta("facility")
+	return {}
+
+signal facility_request(site: Dictionary)
+var _fac_pending := {}
 func board_now() -> bool:
+	var fs := facility_candidate()
+	if not fs.is_empty():   # v11.96: ENTER the facility (as a mech)
+		if GS.form != "mech":
+			_fac_pending = fs
+			if transform_t <= 0.0: start_transform()
+			message.emit("Transforming to MECH to go in.")
+			return true
+		facility_request.emit(fs)
+		return true
 	var e := board_candidate()
 	if e.is_empty() or _board_asked: return false
 	if GS.form != "mech":
@@ -7936,7 +7952,7 @@ func prompt() -> String:
 		if not lc.is_empty() and player.global_position.distance_to(lc["pos"]) < dock_distance(dc): return "lane"
 		return "dock"
 	if gate_in_range(): return "jump"
-	if not board_candidate().is_empty(): return "board"   # v11.60 (owner)
+	if not board_candidate().is_empty() or not facility_candidate().is_empty(): return "board"   # v11.60 (owner); v11.96: ENTER a facility
 	return "lane" if not lc.is_empty() else ""
 
 ## How far the ship is from being docked with this station or planet (station: its body or docking mouth; planet: its surface).
@@ -9898,6 +9914,10 @@ func _surface_update(_dt: float) -> void:
 		_board_update(_dt)
 		return
 	_place_surface_goal()   # v1.8y
+	if not _fac_pending.is_empty() and GS.form == "mech" and transform_t <= 0.0:   # (ENTER pressed as a ship: in once the mech is out)
+		var fp := _fac_pending
+		_fac_pending = {}
+		facility_request.emit(fp)
 	if GS.form == "mech": _mech_dig(_dt)   # EXPERIMENT (v1.5v): the mech digs into block walls by pushing
 	var p := player.global_position
 	_update_regions()

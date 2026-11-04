@@ -172,6 +172,7 @@ func _connect_space() -> void:
 	space.enemy_chatter.connect(_on_enemy_chatter)
 	space.mission_done.connect(_on_mission_done)   # v1.8w
 	space.board_request.connect(board_battleship)   # v11.45
+	space.facility_request.connect(enter_facility)   # v11.96
 	space.board_exit.connect(leave_boarding)
 	hud.space = space
 
@@ -1427,6 +1428,7 @@ func board_battleship(e: Dictionary) -> void:
 	var tw := create_tween()
 	tw.tween_property(fx, "fade", 1.0, 0.5)
 	await tw.finished
+	Boarding.use_ship()   # (v11.96: the battleship's own decks, not a facility's)
 	_new_space("Boarding")
 	space.setup_boarding({"sys": board_from["sys"], "faction": board_from["faction"], "name": board_from["name"]})
 	_connect_space()
@@ -1438,6 +1440,39 @@ func board_battleship(e: Dictionary) -> void:
 	space.controls = true
 	hud.visible = true
 	state = "flight"
+
+## v11.96 (owner: Armored Core facilities under every world's bases): go in as a mech; the facility is generated from
+## its world and slot (Boarding.facility): deeper, bigger and better guarded the harder it is. Blow the reactor, get out
+## of the exit shaft: you come up beside it on the surface and are paid. The base stays; you can run it again.
+func enter_facility(site: Dictionary) -> void:
+	if state != "flight" or not is_instance_valid(space) or GS.form != "mech" or not space.surface_mode: return
+	state = "boarding"
+	var fac := str(Data.SYSTEMS.get(space.sys_id, {}).get("faction", "Enemy"))   # (a hostile site is the rival's; a friendly one's guards are squatters)
+	if Factions.rival(fac) != "": fac = Factions.rival(fac)
+	if not Factions.has(fac): fac = "Savagers"
+	board_from = {"sys": space.sys_id, "pos": space.player.global_position, "name": str(site["name"]), "faction": fac, "facility": true,
+		"planet": str(space.planet_id), "tile": int(space.tile), "difficulty": int(site.get("difficulty", 1))}
+	space.controls = false
+	hud.visible = false
+	fx.caption = "FACILITY"
+	fx.sub = "%s  ·  LEVEL %d" % [str(site["name"]).to_upper(), int(site.get("difficulty", 1))]
+	Sfx.play("whoosh", -2.0, 0.7)
+	var tw := create_tween()
+	tw.tween_property(fx, "fade", 1.0, 0.5)
+	await tw.finished
+	Boarding.use(Boarding.facility("%s:%s" % [str(site.get("planet", "")), str(site["name"])], int(site.get("difficulty", 1)), str(site["name"])))
+	_new_space("Boarding")
+	space.setup_boarding({"sys": board_from["sys"], "faction": board_from["faction"], "name": board_from["name"]})
+	_connect_space()
+	var tw2 := create_tween()
+	tw2.tween_property(fx, "fade", 0.0, 0.6)
+	await tw2.finished
+	fx.caption = ""
+	fx.sub = ""
+	space.controls = true
+	hud.visible = true
+	state = "flight"
+	hud.flash_message("COMMAND: You're in %s. Find the reactor, deep inside: their boss mech guards it. Blow it and get out the exit shaft." % str(site["name"]))
 
 func _interior_cleared() -> void:
 	if state != "interior": return
@@ -1481,6 +1516,25 @@ func leave_boarding(won: bool) -> void:
 	var tw := create_tween()
 	tw.tween_property(fx, "fade", 1.0, 0.4)
 	await tw.finished
+	if bool(board_from.get("facility", false)):   # v11.96: back up on the world beside the facility
+		Boarding.use_ship()
+		var pay := Data.FACILITY_PAY * int(board_from.get("difficulty", 1)) if won else 0
+		GS.credits += pay
+		_load_surface(str(board_from["planet"]), int(board_from["tile"]))
+		await get_tree().process_frame
+		space.player.global_position = (board_from["pos"] as Vector3) + Vector3(0, 40.0, 0)
+		space.vel = Vector3.ZERO
+		var twf := create_tween()
+		twf.tween_property(fx, "fade", 0.0, 0.6)
+		await twf.finished
+		fx.caption = ""
+		fx.sub = ""
+		space.controls = true
+		hud.visible = true
+		state = "flight"
+		if won: hud.flash_message("COMMAND: %s is gutted. Good work, pilot: %d credits. It'll be back in business soon." % [board_from["name"], pay])
+		board_from = {}
+		return
 	if won:
 		if bool(board_from.get("fleet", false)): Boarding.sunk[board_from["sys"]] = true
 		if bool(board_from.get("mission", false)) and not GS.mission.is_empty() and str(GS.mission.get("kind", "")) == "disturbance": GS.mission["boarded"] = true

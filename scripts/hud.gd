@@ -1799,7 +1799,7 @@ func _draw() -> void:
 	if not fl_shown("r") and not dock_down:   # v7.3: these live in the right window; only when it's away do they float above the aim stick
 		_pill("log", "COMMS", comms_mode == "roster", CYAN)
 	if buttons.has("dock"): _prompt_btn(buttons["dock"], "DOCK", GREEN, held.has("dock"))
-	if buttons.has("board"): _prompt_btn(buttons["board"], "BOARD", ORANGE, held.has("board"))   # v11.60 (owner)   # v11.58 (owner): the top-centre box
+	if buttons.has("board"): _prompt_btn(buttons["board"], "ENTER" if space.surface_mode and not space.boarding else "BOARD", ORANGE, held.has("board"))   # v11.60 (owner)   # v11.58 (owner): the top-centre box
 	if buttons.has("lane"): _pill("lane", "LANE" if space.lane.is_empty() else "LEAVE LANE", true, CYAN)
 	if buttons.has("jump"): _pill("jump", "JUMP", true, GOLD)
 	if buttons.has("land"): _pill("land", "LAND", true, GREEN)

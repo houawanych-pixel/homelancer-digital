@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.95"
+const VERSION := "v11.96"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1854,8 +1854,11 @@ const PLANET_BASES := {
 const BASE_WIDTH := 260.0        # m across
 const BASE_PAD_R := 230.0        # v11.92: m: the flat land pad under a base (blends out to 1.8x); its parts stand on its edge
 const BASE_PAD_MIN_H := 8.0      # m: a pad never sits lower than this (above the sea: an island in the ocean)
+const BUNKER_WIDTH := 120.0     # v11.96: m: a bunker entrance (a facility without a faction base over it)
+const FACILITY_NEAR := 420.0    # m from a facility: ENTER shows
+const FACILITY_PAY := 3500      # cr x difficulty for clearing a facility
 const BASE_PART_WIDTH := 45.0    # m: a gun battery / generator beside a hostile base
-const BASE_SPOTS := [Vector2(700.0, 500.0), Vector2(-750.0, 450.0), Vector2(150.0, 900.0)]   # sector-local x, z (clear of the Command Center and Hangar)
+const BASE_SPOTS := [Vector2(700.0, 500.0), Vector2(-750.0, 450.0), Vector2(150.0, 900.0), Vector2(-500.0, -800.0)]   # (4: up to 4 facilities a world)   # sector-local x, z (clear of the Command Center and Hangar)
 const BUILDING_KINDS := ["CommandCenter", "Hangar"]   # Imperium, Liberator and Solrath have no Hangar file yet
 const BUILDING_WIDTH := {"CommandCenter": 170.0, "Hangar": 140.0}   # m across (the landing pad is 180 m)
 const BUILDING_SPOT := {"CommandCenter": Vector2(-150.0, -420.0), "Hangar": Vector2(180.0, -400.0)}   # m from the sector centre (x east, z south)

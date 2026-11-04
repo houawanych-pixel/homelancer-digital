@@ -19,7 +19,7 @@ extends RefCounted
 static var sunk := {}   # system id -> true: you blew that battleship's reactor (this session: it is gone)
 
 # name: {r: [x0, x1, z0, z1], y: [floor at the low end, floor at the high end] along `axis`, h: height, label, guards, hex}
-const ROOMS := {
+const SHIP_ROOMS := {
 	"lbay": {"r": [-420.0, -300.0, -60.0, 60.0], "y": [0.0, 0.0], "axis": "x", "h": 80.0, "label": "PORT LAUNCH BAY", "guards": 0, "hex": false},
 	"t1": {"r": [-300.0, -160.0, -34.0, 34.0], "y": [0.0, -10.0], "axis": "x", "h": 50.0, "label": "ENTRY TUNNEL", "guards": 0, "hex": true},
 	"muster": {"r": [-160.0, 40.0, -110.0, 110.0], "y": [-10.0, -10.0], "axis": "z", "h": 70.0, "label": "MUSTER HALL", "guards": 3, "hex": false},
@@ -38,19 +38,202 @@ const ROOMS := {
 	"bridge": {"r": [-160.0, 40.0, -480.0, -330.0], "y": [40.0, 40.0], "axis": "z", "h": 50.0, "label": "BRIDGE", "guards": 1, "hex": false},
 }
 const WALL := 4.0                         # wall thickness
-const START_AT := Vector3(-380, 0, 0)     # where you land inside (the port bay), facing +X
-const START_FACE := Vector3(1, 0, 0)
-const CORE_AT := Vector3(0, -100, 940)    # the reactor (its foot on the belly deck)
-const CORE_SHIELD_R := 60.0               # the shield bubble round it
-const BOSS_AT := Vector3(0, -100, 1010)
-const BRIDGE_MECH_AT := Vector3(-60, 40, -440)
-const EXIT_X := 440.0                     # past this, at the starboard bay's open side: out
-const ENTRY_X := -416.0                   # (the port bay's open side: you can't walk back out there)
-const SEAL_DOOR := ["r1", "reactor"]      # slams shut when the reactor blows (the way you came)
-const ESCAPE_DOOR := ["reactor", "r2"]    # opens when the reactor blows (the way out)
+const SHIP_START_AT := Vector3(-380, 0, 0)     # where you land inside (the port bay), facing +X
+const SHIP_START_FACE := Vector3(1, 0, 0)
+const SHIP_CORE_AT := Vector3(0, -100, 940)    # the reactor (its foot on the belly deck)
+const SHIP_CORE_SHIELD_R := 60.0               # the shield bubble round it
+const SHIP_BOSS_AT := Vector3(0, -100, 1010)
+const SHIP_BRIDGE_MECH_AT := Vector3(-60, 40, -440)
+const SHIP_EXIT_X := 440.0                     # past this, at the starboard bay's open side: out
+const SHIP_ENTRY_X := -416.0                   # (the port bay's open side: you can't walk back out there)
+const SHIP_SEAL_DOOR := ["r1", "reactor"]      # slams shut when the reactor blows (the way you came)
+const SHIP_ESCAPE_DOOR := ["reactor", "r2"]    # opens when the reactor blows (the way out)
 const DOOR_OPEN_AT := 110.0               # m: a door slides open when you are this close
-const ROUTE_IN := ["lbay", "t1", "muster", "t2", "cargo", "r1", "reactor"]
-const ROUTE_OUT := ["reactor", "r2", "t3", "fhold", "t4a", "t4r", "t4b", "sbay"]
+const SHIP_ROUTE_IN := ["lbay", "t1", "muster", "t2", "cargo", "r1", "reactor"]
+const SHIP_ROUTE_OUT := ["reactor", "r2", "t3", "fhold", "t4a", "t4r", "t4b", "sbay"]
+
+## v11.96 (owner: Armored Core facilities under every planet's bases): the layout in use. The battleship is the default;
+## Boarding.use(Boarding.facility(...)) swaps in a generated facility (same room schema), use_ship() puts it back.
+static var ROOMS: Dictionary = SHIP_ROOMS
+static var START_AT: Vector3 = SHIP_START_AT
+static var START_FACE: Vector3 = SHIP_START_FACE
+static var CORE_AT: Vector3 = SHIP_CORE_AT
+static var CORE_SHIELD_R: float = SHIP_CORE_SHIELD_R
+static var BOSS_AT: Vector3 = SHIP_BOSS_AT
+static var BRIDGE_MECH_AT: Vector3 = SHIP_BRIDGE_MECH_AT
+static var EXIT_X: float = SHIP_EXIT_X
+static var ENTRY_X: float = SHIP_ENTRY_X
+static var SEAL_DOOR: Array = SHIP_SEAL_DOOR
+static var ESCAPE_DOOR: Array = SHIP_ESCAPE_DOOR
+static var ROUTE_IN: Array = SHIP_ROUTE_IN
+static var ROUTE_OUT: Array = SHIP_ROUTE_OUT
+static var KIND := "ship"   # "ship" | "facility"
+static var INFO := {}       # a facility's name, depth, difficulty
+
+static func use_ship() -> void:
+	ROOMS = SHIP_ROOMS
+	START_AT = SHIP_START_AT
+	START_FACE = SHIP_START_FACE
+	CORE_AT = SHIP_CORE_AT
+	CORE_SHIELD_R = SHIP_CORE_SHIELD_R
+	BOSS_AT = SHIP_BOSS_AT
+	BRIDGE_MECH_AT = SHIP_BRIDGE_MECH_AT
+	EXIT_X = SHIP_EXIT_X
+	ENTRY_X = SHIP_ENTRY_X
+	SEAL_DOOR = SHIP_SEAL_DOOR
+	ESCAPE_DOOR = SHIP_ESCAPE_DOOR
+	ROUTE_IN = SHIP_ROUTE_IN
+	ROUTE_OUT = SHIP_ROUTE_OUT
+	KIND = "ship"
+	INFO = {}
+
+static func use(L: Dictionary) -> void:
+	ROOMS = L["rooms"]
+	START_AT = L["start"]
+	START_FACE = Vector3(1, 0, 0)
+	CORE_AT = L["core"]
+	CORE_SHIELD_R = 60.0
+	BOSS_AT = L["boss"]
+	BRIDGE_MECH_AT = Vector3(1e6, 0, 1e6)   # (no bridge in a facility)
+	EXIT_X = L["exit_x"]
+	ENTRY_X = L["entry_x"]
+	SEAL_DOOR = L["seal"]
+	ESCAPE_DOOR = L["escape"]
+	ROUTE_IN = L["route_in"]
+	ROUTE_OUT = L["route_out"]
+	KIND = "facility"
+	INFO = L["info"]
+
+## v11.96 (owner: "every planet has bases ... Armored Core tunnels and missions, 2 at the minimum, 3 or 4 at most; the
+## harder they are, the deeper and bigger they are and the more enemies; basic grey-box rooms, not square hallways:
+## hexagon and pentagon tunnels, rooms that aren't just squares; a maze that draws you deeper"). A facility on a grid
+## of 360 m cells: you come in at the west ENTRY BAY, wind east and down level by level through halls of different
+## shapes (octagon, pillar hall, crossroads, split-level, ring round a pit) joined by hex or pentagon tunnels that ramp
+## down, with dead-end side wings, to the REACTOR. Blow it: the way you came seals and the escape route opens, on east
+## and back up to the EXIT SHAFT. Difficulty 1-4: deeper (more rooms and levels), bigger halls, more guards.
+const CELL := 360.0
+const SHAPES := ["oct", "pillars", "cross", "split", "ring", "hex"]
+static func facility(seed_key: String, difficulty: int, name := "Facility") -> Dictionary:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash("facility:" + seed_key)
+	var d := clampi(difficulty, 1, 4)
+	var main_len := 3 + d * 2            # halls before the reactor: 5, 7, 9, 11
+	var out_len := 2 + d                 # halls on the escape route
+	var drop := 24.0 + d * 4.0           # m down per level
+	var rooms := {}
+	var cell_room := {}                  # Vector2i -> room key
+	var level := {}                      # room key -> floor height
+	var half := {}                       # room key -> [hx, hz]
+	var put := func(k: String, c: Vector2i, hx: float, hz: float, y: float, label: String, guards: int, shape: String) -> void:
+		var cx := float(c.x) * CELL
+		var cz := float(c.y) * CELL
+		rooms[k] = {"r": [cx - hx, cx + hx, cz - hz, cz + hz], "y": [y, y], "axis": "x", "h": 70.0 + d * 6.0, "label": label, "guards": guards, "hex": false, "shape": shape}
+		cell_room[c] = k
+		level[k] = y
+		half[k] = [hx, hz]
+	var tunnel := func(a: String, ca: Vector2i, b: String, cb: Vector2i, n: int) -> void:
+		var tk := "t%d" % n
+		var w := 34.0
+		var xsec: String = ["hex", "pent"][rng.randi() % 2]
+		var ra: Array = rooms[a]["r"]
+		var rb: Array = rooms[b]["r"]
+		if ca.y == cb.y:   # east-west
+			var e := 1 if cb.x > ca.x else -1
+			var x0: float = float(ra[1]) if e > 0 else float(rb[1])
+			var x1: float = float(rb[0]) if e > 0 else float(ra[0])
+			var cz := float(ca.y) * CELL
+			var ys := [level[a], level[b]] if e > 0 else [level[b], level[a]]
+			rooms[tk] = {"r": [x0, x1, cz - w, cz + w], "y": ys, "axis": "x", "h": 50.0, "label": "TUNNEL", "guards": 0, "hex": true, "xsec": xsec}
+		else:              # north-south
+			var e2 := 1 if cb.y > ca.y else -1
+			var z0: float = float(ra[3]) if e2 > 0 else float(rb[3])
+			var z1: float = float(rb[2]) if e2 > 0 else float(ra[2])
+			var cx := float(ca.x) * CELL
+			var ys2 := [level[a], level[b]] if e2 > 0 else [level[b], level[a]]
+			rooms[tk] = {"r": [cx - w, cx + w, z0, z1], "y": ys2, "axis": "z", "h": 50.0, "label": "TUNNEL", "guards": 0, "hex": true, "xsec": xsec}
+	var names := ["GATEHALL", "MUSTER", "FOUNDRY", "BARRACKS", "SUMP", "ARMORY", "DEPOT", "CONTROL", "PUMP HALL", "VAULT", "SILO", "WORKS", "GALLERY", "CISTERN"]
+	# the entry bay (west, open side west)
+	var c := Vector2i(0, 0)
+	put.call("lbay", c, 90.0, 80.0, 0.0, "ENTRY BAY", 0, "rect")
+	var route_in: Array = ["lbay"]
+	var n := 0
+	var y := 0.0
+	var prev := "lbay"
+	var pc := c
+	var wander := func(from: Vector2i, east_bias: float) -> Vector2i:
+		var opts: Array = []
+		for dv in [Vector2i(1, 0), Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0)]:
+			var q: Vector2i = from + dv
+			if cell_room.has(q) or q.x < 1 or absi(q.y) > 3: continue
+			opts.append(q)
+		if opts.is_empty(): return Vector2i(-999, 0)
+		if rng.randf() < east_bias:
+			for q in opts: if q.x > from.x: return q
+		return opts[rng.randi() % opts.size()]
+	for i in main_len:
+		var q: Vector2i = wander.call(pc, 0.45)
+		if q.x == -999: q = Vector2i(pc.x + 1, pc.y)
+		if i % 2 == 1: y -= drop
+		var hk := "h%d" % i
+		var big := 1.0 + d * 0.12
+		put.call(hk, q, minf(rng.randf_range(80.0, 125.0) * big, 140.0), minf(rng.randf_range(80.0, 125.0) * big, 140.0), y, names[i % names.size()], 1 + (d + i) / 3, SHAPES[rng.randi() % SHAPES.size()])
+		n += 1
+		tunnel.call(prev, pc, hk, q, n)
+		route_in.append("t%d" % n)
+		route_in.append(hk)
+		# a dead-end side wing now and then (guards, and a maze to get lost in)
+		if rng.randf() < 0.35 + d * 0.08:
+			var sq: Vector2i = q + [Vector2i(0, 1), Vector2i(0, -1)][rng.randi() % 2]
+			if not cell_room.has(sq) and absi(sq.y) <= 3:
+				var sk := "s%d" % i
+				put.call(sk, sq, rng.randf_range(70.0, 100.0), rng.randf_range(70.0, 100.0), y, "SIDE WING", 1 + d / 2, SHAPES[rng.randi() % SHAPES.size()])
+				n += 1
+				tunnel.call(hk, q, sk, sq, n)
+		prev = hk
+		pc = q
+	# the reactor
+	var rq: Vector2i = Vector2i(pc.x + 1, pc.y)
+	y -= drop
+	put.call("reactor", rq, 170.0, 150.0, y, "REACTOR HALL", d + 1, "ring")
+	n += 1
+	tunnel.call(prev, pc, "reactor", rq, n)
+	var seal: Array = ["t%d" % n, "reactor"]
+	route_in.append("t%d" % n)
+	route_in.append("reactor")
+	# the escape: on east and back up, to the exit shaft
+	var route_out: Array = ["reactor"]
+	prev = "reactor"
+	pc = rq
+	var esc: Array = []
+	for i in out_len:
+		var q2 := Vector2i(pc.x + 1, pc.y)   # (straight steps only: on east, or now and then a turn up or down)
+		var dy: int = [-1, 0, 1][rng.randi() % 3] if i > 0 else 0
+		if dy != 0 and absi(pc.y + dy) <= 3 and not cell_room.has(Vector2i(pc.x, pc.y + dy)): q2 = Vector2i(pc.x, pc.y + dy)
+		y += drop * 0.7
+		var ek := "fhold" if i == out_len / 2 else "e%d" % i
+		put.call(ek, q2, rng.randf_range(80.0, 110.0), rng.randf_range(80.0, 110.0), y, "ESCAPE HALL" if ek != "fhold" else "COLLAPSING HALL", 2 + d / 2 if ek == "fhold" else 0, SHAPES[rng.randi() % SHAPES.size()])
+		n += 1
+		tunnel.call(prev, pc, ek, q2, n)
+		if i == 0: esc = [prev, "t%d" % n]
+		route_out.append("t%d" % n)
+		route_out.append(ek)
+		prev = ek
+		pc = q2
+	var xq := Vector2i(pc.x + 1, pc.y)
+	put.call("sbay", xq, 90.0, 80.0, 0.0, "EXIT SHAFT", 0, "rect")
+	n += 1
+	tunnel.call(prev, pc, "sbay", xq, n)
+	route_out.append("t%d" % n)
+	route_out.append("sbay")
+	var lb: Array = rooms["lbay"]["r"]
+	var sb: Array = rooms["sbay"]["r"]
+	var rr: Array = rooms["reactor"]["r"]
+	var core := Vector3((float(rr[0]) + float(rr[1])) * 0.5, y + 0.0, (float(rr[2]) + float(rr[3])) * 0.5)
+	core.y = level["reactor"]
+	return {"rooms": rooms, "start": Vector3(float(lb[0]) + 40.0, 0.0, (float(lb[2]) + float(lb[3])) * 0.5), "core": core,
+		"boss": core + Vector3(0, 0, 100.0), "exit_x": float(sb[1]) - 8.0, "entry_x": float(lb[0]) + 4.0, "seal": seal, "escape": esc,
+		"route_in": route_in, "route_out": route_out,
+		"info": {"name": name, "difficulty": d, "halls": main_len, "levels": int(round(-level["reactor"] / drop)), "rooms": rooms.size()}}
 
 static func rect(k: String) -> Array: return ROOMS[k]["r"]
 
@@ -184,8 +367,9 @@ static func build(root: Node3D, tint: Color) -> Dictionary:
 			cuts.sort_custom(func(a, b): return a[0] < b[0])
 			var at := float(side[2])
 			for c in cuts + [[float(side[3]), float(side[3])]]:
-				if float(c[0]) - at > 0.5: _wall(root, boxes, side, at, float(c[0]), ylo, yhi + h, h, bool(R["hex"]), wall_m)
+				if float(c[0]) - at > 0.5: _wall(root, boxes, side, at, float(c[0]), ylo, yhi + h, h, bool(R["hex"]) or str(R.get("shape", "")) == "hex", wall_m, str(R.get("xsec", "hex")), minf(x1 - x0, z1 - z0) * 0.5)
 				at = maxf(at, float(c[1]))
+		_shape(root, boxes, R, wall_m, trim)   # v11.96: pillars, corner blocks, a dividing ridge, a central column
 		# light strips along the long walls, a glow line down the deck
 		var long_z: bool = (z1 - z0) >= (x1 - x0)
 		if long_z:
@@ -281,7 +465,84 @@ static func build(root: Node3D, tint: Color) -> Dictionary:
 
 ## One wall run (from a to b along the side). Tunnels lean: a vertical foot, a panel leaning OUT to the widest point,
 ## then one leaning back IN to the roof (a hexagon). The solid part is the floor-width wall (mechs walk on the deck).
-static func _wall(root: Node3D, boxes: Array, side: Array, a: float, b: float, ylo: float, ytop: float, h: float, hex: bool, m: Material) -> void:
+## v11.96: what makes a facility hall more than a box (inside its rect; the solid parts are collision boxes too).
+## oct: chamfered corners; pillars: four hexagonal columns; cross: four corner blocks leave a + of walkway (the doors are
+## mid-wall); split: a waist-high ridge across the middle with a gap (cover); ring: a column in the middle to circle.
+static func _shape(root: Node3D, boxes: Array, R: Dictionary, m: Material, trim: Material) -> void:
+	var sh := str(R.get("shape", ""))
+	if sh == "" or sh == "rect" or sh == "hex": return
+	var r: Array = R["r"]
+	var x0: float = r[0]
+	var x1: float = r[1]
+	var z0: float = r[2]
+	var z1: float = r[3]
+	var y: float = float(R["y"][0])
+	var h: float = R["h"]
+	var cx := (x0 + x1) * 0.5
+	var cz := (z0 + z1) * 0.5
+	var hx := (x1 - x0) * 0.5
+	var hz := (z1 - z0) * 0.5
+	match sh:
+		"oct":
+			var c := minf(hx, hz) * 0.42
+			for sx in [-1.0, 1.0]:
+				for sz in [-1.0, 1.0]:
+					var mi := MeshInstance3D.new()
+					var bm := BoxMesh.new()
+					bm.size = Vector3(c * 1.42, h, WALL * 1.5)
+					mi.mesh = bm
+					mi.material_override = m
+					mi.position = Vector3(cx + sx * (hx - c * 0.5), y + h * 0.5, cz + sz * (hz - c * 0.5))
+					mi.rotation.y = PI * 0.25 * (1.0 if sx * sz > 0.0 else -1.0)
+					root.add_child(mi)
+					boxes.append([root, AABB(Vector3(cx + sx * hx - (c * 0.55 if sx > 0 else 0.0), y, cz + sz * hz - (c * 0.55 if sz > 0 else 0.0)), Vector3(c * 0.55, h, c * 0.55))])
+		"pillars":
+			for sx in [-0.5, 0.5]:
+				for sz in [-0.5, 0.5]:
+					var col := MeshInstance3D.new()
+					var cm := CylinderMesh.new()
+					cm.radial_segments = 6
+					cm.top_radius = minf(hx, hz) * 0.12
+					cm.bottom_radius = cm.top_radius * 1.25
+					cm.height = h
+					col.mesh = cm
+					col.material_override = m
+					col.position = Vector3(cx + sx * hx, y + h * 0.5, cz + sz * hz)
+					root.add_child(col)
+					var pr := cm.bottom_radius
+					boxes.append([root, AABB(col.position - Vector3(pr * 0.85, h * 0.5, pr * 0.85), Vector3(pr * 1.7, h, pr * 1.7))])
+		"cross":
+			var bx := hx * 0.38
+			var bz := hz * 0.38
+			for sx in [-1.0, 1.0]:
+				for sz in [-1.0, 1.0]:
+					var a := Vector3(cx + sx * hx - (bx if sx > 0 else 0.0), y, cz + sz * hz - (bz if sz > 0 else 0.0))
+					boxes.append(_slab(root, a, a + Vector3(bx, h * 0.6, bz), m, root))
+		"split":
+			var gap := minf(hx, hz) * 0.25
+			if hx >= hz:
+				boxes.append(_slab(root, Vector3(cx - 3, y, z0 + 10), Vector3(cx + 3, y + 9, cz - gap), m, root))
+				boxes.append(_slab(root, Vector3(cx - 3, y, cz + gap), Vector3(cx + 3, y + 9, z1 - 10), m, root))
+			else:
+				boxes.append(_slab(root, Vector3(x0 + 10, y, cz - 3), Vector3(cx - gap, y + 9, cz + 3), m, root))
+				boxes.append(_slab(root, Vector3(cx + gap, y, cz - 3), Vector3(x1 - 10, y + 9, cz + 3), m, root))
+		"ring":
+			if R.get("label", "") == "REACTOR HALL": return   # (the reactor itself is the middle)
+			var cr := MeshInstance3D.new()
+			var cy := CylinderMesh.new()
+			cy.radial_segments = 8
+			cy.top_radius = minf(hx, hz) * 0.28
+			cy.bottom_radius = cy.top_radius
+			cy.height = h
+			cr.mesh = cy
+			cr.material_override = m
+			cr.position = Vector3(cx, y + h * 0.5, cz)
+			root.add_child(cr)
+			var rr := cy.top_radius
+			boxes.append([root, AABB(Vector3(cx - rr * 0.85, y, cz - rr * 0.85), Vector3(rr * 1.7, h, rr * 1.7))])
+			_slab(root, Vector3(cx - rr - 1.0, y + h * 0.4, cz - 0.5), Vector3(cx + rr + 1.0, y + h * 0.4 + 0.8, cz + 0.5), trim, null)
+
+static func _wall(root: Node3D, boxes: Array, side: Array, a: float, b: float, ylo: float, ytop: float, h: float, hex: bool, m: Material, xsec := "hex", halfw := 34.0) -> void:
 	var axis: String = side[0]
 	var at: float = side[1]
 	var out: float = side[4]   # which way is outward
@@ -297,9 +558,13 @@ static func _wall(root: Node3D, boxes: Array, side: Array, a: float, b: float, y
 	var bulge := h * 0.28
 	var rise1 := h * 0.3
 	var rise2 := (ytop - ylo) - foot - rise1
+	var segs: Array = [[foot, rise1, bulge, 0.0], [foot + rise1, rise2, -bulge, bulge]]
+	if xsec == "pent":   # v11.96: a pentagon: a tall upright foot, then the roof leans in to a ridge down the middle
+		foot = h * 0.5
+		segs = [[foot, (ytop - ylo) - foot, -halfw * 0.95, 0.0]]
 	_slab(root, lo, Vector3(hi.x, ylo + foot, hi.z), m, null)
 	var ln := b - a
-	for seg in [[foot, rise1, bulge, 0.0], [foot + rise1, rise2, -bulge, bulge]]:
+	for seg in segs:
 		var y0: float = ylo + float(seg[0])
 		var dy: float = seg[1]
 		var dx: float = seg[2]
