@@ -223,7 +223,41 @@ static func sample(planet_id: String, gx: float, gz: float) -> Array:
 		if d < 900.0:
 			var kk := clampf((d - 450.0) / 450.0, 0.0, 1.0)
 			h = lerpf(pad_height(planet_id, tc), h, kk * kk)
+	# v11.92 (owner: "no building sits on water ... it should sit into a voxel land"): a flat pad of land under each
+	# faction base, above the sea, so the smooth ground and the voxel blocks (built from this height) are solid there
+	if not _no_pads:
+		for bp: Array in base_pads(planet_id):
+			if int(bp[0]) != tc: continue
+			var dd := Vector2(lx, lz).distance_to(bp[1])
+			var r: float = float(bp[2])
+			if dd < r * 1.8:
+				var kb := clampf((dd - r) / (r * 0.8), 0.0, 1.0)
+				h = lerpf(float(bp[3]), h, kb * kb * (3.0 - 2.0 * kb))
 	return [h, col]
+
+static var _no_pads := false
+static var _base_pad_cache := {}   # planet id -> [[tile, Vector2 tile-local, radius, height]]
+## The faction bases' pads on this planet (Data.PLANET_BASES; the system whose main world it is), worked out once:
+## each at its spot on tile 0, at the ground's own height there (never below Data.BASE_PAD_MIN_H, over the sea).
+static func base_pads(planet_id: String) -> Array:
+	if _base_pad_cache.has(planet_id): return _base_pad_cache[planet_id]
+	_base_pad_cache[planet_id] = []
+	var sid := ""
+	for k in Data.PLANET_BASES:
+		if Data.SYSTEMS.has(k) and str((Data.SYSTEMS[k].get("planet", {}) as Dictionary).get("id", "")) == planet_id: sid = k
+	if sid == "": return []
+	var out: Array = []
+	var list: Array = Data.PLANET_BASES[sid]
+	_no_pads = true
+	for i in list.size():
+		var spot: Vector2 = Data.BASE_SPOTS[i % Data.BASE_SPOTS.size()]
+		var hs := 0.0
+		for o: Vector2 in [Vector2.ZERO, Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]:
+			hs += height(planet_id, 0, spot.x + o.x * Data.BASE_PAD_R * 0.6, spot.y + o.y * Data.BASE_PAD_R * 0.6)
+		out.append([0, spot, Data.BASE_PAD_R, maxf(hs / 5.0, Data.BASE_PAD_MIN_H)])
+	_no_pads = false
+	_base_pad_cache[planet_id] = out
+	return out
 
 static func _smooth(t: float) -> float:
 	t = clampf(t, 0.0, 1.0)

@@ -778,7 +778,7 @@ func _planet_bases() -> void:
 		return
 	for i in list.size():
 		var b: Array = list[i]
-		var h := _ground_prop("res://assets/bases3d/%s.glb" % str(b[0]), Data.BASE_WIDTH, Data.BASE_SPOTS[i % Data.BASE_SPOTS.size()])
+		var h := _ground_prop("res://assets/bases3d/%s.glb" % str(b[0]), Data.BASE_WIDTH, Data.BASE_SPOTS[i % Data.BASE_SPOTS.size()], true)   # (on its own pad)
 		if h == null: continue
 		h.name = str(b[1])
 		h.set_meta("base", str(b[0]))
@@ -789,7 +789,7 @@ func _planet_bases() -> void:
 				var part := "HL_Asset_GunBattery" if k < 2 else "HL_Asset_Generator"
 				var off := Vector2((-1.0 if k == 0 else 1.0) * Data.BASE_WIDTH * 0.75, 0.0) if k < 2 else Vector2(0.0, -Data.BASE_WIDTH * 0.8)
 				var p := Vector2(h.position.x, h.position.z) + off
-				_ground_prop("res://assets/bases3d/%s.glb" % part, Data.BASE_PART_WIDTH, p)
+				_ground_prop("res://assets/bases3d/%s.glb" % part, Data.BASE_PART_WIDTH, p, true)
 
 func _on_bases_pack(pk: String) -> void:
 	if pk != "bases3d" or not surface_mode or not is_inside_tree() or not planet_bases.is_empty(): return
@@ -797,7 +797,7 @@ func _on_bases_pack(pk: String) -> void:
 	_planet_bases()
 
 ## One model stood on the ground at (sector-local) `want`, `width` m across, with a box to bump into. Null if missing.
-func _ground_prop(path: String, width: float, want: Vector2) -> Node3D:
+func _ground_prop(path: String, width: float, want: Vector2, exact := false) -> Node3D:
 	if not ResourceLoader.exists(path): return null
 	var ps := load(path) as PackedScene
 	if ps == null: return null
@@ -807,7 +807,7 @@ func _ground_prop(path: String, width: float, want: Vector2) -> Node3D:
 	var bb := ShipFactory._aabb(inst, Transform3D.IDENTITY)
 	var w: float = width / maxf(maxf(bb.size.x, bb.size.z), 0.001)
 	var half := maxf(bb.size.x, bb.size.z) * w * 0.5
-	var site := building_site(want, half, surf_boxes)
+	var site := Vector3(want.x, _ground(want.x, want.y), want.y) if exact else building_site(want, half, surf_boxes)
 	holder.scale = Vector3.ONE * w
 	holder.position = Vector3(site.x, site.y - Data.BUILDING_SINK - bb.position.y * w, site.z)
 	holder.set_meta("half", half)
