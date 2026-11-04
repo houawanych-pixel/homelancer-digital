@@ -1828,6 +1828,77 @@ func _run() -> void:
 		print("[sysdump] ", JSON.stringify(dump))
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_UNCHARTED") != "":   # v12.6: an uncharted area: big clouds, rock fields, a friendly vessel hiding
+		main.start_game()
+		await _until(func(): return main.state == "flight", 20.0)
+		var uid := ""
+		for t in SystemBuilder.open_rows(): if uid == "" and t[6] == "unknown" and (OS.get_environment("HL_SYS") == "" or t[0] == OS.get_environment("HL_SYS")): uid = t[0]
+		main._load_system(uid, "station")
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.sys_id == uid, 20.0)
+		await _wait(4.0)
+		var s := _sp()
+		var lc: Array = Data.SYSTEMS[uid].get("layout_clouds", [])
+		var storms := lc.filter(func(c): return c["weather"] == "storm").size()
+		var rocks := lc.filter(func(c): return c["weather"] == "rocks").size()
+		var border := lc.filter(func(c): return SystemBuilder.inside_cells(c["center"]) != c["center"]).size()
+		var hid: Array = s.fleet_patrols.filter(func(e): return e.get("hidden_ally", false))
+		var hn: String = str(hid[0]["node"].name) if not hid.is_empty() else "none"
+		var in_rocks := false
+		if not hid.is_empty():
+			for c in lc + [{"center": Data.SYSTEMS[uid]["asteroids"]["center"], "radius": Data.SYSTEMS[uid]["asteroids"]["radius"], "weather": "rocks"}]:
+				if c["weather"] == "rocks" and (hid[0]["node"] as Node3D).global_position.distance_to(c["center"]) < float(c["radius"]): in_rocks = true
+		_check("Uncharted %s (%s): %d storm clouds, %d rock fields, none on the border (%d), field r %.0f km, hidden friendly: %s in the rocks %s" % [Data.SYSTEMS[uid]["name"], uid, storms, rocks, border, float(Data.SYSTEMS[uid]["asteroids"]["radius"]) / 1000.0, hn, in_rocks],
+			storms >= 4 and rocks >= 3 and border == 0 and not hid.is_empty() and in_rocks and not hn.contains("Battleship"))
+		_finish_group()
+		return
+	if OS.get_environment("HL_DOCKCHECK") != "":   # v12.6: can you dock at every station in a system (from all sides)?
+		main.start_game()
+		await _until(func(): return main.state == "flight", 20.0)
+		var sid := OS.get_environment("HL_SYS") if OS.get_environment("HL_SYS") != "" else "solara"
+		if GS.system_id != sid:
+			main._load_system(sid, "station")
+			await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.sys_id == sid, 15.0)
+		var s := _sp()
+		await _wait(6.0)
+		var bad := []
+		var rows := []
+		for ds in s.docks3d:
+			var r: float = float(ds.get_meta("radius"))
+			var hb: float = s.hull_distance(ds)
+			var ok_dirs := 0
+			for k in 0:
+				var a := TAU * k / 8.0
+				var dir := Vector3(cos(a), 0, sin(a))
+				var got := ""
+				for step in 40:   # fly in from far out until the DOCK prompt shows (or we hit the middle)
+					var d: float = r * 2.5 - step * r * 2.5 / 40.0
+					s.player.global_position = ds.global_position + dir * d
+					s.vel = Vector3.ZERO
+					await _frames(1)
+					if s.dock_candidate() == ds:
+						got = "%s at %.0f m (%s)" % [s.prompt(), d, "lane wins" if s.prompt() != "dock" else "ok"]
+						break
+				if got.begins_with("dock"): ok_dirs += 1
+			# then fly at it for real (collisions on) from 2.2 km: does DOCK show before the hull stops us?
+			var flown := []
+			for k in 4:
+				var a2 := TAU * k / 4.0 + 0.4
+				s.player.global_position = ds.global_position + Vector3(cos(a2), 0.05, sin(a2)) * maxf(2200.0, r + 800.0)
+				s._face(ds.global_position - s.player.global_position)
+				var best := INF
+				var docked := false
+				for f in 150:
+					s.vel = (ds.global_position - s.player.global_position).normalized() * 120.0
+					await _frames(1)
+					best = minf(best, s.player.global_position.distance_to(ds.global_position))
+					if s.prompt() == "dock": docked = true; break
+				flown.append("%s %.0f m" % ["DOCK" if docked else "no", best])
+				if docked: ok_dirs += 2
+			rows.append("%s r %.0f hull %s: dock from %d/8 sides, flying in: %s" % [ds.name, r, str(ds.has_meta("box_aabb")), ok_dirs, ", ".join(flown)])
+			if ok_dirs < 8: bad.append(str(ds.name))
+		_check("Docking: every station in %s docks from most sides (%s)" % [sid, "; ".join(rows)], bad.is_empty())
+		_finish_group()
+		return
 	if OS.get_environment("HL_BEASTS") != "":   # v12.5: boarding a Kaijurai ship: creatures on foot, not mechs
 		main.start_game()
 		await _until(func(): return main.state == "flight", 20.0)

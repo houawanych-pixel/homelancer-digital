@@ -1119,12 +1119,29 @@ func _on_fleet_pack(pk: String) -> void:
 ## v11.99 (owner: "you may have something hidden, like an alliance battleship hidden in the asteroids or in the nebula
 ## clouds within enemy star systems"): in alien space one battleship of a human faction lies hidden in a cloud (or the
 ## asteroid field), barely moving. Peaceful to you unless you shoot it.
-func _hidden_ally_ship() -> void:
+## v12.6: the fleet faction whose charted system is nearest this square on the galaxy board ("" = none).
+func _near_fleet_faction() -> String:
+	var rows: Array = GalaxyData.TILES + SystemBuilder.open_rows()
+	var me := Vector2(-99, -99)
+	for t in rows: if t[0] == sys_id: me = Vector2(float(t[3]), float(t[4]))
+	var best := ""
+	var bd := INF
+	for t in rows:
+		if not Data.SYSTEMS.has(t[0]): continue
+		var f := str(Data.SYSTEMS[t[0]].get("faction", ""))
+		if not Data.FACTION_FLEET.has(f): continue
+		var d := me.distance_to(Vector2(float(t[3]), float(t[4])))
+		if d < bd: bd = d; best = f
+	return best
+
+func _hidden_ally_ship(kind := "battleship", fac := "") -> void:
 	var facs: Array = Data.FACTION_FLEET.keys()
-	var fac2: String = facs[absi(hash(sys_id + "_hidden_ally")) % facs.size()]
-	var key := str(Data.FACTION_FLEET[fac2].get("battleship", ""))
+	var fac2: String = fac if fac != "" else facs[absi(hash(sys_id + "_hidden_ally")) % facs.size()]
+	var key := str(Data.FACTION_FLEET[fac2].get(kind, ""))
 	if key == "" or not ShipFactory.has_real_model(key) or Boarding.sunk.has(sys_id): return
 	var spots: Array = nebulae_of(sys_id, sys).filter(func(nb): return not bool(nb.get("main", false)) and not bool(nb.get("backdrop", false))).map(func(nb): return nb["center"])
+	if kind != "battleship":   # v12.6 (owner: "a vessel hiding in the asteroid field"): a rock cloud or the main field
+		spots = nebulae_of(sys_id, sys).filter(func(nb): return str(nb.get("weather", "")) == "rocks" and not bool(nb.get("backdrop", false))).map(func(nb): return nb["center"])
 	if sys.has("asteroids") and float(sys["asteroids"].get("radius", 0.0)) > 1.0: spots.append(sys["asteroids"]["center"])
 	if spots.is_empty(): return
 	var home: Vector3 = spots[absi(hash(sys_id + "_hide")) % spots.size()]
@@ -1136,7 +1153,7 @@ func _hidden_ally_ship() -> void:
 	e["orbit"] = 0.0
 	e["aggro"] = false
 	e["provoked"] = false
-	(e["node"] as Node3D).name = "%s Battleship (hidden)" % fac2
+	(e["node"] as Node3D).name = "%s %s (hidden)" % [fac2, kind.capitalize()]
 	_make_carrier(e)
 	fleet_patrols.append(e)
 
@@ -1153,12 +1170,16 @@ func _fleet_patrols() -> void:
 	var fac := str(sys.get("faction", ""))
 	var fl: Dictionary = Data.FACTION_FLEET.get(fac, {})
 	if fl.is_empty() and SystemBuilder.is_enemy_space(sys): fl = {"_hidden": true}   # v11.99: alien space: the hidden ally ship below
-	if fl.is_empty(): return
+	if fl.is_empty() and SystemBuilder.is_unknown(sys): fl = {"_hidden_near": _near_fleet_faction()}   # v12.6: the uncharted areas
+	if fl.is_empty() or str(fl.get("_hidden_near", "x")) == "": return
 	if not Packs.is_ready("faction_fleet"):
 		if not Packs.pack_ready.is_connected(_on_fleet_pack): Packs.pack_ready.connect(_on_fleet_pack)
 		return
 	if fl.has("_hidden"):
 		_hidden_ally_ship()
+		return
+	if fl.has("_hidden_near"):   # v12.6 (owner: "the factions that are close by ... one faction vessel, not a battleship, hiding in the asteroid field")
+		_hidden_ally_ship(Data.UNKNOWN_ALLY_KIND, str(fl["_hidden_near"]))
 		return
 	var c0: Vector3 = sys["station"]["pos"]
 	var a0 := float(absi(hash(sys_id + "_fleet")) % 628) / 100.0
@@ -8221,7 +8242,9 @@ func dock_candidate() -> Node3D:
 	for pl in platforms:   # v1.9b: the other planets' docking platforms
 		if is_instance_valid(pl) and minf(p.distance_to(pl.global_position), p.distance_to(dock_point(pl))) < DOCK_RANGE_STATION: return pl
 	for ds in docks3d:   # v1.9d: the system's other stations that wear the owner's 3D model
-		if is_instance_valid(ds) and minf(p.distance_to(ds.global_position) - float(ds.get_meta("radius")), p.distance_to(dock_point(ds))) < DOCK_RANGE_STATION: return ds
+		if not is_instance_valid(ds): continue
+		if minf(p.distance_to(ds.global_position) - float(ds.get_meta("radius")), p.distance_to(dock_point(ds))) < DOCK_RANGE_STATION + Data.DOCK3D_PAD: return ds
+		if hull_distance(ds) < DOCK_RANGE_STATION: return ds   # v12.6 (owner: "I can't even dock at that station"): the hull stopped you short from some sides
 	return null
 
 ## v1.4u: which ONE prompt the ship gets: "dock", "jump", "lane" or "". When a station (or planet) and a trade-lane

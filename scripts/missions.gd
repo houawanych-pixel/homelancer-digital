@@ -108,6 +108,20 @@ static func _all_offers(sys_id: String, station_id: String, owner: String, pid: 
 	var clouds: Array = SpaceSystem.nebulae_of(sys_id, sys).filter(func(c): return not bool(c.get("backdrop", false)) and SystemBuilder.inside_cells(c["center"]) == c["center"])   # (v12.2: not the backdrop clouds; v12.3: never one out on the border)
 	if enemy != "" and not clouds.is_empty():
 		var cl: Dictionary = clouds[rng.randi() % clouds.size()]
+		# v12.6 (owner: "that mission is right next to that space station, way too close"): a cloud marked for it, else
+		# one well clear of every station (the farthest if none is)
+		var marked: Array = clouds.filter(func(c): return bool(c.get("disturbance", false)))
+		var spots: Array = [sys["station"]["pos"]] + (sys.get("more_stations", []) as Array).map(func(x): return x["pos"])
+		var gap := func(c: Dictionary) -> float:
+			var g := INF
+			for sp in spots: g = minf(g, (c["center"] as Vector3).distance_to(sp) - float(c["radius"]))
+			return g
+		if not marked.is_empty(): cl = marked[0]
+		else:
+			var clear: Array = clouds.filter(func(c): return gap.call(c) > Data.DISTURBANCE_STATION_GAP)
+			if not clear.is_empty(): cl = clear[rng.randi() % clear.size()]
+			else:
+				for c in clouds: if gap.call(c) > gap.call(cl): cl = c
 		var st0: Vector3 = sys["station"]["pos"]
 		var v: Vector3 = (cl["center"] as Vector3) - st0
 		for which in ["ship", "base"]:

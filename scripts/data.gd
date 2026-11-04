@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.5"
+const VERSION := "v12.6"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -84,6 +84,7 @@ const SYSTEM_LAYOUT := {
 			{"name": "Ion Shoals", "at": [9.0, 2.0], "radius": 22000.0, "weather": "rocks", "color": Color(0.55, 0.6, 0.7)},
 			{"name": "Lantern Cloud", "at": [4.6, 6.9], "radius": 20000.0, "weather": "storm", "color": Color(0.95, 0.7, 0.4)},
 			{"name": "Crossing Rocks", "at": [4.9, 8.6], "radius": 16000.0, "weather": "rocks", "color": Color(0.6, 0.52, 0.45)},
+			{"name": "Frost Veil", "at": [2.6, 4.5], "radius": 70000.0, "weather": "storm", "color": Color(0.45, 0.7, 0.95), "disturbance": true},   # v12.6 (owner: "4B is good, put a big cloud there"): the disturbance hides here, well away from Haven Station
 		],
 		"junctions": {"North Choke Point": [6.9, 4.7], "Liberty Crossing": [6.6, 7.7]},
 		"lanes": [
@@ -1065,8 +1066,17 @@ const FIELD_GROW := 95.0             # v10.4 (owner): ~2.1x (fields ~36 km out f
 const PLANET_GROW := 8.0             # v10.6 (owner): twice the size again (was 4.0). v9.0: planets grow this much (so they read across a 400 km system)
 const SUN_LANE_CLEAR := 3.2         # v10.6 (owner: "the sun is so close to the trade lanes"): the sun keeps this many of its radii from every lane line and place
 const SUN_KEEP_OUT := 2.2            # v9.0: nothing is placed within this many sun radii of the sun
+const UNKNOWN_STORMS := 6                        # v12.6 (owner): the uncharted areas: big storm clouds ...
+const UNKNOWN_STORM_R := [55000.0, 95000.0]
+const UNKNOWN_ROCK_FIELDS := 4                   # ... and asteroid-rock clouds (fields to hide in)
+const UNKNOWN_ROCK_R := [45000.0, 75000.0]
+const UNKNOWN_ALLY_KIND := "cruiser"            # the nearest fleet faction's vessel hiding in a rock cloud there
+const UNKNOWN_BELT_K := 1.8                      # their main field is this much bigger
+const UNKNOWN_CLOUD_COLORS := [Color(0.55, 0.3, 0.85), Color(0.3, 0.75, 0.7), Color(0.85, 0.4, 0.35), Color(0.4, 0.5, 0.95), Color(0.75, 0.65, 0.3), Color(0.8, 0.35, 0.65)]
+const UNKNOWN_CLOUD_WORDS := ["Hollow", "Murk", "Ember", "Gloam", "Thorn", "Wraith", "Pale", "Shiver", "Cinder", "Drowned"]
 const UNKNOWN_ORBITS := {"station": 90000.0, "planet": 210000.0, "asteroids": 300000.0, "nebula": 240000.0, "gate": 380000.0, "extra": [140000.0, 400000.0]}   # v9.0 (owner): the unknown areas: the sun in the middle, everything on orbits round it
 const DOCK_RANGE_STATION := 190.0    # was 260: you must be this close to a station (or its docking mouth) for DOCK
+const DOCK3D_PAD := 450.0   # v12.6: a big 3D station's hull stops you up to ~400 m outside its dock ring from some sides: this much more reach
 const DOCK_RANGE_PLANET := 240.0     # was 300: measured from the planet's surface
 const LANE_TUNNEL_BACK := 0.42       # share of the lane tunnel's length that trails BEHIND the ship (so the camera never sees its rim)
 
@@ -1902,6 +1912,7 @@ const FORT_RADIUS := 1.45     # v12.2: a bunker fort's corners sit this many bun
 const FORT_GATE_W := 0.9      # the gate tower, in bunker widths
 const FORT_TOWER_W := 0.55    # a corner tower
 const FORT_WALL_H := 0.32     # the walls' height, in bunker widths
+const DISTURBANCE_STATION_GAP := 40000.0   # v12.6: a disturbance cloud's edge stays this far from every station (m)
 const BORDER_GLITCH_OUT := 1.6    # v12.4 (owner): crossing a border: static, the lines zoom up and fade, white (s)
 const BORDER_GLITCH_BACK := 1.1   # the static comes back and the picture fixes itself on the other side (s)
 const BORDER_MARGIN := 0.25   # v12.3: map squares kept clear inside the border squares (nothing but clouds out there)

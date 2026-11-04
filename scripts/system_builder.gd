@@ -263,7 +263,7 @@ static func apply_layouts(systems: Dictionary) -> void:
 			g["pos"] = Vector3(clampf(p.x, -lim, lim), p.y, clampf(p.z, -lim, lim))
 		var clouds: Array = []
 		for c in L.get("clouds", []):
-			clouds.append({"name": str(c["name"]), "center": cell_pos(c["at"]), "radius": float(c["radius"]), "color": c["color"], "main": false, "weather": str(c.get("weather", "storm")), "layout": true})
+			clouds.append({"name": str(c["name"]), "center": cell_pos(c["at"]), "radius": float(c["radius"]), "color": c["color"], "main": false, "weather": str(c.get("weather", "storm")), "layout": true, "disturbance": bool(c.get("disturbance", false))})
 		sy["layout_clouds"] = clouds
 		var j := {}
 		for jn in L.get("junctions", {}): j[jn] = cell_pos(L["junctions"][jn])
@@ -1193,7 +1193,9 @@ static func spread(out: Dictionary) -> void:
 		sy["asteroids"]["radius"] = float(sy["asteroids"].get("radius", 380.0)) * Data.FIELD_GROW
 		sy["planet"]["radius"] = float(sy["planet"]["radius"]) * Data.PLANET_GROW
 		for x in sy["more_planets"]: x["radius"] = float(x["radius"]) * Data.PLANET_GROW
-		if is_unknown(sy): _orbit_layout(id, sy)
+		if is_unknown(sy):
+			_orbit_layout(id, sy)
+			_unknown_fill(id, sy)
 		_keep_off_sun(sy)
 		_keep_in_tile(sy)
 		_sun_off_lanes(sy)
@@ -1280,6 +1282,35 @@ static func _sun_off_lanes(sy: Dictionary) -> void:
 			sy["sun_dist"] = dist
 			return
 		dist = minf(lim, dist * 1.35)
+
+## v12.6 (owner: "we need to develop these areas a lot better, more nebula clouds, more asteroid fields, bigger ...
+## we don't have jump gates here, so we gotta fill it with other things"): an uncharted area gets big storm clouds and
+## asteroid-rock clouds spread over its squares (never on the border squares, clear of the hive, the world, the star
+## and the warp gate), and a bigger main field. A friendly vessel of a nearby faction hides in one (space.gd).
+static func _unknown_fill(id: String, sy: Dictionary) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash("unknown_fill:" + id)
+	sy["asteroids"]["radius"] = float(sy["asteroids"]["radius"]) * Data.UNKNOWN_BELT_K
+	var keep: Array = [[sy["station"]["pos"], 60000.0], [sy["planet"]["pos"], float(sy["planet"]["radius"]) + 50000.0], [Vector3.ZERO, 70000.0],
+		[sy["asteroids"]["center"], float(sy["asteroids"]["radius"]) + 20000.0]]
+	for g in sy["gates"]: keep.append([g["pos"], 60000.0])
+	var clouds: Array = sy.get("layout_clouds", []).duplicate()
+	var cols: Array = Data.UNKNOWN_CLOUD_COLORS
+	for want in [["storm", Data.UNKNOWN_STORMS, Data.UNKNOWN_STORM_R], ["rocks", Data.UNKNOWN_ROCK_FIELDS, Data.UNKNOWN_ROCK_R]]:
+		var made := 0
+		for t in 200:
+			if made >= int(want[1]): break
+			var r: float = rng.randf_range(float(want[2][0]), float(want[2][1]))
+			var c := cell_pos([rng.randf_range(2.8, 9.2), rng.randf_range(2.8, 9.2)], rng.randf_range(-3000.0, 3000.0))
+			var ok := true
+			for kp in keep: if c.distance_to(kp[0]) < float(kp[1]) + r * 0.5: ok = false
+			for oc in clouds: if c.distance_to(oc["center"]) < (float(oc["radius"]) + r) * 0.75: ok = false
+			if not ok: continue
+			var col: Color = cols[rng.randi() % cols.size()] if want[0] == "storm" else Color(0.55, 0.5, 0.48).lerp(cols[rng.randi() % cols.size()], 0.25)
+			clouds.append({"name": "%s %s" % [Data.UNKNOWN_CLOUD_WORDS[rng.randi() % Data.UNKNOWN_CLOUD_WORDS.size()], "Shoals" if want[0] == "rocks" else "Veil"],
+				"center": c, "radius": r, "color": col, "main": false, "weather": want[0], "layout": true, "uncharted": true})
+			made += 1
+	sy["layout_clouds"] = clouds
 
 ## v8.9 (owner): the unknown areas: the sun in the middle and everything on its own orbit round it (each keeps its bearing).
 static func _orbit_layout(id: String, sy: Dictionary) -> void:
