@@ -1673,6 +1673,26 @@ func _run() -> void:
 		await _capture("fighters_l2l3")
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_CROWDSHOT") != "":   # v11.84: pictures of the 3D crowd in the Dreadholm planet hub (HL_SHOT_DIR)
+		await _smoke_core()
+		if main.state == "hub": main.launch()
+		await _until(func(): return main.state == "flight", 10.0)
+		main._load_system("dreadholm", "station")
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.sys_id == "dreadholm", 15.0)
+		await _wait(1.0)
+		main.dock(_sp().planet)
+		await _until(func(): return main.state == "hub", 10.0)
+		var hb = main.hub
+		await _until(func(): return not hb.crowd.people.is_empty(), 10.0)
+		print("[crowd] ", hb.crowd.crowd_log, " room ", hb.crowd.room)
+		hb.set_panels_hidden(true)
+		for i in 4:
+			hb.room_yaw = fposmod(Data.ROOM_FRONT + i * 0.25, 1.0)
+			hb.room_idle = 0.0
+			await _wait(1.5)
+			await _capture("crowd_%d" % i)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_BOARDSHOT") != "":   # v11.71: pictures of the boarding run (HL_SHOT_DIR)
 		await _smoke_core()
 		var s := _sp()

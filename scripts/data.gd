@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.83"
+const VERSION := "v11.84"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1089,6 +1089,13 @@ const ROOM_FACTIONS := ["liberator", "savagers", "orion", "covenant", "imperium"
 const ROOM_OF := {"hub": "main_hub", "ships": "shipyard", "mechs": "mech_dealer", "repair": "medical_bay", "board": "mission_center",
 	"missions": "mission_center", "bounty": "mission_center", "ship": "private_quarters", "faction": "command", "surface": "main_hub",
 	"lounge": "pilots_lounge", "supplies": "supplies", "command": "command"}   # v9.5: SUPPLIES and COMMAND have their own links
+# v11.84 (owner: "Freelancer used GLB characters ... we have them and rigs, we just need a toon shader"): the 3D crowd.
+# Per room: count, share walking, and the floor at the back and front of the room as [feet line, body height] in shares
+# of the strip's height (read off the picture's own people). Rooms not listed have no 3D crowd.
+const CROWD3D_ROOMS := {
+	"planet_dreadholm_main_hub": {"count": 22, "walkers": 0.65, "back": [0.66, 0.16], "front": [0.88, 0.4]},
+}
+const CROWD3D_WALK := 1.3   # m/s: normal walking speed
 const ROOM_FRONT := 0.188       # where the front view's middle sits along the loop (you face it on arrival)
 const ROOM_ZOOM := 1.14         # the loop is this much taller than the screen: room to look up and down a little
 const ROOM_STICK := 0.09        # share of the loop the right stick turns per second at full tilt
