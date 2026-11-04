@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.3"
+const VERSION := "v12.4"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1159,6 +1159,10 @@ const CREW_FOOT_PAD := 0.03         # v11.60: the clip's empty strip under their
 const CREW_WALK_EVERY := [14.0, 26.0]   # s between their walks to the side
 const CREW_WALK_SPAN := 0.035       # how far a walk takes them (share of the loop)
 const CREW_WALK_TIME := 4.0         # the side-walk clip's length (s)
+const LOC_ROOMS := {"aurelion_aurelioncitadel": ["hangar", "hub", "lounge", "supplies"], "aurelion_aurelionprime": ["hangar", "hub", "supplies"], "solara_haven": ["hangar", "hub", "lounge", "supplies"], "solara_havenstation": ["hangar", "hub", "lounge", "supplies"], "solara_imperiumwatchpost": ["hangar", "hub", "lounge", "supplies"], "solara_liberatorfreeport": ["hangar", "hub", "lounge", "supplies"], "solara_libertyhub": ["hangar", "hub", "lounge", "supplies"], "solara_newterra": ["hangar", "hub", "lounge", "supplies"], "vega_edenprime": ["hangar", "hub", "lounge", "supplies"], "vega_frontierexchange": ["hangar", "hub", "lounge", "supplies"], "vega_vegaminor": ["hangar", "hub", "lounge", "supplies"], "veranthos_veranthosprime": ["hangar", "hub", "lounge", "supplies"]}   # v12.4: a place's own room set (tools/rooms/install_loc.py)
+const LOC_ROOM_OF := {"main_hub": "hub", "command": "hub", "mission_center": "hub", "shipyard": "hangar", "mech_dealer": "hangar",
+	"supplies": "supplies", "weapons": "supplies", "medical_bay": "supplies", "pilots_lounge": "lounge"}   # v12.4: a game page -> the place's GPT room (private quarters keep the faction room)
+const LOC_ROOM_ALIAS := {"vega_vegasecundus": "vega_vegaminor"}   # (the checklist's name for a place -> the game's)
 const ROOM_FACTIONS := ["liberator", "savagers", "orion", "covenant", "imperium", "solarion", "elyza", "unity"]
 const ROOM_OF := {"hub": "main_hub", "ships": "shipyard", "mechs": "mech_dealer", "repair": "medical_bay", "board": "mission_center",
 	"missions": "mission_center", "bounty": "mission_center", "ship": "private_quarters", "faction": "command", "surface": "main_hub",
@@ -1895,6 +1899,8 @@ const FORT_RADIUS := 1.45     # v12.2: a bunker fort's corners sit this many bun
 const FORT_GATE_W := 0.9      # the gate tower, in bunker widths
 const FORT_TOWER_W := 0.55    # a corner tower
 const FORT_WALL_H := 0.32     # the walls' height, in bunker widths
+const BORDER_GLITCH_OUT := 1.6    # v12.4 (owner): crossing a border: static, the lines zoom up and fade, white (s)
+const BORDER_GLITCH_BACK := 1.1   # the static comes back and the picture fixes itself on the other side (s)
 const BORDER_MARGIN := 0.25   # v12.3: map squares kept clear inside the border squares (nothing but clouds out there)
 const UNKNOWN_KAIJU_MULT := 3.0   # v12.3 (owner: "high level areas ... like level 3 fighters"): Kaijurai in the uncharted areas are 3x as tough
 const STATION_INFIL_LEVEL := 3   # v11.99: an alien station is infiltrated as a level 3 facility

@@ -1357,7 +1357,22 @@ func room_file(key: String, sys_id := "") -> String:
 	var sets: Dictionary = Data.ROOM_SETS.get(f, {})
 	return str((sets.get(set_id, {}) as Dictionary).get(rn, rn))
 
+## v12.4 (owner: the GPT panoramas as placeholders): this place's own room for game room `rn`, "" when it has none.
+## Rooms live in assets/rooms/loc/<system>_<place>_<room>.jpg (Data.LOC_ROOMS); a place with one room uses it everywhere.
+var loc_rooms := not ("--autotest" in OS.get_cmdline_user_args()) or OS.get_environment("HL_LOCROOMS") != ""   # (the old room tests keep the faction rooms)
+func loc_room(rn: String) -> String:
+	if not loc_rooms or room_override != "" or base.is_empty(): return ""
+	var place := str(GS.system_id) + "_" + str(base.get("name", "")).to_lower().replace(" ", "").replace("-", "").replace("'", "")
+	place = str(Data.LOC_ROOM_ALIAS.get(place, place))
+	var rs: Array = Data.LOC_ROOMS.get(place, [])
+	if rs.is_empty(): return ""
+	var r := str(rs[0]) if rs.size() == 1 else str(Data.LOC_ROOM_OF.get(rn, ""))
+	return "loc_%s_%s" % [place, r] if r in rs else ""
+
 func room_for(s: String) -> String:
+	var lrn := str(Data.ROOM_OF.get(s, "")) if s != "equipment" else str({"weapon": "weapons", "ammo": "supplies"}.get(eq_tab, ""))
+	var lr := loc_room(lrn) if lrn != "" else ""
+	if lr != "": return lr
 	var f := _room_faction()
 	if f == "": return ""
 	if s == "equipment":   # v3.9 (owner): the hangar's WEAPON tab stands in the weapons room, REPAIR & AMMO in supplies

@@ -1828,6 +1828,41 @@ func _run() -> void:
 		print("[sysdump] ", JSON.stringify(dump))
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_LOCROOMS") != "":   # v12.4: the places' own GPT rooms (placeholders) and the border glitch
+		var hb = main.hub
+		var res := []
+		var bad := []
+		for sid in ["solara", "vega", "veranthos", "aurelion"]:
+			var sd: Dictionary = Data.SYSTEMS[sid]
+			var places: Array = [sd.get("station", {}), sd.get("planet", {})] + (sd.get("more_stations", []) as Array) + (sd.get("more_planets", []) as Array)
+			GS.system_id = sid
+			for b in places:
+				hb.base = b
+				var got := {}
+				for pg in ["hub", "ships", "mechs", "repair", "board", "lounge", "ship", "faction", "supplies"]:
+					var k: String = hb.room_for(pg)
+					if k.begins_with("loc_"):
+						got[pg] = k.substr(4)
+						var path := "res://assets/rooms/loc/%s.jpg" % hb.room_file(k)
+						if not FileAccess.file_exists(path) or not Packs.PACKS.has("room_" + k): bad.append(path)
+				if not got.is_empty(): res.append("%s/%s %d pages" % [sid, b.get("name", ""), got.size()])
+		hb.base = Data.SYSTEMS["solara"]["station"]
+		GS.system_id = "solara"
+		var lh_ok: bool = hb.room_for("hub") == "loc_solara_libertyhub_hub" and not hb.room_for("ship").begins_with("loc_") and hb.room_for("ships") == "loc_solara_libertyhub_hangar"
+		_check("loc rooms: %d places have their own rooms (%s), files+packs ok %s, Liberty Hub pages ok %s" % [res.size(), ", ".join(res), bad, lh_ok], res.size() >= 11 and bad.is_empty() and lh_ok)
+		main.start_game()
+		await _until(func(): return main.state == "flight", 20.0)
+		await _wait(2.0)
+		var to: String = main.board_neighbour(GS.system_id, 1, 0)
+		var s0 := Time.get_ticks_msec()
+		main.cross_edge(to, Vector3(-Data.SPACE_EDGE * 0.98, 0, 0))
+		for i in 6:
+			await _wait(0.3)
+			await _capture("glitch_out_%d" % i)
+		await _until(func(): return main.state == "flight", 30.0)
+		_check("border glitch: crossed into %s in %.1fs, glitches %d, overlay gone %s" % [to, (Time.get_ticks_msec() - s0) / 1000.0, main.border_glitches, not main.glitch.visible], main.border_glitches == 1 and not main.glitch.visible and GS.system_id == to)
+		_finish_group()
+		return
 	if OS.get_environment("HL_MAPDUMP") != "":
 		main.start_game()
 		await _until(func(): return main.state == "flight", 20.0)

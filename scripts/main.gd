@@ -1252,10 +1252,11 @@ func _check_space_edge() -> void:
 		return
 	cross_edge(to, Vector3(p.x - dc * 2.0 * E, p.y, p.z - dr * 2.0 * E))
 
+var glitch: CanvasLayer   # v12.4: the border crossing's static glitch
+var border_glitches := 0   # (tests)
 func cross_edge(to: String, arrive: Vector3) -> void:
 	crossing = true
 	state = "jumping"
-	var from: String = GS.system_id
 	var speed: float = maxf(space.vel.length(), 40.0)
 	var yw: float = space.yaw
 	var pt: float = space.pitch
@@ -1263,34 +1264,21 @@ func cross_edge(to: String, arrive: Vector3) -> void:
 	space.autopilot = null
 	space.drop_warp()
 	hud.visible = false
-	fx.begin_warp("cloud")
-	var here: Dictionary = space.sys
-	var cols := [here["star"], here["nebula"]["color"], Data.SYSTEMS[to]["star"], Data.SYSTEMS[to]["nebula"]["color"]]
-	fx.set_skies(space.sky_texture(), null, cols)
-	fx.warp_color = Data.SYSTEMS[to]["star"]
-	fx.caption = "CROSSING INTO %s" % Data.SYSTEMS[to]["name"].to_upper()
-	fx.sub = "LEAVING %s SPACE" % Data.SYSTEMS[from]["name"].to_upper()
-	var tw := create_tween()
-	tw.tween_method(_tunnel, 0.0, 1.0, Data.WARP_BUILD["cloud"])
-	await tw.finished
+	if glitch == null:
+		glitch = load("res://scripts/border_glitch.gd").new()
+		add_child(glitch)
+	await glitch.out()   # v12.4 (owner): a static glitch, not a jump gate
 	await get_tree().process_frame
 	await _load_system(to, "edge:%f:%f:%f:%f:%f:%f" % [arrive.x, arrive.y, arrive.z, yw, pt, speed], true)
 	space.controls = false
-	fx.set_skies(null, space.sky_texture(), cols)
 	await get_tree().process_frame
 	await get_tree().process_frame
-	fx.caption = "%s SYSTEM" % Data.SYSTEMS[to]["name"].to_upper()
-	fx.sub = "%d KM FROM THE CENTRE" % int(arrive.length() / 1000.0)
-	var tw2 := create_tween()
-	tw2.tween_method(_tunnel, 1.0, 0.0, Data.WARP_CLEAR["cloud"]).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
-	await tw2.finished
-	_tunnel(0.0)
-	fx.end_warp()
-	fx.caption = ""
+	await glitch.back()
 	space.controls = true
 	hud.visible = true
 	state = "flight"
 	crossing = false
+	border_glitches += 1
 	hud.flash_message("Entered %s space." % Data.SYSTEMS[to]["name"])
 
 func _on_tile_edge(dir: Vector2i) -> void:
