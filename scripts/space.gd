@@ -192,6 +192,7 @@ func _setup(id: String, arrival: String, staged: bool) -> void:
 	_build_environment()
 	_prof("environment (sky, sun, camera)")
 	_build_station(sys["station"])
+	if bool(sys["station"].get("hidden_hub", false)): station.visible = false   # v12.3: the uncharted areas have no port (the Kaijurai hive holds its place)
 	_prof("station")
 	if staged: await get_tree().process_frame
 	_build_planet(sys["planet"])
@@ -2785,7 +2786,7 @@ static func nebulae_of(id: String, s: Dictionary) -> Array:
 		var a := rng.randf() * TAU
 		var dist := rng.randf_range(Data.NEBULA_EXTRA_DIST[0], Data.NEBULA_EXTRA_DIST[1])
 		var c := o + Vector3(cos(a) * dist, rng.randf_range(-3500.0, 3500.0), sin(a) * dist)
-		if absf(c.x) > Data.SPACE_EDGE * 0.85 or absf(c.z) > Data.SPACE_EDGE * 0.85: continue   # v8.9: inside the tile
+		if absf(c.x) > Data.SPACE_EDGE * 0.72 or absf(c.z) > Data.SPACE_EDGE * 0.72: continue   # v8.9: inside the tile; v12.3: off the border squares (it may spill over)
 		var ok := true
 		for av in avoid:
 			if c.distance_to(av[0]) < r + float(av[1]): ok = false
@@ -3637,17 +3638,35 @@ func _spawn_kaiju_nests() -> void:
 	var pts: Array = sys.get("patrols", [])
 	var anchor: Vector3 = sys["planet"]["pos"]
 	var plan: Array = ["vessel", "battleship"]
-	if rng.randf() < Data.NEST_HIVE_CHANCE: plan.append("station")
+	if rng.randf() < Data.NEST_HIVE_CHANCE or bool(sys["station"].get("hidden_hub", false)): plan.append("station")   # (v12.3: a hive always holds the hub's place)
 	for i in plan.size():
 		var kind: String = plan[i]
 		var nd: Dictionary = Data.KAIJU_NEST[kind]
 		var base: Vector3 = (pts[i % pts.size()] as Vector3) if not pts.is_empty() else anchor
 		if kind == "station": base = anchor + ((sys["station"]["pos"] as Vector3) - anchor).normalized() * (float(sys["planet"]["radius"]) * 2.2 + 6000.0)
+		if kind == "station" and bool(sys["station"].get("hidden_hub", false)): base = sys["station"]["pos"]
 		var pos := base + Vector3(rng.randf_range(-1, 1), rng.randf_range(-0.2, 0.2), rng.randf_range(-1, 1)) * 1500.0
 		var e := spawn_unit(str(nd["unit"]), pos, pos, "", float(nd.get("scale", 1.0)))
 		e["nest"] = kind
+		# v12.3 (owner: "take their shield down, or get their power down to 50%, and you can board their satellite,
+		# their vessels, their battleships"): every Kaijurai nest can be boarded, and is tougher out here
+		e["faction"] = "Kaijurai"
+		if SystemBuilder.is_unknown(sys): _toughen(e, Data.UNKNOWN_KAIJU_MULT)
+		_solid_box(e["node"])
+		_boardable(e)
 		(e["node"] as Node3D).set_meta("nest", kind)
 		nests.append({"ent": e, "kind": kind, "brood": int(nd["brood"]), "kids": [], "cd": rng.randf_range(0.5, 2.0), "woke": false})
+
+## v12.3: make a unit n times as tough and hard-hitting (hull, shield, damage).
+func _toughen(e: Dictionary, k: float) -> void:
+	e["hp"] = float(e["hp"]) * k
+	e["max"] = float(e["max"]) * k
+	e["sh"] = float(e["sh"]) * k
+	e["sh_max"] = float(e["sh_max"]) * k
+	var d: Dictionary = (e["def"] as Dictionary).duplicate()
+	d["damage"] = float(d.get("damage", 6.0)) * minf(k, 2.0)
+	e["def"] = d
+	e["tough"] = k
 
 func nest_alive(nt: Dictionary) -> bool:
 	return enemies.has(nt["ent"]) and is_instance_valid(nt["ent"]["node"])
@@ -3676,6 +3695,7 @@ func _update_nests(dt: float) -> void:
 		var r: float = float(nt["ent"]["def"].get("radius", 30.0)) * float(Data.KAIJU_NEST[nt["kind"]].get("scale", 1.0))
 		var at: Vector3 = cn.global_position + out_dir * (r + 25.0) + Vector3(_rng.randfn(0, 1), _rng.randfn(0, 0.3), _rng.randfn(0, 1)) * 15.0
 		var kid := spawn_unit(kk, at, cn.global_position)
+		if SystemBuilder.is_unknown(sys): _toughen(kid, Data.UNKNOWN_KAIJU_MULT)   # v12.3: the uncharted areas' brood is Level 3 strength
 		kid["aggro"] = true
 		kid["vel"] = out_dir * 60.0
 		(nt["kids"] as Array).append(kid)
@@ -7275,6 +7295,7 @@ func _collisions(dt: float) -> void:
 	solid.append_array(extras)        # placeholder planets and stations are solid too
 	for body: Node3D in solid:
 		if surface_mode: break
+		if body == station and not station.visible: continue   # (v12.3: a hidden hub is not there)
 		var rad: float = body.get_meta("radius")
 		var hitr := rad + (6.0 if body == planet else 10.0)
 		var d2 := player.global_position.distance_to(body.global_position)
@@ -8186,7 +8207,8 @@ func cycle_target() -> void:
 	message.emit("Target: %s" % target.name)
 
 func dock_candidate() -> Node3D:
-	if not surface_mode and (SystemBuilder.is_enemy_space(sys) or sys["station"].get("nodock", false)): return null   # v6.2 (owner): you cannot dock in enemy space
+	if not surface_mode and sys["station"].get("nodock", false): return null
+	if not surface_mode and SystemBuilder.is_enemy_space(sys) and GS.form != "mech": return null   # v6.2 (owner): you cannot dock in enemy space (v12.3: a mech docks to infiltrate)
 	var p := player.global_position
 	if p.distance_to(station.global_position) < DOCK_RANGE_STATION: return station
 	if p.distance_to(dock_point(station)) < DOCK_RANGE_STATION: return station

@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.2"
+const VERSION := "v12.3"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1890,10 +1890,13 @@ const SUPER_CYCLE_HZ := 1.6    # how fast the colours run through the beam
 const SUPER_WAVE_R := 120.0    # how far the shock rings burst out
 const SIDESTEP_SPEED := 160.0   # v12.2: m/s added sideways by SIDESTEP
 const SIDESTEP_CD := 1.2
+const BUNKER_WALK_W := 0.85   # v12.3: a bunker's walkway sections, in bunker widths (long side)
 const FORT_RADIUS := 1.45     # v12.2: a bunker fort's corners sit this many bunker widths from its middle
 const FORT_GATE_W := 0.9      # the gate tower, in bunker widths
 const FORT_TOWER_W := 0.55    # a corner tower
 const FORT_WALL_H := 0.32     # the walls' height, in bunker widths
+const BORDER_MARGIN := 0.25   # v12.3: map squares kept clear inside the border squares (nothing but clouds out there)
+const UNKNOWN_KAIJU_MULT := 3.0   # v12.3 (owner: "high level areas ... like level 3 fighters"): Kaijurai in the uncharted areas are 3x as tough
 const STATION_INFIL_LEVEL := 3   # v11.99: an alien station is infiltrated as a level 3 facility
 const FACILITY_PAY := 3500      # cr x difficulty for clearing a facility
 const BASE_PART_WIDTH := 45.0    # m: a gun battery / generator beside a hostile base

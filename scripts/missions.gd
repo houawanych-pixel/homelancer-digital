@@ -105,7 +105,7 @@ static func _all_offers(sys_id: String, station_id: String, owner: String, pid: 
 		"points": _points(rng, 2)})
 	# v11.26 (owner): INVESTIGATE ENEMY DISTURBANCE: a hidden enemy in one of the system's nebula clouds (only where
 	# the system has a cloud): a battleship (10 fighters always out) or a hidden station (15); hard, big pay
-	var clouds: Array = SpaceSystem.nebulae_of(sys_id, sys).filter(func(c): return not bool(c.get("backdrop", false)))   # (v12.2: not the backdrop clouds)
+	var clouds: Array = SpaceSystem.nebulae_of(sys_id, sys).filter(func(c): return not bool(c.get("backdrop", false)) and SystemBuilder.inside_cells(c["center"]) == c["center"])   # (v12.2: not the backdrop clouds; v12.3: never one out on the border)
 	if enemy != "" and not clouds.is_empty():
 		var cl: Dictionary = clouds[rng.randi() % clouds.size()]
 		var st0: Vector3 = sys["station"]["pos"]
@@ -113,10 +113,11 @@ static func _all_offers(sys_id: String, station_id: String, owner: String, pid: 
 		for which in ["ship", "base"]:
 			var pk: String = "disturbance_" + str(which)
 			out.append({"kind": "disturbance", "target": which, "faction": enemy, "slot": Data.PATROL_MAX_SLOT, "pay": Data.MISSION_PAY[pk],
-				"title": "Investigate enemy disturbance: %s" % ("a battleship in the %s cloud" if which == "ship" else "a flagship in the %s cloud") % str(cl.get("name", "nebula")),
+				"title": "Investigate disturbance: the %s cloud" % str(cl.get("name", "nebula")) if str(cl.get("name", "")) != "" else "Investigate disturbance in the nebula",
 				"giver": station_id, "giver_sys": sys_id, "sys": sys_id, "cloud": str(cl.get("name", "")),
-				"brief": "Something is hiding in the %s nebula cloud in the %s system. Fly in and find it: our scans say %s %s. Their fighters keep coming (%d out at all times) until you destroy the %s. A hard fight: take nukes." % [str(cl.get("name", "")), sys["name"],
-					"a %s battleship" % enemy if which == "ship" else "a %s flagship and a cruiser" % enemy, "with a wing that never stops", int(Data.DISTURBANCE[which]["fighters"]), "battleship" if which == "ship" else "flagship and the cruiser"],
+				# v12.3 (owner: "it should just be: investigate the cloud over in this sector, ships have been disappearing ...
+				# they're not gonna tell you there's a battleship there"): only what they know
+				"brief": "Ships have been disappearing in the %s cloud, sector %s. Our fighters picked up something big in there before we lost contact. Investigate the disturbance. Be cautious." % [str(cl.get("name", "")) if str(cl.get("name", "")) != "" else "nebula", _sector(cl["center"])],
 				"points": [{"dir": atan2(v.z, v.x), "dist": Vector2(v.x, v.z).length(), "y": 0.0}]})
 	# v1.9n (owner): SILVER: the rival faction's fleet invades this system (3 battleships to kill; allies fly with you)
 	if enemy != "":
@@ -165,6 +166,10 @@ static func convoy_dest(sys_id: String) -> String:
 		if Data.SYSTEMS.has(str(g.get("to", ""))): return str(g["to"])
 	return ""
 
+static func _sector(p: Vector3) -> String:   # v12.3: a map square's name, "E5"
+	var c := SystemBuilder.cell_of(p)
+	return "%s%d" % ["ABCDEFGHIJ"[clampi(int(c.x) - 1, 0, 9)], clampi(int(c.y), 1, 10)]
+
 static func _points(rng: RandomNumberGenerator, n: int, far := 0.0) -> Array:
 	var pts: Array = []
 	var a := rng.randf() * TAU
@@ -184,7 +189,7 @@ static func point_pos(space: SpaceSystem, i: int) -> Vector3:
 	var p: Dictionary = pts[i]
 	var base: Vector3 = space.station.global_position
 	var dir := Vector3(cos(float(p["dir"])), 0.0, sin(float(p["dir"])))
-	var at := base + dir * float(p["dist"]) + Vector3(0, float(p.get("y", 0.0)), 0)
+	var at := SystemBuilder.inside_cells(base + dir * float(p["dist"]) + Vector3(0, float(p.get("y", 0.0)), 0))   # (v12.3: never on the border)
 	if is_instance_valid(space.planet):   # never inside a planet's air: step out along the bearing until clear
 		var keep: float = float(space.sys["planet"].get("radius", 800.0)) + Data.MISSION_PLANET_CLEAR
 		for k in 12:

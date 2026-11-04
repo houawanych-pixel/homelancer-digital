@@ -1697,7 +1697,7 @@ func _draw() -> void:
 		var sc: Color = (space.sys["star"] as Color).lerp(Color.WHITE, 0.55)
 		draw_rect(Rect2(Vector2.ZERO, S), Color(sc, minf(0.92, space.sun_flare * 0.95)))
 	for n in ([] if dock_down else [space.station, space.planet, space.gate]):   # (v10.6: pushed down, no labels)
-		if not n.visible and n.get_meta("kind", "") != "station": continue
+		if not n.visible and (n.get_meta("kind", "") != "station" or bool(space.sys["station"].get("hidden_hub", false))): continue   # (v12.3: no marker for a hidden hub)
 		if n.get_meta("kind", "") == "none": continue
 		var pos: Vector3 = space.dock_point(n) if n != space.gate else n.global_position
 		var sp = _screen(pos)
@@ -2371,7 +2371,7 @@ func _radar(rc: Vector2, rr: float, label: bool) -> void:
 	var items: Array = []   # [position, colour, kind, node]
 	for e in space.enemies: items.append([e["node"].global_position, RED if e["node"].get_meta("kind", "enemy") == "enemy" else GOLD, "ship", e["node"]])
 	for tr in space.traffic: items.append([tr["node"].global_position, GREEN, "ship", tr["node"]])
-	if space.station.get_meta("kind", "") == "station": items.append([space.station.global_position, GREEN, "station", null])
+	if space.station.get_meta("kind", "") == "station" and space.station.visible: items.append([space.station.global_position, GREEN, "station", null])
 	if not space.surface_mode:
 		items.append([space.planet.global_position, Color(0.5, 0.8, 1.0), "planet", null])
 		for g in space.gates: items.append([g.global_position, GOLD, "gate", null])

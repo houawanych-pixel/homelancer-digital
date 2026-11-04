@@ -473,7 +473,7 @@ func _collect() -> void:
 	objs.clear()
 	var sys: Dictionary = Data.SYSTEMS[GS.system_id]
 	var st: Dictionary = sys["station"]
-	objs["station"] = {"type": "station", "name": st["name"], "pos": st["pos"], "col": GREEN, "r": 60.0, "data": st, "main": true}
+	if not bool(st.get("hidden_hub", false)): objs["station"] = {"type": "station", "name": st["name"], "pos": st["pos"], "col": GREEN, "r": 60.0, "data": st, "main": true}   # (v12.3: no port in the uncharted areas)
 	var pl: Dictionary = sys["planet"]
 	objs["planet"] = {"type": "planet", "name": pl["name"], "pos": pl["pos"], "col": PLANET, "r": float(pl["radius"]), "data": pl, "main": true}
 	for gi in sys["gates"].size():

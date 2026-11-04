@@ -270,6 +270,9 @@ static func apply_layouts(systems: Dictionary) -> void:
 		sy["junctions"] = j
 		sy["lane_plan"] = (L.get("lanes", []) as Array).duplicate(true)
 		if sid in REGRID: _regrid(sy)
+	# v12.3 (owner: "nothing should ever be placed on that first border tile on any map ... only a nebula cloud"):
+	# every station, planet, gate and choke point of every system is kept inside the border squares
+	for sid in systems: keep_off_border(systems[sid])
 	# v11.99 (owner: "they don't even have jump gates; the only way into their world is through rift gates or warp
 	# gates"): every gate into or out of always-hostile alien space is a warp gate (a rift stays a rift)
 	for sid in systems:
@@ -504,12 +507,20 @@ static func _auto_layout(sid: String, sy: Dictionary) -> Dictionary:
 		for sg in segs: if _seg_d(c, sg[0], sg[1]) < r_cells + 0.35: return false
 		return true
 	var N := float(Data.MAP_CELLS)
-	var edge_spots := [Vector2(1.0, rng.randf_range(2.0, N - 1.0)), Vector2(N + 1.0 - 0.0, rng.randf_range(2.0, N - 1.0)), Vector2(rng.randf_range(2.0, N - 1.0), 1.0), Vector2(rng.randf_range(2.0, N - 1.0), N + 1.0)]
+	# v12.3 (owner): an edge cloud's middle sits on the square next to the border and spills out over it
+	var edge_spots := [Vector2(2.4, rng.randf_range(3.0, N - 1.0)), Vector2(N - 0.4, rng.randf_range(3.0, N - 1.0)), Vector2(rng.randf_range(3.0, N - 1.0), 2.4), Vector2(rng.randf_range(3.0, N - 1.0), N - 0.4)]
 	for k in 2:
 		var e: Vector2 = edge_spots[(int(rng.randi() % 4) + k * 2) % 4]
 		var rocks := k == 0
+		if rocks:   # (v12.3: now the edge cloud sits inside the border, a rock field must find an edge spot off the lanes, or be a storm)
+			rocks = false
+			for es in edge_spots:
+				if off_lanes.call(es, 30000.0 / w):
+					e = es
+					rocks = true
+					break
 		clouds.append({"name": "%s %s" % [str(sy["name"]), ROCK_NAMES[rng.randi() % ROCK_NAMES.size()] if rocks else CLOUD_NAMES[rng.randi() % CLOUD_NAMES.size()]],
-			"at": [e.x, e.y], "radius": rng.randf_range(22000.0, 30000.0) if rocks else rng.randf_range(40000.0, 60000.0), "weather": "rocks" if rocks else "storm", "color": CLOUD_COLS[rng.randi() % CLOUD_COLS.size()]})
+			"at": [e.x, e.y], "radius": rng.randf_range(22000.0, 30000.0) if rocks else rng.randf_range(60000.0, 90000.0), "weather": "rocks" if rocks else "storm", "color": CLOUD_COLS[rng.randi() % CLOUD_COLS.size()]})
 	var inner := 0
 	for tries in 120:
 		if inner >= 5: break
@@ -832,6 +843,31 @@ static func _regrid(sy: Dictionary) -> void:
 		var nc: Vector2 = off_spot.call(float(sy["nebula"]["radius"]) * Data.NEBULA_SIZE * 0.65 / w, cell_of(sy["nebula"]["center"]))
 		sy["nebula"]["center"] = cell_pos([nc.x, nc.y])
 
+## v12.3: the inside of the map (the border squares are cells 1-2 and 10-11 of cell_of): clamp a point in, with a margin.
+static func inside_cells(p: Vector3, margin := Data.BORDER_MARGIN) -> Vector3:
+	var lo := 2.0 + margin
+	var hi := float(Data.MAP_CELLS) - margin
+	var c := cell_of(p)
+	if c.x >= lo and c.x <= hi and c.y >= lo and c.y <= hi: return p
+	return cell_pos([clampf(c.x, lo, hi), clampf(c.y, lo, hi)], p.y)
+
+static func keep_off_border(sy: Dictionary) -> void:
+	if sy.has("station"): sy["station"]["pos"] = inside_cells(sy["station"]["pos"])
+	if sy.has("planet"): sy["planet"]["pos"] = inside_cells(sy["planet"]["pos"], Data.BORDER_MARGIN + float(sy["planet"].get("radius", 0.0)) / (2.0 * Data.SPACE_EDGE / float(Data.MAP_CELLS)))
+	for x in sy.get("more_planets", []): x["pos"] = inside_cells(x["pos"], Data.BORDER_MARGIN + float(x.get("radius", 0.0)) / (2.0 * Data.SPACE_EDGE / float(Data.MAP_CELLS)))
+	for x in sy.get("more_stations", []): x["pos"] = inside_cells(x["pos"])
+	for g in sy.get("gates", []): g["pos"] = inside_cells(g["pos"])
+	var j: Dictionary = sy.get("junctions", {})
+	for k in j: j[k] = inside_cells(j[k])
+	if sy.has("asteroids"): sy["asteroids"]["center"] = inside_cells(sy["asteroids"]["center"], 0.0)
+	var sp := sun_pos_of(sy)
+	var sp2 := inside_cells(sp)
+	if sp2 != sp and not sy.get("sun_center", false):
+		sy["sun_dir"] = -sp2.normalized()
+		sy["sun_dist"] = sp2.length()
+	for c in sy.get("layout_clouds", []):   # a cloud's middle is inside too (it may spill out over the border)
+		c["center"] = inside_cells(c["center"], 0.0)
+
 static func _old_at(nodes: Array, nm: String) -> Vector2:
 	for x in nodes: if str(x[0]) == nm: return x[1]
 	return Vector2.INF
@@ -1101,6 +1137,10 @@ static func _system(t: Array) -> Dictionary:
 	var sa := rng.randf() * TAU
 	var station := {"id": id + "_station", "name": t[9], "pos": st_pos, "kind": "station", "color": f[3],
 		"desc": "Automated beacon. No one lives out here." if void_sys else "%s station in the %s system." % [t[5], nm]}
+	if t[6] == "unknown":   # v12.3 (owner): the uncharted areas aren't anyone's port: no beacon station to dock at (a Kaijurai hive holds its place)
+		station["nodock"] = true
+		station["hidden_hub"] = true
+		station["name"] = "Kaijurai Hive " + str(t[2])
 	if t[6] == "capital": station["model"] = "wheel_station"
 	if t[5] == "Savagers": station["model"] = "savagers_cross_station"   # v1.4r: the patched-together cross station (the owner is making one per system)
 	var patrols: Array = []
@@ -1117,7 +1157,8 @@ static func _system(t: Array) -> Dictionary:
 			"count": 70 if void_sys else 130, "ice": t[8] in ["ice", "dead", "gas"]},
 		"nebula": {"name": "%s Veil" % nm, "center": CENTRE + Vector3(cos(a3) * 1700.0, 40, sin(a3) * 1700.0), "radius": 460.0,
 			"color": (f[0] as Color).lerp(f[3], 0.6)},
-		"enemy": f[4], "enemy_ships": Data.HOME_FLEETS.get(t[6], []), "enemy_faction": Data.HOME_FACTION.get(t[6], ""), "patrols": patrols, "traffic": [[id + "_station", id + "_planet"]],
+		"enemy": f[4], "enemy_ships": Data.HOME_FLEETS.get(t[6], []), "enemy_faction": "Kaijurai" if t[6] == "unknown" else Data.HOME_FACTION.get(t[6], ""), "patrols": patrols,
+		"traffic": [] if t[6] == "unknown" else [[id + "_station", id + "_planet"]],   # (v12.3: no transports in the uncharted areas)
 	}
 
 ## v1.4u: more room. Everything in a system moves Data.SYSTEM_SPREAD times farther from its main station (sizes stay).
