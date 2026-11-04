@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.86"
+const VERSION := "v11.87"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1604,6 +1604,7 @@ const FLEET_STARFIGHTER_LEN := 11.0
 const FLEET_YAW := 0.0                 # the light copies already face -Z (top views checked)
 const FLEET_STARFIGHTER_YAW := 0.0
 const FLEET_LAUNCH_MIX := {"battleship": [0.4, 0.35, 0.25], "cruiser": [0.6, 0.4, 0.0], "frigate": [1.0, 0.0, 0.0]}   # v11.68: share of starfighter / Level 2 / Level 3 a carrier launches
+const HOME_BATTLESHIPS := 3   # v11.87 (owner): battleships patrolling a faction's home system (every other system: 1)
 const FACTION_FLEET := {
 	"Elyza": {"battleship": "elyza_battleship", "cruiser": "elyza_cruiser", "frigate": "", "starfighter": "elyza_starfighter", "fighter_l2": "elyza_fighter_l2", "fighter_l3": "elyza_fighter_l3"},
 	"Unity": {"battleship": "unity_battleship", "cruiser": "unity_cruiser", "frigate": "unity_frigate", "starfighter": "unity_starfighter", "fighter_l2": "unity_fighter_l2", "fighter_l3": "unity_fighter_l3"},

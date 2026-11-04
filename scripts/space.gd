@@ -1032,11 +1032,15 @@ func _fleet_patrols() -> void:
 	var c0: Vector3 = sys["station"]["pos"]
 	var a0 := float(absi(hash(sys_id + "_fleet")) % 628) / 100.0
 	var k := 0
-	for role in ["battleship", "cruiser"]:
+	var roles: Array = ["battleship", "cruiser"]
+	if home_of(sys_id) == fac:   # v11.87 (owner): a faction's home system has 3 battleships on patrol, every other one 1
+		for i in Data.HOME_BATTLESHIPS - 1: roles.append("battleship")
+	var n_roles := roles.size()
+	for role in roles:
 		if role == "battleship" and Boarding.sunk.has(sys_id): continue   # v11.45: you blew its reactor (this session)
 		var key := str(fl.get(role, ""))
 		if key == "" or not ShipFactory.has_real_model(key): continue
-		var ang := a0 + PI * float(k)
+		var ang := a0 + TAU * float(k) / float(n_roles)
 		var home: Vector3 = c0 + Vector3(cos(ang), 0.0, sin(ang)) * float(Data.FLEET_PATROL_AT[role])
 		var e := spawn_unit(key, home + Vector3(float(Data.FLEET_PATROL_LOOP[role]), 0, 0), home)
 		e["faction"] = fac
@@ -1045,7 +1049,9 @@ func _fleet_patrols() -> void:
 		e["orbit"] = 0.0
 		e["aggro"] = false
 		e["provoked"] = false
-		(e["node"] as Node3D).name = "%s %s" % [fac, str(e["def"]["name"]).trim_prefix(fac + " ")]
+		var nm := "%s %s" % [fac, str(e["def"]["name"]).trim_prefix(fac + " ")]
+		var same := fleet_patrols.filter(func(o): return str(o["def"]["name"]) == str(e["def"]["name"])).size()
+		(e["node"] as Node3D).name = nm if same == 0 else "%s %d" % [nm, same + 1]   # (v11.87: Battleship, Battleship 2, 3)
 		_make_carrier(e)
 		fleet_patrols.append(e)
 		if role == "battleship" and fac in Data.BOARDABLE: _boardable(e)   # v11.45
@@ -3970,6 +3976,12 @@ func _spawn_group(center: Vector3, count: int) -> Array:
 		# v1.4y: an enemy home system with its own ships (Kaijurai, Phenom) flies them, taken from its list in turn
 		var fleet: Array = sys.get("enemy_ships", []) if soldier.is_empty() and not _guard_spawn else []
 		if not fleet.is_empty(): kind = fleet[(_fleet_serial + i) % fleet.size()]
+		var sfac := str(soldier.get("faction", "")) if not soldier.is_empty() else (own if _guard_spawn else "")
+		if sfac != "" and fleet.is_empty():   # v11.87: the faction's own Level 1 / 2 / 3 fighter
+			var tier := 2 if (int(soldier.get("slot", 1)) >= 2 or bool(soldier.get("named_unique", false)) or Factions.hunted(sfac)) else 1
+			kind = tier_fighter(sfac, tier, kind)
+			tier_log.append([sfac, tier, kind])
+			if tier_log.size() > 30: tier_log.pop_front()
 		if fleet.is_empty() and soldier.is_empty() and count >= 2 and i == count - 1 and _rng.randf() < 0.5 and Packs.is_ready("mechs"): kind = "mech"
 		var mkey: String = faction_mech(str(sys.get("enemy_faction", own)) if own == "" else own) if kind == "mech" else ""   # v1.9i: the system's faction's own mech
 		var e := spawn_unit(kind, center + Vector3(_rng.randf_range(-60, 60), _rng.randf_range(-20, 20), _rng.randf_range(-60, 60)), center, mkey)
@@ -4027,6 +4039,25 @@ func roster_pick(faction: String, max_slot := 6) -> Dictionary:
 	return Data.roster_pilot(open_list[0]["id"])
 
 ## The fighter a character takes out: the primary one, now and then an alternate.
+## v11.87 (owner): which level of a faction's own fighter flies. Level 1 (the battleship sheet's starfighter) for the
+## regular soldiers, Level 2 for bounties and elite soldiers, Level 3 in the faction's home (capital) system.
+## Returns the fighter for that level, or `fallback` when the faction has no fleet or the model isn't in.
+static func home_of(sid: String) -> String:
+	if Data.RETOPO_BUILDINGS.has(sid): return str(Data.RETOPO_BUILDINGS[sid])
+	var st := str((Data.RETOPO_STATIONS.get(sid, {}) as Dictionary).get("*", ""))
+	if st.find("_Capital_") >= 0: return st.get_slice("_", 2)
+	return ""
+
+func tier_fighter(fac: String, tier: int, fallback: String) -> String:
+	var fl: Dictionary = Data.FACTION_FLEET.get(fac, {})
+	if fl.is_empty(): return fallback
+	if home_of(sys_id) == fac: tier = 3
+	var key := str(fl.get(["starfighter", "fighter_l2", "fighter_l3"][clampi(tier, 1, 3) - 1], ""))
+	for k in [key, str(fl.get("fighter_l2", "")), str(fl.get("starfighter", ""))]:   # (a missing level: the next one down)
+		if k != "" and Data.ENEMIES.has(k) and ShipFactory.has_real_model(k): return k
+	return fallback
+var tier_log: Array = []   # (tests) [faction, tier asked, ship]
+
 func roster_fighter(p: Dictionary) -> String:
 	var alts: Array = p.get("fighter_alternates", [])
 	if not alts.is_empty() and randf() < Data.ALT_FIGHTER_CHANCE: return alts[randi() % alts.size()]
@@ -4224,7 +4255,7 @@ func spawn_bounty() -> Dictionary:
 		if not grp.is_empty():
 			for o in grp: o.erase("mission")
 			return grp[0]
-	var e := spawn_unit(p["fighter_primary"], at, at)
+	var e := spawn_unit(tier_fighter(fac, 2, str(p["fighter_primary"])), at, at)
 	assign_roster(e, p)
 	e["bounty"] = p["id"]
 	e["provoked"] = true   # v1.6g: a bounty target is hostile whatever your standing with its faction
@@ -8335,6 +8366,8 @@ func spawn_mission_group(at: Vector3, faction: String, count: int, max_slot: int
 		if not soldier.is_empty() and Data.ENEMIES.has(str(soldier.get("fighter_primary", ""))): kind = str(soldier["fighter_primary"])
 		elif not pool.is_empty(): kind = pool[mini(i, pool.size() - 1)]
 		else: kind = sys["enemy"]
+		kind = tier_fighter(faction, 2, kind)   # v11.87 (owner): bounties and mission elites fly Level 2 (Level 3 at their home)
+		tier_log.append([faction, 2, kind])
 		var e := spawn_unit(kind, at + Vector3(_rng.randf_range(-70, 70), _rng.randf_range(-25, 25), _rng.randf_range(-70, 70)), at)
 		e["group"] = _group_serial
 		e["mission"] = stage

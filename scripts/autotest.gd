@@ -1464,6 +1464,17 @@ func _fighters_l2l3() -> void:
 		s.enemies.erase(e)
 		(e["node"] as Node3D).free()
 	_check("Fighters: a battleship launches its starfighters, Level 2s and Level 3s; a Level 3 flies with its real model", seen.size() == 3 and spawned, "launched %s, L3 real model %s" % [seen.keys(), spawned])
+	# v11.87 (owner): Level 1 for regular soldiers, Level 2 for bounties / elites, Level 3 at the faction's home
+	var sid0: String = s.sys_id
+	s.sys_id = "korrath"   # (an Orion system that is not its home)
+	var t1: String = s.tier_fighter("Orion", 1, "x")
+	var t2: String = s.tier_fighter("Orion", 2, "x")
+	s.sys_id = "dreadholm"   # Orion's home
+	var t3: String = s.tier_fighter("Orion", 1, "x")
+	s.sys_id = sid0
+	_check("Fighter levels: regular soldiers fly Level 1, bounties and elites Level 2, everyone at the faction's home Level 3; home systems have %d battleships on patrol" % Data.HOME_BATTLESHIPS,
+		t1 == "orion_starfighter" and t2 == "orion_fighter_l2" and t3 == "orion_fighter_l3" and SpaceSystem.home_of("dreadholm") == "Orion" and SpaceSystem.home_of("korrath") == "",
+		"korrath L1 %s, L2 %s; dreadholm %s; homes %s/%s" % [t1, t2, t3, SpaceSystem.home_of("dreadholm"), SpaceSystem.home_of("korrath")])
 
 ## v11.70 (owner): the boarding run, start to end, inside the battleship (call once the mech is inside): the doors slide
 ## open as you walk up (the way out is locked), each room's guards come when you walk in, the core's shield drops once
@@ -4610,7 +4621,8 @@ func _job_v1132() -> void:
 	await _wait(2.0)
 	var s := _sp()
 	var names: Array = s.fleet_patrols.map(func(e): return str(e["node"].name))
-	var guard_ok: bool = s.fleet_patrols.size() == 2 and names.has("Elyza Battleship") and names.has("Elyza Cruiser") and s.fleet_guard.is_empty()
+	var n_bs: int = names.filter(func(n): return str(n).begins_with("Elyza Battleship")).size()   # v11.87: the home system has 3 battleships
+	var guard_ok: bool = s.fleet_patrols.size() == Data.HOME_BATTLESHIPS + 1 and n_bs == Data.HOME_BATTLESHIPS and names.has("Elyza Cruiser") and s.fleet_guard.is_empty()
 	var bs: Node3D = s.fleet_patrols[0]["node"] if not s.fleet_patrols.is_empty() else null
 	var moved := false
 	var peace_ok := false
