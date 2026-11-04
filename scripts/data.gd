@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.91"
+const VERSION := "v11.92"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1830,6 +1830,24 @@ const RETOPO_ADDED_DIST := 9600.0   # v11.90: 4x with the stations
 # Planetary buildings: homeworld system -> faction. Its Command Center and Hangar stand on the system's main planet.
 const RETOPO_BUILDINGS := {"sepheron": "Covenant", "aurelion": "Elyza", "malachar": "Imperium", "vantara": "Liberator",
 	"dreadholm": "Orion", "raptian_major": "Savagers", "synthari_capital": "Solarion", "void_system": "Solrath", "veranthos": "Unity"}
+# v11.91 (owner's Tripo bases, approved Nov 4): which bases stand on which world (system id -> [[file, name, side]]).
+# side: "hostile" (attackable nest, gun batteries beside it) / "friendly" / "neutral".
+const PLANET_BASES := {
+	"solara": [["HL_Base_Unity_ResearchDome", "New Terra Research Dome", "neutral"]],
+	"veranthos": [["HL_Base_Unity_Capitol", "Veranthos Capitol", "neutral"], ["HL_Base_Unity_Hangar", "Senate Hangar", "neutral"]],
+	"dreadholm": [["HL_Base_Orion_RingSpire", "Ring Spire", "friendly"], ["HL_Base_Orion_FieldDepot", "Magma Field Depot", "friendly"]],
+	"raptian_major": [["HL_Base_Savagers_ScrapYard", "Scrap Yard", "hostile"], ["HL_Base_Savagers_WarCamp", "War Camp", "hostile"]],
+	"noctyra": [["HL_Base_Phenom_CrystalGate", "Crystal Gate", "hostile"]],
+	"genesis": [["HL_Base_Kaijurai_SpikeHive", "Spike Hive", "hostile"]],
+	"synthari_capital": [["HL_Base_Solarion_SunTemple", "Sun Temple", "neutral"], ["HL_Base_Solarion_TradeYard", "Trade Yard", "neutral"]],
+	"vantara": [["HL_Base_Liberator_Outpost", "Liberator Outpost", "friendly"]],
+	"sepheron": [["HL_Base_Covenant_Sanctum", "Covenant Sanctum", "friendly"]],
+	"malachar": [["HL_Base_Imperium_Bastion", "Imperium Bastion", "hostile"]],
+	"aurelion": [["HL_Base_Elyza_CrystalCourt", "Crystal Court", "neutral"]],
+}
+const BASE_WIDTH := 260.0        # m across
+const BASE_PART_WIDTH := 45.0    # m: a gun battery / generator beside a hostile base
+const BASE_SPOTS := [Vector2(700.0, 500.0), Vector2(-750.0, 450.0), Vector2(150.0, 900.0)]   # sector-local x, z (clear of the Command Center and Hangar)
 const BUILDING_KINDS := ["CommandCenter", "Hangar"]   # Imperium, Liberator and Solrath have no Hangar file yet
 const BUILDING_WIDTH := {"CommandCenter": 170.0, "Hangar": 140.0}   # m across (the landing pad is 180 m)
 const BUILDING_SPOT := {"CommandCenter": Vector2(-150.0, -420.0), "Hangar": Vector2(180.0, -400.0)}   # m from the sector centre (x east, z south)

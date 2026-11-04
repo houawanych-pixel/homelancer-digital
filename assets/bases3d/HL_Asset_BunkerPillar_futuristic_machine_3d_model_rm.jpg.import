@@ -1,0 +1,37 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://cpka73b3fxsid"
+path="res://.godot/imported/HL_Asset_BunkerPillar_futuristic_machine_3d_model_rm.jpg-d08ed260e0c195d9d88e8d80b7657aac.ctex"
+metadata={
+"vram_texture": false
+}
+generator_parameters={
+"md5": "ee14a27c9b4f1b84d8fb5e85094dd7d3"
+}
+
+[deps]
+
+source_file="res://assets/bases3d/HL_Asset_BunkerPillar_futuristic_machine_3d_model_rm.jpg"
+dest_files=["res://.godot/imported/HL_Asset_BunkerPillar_futuristic_machine_3d_model_rm.jpg-d08ed260e0c195d9d88e8d80b7657aac.ctex"]
+
+[params]
+
+compress/mode=0
+compress/high_quality=false
+compress/lossy_quality=0.7
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=1

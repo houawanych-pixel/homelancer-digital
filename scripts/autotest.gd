@@ -1480,6 +1480,15 @@ func _fighters_l2l3() -> void:
 		s.enemies.erase(e)
 		(e["node"] as Node3D).free()
 	_check("Fighters: a battleship launches its starfighters, Level 2s and Level 3s; a Level 3 flies with its real model", seen.size() == 3 and spawned, "launched %s, L3 real model %s" % [seen.keys(), spawned])
+	# v11.91: the owner's approved bases: every base file is in, in its own pack, out of the main download
+	var bases_ok: bool = Packs.PACKS.has("bases3d")
+	var nb := 0
+	for sid in Data.PLANET_BASES:
+		for b in Data.PLANET_BASES[sid]:
+			nb += 1
+			if not ResourceLoader.exists("res://assets/bases3d/%s.glb" % str(b[0])) or not Data.SYSTEMS.has(sid): bases_ok = false
+	for part in ["HL_Asset_GunBattery", "HL_Asset_Generator", "HL_Asset_BunkerPillar"]: if not ResourceLoader.exists("res://assets/bases3d/%s.glb" % part): bases_ok = false
+	_check("Bases: the 15 approved faction bases stand on their factions' worlds (own pack), with the 3 base parts", bases_ok and nb == 15, "ok %s bases %d" % [bases_ok, nb])
 	# v11.88 (owner): a Level 2 is twice as strong as a Level 1, a Level 3 three times (hull, shields, damage)
 	var str_ok := true
 	for f in Data.FACTION_FLEET:
@@ -1716,6 +1725,22 @@ func _run() -> void:
 			SpaceSystem.face(e["node"], p.global_basis.x + p.global_basis.z * 0.6)
 		await _wait(0.05)
 		await _capture("fighters_l2l3")
+		get_tree().quit()
+		return
+	if OS.get_environment("HL_BASESHOT") != "":   # v11.91: pictures of a world's bases (HL_PID planet id, HL_SHOT_DIR)
+		await _smoke_core()
+		var pid := OS.get_environment("HL_PID") if OS.get_environment("HL_PID") != "" else "new_terra"
+		main._load_surface(pid, 0)
+		await _until(func(): return main.state == "flight" and _sp().surface_mode, 20.0)
+		var s := _sp()
+		await _until(func(): return not s.planet_bases.is_empty(), 20.0)
+		await _wait(1.0)
+		print("[bases] ", s.planet_bases.map(func(h): return [h.name, h.position]))
+		for h: Node3D in s.planet_bases:
+			var at: Vector3 = h.global_position
+			_tp(at + Vector3(260.0, 140.0, 260.0), at)
+			await _wait(1.2)
+			await _capture("base_" + str(h.name).replace(" ", "_"))
 		get_tree().quit()
 		return
 	if OS.get_environment("HL_STATIONSHOT") != "":   # v11.86: a picture of a system's main station (HL_SYS, HL_SHOT_DIR)

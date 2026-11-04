@@ -183,6 +183,7 @@ const PACKS := {
 	"kaijurai_fleet": {"folders": ["res://assets/ships/kaijurai"], "probe": "res://assets/ships/kaijurai/kaijurai_fang.glb"},   # v6.2: the second Kaijurai set
 	"faction_fleet": {"folders": ["res://assets/ships/fleet"], "probe": "res://assets/ships/fleet/elyza_battleship.glb"},
 	"faction_fighters": {"folders": ["res://assets/ships/fighters"], "probe": "res://assets/ships/fighters/HL_Orion_Fighter_L2.glb"},   # v11.68: the 8 factions' Level 2 and Level 3 fighters
+	"bases3d": {"folders": ["res://assets/bases3d"], "probe": "res://assets/bases3d/HL_Base_Unity_ResearchDome.glb"},   # v11.91: the owner's 15 faction bases + 3 base parts
 	"crowd3d": {"folders": ["res://assets/crowd3d"], "probe": "res://assets/crowd3d/phenom_isara.glb"},   # v11.84: the rigged crowd characters (toon shaded in the rooms)
 	"cargo_ships": {"folders": ["res://assets/ships/cargo"], "probe": "res://assets/ships/cargo/HL_Cargo_Orion_T1_v1.glb"},   # v11.68: the lane freighters (v11.63) out of the main download   # v11.32: the 8 factions' battleships, cruisers, frigates, starfighters
 	# v1.9i: one pack per extra mech frame, fetched when you buy / fit its parts or meet its faction

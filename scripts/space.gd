@@ -759,6 +759,62 @@ func building_site(want: Vector2, half: float, placed: Array) -> Vector3:
 				best = Vector3(c.x, lo, c.y)
 	return best
 
+## v11.91 (owner's 17 Tripo bases, slimmed for phones, approved Nov 4): a faction's bases stand on its worlds
+## (Data.PLANET_BASES: system -> [[file, name, side]]), named, round the sector centre on the flattest ground near
+## their spot; a hostile one gets gun batteries and a generator beside it (the base parts). Their own pack ("bases3d").
+var planet_bases: Array = []   # (tests) the base holders on this sector
+func _planet_bases() -> void:
+	planet_bases = []
+	if tile != 0 or not is_instance_valid(tile_root) or planet_id == "": return
+	var sid := ""
+	for k in Data.PLANET_BASES:   # (the system whose main world this is: "solara" -> new_terra, "dreadholm" -> dreadholm_planet)
+		if Data.SYSTEMS.has(k) and str((Data.SYSTEMS[k].get("planet", {}) as Dictionary).get("id", "")) == planet_id: sid = k
+	if sid == "": return
+	var list: Array = Data.PLANET_BASES.get(sid, [])
+	if list.is_empty(): return
+	if not Packs.is_ready("bases3d"):
+		if not Packs.pack_ready.is_connected(_on_bases_pack): Packs.pack_ready.connect(_on_bases_pack)
+		Packs.request("bases3d")
+		return
+	for i in list.size():
+		var b: Array = list[i]
+		var h := _ground_prop("res://assets/bases3d/%s.glb" % str(b[0]), Data.BASE_WIDTH, Data.BASE_SPOTS[i % Data.BASE_SPOTS.size()])
+		if h == null: continue
+		h.name = str(b[1])
+		h.set_meta("base", str(b[0]))
+		h.set_meta("side", str(b[2]))
+		planet_bases.append(h)
+		if str(b[2]) == "hostile":   # its defences: gun batteries either side and a generator behind
+			for k in 3:
+				var part := "HL_Asset_GunBattery" if k < 2 else "HL_Asset_Generator"
+				var off := Vector2((-1.0 if k == 0 else 1.0) * Data.BASE_WIDTH * 0.75, 0.0) if k < 2 else Vector2(0.0, -Data.BASE_WIDTH * 0.8)
+				var p := Vector2(h.position.x, h.position.z) + off
+				_ground_prop("res://assets/bases3d/%s.glb" % part, Data.BASE_PART_WIDTH, p)
+
+func _on_bases_pack(pk: String) -> void:
+	if pk != "bases3d" or not surface_mode or not is_inside_tree() or not planet_bases.is_empty(): return
+	if Packs.pack_ready.is_connected(_on_bases_pack): Packs.pack_ready.disconnect(_on_bases_pack)
+	_planet_bases()
+
+## One model stood on the ground at (sector-local) `want`, `width` m across, with a box to bump into. Null if missing.
+func _ground_prop(path: String, width: float, want: Vector2) -> Node3D:
+	if not ResourceLoader.exists(path): return null
+	var ps := load(path) as PackedScene
+	if ps == null: return null
+	var inst: Node3D = ps.instantiate()
+	var holder := Node3D.new()
+	holder.add_child(inst)
+	var bb := ShipFactory._aabb(inst, Transform3D.IDENTITY)
+	var w: float = width / maxf(maxf(bb.size.x, bb.size.z), 0.001)
+	var half := maxf(bb.size.x, bb.size.z) * w * 0.5
+	var site := building_site(want, half, surf_boxes)
+	holder.scale = Vector3.ONE * w
+	holder.position = Vector3(site.x, site.y - Data.BUILDING_SINK - bb.position.y * w, site.z)
+	holder.set_meta("half", half)
+	tile_root.add_child(holder)
+	surf_boxes.append([holder, bb])
+	return holder
+
 func _on_bld_pack(pk: String) -> void:
 	if not pk.begins_with("bld_") or not surface_mode or not is_inside_tree() or not surf_boxes.is_empty(): return
 	_faction_buildings()
@@ -8109,6 +8165,7 @@ func load_tile(t: int, keep := Vector3.INF) -> void:
 	_edge_warned = false
 	add_child(tile_root)
 	_faction_buildings()   # v1.9q
+	_planet_bases()   # v11.91
 	var b := Surface.biome(planet_id, t)
 	var cols := {"sky": b["sky"], "horizon": b["horizon"], "fog": b["fog"]}
 	if keep == Vector3.INF: _apply_sky(cols, 1.0)
