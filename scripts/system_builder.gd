@@ -225,6 +225,17 @@ static func apply_layouts(systems: Dictionary) -> void:
 		if not systems.has(sid): continue
 		var sy: Dictionary = systems[sid]
 		var L: Dictionary = Data.SYSTEM_LAYOUT[sid]
+		# v11.91 (owner: Solara, the starting system): the hub, the main planet, the belt and the main nebula by hand too,
+		# and planets added to the system (they come in already grown)
+		if L.has("hub"): sy["station"]["pos"] = cell_pos(L["hub"], (sy["station"]["pos"] as Vector3).y)
+		if L.has("planet"): sy["planet"]["pos"] = cell_pos(L["planet"], (sy["planet"]["pos"] as Vector3).y)
+		if L.has("belt") and sy.has("asteroids"): sy["asteroids"]["center"] = cell_pos(L["belt"])
+		if L.has("nebula") and sy.has("nebula"): sy["nebula"]["center"] = cell_pos(L["nebula"])
+		for ap: Dictionary in L.get("add_planets", []):
+			if (sy.get("more_planets", []) as Array).any(func(x): return str(x["name"]) == str(ap["name"])): continue
+			sy["more_planets"].append({"id": "%s_%s" % [sid, str(ap["name"]).to_lower().replace(" ", "_")], "name": str(ap["name"]), "palette": str(ap["palette"]),
+				"kind": "landmark", "placeholder": true, "pos": cell_pos(ap["at"], float(ap.get("y", 0.0))), "radius": float(ap["radius"]) * Data.PLANET_GROW,
+				"desc": str(ap.get("desc", "%s world. Fly into the atmosphere to go down." % str(ap["palette"]).capitalize()))})
 		if L.has("sun"):
 			var sp := cell_pos(L["sun"])
 			sy["sun_center"] = false

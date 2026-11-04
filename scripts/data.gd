@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.90"
+const VERSION := "v11.91"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -52,6 +52,15 @@ const SYSTEM_ROLES := {
 		"spy": {"type": "contact", "at": "hub", "faction": "Unity", "name": "Veil Informant",
 			"desc": "A covert contact at Fleet Command who trades word on the hidden Unity post."},
 	},
+	"solara": {   # v11.91 (owner: the starting system, souped up): Unity's hub, its Liberator friends, the Imperium watching
+		"hub": {"name": "Liberty Hub"},
+		"ally": {"name": "Liberator Freeport", "faction": "Liberator", "model": "HL_Station_Liberator_Military_retopo", "tint": Color(0.75, 0.95, 0.9),
+			"desc": "Liberator freeport: Unity's allies run a fuel depot, a mech shop and a clinic for pilots passing through."},
+		"rival": {"name": "Imperium Watch Post", "faction": "Imperium", "model": "HL_Station_Imperium_Military_retopo", "hidden": true, "in_nebula": true,
+			"desc": "An Imperium watch post hidden in the Violet Reach: it sends the raids on Solara's lanes."},
+		"spy": {"type": "contact", "at": "hub", "faction": "Imperium", "name": "Dockside Whisper",
+			"desc": "A dock worker at Liberty Hub who sells word on the hidden Imperium post."},
+	},
 }
 ## v11.65 (owner, Dreadholm map talk-through, Nov 3): a system laid out by hand, in MAP SQUARES [column, row] as the map
 ## reads them (A = 1 ... J = 10 across, 1 ... 10 down; .5 = the middle of a square). The star sits right by the lava world
@@ -59,6 +68,24 @@ const SYSTEM_ROLES := {
 ## lanes are a network: spokes from Fleet Command plus an OUTER RING, meeting at CHOKE POINTS (one lane in, a T out to two
 ## places). A rock field and a storm cloud sit on the straight lines, so the lanes go round them.
 const SYSTEM_LAYOUT := {
+	"solara": {   # v11.91 (owner: the starting system needs souping up): a full lane network, an ally, a hidden rival, a second world
+		"hub": [6.0, 6.0], "planet": [7.6, 3.4], "sun": [4.0, 4.0], "belt": [4.4, 5.6], "nebula": [2.8, 2.6],
+		"add_planets": [{"name": "Haven", "palette": "ice", "at": [3.0, 7.6], "radius": 650.0,
+			"desc": "Ice world. Mining camps and a quiet harbour for new pilots. Fly into the atmosphere to go down."}],
+		"stations": {"Liberator Freeport": [8.6, 7.2], "Imperium Watch Post": [2.8, 2.6]},
+		"gates": {"vega": [6.2, 1.9], "veranthos": [5.6, 9.0]},
+		"clouds": [
+			{"name": "Outer Drift", "at": [10.0, 5.0], "radius": 26000.0, "weather": "rocks", "color": Color(0.62, 0.58, 0.55)},
+			{"name": "Ash Wisps", "at": [1.0, 8.4], "radius": 24000.0, "weather": "storm", "color": Color(0.5, 0.45, 0.75)},
+			{"name": "Liberty Haze", "at": [7.4, 8.6], "radius": 22000.0, "weather": "storm", "color": Color(0.35, 0.6, 0.95)},
+		],
+		"junctions": {"North Choke Point": [6.9, 4.7], "Liberty Crossing": [6.6, 7.7]},
+		"lanes": [
+			["hub", "North Choke Point"], ["North Choke Point", "planet"], ["North Choke Point", "Liberator Freeport"],
+			["planet", "gate:vega"], ["hub", "Liberty Crossing"], ["Liberty Crossing", "gate:veranthos"],
+			["Liberty Crossing", "Liberator Freeport"], ["Liberty Crossing", "Haven"], ["Haven", "gate:veranthos"],
+		],
+	},
 	"dreadholm": {
 		"sun": [5.5, 4.5],
 		"planets": {"Vassal": [2.5, 6.5]},
@@ -976,6 +1003,7 @@ const NEBULA_ROCK_CLUMPS := 5        # v10.4: they gather in this many clumps ..
 const NEBULA_ROCK_CLUMP_R := 3500.0  # ... about this wide (m)
 const NEBULA_ROCK_SIZE := [8.0, 90.0]   # their size range (m), most small (was 6-34)
 const NEBULA_STORM_FLASH := [0.8, 2.6]
+const DETOUR_PAD := 500.0   # v11.91: m the autopilot keeps round a station in its way
 const GATE_GROW := 2.0   # v11.89 (owner): jump, warp and rift gates 2x
 const WARP_HOLE_SIZE := 240.0          # v1.9z (owner): the warp gate as a Freelancer-style hole: its size (m)
 const WARP_HOLE_SPARKS := 120
@@ -1773,6 +1801,7 @@ const RETOPO_STATIONS := {
 	"empire_major": {"*": "HL_Station_Imperium_Trade_retopo"},        # Imperial Customs Station
 	"vantara": {"*": "HL_Station_Liberator_Capital_retopo"},          # Liberator capital
 	"exodus_point": {"*": "HL_Station_Liberator_Military_retopo"},    # borders the Gadversee home
+	"solara": {"*": "st3d_veranthos_customs"},                        # v11.91 (owner): Liberty Hub, Unity, the starting system
 	"dreadholm": {"*": "st3d_veranthos_summit"},                      # Orion capital (v11.86 owner: the domed ring; the cobra station is kept for the coming Zards faction)
 	"korrath": {"*": "HL_Station_Orion_Military_retopo"},             # Garrison, borders two Savagers systems
 	"raptian_major": {"*": "HL_Station_Savagers_Capital_retopo"},     # Savagers capital

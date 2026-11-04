@@ -212,6 +212,7 @@ const PACKS := {
 	# v1.9d Station3D-Retopo v1: one pack per 3D station (its three LODs), fetched when you enter its system
 	"st3d_aurelion_citadel": {"folders": ["res://assets/stations3d"], "match": "st3d_aurelion_citadel", "probe": "res://assets/stations3d/st3d_aurelion_citadel.glb"},
 	"st3d_aurelion_tradehub": {"folders": ["res://assets/stations3d"], "match": "st3d_aurelion_tradehub", "probe": "res://assets/stations3d/st3d_aurelion_tradehub.glb"},
+	"st3d_veranthos_customs": {"folders": ["res://assets/stations3d"], "match": "st3d_veranthos_customs", "probe": "res://assets/stations3d/st3d_veranthos_customs.glb"},   # v11.91: Liberty Hub (Solara)
 	"st3d_veranthos_summit": {"folders": ["res://assets/stations3d"], "match": "st3d_veranthos_summit", "probe": "res://assets/stations3d/st3d_veranthos_summit.glb"},   # v11.86: the Orion capital (Fleet Command)
 	"st3d_veranthos_senate": {"folders": ["res://assets/stations3d"], "match": "st3d_veranthos_senate", "probe": "res://assets/stations3d/st3d_veranthos_senate.glb"},
 	"st3d_veranthos_fleethq": {"folders": ["res://assets/stations3d"], "match": "st3d_veranthos_fleethq", "probe": "res://assets/stations3d/st3d_veranthos_fleethq.glb"},

@@ -5020,6 +5020,7 @@ func _autopilot_input() -> Array:
 		var off: Vector3 = (player.global_position - autopilot.global_position).normalized()
 		goal = autopilot.global_position + off * (float(autopilot.get_meta("radius")) + Data.PH_GOTO_STANDOFF)
 	if kind == "gate": goal = autopilot.global_position + autopilot.global_basis.z * 120.0
+	goal = _detour(goal)   # v11.91: round a (4x) station in the way, not through it
 	var to := goal - player.global_position
 	var local := player.global_basis.inverse() * to.normalized()
 	var steer := Vector2(clampf(local.x * 3.0, -1, 1), clampf(-local.y * 3.0, -1, 1))
@@ -5039,6 +5040,29 @@ func _autopilot_input() -> Array:
 	if warp_state == "on" and (dist < drop_d or planet_hazard > 0): drop_warp("Autopilot: dropping out of warp.")
 	var th := 1.0 if local.z < -0.3 else 0.2
 	return [steer, Vector2(0, th)]
+
+## v11.91: the stations are big now (4x): when the straight run to `goal` passes through a station that is not where
+## you're going, head for a point beside it first (on your side), then on to the goal.
+func _detour(goal: Vector3) -> Vector3:
+	var p := player.global_position
+	var seg := goal - p
+	var L := seg.length()
+	if L < 1.0: return goal
+	var dir := seg / L
+	var obs: Array = []
+	if is_instance_valid(station) and autopilot != station: obs.append([station.global_position, maxf(_station_reach(), float(station.get_meta("radius", 0.0)))])
+	for x: Node3D in extras:
+		if is_instance_valid(x) and x != autopilot and float(x.get_meta("radius", 0.0)) > 300.0: obs.append([x.global_position, float(x.get_meta("radius"))])
+	for o in obs:
+		var c: Vector3 = o[0]
+		var r: float = float(o[1]) + Data.DETOUR_PAD
+		var t := clampf((c - p).dot(dir), 0.0, L)
+		var near := p + dir * t
+		if near.distance_to(c) >= r or c.distance_to(goal) < r or p.distance_to(c) < r * 0.9: continue
+		var side := near - c
+		if side.length() < 1.0: side = dir.cross(Vector3.UP)
+		return c + side.normalized() * r * 1.15
+	return goal
 
 func _in_fire_cone(tv) -> bool:   # (untyped: a target freed this frame is just "no", not a script error)
 	if tv == null or not is_instance_valid(tv): return false

@@ -1240,6 +1240,22 @@ func _cargo() -> void:
 func _warp_kill() -> void:
 	var s := _sp()
 	GS.energy = Data.ENERGY_MAX
+	if is_instance_valid(s.station):   # v11.91: GO TO goes round a station in the way, not through it
+		var c: Vector3 = s.station.global_position
+		var R: float = s._station_reach()
+		s.player.global_position = c + Vector3(0, 0, R + 800.0)
+		var ap0 = s.autopilot
+		s.autopilot = null
+		var d: Vector3 = s._detour(c + Vector3(0, 0, -(R + 6000.0)))
+		s.autopilot = ap0
+		var seg_ok := true
+		for i in 21:
+			var q: Vector3 = (c + Vector3(0, 0, R + 800.0)).lerp(d, i / 20.0)
+			if q.distance_to(c) < R: seg_ok = false
+		_check("GO TO: the run from in front of a station to a point behind it goes round the station, not through it", seg_ok and d.distance_to(c) > R, "detour %s (reach %.0f m) clear %s" % [d - c, R, seg_ok])
+	if is_instance_valid(s.station):   # (v11.91: start clear of the 4x station, out to the side)
+		s.player.global_position = s.station.global_position + Vector3(s._station_reach() + 2500.0, 0, 0)
+		s.vel = Vector3.ZERO
 	s.autopilot = s.gates[0] if not s.gates.is_empty() else s.planet
 	s.player.look_at(s.autopilot.global_position)
 	s.yaw = s.player.rotation.y
@@ -1640,10 +1656,12 @@ func _run() -> void:
 	if OS.get_environment("HL_MAPDUMP") != "":
 		main.start_game()
 		await _until(func(): return main.state == "flight", 20.0)
-		main._load_system("dreadholm", "station")
-		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.sys_id == "dreadholm", 15.0)
-		await _wait(1.0)
+		var msid := OS.get_environment("HL_SYS") if OS.get_environment("HL_SYS") != "" else "dreadholm"
+		main._load_system(msid, "station")
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.sys_id == msid, 15.0)
+		await _wait(8.0)
 		var s := _sp()
+		print("[route] extras ", s.extras.map(func(n): return n.name), " hidden ", s.hidden_extras.map(func(n): return n.name), " more_planets ", s.sys["more_planets"].size(), " more_stations ", s.sys["more_stations"].size())
 		var E: float = Data.SPACE_EDGE
 		var w: float = 2.0 * E / Data.MAP_CELLS
 		var cell := func(p: Vector3) -> String: return "%s%.1f / col %.2f row %.2f" % ["ABCDEFGHIJK"[int((p.x + E) / w)], (p.z + E) / w + 1.0, (p.x + E) / w + 1.0, (p.z + E) / w + 1.0]
@@ -1709,6 +1727,13 @@ func _run() -> void:
 		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.sys_id == sid, 15.0)
 		var st: Node3D = _sp().station
 		await _wait(6.0)
+		if OS.get_environment("HL_MAP") != "":   # (the system map instead)
+			await _wait(8.0)
+			main.navmap.open(_sp())
+			await _wait(1.5)
+			await _capture("map_" + sid)
+			get_tree().quit()
+			return
 		if OS.get_environment("HL_AIM") == "fleet" and not _sp().fleet_patrols.is_empty():   # (a battleship instead)
 			st = _sp().fleet_patrols[0]["node"]
 			var bb: AABB = ShipFactory._aabb(st, st.global_transform.affine_inverse())
