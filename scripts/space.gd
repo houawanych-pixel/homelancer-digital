@@ -15,7 +15,7 @@ signal board_exit(won: bool)          # v11.45: out of the battleship again (won
 
 const DOCK_RANGE_STATION := Data.DOCK_RANGE_STATION
 const DOCK_RANGE_PLANET := Data.DOCK_RANGE_PLANET # measured from the planet surface
-const GATE_RANGE := 320.0
+const GATE_RANGE := 640.0   # v11.89: 2x with the gates (was 320)
 
 var sys: Dictionary
 var sys_id := ""
@@ -1856,6 +1856,8 @@ func _build_gate(d: Dictionary) -> void:
 	var inward: Vector3 = (Vector3(0, 0, -1200) - g.position)
 	if inward.length() < 10.0: inward = Vector3(0, 0, -1)
 	g.look_at(g.position - inward.normalized(), Vector3.UP)
+	g.scale = Vector3.ONE * Data.GATE_GROW   # v11.89 (owner): every gate 2x (ring, hole or star, and all its parts)
+	g.set_meta("radius", 55.0 * Data.GATE_GROW)
 	var standin := Node3D.new()
 	g.add_child(standin)
 	g.set_meta("standin", standin)
@@ -2233,7 +2235,7 @@ func _warp_hole(g: Node3D) -> MeshInstance3D:
 		w.scale = Vector3.ONE * Data.WARP_HOLE_SIZE * _rng.randf_range(0.5, 0.85)
 		w.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		g.add_child(w)
-	g.set_meta("radius", Data.WARP_HOLE_SIZE * 0.45)
+	g.set_meta("radius", Data.WARP_HOLE_SIZE * 0.45 * Data.GATE_GROW)
 	return hole
 
 ## v1.9r: the gate ring and dock arch models are in: their own small packs, or the whole structures pack.
@@ -2258,7 +2260,7 @@ func _gate_model() -> void:
 			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			g.add_child(mi)
 			(g.get_meta("standin") as Node3D).visible = false
-			g.set_meta("radius", 2.9 * GATE_RING_SCALE)
+			g.set_meta("radius", 2.9 * GATE_RING_SCALE * Data.GATE_GROW)
 			if g == gate: gate_model = mi
 	sc.free()
 
@@ -4412,6 +4414,14 @@ func _build_carrier() -> void:
 
 # ---------------------------------------------------------------- v11.63: lane freighters (owner's freighter block)
 ## The system's cargo faction: its own faction when it has a freighter, otherwise one picked from the system name.
+## v11.89 (owner): a system's lanes carry its own faction's freighters, its ally's, and Unity's (Unity trades everywhere);
+## never a rival's. Order: own, own, ally, Unity (a missing one is the system's own again).
+static func cargo_factions(system: Dictionary, sid: String) -> Array:
+	var own := cargo_faction(system)
+	var ally := str(((Data.SYSTEM_ROLES.get(sid, {}) as Dictionary).get("ally", {}) as Dictionary).get("faction", ""))
+	if not Data.CARGO_SHIPS.has(ally): ally = own
+	return [own, own, ally, "Unity"]
+
 static func cargo_faction(system: Dictionary) -> String:
 	var f := str(system.get("faction", ""))
 	if Data.CARGO_SHIPS.has(f): return f
@@ -4426,7 +4436,8 @@ func _build_freighters() -> void:
 	if not Packs.is_ready("cargo_ships"):   # (v11.68: their pack is still coming: they start once it is in)
 		if not Packs.pack_ready.is_connected(_on_cargo_pack): Packs.pack_ready.connect(_on_cargo_pack)
 		return
-	for k in Data.FREIGHTERS_PER_SYSTEM: spawn_freighter(cargo_faction(sys), 1 + k % 2, k)
+	var facs := cargo_factions(sys, sys_id)
+	for k in Data.FREIGHTERS_PER_SYSTEM: spawn_freighter(facs[k % facs.size()], 1 + k % 2, k)
 
 func _on_cargo_pack(pk: String) -> void:
 	if pk != "cargo_ships" or not is_inside_tree() or surface_mode: return

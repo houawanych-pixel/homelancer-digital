@@ -1709,6 +1709,11 @@ func _run() -> void:
 		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.sys_id == sid, 15.0)
 		var st: Node3D = _sp().station
 		await _wait(6.0)
+		if OS.get_environment("HL_AIM") == "fleet" and not _sp().fleet_patrols.is_empty():   # (a battleship instead)
+			st = _sp().fleet_patrols[0]["node"]
+			var bb: AABB = ShipFactory._aabb(st, st.global_transform.affine_inverse())
+			print("[size] battleship ", bb.size, " placeholder ", _sp().fleet_patrols[0].get("model", st).get_meta("placeholder", "?"))
+		if OS.get_environment("HL_AIM") == "cargo" and not _sp().freighters.is_empty(): st = _sp().freighters[0]["node"]
 		for i in 2:
 			var off := Vector3(1.0, 0.35, 1.0).normalized() if i == 0 else Vector3(-1.0, 0.15, 0.4).normalized()
 			_tp(st.global_position + off * float(OS.get_environment("HL_DIST") if OS.get_environment("HL_DIST") != "" else "2600"), st.global_position)
@@ -1726,6 +1731,15 @@ func _run() -> void:
 		main.dock(_sp().planet)
 		await _until(func(): return main.state == "hub", 10.0)
 		var hb = main.hub
+		if OS.get_environment("HL_PAGE") != "":   # (a page of the planet hub instead)
+			await _wait(1.0)
+			hb.show_screen(OS.get_environment("HL_PAGE"))
+			await _wait(1.5)
+			await _capture("page_" + OS.get_environment("HL_PAGE"))
+			var jobs = "?"
+			print("[page] kind ", hb.kind, " base ", hb.base.get("name", ""), " jobs ", jobs)
+			get_tree().quit()
+			return
 		await _until(func(): return not hb.crowd.people.is_empty(), 10.0)
 		print("[crowd] ", hb.crowd.crowd_log, " room ", hb.crowd.room)
 		hb.set_panels_hidden(true)

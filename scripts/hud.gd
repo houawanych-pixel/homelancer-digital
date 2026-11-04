@@ -491,7 +491,7 @@ func _fl_panels() -> void:
 				var y: float = r.position.y + 30 + FL_TGT_H + 4 + i * 24
 				var sel: bool = c["node"] == tg
 				if sel: draw_rect(Rect2(r.position.x + 4, y, r.size.x - 8, 22), Color(c["col"], 0.22))
-				draw_circle(Vector2(r.position.x + 13, y + 11), 4, c["col"])
+				_type_icon(Vector2(r.position.x + 13, y + 11), contact_type(c["node"]), c["col"], 6.0)   # v11.89: what it is
 				_text(Vector2(r.position.x + 22, y + 16), _dist(space.player.global_position.distance_to(c["node"].global_position)), 12, Color(c["col"], 0.9), HORIZONTAL_ALIGNMENT_LEFT, 56)
 				_text(Vector2(r.position.x + 80, y + 16), c["name"], 12, WHITE if sel else Color(WHITE, 0.85), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 86)
 			pass
@@ -1611,7 +1611,7 @@ func _draw() -> void:
 		var sp = _screen(pos)
 		var col := GOLD if n == space.gate else GREEN
 		if sp != null and Rect2(Vector2(col_w, 0), Vector2(S.x - col_w * 2, S.y)).has_point(sp):
-			draw_arc(sp, 14, 0, TAU, 4, Color(col, 0.85), 2.0)
+			_type_icon(sp, contact_type(n), Color(col, 0.9), 8.0)   # v11.89 (was a plain diamond)
 			_text(sp + Vector2(20, 6), "%s  %s" % [n.name, _dist(space.distance_to(n))], 14, Color(col, 0.95))
 	# v1.5a: the mission waypoint: a gold marker with what it is and how far, and an arrow at the screen edge when it is out of view
 	var mw: Dictionary = {} if dock_down else space.mission_waypoint()
@@ -1646,6 +1646,7 @@ func _draw() -> void:
 		var edist: float = space.player.global_position.distance_to(e["node"].global_position)
 		if ep != null and view.has_point(ep):
 			_brackets(ep, Data.SHIP_BOX, Color(RED if e["node"].get_meta("kind", "enemy") == "enemy" else GOLD, 0.95))   # v1.8u (owner): every ship has a lock box you can tap
+			_type_icon(ep + Vector2(-Data.SHIP_BOX - 12.0, -Data.SHIP_BOX + 4.0), contact_type(e["node"]), Color(RED if e["node"].get_meta("kind", "enemy") == "enemy" else GOLD, 0.95), 6.0)   # v11.89
 			for row in _lock_rows():   # v1.9r: the shared locks on this one: red pips on top, purple underneath
 				var nl := _locks_on(row[0], e["node"])
 				for k in nl: _lock_pip(ep + Vector2((k - (nl - 1) * 0.5) * 12.0, -Data.SHIP_BOX - 22.0 if row[1] else Data.SHIP_BOX + 9.0), row[2], true, 4.5)   # (red above its bars)
@@ -1662,6 +1663,7 @@ func _draw() -> void:
 		var tcol := RED if tgt.get_meta("kind", "") == "enemy" else GOLD
 		if tp != null and view.has_point(tp):
 			_brackets(tp, 30.0, tcol)
+			_type_icon(tp + Vector2(-44.0, -24.0), contact_type(tgt), tcol, 8.0)   # v11.89 (owner): what you're locked on
 			var ya: Vector2 = tp + Vector2(0, -48)   # v8.3 (owner): a yellow arrow over the one you're locked on
 			draw_colored_polygon(PackedVector2Array([ya + Vector2(0, 12), ya + Vector2(-11, -6), ya + Vector2(11, -6)]), YELLOW)
 			if tgt.get_meta("kind", "") == "enemy":
@@ -1925,6 +1927,50 @@ func _lock_pip(pc: Vector2, col: Color, filled: bool, r: float) -> void:
 	if filled: draw_colored_polygon(dia, col)
 	dia.append(dia[0])
 	draw_polyline(dia, Color(col, 0.95), 1.5)
+
+## v11.89 (owner: "target silhouettes should have icons"): what a contact is, and a small icon of it.
+func contact_type(n: Node3D) -> String:
+	if n == null or not is_instance_valid(n): return ""
+	var k := str(n.get_meta("kind", ""))
+	if k in ["station", "planet", "gate", "landmark"]: return "planet" if k == "planet" else ("gate" if k == "gate" else "station")
+	for tr in space.traffic: if tr["node"] == n: return "cargo"
+	for fr in space.freighters: if fr["node"] == n: return "cargo"
+	var e: Dictionary = space._enemy_entry(n)
+	if e.is_empty(): return "ship"
+	if bool(e.get("mech", false)): return "mech"
+	var d: Dictionary = e.get("def", {})
+	if bool(d.get("capital", false)) or str(d.get("class", "")) in ["battleship", "cruiser", "frigate", "carrier"]: return "capital"
+	if str(d.get("class", "")).find("cargo") >= 0 or e.has("freighter"): return "cargo"
+	return "ship"
+
+func _type_icon(c: Vector2, kind: String, col: Color, s := 7.0) -> void:
+	match kind:
+		"capital":   # a long hull with a bridge tower
+			draw_colored_polygon(PackedVector2Array([c + Vector2(-s * 1.5, s * 0.35), c + Vector2(-s * 1.1, -s * 0.35), c + Vector2(s * 1.0, -s * 0.35), c + Vector2(s * 1.6, 0), c + Vector2(s * 1.0, s * 0.35)]), col)
+			draw_rect(Rect2(c + Vector2(-s * 0.5, -s * 0.85), Vector2(s * 0.6, s * 0.55)), col)
+		"station":   # a ring with its hub and spokes
+			draw_arc(c, s, 0, TAU, 20, col, 2.0, true)
+			draw_circle(c, s * 0.35, col)
+			for i in 4: draw_line(c + Vector2.from_angle(i * PI / 2) * s * 0.35, c + Vector2.from_angle(i * PI / 2) * s, col, 1.5)
+		"mech":   # head, body, arms and legs
+			draw_circle(c + Vector2(0, -s * 0.8), s * 0.28, col)
+			draw_rect(Rect2(c + Vector2(-s * 0.4, -s * 0.5), Vector2(s * 0.8, s * 0.75)), col)
+			draw_line(c + Vector2(-s * 0.4, -s * 0.4), c + Vector2(-s * 0.85, s * 0.15), col, 2.0)
+			draw_line(c + Vector2(s * 0.4, -s * 0.4), c + Vector2(s * 0.85, s * 0.15), col, 2.0)
+			draw_line(c + Vector2(-s * 0.2, s * 0.25), c + Vector2(-s * 0.35, s), col, 2.0)
+			draw_line(c + Vector2(s * 0.2, s * 0.25), c + Vector2(s * 0.35, s), col, 2.0)
+		"planet":
+			draw_circle(c, s * 0.7, col)
+			draw_arc(c, s * 1.05, -0.5, PI - 0.5, 16, col, 1.5, true)
+		"gate":
+			draw_polyline(PackedVector2Array([c + Vector2(0, -s), c + Vector2(s, 0), c + Vector2(0, s), c + Vector2(-s, 0), c + Vector2(0, -s)]), col, 2.0)
+			draw_circle(c, s * 0.25, col)
+		"cargo":   # a freighter: a block of containers
+			draw_rect(Rect2(c + Vector2(-s, -s * 0.5), Vector2(s * 2.0, s)), col, false, 2.0)
+			draw_line(c + Vector2(-s * 0.33, -s * 0.5), c + Vector2(-s * 0.33, s * 0.5), col, 1.5)
+			draw_line(c + Vector2(s * 0.33, -s * 0.5), c + Vector2(s * 0.33, s * 0.5), col, 1.5)
+		_:   # a fighter: a swept arrowhead
+			draw_colored_polygon(PackedVector2Array([c + Vector2(0, -s), c + Vector2(s * 0.9, s * 0.75), c + Vector2(0, s * 0.35), c + Vector2(-s * 0.9, s * 0.75)]), col)
 
 func _brackets(p: Vector2, s: float, col: Color) -> void:
 	for cr in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:

@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.88"
+const VERSION := "v11.89"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -97,7 +97,8 @@ const ALLY_ROOMS := ["main_hub", "supplies", "medical_bay", "mission_center", "w
 const RIVAL_ROOMS := ["main_hub", "supplies", "medical_bay", "mission_center", "weapons"]   # the 5 pages of a rival station
 const HIDDEN_FIND_RANGE := 2500.0   # m: fly this close to a hidden station (or scan it) and it is charted for good
 const STATION_SIZE := 2.0   # v11.21 (owner: "double the size of all space stations")
-const ESCORT_FREIGHTER_LEN := 180.0   # v11.16 (owner): the escort / cargo-run freighter is a big ship (m long), not fighter-sized (was 16)
+const ESCORT_FREIGHTER_LEN := 360.0   # v11.89 (owner): cargo ships 2x
+#  # v11.16 (owner): the escort / cargo-run freighter is a big ship (m long), not fighter-sized (was 16)
 # v11.63 (owner's freighter block, Nov 3): cargo freighters fly the trade lanes. One object with three zones: the FRONT
 # HEAD (cockpit, the size of the Cadet on every freighter), the CARGO BODY, the REAR BOOSTER. Type 1 is the normal size;
 # type 2 has the same head and a much bigger body (and a booster to match). Hit the booster until it breaks and the
@@ -105,16 +106,20 @@ const ESCORT_FREIGHTER_LEN := 180.0   # v11.16 (owner): the escort / cargo-run f
 # Stand-in models: the side views cut from the owner's 8-faction freight sheet (Tripo), one per faction.
 const CARGO_FACTIONS := ["Elyza", "Unity", "Solarion", "Imperium", "Covenant", "Orion", "Savagers", "Liberator"]   # sheet row order
 const CARGO_SHIPS := {"Elyza": {"t1": "cargo_elyza_t1", "t2": "cargo_elyza_t2"}, "Unity": {"t1": "cargo_unity_t1", "t2": "cargo_unity_t2"}, "Solarion": {"t1": "cargo_solarion_t1", "t2": "cargo_solarion_t2"}, "Imperium": {"t1": "cargo_imperium_t1", "t2": "cargo_imperium_t2"}, "Covenant": {"t1": "cargo_covenant_t1", "t2": "cargo_covenant_t2"}, "Orion": {"t1": "cargo_orion_t1", "t2": "cargo_orion_t2"}, "Savagers": {"t1": "cargo_savagers_t1", "t2": "cargo_savagers_t2"}, "Liberator": {"t1": "cargo_liberator_t1", "t2": "cargo_liberator_t2"}}
-const FREIGHTER_HEAD_LEN := 9.0                 # m: the head, the Cadet's length, the same on both types
-const FREIGHTER_LEN := [32.0, 46.1]             # m nose to tail: type 1, type 2 (the GLBs are built to these)
+const FREIGHTER_HEAD_LEN := 18.0   # v11.89: 2x
+#                # m: the head, the Cadet's length, the same on both types
+const FREIGHTER_LEN := [64.0, 92.2]   # v11.89 (owner): cargo ships 2x
+#            # m nose to tail: type 1, type 2 (the GLBs are built to these)
 const FREIGHTER_ZONES := [{"head": 0.28, "booster": 0.17}, {"head": 0.195, "booster": 0.118}]   # share of the length from the nose / from the tail
-const FREIGHTER_HIT_R := [4.5, 6.0]             # m: the hull's half-thickness (shots closer than this to the spine hit)
+const FREIGHTER_HIT_R := [9.0, 12.0]   # v11.89: 2x
+#            # m: the hull's half-thickness (shots closer than this to the spine hit)
 const FREIGHTER_HP := [900.0, 1600.0]           # whole hull
 const FREIGHTER_BOOSTER_SHARE := 0.25           # the booster breaks after this share of the hull, taken on the booster
 const FREIGHTER_SPEED := 55.0                   # m/s along the lane
 const FREIGHTER_CRAWL := 0.1                    # booster broken: this share of the speed
 const DRIFT_BOOST_RATE := 1.6               # v11.64: THRUST in a warp-speed drift swings the momentum to the nose this fast (same speed)
-const FREIGHTERS_PER_SYSTEM := 2                # one of each type, on the trade lanes
+const FREIGHTERS_PER_SYSTEM := 4   # v11.89 (owner): the system's own, its ally's and Unity's (universal)
+#               # one of each type, on the trade lanes
 const FREIGHTER_RESPAWN := 90.0                 # s after one is destroyed, another starts on the lanes
 
 # ---------------------------------------------------------------- Job J (v1.4f): desktop keyboard + mouse controls
@@ -337,12 +342,17 @@ const BLAST_FLASH_RANGE := 600.0
 const LANE_RING_GAP := 7000.0         # metres between rings (v9.0: systems fill their tile, lanes run 50-200 km)
 const LANE_MAX_RINGS := 24
 const LANE_MIN_LEN := 1400.0          # shorter runs get no lane
-const LANE_RING_RADIUS := 34.0
-const LANE_STACK := 110.0             # the two directions sit this far apart, one ring above the other
-const LANE_PLANET_STANDOFF := 2200.0   # v11.73 (owner: lanes too close to the planet): past the outer air, this much further out
-const LANE_STANDOFF := 330.0          # the end rings sit this far from the station / planet surface / gate
-const LANE_STATION_EXTRA := 700.0     # v11.43 (owner): the station end ring sits this much further out again (big spiky stations)
-const LANE_DOCK_RANGE := 240.0        # the LANE prompt shows inside this distance of a ring
+const LANE_RING_RADIUS := 68.0   # v11.89 (owner): lanes 2x (was 34)
+const LANE_STACK := 220.0   # v11.89: 2x with the rings
+#            # the two directions sit this far apart, one ring above the other
+const LANE_PLANET_STANDOFF := 4400.0   # v11.89: 2x
+#  # v11.73 (owner: lanes too close to the planet): past the outer air, this much further out
+const LANE_STANDOFF := 900.0   # v11.89 (owner: room to see the lane when you come out): was 330
+#         # the end rings sit this far from the station / planet surface / gate
+const LANE_STATION_EXTRA := 1600.0   # v11.89: was 700
+#    # v11.43 (owner): the station end ring sits this much further out again (big spiky stations)
+const LANE_DOCK_RANGE := 480.0   # v11.89: 2x
+#       # the LANE prompt shows inside this distance of a ring
 const LANE_SPEED := 10000.0           # cruise in the lane (m/s) (v11.2 owner: half; was 20000) (v9.0 owner, Freelancer-size systems: any lane ride ~10-30 s; was 650)
 const LANE_RAMP := 2.5                # seconds to reach it
 const LANE_SLOW_DIST := 26000.0       # start slowing this far from the last ring (v9.0: was 700 at 650 m/s)
@@ -350,11 +360,13 @@ const LANE_EXIT_SPEED := 50.0
 const LANE_TINT := Color(0.35, 0.85, 1.0)
 const LANE_TUNNEL_LEN := 640.0        # the energy tunnel that rides on the ship (v1.4u: was 240; long enough to pass behind the camera)
 const LANE_MIN_SPREAD := 30.0         # v11.10 (owner): degrees two lanes leaving one place must be apart; closer = chain from the nearer place
-const LANE_RING_STRETCH := 110.0      # v11.10 (owner): each light ring is a soft band this long along the lane
+const LANE_RING_STRETCH := 220.0   # v11.89: 2x
+#     # v11.10 (owner): each light ring is a soft band this long along the lane
 const LANE_RING_GLOW := 0.45          # v11.10: how bright the band is at its middle (see-through)
 const LANE_LIGHT_RINGS := 7           # v11.7 (owner): rings of light rushing past in a lane
 const LANE_RING_PACE := [0.8, 4.0]     # v11.7: rings passing per second, slow -> full lane speed
-const LANE_TUNNEL_RADIUS := 46.0       # v1.4u: was 15; wide enough that the chase camera sits inside it
+const LANE_TUNNEL_RADIUS := 92.0   # v11.89: 2x
+#      # v1.4u: was 15; wide enough that the chase camera sits inside it
 const LANE_SPLASH := 0.5              # seconds of ring glow as you pass
 # planet type -> surface biome for the one-tile surfaces on every planet (scripts/surface.gd)
 const PLANET_BIOME := {"terran": "forest", "jungle": "jungle", "ocean": "ocean", "ice": "ice", "desert": "desert", "lava": "volcanic",
@@ -963,6 +975,7 @@ const NEBULA_ROCK_CLUMPS := 5        # v10.4: they gather in this many clumps ..
 const NEBULA_ROCK_CLUMP_R := 3500.0  # ... about this wide (m)
 const NEBULA_ROCK_SIZE := [8.0, 90.0]   # their size range (m), most small (was 6-34)
 const NEBULA_STORM_FLASH := [0.8, 2.6]
+const GATE_GROW := 2.0   # v11.89 (owner): jump, warp and rift gates 2x
 const WARP_HOLE_SIZE := 240.0          # v1.9z (owner): the warp gate as a Freelancer-style hole: its size (m)
 const WARP_HOLE_SPARKS := 120
 const WARP_HOLE_RIM := Color(1.0, 0.45, 0.75)
@@ -1597,9 +1610,10 @@ const SAVAGER_CRUISER_YAW := 180.0
 # little ships are great. Separate them under the names, put them in the game, sell the little ships as faction fighters")
 # The all-factions flagship sheet (HL_AllFactions_FlagshipSheet_v1, split by tools/assetkit): per faction a battleship,
 # a cruiser and a frigate (Elyza: no frigate on the sheet) and a starfighter. Faction names are a guess from the colours.
-const FLEET_BATTLESHIP_LEN := 340.0    # m (v11.36 owner: "only as big as a station": = STATION_WIDTH)
-const FLEET_CRUISER_LEN := 120.0
-const FLEET_FRIGATE_LEN := 62.0
+const FLEET_BATTLESHIP_LEN := 1360.0   # v11.89 (owner): battleships 4x (was 340)
+#   # m (v11.36 owner: "only as big as a station": = STATION_WIDTH)
+const FLEET_CRUISER_LEN := 360.0   # v11.89 (owner): the other capital vessels 3x (was 120)
+const FLEET_FRIGATE_LEN := 186.0   # v11.89: 3x (was 62)
 const FLEET_STARFIGHTER_LEN := 11.0
 const FLEET_YAW := 0.0                 # the light copies already face -Z (top views checked)
 const FLEET_STARFIGHTER_YAW := 0.0
@@ -1622,8 +1636,8 @@ const FLEET_CARRIER := {"battleship": [90, 15], "cruiser": [30, 5], "frigate": [
 # v11.38 (owner: battleships out on patrol in the star systems): each system of a fleet faction has its battleship and
 # cruiser out, this far from the station (m), each on its own loop of this radius; peaceful unless provoked or your
 # standing with the faction is orange / red. They replace the capital's looping display fleet (FLEET_GUARD_ON).
-const FLEET_PATROL_AT := {"battleship": 3200.0, "cruiser": 2600.0}
-const FLEET_PATROL_LOOP := {"battleship": 1400.0, "cruiser": 900.0}
+const FLEET_PATROL_AT := {"battleship": 12800.0, "cruiser": 7800.0}   # v11.89: 4x / 3x with the ships
+const FLEET_PATROL_LOOP := {"battleship": 5600.0, "cruiser": 2700.0}
 const FLEET_GUARD_ON := false
 # v11.42 (owner: "I want to go inside the battleship as a mech"): BOARDING. A boardable faction's battleship has parts
 # you can shoot off: the SHIELD TOWER on top (its power: down = the shield is off and the open side hangar lets you in),
@@ -1632,12 +1646,13 @@ const FLEET_GUARD_ON := false
 # in all, then the boss; grab the bounty it drops, blow the reactor core (= the battleship is destroyed, like the 35
 # nukes) and get out through the hangar before the countdown ends. Solarion first (the owner is in their space).
 const BOARDABLE := ["Elyza", "Unity", "Solarion", "Imperium", "Covenant", "Orion", "Savagers", "Liberator"]   # (owner, by voice: "now we could do everyone": every fleet faction; one shared inside in its own colours and mechs)
-const BOARD_BAY_REACH := 90.0          # m from the side hangar's opening: in you go (as a mech)
+const BOARD_BAY_REACH := 360.0   # v11.89: 4x with the battleship
+#         # m from the side hangar's opening: in you go (as a mech)
 const BOARD_MECHS := [3, 10]           # [most at once, in all]
 const BOARD_ESCAPE := 90.0             # s to get out after the core blows
 const BOARD_PAY := 9000                # cr for the battleship (v11.70: paid once the wave outside is down)
 const BOARD_WAVE := 20                 # v11.70 (owner): the ships waiting outside when you get out
-const BOARD_WAVE_AT := [700.0, 1400.0]   # m from you
+const BOARD_WAVE_AT := [1800.0, 3200.0]   # m from you
 const BOARD_BOUNTY_PAY := 3000         # cr for the bounty pilot
 const BOARD_GRAB := 26.0               # m: walk the mech up to the bounty pilot to take him
 const BOARD_PARTS := {   # part: [enemy kind, where on the hull (x: -1 port .. 1 starboard, y: -1 keel .. 1 top, z: -1 nose .. 1 tail)]
@@ -1653,7 +1668,8 @@ const BOARD_BAY_AT := Vector3(1.0, 0.0, 0.15)   # the open side hangar (starboar
 # and then; seen within FLEET_CLASH_SIGHT of each other while you are within FLEET_CLASH_WATCH, they close to
 # FLEET_CLASH_RANGE and trade fire, and launch fighters (the same hangars: 15 out of 90) that dogfight each other.
 const FLEET_CLASH_CHANCE := 0.35
-const FLEET_CLASH_APART := 4200.0      # m between the two loops' centres
+const FLEET_CLASH_APART := 16800.0   # v11.89: 4x
+#     # m between the two loops' centres
 const FLEET_CLASH_SIGHT := 6000.0      # m: the battleships see each other
 const FLEET_CLASH_WATCH := 9000.0      # m: you must be this close for the battle to run (out of sight it holds still)
 const FLEET_CLASH_RANGE := 1300.0      # m: they close to this and hold, trading fire
@@ -1728,7 +1744,7 @@ const STATION3D := {
 	"radiant": {"*": "st3d_radiant_dawnchoir"}, "ravage_major": {"*": "st3d_savagers_asteroid"},
 }
 const STATION3D_ROAMERS := {"cybernet": [["st3d_cyber_hexdominator", "Hexdominator"], ["st3d_cyber_shardstorm", "Shardstorm"]]}   # roaming Cybermorph battleships: [model key, name]
-const STATION3D_SCALE := {"st3d_aurelion_citadel": 1.6, "st3d_veranthos_senate": 1.6, "st3d_veranthos_summit": 1.6}   # x the standard station width (PROVISIONAL; others 1.0)
+const STATION3D_SCALE := {"st3d_aurelion_citadel": 1.6, "st3d_veranthos_senate": 1.6, "st3d_veranthos_summit": 6.4}   # v11.89 (owner): Fleet Command 4x   # x the standard station width (PROVISIONAL; others 1.0)
 const STATION3D_DEFAULT_YAW := 180.0  # the file's front (-Z) turned to face the docking approach (+Z)
 const STATION3D_YAW := {}             # per-model exceptions (degrees)
 const STATION3D_LOD := [2600.0, 7000.0]   # m: LOD0 out to this, LOD1 out to the next, LOD2 beyond
@@ -1952,59 +1968,59 @@ const ENEMIES := {
 	"ship_bridge": {"name": "Bridge", "class": "bridge and drive", "model": "none", "scale": 1.0, "hull": 1300.0, "shield": 0.0, "speed": 0.0, "turn": 0.0, "damage": 0.0, "rate": 0.5, "reward": 600, "capital": true, "hit_r": 20.0, "range": 0.0, "radius": 18.0},
 	"ship_turret": {"name": "Turret", "class": "gun turret", "model": "none", "scale": 1.0, "hull": 520.0, "shield": 0.0, "speed": 0.0, "turn": 0.0, "damage": 7.0, "rate": 1.4, "reward": 250, "capital": true, "hit_r": 13.0, "range": 1100.0, "radius": 12.0},
 	"ship_core": {"name": "Reactor Core", "class": "reactor", "model": "none", "scale": 1.0, "hull": 1800.0, "shield": 0.0, "speed": 0.0, "turn": 0.0, "damage": 0.0, "rate": 0.5, "reward": 0, "capital": true, "hit_r": 26.0, "range": 0.0, "radius": 24.0},
-	"elyza_battleship": {"name": "Elyza Battleship", "class": "battleship", "faction": "Elyza", "model": "elyza_battleship", "scale": 1.0, "hull": 5000.0, "shield": 1800.0, "speed": 7.0, "turn": 0.05, "damage": 9.0, "rate": 3.0, "reward": 3200, "capital": true, "hit_r": 85.0, "range": 1400.0, "radius": 105.0, "carrier": "battleship"},   # v11.32
-	"elyza_cruiser": {"name": "Elyza Cruiser", "class": "cruiser", "faction": "Elyza", "model": "elyza_cruiser", "scale": 1.0, "hull": 2600.0, "shield": 900.0, "speed": 12.0, "turn": 0.09, "damage": 7.5, "rate": 2.2, "reward": 1200, "capital": true, "hit_r": 32.0, "range": 1200.0, "radius": 38.0, "carrier": "cruiser"},
+	"elyza_battleship": {"name": "Elyza Battleship", "class": "battleship", "faction": "Elyza", "model": "elyza_battleship", "scale": 1.0, "hull": 5000.0, "shield": 1800.0, "speed": 14.0, "turn": 0.05, "damage": 9.0, "rate": 3.0, "reward": 3200, "capital": true, "hit_r": 340.0, "range": 2800.0, "radius": 420.0, "carrier": "battleship"},   # v11.32
+	"elyza_cruiser": {"name": "Elyza Cruiser", "class": "cruiser", "faction": "Elyza", "model": "elyza_cruiser", "scale": 1.0, "hull": 2600.0, "shield": 900.0, "speed": 24.0, "turn": 0.09, "damage": 7.5, "rate": 2.2, "reward": 1200, "capital": true, "hit_r": 96.0, "range": 2400.0, "radius": 114.0, "carrier": "cruiser"},
 	"elyza_starfighter": {"name": "Elyza Starfighter", "class": "fighter", "faction": "Elyza", "model": "elyza_starfighter", "radius": 7.0, "hull": 80.0, "shield": 50.0, "speed": 50.0, "turn": 1.5, "damage": 6.0, "rate": 1.7, "reward": 230, "missiles": true},
 	"elyza_fighter_l2": {"name": "Elyza Fighter Mk II", "class": "fighter", "faction": "Elyza", "model": "elyza_fighter_l2", "radius": 8.0, "hit_r": 9.0, "hull": 160.0, "shield": 100.0, "speed": 53.0, "turn": 1.45, "damage": 12.0, "rate": 1.8, "reward": 460, "missiles": true, "level": 2},   # v11.68
 	"elyza_fighter_l3": {"name": "Elyza Fighter Mk III", "class": "fighter", "faction": "Elyza", "model": "elyza_fighter_l3", "radius": 11.0, "hit_r": 12.0, "hull": 240.0, "shield": 150.0, "speed": 50.0, "turn": 1.3, "damage": 18.0, "rate": 1.9, "reward": 690, "missiles": true, "level": 3},   # v11.68
-	"unity_battleship": {"name": "Unity Battleship", "class": "battleship", "faction": "Unity", "model": "unity_battleship", "scale": 1.0, "hull": 5000.0, "shield": 1800.0, "speed": 7.0, "turn": 0.05, "damage": 9.0, "rate": 3.0, "reward": 3200, "capital": true, "hit_r": 85.0, "range": 1400.0, "radius": 105.0, "carrier": "battleship"},   # v11.32
-	"unity_cruiser": {"name": "Unity Cruiser", "class": "cruiser", "faction": "Unity", "model": "unity_cruiser", "scale": 1.0, "hull": 2600.0, "shield": 900.0, "speed": 12.0, "turn": 0.09, "damage": 7.5, "rate": 2.2, "reward": 1200, "capital": true, "hit_r": 32.0, "range": 1200.0, "radius": 38.0, "carrier": "cruiser"},
-	"unity_frigate": {"name": "Unity Frigate", "class": "frigate", "faction": "Unity", "model": "unity_frigate", "scale": 1.0, "hull": 1800.0, "shield": 600.0, "speed": 15.0, "turn": 0.11, "damage": 6.5, "rate": 2.0, "reward": 800, "capital": true, "hit_r": 18.0, "range": 1050.0, "radius": 22.0, "carrier": "frigate"},
+	"unity_battleship": {"name": "Unity Battleship", "class": "battleship", "faction": "Unity", "model": "unity_battleship", "scale": 1.0, "hull": 5000.0, "shield": 1800.0, "speed": 14.0, "turn": 0.05, "damage": 9.0, "rate": 3.0, "reward": 3200, "capital": true, "hit_r": 340.0, "range": 2800.0, "radius": 420.0, "carrier": "battleship"},   # v11.32
+	"unity_cruiser": {"name": "Unity Cruiser", "class": "cruiser", "faction": "Unity", "model": "unity_cruiser", "scale": 1.0, "hull": 2600.0, "shield": 900.0, "speed": 24.0, "turn": 0.09, "damage": 7.5, "rate": 2.2, "reward": 1200, "capital": true, "hit_r": 96.0, "range": 2400.0, "radius": 114.0, "carrier": "cruiser"},
+	"unity_frigate": {"name": "Unity Frigate", "class": "frigate", "faction": "Unity", "model": "unity_frigate", "scale": 1.0, "hull": 1800.0, "shield": 600.0, "speed": 30.0, "turn": 0.11, "damage": 6.5, "rate": 2.0, "reward": 800, "capital": true, "hit_r": 54.0, "range": 2100.0, "radius": 66.0, "carrier": "frigate"},
 	"unity_starfighter": {"name": "Unity Starfighter", "class": "fighter", "faction": "Unity", "model": "unity_starfighter", "radius": 7.0, "hull": 80.0, "shield": 50.0, "speed": 50.0, "turn": 1.5, "damage": 6.0, "rate": 1.7, "reward": 230, "missiles": true},
 	"unity_fighter_l2": {"name": "Unity Fighter Mk II", "class": "fighter", "faction": "Unity", "model": "unity_fighter_l2", "radius": 8.0, "hit_r": 9.0, "hull": 160.0, "shield": 100.0, "speed": 53.0, "turn": 1.45, "damage": 12.0, "rate": 1.8, "reward": 460, "missiles": true, "level": 2},   # v11.68
 	"unity_fighter_l3": {"name": "Unity Fighter Mk III", "class": "fighter", "faction": "Unity", "model": "unity_fighter_l3", "radius": 11.0, "hit_r": 12.0, "hull": 240.0, "shield": 150.0, "speed": 50.0, "turn": 1.3, "damage": 18.0, "rate": 1.9, "reward": 690, "missiles": true, "level": 3},   # v11.68
-	"solarion_battleship": {"name": "Solarion Battleship", "class": "battleship", "faction": "Solarion", "model": "solarion_battleship", "scale": 1.0, "hull": 5000.0, "shield": 1800.0, "speed": 7.0, "turn": 0.05, "damage": 9.0, "rate": 3.0, "reward": 3200, "capital": true, "hit_r": 85.0, "range": 1400.0, "radius": 105.0, "carrier": "battleship"},   # v11.32
-	"solarion_cruiser": {"name": "Solarion Cruiser", "class": "cruiser", "faction": "Solarion", "model": "solarion_cruiser", "scale": 1.0, "hull": 2600.0, "shield": 900.0, "speed": 12.0, "turn": 0.09, "damage": 7.5, "rate": 2.2, "reward": 1200, "capital": true, "hit_r": 32.0, "range": 1200.0, "radius": 38.0, "carrier": "cruiser"},
-	"solarion_frigate": {"name": "Solarion Frigate", "class": "frigate", "faction": "Solarion", "model": "solarion_frigate", "scale": 1.0, "hull": 1800.0, "shield": 600.0, "speed": 15.0, "turn": 0.11, "damage": 6.5, "rate": 2.0, "reward": 800, "capital": true, "hit_r": 18.0, "range": 1050.0, "radius": 22.0, "carrier": "frigate"},
+	"solarion_battleship": {"name": "Solarion Battleship", "class": "battleship", "faction": "Solarion", "model": "solarion_battleship", "scale": 1.0, "hull": 5000.0, "shield": 1800.0, "speed": 14.0, "turn": 0.05, "damage": 9.0, "rate": 3.0, "reward": 3200, "capital": true, "hit_r": 340.0, "range": 2800.0, "radius": 420.0, "carrier": "battleship"},   # v11.32
+	"solarion_cruiser": {"name": "Solarion Cruiser", "class": "cruiser", "faction": "Solarion", "model": "solarion_cruiser", "scale": 1.0, "hull": 2600.0, "shield": 900.0, "speed": 24.0, "turn": 0.09, "damage": 7.5, "rate": 2.2, "reward": 1200, "capital": true, "hit_r": 96.0, "range": 2400.0, "radius": 114.0, "carrier": "cruiser"},
+	"solarion_frigate": {"name": "Solarion Frigate", "class": "frigate", "faction": "Solarion", "model": "solarion_frigate", "scale": 1.0, "hull": 1800.0, "shield": 600.0, "speed": 30.0, "turn": 0.11, "damage": 6.5, "rate": 2.0, "reward": 800, "capital": true, "hit_r": 54.0, "range": 2100.0, "radius": 66.0, "carrier": "frigate"},
 	"solarion_starfighter": {"name": "Solarion Starfighter", "class": "fighter", "faction": "Solarion", "model": "solarion_starfighter", "radius": 7.0, "hull": 80.0, "shield": 50.0, "speed": 50.0, "turn": 1.5, "damage": 6.0, "rate": 1.7, "reward": 230, "missiles": true},
 	"solarion_fighter_l2": {"name": "Solarion Fighter Mk II", "class": "fighter", "faction": "Solarion", "model": "solarion_fighter_l2", "radius": 8.0, "hit_r": 9.0, "hull": 160.0, "shield": 100.0, "speed": 53.0, "turn": 1.45, "damage": 12.0, "rate": 1.8, "reward": 460, "missiles": true, "level": 2},   # v11.68
 	"solarion_fighter_l3": {"name": "Solarion Fighter Mk III", "class": "fighter", "faction": "Solarion", "model": "solarion_fighter_l3", "radius": 11.0, "hit_r": 12.0, "hull": 240.0, "shield": 150.0, "speed": 50.0, "turn": 1.3, "damage": 18.0, "rate": 1.9, "reward": 690, "missiles": true, "level": 3},   # v11.68
-	"imperium_battleship": {"name": "Imperium Battleship", "class": "battleship", "faction": "Imperium", "model": "imperium_battleship", "scale": 1.0, "hull": 5000.0, "shield": 1800.0, "speed": 7.0, "turn": 0.05, "damage": 9.0, "rate": 3.0, "reward": 3200, "capital": true, "hit_r": 85.0, "range": 1400.0, "radius": 105.0, "carrier": "battleship"},   # v11.32
-	"imperium_cruiser": {"name": "Imperium Cruiser", "class": "cruiser", "faction": "Imperium", "model": "imperium_cruiser", "scale": 1.0, "hull": 2600.0, "shield": 900.0, "speed": 12.0, "turn": 0.09, "damage": 7.5, "rate": 2.2, "reward": 1200, "capital": true, "hit_r": 32.0, "range": 1200.0, "radius": 38.0, "carrier": "cruiser"},
-	"imperium_frigate": {"name": "Imperium Frigate", "class": "frigate", "faction": "Imperium", "model": "imperium_frigate", "scale": 1.0, "hull": 1800.0, "shield": 600.0, "speed": 15.0, "turn": 0.11, "damage": 6.5, "rate": 2.0, "reward": 800, "capital": true, "hit_r": 18.0, "range": 1050.0, "radius": 22.0, "carrier": "frigate"},
+	"imperium_battleship": {"name": "Imperium Battleship", "class": "battleship", "faction": "Imperium", "model": "imperium_battleship", "scale": 1.0, "hull": 5000.0, "shield": 1800.0, "speed": 14.0, "turn": 0.05, "damage": 9.0, "rate": 3.0, "reward": 3200, "capital": true, "hit_r": 340.0, "range": 2800.0, "radius": 420.0, "carrier": "battleship"},   # v11.32
+	"imperium_cruiser": {"name": "Imperium Cruiser", "class": "cruiser", "faction": "Imperium", "model": "imperium_cruiser", "scale": 1.0, "hull": 2600.0, "shield": 900.0, "speed": 24.0, "turn": 0.09, "damage": 7.5, "rate": 2.2, "reward": 1200, "capital": true, "hit_r": 96.0, "range": 2400.0, "radius": 114.0, "carrier": "cruiser"},
+	"imperium_frigate": {"name": "Imperium Frigate", "class": "frigate", "faction": "Imperium", "model": "imperium_frigate", "scale": 1.0, "hull": 1800.0, "shield": 600.0, "speed": 30.0, "turn": 0.11, "damage": 6.5, "rate": 2.0, "reward": 800, "capital": true, "hit_r": 54.0, "range": 2100.0, "radius": 66.0, "carrier": "frigate"},
 	"imperium_starfighter": {"name": "Imperium Starfighter", "class": "fighter", "faction": "Imperium", "model": "imperium_starfighter", "radius": 7.0, "hull": 80.0, "shield": 50.0, "speed": 50.0, "turn": 1.5, "damage": 6.0, "rate": 1.7, "reward": 230, "missiles": true},
 	"imperium_fighter_l2": {"name": "Imperium Fighter Mk II", "class": "fighter", "faction": "Imperium", "model": "imperium_fighter_l2", "radius": 8.0, "hit_r": 9.0, "hull": 160.0, "shield": 100.0, "speed": 53.0, "turn": 1.45, "damage": 12.0, "rate": 1.8, "reward": 460, "missiles": true, "level": 2},   # v11.68
 	"imperium_fighter_l3": {"name": "Imperium Fighter Mk III", "class": "fighter", "faction": "Imperium", "model": "imperium_fighter_l3", "radius": 11.0, "hit_r": 12.0, "hull": 240.0, "shield": 150.0, "speed": 50.0, "turn": 1.3, "damage": 18.0, "rate": 1.9, "reward": 690, "missiles": true, "level": 3},   # v11.68
-	"covenant_battleship": {"name": "Covenant Battleship", "class": "battleship", "faction": "Covenant", "model": "covenant_battleship", "scale": 1.0, "hull": 5000.0, "shield": 1800.0, "speed": 7.0, "turn": 0.05, "damage": 9.0, "rate": 3.0, "reward": 3200, "capital": true, "hit_r": 85.0, "range": 1400.0, "radius": 105.0, "carrier": "battleship"},   # v11.32
-	"covenant_cruiser": {"name": "Covenant Cruiser", "class": "cruiser", "faction": "Covenant", "model": "covenant_cruiser", "scale": 1.0, "hull": 2600.0, "shield": 900.0, "speed": 12.0, "turn": 0.09, "damage": 7.5, "rate": 2.2, "reward": 1200, "capital": true, "hit_r": 32.0, "range": 1200.0, "radius": 38.0, "carrier": "cruiser"},
-	"covenant_frigate": {"name": "Covenant Frigate", "class": "frigate", "faction": "Covenant", "model": "covenant_frigate", "scale": 1.0, "hull": 1800.0, "shield": 600.0, "speed": 15.0, "turn": 0.11, "damage": 6.5, "rate": 2.0, "reward": 800, "capital": true, "hit_r": 18.0, "range": 1050.0, "radius": 22.0, "carrier": "frigate"},
+	"covenant_battleship": {"name": "Covenant Battleship", "class": "battleship", "faction": "Covenant", "model": "covenant_battleship", "scale": 1.0, "hull": 5000.0, "shield": 1800.0, "speed": 14.0, "turn": 0.05, "damage": 9.0, "rate": 3.0, "reward": 3200, "capital": true, "hit_r": 340.0, "range": 2800.0, "radius": 420.0, "carrier": "battleship"},   # v11.32
+	"covenant_cruiser": {"name": "Covenant Cruiser", "class": "cruiser", "faction": "Covenant", "model": "covenant_cruiser", "scale": 1.0, "hull": 2600.0, "shield": 900.0, "speed": 24.0, "turn": 0.09, "damage": 7.5, "rate": 2.2, "reward": 1200, "capital": true, "hit_r": 96.0, "range": 2400.0, "radius": 114.0, "carrier": "cruiser"},
+	"covenant_frigate": {"name": "Covenant Frigate", "class": "frigate", "faction": "Covenant", "model": "covenant_frigate", "scale": 1.0, "hull": 1800.0, "shield": 600.0, "speed": 30.0, "turn": 0.11, "damage": 6.5, "rate": 2.0, "reward": 800, "capital": true, "hit_r": 54.0, "range": 2100.0, "radius": 66.0, "carrier": "frigate"},
 	"covenant_starfighter": {"name": "Covenant Starfighter", "class": "fighter", "faction": "Covenant", "model": "covenant_starfighter", "radius": 7.0, "hull": 80.0, "shield": 50.0, "speed": 50.0, "turn": 1.5, "damage": 6.0, "rate": 1.7, "reward": 230, "missiles": true},
 	"covenant_fighter_l2": {"name": "Covenant Fighter Mk II", "class": "fighter", "faction": "Covenant", "model": "covenant_fighter_l2", "radius": 8.0, "hit_r": 9.0, "hull": 160.0, "shield": 100.0, "speed": 53.0, "turn": 1.45, "damage": 12.0, "rate": 1.8, "reward": 460, "missiles": true, "level": 2},   # v11.68
 	"covenant_fighter_l3": {"name": "Covenant Fighter Mk III", "class": "fighter", "faction": "Covenant", "model": "covenant_fighter_l3", "radius": 11.0, "hit_r": 12.0, "hull": 240.0, "shield": 150.0, "speed": 50.0, "turn": 1.3, "damage": 18.0, "rate": 1.9, "reward": 690, "missiles": true, "level": 3},   # v11.68
-	"orion_battleship": {"name": "Orion Battleship", "class": "battleship", "faction": "Orion", "model": "orion_battleship", "scale": 1.0, "hull": 5000.0, "shield": 1800.0, "speed": 7.0, "turn": 0.05, "damage": 9.0, "rate": 3.0, "reward": 3200, "capital": true, "hit_r": 85.0, "range": 1400.0, "radius": 105.0, "carrier": "battleship"},   # v11.32
-	"orion_cruiser": {"name": "Orion Cruiser", "class": "cruiser", "faction": "Orion", "model": "orion_cruiser", "scale": 1.0, "hull": 2600.0, "shield": 900.0, "speed": 12.0, "turn": 0.09, "damage": 7.5, "rate": 2.2, "reward": 1200, "capital": true, "hit_r": 32.0, "range": 1200.0, "radius": 38.0, "carrier": "cruiser"},
-	"orion_frigate": {"name": "Orion Frigate", "class": "frigate", "faction": "Orion", "model": "orion_frigate", "scale": 1.0, "hull": 1800.0, "shield": 600.0, "speed": 15.0, "turn": 0.11, "damage": 6.5, "rate": 2.0, "reward": 800, "capital": true, "hit_r": 18.0, "range": 1050.0, "radius": 22.0, "carrier": "frigate"},
+	"orion_battleship": {"name": "Orion Battleship", "class": "battleship", "faction": "Orion", "model": "orion_battleship", "scale": 1.0, "hull": 5000.0, "shield": 1800.0, "speed": 14.0, "turn": 0.05, "damage": 9.0, "rate": 3.0, "reward": 3200, "capital": true, "hit_r": 340.0, "range": 2800.0, "radius": 420.0, "carrier": "battleship"},   # v11.32
+	"orion_cruiser": {"name": "Orion Cruiser", "class": "cruiser", "faction": "Orion", "model": "orion_cruiser", "scale": 1.0, "hull": 2600.0, "shield": 900.0, "speed": 24.0, "turn": 0.09, "damage": 7.5, "rate": 2.2, "reward": 1200, "capital": true, "hit_r": 96.0, "range": 2400.0, "radius": 114.0, "carrier": "cruiser"},
+	"orion_frigate": {"name": "Orion Frigate", "class": "frigate", "faction": "Orion", "model": "orion_frigate", "scale": 1.0, "hull": 1800.0, "shield": 600.0, "speed": 30.0, "turn": 0.11, "damage": 6.5, "rate": 2.0, "reward": 800, "capital": true, "hit_r": 54.0, "range": 2100.0, "radius": 66.0, "carrier": "frigate"},
 	"orion_starfighter": {"name": "Orion Starfighter", "class": "fighter", "faction": "Orion", "model": "orion_starfighter", "radius": 7.0, "hull": 80.0, "shield": 50.0, "speed": 50.0, "turn": 1.5, "damage": 6.0, "rate": 1.7, "reward": 230, "missiles": true},
 	"orion_fighter_l2": {"name": "Orion Fighter Mk II", "class": "fighter", "faction": "Orion", "model": "orion_fighter_l2", "radius": 8.0, "hit_r": 9.0, "hull": 160.0, "shield": 100.0, "speed": 53.0, "turn": 1.45, "damage": 12.0, "rate": 1.8, "reward": 460, "missiles": true, "level": 2},   # v11.68
 	"orion_fighter_l3": {"name": "Orion Fighter Mk III", "class": "fighter", "faction": "Orion", "model": "orion_fighter_l3", "radius": 11.0, "hit_r": 12.0, "hull": 240.0, "shield": 150.0, "speed": 50.0, "turn": 1.3, "damage": 18.0, "rate": 1.9, "reward": 690, "missiles": true, "level": 3},   # v11.68
-	"savagers_battleship": {"name": "Savagers Battleship", "class": "battleship", "faction": "Savagers", "model": "savagers_battleship", "scale": 1.0, "hull": 5000.0, "shield": 1800.0, "speed": 7.0, "turn": 0.05, "damage": 9.0, "rate": 3.0, "reward": 3200, "capital": true, "hit_r": 85.0, "range": 1400.0, "radius": 105.0, "carrier": "battleship"},   # v11.32
-	"savagers_cruiser": {"name": "Savagers Cruiser", "class": "cruiser", "faction": "Savagers", "model": "savagers_cruiser", "scale": 1.0, "hull": 2600.0, "shield": 900.0, "speed": 12.0, "turn": 0.09, "damage": 7.5, "rate": 2.2, "reward": 1200, "capital": true, "hit_r": 32.0, "range": 1200.0, "radius": 38.0, "carrier": "cruiser"},
-	"savagers_frigate": {"name": "Savagers Frigate", "class": "frigate", "faction": "Savagers", "model": "savagers_frigate", "scale": 1.0, "hull": 1800.0, "shield": 600.0, "speed": 15.0, "turn": 0.11, "damage": 6.5, "rate": 2.0, "reward": 800, "capital": true, "hit_r": 18.0, "range": 1050.0, "radius": 22.0, "carrier": "frigate"},
+	"savagers_battleship": {"name": "Savagers Battleship", "class": "battleship", "faction": "Savagers", "model": "savagers_battleship", "scale": 1.0, "hull": 5000.0, "shield": 1800.0, "speed": 14.0, "turn": 0.05, "damage": 9.0, "rate": 3.0, "reward": 3200, "capital": true, "hit_r": 340.0, "range": 2800.0, "radius": 420.0, "carrier": "battleship"},   # v11.32
+	"savagers_cruiser": {"name": "Savagers Cruiser", "class": "cruiser", "faction": "Savagers", "model": "savagers_cruiser", "scale": 1.0, "hull": 2600.0, "shield": 900.0, "speed": 24.0, "turn": 0.09, "damage": 7.5, "rate": 2.2, "reward": 1200, "capital": true, "hit_r": 96.0, "range": 2400.0, "radius": 114.0, "carrier": "cruiser"},
+	"savagers_frigate": {"name": "Savagers Frigate", "class": "frigate", "faction": "Savagers", "model": "savagers_frigate", "scale": 1.0, "hull": 1800.0, "shield": 600.0, "speed": 30.0, "turn": 0.11, "damage": 6.5, "rate": 2.0, "reward": 800, "capital": true, "hit_r": 54.0, "range": 2100.0, "radius": 66.0, "carrier": "frigate"},
 	"savagers_starfighter": {"name": "Savagers Starfighter", "class": "fighter", "faction": "Savagers", "model": "savagers_starfighter", "radius": 7.0, "hull": 80.0, "shield": 50.0, "speed": 50.0, "turn": 1.5, "damage": 6.0, "rate": 1.7, "reward": 230, "missiles": true},
 	"savagers_fighter_l2": {"name": "Savagers Fighter Mk II", "class": "fighter", "faction": "Savagers", "model": "savagers_fighter_l2", "radius": 8.0, "hit_r": 9.0, "hull": 160.0, "shield": 100.0, "speed": 53.0, "turn": 1.45, "damage": 12.0, "rate": 1.8, "reward": 460, "missiles": true, "level": 2},   # v11.68
 	"savagers_fighter_l3": {"name": "Savagers Fighter Mk III", "class": "fighter", "faction": "Savagers", "model": "savagers_fighter_l3", "radius": 11.0, "hit_r": 12.0, "hull": 240.0, "shield": 150.0, "speed": 50.0, "turn": 1.3, "damage": 18.0, "rate": 1.9, "reward": 690, "missiles": true, "level": 3},   # v11.68
-	"liberator_battleship": {"name": "Liberator Battleship", "class": "battleship", "faction": "Liberator", "model": "liberator_battleship", "scale": 1.0, "hull": 5000.0, "shield": 1800.0, "speed": 7.0, "turn": 0.05, "damage": 9.0, "rate": 3.0, "reward": 3200, "capital": true, "hit_r": 85.0, "range": 1400.0, "radius": 105.0, "carrier": "battleship"},   # v11.32
-	"liberator_cruiser": {"name": "Liberator Cruiser", "class": "cruiser", "faction": "Liberator", "model": "liberator_cruiser", "scale": 1.0, "hull": 2600.0, "shield": 900.0, "speed": 12.0, "turn": 0.09, "damage": 7.5, "rate": 2.2, "reward": 1200, "capital": true, "hit_r": 32.0, "range": 1200.0, "radius": 38.0, "carrier": "cruiser"},
-	"liberator_frigate": {"name": "Liberator Frigate", "class": "frigate", "faction": "Liberator", "model": "liberator_frigate", "scale": 1.0, "hull": 1800.0, "shield": 600.0, "speed": 15.0, "turn": 0.11, "damage": 6.5, "rate": 2.0, "reward": 800, "capital": true, "hit_r": 18.0, "range": 1050.0, "radius": 22.0, "carrier": "frigate"},
+	"liberator_battleship": {"name": "Liberator Battleship", "class": "battleship", "faction": "Liberator", "model": "liberator_battleship", "scale": 1.0, "hull": 5000.0, "shield": 1800.0, "speed": 14.0, "turn": 0.05, "damage": 9.0, "rate": 3.0, "reward": 3200, "capital": true, "hit_r": 340.0, "range": 2800.0, "radius": 420.0, "carrier": "battleship"},   # v11.32
+	"liberator_cruiser": {"name": "Liberator Cruiser", "class": "cruiser", "faction": "Liberator", "model": "liberator_cruiser", "scale": 1.0, "hull": 2600.0, "shield": 900.0, "speed": 24.0, "turn": 0.09, "damage": 7.5, "rate": 2.2, "reward": 1200, "capital": true, "hit_r": 96.0, "range": 2400.0, "radius": 114.0, "carrier": "cruiser"},
+	"liberator_frigate": {"name": "Liberator Frigate", "class": "frigate", "faction": "Liberator", "model": "liberator_frigate", "scale": 1.0, "hull": 1800.0, "shield": 600.0, "speed": 30.0, "turn": 0.11, "damage": 6.5, "rate": 2.0, "reward": 800, "capital": true, "hit_r": 54.0, "range": 2100.0, "radius": 66.0, "carrier": "frigate"},
 	"liberator_starfighter": {"name": "Liberator Starfighter", "class": "fighter", "faction": "Liberator", "model": "liberator_starfighter", "radius": 7.0, "hull": 80.0, "shield": 50.0, "speed": 50.0, "turn": 1.5, "damage": 6.0, "rate": 1.7, "reward": 230, "missiles": true},
 	"liberator_fighter_l2": {"name": "Liberator Fighter Mk II", "class": "fighter", "faction": "Liberator", "model": "liberator_fighter_l2", "radius": 8.0, "hit_r": 9.0, "hull": 160.0, "shield": 100.0, "speed": 53.0, "turn": 1.45, "damage": 12.0, "rate": 1.8, "reward": 460, "missiles": true, "level": 2},   # v11.68
 	"liberator_fighter_l3": {"name": "Liberator Fighter Mk III", "class": "fighter", "faction": "Liberator", "model": "liberator_fighter_l3", "radius": 11.0, "hit_r": 12.0, "hull": 240.0, "shield": 150.0, "speed": 50.0, "turn": 1.3, "damage": 18.0, "rate": 1.9, "reward": 690, "missiles": true, "level": 3},   # v11.68
 	# v1.9n (owner): the SILVER fleet invasion's big ships (capital = slow, turrets all round, a big hit box; missiles,
 	# mines and the special do set damage to them, not a share of their hull)
-	"inv_battleship": {"name": "Battleship", "model": "savager_carrier", "scale": 1.0, "hull": 4500.0, "shield": 1500.0, "speed": 7.0, "turn": 0.05, "damage": 9.0, "rate": 3.0, "reward": 3000, "capital": true, "hit_r": 62.0, "range": 1300.0, "radius": 70.0},
-	"inv_flagship": {"name": "Flagship", "model": "savager_carrier", "scale": 1.8, "hull": 7000.0, "shield": 2500.0, "speed": 5.0, "turn": 0.04, "damage": 10.0, "rate": 3.4, "reward": 5000, "capital": true, "hit_r": 105.0, "range": 1500.0, "radius": 120.0},   # v11.31: the huge destroyer
-	"inv_warship": {"name": "Warship", "model": "savager_cruiser", "scale": 2.0, "hull": 4500.0, "shield": 1500.0, "speed": 10.0, "turn": 0.08, "damage": 8.0, "rate": 2.4, "reward": 1500, "capital": true, "hit_r": 38.0, "range": 1100.0, "radius": 42.0},
-	"inv_destroyer": {"name": "Destroyer", "model": "savager_cruiser", "scale": 1.4, "hull": 3000.0, "shield": 1000.0, "speed": 14.0, "turn": 0.1, "damage": 7.0, "rate": 2.0, "reward": 1000, "capital": true, "hit_r": 28.0, "range": 1000.0, "radius": 30.0},
+	"inv_battleship": {"name": "Battleship", "model": "savager_carrier", "scale": 4.0, "hull": 4500.0, "shield": 1500.0, "speed": 14.0, "turn": 0.05, "damage": 9.0, "rate": 3.0, "reward": 3000, "capital": true, "hit_r": 248.0, "range": 2600.0, "radius": 280.0},
+	"inv_flagship": {"name": "Flagship", "model": "savager_carrier", "scale": 7.2, "hull": 7000.0, "shield": 2500.0, "speed": 10.0, "turn": 0.04, "damage": 10.0, "rate": 3.4, "reward": 5000, "capital": true, "hit_r": 420.0, "range": 3000.0, "radius": 480.0},   # v11.31: the huge destroyer
+	"inv_warship": {"name": "Warship", "model": "savager_cruiser", "scale": 6.0, "hull": 4500.0, "shield": 1500.0, "speed": 20.0, "turn": 0.08, "damage": 8.0, "rate": 2.4, "reward": 1500, "capital": true, "hit_r": 114.0, "range": 2200.0, "radius": 126.0},
+	"inv_destroyer": {"name": "Destroyer", "model": "savager_cruiser", "scale": 4.2, "hull": 3000.0, "shield": 1000.0, "speed": 28.0, "turn": 0.1, "damage": 7.0, "rate": 2.0, "reward": 1000, "capital": true, "hit_r": 84.0, "range": 2000.0, "radius": 90.0},
 	"kaiju_hive": {"name": "Kaijurai Hive", "class": "hive station", "faction": "Kaijurai", "model": "kaijurai_ravager", "scale": 1.0, "hull": 9000.0, "shield": 3000.0, "speed": 0.0, "turn": 0.0, "damage": 10.0, "rate": 1.6, "reward": 3500, "capital": true, "hit_r": 90.0, "range": 1300.0, "radius": 40.0},   # v10.8: a placeholder hive (the Ravager, grown) until a real one is made
 	"inv_command": {"name": "Star Command Station", "model": "station", "scale": 1.0, "hull": 12000.0, "shield": 4000.0, "speed": 0.0, "turn": 0.0, "damage": 10.0, "rate": 2.0, "reward": 4000, "capital": true, "hit_r": 72.0, "range": 1400.0, "radius": 80.0},
 	"raider": {"name": "Raider", "hull": 60.0, "shield": 30.0, "speed": 44.0, "turn": 1.3, "damage": 5.0, "rate": 1.6, "reward": 150},
@@ -2206,7 +2222,8 @@ const BS_ESCAPE_TIME := 4.0                          # s: the run back to the ha
 const BOARD_HP_OPEN := 0.5                           # v11.66 (owner): a battleship's hull at half (or less): its shield is gone for good, board it
 const BOARD_SHIELD_DELAY := 15.0                     # v11.66 (owner: "the shield recovery takes a while"): s after the last hit before a battleship's shield starts back
 const BOARD_SHIELD_REGEN := 0.01                     # ... then this share of the shield a second (other capitals: 0.02)
-const BOARD_NEAR := 700.0                            # v11.60: BOARD shows within this many metres of a battleship's hull (shield broken)
+const BOARD_NEAR := 2800.0   # v11.89: 4x
+#                           # v11.60: BOARD shows within this many metres of a battleship's hull (shield broken)
 const REP_INFILTRATE := 15.0                         # standing lost with a faction whose battleship you infiltrate (owner: allies too)
 const BREAKOUT_ROOMS := ["main_hub", "pilots_lounge", "shipyard"]   # the way to the hangar, one fight each
 const BREAKOUT_WAVES := [[5], [5], [5, 10]]     # guards per wave, room by room (the hangar: five, then ten); then the boss
