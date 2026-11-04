@@ -1405,16 +1405,22 @@ func _board_fx() -> void:
 	for c in s.get_children():
 		if c.name.begins_with("NukeFX"): fx = c
 	var lg: Array = s.nuke_fx_log[-1] if not s.nuke_fx_log.is_empty() else [0, 0.0, 0.0]
-	var spikes: int = fx.get_children().size() - 2 if fx != null else 0
+	var live: Dictionary = s.nuke_fx_live[-1] if not s.nuke_fx_live.is_empty() else {}
+	var tiles_ok: bool = fx != null and (s._nuke_tile_mesh().get_faces().size() / 3) == Data.NUKE_TILES * Data.NUKE_TILES * 6 * 4
+	var inside_ok: bool = not live.is_empty() and (live["smoke"] as Array).size() == Data.NUKE_SMOKE and (live["seeds"] as Array).size() == Data.NUKE_ARCS
 	var rot0: float = fx.rotation.y if fx != null else 0.0
 	await _wait(float(Data.NUKE_FX_TIMES[0]) + float(Data.NUKE_FX_TIMES[1]) * 0.5)
 	var s1: float = fx.scale.x if is_instance_valid(fx) else 0.0
-	await _wait(float(Data.NUKE_FX_TIMES[1]) * 0.5 + float(Data.NUKE_FX_TIMES[2]) + 0.1)
+	var arcs_ok: bool = is_instance_valid(fx) and ((live["arcs"] as MeshInstance3D).mesh as ImmediateMesh).get_surface_count() == 1
+	await _wait(float(Data.NUKE_FX_TIMES[1]) * 0.5 + float(Data.NUKE_FX_TIMES[2]) * 0.85)
 	var s2: float = fx.scale.x if is_instance_valid(fx) else 0.0
 	var turned: float = absf((fx.rotation.y if is_instance_valid(fx) else rot0) - rot0)
-	var twice: bool = absf(s1 - float(lg[1]) * 0.75 * Data.NUKE_FX_SIZE) < float(lg[1]) * 0.15 and s2 > s1 * 1.2
-	_check("Nuke: a spiked ball (%d spikes), grows to the first blast, holds, grows again to the second, and turns slowly" % Data.NUKE_SPIKES,
-		fx != null and spikes == Data.NUKE_SPIKES and twice and turned > 0.3, "spikes %d, size %.0f then %.0f (blasts %.0f / %.0f m), turned %.2f rad" % [spikes, s1, s2, float(lg[1]), float(lg[2]), turned])
+	var faded: float = float((live["mats"][0] as ShaderMaterial).get_shader_parameter("fade")) if is_instance_valid(fx) else 0.0
+	await _wait(float(Data.NUKE_FX_TIMES[2]) * 0.3)
+	var gone := not is_instance_valid(fx)
+	_check("Nuke: a lumpy ball of square tiles rising to small pyramid points, purple smoke and %d arcs of electricity inside; it keeps growing while it turns slowly (half a turn), then it all fades together" % Data.NUKE_ARCS,
+		tiles_ok and inside_ok and arcs_ok and s2 > s1 * 1.2 and turned > Data.NUKE_TURN * 0.7 and faded < 0.3 and gone,
+		"tiles %s inside %s arcs %s size %.0f then %.0f, turned %.2f rad, fade %.2f, gone %s" % [tiles_ok, inside_ok, arcs_ok, s1, s2, turned, faded, gone])
 	# the full run, from a MISSION battleship
 	var mb: Dictionary = s._spawn_capital("inv_battleship", "battleship", s.player.global_position - s.player.global_basis.z * 2500.0, s.player.global_position, "Unity")
 	await _frames(3)
@@ -1749,6 +1755,14 @@ func _run() -> void:
 		await _wait(1.0)
 		await _capture("fx_fighter_d")
 		await _wait(2.5)
+		GS.nukes = maxi(GS.nukes, 3)   # v11.85: the launch swirl
+		s._firing_nuke = true
+		s.fire_missile(true, 0, 1, 1.0, null, true)
+		s._firing_nuke = false
+		await _wait(0.35)
+		await _capture("fx_nuke_launch")
+		for m in s.missiles_live.duplicate(): s.missiles_live.erase(m); (m["node"] as Node).queue_free()
+		await _wait(0.5)
 		var nat: Vector3 = p.global_position - p.global_basis.z * 900.0 + Vector3(0, 60, 0)
 		s.missile_blast(nat, {"heavy": true, "nuke": true}, null)
 		await _wait(0.45)
@@ -1757,6 +1771,8 @@ func _run() -> void:
 		await _capture("fx_nuke_b")
 		await _wait(0.5)
 		await _capture("fx_nuke_c")
+		await _wait(0.6)
+		await _capture("fx_nuke_d")
 		get_tree().quit()
 		return
 	if OS.get_environment("HL_BOARD") != "":   # v11.66: boarding mission battleships, explosions, the nuke (+ the core smoke group)

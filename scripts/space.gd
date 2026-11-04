@@ -4590,6 +4590,7 @@ func _process(dt: float) -> void:
 	_update_bolts(dt)
 	_update_missiles(dt)
 	_update_nukes(dt)
+	_update_nuke_fx(dt)
 	_update_trails(dt)
 	_update_blasts(dt)
 	_update_mines(dt)
@@ -5435,7 +5436,10 @@ func fire_missile(heavy := false, k := 0, n := 1, scale := 1.0, forced: Node3D =
 		"wp": _rng.randf() * TAU, "wf": _rng.randf_range(Data.WEAVE_HZ[0], Data.WEAVE_HZ[1]), "wo": _rng.randf() * TAU, "special": _special_left > 0, "nuke": _firing_nuke})
 	if _special_left > 0: _special_left -= 1
 	_trail_new(mi)
-	Sfx.play("missile", -4.0 if k == 0 else -9.0)
+	if _firing_nuke:   # v11.85 (owner): its own sound, and the 4 streams of light swirling round it
+		_nuke_swirl(mi)
+		Sfx.play("nuke_launch", 0.0)
+	else: Sfx.play("missile", -4.0 if k == 0 else -9.0)
 	return true
 
 func _missile_node(heavy: bool) -> Node3D:
@@ -6161,10 +6165,13 @@ func _blast(at: Vector3, spec: Array, kind := "") -> void:
 	var size: float = spec[0]
 	blasts += 1
 	last_blast = {"at": at, "kind": kind, "size": size}
-	_spark(at, Color(1.0, 1.0, 0.95), size, 0.14)
-	_spark(at, Color(1.0, 0.72, 0.3), size * 0.75, 0.7)
-	_spark(at, Color(1.0, 0.38, 0.12), size * 0.5, 1.1)
-	_ring_fx(at, Color(1.0, 0.85, 0.6, 0.6), size * 0.12, 0.5, 3.5)
+	var nk := kind == "nuke"   # v11.85 (owner): the nuke's light is light blue and purple, not fire
+	_spark(at, Color(0.92, 0.97, 1.0) if nk else Color(1.0, 1.0, 0.95), size, 0.14)
+	_spark(at, Color(0.5, 0.8, 1.0) if nk else Color(1.0, 0.72, 0.3), size * 0.75, 0.7)
+	_spark(at, Color(0.6, 0.35, 1.0) if nk else Color(1.0, 0.38, 0.12), size * 0.5, 1.1)
+	_ring_fx(at, Color(0.6, 0.8, 1.0, 0.6) if nk else Color(1.0, 0.85, 0.6, 0.6), size * 0.12, 0.5, 3.5)
+	if nk:   # (the nuke's own blast shape brings its bursts)
+		return
 	_burst_fx(at, size)   # v11.66 (owner: "sparks, particles, amazing effects when ships explode")
 	for i in int(spec[1]):
 		var d := Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), _rng.randfn(0, 1)).normalized()
@@ -6474,7 +6481,7 @@ func _update_missiles(dt: float) -> void:
 				if m.get("nuke", false) and e["def"].has("carrier"):   # v11.33 (owner: "35 nukes to blow up one of those battleships")
 					_damage_enemy(e, fleet_nuke_damage(e))
 				else: _damage_enemy(e, missile_damage(e, m.get("heavy", false), float(m.get("scale", 1.0))) * (Data.NUKE_MULT if m.get("nuke", false) else 1.0))
-			if m.get("nuke", false): _blast(n.global_position, Data.BLAST_NUKE, "heavy_missile")   # v11.25: the nuke's blast (the second one follows)
+			if m.get("nuke", false): _blast(n.global_position, Data.BLAST_NUKE, "nuke")   # v11.25: the nuke's blast (the second one follows)
 			elif m.get("heavy", false): _blast(n.global_position, Data.BLAST_HEAVY_MISSILE, "heavy_missile")   # v1.5w: the super missile's big explosion
 			else: _spark(n.global_position, Color(1, 0.6, 0.2), 8.0)
 			missile_blast(n.global_position, m, t)
@@ -8977,7 +8984,7 @@ func _nuke_splash(at: Vector3, r: float, k: float, hit: Node3D, which: String) -
 func _update_nukes(dt: float) -> void:
 	for b in nuke_later: b["t"] = float(b["t"]) - dt
 	for b in nuke_later.filter(func(o): return float(o["t"]) <= 0.0):
-		_blast(b["at"], Data.BLAST_NUKE_2, "heavy_missile")
+		_blast(b["at"], Data.BLAST_NUKE_2, "nuke")
 		Sfx.play("explosion", 0.0, 0.6)
 		hit_shake = maxf(hit_shake, 0.6)
 		_nuke_splash(b["at"], Data.HEAVY_MISSILE_BLAST_RADIUS * float(Data.NUKE_SECOND[1]), float(Data.NUKE_SECOND[2]), null, "second")
@@ -9083,7 +9090,7 @@ func _fx_parts(amount: int, life: float, v0: float, v1: float, damp: float, mesh
 	p.emitting = true
 	return p
 
-func _burst_fx(at: Vector3, size: float, scale_k := 1.0) -> void:
+func _burst_fx(at: Vector3, size: float, scale_k := 1.0, nuke := false) -> void:   # (v11.85: nuke = light blue and purple, not fire)
 	if not is_instance_valid(player) or _fx_live >= Data.FX_BURST_MAX: return
 	var k: float = clampf(size / 52.0, 0.3, 4.0) * scale_k
 	if at.distance_to(player.global_position) > Data.FX_BURST_RANGE * maxf(1.0, k): return
@@ -9097,7 +9104,7 @@ func _burst_fx(at: Vector3, size: float, scale_k := 1.0) -> void:
 	var spark := BoxMesh.new()
 	spark.size = Vector3(0.22, 3.2, 0.22) * clampf(k, 0.6, 3.5)
 	var sp := _fx_parts(int(Data.FX_SPARKS * q), 0.9, 70.0 * k, 210.0 * k, 3.0, spark, _fx_mat("spark"),
-		_fx_grad([Color(1.0, 0.95, 0.7, 1), Color(1.0, 0.7, 0.25, 1), Color(1.0, 0.4, 0.08, 0.8), Color(0.8, 0.15, 0.05, 0)]))
+		_fx_grad([Color(0.9, 0.97, 1.0, 1), Color(0.5, 0.85, 1.0, 1), Color(0.55, 0.4, 1.0, 0.8), Color(0.4, 0.15, 0.7, 0)] if nuke else [Color(1.0, 0.95, 0.7, 1), Color(1.0, 0.7, 0.25, 1), Color(1.0, 0.4, 0.08, 0.8), Color(0.8, 0.15, 0.05, 0)]))
 	sp.particle_flag_align_y = true   # (each spark a streak along its flight)
 	sp.scale_amount_min = 0.5
 	root.add_child(sp)
@@ -9107,11 +9114,11 @@ func _burst_fx(at: Vector3, size: float, scale_k := 1.0) -> void:
 	ember.radial_segments = 6
 	ember.rings = 3
 	root.add_child(_fx_parts(int(Data.FX_EMBERS * q), 2.4, 12.0 * k, 75.0 * k, 1.2, ember, _fx_mat("ember"),
-		_fx_grad([Color(1.0, 0.95, 0.7, 1), Color(1.0, 0.55, 0.15, 1), Color(0.9, 0.2, 0.05, 0.7), Color(0.3, 0.05, 0.0, 0)])))
+		_fx_grad([Color(0.9, 0.97, 1.0, 1), Color(0.45, 0.75, 1.0, 1), Color(0.55, 0.25, 0.9, 0.7), Color(0.2, 0.05, 0.35, 0)] if nuke else [Color(1.0, 0.95, 0.7, 1), Color(1.0, 0.55, 0.15, 1), Color(0.9, 0.2, 0.05, 0.7), Color(0.3, 0.05, 0.0, 0)])))
 	var puff := QuadMesh.new()
 	puff.size = Vector2.ONE * 16.0 * k
 	var sm := _fx_parts(int(Data.FX_SMOKE * minf(q, 1.6)), 3.2, 3.0 * k, 16.0 * k, 0.6, puff, _fx_mat("smoke"),
-		_fx_grad([Color(0.35, 0.3, 0.28, 0.0), Color(0.3, 0.27, 0.26, 0.55), Color(0.2, 0.2, 0.22, 0.35), Color(0.15, 0.15, 0.17, 0)]))
+		_fx_grad([Color(0.4, 0.25, 0.6, 0.0), Color(0.4, 0.25, 0.65, 0.5), Color(0.28, 0.2, 0.5, 0.3), Color(0.2, 0.15, 0.35, 0)] if nuke else [Color(0.35, 0.3, 0.28, 0.0), Color(0.3, 0.27, 0.26, 0.55), Color(0.2, 0.2, 0.22, 0.35), Color(0.15, 0.15, 0.17, 0)]))
 	var grow := Curve.new()
 	grow.add_point(Vector2(0, 0.35))
 	grow.add_point(Vector2(1, 1.8))
@@ -9132,7 +9139,7 @@ func _burst_fx(at: Vector3, size: float, scale_k := 1.0) -> void:
 	var fq := QuadMesh.new()
 	fq.size = Vector2.ONE * 21.0 * k
 	var fb := _fx_parts(int(Data.FX_FIRE * q), 1.2, 6.0 * k, 34.0 * k, 2.0, fq, _fx_mat("fire"),
-		_fx_grad([Color(1.0, 1.0, 0.9, 1), Color(1.0, 0.8, 0.35, 1), Color(1.0, 0.45, 0.1, 0.9), Color(0.6, 0.12, 0.04, 0.6), Color(0.15, 0.1, 0.1, 0)]))
+		_fx_grad([Color(0.95, 1.0, 1.0, 1), Color(0.55, 0.85, 1.0, 1), Color(0.45, 0.45, 1.0, 0.9), Color(0.45, 0.15, 0.75, 0.6), Color(0.15, 0.08, 0.25, 0)] if nuke else [Color(1.0, 1.0, 0.9, 1), Color(1.0, 0.8, 0.35, 1), Color(1.0, 0.45, 0.1, 0.9), Color(0.6, 0.12, 0.04, 0.6), Color(0.15, 0.1, 0.1, 0)]))
 	var fgrow := Curve.new()
 	fgrow.add_point(Vector2(0, 0.25))
 	fgrow.add_point(Vector2(0.3, 1.0))
@@ -9145,7 +9152,7 @@ func _burst_fx(at: Vector3, size: float, scale_k := 1.0) -> void:
 	if _fx_lights < Data.FX_LIGHTS:
 		_fx_lights += 1
 		var lt := OmniLight3D.new()
-		lt.light_color = Color(1.0, 0.72, 0.38)
+		lt.light_color = Color(0.55, 0.75, 1.0) if nuke else Color(1.0, 0.72, 0.38)
 		lt.light_energy = 7.0
 		lt.omni_range = 60.0 * k + 40.0
 		lt.shadow_enabled = false
@@ -9163,74 +9170,227 @@ func _burst_fx(at: Vector3, size: float, scale_k := 1.0) -> void:
 ## a glowing core with spikes all round, white-hot inside an orange shell. It grows to the first blast, holds, then
 ## grows again (to the second, bigger blast) while it turns slowly, and fades. Sparks and embers burst at each step.
 var nuke_fx_log: Array = []   # (tests) [spikes, r1, r2]
+## v11.85 (owner): the nuke blast is a lumpy ball of hard square tiles, each rising to a small pyramid point (not
+## big cone spikes), light blue going purple, with purple smoke and 6 streams of electricity twisting round inside.
+## It grows the whole time (to the first blast, then on to the second) while turning slowly, half a turn start to end,
+## and everything fades together at the end.
+const NUKE_TILE_SHADER := """
+shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_back;
+uniform vec4 c1 : source_color = vec4(0.45, 0.85, 1.0, 1.0);
+uniform vec4 c2 : source_color = vec4(0.62, 0.32, 1.0, 1.0);
+uniform float fade = 1.0;
+uniform float strength = 1.0;
+void fragment() {
+	float f = clamp(dot(NORMAL, VIEW), 0.0, 1.0);          // flat tiles: each facet its own shade
+	vec3 c = mix(c2.rgb, c1.rgb, f) * (0.12 + 0.42 * f) + vec3(0.7, 0.85, 1.0) * pow(f, 14.0) * 0.35;
+	ALBEDO = c * fade * strength;
+}
+"""
+const NUKE_ARC_SHADER := """
+shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_disabled;
+uniform float fade = 1.0;
+void fragment() { ALBEDO = COLOR.rgb * fade * 2.2; }
+"""
+static var _nuke_tiles: ArrayMesh
+var nuke_fx_live: Array = []   # {root, arcs, mats, smoke, t, total, fade_at, seeds}
+func _nuke_tile_mesh() -> ArrayMesh:
+	if _nuke_tiles != null: return _nuke_tiles
+	var r := RandomNumberGenerator.new()
+	r.seed = 85
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_smooth_group(-1)   # flat: hard tiles
+	var G: int = Data.NUKE_TILES
+	for n: Vector3 in [Vector3.RIGHT, Vector3.LEFT, Vector3.UP, Vector3.DOWN, Vector3.BACK, Vector3.FORWARD]:
+		var u := n.cross(Vector3.UP if absf(n.y) < 0.9 else Vector3.RIGHT).normalized()
+		var v := n.cross(u)
+		for i in G:
+			for j in G:
+				var a0 := -1.0 + 2.0 * i / G
+				var a1 := -1.0 + 2.0 * (i + 1) / G
+				var b0 := -1.0 + 2.0 * j / G
+				var b1 := -1.0 + 2.0 * (j + 1) / G
+				var rad := r.randf_range(0.86, 1.0)   # not an exact sphere
+				var cs: Array = []
+				for ab in [[a0, b0], [a1, b0], [a1, b1], [a0, b1]]:
+					cs.append((n + u * float(ab[0]) + v * float(ab[1])).normalized())
+				var mid: Vector3 = ((cs[0] + cs[1] + cs[2] + cs[3]) as Vector3).normalized()
+				for k in 4: cs[k] = (mid.lerp(cs[k], 0.9)).normalized() * rad   # (a thin gap between tiles)
+				var apex := mid * (rad + r.randf_range(0.07, 0.24))   # the pyramid point
+				for k in 4:
+					st.add_vertex(cs[k])
+					st.add_vertex(cs[(k + 1) % 4])
+					st.add_vertex(apex)
+	st.generate_normals()
+	_nuke_tiles = st.commit()
+	return _nuke_tiles
+
 func _nuke_fx(at: Vector3, r1: float, r2: float) -> void:
 	blast_shapes += 1
 	var root := Node3D.new()
 	root.name = "NukeFX"
 	add_child(root)
 	root.global_position = at
-	var hot := StandardMaterial3D.new()
-	hot.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	hot.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	hot.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	hot.cull_mode = BaseMaterial3D.CULL_DISABLED
-	hot.albedo_color = Color(1.0, 0.9, 0.6, 0.95)
-	var shell := hot.duplicate() as StandardMaterial3D
-	shell.albedo_color = Color(1.0, 0.45, 0.12, 0.55)
-	var spike_m := hot.duplicate() as StandardMaterial3D
-	spike_m.albedo_color = Color(1.0, 0.7, 0.3, 0.85)
+	var mats: Array = []
+	var tile_m := ShaderMaterial.new()
+	tile_m.shader = Shader.new()
+	tile_m.shader.code = NUKE_TILE_SHADER
+	mats.append(tile_m)
+	var shell := MeshInstance3D.new()
+	shell.mesh = _nuke_tile_mesh()
+	shell.material_override = tile_m
+	root.add_child(shell)
+	var core_m := ShaderMaterial.new()   # a bright inner glow seen through the gaps
+	core_m.shader = tile_m.shader
+	core_m.set_shader_parameter("c1", Color(0.85, 0.95, 1.0))
+	core_m.set_shader_parameter("c2", Color(0.4, 0.55, 1.0))
+	core_m.set_shader_parameter("strength", 0.45)
+	mats.append(core_m)
 	var core := MeshInstance3D.new()
 	var cs := SphereMesh.new()
-	cs.radius = 0.42
-	cs.height = 0.84
+	cs.radius = 0.32
+	cs.height = 0.64
+	cs.radial_segments = 16
+	cs.rings = 8
 	core.mesh = cs
-	core.material_override = hot
+	core.material_override = core_m
 	root.add_child(core)
-	var sh := MeshInstance3D.new()
-	var ss := SphereMesh.new()
-	ss.radius = 0.6
-	ss.height = 1.2
-	sh.mesh = ss
-	sh.material_override = shell
-	root.add_child(sh)
-	var cone := CylinderMesh.new()
-	cone.top_radius = 0.0
-	cone.bottom_radius = 0.1
-	cone.height = 1.0
-	cone.radial_segments = 8
-	var n: int = Data.NUKE_SPIKES
-	var gold := PI * (3.0 - sqrt(5.0))
-	for i in n:   # spikes spread evenly round the ball (a Fibonacci sphere), each its own length
-		var y := 1.0 - (float(i) + 0.5) / float(n) * 2.0
-		var rr := sqrt(maxf(0.0, 1.0 - y * y))
-		var dv := Vector3(cos(gold * i) * rr, y, sin(gold * i) * rr)
-		var ln := _rng.randf_range(0.45, 1.0)
-		var spk := MeshInstance3D.new()
-		spk.mesh = cone
-		spk.material_override = spike_m
-		spk.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		var b := Basis.looking_at(dv, Vector3.FORWARD if absf(dv.y) > 0.95 else Vector3.UP) * Basis(Vector3.RIGHT, -PI * 0.5)
-		spk.transform = Transform3D(b.scaled(Vector3(1.0, ln, 1.0)), dv * (0.4 + ln * 0.5))
-		root.add_child(spk)
+	var smoke: Array = []   # purple smoke drifting inside
+	for i in Data.NUKE_SMOKE:
+		var q := MeshInstance3D.new()
+		var qm := QuadMesh.new()
+		qm.size = Vector2.ONE * _rng.randf_range(0.5, 0.9)
+		q.mesh = qm
+		var sm := StandardMaterial3D.new()
+		sm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		sm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+		sm.albedo_texture = _fire_puff_tex()
+		sm.albedo_color = Color(0.5, 0.22, 0.85, 0.75).lerp(Color(0.3, 0.45, 1.0, 0.65), _rng.randf() * 0.5)
+		sm.no_depth_test = false
+		q.material_override = sm
+		q.position = Vector3(_rng.randf_range(-1, 1), _rng.randf_range(-1, 1), _rng.randf_range(-1, 1)).normalized() * _rng.randf_range(0.1, 0.5)
+		root.add_child(q)
+		smoke.append({"node": q, "mat": sm, "a": sm.albedo_color.a, "ph": _rng.randf() * TAU})
+	var arc_m := ShaderMaterial.new()   # the electricity
+	arc_m.shader = Shader.new()
+	arc_m.shader.code = NUKE_ARC_SHADER
+	mats.append(arc_m)
+	var arcs := MeshInstance3D.new()
+	arcs.mesh = ImmediateMesh.new()
+	arcs.material_override = arc_m
+	root.add_child(arcs)
+	var seeds: Array = []
+	for i in Data.NUKE_ARCS:
+		var ax := Vector3(_rng.randf_range(-1, 1), _rng.randf_range(-1, 1), _rng.randf_range(-1, 1)).normalized()
+		seeds.append({"axis": ax, "ph": _rng.randf() * TAU, "w": _rng.randf_range(1.6, 3.2) * (1.0 if i % 2 == 0 else -1.0), "rad": _rng.randf_range(0.5, 0.8),
+			"col": Color(0.6, 0.9, 1.0) if i % 2 == 0 else Color(0.8, 0.55, 1.0)})
 	for c in root.get_children(): (c as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.rotation = Vector3(_rng.randf() * TAU, _rng.randf() * TAU, 0.0)
 	root.scale = Vector3.ONE * r1 * 0.05
-	nuke_fx_log.append([n, r1, r2])
+	nuke_fx_log.append([Data.NUKE_TILES * Data.NUKE_TILES * 6, r1, r2])
 	if nuke_fx_log.size() > 10: nuke_fx_log.pop_front()
-	var T: Array = Data.NUKE_FX_TIMES   # [first grow, hold, second grow, fade]
-	var tw := root.create_tween()
+	var T: Array = Data.NUKE_FX_TIMES   # [first grow, second grow, fade (still growing)]
+	var total: float = float(T[0]) + float(T[1]) + float(T[2])
+	var tw := root.create_tween()   # it never stops growing: to the first blast, on to the second, a little more as it fades
 	tw.tween_property(root, "scale", Vector3.ONE * r1 * 0.75 * Data.NUKE_FX_SIZE, float(T[0])).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tw.tween_interval(float(T[1]))
-	tw.tween_property(root, "scale", Vector3.ONE * r2 * 0.75 * Data.NUKE_FX_SIZE, float(T[2])).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_callback(func(): _burst_fx(at, Data.BLAST_NUKE_2[0], 1.6))
-	tw.tween_property(hot, "albedo_color:a", 0.0, float(T[3]))
-	tw.parallel().tween_property(shell, "albedo_color:a", 0.0, float(T[3]))
-	tw.parallel().tween_property(spike_m, "albedo_color:a", 0.0, float(T[3]))
-	tw.tween_callback(root.queue_free)
-	var total: float = float(T[0]) + float(T[1]) + float(T[2]) + float(T[3])
-	var spin := root.create_tween()   # the slow spin, start to end
-	spin.tween_property(root, "rotation:y", root.rotation.y + Data.NUKE_SPIN * total, total)
-	_burst_fx(at, Data.BLAST_NUKE[0], 1.3)
+	tw.tween_property(root, "scale", Vector3.ONE * r2 * 0.75 * Data.NUKE_FX_SIZE, float(T[1])).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.parallel().tween_callback(func(): _burst_fx(at, Data.BLAST_NUKE_2[0], 1.6, true))
+	tw.tween_property(root, "scale", Vector3.ONE * r2 * 0.85 * Data.NUKE_FX_SIZE, float(T[2])).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tw.tween_callback(func(): _nuke_fx_end(root))
+	var spin := root.create_tween()   # the slow turn: Data.NUKE_TURN over the whole blast
+	spin.tween_property(root, "rotation:y", root.rotation.y + Data.NUKE_TURN, total)
+	nuke_fx_live.append({"root": root, "arcs": arcs, "mats": mats, "smoke": smoke, "t": 0.0, "total": total, "fade_at": float(T[0]) + float(T[1]), "seeds": seeds})
+	_burst_fx(at, Data.BLAST_NUKE[0], 1.3, true)
+	var dd := player.global_position.distance_to(at) if is_instance_valid(player) else 0.0
+	Sfx.play("nuke_blast", clampf(2.0 - dd / 120.0, -24.0, 2.0))
+
+func _nuke_fx_end(root: Node3D) -> void:
+	nuke_fx_live = nuke_fx_live.filter(func(f): return f["root"] != root)
+	root.queue_free()
+
+## Every frame: the arcs crackle round inside, the smoke churns, and at the end it all fades out together.
+func _update_nuke_fx(dt: float) -> void:
+	for f in nuke_fx_live:
+		if not is_instance_valid(f["root"]): continue
+		f["t"] = float(f["t"]) + dt
+		var t: float = f["t"]
+		var fade := 1.0 - clampf((t - float(f["fade_at"])) / maxf(0.01, float(f["total"]) - float(f["fade_at"])), 0.0, 1.0)
+		for m: ShaderMaterial in f["mats"]: m.set_shader_parameter("fade", fade)
+		for sm in f["smoke"]:
+			var q: MeshInstance3D = sm["node"]
+			(sm["mat"] as StandardMaterial3D).albedo_color.a = float(sm["a"]) * fade
+			q.position = q.position.rotated(Vector3.UP, dt * 0.6) * (1.0 + 0.04 * sin(t * 3.0 + float(sm["ph"])) * dt)
+		var im: ImmediateMesh = (f["arcs"] as MeshInstance3D).mesh
+		im.clear_surfaces()
+		im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+		for sd in f["seeds"]:
+			var ax: Vector3 = sd["axis"]
+			var e1 := ax.cross(Vector3.UP if absf(ax.y) < 0.9 else Vector3.RIGHT).normalized()
+			var e2 := ax.cross(e1)
+			var a0: float = float(sd["ph"]) + t * float(sd["w"])
+			var pts: Array = []
+			var N := 18
+			for k in N + 1:   # an arc of ~200 degrees round its own axis, jagged like lightning
+				var a := a0 + k * (3.5 / N)
+				var rr: float = float(sd["rad"]) * (1.0 + 0.12 * sin(t * 9.0 + k))
+				var p := (e1 * cos(a) + e2 * sin(a)) * rr + ax * 0.25 * sin(a * 2.0 + t * 4.0)
+				if k > 0 and k < N: p += Vector3(_rng.randf_range(-1, 1), _rng.randf_range(-1, 1), _rng.randf_range(-1, 1)) * 0.06
+				pts.append(p)
+			var c: Color = sd["col"]
+			for k in N:
+				var p0: Vector3 = pts[k]
+				var p1: Vector3 = pts[k + 1]
+				var side := (p1 - p0).cross(p0).normalized() * 0.03
+				for v in [p0 - side, p0 + side, p1 + side, p0 - side, p1 + side, p1 - side]:
+					im.surface_set_color(c)
+					im.surface_add_vertex(v)
+		im.surface_end()
+
+## v11.85 (owner): firing a nuke: 4 streams of light swirl round it as it shoots out.
+func _nuke_swirl(mi: Node3D) -> void:
+	var sw := Node3D.new()
+	sw.name = "NukeSwirl"
+	mi.add_child(sw)
+	for i in 4:
+		var em := Node3D.new()
+		em.position = Vector3(cos(i * PI * 0.5), sin(i * PI * 0.5), 0.0) * Data.NUKE_SWIRL_R
+		sw.add_child(em)
+		var ps := CPUParticles3D.new()
+		ps.local_coords = false   # (the trail stays behind in space: a corkscrew of light)
+		ps.amount = 90
+		ps.lifetime = 0.7
+		ps.emission_shape = CPUParticles3D.EMISSION_SHAPE_POINT
+		ps.gravity = Vector3.ZERO
+		ps.initial_velocity_min = 0.0
+		ps.initial_velocity_max = 0.0
+		ps.scale_amount_min = 0.9
+		ps.scale_amount_max = 1.2
+		var cv := Curve.new()
+		cv.add_point(Vector2(0, 1))
+		cv.add_point(Vector2(1, 0))
+		ps.scale_amount_curve = cv
+		var qm := QuadMesh.new()
+		qm.size = Vector2.ONE * 3.0
+		var mm := StandardMaterial3D.new()
+		mm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		mm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+		mm.albedo_texture = _fire_puff_tex()
+		mm.vertex_color_use_as_albedo = true
+		qm.material = mm
+		ps.mesh = qm
+		ps.color = Color(0.5, 0.85, 1.0) if i % 2 == 0 else Color(0.75, 0.5, 1.0)
+		var gr := Gradient.new()
+		gr.set_color(0, ps.color)
+		gr.set_color(1, Color(ps.color.r, ps.color.g, ps.color.b, 0.0))
+		ps.color_ramp = gr
+		em.add_child(ps)
+	var tw := sw.create_tween().set_loops()
+	tw.tween_property(sw, "rotation:z", TAU, 1.0 / Data.NUKE_SWIRL_HZ).from(0.0)
 
 var _fx_lights := 0
 static var _puff_texture: ImageTexture

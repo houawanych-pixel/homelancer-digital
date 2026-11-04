@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.84"
+const VERSION := "v11.85"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1534,10 +1534,14 @@ const NUKE_PRICE := 400               # expensive (a super missile is 50); the h
 const NUKE_MULT := 3.0
 const NUKE_BLAST_K := 2.0             # x the super missile's blast radius
 const NUKE_SECOND := [0.7, 3.0, 1.5]  # the second blast: after s, x the super radius, x the super splash damage
-const NUKE_SPIKES := 30                # v11.66 (owner): the nuke is a spiked ball, not a sphere
-const NUKE_FX_TIMES := [0.35, 0.3, 0.55, 1.2]   # s: grows to the first blast, holds, grows again (the second blast), fades
+const NUKE_TILES := 6                  # v11.85 (owner): the blast ball is 6 x NUKE_TILES^2 hard square tiles, each a small pyramid point
+const NUKE_SMOKE := 10                 # purple smoke puffs inside
+const NUKE_ARCS := 6                   # streams of electricity twisting round inside
+const NUKE_TURN := PI                  # v11.85 (owner): a slow half turn over the whole blast
+const NUKE_SWIRL_R := 4.5              # m: the 4 light streams round a fired nuke
+const NUKE_SWIRL_HZ := 2.2             # turns a second
+const NUKE_FX_TIMES := [0.5, 1.3, 0.9]   # s: grows to the first blast, grows on to the second, fades out together (still growing)
 const NUKE_FX_SIZE := 1.6              # v11.66 (owner: "the nuke needs to be bigger"): the fireball is drawn this much past its blast radius
-const NUKE_SPIN := 0.9                 # rad/s: the slow turn while it blows up
 const FX_SPARKS := 70                  # v11.66 (owner: "sparks, particles, amazing effects"): per normal ship blast (more for big ones)
 const FX_EMBERS := 36
 const FX_SMOKE := 10
