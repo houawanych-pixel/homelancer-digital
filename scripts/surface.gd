@@ -266,6 +266,30 @@ static func facility_sites(planet_id: String) -> Array:
 	_fac_cache[planet_id] = out
 	return out
 
+## v12.1 (owner: "use the bunker assets to design a 3 to 6 combination to create a facility"): the parts of a bunker
+## facility, joined into one complex: the entrance tower in the middle, then (by level: 3 parts at level 1 up to 6 at
+## level 4) towers built onto its sides, generators against its back and gun batteries on the corners, in one of a few
+## plans (a row, an L, a courtyard, a cross), turned to its own bearing. Each part: [file, offset (x, z), width, turn].
+static func compound(site: Dictionary) -> Array:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash("compound:" + str(site.get("name", "")))
+	var W: float = Data.BUNKER_WIDTH
+	var n := clampi(2 + int(site.get("difficulty", 1)), 3, 6)
+	var plans := {
+		"row": [["HL_Asset_BunkerPillar", Vector2(0.9, 0), 0.8], ["HL_Asset_Generator", Vector2(0, -0.78), 0.5], ["HL_Asset_BunkerPillar", Vector2(-0.9, 0), 0.8], ["HL_Asset_GunBattery", Vector2(1.55, 0.55), 0.42], ["HL_Asset_GunBattery", Vector2(-1.55, 0.55), 0.42]],
+		"ell": [["HL_Asset_BunkerPillar", Vector2(0.88, 0), 0.75], ["HL_Asset_BunkerPillar", Vector2(0, -0.88), 0.75], ["HL_Asset_Generator", Vector2(0.85, -0.85), 0.55], ["HL_Asset_GunBattery", Vector2(-0.8, 0.75), 0.42], ["HL_Asset_GunBattery", Vector2(1.6, 0.6), 0.42]],
+		"court": [["HL_Asset_Generator", Vector2(0, -0.8), 0.55], ["HL_Asset_GunBattery", Vector2(1.0, 0.7), 0.42], ["HL_Asset_GunBattery", Vector2(-1.0, 0.7), 0.42], ["HL_Asset_BunkerPillar", Vector2(1.05, -0.6), 0.7], ["HL_Asset_BunkerPillar", Vector2(-1.05, -0.6), 0.7]],
+		"cross": [["HL_Asset_Generator", Vector2(0, -0.8), 0.5], ["HL_Asset_BunkerPillar", Vector2(0.85, 0), 0.7], ["HL_Asset_BunkerPillar", Vector2(-0.85, 0), 0.7], ["HL_Asset_Generator", Vector2(0, 0.85), 0.5], ["HL_Asset_GunBattery", Vector2(1.25, 1.1), 0.42]]}
+	var keys: Array = plans.keys()
+	var plan: Array = plans[keys[rng.randi() % keys.size()]]
+	var turn := float(rng.randi() % 4) * PI * 0.5 + rng.randf_range(-0.2, 0.2)
+	var out: Array = [["HL_Asset_BunkerPillar", Vector2.ZERO, W, turn]]
+	for i in n - 1:
+		var pc: Array = plan[i]
+		var off: Vector2 = (pc[1] as Vector2).rotated(-turn) * W
+		out.append([pc[0], off, float(pc[2]) * W, turn + (PI if (pc[1] as Vector2).y > 0.5 else 0.0)])
+	return out
+
 static func base_pads(planet_id: String) -> Array:
 	if _base_pad_cache.has(planet_id): return _base_pad_cache[planet_id]
 	_base_pad_cache[planet_id] = []

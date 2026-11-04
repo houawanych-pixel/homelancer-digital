@@ -814,13 +814,20 @@ func _planet_bases() -> void:
 		return
 	for i in list.size():
 		var site: Dictionary = list[i]
-		var h := _ground_prop("res://assets/bases3d/%s.glb" % str(site["file"]), Data.BUNKER_WIDTH if site.get("bunker", false) else Data.BASE_WIDTH, site["spot"], true)   # (on its own pad)
+		var lay: Array = Surface.compound(site) if site.get("bunker", false) else []   # v12.1: a bunker is a compound of 3-6 parts
+		var h := _ground_prop("res://assets/bases3d/%s.glb" % str(site["file"]), Data.BUNKER_WIDTH if site.get("bunker", false) else Data.BASE_WIDTH, site["spot"], true, float(lay[0][3]) if not lay.is_empty() else 0.0)   # (on its own pad)
 		if h == null: continue
 		h.name = str(site["name"])
 		h.set_meta("base", str(site["file"]))
 		h.set_meta("side", str(site["side"]))
 		h.set_meta("facility", site)
 		planet_bases.append(h)
+		if not lay.is_empty():   # v12.1 (owner: "use the bunker assets to design a 3 to 6 combination to create a facility")
+			for pc in lay.slice(1):
+				var pp := Vector2(h.position.x, h.position.z) + (pc[1] as Vector2)
+				var ph := _ground_prop("res://assets/bases3d/%s.glb" % str(pc[0]), float(pc[2]), pp, true, float(pc[3]))
+				if ph != null: ph.name = "%s %s" % [str(site["name"]), str(pc[0]).trim_prefix("HL_Asset_")]
+			continue
 		if str(site["side"]) == "hostile":   # its defences: gun batteries either side and a generator behind
 			for k in 3:
 				var part := "HL_Asset_GunBattery" if k < 2 else "HL_Asset_Generator"
@@ -834,7 +841,7 @@ func _on_bases_pack(pk: String) -> void:
 	_planet_bases()
 
 ## One model stood on the ground at (sector-local) `want`, `width` m across, with a box to bump into. Null if missing.
-func _ground_prop(path: String, width: float, want: Vector2, exact := false) -> Node3D:
+func _ground_prop(path: String, width: float, want: Vector2, exact := false, rot := 0.0) -> Node3D:
 	if not ResourceLoader.exists(path): return null
 	var ps := load(path) as PackedScene
 	if ps == null: return null
@@ -846,6 +853,7 @@ func _ground_prop(path: String, width: float, want: Vector2, exact := false) -> 
 	var half := maxf(bb.size.x, bb.size.z) * w * 0.5
 	var site := Vector3(want.x, _ground(want.x, want.y), want.y) if exact else building_site(want, half, surf_boxes)
 	holder.scale = Vector3.ONE * w
+	holder.rotation.y = rot
 	holder.position = Vector3(site.x, site.y - Data.BUILDING_SINK - bb.position.y * w, site.z)
 	holder.set_meta("half", half)
 	tile_root.add_child(holder)
