@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.93"
+const VERSION := "v11.94"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -73,17 +73,23 @@ const SYSTEM_LAYOUT := {
 		"add_planets": [{"name": "Haven", "palette": "ice", "at": [3.0, 7.6], "radius": 650.0,
 			"desc": "Ice world. Mining camps and a quiet harbour for new pilots. Fly into the atmosphere to go down."}],
 		"stations": {"Liberator Freeport": [8.6, 7.2], "Imperium Watch Post": [2.8, 2.6]},
+		"add_stations": [{"name": "Haven Station", "faction": "Unity", "model": "HL_Station_Unity_Trade_retopo", "at": [2.4, 8.2],
+			"desc": "Unity's west corner station by Haven: ice haulers, a repair dock and a quiet bar for new pilots."}],
 		"gates": {"vega": [6.2, 1.9], "veranthos": [5.6, 9.0]},
 		"clouds": [
 			{"name": "Outer Drift", "at": [10.0, 5.0], "radius": 26000.0, "weather": "rocks", "color": Color(0.62, 0.58, 0.55)},
 			{"name": "Ash Wisps", "at": [1.0, 8.4], "radius": 24000.0, "weather": "storm", "color": Color(0.5, 0.45, 0.75)},
 			{"name": "Liberty Haze", "at": [7.4, 8.6], "radius": 22000.0, "weather": "storm", "color": Color(0.35, 0.6, 0.95)},
+			{"name": "North Veil", "at": [4.9, 2.4], "radius": 30000.0, "weather": "storm", "color": Color(0.6, 0.35, 0.9)},   # v11.94: north of mid
+			{"name": "Ion Shoals", "at": [9.0, 2.0], "radius": 22000.0, "weather": "rocks", "color": Color(0.55, 0.6, 0.7)},
+			{"name": "Lantern Cloud", "at": [4.6, 6.9], "radius": 20000.0, "weather": "storm", "color": Color(0.95, 0.7, 0.4)},
+			{"name": "Crossing Rocks", "at": [4.9, 8.6], "radius": 16000.0, "weather": "rocks", "color": Color(0.6, 0.52, 0.45)},
 		],
 		"junctions": {"North Choke Point": [6.9, 4.7], "Liberty Crossing": [6.6, 7.7]},
 		"lanes": [
 			["hub", "North Choke Point"], ["North Choke Point", "planet"], ["North Choke Point", "Liberator Freeport"],
 			["planet", "gate:vega"], ["hub", "Liberty Crossing"], ["Liberty Crossing", "gate:veranthos"],
-			["Liberty Crossing", "Liberator Freeport"], ["Liberty Crossing", "Haven"], ["Haven", "gate:veranthos"],
+			["Liberty Crossing", "Liberator Freeport"], ["Liberty Crossing", "Haven Station"], ["Haven Station", "gate:veranthos"],
 		],
 	},
 	"dreadholm": {

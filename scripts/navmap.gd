@@ -445,7 +445,11 @@ func _collect() -> void:
 func _mark_seen() -> void:
 	for k in objs:
 		var o: Dictionary = objs[k]
-		var always: bool = o.get("main", false) or o["type"] in ["gate", "star", "enemy", "traffic"]
+		var always: bool = o.get("main", false) or o["type"] in ["gate", "star", "enemy", "traffic", "planet"]
+		# v11.94 (owner: "put an alliance station where the lanes pinch"): the system's planets, its friendly stations
+		# and its lane network are charted from the start; the rest (rivals, clouds, rocks) is found by flying out
+		var dd: Dictionary = o.get("data", {})
+		if o["type"] == "station" and not bool(dd.get("hidden", false)) and str(dd.get("role", "")) in ["ally", "outpost", "hub"]: always = true
 		o["seen"] = always or GS.seen_at(GS.system_id, o["pos"])
 
 func _extra_at(p: Vector3) -> Node3D:

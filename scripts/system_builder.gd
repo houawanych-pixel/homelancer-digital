@@ -221,10 +221,12 @@ static func cell_pos(c: Array, y := 0.0) -> Vector3:
 ## v11.65 (owner): the hand-made layouts (Data.SYSTEM_LAYOUT): the star, moved planets and stations, the gates pushed out,
 ## the extra clouds, the choke points and the lane plan. Runs last, after the roles are placed.
 static func apply_layouts(systems: Dictionary) -> void:
-	for sid in Data.SYSTEM_LAYOUT:
+	var all := auto_layouts(systems)   # v11.94 (owner: "every system should have all the development basics"): made for the rest
+	for k in Data.SYSTEM_LAYOUT: all[k] = Data.SYSTEM_LAYOUT[k]
+	for sid in all:
 		if not systems.has(sid): continue
 		var sy: Dictionary = systems[sid]
-		var L: Dictionary = Data.SYSTEM_LAYOUT[sid]
+		var L: Dictionary = all[sid]
 		# v11.91 (owner: Solara, the starting system): the hub, the main planet, the belt and the main nebula by hand too,
 		# and planets added to the system (they come in already grown)
 		if L.has("hub"): sy["station"]["pos"] = cell_pos(L["hub"], (sy["station"]["pos"] as Vector3).y)
@@ -236,6 +238,13 @@ static func apply_layouts(systems: Dictionary) -> void:
 			sy["more_planets"].append({"id": "%s_%s" % [sid, str(ap["name"]).to_lower().replace(" ", "_")], "name": str(ap["name"]), "palette": str(ap["palette"]),
 				"kind": "landmark", "placeholder": true, "pos": cell_pos(ap["at"], float(ap.get("y", 0.0))), "radius": float(ap["radius"]) * Data.PLANET_GROW,
 				"desc": str(ap.get("desc", "%s world. Fly into the atmosphere to go down." % str(ap["palette"]).capitalize()))})
+		if L.has("spy") and not sy.has("spy"): sy["spy"] = L["spy"]
+		for ast: Dictionary in L.get("add_stations", []):   # v11.94: a faction's own outposts placed by hand
+			if (sy.get("more_stations", []) as Array).any(func(x): return str(x["name"]) == str(ast["name"])): continue
+			sy["more_stations"].append({"id": "%s_%s" % [sid, str(ast["name"]).to_lower().replace(" ", "_")], "name": str(ast["name"]), "catalog_name": str(ast["name"]),
+				"kind": "station", "placeholder": false, "color": Color(0.5, 0.5, 0.55), "pos": cell_pos(ast["at"], float(ast.get("y", 0.0))), "radius": Data.PH_STATION_RADIUS,
+				"model": str(ast["model"]), "faction": str(ast["faction"]), "role": str(ast.get("role", "outpost")), "hidden": bool(ast.get("hidden", false)), "tint": ast.get("tint", Color.WHITE),
+				"desc": str(ast.get("desc", "%s station." % str(ast["faction"]))), "retopo_added": true})
 		if L.has("sun"):
 			var sp := cell_pos(L["sun"])
 			sy["sun_center"] = false
@@ -260,6 +269,215 @@ static func apply_layouts(systems: Dictionary) -> void:
 		for jn in L.get("junctions", {}): j[jn] = cell_pos(L["junctions"][jn])
 		sy["junctions"] = j
 		sy["lane_plan"] = (L.get("lanes", []) as Array).duplicate(true)
+
+## v11.94 (owner: "every one of these systems needs redesign ... better trade lanes, more activity, more nebula, clouds,
+## asteroids ... there shouldn't be something so simple like a sun, a planet, 2 gates, done"). For every system without a
+## hand layout (and not unknown / void space) this works out the same basics Dreadholm and Solara have, in map squares:
+## the gates in off the edge squares, a second world, the faction's ally station and a hidden rival post in a nebula
+## (a spy at the hub), clouds and asteroid fields (one each on the edge squares, more inside), and a lane network that
+## runs through choke points to every place, kept off the star and the rocks. Seeded by the system id: the same every time.
+const MAJORS := ["Elyza", "Unity", "Solarion", "Imperium", "Covenant", "Orion", "Savagers", "Liberator"]
+const ALLIES := {"Orion": "Covenant", "Covenant": "Orion", "Unity": "Liberator", "Liberator": "Unity", "Imperium": "Savagers",
+	"Savagers": "Imperium", "Elyza": "Solarion", "Solarion": "Elyza"}
+const CLOUD_COLS := [Color(0.55, 0.3, 0.85), Color(0.3, 0.6, 0.95), Color(0.85, 0.45, 0.3), Color(0.4, 0.8, 0.6), Color(0.85, 0.75, 0.4), Color(0.7, 0.4, 0.6)]
+const CLOUD_NAMES := ["Veil", "Drift", "Haze", "Shroud", "Reach", "Mists", "Wisps", "Expanse"]
+const ROCK_NAMES := ["Shards", "Rubble", "Scatter", "Teeth", "Shoals", "Cinders"]
+
+static func cell_of(p: Vector3) -> Vector2:
+	var w: float = 2.0 * Data.SPACE_EDGE / float(Data.MAP_CELLS)
+	return Vector2((p.x + Data.SPACE_EDGE) / w + 1.0, (p.z + Data.SPACE_EDGE) / w + 1.0)
+
+static func _seg_d(p: Vector2, a: Vector2, b: Vector2) -> float:
+	var ab := b - a
+	var t := clampf((p - a).dot(ab) / maxf(ab.length_squared(), 0.0001), 0.0, 1.0)
+	return p.distance_to(a + ab * t)
+
+static func auto_layouts(systems: Dictionary) -> Dictionary:
+	var out := {}
+	for sid in systems:
+		if Data.SYSTEM_LAYOUT.has(sid) or Data.SYSTEM_ROLES.has(sid): continue
+		var sy: Dictionary = systems[sid]
+		if is_unknown(sy) or str(sy.get("faction", "")) == "Void" or str(sy.get("role", "")) == "void" or not sy.has("station") or not sy.has("planet"): continue
+		var L := _auto_layout(sid, sy)
+		if not L.is_empty(): out[sid] = L
+	return out
+
+static func _auto_layout(sid: String, sy: Dictionary) -> Dictionary:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash("develop:" + sid)
+	var lo := 1.9
+	var hi := float(Data.MAP_CELLS) - 0.9
+	var clampc := func(c: Vector2) -> Vector2: return Vector2(clampf(c.x, lo, hi), clampf(c.y, lo, hi))
+	var hub: Vector2 = clampc.call(cell_of(sy["station"]["pos"]))
+	var pl: Vector2 = clampc.call(cell_of(sy["planet"]["pos"]))
+	var sun: Vector2 = cell_of(sun_pos_of(sy))
+	var sun_r: float = Data.SUN_RADIUS * Data.SUN_KEEP_OUT / (2.0 * Data.SPACE_EDGE / float(Data.MAP_CELLS)) + 0.25
+	var L := {"hub": [hub.x, hub.y], "planet": [pl.x, pl.y]}
+	var taken: Array = [hub, pl, sun]
+	var far := func(c: Vector2, d: float) -> bool:
+		for q: Vector2 in taken: if q.distance_to(c) < d: return false
+		return true
+	var pick := func(near: Vector2, rmin: float, rmax: float, d: float) -> Vector2:
+		for i in 40:
+			var a := rng.randf() * TAU
+			var c: Vector2 = clampc.call(near + Vector2(cos(a), sin(a)) * rng.randf_range(rmin, rmax))
+			if far.call(c, d) and c.distance_to(sun) > sun_r + 0.6: return c
+		return clampc.call(near + Vector2(rmin, 0.0))
+	# gates: in off the edge squares, spread round the system
+	var gates := {}
+	var gcells: Array = []
+	for g in sy.get("gates", []):
+		var gc: Vector2 = cell_of(g["pos"])
+		var gd := gc - hub
+		if gd.length() < 0.1: gd = Vector2(rng.randf_range(-1, 1), rng.randf_range(-1, 1))
+		gc = clampc.call(hub + gd.normalized() * maxf(gd.length(), rng.randf_range(3.0, 3.8)))   # (gates sit out toward the edge)
+		if not far.call(gc, 1.0) or gc.distance_to(sun) < sun_r + 0.6: gc = pick.call(hub, 2.8, 4.0, 1.0)
+		gates[str(g["to"])] = [gc.x, gc.y]
+		gcells.append([str(g["to"]), gc])
+		taken.append(gc)
+	L["gates"] = gates
+	# a second world, when the system has only the one
+	var places: Array = []   # [lane name, cell]
+	if (sy.get("more_planets", []) as Array).is_empty():
+		var x2: Vector2 = pick.call(hub, 2.4, 3.6, 1.3)
+		taken.append(x2)
+		var pal: String = ["ice", "desert", "dead", "gas", "ocean", "jungle", "toxic"][rng.randi() % 7]
+		var nm: String = str(sy["name"]) + str([" II", " Minor", " Secundus", "'s Moon"][rng.randi() % 4])
+		L["add_planets"] = [{"name": nm, "palette": pal, "at": [x2.x, x2.y], "radius": rng.randf_range(520.0, 820.0)}]
+		places.append([nm, x2])
+	# the faction's ally station and a hidden rival post in a nebula, a spy at the hub
+	var fac := str(sy.get("faction", ""))
+	var adds: Array = []
+	if fac in MAJORS:
+		var ally: String = ALLIES.get(fac, "")
+		var rival := Factions.rival(fac)
+		if ally != "":
+			var ac: Vector2 = pick.call(hub, 2.0, 3.2, 1.2)
+			taken.append(ac)
+			var an: String = "%s %s" % [ally, ["Embassy", "Freeport", "Relay", "Depot"][rng.randi() % 4]]
+			adds.append({"name": an, "faction": ally, "model": "HL_Station_%s_Military_retopo" % ally, "at": [ac.x, ac.y], "role": "ally",
+				"desc": "%s station: %s's allies trade, repair and pass word here." % [ally, fac]})
+			places.append([an, ac])
+		if rival != "":
+			var rc: Vector2 = pick.call(Vector2(float(Data.MAP_CELLS) + 1.0, float(Data.MAP_CELLS) + 1.0) - hub, 0.5, 2.5, 1.6)
+			taken.append(rc)
+			L["nebula"] = [rc.x, rc.y]
+			adds.append({"name": "%s Watch Post" % rival, "faction": rival, "model": "HL_Station_%s_Military_retopo" % rival, "at": [rc.x, rc.y], "role": "rival", "hidden": true,
+				"desc": "A %s post hidden in the system's nebula, watching %s's lanes." % [rival, fac]})
+			L["spy"] = {"type": "contact", "at": "hub", "faction": rival, "name": "Dockside Informant", "desc": "A contact at the hub who sells word on the hidden %s post." % rival}
+	L["add_stations"] = adds
+	# choke points between the hub and the places beyond it, and the lanes through them
+	var lanes: Array = [["hub", "planet"]]
+	var juncs := {}
+	var dests: Array = []
+	for gc in gcells: dests.append(["gate:" + str(gc[0]), gc[1]])
+	dests.append_array(places)
+	dests.sort_custom(func(a, b): return atan2((a[1] as Vector2).y - hub.y, (a[1] as Vector2).x - hub.x) < atan2((b[1] as Vector2).y - hub.y, (b[1] as Vector2).x - hub.x))
+	var groups: Array = []   # neighbours in bearing share a choke point (2 or 3 to a choke)
+	var i := 0
+	while i < dests.size():
+		var n := 2 if dests.size() - i != 3 else 3
+		groups.append(dests.slice(i, i + n))
+		i += n
+	var segs: Array = [[hub, pl]]
+	var cn := ["North", "East", "South", "West", "Outer", "Inner"]
+	for gi in groups.size():
+		var grp: Array = groups[gi]
+		if grp.size() == 1:
+			lanes.append(["hub", grp[0][0]])
+			segs.append([hub, grp[0][1]])
+			continue
+		var mid := Vector2.ZERO
+		for d in grp: mid += d[1]
+		mid /= float(grp.size())
+		var jc: Vector2 = clampc.call(hub.lerp(mid, 0.55))
+		if jc.distance_to(sun) < sun_r + 0.4: jc = clampc.call(jc + (jc - sun).normalized() * (sun_r + 0.6 - jc.distance_to(sun)))
+		var dirn := jc - hub
+		var jname: String = "%s Choke Point" % (cn[0] if dirn.y < -abs(dirn.x) else (cn[2] if dirn.y > abs(dirn.x) else (cn[1] if dirn.x > 0 else cn[3])))
+		var base_jn := jname
+		var nth := 2
+		while juncs.has(jname):   # (two on the same side: Crossing, then numbered)
+			jname = base_jn.replace("Choke Point", "Crossing") if nth == 2 else "%s %d" % [base_jn, nth]
+			nth += 1
+		juncs[jname] = [jc.x, jc.y]
+		lanes.append(["hub", jname])
+		segs.append([hub, jc])
+		for d in grp:
+			lanes.append([jname, d[0]])
+			segs.append([jc, d[1]])
+	# the planet joins the nearest gate too, so the network has a loop
+	if not gcells.is_empty():
+		var best: Array = gcells[0]
+		for gc in gcells: if (gc[1] as Vector2).distance_to(pl) < (best[1] as Vector2).distance_to(pl): best = gc
+		lanes.append(["planet", "gate:" + str(best[0])])
+		segs.append([pl, best[1]])
+	# a lane that would pass the star goes round it through a choke point beside it
+	var where := func(k: String) -> Vector2:
+		if k == "hub": return hub
+		if k == "planet": return pl
+		if juncs.has(k): return Vector2(juncs[k][0], juncs[k][1])
+		for gc in gcells: if "gate:" + str(gc[0]) == k: return gc[1]
+		for pc in places: if str(pc[0]) == k: return pc[1]
+		return Vector2.INF
+	var ok_lanes: Array = []
+	var nd := 0
+	for ln in lanes:
+		var a2: Vector2 = where.call(str(ln[0]))
+		var b2: Vector2 = where.call(str(ln[1]))
+		if a2 == Vector2.INF or b2 == Vector2.INF or _seg_d(sun, a2, b2) >= sun_r + 0.25:
+			ok_lanes.append(ln)
+			continue
+		var m := (a2 + b2) * 0.5
+		var side := m - sun
+		if side.length() < 0.01: side = (b2 - a2).orthogonal()
+		var done_ln := false
+		for sg in [1.0, -1.0]:   # round the star on the near side, else the far side
+			var dc: Vector2 = clampc.call(sun + side.normalized() * sg * (sun_r + 0.9))
+			if _seg_d(sun, a2, dc) >= sun_r + 0.25 and _seg_d(sun, dc, b2) >= sun_r + 0.25:
+				nd += 1
+				var dn := "%s Bypass %d" % [str(sy["name"]), nd]
+				juncs[dn] = [dc.x, dc.y]
+				ok_lanes.append([ln[0], dn])
+				ok_lanes.append([dn, ln[1]])
+				done_ln = true
+				break
+		if done_ln: continue
+		var keys: Array = ["hub", "planet"] + juncs.keys() + places.map(func(q): return q[0]) + gcells.map(func(q): return "gate:" + str(q[0]))
+		for k2 in keys:   # else from any place the far end can see past the star
+			var c2: Vector2 = where.call(str(k2))
+			if str(k2) == str(ln[1]) or c2 == Vector2.INF: continue
+			if _seg_d(sun, c2, b2) >= sun_r + 0.25:
+				ok_lanes.append([k2, ln[1]])
+				break
+	lanes = ok_lanes
+	L["junctions"] = juncs
+	L["lanes"] = lanes
+	# clouds and asteroid fields: one of each on the edge squares, more inside; rocks kept off every lane line
+	var clouds: Array = []
+	var off_lanes := func(c: Vector2, r_cells: float) -> bool:
+		for sg in segs: if _seg_d(c, sg[0], sg[1]) < r_cells + 0.35: return false
+		return true
+	var edge_spots := [Vector2(1.0, rng.randf_range(2.0, 9.0)), Vector2(float(Data.MAP_CELLS), rng.randf_range(2.0, 9.0)), Vector2(rng.randf_range(2.0, 9.0), 1.0), Vector2(rng.randf_range(2.0, 9.0), float(Data.MAP_CELLS))]
+	for k in 2:
+		var e: Vector2 = edge_spots[(int(rng.randi() % 4) + k) % 4]
+		var rocks := k == 0
+		clouds.append({"name": "%s %s" % [str(sy["name"]), ROCK_NAMES[rng.randi() % ROCK_NAMES.size()] if rocks else CLOUD_NAMES[rng.randi() % CLOUD_NAMES.size()]],
+			"at": [e.x, e.y], "radius": rng.randf_range(22000.0, 30000.0), "weather": "rocks" if rocks else "storm", "color": CLOUD_COLS[rng.randi() % CLOUD_COLS.size()]})
+	var inner := 0
+	for tries in 60:
+		if inner >= 3: break
+		var c := Vector2(rng.randf_range(2.2, float(Data.MAP_CELLS) - 1.2), rng.randf_range(2.2, float(Data.MAP_CELLS) - 1.2))
+		var rocks := inner == 1
+		var r := rng.randf_range(16000.0, 26000.0)
+		var rc2 := r / (2.0 * Data.SPACE_EDGE / float(Data.MAP_CELLS))
+		if not far.call(c, 0.9) or c.distance_to(sun) < sun_r + rc2: continue
+		if rocks and not off_lanes.call(c, rc2): continue
+		clouds.append({"name": "%s %s" % [str(sy["name"]), ROCK_NAMES[rng.randi() % ROCK_NAMES.size()] if rocks else CLOUD_NAMES[rng.randi() % CLOUD_NAMES.size()]],
+			"at": [c.x, c.y], "radius": r, "weather": "rocks" if rocks else "storm", "color": CLOUD_COLS[rng.randi() % CLOUD_COLS.size()]})
+		taken.append(c)
+		inner += 1
+	L["clouds"] = clouds
+	return L
 
 ## v11.65: where a lane-plan name sits: "hub", "planet", "gate:<system id>", a choke point, or a station / planet by name.
 static func layout_point(sy: Dictionary, key: String) -> Vector3:

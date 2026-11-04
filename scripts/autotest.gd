@@ -1145,6 +1145,9 @@ func _dreadholm() -> void:
 	var card_ok: bool = NavGrid.planet_picture(sy["planet"]) == "res://assets/planet_cards/dreadholm.jpg" and str(sy["planet"]["palette"]) == "lava" and str(Data.SYSTEMS["vortegan"]["planet"]["palette"]) == "desert"
 	_check("Dreadholm planet: its own 10-room set loads (or falls back to the Fleet Command hub room when a picture is missing); the map card is the lava art; Orion biomes set",
 		fallback_ok and card_ok, "on planet %s room %s (own art %s) card %s" % [on_planet, pf, want_own, card_ok])
+	var dv := _develop_check()
+	_check("Every system is developed: %d systems with gates off the edge, 2+ worlds, lanes to every gate, none through the star or rocks" % int(dv["n"]),
+		int(dv["n"]) >= 60 and (dv["bad"] as Array).is_empty(), "%d systems, problems %d: %s" % [dv["n"], (dv["bad"] as Array).size(), str((dv["bad"] as Array).slice(0, 12))])
 	# 3. Repair Reputation at the ally station: charges credits, raises standing (never past green)
 	if main.state == "hub": main.launch()
 	await _until(func(): return main.state == "flight", 10.0)
@@ -1510,6 +1513,40 @@ func _fighters_l2l3() -> void:
 	_check("Fighter levels: regular soldiers fly Level 1, bounties and elites Level 2, everyone at the faction's home Level 3; home systems have %d battleships on patrol" % Data.HOME_BATTLESHIPS,
 		t1 == "orion_starfighter" and t2 == "orion_fighter_l2" and t3 == "orion_fighter_l3" and SpaceSystem.home_of("dreadholm") == "Orion" and SpaceSystem.home_of("korrath") == "",
 		"korrath L1 %s, L2 %s; dreadholm %s; homes %s/%s" % [t1, t2, t3, SpaceSystem.home_of("dreadholm"), SpaceSystem.home_of("korrath")])
+
+## v11.94 (owner: "every system should have all the development basics"): every system with a layout (made or by hand)
+## has gates off the edge squares, at least 2 worlds, lanes to every gate, and no lane through the star or a rock field.
+func _develop_check() -> Dictionary:
+	var bad: Array = []
+	var n := 0
+	var w: float = 2.0 * Data.SPACE_EDGE / float(Data.MAP_CELLS)
+	for sid in Data.SYSTEMS:
+		var sy: Dictionary = Data.SYSTEMS[sid]
+		if not sy.has("lane_plan") or (sy["lane_plan"] as Array).is_empty(): continue
+		n += 1
+		var sun: Vector3 = SystemBuilder.sun_pos_of(sy)
+		var rocks: Array = (sy.get("layout_clouds", []) as Array).filter(func(c): return str(c.get("weather", "")) == "rocks")
+		var gates_in := {}
+		for ln in sy["lane_plan"]:
+			for k in ln: if str(k).begins_with("gate:"): gates_in[str(k)] = true
+			var a: Vector3 = SystemBuilder.layout_point(sy, str(ln[0]))
+			var b: Vector3 = SystemBuilder.layout_point(sy, str(ln[1]))
+			if a == Vector3.INF or b == Vector3.INF:
+				bad.append("%s: %s" % [sid, ln])
+				continue
+			var ab := b - a
+			var t := clampf((sun - a).dot(ab) / maxf(ab.length_squared(), 1.0), 0.0, 1.0)
+			if (a + ab * t).distance_to(sun) < Data.SUN_RADIUS * 1.2: bad.append("%s: %s through the star" % [sid, ln])
+			for rc in rocks:
+				var c: Vector3 = rc["center"]
+				var t2 := clampf((c - a).dot(ab) / maxf(ab.length_squared(), 1.0), 0.0, 1.0)
+				if (a + ab * t2).distance_to(c) < float(rc["radius"]): bad.append("%s: %s through %s" % [sid, ln, rc["name"]])
+		for g in sy["gates"]:
+			var cc: Vector2 = SystemBuilder.cell_of(g["pos"])
+			if cc.x < 1.5 or cc.y < 1.5 or cc.x > float(Data.MAP_CELLS) - 0.5 or cc.y > float(Data.MAP_CELLS) - 0.5: bad.append("%s: gate %s on an edge square" % [sid, g["to"]])
+			if not gates_in.has("gate:" + str(g["to"])): bad.append("%s: no lane to gate %s" % [sid, g["to"]])
+		if (sy.get("more_planets", []) as Array).is_empty(): bad.append("%s: one world only" % sid)
+	return {"n": n, "bad": bad}
 
 ## v11.70 (owner): the boarding run, start to end, inside the battleship (call once the mech is inside): the doors slide
 ## open as you walk up (the way out is locked), each room's guards come when you walk in, the core's shield drops once
