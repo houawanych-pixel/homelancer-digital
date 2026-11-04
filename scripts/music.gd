@@ -104,7 +104,15 @@ func _ready() -> void:
 		JavaScriptBridge.eval(WEB_JS, true)
 		web = true
 
-func _web_vol() -> float: return 0.0 if muted else db_to_linear(vol_db)
+func _web_vol() -> float: return 0.0 if (muted or ducked) else db_to_linear(vol_db)
+
+## v11.97 (owner): while someone reads you a briefing, the music goes to nothing; back after.
+var ducked := false
+func duck(on: bool) -> void:
+	if on == ducked: return
+	ducked = on
+	if web: JavaScriptBridge.eval("window.__hlm.vol(%f)" % _web_vol(), true)
+	if _a.playing: _fade(_a, -80.0 if (on or muted) else vol_db, false)
 
 ## v5.9 (owner): in the hub the faction's music plays under the room at 10%.
 func set_hub(on: bool) -> void:
@@ -112,7 +120,7 @@ func set_hub(on: bool) -> void:
 	if is_equal_approx(to, vol_db): return
 	vol_db = to
 	if web: JavaScriptBridge.eval("window.__hlm.vol(%f)" % _web_vol(), true)
-	if _a.playing and not muted: _fade(_a, vol_db, false)
+	if _a.playing and not muted and not ducked: _fade(_a, vol_db, false)
 
 func _process(dt: float) -> void:
 	if not web: return

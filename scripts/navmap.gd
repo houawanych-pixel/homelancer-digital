@@ -88,9 +88,55 @@ func open(sp: SpaceSystem) -> void:
 	_layout()
 	queue_redraw()
 
+## v11.97: the info card's planet globe (a TextureRect over the card, drawn by GLOBE_SHADER).
+const GLOBE_SHADER := """
+shader_type canvas_item;
+uniform float spin = 0.0;
+void fragment() {
+	vec2 p = UV * 2.0 - 1.0;
+	float r2 = dot(p, p);
+	if (r2 > 1.0) { COLOR = vec4(0.0); }
+	else {
+		float z = sqrt(1.0 - r2);
+		vec3 n = vec3(p.x, -p.y, z);
+		float lon = atan(n.x, n.z) + spin;
+		float lat = asin(clamp(n.y, -1.0, 1.0));
+		vec2 uv = vec2(fract(lon / 6.2831853 + 0.5), 0.5 - lat / 3.1415927);
+		vec3 c = texture(TEXTURE, uv).rgb;
+		float light = clamp(dot(n, normalize(vec3(-0.55, 0.45, 0.75))), 0.0, 1.0) * 0.95 + 0.12;
+		float rim = pow(1.0 - z, 3.0);
+		COLOR = vec4(c * light + vec3(0.35, 0.55, 1.0) * rim * 0.55, smoothstep(1.0, 0.97, r2));
+	}
+}
+"""
+var globe: TextureRect = null
+var _globe_want := {}
+func _update_globe() -> void:
+	if globe == null:
+		globe = TextureRect.new()
+		globe.name = "PlanetGlobe"
+		globe.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		globe.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		globe.stretch_mode = TextureRect.STRETCH_SCALE
+		var sh := Shader.new()
+		sh.code = GLOBE_SHADER
+		var mt := ShaderMaterial.new()
+		mt.shader = sh
+		globe.material = mt
+		add_child(globe)
+	globe.visible = not _globe_want.is_empty() and selected != ""
+	if globe.visible:
+		globe.texture = _globe_want["tex"]
+		var gr: Rect2 = _globe_want["rect"]
+		globe.position = gr.position
+		globe.size = gr.size
+		(globe.material as ShaderMaterial).set_shader_parameter("spin", t * 0.15)
+	_globe_want = {}
+
 func _process(dt: float) -> void:
 	if not visible: return
 	t += dt
+	_update_globe()
 	queue_redraw()
 	canvas.queue_redraw()
 	over.queue_redraw()
@@ -270,6 +316,17 @@ func pick(p: Vector2) -> String:
 		if d < reach and (best == "" or d < best_d):
 			best = k
 			best_d = d
+	if best == "":   # v11.97: a tap on a trade lane's line picks the lane
+		var lp := p - map_rect.position
+		var bl: float = Data.NAV_HIT_RADIUS * 0.8
+		for k in objs:
+			if objs[k]["type"] != "lane": continue
+			var a := view.to_screen(objs[k]["a"])
+			var b := view.to_screen(objs[k]["b"])
+			var q := Geometry2D.get_closest_point_to_segment(lp, a, b)
+			if q.distance_to(lp) < bl:
+				bl = q.distance_to(lp)
+				best = k
 	return best
 
 func select(key: String) -> void:
@@ -293,6 +350,7 @@ func select_near(world: Vector3) -> String:
 func set_course() -> void:
 	var n: Node3D = null
 	if selected == "point": n = space.waypoint_at(way_pos)
+	elif objs.has(selected) and objs[selected]["type"] == "lane": n = _lane_node(selected)
 	else:
 		n = _node(selected)
 		if n == null and objs.has(selected):   # a zone with no node of its own (belt, nebula): fly to its middle
@@ -315,14 +373,25 @@ func dest_list() -> Array:
 	for k in objs:
 		var o: Dictionary = objs[k]
 		if o.get("ship", false) or k == "star" or not o.get("seen", true): continue
-		var kind: String = {"planet": "Planet", "station": "Station", "gate": "Gate", "belt": "Asteroid field", "nebula": "Nebula", "beacon": "Beacon"}.get(str(o["type"]), str(o["type"]).capitalize())
+		var kind: String = {"planet": "Planet", "station": "Station", "gate": "Gate", "belt": "Asteroid field", "nebula": "Nebula", "beacon": "Beacon", "lane": "Trade lane"}.get(str(o["type"]), str(o["type"]).capitalize())
 		if o["type"] == "gate": kind = "%s Gate > %s" % [str(o["data"].get("gkind", "jump")).capitalize(), Data.SYSTEMS[o["data"]["to"]]["name"]]
 		rest.append({"key": k, "name": str(o["name"]), "kind": kind, "dist": pp.distance_to(o["pos"])})
 	rest.sort_custom(func(a, b): return a["dist"] < b["dist"])
 	return out + rest
 
+## v11.97: a trade lane's nearest ring, as a GPS marker the autopilot docks into (Space: "lane_mouth").
+func _lane_node(key: String) -> Node3D:
+	var n := space.waypoint_at(objs[key]["pos"])
+	n.name = str(objs[key]["name"]).validate_node_name()
+	n.set_meta("lane_mouth", true)
+	return n
+
 ## The node a list entry stands for (a zone or point gets a GPS marker of its own).
 func _dest_node(key: String) -> Node3D:
+	if objs.has(key) and objs[key]["type"] == "lane":
+		var ln := space.nav_marker(objs[key]["pos"], str(objs[key]["name"]))
+		if ln != null: ln.set_meta("lane_mouth", true)
+		return ln
 	if key == "mission":
 		var mw: Dictionary = space.mission_waypoint()
 		return mw["node"] if not mw.is_empty() else null
@@ -426,6 +495,17 @@ func _collect() -> void:
 		var neb: Dictionary = nebs[ni]
 		objs["nebula" if ni == 0 else "nebula%d" % ni] = {"type": "nebula", "name": (str(neb["name"]) + " nebula") if str(neb["name"]) != "" else "Nebula",
 			"pos": neb["center"], "col": neb["color"], "r": float(neb["radius"]), "data": neb}
+	if space != null and is_instance_valid(space.player):   # v11.97 (owner): trade lanes you can pick on the map and fly into
+		for li in space.lanes.size():
+			var ln: Dictionary = space.lanes[li]
+			var up: Array = ln["up"]
+			var dn: Array = ln["down"]
+			if up.size() < 2 or dn.size() < 2: continue
+			var pp: Vector3 = space.player.global_position
+			var fwd: bool = pp.distance_to(up[0]) <= pp.distance_to(dn[0])
+			var mouth: Vector3 = up[0] if fwd else dn[0]
+			objs["lane%d" % li] = {"type": "lane", "name": "Trade Lane %s > %s" % [str(ln["a"] if fwd else ln["b"]), str(ln["b"] if fwd else ln["a"])],
+				"pos": mouth, "mid": ((up[0] as Vector3) + (up[-1] as Vector3)) * 0.5, "a": up[0], "b": up[-1], "col": Data.LANE_TINT, "r": 30.0, "data": ln, "rings": up.size()}
 	var star_pos: Vector3 = space.sun_pos if space != null and space.sun_pos != Vector3.INF else SystemBuilder.sun_pos_of(sys)
 	objs["star"] = {"type": "star", "name": "%s's Star" % sys["name"], "pos": star_pos, "col": sys.get("star", Color(1.0, 0.9, 0.5)), "r": 900.0, "data": {}}
 	if space != null and is_instance_valid(space.player):
@@ -445,7 +525,7 @@ func _collect() -> void:
 func _mark_seen() -> void:
 	for k in objs:
 		var o: Dictionary = objs[k]
-		var always: bool = o.get("main", false) or o["type"] in ["gate", "star", "enemy", "traffic", "planet"]
+		var always: bool = o.get("main", false) or o["type"] in ["gate", "star", "enemy", "traffic", "planet", "lane"]
 		# v11.94 (owner: "put an alliance station where the lanes pinch"): the system's planets, its friendly stations
 		# and its lane network are charted from the start; the rest (rivals, clouds, rocks) is found by flying out
 		var dd: Dictionary = o.get("data", {})
@@ -503,6 +583,10 @@ func info(key: String) -> Dictionary:
 		"nebula":
 			out["type"] = "Nebula"
 			out["lines"].append("About %.1f km across. Thick fog inside: radar range drops." % (float(o["r"]) * 2.0 / 1000.0))
+		"lane":
+			out["type"] = "Trade Lane"
+			out["lines"].append("%d rings. SET COURSE flies you to the nearest ring and the lane takes you in." % int(o.get("rings", 0)))
+			out["lines"].append("Lanes can run through nebula clouds, never through asteroids or the star.")
 		"star":
 			out["type"] = "Star"
 			out["lines"].append("Too hot to approach: shields and repairs fail close in.")
@@ -939,7 +1023,13 @@ func _card(ci: CanvasItem) -> void:
 		var want := pr.size.x / pr.size.y
 		if src.size.x / src.size.y > want: src = Rect2(src.position.x + (src.size.x - src.size.y * want) * 0.5, src.position.y, src.size.y * want, src.size.y)
 		else: src = Rect2(src.position.x, src.position.y + (src.size.y - src.size.x / want) * 0.5, src.size.x, src.size.x / want)
-		ci.draw_texture_rect_region(tex, pr, src)
+		var world_map: bool = objs.has(selected) and str(objs[selected]["type"]) == "planet" and tex.get_size().x > tex.get_size().y * 1.5
+		if world_map:   # v11.97 (owner): show the planet itself (its texture on a turning globe), not a flat world map
+			_globe_want = {"rect": Rect2(pr.get_center() - Vector2(ph, ph) * 0.46, Vector2(ph, ph) * 0.92), "tex": tex}
+			var sv := NavGrid.new()
+			sv.setup(pr.get_center(), Vector3.ZERO, 1.0, Vector3.ZERO, false, 900.0)
+			sv.draw_grid(ci, pr)
+		else: ci.draw_texture_rect_region(tex, pr, src)
 	else:   # no picture at all: a code-made token, never a broken image
 		var c := pr.get_center()
 		var pv := NavGrid.new()

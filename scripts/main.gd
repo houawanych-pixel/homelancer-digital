@@ -204,6 +204,7 @@ var _kills_seen := 0
 func music_mood(dt: float) -> String:
 	if state == "title": return "intro"
 	Music.set_hub(state == "hub")
+	if state != "hub": Music.duck(false)   # (v11.97: never left quiet after a briefing)
 	if state == "hub":   # v5.9 (owner): the faction's own music under the hub, quiet (Data.HUB_MUSIC)
 		return Music.faction_mood(Data.SYSTEMS.get(GS.system_id, {}).get("faction", "Neutral"), GS.system_id)
 	if not is_instance_valid(space) or not is_instance_valid(space.player): return Music.mood
@@ -705,9 +706,8 @@ func open_map() -> void:
 		return
 	state = "map"
 	hud.close_comms()
-	space.process_mode = Node.PROCESS_MODE_DISABLED
-	hud.visible = false
-	navmap.open(space)
+	hud.visible = false   # v11.97 (owner): the map no longer pauses the game (only START does): you keep flying, warping
+	navmap.open(space)    # and the autopilot keeps going while you watch yourself move on it, like a real GPS
 
 func _on_map_closed() -> void:
 	if state == "map":
@@ -1108,6 +1108,9 @@ func friendly_base_system() -> String:
 	return "solara" if Data.SYSTEMS.has("solara") else Data.SYSTEMS.keys()[0]
 
 func _on_destroyed() -> void:
+	if state == "map":   # v11.97: the map no longer pauses, so you can die with it open: shut it first
+		navmap.visible = false
+		state = "flight"
 	if state != "flight": return
 	state = "dead"
 	hud.visible = false

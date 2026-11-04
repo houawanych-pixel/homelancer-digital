@@ -2682,7 +2682,7 @@ static func nebulae_of(id: String, s: Dictionary) -> Array:
 		out.append({"name": "", "center": c0, "radius": gr, "color": gcol, "main": false, "gate": str(g.get("id", ""))})
 	var tries := 0
 	var gate_clouds := out.size() - 1
-	while out.size() < 1 + gate_clouds + Data.NEBULA_EXTRA and tries < 120:
+	while out.size() < 1 + gate_clouds + Data.NEBULA_EXTRA and tries < 240:
 		tries += 1
 		var r := rng.randf_range(Data.NEBULA_EXTRA_RADIUS[0], Data.NEBULA_EXTRA_RADIUS[1])
 		var a := rng.randf() * TAU
@@ -5097,6 +5097,11 @@ func _autopilot_input() -> Array:
 	var local := player.global_basis.inverse() * to.normalized()
 	var steer := Vector2(clampf(local.x * 3.0, -1, 1), clampf(-local.y * 3.0, -1, 1))
 	var dist := to.length()
+	if autopilot.has_meta("lane_mouth") and player.global_position.distance_to(autopilot.global_position) < Data.LANE_DOCK_RANGE * 0.8:
+		autopilot = null   # v11.97 (owner): picked a trade lane on the map: at its ring, the lane takes you
+		drop_warp()
+		if not lane_enter(): message.emit("Autopilot: at the trade lane.")
+		return [Vector2.ZERO, Vector2.ZERO]
 	if dist < 170.0:
 		last_arrived = autopilot   # v1.9k: main sees where the autopilot got to (a job's GO TO carries on through gates)
 		autopilot = null
@@ -6344,6 +6349,61 @@ func _die() -> void:
 	fire_lock = false
 	player_destroyed.emit()
 
+## v11.97: is this a Level 3 fighter (a faction's fighter_l3)?
+static var _l3_models := {}
+static func is_l3(d: Dictionary) -> bool:
+	if _l3_models.is_empty():
+		for f in Data.FACTION_FLEET:
+			var k := str(Data.FACTION_FLEET[f].get("fighter_l3", ""))
+			if k != "" and Data.ENEMIES.has(k): _l3_models[str(Data.ENEMIES[k].get("model", k))] = true
+		_l3_models["_"] = true
+	return _l3_models.has(str(d.get("model", "")))
+
+## v11.97 (owner): a Level 3 ship's super missile: the enemy missile, bigger, purple, and it hits much harder.
+func enemy_fire_super(e: Dictionary) -> void:
+	var n: Node3D = e["node"]
+	var mi := _missile_node(true)
+	mi.scale *= 1.6
+	add_child(mi)
+	mi.global_position = n.global_position - n.global_basis.y * 1.5 - n.global_basis.z * 4.0
+	enemy_missiles.append({"node": mi, "vel": -n.global_basis.z * 80.0 + (e["vel"] as Vector3), "life": Data.ENEMY_MISSILE_LIFE, "lost": false, "super": true,
+		"wp": _rng.randf() * TAU, "wf": _rng.randf_range(Data.WEAVE_HZ[0], Data.WEAVE_HZ[1]), "wo": _rng.randf() * TAU})
+	_trail_new(mi)
+	enemy_supers += 1
+	if n.global_position.distance_to(player.global_position) < 900.0: Sfx.play("missile", -4.0, 0.6)
+	message.emit("SUPER MISSILE incoming — boost sideways!")
+var enemy_supers := 0   # (tests)
+
+## v11.97 (owner): a Level 3 ship drops a mine behind it. Only you set it off (never its own side).
+var enemy_mines: Array = []
+func enemy_drop_mine(e: Dictionary) -> void:
+	var n: Node3D = e["node"]
+	var mn := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = 3.0
+	sm.height = 6.0
+	mn.mesh = sm
+	mn.material_override = ShipFactory.mat(Color(1.0, 0.25, 0.2), true)
+	add_child(mn)
+	mn.global_position = n.global_position + n.global_basis.z * 8.0
+	enemy_mines.append({"node": mn, "life": Data.ENEMY_MINE_LIFE})
+
+func _update_enemy_mines(dt: float) -> void:
+	for i in range(enemy_mines.size() - 1, -1, -1):
+		var m: Dictionary = enemy_mines[i]
+		var n: Node3D = m["node"]
+		m["life"] = float(m["life"]) - dt
+		var boom := false
+		if is_instance_valid(n) and is_instance_valid(player) and controls and n.global_position.distance_to(player.global_position) < Data.ENEMY_MINE_R:
+			_player_hit(Data.ENEMY_MINE_DAMAGE, n.global_position)
+			_spark(n.global_position, Color(1, 0.4, 0.2), 12.0)
+			Sfx.play("explosion", -6.0, 1.0)
+			boom = true
+		if is_instance_valid(n): (n as MeshInstance3D).transparency = 0.0 if fmod(m["life"], 1.0) > 0.5 else 0.5   # (blinks)
+		if boom or m["life"] <= 0.0 or not is_instance_valid(n):
+			if is_instance_valid(n): n.queue_free()
+			enemy_mines.remove_at(i)
+
 ## An enemy launches a homing missile at the player.
 func enemy_fire_missile(e: Dictionary) -> void:
 	var n: Node3D = e["node"]
@@ -6515,7 +6575,7 @@ func _update_enemy_missiles(dt: float) -> void:
 				if missile_warn < 0.0 or dist < missile_warn: missile_warn = dist
 				if dist < Data.ENEMY_MISSILE_HIT:
 					if sg.is_empty():
-						_player_hit(Data.ENEMY_MISSILE_DAMAGE, n.global_position)
+						_player_hit(Data.ENEMY_SUPER_DAMAGE if m.get("super", false) else Data.ENEMY_MISSILE_DAMAGE, n.global_position)
 						_spark(n.global_position, Color(1, 0.6, 0.2), 8.0)
 						Sfx.play("explosion", -8.0, 1.3)
 					else:
@@ -6548,6 +6608,7 @@ func _update_enemy_missiles(dt: float) -> void:
 
 func _update_missiles(dt: float) -> void:
 	_update_enemy_missiles(dt)
+	_update_enemy_mines(dt)
 	for i in range(volley_queue.size() - 1, -1, -1):
 		var q: Dictionary = volley_queue[i]
 		q["t"] -= dt
@@ -6883,6 +6944,17 @@ func _update_enemies(dt: float) -> void:
 			if e["mcd"] <= 0.0 and (-n.global_basis.z).dot(to.normalized()) > 0.5:
 				e["mcd"] = _rng.randf_range(Data.ENEMY_MISSILE_EVERY[0], Data.ENEMY_MISSILE_EVERY[1])
 				enemy_fire_missile(e)
+		if is_l3(d) and e["aggro"] and controls and warp_state != "on":   # v11.97 (owner): Level 3 ships fire super missiles and drop mines
+			if not e.has("scd"): e["scd"] = _rng.randf_range(Data.ENEMY_SUPER_EVERY[0], Data.ENEMY_SUPER_EVERY[1]) * 0.5
+			if not e.has("mncd"): e["mncd"] = _rng.randf_range(Data.ENEMY_MINE_EVERY[0], Data.ENEMY_MINE_EVERY[1]) * 0.5
+			e["scd"] = float(e["scd"]) - dt
+			e["mncd"] = float(e["mncd"]) - dt
+			if e["scd"] <= 0.0 and dist < Data.ENEMY_MISSILE_RANGE * 1.5:
+				e["scd"] = _rng.randf_range(Data.ENEMY_SUPER_EVERY[0], Data.ENEMY_SUPER_EVERY[1])
+				enemy_fire_super(e)
+			if e["mncd"] <= 0.0 and dist < 900.0:
+				e["mncd"] = _rng.randf_range(Data.ENEMY_MINE_EVERY[0], Data.ENEMY_MINE_EVERY[1])
+				enemy_drop_mine(e)
 		# shooting
 		e["cd"] -= dt
 		e["core_cd"] -= dt
@@ -8143,7 +8215,7 @@ func _build_surface_env() -> void:
 func load_tile(t: int, keep := Vector3.INF) -> void:
 	tile = t
 	var pp := player.global_position if is_instance_valid(player) else Vector3.ZERO
-	for arr in [enemies, loot, missiles_live, enemy_missiles, mines_live, bolts]:
+	for arr in [enemies, loot, missiles_live, enemy_missiles, mines_live, bolts, enemy_mines]:
 		for i in range(arr.size() - 1, -1, -1):
 			var d: Dictionary = arr[i]
 			var nd: Node3D = d["node"]
@@ -8462,7 +8534,7 @@ func mission_point(p: Vector3) -> Node3D:
 
 ## v1.5f: a mission wave: `count` ships of `faction` at `at`, soldiers up to `max_slot`, always hostile to you; with a
 ## `boss_id` the first ship is that named bounty pilot. Tagged with the stage, so the mission knows when it is gone.
-func spawn_mission_group(at: Vector3, faction: String, count: int, max_slot: int, boss_id: String, stage: int, one_rank := false) -> Array:   # v1.8x: one_rank = every ship of that slot
+func spawn_mission_group(at: Vector3, faction: String, count: int, max_slot: int, boss_id: String, stage: int, one_rank := false, tier := 2, boss_tier := -1) -> Array:   # v1.8x: one_rank = every ship of that slot; v11.97: fighter level (boss_tier for the target)
 	_group_serial += 1
 	var out: Array = []
 	var pool: Array = Factions.DEFS.get(faction, {}).get("fighter_pool", [])
@@ -8474,8 +8546,9 @@ func spawn_mission_group(at: Vector3, faction: String, count: int, max_slot: int
 		if not soldier.is_empty() and Data.ENEMIES.has(str(soldier.get("fighter_primary", ""))): kind = str(soldier["fighter_primary"])
 		elif not pool.is_empty(): kind = pool[mini(i, pool.size() - 1)]
 		else: kind = sys["enemy"]
-		kind = tier_fighter(faction, 2, kind)   # v11.87 (owner): bounties and mission elites fly Level 2 (Level 3 at their home)
-		tier_log.append([faction, 2, kind])
+		var tr: int = boss_tier if (i == 0 and boss_id != "" and boss_tier > 0) else tier
+		kind = tier_fighter(faction, tr, kind)   # v11.87 (owner): bounties and mission elites fly Level 2 (Level 3 at their home); v11.97: per wave
+		tier_log.append([faction, tr, kind])
 		var e := spawn_unit(kind, at + Vector3(_rng.randf_range(-70, 70), _rng.randf_range(-25, 25), _rng.randf_range(-70, 70)), at)
 		e["group"] = _group_serial
 		e["mission"] = stage
@@ -9649,6 +9722,7 @@ func waypoint_at(p: Vector3) -> Node3D:
 		waypoint.set_meta("kind", "waypoint")
 		waypoint.set_meta("radius", 30.0)
 		add_child(waypoint)
+	if waypoint.has_meta("lane_mouth"): waypoint.remove_meta("lane_mouth")   # (one shared marker: only a lane pick sets it)
 	waypoint.global_position = p
 	return waypoint
 

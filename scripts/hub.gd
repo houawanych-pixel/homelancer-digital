@@ -604,6 +604,7 @@ func _refresh_credits() -> void:
 	credits_label.text = "CREDITS  %d cr" % GS.credits
 
 func show_screen(s: String) -> void:
+	_keep_scroll = board_sc.scroll_vertical if (s == screen and board_sc != null and is_instance_valid(board_sc)) else -1   # v11.97 (owner): a page rebuilt in place (brief, accept) keeps its place in the list
 	close_inspector()
 	if back_hub != null: back_hub.visible = s != "hub" and s != "equipment" and not lockdown   # v11.59: always a way back (the hangar has its own ◀ STATION)
 	_dragged = false   # (a drag left over from the last page must not swallow the next tap)
@@ -1488,7 +1489,7 @@ func _room_sound_levels(dt: float) -> void:
 	var vw: float = float(vv) if vv != null else 0.25   # (not set until the room has been drawn once)
 	for p in room_snd:
 		var pl := p as AudioStreamPlayer
-		var want: float = third_level(room_yaw, int(pl.get_meta("third")), vw) if (room_view.visible and visible) else 0.0
+		var want: float = third_level(room_yaw, int(pl.get_meta("third")), vw) if (room_view.visible and visible and not Sfx.voice_busy()) else 0.0   # v11.97 (owner): quiet while a briefing is read
 		var now := db_to_linear(pl.volume_db)
 		pl.volume_db = linear_to_db(maxf(lerpf(now, want, clampf(dt * 8.0, 0.0, 1.0)), 0.0001))
 
@@ -1906,7 +1907,16 @@ func _scroll_box() -> VBoxContainer:
 	v.mouse_filter = Control.MOUSE_FILTER_PASS
 	v.add_theme_constant_override("separation", 10)
 	sc.add_child(v)
+	if _keep_scroll > 0: _restore_scroll(sc, _keep_scroll)
+	_keep_scroll = -1
 	return v
+
+var _keep_scroll := -1
+func _restore_scroll(sc: ScrollContainer, y: int) -> void:   # (after the new page has its size)
+	for i in 3:
+		await get_tree().process_frame
+		if not is_instance_valid(sc): return
+		sc.scroll_vertical = y
 
 ## v11.3 (owner): a board list scrolls by dragging it with a finger (or the mouse). A drag never counts as a tap.
 var board_sc: ScrollContainer = null
@@ -4478,7 +4488,7 @@ func _bounty_page() -> void:
 		row.add_child(_board_buttons("Bounty_" + id, key, mine, shut,
 			func():
 				var said := Missions.toggle_bounty(id)
-				status.text = said
+				status.text = ("Bounty accepted: %s." % str(p["name"])) if GS.bounty.get("id", "") == id else said   # v11.97 (owner): just say it was accepted
 				_note_giver()
 				if GS.bounty.get("id", "") == id and board_pick != key: read_bounty(p)   # v1.7v: read out when taken (unless just heard)
 				board_pick = ""
@@ -4581,6 +4591,12 @@ func _board_buttons(main_name: String, key: String, mine: bool, shut: String, on
 		b.disabled = true
 		return col
 	if mine:
+		var ok := _label(20, Color(0.55, 1.0, 0.6))   # v11.97 (owner): it just says you accepted it
+		ok.name = "Accepted_" + main_name
+		ok.text = "✓ ACCEPTED"
+		ok.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		col.add_child(ok)
+		col.move_child(ok, 0)
 		b.text = "DISENGAGE"
 		b.add_theme_color_override("font_color", Color(1.0, 0.55, 0.5))
 		b.pressed.connect(on_drop)
@@ -4595,6 +4611,9 @@ func _board_buttons(main_name: String, key: String, mine: bool, shut: String, on
 		return col
 	b.text = "ACCEPT"
 	b.add_theme_color_override("font_color", Color(0.55, 1.0, 0.6))
+	if not GS.mission.is_empty():   # v11.97 (owner): one mission at a time
+		b.text = "ONE JOB AT A TIME"
+		b.disabled = true
 	b.pressed.connect(func(): if not board_dragged: on_accept.call())
 	if board_pick != key and hear.is_valid():   # v11.3 (owner): first MISSION BRIEF (read out); then ACCEPT / DECLINE
 		b.visible = false
@@ -4683,7 +4702,8 @@ func _missions_page() -> void:
 		_tap_to_hear([row.get_child(0), t], key, hear)
 		row.add_child(_board_buttons("Take_" + row.name, key, mine, "",
 			func():
-				status.text = Missions.toggle(o) if not Missions.is_current(o) else status.text
+				var said_j := Missions.toggle(o) if not Missions.is_current(o) else status.text
+				status.text = ("Mission accepted: %s." % str(o["title"])) if Missions.is_current(o) else said_j   # v11.97 (owner): just say it was accepted
 				_note_giver()
 				if Missions.is_current(o) and board_pick != key: read_job(o)   # v1.7p: read out when taken (unless just heard)
 				board_pick = ""
@@ -4903,6 +4923,7 @@ func _repair_page() -> void:
 func _process(dt: float) -> void:
 	if not visible: return
 	t += dt
+	Music.duck(Sfx.voice_busy())   # v11.97 (owner): music down to nothing while someone talks to you
 	_update_room(dt)
 	_asst_place()
 	crew.tick(dt)

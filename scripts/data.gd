@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.96"
+const VERSION := "v11.97"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -798,6 +798,21 @@ const MISSION_ARRIVE := 700.0                   # this close to the point, its w
 const MISSION_PLANET_CLEAR := 900.0             # a point keeps this much clear of a planet's surface
 const MISSION_GROUP := [3, 3]                   # ships in a wave: [first waves, last wave] (v1.9b: a bounty's last wave = target + BOUNTY_HELPERS)
 const BOUNTY_HELPERS := 6
+# v11.97 (owner): a bounty is two waypoints, harder by its level (the pilot's rank 1-6): [ships, fighter level] at the
+# first point, then at the second (plus the target). Level 2 = elite fighters. Rank 5-6 targets fly a Level 3 ship.
+const BOUNTY_WAVES := {1: [[5, 1], [10, 1]], 2: [[10, 1], [15, 1]], 3: [[10, 1], [10, 2]], 4: [[10, 2], [15, 2]], 5: [[15, 2], [20, 2]], 6: [[20, 2], [30, 2]]}
+const BOUNTY_BOSS_TIER := {1: 2, 2: 2, 3: 2, 4: 2, 5: 3, 6: 3}
+const BOUNTY_POINT_DIST := [9000.0, 14000.0]   # bounty points lie further out than other jobs' (owner: "too close")
+const BOUNTY_DIST_PER_RANK := 1500.0           # and further still the higher the level
+const BOUNTY_WAVE_LIVE := 15                   # at most this many of a wave at once; the rest jump in as reinforcements
+const BOUNTY_REINFORCE_AT := 6                 # reinforcements come when fewer than this are left
+# v11.97 (owner): every Level 3 ship fires super missiles and drops mines (they only hit you, never their own side)
+const ENEMY_SUPER_EVERY := [9.0, 15.0]
+const ENEMY_SUPER_DAMAGE := 60.0
+const ENEMY_MINE_EVERY := [10.0, 16.0]
+const ENEMY_MINE_DAMAGE := 45.0
+const ENEMY_MINE_R := 40.0
+const ENEMY_MINE_LIFE := 40.0
 const PLATFORM_RADIUS := 70.0                   # v1.9b (owner): every planet's floating docking platform: deck radius (m)
 const PLATFORM_ALT := 260.0                     # ... how far over the planet's surface it floats                       # v1.9b (owner): a bounty target never flies alone: at least six of its own wing with it
 const MISSION_PAY := {"threats": 900, "escort": 700, "convoy": 1600, "ground": 1400, "outlaws": 600, "land_escort": 1200, "invasion": 3600, "disturbance_ship": 9000, "disturbance_base": 14000}   # v1.7w: "convoy" = the cargo run into the next system
@@ -986,8 +1001,8 @@ const NEBULA_SIZE := 165.0            # v10.4 (owner: "Freelancer clouds were hu
 const BELT_CLOUD_OFF := 0.55         # v10.4: the field's cloud sits this share of the field's radius off its middle ...
 const BELT_CLOUD_SIZE := 0.75        # ... and is this share of the field's radius
 const NEBULA_STATION_GAP := 8000.0   # v10.4: the main station stays this far outside its system's (bigger) cloud
-const NEBULA_EXTRA := 3               # extra unnamed clouds in every system, other sizes and colours
-const NEBULA_EXTRA_RADIUS := [32000.0, 70000.0]   # v10.4: ~2.5x. v9.1: 1,000 km systems (v8.9: 9-22 km; was 700-1600)
+const NEBULA_EXTRA := 5               # extra unnamed clouds in every system, other sizes and colours
+const NEBULA_EXTRA_RADIUS := [45000.0, 90000.0]   # v11.97 (owner): bigger. was [32000, 70000];   # v10.4: ~2.5x. v9.1: 1,000 km systems (v8.9: 9-22 km; was 700-1600)
 const NEBULA_GATE_RADIUS := [18000.0, 30000.0]   # v10.4: 2x. the cloud a gate hides in (Freelancer: gates in the clouds); one of the extras (v9.0: was 850-1300)
 const NEBULA_EXTRA_DIST := [90000.0, 350000.0]   # how far from the main station the extra clouds sit (v9.0: was 2.6-5.8 km)
 const NEBULA_AVOID_K := 8.0          # v9.0: the clouds keep this many times their old gaps from stations, planets and the field

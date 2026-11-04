@@ -165,11 +165,13 @@ static func convoy_dest(sys_id: String) -> String:
 		if Data.SYSTEMS.has(str(g.get("to", ""))): return str(g["to"])
 	return ""
 
-static func _points(rng: RandomNumberGenerator, n: int) -> Array:
+static func _points(rng: RandomNumberGenerator, n: int, far := 0.0) -> Array:
 	var pts: Array = []
 	var a := rng.randf() * TAU
+	var lo: float = Data.BOUNTY_POINT_DIST[0] + far if far > 0.0 else Data.MISSION_POINT_DIST[0]
+	var hi: float = Data.BOUNTY_POINT_DIST[1] + far if far > 0.0 else Data.MISSION_POINT_DIST[1]
 	for i in n:
-		pts.append({"dir": a, "dist": rng.randf_range(Data.MISSION_POINT_DIST[0], Data.MISSION_POINT_DIST[1]), "y": rng.randf_range(-200.0, 300.0)})
+		pts.append({"dir": a, "dist": rng.randf_range(lo, hi), "y": rng.randf_range(-200.0, 300.0)})
 		a += rng.randf_range(1.6, 2.6)
 	return pts
 
@@ -225,7 +227,8 @@ static func accept_bounty(id: String) -> String:
 		"title": "Bounty: %s (%s)" % [p["name"], "wanted alive" if alive else "wanted dead"], "giver": GS.last_base, "giver_sys": GS.system_id, "sys": GS.system_id,
 		"brief": "%s has been tracked to the %s system with an escort wing. Fly to the first waypoint and deal with the escort; then the waypoint moves to %s. %s" % [p["name"], Data.SYSTEMS[GS.system_id]["name"], p["name"],
 			"Destroy the ship, TRACTOR the pilot in and bring them back here." if alive else "Destroy the ship: paid on the spot."],
-		"points": _points(rng, 2), "stage": 0, "spawned": -1, "escort_hp": 0.0}
+		"points": _points(rng, 2, Data.BOUNTY_DIST_PER_RANK * float(clampi(int(p.get("rank", 1)), 1, 6))), "stage": 0, "spawned": -1, "escort_hp": 0.0,
+		"rank": clampi(int(p.get("rank", 1)), 1, 6)}   # v11.97 (owner): further out, waves by level (Data.BOUNTY_WAVES)
 	GS.mission["start"] = GS.mission.duplicate(true)   # v1.9r
 	GS.changed.emit()
 	return "Bounty accepted: %s. %s A mission waypoint is set: follow the gold marker." % [p["name"], GS.mission["brief"]]
@@ -261,6 +264,8 @@ static func toggle_bounty(id: String) -> String:
 
 ## The one thing that can stop a switch: a prisoner in the hold must be handed in first.
 static func _switch_block() -> String:
+	if not GS.mission.is_empty():   # v11.97 (owner): one mission at a time
+		return "You already have a job: %s. Finish it or DISENGAGE first: one mission at a time." % str(GS.mission.get("title", "a job"))
 	if GS.bounty.get("state", "") == "captured":
 		return "%s is in your hold: hand them in at %s first, or DISENGAGE to let them go." % [Data.roster_pilot(str(GS.bounty["id"])).get("name", "The pilot"), giver_name(GS.mission) if not GS.mission.is_empty() else Data.SYSTEMS[GS.system_id]["station"]["name"]]
 	return ""
@@ -455,10 +460,20 @@ static func tick(space: SpaceSystem, dt: float) -> void:
 			var last: bool = stage == pts.size() - 1
 			var count: int = Data.MISSION_GROUP[1] if last else Data.MISSION_GROUP[0]
 			var boss := ""
+			var tier := 2
+			var boss_tier := -1
 			if kind == "bounty" and last:
 				boss = str(m["id"])
 				count = 1 + Data.BOUNTY_HELPERS   # v1.9b: the target and its six helpers
-			m["need"] = space.spawn_mission_group(at, str(m["faction"]), count, int(m["slot"]), boss, stage, kind == "threats").size()   # v1.8x: PATROL = level 1s, ELITE = level 5s
+			if kind == "bounty" and m.has("rank"):   # v11.97 (owner): the wave for this level and point
+				var wv: Array = Data.BOUNTY_WAVES[int(m["rank"])][mini(stage, 1)]
+				count = int(wv[0]) + (1 if last else 0)
+				tier = int(wv[1])
+				boss_tier = int(Data.BOUNTY_BOSS_TIER[int(m["rank"])])
+				m["queue"] = maxi(0, count - Data.BOUNTY_WAVE_LIVE)
+				m["qtier"] = tier
+				count = mini(count, Data.BOUNTY_WAVE_LIVE)
+			m["need"] = space.spawn_mission_group(at, str(m["faction"]), count, int(m["slot"]), boss, stage, kind == "threats", tier, boss_tier).size()   # v1.8x: PATROL = level 1s, ELITE = level 5s
 			if kind == "ground": m["need"] = int(m["need"]) + space.spawn_ground_mechs(at, str(m["faction"]), int(Data.MISSION_GROUND_MECHS[1 if last else 0]), stage, Data.MECH_BOSS_COUNT if last else 0).size()   # (v1.9i: the last point has the faction's boss mech)   # v1.8n
 			m["killed"] = 0
 			m["spawned"] = stage
@@ -466,6 +481,14 @@ static func tick(space: SpaceSystem, dt: float) -> void:
 		return
 	# the wave is out: gone when none of its ships is left
 	var live := space.enemies.filter(func(o): return int(o.get("mission", -1)) == stage and is_instance_valid(o["node"]))
+	if int(m.get("queue", 0)) > 0 and live.size() < Data.BOUNTY_REINFORCE_AT:   # v11.97: the rest of the wave jumps in
+		var at2 := point_pos(space, stage)
+		var n2 := mini(int(m["queue"]), Data.BOUNTY_WAVE_LIVE - live.size())
+		if at2 != Vector3.INF and n2 > 0:
+			space.spawn_mission_group(at2 + Vector3(0, 0, 400), str(m["faction"]), n2, int(m["slot"]), "", stage, false, int(m.get("qtier", 2)))
+			m["queue"] = int(m["queue"]) - n2
+			space.message.emit("Mission: enemy reinforcements jumping in (%d more)." % (n2 + int(m["queue"])))
+		return
 	if not live.is_empty(): return
 	if kind == "bounty" and stage == pts.size() - 1: return   # the last stage ends on the kill / capture (on_kill, claim)
 	if kind == "ground" and int(m.get("killed", 0)) < int(m.get("need", 0)):   # v1.8m: you left them behind (another sector, orbit): they wait at the point

@@ -462,13 +462,13 @@ static func _auto_layout(sid: String, sy: Dictionary) -> Dictionary:
 		var e: Vector2 = edge_spots[(int(rng.randi() % 4) + k) % 4]
 		var rocks := k == 0
 		clouds.append({"name": "%s %s" % [str(sy["name"]), ROCK_NAMES[rng.randi() % ROCK_NAMES.size()] if rocks else CLOUD_NAMES[rng.randi() % CLOUD_NAMES.size()]],
-			"at": [e.x, e.y], "radius": rng.randf_range(22000.0, 30000.0), "weather": "rocks" if rocks else "storm", "color": CLOUD_COLS[rng.randi() % CLOUD_COLS.size()]})
+			"at": [e.x, e.y], "radius": rng.randf_range(22000.0, 30000.0) if rocks else rng.randf_range(40000.0, 60000.0), "weather": "rocks" if rocks else "storm", "color": CLOUD_COLS[rng.randi() % CLOUD_COLS.size()]})
 	var inner := 0
-	for tries in 60:
-		if inner >= 3: break
+	for tries in 90:
+		if inner >= 5: break   # v11.97 (owner): more clouds, and bigger (storms only: the rock field stays its size)
 		var c := Vector2(rng.randf_range(2.2, float(Data.MAP_CELLS) - 1.2), rng.randf_range(2.2, float(Data.MAP_CELLS) - 1.2))
 		var rocks := inner == 1
-		var r := rng.randf_range(16000.0, 26000.0)
+		var r := rng.randf_range(16000.0, 26000.0) if rocks else rng.randf_range(30000.0, 50000.0)
 		var rc2 := r / (2.0 * Data.SPACE_EDGE / float(Data.MAP_CELLS))
 		if not far.call(c, 0.9) or c.distance_to(sun) < sun_r + rc2: continue
 		if rocks and not off_lanes.call(c, rc2): continue

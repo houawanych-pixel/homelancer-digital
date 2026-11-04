@@ -1496,6 +1496,36 @@ func _fighters_l2l3() -> void:
 	_check("Facilities: levels 1-4 each build a maze of shaped halls and hex / pentagon tunnels, joined in and out, deeper and bigger with the level, out the east exit shaft", fc["ok"], fc["txt"])
 	var sites: Array = Surface.facility_sites("new_terra")
 	_check("Facilities: every world has 2 to 4 (New Terra: its Research Dome, then bunker entrances), levels 1 upward", sites.size() >= 2 and sites.size() <= 4 and int(sites[0]["difficulty"]) == 1, "%d sites: %s" % [sites.size(), sites.map(func(x): return "%s L%d" % [x["name"], x["difficulty"]])])
+	# v11.97 (owner): a level 6 bounty: far out, 20 elites at the first point (15 at once, 5 jump in later), L3 ships armed
+	var b6: Array = Data.bounties().filter(func(p): return int(p.get("rank", 0)) == 6)
+	var bw_txt := "no rank-6 bounty"
+	var bw_ok := false
+	if not b6.is_empty():
+		Missions.disengage()
+		var said6 := Missions.accept_bounty(str(b6[0]["id"]))
+		var m6: Dictionary = GS.mission
+		if m6.get("kind", "") == "bounty":
+			var d0: float = float(m6["points"][0]["dist"])
+			s.player.global_position = Missions.point_pos(s, 0)
+			Missions.tick(s, 0.1)
+			var w1: Array = s.enemies.filter(func(o): return int(o.get("mission", -1)) == 0 and is_instance_valid(o["node"]))
+			var tiers: Array = s.tier_log.slice(-w1.size()).map(func(x): return int(x[1]))
+			var q1 := int(GS.mission.get("queue", 0))
+			for o in w1:
+				s.enemies.erase(o)
+				(o["node"] as Node3D).free()
+			Missions.tick(s, 0.1)
+			var w2: Array = s.enemies.filter(func(o): return int(o.get("mission", -1)) == 0 and is_instance_valid(o["node"]))
+			for o in w2:
+				s.enemies.erase(o)
+				(o["node"] as Node3D).free()
+			var l3any := false
+			for f in Data.FACTION_FLEET: if SpaceSystem.is_l3(Data.ENEMIES.get(str(Data.FACTION_FLEET[f].get("fighter_l3", "")), {})): l3any = true
+			bw_ok = d0 >= Data.BOUNTY_POINT_DIST[0] and w1.size() == 15 and q1 == 5 and w2.size() == 5 and not (1 in tiers) and l3any
+			bw_txt = "dist %d, first wave %d (levels %s), queued %d, reinforcements %d, L3 armed %s" % [int(d0), w1.size(), tiers, q1, w2.size(), l3any]
+		else: bw_txt = said6
+		Missions.disengage()
+	_check("Bounties: a level 6 hunt starts far out with 20 elites (15 at once, 5 more jump in); Level 3 ships carry super missiles and mines", bw_ok, bw_txt)
 	# v11.88 (owner): a Level 2 is twice as strong as a Level 1, a Level 3 three times (hull, shields, damage)
 	var str_ok := true
 	for f in Data.FACTION_FLEET:
