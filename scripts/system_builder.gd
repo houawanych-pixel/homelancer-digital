@@ -711,7 +711,56 @@ static func _grid_net(nodes: Array, disp: Dictionary = {}) -> Dictionary:
 	for k in jn: juncs[k] = [(jn[k] as Vector2).x, (jn[k] as Vector2).y]
 	lanes = lanes.filter(func(ln): return str(ln[0]) != str(ln[1]))
 	for ln in lanes: segs.append([where.call(str(ln[0])), where.call(str(ln[1]))])
+	# v12.0 (owner: "a square running around the outside too ... it may be shifty ... it may be a pentagon"): a ring
+	# road round the outside, through the outermost places and street ends (their hull), each side only where it is
+	# clear: it crosses nothing, passes close by nothing, and leaves its places at a fair angle from their lanes
+	var deg := {}
+	for ln in lanes: for q in 2: deg[str(ln[q])] = int(deg.get(str(ln[q]), 0)) + 1
+	var ends: Array = []
+	for k in deg: if int(deg[k]) == 1: ends.append(k)
+	var hull := _hull(ends.map(func(k): return where.call(str(k))))
+	var hk: Array = hull.map(func(hp): return ends[ends.map(func(k): return where.call(str(k))).find(hp)])
+	for i in hk.size():
+		if hk.size() < 3: break
+		var ka: String = hk[i]
+		var kb: String = hk[(i + 1) % hk.size()]
+		var A: Vector2 = where.call(ka)
+		var B: Vector2 = where.call(kb)
+		if A.distance_to(B) < 1.2: continue
+		var ok := true
+		for sg in segs:
+			var touch: bool = (sg[0] as Vector2).distance_to(A) < 0.01 or (sg[1] as Vector2).distance_to(A) < 0.01 or (sg[0] as Vector2).distance_to(B) < 0.01 or (sg[1] as Vector2).distance_to(B) < 0.01
+			if touch:
+				var at: Vector2 = A if ((sg[0] as Vector2).distance_to(A) < 0.01 or (sg[1] as Vector2).distance_to(A) < 0.01) else B
+				var other: Vector2 = sg[1] if (sg[0] as Vector2).distance_to(at) < 0.01 else sg[0]
+				var mine: Vector2 = B if at == A else A
+				if (other - at).normalized().dot((mine - at).normalized()) > cos(deg_to_rad(30.0)): ok = false
+			elif _seg_seg_d(A, B, sg[0], sg[1]) < 0.6: ok = false
+		for q: Vector2 in pts + jn.values():
+			if q.distance_to(A) > 0.01 and q.distance_to(B) > 0.01 and _seg_d(q, A, B) < 0.6: ok = false
+		if ok:
+			lanes.append([ka, kb])
+			segs.append([A, B])
 	return {"lanes": lanes, "junctions": juncs, "segs": segs, "moved": moved}
+
+## v12.0: the convex hull of points (Andrew's monotone chain), round the outside in order.
+static func _hull(pts: Array) -> Array:
+	var p: Array = pts.duplicate()
+	p.sort_custom(func(a, b): return a.x < b.x or (a.x == b.x and a.y < b.y))
+	if p.size() < 3: return p
+	var cr := func(o: Vector2, a: Vector2, b: Vector2) -> float: return (a - o).cross(b - o)
+	var lower: Array = []
+	for q in p:
+		while lower.size() >= 2 and cr.call(lower[-2], lower[-1], q) <= 0.0: lower.pop_back()
+		lower.append(q)
+	var upper: Array = []
+	for i in range(p.size() - 1, -1, -1):
+		var q: Vector2 = p[i]
+		while upper.size() >= 2 and cr.call(upper[-2], upper[-1], q) <= 0.0: upper.pop_back()
+		upper.append(q)
+	lower.pop_back()
+	upper.pop_back()
+	return lower + upper
 
 ## v11.99 (owner: "yes, the lane rules in Dreadholm"): a hand-made system keeps its places but gets the freeway grid
 ## (places near a street step onto it) and its star moves to the most open spot off the lanes.

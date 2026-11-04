@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.99"
+const VERSION := "v12.0"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -151,7 +151,7 @@ const FREIGHTER_BOOSTER_SHARE := 0.25           # the booster breaks after this 
 const FREIGHTER_SPEED := 55.0                   # m/s along the lane
 const FREIGHTER_CRAWL := 0.1                    # booster broken: this share of the speed
 const DRIFT_BOOST_RATE := 1.6               # v11.64: THRUST in a warp-speed drift swings the momentum to the nose this fast (same speed)
-const FREIGHTERS_PER_SYSTEM := 4   # v11.89 (owner): the system's own, its ally's and Unity's (universal)
+const FREIGHTERS_PER_SYSTEM := 6   # v11.89 (owner): the system's own, its ally's and Unity's (universal)
 #               # one of each type, on the trade lanes
 const FREIGHTER_RESPAWN := 90.0                 # s after one is destroyed, another starts on the lanes
 
@@ -609,6 +609,13 @@ const MOLD_RAMP := 2                 # the entrance tunnel climbs one layer ever
 # and leaves, burns them away and dies out; water puts it out. Like the fluids, fire only runs near the player.
 const WOOD_COLOR := Color(0.40, 0.35, 0.30)
 const LEAF_COLORS := {"leaf": Color(0.16, 0.55, 0.50), "leaf2": Color(0.52, 0.40, 0.72)}
+# v12.0 (owner): leaf colour pairs by the land: [leaf, leaf2], one pair per planet (BlockField.leaf_colors)
+const LEAF_SETS := {
+	"hot": [[Color(0.92, 0.45, 0.12), Color(0.78, 0.15, 0.10)], [Color(0.80, 0.16, 0.14), Color(0.50, 0.20, 0.62)], [Color(0.95, 0.62, 0.15), Color(0.85, 0.30, 0.10)]],
+	"cold": [[Color(0.78, 0.92, 0.98), Color(0.45, 0.75, 0.92)], [Color(0.70, 0.75, 0.88), Color(0.62, 0.55, 0.85)]],
+	"toxic": [[Color(0.62, 0.85, 0.12), Color(0.88, 0.82, 0.15)], [Color(0.25, 0.70, 0.30), Color(0.15, 0.55, 0.55)]],
+	"crystal": [[Color(0.92, 0.45, 0.75), Color(0.55, 0.35, 0.90)], [Color(0.35, 0.85, 0.90), Color(0.85, 0.35, 0.85)]],
+	"green": [[Color(0.16, 0.55, 0.50), Color(0.52, 0.40, 0.72)], [Color(0.22, 0.60, 0.18), Color(0.40, 0.72, 0.22)], [Color(0.12, 0.45, 0.22), Color(0.78, 0.72, 0.18)]]}
 const TREES_PER_TILE := {"forest": 10, "coast": 4, "mountains": 3, "city": 3, "canyon": 2, "industrial": 1, "ocean": 1, "desert": 0, "ice": 0, "volcanic": 0, "sun": 0}   # per 800 m (a region gets its share); others 2
 const TREE_TRUNK := [2, 3]           # trunk width in cells (10-15 m)
 const TREE_TALL := [6, 10]           # trunk height in layers (30-50 m)

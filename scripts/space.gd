@@ -1465,6 +1465,9 @@ func _board_steps(dt: float) -> void:
 	var fac := str(board["faction"])
 	var here := Boarding.room_at(player.global_position)
 	if here != "": board["room"] = here
+	if here != "":   # v12.0 (owner: "a fog of war map as I travel through it"): the areas you have been in
+		if not board.has("seen"): board["seen"] = {}
+		board["seen"][here] = true
 	# an area's guards come at you the first time you walk in (the forward hold's only on the way out)
 	if here != "" and not (board["woke"] as Dictionary).has(here) and int(Boarding.ROOMS[here]["guards"]) > 0 and (here != "fhold" or str(board["phase"]) == "escape"):
 		board["woke"][here] = true
@@ -7377,6 +7380,14 @@ func _cam_clip(rel: Vector3) -> Vector3:
 				break
 		var rb := _ray_blocks(pivot, c)
 		if rb[0] != null: f = minf(f, pivot.distance_to(rb[1]) / full)
+	if boarding:   # v12.0 (owner: "the camera goes outside the wall"): inside, the camera stops at the walls, roof and deck
+		var nb := 20
+		for i in range(1, nb + 1):
+			var kb := float(i) / float(nb)
+			var pb := pivot + seg * kb
+			if not Boarding.inside(pb, 2.0) or pb.y > Boarding.roof_at(pb) - 2.0 or pb.y < Boarding.floor_at(pb) + 1.0:
+				f = minf(f, maxf(0.0, kb - 1.0 / float(nb)))
+				break
 	elif in_belt_region(c) or in_belt_region(pivot):
 		var ah := ray_asteroids(pivot, c)
 		if not ah.is_empty(): f = minf(f, pivot.distance_to(ah[2]) / full)
@@ -8725,6 +8736,16 @@ func base_spots() -> Array:
 		var lp: Vector2 = l["pos"]
 		out.append({"name": str(l["name"]), "id": str(l.get("id", "")), "tile": t, "x": lp.x, "z": lp.y,
 			"pos": surface_offset(t) + Vector3(lp.x, Surface.pad_top(planet_id, t) + 40.0, lp.y)})
+	return out
+
+## v12.0: this planet's facilities, in base_spots' form (they stand in sector 0 at their spot).
+func facility_spots() -> Array:
+	var out: Array = []
+	if not surface_mode or boarding: return out
+	for st in Surface.facility_sites(planet_id):
+		var sp: Vector2 = st["spot"]
+		out.append({"name": str(st["name"]), "id": "", "tile": 0, "x": sp.x, "z": sp.y, "difficulty": int(st.get("difficulty", 1)), "side": str(st.get("side", "hostile")),
+			"pos": surface_offset(0) + Vector3(sp.x, Surface.pad_top(planet_id, 0) + 40.0, sp.y)})
 	return out
 
 ## GO TO / the planet map: fly to a base anywhere on the planet (the marker is kept where the base is as you cross sectors).

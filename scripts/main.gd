@@ -505,6 +505,14 @@ func _on_hud(id: String) -> void:
 			open_map()
 			if state == "map" and hud.radar_pick != Vector3.INF: navmap.select_near(hud.radar_pick)
 		_:
+			if id.begins_with("pmap_f"):   # v12.0: a facility tapped on the planet map: fly there
+				var fsp: Array = space.facility_spots()
+				var fi := int(id.substr(6))
+				if fi < fsp.size():
+					space.set_surface_goal(fsp[fi])
+					hud.planet_map = false
+					hud.flash_message("Autopilot engaged: %s (level %d facility)" % [fsp[fi]["name"], int(fsp[fi].get("difficulty", 1))])
+				return
 			if id.begins_with("pmap_b"):   # v1.8y: a base tapped on the planet map: fly there
 				var spots: Array = space.base_spots()
 				var bi := int(id.substr(6))

@@ -636,11 +636,16 @@ func _layout() -> void:
 		else:
 			var mr := planet_map_rect()
 			buttons.clear()
-			buttons["pmap_close"] = Rect2(mr.end.x - 96, mr.position.y + 6, 90, 40)
+			buttons["pmap_close"] = Rect2(mr.end.x - 106, mr.end.y - 50, 96, 42)   # v12.0 (owner: FULL SCREEN covered CLOSE): bottom right
+			if space.boarding: return   # (the dungeon map: CLOSE only)
 			var spots: Array = space.base_spots()
 			for i in spots.size():
 				var bp := _pmap_point(mr, int(spots[i]["tile"]), float(spots[i]["x"]), float(spots[i]["z"]))
 				buttons["pmap_b%d" % i] = Rect2(bp - Vector2(70, 22), Vector2(140, 44))
+			var fsp: Array = space.facility_spots()
+			for i in fsp.size():
+				var fp := _pmap_point(mr, int(fsp[i]["tile"]), float(fsp[i]["x"]), float(fsp[i]["z"]))
+				buttons["pmap_f%d" % i] = Rect2(fp - Vector2(70, 22), Vector2(140, 44))
 			return
 	if console_open:
 		var rr := contacts_rect()
@@ -1284,8 +1289,78 @@ func _pmap_point(mr: Rect2, t: int, x: float, z: float) -> Vector2:
 	var cell := inner.size / float(g)
 	return inner.position + Vector2((t % g) + (x + Surface.EDGE) / Surface.TILE, (t / g) + (z + Surface.EDGE) / Surface.TILE) * cell
 
+## v12.0: a picture of the planet's land for the map (heights shaded, water blue), made once per planet.
+var _land_tex := {}
+func _pmap_land(pid: String) -> Texture2D:
+	if _land_tex.has(pid): return _land_tex[pid]
+	var g := Surface.grid(pid)
+	var res := clampi(48 * g, 64, 160)
+	var img := Image.create(res, res, false, Image.FORMAT_RGB8)
+	var span := float(g) * Surface.TILE
+	for y in res:
+		for x in res:
+			var gx := -Surface.EDGE + (x + 0.5) / res * span
+			var gz := -Surface.EDGE + (y + 0.5) / res * span
+			var sm: Array = Surface.sample(pid, gx, gz)
+			var hgt: float = float(sm[0])
+			var c: Color = sm[1] if sm[1] is Color else Color(0.5, 0.45, 0.35)
+			if hgt <= 0.5: c = Color(0.12, 0.3, 0.55)
+			else: c = c.darkened(0.45).lightened(clampf(hgt / 900.0, 0.0, 0.45))
+			img.set_pixel(x, y, c)
+	var tex := ImageTexture.create_from_image(img)
+	_land_tex[pid] = tex
+	return tex
+
+## v12.0 (owner: a map inside the dungeons, fog of war): the areas you have walked through, the doorways onward
+## (dim), you, and where the job is (the core, then the exit) once you have seen it.
+func _dungeon_map(mr: Rect2) -> void:
+	_box(mr, Color(0.01, 0.05, 0.1, 0.94), Color(CYAN, 0.8), 12, 2)
+	_text(mr.position + Vector2(14, 32), "%s  ·  MAP" % str(space.board.get("name", "INSIDE")).to_upper(), 20, WHITE)
+	_pill("pmap_close", "CLOSE", false, CYAN)
+	var R: Dictionary = Boarding.ROOMS
+	var lo := Vector2(INF, INF)
+	var hi := Vector2(-INF, -INF)
+	for k in R:
+		var r: Array = R[k]["r"]
+		lo = Vector2(minf(lo.x, float(r[0])), minf(lo.y, float(r[2])))
+		hi = Vector2(maxf(hi.x, float(r[1])), maxf(hi.y, float(r[3])))
+	var inner := Rect2(mr.position + Vector2(14, 56), mr.size - Vector2(28, 116))
+	var span := hi - lo
+	var k2 := minf(inner.size.x / maxf(span.x, 1.0), inner.size.y / maxf(span.y, 1.0))
+	var o := inner.position + (inner.size - span * k2) * 0.5
+	var to_map := func(x: float, z: float) -> Vector2: return o + (Vector2(x, z) - lo) * k2
+	var seen: Dictionary = space.board.get("seen", {})
+	var near := {}
+	for a in seen:
+		for b in R:
+			if not seen.has(b) and not Boarding.joint(str(a), str(b)).is_empty(): near[b] = true
+	for k in R:
+		if not (seen.has(k) or near.has(k)): continue
+		var r: Array = R[k]["r"]
+		var rr := Rect2(to_map.call(float(r[0]), float(r[2])), Vector2(float(r[1]) - float(r[0]), float(r[3]) - float(r[2])) * k2)
+		if seen.has(k):
+			draw_rect(rr, Color(0.25, 0.55, 0.75, 0.75))
+			draw_rect(rr, Color(CYAN, 0.9), false, 1.5)
+		else: draw_rect(rr, Color(CYAN, 0.35), false, 1.0)
+	var core: Vector3 = Boarding.CORE_AT
+	if seen.has(Boarding.room_at(core)):
+		var cp: Vector2 = to_map.call(core.x, core.z)
+		draw_circle(cp, 7.0, Color(1.0, 0.4, 0.3))
+		_text(cp + Vector2(10, 5), "CORE", 13, Color(1.0, 0.55, 0.45))
+	var pp: Vector3 = space.player.global_position
+	var yv: Vector2 = to_map.call(pp.x, pp.z)
+	var f3: Vector3 = -space.player.global_basis.z
+	var f2 := Vector2(f3.x, f3.z).normalized()
+	if f2 == Vector2.ZERO: f2 = Vector2.UP
+	var sd := Vector2(-f2.y, f2.x)
+	draw_colored_polygon(PackedVector2Array([yv + f2 * 11.0, yv - f2 * 6.0 + sd * 6.0, yv - f2 * 6.0 - sd * 6.0]), CYAN_HI)
+	_text(Vector2(mr.position.x, mr.end.y - 8), "Explored areas fill in as you go. Dim outlines: ways on you haven't taken.", 12, Color(1, 1, 1, 0.6), HORIZONTAL_ALIGNMENT_CENTER, mr.size.x)
+
 func _planet_map() -> void:
 	var mr := planet_map_rect()
+	if space.boarding:
+		_dungeon_map(mr)
+		return
 	var pid: String = space.planet_id
 	var g := Surface.grid(pid)
 	_box(mr, Color(0.01, 0.05, 0.1, 0.94), Color(CYAN, 0.8), 12, 2)
@@ -1293,10 +1368,13 @@ func _planet_map() -> void:
 	_pill("pmap_close", "CLOSE", false, CYAN)
 	var inner := Rect2(mr.position + Vector2(10, 52), mr.size - Vector2(20, 62))
 	var cell := inner.size / float(g)
+	var land := _pmap_land(pid)   # v12.0 (owner: "shouldn't it show the areas"): the real land, shaded by height
+	if land != null: draw_texture_rect(land, inner, false)
 	for t2 in g * g:
 		var cr := Rect2(inner.position + Vector2(t2 % g, t2 / g) * cell, cell)
 		var b: Dictionary = Surface.biome(pid, t2)
-		draw_rect(cr.grow(-2), Color((b.get("horizon", Color(0.3, 0.4, 0.5)) as Color).darkened(0.55), 0.9))
+		if land == null: draw_rect(cr.grow(-2), Color((b.get("horizon", Color(0.3, 0.4, 0.5)) as Color).darkened(0.55), 0.9))
+		else: draw_rect(cr.grow(-1), Color(1, 1, 1, 0.25), false, 1.0)
 		if t2 == space.tile: draw_rect(cr.grow(-2), Color(CYAN, 0.9), false, 2.0)
 		_text(cr.position + Vector2(6, 18), "%s%d %s" % ["ABCDEFG"[t2 / g], t2 % g + 1, str(b.get("name", "")).to_upper()], 12, Color(1, 1, 1, 0.75))
 	var mi: Dictionary = GS.mission   # the job's point, when it is down here
@@ -1312,6 +1390,15 @@ func _planet_map() -> void:
 		draw_circle(bp, 7.0, GREEN if not on else GOLD)
 		draw_arc(bp, 11.0, 0, TAU, 20, Color(GREEN, 0.7), 2.0)
 		_text(bp + Vector2(-70, 26), str(spots[i]["name"]), 12, WHITE, HORIZONTAL_ALIGNMENT_CENTER, 140)
+	var fsp: Array = space.facility_spots()   # v12.0: the facilities (bases and bunker entrances), with their level
+	for i in fsp.size():
+		var fp := _pmap_point(mr, int(fsp[i]["tile"]), float(fsp[i]["x"]), float(fsp[i]["z"]))
+		var hostile: bool = str(fsp[i].get("side", "hostile")) == "hostile"
+		var fc: Color = Color(1.0, 0.45, 0.3) if hostile else GREEN
+		var hx := PackedVector2Array()
+		for k in 6: hx.append(fp + Vector2(cos(TAU * k / 6.0), sin(TAU * k / 6.0)) * 9.0)
+		draw_colored_polygon(hx, fc if not held.has("pmap_f%d" % i) else GOLD)
+		_text(fp + Vector2(-80, 24), "%s  L%d" % [str(fsp[i]["name"]), int(fsp[i].get("difficulty", 1))], 12, WHITE, HORIZONTAL_ALIGNMENT_CENTER, 160)
 	var pp: Vector3 = space.player.global_position   # you: an arrow the way you face
 	var yv := _pmap_point(mr, space.tile, pp.x, pp.z)
 	var f3: Vector3 = -space.player.global_basis.z
@@ -1319,7 +1406,7 @@ func _planet_map() -> void:
 	if f2 == Vector2.ZERO: f2 = Vector2.UP
 	var sd := Vector2(-f2.y, f2.x)
 	draw_colored_polygon(PackedVector2Array([yv + f2 * 12.0, yv - f2 * 7.0 + sd * 7.0, yv - f2 * 7.0 - sd * 7.0]), CYAN_HI)
-	_text(Vector2(mr.position.x, mr.end.y - 8), "Tap a base to fly there (GO TO).", 12, Color(1, 1, 1, 0.6), HORIZONTAL_ALIGNMENT_CENTER, mr.size.x)
+	_text(Vector2(mr.position.x, mr.end.y - 8), "Tap a base or a facility to fly there.", 12, Color(1, 1, 1, 0.6), HORIZONTAL_ALIGNMENT_CENTER, mr.size.x)
 
 ## v1.8q: a spare button: the frame, a small padlock, its name if it has one.
 func _padlocked(id: String, label: String) -> void:

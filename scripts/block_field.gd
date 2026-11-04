@@ -526,6 +526,21 @@ func _mat_natural(fx: int, fz: int, y: float, d: float) -> String:
 	if d < 90.0 and a > 0.62: return "sand"
 	return "stone"
 
+## v12.0 (owner: "can't we do different leaves ... for a hot planet orange and red, or red and purple"): the two leaf
+## colours of this sector, by its kind of land (hot, cold, toxic, crystal, green), one of a few pairs per planet.
+func leaf_colors() -> Array:
+	var biome := ""
+	var pl: Dictionary = Surface.PLANETS.get(planet_id, {})
+	var tl: Array = pl.get("tiles", [])
+	if tile >= 0 and tile < tl.size(): biome = str(tl[tile])
+	var group := "green"
+	for kw in ["desert", "lava", "volcan", "canyon", "dune", "ash", "waste", "mesa", "badland", "magma"]: if biome.contains(kw): group = "hot"
+	for kw in ["ice", "snow", "tundra", "frost", "glacier"]: if biome.contains(kw): group = "cold"
+	for kw in ["toxic", "swamp", "marsh", "bog", "acid"]: if biome.contains(kw): group = "toxic"
+	for kw in ["crystal", "geode"]: if biome.contains(kw): group = "crystal"
+	var sets: Array = Data.LEAF_SETS[group]
+	return sets[absi(hash(planet_id)) % sets.size()]
+
 ## The tone of a material, made from this planet's own ground colour: lighter = softer, darker = tougher.
 func tone(m: String) -> Color:
 	if Data.VALUABLE_COLOR.has(m): return Data.VALUABLE_COLOR[m]   # treasure keeps its own bright colour on any world
@@ -535,7 +550,7 @@ func tone(m: String) -> Color:
 	var c := Color(gl, gl, gl).lerp(base, float(tn[1]))
 	if m == "dirt": c = Data.DIRT_BROWN.lerp(base, Data.DIRT_PLANET)   # (v1.7g: earthy brown under the grass)
 	if m == "wood": c = Data.WOOD_COLOR
-	if Data.LEAF_COLORS.has(m): c = Data.LEAF_COLORS[m]
+	if Data.LEAF_COLORS.has(m): c = leaf_colors()[0 if m == "leaf" else 1]
 	var k := float(tn[0])
 	c = c.lerp(Color.WHITE, k) if k > 0.0 else c.lerp(Color.BLACK, -k)
 	_tones[m] = c
@@ -2757,13 +2772,27 @@ render_mode cull_disabled;
 varying float sky;
 varying float glow;
 varying float gloss;
+varying float leaf;
+varying vec3 wpos;
+varying vec3 wnrm;
+float h3(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
 void vertex() {
 	sky = COLOR.a;
 	glow = UV.x;
-	gloss = UV.y;
+	leaf = UV.y > 1.5 ? 1.0 : 0.0;
+	gloss = UV.y - leaf * 2.0;
+	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	wnrm = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
 }
 void fragment() {
-	ALBEDO = COLOR.rgb;
+	vec3 tint = vec3(1.0);
+	if (leaf > 0.5) {   // Minecraft-style leaves: 8 pixels a block, each its own shade, some of them holes
+		vec3 cell = floor((wpos - wnrm * 0.05) / 0.625);
+		float r = h3(cell);
+		if (r < 0.22) discard;
+		tint = vec3(0.72 + 0.5 * h3(cell + 17.0));
+	}
+	ALBEDO = COLOR.rgb * tint;
 	ROUGHNESS = mix(0.9, 0.3, gloss);
 	AO = sky;
 	AO_LIGHT_AFFECT = 0.0;
@@ -2815,7 +2844,9 @@ func glow_points(near: Vector3, reach: float) -> Array:
 
 ## v1.7m: set how the next faces glow and shine (their material's own light and gloss).
 func _look(st: SurfaceTool, m: String) -> void:
-	st.set_uv(Vector2(float(Data.BLOCK_GLOW.get(m, 0.0)), float(Data.BLOCK_GLOSS.get(m, 0.0))))
+	# v12.0 (owner: "how did Minecraft do the leaves"): uv.y over 1.5 marks a leaf face: the shader gives it a
+	# blocky pixel pattern with see-through holes
+	st.set_uv(Vector2(float(Data.BLOCK_GLOW.get(m, 0.0)), float(Data.BLOCK_GLOSS.get(m, 0.0)) + (2.0 if Data.LEAF_COLORS.has(m) else 0.0)))
 
 func _sky(cs: Array, covered: bool) -> Array:
 	var out: Array = []
