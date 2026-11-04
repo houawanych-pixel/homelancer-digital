@@ -11425,7 +11425,7 @@ func _job_v19q() -> void:
 	var s := _sp()
 	await _until(func(): return s.station_model != null, Data.PH_BUILD_DELAY + 4.0)
 	var holder: Node3D = s.station_model.get_parent() if s.station_model != null else null
-	var big: bool = holder != null and is_equal_approx(holder.scale.x, s.STATION_WIDTH * Data.RETOPO_STYLE_SCALE["Capital"] * Data.STATION_GROW)
+	var big: bool = holder != null and is_equal_approx(holder.scale.x, s.STATION_WIDTH * Data.st3d_scale("HL_Station_Covenant_Capital_retopo"))
 	var boxed: bool = s.station.has_meta("box_aabb")
 	main.hud.visible = false
 	_tp(s.station.global_position + Vector3(380, 160, 520), s.station.global_position)

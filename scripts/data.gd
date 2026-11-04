@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.89"
+const VERSION := "v11.90"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -931,7 +931,8 @@ const WARP_MIN_COLOUR := 0.55       # the effect's main colour is at least this 
 const WARP_ALPHA := 0.96             # how solid the effect is at full strength
 # ---------------------------------------------------------------- Job AA (v1.4w): seven more faction casts
 const GUARD_SIZE := 2                # a faction's own guard wing near its main station (factions that have fighters)
-const GUARD_DIST := 520.0            # how far from the station the wing holds
+const GUARD_DIST := 2400.0   # v11.90: clear of the 4x stations
+#           # how far from the station the wing holds
 const GUARD_MAX_SLOT := 5            # the faction commander (slot 06) does not fly guard duty
 const IMPERIUM_FIGHTER_LEN := 12.0
 const IMPERIUM_GUNSHIP_LEN := 16.0
@@ -1744,10 +1745,10 @@ const STATION3D := {
 	"radiant": {"*": "st3d_radiant_dawnchoir"}, "ravage_major": {"*": "st3d_savagers_asteroid"},
 }
 const STATION3D_ROAMERS := {"cybernet": [["st3d_cyber_hexdominator", "Hexdominator"], ["st3d_cyber_shardstorm", "Shardstorm"]]}   # roaming Cybermorph battleships: [model key, name]
-const STATION3D_SCALE := {"st3d_aurelion_citadel": 1.6, "st3d_veranthos_senate": 1.6, "st3d_veranthos_summit": 6.4}   # v11.89 (owner): Fleet Command 4x   # x the standard station width (PROVISIONAL; others 1.0)
+const STATION3D_SCALE := {"st3d_aurelion_citadel": 1.6, "st3d_veranthos_senate": 1.6, "st3d_veranthos_summit": 1.6}   # (v11.90: every station is 4x now, STATION_GROW)   # x the standard station width (PROVISIONAL; others 1.0)
 const STATION3D_DEFAULT_YAW := 180.0  # the file's front (-Z) turned to face the docking approach (+Z)
 const STATION3D_YAW := {}             # per-model exceptions (degrees)
-const STATION3D_LOD := [2600.0, 7000.0]   # m: LOD0 out to this, LOD1 out to the next, LOD2 beyond
+const STATION3D_LOD := [10400.0, 28000.0]   # m: LOD0 out to this, LOD1 out to the next, LOD2 beyond
 const STATION3D_HIT := 0.42           # bump sphere radius = this x the station's width (a simple collision hull)
 const ROAMER_ORBIT := 1700.0          # m: the roaming battleships loop round the main station this far out ...
 const ROAMER_SPEED := 22.0            # ... at this speed (m/s) ...
@@ -1795,7 +1796,8 @@ const RETOPO_STATIONS := {
 	"void_3": {"*": "HL_Station_Unknown_Military_retopo"},
 }
 const RETOPO_STYLE_SCALE := {"Capital": 1.6, "Military": 1.15, "Trade": 1.3, "Outpost": 0.9}   # x the standard station width
-const RETOPO_ADDED_DIST := 2400.0     # m: an added station sits this far from the main one
+const RETOPO_ADDED_DIST := 9600.0   # v11.90: 4x with the stations
+#    # m: an added station sits this far from the main one
 # Planetary buildings: homeworld system -> faction. Its Command Center and Hangar stand on the system's main planet.
 const RETOPO_BUILDINGS := {"sepheron": "Covenant", "aurelion": "Elyza", "malachar": "Imperium", "vantara": "Liberator",
 	"dreadholm": "Orion", "raptian_major": "Savagers", "synthari_capital": "Solarion", "void_system": "Solrath", "veranthos": "Unity"}
@@ -1814,7 +1816,8 @@ static func is_st3d(model: Variant) -> bool:
 	var m := str(model)
 	return m.begins_with("st3d_") or m.begins_with("HL_Station_")
 ## Station width multiplier for a 3D station model (the RETOPO set by its style, the older set from STATION3D_SCALE).
-const STATION_GROW := 2.0   # v10.6 (owner: "stations need to be bigger, twice the size"): every 3D station model
+const STATION_GROW := 8.0   # v11.90 (owner: every station 4x, with the 4x battleships): was 2.0
+#  # v10.6 (owner: "stations need to be bigger, twice the size"): every 3D station model
 static func st3d_scale(key: String) -> float:
 	if STATION3D_SCALE.has(key): return float(STATION3D_SCALE[key]) * STATION_GROW
 	if key.begins_with("HL_Station_"):
