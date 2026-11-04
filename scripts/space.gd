@@ -1467,7 +1467,7 @@ func _board_update(dt: float) -> void:
 		if e.get("walker", false):
 			var n: Node3D = e["node"]
 			var q := Boarding.keep_in(n.global_position, 12.0)
-			n.global_position = Vector3(q.x, Boarding.floor_at(q) + Data.WALKER_STAND * (Data.MECH_BOSS_SCALE if e.get("boss_mech", false) else 1.0), q.z)
+			n.global_position = Vector3(q.x, Boarding.floor_at(q) + Data.WALKER_STAND * float(e.get("stand_k", Data.MECH_BOSS_SCALE if e.get("boss_mech", false) else 1.0)), q.z)
 	_board_steps(dt)
 
 func _board_steps(dt: float) -> void:
@@ -1510,7 +1510,7 @@ func _board_steps(dt: float) -> void:
 		var R: Dictionary = Boarding.ROOMS[here]
 		if here == "reactor": _board_boss(fac)
 		if here == "bridge": _board_bridge(fac, kids)
-		if not kids.is_empty() or here == "reactor": message.emit("%s: %d of their mechs!" % [str(R["label"]), kids.size() + (1 if here == "reactor" else 0)])
+		if not kids.is_empty() or here == "reactor": message.emit("%s: %d of their %s!" % [str(R["label"]), kids.size() + (1 if here == "reactor" else 0), "creatures" if Data.BOARD_BEASTS.has(fac) else "mechs"])
 	if here == "bridge" or not (board.get("bridge", {}) as Dictionary).is_empty(): _bridge_tick()
 	match str(board["phase"]):
 		"fight":   # the reactor's shield is up until their boss is down
@@ -7182,6 +7182,9 @@ func _unit_fx(e: Dictionary, dt: float, dist: float) -> void:
 	if e["mech"]:
 		var model: Node3D = e["model"]
 		var sp: float = (e["vel"] as Vector3).length() / maxf(1.0, float(e["def"]["speed"]))
+		if e.get("beast", false):   # v12.5: a creature on foot: it bobs as it prowls
+			model.position.y = float(e.get("beast_y", 0.0)) + sin(time * 3.0 + float(e["node"].get_instance_id() % 7)) * 0.4 * clampf(sp / Data.WALKER_SPEED, 0.3, 1.0)
+			return
 		if e.get("walker", false):   # v1.8n: on foot: upright, arms up to fire, legs striding with its speed
 			model.rotation.x = lerpf(model.rotation.x, 0.0, minf(1.0, dt * 2.0))
 			model.rotation.z = lerpf(model.rotation.z, 0.0, minf(1.0, dt * 2.0))
@@ -8863,6 +8866,7 @@ func _sea_at(x: float, z: float) -> bool:
 func spawn_ground_mechs(at: Vector3, faction: String, count: int, stage: int, bosses := 0) -> Array:
 	var out: Array = []
 	var mkey := faction_mech(faction)   # v1.9i: the faction's own mech; the first `bosses` of them are its boss
+	var beasts: Array = Data.BOARD_BEASTS.get(faction, [])   # v12.5 (owner): the Kaijurai fight with creatures, not mechs
 	for i in count:
 		var a := TAU * float(i) / float(maxi(1, count)) + _rng.randf() * 0.8
 		var p := at + Vector3(cos(a), 0, sin(a)) * _rng.randf_range(60.0, 130.0)
@@ -8872,18 +8876,43 @@ func spawn_ground_mechs(at: Vector3, faction: String, count: int, stage: int, bo
 		p.y = (_ground(p.x, p.z) if surface_mode else at.y) + Data.WALKER_STAND   # (v1.9i: in space they stand on nothing)
 		var boss: bool = i < bosses
 		if boss: p.y += Data.WALKER_STAND * (Data.MECH_BOSS_SCALE - 1.0)
-		var e := spawn_unit("mech_boss" if boss else "mech", p, p, mkey, Data.MECH_BOSS_SCALE if boss else 1.0)
+		var bk := ""
+		if not beasts.is_empty():
+			var pool: Array = beasts[1] if boss else beasts[0]
+			bk = str(pool[_rng.randi() % pool.size()])
+			var bpk := ShipFactory.pack_of(bk)
+			if bpk != "" and not Packs.is_ready(bpk):
+				Packs.request(bpk)
+				bk = ""
+		var e := spawn_unit("mech_boss" if boss else "mech", p, p, bk if bk != "" else mkey, 1.0 if bk != "" else (Data.MECH_BOSS_SCALE if boss else 1.0))
 		e["walker"] = true
 		if boss:
 			e["stand_k"] = Data.MECH_BOSS_SCALE
 			e["boss_mech"] = true
+		if bk != "": _beastify(e, boss)
 		e["group"] = _group_serial
 		e["mission"] = stage
 		e["provoked"] = true
 		_make_generic(e, faction)
 		e["node"].name = ("%s Boss Mech %d" if boss else "%s Ground Mech %d") % [faction, _enemy_serial]
+		if e.get("beast", false): e["node"].name = ("%s Alpha Beast %d" if boss else "%s Brood Beast %d") % [faction, _enemy_serial]
 		out.append(e)
 	return out
+
+## v12.5 (owner: "I was fighting mechs in there when I should have been fighting creatures"): a Kaijurai creature on
+## foot: its own model sized to Data.BEAST_LEN (an alpha BEAST_BOSS_LEN), standing on its belly line, no mech arms or
+## legs to pose; its tail still waves (SHIP_FLOW).
+func _beastify(e: Dictionary, boss: bool) -> void:
+	var m: Node3D = e["model"]
+	var bb: AABB = ShipFactory._aabb(m, Transform3D.IDENTITY)
+	var L := maxf(0.01, maxf(bb.size.x, bb.size.z))
+	var k := (Data.BEAST_BOSS_LEN if boss else Data.BEAST_LEN) / L
+	m.scale *= k
+	e["beast"] = true
+	e["vis"] = {"l": [], "r": []}
+	var bb2: AABB = ShipFactory._aabb(m, Transform3D.IDENTITY)   # (in the unit's own space, after the resize)
+	e["stand_k"] = maxf(0.2, -bb2.position.y / Data.WALKER_STAND)   # its belly on the deck
+	e["beast_y"] = m.position.y
 
 ## v1.5f: the most senior pick a few draws give (roster_pick leans to slot 01; a senior job wants the slot asked for).
 func _pick_senior(faction: String, max_slot: int, want: int) -> Dictionary:

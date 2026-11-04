@@ -1828,6 +1828,34 @@ func _run() -> void:
 		print("[sysdump] ", JSON.stringify(dump))
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_BEASTS") != "":   # v12.5: boarding a Kaijurai ship: creatures on foot, not mechs
+		main.start_game()
+		await _until(func(): return main.state == "flight", 20.0)
+		await _wait(1.0)
+		var s0 := _sp()
+		var mb: Dictionary = s0._spawn_capital("inv_battleship", "battleship", s0.player.global_position - s0.player.global_basis.z * 2500.0, s0.player.global_position, "Kaijurai")
+		mb["faction"] = "Kaijurai"
+		await _frames(3)
+		GS.form = "mech"
+		main.board_battleship(mb)
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding, 15.0)
+		var s := _sp()
+		await _wait(1.0)
+		var rk := ""
+		for k in Boarding.ROOMS: if rk == "" and k != "lbay" and k != "fhold" and int(Boarding.ROOMS[k]["guards"]) > 0: rk = k
+		var r: Array = Boarding.ROOMS[rk]["r"]
+		var c := Vector3((float(r[0]) + float(r[1])) * 0.5, 0, (float(r[2]) + float(r[3])) * 0.5)
+		_tp(Vector3(float(r[0]) + 15.0, Boarding.floor_at(Vector3(float(r[0]) + 15.0, 0, c.z)) + 6.0, c.z), c)
+		await _wait(2.5)
+		await _capture("beasts_" + rk)
+		await _wait(1.5)
+		await _capture("beasts_" + rk + "_b")
+		var bs: Array = s.enemies.filter(func(e): return e.get("walker", false))
+		var beasts: Array = bs.filter(func(e): return e.get("beast", false))
+		var names: Array = beasts.map(func(e): return str(e["node"].name))
+		_check("Kaijurai boarding: the guards are creatures, not mechs (%d of %d on foot: %s)" % [beasts.size(), bs.size(), ", ".join(names.slice(0, 4))], not bs.is_empty() and beasts.size() == bs.size())
+		_finish_group()
+		return
 	if OS.get_environment("HL_LOCROOMS") != "":   # v12.4: the places' own GPT rooms (placeholders) and the border glitch
 		var hb = main.hub
 		var res := []

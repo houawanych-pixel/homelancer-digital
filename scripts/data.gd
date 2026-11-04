@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.4"
+const VERSION := "v12.5"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -930,6 +930,9 @@ const NEST_WAKE := 6000.0          # a carrier launches only while you are this 
 const NEST_LAUNCH_EVERY := 3.0     # s between launches from one carrier
 const NEST_MAX_OUT := 18           # fighters from all the nests in the air at once, at most (phones)
 const NEST_HIVE_CHANCE := 0.4      # share of unknown areas that also hold a Kaijurai hive station
+const BOARD_BEASTS := {"Kaijurai": [["kaijurai_fang", "kaijurai_stalker"], ["kaijurai_hound", "kaijurai_reaper"]]}   # v12.5 (owner): who guards a boarded ship on foot instead of mechs: [guards, alpha]
+const BEAST_LEN := 34.0        # m: a brood beast on a boarded deck (a mech stands about 14 m)
+const BEAST_BOSS_LEN := 60.0   # m: the alpha that guards the reactor / bridge
 const KAIJU_BIG := ["kaijurai_stalker", "kaijurai_hound", "kaijurai_reaper", "kaijurai_ravager"]
 # v6.2 (owner): "the strange tail behind it ... a very strange kind of flow movement": the back of these models waves.
 # key: [tail direction in the model's own axes, wave size (share of the model), waves along the body, speed]
