@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.85"
+const VERSION := "v11.86"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1727,7 +1727,7 @@ const STATION3D := {
 	"radiant": {"*": "st3d_radiant_dawnchoir"}, "ravage_major": {"*": "st3d_savagers_asteroid"},
 }
 const STATION3D_ROAMERS := {"cybernet": [["st3d_cyber_hexdominator", "Hexdominator"], ["st3d_cyber_shardstorm", "Shardstorm"]]}   # roaming Cybermorph battleships: [model key, name]
-const STATION3D_SCALE := {"st3d_aurelion_citadel": 1.6, "st3d_veranthos_senate": 1.6}   # x the standard station width (PROVISIONAL; others 1.0)
+const STATION3D_SCALE := {"st3d_aurelion_citadel": 1.6, "st3d_veranthos_senate": 1.6, "st3d_veranthos_summit": 1.6}   # x the standard station width (PROVISIONAL; others 1.0)
 const STATION3D_DEFAULT_YAW := 180.0  # the file's front (-Z) turned to face the docking approach (+Z)
 const STATION3D_YAW := {}             # per-model exceptions (degrees)
 const STATION3D_LOD := [2600.0, 7000.0]   # m: LOD0 out to this, LOD1 out to the next, LOD2 beyond
@@ -1755,7 +1755,7 @@ const RETOPO_STATIONS := {
 	"empire_major": {"*": "HL_Station_Imperium_Trade_retopo"},        # Imperial Customs Station
 	"vantara": {"*": "HL_Station_Liberator_Capital_retopo"},          # Liberator capital
 	"exodus_point": {"*": "HL_Station_Liberator_Military_retopo"},    # borders the Gadversee home
-	"dreadholm": {"*": "HL_Station_Orion_Capital_retopo"},            # Orion capital
+	"dreadholm": {"*": "st3d_veranthos_summit"},                      # Orion capital (v11.86 owner: the domed ring; the cobra station is kept for the coming Zards faction)
 	"korrath": {"*": "HL_Station_Orion_Military_retopo"},             # Garrison, borders two Savagers systems
 	"raptian_major": {"*": "HL_Station_Savagers_Capital_retopo"},     # Savagers capital
 	"plundros": {"*": "HL_Station_Savagers_Military_retopo"},         # borders the Cybermorph home and Liberator

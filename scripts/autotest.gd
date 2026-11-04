@@ -1679,6 +1679,22 @@ func _run() -> void:
 		await _capture("fighters_l2l3")
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_STATIONSHOT") != "":   # v11.86: a picture of a system's main station (HL_SYS, HL_SHOT_DIR)
+		await _smoke_core()
+		if main.state == "hub": main.launch()
+		await _until(func(): return main.state == "flight", 10.0)
+		var sid := OS.get_environment("HL_SYS") if OS.get_environment("HL_SYS") != "" else "dreadholm"
+		main._load_system(sid, "station")
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.sys_id == sid, 15.0)
+		var st: Node3D = _sp().station
+		await _wait(6.0)
+		for i in 2:
+			var off := Vector3(1.0, 0.35, 1.0).normalized() if i == 0 else Vector3(-1.0, 0.15, 0.4).normalized()
+			_tp(st.global_position + off * float(OS.get_environment("HL_DIST") if OS.get_environment("HL_DIST") != "" else "2600"), st.global_position)
+			await _wait(1.5)
+			await _capture("station_%d" % i)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_CROWDSHOT") != "":   # v11.84: pictures of the 3D crowd in the Dreadholm planet hub (HL_SHOT_DIR)
 		await _smoke_core()
 		if main.state == "hub": main.launch()
@@ -4489,7 +4505,7 @@ func _job_v1127() -> void:
 	hb.visible = false
 	GS.system_id = sys0
 	_check("v11.27 (owner): STATION VIEWER in COMMAND: any station on a light-blue / magenta key screen, drag / zoom, FRONT/BACK/LEFT/RIGHT/TOP/BOTTOM/3-4, flat or perspective, hide the buttons, no ring",
-		btn != null and key == "HL_Station_Orion_Capital_retopo" and n0 >= 20 and ortho_ok and next_ok and no_ring and Fs.visible,
+		btn != null and key == "st3d_veranthos_summit" and n0 >= 20 and ortho_ok and next_ok and no_ring and Fs.visible,
 		"button %s first %s (%d stations) ortho %s next %s no ring %s" % [btn != null, key, n0, ortho_ok, next_ok, no_ring])
 
 ## v11.45 (owner: "I want to go inside the battleship as a mech; shoot down the shield tower, fly into the open side
@@ -4830,7 +4846,7 @@ func _job_v1128() -> void:
 	await _frames(4)
 	if sv2 != null:
 		var k: String = sv2.keys[sv2.idx] if not sv2.single else ""
-		st_ok = k == "HL_Station_Orion_Capital_retopo"
+		st_ok = k == "st3d_veranthos_summit"
 		var t0 := Time.get_ticks_msec()
 		while sv2.pivot.get_child_count() == 0 and Time.get_ticks_msec() - t0 < 20000: await _frames(2)
 		sv2._hide_ui(true)
