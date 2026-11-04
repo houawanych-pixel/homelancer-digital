@@ -225,7 +225,7 @@ func _setup(id: String, arrival: String, staged: bool) -> void:
 	faction_mech(str(sys.get("faction", "")))   # v1.9i: fetch this space's own mech early (its patrols and ground jobs use it)
 	if SystemBuilder.is_unknown(sys): _spawn_kaiju_nests()   # v10.8 (owner): the unknown areas hold Kaijurai carriers
 	if kaiju_space(): _spawn_kaiju_patrols()
-	else: for p in (sys["patrols"] as Array).slice(0, Data.PATROL_GROUPS): _spawn_group(p, (Data.ROSTER_PATROL_SIZE if Factions.replaces_patrols(str(sys.get("faction", ""))) else 2) + (Data.ENEMY_SPACE_EXTRA if SystemBuilder.is_enemy_space(sys) else 0))   # v1.8v: fewer wings; v6.2: more in enemy space
+	else: for p in (sys["patrols"] as Array).slice(0, Data.PATROL_GROUPS + (Data.ENEMY_SPACE_GROUPS if SystemBuilder.is_enemy_space(sys) else 0)): _spawn_group(p, (Data.ROSTER_PATROL_SIZE if Factions.replaces_patrols(str(sys.get("faction", ""))) else 2) + (Data.ENEMY_SPACE_EXTRA if SystemBuilder.is_enemy_space(sys) else 0))   # v1.8v: fewer wings; v6.2: more in enemy space; v11.99 (owner: "very heavy in enemy activity"): every wing out
 	spawn_guard()
 	spawn_bounty()
 	_fleet_patrols()   # v11.38
@@ -645,17 +645,57 @@ func _ship_box(node: Node3D, model: Node3D) -> void:
 
 var ship_bumps := 0   # (checks)
 func _bump_ships() -> void:
-	if not is_instance_valid(player) or warp_state != "off": return
+	if not is_instance_valid(player): return   # v11.99 (owner: "all ships should be solid"): at warp too
 	var p := player.global_position
 	for e in enemies:
 		var n: Node3D = e["node"]
-		if not n.has_meta("ship_box") or not is_instance_valid(n): continue
+		if not is_instance_valid(n): continue
 		if n.global_position.distance_to(p) > float(e["def"].get("hit_r", 60.0)) * 4.0 + 200.0: continue
-		if _push_out_box(n.get_meta("box_holder"), n.get_meta("box_aabb"), "station"): ship_bumps += 1
+		if not n.has_meta("ship_box"): _solid_box(n)
+		if n.has_meta("ship_box") and _push_out_box(n.get_meta("box_holder"), n.get_meta("box_aabb"), "ship"): ship_bumps += 1
+	# v11.99 (owner: "I went through a cargo ship ... everything should be a solid"): freighters, traffic, patrols
+	for lst in [freighters, traffic, fleet_patrols]:
+		for f in lst:
+			var fn: Node3D = f.get("node", null) if f is Dictionary else f
+			if fn == null or not is_instance_valid(fn) or not fn.visible: continue
+			if fn.global_position.distance_to(p) > 1600.0: continue
+			if not fn.has_meta("ship_box"): _solid_box(fn)
+			if fn.has_meta("ship_box") and _push_out_box(fn.get_meta("box_holder"), fn.get_meta("box_aabb"), "ship"): ship_bumps += 1
+	_bump_lane_rings(p)
 	for n in fleet_guard:
 		if not is_instance_valid(n) or not n.has_meta("ship_box"): continue
 		if n.global_position.distance_to(p) > float(n.get_meta("radius", 60.0)) * 4.0 + 200.0: continue
 		if _push_out_box(n.get_meta("box_holder"), n.get_meta("box_aabb"), "station"): ship_bumps += 1
+
+## v11.99: a ship with no box yet gets one from its own meshes, once (tried once even if it has no mesh).
+func _solid_box(n: Node3D) -> void:
+	if n.has_meta("box_tried"): return
+	n.set_meta("box_tried", true)
+	_ship_box(n, n)
+
+## v11.99 (owner: "even the trade lanes ... should be a solid"): the ring frames are solid (the hole in the middle is
+## the way through). Off the lane only: riding it, nothing is solid.
+var _ring_pts: Array = []   # [centre, lane direction]
+func _bump_lane_rings(p: Vector3) -> void:
+	if not lane.is_empty(): return
+	var R: float = Data.LANE_RING_RADIUS
+	var T: float = R * Data.LANE_RING_TUBE
+	for rp in _ring_pts:
+		var c: Vector3 = rp[0]
+		if absf(c.x - p.x) > R + T or absf(c.z - p.z) > R + T or absf(c.y - p.y) > R + T: continue
+		var dir: Vector3 = rp[1]
+		var v := p - c
+		var radial := v - dir * v.dot(dir)
+		if radial.length() < 0.01: continue
+		var q := c + radial.normalized() * R
+		var d := p.distance_to(q)
+		if d >= T: continue
+		var nrm := (p - q).normalized() if d > 0.01 else dir
+		player.global_position = q + nrm * T
+		collision_damage("station", -vel.dot(nrm))
+		if vel.dot(nrm) < 0.0: vel = vel - nrm * vel.dot(nrm) * 1.5
+		ship_bumps += 1
+		return
 
 func _bump_box(body: Node3D) -> void:
 	_push_out_box(body.get_meta("box_holder"), body.get_meta("box_aabb"), "station")
@@ -1066,6 +1106,30 @@ func _on_fleet_pack(pk: String) -> void:
 	_update_roamers(0.0)
 	if fleet_patrols.is_empty(): _fleet_patrols()
 
+## v11.99 (owner: "you may have something hidden, like an alliance battleship hidden in the asteroids or in the nebula
+## clouds within enemy star systems"): in alien space one battleship of a human faction lies hidden in a cloud (or the
+## asteroid field), barely moving. Peaceful to you unless you shoot it.
+func _hidden_ally_ship() -> void:
+	var facs: Array = Data.FACTION_FLEET.keys()
+	var fac2: String = facs[absi(hash(sys_id + "_hidden_ally")) % facs.size()]
+	var key := str(Data.FACTION_FLEET[fac2].get("battleship", ""))
+	if key == "" or not ShipFactory.has_real_model(key) or Boarding.sunk.has(sys_id): return
+	var spots: Array = nebulae_of(sys_id, sys).filter(func(nb): return not bool(nb.get("main", false))).map(func(nb): return nb["center"])
+	if sys.has("asteroids") and float(sys["asteroids"].get("radius", 0.0)) > 1.0: spots.append(sys["asteroids"]["center"])
+	if spots.is_empty(): return
+	var home: Vector3 = spots[absi(hash(sys_id + "_hide")) % spots.size()]
+	var e := spawn_unit(key, home + Vector3(400, 0, 0), home)
+	e["faction"] = fac2
+	e["fleet_patrol"] = true
+	e["hidden_ally"] = true
+	e["loop_r"] = 400.0
+	e["orbit"] = 0.0
+	e["aggro"] = false
+	e["provoked"] = false
+	(e["node"] as Node3D).name = "%s Battleship (hidden)" % fac2
+	_make_carrier(e)
+	fleet_patrols.append(e)
+
 ## v11.38 (owner: "put battleships out in the star systems on patrol: if you attack it, or your reputation is bad
 ## (orange or red), it attacks you, 15 fighters launched at a time, 90 in all, or destroy the battleship; a cruiser on
 ## patrol launches 5 at a time, 30 in all"): every system of a faction with a fleet has its battleship and its cruiser
@@ -1078,9 +1142,13 @@ func _fleet_patrols() -> void:
 	if surface_mode: return
 	var fac := str(sys.get("faction", ""))
 	var fl: Dictionary = Data.FACTION_FLEET.get(fac, {})
+	if fl.is_empty() and SystemBuilder.is_enemy_space(sys): fl = {"_hidden": true}   # v11.99: alien space: the hidden ally ship below
 	if fl.is_empty(): return
 	if not Packs.is_ready("faction_fleet"):
 		if not Packs.pack_ready.is_connected(_on_fleet_pack): Packs.pack_ready.connect(_on_fleet_pack)
+		return
+	if fl.has("_hidden"):
+		_hidden_ally_ship()
 		return
 	var c0: Vector3 = sys["station"]["pos"]
 	var a0 := float(absi(hash(sys_id + "_fleet")) % 628) / 100.0
@@ -5912,15 +5980,20 @@ func _lane_ring_mesh() -> ArrayMesh:
 	var light := SurfaceTool.new()
 	light.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var box := BoxMesh.new()
+	for sgi in 24:   # v11.99 (owner: "shouldn't look like that", a row of lights in the fog): a whole metal ring now
+		var a2: float = TAU * sgi / 24.0
+		box.size = Vector3(0.12, 0.27, 0.16)
+		metal.append_from(box, 0, Transform3D(Basis(Vector3.BACK, a2), Vector3(cos(a2), sin(a2), 0.0)))
 	for b in 4:
 		var mid := TAU * b / 4.0 + TAU / 8.0
 		for part in [-1, 0, 1]:
 			var a: float = mid + part * 0.3
 			var xf := Transform3D(Basis(Vector3.BACK, a), Vector3(cos(a), sin(a), 0.0))
-			box.size = Vector3(0.14, 0.34, 0.2)       # a slab of the bracket, lying along the circle
+			box.size = Vector3(0.16, 0.34, 0.22)      # a slab of the bracket, lying along the circle
 			metal.append_from(box, 0, xf)
-			box.size = Vector3(0.03, 0.26, 0.06)      # its light strip, on the inside face
-			light.append_from(box, 0, xf * Transform3D(Basis.IDENTITY, Vector3(-0.08, 0, 0)))
+			if part == 0:
+				box.size = Vector3(0.03, 0.2, 0.06)   # its light strip, on the inside face (fewer: they read as dots far off)
+				light.append_from(box, 0, xf * Transform3D(Basis.IDENTITY, Vector3(-0.09, 0, 0)))
 		var xo := Transform3D(Basis(Vector3.BACK, mid), Vector3(cos(mid), sin(mid), 0.0) * 1.16)
 		box.size = Vector3(0.22, 0.12, 0.3)           # the claw on the outside
 		metal.append_from(box, 0, xo)
@@ -6010,6 +6083,52 @@ func _layout_pairs() -> Array:
 		if a != null and b != null: out.append([a, b])
 	return out
 
+## v11.99: the level sideways direction of a lane (to the right as you face along dir).
+static func _lane_side(dir: Vector3) -> Vector3:
+	var sd := dir.cross(Vector3.UP)
+	if sd.length() < 0.1: sd = Vector3.RIGHT
+	return sd.normalized()
+
+## v11.99: the lane traffic lights, three MultiMeshes (green blinks, yellow and red glow steady).
+const LANE_LIGHT_SHADER := """
+shader_type spatial;
+render_mode unshaded, cull_disabled;
+uniform vec4 col : source_color;
+uniform float blink = 0.0;
+void fragment() {
+	float on = blink > 0.0 ? step(0.5, fract(TIME * blink)) * 0.85 + 0.15 : 1.0;
+	ALBEDO = col.rgb * on;
+}
+"""
+func _lane_light_mm(sets: Array) -> void:
+	var cols := [Color(0.25, 1.0, 0.4), Color(1.0, 0.8, 0.15), Color(1.0, 0.2, 0.15)]
+	var sm := SphereMesh.new()
+	sm.radius = 1.0
+	sm.height = 2.0
+	sm.radial_segments = 8
+	sm.rings = 4
+	for i in 3:
+		var xs: Array = sets[i]
+		if xs.is_empty(): continue
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = sm
+		mm.instance_count = xs.size()
+		for k in xs.size(): mm.set_instance_transform(k, xs[k])
+		var mi := MultiMeshInstance3D.new()
+		mi.name = ["LaneGreen", "LaneYellow", "LaneRed"][i]
+		mi.multimesh = mm
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var sh := Shader.new()
+		sh.code = LANE_LIGHT_SHADER
+		var mt := ShaderMaterial.new()
+		mt.shader = sh
+		mt.set_shader_parameter("col", cols[i])
+		mt.set_shader_parameter("blink", 1.2 if i == 0 else 0.0)
+		mi.material_override = mt
+		add_child(mi)
+		_lane_lights.append(mi)
+
 ## v10.10: would a pair of lane rings at c (stacked along up) sit inside rings already placed?
 func _ring_crowded(c: Vector3, up: Vector3, placed: Array) -> bool:
 	var need: float = Data.LANE_RING_RADIUS * 2.4
@@ -6037,6 +6156,10 @@ func _build_lanes() -> void:
 	else:
 		for e in SystemBuilder.lane_tree(nodes.map(func(n): return (n as Node3D).global_position)): pairs.append([nodes[e[0]], nodes[e[1]]])
 	var xfs: Array = []
+	_ring_pts = []
+	var lights_g: Array = []
+	var lights_y: Array = []
+	var lights_r: Array = []
 	var placed: Array = []   # v10.10: every ring drawn so far (lanes keep apart)
 	for pr in pairs:
 		var a: Node3D = pr[0]
@@ -6053,42 +6176,40 @@ func _build_lanes() -> void:
 		var p1 := b.global_position - dir * rb
 		# v10.10 (owner: "the close trade lanes ... pull together at the entrance, not good"): a lane whose mouth would sit
 		# in another lane's rings starts further out, so the mouths round a station never tangle
-		var up0 := Vector3.UP if absf(dir.y) < 0.9 else Vector3.RIGHT
-		up0 = (up0 - dir * up0.dot(dir)).normalized()
+		var side0 := _lane_side(dir)
 		for tries in 30:
-			if not _ring_crowded(p0, up0, placed): break
+			if not _ring_crowded(p0, side0, placed): break
 			p0 += dir * Data.LANE_RING_RADIUS * 1.5
 		var length := p0.distance_to(p1)
 		if length < Data.LANE_MIN_LEN or (p1 - p0).dot(dir) <= 0.0 or not _lane_clear(p0, p1, [a, b]): continue
 		var n := clampi(int(ceil(length / Data.LANE_RING_GAP)) + 1, 2, Data.LANE_MAX_RINGS)
 		var up := Vector3.UP if absf(dir.y) < 0.9 else Vector3.RIGHT
 		up = (up - dir * up.dot(dir)).normalized()
-		var ln := {"a": str(a.get_meta("label", a.name)), "b": str(b.get_meta("label", b.name)), "up": [], "down": [], "dir": dir}
+		# v11.99 (owner: "turn the lanes sideways"): the two rows run side by side, like a freeway: the row on your right
+		# as you face B carries you to B, the left row back to A
+		var side := _lane_side(dir)
+		var ln := {"a": str(a.get_meta("label", a.name)), "b": str(b.get_meta("label", b.name)), "up": [], "down": [], "dir": dir, "side": side}
 		var basis := Basis.looking_at(dir, up).scaled(Vector3.ONE * Data.LANE_RING_RADIUS)
 		var mine: Array = []
 		for k in n:
 			var c := p0.lerp(p1, float(k) / float(n - 1))
-			ln["up"].append(c + up * Data.LANE_STACK * 0.5)
-			ln["down"].append(c - up * Data.LANE_STACK * 0.5)
-			if k > 0 and k < n - 1 and _ring_crowded(c, up, placed): continue   # (no ring drawn through another lane's ring)
+			ln["up"].append(c + side * Data.LANE_STACK * 0.5)
+			ln["down"].append(c - side * Data.LANE_STACK * 0.5)
+			if k > 0 and k < n - 1 and _ring_crowded(c, side, placed): continue   # (no ring drawn through another lane's ring)
 			xfs.append(Transform3D(basis, ln["up"][k]))
 			xfs.append(Transform3D(basis, ln["down"][k]))
+			_ring_pts.append([ln["up"][k], dir])
+			_ring_pts.append([ln["down"][k], dir])
 			mine.append(ln["up"][k]); mine.append(ln["down"][k])
+			# v11.99 (owner): a traffic light on every ring, on its outer side: blinking green on top, yellow, red below
+			for row in [[ln["up"][k], side], [ln["down"][k], -side]]:
+				var o: Vector3 = (row[0] as Vector3) + (row[1] as Vector3) * (Data.LANE_RING_RADIUS + 16.0)
+				lights_g.append(Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * 6.0), o + up * 15.0))
+				lights_y.append(Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * 6.0), o))
+				lights_r.append(Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * 6.0), o - up * 15.0))
 		placed.append_array(mine)
 		lanes.append(ln)
-		# the green light marks each live mouth: where you get on
-		for mouth: Vector3 in [ln["up"][0], ln["down"][n - 1]]:
-			var lamp := MeshInstance3D.new()
-			var sm := SphereMesh.new()
-			sm.radius = 5.0
-			sm.height = 10.0
-			sm.radial_segments = 8
-			sm.rings = 4
-			lamp.mesh = sm
-			lamp.material_override = ShipFactory.mat(Color(0.3, 1.0, 0.45), true)
-			add_child(lamp)
-			lamp.global_position = mouth + up * (Data.LANE_RING_RADIUS + 12.0)
-			_lane_lights.append(lamp)
+	_lane_light_mm([lights_g, lights_y, lights_r])
 	if xfs.is_empty(): return
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
@@ -7031,7 +7152,7 @@ func _update_traffic(dt: float) -> void:
 var collide_grace := 0.0        # s left in the grace window after a damaging hit
 var last_collision := {}        # {kind, impact, dmg, k} of the latest damaging hit (HUD / tests)
 const COLLIDE_MSG := {"asteroid": "Collision alert: asteroid impact.", "ground": "Terrain impact! Pull up.",
-	"building": "Collision: structure impact!", "station": "Collision: station hull impact!"}
+	"building": "Collision: structure impact!", "station": "Collision: station hull impact!", "ship": "Collision: ship hull impact!"}
 
 ## The ship hit something solid (asteroid, ground, building, station) at `impact` m/s into its surface.
 ## Below the threshold, or inside the grace window, nothing happens. Otherwise hull damage scaled by speed, hit

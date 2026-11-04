@@ -802,6 +802,14 @@ func clear_fx() -> void:
 
 func dock(n: Node3D) -> void:
 	if state != "flight": return
+	var dinfo: Dictionary = n.get_meta("info", {}) if n.has_meta("info") else {}
+	if str(dinfo.get("kind", "")) == "station" and SystemBuilder.is_enemy_space(Data.SYSTEMS.get(space.sys_id, {})):
+		# v11.99 (owner: alien stations "are not dockable ... more like Armored Core facilities you have to infiltrate")
+		if GS.form != "mech":
+			hud.flash_message("%s won't take you: a hostile station. Transform to your MECH and dock to infiltrate it." % str(dinfo.get("name", "The station")))
+			return
+		infiltrate_station(n)
+		return
 	state = "docking"
 	space.controls = false
 	space.autopilot = null
@@ -1444,6 +1452,37 @@ func board_battleship(e: Dictionary) -> void:
 	hud.visible = true
 	state = "flight"
 
+## v11.99 (owner): an alien station is infiltrated like a facility (level 3, its own maze), never docked at. Clear it
+## and you come out beside it, paid.
+func infiltrate_station(n: Node3D) -> void:
+	if state != "flight" or not is_instance_valid(space): return
+	state = "boarding"
+	var info: Dictionary = n.get_meta("info", {})
+	var nm := str(info.get("name", n.name))
+	var fac := str(Data.SYSTEMS.get(space.sys_id, {}).get("enemy_faction", "Savagers"))
+	if not Factions.has(fac): fac = "Savagers"
+	board_from = {"sys": space.sys_id, "pos": space.player.global_position, "ship_at": n.global_position, "name": nm, "faction": fac, "infiltrate": true}
+	space.controls = false
+	hud.visible = false
+	fx.caption = "INFILTRATION"
+	fx.sub = nm.to_upper()
+	Sfx.play("whoosh", -2.0, 0.7)
+	var tw := create_tween()
+	tw.tween_property(fx, "fade", 1.0, 0.5)
+	await tw.finished
+	Boarding.use(Boarding.facility("%s:%s" % [space.sys_id, nm], Data.STATION_INFIL_LEVEL, nm))
+	_new_space("Boarding")
+	space.setup_boarding({"sys": board_from["sys"], "faction": board_from["faction"], "name": nm})
+	_connect_space()
+	var tw2 := create_tween()
+	tw2.tween_property(fx, "fade", 0.0, 0.6)
+	await tw2.finished
+	fx.caption = ""
+	fx.sub = ""
+	space.controls = true
+	hud.visible = true
+	state = "flight"
+
 ## v11.96 (owner: Armored Core facilities under every world's bases): go in as a mech; the facility is generated from
 ## its world and slot (Boarding.facility): deeper, bigger and better guarded the harder it is. Blow the reactor, get out
 ## of the exit shaft: you come up beside it on the surface and are paid. The base stays; you can run it again.
@@ -1538,6 +1577,7 @@ func leave_boarding(won: bool) -> void:
 		if won: hud.flash_message("COMMAND: %s is gutted. Good work, pilot: %d credits. It'll be back in business soon." % [board_from["name"], pay])
 		board_from = {}
 		return
+	if bool(board_from.get("infiltrate", false)): Boarding.use_ship()   # v11.99: out of an alien station
 	if won:
 		if bool(board_from.get("fleet", false)): Boarding.sunk[board_from["sys"]] = true
 		if bool(board_from.get("mission", false)) and not GS.mission.is_empty() and str(GS.mission.get("kind", "")) == "disturbance": GS.mission["boarded"] = true
@@ -1552,7 +1592,10 @@ func leave_boarding(won: bool) -> void:
 	var tw2 := create_tween()
 	tw2.tween_property(fx, "fade", 0.0, 0.6)
 	await tw2.finished
-	if won: space.start_post_wave(str(board_from["faction"]), ship_at, Data.BOARD_PAY, bool(board_from.get("mission", false)))   # (once you can see it go up)
+	if won and bool(board_from.get("infiltrate", false)):
+		GS.credits += Data.FACILITY_PAY * Data.STATION_INFIL_LEVEL
+		hud.flash_message("COMMAND: you gutted %s from the inside. %d credits. They'll rebuild." % [board_from["name"], Data.FACILITY_PAY * Data.STATION_INFIL_LEVEL])
+	elif won: space.start_post_wave(str(board_from["faction"]), ship_at, Data.BOARD_PAY, bool(board_from.get("mission", false)))   # (once you can see it go up)
 	fx.caption = ""
 	fx.sub = ""
 	space.controls = true

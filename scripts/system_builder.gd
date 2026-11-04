@@ -269,6 +269,17 @@ static func apply_layouts(systems: Dictionary) -> void:
 		for jn in L.get("junctions", {}): j[jn] = cell_pos(L["junctions"][jn])
 		sy["junctions"] = j
 		sy["lane_plan"] = (L.get("lanes", []) as Array).duplicate(true)
+		if sid in REGRID: _regrid(sy)
+	# v11.99 (owner: "they don't even have jump gates; the only way into their world is through rift gates or warp
+	# gates"): every gate into or out of always-hostile alien space is a warp gate (a rift stays a rift)
+	for sid in systems:
+		var sy: Dictionary = systems[sid]
+		for g in sy.get("gates", []):
+			var to: String = str(g.get("to", ""))
+			if str(g.get("gkind", "jump")) != "jump" or not systems.has(to): continue
+			if is_enemy_space(sy) or is_enemy_space(systems[to]):
+				g["gkind"] = "warp"
+				g["name"] = str(g["name"]).replace("Jump Gate", "Warp Gate")
 
 ## v11.94 (owner: "every one of these systems needs redesign ... better trade lanes, more activity, more nebula, clouds,
 ## asteroids ... there shouldn't be something so simple like a sun, a planet, 2 gates, done"). For every system without a
@@ -393,7 +404,9 @@ static func _auto_layout(sid: String, sy: Dictionary) -> Dictionary:
 	var adds: Array = []
 	var ally := ""
 	var rival := ""
-	if fac in MAJORS:
+	var hostile_space := is_enemy_space(sy)   # v11.99 (owner): alien space has no lanes, no friendly stations, no spy
+	if hostile_space: pass
+	elif fac in MAJORS:
 		ally = str(ALLIES.get(fac, ""))
 		rival = Factions.rival(fac)
 	elif fac == "Neutral":
@@ -416,11 +429,42 @@ static func _auto_layout(sid: String, sy: Dictionary) -> Dictionary:
 		L["spy"] = {"type": "contact", "at": "hub", "faction": rival, "name": "Dockside Informant", "desc": "A contact at the hub who sells word on the hidden %s post." % rival}
 	L["add_stations"] = adds
 	# the lane network
-	var net := _lane_net(nodes, rng)
+	var disp := {"hub": str(sy["station"]["name"]), "planet": str(sy["planet"]["name"])}
+	for g in sy.get("gates", []): disp["gate:" + str(g["to"])] = str(g["name"])
+	var net := _grid_net(nodes, disp) if not hostile_space else {"lanes": [], "junctions": {}, "segs": [], "moved": {}}   # v11.99 (owner): a freeway grid (was _lane_net, a tree); none in alien space
+	for nm in net["moved"]:   # places the grid moved onto a street
+		var c: Vector2 = net["moved"][nm]
+		var cc := [c.x, c.y]
+		if nm == "planet": L["planet"] = cc
+		elif str(nm).begins_with("gate:"): L["gates"][str(nm).substr(5)] = cc
+		elif mp.has(nm): mp[nm] = cc
+		elif ms.has(nm): ms[nm] = cc
+		else:
+			for ap in L.get("add_planets", []): if str(ap["name"]) == nm: ap["at"] = cc
+			for ad in adds: if str(ad["name"]) == nm: ad["at"] = cc
+		for t in taken.size(): if (taken[t] as Vector2).distance_to(_old_at(nodes, nm)) < 0.001: taken[t] = c
 	var juncs: Dictionary = net["junctions"]
 	var segs: Array = net["segs"]
 	L["junctions"] = juncs
 	L["lanes"] = net["lanes"]
+	# the main cloud (rocks gather in its middle) steps off the lanes, taking the hidden post with it
+	if L.has("nebula") and sy.has("nebula") and not segs.is_empty():
+		var nr: float = float(sy["nebula"].get("radius", 0.0)) * Data.NEBULA_SIZE * 0.65 / w
+		var nc := Vector2(L["nebula"][0], L["nebula"][1])
+		var clear_of := func(c: Vector2) -> bool:
+			for sg in segs: if _seg_d(c, sg[0], sg[1]) < nr + 0.3: return false
+			return true
+		if not clear_of.call(nc):
+			var bst := nc
+			var bd := INF
+			for i in 400:
+				var c := Vector2(rng.randf_range(lo, hi), rng.randf_range(lo, hi))
+				if clear_of.call(c) and far.call(c, 0.8) and c.distance_to(nc) < bd:
+					bd = c.distance_to(nc)
+					bst = c
+			L["nebula"] = [bst.x, bst.y]
+			for ad in adds: if str(ad.get("role", "")) == "rival": ad["at"] = [bst.x, bst.y]
+			for t in taken.size(): if (taken[t] as Vector2).distance_to(nc) < 0.001: taken[t] = bst
 	# the star: the open spot farthest from every lane and place
 	var all_pts: Array = taken.duplicate()
 	for jn in juncs: all_pts.append(Vector2(juncs[jn][0], juncs[jn][1]))
@@ -483,6 +527,265 @@ static func _auto_layout(sid: String, sy: Dictionary) -> Dictionary:
 		inner += 1
 	L["clouds"] = clouds
 	return L
+
+## v11.99 (owner: "like a tic-tac-toe grid ... choke points ... lanes don't go all the way through, they stop at T
+## sections ... genuinely how the maps of a real freeway is"): the lane network as streets. A level street and an
+## upright street cross at the hub; one more of each runs where the other places cluster. Each place sits on the
+## street nearest it, or joins it by a short spur that meets it in a T; a spur that would run beside another spur
+## joins that one's place instead. Each street only runs as far as its places (and the crossing it needs to join the
+## rest). Every street is cut where things meet, so each stretch between two meeting points is one lane.
+## nodes: [[name, cell]...] (nodes[0] = the hub). Returns {lanes, junctions, segs}.
+static func _grid_net(nodes: Array, disp: Dictionary = {}) -> Dictionary:
+	var hubc: Vector2 = nodes[0][1]
+	var names: Array = nodes.map(func(x): return str(x[0]))
+	var pts: Array = nodes.map(func(x): return x[1])
+	var n := pts.size()
+	# the streets: [axis ("h" = level, runs along x at y = v; "v" = upright, along y at x = v), v]
+	var streets: Array = [["h", hubc.y], ["v", hubc.x]]
+	for ax in ["h", "v"]:
+		var far_pts: Array = []   # places far from the hub's street on this axis: their middle is the second street
+		for i in range(1, n):
+			var p: Vector2 = pts[i]
+			var off: float = absf(p.y - hubc.y) if ax == "h" else absf(p.x - hubc.x)
+			if off > 1.6: far_pts.append(p)
+		if far_pts.size() >= 2:
+			var side_pos := far_pts.filter(func(p): return (p.y - hubc.y if ax == "h" else p.x - hubc.x) > 0.0)
+			var side_neg := far_pts.filter(func(p): return (p.y - hubc.y if ax == "h" else p.x - hubc.x) < 0.0)
+			var use: Array = side_pos if side_pos.size() >= side_neg.size() else side_neg
+			if use.size() >= 2:
+				var m := 0.0
+				for p: Vector2 in use: m += (p.y if ax == "h" else p.x)
+				m /= float(use.size())
+				var base: float = hubc.y if ax == "h" else hubc.x
+				if absf(m - base) >= 1.4: streets.append([ax, m])
+	var on_street := func(si: int, p: Vector2) -> Vector2:   # the foot of p on street si
+		return Vector2(p.x, streets[si][1]) if streets[si][0] == "h" else Vector2(streets[si][1], p.y)
+	var st_d := func(si: int, p: Vector2) -> float: return absf(p.y - float(streets[si][1])) if streets[si][0] == "h" else absf(p.x - float(streets[si][1]))
+	# each place: on a street (within 0.35), or a spur to the nearest street, or (beside another spur) to that spur's place
+	var stops: Array = []   # per street: [[along, name]] points on it
+	for si in streets.size(): stops.append([])
+	var extra: Array = []   # [name a, name b] lanes off the streets (spurs, chains)
+	var spurs: Array = []   # [foot, place, name]
+	var moved := {}         # places moved onto a street: name -> cell
+	var jn := {}            # junction name -> cell
+	var order: Array = range(n)
+	order.sort_custom(func(a, b):
+		var da := INF
+		var db := INF
+		for si in streets.size(): da = minf(da, st_d.call(si, pts[a])); db = minf(db, st_d.call(si, pts[b]))
+		return da < db)
+	for i in order:
+		var p: Vector2 = pts[i]
+		var best := 0
+		for si in streets.size(): if st_d.call(si, p) < st_d.call(best, p): best = si
+		var along: float = p.x if streets[best][0] == "h" else p.y
+		if i != 0 and st_d.call(best, p) <= 0.8:   # close to a street: the place moves onto it (no stub of a lane)
+			p = on_street.call(best, p)
+			pts[i] = p
+			moved[names[i]] = p
+		if st_d.call(best, p) <= 0.35 or i == 0:
+			stops[best].append([along, names[i]])
+			if i == 0: stops[1].append([hubc.y, names[0]])   # (the hub sits on both of its streets)
+			continue
+		var foot: Vector2 = on_street.call(best, p)
+		var join_to := ""
+		for sp in spurs:   # a spur beside another one (within 0.5, overlapping): join that place instead
+			var f2: Vector2 = sp[0]
+			var p2: Vector2 = sp[1]
+			var same_dir: bool = (p - foot).normalized().dot((p2 - f2).normalized()) > 0.9
+			if same_dir and _seg_seg_d(foot, p, f2, p2) < 0.5: join_to = str(sp[2])
+		if join_to != "":
+			extra.append([join_to, names[i]])
+			continue
+		var fname: String = "%s Turnoff" % str(disp.get(names[i], names[i]))
+		jn[fname] = foot
+		stops[best].append([along, fname])
+		extra.append([fname, names[i]])
+		spurs.append([foot, p, names[i]])
+	# the crossings, and each street's span (from its first stop to its last, reaching a crossing if it needs one)
+	var span: Array = []
+	for si in streets.size():
+		var al: Array = stops[si].map(func(x): return float(x[0]))
+		span.append([al.min(), al.max()] if not al.is_empty() else [INF, -INF])
+	var cross := func(a: int, b: int) -> Vector2:   # where an h street and a v street meet (INF if parallel)
+		if streets[a][0] == streets[b][0]: return Vector2.INF
+		var h: int = a if streets[a][0] == "h" else b
+		var v: int = b if h == a else a
+		return Vector2(float(streets[v][1]), float(streets[h][1]))
+	var reach := func(si: int, c: Vector2) -> void:   # stretch street si to take in point c
+		var t: float = c.x if streets[si][0] == "h" else c.y
+		span[si] = [minf(float(span[si][0]), t), maxf(float(span[si][1]), t)]
+	var meets := func(a: int, b: int) -> bool:
+		var c: Vector2 = cross.call(a, b)
+		if c == Vector2.INF: return false
+		for s2 in [a, b]:
+			var t: float = c.x if streets[s2][0] == "h" else c.y
+			if t < float(span[s2][0]) - 0.01 or t > float(span[s2][1]) + 0.01: return false
+		return true
+	var live: Array = range(streets.size()).filter(func(si): return not (stops[si] as Array).is_empty())
+	for guard in 8:   # join the streets up: stretch the cheapest pair until all are one network
+		var comp := {}
+		for si in live: comp[si] = si
+		var root := func(x: int) -> int:
+			while comp[x] != x: x = comp[x]
+			return x
+		for a in live:
+			for b in live:
+				if a < b and meets.call(a, b): comp[root.call(a)] = root.call(b)
+		var groups := {}
+		for si in live: groups[root.call(si)] = true
+		if groups.size() <= 1: break
+		var best_cost := INF
+		var best_pair := []
+		for a in live:
+			for b in live:
+				if root.call(a) == root.call(b): continue
+				var c: Vector2 = cross.call(a, b)
+				if c == Vector2.INF: continue
+				var cost := 0.0
+				for s2 in [a, b]:
+					var t: float = c.x if streets[s2][0] == "h" else c.y
+					cost += maxf(0.0, float(span[s2][0]) - t) + maxf(0.0, t - float(span[s2][1]))
+				if cost < best_cost:
+					best_cost = cost
+					best_pair = [a, b, c]
+		if best_pair.is_empty(): break
+		reach.call(best_pair[0], best_pair[2])
+		reach.call(best_pair[1], best_pair[2])
+	# crossings become choke points (named for where they are round the hub)
+	var cn := 0
+	for a in live:
+		for b in live:
+			if a >= b or not meets.call(a, b): continue
+			var c: Vector2 = cross.call(a, b)
+			if c.distance_to(hubc) < 0.05: continue   # (the hub's own crossing is the hub)
+			var hit := ""
+			for s2 in [a, b]:
+				for st in stops[s2]: if absf(float(st[0]) - (c.x if streets[s2][0] == "h" else c.y)) < 0.05 and not jn.has(str(st[1])): hit = str(st[1])
+			if hit == "":
+				var d := c - hubc
+				cn += 1
+				hit = "%s Choke Point" % ("North" if d.y < -absf(d.x) else ("South" if d.y > absf(d.x) else ("East" if d.x > 0 else "West")))
+				while jn.has(hit): hit = hit + " " + str(cn)
+				jn[hit] = c
+			for s2 in [a, b]:
+				var t: float = c.x if streets[s2][0] == "h" else c.y
+				if not (stops[s2] as Array).any(func(st): return str(st[1]) == hit): stops[s2].append([t, hit])
+	# cut every street at its stops (stops closer than 0.4 along it merge into the first)
+	var lanes: Array = []
+	var seen := {}
+	for si in live:
+		var sl: Array = stops[si]
+		sl.sort_custom(func(x, y): return float(x[0]) < float(y[0]))
+		var prev: Array = []
+		for st in sl:
+			if not prev.is_empty() and float(st[0]) - float(prev[0]) < 0.4:
+				# a spur's foot right by another stop: the spur starts at that stop instead (never drop a place)
+				var drop: Array = st if str(st[1]).ends_with("Turnoff") else (prev if str(prev[1]).ends_with("Turnoff") else [])
+				if not drop.is_empty():
+					var keep: Array = prev if drop == st else st
+					for e in extra: if str(e[0]) == str(drop[1]): e[0] = keep[1]
+					for ln2 in lanes: for q in 2: if str(ln2[q]) == str(drop[1]): ln2[q] = keep[1]
+					jn.erase(str(drop[1]))
+					if drop == prev: prev = st
+					continue
+			# two places on a street too close together: the later one moves along it (a crossing stays put)
+			var is_place := func(k: String) -> bool: return not jn.has(k) and k != names[0]
+			if not prev.is_empty() and float(st[0]) - float(prev[0]) < 0.7 and is_place.call(str(st[1])):
+				st[0] = float(prev[0]) + 0.7
+				var np: Vector2 = Vector2(st[0], streets[si][1]) if streets[si][0] == "h" else Vector2(streets[si][1], st[0])
+				pts[names.find(str(st[1]))] = np
+				moved[str(st[1])] = np
+			if not prev.is_empty():
+				var key := "%s|%s" % [prev[1], st[1]]
+				if not seen.has(key):
+					seen[key] = true
+					lanes.append([str(prev[1]), str(st[1])])
+			prev = st
+	lanes.append_array(extra)
+	var where := func(k: String) -> Vector2:
+		if jn.has(k): return jn[k]
+		return pts[names.find(k)]
+	var segs: Array = []
+	var juncs := {}
+	for k in jn: juncs[k] = [(jn[k] as Vector2).x, (jn[k] as Vector2).y]
+	lanes = lanes.filter(func(ln): return str(ln[0]) != str(ln[1]))
+	for ln in lanes: segs.append([where.call(str(ln[0])), where.call(str(ln[1]))])
+	return {"lanes": lanes, "junctions": juncs, "segs": segs, "moved": moved}
+
+## v11.99 (owner: "yes, the lane rules in Dreadholm"): a hand-made system keeps its places but gets the freeway grid
+## (places near a street step onto it) and its star moves to the most open spot off the lanes.
+const REGRID := ["dreadholm"]
+static func _regrid(sy: Dictionary) -> void:
+	var nodes: Array = [["hub", cell_of(sy["station"]["pos"])], ["planet", cell_of(sy["planet"]["pos"])]]
+	var disp := {"hub": str(sy["station"]["name"]), "planet": str(sy["planet"]["name"])}
+	for g in sy["gates"]:
+		nodes.append(["gate:" + str(g["to"]), cell_of(g["pos"])])
+		disp["gate:" + str(g["to"])] = str(g["name"])
+	for x in sy.get("more_planets", []): nodes.append([str(x["name"]), cell_of(x["pos"])])
+	for x in sy.get("more_stations", []): if not bool(x.get("hidden", false)): nodes.append([str(x["name"]), cell_of(x["pos"])])
+	var net := _grid_net(nodes, disp)
+	for nm in net["moved"]:
+		var c: Vector2 = net["moved"][nm]
+		if nm == "planet": sy["planet"]["pos"] = cell_pos([c.x, c.y], (sy["planet"]["pos"] as Vector3).y)
+		elif str(nm).begins_with("gate:"):
+			for g in sy["gates"]: if "gate:" + str(g["to"]) == nm: g["pos"] = cell_pos([c.x, c.y], (g["pos"] as Vector3).y)
+		else:
+			for x in sy.get("more_planets", []) + sy.get("more_stations", []): if str(x["name"]) == nm: x["pos"] = cell_pos([c.x, c.y], (x["pos"] as Vector3).y)
+	var j := {}
+	for jn in net["junctions"]: j[jn] = cell_pos(net["junctions"][jn])
+	sy["junctions"] = j
+	sy["lane_plan"] = net["lanes"]
+	# the star: the most open spot, off every lane and place
+	var all_pts: Array = nodes.map(func(x): return net["moved"].get(x[0], x[1]))
+	for jn in net["junctions"]: all_pts.append(Vector2(net["junctions"][jn][0], net["junctions"][jn][1]))
+	var best := Vector2(6, 6)
+	var bs := -INF
+	for i in 400:
+		var c := Vector2(2.4 + fmod(i * 0.6180339, 1.0) * 7.2, 2.4 + fmod(i * 0.7548776, 1.0) * 7.2)
+		var sc := INF
+		for q: Vector2 in all_pts: sc = minf(sc, q.distance_to(c))
+		for sg in net["segs"]: sc = minf(sc, _seg_d(c, sg[0], sg[1]))
+		if sc > bs:
+			bs = sc
+			best = c
+	var sp := cell_pos([best.x, best.y])
+	sy["sun_center"] = false
+	sy["sun_dir"] = -sp.normalized()
+	sy["sun_dist"] = sp.length()
+	all_pts.append(best)
+	# the asteroids (the belt, rock clouds, the rocky main cloud) step off the lanes into the open
+	var w: float = 2.0 * Data.SPACE_EDGE / float(Data.MAP_CELLS)
+	var off_spot := func(r_cells: float, from: Vector2) -> Vector2:
+		var ok := func(c: Vector2) -> bool:
+			for sg in net["segs"]: if _seg_d(c, sg[0], sg[1]) < r_cells + 0.3: return false
+			for q: Vector2 in all_pts: if q.distance_to(c) < r_cells + 0.3: return false
+			return true
+		if ok.call(from): return from
+		var bst := from
+		var bd := INF
+		for i in 500:
+			var c := Vector2(2.2 + fmod(i * 0.6180339, 1.0) * 7.6, 2.2 + fmod(i * 0.7548776, 1.0) * 7.6)
+			if ok.call(c) and c.distance_to(from) < bd:
+				bd = c.distance_to(from)
+				bst = c
+		return bst
+	if sy.has("asteroids") and float(sy["asteroids"].get("radius", 0.0)) > 1.0:
+		var bc: Vector2 = off_spot.call(float(sy["asteroids"]["radius"]) / w, cell_of(sy["asteroids"]["center"]))
+		sy["asteroids"]["center"] = cell_pos([bc.x, bc.y])
+		all_pts.append(bc)
+	for c in sy.get("layout_clouds", []):
+		if str(c.get("weather", "")) != "rocks": continue
+		var cc: Vector2 = off_spot.call(float(c["radius"]) / w, cell_of(c["center"]))
+		c["center"] = cell_pos([cc.x, cc.y])
+		all_pts.append(cc)
+	if sy.has("nebula") and float(sy["nebula"].get("radius", 0.0)) > 1.0:
+		var nc: Vector2 = off_spot.call(float(sy["nebula"]["radius"]) * Data.NEBULA_SIZE * 0.65 / w, cell_of(sy["nebula"]["center"]))
+		sy["nebula"]["center"] = cell_pos([nc.x, nc.y])
+
+static func _old_at(nodes: Array, nm: String) -> Vector2:
+	for x in nodes: if str(x[0]) == nm: return x[1]
+	return Vector2.INF
 
 ## v11.98: does segment a-b properly cross segment c-d?
 static func _crosses(a: Vector2, b: Vector2, c: Vector2, d: Vector2) -> bool:

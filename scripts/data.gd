@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v11.98"
+const VERSION := "v11.99"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -376,6 +376,7 @@ const LANE_RING_GAP := 7000.0         # metres between rings (v9.0: systems fill
 const LANE_MAX_RINGS := 24
 const LANE_MIN_LEN := 1400.0          # shorter runs get no lane
 const LANE_RING_RADIUS := 68.0   # v11.89 (owner): lanes 2x (was 34)
+const LANE_RING_TUBE := 0.2      # v11.99: how thick the solid ring frame is (share of the ring radius)
 const LANE_STACK := 220.0   # v11.89: 2x with the rings
 #            # the two directions sit this far apart, one ring above the other
 const LANE_PLANET_STANDOFF := 4400.0   # v11.89: 2x
@@ -1111,7 +1112,8 @@ const RIFT_CLOUD := Color(0.55, 0.25, 0.95)   # v6.5: the purple cloud round a r
 const PLANET_RIFT_POS := Vector3(1400.0, 0.0, -1400.0)   # where a planet's rift gate stands on its tile (height: above the ground)
 const PLANET_RIFT_HEIGHT := 650.0
 const ENEMY_SPACE_POWER := 1.6   # v6.2 (owner): enemy space is deadlier: hull, shields, damage and pay x this
-const ENEMY_SPACE_EXTRA := 1      # ... and one more ship in every patrol
+const ENEMY_SPACE_GROUPS := 1     # v11.99 (owner): alien space has every patrol wing out (3, not 2)
+const ENEMY_SPACE_EXTRA := 2      # ... and one more ship in every patrol
 const ENEMY_SPACE_FLEET := ["kaijurai_fang", "kaijurai_stalker", "kaijurai_fang", "kaijurai_hound", "kaijurai_reaper", "kaijurai_ravager"]
 const ENEMY_OUTPOST_MODEL := "HL_Station_Kaijurai_Military_retopo"   # v6.2: the outposts in enemy-held squares (Kaijurai stand in for all)   # enemies with no ships of their own fly Kaijurai (owner: placeholders for the rest)
 const ROOM_SND_FRONT := 0.75   # v11.9 (owner): a room part's own sound when you face its middle (was 0.5)
@@ -1871,6 +1873,7 @@ const BASE_PAD_R := 230.0        # v11.92: m: the flat land pad under a base (bl
 const BASE_PAD_MIN_H := 8.0      # m: a pad never sits lower than this (above the sea: an island in the ocean)
 const BUNKER_WIDTH := 120.0     # v11.96: m: a bunker entrance (a facility without a faction base over it)
 const FACILITY_NEAR := 420.0    # m from a facility: ENTER shows
+const STATION_INFIL_LEVEL := 3   # v11.99: an alien station is infiltrated as a level 3 facility
 const FACILITY_PAY := 3500      # cr x difficulty for clearing a facility
 const BASE_PART_WIDTH := 45.0    # m: a gun battery / generator beside a hostile base
 const BASE_SPOTS := [Vector2(700.0, 500.0), Vector2(-750.0, 450.0), Vector2(150.0, 900.0), Vector2(-500.0, -800.0)]   # (4: up to 4 facilities a world)   # sector-local x, z (clear of the Command Center and Hangar)
