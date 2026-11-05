@@ -1931,7 +1931,8 @@ func _run() -> void:
 		var hb = main.hub
 		var res := []
 		var bad := []
-		for sid in ["solara", "vega", "veranthos", "aurelion"]:
+		var matched := {}
+		for sid in ["solara", "vega", "veranthos", "aurelion", "synthari_capital", "vantara"]:   # v12.14: + Synthari Capital, Vantara
 			var sd: Dictionary = Data.SYSTEMS[sid]
 			var places: Array = [sd.get("station", {}), sd.get("planet", {})] + (sd.get("more_stations", []) as Array) + (sd.get("more_planets", []) as Array)
 			GS.system_id = sid
@@ -1942,9 +1943,13 @@ func _run() -> void:
 					var k: String = hb.room_for(pg)
 					if k.begins_with("loc_"):
 						got[pg] = k.substr(4)
+						matched[k.substr(4).rsplit("_", true, 1)[0]] = true
 						var path := "res://assets/rooms/loc/%s.jpg" % hb.room_file(k)
 						if not FileAccess.file_exists(path) or not Packs.PACKS.has("room_" + k): bad.append(path)
 				if not got.is_empty(): res.append("%s/%s %d pages" % [sid, b.get("name", ""), got.size()])
+				else: print("[route] place with no rooms: %s/%s" % [sid, b.get("name", "")])
+		var orphan := (Data.LOC_ROOMS.keys() as Array).filter(func(k): return not matched.has(k))
+		print("[route] loc places with no game place: ", orphan)
 		hb.base = Data.SYSTEMS["solara"]["station"]
 		GS.system_id = "solara"
 		var lh_ok: bool = hb.room_for("hub") == "loc_solara_libertyhub_hub" and not hb.room_for("ship").begins_with("loc_") and hb.room_for("ships") == "loc_solara_libertyhub_hangar"
