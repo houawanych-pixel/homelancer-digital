@@ -237,6 +237,16 @@ func _set_tex(p: Dictionary) -> void:
 	if vp == null: vp = views.get(str(p["model"]) + ":Idle")
 	(p["node"] as TextureRect).texture = vp.get_texture()
 
+## v12.10 (owner: "match size more accurate"): people are not all one height: a share of the room's height for this
+## model (Data.CROWD3D_TALL, by name; 1.0 = a tall man).
+var _tall_cache := {}
+func _tall(model: String) -> float:
+	if not _tall_cache.has(model):
+		var k := 1.0
+		for key in Data.CROWD3D_TALL: if model.contains(key): k = float(Data.CROWD3D_TALL[key])
+		_tall_cache[model] = k
+	return float(_tall_cache[model])
+
 ## The floor line and body height at depth d (0 = the back of the room, 1 = the front), as shares of the strip's height.
 func _floor(d: float) -> Vector2:
 	var b: Array = cfg.get("back", [0.68, 0.14])
@@ -274,7 +284,7 @@ func tick(dt: float) -> void:
 		var tr: TextureRect = p["node"]
 		var dx := fposmod(float(p["x"]) - float(hub.room_yaw) + 0.5, 1.0) - 0.5
 		var sx := S.x * 0.5 + dx / maxf(vw, 0.01) * S.x
-		var body := fl.y * zm * S.y
+		var body := fl.y * zm * S.y * _tall(str(p["model"]))
 		var feet := S.y * (0.5 + (fl.x - 0.5) * zm) - shift
 		var fh := body * (FRAME_HI + FRAME_LO)
 		var fw := fh * float(VP_SIZE.x) / float(VP_SIZE.y)
