@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.14"
+const VERSION := "v12.15"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1943,6 +1943,35 @@ const SUPER_CYCLE_HZ := 1.6    # how fast the colours run through the beam
 const SUPER_WAVE_R := 120.0    # how far the shock rings burst out
 const SIDESTEP_SPEED := 160.0   # v12.2: m/s added sideways by SIDESTEP
 const SIDESTEP_CD := 1.2
+# v12.15 (owner): the mech's LASER SHIELD (the spare button) and SWORD (SIDESTEP in the mech)
+const LSHIELD_COLOR := Color(0.35, 0.75, 1.0, 0.32)   # blue glow, see-through
+const LSHIELD_SIZE := Vector2(7.0, 9.5)               # m wide, tall
+const LSHIELD_DIST := 4.2                              # m out from the mech's middle
+const LSHIELD_Y := 0.5
+const LSHIELD_COVER := 0.35                            # shots coming from within ~70 deg of where it faces are stopped
+const LSHIELD_SWING := 6.0                             # how fast it swings front <-> left (1 / s)
+const LSHIELD_AFTER_SHOT := 0.6                        # s it stays on the left after a shot
+const SWORD_DASH_SPEED := 300.0                        # m/s forward dash
+const SWORD_DASH_TIME := 0.45
+const SWORD_COMBO := 4                                 # slashes in a forward dash
+const SWORD_COMBO_GAP := 0.11                          # s between them
+const SWORD_SIDE_SPEED := 220.0
+const SWORD_SIDE_TIME := 0.32
+const SWORD_SPIN_TIME := 0.7
+const SWORD_SPIN_HITS := 3
+const SWORD_SEEK_MAX := 6.0                            # s the lock-on dash may run
+const SWORD_SEEK_GAP := 0.14                           # s between spinning hits
+const SWORD_HOLD := 0.35                               # s held before it starts locking on
+const SWORD_LOCK_EVERY := 0.3                          # s per extra lock
+const SWORD_MAX_LOCKS := 8
+const SWORD_LOCK_RANGE := 700.0
+const SWORD_LOCK_CONE := 0.35                          # ahead (dot)
+const SWORD_REACH := 16.0                              # m the blade reaches
+const SWORD_CONE := 0.2
+const SWORD_DMG_MULT := 1.0                            # x a light missile hit
+const SWORD_BLADE_LEN := 9.0
+const SWORD_HAND := Vector3(3.2, 1.0, -1.0)            # where the blade sits on the mech
+const BOARD_MAX_SPEED := 110.0                         # m/s top speed inside a battleship (a ship can't punch through the walls)
 const BUNKER_WALK_W := 0.85   # v12.3: a bunker's walkway sections, in bunker widths (long side)
 const FORT_RADIUS := 1.45     # v12.2: a bunker fort's corners sit this many bunker widths from its middle
 const FORT_GATE_W := 0.9      # the gate tower, in bunker widths

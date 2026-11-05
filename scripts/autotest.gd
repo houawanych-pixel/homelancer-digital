@@ -1927,6 +1927,88 @@ func _run() -> void:
 		_check("Kaijurai boarding: the guards are creatures, not mechs (%d of %d on foot: %s)" % [beasts.size(), bs.size(), ", ".join(names.slice(0, 4))], not bs.is_empty() and beasts.size() == bs.size())
 		_finish_group()
 		return
+	if OS.get_environment("HL_MELEE") != "":   # v12.15: the mech's laser shield and sword; a ship can't leave the decks
+		main.start_game()
+		await _until(func(): return main.state == "flight", 20.0)
+		await _wait(1.0)
+		var s0 := _sp()
+		var mb: Dictionary = s0._spawn_capital("inv_battleship", "battleship", s0.player.global_position - s0.player.global_basis.z * 2500.0, s0.player.global_position, "Imperium")
+		await _frames(3)
+		GS.form = "mech"
+		main.board_battleship(mb)
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding, 15.0)
+		var s := _sp()
+		await _wait(1.0)
+		var rk := ""
+		for k in Boarding.ROOMS: if rk == "" and k != "lbay" and k != "fhold" and int(Boarding.ROOMS[k]["guards"]) > 0: rk = k
+		var r: Array = Boarding.ROOMS[rk]["r"]
+		var c := Vector3((float(r[0]) + float(r[1])) * 0.5, 0, (float(r[2]) + float(r[3])) * 0.5)
+		var spot := Vector3(c.x, Boarding.floor_at(c) + 6.0, c.z)
+		_tp(spot, spot + Vector3(1, 0, 0))
+		await _wait(2.0)
+		# laser shield: shots from the front stop on it, shots from behind still hurt
+		main._on_hud("spare_l")
+		await _frames(5)
+		var fwd: Vector3 = -s.player.global_basis.z
+		var h0 := GS.hull + GS.shield
+		for i in 3: s._spawn_bolt(s.player.global_position + fwd * 60.0, -fwd * 300.0, 5.0, Color.RED, "enemy", 1.0)
+		await _wait(0.6)
+		var blocked: int = s.shield_blocks
+		var held_ok: bool = GS.hull + GS.shield >= h0 - 0.01
+		fwd = -s.player.global_basis.z
+		var gm0: bool = GS.god_mode
+		GS.god_mode = false   # (the route test plays in god mode)
+		h0 = GS.hull + GS.shield
+		s._spawn_bolt(s.player.global_position - fwd * 30.0, fwd * 300.0, 5.0, Color.RED, "enemy", 1.0)
+		await _wait(1.2)
+		var back_hurt: bool = GS.hull + GS.shield < h0 - 0.01
+		GS.god_mode = gm0
+		await _capture("melee_shield")
+		_check("laser shield: up %s, %d front shots stopped, no damage from them %s, a shot from behind still hits %s" % [s.laser_shield, blocked, held_ok, back_hurt], s.laser_shield and blocked >= 3 and held_ok and back_hurt)
+		# sword: a tap dashes forward with a combo; a hold locks on and the release seeks the locks
+		for e in s.enemies: if e.get("walker", false): e["aggro"] = false
+		var w: Array = s.enemies.filter(func(e): return e.get("walker", false))
+		var hits0: int = s.sword_hits
+		var tgt: Dictionary = w[0] if not w.is_empty() else {}
+		var hp0 := 0.0
+		if not tgt.is_empty():
+			(tgt["node"] as Node3D).global_position = s.player.global_position - s.player.global_basis.z * 30.0
+			hp0 = s.unit_health(tgt)
+		main.hud.held["sidestep"] = true
+		await _frames(3)
+		main.hud.held.erase("sidestep")
+		await _wait(0.2)
+		await _capture("melee_dash")
+		await _wait(0.4)
+		var dash_hits: int = s.sword_hits - hits0
+		var hurt: bool = tgt.is_empty() or not s.enemies.has(tgt) or s.unit_health(tgt) < hp0
+		_check("sword tap: dash + slash combo, %d hits, the target hurt %s" % [dash_hits, hurt], dash_hits >= 1 and hurt)
+		var live: Array = s.enemies.filter(func(e): return e.get("walker", false))
+		_tp(spot, spot + Vector3(1, 0, 0))
+		for i in mini(3, live.size()): (live[i]["node"] as Node3D).global_position = s.player.global_position - s.player.global_basis.z * (45.0 + 20.0 * i) + s.player.global_basis.x * (i - 1) * 12.0
+		var h1: int = s.sword_hits
+		main.hud.held["sidestep"] = true
+		await _wait(1.6)
+		var locks: int = s.sword_locks.size()
+		await _capture("melee_locks")
+		main.hud.held.erase("sidestep")
+		await _wait(0.5)
+		print("[route] seek: kind ", s.sword_kind, " locks left ", s.sword_locks.size(), " t ", s.sword_t)
+		await _capture("melee_spin")
+		await _wait(2.5)
+		_check("sword hold: %d locks, release seeks them: %d hits" % [locks, s.sword_hits - h1], live.is_empty() or (locks >= 2 and s.sword_hits - h1 >= 2))
+		# a ship inside the battleship can't fly out through the walls
+		main._on_hud("spare_l")
+		GS.form = "ship"
+		_tp(spot, spot + Vector3(0, 0, 1))
+		var out := false
+		for i in 90:
+			s.vel = Vector3(0, 0, 400.0)
+			await _frames(1)
+			if not Boarding.inside(s.player.global_position, -1.0): out = true
+		_check("a ship inside the battleship stays in the decks (pushed at a wall for 1.5 s): never outside %s, laser shield off as a ship %s" % [not out, not s.laser_shield], not out and not s.laser_shield)
+		_finish_group()
+		return
 	if OS.get_environment("HL_LOCROOMS") != "":   # v12.4: the places' own GPT rooms (placeholders) and the border glitch
 		var hb = main.hub
 		var res := []

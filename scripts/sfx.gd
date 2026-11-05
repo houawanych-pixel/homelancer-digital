@@ -6,7 +6,7 @@ extends Node
 ## device's text-to-speech reads it; a device with neither falls back to the mumble. Voice mode "bleep" = VOICE OFF:
 ## the mumble blips. The choice is kept in the settings file (section "audio"; nothing renamed).
 
-const BANK := ["comm_open", "comm_close", "laser", "laser_enemy", "missile", "explosion", "shield_hit", "hull_hit", "tractor", "pickup", "mine_wake", "button", "atmo", "whoosh", "warp_spool", "warp_go", "transform", "fx_static", "fx_robot", "fx_alien", "fx_hum", "blaster_blue", "blaster_green", "blaster_yellow", "blaster_red", "blaster_purple", "rifle_heavy", "nuke_launch", "nuke_blast", "super_wave", "border_glitch", "border_refix"]
+const BANK := ["comm_open", "comm_close", "laser", "laser_enemy", "missile", "explosion", "shield_hit", "hull_hit", "tractor", "pickup", "mine_wake", "button", "atmo", "whoosh", "warp_spool", "warp_go", "transform", "fx_static", "fx_robot", "fx_alien", "fx_hum", "blaster_blue", "blaster_green", "blaster_yellow", "blaster_red", "blaster_purple", "rifle_heavy", "nuke_launch", "nuke_blast", "super_wave", "border_glitch", "border_refix", "saber_on", "saber_off", "saber_swing", "saber_hit", "saber_spin", "shield_block"]
 const SYLLABLES := 8
 
 var streams := {}

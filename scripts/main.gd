@@ -367,7 +367,11 @@ func _on_hud(id: String) -> void:
 			hud.target_menu = false
 		"dash_tgt": _on_hud("tgt_front")
 		"sidestep": space.sidestep(hud.move_vec.x if "move_vec" in hud else 0.0)
-		"spare_l": pass
+		"spare_l":   # v12.15 (owner): the mech's laser shield
+			match space.toggle_laser_shield():
+				"on": hud.flash_message("LASER SHIELD up: it blocks shots from in front, and swings to your left while you fire.")
+				"off": hud.flash_message("Laser shield down.")
+				_: hud.flash_message("The laser shield is for the MECH — transform first.")
 		"scan":
 			hud.flash_message(hud.start_scan())   # v1.5g
 			hud.target_menu = false

@@ -1477,6 +1477,17 @@ func _board_update(dt: float) -> void:
 	if player.global_position.y > roof:
 		player.global_position.y = roof
 		if vel.y > 0.0: vel.y = 0.0
+	# v12.15 (owner: "in a dungeon I transformed to the ship and could fly outside the walls"): inside, a ship is held to
+	# a walking pace through the decks, and anything that ends up outside every room is put back in the nearest one
+	var hv := Vector3(vel.x, 0, vel.z)
+	if hv.length() > Data.BOARD_MAX_SPEED:
+		hv = hv.normalized() * Data.BOARD_MAX_SPEED
+		vel = Vector3(hv.x, vel.y, hv.z)
+	var leaving: bool = str(board.get("phase", "")) in ["escape", "out"] and player.global_position.x > Boarding.EXIT_X - 40.0
+	if not leaving and not Boarding.inside(player.global_position):
+		var q := Boarding.keep_in(player.global_position, 6.0)
+		player.global_position = Vector3(q.x, player.global_position.y, q.z)
+		vel = Vector3(0, vel.y, 0)
 	for bx: Array in surf_boxes: _push_out_box(bx[0], bx[1], "ground")
 	_board_doors(dt)
 	if player.global_position.x < Boarding.ENTRY_X:   # (the port bay's open side: in only; out is the starboard bay)
@@ -5425,6 +5436,7 @@ func target_front() -> Node3D:
 
 func _fire_guns() -> void:
 	if cloaked: return
+	if GS.form == "mech": shot_recent = Data.LSHIELD_AFTER_SHOT   # v12.15: the laser shield swings to the left while he shoots
 	var w: Dictionary = GS.weapon()
 	gun_cd = 1.0 / float(w["rate"])
 	var guns: int = GS.ship()["guns"]
@@ -5803,7 +5815,11 @@ func _update_bolts(dt: float) -> void:
 						break
 		elif b["owner"] != "fx":
 			if _seg_hit(from, to, player.global_position, 5.0):
-				_player_hit(b["dmg"], _seg_closest(from, to, player.global_position))
+				if lshield_blocks(b["vel"]): _lshield_block_fx(_seg_closest(from, to, player.global_position))   # v12.15: the mech's laser shield
+				else: _player_hit(b["dmg"], _seg_closest(from, to, player.global_position))
+				hit = true
+			elif laser_shield and GS.form == "mech" and _lshield != null and lshield_blocks(b["vel"]) and _seg_hit(from, to, _lshield.global_position, Data.LSHIELD_SIZE.x * 0.5):   # caught on the shield's face
+				_lshield_block_fx(_seg_closest(from, to, _lshield.global_position))
 				hit = true
 			else:
 				for a in allies:   # v1.9n: enemy fire hits your allies as well
@@ -7279,8 +7295,316 @@ func sidestep(lean: float) -> void:
 	sidestep_cd = Data.SIDESTEP_CD
 	Sfx.play("whoosh", -8.0, 1.4)
 
+## v12.15 (owner: "turn that spare button into a shield button for the mech ... a laser shield, blue glow, transparent;
+## it holds it in front, and every time he shoots the shield moves to his left side; it stops bullets and lasers; only
+## the mech"). LASER SHIELD (the spare button by NEXT) toggles it.
+var laser_shield := false
+var shield_blocks := 0          # shots stopped (for the tests)
+var shot_recent := 0.0          # > 0 just after the mech fired: the shield swings to the left side
+var _lshield: Node3D = null
+var _lshield_side := 0.0        # 0 = in front, 1 = on the left
+
+func toggle_laser_shield() -> String:
+	if GS.form != "mech" or transform_t > 0.0: return "ship"
+	laser_shield = not laser_shield
+	Sfx.play("saber_on" if laser_shield else "saber_off", -6.0)
+	return "on" if laser_shield else "off"
+
+func _lshield_angle() -> float:
+	return _lshield_side * PI * 0.5   # 0 = facing forward, PI/2 = facing left
+
+## World direction the shield faces (out from the mech).
+func lshield_dir() -> Vector3:
+	var a := _lshield_angle()
+	var d := player.global_basis * Vector3(-sin(a), 0.0, -cos(a))
+	d.y = 0.0
+	return d.normalized() if d.length() > 0.01 else -player.global_basis.z
+
+## Does the shield stop a shot travelling with velocity v?
+func lshield_blocks(v: Vector3) -> bool:
+	if not laser_shield or GS.form != "mech" or v.length() < 0.01: return false
+	var from := -v
+	from.y = 0.0
+	if from.length() < 0.01: return false
+	return from.normalized().dot(lshield_dir()) > Data.LSHIELD_COVER
+
+func _update_laser_shield(dt: float) -> void:
+	shot_recent = maxf(0.0, shot_recent - dt)
+	if laser_shield and (GS.form != "mech" or not is_instance_valid(player)): laser_shield = false
+	_lshield_side = move_toward(_lshield_side, 1.0 if shot_recent > 0.0 else 0.0, dt * Data.LSHIELD_SWING)
+	if not laser_shield:
+		if _lshield != null and is_instance_valid(_lshield): _lshield.visible = false
+		return
+	if _lshield == null or not is_instance_valid(_lshield):
+		_lshield = Node3D.new()
+		_lshield.name = "LaserShield"
+		var face := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = 1.0
+		sm.height = 2.0
+		sm.radial_segments = 24
+		sm.rings = 12
+		face.mesh = sm
+		face.scale = Vector3(Data.LSHIELD_SIZE.x * 0.5, Data.LSHIELD_SIZE.y * 0.5, 0.35)
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		m.cull_mode = BaseMaterial3D.CULL_DISABLED
+		m.albedo_color = Data.LSHIELD_COLOR
+		face.material_override = m
+		face.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		face.name = "Face"
+		_lshield.add_child(face)
+		var rim := MeshInstance3D.new()   # a brighter edge ring
+		var tm := TorusMesh.new()
+		tm.inner_radius = 0.93
+		tm.outer_radius = 1.0
+		tm.rings = 32
+		rim.mesh = tm
+		rim.rotation = Vector3(PI * 0.5, 0, 0)
+		rim.scale = Vector3(Data.LSHIELD_SIZE.x * 0.5, 1.0, Data.LSHIELD_SIZE.y * 0.5)
+		var rm := m.duplicate() as StandardMaterial3D
+		rm.albedo_color = Color(Data.LSHIELD_COLOR, 0.8)
+		rim.material_override = rm
+		rim.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_lshield.add_child(rim)
+		player.add_child(_lshield)
+	_lshield.visible = true
+	var a := _lshield_angle()
+	_lshield.position = Vector3(-sin(a), 0.0, -cos(a)) * Data.LSHIELD_DIST + Vector3(0, Data.LSHIELD_Y, 0)
+	_lshield.rotation = Vector3(0, a, 0)
+	var face2 := _lshield.get_node("Face") as MeshInstance3D
+	(face2.material_override as StandardMaterial3D).albedo_color = Color(Data.LSHIELD_COLOR, Data.LSHIELD_COLOR.a * (0.85 + 0.15 * sin(Time.get_ticks_msec() * 0.008)))
+
+func _lshield_block_fx(at: Vector3) -> void:
+	shield_blocks += 1
+	_spark(at, Color(0.45, 0.85, 1.0), 6.0, 0.25)
+	_spark(at, Color(0.9, 0.97, 1.0), 2.5, 0.12)
+	Sfx.play("shield_block", -8.0, randf_range(0.9, 1.15))
+
+## v12.15 (owner): in the mech, SIDESTEP is the SWORD. Tap: a quick dash forward with a 4-hit slash combo (stick
+## forward or centred), or a side slash as he slides that way (stick left / right). Hold: lock on (the longer you hold,
+## the more locks, on the targets ahead; the same target can be locked again for more hits); let go and he dashes at
+## each lock in turn with a spinning slash. Held with nothing to lock: a spin attack where he stands. Each hit does a
+## light missile's damage and cuts through shields. A ship keeps the plain sidestep.
+var sword_held := false
+var _sword_prev := false
+var _sword_hold := 0.0
+var _sword_lock_t := 0.0
+var sword_locks: Array = []     # enemy entries, in order (repeats = more hits on it)
+var sword_kind := ""            # "" | "dash" | "side" | "spin" | "seek"
+var sword_t := 0.0
+var sword_hits := 0             # hits landed (for the tests)
+var _sword_dir := Vector3.ZERO
+var _sword_next := 0.0          # time to the next slash of this attack
+var _sword_left := 0            # slashes left in this attack
+var _blade: Node3D = null
+var _blade_spin := 0.0
+
+func sword_ready() -> bool:
+	return GS.form == "mech" and transform_t <= 0.0 and controls
+
+func _sword_targets(dir: Vector3, reach: float, cone: float) -> Array:
+	var out: Array = []
+	var p := player.global_position
+	for e in enemies:
+		if not is_instance_valid(e["node"]): continue
+		var to: Vector3 = (e["node"] as Node3D).global_position - p
+		var r := float((e["def"] as Dictionary).get("hit_r", 7.5))
+		if to.length() > reach + r: continue
+		var flat := Vector3(to.x, 0, to.z)
+		if cone > -1.0 and flat.length() > 1.0 and flat.normalized().dot(dir) < cone: continue
+		out.append(e)
+	return out
+
+func _sword_hit(e: Dictionary) -> void:
+	if not enemies.has(e): return
+	var at: Vector3 = (e["node"] as Node3D).global_position
+	sword_hits += 1
+	_damage_enemy(e, missile_damage(e, false) * Data.SWORD_DMG_MULT, Vector3.INF, 0.0)   # sf 0: straight through the shield, into the core
+	_spark(at, Color(0.55, 0.95, 1.0), 10.0, 0.25)
+	_spark(at, Color(1.0, 1.0, 1.0), 4.0, 0.12)
+	Sfx.play("saber_hit", -4.0, randf_range(0.9, 1.1))
+
+func _sword_slash_fx(dir: Vector3, reach: float) -> void:
+	var p := player.global_position + Vector3(0, 2.0, 0)
+	var side := dir.cross(Vector3.UP).normalized()
+	for k in 7:   # an arc of light across the front
+		var a := (k / 6.0 - 0.5) * PI * 0.9
+		_spark(p + (dir * cos(a) + side * sin(a)) * reach * 0.8, Color(0.5, 0.9, 1.0), 4.0, 0.18)
+	Sfx.play("saber_swing", -5.0, randf_range(0.92, 1.12))
+
+## The sword carries the mech itself (the stick can't hold it back); the walls still stop it.
+func _sword_move(v: Vector3, dt: float) -> void:
+	player.global_position += Vector3(v.x, 0, v.z) * dt
+	vel = Vector3(v.x * 0.25, vel.y, v.z * 0.25)
+
+var _sword_engaged := false
+func _sword_start(kind: String, dir: Vector3, slashes: int) -> void:
+	_sword_engaged = false
+	sword_kind = kind
+	_sword_dir = dir
+	_sword_left = slashes
+	_sword_next = 0.0
+	sword_t = Data.SWORD_DASH_TIME if kind == "dash" else (Data.SWORD_SIDE_TIME if kind == "side" else (Data.SWORD_SPIN_TIME if kind == "spin" else Data.SWORD_SEEK_MAX))
+	Sfx.play("saber_on", -7.0, 1.2)
+
+func _update_sword(dt: float) -> void:
+	if GS.form != "mech" or not is_instance_valid(player):
+		sword_held = false
+		sword_locks.clear()
+		sword_kind = ""
+		_sword_prev = false
+		if _blade != null and is_instance_valid(_blade): _blade.visible = false
+		return
+	var fwd := -player.global_basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized() if fwd.length() > 0.01 else Vector3.FORWARD
+	if sword_held and not _sword_prev:
+		_sword_hold = 0.0
+		_sword_lock_t = 0.0
+		sword_locks.clear()
+	if sword_held and sword_ready():
+		_sword_hold += dt
+		if _sword_hold >= Data.SWORD_HOLD:
+			_sword_lock_t -= dt
+			if _sword_lock_t <= 0.0 and sword_locks.size() < Data.SWORD_MAX_LOCKS:
+				_sword_lock_t = Data.SWORD_LOCK_EVERY
+				var cands := _sword_targets(fwd, Data.SWORD_LOCK_RANGE, Data.SWORD_LOCK_CONE)
+				cands.sort_custom(func(a, b): return player.global_position.distance_to(a["node"].global_position) < player.global_position.distance_to(b["node"].global_position))
+				if not cands.is_empty():
+					var least: Dictionary = cands[0]   # spread the locks: the target locked the fewest times
+					for c in cands:
+						if sword_locks.count(c) < sword_locks.count(least): least = c
+					sword_locks.append(least)
+					Sfx.play("button", -6.0, 1.6 + 0.08 * sword_locks.size())
+	if not sword_held and _sword_prev and sword_ready():   # let go
+		if _sword_hold < Data.SWORD_HOLD:
+			var right := player.global_basis.x
+			right.y = 0.0
+			right = right.normalized()
+			if absf(move.x) > 0.45 and absf(move.x) >= absf(move.y): _sword_start("side", right * signf(move.x), 1)
+			else: _sword_start("dash", fwd, Data.SWORD_COMBO)
+		elif not sword_locks.is_empty(): _sword_start("seek", fwd, sword_locks.size())
+		else: _sword_start("spin", fwd, Data.SWORD_SPIN_HITS)
+	_sword_prev = sword_held
+	if sword_kind != "": _sword_step(dt, fwd)
+	_update_blade(dt)
+
+func _sword_step(dt: float, fwd: Vector3) -> void:
+	sword_t -= dt
+	_sword_next -= dt
+	match sword_kind:
+		"dash":   # dash until something is in reach ahead, then stop on it and land the combo
+			var near := _sword_targets(_sword_dir, Data.SWORD_REACH, Data.SWORD_CONE)
+			if not _sword_engaged and not near.is_empty():
+				_sword_engaged = true
+				_sword_next = 0.0
+				sword_t = Data.SWORD_COMBO * Data.SWORD_COMBO_GAP + 0.1
+			if not _sword_engaged:
+				_sword_move(_sword_dir * Data.SWORD_DASH_SPEED, dt)
+				if _sword_next <= 0.0:   # the blade swinging as he charges
+					_sword_next = 0.15
+					_sword_slash_fx(_sword_dir, Data.SWORD_REACH * 0.7)
+			elif _sword_next <= 0.0 and _sword_left > 0:
+				vel = Vector3(0, vel.y, 0)
+				_sword_left -= 1
+				_sword_next = Data.SWORD_COMBO_GAP
+				_sword_slash_fx(_sword_dir, Data.SWORD_REACH)
+				for e in near: _sword_hit(e)
+		"side":
+			_sword_move(_sword_dir * Data.SWORD_SIDE_SPEED, dt)
+			if _sword_next <= 0.0 and _sword_left > 0:
+				_sword_left -= 1
+				_sword_next = 99.0
+				_sword_slash_fx(_sword_dir, Data.SWORD_REACH)
+				for e in _sword_targets(_sword_dir, Data.SWORD_REACH, 0.0): _sword_hit(e)
+		"spin":
+			vel = vel * maxf(0.0, 1.0 - dt * 6.0)
+			if _sword_next <= 0.0 and _sword_left > 0:
+				_sword_left -= 1
+				_sword_next = Data.SWORD_SPIN_TIME / float(Data.SWORD_SPIN_HITS)
+				_sword_slash_fx(fwd, Data.SWORD_REACH)
+				Sfx.play("saber_spin", -6.0)
+				for e in _sword_targets(fwd, Data.SWORD_REACH * 1.2, -2.0): _sword_hit(e)
+		"seek":
+			while not sword_locks.is_empty() and not enemies.has(sword_locks[0]): sword_locks.pop_front()
+			if sword_locks.is_empty() or sword_t <= 0.0:
+				sword_locks.clear()
+				sword_t = 0.0
+			elif _sword_next <= 0.0:
+				var e: Dictionary = sword_locks[0]
+				var to: Vector3 = (e["node"] as Node3D).global_position - player.global_position
+				var r := float((e["def"] as Dictionary).get("hit_r", 7.5))
+				if to.length() <= Data.SWORD_REACH + r:
+					vel = Vector3(0, vel.y, 0)
+					Sfx.play("saber_spin", -5.0, randf_range(0.95, 1.1))
+					_sword_slash_fx(Vector3(to.x, 0, to.z).normalized() if Vector3(to.x, 0, to.z).length() > 0.1 else fwd, Data.SWORD_REACH)
+					_sword_hit(e)
+					sword_locks.pop_front()
+					_sword_next = Data.SWORD_SEEK_GAP
+				else:
+					_sword_dir = Vector3(to.x, 0, to.z).normalized()
+					_sword_move(_sword_dir * Data.SWORD_DASH_SPEED, dt)
+					_face(_sword_dir)
+	if sword_t <= 0.0:
+		sword_kind = ""
+		sword_locks.clear()
+		vel *= 0.35
+
+## The saber: a glowing blade in the mech's right hand while it is used (or while you hold the button), swung round.
+func _update_blade(dt: float) -> void:
+	var on := sword_kind != "" or (sword_held and GS.form == "mech")
+	if not on:
+		if _blade != null and is_instance_valid(_blade): _blade.visible = false
+		return
+	if _blade == null or not is_instance_valid(_blade):
+		_blade = Node3D.new()
+		_blade.name = "Saber"
+		var core := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.top_radius = 0.22
+		cm.bottom_radius = 0.26
+		cm.height = Data.SWORD_BLADE_LEN
+		core.mesh = cm
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.albedo_color = Color(0.92, 0.98, 1.0)
+		core.material_override = m
+		core.rotation = Vector3(-PI * 0.5, 0, 0)
+		core.position = Vector3(0, 0, -Data.SWORD_BLADE_LEN * 0.5 - 1.0)
+		_blade.add_child(core)
+		var glow := MeshInstance3D.new()
+		var gm := CylinderMesh.new()
+		gm.top_radius = 0.6
+		gm.bottom_radius = 0.7
+		gm.height = Data.SWORD_BLADE_LEN + 0.6
+		glow.mesh = gm
+		var g := StandardMaterial3D.new()
+		g.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		g.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		g.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		g.albedo_color = Color(0.3, 0.75, 1.0, 0.45)
+		glow.material_override = g
+		glow.rotation = core.rotation
+		glow.position = core.position
+		_blade.add_child(glow)
+		for c in _blade.get_children(): (c as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		player.add_child(_blade)
+	_blade.visible = true
+	_blade.position = Vector3(Data.SWORD_HAND.x, Data.SWORD_HAND.y, Data.SWORD_HAND.z)
+	match sword_kind:
+		"spin", "seek": _blade_spin += dt * 22.0
+		"dash": _blade_spin = sin(Time.get_ticks_msec() * 0.03) * 1.3
+		"side": _blade_spin = (PI * 0.5 if move.x < 0 else -PI * 0.5) * 0.9
+		_: _blade_spin = lerpf(_blade_spin, 0.35, dt * 8.0)   # held: blade out, ready
+	_blade.rotation = Vector3(-0.15, _blade_spin, 0)
+
 func _collisions(dt: float) -> void:
 	sidestep_t = maxf(0.0, sidestep_t - dt)
+	_update_laser_shield(dt)
+	_update_sword(dt)
 	sidestep_cd = maxf(0.0, sidestep_cd - dt)
 	if not lane.is_empty(): return   # nothing is solid while the lane carries you
 	collide_grace = maxf(0.0, collide_grace - dt)

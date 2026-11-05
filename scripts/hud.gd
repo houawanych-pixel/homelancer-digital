@@ -819,7 +819,7 @@ func _input(e: InputEvent) -> void:
 						talk_press()
 						get_viewport().set_input_as_handled()
 						return
-					if id != "thrust" and id != "special": pressed.emit(id)   # THRUST and SPECIAL work while held
+					if id != "thrust" and id != "special" and not (id == "sidestep" and GS.form == "mech"): pressed.emit(id)   # THRUST and SPECIAL work while held (v12.15: and the mech's SWORD)
 					get_viewport().set_input_as_handled()
 					return
 			if console_open:
@@ -900,6 +900,7 @@ func _process(dt: float) -> void:
 	space.fire_held = controls.held("fire") if controls else Input.is_action_pressed("fire")   # Job J: right-click by default
 	space.thrust_held = (held.has("thrust") or (controls != null and controls.held("afterburner"))) and not space.cloaked   # Job J: afterburner key (Tab) (v10.6: no thrust while cloaked)
 	space.special_held = (held.has("special") or (controls != null and controls.held("special"))) and not space.cloaked   # v1.5o: SPECIAL (F)
+	space.sword_held = held.has("sidestep") and GS.form == "mech" and not space.cloaked   # v12.15: SWORD (held = lock on)
 	if console_open:
 		if roster_closing:
 			roster_t = maxf(0.0, roster_t - dt * 6.0)
@@ -976,6 +977,10 @@ func _icon(id: String, c: Vector2, s: float, col: Color) -> void:
 		"target":   # v12.2: a crosshair
 			draw_arc(c, s * 0.9, 0, TAU, 20, col, 2.5, true)
 			for d in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]: draw_line(c + d * s * 0.45, c + d * s * 1.3, col, 2.5, true)
+		"sword":   # v12.15: a saber
+			draw_line(c + Vector2(-s * 0.7, s * 0.7), c + Vector2(s * 0.75, -s * 0.75), Color(0.85, 0.97, 1.0), 3.5, true)
+			draw_line(c + Vector2(-s * 0.7, s * 0.7), c + Vector2(s * 0.75, -s * 0.75), Color(col, 0.5), 7.0, true)
+			draw_line(c + Vector2(-s * 0.95, s * 0.45), c + Vector2(-s * 0.45, s * 0.95), col, 3.0, true)
 		"sidestep":   # v12.2: a dash to the side
 			for k in 2: draw_polyline(PackedVector2Array([c + Vector2(-s * 0.2 + k * s * 0.6, -s * 0.7), c + Vector2(s * 0.4 + k * s * 0.6, 0), c + Vector2(-s * 0.2 + k * s * 0.6, s * 0.7)]), col, 3.0, true)
 		"cloak":   # v8.3: an eye, crossed
@@ -1538,6 +1543,21 @@ static func draw_stick(ci: CanvasItem, c: Vector2, R: float, v: Vector2, active:
 	var d2 := d * 0.62
 	ci.draw_polyline(PackedVector2Array([knob + Vector2(0, -d2), knob + Vector2(d2, 0), knob + Vector2(0, d2), knob + Vector2(-d2, 0), knob + Vector2(0, -d2)]), Color(WHITE, 0.4), 1.5, true)
 
+## v12.15: the SWORD's locks: a cyan diamond on each locked target, with how many hits it will take.
+func _sword_locks() -> void:
+	if space.sword_locks.is_empty(): return
+	var seen := {}
+	for e in space.sword_locks:
+		if not is_instance_valid(e["node"]): continue
+		seen[e] = int(seen.get(e, 0)) + 1
+	for e in seen:
+		var sp = _screen((e["node"] as Node3D).global_position)
+		if sp == null: continue
+		var c: Vector2 = sp
+		var r := 26.0 + 3.0 * sin(t * 10.0)
+		draw_polyline(PackedVector2Array([c + Vector2(0, -r), c + Vector2(r, 0), c + Vector2(0, r), c + Vector2(-r, 0), c + Vector2(0, -r)]), Color(0.5, 0.95, 1.0), 3.0, true)
+		_text(c + Vector2(r + 4, -r * 0.4), "x%d" % int(seen[e]), 16, Color(0.6, 0.97, 1.0))
+
 func _screen(p3: Vector3) -> Variant:
 	var cam: Camera3D = space.cam
 	if cam.is_position_behind(p3): return null
@@ -1861,10 +1881,13 @@ func _draw() -> void:
 	_special_button()   # v1.5o
 	var gm: bool = space.ground_mode   # v1.8r: GROUND: gravity on, walk / land
 	_corner("ground", "GROUND", "ground", GREEN, gm, "", 0.0, false, ("WALKING" if GS.form == "mech" else "LANDED") if gm and space.grounded else ("FALLING" if gm else ("WALK" if GS.form == "mech" else "LAND")))
-	for lid in ["lock_a", "lock_c", "spare_l"]: _padlocked(lid, "")
+	for lid in ["lock_a", "lock_c"]: _padlocked(lid, "")
+	_corner("spare_l", "SHIELD", "shield", Color(0.4, 0.8, 1.0), space.laser_shield, "", 0.0, GS.form != "mech")   # v12.15 (owner): the mech's laser shield
+	_sword_locks()
 	_corner("dash_next", "NEXT", "target", GOLD, false)   # v12.2: switch targets
 	_corner("dash_tgt", "TARGET", "target", RED, false)
-	_corner("sidestep", "SIDESTEP", "sidestep", Color(0.55, 0.9, 1.0), space.sidestep_t > 0.0, "", clampf(space.sidestep_cd / Data.SIDESTEP_CD, 0.0, 1.0))
+	if GS.form == "mech": _corner("sidestep", "SWORD", "sword", Color(0.55, 0.9, 1.0), space.sword_kind != "", str(space.sword_locks.size()) if not space.sword_locks.is_empty() else "")   # v12.15 (owner): in the mech it's the sword
+	else: _corner("sidestep", "SIDESTEP", "sidestep", Color(0.55, 0.9, 1.0), space.sidestep_t > 0.0, "", clampf(space.sidestep_cd / Data.SIDESTEP_CD, 0.0, 1.0))
 	pass   # (v8.3: FULL SCREEN is the SPEED readout)
 	_corner("stop", "STOP", "stop", RED, space.braking or space.holding, "", 0.0, false, "STOPPED" if space.holding else "FULL STOP")
 	if space.warp_state == "charging":
