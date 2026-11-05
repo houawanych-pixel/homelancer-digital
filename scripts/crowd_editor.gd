@@ -14,7 +14,9 @@ var crowd: Crowd3D
 var bar: HBoxContainer
 var picker: GridContainer
 var out_box: TextEdit
-var sel := -1                  # index into crowd.people
+var sel_src = null             # the selected person's entry in the room's list (people get re-sorted each frame)
+var layers: PanelContainer     # v12.12 (owner: "a side window like Photoshop, character order top to bottom")
+var layer_rows: VBoxContainer
 var drag := ""                 # "body", "zone", "nw", "ne", "sw", "se"
 var drag_idx := -1
 var btns := {}
@@ -58,6 +60,35 @@ func setup(h: Node) -> void:
 	out_box.size = Vector2(620, 220)
 	out_box.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
 	add_child(out_box)
+	layers = PanelContainer.new()
+	layers.name = "Layers"
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.04, 0.07, 0.1, 0.86)
+	sb.border_color = Color(0.22, 0.8, 0.75, 0.7)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(6)
+	sb.set_content_margin_all(8)
+	layers.add_theme_stylebox_override("panel", sb)
+	layers.anchor_left = 1.0
+	layers.anchor_right = 1.0
+	layers.offset_left = -300
+	layers.offset_right = -12
+	layers.offset_top = 74
+	add_child(layers)
+	var lv := VBoxContainer.new()
+	layers.add_child(lv)
+	var title := Label.new()
+	title.text = "LAYERS  (top = in front)"
+	title.add_theme_font_size_override("font_size", 14)
+	lv.add_child(title)
+	var sc := ScrollContainer.new()
+	sc.custom_minimum_size = Vector2(276, 0)
+	sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	lv.add_child(sc)
+	layer_rows = VBoxContainer.new()
+	layer_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sc.add_child(layer_rows)
 	_refresh()
 
 func _refresh() -> void:
@@ -67,12 +98,15 @@ func _refresh() -> void:
 	(btns["preview"] as Button).text = "STOP" if crowd.preview else "PREVIEW"
 	var p := _sel()
 	(btns["walk"] as Button).text = "STANDS" if not p.is_empty() and not bool(p["src"].get("walk", true)) else "WALKS"
+	layers.visible = on
+	if on: _layer_rows()
 	if not on:
 		picker.visible = false
 		out_box.visible = false
 
 func _sel() -> Dictionary:
-	if sel >= 0 and sel < crowd.people.size() and (crowd.people[sel] as Dictionary).has("src"): return crowd.people[sel]
+	if sel_src == null: return {}
+	for q in crowd.people: if (q as Dictionary).has("src") and is_same(q["src"], sel_src): return q
 	return {}
 
 func _list() -> Array:
@@ -86,7 +120,7 @@ func _on(k: String) -> void:
 			crowd.edit_on = not crowd.edit_on
 			crowd.preview = false
 			if crowd.edit_on: _list()
-			sel = -1
+			sel_src = null
 			crowd.rebuild()
 		"add":
 			picker.visible = not picker.visible
@@ -107,7 +141,7 @@ func _on(k: String) -> void:
 		"del":
 			if not p.is_empty():
 				_list().erase(p["src"])
-				sel = -1
+				sel_src = null
 				crowd.rebuild()
 		"preview":
 			crowd.preview = not crowd.preview
@@ -133,6 +167,53 @@ func copy_text() -> String:
 		lines.append("HL_CROWD " + JSON.stringify({"room": rk, "people": ppl}))
 	return "\n".join(lines)
 
+func _col(src) -> Color:
+	return Color.from_hsv(fmod(absi(hash(str(src.get("model", "")) + str(src.get("id", "")))) * 0.0001 * 7.0, 1.0), 0.75, 1.0)
+
+## The layers window: the room's people, top row = drawn in front. Tap a name to pick them; ▲ / ▼ move them a layer.
+func _layer_rows() -> void:
+	for c in layer_rows.get_children(): c.queue_free()
+	var lst := _list()
+	var sc := layers.get_child(0).get_child(1) as ScrollContainer
+	sc.custom_minimum_size.y = clampf(68.0 * lst.size() + 8.0, 40.0, get_viewport_rect().size.y * 0.6)   # (rows are the theme's button height)
+	for i in range(lst.size() - 1, -1, -1):
+		var src: Dictionary = lst[i]
+		var row := HBoxContainer.new()
+		var nb := Button.new()
+		nb.text = "%d  %s%s" % [i + 1, str(src["model"]), "" if bool(src.get("walk", true)) else "  (stands)"]
+		nb.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		nb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		nb.focus_mode = Control.FOCUS_NONE
+		nb.add_theme_font_size_override("font_size", 13)
+		nb.add_theme_color_override("font_color", _col(src) if not is_same(src, sel_src) else Color.WHITE)
+		if is_same(src, sel_src):
+			var st := StyleBoxFlat.new()
+			st.bg_color = Color(_col(src), 0.35)
+			nb.add_theme_stylebox_override("normal", st)
+		nb.pressed.connect(func(): sel_src = src; _refresh())
+		row.add_child(nb)
+		for d in [["▲", 1], ["▼", -1]]:
+			var b := Button.new()
+			b.text = d[0]
+			b.focus_mode = Control.FOCUS_NONE
+			b.custom_minimum_size = Vector2(34, 0)
+			b.disabled = (d[1] == 1 and i == lst.size() - 1) or (d[1] == -1 and i == 0)
+			b.pressed.connect(move_layer.bind(src, d[1]))
+			row.add_child(b)
+		layer_rows.add_child(row)
+
+## Move a person up (+1, more in front) or down (-1) a layer.
+func move_layer(src: Dictionary, step: int) -> void:
+	var lst := _list()
+	var i := lst.find(src)
+	var j := clampi(i + step, 0, lst.size() - 1)
+	if i < 0 or i == j: return
+	lst.remove_at(i)
+	lst.insert(j, src)
+	sel_src = src
+	editor_log.append("layer:%s %d->%d" % [src["model"], i, j])
+	_refresh()
+
 func _fit() -> Array:
 	return Data.CROWD3D_PLACED_FIT.get(crowd.full, [1.0, -0.44])
 
@@ -142,9 +223,9 @@ func _add(model: String) -> void:
 	var fit := _fit()
 	var h := maxf(0.05, float(fit[0]) * c.y + float(fit[1]))
 	var w := h * 0.28 * 0.15
-	_list().append({"model": model, "x": c.x, "feet": c.y, "h": h, "walk": true, "face": 1, "zone": [c.x - w * 4.0, c.y - h * 1.08, c.x + w * 4.0, minf(1.0, c.y + 0.04)]})
+	_list().append({"id": randi() % 100000, "model": model, "x": c.x, "feet": c.y, "h": h, "walk": true, "face": 1, "zone": [c.x - w * 4.0, c.y - h * 1.08, c.x + w * 4.0, minf(1.0, c.y + 0.04)]})
+	sel_src = _list()[-1]
 	crowd.rebuild()
-	sel = crowd.people.size() - 1
 	editor_log.append("add:" + model)
 	_refresh()
 
@@ -169,11 +250,12 @@ func _draw() -> void:
 	for i in crowd.people.size():
 		var p: Dictionary = crowd.people[i]
 		if not p.has("src"): continue
-		var c := Color.from_hsv(fmod(i * 0.17, 1.0), 0.75, 1.0)
+		var is_sel: bool = is_same(p["src"], sel_src)
+		var c := _col(p["src"])
 		var zr := _zone_rect(p)
-		draw_rect(zr, Color(c, 0.14 if i == sel else 0.07))
-		draw_rect(zr, Color(c, 0.9 if i == sel else 0.4), false, 2.0)
-		if i == sel:
+		draw_rect(zr, Color(c, 0.14 if is_sel else 0.07))
+		draw_rect(zr, Color(c, 0.9 if is_sel else 0.4), false, 2.0)
+		if is_sel:
 			for q in [zr.position, Vector2(zr.end.x, zr.position.y), Vector2(zr.position.x, zr.end.y), zr.end]:
 				draw_circle(q, 11.0, Color.WHITE)
 				draw_circle(q, 7.0, c)
@@ -203,7 +285,7 @@ func _input(e: InputEvent) -> void:
 		rel = (e as InputEventMouseMotion).relative
 	else: return
 	if down:
-		if bar.get_global_rect().has_point(pos) or (picker.visible and picker.get_global_rect().has_point(pos)) or (out_box.visible and out_box.get_global_rect().has_point(pos)): return
+		if bar.get_global_rect().has_point(pos) or (picker.visible and picker.get_global_rect().has_point(pos)) or (out_box.visible and out_box.get_global_rect().has_point(pos)) or (layers.visible and layers.get_global_rect().has_point(pos)): return
 		drag = _pick(pos)
 		if drag != "": get_viewport().set_input_as_handled()
 		_refresh()
@@ -259,11 +341,12 @@ func _pick(pos: Vector2) -> String:
 	for i in crowd.people.size():   # the nearest person (in front) under the finger
 		var q: Dictionary = crowd.people[i]
 		if not q.has("src"): continue
-		if _body_rect(q).grow(6.0).has_point(pos) and float(q["feet"]) > best_feet:
+		var lay := float(_list().find(q["src"]))   # (the top layer wins, as drawn)
+		if _body_rect(q).grow(6.0).has_point(pos) and lay > best_feet:
 			best = i
-			best_feet = float(q["feet"])
+			best_feet = lay
 	if best >= 0:
-		sel = best
+		sel_src = crowd.people[best]["src"]
 		return "body"
 	if not p.is_empty() and _zone_rect(p).has_point(pos): return "zone"
 	return ""

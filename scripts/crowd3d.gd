@@ -403,5 +403,8 @@ func tick(dt: float) -> void:
 		tr.flip_h = (p["state"] == "walk" or p.has("feet")) and float(p["dir"]) < 0.0
 		tr.visible = sx > -fw and sx < S.x + fw
 	# nearer people in front of those further back
-	people.sort_custom(func(a, b): return float(a["d"]) < float(b["d"]))
+	if not people.is_empty() and (people[0] as Dictionary).has("src"):   # v12.12: placed people: the owner's layer order (Crowd Edit's layers window)
+		var lst := placed_list()
+		people.sort_custom(func(a, b): return lst.find(a["src"]) < lst.find(b["src"]))
+	else: people.sort_custom(func(a, b): return float(a["d"]) < float(b["d"]))
 	for i in people.size(): holder.move_child(people[i]["node"], i)
