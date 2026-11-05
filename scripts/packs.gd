@@ -213,6 +213,7 @@ const PACKS := {
 	"room_loc_aurelion_verdance_supplies": {"folders": ["res://assets/rooms/loc"], "match": "aurelion_verdance_supplies.", "probe": "res://assets/rooms/loc/aurelion_verdance_supplies.jpg"},   # v12.4: GPT room (placeholder loop)
 	"room_loc_veranthos_bastion_supplies": {"folders": ["res://assets/rooms/loc"], "match": "veranthos_bastion_supplies.", "probe": "res://assets/rooms/loc/veranthos_bastion_supplies.jpg"},   # v12.4: GPT room (placeholder loop)
 	"room_loc_veranthos_fleetheadquarters_lounge": {"folders": ["res://assets/rooms/loc"], "match": "veranthos_fleetheadquarters_lounge.", "probe": "res://assets/rooms/loc/veranthos_fleetheadquarters_lounge.jpg"},   # v12.4: GPT room (placeholder loop)
+	"room_loc_aurelion_lumen_lounge": {"folders": ["res://assets/rooms/loc"], "match": "aurelion_lumen_lounge.", "probe": "res://assets/rooms/loc/aurelion_lumen_lounge.jpg"},   # v12.4: GPT room (placeholder loop)
 	"room_liberator_main_hub": {"folders": ["res://assets/rooms/liberator"], "match": "main_hub.", "probe": "res://assets/rooms/liberator/main_hub.jpg"},   # v3.5: the owner's 360 room
 	"room_liberator_shipyard": {"folders": ["res://assets/rooms/liberator"], "match": "shipyard.", "probe": "res://assets/rooms/liberator/shipyard.jpg"},   # v3.5: the owner's 360 room
 	"room_liberator_mech_dealer": {"folders": ["res://assets/rooms/liberator"], "match": "mech_dealer.", "probe": "res://assets/rooms/liberator/mech_dealer.jpg"},   # v3.5: the owner's 360 room
