@@ -2139,6 +2139,47 @@ func _run() -> void:
 			await _capture("station_%d" % i)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_CROWDEDIT") != "":   # v12.11: the Crowd Edit dev tool (any room: HL_SYS, else the Dreadholm planet hub)
+		await _smoke_core()
+		if main.state == "hub": main.launch()
+		await _until(func(): return main.state == "flight", 10.0)
+		var sid := OS.get_environment("HL_SYS") if OS.get_environment("HL_SYS") != "" else "dreadholm"
+		main._load_system(sid, "station")
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.sys_id == sid, 15.0)
+		await _wait(1.0)
+		main.dock(_sp().planet if sid == "dreadholm" else _sp().station)
+		await _until(func(): return main.state == "hub", 10.0)
+		var hb = main.hub
+		await _wait(2.0)
+		hb.set_panels_hidden(true)
+		var ed = hb.crowd_edit
+		var had: int = hb.crowd.people.size()
+		ed._on("edit")
+		await _until(func(): return Packs.is_ready("crowd3d_orion"), 10.0)
+		await _wait(1.0)
+		var n0: int = hb.crowd.people.size()
+		ed._add("MagmaOfficer")
+		await _wait(0.5)
+		ed._add("FemaleMedic")
+		await _wait(0.5)
+		ed.drag = "body"
+		ed.move_by(Vector2(160, 60))
+		ed.drag = "se"
+		ed.move_by(Vector2(120, 20))
+		ed.drag = ""
+		ed._on("bigger")
+		await _wait(0.5)
+		await _capture("crowdedit_" + sid)
+		var txt: String = ed.copy_text()
+		ed._on("preview")
+		await _wait(2.0)
+		await _capture("crowdedit_preview_" + sid)
+		var full: String = hb.crowd.full
+		_check("Crowd Edit on %s (%s): before %d, editing %d, after adding 2: %d people; copy block %d chars, starts HL_CROWD %s, has the room %s" % [sid, full, had, n0, hb.crowd.people.size(), txt.length(), txt.begins_with("HL_CROWD"), txt.contains(full)],
+			hb.crowd.people.size() == n0 + 2 and txt.begins_with("HL_CROWD") and txt.contains(full) and txt.contains("MagmaOfficer"))
+		print("[crowdedit] ", txt.substr(0, 400))
+		_finish_group()
+		return
 	if OS.get_environment("HL_CROWDSHOT") != "":   # v11.84: pictures of the 3D crowd in the Dreadholm planet hub (HL_SHOT_DIR)
 		await _smoke_core()
 		if main.state == "hub": main.launch()

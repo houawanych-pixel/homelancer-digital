@@ -55,6 +55,11 @@ var holder: Control
 var crowd_log: Array = []      # (tests)
 var _toon: Shader
 var _ink: Shader
+# v12.11 (owner): the in-game Crowd Edit tool (scripts/crowd_editor.gd, a dev tool: off before launch)
+var full := ""                 # "<faction>/<room file>": the room's key for placements (set by the hub)
+var edit_on := false           # editing: placed people stand still where they are put
+var preview := false           # (editing, but let them walk to check their boxes)
+static var edits := {}         # full -> placed list edited this session (copied out with COPY ALL)
 
 func setup(h: Node) -> void:
 	hub = h
@@ -75,7 +80,8 @@ func room_changed(file: String) -> void:
 	if file == room: return
 	_clear()
 	room = file
-	cfg = Data.CROWD3D_ROOMS.get(file, {})
+	cfg = Data.CROWD3D_ROOMS.get(file, {}).duplicate()
+	if file != "" and (edit_on or not placed_list().is_empty()) and not Data.CROWD3D_CREWS.has(str(cfg.get("crew", ""))): cfg["crew"] = "orion"   # (placing works in any room)
 	if cfg.is_empty(): return
 	var pk := _pack()
 	if not Packs.is_ready(pk):
@@ -96,6 +102,13 @@ func _pack() -> String:
 func _models() -> Array:
 	var c := str(cfg.get("crew", ""))
 	var out: Array = []
+	var placed: Array = placed_list()
+	if (not placed.is_empty() or edit_on) and Data.CROWD3D_CREWS.has(c):   # v12.11: the owner's own placement (Crowd Placer tool)
+		var cr0: Dictionary = Data.CROWD3D_CREWS[c]
+		for pl in placed:
+			var path0 := "%s/HL_Orion_%s%s.glb" % [cr0["folder"], _crew_num(str(pl["model"]), cr0), cr0["suffix"]]
+			if not (path0 in out): out.append(path0)
+		return out
 	if Data.CROWD3D_CREWS.has(c):
 		var cr: Dictionary = Data.CROWD3D_CREWS[c]
 		for m in cr["models"]: out.append("%s/%s%s.glb" % [cr["folder"], m, cr["suffix"]])
@@ -140,6 +153,10 @@ func _build() -> void:
 	for path in paths:
 		var m := str(path).get_file().get_basename()
 		if views.has(m + ":Walk"): have.append(m)
+	var placed: Array = placed_list()
+	if not placed.is_empty() or edit_on:
+		_build_placed(placed, have)
+		return
 	var n: int = int(cfg.get("count", 20))
 	for i in n:
 		var walking := randf() < float(cfg.get("walkers", 0.7))
@@ -247,6 +264,91 @@ func _tall(model: String) -> float:
 		_tall_cache[model] = k
 	return float(_tall_cache[model])
 
+## v12.11 (owner: "a tool to scale and set characters in place ... a square block of movement area per character, so
+## they don't break the illusion walking over things"): people from the Crowd Placer's copied block
+## (Data.CROWD3D_PLACED[room]): each stands where it was put, at its size, and walks only inside its box (its whole
+## body stays in the box; it turns round at the box's sides and drifts a little deeper or nearer, growing and
+## shrinking with the floor).
+func placed_list() -> Array:
+	if edits.has(full): return edits[full]
+	return Data.CROWD3D_PLACED.get(full, Data.CROWD3D_PLACED.get(room, []))
+
+func rebuild() -> void:
+	var f := room
+	room = ""
+	room_changed(f)
+
+## Screen point of a strip point (x along the loop, y down the strip), and back (the same maths as tick).
+func _xf() -> Dictionary:
+	var rv: Control = hub.room_view
+	var mat := rv.material as ShaderMaterial
+	var tex: Texture2D = mat.get_shader_parameter("strip")
+	var S := get_viewport_rect().size
+	var zm := Data.ROOM_ZOOM
+	return {"S": S, "vw": float(mat.get_shader_parameter("vis_w")), "zm": zm, "sh": float(tex.get_height()) / float(tex.get_width()) if tex != null else 0.15,
+		"shift": float(hub.room_pitch) * 0.5 * (1.0 - 1.0 / zm) * zm * S.y, "yaw": float(hub.room_yaw)}
+func to_screen(x: float, y: float) -> Vector2:
+	var t := _xf()
+	var dx := fposmod(x - float(t["yaw"]) + 0.5, 1.0) - 0.5
+	return Vector2(t["S"].x * 0.5 + dx / maxf(float(t["vw"]), 0.01) * t["S"].x, t["S"].y * (0.5 + (y - 0.5) * float(t["zm"])) - float(t["shift"]))
+func from_screen(pos: Vector2) -> Vector2:
+	var t := _xf()
+	var x := fposmod(float(t["yaw"]) + (pos.x - t["S"].x * 0.5) / t["S"].x * float(t["vw"]), 1.0)
+	return Vector2(x, ((pos.y + float(t["shift"])) / t["S"].y - 0.5) / float(t["zm"]) + 0.5)
+func screen_per_strip() -> Vector2:   # pixels per 1.0 of x and of y
+	var t := _xf()
+	return Vector2(t["S"].x / maxf(float(t["vw"]), 0.01), t["S"].y * float(t["zm"]))
+## A person after the editor changed their source entry.
+func sync(p: Dictionary) -> void:
+	var pl: Dictionary = p["src"]
+	p["x"] = float(pl["x"]); p["feet"] = float(pl["feet"]); p["feet0"] = float(pl["feet"]); p["h0"] = float(pl["h"]); p["zone"] = pl["zone"]; p["dir"] = float(pl.get("face", 1))
+	p["walker"] = bool(pl.get("walk", true))
+	_set_tex(p)
+
+func _crew_num(model: String, cr: Dictionary) -> String:
+	for m in cr["models"]:
+		if str(m).ends_with("_" + model): return str(m).substr(9)
+	return model
+
+func _build_placed(placed: Array, have: Array) -> void:
+	for i in placed.size():
+		var pl: Dictionary = placed[i]
+		var key := ""
+		for m in have: if str(m).contains("_" + str(pl["model"]) + "_"): key = m
+		if key == "": continue
+		var walking := bool(pl.get("walk", true))
+		var p := {"model": key, "v": 1 + i % 2, "x": float(pl["x"]), "feet": float(pl["feet"]), "feet0": float(pl["feet"]), "h0": float(pl["h"]),
+			"zone": pl.get("zone", []), "dir": float(pl.get("face", 1)), "state": "walk" if walking else "idle", "walker": walking,
+			"fz": randf_range(-1.0, 1.0), "t": randf_range(3.0, 12.0), "d": clampf((float(pl["feet"]) - 0.66) / 0.22, 0.0, 1.0), "src": pl}
+		if edit_on and not preview: p["state"] = "idle"
+		var tr := TextureRect.new()
+		tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tr.stretch_mode = TextureRect.STRETCH_SCALE
+		holder.add_child(tr)
+		p["node"] = tr
+		_set_tex(p)
+		people.append(p)
+	crowd_log.append("placed:%d people" % people.size())
+
+## The placed person's floor point and height now (their box keeps them in).
+func _placed_floor(p: Dictionary, dt: float, strip_h: float) -> Vector2:
+	var z: Array = p["zone"]
+	var fit: Array = Data.CROWD3D_PLACED_FIT.get(room, [1.0, -0.44])
+	var hz := -float(fit[1]) / float(fit[0])   # (where a person would shrink to nothing: the horizon)
+	var hk := func(f: float) -> float: return float(p["h0"]) * maxf(0.05, (f - hz) / maxf(0.01, float(p["feet0"]) - hz))
+	if p["state"] == "walk" and z.size() == 4:
+		var h: float = hk.call(float(p["feet"]))
+		var half: float = h * 0.28 * strip_h   # (half a body's width, in strip widths)
+		p["x"] = float(p["x"]) + float(p["dir"]) * h * strip_h * (Data.CROWD3D_WALK / 1.8) * dt
+		if float(p["x"]) > float(z[2]) - half: p["x"] = float(z[2]) - half; p["dir"] = -1.0; _set_tex(p)
+		if float(p["x"]) < float(z[0]) + half: p["x"] = float(z[0]) + half; p["dir"] = 1.0; _set_tex(p)
+		var lo: float = float(z[1]) + h   # feet low enough that the head stays in the box ...
+		var hi: float = float(z[3])       # ... and the feet stay in it
+		p["feet"] = clampf(float(p["feet"]) + float(p["fz"]) * 0.004 * dt, minf(lo, hi), hi)
+		if float(p["feet"]) <= minf(lo, hi) + 0.0001 or float(p["feet"]) >= hi - 0.0001: p["fz"] = -float(p["fz"])
+	return Vector2(float(p["feet"]), hk.call(float(p["feet"])))
+
 ## The floor line and body height at depth d (0 = the back of the room, 1 = the front), as shares of the strip's height.
 func _floor(d: float) -> Vector2:
 	var b: Array = cfg.get("back", [0.68, 0.14])
@@ -269,7 +371,15 @@ func tick(dt: float) -> void:
 	for p in people:
 		var fl := _floor(float(p["d"]))
 		p["t"] = float(p["t"]) - dt
-		if p["state"] == "walk":
+		if p.has("feet") and edit_on and not preview:   # (being placed: stand still where put)
+			fl = Vector2(float(p["feet"]), float(p["h0"]))
+		elif p.has("feet"):   # v12.11: placed by the owner: their box, their own rhythm of walking and stopping
+			fl = _placed_floor(p, dt, strip_h)
+			if bool(p["walker"]) and float(p["t"]) <= 0.0:
+				p["state"] = "idle" if p["state"] == "walk" else "walk"
+				p["t"] = randf_range(2.5, 6.0) if p["state"] == "idle" else randf_range(6.0, 14.0)
+				_set_tex(p)
+		elif p["state"] == "walk":
 			# normal walking speed: 1.3 m/s for a 1.8 m person, in strip widths
 			p["x"] = fposmod(float(p["x"]) + float(p["dir"]) * fl.y * strip_h * (Data.CROWD3D_WALK / 1.8) * dt, 1.0)
 			if float(p["t"]) <= 0.0:
@@ -290,7 +400,7 @@ func tick(dt: float) -> void:
 		var fw := fh * float(VP_SIZE.x) / float(VP_SIZE.y)
 		tr.size = Vector2(fw, fh)
 		tr.position = Vector2(sx - fw * 0.5, feet + body * FRAME_LO - fh)
-		tr.flip_h = p["state"] == "walk" and float(p["dir"]) < 0.0
+		tr.flip_h = (p["state"] == "walk" or p.has("feet")) and float(p["dir"]) < 0.0
 		tr.visible = sx > -fw and sx < S.x + fw
 	# nearer people in front of those further back
 	people.sort_custom(func(a, b): return float(a["d"]) < float(b["d"]))

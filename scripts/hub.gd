@@ -57,6 +57,7 @@ var asst_log: Array = []      # [who, line]
 var _speech_t := 0.0
 var asst_idle := 0
 var crowd: Crowd3D
+var crowd_edit: Control   # v12.11: dev tool
 var room_view: ColorRect   # v3.5 (owner): the 360 room you stand in
 var leftwin: Panel         # v3.5: the left digital window
 var look_ui: Control
@@ -128,6 +129,10 @@ func _ready() -> void:
 	crowd = Crowd3D.new()   # v11.84 (owner): a crowd of the rigged 3D characters (toon shaded) on the room's floor
 	add_child(crowd)
 	crowd.setup(self)
+	if Data.DEV_TOOLS:   # v12.11 (owner): the Crowd Edit tool on every room (a dev tool: off before launch)
+		crowd_edit = load("res://scripts/crowd_editor.gd").new()
+		add_child(crowd_edit)
+		crowd_edit.setup(self)
 	header = _label(32, Color(1, 1, 1))
 	header.position = Vector2(28, TOP_Y)
 	add_child(header)
@@ -1430,6 +1435,7 @@ func _show_room(s: String) -> void:
 	room_view.modulate = base.get("tint", Color.WHITE) if base.get("role", "") == "ally" else Color.WHITE   # v11.54: ally stations: one art set, told apart by tint
 	if kind == "planet" and Data.PLANET_HUB_SKY.has(str(GS.system_id)) and not room_file(key).begins_with("planet_"): room_view.modulate = Data.PLANET_HUB_SKY[str(GS.system_id)]   # v11.57: the lava sky's light
 	crew.room_changed(key if not hostile_room else "")
+	crowd.full = "%s/%s" % [f, room_file(key)]
 	crowd.room_changed(room_file(key) if not hostile_room else "")
 	_update_room(0.0)
 
