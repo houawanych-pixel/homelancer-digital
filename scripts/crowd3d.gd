@@ -77,14 +77,36 @@ func room_changed(file: String) -> void:
 	room = file
 	cfg = Data.CROWD3D_ROOMS.get(file, {})
 	if cfg.is_empty(): return
-	if not Packs.is_ready(PACK):
-		Packs.request(PACK)
+	var pk := _pack()
+	if not Packs.is_ready(pk):
+		Packs.request(pk)
 		if not Packs.pack_ready.is_connected(_on_pack): Packs.pack_ready.connect(_on_pack)
 		return
 	_build()
 
 func _on_pack(pk: String) -> void:
-	if pk == PACK and not cfg.is_empty() and people.is_empty(): _build()
+	if pk == _pack() and not cfg.is_empty() and people.is_empty(): _build()
+
+## v12.9: the room's crowd: a faction crew (Data.CROWD3D_CREWS, its own pack) or the mixed crowd; at most
+## CROWD3D_MAX_MODELS different people, picked the same way each visit.
+func _pack() -> String:
+	var c := str(cfg.get("crew", ""))
+	return str(Data.CROWD3D_CREWS[c]["pack"]) if Data.CROWD3D_CREWS.has(c) else PACK
+
+func _models() -> Array:
+	var c := str(cfg.get("crew", ""))
+	var out: Array = []
+	if Data.CROWD3D_CREWS.has(c):
+		var cr: Dictionary = Data.CROWD3D_CREWS[c]
+		for m in cr["models"]: out.append("%s/%s%s.glb" % [cr["folder"], m, cr["suffix"]])
+	else:
+		for m in MODELS: out.append("res://assets/crowd3d/%s.glb" % m)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(room)
+	for i in range(out.size() - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var t = out[i]; out[i] = out[j]; out[j] = t
+	return out.slice(0, Data.CROWD3D_MAX_MODELS)
 
 func _clear() -> void:
 	for p in people: (p["node"] as Node).queue_free()
@@ -107,14 +129,17 @@ func _room_light() -> Color:
 
 func _build() -> void:
 	var lc := _room_light()
-	for m in MODELS:
-		var path := "res://assets/crowd3d/%s.glb" % m
+	var paths := _models()
+	for path in paths:
+		var m := str(path).get_file().get_basename()
 		if not ResourceLoader.exists(path): continue
 		for move in ["Walk", "Walk2", "Idle"]:   # (two walks at different points in the step: copies don't march in step)
 			views["%s:%s" % [m, move]] = _make_view(path, m, move, lc)
 	if views.is_empty(): return
 	var have: Array = []
-	for m in MODELS: if views.has(m + ":Walk"): have.append(m)
+	for path in paths:
+		var m := str(path).get_file().get_basename()
+		if views.has(m + ":Walk"): have.append(m)
 	var n: int = int(cfg.get("count", 20))
 	for i in n:
 		var walking := randf() < float(cfg.get("walkers", 0.7))

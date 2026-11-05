@@ -58,3 +58,8 @@ Checked but not in the repo (too large, source files stay in Drive):
   (`assets/mechs/*.scn`, `assets/mech_frames/mf_*.scn`). After changing a rig here: copy it to the game folder as a
   .glb, import, run the bake, then delete the .glb from the game folder (the .scn only needs the textures).
 - phenom_{thalen,xerathion,isara,vyrela,aurelian_guard,ascendant_guard}_rigged.glb (Oct 17 2026): owner's Tripo Phenom set. The Tripo files were side|front|back turnaround sheets in one mesh; the front figure was cut out, mirrored for a clean symmetric body, reduced to ~12-23k tris and rigged (22-bone humanoid, Idle + Walk). Thalen = armored elf, Xerathion = crowned warrior, Isara = elf woman, Vyrela = armored woman, Aurelian Guard = armored knight, Ascendant Guard = mecha armor suit.
+- Orion crew #02-#18 (`assets/crowd3d_orion/HL_Orion_NN_<Name>_Rigged.glb`, v12.9): from the 1.9 M-face Tripo
+  high-poly files, reduced to 8-16k tris with 1K textures, rigged automatically (`tools/shipkit/guess_joints.py` reads
+  the joints off the mesh, then `rig_mech.sh rig --human`, head rule `Head : (y>1.515)&(np.abs(x)<0.3)`), 22-bone
+  Godot humanoid. Their Walk is #01 BrunetteOfficer's own Tripo/Mixamo walk, retargeted (`tools/shipkit/retarget_anim.py`);
+  Idle is the rig's breathing idle. No tails.

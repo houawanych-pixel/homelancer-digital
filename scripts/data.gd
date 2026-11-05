@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.8"
+const VERSION := "v12.9"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1210,8 +1210,10 @@ const ROOM_OF := {"hub": "main_hub", "ships": "shipyard", "mechs": "mech_dealer"
 # Per room: count, share walking, and the floor at the back and front of the room as [feet line, body height] in shares
 # of the strip's height (read off the picture's own people). Rooms not listed have no 3D crowd.
 const CROWD3D_ROOMS := {
-	"planet_dreadholm_main_hub": {"count": 22, "walkers": 0.65, "back": [0.66, 0.16], "front": [0.88, 0.4]},
+	"planet_dreadholm_main_hub": {"count": 22, "walkers": 0.65, "back": [0.66, 0.16], "front": [0.88, 0.4], "crew": "orion"},   # v12.9: Orion's capital: the Orion crew
 }
+const CROWD3D_CREWS := {"orion": {"pack": "crowd3d_orion", "folder": "res://assets/crowd3d_orion", "suffix": "_Rigged", "models": ["HL_Orion_02_WhiteDragonSoldier", "HL_Orion_03_DarkHairedPilot", "HL_Orion_04_LavenderElfOfficer", "HL_Orion_05_BrunetteCommander", "HL_Orion_06_WhiteDragonCommander", "HL_Orion_07_BlondFlightPilot", "HL_Orion_08_LavenderCommandOfficer", "HL_Orion_09_DragonWomanTechnician", "HL_Orion_10_BlondArmoredPilot", "HL_Orion_11_VioletMechTechnician", "HL_Orion_12_FemaleMedic", "HL_Orion_13_MaleMedic", "HL_Orion_14_RedHairedPilot", "HL_Orion_15_DarkHairedArmoredOfficer", "HL_Orion_16_SilverPonytailOfficer", "HL_Orion_17_VioletMissionSpecialist", "HL_Orion_18_MagmaOfficer"]}}   # v12.9: a faction's own crowd (its own pack)
+const CROWD3D_MAX_MODELS := 8   # different people drawn in one room at most (each costs 3 small views: phones)
 const CROWD3D_WALK := 1.3   # m/s: normal walking speed
 const ROOM_FRONT := 0.188       # where the front view's middle sits along the loop (you face it on arrival)
 const ROOM_ZOOM := 1.14         # the loop is this much taller than the screen: room to look up and down a little
