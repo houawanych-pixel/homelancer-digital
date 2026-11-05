@@ -1854,6 +1854,7 @@ func _grow_grass() -> void:
 	grass.clear()
 	grass_inst.clear()
 	grass_burn.clear()
+	_green_cache = -1
 	var kind: String = Surface.PLANETS[planet_id]["tiles"][tile] if Surface.PLANETS.has(planet_id) else ""
 	var cover: float = float(Data.GRASS_COVER.get(kind, 0.0))
 	if cover <= 0.0 or force or regions_test: return
@@ -1940,7 +1941,8 @@ func _grass_fire_tick(burning_keys: Array) -> void:
 
 const GRASS_SHADER := """shader_type spatial;
 render_mode cull_disabled, diffuse_lambert, specular_disabled;
-uniform vec3 grass_col = vec3(0.4, 0.7, 0.3);
+uniform vec3 grass_col = vec3(0.4, 0.7, 0.3);   // (not green land: the lighter leaf colour, base to tip)
+uniform vec3 tip_col = vec3(0.7, 0.95, 0.45);    // v12.8: the light tips
 uniform float blades = 7.0;
 varying float seed;
 varying float sway_k;
@@ -1963,8 +1965,11 @@ void fragment() {
 	float x = fx - lean * UV.y;
 	float wdt = 0.46 * (1.0 - UV.y / hb);
 	if (UV.y > hb || abs(x) > wdt) discard;
-	vec3 c = grass_col * (0.42 + 0.7 * UV.y) * (0.85 + 0.3 * hsh(id * 3.1));
-	ALBEDO = c * COLOR.rgb;
+	// v12.8 (owner: "if the terrain is green make the grass green, and do a light green into it"): the root is the
+	// ground's own colour (COLOR, per clump), the blade turns lighter to its tip
+	float vary = 0.88 + 0.24 * hsh(id * 3.1);
+	vec3 c = mix(COLOR.rgb * 0.7, tip_col, smoothstep(0.1, 1.0, UV.y / hb)) * vary;
+	ALBEDO = c;
 	BACKLIGHT = c * 0.35;
 	ROUGHNESS = 0.8;
 }
@@ -2001,6 +2006,36 @@ static func grass_mesh() -> ArrayMesh:
 	_grass_mesh = st.commit()
 	return _grass_mesh
 
+## v12.8: green land (its ground colour is green): the grass grows green from the ground, light green at the tips.
+## Other land keeps the planet's lighter leaf colour.
+var _green_cache := -1
+func _green_land() -> bool:
+	if _green_cache < 0:
+		var gsum := Color(0, 0, 0)
+		var cnt := 0
+		for g in grass_inst:
+			var c := _ground_col(int(g[0]))
+			gsum += c
+			cnt += 1
+			if cnt >= 60: break
+		var m := gsum / maxf(1.0, cnt)
+		_green_cache = 1 if cnt > 0 and m.g > m.r * 1.05 and m.g > m.b * 1.05 else 0
+	return _green_cache == 1
+
+@warning_ignore("integer_division")
+func _ground_col(c: int) -> Color:
+	var i := (c / n) * (n + 1) + c % n
+	return ccol[i] if i < ccol.size() else Color(0.3, 0.5, 0.25)
+
+func _grass_root(g: Array) -> Color:
+	if _green_land():
+		var c := _ground_col(int(g[0]))
+		return Color(c.r, c.g, c.b).lerp(Data.GRASS_ROOT_GREEN, 0.35)
+	var lc: Array = leaf_colors()
+	var a: Color = lc[0]
+	var b: Color = lc[1]
+	return a if a.get_luminance() >= b.get_luminance() else b
+
 func _draw_grass() -> void:
 	var mi := get_node_or_null("Grass") as MultiMeshInstance3D
 	if mi == null:
@@ -2020,6 +2055,9 @@ func _draw_grass() -> void:
 		var b: Color = lc[1]
 		var pick: Color = a if a.get_luminance() >= b.get_luminance() else b
 		mat.set_shader_parameter("grass_col", Vector3(pick.r, pick.g, pick.b))
+		var tip: Color = pick.lightened(0.35)
+		if _green_land(): tip = Data.GRASS_TIP_GREEN
+		mat.set_shader_parameter("tip_col", Vector3(tip.r, tip.g, tip.b))
 		mat.set_shader_parameter("blades", float(Data.GRASS_BLADES))
 		mi.material_override = mat
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -2036,7 +2074,7 @@ func _draw_grass() -> void:
 		var sz: float = float(g[1]) * Data.BLOCK_MIN
 		var hh: float = float(g[3]) * Data.BLOCK_MIN
 		mi.multimesh.set_instance_transform(j, Transform3D(Basis.from_scale(Vector3(sz, hh, sz)), _grass_pos(g)))
-		mi.multimesh.set_instance_color(j, Color(0.35, 0.18, 0.1) if grass_burn.has(live[j]) else Color.WHITE)
+		mi.multimesh.set_instance_color(j, Color(0.35, 0.18, 0.1) if grass_burn.has(live[j]) else _grass_root(g))
 
 ## v1.7j: winding tunnels from a mold cave's side rooms out to the nearest sealed caves (v1.6d), wandering by noise but
 ## always steering home to the cave, so the system is connected on purpose; each ends in a little junction room

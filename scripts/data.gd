@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.7"
+const VERSION := "v12.8"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -656,6 +656,8 @@ const FIRE_BURN := {"wood": 4.0, "leaf": 1.5, "leaf2": 1.5}   # s a burning laye
 const FIRE_SPREAD := {"wood": 0.25, "leaf": 0.5, "leaf2": 0.5}   # chance per tick it catches from a burning neighbour
 const GRASS_COVER := {"forest": 0.4, "jungle": 0.42, "coast": 0.25, "mountains": 0.2, "toxic": 0.32, "city": 0.12, "canyon": 0.08, "wasteland": 0.1, "industrial": 0.06, "crystal": 0.12, "volcanic": 0.05}   # v12.7: share of the dirt ground with grass blocks, by land
 const GRASS_PATCH_FREQ := 0.012      # the grass grows in patches and meadows ~80 m across
+const GRASS_TIP_GREEN := Color(0.72, 0.95, 0.42)   # v12.8: green land: light green tips ...
+const GRASS_ROOT_GREEN := Color(0.22, 0.5, 0.18)   # ... from a green root (mixed with the ground's own colour)
 const GRASS_VIEW := 520.0            # m: grass further than this isn't drawn
 const GRASS_MAX_LAYERS := 4          # owner: "4 blocks is the most"
 const GRASS_BLADES := 7              # blades across one sheet
