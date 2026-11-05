@@ -205,13 +205,21 @@ static func sample(planet_id: String, gx: float, gz: float) -> Array:
 	var tz := _smooth((cz - r0 - 0.3) / 0.4)
 	var h := 0.0
 	var col := Color(0, 0, 0, 0)
+	var al := Vector3.INF
 	for k in 4:
 		var wx := tx if k % 2 == 1 else 1.0 - tx
 		var wz := tz if k >= 2 else 1.0 - tz
 		var wt := wx * wz
 		if wt <= 0.0001: continue
 		var t := posmod(r0 + (1 if k >= 2 else 0), g) * g + posmod(c0 + (k % 2), g)
-		var hb: Array = _biome_height(biome(planet_id, t), nr.x, nr.y)
+		var bd: Dictionary = biome(planet_id, t)
+		var hb: Array = _biome_height(bd, nr.x, nr.y)
+		var ak: float = float(Data.TERRAIN_ALIEN.get(str(PLANETS[planet_id]["tiles"][t]), 0.0))
+		if ak > 0.0 and not BlockField.force and not BlockField.regions_test:   # v12.7 (owner: "amazing terrain ... high drop-off cliffs, canyons, mountains that bend"): the sculpt
+			if al == Vector3.INF: al = _alien_blend(planet_id, u, w, wp, su, sw)
+			var amp: float = float(bd["amp"])
+			hb[0] = float(hb[0]) + ak * (al.x * amp * Data.ALIEN_RIDGE + al.y * amp * Data.ALIEN_MESA - al.z * amp * Data.ALIEN_CANYON)
+			hb[1] = _biome_col(bd, float(hb[0]))   # (the colour follows the sculpted height: canyon floors low, crests high)
 		h += hb[0] * wt
 		col += (hb[1] as Color) * wt
 	# flatten the ground under settlements (looked up in the tile that contains this point)
@@ -307,6 +315,40 @@ static func _smooth(t: float) -> float:
 	t = clampf(t, 0.0, 1.0)
 	return t * t * (3.0 - 2.0 * t)
 
+## v12.7: the alien sculpt at a point: x = bent ridges (warped, sharp crests that curve into arcs), y = mesa steps
+## (0..2: plateaus with sheer drop-off cliffs), z = canyons (0..1: deep cuts with steep walls and flat floors).
+static var _alien_n := {}
+static func _alien_at(planet_id: String, x: float, z: float) -> Vector3:
+	if not _alien_n.has(planet_id):
+		var mk := func(seed_add: int, f: float, t: int, oct: int) -> FastNoiseLite:
+			var q := FastNoiseLite.new()
+			q.seed = hash(planet_id) + seed_add
+			q.noise_type = t
+			q.frequency = f
+			q.fractal_octaves = oct
+			return q
+		_alien_n[planet_id] = [mk.call(31, Data.ALIEN_WARP_FREQ, FastNoiseLite.TYPE_SIMPLEX_SMOOTH, 2), mk.call(57, Data.ALIEN_RIDGE_FREQ, FastNoiseLite.TYPE_SIMPLEX, 3),
+			mk.call(83, Data.ALIEN_MESA_FREQ, FastNoiseLite.TYPE_SIMPLEX_SMOOTH, 2), mk.call(101, Data.ALIEN_CANYON_FREQ, FastNoiseLite.TYPE_SIMPLEX_SMOOTH, 2)]
+	var nz: Array = _alien_n[planet_id]
+	var W: float = Data.ALIEN_WARP
+	var wx := (nz[0] as FastNoiseLite).get_noise_2d(x, z) * W
+	var wz := (nz[0] as FastNoiseLite).get_noise_2d(x + 5311.0, z - 2917.0) * W
+	var rr := 1.0 - absf((nz[1] as FastNoiseLite).get_noise_2d(x + wx, z + wz))
+	var ridge := _smooth((clampf(rr, 0.0, 1.0) - 0.55) / 0.45)   # (broad crests that rise in a curve, not needles)
+	ridge = ridge * ridge
+	var mv := (nz[2] as FastNoiseLite).get_noise_2d(x + wx * 0.4, z + wz * 0.4)
+	var mesa := _smooth((mv - 0.12) / 0.06) + _smooth((mv - 0.38) / 0.06)
+	var cv := absf((nz[3] as FastNoiseLite).get_noise_2d(x + wx * 0.7, z + wz * 0.7))
+	var canyon := 1.0 - _smooth((cv - 0.035) / 0.05)
+	return Vector3(ridge, mesa, canyon)
+
+static func _alien_blend(planet_id: String, u: float, w: float, wp: float, su: float, sw: float) -> Vector3:
+	var a := _alien_at(planet_id, u, w) * (1.0 - su) * (1.0 - sw)   # (cross-faded over the wrap line, like the base noise)
+	if su > 0.0: a += _alien_at(planet_id, u - wp, w) * su * (1.0 - sw)
+	if sw > 0.0: a += _alien_at(planet_id, u, w - wp) * (1.0 - su) * sw
+	if su > 0.0 and sw > 0.0: a += _alien_at(planet_id, u - wp, w - wp) * su * sw
+	return a
+
 static func _nr(planet_id: String, x: float, z: float) -> Vector2:
 	return Vector2(_n(planet_id).get_noise_2d(x, z), (_ridge[planet_id] as FastNoiseLite).get_noise_2d(x, z))
 
@@ -331,12 +373,18 @@ static func _biome_height(b: Dictionary, n: float, r: float) -> Array:
 		var cap: float = amp * Data.TERRAIN_PEAK_EASE
 		if lift > cap: lift = cap + (lift - cap) * 0.45
 		h = base + lift
+	return [h, _biome_col(b, h)]
+
+## A biome's ground colour at a height (low -> mid -> high).
+static func _biome_col(b: Dictionary, h: float) -> Color:
+	var amp: float = b["amp"]
+	var base: float = b["base"]
 	var lo := base - amp * (0.2 if b.get("terrace", false) else 0.6)
 	var hi := base + amp * 1.1
 	var k := clampf((h - lo) / maxf(1.0, hi - lo), 0.0, 1.0)
 	var c: Color = (b["low"] as Color).lerp(b["mid"], clampf(k * 2.0, 0.0, 1.0)) if k < 0.5 else (b["mid"] as Color).lerp(b["high"], clampf(k * 2.0 - 1.0, 0.0, 1.0))
 	c.a = float(b.get("detail", 0.0))
-	return [h, c]
+	return c
 
 static var _pad_cache := {}
 ## v1.7c: the top of the floating island the landing pads stand on: a clear PAD_ISLAND_CLEAR over the highest ground
@@ -539,6 +587,7 @@ static func build_tile(planet_id: String, tile: int) -> Node3D:
 	terrain.mesh = _mesh_cache[key]
 	terrain.name = "Terrain"
 	terrain.material_override = terrain_material(float(b.get("strata", 0.1)))
+	if terrain.material_override is ShaderMaterial: (terrain.material_override as ShaderMaterial).set_shader_parameter("cliff_rock", float(Data.TERRAIN_ALIEN.get(str(PLANETS[planet_id]["tiles"][tile]), 0.0)))   # v12.7: alien cliffs are bare stone
 	terrain.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(terrain)
 	if has_water(planet_id, tile):

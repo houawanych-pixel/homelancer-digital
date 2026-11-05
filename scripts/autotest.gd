@@ -2027,6 +2027,67 @@ func _run() -> void:
 		await _capture("fighters_l2l3")
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_GRASS") != "":   # v12.7: grass blocks: they grow, sway, a shot sets them alight, fire spreads and takes them
+		await _smoke_core()
+		var pid := OS.get_environment("HL_PID") if OS.get_environment("HL_PID") != "" else "eden_prime"
+		main._load_surface(pid, int(OS.get_environment("HL_TILE")) if OS.get_environment("HL_TILE") != "" else 0)
+		await _until(func(): return main.state == "flight" and _sp().surface_mode and _sp().planet_id == pid, 25.0)
+		var s := _sp()
+		main.hud.visible = false
+		await _until(func(): return s._fields().any(func(f): return (f as BlockField).built), 30.0)
+		await _wait(3.0)
+		var best: BlockField = null
+		for f in s._fields():
+			var bf := f as BlockField
+			if bf.built and (best == null or bf.grass_inst.size() > best.grass_inst.size()): best = bf
+		var count: int = best.grass_inst.size() if best != null else 0
+		var big := 0
+		var tall := 0
+		if best != null:
+			for g in best.grass_inst:
+				if int(g[1]) == 2: big += 1
+				tall = maxi(tall, int(g[3]))
+		var fire_ok := false
+		var spread := 0
+		if count > 0:
+			var pick := count / 2
+			for gi in count: if int(best.grass_inst[gi][1]) == 2 and int(best.grass_inst[gi][3]) >= 3: pick = gi
+			var g0: Array = best.grass_inst[pick]
+			var gp: Vector3 = best._grass_pos(g0)
+			var wp := best.to_global(gp)
+			_tp(wp + Vector3(0, 32, 30), wp + Vector3(0, 6, 0))
+			await _wait(2.0)
+			await _capture("grass_%s" % pid)
+			_tp(wp + Vector3(0, 160, 120), wp)
+			await _wait(1.0)
+			await _capture("grass_%s_above" % pid)
+			best.grass_burn[pick] = 0.0
+			for q in 6: best._fire_update(Data.FIRE_TICK, gp)
+			spread = best.grass_burn.size() + best.grass_burned
+			fire_ok = best.grass_burned >= 1 and spread >= 3
+			_tp(wp + Vector3(0, 32, 30), wp + Vector3(0, 6, 0))
+			await _frames(3)
+			await _capture("grass_%s_fire" % pid)
+		_check("Grass blocks on %s: %d clumps (%d big 2x2), up to %d layers tall; fire takes them and spreads (%d caught)" % [pid, count, big, tall, spread], count > 50 and big > 5 and tall <= Data.GRASS_MAX_LAYERS and tall >= 2 and fire_ok)
+		_finish_group()
+		return
+	if OS.get_environment("HL_TERRAINSHOT") != "":   # v12.7: views of a world's land (HL_PID = ids, comma separated; HL_SHOT_DIR)
+		await _smoke_core()
+		for pid in (OS.get_environment("HL_PID") if OS.get_environment("HL_PID") != "" else "genesis_planet").split(","):
+			main._load_surface(pid, 0)
+			await _until(func(): return main.state == "flight" and _sp().surface_mode and _sp().planet_id == pid, 25.0)
+			var s := _sp()
+			main.hud.visible = false
+			await _wait(6.0)
+			var views := [[Vector3(-1800, 700, 1800), Vector3(400, 0, -900)], [Vector3(200, 420, 1500), Vector3(-300, 0, -1800)], [Vector3(1900, 1300, 1900), Vector3(0, 0, 0)]]
+			for i in views.size():
+				var v: Array = views[i]
+				var g: float = s._ground(v[0].x, v[0].z)
+				_tp(Vector3(v[0].x, g + v[0].y, v[0].z), v[1] + Vector3(0, s._ground(v[1].x, v[1].z), 0))
+				await _wait(3.5)
+				await _capture("terrain_%s_%d" % [pid, i])
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_BASESHOT") != "":   # v11.91: pictures of a world's bases (HL_PID planet id, HL_SHOT_DIR)
 		await _smoke_core()
 		var pid := OS.get_environment("HL_PID") if OS.get_environment("HL_PID") != "" else "new_terra"

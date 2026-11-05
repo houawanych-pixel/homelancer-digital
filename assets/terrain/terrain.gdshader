@@ -12,6 +12,7 @@ uniform sampler2D cloud_nrm : hint_normal, filter_linear_mipmap, repeat_enable;
 uniform vec3 tex_avg = vec3(0.72, 0.49, 0.31);
 uniform float detail_scale = 0.014;   // 1 repeat per ~70 m
 uniform float strata = 1.0;           // 1 = layered rock on cliffs (canyon/desert), 0 = plain
+uniform float cliff_rock = 0.0;       // v12.7: how much a steep face turns to bare stone (alien worlds)
 
 // v1.7a: where block regions stand, the smooth ground isn't drawn. v1.7q: one look-up in a small mask (one texel per
 // 500 m region, over this tile and its neighbours) instead of a loop over rectangles: cheap on phones.
@@ -50,6 +51,12 @@ void fragment() {
 	float band2 = sin(wpos.y * 0.37 + 1.3) * 0.5 + 0.5;
 	vec3 rock = col * mix(vec3(0.9), vec3((0.72 + 0.28 * band) * (0.9 + 0.12 * band2)), 0.25 + 0.75 * strata);
 	rock = mix(rock, rock * vec3(1.08, 0.86, 0.74), strata * band * 0.5);
+	// v12.7: real cliffs (steep faces only) are bare rock: stone with thin uneven layers, darker in the cracks
+	float cl = smoothstep(0.55, 0.95, slope);
+	float thin = sin(wpos.y * 0.9 + sin(wpos.x * 0.013 + wpos.z * 0.009) * 3.0) * 0.5 + 0.5;
+	float thick = sin(wpos.y * 0.045 + sin(wpos.z * 0.002) * 4.0) * 0.5 + 0.5;
+	vec3 stone = mix(vec3(dot(col, vec3(0.333))), col, 0.35) * (0.62 + 0.18 * thin + 0.2 * thick);
+	col = mix(col, stone, cl * cliff_rock);
 	col = mix(col, rock, slope * mix(0.45, 1.0, strata));
 	ALBEDO = col;
 	vec3 n1 = texture(detail_nrm, mix(uv_top, uv_side, step(0.5, slope))).rgb;

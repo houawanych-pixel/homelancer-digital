@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.6"
+const VERSION := "v12.7"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -579,8 +579,8 @@ const ORE_NAME := {"gold": "Gold", "diamond": "Diamond"}
 # sealed. The bottom of the ground (BLOCK_DEPTH_FLOOR down) is the KILL FLOOR under a KILL_CAP of obsidian: dug open
 # it glows; water, lava and rubble reaching it are gone; the ship touching it is destroyed.
 const CAVE_COUNT := 5
-const CAVE_SIZE := 14                # cells across (70 m)
-const CAVE_LAYERS := 8               # layers tall (40 m)
+const CAVE_SIZE := 24                # cells across (70 m)
+const CAVE_LAYERS := 12               # layers tall (40 m)
 const CAVE_DEPTH := [45.0, 110.0]    # m under the ground (its middle)
 const CAVE_NOISE_FREQ := 0.11
 const CAVE_THRESHOLD := 0.18
@@ -654,35 +654,59 @@ const BOUNTY_ESCAPE_PLANET := 3600.0    # s
 const FIRE_TICK := 0.5               # s
 const FIRE_BURN := {"wood": 4.0, "leaf": 1.5, "leaf2": 1.5}   # s a burning layer lasts before it is gone
 const FIRE_SPREAD := {"wood": 0.25, "leaf": 0.5, "leaf2": 0.5}   # chance per tick it catches from a burning neighbour
+const GRASS_COVER := {"forest": 0.4, "jungle": 0.42, "coast": 0.25, "mountains": 0.2, "toxic": 0.32, "city": 0.12, "canyon": 0.08, "wasteland": 0.1, "industrial": 0.06, "crystal": 0.12, "volcanic": 0.05}   # v12.7: share of the dirt ground with grass blocks, by land
+const GRASS_PATCH_FREQ := 0.012      # the grass grows in patches and meadows ~80 m across
+const GRASS_VIEW := 520.0            # m: grass further than this isn't drawn
+const GRASS_MAX_LAYERS := 4          # owner: "4 blocks is the most"
+const GRASS_BLADES := 7              # blades across one sheet
+const GRASS_SEGMENTS := 5            # bends along a sheet (the weave)
+const GRASS_FIRE_CHANCE := {"gun": 0.35, "missile": 0.6, "heavy": 0.5, "special": 0.8}   # a shot sets the grass alight (else blows it away)
+const GRASS_SPREAD := 0.45           # chance per tick the fire jumps to the next clump
+const GRASS_BURN := 1.6              # s a clump burns before it is gone
 const FIRE_MAX := 300                # burning layers at once at most
 const FIRE_RADIUS := 300.0           # m: fire only runs this near the player
 const FIRE_GUN_CHANCE := 0.2         # a light-gun hit on wood sets it alight this often (missiles always do)
+# v12.7 (owner: "amazing terrain ... very unworldly, high drop-off cliffs, lots of different canyons, huge caves and
+# caverns ... mountains that bend a certain way ... they're not supposed to all look like Earth"): the alien sculpt on
+# top of each biome's own shape (Surface._alien_at), by how alien the land is (0 = Earth-like, 1 = full).
+const TERRAIN_ALIEN := {"crystal": 1.0, "barren": 1.0, "canyon": 1.0, "volcanic": 0.9, "jungle": 0.85, "toxic": 0.8, "wasteland": 0.85,
+	"desert": 0.6, "mountains": 0.7, "ice": 0.6, "machine": 0.35, "forest": 0.35, "industrial": 0.15, "coast": 0.15}
+const ALIEN_WARP := 1400.0          # m the ridges and canyons are bent sideways (curves and arcs instead of straight lines)
+const ALIEN_WARP_FREQ := 0.00032
+const ALIEN_RIDGE_FREQ := 0.00036   # bent crests ~2-3 km apart
+const ALIEN_RIDGE := 1.05           # their height (share of the biome's amp)
+const ALIEN_MESA_FREQ := 0.00022    # plateaus ~4 km across ...
+const ALIEN_MESA := 0.42            # ... each step this tall (share of amp): sheer cliffs at the edges
+const ALIEN_CANYON_FREQ := 0.00028
+const ALIEN_CANYON := 0.75          # how deep the canyons cut (share of amp)
 const KILL_CAP := 30.0               # m of obsidian over the kill floor
 const KILL_COLOR := Color(1.0, 0.82, 0.45)
 # v1.6e world generation, part 2: landmarks. Flyable arches (stone, some obsidian, some with treasure in the span) and
 # Pride Rock promontories (a slab jutting out over open air). Sizes in 5 m cells / metres; realistic, no thin spikes.
-const ARCH_COUNT := 3
-const ARCH_SPAN := [6, 11]           # cells of open air between the legs (30-55 m)
-const ARCH_CLEAR := [25.0, 45.0]     # m of headroom under the middle
+const LANDMARK_TEST := {"ARCH_COUNT": 3, "ARCH_SPAN": [6, 11], "ARCH_CLEAR": [25.0, 45.0], "OVERHANG_COUNT": 2, "OVERHANG_JUT": [3, 5], "OVERHANG_RISE": [35.0, 60.0],
+	"LANDMARK_FLAT": 25.0, "CAVE_SIZE": 14, "CAVE_LAYERS": 8, "HALL_SIZE": 24, "HALL_LAYERS": 10, "CANYON_DEPTH": [40.0, 70.0], "SLAB_COUNT": 4, "AFRAME_COUNT": 3}   # v12.7: the route tests' ground keeps the sizes they were written for
+const ARCH_COUNT := 6   # v12.7 (owner: massive arcs): was 3
+const ARCH_SPAN := [8, 20]           # cells of open air between the legs (30-55 m)
+const ARCH_CLEAR := [40.0, 90.0]     # m of headroom under the middle
 const ARCH_THICK := 10.0             # m of rock over the opening
-const OVERHANG_COUNT := 2
-const OVERHANG_JUT := [3, 5]         # cells the slab juts out (15-25 m)
-const OVERHANG_RISE := [35.0, 60.0]  # m the promontory stands over the ground
+const OVERHANG_COUNT := 4   # v12.7: was 2
+const OVERHANG_JUT := [4, 8]         # cells the slab juts out (15-25 m)
+const OVERHANG_RISE := [45.0, 100.0]  # m the promontory stands over the ground
 const OVERHANG_THICK := 10.0
 # v1.7f leaning slabs (owner: "two leaning slabs make a natural A-frame arch; shoot the prop and it falls flat").
 # Blocks underneath for the logic (a staircase of cells over air, propped), one straight tilted slab for the eyes
 # while it's whole; break any part and it shows as the blocks it really is, and what loses its prop falls.
-const SLAB_COUNT := 4                # lean-tos (a slab propped on a pillar) per 800 m of ground (a region gets its share)
-const AFRAME_COUNT := 3              # A-frames (two slabs leaning on each other) per 800 m
+const SLAB_COUNT := 0                # lean-tos (a slab propped on a pillar) per 800 m of ground (a region gets its share)
+const AFRAME_COUNT := 0              # A-frames (two slabs leaning on each other) per 800 m
 const SLAB_LEN := [6, 10]            # cells along the slab (30-50 m)
 const SLAB_RISE := [20.0, 35.0]      # how high its raised end stands over the ground (m)
 const SLAB_WIDE := 3                 # cells across (15 m)
 const SLAB_THICK := 10.0             # m
-const LANDMARK_FLAT := 25.0         # m: how uneven the ground under a landmark may be
+const LANDMARK_FLAT := 40.0         # m: how uneven the ground under a landmark may be
 # v1.6f world generation, part 3. Realistic heights (no thin spires), a winding canyon, obsidian roots piercing the
 # surface.
 const SPIRE_MAX := 15.0              # m a column may stand over all its neighbours
-const CANYON_DEPTH := [40.0, 70.0]   # m under the ground
+const CANYON_DEPTH := [60.0, 120.0]   # m under the ground
 const CANYON_WIDTH := 3.0            # cells (half-width; 15 m)
 const ROOT_COUNT := 6
 const ROOT_RISE := [12.0, 35.0]      # m the shards stand out of the ground
@@ -692,8 +716,8 @@ const ROOT_SOIL_SAND := 0.35         # ...and the share of those that are sand (
 # v1.6h the deep world: great halls right over the obsidian cap, with obsidian trunks and branches holding the rock up
 # and lava pools glowing between them. In sections, sealed.
 const HALL_COUNT := 3
-const HALL_SIZE := 24               # cells across (120 m)
-const HALL_LAYERS := 10             # layers tall (50 m)
+const HALL_SIZE := 36               # cells across (120 m)
+const HALL_LAYERS := 14             # layers tall (50 m)
 const HALL_TRUNK_SPACING := 5       # cells between trunks
 const HALL_LAVA := 0.04             # share of the floor that is a lava pool
 # v1.5v (owner): the mech digs by thrusting its body into a wall, by the same break rules as a shot. Sand and dirt it

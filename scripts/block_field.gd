@@ -362,6 +362,7 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 			queue_free()
 			return
 	if region.x >= 0: _grow_trees()   # (v1.7i: after the cave, so a root can grow into it)
+	if region.x >= 0: _grow_grass()   # (v12.7)
 	if staged:
 		_slice_end()
 		await Engine.get_main_loop().process_frame
@@ -565,6 +566,7 @@ func tone(m: String) -> Color:
 func blast(p: Vector3, kind: String, record := true, effects := true) -> Dictionary:
 	var t0 := Time.get_ticks_usec()
 	var r0 := _blast_body(p, kind, record, effects)
+	if not grass.is_empty(): _grass_blast(p, kind)   # v12.7
 	var us := Time.get_ticks_usec() - t0
 	perf["blast_us"] += us
 	perf["blasts"] += 1
@@ -1216,7 +1218,7 @@ func _carve_caves() -> void:
 	var nz := FastNoiseLite.new()
 	nz.seed = rng.randi()
 	nz.frequency = Data.CAVE_NOISE_FREQ
-	var w: int = Data.CAVE_SIZE
+	var w: int = _lm("CAVE_SIZE", Data.CAVE_SIZE)
 	var tries := 0
 	var want := _scaled(Data.CAVE_COUNT, rng)
 	while caves.size() < want and tries < 60:
@@ -1229,7 +1231,7 @@ func _carve_caves() -> void:
 			for jx in w: topmin = minf(topmin, h0[(cz + jz) * n + cx + jx])
 		var depth := rng.randf_range(float(Data.CAVE_DEPTH[0]), float(Data.CAVE_DEPTH[1]))
 		var kc := _k(topmin - depth)
-		var hl: int = Data.CAVE_LAYERS
+		var hl: int = _lm("CAVE_LAYERS", Data.CAVE_LAYERS)
 		if kc - hl / 2 < _kfloor(cz * n + cx) + Data.KILL_CAP / Data.BLOCK_MIN + 1: continue
 		var count := 0
 		for jz in w:
@@ -1425,7 +1427,7 @@ func _place_mold(nm: String, cx: int, cz: int) -> Dictionary:
 		if holes.has(c) or fluid.has(c) or _slab_of.has(c): return {}
 		lo = minf(lo, h[c])
 		hi = maxf(hi, h[c])
-	if hi - lo > Data.LANDMARK_FLAT: return {}
+	if hi - lo > _lm("LANDMARK_FLAT", Data.LANDMARK_FLAT): return {}
 	var k0 := _k(lo + 0.01) - 1 if str(m["anchor"]) == "ground" else _k(lo + 0.01) - int(m["size"][1]) - 3
 	var touched := _stamp(m["runs"], cx, cz, k0, str(m["op"]), str(m["mat"]))
 	for c in touched: reach_bonus[c] = maxi(int(reach_bonus.get(c, 0)), 12)
@@ -1787,6 +1789,7 @@ func _fire_update(dt: float, near: Vector3) -> void:
 			var bx := Rect2i(c % n - 2, c / n - 2, 5, 5)
 			burnt_box = bx if burnt_box.size == Vector2i.ZERO else burnt_box.merge(bx)
 			burned += 1
+	_grass_fire_tick(keys)
 	if burnt_box.size != Vector2i.ZERO: _settle(burnt_box.position.x, burnt_box.end.x - 1, burnt_box.position.y, burnt_box.end.y - 1)   # v1.9c: one support check for the whole tick
 	_fire_dirty = true   # (v1.9c: the burnt squares redraw a few a frame like any other change, not all at once)
 	_draw_fire()
@@ -1813,11 +1816,227 @@ func _draw_fire() -> void:
 		add_child(mi)
 	mi.position = Vector3.ZERO
 	var keys: Array = burning.keys()
-	mi.multimesh.instance_count = keys.size()
+	var gk: Array = grass_burn.keys()
+	mi.multimesh.instance_count = keys.size() + gk.size()
 	for i in keys.size():
 		var kv: Vector2i = keys[i]
 		var s := Data.BLOCK_MIN * (1.02 + 0.12 * _rng.randf())
 		mi.multimesh.set_instance_transform(i, Transform3D(Basis.from_scale(Vector3(s, s * (1.0 + 0.3 * _rng.randf()), s)), _layer_point(kv.x, kv.y) + Vector3(0, 0.6, 0)))
+	for j in gk.size():   # v12.7: burning grass: a low sheet of flame over the clump
+		var g: Array = grass_inst[int(gk[j])]
+		var sz: float = float(g[1]) * Data.BLOCK_MIN
+		var hh: float = float(g[3]) * Data.BLOCK_MIN * (0.7 + 0.4 * _rng.randf())
+		mi.multimesh.set_instance_transform(keys.size() + j, Transform3D(Basis.from_scale(Vector3(sz * 1.02, hh, sz * 1.02)), _grass_pos(g) + Vector3(0, hh * 0.5, 0)))
+
+# ---------------------------------------------------------------- v12.7 grass blocks
+## Owner: "grass blocks ... layers of grass inside an invisible box that weave back and forth ... 4 of them together
+## make a big block ... it only scales 4 blocks high ... it animates like the water ... it catches on fire like the
+## leaves and trees ... the colour of the leaves, the lighter one." Grass is not solid (you fly and walk through it):
+## each clump stands on the ground of its cells, one cell (5 m) or four cells together (a 2 x 2 clump, 10 m), 1 to 4
+## layers tall. Drawn as one MultiMesh of a box of woven blade sheets (Data.GRASS_*); shots and fire take it.
+var grass := {}          # cell -> index into grass_inst
+var grass_inst: Array = []   # [first cell, size in cells (1 / 2), ground y, layers, alive]
+var grass_burn := {}     # instance index -> seconds burning
+var grass_burned := 0    # (tests)
+
+## v12.7: the route tests' ground (force) keeps the old landmark sizes they were written for; the game gets the new ones.
+func _lm(k: String, now: Variant) -> Variant:
+	return Data.LANDMARK_TEST[k] if (force or regions_test) and Data.LANDMARK_TEST.has(k) else now
+
+func _grass_pos(g: Array) -> Vector3:
+	var c: int = g[0]
+	var sz: float = float(g[1]) * Data.BLOCK_MIN
+	return Vector3(x0 + (c % n) * Data.BLOCK_MIN + sz * 0.5, float(g[2]), z0 + (c / n) * Data.BLOCK_MIN + sz * 0.5)
+
+static var _grass_noise: FastNoiseLite
+@warning_ignore("integer_division")
+func _grow_grass() -> void:
+	grass.clear()
+	grass_inst.clear()
+	grass_burn.clear()
+	var kind: String = Surface.PLANETS[planet_id]["tiles"][tile] if Surface.PLANETS.has(planet_id) else ""
+	var cover: float = float(Data.GRASS_COVER.get(kind, 0.0))
+	if cover <= 0.0 or force or regions_test: return
+	if _grass_noise == null:
+		_grass_noise = FastNoiseLite.new()
+		_grass_noise.frequency = Data.GRASS_PATCH_FREQ
+		_grass_noise.fractal_octaves = 3
+	_grass_noise.seed = hash(planet_id + "|grass")
+	var cut := lerpf(0.6, -0.4, cover)   # (more cover = a lower bar for the patch noise)
+	var ok := func(c: int) -> bool:
+		if holes.has(c) or fluid.has(c) or (mats.get(c, {}) as Dictionary).size() > 0 or canyon_cells.has(c): return false
+		if h[c] < 1.0: return false   # (not under water)
+		return mat_at(c % n, c / n, h[c] - Data.BLOCK_MIN * 0.5) == "dirt"
+	for bz in range(1, n - 2, 2):
+		for bx in range(1, n - 2, 2):
+			var wx := _pox + x0 + (bx + 1) * Data.BLOCK_MIN
+			var wz := _poz + z0 + (bz + 1) * Data.BLOCK_MIN
+			var v := _grass_noise.get_noise_2d(wx, wz)
+			if v < cut: continue
+			var tall := clampi(1 + int((v - cut) / maxf(0.05, 1.0 - cut) * 4.5), 1, Data.GRASS_MAX_LAYERS - 1)
+			var four := [bz * n + bx, bz * n + bx + 1, (bz + 1) * n + bx, (bz + 1) * n + bx + 1]
+			var good: Array = four.filter(func(c): return ok.call(c))
+			var lo := minf(minf(h[four[0]], h[four[1]]), minf(h[four[2]], h[four[3]]))
+			var hi := maxf(maxf(h[four[0]], h[four[1]]), maxf(h[four[2]], h[four[3]]))
+			if good.size() == 4 and hi - lo < Data.BLOCK_MIN + 0.1 and tall >= 2:
+				grass_inst.append([four[0], 2, lo, tall + (1 if hi > lo + 0.1 else 0), true])   # one big clump over four cells (from the lower one, a step taller)
+				for c in four: grass[c] = grass_inst.size() - 1
+			else:
+				for c in good:
+					grass_inst.append([c, 1, h[c], maxi(1, tall - 1 - int(c % 3 == 0)), true])
+					grass[c] = grass_inst.size() - 1
+	_draw_grass()
+
+## A shot takes the grass it lands in (guns may set it alight, the rest blow it away).
+func _grass_blast(p: Vector3, kind: String) -> void:
+	var spec: Array = Data.BLOCK_BLAST.get(kind, Data.BLOCK_BLAST["gun"])
+	var r: float = float(spec[0]) + Data.BLOCK_MIN
+	var hit := false
+	for gi in grass_inst.size():
+		var g: Array = grass_inst[gi]
+		if not g[4]: continue
+		var gp := _grass_pos(g)
+		if Vector2(gp.x - p.x, gp.z - p.z).length() > r + float(g[1]) * Data.BLOCK_MIN * 0.5: continue
+		if p.y > gp.y + float(g[3]) * Data.BLOCK_MIN + r or p.y < gp.y - r: continue
+		if _rng.randf() < float(Data.GRASS_FIRE_CHANCE.get(kind, 0.3)): grass_burn[gi] = 0.0
+		else: _grass_kill(gi)
+		hit = true
+	if hit:
+		_fire_dirty = true
+		_draw_grass()
+
+func _grass_kill(gi: int) -> void:
+	var g: Array = grass_inst[gi]
+	if not g[4]: return
+	g[4] = false
+	grass_burn.erase(gi)
+	grass_burned += 1
+
+@warning_ignore("integer_division")
+func _grass_fire_tick(burning_keys: Array) -> void:
+	# burning trees and leaves light the grass round their foot
+	for kv in burning_keys:
+		var c: int = (kv as Vector2i).x
+		for d in [0, 1, -1, n, -n, 2, -2, 2 * n, -2 * n]:
+			var nc: int = c + d
+			if grass.has(nc) and grass_inst[grass[nc]][4] and not grass_burn.has(grass[nc]) and _rng.randf() < Data.GRASS_SPREAD: grass_burn[grass[nc]] = 0.0
+	var changed := false
+	for gi in grass_burn.keys():
+		if not grass_burn.has(gi): continue
+		grass_burn[gi] = float(grass_burn[gi]) + Data.FIRE_TICK
+		var g: Array = grass_inst[gi]
+		var c0: int = g[0]
+		var sz: int = g[1]
+		for dz in range(-1, sz + 1):   # it spreads through the field
+			for dx in range(-1, sz + 1):
+				var nc := c0 + dz * n + dx
+				if grass.has(nc):
+					var ni: int = grass[nc]
+					if ni != gi and grass_inst[ni][4] and not grass_burn.has(ni) and _rng.randf() < Data.GRASS_SPREAD: grass_burn[ni] = 0.0
+		if float(grass_burn[gi]) >= Data.GRASS_BURN:
+			_grass_kill(gi)
+			changed = true
+	if changed: _draw_grass()
+
+const GRASS_SHADER := """shader_type spatial;
+render_mode cull_disabled, diffuse_lambert, specular_disabled;
+uniform vec3 grass_col = vec3(0.4, 0.7, 0.3);
+uniform float blades = 7.0;
+varying float seed;
+varying float sway_k;
+float hsh(float x) { return fract(sin(x * 91.17 + 7.3) * 43758.5453); }
+void vertex() {
+	vec3 o = MODEL_MATRIX[3].xyz;
+	seed = fract(o.x * 0.0137 + o.z * 0.0291);
+	float t = TIME * 1.7 + o.x * 0.045 + o.z * 0.037;
+	float k = UV.y * UV.y;
+	sway_k = k;
+	VERTEX.x += (sin(t) * 0.09 + sin(t * 2.3 + VERTEX.z * 6.0) * 0.03) * k;
+	VERTEX.z += (cos(t * 0.8) * 0.07) * k;
+}
+void fragment() {
+	float bu = UV.x * blades;
+	float id = floor(bu) + seed * 131.0;
+	float fx = fract(bu) - 0.5;
+	float hb = 0.55 + 0.45 * hsh(id);
+	float lean = (hsh(id * 1.7) - 0.5) * 0.9;
+	float x = fx - lean * UV.y;
+	float wdt = 0.46 * (1.0 - UV.y / hb);
+	if (UV.y > hb || abs(x) > wdt) discard;
+	vec3 c = grass_col * (0.42 + 0.7 * UV.y) * (0.85 + 0.3 * hsh(id * 3.1));
+	ALBEDO = c * COLOR.rgb;
+	BACKLIGHT = c * 0.35;
+	ROUGHNESS = 0.8;
+}
+"""
+static var _grass_mesh: ArrayMesh
+## One grass block (a 1 x 1 x 1 box, scaled to the clump): 4 woven sheets each way at full height and 4 shorter ones
+## between them (the "smaller layers within").
+static func grass_mesh() -> ArrayMesh:
+	if _grass_mesh != null: return _grass_mesh
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var seg := Data.GRASS_SEGMENTS
+	var sheet := func(along_x: bool, off: float, tall: float, phase: float) -> void:
+		for i in seg:
+			var a := -0.5 + float(i) / seg
+			var b := -0.5 + float(i + 1) / seg
+			var wa := off + 0.07 * sin(a * TAU * 1.5 + phase)
+			var wb := off + 0.07 * sin(b * TAU * 1.5 + phase)
+			var p0 := Vector3(a, 0, wa) if along_x else Vector3(wa, 0, a)
+			var p1 := Vector3(b, 0, wb) if along_x else Vector3(wb, 0, b)
+			var p2 := p1 + Vector3(0, tall, 0)
+			var p3 := p0 + Vector3(0, tall, 0)
+			var u0 := (a + 0.5) * 1.0 + phase
+			var u1 := (b + 0.5) * 1.0 + phase
+			for v in [[p0, Vector2(u0, 0)], [p1, Vector2(u1, 0)], [p2, Vector2(u1, 1)], [p0, Vector2(u0, 0)], [p2, Vector2(u1, 1)], [p3, Vector2(u0, 1)]]:
+				st.set_normal(Vector3.UP)
+				st.set_uv(v[1])
+				st.add_vertex(v[0])
+	for i in 4:
+		var o := -0.375 + i * 0.25
+		sheet.call(true, o, 1.0, i * 1.3)
+		sheet.call(false, o, 1.0, i * 0.7 + 0.4)
+		sheet.call(true, o + 0.125, 0.55, i * 2.1 + 0.9)
+	_grass_mesh = st.commit()
+	return _grass_mesh
+
+func _draw_grass() -> void:
+	var mi := get_node_or_null("Grass") as MultiMeshInstance3D
+	if mi == null:
+		mi = MultiMeshInstance3D.new()
+		mi.name = "Grass"
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_colors = true
+		mm.mesh = grass_mesh()
+		mi.multimesh = mm
+		var mat := ShaderMaterial.new()
+		var sh := Shader.new()
+		sh.code = GRASS_SHADER
+		mat.shader = sh
+		var lc: Array = leaf_colors()   # the lighter of the planet's two leaf colours
+		var a: Color = lc[0]
+		var b: Color = lc[1]
+		var pick: Color = a if a.get_luminance() >= b.get_luminance() else b
+		mat.set_shader_parameter("grass_col", Vector3(pick.r, pick.g, pick.b))
+		mat.set_shader_parameter("blades", float(Data.GRASS_BLADES))
+		mi.material_override = mat
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.visibility_range_end = Data.GRASS_VIEW   # (phones: only the grass round you is drawn)
+		mi.visibility_range_end_margin = 60.0
+		mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+		add_child(mi)
+	mi.position = Vector3.ZERO   # (instances are placed in the field's own frame, like the fire)
+	var live: Array = []
+	for gi in grass_inst.size(): if grass_inst[gi][4]: live.append(gi)
+	mi.multimesh.instance_count = live.size()
+	for j in live.size():
+		var g: Array = grass_inst[live[j]]
+		var sz: float = float(g[1]) * Data.BLOCK_MIN
+		var hh: float = float(g[3]) * Data.BLOCK_MIN
+		mi.multimesh.set_instance_transform(j, Transform3D(Basis.from_scale(Vector3(sz, hh, sz)), _grass_pos(g)))
+		mi.multimesh.set_instance_color(j, Color(0.35, 0.18, 0.1) if grass_burn.has(live[j]) else Color.WHITE)
 
 ## v1.7j: winding tunnels from a mold cave's side rooms out to the nearest sealed caves (v1.6d), wandering by noise but
 ## always steering home to the cave, so the system is connected on purpose; each ends in a little junction room
@@ -1927,10 +2146,10 @@ func _build_landmarks() -> void:
 			if c < 0 or c >= n * n or holes.has(c) or fluid.has(c): return false
 		return true
 	var tries := 0
-	var want := _scaled(Data.ARCH_COUNT, rng)
+	var want := _scaled(_lm("ARCH_COUNT", Data.ARCH_COUNT), rng)
 	while arches.size() < want and tries < 80:
 		tries += 1
-		var length := rng.randi_range(int(Data.ARCH_SPAN[0]), int(Data.ARCH_SPAN[1]))   # cells between the legs
+		var length := rng.randi_range(int(_lm("ARCH_SPAN", Data.ARCH_SPAN)[0]), int(_lm("ARCH_SPAN", Data.ARCH_SPAN)[1]))   # cells between the legs
 		var along_x := rng.randf() < 0.5
 		var lx := rng.randi_range(3, n - length - 8)
 		var lz := rng.randi_range(3, n - 6)
@@ -1946,8 +2165,8 @@ func _build_landmarks() -> void:
 		for c in all_cells:
 			ground = maxf(ground, h[c])
 			low = minf(low, h[c])
-		if ground - low > Data.LANDMARK_FLAT: continue   # only on fairly even ground
-		var clear: float = rng.randf_range(float(Data.ARCH_CLEAR[0]), float(Data.ARCH_CLEAR[1]))
+		if ground - low > _lm("LANDMARK_FLAT", Data.LANDMARK_FLAT): continue   # only on fairly even ground
+		var clear: float = rng.randf_range(float(_lm("ARCH_CLEAR", Data.ARCH_CLEAR)[0]), float(_lm("ARCH_CLEAR", Data.ARCH_CLEAR)[1]))
 		var thick: float = Data.ARCH_THICK
 		var m := "obsidian" if rng.randf() < 0.35 else "stone"
 		var treasure := "" if rng.randf() > 0.4 else ("diamond" if rng.randf() < 0.35 else "gold")
@@ -1982,11 +2201,11 @@ func _build_landmarks() -> void:
 				_mark(c % n, c / n, 1)
 		arches.append({"legs": legs, "span": span, "mid": cell_at.call((length + leg_w * 2) / 2, 0), "mat": m, "treasure": treasure})
 	tries = 0
-	var want_o := _scaled(Data.OVERHANG_COUNT, rng)
+	var want_o := _scaled(_lm("OVERHANG_COUNT", Data.OVERHANG_COUNT), rng)
 	while overhangs.size() < want_o and tries < 80:
 		tries += 1
 		var bw := 4
-		var jut := rng.randi_range(int(Data.OVERHANG_JUT[0]), int(Data.OVERHANG_JUT[1]))
+		var jut := rng.randi_range(int(_lm("OVERHANG_JUT", Data.OVERHANG_JUT)[0]), int(_lm("OVERHANG_JUT", Data.OVERHANG_JUT)[1]))
 		var ox := rng.randi_range(3, n - bw - jut - 4)
 		var oz := rng.randi_range(3, n - bw - 4)
 		var cells: Array = []
@@ -1999,8 +2218,8 @@ func _build_landmarks() -> void:
 		for c in cells:
 			ground = maxf(ground, h[c])
 			low = minf(low, h[c])
-		if ground - low > Data.LANDMARK_FLAT: continue
-		var rise: float = rng.randf_range(float(Data.OVERHANG_RISE[0]), float(Data.OVERHANG_RISE[1]))
+		if ground - low > _lm("LANDMARK_FLAT", Data.LANDMARK_FLAT): continue
+		var rise: float = rng.randf_range(float(_lm("OVERHANG_RISE", Data.OVERHANG_RISE)[0]), float(_lm("OVERHANG_RISE", Data.OVERHANG_RISE)[1]))
 		var top: float = ceilf((ground + rise) / step) * step
 		var under: float = floorf((top - Data.OVERHANG_THICK) / step) * step
 		var base: Array = []
@@ -2038,7 +2257,7 @@ func _build_slabs() -> void:
 	rng.seed = hash(_sk + "|slabs")
 	var step: float = Data.BLOCK_MIN
 	for kind in ["lean", "aframe"]:
-		var want := _scaled(Data.SLAB_COUNT if kind == "lean" else Data.AFRAME_COUNT, rng)
+		var want := _scaled(_lm("SLAB_COUNT", Data.SLAB_COUNT) if kind == "lean" else _lm("AFRAME_COUNT", Data.AFRAME_COUNT), rng)
 		var tries := 0
 		var made := 0
 		while made < want and tries < 60:
@@ -2064,7 +2283,7 @@ func _build_slabs() -> void:
 					cells.append(c)
 					ground = maxf(ground, h[c])
 					low = minf(low, h[c])
-			if not ok or ground - low > Data.LANDMARK_FLAT: continue
+			if not ok or ground - low > _lm("LANDMARK_FLAT", Data.LANDMARK_FLAT): continue
 			var rise: float = rng.randf_range(float(Data.SLAB_RISE[0]), float(Data.SLAB_RISE[1]))
 			var thick: float = Data.SLAB_THICK
 			var m := "obsidian" if rng.randf() < 0.3 else "stone"
@@ -2220,7 +2439,7 @@ func _carve_canyon() -> void:
 	var nz := FastNoiseLite.new()
 	nz.seed = rng.randi()
 	nz.frequency = 0.05
-	var depth: float = rng.randf_range(float(Data.CANYON_DEPTH[0]), float(Data.CANYON_DEPTH[1]))
+	var depth: float = rng.randf_range(float(_lm("CANYON_DEPTH", Data.CANYON_DEPTH)[0]), float(_lm("CANYON_DEPTH", Data.CANYON_DEPTH)[1]))
 	var seen := {}
 	var t := 0
 	var gold_left := 6
@@ -2262,8 +2481,8 @@ func _carve_root_halls() -> void:
 	halls.clear()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(_sk + "|roothalls")
-	var w: int = Data.HALL_SIZE
-	var hl: int = Data.HALL_LAYERS
+	var w: int = _lm("HALL_SIZE", Data.HALL_SIZE)
+	var hl: int = _lm("HALL_LAYERS", Data.HALL_LAYERS)
 	var sp: int = Data.HALL_TRUNK_SPACING
 	var tries := 0
 	var want := _scaled(Data.HALL_COUNT, rng)
@@ -2437,7 +2656,7 @@ func _set_fluid(c: int, k: int, kind: String) -> void:
 ## exposure); everywhere else, and in every sealed pocket, they sit still and cost nothing.
 func fluid_update(dt: float, near: Vector3) -> void:
 	var t0 := Time.get_ticks_usec()
-	if not burning.is_empty(): _fire_update(dt, near)
+	if not burning.is_empty() or not grass_burn.is_empty(): _fire_update(dt, near)
 	var t1 := Time.get_ticks_usec()
 	_fluid_t += dt
 	if _fluid_t >= Data.FLUID_TICK:
