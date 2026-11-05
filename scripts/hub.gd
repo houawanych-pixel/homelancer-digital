@@ -1371,7 +1371,7 @@ func loc_room(rn: String) -> String:
 	place = str(Data.LOC_ROOM_ALIAS.get(place, place))
 	var rs: Array = Data.LOC_ROOMS.get(place, [])
 	if rs.is_empty(): return ""
-	var r := str(rs[0]) if rs.size() == 1 else str(Data.LOC_ROOM_OF.get(rn, ""))
+	var r := str(rs[0]) if rs.size() == 1 and str(rs[0]) == "commandnest" else str(Data.LOC_ROOM_OF.get(rn, ""))   # (a half-made place: only the rooms it has)
 	return "loc_%s_%s" % [place, r] if r in rs else ""
 
 func room_for(s: String) -> String:
