@@ -1413,7 +1413,7 @@ func _build_board_env(tint: Color) -> void:
 	e.background_color = Color(0.02, 0.02, 0.03)
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	e.ambient_light_color = Color(0.55, 0.57, 0.62).lerp(tint, 0.15)
-	e.ambient_light_energy = 0.35   # (v11.70: a dark ship, lit by its lamps; it was washed out white)
+	e.ambient_light_energy = 0.6   # (v11.70: a dark ship, lit by its lamps; v12.32 (owner: "there should never be a situation where I'm in a pitch black area"): a floor of light everywhere)
 	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	e.glow_enabled = true
 	env.environment = e
@@ -5611,7 +5611,17 @@ func _spawn_bolt(from: Vector3, v: Vector3, dmg: float, col: Color, owner: Strin
 	head.position = Vector3(0, 0, -Data.BOLT_LEN * 0.45)   # (at the streak's front)
 	head.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mi.add_child(head)
-	bolts.append({"node": mi, "vel": v, "life": life, "dmg": dmg, "owner": owner, "sf": sf})   # sf: v1.9u shield share (-1 = normal)
+	var lit := false
+	if owner == "player" and (boarding or surface_mode) and _bolt_lights < Data.LAMP_BOLT_LIGHTS:   # v12.32 (owner): your lasers light the way down the hall
+		var bl := OmniLight3D.new()
+		bl.light_color = col.lightened(0.2)
+		bl.light_energy = Data.LAMP_BOLT_ENERGY
+		bl.omni_range = Data.LAMP_BOLT_RANGE
+		bl.shadow_enabled = false
+		mi.add_child(bl)
+		_bolt_lights += 1
+		lit = true
+	bolts.append({"node": mi, "vel": v, "life": life, "dmg": dmg, "owner": owner, "sf": sf, "lit": lit})   # sf: v1.9u shield share (-1 = normal)
 
 static var _head_q: QuadMesh
 static var _head_mats := {}
@@ -5846,6 +5856,7 @@ func _update_bolts(dt: float) -> void:
 						hit = true
 						break
 		if hit or b["life"] <= 0.0:
+			if bool(b.get("lit", false)): _bolt_lights -= 1
 			n.queue_free()
 			bolts.remove_at(i)
 
@@ -7411,6 +7422,7 @@ func _sword_targets(dir: Vector3, reach: float, cone: float) -> Array:
 	return out
 
 func _sword_hit(e: Dictionary) -> void:
+	lamp_flash = 1.8   # v12.32: a bright flicker on the hit
 	if not enemies.has(e): return
 	var at: Vector3 = (e["node"] as Node3D).global_position
 	sword_hits += 1
@@ -7426,6 +7438,7 @@ func _sword_slash_fx(dir: Vector3, reach: float) -> void:
 		var a := (k / 6.0 - 0.5) * PI * 0.9
 		_spark(p + (dir * cos(a) + side * sin(a)) * reach * 0.8, Color(0.5, 0.9, 1.0), 4.0, 0.18)
 	Sfx.play("saber_swing", -5.0, randf_range(0.92, 1.12))
+	lamp_flash = maxf(lamp_flash, 1.0)   # v12.32 (owner): the blade throws light as it swings
 	_sword_harvest(dir, reach)
 
 ## v12.25 (owner): the blade cuts the block ground in front: trees come down without catching fire, stone and harder
@@ -7705,9 +7718,71 @@ func _update_blade(dt: float) -> void:
 		_: _blade_spin = lerpf(_blade_spin, 0.35, dt * 8.0)   # held: blade out, ready
 	_blade.rotation = Vector3(-0.15, _blade_spin, 0)
 
+## v12.32 (owner: "if I'm in a dark area, activating my shield can light up the area around me ... my sword is also a
+## source of light ... if things catch on fire I could light those areas ... never a situation where I'm in a pitch black
+## area"): a lamp on you (always a little light inside a ship or on a world; bright and blue with the shield up; a flash
+## when the sword swings or hits), lights on your own laser bolts, and lights on the fires nearest you.
+var lamp_flash := 0.0
+var lamp: OmniLight3D
+var _bolt_lights := 0
+var _fire_lights: Array = []
+var _fire_t := 0.0
+func lamp_energy() -> float:
+	return lamp.light_energy if is_instance_valid(lamp) else 0.0
+
+func _update_lamp(dt: float) -> void:
+	if not is_instance_valid(player): return
+	if not is_instance_valid(lamp):
+		lamp = OmniLight3D.new()
+		lamp.name = "Lamp"
+		lamp.shadow_enabled = false
+		player.add_child(lamp)
+	lamp_flash = maxf(0.0, lamp_flash - dt * 3.5)
+	var dark := boarding or surface_mode
+	var shield_on := laser_shield or shield_cd > Data.SHIELD_BOOST_COOLDOWN - 1.5
+	var base: float = (Data.LAMP_BOARD if boarding else Data.LAMP_SURFACE) if dark else 0.0
+	var e: float = base + (Data.LAMP_SHIELD if shield_on and dark else 0.0) + lamp_flash * Data.LAMP_FLASH * (1.0 if dark else 0.4)
+	var col := Color(1.0, 0.92, 0.8)
+	if shield_on: col = Color(0.55, 0.8, 1.0)
+	if lamp_flash > 0.05: col = col.lerp(Color(0.5, 0.95, 1.0), clampf(lamp_flash, 0.0, 1.0) * (0.7 + 0.3 * randf()))
+	lamp.light_color = col
+	lamp.light_energy = e
+	lamp.omni_range = Data.LAMP_RANGE * (1.4 if shield_on else 1.0)
+	lamp.position = Vector3(0, Data.LAMP_UP, 0)
+	lamp.visible = e > 0.01
+	# fires: lights on the burning blocks nearest you (a few, moved every 0.3 s)
+	_fire_t -= dt
+	if _fire_t > 0.0: return
+	_fire_t = 0.3
+	var spots: Array = []
+	var f := _block_field_at(player.global_position.x, player.global_position.z) if surface_mode else null
+	if f != null and not f.burning.is_empty():
+		var pp := player.global_position
+		for key in f.burning:
+			var c: int = (key as Vector2i).x
+			var k: int = (key as Vector2i).y
+			var p := f.to_global(Vector3(f.x0 + (c % f.n + 0.5) * Data.BLOCK_MIN, f._ly(k) - Data.BLOCK_MIN * 0.5, f.z0 + (c / f.n + 0.5) * Data.BLOCK_MIN))
+			spots.append([p.distance_squared_to(pp), p])
+		spots.sort_custom(func(a, b): return a[0] < b[0])
+	for i in Data.LAMP_FIRES:
+		if i >= _fire_lights.size():
+			var fl := OmniLight3D.new()
+			fl.light_color = Color(1.0, 0.55, 0.2)
+			fl.omni_range = Data.LAMP_FIRE_RANGE
+			fl.shadow_enabled = false
+			add_child(fl)
+			_fire_lights.append(fl)
+		var l: OmniLight3D = _fire_lights[i]
+		if not is_instance_valid(l): continue
+		l.visible = i < spots.size()
+		if l.visible:
+			l.global_position = spots[i][1]
+			l.light_energy = Data.LAMP_FIRE_ENERGY * randf_range(0.75, 1.15)
+
 func _collisions(dt: float) -> void:
 	sidestep_t = maxf(0.0, sidestep_t - dt)
 	_update_laser_shield(dt)
+	_update_lamp(dt)
 	_update_sword(dt)
 	_update_build(dt)
 	sidestep_cd = maxf(0.0, sidestep_cd - dt)

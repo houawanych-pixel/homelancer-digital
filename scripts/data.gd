@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.31"
+const VERSION := "v12.32"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -555,6 +555,15 @@ const BLOCK_SLANT_FREQ := 0.006      #   noise is over this; the rest is square 
 # they flow only near the player. Water turns sand to dirt; lava eats sand, trades with dirt, stops at stone; lava +
 # water = obsidian. Lava burns.
 const FLUID_POCKETS := {"water": 8, "lava": 5}
+## v12.32 (owner: "take the basic geography of the planet and make the whole planet more of that genre ... it may not
+## have water but it may have lava"): each kind of land has its own ground. Underground water / lava pockets scaled by land
+## (missing = 1.0); impact craters (moons, dead worlds); wind-blown dunes (deserts).
+const GEO_FLUID := {"barren": {"water": 0.0, "lava": 0.4}, "volcanic": {"water": 0.0, "lava": 3.0}, "desert": {"water": 0.15, "lava": 0.3},
+	"wasteland": {"water": 0.0, "lava": 0.8}, "ice": {"water": 1.2, "lava": 0.0}, "crystal": {"water": 0.0, "lava": 0.0}, "machine": {"water": 0.0, "lava": 0.0},
+	"jungle": {"water": 1.6, "lava": 0.0}, "forest": {"water": 1.2, "lava": 0.1}, "ocean": {"water": 1.4, "lava": 0.0}, "coast": {"water": 1.2, "lava": 0.1},
+	"toxic": {"water": 1.0, "lava": 0.0}, "clouds": {"water": 0.0, "lava": 0.0}, "canyon": {"water": 0.4, "lava": 0.5}, "mountains": {"water": 0.8, "lava": 0.3}}
+const GEO_CRATERS := {"barren": 1.0, "wasteland": 0.45, "volcanic": 0.3, "crystal": 0.2}
+const GEO_DUNES := {"desert": 1.0, "wasteland": 0.25}
 const FLUID_DEPTH := {"water": [20.0, 60.0], "lava": [60.0, 150.0]}   # m under the ground
 const FLUID_TICK := 0.25             # s per flow step
 const LAVA_SLOW := 3                 # lava moves every this many steps (slower)
@@ -627,7 +636,7 @@ const LEAF_SETS := {
 	"toxic": [[Color(0.62, 0.85, 0.12), Color(0.88, 0.82, 0.15)], [Color(0.25, 0.70, 0.30), Color(0.15, 0.55, 0.55)]],
 	"crystal": [[Color(0.92, 0.45, 0.75), Color(0.55, 0.35, 0.90)], [Color(0.35, 0.85, 0.90), Color(0.85, 0.35, 0.85)]],
 	"green": [[Color(0.16, 0.55, 0.50), Color(0.52, 0.40, 0.72)], [Color(0.22, 0.60, 0.18), Color(0.40, 0.72, 0.22)], [Color(0.12, 0.45, 0.22), Color(0.78, 0.72, 0.18)]]}
-const TREES_PER_TILE := {"forest": 10, "coast": 4, "mountains": 3, "city": 3, "canyon": 2, "industrial": 1, "ocean": 1, "desert": 0, "ice": 0, "volcanic": 0, "sun": 0}   # per 800 m (a region gets its share); others 2
+const TREES_PER_TILE := {"forest": 10, "coast": 4, "mountains": 3, "city": 3, "canyon": 2, "industrial": 1, "ocean": 1, "desert": 0, "ice": 0, "volcanic": 0, "sun": 0, "barren": 0, "crystal": 0, "machine": 0, "wasteland": 0, "clouds": 0, "toxic": 1}   # per 800 m (a region gets its share); others 2 (v12.32: no trees on moons and dead worlds)
 const TREE_TRUNK := [2, 3]           # trunk width in cells (10-15 m)
 const TREE_TALL := [6, 10]           # trunk height in layers (30-50 m)
 const TREE_BRANCHES := [3, 5]
@@ -636,7 +645,7 @@ const TREE_ROOTS := [3, 5]
 # v1.7l WATERFALLS (the owner's picture 06): where a cliff drops sharply, a pool set back on its top pours over a rock
 # lip down the face into a pool with white foam at its foot. The falling sheet is a moving picture; the pools are real
 # water. Blast the lip or the cliff face and the fall stops.
-const FALLS_PER_TILE := {"jungle": 6, "forest": 3, "coast": 3, "mountains": 4, "canyon": 3, "city": 1, "industrial": 1, "ocean": 1, "desert": 0, "volcanic": 0, "ice": 0, "sun": 0}   # per 800 m; others 2
+const FALLS_PER_TILE := {"jungle": 6, "forest": 3, "coast": 3, "mountains": 4, "canyon": 3, "city": 1, "industrial": 1, "ocean": 1, "desert": 0, "volcanic": 0, "ice": 0, "sun": 0, "barren": 0, "crystal": 0, "machine": 0, "wasteland": 0, "clouds": 0, "toxic": 1}   # per 800 m; others 2 (v12.32: no waterfalls on dry worlds)
 const FALL_DROP := 20.0              # m: the least drop for a waterfall
 const FALL_WIDE := 2                 # cells across (10 m)
 const FALL_COLOR := Color(0.62, 0.86, 1.0, 0.85)
@@ -723,11 +732,11 @@ const KILL_COLOR := Color(1.0, 0.82, 0.45)
 # Pride Rock promontories (a slab jutting out over open air). Sizes in 5 m cells / metres; realistic, no thin spikes.
 const LANDMARK_TEST := {"ARCH_COUNT": 3, "ARCH_SPAN": [6, 11], "ARCH_CLEAR": [25.0, 45.0], "OVERHANG_COUNT": 2, "OVERHANG_JUT": [3, 5], "OVERHANG_RISE": [35.0, 60.0],
 	"LANDMARK_FLAT": 25.0, "CAVE_SIZE": 14, "CAVE_LAYERS": 8, "HALL_SIZE": 24, "HALL_LAYERS": 10, "CANYON_DEPTH": [40.0, 70.0], "SLAB_COUNT": 4, "AFRAME_COUNT": 3}   # v12.7: the route tests' ground keeps the sizes they were written for
-const ARCH_COUNT := 6   # v12.7 (owner: massive arcs): was 3
+const ARCH_COUNT := 0   # v12.32 (owner: "get rid of those arcs ... looks dumb all over the place"); v12.7 was 6
 const ARCH_SPAN := [8, 20]           # cells of open air between the legs (30-55 m)
 const ARCH_CLEAR := [40.0, 90.0]     # m of headroom under the middle
 const ARCH_THICK := 10.0             # m of rock over the opening
-const OVERHANG_COUNT := 4   # v12.7: was 2
+const OVERHANG_COUNT := 0   # v12.32: the pillar-and-slab rocks go with the arches; v12.7 was 4
 const OVERHANG_JUT := [4, 8]         # cells the slab juts out (15-25 m)
 const OVERHANG_RISE := [45.0, 100.0]  # m the promontory stands over the ground
 const OVERHANG_THICK := 10.0
@@ -1999,6 +2008,19 @@ const SWORD_COMBO := 4                                 # slashes in a forward da
 ## v12.31 (owner: "I don't want the Minecraft build ... take that out ... more focused on just the gameplay and the
 ## destruction"): BUILD mode is off: no BUILD button, no material slots, nothing collected. The sword still cuts.
 const BUILD_ON := false
+## v12.32 (owner: "never a situation where I'm in a pitch black area"): light you carry (space.gd _update_lamp)
+const LAMP_BOARD := 1.2        # always on you inside a ship or base
+const LAMP_SURFACE := 0.35     # on a world (night, caves)
+const LAMP_SHIELD := 2.6       # more with the shield up (blue)
+const LAMP_FLASH := 3.5        # the sword's flash on a swing / hit
+const LAMP_RANGE := 55.0
+const LAMP_UP := 5.0
+const LAMP_BOLT_LIGHTS := 6    # your laser bolts that carry a light at once (phones: kept few)
+const LAMP_BOLT_ENERGY := 2.2
+const LAMP_BOLT_RANGE := 22.0
+const LAMP_FIRES := 4          # lights on the nearest burning blocks
+const LAMP_FIRE_ENERGY := 2.4
+const LAMP_FIRE_RANGE := 30.0
 const BUILD_MATS := ["stone", "wood", "obsidian", "gold", "diamond"]
 const BUILD_SLOTS := 9               # slots on the bar (the rest wait for new materials)
 const BUILD_REACH := 60.0            # m along the crosshair

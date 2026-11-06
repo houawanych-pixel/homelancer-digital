@@ -2404,6 +2404,108 @@ func _run() -> void:
 			await _capture("crowd_%d" % i)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_GEO") != "":   # v12.32: each kind of world has its own ground (moon craters, desert dunes, no trees or arches where they don't belong)
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var rows := []
+		for pid in ["void_system_planet", "techanis_planet", "eden_prime"]:
+			if not Surface.has_surface(pid):
+				rows.append([pid, "no surface"])
+				continue
+			main._load_surface(pid, 0)
+			await _wait(0.5)
+			var s := _sp()
+			var hold := s.player.global_position
+			s.holding = true
+			await _until(func(): s.player.global_position = hold; return s._regions.size() >= 4 and s._building == null, 150.0)
+			var trees := 0
+			var arches := 0
+			var falls := 0
+			var lava := 0
+			var water := 0
+			for k in s._regions:
+				var f: BlockField = s._regions[k]
+				trees += f.trees.size()
+				arches += f.arches.size() + f.overhangs.size()
+				falls += f.falls.size()
+				for pk in f.pockets: if str(pk.get("kind", "")) == "lava": lava += 1
+				for pk in f.pockets: if str(pk.get("kind", "")) == "water": water += 1
+			# ground relief along a line: craters / dunes show as many dips
+			var dips := 0
+			var prev := 0.0
+			var down := false
+			for i in 200:
+				var hh := Surface.height(pid, 0, -1500.0 + i * 15.0, 300.0)
+				if i > 0:
+					if hh < prev - 2.0 and not down:
+						dips += 1
+						down = true
+					elif hh > prev + 2.0: down = false
+				prev = hh
+			rows.append([pid, str(Surface.PLANETS[pid]["tiles"][0]), trees, arches, falls, water, lava, dips])
+			main.hud.visible = false
+			_tp(hold + Vector3(0, 260, 0), hold + Vector3(300, 60, 300))
+			await _wait(0.6)
+			await _capture("geo_" + pid)
+			main.hud.visible = true
+			s.holding = false
+		print("[route] GEO ", rows)
+		var moon: Array = rows[0]
+		var des: Array = rows[1]
+		_check("v12.32 (owner): each world its own ground: the dead moon has craters and no trees, waterfalls, water or arches (%s); the desert has dunes and no water (%s); no arches anywhere (%s)" % [moon, des, rows[2]],
+			moon.size() > 2 and int(moon[2]) == 0 and int(moon[3]) == 0 and int(moon[4]) == 0 and int(moon[5]) == 0 and int(moon[7]) >= 4 and des.size() > 2 and int(des[5]) == 0 and int(des[7]) >= 6 and int(rows[2][3]) == 0)
+		_finish_group()
+		return
+	if OS.get_environment("HL_DARK") != "":   # v12.32: what you see as you board (owner: "it was all black")
+		await _smoke_core()
+		var s := _sp()
+		var mb: Dictionary = s._spawn_capital("inv_battleship", "battleship", s.player.global_position - s.player.global_basis.z * 2500.0, s.player.global_position, "Unity")
+		await _frames(3)
+		main.board_battleship(mb)
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding, 15.0)
+		await _wait(2.0)
+		s = _sp()
+		var cam := get_viewport().get_camera_3d()
+		var nm := 0
+		var vis := 0
+		for n in s.find_children("*", "MeshInstance3D", true, false):
+			nm += 1
+			if (n as MeshInstance3D).is_visible_in_tree(): vis += 1
+		var lights := s.find_children("*", "Light3D", true, false).size()
+		print("[route] DARK form=%s player=%s cam=%s cam_path=%s meshes=%d visible=%d lights=%d player_vis=%s" % [GS.form, s.player.global_position, cam.global_position if cam else null, cam.get_path() if cam else "", nm, vis, lights, s.player.is_visible_in_tree()])
+		await _capture("dark_board")
+		var e0: float = s.lamp_energy()
+		s.laser_shield = true
+		await _frames(3)
+		var e1: float = s.lamp_energy()
+		s.laser_shield = false
+		s._sword_slash_fx(-s.player.global_basis.z, 20.0)
+		await _frames(1)
+		var e2: float = s.lamp_energy()
+		s._spawn_bolt(s.player.global_position + Vector3(0, 4, 0), -s.player.global_basis.z * 200.0, 1.0, Color(0.3, 0.8, 1.0), "player", 1.0)
+		var lit: bool = s._bolt_lights >= 1
+		var amb: float = (s.env.environment as Environment).ambient_light_energy
+		_check("v12.32 (owner: never pitch black): inside a ship you carry a lamp (%.1f), brighter with the shield up (%.1f), a flash when the sword swings (%.1f); your laser bolts carry light; the ship has a floor of light (%.2f)" % [e0, e1, e2, amb],
+			e0 >= Data.LAMP_BOARD - 0.01 and e1 > e0 + 1.0 and e2 > e0 + 1.0 and lit and amb >= 0.5)
+		main.leave_boarding(false)
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and not main.space.boarding, 15.0)
+		await _wait(1.0)
+		main._load_surface("solara_haven", 0)
+		await _wait(1.0)
+		s = _sp()
+		GS.form = "mech"
+		var sites: Array = Surface.facility_sites("solara_haven")
+		print("[route] DARK sites ", sites.map(func(x): return x["name"]))
+		main.enter_facility(sites[0])
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding, 15.0)
+		await _wait(2.0)
+		s = _sp()
+		cam = get_viewport().get_camera_3d()
+		print("[route] DARK2 form=%s player=%s cam=%s lights=%d meshes=%d" % [GS.form, s.player.global_position, cam.global_position if cam else null, s.find_children("*", "Light3D", true, false).size(), s.find_children("*", "MeshInstance3D", true, false).size()])
+		await _capture("dark_facility")
+		_finish_group()
+		return
 	if OS.get_environment("HL_BOARDSHOT") != "":   # v11.71: pictures of the boarding run (HL_SHOT_DIR)
 		await _smoke_core()
 		var s := _sp()

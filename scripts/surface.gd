@@ -221,6 +221,13 @@ static func sample(planet_id: String, gx: float, gz: float) -> Array:
 			var amp: float = float(bd["amp"])
 			hb[0] = float(hb[0]) + ak * (al.x * amp * Data.ALIEN_RIDGE + al.y * amp * Data.ALIEN_MESA - al.z * amp * Data.ALIEN_CANYON)
 			hb[1] = _biome_col(bd, float(hb[0]))   # (the colour follows the sculpted height: canyon floors low, crests high)
+		if not BlockField.force and not BlockField.regions_test:   # v12.32 (owner): moons get craters, deserts dunes
+			var land := str(PLANETS[planet_id]["tiles"][t])
+			var crk: float = float(Data.GEO_CRATERS.get(land, 0.0))
+			var duk: float = float(Data.GEO_DUNES.get(land, 0.0))
+			if crk > 0.0: hb[0] = float(hb[0]) + crk * _craters(planet_id, u, w, wp)
+			if duk > 0.0: hb[0] = float(hb[0]) + duk * _dunes(u, w, wp, nr.x)
+			if crk > 0.0 or duk > 0.0: hb[1] = _biome_col(bd, float(hb[0]))
 		h += hb[0] * wt
 		col += (hb[1] as Color) * wt
 	# flatten the ground under settlements (looked up in the tile that contains this point)
@@ -243,6 +250,49 @@ static func sample(planet_id: String, gx: float, gz: float) -> Array:
 				var kb := clampf((dd - r) / (r * 0.8), 0.0, 1.0)
 				h = lerpf(float(bp[3]), h, kb * kb * (3.0 - 2.0 * kb))
 	return [h, col]
+
+## v12.32 (owner: "on the moon should have more like craters"): impact craters, a bowl with a raised rim, big ones
+## (90-240 m across... radius) and small ones, scattered by a hash of the cell so they're the same every visit and meet
+## across the wrap line (the cells divide the planet's width).
+static func _ih(a: int, b: int, c: int) -> int:
+	var x := (a * 73856093) ^ (b * 19349663) ^ (c * 83492791)
+	x = ((x >> 13) ^ x) * 1274126177
+	return absi(x ^ (x >> 16))
+
+static func _craters(planet_id: String, u: float, w: float, wp: float) -> float:
+	var out := 0.0
+	var seed_i := hash(planet_id)
+	for spec in [[625.0, 90.0, 240.0, 0.7, 0.42], [250.0, 22.0, 70.0, 0.55, 0.4]]:
+		var cs: float = spec[0]
+		var nc := int(round(wp / cs))
+		var ci := floori(u / cs)
+		var cj := floori(w / cs)
+		for dj in [-1, 0, 1]:
+			for di in [-1, 0, 1]:
+				var a: int = ci + di
+				var b: int = cj + dj
+				var hs := _ih(posmod(a, nc), posmod(b, nc), seed_i + int(cs))
+				if float(hs & 1023) / 1023.0 > float(spec[3]): continue
+				var r: float = lerpf(float(spec[1]), float(spec[2]), float((hs >> 10) & 1023) / 1023.0)
+				var hs2 := _ih(hs, 7, 11)
+				var px := (a + 0.25 + 0.5 * float(hs2 & 1023) / 1023.0) * cs
+				var pz := (b + 0.25 + 0.5 * float((hs2 >> 10) & 1023) / 1023.0) * cs
+				var k := Vector2(u - px, w - pz).length() / r
+				if k > 1.8: continue
+				var depth: float = r * float(spec[4])
+				if k < 1.0: out += depth * (0.35 - (1.0 - k * k))
+				else: out += depth * 0.35 * exp(-pow((k - 1.0) / 0.28, 2.0))
+	return out
+
+## v12.32 (owner: "a small desert ... will have more dunes"): long wind-blown ridges, wave counts whole across the planet
+## so they meet at the wrap line.
+static func _dunes(u: float, w: float, wp: float, n: float) -> float:
+	var k1 := roundf(wp / 190.0)
+	var k2 := roundf(wp / 410.0)
+	var a := TAU * (k1 * u + k2 * w) / wp + n * 3.0
+	var b := TAU * (roundf(wp / 620.0) * u - roundf(wp / 900.0) * w) / wp
+	var ridge := pow(0.5 + 0.5 * sin(a), 2.2)
+	return 34.0 * ridge * (0.6 + 0.4 * sin(b)) + 6.0 * sin(b * 3.0)
 
 static var _no_pads := false
 static var _base_pad_cache := {}   # planet id -> [[tile, Vector2 tile-local, radius, height]]

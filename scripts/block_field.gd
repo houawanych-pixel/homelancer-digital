@@ -1182,7 +1182,9 @@ func _place_pockets() -> void:
 	pockets.clear()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(_sk + "|pockets")
-	for spec in [["water", Data.FLUID_POCKETS["water"], 3, Data.FLUID_DEPTH["water"]], ["lava", Data.FLUID_POCKETS["lava"], 2, Data.FLUID_DEPTH["lava"]]]:
+	var land: String = Surface.PLANETS[planet_id]["tiles"][tile] if Surface.PLANETS.has(planet_id) else ""
+	var geo: Dictionary = Data.GEO_FLUID.get(land, {}) if not (force or regions_test) else {}   # v12.32: dry worlds have no water, lava worlds more lava
+	for spec in [["water", int(round(Data.FLUID_POCKETS["water"] * float(geo.get("water", 1.0)))), 3, Data.FLUID_DEPTH["water"]], ["lava", int(round(Data.FLUID_POCKETS["lava"] * float(geo.get("lava", 1.0)))), 2, Data.FLUID_DEPTH["lava"]]]:
 		var kind: String = spec[0]
 		var w: int = spec[2]
 		var tries := 0
