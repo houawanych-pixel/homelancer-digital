@@ -3119,6 +3119,14 @@ func _run() -> void:
 		fx.end_warp()
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_V1125") != "":   # the v11.25 nuke / pause / cloak checks only
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _job_v1125()
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if OS.get_environment("HL_V1145") != "":   # the v11.45 boarding checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -4996,6 +5004,13 @@ func _job_v1125() -> void:
 	hud._layout()
 	var nuke_btn: bool = hud.buttons.has("slot_1")   # v11.29 (owner): the NUKE has its button where MISSILE 2 was
 	var fired: bool = nuke_btn and s.trigger_system("nuke") and GS.nukes == 2 and s.missiles_live[-1].get("nuke", false)
+	fired = fired and s.missiles_live[-1].get("target", null) == e["node"]   # v12.29 (owner): no lock needed: it homes on your target
+	# with nothing picked it grabs the nearest ship ahead (heat-seeking)
+	s.target = null
+	s.missile_cd = 0.0
+	var ahead: Node3D = s.nuke_target()
+	var seek_ok: bool = ahead != null and (-s.player.global_basis.z).dot((ahead.global_position - s.player.global_position).normalized()) > Data.NUKE_SEEK_CONE
+	fired = fired and seek_ok
 	for m in s.missiles_live: m["life"] = 0.0
 	GS.slots = keep
 	# cloaked: even the invasion's big ships stop shooting you; ENGINE KILL still works
@@ -5334,10 +5349,11 @@ func _job_v1145() -> void:
 	var board_btn: bool = s.prompt() == "board" and main.hud.buttons.has("board")   # v11.60 (owner): BOARD next to the ship
 	res.append("BOARD button %s" % board_btn)
 	main._on_hud("board")
+	var no_morph: bool = s.transform_t <= 0.0 and main.state == "boarding"   # v12.29 (owner): BOARD just docks: no transforming out in the open
 	await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding, 15.0)
-	var went_in: bool = is_instance_valid(main.space) and main.space.boarding and GS.form == "mech"
+	var went_in: bool = is_instance_valid(main.space) and main.space.boarding and GS.form == "mech" and no_morph
 	var rep_hit: bool = Factions.standing(str(bs.get("faction", ""))) < st0 or not Factions.normal(str(bs.get("faction", "")))
-	res.append("auto-transform + in %s, rep down %s" % [went_in, rep_hit])
+	res.append("docked as a ship, mech inside %s, rep down %s" % [went_in, rep_hit])
 	var rooms_ok := went_in
 	var out_ok := false
 	if went_in:
@@ -5345,7 +5361,7 @@ func _job_v1145() -> void:
 		rooms_ok = bool(wk["ok"])
 		res.append(str(wk["txt"]))
 		s = _sp()
-		out_ok = main.state == "flight" and not s.boarding and GS.credits >= cr0 + Data.BOARD_PAY
+		out_ok = main.state == "flight" and not s.boarding and GS.credits >= cr0 + Data.BOARD_PAY and GS.form == "ship" and s.transform_t <= 0.0   # (v12.29: out as the ship you came in, at once)
 	res.append("out, wave cleared, paid %s" % out_ok)
 	Boarding.classic = false
 	if GS.form == "mech": s.start_transform()

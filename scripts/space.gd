@@ -1334,22 +1334,14 @@ func facility_candidate() -> Dictionary:
 signal facility_request(site: Dictionary)
 var _fac_pending := {}
 func board_now() -> bool:
+	# v12.29 (owner: "docking should just dock; when you're inside you transform"): no transforming out here
+	# (it left you open, and you died mid-change). You go in as you are; inside you are the mech.
 	var fs := facility_candidate()
-	if not fs.is_empty():   # v11.96: ENTER the facility (as a mech)
-		if GS.form != "mech":
-			_fac_pending = fs
-			if transform_t <= 0.0: start_transform()
-			message.emit("Transforming to MECH to go in.")
-			return true
+	if not fs.is_empty():   # v11.96: ENTER the facility
 		facility_request.emit(fs)
 		return true
 	var e := board_candidate()
 	if e.is_empty() or _board_asked: return false
-	if GS.form != "mech":
-		_board_pending = e
-		if transform_t <= 0.0: start_transform()
-		message.emit("Transforming to MECH to board.")
-		return true
 	_board_asked = true
 	board_request.emit(e)
 	return true
@@ -8136,11 +8128,10 @@ func trigger_system(id: String) -> bool:
 			return false
 		"mine":
 			return deploy_mine()
-		"nuke":   # v11.25 (owner): one nuke, on a super-missile lock (or straight ahead)
+		"nuke":   # v11.25 (owner): one nuke; v12.29 (owner: "the nuke isn't heat-seeking"): it homes like a missile
 			if missile_cd > 0.0: return false
 			if GS.nukes <= 0: return _say(id, "No nukes left — restock at a station.")
-			var lk := lock_count("heavy_missile")
-			var tgt: Node3D = target if (lk > 0 and target != null and is_instance_valid(target)) else null
+			var tgt: Node3D = nuke_target()
 			_firing_nuke = true
 			var ok := fire_missile(true, 0, 1, 1.0, tgt, tgt == null)
 			_firing_nuke = false
@@ -8150,6 +8141,23 @@ func trigger_system(id: String) -> bool:
 				system_used.emit(id, "NUKE away. %d left." % GS.nukes)
 			return ok
 	return false
+
+## v12.29 (owner): what a nuke grabs: your target if it is a ship (enemy, patrol, battleship part), else the
+## nearest one ahead of you (inside Data.NUKE_SEEK_CONE) within Data.NUKE_SEEK; none = straight ahead.
+func nuke_target() -> Node3D:
+	if target != null and is_instance_valid(target) and not _enemy_entry(target).is_empty(): return target
+	var best: Node3D = null
+	var bd: float = Data.NUKE_SEEK
+	var fwd := -player.global_basis.z
+	for e in enemies:
+		var n: Node3D = e["node"]
+		if not is_instance_valid(n): continue
+		var to: Vector3 = n.global_position - player.global_position
+		var d: float = to.length() - _hull_r(e)
+		if d < bd and fwd.dot(to.normalized()) > Data.NUKE_SEEK_CONE:
+			bd = d
+			best = n
+	return best
 
 func _say(id: String, t: String) -> bool:
 	system_used.emit(id, t)

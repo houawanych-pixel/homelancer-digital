@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.28"
+const VERSION := "v12.29"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1695,6 +1695,8 @@ const DISTURBANCE := {"ship": {"capital": "inv_battleship", "role": "battleship"
 const NUKE_MAX := 50   # v11.33 (owner: "I need fifty nukes")
 const NUKE_PRICE := 400               # expensive (a super missile is 50); the hard jobs pay for them
 const NUKE_MULT := 3.0
+const NUKE_SEEK := 3000.0              # v12.29 (owner: heat-seeking): with no target picked it grabs the nearest ship ahead within this (m) ...
+const NUKE_SEEK_CONE := 0.5            # ... inside this cone (cos of the half-angle: 60 degrees)
 const NUKE_BLAST_K := 2.0             # x the super missile's blast radius
 const NUKE_SECOND := [0.7, 3.0, 1.5]  # the second blast: after s, x the super radius, x the super splash damage
 const NUKE_TILES := 6                  # v11.85 (owner): the blast ball is 6 x NUKE_TILES^2 hard square tiles, each a small pyramid point

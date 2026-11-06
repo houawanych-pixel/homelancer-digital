@@ -1443,11 +1443,11 @@ var _interior_ship: Dictionary = {}
 func board_battleship(e: Dictionary) -> void:
 	# v11.70 (owner: "that mini game was whack"): inside the battleship as a MECH in ground mode (Boarding / space
 	# setup_boarding): corridors and doors, guard mechs, the core, then 90 s to find the other way out
-	if state != "flight" or not is_instance_valid(space) or GS.form != "mech": return
+	if state != "flight" or not is_instance_valid(space): return
 	state = "boarding"
 	_interior_ship = e
 	board_from = {"sys": space.sys_id, "pos": space.player.global_position, "ship_at": (e["node"] as Node3D).global_position, "name": str(e["node"].name),
-		"faction": str(e.get("faction", "")), "fleet": bool(e.get("fleet_patrol", false)), "mission": bool(e.get("invasion", false))}
+		"faction": str(e.get("faction", "")), "fleet": bool(e.get("fleet_patrol", false)), "mission": bool(e.get("invasion", false)), "form": GS.form}
 	if Factions.normal(str(board_from["faction"])): Factions.adjust(str(board_from["faction"]), -Data.REP_INFILTRATE)
 	space.controls = false
 	hud.visible = false
@@ -1460,6 +1460,7 @@ func board_battleship(e: Dictionary) -> void:
 	# v12.18 (owner): every enemy battleship has its own generated deck plan (Boarding.deckplan "ship")
 	if Boarding.classic: Boarding.use_ship()
 	else: Boarding.use(Boarding.deckplan("%s:%s" % [str(board_from["sys"]), str(board_from["name"])], "ship", Data.SHIP_DECK_LEVEL + (1 if bool(board_from["mission"]) else 0), str(board_from["name"])))
+	GS.form = "mech"   # v12.29 (owner): you dock as you are; inside you are the mech
 	_new_space("Boarding")
 	space.setup_boarding({"sys": board_from["sys"], "faction": board_from["faction"], "name": board_from["name"]})
 	_connect_space()
@@ -1481,7 +1482,7 @@ func infiltrate_station(n: Node3D) -> void:
 	var nm := str(info.get("name", n.name))
 	var fac := str(Data.SYSTEMS.get(space.sys_id, {}).get("enemy_faction", "Savagers"))
 	if not Factions.has(fac): fac = "Savagers"
-	board_from = {"sys": space.sys_id, "pos": space.player.global_position, "ship_at": n.global_position, "name": nm, "faction": fac, "infiltrate": true}
+	board_from = {"sys": space.sys_id, "pos": space.player.global_position, "ship_at": n.global_position, "name": nm, "faction": fac, "infiltrate": true, "form": GS.form}
 	space.controls = false
 	hud.visible = false
 	fx.caption = "INFILTRATION"
@@ -1491,6 +1492,7 @@ func infiltrate_station(n: Node3D) -> void:
 	tw.tween_property(fx, "fade", 1.0, 0.5)
 	await tw.finished
 	Boarding.use(Boarding.deckplan("%s:%s" % [space.sys_id, nm], "station", Data.STATION_INFIL_LEVEL, nm))   # v12.18: a hub-and-ring station deck plan
+	GS.form = "mech"   # v12.29 (owner): you dock as you are; inside you are the mech
 	_new_space("Boarding")
 	space.setup_boarding({"sys": board_from["sys"], "faction": board_from["faction"], "name": nm})
 	_connect_space()
@@ -1507,13 +1509,13 @@ func infiltrate_station(n: Node3D) -> void:
 ## its world and slot (Boarding.facility): deeper, bigger and better guarded the harder it is. Blow the reactor, get out
 ## of the exit shaft: you come up beside it on the surface and are paid. The base stays; you can run it again.
 func enter_facility(site: Dictionary) -> void:
-	if state != "flight" or not is_instance_valid(space) or GS.form != "mech" or not space.surface_mode: return
+	if state != "flight" or not is_instance_valid(space) or not space.surface_mode: return
 	state = "boarding"
 	var fac := str(Data.SYSTEMS.get(space.sys_id, {}).get("faction", "Enemy"))   # (a hostile site is the rival's; a friendly one's guards are squatters)
 	if Factions.rival(fac) != "": fac = Factions.rival(fac)
 	if not Factions.has(fac): fac = "Savagers"
 	board_from = {"sys": space.sys_id, "pos": space.player.global_position, "name": str(site["name"]), "faction": fac, "facility": true,
-		"planet": str(space.planet_id), "tile": int(space.tile), "difficulty": int(site.get("difficulty", 1))}
+		"planet": str(space.planet_id), "tile": int(space.tile), "difficulty": int(site.get("difficulty", 1)), "form": GS.form}
 	space.controls = false
 	hud.visible = false
 	fx.caption = "FACILITY"
@@ -1523,6 +1525,7 @@ func enter_facility(site: Dictionary) -> void:
 	tw.tween_property(fx, "fade", 1.0, 0.5)
 	await tw.finished
 	Boarding.use(Boarding.facility("%s:%s" % [str(site.get("planet", "")), str(site["name"])], int(site.get("difficulty", 1)), str(site["name"])))
+	GS.form = "mech"   # v12.29 (owner): you dock as you are; inside you are the mech
 	_new_space("Boarding")
 	space.setup_boarding({"sys": board_from["sys"], "faction": board_from["faction"], "name": board_from["name"]})
 	_connect_space()
@@ -1578,6 +1581,7 @@ func leave_boarding(won: bool) -> void:
 	var tw := create_tween()
 	tw.tween_property(fx, "fade", 1.0, 0.4)
 	await tw.finished
+	GS.form = str(board_from.get("form", "ship"))   # v12.29: back to what you came in as, at once (no transforming in the open)
 	if bool(board_from.get("facility", false)):   # v11.96: back up on the world beside the facility
 		Boarding.use_ship()
 		var pay := Data.FACILITY_PAY * int(board_from.get("difficulty", 1)) if won else 0
@@ -1621,7 +1625,6 @@ func leave_boarding(won: bool) -> void:
 	space.controls = true
 	hud.visible = true
 	state = "flight"
-	if GS.form == "mech": space.start_transform()   # (out in space: back into the ship)
 	if won: hud.flash_message("COMMAND: Outstanding, pilot! The %s is gone. %d of their fighters are on you: destroy all threats." % [board_from["name"], Data.BOARD_WAVE])
 	board_from = {}
 	_interior_ship = {}
