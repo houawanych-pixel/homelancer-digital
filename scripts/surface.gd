@@ -66,6 +66,7 @@ static func _all_planets() -> Dictionary:
 	var out: Dictionary = CORE_PLANETS.duplicate(true)
 	out.merge(SystemBuilder.suns(out))
 	out.merge(SystemBuilder.planets(out))   # v1.4l: every planet has at least one tile
+	out.merge(SystemBuilder.added_planets(out))   # v12.26 (owner: "I couldn't enter the atmosphere" of Haven): planets added by hand too
 	return out
 const CORE_PLANETS := {
 	"new_terra": {"name": "New Terra", "system": "solara", "grid": 3,

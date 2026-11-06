@@ -2536,6 +2536,31 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_HAVEN") != "":   # v12.26: Solara's Haven (a hand-added planet) can be flown into
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s := _sp()
+		var hv: Node3D = null
+		for n in s.get_children():
+			if n is Node3D and n.has_meta("info") and str((n.get_meta("info") as Dictionary).get("id", "")) == "solara_haven": hv = n
+		var has := Surface.has_surface("solara_haven")
+		var missing: Array = []
+		for sid in Data.SYSTEMS:
+			for x in (Data.SYSTEMS[sid] as Dictionary).get("more_planets", []):
+				if not Surface.has_surface(str(x["id"])): missing.append(str(x["id"]))
+		var went := false
+		var found := hv != null
+		if found:
+			var r: float = hv.get_meta("radius")
+			s.player.global_position = hv.global_position + Vector3(0, 0, r * Data.ATMO_INNER + 40.0)
+			s.vel = Vector3(0, 0, -60)
+			await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.surface_mode, 25.0)
+			went = is_instance_valid(main.space) and main.space.surface_mode and main.space.planet_id == "solara_haven"
+		_check("v12.26: Haven (and every planet added by hand) has a surface; flying into its atmosphere takes you down (found %s, surface %s, down %s, planets still solid %s)" % [found, has, went, missing.slice(0, 5)],
+			found and has and went and missing.is_empty())
+		_finish_group()
+		return
 	if OS.get_environment("HL_BUILD") != "":   # v12.25: BUILD mode: the sword cuts wood and stone into slots, PLACE builds
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)

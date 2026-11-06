@@ -1398,6 +1398,17 @@ static func suns(have: Dictionary) -> Dictionary:
 ## v1.4l: a one-tile surface for every planet that has none yet (the main planet of each generated system and every
 ## catalog planet). One tile wraps onto itself, like the stars. The biome follows the planet type (Data.PLANET_BIOME),
 ## so a yellow world is yellow on the ground. Ids match the ones built above: <sys>_planet and <sys>_planet_<n>.
+## v12.26: the planets added to a system by hand or by the builder (SYSTEM_LAYOUT add_planets: Solara's Haven, the
+## second worlds) get a surface too, so you can fly down into them instead of hitting them like rock.
+static func added_planets(have: Dictionary) -> Dictionary:
+	var out := {}
+	for sid in Data.SYSTEMS:
+		for x in (Data.SYSTEMS[sid] as Dictionary).get("more_planets", []):
+			var pid := str(x.get("id", ""))
+			if pid == "" or have.has(pid) or out.has(pid): continue
+			out[pid] = {"name": str(x["name"]), "system": sid, "grid": 1, "tiles": [Data.PLANET_BIOME.get(str(x.get("palette", "")), "barren")], "locations": []}
+	return out
+
 static func planets(have: Dictionary) -> Dictionary:
 	var out := {}
 	var count := {}
