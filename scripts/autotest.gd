@@ -10735,6 +10735,20 @@ func _lush() -> void:
 		_tp(tc + Vector3(-140, 25, -140), tc + Vector3(60, -30, 60))
 		await _wait(1.2)
 		await _capture("lush_forest")
+	# v12.27: the 4 x 4 grass and the flowers (a giant bloom where four meet)
+	var fk := {}
+	var giant := -1
+	for gi in f.flower_of:
+		fk[f.flower_of[gi]] = int(fk.get(f.flower_of[gi], 0)) + 1
+		if int(f.grass_inst[gi][1]) == 2 and giant < 0: giant = gi
+	var grass_tris: int = BlockField.grass_mesh().surface_get_array_len(0) / 3
+	_check("v12.27: grass blocks are a 4 x 4 grid of tufts (%d triangles a block); flowers in the grass %s, %s giant bloom(s)" % [grass_tris, fk, "with" if giant >= 0 else "no"],
+		fk.size() == 4 and giant >= 0 and grass_tris > 200)
+	var fg: Array = f.grass_inst[giant if giant >= 0 else f.flower_of.keys()[0]]
+	var fp: Vector3 = f._grass_pos(fg)
+	_tp(fp + Vector3(30, 16, 30), fp + Vector3(0, 3, 0))
+	await _wait(1.2)
+	await _capture("lush_flowers")
 	main.hud.visible = true
 
 func _regions() -> void:

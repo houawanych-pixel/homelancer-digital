@@ -2235,9 +2235,11 @@ func _grass_pos(g: Array) -> Vector3:
 
 static var _grass_noise: FastNoiseLite
 @warning_ignore("integer_division")
+var flower_of := {}   # v12.27: grass clump index -> flower kind (the rest are grass)
 func _grow_grass() -> void:
 	grass.clear()
 	grass_inst.clear()
+	flower_of.clear()
 	grass_burn.clear()
 	_green_cache = -1
 	var kind: String = Surface.PLANETS[planet_id]["tiles"][tile] if Surface.PLANETS.has(planet_id) else ""
@@ -2271,6 +2273,21 @@ func _grow_grass() -> void:
 				for c in good:
 					grass_inst.append([c, 1, h[c], maxi(1, tall - 1 - int(c % 3 == 0)), true])
 					grass[c] = grass_inst.size() - 1
+	# v12.27: some of the clumps are flowers (four together: one giant bloom)
+	var share: float = float(Data.FLOWER_SHARE.get(kind, 0.0))
+	if share > 0.0:
+		var frng := RandomNumberGenerator.new()
+		frng.seed = hash(_sk + "|flowers")
+		var fnoise := FastNoiseLite.new()
+		fnoise.seed = hash(planet_id + "|flowers")
+		fnoise.frequency = 0.012
+		for gi in grass_inst.size():
+			var g: Array = grass_inst[gi]
+			var c0: int = g[0]
+			var fv := fnoise.get_noise_2d(_pox + x0 + (c0 % n) * Data.BLOCK_MIN, _poz + z0 + (c0 / n) * Data.BLOCK_MIN)   # (they grow in drifts)
+			if frng.randf() < share * (1.6 if fv > 0.1 else 0.5) * (1.4 if int(g[1]) == 2 else 1.0):
+				var kinds: Array = Data.FLOWER_KINDS
+				flower_of[gi] = kinds[int(floor((fv * 0.5 + 0.5) * kinds.size() * 1.999 + frng.randf() * 1.2)) % kinds.size()]
 	_draw_grass()
 
 ## A shot takes the grass it lands in (guns may set it alight, the rest blow it away).
@@ -2326,70 +2343,171 @@ func _grass_fire_tick(burning_keys: Array) -> void:
 
 const GRASS_SHADER := """shader_type spatial;
 render_mode cull_disabled, diffuse_lambert, specular_disabled;
-uniform vec3 grass_col = vec3(0.4, 0.7, 0.3);   // (not green land: the lighter leaf colour, base to tip)
+uniform vec3 grass_col = vec3(0.4, 0.7, 0.3);
 uniform vec3 tip_col = vec3(0.7, 0.95, 0.45);    // v12.8: the light tips
-uniform float blades = 7.0;
-varying float seed;
-varying float sway_k;
-float hsh(float x) { return fract(sin(x * 91.17 + 7.3) * 43758.5453); }
+uniform float blades = 7.0;   // (kept for the old settings)
 void vertex() {
 	vec3 o = MODEL_MATRIX[3].xyz;
-	seed = fract(o.x * 0.0137 + o.z * 0.0291);
 	float t = TIME * 1.7 + o.x * 0.045 + o.z * 0.037;
 	float k = UV.y * UV.y;
-	sway_k = k;
-	VERTEX.x += (sin(t) * 0.09 + sin(t * 2.3 + VERTEX.z * 6.0) * 0.03) * k;
-	VERTEX.z += (cos(t * 0.8) * 0.07) * k;
+	VERTEX.x += (sin(t + VERTEX.z * 3.0) * 0.09 + sin(t * 2.3 + VERTEX.z * 6.0) * 0.03) * k;
+	VERTEX.z += (cos(t * 0.8 + VERTEX.x * 3.0) * 0.07) * k;
 }
 void fragment() {
-	float bu = UV.x * blades;
-	float id = floor(bu) + seed * 131.0;
-	float fx = fract(bu) - 0.5;
-	float hb = 0.55 + 0.45 * hsh(id);
-	float lean = (hsh(id * 1.7) - 0.5) * 0.9;
-	float x = fx - lean * UV.y;
-	float wdt = 0.46 * (1.0 - UV.y / hb);
-	if (UV.y > hb || abs(x) > wdt) discard;
-	// v12.8 (owner: "if the terrain is green make the grass green, and do a light green into it"): the root is the
-	// ground's own colour (COLOR, per clump), the blade turns lighter to its tip
-	float vary = 0.88 + 0.24 * hsh(id * 3.1);
-	vec3 c = mix(COLOR.rgb * 0.7, tip_col, smoothstep(0.1, 1.0, UV.y / hb)) * vary;
+	// v12.27: every blade is its own little tapered leaf (UV.x = that blade's own shade, UV.y = up it)
+	float vary = 0.82 + 0.3 * UV.x;
+	vec3 c = mix(COLOR.rgb * 0.7, tip_col, smoothstep(0.05, 1.0, UV.y)) * vary;
 	ALBEDO = c;
 	BACKLIGHT = c * 0.35;
 	ROUGHNESS = 0.8;
 }
 """
 static var _grass_mesh: ArrayMesh
-## One grass block (a 1 x 1 x 1 box, scaled to the clump): 4 woven sheets each way at full height and 4 shorter ones
-## between them (the "smaller layers within").
+## One grass block (a 1 x 1 x 1 box, scaled to the clump): v12.27 (owner) a 4 x 4 grid of tufts, each three tapered,
+## bending blades of different heights leaning out; a clump of four blocks is the same grid twice the size.
 static func grass_mesh() -> ArrayMesh:
 	if _grass_mesh != null: return _grass_mesh
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var seg := Data.GRASS_SEGMENTS
-	var sheet := func(along_x: bool, off: float, tall: float, phase: float) -> void:
-		for i in seg:
-			var a := -0.5 + float(i) / seg
-			var b := -0.5 + float(i + 1) / seg
-			var wa := off + 0.07 * sin(a * TAU * 1.5 + phase)
-			var wb := off + 0.07 * sin(b * TAU * 1.5 + phase)
-			var p0 := Vector3(a, 0, wa) if along_x else Vector3(wa, 0, a)
-			var p1 := Vector3(b, 0, wb) if along_x else Vector3(wb, 0, b)
-			var p2 := p1 + Vector3(0, tall, 0)
-			var p3 := p0 + Vector3(0, tall, 0)
-			var u0 := (a + 0.5) * 1.0 + phase
-			var u1 := (b + 0.5) * 1.0 + phase
-			for v in [[p0, Vector2(u0, 0)], [p1, Vector2(u1, 0)], [p2, Vector2(u1, 1)], [p0, Vector2(u0, 0)], [p2, Vector2(u1, 1)], [p3, Vector2(u0, 1)]]:
-				st.set_normal(Vector3.UP)
-				st.set_uv(v[1])
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4127
+	var g: int = Data.GRASS_GRID
+	var blade := func(base: Vector3, ang: float, lean: float, tall: float, w: float, shade: float) -> void:
+		var dir := Vector3(cos(ang), 0, sin(ang))
+		var side := Vector3(-dir.z, 0, dir.x)
+		var segs := 3
+		var prev_l := base - side * w * 0.5
+		var prev_r := base + side * w * 0.5
+		for i in segs:
+			var t := float(i + 1) / segs
+			var mid := base + dir * lean * t * t + Vector3(0, tall * t, 0)
+			var ww := w * (1.0 - t) * 0.5
+			var l := mid - side * ww
+			var r := mid + side * ww
+			var v0 := float(i) / segs
+			for v in [[prev_l, v0], [prev_r, v0], [r, t], [prev_l, v0], [r, t], [l, t]]:
+				st.set_normal((Vector3.UP + dir * 0.4).normalized())
+				st.set_uv(Vector2(shade, v[1]))
 				st.add_vertex(v[0])
-	for i in 4:
-		var o := -0.375 + i * 0.25
-		sheet.call(true, o, 1.0, i * 1.3)
-		sheet.call(false, o, 1.0, i * 0.7 + 0.4)
-		sheet.call(true, o + 0.125, 0.55, i * 2.1 + 0.9)
+			prev_l = l
+			prev_r = r
+	for gz in g:
+		for gx in g:
+			var c := Vector3(-0.5 + (gx + 0.5) / g + rng.randf_range(-0.06, 0.06), 0, -0.5 + (gz + 0.5) / g + rng.randf_range(-0.06, 0.06))
+			var a0 := rng.randf() * TAU
+			for b in 3:
+				var tall := rng.randf_range(0.55, 1.0) if b == 0 else rng.randf_range(0.35, 0.8)
+				blade.call(c, a0 + TAU * b / 3.0 + rng.randf_range(-0.3, 0.3), rng.randf_range(0.06, 0.16), tall, 0.09, rng.randf())
 	_grass_mesh = st.commit()
 	return _grass_mesh
+
+## v12.27 (owner): the four flowers, each in a 1 x 1 x 1 block (UV.x 1 = petal, 0 = stem; UV.y = up, for the sway).
+static var _flower_meshes := {}
+static func flower_mesh(kind: String) -> ArrayMesh:
+	if _flower_meshes.has(kind): return _flower_meshes[kind]
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var tri := func(a: Vector3, b: Vector3, c: Vector3, petal: float) -> void:
+		var nrm := (b - a).cross(c - a).normalized()
+		if nrm == Vector3.ZERO: nrm = Vector3.UP
+		for p in [a, b, c]:
+			st.set_normal(nrm)
+			st.set_uv(Vector2(petal, clampf(p.y, 0.0, 1.0)))
+			st.add_vertex(p)
+	var stem := func(top: Vector3, w: float) -> void:   # a thin square stem from the ground up to `top`
+		for k in 4:
+			var a := TAU * k / 4.0
+			var b := TAU * (k + 1) / 4.0
+			var p0 := Vector3(cos(a), 0, sin(a)) * w
+			var p1 := Vector3(cos(b), 0, sin(b)) * w
+			tri.call(p0, p1, top + p1 * 0.6, 0.0)
+			tri.call(p0, top + p1 * 0.6, top + p0 * 0.6, 0.0)
+	var leaf := func(at: float, ang: float) -> void:   # a leaf off the stem
+		var d := Vector3(cos(ang), 0, sin(ang))
+		var s2 := Vector3(-d.z, 0, d.x)
+		var base := Vector3(0, at, 0)
+		tri.call(base, base + d * 0.22 + s2 * 0.07 + Vector3(0, 0.08, 0), base + d * 0.38 + Vector3(0, 0.02, 0), 0.0)
+		tri.call(base, base + d * 0.38 + Vector3(0, 0.02, 0), base + d * 0.22 - s2 * 0.07 - Vector3(0, 0.02, 0), 0.0)
+	match kind:
+		"star":   # five pointed petals open flat on top
+			var top := Vector3(0, 0.78, 0)
+			stem.call(top, 0.025)
+			leaf.call(0.3, 0.4)
+			leaf.call(0.45, 2.9)
+			for i in 5:
+				var a := TAU * i / 5.0
+				var d := Vector3(cos(a), 0, sin(a))
+				var s2 := Vector3(-d.z, 0, d.x)
+				var tip := top + d * 0.42 + Vector3(0, 0.06, 0)
+				tri.call(top + s2 * 0.08, tip, top + d * 0.16 + Vector3(0, 0.04, 0), 1.0)
+				tri.call(top - s2 * 0.08, top + d * 0.16 + Vector3(0, 0.04, 0), tip, 1.0)
+			for i in 6:   # the middle
+				var a := TAU * i / 6.0
+				var b := TAU * (i + 1) / 6.0
+				tri.call(top + Vector3(0, 0.07, 0), top + Vector3(cos(a), 0.02, sin(a)) * 0.09, top + Vector3(cos(b), 0.02, sin(b)) * 0.09, 0.5)
+		"bulb":   # a round glowing bud on a thin stem
+			var c := Vector3(0, 0.82, 0)
+			stem.call(c - Vector3(0, 0.1, 0), 0.02)
+			leaf.call(0.25, 1.2)
+			leaf.call(0.4, 4.0)
+			var r := 0.16
+			for i in 8:
+				var a := TAU * i / 8.0
+				var b := TAU * (i + 1) / 8.0
+				for j in 4:
+					var u0 := PI * j / 4.0
+					var u1 := PI * (j + 1) / 4.0
+					var q := func(a2: float, u: float) -> Vector3: return c + Vector3(cos(a2) * sin(u), cos(u) * 1.2, sin(a2) * sin(u)) * r
+					tri.call(q.call(a, u0), q.call(b, u0), q.call(b, u1), 1.0)
+					tri.call(q.call(a, u0), q.call(b, u1), q.call(a, u1), 1.0)
+		"fan":   # wide flat petals spread like a fan
+			var top := Vector3(0, 0.6, 0)
+			stem.call(top, 0.03)
+			leaf.call(0.2, 0.0)
+			for i in 7:
+				var a := -1.2 + 2.4 * i / 6.0
+				var d := Vector3(sin(a), cos(a), 0.15)
+				var s2 := Vector3(cos(a), -sin(a), 0) * 0.07
+				tri.call(top, top + d * 0.38 + s2, top + d * 0.38 - s2, 1.0)
+				tri.call(top + d * 0.38 + s2, top + d * 0.44, top + d * 0.38 - s2, 1.0)
+		"bell":   # a curved stem with a bell hanging from its tip
+			var p0 := Vector3(0, 0.0, 0)
+			var p1 := Vector3(0.05, 0.6, 0)
+			var p2 := Vector3(0.22, 0.86, 0)
+			stem.call(p1, 0.025)
+			tri.call(p1 + Vector3(0, 0, 0.02), p2, p1 - Vector3(0, 0, 0.02), 0.0)
+			leaf.call(0.3, 3.4)
+			var mouth := Vector3(0.3, 0.55, 0)
+			for i in 8:   # the bell: from the tip down to a flared mouth
+				var a := TAU * i / 8.0
+				var b := TAU * (i + 1) / 8.0
+				var ra := Vector3(cos(a), 0, sin(a))
+				var rb := Vector3(cos(b), 0, sin(b))
+				tri.call(p2, mouth + ra * 0.16, mouth + rb * 0.16, 1.0)
+				tri.call(mouth + ra * 0.16, mouth + ra * 0.22 - Vector3(0, 0.05, 0), mouth + rb * 0.16, 1.0)
+	var m := st.commit()
+	_flower_meshes[kind] = m
+	return m
+
+const FLOWER_SHADER := """shader_type spatial;
+render_mode cull_disabled, diffuse_lambert, specular_disabled;
+uniform vec3 stem_col = vec3(0.2, 0.55, 0.22);
+uniform float glow = 0.0;
+void vertex() {
+	vec3 o = MODEL_MATRIX[3].xyz;
+	float t = TIME * 1.3 + o.x * 0.05 + o.z * 0.04;
+	float k = UV.y * UV.y;
+	VERTEX.x += sin(t) * 0.06 * k;
+	VERTEX.z += cos(t * 0.7) * 0.05 * k;
+}
+void fragment() {
+	vec3 c = mix(stem_col, COLOR.rgb, UV.x);
+	ALBEDO = c;
+	EMISSION = COLOR.rgb * glow * UV.x;
+	BACKLIGHT = c * 0.3;
+	ROUGHNESS = 0.7;
+}
+"""
 
 ## v12.8: green land (its ground colour is green): the grass grows green from the ground, light green at the tips.
 ## Other land keeps the planet's lighter leaf colour.
@@ -2452,7 +2570,8 @@ func _draw_grass() -> void:
 		add_child(mi)
 	mi.position = Vector3.ZERO   # (instances are placed in the field's own frame, like the fire)
 	var live: Array = []
-	for gi in grass_inst.size(): if grass_inst[gi][4]: live.append(gi)
+	for gi in grass_inst.size(): if grass_inst[gi][4] and not flower_of.has(gi): live.append(gi)
+	_draw_flowers()
 	mi.multimesh.instance_count = live.size()
 	for j in live.size():
 		var g: Array = grass_inst[live[j]]
@@ -2460,6 +2579,47 @@ func _draw_grass() -> void:
 		var hh: float = float(g[3]) * Data.BLOCK_MIN
 		mi.multimesh.set_instance_transform(j, Transform3D(Basis.from_scale(Vector3(sz, hh, sz)), _grass_pos(g)))
 		mi.multimesh.set_instance_color(j, Color(0.35, 0.18, 0.1) if grass_burn.has(live[j]) else _grass_root(g))
+
+## v12.27: the flowers, one multimesh per kind; a merged clump of four is one giant bloom (taller too).
+@warning_ignore("integer_division")
+func _draw_flowers() -> void:
+	for kind in Data.FLOWER_KINDS:
+		var mi := get_node_or_null("Flowers_" + kind) as MultiMeshInstance3D
+		var list: Array = []
+		for gi in flower_of:
+			if flower_of[gi] == kind and grass_inst[gi][4]: list.append(gi)
+		if mi == null:
+			if list.is_empty(): continue
+			mi = MultiMeshInstance3D.new()
+			mi.name = "Flowers_" + kind
+			var mm := MultiMesh.new()
+			mm.transform_format = MultiMesh.TRANSFORM_3D
+			mm.use_colors = true
+			mm.mesh = flower_mesh(kind)
+			mi.multimesh = mm
+			var mat := ShaderMaterial.new()
+			var sh := Shader.new()
+			sh.code = FLOWER_SHADER
+			mat.shader = sh
+			mat.set_shader_parameter("glow", 0.55 if kind == "bulb" else (0.15 if kind == "star" else 0.0))
+			mi.material_override = mat
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			mi.visibility_range_end = Data.GRASS_VIEW
+			mi.visibility_range_end_margin = 60.0
+			mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+			add_child(mi)
+		mi.position = Vector3.ZERO
+		mi.multimesh.instance_count = list.size()
+		var cols: Array = Data.FLOWER_COLORS[kind]
+		for j in list.size():
+			var g: Array = grass_inst[list[j]]
+			var big := int(g[1]) == 2
+			var sz: float = float(g[1]) * Data.BLOCK_MIN * (1.15 if big else 1.0)
+			var hh: float = Data.BLOCK_MIN * (2.6 if big else 1.15) * (0.85 + 0.1 * float(int(g[0]) % 4))
+			var rot := Basis(Vector3.UP, float(int(g[0]) * 2654435761 % 628) / 100.0)
+			mi.multimesh.set_instance_transform(j, Transform3D(rot * Basis.from_scale(Vector3(sz, hh, sz)), _grass_pos(g)))
+			var col: Color = cols[int(g[0]) % cols.size()]
+			mi.multimesh.set_instance_color(j, Color(0.35, 0.18, 0.1) if grass_burn.has(list[j]) else col)
 
 ## v1.7j: winding tunnels from a mold cave's side rooms out to the nearest sealed caves (v1.6d), wandering by noise but
 ## always steering home to the cave, so the system is connected on purpose; each ends in a little junction room

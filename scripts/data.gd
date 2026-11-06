@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.26"
+const VERSION := "v12.27"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -672,6 +672,15 @@ const GRASS_VIEW := 520.0            # m: grass further than this isn't drawn
 const GRASS_MAX_LAYERS := 4          # owner: "4 blocks is the most"
 const GRASS_BLADES := 7              # blades across one sheet
 const GRASS_SEGMENTS := 5            # bends along a sheet (the weave)
+## v12.27 (owner: "inside a block ... three by three or four by four blades of grass", "merge into a bigger blade", "a
+## shape like a flower"): each grass block is a 4 x 4 grid of tufts (3 blades each); four blocks together are one clump
+## twice the size (the blades twice as big). Some blocks are flowers instead: star bloom, glow bulb, fan flower, bell
+## flower; four together open into one giant bloom.
+const GRASS_GRID := 4
+const FLOWER_SHARE := {"jungle": 0.14, "forest": 0.07, "coast": 0.05, "toxic": 0.06, "mountains": 0.03, "city": 0.02}   # share of the grass that is flowers
+const FLOWER_KINDS := ["star", "bulb", "fan", "bell"]
+const FLOWER_COLORS := {"star": [Color(1.0, 0.42, 0.78), Color(0.72, 0.42, 1.0)], "bulb": [Color(0.3, 1.0, 0.92), Color(0.5, 0.85, 1.0)],
+	"fan": [Color(1.0, 0.62, 0.25), Color(1.0, 0.85, 0.3)], "bell": [Color(0.55, 0.6, 1.0), Color(0.95, 0.95, 1.0)]}
 const GRASS_FIRE_CHANCE := {"gun": 0.35, "missile": 0.6, "heavy": 0.5, "special": 0.8}   # a shot sets the grass alight (else blows it away)
 const GRASS_SPREAD := 0.45           # chance per tick the fire jumps to the next clump
 const GRASS_BURN := 1.6              # s a clump burns before it is gone
