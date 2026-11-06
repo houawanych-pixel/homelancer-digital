@@ -558,11 +558,11 @@ const FLUID_POCKETS := {"water": 8, "lava": 5}
 ## v12.32 (owner: "take the basic geography of the planet and make the whole planet more of that genre ... it may not
 ## have water but it may have lava"): each kind of land has its own ground. Underground water / lava pockets scaled by land
 ## (missing = 1.0); impact craters (moons, dead worlds); wind-blown dunes (deserts).
-const GEO_FLUID := {"barren": {"water": 0.0, "lava": 0.4}, "volcanic": {"water": 0.0, "lava": 3.0}, "desert": {"water": 0.15, "lava": 0.3},
+const GEO_FLUID := {"barren": {"water": 0.0, "lava": 0.4}, "volcanic": {"water": 0.0, "lava": 3.0}, "desert": {"water": 0.0, "lava": 0.3},
 	"wasteland": {"water": 0.0, "lava": 0.8}, "ice": {"water": 1.2, "lava": 0.0}, "crystal": {"water": 0.0, "lava": 0.0}, "machine": {"water": 0.0, "lava": 0.0},
 	"jungle": {"water": 1.6, "lava": 0.0}, "forest": {"water": 1.2, "lava": 0.1}, "ocean": {"water": 1.4, "lava": 0.0}, "coast": {"water": 1.2, "lava": 0.1},
 	"toxic": {"water": 1.0, "lava": 0.0}, "clouds": {"water": 0.0, "lava": 0.0}, "canyon": {"water": 0.4, "lava": 0.5}, "mountains": {"water": 0.8, "lava": 0.3}}
-const GEO_CRATERS := {"barren": 1.0, "wasteland": 0.45, "volcanic": 0.3, "crystal": 0.2}
+const GEO_CRATERS := {"barren": 1.4, "wasteland": 0.45, "volcanic": 0.3, "crystal": 0.2}
 const GEO_DUNES := {"desert": 1.0, "wasteland": 0.25}
 const FLUID_DEPTH := {"water": [20.0, 60.0], "lava": [60.0, 150.0]}   # m under the ground
 const FLUID_TICK := 0.25             # s per flow step

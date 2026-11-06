@@ -1672,9 +1672,10 @@ func _grow_trees(staged := false) -> void:
 		_float_islands(rng, int(lush["islands"]))   # (v12.22: before the trees, so none grows into one)
 		_phase = "islands"
 		if await _pause(staged): return
-	if not molds.is_empty(): _grow_cave_tree(rng)
+	var cave := not molds.is_empty() and int(Data.TREES_PER_TILE.get(kind, 2)) > 0   # v12.32: no cave tree on a dead world
+	if cave: _grow_cave_tree(rng)
 	var tries := 0
-	while trees.size() < want + (1 if not molds.is_empty() else 0) and tries < (40 if lush.is_empty() else 260):
+	while trees.size() < want + (1 if cave else 0) and tries < (40 if lush.is_empty() else 260):
 		tries += 1
 		_grow_tree(rng, rng.randi_range(14, n - 15), rng.randi_range(14, n - 15), -1)
 		if not lush.is_empty() and trees.size() % 5 == 4 and Time.get_ticks_usec() - _step_t0 > 60000:

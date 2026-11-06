@@ -40,7 +40,7 @@ const BIOMES := {
 	"volcanic": {"name": "Volcanic", "amp": 640.0, "base": 40.0, "sea": null, "low": Color(0.14, 0.12, 0.12), "mid": Color(0.24, 0.18, 0.16), "high": Color(0.9, 0.35, 0.12),
 		"sky": Color(0.35, 0.2, 0.18), "horizon": Color(0.8, 0.42, 0.25), "fog": Color(0.45, 0.3, 0.26)},
 	# v1.4l: one-tile surfaces for the planet types that had none. Colours follow the planet seen from space.
-	"barren": {"name": "Barren plain", "detail": 0.7, "strata": 0.5, "amp": 520.0, "base": 40.0, "sea": null, "low": Color(0.36, 0.35, 0.37), "mid": Color(0.46, 0.45, 0.46), "high": Color(0.62, 0.6, 0.58),
+	"barren": {"name": "Barren plain", "detail": 0.4, "strata": 0.5, "amp": 210.0, "base": 40.0, "sea": null, "low": Color(0.36, 0.35, 0.37), "mid": Color(0.46, 0.45, 0.46), "high": Color(0.62, 0.6, 0.58),
 		"sky": Color(0.05, 0.06, 0.1), "horizon": Color(0.3, 0.32, 0.38), "fog": Color(0.26, 0.27, 0.31)},
 	"clouds": {"name": "Cloud deck", "amp": 260.0, "base": -90.0, "sea": 0.0, "detail": 0.3,
 		"low": Color(0.95, 0.85, 0.66), "mid": Color(0.86, 0.68, 0.45), "high": Color(0.7, 0.5, 0.34),
