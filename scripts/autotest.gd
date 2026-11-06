@@ -2108,7 +2108,7 @@ func _run() -> void:
 		var bad := []
 		var matched := {}
 		var vids := {}
-		for sid in ["solara", "vega", "veranthos", "aurelion", "synthari_capital", "vantara", "dreadholm"]:   # v12.14: + Synthari Capital, Vantara
+		for sid in ["solara", "vega", "veranthos", "aurelion", "synthari_capital", "vantara", "dreadholm", "sepheron"]:   # v12.14: + Synthari Capital, Vantara
 			var sd: Dictionary = Data.SYSTEMS[sid]
 			var places: Array = [sd.get("station", {}), sd.get("planet", {})] + (sd.get("more_stations", []) as Array) + (sd.get("more_planets", []) as Array)
 			GS.system_id = sid

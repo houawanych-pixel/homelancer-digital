@@ -9,7 +9,7 @@ import sys, os, glob, json, subprocess, shutil, tempfile
 import numpy as np
 from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-SYS = {"solara": "solara", "vega": "vega", "veranthos": "veranthos", "aurelion": "aurelion", "syntharicapital": "synthari_capital", "vantara": "vantara", "dreadholm": "dreadholm"}
+SYS = {"solara": "solara", "vega": "vega", "veranthos": "veranthos", "aurelion": "aurelion", "syntharicapital": "synthari_capital", "vantara": "vantara", "dreadholm": "dreadholm", "sepheron": "sepheron"}
 GW = 3072        # game video width (as the other moving rooms)
 B0 = 160         # the still's blend width at 1672 px (install_loc.py)
 

@@ -10,7 +10,7 @@ usage: python3 tools/rooms/install_loc.py <folder of pngs>
 import sys, os, re, glob, subprocess, shutil
 import numpy as np
 from PIL import Image
-SYS = {"solara": "solara", "vega": "vega", "veranthos": "veranthos", "aurelion": "aurelion", "syntharicapital": "synthari_capital", "vantara": "vantara", "dreadholm": "dreadholm"}   # (enemy space is not panoramas: infiltration facilities, owner v12.4; its pictures stay in art/ only)
+SYS = {"solara": "solara", "vega": "vega", "veranthos": "veranthos", "aurelion": "aurelion", "syntharicapital": "synthari_capital", "vantara": "vantara", "dreadholm": "dreadholm", "sepheron": "sepheron"}   # (enemy space is not panoramas: infiltration facilities, owner v12.4; its pictures stay in art/ only)
 B = 160   # blend width at each join (px of the original)
 
 def halves(im):
