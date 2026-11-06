@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.32"
+const VERSION := "v12.33"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1981,7 +1981,8 @@ const BASE_WIDTH := 260.0        # m across
 const BASE_PAD_R := 230.0        # v11.92: m: the flat land pad under a base (blends out to 1.8x); its parts stand on its edge
 const BASE_PAD_MIN_H := 8.0      # m: a pad never sits lower than this (above the sea: an island in the ocean)
 const BUNKER_WIDTH := 120.0     # v11.96: m: a bunker entrance (a facility without a faction base over it)
-const FACILITY_NEAR := 420.0    # m from a facility: ENTER shows
+const FACILITY_NEAR := 140.0    # m from a facility: INFILTRATE shows (v12.33 owner: "close to the facility, standing next to it"; was 420)
+const FACILITY_HIGH := 70.0     # m above it at most
 # v12.2 (owner): the super's colours: primary when few hostiles are on you, primary and secondary when many
 const SUPER_PRIMARY := [Color(1.0, 0.15, 0.15), Color(0.2, 0.45, 1.0), Color(1.0, 0.9, 0.15)]
 const SUPER_SECONDARY := [Color(0.7, 0.2, 1.0), Color(0.2, 1.0, 0.35), Color(1.0, 0.55, 0.1)]

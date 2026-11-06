@@ -1327,7 +1327,8 @@ func board_candidate() -> Dictionary:
 func facility_candidate() -> Dictionary:
 	if not surface_mode or boarding or not is_instance_valid(player): return {}
 	for h: Node3D in planet_bases:
-		if is_instance_valid(h) and h.has_meta("facility") and Vector2(h.global_position.x - player.global_position.x, h.global_position.z - player.global_position.z).length() < Data.FACILITY_NEAR:
+		if is_instance_valid(h) and h.has_meta("facility") and Vector2(h.global_position.x - player.global_position.x, h.global_position.z - player.global_position.z).length() < Data.FACILITY_NEAR \
+				and player.global_position.y - h.global_position.y < Data.FACILITY_HIGH:   # v12.33 (owner): right by it, on the ground, not miles up in the air
 			return h.get_meta("facility")
 	return {}
 

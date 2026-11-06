@@ -2497,6 +2497,17 @@ func _run() -> void:
 		GS.form = "mech"
 		var sites: Array = Surface.facility_sites("solara_haven")
 		print("[route] DARK sites ", sites.map(func(x): return x["name"]))
+		await _wait(2.0)
+		var fh: Node3D = null
+		for h in s.planet_bases: if is_instance_valid(h) and h.has_meta("facility"): fh = h
+		var far_up := true
+		var by_it := false
+		if fh != null:
+			s.player.global_position = fh.global_position + Vector3(0, 400, 0)
+			far_up = s.facility_candidate().is_empty()
+			s.player.global_position = fh.global_position + Vector3(60, 12, 0)
+			by_it = not s.facility_candidate().is_empty()
+		_check("v12.33 (owner): INFILTRATE a facility only standing by it (not from 400 m up)", fh != null and far_up and by_it, "found %s far %s near %s" % [fh != null, far_up, by_it])
 		main.enter_facility(sites[0])
 		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding, 15.0)
 		await _wait(2.0)
