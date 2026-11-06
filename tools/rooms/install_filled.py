@@ -65,8 +65,8 @@ for f in sorted(glob.glob(os.path.join(sys.argv[1], "*"))):
         continue
     sy, place, room, _, _ = best[1]
     slug = "%s_%s_%s" % (sy, place.lower(), room.lower())
-    filled = "art/rooms/loc/%s/joins/%s_%s_joins_filled.png" % (sy, place, room)
-    im.save(filled)   # (GPT's file as it came)
+    filled = "art/rooms/loc/%s/joins/%s_%s_joins_filled.jpg" % (sy, place, room)
+    im.save(filled, quality=92)   # (GPT's file, as a high-quality JPG: the PNG originals stay on Drive)
     if os.path.exists("assets/rooms/loc/%s.ogv" % slug):
         skipped.append(slug)
         continue
