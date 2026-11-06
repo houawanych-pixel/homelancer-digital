@@ -101,7 +101,7 @@ var tutorial_seen: Array = []   # v1.7r: tutorial lesson ids already given (see 
 var god_mode := false # only used by the automated route test
 
 # ---------------------------------------------------------------- v1.7y saving
-const SAVE_KEYS := ["credits", "ship_id", "owned_ships", "weapon_id", "owned_weapons", "missiles", "heavy_missiles", "mines", "nukes", "rack",
+const SAVE_KEYS := ["build_mats", "credits", "ship_id", "owned_ships", "weapon_id", "owned_weapons", "missiles", "heavy_missiles", "mines", "nukes", "rack",
 	"owned_racks", "slots", "modes", "view", "system_id", "discovered", "explored", "last_base", "kills", "met", "mood", "memory", "heat_shield",
 	"bounty", "bounties_done", "mission", "cargo", "missions_done", "rep", "cast", "mine_kind", "block_deltas", "tutorial_seen", "bounty_jail", "mounts", "core_gun", "core_gun2", "core_gun3", "modules", "owned_modules", "gun_levels", "owned_mechs", "mech_parts", "pilot_name", "found_stations"]   # (v1.9e: + mounts; v1.9i: + owned_mechs, mech_parts; v1.9j: + pilot_name)
 var save_path: String = Data.SAVE_PATH
@@ -485,6 +485,9 @@ func claim_bounty(where_kind := "station") -> String:
 func cast_state(character_id: String) -> Dictionary:
 	if not cast.has(character_id): cast[character_id] = {"alive": true, "current_system": "", "custody": false}
 	return cast[character_id]
+
+var build_mats := {}   # v12.25: building materials the mech carries (material -> blocks)
+func build_count(m: String) -> int: return int(build_mats.get(m, 0))
 
 ## v1.8l: a mined piece goes into the hold: one stack per mineral ({kind: "ore", id, n}).
 func add_ore(mat: String) -> int:

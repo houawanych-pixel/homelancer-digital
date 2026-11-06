@@ -5141,7 +5141,7 @@ func _update_player(dt: float) -> void:
 	player.global_position += vel * dt
 	speed_now = vel.length()
 	if controls and warp_state == "off" and transform_t <= 0.0:
-		var want := fire_held or fire_lock
+		var want := (fire_held or fire_lock) and not build_mode   # (v12.25: in BUILD, FIRE is PLACE)
 		if GS.is_auto("guns") and _in_fire_cone(target): want = true
 		var cost := Data.ENERGY_PER_GUN * float(GS.core_slots().size() + GS.mount_items().filter(func(x): return Data.WEAPONS.has(x)).size())   # (v1.9e: only fitted guns use gun energy; v1.9u: + the core gun)
 		if want and gun_cd <= 0.0 and GS.energy >= cost:
@@ -7434,6 +7434,116 @@ func _sword_slash_fx(dir: Vector3, reach: float) -> void:
 		var a := (k / 6.0 - 0.5) * PI * 0.9
 		_spark(p + (dir * cos(a) + side * sin(a)) * reach * 0.8, Color(0.5, 0.9, 1.0), 4.0, 0.18)
 	Sfx.play("saber_swing", -5.0, randf_range(0.92, 1.12))
+	_sword_harvest(dir, reach)
+
+## v12.25 (owner): the blade cuts the block ground in front: trees come down without catching fire, stone and harder
+## rock break, and the building materials go into the mech's slots (leaves and vines are just cut; dirt and sand it
+## doesn't cut). Kept as changes to the ground, like blast damage.
+var harvested := 0   # (tests)
+func _sword_harvest(dir: Vector3, reach: float) -> void:
+	if not surface_mode or boarding or not is_instance_valid(player): return
+	var base := player.global_position
+	var side := dir.cross(Vector3.UP).normalized()
+	var taken := 0
+	var got := {}
+	var step: float = Data.BLOCK_MIN
+	for dist in [step * 0.8, step * 1.6, step * 2.4, reach * 0.8]:
+		for lat in [0.0, -step, step]:
+			for up in [step * 0.5, step * 1.5, step * 2.5]:
+				if taken >= Data.SWORD_HARVEST_MAX: break
+				var p: Vector3 = base + dir * dist + side * lat + Vector3(0, up, 0)
+				var f := _block_field_at(p.x, p.z)
+				if f == null or not f.is_solid(p.x, p.y, p.z): continue
+				var m := f.mat_point(p.x, p.y, p.z)
+				if not (m in Data.SWORD_CUTS): continue
+				f._edit_layer(p, "", true)
+				taken += 1
+				if m in Data.BUILD_MATS:
+					GS.build_mats[m] = GS.build_count(m) + 1
+					got[m] = int(got.get(m, 0)) + 1
+	harvested += taken
+	for m in got: _popup(base + dir * step * 2.0 + Vector3(0, step * 2.0, 0), "+%d %s" % [got[m], m.to_upper()], Data.BUILD_MAT_COLOR.get(m, Color.WHITE))
+
+# ---------------------------------------------------------------- v12.25 BUILD mode (the mech on a planet)
+var build_mode := false
+var build_slot := 0
+var build_target := Vector3.INF   # the cell centre a block would go (INF: none in reach)
+var builds := 0                   # (tests)
+var _build_ghost: MeshInstance3D
+
+func build_ok() -> bool:
+	return GS.form == "mech" and surface_mode and not boarding and not sun_surface
+
+func build_mat() -> String:
+	return str(Data.BUILD_MATS[build_slot]) if build_slot < Data.BUILD_MATS.size() else ""
+
+func toggle_build() -> String:
+	if not build_mode and not build_ok(): return "BUILD works in the mech, on a planet."
+	build_mode = not build_mode
+	fire_lock = false
+	return "BUILD: pick a material, aim, PLACE. The sword cuts wood and stone into your slots." if build_mode else "BUILD off."
+
+## Where the crosshair meets the blocks: the air cell just before the hit.
+func _build_aim() -> Vector3:
+	var cam := get_viewport().get_camera_3d()
+	if cam == null or not is_instance_valid(player): return Vector3.INF
+	var dir := -cam.global_basis.z
+	var o := cam.global_position
+	var prev := Vector3.INF
+	var t := 0.0
+	while t < Data.BUILD_REACH + o.distance_to(player.global_position):
+		var p := o + dir * t
+		t += 1.0
+		if p.distance_to(player.global_position) < 6.0: continue
+		var f := _block_field_at(p.x, p.z)
+		if f == null: continue
+		if f.is_solid(p.x, p.y, p.z):
+			if prev == Vector3.INF: return Vector3.INF
+			var pf := _block_field_at(prev.x, prev.z)
+			return pf.cell_centre(prev) if pf != null else Vector3.INF
+		prev = p
+	return Vector3.INF
+
+func _update_build(_dt: float) -> void:
+	if build_mode and not build_ok(): build_mode = false
+	if not build_mode:
+		build_target = Vector3.INF
+		if _build_ghost != null and is_instance_valid(_build_ghost): _build_ghost.visible = false
+		return
+	build_target = _build_aim()
+	if _build_ghost == null or not is_instance_valid(_build_ghost):
+		_build_ghost = MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3.ONE * Data.BLOCK_MIN * 1.01
+		_build_ghost.mesh = bm
+		var mat := StandardMaterial3D.new()
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_build_ghost.material_override = mat
+		_build_ghost.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(_build_ghost)
+	_build_ghost.visible = build_target != Vector3.INF
+	if _build_ghost.visible:
+		_build_ghost.global_position = build_target
+		var m := build_mat()
+		var col: Color = Data.BUILD_MAT_COLOR.get(m, Color.WHITE) if GS.build_count(m) > 0 else Color(1.0, 0.3, 0.25)
+		(_build_ghost.material_override as StandardMaterial3D).albedo_color = Color(col, 0.45 + 0.15 * sin(Time.get_ticks_msec() * 0.006))
+
+## PLACE: one block of the picked material at the target. Returns what to say.
+func place_block() -> String:
+	if not build_mode: return ""
+	var m := build_mat()
+	if m == "": return "That slot is empty."
+	if GS.build_count(m) <= 0: return "No %s left. Cut some with the sword." % m
+	if build_target == Vector3.INF: build_target = _build_aim()
+	if build_target == Vector3.INF: return "Aim at the ground or a block (within %d m)." % int(Data.BUILD_REACH)
+	var f := _block_field_at(build_target.x, build_target.z)
+	if f == null or f.is_solid(build_target.x, build_target.y, build_target.z): return "Can't build there."
+	f._edit_layer(build_target, m, true)
+	GS.build_mats[m] = GS.build_count(m) - 1
+	builds += 1
+	Sfx.play("button", -4.0, 0.7)
+	return ""
 
 ## The sword carries the mech itself (the stick can't hold it back); the walls still stop it.
 func _sword_move(v: Vector3, dt: float) -> void:
@@ -7605,6 +7715,7 @@ func _collisions(dt: float) -> void:
 	sidestep_t = maxf(0.0, sidestep_t - dt)
 	_update_laser_shield(dt)
 	_update_sword(dt)
+	_update_build(dt)
 	sidestep_cd = maxf(0.0, sidestep_cd - dt)
 	if not lane.is_empty(): return   # nothing is solid while the lane carries you
 	collide_grace = maxf(0.0, collide_grace - dt)

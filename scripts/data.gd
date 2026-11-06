@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.24"
+const VERSION := "v12.25"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1964,6 +1964,16 @@ const LSHIELD_AFTER_SHOT := 0.6                        # s it stays on the left 
 const SWORD_DASH_SPEED := 300.0                        # m/s forward dash
 const SWORD_DASH_TIME := 0.45
 const SWORD_COMBO := 4                                 # slashes in a forward dash
+## v12.25 (owner: "a building mold ... materials just like Minecraft ... a button on the top that says BUILD"): BUILD
+## (top bar; the mech on a planet) swaps FIRE for PLACE and shows the material slots. The sword cuts wood (it doesn't set
+## it alight) and breaks stone and harder rock into them; only building materials are kept: no sand or dirt, and no
+## water or lava. A placed block goes where the crosshair meets the ground or another block (it falls if nothing holds it).
+const BUILD_MATS := ["stone", "wood", "obsidian", "gold", "diamond"]
+const BUILD_SLOTS := 9               # slots on the bar (the rest wait for new materials)
+const BUILD_REACH := 60.0            # m along the crosshair
+const BUILD_MAT_COLOR := {"stone": Color(0.55, 0.56, 0.6), "wood": Color(0.45, 0.3, 0.18), "obsidian": Color(0.16, 0.12, 0.22), "gold": Color(1.0, 0.8, 0.2), "diamond": Color(0.55, 0.95, 1.0)}
+const SWORD_CUTS := ["stone", "wood", "obsidian", "gold", "diamond", "leaf", "leaf2", "vine", "frond", "glow", "bloom"]   # what the blade cuts (it bounces off dirt and sand)
+const SWORD_HARVEST_MAX := 6         # layers one slash takes
 const SWORD_COMBO_GAP := 0.11                          # s between them
 const SWORD_SIDE_SPEED := 220.0
 const SWORD_SIDE_TIME := 0.32

@@ -2536,6 +2536,13 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_BUILD") != "":   # v12.25: BUILD mode: the sword cuts wood and stone into slots, PLACE builds
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _build_mode()
+		_finish_group()
+		return
 	if OS.get_environment("HL_LUSH") != "":   # v12.22: the lush jungle (Eden Prime): dense mixed forest, floating islands on vines, falls
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -10604,6 +10611,54 @@ func _blocks() -> void:
 ## player from the seed (each its own seed and its own kept blasts), the smooth sheet is cut out under them, the pad
 ## sits on flat blocks, regions far behind are freed and a blast is still there when you come back.
 @warning_ignore("integer_division")
+func _build_mode() -> void:
+	main._load_surface("eden_prime", 0)
+	await _wait(0.5)
+	var s := _sp()
+	await _until(func(): return s._regions.size() >= 1 and s._building == null, 120.0)
+	var p0: Vector3 = s.player.global_position
+	var f: BlockField = s._block_field_at(p0.x, p0.z)
+	if f == null or f.trees.is_empty():
+		for k in s._regions:
+			if not (s._regions[k] as BlockField).trees.is_empty(): f = s._regions[k]
+	GS.form = "mech"
+	await _wait(0.5)
+	var refused: String = ""
+	GS.form = "ship"
+	refused = s.toggle_build()
+	GS.form = "mech"
+	var msg: String = s.toggle_build()
+	await _wait(0.3)
+	var btn: bool = main.hud.buttons.has("build") and main.hud.buttons.has("bslot_0") and main.hud.buttons.has("fire")
+	# stand by a giant tree and slash it
+	var st: float = Data.BLOCK_MIN
+	var tr: Dictionary = f.trees[0]
+	var b: int = tr["base"]
+	var tc := Vector3(f.x0 + (b % f.n + 1.0) * st, f._ly(int(tr["k_ground"])), f.z0 + (b / f.n + 1.0) * st)
+	var stand := tc + Vector3(-st * 2.5, 0, 0)
+	s.player.global_position = stand
+	GS.build_mats = {}
+	for i in 4: s._sword_harvest(Vector3(1, 0, 0), Data.SWORD_REACH)
+	var wood := GS.build_count("wood")
+	var fire: int = f.burning.size()
+	# some stone: cut into the ground ahead after clearing the top
+	var stone0 := GS.build_count("stone")
+	GS.build_mats["stone"] = GS.build_count("stone") + 5
+	s.build_slot = Data.BUILD_MATS.find("stone")
+	# aim: look at the ground a little ahead
+	_tp(stand + Vector3(0, 12, 30), stand + Vector3(0, 0, 60))
+	await _wait(0.5)
+	s._update_build(0.1)
+	var tgt: Vector3 = s.build_target
+	var before: int = GS.build_count("stone")
+	main._on_hud("fire")
+	var placed: bool = tgt != Vector3.INF and GS.build_count("stone") == before - 1 and f.is_solid(tgt.x, tgt.y, tgt.z) and f.mat_point(tgt.x, tgt.y, tgt.z) == "stone"
+	_check("BUILD (v12.25): refused out of the mech (%s); in the mech BUILD shows the slots and PLACE; the sword cut %d wood off a tree with no fire (%d burning), stone in the slots; PLACE put a stone block where the crosshair meets the ground (%s)" % [refused, wood, fire, tgt],
+		btn and wood > 0 and fire == 0 and placed and refused.contains("mech"))
+	main.hud.visible = true
+	await _wait(0.4)
+	await _capture("build_mode")
+
 func _lush() -> void:
 	var pid := "eden_prime"
 	for k in GS.block_deltas.keys():

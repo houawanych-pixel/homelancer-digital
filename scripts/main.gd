@@ -353,6 +353,18 @@ func _on_hud(id: String) -> void:
 	if id.begins_with("slot_"):
 		space.fire_slot(int(id.substr(5)))
 		return
+	if id == "build":   # v12.25 (owner): BUILD mode
+		hud.flash_message(space.toggle_build())
+		return
+	if id.begins_with("bslot_"):
+		space.build_slot = int(id.substr(6))
+		var bm := space.build_mat()
+		hud.flash_message(("%s: %d blocks" % [bm.to_upper(), GS.build_count(bm)]) if bm != "" else "Empty slot.")
+		return
+	if id == "fire" and space.build_mode:   # in BUILD, FIRE is PLACE
+		var say := space.place_block()
+		if say != "": hud.flash_message(say)
+		return
 	if id == "goto_l": id = "goto"   # v8.0: the contact window's GO TO = the console's
 	match id:
 		"missile": space.trigger_system("missile")

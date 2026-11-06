@@ -1003,6 +1003,14 @@ func mat_point(x: float, y: float, z: float) -> String:
 	var s: int = lsz[fz * n + fx]
 	return mat_at(fx - fx % s + s / 2, fz - fz % s + s / 2, _ly(_k(y)))
 
+## v12.25: the centre of the 5 m cell a point is in (for placing a block there).
+@warning_ignore("integer_division")
+func cell_centre(p: Vector3) -> Vector3:
+	var step: float = Data.BLOCK_MIN
+	var fx := clampi(int((p.x - x0) / step), 0, n - 1)
+	var fz := clampi(int((p.z - z0) / step), 0, n - 1)
+	return _layer_point(fz * n + fx, _k(p.y))
+
 ## Tests / tools: the whole changeable state, and putting it back.
 func snapshot() -> Dictionary:
 	return {"h": h.duplicate(), "lsz": lsz.duplicate(), "dmg": dmg.duplicate(true), "holes": holes.duplicate(true), "mats": mats.duplicate(true), "fill": fill.duplicate(true), "fluid": fluid.duplicate(true), "reach": reach_bonus.duplicate(), "n": deltas.size()}

@@ -588,6 +588,7 @@ func _layout() -> void:
 	# (v11.1 (owner): FULL SCREEN left the SPEED readout: one button in the top-left corner on every screen, FsButton)
 	if not weapons_shown():
 		for id in COMBAT_IDS: buttons.erase(id)
+	if space and space.build_mode: buttons["fire"] = dg["fire"]   # v12.25: PLACE is always there in BUILD
 	if space and space.mech_fpv():   # v1.7z: looking out of the mech, KILL (no use to a mech) becomes the rifle's ZOOM
 		buttons["zoom"] = buttons["kill"]
 		buttons.erase("kill")
@@ -742,6 +743,8 @@ func _dock_filter(dg: Dictionary) -> void:
 	# shows as the box at the top centre, just under it. EXIT FULL (when full screen) sits at the right end of the
 	# bottom row. The bottom keeps only the action grids, the radar and the sticks.
 	_top_bar(tabs)
+	if space and space.build_mode:   # v12.25: the material slots, a row over the console
+		for i in Data.BUILD_SLOTS: tabs["bslot_%d" % i] = build_slot_rect(i)
 	if dock_down:   # v11.60: collapsed row: TARGET · NEXT · SCAN | CONSOLE | COMMS · GO TO
 		var yb := S.y - TAB_B_H - 2.0
 		var tr: Rect2 = tabs["tgt_front"]
@@ -755,6 +758,28 @@ func _dock_filter(dg: Dictionary) -> void:
 
 ## v11.60 (owner): the top: the navigation readout (A -> B / ETA) on the very top in the middle; under it one row
 ## START · SPEED · SELECT · FULL SCREEN; DOCK / LANE / JUMP / BOARD under that. GO TO is in the SHIP window.
+## v12.25: BUILD's material slots, a Minecraft-style bar across the middle above the console.
+func build_slot_rect(i: int) -> Rect2:
+	var sz := clampf(S.y * 0.075, 46.0, 64.0)
+	var w: float = sz * Data.BUILD_SLOTS + 6.0 * (Data.BUILD_SLOTS - 1)
+	var y: float = minf((buttons["fire"] as Rect2).position.y if buttons.has("fire") else S.y * 0.8, radar_rect().position.y) - sz - 14.0
+	return Rect2(S.x * 0.5 - w * 0.5 + i * (sz + 6.0), y, sz, sz)
+
+func _build_bar() -> void:
+	for i in Data.BUILD_SLOTS:
+		var r := build_slot_rect(i)
+		var on: bool = space.build_slot == i
+		_box(r, Color(0.02, 0.06, 0.12, 0.88), Color(GOLD, 1.0) if on else Color(1, 1, 1, 0.35), 6, 3 if on else 1)
+		if i >= Data.BUILD_MATS.size(): continue
+		var m: String = Data.BUILD_MATS[i]
+		var cnt := GS.build_count(m)
+		var col: Color = Data.BUILD_MAT_COLOR.get(m, Color.WHITE)
+		var inner := r.grow(-r.size.x * 0.2)
+		draw_rect(inner, Color(col, 1.0 if cnt > 0 else 0.3))   # a little block of it
+		draw_rect(Rect2(inner.position, Vector2(inner.size.x, inner.size.y * 0.3)), Color(col.lightened(0.3), 1.0 if cnt > 0 else 0.3))
+		_text(Vector2(r.position.x, r.end.y - 3.0), str(cnt), 13, WHITE if cnt > 0 else Color(1, 1, 1, 0.4), HORIZONTAL_ALIGNMENT_RIGHT, r.size.x - 5.0)
+		if on: _text(Vector2(r.position.x - 40.0, r.position.y - 6.0), m.to_upper(), 12, GOLD, HORIZONTAL_ALIGNMENT_CENTER, r.size.x + 80.0)
+
 func _top_bar(tabs: Dictionary) -> void:
 	var gw: float = clampf(S.x * 0.42, 320.0, 560.0)
 	top_gps = Rect2((S.x - gw) * 0.5, TOP_BAR_Y, gw, TOP_BAR_H)
@@ -764,6 +789,7 @@ func _top_bar(tabs: Dictionary) -> void:
 	var total := gap * 3.0
 	for w in ws: total += w
 	var x: float = S.x * 0.5 - (ws[0] + gap + ws[1] * 0.5)   # (SPEED sits right under the middle)
+	if space and space.build_ok(): tabs["build"] = Rect2(x - gap - 84.0, y2, 84.0, TOP_BAR_H)   # v12.25 (owner): BUILD, left of START
 	tabs["start"] = Rect2(x, y2, ws[0], TOP_BAR_H); x += ws[0] + gap
 	top_speed = Rect2(x, y2, ws[1], TOP_BAR_H); x += ws[1] + gap
 	tabs["select"] = Rect2(x, y2, ws[2], TOP_BAR_H); x += ws[2] + gap
@@ -771,6 +797,12 @@ func _top_bar(tabs: Dictionary) -> void:
 	fs_exit_slot = fs_slot   # (one place, on or off)
 
 func _top_bar_draw() -> void:
+	if buttons.has("build"):
+		var rb: Rect2 = buttons["build"]
+		var bon: bool = space.build_mode
+		_box(rb, Color(GOLD, 0.35) if bon else Color(0.02, 0.08, 0.15, 0.86), Color(GOLD, 0.95), 8, 2)
+		_text(Vector2(rb.position.x, rb.position.y + 23.0), "BUILD", 15, WHITE, HORIZONTAL_ALIGNMENT_CENTER, rb.size.x)
+	if space.build_mode: _build_bar()
 	for id in ["start", "select"]:
 		if not buttons.has(id): continue
 		var r: Rect2 = buttons[id]
@@ -2028,7 +2060,8 @@ func _draw() -> void:
 		_corner("slot_%d" % k, nm, it["icon"], scol, false, "%d" % ammo, cdk, space.warp_active(), ssub)
 	var mech: bool = GS.form == "mech"
 	_corner("thrust", "JUMP" if gm else ("BOOST" if mech else "THRUST"), "thrust", ORANGE, space.boosting, "", 0.0, false, "STICK = DASH" if mech or gm else "")
-	_corner("fire", "FIRE", "guns", RED, space.fire_lock, "", 0.0, space.warp_active() or not space.lane.is_empty(), "ON · TAP OFF" if space.fire_lock else "TAP = ON")
+	if space.build_mode: _corner("fire", "PLACE", "guns", GOLD, false, str(GS.build_count(space.build_mat())), 0.0, false, space.build_mat().to_upper())   # v12.25: FIRE is PLACE in BUILD
+	else: _corner("fire", "FIRE", "guns", RED, space.fire_lock, "", 0.0, space.warp_active() or not space.lane.is_empty(), "ON · TAP OFF" if space.fire_lock else "TAP = ON")
 	_corner("kill", "ENGINE KILL", "kill", GOLD, space.engine_kill, "", 0.0, mech, "DRIFTING" if space.engine_kill else "ENGINE")
 	_corner("zoom", "ZOOM", "zoom", CYAN, space.zoomed, "", 0.0, false, "SCOPE ON" if space.zoomed else "SCOPE")
 	_corner("cloak", "CLOAK", "cloak", Color(0.7, 0.5, 1.0), space.cloaked)   # v8.3 (owner): fly unseen; no weapons, no warp
