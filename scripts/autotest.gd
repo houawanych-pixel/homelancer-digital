@@ -10805,6 +10805,9 @@ func _blocks() -> void:
 ## sits on flat blocks, regions far behind are freed and a blast is still there when you come back.
 @warning_ignore("integer_division")
 func _build_mode() -> void:
+	if not Data.BUILD_ON:   # v12.31 (owner): building is out; the sword still cuts trees (no fire), nothing is collected
+		await _build_gone()
+		return
 	main._load_surface("eden_prime", 0)
 	await _wait(0.5)
 	var s := _sp()
@@ -10851,6 +10854,31 @@ func _build_mode() -> void:
 	main.hud.visible = true
 	await _wait(0.4)
 	await _capture("build_mode")
+
+func _build_gone() -> void:
+	main._load_surface("eden_prime", 0)
+	await _wait(0.5)
+	var s := _sp()
+	await _until(func(): return s._regions.size() >= 1 and s._building == null, 120.0)
+	var p0: Vector3 = s.player.global_position
+	var f: BlockField = s._block_field_at(p0.x, p0.z)
+	if f == null or f.trees.is_empty():
+		for k in s._regions:
+			if not (s._regions[k] as BlockField).trees.is_empty(): f = s._regions[k]
+	GS.form = "mech"
+	var msg: String = s.toggle_build()
+	await _wait(0.3)
+	var no_btn: bool = not main.hud.buttons.has("build") and not main.hud.buttons.has("bslot_0") and not s.build_mode
+	var st: float = Data.BLOCK_MIN
+	var tr: Dictionary = f.trees[0]
+	var b: int = tr["base"]
+	var tc := Vector3(f.x0 + (b % f.n + 1.0) * st, f._ly(int(tr["k_ground"])), f.z0 + (b / f.n + 1.0) * st)
+	s.player.global_position = tc + Vector3(-st * 2.5, 0, 0)
+	GS.build_mats = {}
+	var h0: int = s.harvested
+	for i in 4: s._sword_harvest(Vector3(1, 0, 0), Data.SWORD_REACH)
+	_check("v12.31 (owner): BUILD is gone (no button, no slots, BUILD won't turn on); the sword still cuts a tree down (%d blocks, no fire) and nothing is collected" % (s.harvested - h0),
+		no_btn and s.harvested > h0 and f.burning.size() == 0 and GS.build_mats.is_empty())
 
 func _lush() -> void:
 	var pid := "eden_prime"

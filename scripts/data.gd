@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.30"
+const VERSION := "v12.31"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1996,6 +1996,9 @@ const SWORD_COMBO := 4                                 # slashes in a forward da
 ## (top bar; the mech on a planet) swaps FIRE for PLACE and shows the material slots. The sword cuts wood (it doesn't set
 ## it alight) and breaks stone and harder rock into them; only building materials are kept: no sand or dirt, and no
 ## water or lava. A placed block goes where the crosshair meets the ground or another block (it falls if nothing holds it).
+## v12.31 (owner: "I don't want the Minecraft build ... take that out ... more focused on just the gameplay and the
+## destruction"): BUILD mode is off: no BUILD button, no material slots, nothing collected. The sword still cuts.
+const BUILD_ON := false
 const BUILD_MATS := ["stone", "wood", "obsidian", "gold", "diamond"]
 const BUILD_SLOTS := 9               # slots on the bar (the rest wait for new materials)
 const BUILD_REACH := 60.0            # m along the crosshair

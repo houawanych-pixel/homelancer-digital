@@ -7450,7 +7450,7 @@ func _sword_harvest(dir: Vector3, reach: float) -> void:
 				if not (m in Data.SWORD_CUTS): continue
 				f._edit_layer(p, "", true)
 				taken += 1
-				if m in Data.BUILD_MATS:
+				if Data.BUILD_ON and m in Data.BUILD_MATS:
 					GS.build_mats[m] = GS.build_count(m) + 1
 					got[m] = int(got.get(m, 0)) + 1
 	harvested += taken
@@ -7464,6 +7464,7 @@ var builds := 0                   # (tests)
 var _build_ghost: MeshInstance3D
 
 func build_ok() -> bool:
+	if not Data.BUILD_ON: return false   # v12.31: building is out
 	return GS.form == "mech" and surface_mode and not boarding and not sun_surface
 
 func build_mat() -> String:
@@ -7523,6 +7524,7 @@ func _update_build(_dt: float) -> void:
 
 ## PLACE: one block of the picked material at the target. Returns what to say.
 func place_block() -> String:
+	if not Data.BUILD_ON: return ""
 	if not build_mode: return ""
 	var m := build_mat()
 	if m == "": return "That slot is empty."
