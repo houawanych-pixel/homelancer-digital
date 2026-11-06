@@ -2035,6 +2035,9 @@ func _run() -> void:
 		var orphan := (Data.LOC_ROOMS.keys() as Array).filter(func(k): return not matched.has(k))
 		print("[route] loc places with no game place: ", orphan)
 		print("[route] loc rooms with an animated loop: ", vids.size())
+		var fz_ok: bool = hb.loc_fuzzy("synthari_capital_elyzaembassy") == "synthari_capital_elyzadepot" and hb.loc_fuzzy("vega_vegaminor") == "vega_vegaminor" and hb.loc_fuzzy("solara_nothere") == "solara_nothere"
+		print("[route] loc fuzzy names (Embassy/Freeport/Relay/Depot, Minor/Secundus/II): ", fz_ok)
+		if not fz_ok: bad.append("fuzzy")
 		hb.base = Data.SYSTEMS["solara"]["station"]
 		GS.system_id = "solara"
 		var lh_ok: bool = hb.room_for("hub") == "loc_solara_libertyhub_hub" and not hb.room_for("ship").begins_with("loc_") and hb.room_for("ships") == "loc_solara_libertyhub_hangar"

@@ -1369,10 +1369,24 @@ func loc_room(rn: String) -> String:
 	if not loc_rooms or room_override != "" or base.is_empty(): return ""
 	var place := str(GS.system_id) + "_" + str(base.get("name", "")).to_lower().replace(" ", "").replace("-", "").replace("'", "")
 	place = str(Data.LOC_ROOM_ALIAS.get(place, place))
+	if not Data.LOC_ROOMS.has(place): place = loc_fuzzy(place)
 	var rs: Array = Data.LOC_ROOMS.get(place, [])
 	if rs.is_empty(): return ""
 	var r := str(rs[0]) if rs.size() == 1 and str(rs[0]) == "commandnest" else str(Data.LOC_ROOM_OF.get(rn, ""))   # (a half-made place: only the rooms it has)
 	return "loc_%s_%s" % [place, r] if r in rs else ""
+
+## v12.17 (owner: "the names don't match"): a visiting station or a small moon may be named with a different type word in
+## the checklist than in the game (Savagers Depot / Relay, Vega Minor / Secundus): the room set of the same place with any
+## word of the same kind is used.
+const LOC_SAME_WORDS := [["embassy", "freeport", "relay", "depot"], ["secundus", "minor", "smoon", "ii"]]
+static func loc_fuzzy(place: String) -> String:
+	for grp in LOC_SAME_WORDS:
+		for w in grp:
+			if not place.ends_with(w): continue
+			var stem := place.substr(0, place.length() - w.length())
+			for w2 in grp:
+				if w2 != w and Data.LOC_ROOMS.has(stem + w2): return stem + w2
+	return place
 
 func room_for(s: String) -> String:
 	var lrn := str(Data.ROOM_OF.get(s, "")) if s != "equipment" else str({"weapon": "weapons", "ammo": "supplies"}.get(eq_tab, ""))
