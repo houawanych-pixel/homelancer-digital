@@ -48,6 +48,7 @@ func _ready() -> void:
 	hud.pressed.connect(_on_hud)
 	hud.typed.connect(_on_typed)
 	hub.launch_requested.connect(launch)
+	hub.escape_requested.connect(start_escape)   # v12.30
 	hub.map_requested.connect(func(): navmap.open(null))
 	hub.galaxy_requested.connect(func(): galaxymap.open(GS.system_id))   # v3.1: the GALAXY MAP tile on HOME
 	hub.descend_requested.connect(descend_to)
@@ -133,6 +134,7 @@ func start_game() -> void:
 func _load_system(id: String, arrival: String, staged := false) -> void:
 	Sfx.keep_until = 0.0   # (a new system: its own lines may speak)
 	_new_space("Space_" + id)
+	if id != GS.system_id: dock_ban.clear()   # v12.30: leaving the star system lifts a docking ban
 	GS.system_id = id
 	if state != "title": GS.save_game()   # v1.7y: a new system saves
 	if not (id in GS.discovered): GS.discovered.append(id)
@@ -840,6 +842,11 @@ func dock(n: Node3D) -> void:
 			return
 		infiltrate_station(n)
 		return
+	var dname := str(dinfo.get("name", ""))
+	if dock_ban.has(dname) and str(dock_ban[dname]) == space.sys_id:   # v12.30 (owner): you broke out of there
+		hud.flash_message("%s: DOCKING ACCESS DENIED. Leave the system or dock somewhere else first." % dname)
+		return
+	dock_ban.clear()   # (docking anywhere else lifts it)
 	state = "docking"
 	space.controls = false
 	space.autopilot = null
@@ -940,6 +947,54 @@ func _fly_along(p: Node3D, goal: Vector3, k: float) -> void:
 		p.basis = Basis.from_euler(Vector3(space.pitch, space.yaw, 0))
 	p.global_position = pos
 	space.vel = Vector3.ZERO
+
+## v12.30 (owner): the lockdown as a 3D escape. The hub hides; you break out room by room (StationEscape); boarding
+## your ship launches you, with ESCAPE_CHASERS of their ships after you, and that station won't take you back until
+## you leave the system or dock somewhere else.
+var escape: StationEscape
+var dock_ban := {}   # station name -> system id
+var escape_from := ""
+func start_escape(faction: String) -> void:
+	if escape != null: return
+	while state == "docking": await get_tree().process_frame   # (the alarm goes off as the hub opens, before docking is done)
+	if state != "hub": return
+	state = "escape"
+	escape_from = str(hub.base["name"])
+	hub.visible = false
+	escape = StationEscape.new()
+	escape.name = "StationEscape"
+	add_child(escape)
+	escape.escaped.connect(_escaped)
+	escape.start(faction)
+
+func _escaped() -> void:
+	var fac: String = hub.lockdown_faction()
+	var own := str(Factions.owner_of(hub.base, Data.SYSTEMS[GS.system_id]))
+	if is_instance_valid(escape): escape.queue_free()
+	escape = null
+	hub.visible = true
+	hub._end_lockdown()
+	state = "hub"
+	launch()
+	dock_ban[escape_from] = GS.system_id
+	if not is_instance_valid(space) or not is_instance_valid(space.player): return
+	var p: Node3D = space.player
+	var at: Vector3 = p.global_position + p.global_basis.z * 600.0 + Vector3(0, 60, 0)
+	var fl: String = own if Factions.has(own) else fac
+	var grp: Array = []
+	var left := Data.ESCAPE_CHASERS
+	while left > 0:
+		var g: Array = space.spawn_mission_group(at + Vector3(randf_range(-200, 200), randf_range(-60, 60), randf_range(-200, 200)), fl, mini(5, left), 3, "", -8)
+		if g.is_empty(): break
+		grp.append_array(g)
+		left -= g.size()
+	for e in grp:
+		e["aggro"] = true
+		e["provoked"] = true
+	escape_chasers = grp.size()
+	hud.flash_message("You're out! %d of their ships are after you. %s won't let you dock: leave the system or dock somewhere else." % [grp.size(), escape_from])
+
+var escape_chasers := 0
 
 func launch() -> void:
 	if state != "hub": return

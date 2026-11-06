@@ -1782,6 +1782,7 @@ func _run() -> void:
 	main.hud.cl_open = true   # (v8.0: the windows start folded; the checks read them open)
 	main.hud.sp_open = true
 	main.hud.weapons_pinned = true   # (v7.0: every button up for the checks; the pop-up has its own check)
+	if OS.get_environment("HL_ESCAPE") == "": main.hub.escape_3d = false   # v12.30: the older lockdown checks test the panorama fight (HL_ESCAPE tests the 3D one)
 	if OS.get_environment("HL_SMOKE") != "":   # Nov 2 (owner): the fast pre-deploy check (< 2 min)
 		await _smoke()
 		_finish_group()
@@ -2535,6 +2536,112 @@ func _run() -> void:
 		await _regions()
 		for r in results: print("[route] ", r)
 		get_tree().quit()
+		return
+	if OS.get_environment("HL_ESCAPE") != "":   # v12.30: the 3D station escape
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s := _sp()
+		main.dock(s.station)
+		await _until(func(): return main.state == "hub", 15.0)
+		await _wait(0.5)
+		main.hub.test_alarm()
+		await _until(func(): return main.escape != null and not main.escape.busy, 10.0)
+		var es: StationEscape = main.escape
+		var started: bool = es != null and main.state == "escape" and not main.hub.visible and es.guards.size() == 2
+		await _wait(0.3)
+		await _capture("escape_cell")
+		var vw := get_viewport().get_visible_rect().size
+		var chest := es.cam.unproject_position(es.pilot.global_position + Vector3(0, 1.25, 0))
+		var left_ok: bool = chest.x < vw.x * 0.47 and chest.x > vw.x * 0.1
+		# shoot the cell front (rifle), then the scope
+		var b0 := es.room.broken
+		for k in 30:
+			es._cool = 0.0
+			es.pitch = -0.15
+			es.yaw = PI + (k % 5 - 2) * 0.12
+			await _frames(1)
+			es.fire()
+		await _wait(0.3)
+		var shot_ok: bool = es.room.broken > b0 and es.room.decals.size() > 5
+		await _capture("escape_shots")
+		es.toggle_scope()
+		await _wait(0.5)
+		var scope_ok: bool = es.scoped and absf(es.cam.fov - StationEscape.SCOPE_FOV) < 3.0 and not es.body_mesh.visible
+		await _capture("escape_scope")
+		es.toggle_scope()
+		# the cutter on the door
+		for g in es.guards: es._hurt_guard(g, 99)
+		es.hp = StationEscape.HP_MAX
+		es.pilot.global_position = Vector3(8.5, 1.05, es.room.sz - 5.5)
+		es.switch_tool()
+		for k in 160:
+			es._cool = 0.0
+			es.yaw = PI + sin(k * 0.21) * 0.28
+			es.pitch = -0.05 + cos(k * 0.13) * 0.25
+			await _frames(1)
+			es.fire()
+		es._fire_held = true
+		await _frames(2)
+		await _capture("escape_cutter")
+		es._fire_held = false
+		var cut_n: int = es.room.cut_cells
+		var cut_ok: bool = cut_n >= 4
+		for c in es.door: es.room.hit_cell(c, 99)
+		es.pilot.global_position = Vector3(8.5, 1.05, es.room.sz - 1.6)
+		await _until(func(): return es.room_i == 1 and not es.busy, 10.0)
+		await _capture("escape_hall")
+		# bring the catwalk down: the pillars go, the guards on it fall
+		var up0 := 0
+		for g in es.guards: if (g["node"] as Node3D).position.y > 4.0: up0 += 1
+		for px in [5, 14, 23]:
+			for y in range(1, 5):
+				for z in [15, 16]:
+					for x in [px, px + 1]: es.room.hit_cell(Vector3i(x, y, z), 99)
+		await _wait(0.5)
+		var fell: bool = es.room.collapsed > 50 and es.room.debris.size() > 0
+		es.yaw = PI + 0.3
+		es.pitch = 0.15
+		await _capture("escape_collapse")
+		await _wait(1.5)
+		var down := 0
+		for g in es.guards: if not g["alive"]: down += 1
+		# a breach charge and a fuel tank
+		es.pilot.global_position = Vector3(15, 1.05, 4)
+		es.yaw = PI
+		es.pitch = -0.05
+		await _frames(2)
+		var d0 := es.room.decals.size()
+		es.throw_charge()
+		await _wait(1.6)
+		var charge_ok: bool = es.charges == StationEscape.CHARGES - 1 and es.room.decals.size() > d0 and es.elog.has("charge")
+		await _capture("escape_charge")
+		_check("v12.30 (owner): the lockdown is a 3D escape: over-the-shoulder pilot on the LEFT, crosshair in the middle (chest at x=%d of %d); the rifle chips the cell and leaves crater marks; the scope goes first person" % [chest.x, vw.x], started and left_ok and shot_ok and scope_ok, "start %s left %s shot %s scope %s" % [started, left_ok, shot_ok, scope_ok])
+		_check("v12.30 (owner): the CUTTER slices through metal (%d blocks cut); shoot out the pillars and the catwalk comes down as falling chunks (%d blocks), %d of %d guards on it down; a breach charge blasts a crater" % [cut_n, es.room.collapsed, down, up0], cut_ok and fell and down >= up0 and charge_ok, "cut %s fell %s down %d/%d charge %s" % [cut_ok, fell, down, up0, charge_ok])
+		for g in es.guards: es._hurt_guard(g, 99)
+		es.next_room()
+		await _until(func(): return es.room_i == 2 and not es.busy, 10.0)
+		es.pilot.global_position = Vector3(20, 2.05, 18)
+		es.yaw = PI
+		await _wait(0.4)
+		await _capture("escape_hangar")
+		var station_name := str(main.hub.base["name"])
+		es.pilot.global_position = es.ship.global_position + Vector3(0, -1, -6)
+		await _frames(3)
+		var board_vis: bool = es.board_btn.visible
+		es.board()
+		await _until(func(): return main.state == "flight", 15.0)
+		await _wait(1.0)
+		var s2 := _sp()
+		var hostile := 0
+		for e in s2.enemies: if bool(e.get("aggro", false)): hostile += 1
+		main.dock(s2.station)
+		await _frames(5)
+		var denied: bool = main.state == "flight" and main.dock_ban.has(station_name)
+		await _capture("escape_chase")
+		_check("v12.30 (owner): board your ship in the hangar and you launch; %d of their ships after you (%d hostile); %s denies docking" % [main.escape_chasers, hostile, station_name],
+			board_vis and main.escape_chasers >= Data.ESCAPE_CHASERS and hostile >= Data.ESCAPE_CHASERS and denied, "board %s chasers %d hostile %d denied %s" % [board_vis, main.escape_chasers, hostile, denied])
+		_finish_group()
 		return
 	if OS.get_environment("HL_WILD") != "":   # v12.28: alien wildlife on the grass
 		main.start_game()

@@ -2,6 +2,7 @@ extends Control
 ## Docked base screens: Hub, Equipment Dealer, Ship Dealer, Repair/Resupply. Map and Launch are handled by main.
 
 signal launch_requested
+signal escape_requested(faction: String)   # v12.30: the 3D on-foot escape (main runs it)
 signal map_requested
 signal galaxy_requested   # v3.1: the GALAXY MAP tile on HOME
 signal descend_requested(planet_id: String, location_id: String)
@@ -555,6 +556,7 @@ func open(station_or_planet: Dictionary) -> void:
 ## v9.2 (owner): the lockdown. A station whose people are HOSTILE to you (or worse) sounds the alarm when you dock:
 ## security comes for you, you can't launch, and you have to fight through the hub to the hangar (Breakout).
 var lockdown := false
+var escape_3d := Data.ESCAPE_3D   # v12.30 (tests of the older panorama fight turn it off)
 var breakout: Breakout
 func lockdown_due() -> bool:
 	if not Data.BREAKOUT_ON or kind != "station": return false
@@ -588,6 +590,9 @@ func _start_lockdown(force_faction := "") -> void:
 	launch_btn.disabled = true
 	launch_btn.text = "LOCKED"
 	status.text = "LOCKDOWN. %s security is coming for you: fight your way to the hangar." % str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id]))
+	if escape_3d:   # v12.30 (owner): the 3D escape, not the panorama fight
+		escape_requested.emit(f)
+		return
 	if breakout == null:
 		breakout = Breakout.new()
 		breakout.name = "Breakout"
