@@ -2580,6 +2580,18 @@ func _draw_grass() -> void:
 		mi.multimesh.set_instance_transform(j, Transform3D(Basis.from_scale(Vector3(sz, hh, sz)), _grass_pos(g)))
 		mi.multimesh.set_instance_color(j, Color(0.35, 0.18, 0.1) if grass_burn.has(live[j]) else _grass_root(g))
 
+## v12.28: is there live grass (or, flowers_only, a flower) at this point? (where the wildlife appears)
+@warning_ignore("integer_division")
+func grass_at(x: float, z: float, flowers_only := false) -> bool:
+	if not covers(x, z): return false
+	var fx := clampi(int((x - x0) / Data.BLOCK_MIN), 0, n - 1)
+	var fz := clampi(int((z - z0) / Data.BLOCK_MIN), 0, n - 1)
+	var c := fz * n + fx
+	if not grass.has(c): return false
+	var gi: int = grass[c]
+	if not grass_inst[gi][4]: return false
+	return flower_of.has(gi) if flowers_only else true
+
 ## v12.27: the flowers, one multimesh per kind; a merged clump of four is one giant bloom (taller too).
 @warning_ignore("integer_division")
 func _draw_flowers() -> void:

@@ -10762,6 +10762,17 @@ func _ground(x: float, z: float) -> float:
 	return h
 
 ## Ground contact, tile edges (wrap to the next tile) and the ceiling (back to orbit).
+## v12.28: the wildlife on this tile's grass (made with the tile, gone with it).
+var wildlife: Wildlife
+func _update_wildlife(dt: float) -> void:
+	if not is_instance_valid(tile_root) or not BlockField.regions_on() or sun_surface: return
+	if wildlife == null or not is_instance_valid(wildlife) or wildlife.get_parent() != tile_root:
+		wildlife = Wildlife.new()
+		wildlife.space = self
+		tile_root.add_child(wildlife)
+	var kind: String = Surface.PLANETS[planet_id]["tiles"][tile] if Surface.PLANETS.has(planet_id) else ""
+	wildlife.tick(dt, player.global_position, kind)
+
 func _surface_update(_dt: float) -> void:
 	if boarding:
 		_board_update(_dt)
@@ -10774,6 +10785,7 @@ func _surface_update(_dt: float) -> void:
 	if GS.form == "mech": _mech_dig(_dt)   # EXPERIMENT (v1.5v): the mech digs into block walls by pushing
 	var p := player.global_position
 	_update_regions()
+	_update_wildlife(_dt)
 	var bfp := _block_field_at(p.x, p.z)
 	var on_blocks := bfp != null
 	var floor_y := (bfp.ground_for(p.x, p.y - 6.0, p.z) if on_blocks else _ground(p.x, p.z)) + 6.0   # v1.5y: tunnel floors

@@ -2536,6 +2536,51 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_WILD") != "":   # v12.28: alien wildlife on the grass
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main._load_surface("eden_prime", 0)
+		await _wait(0.5)
+		var s := _sp()
+		var hold := s.player.global_position
+		s.holding = true
+		s.vel = Vector3.ZERO
+		await _until(func(): s.player.global_position = hold; return s._regions.size() >= 9 and s._building == null, 120.0)
+		await _until(func(): s.player.global_position = hold; return s.wildlife != null and s.wildlife.animals.size() >= 8, 40.0)
+		var w: Wildlife = s.wildlife
+		var kinds := {}
+		for a in w.animals: kinds[a["kind"]] = int(kinds.get(a["kind"], 0)) + 1
+		# walk up to one: it bolts
+		var pick: Dictionary = {}
+		for a in w.animals: if a["kind"] == "strider" and pick.is_empty(): pick = a
+		if pick.is_empty(): pick = w.animals[0]
+		var an: Node3D = pick["node"]
+		var ap := an.global_position
+		main.hud.visible = false
+		_tp(ap + Vector3(40, 18, 40), ap + Vector3(0, 3, 0))
+		await _wait(0.2)
+		await _capture("wild_" + str(pick["kind"]))
+		s.player.global_position = ap + Vector3(8, 4, 8)
+		var d0 := an.global_position.distance_to(s.player.global_position)
+		await _wait(1.5)
+		var d1 := an.global_position.distance_to(s.player.global_position) if is_instance_valid(an) else 0.0
+		var fled: bool = d1 > d0 + 5.0
+		# far away: they go
+		var n0 := w.animals.size()
+		_check("v12.28: alien wildlife on Eden Prime's grass (%s); walk up to a %s and it bolts (%.0f m -> %.0f m)" % [kinds, pick["kind"], d0, d1],
+			kinds.size() >= 2 and fled)
+		for k in ["grazer", "hopper"]:
+			for a in w.animals:
+				if a["kind"] == k and is_instance_valid(a["node"]):
+					var gp: Vector3 = (a["node"] as Node3D).global_position
+					_tp(gp + Vector3(18, 8, 18) * (0.4 if k == "hopper" else 1.0), gp + Vector3(0, 1.5, 0))
+					await _wait(0.15)
+					await _capture("wild_" + k)
+					break
+		main.hud.visible = true
+		_finish_group()
+		return
 	if OS.get_environment("HL_HAVEN") != "":   # v12.26: Solara's Haven (a hand-added planet) can be flown into
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
