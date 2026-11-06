@@ -2558,7 +2558,7 @@ func _run() -> void:
 		var an: Node3D = pick["node"]
 		var ap := an.global_position
 		main.hud.visible = false
-		_tp(ap + Vector3(40, 18, 40), ap + Vector3(0, 3, 0))
+		_tp(ap + Vector3(26, 34, 26), ap + Vector3(0, 3, 0))
 		await _wait(0.2)
 		await _capture("wild_" + str(pick["kind"]))
 		s.player.global_position = ap + Vector3(8, 4, 8)
@@ -2569,7 +2569,7 @@ func _run() -> void:
 		# far away: they go
 		var n0 := w.animals.size()
 		_check("v12.28: alien wildlife on Eden Prime's grass (%s); walk up to a %s and it bolts (%.0f m -> %.0f m)" % [kinds, pick["kind"], d0, d1],
-			kinds.size() >= 2 and fled)
+			w.animals.size() >= 8 and fled)
 		for k in ["grazer", "hopper"]:
 			for a in w.animals:
 				if a["kind"] == k and is_instance_valid(a["node"]):
