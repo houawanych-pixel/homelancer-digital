@@ -2475,6 +2475,34 @@ func _run() -> void:
 		var lights := s.find_children("*", "Light3D", true, false).size()
 		print("[route] DARK form=%s player=%s cam=%s cam_path=%s meshes=%d visible=%d lights=%d player_vis=%s" % [GS.form, s.player.global_position, cam.global_position if cam else null, cam.get_path() if cam else "", nm, vis, lights, s.player.is_visible_in_tree()])
 		await _capture("dark_board")
+		if _flag("HL_DARKPROBE"):   # which setting blacks the ship out on the web: one picture per change
+			var envr: Environment = (s.env.environment as Environment)
+			envr.glow_enabled = false
+			await _frames(4)
+			await _capture("probe_noglow")
+			var ls: Array = s.find_children("*", "OmniLight3D", true, false) + s.find_children("*", "SpotLight3D", true, false)
+			for l in ls: (l as Light3D).visible = false
+			await _frames(4)
+			await _capture("probe_nolights")
+			envr.tonemap_mode = Environment.TONE_MAPPER_LINEAR
+			envr.background_color = Color(0.4, 0.1, 0.1)
+			await _frames(4)
+			await _capture("probe_linear_redbg")
+			get_viewport().msaa_3d = Viewport.MSAA_2X
+			await _frames(4)
+			await _capture("probe_msaa")
+			get_viewport().scaling_3d_scale = 1.0
+			for d in s.find_children("*", "DirectionalLight3D", true, false): (d as Light3D).visible = false
+			await _frames(4)
+			await _capture("probe_nodir")
+			var cube := MeshInstance3D.new()
+			cube.mesh = BoxMesh.new()
+			cube.scale = Vector3.ONE * 6.0
+			s.add_child(cube)
+			cube.global_position = s.cam.global_position - s.cam.global_basis.z * 20.0
+			await _frames(4)
+			await _capture("probe_cube")
+			print("[route] PROBE cam far %s near %s fov %s cull %s env_fog %s vp_scale %s msaa %s" % [s.cam.far, s.cam.near, s.cam.fov, s.cam.cull_mask, envr.fog_enabled, get_viewport().scaling_3d_scale, get_viewport().msaa_3d])
 		var e0: float = s.lamp_energy()
 		s.laser_shield = true
 		await _frames(3)
