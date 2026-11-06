@@ -441,7 +441,10 @@ func _on_hud(id: String) -> void:
 				hud.flash_message("Target: %s" % tf.name)
 		"fullscreen":   # v1.9 (owner): the browser's full screen on / off (hides the address bar where the phone allows it)
 			if OS.has_feature("web"): JavaScriptBridge.eval("window.__hlFsToggle && window.__hlFsToggle()", true)
-		"pmap_close": hud.planet_map = false
+		"pmap_close":
+			hud.planet_map = false
+			hud.map_deck = ""
+		"pmap_deck0", "pmap_deck1", "pmap_deck2": hud.map_deck = str(hud.deck_list()[int(id.right(1))])   # v12.19
 		"log":
 			if hud.comms_mode == "roster": hud.close_roster()
 			else: hud.open_log()

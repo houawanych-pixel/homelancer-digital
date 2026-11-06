@@ -63,6 +63,7 @@ var comms_female := false
 var comms_generic := false   # a generic enemy pilot (face "gp/<id>") is on the line
 var _faces := {}
 var contacts: Array = []
+var map_deck := ""   # v12.19: the deck shown on a deck plan ("" = the one you're on)
 var planet_map := false   # v1.8y: the planet map is open (on a planet the radar / MAP opens it)
 var pick := ""   # v1.8q: who is picked in LOG ("" = nobody, "hail" = your target / control, or a character id): their picture is up on the friendly side with CALL
 var history: Array = [] # recent messages and calls for LOG
@@ -637,7 +638,11 @@ func _layout() -> void:
 			var mr := planet_map_rect()
 			buttons.clear()
 			buttons["pmap_close"] = Rect2(mr.end.x - 106, mr.end.y - 50, 96, 42)   # v12.0 (owner: FULL SCREEN covered CLOSE): bottom right
-			if space.boarding: return   # (the dungeon map: CLOSE only)
+			if space.boarding:   # (the dungeon map: CLOSE and a tab per deck)
+				var dks := deck_list()
+				if dks.size() > 1:
+					for i in dks.size(): buttons["pmap_deck%d" % i] = Rect2(mr.position.x + 14 + i * 128, mr.end.y - 74, 120, 44)
+				return
 			var spots: Array = space.base_spots()
 			for i in spots.size():
 				var bp := _pmap_point(mr, int(spots[i]["tile"]), float(spots[i]["x"]), float(spots[i]["z"]))
@@ -1323,6 +1328,17 @@ func _pmap_land(pid: String) -> Texture2D:
 
 ## v12.0 (owner: a map inside the dungeons, fog of war): the areas you have walked through, the doorways onward
 ## (dim), you, and where the job is (the core, then the exit) once you have seen it.
+## v12.19: the decks a deck plan has, top first.
+func deck_list() -> Array:
+	var seen := {}
+	for k in Boarding.ROOMS:
+		if not bool(Boarding.ROOMS[k]["hex"]): seen[Boarding.deck_name(float(Boarding.ROOMS[k]["y"][0]))] = true
+	return ["UPPER DECK", "MAIN DECK", "LOWER DECK"].filter(func(n): return seen.has(n))
+
+func shown_deck() -> String:
+	if map_deck != "" and deck_list().has(map_deck): return map_deck
+	return Boarding.deck_name(Boarding.floor_at(space.player.global_position))
+
 func _dungeon_map(mr: Rect2) -> void:
 	# v12.18 (owner, deck-plan pictures): a glowing blue blueprint of the decks on a starfield: the areas you have been in
 	# fill in, the ways on show as outlines, guards' rooms get a green marker, the core red, the way out gold.
@@ -1358,16 +1374,33 @@ func _dungeon_map(mr: Rect2) -> void:
 	var labels: Array = []
 	var cyan_fill := Color(0.12, 0.5, 0.68, 0.5)
 	var cyan_line := Color(0.45, 0.92, 1.0, 0.95)
+	var deck := shown_deck()
+	var dks := deck_list()
+	for i in dks.size():
+		if buttons.has("pmap_deck%d" % i): _pill("pmap_deck%d" % i, str(dks[i]).replace(" DECK", ""), dks[i] == deck, CYAN, "DECK")
+	_text(mr.position + Vector2(260, 54), deck, 12, Color(0.3, 0.95, 0.5, 0.9))
+	var stairs: Array = []
 	for pass_i in 2:   # corridors first, halls on top
 		for k in R:
 			var tun: bool = bool(R[k].get("hex", false)) and not R[k].has("shape")
 			if (pass_i == 0) != tun: continue
 			if not (seen.has(k) or near.has(k)): continue
+			var y0 := float(R[k]["y"][0])
+			var y1 := float(R[k]["y"][1])
+			var on_deck: bool = Boarding.deck_name(y0) == deck or Boarding.deck_name(y1) == deck
 			var r: Array = R[k]["r"]
 			var a2: Vector2 = to_map.call(float(r[0]), float(r[2]))
 			var b2: Vector2 = to_map.call(float(r[1]), float(r[3]))
 			var rr := Rect2(a2, b2 - a2)
 			var poly := _deck_shape(rr, str(R[k].get("shape", "rect")) if not tun else "rect")
+			var wo := Boarding.outline(k) if not tun else PackedVector2Array()
+			if not wo.is_empty():
+				poly = PackedVector2Array()
+				for wp in wo: poly.append(to_map.call(wp.x, wp.y))
+			if tun and not is_equal_approx(y0, y1) and on_deck: stairs.append([rr.get_center(), str(R[k]["axis"]), y1 > y0, Boarding.deck_name(y0) == deck])
+			if not on_deck:   # another deck: a faint ghost under this one
+				draw_polyline(poly + PackedVector2Array([poly[0]]), Color(cyan_line, 0.13), 1.0, true)
+				continue
 			if seen.has(k):
 				draw_colored_polygon(poly, cyan_fill if not tun else Color(0.1, 0.42, 0.58, 0.55))
 				draw_polyline(poly + PackedVector2Array([poly[0]]), cyan_line, 1.6 if not tun else 1.0, true)
@@ -1381,6 +1414,13 @@ func _dungeon_map(mr: Rect2) -> void:
 					draw_rect(Rect2(gp - Vector2(5, 5), Vector2(10, 10)), Color(0.05, 0.3, 0.1), false, 1.0)
 			else:
 				draw_polyline(poly + PackedVector2Array([poly[0]]), Color(cyan_line, 0.32), 1.0, true)
+	for st in stairs:   # ramps to another deck: rungs and an arrow the way it goes
+		var sc: Vector2 = st[0]
+		var along := Vector2(1, 0) if st[1] == "x" else Vector2(0, 1)
+		var acr := Vector2(-along.y, along.x)
+		for j in 4: draw_line(sc + along * (j - 1.5) * 4.0 - acr * 6.0, sc + along * (j - 1.5) * 4.0 + acr * 6.0, Color(1, 1, 1, 0.85), 1.4)
+		var goes_up: bool = st[2] if st[3] else not st[2]
+		_text(sc + acr * 10.0 + Vector2(-20, 4), "UP" if goes_up else "DOWN", 9, Color(0.3, 0.95, 0.5, 0.95), HORIZONTAL_ALIGNMENT_CENTER, 40)
 	labels.sort_custom(func(a, b): return a[0].get_center().x < b[0].get_center().x)
 	var last_y := {}   # rooms side by side take turns, label above / below, so names never run together
 	for li in labels.size():
@@ -1391,7 +1431,7 @@ func _dungeon_map(mr: Rect2) -> void:
 		var ly := lr.position.y - 4.0 if up else lr.end.y + 11.0
 		_text(Vector2(lr.get_center().x - 60, ly), labels[li][1], 9, Color(0.85, 0.97, 1.0, 0.95), HORIZONTAL_ALIGNMENT_CENTER, 120)
 	var core: Vector3 = Boarding.CORE_AT
-	if seen.has(Boarding.room_at(core)):
+	if seen.has(Boarding.room_at(core)) and Boarding.deck_name(core.y) == deck:
 		var cp: Vector2 = to_map.call(core.x, core.z)
 		draw_circle(cp, 7.0, Color(1.0, 0.4, 0.3))
 		_text(cp + Vector2(10, 5), "CORE", 12, Color(1.0, 0.55, 0.45))
@@ -1406,7 +1446,7 @@ func _dungeon_map(mr: Rect2) -> void:
 	var f2 := Vector2(f3.x, f3.z).normalized()
 	if f2 == Vector2.ZERO: f2 = Vector2.UP
 	var sd := Vector2(-f2.y, f2.x)
-	draw_colored_polygon(PackedVector2Array([yv + f2 * 11.0, yv - f2 * 6.0 + sd * 6.0, yv - f2 * 6.0 - sd * 6.0]), CYAN_HI)
+	if Boarding.deck_name(Boarding.floor_at(pp)) == deck: draw_colored_polygon(PackedVector2Array([yv + f2 * 11.0, yv - f2 * 6.0 + sd * 6.0, yv - f2 * 6.0 - sd * 6.0]), CYAN_HI)
 	# legend (bottom right, like a deck plan's key)
 	var lg := Rect2(mr.end - Vector2(196, 130), Vector2(180, 62))
 	draw_rect(lg, Color(0.02, 0.07, 0.14, 0.9))

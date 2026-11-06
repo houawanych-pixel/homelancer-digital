@@ -1930,6 +1930,8 @@ func _run() -> void:
 	if OS.get_environment("HL_DECKS") != "":   # v12.18: generated deck plans for enemy battleships and stations
 		var bad: Array = []
 		var sizes := []
+		var shapes_seen := {}
+		var decks_seen := {}
 		for kind in ["ship", "station"]:
 			for d in [1, 2, 3, 4]:
 				for sd in 3:
@@ -1947,9 +1949,24 @@ func _run() -> void:
 					for k in ks: if float(L["rooms"][k]["r"][1]) > float(L["rooms"]["sbay"]["r"][1]) + 0.5: bad.append("%s L%d %s east of the exit" % [kind, d, k])
 					for need in ["lbay", "muster", "reactor", "fhold", "sbay", "bridge"]: if not (L["rooms"] as Dictionary).has(need): bad.append("%s L%d no %s" % [kind, d, need])
 					if Boarding.room_at(L["bridge_mech"]) != "bridge": bad.append("%s L%d bridge mech outside the bridge" % [kind, d])
+					for k in ks:   # v12.19: real outlines keep the middle and every door open
+						var RR: Dictionary = L["rooms"][k]
+						if not RR.has("poly"): continue
+						var pg: PackedVector2Array = RR["poly"]
+						if not Geometry2D.is_point_in_polygon(Vector2.ZERO, pg): bad.append("%s L%d %s middle walled" % [kind, d, k])
+						var dsd := Boarding._door_sides(L["rooms"], k)
+						for side in dsd:
+							var dv: Vector2 = {"xn": Vector2(-0.93, 0), "xp": Vector2(0.93, 0), "zn": Vector2(0, -0.93), "zp": Vector2(0, 0.93)}[side]
+							for o in [-0.5, 0.0, 0.5]:
+								var tp := dv + (Vector2(0, o) if absf(dv.x) > 0.0 else Vector2(o, 0))
+								if not Geometry2D.is_point_in_polygon(tp, pg): bad.append("%s L%d %s door %s walled" % [kind, d, k, side])
+						if sd == 0 and kind == "ship": shapes_seen[str(pg.size())] = true
+					for k in ks:
+						if not bool(L["rooms"][k]["hex"]): decks_seen[Boarding.deck_name(float(L["rooms"][k]["y"][0]))] = true
 					if sd == 0: sizes.append("%s L%d %d" % [kind, d, ks.size()])
 		Boarding.use_ship()
-		_check("deck plans: ships and stations L1-4 x 3 each join up in and out, no overlaps, exit most east, bridge + reactor + muster (%s) %s" % [", ".join(sizes), bad.slice(0, 6)], bad.is_empty())
+		_check("deck plans: ships and stations L1-4 x 3 each join up in and out, no overlaps, exit most east, bridge + reactor + muster; own outlines (%d kinds), decks %s (%s) %s" % [shapes_seen.size(), decks_seen.keys(), ", ".join(sizes), bad.slice(0, 6)],
+			bad.is_empty() and shapes_seen.size() >= 6 and decks_seen.size() == 3)
 		# board a generated battleship as a mech: the halls' guards, the bridge, the reactor all reachable by door
 		main.start_game()
 		await _until(func(): return main.state == "flight", 20.0)
@@ -1974,6 +1991,31 @@ func _run() -> void:
 		for k in Boarding.ROOMS: s.board["seen"][k] = true
 		await _wait(0.4)
 		await _capture("deck_ship_map")
+		var dl: Array = main.hud.deck_list()
+		if dl.size() > 1:
+			main._on_hud("pmap_deck0")
+			await _wait(0.3)
+			await _capture("deck_ship_map_%s" % str(dl[0]).to_lower().replace(" ", "_"))
+		main._on_hud("pmap_close")
+		var wing := ""
+		for k in Boarding.ROOMS: if wing == "" and Boarding.ROOMS[k].has("poly") and k.begins_with("w"): wing = k
+		if wing != "":
+			var wr: Array = Boarding.ROOMS[wing]["r"]
+			var wc := Vector3((float(wr[0]) + float(wr[1])) * 0.5, 0, (float(wr[2]) + float(wr[3])) * 0.5)
+			var into := wc + Vector3(0, 0, (float(wr[3]) - float(wr[2])) * (0.3 if wc.z < 0 else -0.3))
+			_tp(Vector3(into.x, Boarding.floor_of(wing, into.x, into.z) + 6.0, into.z), wc - (into - wc))
+			await _wait(1.0)
+			await _capture("deck_ship_wing")
+		var keep := Boarding.ROOMS
+		Boarding.use(Boarding.deckplan("shot:station", "station", 3, "Orbital Station Kessa"))   # (the map only: a station's plan)
+		s.board["ship"] = "ORBITAL STATION KESSA"
+		for k in Boarding.ROOMS: s.board["seen"][k] = true
+		main.hud.planet_map = true
+		main.hud.map_deck = "MAIN DECK"
+		await _wait(0.3)
+		await _capture("deck_station_map")
+		main._on_hud("pmap_close")
+		Boarding.ROOMS = keep
 		main.hud.planet_map = false
 		_check("a generated battleship deck plan in the game: %d areas, bridge %s, first hall's guards wake %s" % [Boarding.ROOMS.size(), gen, woke], gen and woke)
 		_finish_group()

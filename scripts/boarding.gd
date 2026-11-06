@@ -115,6 +115,8 @@ static func use(L: Dictionary) -> void:
 ## and back up to the EXIT SHAFT. Difficulty 1-4: deeper (more rooms and levels), bigger halls, more guards.
 const CELL := 360.0
 const SHAPES := ["oct", "pillars", "cross", "split", "ring", "hex"]
+const UPPER_DECK := 30.0    # v12.19: deck-plan floors (the main deck is 0)
+const LOWER_DECK := -24.0
 static func facility(seed_key: String, difficulty: int, name := "Facility") -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash("facility:" + seed_key)
@@ -227,6 +229,7 @@ static func facility(seed_key: String, difficulty: int, name := "Facility") -> D
 	tunnel.call(prev, pc, "sbay", xq, n)
 	route_out.append("t%d" % n)
 	route_out.append("sbay")
+	_outlines(rooms, rng)
 	var lb: Array = rooms["lbay"]["r"]
 	var sb: Array = rooms["sbay"]["r"]
 	var rr: Array = rooms["reactor"]["r"]
@@ -321,9 +324,10 @@ static func deckplan(seed_key: String, kind: String, difficulty: int, name := "S
 				var whx := rng.randf_range(70.0, 105.0)
 				var whz := rng.randf_range(65.0, 95.0)
 				var wsh: String = SHAPES[rng.randi() % SHAPES.size()]
+				var fl: float = [0.0, 0.0, UPPER_DECK, UPPER_DECK, LOWER_DECK][rng.randi() % 5]   # v12.19 (owner: different floors)
 				for sd in [-1, 1]:
 					var wk := "w%d%s" % [i, "p" if sd < 0 else "s"]
-					room.call(wk, Vector2i(i + 1, sd), whx, whz, 0.0, str(pr[0 if sd < 0 else 1]), 1 + d / 2, wsh)
+					room.call(wk, Vector2i(i + 1, sd), whx, whz, fl, str(pr[0 if sd < 0 else 1]), 1 + d / 2, wsh)
 					link.call(hk, wk)
 			prev = hk
 		var rc := Vector2i(n_spine + 1, 0)
@@ -347,7 +351,7 @@ static func deckplan(seed_key: String, kind: String, difficulty: int, name := "S
 			if rng.randf() < 0.5:   # mirrored side rooms by the bow too
 				for sd in [-1, 1]:
 					var sk := "b%d%s" % [i, "p" if sd < 0 else "s"]
-					room.call(sk, Vector2i(n_spine + 2 + i, sd), 80.0, 70.0, 0.0, ["ESCAPE PODS", "ESCAPE PODS"][0], 0, "rect")
+					room.call(sk, Vector2i(n_spine + 2 + i, sd), 80.0, 70.0, LOWER_DECK, "ESCAPE PODS", 0, "rect")
 					link.call(ek, sk)
 			prev = ek
 		room.call("sbay", Vector2i(n_spine + 2 + n_out, 0), 95.0, 85.0, 0.0, "BOW LAUNCH BAY", 0, "rect", 80.0)
@@ -401,17 +405,17 @@ static func deckplan(seed_key: String, kind: String, difficulty: int, name := "S
 				if sd < 0 and j == depth - 1:
 					mk = "bridge"
 					lab = "COMMAND DECK"
-				room.call(mk, Vector2i(cx, sd * (2 + j)), rng.randf_range(95.0, 125.0), rng.randf_range(85.0, 110.0), 30.0 if mk == "bridge" else 0.0, lab, 1 + d / 2, SHAPES[rng.randi() % SHAPES.size()], 60.0 if mk == "bridge" else 0.0)
+				room.call(mk, Vector2i(cx, sd * (2 + j)), rng.randf_range(95.0, 125.0), rng.randf_range(85.0, 110.0), UPPER_DECK if sd < 0 else LOWER_DECK, lab, 1 + d / 2, SHAPES[rng.randi() % SHAPES.size()], 60.0 if mk == "bridge" else 0.0)
 				link.call(pk, mk)
 				pk = mk
 			# pods off the ring's corners, outward
 			for ox in [-1, 1]:
 				if rng.randf() < 0.5 + d * 0.1:
 					var pod := "pod%d%d" % [ox + 1, sd + 1]
-					room.call(pod, Vector2i(cx + ox, sd * 2), 80.0, 75.0, 0.0, ["ESCAPE PODS", "DOCK " + ["A", "B", "C", "D"][rng.randi() % 4]][rng.randi() % 2], d / 2, "oct")
+					room.call(pod, Vector2i(cx + ox, sd * 2), 80.0, 75.0, UPPER_DECK if sd < 0 else LOWER_DECK, ["ESCAPE PODS", "DOCK " + ["A", "B", "C", "D"][rng.randi() % 4]][rng.randi() % 2], d / 2, "oct")
 					link.call(rk[Vector2i(ox, sd)], pod)
 		var br2: Array = rooms["bridge"]["r"]
-		bridge_at = Vector3((float(br2[0]) + float(br2[1])) * 0.5, 30.0, (float(br2[2]) + float(br2[3])) * 0.5)
+		bridge_at = Vector3((float(br2[0]) + float(br2[1])) * 0.5, UPPER_DECK, (float(br2[2]) + float(br2[3])) * 0.5)
 		prev = rk[Vector2i(1, 0)]
 		for x in range(cx + 2, cx + 3 + d / 2):
 			var ek2 := "spe%d" % x
@@ -425,6 +429,7 @@ static func deckplan(seed_key: String, kind: String, difficulty: int, name := "S
 		var t4: String = link.call(prev, "sbay")
 		route_out.append(t4)
 		route_out.append("sbay")
+	_outlines(rooms, rng)
 	var lb: Array = rooms["lbay"]["r"]
 	var sb: Array = rooms["sbay"]["r"]
 	var rr: Array = rooms["reactor"]["r"]
@@ -433,6 +438,100 @@ static func deckplan(seed_key: String, kind: String, difficulty: int, name := "S
 		"boss": core + Vector3(0, 0, 90.0), "exit_x": float(sb[1]) - 8.0, "entry_x": float(lb[0]) + 4.0, "seal": seal, "escape": esc,
 		"route_in": route_in, "route_out": route_out, "bridge_mech": bridge_at, "kind": kind,
 		"info": {"name": name, "difficulty": d, "kind": kind, "rooms": rooms.size()}}
+
+## v12.19 (owner: "blueprint map shapes more unique… with real shape"): every deck-plan room but the reactor gets its
+## own outline: each corner square, cut, notched or rounded, by its own amount (a long cut both ends = an arrow, a
+## notch = an L or T, round both ends = a capsule). Sides with a door keep their middle open; side rooms in a pair are
+## mirror images; spine rooms are symmetric port/starboard like a hull. The walls in the game follow the same outline.
+static func _outlines(rooms: Dictionary, rng: RandomNumberGenerator) -> void:
+	var keys := rooms.keys()
+	keys.sort()
+	for k in keys:
+		var R: Dictionary = rooms[k]
+		if bool(R["hex"]) or k == "reactor" or R.has("poly"): continue
+		var ds := _door_sides(rooms, k)
+		var mate := ""
+		if k.ends_with("p") and rooms.has(k.left(-1) + "s"): mate = k.left(-1) + "s"
+		var mirror: bool = mate == "" and (k == "lbay" or k == "sbay" or k == "muster" or k == "fhold" or k.begins_with("h") or k.begins_with("e") or k.begins_with("sp"))
+		if mate != "":   # a pair: the outline's doors are on facing sides
+			var poly := _make_poly(rng, ds, false)
+			R["poly"] = poly
+			var flip := PackedVector2Array()
+			for i in range(poly.size() - 1, -1, -1): flip.append(Vector2(poly[i].x, -poly[i].y))
+			rooms[mate]["poly"] = flip
+		else:
+			R["poly"] = _make_poly(rng, ds, mirror)
+		for kk in [k, mate]:
+			if kk != "" and str(rooms[kk].get("shape", "")) in ["oct", "cross", "hex", "rect"]: rooms[kk]["shape"] = "poly"
+
+static func _door_sides(rooms: Dictionary, k: String) -> Dictionary:
+	var r: Array = rooms[k]["r"]
+	var out := {}
+	if k == "lbay": out["xn"] = true
+	if k == "sbay": out["xp"] = true
+	for t in rooms:
+		if not bool(rooms[t]["hex"]): continue
+		var q: Array = rooms[t]["r"]
+		if str(rooms[t]["axis"]) == "x" and float(q[2]) < float(r[3]) and float(q[3]) > float(r[2]):
+			if is_equal_approx(float(q[1]), float(r[0])): out["xn"] = true
+			if is_equal_approx(float(q[0]), float(r[1])): out["xp"] = true
+		elif str(rooms[t]["axis"]) == "z" and float(q[0]) < float(r[1]) and float(q[1]) > float(r[0]):
+			if is_equal_approx(float(q[3]), float(r[2])): out["zn"] = true
+			if is_equal_approx(float(q[2]), float(r[3])): out["zp"] = true
+	return out
+
+## A room outline in -1..1 room space (x along the hull, y = z), corners in order.
+static func _make_poly(rng: RandomNumberGenerator, doors: Dictionary, mirror_z: bool) -> PackedVector2Array:
+	var cs := [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]
+	var styles := ["sq", "cut", "cut", "notch", "round", "round"]
+	var same: String = styles[rng.randi() % styles.size()] if rng.randf() < 0.35 else ""
+	var prm := {}
+	for i in 4:
+		var c: Vector2 = cs[i]
+		if mirror_z and c.y > 0.0: continue
+		var hd: bool = doors.has("zn" if c.y < 0 else "zp") or (mirror_z and (doors.has("zn") or doors.has("zp")))
+		var vd: bool = doors.has("xn" if c.x < 0 else "xp")
+		var st: String = same if same != "" else styles[rng.randi() % styles.size()]
+		var amax := 0.38 if hd else (0.92 if st == "cut" else 0.7)
+		var bmax := 0.38 if vd else (0.92 if st == "cut" else 0.7)
+		prm[i] = [st, rng.randf_range(0.18, amax), rng.randf_range(0.18, bmax)]
+	if mirror_z:
+		prm[2] = prm[1]
+		prm[3] = prm[0]
+	var pts := PackedVector2Array()
+	for i in 4:
+		var c: Vector2 = cs[i]
+		var st: String = prm[i][0]
+		var a: float = prm[i][1]
+		var b: float = prm[i][2]
+		var hp := Vector2(c.x * (1.0 - a), c.y)
+		var vp := Vector2(c.x, c.y * (1.0 - b))
+		var inner := Vector2(c.x * (1.0 - a), c.y * (1.0 - b))
+		var p1 := hp if i % 2 == 1 else vp
+		var p2 := vp if i % 2 == 1 else hp
+		match st:
+			"sq": pts.append(c)
+			"cut": pts.append_array([p1, p2])
+			"notch": pts.append_array([p1, inner, p2])
+			"round":
+				for j in 6:
+					var t := PI * 0.5 * j / 5.0
+					pts.append(inner + (p1 - inner) * cos(t) + (p2 - inner) * sin(t))
+	return pts
+
+## The room's outline in world x/z (empty: a plain box).
+static func outline(k: String) -> PackedVector2Array:
+	var R: Dictionary = ROOMS[k]
+	if not R.has("poly"): return PackedVector2Array()
+	var r: Array = R["r"]
+	var c := Vector2((float(r[0]) + float(r[1])) * 0.5, (float(r[2]) + float(r[3])) * 0.5)
+	var h := Vector2((float(r[1]) - float(r[0])) * 0.5, (float(r[3]) - float(r[2])) * 0.5)
+	var out := PackedVector2Array()
+	for p in (R["poly"] as PackedVector2Array): out.append(c + p * h)
+	return out
+
+static func deck_name(y: float) -> String:
+	return "UPPER DECK" if y > 15.0 else ("LOWER DECK" if y < -15.0 else "MAIN DECK")
 
 static func rect(k: String) -> Array: return ROOMS[k]["r"]
 
@@ -668,8 +767,9 @@ static func build(root: Node3D, tint: Color) -> Dictionary:
 ## oct: chamfered corners; pillars: four hexagonal columns; cross: four corner blocks leave a + of walkway (the doors are
 ## mid-wall); split: a waist-high ridge across the middle with a gap (cover); ring: a column in the middle to circle.
 static func _shape(root: Node3D, boxes: Array, R: Dictionary, m: Material, trim: Material) -> void:
+	if R.has("poly"): _poly_walls(root, boxes, R, m, trim)
 	var sh := str(R.get("shape", ""))
-	if sh == "" or sh == "rect" or sh == "hex": return
+	if sh == "" or sh == "rect" or sh == "hex" or sh == "poly": return
 	var r: Array = R["r"]
 	var x0: float = r[0]
 	var x1: float = r[1]
@@ -740,6 +840,57 @@ static func _shape(root: Node3D, boxes: Array, R: Dictionary, m: Material, trim:
 			var rr := cy.top_radius
 			boxes.append([root, AABB(Vector3(cx - rr * 0.85, y, cz - rr * 0.85), Vector3(rr * 1.7, h, rr * 1.7))])
 			_slab(root, Vector3(cx - rr - 1.0, y + h * 0.4, cz - 0.5), Vector3(cx + rr + 1.0, y + h * 0.4 + 0.8, cz + 0.5), trim, null)
+
+## v12.19: a room's own outline: a wall along every edge that isn't the box's side, and the space outside it solid.
+static func _poly_walls(root: Node3D, boxes: Array, R: Dictionary, m: Material, trim: Material) -> void:
+	var r: Array = R["r"]
+	var y: float = float(R["y"][0])
+	var h: float = R["h"]
+	var c := Vector2((float(r[0]) + float(r[1])) * 0.5, (float(r[2]) + float(r[3])) * 0.5)
+	var hs := Vector2((float(r[1]) - float(r[0])) * 0.5, (float(r[3]) - float(r[2])) * 0.5)
+	var poly: PackedVector2Array = R["poly"]
+	var n := poly.size()
+	for i in n:
+		var a: Vector2 = poly[i]
+		var b: Vector2 = poly[(i + 1) % n]
+		if (absf(a.x) > 0.999 and absf(b.x) > 0.999 and signf(a.x) == signf(b.x)) or (absf(a.y) > 0.999 and absf(b.y) > 0.999 and signf(a.y) == signf(b.y)): continue
+		var wa := c + a * hs
+		var wb := c + b * hs
+		var ln := wa.distance_to(wb)
+		if ln < 0.5: continue
+		var mi := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(ln + WALL, h, WALL)
+		mi.mesh = bm
+		mi.material_override = m
+		var mid := (wa + wb) * 0.5
+		mi.position = Vector3(mid.x, y + h * 0.5, mid.y)
+		mi.rotation.y = -atan2(wb.y - wa.y, wb.x - wa.x)
+		root.add_child(mi)
+		var tr := MeshInstance3D.new()   # a glow strip along it, like the other walls
+		var tm := BoxMesh.new()
+		tm.size = Vector3(ln, 1.2, WALL * 1.3)
+		tr.mesh = tm
+		tr.material_override = trim
+		tr.position = Vector3(mid.x, y + h * 0.62, mid.y)
+		tr.rotation.y = mi.rotation.y
+		root.add_child(tr)
+	var G := 12   # the solid part: a grid, each row's blocked run one box
+	for gz in G:
+		var run := -1
+		for gx in G + 1:
+			var blocked := false
+			if gx < G:
+				var q := Vector2(-1.0 + (gx + 0.5) * 2.0 / G, -1.0 + (gz + 0.5) * 2.0 / G)
+				blocked = not Geometry2D.is_point_in_polygon(q, poly)
+			if blocked and run < 0: run = gx
+			elif not blocked and run >= 0:
+				var x0 := c.x + (-1.0 + run * 2.0 / G) * hs.x
+				var x1 := c.x + (-1.0 + gx * 2.0 / G) * hs.x
+				var z0 := c.y + (-1.0 + gz * 2.0 / G) * hs.y
+				var z1 := c.y + (-1.0 + (gz + 1) * 2.0 / G) * hs.y
+				boxes.append([root, AABB(Vector3(x0, y, z0), Vector3(x1 - x0, h, z1 - z0))])
+				run = -1
 
 static func _wall(root: Node3D, boxes: Array, side: Array, a: float, b: float, ylo: float, ytop: float, h: float, hex: bool, m: Material, xsec := "hex", halfw := 34.0) -> void:
 	var axis: String = side[0]
