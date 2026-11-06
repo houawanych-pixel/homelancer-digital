@@ -2536,6 +2536,13 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_LUSH") != "":   # v12.22: the lush jungle (Eden Prime): dense mixed forest, floating islands on vines, falls
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await _lush()
+		_finish_group()
+		return
 	if OS.get_environment("HL_REGIONS") != "":   # the v1.7a blocks-everywhere checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -10597,6 +10604,59 @@ func _blocks() -> void:
 ## player from the seed (each its own seed and its own kept blasts), the smooth sheet is cut out under them, the pad
 ## sits on flat blocks, regions far behind are freed and a blast is still there when you come back.
 @warning_ignore("integer_division")
+func _lush() -> void:
+	var pid := "eden_prime"
+	for k in GS.block_deltas.keys():
+		if str(k).begins_with(pid + "|"): GS.block_deltas.erase(k)
+	main._load_surface(pid, 0)
+	await _wait(0.5)
+	var s := _sp()
+	BlockField.step_max_ms = 0.0
+	await _until(func(): return s._regions.size() >= 9 and s._building == null, 120.0)
+	print("[route] lush: regions %d, longest build slice %.0f ms, last region %.0f ms" % [s._regions.size(), BlockField.step_max_ms, s.region_ms])
+	var p: Vector3 = s.player.global_position
+	var f: BlockField = s._block_field_at(p.x, p.z)
+	if f == null:
+		for k in s._regions: f = s._regions[k]
+	var kinds := {}
+	for pl in f.plants: kinds[pl["kind"]] = int(kinds.get(pl["kind"], 0)) + 1
+	var held := 0
+	var anchors := 0
+	for il in f.islands:
+		if f.spans(int(il["centre"])).size() >= 2: held += 1
+		anchors += (il["anchors"] as Array).size()
+	var ifalls: Array = f.falls.filter(func(x): return x.get("island", false))
+	_check("Lush jungle (v12.22, Eden Prime): a dense mixed forest of block trees and plants (%d giant trees, plants %s), %d floating islands still in the air after the build (%d of them, held by %d vines to the ground), %d vine bridges, %d waterfalls off the islands, %d on the ground" % [f.trees.size(), kinds, f.islands.size(), held, anchors, f.bridges, ifalls.size(), f.falls.size() - ifalls.size()],
+		f.trees.size() >= 8 and kinds.size() >= 4 and f.plants.size() >= 60 and f.islands.size() >= 1 and held == f.islands.size() and anchors >= 2 * f.islands.size())
+	# views (no HUD): an island from beside it, the falls off it, the forest from just over the canopy
+	var st: float = Data.BLOCK_MIN
+	main.hud.visible = false
+	var ifl: Array = f.falls.filter(func(x): return x.get("island", false))
+	if not f.islands.is_empty():
+		var il: Dictionary = f.islands[0]
+		var c: int = il["centre"]
+		var ic := Vector3(f.x0 + (c % f.n + 0.5) * st, f._ly(int(il["k_top"])), f.z0 + (c / f.n + 0.5) * st)
+		_tp(ic + Vector3(190, 20, 150), ic + Vector3(0, -25, 0))
+		await _wait(1.5)
+		await _capture("lush_island")
+	if not ifl.is_empty():
+		var ft: Vector3 = ifl[0]["top"]
+		var fb: Vector3 = ifl[0]["bottom"]
+		var fd: Vector2 = ifl[0]["dir"]
+		var lat: Vector2 = ifl[0]["lat"]
+		var mid := (ft + fb) * 0.5
+		_tp(mid + Vector3(fd.x, 0, fd.y) * 120.0 + Vector3(lat.x, 0, lat.y) * 70.0 + Vector3(0, -10, 0), mid)
+		await _wait(1.2)
+		await _capture("lush_falls")
+	var tr: Dictionary = f.trees[f.trees.size() / 2] if not f.trees.is_empty() else {}
+	if not tr.is_empty():
+		var b: int = tr["base"]
+		var tc := Vector3(f.x0 + (b % f.n) * st, f._ly(int(tr["k_top"])), f.z0 + (b / f.n) * st)
+		_tp(tc + Vector3(-140, 25, -140), tc + Vector3(60, -30, 60))
+		await _wait(1.2)
+		await _capture("lush_forest")
+	main.hud.visible = true
+
 func _regions() -> void:
 	var pid: String = Data.BLOCK_TEST["planet"]
 	var g := Surface.grid(pid)

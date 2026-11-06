@@ -57,6 +57,11 @@ var clamped := 0               # v1.6f spires cut down to a realistic height (te
 var canyon_cells: Array = []   # v1.6f the canyon floor's cells
 var roots: Array = []          # v1.6f obsidian roots piercing the surface: [{cells: [cell], tip}]
 var halls: Array = []          # v1.6h deep root halls: [{x, z, w, k0, k1, trunks: [cell], lava: int}]
+var plants: Array = []         # v12.22 lush jungle: [{kind, base: cell, cells: int}]
+var islands: Array = []        # v12.22 floating islands: [{centre: cell, r, k_bottom, k_top, anchors: [cell], cells: int}]
+var bridges := 0               # v12.22 vine bridges between islands (tests)
+var _tree_gap := 12            # cells kept between trees (v12.22: closer in a lush jungle)
+var _tall_bonus := 0           # layers added to a tree (v12.22: giants in a lush jungle)
 var trees: Array = []          # v1.7i alien trees: [{base: cell, wood: int, leaf: int, cave_root: bool, trunk: [cells], k_top}]
 var burning := {}              # v1.7i fire: Vector2i(cell, layer) -> seconds burning
 var burned := 0                # layers fire took (tests)
@@ -146,11 +151,13 @@ var cancel := false  # ...and stops (and frees itself) if this is set while it b
 ## Build from the seed. `staged` (v1.7a regions): spread over many frames so flying never stalls (each step is
 ## a few rows, one feature or one mesh chunk); `built` goes true at the end.
 static var perf := {"blast_us": 0, "blasts": 0, "settle_us": 0, "flush_us": 0, "chunks": 0, "worst_blast_us": 0, "worst_chunk_us": 0, "checks_us": 0, "rubble_us": 0, "worst_rubble_us": 0}   # v1.9c: lag probe (tests)
+var _phase := ""
 static var step_max_ms := 0.0   # v1.7q: the longest single slice of a staged build so far (tests: no long stalls)
 var _step_t0 := 0
 func _slice_end() -> void:
 	var d := (Time.get_ticks_usec() - _step_t0) / 1000.0
 	step_max_ms = maxf(step_max_ms, d)
+	if d > 120.0 and OS.get_environment("HL_LUSH_DBG") != "": print("long slice %.0f ms after: " % d, _phase)
 
 func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame := Vector2.ZERO) -> void:
 	_step_t0 = Time.get_ticks_usec()
@@ -208,6 +215,7 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 	# 1a. (v1.7g) blocks of many sizes: neighbouring columns on even ground join into one long or big block (one top),
 	#     and some big ones stand a step or two proud, so the ground is long rectangles and solid cubes, not one grid
 	if reg.x >= 0: _join_columns()
+	_phase = "_join_columns"
 	# 1b. realistic heights (v1.6f): no thin spires. A column standing more than SPIRE_MAX over every neighbour is cut
 	#     down to that (the edge columns are left alone: the smooth sheet there isn't sunk)
 	for pass_i in 2:
@@ -298,6 +306,7 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 			queue_free()
 			return
 	_carve_canyon()
+	_phase = "_carve_canyon"
 	if staged:
 		_slice_end()
 		await Engine.get_main_loop().process_frame
@@ -306,6 +315,7 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 			queue_free()
 			return
 	_carve_root_halls()
+	_phase = "_carve_root_halls"
 	if staged:
 		_slice_end()
 		await Engine.get_main_loop().process_frame
@@ -314,6 +324,7 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 			queue_free()
 			return
 	_carve_caves()
+	_phase = "_carve_caves"
 	if staged:
 		_slice_end()
 		await Engine.get_main_loop().process_frame
@@ -330,6 +341,7 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 				queue_free()
 				return
 		_carve_links()
+		_phase = "_carve_links"
 	if staged:
 		_slice_end()
 		await Engine.get_main_loop().process_frame
@@ -338,6 +350,7 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 			queue_free()
 			return
 	_build_landmarks()
+	_phase = "_build_landmarks"
 	if staged:
 		_slice_end()
 		await Engine.get_main_loop().process_frame
@@ -346,6 +359,7 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 			queue_free()
 			return
 	if region.x >= 0: _build_slabs()   # (v1.7f; the old test patch keeps its ground as the tests know it)
+	_phase = "_build_slabs"
 	if staged:
 		_slice_end()
 		await Engine.get_main_loop().process_frame
@@ -354,6 +368,7 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 			queue_free()
 			return
 	if region.x >= 0: _place_library()   # (v1.7k: shapes made from models, scripts/mold_library.gd)
+	_phase = "_place_library"
 	if staged:
 		_slice_end()
 		await Engine.get_main_loop().process_frame
@@ -361,8 +376,13 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 		if cancel:
 			queue_free()
 			return
-	if region.x >= 0: _grow_trees()   # (v1.7i: after the cave, so a root can grow into it)
+	if region.x >= 0: await _grow_trees(staged)   # (v1.7i: after the cave, so a root can grow into it; v12.22: spread over frames)
+	_phase = "_grow_trees"
+	if cancel:
+		queue_free()
+		return
 	if region.x >= 0: _grow_grass()   # (v12.7)
+	_phase = "_grow_grass"
 	if staged:
 		_slice_end()
 		await Engine.get_main_loop().process_frame
@@ -371,6 +391,12 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 			queue_free()
 			return
 	if region.x >= 0: _place_falls()   # (v1.7l)
+	_phase = "_place_falls"
+	if region.x >= 0 and not islands.is_empty():   # (v12.22: and off the floating islands)
+		_island_falls(int((Data.LUSH.get(Surface.PLANETS[planet_id]["tiles"][tile] if Surface.PLANETS.has(planet_id) else "", {}) as Dictionary).get("island_falls", 0)))
+		_phase = "_island_falls"
+		_draw_falls()
+		_phase = "_draw_falls"
 	if staged:
 		_slice_end()
 		await Engine.get_main_loop().process_frame
@@ -379,6 +405,7 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 			queue_free()
 			return
 	_raise_roots()
+	_phase = "_raise_roots"
 	if staged:
 		_slice_end()
 		await Engine.get_main_loop().process_frame
@@ -395,11 +422,20 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 			if cancel:
 				queue_free()
 				return
-			_settle(_gen_box.position.x, _gen_box.end.x - 1, _gen_box.position.y, _gen_box.end.y - 1)
+			var gb := _gen_box
+			for pass_i in 12:   # (v12.22: one pass a frame)
+				if not _settle_pass(clampi(gb.position.x, 0, n - 1), clampi(gb.end.x - 1, 0, n - 1), clampi(gb.position.y, 0, n - 1), clampi(gb.end.y - 1, 0, n - 1), []): break
+				_phase = "settle pass"
+				if await _pause(true):
+					queue_free()
+					return
 			collapses = 0
 	_place_pockets()
+	_phase = "_place_pockets"
 	_place_veins()
+	_phase = "_place_veins"
 	_slab_expect()
+	_phase = "_slab_expect"
 	# 5. re-apply the blasts made here before (seed + deltas), quietly
 	var key := _sk
 	if not GS.block_deltas.has(key): GS.block_deltas[key] = []
@@ -424,6 +460,7 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 				queue_free()
 				return
 			flush(1)
+			_phase = "flush"
 	flush()
 	built = true
 
@@ -551,7 +588,8 @@ func tone(m: String) -> Color:
 	var c := Color(gl, gl, gl).lerp(base, float(tn[1]))
 	if m == "dirt": c = Data.DIRT_BROWN.lerp(base, Data.DIRT_PLANET)   # (v1.7g: earthy brown under the grass)
 	if m == "wood": c = Data.WOOD_COLOR
-	if Data.LEAF_COLORS.has(m): c = leaf_colors()[0 if m == "leaf" else 1]
+	if m == "leaf" or m == "leaf2": c = leaf_colors()[0 if m == "leaf" else 1]
+	elif Data.LEAF_COLORS.has(m): c = Data.LEAF_COLORS[m]   # (v12.22: vines, fronds, glowing caps, blooms keep their own)
 	var k := float(tn[0])
 	c = c.lerp(Color.WHITE, k) if k > 0.0 else c.lerp(Color.BLACK, -k)
 	_tones[m] = c
@@ -780,50 +818,59 @@ func _settle_body(cx0: int, cx1: int, cz0: int, cz1: int) -> Array:
 	cz0 = clampi(cz0, 0, n - 1)
 	cz1 = clampi(cz1, 0, n - 1)
 	for pass_i in 12:
-		var changed := false
-		# v1.9c (owner: "so laggy"): only the holes in the checked box, and their distance to grounded rock worked out
-		# in a window round it (the longest reach), not over every cave of the region (that was ~16k holes a blast)
-		var cells: Array = []
-		for fz0 in range(cz0, cz1 + 1):
-			for fx0 in range(cx0, cx1 + 1):
-				if holes.has(fz0 * n + fx0): cells.append(fz0 * n + fx0)
-		if cells.is_empty(): break
-		var dist := _ground_dist(Rect2i(cx0, cz0, cx1 - cx0 + 1, cz1 - cz0 + 1))   # v1.7q: every hanging piece's distance to grounded rock, once per pass
-		for ci in cells:
-			var i: int = ci
-			var fx := i % n
-			var fz := i / n
-			if not holes.has(i): continue
-			var sp: Array = spans(i)
-			var j := 1
-			var cut := false
-			while j < sp.size():
-				var spj: Vector2i = sp[j]
-				var reach: int = maxi(Data.BLOCK_REACH.get(mat_at(fx, fz, _ly(spj.x)), 1), int(reach_bonus.get(i, 0)))
-				if int(dist.get(Vector3i(fx, fz, spj.x), 999)) <= reach:
-					j += 1
-					continue
-				var a: Vector2i = sp[j - 1]
-				var b: Vector2i = sp[j]
-				fell.append({"pos": Vector3(x0 + (fx + 0.5) * Data.BLOCK_MIN, _ly(b.x), z0 + (fz + 0.5) * Data.BLOCK_MIN), "size": Data.BLOCK_MIN, "mat": mat_at(fx, fz, _ly(b.x))})
-				# v1.5z: it keeps its own material where it lands
-				var moved := {}
-				for k in range(b.x, b.y): moved[a.y + (k - b.x)] = mat_at(fx, fz, _ly(k))
-				var ov: Dictionary = mats.get(i, {})
-				for k in range(a.y, b.y): ov.erase(k)
-				for k in moved: ov[k] = moved[k]
-				mats[i] = ov
-				sp[j - 1] = Vector2i(a.x, a.y + (b.y - b.x))   # it drops and lands on what was under the hole
-				sp.remove_at(j)
-				collapses += 1
-				changed = true
-				cut = true
-			if cut:
-				_set_spans(i, sp)
-				dmg.erase(i)
-				_mark(fx, fz, 1)
-		if not changed: break
+		if not _settle_pass(cx0, cx1, cz0, cz1, fell): break
 	return fell
+
+## One pass of the support check over a box (v12.22: split out so a region build can give each pass its own frame).
+## Returns whether anything fell.
+@warning_ignore("integer_division")
+func _settle_pass(cx0: int, cx1: int, cz0: int, cz1: int, fell: Array) -> bool:
+	var changed := false
+
+	# v1.9c (owner: "so laggy"): only the holes in the checked box, and their distance to grounded rock worked out
+	# in a window round it (the longest reach), not over every cave of the region (that was ~16k holes a blast)
+	var cells: Array = []
+	for fz0 in range(cz0, cz1 + 1):
+		for fx0 in range(cx0, cx1 + 1):
+			if holes.has(fz0 * n + fx0): cells.append(fz0 * n + fx0)
+	if cells.is_empty(): return false
+	var _t0 := Time.get_ticks_usec()
+	var dist := _ground_dist(Rect2i(cx0, cz0, cx1 - cx0 + 1, cz1 - cz0 + 1))   # v1.7q: every hanging piece's distance to grounded rock, once per pass
+	if OS.get_environment("HL_LUSH_DBG") != "": print("settle pass: %d hole cells, dist %.0f ms, %d keys" % [cells.size(), (Time.get_ticks_usec() - _t0) / 1000.0, dist.size()])
+	for ci in cells:
+		var i: int = ci
+		var fx := i % n
+		var fz := i / n
+		if not holes.has(i): continue
+		var sp: Array = spans(i)
+		var j := 1
+		var cut := false
+		while j < sp.size():
+			var spj: Vector2i = sp[j]
+			var reach: int = maxi(Data.BLOCK_REACH.get(mat_at(fx, fz, _ly(spj.x)), 1), int(reach_bonus.get(i, 0)))
+			if int(dist.get(Vector3i(fx, fz, spj.x), 999)) <= reach:
+				j += 1
+				continue
+			var a: Vector2i = sp[j - 1]
+			var b: Vector2i = sp[j]
+			fell.append({"pos": Vector3(x0 + (fx + 0.5) * Data.BLOCK_MIN, _ly(b.x), z0 + (fz + 0.5) * Data.BLOCK_MIN), "size": Data.BLOCK_MIN, "mat": mat_at(fx, fz, _ly(b.x))})
+			# v1.5z: it keeps its own material where it lands
+			var moved := {}
+			for k in range(b.x, b.y): moved[a.y + (k - b.x)] = mat_at(fx, fz, _ly(k))
+			var ov: Dictionary = mats.get(i, {})
+			for k in range(a.y, b.y): ov.erase(k)
+			for k in moved: ov[k] = moved[k]
+			mats[i] = ov
+			sp[j - 1] = Vector2i(a.x, a.y + (b.y - b.x))   # it drops and lands on what was under the hole
+			sp.remove_at(j)
+			collapses += 1
+			changed = true
+			cut = true
+		if cut:
+			_set_spans(i, sp)
+			dmg.erase(i)
+			_mark(fx, fz, 1)
+	return changed
 
 ## v1.7q: how far (in side-by-side steps) every hanging piece of rock is from rock that stands on the bottom: one sweep
 ## out from the grounded rock over all the pieces (the same answer _held finds one piece at a time, far cheaper).
@@ -1593,18 +1640,49 @@ void fragment() {
 ## running down and out underground. Next to a mold cave one tree sends a root down into the chamber, where it hangs
 ## from the ceiling to the floor (carved first, the roots added after, so they show inside it).
 @warning_ignore("integer_division")
-func _grow_trees() -> void:
+## v12.22: hand the frame back while a region builds (true: the build was cancelled).
+func _pause(staged: bool) -> bool:
+	if not staged: return false
+	_slice_end()
+	await Engine.get_main_loop().process_frame
+	_step_t0 = Time.get_ticks_usec()
+	return cancel
+
+func _grow_trees(staged := false) -> void:
 	trees.clear()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(_sk + "|trees")
 	var kind: String = Surface.PLANETS[planet_id]["tiles"][tile] if Surface.PLANETS.has(planet_id) else ""
 	var want := _scaled(int(Data.TREES_PER_TILE.get(kind, 2)), rng)
+	var lush: Dictionary = Data.LUSH.get(kind, {})
+	_tree_gap = int(lush.get("gap", 12))
+	_tall_bonus = int(lush.get("tall_bonus", 0))
+	if not lush.is_empty(): want = int(lush["trees"])
+	if not lush.is_empty():
+		_float_islands(rng, int(lush["islands"]))   # (v12.22: before the trees, so none grows into one)
+		_phase = "islands"
+		if await _pause(staged): return
 	if not molds.is_empty(): _grow_cave_tree(rng)
 	var tries := 0
-	while trees.size() < want + (1 if not molds.is_empty() else 0) and tries < 40:
+	while trees.size() < want + (1 if not molds.is_empty() else 0) and tries < (40 if lush.is_empty() else 260):
 		tries += 1
 		_grow_tree(rng, rng.randi_range(14, n - 15), rng.randi_range(14, n - 15), -1)
+		if not lush.is_empty() and trees.size() % 5 == 4 and Time.get_ticks_usec() - _step_t0 > 60000:
+			_phase = "trees"
+			if await _pause(staged): return
+	if not lush.is_empty():
+		plants.clear()
+		var per := int(lush["plants"])
+		while plants.size() < per:
+			var before := plants.size()
+			_phase = "trees/plants %d" % before
+			if await _pause(staged): return
+			_grow_plants(rng, mini(per, plants.size() + 40))
+			if plants.size() == before: break
+		_phase = "plants"
+		if await _pause(staged): return
 	_settle(0, n - 1, 0, n - 1)
+	_phase = "tree settle"
 
 ## The tree beside a mold cave: it stands a little off the chamber, and one of its roots grows down into it.
 func _grow_cave_tree(rng: RandomNumberGenerator) -> bool:
@@ -1630,9 +1708,10 @@ func _grow_tree(rng: RandomNumberGenerator, cx: int, cz: int, to_cave: int) -> b
 			if holes.has(c) or fluid.has(c) or _slab_of.has(c) or (mats.get(c, {}) as Dictionary).size() > 0: return false
 			ground = maxf(ground, h[c])
 	for tr in trees:   # (not on top of another tree)
-		if Vector2i(int(tr["base"]) % n - cx, int(tr["base"]) / n - cz).length() < 12: return false
+		if Vector2i(int(tr["base"]) % n - cx, int(tr["base"]) / n - cz).length() < _tree_gap: return false
+	if _under_island(cx, cz, 4): return false
 	var kg := _k(ground + 0.01)
-	var tall := rng.randi_range(int(Data.TREE_TALL[0]), int(Data.TREE_TALL[1]))
+	var tall := rng.randi_range(int(Data.TREE_TALL[0]), int(Data.TREE_TALL[1])) + rng.randi_range(0, _tall_bonus)
 	var kt := kg + tall
 	var wood := {}
 	var roots := {}   # (underground wood: it only turns rock to wood, never fills a cave or tunnel)
@@ -1734,6 +1813,304 @@ func _grow_tree(rng: RandomNumberGenerator, cx: int, cz: int, to_cave: int) -> b
 		for jx in tw: trunk.append((cz + jz) * n + cx + jx)
 	trees.append({"base": cz * n + cx, "wood": nw, "leaf": nl, "cave_root": cave_root, "trunk": trunk, "k_ground": kg, "k_top": kt, "canopy_lo": canopy_lo, "soil": ns})
 	return true
+
+## v12.22: is cell (x, z) under (or within m cells of) a floating island?
+@warning_ignore("integer_division")
+func _under_island(x: int, z: int, m: int) -> bool:
+	for il in islands:
+		var c: int = il["centre"]
+		if Vector2(x - c % n, z - c / n).length() <= float(il["r"]) + m: return true
+	return false
+
+## v12.22 lush jungle: the small plants between the giants, all blocks like the ground (they break, burn and fall).
+## palm: a thin leaning trunk with drooping fronds (a glowing tip now and then); bush: a leafy mound with blooms;
+## fern: a low cross of fronds; mushroom: a pale stalk under a wide glowing cap.
+@warning_ignore("integer_division")
+func _grow_plants(rng: RandomNumberGenerator, want: int) -> void:
+	var kinds: Array = Data.LUSH_PLANTS.keys()
+	var tries := 0
+	var taken := {}
+	for tr in trees:
+		for c in tr["trunk"]: taken[c] = true
+	for pl in plants: taken[pl["base"]] = true
+	while plants.size() < want and tries < 160:
+		tries += 1
+		var x := rng.randi_range(4, n - 5)
+		var z := rng.randi_range(4, n - 5)
+		var c := z * n + x
+		if taken.has(c) or holes.has(c) or fluid.has(c) or _slab_of.has(c) or (mats.get(c, {}) as Dictionary).size() > 0 or canyon_cells.has(c): continue
+		if h[c] < 1.0 or _under_island(x, z, 1): continue
+		var roll := rng.randf()
+		var kind := ""
+		for kk in kinds:
+			roll -= float(Data.LUSH_PLANTS[kk])
+			if roll <= 0.0:
+				kind = kk
+				break
+		if kind == "": kind = kinds[0]
+		var kg := _ktop(c)
+		var vol := {}   # material -> {Vector2i: {k: true}}
+		var put := func(m: String, px: int, pz: int, k_lo: int, k_hi: int) -> void:
+			if px < 1 or pz < 1 or px >= n - 1 or pz >= n - 1: return
+			var d0: Dictionary = vol.get(m, {})
+			var key := Vector2i(px, pz)
+			var d: Dictionary = d0.get(key, {})
+			for k in range(k_lo, k_hi): d[k] = true
+			d0[key] = d
+			vol[m] = d0
+		match kind:
+			"palm":
+				var tall := rng.randi_range(5, 10)
+				var lean := Vector2(rng.randf_range(-1, 1), rng.randf_range(-1, 1)).normalized()
+				var p := Vector2(x + 0.5, z + 0.5)
+				for k in tall:   # the trunk bends a little as it climbs (each step overlaps the last, so it holds)
+					put.call("wood", int(floor(p.x)), int(floor(p.y)), kg + k, kg + k + 1)
+					if k % 3 == 2:
+						p += lean
+						put.call("wood", int(floor(p.x)), int(floor(p.y)), kg + k, kg + k + 1)
+				var top := kg + tall
+				for f in rng.randi_range(5, 7):   # the fronds droop out from the crown
+					var a := TAU * f / 6.0 + rng.randf_range(-0.2, 0.2)
+					var dir := Vector2(cos(a), sin(a))
+					var q := p
+					var ln := rng.randi_range(3, 5)
+					var prev := Vector2i(int(floor(p.x)), int(floor(p.y)))
+					var pk := top
+					for st in ln:
+						q += dir
+						var cur := Vector2i(int(floor(q.x)), int(floor(q.y)))
+						if cur == prev: continue
+						var kk := top - (1 if st >= ln - 2 else 0) - (1 if st == ln - 1 else 0)
+						if cur.x != prev.x and cur.y != prev.y: put.call("frond", prev.x, cur.y, mini(kk, pk), maxi(kk, pk) + 1)   # (side by side, never only corner to corner)
+						put.call("glow" if st == ln - 1 and rng.randf() < 0.3 else "frond", cur.x, cur.y, mini(kk, pk), maxi(kk, pk) + 1)
+						prev = cur
+						pk = kk
+				put.call("frond", int(floor(p.x)), int(floor(p.y)), top, top + 1)
+			"bush":
+				var r := rng.randi_range(1, 2)
+				for dz in range(-r, r + 1):
+					for dx in range(-r, r + 1):
+						if dx * dx + dz * dz > r * r + 1: continue
+						var cc := (z + dz) * n + x + dx
+						if cc < 0 or cc >= n * n or holes.has(cc) or fluid.has(cc): continue
+						var kb := _ktop(cc)
+						var hgt := 2 if dx * dx + dz * dz <= 1 else 1
+						put.call("leaf" if rng.randf() < 0.6 else "frond", x + dx, z + dz, kb, kb + hgt)
+						if hgt == 2 and rng.randf() < 0.35: put.call("bloom", x + dx, z + dz, kb + hgt, kb + hgt + 1)
+			"fern":
+				put.call("frond", x, z, kg, kg + 1)
+				for d4 in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+					var cc: int = (z + d4.y) * n + x + d4.x
+					if holes.has(cc) or fluid.has(cc): continue
+					put.call("frond", x + d4.x, z + d4.y, _ktop(cc), _ktop(cc) + 1)
+			"mushroom":
+				var tall := rng.randi_range(3, 7)
+				put.call("sand", x, z, kg, kg + tall)   # (a pale stalk)
+				var r := rng.randi_range(2, 3)
+				for dz in range(-r, r + 1):
+					for dx in range(-r, r + 1):
+						if dx * dx + dz * dz > r * r: continue
+						put.call("glow" if (dx * dx + dz * dz) * 2 > r * r else "bloom", x + dx, z + dz, kg + tall, kg + tall + 1)
+		var cells := 0
+		for m in vol:
+			for c2 in _stamp(_runs_of(vol[m]), 0, 0, 0, "add", m): reach_bonus[c2] = maxi(int(reach_bonus.get(c2, 0)), 8)
+			for v in (vol[m] as Dictionary).values(): cells += (v as Dictionary).size()
+		taken[c] = true
+		plants.append({"kind": kind, "base": c, "cells": cells})
+
+## v12.22: floating islands of rock and soil high over the jungle, held up by vines that hang all the way to the ground
+## (a vine to the ground is what holds an island: take them all and it falls), more vines dangling from the underside,
+## plants on top, a pool by the edge pouring over as a waterfall, and a vine bridge to the next island.
+@warning_ignore("integer_division")
+func _float_islands(rng: RandomNumberGenerator, want: int) -> void:
+	islands.clear()
+	bridges = 0
+	var tries := 0
+	while islands.size() < want and tries < 60:
+		tries += 1
+		var r := rng.randi_range(int(Data.ISLAND_RADIUS[0]), int(Data.ISLAND_RADIUS[1]))
+		var cx := rng.randi_range(r + 6, n - r - 7)
+		var cz := rng.randi_range(r + 6, n - r - 7)
+		var clash := false
+		for il in islands:
+			var oc: int = il["centre"]
+			if Vector2(cx - oc % n, cz - oc / n).length() < r + float(il["r"]) + 10: clash = true
+		if clash: continue
+		var gmax := -INF
+		for dz in range(-r - 1, r + 2):
+			for dx in range(-r - 1, r + 2):
+				gmax = maxf(gmax, h[(cz + dz) * n + cx + dx])
+		var kb := _k(gmax + 0.01) + rng.randi_range(int(Data.ISLAND_LIFT[0]), int(Data.ISLAND_LIFT[1]))   # the rim's underside
+		var hang := rng.randi_range(4, 8)    # how far the underside hangs at the middle
+		var thick := rng.randi_range(2, 3)   # rock under the soil at the rim
+		var rock := {}
+		var soil := {}
+		var under := {}   # cell -> its lowest layer (for the vines)
+		var top_k := {}
+		var wob := rng.randf() * TAU
+		for dz in range(-r, r + 1):
+			for dx in range(-r, r + 1):
+				var a := atan2(float(dz), float(dx))
+				var rr := float(r) * (0.82 + 0.18 * sin(a * 3.0 + wob) + 0.08 * sin(a * 5.0 - wob))   # a lumpy outline
+				var d := Vector2(dx, dz).length()
+				if d > rr: continue
+				var t := 1.0 - d / rr
+				var k_lo := kb - int(round(hang * t * t * (0.7 + 0.3 * rng.randf())))   # a rocky cone under it
+				var k_hi := kb + thick + (1 if t > 0.55 else 0)   # a little higher in the middle
+				var key := Vector2i(cx + dx, cz + dz)
+				rock[key] = {}
+				for k in range(k_lo, k_hi): rock[key][k] = true
+				soil[key] = {k_hi: true}
+				under[key] = k_lo
+				top_k[key] = k_hi + 1
+		# the spout (a waterfall off the edge): the outermost pair of cells along one direction; nothing else grows or
+		# hangs round it, its pool and lip share one top
+		var spout := {}
+		var keep_clear := {}
+		var sd: Vector2i = [Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(0, -1)][rng.randi_range(0, 3)]
+		var slat := Vector2i(-sd.y, sd.x)
+		var sp := Vector2i(cx, cz)
+		for st in r + 2:
+			var q: Vector2i = Vector2i(cx, cz) + sd * st
+			if top_k.has(q) and top_k.has(q + slat): sp = q
+		if (sp - Vector2i(cx, cz)).length() >= 3:
+			var lvl: int = top_k[sp]
+			for a in 2:
+				for b in [0, 1, 2]:
+					var q2: Vector2i = sp + slat * a - sd * b
+					if not top_k.has(q2): continue
+					lvl = mini(lvl, int(top_k[q2]))
+			for a in 2:   # one flat top for the lip and the pool
+				for b in [0, 1, 2]:
+					var q2: Vector2i = sp + slat * a - sd * b
+					if not top_k.has(q2): continue
+					soil.erase(q2)
+					(rock[q2] as Dictionary).clear()
+					for k in range(int(under[q2]), lvl - 1): rock[q2][k] = true
+					soil[q2] = {lvl - 1: true}
+					top_k[q2] = lvl
+			for a in range(-2, 4):
+				for b in range(-3, 6):
+					keep_clear[sp + slat * a + sd * b] = true
+			spout = {"lip": sp, "d": sd, "lat": slat}
+		# vines: two to four hang all the way to the ground (they hold it up), many dangle part way
+		var rim: Array = under.keys().filter(func(q): return Vector2(q.x - cx, q.y - cz).length() > r * 0.55 and not keep_clear.has(q))
+		rim.shuffle()
+		var vines := {}
+		var anchors: Array = []
+		for q in rim:
+			if anchors.size() >= rng.randi_range(2, 4): break
+			var cq: int = q.y * n + q.x
+			if holes.has(cq) or fluid.has(cq): continue
+			anchors.append(cq)
+			vines[q] = {}
+			for k in range(_ktop(cq), int(under[q])): vines[q][k] = true
+		var dangle := 0
+		for q in under.keys():
+			if vines.has(q) or keep_clear.has(q) or rng.randf() > 0.22: continue
+			var ln := rng.randi_range(2, mini(10, int(under[q]) - _ktop(q.y * n + q.x) - 2))
+			if ln < 2: continue
+			vines[q] = {}
+			for k in range(int(under[q]) - ln, int(under[q])): vines[q][k] = true
+			dangle += 1
+		var cells := 0
+		for vol_m in [[rock, "stone"], [soil, "dirt"], [vines, "vine"]]:
+			for c2 in _stamp(_runs_of(vol_m[0]), 0, 0, 0, "add", vol_m[1]): reach_bonus[c2] = maxi(int(reach_bonus.get(c2, 0)), r * 2 + 6)
+			for v in (vol_m[0] as Dictionary).values(): cells += (v as Dictionary).size()
+		# glowing tufts and a few small palms on top
+		var tufts := {}
+		for q in top_k.keys():
+			if rng.randf() < 0.18 and not keep_clear.has(q): tufts[q] = {int(top_k[q]): true}
+		var palm := {}
+		var fr := {}
+		for i in rng.randi_range(1, 3):
+			var q: Vector2i = top_k.keys()[rng.randi_range(0, top_k.size() - 1)]
+			if Vector2(q.x - cx, q.y - cz).length() > r * 0.6 or keep_clear.has(q): continue
+			var k0: int = top_k[q]
+			var tall := rng.randi_range(3, 6)
+			palm[q] = {}
+			for k in range(k0, k0 + tall): palm[q][k] = true
+			for d4 in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+				for st in [1, 2, 3]:
+					fr[q + d4 * st] = {k0 + tall - 1: true, k0 + tall - (st / 2): true}
+		for vol_m in [[tufts, "glow"], [palm, "wood"], [fr, "frond"]]:
+			for c2 in _stamp(_runs_of(vol_m[0]), 0, 0, 0, "add", vol_m[1]): reach_bonus[c2] = maxi(int(reach_bonus.get(c2, 0)), r * 2 + 8)
+		islands.append({"centre": cz * n + cx, "r": r, "k_bottom": kb - hang, "k_top": kb + thick + 1, "anchors": anchors, "dangle": dangle, "cells": cells, "top": top_k, "spout": spout})
+	# vine bridges: a sagging rope of vine between islands close enough
+	for i in islands.size():
+		for j in range(i + 1, islands.size()):
+			var a: int = islands[i]["centre"]
+			var b: int = islands[j]["centre"]
+			var pa := Vector2(a % n, a / n)
+			var pb := Vector2(b % n, b / n)
+			if pa.distance_to(pb) > Data.ISLAND_BRIDGE: continue
+			var ka: int = islands[i]["k_top"]
+			var kb2: int = islands[j]["k_top"]
+			var steps := int(ceil(pa.distance_to(pb))) * 2
+			var rope := {}
+			for st in steps + 1:
+				var t := float(st) / steps
+				var q := pa.lerp(pb, t)
+				var key := Vector2i(int(floor(q.x)), int(floor(q.y)))
+				var kk := int(round(lerpf(ka, kb2, t) - 5.0 * sin(PI * t)))   # it sags in the middle
+				var d: Dictionary = rope.get(key, {})
+				d[kk] = true
+				rope[key] = d
+			for c2 in _stamp(_runs_of(rope), 0, 0, 0, "add", "vine"): reach_bonus[c2] = maxi(int(reach_bonus.get(c2, 0)), 60)
+			bridges += 1
+
+## v12.22: a waterfall off a floating island's edge: a pool on top behind the rim, the sheet falling to a pool in the
+## ground below. Called after the ground's own falls.
+@warning_ignore("integer_division")
+func _island_falls(want: int) -> void:
+	var step: float = Data.BLOCK_MIN
+	for il in islands:
+		var sp: Dictionary = il.get("spout", {})
+		if sp.is_empty() or want <= 0: continue
+		var p: Vector2i = sp["lip"]
+		var d: Vector2i = sp["d"]
+		var lat: Vector2i = sp["lat"]
+		var lipc := p.y * n + p.x
+		var lip: Array = [lipc, (p + lat).y * n + (p + lat).x]
+		var pool: Array = []
+		for a in 2:
+			for b in [1, 2]:
+				var q2: Vector2i = p + lat * a - d * b
+				pool.append(q2.y * n + q2.x)
+		var top := h[lipc]
+		var ok := true
+		for cc in lip + pool:
+			if spans(cc).size() < 2 or absf(h[cc] - top) > 0.01: ok = false
+		var foot: Array = []
+		for a in 2:
+			for b in [2, 3, 4]:
+				var q3: Vector2i = p + lat * a + d * b
+				if q3.x < 2 or q3.y < 2 or q3.x >= n - 2 or q3.y >= n - 2: ok = false
+				else: foot.append(q3.y * n + q3.x)
+		var foot_lo := INF
+		var foot_hi := -INF
+		for cc in foot:   # (caves under the foot don't matter; anything standing over it does: h is the highest top)
+			if fluid.has(cc) or holes.has(cc) and h[cc] > top - Data.FALL_DROP: ok = false
+			foot_lo = minf(foot_lo, h[cc])
+			foot_hi = maxf(foot_hi, h[cc])
+		if foot_hi - foot_lo > Data.BLOCK_MIN * 4.01: ok = false
+		if not ok or top - foot_lo < Data.FALL_DROP:
+			if OS.get_environment("HL_LUSH_DBG") != "": print("ifall skip ", lip.map(func(c): return [spans(c).size(), h[c] - top]), pool.map(func(c): return [spans(c).size(), h[c] - top]), foot.map(func(c): return spans(c).size()))
+			continue
+		for cc in pool:   # the pool on top, behind the rim
+			var kt := _ktop(cc)
+			_cell_remove(cc, kt - 1)
+			_set_fluid(cc, kt - 1, "water")
+		for cc in foot:   # and the pool it lands in
+			_split_one(cc)
+			while h[cc] > foot_lo + 0.01: _cell_remove(cc, _ktop(cc) - 1)
+			var kt2 := _ktop(cc)
+			_cell_remove(cc, kt2 - 1)
+			_set_fluid(cc, kt2 - 1, "water")
+		var p0 := Vector2(x0 + (p.x + 0.5) * step, z0 + (p.y + 0.5) * step) + Vector2(d) * step * 0.5 + Vector2(lat) * step * 0.5
+		falls.append({"lip": lip, "lip_h": top, "foot": foot, "foot_h": foot_lo - step, "top": Vector3(p0.x, top - 0.6, p0.y), "bottom": Vector3(p0.x, foot_lo - step * 0.2, p0.y), "dir": Vector2(d), "lat": Vector2(lat), "on": true, "island": true})
+		for cc in lip + pool + foot: _mark(cc % n, cc / n, 1)
+	_fluid_dirty = true
 
 ## v1.7i fire: set a wood or leaf layer burning.
 @warning_ignore("integer_division")

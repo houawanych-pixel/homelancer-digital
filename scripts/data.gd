@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.21"
+const VERSION := "v12.22"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -505,7 +505,7 @@ const BLOCK_REGION_CANYON := 0.2    # the chance a region has a canyon running t
 const BLOCK_ROCK := Color(0.32, 0.3, 0.29)   # the deep rock colour under the surface
 # Step 2 (v1.5t): craters. Every block inside a blast's radius is hit; a block only partly inside splits into four
 # (20 -> 10 -> 5 m) so only the hit part goes; obsidian never splits (it chips, then breaks off whole, in half).
-const BLOCK_HITS := {"sand": 1, "dirt": 2, "stone": 4, "obsidian": 8, "gold": 6, "diamond": 12, "wood": 3, "leaf": 1, "leaf2": 1}   # light-gun hits to break a 5 m layer, by tier
+const BLOCK_HITS := {"sand": 1, "dirt": 2, "stone": 4, "obsidian": 8, "gold": 6, "diamond": 12, "wood": 3, "leaf": 1, "leaf2": 1, "vine": 2, "frond": 1, "glow": 1, "bloom": 1}   # light-gun hits to break a 5 m layer, by tier
 const BLOCK_BLAST := {"gun": [2.4, 1], "missile": [12.0, 4], "heavy": [20.0, 8], "special": [40.0, 16], "thrust": [7.5, 1], "thrust_soft": [7.5, 2]}   # [radius m, hits dealt]; thrust = the mech pushing into a wall
 const BLOCK_BREAK_PIECES := {"obsidian": 2, "stone": 3, "dirt": 4, "sand": 5, "gold": 4, "diamond": 3, "wood": 3, "leaf": 5, "leaf2": 5}   # each material breaks its own way: harder = fewer, bigger pieces
 const BLOCK_CLEAVE_SPEED := 12.0     # an obsidian piece landing faster than this (m/s) cleaves in half once more
@@ -536,7 +536,7 @@ const BLOCK_DAMAGE_DARK := 0.35      # a cracked block darkens up to this much b
 const BLOCK_SAFE_BUMP := 40.0        # m/s (50 still hurts)
 # v1.5y step 5, support and collapse: shots can dig INTO walls (tunnels, overhangs, caves). A piece over a hole stays up
 # only if it is joined sideways to grounded ground within its material's reach (5 m cells); otherwise it falls.
-const BLOCK_REACH := {"sand": 0, "dirt": 1, "stone": 3, "obsidian": 5, "gold": 3, "diamond": 5, "wood": 4, "leaf": 2, "leaf2": 2}
+const BLOCK_REACH := {"sand": 0, "dirt": 1, "stone": 3, "obsidian": 5, "gold": 3, "diamond": 5, "wood": 4, "leaf": 2, "leaf2": 2, "vine": 3, "frond": 2, "glow": 2, "bloom": 2}
 # v1.5z step 6, settling: landed rubble merges into the ground as its own material (nothing mixes); dirt sticks to
 # the wall it hits; sand slumps into a pile; pieces that fall keep their material.
 const BLOCK_MERGE_DELAY := 1.0       # s a landed piece lies there before it becomes ground
@@ -609,7 +609,17 @@ const MOLD_RAMP := 2                 # the entrance tunnel climbs one layer ever
 # its chamber. Wood and leaves CATCH FIRE (owner): missiles and lava set them burning, fire spreads to touching wood
 # and leaves, burns them away and dies out; water puts it out. Like the fluids, fire only runs near the player.
 const WOOD_COLOR := Color(0.40, 0.35, 0.30)
-const LEAF_COLORS := {"leaf": Color(0.16, 0.55, 0.50), "leaf2": Color(0.52, 0.40, 0.72)}
+const LEAF_COLORS := {"leaf": Color(0.16, 0.55, 0.50), "leaf2": Color(0.52, 0.40, 0.72),
+	"vine": Color(0.10, 0.40, 0.22), "frond": Color(0.30, 0.68, 0.26), "glow": Color(0.22, 0.95, 0.92), "bloom": Color(0.95, 0.34, 0.74)}   # (v12.22: the lush ones keep their own colour)
+## v12.22 (owner: "lush forests ... Avatar style ... floating voxels connected by vines ... high lush waterfalls ... lots of
+## different vegetation"): jungle ground grows a dense mixed forest (giant trees, palms, glowing mushrooms, bushes,
+## ferns), floating islands of rock held up by vines that hang to the ground (and vine bridges between them), with
+## waterfalls pouring off their edges. Counts are per 500 m region.
+const LUSH := {"jungle": {"trees": 16, "gap": 8, "tall_bonus": 4, "plants": 150, "islands": 3, "island_falls": 2}}
+const LUSH_PLANTS := {"palm": 0.30, "bush": 0.30, "fern": 0.22, "mushroom": 0.18}   # the mix
+const ISLAND_LIFT := [12, 22]        # layers (60-110 m) from the highest ground under it to an island's underside
+const ISLAND_RADIUS := [6, 10]       # cells (30-50 m)
+const ISLAND_BRIDGE := 46            # cells: islands this close get a vine bridge
 # v12.0 (owner): leaf colour pairs by the land: [leaf, leaf2], one pair per planet (BlockField.leaf_colors)
 const LEAF_SETS := {
 	"hot": [[Color(0.92, 0.45, 0.12), Color(0.78, 0.15, 0.10)], [Color(0.80, 0.16, 0.14), Color(0.50, 0.20, 0.62)], [Color(0.95, 0.62, 0.15), Color(0.85, 0.30, 0.10)]],
@@ -626,7 +636,7 @@ const TREE_ROOTS := [3, 5]
 # v1.7l WATERFALLS (the owner's picture 06): where a cliff drops sharply, a pool set back on its top pours over a rock
 # lip down the face into a pool with white foam at its foot. The falling sheet is a moving picture; the pools are real
 # water. Blast the lip or the cliff face and the fall stops.
-const FALLS_PER_TILE := {"forest": 3, "coast": 3, "mountains": 4, "canyon": 3, "city": 1, "industrial": 1, "ocean": 1, "desert": 0, "volcanic": 0, "ice": 0, "sun": 0}   # per 800 m; others 2
+const FALLS_PER_TILE := {"jungle": 6, "forest": 3, "coast": 3, "mountains": 4, "canyon": 3, "city": 1, "industrial": 1, "ocean": 1, "desert": 0, "volcanic": 0, "ice": 0, "sun": 0}   # per 800 m; others 2
 const FALL_DROP := 20.0              # m: the least drop for a waterfall
 const FALL_WIDE := 2                 # cells across (10 m)
 const FALL_COLOR := Color(0.62, 0.86, 1.0, 0.85)
@@ -635,7 +645,7 @@ const FALL_COLOR := Color(0.62, 0.86, 1.0, 0.85)
 # fire, gold (warm), diamond (cold), the kill floor. Obsidian is glossy. Cheap for phones: the glows are emissive,
 # only a few real lights (the nearest ones to you) light their surroundings.
 const CAVE_DARK := 0.12              # how much of the sun and sky reaches a covered face
-const BLOCK_GLOW := {"gold": 0.55, "diamond": 1.1}   # how brightly treasure glows by itself
+const BLOCK_GLOW := {"gold": 0.55, "diamond": 1.1, "glow": 1.0, "bloom": 0.55}   # how brightly treasure glows by itself
 const BLOCK_GLOSS := {"obsidian": 1.0, "diamond": 0.8, "gold": 0.6}   # glassy shine
 const GLOW_LIGHTS := 3               # real lights at the nearest glowing things to you
 const GLOW_LIGHT := {"lava": [Color(1.0, 0.45, 0.12), 2.2, 34.0], "fire": [Color(1.0, 0.55, 0.15), 2.0, 30.0], "diamond": [Color(0.7, 0.9, 1.0), 1.6, 22.0], "gold": [Color(1.0, 0.8, 0.35), 1.2, 16.0], "kill": [Color(1.0, 0.35, 0.1), 3.0, 60.0]}   # [colour, energy, range m]
@@ -652,9 +662,9 @@ const UNDERWATER_TINT := Color(0.05, 0.35, 0.45, 0.38)
 const BOUNTY_ESCAPE_STATION := 1800.0   # s
 const BOUNTY_ESCAPE_PLANET := 3600.0    # s
 const FIRE_TICK := 0.5               # s
-const FIRE_BURN := {"wood": 4.0, "leaf": 1.5, "leaf2": 1.5}   # s a burning layer lasts before it is gone
-const FIRE_SPREAD := {"wood": 0.25, "leaf": 0.5, "leaf2": 0.5}   # chance per tick it catches from a burning neighbour
-const GRASS_COVER := {"forest": 0.4, "jungle": 0.42, "coast": 0.25, "mountains": 0.2, "toxic": 0.32, "city": 0.12, "canyon": 0.08, "wasteland": 0.1, "industrial": 0.06, "crystal": 0.12, "volcanic": 0.05}   # v12.7: share of the dirt ground with grass blocks, by land
+const FIRE_BURN := {"wood": 4.0, "leaf": 1.5, "leaf2": 1.5, "vine": 2.5, "frond": 1.5, "glow": 1.5, "bloom": 1.5}   # s a burning layer lasts before it is gone
+const FIRE_SPREAD := {"wood": 0.25, "leaf": 0.5, "leaf2": 0.5, "vine": 0.35, "frond": 0.5, "glow": 0.4, "bloom": 0.4}   # chance per tick it catches from a burning neighbour
+const GRASS_COVER := {"forest": 0.4, "jungle": 0.75, "coast": 0.25, "mountains": 0.2, "toxic": 0.32, "city": 0.12, "canyon": 0.08, "wasteland": 0.1, "industrial": 0.06, "crystal": 0.12, "volcanic": 0.05}   # v12.7: share of the dirt ground with grass blocks, by land
 const GRASS_PATCH_FREQ := 0.012      # the grass grows in patches and meadows ~80 m across
 const GRASS_TIP_GREEN := Color(0.72, 0.95, 0.42)   # v12.8: green land: light green tips ...
 const GRASS_ROOT_GREEN := Color(0.22, 0.5, 0.18)   # ... from a green root (mixed with the ground's own colour)
