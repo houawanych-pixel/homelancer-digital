@@ -2457,7 +2457,7 @@ func _run() -> void:
 			moon.size() > 2 and int(moon[2]) == 0 and int(moon[3]) == 0 and int(moon[4]) == 0 and int(moon[5]) == 0 and int(moon[7]) >= 4 and des.size() > 2 and int(des[5]) == 0 and int(des[7]) >= 6 and int(rows[2][3]) == 0)
 		_finish_group()
 		return
-	if OS.get_environment("HL_DARK") != "":   # v12.32: what you see as you board (owner: "it was all black")
+	if _flag("HL_DARK"):   # v12.32: what you see as you board (owner: "it was all black")
 		await _smoke_core()
 		var s := _sp()
 		var mb: Dictionary = s._spawn_capital("inv_battleship", "battleship", s.player.global_position - s.player.global_basis.z * 2500.0, s.player.global_position, "Unity")
