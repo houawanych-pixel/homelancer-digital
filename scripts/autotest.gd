@@ -1927,6 +1927,57 @@ func _run() -> void:
 		_check("Kaijurai boarding: the guards are creatures, not mechs (%d of %d on foot: %s)" % [beasts.size(), bs.size(), ", ".join(names.slice(0, 4))], not bs.is_empty() and beasts.size() == bs.size())
 		_finish_group()
 		return
+	if OS.get_environment("HL_DECKS") != "":   # v12.18: generated deck plans for enemy battleships and stations
+		var bad: Array = []
+		var sizes := []
+		for kind in ["ship", "station"]:
+			for d in [1, 2, 3, 4]:
+				for sd in 3:
+					var L: Dictionary = Boarding.deckplan("test:%s%d" % [kind, sd], kind, d, "T")
+					Boarding.use(L)
+					for route in [L["route_in"], L["route_out"]]:
+						for i in (route as Array).size() - 1:
+							if Boarding.joint(str(route[i]), str(route[i + 1])).is_empty(): bad.append("%s L%d#%d gap %s-%s" % [kind, d, sd, route[i], route[i + 1]])
+					var ks: Array = (L["rooms"] as Dictionary).keys()
+					for i in ks.size():
+						for j in range(i + 1, ks.size()):
+							var A: Array = L["rooms"][ks[i]]["r"]
+							var B: Array = L["rooms"][ks[j]]["r"]
+							if float(A[0]) < float(B[1]) - 1.0 and float(B[0]) < float(A[1]) - 1.0 and float(A[2]) < float(B[3]) - 1.0 and float(B[2]) < float(A[3]) - 1.0: bad.append("%s L%d overlap %s %s" % [kind, d, ks[i], ks[j]])
+					for k in ks: if float(L["rooms"][k]["r"][1]) > float(L["rooms"]["sbay"]["r"][1]) + 0.5: bad.append("%s L%d %s east of the exit" % [kind, d, k])
+					for need in ["lbay", "muster", "reactor", "fhold", "sbay", "bridge"]: if not (L["rooms"] as Dictionary).has(need): bad.append("%s L%d no %s" % [kind, d, need])
+					if Boarding.room_at(L["bridge_mech"]) != "bridge": bad.append("%s L%d bridge mech outside the bridge" % [kind, d])
+					if sd == 0: sizes.append("%s L%d %d" % [kind, d, ks.size()])
+		Boarding.use_ship()
+		_check("deck plans: ships and stations L1-4 x 3 each join up in and out, no overlaps, exit most east, bridge + reactor + muster (%s) %s" % [", ".join(sizes), bad.slice(0, 6)], bad.is_empty())
+		# board a generated battleship as a mech: the halls' guards, the bridge, the reactor all reachable by door
+		main.start_game()
+		await _until(func(): return main.state == "flight", 20.0)
+		await _wait(1.0)
+		var s0 := _sp()
+		var mb: Dictionary = s0._spawn_capital("inv_battleship", "battleship", s0.player.global_position - s0.player.global_basis.z * 2500.0, s0.player.global_position, "Imperium")
+		await _frames(3)
+		GS.form = "mech"
+		main.board_battleship(mb)
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding, 15.0)
+		var s := _sp()
+		await _wait(1.5)
+		var gen: bool = Boarding.KIND == "ship" and Boarding.ROOMS.has("bridge") and not Boarding.ROOMS.has("t4a")
+		await _capture("deck_ship_bay")
+		var mr: Array = Boarding.ROOMS["muster"]["r"]
+		var mc := Vector3((float(mr[0]) + float(mr[1])) * 0.5, 0, (float(mr[2]) + float(mr[3])) * 0.5)
+		_tp(Vector3(float(mr[0]) + 20.0, Boarding.floor_at(mc) + 6.0, mc.z), mc)
+		await _wait(1.5)
+		await _capture("deck_ship_hall")
+		var woke: bool = (s.board["woke"] as Dictionary).has("muster")
+		main.hud.planet_map = true
+		for k in Boarding.ROOMS: s.board["seen"][k] = true
+		await _wait(0.4)
+		await _capture("deck_ship_map")
+		main.hud.planet_map = false
+		_check("a generated battleship deck plan in the game: %d areas, bridge %s, first hall's guards wake %s" % [Boarding.ROOMS.size(), gen, woke], gen and woke)
+		_finish_group()
+		return
 	if OS.get_environment("HL_MELEE") != "":   # v12.15: the mech's laser shield and sword; a ship can't leave the decks
 		main.start_game()
 		await _until(func(): return main.state == "flight", 20.0)
@@ -2387,6 +2438,7 @@ func _run() -> void:
 		get_tree().quit()
 		return
 	if OS.get_environment("HL_BOARD") != "":   # v11.66: boarding mission battleships, explosions, the nuke (+ the core smoke group)
+		Boarding.classic = true   # v12.18: the walkthrough knows the hand-made battleship's coordinates
 		await _smoke_core()
 		await _board_fx()
 		_finish_group()
@@ -5150,6 +5202,7 @@ func _job_v1145() -> void:
 	s._board_said_t = 0.0
 	s._board_asked = false
 	s.player.global_position = (bs["node"] as Node3D).global_position + Vector3(0, 0, float(bs["def"].get("hit_r", 200.0)) + Data.BOARD_NEAR * 0.5)
+	Boarding.classic = true   # v12.18: the walkthrough knows the hand-made battleship's coordinates
 	await _frames(3)
 	main.hud._layout()
 	var board_btn: bool = s.prompt() == "board" and main.hud.buttons.has("board")   # v11.60 (owner): BOARD next to the ship
@@ -5168,6 +5221,7 @@ func _job_v1145() -> void:
 		s = _sp()
 		out_ok = main.state == "flight" and not s.boarding and GS.credits >= cr0 + Data.BOARD_PAY
 	res.append("out, wave cleared, paid %s" % out_ok)
+	Boarding.classic = false
 	if GS.form == "mech": s.start_transform()
 	_check("v11.60 (owner): BOARDING a battleship: one shield + hull, no shoot-off parts; SHIELDS UP while its shield is above 0; once broken it stays down; BOARD shows next to the ship; the ship turns into its mech and goes in (v11.70: the corridor run, the core, the other exit, the wave outside, then paid); infiltrating costs standing",
 		parts_ok and shield_ok and board_btn and went_in and rep_hit and rooms_ok and out_ok, " · ".join(res))

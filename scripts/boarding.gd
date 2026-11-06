@@ -87,6 +87,8 @@ static func use_ship() -> void:
 	KIND = "ship"
 	INFO = {}
 
+static var classic := false   # v12.18: the route test's hand-made battleship (its walkthrough knows the coordinates)
+
 static func use(L: Dictionary) -> void:
 	ROOMS = L["rooms"]
 	START_AT = L["start"]
@@ -94,14 +96,14 @@ static func use(L: Dictionary) -> void:
 	CORE_AT = L["core"]
 	CORE_SHIELD_R = 60.0
 	BOSS_AT = L["boss"]
-	BRIDGE_MECH_AT = Vector3(1e6, 0, 1e6)   # (no bridge in a facility)
+	BRIDGE_MECH_AT = L.get("bridge_mech", Vector3(1e6, 0, 1e6))   # (no bridge in a facility)
 	EXIT_X = L["exit_x"]
 	ENTRY_X = L["entry_x"]
 	SEAL_DOOR = L["seal"]
 	ESCAPE_DOOR = L["escape"]
 	ROUTE_IN = L["route_in"]
 	ROUTE_OUT = L["route_out"]
-	KIND = "facility"
+	KIND = str(L.get("kind", "facility"))
 	INFO = L["info"]
 
 ## v11.96 (owner: "every planet has bases ... Armored Core tunnels and missions, 2 at the minimum, 3 or 4 at most; the
@@ -234,6 +236,203 @@ static func facility(seed_key: String, difficulty: int, name := "Facility") -> D
 		"boss": core + Vector3(0, 0, 100.0), "exit_x": float(sb[1]) - 8.0, "entry_x": float(lb[0]) + 4.0, "seal": seal, "escape": esc,
 		"route_in": route_in, "route_out": route_out,
 		"info": {"name": name, "difficulty": d, "halls": main_len, "levels": int(round(-level["reactor"] / drop)), "rooms": rooms.size()}}
+
+## v12.18 (owner: enemy battleships and stations as dungeons "like this", with deck-plan pictures for reference): a
+## generated deck plan, different for every ship or station (seeded by its name), on the same 360 m grid and room schema
+## as the facilities.
+##  SHIP: a long hull, stern (west) to bow (east). You come in at the AFT HANGAR and work forward along the spine: big
+##  halls (engineering, crew deck, mess, CIC, cargo) each with MIRRORED wings to port and starboard (barracks and
+##  quarters, armory and weapons locker, med bay and cryo, gunnery and missile bay); the BRIDGE sits up a ramp off one
+##  wing (its mech, bounty or hostage); the MAIN REACTOR mid-ship. Blow it and run on forward to the BOW LAUNCH BAY.
+##  STATION: a hub and a ring. In at the WEST DOCK, along the west spoke to the ring, round the ring (rooms all round it,
+##  pods off the outside), into the CORE at the centre: the reactor. Out the east side of the ring, along the east spoke,
+##  to the EAST DOCK. Modules hang off the north and south of the ring.
+##  Difficulty 1-4: longer hulls / more modules, bigger halls, more guards.
+static func deckplan(seed_key: String, kind: String, difficulty: int, name := "Ship") -> Dictionary:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash("deck:%s:%s" % [kind, seed_key])
+	var d := clampi(difficulty, 1, 4)
+	var rooms := {}
+	var cell_room := {}
+	var level := {}
+	var nt := [0]
+	var put := func(k: String, c: Vector2i, hx: float, hz: float, y: float, label: String, guards: int, shape: String, hh := 0.0) -> void:
+		var cx := float(c.x) * CELL
+		var cz := float(c.y) * CELL
+		rooms[k] = {"r": [cx - hx, cx + hx, cz - hz, cz + hz], "y": [y, y], "axis": "x", "h": (hh if hh > 0.0 else 70.0 + d * 6.0), "label": label, "guards": guards, "hex": false, "shape": shape}
+		cell_room[c] = k
+		level[k] = y
+	var cell_of := {}
+	var link := func(a: String, b: String) -> String:   # a tunnel between two rooms in neighbouring cells; returns its key
+		nt[0] += 1
+		var tk := "t%d" % nt[0]
+		var w := 34.0
+		var xsec: String = ["hex", "pent"][rng.randi() % 2]
+		var ra: Array = rooms[a]["r"]
+		var rb: Array = rooms[b]["r"]
+		var ca: Vector2i = cell_of[a]
+		var cb: Vector2i = cell_of[b]
+		if ca.y == cb.y:
+			var e := 1 if cb.x > ca.x else -1
+			var x0: float = float(ra[1]) if e > 0 else float(rb[1])
+			var x1: float = float(rb[0]) if e > 0 else float(ra[0])
+			var cz := float(ca.y) * CELL
+			rooms[tk] = {"r": [x0, x1, cz - w, cz + w], "y": [level[a], level[b]] if e > 0 else [level[b], level[a]], "axis": "x", "h": 50.0, "label": "CORRIDOR", "guards": 0, "hex": true, "xsec": xsec}
+		else:
+			var e2 := 1 if cb.y > ca.y else -1
+			var z0: float = float(ra[3]) if e2 > 0 else float(rb[3])
+			var z1: float = float(rb[2]) if e2 > 0 else float(ra[2])
+			var cx := float(ca.x) * CELL
+			rooms[tk] = {"r": [cx - w, cx + w, z0, z1], "y": [level[a], level[b]] if e2 > 0 else [level[b], level[a]], "axis": "z", "h": 50.0, "label": "CORRIDOR", "guards": 0, "hex": true, "xsec": xsec}
+		return tk
+	var room := func(k: String, c: Vector2i, hx: float, hz: float, y: float, label: String, guards: int, shape: String, hh := 0.0) -> void:
+		put.call(k, c, hx, hz, y, label, guards, shape, hh)
+		cell_of[k] = c
+	var route_in: Array = []
+	var route_out: Array = []
+	var seal: Array = []
+	var esc: Array = []
+	var bridge_at := Vector3(1e6, 0, 1e6)
+	var big := 1.0 + d * 0.1
+	if kind == "ship":
+		var spine := ["ENGINEERING", "CREW DECK", "MESS HALL", "COMMAND CIC", "CARGO DECK", "MACHINE SHOP", "COMMS CENTRE"]
+		var pairs := [["BARRACKS", "CREW QUARTERS"], ["ARMORY", "WEAPONS LOCKER"], ["MED BAY", "CRYO PODS"], ["GUNNERY", "MISSILE BAY"],
+			["GALLEY", "MESS"], ["CARGO BAY 1", "CARGO BAY 2"], ["REACTOR CONTROL", "ENGINE ROOM"], ["WORKSHOP", "STORAGE"]]
+		var n_spine := 2 + d                     # spine halls before the reactor: 3-6
+		room.call("lbay", Vector2i(0, 0), 95.0, 85.0, 0.0, "AFT HANGAR", 0, "rect", 80.0)
+		route_in.append("lbay")
+		var prev := "lbay"
+		var bridge_hall := 1 + rng.randi() % maxi(1, n_spine - 1)
+		for i in n_spine:
+			var hk := "muster" if i == 0 else "h%d" % i
+			var c := Vector2i(i + 1, 0)
+			room.call(hk, c, minf(rng.randf_range(100.0, 130.0) * big, 150.0), minf(rng.randf_range(110.0, 140.0) * big, 155.0), 0.0, spine[i % spine.size()], 2 + (d + i) / 3, ["oct", "cross", "pillars", "hex"][rng.randi() % 4])
+			route_in.append(link.call(prev, hk))
+			route_in.append(hk)
+			if i == bridge_hall:   # the bridge, up a ramp off the port wing; a comms room mirrors it to starboard
+				room.call("bridge", Vector2i(i + 1, -1), 110.0, 90.0, 30.0, "BRIDGE", 1, "split", 60.0)
+				link.call(hk, "bridge")
+				room.call("comms%d" % i, Vector2i(i + 1, 1), 110.0, 90.0, 0.0, "COMMUNICATION CENTRE", 2, "split")
+				link.call(hk, "comms%d" % i)
+				var br: Array = rooms["bridge"]["r"]
+				bridge_at = Vector3((float(br[0]) + float(br[1])) * 0.5, 30.0, (float(br[2]) + float(br[3])) * 0.5 - 30.0)
+			elif rng.randf() < 0.55 + d * 0.1:   # mirrored wings: the same shape and size both sides
+				var pr: Array = pairs[rng.randi() % pairs.size()]
+				var whx := rng.randf_range(70.0, 105.0)
+				var whz := rng.randf_range(65.0, 95.0)
+				var wsh: String = SHAPES[rng.randi() % SHAPES.size()]
+				for sd in [-1, 1]:
+					var wk := "w%d%s" % [i, "p" if sd < 0 else "s"]
+					room.call(wk, Vector2i(i + 1, sd), whx, whz, 0.0, str(pr[0 if sd < 0 else 1]), 1 + d / 2, wsh)
+					link.call(hk, wk)
+			prev = hk
+		var rc := Vector2i(n_spine + 1, 0)
+		room.call("reactor", rc, 170.0, 150.0, -20.0, "MAIN REACTOR", d + 1, "ring", 110.0)
+		var tr: String = link.call(prev, "reactor")
+		seal = [tr, "reactor"]
+		route_in.append(tr)
+		route_in.append("reactor")
+		# the escape: forward to the bow
+		route_out.append("reactor")
+		prev = "reactor"
+		var fwd := ["FORWARD MISSILE BAY", "GUNNERY DECK", "FORWARD HOLD", "OBSERVATION"]
+		var n_out := 1 + (d + 1) / 2
+		for i in n_out:
+			var ek := "fhold" if i == 0 else "e%d" % i
+			room.call(ek, Vector2i(n_spine + 2 + i, 0), rng.randf_range(90.0, 120.0), rng.randf_range(90.0, 120.0), 0.0, fwd[i % fwd.size()], (2 + d / 2) if i == 0 else 0, ["oct", "hex", "pillars"][rng.randi() % 3])
+			var te: String = link.call(prev, ek)
+			if i == 0: esc = [prev, te]
+			route_out.append(te)
+			route_out.append(ek)
+			if rng.randf() < 0.5:   # mirrored side rooms by the bow too
+				for sd in [-1, 1]:
+					var sk := "b%d%s" % [i, "p" if sd < 0 else "s"]
+					room.call(sk, Vector2i(n_spine + 2 + i, sd), 80.0, 70.0, 0.0, ["ESCAPE PODS", "ESCAPE PODS"][0], 0, "rect")
+					link.call(ek, sk)
+			prev = ek
+		room.call("sbay", Vector2i(n_spine + 2 + n_out, 0), 95.0, 85.0, 0.0, "BOW LAUNCH BAY", 0, "rect", 80.0)
+		var tx: String = link.call(prev, "sbay")
+		route_out.append(tx)
+		route_out.append("sbay")
+	else:
+		# station: dock -> west spoke -> ring (round the north side) -> core; out: core -> east ring -> east spoke -> dock
+		var cx := 3 + (1 if d >= 3 else 0)       # the hub's column (a longer west spoke on harder stations)
+		room.call("lbay", Vector2i(0, 0), 95.0, 85.0, 0.0, "WEST DOCK", 0, "rect", 80.0)
+		route_in.append("lbay")
+		var prev := "lbay"
+		for x in range(1, cx - 1):
+			var sk := "muster" if x == 1 else "spw%d" % x
+			room.call(sk, Vector2i(x, 0), rng.randf_range(90.0, 120.0) * big, rng.randf_range(80.0, 110.0), 0.0, ["SECURITY STATION", "CUSTOMS", "CARGO TRANSFER"][x % 3], 2 + d / 2, ["oct", "pillars", "cross"][rng.randi() % 3])
+			route_in.append(link.call(prev, sk))
+			route_in.append(sk)
+			prev = sk
+		var ring_names := {Vector2i(-1, 0): "WEST RING", Vector2i(-1, -1): "OFFICES", Vector2i(0, -1): "COMMAND RING", Vector2i(1, -1): "COMMUNICATIONS",
+			Vector2i(1, 0): "EAST RING", Vector2i(1, 1): "MEDBAY", Vector2i(0, 1): "HYDROPONICS", Vector2i(-1, 1): "APARTMENTS"}
+		var order := [Vector2i(-1, 0), Vector2i(-1, -1), Vector2i(0, -1), Vector2i(1, -1), Vector2i(1, 0), Vector2i(1, 1), Vector2i(0, 1), Vector2i(-1, 1)]
+		var rk := {}
+		for o in order:
+			var k := "ring_%d_%d" % [o.x + 1, o.y + 1]
+			if o == Vector2i(1, 0): k = "fhold"
+			rk[o] = k
+			var corner: bool = o.x != 0 and o.y != 0
+			room.call(k, Vector2i(cx + o.x, o.y), 105.0 if corner else 120.0, 105.0 if corner else 100.0, 0.0, str(ring_names[o]), (1 + d / 2) if o != Vector2i(1, 0) else (2 + d / 2), "hex" if corner else ["oct", "pillars"][rng.randi() % 2])
+		var ring_t := {}
+		for i in order.size():   # the ring itself
+			ring_t[i] = link.call(rk[order[i]], rk[order[(i + 1) % order.size()]])
+		route_in.append(link.call(prev, rk[Vector2i(-1, 0)]))
+		route_in.append_array([rk[order[0]], ring_t[0], rk[order[1]], ring_t[1], rk[order[2]]])
+		room.call("reactor", Vector2i(cx, 0), 150.0, 140.0, -20.0, "STATION CORE", d + 1, "ring", 110.0)
+		var tr2: String = link.call(rk[Vector2i(0, -1)], "reactor")
+		seal = [tr2, "reactor"]
+		route_in.append(tr2)
+		route_in.append("reactor")
+		var te2: String = link.call("reactor", rk[Vector2i(1, 0)])
+		esc = ["reactor", te2]
+		route_out = ["reactor", te2, rk[Vector2i(1, 0)]]
+		# modules off the north and south of the ring (and the bridge-like command deck up north)
+		var mods_n := ["HIGH-END APARTMENTS", "CORPORATE ZONE", "OBSERVATORY"]
+		var mods_s := ["COMMERCIAL DISTRICT", "WORKSHOPS", "POWER REGULATOR"]
+		for sd in [-1, 1]:
+			var depth := 1 + (1 if d >= 2 else 0) + (1 if d >= 4 else 0)
+			var pk: String = rk[Vector2i(0, sd)]
+			for j in depth:
+				var mk := "mod%s%d" % ["n" if sd < 0 else "s", j]
+				var lab: String = (mods_n if sd < 0 else mods_s)[j % 3]
+				if sd < 0 and j == depth - 1:
+					mk = "bridge"
+					lab = "COMMAND DECK"
+				room.call(mk, Vector2i(cx, sd * (2 + j)), rng.randf_range(95.0, 125.0), rng.randf_range(85.0, 110.0), 30.0 if mk == "bridge" else 0.0, lab, 1 + d / 2, SHAPES[rng.randi() % SHAPES.size()], 60.0 if mk == "bridge" else 0.0)
+				link.call(pk, mk)
+				pk = mk
+			# pods off the ring's corners, outward
+			for ox in [-1, 1]:
+				if rng.randf() < 0.5 + d * 0.1:
+					var pod := "pod%d%d" % [ox + 1, sd + 1]
+					room.call(pod, Vector2i(cx + ox, sd * 2), 80.0, 75.0, 0.0, ["ESCAPE PODS", "DOCK " + ["A", "B", "C", "D"][rng.randi() % 4]][rng.randi() % 2], d / 2, "oct")
+					link.call(rk[Vector2i(ox, sd)], pod)
+		var br2: Array = rooms["bridge"]["r"]
+		bridge_at = Vector3((float(br2[0]) + float(br2[1])) * 0.5, 30.0, (float(br2[2]) + float(br2[3])) * 0.5)
+		prev = rk[Vector2i(1, 0)]
+		for x in range(cx + 2, cx + 3 + d / 2):
+			var ek2 := "spe%d" % x
+			room.call(ek2, Vector2i(x, 0), rng.randf_range(85.0, 115.0), rng.randf_range(80.0, 100.0), 0.0, ["CARGO", "HANGAR DECK", "TRANSIT"][x % 3], 0, ["oct", "pillars", "cross"][rng.randi() % 3])
+			var t3: String = link.call(prev, ek2)
+			route_out.append(t3)
+			route_out.append(ek2)
+			prev = ek2
+		var last_x := cx + 3 + d / 2
+		room.call("sbay", Vector2i(last_x, 0), 95.0, 85.0, 0.0, "EAST DOCK", 0, "rect", 80.0)
+		var t4: String = link.call(prev, "sbay")
+		route_out.append(t4)
+		route_out.append("sbay")
+	var lb: Array = rooms["lbay"]["r"]
+	var sb: Array = rooms["sbay"]["r"]
+	var rr: Array = rooms["reactor"]["r"]
+	var core := Vector3((float(rr[0]) + float(rr[1])) * 0.5, level["reactor"], (float(rr[2]) + float(rr[3])) * 0.5)
+	return {"rooms": rooms, "start": Vector3(float(lb[0]) + 40.0, 0.0, (float(lb[2]) + float(lb[3])) * 0.5), "core": core,
+		"boss": core + Vector3(0, 0, 90.0), "exit_x": float(sb[1]) - 8.0, "entry_x": float(lb[0]) + 4.0, "seal": seal, "escape": esc,
+		"route_in": route_in, "route_out": route_out, "bridge_mech": bridge_at, "kind": kind,
+		"info": {"name": name, "difficulty": d, "kind": kind, "rooms": rooms.size()}}
 
 static func rect(k: String) -> Array: return ROOMS[k]["r"]
 

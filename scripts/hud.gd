@@ -1324,8 +1324,19 @@ func _pmap_land(pid: String) -> Texture2D:
 ## v12.0 (owner: a map inside the dungeons, fog of war): the areas you have walked through, the doorways onward
 ## (dim), you, and where the job is (the core, then the exit) once you have seen it.
 func _dungeon_map(mr: Rect2) -> void:
-	_box(mr, Color(0.01, 0.05, 0.1, 0.94), Color(CYAN, 0.8), 12, 2)
-	_text(mr.position + Vector2(14, 32), "%s  ·  MAP" % str(space.board.get("name", "INSIDE")).to_upper(), 20, WHITE)
+	# v12.18 (owner, deck-plan pictures): a glowing blue blueprint of the decks on a starfield: the areas you have been in
+	# fill in, the ways on show as outlines, guards' rooms get a green marker, the core red, the way out gold.
+	draw_rect(mr.grow(-2), Color(0.01, 0.035, 0.09))
+	_box(mr, Color(0.01, 0.04, 0.1, 1.0), Color(CYAN, 0.8), 12, 2)
+	var bg := mr.grow(-3)
+	for i in 6:   # a soft nebula wash
+		var cpt := bg.position + Vector2(bg.size.x * (0.2 + 0.13 * i), bg.size.y * (0.35 + 0.25 * sin(i * 1.7)))
+		draw_circle(cpt, bg.size.y * (0.22 + 0.04 * (i % 3)), Color(0.08, 0.2, 0.42, 0.10))
+	for i in 70:   # stars
+		var sp := bg.position + Vector2(fposmod(i * 97.13, 1.0) * 0.0 + fposmod(i * 0.6180339 * 977.0, bg.size.x), fposmod(i * 0.41421 * 613.0, bg.size.y))
+		draw_circle(sp, 1.0 + float(i % 3) * 0.4, Color(0.75, 0.88, 1.0, 0.35 + 0.1 * (i % 4)))
+	_text(mr.position + Vector2(18, 34), str(space.board.get("ship", space.board.get("name", "INSIDE"))).to_upper(), 22, WHITE)
+	_text(mr.position + Vector2(18, 54), ("DECK PLAN  ·  %s" % ("STATION" if Boarding.KIND == "station" else ("SHIP" if Boarding.KIND == "ship" else "FACILITY"))), 12, Color(CYAN_HI, 0.8))
 	_pill("pmap_close", "CLOSE", false, CYAN)
 	var R: Dictionary = Boarding.ROOMS
 	var lo := Vector2(INF, INF)
@@ -1334,7 +1345,7 @@ func _dungeon_map(mr: Rect2) -> void:
 		var r: Array = R[k]["r"]
 		lo = Vector2(minf(lo.x, float(r[0])), minf(lo.y, float(r[2])))
 		hi = Vector2(maxf(hi.x, float(r[1])), maxf(hi.y, float(r[3])))
-	var inner := Rect2(mr.position + Vector2(14, 56), mr.size - Vector2(28, 116))
+	var inner := Rect2(mr.position + Vector2(18, 66), mr.size - Vector2(36, 120))
 	var span := hi - lo
 	var k2 := minf(inner.size.x / maxf(span.x, 1.0), inner.size.y / maxf(span.y, 1.0))
 	var o := inner.position + (inner.size - span * k2) * 0.5
@@ -1344,19 +1355,51 @@ func _dungeon_map(mr: Rect2) -> void:
 	for a in seen:
 		for b in R:
 			if not seen.has(b) and not Boarding.joint(str(a), str(b)).is_empty(): near[b] = true
-	for k in R:
-		if not (seen.has(k) or near.has(k)): continue
-		var r: Array = R[k]["r"]
-		var rr := Rect2(to_map.call(float(r[0]), float(r[2])), Vector2(float(r[1]) - float(r[0]), float(r[3]) - float(r[2])) * k2)
-		if seen.has(k):
-			draw_rect(rr, Color(0.25, 0.55, 0.75, 0.75))
-			draw_rect(rr, Color(CYAN, 0.9), false, 1.5)
-		else: draw_rect(rr, Color(CYAN, 0.35), false, 1.0)
+	var labels: Array = []
+	var cyan_fill := Color(0.12, 0.5, 0.68, 0.5)
+	var cyan_line := Color(0.45, 0.92, 1.0, 0.95)
+	for pass_i in 2:   # corridors first, halls on top
+		for k in R:
+			var tun: bool = bool(R[k].get("hex", false)) and not R[k].has("shape")
+			if (pass_i == 0) != tun: continue
+			if not (seen.has(k) or near.has(k)): continue
+			var r: Array = R[k]["r"]
+			var a2: Vector2 = to_map.call(float(r[0]), float(r[2]))
+			var b2: Vector2 = to_map.call(float(r[1]), float(r[3]))
+			var rr := Rect2(a2, b2 - a2)
+			var poly := _deck_shape(rr, str(R[k].get("shape", "rect")) if not tun else "rect")
+			if seen.has(k):
+				draw_colored_polygon(poly, cyan_fill if not tun else Color(0.1, 0.42, 0.58, 0.55))
+				draw_polyline(poly + PackedVector2Array([poly[0]]), cyan_line, 1.6 if not tun else 1.0, true)
+				if str(R[k].get("shape", "")) == "ring":
+					draw_arc(rr.get_center(), minf(rr.size.x, rr.size.y) * 0.22, 0, TAU, 28, cyan_line, 1.4, true)
+				if not tun and rr.size.x > 46.0:
+					labels.append([rr, str(R[k]["label"])])
+				if not tun and int(R[k].get("guards", 0)) > 0:   # a green marker where guards were posted
+					var gp := rr.get_center() + Vector2(0, 6)
+					draw_rect(Rect2(gp - Vector2(5, 5), Vector2(10, 10)), Color(0.2, 0.95, 0.45, 0.85))
+					draw_rect(Rect2(gp - Vector2(5, 5), Vector2(10, 10)), Color(0.05, 0.3, 0.1), false, 1.0)
+			else:
+				draw_polyline(poly + PackedVector2Array([poly[0]]), Color(cyan_line, 0.32), 1.0, true)
+	labels.sort_custom(func(a, b): return a[0].get_center().x < b[0].get_center().x)
+	var last_y := {}   # rooms side by side take turns, label above / below, so names never run together
+	for li in labels.size():
+		var lr: Rect2 = labels[li][0]
+		var row := int(lr.get_center().y / 8.0)
+		var up: bool = not bool(last_y.get(row, false))
+		last_y[row] = up
+		var ly := lr.position.y - 4.0 if up else lr.end.y + 11.0
+		_text(Vector2(lr.get_center().x - 60, ly), labels[li][1], 9, Color(0.85, 0.97, 1.0, 0.95), HORIZONTAL_ALIGNMENT_CENTER, 120)
 	var core: Vector3 = Boarding.CORE_AT
 	if seen.has(Boarding.room_at(core)):
 		var cp: Vector2 = to_map.call(core.x, core.z)
 		draw_circle(cp, 7.0, Color(1.0, 0.4, 0.3))
-		_text(cp + Vector2(10, 5), "CORE", 13, Color(1.0, 0.55, 0.45))
+		_text(cp + Vector2(10, 5), "CORE", 12, Color(1.0, 0.55, 0.45))
+	if str(space.board.get("phase", "")) == "escape" and R.has("sbay"):
+		var sr: Array = R["sbay"]["r"]
+		var xp: Vector2 = to_map.call(float(sr[1]), (float(sr[2]) + float(sr[3])) * 0.5)
+		draw_colored_polygon(PackedVector2Array([xp + Vector2(0, -8), xp + Vector2(10, 0), xp + Vector2(0, 8)]), GOLD)
+		_text(xp + Vector2(-34, -12), "EXIT", 12, GOLD)
 	var pp: Vector3 = space.player.global_position
 	var yv: Vector2 = to_map.call(pp.x, pp.z)
 	var f3: Vector3 = -space.player.global_basis.z
@@ -1364,7 +1407,43 @@ func _dungeon_map(mr: Rect2) -> void:
 	if f2 == Vector2.ZERO: f2 = Vector2.UP
 	var sd := Vector2(-f2.y, f2.x)
 	draw_colored_polygon(PackedVector2Array([yv + f2 * 11.0, yv - f2 * 6.0 + sd * 6.0, yv - f2 * 6.0 - sd * 6.0]), CYAN_HI)
-	_text(Vector2(mr.position.x, mr.end.y - 8), "Explored areas fill in as you go. Dim outlines: ways on you haven't taken.", 12, Color(1, 1, 1, 0.6), HORIZONTAL_ALIGNMENT_CENTER, mr.size.x)
+	# legend (bottom right, like a deck plan's key)
+	var lg := Rect2(mr.end - Vector2(196, 130), Vector2(180, 62))
+	draw_rect(lg, Color(0.02, 0.07, 0.14, 0.9))
+	draw_rect(lg, Color(cyan_line, 0.6), false, 1.0)
+	draw_rect(Rect2(lg.position + Vector2(10, 10), Vector2(9, 9)), Color(0.2, 0.95, 0.45, 0.85))
+	_text(lg.position + Vector2(26, 19), "GUARDS POSTED", 10, Color(1, 1, 1, 0.8))
+	draw_circle(lg.position + Vector2(14, 33), 5.0, Color(1.0, 0.4, 0.3))
+	_text(lg.position + Vector2(26, 37), "REACTOR CORE", 10, Color(1, 1, 1, 0.8))
+	draw_colored_polygon(PackedVector2Array([lg.position + Vector2(10, 46), lg.position + Vector2(19, 50), lg.position + Vector2(10, 54)]), CYAN_HI)
+	_text(lg.position + Vector2(26, 55), "YOU", 10, Color(1, 1, 1, 0.8))
+	_text(Vector2(mr.position.x, mr.end.y - 10), "Explored decks fill in as you go. Outlines: ways on you haven't taken.", 12, Color(1, 1, 1, 0.6), HORIZONTAL_ALIGNMENT_CENTER, mr.size.x - 200)
+
+## A deck-plan room's outline on the map, by its shape.
+func _deck_shape(rr: Rect2, shape: String) -> PackedVector2Array:
+	var c := rr.get_center()
+	var h := rr.size * 0.5
+	match shape:
+		"oct", "ring":
+			var pts := PackedVector2Array()
+			var n := 8 if shape == "oct" else 24
+			for i in n:
+				var a := TAU * (i + 0.5) / n
+				pts.append(c + Vector2(cos(a) * h.x, sin(a) * h.y) * (1.08 if shape == "oct" else 1.0))
+			return pts
+		"hex":
+			var pts2 := PackedVector2Array()
+			for i in 6:
+				var a2 := TAU * i / 6.0
+				pts2.append(c + Vector2(cos(a2) * h.x, sin(a2) * h.y))
+			return pts2
+		"cross":
+			var t := h * 0.45
+			return PackedVector2Array([c + Vector2(-t.x, -h.y), c + Vector2(t.x, -h.y), c + Vector2(t.x, -t.y), c + Vector2(h.x, -t.y), c + Vector2(h.x, t.y), c + Vector2(t.x, t.y),
+				c + Vector2(t.x, h.y), c + Vector2(-t.x, h.y), c + Vector2(-t.x, t.y), c + Vector2(-h.x, t.y), c + Vector2(-h.x, -t.y), c + Vector2(-t.x, -t.y)])
+	var cut := minf(h.x, h.y) * 0.22   # chamfered corners, like ship decks
+	return PackedVector2Array([rr.position + Vector2(cut, 0), Vector2(rr.end.x - cut, rr.position.y), Vector2(rr.end.x, rr.position.y + cut), Vector2(rr.end.x, rr.end.y - cut),
+		Vector2(rr.end.x - cut, rr.end.y), Vector2(rr.position.x + cut, rr.end.y), Vector2(rr.position.x, rr.end.y - cut), Vector2(rr.position.x, rr.position.y + cut)])
 
 func _planet_map() -> void:
 	var mr := planet_map_rect()

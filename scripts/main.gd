@@ -1442,7 +1442,9 @@ func board_battleship(e: Dictionary) -> void:
 	var tw := create_tween()
 	tw.tween_property(fx, "fade", 1.0, 0.5)
 	await tw.finished
-	Boarding.use_ship()   # (v11.96: the battleship's own decks, not a facility's)
+	# v12.18 (owner): every enemy battleship has its own generated deck plan (Boarding.deckplan "ship")
+	if Boarding.classic: Boarding.use_ship()
+	else: Boarding.use(Boarding.deckplan("%s:%s" % [str(board_from["sys"]), str(board_from["name"])], "ship", Data.SHIP_DECK_LEVEL + (1 if bool(board_from["mission"]) else 0), str(board_from["name"])))
 	_new_space("Boarding")
 	space.setup_boarding({"sys": board_from["sys"], "faction": board_from["faction"], "name": board_from["name"]})
 	_connect_space()
@@ -1473,7 +1475,7 @@ func infiltrate_station(n: Node3D) -> void:
 	var tw := create_tween()
 	tw.tween_property(fx, "fade", 1.0, 0.5)
 	await tw.finished
-	Boarding.use(Boarding.facility("%s:%s" % [space.sys_id, nm], Data.STATION_INFIL_LEVEL, nm))
+	Boarding.use(Boarding.deckplan("%s:%s" % [space.sys_id, nm], "station", Data.STATION_INFIL_LEVEL, nm))   # v12.18: a hub-and-ring station deck plan
 	_new_space("Boarding")
 	space.setup_boarding({"sys": board_from["sys"], "faction": board_from["faction"], "name": nm})
 	_connect_space()

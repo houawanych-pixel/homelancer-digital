@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.17"
+const VERSION := "v12.18"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1971,6 +1971,7 @@ const SWORD_CONE := 0.2
 const SWORD_DMG_MULT := 1.0                            # x a light missile hit
 const SWORD_BLADE_LEN := 9.0
 const SWORD_HAND := Vector3(3.2, 1.0, -1.0)            # where the blade sits on the mech
+const SHIP_DECK_LEVEL := 2                             # v12.18: an enemy battleship's deck plan size (1-4; +1 on a mission ship)
 const BOARD_MAX_SPEED := 110.0                         # m/s top speed inside a battleship (a ship can't punch through the walls)
 const BUNKER_WALK_W := 0.85   # v12.3: a bunker's walkway sections, in bunker widths (long side)
 const FORT_RADIUS := 1.45     # v12.2: a bunker fort's corners sit this many bunker widths from its middle
