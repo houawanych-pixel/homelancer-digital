@@ -1376,6 +1376,7 @@ func setup_boarding(info: Dictionary) -> void:
 	root.name = "BattleshipInside"
 	add_child(root)
 	var built: Dictionary = Boarding.build(root, tint)
+	merged_level = _merge_static(root, built)   # v12.44: the web build drew nothing past ~1000 pieces: one mesh per material
 	_reshow(root)   # v12.34: on the web (phones) the freshly built level drew nothing until shown again
 	_level_lights = root.find_children("*", "OmniLight3D", true, false)   # v12.35: only the nearest few are on
 	_cap_lights(true)
@@ -7799,6 +7800,44 @@ func _update_blade(dt: float) -> void:
 ## v12.34 (owner: boarding levels "all black" on the phone): in the web build the level built in one go drew nothing at
 ## all (not even your ship) until its parts were hidden and shown again; so after building, every part is switched off
 ## and back on over the next frames.
+## v12.44 (owner: "after I push ALARM it's black"): found by bisecting the level in a real web build: WebGL drew NOTHING
+## at all once the scene held about 1,000 separate pieces (a battleship / station deck has ~1,300 boxes; a facility
+## ~780 drew fine). So the level's still boxes are merged into one mesh per material (the doors that slide, the exit
+## lights and anything not a plain box stay separate). Phones also draw it far faster.
+var merged_level := 0
+func _merge_static(root: Node3D, built: Dictionary) -> int:
+	var keep := {}
+	for d in built.get("doors", []):
+		for pn in (d as Dictionary).get("panels", []): keep[pn] = true
+	var path: Node = built.get("path")
+	var groups := {}   # material -> [MeshInstance3D]
+	for c in root.get_children():
+		if not (c is MeshInstance3D) or keep.has(c) or c == path or c.get_child_count() > 0: continue
+		var mi := c as MeshInstance3D
+		if mi.mesh == null or not mi.visible or mi.material_override == null: continue
+		var key = mi.material_override
+		if not groups.has(key): groups[key] = []
+		groups[key].append(mi)
+	var gone := 0
+	for mat in groups:
+		var list: Array = groups[mat]
+		if list.size() < 2: continue
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		for mi: MeshInstance3D in list:
+			st.append_from(mi.mesh, 0, mi.transform)
+		var one := MeshInstance3D.new()
+		one.name = "Merged"
+		one.mesh = st.commit()
+		one.material_override = mat
+		one.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		root.add_child(one)
+		for mi: MeshInstance3D in list:
+			root.remove_child(mi)
+			mi.queue_free()
+			gone += 1
+	return gone
+
 ## v12.35 (owner: still black on the phone): a level has ~120 ceiling lamps; on the web (WebGL) that many lights at once
 ## stopped the whole 3D view drawing. Only the Data.LEVEL_LIGHTS nearest you are switched on (re-picked twice a second);
 ## the rest of the room is lit by the ambient floor of light and your own lamp.
