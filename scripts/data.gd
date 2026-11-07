@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.54"
+const VERSION := "v12.55"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -2108,10 +2108,18 @@ const SWORD_SEEK_MAX := 6.0                            # s the lock-on dash may 
 const SWORD_SEEK_GAP := 0.14                           # s between spinning hits
 const SWORD_HOLD := 0.35                               # s held before it starts locking on
 const SWORD_LOCK_EVERY := 0.3                          # s per extra lock
-const SWORD_MAX_LOCKS := 8
+const SWORD_MAX_LOCKS := 3   # (v12.55 owner: "lock on 3 targets")
 const SWORD_LOCK_RANGE := 700.0
 const SWORD_LOCK_CONE := 0.35                          # ahead (dot)
 const SWORD_REACH := 16.0                              # m the blade reaches
+const DODGE_TIME := 0.42      # v12.55: s the dodging roll (and the ship's evade) keeps you from being hit
+const DODGE_DIST := 42.0      # m the roll carries you sideways
+const EVADE_HIDE := 0.22      # s the ship vanishes in its evade
+const SHIP_BURST_SPEED := 520.0   # m/s the ship's light burst
+const SHIP_BURST_TIME := 0.35
+const BOOMER_SPEED := 260.0   # m/s the thrown sword
+const BOOMER_REACH := 180.0   # m out (no locks) before it turns back
+const BOOMER_LIFE := 4.0      # s at most
 const SWORD_FLIP_TIME := 0.6                           # v12.51 (owner): the somersault jump attack (forward held, or in the speed run)
 const SWORD_FLIP_DIST := 40.0                          # m it carries you (more if you're already running faster)
 const SWORD_FLIP_HEIGHT := 14.0                        # m over the deck at the top

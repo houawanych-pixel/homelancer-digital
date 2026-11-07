@@ -952,7 +952,7 @@ func _process(dt: float) -> void:
 	space.fire_held = controls.held("fire") if controls else Input.is_action_pressed("fire")   # Job J: right-click by default
 	space.thrust_held = (held.has("thrust") or (controls != null and controls.held("afterburner"))) and not space.cloaked   # Job J: afterburner key (Tab) (v10.6: no thrust while cloaked)
 	space.special_held = (held.has("special") or (controls != null and controls.held("special"))) and not space.cloaked   # v1.5o: SPECIAL (F)
-	space.sword_held = held.has("sidestep") and GS.form == "mech" and not space.cloaked   # v12.15: SWORD (held = lock on)
+	space.sword_held = held.has("sidestep") and not space.cloaked   # v12.15: SWORD (held = lock on); v12.55: the ship has it too
 	if console_open:
 		if roster_closing:
 			roster_t = maxf(0.0, roster_t - dt * 6.0)
@@ -2067,8 +2067,7 @@ func _draw() -> void:
 	_sword_locks()
 	_corner("dash_next", "NEXT", "target", GOLD, false)   # v12.2: switch targets
 	_corner("dash_tgt", "TARGET", "target", RED, false)
-	if GS.form == "mech": _corner("sidestep", "SWORD", "sword", Color(0.55, 0.9, 1.0), space.sword_kind != "", str(space.sword_locks.size()) if not space.sword_locks.is_empty() else "")   # v12.15 (owner): in the mech it's the sword
-	else: _corner("sidestep", "SIDESTEP", "sidestep", Color(0.55, 0.9, 1.0), space.sidestep_t > 0.0, "", clampf(space.sidestep_cd / Data.SIDESTEP_CD, 0.0, 1.0))
+	_corner("sidestep", "SWORD", "sword", Color(0.55, 0.9, 1.0), space.sword_kind != "" or not space.boomers.is_empty(), str(space.sword_locks.size()) if not space.sword_locks.is_empty() else "")   # v12.15 (owner): the sword; v12.55: in the ship too (burst / evade / throw)
 	pass   # (v8.3: FULL SCREEN is the SPEED readout)
 	_corner("stop", "STOP", "stop", RED, space.braking or space.holding, "", 0.0, false, "STOPPED" if space.holding else "FULL STOP")
 	if space.warp_state == "charging":

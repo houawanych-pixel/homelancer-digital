@@ -2260,6 +2260,59 @@ func _run() -> void:
 		await _capture("fighters_l2l3")
 		get_tree().quit()
 		return
+	if _flag("HL_SWORD3"):   # v12.55 (owner): the lightning per target, the nuke's three tails, the ship's sword (burst / evade / throw)
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s := _sp()
+		var fwd: Vector3 = -s.player.global_basis.z
+		var grp: Array = []
+		for k in 2:
+			grp.append_array(s.spawn_mission_group(s.player.global_position + fwd * 160.0 + s.player.global_basis.x * (k * 60.0 - 30.0), "Kaijurai", 4, 2, "", -9))
+		await _frames(3)
+		var n_in: int = grp.size()
+		var hit: int = s.lightning_special()
+		await _wait(0.15)
+		await _capture("lightning_lines")
+		_check("v12.55 (owner): the lightning special: a coloured bolt per target (primary, then secondary, then chained on past six): %d struck of %d" % [hit, n_in], hit >= 7, "hit %d" % hit)
+		# the ship's evade: you can't be hit while it lasts; missiles locked on you lose you
+		await _wait(1.0)
+		var h0: float = GS.hull
+		s._ship_evade(1.0)
+		s._player_hit(50.0)
+		var dodged: bool = is_equal_approx(GS.hull, h0) and s.dodge_t > 0.0 and s.man_kind == "right"
+		await _wait(0.15)
+		var hidden: bool = is_instance_valid(s.model) and not s.model.visible
+		await _wait(0.6)
+		var back: bool = is_instance_valid(s.model) and s.model.visible
+		# the light burst
+		await _wait(0.6)
+		var p0: Vector3 = s.player.global_position
+		s._ship_burst(-s.player.global_basis.z)
+		await _wait(0.5)
+		var burst_d: float = s.player.global_position.distance_to(p0)
+		# the thrown sword: three locked targets, then back
+		var fw2: Vector3 = -s.player.global_basis.z
+		var live: Array = s.spawn_mission_group(s.player.global_position + fw2 * 120.0, "Kaijurai", 3, 2, "", -9)
+		for e in live: e["stun"] = 9.0   # (holding still for the throw)
+		s._throw_boomer(fw2, live)
+		await _wait(0.4)
+		await _capture("sword_thrown")
+		await _until(func(): return s.boomers.is_empty(), 6.0)
+		_check("v12.55 (owner): the ship's SWORD: side = barrel-roll evade (no damage %s, it vanishes %s and comes back %s); forward = a light burst (%.0f m); held = a thrown sword through the locked targets and back (%d hits)" % [dodged, hidden, back, burst_d, s.boomer_hits], dodged and hidden and back and burst_d > 80.0 and s.boomer_hits >= 1, "dodge %s hide %s back %s burst %.0f hits %d" % [dodged, hidden, back, burst_d, s.boomer_hits])
+		# the nuke: three tails, red / blue / yellow
+		GS.nukes = maxi(GS.nukes, 1)
+		s.missile_cd = 0.0
+		s.trigger_system("nuke")
+		await _wait(0.5)
+		var tails := 0
+		for m in s.missiles_live:
+			var sw = (m["node"] as Node3D).get_node_or_null("NukeSwirl")
+			if sw != null: tails = sw.get_child_count()
+		await _capture("nuke_tails")
+		_check("v12.55 (owner): the nuke flies with 3 swirling tails (red, blue, yellow), no balls of light: %d" % tails, tails == 3, "tails %d" % tails)
+		_finish_group()
+		return
 	if _flag("HL_PLANETSITES"):   # v12.54 (owner): two sky docks a world (own + rival), facilities by size, patrols and backup
 		var lines: Array = []
 		var ok := true

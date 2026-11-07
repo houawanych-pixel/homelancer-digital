@@ -7648,6 +7648,9 @@ func _popup(at: Vector3, txt: String, col: Color) -> void:
 
 var deflected := 0   # v8.3: shots knocked away by a barrel roll
 func _player_hit(dmg: float, hit := Vector3.INF) -> void:
+	if dodge_t > 0.0:   # v12.55: rolling clear
+		_spark(hit if hit != Vector3.INF else player.global_position, Color(0.8, 0.95, 1.0), 3.0, 0.2)
+		return
 	if Data.ROLL_DEFLECT and man_kind != "" and GS.form != "mech":   # v8.3 (owner, Star Fox): rolling knocks the fire away
 		deflected += 1
 		_spark(hit if hit != Vector3.INF else player.global_position, Color(0.7, 0.95, 1.0), 4.0, 0.25)
@@ -8008,7 +8011,7 @@ var _blade: Node3D = null
 var _blade_spin := 0.0
 
 func sword_ready() -> bool:
-	return GS.form == "mech" and transform_t <= 0.0 and controls
+	return transform_t <= 0.0 and controls and (GS.form == "mech" or (lane.is_empty() and warp_state != "on" and not cloaked))
 
 func _sword_targets(dir: Vector3, reach: float, cone: float) -> Array:
 	var out: Array = []
@@ -8167,8 +8170,113 @@ func place_block() -> String:
 
 ## The sword carries the mech itself (the stick can't hold it back); the walls still stop it.
 func _sword_move(v: Vector3, dt: float) -> void:
+	if GS.form != "mech":   # (v12.55: the ship moves in 3D)
+		player.global_position += v * dt
+		vel = v * 0.25
+		return
 	player.global_position += Vector3(v.x, 0, v.z) * dt
 	vel = Vector3(v.x * 0.25, vel.y, v.z * 0.25)
+
+var dodge_t := 0.0     # v12.55: > 0: rolling clear (shots miss you)
+var boomers: Array = []   # v12.55: thrown swords in flight: {node, targets, at, hit, back, life}
+var boomer_hits := 0      # (tests)
+
+## v12.55: missiles locked on you lose you
+func _shake_locks() -> void:
+	for m in enemy_missiles: m["lost"] = true
+
+## v12.55 (owner: "in the ship the side move dodges: a barrel roll, it flashes and disappears and reappears; it evades
+## damage and lock-ons")
+func _ship_evade(dir: float) -> void:
+	_man_start("right" if dir > 0.0 else "left")
+	dodge_t = Data.DODGE_TIME + 0.1
+	_shake_locks()
+	screen_flash = maxf(screen_flash, 0.25)
+	_spark(player.global_position, Color(0.8, 0.95, 1.0), 14.0, 0.25)
+	if is_instance_valid(model):
+		var m := model
+		get_tree().create_timer(0.08).timeout.connect(func(): if is_instance_valid(m): m.visible = false)
+		get_tree().create_timer(0.08 + Data.EVADE_HIDE).timeout.connect(func():
+			if is_instance_valid(m): m.visible = true
+			if is_instance_valid(player): _spark(player.global_position, Color(0.8, 0.95, 1.0), 14.0, 0.25))
+	Sfx.play("warp_go", -6.0, 1.5)
+
+## v12.55 (owner: "the forward attack with a ship: a thrust forward with light that bursts through and attacks
+## anything in front")
+func _ship_burst(fwd: Vector3) -> void:
+	_sword_start("burst", fwd, 1)
+	sword_locks.clear()
+	screen_flash = maxf(screen_flash, 0.2)
+	Sfx.play("warp_go", -4.0, 1.2)
+	message.emit("LIGHT BURST!")
+
+## v12.55: throw the sword: through each locked target in turn (or straight out if none), then back to you
+func _throw_boomer(fwd: Vector3, targets: Array) -> void:
+	var nd := Node3D.new()
+	nd.name = "ThrownSword"
+	add_child(nd)
+	var core := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	var L := Data.SWORD_BLADE_LEN * (1.6 if GS.form != "mech" else 1.0) * (Data.ESCAPE_PILOT_H / 13.0)
+	bm.size = Vector3(L, 0.6, 0.6)
+	core.mesh = bm
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.albedo_color = Color(0.85, 0.97, 1.0)
+	core.material_override = m
+	nd.add_child(core)
+	var glow := MeshInstance3D.new()
+	var gb := BoxMesh.new()
+	gb.size = Vector3(L * 1.1, 2.0, 2.0)
+	glow.mesh = gb
+	var gm := StandardMaterial3D.new()
+	gm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	gm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	gm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	gm.albedo_color = Color(0.3, 0.75, 1.0, 0.45)
+	glow.material_override = gm
+	nd.add_child(glow)
+	nd.global_position = player.global_position + fwd * 6.0
+	var straight := player.global_position + fwd * Data.BOOMER_REACH
+	boomers.append({"node": nd, "targets": targets.filter(func(e): return enemies.has(e)), "at": straight, "hit": [], "back": false, "life": Data.BOOMER_LIFE})
+	Sfx.play("saber_spin", -3.0, 0.9)
+	message.emit("SWORD THROWN%s" % (" at %d targets!" % targets.size() if not targets.is_empty() else "!"))
+
+func _update_boomers(dt: float) -> void:
+	for b in boomers:
+		var nd: Node3D = b["node"]
+		if not is_instance_valid(nd): continue
+		b["life"] = float(b["life"]) - dt
+		nd.rotate_y(dt * 22.0)
+		var goal: Vector3
+		var tl: Array = b["targets"]
+		while not tl.is_empty() and not enemies.has(tl[0]): tl.pop_front()
+		if b["back"] or float(b["life"]) < Data.BOOMER_LIFE * 0.35: goal = player.global_position
+		elif not tl.is_empty(): goal = (tl[0]["node"] as Node3D).global_position
+		else: goal = b["at"]
+		var to := goal - nd.global_position
+		var step := Data.BOOMER_SPEED * dt
+		if to.length() <= step + 4.0:
+			if b["back"] or float(b["life"]) < Data.BOOMER_LIFE * 0.35:
+				b["life"] = 0.0
+				Sfx.play("saber_on", -8.0, 1.3)
+			elif not tl.is_empty():
+				var e: Dictionary = tl.pop_front()
+				_sword_hit(e)
+				_sword_hit(e)
+				boomer_hits += 1
+				_spark(nd.global_position, Color(0.6, 0.95, 1.0), 10.0, 0.3)
+			else: b["back"] = true
+			if tl.is_empty() and not b["back"] and (b["targets"] as Array).is_empty() == false: b["back"] = true
+		else:
+			nd.global_position += to.normalized() * step
+		for e in enemies:   # anything it passes through on the way
+			if (b["hit"] as Array).has(e) or not is_instance_valid(e["node"]): continue
+			if (e["node"] as Node3D).global_position.distance_to(nd.global_position) < float(e["def"].get("hit_r", 7.5)) + 5.0:
+				(b["hit"] as Array).append(e)
+				_sword_hit(e)
+		if float(b["life"]) <= 0.0: nd.queue_free()
+	boomers = boomers.filter(func(b): return float(b["life"]) > 0.0 and is_instance_valid(b["node"]))
 
 var _sword_engaged := false
 var _flip_speed := 0.0
@@ -8179,11 +8287,13 @@ func _sword_start(kind: String, dir: Vector3, slashes: int) -> void:
 	_sword_dir = dir
 	_sword_left = slashes
 	_sword_next = 0.0
-	sword_t = Data.SWORD_FLIP_TIME if kind == "flip" else Data.SWORD_DASH_TIME if kind == "dash" else (Data.SWORD_SIDE_TIME if kind == "side" else (Data.SWORD_SPIN_TIME if kind == "spin" else Data.SWORD_SEEK_MAX))
+	sword_t = Data.DODGE_TIME if kind == "roll" else Data.SHIP_BURST_TIME if kind == "burst" else Data.SWORD_FLIP_TIME if kind == "flip" else Data.SWORD_DASH_TIME if kind == "dash" else (Data.SWORD_SIDE_TIME if kind == "side" else (Data.SWORD_SPIN_TIME if kind == "spin" else Data.SWORD_SEEK_MAX))
 	Sfx.play("saber_on", -7.0, 1.2)
 
 func _update_sword(dt: float) -> void:
-	if GS.form != "mech" or not is_instance_valid(player):
+	if not boomers.is_empty(): _update_boomers(dt)
+	dodge_t = maxf(0.0, dodge_t - dt)
+	if not is_instance_valid(player) or transform_t > 0.0 or (GS.form != "mech" and (not lane.is_empty() or warp_state == "on")):
 		sword_held = false
 		sword_locks.clear()
 		sword_kind = ""
@@ -8191,7 +8301,7 @@ func _update_sword(dt: float) -> void:
 		if _blade != null and is_instance_valid(_blade): _blade.visible = false
 		return
 	var fwd := -player.global_basis.z
-	fwd.y = 0.0
+	if GS.form == "mech": fwd.y = 0.0
 	fwd = fwd.normalized() if fwd.length() > 0.01 else Vector3.FORWARD
 	if sword_held and not _sword_prev:
 		_sword_hold = 0.0
@@ -8212,25 +8322,34 @@ func _update_sword(dt: float) -> void:
 					sword_locks.append(least)
 					Sfx.play("button", -6.0, 1.6 + 0.08 * sword_locks.size())
 	if not sword_held and _sword_prev and sword_ready():   # let go
-		if _sword_hold < Data.SWORD_HOLD:
-			var right := player.global_basis.x
-			right.y = 0.0
-			right = right.normalized()
-			if absf(move.x) > 0.45 and absf(move.x) >= absf(move.y): _sword_start("side", right * signf(move.x), 1)
-			elif move.y >= 0.45 or _test_run or (speed_k >= 1.0 and Vector2(vel.x, vel.z).length() > 20.0):
-				# v12.51 (owner: "the sword attack is fast and goes too far; it should be a somersault jump attack, and you
-				# can do it in the speed run"): holding forward, a forward flip over a short hop, the blade landing at the end
-				_sword_start("flip", fwd, 1)
-				_flip_speed = maxf(Data.SWORD_FLIP_DIST / Data.SWORD_FLIP_TIME, Vector2(vel.x, vel.z).length())
-				_flip_y0 = player.global_position.y
-				Sfx.play("whoosh", -6.0, 1.3)
-			else:
-				_sword_start("dash", fwd, Data.SWORD_COMBO)
-				_sword_engaged = true   # v12.46 (owner): the combo where you stand
-				_sword_next = 0.0
-				sword_t = Data.SWORD_COMBO * Data.SWORD_COMBO_GAP + 0.1
-		elif not sword_locks.is_empty(): _sword_start("seek", fwd, sword_locks.size())
-		else: _sword_start("spin", fwd, Data.SWORD_SPIN_HITS)
+		var right := player.global_basis.x
+		right.y = 0.0
+		right = right.normalized()
+		var sidev := absf(move.x) > 0.45 and absf(move.x) >= absf(move.y)
+		if _sword_hold >= Data.SWORD_HOLD:
+			# v12.55 (owner: "hold and charge your sword and throw it out like a boomerang; lock on 3 targets; it hits all
+			# 3 and comes back ... the mech and the ship too"): the locked targets in turn, then back to you
+			_throw_boomer(fwd, sword_locks.duplicate())
+			sword_locks.clear()
+		elif GS.form != "mech":
+			if sidev: _ship_evade(signf(move.x))   # v12.55 (owner): the ship rolls aside, flashes out and back: it shakes off fire and locks
+			else: _ship_burst(fwd)                  # (owner): a thrust forward wrapped in light that bursts through what's in front
+		elif sidev:
+			_sword_start("roll", right * signf(move.x), 0)   # v12.55 (owner): a dodging roll to that side
+			dodge_t = Data.DODGE_TIME
+			_shake_locks()
+		elif move.y >= 0.45 or _test_run or (speed_k >= 1.0 and Vector2(vel.x, vel.z).length() > 20.0):
+			# v12.51 (owner: "the sword attack is fast and goes too far; it should be a somersault jump attack, and you
+			# can do it in the speed run"): holding forward, a forward flip over a short hop, the blade landing at the end
+			_sword_start("flip", fwd, 1)
+			_flip_speed = maxf(Data.SWORD_FLIP_DIST / Data.SWORD_FLIP_TIME, Vector2(vel.x, vel.z).length())
+			_flip_y0 = player.global_position.y
+			Sfx.play("whoosh", -6.0, 1.3)
+		else:
+			_sword_start("dash", fwd, Data.SWORD_COMBO)
+			_sword_engaged = true   # v12.46 (owner): the combo where you stand
+			_sword_next = 0.0
+			sword_t = Data.SWORD_COMBO * Data.SWORD_COMBO_GAP + 0.1
 	_sword_prev = sword_held
 	if sword_kind != "": _sword_step(dt, fwd)
 	_update_blade(dt)
@@ -8279,6 +8398,21 @@ func _sword_step(dt: float, fwd: Vector3) -> void:
 					_sword_hit(e)
 					_sword_hit(e)
 				vel = Vector3(_sword_dir.x * _flip_speed * 0.3, 0, _sword_dir.z * _flip_speed * 0.3)
+		"roll":   # v12.55: the dodging roll (no blade: you can't be hit while it lasts)
+			var fr := clampf(1.0 - sword_t / Data.DODGE_TIME, 0.0, 1.0)
+			_sword_move(_sword_dir * (Data.DODGE_DIST / Data.DODGE_TIME) * (1.4 - fr * 0.8), dt)
+			var spin2: Node3D = pilot_rig.body if pilot_rig != null and is_instance_valid(pilot_rig.body) else model
+			if is_instance_valid(spin2): spin2.rotation.z = -TAU * fr * signf(_sword_dir.dot(player.global_basis.x))
+			if sword_t <= 0.0 and is_instance_valid(spin2): spin2.rotation.z = 0.0
+		"burst":   # v12.55: the ship's light thrust: it bursts through what's in front
+			_sword_move(_sword_dir * Data.SHIP_BURST_SPEED, dt)
+			if _rng.randf() < 0.8: _spark(player.global_position - _sword_dir * 6.0 + Vector3(_rng.randfn(0, 2), _rng.randfn(0, 2), _rng.randfn(0, 2)), Color(0.75, 0.95, 1.0), 4.5, 0.3)
+			for e in _sword_targets(_sword_dir, Data.SWORD_REACH * 1.8, 0.3):
+				if not sword_locks.has(e):   # (each one once)
+					sword_locks.append(e)
+					_sword_hit(e)
+					_sword_hit(e)
+			if sword_t <= 0.0: sword_locks.clear()
 		"side":
 			_sword_move(_sword_dir * Data.SWORD_SIDE_SPEED, dt)
 			if _sword_next <= 0.0 and _sword_left > 0:
@@ -8321,7 +8455,7 @@ func _sword_step(dt: float, fwd: Vector3) -> void:
 
 ## The saber: a glowing blade in the mech's right hand while it is used (or while you hold the button), swung round.
 func _update_blade(dt: float) -> void:
-	var on := sword_kind != "" or (sword_held and GS.form == "mech")
+	var on := GS.form == "mech" and (sword_kind != "" and sword_kind != "roll" or sword_held)
 	if not on:
 		if _blade != null and is_instance_valid(_blade): _blade.visible = false
 		return
@@ -10558,15 +10692,38 @@ func lightning_special() -> int:
 	var R := lightning_range()
 	var pp := player.global_position
 	var hit := 0
-	for e in enemies.duplicate():
+	# v12.56 (owner: "a full colour spectrum with an outer glow, it zaps out everything, like electricity; one target,
+	# one line; three, three lines in the three primary colours; six, six lines; more, and those six connect on to the
+	# others"): a bolt per target (red, blue, yellow, then purple, green, orange), each with its glow, flickering; past
+	# six, every other target is struck from the nearest one already hit
+	var caught: Array = []
+	for e in enemies:
 		var n: Node3D = e["node"]
 		if not is_instance_valid(n) or n.global_position.distance_to(pp) > R + float(n.get_meta("radius", 7.0)): continue
 		if n.get_meta("kind", "enemy") != "enemy": continue
+		caught.append(e)
+	caught.sort_custom(func(a, b): return (a["node"] as Node3D).global_position.distance_to(pp) < (b["node"] as Node3D).global_position.distance_to(pp))
+	var cols: Array = Data.SUPER_PRIMARY + Data.SUPER_SECONDARY
+	var struck: Array = []   # [position, colour]
+	for e in caught:
+		var n: Node3D = e["node"]
+		var tp := n.global_position
+		var src := pp
+		var col: Color = cols[hit % cols.size()]
+		if hit >= 6:   # from the nearest one already struck, in its colour
+			var bd := INF
+			for q in struck:
+				var dq := (q[0] as Vector3).distance_to(tp)
+				if dq < bd:
+					bd = dq
+					src = q[0]
+					col = q[1]
 		e["stun"] = Data.LIGHTNING_STUN
 		e["sh"] = 0.0
 		e["sh_cd"] = Data.LIGHTNING_STUN + 2.0
 		e["vel"] = Vector3.ZERO
-		_lightning_arc(pp, n.global_position)
+		_zap(src, tp, col)
+		struck.append([tp, col])
 		_damage_enemy(e, Data.LIGHTNING_DAMAGE)
 		hit += 1
 	if hit == 0:
@@ -10582,16 +10739,25 @@ func lightning_special() -> int:
 	message.emit("LIGHTNING STORM! %d stunned." % hit)
 	return hit
 
+## v12.56: a coloured bolt with its glow, re-struck a few times so it crackles
+func _zap(a: Vector3, b: Vector3, col: Color) -> void:
+	for i in 4:
+		get_tree().create_timer(i * 0.11).timeout.connect(func():
+			if is_inside_tree():
+				_lightning_arc(a, b, col, 2.2)
+				_lightning_arc(a, b, col.lerp(Color(1, 1, 1), 0.45), 0.7))
+	_spark(b, col, 9.0, 0.4)
+
 ## A jagged bolt from a to b: short-lived glowing segments.
-func _lightning_arc(a: Vector3, b: Vector3) -> void:
+func _lightning_arc(a: Vector3, b: Vector3, col := Data.LIGHTNING_COLOR, width := 1.0) -> void:
 	var holder := Node3D.new()
 	add_child(holder)
 	var mat := StandardMaterial3D.new()
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	mat.albedo_color = Data.LIGHTNING_COLOR
+	mat.albedo_color = col if width <= 1.0 else Color(col.r * 0.4, col.g * 0.4, col.b * 0.4)   # (the wide one is the glow round it)
 	var box := BoxMesh.new()
-	for strand in 2:
+	for strand in (2 if width <= 1.0 else 1):
 		var pts: Array = [a]
 		var segs := 9
 		var side := (b - a).cross(Vector3.UP).normalized()
@@ -10615,8 +10781,8 @@ func _lightning_arc(a: Vector3, b: Vector3) -> void:
 			var bz := d / l
 			var bx := bz.cross(Vector3.UP if absf(bz.y) < 0.95 else Vector3.RIGHT).normalized()
 			var by := bz.cross(bx)
-			mi.global_transform = Transform3D(Basis(bx * 0.9, by * 0.9, bz * l), (p0 + p1) * 0.5)
-	get_tree().create_timer(0.35).timeout.connect(holder.queue_free)
+			mi.global_transform = Transform3D(Basis(bx * 0.9 * width, by * 0.9 * width, bz * l), (p0 + p1) * 0.5)
+	get_tree().create_timer(0.14 if width != 1.0 else 0.35).timeout.connect(holder.queue_free)
 
 func _special_end(said: String) -> void:
 	special_state = "idle"
@@ -11197,14 +11363,17 @@ func _nuke_swirl(mi: Node3D) -> void:
 	var sw := Node3D.new()
 	sw.name = "NukeSwirl"
 	mi.add_child(sw)
-	for i in 4:
+	# v12.56 (owner: "just 3 lines that swirl from it ... like its tail, they disappear; primary colours, red, blue and
+	# yellow ... take out the balls of light"): three thin corkscrew streaks behind it (a dense run of tiny glows)
+	var cols3 := [Color(1.0, 0.18, 0.15), Color(0.2, 0.45, 1.0), Color(1.0, 0.88, 0.15)]
+	for i in 3:
 		var em := Node3D.new()
-		em.position = Vector3(cos(i * PI * 0.5), sin(i * PI * 0.5), 0.0) * Data.NUKE_SWIRL_R
+		em.position = Vector3(cos(i * TAU / 3.0), sin(i * TAU / 3.0), 0.0) * Data.NUKE_SWIRL_R
 		sw.add_child(em)
 		var ps := CPUParticles3D.new()
 		ps.local_coords = false   # (the trail stays behind in space: a corkscrew of light)
-		ps.amount = 90
-		ps.lifetime = 0.7
+		ps.amount = 220
+		ps.lifetime = 0.55
 		ps.emission_shape = CPUParticles3D.EMISSION_SHAPE_POINT
 		ps.gravity = Vector3.ZERO
 		ps.initial_velocity_min = 0.0
@@ -11216,7 +11385,7 @@ func _nuke_swirl(mi: Node3D) -> void:
 		cv.add_point(Vector2(1, 0))
 		ps.scale_amount_curve = cv
 		var qm := QuadMesh.new()
-		qm.size = Vector2.ONE * 3.0
+		qm.size = Vector2.ONE * 0.9
 		var mm := StandardMaterial3D.new()
 		mm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		mm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -11226,7 +11395,7 @@ func _nuke_swirl(mi: Node3D) -> void:
 		mm.vertex_color_use_as_albedo = true
 		qm.material = mm
 		ps.mesh = qm
-		ps.color = Color(0.5, 0.85, 1.0) if i % 2 == 0 else Color(0.75, 0.5, 1.0)
+		ps.color = cols3[i]
 		var gr := Gradient.new()
 		gr.set_color(0, ps.color)
 		gr.set_color(1, Color(ps.color.r, ps.color.g, ps.color.b, 0.0))

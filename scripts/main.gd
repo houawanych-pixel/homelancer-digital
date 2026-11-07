@@ -399,7 +399,7 @@ func _on_hud(id: String) -> void:
 			space.cycle_target()
 			hud.target_menu = false
 		"dash_tgt": _on_hud("tgt_front")
-		"sidestep": space.sidestep(hud.move_vec.x if "move_vec" in hud else 0.0)
+		"sidestep": pass   # v12.55: the SWORD button in every form (space._update_sword acts on let-go)
 		"spare_l":   # v12.15 (owner): the mech's laser shield
 			match space.toggle_laser_shield():
 				"on": hud.flash_message("LASER SHIELD up: it blocks shots from in front, and swings to your left while you fire.")
