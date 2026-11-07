@@ -2511,6 +2511,17 @@ func _run() -> void:
 			await _frames(4)
 			await _capture("probe_newcam")
 			var inside: Node3D = s.get_node_or_null("BattleshipInside")
+			var greys := {}
+			for gm in inside.find_children("*", "MeshInstance3D", true, false):
+				var mo := (gm as MeshInstance3D).material_override
+				if mo is StandardMaterial3D and (mo as StandardMaterial3D).uv1_world_triplanar: greys[mo] = true
+			print("[route] PROBE grey materials %d" % greys.size())
+			for gm in greys: (gm as StandardMaterial3D).uv1_triplanar = false
+			await _frames(4)
+			await _capture("probe_notriplanar")
+			for gm in greys: (gm as StandardMaterial3D).albedo_texture = null
+			await _frames(4)
+			await _capture("probe_notexture")
 			if inside: inside.visible = false
 			await _frames(4)
 			await _capture("probe_noinside")
