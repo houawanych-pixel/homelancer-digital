@@ -1407,7 +1407,18 @@ func setup_boarding(info: Dictionary) -> void:
 	shield.name = "ReactorShield"
 	(core["node"] as Node3D).add_child(shield)
 	board["shield"] = shield
-	message.emit("Inside the %s. Fight through toward the back of the ship and down into the belly: the REACTOR." % board["ship"])
+	if bool(info.get("escape", false)):   # v12.38: the breakout: the way out is open from the start, the clock running
+		board["breakout"] = true
+		board["phase"] = "escape"
+		board["escape"] = Data.ESCAPE_TIME
+		for d in board_doors:
+			if Boarding.is_door(d, Boarding.ESCAPE_DOOR): d["locked"] = false
+		if is_instance_valid(_board_path): _board_path.visible = true
+		for l: OmniLight3D in _board_alarm:
+			if is_instance_valid(l): l.light_color = Color(1.0, 0.25, 0.15)
+		message.emit("LOCKDOWN! %s security is on you. Follow the green lights to the LAUNCH BAY: YOUR SHIP is there." % str(info["faction"]))
+	else:
+		message.emit("Inside the %s. Fight through toward the back of the ship and down into the belly: the REACTOR." % board["ship"])
 	_update_camera(1.0, true)
 
 func _build_board_env(tint: Color) -> void:
@@ -1671,7 +1682,9 @@ func board_line() -> String:
 			if str(board.get("room", "")) == "reactor": return "%s  ·  destroy their BOSS MECH to drop the reactor's shield" % where
 			if str(board.get("room", "")) == "bridge": return "%s  ·  the bridge mech%s" % [where, " holds your BOUNTY" if (board.get("bridge", {}) as Dictionary).has("bounty") else " holds a hostage"]
 			return "%s  ·  head aft and down into the belly: the REACTOR  ·  (side way up: the BRIDGE)" % where
-		"escape": return "ESCAPE: %d s  ·  %s  ·  up the belly, round to the STARBOARD LAUNCH BAY" % [int(ceil(maxf(0.0, float(board["escape"])))), where]
+		"escape":
+			if bool(board.get("breakout", false)): return "BREAKOUT: %d s  ·  %s  ·  follow the green lights to YOUR SHIP in the LAUNCH BAY" % [int(ceil(maxf(0.0, float(board["escape"])))), where]
+			return "ESCAPE: %d s  ·  %s  ·  up the belly, round to the STARBOARD LAUNCH BAY" % [int(ceil(maxf(0.0, float(board["escape"])))), where]
 	return "BOARDING"
 
 # ---------------------------------------------------------------- v11.70: out of the ship, the wave waiting outside
@@ -3912,7 +3925,12 @@ func _hull_r(e: Dictionary) -> float:
 
 ## v1.9i: the player's mech, built from the fitted arms / core / legs. Until a part's pack is in, the Black-Gold frame
 ## stands in and the mech is rebuilt when the pack arrives.
+var escape_pilot := false   # v12.38: in the station breakout you're the owner's pilot on foot, not a mech
+var pilot_rig: PilotRig
 func _player_mech_model() -> Node3D:
+	if escape_pilot and PilotRig.ready():
+		pilot_rig = PilotRig.new()
+		return pilot_rig.build(Data.ESCAPE_PILOT_H, 6.0)
 	var k: Dictionary = GS.mech_keys()
 	var waiting := false
 	for p in ["arms", "core", "legs"]:
@@ -7820,6 +7838,7 @@ func _collisions(dt: float) -> void:
 	_update_laser_shield(dt)
 	_update_lamp(dt)
 	if boarding: _cap_lights()
+	if pilot_rig != null and is_instance_valid(model): pilot_rig.pose(dt, Vector2(vel.x, vel.z).length(), Data.BOARD_MAX_SPEED)
 	_update_sword(dt)
 	_update_build(dt)
 	sidestep_cd = maxf(0.0, sidestep_cd - dt)

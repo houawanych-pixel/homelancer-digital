@@ -400,6 +400,9 @@ func _on_hud(id: String) -> void:
 			space.full_stop()
 			hud.flash_message("Braking to a full stop.")
 		"form":
+			if bool(board_from.get("escape", false)):
+				hud.flash_message("On foot in here: no transforming. Get to YOUR SHIP in the launch bay.")
+				return
 			match space.start_transform():
 				"mech": hud.flash_message("Transforming to MECH… weapons locked for 3 s.")
 				"ship": hud.flash_message("Transforming to SHIP… weapons locked for 3 s.")
@@ -952,12 +955,16 @@ func _fly_along(p: Node3D, goal: Vector3, k: float) -> void:
 ## your ship launches you, with ESCAPE_CHASERS of their ships after you, and that station won't take you back until
 ## you leave the system or dock somewhere else.
 var escape: StationEscape
+var escape_rooms := false   # (tests: the older separate escape rooms, StationEscape)
 var dock_ban := {}   # station name -> system id
 var escape_from := ""
 func start_escape(faction: String) -> void:
 	if escape != null: return
 	while state == "docking": await get_tree().process_frame   # (the alarm goes off as the hub opens, before docking is done)
 	if state != "hub": return
+	if Data.ESCAPE_IN_SPACE and not escape_rooms:
+		_escape_in_space()
+		return
 	state = "escape"
 	escape_from = str(hub.base["name"])
 	hub.visible = false
@@ -967,11 +974,47 @@ func start_escape(faction: String) -> void:
 	escape.escaped.connect(_escaped)
 	escape.start(faction)
 
+## v12.38 (owner: "the same controls as mech mode ... bring everything ... it's not just copy-paste?"): the breakout runs
+## inside the real flight / mech game, like boarding: the station's deck plan, its guards, the whole HUD (TARGET, GO TO,
+## COMMS, radar, wheels, missiles, sword, shield, sidestep, super). You're on foot (the owner's pilot, his rifle);
+## TRANSFORM is out. Reach the launch bay where your ship waits: you launch with their fleet after you.
+func _escape_in_space() -> void:
+	var sid := GS.system_id
+	escape_from = str(hub.base["name"])
+	var own := str(Factions.owner_of(hub.base, Data.SYSTEMS[sid]))
+	var fac := own if Factions.has(own) else "Savagers"
+	state = "boarding"
+	board_from = {"sys": sid, "pos": Vector3.ZERO, "name": escape_from, "faction": fac, "escape": true, "form": GS.form}
+	fx.caption = "LOCKDOWN"
+	fx.sub = "BREAK OUT OF %s" % escape_from.to_upper()
+	Sfx.play("whoosh", -2.0, 0.7)
+	var tw := create_tween()
+	tw.tween_property(fx, "fade", 1.0, 0.5)
+	await tw.finished
+	hub.visible = false
+	GS.form = "mech"
+	Boarding.use(Boarding.deckplan("%s:%s:breakout" % [sid, escape_from], "station", Data.STATION_INFIL_LEVEL, escape_from))
+	_new_space("Boarding")
+	space.escape_pilot = true
+	space.setup_boarding({"sys": sid, "faction": fac, "name": escape_from, "escape": true})
+	_connect_space()
+	var tw2 := create_tween()
+	tw2.tween_property(fx, "fade", 0.0, 0.6)
+	await tw2.finished
+	fx.caption = ""
+	fx.sub = ""
+	space.controls = true
+	hud.visible = true
+	state = "flight"
+
 func _escaped() -> void:
-	var fac: String = hub.lockdown_faction()
-	var own := str(Factions.owner_of(hub.base, Data.SYSTEMS[GS.system_id]))
 	if is_instance_valid(escape): escape.queue_free()
 	escape = null
+	_escape_finish()
+
+func _escape_finish() -> void:
+	var fac: String = hub.lockdown_faction()
+	var own := str(Factions.owner_of(hub.base, Data.SYSTEMS[GS.system_id]))
 	hub.visible = true
 	hub._end_lockdown()
 	state = "hub"
@@ -1637,6 +1680,16 @@ func leave_boarding(won: bool) -> void:
 	tw.tween_property(fx, "fade", 1.0, 0.4)
 	await tw.finished
 	GS.form = str(board_from.get("form", "ship"))   # v12.29: back to what you came in as, at once (no transforming in the open)
+	if bool(board_from.get("escape", false)):   # v12.38: out of the station you broke out of: into your ship, launch
+		Boarding.use_ship()
+		var sid: String = board_from["sys"]
+		board_from = {}
+		_load_system(sid, "station")
+		space.visible = false
+		space.process_mode = Node.PROCESS_MODE_DISABLED
+		state = "hub"
+		_escape_finish()
+		return
 	if bool(board_from.get("facility", false)):   # v11.96: back up on the world beside the facility
 		Boarding.use_ship()
 		var pay := Data.FACILITY_PAY * int(board_from.get("difficulty", 1)) if won else 0

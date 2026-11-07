@@ -1782,7 +1782,7 @@ func _run() -> void:
 	main.hud.cl_open = true   # (v8.0: the windows start folded; the checks read them open)
 	main.hud.sp_open = true
 	main.hud.weapons_pinned = true   # (v7.0: every button up for the checks; the pop-up has its own check)
-	if OS.get_environment("HL_ESCAPE") == "": main.hub.escape_3d = false   # v12.30: the older lockdown checks test the panorama fight (HL_ESCAPE tests the 3D one)
+	if OS.get_environment("HL_ESCAPE") == "" and not _flag("HL_BREAKOUT"): main.hub.escape_3d = false   # v12.30: the older lockdown checks test the panorama fight (HL_ESCAPE tests the 3D one)
 	if OS.get_environment("HL_SMOKE") != "":   # Nov 2 (owner): the fast pre-deploy check (< 2 min)
 		await _smoke()
 		_finish_group()
@@ -2762,6 +2762,47 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if _flag("HL_BREAKOUT"):   # v12.38: the breakout inside the real mech game (boarding), the whole HUD
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s := _sp()
+		var sta := str(Data.SYSTEMS[GS.system_id]["station"]["name"])
+		main.dock(s.station)
+		await _until(func(): return main.state == "hub", 15.0)
+		await _wait(0.5)
+		main.hub.test_alarm()
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding, 20.0)
+		await _wait(2.0)
+		s = _sp()
+		var b: Dictionary = s.board
+		var hb = main.hud
+		var on_foot: bool = s.pilot_rig != null and GS.form == "mech"
+		var hud_ok: bool = hb.visible and hb.buttons.has("fire") and hb.buttons.has("goto") and (hb.buttons.has("target") or hb.buttons.has("tgt_front"))
+		await _capture("breakout_start")
+		var f0 := GS.form
+		main._on_hud("form")
+		await _wait(0.5)
+		var no_tf: bool = GS.form == f0 and s.transform_t <= 0.0
+		_check("v12.38 (owner): the breakout runs in the real mech game: the whole HUD (TARGET, GO TO, COMMS, radar, wheels, missiles, sword, shield), you on foot as the pilot, TRANSFORM out; the way out open and the clock running", on_foot and hud_ok and no_tf and bool(b.get("breakout", false)) and str(b.get("phase", "")) == "escape", "foot %s hud %s no_tf %s breakout %s" % [on_foot, hud_ok, no_tf, b.get("breakout")])
+		for at in [Vector3(-200, 0, 0), Vector3(0, 0, 0)]:
+			var q := Boarding.keep_in(at, 20.0)
+			_tp(Vector3(q.x, Boarding.floor_at(q) + 6.0, q.z), q + Vector3(80, 0, 0))
+			await _wait(0.8)
+			await _capture("breakout_deck")
+		s.player.global_position = Vector3(Boarding.EXIT_X + 2.0, 6, 120)
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and not main.space.boarding, 20.0)
+		await _wait(1.0)
+		var s2 := _sp()
+		var hostile := 0
+		for e in s2.enemies: if bool(e.get("aggro", false)): hostile += 1
+		main.dock(s2.station)
+		await _frames(5)
+		var denied: bool = main.state == "flight" and main.dock_ban.has(sta)
+		await _capture("breakout_chase")
+		_check("v12.38: out of the launch bay you launch in your own ship; %d of their ships after you (%d hostile); %s denies docking" % [main.escape_chasers, hostile, sta], GS.form == "ship" and main.escape_chasers >= Data.ESCAPE_CHASERS and denied, "form %s chasers %d denied %s" % [GS.form, main.escape_chasers, denied])
+		_finish_group()
+		return
 	if OS.get_environment("HL_ESCAPE") != "":   # v12.30: the 3D station escape
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -2770,6 +2811,7 @@ func _run() -> void:
 		main.dock(s.station)
 		await _until(func(): return main.state == "hub", 15.0)
 		await _wait(0.5)
+		main.escape_rooms = true
 		main.hub.test_alarm()
 		await _until(func(): return main.escape != null and not main.escape.busy, 10.0)
 		var es: StationEscape = main.escape

@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.37"
+const VERSION := "v12.38"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -2469,6 +2469,9 @@ const BREAKOUT_ON := true
 ## v12.30 (owner: "a mini game is better than the panorama"): the lockdown is a 3D on-foot escape through destructible
 ## graybox rooms (StationEscape / VoxRoom); then their fleet chases you and that station won't let you dock.
 const ESCAPE_3D := true
+const ESCAPE_IN_SPACE := true   # v12.38: the breakout runs in the real mech game (boarding), with the whole HUD
+const ESCAPE_TIME := 300.0      # s to reach the launch bay
+const ESCAPE_PILOT_H := 13.0    # m: the pilot drawn at the mech's size (the decks are mech-sized)
 const ESCAPE_CHASERS := 20
 # v11.15 (owner): a faction's own lockdown art: every guard is its helmeted soldier, and ONE boss (the marshal who
 # comes to arrest you, laser blade) holds the hangar; the rooms before it end with no boss. boss_rush = how often he

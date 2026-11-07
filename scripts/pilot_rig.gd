@@ -1,0 +1,110 @@
+class_name PilotRig
+extends RefCounted
+## v12.38: the owner's on-foot pilot (assets/pilot/hl_hova.glb, his Tripo model; it has a skeleton but no clips) with the
+## mech's rifle in his hands. Used as the player's body in the station escape (inside the real flight / mech game).
+## The arms are aimed at the rifle and the legs swing as he walks, all by code each frame.
+
+const GLB := "res://assets/pilot/hl_hova.glb"
+const RIFLE := "res://assets/pilot/pilot_rifle.glb"
+const PACK := "pilot"
+
+var root: Node3D
+var body: Node3D
+var skel: Skeleton3D
+var lateral := Vector3.RIGHT
+var _ph := 0.0
+var _k := 0.0
+
+static func ready() -> bool:
+	if not Packs.is_ready(PACK):
+		Packs.request(PACK)
+		return false
+	return ResourceLoader.exists(GLB)
+
+## The body, `height` m tall, feet at y = -feet_below (the player's origin is its middle), looking down -Z.
+func build(height: float, feet_below: float) -> Node3D:
+	root = Node3D.new()
+	root.name = "Pilot"
+	body = Node3D.new()
+	root.add_child(body)
+	var inst: Node3D = (load(GLB) as PackedScene).instantiate()
+	var bb := _aabb(inst)
+	var k := height / maxf(0.01, bb.size.y)
+	inst.scale = Vector3.ONE * k
+	inst.position = Vector3(-bb.get_center().x * k, -bb.position.y * k - feet_below, -bb.get_center().z * k)
+	var side_on := bb.size.z > bb.size.x * 1.3
+	inst.rotation.y = PI / 2 if side_on else PI
+	lateral = Vector3(0, 0, 1) if side_on else Vector3(1, 0, 0)
+	body.add_child(inst)
+	for s in inst.find_children("*", "Skeleton3D", true, false):
+		skel = s
+		break
+	if ResourceLoader.exists(RIFLE):
+		var rifle: Node3D = (load(RIFLE) as PackedScene).instantiate()
+		var rb := _aabb(rifle)
+		var longest := maxf(rb.size.x, maxf(rb.size.y, rb.size.z))
+		var rk := height * 0.53 / maxf(0.01, longest)
+		var holder := Node3D.new()
+		holder.name = "Rifle"
+		body.add_child(holder)
+		holder.position = Vector3(height * 0.11, height * 0.655 - feet_below, -height * 0.19)
+		holder.add_child(rifle)
+		rifle.scale = Vector3.ONE * rk
+		rifle.position = -rb.get_center() * rk
+		rifle.rotation.y = -PI / 2 if rb.size.x >= rb.size.z else PI
+	return root
+
+func pose(dt: float, speed: float, run_speed: float) -> void:
+	if skel == null or not is_instance_valid(skel): return
+	_k = move_toward(_k, clampf(speed / maxf(run_speed, 0.01), 0.0, 1.0), dt * 4.0)
+	_ph += dt * (6.0 + speed * 0.12)
+	var sw := sin(_ph) * 0.55 * _k
+	for nm in ["L_Thigh", "R_Thigh", "L_Calf", "R_Calf", "L_Upperarm", "R_Upperarm", "L_Forearm", "R_Forearm"]:
+		var i := skel.find_bone(nm)
+		if i >= 0: skel.reset_bone_pose(i)
+	_turn("L_Thigh", lateral, sw)
+	_turn("R_Thigh", lateral, -sw)
+	_turn("L_Calf", lateral, -maxf(0.0, -cos(_ph)) * 0.8 * _k)
+	_turn("R_Calf", lateral, -maxf(0.0, cos(_ph)) * 0.8 * _k)
+	# arms on the rifle: right hand on the grip, left under the barrel (body space: forward -Z, right +X)
+	_aim("R_Upperarm", "R_Forearm", Vector3(0.05, -0.75, -0.65))
+	_aim("R_Forearm", "R_Hand", Vector3(-0.25, 0.05, -1.0))
+	_aim("L_Upperarm", "L_Forearm", Vector3(0.3, -0.6, -0.75))
+	_aim("L_Forearm", "L_Hand", Vector3(0.45, 0.1, -1.0))
+
+func _turn(name: String, axis: Vector3, a: float) -> void:
+	var b := skel.find_bone(name)
+	if b < 0: return
+	var par := skel.get_bone_parent(b)
+	var pg: Transform3D = skel.get_bone_global_pose(par) if par >= 0 else Transform3D.IDENTITY
+	var gr: Transform3D = (skel.get_bone_global_rest(par) if par >= 0 else Transform3D.IDENTITY) * skel.get_bone_rest(b)
+	skel.set_bone_pose_rotation(b, (pg.basis.inverse() * (Basis(axis.normalized(), a) * gr.basis)).get_rotation_quaternion())
+
+func _aim(name: String, child: String, dir_body: Vector3) -> void:
+	var b := skel.find_bone(name)
+	var c := skel.find_bone(child)
+	if b < 0 or c < 0: return
+	var want: Vector3 = (skel.global_transform.basis.inverse() * (body.global_transform.basis * dir_body)).normalized()
+	var gp := skel.get_bone_global_pose(b)
+	var cur := (skel.get_bone_global_pose(c).origin - gp.origin).normalized()
+	if cur.length() < 0.5: return
+	var nb := Basis(Quaternion(cur, want)) * gp.basis
+	var par := skel.get_bone_parent(b)
+	var pg: Basis = skel.get_bone_global_pose(par).basis if par >= 0 else Basis.IDENTITY
+	skel.set_bone_pose_rotation(b, (pg.inverse() * nb).get_rotation_quaternion())
+
+static func _aabb(n: Node) -> AABB:
+	var out := AABB()
+	var first := true
+	for c in n.find_children("*", "MeshInstance3D", true, false):
+		var mi := c as MeshInstance3D
+		if mi.mesh == null: continue
+		var xf := Transform3D.IDENTITY
+		var p: Node = mi
+		while p != null and p != n:
+			if p is Node3D: xf = (p as Node3D).transform * xf
+			p = p.get_parent()
+		var b := xf * mi.mesh.get_aabb()
+		out = b if first else out.merge(b)
+		first = false
+	return out if not first else AABB(Vector3(-0.3, 0, -0.2), Vector3(0.6, 1.8, 0.4))
