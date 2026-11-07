@@ -2048,7 +2048,10 @@ func _draw() -> void:
 	var wsub := ""
 	if space.warp_state == "charging": wsub = "%d s" % int(ceil(Data.WARP_CHARGE - space.warp_t))
 	elif space.warp_state == "on": wsub = "DROP OUT"
-	_corner("warp", "WARP", "warp", Color(0.62, 0.55, 1.0), space.warp_state != "off", "", 0.0, GS.form == "mech", wsub)
+	if space.on_foot or space.escape_pilot:   # v12.45 (owner): on foot WARP is the speed run, like Metroid's speed booster
+		_corner("warp", "SPEED", "warp", Color(0.45, 0.85, 1.0), space.sprint, "", 0.0, false, "BOOSTING" if space.speed_k > 0.95 else ("RUN ON" if space.sprint else "RUN"))
+	else:
+		_corner("warp", "WARP", "warp", Color(0.62, 0.55, 1.0), space.warp_state != "off", "", 0.0, GS.form == "mech", wsub)
 	_special_button()   # v1.5o
 	var gm: bool = space.ground_mode   # v1.8r: GROUND: gravity on, walk / land
 	_corner("ground", "GROUND", "ground", GREEN, gm, "", 0.0, false, ("WALKING" if GS.form == "mech" else "LANDED") if gm and space.grounded else ("FALLING" if gm else ("WALK" if GS.form == "mech" else "LAND")))

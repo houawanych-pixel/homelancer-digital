@@ -2855,6 +2855,27 @@ func _run() -> void:
 		var small: bool = s.on_foot and bb.size.y < 3.0 and is_instance_valid(s.parked)
 		main.hud.visible = true
 		await _capture("eject_on_foot")
+		# v12.45: SPEED RUN builds up; GROUND off = jetpack
+		main._on_hud("warp")
+		var fwd := -s.player.global_basis.z
+		var top := 0.0
+		for i in 120:
+			s.vel = Vector3(fwd.x * 100.0, s.vel.y, fwd.z * 100.0)
+			s._foot_speed(1.0 / 60.0)
+			top = Vector2(s.vel.x, s.vel.z).length()   # (stepped by hand: the stick isn't held in the test)
+		var boost_ok: bool = s.sprint and s.speed_k > 0.9 and top > Data.FOOT_SPEED * 3.0
+		var k_was: float = s.speed_k
+		main._on_hud("warp")
+		main._on_hud("ground")
+		await _frames(2)
+		s.vel = Vector3(fwd.x * 100.0, 0, fwd.z * 100.0)
+		s._foot_speed(1.0 / 60.0)
+		var jet: float = Vector2(s.vel.x, s.vel.z).length()
+		var jet_ok: bool = not s.ground_mode and jet <= Data.JETPACK_SPEED * Data.JETPACK_BOOST_K + 0.5 and jet > Data.FOOT_SPEED
+		main._on_hud("ground")
+		await _frames(2)
+		_check("v12.45 (owner): on foot WARP is the SPEED RUN (built up to %.0f m/s, a speed boost) and GROUND off is a JETPACK (%.0f m/s)" % [top, jet], boost_ok and jet_ok and s.ground_mode, "boost %s (k %.2f) jet %s" % [boost_ok, k_was, jet_ok])
+		s.vel = Vector3.ZERO
 		main.hud.visible = false
 		var pc := s.player.global_position
 		_tp(pc + s.player.global_basis * Vector3(4, -3.5, 7), pc + Vector3(0, -5, 0))

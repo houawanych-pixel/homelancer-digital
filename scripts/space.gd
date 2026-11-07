@@ -1488,7 +1488,7 @@ func _board_update(dt: float) -> void:
 	# v12.15 (owner: "in a dungeon I transformed to the ship and could fly outside the walls"): inside, a ship is held to
 	# a walking pace through the decks, and anything that ends up outside every room is put back in the nearest one
 	var hv := Vector3(vel.x, 0, vel.z)
-	if hv.length() > Data.BOARD_MAX_SPEED:
+	if hv.length() > Data.BOARD_MAX_SPEED * (Data.SPEED_BOOST_K / 1.0 if escape_pilot and sprint else 1.0):
 		hv = hv.normalized() * Data.BOARD_MAX_SPEED
 		vel = Vector3(hv.x, vel.y, hv.z)
 	var leaving: bool = str(board.get("phase", "")) in ["escape", "out"] and player.global_position.x > Boarding.EXIT_X - 40.0
@@ -3931,6 +3931,33 @@ func _hull_r(e: Dictionary) -> float:
 ## EJECT puts you on foot at human size (the owner's pilot, his rifle); the mech / ship stays parked where it stood.
 ## Walk back to it and ENTER.
 var on_foot := false
+## v12.45 (owner: "WARP can be a speed run like Metroid, and GROUND is the gravity that grounds me, but if I turn it off
+## I'll have a jetpack, with boost, and move like a mech"): on foot, WARP = SPEED RUN (keep running and the top speed
+## builds up to a speed boost, with a blue glow); GROUND off = JETPACK (you fly like the mech, THRUST boosts).
+var sprint := false
+var speed_k := 0.0     # 0..1: how far the speed run has built up
+var _boost_glow: OmniLight3D
+func _foot_speed(dt: float) -> void:
+	var fh := Vector3(vel.x, 0, vel.z)
+	var scale_k := Data.ESCAPE_PILOT_H / Data.FOOT_H if escape_pilot else 1.0   # (the breakout pilot is drawn at mech size)
+	var run_cap: float = Data.FOOT_SPEED
+	if sprint and fh.length() > Data.FOOT_SPEED * 0.8: speed_k = minf(1.0, speed_k + dt / Data.SPEED_BUILD)
+	else: speed_k = maxf(0.0, speed_k - dt * 2.0)
+	if sprint: run_cap = lerpf(Data.FOOT_SPEED * Data.SPRINT_K, Data.FOOT_SPEED * Data.SPEED_BOOST_K, speed_k)
+	var cap: float = (run_cap if ground_mode else (Data.JETPACK_SPEED * (Data.JETPACK_BOOST_K if boosting else 1.0))) * (scale_k if escape_pilot else 1.0)
+	if escape_pilot and ground_mode and not sprint: cap = Data.BOARD_MAX_SPEED
+	if fh.length() > cap:
+		fh = fh.normalized() * cap
+		vel = Vector3(fh.x, vel.y, fh.z)
+	if not is_instance_valid(_boost_glow):
+		_boost_glow = OmniLight3D.new()
+		_boost_glow.light_color = Color(0.4, 0.8, 1.0)
+		_boost_glow.omni_range = 12.0 * scale_k
+		player.add_child(_boost_glow)
+	_boost_glow.visible = speed_k > 0.6
+	_boost_glow.light_energy = 3.0 * speed_k * (0.8 + 0.2 * sin(time * 30.0))
+	_boost_glow.position = Vector3(0, -6.0 + Data.FOOT_H * 0.5 * scale_k, 0)
+
 var parked: Node3D
 var parked_form := ""
 func can_eject() -> bool:
@@ -7932,11 +7959,7 @@ func _collisions(dt: float) -> void:
 	sidestep_t = maxf(0.0, sidestep_t - dt)
 	_update_laser_shield(dt)
 	_update_lamp(dt)
-	if on_foot:   # v12.39: a person's pace
-		var fh := Vector3(vel.x, 0, vel.z)
-		if fh.length() > Data.FOOT_SPEED:
-			fh = fh.normalized() * Data.FOOT_SPEED
-			vel = Vector3(fh.x, vel.y, fh.z)
+	if on_foot or escape_pilot: _foot_speed(dt)
 	if boarding: _cap_lights()
 	if pilot_rig != null and is_instance_valid(model): pilot_rig.pose(dt, Vector2(vel.x, vel.z).length(), Data.BOARD_MAX_SPEED)
 	_update_sword(dt)

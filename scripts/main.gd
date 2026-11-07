@@ -448,6 +448,10 @@ func _on_hud(id: String) -> void:
 			elif space.warp_active(): hud.flash_message("Wait for the warp drive to finish spooling.")
 			else: hud.flash_message("Engines OFF — drifting. You can still turn and shoot; THRUST restarts them." if space.toggle_engine_kill() else "Engines restarted.")
 		"warp":
+			if space.on_foot or space.escape_pilot:   # v12.45: on foot WARP is the speed run
+				space.sprint = not space.sprint
+				hud.flash_message("SPEED RUN on: keep running and you build up to a speed boost." if space.sprint else "Speed run off.")
+				return
 			match space.request_warp():
 				"charging": hud.flash_message("Warp spooling — 5 s. Weapons locked. Keep flying!")
 				"atmosphere": hud.flash_message("The warp drive can't run inside an atmosphere.")
@@ -469,7 +473,7 @@ func _on_hud(id: String) -> void:
 		"ground":   # v1.8r (owner): gravity on / off
 			match space.toggle_ground():
 				"on": hud.flash_message("GROUND: walking. THRUST = jump, stick + THRUST = dash." if GS.form == "mech" else "GROUND: coming down to land. THRUST = hop up, stick + THRUST = dash.")
-				"off": hud.flash_message("GROUND off: flying.")
+				"off": hud.flash_message("GROUND off: JETPACK. THRUST = boost." if (space.on_foot or space.escape_pilot) else "GROUND off: flying.")
 				"space": hud.flash_message("GROUND works down on a planet.")
 				"warp": hud.flash_message("Drop out of warp first.")
 		"lock_a", "lock_c": hud.flash_message("Locked for now.")
