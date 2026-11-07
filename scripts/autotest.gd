@@ -2894,7 +2894,7 @@ func _run() -> void:
 		await _until(func(): return main.state == "hub", 15.0)
 		await _wait(0.5)
 		main.hub.test_alarm()
-		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding, 20.0)
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding, 90.0)
 		await _wait(2.0)
 		s = _sp()
 		var b: Dictionary = s.board

@@ -1020,7 +1020,7 @@ func _escape_in_space() -> void:
 	var tw := create_tween()
 	tw.tween_property(fx, "fade", 1.0, 0.5)
 	await tw.finished
-	await Packs.wait(PilotRig.PACK, 30.0)   # v12.44: on the web your pilot comes in its own pack: have him before going in
+	await Packs.wait(PilotRig.PACK, 60.0)   # v12.44: on the web your pilot comes in its own pack: have him before going in
 	hub.visible = false
 	GS.form = "mech"
 	Boarding.use(Boarding.deckplan("%s:%s:breakout" % [sid, escape_from], "station", Data.STATION_INFIL_LEVEL, escape_from))
