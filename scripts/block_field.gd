@@ -387,6 +387,7 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 		queue_free()
 		return
 	if region.x >= 0: _grow_grass()   # (v12.7)
+	if region.x >= 0 and Data.LEAF_CARDS: _place_leaf_cards()   # v12.53: the fluffy leaf cards on the canopies
 	_phase = "_grow_grass"
 	if staged:
 		_slice_end()
@@ -983,9 +984,19 @@ func ground_for(x: float, y: float, z: float) -> float:
 	for o in spans(i):
 		var lo: float = y0 + (o as Vector2i).x * step
 		var hi: float = y0 + (o as Vector2i).y * step
-		if y >= lo and y < hi - 0.01: return hi
+		# v12.53 (owner: "leaves shouldn't be solid, you should move through them; only the top to stand on"): inside a
+		# leafy layer you aren't pushed up onto it
+		if y >= lo and y < hi - 0.01:
+			if hi - y > Data.LEAF_TOP_HOLD and _leafy(i, _k(y)): continue
+			return hi
 		if hi <= y + 0.01: best = maxf(best, hi)
 	return best if best > -INF else h[i]
+
+## v12.53: is layer k of cell i leaves?
+@warning_ignore("integer_division")
+func _leafy(i: int, k: int) -> bool:
+	var m := mat_at(i % n, i / n, y0 + (k + 0.5) * Data.BLOCK_MIN)
+	return Data.LEAF_COLORS.has(m) or m == "frond"
 
 ## The underside of the rock over a point (a tunnel / cave roof), or INF in the open.
 func ceiling_above(x: float, y: float, z: float) -> float:
@@ -995,7 +1006,7 @@ func ceiling_above(x: float, y: float, z: float) -> float:
 	if not holes.has(i): return INF
 	for o in spans(i):
 		var lo: float = y0 + (o as Vector2i).x * step
-		if lo > y + 0.01: return lo
+		if lo > y + 0.01 and not _leafy(i, (o as Vector2i).x): return lo   # (v12.53: leaves over you are no roof)
 	return INF
 
 ## The material of the layer at a point (or "" outside the ground).
@@ -1767,26 +1778,56 @@ func _grow_tree(rng: RandomNumberGenerator, cx: int, cz: int, to_cave: int) -> b
 			put.call(soil["sand" if rng.randf() < Data.ROOT_SOIL_SAND else "dirt"], q.x, q.y, kq, mini(kq + layers, kg + 1))
 	var mid := Vector2(cx + tw * 0.5, cz + tw * 0.5)
 	var canopy_lo := kt
-	var slab := func(x0c: int, z0c: int, k: int, colour: String) -> void:
-		var w := rng.randi_range(int(Data.TREE_CANOPY[0]), int(Data.TREE_CANOPY[1]))
-		var d := rng.randi_range(int(Data.TREE_CANOPY[0]), int(Data.TREE_CANOPY[1]))
-		for a in w:
-			for b in d: put.call(leaf[colour], x0c - w / 2 + a, z0c - d / 2 + b, k, k + 2)
-	var nb := rng.randi_range(int(Data.TREE_BRANCHES[0]), int(Data.TREE_BRANCHES[1]))
+	# v12.53 (owner: "use the diagonals for the branches, a Y shape moving upward; the leaves shaped like a cloud:
+	# round and bulky in the middle, smaller puffs poking out"): the trunk forks part way up into 2-3 limbs that climb
+	# diagonally (one cell out for every layer up), each ending in a round puff of leaves; a big puff crowns the middle
+	# and smaller ones bulge out round it
+	var puffs: Array = []   # [centre x, z (cells), k, r (cells), rv (layers), colour]
+	var fork := kt - rng.randi_range(3, 5)
+	for jz in tw:   # (the trunk stops at the fork; the limbs carry on from there)
+		for jx in tw:
+			var dd0: Dictionary = wood.get(Vector2i(cx + jx, cz + jz), {})
+			for kk in range(fork, kt): dd0.erase(kk)
+	var nb := rng.randi_range(2, 3)
 	var a0 := rng.randf() * TAU
-	for b in nb:   # branches stepping up and out, a leaf slab at each end
-		var ang := a0 + TAU * b / nb + rng.randf_range(-0.3, 0.3)
+	var tops: Array = []
+	for b in nb:
+		var ang := a0 + TAU * b / nb + rng.randf_range(-0.35, 0.35)
 		var dir := Vector2(cos(ang), sin(ang))
-		var k := kt - rng.randi_range(1, 3)
-		var ln := rng.randi_range(3, 6)
 		var p := mid
-		for st in ln:
+		var k := fork
+		var ln := rng.randi_range(3, 5) + _tall_bonus / 3
+		var lw := maxi(1, tw - 1)
+		for st in ln:   # diagonal: out one, up one
 			p += dir
-			if st % 2 == 1: k += 1
-			put.call(wood, int(floor(p.x)), int(floor(p.y)), k - 1, k + 1)
-		slab.call(int(floor(p.x)), int(floor(p.y)), k + 1, "leaf" if b % 2 == 0 else "leaf2")
-		canopy_lo = mini(canopy_lo, k + 1)
-	slab.call(int(mid.x), int(mid.y), kt, "leaf2" if nb % 2 == 0 else "leaf")   # the crown on top
+			k += 1
+			for wz in lw:
+				for wx in lw: put.call(wood, int(floor(p.x)) + wx, int(floor(p.y)) + wz, k - 1, k + 1)
+		tops.append(Vector3(p.x, p.y, k))
+		puffs.append([p.x, p.y, k + 1, rng.randf_range(2.6, 3.6), rng.randf_range(1.8, 2.4), "leaf" if b % 2 == 0 else "leaf2"])
+	var crown_k := fork + 3
+	for t3 in tops: crown_k = maxi(crown_k, int(t3.z))
+	var main_r := rng.randf_range(3.8, 5.0)
+	puffs.append([mid.x, mid.y, crown_k + 2, main_r, rng.randf_range(2.6, 3.2), "leaf2" if nb % 2 == 0 else "leaf"])
+	for i2 in rng.randi_range(3, 5):   # little puffs bulging out of the big ones
+		var a2 := rng.randf() * TAU
+		var src: Array = puffs[rng.randi() % puffs.size()]
+		var rr: float = float(src[3]) * rng.randf_range(0.75, 1.0)
+		puffs.append([float(src[0]) + cos(a2) * rr, float(src[1]) + sin(a2) * rr, int(src[2]) + rng.randi_range(-1, 1), rng.randf_range(1.4, 2.2), rng.randf_range(1.0, 1.6), "leaf" if rng.randf() < 0.5 else "leaf2"])
+	for pf in puffs:
+		var r: float = pf[3]
+		var rv: float = pf[4]
+		var ri := int(ceil(r))
+		for dz in range(-ri, ri + 1):
+			for dx in range(-ri, ri + 1):
+				var d2 := (dx * dx + dz * dz) / (r * r)
+				if d2 > 1.0: continue
+				var hh := rv * sqrt(1.0 - d2)
+				var k0 := int(round(float(pf[2]) - hh * 0.7))
+				var k1 := int(round(float(pf[2]) + hh)) + 1
+				put.call(leaf[pf[5]], int(round(float(pf[0]))) + dx, int(round(float(pf[1]))) + dz, k0, maxi(k1, k0 + 1))
+				canopy_lo = mini(canopy_lo, k0)
+	kt = crown_k
 	for r in rng.randi_range(int(Data.TREE_ROOTS[0]), int(Data.TREE_ROOTS[1])):   # roots out and down underground
 		var ang := rng.randf() * TAU
 		var dir := Vector2(cos(ang), sin(ang))
@@ -1827,7 +1868,7 @@ func _grow_tree(rng: RandomNumberGenerator, cx: int, cz: int, to_cave: int) -> b
 	var trunk: Array = []
 	for jz in tw:
 		for jx in tw: trunk.append((cz + jz) * n + cx + jx)
-	trees.append({"base": cz * n + cx, "wood": nw, "leaf": nl, "cave_root": cave_root, "trunk": trunk, "k_ground": kg, "k_top": kt, "canopy_lo": canopy_lo, "soil": ns})
+	trees.append({"base": cz * n + cx, "wood": nw, "leaf": nl, "cave_root": cave_root, "trunk": trunk, "k_ground": kg, "k_top": kt, "canopy_lo": canopy_lo, "soil": ns, "puffs": puffs})
 	return true
 
 ## v12.22: is cell (x, z) under (or within m cells of) a floating island?
@@ -2383,6 +2424,126 @@ func _grass_fire_tick(burning_keys: Array) -> void:
 			_grass_kill(gi)
 			changed = true
 	if changed: _draw_grass()
+
+# ---------------------------------------------------------------- v12.53 leaf cards
+## (owner: "can we put a bunch of leaves inside ... research the best cheap way"): the stylized-tree trick (fluffy
+## foliage): every leaf puff is dressed in small cards of drawn leaves, each card turned to face the camera, lit as if
+## its normal pointed straight out of the puff's middle (so the whole puff shades soft and round like a cloud), swaying
+## in the wind. One MultiMesh per field. A card goes when the leaves under it are shot away.
+const LEAF_CARD_SHADER := """shader_type spatial;
+render_mode cull_disabled, diffuse_lambert, specular_disabled;
+uniform sampler2D leaf_tex : source_color, filter_linear_mipmap;
+varying vec3 out_dir;
+void vertex() {
+	out_dir = INSTANCE_CUSTOM.xyz * 2.0 - 1.0;
+	vec3 o = MODEL_MATRIX[3].xyz;
+	float sw = TIME * 1.1 + o.x * 0.04 + o.z * 0.03;
+	vec3 wind = vec3(sin(sw) * 0.55 + sin(sw * 2.7 + o.y) * 0.18, sin(sw * 1.6) * 0.15, cos(sw * 0.9) * 0.45);
+	float sc = length(MODEL_MATRIX[0].xyz);
+	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(INV_VIEW_MATRIX[0] * sc, INV_VIEW_MATRIX[1] * sc, INV_VIEW_MATRIX[2] * sc, vec4(o + wind, 1.0));
+	MODELVIEW_NORMAL_MATRIX = mat3(MODELVIEW_MATRIX);
+}
+void fragment() {
+	vec4 t = texture(leaf_tex, UV);
+	if (t.a < 0.5) discard;
+	ALBEDO = COLOR.rgb * (0.75 + 0.4 * t.r);
+	NORMAL = normalize((VIEW_MATRIX * vec4(out_dir, 0.0)).xyz);
+	ROUGHNESS = 0.9;
+	BACKLIGHT = ALBEDO * 0.3;
+}
+"""
+static var _leaf_tex: ImageTexture
+static func leaf_card_tex() -> ImageTexture:
+	if _leaf_tex != null: return _leaf_tex
+	var S := 128
+	var img := Image.create(S, S, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 991
+	for i in 26:   # leaves: pointed ellipses at all angles, packed toward the middle
+		var c := Vector2(rng.randfn(0.5, 0.17), rng.randfn(0.5, 0.17)) * S
+		var ang := rng.randf() * TAU
+		var L := rng.randf_range(0.13, 0.22) * S
+		var W := L * rng.randf_range(0.38, 0.5)
+		var shade := rng.randf_range(0.55, 1.0)
+		var ax := Vector2(cos(ang), sin(ang))
+		var ay := Vector2(-ax.y, ax.x)
+		for y in range(maxi(0, int(c.y - L)), mini(S, int(c.y + L) + 1)):
+			for x in range(maxi(0, int(c.x - L)), mini(S, int(c.x + L) + 1)):
+				var d := Vector2(x, y) - c
+				var u := d.dot(ax) / L
+				var v := d.dot(ay) / W
+				var w := 1.0 - u * u   # (pointed at both ends)
+				if absf(u) <= 1.0 and v * v <= w * w:
+					var vein := 0.85 if absf(v) < 0.08 else 1.0
+					img.set_pixel(x, y, Color(shade * vein, shade * vein, shade * vein, 1.0))
+	img.generate_mipmaps()
+	_leaf_tex = ImageTexture.create_from_image(img)
+	return _leaf_tex
+
+var leaf_cards: Array = []   # [position (field frame), out dir, size, colour, cell, layer]
+func _place_leaf_cards() -> void:
+	leaf_cards.clear()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(_sk + "|cards")
+	var lc: Array = leaf_colors()
+	var step: float = Data.BLOCK_MIN
+	for tr in trees:
+		for pf in tr.get("puffs", []):
+			var cpos := Vector3(x0 + (float(pf[0]) + 0.5) * step, y0 + (float(pf[2]) + 0.5) * step, z0 + (float(pf[1]) + 0.5) * step)
+			var rr: float = float(pf[3]) * step
+			var rv: float = float(pf[4]) * step
+			var col: Color = lc[0] if str(pf[5]) == "leaf" else lc[1]
+			var cnt := int(4 + float(pf[3]) * float(pf[3]) * Data.LEAF_CARDS_K)
+			for i in cnt:
+				var dir := Vector3(rng.randfn(0, 1), absf(rng.randfn(0.3, 1.0)) - 0.25, rng.randfn(0, 1)).normalized()
+				var surf := cpos + Vector3(dir.x * rr, dir.y * rv, dir.z * rr) * rng.randf_range(0.82, 1.02)
+				var inner := cpos + Vector3(dir.x * rr, dir.y * rv, dir.z * rr) * 0.7
+				var fx := clampi(int((inner.x - x0) / step), 0, n - 1)
+				var fz := clampi(int((inner.z - z0) / step), 0, n - 1)
+				leaf_cards.append([surf, dir, rng.randf_range(1.3, 1.8) * step, col * rng.randf_range(0.85, 1.12), fz * n + fx, _k(inner.y)])
+	_draw_leaf_cards()
+
+func _draw_leaf_cards() -> void:
+	var mi := get_node_or_null("LeafCards") as MultiMeshInstance3D
+	if mi == null:
+		if leaf_cards.is_empty(): return
+		mi = MultiMeshInstance3D.new()
+		mi.name = "LeafCards"
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_colors = true
+		mm.use_custom_data = true
+		var qm := QuadMesh.new()
+		qm.size = Vector2.ONE
+		mm.mesh = qm
+		mi.multimesh = mm
+		var mat := ShaderMaterial.new()
+		var sh := Shader.new()
+		sh.code = LEAF_CARD_SHADER
+		mat.shader = sh
+		mat.set_shader_parameter("leaf_tex", leaf_card_tex())
+		mi.material_override = mat
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.visibility_range_end = Data.LEAF_CARD_VIEW
+		mi.visibility_range_end_margin = 80.0
+		mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+		add_child(mi)
+	mi.position = Vector3.ZERO
+	var live: Array = []
+	for lcard in leaf_cards:   # (only over leaves that are still there)
+		var ci: int = lcard[4]
+		var kk: int = lcard[5]
+		if _solid_k(ci, kk) and _leafy(ci, kk): live.append(lcard)
+	_cards_live = live.size()
+	mi.multimesh.instance_count = live.size()
+	for j in live.size():
+		var L: Array = live[j]
+		mi.multimesh.set_instance_transform(j, Transform3D(Basis.from_scale(Vector3.ONE * float(L[2])), L[0]))
+		mi.multimesh.set_instance_color(j, L[3])
+		var d: Vector3 = L[1]
+		mi.multimesh.set_instance_custom_data(j, Color(d.x * 0.5 + 0.5, d.y * 0.5 + 0.5, d.z * 0.5 + 0.5, 1.0))
+var _cards_live := 0   # (tests)
 
 const GRASS_SHADER := """shader_type spatial;
 render_mode cull_disabled, diffuse_lambert, specular_disabled;
@@ -3668,7 +3829,10 @@ void vertex() {
 	// edges billow instead of running straight; a trunk's corners are pulled in a little and wobble, like bark
 	if (leaf > 0.5) {
 		vec3 q = wpos * 0.21;
-		vec3 d = vec3(n3(q) - 0.5, n3(q + 31.7) - 0.45, n3(q + 63.1) - 0.5) * 4.2;
+		vec3 d = vec3(n3(q) - 0.5, n3(q + 31.7) - 0.45, n3(q + 63.1) - 0.5) * 3.4;
+		// v12.53 (owner: "more lively, like the grass"): the canopy sways in the wind (the same sway for the same point)
+		float sw = TIME * 1.1 + wpos.x * 0.04 + wpos.z * 0.03;
+		d += vec3(sin(sw) * 0.55 + sin(sw * 2.7 + wpos.y) * 0.18, sin(sw * 1.6) * 0.15, cos(sw * 0.9) * 0.45);
 		VERTEX += (inverse(MODEL_MATRIX) * vec4(d, 0.0)).xyz;
 	} else if (wood > 0.5) {
 		vec3 q2 = wpos * 0.35;
@@ -3680,12 +3844,8 @@ void vertex() {
 }
 void fragment() {
 	vec3 tint = vec3(1.0);
-	if (leaf > 0.5) {   // v12.52: soft clumps of foliage (was Minecraft's 8-pixel squares): light on the bulges, dark in the folds, a few gaps
-		float c1 = n3(wpos * 0.55);
-		float c2 = n3(wpos * 1.6 + 7.0);
-		float clump = c1 * 0.65 + c2 * 0.35;
-		if (c2 < 0.12 && c1 < 0.4) discard;
-		tint = vec3(0.6 + 0.65 * clump) * vec3(1.0, 1.0 + 0.08 * (c2 - 0.5), 1.0);
+	if (leaf > 0.5) {   // v12.53 (owner: "I meant the shape of a cloud, not a cloud texture"): plain leaf colour, darker deep inside
+		tint = vec3(0.78 + 0.12 * n3(wpos * 0.3));
 	} else if (wood > 0.5) {   // bark: vertical grooves, darker in them
 		float g = n3(vec3(wpos.x * 1.4, wpos.y * 0.18, wpos.z * 1.4));
 		tint = vec3(0.7 + 0.45 * g);
@@ -3769,6 +3929,7 @@ func flush(limit := 0, budget_ms := 0.0) -> void:
 		if budget_ms > 0.0 and (Time.get_ticks_usec() - tf) / 1000.0 >= budget_ms: break   # v1.9c: one square at least, then only while there is time
 	perf["flush_us"] += Time.get_ticks_usec() - tf
 	perf["chunks"] += done
+	if done > 0 and not leaf_cards.is_empty() and built: _draw_leaf_cards()   # v12.53: cards over shot-away leaves go
 
 @warning_ignore("integer_division")
 func _draw_chunk(k: int) -> void:

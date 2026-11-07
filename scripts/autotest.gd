@@ -2259,6 +2259,42 @@ func _run() -> void:
 		await _capture("fighters_l2l3")
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_TREES") != "":   # v12.53 (owner): Y-shaped trees with cloud-shaped canopies, leaf cards, leaves you move through
+		await _smoke_core()
+		var pid := OS.get_environment("HL_PID") if OS.get_environment("HL_PID") != "" else "eden_prime"
+		main._load_surface(pid, 0)
+		await _until(func(): return main.state == "flight" and _sp().surface_mode and _sp().planet_id == pid, 25.0)
+		var s := _sp()
+		main.hud.visible = false
+		await _until(func(): return s._fields().any(func(f): return (f as BlockField).built), 30.0)
+		await _wait(3.0)
+		var best: BlockField = null
+		for f in s._fields():
+			var bf := f as BlockField
+			if bf.built and (best == null or bf.trees.size() > best.trees.size()): best = bf
+		var tr: Dictionary = best.trees[best.trees.size() / 2] if best != null and not best.trees.is_empty() else {}
+		var puffs: int = (tr.get("puffs", []) as Array).size()
+		var cards: int = best._cards_live if best != null else 0
+		var through := false
+		if not tr.is_empty():
+			var pf: Array = tr["puffs"][tr["puffs"].size() - 1 - 0]
+			var main_pf: Array = tr["puffs"][0]
+			for q in tr["puffs"]: if float(q[3]) > float(main_pf[3]): main_pf = q
+			var cx: float = best.x0 + (float(main_pf[0]) + 0.5) * Data.BLOCK_MIN
+			var cz: float = best.z0 + (float(main_pf[1]) + 0.5) * Data.BLOCK_MIN
+			var cy: float = best.y0 + (float(main_pf[2]) + 0.5) * Data.BLOCK_MIN
+			var g_in := best.ground_for(cx, cy - 2.0, cz)   # standing in the middle of the puff: not pushed up onto it
+			through = g_in < cy - 2.0
+			var wp := best.to_global(Vector3(cx, cy, cz))
+			_tp(wp + Vector3(0, -10, 70), wp + Vector3(0, -10, 0))
+			await _wait(2.0)
+			await _capture("trees_%s" % pid)
+			_tp(wp + Vector3(60, 40, 60), wp)
+			await _wait(1.0)
+			await _capture("trees_%s_high" % pid)
+		_check("v12.53 (owner): trees fork into diagonal limbs with cloud-shaped canopies (%d puffs), dressed in %d leaf cards; you move through leaves (ground in a canopy: below you %s)" % [puffs, cards, through], puffs >= 3 and cards > 20 and through, "puffs %d cards %d through %s trees %d" % [puffs, cards, through, best.trees.size() if best != null else 0])
+		_finish_group()
+		return
 	if OS.get_environment("HL_GRASS") != "":   # v12.7: grass blocks: they grow, sway, a shot sets them alight, fire spreads and takes them
 		await _smoke_core()
 		var pid := OS.get_environment("HL_PID") if OS.get_environment("HL_PID") != "" else "eden_prime"

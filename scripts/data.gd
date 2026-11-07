@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.52"
+const VERSION := "v12.53"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -642,6 +642,10 @@ const TREE_TALL := [6, 10]           # trunk height in layers (30-50 m)
 const TREE_BRANCHES := [3, 5]
 const TREE_CANOPY := [5, 9]          # leaf slab width in cells
 const TREE_ROOTS := [3, 5]
+const LEAF_CARDS := true      # v12.53: the fluffy leaf cards on tree canopies
+const LEAF_CARDS_K := 1.6     # cards per puff = 4 + radius² x this
+const LEAF_CARD_VIEW := 650.0 # m: drawn this far (phones)
+const LEAF_TOP_HOLD := 3.0   # v12.53: m under a leaf top you still stand on it; deeper in, you pass through the leaves
 # v1.7l WATERFALLS (the owner's picture 06): where a cliff drops sharply, a pool set back on its top pours over a rock
 # lip down the face into a pool with white foam at its foot. The falling sheet is a moving picture; the pools are real
 # water. Blast the lip or the cliff face and the fall stops.
