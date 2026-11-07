@@ -2516,6 +2516,58 @@ func _run() -> void:
 				var mo := (gm as MeshInstance3D).material_override
 				if mo is StandardMaterial3D and (mo as StandardMaterial3D).uv1_world_triplanar: greys[mo] = true
 			print("[route] PROBE grey materials %d" % greys.size())
+			var kinds := {}
+			for ch in inside.find_children("*", "", true, false):
+				var key := ch.get_class()
+				if ch is MeshInstance3D:
+					var mi3 := ch as MeshInstance3D
+					var mt: Material = mi3.material_override if mi3.material_override else (mi3.mesh.surface_get_material(0) if mi3.mesh and mi3.mesh.get_surface_count() > 0 else null)
+					key += "/" + (mi3.mesh.get_class() if mi3.mesh else "none") + "/" + (mt.get_class() if mt else "nomat")
+					if mt is StandardMaterial3D:
+						var sm := mt as StandardMaterial3D
+						key += "/t%d/b%d/s%d" % [sm.transparency, sm.blend_mode, sm.shading_mode]
+				kinds[key] = int(kinds.get(key, 0)) + 1
+			print("[route] PROBE kinds ", kinds)
+			var bad := 0
+			for ch in inside.find_children("*", "MeshInstance3D", true, false):
+				var mi4 := ch as MeshInstance3D
+				var xf := mi4.global_transform
+				var sz := Vector3.ZERO
+				if mi4.mesh is BoxMesh: sz = (mi4.mesh as BoxMesh).size
+				if not xf.is_finite() or (mi4.mesh is BoxMesh and (sz.x <= 0.0 or sz.y <= 0.0 or sz.z <= 0.0 or not sz.is_finite())) or absf(xf.basis.determinant()) < 1e-6:
+					bad += 1
+					if bad < 8: print("[route] PROBE bad %s %s size %s" % [mi4.get_path(), xf, sz])
+			print("[route] PROBE bad meshes %d" % bad)
+			# search: show only the first k of the level's meshes (cube in front of a fresh camera, red sky): which k blacks it out
+			var ms: Array = inside.find_children("*", "MeshInstance3D", true, false)
+			var ok_now := func() -> bool:
+				await _frames(3)
+				var img := get_viewport().get_texture().get_image()
+				var c := img.get_pixel(img.get_width() / 2, img.get_height() / 2)
+				var bgc := img.get_pixel(8, img.get_height() / 2)
+				return c.r < 0.5 or absf(c.r - bgc.r) > 0.05 or absf(c.g - bgc.g) > 0.05
+			var show_k := func(k: int) -> void:
+				for i in ms.size(): (ms[i] as Node3D).visible = i < k
+			show_k.call(0)
+			var ok0: bool = await ok_now.call()
+			show_k.call(ms.size())
+			var okall: bool = await ok_now.call()
+			print("[route] PROBE search none-ok %s all-ok %s meshes %d" % [ok0, okall, ms.size()])
+			if ok0 and not okall:
+				var lo := 0
+				var hi := ms.size()
+				while hi - lo > 1:
+					var mid := (lo + hi) / 2
+					show_k.call(mid)
+					if await ok_now.call(): lo = mid
+					else: hi = mid
+				var culprit := ms[hi - 1] as MeshInstance3D
+				print("[route] PROBE culprit k=%d %s mesh %s size %s mat %s at %s" % [hi, culprit.get_path(), culprit.mesh.get_class(), culprit.mesh.get_aabb().size, culprit.material_override, culprit.global_position])
+				show_k.call(0)
+				culprit.visible = true
+				print("[route] PROBE culprit alone breaks: %s" % [not await ok_now.call()])
+				var sm5 := culprit.material_override as StandardMaterial3D
+				if sm5: print("[route] PROBE culprit mat shading %d emission %s tex %s triplanar %s cull %d" % [sm5.shading_mode, sm5.emission_enabled, sm5.albedo_texture, sm5.uv1_triplanar, sm5.cull_mode])
 			for gm in greys: (gm as StandardMaterial3D).uv1_triplanar = false
 			await _frames(4)
 			await _capture("probe_notriplanar")
