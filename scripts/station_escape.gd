@@ -86,6 +86,10 @@ func start(fac: String) -> void:
 	cam.current = true
 	_make_hud()
 	_make_pilot()
+	pilot_who = {"holder": body_mesh}
+	Packs.request(PILOT_PACK)
+	Packs.request(guard_glb()[1])
+	Packs.request(FLAT_PACK)
 	_beam = MeshInstance3D.new()
 	var bm := StandardMaterial3D.new()
 	bm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -116,6 +120,7 @@ func load_room(i: int) -> void:
 	room.blast.connect(_on_blast)
 	var start: Vector3 = call("_build_" + str(ROOMS[i]["id"]))
 	room.rebuild_all()
+	_reshow(room)   # (the same web fix as the boarding levels)
 	hp = HP_MAX
 	charges = CHARGES
 	scoped = false
@@ -143,6 +148,14 @@ func _intro() -> void:
 		var to := _shoulder_xform()
 		cam.global_transform = from_t.interpolate_with(to, smoothstep(0.0, 1.0, k)), 0.0, 1.0, 1.6)
 	tw.tween_callback(func(): busy = false)
+
+func _reshow(root: Node3D) -> void:
+	await get_tree().process_frame
+	if not is_instance_valid(root): return
+	var ms: Array = root.find_children("*", "VisualInstance3D", true, false)
+	for m in ms: (m as VisualInstance3D).visible = false
+	await get_tree().process_frame
+	for m in ms: if is_instance_valid(m): (m as VisualInstance3D).visible = true
 
 func _shell(w: int, h: int, d: int) -> void:
 	room.setup(w, h, d)
@@ -304,17 +317,20 @@ func _make_pilot() -> void:
 	add_child(pilot)
 	body_mesh = Node3D.new()
 	pilot.add_child(body_mesh)
+	var gray := Node3D.new()
+	gray.name = "Gray"
+	body_mesh.add_child(gray)
 	var suit := Color(0.85, 0.55, 0.2)
 	var dark := Color(0.18, 0.2, 0.24)
-	_part(body_mesh, Vector3(0.0, 1.22, 0.0), Vector3(0.46, 0.55, 0.28), suit)          # chest
-	_part(body_mesh, Vector3(0.0, 0.88, 0.0), Vector3(0.38, 0.22, 0.24), dark)          # belt
-	_part(body_mesh, Vector3(0.0, 1.27, 0.17), Vector3(0.36, 0.42, 0.12), dark)         # pack
-	_part(body_mesh, Vector3(0.0, 1.7, 0.0), Vector3(0.28, 0.3, 0.3), suit.lightened(0.15), true)   # helmet
-	_part(body_mesh, Vector3(0.0, 1.71, -0.13), Vector3(0.22, 0.12, 0.06), Color(0.2, 0.75, 1.0))   # visor
+	_part(gray, Vector3(0.0, 1.22, 0.0), Vector3(0.46, 0.55, 0.28), suit)          # chest
+	_part(gray, Vector3(0.0, 0.88, 0.0), Vector3(0.38, 0.22, 0.24), dark)          # belt
+	_part(gray, Vector3(0.0, 1.27, 0.17), Vector3(0.36, 0.42, 0.12), dark)         # pack
+	_part(gray, Vector3(0.0, 1.7, 0.0), Vector3(0.28, 0.3, 0.3), suit.lightened(0.15), true)   # helmet
+	_part(gray, Vector3(0.0, 1.71, -0.13), Vector3(0.22, 0.12, 0.06), Color(0.2, 0.75, 1.0))   # visor
 	for s in [-1.0, 1.0]:
-		_part(body_mesh, Vector3(0.12 * s, 0.45, 0.0), Vector3(0.16, 0.86, 0.18), suit.darkened(0.2))   # legs
-		_part(body_mesh, Vector3(0.3 * s, 1.2, -0.12), Vector3(0.13, 0.5, 0.14), suit.darkened(0.1))     # arms
-	_part(body_mesh, Vector3(0.22, 1.2, -0.42), Vector3(0.08, 0.1, 0.75), dark)          # rifle
+		_part(gray, Vector3(0.12 * s, 0.45, 0.0), Vector3(0.16, 0.86, 0.18), suit.darkened(0.2))   # legs
+		_part(gray, Vector3(0.3 * s, 1.2, -0.12), Vector3(0.13, 0.5, 0.14), suit.darkened(0.1))     # arms
+	_part(body_mesh, Vector3(0.22, 1.2, -0.42), Vector3(0.08, 0.1, 0.75), dark).name = "GrayRifle"   # rifle (until the real one loads)
 
 func _part(parent: Node3D, at: Vector3, size: Vector3, col: Color, round := false) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
@@ -375,6 +391,7 @@ func _physics_process(dt: float) -> void:
 	room.tick(dt)
 	if _alarm != null: _alarm.light_energy = 1.5 + 1.5 * sin(_t * 6.0)
 	_guards(dt)
+	_dress_all(dt)
 	if busy or done:
 		return
 	var mv := _move
@@ -399,6 +416,8 @@ func _physics_process(dt: float) -> void:
 	var face := yaw
 	if not (_fire_held or scoped) and wish.length() > 0.1: face = atan2(-wish.x, -wish.z)
 	body_mesh.rotation.y = lerp_angle(body_mesh.rotation.y, face, minf(1.0, 12.0 * dt))
+	_anim(pilot_who, "Walk" if Vector2(v.x, v.z).length() > 0.6 else "Idle")
+	_pilot_pose(dt, Vector2(v.x, v.z).length())
 	body_mesh.visible = not scoped
 	cam.fov = lerpf(cam.fov, SCOPE_FOV if scoped else FOV, minf(1.0, 14.0 * dt))
 	cam.global_transform = _shoulder_xform()
@@ -519,14 +538,216 @@ func board() -> void:
 func _guard(at: Vector3) -> void:
 	var n := Node3D.new()
 	n.name = "Guard"
+	var gray := Node3D.new()
+	gray.name = "Gray"
+	n.add_child(gray)
 	var col := Color(0.35, 0.38, 0.42)
-	_part(n, Vector3(0, 1.2, 0), Vector3(0.5, 0.6, 0.3), col)
-	_part(n, Vector3(0, 1.72, 0), Vector3(0.3, 0.32, 0.32), Color(0.85, 0.2, 0.15), true)
-	_part(n, Vector3(0, 0.45, 0), Vector3(0.42, 0.9, 0.22), col.darkened(0.3))
+	_part(gray, Vector3(0, 1.2, 0), Vector3(0.5, 0.6, 0.3), col)
+	_part(gray, Vector3(0, 1.72, 0), Vector3(0.3, 0.32, 0.32), Color(0.85, 0.2, 0.15), true)
+	_part(gray, Vector3(0, 0.45, 0), Vector3(0.42, 0.9, 0.22), col.darkened(0.3))
 	_part(n, Vector3(0.2, 1.25, -0.38), Vector3(0.08, 0.1, 0.65), Color(0.1, 0.1, 0.12))
 	room.add_child(n)
 	n.position = at
-	guards.append({"node": n, "hp": 6, "cool": randf_range(1.0, 2.5), "alive": true, "vy": 0.0})
+	var g := {"node": n, "hp": 6, "cool": randf_range(1.0, 2.5), "alive": true, "vy": 0.0, "flat": guards.size() % 2 == 1}
+	guards.append(g)
+	if g["flat"]: _dress_flat(g)
+	else: _dress(g, guard_glb()[0], guard_glb()[1], 1.85)
+
+## v12.34 (owner: "use glb HL character"): the real rigged HL characters instead of the grey blocks: the pilot is Orion's
+## blond armored pilot (#10), the guards the armoured future soldier. Their packs are fetched on the web; until they
+## arrive (or if they can't), the grey stand-ins stay. Walk / Idle from the model's own clips.
+## v12.34 (owner: "the guy on the left" in his Tripo sheet, "hl hova.glb"; "we got weapon same as mech"): you are his
+## white-suited pilot with the mech's rifle. The guards are the rigged GLB soldiers (owner: "use glb soldiers for alarm
+## room battles"): Orion's white dragon soldier in an Orion lockdown, the armoured future soldier elsewhere.
+const PILOT_GLB := "res://assets/pilot/hl_hova.glb"
+const PILOT_PACK := "pilot"
+const RIFLE_GLB := "res://assets/pilot/pilot_rifle.glb"
+const GUARD_GLB := "res://assets/crowd3d/future_soldier.glb"
+const GUARD_PACK := "crowd3d"
+const GUARD_GLB_ORION := "res://assets/crowd3d_orion/HL_Orion_02_WhiteDragonSoldier_Rigged.glb"
+const GUARD_PACK_ORION := "crowd3d_orion"
+func guard_glb() -> Array:
+	return [GUARD_GLB_ORION, GUARD_PACK_ORION] if faction == "orion" else [GUARD_GLB, GUARD_PACK]
+var pilot_who := {}   # {holder, anim, dressed}
+
+func _dress(who: Dictionary, path: String, pack: String, height: float) -> void:
+	if bool(who.get("dressed", false)): return
+	if not Packs.is_ready(pack):
+		Packs.request(pack)
+		return
+	if not ResourceLoader.exists(path): return
+	var holder: Node3D = who["node"] if who.has("node") else who["holder"]
+	var inst: Node3D = (load(path) as PackedScene).instantiate()
+	var bb := _aabb(inst)
+	var k := height / maxf(0.01, bb.size.y)
+	inst.scale = Vector3.ONE * k
+	inst.position = Vector3(-bb.get_center().x * k, -bb.position.y * k, -bb.get_center().z * k)
+	inst.rotation.y = PI   # (the models face +Z; ours look down -Z)
+	holder.add_child(inst)
+	var gray := holder.get_node_or_null("Gray")
+	if gray: (gray as Node3D).visible = false
+	who["dressed"] = true
+	who["anim"] = null
+	for ap in inst.find_children("*", "AnimationPlayer", true, false):
+		who["anim"] = ap
+		for a in (ap as AnimationPlayer).get_animation_list():
+			(ap as AnimationPlayer).get_animation(a).loop_mode = Animation.LOOP_LINEAR
+		break
+	_anim(who, "Idle")
+	if who == pilot_who: _pilot_rig(inst)
+	elog.append("dressed:" + path.get_file())
+
+## His model has a skeleton but no clips: a simple walk is made here (legs swing, knees bend, a little bob), arms
+## brought forward to hold the rifle, which is the mech's own gun.
+var _skel: Skeleton3D
+var _bones := {}
+var _walk_ph := 0.0
+var _walk_k := 0.0
+var rifle_model: Node3D
+func _pilot_rig(inst: Node3D) -> void:
+	for sk in inst.find_children("*", "Skeleton3D", true, false):
+		_skel = sk
+		break
+	if _skel != null:
+		for nm in ["L_Thigh", "R_Thigh", "L_Calf", "R_Calf", "L_Upperarm", "R_Upperarm", "L_Forearm", "R_Forearm", "Spine01"]:
+			var i := _skel.find_bone(nm)
+			if i >= 0: _bones[nm] = i
+	var gray_rifle: Node = body_mesh.get_node_or_null("GrayRifle")
+	if ResourceLoader.exists(RIFLE_GLB):
+		rifle_model = (load(RIFLE_GLB) as PackedScene).instantiate()
+		var bb := _aabb(rifle_model)
+		var longest := maxf(bb.size.x, maxf(bb.size.y, bb.size.z))
+		var k := 0.95 / maxf(0.01, longest)
+		var holder := Node3D.new()
+		holder.name = "Rifle"
+		body_mesh.add_child(holder)
+		holder.position = Vector3(0.2, 1.18, -0.35)
+		holder.add_child(rifle_model)
+		rifle_model.scale = Vector3.ONE * k
+		rifle_model.position = -bb.get_center() * k
+		if bb.size.x >= bb.size.z: rifle_model.rotation.y = PI / 2   # (lay it along the aim)
+		if gray_rifle is MeshInstance3D: (gray_rifle as Node3D).visible = false
+
+## turn bone b about a body axis (in the skeleton's space) by angle a, from its rest
+func _bone_turn(name: String, axis: Vector3, a: float) -> void:
+	if not _bones.has(name): return
+	var b: int = _bones[name]
+	var rest := _skel.get_bone_rest(b)
+	var par := _skel.get_bone_parent(b)
+	var pg: Transform3D = _skel.get_bone_global_pose(par) if par >= 0 else Transform3D.IDENTITY
+	var gr: Transform3D = (_skel.get_bone_global_rest(par) if par >= 0 else Transform3D.IDENTITY) * rest
+	var want := Basis(axis.normalized(), a) * gr.basis
+	_skel.set_bone_pose_rotation(b, (pg.basis.inverse() * want).get_rotation_quaternion())
+
+func _pilot_pose(dt: float, speed: float) -> void:
+	if _skel == null: return
+	_walk_k = move_toward(_walk_k, clampf(speed / RUN, 0.0, 1.0), dt * 4.0)
+	_walk_ph += dt * (6.0 + speed * 1.1)
+	var sw := sin(_walk_ph) * 0.55 * _walk_k
+	var ax := Vector3.RIGHT
+	for nm in _bones: _skel.reset_bone_pose(_bones[nm])
+	_bone_turn("L_Thigh", ax, sw)
+	_bone_turn("R_Thigh", ax, -sw)
+	_bone_turn("L_Calf", ax, -maxf(0.0, -cos(_walk_ph)) * 0.8 * _walk_k)
+	_bone_turn("R_Calf", ax, -maxf(0.0, cos(_walk_ph)) * 0.8 * _walk_k)
+	# arms up to the rifle (forward, elbows bent), a little sway
+	_bone_turn("R_Upperarm", Vector3(1, 0, 0.4), 1.05 + sw * 0.1)
+	_bone_turn("L_Upperarm", Vector3(1, 0, -0.6), 1.2 + sw * 0.1)
+	_bone_turn("R_Forearm", Vector3(1, 0, 0), 0.9)
+	_bone_turn("L_Forearm", Vector3(1, 0, -0.3), 0.7)
+	body_mesh.position.y = absf(sin(_walk_ph)) * 0.04 * _walk_k
+
+func _anim(who: Dictionary, clip: String) -> void:
+	var ap: AnimationPlayer = who.get("anim")
+	if ap == null or not is_instance_valid(ap): return
+	for a in ap.get_animation_list():
+		if str(a).to_lower().ends_with(clip.to_lower()):
+			if ap.current_animation != a: ap.play(a, 0.2)
+			return
+
+## v12.34 (owner: "try the 2D animation enemy as well as GLB enemies to test in the alarm"): every other guard is the
+## owner's 2D animated soldier (his clips as sprite sheets: idle, run, shoot, fall), standing in the 3D room as a
+## picture that always faces you; the rest are GLB soldiers.
+const FLAT_PACK := "anim_orion"
+const FLAT_DIR := "res://assets/characters/orion/anim/"
+var _sheets := {}
+func _sheet(name: String) -> Dictionary:
+	if _sheets.has(name): return _sheets[name]
+	var base := FLAT_DIR + name
+	if not (ResourceLoader.exists(base + ".webp") and FileAccess.file_exists(base + ".json")): return {}
+	var j: Variant = JSON.parse_string(FileAccess.get_file_as_string(base + ".json"))
+	if not (j is Dictionary): return {}
+	var d: Dictionary = j
+	d["tex"] = load(base + ".webp")
+	_sheets[name] = d
+	return d
+
+func _dress_flat(g: Dictionary) -> void:
+	if not Packs.is_ready(FLAT_PACK):
+		Packs.request(FLAT_PACK)
+		return
+	var d := _sheet("guard_idle")
+	if d.is_empty(): return
+	var sp := Sprite3D.new()
+	sp.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
+	sp.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	sp.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+	sp.shaded = false
+	sp.region_enabled = true
+	(g["node"] as Node3D).add_child(sp)
+	var gray := (g["node"] as Node3D).get_node_or_null("Gray")
+	if gray: (gray as Node3D).visible = false
+	for c in (g["node"] as Node3D).get_children():
+		if c is MeshInstance3D: (c as Node3D).visible = false   # (its block rifle too: the picture has its own)
+	g["sprite"] = sp
+	g["clip"] = ""
+	g["ct"] = 0.0
+	g["dressed"] = true
+	elog.append("dressed:2d")
+	_flat_clip(g, "guard_idle")
+
+func _flat_clip(g: Dictionary, name: String) -> void:
+	if str(g.get("clip", "")) == name: return
+	var d := _sheet(name)
+	if d.is_empty(): return
+	g["clip"] = name
+	g["ct"] = 0.0
+	var sp: Sprite3D = g["sprite"]
+	sp.texture = d["tex"]
+	var px: float = 1.85 / float(d.get("stand", d["fh"]))
+	sp.pixel_size = px
+	var foot: Array = d.get("foot", [float(d["fw"]) * 0.5, float(d["fh"])])
+	# the feet (foot px, from the top-left) on the ground at the guard's spot
+	sp.offset = Vector2(-(float(foot[0]) - float(d["fw"]) * 0.5), 0.0)   # (sideways: turns with the picture)
+	sp.position = Vector3(0, (float(foot[1]) - float(d["fh"]) * 0.5) * px, 0)
+
+func _flat_tick(g: Dictionary, dt: float) -> void:
+	if not g.has("sprite"): return
+	var want := "guard_idle"
+	if not g["alive"]: want = "guard_fall"
+	elif float(g.get("shot_t", 0.0)) > 0.0: want = "guard_shoot"
+	elif bool(g.get("moving", false)): want = "guard_run"
+	_flat_clip(g, want)
+	var d := _sheet(str(g["clip"]))
+	if d.is_empty(): return
+	g["ct"] = float(g["ct"]) + dt
+	var n := int(d["frames"])
+	var f := int(float(g["ct"]) * float(d["fps"]))
+	f = mini(f, n - 1) if want == "guard_fall" else f % n
+	var cols := int(d["cols"])
+	(g["sprite"] as Sprite3D).region_rect = Rect2((f % cols) * float(d["fw"]), (f / cols) * float(d["fh"]), float(d["fw"]), float(d["fh"]))
+	g["shot_t"] = maxf(0.0, float(g.get("shot_t", 0.0)) - dt)
+
+var _dress_t := 0.0
+func _dress_all(dt: float) -> void:
+	_dress_t -= dt
+	if _dress_t > 0.0: return
+	_dress_t = 0.5
+	if not bool(pilot_who.get("dressed", false)): _dress(pilot_who, PILOT_GLB, PILOT_PACK, 1.8)
+	for g in guards:
+		if bool(g.get("dressed", false)) or not g["alive"]: continue
+		if g["flat"]: _dress_flat(g)
+		else: _dress(g, guard_glb()[0], guard_glb()[1], 1.85)
 
 func _hurt_guard(g: Dictionary, dmg: int) -> void:
 	if not g["alive"]: return
@@ -535,6 +756,9 @@ func _hurt_guard(g: Dictionary, dmg: int) -> void:
 		g["alive"] = false
 		elog.append("guard_down")
 		var n: Node3D = g["node"]
+		var ap: AnimationPlayer = g.get("anim")
+		if ap != null and is_instance_valid(ap): ap.pause()
+		if g.has("sprite"): return   # (the 2D soldier plays its own fall)
 		var tw := create_tween()
 		tw.tween_property(n, "rotation:x", -PI / 2, 0.4)
 
@@ -554,6 +778,7 @@ func _guards(dt: float) -> void:
 				if float(g["vy"]) < -9.0: _hurt_guard(g, 99)
 				g["vy"] = 0.0
 			if n.position.y < -6.0: _hurt_guard(g, 99)
+		_flat_tick(g, dt)
 		if not g["alive"] or busy or done: continue
 		var to := pilot.global_position - n.global_position
 		var flat := Vector3(to.x, 0, to.z)
@@ -567,9 +792,15 @@ func _guards(dt: float) -> void:
 			var np := n.position + step
 			if not room.solid_at(np + Vector3(0, 0.5, 0)) and not room.solid_at(np + Vector3(0, 1.5, 0)) and room.solid_at(np + Vector3(0, -0.05, 0)):
 				n.position = np
+				_anim(g, "Walk")
+				g["moving"] = true
+		else:
+			_anim(g, "Idle")
+			g["moving"] = false
 		g["cool"] = float(g["cool"]) - dt
 		if sees and float(g["cool"]) <= 0.0:
 			g["cool"] = randf_range(1.1, 1.8)
+			g["shot_t"] = 0.6
 			var miss := randf() < clampf(flat.length() / 30.0, 0.25, 0.7)
 			var at := target + (Vector3(randf_range(-1.5, 1.5), randf_range(-0.6, 1.0), randf_range(-1.5, 1.5)) if miss else Vector3.ZERO)
 			_tracer(eye, at, Color(1.0, 0.35, 0.2))

@@ -440,6 +440,7 @@ const PACKS := {
 	"hangar_blue": {"folders": ["res://assets/hangars"], "match": "bay_blue.", "probe": "res://assets/hangars/bay_blue.jpg"},   # v2.7: the owner's hangar bay (front view)
 	"hangar_scarlet": {"folders": ["res://assets/hangars"], "match": "bay_scarlet.", "probe": "res://assets/hangars/bay_scarlet.jpg"},   # v2.7: the owner's hangar bay (front view)
 	"mechs": {"folders": ["res://assets/mechs"], "probe": "res://assets/mechs/tan_navy_mecha.scn"},
+	"pilot": {"folders": ["res://assets/pilot"], "probe": "res://assets/pilot/hl_hova.glb"},   # v12.34: the owner's pilot (on foot in the station escape) and his rifle (the mech's gun)
 	"kaijurai_fleet": {"folders": ["res://assets/ships/kaijurai"], "probe": "res://assets/ships/kaijurai/kaijurai_fang.glb"},   # v6.2: the second Kaijurai set
 	"faction_fleet": {"folders": ["res://assets/ships/fleet"], "probe": "res://assets/ships/fleet/elyza_battleship.glb"},
 	"faction_fighters": {"folders": ["res://assets/ships/fighters"], "probe": "res://assets/ships/fighters/HL_Orion_Fighter_L2.glb"},   # v11.68: the 8 factions' Level 2 and Level 3 fighters

@@ -1376,6 +1376,7 @@ func setup_boarding(info: Dictionary) -> void:
 	root.name = "BattleshipInside"
 	add_child(root)
 	var built: Dictionary = Boarding.build(root, tint)
+	_reshow(root)   # v12.34: on the web (phones) the freshly built level drew nothing until shown again
 	surf_boxes = built["boxes"]
 	board_doors = built["doors"]
 	_board_alarm = built["alarm"]
@@ -7718,6 +7719,20 @@ func _update_blade(dt: float) -> void:
 		"side": _blade_spin = (PI * 0.5 if move.x < 0 else -PI * 0.5) * 0.9
 		_: _blade_spin = lerpf(_blade_spin, 0.35, dt * 8.0)   # held: blade out, ready
 	_blade.rotation = Vector3(-0.15, _blade_spin, 0)
+
+## v12.34 (owner: boarding levels "all black" on the phone): in the web build the level built in one go drew nothing at
+## all (not even your ship) until its parts were hidden and shown again; so after building, every part is switched off
+## and back on over the next frames.
+func _reshow(root: Node3D) -> void:
+	await get_tree().process_frame
+	if not is_instance_valid(root): return
+	var ms: Array = root.find_children("*", "VisualInstance3D", true, false)
+	for m in ms: (m as VisualInstance3D).visible = false
+	await get_tree().process_frame
+	if not is_instance_valid(root): return
+	for m in ms: if is_instance_valid(m): (m as VisualInstance3D).visible = true
+	reshown += 1
+var reshown := 0
 
 ## v12.32 (owner: "if I'm in a dark area, activating my shield can light up the area around me ... my sword is also a
 ## source of light ... if things catch on fire I could light those areas ... never a situation where I'm in a pitch black

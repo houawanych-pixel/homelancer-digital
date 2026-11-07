@@ -2774,7 +2774,9 @@ func _run() -> void:
 		await _until(func(): return main.escape != null and not main.escape.busy, 10.0)
 		var es: StationEscape = main.escape
 		var started: bool = es != null and main.state == "escape" and not main.hub.visible and es.guards.size() == 2
-		await _wait(0.3)
+		await _wait(1.2)
+		var dressed: bool = bool(es.pilot_who.get("dressed", false)) and bool(es.guards[0].get("dressed", false)) and es.rifle_model != null and es.guards[1].has("sprite")
+		_check("v12.34 (owner): you are his hl_hova pilot with the mech's rifle; guards are GLB soldiers and his 2D animated soldiers (one of each to test)", dressed, str(es.elog))
 		await _capture("escape_cell")
 		var vw := get_viewport().get_visible_rect().size
 		var chest := es.cam.unproject_position(es.pilot.global_position + Vector3(0, 1.25, 0))
