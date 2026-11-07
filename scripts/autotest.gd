@@ -2544,10 +2544,11 @@ func _run() -> void:
 				await _frames(3)
 				var img := get_viewport().get_texture().get_image()
 				var c := img.get_pixel(img.get_width() / 2, img.get_height() / 2)
-				var bgc := img.get_pixel(8, img.get_height() / 2)
+				var bgc := img.get_pixel(6, 6)
 				return c.r < 0.5 or absf(c.r - bgc.r) > 0.05 or absf(c.g - bgc.g) > 0.05
 			var show_k := func(k: int) -> void:
 				for i in ms.size(): (ms[i] as Node3D).visible = i < k
+			main.hud.visible = false
 			show_k.call(0)
 			var ok0: bool = await ok_now.call()
 			show_k.call(ms.size())
