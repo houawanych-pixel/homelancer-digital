@@ -2213,7 +2213,7 @@ func _draw_fire() -> void:
 	for j in gk.size():   # v12.7: burning grass: a low sheet of flame over the clump
 		var g: Array = grass_inst[int(gk[j])]
 		var sz: float = float(g[1]) * Data.BLOCK_MIN
-		var hh: float = float(g[3]) * Data.BLOCK_MIN * (0.7 + 0.4 * _rng.randf())
+		var hh: float = float(g[3]) * Data.BLOCK_MIN * Data.GRASS_HEIGHT_K * (0.7 + 0.4 * _rng.randf())
 		mi.multimesh.set_instance_transform(keys.size() + j, Transform3D(Basis.from_scale(Vector3(sz * 1.02, hh, sz * 1.02)), _grass_pos(g) + Vector3(0, hh * 0.5, 0)))
 
 # ---------------------------------------------------------------- v12.7 grass blocks
@@ -2579,7 +2579,7 @@ func _draw_grass() -> void:
 	for j in live.size():
 		var g: Array = grass_inst[live[j]]
 		var sz: float = float(g[1]) * Data.BLOCK_MIN
-		var hh: float = float(g[3]) * Data.BLOCK_MIN
+		var hh: float = float(g[3]) * Data.BLOCK_MIN * Data.GRASS_HEIGHT_K
 		mi.multimesh.set_instance_transform(j, Transform3D(Basis.from_scale(Vector3(sz, hh, sz)), _grass_pos(g)))
 		mi.multimesh.set_instance_color(j, Color(0.35, 0.18, 0.1) if grass_burn.has(live[j]) else _grass_root(g))
 
@@ -2630,7 +2630,7 @@ func _draw_flowers() -> void:
 			var g: Array = grass_inst[list[j]]
 			var big := int(g[1]) == 2
 			var sz: float = float(g[1]) * Data.BLOCK_MIN * (1.15 if big else 1.0)
-			var hh: float = Data.BLOCK_MIN * (2.6 if big else 1.15) * (0.85 + 0.1 * float(int(g[0]) % 4))
+			var hh: float = Data.BLOCK_MIN * (2.6 if big else 1.15) * (0.85 + 0.1 * float(int(g[0]) % 4)) * Data.FLOWER_HEIGHT_K
 			var rot := Basis(Vector3.UP, float(int(g[0]) * 2654435761 % 628) / 100.0)
 			mi.multimesh.set_instance_transform(j, Transform3D(rot * Basis.from_scale(Vector3(sz, hh, sz)), _grass_pos(g)))
 			var col: Color = cols[int(g[0]) % cols.size()]
