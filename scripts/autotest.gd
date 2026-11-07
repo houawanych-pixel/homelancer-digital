@@ -2762,6 +2762,29 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if _flag("HL_SOFTSHOT"):   # v12.41: low views of the block ground (how boxy it looks)
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		for spot in [["new_terra", 3], ["kronos_planet", 0], ["techanis_planet", 0]]:
+			if not Surface.has_surface(str(spot[0])): continue
+			main._load_surface(str(spot[0]), int(spot[1]))
+			await _wait(0.5)
+			var s := _sp()
+			var hold := s.player.global_position
+			s.holding = true
+			await _until(func(): s.player.global_position = hold; return s._regions.size() >= 4 and s._building == null, 150.0)
+			main.hud.visible = false
+			var gy := s._ground(hold.x + 60.0, hold.z + 60.0)
+			_tp(Vector3(hold.x, s._ground(hold.x, hold.z) + 28.0, hold.z), Vector3(hold.x + 120.0, gy, hold.z + 120.0))
+			s.player.visible = false
+			await _wait(0.6)
+			await _capture("soft_" + str(spot[0]))
+			s.player.visible = true
+			main.hud.visible = true
+			s.holding = false
+		get_tree().quit()
+		return
 	if _flag("HL_EJECT"):   # v12.39: EJECT on a world, walk at human size, ENTER again
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)

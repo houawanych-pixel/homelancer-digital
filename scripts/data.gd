@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.41"
+const VERSION := "v12.42"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -543,13 +543,13 @@ const BLOCK_MERGE_DELAY := 1.0       # s a landed piece lies there before it bec
 const BLOCK_DEPOSIT_MAX := 3.0       # most layers one piece can add
 const BLOCK_SAND_STEP := 1           # sand stands at most this many layers over a neighbour (45-degree sides)
 # v1.6a the skin over the blocks (look only, collision stays square): [inset m, drop m] where the top steps down.
-const BLOCK_SKIN := {"sand": [1.8, 4.0], "dirt": [1.0, 1.2], "stone": [0.7, 0.8], "obsidian": [0.0, 0.0]}
+const BLOCK_SKIN := {"sand": [2.2, 4.0], "dirt": [1.4, 1.8], "stone": [1.2, 1.5], "gold": [1.0, 1.2], "diamond": [0.8, 1.0], "obsidian": [0.0, 0.0]}   # v12.41 (owner: "not so boxy"): rounder edges (was dirt 1.0/1.2, stone 0.7/0.8)
 const BLOCK_SHARD_HEIGHT := 8.0      # how far a fused obsidian top points up (m, at most)
 # v1.7e the slanted outer form (look only, blocks underneath for the logic): natural ground where the top steps down
 # leans into slanted slabs and wedges instead of square stairs, worked out per corner so slabs always meet edge
 # to edge (no gaps); where something stands higher the block stays square, so slabs and steps interlock.
 const BLOCK_SLANT_MAX := 10.0        # how far a top corner may lean down (m)
-const BLOCK_SLANT_ZONE := 0.22       # v1.7g (owner: "a few slants"): slants only in patches, where the planet's slant
+const BLOCK_SLANT_ZONE := -1.0       # v12.41 (owner: "anything we can do so they don't look so boxy"): every whole big block of sand / dirt / stone may lean now (was 0.22: patches only). v1.7g (owner: "a few slants"): slants only in patches, where the planet's slant
 const BLOCK_SLANT_FREQ := 0.006      #   noise is over this; the rest is square steps like the owner's pictures
 # v1.6b water and lava. Sealed pockets from the seed (water in stone, lava deeper in obsidian), asleep until opened;
 # they flow only near the player. Water turns sand to dirt; lava eats sand, trades with dirt, stops at stone; lava +
