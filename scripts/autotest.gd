@@ -2269,7 +2269,7 @@ func _run() -> void:
 		var dock: Dictionary = Surface.PLANETS[pid]["locations"][0]
 		var offs: Array = Missions.offers(s.sys_id, str(dock["id"]), "", "planet")
 		var kinds: Array = offs.map(func(o): return str(o["kind"]))
-		var only_land := kinds.all(func(k): return k in Missions.PLANET_KINDS)
+		var only_land := kinds.all(func(k): return Missions.planet_board_kind(k))
 		var has_all: bool = "intercept" in kinds and "air_sweep" in kinds and "facility" in kinds and "planet_invasion" in kinds
 		_check("v12.56 (owner): the planet's board has only planet jobs (no space ones): %s" % ", ".join(kinds), only_land and has_all, str(kinds))
 		var les: Array = offs.filter(func(o): return str(o["kind"]) == "land_escort")
@@ -2298,9 +2298,120 @@ func _run() -> void:
 			return {"spawned": spawned, "left": GS.mission.duplicate()}
 		var r1: Dictionary = await run_job.call("intercept")
 		_check("v12.56 (owner): INTERCEPT: their transport bound for their facility, its fighters and mechs (%d); transport down, paid (job over %s)" % [int(r1["spawned"]), (r1["left"] as Dictionary).is_empty()], int(r1["spawned"]) >= 6 and (r1["left"] as Dictionary).is_empty(), str(r1))
-		var r2: Dictionary = await run_job.call("planet_invasion")
-		var phase1: bool = int((r2["left"] as Dictionary).get("phase", 0)) == 1 and not Missions.on_land(r2["left"])
-		_check("v12.56: GOLD planetary invasion: battleships and fighters in the atmosphere (%d); broken there, the job moves to intercepting their fleet in orbit (%s)" % [int(r2["spawned"]), phase1], int(r2["spawned"]) >= 4 and phase1, str((r2["left"] as Dictionary).get("phase", -1)))
+		_finish_group()
+		return
+	if _flag("HL_ARMADA"):   # v12.58 (owner): the planetary invasion (board the battleship, then the fighters), the enemy worlds' battleships, the final armada and its mothership
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s := _sp()
+		var pid := "new_terra"
+		var dock: Dictionary = Surface.PLANETS[pid]["locations"][0]
+		var offs: Array = Missions.offers(s.sys_id, str(dock["id"]), "", "planet")
+		var inv: Array = offs.filter(func(o): return str(o["kind"]) == "planet_invasion")
+		var ms_off: Array = offs.filter(func(o): return str(o["kind"]) == "mothership")
+		_check("v12.58 (owner): the planet board has the invasion at one battleship and two (%s), and the FINAL armada job (%d)" % [", ".join(inv.map(func(o): return str(o["left"]))), ms_off.size()], inv.size() == 2 and int(inv[1]["left"]) == 2 and ms_off.size() == 1 and Missions.on_land(inv[1]) and not Missions.on_land(ms_off[0]), str(offs.map(func(o): return o["kind"])))
+		# the two-battleship invasion: board one, out into the same sky, the other, then the fighters
+		var o2: Dictionary = inv[1]
+		Missions.accept(o2)
+		var downs: Array = []
+		for round in 2:
+			main._load_surface(pid, int(o2["tile"]))
+			await _until(func(): return main.state == "flight" and _sp().surface_mode and _sp().tile == int(o2["tile"]), 25.0)
+			await _wait(0.5)
+			s = _sp()
+			var at: Vector3 = Missions.point_pos(s, 0)
+			_tp(at + Vector3(0, 30, 120), at)
+			await _until(func(): return int(GS.mission.get("spawned", -1)) >= 0, 8.0)
+			await _wait(0.3)
+			var bsl: Array = s.enemies.filter(func(e): return e.get("planet_invader", false) and e.get("boardable", false))
+			if bsl.is_empty(): break
+			if round == 0: await _capture("planet_invasion_sky")
+			downs.append(bsl.size())
+			var bs: Dictionary = bsl[0]
+			bs["sh"] = 0.0
+			main.board_battleship(bs)
+			await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding, 15.0)
+			await _wait(0.5)
+			main.leave_boarding(true)
+			await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.surface_mode and not main.space.boarding, 25.0)
+			await _wait(0.5)
+		s = _sp()
+		var both: bool = downs == [2, 1] and int(GS.mission.get("bs_down", 0)) == 2 and s.surface_mode
+		var c0: int = GS.credits
+		for r in 8:
+			for e in s.enemies.duplicate():
+				if str(e.get("faction", "")) == str(o2["faction"]) and s.enemies.has(e): s._damage_enemy(e, 100000.0)
+			await _wait(0.6)
+			if GS.mission.is_empty(): break
+		_check("v12.58 (owner): GOLD+: two battleships in the sky (%s), each boarded and broken from inside, back out into the same sky; the fighters cleared, paid (%s, +%d cr)" % [str(downs), GS.mission.is_empty(), GS.credits - c0], both and GS.mission.is_empty() and GS.credits > c0, "downs %s bs_down %s surf %s" % [str(downs), GS.mission.get("bs_down", -1), s.surface_mode])
+		# an enemy world: no job, just a battleship there to board; relics out of it
+		var epid := ""
+		for k in Surface.PLANETS.keys(): if Surface.planet_sides(k, Surface.PLANETS[k]).is_empty() and not Surface.is_sun(k): epid = k; break
+		var wild: Dictionary = {}
+		var rel0: int = 0
+		var rel1: int = 0
+		if epid != "":
+			main._load_surface(epid, 0)
+			await _until(func(): return main.state == "flight" and _sp().surface_mode and _sp().planet_id == epid, 25.0)
+			await _wait(0.5)
+			s = _sp()
+			wild = s._tile_wild_capital(true)
+			main.board_from = {"sys": "", "faction": "Cybermorph"}
+			for v in GS.relics.values(): rel0 += int(v)
+			main._relic_drop("Cybermorph", false)
+			for v in GS.relics.values(): rel1 += int(v)
+			main.board_from = {}
+		_check("v12.58 (owner: no mission with the enemy factions): an enemy world (%s) can have one of their battleships in the sky, boardable (%s); enemy wrecks leave alien RELICS (%d -> %d)" % [epid, wild.get("boardable", false), rel0, rel1], not wild.is_empty() and wild.get("boardable", false) and rel1 > rel0, "%s %s" % [epid, wild.keys()])
+		# the FINAL: the armada in orbit
+		main._load_system(str(ms_off[0]["sys"]), "station")
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and not main.space.surface_mode, 20.0)
+		await _wait(1.0)
+		s = _sp()
+		var acc: String = Missions.accept(ms_off[0])
+		var at2: Vector3 = Missions.point_pos(s, 0)
+		print("[armada] accept '%s' kind %s sys %s/%s at %s" % [acc, GS.mission.get("kind", ""), GS.mission.get("sys", ""), s.sys_id, at2])
+		_tp(at2 + Vector3(0, 0, 900), at2)
+		await _until(func(): return int(GS.mission.get("spawned", -1)) >= 0, 8.0)
+		await _wait(1.0)
+		var bss: Array = s.invasion_units("battleship")
+		var wss: Array = s.invasion_units("warship")
+		var msl: Array = s.enemies.filter(func(e): return e.get("mothership", false))
+		var hangars: Array = s.carriers.filter(func(c): return str(c["ent"].get("inv_role", "")) == "battleship").map(func(c): return int(c["left"]))
+		await _capture("armada")
+		var mom: Dictionary = msl[0] if not msl.is_empty() else {}
+		var hp0: float = float(mom.get("hp", 0.0))
+		if not mom.is_empty(): s._damage_enemy(mom, 50000.0)
+		var proof: bool = not mom.is_empty() and is_equal_approx(float(mom.get("hp", 0.0)), hp0) and s.enemies.has(mom)
+		_check("v12.58 (owner): the FINAL armada: %d battleships (hangars %s), %d warships and the MOTHERSHIP (%d), shielded while the battleships fly (%s)" % [bss.size(), str(hangars), wss.size(), msl.size(), proof], bss.size() == 3 and wss.size() == 5 and msl.size() == 1 and proof and hangars.all(func(h): return h >= 80), "bs %d ws %d ms %d proof %s h %s" % [bss.size(), wss.size(), msl.size(), proof, str(hangars)])
+		if mom.is_empty():
+			_finish_group()
+			return
+		for b in bss: if s.enemies.has(b): s._destroy_unit(b)
+		await _wait(1.0)
+		var open: bool = not mom.is_empty() and SpaceSystem.board_open(mom) and not mom.get("locked", true)
+		mom["sh"] = 0.0
+		main.board_battleship(mom)
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding, 15.0)
+		await _wait(0.8)
+		s = _sp()
+		var ship_in: bool = GS.form == "ship" and not s.ground_mode
+		s.thrust_held = false
+		s.boosting = false
+		var side_safe: bool = s.inside_wall_safe()
+		s.thrust_held = true
+		var thrust_hurts: bool = not s.inside_wall_safe()
+		s.dodge_t = 0.3
+		var dodge_safe: bool = s.inside_wall_safe()
+		s.dodge_t = 0.0
+		s.thrust_held = false
+		await _capture("mothership_inside")
+		_check("v12.58 (owner): the battleships down, the mothership's shield drops (%s); in you go with your SHIP (%s): side moves safe (%s), thrusting into a wall hurts (%s), the dodge safe (%s)" % [open, ship_in, side_safe, thrust_hurts, dodge_safe], open and ship_in and side_safe and thrust_hurts and dodge_safe, "open %s ship %s %s %s %s" % [open, ship_in, side_safe, thrust_hurts, dodge_safe])
+		var c1: int = GS.credits
+		main.leave_boarding(true)
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and not main.space.boarding, 20.0)
+		await _wait(0.5)
+		_check("v12.58: the mothership broken from inside: the armada's beaten, paid (+%d cr)" % (GS.credits - c1), GS.mission.is_empty() and GS.credits > c1, str(GS.mission.get("kind", "")))
 		_finish_group()
 		return
 	if _flag("HL_SWORD3"):   # v12.55 (owner): the lightning per target, the nuke's three tails, the ship's sword (burst / evade / throw)
@@ -9207,7 +9318,7 @@ func _job_ai() -> void:
 	var base_kinds: Array = []
 	for l in Surface.PLANETS.get(pbid, {}).get("locations", []): base_kinds = Missions.offers(s.sys_id, str(l["id"]), "", "planet").map(func(o): return str(o["kind"]))
 	_check("v1.9b (owner): missions on the planet are only about the planet, missions out in space only about space: a station's board has no planet jobs, the planet's board (its dock or a base down there) only jobs on that planet",
-		not ("ground" in kinds) and not ("land_escort" in kinds) and "ground" in pkinds and pkinds.all(func(k): return k in Missions.PLANET_KINDS) and base_kinds.all(func(k): return k in Missions.PLANET_KINDS), "station %s planet %s base %s" % [kinds, pkinds, base_kinds])
+		not ("ground" in kinds) and not ("land_escort" in kinds) and "ground" in pkinds and pkinds.all(func(k): return Missions.planet_board_kind(k)) and base_kinds.all(func(k): return Missions.planet_board_kind(k)), "station %s planet %s base %s" % [kinds, pkinds, base_kinds])
 	# ---- the hub pages
 	main.hub.open(Data.SYSTEMS[s.sys_id]["station"])
 	await _frames(2)
@@ -11559,7 +11670,7 @@ func _job_v19b() -> void:
 		await _frames(3)
 		dock_ok = s.dock_candidate() == pl and s.prompt() == "dock" and str(info.get("kind", "")) == "planet" and wp in s.extras
 		var kinds: Array = Missions.offers(s.sys_id, str(info["id"]), "", "planet").map(func(o): return str(o["kind"]))
-		board_ok = not kinds.is_empty() and kinds.all(func(k): return k in Missions.PLANET_KINDS)
+		board_ok = not kinds.is_empty() and kinds.all(func(k): return Missions.planet_board_kind(k))
 		said = "%s: %s" % [info["name"], kinds]
 		_tp(keep, s.station.global_position)
 		await _frames(2)

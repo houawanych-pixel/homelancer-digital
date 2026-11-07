@@ -1663,7 +1663,8 @@ func board_battleship(e: Dictionary) -> void:
 	state = "boarding"
 	_interior_ship = e
 	board_from = {"sys": space.sys_id, "pos": space.player.global_position, "ship_at": (e["node"] as Node3D).global_position, "name": str(e["node"].name),
-		"faction": str(e.get("faction", "")), "fleet": bool(e.get("fleet_patrol", false)), "mission": bool(e.get("invasion", false)), "form": GS.form}
+		"faction": str(e.get("faction", "")), "fleet": bool(e.get("fleet_patrol", false)), "mission": bool(e.get("invasion", false)), "form": GS.form,
+		"surface": space.surface_mode, "planet": space.planet_id, "tile": space.tile, "mothership": bool(e.get("mothership", false))}   # v12.58
 	if Factions.normal(str(board_from["faction"])): Factions.adjust(str(board_from["faction"]), -Data.REP_INFILTRATE)
 	space.controls = false
 	hud.visible = false
@@ -1675,8 +1676,10 @@ func board_battleship(e: Dictionary) -> void:
 	await tw.finished
 	# v12.18 (owner): every enemy battleship has its own generated deck plan (Boarding.deckplan "ship")
 	if Boarding.classic: Boarding.use_ship()
+	elif bool(board_from["mothership"]):   # v12.58 (owner): the mothership: huge, tunnels and chambers, flown with your ship
+		Boarding.use(Boarding.deckplan("%s:%s:mother" % [str(board_from["sys"]), str(board_from["name"])], "station", 4, str(board_from["name"])))
 	else: Boarding.use(Boarding.deckplan("%s:%s" % [str(board_from["sys"]), str(board_from["name"])], "ship", Data.SHIP_DECK_LEVEL + (1 if bool(board_from["mission"]) else 0), str(board_from["name"])))
-	GS.form = "mech"   # v12.29 (owner): you dock as you are; inside you are the mech
+	GS.form = "ship" if bool(board_from["mothership"]) else "mech"   # v12.29 (owner): you dock as you are; inside you are the mech (v12.58: the mothership in your ship)
 	_new_space("Boarding")
 	space.setup_boarding({"sys": board_from["sys"], "faction": board_from["faction"], "name": board_from["name"]})
 	_connect_space()
@@ -1785,6 +1788,18 @@ func _interior_cleared() -> void:
 	board_from = {}
 	_interior_ship = {}
 
+## v12.58 (owner: "with enemy factions you may obtain special items, used to achieve or craft alien artifacts; yet to
+## be determined"): a ship or base of a permanent-enemy faction broken from the inside leaves alien relics in the hold
+## (GS.relics: faction -> count). What they make is still to come.
+func _relic_drop(fac: String, big: bool) -> int:
+	var enemy_fac: bool = Factions.has(fac) and str(Factions.def(fac).get("reputation_mode", "")) == "enemy"
+	if not enemy_fac and not SystemBuilder.is_enemy_space(Data.SYSTEMS.get(str(board_from.get("sys", "")), {})): return 0
+	var k: String = fac if fac != "" else "Unknown"
+	var n: int = randi_range(int(Data.RELIC_DROP[0]), int(Data.RELIC_DROP[1])) * (Data.RELIC_BIG_K if big else 1)
+	GS.relics[k] = int(GS.relics.get(k, 0)) + n
+	hud.flash_message("Recovered %d %s RELIC%s from the wreck (%d held). Alien tech: what it can make is still a mystery." % [n, k.to_upper(), "" if n == 1 else "S", int(GS.relics[k])])
+	return n
+
 func leave_boarding(won: bool) -> void:
 	# v11.70 (owner): out of the launch bay you fly, the battleship blows up behind you, and 20 of its fighters are
 	# waiting. Command congratulates you; clear every one of them and you are paid.
@@ -1798,6 +1813,7 @@ func leave_boarding(won: bool) -> void:
 	tw.tween_property(fx, "fade", 1.0, 0.4)
 	await tw.finished
 	GS.form = str(board_from.get("form", "ship"))   # v12.29: back to what you came in as, at once (no transforming in the open)
+	if won: _relic_drop(str(board_from.get("faction", "")), bool(board_from.get("infiltrate", false)) or bool(board_from.get("mothership", false)))
 	if bool(board_from.get("escape", false)):   # v12.38: out of the station you broke out of: into your ship, launch
 		Boarding.use_ship()
 		var sid: String = board_from["sys"]
@@ -1830,6 +1846,45 @@ func leave_boarding(won: bool) -> void:
 		state = "flight"
 		if won: hud.flash_message("COMMAND: %s is gutted. Good work, pilot: %d credits. It'll be back in business soon." % [board_from["name"], pay])
 		board_from = {}
+		return
+	if bool(board_from.get("surface", false)):   # v12.58: a battleship over a planet: back out into that sky
+		Boarding.use_ship()
+		if won and str(GS.mission.get("kind", "")) == "planet_invasion":
+			GS.mission["bs_down"] = int(GS.mission.get("bs_down", 0)) + 1
+			if int(GS.mission["bs_down"]) < int(GS.mission.get("left", 1)): GS.mission["spawned"] = int(GS.mission.get("stage", 0)) - 1   # (the next battleship's still up there)
+		_load_surface(str(board_from["planet"]), int(board_from["tile"]))
+		await get_tree().process_frame
+		var sat: Vector3 = board_from.get("ship_at", board_from["pos"])
+		space.player.global_position = sat + Vector3(0, 80.0, 500.0)
+		space.vel = Vector3.ZERO
+		space._update_camera(1.0, true)
+		if won: space.start_post_wave(str(board_from["faction"]), sat, 0, true)
+		var twp := create_tween()
+		twp.tween_property(fx, "fade", 0.0, 0.6)
+		await twp.finished
+		fx.caption = ""
+		fx.sub = ""
+		space.controls = true
+		hud.visible = true
+		state = "flight"
+		if won: hud.flash_message("The %s is gone! Now clear the sky: destroy the remaining fighters." % board_from["name"])
+		board_from = {}
+		_interior_ship = {}
+		return
+	if bool(board_from.get("mothership", false)) and won and str(GS.mission.get("kind", "")) == "mothership":   # v12.58: the armada's broken
+		_load_system(board_from["sys"], "station")
+		space.player.global_position = (board_from.get("ship_at", board_from["pos"]) as Vector3) + Vector3(0, 60.0, 1500.0)
+		Missions._pay(space, "The %s MOTHERSHIP is destroyed and the armada with it! %s pays %d cr." % [board_from["faction"], Missions.giver_name(GS.mission), int(GS.mission["pay"])])
+		var twm := create_tween()
+		twm.tween_property(fx, "fade", 0.0, 0.6)
+		await twm.finished
+		fx.caption = ""
+		fx.sub = ""
+		space.controls = true
+		hud.visible = true
+		state = "flight"
+		board_from = {}
+		_interior_ship = {}
 		return
 	if bool(board_from.get("infiltrate", false)): Boarding.use_ship()   # v11.99: out of an alien station
 	if won:

@@ -720,7 +720,7 @@ func _push_out_box(hd: Node3D, bb: AABB, kind: String) -> bool:
 	local_n[axis] = -1.0 if best % 2 == 0 else 1.0
 	var n2 := (xf.basis * local_n).normalized()
 	player.global_position = xf * q
-	if not (kind == "ground" and ground_mode): collision_damage(kind, -vel.dot(n2))
+	if not (kind == "ground" and ground_mode) and not inside_wall_safe(): collision_damage(kind, -vel.dot(n2))
 	if vel.dot(n2) < 0.0: vel = vel - n2 * vel.dot(n2) * (1.0 if ground_mode else 1.5)
 	if ground_mode and n2.y > 0.7: grounded = true   # standing on a roof
 	return true
@@ -869,6 +869,34 @@ func _tile_patrols() -> void:
 			if enemy:
 				e["aggro"] = true
 				e["provoked"] = true
+
+## v12.58 (owner: flying inside the mothership: "moving side to side, no damage; thrusting forward or up into a wall,
+## damage; the dodge and the thrust-forward attack, none")
+func inside_wall_safe() -> bool:
+	return boarding and GS.form != "mech" and (dodge_t > 0.0 or sword_kind == "burst" or not (thrust_held or boosting))
+
+## v12.58 (owner): over an enemy world there's no job for it: one of their battleships may simply be up there, with
+## its fighters. Strip its shield, board it, break it from the inside.
+func _tile_wild_capital(force := false) -> Dictionary:
+	if surface_mode == false or sun_surface or boarding or planet_id == "" or not is_instance_valid(player): return {}
+	if not Surface.planet_sides(planet_id, Surface.PLANETS.get(planet_id, {})).is_empty(): return {}
+	if not GS.mission.is_empty() and str(GS.mission.get("kind", "")) == "planet_invasion": return {}
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash("%s|%d|wildbs|%d" % [planet_id, tile, Time.get_ticks_msec()])
+	if not force and rng.randf() > Data.WILD_BATTLESHIP_CHANCE: return {}
+	var fac := str((Data.SYSTEMS.get(sys_id, {}) as Dictionary).get("enemy_faction", ""))
+	if not Factions.has(fac): fac = "Kaijurai"
+	var a := rng.randf() * TAU
+	var x := clampf(player.global_position.x + cos(a) * 2600.0, -Surface.EDGE + 600.0, Surface.EDGE - 600.0)
+	var z := clampf(player.global_position.z + sin(a) * 2600.0, -Surface.EDGE + 600.0, Surface.EDGE - 600.0)
+	var e := spawn_planet_capital(Vector3(x, _ground(x, z) + 650.0, z), fac, -8)
+	if e.is_empty(): return e
+	e["wild"] = true
+	for f in spawn_mission_group(Vector3(x, _ground(x, z) + 450.0, z), fac, 6, Data.PATROL_MAX_SLOT, "", -8):
+		f["aggro"] = true
+		f["provoked"] = true
+	message.emit("Evee: \"A %s battleship's holding over this sector. Strip its shield and we can board it.\"" % fac)
+	return e
 
 ## a patrol under fire calls for backup (once per sector): it arrives a few seconds later
 func _patrol_backup(e: Dictionary) -> void:
@@ -1447,8 +1475,8 @@ func setup_boarding(info: Dictionary) -> void:
 	_board_alarm = built["alarm"]
 	_board_path = built["path"]
 	board_lifts = built.get("lifts", {})
-	ground_mode = true
-	player.global_position = Boarding.START_AT + Vector3(0, 6.0, 0)
+	ground_mode = GS.form == "mech"   # v12.58: in the mothership you fly your ship
+	player.global_position = Boarding.START_AT + Vector3(0, 6.0 if GS.form == "mech" else 30.0, 0)
 	_face(Boarding.START_FACE)
 	vel = Vector3.ZERO
 	board = {"phase": "fight", "faction": fac, "ship": str(info.get("name", "%s Battleship" % fac)), "guards": {}, "woke": {}, "escape": -1.0, "core": {}, "said": -1, "room": "lbay",
@@ -7525,6 +7553,9 @@ func _enemy_entry(n: Node3D) -> Dictionary:
 ## Shields soak damage first. What gets through hits the section under the hit point: a wing/arm if the shot
 ## landed on that side (and it is still there), otherwise the core. Missiles and mines (no hit point) hit the core.
 func _damage_enemy(e: Dictionary, dmg: float, hit := Vector3.INF, sf := -1.0) -> void:
+	if e.get("mothership", false) and (e.get("locked", false) or e.get("outside_proof", false)):   # v12.58: only from the inside
+		if _rng.randf() < 0.05: message.emit("The mothership's shield holds: %s" % ("destroy its three battleships first." if e.get("locked", false) else "board it and destroy it from the inside."))
+		return
 	if e.get("locked", false):   # v11.45: the reactor core can't be hurt yet (grab the bounty first)
 		if _rng.randf() < 0.1: message.emit("The reactor's shield is up until their BOSS MECH is down.")
 		return
@@ -9894,6 +9925,7 @@ func load_tile(t: int, keep := Vector3.INF) -> void:
 	_faction_buildings()   # v1.9q
 	_planet_bases()   # v11.91
 	if keep == Vector3.INF or true: _tile_patrols()   # v12.54
+	if patrols_on and Data.PLANET_PATROLS: _tile_wild_capital()   # v12.58
 	var b := Surface.biome(planet_id, t)
 	var cols := {"sky": b["sky"], "horizon": b["horizon"], "fog": b["fog"]}
 	if keep == Vector3.INF: _apply_sky(cols, 1.0)
@@ -11920,7 +11952,7 @@ func invasion_units(role := "") -> Array:
 ## Bring the fleet in at `at`: the big ships spread round the point, the station behind them, the first fighters, and
 ## your allies beside you. `left` = how many battleships are still to kill (a fleet you flew away from comes back as it was).
 func spawn_invasion(at: Vector3, faction: String, left: int, station_up: bool) -> void:
-	var cfg: Dictionary = Data.INVASION
+	var cfg: Dictionary = Data.ARMADA if str(GS.mission.get("kind", "")) == "mothership" else Data.INVASION
 	var spread: float = cfg["spread"]
 	var roles: Array = []
 	for i in left: roles.append(["battleship", "inv_battleship"])
@@ -11932,7 +11964,24 @@ func spawn_invasion(at: Vector3, faction: String, left: int, station_up: bool) -
 		var p: Vector3 = at + Vector3(cos(ang) * spread * (0.5 if r[0] == "battleship" else 0.9), _rng.randf_range(-80, 80), sin(ang) * spread * (0.5 if r[0] == "battleship" else 0.9))
 		_spawn_capital(r[1], r[0], p, at, faction)
 		k += 1
-	if station_up: _spawn_capital("inv_command", "command", at + (at - player.global_position).normalized() * spread * 1.3, at, faction)
+	if str(GS.mission.get("kind", "")) == "mothership":   # v12.58 (owner): battleships carry 90 fighters each, the warships 30
+		for c in carriers:
+			var r9: String = str((c["ent"] as Dictionary).get("inv_role", ""))
+			if r9 == "battleship": c["left"] = int(Data.ARMADA["bs_hangar"])
+			elif r9 == "warship": c["left"] = int(Data.ARMADA["ws_hangar"])
+	if station_up:
+		var cmd := _spawn_capital("inv_command", "command", at + (at - player.global_position).normalized() * spread * 1.3, at, faction)
+		if str(GS.mission.get("kind", "")) == "mothership" and not cmd.is_empty():   # v12.58: the MOTHERSHIP (a station stands in), shielded till the battleships are down
+			cmd["mothership"] = true
+			cmd["locked"] = true
+			(cmd["node"] as Node3D).name = "%s Mothership" % faction
+			var st3: String = "HL_Station_%s_Military_retopo" % faction
+			if Packs.is_ready(st3):
+				var hold3 := station3d(st3, Data.MOTHERSHIP_SCALE)
+				if hold3 != null:
+					for c3 in (cmd["model"] as Node3D).get_children(): if c3 is Node3D: (c3 as Node3D).visible = false
+					(cmd["model"] as Node3D).add_child(hold3)
+			else: Packs.request(st3)
 	_inv_fighters(at, faction, int(cfg["fighters"]))
 	_spawn_allies(faction)
 	_inv_wave_t = float(cfg["wave_every"])
@@ -11958,7 +12007,7 @@ func spawn_planet_capital(at: Vector3, faction: String, stage: int) -> Dictionar
 	var e := _spawn_capital("inv_battleship", "battleship", at, at, faction)
 	if e.is_empty(): return e
 	e["mission"] = stage
-	e["boardable"] = false
+	e["planet_invader"] = true   # v12.58: board it to destroy it (its shield down, dock)
 	return e
 
 func _spawn_capital(kind: String, role: String, p: Vector3, home: Vector3, faction: String) -> Dictionary:
@@ -12193,13 +12242,32 @@ func invasion_tick(dt: float, m: Dictionary) -> void:
 		if player.global_position.distance_to(at) < float(cfg["arrive"]):
 			spawn_invasion(at, str(m["faction"]), int(m.get("left", cfg["battleships"])), not bool(m.get("station_down", false)))
 			m["spawned"] = 0
-			message.emit("SILVER: the %s fleet is here. Destroy the three battleships; your wing is with you." % (str(m["faction"]) if str(m["faction"]) != "" else "enemy"))
+			if str(m.get("kind", "")) == "mothership": message.emit("FINAL: the %s armada. Three battleships guard the MOTHERSHIP: destroy all three and its shield drops." % str(m["faction"]))
+			else: message.emit("SILVER: the %s fleet is here. Destroy the three battleships; your wing is with you." % (str(m["faction"]) if str(m["faction"]) != "" else "enemy"))
 		return
 	if not inv_here:
 		m["spawned"] = -1   # (the fleet was left behind when you went: it is back, as it was, when you return)
 		return
 	var bs := invasion_units("battleship").size()
 	m["left"] = bs
+	if bs == 0 and str(m.get("kind", "")) == "mothership":   # v12.58: the mothership's shield drops: dock with it
+		for ms in enemies:
+			if ms.get("mothership", false) and ms.get("locked", false):
+				ms["locked"] = false   # (the shield's down: board it; from outside it still can't be broken)
+				ms["outside_proof"] = true
+				ms["sh"] = 0.0
+				ms["shield_broken"] = true
+				_boardable(ms)
+				if not ms.get("boardable", false):   # (no hull box: dock anywhere close)
+					ms["boardable"] = true
+					ms["bay_node"] = ms["node"]
+				message.emit("The battleships are down: the MOTHERSHIP's shield is gone. Fly close and BOARD it: you go in with your ship.")
+		_inv_wave_t -= dt   # (its fighters keep coming)
+		if _inv_wave_t <= 0.0:
+			_inv_wave_t = float(Data.ARMADA["wave_every"])
+			var msl: Array = enemies.filter(func(x): return x.get("mothership", false))
+			if not msl.is_empty(): _inv_fighters((msl[0]["node"] as Node3D).global_position, str(m["faction"]), int(Data.ARMADA["wave"]))
+		return
 	if bs == 0:
 		inv_log.append("won")
 		for e in invasion_units():   # what is left of the fleet jumps out

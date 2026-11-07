@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.57"
+const VERSION := "v12.58"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -966,7 +966,7 @@ const ENEMY_MINE_LIFE := 40.0
 const PLATFORM_RADIUS := 70.0                   # v1.9b (owner): every planet's floating docking platform: deck radius (m)
 const PLATFORM_ALT := 260.0                     # ... how far over the planet's surface it floats                       # v1.9b (owner): a bounty target never flies alone: at least six of its own wing with it
 const MISSION_PAY := {"threats": 900, "escort": 700, "convoy": 1600, "ground": 1400, "outlaws": 600, "land_escort": 1200, "invasion": 3600, "disturbance_ship": 9000, "disturbance_base": 14000,
-	"intercept": 900, "air_sweep": 2400, "facility": 1500, "planet_invasion": 16000}   # v12.56: the planet's own jobs   # v1.7w: "convoy" = the cargo run into the next system
+	"intercept": 900, "air_sweep": 2400, "facility": 1500, "planet_invasion": 16000, "mothership": 60000}   # v12.56: the planet's own jobs   # v1.7w: "convoy" = the cargo run into the next system
 # v1.8m (owner): ground jobs. A strike on the system's planet: fly down into the atmosphere, go to two mission points in
 # one sector of the surface and destroy the landing party at each. Paid on the spot when the last one is down.
 const MISSION_GROUND_ALT := 220.0               # a ground job's wave waits this high over the ground
@@ -1682,6 +1682,17 @@ static func tier_of_pay(pay: int) -> int: return clampi(int(ceil(float(pay) / TI
 # v11.13 (owner: "too hard, just one battleship"): 1 battleship, no warships or destroyer, 12 fighters (was 3 / 2 / 1 / 20)
 const INVASION := {"battleships": 1, "warships": 0, "destroyers": 0, "fighters": 12, "wave": 3, "wave_every": 9.0, "station_down_slow": 3.0,
 	"ally_fighters": 6, "ally_frigates": 1, "arrive": 2600.0, "spread": 900.0, "dist": 7000.0}   # dist: how far out from the station the fleet comes in
+## v12.58 (owner): the final armada: 3 battleships (90 fighters each), 5 warships (30 each), the mothership (endless
+## high-level fighters); a faction's military station stands in for the mothership
+const ARMADA := {"battleships": 3, "warships": 5, "destroyers": 0, "fighters": 18, "wave": 4, "wave_every": 8.0, "station_down_slow": 3.0,
+	"ally_fighters": 6, "ally_frigates": 1, "arrive": 3200.0, "spread": 1400.0, "dist": 8000.0, "bs_hangar": 90, "ws_hangar": 30}
+const MOTHERSHIP_SCALE := 1.6
+## v12.58 (owner: "no mission with the enemy factions: you lessen the shield and go in"): an enemy world's sector
+## may have one of their battleships in the sky, there to be boarded; and relics come out of their wrecks
+const WILD_BATTLESHIP_CHANCE := 0.4
+const RELIC_DROP := [1, 3]
+const RELIC_BIG_K := 3
+const PLANET_INV_CALM := 2.5   # seconds of an empty sky before the invasion's paid
 const INVASION_DRAW := {"fighter": 2200.0, "capital": 9000.0, "lod_bias": 0.5, "capital_lod_bias": 0.08}   # m drawn to; lod_bias < 1 = simpler meshes sooner
 const CAPITAL_MISSILE_DAMAGE := 120.0   # a light missile on a capital ship (heavy x3.5; a mine as a heavy)
 const CAPITAL_SPECIAL_DAMAGE := 1500.0  # the special beam's hull damage on a capital ship at full charge
