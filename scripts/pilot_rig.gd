@@ -108,3 +108,18 @@ static func _aabb(n: Node) -> AABB:
 		out = b if first else out.merge(b)
 		first = false
 	return out if not first else AABB(Vector3(-0.3, 0, -0.2), Vector3(0.6, 1.8, 0.4))
+
+## v12.48: point bone `name` (toward its child) along dir_body, given in `body`'s space (forward -Z, right +X).
+## Shared with the station crew's crouch (StationLife).
+static func aim_bone(skel: Skeleton3D, body: Node3D, name: String, child: String, dir_body: Vector3) -> void:
+	var b := skel.find_bone(name)
+	var c := skel.find_bone(child)
+	if b < 0 or c < 0: return
+	var want: Vector3 = (skel.global_transform.basis.inverse() * (body.global_transform.basis * dir_body)).normalized()
+	var gp := skel.get_bone_global_pose(b)
+	var cur := (skel.get_bone_global_pose(c).origin - gp.origin).normalized()
+	if cur.length() < 0.5: return
+	var nb := Basis(Quaternion(cur, want)) * gp.basis
+	var par := skel.get_bone_parent(b)
+	var pg: Basis = skel.get_bone_global_pose(par).basis if par >= 0 else Basis.IDENTITY
+	skel.set_bone_pose_rotation(b, (pg.inverse() * nb).get_rotation_quaternion())

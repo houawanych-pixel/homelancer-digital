@@ -1437,6 +1437,10 @@ func setup_boarding(info: Dictionary) -> void:
 		message.emit("You're in %s with a price on your head. Their guards are on patrol: keep out of their sight and walk to YOUR SHIP in the hangar (the green lights)." % str(info["name"]))
 	else:
 		message.emit("Inside the %s. Fight through toward the back of the ship and down into the belly: the REACTOR." % board["ship"])
+	life = StationLife.new()   # v12.48: tables / crates / consoles to break, marks on the walls, the crew
+	life.name = "StationLife"
+	root.add_child(life)
+	life.setup(self, fac, bool(info.get("escape", false)), tint)
 	_update_camera(1.0, true)
 
 func _build_board_env(tint: Color) -> void:
@@ -1516,6 +1520,12 @@ func _board_update(dt: float) -> void:
 		player.global_position = Vector3(q.x, player.global_position.y, q.z)
 		vel = Vector3(0, vel.y, 0)
 	for bx: Array in surf_boxes: _push_out_box(bx[0], bx[1], "ground")
+	if life != null:
+		var pq := life.push_out(player.global_position, 5.0)
+		if Vector2(pq.x - player.global_position.x, pq.z - player.global_position.z).length() > 0.01:
+			player.global_position = pq
+			vel = Vector3(vel.x * 0.3, vel.y, vel.z * 0.3)
+		life.update(dt)
 	_board_doors(dt)
 	if player.global_position.x < Boarding.ENTRY_X:   # (the port bay's open side: in only; out is the starboard bay)
 		player.global_position.x = Boarding.ENTRY_X
@@ -1617,14 +1627,16 @@ func _board_steps(dt: float) -> void:
 ## the deck plan that was laid out from its silhouette (Boarding.footprint), both faces drawn so its hull is seen
 ## from inside: past the hangar's open side, the station's own hull.
 var breakout_shell: Node3D
+var life: StationLife   # v12.48: props, wall marks, crew (inside a deck)
 func _breakout_shell(root: Node3D) -> void:
 	var path := str(Boarding.INFO.get("shell", ""))
 	if path == "" or not ResourceLoader.exists(path): return
 	var lo: Vector3 = Boarding.INFO["shell_lo"]
 	var hi: Vector3 = Boarding.INFO["shell_hi"]
 	var span := 5.0 * Boarding.CELL
-	var kx := span / maxf(0.001, hi.x - lo.x)
-	var kz := span / maxf(0.001, hi.z - lo.z)
+	var grow := 1.3   # (a bit bigger than the plan, so the hull's curve stays clear of the rooms' ceilings)
+	var kx := span * grow / maxf(0.001, hi.x - lo.x)
+	var kz := span * grow / maxf(0.001, hi.z - lo.z)
 	var ky := (kx + kz) * 0.5
 	var inst: Node3D = (load(path) as PackedScene).instantiate()
 	for c in inst.find_children("*", "MeshInstance3D", true, false):
@@ -1639,7 +1651,7 @@ func _breakout_shell(root: Node3D) -> void:
 	var holder := Node3D.new()
 	holder.name = "StationShell"
 	holder.scale = Vector3(kx, ky, kz)
-	holder.position = Vector3(-lo.x * kx - Boarding.CELL * 0.5, 30.0 - (lo.y + hi.y) * 0.5 * ky, -lo.z * kz - span * 0.5)
+	holder.position = Vector3(2.0 * Boarding.CELL - (lo.x + hi.x) * 0.5 * kx, 30.0 - (lo.y + hi.y) * 0.5 * ky, -(lo.z + hi.z) * 0.5 * kz)
 	holder.add_child(inst)
 	root.add_child(holder)
 	breakout_shell = holder
@@ -1848,12 +1860,24 @@ func _build_wall_grid() -> void:
 				_wall_grid[c].append(bb)
 	_wall_grid["_n"] = surf_boxes.size()
 
-## How far along from->to (0..1) the first wall or shut door is; 1.0 = clear. Leaving every room counts as a wall.
 func board_wall_t(from: Vector3, to: Vector3) -> float:
+	return float(board_wall_hit(from, to)[0])
+
+static func _box_normal(bb: AABB, p: Vector3) -> Vector3:
+	var d := [absf(p.x - bb.position.x), absf(p.x - bb.end.x), absf(p.y - bb.position.y), absf(p.y - bb.end.y), absf(p.z - bb.position.z), absf(p.z - bb.end.z)]
+	var ns := [Vector3.LEFT, Vector3.RIGHT, Vector3.DOWN, Vector3.UP, Vector3.FORWARD, Vector3.BACK]
+	var bi := 0
+	for i in 6: if d[i] < d[bi]: bi = i
+	return ns[bi]
+
+## [t, normal]: how far along from->to (0..1) the first wall or shut door is (1.0 = clear) and which way its face looks.
+## Leaving every room counts as a wall.
+func board_wall_hit(from: Vector3, to: Vector3) -> Array:
 	if _wall_grid.is_empty() or int(_wall_grid.get("_n", -1)) != surf_boxes.size(): _build_wall_grid()
 	var best := 1.0
+	var bn := Vector3.ZERO
 	var L := from.distance_to(to)
-	if L < 0.001: return 1.0
+	if L < 0.001: return [1.0, bn]
 	var seen := {}
 	var steps := int(ceil(L / (WALL_CELL * 0.5))) + 1
 	for i in steps + 1:
@@ -1863,15 +1887,29 @@ func board_wall_t(from: Vector3, to: Vector3) -> float:
 		seen[c] = true
 		for bb: AABB in _wall_grid.get(c, []):
 			var hp = bb.intersects_segment(from, to)
-			if hp != null: best = minf(best, from.distance_to(hp) / L)
+			if hp != null and from.distance_to(hp) / L < best:
+				best = from.distance_to(hp) / L
+				bn = _box_normal(bb, hp)
 	for d in board_doors:
 		if float(d["open"]) >= 0.8: continue
 		var dh: Node3D = d["box"][0]
 		var db: AABB = (dh.global_transform if is_instance_valid(dh) and dh.is_inside_tree() else Transform3D.IDENTITY) * (d["box"][1] as AABB)
 		var hp2 = db.intersects_segment(from, to)
-		if hp2 != null: best = minf(best, from.distance_to(hp2) / L)
-	if best >= 1.0 and Boarding.room_at(from) != "" and Boarding.room_at(to) == "": best = 0.999
-	return best
+		if hp2 != null and from.distance_to(hp2) / L < best:
+			best = from.distance_to(hp2) / L
+			bn = _box_normal(db, hp2)
+	if best >= 1.0 and Boarding.room_at(from) != "" and Boarding.room_at(to) == "":
+		best = 0.999
+		bn = -(to - from).normalized()
+	return [best, bn]
+
+## v12.48: someone screamed in room k (a crew member shot): in the quiet start, that room's guards come for you
+func board_scream(k: String) -> void:
+	if str(board.get("phase", "")) != "sneak": return
+	for e in enemies:
+		if bool(e.get("soldier", false)) and Boarding.room_at((e["node"] as Node3D).global_position, 8.0) == k:
+			_arrest(e)
+			return
 
 ## The core blew: the way you came seals, the far door opens, 90 s to the aft launch bay.
 func _core_down() -> void:
@@ -6180,12 +6218,34 @@ func _update_bolts(dt: float) -> void:
 		b["life"] -= dt
 		var hit := false
 		var walled := false
+		var wall_n := Vector3.ZERO
 		if boarding:   # v12.46 (owner: "shooting shouldn't go through walls"): a shot stops on a wall or a shut door
-			var wt := board_wall_t(from, to)
-			if wt < 1.0:
+			var wh := board_wall_hit(from, to)
+			var wt: float = wh[0]
+			wall_n = wh[1]
+			var fl := Boarding.floor_at(to)
+			if to.y < fl and from.y >= fl:   # v12.48: or the deck
+				var ft := (from.y - fl) / maxf(0.001, from.y - to.y)
+				if ft < wt:
+					wt = ft
+					wall_n = Vector3.UP
+			if life != null:   # v12.48: a person, or a table / crate / console, in the way (cover, both ways)
+				var hc: Array = life.seg_civ(from, to)
+				var hp: Array = life.seg_prop(from, to)
+				if float(hc[0]) < wt and float(hc[0]) <= float(hp[0]):
+					life.hit_civ(hc[1])
+					_spark(from.lerp(to, float(hc[0])), Color(1.0, 0.3, 0.2), 2.5, 0.25)
+					hit = true
+				elif float(hp[0]) < wt:
+					life.damage_prop(hp[1], float(b["dmg"]), from.lerp(to, float(hp[0])), b["vel"])
+					hit = true
+				elif wt < 1.0:
+					life.noise(from.lerp(to, wt), 90.0)
+			if not hit and wt < 1.0:
 				to = from.lerp(to, wt)
 				walled = true
-		if b["owner"] == "player" or b["owner"] == "ally":   # v1.9n: allied ships' shots hit the enemy too
+		if hit: pass
+		elif b["owner"] == "player" or b["owner"] == "ally":   # v1.9n: allied ships' shots hit the enemy too
 			for e in enemies:
 				if _seg_hit(from, to, e["node"].global_position, float(e["def"].get("hit_r", 7.5))):
 					_damage_enemy(e, b["dmg"], _seg_closest(from, to, e["node"].global_position) if not e["def"].get("capital", false) else Vector3.INF, float(b.get("sf", -1.0)))
@@ -6215,6 +6275,7 @@ func _update_bolts(dt: float) -> void:
 		if walled and not hit:
 			hit = true
 			_spark(to, Color(1, 0.8, 0.5), 2.5, 0.2)
+			if life != null: life.mark(to, wall_n, "hole")
 		if not hit and surface_mode:   # EXPERIMENT (v1.5t): shots dig the block ground
 			var rb := _ray_blocks(from, to)
 			if rb[0] != null:
@@ -7283,6 +7344,8 @@ func _update_missiles(dt: float) -> void:
 			_blast_blocks(dig, "heavy" if m.get("heavy", false) else "missile", bfm)
 			_blast(dig, Data.BLAST_ENEMY if m.get("heavy", false) else Data.BLAST_WING, "ground")
 			done = true
+		elif boarding and _missile_wall(m, n.global_position - (v + wv2) * dt, n.global_position):   # v12.48: a missile meets a wall / prop: blows a hole
+			done = true
 		elif is_instance_valid(t) and n.global_position.distance_to(t.global_position) < (Data.HEAVY_MISSILE_HIT_RADIUS if m.get("heavy", false) else Data.MISSILE_HIT_RADIUS) + _hull_r(_enemy_entry(t)) * 0.8:
 			var e := _enemy_entry(t)
 			if not e.is_empty():
@@ -7833,6 +7896,17 @@ func _sword_slash_fx(dir: Vector3, reach: float) -> void:
 		_spark(p + (dir * cos(a) + side * sin(a)) * reach * 0.8, Color(0.5, 0.9, 1.0), 4.0, 0.18)
 	Sfx.play("saber_swing", -5.0, randf_range(0.92, 1.12))
 	lamp_flash = maxf(lamp_flash, 1.0)   # v12.32 (owner): the blade throws light as it swings
+	if boarding and life != null:   # v12.48: the blade cuts the wall in front and smashes what's in reach
+		var wh := board_wall_hit(p, p + dir * reach * 1.1)
+		if float(wh[0]) < 1.0: life.mark(p.lerp(p + dir * reach * 1.1, float(wh[0])) + Vector3(0, 4.0, 0), wh[1], "cut", side)
+		for pr in life.props:
+			if pr["broken"]: continue
+			var pc: Vector3 = (pr["aabb"] as AABB).get_center()
+			var to := pc - p
+			to.y = 0.0
+			if to.length() < reach + 8.0 and to.normalized().dot(dir) > 0.2: life.damage_prop(pr, 99.0, pc, dir)
+		var hc: Array = life.seg_civ(p, p + dir * reach)
+		if hc[1] != null: life.hit_civ(hc[1])
 	_sword_harvest(dir, reach)
 
 ## v12.25 (owner): the blade cuts the block ground in front: trees come down without catching fire, stone and harder
@@ -10512,7 +10586,19 @@ var blast_log: Array = []   # (tests) [radius, star, enemies splashed]
 var _firing_nuke := false
 var nuke_later: Array = []   # v11.25: the nukes' second blasts still to come {at, t}
 var nuke_log: Array = []     # (tests) [first / second, radius, enemies hit]
+## v12.48: inside, a missile that meets a wall or a prop goes off there (a blown-out patch on the wall)
+func _missile_wall(m: Dictionary, from: Vector3, to: Vector3) -> bool:
+	var wh := board_wall_hit(from, to)
+	var hp: Array = life.seg_prop(from, to) if life != null else [1.0, null]
+	if float(wh[0]) >= 1.0 and float(hp[0]) >= 1.0: return false
+	var at := from.lerp(to, minf(float(wh[0]), float(hp[0])))
+	if float(wh[0]) <= float(hp[0]) and life != null: life.mark(at, wh[1], "blast")
+	_blast(at, Data.BLAST_ENEMY if m.get("heavy", false) else Data.BLAST_WING, "ground")
+	missile_blast(at, m, null)
+	return true
+
 func missile_blast(at: Vector3, m: Dictionary, hit: Node3D) -> void:
+	if boarding and life != null: life.explosion(at, 55.0 if m.get("heavy", false) else 35.0)
 	var heavy: bool = m.get("heavy", false)
 	var r: float = Data.HEAVY_MISSILE_BLAST_RADIUS if heavy else Data.MISSILE_BLAST_RADIUS
 	if m.get("nuke", false):   # v11.25 (owner): twice the blast at 3x the damage, then a second, bigger one

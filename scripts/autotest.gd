@@ -3012,6 +3012,36 @@ func _run() -> void:
 		var s3 := _sp()
 		var retry_ok: bool = main.breakout_retries == 1 and str(s3.board.get("phase", "")) == "sneak" and GS.hull > 0.0
 		_check("v12.46 (owner): the security console opens the hangar; killed, you start again from before they found you", opened and retry_ok, "opened %s retry %s phase %s" % [opened, retry_ok, s3.board.get("phase")])
+		# v12.48: break a table / crate, its pieces fall; a shot marks the wall; the crew run for cover
+		var lf: StationLife = s3.life
+		var pr: Dictionary = {}
+		for q in lf.props: if str(q["room"]) == "reactor" and not q["broken"]: pr = q
+		var props_n: int = lf.props.size()
+		var civ_n: int = lf.civs.size()
+		var pc: Vector3 = (pr["aabb"] as AABB).get_center() if not pr.is_empty() else Vector3.ZERO
+		var stand_at := Boarding.keep_in(pc + Vector3(-45, 0, 0), 15.0)
+		_tp(Vector3(stand_at.x, Boarding.floor_at(stand_at) + 6.0, stand_at.z), pc)
+		await _frames(2)
+		var from: Vector3 = s3.player.global_position + Vector3(0, 1, 0)
+		s3._spawn_bolt(from, (pc - from).normalized() * 300.0, 60.0, Color(1, 1, 0), "player", 1.0)
+		await _wait(0.4)
+		var broke: bool = pr.get("broken", false)
+		var flying: int = lf.chunks.size()
+		await _capture("breakout_break")
+		await _wait(2.0)
+		var settled := true
+		for c in lf.chunks: if is_instance_valid(c["node"]) and (c["node"] as Node3D).global_position.y > Boarding.floor_at((c["node"] as Node3D).global_position) + 12.0: settled = false
+		var m0: int = lf.marks.size()
+		var wfrom: Vector3 = s3.player.global_position + Vector3(0, 3, 0)
+		var wdir := Vector3(0, 0, -1)
+		s3._spawn_bolt(wfrom, wdir * 300.0, 10.0, Color(1, 1, 0), "player", 3.0)
+		lf.mark(wfrom + Vector3(0, 0, 30), Vector3(0, 0, 1), "blast")
+		await _wait(2.0)
+		var marked: bool = lf.marks.size() >= m0 + 2
+		var cowering := 0
+		for c in lf.civs: if str(c["state"]) in ["run", "cower"]: cowering += 1
+		await _capture("breakout_cover")
+		_check("v12.48 (owner): station props break (%d props; shot one: broke %s, %d pieces fell and settled %s), shots and blasts mark the walls (%d marks), the crew run for cover (%d of %d)" % [props_n, broke, flying, settled, lf.marks.size(), cowering, civ_n], broke and flying >= 2 and settled and marked and civ_n > 0 and cowering > 0, "props %d broke %s chunks %d settled %s marks %d->%d civs %d cower %d" % [props_n, broke, flying, settled, m0, lf.marks.size(), civ_n, cowering])
 		# the sword: no dash unless forward is held
 		s3.move = Vector2.ZERO
 		var sp0: Vector3 = s3.player.global_position
@@ -3021,7 +3051,10 @@ func _run() -> void:
 		await _wait(0.5)
 		var moved: float = Vector2(s3.player.global_position.x - sp0.x, s3.player.global_position.z - sp0.z).length()
 		_check("v12.46 (owner): the sword slashes where you stand unless you hold forward (moved %.1f m)" % moved, moved < 15.0, "moved %.1f kind %s" % [moved, s3.sword_kind])
-		# out unseen: you launch, nobody after you
+		# out unseen: you launch, nobody after you (the props test above was seen: back to quiet for this one)
+		s3.board["phase"] = "sneak"
+		s3.board["alerted"] = false
+		for d in s3.board_doors: if Boarding.is_door(d, Boarding.ESCAPE_DOOR): d["locked"] = false
 		s3.player.global_position = Vector3(Boarding.EXIT_X + 2.0, 6, (float(Boarding.ROOMS["sbay"]["r"][2]) + float(Boarding.ROOMS["sbay"]["r"][3])) * 0.5)
 		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and not main.space.boarding, 20.0)
 		await _wait(1.0)
