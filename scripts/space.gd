@@ -1865,7 +1865,12 @@ func board_line() -> String:
 			if str(board.get("room", "")) == "bridge": return "%s  ·  the bridge mech%s" % [where, " holds your BOUNTY" if (board.get("bridge", {}) as Dictionary).has("bounty") else " holds a hostage"]
 			return "%s  ·  head aft and down into the belly: the REACTOR  ·  (side way up: the BRIDGE)" % where
 		"escape":
-			if bool(board.get("breakout", false)): return "BREAKOUT: %d s  ·  %s  ·  follow the green lights to YOUR SHIP in the LAUNCH BAY" % [int(ceil(maxf(0.0, float(board["escape"])))), where]
+			if bool(board.get("breakout", false)):   # v12.46
+				if board.has("console"): return "ALERT  ·  %s  ·  HANGAR SEALED: get to the console in the SECURITY OFFICE" % where
+				return "ALERT  ·  %s  ·  the hangar is open: get to YOUR SHIP" % where
+			return "ESCAPE: %d s  ·  %s  ·  up the belly, round to the STARBOARD LAUNCH BAY" % [int(ceil(maxf(0.0, float(board["escape"])))), where]
+		"sneak":
+			return "WANTED  ·  %s  ·  keep out of the guards' sight; the green lights lead to YOUR SHIP in the HANGAR" % where
 			return "ESCAPE: %d s  ·  %s  ·  up the belly, round to the STARBOARD LAUNCH BAY" % [int(ceil(maxf(0.0, float(board["escape"])))), where]
 	return "BOARDING"
 
