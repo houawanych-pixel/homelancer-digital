@@ -2985,6 +2985,22 @@ func _run() -> void:
 			board_vis and main.escape_chasers >= Data.ESCAPE_CHASERS and hostile >= Data.ESCAPE_CHASERS and denied, "board %s chasers %d hostile %d denied %s" % [board_vis, main.escape_chasers, hostile, denied])
 		_finish_group()
 		return
+	if OS.get_environment("HL_WILDLINEUP") != "":   # (wildlife-test branch) every wildlife model in a line-up, for checking the looks
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main.hud.visible = false
+		var lu: Node3D = load("res://tools/fauna/lineup.gd").new()
+		main.add_child(lu)
+		await _wait(0.5)
+		await _capture("wild_lineup")
+		lu.queue_free()
+		_finish_group()
+		return
+	if OS.get_environment("HL_WILDTEST") != "":   # (wildlife-test branch) the wildlife test area: every species, every brain
+		await _job_wildtest()
+		_finish_group()
+		return
 	if OS.get_environment("HL_WILD") != "":   # v12.28: alien wildlife on the grass
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -5415,6 +5431,145 @@ func _job_v1114() -> void:
 
 ## v11.25 (owner): the NUKE (3x a super missile, twice the blast, a second bigger blast), START / SELECT (pause and swap
 ## a weapon slot), cloak hides you from everyone (engine kill works cloaked), one-tap REPAIR & RESTOCK.
+## (wildlife-test branch) the planet fauna test area: every species is placed; the brains do what docs/WILDLIFE.md says.
+func _job_wildtest() -> void:
+	main.start_game()
+	await _until(func(): return main.state == "flight", 10.0)
+	await _wait(3.0)   # (start_game drops us in the test area on its own: HL_WILDTEST)
+	if main.state == "flight" and not _sp().surface_mode: main.start_wild_test()
+	var s := _sp()
+	await _wait(0.5)
+	s = _sp()
+	GS.hull = 99999.0   # (the test pilot can't die: we count the hits instead)
+	var hold := s.player.global_position
+	s.holding = true
+	s.vel = Vector3.ZERO
+	await _until(func(): s.player.global_position = hold; return s._regions.size() >= 9 and s._building == null, 120.0)
+	var want := 0
+	for r in Data.WILDLIFE_PARK: want += int(r[3])
+	await _until(func(): s.player.global_position = hold; return s.wildlife != null and s.wildlife.animals.size() >= want, 30.0)
+	var w: Wildlife = s.wildlife
+	var kinds := {}
+	for a in w.animals: kinds[a["kind"]] = int(kinds.get(a["kind"], 0)) + 1
+	_check("wild: the test area has every species (%d animals, %d kinds: %s)" % [w.animals.size(), kinds.size(), kinds.keys()],
+		w.test_park and kinds.size() == Data.WILDLIFE_PARK.size() and w.animals.size() >= want)
+	main.hud.visible = false
+	var find := func(k: String) -> Dictionary:
+		for a in w.animals: if a["kind"] == k and is_instance_valid(a["node"]): return a
+		return {}
+	var gy := func(p: Vector3) -> float: return s._ground(p.x, p.z)
+	var at_ground := func(p: Vector3, up := 2.0) -> Vector3: return Vector3(p.x, s._ground(p.x, p.z) + up, p.z)
+	var hold_at := func(p: Vector3, secs: float, stop: Callable) -> bool:
+		var t := 0.0
+		while t < secs:
+			s.player.global_position = p
+			s.vel = Vector3.ZERO
+			if stop.call(): return true
+			await get_tree().process_frame
+			t += get_process_delta_time()
+		return false
+	var has_ev := func(e: String) -> bool: return e in w.events
+	# portraits: each species from a little way off (they react: that's fine, it's what they do)
+	for k in ["mossfleece", "drift_woolly", "strider", "prismhart", "grumbark", "vexmaw", "shale_stalker", "rimeback"]:
+		var a: Dictionary = find.call(k)
+		if a.is_empty(): continue
+		var ap: Vector3 = (a["node"] as Node3D).global_position
+		var sz: float = a["size"]
+		_tp(ap + Vector3(sz * 2.2, sz * 1.1, sz * 2.2), ap + Vector3(0, sz * 0.4, 0))
+		await _wait(0.12)
+		await _capture("wild_" + k)
+	# grazer: walk up to the mossfleece herd: alert, then the herd runs
+	var mf: Dictionary = find.call("mossfleece")
+	for a in w.animals: if a["kind"] == "mossfleece": a["state"] = "graze"   # (the portraits startled them: settle them first)
+	await hold_at.call(at_ground.call(Data.WILDLIFE_PARK[0][2] * Vector3(1, 0, 0) + w.park_c + Vector3(0, 0, 400)), 0.5, func(): return false)
+	var mp: Vector3 = (mf["node"] as Node3D).global_position
+	var running := func() -> int:
+		var n := 0
+		for a in w.animals: if a["kind"] == "mossfleece" and a["state"] == "flee": n += 1
+		return n
+	await hold_at.call(at_ground.call(mp + Vector3(20, 0, 0)), 4.0, func(): return running.call() >= 3)
+	_check("wild: prey - Mossfleece herd alerts then flees together (%d running)" % running.call(), running.call() >= 3)
+	# prey: a strider spots you at range, flashes its tail flag to the others, bolts
+	var sd: Dictionary = find.call("strider")
+	for a in w.animals: if a["arch"] in ["prey", "grazer"]: a["state"] = "graze"
+	await hold_at.call(w.park_c + Vector3(0, 60, 600), 0.5, func(): return false)
+	w.events.clear()
+	var sp: Vector3 = (sd["node"] as Node3D).global_position
+	await hold_at.call(at_ground.call(sp + Vector3(0, 0, 80)), 3.0, func(): return has_ev.call("flag:strider") and sd["state"] == "flee")
+	_check("wild: Strider notices you at 80 m, tail flag warns the herd, bolts (%s)" % sd["state"], has_ev.call("flag:strider") and sd["state"] == "flee")
+	# predator: Vexmaw warns, you back off and it calms; stay and it attacks; leave its ground and it gives up
+	var vx: Dictionary = find.call("vexmaw")
+	var home: Vector3 = vx["home"]
+	var vp: Vector3 = (vx["node"] as Node3D).global_position
+	var away := (vp - s.player.global_position)
+	away.y = 0
+	var dirv := -away.normalized()
+	await hold_at.call(at_ground.call(vp + dirv * 60.0), 2.0, func(): return vx["state"] == "warn")
+	var warned: bool = vx["state"] == "warn"
+	_tp(vp + dirv * 60.0 + Vector3(0, 20, 0), vp + Vector3(0, 2, 0))
+	await _wait(0.05)
+	await _capture("wild_vexmaw_warns")
+	await hold_at.call(at_ground.call(vp + dirv * 95.0), 2.0, func(): return vx["state"] == "patrol")
+	var calmed: bool = vx["state"] == "patrol"
+	_check("wild: Vexmaw warns at 60 m (%s), back off to 95 m and it calms down (%s)" % [warned, calmed], warned and calmed)
+	var h0 := w.hits
+	vp = (vx["node"] as Node3D).global_position
+	await hold_at.call(at_ground.call(vp - dirv * 20.0), 10.0, func(): return w.hits > h0)   # (on the far side, away from the landing pad)
+	_check("wild: predator - stay close and Vexmaw attacks and bites (hits %d, not a one-hit kill: %.0f dmg; %s, %.0f m, %s)" % [w.hits - h0, float(Data.WILDLIFE["vexmaw"]["dmg"]),
+		vx["state"], ((vx["node"] as Node3D).global_position - s.player.global_position).length(), w.events.slice(-6)],
+		has_ev.call("attack:vexmaw") and w.hits > h0)
+	var far: Vector3 = at_ground.call(home + dirv * (float(Data.WILDLIFE["vexmaw"]["territory"]) + 120.0))
+	await hold_at.call(far, 12.0, func(): return has_ev.call("gave_up:vexmaw"))
+	await _wait(0.1)
+	_check("wild: run past its territory and Vexmaw gives up and goes home (%s)" % vx["state"], has_ev.call("gave_up:vexmaw") and vx["state"] in ["return", "patrol"])
+	# defense: the Grumbark warns and holds while you stand off (no attack), then a shot near it and it turns on you
+	var gb: Dictionary = find.call("grumbark")
+	var gp: Vector3 = (gb["node"] as Node3D).global_position
+	await hold_at.call(at_ground.call(gp + Vector3(0, 0, 45)), 6.0, func(): return gb["state"] == "attack")
+	_check("wild: defense - Grumbark warns and holds its ground at 45 m for 6 s without attacking (%s)" % gb["state"], gb["state"] == "warn")
+	gp = (gb["node"] as Node3D).global_position
+	w.on_blast(gp + Vector3(0, 3, 0), "missile")
+	_check("wild: a missile near the Grumbark hurts it and it attacks straight away (hp %.0f, %s)" % [float(gb["hp"]), gb["state"]],
+		float(gb["hp"]) < float(Data.WILDLIFE["grumbark"]["hp"]) and gb["state"] == "attack")
+	await hold_at.call(at_ground.call(gp + Vector3(0, 0, 500)), 0.3, func(): return false)
+	# the snow giant: threat display, then the charge and the ground slam
+	var rb: Dictionary = find.call("rimeback")
+	var rp: Vector3 = (rb["node"] as Node3D).global_position
+	var rdir := Vector3(1, 0, 0)
+	await hold_at.call(at_ground.call(rp + rdir * 70.0), 1.5, func(): return rb["state"] == "warn")
+	var rwarn: bool = rb["state"] == "warn"
+	_tp(rp + rdir * 70.0 + Vector3(0, 25, 0), rp + Vector3(0, 7, 0))
+	await _wait(0.4)
+	await _capture("wild_rimeback_threat")
+	h0 = w.hits
+	rp = (rb["node"] as Node3D).global_position
+	await hold_at.call(at_ground.call(rp + rdir * 12.0), 10.0, func(): return has_ev.call("slam:rimeback"))
+	_check("wild: Rimeback threat display (%s), then charge + ground slam (%s, hits %d)" % [rwarn, has_ev.call("slam:rimeback"), w.hits - h0],
+		rwarn and has_ev.call("slam:rimeback"))
+	await hold_at.call(at_ground.call((rb["home"] as Vector3) + rdir * 600.0), 0.3, func(): return false)
+	# the burrower: a ripple comes at you, the ring telegraphs, step out and the bite misses; it's exposed, then digs back in
+	var sm: Dictionary = find.call("sandmaw")
+	var shome: Vector3 = sm["home"]
+	var stand: Vector3 = at_ground.call(shome + Vector3(0, 0, 60), 1.0)
+	await hold_at.call(stand, 20.0, func(): return sm["state"] == "telegraph")
+	var rippled: bool = has_ev.call("ripple:sandmaw")
+	var tele: bool = sm["state"] == "telegraph"
+	_tp(stand + Vector3(30, 22, 30), stand)
+	await _wait(0.05)
+	await _capture("wild_sandmaw_ring")
+	h0 = w.hits
+	var out_of_ring: Vector3 = at_ground.call(stand + Vector3(float(Data.WILDLIFE["sandmaw"]["ring"]) + 12.0, 0, 0), 1.0)
+	await hold_at.call(out_of_ring, 2.5, func(): return sm["state"] == "exposed")
+	var missed: bool = w.hits == h0 and sm["state"] in ["emerge", "exposed"]
+	var tg: Vector3 = sm["target"]
+	_tp(tg + Vector3(70, 30, 70), tg + Vector3(0, 9, 0))
+	await _wait(0.1)
+	await _capture("wild_sandmaw_out")
+	await hold_at.call(out_of_ring, 7.0, func(): return sm["state"] == "under")
+	_check("wild: Sandmaw ripples at you (%s), ring telegraphs (%s), step out and the bite misses (%s), exposed then re-burrows (%s)" % [rippled, tele, missed, sm["state"]],
+		rippled and tele and missed and sm["state"] == "under")
+	main.hud.visible = true
+
 func _job_v1125() -> void:
 	var s := _sp()
 	var hud = main.hud

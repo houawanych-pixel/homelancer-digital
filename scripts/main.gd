@@ -128,6 +128,17 @@ func start_game() -> void:
 	else: GS.save_game()   # v1.9j: a new pilot's slot is taken at once (the picker shows the name next time)
 	await get_tree().create_timer(2.6).timeout
 	if state == "flight" and GS.tutorial_seen.is_empty(): hud.flash_message(Data.TUTOR_HINT)   # v1.7r: a quiet hint, no radio noise
+	if wild_test_flag() and state == "flight": start_wild_test()
+
+## (wildlife-test branch) the wildlife test area: ?wildtest on the web, HL_WILDTEST / --wildtest on a PC.
+func wild_test_flag() -> bool:
+	return _web_flag("wildtest") or OS.get_environment("HL_WILDTEST") != "" or "--wildtest" in OS.get_cmdline_user_args()
+
+## Down onto Eden Prime's jungle with every species at its spot round you (Data.WILDLIFE_PARK).
+func start_wild_test() -> void:
+	_load_surface("eden_prime", 0)
+	space.wild_park = true
+	hud.flash_message("WILDLIFE TEST AREA - every animal is round you. Walk up, shoot near them, watch what they do.")
 	tutor_prefetch()   # (her first clip downloads while you fly)
 
 # ---------------------------------------------------------------- systems
