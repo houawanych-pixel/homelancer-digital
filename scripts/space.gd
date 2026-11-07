@@ -4020,7 +4020,7 @@ func _on_ship_pack(pk: String) -> void:
 
 func set_player_model() -> void:
 	if is_instance_valid(model): model.queue_free()
-	if GS.form == "mech" and not Packs.is_ready("mechs") and not on_foot: GS.form = "ship"
+	if GS.form == "mech" and not Packs.is_ready("mechs") and not on_foot and not (escape_pilot and PilotRig.ready()): GS.form = "ship"
 	var mech := GS.form == "mech"
 	# v10.2 (owner, phone shots: "why does the game look like this"): a bought ship whose model comes in its own pack
 	# (Ranger, Lancer, Hauler, Bulk) was only fetched on the ship dealer page, so flying straight out after loading the
@@ -9018,6 +9018,7 @@ func hostiles_near(r: float) -> int:
 ## Build one planet tile as the play area. Reuses all of the flight, combat, HUD and docking code; only the world
 ## around the player is different. planet/gate become hidden placeholders; the tile's town pad is the dockable "station".
 func setup_surface(pid: String, t: int) -> void:
+	Packs.request(PilotRig.PACK)   # v12.44: your pilot, ready for EJECT
 	surface_mode = true
 	planet_id = pid
 	sun_surface = Surface.is_sun(pid)
