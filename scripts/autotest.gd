@@ -2502,6 +2502,26 @@ func _run() -> void:
 			cube.global_position = s.cam.global_position - s.cam.global_basis.z * 20.0
 			await _frames(4)
 			await _capture("probe_cube")
+			print("[route] PROBE cam xf %s det %.4f current %s vp %s proj %s" % [s.cam.global_transform, s.cam.global_basis.determinant(), s.cam.current, get_viewport().get_visible_rect().size, s.cam.get_camera_projection()])
+			var c2 := Camera3D.new()
+			s.add_child(c2)
+			c2.global_position = cube.global_position + Vector3(0, 3, 30)
+			c2.look_at(cube.global_position, Vector3.UP)
+			c2.current = true
+			await _frames(4)
+			await _capture("probe_newcam")
+			var inside: Node3D = s.get_node_or_null("BattleshipInside")
+			if inside: inside.visible = false
+			await _frames(4)
+			await _capture("probe_noinside")
+			for ch in s.get_children():
+				if ch is Node3D and ch != c2 and ch != cube: (ch as Node3D).visible = false
+			await _frames(4)
+			await _capture("probe_onlycube")
+			for m in s.find_children("*", "GeometryInstance3D", true, false):
+				var gi := m as GeometryInstance3D
+				if gi.is_visible_in_tree() and (gi.global_position.distance_to(s.cam.global_position) < 15.0 or gi.get_parent() == s.cam or gi.get_aabb().size.length() * gi.global_basis.get_scale().length() > 2000.0):
+					print("[route] NEAR %s %s aabb %s dist %.1f" % [gi.get_path(), gi.get_class(), gi.get_aabb().size, gi.global_position.distance_to(s.cam.global_position)])
 			print("[route] PROBE cam far %s near %s fov %s cull %s env_fog %s vp_scale %s msaa %s" % [s.cam.far, s.cam.near, s.cam.fov, s.cam.cull_mask, envr.fog_enabled, get_viewport().scaling_3d_scale, get_viewport().msaa_3d])
 		var e0: float = s.lamp_energy()
 		s.laser_shield = true
