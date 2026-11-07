@@ -123,6 +123,10 @@ static func wanted(pid: String, t: int) -> bool:
 static func regions_on() -> bool:
 	return regions_test or (enabled() and not force)
 
+## v12.52 (owner: "returning to a previous world could have a random seed ... worlds are always growing and changing"):
+## planet -> how many times you've come back; it changes every region's seed (rocks, caves, trees, flowers: not the
+## planet's hills, so bases and pads stay put). What you blew up last time isn't kept.
+static var visit_salt := {}
 static func region_key(pid: String, t: int, r: Vector2i) -> String:
 	return "%s|%d|%d|%d" % [pid, t, r.x, r.y]
 
@@ -174,6 +178,7 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 	else:
 		name = "BlockField_%d_%d" % [reg.x, reg.y]
 		_sk = region_key(pid, t, reg)
+		if int(visit_salt.get(pid, 0)) > 0: _sk += "|v%d" % int(visit_salt[pid])   # v12.52: a world is different each time you come back
 		center = region_centre(reg) + frame
 		off = frame
 		cols = int(round(Data.BLOCK_REGION / big))
@@ -2384,8 +2389,10 @@ render_mode cull_disabled, diffuse_lambert, specular_disabled;
 uniform vec3 grass_col = vec3(0.4, 0.7, 0.3);
 uniform vec3 tip_col = vec3(0.7, 0.95, 0.45);    // v12.8: the light tips
 uniform float blades = 7.0;   // (kept for the old settings)
+varying vec3 wcell;
 void vertex() {
 	vec3 o = MODEL_MATRIX[3].xyz;
+	wcell = o;
 	float t = TIME * 1.7 + o.x * 0.045 + o.z * 0.037;
 	float k = UV.y * UV.y;
 	VERTEX.x += (sin(t + VERTEX.z * 3.0) * 0.09 + sin(t * 2.3 + VERTEX.z * 6.0) * 0.03) * k;
@@ -2394,7 +2401,10 @@ void vertex() {
 void fragment() {
 	// v12.27: every blade is its own little tapered leaf (UV.x = that blade's own shade, UV.y = up it)
 	float vary = 0.82 + 0.3 * UV.x;
-	vec3 c = mix(COLOR.rgb * 0.7, tip_col, smoothstep(0.05, 1.0, UV.y)) * vary;
+	// v12.52: the colour drifts across the field (patches lighter, darker, yellower), not one even carpet
+	float patch = 0.5 + 0.25 * sin(wcell.x * 0.031 + 1.3) * sin(wcell.z * 0.027) + 0.25 * sin(wcell.x * 0.011 - wcell.z * 0.013);
+	vec3 base = mix(COLOR.rgb * 0.62, COLOR.rgb * 0.9 + vec3(0.06, 0.05, -0.02), patch);
+	vec3 c = mix(base, mix(tip_col, tip_col * vec3(1.08, 1.0, 0.75), patch), smoothstep(0.1, 1.0, UV.y)) * vary;
 	ALBEDO = c;
 	BACKLIGHT = c * 0.35;
 	ROUGHNESS = 0.8;
@@ -2429,13 +2439,16 @@ static func grass_mesh() -> ArrayMesh:
 				st.add_vertex(v[0])
 			prev_l = l
 			prev_r = r
-	for gz in g:
-		for gx in g:
-			var c := Vector3(-0.5 + (gx + 0.5) / g + rng.randf_range(-0.06, 0.06), 0, -0.5 + (gz + 0.5) / g + rng.randf_range(-0.06, 0.06))
-			var a0 := rng.randf() * TAU
-			for b in 3:
-				var tall := rng.randf_range(0.55, 1.0) if b == 0 else rng.randf_range(0.35, 0.8)
-				blade.call(c, a0 + TAU * b / 3.0 + rng.randf_range(-0.3, 0.3), rng.randf_range(0.06, 0.16), tall, 0.09, rng.randf())
+	# v12.52: tufts scattered over a round patch (no rows), taller in the middle, thinning out at the edge
+	for i in g * g + 4:
+		var ang := rng.randf() * TAU
+		var rad := sqrt(rng.randf()) * 0.62
+		var c := Vector3(cos(ang) * rad, 0, sin(ang) * rad)
+		var edge := 1.0 - rad / 0.62 * 0.45
+		var a0 := rng.randf() * TAU
+		for b in 3:
+			var tall := (rng.randf_range(0.55, 1.0) if b == 0 else rng.randf_range(0.3, 0.8)) * edge
+			blade.call(c, a0 + TAU * b / 3.0 + rng.randf_range(-0.4, 0.4), rng.randf_range(0.05, 0.2), tall, rng.randf_range(0.07, 0.11), rng.randf())
 	_grass_mesh = st.commit()
 	return _grass_mesh
 
@@ -2615,7 +2628,14 @@ func _draw_grass() -> void:
 		var g: Array = grass_inst[live[j]]
 		var sz: float = float(g[1]) * Data.BLOCK_MIN
 		var hh: float = float(g[3]) * Data.BLOCK_MIN * Data.GRASS_HEIGHT_K
-		mi.multimesh.set_instance_transform(j, Transform3D(Basis.from_scale(Vector3(sz, hh, sz)), _grass_pos(g)))
+		# v12.52 (owner: "the grass is very pattern-like"): every clump turned its own way, a little bigger or smaller,
+		# taller or shorter, nudged off the grid, and spilling over its square's edges, so the squares don't show
+		var hsh := absi(hash(Vector2i(int(g[0]), live[j])))
+		var yaw := float(hsh % 6283) / 1000.0
+		var ks := 1.05 + float((hsh / 7) % 100) / 100.0 * 0.45
+		var kh := 0.7 + float((hsh / 701) % 100) / 100.0 * 0.6
+		var jit := Vector3(float((hsh / 13) % 100) / 100.0 - 0.5, 0, float((hsh / 1301) % 100) / 100.0 - 0.5) * sz * 0.35
+		mi.multimesh.set_instance_transform(j, Transform3D(Basis(Vector3.UP, yaw).scaled(Vector3(sz * ks, hh * kh, sz * ks)), _grass_pos(g) + jit))
 		mi.multimesh.set_instance_color(j, Color(0.35, 0.18, 0.1) if grass_burn.has(live[j]) else _grass_root(g))
 
 ## v12.28: is there live grass (or, flowers_only, a flower) at this point? (where the wildlife appears)
@@ -3628,21 +3648,47 @@ varying float leaf;
 varying vec3 wpos;
 varying vec3 wnrm;
 float h3(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
+float n3(vec3 p) {   // smooth value noise
+	vec3 i = floor(p);
+	vec3 f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(mix(h3(i), h3(i + vec3(1, 0, 0)), f.x), mix(h3(i + vec3(0, 1, 0)), h3(i + vec3(1, 1, 0)), f.x), f.y),
+		mix(mix(h3(i + vec3(0, 0, 1)), h3(i + vec3(1, 0, 1)), f.x), mix(h3(i + vec3(0, 1, 1)), h3(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+}
+varying float wood;
 void vertex() {
 	sky = COLOR.a;
 	glow = UV.x;
-	leaf = UV.y > 1.5 ? 1.0 : 0.0;
-	gloss = UV.y - leaf * 2.0;
+	wood = UV.y > 3.5 ? 1.0 : 0.0;
+	leaf = (UV.y > 1.5 && wood < 0.5) ? 1.0 : 0.0;
+	gloss = UV.y - leaf * 2.0 - wood * 4.0;
+	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	// v12.52 (owner: "the leaves are really blocky ... more cloud-like; trunks more round"): every corner of a leaf
+	// block is pushed about by a smooth noise (the same push for the same point, so nothing splits), so a canopy's
+	// edges billow instead of running straight; a trunk's corners are pulled in a little and wobble, like bark
+	if (leaf > 0.5) {
+		vec3 q = wpos * 0.21;
+		vec3 d = vec3(n3(q) - 0.5, n3(q + 31.7) - 0.45, n3(q + 63.1) - 0.5) * 4.2;
+		VERTEX += (inverse(MODEL_MATRIX) * vec4(d, 0.0)).xyz;
+	} else if (wood > 0.5) {
+		vec3 q2 = wpos * 0.35;
+		vec3 d2 = vec3(n3(q2) - 0.5, 0.0, n3(q2 + 17.3) - 0.5) * 1.6;
+		VERTEX += (inverse(MODEL_MATRIX) * vec4(d2, 0.0)).xyz;
+	}
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	wnrm = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
 }
 void fragment() {
 	vec3 tint = vec3(1.0);
-	if (leaf > 0.5) {   // Minecraft-style leaves: 8 pixels a block, each its own shade, some of them holes
-		vec3 cell = floor((wpos - wnrm * 0.05) / 0.625);
-		float r = h3(cell);
-		if (r < 0.22) discard;
-		tint = vec3(0.72 + 0.5 * h3(cell + 17.0));
+	if (leaf > 0.5) {   // v12.52: soft clumps of foliage (was Minecraft's 8-pixel squares): light on the bulges, dark in the folds, a few gaps
+		float c1 = n3(wpos * 0.55);
+		float c2 = n3(wpos * 1.6 + 7.0);
+		float clump = c1 * 0.65 + c2 * 0.35;
+		if (c2 < 0.12 && c1 < 0.4) discard;
+		tint = vec3(0.6 + 0.65 * clump) * vec3(1.0, 1.0 + 0.08 * (c2 - 0.5), 1.0);
+	} else if (wood > 0.5) {   // bark: vertical grooves, darker in them
+		float g = n3(vec3(wpos.x * 1.4, wpos.y * 0.18, wpos.z * 1.4));
+		tint = vec3(0.7 + 0.45 * g);
 	}
 	ALBEDO = COLOR.rgb * tint;
 	ROUGHNESS = mix(0.9, 0.3, gloss);
@@ -3698,7 +3744,7 @@ func glow_points(near: Vector3, reach: float) -> Array:
 func _look(st: SurfaceTool, m: String) -> void:
 	# v12.0 (owner: "how did Minecraft do the leaves"): uv.y over 1.5 marks a leaf face: the shader gives it a
 	# blocky pixel pattern with see-through holes
-	st.set_uv(Vector2(float(Data.BLOCK_GLOW.get(m, 0.0)), float(Data.BLOCK_GLOSS.get(m, 0.0)) + (2.0 if Data.LEAF_COLORS.has(m) else 0.0)))
+	st.set_uv(Vector2(float(Data.BLOCK_GLOW.get(m, 0.0)), float(Data.BLOCK_GLOSS.get(m, 0.0)) + (2.0 if Data.LEAF_COLORS.has(m) else (4.0 if m == "wood" else 0.0))))
 
 func _sky(cs: Array, covered: bool) -> Array:
 	var out: Array = []
@@ -4105,10 +4151,14 @@ func _rock_jit(p: Vector3) -> Vector2:
 	var b := float((h1 / 1000) % 1000) / 999.0
 	# ledges: some rows stick out further than others (strata), the rest is broken up
 	var ledge := 0.5 + 0.5 * sin(p.y * 0.9 + float(h1 % 7))
-	return Vector2((a * 0.7 + ledge * 0.6 - 0.55) * Data.ROCK_JAG, (b - 0.5) * Data.ROCK_JAG * 0.5)
+	# v12.52 (owner: "grooves and indentations in and out as it climbs ... still linear"): flutes running up the wall
+	# (the same in-and-out all the way up, varying along it), on top of the broken ledges
+	var u := p.x + _pox + p.z + _poz
+	var flute := 0.55 * sin(u * 0.62) + 0.3 * sin(u * 1.37 + 1.9) + 0.15 * sin(u * 2.9 + 0.4)
+	return Vector2((a * 0.5 + ledge * 0.35 - 0.42) * Data.ROCK_JAG + flute * Data.ROCK_FLUTE, (b - 0.5) * Data.ROCK_JAG * 0.5)
 
 func _rock_wall(st: SurfaceTool, p0: Vector3, p1: Vector3, y: float, y_end: float, top: float, low: float, ct: Color, cb: Color, nrm: Vector3) -> void:
-	var cols := 2
+	var cols := Data.ROCK_COLS
 	var rows := maxi(1, int(ceil((y - y_end) / Data.ROCK_ROW)))
 	var grid: Array = []
 	for r in rows + 1:

@@ -1782,6 +1782,51 @@ func _run() -> void:
 	main.hud.cl_open = true   # (v8.0: the windows start folded; the checks read them open)
 	main.hud.sp_open = true
 	main.hud.weapons_pinned = true   # (v7.0: every button up for the checks; the pop-up has its own check)
+	if not _flag("HL_LANDFILM"):   # v12.52: the landing film is cut short in the other checks (they time the descent)
+		main.landing_film_min = 0.0
+		main.landing_film_max = 0.4
+	if _flag("HL_LANDFILM"):   # v12.52 (owner): the landing film while the ground loads, Evee's briefing, a fresh world on a return
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		await Packs.wait("planets", 60.0)
+		var s := _sp()
+		var pid0: String = s.planet.get_meta("info")["id"]
+		var pc: Vector3 = s.planet.global_position
+		var pr: float = s.planet.get_meta("radius")
+		var dd := (s.player.global_position - pc).normalized()
+		_tp(pc + dd * (pr + 90.0), pc)
+		main.hud.move_vec = Vector2(0, -1)
+		await _until(func(): return main.state == "atmosphere", 8.0)
+		main.hud.move_vec = Vector2.ZERO
+		await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and main.space.cine_t > 2.0, 90.0)
+		await _capture("landing_film")
+		await _until(func(): return main.state == "flight" and main.space.surface_mode, 40.0)
+		await _wait(1.0)
+		s = _sp()
+		var first_ok: bool = main.landing_film_s >= Data.LANDING_FILM_MIN - 0.1 and s.cine_t < 0.0 and int(GS.planet_visits.get(pid0, 0)) == 1 and main.on_call == "assistant"
+		var built: bool = s.ground_ready() or main.landing_film_s >= Data.LANDING_FILM_MAX - 0.1
+		await _capture("landing_out")
+		_check("v12.52 (owner): coming down, a film of your ship in the clouds while the ground loads (%.1f s), then the chase view; Evee briefs you (first visit)" % main.landing_film_s, first_ok and built, "film %.1f cine %.1f visits %s call %s ready %s" % [main.landing_film_s, s.cine_t, GS.planet_visits, main.on_call, s.ground_ready()])
+		# up and back down: a second visit, a fresh world
+		GS.block_deltas[pid0 + "|0|0|0"] = [[0, 0, 0, "gun"]]
+		main.leave_atmosphere()
+		await _until(func(): return main.state == "flight" and not main.space.surface_mode, 40.0)
+		await _wait(1.0)
+		s = _sp()
+		pc = s.planet.global_position
+		dd = (s.player.global_position - pc).normalized()
+		_tp(pc + dd * (pr + 90.0), pc)
+		main.hud.move_vec = Vector2(0, -1)
+		await _until(func(): return main.state == "atmosphere", 8.0)
+		main.hud.move_vec = Vector2.ZERO
+		await _until(func(): return main.state == "flight" and main.space.surface_mode, 90.0)
+		await _wait(1.0)
+		var again: bool = int(GS.planet_visits.get(pid0, 0)) == 2 and int(BlockField.visit_salt.get(pid0, 0)) == 1 and not GS.block_deltas.has(pid0 + "|0|0|0") and main.on_call == "assistant"
+		await _capture("landing_again")
+		_check("v12.52 (owner): back on a world you've been to: nothing kept from last time, a new seed, and Evee knows it (visit %d)" % int(GS.planet_visits.get(pid0, 0)), again, "visits %s salt %s deltas kept %s" % [GS.planet_visits, BlockField.visit_salt, GS.block_deltas.has(pid0 + "|0|0|0")])
+		_finish_group()
+		return
 	if OS.get_environment("HL_ESCAPE") == "" and not _flag("HL_BREAKOUT"): main.hub.escape_3d = false   # v12.30: the older lockdown checks test the panorama fight (HL_ESCAPE tests the 3D one)
 	if OS.get_environment("HL_SMOKE") != "":   # Nov 2 (owner): the fast pre-deploy check (< 2 min)
 		await _smoke()

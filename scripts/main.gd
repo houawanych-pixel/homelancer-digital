@@ -1383,6 +1383,11 @@ func enter_atmosphere(planet_node: Node3D) -> void:
 		fx.caption = "ENTERING ATMOSPHERE"
 		fx.sub = "Receiving surface data…"
 		await Packs.wait("planets", 90.0)   # clouds stay up while the planet pack arrives
+	# v12.52 (owner): no saved craters from last time, and a new seed for the world's rocks, caves and trees
+	var visits := int(GS.planet_visits.get(pid, 0))
+	GS.planet_visits[pid] = visits + 1
+	BlockField.visit_salt[pid] = visits
+	for bk in GS.block_deltas.keys(): if str(bk).begins_with(pid + "|"): GS.block_deltas.erase(bk)
 	_load_surface(pid, t)            # loads while the screen is white
 	space.controls = false
 	var p: Node3D = space.player
@@ -1395,6 +1400,28 @@ func enter_atmosphere(planet_node: Node3D) -> void:
 	space._update_camera(1.0, true)
 	fx.caption = "SOLAR SURFACE" if Surface.is_sun(pid) else "ATMOSPHERE"
 	fx.sub = Surface.tile_name(pid, t)
+	# v12.52 (owner: "things were taking so long to load ... a movie clip of the ship going through clouds, then back to
+	# the chase view, to give it time to load"): the camera flies round your ship as it glides down through thinning
+	# cloud while the ground under you is built; the chase view comes back when it's ready (or after 14 s at most)
+	if not Surface.is_sun(pid):
+		space.cine_t = 0.0
+		space.vel = -p.global_basis.z * 35.0
+		var twc := create_tween()
+		twc.tween_property(fx, "heat", 0.25, 0.8)
+		twc.parallel().tween_property(fx, "clouds", 0.55, 1.5)
+		await twc.finished
+		fx.caption = ""
+		var waited := 0.0
+		while waited < landing_film_max and (waited < landing_film_min or not space.ground_ready()):
+			await get_tree().process_frame
+			var fdt := get_process_delta_time()
+			waited += fdt
+			space.vel = -p.global_basis.z * 35.0
+			fx.clouds = 0.55 + 0.2 * sin(waited * 1.3)   # (cloud banks drifting past)
+		landing_film_s = waited
+		space.cine_t = -1.0
+		space.vel = -p.global_basis.z * clampf(entry_speed, 40.0, 90.0)   # (back to your own speed)
+		space._update_camera(1.0, true)
 	var tw2 := create_tween()
 	tw2.tween_property(fx, "heat", 0.0, 0.9)
 	tw2.parallel().tween_method(func(k: float): space.hit_shake = 0.5 * (1.0 - k), 0.0, 1.0, 1.2)
@@ -1405,6 +1432,21 @@ func enter_atmosphere(planet_node: Node3D) -> void:
 	hud.visible = true
 	state = "flight"
 	hud.flash_message("Welcome to %s." % Surface.tile_name(pid, t).capitalize())
+	if not Surface.is_sun(pid): say_as("assistant", planet_brief(pid, t, visits))   # v12.52: Evee on what this world is
+
+var landing_film_s := 0.0   # (tests)
+var landing_film_min: float = Data.LANDING_FILM_MIN
+var landing_film_max: float = Data.LANDING_FILM_MAX
+## v12.52 (owner: "Evee ... this planet is lush ... or its data is unknown until you visit; you've been here before"):
+## what Evee says as you come out of the clouds
+func planet_brief(pid: String, t: int, visits: int) -> String:
+	var nm: String = str(Surface.PLANETS[pid]["name"])
+	var key: String = str(Surface.PLANETS[pid]["tiles"][t])
+	var bname: String = str(Surface.biome(pid, t)["name"]).to_lower()
+	if visits <= 0:
+		return "[normal]%s. We've never been here: no survey data on this world yet. I'm logging what we see. Below us: %s. Keep your eyes open." % [nm, bname]
+	var hint: String = str(Data.PLANET_HINTS.get(key, "Nothing on record that'll kill you outright."))
+	return "[smile]We've been to %s before (that's %d visits now). This sector's %s. %s It's shifted since last time, the ground's been reshaped." % [nm, visits + 1, bname, hint]
 
 ## Crossing a tile edge. Normally seamless (SUPERSEDES the old "storm on every border"): the next sector was built
 ## ahead of time, so the ground just continues. Only if it isn't ready yet (very fast flight) a quick cloud pass hides

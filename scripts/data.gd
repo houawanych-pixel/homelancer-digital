@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.51"
+const VERSION := "v12.52"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -758,6 +758,8 @@ const GRASS_GRID := 4
 const GRASS_HEIGHT_K := 0.17
 const FELL_PIECES := 14
 const ROCK_JAG := 2.2     # v12.43: m bare rock walls push in / out (0 = flat walls)
+const ROCK_FLUTE := 2.6   # v12.52: m the flutes up a rock wall push in / out
+const ROCK_COLS := 4      # v12.52: columns across each 5 m of rock wall (was 2: room for the flutes)
 const ROCK_ROW := 2.5     # m between the rows of a rock wall's grid    # v12.43: falling pieces when a burnt tree comes down
 const FLOWER_HEIGHT_K := 0.3
 const FLOWER_SHARE := {"jungle": 0.14, "forest": 0.07, "coast": 0.05, "toxic": 0.06, "mountains": 0.03, "city": 0.02}   # share of the grass that is flowers
@@ -2550,6 +2552,21 @@ const ESCAPE_CHASERS := 20
 ## you) arrests you: ALERT, the hangar door locks until you hit the console in the SECURITY OFFICE. Die and you're back
 ## at the start, unseen. The guards are soldiers (the station faction's GLB soldier), not mechs.
 const BREAKOUT_SHELL_SHOWN := false   # v12.49 (owner: "it was there just as a guide ... bulky, blocking the view"): the station model only shapes the layout
+const LANDING_FILM_MIN := 4.0   # v12.52: s the landing film runs at least ...
+const LANDING_FILM_MAX := 14.0  # ... and at most (while the ground under you is built)
+## v12.52: Evee's notes on a sector you've been to before (by biome key)
+const PLANET_HINTS := {
+	"ocean": "Mostly open water: land is scarce, watch your altitude.", "coast": "Coastline and city: friendly ground, good for a pad.",
+	"canyon": "Deep red canyons: tight walls, easy to clip a wing.", "forest": "It's lush: dense forest, plenty of cover, trees burn.",
+	"jungle": "Thick jungle: big trees, low visibility, things hide in there.", "desert": "Dry dunes and heat: no water, long sight lines.",
+	"ice": "Ice and snow: slick ground, cold sinks your shields slower but it's empty out there.", "tundra": "Cold, open tundra.",
+	"mountains": "High mountains: sheer drops, the air's thin up top.", "lava": "Lava fields: hot ground, don't land in the bright stuff.",
+	"volcanic": "Volcanic: lava pockets under the crust, mind where you dig.", "crystal": "Crystal fields: they glow and they're worth credits.",
+	"barren": "Barren rock and craters: no air to speak of, nothing grows.", "moon": "A moon: craters and dust, low cover.",
+	"swamp": "Swamp: wet, low ground, bad footing.", "city": "Capital city: their people, their guns. Mind your manners.",
+	"industrial": "Industrial sprawl: refineries and pipe runs, lots of hard cover.", "wasteland": "Wasteland: scorched and empty, raiders like it here.",
+	"toxic": "Toxic air: don't hang around outside the cockpit.", "machine": "Machine world: the ground itself is built. Odd readings.",
+	"clouds": "A gas world: endless cloud, nowhere solid to land."}
 const LIFT_SPEED := 18.0        # v12.51: m/s a lift platform moves
 const GUARD_H := 13.0           # m: drawn at the pilot's (mech-sized) height
 const GUARD_HP := 70.0          # a soldier: far less than a mech

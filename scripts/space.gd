@@ -8544,8 +8544,21 @@ const LOOK_YAW := 0.5      # radians at full look left/right
 const LOOK_PITCH := 0.22   # radians at full look up/down (less: you shouldn't see past the canopy art)
 
 var cam_sway := Vector2.ZERO   # v10.4: (side, up) the chase camera trails the ship's sliding moves by (m, ship axes)
+var cine_t := -1.0   # v12.52: the landing film (>= 0: the camera flies round your ship on its own)
 func _update_camera(dt: float, snap: bool) -> void:
 	if is_instance_valid(player): _cam_prev_ship = player.global_position
+	if cine_t >= 0.0 and is_instance_valid(player):
+		# v12.52 (owner: "a camera lock sequence ... going through clouds coming into the atmosphere ... then back to the
+		# chase view"): a slow sweep from in front of the ship round its side to behind it, a little above
+		cine_t += dt
+		var mb2 := player.global_basis
+		var a := lerpf(-2.6, -0.35, clampf(cine_t / 9.0, 0.0, 1.0)) + sin(cine_t * 0.7) * 0.08
+		var dist := lerpf(46.0, 70.0, clampf(cine_t / 9.0, 0.0, 1.0))
+		var rel := mb2 * Vector3(sin(a) * dist, 9.0 + 5.0 * sin(cine_t * 0.45), cos(a) * dist)
+		if hit_shake > 0.0: rel += Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), 0) * hit_shake * 0.6
+		_set_cam(rel, Vector3(0, 2.0, 0), Vector3.UP)
+		cam.fov = 58.0
+		return
 	_sync_fpv(dt)
 	_sync_hand_gun()
 	# v9.1 (owner: 1,000 km systems): the camera is worked out as an offset from the ship (rel), never from its own far-out
@@ -11447,13 +11460,24 @@ func _update_light(dt: float, bf: BlockField, p: Vector3) -> void:
 		ol.omni_range = spec[2]
 		ol.set_meta("kind", pts[i][1])
 		ol.visible = true
+var regions_pending := true   # v12.52: block ground still being built round you
+## v12.52: the block ground right round you (your region and the four beside it) is built
+func ground_ready() -> bool:
+	if not BlockField.regions_on() or sun_surface or not is_instance_valid(player) or not is_instance_valid(tile_root): return true
+	var p := player.global_position
+	for o in [Vector2.ZERO, Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]:
+		var k := _region_key_at(p.x + o.x * Data.BLOCK_REGION, p.z + o.y * Data.BLOCK_REGION)
+		if not _regions.has(k): return false
+	return true
 var region_ms := 0.0     # how long the last region took to build (ms, tests)
 var regions_built := 0   # (tests)
 var _building: BlockField = null   # the region being built now (outside the tree until it's done)
 var _building_key := Vector4i.ZERO
 var _build_t0 := 0
 func _update_regions() -> void:
-	if not BlockField.regions_on() or sun_surface or not is_instance_valid(tile_root) or not is_instance_valid(player): return
+	if not BlockField.regions_on() or sun_surface or not is_instance_valid(tile_root) or not is_instance_valid(player):
+		regions_pending = false
+		return
 	var p := player.global_position
 	var pp := Vector2(p.x, p.z)
 	var changed := false
@@ -11476,6 +11500,7 @@ func _update_regions() -> void:
 				bd = d
 				best = k
 				found = true
+	regions_pending = found or _building != null   # v12.52: (the landing waits for this)
 	if _building != null:   # one region at a time, built a little each frame
 		if _building.built:
 			tile_root.add_child(_building)
