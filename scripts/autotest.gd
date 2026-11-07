@@ -2859,11 +2859,16 @@ func _run() -> void:
 		main._on_hud("warp")
 		var fwd := -s.player.global_basis.z
 		var top := 0.0
+		var charging := 0.0
 		for i in 120:
 			s.vel = Vector3(fwd.x * 100.0, s.vel.y, fwd.z * 100.0)
 			s._foot_speed(1.0 / 60.0)
 			top = Vector2(s.vel.x, s.vel.z).length()   # (stepped by hand: the stick isn't held in the test)
+			if i == 40: charging = top
 		var boost_ok: bool = s.sprint and s.speed_k > 0.9 and top > Data.FOOT_SPEED * 3.0
+		await _capture("speed_ghosts")
+		var ghosts_n: int = s.ghosts.size()
+		_check("v12.46 (owner: \"charge before it runs fast, shadow runners behind you\"): charging it's a plain run (%.1f m/s), charged a speed boost (%.0f m/s) with %d shadow runners" % [charging, top, ghosts_n], charging <= Data.FOOT_SPEED * Data.SPRINT_K + 0.5 and top > charging * 1.8 and ghosts_n > 0, "charge %.1f top %.1f ghosts %d" % [charging, top, ghosts_n])
 		var k_was: float = s.speed_k
 		main._on_hud("warp")
 		main._on_hud("ground")
@@ -2927,23 +2932,83 @@ func _run() -> void:
 		main._on_hud("form")
 		await _wait(0.5)
 		var no_tf: bool = GS.form == f0 and s.transform_t <= 0.0
-		_check("v12.38 (owner): the breakout runs in the real mech game: the whole HUD (TARGET, GO TO, COMMS, radar, wheels, missiles, sword, shield), you on foot as the pilot, TRANSFORM out; the way out open and the clock running", on_foot and hud_ok and no_tf and bool(b.get("breakout", false)) and str(b.get("phase", "")) == "escape", "foot %s hud %s no_tf %s breakout %s" % [on_foot, hud_ok, no_tf, b.get("breakout")])
-		for at in [Vector3(-200, 0, 0), Vector3(0, 0, 0)]:
-			var q := Boarding.keep_in(at, 20.0)
-			_tp(Vector3(q.x, Boarding.floor_at(q) + 6.0, q.z), q + Vector3(80, 0, 0))
-			await _wait(0.8)
-			await _capture("breakout_deck")
-		s.player.global_position = Vector3(Boarding.EXIT_X + 2.0, 6, 120)
+		var soldiers := 0
+		var mechs := 0
+		for e in s.enemies:
+			if bool(e.get("soldier", false)): soldiers += 1
+			elif bool(e.get("walker", false)): mechs += 1
+		_check("v12.46 (owner): the breakout is a small HUB station (%d rooms), quiet at the start; the guards are %s SOLDIERS (%d), not mechs (%d); the whole HUD, you on foot, TRANSFORM out" % [Boarding.ROOMS.size(), str(b.get("faction", "")), soldiers, mechs], on_foot and hud_ok and no_tf and bool(b.get("breakout", false)) and str(b.get("phase", "")) == "sneak" and soldiers > 3 and mechs == 0 and Boarding.ROOMS.size() <= 12 and Boarding.KIND == "hub", "foot %s hud %s no_tf %s phase %s kind %s" % [on_foot, hud_ok, no_tf, b.get("phase"), Boarding.KIND])
+		# nobody targetable from the arrivals deck (they're all in other rooms); a shot stops on the wall
+		await _frames(3)
+		var known := 0
+		for e in s.enemies: if s.board_known(e): known += 1
+		var tg: Array = s.targetables().filter(func(n): return n != null and is_instance_valid(n) and str(n.name).contains("Guard"))
+		var p0: Vector3 = s.player.global_position
+		var wt: float = s.board_wall_t(p0, p0 + Vector3(0, 0, 900))
+		var aggro0 := 0
+		for e in s.enemies: if bool(e.get("aggro", false)): aggro0 += 1
+		_check("v12.46 (owner): no targets or aware guards until you're in their room (known %d, targets %d, aware %d); shots stop on walls (a shot across the deck stops %.0f%% of the way)" % [known, tg.size(), aggro0, wt * 100.0], known == 0 and tg.is_empty() and aggro0 == 0 and wt < 1.0, "known %d tg %d aggro %d wall %.2f room %s" % [known, tg.size(), aggro0, wt, str(b.get("room"))])
+		# walk into the hub behind a guard: unseen; then in front of him: FREEZE
+		var g: Dictionary = {}
+		for e in s.enemies: if Boarding.room_at((e["node"] as Node3D).global_position, 8.0) == "reactor": g = e
+		var gn: Node3D = g["node"]
+		var parked_at := 0.0
+		for e in s.enemies:   # (just this one guard in the hub for the test: the others stood down in the cantina)
+			if e != g and Boarding.room_at((e["node"] as Node3D).global_position, 8.0) == "reactor":
+				var cr: Array = Boarding.ROOMS["cantina"]["r"]
+				e["home"] = Vector3((float(cr[0]) + float(cr[1])) * 0.5 + parked_at, (e["node"] as Node3D).global_position.y, (float(cr[2]) + float(cr[3])) * 0.5)
+				(e["node"] as Node3D).global_position = e["home"]
+				parked_at += 30.0
+		var gf: Vector3 = -gn.global_basis.z
+		gf.y = 0.0
+		gf = gf.normalized()
+		var behind := gn.global_position - gf * 150.0
+		_tp(Vector3(behind.x, Boarding.floor_at(gn.global_position) + 6.0, behind.z), gn.global_position)
+		g["orbit"] = 0.0
+		await _frames(4)
+		var unseen: bool = str(s.board["phase"]) == "sneak"
+		var front := gn.global_position + (-gn.global_basis.z) * 160.0
+		front.y = Boarding.floor_at(gn.global_position) + 6.0
+		_tp(front, gn.global_position)
+		await _wait(0.5)
+		var arrested: bool = str(s.board["phase"]) == "escape" and bool(s.board.get("alerted", false))
+		var locked := false
+		for d in s.board_doors: if Boarding.is_door(d, Boarding.ESCAPE_DOOR): locked = bool(d["locked"])
+		await _capture("breakout_freeze")
+		_check("v12.46 (owner: \"Freeze! You're under arrest!\"): behind a guard he doesn't see you; in front of him he arrests you: ALERT, the hangar door locks", unseen and arrested and locked, "unseen %s arrested %s locked %s" % [unseen, arrested, locked])
+		var con: Vector3 = s.board.get("console", Vector3.ZERO)
+		_tp(con + Vector3(0, 6, 25), con)
+		await _wait(0.4)
+		var opened := true
+		for d in s.board_doors: if Boarding.is_door(d, Boarding.ESCAPE_DOOR): opened = not bool(d["locked"])
+		# die: back at the start, unseen
+		GS.hull = 0.0
+		s._die()
+		var sid0: int = s.get_instance_id()
+		await _until(func(): return main.breakout_retries >= 1 and main.state == "flight" and is_instance_valid(main.space) and main.space.boarding and main.space.get_instance_id() != sid0, 60.0)
+		await _wait(1.0)
+		var s3 := _sp()
+		var retry_ok: bool = main.breakout_retries == 1 and str(s3.board.get("phase", "")) == "sneak" and GS.hull > 0.0
+		_check("v12.46 (owner): the security console opens the hangar; killed, you start again from before they found you", opened and retry_ok, "opened %s retry %s phase %s" % [opened, retry_ok, s3.board.get("phase")])
+		# the sword: no dash unless forward is held
+		s3.move = Vector2.ZERO
+		var sp0: Vector3 = s3.player.global_position
+		s3.sword_held = true
+		await _frames(2)
+		s3.sword_held = false
+		await _wait(0.5)
+		var moved: float = Vector2(s3.player.global_position.x - sp0.x, s3.player.global_position.z - sp0.z).length()
+		_check("v12.46 (owner): the sword slashes where you stand unless you hold forward (moved %.1f m)" % moved, moved < 15.0, "moved %.1f kind %s" % [moved, s3.sword_kind])
+		# out unseen: you launch, nobody after you
+		s3.player.global_position = Vector3(Boarding.EXIT_X + 2.0, 6, (float(Boarding.ROOMS["sbay"]["r"][2]) + float(Boarding.ROOMS["sbay"]["r"][3])) * 0.5)
 		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and not main.space.boarding, 20.0)
 		await _wait(1.0)
 		var s2 := _sp()
-		var hostile := 0
-		for e in s2.enemies: if bool(e.get("aggro", false)): hostile += 1
 		main.dock(s2.station)
 		await _frames(5)
 		var denied: bool = main.state == "flight" and main.dock_ban.has(sta)
-		await _capture("breakout_chase")
-		_check("v12.38: out of the launch bay you launch in your own ship; %d of their ships after you (%d hostile); %s denies docking" % [main.escape_chasers, hostile, sta], GS.form == "ship" and main.escape_chasers >= Data.ESCAPE_CHASERS and denied, "form %s chasers %d denied %s" % [GS.form, main.escape_chasers, denied])
+		await _capture("breakout_out")
+		_check("v12.46: out of the hangar unseen you launch in your own ship, nobody after you (%d chasers); %s still denies docking" % [main.escape_chasers, sta], GS.form == "ship" and main.escape_chasers == 0 and denied, "form %s chasers %d denied %s" % [GS.form, main.escape_chasers, denied])
 		_finish_group()
 		return
 	if OS.get_environment("HL_ESCAPE") != "":   # v12.30: the 3D station escape

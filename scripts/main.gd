@@ -1011,23 +1011,29 @@ func start_escape(faction: String) -> void:
 ## inside the real flight / mech game, like boarding: the station's deck plan, its guards, the whole HUD (TARGET, GO TO,
 ## COMMS, radar, wheels, missiles, sword, shield, sidestep, super). You're on foot (the owner's pilot, his rifle);
 ## TRANSFORM is out. Reach the launch bay where your ship waits: you launch with their fleet after you.
-func _escape_in_space() -> void:
+func _escape_in_space(retry := false) -> void:
 	var sid := GS.system_id
 	escape_from = str(hub.base["name"])
 	var own := str(Factions.owner_of(hub.base, Data.SYSTEMS[sid]))
 	var fac := own if Factions.has(own) else "Savagers"
+	var form: String = str(board_from.get("form", GS.form)) if retry else GS.form
 	state = "boarding"
-	board_from = {"sys": sid, "pos": Vector3.ZERO, "name": escape_from, "faction": fac, "escape": true, "form": GS.form}
-	fx.caption = "LOCKDOWN"
-	fx.sub = "BREAK OUT OF %s" % escape_from.to_upper()
+	board_from = {"sys": sid, "pos": Vector3.ZERO, "name": escape_from, "faction": fac, "escape": true, "form": form}
+	fx.caption = "WANTED" if not retry else "TRY AGAIN"
+	fx.sub = "GET TO YOUR SHIP IN %s'S HANGAR" % escape_from.to_upper()
 	Sfx.play("whoosh", -2.0, 0.7)
 	var tw := create_tween()
 	tw.tween_property(fx, "fade", 1.0, 0.5)
 	await tw.finished
 	await Packs.wait(PilotRig.PACK, 60.0)   # v12.44: on the web your pilot comes in its own pack: have him before going in
+	var gpk := "crowd3d_orion" if fac.to_lower().begins_with("orion") else "crowd3d"   # v12.46: the guards are the faction's soldiers
+	Packs.request(gpk)
+	await Packs.wait(gpk, 30.0)
+	if retry: GS.restore_full()
 	hub.visible = false
 	GS.form = "mech"
-	Boarding.use(Boarding.deckplan("%s:%s:breakout" % [sid, escape_from], "station", Data.STATION_INFIL_LEVEL, escape_from))
+	# v12.46 (owner: "a hub area ... not such a big maze"): the breakout's own small station
+	Boarding.use(Boarding.deckplan("%s:%s:breakout" % [sid, escape_from], "hub", Data.STATION_INFIL_LEVEL, escape_from))
 	_new_space("Boarding")
 	space.escape_pilot = true
 	space.setup_boarding({"sys": sid, "faction": fac, "name": escape_from, "escape": true})
@@ -1046,7 +1052,7 @@ func _escaped() -> void:
 	escape = null
 	_escape_finish()
 
-func _escape_finish() -> void:
+func _escape_finish(quiet := false) -> void:
 	var fac: String = hub.lockdown_faction()
 	var own := str(Factions.owner_of(hub.base, Data.SYSTEMS[GS.system_id]))
 	hub.visible = true
@@ -1055,6 +1061,10 @@ func _escape_finish() -> void:
 	launch()
 	dock_ban[escape_from] = GS.system_id
 	if not is_instance_valid(space) or not is_instance_valid(space.player): return
+	if quiet:   # v12.46: out without being seen: nobody's after you
+		escape_chasers = 0
+		hud.flash_message("You slipped out of %s unseen. They still won't let you dock there." % escape_from)
+		return
 	var p: Node3D = space.player
 	var at: Vector3 = p.global_position + p.global_basis.z * 600.0 + Vector3(0, 60, 0)
 	var fl: String = own if Factions.has(own) else fac
@@ -1072,6 +1082,7 @@ func _escape_finish() -> void:
 	hud.flash_message("You're out! %d of their ships are after you. %s won't let you dock: leave the system or dock somewhere else." % [grp.size(), escape_from])
 
 var escape_chasers := 0
+var breakout_retries := 0   # (tests)
 
 func launch() -> void:
 	if state != "hub": return
@@ -1282,6 +1293,17 @@ func _on_destroyed() -> void:
 		navmap.visible = false
 		state = "flight"
 	if state != "flight": return
+	if bool(board_from.get("escape", false)):   # v12.46 (owner: "if you die, it starts from before the guards find you")
+		state = "boarding"
+		hud.visible = false
+		fx.caption = "YOU WERE TAKEN DOWN"
+		fx.sub = ""
+		var twb := create_tween()
+		twb.tween_property(fx, "fade", 1.0, 1.2).set_delay(0.8)
+		await twb.finished
+		breakout_retries += 1
+		_escape_in_space(true)
+		return
 	state = "dead"
 	hud.visible = false
 	fx.caption = "SHIP DISABLED"
@@ -1717,12 +1739,13 @@ func leave_boarding(won: bool) -> void:
 	if bool(board_from.get("escape", false)):   # v12.38: out of the station you broke out of: into your ship, launch
 		Boarding.use_ship()
 		var sid: String = board_from["sys"]
+		var quiet: bool = is_instance_valid(space) and str(space.board.get("phase", "")) == "out" and not bool(space.board.get("alerted", false))
 		board_from = {}
 		_load_system(sid, "station")
 		space.visible = false
 		space.process_mode = Node.PROCESS_MODE_DISABLED
 		state = "hub"
-		_escape_finish()
+		_escape_finish(quiet)
 		return
 	if bool(board_from.get("facility", false)):   # v11.96: back up on the world beside the facility
 		Boarding.use_ship()

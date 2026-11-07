@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.45"
+const VERSION := "v12.46"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -2542,6 +2542,19 @@ const EJECT_STEP := 9.0        # m to the side you step out
 const ENTER_REACH := 16.0      # m from your mech / ship to ENTER      # s to reach the launch bay
 const ESCAPE_PILOT_H := 13.0    # m: the pilot drawn at the mech's size (the decks are mech-sized)
 const ESCAPE_CHASERS := 20
+## v12.46 (owner: "Metal Gear: guards walking around ... Freeze, you're under arrest ... only then you're locked down"):
+## the breakout hub. Guards patrol their rooms; one that sees you (same room, in front of him, near enough; or right on
+## you) arrests you: ALERT, the hangar door locks until you hit the console in the SECURITY OFFICE. Die and you're back
+## at the start, unseen. The guards are soldiers (the station faction's GLB soldier), not mechs.
+const GUARD_H := 13.0           # m: drawn at the pilot's (mech-sized) height
+const GUARD_HP := 70.0          # a soldier: far less than a mech
+const GUARD_SEE := 260.0        # m: how far a guard sees you (in front of him, in his room)
+const GUARD_SEE_COS := 0.35     # his view cone (cos of the half angle)
+const GUARD_NEAR := 70.0        # m: this close he notices you whichever way he faces
+const GUARD_PATROL := 70.0      # m: the loop a guard walks round his post
+const SPEED_CHARGE_K := 1.0     # v12.46 (owner: "charge before it runs fast"): while charging you run at the plain SPRINT_K pace
+const GHOST_EVERY := 0.07       # s between the speed run's shadow runners
+const GHOST_LIFE := 0.35        # s each one fades over
 # v11.15 (owner): a faction's own lockdown art: every guard is its helmeted soldier, and ONE boss (the marshal who
 # comes to arrest you, laser blade) holds the hangar; the rooms before it end with no boss. boss_rush = how often he
 # closes in for a blade duel instead of firing.

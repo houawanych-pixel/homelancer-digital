@@ -358,6 +358,25 @@ static func deckplan(seed_key: String, kind: String, difficulty: int, name := "S
 		var tx: String = link.call(prev, "sbay")
 		route_out.append(tx)
 		route_out.append("sbay")
+	elif kind == "hub":
+		# v12.46 (owner: "a hub area design ... not such a big maze"): the breakout station. You come out of the
+		# arrivals deck into the CENTRAL HUB (security office one side, the cantina the other), through the hangar
+		# concourse to the HANGAR where your ship is. Guards walk their rooms; the hangar door is the lockdown door.
+		room.call("lbay", Vector2i(0, 0), 90.0, 80.0, 0.0, "ARRIVALS DECK", 0, "rect", 70.0)
+		room.call("reactor", Vector2i(1, 0), 150.0, 140.0, 0.0, "CENTRAL HUB", 2 + d / 2, "ring", 90.0)
+		var h1: String = link.call("lbay", "reactor")
+		room.call("secure", Vector2i(1, -1), 105.0, 85.0, 0.0, "SECURITY OFFICE", 2, "pillars")
+		link.call("reactor", "secure")
+		room.call("cantina", Vector2i(1, 1), 105.0, 85.0, 0.0, "CANTINA", 1, "oct")
+		link.call("reactor", "cantina")
+		room.call("fhold", Vector2i(2, 0), 115.0, 95.0, 0.0, "HANGAR CONCOURSE", 2, "pillars")
+		var h2: String = link.call("reactor", "fhold")
+		room.call("sbay", Vector2i(3, 0), 100.0, 90.0, 0.0, "HANGAR: YOUR SHIP", 0, "rect", 80.0)
+		var h3: String = link.call("fhold", "sbay")
+		route_in = ["lbay", h1, "reactor"]
+		route_out = ["lbay", h1, "reactor", h2, "fhold", h3, "sbay"]
+		seal = ["-", "-"]
+		esc = ["fhold", h3]
 	else:
 		# station: dock -> west spoke -> ring (round the north side) -> core; out: core -> east ring -> east spoke -> dock
 		var cx := 3 + (1 if d >= 3 else 0)       # the hub's column (a longer west spoke on harder stations)
@@ -733,7 +752,7 @@ static func build(root: Node3D, tint: Color) -> Dictionary:
 		d["sealed"] = false
 		out_doors.append(d)
 	# the reactor's pit ring
-	for a in 16:
+	for a in (0 if KIND == "hub" else 16):
 		var ang := TAU * float(a) / 16.0
 		var c := CORE_AT + Vector3(cos(ang), 0, sin(ang)) * (CORE_SHIELD_R + 14.0)
 		_slab(root, c + Vector3(-4, 0, -4), c + Vector3(4, 14, 4), wall_m, null)
@@ -743,7 +762,7 @@ static func build(root: Node3D, tint: Color) -> Dictionary:
 	path.visible = false
 	root.add_child(path)
 	var green := ShipFactory.mat(Color(0.3, 1.0, 0.45), true)
-	var prev := CORE_AT
+	var prev := START_AT if KIND == "hub" else CORE_AT
 	for k in ROUTE_OUT.slice(1):
 		var r: Array = ROOMS[k]["r"]
 		var c := Vector3((float(r[0]) + float(r[1])) * 0.5, 0, (float(r[2]) + float(r[3])) * 0.5)

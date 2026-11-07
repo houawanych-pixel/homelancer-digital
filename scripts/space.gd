@@ -1408,16 +1408,32 @@ func setup_boarding(info: Dictionary) -> void:
 	shield.name = "ReactorShield"
 	(core["node"] as Node3D).add_child(shield)
 	board["shield"] = shield
-	if bool(info.get("escape", false)):   # v12.38: the breakout: the way out is open from the start, the clock running
+	if bool(info.get("escape", false)):   # v12.38: the breakout
+		# v12.46 (owner: "Metal Gear ... guards walking around ... Freeze, you're under arrest ... only then you're
+		# locked down"): it starts QUIET. The guards walk their rooms; keep out of their sight and walk to your ship.
 		board["breakout"] = true
-		board["phase"] = "escape"
-		board["escape"] = Data.ESCAPE_TIME
+		board["phase"] = "sneak"
+		board["escape"] = -1.0
+		enemies.erase(core)   # (no reactor here: the middle room is the station's hub)
+		(core["node"] as Node3D).queue_free()
+		board["core"] = {}
 		for d in board_doors:
 			if Boarding.is_door(d, Boarding.ESCAPE_DOOR): d["locked"] = false
 		if is_instance_valid(_board_path): _board_path.visible = true
-		for l: OmniLight3D in _board_alarm:
-			if is_instance_valid(l): l.light_color = Color(1.0, 0.25, 0.15)
-		message.emit("LOCKDOWN! %s security is on you. Follow the green lights to the LAUNCH BAY: YOUR SHIP is there." % str(info["faction"]))
+		_breakout_guards(fac)
+		if Boarding.ROOMS.has("secure"):   # the lockdown console in the security office
+			var sr: Array = Boarding.ROOMS["secure"]["r"]
+			var cpos := Vector3((float(sr[0]) + float(sr[1])) * 0.5, Boarding.floor_of("secure", (float(sr[0]) + float(sr[1])) * 0.5, float(sr[2]) + 30.0), float(sr[2]) + 30.0)
+			board["console"] = cpos
+			var con := MeshInstance3D.new()
+			var cbm := BoxMesh.new()
+			cbm.size = Vector3(22, 12, 8)
+			con.mesh = cbm
+			con.material_override = _glow_mat(Color(1.0, 0.75, 0.2))
+			con.name = "LockdownConsole"
+			root.add_child(con)
+			con.global_position = cpos + Vector3(0, 6, 0)
+		message.emit("You're in %s with a price on your head. Their guards are on patrol: keep out of their sight and walk to YOUR SHIP in the hangar (the green lights)." % str(info["name"]))
 	else:
 		message.emit("Inside the %s. Fight through toward the back of the ship and down into the belly: the REACTOR." % board["ship"])
 	_update_camera(1.0, true)
@@ -1488,10 +1504,12 @@ func _board_update(dt: float) -> void:
 	# v12.15 (owner: "in a dungeon I transformed to the ship and could fly outside the walls"): inside, a ship is held to
 	# a walking pace through the decks, and anything that ends up outside every room is put back in the nearest one
 	var hv := Vector3(vel.x, 0, vel.z)
-	if hv.length() > Data.BOARD_MAX_SPEED * (Data.SPEED_BOOST_K / 1.0 if escape_pilot and sprint else 1.0):
-		hv = hv.normalized() * Data.BOARD_MAX_SPEED
+	var hv_cap: float = Data.BOARD_MAX_SPEED
+	if escape_pilot and sprint and speed_k >= 1.0: hv_cap = Data.FOOT_SPEED * Data.SPEED_BOOST_K * Data.ESCAPE_PILOT_H / Data.FOOT_H   # (the speed boost)
+	if hv.length() > hv_cap:
+		hv = hv.normalized() * hv_cap
 		vel = Vector3(hv.x, vel.y, hv.z)
-	var leaving: bool = str(board.get("phase", "")) in ["escape", "out"] and player.global_position.x > Boarding.EXIT_X - 40.0
+	var leaving: bool = str(board.get("phase", "")) in ["escape", "out", "sneak"] and player.global_position.x > Boarding.EXIT_X - 40.0
 	if not leaving and not Boarding.inside(player.global_position):
 		var q := Boarding.keep_in(player.global_position, 6.0)
 		player.global_position = Vector3(q.x, player.global_position.y, q.z)
@@ -1501,7 +1519,7 @@ func _board_update(dt: float) -> void:
 	if player.global_position.x < Boarding.ENTRY_X:   # (the port bay's open side: in only; out is the starboard bay)
 		player.global_position.x = Boarding.ENTRY_X
 		if vel.x < 0.0: vel.x = 0.0
-	if player.global_position.x > Boarding.EXIT_X - 2.0 and str(board.get("phase", "")) != "escape" and str(board.get("phase", "")) != "out":
+	if player.global_position.x > Boarding.EXIT_X - 2.0 and not str(board.get("phase", "")) in ["escape", "out", "sneak"]:
 		player.global_position.x = Boarding.EXIT_X - 2.0
 	for e in enemies:
 		if e.get("walker", false):
@@ -1548,8 +1566,8 @@ func _board_steps(dt: float) -> void:
 		var kids: Array = (board["guards"].get(here, []) as Array).filter(func(k): return enemies.has(k) and is_instance_valid(k["node"]))
 		for k in kids: k["aggro"] = true
 		var R: Dictionary = Boarding.ROOMS[here]
-		if here == "reactor": _board_boss(fac)
-		if here == "bridge": _board_bridge(fac, kids)
+		if here == "reactor" and not board.get("breakout", false): _board_boss(fac)
+		if here == "bridge" and not board.get("breakout", false): _board_bridge(fac, kids)
 		if not kids.is_empty() or here == "reactor": message.emit("%s: %d of their %s!" % [str(R["label"]), kids.size() + (1 if here == "reactor" else 0), "creatures" if Data.BOARD_BEASTS.has(fac) else "mechs"])
 	if here == "bridge" or not (board.get("bridge", {}) as Dictionary).is_empty(): _bridge_tick()
 	match str(board["phase"]):
@@ -1560,7 +1578,23 @@ func _board_steps(dt: float) -> void:
 				core["locked"] = false
 				if is_instance_valid(board.get("shield")): (board["shield"] as Node3D).visible = false
 				message.emit("Their boss is down: the REACTOR'S SHIELD IS DOWN. Blow it!")
+		"sneak":   # v12.46: the breakout, unseen so far: walk out to your ship
+			if player.global_position.x > Boarding.EXIT_X:
+				board["phase"] = "out"
+				board_exit.emit(true)
 		"escape":
+			if board.get("breakout", false):   # v12.46: the alert: the console opens the hangar; no reactor clock
+				var con: Vector3 = board.get("console", Vector3.INF)
+				if con != Vector3.INF and Vector2(player.global_position.x - con.x, player.global_position.z - con.z).length() < 45.0:
+					board.erase("console")
+					for d in board_doors:
+						if Boarding.is_door(d, Boarding.ESCAPE_DOOR): d["locked"] = false
+					Sfx.play("button", -2.0, 0.8)
+					message.emit("Lockdown override! The HANGAR is open: get to your ship!")
+				if player.global_position.x > Boarding.EXIT_X:
+					board["phase"] = "out"
+					board_exit.emit(true)
+				return
 			board["escape"] = float(board["escape"]) - dt
 			var left := int(ceil(float(board["escape"])))
 			if left != int(board["said"]) and (left % 10 == 0 or left <= 5):
@@ -1577,6 +1611,88 @@ func _board_steps(dt: float) -> void:
 				_explode(player.global_position)
 				controls = false
 				_die()
+
+## v12.46: the breakout's guards, all at their posts from the start (soldiers, walking a loop round their post).
+func _breakout_guards(fac: String) -> void:
+	for rk in Boarding.ROOMS:
+		var R2: Dictionary = Boarding.ROOMS[rk]
+		if int(R2["guards"]) <= 0: continue
+		board["woke"][rk] = true
+		var r2: Array = R2["r"]
+		var waiting: Array = []
+		for k in spawn_ground_mechs(Vector3((float(r2[0]) + float(r2[1])) * 0.5, 0, (float(r2[2]) + float(r2[3])) * 0.5), fac, int(R2["guards"]), -42, 0):
+			var q := Vector3(_rng.randf_range(float(r2[0]) + 30.0, float(r2[1]) - 30.0), 0, _rng.randf_range(float(r2[2]) + 30.0, float(r2[3]) - 30.0))
+			(k["node"] as Node3D).global_position = Vector3(q.x, Boarding.floor_of(rk, q.x, q.z) + Data.WALKER_STAND, q.z)
+			k["home"] = (k["node"] as Node3D).global_position
+			k["orbit"] = _rng.randf() * TAU
+			k["aggro"] = false
+			_soldierify(k, fac)
+			waiting.append(k)
+		board["guards"][rk] = waiting
+	if not board.has("alarm"): board["alarm"] = {}
+	for rk in Boarding.ROOMS: board["alarm"][rk] = true   # (no "N of their mechs!" on walking in)
+
+const GUARD_GLB := "res://assets/crowd3d/future_soldier.glb"
+const GUARD_GLB_ORION := "res://assets/crowd3d_orion/HL_Orion_02_WhiteDragonSoldier_Rigged.glb"
+## v12.46 (owner: "why am I fighting mechs, I'm a pilot ... they should be guards, the station faction's guards"): a
+## ground mech made a soldier: the faction's GLB soldier at the pilot's size (its own Walk / Idle clips), a soldier's
+## health, no chest cannon. (If the soldier pack isn't in, it stays a mech.)
+func _soldierify(e: Dictionary, fac: String) -> void:
+	var path := GUARD_GLB_ORION if fac.to_lower().begins_with("orion") and ResourceLoader.exists(GUARD_GLB_ORION) else GUARD_GLB
+	if not ResourceLoader.exists(path): return
+	var inst: Node3D = (load(path) as PackedScene).instantiate()
+	var bb := PilotRig._aabb(inst)
+	var k := Data.GUARD_H / maxf(0.01, bb.size.y)
+	inst.scale = Vector3.ONE * k
+	inst.position = Vector3(-bb.get_center().x * k, -bb.position.y * k - Data.WALKER_STAND, -bb.get_center().z * k)
+	inst.rotation.y = PI / 2 if bb.size.z > bb.size.x * 1.3 else PI   # (the models face +Z: turned to look down -Z)
+	var holder := Node3D.new()
+	holder.name = "Soldier"
+	(e["node"] as Node3D).add_child(holder)
+	holder.add_child(inst)
+	(e["model"] as Node3D).visible = false
+	e["soldier"] = true
+	e["mech"] = false
+	e["vis"] = {"l": [], "r": []}
+	e["stand_k"] = 1.0
+	e["hp"] = Data.GUARD_HP
+	e["max"] = Data.GUARD_HP
+	e["sh"] = 0.0
+	e["sh_max"] = 0.0
+	e["l"] = Data.GUARD_HP * Data.SECTION_SHARE
+	e["r"] = Data.GUARD_HP * Data.SECTION_SHARE
+	e["side_max"] = Data.GUARD_HP * Data.SECTION_SHARE
+	e["anim"] = null
+	for ap in inst.find_children("*", "AnimationPlayer", true, false):
+		e["anim"] = ap
+		for a in (ap as AnimationPlayer).get_animation_list(): (ap as AnimationPlayer).get_animation(a).loop_mode = Animation.LOOP_LINEAR
+		break
+	_soldier_clip(e, "Idle")
+	(e["node"] as Node3D).name = "%s Guard %d" % [fac, _enemy_serial]
+
+func _soldier_clip(e: Dictionary, clip: String) -> void:
+	var ap: AnimationPlayer = e.get("anim")
+	if ap == null or not is_instance_valid(ap): return
+	for a in ap.get_animation_list():
+		if str(a).to_lower().ends_with(clip.to_lower()):
+			if ap.current_animation != a: ap.play(a, 0.2)
+			return
+
+## v12.46: a guard saw you: "FREEZE! You're under arrest!" The alert is on: the hangar door locks until you get to
+## the console in the security office; every guard that then catches sight of you (in your room) joins in.
+func _arrest(e: Dictionary) -> void:
+	if str(board.get("phase", "")) != "sneak": return
+	board["phase"] = "escape"
+	board["escape"] = INF
+	board["alerted"] = true
+	e["alerted"] = true
+	for d in board_doors:
+		if Boarding.is_door(d, Boarding.ESCAPE_DOOR) and board.has("console"): d["locked"] = true
+	for l: OmniLight3D in _board_alarm:
+		if is_instance_valid(l): l.light_color = Color(1.0, 0.25, 0.15)
+	Sfx.play("alarm", -4.0)
+	hail.emit(str((e["node"] as Node3D).name), "FREEZE! You're under arrest!", true)
+	message.emit("ALERT! LOCKDOWN: the hangar is sealed. Get to the console in the SECURITY OFFICE to open it, then to your ship!" if board.has("console") else "ALERT! Get to your ship!")
 
 ## v11.71 (owner): their BOSS MECH guards the reactor.
 func _board_boss(fac: String) -> void:
@@ -1658,6 +1774,71 @@ func _board_doors(dt: float) -> void:
 					st.set_meta("col", want_col)
 					st.material_override = ShipFactory.mat(want_col, true)
 		if float(d["open"]) < 0.8: _push_out_box(d["box"][0], d["box"][1], "ground")
+
+## v12.46 (owner: "enemies are aware of me before I enter the room; they shouldn't be until they see me in the room;
+## no targets until I'm in the same room"): inside, a guard knows you're there once you're in his room (in the
+## breakout's quiet start, only once he SEES you: in front of him and near enough, or right on him; then he
+## arrests you and the alert is on). Once he's seen you he stays on you.
+func _board_aware(e: Dictionary, dist: float) -> bool:
+	if e.get("alerted", false): return true
+	var n: Node3D = e["node"]
+	var here := str(board.get("room", ""))
+	if here == "" or Boarding.room_at(n.global_position, 8.0) != here: return false
+	if str(board.get("phase", "")) == "sneak":
+		var to := player.global_position - n.global_position
+		to.y = 0.0
+		var looks: float = (-n.global_basis.z).dot(to.normalized()) if to.length() > 0.1 else 1.0
+		if not (dist < Data.GUARD_NEAR or (dist < Data.GUARD_SEE and looks > Data.GUARD_SEE_COS)): return false
+		_arrest(e)
+	e["alerted"] = true
+	return true
+
+## Can you see / target this one? (Inside: only those in your room, or that have already seen you.)
+func board_known(e: Dictionary) -> bool:
+	if not boarding: return true
+	if e.get("alerted", false) or e.get("board_core", false): return true
+	var here := str(board.get("room", ""))
+	return here != "" and is_instance_valid(e["node"]) and Boarding.room_at((e["node"] as Node3D).global_position, 8.0) == here
+
+## v12.46: the walls (and shut doors) a shot can't pass: the deck's boxes on a 64 m grid, built once.
+const WALL_CELL := 64.0
+var _wall_grid := {}
+func _build_wall_grid() -> void:
+	_wall_grid = {}
+	for bx: Array in surf_boxes:
+		var h: Node3D = bx[0]
+		var bb: AABB = (h.global_transform if is_instance_valid(h) and h.is_inside_tree() else Transform3D.IDENTITY) * (bx[1] as AABB)
+		for gx in range(int(floor(bb.position.x / WALL_CELL)), int(floor(bb.end.x / WALL_CELL)) + 1):
+			for gz in range(int(floor(bb.position.z / WALL_CELL)), int(floor(bb.end.z / WALL_CELL)) + 1):
+				var c := Vector2i(gx, gz)
+				if not _wall_grid.has(c): _wall_grid[c] = []
+				_wall_grid[c].append(bb)
+	_wall_grid["_n"] = surf_boxes.size()
+
+## How far along from->to (0..1) the first wall or shut door is; 1.0 = clear. Leaving every room counts as a wall.
+func board_wall_t(from: Vector3, to: Vector3) -> float:
+	if _wall_grid.is_empty() or int(_wall_grid.get("_n", -1)) != surf_boxes.size(): _build_wall_grid()
+	var best := 1.0
+	var L := from.distance_to(to)
+	if L < 0.001: return 1.0
+	var seen := {}
+	var steps := int(ceil(L / (WALL_CELL * 0.5))) + 1
+	for i in steps + 1:
+		var p := from.lerp(to, float(i) / float(steps))
+		var c := Vector2i(int(floor(p.x / WALL_CELL)), int(floor(p.z / WALL_CELL)))
+		if seen.has(c): continue
+		seen[c] = true
+		for bb: AABB in _wall_grid.get(c, []):
+			var hp = bb.intersects_segment(from, to)
+			if hp != null: best = minf(best, from.distance_to(hp) / L)
+	for d in board_doors:
+		if float(d["open"]) >= 0.8: continue
+		var dh: Node3D = d["box"][0]
+		var db: AABB = (dh.global_transform if is_instance_valid(dh) and dh.is_inside_tree() else Transform3D.IDENTITY) * (d["box"][1] as AABB)
+		var hp2 = db.intersects_segment(from, to)
+		if hp2 != null: best = minf(best, from.distance_to(hp2) / L)
+	if best >= 1.0 and Boarding.room_at(from) != "" and Boarding.room_at(to) == "": best = 0.999
+	return best
 
 ## The core blew: the way you came seals, the far door opens, 90 s to the aft launch bay.
 func _core_down() -> void:
@@ -3941,11 +4122,20 @@ func _foot_speed(dt: float) -> void:
 	var fh := Vector3(vel.x, 0, vel.z)
 	var scale_k := Data.ESCAPE_PILOT_H / Data.FOOT_H if escape_pilot else 1.0   # (the breakout pilot is drawn at mech size)
 	var run_cap: float = Data.FOOT_SPEED
-	if sprint and fh.length() > Data.FOOT_SPEED * 0.8: speed_k = minf(1.0, speed_k + dt / Data.SPEED_BUILD)
-	else: speed_k = maxf(0.0, speed_k - dt * 2.0)
-	if sprint: run_cap = lerpf(Data.FOOT_SPEED * Data.SPRINT_K, Data.FOOT_SPEED * Data.SPEED_BOOST_K, speed_k)
+	# v12.46 (owner: "the speed run has to charge before it starts running fast, with shadow runners behind you"):
+	# run with SPEED on and it CHARGES (a plain run, the glow building); full, it kicks in all at once: speed-booster pace,
+	# shadow runners trailing. Stop or slow right down and it's lost.
+	var walk_cap: float = Data.BOARD_MAX_SPEED if escape_pilot else Data.FOOT_SPEED
+	var was_full := speed_k >= 1.0
+	if sprint and ground_mode and fh.length() > walk_cap * 0.6: speed_k = minf(1.0, speed_k + dt / Data.SPEED_BUILD)
+	elif speed_k < 1.0 or fh.length() < walk_cap * 0.4 or not sprint: speed_k = maxf(0.0, (0.0 if was_full else speed_k) - dt * 2.0)
+	if speed_k >= 1.0 and not was_full:
+		Sfx.play("whoosh", -3.0, 1.4)
+		message.emit("SPEED BOOST!")
+	if sprint: run_cap = Data.FOOT_SPEED * (Data.SPEED_BOOST_K if speed_k >= 1.0 else Data.SPRINT_K * Data.SPEED_CHARGE_K)
 	var cap: float = (run_cap if ground_mode else (Data.JETPACK_SPEED * (Data.JETPACK_BOOST_K if boosting else 1.0))) * (scale_k if escape_pilot else 1.0)
-	if escape_pilot and ground_mode and not sprint: cap = Data.BOARD_MAX_SPEED
+	if escape_pilot and ground_mode: cap = maxf(cap, Data.BOARD_MAX_SPEED)
+	if speed_k >= 1.0 and fh.length() > walk_cap * 0.6: _speed_ghosts(dt)
 	if fh.length() > cap:
 		fh = fh.normalized() * cap
 		vel = Vector3(fh.x, vel.y, fh.z)
@@ -3954,9 +4144,52 @@ func _foot_speed(dt: float) -> void:
 		_boost_glow.light_color = Color(0.4, 0.8, 1.0)
 		_boost_glow.omni_range = 12.0 * scale_k
 		player.add_child(_boost_glow)
-	_boost_glow.visible = speed_k > 0.6
-	_boost_glow.light_energy = 3.0 * speed_k * (0.8 + 0.2 * sin(time * 30.0))
+	_boost_glow.visible = speed_k > 0.15
+	_boost_glow.light_energy = (3.5 if speed_k >= 1.0 else 1.5 * speed_k * (0.5 + 0.5 * sin(time * (8.0 + 30.0 * speed_k)))) * (0.8 + 0.2 * sin(time * 30.0))   # (charging: it flickers faster and faster)
 	_boost_glow.position = Vector3(0, -6.0 + Data.FOOT_H * 0.5 * scale_k, 0)
+
+## The shadow runners: every GHOST_EVERY s a see-through blue copy of you, frozen in that stride, left behind to fade.
+var _ghost_cd := 0.0
+var _ghost_mat: StandardMaterial3D
+var ghosts: Array = []   # [{node, life}] (tests count them)
+func _speed_ghosts(dt: float) -> void:
+	_ghost_cd -= dt
+	if _ghost_cd > 0.0 or not is_instance_valid(model): return
+	_ghost_cd = Data.GHOST_EVERY
+	if _ghost_mat == null:
+		_ghost_mat = StandardMaterial3D.new()
+		_ghost_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_ghost_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_ghost_mat.albedo_color = Color(0.35, 0.75, 1.0, 0.45)
+		_ghost_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var g := Node3D.new()
+	g.name = "SpeedGhost"
+	g.top_level = true
+	add_child(g)
+	for c in model.find_children("*", "MeshInstance3D", true, false):
+		var mi := c as MeshInstance3D
+		if mi.mesh == null or not mi.is_visible_in_tree(): continue
+		var copy := MeshInstance3D.new()
+		var m: Mesh = mi.mesh
+		if mi.skin != null and mi.has_method("bake_mesh_from_current_skeleton_pose"): m = mi.bake_mesh_from_current_skeleton_pose()   # (frozen mid-stride)
+		copy.mesh = m
+		copy.material_override = _ghost_mat.duplicate()
+		copy.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		g.add_child(copy)
+		copy.global_transform = mi.global_transform
+	ghosts.append({"node": g, "life": Data.GHOST_LIFE})
+
+func _update_ghosts(dt: float) -> void:
+	for gh in ghosts:
+		gh["life"] = float(gh["life"]) - dt
+		var g: Node3D = gh["node"]
+		if not is_instance_valid(g): continue
+		var a := clampf(float(gh["life"]) / Data.GHOST_LIFE, 0.0, 1.0) * 0.45
+		for c in g.get_children():
+			var mat := (c as MeshInstance3D).material_override as StandardMaterial3D
+			if mat != null: mat.albedo_color.a = a
+		if float(gh["life"]) <= 0.0: g.queue_free()
+	ghosts = ghosts.filter(func(gh): return float(gh["life"]) > 0.0)
 
 var parked: Node3D
 var parked_form := ""
@@ -5908,6 +6141,12 @@ func _update_bolts(dt: float) -> void:
 		n.global_position = to
 		b["life"] -= dt
 		var hit := false
+		var walled := false
+		if boarding:   # v12.46 (owner: "shooting shouldn't go through walls"): a shot stops on a wall or a shut door
+			var wt := board_wall_t(from, to)
+			if wt < 1.0:
+				to = from.lerp(to, wt)
+				walled = true
 		if b["owner"] == "player" or b["owner"] == "ally":   # v1.9n: allied ships' shots hit the enemy too
 			for e in enemies:
 				if _seg_hit(from, to, e["node"].global_position, float(e["def"].get("hit_r", 7.5))):
@@ -5935,6 +6174,9 @@ func _update_bolts(dt: float) -> void:
 						_damage_ally(a, float(b["dmg"]))
 						hit = true
 						break
+		if walled and not hit:
+			hit = true
+			_spark(to, Color(1, 0.8, 0.5), 2.5, 0.2)
 		if not hit and surface_mode:   # EXPERIMENT (v1.5t): shots dig the block ground
 			var rb := _ray_blocks(from, to)
 			if rb[0] != null:
@@ -7044,6 +7286,9 @@ func _damage_enemy(e: Dictionary, dmg: float, hit := Vector3.INF, sf := -1.0) ->
 	if e["node"].get_meta("kind", "enemy") == "enemy": GS.super_charge = minf(1.0, GS.super_charge + dmg / Data.SUPER_FROM_DEALT)   # v7.5
 	e["aggro"] = true
 	e["provoked"] = true
+	if boarding and not e.get("alerted", false):   # (shot: he knows now)
+		if str(board.get("phase", "")) == "sneak": _arrest(e)
+		e["alerted"] = true
 	e["sh_cd"] = Data.BOARD_SHIELD_DELAY if e.get("boardable", false) else 4.0   # v11.66 (owner): a battleship's shield takes a while to come back
 	var at: Vector3 = e["node"].global_position if hit == Vector3.INF else hit
 	var had_shield := float(e["sh"]) > 0.0
@@ -7224,6 +7469,7 @@ func _update_enemies(dt: float) -> void:
 		elif dist < 650.0 or e["aggro"] or spotting: e["aggro"] = dist < (1600.0 if spotting else 1400.0)
 		if e.get("invasion", false): e["aggro"] = not cloaked or not fa.is_empty()   # v1.9n: an invasion fights whoever is there (v11.25: not you while cloaked)
 		if cloaked and fa.is_empty(): e["aggro"] = false   # v11.25 (owner: "they stop shooting me, cause I disappeared")
+		if boarding and not e.get("board_core", false): e["aggro"] = _board_aware(e, dist) and not cloaked   # v12.46: only once they've seen you
 		if e.has("pilot"):
 			# generic pilots chatter instead of hailing; named leaders keep the full hail below
 			if e["aggro"] and not was and warp_state != "on": _chatter(e, "target_acquired")
@@ -7244,6 +7490,7 @@ func _update_enemies(dt: float) -> void:
 		else:
 			e["orbit"] += dt * 0.25
 			goal = e["home"] + Vector3(cos(e["orbit"]) * 120.0, sin(e["orbit"] * 0.7) * 25.0, sin(e["orbit"]) * 120.0)
+			if e.get("soldier", false): goal = e["home"] + Vector3(cos(e["orbit"]), 0, sin(e["orbit"])) * Data.GUARD_PATROL   # v12.46: a guard walks his beat
 		var walker: bool = e.get("walker", false)   # v1.8n: a mech on foot: it stays on the ground and only turns left / right
 		if walker:
 			goal = (ppos if e["aggro"] and controls and dist > Data.WALKER_HOLD else (n.global_position if e["aggro"] else goal))
@@ -7325,6 +7572,9 @@ func _unit_fx(e: Dictionary, dt: float, dist: float) -> void:
 			var p := Sections.side_point(e["vis"], side, e["model"])
 			_spark_v(p, Vector3(_rng.randfn(0, 6), _rng.randfn(0, 6), _rng.randfn(0, 6)), Color(1.0, 0.85, 0.5), 2.2, 0.16)
 			if _rng.randf() < 0.5: _spark_v(p, Vector3(0, 2.5, 0), Color(0.4, 0.4, 0.45), 3.5, 0.6)
+	if e.get("soldier", false):   # v12.46: a guard: its own walk / idle
+		_soldier_clip(e, "Walk" if (e["vel"] as Vector3).length() > 3.0 else "Idle")
+		return
 	if e["mech"]:
 		var model: Node3D = e["model"]
 		var sp: float = (e["vel"] as Vector3).length() / maxf(1.0, float(e["def"]["speed"]))
@@ -7518,7 +7768,7 @@ func _sword_targets(dir: Vector3, reach: float, cone: float) -> Array:
 	var out: Array = []
 	var p := player.global_position
 	for e in enemies:
-		if not is_instance_valid(e["node"]): continue
+		if not is_instance_valid(e["node"]) or not board_known(e): continue
 		var to: Vector3 = (e["node"] as Node3D).global_position - p
 		var r := float((e["def"] as Dictionary).get("hit_r", 7.5))
 		if to.length() > reach + r: continue
@@ -7708,7 +7958,12 @@ func _update_sword(dt: float) -> void:
 			right.y = 0.0
 			right = right.normalized()
 			if absf(move.x) > 0.45 and absf(move.x) >= absf(move.y): _sword_start("side", right * signf(move.x), 1)
-			else: _sword_start("dash", fwd, Data.SWORD_COMBO)
+			else:
+				_sword_start("dash", fwd, Data.SWORD_COMBO)
+				if move.y < 0.45:   # v12.46 (owner: "the sword shouldn't dash forward unless I'm holding forward"): the combo where you stand
+					_sword_engaged = true
+					_sword_next = 0.0
+					sword_t = Data.SWORD_COMBO * Data.SWORD_COMBO_GAP + 0.1
 		elif not sword_locks.is_empty(): _sword_start("seek", fwd, sword_locks.size())
 		else: _sword_start("spin", fwd, Data.SWORD_SPIN_HITS)
 	_sword_prev = sword_held
@@ -7960,6 +8215,7 @@ func _collisions(dt: float) -> void:
 	_update_laser_shield(dt)
 	_update_lamp(dt)
 	if on_foot or escape_pilot: _foot_speed(dt)
+	if not ghosts.is_empty(): _update_ghosts(dt)
 	if boarding: _cap_lights()
 	if pilot_rig != null and is_instance_valid(model): pilot_rig.pose(dt, Vector2(vel.x, vel.z).length(), Data.BOARD_MAX_SPEED)
 	_update_sword(dt)
@@ -8863,6 +9119,7 @@ func _nearest_enemy(max_d: float) -> Node3D:
 	var best: Node3D = null
 	var bd := max_d
 	for e in enemies:
+		if not board_known(e): continue
 		var d: float = e["node"].global_position.distance_to(player.global_position)
 		if d < bd:
 			bd = d
@@ -8880,6 +9137,7 @@ func _auto_target() -> void:
 	var score := -1.0
 	for e in enemies:
 		var n: Node3D = e["node"]
+		if not board_known(e): continue
 		var to := n.global_position - player.global_position
 		var d := to.length()
 		if d > 1100.0: continue
@@ -8903,7 +9161,7 @@ func targetables() -> Array:
 	var out: Array = []
 	var list := enemies.duplicate()
 	list.sort_custom(func(a, b): return a["node"].global_position.distance_to(player.global_position) < b["node"].global_position.distance_to(player.global_position))
-	for e in list: out.append(e["node"])
+	for e in list: if board_known(e): out.append(e["node"])
 	out.append(station)
 	out.append(planet)
 	for g in gates: out.append(g)

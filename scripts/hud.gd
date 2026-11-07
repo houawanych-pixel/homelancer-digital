@@ -339,6 +339,7 @@ func fl_contacts() -> Array:
 	var ships: Array = space.enemies.duplicate()
 	ships.sort_custom(func(a, b): return a["node"].global_position.distance_to(p) < b["node"].global_position.distance_to(p))
 	for e in ships:
+		if not space.board_known(e): continue   # v12.46: inside, only the ones in your room (or on to you)
 		var hostile: bool = e["node"].get_meta("kind", "enemy") == "enemy" and Factions.hostile(str(e["def"].get("faction", "Enemy")))
 		out.append({"node": e["node"], "name": str(e["node"].name), "kind": "ship", "col": RED if hostile else GOLD})
 	for tr in space.traffic:
@@ -1923,6 +1924,7 @@ func _draw() -> void:
 	var view := Rect2(Vector2(col_w + 30, 40), Vector2(S.x - col_w * 2 - 60, S.y - 80))
 	for e in space.enemies:
 		if dock_down and e["node"] != space.target: continue   # v10.6: pushed down, only your target shows
+		if not space.board_known(e): continue   # v12.46: not through the walls
 		_edge_arrow(e["node"].global_position, RED, view, e["node"] == space.target)
 		if e["node"] == space.target: continue
 		var ep = _screen(e["node"].global_position)
