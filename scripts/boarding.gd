@@ -87,6 +87,7 @@ static func use_ship() -> void:
 	KIND = "ship"
 	INFO = {}
 
+static var hub_blocked: Array = []   # v12.50: the breakout station's sealed passages ([room, tunnel] door pairs)
 static var classic := false   # v12.18: the route test's hand-made battleship (its walkthrough knows the coordinates)
 
 static func use(L: Dictionary) -> void:
@@ -360,100 +361,160 @@ static func deckplan(seed_key: String, kind: String, difficulty: int, name := "S
 		route_out.append("sbay")
 	elif kind == "hub":
 		# v12.46 (owner: "a hub area design ... not such a big maze"): the breakout station.
-		# v12.47 (owner: "space stations from Tripo give you a good shell to build on"; "use the ship design to lay out
-		# the station"): the rooms follow the station's own shape. `occ` is its top-down silhouette on a 5 x 5 grid of
-		# cells (Boarding.footprint of the station's GLB): a spine through the middle row like a ship's (arrivals deck
-		# at one end, the CENTRAL HUB in the middle, the HANGAR with your ship at the other end), side rooms off it
-		# where the hull is, and the far tips above and below the hub where the station reaches out there.
+		# v12.47 (owner: "Tripo space stations give you a good shell to build on"): the rooms follow the station's own
+		# shape: `occ` is its top-down silhouette on a 5 x 5 grid of cells (Boarding.footprint of its GLB).
+		# v12.50 (owner: "the path to the hangar is too easy, one straight path; certain ways blocked, go around, down and
+		# up levels, at least 3 floors, use the other space"): the cells of the silhouette are joined as a maze (a
+		# random tree, the longest of several tries between the west and east ends), every room on one of three decks
+		# (UPPER / MAIN / LOWER, ramped lifts between), sealed side passages where a short cut would be, dead-end wings
+		# (the security office with the lockdown console is one). The ARRIVALS dock juts out west, the HANGAR with
+		# your ship east.
 		if occ.size() != 25: occ = [false, false, true, false, false, false, true, true, true, false, true, true, true, true, true, false, true, true, true, false, false, false, true, false, false]
-		var at := func(c: int, r: int) -> bool: return c >= 0 and c < 5 and r >= -2 and r <= 2 and bool(occ[(r + 2) * 5 + c])
-		var a := 2
-		var b := 2
-		while at.call(a - 1, 0): a -= 1
-		while at.call(b + 1, 0): b += 1
-		if b - a < 2:
-			a = mini(a, 1)
-			b = maxi(b, 3)
-		var hc := clampi(2, a + 1, b - 1)
-		var spine_name := {}
-		for c in range(a, b + 1):
-			var k := "sp%d" % c
-			var lab := "TRANSIT DECK"
-			var g := 1
-			var hx := 105.0
-			var hz := 90.0
-			var sh := "pillars"
-			if c == a:
-				k = "lbay"
-				lab = "ARRIVALS DECK"
-				g = 0
-				hx = 90.0
-				hz = 80.0
-				sh = "rect"
-			elif c == b:
-				k = "sbay"
-				lab = "HANGAR: YOUR SHIP"
-				g = 0
-				hx = 100.0
-				hz = 90.0
-				sh = "rect"
-			elif c == hc:
-				k = "reactor"
+		var at := func(c: Vector2i) -> bool: return c.x >= 0 and c.x < 5 and c.y >= -2 and c.y <= 2 and bool(occ[(c.y + 2) * 5 + c.x])
+		var comp := {}   # the connected cells round the middle
+		var stack: Array = [Vector2i(2, 0)]
+		if not at.call(Vector2i(2, 0)): occ[12] = true
+		while not stack.is_empty():
+			var c0: Vector2i = stack.pop_back()
+			if comp.has(c0) or not at.call(c0): continue
+			comp[c0] = true
+			for dv in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]: stack.append(c0 + dv)
+		if comp.size() < 8:   # too small a shape: a plain diamond
+			comp = {}
+			for c1 in [Vector2i(2, -2), Vector2i(1, -1), Vector2i(2, -1), Vector2i(3, -1), Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0), Vector2i(3, 0), Vector2i(4, 0), Vector2i(1, 1), Vector2i(2, 1), Vector2i(3, 1), Vector2i(2, 2)]: comp[c1] = true
+		var cells: Array = comp.keys()
+		var west: Vector2i = cells[0]
+		var east: Vector2i = cells[0]
+		for c2: Vector2i in cells:
+			if c2.x < west.x or (c2.x == west.x and absi(c2.y) < absi(west.y)): west = c2
+			if c2.x > east.x or (c2.x == east.x and absi(c2.y) < absi(east.y)): east = c2
+		# a random maze over the cells; keep the try whose way from west to east is longest
+		var best_par := {}
+		var best_path: Array = []
+		for tri in 24:
+			var par := {west: west}
+			var st2: Array = [west]
+			while not st2.is_empty():
+				var cur: Vector2i = st2.back()
+				var nbs: Array = []
+				for dv2 in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+					var nc: Vector2i = cur + dv2
+					if comp.has(nc) and not par.has(nc): nbs.append(nc)
+				if nbs.is_empty():
+					st2.pop_back()
+					continue
+				var pick: Vector2i = nbs[rng.randi() % nbs.size()]
+				par[pick] = cur
+				st2.append(pick)
+			var path: Array = [east]
+			while path.back() != west: path.append(par[path.back()])
+			path.reverse()
+			if path.size() > best_path.size():
+				best_path = path
+				best_par = par
+		var on_path := {}
+		for c3 in best_path: on_path[c3] = true
+		# decks along the way: main, up, up, main, down, down, main ... (the hangar's end on the main deck)
+		var pattern := [0, 0, 1, 1, 0, -1, -1, 0, 1, 1, 0, -1, -1, 0]
+		var lvl := {}
+		for i in best_path.size(): lvl[best_path[i]] = pattern[i % pattern.size()]
+		lvl[east] = 0
+		var ys := {-1: LOWER_DECK, 0: 0.0, 1: UPPER_DECK}
+		var order: Array = best_path.duplicate()
+		for c4: Vector2i in cells: if not on_path.has(c4): order.append(c4)
+		for c5: Vector2i in order:   # the side cells: their parent's deck, or one up / down
+			if lvl.has(c5): continue
+			var pc: Vector2i = best_par[c5]
+			var lp: int = lvl.get(pc, 0)
+			lvl[c5] = clampi(lp + [0, 0, 1, -1][rng.randi() % 4], -1, 1)
+		# rooms: the middle cell is the CENTRAL HUB; the side branch furthest from the way through is the SECURITY OFFICE
+		var key := {}
+		var depth := {}
+		for c6: Vector2i in order:
+			var dd := 0
+			var q6: Vector2i = c6
+			while not on_path.has(q6):
+				q6 = best_par[q6]
+				dd += 1
+			depth[c6] = dd
+		var sec: Vector2i = Vector2i(99, 99)
+		for c7: Vector2i in cells:
+			if not on_path.has(c7) and c7 != Vector2i(2, 0) and (sec == Vector2i(99, 99) or int(depth[c7]) > int(depth[sec]) or (int(depth[c7]) == int(depth[sec]) and absi(c7.x - 2) < absi(sec.x - 2))): sec = c7
+		var labels_path := ["TRANSIT DECK", "CREW CONCOURSE", "MAINTENANCE BAY", "LOADING DOCK", "COMMS ROOM", "PROMENADE", "POWER ROOM", "ENGINEERING"]
+		var labels_side := ["CREW QUARTERS", "MED BAY", "ARMORY", "CARGO HOLD", "MESS HALL", "WORKSHOP", "HYDROPONICS", "STORAGE", "OBSERVATION DECK", "DATA VAULT"]
+		var lp_i := 0
+		var ls_i := 0
+		var have_cantina := false
+		for c8: Vector2i in order:
+			var k8 := "c%d_%d" % [c8.x, c8.y + 2]
+			var lab := ""
+			var g8 := 1
+			var hx := rng.randf_range(92.0, 118.0)
+			var hz := rng.randf_range(80.0, 100.0)
+			var sh8: String = ["pillars", "oct", "cross", "hex", "split"][rng.randi() % 5]
+			var hh := 0.0
+			if c8 == Vector2i(2, 0):
+				k8 = "reactor"
 				lab = "CENTRAL HUB"
-				g = 2 + d / 2
+				g8 = 2 + d / 2
 				hx = 150.0
 				hz = 140.0
-				sh = "ring"
-			elif c == b - 1:
-				k = "fhold"
+				sh8 = "ring"
+				hh = 90.0
+			elif c8 == east:
+				k8 = "fhold"
 				lab = "HANGAR CONCOURSE"
-				g = 2
-			room.call(k, Vector2i(c, 0), hx, hz, 0.0, lab, g, sh, 90.0 if k == "reactor" else (80.0 if c == a or c == b else 0.0))
-			spine_name[c] = k
-		var tun := {}
-		for c in range(a, b):
-			tun[c] = link.call(spine_name[c], spine_name[c + 1])
-		var wing_labels := ["CREW QUARTERS", "MED BAY", "ARMORY", "CARGO HOLD", "MESS HALL", "WORKSHOP", "HYDROPONICS", "COMMS ROOM"]
-		var wi := 0
-		var have_secure := false
-		var have_cantina := false
-		for c in range(a + 1, b):
-			for sd in [-1, 1]:
-				if not at.call(c, sd): continue
-				var wk := "w%d%s" % [c, "n" if sd < 0 else "s"]
-				var wl: String = wing_labels[wi % wing_labels.size()]
-				var wg := 1
-				if c == hc and sd < 0:
-					wk = "secure"
-					wl = "SECURITY OFFICE"
-					wg = 2
-					have_secure = true
-				elif c == hc and sd > 0:
-					wk = "cantina"
-					wl = "CANTINA"
-					have_cantina = true
-				else:
-					wi += 1
-				room.call(wk, Vector2i(c, sd), 100.0, 85.0, 0.0, wl, wg, ["pillars", "oct", "cross", "hex"][rng.randi() % 4])
-				link.call(spine_name[c], wk)
-				if c == hc and at.call(c, sd * 2):   # the station's tips, up a ramp
-					var tk := "tip%s" % ("n" if sd < 0 else "s")
-					room.call(tk, Vector2i(c, sd * 2), 95.0, 80.0, UPPER_DECK if sd < 0 else LOWER_DECK, "OBSERVATION DECK" if sd < 0 else "DOCKING RING", 1, "oct")
-					link.call(wk, tk)
-		if not have_secure:   # (a station with no room there: the security office is the first side room)
-			for k2 in rooms.keys():
-				if str(k2).begins_with("w"):
-					rooms[k2]["label"] = "SECURITY OFFICE"
-					rooms["secure"] = rooms[k2]
-					rooms.erase(k2)
-					break
+				g8 = 2
+			elif c8 == sec:
+				k8 = "secure"
+				lab = "SECURITY OFFICE"
+				g8 = 2
+				sh8 = "pillars"
+			elif not on_path.has(c8) and not have_cantina:
+				k8 = "cantina"
+				lab = "CANTINA"
+				have_cantina = true
+			elif on_path.has(c8):
+				lab = labels_path[lp_i % labels_path.size()]
+				lp_i += 1
+				g8 = 1 + (1 if rng.randf() < 0.4 else 0)
+			else:
+				lab = labels_side[ls_i % labels_side.size()]
+				ls_i += 1
+			room.call(k8, c8, hx, hz, float(ys[lvl[c8]]), lab, g8, sh8, hh)
+			key[c8] = k8
+		# the docks, jutting out of the hull
+		room.call("lbay", Vector2i(west.x - 1, west.y), 90.0, 80.0, float(ys[lvl[west]]), "ARRIVALS DECK", 0, "rect", 70.0)
+		room.call("sbay", Vector2i(east.x + 1, east.y), 100.0, 90.0, 0.0, "HANGAR: YOUR SHIP", 0, "rect", 80.0)
+		var tl: String = link.call("lbay", key[west])
+		var tunnel := {}
+		for c9: Vector2i in cells:
+			if c9 == west: continue
+			var t9: String = link.call(key[best_par[c9]], key[c9])
+			tunnel[c9] = t9
+			if lvl[c9] != lvl[best_par[c9]]: rooms[t9]["label"] = "LIFT %s" % ("UP" if lvl[c9] > lvl[best_par[c9]] else "DOWN")
+		var th: String = link.call("fhold", "sbay")
+		# the short cuts that aren't there: sealed passages (red doors) between neighbours the maze doesn't join
+		var blocked: Array = []
+		for c10: Vector2i in cells:
+			for dv3 in [Vector2i(1, 0), Vector2i(0, 1)]:
+				var o: Vector2i = c10 + dv3
+				if not comp.has(o) or best_par.get(o, Vector2i(-9, -9)) == c10 or best_par.get(c10, Vector2i(-9, -9)) == o: continue
+				if rng.randf() < 0.55:
+					var tb: String = link.call(key[c10], key[o])
+					rooms[tb]["label"] = "SEALED PASSAGE"
+					blocked.append([key[c10], tb])
+					blocked.append([key[o], tb])
 		route_in = ["lbay"]
-		route_out = []
-		for c in range(a, b + 1):
-			route_out.append(spine_name[c])
-			if c < b: route_out.append(tun[c])
+		route_out = ["lbay", tl]
+		for i2 in best_path.size():
+			if i2 > 0: route_out.append(tunnel[best_path[i2]])
+			route_out.append(key[best_path[i2]])
+		route_out.append(th)
+		route_out.append("sbay")
 		seal = ["-", "-"]
-		esc = [spine_name[b - 1], tun[b - 1]]
+		esc = ["fhold", th]
+		hub_blocked = blocked
 	else:
 		# station: dock -> west spoke -> ring (round the north side) -> core; out: core -> east ring -> east spoke -> dock
 		var cx := 3 + (1 if d >= 3 else 0)       # the hub's column (a longer west spoke on harder stations)
@@ -533,7 +594,7 @@ static func deckplan(seed_key: String, kind: String, difficulty: int, name := "S
 	return {"rooms": rooms, "start": Vector3(float(lb[0]) + 40.0, 0.0, (float(lb[2]) + float(lb[3])) * 0.5), "core": core,
 		"boss": core + Vector3(0, 0, 90.0), "exit_x": float(sb[1]) - 8.0, "entry_x": float(lb[0]) + 4.0, "seal": seal, "escape": esc,
 		"route_in": route_in, "route_out": route_out, "bridge_mech": bridge_at, "kind": kind,
-		"info": {"name": name, "difficulty": d, "kind": kind, "rooms": rooms.size()}}
+		"info": {"name": name, "difficulty": d, "kind": kind, "rooms": rooms.size(), "blocked": hub_blocked.duplicate() if kind == "hub" else []}}
 
 ## v12.47: a station model's top-down silhouette on a 5 x 5 grid (row-major, rows north to south): a cell is in when
 ## at least half of its 5 x 5 sub-cells hold a triangle's middle. Also returns the model's bounds, so its shell can be

@@ -2937,7 +2937,17 @@ func _run() -> void:
 		for e in s.enemies:
 			if bool(e.get("soldier", false)): soldiers += 1
 			elif bool(e.get("walker", false)): mechs += 1
-		_check("v12.46 (owner): the breakout is a small HUB station (%d rooms), quiet at the start; the guards are %s SOLDIERS (%d), not mechs (%d); the whole HUD, you on foot, TRANSFORM out" % [Boarding.ROOMS.size(), str(b.get("faction", "")), soldiers, mechs], on_foot and hud_ok and no_tf and bool(b.get("breakout", false)) and str(b.get("phase", "")) == "sneak" and soldiers > 3 and mechs == 0 and Boarding.ROOMS.size() <= 30 and Boarding.KIND == "hub", "foot %s hud %s no_tf %s phase %s kind %s" % [on_foot, hud_ok, no_tf, b.get("phase"), Boarding.KIND])
+		_check("v12.46 (owner): the breakout is a small HUB station (%d rooms), quiet at the start; the guards are %s SOLDIERS (%d), not mechs (%d); the whole HUD, you on foot, TRANSFORM out" % [Boarding.ROOMS.size(), str(b.get("faction", "")), soldiers, mechs], on_foot and hud_ok and no_tf and bool(b.get("breakout", false)) and str(b.get("phase", "")) == "sneak" and soldiers > 3 and mechs == 0 and Boarding.ROOMS.size() <= 45 and Boarding.KIND == "hub", "foot %s hud %s no_tf %s phase %s kind %s" % [on_foot, hud_ok, no_tf, b.get("phase"), Boarding.KIND])
+		# v12.50: a maze over three decks, sealed short cuts, no straight run to the hangar
+		var decks := {}
+		for k in Boarding.ROOMS: decks[Boarding.deck_name(float((Boarding.ROOMS[k]["y"] as Array)[0]))] = true
+		var way := 0
+		for k in Boarding.ROUTE_OUT: if not str(Boarding.ROOMS[k].get("hex", false)) == "true": way += 1
+		var sealed := 0
+		for d in s.board_doors: if bool(d["sealed"]): sealed += 1
+		var lifts := 0
+		for k in Boarding.ROUTE_OUT: if str(Boarding.ROOMS[k].get("label", "")).begins_with("LIFT"): lifts += 1
+		_check("v12.50 (owner: \"too easy, one straight path ... ways blocked, go around, up and down, 3 floors\"): the way to the hangar winds through %d rooms with %d lifts, over %d decks; %d sealed doors" % [way, lifts, decks.size(), sealed], way >= 6 and decks.size() >= 3 and lifts >= 2 and sealed >= 2, "way %d lifts %d decks %s sealed %d" % [way, lifts, str(decks.keys()), sealed])
 		# v12.47: laid out from the station's own Tripo model, which is set round it as the shell
 		var big := 0
 		for k in Boarding.ROOMS: if str(Boarding.ROOMS[k].get("label", "")) != "CORRIDOR": big += 1

@@ -1419,7 +1419,9 @@ func setup_boarding(info: Dictionary) -> void:
 		board["core"] = {}
 		for d in board_doors:
 			if Boarding.is_door(d, Boarding.ESCAPE_DOOR): d["locked"] = false
-		if is_instance_valid(_board_path): _board_path.visible = true
+			for pr: Array in Boarding.INFO.get("blocked", []):   # v12.50: the sealed short cuts (red doors)
+				if Boarding.is_door(d, pr): d["sealed"] = true
+		if is_instance_valid(_board_path): _board_path.visible = false   # v12.50 (owner: "too easy"): no lights to the hangar; the deck map shows where it is
 		_breakout_guards(fac)
 		if Data.BREAKOUT_SHELL_SHOWN: _breakout_shell(root)   # v12.49 (owner): the shell was the guide for the layout; it blocked the view: not drawn
 		if Boarding.ROOMS.has("secure"):   # the lockdown console in the security office
@@ -1434,7 +1436,7 @@ func setup_boarding(info: Dictionary) -> void:
 			con.name = "LockdownConsole"
 			root.add_child(con)
 			con.global_position = cpos + Vector3(0, 6, 0)
-		message.emit("You're in %s with a price on your head. Their guards are on patrol: keep out of their sight and walk to YOUR SHIP in the hangar (the green lights)." % str(info["name"]))
+		message.emit("You're in %s with a price on your head. Their guards are on patrol: keep out of their sight and find your way to YOUR SHIP in the hangar (MAP: the deck plan)." % str(info["name"]))
 	else:
 		message.emit("Inside the %s. Fight through toward the back of the ship and down into the belly: the REACTOR." % board["ship"])
 	life = StationLife.new()   # v12.48: tables / crates / consoles to break, marks on the walls, the crew
@@ -1941,7 +1943,7 @@ func board_line() -> String:
 				return "ALERT  ·  %s  ·  the hangar is open: get to YOUR SHIP" % where
 			return "ESCAPE: %d s  ·  %s  ·  up the belly, round to the STARBOARD LAUNCH BAY" % [int(ceil(maxf(0.0, float(board["escape"])))), where]
 		"sneak":
-			return "WANTED  ·  %s  ·  keep out of the guards' sight; the green lights lead to YOUR SHIP in the HANGAR" % where
+			return "WANTED  ·  %s  ·  keep out of the guards' sight; find your way to YOUR SHIP in the HANGAR (east)" % where
 			return "ESCAPE: %d s  ·  %s  ·  up the belly, round to the STARBOARD LAUNCH BAY" % [int(ceil(maxf(0.0, float(board["escape"])))), where]
 	return "BOARDING"
 
