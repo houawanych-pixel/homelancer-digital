@@ -94,6 +94,7 @@ Scale is set against the 10 m mech (blocks are 5 m), so the animals are bigger t
 
 ## The test area
 
+- In game: the planet map's WILDLIFE TEST button (on any world; tap again for off).
 - Web: `?wildtest`.
 - PC: `HL_WILDTEST=1` or `--wildtest`.
 

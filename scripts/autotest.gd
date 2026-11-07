@@ -5602,6 +5602,20 @@ func _job_wildtest() -> void:
 	await hold_at.call(out_of_ring, 7.0, func(): return sm["state"] == "under")
 	_check("wild: Sandmaw ripples at you (%s), ring telegraphs (%s), step out and the bite misses (%s), exposed then re-burrows (%s)" % [rippled, tele, missed, sm["state"]],
 		rippled and tele and missed and sm["state"] == "under")
+	# v12.44: the WILDLIFE TEST button on the planet map turns the test area off and on again where you are
+	main.hud.visible = true
+	main.hud.planet_map = true
+	await _wait(0.2)
+	var has_btn: bool = main.hud.buttons.has("pmap_wild")
+	main._on_hud("pmap_wild")
+	await hold_at.call(s.player.global_position, 2.0, func(): return s.wildlife != null and not s.wildlife.test_park)
+	var off_ok: bool = not s.wild_park and s.wildlife != null and not s.wildlife.test_park
+	main.hud.planet_map = true
+	await _wait(0.2)
+	main._on_hud("pmap_wild")
+	await hold_at.call(s.player.global_position, 3.0, func(): return s.wildlife != null and s.wildlife.test_park and s.wildlife.animals.size() >= want)
+	_check("wild: planet map WILDLIFE TEST button (%s) turns the test area off (%s) and back on round you (%d animals)" % [has_btn, off_ok, s.wildlife.animals.size() if s.wildlife else 0],
+		has_btn and off_ok and s.wild_park and s.wildlife.test_park and s.wildlife.animals.size() >= want)
 	main.hud.visible = true
 
 func _job_v1125() -> void:

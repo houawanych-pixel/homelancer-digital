@@ -134,6 +134,14 @@ func start_game() -> void:
 func wild_test_flag() -> bool:
 	return _web_flag("wildtest") or OS.get_environment("HL_WILDTEST") != "" or "--wildtest" in OS.get_cmdline_user_args()
 
+## v12.44: every species round you on this world (or back to normal): the wildlife is made again with the park on / off.
+func wild_test_here(on: bool) -> void:
+	if space == null or not space.surface_mode: return
+	space.wild_park = on
+	if space.wildlife != null and is_instance_valid(space.wildlife): space.wildlife.queue_free()
+	space.wildlife = null
+	hud.flash_message("WILDLIFE TEST ON - every animal is round you. Walk up, shoot near them, watch what they do." if on else "Wildlife test off.")
+
 ## Down onto Eden Prime's jungle with every species at its spot round you (Data.WILDLIFE_PARK).
 func start_wild_test() -> void:
 	_load_surface("eden_prime", 0)
@@ -476,6 +484,9 @@ func _on_hud(id: String) -> void:
 				hud.flash_message("Target: %s" % tf.name)
 		"fullscreen":   # v1.9 (owner): the browser's full screen on / off (hides the address bar where the phone allows it)
 			if OS.has_feature("web"): JavaScriptBridge.eval("window.__hlFsToggle && window.__hlFsToggle()", true)
+		"pmap_wild":   # v12.44 (owner: "make it a button on the planet map"): the wildlife test area right here, on / off
+			hud.planet_map = false
+			wild_test_here(not space.wild_park)
 		"pmap_close":
 			hud.planet_map = false
 			hud.map_deck = ""

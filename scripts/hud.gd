@@ -657,6 +657,7 @@ func _layout() -> void:
 				if dks.size() > 1:
 					for i in dks.size(): buttons["pmap_deck%d" % i] = Rect2(mr.position.x + 14 + i * 128, mr.end.y - 74, 120, 44)
 				return
+			buttons["pmap_wild"] = Rect2(mr.position.x + 10, mr.end.y - 50, 170, 42)   # v12.44 (owner: "make it a button on the planet map"): the wildlife test area
 			var spots: Array = space.base_spots()
 			for i in spots.size():
 				var bp := _pmap_point(mr, int(spots[i]["tile"]), float(spots[i]["x"]), float(spots[i]["z"]))
@@ -1584,6 +1585,7 @@ func _planet_map() -> void:
 	var sd := Vector2(-f2.y, f2.x)
 	draw_colored_polygon(PackedVector2Array([yv + f2 * 12.0, yv - f2 * 7.0 + sd * 7.0, yv - f2 * 7.0 - sd * 7.0]), CYAN_HI)
 	_text(Vector2(mr.position.x, mr.end.y - 8), "Tap a base or a facility to fly there.", 12, Color(1, 1, 1, 0.6), HORIZONTAL_ALIGNMENT_CENTER, mr.size.x)
+	_pill("pmap_wild", "WILDLIFE TEST", space.wild_park, CYAN)   # v12.44: every animal round you here (tap again: off)
 	_pill("pmap_close", "CLOSE", false, CYAN)   # v12.43 (owner: "no close button"): drawn last, over the land picture
 
 ## v1.8q: a spare button: the frame, a small padlock, its name if it has one.
