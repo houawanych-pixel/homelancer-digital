@@ -92,15 +92,23 @@ static func _all_offers(sys_id: String, station_id: String, owner: String, pid: 
 			"giver": station_id, "giver_sys": sys_id, "sys": sys_id, "planet": pid, "tile": tile,
 			"brief": "%s have landed on %s, in %s. Fly down into the atmosphere, go to both mission points and destroy them: ships overhead and mechs on the ground." % [enemy, pname, sector_name(pid, tile)],
 			"points": [{"x": p0.x, "z": p0.y}, {"x": p1.x, "z": p1.y}]})
-	# v1.9a (owner): on the planet: escort a freighter from one base to another (sector to sector)
-	if enemy != "" and Surface.has_surface(pid) and not Surface.is_sun(pid) and (Surface.PLANETS[pid].get("locations", []) as Array).size() >= 2:
-		var locs: Array = Surface.PLANETS[pid]["locations"]
-		var ia := rng.randi() % locs.size()
-		var ib := (ia + 1 + rng.randi() % (locs.size() - 1)) % locs.size()
-		out.append({"kind": "land_escort", "faction": enemy, "slot": 2, "pay": Data.MISSION_PAY["land_escort"], "planet": pid, "from": ia, "to": ib,
-			"title": "Escort a freighter on %s: %s to %s" % [pname, locs[ia]["name"], locs[ib]["name"]],
-			"giver": station_id, "giver_sys": sys_id, "sys": sys_id, "pos": [], "points": [{}, {}],
-			"brief": "A freighter is flying from %s to %s on %s. Go down and stay with it: %s will hit it on the way. It waits for you when you are not with it." % [locs[ia]["name"], locs[ib]["name"], pname, enemy]})
+	# v1.9a (owner): on the planet: escort a freighter (sector to sector)
+	# v12.56 (owner: "not one dock to the other: one's the alliance, one's the rival; you don't send things to your
+	# rivals: from the dock to your own facility"): from the dock that gives the job to one of its own side's facilities
+	if enemy != "" and Surface.has_surface(pid) and not Surface.is_sun(pid):
+		var locs: Array = Surface.PLANETS[pid].get("locations", [])
+		var ia := -1
+		for i in locs.size(): if str(locs[i].get("id", "")) == station_id: ia = i
+		if ia >= 0:
+			var side := str(locs[ia].get("faction", ""))
+			var own: Array = (Surface.facility_sites(pid) as Array).filter(func(st): return str(st.get("faction", "")) == side)
+			if not own.is_empty():
+				var st: Dictionary = own[rng.randi() % own.size()]
+				var to := {"name": str(st["name"]), "tile": int(st["tile"]), "pos": st["spot"]}
+				out.append({"kind": "land_escort", "faction": enemy, "slot": 2, "pay": Data.MISSION_PAY["land_escort"], "planet": pid, "from": ia, "to": to,
+					"title": "Escort a supply freighter on %s: %s to %s" % [pname, locs[ia]["name"], to["name"]],
+					"giver": station_id, "giver_sys": sys_id, "sys": sys_id, "pos": [], "points": [{}, {}],
+					"brief": "A supply freighter is flying from %s to our facility %s on %s. Go down and stay with it: %s will hit it on the way. It waits for you when you are not with it." % [locs[ia]["name"], to["name"], pname, enemy]})
 	if Surface.has_surface(pid) and not Surface.is_sun(pid):
 		_planet_offers(out, rng, sys_id, station_id, pid, enemy if enemy != "" else foe)
 	# v1.8p (owner): the system's own outlaws (raiders / corsairs) are always a job too: there is no end of them
@@ -160,12 +168,23 @@ static func _planet_offers(out: Array, rng: RandomNumberGenerator, sys_id: Strin
 			t = (t + 1) % (g * g)
 		return t
 	var base := {"giver": station_id, "giver_sys": sys_id, "sys": sys_id, "planet": pid, "faction": enemy}
-	var t1: int = land_tile.call()
-	var q1 := _dry_point(rng, pid, t1, Vector2.INF)
-	out.append(base.merged({"kind": "intercept", "slot": 2, "pay": Data.MISSION_PAY["intercept"], "tile": t1,
-		"title": "Intercept: a %s raid over %s" % [enemy, pname],
-		"brief": "A %s wing is coming in low over %s, %s. Get down there and shoot them out of the sky before they reach our docks." % [enemy, pname, sector_name(pid, t1)],
-		"points": [{"x": q1.x, "z": q1.y}], "waves": [[Data.INTERCEPT_WING, 2]]}))
+	# INTERCEPT (owner: "intercept an enemy going to an enemy facility: their transport; you run into their mechs, like
+	# Armored Core"): one of the other side's transports is flying in to its facility with fighters round it and mechs
+	# on the ground by the facility: bring it down before it gets there
+	var mine0 := ""
+	for l in Surface.PLANETS[pid].get("locations", []): if str(l.get("id", "")) == station_id: mine0 = str(l.get("faction", ""))
+	var theirs: Array = (Surface.facility_sites(pid) as Array).filter(func(st): return mine0 == "" or str(st.get("faction", "")) != mine0)
+	if not theirs.is_empty():
+		var fs: Dictionary = theirs[rng.randi() % theirs.size()]
+		var fsp: Vector2 = fs["spot"]
+		var ang := rng.randf() * TAU
+		var st0 := fsp + Vector2(cos(ang), sin(ang)) * Data.TRANSPORT_RUN
+		st0 = Vector2(clampf(st0.x, -Surface.EDGE + 400.0, Surface.EDGE - 400.0), clampf(st0.y, -Surface.EDGE + 400.0, Surface.EDGE - 400.0))
+		out.append(base.merged({"kind": "intercept", "faction": str(fs.get("faction", enemy)), "slot": 2, "pay": Data.MISSION_PAY["intercept"], "tile": int(fs["tile"]),
+			"site": str(fs["name"]), "to": {"x": fsp.x, "z": fsp.y},
+			"title": "Intercept: a %s transport bound for %s" % [str(fs.get("faction", enemy)), fs["name"]],
+			"brief": "A %s transport is flying supplies in to their facility %s on %s, %s, with fighters round it and their mechs on the ground at the facility. Bring the transport down before it gets there." % [str(fs.get("faction", enemy)), fs["name"], pname, sector_name(pid, int(fs["tile"]))],
+			"points": [{"x": st0.x, "z": st0.y}]}))
 	for hard in [false, true]:
 		var t2: int = land_tile.call()
 		var a := _dry_point(rng, pid, t2, Vector2.INF)
@@ -430,6 +449,11 @@ static func waypoint(space: SpaceSystem) -> Dictionary:
 			if pn2 == null: return {}
 			return {"node": pn2, "title": pn2.name, "line": "%s: fly down into %s's atmosphere, %s" % [m["title"], pn2.name, sector_name(str(m["planet"]), int(m["tile"]))], "hops": 0}
 		if space.planet_id != str(m["planet"]): return {}
+		if kind == "intercept":
+			var trs: Array = space.enemies.filter(func(e): return bool(e.get("transport", false)))
+			if not trs.is_empty(): return {"node": trs[0]["node"], "title": trs[0]["node"].name, "line": "Intercept: bring down the transport before it reaches %s" % m["site"], "hops": 0}
+			var tw0 := "" if space.tile == int(m["tile"]) else " (%s)" % sector_name(str(m["planet"]), int(m["tile"]))
+			return {"node": space.mission_point(point_pos(space, 0)), "title": "Transport", "line": "Intercept: get to the transport's route%s" % tw0, "hops": 0}
 		if kind == "facility":
 			var fp := space.mission_point(point_pos(space, 0))
 			var tw := "" if space.tile == int(m["tile"]) else " (%s)" % sector_name(str(m["planet"]), int(m["tile"]))
@@ -525,6 +549,9 @@ static func tick(space: SpaceSystem, dt: float) -> void:
 	if land != space.surface_mode: return   # v1.8m: a ground job runs down on the planet, the others in space
 	if land and space.planet_id != str(m.get("planet", "")): return
 	if kind == "facility": return   # (v12.56: done when you blow its reactor: main.leave_boarding)
+	if kind == "intercept":
+		_tick_intercept(space, dt, m)
+		return
 	if kind == "planet_invasion" and int(m.get("phase", 0)) == 1:   # the fleet in orbit
 		space.invasion_tick(dt, m)
 		return
@@ -619,6 +646,38 @@ static func tick(space: SpaceSystem, dt: float) -> void:
 		m["points"] = [{"dir": randf() * TAU, "dist": float(Data.INVASION["dist"]), "y": 0.0}]
 		space.message.emit("Their battleships are down! The %s fleet is pulling back to orbit: get up there and INTERCEPT it." % str(m["faction"]))
 
+## v12.56: the transport run. It sets off when you're in its sector (it waits otherwise); down = paid; at the
+## facility = the job's failed.
+static func _tick_intercept(space: SpaceSystem, dt: float, m: Dictionary) -> void:
+	if space.tile != int(m["tile"]): return
+	var tgt := Vector3(float(m["to"]["x"]), 0.0, float(m["to"]["z"]))
+	tgt.y = space._ground(tgt.x, tgt.z) + Data.TRANSPORT_ALT
+	if int(m.get("spawned", -1)) < 0:
+		var at := point_pos(space, 0)
+		if at == Vector3.INF: return
+		at.y = space._ground(at.x, at.z) + Data.TRANSPORT_ALT
+		var tr: Dictionary = space.spawn_transport(at, tgt, str(m["faction"]))
+		if tr.is_empty(): return
+		m["spawned"] = 0
+		m["need"] = 1
+		space.spawn_mission_group(at + Vector3(0, 60, 0), str(m["faction"]), Data.TRANSPORT_ESCORT, 2, "", 0)
+		var mid := at.lerp(tgt, 0.8)
+		space.spawn_ground_mechs(Vector3(mid.x, 0, mid.z), str(m["faction"]), Data.TRANSPORT_MECHS, 0, 0)
+		space.message.emit("Mission: the %s transport is on its way to %s. Bring it down!" % [m["faction"], m["site"]])
+		return
+	var live: Array = space.enemies.filter(func(e): return bool(e.get("transport", false)))
+	if live.is_empty():
+		_pay(space, "Transport down! %s pays %d cr." % [giver_name(m), int(m["pay"])])
+		return
+	var n: Node3D = live[0]["node"]
+	var to := tgt - n.global_position
+	if to.length() < Data.TRANSPORT_ARRIVE:
+		space.message.emit("The transport made it to %s. Mission failed." % m["site"])
+		abandon()
+		return
+	n.global_position += to.normalized() * Data.TRANSPORT_SPEED * dt
+	SpaceSystem.face(n, to)
+
 ## True when this bounty is wanted dead (no pod drops: the kill is the job).
 static func wants_dead(id: String) -> bool:
 	var m: Dictionary = GS.mission
@@ -671,7 +730,7 @@ static func _pay(space: SpaceSystem, said: String) -> void:
 ## A base of the job ("from" / "to"): {name, tile, x, z, g (planet-wide position, metres)}.
 static func land_base(m: Dictionary, which: String) -> Dictionary:
 	var pid := str(m["planet"])
-	var l: Dictionary = Surface.PLANETS[pid]["locations"][int(m[which])]
+	var l: Dictionary = m[which] if m[which] is Dictionary else Surface.PLANETS[pid]["locations"][int(m[which])]   # (v12.56: a facility is a dictionary)
 	var g := Surface.grid(pid)
 	var t := int(l["tile"])
 	var lp: Vector2 = l["pos"]

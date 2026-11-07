@@ -2272,6 +2272,11 @@ func _run() -> void:
 		var only_land := kinds.all(func(k): return k in Missions.PLANET_KINDS)
 		var has_all: bool = "intercept" in kinds and "air_sweep" in kinds and "facility" in kinds and "planet_invasion" in kinds
 		_check("v12.56 (owner): the planet's board has only planet jobs (no space ones): %s" % ", ".join(kinds), only_land and has_all, str(kinds))
+		var les: Array = offs.filter(func(o): return str(o["kind"]) == "land_escort")
+		var own_fac := false
+		if not les.is_empty() and les[0]["to"] is Dictionary:
+			for st in Surface.facility_sites(pid): if str(st["name"]) == str(les[0]["to"]["name"]) and str(st.get("faction", "")) == str(dock.get("faction", "")): own_fac = true
+		_check("v12.56 (owner): the planet escort runs from the dock to its OWN side's facility, never to the rival's dock: %s" % (str(les[0]["title"]) if not les.is_empty() else "-"), own_fac, str(les))
 		var run_job := func(kind: String) -> Dictionary:
 			var o: Dictionary = offs.filter(func(x): return str(x["kind"]) == kind)[0]
 			Missions.accept(o)
@@ -2292,7 +2297,7 @@ func _run() -> void:
 				if GS.mission.is_empty() or int(GS.mission.get("phase", 0)) == 1 or int(GS.mission.get("stage", 0)) > 0: break
 			return {"spawned": spawned, "left": GS.mission.duplicate()}
 		var r1: Dictionary = await run_job.call("intercept")
-		_check("v12.56: INTERCEPT on the planet: %d fighters at the point; shot down, paid (job over %s)" % [int(r1["spawned"]), (r1["left"] as Dictionary).is_empty()], int(r1["spawned"]) >= 6 and (r1["left"] as Dictionary).is_empty(), str(r1))
+		_check("v12.56 (owner): INTERCEPT: their transport bound for their facility, its fighters and mechs (%d); transport down, paid (job over %s)" % [int(r1["spawned"]), (r1["left"] as Dictionary).is_empty()], int(r1["spawned"]) >= 6 and (r1["left"] as Dictionary).is_empty(), str(r1))
 		var r2: Dictionary = await run_job.call("planet_invasion")
 		var phase1: bool = int((r2["left"] as Dictionary).get("phase", 0)) == 1 and not Missions.on_land(r2["left"])
 		_check("v12.56: GOLD planetary invasion: battleships and fighters in the atmosphere (%d); broken there, the job moves to intercepting their fleet in orbit (%s)" % [int(r2["spawned"]), phase1], int(r2["spawned"]) >= 4 and phase1, str((r2["left"] as Dictionary).get("phase", -1)))
@@ -9202,7 +9207,7 @@ func _job_ai() -> void:
 	var base_kinds: Array = []
 	for l in Surface.PLANETS.get(pbid, {}).get("locations", []): base_kinds = Missions.offers(s.sys_id, str(l["id"]), "", "planet").map(func(o): return str(o["kind"]))
 	_check("v1.9b (owner): missions on the planet are only about the planet, missions out in space only about space: a station's board has no planet jobs, the planet's board (its dock or a base down there) only jobs on that planet",
-		not ("ground" in kinds) and not ("land_escort" in kinds) and pkinds == ["ground", "land_escort"] and (base_kinds.is_empty() or base_kinds == pkinds), "station %s planet %s base %s" % [kinds, pkinds, base_kinds])
+		not ("ground" in kinds) and not ("land_escort" in kinds) and "ground" in pkinds and pkinds.all(func(k): return k in Missions.PLANET_KINDS) and base_kinds.all(func(k): return k in Missions.PLANET_KINDS), "station %s planet %s base %s" % [kinds, pkinds, base_kinds])
 	# ---- the hub pages
 	main.hub.open(Data.SYSTEMS[s.sys_id]["station"])
 	await _frames(2)
@@ -11554,7 +11559,7 @@ func _job_v19b() -> void:
 		await _frames(3)
 		dock_ok = s.dock_candidate() == pl and s.prompt() == "dock" and str(info.get("kind", "")) == "planet" and wp in s.extras
 		var kinds: Array = Missions.offers(s.sys_id, str(info["id"]), "", "planet").map(func(o): return str(o["kind"]))
-		board_ok = not kinds.is_empty() and kinds.all(func(k): return k in ["ground", "land_escort"] or k == "outlaws")
+		board_ok = not kinds.is_empty() and kinds.all(func(k): return k in Missions.PLANET_KINDS)
 		said = "%s: %s" % [info["name"], kinds]
 		_tp(keep, s.station.global_position)
 		await _frames(2)

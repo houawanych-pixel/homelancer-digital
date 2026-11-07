@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.56"
+const VERSION := "v12.57"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -973,7 +973,12 @@ const MISSION_GROUND_ALT := 220.0               # a ground job's wave waits this
 const MISSION_GROUND_SPREAD := 1500.0           # its points lie within this of the sector's centre
 # v1.8n (owner): enemy mechs on foot. Each wave of a ground job also has Assault Mechs walking the ground under it.
 const MISSION_GROUND_PILOTS := 2              # v12.56 (owner: "mechs as well as pilots"): soldiers on foot at each strike point
-const INTERCEPT_WING := 8                       # v12.56: fighters in a raid to intercept
+const TRANSPORT_RUN := 3200.0                   # v12.56: m the enemy transport flies in to its facility
+const TRANSPORT_SPEED := 32.0                   # m/s
+const TRANSPORT_ALT := 260.0                    # m over the ground
+const TRANSPORT_ARRIVE := 220.0                 # m from the facility: it made it
+const TRANSPORT_ESCORT := 6                     # fighters round it
+const TRANSPORT_MECHS := 3                      # their mechs on the ground near the facility
 const AIR_SWEEP := [[10, 2], [15, 2]]           # v12.56 (owner: "clear 20 fighters with reinforcements of 30, by difficulty"): [ships, level] per waypoint
 const AIR_SWEEP_HARD := [[20, 3], [30, 3]]
 const PLANET_INV_FIGHTERS := 16                 # v12.56: fighters with the battleships in a planetary invasion

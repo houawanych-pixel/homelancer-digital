@@ -11939,6 +11939,19 @@ func spawn_invasion(at: Vector3, faction: String, left: int, station_up: bool) -
 	inv_here = true
 	inv_log.append("spawn")
 
+## v12.56 (owner: "intercept their transportation going to their facility"): the enemy transport (a frigate hull,
+## flown by the job toward the facility)
+func spawn_transport(at: Vector3, to: Vector3, faction: String) -> Dictionary:
+	var e := _spawn_capital("inv_destroyer", "destroyer", at, to, faction)
+	if e.is_empty(): return e
+	e["transport"] = true
+	e["mission"] = 0
+	e["boardable"] = false
+	e["invasion"] = false
+	(e["node"] as Node3D).name = "%s Transport" % faction
+	face(e["node"], to - at)
+	return e
+
 ## v12.56 (owner: "a planetary invasion: battleships coming into the planet already that you've got to destroy in the
 ## atmosphere"): one of their battleships low over a sector, counted as part of the job's wave
 func spawn_planet_capital(at: Vector3, faction: String, stage: int) -> Dictionary:
