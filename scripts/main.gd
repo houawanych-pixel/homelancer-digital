@@ -399,7 +399,14 @@ func _on_hud(id: String) -> void:
 		"stop":
 			space.full_stop()
 			hud.flash_message("Braking to a full stop.")
+		"eject":
+			if space.eject() == "loading": hud.flash_message("Pilot still downloading — try again in a moment.")
+		"enter":
+			space.enter_vehicle()
 		"form":
+			if space.on_foot:
+				hud.flash_message("You're on foot: walk back to it and ENTER.")
+				return
 			if bool(board_from.get("escape", false)):
 				hud.flash_message("On foot in here: no transforming. Get to YOUR SHIP in the launch bay.")
 				return

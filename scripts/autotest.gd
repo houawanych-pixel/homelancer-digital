@@ -2762,6 +2762,47 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if _flag("HL_EJECT"):   # v12.39: EJECT on a world, walk at human size, ENTER again
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main._load_surface("eden_prime", 0)
+		await _wait(0.5)
+		var s := _sp()
+		var hold := s.player.global_position
+		await _until(func(): s.player.global_position = hold; return s._regions.size() >= 4 and s._building == null, 150.0)
+		GS.form = "mech"
+		s.set_player_model()
+		s.ground_mode = true
+		var gp := s.player.global_position
+		s.player.global_position = Vector3(gp.x, s._ground(gp.x, gp.z) + 6.0, gp.z)
+		s.vel = Vector3.ZERO
+		await _wait(1.0)
+		var pr0: String = s.prompt()
+		main._on_hud("eject")
+		await _wait(1.0)
+		var bb := PilotRig._aabb(s.model)
+		var small: bool = s.on_foot and bb.size.y < 3.0 and is_instance_valid(s.parked)
+		main.hud.visible = true
+		await _capture("eject_on_foot")
+		main.hud.visible = false
+		var pc := s.player.global_position
+		_tp(pc + s.player.global_basis * Vector3(4, -3.5, 7), pc + Vector3(0, -5, 0))
+		await _wait(0.3)
+		await _capture("eject_pilot_and_mech")
+		main.hud.visible = true
+		s.player.global_position = pc + Vector3(60, 0, 0)
+		await _wait(0.5)
+		var far_none: bool = s.prompt() == ""
+		s.player.global_position = s.parked.global_position + Vector3(8, 0, 0)
+		await _wait(0.5)
+		var near_enter: bool = s.prompt() == "enter"
+		main._on_hud("enter")
+		await _wait(0.8)
+		var back_in: bool = not s.on_foot and GS.form == "mech" and s.pilot_rig == null
+		_check("v12.39 (owner): EJECT on a world (prompt %s): on foot at human size (%.1f m), the mech parked; walk away and ENTER is gone, come back and ENTER takes you in" % [pr0, bb.size.y], pr0 == "eject" and small and far_none and near_enter and back_in, "small %s far %s near %s back %s" % [small, far_none, near_enter, back_in])
+		_finish_group()
+		return
 	if _flag("HL_BREAKOUT"):   # v12.38: the breakout inside the real mech game (boarding), the whole HUD
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)

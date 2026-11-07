@@ -2074,6 +2074,8 @@ func _draw() -> void:
 		_pill("log", "COMMS", comms_mode == "roster", CYAN)
 	if buttons.has("dock"): _prompt_btn(buttons["dock"], "DOCK", GREEN, held.has("dock"))
 	if buttons.has("board"): _prompt_btn(buttons["board"], "INFILTRATE" if space.surface_mode and not space.boarding else "BOARD", ORANGE, held.has("board"))   # v11.60 (owner)   # v11.58 (owner): the top-centre box
+	if buttons.has("eject"): _prompt_btn(buttons["eject"], "EJECT", CYAN, held.has("eject"))   # v12.39 (owner)
+	if buttons.has("enter"): _prompt_btn(buttons["enter"], "ENTER", GREEN, held.has("enter"))
 	if buttons.has("lane"): _pill("lane", "LANE" if space.lane.is_empty() else "LEAVE LANE", true, CYAN)
 	if buttons.has("jump"): _pill("jump", "JUMP", true, GOLD)
 	if buttons.has("land"): _pill("land", "LAND", true, GREEN)

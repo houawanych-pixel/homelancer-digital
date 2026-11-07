@@ -3925,12 +3925,67 @@ func _hull_r(e: Dictionary) -> float:
 
 ## v1.9i: the player's mech, built from the fitted arms / core / legs. Until a part's pack is in, the Black-Gold frame
 ## stands in and the mech is rebuilt when the pack arrives.
+## v12.39 (owner: "instead of transform ... eject: you're exiting your mech or ship, then you can enter it again when
+## you're outside ... in the world you eject and you're in the world but smaller scale"): on a world, landed and still,
+## EJECT puts you on foot at human size (the owner's pilot, his rifle); the mech / ship stays parked where it stood.
+## Walk back to it and ENTER.
+var on_foot := false
+var parked: Node3D
+var parked_form := ""
+func can_eject() -> bool:
+	if not surface_mode or boarding or on_foot or sun_surface or not is_instance_valid(player) or not controls: return false
+	if transform_t > 0.0 or warp_active() or vel.length() > Data.EJECT_MAX_SPEED: return false
+	return altitude < Data.EJECT_MAX_ALT
+
+func near_parked() -> bool:
+	if on_foot and not is_instance_valid(parked): return true   # (its sector was unloaded: it comes to you)
+	if not on_foot: return false
+	var d := player.global_position - parked.global_position
+	return Vector2(d.x, d.z).length() < Data.ENTER_REACH and absf(d.y) < 40.0   # (across the ground; it may stand lower or higher)
+
+func eject() -> String:
+	if not can_eject(): return ""
+	if not PilotRig.ready(): return "loading"
+	parked_form = GS.form
+	var keep_at := model.global_transform
+	model.get_parent().remove_child(model)
+	var holder: Node = tile_root if is_instance_valid(tile_root) else self
+	holder.add_child(model)
+	model.global_transform = keep_at
+	model.visible = true
+	parked = model
+	model = null
+	on_foot = true
+	GS.form = "mech"   # (walks the ground like the mech does)
+	ground_mode = true
+	vel = Vector3.ZERO
+	set_player_model()
+	var side := player.global_basis.x * Data.EJECT_STEP
+	player.global_position += side
+	_update_camera(1.0, true)
+	message.emit("EJECTED. You're on foot. Walk back to your %s and ENTER." % ("mech" if parked_form == "mech" else "ship"))
+	return "out"
+
+func enter_vehicle() -> bool:
+	if not near_parked(): return false
+	var at := parked.global_transform if is_instance_valid(parked) else player.global_transform
+	if is_instance_valid(parked): parked.queue_free()
+	parked = null
+	on_foot = false
+	GS.form = parked_form
+	player.global_position = at.origin
+	set_player_model()
+	vel = Vector3.ZERO
+	_update_camera(1.0, true)
+	message.emit("Back in your %s." % ("mech" if GS.form == "mech" else "ship"))
+	return true
+
 var escape_pilot := false   # v12.38: in the station breakout you're the owner's pilot on foot, not a mech
 var pilot_rig: PilotRig
 func _player_mech_model() -> Node3D:
-	if escape_pilot and PilotRig.ready():
+	if (escape_pilot or on_foot) and PilotRig.ready():
 		pilot_rig = PilotRig.new()
-		return pilot_rig.build(Data.ESCAPE_PILOT_H, 6.0)
+		return pilot_rig.build(Data.FOOT_H if on_foot else Data.ESCAPE_PILOT_H, 6.0)
 	var k: Dictionary = GS.mech_keys()
 	var waiting := false
 	for p in ["arms", "core", "legs"]:
@@ -3964,7 +4019,7 @@ func _on_ship_pack(pk: String) -> void:
 
 func set_player_model() -> void:
 	if is_instance_valid(model): model.queue_free()
-	if GS.form == "mech" and not Packs.is_ready("mechs"): GS.form = "ship"
+	if GS.form == "mech" and not Packs.is_ready("mechs") and not on_foot: GS.form = "ship"
 	var mech := GS.form == "mech"
 	# v10.2 (owner, phone shots: "why does the game look like this"): a bought ship whose model comes in its own pack
 	# (Ranger, Lancer, Hauler, Bulk) was only fetched on the ship dealer page, so flying straight out after loading the
@@ -3974,6 +4029,7 @@ func set_player_model() -> void:
 		if spk != "" and not Packs.is_ready(spk):
 			if not Packs.pack_ready.is_connected(_on_ship_pack): Packs.pack_ready.connect(_on_ship_pack)
 			Packs.request(spk)
+	pilot_rig = null
 	model = _player_mech_model() if mech else ShipFactory.build(Data.SHIPS[GS.ship_id]["model"])   # (v1.9i: the mech wears its fitted parts)
 	player.add_child(model)
 	model.visible = GS.view != "cockpit"
@@ -7837,6 +7893,11 @@ func _collisions(dt: float) -> void:
 	sidestep_t = maxf(0.0, sidestep_t - dt)
 	_update_laser_shield(dt)
 	_update_lamp(dt)
+	if on_foot:   # v12.39: a person's pace
+		var fh := Vector3(vel.x, 0, vel.z)
+		if fh.length() > Data.FOOT_SPEED:
+			fh = fh.normalized() * Data.FOOT_SPEED
+			vel = Vector3(fh.x, vel.y, fh.z)
 	if boarding: _cap_lights()
 	if pilot_rig != null and is_instance_valid(model): pilot_rig.pose(dt, Vector2(vel.x, vel.z).length(), Data.BOARD_MAX_SPEED)
 	_update_sword(dt)
@@ -7965,6 +8026,15 @@ func _update_camera(dt: float, snap: bool) -> void:
 		if hit_shake > 0.0: ahead += Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), 0) * hit_shake * 1.2
 		_set_cam(rel1, ahead, b.y)
 		cam.fov = lerpf(cam.fov, 92.0 if warp_look() else (82.0 if boosting else 76.0), minf(1.0, dt * 2.0))
+		return
+	if on_foot and is_instance_valid(player):   # v12.39: close over the pilot's right shoulder (he stands 6 m under the frame's middle)
+		var fb := player.global_basis
+		var head := -6.0 + Data.FOOT_H * 0.9
+		var want := fb * Vector3(0.75, head + 0.15, 2.6)
+		var foff: Vector3 = want if snap or _cam_off.length() > 40.0 else _cam_off.lerp(want, minf(1.0, dt * 10.0))
+		_cam_off = foff
+		_set_cam(_cam_clip(foff), fb * Vector3(0.3, head, -30.0), fb.y)
+		cam.fov = lerpf(cam.fov, 22.0 if zoomed else 66.0, minf(1.0, dt * 6.0) if not snap else 1.0)
 		return
 	var back := 15.0 + (4.0 if warp_look() else (1.5 if boosting else 0.0))
 	var up := Data.CAM_UP   # v10.6: a little higher, so every gun's stream shows above the ship (not hidden behind it)
@@ -8834,7 +8904,9 @@ func prompt() -> String:
 		if not lc.is_empty() and player.global_position.distance_to(lc["pos"]) < dock_distance(dc): return "lane"
 		return "dock"
 	if gate_in_range(): return "jump"
+	if on_foot: return "enter" if near_parked() else ""   # v12.39
 	if not board_candidate().is_empty() or not facility_candidate().is_empty(): return "board"   # v11.60 (owner); v11.96: ENTER a facility
+	if can_eject(): return "eject"
 	return "lane" if not lc.is_empty() else ""
 
 ## How far the ship is from being docked with this station or planet (station: its body or docking mouth; planet: its surface).
