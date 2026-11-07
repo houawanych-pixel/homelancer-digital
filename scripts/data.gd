@@ -687,18 +687,68 @@ const GRASS_SEGMENTS := 5            # bends along a sheet (the weave)
 ## flower; four together open into one giant bloom.
 ## v12.28 (owner: "how do the animals work? ... the sheep or the deer", alien ones): wildlife on the grass (scripts/wildlife.gd).
 ## size: metres (the model is ~1 unit); walk / run: m/s; flee: how near the player can come before it bolts.
+# wildlife-test branch (owner: planet wildlife, "sheep, deer, bear, giant worm" - original alien fauna with clear roles; docs/WILDLIFE.md):
+# data-driven species profiles. All PLACEHOLDERS (owner: "those animals will be placeholders"); what matters is the role:
+#   role prey     - never fights: notices you, warns the herd, runs
+#   role defense  - stands its ground: warns, holds; fights only if you come right up or hurt it; never hunts or chases far
+#   role predator - hunts: goes after prey animals, warns you once briefly, then attacks if you stay in its ground
+# arch: grazer (graze, herd, flee) / prey (alert the herd, bolt) / predator (patrol, warn,
+# attack, give up past its territory) / burrower (ripple, telegraph, emerge, exposed, re-burrow) / giant (threat display,
+# charge, slam, throw). size = metres (the model is ~1 unit), notice / flee / territory / reach in m, dmg per hit.
+# ground: grass (only on grass), flowers, land (any dry ground). model: which body is drawn (variants share one).
+# col: the colour overrides for a variant. active: when it is about (the surface has no clock yet: data only for now).
 const WILDLIFE := {
-	"strider": {"name": "Strider", "size": 6.0, "walk": 4.0, "run": 26.0, "flee": 70.0, "herd": [2, 4]},
-	"grazer": {"name": "Glow grazer", "size": 5.0, "walk": 2.0, "run": 6.0, "flee": 22.0, "herd": [1, 3]},
-	"hopper": {"name": "Hopper", "size": 1.8, "walk": 3.0, "run": 14.0, "flee": 35.0, "herd": [2, 5]},
+	"strider": {"role": "prey", "name": "Strider", "arch": "prey", "size": 6.0, "walk": 4.0, "run": 26.0, "notice": 90.0, "flee": 70.0, "alert_t": 0.6,
+		"flag": 60.0, "herd": [2, 4], "ground": "grass", "hp": 60.0, "diet": "leaves, flowers", "active": "dawn, dusk"},
+	"prismhart": {"role": "prey", "name": "Prismhart", "arch": "prey", "model": "strider", "crystal": true, "size": 6.0, "walk": 4.0, "run": 24.0, "notice": 90.0,
+		"flee": 70.0, "alert_t": 0.6, "flag": 60.0, "herd": [2, 3], "ground": "land", "hp": 70.0, "diet": "mineral lichen", "active": "dawn, dusk",
+		"col": {"hide": Color(0.43, 0.35, 0.66), "stripe": Color(1.0, 0.44, 0.82), "belly": Color(0.9, 0.88, 1.0), "antler": Color(0.79, 0.65, 1.0)}},
+	"grazer": {"role": "prey", "name": "Glow grazer", "arch": "grazer", "size": 5.0, "walk": 2.0, "run": 6.0, "notice": 30.0, "flee": 22.0, "alert_t": 1.0,
+		"herd": [1, 3], "ground": "grass", "hp": 80.0, "diet": "grass", "active": "night"},
+	"hopper": {"role": "prey", "name": "Hopper", "arch": "prey", "size": 1.8, "walk": 3.0, "run": 14.0, "notice": 45.0, "flee": 35.0, "alert_t": 0.2,
+		"herd": [2, 5], "ground": "flowers", "hp": 15.0, "diet": "flowers", "active": "day"},
+	"mossfleece": {"role": "prey", "name": "Mossfleece", "arch": "grazer", "size": 2.6, "walk": 2.5, "run": 11.0, "notice": 40.0, "flee": 30.0, "alert_t": 1.0,
+		"herd": [4, 7], "ground": "grass", "hp": 40.0, "diet": "grass, moss", "active": "day"},
+	"drift_woolly": {"role": "prey", "name": "Drift woolly", "arch": "grazer", "model": "mossfleece", "size": 2.8, "walk": 2.2, "run": 10.0, "notice": 40.0,
+		"flee": 30.0, "alert_t": 1.0, "herd": [3, 6], "ground": "land", "hp": 45.0, "diet": "ice moss", "active": "day",
+		"col": {"wool": Color(0.95, 0.97, 1.0), "skin": Color(0.18, 0.29, 0.45), "moss": Color(0.62, 0.9, 1.0), "horn": Color(0.81, 0.91, 1.0)}},
+	"grumbark": {"role": "defense", "name": "Grumbark", "arch": "predator", "size": 6.5, "walk": 3.0, "run": 15.0, "notice": 60.0, "warn_t": 2.0, "territory": 160.0,
+		"reach": 9.0, "dmg": 10.0, "cd": 1.8, "herd": [1, 1], "cap": 1, "ground": "land", "hp": 260.0, "diet": "berries, grazers", "active": "day"},
+	"rime_grumbark": {"role": "defense", "name": "Rime grumbark", "arch": "predator", "model": "grumbark", "size": 6.8, "walk": 3.0, "run": 14.0, "notice": 60.0,
+		"warn_t": 2.0, "territory": 160.0, "reach": 9.0, "dmg": 11.0, "cd": 1.8, "herd": [1, 1], "cap": 1, "ground": "land", "hp": 280.0,
+		"diet": "fur grazers", "active": "any",
+		"col": {"fur": Color(0.87, 0.91, 0.96), "bark": Color(0.44, 0.53, 0.66), "moss": Color(0.66, 0.94, 1.0)}},
+	"vexmaw": {"role": "predator", "name": "Vexmaw", "arch": "predator", "size": 4.5, "walk": 4.0, "run": 22.0, "notice": 70.0, "warn_t": 2.0, "territory": 150.0,
+		"reach": 8.0, "dmg": 8.0, "cd": 1.4, "herd": [1, 2], "cap": 2, "ground": "land", "hp": 160.0, "hunts": true, "diet": "meat (striders)", "active": "dusk, night"},
+	"shale_stalker": {"role": "predator", "name": "Shale stalker", "arch": "predator", "model": "vexmaw", "size": 4.5, "walk": 4.0, "run": 20.0, "notice": 70.0,
+		"warn_t": 2.0, "territory": 150.0, "reach": 8.0, "dmg": 8.0, "cd": 1.4, "herd": [1, 2], "cap": 2, "ground": "land", "hp": 200.0, "hunts": true,
+		"diet": "meat", "active": "any",
+		"col": {"skin": Color(0.54, 0.48, 0.42), "stripe": Color(0.35, 0.29, 0.25), "eye": Color(0.48, 1.0, 0.85)}},
+	"sandmaw": {"role": "defense", "name": "Sandmaw", "arch": "burrower", "size": 18.0, "walk": 6.0, "run": 16.0, "notice": 120.0, "territory": 300.0, "ring": 13.0,
+		"tele_t": 1.5, "exposed_t": 4.0, "dmg": 18.0, "herd": [1, 1], "cap": 1, "ground": "land", "hp": 500.0, "diet": "anything that walks", "active": "any"},
+	"rimeback": {"role": "defense", "name": "Rimeback", "arch": "giant", "size": 14.0, "walk": 3.5, "run": 13.0, "notice": 100.0, "warn_t": 2.5, "territory": 250.0,
+		"reach": 14.0, "slam_r": 22.0, "dmg": 14.0, "throw_dmg": 9.0, "cd": 2.6, "herd": [1, 1], "cap": 1, "ground": "land", "hp": 600.0,
+		"diet": "fur grazers, ice moss", "active": "any"},
 }
+## Which animals live on which ground (tile kind): the share each kind spawns at and the most at once.
 const WILDLIFE_BIOMES := {
-	"jungle": {"max": 14, "kinds": {"strider": 0.35, "grazer": 0.35, "hopper": 0.3}},
-	"forest": {"max": 10, "kinds": {"strider": 0.5, "grazer": 0.2, "hopper": 0.3}},
-	"coast": {"max": 6, "kinds": {"grazer": 0.5, "hopper": 0.5}},
-	"mountains": {"max": 5, "kinds": {"strider": 0.7, "grazer": 0.3}},
+	"jungle": {"max": 14, "kinds": {"strider": 0.3, "grazer": 0.28, "hopper": 0.24, "vexmaw": 0.18}},
+	"forest": {"max": 12, "kinds": {"mossfleece": 0.35, "strider": 0.3, "hopper": 0.2, "grumbark": 0.15}},
+	"coast": {"max": 8, "kinds": {"mossfleece": 0.4, "grazer": 0.3, "hopper": 0.3}},
+	"mountains": {"max": 6, "kinds": {"strider": 0.45, "mossfleece": 0.35, "grumbark": 0.2}},
 	"toxic": {"max": 6, "kinds": {"grazer": 0.6, "hopper": 0.4}},
+	"ice": {"max": 8, "kinds": {"drift_woolly": 0.55, "rimeback": 0.2, "rime_grumbark": 0.25}},
+	"crystal": {"max": 7, "kinds": {"prismhart": 0.75, "hopper": 0.25}},
+	"desert": {"max": 4, "kinds": {"sandmaw": 0.4, "shale_stalker": 0.6}},
+	"canyon": {"max": 4, "kinds": {"shale_stalker": 0.6, "sandmaw": 0.4}},
 }
+const WILDLIFE_PAD_CLEAR := 260.0     # m: nothing spawns this near a base / landing pad, and hunters won't follow you in
+const WILDLIFE_DMG := {"gun": 10.0, "missile": 35.0, "heavy": 70.0, "special": 45.0}   # what a blast near an animal takes off it
+const WILDLIFE_TOON := true           # cel shading + an ink outline (the anime look)
+## The wildlife test area (?wildtest / HL_WILDTEST): every species at fixed spots round the landing point, [kind, angle deg, distance m, count].
+const WILDLIFE_PARK := [["mossfleece", 0, 110, 5], ["drift_woolly", 25, 150, 3], ["strider", 50, 140, 3], ["prismhart", 75, 170, 2],
+	["hopper", 100, 95, 4], ["grazer", 125, 120, 2], ["grumbark", 160, 210, 1], ["vexmaw", 205, 200, 1], ["shale_stalker", 245, 230, 1],
+	["rimeback", 290, 240, 1], ["sandmaw", 330, 220, 1]]
 const WILDLIFE_SPAWN := [80.0, 260.0]   # m from the player: where new ones appear
 const WILDLIFE_DESPAWN := 420.0         # m: further than this they go
 const WILDLIFE_SHADOWLESS := true       # (phones: no shadows from the animals)

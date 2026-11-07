@@ -10731,6 +10731,7 @@ func _ray_blocks(a: Vector3, b: Vector3) -> Array:
 ## that was hit broke (for sparks and sounds).
 func _blast_blocks(at: Vector3, kind: String, hit: BlockField) -> Dictionary:
 	var res: Dictionary = hit.blast(at, kind)
+	if wildlife != null and is_instance_valid(wildlife): wildlife.on_blast(at, kind)   # (wildlife-test branch) shots hurt / scare the animals
 	var r: float = (Data.BLOCK_BLAST.get(kind, Data.BLOCK_BLAST["gun"]) as Array)[0]
 	for f in _fields():
 		var bf: BlockField = f
@@ -10905,11 +10906,13 @@ func _ground(x: float, z: float) -> float:
 ## Ground contact, tile edges (wrap to the next tile) and the ceiling (back to orbit).
 ## v12.28: the wildlife on this tile's grass (made with the tile, gone with it).
 var wildlife: Wildlife
+var wild_park := false   # (wildlife-test branch) the wildlife test area: every species at fixed spots (?wildtest / HL_WILDTEST)
 func _update_wildlife(dt: float) -> void:
 	if not is_instance_valid(tile_root) or not BlockField.regions_on() or sun_surface: return
 	if wildlife == null or not is_instance_valid(wildlife) or wildlife.get_parent() != tile_root:
 		wildlife = Wildlife.new()
 		wildlife.space = self
+		wildlife.test_park = wild_park
 		tile_root.add_child(wildlife)
 	var kind: String = Surface.PLANETS[planet_id]["tiles"][tile] if Surface.PLANETS.has(planet_id) else ""
 	wildlife.tick(dt, player.global_position, kind)
