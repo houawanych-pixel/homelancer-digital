@@ -1384,6 +1384,7 @@ func setup_boarding(info: Dictionary) -> void:
 	board_doors = built["doors"]
 	_board_alarm = built["alarm"]
 	_board_path = built["path"]
+	board_lifts = built.get("lifts", {})
 	ground_mode = true
 	player.global_position = Boarding.START_AT + Vector3(0, 6.0, 0)
 	_face(Boarding.START_FACE)
@@ -1495,12 +1496,14 @@ func _core_look(tint: Color) -> Node3D:
 ## Inside, every frame: deck, roof, walls; their mechs kept in; the fight's steps.
 func _board_update(dt: float) -> void:
 	var p := player.global_position
+	if not board_lifts.is_empty(): _board_lifts(dt)   # v12.51: the lifts
+	p = player.global_position
 	var floor_y := Boarding.floor_at(p) + 6.0   # v11.71: decks at different heights, ramps between them
 	altitude = p.y - floor_y + 6.0
-	if ground_mode and grounded and vel.y <= 0.5 and p.y > floor_y and p.y - floor_y < Data.GROUND_STICK:
+	if ground_mode and grounded and vel.y <= 0.5 and p.y > floor_y and p.y - floor_y < Data.GROUND_STICK and sword_kind != "flip":
 		player.global_position.y = floor_y
 		vel.y = 0.0
-	grounded = ground_mode and player.global_position.y <= floor_y + 0.6 and vel.y <= 0.5
+	grounded = ground_mode and player.global_position.y <= floor_y + 0.6 and vel.y <= 0.5 and sword_kind != "flip"
 	if player.global_position.y < floor_y:
 		player.global_position.y = floor_y
 		if vel.y < 0.0: vel.y = 0.0
@@ -1628,6 +1631,67 @@ func _board_steps(dt: float) -> void:
 ## v12.47 (owner: "Tripo space stations give you a good shell to build on"): the station's own model, stretched round
 ## the deck plan that was laid out from its silhouette (Boarding.footprint), both faces drawn so its hull is seen
 ## from inside: past the hangar's open side, the station's own hull.
+var board_lifts := {}   # v12.51: lift passage -> its platform node
+var _lift_state := {}    # lift -> {target, on_t}
+var lift_rides := 0      # (tests)
+## v12.51 (owner: "make real elevators"): step on a lift's platform and it carries you to the other deck; walk up to it
+## from a deck it isn't at and it comes to you. You can't step off it (or onto it) where its edge stands above or
+## below the deck.
+func _board_lifts(dt: float) -> void:
+	var p := player.global_position
+	var here := Boarding.room_at(p)
+	for k in board_lifts:
+		var R: Dictionary = Boarding.ROOMS[k]
+		var ax: bool = R["axis"] == "x"
+		var ya: float = float(R["y"][0])
+		var yb: float = float(R["y"][1])
+		var m := Boarding.lift_mid(k)
+		var cur: float = Boarding.LIFT_Y.get(k, minf(ya, yb))
+		if not _lift_state.has(k): _lift_state[k] = {"target": cur, "on_t": 0.0, "rode": false}
+		var st: Dictionary = _lift_state[k]
+		var inside: bool = here == k
+		var u := p.x if ax else p.z
+		var on := inside and absf(u - m) <= Boarding.LIFT_HALF
+		var at_end: bool = is_equal_approx(cur, ya) or is_equal_approx(cur, yb)
+		if on:
+			st["on_t"] = float(st["on_t"]) + dt
+			if float(st["on_t"]) > 0.5 and at_end and is_equal_approx(float(st["target"]), cur) and not bool(st["rode"]):   # (one ride; step off to ride again)
+				st["target"] = yb if is_equal_approx(cur, ya) else ya
+				st["rode"] = true
+				lift_rides += 1
+				Sfx.play("warp_spool", -12.0, 1.6)
+		else:
+			st["on_t"] = 0.0
+			st["rode"] = false
+			if inside and at_end:   # called from the deck you're on
+				var mine := ya if u < m else yb
+				if not is_equal_approx(cur, mine): st["target"] = mine
+		var tgt: float = st["target"]
+		cur = move_toward(cur, tgt, dt * Data.LIFT_SPEED)
+		Boarding.LIFT_Y[k] = cur
+		var plat: Node3D = board_lifts[k]
+		if is_instance_valid(plat): plat.global_position.y = cur
+		if not inside: continue
+		var side_y := ya if u < m else yb
+		var edge := m - Boarding.LIFT_HALF if u < m else m + Boarding.LIFT_HALF
+		if on:
+			player.global_position.y = cur + 6.0
+			vel.y = 0.0
+			# off the platform only onto the deck it's level with
+			var want_u := u + (vel.x if ax else vel.z) * dt
+			if absf(want_u - m) > Boarding.LIFT_HALF - 1.0:
+				var exit_y := ya if want_u < m else yb
+				if absf(cur - exit_y) > 0.5:
+					var cl := clampf(u, m - Boarding.LIFT_HALF + 1.0, m + Boarding.LIFT_HALF - 1.0)
+					if ax: player.global_position.x = cl
+					else: player.global_position.z = cl
+					vel = Vector3(0 if ax else vel.x, vel.y, vel.z if ax else 0)
+		elif absf(cur - side_y) > 0.5 and absf(u - edge) < 6.0:   # the platform isn't here: the shaft's edge stops you
+			var back := edge - 6.0 if u < m else edge + 6.0
+			if ax: player.global_position.x = back
+			else: player.global_position.z = back
+			vel = Vector3(0 if ax else vel.x, vel.y, vel.z if ax else 0)
+
 var breakout_shell: Node3D
 var life: StationLife   # v12.48: props, wall marks, crew (inside a deck)
 func _breakout_shell(root: Node3D) -> void:
@@ -4213,7 +4277,21 @@ func _foot_speed(dt: float) -> void:
 	if sprint: run_cap = Data.FOOT_SPEED * (Data.SPEED_BOOST_K if speed_k >= 1.0 else Data.SPRINT_K * Data.SPEED_CHARGE_K)
 	var cap: float = (run_cap if ground_mode else (Data.JETPACK_SPEED * (Data.JETPACK_BOOST_K if boosting else 1.0))) * (scale_k if escape_pilot else 1.0)
 	if escape_pilot and ground_mode: cap = maxf(cap, Data.BOARD_MAX_SPEED)
-	if speed_k >= 1.0 and fh.length() > walk_cap * 0.6: _speed_ghosts(dt)
+	if speed_k >= 1.0 and fh.length() > walk_cap * 0.6 and (move.length() > 0.3 or _test_run):
+		_speed_ghosts(dt)
+		# v12.51 (owner: "the speed run isn't working; if you hit something you stop"): it really runs at the boost
+		# pace (the stick only asks for a run), and running into something ends it
+		if _run_last > walk_cap * 0.8 and fh.length() < _run_last * 0.5:
+			speed_k = 0.0
+			fh = fh.normalized() * minf(fh.length(), walk_cap * 0.3)
+			vel = Vector3(fh.x, vel.y, fh.z)
+			hit_shake = maxf(hit_shake, 0.5)
+			Sfx.play("hull_hit", -6.0, 0.8)
+			message.emit("SPEED RUN: you hit something.")
+		else:
+			fh = fh.lerp(fh.normalized() * cap, minf(1.0, dt * 3.0))
+			vel = Vector3(fh.x, vel.y, fh.z)
+	_run_last = fh.length()
 	if fh.length() > cap:
 		fh = fh.normalized() * cap
 		vel = Vector3(fh.x, vel.y, fh.z)
@@ -4228,6 +4306,8 @@ func _foot_speed(dt: float) -> void:
 
 ## The shadow runners: every GHOST_EVERY s a see-through blue copy of you, frozen in that stride, left behind to fade.
 var _ghost_cd := 0.0
+var _run_last := 0.0
+var _test_run := false   # (tests: the stick isn't held)
 var _ghost_mat: StandardMaterial3D
 var ghosts: Array = []   # [{node, life}] (tests count them)
 func _speed_ghosts(dt: float) -> void:
@@ -8028,13 +8108,15 @@ func _sword_move(v: Vector3, dt: float) -> void:
 	vel = Vector3(v.x * 0.25, vel.y, v.z * 0.25)
 
 var _sword_engaged := false
+var _flip_speed := 0.0
+var _flip_y0 := 0.0
 func _sword_start(kind: String, dir: Vector3, slashes: int) -> void:
 	_sword_engaged = false
 	sword_kind = kind
 	_sword_dir = dir
 	_sword_left = slashes
 	_sword_next = 0.0
-	sword_t = Data.SWORD_DASH_TIME if kind == "dash" else (Data.SWORD_SIDE_TIME if kind == "side" else (Data.SWORD_SPIN_TIME if kind == "spin" else Data.SWORD_SEEK_MAX))
+	sword_t = Data.SWORD_FLIP_TIME if kind == "flip" else Data.SWORD_DASH_TIME if kind == "dash" else (Data.SWORD_SIDE_TIME if kind == "side" else (Data.SWORD_SPIN_TIME if kind == "spin" else Data.SWORD_SEEK_MAX))
 	Sfx.play("saber_on", -7.0, 1.2)
 
 func _update_sword(dt: float) -> void:
@@ -8072,12 +8154,18 @@ func _update_sword(dt: float) -> void:
 			right.y = 0.0
 			right = right.normalized()
 			if absf(move.x) > 0.45 and absf(move.x) >= absf(move.y): _sword_start("side", right * signf(move.x), 1)
+			elif move.y >= 0.45 or _test_run or (speed_k >= 1.0 and Vector2(vel.x, vel.z).length() > 20.0):
+				# v12.51 (owner: "the sword attack is fast and goes too far; it should be a somersault jump attack, and you
+				# can do it in the speed run"): holding forward, a forward flip over a short hop, the blade landing at the end
+				_sword_start("flip", fwd, 1)
+				_flip_speed = maxf(Data.SWORD_FLIP_DIST / Data.SWORD_FLIP_TIME, Vector2(vel.x, vel.z).length())
+				_flip_y0 = player.global_position.y
+				Sfx.play("whoosh", -6.0, 1.3)
 			else:
 				_sword_start("dash", fwd, Data.SWORD_COMBO)
-				if move.y < 0.45:   # v12.46 (owner: "the sword shouldn't dash forward unless I'm holding forward"): the combo where you stand
-					_sword_engaged = true
-					_sword_next = 0.0
-					sword_t = Data.SWORD_COMBO * Data.SWORD_COMBO_GAP + 0.1
+				_sword_engaged = true   # v12.46 (owner): the combo where you stand
+				_sword_next = 0.0
+				sword_t = Data.SWORD_COMBO * Data.SWORD_COMBO_GAP + 0.1
 		elif not sword_locks.is_empty(): _sword_start("seek", fwd, sword_locks.size())
 		else: _sword_start("spin", fwd, Data.SWORD_SPIN_HITS)
 	_sword_prev = sword_held
@@ -8105,6 +8193,29 @@ func _sword_step(dt: float, fwd: Vector3) -> void:
 				_sword_next = Data.SWORD_COMBO_GAP
 				_sword_slash_fx(_sword_dir, Data.SWORD_REACH)
 				for e in near: _sword_hit(e)
+		"flip":
+			var f := clampf(1.0 - sword_t / Data.SWORD_FLIP_TIME, 0.0, 1.0)
+			_sword_move(_sword_dir * _flip_speed, dt)
+			var base_y := _flip_y0
+			if boarding: base_y = Boarding.floor_at(player.global_position) + 6.0
+			player.global_position.y = base_y + 4.0 * Data.SWORD_FLIP_HEIGHT * f * (1.0 - f)
+			vel.y = 0.0
+			var spin: Node3D = pilot_rig.body if pilot_rig != null and is_instance_valid(pilot_rig.body) else model
+			if is_instance_valid(spin): spin.rotation.x = -TAU * f
+			if _sword_next <= 0.0 and f > 0.45 and _sword_left > 0:   # the blade over the top
+				_sword_left -= 1
+				_sword_next = 99.0
+				_sword_slash_fx(_sword_dir, Data.SWORD_REACH)
+			if sword_t <= 0.0:   # landing: the heavy slash
+				if is_instance_valid(spin): spin.rotation.x = 0.0
+				player.global_position.y = base_y
+				_sword_slash_fx(_sword_dir, Data.SWORD_REACH * 1.2)
+				Sfx.play("saber_hit", -4.0, 0.9)
+				hit_shake = maxf(hit_shake, 0.4)
+				for e in _sword_targets(_sword_dir, Data.SWORD_REACH * 1.4, -0.2):
+					_sword_hit(e)
+					_sword_hit(e)
+				vel = Vector3(_sword_dir.x * _flip_speed * 0.3, 0, _sword_dir.z * _flip_speed * 0.3)
 		"side":
 			_sword_move(_sword_dir * Data.SWORD_SIDE_SPEED, dt)
 			if _sword_next <= 0.0 and _sword_left > 0:

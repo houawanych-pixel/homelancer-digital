@@ -2857,6 +2857,7 @@ func _run() -> void:
 		await _capture("eject_on_foot")
 		# v12.45: SPEED RUN builds up; GROUND off = jetpack
 		main._on_hud("warp")
+		s._test_run = true
 		var fwd := -s.player.global_basis.z
 		var top := 0.0
 		var charging := 0.0
@@ -2988,18 +2989,18 @@ func _run() -> void:
 				(e["node"] as Node3D).global_position = e["home"]
 				parked_at += 30.0
 		var hr: Array = Boarding.ROOMS["reactor"]["r"]
-		var hcen := Vector3((float(hr[0]) + float(hr[1])) * 0.5, 0, (float(hr[2]) + float(hr[3])) * 0.5 - 80.0)
+		var hcen := Vector3((float(hr[0]) + float(hr[1])) * 0.5, 0, (float(hr[2]) + float(hr[3])) * 0.5 - 108.0)   # (in the hub's ring corridor)
 		hcen.y = Boarding.floor_at(hcen) + Data.WALKER_STAND
 		gn.global_position = hcen
 		g["home"] = hcen
 		s.face(gn, Vector3(1, 0, 0))
 		g["orbit"] = 0.0
-		var behind := hcen - Vector3(110, 0, 0)
+		var behind := hcen - Vector3(76, 0, 0)
 		_tp(Vector3(behind.x, Boarding.floor_at(hcen) + 6.0, behind.z), hcen)
 		await _frames(4)
 		var unseen: bool = str(s.board["phase"]) == "sneak"
 		if not unseen: print("[route] seen early by ", s.board.get("arrested_by", ""))
-		var front := hcen + Vector3(110, 0, 0)
+		var front := hcen + Vector3(76, 0, 0)
 		front.y = Boarding.floor_at(hcen) + 6.0
 		_tp(front, hcen)
 		await _wait(0.5)
@@ -3052,6 +3053,45 @@ func _run() -> void:
 		for c in lf.civs: if str(c["state"]) in ["run", "cower"]: cowering += 1
 		await _capture("breakout_cover")
 		_check("v12.48 (owner): station props break (%d props; shot one: broke %s, %d pieces fell and settled %s), shots and blasts mark the walls (%d marks), the crew run for cover (%d of %d)" % [props_n, broke, flying, settled, lf.marks.size(), cowering, civ_n], broke and flying >= 2 and settled and marked and civ_n > 0 and cowering > 0, "props %d broke %s chunks %d settled %s marks %d->%d civs %d cower %d" % [props_n, broke, flying, settled, m0, lf.marks.size(), civ_n, cowering])
+		# v12.51: a real lift: step on, it carries you to the other deck
+		var lk := ""
+		for k in Boarding.ROUTE_OUT: if Boarding.ROOMS[k].has("lift") and lk == "": lk = k
+		var lift_ok := false
+		var ly0 := 0.0
+		var ly1 := 0.0
+		if lk != "":
+			var LR: Dictionary = Boarding.ROOMS[lk]
+			var lr: Array = LR["r"]
+			var lmid := Boarding.lift_mid(lk)
+			var lc := Vector3(lmid, 0, (float(lr[2]) + float(lr[3])) * 0.5) if LR["axis"] == "x" else Vector3((float(lr[0]) + float(lr[1])) * 0.5, 0, lmid)
+			ly0 = float(Boarding.LIFT_Y[lk])
+			_tp(Vector3(lc.x, ly0 + 6.0, lc.z), lc + Vector3(30, 0, 0))
+			s3.vel = Vector3.ZERO
+			await _wait(4.5)
+			ly1 = float(Boarding.LIFT_Y[lk])
+			lift_ok = absf(ly1 - ly0) > 20.0 and s3.lift_rides == 1 and absf(s3.player.global_position.y - (ly1 + 6.0)) < 2.0 and s3.lift_rides >= 1
+			await _capture("breakout_lift")
+		_check("v12.51 (owner: \"make real elevators\"): standing on the lift in %s it carried you from %.0f m to %.0f m" % [lk, ly0, ly1], lift_ok, "lift %s %.0f -> %.0f rides %d y %.0f" % [lk, ly0, ly1, s3.lift_rides, s3.player.global_position.y])
+		# v12.51: holding forward, the sword is a somersault jump attack over a short hop
+		var fq := Boarding.keep_in(Vector3((float(hr[0]) + float(hr[1])) * 0.5, 0, (float(hr[2]) + float(hr[3])) * 0.5 - 108.0), 10.0)
+		_tp(Vector3(fq.x - 40.0, Boarding.floor_at(fq) + 6.0, fq.z), fq + Vector3(200, 0, 0))
+		await _frames(2)
+		var fp0: Vector3 = s3.player.global_position
+		s3._test_run = true   # (the stick's forward: the HUD resets `move` every frame in a test)
+		s3.sword_held = true
+		await _frames(2)
+		s3.sword_held = false
+		await _frames(2)
+		s3._test_run = false
+		var top_y := fp0.y
+		var flipped := false
+		for i in 50:
+			await _frames(1)
+			top_y = maxf(top_y, s3.player.global_position.y)
+			if s3.sword_kind == "flip": flipped = true
+			if i == 15: await _capture("sword_flip")
+		var fd: float = Vector2(s3.player.global_position.x - fp0.x, s3.player.global_position.z - fp0.z).length()
+		_check("v12.51 (owner: \"a somersault jump attack\"): holding forward the sword flips you over a short hop (%.0f m on, %.0f m up), not a long dash" % [fd, top_y - fp0.y], flipped and fd > 15.0 and fd < 80.0 and top_y - fp0.y > 3.0, "flip %s dist %.1f up %.1f" % [flipped, fd, top_y - fp0.y])
 		# the sword: no dash unless forward is held
 		s3.move = Vector2.ZERO
 		var sp0: Vector3 = s3.player.global_position

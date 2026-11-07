@@ -72,6 +72,7 @@ static var INFO := {}       # a facility's name, depth, difficulty
 
 static func use_ship() -> void:
 	ROOMS = SHIP_ROOMS
+	LIFT_Y = {}
 	START_AT = SHIP_START_AT
 	START_FACE = SHIP_START_FACE
 	CORE_AT = SHIP_CORE_AT
@@ -92,6 +93,8 @@ static var classic := false   # v12.18: the route test's hand-made battleship (i
 
 static func use(L: Dictionary) -> void:
 	ROOMS = L["rooms"]
+	LIFT_Y = {}
+	for k in ROOMS: if ROOMS[k].has("lift"): LIFT_Y[k] = minf(float(ROOMS[k]["y"][0]), float(ROOMS[k]["y"][1]))
 	START_AT = L["start"]
 	START_FACE = Vector3(1, 0, 0)
 	CORE_AT = L["core"]
@@ -492,7 +495,9 @@ static func deckplan(seed_key: String, kind: String, difficulty: int, name := "S
 			if c9 == west: continue
 			var t9: String = link.call(key[best_par[c9]], key[c9])
 			tunnel[c9] = t9
-			if lvl[c9] != lvl[best_par[c9]]: rooms[t9]["label"] = "LIFT %s" % ("UP" if lvl[c9] > lvl[best_par[c9]] else "DOWN")
+			if lvl[c9] != lvl[best_par[c9]]:
+				rooms[t9]["label"] = "LIFT %s" % ("UP" if lvl[c9] > lvl[best_par[c9]] else "DOWN")
+				rooms[t9]["lift"] = true   # v12.51 (owner: "make real elevators"): a platform that carries you between decks
 		var th: String = link.call("fhold", "sbay")
 		# the short cuts that aren't there: sealed passages (red doors) between neighbours the maze doesn't join
 		var blocked: Array = []
@@ -515,6 +520,16 @@ static func deckplan(seed_key: String, kind: String, difficulty: int, name := "S
 		seal = ["-", "-"]
 		esc = ["fhold", th]
 		hub_blocked = blocked
+		# v12.51 (owner's station plan: "that centre room, its real shape ... not Zelda rooms, but blend this too"): the
+		# CENTRAL HUB is round, a ring corridor round an inner plaza and the central column; about a third of the other
+		# rooms are round modules; the rest keep their cut / notched outlines
+		rooms["reactor"]["poly"] = _round_poly(10)
+		rooms["reactor"]["shape"] = "hubring"
+		for k11 in rooms:
+			if k11 == "reactor" or bool(rooms[k11]["hex"]) or str(k11) in ["lbay", "sbay"]: continue
+			if rng.randf() < 0.35:
+				rooms[k11]["poly"] = _round_poly(6)
+				rooms[k11]["shape"] = "poly"
 	else:
 		# station: dock -> west spoke -> ring (round the north side) -> core; out: core -> east ring -> east spoke -> dock
 		var cx := 3 + (1 if d >= 3 else 0)       # the hub's column (a longer west spoke on harder stations)
@@ -754,6 +769,11 @@ static func floor_of(k: String, x: float, z: float) -> float:
 	var ya: float = R["y"][0]
 	var yb: float = R["y"][1]
 	if is_equal_approx(ya, yb): return ya
+	if R.has("lift"):   # v12.51: flat at each end, the platform between
+		var u := x if R["axis"] == "x" else z
+		var m := lift_mid(k)
+		if absf(u - m) <= LIFT_HALF: return float(LIFT_Y.get(k, minf(ya, yb)))
+		return ya if u < m else yb
 	var t: float = clampf((x - float(r[0])) / (float(r[1]) - float(r[0])), 0.0, 1.0) if R["axis"] == "x" else clampf((z - float(r[2])) / (float(r[3]) - float(r[2])), 0.0, 1.0)
 	return lerpf(ya, yb, t)
 
@@ -845,6 +865,7 @@ static func build(root: Node3D, tint: Color) -> Dictionary:
 	var trim := ShipFactory.mat(tint.lerp(Color(0.3, 0.8, 1.0), 0.5) * 0.55, true)   # (a dim coloured glow: pure white strips glared)
 	var door_m := grey(Color(0.62, 0.58, 0.48))
 	var lamps: Array = []
+	var lifts := {}
 	var dl := doors()
 	for k in ROOMS:
 		var R: Dictionary = ROOMS[k]
@@ -856,8 +877,10 @@ static func build(root: Node3D, tint: Color) -> Dictionary:
 		var h: float = R["h"]
 		var ylo: float = minf(float(R["y"][0]), float(R["y"][1]))
 		var yhi: float = maxf(float(R["y"][0]), float(R["y"][1]))
-		_ramp(root, k, -WALL, deck_m)   # the deck (sloping on a ramp)
-		_ramp(root, k, h, roof_m)       # the roof, the same height over it
+		if R.has("lift"): _lift_build(root, k, deck_m, roof_m, trim, lifts)
+		else:
+			_ramp(root, k, -WALL, deck_m)   # the deck (sloping on a ramp)
+			_ramp(root, k, h, roof_m)       # the roof, the same height over it
 		for side in [["x", x0, z0, z1, -1.0], ["x", x1, z0, z1, 1.0], ["z", z0, x0, x1, -1.0], ["z", z1, x0, x1, 1.0]]:
 			if k == "lbay" and side[0] == "x" and is_equal_approx(float(side[1]), x0): continue   # the port bay's open side (in)
 			if k == "sbay" and side[0] == "x" and is_equal_approx(float(side[1]), x1): continue   # the starboard bay's open side (out)
@@ -876,11 +899,11 @@ static func build(root: Node3D, tint: Color) -> Dictionary:
 		if long_z:
 			for sx in [x0 + 1.0, x1 - 1.0]:
 				_slab(root, Vector3(sx - 0.4, ylo + h * 0.16, z0 + 6), Vector3(sx + 0.4, ylo + h * 0.16 + 0.7, z1 - 6), trim, null)
-			_ramp_strip(root, k, trim)
+			if not R.has("lift"): _ramp_strip(root, k, trim)
 		else:
 			for sz in [z0 + 1.0, z1 - 1.0]:
 				_slab(root, Vector3(x0 + 6, ylo + h * 0.16, sz - 0.4), Vector3(x1 - 6, ylo + h * 0.16 + 0.7, sz + 0.4), trim, null)
-			_ramp_strip(root, k, trim)
+			if not R.has("lift"): _ramp_strip(root, k, trim)
 		# lamps: one every ~100 m (tunnels: down the middle)
 		var nx := maxi(1, int(round((x1 - x0) / 110.0)))
 		var nz := maxi(1, int(round((z1 - z0) / 110.0)))
@@ -962,7 +985,57 @@ static func build(root: Node3D, tint: Color) -> Dictionary:
 			bm.position = p
 			path.add_child(bm)
 		prev = c
-	return {"boxes": boxes, "doors": out_doors, "alarm": lamps, "path": path}
+	return {"boxes": boxes, "doors": out_doors, "alarm": lamps, "path": path, "lifts": lifts}
+
+## a lift passage: its two decks, the shaft face between them, the roof over the higher one, and the platform
+static func _lift_build(root: Node3D, k: String, deck_m: Material, roof_m: Material, trim: Material, lifts: Dictionary) -> void:
+	var R: Dictionary = ROOMS[k]
+	var r: Array = R["r"]
+	var ax: bool = R["axis"] == "x"
+	var ya: float = float(R["y"][0])
+	var yb: float = float(R["y"][1])
+	var m := lift_mid(k)
+	var lo := minf(ya, yb)
+	var hi := maxf(ya, yb)
+	var h: float = R["h"]
+	var a0: float = float(r[0]) if ax else float(r[2])
+	var a1: float = float(r[1]) if ax else float(r[3])
+	var w0: float = float(r[2]) if ax else float(r[0])
+	var w1: float = float(r[3]) if ax else float(r[1])
+	var P := func(u: float, yy: float, w: float) -> Vector3: return Vector3(u, yy, w) if ax else Vector3(w, yy, u)
+	var slab := func(u0: float, u1: float, y0: float, y1: float, mat: Material) -> void:
+		var pa: Vector3 = P.call(u0, y0, w0)
+		var pb: Vector3 = P.call(u1, y1, w1)
+		_slab(root, Vector3(minf(pa.x, pb.x), minf(pa.y, pb.y), minf(pa.z, pb.z)), Vector3(maxf(pa.x, pb.x), maxf(pa.y, pb.y), maxf(pa.z, pb.z)), mat, null)
+	slab.call(a0, m - LIFT_HALF, ya - WALL, ya, deck_m)       # the deck at the start end
+	slab.call(m + LIFT_HALF, a1, yb - WALL, yb, deck_m)       # the deck at the far end
+	slab.call(m - LIFT_HALF, m + LIFT_HALF, lo - WALL * 2.0, lo - WALL, deck_m)   # the shaft's floor
+	var hi_side := 1.0 if yb > ya else -1.0                    # the higher deck's edge: a wall face down to the lower one
+	var fu := m + LIFT_HALF * hi_side
+	slab.call(minf(fu, fu + hi_side * WALL), maxf(fu, fu + hi_side * WALL), lo - WALL, hi, deck_m)
+	slab.call(a0, a1, hi + h, hi + h + WALL, roof_m)          # the roof, over the higher deck
+	# the platform: a deck plate with a glowing rim and caution bars
+	var plat := Node3D.new()
+	plat.name = "Lift_%s" % k
+	root.add_child(plat)
+	var plate := MeshInstance3D.new()
+	var pm := BoxMesh.new()
+	var wd := (w1 - w0) - 6.0
+	pm.size = Vector3(LIFT_HALF * 2.0 - 2.0, 1.6, wd) if ax else Vector3(wd, 1.6, LIFT_HALF * 2.0 - 2.0)
+	plate.mesh = pm
+	plate.material_override = grey(Color(0.5, 0.48, 0.42))
+	plate.position = Vector3(0, -0.8, 0)
+	plat.add_child(plate)
+	for sd in [-1.0, 1.0]:
+		var bar := MeshInstance3D.new()
+		var bb := BoxMesh.new()
+		bb.size = Vector3(1.2, 0.5, wd) if ax else Vector3(wd, 0.5, 1.2)
+		bar.mesh = bb
+		bar.material_override = ShipFactory.mat(Color(1.0, 0.75, 0.2), true)
+		bar.position = Vector3(sd * (LIFT_HALF - 2.0), 0.2, 0) if ax else Vector3(0, 0.2, sd * (LIFT_HALF - 2.0))
+		plat.add_child(bar)
+	plat.position = P.call(m, lo, (w0 + w1) * 0.5)
+	lifts[k] = plat
 
 ## One wall run (from a to b along the side). Tunnels lean: a vertical foot, a panel leaning OUT to the widest point,
 ## then one leaning back IN to the roof (a hexagon). The solid part is the floor-width wall (mechs walk on the deck).
@@ -1028,6 +1101,35 @@ static func _shape(root: Node3D, boxes: Array, R: Dictionary, m: Material, trim:
 			else:
 				boxes.append(_slab(root, Vector3(x0 + 10, y, cz - 3), Vector3(cx - gap, y + 9, cz + 3), m, root))
 				boxes.append(_slab(root, Vector3(cx + gap, y, cz - 3), Vector3(x1 - 10, y + 9, cz + 3), m, root))
+		"hubring":   # v12.51: the round hub: the central column, an inner ring wall (ways in on the diagonals, so you walk the
+			# ring corridor round from the doors), short radial walls making alcoves along the outer wall
+			var rmin := minf(hx, hz)
+			var col := rmin * 0.24
+			var cc := MeshInstance3D.new()
+			var ccm := CylinderMesh.new()
+			ccm.radial_segments = 16
+			ccm.top_radius = col
+			ccm.bottom_radius = col * 1.15
+			ccm.height = h
+			cc.mesh = ccm
+			cc.material_override = m
+			cc.position = Vector3(cx, y + h * 0.5, cz)
+			root.add_child(cc)
+			boxes.append([root, AABB(Vector3(cx - col * 0.85, y, cz - col * 0.85), Vector3(col * 1.7, h, col * 1.7))])
+			_slab(root, Vector3(cx - col - 1.0, y + h * 0.4, cz - 0.5), Vector3(cx + col + 1.0, y + h * 0.4 + 0.8, cz + 0.5), trim, null)
+			var ring_r := rmin * 0.56
+			var gap := deg_to_rad(16.0)
+			for q in 4:
+				var a_mid := PI * 0.25 + PI * 0.5 * q   # the ways in: on the diagonals
+				var nxt := a_mid + PI * 0.5
+				_arc(root, boxes, Vector2(cx, cz), ring_r, a_mid + gap, nxt - gap, y, h * 0.55, m, trim)
+			for q2 in 8:   # alcoves along the outer wall (between the doors)
+				var a2 := PI * 0.125 + PI * 0.25 * q2
+				if absf(fposmod(a2, PI * 0.5) - PI * 0.25) > PI * 0.2: continue
+				var r_out := rmin * 0.97
+				var pa2 := Vector2(cx, cz) + Vector2(cos(a2), sin(a2)) * r_out
+				var pb2 := Vector2(cx, cz) + Vector2(cos(a2), sin(a2)) * (r_out - rmin * 0.22)
+				_wall_seg(root, boxes, pa2, pb2, y, h * 0.7, m)
 		"ring":
 			if R.get("label", "") == "REACTOR HALL": return   # (the reactor itself is the middle)
 			var cr := MeshInstance3D.new()
@@ -1043,6 +1145,72 @@ static func _shape(root: Node3D, boxes: Array, R: Dictionary, m: Material, trim:
 			var rr := cy.top_radius
 			boxes.append([root, AABB(Vector3(cx - rr * 0.85, y, cz - rr * 0.85), Vector3(rr * 1.7, h, rr * 1.7))])
 			_slab(root, Vector3(cx - rr - 1.0, y + h * 0.4, cz - 0.5), Vector3(cx + rr + 1.0, y + h * 0.4 + 0.8, cz + 0.5), trim, null)
+
+## v12.51: a round outline in -1..1 room space (quarter circles round each corner, flat in the middle of each side so
+## every doorway stays open)
+static func _round_poly(per: int) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	var cs := [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]
+	for i in 4:
+		var c: Vector2 = cs[i]
+		var inner := c * 0.38
+		var p1 := Vector2(c.x * 0.38, c.y) if i % 2 == 1 else Vector2(c.x, c.y * 0.38)
+		var p2 := Vector2(c.x, c.y * 0.38) if i % 2 == 1 else Vector2(c.x * 0.38, c.y)
+		for j in per:
+			var t := PI * 0.5 * j / float(per - 1)
+			pts.append(inner + (p1 - inner) * cos(t) + (p2 - inner) * sin(t))
+	return pts
+
+## a short straight wall between two points (any angle), solid as its bounding box
+static func _wall_seg(root: Node3D, boxes: Array, pa: Vector2, pb: Vector2, y: float, h: float, m: Material) -> void:
+	var mid := (pa + pb) * 0.5
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(pa.distance_to(pb), h, WALL)
+	mi.mesh = bm
+	mi.material_override = m
+	mi.position = Vector3(mid.x, y + h * 0.5, mid.y)
+	mi.rotation.y = -atan2(pb.y - pa.y, pb.x - pa.x)
+	root.add_child(mi)
+	var lo := Vector2(minf(pa.x, pb.x), minf(pa.y, pb.y)) - Vector2(WALL, WALL) * 0.5
+	var hi := Vector2(maxf(pa.x, pb.x), maxf(pa.y, pb.y)) + Vector2(WALL, WALL) * 0.5
+	boxes.append([root, AABB(Vector3(lo.x, y, lo.y), Vector3(hi.x - lo.x, h, hi.y - lo.y))])
+
+## v12.51: an arc of wall (the hub's inner ring): drawn as short straight pieces, solid as small boxes
+static func _arc(root: Node3D, boxes: Array, c: Vector2, rad: float, a0: float, a1: float, y: float, h: float, m: Material, trim: Material) -> void:
+	var n := maxi(2, int(ceil((a1 - a0) * rad / 12.0)))
+	for i in n:
+		var pa := c + Vector2(cos(a0 + (a1 - a0) * i / n), sin(a0 + (a1 - a0) * i / n)) * rad
+		var pb := c + Vector2(cos(a0 + (a1 - a0) * (i + 1) / n), sin(a0 + (a1 - a0) * (i + 1) / n)) * rad
+		var mid := (pa + pb) * 0.5
+		var ln := pa.distance_to(pb)
+		var mi := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(ln + WALL * 0.6, h, WALL)
+		mi.mesh = bm
+		mi.material_override = m
+		mi.position = Vector3(mid.x, y + h * 0.5, mid.y)
+		mi.rotation.y = -atan2(pb.y - pa.y, pb.x - pa.x)
+		root.add_child(mi)
+		var tr := MeshInstance3D.new()
+		var tm := BoxMesh.new()
+		tm.size = Vector3(ln, 1.0, WALL * 1.3)
+		tr.mesh = tm
+		tr.material_override = trim
+		tr.position = Vector3(mid.x, y + h * 0.62, mid.y)
+		tr.rotation.y = mi.rotation.y
+		root.add_child(tr)
+		var lo := Vector2(minf(pa.x, pb.x), minf(pa.y, pb.y)) - Vector2(WALL, WALL) * 0.5
+		var hi := Vector2(maxf(pa.x, pb.x), maxf(pa.y, pb.y)) + Vector2(WALL, WALL) * 0.5
+		boxes.append([root, AABB(Vector3(lo.x, y, lo.y), Vector3(hi.x - lo.x, h, hi.y - lo.y))])
+
+## v12.51 (owner: "make real elevators"): the lifts between decks. A lift passage is flat at each end (its two
+## decks); in the middle a platform carries you up or down. LIFT_Y = where each platform is now.
+const LIFT_HALF := 22.0
+static var LIFT_Y := {}
+static func lift_mid(k: String) -> float:
+	var r: Array = ROOMS[k]["r"]
+	return (float(r[0]) + float(r[1])) * 0.5 if ROOMS[k]["axis"] == "x" else (float(r[2]) + float(r[3])) * 0.5
 
 ## v12.19: a room's own outline: a wall along every edge that isn't the box's side, and the space outside it solid.
 static func _poly_walls(root: Node3D, boxes: Array, R: Dictionary, m: Material, trim: Material) -> void:

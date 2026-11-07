@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.50"
+const VERSION := "v12.51"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -2056,7 +2056,7 @@ const LSHIELD_Y := 0.5
 const LSHIELD_COVER := 0.35                            # shots coming from within ~70 deg of where it faces are stopped
 const LSHIELD_SWING := 6.0                             # how fast it swings front <-> left (1 / s)
 const LSHIELD_AFTER_SHOT := 0.6                        # s it stays on the left after a shot
-const SWORD_DASH_SPEED := 300.0                        # m/s forward dash
+const SWORD_DASH_SPEED := 160.0                        # m/s the lock-on dash (v12.51: was 300, too fast)
 const SWORD_DASH_TIME := 0.45
 const SWORD_COMBO := 4                                 # slashes in a forward dash
 ## v12.25 (owner: "a building mold ... materials just like Minecraft ... a button on the top that says BUILD"): BUILD
@@ -2087,7 +2087,7 @@ const BUILD_MAT_COLOR := {"stone": Color(0.55, 0.56, 0.6), "wood": Color(0.45, 0
 const SWORD_CUTS := ["stone", "wood", "obsidian", "gold", "diamond", "leaf", "leaf2", "vine", "frond", "glow", "bloom"]   # what the blade cuts (it bounces off dirt and sand)
 const SWORD_HARVEST_MAX := 6         # layers one slash takes
 const SWORD_COMBO_GAP := 0.11                          # s between them
-const SWORD_SIDE_SPEED := 220.0
+const SWORD_SIDE_SPEED := 120.0   # (v12.51: was 220, too far)
 const SWORD_SIDE_TIME := 0.32
 const SWORD_SPIN_TIME := 0.7
 const SWORD_SPIN_HITS := 3
@@ -2099,6 +2099,9 @@ const SWORD_MAX_LOCKS := 8
 const SWORD_LOCK_RANGE := 700.0
 const SWORD_LOCK_CONE := 0.35                          # ahead (dot)
 const SWORD_REACH := 16.0                              # m the blade reaches
+const SWORD_FLIP_TIME := 0.6                           # v12.51 (owner): the somersault jump attack (forward held, or in the speed run)
+const SWORD_FLIP_DIST := 40.0                          # m it carries you (more if you're already running faster)
+const SWORD_FLIP_HEIGHT := 14.0                        # m over the deck at the top
 const SWORD_CONE := 0.2
 const SWORD_DMG_MULT := 1.0                            # x a light missile hit
 const SWORD_BLADE_LEN := 9.0
@@ -2547,6 +2550,7 @@ const ESCAPE_CHASERS := 20
 ## you) arrests you: ALERT, the hangar door locks until you hit the console in the SECURITY OFFICE. Die and you're back
 ## at the start, unseen. The guards are soldiers (the station faction's GLB soldier), not mechs.
 const BREAKOUT_SHELL_SHOWN := false   # v12.49 (owner: "it was there just as a guide ... bulky, blocking the view"): the station model only shapes the layout
+const LIFT_SPEED := 18.0        # v12.51: m/s a lift platform moves
 const GUARD_H := 13.0           # m: drawn at the pilot's (mech-sized) height
 const GUARD_HP := 70.0          # a soldier: far less than a mech
 const GUARD_SEE := 260.0        # m: how far a guard sees you (in front of him, in his room)
