@@ -2955,7 +2955,7 @@ func _run() -> void:
 		if is_instance_valid(s.breakout_shell): s.breakout_shell.visible = true
 		top.queue_free()
 		s.cam.current = true
-		_check("v12.47 (owner: \"Tripo stations give you a good shell to build on\"): the breakout is laid out from %s's silhouette (%d rooms) and the model is set round it" % [str(Boarding.INFO.get("shell", "-")).get_file(), big], is_instance_valid(s.breakout_shell) and big >= 5, "shell %s rooms %d" % [Boarding.INFO.get("shell", "-"), big])
+		_check("v12.47 (owner: \"Tripo stations give you a good shell to build on\"): the breakout is laid out from %s's silhouette (%d rooms); v12.49: the model itself isn't drawn (it blocked the view)" % [str(Boarding.INFO.get("shell", "-")).get_file(), big], (is_instance_valid(s.breakout_shell) == Data.BREAKOUT_SHELL_SHOWN) and str(Boarding.INFO.get("shell", "")) != "" and big >= 5, "shell %s rooms %d" % [Boarding.INFO.get("shell", "-"), big])
 		# nobody targetable from the arrivals deck (they're all in other rooms); a shot stops on the wall
 		await _frames(3)
 		var known := 0

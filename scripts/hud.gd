@@ -1403,7 +1403,7 @@ func _dungeon_map(mr: Rect2) -> void:
 		var sp := bg.position + Vector2(fposmod(i * 97.13, 1.0) * 0.0 + fposmod(i * 0.6180339 * 977.0, bg.size.x), fposmod(i * 0.41421 * 613.0, bg.size.y))
 		draw_circle(sp, 1.0 + float(i % 3) * 0.4, Color(0.75, 0.88, 1.0, 0.35 + 0.1 * (i % 4)))
 	_text(mr.position + Vector2(18, 34), str(space.board.get("ship", space.board.get("name", "INSIDE"))).to_upper(), 22, WHITE)
-	_text(mr.position + Vector2(18, 54), ("DECK PLAN  ·  %s" % ("STATION" if Boarding.KIND == "station" else ("SHIP" if Boarding.KIND == "ship" else "FACILITY"))), 12, Color(CYAN_HI, 0.8))
+	_text(mr.position + Vector2(18, 54), ("DECK PLAN  ·  %s" % ("STATION" if Boarding.KIND in ["station", "hub"] else ("SHIP" if Boarding.KIND == "ship" else "FACILITY"))), 12, Color(CYAN_HI, 0.8))
 	_pill("pmap_close", "CLOSE", false, CYAN)
 	var R: Dictionary = Boarding.ROOMS
 	var lo := Vector2(INF, INF)
@@ -1481,12 +1481,17 @@ func _dungeon_map(mr: Rect2) -> void:
 		last_y[row] = up
 		var ly := lr.position.y - 4.0 if up else lr.end.y + 11.0
 		_text(Vector2(lr.get_center().x - 60, ly), labels[li][1], 9, Color(0.85, 0.97, 1.0, 0.95), HORIZONTAL_ALIGNMENT_CENTER, 120)
-	var core: Vector3 = Boarding.CORE_AT
-	if seen.has(Boarding.room_at(core)) and Boarding.deck_name(core.y) == deck:
+	var hubk: bool = Boarding.KIND == "hub"   # v12.49: the breakout station: no reactor; the lockdown console instead
+	var core: Vector3 = space.board.get("console", Vector3.INF) if hubk else Boarding.CORE_AT
+	if hubk and core != Vector3.INF and Boarding.deck_name(core.y) == deck:
+		var cp2: Vector2 = to_map.call(core.x, core.z)
+		draw_circle(cp2, 7.0, Color(1.0, 0.75, 0.2))
+		_text(cp2 + Vector2(10, 5), "CONSOLE", 12, Color(1.0, 0.8, 0.35))
+	elif not hubk and seen.has(Boarding.room_at(core)) and Boarding.deck_name(core.y) == deck:
 		var cp: Vector2 = to_map.call(core.x, core.z)
 		draw_circle(cp, 7.0, Color(1.0, 0.4, 0.3))
 		_text(cp + Vector2(10, 5), "CORE", 12, Color(1.0, 0.55, 0.45))
-	if str(space.board.get("phase", "")) == "escape" and R.has("sbay"):
+	if (str(space.board.get("phase", "")) == "escape" or hubk) and R.has("sbay"):
 		var sr: Array = R["sbay"]["r"]
 		var xp: Vector2 = to_map.call(float(sr[1]), (float(sr[2]) + float(sr[3])) * 0.5)
 		draw_colored_polygon(PackedVector2Array([xp + Vector2(0, -8), xp + Vector2(10, 0), xp + Vector2(0, 8)]), GOLD)
@@ -1504,8 +1509,8 @@ func _dungeon_map(mr: Rect2) -> void:
 	draw_rect(lg, Color(cyan_line, 0.6), false, 1.0)
 	draw_rect(Rect2(lg.position + Vector2(10, 10), Vector2(9, 9)), Color(0.2, 0.95, 0.45, 0.85))
 	_text(lg.position + Vector2(26, 19), "GUARDS POSTED", 10, Color(1, 1, 1, 0.8))
-	draw_circle(lg.position + Vector2(14, 33), 5.0, Color(1.0, 0.4, 0.3))
-	_text(lg.position + Vector2(26, 37), "REACTOR CORE", 10, Color(1, 1, 1, 0.8))
+	draw_circle(lg.position + Vector2(14, 33), 5.0, Color(1.0, 0.75, 0.2) if hubk else Color(1.0, 0.4, 0.3))
+	_text(lg.position + Vector2(26, 37), "LOCKDOWN CONSOLE" if hubk else "REACTOR CORE", 10, Color(1, 1, 1, 0.8))
 	draw_colored_polygon(PackedVector2Array([lg.position + Vector2(10, 46), lg.position + Vector2(19, 50), lg.position + Vector2(10, 54)]), CYAN_HI)
 	_text(lg.position + Vector2(26, 55), "YOU", 10, Color(1, 1, 1, 0.8))
 	_text(Vector2(mr.position.x, mr.end.y - 10), "Explored decks fill in as you go. Outlines: ways on you haven't taken.", 12, Color(1, 1, 1, 0.6), HORIZONTAL_ALIGNMENT_CENTER, mr.size.x - 200)

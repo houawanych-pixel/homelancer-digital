@@ -1421,7 +1421,7 @@ func setup_boarding(info: Dictionary) -> void:
 			if Boarding.is_door(d, Boarding.ESCAPE_DOOR): d["locked"] = false
 		if is_instance_valid(_board_path): _board_path.visible = true
 		_breakout_guards(fac)
-		_breakout_shell(root)
+		if Data.BREAKOUT_SHELL_SHOWN: _breakout_shell(root)   # v12.49 (owner): the shell was the guide for the layout; it blocked the view: not drawn
 		if Boarding.ROOMS.has("secure"):   # the lockdown console in the security office
 			var sr: Array = Boarding.ROOMS["secure"]["r"]
 			var cpos := Vector3((float(sr[0]) + float(sr[1])) * 0.5, Boarding.floor_of("secure", (float(sr[0]) + float(sr[1])) * 0.5, float(sr[2]) + 30.0), float(sr[2]) + 30.0)
