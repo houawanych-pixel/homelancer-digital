@@ -585,7 +585,7 @@ func _dress(who: Dictionary, path: String, pack: String, height: float) -> void:
 	inst.position = Vector3(-bb.get_center().x * k, -bb.position.y * k, -bb.get_center().z * k)
 	# the models face +Z (arms across X); one whose arms lie across Z faces along X: turn it to look down -Z like ours
 	var side_on := bb.size.z > bb.size.x * 1.3
-	inst.rotation.y = -PI / 2 if side_on else PI
+	inst.rotation.y = PI / 2 if side_on else PI   # (v12.36 owner: he faced the camera; now he faces away, down the aim)
 	who["lateral"] = Vector3(0, 0, 1) if side_on else Vector3(1, 0, 0)
 	holder.add_child(inst)
 	var gray := holder.get_node_or_null("Gray")
@@ -615,7 +615,7 @@ func _pilot_rig(inst: Node3D) -> void:
 		_skel = sk
 		break
 	if _skel != null:
-		for nm in ["L_Thigh", "R_Thigh", "L_Calf", "R_Calf", "L_Upperarm", "R_Upperarm", "L_Forearm", "R_Forearm", "Spine01"]:
+		for nm in ["L_Thigh", "R_Thigh", "L_Calf", "R_Calf", "L_Upperarm", "R_Upperarm", "L_Forearm", "R_Forearm", "Spine01", "L_Hand", "R_Hand"]:
 			var i := _skel.find_bone(nm)
 			if i >= 0: _bones[nm] = i
 	var gray_rifle: Node = body_mesh.get_node_or_null("GrayRifle")
@@ -645,6 +645,19 @@ func _bone_turn(name: String, axis: Vector3, a: float) -> void:
 	var want := Basis(axis.normalized(), a) * gr.basis
 	_skel.set_bone_pose_rotation(b, (pg.basis.inverse() * want).get_rotation_quaternion())
 
+func _aim_bone(name: String, child: String, dir_body: Vector3) -> void:
+	var b := _skel.find_bone(name)
+	var c := _skel.find_bone(child)
+	if b < 0 or c < 0: return
+	var want: Vector3 = (_skel.global_transform.basis.inverse() * (body_mesh.global_transform.basis * dir_body)).normalized()
+	var gp := _skel.get_bone_global_pose(b)
+	var cur := (_skel.get_bone_global_pose(c).origin - gp.origin).normalized()
+	if cur.length() < 0.5: return
+	var nb := Basis(Quaternion(cur, want)) * gp.basis
+	var par := _skel.get_bone_parent(b)
+	var pg: Basis = _skel.get_bone_global_pose(par).basis if par >= 0 else Basis.IDENTITY
+	_skel.set_bone_pose_rotation(b, (pg.inverse() * nb).get_rotation_quaternion())
+
 func _pilot_pose(dt: float, speed: float) -> void:
 	if _skel == null: return
 	_walk_k = move_toward(_walk_k, clampf(speed / RUN, 0.0, 1.0), dt * 4.0)
@@ -657,10 +670,12 @@ func _pilot_pose(dt: float, speed: float) -> void:
 	_bone_turn("L_Calf", ax, -maxf(0.0, -cos(_walk_ph)) * 0.8 * _walk_k)
 	_bone_turn("R_Calf", ax, -maxf(0.0, cos(_walk_ph)) * 0.8 * _walk_k)
 	# arms up to the rifle (forward, elbows bent), a little sway
-	_bone_turn("R_Upperarm", ax, arm_up + sw * 0.1)
-	_bone_turn("L_Upperarm", ax, arm_up + 0.15 + sw * 0.1)
-	_bone_turn("R_Forearm", ax, elbow)
-	_bone_turn("L_Forearm", ax, elbow * 0.8)
+	# v12.36 (owner: "a shooter, holding the weapon"): arms aimed in the body's own space (forward = -Z, right = +X):
+	# right hand on the grip at the hip, left hand forward under the barrel
+	_aim_bone("R_Upperarm", "R_Forearm", Vector3(0.05, -0.75, -0.65))
+	_aim_bone("R_Forearm", "R_Hand", Vector3(-0.25, 0.05, -1.0))
+	_aim_bone("L_Upperarm", "L_Forearm", Vector3(0.3, -0.6, -0.75))
+	_aim_bone("L_Forearm", "L_Hand", Vector3(0.45, 0.1, -1.0))
 	body_mesh.position.y = absf(sin(_walk_ph)) * 0.04 * _walk_k
 
 func _anim(who: Dictionary, clip: String) -> void:
