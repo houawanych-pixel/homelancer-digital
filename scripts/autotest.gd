@@ -2823,6 +2823,17 @@ func _run() -> void:
 		main._on_hud("enter")
 		await _wait(0.8)
 		var back_in: bool = not s.on_foot and GS.form == "mech" and s.pilot_rig == null
+		# v12.43: the planet map: CLOSE shows (drawn over the land), TARGET / COMMS windows stay beside it
+		main.hud.cl_open = true
+		main.hud.sp_open = true
+		main.hud.planet_map = true
+		await _wait(0.5)
+		await _capture("planet_map")
+		var hb2 = main.hud
+		var pm_ok: bool = hb2.buttons.has("pmap_close") and (not hb2._fl_beside_map() or (hb2.fl_shown("l") and hb2.fl_shown("r")))
+		main._on_hud("pmap_close")
+		await _wait(0.2)
+		_check("v12.43 (owner): the planet map has its CLOSE button (drawn over the land) and keeps the TARGET / COMMS windows beside it", pm_ok and not hb2.planet_map, "close %s beside %s l %s r %s" % [hb2.buttons.has("pmap_close"), hb2._fl_beside_map(), hb2.fl_shown("l"), hb2.fl_shown("r")])
 		_check("v12.39 (owner): EJECT on a world (prompt %s): on foot at human size (%.1f m), the mech parked; walk away and ENTER is gone, come back and ENTER takes you in" % [pr0, bb.size.y], pr0 == "eject" and small and far_none and near_enter and back_in, "small %s far %s near %s back %s" % [small, far_none, near_enter, back_in])
 		_finish_group()
 		return
@@ -11913,6 +11924,9 @@ func _regions() -> void:
 			tf._set_fluid(side_c, kk, "")
 			tf.burning.clear()
 			break
+		var stand := 0   # v12.43: a trunk burnt through brings its tree down (nothing of it left hanging)
+		for t5 in tf.trees: if bool(t5.get("felled", false)) == false and t5 == tr: stand += 1
+		print("[route] FELL trees felled %d, the lit tree felled %s" % [tf.felled, tr.get("felled", false)])
 		fire_ok = lit > 0 and most > lit and tf.burned > 3 and tf.burning.is_empty() and cuts > 0 and lava_ok
 		fire_detail = "lit %d, most at once %d, burnt away %d, out after %d ticks, kept as notes %d, lava lights it %s" % [lit, most, tf.burned, ticks, cuts, lava_ok]
 	_check("Alien trees (v1.7i): wood trunks and branches under big two-colour leaf slabs you can fly under, roots underground, one root down into the cave's chamber; wood and leaves catch fire (missiles, lava), it spreads, burns them away and dies out",

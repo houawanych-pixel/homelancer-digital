@@ -324,7 +324,13 @@ func fl_tab_rect(i: int) -> Rect2:
 	return Rect2(r.position + Vector2(4.0 + i * (bw + 4.0), 28.0), Vector2(bw, 26.0))
 
 func fl_shown(side: String) -> bool:
-	return space != null and space.controls and slots[side].is_empty() and not (console_open and side == "r") and not planet_map and not dock_down and (dock_l if side == "l" else dock_r)
+	return space != null and space.controls and slots[side].is_empty() and not (console_open and side == "r") and not (planet_map and not _fl_beside_map()) and not dock_down and (dock_l if side == "l" else dock_r)
+
+## v12.43 (owner: "I want TARGET and COMMS on the side when I have those out and push MAP"): the side windows stay
+## open beside the planet map when there's room for them.
+func _fl_beside_map() -> bool:
+	var mr := planet_map_rect()
+	return fl_rect("l").end.x <= mr.position.x + 4.0 and fl_rect("r").position.x >= mr.end.x - 4.0
 
 ## The contacts on the list: ships nearest first (hostiles, then others), then the places.
 func fl_contacts() -> Array:
@@ -637,7 +643,14 @@ func _layout() -> void:
 			planet_map = false
 		else:
 			var mr := planet_map_rect()
+			var keep := {}
+			for side in ["l", "r"]:   # (v12.43: the side windows' own buttons stay)
+				if not fl_shown(side): continue
+				var fr := fl_rect(side)
+				for id in buttons:
+					if fr.encloses(buttons[id]): keep[id] = buttons[id]
 			buttons.clear()
+			buttons.merge(keep)
 			buttons["pmap_close"] = Rect2(mr.end.x - 106, mr.end.y - 50, 96, 42)   # v12.0 (owner: FULL SCREEN covered CLOSE): bottom right
 			if space.boarding:   # (the dungeon map: CLOSE and a tab per deck)
 				var dks := deck_list()
@@ -1530,7 +1543,6 @@ func _planet_map() -> void:
 	var g := Surface.grid(pid)
 	_box(mr, Color(0.01, 0.05, 0.1, 0.94), Color(CYAN, 0.8), 12, 2)
 	_text(mr.position + Vector2(14, 32), "%s  ·  PLANET MAP" % str(Surface.PLANETS[pid]["name"]).to_upper(), 20, WHITE)
-	_pill("pmap_close", "CLOSE", false, CYAN)
 	var inner := Rect2(mr.position + Vector2(10, 52), mr.size - Vector2(20, 62))
 	var cell := inner.size / float(g)
 	var land := _pmap_land(pid)   # v12.0 (owner: "shouldn't it show the areas"): the real land, shaded by height
@@ -1572,8 +1584,10 @@ func _planet_map() -> void:
 	var sd := Vector2(-f2.y, f2.x)
 	draw_colored_polygon(PackedVector2Array([yv + f2 * 12.0, yv - f2 * 7.0 + sd * 7.0, yv - f2 * 7.0 - sd * 7.0]), CYAN_HI)
 	_text(Vector2(mr.position.x, mr.end.y - 8), "Tap a base or a facility to fly there.", 12, Color(1, 1, 1, 0.6), HORIZONTAL_ALIGNMENT_CENTER, mr.size.x)
+	_pill("pmap_close", "CLOSE", false, CYAN)   # v12.43 (owner: "no close button"): drawn last, over the land picture
 
 ## v1.8q: a spare button: the frame, a small padlock, its name if it has one.
+
 func _padlocked(id: String, label: String) -> void:
 	if not buttons.has(id): return
 	var r: Rect2 = buttons[id]

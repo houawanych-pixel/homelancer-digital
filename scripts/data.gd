@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.42"
+const VERSION := "v12.43"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -756,6 +756,9 @@ const GRASS_GRID := 4
 ## v12.40 (owner, on foot: "grass and flowers too high, make lower, I'm like an ant"): grass was 5-15 m tall (1-3 blocks);
 ## now about knee to shoulder height for the pilot, ankle-high for the mech. Flowers scaled the same way.
 const GRASS_HEIGHT_K := 0.17
+const FELL_PIECES := 14
+const ROCK_JAG := 2.2     # v12.43: m bare rock walls push in / out (0 = flat walls)
+const ROCK_ROW := 2.5     # m between the rows of a rock wall's grid    # v12.43: falling pieces when a burnt tree comes down
 const FLOWER_HEIGHT_K := 0.3
 const FLOWER_SHARE := {"jungle": 0.14, "forest": 0.07, "coast": 0.05, "toxic": 0.06, "mountains": 0.03, "city": 0.02}   # share of the grass that is flowers
 const FLOWER_KINDS := ["star", "bulb", "fan", "bell"]

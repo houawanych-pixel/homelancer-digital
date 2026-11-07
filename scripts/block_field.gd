@@ -2133,6 +2133,40 @@ func ignite(c: int, k: int) -> bool:
 	_fire_dirty = true
 	return true
 
+## v12.43 (owner: "there's leaves that float in the air after the trunk is burnt"): when a layer of a tree's trunk is
+## gone right through, everything of that tree above the cut (trunk, branches, canopy) comes down: a few falling,
+## burning pieces, and the rest cleared, instead of a canopy hanging in the air off its neighbours.
+var felled := 0   # (tests)
+@warning_ignore("integer_division")
+func _check_felled(c: int, k: int) -> void:
+	for t in trees:
+		if bool(t.get("felled", false)) or not (t["trunk"] as Array).has(c): continue
+		for tc in t["trunk"]:
+			if _solid_k(int(tc), k): return
+		t["felled"] = true
+		felled += 1
+		var b: int = t["base"]
+		var bx := b % n
+		var bz := b / n
+		var r := int(ceil(float(Data.TREE_CANOPY[1]) * 0.5)) + 3
+		var k_hi := int(t["k_top"]) + 4
+		var n_drop := 0
+		for z in range(maxi(0, bz - r), mini(n, bz + r + 2)):
+			for x in range(maxi(0, bx - r), mini(n, bx + r + 2)):
+				var cc := z * n + x
+				for kk in range(k + 1, k_hi):
+					if not _solid_k(cc, kk): continue
+					var mm := mat_at(x, z, _ly(kk))
+					if mm != "wood" and not Data.LEAF_COLORS.has(mm): continue
+					var pt := _layer_point(cc, kk)
+					if n_drop < Data.FELL_PIECES and (x + z + kk) % 3 == 0:
+						_piece(pt, Data.BLOCK_MIN * 0.8, mm, Vector3(randf_range(-3, 3), -2.0, randf_range(-3, 3)))
+						n_drop += 1
+					burning.erase(Vector2i(cc, kk))
+					_edit_layer(pt, "", true, false)
+		_settle(bx - r, bx + r + 1, bz - r, bz + r + 1)
+		return
+
 var _fire_t := 0.0
 var _fire_dirty := false
 var burnt_box := Rect2i()   # v1.9c: where this fire tick burnt rock away (one support check for all of it)
@@ -2174,6 +2208,7 @@ func _fire_update(dt: float, near: Vector3) -> void:
 		if float(burning[kv]) >= float(Data.FIRE_BURN.get(m, 2.0)):
 			burning.erase(kv)
 			_edit_layer(pt, "", true, false)   # burnt away (kept as a note)
+			if m == "wood": _check_felled(c, k)   # v12.43: the trunk burnt through: the tree above comes down
 			var bx := Rect2i(c % n - 2, c / n - 2, 5, 5)
 			burnt_box = bx if burnt_box.size == Vector2i.ZERO else burnt_box.merge(bx)
 			burned += 1
@@ -4031,6 +4066,7 @@ func _wall(st: SurfaceTool, p0: Vector3, p1: Vector3, top: float, low: float, cf
 	var ground: float = h0[cfz * n + cfx]
 	var y := top
 	var first := true
+	var prev_flat := false
 	while y > low + 0.01:
 		var col: Color
 		var y_end: float
@@ -4051,8 +4087,59 @@ func _wall(st: SurfaceTool, p0: Vector3, p1: Vector3, top: float, low: float, cf
 		ct.a = a
 		cb.a = a
 		_look(st, "" if (first_band and untouched) else mat_at(cfx, cfz, y - 0.01))
-		_quad(st, Vector3(p0.x, y, p0.z), Vector3(p1.x, y, p1.z), Vector3(p1.x, y_end, p1.z), Vector3(p0.x, y_end, p0.z), [ct, ct, cb, cb], nrm)
+		if Data.ROCK_JAG > 0.0 and not (first_band and untouched) and top - low > 3.0:
+			_rock_wall(st, p0, p1, y, y_end, y if prev_flat else top, low, ct, cb, nrm)   # (under a flat grass cap its top row stays put)
+			prev_flat = false
+		else:
+			prev_flat = true
+			_quad(st, Vector3(p0.x, y, p0.z), Vector3(p1.x, y, p1.z), Vector3(p1.x, y_end, p1.z), Vector3(p0.x, y_end, p0.z), [ct, ct, cb, cb], nrm)
 		y = y_end
+
+## v12.43 (owner: "make the sides more rock, jagged, like a real rock wall, like Link (Breath of the Wild)"): a bare rock
+## wall is a little grid whose inner points push in and out (and up and down a bit) by a fixed amount worked out from
+## where they are, with flat-shaded facets, so cliffs read as broken rock with ledges. The wall's ends and its top and
+## foot stay put, so it still meets the blocks beside, above and below it with no gaps (the collision is unchanged).
+func _rock_jit(p: Vector3) -> Vector2:
+	var h1 := absi(hash(Vector3i(int(round((p.x + _pox) * 4.0)), int(round(p.y * 4.0)), int(round((p.z + _poz) * 4.0)))))
+	var a := float(h1 % 1000) / 999.0
+	var b := float((h1 / 1000) % 1000) / 999.0
+	# ledges: some rows stick out further than others (strata), the rest is broken up
+	var ledge := 0.5 + 0.5 * sin(p.y * 0.9 + float(h1 % 7))
+	return Vector2((a * 0.7 + ledge * 0.6 - 0.55) * Data.ROCK_JAG, (b - 0.5) * Data.ROCK_JAG * 0.5)
+
+func _rock_wall(st: SurfaceTool, p0: Vector3, p1: Vector3, y: float, y_end: float, top: float, low: float, ct: Color, cb: Color, nrm: Vector3) -> void:
+	var cols := 2
+	var rows := maxi(1, int(ceil((y - y_end) / Data.ROCK_ROW)))
+	var grid: Array = []
+	for r in rows + 1:
+		var row: Array = []
+		var yy := lerpf(y, y_end, float(r) / rows)
+		for c in cols + 1:
+			var q := p0.lerp(p1, float(c) / cols)
+			var v := Vector3(q.x, yy, q.z)
+			var inner := c > 0 and c < cols and absf(yy - top) > 0.05 and absf(yy - low) > 0.05
+			if inner:
+				var j := _rock_jit(v)
+				v += nrm * j.x + Vector3(0, j.y, 0)
+			row.append(v)
+		grid.append(row)
+	for r in rows:
+		var c_top: Color = ct.lerp(cb, float(r) / rows)
+		var c_bot: Color = ct.lerp(cb, float(r + 1) / rows)
+		for c in cols:
+			var a: Vector3 = grid[r][c]
+			var b: Vector3 = grid[r][c + 1]
+			var cc: Vector3 = grid[r + 1][c + 1]
+			var d: Vector3 = grid[r + 1][c]
+			for tri in [[a, b, cc, c_top, c_top, c_bot], [a, cc, d, c_top, c_bot, c_bot]]:
+				var fn: Vector3 = ((tri[1] as Vector3) - (tri[0] as Vector3)).cross((tri[2] as Vector3) - (tri[0] as Vector3)).normalized()
+				if fn.dot(nrm) < 0.0: fn = -fn
+				var shade := 0.85 + 0.15 * clampf(fn.dot(nrm), 0.0, 1.0) + 0.08 * fn.y   # (facets catch the light differently)
+				st.set_normal(fn)
+				for i in 3:
+					var col: Color = tri[3 + i]
+					st.set_color(Color(col.r * shade, col.g * shade, col.b * shade, col.a))
+					st.add_vertex(tri[i])
 
 func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, cs: Array, nrm: Vector3) -> void:
 	# v1.9c: the same two triangles without building throwaway arrays per vertex (the ground redraw was most of the lag)
