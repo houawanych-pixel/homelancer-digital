@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.34"
+const VERSION := "v12.35"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -2010,6 +2010,7 @@ const SWORD_COMBO := 4                                 # slashes in a forward da
 ## destruction"): BUILD mode is off: no BUILD button, no material slots, nothing collected. The sword still cuts.
 const BUILD_ON := false
 ## v12.32 (owner: "never a situation where I'm in a pitch black area"): light you carry (space.gd _update_lamp)
+const LEVEL_LIGHTS := 6      # v12.35: level lamps on at once inside a ship / base (the nearest; WebGL can't take ~120)
 const LAMP_BOARD := 1.2        # always on you inside a ship or base
 const LAMP_SURFACE := 0.35     # on a world (night, caves)
 const LAMP_SHIELD := 2.6       # more with the shield up (blue)

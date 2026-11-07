@@ -2774,6 +2774,9 @@ func _run() -> void:
 		await _until(func(): return main.escape != null and not main.escape.busy, 10.0)
 		var es: StationEscape = main.escape
 		var started: bool = es != null and main.state == "escape" and not main.hub.visible and es.guards.size() == 2
+		await _wait(0.6)
+		var stands: bool = es.pilot.is_on_floor() and absf(es.pilot.global_position.y - 1.0) < 0.1
+		_check("v12.35: you stand on the room's floor (it is solid both ways; you used to sink in and fall out)", stands, "y %.2f" % es.pilot.global_position.y)
 		await _wait(1.2)
 		var dressed: bool = bool(es.pilot_who.get("dressed", false)) and bool(es.guards[0].get("dressed", false)) and es.rifle_model != null and es.guards[1].has("sprite")
 		_check("v12.34 (owner): you are his hl_hova pilot with the mech's rifle; guards are GLB soldiers and his 2D animated soldiers (one of each to test)", dressed, str(es.elog))
@@ -2797,6 +2800,22 @@ func _run() -> void:
 		var scope_ok: bool = es.scoped and absf(es.cam.fov - StationEscape.SCOPE_FOV) < 3.0 and not es.body_mesh.visible
 		await _capture("escape_scope")
 		es.toggle_scope()
+		# v12.35: the energy shield and the lightsaber
+		es.toggle_shield()
+		await _wait(0.3)
+		var sh_ok: bool = es.shield_on and es._shield_mesh != null and es._shield_mesh.visible
+		await _capture("escape_shield")
+		es.toggle_shield()
+		var c0: int = es.room.cut_cells
+		es.pilot.global_position = Vector3(8.0, 1.05, 5.0)
+		es.yaw = PI
+		es.swing()
+		await _wait(0.1)
+		await _capture("escape_sword")
+		await _wait(0.3)
+		var sw_ok: bool = es.room.cut_cells > c0 and es.elog.has("swing")
+		var pad_ok: bool = es.pad != null and es._pad_hit(es._pad_geo()["btn"]["shield"]) == "shield" and es._pad_hit(es._pad_geo()["move"]) == "move" and es._pad_hit(es._pad_geo()["aim"]) == "aim"
+		_check("v12.35 (owner: mech-mode controls): two mech sticks and the hex buttons (FIRE, SHIELD, SWORD, JUMP, SCOPE, CUTTER, CHARGE, RUN); the energy shield goes up; the lightsaber cuts what it passes (%d blocks)" % (es.room.cut_cells - c0), sh_ok and sw_ok and pad_ok, "shield %s sword %s pad %s" % [sh_ok, sw_ok, pad_ok])
 		# the cutter on the door
 		for g in es.guards: es._hurt_guard(g, 99)
 		es.hp = StationEscape.HP_MAX

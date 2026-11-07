@@ -320,6 +320,7 @@ func _build_chunk(k: Vector3i) -> void:
 		(pair[0] as MeshInstance3D).mesh = mesh
 		var shape := ConcavePolygonShape3D.new()
 		shape.set_faces(mesh.get_faces())
+		shape.backface_collision = true   # (both sides solid)
 		(pair[2] as CollisionShape3D).shape = shape
 	else:
 		(pair[0] as MeshInstance3D).mesh = null

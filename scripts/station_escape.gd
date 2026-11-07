@@ -392,6 +392,7 @@ func _physics_process(dt: float) -> void:
 	if _alarm != null: _alarm.light_energy = 1.5 + 1.5 * sin(_t * 6.0)
 	_guards(dt)
 	_dress_all(dt)
+	if pilot != null and body_mesh != null: _update_gear(dt)
 	if busy or done:
 		return
 	var mv := _move
@@ -404,7 +405,7 @@ func _physics_process(dt: float) -> void:
 	mv = mv.limit_length(1.0)
 	var flat := Basis(Vector3.UP, yaw)
 	var wish := flat * Vector3(mv.x, 0, mv.y)
-	var spd := RUN if Input.is_physical_key_pressed(KEY_SHIFT) else WALK
+	var spd := RUN if (Input.is_physical_key_pressed(KEY_SHIFT) or run_on) else WALK
 	if scoped: spd *= 0.45
 	var v := pilot.velocity
 	v.x = move_toward(v.x, wish.x * spd, 30.0 * dt)
@@ -490,7 +491,7 @@ func hurt(n: float) -> void:
 	if hp <= 0.0:
 		hp = 0.0
 		busy = true
-		elog.append("died")
+		elog.append("died:%s y%.1f" % ["fall" if n >= 999.0 else "hit", pilot.global_position.y])
 		goal_l.text = "YOU WERE TAKEN DOWN. Again..."
 		var tw := create_tween()
 		tw.tween_property(fade, "color:a", 1.0, 0.8)
@@ -582,7 +583,10 @@ func _dress(who: Dictionary, path: String, pack: String, height: float) -> void:
 	var k := height / maxf(0.01, bb.size.y)
 	inst.scale = Vector3.ONE * k
 	inst.position = Vector3(-bb.get_center().x * k, -bb.position.y * k, -bb.get_center().z * k)
-	inst.rotation.y = PI   # (the models face +Z; ours look down -Z)
+	# the models face +Z (arms across X); one whose arms lie across Z faces along X: turn it to look down -Z like ours
+	var side_on := bb.size.z > bb.size.x * 1.3
+	inst.rotation.y = -PI / 2 if side_on else PI
+	who["lateral"] = Vector3(0, 0, 1) if side_on else Vector3(1, 0, 0)
 	holder.add_child(inst)
 	var gray := holder.get_node_or_null("Gray")
 	if gray: (gray as Node3D).visible = false
@@ -604,6 +608,8 @@ var _bones := {}
 var _walk_ph := 0.0
 var _walk_k := 0.0
 var rifle_model: Node3D
+var arm_up := 1.0     # (tuned by eye: arms forward to the rifle)
+var elbow := 0.9
 func _pilot_rig(inst: Node3D) -> void:
 	for sk in inst.find_children("*", "Skeleton3D", true, false):
 		_skel = sk
@@ -644,17 +650,17 @@ func _pilot_pose(dt: float, speed: float) -> void:
 	_walk_k = move_toward(_walk_k, clampf(speed / RUN, 0.0, 1.0), dt * 4.0)
 	_walk_ph += dt * (6.0 + speed * 1.1)
 	var sw := sin(_walk_ph) * 0.55 * _walk_k
-	var ax := Vector3.RIGHT
+	var ax: Vector3 = pilot_who.get("lateral", Vector3.RIGHT)
 	for nm in _bones: _skel.reset_bone_pose(_bones[nm])
 	_bone_turn("L_Thigh", ax, sw)
 	_bone_turn("R_Thigh", ax, -sw)
 	_bone_turn("L_Calf", ax, -maxf(0.0, -cos(_walk_ph)) * 0.8 * _walk_k)
 	_bone_turn("R_Calf", ax, -maxf(0.0, cos(_walk_ph)) * 0.8 * _walk_k)
 	# arms up to the rifle (forward, elbows bent), a little sway
-	_bone_turn("R_Upperarm", Vector3(1, 0, 0.4), 1.05 + sw * 0.1)
-	_bone_turn("L_Upperarm", Vector3(1, 0, -0.6), 1.2 + sw * 0.1)
-	_bone_turn("R_Forearm", Vector3(1, 0, 0), 0.9)
-	_bone_turn("L_Forearm", Vector3(1, 0, -0.3), 0.7)
+	_bone_turn("R_Upperarm", ax, arm_up + sw * 0.1)
+	_bone_turn("L_Upperarm", ax, arm_up + 0.15 + sw * 0.1)
+	_bone_turn("R_Forearm", ax, elbow)
+	_bone_turn("L_Forearm", ax, elbow * 0.8)
 	body_mesh.position.y = absf(sin(_walk_ph)) * 0.04 * _walk_k
 
 func _anim(who: Dictionary, clip: String) -> void:
@@ -804,7 +810,12 @@ func _guards(dt: float) -> void:
 			var miss := randf() < clampf(flat.length() / 30.0, 0.25, 0.7)
 			var at := target + (Vector3(randf_range(-1.5, 1.5), randf_range(-0.6, 1.0), randf_range(-1.5, 1.5)) if miss else Vector3.ZERO)
 			_tracer(eye, at, Color(1.0, 0.35, 0.2))
-			if not miss: hurt(7.0)
+			if not miss:
+				var facing := Basis(Vector3.UP, yaw) * Vector3.FORWARD
+				if shield_on and facing.dot((n.global_position - pilot.global_position).normalized()) > 0.3:
+					energy = maxf(0.0, energy - 6.0)   # (it stopped on the shield)
+					elog.append("blocked")
+				else: hurt(7.0)
 
 # ---------------------------------------------------------------- effects
 func _tracer(a: Vector3, b: Vector3, col := Color(1.0, 0.9, 0.5)) -> void:
@@ -852,26 +863,212 @@ func _unhandled_input(e: InputEvent) -> void:
 		match (e as InputEventKey).physical_keycode:
 			KEY_Q: switch_tool()
 			KEY_G: throw_charge()
+			KEY_F: toggle_shield()
+			KEY_V: swing()
 			KEY_SPACE: jump()
 			KEY_ESCAPE: Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	elif e is InputEventScreenTouch:
+
+# ---------------------------------------------------------------- v12.35 the mech-style pad
+const PAD_BTNS := [["fire", "FIRE", 0, 0], ["shield", "SHIELD", 1, 0], ["sword", "SWORD", 0, 1], ["jump", "JUMP", 1, 1],
+	["scope", "SCOPE", 2, 0], ["cutter", "CUTTER", 3, 0], ["charge", "CHARGE", 2, 1], ["run", "RUN", 3, 1]]
+const PAD_COL := {"fire": Color(1.0, 0.35, 0.3), "shield": Color(0.3, 0.75, 1.0), "sword": Color(0.45, 0.95, 1.0), "jump": Color(1.0, 0.6, 0.2),
+	"scope": Color(1.0, 0.85, 0.3), "cutter": Color(0.4, 1.0, 0.85), "charge": Color(1.0, 0.45, 0.2), "run": Color(0.5, 1.0, 0.5)}
+var pad: Control
+var _touch := {}     # finger -> "move" | "aim" | "look" | button id
+var _aim := Vector2.ZERO
+var _held := {}
+var run_on := false
+var energy := 100.0
+var shield_on := false
+var _shield_mesh: MeshInstance3D
+var _shield_light: OmniLight3D
+var _blade: MeshInstance3D
+var _swing := 0.0
+
+func _pad_geo() -> Dictionary:
+	var S := get_viewport().get_visible_rect().size
+	var R := S.y * 0.12
+	var h := S.y * 0.062
+	var out := {"S": S, "R": R, "move": Vector2(R * 1.35, S.y - R * 1.35), "aim": Vector2(S.x - R * 1.35, S.y - R * 1.35), "h": h, "btn": {}}
+	var mid := S.x * 0.5
+	for b in PAD_BTNS:
+		var col: int = b[2]
+		var x: float = mid + (col - 1.5) * h * 2.15 + (h * 1.6 if col >= 2 else -h * 1.6)
+		var y: float = S.y - h * 1.25 - (1 - int(b[3])) * h * 2.0
+		out["btn"][b[0]] = Vector2(x, y)
+	return out
+
+func _pad_hit(p: Vector2) -> String:
+	var g := _pad_geo()
+	for id in g["btn"]:
+		if p.distance_to(g["btn"][id]) < float(g["h"]) * 1.05: return id
+	if p.distance_to(g["move"]) < float(g["R"]) * 1.5: return "move"
+	if p.distance_to(g["aim"]) < float(g["R"]) * 1.5: return "aim"
+	if p.y < float(g["S"].y) * 0.82 and p.y > float(g["S"].y) * 0.14: return "look"
+	return ""
+
+func _input(e: InputEvent) -> void:
+	if room == null or done: return
+	if e is InputEventScreenTouch:
 		var t := e as InputEventScreenTouch
-		var w := get_viewport().get_visible_rect().size.x
 		if t.pressed:
-			if t.position.x < w * 0.4 and _stick_id < 0:
-				_stick_id = t.index
-				_stick_o = t.position
-			elif _look_id < 0:
-				_look_id = t.index
-		else:
-			if t.index == _stick_id:
-				_stick_id = -1
-				_move = Vector2.ZERO
-			if t.index == _look_id: _look_id = -1
+			var w := _pad_hit(t.position)
+			if w == "": return
+			_touch[t.index] = w
+			_pad_press(w, true)
+			if w == "move" or w == "aim": _pad_stick(w, t.position)
+			get_viewport().set_input_as_handled()
+		elif _touch.has(t.index):
+			var w2: String = _touch[t.index]
+			_touch.erase(t.index)
+			_pad_press(w2, false)
+			if w2 == "move": _move = Vector2.ZERO
+			if w2 == "aim": _aim = Vector2.ZERO
+			get_viewport().set_input_as_handled()
 	elif e is InputEventScreenDrag:
 		var d := e as InputEventScreenDrag
-		if d.index == _stick_id: _move = ((d.position - _stick_o) / 70.0).limit_length(1.0)
-		elif d.index == _look_id: _look(d.relative * (0.002 if scoped else 0.005))
+		if not _touch.has(d.index): return
+		var w3: String = _touch[d.index]
+		if w3 == "move" or w3 == "aim": _pad_stick(w3, d.position)
+		elif w3 == "look": _look(d.relative * (0.002 if scoped else 0.005))
+		get_viewport().set_input_as_handled()
+
+func _pad_stick(which: String, p: Vector2) -> void:
+	var g := _pad_geo()
+	var v: Vector2 = ((p - (g[which] as Vector2)) / float(g["R"])).limit_length(1.0)
+	if which == "move": _move = v
+	else: _aim = v
+
+func _pad_press(id: String, down: bool) -> void:
+	if down: _held[id] = true
+	else: _held.erase(id)
+	match id:
+		"fire": _fire_held = down
+		"shield": if down: toggle_shield()
+		"sword": if down: swing()
+		"jump": if down: jump()
+		"scope": if down: toggle_scope()
+		"cutter": if down: switch_tool()
+		"charge": if down: throw_charge()
+		"run": if down: run_on = not run_on
+
+func _draw_pad() -> void:
+	var g := _pad_geo()
+	var HS := preload("res://scripts/hud.gd")
+	HS.draw_stick(pad, g["move"], g["R"], _move, _move != Vector2.ZERO)
+	HS.draw_stick(pad, g["aim"], g["R"], _aim, _aim != Vector2.ZERO)
+	var h: float = g["h"]
+	var font := ThemeDB.fallback_font
+	for b in PAD_BTNS:
+		var id: String = b[0]
+		var c: Vector2 = g["btn"][id]
+		var col: Color = PAD_COL[id]
+		var on: bool = _held.has(id) or (id == "shield" and shield_on) or (id == "scope" and scoped) or (id == "cutter" and tool == "cutter") or (id == "run" and run_on)
+		var hexp := PackedVector2Array()
+		for k in 7: hexp.append(c + Vector2.from_angle(TAU * k / 6.0 + PI / 6.0) * h)
+		pad.draw_colored_polygon(hexp.slice(0, 6), Color(col.darkened(0.5), 0.95) if on else Color(0.02, 0.08, 0.15, 0.9))
+		pad.draw_polyline(hexp, col, 2.5, true)
+		var label: String = b[1]
+		if id == "charge": label = "CHARGE %d" % charges
+		var fs := int(h * 0.3)
+		var tw := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		pad.draw_string_outline(font, c + Vector2(-tw * 0.5, fs * 0.35), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 4, Color(0, 0, 0, 0.8))
+		pad.draw_string(font, c + Vector2(-tw * 0.5, fs * 0.35), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE if on else col.lightened(0.3))
+	# the gauge between the two groups: HEALTH (green) and ENERGY (blue) rings
+	var gc := Vector2(float(g["S"].x) * 0.5, float(g["S"].y) - h * 2.25)
+	var gr := h * 1.25
+	pad.draw_circle(gc, gr + 6.0, Color(0.01, 0.04, 0.09, 0.85))
+	pad.draw_arc(gc, gr, PI * 0.75, PI * 0.75 + PI * 1.5 * clampf(hp / HP_MAX, 0.0, 1.0), 40, Color(0.3, 0.95, 0.5), 8.0, true)
+	pad.draw_arc(gc, gr - 11.0, PI * 0.75, PI * 0.75 + PI * 1.5 * clampf(energy / 100.0, 0.0, 1.0), 40, Color(0.3, 0.75, 1.0), 6.0, true)
+	var ft := "HEALTH"
+	pad.draw_string(font, gc + Vector2(-font.get_string_size(ft, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x * 0.5, 5), ft, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1, 1, 1, 0.8))
+
+## ENERGY SHIELD: a blue barrier in front of you; guard shots from the front stop on it; lights the room round you;
+## drains energy (it drops when it runs out).
+func toggle_shield() -> void:
+	if not shield_on and energy < 15.0: return
+	shield_on = not shield_on
+	elog.append("shield:" + str(shield_on))
+
+## SWORD: a lightsaber swing: cuts down guards in front of you and slices the blocks it passes through; a flash of light.
+func swing() -> void:
+	if busy or done or _swing > 0.0: return
+	_swing = 0.35
+	elog.append("swing")
+	var fwd := Basis(Vector3.UP, yaw) * Vector3.FORWARD
+	var at := pilot.global_position + Vector3(0, 1.2, 0)
+	for g in guards:
+		if not g["alive"]: continue
+		var to: Vector3 = (g["node"] as Node3D).global_position + Vector3(0, 1.0, 0) - at
+		if to.length() < 3.2 and fwd.dot(to.normalized()) > 0.3: _hurt_guard(g, 99)
+	for k in 7:
+		var a := (k / 6.0 - 0.5) * 1.6
+		var dir := Basis(Vector3.UP, a) * fwd
+		for dist in [1.2, 2.0, 2.8]:
+			for dy in [-0.4, 0.3, 1.0]:
+				var c := room.cell_of(at + dir * dist + Vector3(0, dy, 0))
+				if room.hit_cell(c, 20): room.cut_cells += 1
+	_sword_flash()
+
+func _sword_flash() -> void:
+	if _shield_light != null: _shield_light.light_energy = 6.0
+
+func _update_gear(dt: float) -> void:
+	# shield
+	if shield_on:
+		energy -= 14.0 * dt
+		if energy <= 0.0:
+			energy = 0.0
+			shield_on = false
+	else: energy = minf(100.0, energy + 9.0 * dt)
+	if _shield_mesh == null:
+		_shield_mesh = MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = 1.1
+		sm.height = 2.2
+		sm.is_hemisphere = false
+		_shield_mesh.mesh = sm
+		var m := StandardMaterial3D.new()
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.albedo_color = Color(0.3, 0.7, 1.0, 0.22)
+		m.cull_mode = BaseMaterial3D.CULL_DISABLED
+		_shield_mesh.material_override = m
+		_shield_mesh.scale = Vector3(1.0, 1.0, 0.25)
+		body_mesh.add_child(_shield_mesh)
+		_shield_mesh.position = Vector3(0, 1.1, -0.9)
+		_shield_light = OmniLight3D.new()
+		_shield_light.light_color = Color(0.45, 0.8, 1.0)
+		_shield_light.omni_range = 9.0
+		pilot.add_child(_shield_light)
+		_shield_light.position = Vector3(0, 1.6, 0)
+		_blade = MeshInstance3D.new()
+		var cm := CapsuleMesh.new()
+		cm.radius = 0.035
+		cm.height = 1.3
+		_blade.mesh = cm
+		var bm := StandardMaterial3D.new()
+		bm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		bm.albedo_color = Color(0.6, 1.0, 1.0)
+		_blade.material_override = bm
+		body_mesh.add_child(_blade)
+	_shield_mesh.visible = shield_on and not scoped
+	var want := 0.8 + (2.8 if shield_on else 0.0)
+	_shield_light.light_energy = move_toward(_shield_light.light_energy, want, dt * 12.0)
+	_shield_light.light_color = Color(0.45, 0.8, 1.0) if shield_on or _swing > 0.0 else Color(1.0, 0.95, 0.85)
+	# the blade sweeps across in front during a swing
+	_swing = maxf(0.0, _swing - dt)
+	_blade.visible = _swing > 0.0
+	if _blade.visible:
+		var k := 1.0 - _swing / 0.35
+		var a := lerpf(1.1, -1.1, k)
+		_blade.transform = Transform3D(Basis(Vector3.UP, a) * Basis(Vector3.RIGHT, -PI / 2), Vector3(0, 1.2, 0) + Basis(Vector3.UP, a) * Vector3(0, 0, -1.0))
+	if pad != null: pad.queue_redraw()
+	# the aim stick turns you
+	if _aim != Vector2.ZERO:
+		var rate := 0.9 if scoped else 2.6
+		yaw -= _aim.x * rate * dt
+		pitch = clampf(pitch - _aim.y * rate * 0.6 * dt, -1.2, 1.1)
 
 func _look(r: Vector2) -> void:
 	yaw -= r.x * (0.35 if scoped else 1.0)
@@ -930,27 +1127,13 @@ func _make_hud() -> void:
 	fg.bg_color = Color(0.3, 0.9, 0.5)
 	hp_bar.add_theme_stylebox_override("fill", fg)
 	hud.add_child(hp_bar)
-	# touch buttons, right side
-	var col := VBoxContainer.new()
-	col.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	col.position = Vector2(-150, -380)
-	col.add_theme_constant_override("separation", 8)
-	hud.add_child(col)
-	col.anchor_left = 1.0
-	col.anchor_top = 1.0
-	col.anchor_right = 1.0
-	col.anchor_bottom = 1.0
-	col.offset_left = -150
-	col.offset_top = -390
-	col.offset_right = -18
-	col.offset_bottom = -18
-	var fire_b := _btn(col, "FIRE")
-	fire_b.button_down.connect(func(): _fire_held = true)
-	fire_b.button_up.connect(func(): _fire_held = false)
-	_btn(col, "SCOPE").pressed.connect(toggle_scope)
-	_btn(col, "TOOL").pressed.connect(switch_tool)
-	_btn(col, "CHARGE").pressed.connect(throw_charge)
-	_btn(col, "JUMP").pressed.connect(jump)
+	# v12.35 (owner: "the same controls as mech mode ... both analog sticks that look the same ... a shield, an energy
+	# shield, a lightsaber sword, you can use your rifle"): the mech's sticks and hex buttons, drawn by the pad
+	pad = Control.new()
+	pad.set_anchors_preset(Control.PRESET_FULL_RECT)
+	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pad.draw.connect(_draw_pad)
+	hud.add_child(pad)
 	board_btn = Button.new()
 	board_btn.text = "BOARD YOUR SHIP"
 	board_btn.add_theme_font_size_override("font_size", 26)

@@ -1377,6 +1377,8 @@ func setup_boarding(info: Dictionary) -> void:
 	add_child(root)
 	var built: Dictionary = Boarding.build(root, tint)
 	_reshow(root)   # v12.34: on the web (phones) the freshly built level drew nothing until shown again
+	_level_lights = root.find_children("*", "OmniLight3D", true, false)   # v12.35: only the nearest few are on
+	_cap_lights(true)
 	surf_boxes = built["boxes"]
 	board_doors = built["doors"]
 	_board_alarm = built["alarm"]
@@ -7723,10 +7725,28 @@ func _update_blade(dt: float) -> void:
 ## v12.34 (owner: boarding levels "all black" on the phone): in the web build the level built in one go drew nothing at
 ## all (not even your ship) until its parts were hidden and shown again; so after building, every part is switched off
 ## and back on over the next frames.
+## v12.35 (owner: still black on the phone): a level has ~120 ceiling lamps; on the web (WebGL) that many lights at once
+## stopped the whole 3D view drawing. Only the Data.LEVEL_LIGHTS nearest you are switched on (re-picked twice a second);
+## the rest of the room is lit by the ambient floor of light and your own lamp.
+var _level_lights: Array = []
+var _cap_t := 0.0
+func _cap_lights(now := false) -> void:
+	if _level_lights.is_empty() or not is_instance_valid(player): return
+	if not now:
+		_cap_t -= get_process_delta_time()
+		if _cap_t > 0.0: return
+	_cap_t = 0.5
+	var p := player.global_position
+	var ls: Array = _level_lights.filter(func(l): return is_instance_valid(l))
+	ls.sort_custom(func(a, b): return (a as Node3D).global_position.distance_squared_to(p) < (b as Node3D).global_position.distance_squared_to(p))
+	for i in ls.size(): (ls[i] as Light3D).visible = i < Data.LEVEL_LIGHTS
+	lights_on = mini(ls.size(), Data.LEVEL_LIGHTS)
+var lights_on := 0
+
 func _reshow(root: Node3D) -> void:
 	await get_tree().process_frame
 	if not is_instance_valid(root): return
-	var ms: Array = root.find_children("*", "VisualInstance3D", true, false)
+	var ms: Array = root.find_children("*", "GeometryInstance3D", true, false)
 	for m in ms: (m as VisualInstance3D).visible = false
 	await get_tree().process_frame
 	if not is_instance_valid(root): return
@@ -7799,6 +7819,7 @@ func _collisions(dt: float) -> void:
 	sidestep_t = maxf(0.0, sidestep_t - dt)
 	_update_laser_shield(dt)
 	_update_lamp(dt)
+	if boarding: _cap_lights()
 	_update_sword(dt)
 	_update_build(dt)
 	sidestep_cd = maxf(0.0, sidestep_cd - dt)
