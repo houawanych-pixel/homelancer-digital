@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.55"
+const VERSION := "v12.56"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -965,12 +965,18 @@ const ENEMY_MINE_R := 40.0
 const ENEMY_MINE_LIFE := 40.0
 const PLATFORM_RADIUS := 70.0                   # v1.9b (owner): every planet's floating docking platform: deck radius (m)
 const PLATFORM_ALT := 260.0                     # ... how far over the planet's surface it floats                       # v1.9b (owner): a bounty target never flies alone: at least six of its own wing with it
-const MISSION_PAY := {"threats": 900, "escort": 700, "convoy": 1600, "ground": 1400, "outlaws": 600, "land_escort": 1200, "invasion": 3600, "disturbance_ship": 9000, "disturbance_base": 14000}   # v1.7w: "convoy" = the cargo run into the next system
+const MISSION_PAY := {"threats": 900, "escort": 700, "convoy": 1600, "ground": 1400, "outlaws": 600, "land_escort": 1200, "invasion": 3600, "disturbance_ship": 9000, "disturbance_base": 14000,
+	"intercept": 900, "air_sweep": 2400, "facility": 1500, "planet_invasion": 16000}   # v12.56: the planet's own jobs   # v1.7w: "convoy" = the cargo run into the next system
 # v1.8m (owner): ground jobs. A strike on the system's planet: fly down into the atmosphere, go to two mission points in
 # one sector of the surface and destroy the landing party at each. Paid on the spot when the last one is down.
 const MISSION_GROUND_ALT := 220.0               # a ground job's wave waits this high over the ground
 const MISSION_GROUND_SPREAD := 1500.0           # its points lie within this of the sector's centre
 # v1.8n (owner): enemy mechs on foot. Each wave of a ground job also has Assault Mechs walking the ground under it.
+const MISSION_GROUND_PILOTS := 2              # v12.56 (owner: "mechs as well as pilots"): soldiers on foot at each strike point
+const INTERCEPT_WING := 8                       # v12.56: fighters in a raid to intercept
+const AIR_SWEEP := [[10, 2], [15, 2]]           # v12.56 (owner: "clear 20 fighters with reinforcements of 30, by difficulty"): [ships, level] per waypoint
+const AIR_SWEEP_HARD := [[20, 3], [30, 3]]
+const PLANET_INV_FIGHTERS := 16                 # v12.56: fighters with the battleships in a planetary invasion
 const MISSION_GROUND_MECHS := [1, 2]            # mechs on foot at [the first point, the last point]
 const SURFACE_PATROL_SLOT := 2                   # v1.8o: the rival patrol over a planet sector sends soldiers up to this slot
 const WALKER_STAND := 7.0                       # m: a mech on foot stands this far over the ground (its middle)

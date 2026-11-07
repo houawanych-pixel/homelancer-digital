@@ -11939,6 +11939,15 @@ func spawn_invasion(at: Vector3, faction: String, left: int, station_up: bool) -
 	inv_here = true
 	inv_log.append("spawn")
 
+## v12.56 (owner: "a planetary invasion: battleships coming into the planet already that you've got to destroy in the
+## atmosphere"): one of their battleships low over a sector, counted as part of the job's wave
+func spawn_planet_capital(at: Vector3, faction: String, stage: int) -> Dictionary:
+	var e := _spawn_capital("inv_battleship", "battleship", at, at, faction)
+	if e.is_empty(): return e
+	e["mission"] = stage
+	e["boardable"] = false
+	return e
+
 func _spawn_capital(kind: String, role: String, p: Vector3, home: Vector3, faction: String) -> Dictionary:
 	var d: Dictionary = Data.ENEMIES[kind]
 	var model := str(d["model"])

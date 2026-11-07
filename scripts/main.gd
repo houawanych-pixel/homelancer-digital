@@ -1812,9 +1812,12 @@ func leave_boarding(won: bool) -> void:
 	if bool(board_from.get("facility", false)):   # v11.96: back up on the world beside the facility
 		Boarding.use_ship()
 		var pay := Data.FACILITY_PAY * int(board_from.get("difficulty", 1)) if won else 0
+		var job: bool = won and str(GS.mission.get("kind", "")) == "facility" and str(GS.mission.get("site", "")) == str(board_from["name"])   # v12.56: the job was this facility
+		if job: pay = 0
 		GS.credits += pay
 		_load_surface(str(board_from["planet"]), int(board_from["tile"]))
 		await get_tree().process_frame
+		if job: Missions._pay(space, "%s is gutted. %s pays %d cr." % [str(board_from["name"]), Missions.giver_name(GS.mission), int(GS.mission["pay"])])
 		space.player.global_position = (board_from["pos"] as Vector3) + Vector3(0, 40.0, 0)
 		space.vel = Vector3.ZERO
 		var twf := create_tween()

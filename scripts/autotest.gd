@@ -2260,6 +2260,44 @@ func _run() -> void:
 		await _capture("fighters_l2l3")
 		get_tree().quit()
 		return
+	if _flag("HL_PLANETJOBS"):   # v12.56 (owner): a planet's board offers only planet jobs; intercept and the planetary invasion play out
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s := _sp()
+		var pid := "new_terra"
+		var dock: Dictionary = Surface.PLANETS[pid]["locations"][0]
+		var offs: Array = Missions.offers(s.sys_id, str(dock["id"]), "", "planet")
+		var kinds: Array = offs.map(func(o): return str(o["kind"]))
+		var only_land := kinds.all(func(k): return k in Missions.PLANET_KINDS)
+		var has_all: bool = "intercept" in kinds and "air_sweep" in kinds and "facility" in kinds and "planet_invasion" in kinds
+		_check("v12.56 (owner): the planet's board has only planet jobs (no space ones): %s" % ", ".join(kinds), only_land and has_all, str(kinds))
+		var run_job := func(kind: String) -> Dictionary:
+			var o: Dictionary = offs.filter(func(x): return str(x["kind"]) == kind)[0]
+			Missions.accept(o)
+			main._load_surface(pid, int(o["tile"]))
+			await _until(func(): return main.state == "flight" and _sp().surface_mode and _sp().tile == int(o["tile"]), 25.0)
+			await _wait(0.5)
+			var sp := _sp()
+			var at: Vector3 = Missions.point_pos(sp, 0)
+			_tp(at + Vector3(0, 30, 120), at)
+			await _until(func(): return int(GS.mission.get("spawned", -1)) >= 0, 8.0)
+			await _wait(0.3)
+			var spawned: int = sp.enemies.filter(func(e): return int(e.get("mission", -1)) == 0).size()
+			await _capture("planet_job_%s" % kind)
+			for r in 6:   # clear the wave (and anything that jumps in)
+				for e in sp.enemies.duplicate():
+					if int(e.get("mission", -1)) == int(GS.mission.get("stage", 0)) and sp.enemies.has(e): sp._damage_enemy(e, 100000.0)
+				await _wait(0.6)
+				if GS.mission.is_empty() or int(GS.mission.get("phase", 0)) == 1 or int(GS.mission.get("stage", 0)) > 0: break
+			return {"spawned": spawned, "left": GS.mission.duplicate()}
+		var r1: Dictionary = await run_job.call("intercept")
+		_check("v12.56: INTERCEPT on the planet: %d fighters at the point; shot down, paid (job over %s)" % [int(r1["spawned"]), (r1["left"] as Dictionary).is_empty()], int(r1["spawned"]) >= 6 and (r1["left"] as Dictionary).is_empty(), str(r1))
+		var r2: Dictionary = await run_job.call("planet_invasion")
+		var phase1: bool = int((r2["left"] as Dictionary).get("phase", 0)) == 1 and not Missions.on_land(r2["left"])
+		_check("v12.56: GOLD planetary invasion: battleships and fighters in the atmosphere (%d); broken there, the job moves to intercepting their fleet in orbit (%s)" % [int(r2["spawned"]), phase1], int(r2["spawned"]) >= 4 and phase1, str((r2["left"] as Dictionary).get("phase", -1)))
+		_finish_group()
+		return
 	if _flag("HL_SWORD3"):   # v12.55 (owner): the lightning per target, the nuke's three tails, the ship's sword (burst / evade / throw)
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
