@@ -67,7 +67,54 @@ static func _all_planets() -> Dictionary:
 	out.merge(SystemBuilder.suns(out))
 	out.merge(SystemBuilder.planets(out))   # v1.4l: every planet has at least one tile
 	out.merge(SystemBuilder.added_planets(out))   # v12.26 (owner: "I couldn't enter the atmosphere" of Haven): planets added by hand too
+	for pid in out: _sky_docks(str(pid), out[pid])
 	return out
+
+## v12.54 (owner: "too many docking stations ... a faction's planet has two: its own and the rival's, like the allies
+## and rivals in space; they're sky docks, castles in the sky; enemy worlds have no dock you can use"): a planet's
+## landing places: the system's own faction's SKY PORT and its rival's AIR DOCK (the two hand-made ones kept where a
+## world has them), far apart. An enemy world has none. Each gets its "faction".
+const ALLY_FACTIONS := ["Unity", "Imperium", "Liberator", "Covenant", "Orion", "Solarion", "Elyza", "Savagers"]
+static func planet_sides(pid: String, P: Dictionary) -> Array:   # [own faction, rival faction] ([] = an enemy world)
+	var sid := str(P.get("system", ""))
+	var sy: Dictionary = Data.SYSTEMS.get(sid, {})
+	if sy.is_empty() or SystemBuilder.is_enemy_space(sy) or str(sy.get("faction", "")) in ["Kaijurai", "Cybermorph", "Enemy"]: return []
+	var own := str(sy.get("faction", ""))
+	if not own in ALLY_FACTIONS: own = ALLY_FACTIONS[absi(hash(sid)) % ALLY_FACTIONS.size()]
+	var riv := str((sy.get("rival", {}) as Dictionary).get("faction", ""))
+	if riv == "" or riv == own or not riv in ALLY_FACTIONS:
+		var pool: Array = ALLY_FACTIONS.filter(func(f): return f != own)
+		riv = pool[absi(hash(sid + "|rival")) % pool.size()]
+	return [own, riv]
+
+static func _sky_docks(pid: String, P: Dictionary) -> void:
+	if bool(P.get("sun", false)): return
+	var sides := planet_sides(pid, P)
+	var locs: Array = P.get("locations", [])
+	if sides.is_empty():
+		P["locations"] = []
+		return
+	var g := int(P.get("grid", 1))
+	var keep: Array = []
+	var hand: Array = locs.filter(func(l): return str(l.get("role", "")).to_lower().find("capital") >= 0 or str(l.get("role", "")).to_lower().find("spaceport") >= 0)
+	var rest: Array = locs.filter(func(l): return not hand.has(l))
+	if not hand.is_empty(): keep.append(hand[0])
+	rest.reverse()   # (the last of the others is the rival's)
+	for l in rest:
+		if keep.size() >= 2: break
+		if keep.is_empty() or int(l["tile"]) != int(keep[0]["tile"]) or g == 1: keep.append(l)
+	var nm := str(P.get("name", pid))
+	while keep.size() < 2:
+		var i := keep.size()
+		var t := 0 if i == 0 else (g * g - 1 if g > 1 else 0)
+		var pos := Vector2(-1400.0, 900.0) if i == 0 else Vector2(1500.0, -1100.0)
+		keep.append({"id": "%s_dock%d" % [pid, i], "name": "%s %s" % [sides[i], "Sky Port" if i == 0 else "Air Dock"], "kind": "planet",
+			"role": "%s sky dock" % sides[i], "tile": t, "pos": pos, "desc": "%s's floating dock over %s." % [sides[i], nm]})
+	for i in 2:
+		keep[i]["faction"] = sides[i]
+		keep[i]["sky"] = true
+		if i == 1 and str(keep[i].get("role", "")).find("dock") < 0: keep[i]["role"] = "%s air dock (rival)" % sides[1]
+	P["locations"] = keep
 const CORE_PLANETS := {
 	"new_terra": {"name": "New Terra", "system": "solara", "grid": 3,
 		"tiles": ["ocean", "coast", "desert", "mountains", "city", "forest", "ice", "industrial", "canyon"],
@@ -311,16 +358,49 @@ static func facility_sites(planet_id: String) -> Array:
 	if sid != "": pname = str(Data.SYSTEMS[sid]["planet"].get("name", pname))
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash("facilities:" + planet_id)
-	var n := 2 + rng.randi() % 3
+	# v12.54 (owner: "Armored Core facility bases, hidden on the terrain ... 3x3: three each for the two factions (six);
+	# 2x2: two each; one tile: one each; spaced well apart; enemy worlds: only enemy facilities"): a mission for one side
+	# sends you to the other side's
+	var P: Dictionary = PLANETS.get(planet_id, {})
+	var g := int(P.get("grid", 1))
+	var sides := planet_sides(planet_id, P)
+	var per := clampi(g, 1, 3)
+	var owners: Array = []
+	if sides.is_empty():
+		var ef := str((Data.SYSTEMS.get(sid, {}) as Dictionary).get("faction", "Enemy"))
+		for i in per * 2: owners.append(ef if ef != "" else "Enemy")
+	else:
+		for i in per:
+			owners.append(sides[0])
+			owners.append(sides[1])
 	var out: Array = []
-	for b in (Data.PLANET_BASES.get(sid, []) as Array):
-		out.append({"name": str(b[1]), "file": str(b[0]), "side": str(b[2])})
-	var words := ["Deep Works", "Old Mine", "Sump Bunker", "Signal Vault", "Foundry Shaft", "Cold Store", "Relay Bunker", "Pit Station"]
-	while out.size() < n:
-		out.append({"name": "%s %s" % [pname, words[rng.randi() % words.size()]], "file": "HL_Asset_BunkerPillar", "side": "hostile", "bunker": true})
+	var hand: Array = Data.PLANET_BASES.get(sid, [])
+	var words := ["Deep Works", "Old Mine", "Sump Bunker", "Signal Vault", "Foundry Shaft", "Cold Store", "Relay Bunker", "Pit Station", "Ice Vault", "Deep Silo"]
+	for i in owners.size():
+		var f: String = owners[i]
+		if i < hand.size():
+			out.append({"name": str(hand[i][1]), "file": str(hand[i][0]), "side": str(hand[i][2]), "faction": f})
+		else:
+			out.append({"name": "%s %s" % [pname, words[(i + rng.randi() % 3) % words.size()]], "file": "HL_Asset_BunkerPillar", "side": "faction", "bunker": true, "faction": f})
+	var tiles: Array = []
+	for t in g * g: tiles.append(t)
+	var placed: Array = []   # [tile, spot]
+	var dock_spots: Array = []
+	for l in P.get("locations", []): dock_spots.append([int(l["tile"]), l["pos"] as Vector2])
 	for i in out.size():
-		out[i]["difficulty"] = clampi(i + 1, 1, 4)
-		out[i]["spot"] = Data.BASE_SPOTS[i % Data.BASE_SPOTS.size()]
+		out[i]["difficulty"] = clampi(1 + i / 2, 1, 4)
+		var t: int = tiles[(i * 5 + absi(hash(planet_id)) % tiles.size()) % tiles.size()]
+		var spot := Vector2.ZERO
+		for tries in 30:   # hidden somewhere on the land, well apart from the others and the docks
+			spot = Vector2(rng.randf_range(-EDGE + 900.0, EDGE - 900.0), rng.randf_range(-EDGE + 900.0, EDGE - 900.0))
+			var ok := true
+			for q in placed + dock_spots:
+				if int(q[0]) == t and (q[1] as Vector2).distance_to(spot) < Data.FACILITY_GAP: ok = false
+			if ok: break
+		if i == 0 and hand.size() > 0: spot = Data.BASE_SPOTS[0]
+		placed.append([t, spot])
+		out[i]["tile"] = t
+		out[i]["spot"] = spot
 		out[i]["planet"] = planet_id
 	_fac_cache[planet_id] = out
 	return out
@@ -356,8 +436,8 @@ static func base_pads(planet_id: String) -> Array:
 		var spot: Vector2 = list[i]["spot"]
 		var hs := 0.0
 		for o: Vector2 in [Vector2.ZERO, Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]:
-			hs += height(planet_id, 0, spot.x + o.x * Data.BASE_PAD_R * 0.6, spot.y + o.y * Data.BASE_PAD_R * 0.6)
-		out.append([0, spot, Data.BASE_PAD_R, maxf(hs / 5.0, Data.BASE_PAD_MIN_H)])
+			hs += height(planet_id, int(list[i].get("tile", 0)), spot.x + o.x * Data.BASE_PAD_R * 0.6, spot.y + o.y * Data.BASE_PAD_R * 0.6)
+		out.append([int(list[i].get("tile", 0)), spot, Data.BASE_PAD_R, maxf(hs / 5.0, Data.BASE_PAD_MIN_H)])
 	_no_pads = false
 	_base_pad_cache[planet_id] = out
 	return out

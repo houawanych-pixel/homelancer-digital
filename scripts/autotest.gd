@@ -1498,7 +1498,7 @@ func _fighters_l2l3() -> void:
 	var fc := _facility_check()
 	_check("Facilities: levels 1-4 each build a maze of shaped halls and hex / pentagon tunnels, joined in and out, deeper and bigger with the level, out the east exit shaft", fc["ok"], fc["txt"])
 	var sites: Array = Surface.facility_sites("new_terra")
-	_check("Facilities: every world has 2 to 4 (New Terra: its Research Dome, then bunker entrances), levels 1 upward", sites.size() >= 2 and sites.size() <= 4 and int(sites[0]["difficulty"]) == 1, "%d sites: %s" % [sites.size(), sites.map(func(x): return "%s L%d" % [x["name"], x["difficulty"]])])
+	_check("Facilities (v12.54): New Terra (3x3) has 6, three for each side (its Research Dome first), levels 1 upward", sites.size() == 6 and int(sites[0]["difficulty"]) == 1, "%d sites: %s" % [sites.size(), sites.map(func(x): return "%s L%d" % [x["name"], x["difficulty"]])])
 	# v11.97 (owner): a level 6 bounty: far out, 20 elites at the first point (15 at once, 5 jump in later), L3 ships armed
 	var b6: Array = Data.bounties().filter(func(p): return int(p.get("rank", 0)) == 6)
 	var bw_txt := "no rank-6 bounty"
@@ -1782,6 +1782,7 @@ func _run() -> void:
 	main.hud.cl_open = true   # (v8.0: the windows start folded; the checks read them open)
 	main.hud.sp_open = true
 	main.hud.weapons_pinned = true   # (v7.0: every button up for the checks; the pop-up has its own check)
+	if not _flag("HL_PLANETSITES"): SpaceSystem.patrols_on = false   # v12.54: the planet patrols only where they're tested
 	if not _flag("HL_LANDFILM"):   # v12.52: the landing film is cut short in the other checks (they time the descent)
 		main.landing_film_min = 0.0
 		main.landing_film_max = 0.4
@@ -2258,6 +2259,46 @@ func _run() -> void:
 		await _wait(0.05)
 		await _capture("fighters_l2l3")
 		get_tree().quit()
+		return
+	if _flag("HL_PLANETSITES"):   # v12.54 (owner): two sky docks a world (own + rival), facilities by size, patrols and backup
+		var lines: Array = []
+		var ok := true
+		var enemy_seen := false
+		var one_seen := false
+		for pid in Surface.PLANETS:
+			var P: Dictionary = Surface.PLANETS[pid]
+			if bool(P.get("sun", false)): continue
+			var g := int(P.get("grid", 1))
+			var docks: Array = P["locations"]
+			var sites: Array = Surface.facility_sites(pid)
+			var enemy: bool = Surface.planet_sides(pid, P).is_empty()
+			var want_d := 0 if enemy else 2
+			var want_f := clampi(g, 1, 3) * 2
+			var gap_ok := true
+			for i in sites.size():
+				for j in range(i + 1, sites.size()):
+					if int(sites[i]["tile"]) == int(sites[j]["tile"]) and (sites[i]["spot"] as Vector2).distance_to(sites[j]["spot"]) < Data.FACILITY_GAP * 0.6: gap_ok = false
+			if docks.size() != want_d or sites.size() != want_f: ok = false
+			if pid in ["new_terra", "eden_prime"] or (enemy and not enemy_seen) or (g == 1 and not enemy and not one_seen):
+				lines.append("%s %dx%d: %d docks %s, %d facilities%s" % [pid, g, g, docks.size(), docks.map(func(l): return str(l.get("faction", ""))), sites.size(), "" if gap_ok else " (close)"])
+				if enemy: enemy_seen = true
+				elif g == 1: one_seen = true
+		_check("v12.54 (owner): every friendly world has 2 sky docks (its own faction's and the rival's), enemy worlds none; facilities 2 / 4 / 6 by size, half each side, spread apart: %s" % "; ".join(lines), ok, str(lines))
+		SpaceSystem.patrols_on = true
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		main._load_surface("new_terra", 4)
+		await _until(func(): return main.state == "flight" and _sp().surface_mode, 25.0)
+		await _wait(1.0)
+		var s := _sp()
+		var pat: Array = s.enemies.filter(func(e): return bool(e.get("patrol", false)))
+		var n0 := pat.size()
+		if n0 > 0:
+			s._damage_enemy(pat[0], 1.0)
+			await _wait(Data.PLANET_BACKUP_DELAY + 1.5)
+		await _capture("planet_patrol")
+		_check("v12.54: a friendly world's sector has a %d-ship patrol; shot at, it calls %d more in" % [n0, s.patrol_backup], n0 == Data.PLANET_PATROL_ALLY and s.patrol_backup >= int(Data.PLANET_BACKUP_ALLY[0]), "patrol %d backup %d" % [n0, s.patrol_backup])
+		_finish_group()
 		return
 	if OS.get_environment("HL_TREES") != "":   # v12.53 (owner): Y-shaped trees with cloud-shaped canopies, leaf cards, leaves you move through
 		await _smoke_core()

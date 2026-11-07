@@ -806,8 +806,8 @@ func building_site(want: Vector2, half: float, placed: Array) -> Vector3:
 var planet_bases: Array = []   # (tests) the base holders on this sector
 func _planet_bases() -> void:
 	planet_bases = []
-	if tile != 0 or not is_instance_valid(tile_root) or planet_id == "": return
-	var list: Array = Surface.facility_sites(planet_id)   # v11.96: every world: its faction bases, then bunker entrances (2-4)
+	if not is_instance_valid(tile_root) or planet_id == "": return
+	var list: Array = (Surface.facility_sites(planet_id) as Array).filter(func(st): return int(st.get("tile", 0)) == tile)   # v12.54: each on its own sector
 	if list.is_empty(): return
 	if not Packs.is_ready("bases3d"):
 		if not Packs.pack_ready.is_connected(_on_bases_pack): Packs.pack_ready.connect(_on_bases_pack)
@@ -821,7 +821,7 @@ func _planet_bases() -> void:
 		if h == null: continue
 		h.name = str(site["name"])
 		h.set_meta("base", str(site["file"]))
-		h.set_meta("side", str(site["side"]))
+		h.set_meta("side", _fac_side(site))
 		h.set_meta("facility", site)
 		planet_bases.append(h)
 		if not lay.is_empty():   # v12.1 (owner: "use the bunker assets to design a 3 to 6 combination to create a facility")
@@ -830,12 +830,74 @@ func _planet_bases() -> void:
 				var ph := _ground_prop("res://assets/bases3d/%s.glb" % str(pc[0]), float(pc[2]), pp, true, float(pc[3]), pc[4] if pc.size() > 4 else Vector3.ONE)
 				if ph != null: ph.name = "%s %s" % [str(site["name"]), str(pc[0]).trim_prefix("HL_Asset_")]
 			continue
-		if str(site["side"]) == "hostile":   # its defences: gun batteries either side and a generator behind
+		if _fac_side(site) == "hostile":   # its defences: gun batteries either side and a generator behind
 			for k in 3:
 				var part := "HL_Asset_GunBattery" if k < 2 else "HL_Asset_Generator"
 				var off := Vector2((-1.0 if k == 0 else 1.0) * Data.BASE_WIDTH * 0.75, 0.0) if k < 2 else Vector2(0.0, -Data.BASE_WIDTH * 0.8)
 				var p := Vector2(h.position.x, h.position.z) + off
 				_ground_prop("res://assets/bases3d/%s.glb" % part, Data.BASE_PART_WIDTH, p, true)
+
+## v12.54 (owner: "ally factions: five-ship patrols per tile, they can call for backup, five or ten more; an enemy
+## world: ten to twenty ships per tile in groups, and they call twenty or thirty"): the planet's patrols on this sector.
+static var patrols_on := true   # (tests switch them off unless they're testing them)
+var _patrol_called := false
+var patrol_backup := 0          # (tests) ships that came as backup
+func _tile_patrols() -> void:
+	_patrol_called = false
+	if not patrols_on or not Data.PLANET_PATROLS or sun_surface or boarding or planet_id == "" or not is_instance_valid(player): return
+	var P: Dictionary = Surface.PLANETS.get(planet_id, {})
+	var sides := Surface.planet_sides(planet_id, P)
+	var enemy := sides.is_empty()
+	var fac: String = sides[0] if not enemy else str((Data.SYSTEMS.get(sys_id, {}) as Dictionary).get("faction", ""))
+	if not Factions.has(fac): fac = "Kaijurai"
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash("%s|%d|patrol|%d" % [planet_id, tile, Time.get_ticks_msec()])
+	var total: int = rng.randi_range(int(Data.PLANET_PATROL_ENEMY[0]), int(Data.PLANET_PATROL_ENEMY[1])) if enemy else Data.PLANET_PATROL_ALLY
+	var pp := player.global_position
+	while total > 0:
+		var n := mini(5, total)
+		total -= n
+		var a := rng.randf() * TAU
+		var d := rng.randf_range(1500.0, 3200.0)
+		var x := clampf(pp.x + cos(a) * d, -Surface.EDGE + 300.0, Surface.EDGE - 300.0)
+		var z := clampf(pp.z + sin(a) * d, -Surface.EDGE + 300.0, Surface.EDGE - 300.0)
+		var at := Vector3(x, _ground(x, z) + rng.randf_range(250.0, 450.0), z)
+		for e in spawn_mission_group(at, fac, n, Data.PATROL_MAX_SLOT, "", -7):
+			e["patrol"] = true
+			e["patrol_enemy"] = enemy
+			e["home"] = at
+			if enemy:
+				e["aggro"] = true
+				e["provoked"] = true
+
+## a patrol under fire calls for backup (once per sector): it arrives a few seconds later
+func _patrol_backup(e: Dictionary) -> void:
+	if _patrol_called or not surface_mode: return
+	_patrol_called = true
+	var enemy := bool(e.get("patrol_enemy", false))
+	var span: Array = Data.PLANET_BACKUP_ENEMY if enemy else Data.PLANET_BACKUP_ALLY
+	var n := randi_range(int(span[0]), int(span[1]))
+	var fac := str(e.get("faction", "Kaijurai"))
+	var at: Vector3 = (e["node"] as Node3D).global_position
+	message.emit("%s patrol: \"Taking fire! Requesting backup!\" %d more inbound." % [fac, n])
+	await get_tree().create_timer(Data.PLANET_BACKUP_DELAY).timeout
+	if not is_inside_tree() or not surface_mode: return
+	var left := n
+	while left > 0:
+		var k := mini(5, left)
+		left -= k
+		var off := Vector3(randf_range(-900, 900), randf_range(200, 400), randf_range(-900, 900))
+		for b in spawn_mission_group(at + off, fac, k, Data.PATROL_MAX_SLOT, "", -7):
+			b["aggro"] = true
+			b["provoked"] = true
+			b["patrol"] = true
+			patrol_backup += 1
+
+## v12.54: a facility's side as things stand: its faction's (hostile if they're hostile to you)
+func _fac_side(site: Dictionary) -> String:
+	var f := str(site.get("faction", ""))
+	if f == "": return str(site.get("side", "hostile"))
+	return "hostile" if (f == "Enemy" or not Factions.has(f) or Factions.hostile(f)) else "neutral"
 
 func _on_bases_pack(pk: String) -> void:
 	if pk != "bases3d" or not surface_mode or not is_inside_tree() or not planet_bases.is_empty(): return
@@ -7469,6 +7531,7 @@ func _damage_enemy(e: Dictionary, dmg: float, hit := Vector3.INF, sf := -1.0) ->
 	if e["node"].get_meta("kind", "enemy") == "enemy": GS.super_charge = minf(1.0, GS.super_charge + dmg / Data.SUPER_FROM_DEALT)   # v7.5
 	e["aggro"] = true
 	e["provoked"] = true
+	if e.get("patrol", false) and not _patrol_called: _patrol_backup(e)   # v12.54
 	if boarding and not e.get("alerted", false):   # (shot: he knows now)
 		if str(board.get("phase", "")) == "sneak": _arrest(e)
 		e["alerted"] = true
@@ -9696,6 +9759,7 @@ func load_tile(t: int, keep := Vector3.INF) -> void:
 	add_child(tile_root)
 	_faction_buildings()   # v1.9q
 	_planet_bases()   # v11.91
+	if keep == Vector3.INF or true: _tile_patrols()   # v12.54
 	var b := Surface.biome(planet_id, t)
 	var cols := {"sky": b["sky"], "horizon": b["horizon"], "fog": b["fog"]}
 	if keep == Vector3.INF: _apply_sky(cols, 1.0)
@@ -10054,8 +10118,9 @@ func facility_spots() -> Array:
 	if not surface_mode or boarding: return out
 	for st in Surface.facility_sites(planet_id):
 		var sp: Vector2 = st["spot"]
-		out.append({"name": str(st["name"]), "id": "", "tile": 0, "x": sp.x, "z": sp.y, "difficulty": int(st.get("difficulty", 1)), "side": str(st.get("side", "hostile")),
-			"pos": surface_offset(0) + Vector3(sp.x, Surface.pad_top(planet_id, 0) + 40.0, sp.y)})
+		var ft := int(st.get("tile", 0))
+		out.append({"name": str(st["name"]), "id": "", "tile": ft, "x": sp.x, "z": sp.y, "difficulty": int(st.get("difficulty", 1)), "side": _fac_side(st), "faction": str(st.get("faction", "")),
+			"pos": surface_offset(ft) + Vector3(sp.x, Surface.pad_top(planet_id, ft) + 40.0, sp.y)})
 	return out
 
 ## GO TO / the planet map: fly to a base anywhere on the planet (the marker is kept where the base is as you cross sectors).
