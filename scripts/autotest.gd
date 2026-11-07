@@ -2475,6 +2475,53 @@ func _run() -> void:
 		var lights := s.find_children("*", "Light3D", true, false).size()
 		print("[route] DARK form=%s player=%s cam=%s cam_path=%s meshes=%d visible=%d lights=%d player_vis=%s" % [GS.form, s.player.global_position, cam.global_position if cam else null, cam.get_path() if cam else "", nm, vis, lights, s.player.is_visible_in_tree()])
 		await _capture("dark_board")
+		if _flag("HL_DARKFIND"):   # v12.44: which of the level's meshes stops the web view drawing (bisection, nothing else changed)
+			main.hud.visible = false
+			var inside0: Node3D = s.get_node_or_null("BattleshipInside")
+			var all_g: Array = inside0.find_children("*", "GeometryInstance3D", true, false)
+			var drawn := func() -> float:
+				await _frames(4)
+				var img := get_viewport().get_texture().get_image()
+				var w := img.get_width()
+				var h2 := img.get_height()
+				var diff := 0
+				var tot := 0
+				for yy in range(h2 / 6, h2 * 5 / 6, 12):
+					for xx in range(w / 6, w * 5 / 6, 12):
+						var c := img.get_pixel(xx, yy)
+						tot += 1
+						if c.r + c.g + c.b > 0.6: diff += 1
+				return float(diff) / float(tot)
+			var show_range := func(a: int, b: int) -> void:
+				for i in all_g.size(): (all_g[i] as Node3D).visible = i >= a and i < b
+			var f_all: float = await drawn.call()
+			show_range.call(0, 0)
+			var f_none: float = await drawn.call()
+			print("[route] FIND meshes %d drawn all %.2f none %.2f" % [all_g.size(), f_all, f_none])
+			# a set that draws nothing even though walls fill the view: find the smallest prefix that kills drawing
+			var lo := 0
+			var hi := all_g.size()
+			show_range.call(0, hi)
+			if (await drawn.call()) < 0.05:
+				while hi - lo > 1:
+					var mid := (lo + hi) / 2
+					show_range.call(0, mid)
+					var f: float = await drawn.call()
+					print("[route] FIND prefix %d drawn %.2f" % [mid, f])
+					if f < 0.05: hi = mid
+					else: lo = mid
+				var bad: GeometryInstance3D = all_g[hi - 1]
+				var mesh: Mesh = (bad as MeshInstance3D).mesh if bad is MeshInstance3D else null
+				var mt = (bad as MeshInstance3D).material_override if bad is MeshInstance3D else null
+				print("[route] FIND culprit #%d %s mesh %s aabb %s mat %s pos %s scale %s" % [hi - 1, bad.get_path(), mesh, mesh.get_aabb() if mesh else null, mt, bad.global_position, bad.global_basis.get_scale()])
+				if mt is StandardMaterial3D:
+					var sm6 := mt as StandardMaterial3D
+					print("[route] FIND mat shading %d emis %s %s tex %s tri %s alpha %s" % [sm6.shading_mode, sm6.emission_enabled, sm6.emission, sm6.albedo_texture, sm6.uv1_triplanar, sm6.transparency])
+				show_range.call(0, all_g.size())
+				bad.visible = false
+				print("[route] FIND all but culprit drawn %.2f" % (await drawn.call()))
+			show_range.call(0, all_g.size())
+			main.hud.visible = true
 		if _flag("HL_DARKPROBE"):   # which setting blacks the ship out on the web: one picture per change
 			var envr: Environment = (s.env.environment as Environment)
 			envr.glow_enabled = false
