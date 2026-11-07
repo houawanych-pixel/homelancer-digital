@@ -1029,11 +1029,23 @@ func _escape_in_space(retry := false) -> void:
 	var gpk := "crowd3d_orion" if fac.to_lower().begins_with("orion") else "crowd3d"   # v12.46: the guards are the faction's soldiers
 	Packs.request(gpk)
 	await Packs.wait(gpk, 30.0)
+	# v12.47 (owner: "Tripo space stations give you a good shell to build on"): the station's own 3D model shapes the
+	# deck plan (its silhouette) and is set round it as the shell
+	var skey := breakout_shell_key(fac)
+	var fp := {}
+	if skey != "":
+		Packs.request(skey)
+		await Packs.wait(skey, 30.0)
+		fp = Boarding.footprint("res://assets/stations3d/%s.glb" % skey)
 	if retry: GS.restore_full()
 	hub.visible = false
 	GS.form = "mech"
 	# v12.46 (owner: "a hub area ... not such a big maze"): the breakout's own small station
-	Boarding.use(Boarding.deckplan("%s:%s:breakout" % [sid, escape_from], "hub", Data.STATION_INFIL_LEVEL, escape_from))
+	Boarding.use(Boarding.deckplan("%s:%s:breakout" % [sid, escape_from], "hub", Data.STATION_INFIL_LEVEL, escape_from, fp.get("occ", [])))
+	if not fp.is_empty():
+		Boarding.INFO["shell"] = "res://assets/stations3d/%s.glb" % skey
+		Boarding.INFO["shell_lo"] = fp["lo"]
+		Boarding.INFO["shell_hi"] = fp["hi"]
 	_new_space("Boarding")
 	space.escape_pilot = true
 	space.setup_boarding({"sys": sid, "faction": fac, "name": escape_from, "escape": true})
@@ -1046,6 +1058,14 @@ func _escape_in_space(retry := false) -> void:
 	space.controls = true
 	hud.visible = true
 	state = "flight"
+
+## The station model the breakout is built in: the docked station's own (one of the owner's Tripo 3D stations), else
+## its faction's military station, else Unity's.
+func breakout_shell_key(fac: String) -> String:
+	var m := str(hub.base.get("model", ""))
+	for k in [m, "HL_Station_%s_Military_retopo" % fac, "HL_Station_Unity_Military_retopo"]:
+		if k != "" and Packs.PACKS.has(k) and str(k).begins_with("HL_Station_"): return k
+	return ""
 
 func _escaped() -> void:
 	if is_instance_valid(escape): escape.queue_free()

@@ -1421,6 +1421,7 @@ func setup_boarding(info: Dictionary) -> void:
 			if Boarding.is_door(d, Boarding.ESCAPE_DOOR): d["locked"] = false
 		if is_instance_valid(_board_path): _board_path.visible = true
 		_breakout_guards(fac)
+		_breakout_shell(root)
 		if Boarding.ROOMS.has("secure"):   # the lockdown console in the security office
 			var sr: Array = Boarding.ROOMS["secure"]["r"]
 			var cpos := Vector3((float(sr[0]) + float(sr[1])) * 0.5, Boarding.floor_of("secure", (float(sr[0]) + float(sr[1])) * 0.5, float(sr[2]) + 30.0), float(sr[2]) + 30.0)
@@ -1612,6 +1613,37 @@ func _board_steps(dt: float) -> void:
 				controls = false
 				_die()
 
+## v12.47 (owner: "Tripo space stations give you a good shell to build on"): the station's own model, stretched round
+## the deck plan that was laid out from its silhouette (Boarding.footprint), both faces drawn so its hull is seen
+## from inside: past the hangar's open side, the station's own hull.
+var breakout_shell: Node3D
+func _breakout_shell(root: Node3D) -> void:
+	var path := str(Boarding.INFO.get("shell", ""))
+	if path == "" or not ResourceLoader.exists(path): return
+	var lo: Vector3 = Boarding.INFO["shell_lo"]
+	var hi: Vector3 = Boarding.INFO["shell_hi"]
+	var span := 5.0 * Boarding.CELL
+	var kx := span / maxf(0.001, hi.x - lo.x)
+	var kz := span / maxf(0.001, hi.z - lo.z)
+	var ky := (kx + kz) * 0.5
+	var inst: Node3D = (load(path) as PackedScene).instantiate()
+	for c in inst.find_children("*", "MeshInstance3D", true, false):
+		var mi := c as MeshInstance3D
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		for si in (mi.mesh.get_surface_count() if mi.mesh != null else 0):
+			var m0 := mi.get_active_material(si)
+			if m0 is BaseMaterial3D:
+				var m1 := (m0 as BaseMaterial3D).duplicate() as BaseMaterial3D
+				m1.cull_mode = BaseMaterial3D.CULL_DISABLED
+				mi.set_surface_override_material(si, m1)
+	var holder := Node3D.new()
+	holder.name = "StationShell"
+	holder.scale = Vector3(kx, ky, kz)
+	holder.position = Vector3(-lo.x * kx - Boarding.CELL * 0.5, 30.0 - (lo.y + hi.y) * 0.5 * ky, -lo.z * kz - span * 0.5)
+	holder.add_child(inst)
+	root.add_child(holder)
+	breakout_shell = holder
+
 ## v12.46: the breakout's guards, all at their posts from the start (soldiers, walking a loop round their post).
 func _breakout_guards(fac: String) -> void:
 	for rk in Boarding.ROOMS:
@@ -1685,6 +1717,7 @@ func _arrest(e: Dictionary) -> void:
 	board["phase"] = "escape"
 	board["escape"] = INF
 	board["alerted"] = true
+	board["arrested_by"] = "%s at %s, you at %s (%s)" % [str((e["node"] as Node3D).name), str((e["node"] as Node3D).global_position.round()), str(player.global_position.round()), str(board.get("room", ""))]
 	e["alerted"] = true
 	for d in board_doors:
 		if Boarding.is_door(d, Boarding.ESCAPE_DOOR) and board.has("console"): d["locked"] = true
@@ -5478,7 +5511,7 @@ func _update_player(dt: float) -> void:
 	speed_now = vel.length()
 	if controls and warp_state == "off" and transform_t <= 0.0:
 		var want := (fire_held or fire_lock) and not build_mode   # (v12.25: in BUILD, FIRE is PLACE)
-		if GS.is_auto("guns") and _in_fire_cone(target): want = true
+		if GS.is_auto("guns") and _in_fire_cone(target) and not (boarding and str(board.get("phase", "")) == "sneak"): want = true   # v12.47: sneaking, you choose when to shoot
 		var cost := Data.ENERGY_PER_GUN * float(GS.core_slots().size() + GS.mount_items().filter(func(x): return Data.WEAPONS.has(x)).size())   # (v1.9e: only fitted guns use gun energy; v1.9u: + the core gun)
 		if want and gun_cd <= 0.0 and GS.energy >= cost:
 			GS.energy -= cost
@@ -8699,10 +8732,11 @@ func _auto_systems(_dt: float) -> void:
 		lock_time += _dt
 	else:
 		lock_time = 0.0
-	if GS.is_auto("missile") and lock_time > 1.5 and lock_count() >= mini(GS.max_locks("light_missile"), GS.missiles) and GS.missiles > 0 and missile_cd <= 0.0:
+	var quiet: bool = boarding and str(board.get("phase", "")) == "sneak"   # v12.47: sneaking, nothing fires by itself
+	if GS.is_auto("missile") and not quiet and lock_time > 1.5 and lock_count() >= mini(GS.max_locks("light_missile"), GS.missiles) and GS.missiles > 0 and missile_cd <= 0.0:
 		if trigger_system("missile"): missile_cd = 5.0
 	# mines: drop one when a hostile is chasing close behind
-	if GS.is_auto("mine") and GS.mines > 0 and mine_cd <= 0.0:
+	if GS.is_auto("mine") and not quiet and GS.mines > 0 and mine_cd <= 0.0:
 		for e in enemies:
 			var to: Vector3 = e["node"].global_position - player.global_position
 			if to.length() < 160.0 and (-player.global_basis.z).dot(to.normalized()) < -0.5:

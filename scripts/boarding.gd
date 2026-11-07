@@ -251,7 +251,7 @@ static func facility(seed_key: String, difficulty: int, name := "Facility") -> D
 ##  pods off the outside), into the CORE at the centre: the reactor. Out the east side of the ring, along the east spoke,
 ##  to the EAST DOCK. Modules hang off the north and south of the ring.
 ##  Difficulty 1-4: longer hulls / more modules, bigger halls, more guards.
-static func deckplan(seed_key: String, kind: String, difficulty: int, name := "Ship") -> Dictionary:
+static func deckplan(seed_key: String, kind: String, difficulty: int, name := "Ship", occ: Array = []) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash("deck:%s:%s" % [kind, seed_key])
 	var d := clampi(difficulty, 1, 4)
@@ -359,24 +359,101 @@ static func deckplan(seed_key: String, kind: String, difficulty: int, name := "S
 		route_out.append(tx)
 		route_out.append("sbay")
 	elif kind == "hub":
-		# v12.46 (owner: "a hub area design ... not such a big maze"): the breakout station. You come out of the
-		# arrivals deck into the CENTRAL HUB (security office one side, the cantina the other), through the hangar
-		# concourse to the HANGAR where your ship is. Guards walk their rooms; the hangar door is the lockdown door.
-		room.call("lbay", Vector2i(0, 0), 90.0, 80.0, 0.0, "ARRIVALS DECK", 0, "rect", 70.0)
-		room.call("reactor", Vector2i(1, 0), 150.0, 140.0, 0.0, "CENTRAL HUB", 2 + d / 2, "ring", 90.0)
-		var h1: String = link.call("lbay", "reactor")
-		room.call("secure", Vector2i(1, -1), 105.0, 85.0, 0.0, "SECURITY OFFICE", 2, "pillars")
-		link.call("reactor", "secure")
-		room.call("cantina", Vector2i(1, 1), 105.0, 85.0, 0.0, "CANTINA", 1, "oct")
-		link.call("reactor", "cantina")
-		room.call("fhold", Vector2i(2, 0), 115.0, 95.0, 0.0, "HANGAR CONCOURSE", 2, "pillars")
-		var h2: String = link.call("reactor", "fhold")
-		room.call("sbay", Vector2i(3, 0), 100.0, 90.0, 0.0, "HANGAR: YOUR SHIP", 0, "rect", 80.0)
-		var h3: String = link.call("fhold", "sbay")
-		route_in = ["lbay", h1, "reactor"]
-		route_out = ["lbay", h1, "reactor", h2, "fhold", h3, "sbay"]
+		# v12.46 (owner: "a hub area design ... not such a big maze"): the breakout station.
+		# v12.47 (owner: "space stations from Tripo give you a good shell to build on"; "use the ship design to lay out
+		# the station"): the rooms follow the station's own shape. `occ` is its top-down silhouette on a 5 x 5 grid of
+		# cells (Boarding.footprint of the station's GLB): a spine through the middle row like a ship's (arrivals deck
+		# at one end, the CENTRAL HUB in the middle, the HANGAR with your ship at the other end), side rooms off it
+		# where the hull is, and the far tips above and below the hub where the station reaches out there.
+		if occ.size() != 25: occ = [false, false, true, false, false, false, true, true, true, false, true, true, true, true, true, false, true, true, true, false, false, false, true, false, false]
+		var at := func(c: int, r: int) -> bool: return c >= 0 and c < 5 and r >= -2 and r <= 2 and bool(occ[(r + 2) * 5 + c])
+		var a := 2
+		var b := 2
+		while at.call(a - 1, 0): a -= 1
+		while at.call(b + 1, 0): b += 1
+		if b - a < 2:
+			a = mini(a, 1)
+			b = maxi(b, 3)
+		var hc := clampi(2, a + 1, b - 1)
+		var spine_name := {}
+		for c in range(a, b + 1):
+			var k := "sp%d" % c
+			var lab := "TRANSIT DECK"
+			var g := 1
+			var hx := 105.0
+			var hz := 90.0
+			var sh := "pillars"
+			if c == a:
+				k = "lbay"
+				lab = "ARRIVALS DECK"
+				g = 0
+				hx = 90.0
+				hz = 80.0
+				sh = "rect"
+			elif c == b:
+				k = "sbay"
+				lab = "HANGAR: YOUR SHIP"
+				g = 0
+				hx = 100.0
+				hz = 90.0
+				sh = "rect"
+			elif c == hc:
+				k = "reactor"
+				lab = "CENTRAL HUB"
+				g = 2 + d / 2
+				hx = 150.0
+				hz = 140.0
+				sh = "ring"
+			elif c == b - 1:
+				k = "fhold"
+				lab = "HANGAR CONCOURSE"
+				g = 2
+			room.call(k, Vector2i(c, 0), hx, hz, 0.0, lab, g, sh, 90.0 if k == "reactor" else (80.0 if c == a or c == b else 0.0))
+			spine_name[c] = k
+		var tun := {}
+		for c in range(a, b):
+			tun[c] = link.call(spine_name[c], spine_name[c + 1])
+		var wing_labels := ["CREW QUARTERS", "MED BAY", "ARMORY", "CARGO HOLD", "MESS HALL", "WORKSHOP", "HYDROPONICS", "COMMS ROOM"]
+		var wi := 0
+		var have_secure := false
+		var have_cantina := false
+		for c in range(a + 1, b):
+			for sd in [-1, 1]:
+				if not at.call(c, sd): continue
+				var wk := "w%d%s" % [c, "n" if sd < 0 else "s"]
+				var wl: String = wing_labels[wi % wing_labels.size()]
+				var wg := 1
+				if c == hc and sd < 0:
+					wk = "secure"
+					wl = "SECURITY OFFICE"
+					wg = 2
+					have_secure = true
+				elif c == hc and sd > 0:
+					wk = "cantina"
+					wl = "CANTINA"
+					have_cantina = true
+				else:
+					wi += 1
+				room.call(wk, Vector2i(c, sd), 100.0, 85.0, 0.0, wl, wg, ["pillars", "oct", "cross", "hex"][rng.randi() % 4])
+				link.call(spine_name[c], wk)
+				if c == hc and at.call(c, sd * 2):   # the station's tips, up a ramp
+					var tk := "tip%s" % ("n" if sd < 0 else "s")
+					room.call(tk, Vector2i(c, sd * 2), 95.0, 80.0, UPPER_DECK if sd < 0 else LOWER_DECK, "OBSERVATION DECK" if sd < 0 else "DOCKING RING", 1, "oct")
+					link.call(wk, tk)
+		if not have_secure:   # (a station with no room there: the security office is the first side room)
+			for k2 in rooms.keys():
+				if str(k2).begins_with("w"):
+					rooms[k2]["label"] = "SECURITY OFFICE"
+					rooms["secure"] = rooms[k2]
+					rooms.erase(k2)
+					break
+		route_in = ["lbay"]
+		route_out = []
+		for c in range(a, b + 1):
+			route_out.append(spine_name[c])
+			if c < b: route_out.append(tun[c])
 		seal = ["-", "-"]
-		esc = ["fhold", h3]
+		esc = [spine_name[b - 1], tun[b - 1]]
 	else:
 		# station: dock -> west spoke -> ring (round the north side) -> core; out: core -> east ring -> east spoke -> dock
 		var cx := 3 + (1 if d >= 3 else 0)       # the hub's column (a longer west spoke on harder stations)
@@ -457,6 +534,52 @@ static func deckplan(seed_key: String, kind: String, difficulty: int, name := "S
 		"boss": core + Vector3(0, 0, 90.0), "exit_x": float(sb[1]) - 8.0, "entry_x": float(lb[0]) + 4.0, "seal": seal, "escape": esc,
 		"route_in": route_in, "route_out": route_out, "bridge_mech": bridge_at, "kind": kind,
 		"info": {"name": name, "difficulty": d, "kind": kind, "rooms": rooms.size()}}
+
+## v12.47: a station model's top-down silhouette on a 5 x 5 grid (row-major, rows north to south): a cell is in when
+## at least half of its 5 x 5 sub-cells hold a triangle's middle. Also returns the model's bounds, so its shell can be
+## set round the deck plan that was laid out from it. Empty when the file isn't there.
+static func footprint(path: String) -> Dictionary:
+	if not ResourceLoader.exists(path): return {}
+	var inst: Node3D = (load(path) as PackedScene).instantiate()
+	var pts := PackedVector3Array()
+	for c in inst.find_children("*", "MeshInstance3D", true, false):
+		var mi := c as MeshInstance3D
+		if mi.mesh == null: continue
+		var xf := Transform3D.IDENTITY
+		var p: Node = mi
+		while p != null and p != inst:
+			if p is Node3D: xf = (p as Node3D).transform * xf
+			p = p.get_parent()
+		for si in mi.mesh.get_surface_count():
+			var arr := mi.mesh.surface_get_arrays(si)
+			var v: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+			var idx: PackedInt32Array = arr[Mesh.ARRAY_INDEX] if arr[Mesh.ARRAY_INDEX] != null else PackedInt32Array()
+			if idx.is_empty():
+				for i in range(0, v.size() - 2, 3): pts.append(xf * ((v[i] + v[i + 1] + v[i + 2]) / 3.0))
+			else:
+				for i in range(0, idx.size() - 2, 3): pts.append(xf * ((v[idx[i]] + v[idx[i + 1]] + v[idx[i + 2]]) / 3.0))
+	inst.free()
+	if pts.is_empty(): return {}
+	var lo := pts[0]
+	var hi := pts[0]
+	for q in pts:
+		lo = Vector3(minf(lo.x, q.x), minf(lo.y, q.y), minf(lo.z, q.z))
+		hi = Vector3(maxf(hi.x, q.x), maxf(hi.y, q.y), maxf(hi.z, q.z))
+	var F := 25
+	var fine := {}
+	for q in pts:
+		var u := clampi(int((q.x - lo.x) / maxf(0.001, hi.x - lo.x) * F), 0, F - 1)
+		var w := clampi(int((q.z - lo.z) / maxf(0.001, hi.z - lo.z) * F), 0, F - 1)
+		fine[Vector2i(u, w)] = true
+	var occ: Array = []
+	for r in 5:
+		for c in 5:
+			var n := 0
+			for du in 5:
+				for dw in 5:
+					if fine.has(Vector2i(c * 5 + du, r * 5 + dw)): n += 1
+			occ.append(n >= 13)
+	return {"occ": occ, "lo": lo, "hi": hi}
 
 ## v12.19 (owner: "blueprint map shapes more unique… with real shape"): every deck-plan room but the reactor gets its
 ## own outline: each corner square, cut, notched or rounded, by its own amount (a long cut both ends = an arrow, a

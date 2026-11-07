@@ -2937,7 +2937,25 @@ func _run() -> void:
 		for e in s.enemies:
 			if bool(e.get("soldier", false)): soldiers += 1
 			elif bool(e.get("walker", false)): mechs += 1
-		_check("v12.46 (owner): the breakout is a small HUB station (%d rooms), quiet at the start; the guards are %s SOLDIERS (%d), not mechs (%d); the whole HUD, you on foot, TRANSFORM out" % [Boarding.ROOMS.size(), str(b.get("faction", "")), soldiers, mechs], on_foot and hud_ok and no_tf and bool(b.get("breakout", false)) and str(b.get("phase", "")) == "sneak" and soldiers > 3 and mechs == 0 and Boarding.ROOMS.size() <= 12 and Boarding.KIND == "hub", "foot %s hud %s no_tf %s phase %s kind %s" % [on_foot, hud_ok, no_tf, b.get("phase"), Boarding.KIND])
+		_check("v12.46 (owner): the breakout is a small HUB station (%d rooms), quiet at the start; the guards are %s SOLDIERS (%d), not mechs (%d); the whole HUD, you on foot, TRANSFORM out" % [Boarding.ROOMS.size(), str(b.get("faction", "")), soldiers, mechs], on_foot and hud_ok and no_tf and bool(b.get("breakout", false)) and str(b.get("phase", "")) == "sneak" and soldiers > 3 and mechs == 0 and Boarding.ROOMS.size() <= 30 and Boarding.KIND == "hub", "foot %s hud %s no_tf %s phase %s kind %s" % [on_foot, hud_ok, no_tf, b.get("phase"), Boarding.KIND])
+		# v12.47: laid out from the station's own Tripo model, which is set round it as the shell
+		var big := 0
+		for k in Boarding.ROOMS: if str(Boarding.ROOMS[k].get("label", "")) != "CORRIDOR": big += 1
+		var top := Camera3D.new()
+		top.far = 9000.0
+		s.add_child(top)
+		top.global_position = Vector3(2.0 * Boarding.CELL, 2600.0, 0.0)
+		top.rotation_degrees = Vector3(-90, 0, 0)
+		top.current = true
+		await _frames(2)
+		await _capture("breakout_shell")
+		if is_instance_valid(s.breakout_shell): s.breakout_shell.visible = false
+		await _frames(2)
+		await _capture("breakout_plan")
+		if is_instance_valid(s.breakout_shell): s.breakout_shell.visible = true
+		top.queue_free()
+		s.cam.current = true
+		_check("v12.47 (owner: \"Tripo stations give you a good shell to build on\"): the breakout is laid out from %s's silhouette (%d rooms) and the model is set round it" % [str(Boarding.INFO.get("shell", "-")).get_file(), big], is_instance_valid(s.breakout_shell) and big >= 5, "shell %s rooms %d" % [Boarding.INFO.get("shell", "-"), big])
 		# nobody targetable from the arrivals deck (they're all in other rooms); a shot stops on the wall
 		await _frames(3)
 		var known := 0
@@ -2959,23 +2977,27 @@ func _run() -> void:
 				e["home"] = Vector3((float(cr[0]) + float(cr[1])) * 0.5 + parked_at, (e["node"] as Node3D).global_position.y, (float(cr[2]) + float(cr[3])) * 0.5)
 				(e["node"] as Node3D).global_position = e["home"]
 				parked_at += 30.0
-		var gf: Vector3 = -gn.global_basis.z
-		gf.y = 0.0
-		gf = gf.normalized()
-		var behind := gn.global_position - gf * 150.0
-		_tp(Vector3(behind.x, Boarding.floor_at(gn.global_position) + 6.0, behind.z), gn.global_position)
+		var hr: Array = Boarding.ROOMS["reactor"]["r"]
+		var hcen := Vector3((float(hr[0]) + float(hr[1])) * 0.5, 0, (float(hr[2]) + float(hr[3])) * 0.5 - 80.0)
+		hcen.y = Boarding.floor_at(hcen) + Data.WALKER_STAND
+		gn.global_position = hcen
+		g["home"] = hcen
+		s.face(gn, Vector3(1, 0, 0))
 		g["orbit"] = 0.0
+		var behind := hcen - Vector3(110, 0, 0)
+		_tp(Vector3(behind.x, Boarding.floor_at(hcen) + 6.0, behind.z), hcen)
 		await _frames(4)
 		var unseen: bool = str(s.board["phase"]) == "sneak"
-		var front := gn.global_position + (-gn.global_basis.z) * 160.0
-		front.y = Boarding.floor_at(gn.global_position) + 6.0
-		_tp(front, gn.global_position)
+		if not unseen: print("[route] seen early by ", s.board.get("arrested_by", ""))
+		var front := hcen + Vector3(110, 0, 0)
+		front.y = Boarding.floor_at(hcen) + 6.0
+		_tp(front, hcen)
 		await _wait(0.5)
 		var arrested: bool = str(s.board["phase"]) == "escape" and bool(s.board.get("alerted", false))
 		var locked := false
 		for d in s.board_doors: if Boarding.is_door(d, Boarding.ESCAPE_DOOR): locked = bool(d["locked"])
 		await _capture("breakout_freeze")
-		_check("v12.46 (owner: \"Freeze! You're under arrest!\"): behind a guard he doesn't see you; in front of him he arrests you: ALERT, the hangar door locks", unseen and arrested and locked, "unseen %s arrested %s locked %s" % [unseen, arrested, locked])
+		_check("v12.46 (owner: \"Freeze! You're under arrest!\"): behind a guard he doesn't see you; in front of him he arrests you: ALERT, the hangar door locks", unseen and arrested and locked, "unseen %s arrested %s locked %s by %s; g %s" % [unseen, arrested, locked, str(s.board.get("arrested_by", "")), "-"])
 		var con: Vector3 = s.board.get("console", Vector3.ZERO)
 		_tp(con + Vector3(0, 6, 25), con)
 		await _wait(0.4)
