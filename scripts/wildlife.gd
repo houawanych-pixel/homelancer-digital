@@ -3,7 +3,7 @@ extends Node3D
 ## v12.28 (owner: "how do the animals work? ... the sheep or the deer", alien versions): wildlife on a planet's ground.
 ## Like Minecraft's animals they are not blocks: shaped models with a simple brain, that appear round the player and go
 ## when you are far away, so they cost little.
-## wildlife-test branch (owner: planet fauna - "sheep, deer, bear, giant worm", original alien animals with clear roles;
+## v12.41 (owner: planet fauna - "sheep, deer, bear, giant worm", original alien animals with clear roles;
 ## docs/WILDLIFE.md): every species is a data profile (Data.WILDLIFE) with an archetype that picks its brain:
 ##   grazer   - graze / roam -> alert (head up) -> flee with the herd                    (Mossfleece, Drift woolly, Glow grazer)
 ##   prey     - graze -> alert (tail flag warns the herd) -> bolt                          (Strider, Prismhart, Hopper)

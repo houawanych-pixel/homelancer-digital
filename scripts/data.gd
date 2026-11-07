@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.40"
+const VERSION := "v12.41"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -687,7 +687,7 @@ const GRASS_SEGMENTS := 5            # bends along a sheet (the weave)
 ## flower; four together open into one giant bloom.
 ## v12.28 (owner: "how do the animals work? ... the sheep or the deer", alien ones): wildlife on the grass (scripts/wildlife.gd).
 ## size: metres (the model is ~1 unit); walk / run: m/s; flee: how near the player can come before it bolts.
-# wildlife-test branch (owner: planet wildlife, "sheep, deer, bear, giant worm" - original alien fauna with clear roles; docs/WILDLIFE.md):
+# v12.41 (owner: planet wildlife, "sheep, deer, bear, giant worm" - original alien fauna with clear roles; docs/WILDLIFE.md):
 # data-driven species profiles. All PLACEHOLDERS (owner: "those animals will be placeholders"); what matters is the role:
 #   role prey     - never fights: notices you, warns the herd, runs
 #   role defense  - stands its ground: warns, holds; fights only if you come right up or hurt it; never hunts or chases far

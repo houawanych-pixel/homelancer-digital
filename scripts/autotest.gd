@@ -2985,7 +2985,7 @@ func _run() -> void:
 			board_vis and main.escape_chasers >= Data.ESCAPE_CHASERS and hostile >= Data.ESCAPE_CHASERS and denied, "board %s chasers %d hostile %d denied %s" % [board_vis, main.escape_chasers, hostile, denied])
 		_finish_group()
 		return
-	if OS.get_environment("HL_WILDLINEUP") != "":   # (wildlife-test branch) every wildlife model in a line-up, for checking the looks
+	if OS.get_environment("HL_WILDLINEUP") != "":   # (v12.41) every wildlife model in a line-up, for checking the looks
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
 		await _wait(1.0)
@@ -2997,7 +2997,7 @@ func _run() -> void:
 		lu.queue_free()
 		_finish_group()
 		return
-	if OS.get_environment("HL_WILDTEST") != "":   # (wildlife-test branch) the wildlife test area: every species, every brain
+	if OS.get_environment("HL_WILDTEST") != "":   # (v12.41) the wildlife test area: every species, every brain
 		await _job_wildtest()
 		_finish_group()
 		return
@@ -5431,7 +5431,7 @@ func _job_v1114() -> void:
 
 ## v11.25 (owner): the NUKE (3x a super missile, twice the blast, a second bigger blast), START / SELECT (pause and swap
 ## a weapon slot), cloak hides you from everyone (engine kill works cloaked), one-tap REPAIR & RESTOCK.
-## (wildlife-test branch) the planet fauna test area: every species is placed; the brains do what docs/WILDLIFE.md says.
+## (v12.41) the planet fauna test area: every species is placed; the brains do what docs/WILDLIFE.md says.
 func _job_wildtest() -> void:
 	main.start_game()
 	await _until(func(): return main.state == "flight", 10.0)

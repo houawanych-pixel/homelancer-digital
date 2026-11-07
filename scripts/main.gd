@@ -130,7 +130,7 @@ func start_game() -> void:
 	if state == "flight" and GS.tutorial_seen.is_empty(): hud.flash_message(Data.TUTOR_HINT)   # v1.7r: a quiet hint, no radio noise
 	if wild_test_flag() and state == "flight": start_wild_test()
 
-## (wildlife-test branch) the wildlife test area: ?wildtest on the web, HL_WILDTEST / --wildtest on a PC.
+## (v12.41) the wildlife test area: ?wildtest on the web, HL_WILDTEST / --wildtest on a PC.
 func wild_test_flag() -> bool:
 	return _web_flag("wildtest") or OS.get_environment("HL_WILDTEST") != "" or "--wildtest" in OS.get_cmdline_user_args()
 
