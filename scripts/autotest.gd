@@ -2814,8 +2814,21 @@ func _run() -> void:
 		await _capture("escape_sword")
 		await _wait(0.3)
 		var sw_ok: bool = es.room.cut_cells > c0 and es.elog.has("swing")
+		# v12.37: missile, sidestep, super
+		var m0: int = es.missiles
+		es.fire_missile()
+		await _wait(0.6)
+		var x0: float = es.pilot.global_position.x
+		es.sidestep()
+		await _wait(0.4)
+		var stepped: bool = absf(es.pilot.global_position.x - x0) > 1.0
+		es.super_k = 1.0
+		es.use_super()
+		await _wait(0.2)
+		var gear_ok: bool = es.missiles == m0 - 1 and es.elog.has("missile") and stepped and es.elog.has("super") and es.super_k == 0.0
+		_check("v12.37 (owner): the mech's icons; MISSILE (homing, %d left), SIDESTEP dash, SUPER blast (fills as guards drop); radar + shield/health/super wheels; FULL SCREEN at the top" % es.missiles, gear_ok and Fs.btn.position.y < 20.0, "missile %d->%d stepped %s super %s fs y %.0f" % [m0, es.missiles, stepped, es.elog.has("super"), Fs.btn.position.y])
 		var pad_ok: bool = es.pad != null and es._pad_hit(es._pad_geo()["btn"]["shield"]) == "shield" and es._pad_hit(es._pad_geo()["move"]) == "move" and es._pad_hit(es._pad_geo()["aim"]) == "aim"
-		_check("v12.35 (owner: mech-mode controls): two mech sticks and the hex buttons (FIRE, SHIELD, SWORD, JUMP, SCOPE, CUTTER, CHARGE, RUN); the energy shield goes up; the lightsaber cuts what it passes (%d blocks)" % (es.room.cut_cells - c0), sh_ok and sw_ok and pad_ok, "shield %s sword %s pad %s" % [sh_ok, sw_ok, pad_ok])
+		_check("v12.35 (owner: mech-mode controls): two mech sticks and the hex buttons; the energy shield goes up; the lightsaber cuts what it passes (%d blocks)" % (es.room.cut_cells - c0), sh_ok and sw_ok and pad_ok, "shield %s sword %s pad %s" % [sh_ok, sw_ok, pad_ok])
 		# the cutter on the door
 		for g in es.guards: es._hurt_guard(g, 99)
 		es.hp = StationEscape.HP_MAX

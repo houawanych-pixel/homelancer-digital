@@ -36,6 +36,8 @@ func _process(_d: float) -> void:
 func slot() -> Rect2:
 	var S: Vector2 = get_viewport().get_visible_rect().size
 	var m = get_tree().current_scene
+	if m != null and str(m.get("state")) == "escape":   # v12.37 (owner): in the station escape it sits at the top
+		return Rect2(S.x * 0.5 - WIDTH * 0.5, MARGIN, WIDTH, SIZE)
 	if m != null and str(m.get("state")) == "flight" and m.get("hud") != null and (m.hud as CanvasItem).visible:
 		var key := "fs_exit_slot" if on else "fs_slot"   # v11.58 (owner): FULL SCREEN in the top bar; EXIT FULL at the right end of the bottom row
 		var r: Rect2 = m.hud.get(key) if m.hud.get(key) != null else Rect2()

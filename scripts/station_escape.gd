@@ -123,6 +123,7 @@ func load_room(i: int) -> void:
 	_reshow(room)   # (the same web fix as the boarding levels)
 	hp = HP_MAX
 	charges = CHARGES
+	missiles = MISSILES
 	scoped = false
 	pilot.global_position = start
 	pilot.velocity = Vector3.ZERO
@@ -478,11 +479,12 @@ func throw_charge() -> void:
 			room.explode(at, 2.8, 24)
 			room.mark(at, a["normal"], 4.5))
 
+var _own_blast := false
 func _on_blast(at: Vector3, radius: float) -> void:
 	for g in guards:
 		if g["alive"] and (g["node"] as Node3D).global_position.distance_to(at) < radius + 1.5: _hurt_guard(g, 12)
 	var d := pilot.global_position.distance_to(at)
-	if d < radius + 1.0: hurt(45.0 * (1.0 - d / (radius + 1.0)) + 10.0)
+	if d < radius + 1.0 and not _own_blast: hurt(45.0 * (1.0 - d / (radius + 1.0)) + 10.0)
 	room.mark(at, Vector3.UP, radius * 1.6)
 
 func hurt(n: float) -> void:
@@ -631,7 +633,8 @@ func _pilot_rig(inst: Node3D) -> void:
 		holder.add_child(rifle_model)
 		rifle_model.scale = Vector3.ONE * k
 		rifle_model.position = -bb.get_center() * k
-		if bb.size.x >= bb.size.z: rifle_model.rotation.y = PI / 2   # (lay it along the aim)
+		if bb.size.x >= bb.size.z: rifle_model.rotation.y = -PI / 2   # (lay it along the aim, muzzle forward: v12.37 owner "holding the gun backwards")
+		else: rifle_model.rotation.y = PI
 		if gray_rifle is MeshInstance3D: (gray_rifle as Node3D).visible = false
 
 ## turn bone b about a body axis (in the skeleton's space) by angle a, from its rest
@@ -776,6 +779,7 @@ func _hurt_guard(g: Dictionary, dmg: int) -> void:
 	if int(g["hp"]) <= 0:
 		g["alive"] = false
 		elog.append("guard_down")
+		super_k = minf(1.0, super_k + SUPER_FILL)
 		var n: Node3D = g["node"]
 		var ap: AnimationPlayer = g.get("anim")
 		if ap != null and is_instance_valid(ap): ap.pause()
@@ -880,15 +884,32 @@ func _unhandled_input(e: InputEvent) -> void:
 			KEY_G: throw_charge()
 			KEY_F: toggle_shield()
 			KEY_V: swing()
+			KEY_R: fire_missile()
+			KEY_C: sidestep()
+			KEY_X: use_super()
 			KEY_SPACE: jump()
 			KEY_ESCAPE: Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 # ---------------------------------------------------------------- v12.35 the mech-style pad
-const PAD_BTNS := [["fire", "FIRE", 0, 0], ["shield", "SHIELD", 1, 0], ["sword", "SWORD", 0, 1], ["jump", "JUMP", 1, 1],
-	["scope", "SCOPE", 2, 0], ["cutter", "CUTTER", 3, 0], ["charge", "CHARGE", 2, 1], ["run", "RUN", 3, 1]]
-const PAD_COL := {"fire": Color(1.0, 0.35, 0.3), "shield": Color(0.3, 0.75, 1.0), "sword": Color(0.45, 0.95, 1.0), "jump": Color(1.0, 0.6, 0.2),
-	"scope": Color(1.0, 0.85, 0.3), "cutter": Color(0.4, 1.0, 0.85), "charge": Color(1.0, 0.45, 0.2), "run": Color(0.5, 1.0, 0.5)}
+## v12.37 (owner: "the same icons ... shield icon, the shoot button, the sidestep button, a sword button ... the same radar,
+## the same shield wheel and health wheel, the special wheel with the same special button ... missiles"): the mech's own
+## button art (Hud.draw_icon) in the mech's two clusters round a dashboard like the flight HUD's.
+## [id, label, icon, side (0 left / 1 right), column, row]
+const PAD_BTNS := [["fire", "FIRE", "guns", 0, 0, 0], ["missile", "MISSILE", "missile", 0, 1, 0], ["shield", "SHIELD", "shield", 0, 2, 0],
+	["sidestep", "SIDESTEP", "sidestep", 0, 0, 1], ["jump", "JUMP", "thrust", 0, 1, 1], ["run", "RUN", "goto", 0, 2, 1],
+	["sword", "SWORD", "sword", 1, 0, 0], ["super", "SUPER", "special", 1, 1, 0], ["scope", "SCOPE", "zoom", 1, 2, 0],
+	["cutter", "CUTTER", "kill", 1, 0, 1], ["charge", "CHARGE", "mine", 1, 1, 1], ["stop", "STOP", "stop", 1, 2, 1]]
+const PAD_COL := {"fire": Color(1.0, 0.35, 0.3), "missile": Color(1.0, 0.6, 0.2), "shield": Color(0.3, 0.75, 1.0), "sidestep": Color(0.45, 0.95, 1.0),
+	"jump": Color(1.0, 0.6, 0.2), "run": Color(0.5, 1.0, 0.5), "sword": Color(0.45, 0.95, 1.0), "super": Color(1.0, 0.6, 0.15),
+	"scope": Color(1.0, 0.85, 0.3), "cutter": Color(0.4, 1.0, 0.85), "charge": Color(1.0, 0.45, 0.2), "stop": Color(1.0, 0.3, 0.3)}
+const MISSILES := 6
+const SUPER_FILL := 0.34   # super charge per guard down
 var pad: Control
+var missiles := MISSILES
+var super_k := 0.0
+var _side_t := 0.0
+var _side_dir := Vector3.ZERO
+var _rockets: Array = []   # [{node, vel, life}]
 var _touch := {}     # finger -> "move" | "aim" | "look" | button id
 var _aim := Vector2.ZERO
 var _held := {}
@@ -903,13 +924,16 @@ var _swing := 0.0
 func _pad_geo() -> Dictionary:
 	var S := get_viewport().get_visible_rect().size
 	var R := S.y * 0.12
-	var h := S.y * 0.062
-	var out := {"S": S, "R": R, "move": Vector2(R * 1.35, S.y - R * 1.35), "aim": Vector2(S.x - R * 1.35, S.y - R * 1.35), "h": h, "btn": {}}
-	var mid := S.x * 0.5
+	var h := S.y * 0.052   # hex radius
+	var rc := Vector2(S.x * 0.5, S.y - S.y * 0.15)
+	var out := {"S": S, "R": R, "move": Vector2(R * 1.35, S.y - R * 1.35), "aim": Vector2(S.x - R * 1.35, S.y - R * 1.35), "h": h, "btn": {}, "rc": rc, "rad": S.y * 0.11}
 	for b in PAD_BTNS:
-		var col: int = b[2]
-		var x: float = mid + (col - 1.5) * h * 2.15 + (h * 1.6 if col >= 2 else -h * 1.6)
-		var y: float = S.y - h * 1.25 - (1 - int(b[3])) * h * 2.0
+		var side: int = b[3]
+		var col: int = b[4]
+		var row: int = b[5]
+		var x0: float = rc.x - S.y * 0.2 - h * 1.1 if side == 0 else rc.x + S.y * 0.2 + h * 1.1
+		var x: float = x0 - col * h * 1.95 if side == 0 else x0 + col * h * 1.95
+		var y: float = S.y - h * 1.15 - (1 - row) * h * 1.95
 		out["btn"][b[0]] = Vector2(x, y)
 	return out
 
@@ -966,6 +990,12 @@ func _pad_press(id: String, down: bool) -> void:
 		"cutter": if down: switch_tool()
 		"charge": if down: throw_charge()
 		"run": if down: run_on = not run_on
+		"missile": if down: fire_missile()
+		"sidestep": if down: sidestep()
+		"super": if down: use_super()
+		"stop": if down:
+			run_on = false
+			_move = Vector2.ZERO
 
 func _draw_pad() -> void:
 	var g := _pad_geo()
@@ -979,24 +1009,155 @@ func _draw_pad() -> void:
 		var c: Vector2 = g["btn"][id]
 		var col: Color = PAD_COL[id]
 		var on: bool = _held.has(id) or (id == "shield" and shield_on) or (id == "scope" and scoped) or (id == "cutter" and tool == "cutter") or (id == "run" and run_on)
+		var ready := not (id == "super" and super_k < 1.0) and not (id == "missile" and missiles <= 0)
 		var hexp := PackedVector2Array()
 		for k in 7: hexp.append(c + Vector2.from_angle(TAU * k / 6.0 + PI / 6.0) * h)
-		pad.draw_colored_polygon(hexp.slice(0, 6), Color(col.darkened(0.5), 0.95) if on else Color(0.02, 0.08, 0.15, 0.9))
-		pad.draw_polyline(hexp, col, 2.5, true)
+		if id == "super" and super_k >= 1.0: pad.draw_circle(c, h + 4.0 + 4.0 * (0.5 + 0.5 * sin(_t * 6.0)), Color(col, 0.3))
+		pad.draw_colored_polygon(hexp.slice(0, 6), Color(col.darkened(0.5), 0.95) if on else Color(0.02, 0.08, 0.15, 0.92))
+		pad.draw_polyline(hexp, Color(col, 1.0 if ready else 0.4), 2.5, true)
+		HS.draw_icon(pad, str(b[2]), c + Vector2(0, -h * 0.16), h * 0.36, Color.WHITE if on else col.lightened(0.3))
 		var label: String = b[1]
-		if id == "charge": label = "CHARGE %d" % charges
-		var fs := int(h * 0.3)
+		var fs := int(h * 0.24)
 		var tw := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-		pad.draw_string_outline(font, c + Vector2(-tw * 0.5, fs * 0.35), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 4, Color(0, 0, 0, 0.8))
-		pad.draw_string(font, c + Vector2(-tw * 0.5, fs * 0.35), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE if on else col.lightened(0.3))
-	# the gauge between the two groups: HEALTH (green) and ENERGY (blue) rings
-	var gc := Vector2(float(g["S"].x) * 0.5, float(g["S"].y) - h * 2.25)
-	var gr := h * 1.25
-	pad.draw_circle(gc, gr + 6.0, Color(0.01, 0.04, 0.09, 0.85))
-	pad.draw_arc(gc, gr, PI * 0.75, PI * 0.75 + PI * 1.5 * clampf(hp / HP_MAX, 0.0, 1.0), 40, Color(0.3, 0.95, 0.5), 8.0, true)
-	pad.draw_arc(gc, gr - 11.0, PI * 0.75, PI * 0.75 + PI * 1.5 * clampf(energy / 100.0, 0.0, 1.0), 40, Color(0.3, 0.75, 1.0), 6.0, true)
-	var ft := "HEALTH"
-	pad.draw_string(font, gc + Vector2(-font.get_string_size(ft, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x * 0.5, 5), ft, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1, 1, 1, 0.8))
+		pad.draw_string_outline(font, c + Vector2(-tw * 0.5, h * 0.62), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 4, Color(0, 0, 0, 0.8))
+		pad.draw_string(font, c + Vector2(-tw * 0.5, h * 0.62), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
+		var badge := ""
+		if id == "missile": badge = str(missiles)
+		elif id == "charge": badge = str(charges)
+		if badge != "":
+			var bc := c + Vector2(h * 0.72, -h * 0.62)
+			pad.draw_circle(bc, h * 0.28, Color(1, 0.2, 0.2) if badge == "0" else Color(0.02, 0.07, 0.14))
+			pad.draw_arc(bc, h * 0.28, 0, TAU, 20, Color(col, 0.9), 1.5, true)
+			var bw := font.get_string_size(badge, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+			pad.draw_string(font, bc + Vector2(-bw * 0.5, fs * 0.35), badge, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
+	_draw_dash(g)
+
+## The flight HUD's dashboard, on foot: outer ring SHIELD (energy) over the top, SUPER low right, POWER low left; inner
+## ring your health; in the middle the radar (guards red, the exit / your ship green), turning with you.
+func _gauge(c: Vector2, r: float, w: float, a0: float, a1: float, k: float, col: Color) -> void:
+	pad.draw_arc(c, r, a0, a1, 32, Color(col, 0.18), w, true)
+	if k > 0.0: pad.draw_arc(c, r, a0, lerpf(a0, a1, clampf(k, 0.0, 1.0)), 32, col, w, true)
+
+func _draw_dash(g: Dictionary) -> void:
+	var rc: Vector2 = g["rc"]
+	var rad: float = g["rad"]
+	var ro := rad + 30.0
+	var cy := Color(0.33, 0.8, 1.0)
+	pad.draw_circle(rc, ro + 4.0, Color(0.01, 0.04, 0.09, 0.88))
+	pad.draw_arc(rc, ro + 4.0, 0, TAU, 96, Color(cy, 0.8), 2.0, true)
+	var orr := ro - 8.0
+	_gauge(rc, orr, 12.0, PI * 7.0 / 6.0 + 0.06, PI * 11.0 / 6.0 - 0.06, energy / 100.0, Color(0.2, 0.7, 1.0))   # SHIELD
+	_gauge(rc, orr, 12.0, PI * 0.5 + 0.06, PI * 7.0 / 6.0 - 0.06, float(missiles) / MISSILES, Color(0.4, 1.0, 0.5))   # POWER (missiles)
+	var sc := Color(1.0, 0.6, 0.15).lerp(Color.WHITE, 0.45 * (0.5 + 0.5 * sin(_t * 6.0))) if super_k >= 1.0 else Color(1.0, 0.6, 0.15)
+	_gauge(rc, orr, 12.0, PI * 0.5 - 0.06, -PI / 6.0 + 0.06, super_k, sc)   # SUPER
+	var hk := clampf(hp / HP_MAX, 0.0, 1.0)
+	var hc := Color(1.0, 0.85, 0.2) if hk > 0.5 else (Color(1.0, 0.55, 0.15) if hk > 0.25 else Color(1.0, 0.25, 0.2))
+	_gauge(rc, rad + 13.0, 10.0, -PI * 0.95, -PI * 0.05, hk, hc)   # HEALTH (yellow, then orange, then red)
+	pad.draw_circle(rc, rad + 2.0, Color(0.01, 0.05, 0.1, 0.9))
+	pad.draw_arc(rc, rad + 2.0, 0, TAU, 64, Color(cy, 0.6), 1.5, true)
+	for k in 3: pad.draw_arc(rc, rad * (k + 1) / 3.0, 0, TAU, 48, Color(cy, 0.18), 1.0, true)
+	pad.draw_line(rc - Vector2(rad, 0), rc + Vector2(rad, 0), Color(cy, 0.15), 1.0)
+	pad.draw_line(rc - Vector2(0, rad), rc + Vector2(0, rad), Color(cy, 0.15), 1.0)
+	var span := 40.0   # m to the edge
+	var me := pilot.global_position
+	var to_r := func(p: Vector3) -> Vector2:
+		var d := Basis(Vector3.UP, -yaw) * (p - me)
+		return rc + (Vector2(d.x, d.z) / span * rad).limit_length(rad - 4.0)
+	for gd in guards:
+		if not gd["alive"]: continue
+		pad.draw_circle(to_r.call((gd["node"] as Node3D).global_position), 4.0, Color(1.0, 0.3, 0.25))
+	var goal := Vector3(room.sx * 0.5, 0, room.sz - 1.0) if ship == null else ship.global_position
+	pad.draw_circle(to_r.call(goal), 5.0, Color(0.4, 1.0, 0.5))
+	pad.draw_colored_polygon(PackedVector2Array([rc + Vector2(0, -8), rc + Vector2(6, 6), rc + Vector2(-6, 6)]), Color(0.6, 1.0, 0.7))
+	var font := ThemeDB.fallback_font
+	for lb in [["SHIELD", Vector2(0, -ro - 8.0)], ["HEALTH", Vector2(0, -rad + 16.0)]]:
+		var w := font.get_string_size(str(lb[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
+		pad.draw_string(font, rc + (lb[1] as Vector2) - Vector2(w * 0.5, 0), str(lb[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1, 0.7))
+
+## MISSILE: a homing rocket at the nearest guard in front (or straight down the aim); it blows a crater where it hits.
+func fire_missile() -> void:
+	if busy or done or missiles <= 0: return
+	missiles -= 1
+	elog.append("missile")
+	var at := pilot.global_position + Vector3(0, 1.5, 0) + _aim_basis() * Vector3(0.3, 0.1, -0.6)
+	var dir := -cam.global_basis.z
+	var tgt: Dictionary = {}
+	var best := 0.82
+	for gd in guards:
+		if not gd["alive"]: continue
+		var to: Vector3 = (gd["node"] as Node3D).global_position + Vector3(0, 1.0, 0) - at
+		var dd := dir.dot(to.normalized())
+		if dd > best:
+			best = dd
+			tgt = gd
+	var mi := MeshInstance3D.new()
+	var cm := CapsuleMesh.new()
+	cm.radius = 0.08
+	cm.height = 0.5
+	mi.mesh = cm
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(1.0, 0.6, 0.2)
+	m.emission_enabled = true
+	m.emission = Color(1.0, 0.5, 0.15)
+	mi.material_override = m
+	add_child(mi)
+	mi.global_position = at
+	var fl := OmniLight3D.new()   # (it lights the way: never pitch black)
+	fl.light_color = Color(1.0, 0.6, 0.3)
+	fl.light_energy = 2.0
+	fl.omni_range = 7.0
+	mi.add_child(fl)
+	_rockets.append({"node": mi, "vel": dir * 24.0, "life": 3.0, "tgt": tgt})
+
+func _update_rockets(dt: float) -> void:
+	for i in range(_rockets.size() - 1, -1, -1):
+		var r: Dictionary = _rockets[i]
+		var n: MeshInstance3D = r["node"]
+		var v: Vector3 = r["vel"]
+		var tg: Dictionary = r["tgt"]
+		if not tg.is_empty() and tg["alive"]:
+			var want: Vector3 = ((tg["node"] as Node3D).global_position + Vector3(0, 1.0, 0) - n.global_position).normalized() * 26.0
+			v = v.lerp(want, minf(1.0, dt * 4.0))
+		r["vel"] = v
+		r["life"] = float(r["life"]) - dt
+		var from := n.global_position
+		var step := v * dt
+		var hit := room.ray(from, step, step.length() + 0.2)
+		var boom := not hit.is_empty() or float(r["life"]) <= 0.0
+		if not tg.is_empty() and tg["alive"] and from.distance_to((tg["node"] as Node3D).global_position + Vector3(0, 1.0, 0)) < 1.0: boom = true
+		if boom:
+			var at: Vector3 = hit.get("point", from)
+			room.explode(at, 2.4, 20)
+			room.mark(at, hit.get("normal", Vector3.UP), 3.5)
+			n.queue_free()
+			_rockets.remove_at(i)
+			continue
+		n.global_position = from + step
+		n.look_at(n.global_position + v, Vector3.UP)
+		n.rotate_object_local(Vector3.RIGHT, PI / 2)
+
+## SIDESTEP: a quick dash to the side you're pushing (right if you aren't), like the mech's.
+func sidestep() -> void:
+	if busy or done or _side_t > 0.0: return
+	var side := 1.0 if _move.x >= 0.0 else -1.0
+	_side_dir = Basis(Vector3.UP, yaw) * Vector3(side, 0, 0)
+	_side_t = 0.28
+	elog.append("sidestep")
+
+## SUPER (the special): fills as guards go down; a shockwave that drops every guard near you and blows the room
+## open round you.
+func use_super() -> void:
+	if busy or done or super_k < 1.0: return
+	super_k = 0.0
+	elog.append("super")
+	var at := pilot.global_position + Vector3(0, 1.0, 0)
+	for gd in guards:
+		if gd["alive"] and (gd["node"] as Node3D).global_position.distance_to(at) < 14.0: _hurt_guard(gd, 99)
+	_own_blast = true   # (your own super doesn't hurt you)
+	room.explode(at + Vector3(0, 1.5, 0), 4.5, 40)
+	_own_blast = false
+	super_k = 0.0   # (the guards it dropped don't refill it)
+	_sword_flash()
 
 ## ENERGY SHIELD: a blue barrier in front of you; guard shots from the front stop on it; lights the room round you;
 ## drains energy (it drops when it runs out).
@@ -1079,6 +1240,11 @@ func _update_gear(dt: float) -> void:
 		var a := lerpf(1.1, -1.1, k)
 		_blade.transform = Transform3D(Basis(Vector3.UP, a) * Basis(Vector3.RIGHT, -PI / 2), Vector3(0, 1.2, 0) + Basis(Vector3.UP, a) * Vector3(0, 0, -1.0))
 	if pad != null: pad.queue_redraw()
+	_update_rockets(dt)
+	if _side_t > 0.0:
+		_side_t -= dt
+		pilot.velocity.x = _side_dir.x * 14.0
+		pilot.velocity.z = _side_dir.z * 14.0
 	# the aim stick turns you
 	if _aim != Vector2.ZERO:
 		var rate := 0.9 if scoped else 2.6
@@ -1142,6 +1308,7 @@ func _make_hud() -> void:
 	fg.bg_color = Color(0.3, 0.9, 0.5)
 	hp_bar.add_theme_stylebox_override("fill", fg)
 	hud.add_child(hp_bar)
+	hp_bar.visible = false   # (v12.37: health is the dashboard's ring now)
 	# v12.35 (owner: "the same controls as mech mode ... both analog sticks that look the same ... a shield, an energy
 	# shield, a lightsaber sword, you can use your rifle"): the mech's sticks and hex buttons, drawn by the pad
 	pad = Control.new()

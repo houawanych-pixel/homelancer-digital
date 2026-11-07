@@ -1010,127 +1010,131 @@ func _text(p: Vector2, txt: String, size := 18, col := WHITE, align := HORIZONTA
 	draw_string(font, p, txt, align, width, size, col)
 
 func _icon(id: String, c: Vector2, s: float, col: Color) -> void:
+	draw_icon(self, id, c, s, col)
+
+## v12.37: the same icons for any screen (the station escape's pad draws the mech's buttons with them).
+static func draw_icon(ci: CanvasItem, id: String, c: Vector2, s: float, col: Color) -> void:
 	match id:
 		"target":   # v12.2: a crosshair
-			draw_arc(c, s * 0.9, 0, TAU, 20, col, 2.5, true)
-			for d in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]: draw_line(c + d * s * 0.45, c + d * s * 1.3, col, 2.5, true)
+			ci.draw_arc(c, s * 0.9, 0, TAU, 20, col, 2.5, true)
+			for d in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]: ci.draw_line(c + d * s * 0.45, c + d * s * 1.3, col, 2.5, true)
 		"sword":   # v12.15: a saber
-			draw_line(c + Vector2(-s * 0.7, s * 0.7), c + Vector2(s * 0.75, -s * 0.75), Color(0.85, 0.97, 1.0), 3.5, true)
-			draw_line(c + Vector2(-s * 0.7, s * 0.7), c + Vector2(s * 0.75, -s * 0.75), Color(col, 0.5), 7.0, true)
-			draw_line(c + Vector2(-s * 0.95, s * 0.45), c + Vector2(-s * 0.45, s * 0.95), col, 3.0, true)
+			ci.draw_line(c + Vector2(-s * 0.7, s * 0.7), c + Vector2(s * 0.75, -s * 0.75), Color(0.85, 0.97, 1.0), 3.5, true)
+			ci.draw_line(c + Vector2(-s * 0.7, s * 0.7), c + Vector2(s * 0.75, -s * 0.75), Color(col, 0.5), 7.0, true)
+			ci.draw_line(c + Vector2(-s * 0.95, s * 0.45), c + Vector2(-s * 0.45, s * 0.95), col, 3.0, true)
 		"sidestep":   # v12.2: a dash to the side
-			for k in 2: draw_polyline(PackedVector2Array([c + Vector2(-s * 0.2 + k * s * 0.6, -s * 0.7), c + Vector2(s * 0.4 + k * s * 0.6, 0), c + Vector2(-s * 0.2 + k * s * 0.6, s * 0.7)]), col, 3.0, true)
+			for k in 2: ci.draw_polyline(PackedVector2Array([c + Vector2(-s * 0.2 + k * s * 0.6, -s * 0.7), c + Vector2(s * 0.4 + k * s * 0.6, 0), c + Vector2(-s * 0.2 + k * s * 0.6, s * 0.7)]), col, 3.0, true)
 		"cloak":   # v8.3: an eye, crossed
-			draw_arc(c + Vector2(0, s * 0.9), s * 1.3, -PI * 0.78, -PI * 0.22, 16, col, 2.5, true)
-			draw_arc(c - Vector2(0, s * 0.9), s * 1.3, PI * 0.22, PI * 0.78, 16, col, 2.5, true)
-			draw_circle(c, s * 0.35, col)
-			draw_line(c + Vector2(-s, s), c + Vector2(s, -s), col, 2.5)
+			ci.draw_arc(c + Vector2(0, s * 0.9), s * 1.3, -PI * 0.78, -PI * 0.22, 16, col, 2.5, true)
+			ci.draw_arc(c - Vector2(0, s * 0.9), s * 1.3, PI * 0.22, PI * 0.78, 16, col, 2.5, true)
+			ci.draw_circle(c, s * 0.35, col)
+			ci.draw_line(c + Vector2(-s, s), c + Vector2(s, -s), col, 2.5)
 		"view":   # v7.1: a pilot seat
-			draw_polyline(PackedVector2Array([c + Vector2(-s * 0.5, s), c + Vector2(-s * 0.55, -s * 0.2), c + Vector2(-s * 0.3, -s), c + Vector2(s * 0.3, -s), c + Vector2(s * 0.55, -s * 0.2), c + Vector2(s * 0.5, s)]), col, 2.5, true)
-			draw_line(c + Vector2(-s * 0.9, s * 0.3), c + Vector2(s * 0.9, s * 0.3), col, 2.5)
-			draw_line(c + Vector2(-s * 0.9, s), c + Vector2(s * 0.9, s), col, 2.5)
+			ci.draw_polyline(PackedVector2Array([c + Vector2(-s * 0.5, s), c + Vector2(-s * 0.55, -s * 0.2), c + Vector2(-s * 0.3, -s), c + Vector2(s * 0.3, -s), c + Vector2(s * 0.55, -s * 0.2), c + Vector2(s * 0.5, s)]), col, 2.5, true)
+			ci.draw_line(c + Vector2(-s * 0.9, s * 0.3), c + Vector2(s * 0.9, s * 0.3), col, 2.5)
+			ci.draw_line(c + Vector2(-s * 0.9, s), c + Vector2(s * 0.9, s), col, 2.5)
 			return
 		"goto":   # v7.1: a nav arrow
-			draw_colored_polygon(PackedVector2Array([c + Vector2(s, -s), c + Vector2(-s * 0.15, s), c + Vector2(-s * 0.05, s * 0.05), c + Vector2(-s, -s * 0.15)]), col)
+			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(s, -s), c + Vector2(-s * 0.15, s), c + Vector2(-s * 0.05, s * 0.05), c + Vector2(-s, -s * 0.15)]), col)
 			return
 		"fullscreen":   # four corner brackets
 			for sx in [-1.0, 1.0]:
 				for sy in [-1.0, 1.0]:
 					var k := c + Vector2(sx, sy) * s
-					draw_line(k, k - Vector2(sx * s * 0.7, 0), col, 3.0, true)
-					draw_line(k, k - Vector2(0, sy * s * 0.7), col, 3.0, true)
+					ci.draw_line(k, k - Vector2(sx * s * 0.7, 0), col, 3.0, true)
+					ci.draw_line(k, k - Vector2(0, sy * s * 0.7), col, 3.0, true)
 		"ground":   # v1.8r: an arrow down onto a line
-			draw_line(c + Vector2(-s * 1.1, s * 0.95), c + Vector2(s * 1.1, s * 0.95), col, 3.0, true)
-			draw_line(c + Vector2(0, -s), c + Vector2(0, s * 0.3), col, 3.0, true)
-			draw_colored_polygon(PackedVector2Array([c + Vector2(-s * 0.55, s * 0.05), c + Vector2(s * 0.55, s * 0.05), c + Vector2(0, s * 0.75)]), col)
+			ci.draw_line(c + Vector2(-s * 1.1, s * 0.95), c + Vector2(s * 1.1, s * 0.95), col, 3.0, true)
+			ci.draw_line(c + Vector2(0, -s), c + Vector2(0, s * 0.3), col, 3.0, true)
+			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(-s * 0.55, s * 0.05), c + Vector2(s * 0.55, s * 0.05), c + Vector2(0, s * 0.75)]), col)
 		"special":   # v1.5o: a burst in a lock ring
-			draw_arc(c, s * 0.95, 0, TAU, 28, col, 2.5, true)
+			ci.draw_arc(c, s * 0.95, 0, TAU, 28, col, 2.5, true)
 			var pts := PackedVector2Array()
 			for i in 16:
 				var a := i * TAU / 16.0 - PI / 2
 				pts.append(c + Vector2(cos(a), sin(a)) * (s * 0.7 if i % 2 == 0 else s * 0.3))
-			draw_colored_polygon(pts, col)
+			ci.draw_colored_polygon(pts, col)
 		"shield":
 			var pts := PackedVector2Array([c + Vector2(0, -s), c + Vector2(s * 0.85, -s * 0.62), c + Vector2(s * 0.72, s * 0.25), c + Vector2(0, s), c + Vector2(-s * 0.72, s * 0.25), c + Vector2(-s * 0.85, -s * 0.62), c + Vector2(0, -s)])
-			draw_polyline(pts, col, 3.0, true)
-			draw_polyline(PackedVector2Array([c + Vector2(0, -s * 0.6), c + Vector2(s * 0.5, -s * 0.36), c + Vector2(s * 0.42, s * 0.14), c + Vector2(0, s * 0.6)]), Color(col, 0.6), 2.0, true)
+			ci.draw_polyline(pts, col, 3.0, true)
+			ci.draw_polyline(PackedVector2Array([c + Vector2(0, -s * 0.6), c + Vector2(s * 0.5, -s * 0.36), c + Vector2(s * 0.42, s * 0.14), c + Vector2(0, s * 0.6)]), Color(col, 0.6), 2.0, true)
 		"hull":
-			draw_line(c + Vector2(-s * 0.7, s * 0.7), c + Vector2(s * 0.25, -s * 0.25), col, s * 0.28)
-			draw_arc(c + Vector2(s * 0.45, -s * 0.45), s * 0.42, deg_to_rad(-20), deg_to_rad(250), 16, col, s * 0.2)
+			ci.draw_line(c + Vector2(-s * 0.7, s * 0.7), c + Vector2(s * 0.25, -s * 0.25), col, s * 0.28)
+			ci.draw_arc(c + Vector2(s * 0.45, -s * 0.45), s * 0.42, deg_to_rad(-20), deg_to_rad(250), 16, col, s * 0.2)
 		"repair":
-			_icon("hull", c, s, col)
+			draw_icon(ci, "hull", c, s, col)
 		"energy":
-			draw_rect(Rect2(c + Vector2(-s * 0.45, -s * 0.8), Vector2(s * 0.9, s * 1.7)), col, false, 3.0)
-			draw_rect(Rect2(c + Vector2(-s * 0.2, -s * 0.98), Vector2(s * 0.4, s * 0.18)), col)
-			draw_colored_polygon(PackedVector2Array([c + Vector2(s * 0.12, -s * 0.6), c + Vector2(-s * 0.25, s * 0.08), c + Vector2(0, s * 0.08), c + Vector2(-s * 0.12, s * 0.62), c + Vector2(s * 0.25, -s * 0.08), c + Vector2(0, -s * 0.08)]), col)
+			ci.draw_rect(Rect2(c + Vector2(-s * 0.45, -s * 0.8), Vector2(s * 0.9, s * 1.7)), col, false, 3.0)
+			ci.draw_rect(Rect2(c + Vector2(-s * 0.2, -s * 0.98), Vector2(s * 0.4, s * 0.18)), col)
+			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(s * 0.12, -s * 0.6), c + Vector2(-s * 0.25, s * 0.08), c + Vector2(0, s * 0.08), c + Vector2(-s * 0.12, s * 0.62), c + Vector2(s * 0.25, -s * 0.08), c + Vector2(0, -s * 0.08)]), col)
 		"guns":
 			for dx in [-s * 0.55, 0.0, s * 0.55]:
-				draw_rect(Rect2(c + Vector2(dx - s * 0.16, -s * 0.5), Vector2(s * 0.32, s * 1.3)), col)
-				draw_colored_polygon(PackedVector2Array([c + Vector2(dx - s * 0.16, -s * 0.5), c + Vector2(dx, -s * 1.0), c + Vector2(dx + s * 0.16, -s * 0.5)]), col)
+				ci.draw_rect(Rect2(c + Vector2(dx - s * 0.16, -s * 0.5), Vector2(s * 0.32, s * 1.3)), col)
+				ci.draw_colored_polygon(PackedVector2Array([c + Vector2(dx - s * 0.16, -s * 0.5), c + Vector2(dx, -s * 1.0), c + Vector2(dx + s * 0.16, -s * 0.5)]), col)
 		"missile":
 			var dir := Vector2(1, -1).normalized()
 			var perp := Vector2(-dir.y, dir.x)
-			draw_line(c - dir * s * 0.8, c + dir * s * 0.55, col, s * 0.36)
-			draw_colored_polygon(PackedVector2Array([c + dir * s * 0.95, c + dir * s * 0.5 + perp * s * 0.19, c + dir * s * 0.5 - perp * s * 0.19]), col)
-			draw_colored_polygon(PackedVector2Array([c - dir * s * 0.55 + perp * s * 0.45, c - dir * s * 0.9, c - dir * s * 0.55 - perp * s * 0.45]), col)
+			ci.draw_line(c - dir * s * 0.8, c + dir * s * 0.55, col, s * 0.36)
+			ci.draw_colored_polygon(PackedVector2Array([c + dir * s * 0.95, c + dir * s * 0.5 + perp * s * 0.19, c + dir * s * 0.5 - perp * s * 0.19]), col)
+			ci.draw_colored_polygon(PackedVector2Array([c - dir * s * 0.55 + perp * s * 0.45, c - dir * s * 0.9, c - dir * s * 0.55 - perp * s * 0.45]), col)
 		"mine":
-			draw_circle(c, s * 0.62, col)
-			draw_rect(Rect2(c + Vector2(-s * 1.0, -s * 0.1), Vector2(s * 2.0, s * 0.2)), Color(0.02, 0.07, 0.14))
-			for k in 5: draw_circle(c + Vector2(-s * 0.5 + k * s * 0.25, s * 0.3), s * 0.08, Color(0.02, 0.07, 0.14))
-			draw_rect(Rect2(c + Vector2(-s * 0.12, -s * 0.95), Vector2(s * 0.24, s * 0.35)), col)
+			ci.draw_circle(c, s * 0.62, col)
+			ci.draw_rect(Rect2(c + Vector2(-s * 1.0, -s * 0.1), Vector2(s * 2.0, s * 0.2)), Color(0.02, 0.07, 0.14))
+			for k in 5: ci.draw_circle(c + Vector2(-s * 0.5 + k * s * 0.25, s * 0.3), s * 0.08, Color(0.02, 0.07, 0.14))
+			ci.draw_rect(Rect2(c + Vector2(-s * 0.12, -s * 0.95), Vector2(s * 0.24, s * 0.35)), col)
 		"heavy":
 			var hdir := Vector2(1, -1).normalized()
 			var hperp := Vector2(-hdir.y, hdir.x)
-			draw_line(c - hdir * s * 0.85, c + hdir * s * 0.5, col, s * 0.56)
-			draw_colored_polygon(PackedVector2Array([c + hdir * s * 1.05, c + hdir * s * 0.45 + hperp * s * 0.3, c + hdir * s * 0.45 - hperp * s * 0.3]), col)
-			draw_colored_polygon(PackedVector2Array([c - hdir * s * 0.5 + hperp * s * 0.6, c - hdir * s * 0.95, c - hdir * s * 0.5 - hperp * s * 0.6]), col)
-			draw_line(c - hdir * s * 0.1 + hperp * s * 0.3, c - hdir * s * 0.1 - hperp * s * 0.3, RED, 3.0)
+			ci.draw_line(c - hdir * s * 0.85, c + hdir * s * 0.5, col, s * 0.56)
+			ci.draw_colored_polygon(PackedVector2Array([c + hdir * s * 1.05, c + hdir * s * 0.45 + hperp * s * 0.3, c + hdir * s * 0.45 - hperp * s * 0.3]), col)
+			ci.draw_colored_polygon(PackedVector2Array([c - hdir * s * 0.5 + hperp * s * 0.6, c - hdir * s * 0.95, c - hdir * s * 0.5 - hperp * s * 0.6]), col)
+			ci.draw_line(c - hdir * s * 0.1 + hperp * s * 0.3, c - hdir * s * 0.1 - hperp * s * 0.3, RED, 3.0)
 		"tractor":
 			# a beam cone pulling a crate in
-			draw_colored_polygon(PackedVector2Array([c + Vector2(-s * 0.2, -s * 0.85), c + Vector2(s * 0.2, -s * 0.85), c + Vector2(s * 0.75, s * 0.35), c + Vector2(-s * 0.75, s * 0.35)]), Color(col, 0.35))
-			draw_rect(Rect2(c + Vector2(-s * 0.35, -s * 1.0), Vector2(s * 0.7, s * 0.25)), col)
-			draw_rect(Rect2(c + Vector2(-s * 0.4, s * 0.3), Vector2(s * 0.8, s * 0.6)), GOLD)
-			draw_rect(Rect2(c + Vector2(-s * 0.4, s * 0.3), Vector2(s * 0.8, s * 0.6)), Color(0.3, 0.2, 0.05), false, 2.0)
-			for k in 3: draw_arc(c + Vector2(0, -s * 0.8), s * (0.45 + k * 0.35), deg_to_rad(60), deg_to_rad(120), 10, Color(col, 0.8), 2.0)
+			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(-s * 0.2, -s * 0.85), c + Vector2(s * 0.2, -s * 0.85), c + Vector2(s * 0.75, s * 0.35), c + Vector2(-s * 0.75, s * 0.35)]), Color(col, 0.35))
+			ci.draw_rect(Rect2(c + Vector2(-s * 0.35, -s * 1.0), Vector2(s * 0.7, s * 0.25)), col)
+			ci.draw_rect(Rect2(c + Vector2(-s * 0.4, s * 0.3), Vector2(s * 0.8, s * 0.6)), GOLD)
+			ci.draw_rect(Rect2(c + Vector2(-s * 0.4, s * 0.3), Vector2(s * 0.8, s * 0.6)), Color(0.3, 0.2, 0.05), false, 2.0)
+			for k in 3: ci.draw_arc(c + Vector2(0, -s * 0.8), s * (0.45 + k * 0.35), deg_to_rad(60), deg_to_rad(120), 10, Color(col, 0.8), 2.0)
 		"warp":
-			for k in 3: draw_arc(c + Vector2(k * 1.5, 0), s * (0.35 + k * 0.28), deg_to_rad(40 + k * 60), deg_to_rad(330 + k * 60), 20, col, 3.0, true)
+			for k in 3: ci.draw_arc(c + Vector2(k * 1.5, 0), s * (0.35 + k * 0.28), deg_to_rad(40 + k * 60), deg_to_rad(330 + k * 60), 20, col, 3.0, true)
 		"call":
-			draw_arc(c + Vector2(s * 0.3, -s * 0.3), s * 0.85, deg_to_rad(92), deg_to_rad(178), 16, col, s * 0.42)
-			draw_circle(c + Vector2(s * 0.28, s * 0.55), s * 0.3, col)
-			draw_circle(c + Vector2(-s * 0.55, -s * 0.28), s * 0.3, col)
+			ci.draw_arc(c + Vector2(s * 0.3, -s * 0.3), s * 0.85, deg_to_rad(92), deg_to_rad(178), 16, col, s * 0.42)
+			ci.draw_circle(c + Vector2(s * 0.28, s * 0.55), s * 0.3, col)
+			ci.draw_circle(c + Vector2(-s * 0.55, -s * 0.28), s * 0.3, col)
 		"log":
 			for k in 3:
 				var hc := c + Vector2((k - 1) * s * 0.62, -s * 0.2 + (0 if k == 1 else s * 0.1))
-				draw_circle(hc, s * 0.26, col)
-				draw_arc(hc + Vector2(0, s * 0.62), s * 0.36, PI, TAU, 12, col, s * 0.28)
+				ci.draw_circle(hc, s * 0.26, col)
+				ci.draw_arc(hc + Vector2(0, s * 0.62), s * 0.36, PI, TAU, 12, col, s * 0.28)
 		"hangup":
-			draw_arc(c + Vector2(0, s * 0.7), s * 0.95, deg_to_rad(215), deg_to_rad(325), 18, RED, s * 0.42)
-			draw_circle(c + Vector2(-s * 0.8, s * 0.2), s * 0.3, RED)
-			draw_circle(c + Vector2(s * 0.8, s * 0.2), s * 0.3, RED)
+			ci.draw_arc(c + Vector2(0, s * 0.7), s * 0.95, deg_to_rad(215), deg_to_rad(325), 18, RED, s * 0.42)
+			ci.draw_circle(c + Vector2(-s * 0.8, s * 0.2), s * 0.3, RED)
+			ci.draw_circle(c + Vector2(s * 0.8, s * 0.2), s * 0.3, RED)
 		"stop":
-			draw_rect(Rect2(c - Vector2(s * 0.6, s * 0.6), Vector2(s * 1.2, s * 1.2)), col)
+			ci.draw_rect(Rect2(c - Vector2(s * 0.6, s * 0.6), Vector2(s * 1.2, s * 1.2)), col)
 		"form":   # two arrows chasing each other: ship <-> mech
-			draw_arc(c, s * 0.8, deg_to_rad(200), deg_to_rad(340), 16, col, 3.0, true)
-			draw_arc(c, s * 0.8, deg_to_rad(20), deg_to_rad(160), 16, col, 3.0, true)
+			ci.draw_arc(c, s * 0.8, deg_to_rad(200), deg_to_rad(340), 16, col, 3.0, true)
+			ci.draw_arc(c, s * 0.8, deg_to_rad(20), deg_to_rad(160), 16, col, 3.0, true)
 			var a1 := c + Vector2(cos(deg_to_rad(340)), sin(deg_to_rad(340))) * s * 0.8
 			var a2 := c + Vector2(cos(deg_to_rad(160)), sin(deg_to_rad(160))) * s * 0.8
-			draw_colored_polygon(PackedVector2Array([a1 + Vector2(-s * 0.35, -s * 0.1), a1 + Vector2(s * 0.25, -s * 0.05), a1 + Vector2(0, s * 0.4)]), col)
-			draw_colored_polygon(PackedVector2Array([a2 + Vector2(s * 0.35, s * 0.1), a2 + Vector2(-s * 0.25, s * 0.05), a2 + Vector2(0, -s * 0.4)]), col)
+			ci.draw_colored_polygon(PackedVector2Array([a1 + Vector2(-s * 0.35, -s * 0.1), a1 + Vector2(s * 0.25, -s * 0.05), a1 + Vector2(0, s * 0.4)]), col)
+			ci.draw_colored_polygon(PackedVector2Array([a2 + Vector2(s * 0.35, s * 0.1), a2 + Vector2(-s * 0.25, s * 0.05), a2 + Vector2(0, -s * 0.4)]), col)
 		"zoom":   # v1.7z: a scope reticle with a plus
-			draw_arc(c, s * 0.7, 0, TAU, 28, col, 3.0, true)
+			ci.draw_arc(c, s * 0.7, 0, TAU, 28, col, 3.0, true)
 			for k in 4:
 				var ang2 := k * PI / 2.0
-				draw_line(c + Vector2(cos(ang2), sin(ang2)) * s * 0.35, c + Vector2(cos(ang2), sin(ang2)) * s * 0.95, col, 2.5)
-			draw_circle(c, s * 0.1, col)
+				ci.draw_line(c + Vector2(cos(ang2), sin(ang2)) * s * 0.35, c + Vector2(cos(ang2), sin(ang2)) * s * 0.95, col, 2.5)
+			ci.draw_circle(c, s * 0.1, col)
 		"kill":
-			draw_circle(c, s * 0.55, col, false, 3.0)
+			ci.draw_circle(c, s * 0.55, col, false, 3.0)
 			for k in 4:
-				var ang := k * PI / 2.0 + t * 0.0
-				draw_line(c + Vector2(cos(ang), sin(ang)) * s * 0.55, c + Vector2(cos(ang), sin(ang)) * s * 0.9, col, 3.0)
-			draw_line(c + Vector2(-s, -s * 0.9), c + Vector2(s, s * 0.9), RED, 3.0)
+				var ang := k * PI / 2.0
+				ci.draw_line(c + Vector2(cos(ang), sin(ang)) * s * 0.55, c + Vector2(cos(ang), sin(ang)) * s * 0.9, col, 3.0)
+			ci.draw_line(c + Vector2(-s, -s * 0.9), c + Vector2(s, s * 0.9), RED, 3.0)
 		"thrust":
-			draw_colored_polygon(PackedVector2Array([c + Vector2(0, -s), c + Vector2(s * 0.55, -s * 0.1), c + Vector2(s * 0.6, s * 0.45), c + Vector2(0, s * 0.95), c + Vector2(-s * 0.6, s * 0.45), c + Vector2(-s * 0.4, -s * 0.2)]), ORANGE)
-			draw_colored_polygon(PackedVector2Array([c + Vector2(0, -s * 0.3), c + Vector2(s * 0.3, s * 0.3), c + Vector2(0, s * 0.8), c + Vector2(-s * 0.3, s * 0.3)]), YELLOW)
+			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(0, -s), c + Vector2(s * 0.55, -s * 0.1), c + Vector2(s * 0.6, s * 0.45), c + Vector2(0, s * 0.95), c + Vector2(-s * 0.6, s * 0.45), c + Vector2(-s * 0.4, -s * 0.2)]), ORANGE)
+			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(0, -s * 0.3), c + Vector2(s * 0.3, s * 0.3), c + Vector2(0, s * 0.8), c + Vector2(-s * 0.3, s * 0.3)]), YELLOW)
 
 ## v1.5o SPECIAL button: locked until the hull is down to half (then critical); held while locked on.
 func _special_button() -> void:
