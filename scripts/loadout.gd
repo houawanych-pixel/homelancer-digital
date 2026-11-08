@@ -219,9 +219,23 @@ static func part(frame: String, slot: String, id: String) -> Dictionary:
 	return PARTS.get(frame, {}).get(slot, {}).get(id, {})
 
 ## v12.74: who the pilot is (the body the suits are cut for)
-const PILOT_BODIES := {"hovick": {"name": "Hovick", "sex": "male", "glb": "res://assets/pilot/hl_hova.glb"}, "judy": {"name": "Judy", "sex": "female", "glb": "res://assets/pilot/hl_judy.glb"},
-	"evee": {"name": "Evee", "sex": "female", "glb": "res://assets/pilot/hl_evee.glb"}}   # (owner: "next Evee and Judy"; Evee's 3D model still to be made)
-static func pilot_sex() -> String: return str(PILOT_BODIES.get(GS.pilot_body, PILOT_BODIES["hovick"])["sex"])
+const PILOT_BODIES := {"hovick": {"name": "Hovick", "sex": "male", "glb": "res://assets/pilot/hl_hova.glb", "head": "res://assets/pilot/hl_hova_head.glb", "body": "res://assets/pilot/hl_hova_body.glb", "suit": "White Flight Suit"},
+	"judy": {"name": "Judy", "sex": "female", "glb": "res://assets/pilot/hl_judy.glb", "head": "res://assets/pilot/hl_judy_head.glb", "body": "res://assets/pilot/hl_judy_body.glb", "suit": "Green Flight Suit"},
+	"evee": {"name": "Evee", "sex": "female", "glb": "res://assets/pilot/hl_evee.glb", "head": "res://assets/pilot/hl_evee_head.glb", "body": "", "suit": ""}}   # (owner: "next Evee and Judy"; Evee's 3D model still to be made)
+## v12.76 (owner: "maybe do head change, easier"): you are a HEAD (who you are) on a BODY SUIT (what you wear). The
+## suits are headless bodies (the owner's armor sheets are drawn headless); the head sits on the neck. A Tripo suit
+## model (AssetRegistry kind "suit") joins the list when it is in.
+static func pilot_suit() -> String:
+	var s: String = GS.pilot_suit if GS.pilot_suit != "" else GS.pilot_body
+	return s if PILOT_BODIES.has(s) and ResourceLoader.exists(str(PILOT_BODIES[s]["body"])) else "hovick"
+## [body glb, head glb] for the pilot as he is now
+static func pilot_glbs() -> Array:
+	var hd: Dictionary = PILOT_BODIES.get(GS.pilot_body, PILOT_BODIES["hovick"])
+	var head := str(hd.get("head", ""))
+	if not ResourceLoader.exists(head): head = str(PILOT_BODIES["hovick"]["head"])
+	return [str(PILOT_BODIES[pilot_suit()]["body"]), head]
+## the armour fit goes by the body suit's cut
+static func pilot_sex() -> String: return str(PILOT_BODIES[pilot_suit()]["sex"])
 
 ## the part ids you can fit in a slot (the mech's frame parts: the frames you own)
 static func parts_for(frame: String, slot: String) -> Array:

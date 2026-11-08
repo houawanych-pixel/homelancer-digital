@@ -2711,9 +2711,30 @@ func _run() -> void:
 		_check("v12.75 (owner): BUY only puts it in the locker (%s); EQUIP hangs it on the Head bone (%s), keeps the other gear on (%d belt pouches) and saves (%s); women's armour refused for Hovick (%s), worn by Judy (%s)" % [bought_only, on_head, others, saved, refused.left(30), worn == ""],
 			bought_only and on_head and others >= 2 and saved and refused != "" and worn == "", "")
 		hb.gar_cam = {}
+		hb.lo_cat = "body"
 		hb.show_screen("loadout")
 		await _wait(1.2)
 		await _capture("gear_store_judy")
+		# v12.76 (owner: "head change"): Judy's head on Hovick's (rigged) suit, and Hovick's head on Judy's
+		GS.pilot_body = "judy"
+		GS.pilot_suit = "hovick"
+		lo_p["parts"] = Loadout.default_loadout("pilot")["parts"]
+		hb.gar_cam = {}
+		hb.show_screen("loadout")
+		await _wait(1.2)
+		var hm: Node3D = hb.lo_view.find_child("LoModel", true, false)
+		var swap1: bool = hm != null and hm.find_child("Head", true, false) != null and PilotGear.skel_of(hm) != null
+		await _capture("head_judy_on_hovick")
+		GS.pilot_body = "hovick"
+		GS.pilot_suit = "judy"
+		hb.gar_cam = {}
+		hb.show_screen("loadout")
+		await _wait(1.2)
+		var hm2: Node3D = hb.lo_view.find_child("LoModel", true, false)
+		var swap2: bool = hm2 != null and hm2.find_child("Head", true, false) != null and Loadout.pilot_sex() == "female"
+		await _capture("head_hovick_on_judy")
+		_check("v12.76 (owner: head change): Judy's head on Hovick's suit (%s); Hovick's head on Judy's suit, armour fit by the suit (%s)" % [swap1, swap2], swap1 and swap2, "")
+		GS.pilot_suit = ""
 		GS.pilot_body = keep_body
 		GS.god_mode = keep_god
 		lo_p["parts"] = Loadout.default_loadout("pilot")["parts"]

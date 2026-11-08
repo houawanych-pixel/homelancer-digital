@@ -118,6 +118,7 @@ var loadouts := {}          # v12.67: frame ("mech" / "ship") -> its loadout (se
 var loadout_presets: Array = []   # v12.67: saved loadouts (text)
 var weapon_state := {}      # v12.67: weapon id -> {ammo, heat, locked} (kept across swaps)
 var pilot_body := "hovick"   # v12.74: who you are on foot (hovick / judy)
+var pilot_suit := ""         # v12.76: the body suit you wear ("" = your own)
 var owned_gear: Array = []    # v12.74: pilot gear bought at the PILOT GEAR STORE
 var l3_found: Array = []    # v12.68: the Level 3 ships you have downed or found (their model keys)
 var relics := {}            # v12.58: alien relics from enemy-faction wrecks: faction -> count (crafting still to come)
@@ -129,7 +130,7 @@ var god_mode := false # only used by the automated route test
 # ---------------------------------------------------------------- v1.7y saving
 const SAVE_KEYS := ["build_mats", "credits", "ship_id", "owned_ships", "weapon_id", "owned_weapons", "missiles", "heavy_missiles", "mines", "nukes", "rack",
 	"owned_racks", "slots", "modes", "view", "system_id", "discovered", "explored", "last_base", "kills", "met", "mood", "memory", "heat_shield",
-	"bounty", "bounties_done", "mission", "cargo", "missions_done", "rep", "cast", "mine_kind", "block_deltas", "tutorial_seen", "bounty_jail", "mounts", "core_gun", "core_gun2", "core_gun3", "modules", "owned_modules", "gun_levels", "owned_mechs", "mech_parts", "pilot_name", "found_stations", "planet_visits", "relics", "respawn", "respawn_prev", "home_pinned", "planet_seen", "atlases", "tips_on", "tips_known", "loadouts", "loadout_presets", "weapon_state", "l3_found", "pilot_body", "owned_gear"]   # (v1.9e: + mounts; v1.9i: + owned_mechs, mech_parts; v1.9j: + pilot_name)
+	"bounty", "bounties_done", "mission", "cargo", "missions_done", "rep", "cast", "mine_kind", "block_deltas", "tutorial_seen", "bounty_jail", "mounts", "core_gun", "core_gun2", "core_gun3", "modules", "owned_modules", "gun_levels", "owned_mechs", "mech_parts", "pilot_name", "found_stations", "planet_visits", "relics", "respawn", "respawn_prev", "home_pinned", "planet_seen", "atlases", "tips_on", "tips_known", "loadouts", "loadout_presets", "weapon_state", "l3_found", "pilot_body", "owned_gear", "pilot_suit"]   # (v1.9e: + mounts; v1.9i: + owned_mechs, mech_parts; v1.9j: + pilot_name)
 var save_path: String = Data.SAVE_PATH
 var save_enabled := true   # (the route test turns it off, so a test never reads or writes a player's save)
 var saves := 0             # (tests) saves written this session

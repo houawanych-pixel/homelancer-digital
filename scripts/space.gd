@@ -4573,7 +4573,8 @@ var pilot_rig: PilotRig
 func _player_mech_model() -> Node3D:
 	if (escape_pilot or on_foot) and PilotRig.ready():
 		pilot_rig = PilotRig.new()
-		var pm := pilot_rig.build(Data.FOOT_H if on_foot else Data.ESCAPE_PILOT_H, 6.0)
+		var gl: Array = Loadout.pilot_glbs() if loadout_on else ["", ""]   # v12.76: your head on your suit (the bench's choice)
+		var pm := pilot_rig.build(Data.FOOT_H if on_foot else Data.ESCAPE_PILOT_H, 6.0, str(gl[0]), str(gl[1]))
 		var pw := str(Loadout.active_set(Loadout.current("pilot")).get("R_Hand", ""))
 		if loadout_on and pw != "":   # v12.70 (owner): on foot he holds the gun fitted on the PILOT bench, grip in his palm
 			var hgt: float = Data.FOOT_H if on_foot else Data.ESCAPE_PILOT_H

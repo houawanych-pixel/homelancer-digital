@@ -22,7 +22,7 @@ static func ready() -> bool:
 	return ResourceLoader.exists(GLB)
 
 ## The body, `height` m tall, feet at y = -feet_below (the player's origin is its middle), looking down -Z.
-func build(height: float, feet_below: float, glb := "") -> Node3D:
+func build(height: float, feet_below: float, glb := "", head_glb := "") -> Node3D:
 	root = Node3D.new()
 	root.name = "Pilot"
 	body = Node3D.new()
@@ -30,7 +30,17 @@ func build(height: float, feet_below: float, glb := "") -> Node3D:
 	var path := glb if glb != "" and ResourceLoader.exists(glb) else GLB   # (v12.74: Hovick, or Judy from the gear store)
 	var inst: Node3D = (load(path) as PackedScene).instantiate()
 	var bb := _aabb(inst)
-	var k := height / maxf(0.01, bb.size.y)
+	var total := bb.size.y
+	if head_glb != "" and ResourceLoader.exists(head_glb):   # v12.76 (owner: "head change"): a head on the suit's neck
+		var head: Node3D = (load(head_glb) as PackedScene).instantiate()
+		head.name = "Head"
+		var hb := _aabb(head)
+		var ov := 0.012 * bb.size.y   # (it sits a little into the collar, no gap)
+		head.position = Vector3(bb.get_center().x, bb.end.y - ov, bb.get_center().z)
+		inst.add_child(head)
+		total = bb.size.y + maxf(0.0, hb.end.y) - ov   # (only what is above the neck adds height: hair may hang below it)
+		bb = AABB(bb.position, Vector3(bb.size.x, total, bb.size.z))
+	var k := height / maxf(0.01, total)
 	inst.scale = Vector3.ONE * k
 	inst.position = Vector3(-bb.get_center().x * k, -bb.position.y * k - feet_below, -bb.get_center().z * k)
 	var side_on := bb.size.z > bb.size.x * 1.3

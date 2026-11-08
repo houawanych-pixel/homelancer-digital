@@ -5652,38 +5652,51 @@ func _gar_preview_suit() -> void:
 func _gar_right_body(rp: Panel, hd: Label) -> void:
 	var W: float = rp.size.x
 	hd.text = "Pilot"
-	var y := 52.0
-	for k in Loadout.PILOT_BODIES:
-		var b: Dictionary = Loadout.PILOT_BODIES[k]
-		var row := Button.new()
-		row.name = "LoBody_" + str(k)
-		row.position = Vector2(12, y)
-		row.size = Vector2(W - 24, 48)
-		row.text = "%s   ·   %s%s" % [b["name"], "man" if b["sex"] == "male" else "woman", "   ✓" if GS.pilot_body == k else ""]
-		row.toggle_mode = true
-		row.button_pressed = GS.pilot_body == k
-		row.add_theme_font_size_override("font_size", Data.ts(18))
-		_gar_style(row)
-		if not ResourceLoader.exists(str(b["glb"])):   # (no 3D model yet)
-			row.disabled = true
-			row.text = "%s   ·   3D model coming" % b["name"]
-		var kk := str(k)
-		row.pressed.connect(func():
-			GS.pilot_body = kk
-			var lo := Loadout.current("pilot")   # (a suit cut for the other body comes off)
-			for sl in PilotGear.SLOTS:   # (gear cut for the other body comes off)
-				var fit := str(Loadout.part("pilot", sl, str(lo["parts"].get(sl, ""))).get("fit", "any"))
-				if fit != "any" and fit != Loadout.pilot_sex(): lo["parts"][sl] = Loadout.default_loadout("pilot")["parts"][sl]
-			GS.save_game()
-			lo_note = "You're %s now." % b["name"]
-			show_screen("loadout"))
-		rp.add_child(row)
-		y += 56.0
-	var nt := _label(13, Color(0.75, 0.88, 1.0))
-	nt.position = Vector2(16, y + 8)
-	nt.size = Vector2(W - 32, 120)
+	var y := 48.0
+	for sec in [["HEAD  ·  who you are", "head"], ["BODY SUIT  ·  what you wear", "body"]]:   # v12.76 (owner: "head change")
+		var sl := _label(13, Color(0.7, 0.85, 1.0))
+		sl.text = str(sec[0])
+		sl.position = Vector2(16, y)
+		rp.add_child(sl)
+		y += 24.0
+		for k in Loadout.PILOT_BODIES:
+			var b: Dictionary = Loadout.PILOT_BODIES[k]
+			var is_head: bool = sec[1] == "head"
+			var glb := str(b["head"] if is_head else b["body"])
+			if not is_head and glb == "": continue
+			var on: bool = (GS.pilot_body == k) if is_head else (Loadout.pilot_suit() == k)
+			var row := Button.new()
+			row.name = ("LoBody_" if is_head else "LoSuit_") + str(k)
+			row.position = Vector2(12, y)
+			row.size = Vector2(W - 24, 40)
+			row.text = ("%s%s" % [b["name"], "   ✓" if on else ""]) if is_head else ("%s  (%s's)%s" % [b["suit"], b["name"], "   ✓" if on else ""])
+			row.toggle_mode = true
+			row.button_pressed = on
+			row.add_theme_font_size_override("font_size", Data.ts(16))
+			_gar_style(row)
+			if not ResourceLoader.exists(glb):
+				row.disabled = true
+				row.text = "%s   ·   3D model coming" % b["name"]
+			var kk := str(k)
+			row.pressed.connect(func():
+				if is_head: GS.pilot_body = kk
+				else: GS.pilot_suit = kk
+				var lo := Loadout.current("pilot")
+				for slx in PilotGear.SLOTS:   # (armour cut for the other body comes off)
+					var fit := str(Loadout.part("pilot", slx, str(lo["parts"].get(slx, ""))).get("fit", "any"))
+					if fit != "any" and fit != Loadout.pilot_sex(): lo["parts"][slx] = Loadout.default_loadout("pilot")["parts"][slx]
+				GS.save_game()
+				lo_note = "%s in the %s." % [Loadout.PILOT_BODIES[GS.pilot_body]["name"], Loadout.PILOT_BODIES[Loadout.pilot_suit()]["suit"]]
+				show_screen("loadout")
+				if is_head: _gar_goal_set({"focus": Vector3(0, 4.2, 0), "dist": 7.0, "pitch": 0.06, "yaw": PI + 0.35}))
+			rp.add_child(row)
+			y += 46.0
+		y += 8.0
+	var nt := _label(12, Color(0.75, 0.88, 1.0))
+	nt.position = Vector2(16, y)
+	nt.size = Vector2(W - 32, 90)
 	nt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	nt.text = "Some armour is cut for a man or a woman; the rest fits both. On foot you are still Hovick until Judy's model is rigged (Tripo's auto-rig, like his)."
+	nt.text = "Any head on any suit. The armour suits from your sheets come in as headless bodies and join this list. Armour pieces fit by the suit's cut."
 	rp.add_child(nt)
 
 ## after a change: the model re-dressed, the panels redrawn (the 3D view and the camera keep going)
@@ -5798,7 +5811,8 @@ func _lo_model() -> Node3D:
 	if lo_frame == "pilot":
 		if PilotRig.ready():
 			var pr := PilotRig.new()
-			var pm := pr.build(1.8, 0.0, str(Loadout.PILOT_BODIES.get(GS.pilot_body, {}).get("glb", "")))
+			var gl: Array = Loadout.pilot_glbs()   # v12.76: the head on the body suit
+			var pm := pr.build(1.8, 0.0, str(gl[0]), str(gl[1]))
 			pm.set_meta("pilot_rig", pr)   # (v12.70: the bench poses his arms and puts the gun in his hand)
 			return pm
 		var st := Node3D.new()   # (until the pilot pack is in: a suited stand-in)
