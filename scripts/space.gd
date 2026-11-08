@@ -2490,8 +2490,8 @@ func _build_gate(d: Dictionary) -> void:
 		g.set_meta("hole", true)
 		gate_portals.append(_warp_hole(g))
 		return
-	if str(d.get("gkind", "")) == "rift":   # v10.9 (owner): a rift gate is a six-pointed star with a window to elsewhere
-		gate_portals.append(_rift_star(g))
+	if str(d.get("gkind", "")) == "rift":   # v10.9: a six-pointed star; v12.83 (owner's picture): a swirling whirlpool
+		gate_portals.append(_rift_whirlpool(g, d))
 		return
 	var ring := TorusMesh.new()
 	ring.inner_radius = 44.0
@@ -2598,6 +2598,134 @@ void fragment() {
 	ALPHA = clamp(a, 0.0, 1.0);
 }
 """
+## v12.83 (owner, his whirlpool picture: "instead of a star shape, a swirling whirlpool effect; you can still see the inside
+## of the skybox, the other side of the whirlpool"): a huge funnel of white-blue foam spiralling in, its walls sinking
+## away into a dark throat, and in the middle a window onto the other side's sky (by the way you look in, like a real
+## window). The foam is torn: through its gaps you see the sky behind as well.
+const RIFT_POOL_SHADER := """
+shader_type spatial;
+render_mode unshaded, cull_disabled, shadows_disabled, fog_disabled, depth_draw_always;
+uniform sampler2D noise : repeat_enable, filter_linear;
+uniform sampler2D sky : source_color, filter_linear, repeat_enable;
+uniform float has_sky = 0.0;
+uniform vec3 foam : source_color = vec3(0.86, 0.94, 1.0);
+uniform vec3 deep : source_color = vec3(0.12, 0.3, 0.48);
+uniform float depth = 200.0;
+varying vec3 wpos;
+void vertex() {
+	float r = UV.x;
+	VERTEX.z -= depth * pow(1.0 - r, 1.6);   // the funnel sinks away from you
+	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+}
+void fragment() {
+	float r = UV.x;
+	float a = UV.y * 6.2832;
+	float t = TIME;
+	// the water turns faster near the middle: rotate each point by a twist that grows inward (a spiral)
+	float tw = 5.0 * pow(1.0 - r, 1.7) + t * (0.12 + 0.55 * pow(1.0 - r, 2.0));
+	vec2 p = vec2(cos(a + tw), sin(a + tw)) * (0.25 + r * 0.75);
+	float n1 = texture(noise, p * 0.9 + vec2(0.31, 0.17)).r;
+	float n2 = texture(noise, p * 2.3 + vec2(t * 0.01, 0.5)).r;
+	float n3 = texture(noise, p * 6.0 - vec2(0.2, t * 0.015)).r;
+	float body = smoothstep(0.38, 0.7, n1 * 0.7 + n2 * 0.45);           // the big foam sheets
+	float lace = smoothstep(0.55, 0.8, n2 * 0.55 + n3 * 0.55);          // the white lace on them
+	float f = clamp(body * 0.8 + lace * 0.7, 0.0, 1.0) * (0.35 + 0.65 * smoothstep(0.2, 0.85, r));
+	vec3 c = mix(deep * (0.25 + 0.75 * r), foam, f);
+	c += vec3(1.0) * pow(lace, 4.0) * 0.35 * smoothstep(0.3, 1.0, r);
+	// the throat: the other side's sky, seen by the way you look in (it turns with the water)
+	vec3 d = normalize(wpos - CAMERA_POSITION_WORLD);
+	vec2 e = vec2(atan(d.z, d.x) / 6.2832 + 0.5 + t * 0.01, acos(clamp(d.y, -1.0, 1.0)) / 3.1416);
+	vec3 other = has_sky > 0.5 ? texture(sky, e).rgb * 1.6 + vec3(0.03, 0.05, 0.1) : mix(vec3(0.02, 0.05, 0.12), vec3(0.3, 0.6, 0.9), texture(noise, e * 4.0).r);
+	float lip = 0.3 + (n2 - 0.5) * 0.1;
+	float hole = 1.0 - smoothstep(lip - 0.07, lip, r);
+	c = mix(c, other, hole);
+	c = mix(c, foam * 1.25, smoothstep(lip - 0.04, lip, r) * (1.0 - smoothstep(lip, lip + 0.07, r)) * 0.8);   // the bright lip
+	// the torn outer edge, and gaps in the outer foam that you see through
+	float edge = 1.0 - smoothstep(0.78 + (n1 - 0.5) * 0.3, 0.98, r);
+	float gaps = mix(1.0, smoothstep(0.05, 0.3, f), smoothstep(0.55, 0.95, r));
+	ALBEDO = c;
+	ALPHA = clamp(edge * max(gaps, hole), 0.0, 1.0);
+}
+"""
+func _rift_whirlpool(g: Node3D, d: Dictionary) -> MeshInstance3D:
+	var R: float = Data.RIFT_POOL_R
+	if _rift_noise == null:
+		var fn := FastNoiseLite.new(); fn.seed = 77; fn.frequency = 0.02; fn.fractal_octaves = 4
+		_rift_noise = ImageTexture.create_from_image(fn.get_seamless_image(256, 256))
+	var st := SurfaceTool.new()   # a disc of rings (UV.x = 0 middle .. 1 edge, UV.y = round)
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var NR := 28
+	var NA := 72
+	for i in NR:
+		var r0 := float(i) / NR
+		var r1 := float(i + 1) / NR
+		for k in NA:
+			var a0 := TAU * k / NA
+			var a1 := TAU * (k + 1) / NA
+			var q := [[r0, a0, float(k) / NA], [r1, a0, float(k) / NA], [r1, a1, float(k + 1) / NA], [r0, a1, float(k + 1) / NA]]
+			for idx in [0, 1, 2, 0, 2, 3]:
+				var v: Array = q[idx]
+				st.set_uv(Vector2(v[0], v[2]))
+				st.add_vertex(Vector3(cos(v[1]) * v[0] * R, sin(v[1]) * v[0] * R, 0.0))
+	var mi := MeshInstance3D.new()
+	mi.name = "RiftWhirlpool"
+	mi.mesh = st.commit()
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var sm := ShaderMaterial.new()
+	var sh := Shader.new()
+	sh.code = RIFT_POOL_SHADER
+	sm.shader = sh
+	sm.set_shader_parameter("noise", _rift_noise)
+	sm.set_shader_parameter("depth", R * 0.7)
+	var other_sys := str(d.get("to", ""))   # the other side's sky (its space panorama, when it is here)
+	var sp := "res://assets/skies/%s.jpg" % other_sys
+	if Data.CORE_SYSTEMS.has(other_sys): sp = "res://assets/sky/%s.jpg" % other_sys
+	if ResourceLoader.exists(sp):
+		sm.set_shader_parameter("sky", load(sp))
+		sm.set_shader_parameter("has_sky", 1.0)
+	mi.material_override = sm
+	mi.extra_cull_margin = R
+	g.add_child(mi)
+	var mist := CPUParticles3D.new()   # spray flung off the rim
+	mist.amount = 60
+	mist.lifetime = 4.0
+	mist.preprocess = 4.0
+	mist.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
+	mist.emission_ring_axis = Vector3(0, 0, 1)
+	mist.emission_ring_radius = R * 0.95
+	mist.emission_ring_inner_radius = R * 0.7
+	mist.emission_ring_height = 4.0
+	mist.direction = Vector3(0, 0, 1)
+	mist.spread = 60.0
+	mist.initial_velocity_min = 8.0
+	mist.initial_velocity_max = 30.0
+	mist.gravity = Vector3.ZERO
+	mist.scale_amount_min = 0.6
+	mist.scale_amount_max = 1.6
+	var mq := QuadMesh.new(); mq.size = Vector2(R * 0.18, R * 0.18)
+	var mmat := StandardMaterial3D.new()
+	mmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mmat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	mmat.vertex_color_use_as_albedo = true
+	mmat.albedo_texture = _cloud_texture(Color(1, 1, 1), 91)
+	mq.material = mmat
+	mist.mesh = mq
+	var mr := Gradient.new()
+	mr.set_color(0, Color(0.85, 0.95, 1.0, 0.0))
+	mr.add_point(0.3, Color(0.85, 0.95, 1.0, 0.35))
+	mr.set_color(mr.get_point_count() - 1, Color(0.6, 0.8, 1.0, 0.0))
+	mist.color_ramp = mr
+	g.add_child(mist)
+	var lamp := OmniLight3D.new()
+	lamp.light_color = Color(0.6, 0.85, 1.0)
+	lamp.light_energy = 2.5
+	lamp.omni_range = R * 3.0
+	g.add_child(lamp)
+	g.set_meta("radius", R * Data.GATE_GROW)
+	g.set_meta("rift_pool", true)
+	return mi
+
 static var _rift_noise: ImageTexture
 func _rift_star(g: Node3D) -> MeshInstance3D:
 	var R: float = Data.RIFT_STAR_R
@@ -10118,38 +10246,89 @@ func _planet_rift() -> void:
 	if to_pid == "" or not Surface.PLANETS.has(to_pid): return
 	var to_sys: String = str(Surface.PLANETS[to_pid]["system"])
 	var p: Vector3 = Data.PLANET_RIFT_POS
-	p.y = _ground(p.x, p.z) + Data.PLANET_RIFT_HEIGHT
+	var R: float = Data.RIFT_POOL_R * Data.GATE_GROW
+	# v12.83 (owner: "found on the planet's surface, even underwater, or on the side of a wall, or on the ceiling"): where
+	# this planet's rift opens, the same every visit: in the ground (facing the sky), on the sea bed, on a cliff wall, or
+	# under a rock roof (facing down)
+	var spots: Array = ["ground", "wall", "ceiling"]
+	if _water and _ground(p.x, p.z) < -R * 0.15: spots = ["underwater", "underwater", "wall"]
+	var how: String = spots[hash(planet_id + ":rift") % spots.size()]
+	if force_rift_spot != "": how = force_rift_spot   # (tests)
+	rift_spot = how
+	var gy: float = _ground(p.x, p.z)
+	var top := gy   # (the highest ground under its whole disc: it lies on top of the hills, never inside them)
+	for i in 24:
+		var aa := TAU * i / 24.0
+		for rr in [0.35, 0.7, 1.0]: top = maxf(top, _ground(p.x + cos(aa) * R * rr, p.z + sin(aa) * R * rr))
+	var face := Vector3.UP
+	match how:
+		"ground": p.y = top + Data.RIFT_POOL_R * 0.75   # (its funnel sinks R x 0.7: kept clear of the hills)
+		"underwater": p.y = top + Data.RIFT_POOL_R * 0.75
+		"wall":
+			p.y = gy + R * 1.05
+			face = Vector3(-1, 0, 1).normalized()
+		"ceiling":
+			p.y = gy + R * 1.4 + 80.0
+			face = Vector3.DOWN
 	_build_gate({"id": planet_id + "_gate_rift", "name": "%s Rift" % Surface.PLANETS[to_pid]["name"], "pos": p, "to": to_sys,
 		"gkind": "rift", "planet_to": to_pid})
 	planet_rift_gate = gates[gates.size() - 1]
+	planet_rift_gate.look_at(p - face, Vector3.FORWARD if absf(face.y) > 0.9 else Vector3.UP)   # (its open side, +Z, faces out)
 	gates = [planet_rift_gate]
 	gate = planet_rift_gate
-	# the cloud it hides in: soft purple puffs round the gate, thick near it
-	var tex := _radial_texture(Data.RIFT_CLOUD, 0.0)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = hash(planet_id + "rift")
-	for i in 26:
-		var q := MeshInstance3D.new()
-		var qm := QuadMesh.new()
-		var sz := rng.randf_range(220.0, 520.0)
-		qm.size = Vector2(sz, sz)
-		q.mesh = qm
-		var m := StandardMaterial3D.new()
-		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-		m.albedo_texture = tex
-		m.albedo_color = Color(1, 1, 1, rng.randf_range(0.25, 0.5))
-		m.disable_receive_shadows = true
-		q.material_override = m
-		q.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		planet_rift_gate.add_child(q)
-		q.global_position = p + Vector3(rng.randfn(0, 1), rng.randfn(0, 0.5), rng.randfn(0, 1)).normalized() * rng.randf_range(80.0, 420.0)
+	_rift_rock(planet_rift_gate, how, R)
+
+static var force_rift_spot := ""
+var rift_spot := ""   # v12.83: where this planet's rift opens (ground / underwater / wall / ceiling)
+## v12.83: the rock it opens in: a cliff behind a wall rift, a great overhang (on two pillars) over a ceiling rift, a ring
+## of broken ground round one in the ground
+func _rift_rock(g: Node3D, how: String, R: float) -> void:
+	var rock := StandardMaterial3D.new()
+	rock.albedo_color = Color(0.3, 0.28, 0.27)
+	rock.roughness = 0.95
+	var fn := FastNoiseLite.new()
+	fn.seed = hash(planet_id) % 1000
+	fn.frequency = 1.6
+	fn.fractal_octaves = 4
+	# a lump of rock: a sphere pushed in and out by noise (craggy, never a box), stretched to size
+	var lump := func(size: Vector3, at: Vector3, flat: bool) -> void:
+		var sm := SphereMesh.new()
+		sm.radial_segments = 40
+		sm.rings = 20
+		var mdt := MeshDataTool.new()
+		var am := ArrayMesh.new()
+		am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, sm.get_mesh_arrays())
+		mdt.create_from_surface(am, 0)
+		for i in mdt.get_vertex_count():
+			var v := mdt.get_vertex(i)
+			var n := fn.get_noise_3dv(v * 1.0 + at * 0.001)
+			var k := 1.0 + n * 0.45 + 0.15 * fn.get_noise_3dv(v * 4.0)
+			if flat and v.z > 0.25: k *= 0.6   # (the face toward the whirlpool is cut flatter)
+			mdt.set_vertex(i, v * k)
+		var out := ArrayMesh.new()
+		mdt.commit_to_surface(out)
+		var st := SurfaceTool.new()
+		st.create_from(out, 0)
+		st.generate_normals()
+		var mi := MeshInstance3D.new()
+		mi.mesh = st.commit()
+		mi.material_override = rock
+		mi.scale = size
+		mi.position = at
+		g.add_child(mi)
+	match how:
+		"wall":   # a cliff behind it (gate space: +Z out of the cliff)
+			lump.call(Vector3(R * 2.0, R * 1.7, R * 0.7), Vector3(0, R * 0.1, -R * 0.75), true)
+			lump.call(Vector3(R * 0.9, R * 0.8, R * 0.6), Vector3(R * 1.4, -R * 0.5, -R * 0.4), false)
+			lump.call(Vector3(R * 0.8, R * 0.7, R * 0.5), Vector3(-R * 1.3, R * 0.7, -R * 0.4), false)
+		"ceiling":   # the rock roof above (behind the gate: -Z) on two craggy pillars down to the ground (+Z is down)
+			lump.call(Vector3(R * 2.2, R * 1.9, R * 0.6), Vector3(0, 0, -R * 0.8), true)
+			for sx in [-1.0, 1.0]: lump.call(Vector3(R * 0.35, R * 0.35, (R * 1.4 + 80.0) * 0.55), Vector3(sx * R * 1.45, sx * R * 0.2, R * 0.6), false)
 
 ## Arriving through a planet rift: come out of this planet's own rift gate.
 func place_at_rift() -> void:
 	if planet_rift_gate == null: return
-	player.global_position = planet_rift_gate.global_position + planet_rift_gate.global_basis.z * 150.0
+	player.global_position = planet_rift_gate.global_position + planet_rift_gate.global_basis.z * maxf(150.0, float(planet_rift_gate.get_meta("radius", 150.0)) * 0.35)   # (v12.83: clear of the huge whirlpool)
 	_face(planet_rift_gate.global_basis.z)
 	vel = -player.global_basis.z * 30.0
 	_update_camera(1.0, true)

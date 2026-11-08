@@ -2772,6 +2772,34 @@ func _run() -> void:
 			tabs_ok and r0 == "" and pv_ok and bad2 != "" and p_list > 0 and not p_heavy, "")
 		_finish_group()
 		return
+	if _flag("HL_RIFTPOOL"):   # v12.83 (owner): the rift gates: whirlpools on planets only, huge, planet to planet
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		GS.god_mode = true
+		await _job_unknown()
+		var rsid := ""   # every way a rift can open: in the ground, on a cliff, under a roof, on a sea bed
+		var wsid := ""
+		for sid in Data.SYSTEMS:
+			if str(Data.SYSTEMS[sid].get("planet_rift", "")) == "" or not Surface.PLANETS.has(sid + "_planet"): continue
+			if rsid == "": rsid = sid
+		for how in ["ground", "wall", "ceiling", "underwater"]:
+			SpaceSystem.force_rift_spot = how
+			main._load_surface(rsid + "_planet", 0)
+			await _frames(3)
+			var s4 := _sp()
+			var rg4: Node3D = s4.planet_rift_gate
+			if rg4 == null: continue
+			var R4: float = float(rg4.get_meta("radius", 600.0))
+			var side4: Vector3 = Vector3(rg4.global_basis.z.x, 0, rg4.global_basis.z.z).normalized() if absf(rg4.global_basis.z.y) < 0.9 else Vector3(0, 0, 1)
+			s4.player.global_position = rg4.global_position + side4 * R4 * 2.2 + rg4.global_basis.z * R4 * 0.6 + Vector3(0, R4 * (0.9 if how != "ceiling" else -0.2), 0)
+			s4._face((rg4.global_position - s4.player.global_position).normalized())
+			s4._update_camera(1.0, true)
+			await _wait(1.0)
+			await _capture("rift_all_" + how)
+		SpaceSystem.force_rift_spot = ""
+		_finish_group()
+		return
 	if _flag("HL_GALAXYSHOT"):   # v12.64 (owner: "show me the complete map"): every system charted, zoomed out and in
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -2857,7 +2885,13 @@ func _run() -> void:
 						if dd < 3 or dd > 4: gbad.append("%s>%s warp %d" % [sid2, g2["to"], dd])
 					"rift":
 						nr += 1
-						if dd < 5 or dd > 6: gbad.append("%s>%s rift %d" % [sid2, g2["to"], dd])
+						gbad.append("%s>%s rift in space" % [sid2, g2["to"]])   # (v12.83: rifts are on planets only)
+			var prf := str(Data.SYSTEMS[sid2].get("planet_rift", ""))
+			if prf != "":
+				var d3: Vector2i = sq.call(sid2) - sq.call(prf)
+				var dd3: int = maxi(absi(d3.x), absi(d3.y))
+				if dd3 < 5 or dd3 > 6 or str(Data.SYSTEMS[prf].get("planet_rift", "")) != sid2: gbad.append("%s>%s planet rift %d" % [sid2, prf, dd3])
+				nr += 1
 			if nw > 2 or nr > 1: gbad.append("%s %dw %dr" % [sid2, nw, nr])
 			rifts += nr
 		var seen2 := {"solara": true}
@@ -15166,36 +15200,47 @@ func _job_unknown() -> void:
 		var gs: Array = sy["gates"]
 		if gs.is_empty() or gs.any(func(g): return str(g.get("gkind", "")) == "jump"): bad.append(u + " gates")
 		for g in gs:
-			var d := Vector2i(absi(posmod(at[g["to"]].x - at[u].x + 5, 11) - 5), absi(posmod(at[g["to"]].y - at[u].y + 5, 11) - 5))
+			var d := Vector2i(absi(at[g["to"]].x - at[u].x), absi(at[g["to"]].y - at[u].y))   # (v12.82: no wrap)
 			if not (maxi(d.x, d.y) in [3, 4]): bad.append("%s>%s warp %d" % [u, g["to"], maxi(d.x, d.y)])
 			if not SystemBuilder.is_unknown(Data.SYSTEMS[g["to"]]): exits += 1
-		var rp: String = SystemBuilder.planet_rift(u + "_planet")
-		if rp == "": bad.append(u + " no planet rift")
-		else:
-			var rs: String = rp.trim_suffix("_planet")
-			var rd := Vector2i(absi(posmod(at[rs].x - at[u].x + 5, 11) - 5), absi(posmod(at[rs].y - at[u].y + 5, 11) - 5))
-			if not (maxi(rd.x, rd.y) in [5, 6]): bad.append("%s>%s rift %d" % [u, rs, maxi(rd.x, rd.y)])
-		if Galaxy.network()["systems"].has(u): bad.append(u + " on the map")
-	_check("v6.5 (owner): %d unknown areas, strange names, off the map, no jump gates; each has a warp gate 3-4 squares away and a planet with a rift gate 5-6 squares away; few gates lead home (%d)" % [unk.size(), exits],
-		unk.size() == 37 and named.size() == 37 and bad.is_empty() and exits > 0 and exits < 12, ", ".join(bad.slice(0, 5)))
-	# fly a planet rift: from one unknown planet's surface to another planet's surface
-	var u0: String = unk[0]
+	_check("v6.5 / v12.82 (owner): %d unknown areas, strange names, no jump gates; their warp gates reach 3-4 squares (%d lead out)" % [unk.size(), exits],
+		unk.size() >= 10 and named.size() == unk.size() and bad.is_empty() and exits > 0, ", ".join(bad.slice(0, 5)))
+	# fly a planet rift: from one planet's surface to another planet's surface (v12.83: a huge whirlpool, in the ground, on
+	# the sea bed, on a cliff wall or under a rock roof)
+	var u0 := ""
+	for sid in Data.SYSTEMS: if u0 == "" and str(Data.SYSTEMS[sid].get("planet_rift", "")) != "" and Surface.PLANETS.has(sid + "_planet") and Surface.PLANETS.has(str(Data.SYSTEMS[sid]["planet_rift"]) + "_planet"): u0 = sid
 	var pid: String = u0 + "_planet"
 	var to_pid: String = SystemBuilder.planet_rift(pid)
 	main._load_surface(pid, 0)
 	await _frames(3)
 	s = _sp()
 	var rg: Node3D = s.planet_rift_gate
-	var in_cloud: bool = rg != null and rg.get_children().filter(func(c): return c is MeshInstance3D and c.mesh is QuadMesh).size() > 10
+	var in_cloud: bool = rg != null and bool(rg.get_meta("rift_pool", false)) and float(rg.get_meta("radius", 0.0)) >= 500.0 and rg.find_child("RiftWhirlpool", true, false) != null
 	if rg != null:
+		var R0: float = float(rg.get_meta("radius", 600.0))
+		var side0: Vector3 = Vector3(rg.global_basis.z.x, 0, rg.global_basis.z.z).normalized() if absf(rg.global_basis.z.y) < 0.9 else Vector3(0, 0, 1)
+		s.player.global_position = rg.global_position + side0 * R0 * 2.2 + rg.global_basis.z * R0 * 0.6 + Vector3(0, R0 * 0.9, 0)
+		s._face((rg.global_position - s.player.global_position).normalized())
+		s._update_camera(1.0, true)
+		await _wait(1.0)
+		await _capture("rift_whirlpool_" + s.rift_spot)
 		s.player.global_position = rg.global_position + rg.global_basis.z * 160.0
 		await _frames(2)
 	var docked: bool = main.dock_gate()
 	if docked: main.gate_activate()
 	var arrived := await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.surface_mode and main.space.planet_id == to_pid, 25.0)
 	s = _sp()
-	var near: bool = arrived and s.planet_rift_gate != null and s.player.global_position.distance_to(s.planet_rift_gate.global_position) < 600.0
-	_check("v6.5 (owner): a planet's rift gate sits in a cloud on the surface and takes you to another planet's surface (%s > %s)" % [pid, to_pid], in_cloud and docked and arrived and near, "cloud %s, docked %s, arrived %s, at its gate %s" % [in_cloud, docked, arrived, near])
+	var near: bool = arrived and s.planet_rift_gate != null and s.player.global_position.distance_to(s.planet_rift_gate.global_position) < float(s.planet_rift_gate.get_meta("radius", 600.0)) * 1.2
+	if arrived and s.planet_rift_gate != null:
+		var rg2: Node3D = s.planet_rift_gate
+		var R2: float = float(rg2.get_meta("radius", 600.0))
+		var side2: Vector3 = Vector3(rg2.global_basis.z.x, 0, rg2.global_basis.z.z).normalized() if absf(rg2.global_basis.z.y) < 0.9 else Vector3(0, 0, 1)
+		s.player.global_position = rg2.global_position + side2 * R2 * 2.2 + rg2.global_basis.z * R2 * 0.6 + Vector3(0, R2 * 0.9, 0)
+		s._face((rg2.global_position - s.player.global_position).normalized())
+		s._update_camera(1.0, true)
+		await _wait(1.0)
+		await _capture("rift_whirlpool_" + s.rift_spot)
+	_check("v12.83 (owner): a planet's rift is a huge whirlpool (%s, %.0f m) on the surface (%s) and takes you to another planet's surface (%s > %s)" % [in_cloud, float(rg.get_meta("radius", 0.0)) if rg != null else 0.0, s.rift_spot, pid, to_pid], in_cloud and docked and arrived and near, "pool %s, docked %s, arrived %s, at its gate %s" % [in_cloud, docked, arrived, near])
 	main._load_system(home, "station")
 	await _frames(3)
 

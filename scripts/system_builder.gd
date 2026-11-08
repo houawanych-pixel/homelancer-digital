@@ -156,7 +156,7 @@ static func unknown_links() -> Dictionary:
 static func planet_rift(pid: String) -> String:
 	if not pid.ends_with("_planet"): return ""
 	var sid := pid.trim_suffix("_planet")
-	var to: String = unknown_links()["rift"].get(sid, "")
+	var to: String = str(Data.SYSTEMS.get(sid, {}).get("planet_rift", ""))   # (v12.83: laid out by _regate)
 	return (to + "_planet") if to != "" else ""
 
 static func all(core: Dictionary) -> Dictionary:
@@ -1465,10 +1465,24 @@ static func _regate(out: Dictionary, rows: Dictionary) -> void:
 				if b3 == "": continue
 				add.call(a, b3, "warp")
 				break
-	for a in ids:   # the rare rift gates
-		if count.call(a, "rift") > 0 or float(hash("rift:" + a) % 1000) / 1000.0 >= RIFT_SHARE: continue
-		var b4: String = pick.call(a, "rift", Data.RIFT_GATE_SQUARES[0], Data.RIFT_GATE_SQUARES[1], 1, ids)
-		if b4 != "": add.call(a, b4, "rift")
+	# v12.83 (owner: "rift gates are found only on planets, and teleport you from one planet to another"): the rare rifts
+	# are not space gates: each joins two systems' main planets (planet_rift), 1 at most a system, 5-6 squares apart
+	for a in ids: out[a].erase("planet_rift")
+	for a in ids:
+		if out[a].has("planet_rift") or float(hash("rift:" + a) % 1000) / 1000.0 >= RIFT_SHARE: continue
+		var b4 := ""
+		var bs4 := 1e9
+		for b in ids:
+			if b == a or out[b].has("planet_rift"): continue
+			var d4: int = dist.call(a, b)
+			if d4 < Data.RIFT_GATE_SQUARES[0] or d4 > Data.RIFT_GATE_SQUARES[1]: continue
+			var sc4 := float(hash(a + "~" + b) % 1000)
+			if sc4 < bs4:
+				bs4 = sc4
+				b4 = b
+		if b4 != "":
+			out[a]["planet_rift"] = b4
+			out[b4]["planet_rift"] = a
 
 ## v12.81 (owner: build up the emptier systems): enemy space, the uncharted zones and the void get more worlds and
 ## stations (as [system, "planet" / "station", name, type] rows, like the catalog's EXTRAS): enemy space to 3 worlds and

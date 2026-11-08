@@ -57,6 +57,10 @@ static func network() -> Dictionary:
 			if seen.has(key): continue
 			seen[key] = true
 			links.append([a, b, str(g.get("gkind", "jump")) + "_gate"])
+	for id in Data.SYSTEMS:   # v12.83: the planet-to-planet rifts (not space gates) on the map too
+		var to2 := str(Data.SYSTEMS[id].get("planet_rift", ""))
+		if to2 == "" or not (systems.has(id) and systems.has(to2)) or id > to2: continue
+		links.append([id, to2, "rift_gate"])
 	_cache = {"systems": systems, "links": links}
 	return _cache
 
