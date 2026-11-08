@@ -515,7 +515,7 @@ func _galaxy() -> void:
 				seen[g["to"]] = true
 				todo.append(g["to"])
 	_check("Galaxy: %d star systems, each with a star you can enter, a station, a planet and two-way gates; all reachable from Solara" % _stars().size(),
-		_stars().size() == 67 and bad.is_empty() and _stars().all(func(k): return seen.has(k)), "reachable %d; %s" % [_stars().filter(func(k): return seen.has(k)).size(), ", ".join(bad.slice(0, 4))])   # (v6.5: gates also reach unknown areas)
+		_stars().size() == 75 and bad.is_empty() and _stars().all(func(k): return seen.has(k)), "reachable %d; %s" % [_stars().filter(func(k): return seen.has(k)).size(), ", ".join(bad.slice(0, 4))])   # (v6.5: gates also reach unknown areas)
 	# real planets: NASA maps, a fixed day and night side, clouds, and the docking gate on top of the atmosphere
 	var s := _sp()
 	await Packs.wait("worlds", 40.0)

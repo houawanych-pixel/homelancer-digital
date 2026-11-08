@@ -72,6 +72,14 @@ const TILES := [
 	["omicron_major", "Omicron Major", "G11", 6, 10, "Orion", "", "Omicron Major", "terran", "Fleet Staging Base"],
 	["genesis", "Genesis", "H11", 7, 10, "Enemy", "Kaijurai home", "Genesis", "toxic", "Kaiju Lair"],
 	["void_2", "Void 2", "K11", 10, 10, "Void", "void", "Void 2 I", "dead", "Void 2 Beacon"],
+	["nexus_prime", "Nexus Prime", "E1", 4, 0, "Enemy", "Nexus home", "Nexus Core", "machine", "Nexus Spire"],   # v12.78 (owner)
+	["the_unseen", "The Unseen", "B3", 1, 2, "Enemy", "Unknown home", "Nameless World", "dead", "Silent Monolith"],   # v12.78 (owner)
+	["exiles_rest", "Exile's Rest", "J3", 9, 2, "Enemy", "Exile home", "Outcast Rock", "desert", "Exile Hold"],   # v12.78 (owner)
+	["celestia", "Celestia", "K6", 10, 5, "Enemy", "Celeste home", "Celestia", "crystal", "Halo Sanctum"],   # v12.78 (owner)
+	["zardos", "Zardos", "D7", 3, 6, "Enemy", "Zard home", "Zardos", "lava", "Scale Fortress"],   # v12.78 (owner)
+	["voidmaw", "Voidmaw", "H7", 7, 6, "Enemy", "Voidborn home", "Hollow Star", "dead", "Void Cathedral"],   # v12.78 (owner)
+	["netherhold", "Netherhold", "C10", 2, 9, "Enemy", "Nether home", "Netherhold", "toxic", "Nether Gate Keep"],   # v12.78 (owner)
+	["yezeroth", "Yezeroth", "F11", 5, 10, "Enemy", "Yezer home", "Yezeroth", "ice", "Yezer Citadel"],   # v12.78 (owner)
 ]
 
 # kind (jump | warp | rift), system a, system b.  Every gate works both ways.
@@ -173,6 +181,22 @@ const GATES := [
 	["warp", "shroud", "shadow"],
 	["rift", "rimgate", "nullpoint"],
 	["rift", "velanthos", "ravage_major"],
+	["warp", "nexus_prime", "keldrix"],
+	["rift", "nexus_prime", "velanthos"],
+	["warp", "the_unseen", "farreach_outpost"],
+	["rift", "the_unseen", "void_6"],
+	["warp", "exiles_rest", "perimeter"],
+	["rift", "exiles_rest", "nexarion"],
+	["warp", "celestia", "nullpoint"],
+	["rift", "celestia", "shadenvex"],
+	["warp", "zardos", "ogden"],
+	["rift", "zardos", "republic_major"],
+	["warp", "voidmaw", "foggiest"],
+	["rift", "voidmaw", "sepheron"],
+	["warp", "netherhold", "voidtex"],
+	["rift", "netherhold", "derelicta"],
+	["warp", "yezeroth", "vortegan"],
+	["rift", "yezeroth", "ironvast"],
 ]
 
 # The rest of each system from the catalog (PROPOSED): system, kind (planet | station), name, planet type.

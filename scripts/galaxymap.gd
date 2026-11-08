@@ -266,7 +266,8 @@ static func planet_color(d: Dictionary) -> Color:
 ## v12.64 (owner: "space stations as a sigil, all the factions"): each faction's mark, in its two colours, with a
 ## white rim. A stand-in until the factions' own emblems are drawn: each side has its own shape and its initial.
 const SIGIL_SHAPE := {"Unity": "compass", "Elyza": "diamond", "Solarion": "sun", "Imperium": "crown", "Covenant": "hex", "Orion": "star",
-	"Savagers": "spike", "Liberator": "shield", "Kaijurai": "claw", "Cybermorph": "chip", "Enemy": "spike", "Phenom": "hex", "Arctides": "diamond", "Gadversee": "claw", "Solrath": "crown"}
+	"Savagers": "spike", "Liberator": "shield", "Kaijurai": "claw", "Cybermorph": "chip", "Enemy": "spike", "Phenom": "hex", "Arctides": "diamond", "Gadversee": "claw", "Solrath": "crown",
+	"Nexus": "chip", "Unknown": "diamond", "Exile": "spike", "Celeste": "sun", "Zard": "claw", "Voidborn": "hex", "Nether": "crown", "Yezer": "star"}
 func sigil(p: Vector2, fac: String, r: float) -> void:
 	var fd: Dictionary = Factions.def(fac)
 	var c1: Color = fd.get("primary_color", (SystemBuilder.FACTIONS.get(fac, SystemBuilder.FACTIONS["Neutral"]) as Array)[3])

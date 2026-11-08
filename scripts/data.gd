@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.77"
+const VERSION := "v12.78"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -862,7 +862,8 @@ const MECH_DIG_BOUNCE := 14.0        # m/s the stone / obsidian shoves the mech 
 const PLACEHOLDER_SHIP_LEN := 11.0
 const PLACEHOLDER_SHIPS := {"Savagers": "ph_savagers", "Liberator": "ph_liberator", "Unity": "ph_unity", "Imperium": "ph_imperium",
 	"Elyza": "ph_elyza", "Covenant": "ph_covenant", "Solarion": "ph_solarion", "Orion": "ph_orion", "Cybermorph": "ph_cybermorph",
-	"Solrath": "ph_solrath", "Gadversee": "ph_gadversee", "Arctides": "ph_arctides", "Phenom": "ph_phenom", "Kaijurai": "ph_kaijurai"}
+	"Solrath": "ph_solrath", "Gadversee": "ph_gadversee", "Arctides": "ph_arctides", "Phenom": "ph_phenom", "Kaijurai": "ph_kaijurai",
+	"Nexus": "ph_nexus", "Unknown": "ph_unknown", "Exile": "ph_exile", "Celeste": "ph_celeste", "Zard": "ph_zard", "Voidborn": "ph_voidborn", "Nether": "ph_nether", "Yezer": "ph_yezer"}
 const ELYZA_FIGHTER_LEN := 12.0
 const SHIP_WINGS := {"elyza_fighter": 1.2}            # model key -> how far the wings fold in (model units; 0 = open). v10: the remodel is in metres (12 m)
 const SHIP_SPECIAL_MOVE := {"elyza_fighter": "wings_out"}   # model key -> its own special move ("roll" when not listed)
@@ -1128,6 +1129,14 @@ const SHIP_FLOW := {
 # which ships fly the patrols of an enemy home system (by the map's role text). The patrol's ships are taken from this
 # list in turn. Systems not listed keep sys["enemy"].
 const HOME_FLEETS := {
+	"Nexus home": ["ph_nexus", "ph_nexus", "ph_nexus_heavy"],   # v12.78: stand-ins until its own ships
+	"Unknown home": ["ph_unknown", "ph_unknown", "ph_unknown_heavy"],   # v12.78: stand-ins until its own ships
+	"Exile home": ["ph_exile", "ph_exile", "ph_exile_heavy"],   # v12.78: stand-ins until its own ships
+	"Celeste home": ["ph_celeste", "ph_celeste", "ph_celeste_heavy"],   # v12.78: stand-ins until its own ships
+	"Zard home": ["ph_zard", "ph_zard", "ph_zard_heavy"],   # v12.78: stand-ins until its own ships
+	"Voidborn home": ["ph_voidborn", "ph_voidborn", "ph_voidborn_heavy"],   # v12.78: stand-ins until its own ships
+	"Nether home": ["ph_nether", "ph_nether", "ph_nether_heavy"],   # v12.78: stand-ins until its own ships
+	"Yezer home": ["ph_yezer", "ph_yezer", "ph_yezer_heavy"],   # v12.78: stand-ins until its own ships
 	"Kaijurai home": ["kaijurai_dart", "kaijurai_fang", "kaijurai_heavy", "kaijurai_stalker", "kaijurai_gunship", "kaijurai_reaper", "kaijurai_hound", "kaijurai_ravager"],
 	"Gadversee home": ENEMY_SPACE_FLEET,   # v6.2: no ships of their own yet: Kaijurai stand in (owner)
 	"Arctides home": ENEMY_SPACE_FLEET,
@@ -1138,7 +1147,7 @@ const HOME_FLEETS := {
 # ---------------------------------------------------------------- Job AD (v1.4z): the six enemy casts
 # whose people fly the patrols of an enemy home system (by the map's role text). Only factions with a roster AND
 # ships in the game are listed; the ship lists above stay as the fallback when no one from the roster can fly.
-const HOME_FACTION := {"Kaijurai home": "Kaijurai", "Phenom home": "Phenom", "Cybermorph home": "Cybermorph", "Solrath home": "Solrath"}   # v1.5c: + Cybernet, Void System
+const HOME_FACTION := {"Kaijurai home": "Kaijurai", "Phenom home": "Phenom", "Cybermorph home": "Cybermorph", "Solrath home": "Solrath", "Nexus home": "Nexus", "Unknown home": "Unknown", "Exile home": "Exile", "Celeste home": "Celeste", "Zard home": "Zard", "Voidborn home": "Voidborn", "Nether home": "Nether", "Yezer home": "Yezer"}   # v12.78 (owner): + 8 enemy factions   # v1.5c: + Cybernet, Void System
 # ---------------------------------------------------------------- Job AB (v1.4x): one warp effect, three looks
 # gate kind -> look.  tunnel = jump gate (energy tube), cloud = warp gate (gas anomaly), rift = rift gate (a tear in space)
 const WARP_SKINS := {"jump": "tunnel", "warp": "cloud", "rift": "rift"}
@@ -2480,6 +2489,22 @@ const ENEMIES := {
 	"ph_orion": {"name": "Orion Fighter", "class": "fighter", "faction": "Orion", "model": "placeholder_orion", "hull": 75.0, "shield": 45.0, "speed": 48.0, "turn": 1.45, "damage": 6.0, "rate": 1.7, "reward": 210, "missiles": true, "placeholder": true},
 	"ph_cybermorph": {"name": "Cybermorph Fighter", "class": "fighter", "faction": "Cybermorph", "model": "placeholder_cybermorph", "hull": 75.0, "shield": 45.0, "speed": 48.0, "turn": 1.45, "damage": 6.0, "rate": 1.7, "reward": 210, "missiles": true, "placeholder": true},
 	"ph_solrath": {"name": "Solrath Fighter", "class": "fighter", "faction": "Solrath", "model": "placeholder_solrath", "hull": 75.0, "shield": 45.0, "speed": 48.0, "turn": 1.45, "damage": 6.0, "rate": 1.7, "reward": 210, "missiles": true, "placeholder": true},
+	"ph_nexus": {"name": "Nexus Fighter", "class": "fighter", "faction": "Nexus", "model": "placeholder_cybermorph", "hull": 80.0, "shield": 50.0, "speed": 49.0, "turn": 1.45, "damage": 7.0, "rate": 1.7, "reward": 230, "missiles": true, "placeholder": true},   # v12.78
+	"ph_nexus_heavy": {"name": "Nexus Heavy", "class": "heavy fighter", "faction": "Nexus", "model": "placeholder_cybermorph", "scale": 1.5, "radius": 10.0, "hull": 220.0, "shield": 120.0, "speed": 42.0, "turn": 1.1, "damage": 10.0, "rate": 1.5, "reward": 520, "missiles": true, "placeholder": true},
+	"ph_unknown": {"name": "Unknown Fighter", "class": "fighter", "faction": "Unknown", "model": "placeholder_phenom", "hull": 80.0, "shield": 50.0, "speed": 49.0, "turn": 1.45, "damage": 7.0, "rate": 1.7, "reward": 230, "missiles": true, "placeholder": true},   # v12.78
+	"ph_unknown_heavy": {"name": "Unknown Heavy", "class": "heavy fighter", "faction": "Unknown", "model": "placeholder_phenom", "scale": 1.5, "radius": 10.0, "hull": 220.0, "shield": 120.0, "speed": 42.0, "turn": 1.1, "damage": 10.0, "rate": 1.5, "reward": 520, "missiles": true, "placeholder": true},
+	"ph_exile": {"name": "Exile Fighter", "class": "fighter", "faction": "Exile", "model": "placeholder_savagers", "hull": 80.0, "shield": 50.0, "speed": 49.0, "turn": 1.45, "damage": 7.0, "rate": 1.7, "reward": 230, "missiles": true, "placeholder": true},   # v12.78
+	"ph_exile_heavy": {"name": "Exile Heavy", "class": "heavy fighter", "faction": "Exile", "model": "placeholder_savagers", "scale": 1.5, "radius": 10.0, "hull": 220.0, "shield": 120.0, "speed": 42.0, "turn": 1.1, "damage": 10.0, "rate": 1.5, "reward": 520, "missiles": true, "placeholder": true},
+	"ph_celeste": {"name": "Celeste Fighter", "class": "fighter", "faction": "Celeste", "model": "placeholder_elyza", "hull": 80.0, "shield": 50.0, "speed": 49.0, "turn": 1.45, "damage": 7.0, "rate": 1.7, "reward": 230, "missiles": true, "placeholder": true},   # v12.78
+	"ph_celeste_heavy": {"name": "Celeste Heavy", "class": "heavy fighter", "faction": "Celeste", "model": "placeholder_elyza", "scale": 1.5, "radius": 10.0, "hull": 220.0, "shield": 120.0, "speed": 42.0, "turn": 1.1, "damage": 10.0, "rate": 1.5, "reward": 520, "missiles": true, "placeholder": true},
+	"ph_zard": {"name": "Zard Fighter", "class": "fighter", "faction": "Zard", "model": "placeholder_kaijurai", "hull": 80.0, "shield": 50.0, "speed": 49.0, "turn": 1.45, "damage": 7.0, "rate": 1.7, "reward": 230, "missiles": true, "placeholder": true},   # v12.78
+	"ph_zard_heavy": {"name": "Zard Heavy", "class": "heavy fighter", "faction": "Zard", "model": "placeholder_kaijurai", "scale": 1.5, "radius": 10.0, "hull": 220.0, "shield": 120.0, "speed": 42.0, "turn": 1.1, "damage": 10.0, "rate": 1.5, "reward": 520, "missiles": true, "placeholder": true},
+	"ph_voidborn": {"name": "Voidborn Fighter", "class": "fighter", "faction": "Voidborn", "model": "placeholder_solrath", "hull": 80.0, "shield": 50.0, "speed": 49.0, "turn": 1.45, "damage": 7.0, "rate": 1.7, "reward": 230, "missiles": true, "placeholder": true},   # v12.78
+	"ph_voidborn_heavy": {"name": "Voidborn Heavy", "class": "heavy fighter", "faction": "Voidborn", "model": "placeholder_solrath", "scale": 1.5, "radius": 10.0, "hull": 220.0, "shield": 120.0, "speed": 42.0, "turn": 1.1, "damage": 10.0, "rate": 1.5, "reward": 520, "missiles": true, "placeholder": true},
+	"ph_nether": {"name": "Nether Fighter", "class": "fighter", "faction": "Nether", "model": "placeholder_gadversee", "hull": 80.0, "shield": 50.0, "speed": 49.0, "turn": 1.45, "damage": 7.0, "rate": 1.7, "reward": 230, "missiles": true, "placeholder": true},   # v12.78
+	"ph_nether_heavy": {"name": "Nether Heavy", "class": "heavy fighter", "faction": "Nether", "model": "placeholder_gadversee", "scale": 1.5, "radius": 10.0, "hull": 220.0, "shield": 120.0, "speed": 42.0, "turn": 1.1, "damage": 10.0, "rate": 1.5, "reward": 520, "missiles": true, "placeholder": true},
+	"ph_yezer": {"name": "Yezer Fighter", "class": "fighter", "faction": "Yezer", "model": "placeholder_arctides", "hull": 80.0, "shield": 50.0, "speed": 49.0, "turn": 1.45, "damage": 7.0, "rate": 1.7, "reward": 230, "missiles": true, "placeholder": true},   # v12.78
+	"ph_yezer_heavy": {"name": "Yezer Heavy", "class": "heavy fighter", "faction": "Yezer", "model": "placeholder_arctides", "scale": 1.5, "radius": 10.0, "hull": 220.0, "shield": 120.0, "speed": 42.0, "turn": 1.1, "damage": 10.0, "rate": 1.5, "reward": 520, "missiles": true, "placeholder": true},
 	"ph_gadversee": {"name": "Gadversee Fighter", "class": "fighter", "faction": "Gadversee", "model": "placeholder_gadversee", "hull": 75.0, "shield": 45.0, "speed": 48.0, "turn": 1.45, "damage": 6.0, "rate": 1.7, "reward": 210, "missiles": true, "placeholder": true},
 	"ph_arctides": {"name": "Arctides Fighter", "class": "fighter", "faction": "Arctides", "model": "placeholder_arctides", "hull": 75.0, "shield": 45.0, "speed": 48.0, "turn": 1.45, "damage": 6.0, "rate": 1.7, "reward": 210, "missiles": true, "placeholder": true},
 	"ph_phenom": {"name": "Phenom Fighter", "class": "fighter", "faction": "Phenom", "model": "placeholder_phenom", "hull": 75.0, "shield": 45.0, "speed": 48.0, "turn": 1.45, "damage": 6.0, "rate": 1.7, "reward": 210, "missiles": true, "placeholder": true},

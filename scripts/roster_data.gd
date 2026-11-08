@@ -9,7 +9,8 @@ extends RefCounted
 ## fighter model in the game yet, so its people are known (faces, FACTION page) but do not fly.
 
 const TITLES := {"Covenant": "The Sacred Reach", "Imperium": "The Iron Dominion", "Solarion": "Children of the Sun", "Unity": "The Human Alliance", "Elyza": "The Crystal Frontier", "Orion": "The Pathfinder Nations", "Liberator": "The Free Systems",
-	"Phenom": "The Ascendant Houses", "Kaijurai": "Keepers of the Behemoths", "Cybermorph": "The Machine Ascendancy", "Solrath": "The Void Dominion", "Gadversee": "The Sporemother Dominion", "Arctides": "The Frozen Houses"}
+	"Phenom": "The Ascendant Houses", "Kaijurai": "Keepers of the Behemoths", "Cybermorph": "The Machine Ascendancy", "Solrath": "The Void Dominion", "Gadversee": "The Sporemother Dominion", "Arctides": "The Frozen Houses",
+	"Nexus": "The Nexus Collective", "Unknown": "The Unknown", "Exile": "The Exiled Fleet", "Celeste": "The Celestine Choir", "Zard": "The Zard Brood-Lords", "Voidborn": "The Voidborn", "Nether": "The Nether Court", "Yezer": "The Yezer Dominion"}
 
 const ROSTERS := {
 	"Covenant": {"leader": "Archon Selen", "title": "The Sacred Reach", "pilots": [
