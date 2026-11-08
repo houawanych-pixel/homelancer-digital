@@ -1,0 +1,28 @@
+{
+ "id": "HL_WPN_DarkGunSet_05",
+ "name": "Dark Gun Set Short Gun 5",
+ "short": "ShortGun 5",
+ "type": "ShortGun",
+ "class": "Light",
+ "game_class": "blaster",
+ "users": [
+  "Mech",
+  "Ship",
+  "Pilot"
+ ],
+ "mounts": [
+  "L_Arm",
+  "R_Arm",
+  "Nose",
+  "Wing_L",
+  "Wing_R",
+  "Ventral"
+ ],
+ "damage": 11,
+ "rate": 4.5,
+ "ammo": -1,
+ "heat": 5,
+ "weight": 6,
+ "energy": 12,
+ "icon": "bolt"
+}

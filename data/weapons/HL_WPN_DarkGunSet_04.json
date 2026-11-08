@@ -1,0 +1,26 @@
+{
+ "id": "HL_WPN_DarkGunSet_04",
+ "name": "Dark Gun Set Long Gun 4",
+ "short": "LongGun 4",
+ "type": "LongGun",
+ "class": "Heavy",
+ "game_class": "rail",
+ "users": [
+  "Mech",
+  "Ship",
+  "Pilot"
+ ],
+ "mounts": [
+  "L_Shoulder",
+  "R_Shoulder",
+  "Dorsal",
+  "Ventral"
+ ],
+ "damage": 42,
+ "rate": 1.4,
+ "ammo": 80,
+ "heat": 14,
+ "weight": 12,
+ "energy": 24,
+ "icon": "rail"
+}

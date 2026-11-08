@@ -106,6 +106,10 @@ static func _tripo_weapon(id: String) -> Dictionary:
 	if not allowed.is_empty(): out["mounts"] = (out["mounts"] as Array).filter(func(m): return USER_NAME.get(str(m).get_slice(":", 0), "") in allowed)
 	out["wclass"] = str(d.get("class", weight_class(float(out["weight"]))))
 	out["users"] = users_of(out)
+	if "Pilot" in allowed and not ("pilot" in (out["users"] as Array)):   # (the owner: these go in the pilot's hands too, whatever their size)
+		(out["users"] as Array).append("pilot")
+		(out["mounts"] as Array).append("pilot:R_Hand")
+	out["hand_any"] = "Pilot" in allowed
 	return out
 
 ## v12.68: every weapon id there is (the game's guns and pods, then the Tripo imports)
@@ -221,9 +225,11 @@ static func fit_error(lo: Dictionary, set_i: int, mount: String, wid: String) ->
 	var w := weapon(wid)
 	if w.is_empty(): return "Unknown weapon."
 	if not (fr in (w.get("users", []) as Array)): return "%s isn't made for a %s." % [w["short"], USER_NAME.get(fr, fr)]
-	if not (str(w["class"]) in (md["classes"] as Array)): return "%s (%s) doesn't fit the %s: it takes %s." % [w["short"], w["class"], md["label"], ", ".join(md["classes"])]
-	if float(w["weight"]) > float(md["max_w"]): return "%s weighs %.0f: the %s takes %.0f at most." % [w["short"], w["weight"], md["label"], md["max_w"]]
-	if float(w["energy"]) > float(md["e_cap"]): return "%s draws %.0f energy: the %s gives %.0f at most." % [w["short"], w["energy"], md["label"], md["e_cap"]]
+	var by_hand: bool = fr == "pilot" and bool(w.get("hand_any", false))   # (a Tripo gun made for the pilot's hands too)
+	if not by_hand and not (str(w["class"]) in (md["classes"] as Array)): return "%s (%s) doesn't fit the %s: it takes %s." % [w["short"], w["class"], md["label"], ", ".join(md["classes"])]
+	if by_hand: pass
+	elif float(w["weight"]) > float(md["max_w"]): return "%s weighs %.0f: the %s takes %.0f at most." % [w["short"], w["weight"], md["label"], md["max_w"]]
+	if not by_hand and float(w["energy"]) > float(md["e_cap"]): return "%s draws %.0f energy: the %s gives %.0f at most." % [w["short"], w["energy"], md["label"], md["e_cap"]]
 	var test := lo.duplicate(true)
 	(test["sets"][set_i] as Dictionary)[mount] = wid
 	var t := totals(test)
@@ -284,6 +290,7 @@ static func fit_error_mount_only(fr: String, mount: String, wid: String) -> Stri
 	var md: Dictionary = MOUNTS[fr].get(mount, {})
 	var w := weapon(wid)
 	if md.is_empty() or w.is_empty(): return "Bad fit."
+	if fr == "pilot" and bool(w.get("hand_any", false)): return ""
 	if not (str(w["class"]) in (md["classes"] as Array)) or float(w["weight"]) > float(md["max_w"]) or float(w["energy"]) > float(md["e_cap"]): return "%s doesn't fit the %s." % [w["short"], md["label"]]
 	return ""
 

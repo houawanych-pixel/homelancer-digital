@@ -4967,8 +4967,8 @@ func _loadout_page() -> void:
 	rsc.add_child(right)
 	var owned: Array = GS.owned_weapons.duplicate()
 	if GS.god_mode: owned = Loadout.all_weapons()
-	for k in AssetRegistry.ITEMS:   # (a Tripo import you own shows with the rest)
-		if str(AssetRegistry.ITEMS[k].get("kind", "")) == "weapon" and k in GS.owned_weapons and not (k in owned): owned.append(k)
+	for k in AssetRegistry.ITEMS:   # v12.70 (owner: "add the weapons to the garage"): every Tripo weapon is on the bench
+		if str(AssetRegistry.ITEMS[k].get("kind", "")) == "weapon" and not (k in owned): owned.append(k)
 	for wid2 in owned:
 		var w := Loadout.weapon(str(wid2))
 		if w.is_empty() or not (lo_frame in (w["users"] as Array)): continue

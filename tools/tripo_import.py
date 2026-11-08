@@ -56,37 +56,87 @@ MOUNTS = {"Light": ["L_Arm", "R_Arm", "Nose", "Wing_L", "Wing_R", "Ventral"],
 def guess(fname, forced):
     b = os.path.splitext(os.path.basename(fname))[0]
     kind = forced if forced != "auto" else ("ship" if re.search(r"ship|_L3_", b, re.I) else "prop" if re.search(r"prop|crate|wall|door|ammo.?case", b, re.I) else "wpn")
+    b = re.sub(r"_?Sheet_?", "_", b).strip("_")   # (HL_WPN_Sheet_GrayModules -> GrayModules; WhiteFighter_Sheet -> WhiteFighter)
     m = re.match(r"HL_(?:Weapon|WPN)_(?:\d+_)?([A-Za-z]+)", b) or re.match(r"HL_(?:SHIP_L3|PROP)_([A-Za-z]+)", b)
     name = m.group(1) if m else re.sub(r"[^A-Za-z]", "", b.split("_")[-1] or b)[:24] or "Item"
     return kind, name
 
 def items_of(path):
-    """the sheet's items: connected pieces, grouped when their boxes touch or nearly touch"""
+    """the sheet's items: connected pieces (by shared faces), joined when their surfaces touch. Works on face index
+    lists (no copy of the texture per piece), then cuts one mesh per item."""
     sc = trimesh.load(path, force="scene")
     mesh = sc.to_geometry() if hasattr(sc, "to_geometry") else sc.dump(concatenate=True)
-    parts = mesh.split(only_watertight=False)
-    if len(parts) == 0: return []
+    mesh.merge_vertices(merge_tex=True, merge_norm=True)
+    comps = trimesh.graph.connected_components(mesh.face_adjacency, nodes=np.arange(len(mesh.faces)), min_len=1)
+    n = len(comps)
+    if n == 0: return []
     diag = float(np.linalg.norm(mesh.bounds[1] - mesh.bounds[0]))
-    gap = diag * 0.02
-    n = len(parts)
     par = list(range(n))
     def f(i):
         while par[i] != i:
             par[i] = par[par[i]]; i = par[i]
         return i
-    bx = [p.bounds for p in parts]
-    for i in range(n):
-        for j in range(i + 1, n):
-            a, b = bx[i], bx[j]
-            if np.all(a[0] - gap <= b[1]) and np.all(b[0] - gap <= a[1]):
-                par[f(i)] = f(j)
+    # pieces of one item touch (their surfaces within `gap`); pieces of two items only sit near each other. Box overlap
+    # is not enough on a crowded sheet, so: points sampled on every piece, pairs closer than `gap` join their pieces.
+    gap = diag * float(os.environ.get("HL_SPLIT_GAP", "0.004"))
+    from scipy.spatial import cKDTree
+    pts, lab = [], []
+    for i, fc in enumerate(comps):
+        v = np.unique(mesh.faces[fc].ravel())
+        if len(v) > 600: v = v[np.random.default_rng(i).choice(len(v), 600, replace=False)]
+        pts.append(mesh.vertices[v]); lab.append(np.full(len(v), i))
+    pts = np.concatenate(pts); lab = np.concatenate(lab)
+    for a, b in cKDTree(pts).query_pairs(gap, output_type="ndarray"):
+        if lab[a] != lab[b]: par[f(int(lab[a]))] = f(int(lab[b]))
     groups = {}
-    for i in range(n): groups.setdefault(f(i), []).append(parts[i])
-    meshes = [trimesh.util.concatenate(g) for g in groups.values()]
-    total = sum(len(m.vertices) for m in meshes)
-    big = [m for m in meshes if len(m.vertices) >= total * 0.01] or meshes
-    big.sort(key=lambda m: (round(float(m.bounds[0][1]) / max(diag * 0.25, 1e-6)) * -1, float(m.bounds[0][0])))   # rows top-down, left-right
-    return big
+    for i in range(n): groups.setdefault(f(i), []).append(comps[i])
+    faces = [np.concatenate(g) for g in groups.values()]
+    total = sum(len(x) for x in faces)
+    faces = [x for x in faces if len(x) >= total * 0.01] or faces
+    meshes = [mesh.submesh([x], append=True) for x in faces]
+    top = max(float(max(m.extents)) for m in meshes)
+    keep = [m for m in meshes if float(max(m.extents)) >= top * float(os.environ.get("HL_MIN_SIZE", "0.3"))]   # (bits and magazines left out)
+    if os.environ.get("HL_ELONGATED"):   # ships: only the long ones (a ship drawn nose-on comes out a flat disc)
+        keep = [m for m in keep if sorted(m.extents)[-1] >= sorted(m.extents)[-2] * float(os.environ["HL_ELONGATED"])]
+    meshes = keep or meshes
+    meshes.sort(key=lambda m: (round(float(m.bounds[0][2]) / max(diag * 0.2, 1e-6)), float(m.bounds[0][0])))   # rows back to front, then left to right (the sheet lies flat)
+    return meshes
+
+def light_tex(m, size=1024):
+    """the game copy: only the colour map, at most `size` px, as JPEG (phones)"""
+    import io
+    from PIL import Image
+    mat = getattr(m.visual, "material", None)
+    if mat is None: return
+    img = getattr(mat, "baseColorTexture", None)
+    if img is not None:
+        im = img.convert("RGB")
+        if max(im.size) > size: im = im.resize((size, size), Image.LANCZOS)
+        b = io.BytesIO(); im.save(b, "JPEG", quality=85); b.seek(0)
+        mat.baseColorTexture = Image.open(b)
+    for k in ("normalTexture", "metallicRoughnessTexture", "occlusionTexture", "emissiveTexture"):
+        if hasattr(mat, k): setattr(mat, k, None)
+
+def classify(m, top):
+    """a weapon type from its shape (after lay_weapon: length on Z) and its size next to the sheet's biggest item `top`:
+    long and slim = LongGun (rail), slim = Rifle, small = ShortGun, fat = RocketPod, else Cannon. All of these fit a
+    ship's wing / belly, a mech and (with --all-users) the pilot's hands."""
+    L = float(m.extents[2]); w = float(max(m.extents[0], m.extents[1])); r = L / max(w, 1e-6); k = L / max(top, 1e-6)
+    if r >= 2.8: return "LongGun" if k >= 0.75 else "Rifle"
+    if k < 0.45: return "ShortGun"
+    if r < 1.6: return "RocketPod"
+    return "Cannon"
+
+def lay_ship(m):
+    """a ship's longest flat side along Z, nose (the thinner end) to -Z, sitting centred; returns its yaw note"""
+    ext = m.extents
+    ax = int(np.argmax(ext))
+    if ax == 0: m.apply_transform(trimesh.transformations.rotation_matrix(np.pi / 2, [0, 1, 0]))      # a side view: length on X
+    elif ax == 1: m.apply_transform(trimesh.transformations.rotation_matrix(-np.pi / 2, [1, 0, 0]))  # a top view stood up on the sheet: lay it flat, its top up
+    m.apply_translation(-m.bounds.mean(axis=0))
+    v = m.vertices; zs = v[:, 2]; lo, hi = zs.min(), zs.max()
+    def width(sel): return float(np.ptp(v[sel][:, 0])) if np.any(sel) else 0.0
+    if width(zs < lo + (hi - lo) * 0.25) > width(zs > hi - (hi - lo) * 0.25): m.apply_transform(trimesh.transformations.rotation_matrix(np.pi, [0, 1, 0]))
 
 def lay_weapon(m):
     """the weapon's longest side along -Z, its pivot at the middle of its box; returns the grip (MountSocket)"""
@@ -150,6 +200,7 @@ def main():
             os.makedirs(os.path.join(ROOT, ORIG), exist_ok=True)
             shutil.copy2(path, os.path.join(ROOT, ORIG, f))
         prefix = {"wpn": "HL_WPN", "ship": "HL_SHIP_L3", "prop": "HL_PROP"}[kind]
+        top_len = max(float(max(x.extents)) for x in items) if items else 1.0
         for k, m in enumerate(items):
             nid = "%s_%s_%02d" % (prefix, name, k + 1)
             rec = {"id": nid, "kind": KIND[kind], "type": name, "path": "res://%s/%s.glb" % (OUT[kind], nid), "source": f}
@@ -158,24 +209,35 @@ def main():
                 L = float(max(m.extents))
                 rec["socket"] = [round(x / L, 4) for x in sock]   # (as a share of the gun's length: the game sizes it per user)
                 rec["len"] = 3.0
-                t = WTYPES.get(name, WTYPES["Rifle"])
-                data = {"id": nid, "name": "%s %s" % (re.sub(r"(?<!^)(?=[A-Z])", " ", name), k + 1), "short": name[:10], "class": t["class"],
+                wt = name if name in WTYPES else classify(m, top_len)
+                t = dict(WTYPES[wt])
+                if "--all-users" in sys.argv: t["users"] = ["Mech", "Ship", "Pilot"]   # (the owner: every one on mechs, ships and in the pilot's hands)
+                data = {"id": nid, "name": "%s %s %d" % (re.sub(r"(?<!^)(?=[A-Z])", " ", name), re.sub(r"(?<!^)(?=[A-Z])", " ", wt), k + 1), "short": ("%s %d" % (wt, k + 1))[:12], "type": wt, "class": t["class"],
                         "game_class": t["game_class"], "users": t["users"], "mounts": MOUNTS[t["class"]], "damage": t["damage"], "rate": t["rate"],
                         "ammo": t["ammo"], "heat": t["heat"], "weight": t["weight"], "energy": t["energy"], "icon": ICON[t["game_class"]]}
                 rec["data"] = data
+            elif kind == "ship":
+                lay_ship(m)
+                rec["size"] = [round(float(x), 3) for x in m.extents]
+                rec["len"] = float(max(m.extents))
             else:
                 m.apply_translation(-m.bounds.mean(axis=0))
                 m.apply_translation([0, float(m.extents[1]) * 0.5, 0])   # (props stand on the floor)
                 rec["size"] = [round(float(x), 3) for x in m.extents]
-                rec["len"] = 16.0 if kind == "ship" else round(float(max(m.extents)), 3)
+                rec["len"] = round(float(max(m.extents)), 3)
             if not dry:
                 os.makedirs(os.path.join(ROOT, OUT[kind]), exist_ok=True)
+                light_tex(m)
                 m.export(os.path.join(ROOT, OUT[kind], nid + ".glb"))
                 if kind == "wpn":
                     os.makedirs(os.path.join(ROOT, WDATA), exist_ok=True)
                     json.dump(rec["data"], open(os.path.join(ROOT, WDATA, nid + ".json"), "w"), indent=1)
             reg["items"][nid] = rec
             made.append(nid)
+        if kind == "ship" and items:   # the sheet's ships keep their sizes to each other: the biggest 46 m, none under 16 m
+            ids = made[-len(items):]
+            big = max(float(reg["items"][i]["len"]) for i in ids)
+            for i in ids: reg["items"][i]["len"] = round(16.0 + 30.0 * float(reg["items"][i]["len"]) / max(big, 1e-6), 1)
             for ph, typ in PLACEHOLDERS.items():   # the first of a type replaces its placeholder
                 if kind == "wpn" and typ == name and k == 0: reg["models"][ph] = nid
     if not dry:

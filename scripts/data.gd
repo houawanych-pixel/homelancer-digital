@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.69"
+const VERSION := "v12.70"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1112,7 +1112,8 @@ const ZONE_L3 := {
 	"drones": [["l3_sentinel", 0.05]],
 	"derelict": [["l3_relic", 0.12]],
 	"brood": []}
-const L3_UNITS := ["l3_tamer", "l3_corsair_king", "l3_sentinel", "l3_relic"]
+const L3_UNITS := ["l3_tamer", "l3_corsair_king", "l3_sentinel", "l3_relic", "l3_tripo"]
+const L3_TRIPO_CHANCE := 0.06   # v12.70: each of the owner's other Tripo L3 ships (from the sheets), per visit to its zone
 const BOARD_BEASTS := {"Kaijurai": [["kaijurai_fang", "kaijurai_stalker"], ["kaijurai_hound", "kaijurai_reaper"]]}   # v12.5 (owner): who guards a boarded ship on foot instead of mechs: [guards, alpha]
 const BEAST_LEN := 34.0        # m: a brood beast on a boarded deck (a mech stands about 14 m)
 const BEAST_BOSS_LEN := 60.0   # m: the alpha that guards the reactor / bridge
@@ -2449,6 +2450,7 @@ const ENEMIES := {
 	"derelict_sentry": {"name": "Derelict Sentry", "class": "drone", "model": "rogue_drone", "scale": 1.4, "radius": 7.0, "hull": 140.0, "shield": 60.0, "speed": 30.0, "turn": 1.0, "damage": 6.0, "rate": 2.0, "reward": 260, "zone": "derelict"},
 	"derelict_hulk": {"name": "Derelict Hulk", "class": "derelict", "model": "fleet2", "radius": 24.0, "hull": 600.0, "shield": 0.0, "speed": 0.0, "turn": 0.0, "damage": 0.0, "rate": 999.0, "reward": 300, "passive": true, "zone": "derelict"},
 	# v12.68: the Level 3 ships (model keys l3_*: the Tripo HL_SHIP_L3 models when they are in, a stand-in until then)
+	"l3_tripo": {"name": "Level 3 Ship", "class": "level 3", "model": "", "level": 5, "radius": 16.0, "hull": 950.0, "shield": 550.0, "speed": 55.0, "turn": 1.4, "damage": 12.0, "rate": 1.25, "reward": 4200, "missiles": true, "l3": true},   # v12.70: the body of any Tripo L3 ship from a sheet (its model comes with it)
 	"l3_tamer": {"name": "Leviathan Tamer (L3)", "class": "level 3", "model": "l3_tamer", "level": 5, "radius": 14.0, "hull": 900.0, "shield": 500.0, "speed": 56.0, "turn": 1.5, "damage": 12.0, "rate": 1.3, "reward": 4000, "l3": true, "zone": "wildlife"},
 	"l3_corsair_king": {"name": "Corsair King (L3)", "class": "level 3", "model": "l3_corsair_king", "level": 5, "radius": 24.0, "hit_r": 24.0, "hull": 1000.0, "shield": 550.0, "speed": 58.0, "turn": 1.5, "damage": 13.0, "rate": 1.2, "reward": 4500, "missiles": true, "l3": true, "zone": "pirates"},
 	"l3_sentinel": {"name": "Ancient Sentinel (L3)", "class": "level 3", "model": "l3_sentinel", "level": 5, "radius": 14.0, "hull": 1100.0, "shield": 700.0, "speed": 52.0, "turn": 1.4, "damage": 12.0, "rate": 1.2, "reward": 4500, "l3": true, "zone": "drones"},

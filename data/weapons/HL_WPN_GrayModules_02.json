@@ -1,0 +1,30 @@
+{
+ "id": "HL_WPN_GrayModules_02",
+ "name": "Gray Modules Rocket Pod 2",
+ "short": "RocketPod 2",
+ "type": "RocketPod",
+ "class": "Medium",
+ "game_class": "missile",
+ "users": [
+  "Mech",
+  "Ship",
+  "Pilot"
+ ],
+ "mounts": [
+  "L_Arm",
+  "R_Arm",
+  "L_Shoulder",
+  "R_Shoulder",
+  "Wing_L",
+  "Wing_R",
+  "Ventral",
+  "Dorsal"
+ ],
+ "damage": 30,
+ "rate": 1.4,
+ "ammo": 36,
+ "heat": 6,
+ "weight": 11,
+ "energy": 4,
+ "icon": "missile"
+}

@@ -2478,6 +2478,35 @@ func _run() -> void:
 		sm.queue_free()
 		_check("v12.68 (owner): users: a pilot takes a blaster (%s), not a heavy (%s); shared Mech+Pilot weapons (%s), scaled per user (%s); a mech arm takes it (%s); the ship's wing / belly guns hang upside down (%s) with the grip in the socket (%.3f m off)" % [ep1 == "", ep2.left(40), shared, bigger, em1 == "", hang_ok, sock_err],
 			ep1 == "" and ep2 != "" and shared and bigger and em1 == "" and hang_ok and sock_err < 0.05, "")
+		# 2b. (owner) every weapon from the two Tripo sheets: on a mech, hanging under a ship (grip in the hardpoint), in the pilot's hands
+		var tw_bad: Array = []
+		var tw_n := 0
+		for id in AssetRegistry.ITEMS:
+			if str(AssetRegistry.ITEMS[id].get("kind", "")) != "weapon": continue
+			tw_n += 1
+			var w2 := Loadout.weapon(str(id))
+			var ml2 := Loadout.default_loadout("mech")
+			var on_mech := false
+			for mm in ["R_Arm", "R_Shoulder"]: if Loadout.fit(ml2, 1, mm, str(id)) == "": on_mech = true
+			var sl2 := Loadout.default_loadout("ship")
+			var hang_m := ""
+			for mm in ["Wing_L", "Ventral"]: if hang_m == "" and Loadout.fit(sl2, 0, mm, str(id)) == "": hang_m = mm
+			var pl2 := Loadout.default_loadout("pilot")
+			var in_hand: bool = Loadout.fit(pl2, 0, "R_Hand", str(id)) == ""
+			var hang_ok2 := false
+			if hang_m != "":
+				var sm2 := ShipFactory.build(str(Data.SHIPS[GS.ship_id]["model"]), true)
+				s.add_child(sm2)
+				sm2.global_position = s.player.global_position + Vector3(0, 300, 0)
+				var dn2 := Loadout.dress(sm2, sl2)
+				var g2: Node3D = dn2.get(hang_m)
+				if g2 != null:
+					var upd: float = g2.global_basis.y.normalized().dot(sm2.global_basis.y.normalized())
+					var off: float = (g2.get_node("MountSocket") as Node3D).global_position.distance_to((g2.get_parent() as Node3D).global_position)
+					hang_ok2 = upd < -0.5 and off < 0.05 and not g2.get_meta("placeholder", true)
+				sm2.free()
+			if not (on_mech and hang_ok2 and in_hand and w2["users"].size() == 3): tw_bad.append("%s mech %s ship %s hand %s" % [id, on_mech, hang_ok2, in_hand])
+		_check("v12.70 (owner): every Tripo weapon (%d, from the two sheets) fits a mech, hangs grip-up under a ship and goes in the pilot's hands (bad: %s)" % [tw_n, str(tw_bad)], tw_n >= 10 and tw_bad.is_empty(), "")
 		# 3. destructibles: walls / doors / ammo cases chip off along their panels, the sword slices, a case goes up
 		var lf := StationLife.new()
 		s.add_child(lf)
@@ -2522,7 +2551,7 @@ func _run() -> void:
 		main._load_system(zsid, "station")
 		await _wait(2.0)
 		s = _sp()
-		var zl3: Array = s.zone_l3.map(func(e): return str(e["def"]["name"]))
+		var zl3: Array = s.zone_l3.map(func(e): return str(e.get("l3_name", e["def"]["name"])))
 		var zn: int = s.zone_units.size()
 		var zone_ok: bool = s.zone_kind == "pirates" and s.zone_units.size() >= 4 and s.zone_units.all(func(e): return not e.has("faction")) and s.nests.is_empty()
 		await _capture("tripo_zone")
@@ -2546,7 +2575,7 @@ func _run() -> void:
 		for e in s.enemies: if e.get("l3", false) or str(e["def"].get("class", "")) == "level 3": only_here = false
 		SpaceSystem.force_l3 = false
 		_check("v12.68 (owner): uncharted squares charted as zones %s, none of them a nation's (%s); a Pirate Haven fills with its own (%s, %d units) and its L3 ship %s; no L3 in general fleets (%s) or in a charted system (%s)" % [str(counts), faction_free, zone_ok, zn, str(zl3), not l3_general, only_here],
-			counts.size() >= 5 and faction_free and zone_ok and zl3.size() == 1 and not l3_general and only_here, "")
+			counts.size() >= 5 and faction_free and zone_ok and zl3.size() == 1 + SpaceSystem.zone_tripo_l3("pirates").size() and not l3_general and only_here, "")
 		# 4b. the owner's Tripo L3 ships play the L3 parts (nose -Z, sized), the rest keep stand-ins; his cross station is in
 		var l3_real: Array = []
 		var l3_fit := true
@@ -2560,6 +2589,14 @@ func _run() -> void:
 			l3_real.append("%s=%s %.0fm" % [k, str(AssetRegistry.MODELS.get(mk3, "?")), maxf(b3.size.x, b3.size.z)])
 			m3.free()
 		var st_ok: bool = ResourceLoader.exists("res://assets/structures/HL_STATION_CrossShaped_01.glb") and Data.SYSTEMS.values().any(func(sy): return str(sy.get("station", {}).get("model", "")) == "HL_STATION_CrossShaped_01")
+		var sheet_l3: Array = []   # v12.70: the DarkFleet sheet's ships, shared over the four zones, real models
+		for zz in ["wildlife", "pirates", "drones", "derelict"]:
+			for tid in SpaceSystem.zone_tripo_l3(zz):
+				var m4 := ShipFactory.build(tid)
+				if not m4.get_meta("placeholder", true): sheet_l3.append("%s:%s" % [zz, tid.trim_prefix("HL_SHIP_L3_")])
+				m4.free()
+		l3_real.append("sheet ships %s" % str(sheet_l3))
+		if sheet_l3.size() < 4: l3_fit = false
 		_check("v12.68 (owner's Tripo models): L3 ships in game: %s (sized %s); the cross station placed in Savagers space (%s)" % [", ".join(l3_real), l3_fit, st_ok], l3_real.size() >= 2 and l3_fit and st_ok, "")
 		# 5. the galaxy map shows the zones
 		main.galaxymap.open(GS.system_id)
@@ -2596,6 +2633,14 @@ func _run() -> void:
 		var p_heavy := hb.content.find_child("LoWeapon_hv_cannon", true, false) != null
 		for c in hb.content.find_children("LoWeapon_*", "Button", true, false): p_list += 1
 		await _capture("tripo_garage_pilot")
+		var tripo_in: bool = hb.content.find_child("LoWeapon_HL_WPN_DarkGunSet_02", true, false) != null
+		hb.lo_slot = "R_Hand"
+		var r_t: String = hb._lo_select("HL_WPN_DarkGunSet_02")
+		await _wait(0.6)
+		var pv2: Node3D = hb.lo_nodes_view.get("R_Hand")
+		var hand_ok: bool = r_t == "" and pv2 != null and str(pv2.get_meta("weapon", "")) == "HL_WPN_DarkGunSet_02"
+		await _capture("tripo_garage_pilot_tripo")
+		_check("v12.70 (owner): the Tripo weapons are in the garage (%s) and one goes in the pilot's hand on the preview (%s)" % [tripo_in, hand_ok], tripo_in and hand_ok, r_t)
 		_check("v12.68 (owner): the garage: MECH / SHIP / PILOT tabs, slots left, weapons right (%s); picking a weapon puts it on the turning preview at once (%s %s); a bad fit refused with the reason (%s; greyed %s); the pilot tab lists only hand guns (%d, heavy shown %s)" % [tabs_ok, r0 == "", pv_ok, bad2.left(40), greyed != null and greyed.tooltip_text != "Fit on the Nose", p_list, p_heavy],
 			tabs_ok and r0 == "" and pv_ok and bad2 != "" and p_list > 0 and not p_heavy, "")
 		_finish_group()

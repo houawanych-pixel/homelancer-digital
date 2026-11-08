@@ -4114,6 +4114,27 @@ func _spawn_kaiju_nests() -> void:
 
 ## v12.68 (owner's spec): an uncharted square's zone fills it: wildlife, pirates, rogue drones or derelicts (no faction),
 ## or a Kaijurai brood (the v10.8 carriers). Its Level 3 ship turns up only here, now and then (Data.ZONE_L3).
+## v12.70: the Tripo L3 ships from the sheets (not already playing a named L3), shared out over the four zones in turn
+static func zone_tripo_l3(zone: String) -> Array:
+	var ids: Array = []
+	for k in AssetRegistry.ITEMS:
+		if str(AssetRegistry.ITEMS[k].get("kind", "")) == "ship_l3" and not (k in AssetRegistry.MODELS.values()): ids.append(str(k))
+	ids.sort()
+	var order := ["pirates", "drones", "derelict", "wildlife"]
+	var out: Array = []
+	for i in ids.size(): if order[i % order.size()] == zone: out.append(ids[i])
+	return out
+
+static func l3_name(id: String) -> String:   # HL_SHIP_L3_DarkFleet_02 -> "Dark Fleet 02 (L3)"
+	var core := id.trim_prefix("HL_SHIP_L3_")
+	var words := ""
+	for i in core.length():
+		var ch := core[i]
+		if ch == "_": words += " "
+		elif i > 0 and ch == ch.to_upper() and ch != ch.to_lower() and core[i - 1] != "_": words += " " + ch
+		else: words += ch
+	return words + " (L3)"
+
 var zone_kind := ""
 var zone_units: Array = []
 var zone_l3: Array = []   # the L3 units in this system right now
@@ -4148,6 +4169,18 @@ func _spawn_zone() -> void:
 		hk["zone"] = zone_kind
 		_boardable(hk)
 		zone_units.append(hk)
+	for tid in zone_tripo_l3(zone_kind):   # v12.70: the owner's other Tripo L3 ships, each rare, each in its own zone
+		if not places.is_empty() and (force_l3 or _rng.randf() < Data.L3_TRIPO_CHANCE):
+			var at3: Vector3 = (places[_rng.randi() % places.size()] as Vector3) + Vector3(_rng.randf_range(-1, 1), 0.0, _rng.randf_range(-1, 1)) * 700.0
+			var t3 := spawn_unit("l3_tripo", at3, at3, tid)
+			t3["zone"] = zone_kind
+			t3["l3"] = true
+			t3["l3_key"] = tid
+			t3["l3_name"] = l3_name(tid)
+			(t3["node"] as Node3D).name = "%s %d" % [t3["l3_name"], _enemy_serial]
+			(t3["node"] as Node3D).set_meta("radius", float(ShipFactory.entry(tid)[1]) * 0.42)   # (its size: these are big)
+			zone_units.append(t3)
+			zone_l3.append(t3)
 	for row in Data.ZONE_L3.get(zone_kind, []):   # the rare Level 3 ship
 		if force_l3 or _rng.randf() < float(row[1]):
 			var at2: Vector3 = (places[rng.randi() % places.size()] as Vector3) + Vector3(rng.randf_range(-1, 1), 0.0, rng.randf_range(-1, 1)) * 700.0 if not places.is_empty() else anchor
@@ -7899,9 +7932,9 @@ func _destroy_unit(e: Dictionary) -> void:
 		_chatter(mates[0], "regroup" if e.has("pilot") else "leader_down", not e.has("pilot"))
 	var reward: int = e["def"]["reward"]
 	if e.get("l3", false):   # v12.68: a Level 3 ship downed (or a relic hull cracked open): it is yours to find again in the hangar
-		var lk: String = str(e["def"].get("model", ""))
+		var lk: String = str(e.get("l3_key", e["def"].get("model", "")))
 		if not GS.l3_found.has(lk): GS.l3_found.append(lk)
-		message.emit("LEVEL 3 FIND: %s. Its blueprint is logged (%d of %d found)." % [str(e["def"]["name"]), GS.l3_found.size(), Data.L3_UNITS.size()])
+		message.emit("LEVEL 3 FIND: %s. Its blueprint is logged (%d found)." % [str(e.get("l3_name", e["def"]["name"])), GS.l3_found.size()])
 	_drop_loot(n.global_position, reward)
 	enemy_killed.emit(reward, n.name)
 	if e.has("faction"):   # v1.4r: their faction remembers; its rival approves
