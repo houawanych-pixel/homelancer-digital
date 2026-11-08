@@ -457,6 +457,23 @@ func _draw_flat(S: Vector2) -> void:
 		if od.is_empty(): continue
 		var op: Vector2 = flat_pos(S, int(orow[3]), int(orow[4]))
 		var held: String = str(orow[11])
+		if cell.x >= orrery_min:   # v12.81 (owner: "the other version of the map"): its sun, orbit rings, planets, stations, gates
+			_orrery(str(orow[0]), op, cell)
+			var E2: float = Data.SPACE_EDGE
+			for og2 in od.get("gates", []):   # the line from its gate to the gate it leads to
+				var td: Dictionary = Data.SYSTEMS.get(str(og2["to"]), {})
+				var tt2: String = str(td.get("tile", ""))
+				if tt2.length() < 2: continue
+				var tp2: Vector2 = flat_pos(S, "ABCDEFGHIJK".find(tt2[0]), int(tt2.substr(1)) - 1)
+				var ga2: Vector2 = op + Vector2(clampf((og2["pos"] as Vector3).x / E2, -1, 1), clampf((og2["pos"] as Vector3).z / E2, -1, 1)) * cell * 0.46
+				var gb2: Vector2 = tp2
+				for bg in td.get("gates", []):
+					if str(bg["to"]) == str(orow[0]): gb2 = tp2 + Vector2(clampf((bg["pos"] as Vector3).x / E2, -1, 1), clampf((bg["pos"] as Vector3).z / E2, -1, 1)) * cell * 0.46
+				var lc3 := link_color(str(og2.get("gkind", "warp")) + "_gate")
+				if str(og2.get("gkind", "")) == "jump": draw_line(ga2, gb2, Color(lc3, 0.9), 2.0, true)
+				else: _dashed(self, ga2, gb2, Color(lc3, 0.9), 2.0, 8.0 if str(og2.get("gkind", "")) == "warp" else 4.0)
+			if held != "": draw_rect(Rect2(op - cell * 0.5, cell).grow(-3.0), Color((Factions.def(held).get("primary_color", Color.RED) as Color), 0.8), false, 2.0)
+			continue
 		var oc: Color = (Factions.def(held).get("primary_color", Color(1.0, 0.45, 0.4)) as Color) if held != "" else Color(0.75, 0.8, 0.9)
 		draw_circle(op + cell * Vector2(0.18, -0.12), cell.x * 0.2, Color(od.get("nebula", {}).get("color", oc), 0.16))   # nebula
 		for i in 14:   # asteroid field
