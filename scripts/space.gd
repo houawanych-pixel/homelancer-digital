@@ -2627,24 +2627,38 @@ void fragment() {
 	float n1 = texture(noise, p * 0.9 + vec2(0.31, 0.17)).r;
 	float n2 = texture(noise, p * 2.3 + vec2(t * 0.01, 0.5)).r;
 	float n3 = texture(noise, p * 6.0 - vec2(0.2, t * 0.015)).r;
-	float body = smoothstep(0.38, 0.7, n1 * 0.7 + n2 * 0.45);           // the big foam sheets
-	float lace = smoothstep(0.55, 0.8, n2 * 0.55 + n3 * 0.55);          // the white lace on them
-	float f = clamp(body * 0.8 + lace * 0.7, 0.0, 1.0) * (0.35 + 0.65 * smoothstep(0.2, 0.85, r));
-	vec3 c = mix(deep * (0.25 + 0.75 * r), foam, f);
-	c += vec3(1.0) * pow(lace, 4.0) * 0.35 * smoothstep(0.3, 1.0, r);
-	// the throat: the other side's sky, seen by the way you look in (it turns with the water)
+	float body = smoothstep(0.38, 0.7, n1 * 0.7 + n2 * 0.45);
+	float lace = smoothstep(0.55, 0.8, n2 * 0.55 + n3 * 0.55);
+	float f = clamp(body * 0.8 + lace * 0.7, 0.0, 1.0) * (0.45 + 0.55 * smoothstep(0.5, 0.9, r));
+	vec3 c = mix(deep * (0.3 + 0.7 * r), foam, f);
+	c += vec3(1.0) * pow(lace, 4.0) * 0.35 * smoothstep(0.5, 1.0, r);
+	// v12.84 (owner: "a hole inside, and inside it you see another skybox: two different worlds"): a wide round window
+	// onto the OTHER world's sky (its own panorama, by the way you look in, not this world's), with a bright lip
 	vec3 d = normalize(wpos - CAMERA_POSITION_WORLD);
-	vec2 e = vec2(atan(d.z, d.x) / 6.2832 + 0.5 + t * 0.01, acos(clamp(d.y, -1.0, 1.0)) / 3.1416);
-	vec3 other = has_sky > 0.5 ? texture(sky, e).rgb * 1.6 + vec3(0.03, 0.05, 0.1) : mix(vec3(0.02, 0.05, 0.12), vec3(0.3, 0.6, 0.9), texture(noise, e * 4.0).r);
-	float lip = 0.3 + (n2 - 0.5) * 0.1;
-	float hole = 1.0 - smoothstep(lip - 0.07, lip, r);
+	vec3 dl = normalize((inverse(MODEL_MATRIX) * vec4(d, 0.0)).xyz);   // (in the gate's own space: looking straight in = the other world's horizon)
+	vec2 e = vec2(atan(dl.x, -dl.z) / 6.2832 + 0.5 + t * 0.004, acos(clamp(dl.y, -1.0, 1.0)) / 3.1416);
+	vec3 other = has_sky > 0.5 ? texture(sky, e).rgb * 1.15 + vec3(0.01, 0.015, 0.03) : mix(vec3(0.02, 0.05, 0.12), vec3(0.3, 0.6, 0.9), texture(noise, e * 4.0).r);
+	float lip = 0.52 + (n2 - 0.5) * 0.06;
+	float hole = 1.0 - smoothstep(lip - 0.04, lip, r);
 	c = mix(c, other, hole);
-	c = mix(c, foam * 1.25, smoothstep(lip - 0.04, lip, r) * (1.0 - smoothstep(lip, lip + 0.07, r)) * 0.8);   // the bright lip
+	c = mix(c, foam * 1.35, smoothstep(lip - 0.03, lip, r) * (1.0 - smoothstep(lip, lip + 0.06, r)) * 0.9);
+	// v12.84 (owner: "an electric swirl rotating round it, coming from the center"): bolts spiralling out from the middle
+	float bolts = 0.0;
+	for (int k = 0; k < 4; k++) {
+		float fk = float(k);
+		float arm = a + log(max(r, 0.02)) * 2.2 - t * (1.4 + fk * 0.23) + fk * 1.5708;
+		float jag = (texture(noise, vec2(r * 3.0 + fk * 0.37, t * 0.9 + fk)).r - 0.5) * 0.9;
+		float dd = abs(sin((arm + jag) * 0.5));
+		float life = smoothstep(0.0, 0.25, fract(t * 0.6 + fk * 0.27)) * (1.0 - smoothstep(0.7, 1.0, fract(t * 0.6 + fk * 0.27)));
+		bolts += (exp(-dd / 0.016) + exp(-dd / 0.07) * 0.45) * life * smoothstep(0.02, 0.12, r) * (1.0 - smoothstep(0.75, 0.98, r));
+	}
+	vec3 zap = mix(vec3(0.45, 0.8, 1.0), vec3(1.0), clamp(bolts - 0.6, 0.0, 1.0));
+	c += zap * bolts * 2.4;
 	// the torn outer edge, and gaps in the outer foam that you see through
-	float edge = 1.0 - smoothstep(0.78 + (n1 - 0.5) * 0.3, 0.98, r);
-	float gaps = mix(1.0, smoothstep(0.05, 0.3, f), smoothstep(0.55, 0.95, r));
+	float edge = 1.0 - smoothstep(0.82 + (n1 - 0.5) * 0.25, 0.99, r);
+	float gaps = mix(1.0, smoothstep(0.05, 0.3, f), smoothstep(0.7, 0.97, r));
 	ALBEDO = c;
-	ALPHA = clamp(edge * max(gaps, hole), 0.0, 1.0);
+	ALPHA = clamp(max(edge * max(gaps, hole), clamp(bolts, 0.0, 1.0) * edge), 0.0, 1.0);
 }
 """
 func _rift_whirlpool(g: Node3D, d: Dictionary) -> MeshInstance3D:
