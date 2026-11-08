@@ -2731,6 +2731,7 @@ func _rift_whirlpool(g: Node3D, d: Dictionary) -> MeshInstance3D:
 	mr.set_color(mr.get_point_count() - 1, Color(0.6, 0.8, 1.0, 0.0))
 	mist.color_ramp = mr
 	g.add_child(mist)
+	_rift_nebula(g, R)
 	var lamp := OmniLight3D.new()
 	lamp.light_color = Color(0.6, 0.85, 1.0)
 	lamp.light_energy = 2.5
@@ -2739,6 +2740,98 @@ func _rift_whirlpool(g: Node3D, d: Dictionary) -> MeshInstance3D:
 	g.set_meta("radius", R * Data.GATE_GROW)
 	g.set_meta("rift_pool", true)
 	return mi
+
+## v12.86 (owner: "clouds, little cloud particles around it; a little nebula around it, so it's more mysterious to find,
+## with lightning"): the whirlpool hides in its own small nebula: big soft purple-blue clouds all round it (you see the
+## glow before the gate), little cloud wisps drifting through, and lightning flickering inside the clouds, with flashes
+func _rift_nebula(g: Node3D, R: float) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(str(g.name) + "neb")
+	var neb := Node3D.new()
+	neb.name = "RiftNebula"
+	g.add_child(neb)
+	var tex := _cloud_texture(Color(1, 1, 1), 91)
+	var cols := [Color(0.5, 0.25, 0.95), Color(0.2, 0.4, 1.0), Color(0.25, 0.8, 0.95), Color(0.75, 0.3, 0.85)]
+	for i in 48:   # the nebula: a shell of big soft clouds, thicker behind and to the sides
+		var q := MeshInstance3D.new()
+		var qm := QuadMesh.new()
+		var sz := rng.randf_range(1.1, 2.4) * R
+		qm.size = Vector2(sz, sz)
+		q.mesh = qm
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+		m.albedo_texture = tex
+		m.albedo_color = Color((cols[rng.randi() % cols.size()] as Color) * 1.25, rng.randf_range(0.35, 0.6))
+		m.disable_receive_shadows = true
+		m.fog_enabled = false
+		q.material_override = m
+		q.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var dir := Vector3(rng.randfn(0, 1), rng.randfn(0, 1), rng.randfn(0, 0.6) - 0.35).normalized()
+		q.position = dir * rng.randf_range(1.0, 2.3) * R
+		neb.add_child(q)
+	var wisps := CPUParticles3D.new()   # little clouds drifting round it
+	wisps.name = "RiftWisps"
+	wisps.amount = 90
+	wisps.lifetime = 12.0
+	wisps.preprocess = 12.0
+	wisps.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	wisps.emission_sphere_radius = R * 1.9
+	wisps.spread = 180.0
+	wisps.initial_velocity_min = R * 0.005
+	wisps.initial_velocity_max = R * 0.03
+	wisps.gravity = Vector3.ZERO
+	wisps.orbit_velocity_min = 0.01
+	wisps.orbit_velocity_max = 0.03
+	wisps.scale_amount_min = 0.5
+	wisps.scale_amount_max = 1.5
+	var wq := QuadMesh.new(); wq.size = Vector2(R * 0.16, R * 0.16)
+	var wm := StandardMaterial3D.new()
+	wm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	wm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	wm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	wm.vertex_color_use_as_albedo = true
+	wm.albedo_texture = tex
+	wm.fog_enabled = false
+	wq.material = wm
+	wisps.mesh = wq
+	var wr := Gradient.new()
+	wr.set_color(0, Color(0.7, 0.8, 1.0, 0.0))
+	wr.add_point(0.4, Color(0.75, 0.75, 1.0, 0.45))
+	wr.set_color(wr.get_point_count() - 1, Color(0.5, 0.6, 1.0, 0.0))
+	wisps.color_ramp = wr
+	g.add_child(wisps)
+	var bsh := Shader.new(); bsh.code = RIFT_BOLT_SHADER   # lightning inside the clouds
+	for i in 10:
+		var dir2 := Vector3(rng.randfn(0, 1), rng.randfn(0, 1), rng.randfn(0, 0.6) - 0.2).normalized()
+		var bq := QuadMesh.new()
+		bq.size = Vector2(rng.randf_range(0.5, 0.9) * R, rng.randf_range(0.18, 0.3) * R)
+		var bm := MeshInstance3D.new()
+		bm.name = "RiftCloudBolt%d" % i
+		bm.mesh = bq
+		var x := dir2.cross(Vector3(rng.randf(), rng.randf(), rng.randf()).normalized()).normalized()
+		bm.transform = Transform3D(Basis(x, dir2.cross(x), dir2), dir2 * rng.randf_range(1.0, 1.8) * R)
+		var mm := ShaderMaterial.new(); mm.shader = bsh
+		mm.set_shader_parameter("noise", _rift_noise)
+		mm.set_shader_parameter("col", Color(0.6, 0.75, 1.0) if i % 2 == 0 else Color(0.8, 0.6, 1.0))
+		mm.set_shader_parameter("offset", float(i) * 0.53)
+		mm.set_shader_parameter("rate", 0.35 + 0.05 * float(i % 4))
+		bm.material_override = mm
+		bm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		neb.add_child(bm)
+	var flash := OmniLight3D.new()   # the clouds light up with the strikes
+	flash.name = "RiftFlash"
+	flash.light_color = Color(0.7, 0.8, 1.0)
+	flash.light_energy = 0.0
+	flash.omni_range = R * 4.5
+	flash.position = Vector3(0, R * 0.6, -R * 0.4)
+	neb.add_child(flash)
+	var tw := flash.create_tween().set_loops()
+	for k in 4:
+		tw.tween_interval(rng.randf_range(0.6, 2.4))
+		tw.tween_property(flash, "light_energy", rng.randf_range(4.0, 9.0), 0.05)
+		tw.tween_property(flash, "light_energy", 0.0, rng.randf_range(0.15, 0.4))
 
 static var _rift_noise: ImageTexture
 func _rift_star(g: Node3D) -> MeshInstance3D:
