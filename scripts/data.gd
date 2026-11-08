@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.67"
+const VERSION := "v12.68"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1093,6 +1093,26 @@ const NEST_WAKE := 6000.0          # a carrier launches only while you are this 
 const NEST_LAUNCH_EVERY := 3.0     # s between launches from one carrier
 const NEST_MAX_OUT := 18           # fighters from all the nests in the air at once, at most (phones)
 const NEST_HIVE_CHANCE := 0.4      # share of unknown areas that also hold a Kaijurai hive station
+## v12.68 (owner's spec: "chart the uncharted map regions ... fill them with wildlife, pirates, rogue drones or derelicts,
+## NOT the existing enemy factions. Seed Level 3 ships there as rare encounters or hidden finds, with a spawn table per
+## zone"): every unknown square is charted as one of these zones (SystemBuilder.zone_of). "brood" keeps the owner's v10.8
+## Kaijurai carriers in a few squares; the other four hold no faction at all.
+const ZONE_TYPES := {
+	"wildlife": {"short": "WILD", "name": "Wild Drift", "col": Color(0.45, 1.0, 0.6), "units": ["void_ray", "void_ray", "void_ray_alpha"], "groups": 4, "size": [2, 4]},
+	"pirates": {"short": "PIRATES", "name": "Pirate Haven", "col": Color(1.0, 0.55, 0.2), "units": ["pirate_raider", "pirate_raider", "pirate_corsair", "pirate_gunboat"], "groups": 4, "size": [2, 3]},
+	"drones": {"short": "DRONES", "name": "Rogue Drone Field", "col": Color(0.6, 0.8, 1.0), "units": ["rogue_drone", "rogue_drone", "rogue_drone", "rogue_drone_heavy"], "groups": 5, "size": [3, 5]},
+	"derelict": {"short": "HULKS", "name": "Derelict Graveyard", "col": Color(0.75, 0.7, 0.6), "units": ["derelict_sentry"], "groups": 2, "size": [1, 2], "hulks": 4},
+	"brood": {"short": "BROOD", "name": "Kaijurai Brood", "col": Color(0.9, 0.35, 0.9), "units": [], "groups": 0, "size": [0, 0]}}
+const ZONE_ORDER := ["wildlife", "pirates", "drones", "derelict", "wildlife", "pirates", "drones", "derelict", "brood"]   # (brood about 1 square in 9)
+## The Level 3 ships: rare, ONLY in their zone, never in general spawns or at dealers. [unit, chance per visit]
+## A derelict's L3 is a hidden find (a dead hulk you board or crack open), not a fight.
+const ZONE_L3 := {
+	"wildlife": [["l3_tamer", 0.06]],
+	"pirates": [["l3_corsair_king", 0.08]],
+	"drones": [["l3_sentinel", 0.05]],
+	"derelict": [["l3_relic", 0.12]],
+	"brood": []}
+const L3_UNITS := ["l3_tamer", "l3_corsair_king", "l3_sentinel", "l3_relic"]
 const BOARD_BEASTS := {"Kaijurai": [["kaijurai_fang", "kaijurai_stalker"], ["kaijurai_hound", "kaijurai_reaper"]]}   # v12.5 (owner): who guards a boarded ship on foot instead of mechs: [guards, alpha]
 const BEAST_LEN := 34.0        # m: a brood beast on a boarded deck (a mech stands about 14 m)
 const BEAST_BOSS_LEN := 60.0   # m: the alpha that guards the reactor / bridge
@@ -2418,6 +2438,21 @@ const ENEMIES := {
 	"inv_flagship": {"name": "Flagship", "model": "savager_carrier", "scale": 7.2, "hull": 7000.0, "shield": 2500.0, "speed": 10.0, "turn": 0.04, "damage": 10.0, "rate": 3.4, "reward": 5000, "capital": true, "hit_r": 420.0, "range": 3000.0, "radius": 480.0},   # v11.31: the huge destroyer
 	"inv_warship": {"name": "Warship", "model": "savager_cruiser", "scale": 6.0, "hull": 4500.0, "shield": 1500.0, "speed": 20.0, "turn": 0.08, "damage": 8.0, "rate": 2.4, "reward": 1500, "capital": true, "hit_r": 114.0, "range": 2200.0, "radius": 126.0},
 	"inv_destroyer": {"name": "Destroyer", "model": "savager_cruiser", "scale": 4.2, "hull": 3000.0, "shield": 1000.0, "speed": 28.0, "turn": 0.1, "damage": 7.0, "rate": 2.0, "reward": 1000, "capital": true, "hit_r": 84.0, "range": 2000.0, "radius": 90.0},
+	# v12.68: the uncharted zones' own people and beasts (no faction): wildlife, pirates, rogue drones, derelicts
+	"void_ray": {"name": "Void Ray", "class": "wildlife", "model": "void_ray", "radius": 10.0, "hull": 120.0, "shield": 0.0, "speed": 40.0, "turn": 1.1, "damage": 5.0, "rate": 2.4, "reward": 180, "zone": "wildlife"},
+	"void_ray_alpha": {"name": "Void Ray Alpha", "class": "wildlife", "model": "void_ray", "scale": 1.8, "radius": 16.0, "hull": 420.0, "shield": 0.0, "speed": 38.0, "turn": 1.0, "damage": 8.0, "rate": 2.2, "reward": 520, "zone": "wildlife"},
+	"pirate_raider": {"name": "Pirate Raider", "class": "pirate", "model": "enemy", "hull": 80.0, "shield": 35.0, "speed": 47.0, "turn": 1.4, "damage": 6.0, "rate": 1.7, "reward": 210, "zone": "pirates"},
+	"pirate_corsair": {"name": "Pirate Corsair", "class": "pirate", "model": "enemy2", "hull": 120.0, "shield": 60.0, "speed": 49.0, "turn": 1.4, "damage": 7.0, "rate": 1.9, "reward": 300, "missiles": true, "zone": "pirates"},
+	"pirate_gunboat": {"name": "Pirate Gunboat", "class": "pirate", "model": "savager_ironhowl", "hull": 260.0, "shield": 90.0, "speed": 40.0, "turn": 1.1, "damage": 9.0, "rate": 1.5, "reward": 480, "zone": "pirates"},
+	"rogue_drone": {"name": "Rogue Drone", "class": "drone", "model": "rogue_drone", "radius": 5.0, "hull": 45.0, "shield": 20.0, "speed": 54.0, "turn": 1.8, "damage": 4.0, "rate": 1.4, "reward": 90, "zone": "drones"},
+	"rogue_drone_heavy": {"name": "Rogue Drone Warden", "class": "drone", "model": "rogue_drone", "scale": 2.0, "radius": 10.0, "hull": 200.0, "shield": 120.0, "speed": 42.0, "turn": 1.2, "damage": 8.0, "rate": 1.6, "reward": 380, "zone": "drones"},
+	"derelict_sentry": {"name": "Derelict Sentry", "class": "drone", "model": "rogue_drone", "scale": 1.4, "radius": 7.0, "hull": 140.0, "shield": 60.0, "speed": 30.0, "turn": 1.0, "damage": 6.0, "rate": 2.0, "reward": 260, "zone": "derelict"},
+	"derelict_hulk": {"name": "Derelict Hulk", "class": "derelict", "model": "fleet2", "radius": 24.0, "hull": 600.0, "shield": 0.0, "speed": 0.0, "turn": 0.0, "damage": 0.0, "rate": 999.0, "reward": 300, "passive": true, "zone": "derelict"},
+	# v12.68: the Level 3 ships (model keys l3_*: the Tripo HL_SHIP_L3 models when they are in, a stand-in until then)
+	"l3_tamer": {"name": "Leviathan Tamer (L3)", "class": "level 3", "model": "l3_tamer", "level": 5, "radius": 14.0, "hull": 900.0, "shield": 500.0, "speed": 56.0, "turn": 1.5, "damage": 12.0, "rate": 1.3, "reward": 4000, "l3": true, "zone": "wildlife"},
+	"l3_corsair_king": {"name": "Corsair King (L3)", "class": "level 3", "model": "l3_corsair_king", "level": 5, "radius": 14.0, "hull": 1000.0, "shield": 550.0, "speed": 58.0, "turn": 1.5, "damage": 13.0, "rate": 1.2, "reward": 4500, "missiles": true, "l3": true, "zone": "pirates"},
+	"l3_sentinel": {"name": "Ancient Sentinel (L3)", "class": "level 3", "model": "l3_sentinel", "level": 5, "radius": 14.0, "hull": 1100.0, "shield": 700.0, "speed": 52.0, "turn": 1.4, "damage": 12.0, "rate": 1.2, "reward": 4500, "l3": true, "zone": "drones"},
+	"l3_relic": {"name": "Relic Hull (L3)", "class": "level 3", "model": "l3_relic", "radius": 16.0, "hull": 500.0, "shield": 0.0, "speed": 0.0, "turn": 0.0, "damage": 0.0, "rate": 999.0, "reward": 3000, "passive": true, "l3": true, "zone": "derelict"},
 	"kaiju_hive": {"name": "Kaijurai Hive", "class": "hive station", "faction": "Kaijurai", "model": "kaijurai_ravager", "scale": 1.0, "hull": 9000.0, "shield": 3000.0, "speed": 0.0, "turn": 0.0, "damage": 10.0, "rate": 1.6, "reward": 3500, "capital": true, "hit_r": 90.0, "range": 1300.0, "radius": 40.0},   # v10.8: a placeholder hive (the Ravager, grown) until a real one is made
 	"inv_command": {"name": "Star Command Station", "model": "station", "scale": 1.0, "hull": 12000.0, "shield": 4000.0, "speed": 0.0, "turn": 0.0, "damage": 10.0, "rate": 2.0, "reward": 4000, "capital": true, "hit_r": 72.0, "range": 1400.0, "radius": 80.0},
 	"raider": {"name": "Raider", "hull": 60.0, "shield": 30.0, "speed": 44.0, "turn": 1.3, "damage": 5.0, "rate": 1.6, "reward": 150},

@@ -224,7 +224,7 @@ func _setup(id: String, arrival: String, staged: bool) -> void:
 	_named_down = {}
 	_incursion = Factions.raider_of(str(sys.get("faction", ""))) if randf() < Data.INCURSION_CHANCE else ""
 	faction_mech(str(sys.get("faction", "")))   # v1.9i: fetch this space's own mech early (its patrols and ground jobs use it)
-	if SystemBuilder.is_unknown(sys): _spawn_kaiju_nests()   # v10.8 (owner): the unknown areas hold Kaijurai carriers
+	if SystemBuilder.is_unknown(sys): _spawn_zone()   # v10.8 (owner): the unknown areas hold Kaijurai carriers; v12.68: now charted zones (wildlife, pirates, drones, derelicts; the brood squares keep the carriers)
 	if kaiju_space(): _spawn_kaiju_patrols()
 	else: for p in (sys["patrols"] as Array).slice(0, Data.PATROL_GROUPS + (Data.ENEMY_SPACE_GROUPS if SystemBuilder.is_enemy_space(sys) else 0)): _spawn_group(p, (Data.ROSTER_PATROL_SIZE if Factions.replaces_patrols(str(sys.get("faction", ""))) else 2) + (Data.ENEMY_SPACE_EXTRA if SystemBuilder.is_enemy_space(sys) else 0))   # v1.8v: fewer wings; v6.2: more in enemy space; v11.99 (owner: "very heavy in enemy activity"): every wing out
 	spawn_guard()
@@ -4112,6 +4112,52 @@ func _spawn_kaiju_nests() -> void:
 		(e["node"] as Node3D).set_meta("nest", kind)
 		nests.append({"ent": e, "kind": kind, "brood": int(nd["brood"]), "kids": [], "cd": rng.randf_range(0.5, 2.0), "woke": false})
 
+## v12.68 (owner's spec): an uncharted square's zone fills it: wildlife, pirates, rogue drones or derelicts (no faction),
+## or a Kaijurai brood (the v10.8 carriers). Its Level 3 ship turns up only here, now and then (Data.ZONE_L3).
+var zone_kind := ""
+var zone_units: Array = []
+var zone_l3: Array = []   # the L3 units in this system right now
+static var force_l3 := false   # (tests: the rare roll always hits)
+func _spawn_zone() -> void:
+	zone_kind = SystemBuilder.zone_of(sys)
+	zone_units.clear()
+	zone_l3.clear()
+	nests.clear()
+	if zone_kind == "brood":
+		_spawn_kaiju_nests()
+		return
+	var zd: Dictionary = Data.ZONE_TYPES[zone_kind]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(sys_id + "_zone")   # (where they sit is the same each visit; the L3 roll is fresh each time)
+	var pts: Array = sys.get("patrols", [])
+	var anchor: Vector3 = sys["planet"]["pos"]
+	var places: Array = []
+	for g in int(zd["groups"]):
+		var base: Vector3 = (pts[g % pts.size()] as Vector3) if not pts.is_empty() else anchor + Vector3(rng.randf_range(-1, 1), 0, rng.randf_range(-1, 1)) * 6000.0
+		places.append(base)
+		var sz: Array = zd["size"]
+		for i in rng.randi_range(int(sz[0]), int(sz[1])):
+			var kind: String = zd["units"][rng.randi() % (zd["units"] as Array).size()]
+			var pos := base + Vector3(rng.randf_range(-1, 1), rng.randf_range(-0.2, 0.2), rng.randf_range(-1, 1)) * 400.0
+			var e := spawn_unit(kind, pos, base, "", float(Data.ENEMIES[kind].get("scale", 1.0)))
+			e["zone"] = zone_kind
+			zone_units.append(e)
+	for h in int(zd.get("hulks", 0)):   # the graveyard's dead ships: boardable, sometimes holding the L3 find
+		var at: Vector3 = (places[h % places.size()] as Vector3) + Vector3(rng.randf_range(-1, 1), rng.randf_range(-0.3, 0.3), rng.randf_range(-1, 1)) * 900.0
+		var hk := spawn_unit("derelict_hulk", at, at)
+		hk["zone"] = zone_kind
+		_boardable(hk)
+		zone_units.append(hk)
+	for row in Data.ZONE_L3.get(zone_kind, []):   # the rare Level 3 ship
+		if force_l3 or _rng.randf() < float(row[1]):
+			var at2: Vector3 = (places[rng.randi() % places.size()] as Vector3) + Vector3(rng.randf_range(-1, 1), 0.0, rng.randf_range(-1, 1)) * 700.0 if not places.is_empty() else anchor
+			var l3 := spawn_unit(str(row[0]), at2, at2)
+			l3["zone"] = zone_kind
+			l3["l3"] = true
+			if bool(Data.ENEMIES[str(row[0])].get("passive", false)): _boardable(l3)
+			zone_units.append(l3)
+			zone_l3.append(l3)
+
 ## v12.3: make a unit n times as tough and hard-hitting (hull, shield, damage).
 func _toughen(e: Dictionary, k: float) -> void:
 	e["hp"] = float(e["hp"]) * k
@@ -4635,8 +4681,9 @@ func loadout_swap() -> String:
 	var act: Dictionary = lo["sets"][nxt]
 	for m in act:   # the new set: out from the back / the hull, onto its mount
 		if not mounts.has(m): continue
-		var g2 := Loadout.weapon_mesh(str(act[m]), size)
+		var g2 := Loadout.weapon_mesh(str(act[m]), size, GS.form)
 		model.add_child(g2)
+		if GS.form == "ship" and m in Loadout.HANG_MOUNTS: g2.rotation.z = PI   # v12.68: it comes out hanging, grip up
 		var to := model.to_local((mounts[m] as Node3D).global_position)
 		var fr: Vector3 = model.to_local(stow.global_position) if GS.form == "mech" and stow != null else to.lerp(Vector3.ZERO, 0.6)
 		g2.position = fr
@@ -5266,7 +5313,7 @@ func spawn_unit(kind: String, pos: Vector3, home: Vector3, model_key := "", scal
 	var e: Dictionary = Data.ENEMIES[kind]
 	var is_mech: bool = e.get("mech", false)
 	var mk: String = model_key if model_key != "" else str(e.get("model", "enemy"))   # (v1.9i: a faction's own mech)
-	if not (ShipFactory.has_real_model(mk) or mk.begins_with("mech")): mk = "enemy"
+	if not (ShipFactory.has_real_model(mk) or mk.begins_with("mech") or ShipFactory.is_procedural(mk)): mk = "enemy"   # (v12.68: + the zones' built beasts, drones and L3 stand-ins)
 	var n := ShipFactory.build(mk)
 	if scale_k != 1.0: n.scale *= scale_k   # v1.9i: a boss mech is bigger
 	var node := Node3D.new()
@@ -7851,6 +7898,10 @@ func _destroy_unit(e: Dictionary) -> void:
 	if not mates.is_empty():
 		_chatter(mates[0], "regroup" if e.has("pilot") else "leader_down", not e.has("pilot"))
 	var reward: int = e["def"]["reward"]
+	if e.get("l3", false):   # v12.68: a Level 3 ship downed (or a relic hull cracked open): it is yours to find again in the hangar
+		var lk: String = str(e["def"].get("model", ""))
+		if not GS.l3_found.has(lk): GS.l3_found.append(lk)
+		message.emit("LEVEL 3 FIND: %s. Its blueprint is logged (%d of %d found)." % [str(e["def"]["name"]), GS.l3_found.size(), Data.L3_UNITS.size()])
 	_drop_loot(n.global_position, reward)
 	enemy_killed.emit(reward, n.name)
 	if e.has("faction"):   # v1.4r: their faction remembers; its rival approves
@@ -7933,6 +7984,10 @@ func _update_enemies(dt: float) -> void:
 			e["vel"] = Vector3.ZERO
 			e["sh"] = 0.0
 			if _rng.randf() < dt * 8.0: _lightning_arc(n.global_position + Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), _rng.randfn(0, 1)) * 6.0, n.global_position)
+			continue
+		if d.get("passive", false):   # v12.68: a derelict hulk only drifts and turns slowly (crack it or board it)
+			e["vel"] = Vector3.ZERO
+			n.rotate_object_local(Vector3(0.3, 1.0, 0.2).normalized(), dt * 0.03)
 			continue
 		if d.get("kaiju", false): _kaiju_reach(e, ppos, dt)   # v6.4: the tentacles
 		var tpos := ppos   # v1.9n: who it is fighting: you, or one of your allies when one is nearer
@@ -8287,7 +8342,11 @@ func _sword_slash_fx(dir: Vector3, reach: float) -> void:
 			var pc: Vector3 = (pr["aabb"] as AABB).get_center()
 			var to := pc - p
 			to.y = 0.0
-			if to.length() < reach + 8.0 and to.normalized().dot(dir) > 0.2: life.damage_prop(pr, 99.0, pc, dir)
+			if to.length() < reach + 8.0 and to.normalized().dot(dir) > 0.2:
+				if str(pr["kind"]) in StationLife.CHIP_KINDS:   # v12.68: the blade slices off what's past its line
+					var cut_n: Vector3 = dir.cross(Vector3.UP).normalized() * (1.0 if _rng.randf() < 0.5 else -1.0) + dir * 0.4
+					life.slice_prop(pr, pc, cut_n.normalized())
+				else: life.damage_prop(pr, 99.0, pc, dir)
 		var hc: Array = life.seg_civ(p, p + dir * reach)
 		if hc[1] != null: life.hit_civ(hc[1])
 	_sword_harvest(dir, reach)

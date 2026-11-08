@@ -208,7 +208,28 @@ static func mount_node(model: Node, g: int) -> Node3D:
 	return model.find_child("mount_" + nm, true, false) as Node3D
 
 static func has_real_model(key: String) -> bool:
-	return GLB.has(key) and ResourceLoader.exists(GLB[key][0])
+	var g: Array = entry(key)
+	return not g.is_empty() and ResourceLoader.exists(str(g[0]))
+
+## v12.68: [path, length, yaw] for a key: the Tripo registry's replacement first, then its own split items, then GLB.
+static func entry(key: String) -> Array:
+	if AssetRegistry.MODELS.has(key) and GLB.has(key):
+		var it: Dictionary = AssetRegistry.ITEMS.get(str(AssetRegistry.MODELS[key]), {})
+		if not it.is_empty(): return [str(it["path"]), float(GLB[key][1]), 0.0]
+	if AssetRegistry.ITEMS.has(key):
+		var it2: Dictionary = AssetRegistry.ITEMS[key]
+		return [str(it2["path"]), float(it2.get("len", 3.0)), 0.0]
+	for l3 in L3_STANDIN:   # an L3 key takes the first Tripo HL_SHIP_L3 model that names it
+		if key == l3:
+			for id in AssetRegistry.ITEMS:
+				if str(AssetRegistry.ITEMS[id].get("kind", "")) == "ship_l3" and str(id).to_lower().contains(str(L3_STANDIN[l3][0])): return [str(AssetRegistry.ITEMS[id]["path"]), 16.0, 0.0]
+	if GLB.has(key): return GLB[key]
+	return []
+
+## v12.68: the uncharted zones' beasts and drones, and the L3 ships' stand-ins (until the Tripo models): built here.
+const L3_STANDIN := {"l3_tamer": ["tamer", Color(0.2, 0.45, 0.3), Color(0.5, 1.0, 0.6)], "l3_corsair_king": ["corsair", Color(0.3, 0.12, 0.06), Color(1.0, 0.6, 0.15)],
+	"l3_sentinel": ["sentinel", Color(0.55, 0.6, 0.7), Color(0.4, 0.8, 1.0)], "l3_relic": ["relic", Color(0.4, 0.38, 0.33), Color(0.9, 0.8, 0.4)]}
+static func is_procedural(key: String) -> bool: return key in ["void_ray", "rogue_drone"] or L3_STANDIN.has(key)
 
 ## keep = false: don't hold the model in memory after this copy is gone (hangar previews of ships you don't fly).
 static func build(key: String, keep := true) -> Node3D:
@@ -216,13 +237,14 @@ static func build(key: String, keep := true) -> Node3D:
 	root.name = "Model_" + key
 	if has_real_model(key):
 		var scene: PackedScene = _cache.get(key)
+		var g: Array = entry(key)
 		if scene == null:
-			scene = load(GLB[key][0])
+			scene = load(str(g[0]))
 			if keep: _cache[key] = scene
 		var inst: Node3D = scene.instantiate()
-		inst.rotation_degrees.y = GLB[key][2]
+		inst.rotation_degrees.y = float(g[2])
 		root.add_child(inst)
-		_fit(root, inst, GLB[key][1])
+		_fit(root, inst, float(g[1]))
 		root.set_meta("placeholder", false)
 		if Data.SHIP_FLOW.has(key): _flow(inst, Data.SHIP_FLOW[key])
 		if Data.SHIP_WINGS.has(key):   # v10.5 (owner: "the arms come inward when it goes into warp"): folding wings start OUT
@@ -230,6 +252,13 @@ static func build(key: String, keep := true) -> Node3D:
 			set_wings(root, 1.0)
 		return root
 	root.set_meta("placeholder", true)
+	if L3_STANDIN.has(key):   # v12.68: an L3 ship's stand-in: a big, gold-trimmed heavy (the Tripo model replaces it)
+		_heavy(root, L3_STANDIN[key][1], L3_STANDIN[key][2])
+		for c in root.get_children():
+			(c as Node3D).scale *= 1.8
+			(c as Node3D).position *= 1.8
+		root.set_meta("l3_standin", true)
+		return root
 	match key:
 		"cadet": _fighter(root, Color(0.86, 0.9, 0.95), Color(0.2, 0.75, 1.0), 1.0, 2)
 		"ranger": _fighter(root, Color(0.42, 0.47, 0.55), Color(1.0, 0.72, 0.25), 1.15, 2)
@@ -237,6 +266,8 @@ static func build(key: String, keep := true) -> Node3D:
 		"enemy": _raider(root, Color(0.35, 0.08, 0.08), Color(1.0, 0.3, 0.15))
 		"fleet": _freighter(root, Color(0.6, 0.64, 0.7), Color(0.4, 0.8, 1.0))
 		"carrier": _carrier(root, Color(0.62, 0.66, 0.72), Color(0.35, 0.8, 1.0))
+		"void_ray": _void_ray(root)
+		"rogue_drone": _drone(root)
 		_: _fighter(root, Color.WHITE, Color.CYAN, 1.0, 2)
 	return root
 
@@ -274,7 +305,7 @@ static func raw(key: String) -> Node3D:
 	if not has_real_model(key): return null
 	var scene: PackedScene = _cache.get(key)
 	if scene == null:
-		scene = load(GLB[key][0])
+		scene = load(str(entry(key)[0]))
 		_cache[key] = scene
 	return scene.instantiate()
 
@@ -459,6 +490,27 @@ static func _heavy(root: Node3D, body: Color, accent: Color) -> void:
 		_part(root, _box, Vector3(side * 4.2, 0.55, 1.8), Vector3(0.2, 1.0, 1.6), accent)
 		_engine(root, Vector3(side * 1.0, 0, 3.4), 0.7, accent)
 	_part(root, _box, Vector3(0, -0.85, -0.4), Vector3(0.45, 0.45, 3.6), Color(0.22, 0.23, 0.26))
+
+## v12.68: wildlife: a flat, wide manta of the void (wings out, a long tail, glowing gill lines)
+static func _void_ray(root: Node3D) -> void:
+	_meshes()
+	var body := Color(0.1, 0.18, 0.2)
+	var glow := Color(0.4, 1.0, 0.75)
+	_part(root, _sph, Vector3(0, 0, 0), Vector3(2.2, 0.7, 4.2), body)
+	for side in [-1.0, 1.0]:
+		_part(root, _prism, Vector3(side * 3.2, -0.05, 0.6), Vector3(4.6, 3.6, 0.22), body, Vector3(-90, 0, side * 90.0))
+		for i in 3: _part(root, _box, Vector3(side * (0.7 + i * 0.35), 0.32, -0.8 + i * 0.5), Vector3(0.08, 0.06, 0.9), glow, Vector3.ZERO, true)
+	_part(root, _box, Vector3(0, 0, 4.8), Vector3(0.18, 0.18, 5.0), body)
+	_part(root, _sph, Vector3(0, 0.25, -2.4), Vector3(0.5, 0.3, 0.5), glow, Vector3.ZERO, true)
+
+## v12.68: a rogue drone: a sphere core in a ring, two little gun arms, a red eye
+static func _drone(root: Node3D) -> void:
+	_meshes()
+	var body := Color(0.38, 0.4, 0.44)
+	_part(root, _sph, Vector3.ZERO, Vector3(1.6, 1.6, 1.6), body)
+	_part(root, _box, Vector3(0, 0, 0), Vector3(3.6, 0.25, 0.5), Color(0.22, 0.23, 0.26))
+	for side in [-1.0, 1.0]: _part(root, _box, Vector3(side * 1.8, 0, -0.6), Vector3(0.25, 0.25, 1.6), Color(0.22, 0.23, 0.26))
+	_part(root, _sph, Vector3(0, 0, -0.78), Vector3(0.5, 0.5, 0.3), Color(1.0, 0.2, 0.15), Vector3.ZERO, true)
 
 static func _raider(root: Node3D, body: Color, accent: Color) -> void:
 	_meshes()

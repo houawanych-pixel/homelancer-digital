@@ -62,6 +62,23 @@ static func open_rows() -> Array:
 static func is_enemy_space(sy: Dictionary) -> bool: return str(sy.get("faction", "")) == "Enemy"
 static func is_unknown(sy: Dictionary) -> bool: return str(sy.get("role", "")) == "unknown"
 
+## v12.68 (owner's spec: chart the uncharted squares): which zone an unknown square is (Data.ZONE_TYPES); "" if charted.
+static func zone_of(sy: Dictionary) -> String:
+	if not is_unknown(sy): return ""
+	var t: String = str(sy.get("tile", sy.get("id", "")))
+	var col := 0
+	var row := 0
+	if t.length() >= 2:
+		col = "ABCDEFGHIJK".find(t[0].to_upper())
+		row = t.substr(1).to_int() - 1
+	return Data.ZONE_ORDER[posmod(col * 4 + row * 7, Data.ZONE_ORDER.size())]
+
+## v12.68: who flies an uncharted zone's patrols (the zone's commonest unit; a brood keeps the old default)
+static func _zone_enemy(tile: String, dflt) -> String:
+	var zk := zone_of({"role": "unknown", "tile": tile})
+	if zk == "brood" or (Data.ZONE_TYPES[zk]["units"] as Array).is_empty(): return str(dflt)
+	return str(Data.ZONE_TYPES[zk]["units"][0])
+
 ## v6.5 (owner): names for the unknown areas (no lore, just strange)
 const UNKNOWN_NAMES := ["Whisperfold", "The Hollow Reach", "Ninefold Drift", "Gloamwake", "Sable Expanse", "Umbral Tide",
 	"The Quiet Maw", "Ashveil", "Lumen Sink", "Driftmother", "The Broken Choir", "Vesper Null", "Cinder Shoals",
@@ -1141,6 +1158,8 @@ static func _system(t: Array) -> Dictionary:
 		station["nodock"] = true
 		station["hidden_hub"] = true
 		station["name"] = "Kaijurai Hive " + str(t[2])
+		var zk0 := zone_of({"role": "unknown", "tile": str(t[2])})   # v12.68: the charted zone names its hidden place (only a brood is a hive)
+		if zk0 != "brood": station["name"] = "%s %s" % [{"wildlife": "Drift Nest", "pirates": "Pirate Den", "drones": "Drone Foundry", "derelict": "Hulk Field"}[zk0], str(t[2])]
 	if t[6] == "capital": station["model"] = "wheel_station"
 	if t[5] == "Savagers": station["model"] = "savagers_cross_station"   # v1.4r: the patched-together cross station (the owner is making one per system)
 	var patrols: Array = []
@@ -1157,7 +1176,7 @@ static func _system(t: Array) -> Dictionary:
 			"count": 70 if void_sys else 130, "ice": t[8] in ["ice", "dead", "gas"]},
 		"nebula": {"name": "%s Veil" % nm, "center": CENTRE + Vector3(cos(a3) * 1700.0, 40, sin(a3) * 1700.0), "radius": 460.0,
 			"color": (f[0] as Color).lerp(f[3], 0.6)},
-		"enemy": f[4], "enemy_ships": Data.HOME_FLEETS.get(t[6], []), "enemy_faction": "Kaijurai" if t[6] == "unknown" else Data.HOME_FACTION.get(t[6], ""), "patrols": patrols,
+		"enemy": _zone_enemy(str(t[2]), f[4]) if t[6] == "unknown" else f[4], "enemy_ships": Data.HOME_FLEETS.get(t[6], []), "enemy_faction": ("Kaijurai" if zone_of({"role": "unknown", "tile": str(t[2])}) == "brood" else "") if t[6] == "unknown" else Data.HOME_FACTION.get(t[6], ""), "patrols": patrols,   # (v12.68: only a brood zone is Kaijurai; the others' patrols are the zone's own)
 		"traffic": [] if t[6] == "unknown" else [[id + "_station", id + "_planet"]],   # (v12.3: no transports in the uncharted areas)
 	}
 

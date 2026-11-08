@@ -4815,22 +4815,31 @@ var lo_pick := ""        # the weapon picked by a tap (then tap a mount)
 var lo_note := ""        # the last change, said on the page
 var lo_targets := {}     # mount -> its button over the model (tests)
 var lo_view: SubViewport = null
+## v12.68 (owner's spec: the garage, "original design in a mech-shooter garage style"): MECH / SHIP / PILOT tabs; left
+## the mount slots, centre the live model turning (it changes the moment you pick a weapon), right the weapons that
+## user can take, each with its icon and before / after stat bars against what is on the slot now. A weapon that
+## can't go on the slot is greyed with the reason. (Drag still works: drop a weapon on a slot.)
 func _loadout_page() -> void:
 	var v := _page_box()
 	var lo := Loadout.current(lo_frame)
 	lo_set = clampi(lo_set, 0, (lo["sets"] as Array).size() - 1)
+	var slots: Array = (Loadout.MOUNTS[lo_frame] as Dictionary).keys().filter(func(m): return not Loadout.MOUNTS[lo_frame][m].get("stow", false))
+	if not (lo_slot in slots): lo_slot = str(slots[0])
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 6)
 	v.add_child(row)
-	for fr in ["ship", "mech"]:
+	for fr in ["mech", "ship", "pilot"]:
 		var fb := Button.new()
 		fb.name = "LoFrame_" + fr
 		fb.text = fr.to_upper()
 		fb.toggle_mode = true
 		fb.button_pressed = fr == lo_frame
-		fb.custom_minimum_size = Vector2(80, 44)
-		fb.pressed.connect(func(): lo_frame = fr; lo_pick = ""; show_screen("loadout"))
+		fb.custom_minimum_size = Vector2(84, 44)
+		fb.pressed.connect(func(): lo_frame = fr; lo_pick = ""; lo_slot = ""; show_screen("loadout"))
 		row.add_child(fb)
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(18, 0)
+	row.add_child(gap)
 	for i in (lo["sets"] as Array).size():
 		var sb := Button.new()
 		sb.name = "LoSet_%d" % i
@@ -4840,12 +4849,57 @@ func _loadout_page() -> void:
 		sb.custom_minimum_size = Vector2(80, 44)
 		sb.pressed.connect(func(): lo_set = i; show_screen("loadout"))
 		row.add_child(sb)
-	# the live 3D model with its mounts
+	var cols := HBoxContainer.new()
+	cols.name = "LoGarage"
+	cols.add_theme_constant_override("separation", 10)
+	v.add_child(cols)
+	# ---- left: the slots
+	var left := VBoxContainer.new()
+	left.name = "LoSlots"
+	left.custom_minimum_size = Vector2(168, 0)
+	left.add_theme_constant_override("separation", 6)
+	cols.add_child(left)
+	var lh := _label(14, CYAN)
+	lh.text = "MOUNT SLOTS"
+	left.add_child(lh)
+	lo_targets.clear()
+	var set_d: Dictionary = lo["sets"][lo_set]
+	for m in slots:
+		var md: Dictionary = Loadout.MOUNTS[lo_frame][m]
+		var tb := Button.new()
+		tb.name = "LoMount_" + m
+		var wid := str(set_d.get(m, ""))
+		var hang: bool = lo_frame == "ship" and m in Loadout.HANG_MOUNTS
+		tb.text = "%s%s\n%s" % [md["label"], "  ⤓" if hang else "", str(Loadout.weapon(wid).get("short", "— empty —")) if wid != "" else "— empty —"]
+		tb.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		tb.add_theme_font_size_override("font_size", Data.ts(12))
+		tb.custom_minimum_size = Vector2(168, 50)
+		tb.toggle_mode = true
+		tb.button_pressed = m == lo_slot
+		tb.modulate = Color(1.0, 0.9, 0.5) if wid != "" else Color(0.8, 0.9, 1.0, 0.85)
+		tb.tooltip_text = "%s · takes %s · up to W %.0f / E %.0f%s" % [md["label"], ", ".join(md["classes"]), md["max_w"], md["e_cap"], " · hangs upside down" if hang else ""]
+		left.add_child(tb)
+		lo_targets[m] = tb
+		tb.set_drag_forwarding(Callable(), func(_at, data): return data is Dictionary and data.has("lo_weapon"), func(_at, data): _lo_drop(m, str(data["lo_weapon"])))
+		tb.pressed.connect(func(): _lo_tap_mount(m))
+	var clr := Button.new()
+	clr.name = "LoClear"
+	clr.text = "CLEAR SLOT"
+	clr.custom_minimum_size = Vector2(168, 40)
+	clr.disabled = not set_d.has(lo_slot)
+	clr.pressed.connect(func():
+		var before := Loadout.totals(lo)
+		Loadout.fit(lo, lo_set, lo_slot, "")
+		lo_note = _lo_change(before, Loadout.totals(lo), "%s cleared" % Loadout.MOUNTS[lo_frame][lo_slot]["label"])
+		show_screen("loadout"))
+	left.add_child(clr)
+	# ---- centre: the live model, turning
 	var stage := Control.new()
 	stage.name = "LoStage"
-	stage.custom_minimum_size = Vector2(0, 330)
+	stage.custom_minimum_size = Vector2(250, 300)
 	stage.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	v.add_child(stage)
+	stage.size_flags_vertical = Control.SIZE_SHRINK_BEGIN   # (it keeps its height: the weapon list scrolls on its own)
+	cols.add_child(stage)
 	var svc := SubViewportContainer.new()
 	svc.stretch = true
 	svc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -4857,21 +4911,26 @@ func _loadout_page() -> void:
 	vp.msaa_3d = Viewport.MSAA_2X
 	svc.add_child(vp)
 	lo_view = vp
-	var pivot := Node3D.new()   # (the model scaled to a set size, like the hangar bay's turntable)
+	var turn := Node3D.new()   # (turns; the pivot inside it centres and sizes the model)
+	turn.name = "LoTurn"
+	vp.add_child(turn)
+	var pivot := Node3D.new()
 	pivot.name = "LoPivot"
-	vp.add_child(pivot)
-	var model := ShipFactory.build_mech(str(GS.mech_keys()["core"]), str(GS.mech_keys()["arms"]), str(GS.mech_keys()["legs"])) if lo_frame == "mech" else ShipFactory.build(str(Data.SHIPS[GS.ship_id]["model"]), true)
+	turn.add_child(pivot)
+	var model := _lo_model()
 	model.name = "LoModel"
 	pivot.add_child(model)
 	var bb0: AABB = ShipFactory._aabb(model, Transform3D.IDENTITY)
 	var span: float = maxf(bb0.size.x, maxf(bb0.size.y, bb0.size.z))
 	if span > 0.01: pivot.scale = Vector3.ONE * (12.0 / span)
 	pivot.position = -bb0.get_center() * pivot.scale.x
-	Loadout.dress(model, _lo_view_set(lo))
+	lo_nodes_view = Loadout.dress(model, _lo_view_set(lo))
+	var tw := turn.create_tween().set_loops()
+	tw.tween_property(turn, "rotation:y", TAU, 14.0).from(0.0)
 	var cam := Camera3D.new()
 	cam.fov = 38.0
 	vp.add_child(cam)
-	cam.look_at_from_position(Vector3(11.0, 8.0, 16.0) if lo_frame == "ship" else Vector3(9.0, 4.0, -18.0), Vector3.ZERO, Vector3.UP)
+	cam.look_at_from_position(Vector3(13.0, 8.0, 19.0) if lo_frame == "ship" else Vector3(10.0, 4.0, -22.0), Vector3.ZERO, Vector3.UP)
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-50, 30, 0)
 	sun.light_energy = 1.4
@@ -4882,28 +4941,58 @@ func _loadout_page() -> void:
 	env.environment.ambient_light_color = Color(0.55, 0.65, 0.8)
 	env.environment.ambient_light_energy = 0.8
 	vp.add_child(env)
-	# the mounts: a drop target on each, where it sits on the model
-	lo_targets.clear()
-	var mounts := Loadout.rig(model, lo_frame)
-	var set_d: Dictionary = lo["sets"][lo_set]
-	for m in Loadout.MOUNTS[lo_frame]:
-		var md: Dictionary = Loadout.MOUNTS[lo_frame][m]
-		if md.get("stow", false): continue
-		var tb := Button.new()
-		tb.name = "LoMount_" + m
-		var wid := str(set_d.get(m, ""))
-		tb.text = "%s\n%s" % [md["label"], str(Loadout.weapon(wid).get("short", "— empty —")) if wid != "" else "— empty —"]
-		tb.add_theme_font_size_override("font_size", Data.ts(11))
-		tb.custom_minimum_size = Vector2(104, 40)
-		tb.size = Vector2(104, 40)
-		tb.modulate = Color(1.0, 0.9, 0.5) if wid != "" else Color(0.8, 0.9, 1.0, 0.85)
-		stage.add_child(tb)
-		lo_targets[m] = tb
-		tb.set_drag_forwarding(Callable(), func(_at, data): return data is Dictionary and data.has("lo_weapon"), func(_at, data): _lo_drop(m, str(data["lo_weapon"])))
-		tb.pressed.connect(func(): _lo_tap_mount(m))
-		var mp: Node3D = mounts[m]
-		stage.resized.connect(func(): _lo_place(tb, cam, mp, stage))
-		_lo_place.call_deferred(tb, cam, mp, stage)
+	var cap := _label(13, GOLD)   # what the selected slot holds, over the model
+	cap.name = "LoStageCap"
+	cap.position = Vector2(10, 6)
+	cap.size = Vector2(236, 22)
+	cap.clip_text = true
+	var cur_w := Loadout.weapon(str(set_d.get(lo_slot, "")))
+	cap.text = "%s  ·  %s" % [Loadout.MOUNTS[lo_frame][lo_slot]["label"].to_upper(), "%s (%s · %s)" % [cur_w["short"], cur_w["wclass"], str(cur_w["class"])] if not cur_w.is_empty() else "empty"]
+	stage.add_child(cap)
+	# ---- right: the weapons this user can take, with before / after bars
+	var rcol := VBoxContainer.new()
+	rcol.custom_minimum_size = Vector2(300, 0)
+	cols.add_child(rcol)
+	var wl := _label(14, CYAN)
+	wl.text = "WEAPONS · %s" % Loadout.USER_NAME[lo_frame].to_upper()
+	rcol.add_child(wl)
+	var rsc := ScrollContainer.new()
+	rsc.custom_minimum_size = Vector2(300, 280)
+	rsc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	rcol.add_child(rsc)
+	var right := VBoxContainer.new()
+	right.name = "LoWeapons"
+	right.custom_minimum_size = Vector2(290, 0)
+	right.add_theme_constant_override("separation", 5)
+	rsc.add_child(right)
+	var owned: Array = GS.owned_weapons.duplicate()
+	if GS.god_mode: owned = Loadout.all_weapons()
+	for k in AssetRegistry.ITEMS:   # (a Tripo import you own shows with the rest)
+		if str(AssetRegistry.ITEMS[k].get("kind", "")) == "weapon" and k in GS.owned_weapons and not (k in owned): owned.append(k)
+	for wid2 in owned:
+		var w := Loadout.weapon(str(wid2))
+		if w.is_empty() or not (lo_frame in (w["users"] as Array)): continue
+		var wid3 := str(wid2)
+		var err := Loadout.fit_error(lo, lo_set, lo_slot, wid3)
+		var wb := Button.new()
+		wb.name = "LoWeapon_" + wid3
+		wb.custom_minimum_size = Vector2(290, 74)
+		wb.toggle_mode = true
+		wb.button_pressed = str(set_d.get(lo_slot, "")) == wid3
+		wb.tooltip_text = err if err != "" else "Fit on the %s" % Loadout.MOUNTS[lo_frame][lo_slot]["label"]
+		if err != "": wb.modulate = Color(0.6, 0.6, 0.65, 0.8)
+		var card := Control.new()
+		card.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card.draw.connect(func(): _lo_card(card, w, cur_w, err))
+		wb.add_child(card)
+		wb.set_drag_forwarding(func(_at):
+			var pv := Label.new()
+			pv.text = str(w["short"])
+			wb.set_drag_preview(pv)
+			return {"lo_weapon": wid3}, Callable(), Callable())
+		wb.pressed.connect(func(): _lo_select(wid3))
+		right.add_child(wb)
 	# the totals, and what the last change did
 	var t := Loadout.totals(lo)
 	var tl := _label(15, Color(0.85, 0.95, 1.0))
@@ -4918,36 +5007,6 @@ func _loadout_page() -> void:
 		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		nl.text = lo_note
 		v.add_child(nl)
-	# the weapons you own: drag one onto a mount (or tap it, then tap the mount)
-	var wl := _label(16, CYAN)
-	wl.text = "WEAPONS  ·  drag onto a mount (or tap, then tap the mount)"
-	v.add_child(wl)
-	var grid := GridContainer.new()
-	grid.columns = 3
-	grid.add_theme_constant_override("h_separation", 6)
-	grid.add_theme_constant_override("v_separation", 6)
-	v.add_child(grid)
-	var owned: Array = GS.owned_weapons.duplicate()
-	if GS.god_mode: owned = Data.WEAPONS.keys() + Data.MOUNT_PODS.keys()
-	for wid2 in owned:
-		var w := Loadout.weapon(str(wid2))
-		if w.is_empty(): continue
-		var wb := Button.new()
-		wb.name = "LoWeapon_" + str(wid2)
-		wb.text = "%s  [%s]\nW %.0f · E %.0f · %s" % [w["short"], str(w["class"]).to_upper(), w["weight"], w["energy"], "∞" if int(w["ammo"]) < 0 else "%d rds" % int(w["ammo"])]
-		wb.add_theme_font_size_override("font_size", Data.ts(12))
-		wb.custom_minimum_size = Vector2(150, 48)
-		wb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		wb.toggle_mode = true
-		wb.button_pressed = lo_pick == str(wid2)
-		var wid3 := str(wid2)
-		wb.set_drag_forwarding(func(_at):
-			var pv := Label.new()
-			pv.text = str(w["short"])
-			wb.set_drag_preview(pv)
-			return {"lo_weapon": wid3}, Callable(), Callable())
-		wb.pressed.connect(func(): lo_pick = "" if lo_pick == wid3 else wid3; show_screen("loadout"))
-		grid.add_child(wb)
 	# the armor parts
 	var al := _label(16, CYAN)
 	al.text = "ARMOR PARTS"
@@ -4969,8 +5028,8 @@ func _loadout_page() -> void:
 				var i := ids.find(cur)
 				var nid: String = ids[posmod(i + d, ids.size())]
 				var before := Loadout.totals(lo)
-				var err := Loadout.set_part(lo, slot, nid)
-				lo_note = err if err != "" else _lo_change(before, Loadout.totals(lo), str(Loadout.part(lo_frame, slot, nid).get("name", nid)))
+				var perr := Loadout.set_part(lo, slot, nid)
+				lo_note = perr if perr != "" else _lo_change(before, Loadout.totals(lo), str(Loadout.part(lo_frame, slot, nid).get("name", nid)))
 				show_screen("loadout"))
 			if d < 0: pr.add_child(ab)
 			else:
@@ -5002,6 +5061,79 @@ func _loadout_page() -> void:
 			lo_note = e if e != "" else "Preset %d loaded." % (i + 1)
 			show_screen("loadout"))
 		ps.add_child(ld)
+
+var lo_slot := ""            # v12.68: the garage slot picked on the left
+var lo_nodes_view := {}      # v12.68: the preview's weapon nodes by mount (tests)
+
+## v12.68: the model on the garage turntable: your mech, your ship, or you (the pilot) on foot
+func _lo_model() -> Node3D:
+	if lo_frame == "mech": return ShipFactory.build_mech(str(GS.mech_keys()["core"]), str(GS.mech_keys()["arms"]), str(GS.mech_keys()["legs"]))
+	if lo_frame == "pilot":
+		if PilotRig.ready(): return PilotRig.new().build(1.8, 0.0)
+		var st := Node3D.new()   # (until the pilot pack is in: a suited stand-in)
+		var cap := MeshInstance3D.new()
+		var cm := CapsuleMesh.new()
+		cm.radius = 0.3
+		cm.height = 1.8
+		cap.mesh = cm
+		cap.position.y = 0.9
+		cap.material_override = ShipFactory.mat(Color(0.85, 0.88, 0.92), false, 0.7)
+		st.add_child(cap)
+		return st
+	return ShipFactory.build(str(Data.SHIPS[GS.ship_id]["model"]), true)
+
+## v12.68: a weapon picked on the right: it goes on the selected slot now (the preview changes with it)
+func _lo_select(wid: String) -> String:
+	if lo_slot == "": return "No slot."
+	return _lo_drop(lo_slot, wid)
+
+## v12.68: a weapon's card: its icon, name, weight class, users, and bars (grey = the slot's weapon now, bright = this)
+func _lo_card(c: Control, w: Dictionary, now: Dictionary, err: String) -> void:
+	var f: Font = ThemeDB.fallback_font
+	var col: Color = w.get("color", Color(1.0, 0.6, 0.3))
+	_lo_icon(c, Rect2(6, 8, 46, 46), str(w["icon"]), col)
+	c.draw_string(f, Vector2(60, 20), "%s" % w["short"], HORIZONTAL_ALIGNMENT_LEFT, 112, 14, Color(1, 1, 1))
+	var users: Array = (w["users"] as Array).map(func(u): return Loadout.USER_NAME[u])
+	c.draw_string(f, Vector2(60, 36), "%s · %s · %s" % [w["wclass"], str(w["class"]), "/".join(users)], HORIZONTAL_ALIGNMENT_LEFT, 112, 10, Color(0.75, 0.85, 0.95))
+	if err != "": c.draw_string(f, Vector2(60, 66), err, HORIZONTAL_ALIGNMENT_LEFT, 236, 9, Color(1.0, 0.5, 0.4))
+	var stats := [["DMG", "damage", 60.0], ["RATE", "rate", 8.0], ["WT", "weight", 36.0], ["EN", "energy", 40.0], ["HEAT", "heat", 20.0]]
+	var x0 := 200.0
+	for i in stats.size():
+		var y := 8.0 + i * 12.0
+		var mx: float = stats[i][2]
+		var a: float = clampf(float(now.get(stats[i][1], 0.0)) / mx, 0.0, 1.0) if not now.is_empty() else 0.0
+		var b: float = clampf(float(w.get(stats[i][1], 0.0)) / mx, 0.0, 1.0)
+		c.draw_string(f, Vector2(x0 - 34, y + 9), stats[i][0], HORIZONTAL_ALIGNMENT_RIGHT, 32, 9, Color(0.7, 0.8, 0.9))
+		c.draw_rect(Rect2(x0, y + 1, 84, 4), Color(1, 1, 1, 0.08))
+		c.draw_rect(Rect2(x0, y + 1, 84 * a, 4), Color(0.6, 0.62, 0.66, 0.9))   # before
+		var better: bool = (b >= a) if stats[i][1] in ["damage", "rate"] else (b <= a)
+		c.draw_rect(Rect2(x0, y + 6, 84 * b, 4), Color(0.45, 1.0, 0.6) if better else Color(1.0, 0.55, 0.35))   # after
+	var ammo := "∞" if int(w["ammo"]) < 0 else "%d rds" % int(w["ammo"])
+	c.draw_string(f, Vector2(60, 50), ammo, HORIZONTAL_ALIGNMENT_LEFT, 84, 10, Color(0.8, 0.85, 0.9))
+
+## v12.68: the little weapon icons (drawn, one shape per kind)
+func _lo_icon(c: Control, r: Rect2, icon: String, col: Color) -> void:
+	c.draw_rect(r, Color(0.02, 0.08, 0.14, 0.9))
+	c.draw_rect(r, Color(col, 0.7), false, 1.5)
+	var m := r.get_center()
+	var s := r.size.x * 0.38
+	match icon:
+		"bolt": c.draw_colored_polygon(PackedVector2Array([m + Vector2(-s * 0.2, -s), m + Vector2(s * 0.5, -s * 0.1), m + Vector2(0, -s * 0.05), m + Vector2(s * 0.2, s), m + Vector2(-s * 0.5, s * 0.1), m + Vector2(0, s * 0.05)]), col)
+		"rifle":
+			c.draw_rect(Rect2(m + Vector2(-s, -s * 0.15), Vector2(s * 2.0, s * 0.3)), col)
+			c.draw_rect(Rect2(m + Vector2(-s * 0.6, s * 0.15), Vector2(s * 0.3, s * 0.6)), col)
+		"cannon":
+			c.draw_circle(m + Vector2(-s * 0.3, 0), s * 0.55, col)
+			c.draw_rect(Rect2(m + Vector2(0, -s * 0.25), Vector2(s, s * 0.5)), col)
+		"rail":
+			for k in 2: c.draw_rect(Rect2(m + Vector2(-s, -s * 0.4 + k * s * 0.6), Vector2(s * 2.0, s * 0.2)), col)
+			c.draw_rect(Rect2(m + Vector2(-s * 0.2, -s * 0.15), Vector2(s * 1.2, s * 0.3)), Color(1, 1, 1, 0.8))
+		"heavy":
+			c.draw_rect(Rect2(m - Vector2(s, s * 0.6), Vector2(s * 2.0, s * 1.2)), col)
+			c.draw_rect(Rect2(m + Vector2(s * 0.2, -s * 0.2), Vector2(s * 0.8, s * 0.4)), Color(0.05, 0.05, 0.08))
+		"missile":
+			for k in 4: c.draw_circle(m + Vector2((k % 2 - 0.5) * s, (k / 2 - 0.5) * s), s * 0.36, col)
+		_: c.draw_circle(m, s * 0.6, col)
 
 ## the preview shows the set being edited on the mounts
 func _lo_view_set(lo: Dictionary) -> Dictionary:
@@ -5049,6 +5181,10 @@ func _lo_drop(mount: String, wid: String) -> String:
 func _lo_tap_mount(mount: String) -> void:
 	if lo_pick != "":
 		_lo_drop(mount, lo_pick)
+		return
+	if mount != lo_slot:   # v12.68: a tap picks the slot (the weapons list then shows what fits it)
+		lo_slot = mount
+		show_screen("loadout")
 		return
 	var lo := Loadout.current(lo_frame)
 	if (lo["sets"][lo_set] as Dictionary).has(mount):   # (nothing picked: a tap takes its weapon off)

@@ -432,6 +432,23 @@ func _draw_flat(S: Vector2) -> void:
 			draw_line(ga, gb, Color(lc2, 0.16 if both2 else 0.07), 7.0, true)
 			if l[2] == "jump_gate": draw_line(ga, gb, Color(lc2, 0.95 if both2 else 0.45), 2.0, true)
 			else: _dashed(self, ga, gb, Color(lc2, 0.95 if both2 else 0.45), 2.0, 8.0 if l[2] == "warp_gate" else 4.0)
+	# v12.68 (owner's spec: "chart the uncharted map regions"): each unknown square tinted by its zone, with its type
+	zones_drawn = 0
+	for zid in Data.SYSTEMS:
+		var zs: Dictionary = Data.SYSTEMS[zid]
+		var zk := SystemBuilder.zone_of(zs)
+		if zk == "": continue
+		var zt: String = str(zs.get("tile", ""))
+		if zt.length() < 2: continue
+		var zc := "ABCDEFGHIJK".find(zt[0])
+		var zr := int(zt.substr(1)) - 1
+		if zc < 0 or zr < 0: continue
+		var zp: Vector2 = flat_pos(S, zc, zr)
+		var zcol: Color = Data.ZONE_TYPES[zk]["col"]
+		draw_rect(Rect2(zp - cell * 0.46, cell * 0.92), Color(zcol, 0.10), true)
+		draw_rect(Rect2(zp - cell * 0.46, cell * 0.92), Color(zcol, 0.45), false, 1.5)
+		if cell.x > 44.0: draw_string(font, zp + Vector2(-cell.x * 0.45, cell.y * 0.42), str(Data.ZONE_TYPES[zk]["short"]), HORIZONTAL_ALIGNMENT_CENTER, cell.x * 0.9, Data.ts(9), Color(zcol, 0.9))
+		zones_drawn += 1
 	# v10.6 (owner: "it needs to pulse to tell you what system you're at"): in an unknown area (not on the charts) you
 	# still get the pulse, on its tile
 	if not sys.has(current) and Data.SYSTEMS.has(current):
@@ -770,6 +787,7 @@ func _info(S: Vector2) -> void:
 	_button(eb, "OPEN SYSTEM  »", true)
 
 ## v10.6: you are in (or picked) one of the unknown areas, which are not on the charts: a plain card, no raw data.
+var zones_drawn := 0   # v12.68 (tests)
 func _info_unknown(S: Vector2) -> void:
 	var r := Rect2(Vector2(24, 86), Vector2(330, 222))
 	draw_style_box(_glass_box(), r)
@@ -777,7 +795,8 @@ func _info_unknown(S: Vector2) -> void:
 	_text(r.position + Vector2(16, 26), "SELECTED SYSTEM", Data.ts(12), Color(0.55, 0.8, 1.0))
 	_text(r.position + Vector2(16, 58), str(d.get("name", "Unknown area")).to_upper(), Data.ts(20), Color.WHITE)
 	_text(r.position + Vector2(16, 84), "Unknown area · tile %s" % str(d.get("tile", "?")), Data.ts(13), Color(0.75, 0.8, 0.9))
-	_text(r.position + Vector2(16, 110), "Off the charts: no gates on the map.", Data.ts(13), Color.WHITE)
+	var zk2 := SystemBuilder.zone_of(d)
+	_text(r.position + Vector2(16, 110), ("Zone: %s" % Data.ZONE_TYPES[zk2]["name"]) if zk2 != "" else "Off the charts: no gates on the map.", Data.ts(13), Data.ZONE_TYPES[zk2]["col"] if zk2 != "" else Color.WHITE)
 	var bi2 := box_info(selected)
 	var yy := r.position.y + 140.0
 	for sn2: Array in (bi2[1] as Array).slice(0, 2):

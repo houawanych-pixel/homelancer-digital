@@ -2423,6 +2423,158 @@ func _run() -> void:
 		_check("v12.67 (owner): the hangar LOADOUT bench: the live 3D model with %d mount targets; a bad drop refused (%s), a good one fitted (%s) with its stat changes (%s)" % [targets, bad.left(50), fitted, hb.lo_note.left(80)], targets == 5 and bad != "" and good == "" and fitted and hb.lo_note.find("Speed") >= 0, "")
 		_finish_group()
 		return
+	if _flag("HL_TRIPOIMPORT"):   # v12.68 (owner's spec): Tripo import, mounts / users / sockets, garage, destructibles, zones + L3
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s := _sp()
+		# 1. the split assets: every registry item has the right name, folder and a file that loads
+		var bad_items: Array = []
+		var pat := {"weapon": ["HL_WPN_", "res://assets/weapons/"], "ship_l3": ["HL_SHIP_L3_", "res://assets/ships/level3/"], "prop": ["HL_PROP_", "res://assets/props/"]}
+		for id in AssetRegistry.ITEMS:
+			var it: Dictionary = AssetRegistry.ITEMS[id]
+			var pp: Array = pat.get(str(it.get("kind", "")), ["?", "?"])
+			var path := str(it.get("path", ""))
+			if not (str(id).begins_with(pp[0]) and path.begins_with(pp[1]) and path.get_file().get_basename() == str(id) and ResourceLoader.exists(path)): bad_items.append(id)
+			elif str(it["kind"]) == "weapon" and Loadout.weapon(str(id)).is_empty(): bad_items.append(id + " (no data)")
+			elif str(it["kind"]) == "weapon":   # its real mesh, with its grip socket
+				var wm := Loadout.weapon_mesh(str(id), 6.0, "mech")
+				if wm.get_node_or_null("MountSocket") == null or wm.get_meta("placeholder", true): bad_items.append(id + " (mesh)")
+				wm.free()
+		var swapped := 0
+		for k in AssetRegistry.MODELS: if ShipFactory.has_real_model(k) and str(ShipFactory.entry(k)[0]) == str(AssetRegistry.ITEMS[AssetRegistry.MODELS[k]]["path"]): swapped += 1
+		var left_ph: Array = AssetRegistry.PLACEHOLDERS.filter(func(k): return not AssetRegistry.MODELS.has(k))
+		_check("v12.68: the split Tripo items load with the right name and folder (%d items, bad: %s); placeholders replaced %d of %d (still waiting on the GLBs: %s)" % [AssetRegistry.ITEMS.size(), str(bad_items), swapped, AssetRegistry.PLACEHOLDERS.size(), ", ".join(left_ph)], bad_items.is_empty() and swapped == AssetRegistry.MODELS.size(), "")
+		# 2. who can use what; a ship's wing / belly gun hangs upside down with its grip in the hardpoint
+		var pl := Loadout.default_loadout("pilot")
+		var ep1 := Loadout.fit(pl, 0, "R_Hand", "pulse2")
+		var ep2 := Loadout.fit(pl, 0, "R_Hand", "hv_cannon")
+		var mlo := Loadout.default_loadout("mech")
+		var em1 := Loadout.fit(mlo, 0, "R_Arm", "pulse2")
+		var shared: bool = "mech" in Loadout.weapon("pulse2")["users"] and "pilot" in Loadout.weapon("pulse2")["users"] and not ("pilot" in Loadout.weapon("hv_cannon")["users"])
+		var slo := Loadout.default_loadout("ship")
+		Loadout.fit(slo, 0, "Wing_L", "rail_carbine")
+		Loadout.fit(slo, 0, "Ventral", "plasma")
+		var sm := ShipFactory.build(str(Data.SHIPS[GS.ship_id]["model"]), true)
+		s.add_child(sm)
+		sm.global_position = s.player.global_position + Vector3(0, 300, 0)
+		var dn := Loadout.dress(sm, slo)
+		await _frames(1)
+		var hang_ok := true
+		var sock_err := 0.0
+		for m in ["Wing_L", "Ventral", "Nose"]:
+			var g: Node3D = dn.get(m)
+			if g == null:
+				hang_ok = false
+				continue
+			var up: float = g.global_basis.y.normalized().dot(sm.global_basis.y.normalized())
+			if (m == "Nose") != (up > 0.5): hang_ok = false
+			sock_err = maxf(sock_err, (g.get_node("MountSocket") as Node3D).global_position.distance_to((g.get_parent() as Node3D).global_position))
+		var g_pilot := Loadout.weapon_mesh("pulse2", 2.0, "pilot")
+		var g_mech := Loadout.weapon_mesh("pulse2", 2.0, "mech")
+		var bigger: bool = ShipFactory._aabb(g_pilot, Transform3D.IDENTITY).size.z > ShipFactory._aabb(g_mech, Transform3D.IDENTITY).size.z * 1.2
+		g_pilot.free()
+		g_mech.free()
+		sm.queue_free()
+		_check("v12.68 (owner): users: a pilot takes a blaster (%s), not a heavy (%s); shared Mech+Pilot weapons (%s), scaled per user (%s); a mech arm takes it (%s); the ship's wing / belly guns hang upside down (%s) with the grip in the socket (%.3f m off)" % [ep1 == "", ep2.left(40), shared, bigger, em1 == "", hang_ok, sock_err],
+			ep1 == "" and ep2 != "" and shared and bigger and em1 == "" and hang_ok and sock_err < 0.05, "")
+		# 3. destructibles: walls / doors / ammo cases chip off along their panels, the sword slices, a case goes up
+		var lf := StationLife.new()
+		s.add_child(lf)
+		lf.setup_bare(s)
+		var at0: Vector3 = s.player.global_position + s.player.global_basis.z * -60.0
+		lf._add_prop("wall", at0, 0.0, Color(0.6, 0.62, 0.66), "test")
+		lf._add_prop("door", at0 + Vector3(40, 0, 0), 0.0, Color(0.6, 0.62, 0.66), "test")
+		lf._add_prop("ammo_case", at0 + Vector3(-40, 0, 0), 0.0, Color(0.6, 0.62, 0.66), "test")
+		var wall: Dictionary = lf.props[0]
+		var door: Dictionary = lf.props[1]
+		var acase: Dictionary = lf.props[2]
+		var n_left0: int = (wall["left"] as Array).size()
+		var box0: AABB = wall["aabb"]
+		lf.damage_prop(wall, 12.0, (wall["aabb"] as AABB).get_center(), Vector3(0, 0, -1))
+		var chipped_ok: bool = (wall["left"] as Array).size() < n_left0 and not wall["broken"] and lf.chunks.size() >= 1
+		var box_ok: bool = (wall["aabb"] as AABB).get_volume() <= box0.get_volume() + 0.01
+		var cut: int = lf.slice_prop(door, (door["aabb"] as AABB).get_center(), Vector3(1, 0, 0))
+		var blasts0: int = lf.ammo_blasts
+		lf.damage_prop(acase, 99.0, (acase["aabb"] as AABB).get_center(), Vector3(0, 0, -1))
+		await _wait(0.3)
+		await _capture("tripo_props")
+		var no_floor: bool = lf.props.all(func(q): return str(q["kind"]) in StationLife.PROP_HP.keys())   # (the deck floor and the exit doors are not props: they can't be shot away)
+		_check("v12.68 (owner): props fracture: a wall chips a panel off (%s, %d → %d pieces, its box shrinks %s); the sword slices a door (%d cut away); an ammo case explodes (%s); floor and exits aren't breakable props (%s)" % [chipped_ok, n_left0, (wall["left"] as Array).size(), box_ok, cut, lf.ammo_blasts > blasts0, no_floor],
+			chipped_ok and box_ok and cut >= 1 and lf.ammo_blasts > blasts0 and acase["broken"] and no_floor, "")
+		lf.queue_free()
+		# 4. the zones: every uncharted square charted, none holds a nation; L3 ships only in their zones
+		var counts := {}
+		var faction_free := true
+		for sid in Data.SYSTEMS:
+			var zk := SystemBuilder.zone_of(Data.SYSTEMS[sid])
+			if zk == "": continue
+			counts[zk] = int(counts.get(zk, 0)) + 1
+			if zk != "brood" and str(Data.SYSTEMS[sid].get("enemy_faction", "")) != "": faction_free = false
+		var l3_general := false   # the L3 units are in no faction fleet, roster, or general table
+		for fk in Data.HOME_FLEETS:
+			for u in Data.HOME_FLEETS[fk]: if str(u) in Data.L3_UNITS: l3_general = true
+		for u in Data.ENEMY_SPACE_FLEET: if str(u) in Data.L3_UNITS: l3_general = true
+		var zsid := ""
+		for sid in Data.SYSTEMS: if SystemBuilder.zone_of(Data.SYSTEMS[sid]) == "pirates" and zsid == "": zsid = sid
+		SpaceSystem.force_l3 = true
+		GS.god_mode = true
+		main._load_system(zsid, "station")
+		await _wait(2.0)
+		s = _sp()
+		var zl3: Array = s.zone_l3.map(func(e): return str(e["def"]["name"]))
+		var zn: int = s.zone_units.size()
+		var zone_ok: bool = s.zone_kind == "pirates" and s.zone_units.size() >= 4 and s.zone_units.all(func(e): return not e.has("faction")) and s.nests.is_empty()
+		await _capture("tripo_zone")
+		var only_here := true
+		var csid := "" 
+		for sid in Data.SYSTEMS: if not SystemBuilder.is_unknown(Data.SYSTEMS[sid]) and csid == "" and Data.SYSTEMS[sid].get("generated", false): csid = sid
+		main._load_system(csid if csid != "" else "sol", "station")
+		await _wait(2.0)
+		s = _sp()
+		for e in s.enemies: if e.get("l3", false) or str(e["def"].get("class", "")) == "level 3": only_here = false
+		SpaceSystem.force_l3 = false
+		_check("v12.68 (owner): uncharted squares charted as zones %s, none of them a nation's (%s); a Pirate Haven fills with its own (%s, %d units) and its L3 ship %s; no L3 in general fleets (%s) or in a charted system (%s)" % [str(counts), faction_free, zone_ok, zn, str(zl3), not l3_general, only_here],
+			counts.size() >= 5 and faction_free and zone_ok and zl3.size() == 1 and not l3_general and only_here, "")
+		# 5. the galaxy map shows the zones
+		main.galaxymap.open(GS.system_id)
+		await _wait(0.5)
+		var zd: int = main.galaxymap.zones_drawn
+		await _capture("tripo_galaxy_zones")
+		main.galaxymap.visible = false
+		_check("v12.68: the galaxy map charts the zones (%d squares drawn)" % zd, zd >= 10, "")
+		# 6. the garage: MECH / SHIP / PILOT tabs, the slot list, the preview changes the moment you pick
+		main.dock(_sp().station)
+		await _until(func(): return main.state == "hub", 15.0)
+		var hb = main.hub
+		GS.god_mode = true
+		hb.lo_frame = "ship"
+		hb.lo_set = 0
+		hb.lo_slot = "Wing_R"
+		hb.show_screen("loadout")
+		await _wait(0.5)
+		var tabs_ok: bool = hb.content.find_child("LoFrame_pilot", true, false) != null and hb.content.find_child("LoSlots", true, false) != null and hb.content.find_child("LoWeapons", true, false) != null
+		var r0: String = hb._lo_select("rail_carbine")
+		await _wait(0.4)
+		var pv: Node3D = hb.lo_nodes_view.get("Wing_R")
+		var pv_ok: bool = pv != null and is_instance_valid(pv) and str(pv.get_meta("weapon", "")) == "rail_carbine" and pv.is_inside_tree() and pv.get_viewport() == hb.lo_view
+		await _wait(0.8)
+		await _capture("tripo_garage_ship")
+		var bad2: String = hb._lo_drop("Nose", "hv_cannon")
+		await _wait(1.0)
+		var greyed: Button = hb.content.find_child("LoWeapon_hv_cannon", true, false)
+		hb.lo_frame = "pilot"
+		hb.lo_slot = ""
+		hb.show_screen("loadout")
+		await _wait(0.6)
+		var p_list := 0
+		var p_heavy := hb.content.find_child("LoWeapon_hv_cannon", true, false) != null
+		for c in hb.content.find_children("LoWeapon_*", "Button", true, false): p_list += 1
+		await _capture("tripo_garage_pilot")
+		_check("v12.68 (owner): the garage: MECH / SHIP / PILOT tabs, slots left, weapons right (%s); picking a weapon puts it on the turning preview at once (%s %s); a bad fit refused with the reason (%s; greyed %s); the pilot tab lists only hand guns (%d, heavy shown %s)" % [tabs_ok, r0 == "", pv_ok, bad2.left(40), greyed != null and greyed.tooltip_text != "Fit on the Nose", p_list, p_heavy],
+			tabs_ok and r0 == "" and pv_ok and bad2 != "" and p_list > 0 and not p_heavy, "")
+		_finish_group()
+		return
 	if _flag("HL_GALAXYSHOT"):   # v12.64 (owner: "show me the complete map"): every system charted, zoomed out and in
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -7335,7 +7487,7 @@ func _job_v108() -> void:
 	var sys0: String = s.sys_id
 	var uid := ""
 	for sid in Data.SYSTEMS:
-		if SystemBuilder.is_unknown(Data.SYSTEMS[sid]) and uid == "": uid = sid
+		if SystemBuilder.zone_of(Data.SYSTEMS[sid]) == "brood" and uid == "": uid = sid   # (v12.68: only the brood zones keep the nests)
 	if uid == "":
 		_check("v10.8: an unknown area exists to hold a Kaijurai nest", false)
 		return

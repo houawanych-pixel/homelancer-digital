@@ -17,7 +17,12 @@ const GRAV := 70.0              # m/s2 at the deck's (mech) scale
 const CHUNK_LIFE := 9.0         # s a broken piece stays before it sinks away
 const MAX_CHUNKS := 40
 const MAX_MARKS := 60
-const PROP_HP := {"table": 14.0, "crate": 22.0, "console": 16.0}
+const PROP_HP := {"table": 14.0, "crate": 22.0, "console": 16.0, "wall": 40.0, "door": 30.0, "ammo_case": 18.0}
+## v12.68 (owner: "crates, walls, doors and the ammo case pre-cut into chunks along panel seams and line cuts; on a
+## hit chunks break off or are sliced away"): these come apart a chunk at a time (the one nearest the hit); the
+## sword slices off everything on the far side of its cut; the ammo case goes up when it breaks
+const CHIP_KINDS := ["crate", "wall", "door", "ammo_case"]
+const AMMO_BLAST := 46.0
 const CIV_H := 12.5             # m: the crew at the pilot's (mech-sized) scale
 const CIV_WALK := 16.0
 const CIV_RUN := 42.0
@@ -31,6 +36,7 @@ var chunks: Array = []          # {node, vel, spin, life, half}
 var marks: Array = []
 var civs: Array = []            # {node, pivot, inst, ap, skel, state, goal, t, room, cover, calm}
 var broken := 0                 # (tests)
+var ammo_blasts := 0            # (tests)
 var downed := 0
 var _rng := RandomNumberGenerator.new()
 var _mat: StandardMaterial3D
@@ -41,6 +47,17 @@ var _mark_mats := {}
 func setup(space: Node, faction: String, civilians: bool, tint: Color) -> void:
 	sp = space
 	_rng.seed = hash(faction + str(Boarding.INFO.get("name", "")))
+	_mats()
+	var body := Color(0.62, 0.64, 0.68).lerp(tint, 0.18)
+	_fill(body)
+	if civilians: _add_people(faction)
+
+## v12.68: just the materials (a test bench: props placed by hand, no deck)
+func setup_bare(space: Node) -> void:
+	sp = space
+	_mats()
+
+func _mats() -> void:
 	_mat = StandardMaterial3D.new()
 	_mat.vertex_color_use_as_albedo = true
 	_mat.roughness = 0.75
@@ -50,7 +67,8 @@ func setup(space: Node, faction: String, civilians: bool, tint: Color) -> void:
 	_glow.emission_enabled = true
 	_glow.emission = Color(0.3, 0.9, 1.0)
 	_glow.emission_energy_multiplier = 1.6
-	var body := Color(0.62, 0.64, 0.68).lerp(tint, 0.18)
+
+func _fill(body: Color) -> void:
 	for k in Boarding.ROOMS:
 		var R: Dictionary = Boarding.ROOMS[k]
 		if str(R.get("label", "")) == "CORRIDOR" or bool(R.get("hex", false)): continue
@@ -61,9 +79,8 @@ func setup(space: Node, faction: String, civilians: bool, tint: Color) -> void:
 		for i in n:
 			var p := _free_spot(str(k), 40.0)
 			if p == Vector3.INF: continue
-			var kind: String = ["table", "table", "crate", "crate", "console"][_rng.randi() % 5]
+			var kind: String = ["table", "table", "crate", "crate", "console", "wall", "door", "ammo_case"][_rng.randi() % 8]   # (v12.68: + walls, doors, ammo cases)
 			_add_prop(kind, p, _rng.randf() * TAU, body, str(k))
-	if civilians: _add_people(faction)
 
 # ---------------------------------------------------------------- props
 ## a spot in room k, `pad` m clear of the walls, of the doors' middle lines, the room's middle pillar, the start,
@@ -106,6 +123,28 @@ static func shape(kind: String) -> Dictionary:
 				[Vector3(-1.8, 3.5, 1.8), Vector3(3.6, 7, 3.6), 0.75, 0.0], [Vector3(1.8, 3.5, 1.8), Vector3(3.6, 7, 3.6), 0.85, 0.0],
 				[Vector3(0, 7.2, 0), Vector3(7.6, 0.6, 7.6), 0.45, 0.0], [Vector3(0, 3.5, 3.65), Vector3(7.4, 1.0, 0.3), -1.0, 0.0]],
 				"split": [[0, 4], [1], [2, 5], [3]]}
+		"wall":   # a free-standing wall: 3 x 2 panels with seams between, in a frame
+			var wp: Array = []
+			var spl: Array = []
+			for r in 2:
+				for c in 3:
+					wp.append([Vector3((c - 1) * 4.8, 2.6 + r * 4.8, 0), Vector3(4.6, 4.6, 1.2), 0.9 if (r + c) % 2 == 0 else 0.8, 0.0])
+					spl.append([wp.size() - 1])
+			wp.append([Vector3(-7.4, 5.0, 0), Vector3(0.6, 10.0, 1.6), 0.5, 0.0])
+			wp.append([Vector3(7.4, 5.0, 0), Vector3(0.6, 10.0, 1.6), 0.5, 0.0])
+			spl.append([6, 7])
+			return {"parts": wp, "split": spl}
+		"door":   # a door in its frame: two leaves, two panels each, a lit strip (frame last)
+			return {"parts": [[Vector3(-2.4, 2.6, 0), Vector3(4.6, 5.0, 0.8), 0.85, 0.0], [Vector3(-2.4, 7.7, 0), Vector3(4.6, 5.0, 0.8), 0.8, 0.0],
+				[Vector3(2.4, 2.6, 0), Vector3(4.6, 5.0, 0.8), 0.85, 0.0], [Vector3(2.4, 7.7, 0), Vector3(4.6, 5.0, 0.8), 0.8, 0.0],
+				[Vector3(0, 5.2, 0.45), Vector3(0.3, 10.0, 0.1), -1.0, 0.0],
+				[Vector3(-5.2, 5.4, 0), Vector3(0.8, 10.8, 1.4), 0.45, 0.0], [Vector3(5.2, 5.4, 0), Vector3(0.8, 10.8, 1.4), 0.45, 0.0], [Vector3(0, 10.6, 0), Vector3(11.2, 0.8, 1.4), 0.45, 0.0]],
+				"split": [[0], [1], [2, 4], [3], [5, 6, 7]]}
+		"ammo_case":   # a long case: body, lid, two straps, the glowing warning panel
+			return {"parts": [[Vector3(-2.2, 1.6, 0), Vector3(4.3, 3.2, 3.6), 0.55, 0.0], [Vector3(2.2, 1.6, 0), Vector3(4.3, 3.2, 3.6), 0.6, 0.0],
+				[Vector3(0, 3.45, 0), Vector3(8.8, 0.5, 3.8), 0.4, 0.0], [Vector3(-2.2, 1.6, 1.85), Vector3(0.5, 3.0, 0.1), 0.3, 0.0], [Vector3(2.2, 1.6, 1.85), Vector3(0.5, 3.0, 0.1), 0.3, 0.0],
+				[Vector3(0, 1.8, 1.86), Vector3(1.8, 1.0, 0.05), -1.0, 0.0]],
+				"split": [[0, 3], [1, 4, 5], [2]], "explosive": true}
 		_:   # console
 			return {"parts": [[Vector3(0, 2.6, 0), Vector3(7, 5.2, 3.4), 0.6, 0.0], [Vector3(0, 6.0, 0.4), Vector3(7, 0.6, 3.8), 0.9, -28.0],
 				[Vector3(0, 6.35, 0.45), Vector3(6.2, 0.1, 3.0), -1.0, -28.0]],
@@ -158,7 +197,10 @@ func _add_prop(kind: String, at: Vector3, yaw: float, body: Color, room: String)
 	mi.global_position = at
 	mi.rotation.y = yaw
 	var bb := mi.global_transform * mi.mesh.get_aabb()
-	props.append({"node": mi, "aabb": bb, "hp": float(PROP_HP[kind]), "kind": kind, "room": room, "broken": false, "body": body, "yaw": yaw, "at": at})
+	var left: Array = []
+	for g in (sh["split"] as Array).size(): left.append(g)
+	props.append({"node": mi, "aabb": bb, "hp": float(PROP_HP[kind]), "kind": kind, "room": room, "broken": false, "body": body, "yaw": yaw, "at": at,
+		"left": left, "chip_hp": float(PROP_HP[kind]) / maxf(1.0, float(left.size()))})
 
 ## the nearest intact prop along from -> to: [t 0..1, prop] (t = 1 when none)
 func seg_prop(from: Vector3, to: Vector3) -> Array:
@@ -182,7 +224,90 @@ func damage_prop(p: Dictionary, dmg: float, at: Vector3, dir: Vector3) -> void:
 	p["hp"] = float(p["hp"]) - dmg
 	sp._spark(at, Color(1, 0.85, 0.55), 2.5, 0.2)
 	noise(at, PANIC_R * 0.7)
+	if str(p["kind"]) in CHIP_KINDS and float(p["hp"]) > 0.0:   # v12.68: a chunk comes off for every share of damage
+		while (p["left"] as Array).size() > 1 and float(p["hp"]) < float(p["chip_hp"]) * float((p["left"] as Array).size() - 1):
+			chip_prop(p, at, dir)
+		return
 	if float(p["hp"]) <= 0.0: break_prop(p, dir)
+
+## v12.68: the chunk nearest `at` breaks off (along its panel seam) and flies; the rest of the prop stays standing
+var chipped := 0   # (tests)
+func chip_prop(p: Dictionary, at: Vector3, dir: Vector3) -> void:
+	var left: Array = p["left"]
+	if left.size() <= 1:
+		break_prop(p, dir)
+		return
+	var mi: MeshInstance3D = p["node"]
+	var xf := mi.global_transform
+	var sh := shape(str(p["kind"]))
+	var best := -1
+	var bd := INF
+	for g in left:
+		var c := _group_centre(sh, sh["split"][g])
+		var d := (xf * c).distance_to(at)
+		if d < bd:
+			bd = d
+			best = g
+	left.erase(best)
+	_fly_chunk(p, sh, sh["split"][best], xf, dir, 1.0)
+	_rebuild(p, sh, xf)
+	chipped += 1
+	sp._spark(at, Color(1.0, 0.75, 0.35), 4.0, 0.3)
+	Sfx.play("hull_hit", -12.0, 1.3)
+
+## v12.68: the sword's cut: everything on the far side of the plane through `at` (normal `n`) is sliced away
+func slice_prop(p: Dictionary, at: Vector3, n: Vector3) -> int:
+	if p["broken"] or not (str(p["kind"]) in CHIP_KINDS): return 0
+	var mi: MeshInstance3D = p["node"]
+	var xf := mi.global_transform
+	var sh := shape(str(p["kind"]))
+	var cut: Array = []
+	for g in p["left"]:
+		if ((xf * _group_centre(sh, sh["split"][g])) - at).dot(n) > 0.0: cut.append(g)
+	if cut.is_empty() or cut.size() == (p["left"] as Array).size():
+		break_prop(p, n)
+		return cut.size()
+	for g in cut:
+		(p["left"] as Array).erase(g)
+		_fly_chunk(p, sh, sh["split"][g], xf, n, 1.4)
+	_rebuild(p, sh, xf)
+	chipped += cut.size()
+	for k in 4: sp._spark(at + Vector3(randf_range(-3, 3), randf_range(0, 6), randf_range(-3, 3)), Color(1.0, 0.6, 0.25), 3.0, 0.35)
+	return cut.size()
+
+static func _group_centre(sh: Dictionary, grp: Array) -> Vector3:
+	var c := Vector3.ZERO
+	for i in grp: c += (sh["parts"][i][0] as Vector3)
+	return c / maxf(1.0, float(grp.size()))
+
+## what's left of a prop: its mesh from the chunks still on it, and a box that fits them (collision stays sane)
+func _rebuild(p: Dictionary, sh: Dictionary, xf: Transform3D) -> void:
+	var idx: Array = []
+	for g in p["left"]: idx.append_array(sh["split"][g])
+	var mi: MeshInstance3D = p["node"]
+	mi.mesh = _mesh(str(p["kind"]), idx, p["body"], Vector3.ZERO)
+	p["aabb"] = xf * mi.mesh.get_aabb()
+
+func _fly_chunk(p: Dictionary, sh: Dictionary, grp: Array, xf: Transform3D, dir: Vector3, k: float) -> void:
+	var lo := Vector3(INF, INF, INF)
+	var hi := -lo
+	for i in grp:
+		var pa: Array = sh["parts"][i]
+		lo = lo.min((pa[0] as Vector3) - (pa[1] as Vector3) * 0.5)
+		hi = hi.max((pa[0] as Vector3) + (pa[1] as Vector3) * 0.5)
+	var c := (lo + hi) * 0.5
+	var cm := MeshInstance3D.new()
+	cm.name = "Chunk"
+	cm.mesh = _mesh(str(p["kind"]), grp, p["body"], c)
+	add_child(cm)
+	cm.global_transform = Transform3D(xf.basis, xf * c)
+	var push := dir.normalized()
+	push.y = 0.0
+	var v := push.normalized() * _rng.randf_range(14.0, 26.0) * k + Vector3(0, _rng.randf_range(10.0, 20.0), 0)
+	chunks.append({"node": cm, "vel": v, "spin": Vector3(_rng.randf_range(-4, 4), _rng.randf_range(-3, 3), _rng.randf_range(-4, 4)), "life": CHUNK_LIFE, "half": (hi.y - lo.y) * 0.5, "rest": 0.0})
+	while chunks.size() > MAX_CHUNKS:
+		var old: Dictionary = chunks.pop_front()
+		if is_instance_valid(old["node"]): (old["node"] as Node3D).queue_free()
 
 ## it breaks: the whole prop goes, its chunks fly off away from the hit and up, tumbling
 func break_prop(p: Dictionary, dir: Vector3) -> void:
@@ -193,7 +318,10 @@ func break_prop(p: Dictionary, dir: Vector3) -> void:
 	var xf := mi.global_transform
 	mi.queue_free()
 	var sh := shape(str(p["kind"]))
-	for grp: Array in sh["split"]:
+	var gl: Array = p.get("left", [])
+	for gi in (sh["split"] as Array).size():
+		if not gl.is_empty() and not (gi in gl): continue   # (v12.68: the chunks already gone)
+		var grp: Array = sh["split"][gi]
 		var c := Vector3.ZERO
 		var lo := Vector3(INF, INF, INF)
 		var hi := -lo
@@ -219,6 +347,12 @@ func break_prop(p: Dictionary, dir: Vector3) -> void:
 		if is_instance_valid(old["node"]): (old["node"] as Node3D).queue_free()
 	Sfx.play("explosion", -14.0, 1.6)
 	noise(xf.origin, PANIC_R * 1.5)
+	if bool(sh.get("explosive", false)):   # v12.68: the ammo case goes up and takes what's near with it
+		ammo_blasts += 1
+		sp._explode(xf.origin + Vector3(0, 3, 0), 18.0)
+		for k in 8: sp._spark(xf.origin + Vector3(_rng.randf_range(-6, 6), _rng.randf_range(1, 8), _rng.randf_range(-6, 6)), Color(1.0, 0.7, 0.3), 4.0, 0.5)
+		call_deferred("explosion", xf.origin, AMMO_BLAST)
+		if sp.player != null and sp.player.global_position.distance_to(xf.origin) < AMMO_BLAST: sp._player_hit(12.0, xf.origin)
 
 func _update_chunks(dt: float) -> void:
 	for c in chunks:

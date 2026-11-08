@@ -27,7 +27,19 @@ const MOUNTS := {
 		"Dorsal": {"classes": ["heavy", "cannon", "missile"], "max_w": 34.0, "e_cap": 46.0, "at": Vector3(0.0, 0.55, 0.1), "label": "Dorsal (top)"},
 		"Ventral": {"classes": ["cannon", "rail", "missile", "blaster"], "max_w": 16.0, "e_cap": 36.0, "at": Vector3(0.0, -0.55, 0.0), "label": "Ventral (belly)"},
 	},
+	# v12.68 (owner's spec: "shared weapons can be Mech+Pilot, scaled per user"): the pilot on foot
+	"pilot": {
+		"R_Hand": {"classes": ["blaster", "rifle", "cannon", "rail"], "max_w": 10.0, "e_cap": 24.0, "at": Vector3(0.32, 0.55, -0.25), "label": "Right hand"},
+		"Back_Stow": {"classes": [], "max_w": 0.0, "e_cap": 0.0, "at": Vector3(0.0, 0.7, 0.3), "label": "Back (stowed)", "stow": true},
+	},
 }
+## v12.68: weapons on these mounts hang UPSIDE DOWN under the ship, the grip clicked into the hardpoint
+const HANG_MOUNTS := ["Wing_L", "Wing_R", "Ventral"]
+## v12.68: how big a weapon is for each user (a pilot's gun is bigger next to him than a mech's next to it)
+const USER_SCALE := {"mech": 1.0, "ship": 1.0, "pilot": 1.5}
+const USER_NAME := {"mech": "Mech", "ship": "Ship", "pilot": "Pilot"}
+## v12.68: the weight class a weapon shows (Light / Medium / Heavy)
+static func weight_class(w: float) -> String: return "Light" if w < 9.0 else ("Medium" if w < 16.0 else "Heavy")
 const SETS := 2   # weapon sets you cycle with SWAP
 
 # ---------------------------------------------------------------- weapons as data
@@ -53,6 +65,7 @@ const WEAPON_CLASS := {
 ## range, color, ammo, heat, weight, energy, icon}
 static func weapon(id: String) -> Dictionary:
 	var src: Dictionary = Data.WEAPONS.get(id, Data.MOUNT_PODS.get(id, {}))
+	if src.is_empty() and AssetRegistry.ITEMS.has(id) and str(AssetRegistry.ITEMS[id].get("kind", "")) == "weapon": return _tripo_weapon(id)
 	if src.is_empty(): return {}
 	var cls: String = WEAPON_CLASS.get(id, "blaster")
 	var cd: Dictionary = CLASS_DEF[cls]
@@ -64,6 +77,43 @@ static func weapon(id: String) -> Dictionary:
 		"ammo": int(cd["ammo"]) if not pod else int(src.get("ammo", 6)) * 4, "heat": float(cd["heat"]),
 		"weight": float(cd["weight"]) * (1.0 + price_k * 0.3), "energy": float(cd["energy"]) * (1.0 + price_k * 0.25), "icon": str(cd["icon"]), "pod": pod}
 	out["mounts"] = fits_where(out)
+	out["wclass"] = weight_class(float(out["weight"]))
+	out["users"] = users_of(out)
+	return out
+
+## v12.68: who can use a weapon: Mech / Ship by its mounts; a Pilot too when it is light enough to carry by hand
+static func users_of(w: Dictionary) -> Array:
+	var u: Array = []
+	for fr in ["mech", "ship", "pilot"]:
+		for m in (w.get("mounts", []) as Array):
+			if str(m).begins_with(fr + ":") and not (fr in u):
+				if fr == "pilot" and float(w.get("weight", 0.0)) > float(MOUNTS["pilot"]["R_Hand"]["max_w"]): continue   # (too heavy to carry by hand)
+				u.append(fr)
+	return u
+
+## v12.68: a weapon that came from the Tripo import (its stats written by tools/tripo_import.py)
+static func _tripo_weapon(id: String) -> Dictionary:
+	var it: Dictionary = AssetRegistry.ITEMS[id]
+	var d: Dictionary = it.get("data", {})
+	var cls: String = str(d.get("game_class", "rifle"))
+	var cd: Dictionary = CLASS_DEF.get(cls, CLASS_DEF["rifle"])
+	var out := {"id": id, "name": str(d.get("name", id)), "short": str(d.get("short", d.get("name", id))), "class": cls, "mesh": id,
+		"damage": float(d.get("damage", 10.0)), "rate": float(d.get("rate", 3.0)), "speed": float(d.get("speed", 420.0)), "range": float(d.get("range", 700.0)),
+		"color": Color(str(d.get("color", "#ffa040"))), "ammo": int(d.get("ammo", cd["ammo"])), "heat": float(d.get("heat", cd["heat"])),
+		"weight": float(d.get("weight", cd["weight"])), "energy": float(d.get("energy", cd["energy"])), "icon": str(d.get("icon", cd["icon"])), "pod": false, "tripo": true}
+	out["mounts"] = fits_where(out)
+	var allowed: Array = d.get("users", [])   # (the data file can narrow who uses it)
+	if not allowed.is_empty(): out["mounts"] = (out["mounts"] as Array).filter(func(m): return USER_NAME.get(str(m).get_slice(":", 0), "") in allowed)
+	out["wclass"] = str(d.get("class", weight_class(float(out["weight"]))))
+	out["users"] = users_of(out)
+	return out
+
+## v12.68: every weapon id there is (the game's guns and pods, then the Tripo imports)
+static func all_weapons() -> Array:
+	var out: Array = []
+	for k in Data.WEAPONS: out.append(k)
+	for k in Data.MOUNT_PODS: if not (k in out): out.append(k)
+	for k in AssetRegistry.ITEMS: if str(AssetRegistry.ITEMS[k].get("kind", "")) == "weapon": out.append(k)
 	return out
 
 ## every mount (both frames) a weapon may go on, by its class
@@ -108,8 +158,14 @@ const PARTS := {
 			"en_lift": {"name": "Heavy-Lift Engines", "armor": 10.0, "weight": 18.0, "energy": 26.0, "cap": 160.0, "speed": 0.92, "boost": 0.9, "look": "quad"},
 		},
 	},
+	"pilot": {   # v12.68
+		"suit": {
+			"st_std": {"name": "Flight Suit", "armor": 6.0, "weight": 4.0, "energy": 2.0, "gen": 40.0, "cap": 24.0, "look": "suit"},
+			"st_armored": {"name": "Armored Suit", "armor": 14.0, "weight": 9.0, "energy": 3.0, "gen": 44.0, "cap": 30.0, "look": "suit", "stagger": 0.1},
+		},
+	},
 }
-const SLOTS := {"mech": ["head", "core", "arms", "legs"], "ship": ["hull", "wings", "engines"]}
+const SLOTS := {"mech": ["head", "core", "arms", "legs"], "ship": ["hull", "wings", "engines"], "pilot": ["suit"]}
 
 ## a part's record (mech core / arms / legs from the frames)
 static func part(frame: String, slot: String, id: String) -> Dictionary:
@@ -140,6 +196,7 @@ static func default_loadout(frame: String) -> Dictionary:
 		var mp: Dictionary = GS.mech_parts
 		return {"frame": "mech", "active": 0, "parts": {"head": "hd_std", "core": "core_" + str(mp.get("core", "blackgold")), "arms": "arms_" + str(mp.get("arms", "blackgold")), "legs": "legs_" + str(mp.get("legs", "blackgold"))},
 			"sets": [{"L_Arm": GS.weapon_id, "R_Arm": GS.weapon_id}, {}]}
+	if frame == "pilot": return {"frame": "pilot", "active": 0, "parts": {"suit": "st_std"}, "sets": [{"R_Hand": "pulse1"}, {}]}
 	return {"frame": "ship", "active": 0, "parts": {"hull": "hl_std", "wings": "wg_std", "engines": "en_std"},
 		"sets": [{"Nose": GS.weapon_id, "Wing_L": GS.weapon_id, "Wing_R": GS.weapon_id}, {}]}
 
@@ -163,6 +220,7 @@ static func fit_error(lo: Dictionary, set_i: int, mount: String, wid: String) ->
 	if md.get("stow", false): return "The back only holds the weapons you swap out."
 	var w := weapon(wid)
 	if w.is_empty(): return "Unknown weapon."
+	if not (fr in (w.get("users", []) as Array)): return "%s isn't made for a %s." % [w["short"], USER_NAME.get(fr, fr)]
 	if not (str(w["class"]) in (md["classes"] as Array)): return "%s (%s) doesn't fit the %s: it takes %s." % [w["short"], w["class"], md["label"], ", ".join(md["classes"])]
 	if float(w["weight"]) > float(md["max_w"]): return "%s weighs %.0f: the %s takes %.0f at most." % [w["short"], w["weight"], md["label"], md["max_w"]]
 	if float(w["energy"]) > float(md["e_cap"]): return "%s draws %.0f energy: the %s gives %.0f at most." % [w["short"], w["energy"], md["label"], md["e_cap"]]
@@ -353,30 +411,55 @@ static func rig(model: Node3D, frame: String) -> Dictionary:
 			var a: Vector3 = MOUNTS[frame][m]["at"]
 			var mn := Node3D.new()
 			mn.name = m
-			var y := bb.position.y + bb.size.y * a.y if frame == "mech" else c.y + bb.size.y * a.y
+			var y := bb.position.y + bb.size.y * a.y if frame != "ship" else c.y + bb.size.y * a.y
 			mn.position = Vector3(c.x + bb.size.x * 0.5 * a.x, y, c.z + bb.size.z * a.z)
 			holder.add_child(mn)
 		holder.set_meta("size", maxf(bb.size.x, bb.size.z))
+		var rf := model.find_child("Rifle", true, false) as Node3D
+		if frame == "pilot" and rf != null:   # v12.68: the pilot's own rifle gives way: the hand mount sits where he holds it
+			(holder.get_node("R_Hand") as Node3D).position = (rf.get_parent() as Node3D).transform * rf.position if rf.get_parent() != model else rf.position
+			rf.visible = false
+			holder.set_meta("size", bb.size.y * 0.9)
 	var out := {}
 	for c2 in holder.get_children(): out[str(c2.name)] = c2
 	return out
 
 ## a weapon's mesh, sized for the frame (the game's own model; a kit-built gun when it has none)
-static func weapon_mesh(wid: String, frame_size: float) -> Node3D:
+static func weapon_mesh(wid: String, frame_size: float, user := "mech") -> Node3D:
 	var w := weapon(wid)
 	var n: Node3D
 	var key := str(w.get("mesh", ""))
-	var want_len: float = frame_size * (0.42 if str(w.get("class", "")) == "heavy" else 0.32)
+	var want_len: float = frame_size * (0.42 if str(w.get("class", "")) == "heavy" else 0.32) * float(USER_SCALE.get(user, 1.0))
+	var sock := Vector3(0.0, -0.12, -0.22)   # the grip, as a share of the gun's length (kit guns: under the body, near the back)
 	if key != "" and ShipFactory.has_real_model(key):
 		n = ShipFactory.build(key)
 		var bb: AABB = ShipFactory._aabb(n, Transform3D.IDENTITY)
 		var longest := maxf(bb.size.x, maxf(bb.size.y, bb.size.z))
 		if longest > 0.001: n.scale = Vector3.ONE * (want_len / longest)
+		var it: Dictionary = AssetRegistry.ITEMS.get(key, {})
+		if it.has("socket"):   # the Tripo item's own grip (found by the import script), in its unit length
+			var sk: Array = it["socket"]
+			sock = Vector3(float(sk[0]), float(sk[1]), float(sk[2]))
+		else: sock = Vector3(bb.get_center().x, bb.position.y, bb.get_center().z + bb.size.z * 0.15) / maxf(longest, 0.001)
 	else:
 		n = kit_gun(str(w.get("class", "blaster")), w.get("color", Color(0.6, 0.8, 1.0)), want_len)
+	var ms := Node3D.new()   # v12.68 (owner's spec): the MountSocket: where the gun clicks onto a mount
+	ms.name = "MountSocket"
+	ms.position = sock * (want_len if n.scale.x == 1.0 else want_len / n.scale.x)
+	n.add_child(ms)
 	n.name = "W_" + wid
 	n.set_meta("weapon", wid)
+	n.set_meta("user", user)
 	return n
+
+## v12.68: hang a weapon on a mount node so its MountSocket sits right on the mount; upside down under a ship's
+## wings and belly (the grip up, clicked into the hardpoint)
+static func seat(g: Node3D, frame: String, mount: String) -> void:
+	g.rotation = Vector3(0.0, 0.0, PI) if (frame == "ship" and mount in HANG_MOUNTS) else Vector3.ZERO
+	var ms := g.get_node_or_null("MountSocket") as Node3D
+	if ms == null: return
+	g.position = -(g.basis * ms.position)
+	g.set_meta("hang", frame == "ship" and mount in HANG_MOUNTS)
 
 ## a gun made from a drawn profile (a body with a stepped barrel, swept round: never a plain box)
 static func kit_gun(cls: String, col: Color, length: float) -> Node3D:
@@ -435,16 +518,17 @@ static func dress(model: Node3D, lo: Dictionary) -> Dictionary:
 	var act := active_set(lo)
 	for m in act:
 		if not mounts.has(m): continue
-		var g := weapon_mesh(str(act[m]), size)
+		var g := weapon_mesh(str(act[m]), size, fr)
 		(mounts[m] as Node3D).add_child(g)
+		seat(g, fr, m)
 		out[m] = g
 	var k := 0
 	for i in (lo["sets"] as Array).size():
 		if i == int(lo["active"]): continue
 		for m in lo["sets"][i]:
-			var g2 := weapon_mesh(str(lo["sets"][i][m]), size)
+			var g2 := weapon_mesh(str(lo["sets"][i][m]), size, fr)
 			g2.set_meta("stowed", true)
-			if fr == "mech":   # slung across the back, side by side
+			if fr in ["mech", "pilot"]:   # slung across the back, side by side
 				(mounts["Back_Stow"] as Node3D).add_child(g2)
 				g2.position = Vector3((k - 0.5) * size * 0.16, 0.0, 0.0)
 				g2.rotation_degrees = Vector3(-70.0, 0.0, 0.0)
