@@ -2808,6 +2808,10 @@ func _run() -> void:
 					if not Surface.has_surface(str(x["id"])) and Surface.has_surface(mid) and (Surface.PLANETS[mid]["locations"] as Array).size() == 1: giants_ok += 1
 		_check("v12.65 (owner): no system has more than three planets (most: %d)" % most, most <= 3, "")
 		_check("v12.66 (owner): one living world a system (catalog worlds alive: %d); gas giants (%d) have no landing and a moon with a dock (%d)" % [living, giants, giants_ok], living == 0 and giants > 0 and giants_ok == giants, "")
+		var enemy_jumps: Array = []   # (owner: enemy factions have no jump gates: only warp and rift gates)
+		for l in Galaxy.network()["links"]:
+			if str(l[2]) == "jump_gate" and (SystemBuilder.is_enemy_space(Data.SYSTEMS[l[0]]) or SystemBuilder.is_enemy_space(Data.SYSTEMS[l[1]])): enemy_jumps.append("%s-%s" % [l[0], l[1]])
+		_check("v12.78 (owner): no jump gates into enemy-faction space, only warp / rift (%s)" % str(enemy_jumps), enemy_jumps.is_empty(), "")
 		_check("v12.64: the complete galaxy map drawn (%d systems charted, orrery %s)" % [GS.discovered.size(), (g0[1] as Vector2).x >= Data.MAP_ORRERY_DETAIL], (g0[1] as Vector2).x >= Data.MAP_ORRERY_DETAIL, "")
 		GS.discovered = keep_d
 		_finish_group()
