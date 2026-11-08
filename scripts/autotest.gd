@@ -2321,6 +2321,9 @@ func _run() -> void:
 		gm.fpan = Vector2.ZERO
 		await _wait(0.5)
 		await _capture("galaxy_systems")
+		var most := 0
+		for sid2 in Data.SYSTEMS: most = maxi(most, 1 + (Data.SYSTEMS[sid2].get("more_planets", []) as Array).size())
+		_check("v12.65 (owner): no system has more than three planets (most: %d)" % most, most <= 3, "")
 		_check("v12.64: the complete galaxy map drawn (%d systems charted, orrery %s)" % [GS.discovered.size(), (g0[1] as Vector2).x >= Data.MAP_ORRERY_DETAIL], (g0[1] as Vector2).x >= Data.MAP_ORRERY_DETAIL, "")
 		GS.discovered = keep_d
 		_finish_group()

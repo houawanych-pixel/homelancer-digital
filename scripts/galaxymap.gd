@@ -265,7 +265,7 @@ static func planet_color(d: Dictionary) -> Color:
 
 ## v12.64 (owner: "space stations as a sigil, all the factions"): each faction's mark, in its two colours, with a
 ## white rim. A stand-in until the factions' own emblems are drawn: each side has its own shape and its initial.
-const SIGIL_SHAPE := {"Unity": "ring", "Elyza": "diamond", "Solarion": "sun", "Imperium": "crown", "Covenant": "hex", "Orion": "star",
+const SIGIL_SHAPE := {"Unity": "compass", "Elyza": "diamond", "Solarion": "sun", "Imperium": "crown", "Covenant": "hex", "Orion": "star",
 	"Savagers": "spike", "Liberator": "shield", "Kaijurai": "claw", "Cybermorph": "chip", "Enemy": "spike", "Phenom": "hex", "Arctides": "diamond", "Gadversee": "claw", "Solrath": "crown"}
 func sigil(p: Vector2, fac: String, r: float) -> void:
 	var fd: Dictionary = Factions.def(fac)
@@ -280,9 +280,9 @@ func sigil(p: Vector2, fac: String, r: float) -> void:
 			pts = PackedVector2Array([p + Vector2(0, -r * 1.15), p + Vector2(r, 0), p + Vector2(0, r * 1.15), p + Vector2(-r, 0)])
 		"hex":
 			for k in 6: pts.append(p + Vector2(cos(TAU * k / 6.0), sin(TAU * k / 6.0)) * r)
-		"sun", "star", "spike":
-			var n := 8 if shape == "sun" else (5 if shape == "star" else 6)
-			var inner := 0.62 if shape == "sun" else (0.45 if shape == "star" else 0.5)
+		"sun", "star", "spike", "compass":   # (v12.65: Unity a four-point compass star: its old ring looked like a planet)
+			var n := 8 if shape == "sun" else (5 if shape == "star" else (4 if shape == "compass" else 6))
+			var inner := 0.62 if shape == "sun" else (0.45 if shape == "star" else (0.38 if shape == "compass" else 0.5))
 			for k in n * 2: pts.append(p + Vector2(cos(TAU * k / (n * 2.0) - PI * 0.5), sin(TAU * k / (n * 2.0) - PI * 0.5)) * r * (1.15 if k % 2 == 0 else inner))
 		"crown":
 			pts = PackedVector2Array([p + Vector2(-r, r * 0.7), p + Vector2(-r, -r * 0.5), p + Vector2(-r * 0.5, 0), p + Vector2(0, -r * 0.9), p + Vector2(r * 0.5, 0), p + Vector2(r, -r * 0.5), p + Vector2(r, r * 0.7)])

@@ -246,6 +246,14 @@ static func apply(systems: Dictionary) -> Dictionary:
 		fg["nebula"]["name"] = "The Grey"
 	_apply_roles(systems)
 	SystemBuilder.apply_layouts(systems)   # v11.65 (owner): hand-made layouts (Dreadholm)
+	# v12.65 (owner: "5 planets is too much; the most should be three"): the main world and at most two more; the ones
+	# placed by hand stay first, then the catalog's in order
+	for sid in systems:
+		var mp: Array = systems[sid].get("more_planets", [])
+		if mp.size() + 1 <= Data.MAX_SYSTEM_PLANETS: continue
+		var hand: Array = mp.filter(func(x): return not str(x.get("id", "")).contains("_planet_"))
+		var cat: Array = mp.filter(func(x): return str(x.get("id", "")).contains("_planet_"))
+		systems[sid]["more_planets"] = (hand + cat).slice(0, Data.MAX_SYSTEM_PLANETS - 1)
 	for sid in Data.PLANET_BIOMES:   # v11.57: the owner's planet biomes and their map cards
 		if not systems.has(sid): continue
 		var pl: Dictionary = systems[sid]["planet"]
