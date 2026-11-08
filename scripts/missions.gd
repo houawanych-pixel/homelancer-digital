@@ -299,11 +299,9 @@ static func point_pos(space: SpaceSystem, i: int) -> Vector3:
 
 ## Take a job from the board. "" = taken.
 static func accept(offer: Dictionary) -> String:
-	if not GS.mission.is_empty() or not GS.bounty.is_empty():
-		var blk := _switch_block()
-		if blk != "": return blk
-		abandon()
-		GS.bounty = {}
+	var dropped := ""
+	if not GS.mission.is_empty() or not GS.bounty.is_empty():   # v12.60 (owner): accepting a job disengages the one you had
+		dropped = disengage() + " "
 	var m := offer.duplicate(true)
 	m["stage"] = 0
 	m["spawned"] = -1
@@ -311,17 +309,14 @@ static func accept(offer: Dictionary) -> String:
 	m["start"] = m.duplicate(true)   # v1.9r: how the job looked when taken (dying restarts it from here)
 	GS.mission = m
 	GS.changed.emit()
-	return "Job taken: %s. %s A mission waypoint is set: follow the gold marker." % [m["title"], m["brief"]]
+	return "%sJob taken: %s. %s A mission waypoint is set: follow the gold marker." % [dropped, m["title"], m["brief"]]
 
 ## The bounty board's jobs go through here too: the target's record stays in GS.bounty (older code reads it); the
 ## chain of points is the mission.
 static func accept_bounty(id: String) -> String:
 	var p: Dictionary = Data.roster_pilot(id)
 	if p.is_empty(): return "No such bounty."
-	if not GS.mission.is_empty():
-		var blk := _switch_block()
-		if blk != "": return blk
-		abandon()
+	if not GS.mission.is_empty() or GS.bounty.get("state", "") == "captured": disengage()   # v12.60 (owner): the new job replaces the old one
 	var said := GS.accept_bounty(id)
 	if GS.bounty.get("id", "") != id: return said
 	GS.bounty["sys"] = GS.system_id   # v1.7v (owner): the hunt happens in the system you took it in, not far away
@@ -349,10 +344,7 @@ static func toggle(offer: Dictionary) -> String:
 	if is_current(offer):
 		abandon()
 		return "Stopped tracking: %s." % offer["title"]
-	var blocked := _switch_block()
-	if blocked != "": return blocked
-	abandon()
-	return accept(offer)
+	return accept(offer)   # (v12.60: it drops what you had)
 
 ## Tap on a bounty: the same rules.
 static func toggle_bounty(id: String) -> String:
@@ -361,10 +353,7 @@ static func toggle_bounty(id: String) -> String:
 		GS.bounty = {}
 		GS.changed.emit()
 		return "Stopped tracking the bounty on %s." % Data.roster_pilot(id).get("name", id)
-	var blocked := _switch_block()
-	if blocked != "": return blocked
-	abandon()
-	GS.bounty = {}
+	if not GS.mission.is_empty() or not GS.bounty.is_empty(): disengage()   # (v12.60: it drops what you had)
 	return accept_bounty(id)
 
 ## The one thing that can stop a switch: a prisoner in the hold must be handed in first.

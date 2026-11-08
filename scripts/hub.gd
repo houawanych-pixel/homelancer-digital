@@ -4651,9 +4651,9 @@ func _board_buttons(main_name: String, key: String, mine: bool, shut: String, on
 		return col
 	b.text = "ACCEPT"
 	b.add_theme_color_override("font_color", Color(0.55, 1.0, 0.6))
-	if not GS.mission.is_empty():   # v11.97 (owner): one mission at a time
-		b.text = "ONE JOB AT A TIME"
-		b.disabled = true
+	if not GS.mission.is_empty() or not GS.bounty.is_empty():   # v12.60 (owner: "accept the mission and you disengage your current one")
+		b.text = "ACCEPT\n(drops current job)"
+		b.custom_minimum_size = Vector2(230, 66)
 	b.pressed.connect(func(): if not board_dragged: on_accept.call())
 	if board_pick != key and hear.is_valid():   # v11.3 (owner): first MISSION BRIEF (read out); then ACCEPT / DECLINE
 		b.visible = false
@@ -4742,8 +4742,9 @@ func _missions_page() -> void:
 		_tap_to_hear([row.get_child(0), t], key, hear)
 		row.add_child(_board_buttons("Take_" + row.name, key, mine, "",
 			func():
+				var had := str(GS.mission.get("title", "")) if not GS.mission.is_empty() else ""
 				var said_j := Missions.toggle(o) if not Missions.is_current(o) else status.text
-				status.text = ("Mission accepted: %s." % str(o["title"])) if Missions.is_current(o) else said_j   # v11.97 (owner): just say it was accepted
+				status.text = (("Mission accepted: %s." % str(o["title"])) + ((" Disengaged: %s." % had) if had != "" else "")) if Missions.is_current(o) else said_j   # v11.97 (owner): just say it was accepted (v12.60: and what was dropped)
 				_note_giver()
 				if Missions.is_current(o) and board_pick != key: read_job(o)   # v1.7p: read out when taken (unless just heard)
 				board_pick = ""

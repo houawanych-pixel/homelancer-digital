@@ -918,6 +918,8 @@ func dock(n: Node3D) -> void:
 	space.process_mode = Node.PROCESS_MODE_DISABLED
 	GS.dock_service()   # v1.4n: shields and energy only; hull = REPAIR, ammo = RESTOCK at Equipment
 	GS.last_base = info["id"]
+	# v12.60 (owner: "when I'm dead I restart at the last place I docked; a planet dock is my new respawn point")
+	GS.respawn = {"sys": space.sys_id, "id": str(info["id"]), "surface": space.surface_mode, "planet": space.planet_id if space.surface_mode else "", "tile": space.tile if space.surface_mode else -1}
 	visited[info["id"]] = true
 	if info["id"] == "new_terra": GS.meet("oduya", "friendly")
 	if info["id"] == "frontier_exchange": GS.meet("amari", "friendly")
@@ -1311,6 +1313,22 @@ func jump(gate: Node3D = null) -> void:
 			hud.flash_message("Welcome to %s. Autopilot: %s" % [Data.SYSTEMS[to]["name"], mw["title"]])
 
 # ---------------------------------------------------------------- defeat
+## v12.60: the last dock you used, if it still takes you: {surface, sys, planet, tile, info} or {} (then the old tow rule).
+func respawn_dock() -> Dictionary:
+	var r: Dictionary = GS.respawn
+	if r.is_empty() or not Data.SYSTEMS.has(str(r.get("sys", ""))): return {}
+	var sy: Dictionary = Data.SYSTEMS[str(r["sys"])]
+	if bool(r.get("surface", false)):
+		var pid := str(r.get("planet", ""))
+		if not Surface.PLANETS.has(pid): return {}
+		for l in Surface.locations_in(pid, int(r["tile"])):
+			if str(l.get("id", "")) == str(r["id"]):
+				if Factions.has(str(l.get("faction", ""))) and Factions.hostile(str(l.get("faction", ""))): return {}   # (they won't take you now)
+				return {"surface": true, "sys": str(r["sys"]), "planet": pid, "tile": int(r["tile"]), "info": l}
+		return {}
+	if SystemBuilder.is_enemy_space(sy) or sy.get("open", false) or str(sy["station"].get("id", "")) != str(r["id"]): return {}
+	return {"surface": false, "sys": str(r["sys"]), "info": sy["station"].duplicate()}
+
 ## v6.2: where the tug takes you from enemy or open space: the system of the last station you docked at, else Solara.
 func friendly_base_system() -> String:
 	for id in Data.SYSTEMS:
@@ -1346,6 +1364,30 @@ func _on_destroyed() -> void:
 	GS.credits -= lost
 	GS.restore_full()
 	var failed := Missions.restart_after_death()   # v1.9r: the job fails and starts again from the beginning
+	var rs: Dictionary = respawn_dock()
+	if not rs.is_empty():   # v12.60 (owner): back at the last dock (a planet's too)
+		if bool(rs["surface"]):
+			_load_surface(str(rs["planet"]), int(rs["tile"]))
+			var at_l: Dictionary = rs["info"]
+			space.station.set_meta("info", at_l)
+			space.station.name = str(at_l["name"])
+			space.station.global_position = Vector3(at_l["pos"].x, Surface.pad_top(str(rs["planet"]), int(rs["tile"])) + 20.0, at_l["pos"].y)
+			docked_node_kind = "planet"
+		else:
+			_load_system(str(rs["sys"]), "station")
+			docked_node_kind = "station"
+		space.visible = false
+		space.process_mode = Node.PROCESS_MODE_DISABLED
+		space.controls = true
+		clear_fx()
+		hub.open(rs["info"])
+		hub.status.text = "Towed back to %s. Repairs complete. Salvage fee: %d credits.%s" % [str(rs["info"]["name"]), lost, ("  " + failed) if failed != "" else ""]
+		state = "hub"
+		var tw3 := create_tween()
+		tw3.tween_property(fx, "fade", 0.0, 0.6)
+		await tw3.finished
+		fx.caption = ""
+		return
 	var tow_to: String = space.sys_id
 	if SystemBuilder.is_enemy_space(space.sys) or space.sys.get("open", false): tow_to = friendly_base_system()   # v6.2: never towed into an enemy station
 	if space.surface_mode or failed != "" or tow_to != space.sys_id: _load_system(tow_to, "station")   # (a fresh system: the job's old wave is gone)

@@ -2300,6 +2300,45 @@ func _run() -> void:
 		_check("v12.56 (owner): INTERCEPT: their transport bound for their facility, its fighters and mechs (%d); transport down, paid (job over %s)" % [int(r1["spawned"]), (r1["left"] as Dictionary).is_empty()], int(r1["spawned"]) >= 6 and (r1["left"] as Dictionary).is_empty(), str(r1))
 		_finish_group()
 		return
+	if _flag("HL_RESPAWN"):   # v12.60 (owner): die and you're back at the last dock (a planet's too); ACCEPT drops the job you had
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s := _sp()
+		var pid := "new_terra"
+		var dock: Dictionary = Surface.PLANETS[pid]["locations"][0]
+		main._load_surface(pid, int(dock["tile"]))
+		await _until(func(): return main.state == "flight" and _sp().surface_mode, 25.0)
+		await _wait(0.5)
+		s = _sp()
+		main.dock(s.station)
+		await _until(func(): return main.state == "hub", 15.0)
+		var docked_id: String = str(main.hub.base.get("id", ""))
+		main.launch()
+		await _until(func(): return main.state == "flight", 15.0)
+		await _wait(2.0)
+		var s2 := _sp()
+		s2.player.global_position += Vector3(2000, 300, 0)   # (off somewhere else on the planet)
+		await _wait(0.3)
+		s2.player_destroyed.emit()
+		await _until(func(): return main.state == "hub", 25.0)
+		await _wait(0.5)
+		var back_id: String = str(main.hub.base.get("id", ""))
+		_check("v12.60 (owner): dead, you're back at the last dock: a planet dock (%s) -> respawned at %s (on the surface %s)" % [docked_id, back_id, _sp().surface_mode], docked_id != "" and back_id == docked_id and _sp().surface_mode and main.docked_node_kind == "planet", "%s / %s" % [docked_id, back_id])
+		# ACCEPT another job: the one you had is disengaged
+		var offs: Array = Missions.offers(_sp().sys_id, str(dock["id"]), "", "planet")
+		Missions.accept(offs[0])
+		var first: String = str(GS.mission.get("title", ""))
+		var said: String = Missions.accept(offs[1])
+		_check("v12.60 (owner): accepting a job disengages the one you had (%s -> %s)" % [first, str(GS.mission.get("title", ""))], str(GS.mission.get("title", "")) == str(offs[1]["title"]) and said.begins_with("Disengaged"), said.left(120))
+		main.hub.show_screen("missions")
+		await _frames(2)
+		var btn: Button = null
+		for b in main.hub.find_children("Take_*", "Button", true, false):
+			if (b as Button).text.begins_with("ACCEPT"): btn = b; break
+		_check("v12.60: on the board the ACCEPT shows with a job held (%s)" % (btn.text.replace("\n", " ") if btn != null else "none"), btn != null and not btn.disabled, "")
+		_finish_group()
+		return
 	if _flag("HL_PMAP"):   # v12.59 (owner): the planet map shows the job's waypoints (tap = autopilot there) and each side in its own two colours
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
