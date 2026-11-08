@@ -2,6 +2,7 @@ extends Control
 ## Docked base screens: Hub, Equipment Dealer, Ship Dealer, Repair/Resupply. Map and Launch are handled by main.
 
 signal launch_requested
+signal creator_finished   # v12.90: START FLYING in the PILOT CREATOR
 signal escape_requested(faction: String)   # v12.30: the 3D on-foot escape (main runs it)
 signal map_requested
 signal galaxy_requested   # v3.1: the GALAXY MAP tile on HOME
@@ -4816,6 +4817,7 @@ func set_home_here() -> String:
 ## (owner's spec) Drag a weapon onto a mount on the live 3D model (or tap the weapon, then the mount); a fit that
 ## doesn't work is refused and says why. The armor parts swap with < >. Weight, energy and what they do show live.
 var lo_frame := "ship"
+var lo_creator := false     # v12.90 (owner): the PILOT CREATOR (a new pilot: who you are and your clothes, then START FLYING)
 var lo_set := 0
 var lo_pick := ""        # the weapon picked by a tap (then tap a mount)
 var lo_note := ""        # the last change, said on the page
@@ -4999,7 +5001,7 @@ func _loadout_page() -> void:
 	tabs.position = Vector2(30, 92)
 	tabs.add_theme_constant_override("separation", 6)
 	root.add_child(tabs)
-	for fr in ["mech", "ship", "pilot"]:
+	for fr in ([] if lo_creator else ["mech", "ship", "pilot"]):   # (v12.90: the creator is the pilot only)
 		var fb := Button.new()
 		fb.name = "LoFrame_" + fr
 		fb.text = fr.to_upper()
@@ -5053,6 +5055,7 @@ func _loadout_page() -> void:
 	var hints: Array = [["rotate", "⟳ ROTATE"], ["zoom", "⊕ ZOOM"], ["compare", "⇆ COMPARE"], ["back", "✕ BACK"], ["equip", "△ EQUIP"]]
 	if lo_frame == "ship": hints = [["front", "FRONT"], ["side", "SIDE"], ["rear", "REAR"], ["detail", "DETAIL"]] + hints
 	if lo_frame == "pilot": hints = [["main", "MAIN VIEW"], ["front", "FRONT"], ["side", "SIDE"], ["rear", "REAR"]] + hints
+	if lo_creator: hints = hints.filter(func(h): return h[0] != "back") + [["start", "▶ START FLYING"]]   # v12.90
 	for h in hints:
 		var b := Button.new()
 		b.name = "GarHint_" + str(h[0])
@@ -5064,6 +5067,9 @@ func _loadout_page() -> void:
 		if hk == "compare": b.toggle_mode = true; b.button_pressed = lo_compare
 		b.pressed.connect(func(): _gar_hint(hk))
 		_gar_style(b)
+		if hk == "start":   # v12.90: the creator's way out, gold
+			b.custom_minimum_size = Vector2(190, 34)
+			b.add_theme_color_override("font_color", GAR_GOLD)
 		hb.add_child(b)
 	hb.reset_size()
 	hb.position = Vector2(S.x - 24 - hb.size.x, S.y - 58)
@@ -5072,6 +5078,17 @@ func _loadout_page() -> void:
 		_gar_view("main", true)
 	_gar_preview_suit()
 	_gar_tick(0.0)
+
+## v12.90: open the PILOT CREATOR: the Pilot Gear Store on its own (no MECH / SHIP tabs, no BACK), starting on who you are.
+func start_creator() -> void:
+	lo_creator = true
+	lo_frame = "pilot"
+	lo_cat = "body"
+	lo_sel = ""
+	lo_slot = ""
+	gar_cam = {}
+	lo_note = "Welcome, %s. Pick who you are, then your helmet, uniform, booster and gear. START FLYING when you're ready." % (GS.pilot_name if GS.pilot_name != "" else "pilot")
+	show_screen("loadout")
 
 func _gar_vis() -> void:   # (a CanvasLayer doesn't hide with the hub: it goes when the hub does)
 	var l := get_node_or_null("GarageLayer") as CanvasLayer
@@ -5092,6 +5109,7 @@ func _gar_draw_title(c: Control) -> void:
 	c.draw_colored_polygon(PackedVector2Array([a + Vector2(-30, 52), a + Vector2(-6, 40), a + Vector2(6, 40), a + Vector2(30, 52)]), Color(GAR_HI, 0.9))
 	c.draw_string(f, Vector2(74, 34), "HOMELANCER", HORIZONTAL_ALIGNMENT_LEFT, -1, 32, Color(0.95, 0.98, 1.0))
 	var sub: String = {"mech": "MECH GARAGE", "ship": "SHIP GARAGE", "pilot": "PILOT GEAR STORE"}[lo_frame]
+	if lo_creator: sub = "PILOT CREATOR  ·  %s" % (GS.pilot_name.to_upper() if GS.pilot_name != "" else "NEW PILOT")   # v12.90
 	c.draw_string(f, Vector2(76, 60), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 19, Color(0.75, 0.88, 1.0))
 
 func _gar_draw_cat(b: Control, key: String, txt: String, on: bool) -> void:
@@ -5720,6 +5738,12 @@ func _gar_hint(k: String) -> void:
 			lo_compare = not lo_compare
 			_gar_refresh()
 		"back": show_screen("hub")
+		"start":   # v12.90: the PILOT CREATOR is done: out you fly
+			lo_creator = false
+			lo_note = ""
+			gar_cam = {}
+			_gar_close()
+			creator_finished.emit()
 		"equip":
 			if lo_sel != "" and _gar_weapons_mode() and _gar_owned(lo_sel): _lo_drop(lo_slot, lo_sel)
 		"front", "side", "rear", "detail", "main":
@@ -5775,7 +5799,8 @@ func _gar_tick(dt: float) -> void:
 	if gar_back_t > 0.0:
 		gar_back_t -= dt
 		if gar_back_t <= 0.0: _gar_goal_set({"focus": Vector3.ZERO, "dist": 24.0, "pitch": 0.16})   # pull back to the whole machine
-	if gar_spin and not gar_drag: gar_cam["yaw"] = float(gar_cam.get("yaw", 0.0)) + dt * 0.12
+	if lo_frame == "pilot": _gar_idle(dt)   # v12.90 (owner: "I wanna do animation with it"): the pilot breathes and shifts weight
+	if gar_spin and not gar_drag and not lo_creator: gar_cam["yaw"] = float(gar_cam.get("yaw", 0.0)) + dt * 0.12   # (the creator holds still: you face them)
 	var a := clampf(dt * 3.5, 0.0, 1.0)
 	for key in gar_goal.keys():
 		if key == "focus": gar_cam["focus"] = (gar_cam.get("focus", Vector3.ZERO) as Vector3).lerp(gar_goal["focus"], a)
@@ -5788,6 +5813,32 @@ func _gar_tick(dt: float) -> void:
 	cam.position = fo + Vector3(sin(y) * cos(p), sin(p), cos(y) * cos(p)) * d
 	cam.look_at(fo, Vector3.UP)
 	cam.h_offset = d / 24.0 * 2.0 * (1.0 - clampf((24.0 - d) / 12.0, 0.0, 1.0))   # (the machine sits between the side panels)
+
+## v12.90: the pilot's idle on the platform: breathing in the chest, a slow weight shift, the head looking about.
+## On the rig's own bones when it has them (Spine01 / Spine02 / Head), else the whole body bobs.
+var _idle_t := 0.0
+func _gar_idle(dt: float) -> void:
+	var m: Node3D = gar.get("model")
+	if m == null or not is_instance_valid(m): return
+	_idle_t += dt
+	var t := _idle_t
+	var sks := m.find_children("*", "Skeleton3D", true, false)
+	if sks.is_empty():
+		m.position.y = sin(t * 1.6) * 0.012
+		m.rotation.z = sin(t * 0.45) * 0.012
+		return
+	for sk: Skeleton3D in sks:
+		for bn in [["Spine01", Vector3(sin(t * 1.6) * 0.02, sin(t * 0.45) * 0.02, sin(t * 0.45 + 1.0) * 0.015)],
+				["Spine02", Vector3(sin(t * 1.6 + 0.4) * 0.025, 0.0, 0.0)],
+				["Head", Vector3(sin(t * 0.7) * 0.03, sin(t * 0.33) * 0.12, 0.0)]]:   # (the arms keep their pose: they hold the rifle)
+			var b := sk.find_bone(str(bn[0]))
+			if b < 0: continue
+			var e: Vector3 = bn[1]
+			var base: Dictionary = sk.get_meta("idle_base", {})
+			if not base.has(b):   # (its pose as it came, kept once: the idle moves round that)
+				base[b] = sk.get_bone_pose_rotation(b)
+				sk.set_meta("idle_base", base)
+			sk.set_bone_pose_rotation(b, (base[b] as Quaternion) * Quaternion.from_euler(e))
 
 ## a weapon clicks on: it grows from its mount with a blue flash
 func _gar_attach_fx(m: String) -> void:

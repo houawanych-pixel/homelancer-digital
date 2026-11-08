@@ -48,6 +48,7 @@ func _ready() -> void:
 	hud.pressed.connect(_on_hud)
 	hud.typed.connect(_on_typed)
 	hub.launch_requested.connect(launch)
+	hub.creator_finished.connect(finish_creator)   # v12.90
 	hub.escape_requested.connect(start_escape)   # v12.30
 	hub.map_requested.connect(func(): navmap.open(null))
 	hub.galaxy_requested.connect(func(): galaxymap.open(GS.system_id))   # v3.1: the GALAXY MAP tile on HOME
@@ -124,12 +125,40 @@ func start_game() -> void:
 		await _load_system(GS.system_id, "station")
 		space.controls = false
 	GS.restore_full()
+	if (not back or not GS.creator_done) and (not autotest or OS.get_environment("HL_CREATOR") != ""):   # v12.90 (owner): a new pilot makes their character first
+		open_creator()
+		return
 	_launch_sequence(str(Data.SYSTEMS[GS.system_id]["station"]["name"]) if back else "Liberty Hub", false)   # v1.7n (owner): no radio call at the very start
 	if back: hud.flash_message("Welcome back, %s. Your progress is loaded." % GS.pilot_name if GS.pilot_name != "" else "Welcome back. Your progress is loaded.")
 	else: GS.save_game()   # v1.9j: a new pilot's slot is taken at once (the picker shows the name next time)
 	await get_tree().create_timer(2.6).timeout
 	if state == "flight" and GS.tutorial_seen.is_empty(): hud.flash_message(Data.TUTOR_HINT)   # v1.7r: a quiet hint, no radio noise
 	if wild_test_flag() and state == "flight": start_wild_test()
+
+## v12.90 (owner: "when you start off, you name your character and then you go into picking your character and setting
+## up the clothes"): the PILOT CREATOR. The new pilot starts docked at the station, in the Pilot Gear Store in creator
+## mode (who you are, then helmet, uniform, booster, gear); START FLYING launches the game as usual.
+func open_creator() -> void:
+	GS.creator_done = false
+	GS.save_game()   # (the slot is taken at once; quit half way and the creator opens again next time)
+	var n: Node3D = space.station
+	var info: Dictionary = n.get_meta("info") if n != null and n.has_meta("info") else {}
+	space.controls = false
+	space.visible = false
+	space.process_mode = Node.PROCESS_MODE_DISABLED
+	hud.visible = false
+	docked_node_kind = str(info.get("kind", "station"))
+	space.launch_from = n if n != null and n.has_meta("dock") else null
+	GS.last_base = str(info.get("id", GS.last_base))
+	hub.open(info)
+	state = "hub"
+	hub.start_creator()
+
+func finish_creator() -> void:
+	GS.creator_done = true
+	GS.save_game()
+	hub.status.text = ""
+	launch()
 
 ## (v12.41) the wildlife test area: ?wildtest on the web, HL_WILDTEST / --wildtest on a PC.
 func wild_test_flag() -> bool:

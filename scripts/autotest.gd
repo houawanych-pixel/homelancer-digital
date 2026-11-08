@@ -4418,6 +4418,35 @@ func _run() -> void:
 			board_vis and main.escape_chasers >= Data.ESCAPE_CHASERS and hostile >= Data.ESCAPE_CHASERS and denied, "board %s chasers %d hostile %d denied %s" % [board_vis, main.escape_chasers, hostile, denied])
 		_finish_group()
 		return
+	if OS.get_environment("HL_CREATOR") != "":   # v12.90 (owner): a new pilot goes through the PILOT CREATOR, then flies
+		GS.pilot_name = "Hova"
+		main.start_game()
+		await _until(func(): return main.state == "hub" and main.hub.lo_creator, 15.0)
+		await _wait(1.2)
+		var hb = main.hub
+		var opened: bool = hb.lo_creator and hb.screen == "loadout" and hb.lo_frame == "pilot" and not GS.creator_done
+		var no_tabs: bool = hb.find_child("LoFrame_mech", true, false) == null and hb.find_child("GarHint_back", true, false) == null and hb.find_child("GarHint_start", true, false) != null
+		await _capture("creator_who")
+		hb._gar_pick_cat("upper")
+		await _wait(1.0)
+		await _capture("creator_upper")
+		var sk_moves := false
+		var m: Node3D = hb.gar.get("model")
+		if m != null:
+			var sks := m.find_children("*", "Skeleton3D", true, false)
+			if not sks.is_empty():
+				var sk: Skeleton3D = sks[0]
+				var b: int = sk.find_bone("Spine02")
+				var q0: Quaternion = sk.get_bone_pose_rotation(b)
+				await _wait(0.6)
+				sk_moves = not sk.get_bone_pose_rotation(b).is_equal_approx(q0)
+			else: sk_moves = true
+		hb._gar_hint("start")
+		await _until(func(): return main.state == "flight", 15.0)
+		_check("v12.90 (owner): a new pilot opens the PILOT CREATOR (%s; no MECH/SHIP tabs, START FLYING: %s); the pilot idles on the platform (%s); START FLYING launches (%s, saved %s)" % [opened, no_tabs, sk_moves, main.state, GS.creator_done],
+			opened and no_tabs and sk_moves and main.state == "flight" and GS.creator_done and not hb.lo_creator)
+		_finish_group()
+		return
 	if OS.get_environment("HL_WILDLINEUP") != "":   # (v12.41) every wildlife model in a line-up, for checking the looks
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
