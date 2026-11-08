@@ -64,6 +64,17 @@ func _seen_mask(sys: String) -> String:
 func cell_seen(sys: String, c: Vector2i) -> bool:
 	return _seen_mask(sys)[c.y * Data.MAP_CELLS + c.x] == "1"
 func seen_at(sys: String, p: Vector3) -> bool: return cell_seen(sys, map_cell(p))
+## v12.61: the planet map's fog: a sector is charted once you've flown over it, or with the planet's atlas.
+func sector_seen(pid: String, t: int) -> bool: return pid in atlases or t in (planet_seen.get(pid, []) as Array)
+func see_sector(pid: String, t: int) -> void:
+	if pid == "" or t < 0: return
+	var a: Array = planet_seen.get(pid, [])
+	if not (t in a):
+		a.append(t)
+		planet_seen[pid] = a
+## v12.61: a tip learned: Evee won't give it again
+func learn_tip(id: String) -> void:
+	if not (id in tips_known): tips_known.append(id)
 ## Mark every square within `r` of a point as seen. Returns true when something new was seen.
 func explore(sys: String, p: Vector3, r: float) -> bool:
 	var m: String = _seen_mask(sys)
@@ -97,6 +108,12 @@ var cast := {}               # v1.4r: named characters' state: character_id -> {
 var mine_kind := "blast"         # v1.5x: which mine you drop: "blast" or "magnetic" (switched at the Equipment screen)
 var planet_visits := {}     # v12.52: planet id -> landings (Evee's briefing; a fresh world each time)
 var respawn := {}           # v12.60: the last dock: {sys, id, surface, planet, tile}; you're towed back there when you die
+var respawn_prev := {}      # v12.61: the home point before the last one (when the last turns hostile, you go here)
+var home_pinned := false    # v12.61: SET HOME POINT in your quarters pins it (docks no longer move it)
+var planet_seen := {}       # v12.61: planet id -> sectors (tile numbers) you have flown over (the planet map's fog)
+var atlases: Array = []     # v12.61: planets whose atlas you bought (their whole map is charted)
+var tips_on := true         # v12.61: Evee's tips (until you know them)
+var tips_known: Array = []  # v12.61: tips you have shown you know (Evee stops giving them)
 var relics := {}            # v12.58: alien relics from enemy-faction wrecks: faction -> count (crafting still to come)
 var block_deltas := {}       # v1.5t EXPERIMENT: crater notes per block patch ("planet|tile" -> [[x, y, z, kind]]); the ground regrows from the seed and these are re-applied
 var bounty_jail := {}        # v1.8k: bounty pilots handed in or killed: id -> unix time they are back
@@ -106,7 +123,7 @@ var god_mode := false # only used by the automated route test
 # ---------------------------------------------------------------- v1.7y saving
 const SAVE_KEYS := ["build_mats", "credits", "ship_id", "owned_ships", "weapon_id", "owned_weapons", "missiles", "heavy_missiles", "mines", "nukes", "rack",
 	"owned_racks", "slots", "modes", "view", "system_id", "discovered", "explored", "last_base", "kills", "met", "mood", "memory", "heat_shield",
-	"bounty", "bounties_done", "mission", "cargo", "missions_done", "rep", "cast", "mine_kind", "block_deltas", "tutorial_seen", "bounty_jail", "mounts", "core_gun", "core_gun2", "core_gun3", "modules", "owned_modules", "gun_levels", "owned_mechs", "mech_parts", "pilot_name", "found_stations", "planet_visits", "relics", "respawn"]   # (v1.9e: + mounts; v1.9i: + owned_mechs, mech_parts; v1.9j: + pilot_name)
+	"bounty", "bounties_done", "mission", "cargo", "missions_done", "rep", "cast", "mine_kind", "block_deltas", "tutorial_seen", "bounty_jail", "mounts", "core_gun", "core_gun2", "core_gun3", "modules", "owned_modules", "gun_levels", "owned_mechs", "mech_parts", "pilot_name", "found_stations", "planet_visits", "relics", "respawn", "respawn_prev", "home_pinned", "planet_seen", "atlases", "tips_on", "tips_known"]   # (v1.9e: + mounts; v1.9i: + owned_mechs, mech_parts; v1.9j: + pilot_name)
 var save_path: String = Data.SAVE_PATH
 var save_enabled := true   # (the route test turns it off, so a test never reads or writes a player's save)
 var saves := 0             # (tests) saves written this session

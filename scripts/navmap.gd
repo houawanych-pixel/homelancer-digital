@@ -35,6 +35,8 @@ var btn_m_go := Rect2()
 signal mission_go
 var btn_mission := Rect2()   # v1.7v (owner): CURRENT MISSION, on the left of the map: one tap makes the job the GPS destination
 var btn_card_x := Rect2()
+var btn_wild := Rect2()   # v12.61: the planet map's WILDLIFE TEST (moved over from the old planet map)
+signal wild_toggle
 var list_open := true        # v8.9 (owner): the place list is a fold-down on the left, like the flight CONTACTS
 var list_head := Rect2()
 var list_rect := Rect2()
@@ -78,8 +80,19 @@ func _ready() -> void:
 	over.draw.connect(_draw_over)
 	add_child(over)
 
+## v12.61 (owner: "the planet map should be like the space map: zoom, pinch, GO TO, waypoints, views, the letters"):
+## on a planet this same map shows the planet: its sectors on the grid, the land, the docks and facilities in their
+## sides' colours, the job's points, you. Positions on it are planet-wide ("abs": the planet's square, A1 top left);
+## the scene's own coordinates (the current sector in the middle) are turned into them and back.
+var planet_mode := false
+var pid := ""
+var pg := 1
 func open(sp: SpaceSystem) -> void:
 	space = sp
+	planet_mode = sp != null and sp.surface_mode and not sp.boarding and sp.planet_id != "" and Surface.PLANETS.has(sp.planet_id)
+	if planet_mode:
+		pid = sp.planet_id
+		pg = Surface.grid(pid)
 	selected = ""
 	zoom = 1.0
 	pan = Vector3.ZERO
@@ -140,6 +153,27 @@ func _process(dt: float) -> void:
 	queue_redraw()
 	canvas.queue_redraw()
 	over.queue_redraw()
+
+# ---------------------------------------------------------------- v12.61: planet coordinates
+func _edge() -> float: return float(pg) * Surface.TILE * 0.5 if planet_mode else Data.SPACE_EDGE
+func tile_abs(tl: int) -> Vector3:
+	var E := _edge()
+	return Vector3((tl % pg + 0.5) * Surface.TILE - E, 0.0, (tl / pg + 0.5) * Surface.TILE - E)
+## a scene point (or a spot in a sector) on the planet's square
+func to_abs(q: Vector3) -> Vector3:
+	if not planet_mode or space == null: return q
+	var E := _edge()
+	var v := tile_abs(space.tile) + Vector3(q.x, 0.0, q.z)
+	return Vector3(fposmod(v.x + E, 2.0 * E) - E, q.y, fposmod(v.z + E, 2.0 * E) - E)
+func spot_abs(tl: int, x: float, z: float) -> Vector3: return tile_abs(tl) + Vector3(x, 0.0, z)
+func tile_at(a: Vector3) -> int:
+	var E := _edge()
+	var col := clampi(int((a.x + E) / Surface.TILE), 0, pg - 1)
+	var row := clampi(int((a.z + E) / Surface.TILE), 0, pg - 1)
+	return row * pg + col
+## where you are (on the map's own coordinates)
+func _pp() -> Vector3: return to_abs(space.player.global_position) if space != null and is_instance_valid(space.player) else Vector3.ZERO
+func _np(n: Node3D) -> Vector3: return to_abs(n.global_position)
 
 # ---------------------------------------------------------------- view state
 func heading_up() -> bool:
@@ -231,6 +265,11 @@ func tap(p: Vector2) -> void:
 	_layout()
 	if btn_galaxy.has_point(p):
 		galaxy_requested.emit()
+		return
+	if planet_mode and btn_wild.has_point(p):
+		visible = false
+		closed.emit()
+		wild_toggle.emit()
 		return
 	if btn_close.has_point(p):
 		visible = false
@@ -336,6 +375,7 @@ func select(key: String) -> void:
 ## Select whatever is nearest this world position (a tap on a radar blip opens the map on that object).
 func select_near(world: Vector3) -> String:
 	_layout()
+	world = to_abs(world)
 	var best := ""
 	var best_d := INF
 	for key in objs:
@@ -349,6 +389,11 @@ func select_near(world: Vector3) -> String:
 ## SET COURSE: fly to the selected place or waypoint on autopilot.
 func set_course() -> void:
 	var n: Node3D = null
+	if planet_mode and objs.has(selected) and objs[selected].has("spot"):   # v12.61: a dock, facility or job point down here: the surface GPS marker
+		n = space.set_surface_goal(objs[selected]["spot"], false)
+		visible = false
+		course_set.emit(n)
+		return
 	if selected == "point": n = space.waypoint_at(way_pos)
 	elif objs.has(selected) and objs[selected]["type"] == "lane": n = _lane_node(selected)
 	else:
@@ -365,15 +410,18 @@ func set_course() -> void:
 func dest_list() -> Array:
 	var out: Array = []
 	if space == null or not is_instance_valid(space.player): return out
-	var pp: Vector3 = space.player.global_position
+	var pp: Vector3 = _pp()
 	var mw: Dictionary = space.mission_waypoint()
 	if not mw.is_empty() and is_instance_valid(mw["node"]):
-		out.append({"key": "mission", "name": "MISSION: %s" % mw["title"], "kind": "Mission", "dist": pp.distance_to((mw["node"] as Node3D).global_position)})
+		out.append({"key": "mission", "name": "MISSION: %s" % mw["title"], "kind": "Mission", "dist": space.player.global_position.distance_to((mw["node"] as Node3D).global_position)})
 	var rest: Array = []
 	for k in objs:
 		var o: Dictionary = objs[k]
-		if o.get("ship", false) or k == "star" or not o.get("seen", true): continue
-		var kind: String = {"planet": "Planet", "station": "Station", "gate": "Gate", "belt": "Asteroid field", "nebula": "Nebula", "beacon": "Beacon", "lane": "Trade lane"}.get(str(o["type"]), str(o["type"]).capitalize())
+		if o.get("ship", false) or k == "star" or not o.get("seen", true) or o["type"] == "job": continue
+		var kind: String = {"planet": "Planet", "station": "Station", "gate": "Gate", "belt": "Asteroid field", "nebula": "Nebula", "beacon": "Beacon", "lane": "Trade lane", "dock": "Dock", "facility": "Facility"}.get(str(o["type"]), str(o["type"]).capitalize())
+		if o["type"] in ["dock", "facility"]:
+			var tg: Array = fac_tag(str(o["data"].get("faction", "")), Surface.planet_sides(pid, Surface.PLANETS[pid]))
+			kind = "%s%s%s" % [kind, ("  L%d" % int(o["data"].get("difficulty", 1))) if o["type"] == "facility" else "", ("  ·  " + str(tg[0])) if str(tg[0]) != "" else ""]
 		if o["type"] == "gate": kind = "%s Gate > %s" % [str(o["data"].get("gkind", "jump")).capitalize(), Data.SYSTEMS[o["data"]["to"]]["name"]]
 		rest.append({"key": k, "name": str(o["name"]), "kind": kind, "dist": pp.distance_to(o["pos"])})
 	rest.sort_custom(func(a, b): return a["dist"] < b["dist"])
@@ -395,6 +443,7 @@ func _dest_node(key: String) -> Node3D:
 	if key == "mission":
 		var mw: Dictionary = space.mission_waypoint()
 		return mw["node"] if not mw.is_empty() else null
+	if planet_mode and objs.has(key) and objs[key].has("spot"): return space.set_surface_goal(objs[key]["spot"], false)   # v12.61
 	var n: Node3D = _node(key)
 	if n == null and objs.has(key):
 		var op: Vector3 = objs[key]["pos"]
@@ -471,6 +520,9 @@ func _txt(ci: CanvasItem, p: Vector2, s_txt: String, s := 16, c := Color.WHITE, 
 ## Everything that can be shown and tapped, from the system data plus (in flight) the live contacts.
 func _collect() -> void:
 	objs.clear()
+	if planet_mode:
+		_collect_planet()
+		return
 	var sys: Dictionary = Data.SYSTEMS[GS.system_id]
 	var st: Dictionary = sys["station"]
 	if not bool(st.get("hidden_hub", false)): objs["station"] = {"type": "station", "name": st["name"], "pos": st["pos"], "col": GREEN, "r": 60.0, "data": st, "main": true}   # (v12.3: no port in the uncharted areas)
@@ -521,9 +573,78 @@ func _collect() -> void:
 				objs["traffic%d" % i] = {"type": "traffic", "name": str((tr["node"] as Node3D).name), "pos": (tr["node"] as Node3D).global_position, "col": GREEN, "r": 8.0, "data": {}, "node": tr["node"], "ship": true}
 			i += 1
 
+## v12.61: a planet's things: its docks and facilities (each side in its own colours), the job's points, the ships.
+func _collect_planet() -> void:
+	if space == null: return
+	var i := 0
+	for b in space.base_spots():
+		var fc := str(b.get("faction", ""))
+		var loc: Dictionary = {}
+		for l in Surface.PLANETS[pid].get("locations", []): if str(l.get("id", "")) == str(b["id"]): loc = l
+		objs["dock%d" % i] = {"type": "dock", "name": str(b["name"]), "pos": spot_abs(int(b["tile"]), float(b["x"]), float(b["z"])), "col": fac_col(fc)[0], "r": 60.0,
+			"data": loc.merged({"faction": fc}), "spot": b, "main": true}
+		i += 1
+	i = 0
+	for f in space.facility_spots():
+		objs["fac%d" % i] = {"type": "facility", "name": str(f["name"]), "pos": spot_abs(int(f["tile"]), float(f["x"]), float(f["z"])), "col": fac_col(str(f.get("faction", "")))[0], "r": 50.0,
+			"data": f, "spot": f}
+		i += 1
+	i = 0
+	for jp in Missions.planet_job_points(space):
+		if bool(jp["done"]): continue
+		var tl := int(jp["tile"])
+		objs["job%d" % i] = {"type": "job", "name": str(jp["label"]), "pos": spot_abs(tl, float(jp["x"]), float(jp["z"])), "col": GOLD, "r": 30.0, "data": jp,
+			"spot": {"name": str(jp["label"]), "tile": tl, "x": float(jp["x"]), "z": float(jp["z"]), "pos": space.surface_offset(tl) + Vector3(float(jp["x"]), Surface.pad_top(pid, tl) + 40.0, float(jp["z"]))}, "current": bool(jp["current"]), "num": i + 1}
+		i += 1
+	if is_instance_valid(space.player):
+		i = 0
+		for e in space.enemies:
+			if is_instance_valid(e["node"]):
+				var big: bool = e["def"].get("capital", false) or e.get("inv_role", "") != ""
+				objs["enemy%d" % i] = {"type": "enemy", "name": str(e["node"].name) if big else e["def"].get("name", "Hostile"), "pos": _np(e["node"]), "col": RED if bool(e.get("aggro", false)) else GOLD, "r": 8.0, "data": e["def"], "node": e["node"], "ship": true, "big": big}
+			i += 1
+
+## v12.61: a side's two colours (main, stroke)
+static func fac_col(fac: String) -> Array:
+	var d: Dictionary = Factions.def(fac)
+	return [d.get("primary_color", Color(0.75, 0.8, 0.85)), d.get("secondary_color", Color(0.15, 0.15, 0.18))]
+
+## ALLY (the world's own side), RIVAL (its rival), ENEMY (anyone else), and the colour to say it in
+static func fac_tag(fac: String, sides: Array) -> Array:
+	if fac == "": return ["", Color.WHITE]
+	if not sides.is_empty() and fac == str(sides[0]): return ["ALLY", GREEN]
+	if sides.size() > 1 and fac == str(sides[1]): return ["RIVAL", Color(1.0, 0.6, 0.25)]
+	return ["ENEMY", RED]
+
+## v12.59 / v12.61 (owner: "each side its two colours, a colour with the stroke"): a dock is a ringed circle, a
+## facility a hexagon (bunker), both filled with the side's main colour, stroked with its second, a white rim
+static func fac_marker(ci: CanvasItem, at: Vector2, fac: String, kind: String, on: bool, r: float) -> void:
+	var cc := fac_col(fac)
+	var c1: Color = GOLD if on else cc[0]
+	var n := 6 if kind == "facility" else 20
+	var fill := PackedVector2Array()
+	for k in n: fill.append(at + Vector2(cos(TAU * k / n - PI * 0.5), sin(TAU * k / n - PI * 0.5)) * r)
+	ci.draw_colored_polygon(fill, c1)
+	var ring := fill.duplicate()
+	ring.append(fill[0])
+	ci.draw_polyline(ring, cc[1], maxf(2.0, r * 0.45))
+	var rim := PackedVector2Array()
+	for k in n + 1: rim.append(at + Vector2(cos(TAU * k / n - PI * 0.5), sin(TAU * k / n - PI * 0.5)) * r * 1.32)
+	ci.draw_polyline(rim, Color(1, 1, 1, 0.8), 1.4)
+	if kind == "facility":   # a bunker door
+		ci.draw_rect(Rect2(at + Vector2(-r * 0.28, -r * 0.05), Vector2(r * 0.56, r * 0.45)), Color(cc[1], 0.95))
+	else:   # a landing pad cross
+		ci.draw_line(at + Vector2(-r * 0.45, 0), at + Vector2(r * 0.45, 0), Color(cc[1], 0.9), 2.0)
+		ci.draw_line(at + Vector2(0, -r * 0.45), at + Vector2(0, r * 0.45), Color(cc[1], 0.9), 2.0)
+
 ## v8.9 (owner, Freelancer fog of war): what you have not flown near stays hidden on the map. The main station, the
 ## main planet, the gates and the star are charted from the start.
 func _mark_seen() -> void:
+	if planet_mode:   # v12.61: docks and the job always; a facility once its sector is charted (flown over, or the atlas)
+		for k in objs:
+			var o0: Dictionary = objs[k]
+			o0["seen"] = o0["type"] in ["dock", "job", "enemy"] or GS.sector_seen(pid, tile_at(o0["pos"]))
+		return
 	for k in objs:
 		var o: Dictionary = objs[k]
 		var always: bool = o.get("main", false) or o["type"] in ["gate", "star", "enemy", "traffic", "planet", "lane"]
@@ -548,6 +669,7 @@ func info(key: String) -> Dictionary:
 	if not objs.has(key): return {}
 	var o: Dictionary = objs[key]
 	var d: Dictionary = o["data"]
+	if planet_mode: return _info_planet(key, o, d)
 	var sys: Dictionary = Data.SYSTEMS[GS.system_id]
 	var out := {"name": o["name"], "type": "", "lines": [], "picture": null, "fallback": false, "region": Rect2(), "distance": -1.0, "col": o["col"]}
 	var own := ""
@@ -608,6 +730,39 @@ func info(key: String) -> Dictionary:
 		out["distance"] = space.distance_to(n) if n != null else space.player.global_position.distance_to(o["pos"])
 	return out
 
+func _info_planet(key: String, o: Dictionary, d: Dictionary) -> Dictionary:
+	var out := {"name": o["name"], "type": "", "lines": [], "picture": null, "fallback": true, "region": Rect2(), "distance": -1.0, "col": o["col"]}
+	var sides := Surface.planet_sides(pid, Surface.PLANETS[pid])
+	var fac := str(d.get("faction", ""))
+	var tg := fac_tag(fac, sides)
+	var sec := Missions.sector_name(pid, tile_at(o["pos"]))
+	match str(o["type"]):
+		"dock":
+			out["type"] = "Dock  ·  %s" % (str(tg[0]) if str(tg[0]) != "" else "port")
+			var pic := NavGrid.picture("", "station")
+			out["picture"] = pic[0]
+			if fac != "": out["lines"].append("Faction: %s  (%s)" % [fac, tg[0]])
+			if d.has("role"): out["lines"].append(str(d["role"]))
+			out["lines"].append("Sector %s. SET COURSE and the autopilot flies you there; DOCK when you're over the pad." % sec)
+		"facility":
+			out["type"] = "Facility  ·  Level %d  ·  %s" % [int(d.get("difficulty", 1)), tg[0]]
+			if fac != "": out["lines"].append("Held by %s (%s)." % [fac, tg[0]])
+			out["lines"].append("A base to raid: land by it, go in as the mech, break its reactor." if str(d.get("side", "")) == "hostile" else "Friendly: their people won't shoot.")
+			out["lines"].append("Sector %s." % sec)
+		"job":
+			out["type"] = "Mission point"
+			out["lines"].append(str(GS.mission.get("title", "")))
+			out["lines"].append("Sector %s. SET COURSE flies you there." % sec)
+		"enemy":
+			out["type"] = "Ship  ·  " + ("Hostile" if o["col"] == RED else "On patrol")
+			out["lines"].append("Hull %d  ·  Shield %d" % [int(d.get("hull", 0)), int(d.get("shield", 0))])
+	if out["picture"] != null:
+		var ts: Vector2 = (out["picture"] as Texture2D).get_size()
+		out["region"] = Rect2(Vector2.ZERO, ts)
+	if space != null and is_instance_valid(space.player):
+		out["distance"] = _pp().distance_to(Vector3(o["pos"].x, 0, o["pos"].z)) if o["type"] != "enemy" else space.player.global_position.distance_to((o["node"] as Node3D).global_position)
+	return out
+
 # ---------------------------------------------------------------- layout and projection
 func _layout() -> void:
 	var S := get_viewport_rect().size
@@ -615,8 +770,8 @@ func _layout() -> void:
 	# right only when something is picked, GALAXY / CLOSE in the top bar.
 	map_rect = Rect2(16, 72, S.x - 32, S.y - 88)
 	var sys: Dictionary = Data.SYSTEMS[GS.system_id]
-	var E: float = Data.SPACE_EDGE
-	var pts: Array = SystemBuilder._positions(sys) if sys.has("more_planets") else [sys["station"]["pos"], sys["planet"]["pos"]]
+	var E: float = _edge()
+	var pts: Array = [Vector3.ZERO] if planet_mode else (SystemBuilder._positions(sys) if sys.has("more_planets") else [sys["station"]["pos"], sys["planet"]["pos"]])
 	center = Vector3.ZERO
 	var span := Vector2(E, E) * 2.0 * 1.08
 	var lw0 := minf(340.0, map_rect.size.x * 0.3) + 20.0 if list_open else 0.0   # v8.9: the square sits in the space the list leaves
@@ -626,7 +781,7 @@ func _layout() -> void:
 	var depth: float = map_rect.size.y * 0.5 * Data.NAV_DEPTH
 	if heading_up():
 		scale_k = map_rect.size.x / Data.NAV_HEADING_SPAN * zoom
-		var pp: Vector3 = space.player.global_position
+		var pp: Vector3 = _pp()
 		view.setup(Vector2(map_rect.size.x * 0.5, map_rect.size.y * Data.NAV_HEADING_ANCHOR), Vector3(pp.x, 0, pp.z), scale_k, -space.player.global_basis.z, angled, depth)
 	else:
 		scale_k = fit_k * zoom * (0.9 if angled else 1.0)
@@ -663,11 +818,20 @@ func _layout() -> void:
 	btn_zoom_in = Rect2(map_rect.end.x - 10 - 46 * 2 - 8, y, 46, 46)
 	btn_fit = Rect2(map_rect.end.x - 10 - 46, y, 46, 46)
 	compass_pos = Vector2(map_rect.end.x - 210, map_rect.end.y - 34)
-	var mx0 := S.x * 0.40
+	btn_wild = Rect2(x + 176 + 158, y, 170, 46) if planet_mode else Rect2()
+	var mx0 := maxf(S.x * 0.40, FS_W + 340.0)
 	btn_mission = Rect2(mx0, 12, minf(300.0, btn_galaxy.position.x - mx0 - 290), bh) if mission_ready() else Rect2()
 	btn_m_set = Rect2(btn_mission.end.x + 8, 12, 170, bh) if mission_ready() else Rect2()
 	btn_m_go = Rect2(btn_m_set.end.x + 8, 12, 90, bh) if mission_ready() else Rect2()
 	if pts.is_empty(): return
+
+## v12.61 (owner: "move the full screen button up top, left of the yellow mission block"): where it sits on the map
+const FS_W := 176.0
+func fs_left() -> float:
+	var S := get_viewport_rect().size
+	var mx0 := maxf(S.x * 0.40, FS_W + 340.0)
+	return mx0 - FS_W - 10.0
+func fs_rect() -> Rect2: return Rect2(fs_left(), 15, FS_W, 44)
 
 ## How big an object is drawn (pixels): its true size, but never smaller than a readable token.
 func _px(o: Dictionary) -> float:
@@ -678,6 +842,7 @@ func _px(o: Dictionary) -> float:
 		"station": return clampf(float(o["r"]) * scale_k * s, 15.0 if o.get("main", false) else 11.0, 90.0)
 		"gate": return clampf(float(o["r"]) * scale_k * s, 14.0, 90.0)
 		"belt", "nebula": return maxf(float(o["r"]) * scale_k * s, 14.0)
+		"dock", "facility", "job": return 13.0
 	return 9.0
 
 func _draw() -> void:
@@ -685,7 +850,8 @@ func _draw() -> void:
 	_layout()
 	draw_rect(Rect2(Vector2.ZERO, S), Color(0.01, 0.03, 0.06, 0.96))
 	var sys: Dictionary = Data.SYSTEMS[GS.system_id]
-	_txt(self, Vector2(24, 48), "%s  ·  %s" % [sys["name"].to_upper(), sys.get("tile", "")], 28, CYAN)
+	if planet_mode: _txt(self, Vector2(24, 48), "%s  ·  %s%d" % [str(Surface.PLANETS[pid]["name"]).to_upper(), "ABCDEFGHIJ"[space.tile / pg], space.tile % pg + 1], 26, CYAN, HORIZONTAL_ALIGNMENT_LEFT, fs_left() - 34.0)
+	else: _txt(self, Vector2(24, 48), "%s  ·  %s" % [sys["name"].to_upper(), sys.get("tile", "")], 28, CYAN, HORIZONTAL_ALIGNMENT_LEFT, fs_left() - 34.0)
 	draw_rect(map_rect, Color(0.01, 0.02, 0.045))
 
 # ---------------------------------------------------------------- the map itself (clipped to the map window)
@@ -693,6 +859,11 @@ func _draw_map() -> void:
 	var ci := canvas
 	var sys: Dictionary = Data.SYSTEMS[GS.system_id]
 	var local := Rect2(Vector2.ZERO, map_rect.size)
+	if planet_mode:
+		grid_stats = view.draw_grid(ci, local, 0.0, [], false, font, 0.35)
+		_draw_planet_tile(ci)
+		_draw_rest(ci, sys, local)
+		return
 	var through: Array = []
 	for key in objs:
 		if objs[key]["type"] in ["planet", "station", "gate", "star"]: through.append(objs[key]["pos"])
@@ -764,6 +935,74 @@ func _draw_tile(ci: CanvasItem, sys: Dictionary) -> void:
 		_txt(ci, view.to_screen(Vector3(-E, 0, mid)) + Vector2(-26, 7), str(i + 1), 18, Color(GOLD, 0.95))
 		_txt(ci, view.to_screen(Vector3(E, 0, mid)) + Vector2(10, 7), str(i + 1), 18, Color(GOLD, 0.95))
 
+## v12.61: the planet's square: its land (the real heights, water blue), a sector per square with its name, the
+## letters (rows) and numbers (columns) round the edge as in the sector names ("B2"), and the fog over the sectors you
+## have not flown over yet (an ATLAS from a dock's supplies charts them all).
+static var _land_tex := {}
+static func land_texture(p: String) -> Texture2D:
+	if _land_tex.has(p): return _land_tex[p]
+	var g := Surface.grid(p)
+	var res := clampi(64 * g, 96, 224)
+	var img := Image.create(res, res, false, Image.FORMAT_RGB8)
+	var span := float(g) * Surface.TILE
+	for y in res:
+		for x in res:
+			var sm: Array = Surface.sample(p, -Surface.EDGE + (x + 0.5) / res * span, -Surface.EDGE + (y + 0.5) / res * span)
+			var hgt: float = float(sm[0])
+			var c: Color = sm[1] if sm[1] is Color else Color(0.5, 0.45, 0.35)
+			if hgt <= 0.5: c = Color(0.12, 0.3, 0.55)
+			else: c = c.darkened(0.45).lightened(clampf(hgt / 900.0, 0.0, 0.45))
+			img.set_pixel(x, y, c)
+	var tex := ImageTexture.create_from_image(img)
+	_land_tex[p] = tex
+	return tex
+
+func _draw_planet_tile(ci: CanvasItem) -> void:
+	var E := _edge()
+	var n := pg
+	var w := 2.0 * E / n
+	var tex := land_texture(pid)
+	var sub := 4   # each sector drawn as 4 x 4 small quads so the angled view bends the land with the grid
+	for row in n:
+		for col in n:
+			var tl := row * n + col
+			var seen := GS.sector_seen(pid, tl)
+			for sy in sub:
+				for sx in sub:
+					var x0 := -E + col * w + sx * w / sub
+					var z0 := -E + row * w + sy * w / sub
+					var q := PackedVector2Array([view.to_screen(Vector3(x0, 0, z0)), view.to_screen(Vector3(x0 + w / sub, 0, z0)), view.to_screen(Vector3(x0 + w / sub, 0, z0 + w / sub)), view.to_screen(Vector3(x0, 0, z0 + w / sub))])
+					var u0 := (x0 + E) / (2.0 * E)
+					var v0 := (z0 + E) / (2.0 * E)
+					var du := 1.0 / (n * sub)
+					var uv := PackedVector2Array([Vector2(u0, v0), Vector2(u0 + du, v0), Vector2(u0 + du, v0 + du), Vector2(u0, v0 + du)])
+					ci.draw_colored_polygon(q, Color(1, 1, 1, 1) if seen else Color(0.16, 0.2, 0.26, 1), uv, tex)
+			var c := view.to_screen(Vector3(-E + (col + 0.5) * w, 0, -E + (row + 0.5) * w))
+			var nm := "%s%d %s" % ["ABCDEFGHIJ"[row], col + 1, str(Surface.biome(pid, tl).get("name", "")).to_upper()]
+			_txt(ci, c + Vector2(-110, -w * scale_k * 0.36), nm, 13, Color(1, 1, 1, 0.8 if seen else 0.45), HORIZONTAL_ALIGNMENT_CENTER, 220)
+			if not seen: _txt(ci, c + Vector2(-110, 6), "UNCHARTED", 14, Color(CYAN, 0.55), HORIZONTAL_ALIGNMENT_CENTER, 220)
+			if tl == space.tile:
+				var cur := PackedVector2Array([view.to_screen(Vector3(-E + col * w, 0, -E + row * w)), view.to_screen(Vector3(-E + (col + 1) * w, 0, -E + row * w)), view.to_screen(Vector3(-E + (col + 1) * w, 0, -E + (row + 1) * w)), view.to_screen(Vector3(-E + col * w, 0, -E + (row + 1) * w))])
+				cur.append(cur[0])
+				ci.draw_polyline(cur, Color(CYAN.lightened(0.3), 0.95), 2.5)
+	var lines := PackedVector2Array()
+	for i in range(1, n * 2):   # sector lines, and a finer line through each sector
+		var v := -E + i * w * 0.5
+		lines.append(view.to_screen(Vector3(v, 0, -E)))
+		lines.append(view.to_screen(Vector3(v, 0, E)))
+		lines.append(view.to_screen(Vector3(-E, 0, v)))
+		lines.append(view.to_screen(Vector3(E, 0, v)))
+	ci.draw_multiline(lines, Color(CYAN, 0.3), 1.2)
+	var border := PackedVector2Array([view.to_screen(Vector3(-E, 0, -E)), view.to_screen(Vector3(E, 0, -E)), view.to_screen(Vector3(E, 0, E)), view.to_screen(Vector3(-E, 0, E)), view.to_screen(Vector3(-E, 0, -E))])
+	ci.draw_polyline(border, Color(CYAN, 0.35), 8.0)
+	ci.draw_polyline(border, Color(CYAN.lightened(0.35), 0.95), 2.5)
+	for i in n:   # the sector names round the edge: numbers along the top and bottom, letters down the sides
+		var mid := -E + (i + 0.5) * w
+		_txt(ci, view.to_screen(Vector3(mid, 0, -E)) + Vector2(-6, -10), str(i + 1), 18, Color(GOLD, 0.95))
+		_txt(ci, view.to_screen(Vector3(mid, 0, E)) + Vector2(-6, 26), str(i + 1), 18, Color(GOLD, 0.95))
+		_txt(ci, view.to_screen(Vector3(-E, 0, mid)) + Vector2(-26, 7), "ABCDEFGHIJ"[i], 18, Color(GOLD, 0.95))
+		_txt(ci, view.to_screen(Vector3(E, 0, mid)) + Vector2(10, 7), "ABCDEFGHIJ"[i], 18, Color(GOLD, 0.95))
+
 ## v8.9 (owner, Freelancer maps): the trade lanes as dotted lines (in flight: the real lanes; docked: from the data).
 func _draw_lanes(ci: CanvasItem, sys: Dictionary) -> void:
 	var segs: Array = []
@@ -799,8 +1038,8 @@ func _draw_rest(ci: CanvasItem, sys: Dictionary, local: Rect2) -> void:
 		if space.nav_dest != null and is_instance_valid(space.nav_dest): dest_n = space.nav_dest   # v1.5i: the GPS destination
 		elif space.autopilot != null and is_instance_valid(space.autopilot): dest_n = space.autopilot
 	if dest_n != null:
-		var a3 := view.to_screen(space.player.global_position)
-		var b3 := view.to_screen(dest_n.global_position)
+		var a3 := view.to_screen(_pp())
+		var b3 := view.to_screen(_np(dest_n))
 		var dist: float = space.distance_to(dest_n)
 		route = {"from": a3 + map_rect.position, "to": b3 + map_rect.position, "dist": dist, "eta": space.nav_eta() if dest_n == space.nav_dest else space.trip_time(dist), "name": str(dest_n.name)}
 		var plan: Dictionary = space.nav_plan() if dest_n == space.nav_dest else {}
@@ -822,7 +1061,7 @@ func _draw_rest(ci: CanvasItem, sys: Dictionary, local: Rect2) -> void:
 		var stops: Array = space.nav_route if dest_n == space.nav_dest else [dest_n]
 		var prev := b3
 		for i in stops.size():
-			var sp := view.to_screen((stops[i] as Node3D).global_position)
+			var sp := view.to_screen(_np(stops[i] as Node3D))
 			if i > 0: NavGrid.route(ci, prev, sp, Color(Data.GPS_ROUTE_COLOR, 0.75), t)
 			ci.draw_circle(sp, 10.0, Data.GPS_ROUTE_COLOR)
 			if i == stops.size() - 1: ci.draw_arc(sp, 16.0 + 3.0 * sin(t * 4.0), 0, TAU, 24, Color(Data.GPS_ROUTE_COLOR, 0.7), 2.0)
@@ -840,6 +1079,13 @@ func _draw_rest(ci: CanvasItem, sys: Dictionary, local: Rect2) -> void:
 		var r: float = o2["px"]
 		if not local.grow(r * 2.0 + 160.0).has_point(c): continue   # outside the map window
 		match o2["type"]:
+			"dock", "facility": fac_marker(ci, c, str(o2["data"].get("faction", "")), o2["type"], selected == key, 11.0 if o2["type"] == "dock" else 10.0)
+			"job":
+				var cur: bool = o2.get("current", false)
+				var pr2: float = 11.0 + (2.0 * sin(t * 5.0) if cur else 0.0)
+				NavGrid.fill(ci, PackedVector2Array([c + Vector2(0, -pr2), c + Vector2(pr2, 0), c + Vector2(0, pr2), c + Vector2(-pr2, 0)]), GOLD if cur else Color(GOLD, 0.55))
+				ci.draw_polyline(PackedVector2Array([c + Vector2(0, -pr2 - 3), c + Vector2(pr2 + 3, 0), c + Vector2(0, pr2 + 3), c + Vector2(-pr2 - 3, 0), c + Vector2(0, -pr2 - 3)]), Color(0.1, 0.06, 0, 0.9), 2.0)
+				_txt(ci, c + Vector2(-5, 5), str(o2.get("num", "")), 12, Color(0.1, 0.06, 0))
 			"planet": NavGrid.sphere(ci, c, r, o2["col"], Data.NAV_SIDES["planet"])
 			"star": NavGrid.star(ci, c, r, o2["col"])
 			"station": NavGrid.station(ci, c, r, o2["col"])
@@ -847,10 +1093,15 @@ func _draw_rest(ci: CanvasItem, sys: Dictionary, local: Rect2) -> void:
 			"enemy", "traffic":
 				var nd: Node3D = o2["node"]
 				var f: Vector3 = -nd.global_basis.z
-				NavGrid.dart(ci, c, 8.0, Vector2(f.x, f.z).rotated(view.rot), o2["col"])
-		if o2["type"] in ["planet", "station", "gate", "star"]:
-			var main_obj: bool = o2.get("main", false) or o2["type"] == "gate"
+				NavGrid.dart(ci, c, 14.0 if o2.get("big", false) else 8.0, Vector2(f.x, f.z).rotated(view.rot), o2["col"])
+				if o2.get("big", false): _txt(ci, c + Vector2(14, -8), str(o2["name"]), 12, o2["col"])
+		if o2["type"] in ["planet", "station", "gate", "star", "dock", "facility", "job"]:
+			var main_obj: bool = o2.get("main", false) or o2["type"] in ["gate", "job"]
 			var label: String = o2["name"]
+			if o2["type"] == "facility": label = "%s  L%d" % [o2["name"], int(o2["data"].get("difficulty", 1))]
+			if o2["type"] in ["dock", "facility"]:
+				var tg2 := fac_tag(str(o2["data"].get("faction", "")), Surface.planet_sides(pid, Surface.PLANETS[pid]))
+				if str(tg2[0]) != "": label += "  ·  " + str(tg2[0])
 			if o2["type"] == "gate": label = "%s > %s" % [o2["name"], Data.SYSTEMS[o2["data"]["to"]]["name"]]
 			var fs: int = 16 if main_obj else 13
 			var lw: float = ThemeDB.fallback_font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
@@ -867,7 +1118,9 @@ func _draw_rest(ci: CanvasItem, sys: Dictionary, local: Rect2) -> void:
 				box = Rect2(at + Vector2(0, -fs), Vector2(lw, fs + 4.0))
 			placed.append(box)
 			if (at - (c + Vector2(r + 8, 6))).length() > fs: ci.draw_line(c + Vector2(r * 0.7, 0), at + Vector2(-2, -fs * 0.35), Color(o2["col"], 0.45), 1.0)   # (a leader line back to its icon)
-			_txt(ci, at, label, fs, o2["col"] if main_obj else Color(o2["col"], 0.85))
+			var lc: Color = o2["col"]
+			if o2["type"] in ["dock", "facility"]: lc = Color.WHITE
+			_txt(ci, at, label, fs, lc if main_obj else Color(lc, 0.85))
 	if selected == "point" and way_pos != Vector3.INF:
 		var wp := view.to_screen(way_pos)
 		NavGrid.fill(ci, PackedVector2Array([wp + Vector2(0, -12), wp + Vector2(12, 0), wp + Vector2(0, 12), wp + Vector2(-12, 0)]), GOLD)
@@ -875,24 +1128,36 @@ func _draw_rest(ci: CanvasItem, sys: Dictionary, local: Rect2) -> void:
 		_txt(ci, wp + Vector2(26, 6), "WAYPOINT", 15, GOLD)
 	elif selected != "" and objs.has(selected):
 		NavGrid.brackets(ci, view.to_screen(objs[selected]["pos"]), maxf(18.0, float(objs[selected]["px"]) + 8.0), Color(0.75, 0.95, 1.0), 0.5 + 0.5 * sin(t * 5.0))
+	if planet_mode:   # v12.61: the job's points joined in order, from the next one on
+		var jprev := Vector2.INF
+		for k2 in objs:
+			if objs[k2]["type"] != "job": continue
+			var jc := view.to_screen(objs[k2]["pos"])
+			if jprev != Vector2.INF:
+				var segs := int(jprev.distance_to(jc) / 10.0)
+				for k3 in segs:
+					if k3 % 2 == 0: ci.draw_line(jprev.lerp(jc, float(k3) / segs), jprev.lerp(jc, float(k3 + 1) / segs), Color(GOLD, 0.5), 2.0)
+			jprev = jc
 	# v1.5e: the mission waypoint (gold diamond, as on the HUD)
 	if space != null and is_instance_valid(space.player):
 		var mw: Dictionary = space.mission_waypoint()
 		if not mw.is_empty() and is_instance_valid(mw["node"]):
-			var mp := view.to_screen((mw["node"] as Node3D).global_position)
+			var mp := view.to_screen(_np(mw["node"] as Node3D))
 			NavGrid.fill(ci, PackedVector2Array([mp + Vector2(0, -11), mp + Vector2(11, 0), mp + Vector2(0, 11), mp + Vector2(-11, 0)]), GOLD)
 			ci.draw_polyline(PackedVector2Array([mp + Vector2(0, -16), mp + Vector2(16, 0), mp + Vector2(0, 16), mp + Vector2(-16, 0), mp + Vector2(0, -16)]), Color(GOLD, 0.5 + 0.5 * sin(t * 4.0)), 2.0)
 			_txt(ci, mp + Vector2(22, -10), "MISSION", 14, GOLD)
 	# you
 	if space != null and is_instance_valid(space.player):
-		var pp := view.to_screen(space.player.global_position)
+		var pp := view.to_screen(_pp())
 		var fw: Vector3 = -space.player.global_basis.z
 		var dir := Vector2(fw.x, fw.z).rotated(view.rot)
-		for rr2 in [Data.FOG_REVEAL]:   # v8.9: the ring you uncover the map within
-			ci.draw_polyline(view.plane_ring(space.player.global_position, rr2, Data.NAV_SIDES["ring"]), Color(1, 1, 1, 0.16), 1.0)
+		if not planet_mode:
+			for rr2 in [Data.FOG_REVEAL]:   # v8.9: the ring you uncover the map within
+				ci.draw_polyline(view.plane_ring(space.player.global_position, rr2, Data.NAV_SIDES["ring"]), Color(1, 1, 1, 0.16), 1.0)
 		NavGrid.fill(ci, NavGrid.poly(pp, 22.0, 12), Color(1, 1, 1, 0.1))
 		NavGrid.dart(ci, pp, 17.0, dir, Color.WHITE, true)
 		var readout := "YOU  ·  %d m/s" % int(space.speed_now)
+		if planet_mode: readout += "  ·  ALT %d m" % int(space.altitude)
 		if not route.is_empty(): readout += "  ·  ETA %s" % _eta(route["eta"])
 		_txt(ci, pp + Vector2(22, 18), readout, 13, Color.WHITE)
 	ci.draw_rect(local, Color(CYAN, 0.45), false, 2.0)
@@ -916,6 +1181,7 @@ func _draw_over() -> void:
 	_btn(ci, btn_zoom_out, "−", zoom > Data.NAV_ZOOM[0] + 0.001, CYAN, 26)
 	_btn(ci, btn_zoom_in, "+", zoom < Data.NAV_ZOOM[1] - 0.001, CYAN, 26)
 	_btn(ci, btn_fit, "FIT", true, CYAN, 14)
+	if planet_mode: _btn(ci, btn_wild, "WILDLIFE TEST", true, GREEN, 14)
 	if btn_mission.size.x > 0.0:   # v1.7v: CURRENT MISSION (v8.9: in the top bar)
 		var mw: Dictionary = space.mission_waypoint()
 		var on: bool = space.gps_mission and space.nav_dest != null and space.nav_dest == mw.get("node")
@@ -1046,6 +1312,8 @@ func _card(ci: CanvasItem) -> void:
 				for i in 7: NavGrid.rock(ci, c + Vector2(cos(i * 2.4), sin(i * 2.4) * 0.6) * ph * 0.28 * fmod(i * 0.37 + 0.3, 1.0), ph * 0.1, col, i)
 			"nebula": NavGrid.cloud(ci, NavGrid.poly(c, ph * 0.34, 14), c, col)
 			"point": NavGrid.route(ci, c + Vector2(-pw * 0.3, ph * 0.25), c + Vector2(0, ph * 0.15), GOLD, t)
+			"dock", "facility": fac_marker(ci, c, str(objs[selected]["data"].get("faction", "")), tp, false, ph * 0.22)
+			"job": NavGrid.fill(ci, PackedVector2Array([c + Vector2(0, -ph * 0.25), c + Vector2(ph * 0.25, 0), c + Vector2(0, ph * 0.25), c + Vector2(-ph * 0.25, 0)]), GOLD)
 			_: NavGrid.dart(ci, c, ph * 0.22, Vector2(0.4, -1), col, true)
 	ci.draw_rect(pr, Color(col, 0.6), false, 1.5)
 	_btn(ci, btn_card_x, "X", true, CYAN, 20)

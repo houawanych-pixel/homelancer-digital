@@ -710,6 +710,7 @@ func _pause_buttons() -> void:
 	for k in GS.slots.size():
 		buttons["pm_slot_%d" % k] = Rect2(r.position.x + 10.0 + k * (bw + 10.0), r.position.y + 110.0, bw, 120.0)
 	buttons["pm_resume"] = Rect2(r.position.x + r.size.x * 0.5 - 120.0, r.end.y - 74.0, 240.0, 56.0)
+	buttons["pm_tips"] = Rect2(r.position.x + 12.0, r.end.y - 74.0, minf(150.0, r.size.x * 0.5 - 136.0), 56.0)   # v12.61: Evee's tips on / off
 
 func _draw_pause() -> void:
 	var r := pause_rect()
@@ -729,6 +730,8 @@ func _draw_pause() -> void:
 		_text(Vector2(br.position.x, br.position.y + 94.0), "%d left  ·  TAP TO SWAP" % GS.slot_ammo(item), 12, Color(col.lightened(0.3), 0.95), HORIZONTAL_ALIGNMENT_CENTER, br.size.x)
 	if buttons.has("pm_resume"):
 		_prompt_btn(buttons["pm_resume"], "RESUME", GREEN, held.has("pm_resume"))
+	if buttons.has("pm_tips"):
+		_prompt_btn(buttons["pm_tips"], "TIPS: %s" % ("ON" if GS.tips_on else "OFF"), CYAN, held.has("pm_tips"))
 
 ## START / SELECT under the radar: little angled tabs.
 func _draw_start_select() -> void:
@@ -812,6 +815,7 @@ func _top_bar(tabs: Dictionary) -> void:
 	if space and space.build_ok(): tabs["build"] = Rect2(x - gap - 84.0, y2, 84.0, TOP_BAR_H)   # v12.25 (owner): BUILD, left of START
 	tabs["start"] = Rect2(x, y2, ws[0], TOP_BAR_H); x += ws[0] + gap
 	top_speed = Rect2(x, y2, ws[1], TOP_BAR_H); x += ws[1] + gap
+	tabs["cruise"] = top_speed   # v12.61 (owner): tap the SPEED readout = CRUISE at full speed (no holding forward)
 	tabs["select"] = Rect2(x, y2, ws[2], TOP_BAR_H); x += ws[2] + gap
 	fs_slot = Rect2(x, y2, ws[3], TOP_BAR_H)
 	fs_exit_slot = fs_slot   # (one place, on or off)
@@ -832,14 +836,16 @@ func _top_bar_draw() -> void:
 		var txt: String = {"start": "START", "select": "SELECT", "goto": "AUTO ON" if space.autopilot != null else "GO TO"}[id]
 		_text(Vector2(r.position.x, r.position.y + 23.0), txt, 15, WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
 	var sr := top_speed   # the SPEED readout (with the flight mode under it)
-	_box(sr, Color(0.02, 0.08, 0.15, 0.86), Color(CYAN, 0.8), 8, 2)
+	_box(sr, Color(GOLD, 0.3) if space.cruise_max else Color(0.02, 0.08, 0.15, 0.86), Color(GOLD, 0.95) if space.cruise_max else Color(CYAN, 0.8), 8, 2)
 	var mode := ""
 	if space.warp_state == "on": mode = "WARP"
 	elif space.warp_state == "charging": mode = "CHARGING"
 	elif space.engine_kill: mode = "DRIFT"
 	elif space.braking: mode = "STOPPING"
 	elif space.boosting: mode = "THRUST"
+	elif space.cruise_max: mode = "CRUISE" + ("  ·  ALT %d" % int(space.altitude) if space.surface_mode else "")
 	if space.surface_mode and mode == "": mode = "ALT %d m" % int(space.altitude)
+	if mode == "" and GS.form != "mech" and not space.on_foot: mode = "TAP = CRUISE"
 	_text(Vector2(sr.position.x, sr.position.y + 19.0), "%d m/s" % int(space.speed_now), 17, WHITE, HORIZONTAL_ALIGNMENT_CENTER, sr.size.x)
 	_text(Vector2(sr.position.x, sr.end.y - 3.0), mode if mode != "" else "SPEED", 9, GOLD if mode != "" else CYAN_HI, HORIZONTAL_ALIGNMENT_CENTER, sr.size.x)
 	if space.nav_dest != null and is_instance_valid(space.nav_dest): _gps_strip(top_gps)
@@ -1572,33 +1578,8 @@ func _fac_tag(fac: String, sides: Array) -> Array:
 	if sides.size() > 1 and fac == str(sides[1]): return ["RIVAL", Color(1.0, 0.6, 0.25)]
 	return ["ENEMY", Color(1.0, 0.35, 0.3)]
 
-## v12.59: the job's points on this world for the map: [{tile, x, z, label, current, done}]
-func pmap_job_points() -> Array:
-	var out: Array = []
-	var mi: Dictionary = GS.mission
-	if mi.is_empty() or not Missions.on_land(mi) or str(mi.get("planet", "")) != space.planet_id: return out
-	var kind := str(mi.get("kind", ""))
-	var name: String = {"ground": "STRIKE", "land_escort": "ESCORT", "intercept": "INTERCEPT", "air_sweep": "SWEEP", "facility": "RAID", "planet_invasion": "INVASION"}.get(kind, "JOB")
-	var pts: Array = mi.get("points", [])
-	var stage := int(mi.get("stage", 0))
-	if mi.has("tile"):
-		for i in pts.size():
-			var p: Dictionary = pts[i]
-			if not p.has("x"): continue
-			out.append({"tile": int(mi["tile"]), "x": float(p["x"]), "z": float(p["z"]), "label": "%s %d/%d" % [name, i + 1, pts.size()] if pts.size() > 1 else name, "current": i == stage, "done": i < stage})
-	var to = mi.get("to", null)
-	if to is Dictionary:   # the escort's end / the transport's facility
-		var tp = to.get("pos", null)
-		var tx: float = float(to.get("x", tp.x if tp is Vector2 else 0.0))
-		var tz: float = float(to.get("z", tp.y if tp is Vector2 else 0.0))
-		out.append({"tile": int(to.get("tile", mi.get("tile", 0))), "x": tx, "z": tz, "label": "%s: %s" % [name, str(to.get("name", "TARGET")).to_upper()] if to.has("name") else name + " TARGET", "current": out.is_empty() or kind == "land_escort", "done": false})
-	if out.is_empty() and kind == "facility":   # the raid: the facility itself
-		for f in space.facility_spots():
-			if str(f["name"]) == str(mi.get("site", "")): out.append({"tile": int(f["tile"]), "x": float(f["x"]), "z": float(f["z"]), "label": "RAID", "current": true, "done": false})
-	var any_cur := false
-	for o in out: if o["current"]: any_cur = true
-	if not any_cur and not out.is_empty(): out[0]["current"] = true
-	return out
+## v12.59: the job's points on this world for the map (see Missions.planet_job_points)
+func pmap_job_points() -> Array: return Missions.planet_job_points(space)
 
 func _planet_map() -> void:
 	var mr := planet_map_rect()

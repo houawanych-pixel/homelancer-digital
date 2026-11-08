@@ -2337,6 +2337,38 @@ func _run() -> void:
 		for b in main.hub.find_children("Take_*", "Button", true, false):
 			if (b as Button).text.begins_with("ACCEPT"): btn = b; break
 		_check("v12.60: on the board the ACCEPT shows with a job held (%s)" % (btn.text.replace("\n", " ") if btn != null else "none"), btn != null and not btn.disabled, "")
+		# v12.61: the ATLAS in the supplies room; SET HOME POINT in your quarters; Evee's tips until you know them
+		GS.credits = maxi(GS.credits, 5000)
+		GS.atlases = []
+		main.hub.show_screen("supplies")
+		await _frames(2)
+		var ab: Button = main.hub.find_child("BuyAtlas", true, false)
+		if ab != null: ab.pressed.emit()
+		await _frames(2)
+		var bought: bool = pid in GS.atlases
+		GS.tips_known = []
+		GS.tips_on = true
+		main._tip_t = -1000.0
+		var tip1: String = main.evee_tip("dock")
+		main._tip_t = -1000.0
+		main.hub.show_screen("ship")
+		await _frames(2)
+		var hb: Button = main.hub.find_child("SetHome", true, false)
+		if hb != null: hb.pressed.emit()
+		await _frames(2)
+		var pinned: bool = GS.home_pinned and str(GS.respawn.get("id", "")) == str(dock["id"])
+		var tip2: String = main.evee_tip("dock")
+		main.record_home({"id": "somewhere_else"}, false)   # (docking elsewhere doesn't move a pinned home)
+		var stays: bool = str(GS.respawn.get("id", "")) == str(dock["id"])
+		await _capture("quarters_home")
+		_check("v12.61 (owner): the ATLAS bought in SUPPLIES (%s); Evee's tip on docking (%s), gone once you SET HOME POINT in your quarters (pinned %s, tip now '%s', stays put %s)" % [bought, tip1, pinned, tip2, stays], bought and tip1 == "home" and pinned and tip2 != "home" and stays, "")
+		# the home point turns hostile: the one before it
+		GS.home_pinned = false
+		GS.respawn_prev = GS.respawn.duplicate()
+		GS.respawn = {"sys": "nowhere", "id": "gone"}
+		var rs2: Dictionary = main.respawn_dock(GS.respawn)
+		var rs3: Dictionary = main.respawn_dock(GS.respawn_prev)
+		_check("v12.61 (owner): a home point that won't take you (%s) falls back to the one before (%s)" % [rs2.is_empty(), str(rs3.get("info", {}).get("id", ""))], rs2.is_empty() and str(rs3.get("info", {}).get("id", "")) == str(dock["id"]), "")
 		_finish_group()
 		return
 	if _flag("HL_PMAP"):   # v12.59 (owner): the planet map shows the job's waypoints (tap = autopilot there) and each side in its own two colours
@@ -2353,22 +2385,48 @@ func _run() -> void:
 		await _until(func(): return main.state == "flight" and _sp().surface_mode, 25.0)
 		await _wait(0.8)
 		s = _sp()
+		GS.planet_seen = {}
+		GS.atlases = []
+		GS.see_sector(pid, s.tile)
 		main.hud.planet_map = false
 		_press("radar")
-		main.hud._layout()
-		await _frames(2)
-		var jobs: Array = main.hud.pmap_job_points()
+		await _frames(3)
+		var nm = main.navmap
+		var jobs: Array = nm.objs.keys().filter(func(k): return nm.objs[k]["type"] == "job")
+		var docks: Array = nm.objs.keys().filter(func(k): return nm.objs[k]["type"] == "dock")
+		var facs_k: Array = nm.objs.keys().filter(func(k): return nm.objs[k]["type"] == "facility")
+		var fog_hid: int = facs_k.filter(func(k): return not nm.objs[k].get("seen", true)).size()
 		var sides: Array = Surface.planet_sides(pid, Surface.PLANETS[pid])
-		var tags: Array = sides.map(func(f): return main.hud._fac_tag(str(f), sides)[0])
-		var facs: Array = []
-		for sp in s.base_spots() + s.facility_spots(): if str(sp.get("faction", "")) != "" and not facs.has(str(sp["faction"])): facs.append(str(sp["faction"]))
-		await _shot("planet_map_jobs", 0.3)
-		_check("v12.59 (owner): the planet map: the job's waypoints numbered on it (%d: %s) with a tap target; every dock and facility in its side's colours (%s), tagged %s" % [jobs.size(), ", ".join(jobs.map(func(j): return str(j["label"]))), ", ".join(facs), str(tags)],
-			jobs.size() >= 2 and main.hud.buttons.has("pmap_job") and facs.size() >= 2 and tags == ["ALLY", "RIVAL"], "%d %s %s" % [jobs.size(), str(facs), str(tags)])
-		_press("pmap_job")
+		var tags: Array = sides.map(func(f): return nm.fac_tag(str(f), sides)[0])
+		var fsr: Rect2 = Fs.slot()
+		await _shot("planet_navmap", 0.3)
+		_check("v12.61 (owner: like the space map): the radar opens the planet map (%s): docks %d, facilities %d (%d still in the fog), the job's points %d; each side tagged %s; FULL SCREEN up top (%s)" % [nm.planet_mode, docks.size(), facs_k.size(), fog_hid, jobs.size(), str(tags), str(fsr.position)],
+			main.state == "map" and nm.planet_mode and docks.size() >= 2 and jobs.size() >= 2 and tags == ["ALLY", "RIVAL"] and fog_hid > 0 and (fsr.size.x == 0.0 or fsr.position.y < 80.0), "%s %d %d %d" % [nm.planet_mode, docks.size(), jobs.size(), fog_hid])
+		var z0: float = nm.zoom
+		nm.zoom_by(Data.NAV_ZOOM_STEP)
+		var zoomed: bool = nm.zoom > z0
+		nm.toggle_tilt()
+		await _shot("planet_navmap_angled", 0.3)
+		nm.toggle_tilt()
+		nm.fit()
+		GS.atlases.append(pid)
+		nm._layout()
+		var all_seen: bool = facs_k.all(func(k): return nm.objs[k].get("seen", false))
+		_check("v12.61: the planet map zooms (%s), turns ANGLED / OVERHEAD, and the planet's ATLAS charts every facility (%s)" % [zoomed, all_seen], zoomed and all_seen, "")
+		nm.select(str(jobs[0]))
+		nm.set_course()
 		await _frames(2)
 		var gnode: Node3D = s.autopilot
-		_check("v12.59 (owner): tap the JOB point: GO TO it, the autopilot cruises there (%s)" % (str(gnode.name) if gnode != null else "none"), not main.hud.planet_map and gnode != null and str(gnode.name).begins_with("SWEEP"), str(gnode))
+		_check("v12.61 (owner): pick the job point and SET COURSE: GO TO, the autopilot cruises there (%s)" % (str(gnode.name) if gnode != null else "none"), main.state == "flight" and gnode != null and str(gnode.name).begins_with("SWEEP"), str(gnode))
+		# CRUISE: full speed with the stick centred
+		s.autopilot = null
+		s.player.global_position.y = s._ground(s.player.global_position.x, s.player.global_position.z) + 900.0
+		main._on_hud("cruise")
+		await _wait(3.0)
+		var cr_v: float = s.speed_now
+		var want_v: float = GS.ship()["speed"] * Data.FORWARD_MULT if GS.ship().has("speed") else 0.0
+		main._on_hud("stop")
+		_check("v12.61 (owner): CRUISE (tap SPEED): full speed with no stick (%d m/s, top %d); STOP ends it (%s)" % [int(cr_v), int(want_v), not s.cruise_max], cr_v > 60.0 and not s.cruise_max and "cruise" in GS.tips_known, "v %.0f" % cr_v)
 		_finish_group()
 		return
 	if _flag("HL_ARMADA"):   # v12.58 (owner): the planetary invasion (board the battleship, then the fighters), the enemy worlds' battleships, the final armada and its mothership
@@ -9879,16 +9937,16 @@ func _job_ai() -> void:
 	# ---- v1.8y (owner): on a planet: every base on the radar and on the planet map (tap = fly there); a job in space points up to orbit
 	var spots_y: Array = sg.base_spots()
 	main.hud.planet_map = false
-	_press("radar")
-	main.hud._layout()
-	var map_up: bool = main.hud.planet_map and main.hud.buttons.has("pmap_close") and main.hud.buttons.has("pmap_b0")
+	_press("radar")   # (v12.61: the planet map is the space map's, in planet mode)
+	var map_up: bool = main.state == "map" and main.navmap.planet_mode and main.navmap.objs.has("dock0")
 	await _shot("planet_map", 0.3)
 	var far_i := 0
 	for i in spots_y.size():
 		if int(spots_y[i]["tile"]) != sg.tile: far_i = i
-	_press("pmap_b%d" % far_i)
+	main.navmap.select("dock%d" % far_i)
+	main.navmap.set_course()
 	var gnode: Node3D = sg.autopilot
-	var fly_ok: bool = not main.hud.planet_map and gnode != null and str(gnode.name) == str(spots_y[far_i]["name"]) and Vector2(gnode.global_position.x, gnode.global_position.z).distance_to(Vector2((spots_y[far_i]["pos"] as Vector3).x, (spots_y[far_i]["pos"] as Vector3).z)) < 1.0
+	var fly_ok: bool = main.state == "flight" and gnode != null and str(gnode.name) == str(spots_y[far_i]["name"]) and Vector2(gnode.global_position.x, gnode.global_position.z).distance_to(Vector2((spots_y[far_i]["pos"] as Vector3).x, (spots_y[far_i]["pos"] as Vector3).z)) < 1.0
 	var fly_note: String = "%s -> %s at %s vs %s" % [str(spots_y[far_i]["name"]), str(gnode.name) if gnode != null else "none", str(gnode.global_position) if gnode != null else "-", str(spots_y[far_i]["pos"])]
 	sg.autopilot = null
 	var keep_y: Dictionary = GS.mission
@@ -9900,6 +9958,7 @@ func _job_ai() -> void:
 	GS.mission = {}
 	sg.autopilot = null
 	sg.target = null
+	sg.clear_route()   # (v12.61: SET COURSE on the map also set the GPS course)
 	_press("goto")
 	var go_base: bool = sg.autopilot != null and not sg.surf_goal.is_empty()
 	sg.autopilot = null

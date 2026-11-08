@@ -53,6 +53,7 @@ func _ready() -> void:
 	hub.galaxy_requested.connect(func(): galaxymap.open(GS.system_id))   # v3.1: the GALAXY MAP tile on HOME
 	hub.descend_requested.connect(descend_to)
 	navmap.closed.connect(_on_map_closed)
+	navmap.wild_toggle.connect(func(): if is_instance_valid(space) and space.surface_mode: wild_test_here(not space.wild_park))
 	navmap.course_set.connect(_on_course)
 	navmap.mission_go.connect(_on_map_mission_go)
 	GS.changed.connect(_on_gs_changed)
@@ -346,7 +347,7 @@ func _objective() -> String:
 func _on_hud(id: String) -> void:
 	if state != "flight": return
 	if hud.fl_tap(id): return   # v6.7: the contact list and ship panel
-	if id in ["start", "select", "pm_resume"] or id.begins_with("pm_slot_"):   # v11.25 (owner): the pause menu
+	if id in ["start", "select", "pm_resume", "pm_tips"] or id.begins_with("pm_slot_"):   # v11.25 (owner): the pause menu
 		_pause_input(id)
 		return
 	if space.cloaked and not (id in ["cloak", "kill", "engine_kill", "view", "radar", "fullscreen", "scan", "scan_close", "hangup", "side_l", "side_r", "call_pick"]):   # v10.6 (owner): cloaked, every tool is locked: you only fly and look around
@@ -418,6 +419,11 @@ func _on_hud(id: String) -> void:
 		"stop":
 			space.full_stop()
 			hud.flash_message("Braking to a full stop.")
+		"cruise":   # v12.61 (owner): full speed without holding the stick forward
+			if GS.form == "mech" or space.on_foot: return
+			var con := space.toggle_cruise()
+			if con: GS.learn_tip("cruise")
+			hud.flash_message("CRUISE: full speed. Pull back or tap STOP to end it." if con else "Cruise off.")
 		"eject":
 			if space.eject() == "loading": hud.flash_message("Pilot still downloading — try again in a moment.")
 		"enter":
@@ -779,9 +785,12 @@ func _comms_line() -> String:
 	return "[normal]Traffic control here. Recommended: %s." % o.to_lower()
 
 func open_map() -> void:
-	if space.surface_mode:   # v1.8y (owner): on a planet the map is the planet: its sectors, the bases, you and the job
+	if space.boarding:   # (inside a ship or a facility: the deck map)
 		hud.planet_map = not hud.planet_map
 		return
+	# v12.61 (owner: "the planet map should be like the space map"): on a planet the same map as in space shows the planet
+	hud.planet_map = false
+	if space.surface_mode: GS.learn_tip("planet_map")
 	state = "map"
 	hud.close_comms()
 	hud.visible = false   # v11.97 (owner): the map no longer pauses the game (only START does): you keep flying, warping
@@ -919,7 +928,7 @@ func dock(n: Node3D) -> void:
 	GS.dock_service()   # v1.4n: shields and energy only; hull = REPAIR, ammo = RESTOCK at Equipment
 	GS.last_base = info["id"]
 	# v12.60 (owner: "when I'm dead I restart at the last place I docked; a planet dock is my new respawn point")
-	GS.respawn = {"sys": space.sys_id, "id": str(info["id"]), "surface": space.surface_mode, "planet": space.planet_id if space.surface_mode else "", "tile": space.tile if space.surface_mode else -1}
+	record_home(info, false)
 	visited[info["id"]] = true
 	if info["id"] == "new_terra": GS.meet("oduya", "friendly")
 	if info["id"] == "frontier_exchange": GS.meet("amari", "friendly")
@@ -939,6 +948,8 @@ func dock(n: Node3D) -> void:
 		hub.status.text = home_free
 	GS.save_game()   # v1.7y: docking saves
 	state = "hub"
+	if paid == "" and home_free == "":   # v12.61: Evee's tip for this dock (the home point; the atlas on a world)
+		if evee_tip("dock") == "" and docked_node_kind == "planet": evee_tip("planet_dock")
 	var tw2 := create_tween()
 	tw2.tween_property(fx, "fade", 0.0, 0.6)
 	await tw2.finished
@@ -1134,6 +1145,7 @@ func launch() -> void:
 		space.spawn_chaser(chaser)
 		chaser = ""
 	_launch_sequence(where, GS.mission.is_empty())   # v1.7n: with a job, the brief is read, not cut off by control
+	get_tree().create_timer(9.0).timeout.connect(func(): if state == "flight": evee_tip("launch"))   # v12.61
 	var mw: Dictionary = space.mission_waypoint()
 	if not mw.is_empty():
 		hud.flash_message("Waypoint set: %s. GO TO flies it." % mw["title"])
@@ -1313,9 +1325,34 @@ func jump(gate: Node3D = null) -> void:
 			hud.flash_message("Welcome to %s. Autopilot: %s" % [Data.SYSTEMS[to]["name"], mw["title"]])
 
 # ---------------------------------------------------------------- defeat
+## v12.60 / v12.61: this dock becomes the home point (pin = SET HOME POINT in your quarters: docking elsewhere won't
+## move it). The one before is kept: if this one turns hostile, that's where the tug takes you.
+func record_home(info: Dictionary, pin: bool) -> void:
+	if GS.home_pinned and not pin: return
+	var surf: bool = is_instance_valid(space) and space.surface_mode
+	var nh := {"sys": space.sys_id if is_instance_valid(space) else GS.system_id, "id": str(info.get("id", "")), "surface": surf, "planet": space.planet_id if surf else "", "tile": space.tile if surf else -1}
+	if not GS.respawn.is_empty() and str(GS.respawn.get("id", "")) != nh["id"]: GS.respawn_prev = GS.respawn.duplicate()
+	GS.respawn = nh
+	if pin: GS.home_pinned = true
+
+## v12.61 (owner: "Evee gives you tips until you know them"): the first tip for this moment you haven't shown you know
+## (and not too soon after the last one). Docked she says it in the station, in flight on the comms.
+var _tip_t := -1000.0
+func evee_tip(where: String) -> String:
+	if not GS.tips_on: return ""
+	var now := Time.get_ticks_msec() / 1000.0
+	if now - _tip_t < Data.EVEE_TIP_GAP: return ""
+	for id in Data.EVEE_TIPS:
+		var tp: Dictionary = Data.EVEE_TIPS[id]
+		if str(tp["where"]) != where or id in GS.tips_known: continue
+		if id == "atlas" and (hub.atlas_planet() == "" or hub.atlas_planet() in GS.atlases): continue
+		_tip_t = now
+		if state == "hub" or where in ["dock", "planet_dock"]: hub.evee_say(str(tp["line"]))
+		else: say_as("assistant", str(tp["line"]))
+		return id
+	return ""
 ## v12.60: the last dock you used, if it still takes you: {surface, sys, planet, tile, info} or {} (then the old tow rule).
-func respawn_dock() -> Dictionary:
-	var r: Dictionary = GS.respawn
+func respawn_dock(r: Dictionary) -> Dictionary:
 	if r.is_empty() or not Data.SYSTEMS.has(str(r.get("sys", ""))): return {}
 	var sy: Dictionary = Data.SYSTEMS[str(r["sys"])]
 	if bool(r.get("surface", false)):
@@ -1364,7 +1401,8 @@ func _on_destroyed() -> void:
 	GS.credits -= lost
 	GS.restore_full()
 	var failed := Missions.restart_after_death()   # v1.9r: the job fails and starts again from the beginning
-	var rs: Dictionary = respawn_dock()
+	var rs: Dictionary = respawn_dock(GS.respawn)
+	if rs.is_empty() and not GS.respawn_prev.is_empty(): rs = respawn_dock(GS.respawn_prev)   # v12.61: the home point turned hostile: the one before
 	if not rs.is_empty():   # v12.60 (owner): back at the last dock (a planet's too)
 		if bool(rs["surface"]):
 			_load_surface(str(rs["planet"]), int(rs["tile"]))
@@ -1484,7 +1522,9 @@ func enter_atmosphere(planet_node: Node3D) -> void:
 	hud.visible = true
 	state = "flight"
 	hud.flash_message("Welcome to %s." % Surface.tile_name(pid, t).capitalize())
-	if not Surface.is_sun(pid): say_as("assistant", planet_brief(pid, t, visits))   # v12.52: Evee on what this world is
+	if not Surface.is_sun(pid):
+		say_as("assistant", planet_brief(pid, t, visits))   # v12.52: Evee on what this world is
+		get_tree().create_timer(14.0).timeout.connect(func(): if state == "flight" and is_instance_valid(space) and space.surface_mode: evee_tip("planet"))   # v12.61
 
 var landing_film_s := 0.0   # (tests)
 var landing_film_min: float = Data.LANDING_FILM_MIN
@@ -1686,6 +1726,9 @@ func set_paused(on: bool) -> void:
 func _pause_input(id: String) -> void:
 	if id in ["start", "select"]: set_paused(not hud.pause_menu)
 	elif id == "pm_resume": set_paused(false)
+	elif id == "pm_tips":   # v12.61: Evee's tips on / off
+		GS.tips_on = not GS.tips_on
+		hud.flash_message("Evee's tips: %s" % ("ON (until you know them)" if GS.tips_on else "OFF"))
 	elif id.begins_with("pm_slot_"):
 		var k := int(id.substr(8))
 		var order: Array = Data.SLOT_ITEMS.keys()

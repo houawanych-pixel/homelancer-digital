@@ -458,6 +458,15 @@ static func waypoint(space: SpaceSystem) -> Dictionary:
 			var fp := space.mission_point(point_pos(space, 0))
 			var tw := "" if space.tile == int(m["tile"]) else " (%s)" % sector_name(str(m["planet"]), int(m["tile"]))
 			return {"node": fp, "title": str(m["site"]), "line": "Facility: find the entrance of %s and go in%s" % [m["site"], tw], "hops": 0}
+		# v12.61 (fix): the sweep and the invasion: their battleship once it's up there, else the job's point
+		if kind == "planet_invasion":
+			var bsp: Array = space.enemies.filter(func(e): return e.get("planet_invader", false) and is_instance_valid(e["node"]))
+			if not bsp.is_empty(): return {"node": bsp[0]["node"], "title": str(bsp[0]["node"].name), "line": "Invasion: strip its shield, then BOARD it", "hops": 0}
+		var pts3: Array = m.get("points", [])
+		if stage < pts3.size():
+			var tw3 := "" if space.tile == int(m.get("tile", space.tile)) else " (%s)" % sector_name(str(m["planet"]), int(m["tile"]))
+			return {"node": space.mission_point(point_pos(space, stage)), "title": "Mission point %d/%d" % [stage + 1, pts3.size()] if pts3.size() > 1 else "Mission point", "line": "%s%s" % [m["title"], tw3], "hops": 0}
+		return {}
 	if kind == "ground" or kind == "land_escort":   # v1.8m: in space the planet is the waypoint; down there the points are
 		if not space.surface_mode:
 			if str(m["sys"]) != space.sys_id: return _to_place(space, str(m["sys"]), m["title"])
@@ -911,3 +920,31 @@ static func _tick_escort(space: SpaceSystem, dt: float, m: Dictionary) -> void:
 		space.escort_node = null
 		m["stage"] = 90
 		_pay(space, "The freighter has docked. %s pays %d cr." % [Data.SYSTEMS[m["giver_sys"]]["station"]["name"], int(m["pay"])])
+
+## v12.59 / v12.61: the job's points on this world for the map: [{tile, x, z, label, current, done}]
+static func planet_job_points(space: SpaceSystem) -> Array:
+	var out: Array = []
+	var mi: Dictionary = GS.mission
+	if mi.is_empty() or not Missions.on_land(mi) or str(mi.get("planet", "")) != space.planet_id: return out
+	var kind := str(mi.get("kind", ""))
+	var name: String = {"ground": "STRIKE", "land_escort": "ESCORT", "intercept": "INTERCEPT", "air_sweep": "SWEEP", "facility": "RAID", "planet_invasion": "INVASION"}.get(kind, "JOB")
+	var pts: Array = mi.get("points", [])
+	var stage := int(mi.get("stage", 0))
+	if mi.has("tile"):
+		for i in pts.size():
+			var p: Dictionary = pts[i]
+			if not p.has("x"): continue
+			out.append({"tile": int(mi["tile"]), "x": float(p["x"]), "z": float(p["z"]), "label": "%s %d/%d" % [name, i + 1, pts.size()] if pts.size() > 1 else name, "current": i == stage, "done": i < stage})
+	var to = mi.get("to", null)
+	if to is Dictionary:   # the escort's end / the transport's facility
+		var tp = to.get("pos", null)
+		var tx: float = float(to.get("x", tp.x if tp is Vector2 else 0.0))
+		var tz: float = float(to.get("z", tp.y if tp is Vector2 else 0.0))
+		out.append({"tile": int(to.get("tile", mi.get("tile", 0))), "x": tx, "z": tz, "label": "%s: %s" % [name, str(to.get("name", "TARGET")).to_upper()] if to.has("name") else name + " TARGET", "current": out.is_empty() or kind == "land_escort", "done": false})
+	if out.is_empty() and kind == "facility":   # the raid: the facility itself
+		for f in space.facility_spots():
+			if str(f["name"]) == str(mi.get("site", "")): out.append({"tile": int(f["tile"]), "x": float(f["x"]), "z": float(f["z"]), "label": "RAID", "current": true, "done": false})
+	var any_cur := false
+	for o in out: if o["current"]: any_cur = true
+	if not any_cur and not out.is_empty(): out[0]["current"] = true
+	return out

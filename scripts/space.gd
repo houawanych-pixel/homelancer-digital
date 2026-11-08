@@ -5700,6 +5700,11 @@ func _update_player(dt: float) -> void:
 			f = Data.CRUISE + thrust.y * (top - Data.CRUISE) if thrust.y >= 0.0 else Data.CRUISE * (1.0 + thrust.y)
 			if thrust.y > 0.15 and top > 1.0: rate = Data.FORWARD_RATE
 			if holding: f = 0.0
+		if cruise_max:   # v12.61 (owner): CRUISE: full speed without holding the stick forward; pull back (or STOP) ends it
+			if thrust.y < -0.5 or holding or braking: cruise_max = false
+			else:
+				f = Data.FORWARD_MULT
+				rate = Data.FORWARD_RATE
 		var desired := fwd * base_speed * f + right * base_speed * 0.6 * thrust.x
 		# v1.4n: THRUST = an instant burst at BURST_MULT x ship speed (Cadet: 120 m/s) the way the stick points,
 		# straight up with the stick centred. Holding the button keeps you moving that way.
@@ -5729,7 +5734,17 @@ func _update_player(dt: float) -> void:
 		_auto_systems(dt)
 
 # ---------------------------------------------------------------- engine controls
+var cruise_max := false   # v12.61: CRUISE (tap the SPEED readout): full speed, hands off the stick
+func toggle_cruise() -> bool:
+	cruise_max = not cruise_max
+	if cruise_max:
+		holding = false
+		braking = false
+		engine_kill = false
+	return cruise_max
+
 func full_stop() -> void:
+	cruise_max = false
 	if warp_state != "off": drop_warp("Dropping out of warp.")
 	engine_kill = false
 	braking = true
@@ -9924,6 +9939,7 @@ func load_tile(t: int, keep := Vector3.INF) -> void:
 	add_child(tile_root)
 	_faction_buildings()   # v1.9q
 	_planet_bases()   # v11.91
+	GS.see_sector(planet_id, t)   # v12.61: the planet map's fog lifts over the sectors you fly
 	if keep == Vector3.INF or true: _tile_patrols()   # v12.54
 	if patrols_on and Data.PLANET_PATROLS: _tile_wild_capital()   # v12.58
 	var b := Surface.biome(planet_id, t)
@@ -10292,21 +10308,21 @@ func facility_spots() -> Array:
 ## GO TO / the planet map: fly to a base anywhere on the planet (the marker is kept where the base is as you cross sectors).
 var surf_goal := {}
 var _surf_goal_node: Node3D = null
-func set_surface_goal(spot: Dictionary) -> Node3D:
+func set_surface_goal(spot: Dictionary, fly := true) -> Node3D:
 	surf_goal = spot.duplicate()
 	if not is_instance_valid(_surf_goal_node):
 		_surf_goal_node = Node3D.new()
 		_surf_goal_node.set_meta("kind", "waypoint")
 		_surf_goal_node.set_meta("radius", 30.0)
 		add_child(_surf_goal_node)
-	_surf_goal_node.name = str(spot.get("name", "Base"))
-	autopilot = _surf_goal_node
-	_place_surface_goal()
+	_surf_goal_node.name = str(spot.get("name", "Base")).validate_node_name()
+	if fly: autopilot = _surf_goal_node
+	_place_surface_goal(true)
 	return _surf_goal_node
 
-func _place_surface_goal() -> void:
+func _place_surface_goal(now := false) -> void:
 	if surf_goal.is_empty() or not is_instance_valid(_surf_goal_node): return
-	if autopilot != _surf_goal_node:   # arrived, or you took the stick: forget it
+	if not now and autopilot != _surf_goal_node and nav_dest != _surf_goal_node:   # arrived, or you took the stick (and it isn't the GPS course): forget it
 		surf_goal = {}
 		return
 	var t := int(surf_goal["tile"])

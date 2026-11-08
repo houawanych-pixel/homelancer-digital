@@ -1252,6 +1252,15 @@ func asst_tap() -> void:
 	else: said.text = "Yes, pilot?"
 	open_call("r", "Evee", "Your companion · live", said.text, "res://assets/portraits/evee_normal.png", 0.0, {"id": "assistant"})   # v5.6: the same call screen as in flight
 
+## v12.61: Evee says something to you in the station (a tip): her call, her line, the log
+func evee_say(line: String) -> void:
+	_asst_play("talk")
+	var said: Label = asst_chat.find_child("Said", true, false)
+	if said != null: said.text = line
+	open_call("r", "Evee", "Your companion · tip", line, "res://assets/portraits/evee_normal.png", 0.0, {"id": "assistant"})
+	_log("EVEE", line)
+	if Sfx.voice_on(): Sfx.read_aloud(line, "", 1.15, true)
+
 func _asst_voice() -> void:
 	var ap := AudioStreamPlayer.new()
 	ap.stream = load("res://assets/assistant/greet.mp3")
@@ -4756,6 +4765,46 @@ func _missions_page() -> void:
 		v.add_child(_row_frame(row, mine or board_pick == key))
 
 ## v1.5f: YOUR SHIP: weapons and the hold (and the job you carry, which can be dropped here).
+## v12.61 (owner: "in the pilot's quarters you can set home point"): where you're towed to when you're shot down.
+## Every dock you use sets it on its own; SET HOME POINT here pins it to this dock (docking elsewhere won't move it).
+func _home_row(v: Control) -> void:
+	var here := str(base.get("id", ""))
+	var hl := _label(18, Color(0.45, 1.0, 0.6))
+	hl.name = "HomePoint"
+	hl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var hn := home_name()
+	hl.text = "HOME POINT: %s%s" % [hn if hn != "" else "none", "  (pinned)" if GS.home_pinned else "  (moves to every dock you use)"]
+	v.add_child(hl)
+	var hb := Button.new()
+	hb.name = "SetHome"
+	hb.custom_minimum_size = Vector2(0, 56)
+	var pinned_here: bool = GS.home_pinned and str(GS.respawn.get("id", "")) == here
+	hb.text = "HOME POINT SET HERE  ·  UNPIN" if pinned_here else "SET HOME POINT HERE"
+	hb.add_theme_color_override("font_color", Color(0.45, 1.0, 0.6))
+	hb.pressed.connect(func():
+		if pinned_here:
+			GS.home_pinned = false
+			status.text = "Home point unpinned: it moves to every dock you use again."
+		else:
+			status.text = set_home_here()
+		show_screen("ship"))
+	v.add_child(hb)
+
+func home_name() -> String:
+	var r: Dictionary = GS.respawn
+	if r.is_empty(): return ""
+	if bool(r.get("surface", false)):
+		for l in Surface.PLANETS.get(str(r.get("planet", "")), {}).get("locations", []): if str(l.get("id", "")) == str(r["id"]): return "%s (%s)" % [l["name"], Surface.PLANETS[str(r["planet"])]["name"]]
+	var sy: Dictionary = Data.SYSTEMS.get(str(r.get("sys", "")), {})
+	return str(sy.get("station", {}).get("name", r.get("id", ""))) if not sy.is_empty() else str(r.get("id", ""))
+
+func set_home_here() -> String:
+	var m = get_tree().current_scene
+	if m != null and m.has_method("record_home"): m.record_home(base, true)
+	GS.learn_tip("home")
+	GS.save_game()
+	return "Home point set: %s. If you're shot down, the tug brings you back here." % base.get("name", "this dock")
+
 func _ship_page() -> void:
 	var v := _page_box()
 	var sh := GS.ship()
@@ -4780,6 +4829,7 @@ func _ship_page() -> void:
 		else: lines.append("%s (%s)" % [item.get("name", item.get("kind", "?")), item.get("note", item.get("kind", ""))])
 	c.text = "CARGO HOLD  %d / %d\n%s" % [GS.cargo.size(), Data.CARGO_HOLD, "\n".join(lines) if not lines.is_empty() else "Empty."]
 	v.add_child(c)
+	_home_row(v)   # v12.61 (owner): SET HOME POINT in your quarters
 	var worth: int = GS.ore_worth(str(base["name"]))
 	if worth > 0:
 		var sb := Button.new()
@@ -4960,6 +5010,43 @@ func _repair_page() -> void:
 	b2.disabled = rc <= 0
 	b2.pressed.connect(func(): status.text = GS.restock_all(); show_screen(screen))
 	v.add_child(b2)
+	_atlas_button(v)
+
+## v12.61 (owner: "purchase the atlas and it fills your map of that planet, from the dock, like a shop"): the planet
+## this dock is on (or the system's world, from a station): its ATLAS charts every sector on the planet map.
+func atlas_planet() -> String:
+	var p := Missions.planet_of(GS.system_id, str(base.get("id", "")))
+	return p if Surface.PLANETS.has(p) and not Surface.is_sun(p) else ""
+
+func _atlas_button(v: Control) -> void:
+	var ap := atlas_planet()
+	if ap == "": return
+	var ab := Button.new()
+	ab.name = "BuyAtlas"
+	ab.custom_minimum_size = Vector2(0, 60)
+	var pn := str(Surface.PLANETS[ap]["name"])
+	if ap in GS.atlases:
+		ab.text = "%s ATLAS  ·  OWNED (the whole planet is on your map)" % pn.to_upper()
+		ab.disabled = true
+	else:
+		ab.text = "BUY THE %s ATLAS  ·  %d cr  (charts the planet map)" % [pn.to_upper(), Data.ATLAS_PRICE]
+		ab.disabled = GS.credits < Data.ATLAS_PRICE
+		ab.add_theme_color_override("font_color", GOLD)
+		ab.pressed.connect(func():
+			status.text = buy_atlas(ap)
+			show_screen(screen))
+	v.add_child(ab)
+
+func buy_atlas(ap: String) -> String:
+	if ap in GS.atlases: return "You already have it."
+	if GS.credits < Data.ATLAS_PRICE: return "Not enough credits for the atlas (%d cr)." % Data.ATLAS_PRICE
+	GS.credits -= Data.ATLAS_PRICE
+	GS.atlases.append(ap)
+	GS.learn_tip("atlas")
+	GS.save_game()
+	_refresh_credits()
+	Sfx.play("pickup", -6.0)
+	return "Atlas of %s bought: every sector is on your planet map now." % Surface.PLANETS[ap]["name"]
 
 func _process(dt: float) -> void:
 	if not visible: return

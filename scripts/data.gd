@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.60"
+const VERSION := "v12.61"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -422,6 +422,16 @@ static func ts(size: int) -> int:
 # The guide is Kim, the owner's tech officer ("tutor" in CHARACTERS; faces tutor_normal / smile / serious / sad).
 # Each lesson can have an acted clip (owner's videos, numbered 1-10): assets/tutor/tutor_<n>.ogv, its own pack
 # "tutor_<n>". With the clip ready it plays in her comms portrait with its own voice; without it the line is spoken.
+## v12.61 (owner: "Evee can give you tips until you know them, and then she doesn't tell you them anymore"): each tip
+## comes up when it fits (where says when) until you've done the thing once (GS.learn_tip); TIPS on the START menu
+## switches them off.
+const EVEE_TIPS := {
+	"home": {"where": "dock", "line": "Docked. I've made this your home point: if you're shot down, the tug brings you back here. Want it to stay put? Go to MY QUARTERS and tap SET HOME POINT."},
+	"cruise": {"where": "launch", "line": "Tip: tap the SPEED readout at the top for CRUISE. You fly at full speed without holding the stick forward; pull back or tap STOP to end it."},
+	"planet_map": {"where": "planet", "line": "On a planet, tap the radar for the planet map: zoom, pick a dock or a facility, SET COURSE, and I'll fly us there."},
+	"atlas": {"where": "planet_dock", "line": "This world's map is mostly blank until we fly it. The SUPPLIES room here sells its ATLAS: it charts every sector."},
+}
+const EVEE_TIP_GAP := 40.0   # seconds between two of her tips at least
 const TUTOR_ID := "tutor"
 const TUTOR_HINT := "Need help? Tap LOG, pick TARGET / CONTROL, then CALL for a lesson."
 const TUTOR_CLIPS := 10
@@ -1692,6 +1702,7 @@ const MOTHERSHIP_SCALE := 1.6
 const WILD_BATTLESHIP_CHANCE := 0.4
 const RELIC_DROP := [1, 3]
 const RELIC_BIG_K := 3
+const ATLAS_PRICE := 800   # v12.61: a planet's atlas (the whole planet map charted)
 const PLANET_INV_CALM := 2.5   # seconds of an empty sky before the invasion's paid
 const INVASION_DRAW := {"fighter": 2200.0, "capital": 9000.0, "lod_bias": 0.5, "capital_lod_bias": 0.08}   # m drawn to; lod_bias < 1 = simpler meshes sooner
 const CAPITAL_MISSILE_DAMAGE := 120.0   # a light missile on a capital ship (heavy x3.5; a mine as a heavy)
