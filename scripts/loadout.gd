@@ -163,32 +163,46 @@ const PARTS := {
 			"en_lift": {"name": "Heavy-Lift Engines", "armor": 10.0, "weight": 18.0, "energy": 26.0, "cap": 160.0, "speed": 0.92, "boost": 0.9, "look": "quad"},
 		},
 	},
-	"pilot": {   # v12.68; v12.74 (owner's PILOT GEAR STORE + his armor sheets): suits, booster packs, tactical gear
-		# fit: who it is cut for (any / male = Hovick / female = Judy); tint: how the preview shows it until its model is in
-		"suit": {
-			"st_std": {"name": "Flight Suit", "armor": 6.0, "shield": 0.0, "weight": 4.0, "energy": 2.0, "gen": 40.0, "cap": 24.0, "heat": 5.0, "look": "suit", "price": 0},
-			"st_armored": {"name": "Armored Flight Suit", "armor": 14.0, "shield": 4.0, "weight": 9.0, "energy": 3.0, "gen": 44.0, "cap": 30.0, "heat": 10.0, "look": "suit", "stagger": 0.1, "price": 6000, "tint": Color(0.35, 0.4, 0.45)},
-			"st_strike": {"name": "Strike Harness", "armor": 10.0, "shield": 10.0, "weight": 5.0, "energy": 3.0, "gen": 46.0, "cap": 28.0, "heat": 8.0, "look": "harness", "fit": "female", "price": 9000, "tint": Color(0.92, 0.92, 0.95), "sheet": "white-haired harness"},
-			"st_valk_steel": {"name": "Valkyrie Steel Armor", "armor": 26.0, "shield": 14.0, "weight": 12.0, "energy": 4.0, "gen": 50.0, "cap": 34.0, "heat": 20.0, "look": "armor", "fit": "female", "price": 18000, "tint": Color(0.45, 0.47, 0.5), "sheet": "grey female armor"},
-			"st_valk_red": {"name": "Valkyrie Red Armor", "armor": 30.0, "shield": 16.0, "weight": 13.0, "energy": 4.0, "gen": 52.0, "cap": 34.0, "heat": 24.0, "look": "armor", "fit": "female", "price": 20000, "tint": Color(0.75, 0.12, 0.12), "sheet": "black / red female armor"},
-			"st_valk_white": {"name": "Valkyrie White Armor", "armor": 32.0, "shield": 20.0, "weight": 14.0, "energy": 5.0, "gen": 54.0, "cap": 36.0, "heat": 28.0, "look": "armor", "fit": "female", "price": 22000, "tint": Color(0.95, 0.93, 0.92), "sheet": "white / red female armor"},
-			"st_vanguard": {"name": "Vanguard White Armor", "armor": 36.0, "shield": 18.0, "weight": 18.0, "energy": 5.0, "gen": 54.0, "cap": 38.0, "heat": 28.0, "look": "armor", "fit": "male", "price": 22000, "tint": Color(0.95, 0.92, 0.9), "sheet": "white / red male armor"},
-			"st_ares": {"name": "VX-07 Ares Assault Armor", "armor": 42.0, "shield": 20.0, "weight": 22.0, "energy": 6.0, "gen": 56.0, "cap": 40.0, "heat": 32.0, "look": "armor", "fit": "male", "price": 24000, "tint": Color(0.25, 0.26, 0.28), "sheet": "VX-07 Ares"},
+	"pilot": {   # v12.68; v12.74 / v12.75 (owner's PILOT GEAR STORE + his armor sheets + "DYNAMIC PILOT EQUIPMENT CAMERA"):
+		# the pieces are drawn by PilotGear (look, col, acc); fit: any / male (Hovick) / female (Judy, Evee); desc: the store line
+		"helmet": {
+			"hm_none": {"name": "No Helmet", "look": "none", "price": 0, "desc": "Bare-headed: your face, your hair, no protection."},
+			"hm_flight": {"name": "Flight Helmet", "look": "flight", "armor": 4.0, "shield": 2.0, "weight": 1.5, "heat": 6.0, "col": Color(0.9, 0.92, 0.95), "acc": Color(0.3, 0.75, 1.0), "price": 3000, "desc": "Open-face pilot's helmet with a tinted visor and comm pods."},
+			"hm_recon": {"name": "Recon Visor Helmet", "look": "visor", "armor": 7.0, "shield": 4.0, "weight": 2.0, "heat": 10.0, "col": Color(0.3, 0.33, 0.36), "acc": Color(0.4, 1.0, 0.6), "price": 7000, "desc": "Narrow armoured visor with a green targeting screen."},
+			"hm_valk": {"name": "Valkyrie Helmet", "look": "visor", "armor": 9.0, "shield": 6.0, "weight": 2.0, "heat": 12.0, "col": Color(0.95, 0.93, 0.92), "acc": Color(0.95, 0.2, 0.25), "fit": "female", "price": 9000, "desc": "Matches the Valkyrie armour: white shell, red visor."},
+			"hm_ares": {"name": "VX-07 Ares Helmet", "look": "closed", "armor": 14.0, "shield": 6.0, "weight": 3.5, "heat": 18.0, "col": Color(0.22, 0.23, 0.25), "acc": Color(0.6, 0.85, 1.0), "fit": "male", "price": 12000, "desc": "Fully closed assault helmet with a slit visor and crest."},
+		},
+		"upper": {
+			"up_flight": {"name": "Flight Suit (top)", "look": "none", "armor": 4.0, "weight": 2.0, "energy": 1.0, "gen": 40.0, "cap": 30.0, "heat": 5.0, "price": 0, "desc": "The suit you fly in. Light, no plates."},
+			"up_padded": {"name": "Padded Flight Vest", "look": "light", "armor": 10.0, "shield": 4.0, "weight": 4.0, "energy": 1.0, "gen": 42.0, "cap": 28.0, "heat": 10.0, "col": Color(0.35, 0.4, 0.45), "acc": Color(0.3, 0.75, 1.0), "price": 6000, "desc": "Chest plate and shoulder pads over the flight suit."},
+			"up_strike": {"name": "Strike Harness", "look": "harness", "armor": 10.0, "shield": 10.0, "weight": 3.0, "energy": 2.0, "gen": 46.0, "cap": 28.0, "heat": 8.0, "col": Color(0.92, 0.92, 0.95), "acc": Color(1.0, 0.4, 0.6), "fit": "female", "price": 9000, "sheet": "white-haired harness", "desc": "Light white plates on crossed straps: fast and agile."},
+			"up_valk_steel": {"name": "Valkyrie Steel Torso", "look": "armor", "armor": 22.0, "shield": 12.0, "weight": 8.0, "energy": 2.0, "gen": 50.0, "cap": 34.0, "heat": 20.0, "col": Color(0.5, 0.52, 0.55), "acc": Color(0.6, 0.65, 0.7), "fit": "female", "price": 16000, "sheet": "grey female armor", "desc": "Steel and carbon chest and shoulders."},
+			"up_valk_red": {"name": "Valkyrie Red Torso", "look": "armor", "armor": 25.0, "shield": 14.0, "weight": 8.0, "energy": 2.0, "gen": 52.0, "cap": 34.0, "heat": 24.0, "col": Color(0.12, 0.12, 0.13), "acc": Color(0.85, 0.12, 0.12), "fit": "female", "price": 18000, "sheet": "black / red female armor", "desc": "Carbon black plates with red accents."},
+			"up_valk_white": {"name": "Valkyrie White Torso", "look": "armor", "armor": 27.0, "shield": 16.0, "weight": 9.0, "energy": 3.0, "gen": 54.0, "cap": 36.0, "heat": 28.0, "col": Color(0.95, 0.93, 0.92), "acc": Color(0.85, 0.15, 0.15), "fit": "female", "price": 20000, "sheet": "white / red female armor", "desc": "White ceramic plates, red trim: the best of the Valkyrie line."},
+			"up_vanguard": {"name": "Vanguard White Torso", "look": "armor", "armor": 30.0, "shield": 14.0, "weight": 12.0, "energy": 3.0, "gen": 54.0, "cap": 38.0, "heat": 28.0, "col": Color(0.95, 0.92, 0.9), "acc": Color(0.8, 0.12, 0.12), "fit": "male", "price": 20000, "sheet": "white / red male armor", "desc": "Heavy white chest and shoulder armour with red joints."},
+			"up_ares": {"name": "VX-07 Ares Torso", "look": "armor", "armor": 36.0, "shield": 16.0, "weight": 15.0, "energy": 4.0, "gen": 56.0, "cap": 40.0, "heat": 32.0, "col": Color(0.24, 0.25, 0.27), "acc": Color(0.6, 0.85, 1.0), "fit": "male", "price": 24000, "sheet": "VX-07 Ares", "desc": "Front-line assault plating, carbon and titanium."},
+		},
+		"lower": {
+			"lo_flight": {"name": "Flight Suit (legs)", "look": "none", "armor": 2.0, "weight": 1.0, "price": 0, "desc": "Suit trousers and boots."},
+			"lo_guards": {"name": "Knee & Shin Guards", "look": "light", "armor": 7.0, "shield": 2.0, "weight": 2.5, "heat": 6.0, "col": Color(0.35, 0.4, 0.45), "acc": Color(0.3, 0.75, 1.0), "price": 4000, "desc": "Knee caps and shin plates over the suit."},
+			"lo_valk": {"name": "Valkyrie Leg Armor", "look": "armor", "armor": 16.0, "shield": 6.0, "weight": 5.0, "heat": 14.0, "col": Color(0.95, 0.93, 0.92), "acc": Color(0.85, 0.15, 0.15), "fit": "female", "price": 12000, "desc": "Thigh, knee and shin plates of the Valkyrie suits."},
+			"lo_vanguard": {"name": "Vanguard Leg Armor", "look": "armor", "armor": 18.0, "shield": 6.0, "weight": 7.0, "heat": 14.0, "col": Color(0.95, 0.92, 0.9), "acc": Color(0.8, 0.12, 0.12), "fit": "male", "price": 13000, "desc": "Heavy white leg armour."},
+			"lo_ares": {"name": "VX-07 Ares Leg Armor", "look": "armor", "armor": 22.0, "shield": 8.0, "weight": 9.0, "heat": 18.0, "col": Color(0.24, 0.25, 0.27), "acc": Color(0.6, 0.85, 1.0), "fit": "male", "price": 15000, "desc": "Assault leg armour with power-assisted knees."},
 		},
 		"booster": {
-			"bp_std": {"name": "Standard Booster", "armor": 2.0, "weight": 3.0, "energy": 4.0, "speed": 0.0, "boost": 1.0, "price": 0},
-			"bp_sprint": {"name": "Sprint Booster", "armor": 1.0, "weight": 3.0, "energy": 7.0, "speed": 0.08, "boost": 1.25, "price": 8000},
-			"bp_jump": {"name": "Jump Jet Pack", "armor": 3.0, "weight": 5.0, "energy": 9.0, "speed": 0.04, "boost": 1.45, "price": 14000},
+			"bp_std": {"name": "Standard Booster", "look": "std", "armor": 2.0, "weight": 3.0, "energy": 4.0, "boost": 1.0, "col": Color(0.4, 0.43, 0.47), "acc": Color(0.3, 0.75, 1.0), "price": 0, "desc": "Two small thrusters for short hops."},
+			"bp_sprint": {"name": "Sprint Booster", "look": "std", "armor": 1.0, "weight": 3.0, "energy": 7.0, "speed": 0.08, "boost": 1.25, "col": Color(0.85, 0.87, 0.9), "acc": Color(1.0, 0.6, 0.2), "price": 8000, "desc": "Tuned thrusters: faster sprints and dashes."},
+			"bp_jump": {"name": "Jump Jet Pack", "look": "jump", "armor": 3.0, "weight": 5.0, "energy": 9.0, "speed": 0.04, "boost": 1.45, "col": Color(0.22, 0.24, 0.27), "acc": Color(0.4, 0.8, 1.0), "price": 14000, "desc": "Four jets and fins: long jumps and hovering."},
 		},
 		"tactical": {
-			"tg_belt": {"name": "Utility Belt", "armor": 1.0, "weight": 1.0, "energy": 0.0, "price": 0},
-			"tg_medkit": {"name": "Field Medkit", "armor": 1.0, "shield": 0.0, "weight": 2.0, "energy": 0.0, "heal": 25.0, "price": 4000},
-			"tg_shield": {"name": "Personal Shield Emitter", "armor": 0.0, "shield": 20.0, "weight": 3.0, "energy": 6.0, "price": 12000},
-			"tg_grenades": {"name": "Grenade Bandolier", "armor": 2.0, "weight": 4.0, "energy": 0.0, "price": 7000},
+			"tg_belt": {"name": "Utility Belt", "look": "belt", "armor": 1.0, "weight": 1.0, "col": Color(0.3, 0.32, 0.28), "price": 0, "desc": "Two pouches for the basics."},
+			"tg_medkit": {"name": "Field Medkit", "look": "medkit", "armor": 1.0, "weight": 2.0, "heal": 25.0, "col": Color(0.3, 0.32, 0.28), "price": 4000, "desc": "Patches you up in the field (+25 health once a fight)."},
+			"tg_shield": {"name": "Personal Shield Emitter", "look": "shield", "shield": 20.0, "weight": 3.0, "energy": 6.0, "col": Color(0.3, 0.32, 0.28), "acc": Color(0.4, 0.85, 1.0), "price": 12000, "desc": "A chest emitter that throws up an energy shield."},
+			"tg_grenades": {"name": "Grenade Bandolier", "look": "grenades", "armor": 2.0, "weight": 4.0, "col": Color(0.3, 0.32, 0.28), "acc": Color(1.0, 0.7, 0.2), "price": 7000, "desc": "Four grenades across the chest."},
 		},
 	},
 }
-const SLOTS := {"mech": ["head", "core", "arms", "legs"], "ship": ["hull", "wings", "engines"], "pilot": ["suit", "booster", "tactical"]}
+const SLOTS := {"mech": ["head", "core", "arms", "legs"], "ship": ["hull", "wings", "engines"], "pilot": ["helmet", "upper", "lower", "booster", "tactical"]}
 
 ## a part's record (mech core / arms / legs from the frames)
 static func part(frame: String, slot: String, id: String) -> Dictionary:
@@ -224,7 +238,7 @@ static func default_loadout(frame: String) -> Dictionary:
 		var mp: Dictionary = GS.mech_parts
 		return {"frame": "mech", "active": 0, "parts": {"head": "hd_std", "core": "core_" + str(mp.get("core", "blackgold")), "arms": "arms_" + str(mp.get("arms", "blackgold")), "legs": "legs_" + str(mp.get("legs", "blackgold"))},
 			"sets": [{"L_Arm": GS.weapon_id, "R_Arm": GS.weapon_id}, {}]}
-	if frame == "pilot": return {"frame": "pilot", "active": 0, "parts": {"suit": "st_std", "booster": "bp_std", "tactical": "tg_belt"}, "sets": [{"R_Hand": "pulse1"}, {}]}
+	if frame == "pilot": return {"frame": "pilot", "active": 0, "parts": {"helmet": "hm_none", "upper": "up_flight", "lower": "lo_flight", "booster": "bp_std", "tactical": "tg_belt"}, "sets": [{"R_Hand": "pulse1", "Sidearm": "pulse1"}, {}]}
 	return {"frame": "ship", "active": 0, "parts": {"hull": "hl_std", "wings": "wg_std", "engines": "en_std"},
 		"sets": [{"Nose": GS.weapon_id, "Wing_L": GS.weapon_id, "Wing_R": GS.weapon_id}, {}]}
 
@@ -232,6 +246,13 @@ static func default_loadout(frame: String) -> Dictionary:
 static func current(frame: String) -> Dictionary:
 	if not GS.loadouts.has(frame) or not (GS.loadouts[frame] is Dictionary) or (GS.loadouts[frame] as Dictionary).is_empty():
 		GS.loadouts[frame] = default_loadout(frame)
+	if frame == "pilot":   # v12.75: an older save's pilot gets the new slots (and loses the old "suit")
+		var dp: Dictionary = default_loadout("pilot")["parts"]
+		var pp: Dictionary = GS.loadouts[frame]["parts"]
+		pp.erase("suit")
+		for k in dp: if not pp.has(k) or part("pilot", k, str(pp[k])).is_empty(): pp[k] = dp[k]
+		if not (GS.loadouts[frame]["sets"][0] as Dictionary).has("R_Hand"): (GS.loadouts[frame]["sets"][0] as Dictionary)["R_Hand"] = "pulse1"
+		if not (GS.loadouts[frame]["sets"][0] as Dictionary).has("Sidearm"): (GS.loadouts[frame]["sets"][0] as Dictionary)["Sidearm"] = "pulse1"
 	return GS.loadouts[frame]
 
 static func active_set(lo: Dictionary) -> Dictionary:
@@ -290,7 +311,7 @@ static func totals(lo: Dictionary) -> Dictionary:
 		for m in st:
 			var w := weapon(str(st[m]))
 			sw += float(w.get("weight", 0.0))
-			se += float(w.get("energy", 0.0))
+			if not bool(MOUNTS[fr].get(m, {}).get("holster", false)): se += float(w.get("energy", 0.0))   # (v12.75: a holstered sidearm draws nothing)
 		set_w += sw   # (every set is carried)
 		set_e = maxf(set_e, se)   # (only the set on the mounts draws power)
 	wt += set_w
@@ -457,6 +478,8 @@ static func rig(model: Node3D, frame: String) -> Dictionary:
 		if frame == "pilot" and model.has_meta("pilot_rig"):   # v12.70 (owner): in his palm, his arms up in the aiming pose
 			var hp: Vector3 = (model.get_meta("pilot_rig") as PilotRig).hand_point()
 			if hp != Vector3.INF: (holder.get_node("R_Hand") as Node3D).position = hp
+			var hip: Vector3 = PilotGear.anchor_local(model, "hip_r")   # v12.75: the sidearm in a holster on his right hip
+			if hip != Vector3.INF: (holder.get_node("Sidearm") as Node3D).position = hip + Vector3(0.0, 0.0, 0.0)
 	var out := {}
 	for c2 in holder.get_children(): out[str(c2.name)] = c2
 	return out
@@ -587,8 +610,9 @@ static func _dress_parts(model: Node3D, lo: Dictionary, size: float) -> void:
 	var fr := str(lo["frame"])
 	var root := Node3D.new()
 	root.name = "LoadoutArmor"
-	if fr == "pilot":   # v12.72: the pilot wears his suit (the ship's hull and wing plates were landing on him)
+	if fr == "pilot":   # v12.72: no ship plates on him; v12.75: his gear, piece by piece, on his bones
 		model.add_child(root)
+		PilotGear.apply(model, lo)
 		return
 	model.add_child(root)
 	var bb: AABB = local_box(model)

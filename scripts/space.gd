@@ -4578,6 +4578,7 @@ func _player_mech_model() -> Node3D:
 		if loadout_on and pw != "":   # v12.70 (owner): on foot he holds the gun fitted on the PILOT bench, grip in his palm
 			var hgt: float = Data.FOOT_H if on_foot else Data.ESCAPE_PILOT_H
 			pilot_rig.hold(Loadout.weapon_mesh(pw, hgt * 0.9, "pilot"))
+		if loadout_on: PilotGear.apply(pm, Loadout.current("pilot"))   # v12.75: his gear on his bones (it moves with him)
 		return pm
 	var k: Dictionary = GS.mech_keys()
 	var waiting := false

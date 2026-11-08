@@ -2648,27 +2648,75 @@ func _run() -> void:
 				palm_d = (pv2.get_node("MountSocket") as Node3D).global_position.distance_to(hpos) / (lm.global_basis.get_scale().x * 1.8)
 		hand_ok = hand_ok and palm_d < 0.12
 		await _capture("tripo_garage_pilot_tripo")
-		# v12.74 (owner): the PILOT GEAR STORE: Judy, suits cut for her, gear to buy, the suit's colours on her at once
+		# v12.75 (owner's spec: "DYNAMIC PILOT EQUIPMENT CAMERA SYSTEM"): per category the camera goes to the part; BUY is not
+		# EQUIP; EQUIP hangs the piece on its bone and keeps the rest; women's armour refused for Hovick, worn by Judy
 		var keep_body: String = GS.pilot_body
-		var lo_p := Loadout.current("pilot")
+		var keep_god: bool = GS.god_mode
+		GS.god_mode = false
+		GS.credits = 200000
+		GS.owned_gear = []
 		GS.pilot_body = "hovick"
-		var refused: String = Loadout.set_part(lo_p, "suit", "st_valk_red")
+		hb.lo_frame = "pilot"
+		hb.gar_cam = {}
+		var cam_ok: Array = []
+		var shots := {"helmet": "gear_helmet", "upper": "gear_upper", "lower": "gear_lower", "booster": "gear_booster"}
+		for cat in ["helmet", "upper", "lower", "weapons", "sidearm", "booster", "tactical"]:
+			hb._gar_pick_cat(cat)
+			await _wait(1.6)
+			var want: Vector3 = PilotGear.focus(hb.gar["model"], cat)[0] if not (cat in ["weapons", "sidearm"]) else (hb.lo_nodes_view[hb.lo_slot] as Node3D).global_position if hb.lo_nodes_view.has(hb.lo_slot) else Vector3.INF
+			var got: Vector3 = hb.gar_cam.get("focus", Vector3.ZERO)
+			var cam_d: float = (hb.gar["cam"] as Camera3D).global_position.distance_to(got)
+			cam_ok.append("%s %.1f/%.1f" % [cat, got.distance_to(want), cam_d])
+			if got.distance_to(want) > 0.6 or cam_d > 10.0: cam_ok.append("BAD")
+			if shots.has(cat): await _capture(shots[cat])
+		_check("v12.75 (owner): the camera moves to each category's part (focus off by / camera distance: %s)" % ", ".join(cam_ok), not ("BAD" in cam_ok), "")
+		# BUY then EQUIP a helmet: bought it is only in the locker; equipped it hangs on the Head bone; the rest stays on
+		hb._gar_pick_cat("tactical")
+		await _wait(0.3)
+		var lo_p := Loadout.current("pilot")
+		hb._gar_pick_cat("helmet")
+		await _wait(0.3)
+		hb.lo_sel = "hm_flight"
+		hb._gar_refresh()
+		var buy_b: Button = hb.find_child("LoBuy", true, false)
+		buy_b.pressed.emit()
+		await _wait(0.3)
+		var bought_only: bool = "hm_flight" in GS.owned_gear and str(lo_p["parts"]["helmet"]) == "hm_none"
+		var eq_b: Button = hb.find_child("LoEquip", true, false)
+		eq_b.pressed.emit()
+		await _wait(0.5)
+		var on_head := false
+		var others := 0
+		for n in hb.gar["model"].find_children("Gear_*", "", true, false):
+			if str(n.get_meta("gear", "")) == "hm_flight" and n.get_parent() is BoneAttachment3D and (n.get_parent() as BoneAttachment3D).bone_name == "Head": on_head = true
+			if str(n.get_meta("gear", "")) == "tg_belt": others += 1
+		var saved: bool = str(Loadout.current("pilot")["parts"]["helmet"]) == "hm_flight"
+		await _capture("gear_helmet_on")
+		for kv in [["helmet", "hm_ares"], ["upper", "up_vanguard"], ["lower", "lo_vanguard"], ["booster", "bp_jump"], ["tactical", "tg_grenades"]]: lo_p["parts"][kv[0]] = kv[1]
+		hb.lo_cat = "body"
+		hb._gar_refresh()
+		hb._gar_view("main", false)
+		hb.gar_spin = false
+		hb._gar_goal_set({"yaw": PI + 0.6})
+		await _wait(1.5)
+		await _capture("gear_full_front")
+		hb._gar_goal_set({"yaw": 0.6})
+		await _wait(1.5)
+		await _capture("gear_full_back")
+		lo_p["parts"] = Loadout.default_loadout("pilot")["parts"]
+		lo_p["parts"]["helmet"] = "hm_flight"
+		var refused: String = Loadout.set_part(lo_p, "upper", "up_valk_red")
 		GS.pilot_body = "judy"
-		var worn: String = Loadout.set_part(lo_p, "suit", "st_valk_red")
-		hb.lo_cat = "suit"
-		hb.lo_sel = ""
+		var worn: String = Loadout.set_part(lo_p, "upper", "up_valk_red")
+		_check("v12.75 (owner): BUY only puts it in the locker (%s); EQUIP hangs it on the Head bone (%s), keeps the other gear on (%d belt pouches) and saves (%s); women's armour refused for Hovick (%s), worn by Judy (%s)" % [bought_only, on_head, others, saved, refused.left(30), worn == ""],
+			bought_only and on_head and others >= 2 and saved and refused != "" and worn == "", "")
 		hb.gar_cam = {}
 		hb.show_screen("loadout")
-		await _wait(1.0)
-		var jm: Node3D = hb.lo_view.find_child("LoModel", true, false)
-		var judy_in: bool = jm != null and jm.find_children("*", "MeshInstance3D", true, false).size() > 0 and ResourceLoader.exists("res://assets/pilot/hl_judy.glb")
-		var tinted := false
-		if jm != null:
-			for mi: MeshInstance3D in jm.find_children("*", "MeshInstance3D", true, false): if mi.material_overlay != null: tinted = true
+		await _wait(1.2)
 		await _capture("gear_store_judy")
-		_check("v12.74 (owner): the PILOT GEAR STORE: Judy on the platform (%s); a women's suit refused for Hovick (%s) and worn by Judy (%s), its colours on her (%s)" % [judy_in, refused.left(40), worn == "", tinted], judy_in and refused != "" and worn == "" and tinted, "")
 		GS.pilot_body = keep_body
-		lo_p["parts"]["suit"] = "st_std"
+		GS.god_mode = keep_god
+		lo_p["parts"] = Loadout.default_loadout("pilot")["parts"]
 		hb.lo_frame = "mech"
 		hb.lo_slot = ""
 		hb.gar_cam = {}
