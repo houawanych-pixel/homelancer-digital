@@ -5664,6 +5664,7 @@ func _gar_right_body(rp: Panel, hd: Label) -> void:
 			var is_head: bool = sec[1] == "head"
 			var glb := str(b["head"] if is_head else b["body"])
 			if not is_head and glb == "": continue
+			if not is_head and str(b["sex"]) != str(Loadout.PILOT_BODIES.get(GS.pilot_body, {}).get("sex", "male")): continue   # (owner: suits of your own build only)
 			var on: bool = (GS.pilot_body == k) if is_head else (Loadout.pilot_suit() == k)
 			var row := Button.new()
 			row.name = ("LoBody_" if is_head else "LoSuit_") + str(k)
@@ -5696,7 +5697,7 @@ func _gar_right_body(rp: Panel, hd: Label) -> void:
 	nt.position = Vector2(16, y)
 	nt.size = Vector2(W - 32, 90)
 	nt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	nt.text = "Any head on any suit. The armour suits from your sheets come in as headless bodies and join this list. Armour pieces fit by the suit's cut."
+	nt.text = "Suits of your own build. The armour suits from your sheets come in as headless bodies and join this list. Armour pieces fit by the suit's cut."
 	rp.add_child(nt)
 
 ## after a change: the model re-dressed, the panels redrawn (the 3D view and the camera keep going)
@@ -5812,7 +5813,7 @@ func _lo_model() -> Node3D:
 		if PilotRig.ready():
 			var pr := PilotRig.new()
 			var gl: Array = Loadout.pilot_glbs()   # v12.76: the head on the body suit
-			var pm := pr.build(1.8, 0.0, str(gl[0]), str(gl[1]))
+			var pm := pr.build(1.8, 0.0, str(gl[0]), str(gl[1]), Loadout.pilot_head_yaw())
 			pm.set_meta("pilot_rig", pr)   # (v12.70: the bench poses his arms and puts the gun in his hand)
 			return pm
 		var st := Node3D.new()   # (until the pilot pack is in: a suited stand-in)

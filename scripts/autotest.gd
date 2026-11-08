@@ -2723,7 +2723,7 @@ func _run() -> void:
 		hb.show_screen("loadout")
 		await _wait(1.2)
 		var hm: Node3D = hb.lo_view.find_child("LoModel", true, false)
-		var swap1: bool = hm != null and hm.find_child("Head", true, false) != null and PilotGear.skel_of(hm) != null
+		var swap1: bool = hm != null and Loadout.pilot_suit() == "judy" and Loadout.pilot_glbs()[1] == ""   # (no woman's head on a man's suit)
 		await _capture("head_judy_on_hovick")
 		GS.pilot_body = "hovick"
 		GS.pilot_suit = "judy"
@@ -2731,9 +2731,27 @@ func _run() -> void:
 		hb.show_screen("loadout")
 		await _wait(1.2)
 		var hm2: Node3D = hb.lo_view.find_child("LoModel", true, false)
-		var swap2: bool = hm2 != null and hm2.find_child("Head", true, false) != null and Loadout.pilot_sex() == "female"
+		var swap2: bool = hm2 != null and Loadout.pilot_suit() == "hovick" and Loadout.pilot_glbs()[1] == ""
 		await _capture("head_hovick_on_judy")
-		_check("v12.76 (owner: head change): Judy's head on Hovick's suit (%s); Hovick's head on Judy's suit, armour fit by the suit (%s)" % [swap1, swap2], swap1 and swap2, "")
+		GS.pilot_body = "hovick"
+		GS.pilot_suit = "hovick"
+		hb.gar_cam = {}
+		hb.show_screen("loadout")
+		await _wait(0.4)
+		hb._gar_goal_set({"focus": Vector3(0, 4.6, 0), "dist": 6.0, "pitch": 0.05, "yaw": PI})
+		hb.gar_spin = false
+		await _wait(1.4)
+		await _capture("head_hovick_own")
+		GS.pilot_body = "judy"
+		GS.pilot_suit = "hovick"
+		hb.gar_cam = {}
+		hb.show_screen("loadout")
+		await _wait(0.4)
+		hb._gar_goal_set({"focus": Vector3(0, 4.6, 0), "dist": 6.0, "pitch": 0.05, "yaw": PI})
+		hb.gar_spin = false
+		await _wait(1.4)
+		await _capture("head_judy_on_hovick_close")
+		_check("v12.76 (owner: head change, fixed): a head goes only on a suit of its own build (Judy %s, Hovick %s)" % [swap1, swap2], swap1 and swap2, "")
 		GS.pilot_suit = ""
 		GS.pilot_body = keep_body
 		GS.god_mode = keep_god
