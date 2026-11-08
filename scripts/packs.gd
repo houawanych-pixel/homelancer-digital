@@ -459,6 +459,31 @@ const PACKS := {
 	"mf_mecblu": {"folders": ["res://assets/mech_frames"], "match": "mf_mecblu", "probe": "res://assets/mech_frames/mf_mecblu.scn"},
 	"mf_acmec": {"folders": ["res://assets/mech_frames"], "match": "mf_acmec", "probe": "res://assets/mech_frames/mf_acmec.scn"},
 	"mf_mecbrn": {"folders": ["res://assets/mech_frames"], "match": "mf_mecbrn", "probe": "res://assets/mech_frames/mf_mecbrn.scn"},
+	"mf_chromebg": {"folders": ["res://assets/mech_frames"], "match": "mf_chromebg", "probe": "res://assets/mech_frames/mf_chromebg.scn"},   # v12.84
+	"mf_fml01": {"folders": ["res://assets/mech_frames"], "match": "mf_fml01", "probe": "res://assets/mech_frames/mf_fml01.scn"},   # v12.84
+	"mf_fml02": {"folders": ["res://assets/mech_frames"], "match": "mf_fml02", "probe": "res://assets/mech_frames/mf_fml02.scn"},   # v12.84
+	"mf_fml03": {"folders": ["res://assets/mech_frames"], "match": "mf_fml03", "probe": "res://assets/mech_frames/mf_fml03.scn"},   # v12.84
+	"mf_fml04": {"folders": ["res://assets/mech_frames"], "match": "mf_fml04", "probe": "res://assets/mech_frames/mf_fml04.scn"},   # v12.84
+	"mf_fml05": {"folders": ["res://assets/mech_frames"], "match": "mf_fml05", "probe": "res://assets/mech_frames/mf_fml05.scn"},   # v12.84
+	"mf_fml06": {"folders": ["res://assets/mech_frames"], "match": "mf_fml06", "probe": "res://assets/mech_frames/mf_fml06.scn"},   # v12.84
+	"mf_fml07": {"folders": ["res://assets/mech_frames"], "match": "mf_fml07", "probe": "res://assets/mech_frames/mf_fml07.scn"},   # v12.84
+	"mf_fml08": {"folders": ["res://assets/mech_frames"], "match": "mf_fml08", "probe": "res://assets/mech_frames/mf_fml08.scn"},   # v12.84
+	"mf_fml09": {"folders": ["res://assets/mech_frames"], "match": "mf_fml09", "probe": "res://assets/mech_frames/mf_fml09.scn"},   # v12.84
+	"mf_fml10": {"folders": ["res://assets/mech_frames"], "match": "mf_fml10", "probe": "res://assets/mech_frames/mf_fml10.scn"},   # v12.84
+	"mf_fml11": {"folders": ["res://assets/mech_frames"], "match": "mf_fml11", "probe": "res://assets/mech_frames/mf_fml11.scn"},   # v12.84
+	"mf_fml12": {"folders": ["res://assets/mech_frames"], "match": "mf_fml12", "probe": "res://assets/mech_frames/mf_fml12.scn"},   # v12.84
+	"mf_fml13": {"folders": ["res://assets/mech_frames"], "match": "mf_fml13", "probe": "res://assets/mech_frames/mf_fml13.scn"},   # v12.84
+	"mf_fml14": {"folders": ["res://assets/mech_frames"], "match": "mf_fml14", "probe": "res://assets/mech_frames/mf_fml14.scn"},   # v12.84
+	"mf_fml15": {"folders": ["res://assets/mech_frames"], "match": "mf_fml15", "probe": "res://assets/mech_frames/mf_fml15.scn"},   # v12.84
+	"mf_fml16": {"folders": ["res://assets/mech_frames"], "match": "mf_fml16", "probe": "res://assets/mech_frames/mf_fml16.scn"},   # v12.84
+	"mf_fml17": {"folders": ["res://assets/mech_frames"], "match": "mf_fml17", "probe": "res://assets/mech_frames/mf_fml17.scn"},   # v12.84
+	"mf_fml18": {"folders": ["res://assets/mech_frames"], "match": "mf_fml18", "probe": "res://assets/mech_frames/mf_fml18.scn"},   # v12.84
+	"mf_fml19": {"folders": ["res://assets/mech_frames"], "match": "mf_fml19", "probe": "res://assets/mech_frames/mf_fml19.scn"},   # v12.84
+	"mf_fml20": {"folders": ["res://assets/mech_frames"], "match": "mf_fml20", "probe": "res://assets/mech_frames/mf_fml20.scn"},   # v12.84
+	"mf_fml21": {"folders": ["res://assets/mech_frames"], "match": "mf_fml21", "probe": "res://assets/mech_frames/mf_fml21.scn"},   # v12.84
+	"mf_fml22": {"folders": ["res://assets/mech_frames"], "match": "mf_fml22", "probe": "res://assets/mech_frames/mf_fml22.scn"},   # v12.84
+	"mf_fml23": {"folders": ["res://assets/mech_frames"], "match": "mf_fml23", "probe": "res://assets/mech_frames/mf_fml23.scn"},   # v12.84
+	"mf_fml24": {"folders": ["res://assets/mech_frames"], "match": "mf_fml24", "probe": "res://assets/mech_frames/mf_fml24.scn"},   # v12.84
 	"planets": {"folders": ["res://assets/terrain"], "probe": "res://assets/terrain/ground_albedo.jpg"},
 	"ranger": {"folders": ["res://assets/ships/player"], "match": "ranger", "probe": "res://assets/ships/player/ranger.glb"},
 	"hauler": {"folders": ["res://assets/ships/player"], "match": "hauler", "probe": "res://assets/ships/player/hauler.glb"},

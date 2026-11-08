@@ -11,7 +11,11 @@ Takes the Tripo GLBs (as exported, often several items on one sheet) and makes g
     MODELS = placeholder key -> new item, ITEMS = every item), which the game reads to swap in the real files
     (tools/asset_registry.json keeps the same list for the next run)
 
-Usage:  python3 tools/tripo_import.py <folder of GLBs> [--kind auto|wpn|ship|prop] [--dry]
+  * v12.84 mechs (HL_MECH_*.glb): a lineup sheet splits into HL_MECH_<Name>_<NN>, a single mech stays HL_MECH_<Name>;
+    each stands up (feet on y = 0, facing +Z, 1 m tall: what tools/mechkit/build_mechs.sh rigs), its texture is cut
+    to the part of the atlas it uses, written full detail to --work (default mechwork/) for rigging, never to the repo
+
+Usage:  python3 tools/tripo_import.py <folder of GLBs> [--kind auto|wpn|ship|prop|mech] [--work DIR] [--dry]
 The kind and type come from the file name when it says (HL_Weapon_01_Gatling..., HL_SHIP_..., HL_PROP_...);
 --kind forces one. Re-running is safe (same names, same numbers, files replaced).
 """
@@ -20,12 +24,12 @@ import numpy as np
 import trimesh
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT = {"wpn": "assets/weapons", "ship": "assets/ships/level3", "prop": "assets/props"}
+OUT = {"wpn": "assets/weapons", "ship": "assets/ships/level3", "prop": "assets/props", "mech": "mechwork"}
 ORIG = "art/tripo_originals"
 REG = "tools/asset_registry.json"
 REG_GD = "scripts/asset_registry.gd"
 ICON = {"blaster": "bolt", "rifle": "rifle", "cannon": "cannon", "rail": "rail", "heavy": "heavy", "missile": "missile"}
-KIND = {"wpn": "weapon", "ship": "ship_l3", "prop": "prop"}
+KIND = {"wpn": "weapon", "ship": "ship_l3", "prop": "prop", "mech": "mech"}
 WDATA = "data/weapons"
 # the code-made placeholders the real models replace: placeholder model key -> weapon type of the real one
 PLACEHOLDERS = {"gatling": "Gatling", "rocket_pod": "RocketPod", "missile": "Missile", "mine": "Mine",
@@ -55,13 +59,13 @@ MOUNTS = {"Light": ["L_Arm", "R_Arm", "Nose", "Wing_L", "Wing_R", "Ventral"],
 
 def guess(fname, forced):
     b = os.path.splitext(os.path.basename(fname))[0]
-    kind = forced if forced != "auto" else ("ship" if re.search(r"ship|_L3_", b, re.I) else "prop" if re.search(r"prop|crate|wall|door|ammo.?case", b, re.I) else "wpn")
+    kind = forced if forced != "auto" else ("mech" if re.match(r"HL_MECH_", b, re.I) else "ship" if re.search(r"ship|_L3_", b, re.I) else "prop" if re.search(r"prop|crate|wall|door|ammo.?case", b, re.I) else "wpn")
     b = re.sub(r"_?Sheet_?", "_", b).strip("_")   # (HL_WPN_Sheet_GrayModules -> GrayModules; WhiteFighter_Sheet -> WhiteFighter)
-    m = re.match(r"HL_(?:Weapon|WPN)_(?:\d+_)?([A-Za-z]+)", b) or re.match(r"HL_(?:SHIP_L3|PROP)_([A-Za-z]+)", b)
+    m = re.match(r"HL_(?:Weapon|WPN)_(?:\d+_)?([A-Za-z]+)", b) or re.match(r"HL_(?:SHIP_L3|PROP|MECH)_([A-Za-z]+)", b)
     name = m.group(1) if m else re.sub(r"[^A-Za-z]", "", b.split("_")[-1] or b)[:24] or "Item"
     return kind, name
 
-def items_of(path):
+def items_of(path, lazy=False):
     """the sheet's items: connected pieces (by shared faces), joined when their surfaces touch. Works on face index
     lists (no copy of the texture per piece), then cuts one mesh per item."""
     sc = trimesh.load(path, force="scene")
@@ -93,6 +97,8 @@ def items_of(path):
     faces = [np.concatenate(g) for g in groups.values()]
     total = sum(len(x) for x in faces)
     faces = [x for x in faces if len(x) >= total * 0.01] or faces
+    if lazy:   # (big sheets: one item at a time, the shared texture not copied into every piece)
+        return mesh, faces
     meshes = [mesh.submesh([x], append=True) for x in faces]
     top = max(float(max(m.extents)) for m in meshes)
     keep = [m for m in meshes if float(max(m.extents)) >= top * float(os.environ.get("HL_MIN_SIZE", "0.3"))]   # (bits and magazines left out)
@@ -161,6 +167,29 @@ def lay_weapon(m):
     sock = [float(hand[:, 0].mean()), float(hand[:, 1].max()), float(hand[:, 2].mean())]
     return sock
 
+def lay_mech(m):
+    """stand a mech up: centred on x / z, feet on y = 0, 1 m tall (Tripo mechs already face +Z, up +Y)"""
+    b = m.bounds
+    m.apply_translation([-(b[0][0] + b[1][0]) / 2, -b[0][1], -(b[0][2] + b[1][2]) / 2])
+    m.apply_scale(1.0 / max(float(m.extents[1]), 1e-6))
+
+def crop_tex(m, pad=8):
+    """cut the colour map down to the part this item's UVs use (a lineup sheet shares one atlas)"""
+    from PIL import Image
+    mat = getattr(m.visual, "material", None)
+    img = getattr(mat, "baseColorTexture", None) if mat is not None else None
+    uv = getattr(m.visual, "uv", None)
+    if img is None or uv is None or len(uv) == 0: return
+    W, H = img.size
+    u = np.clip(uv[:, 0], 0, 1); v = np.clip(uv[:, 1], 0, 1)
+    x0 = max(0, int(u.min() * W) - pad); x1 = min(W, int(np.ceil(u.max() * W)) + pad)
+    y0 = max(0, int((1 - v.max()) * H) - pad); y1 = min(H, int(np.ceil((1 - v.min()) * H)) + pad)   # (trimesh keeps v up)
+    if (x1 - x0) * (y1 - y0) > W * H * 0.8: return
+    mat.baseColorTexture = img.crop((x0, y0, x1, y1))
+    nu = (uv[:, 0] * W - x0) / (x1 - x0)
+    nv = 1 - (((1 - uv[:, 1]) * H - y0) / (y1 - y0))
+    m.visual.uv = np.stack([nu, nv], 1)
+
 def gd(v):
     """a Python value as GDScript constant text"""
     if isinstance(v, bool): return "true" if v else "false"
@@ -195,15 +224,35 @@ def main():
     for f in files:
         path = os.path.join(src, f)
         kind, name = guess(f, forced)
-        items = items_of(path)
+        if kind == "mech" and not re.search(r"lineup|sheet", f, re.I):   # one mech: the whole file (its loose bits too)
+            sc = trimesh.load(path, force="scene")
+            items = [sc.to_geometry() if hasattr(sc, "to_geometry") else sc.dump(concatenate=True)]
+        elif kind == "mech":   # a lineup: one mech at a time (a 4K atlas copied per piece runs out of memory)
+            big, fl = items_of(path, lazy=True)
+            img = big.visual.material.baseColorTexture if getattr(big.visual, "material", None) is not None else None
+            if img is not None: big.visual.material.baseColorTexture = None
+            vb = [big.vertices[np.unique(big.faces[x].ravel())] for x in fl]
+            keep = [i for i, v in enumerate(vb) if np.ptp(v[:, 1]) >= max(np.ptp(w[:, 1]) for w in vb) * 0.3]   # (bits left out)
+            rowh = max(float(np.ptp(vb[i][:, 1])) for i in keep) * 0.5
+            keep.sort(key=lambda i: (-round(float(vb[i][:, 1].min()) / rowh), float(vb[i][:, 0].min())))   # (a row stands on one line)
+            def lazy_item(i, big=big, fl=fl, img=img):
+                m = big.submesh([fl[i]], append=True)
+                if img is not None: m.visual.material.baseColorTexture = img
+                return m
+            items = [(lambda i=i: lazy_item(i)) for i in keep]
+        else:
+            items = items_of(path)
         if not dry:
             os.makedirs(os.path.join(ROOT, ORIG), exist_ok=True)
             shutil.copy2(path, os.path.join(ROOT, ORIG, f))
-        prefix = {"wpn": "HL_WPN", "ship": "HL_SHIP_L3", "prop": "HL_PROP"}[kind]
-        top_len = max(float(max(x.extents)) for x in items) if items else 1.0
+        prefix = {"wpn": "HL_WPN", "ship": "HL_SHIP_L3", "prop": "HL_PROP", "mech": "HL_MECH"}[kind]
+        out_dir = (sys.argv[sys.argv.index("--work") + 1] if "--work" in sys.argv else os.path.join(ROOT, OUT[kind])) if kind == "mech" else os.path.join(ROOT, OUT[kind])
+        top_len = max(float(max(x.extents)) for x in items) if items and not callable(items[0]) else 1.0
         for k, m in enumerate(items):
-            nid = "%s_%s_%02d" % (prefix, name, k + 1)
+            if callable(m): m = m()
+            nid = "%s_%s_%02d" % (prefix, name, k + 1) if (kind != "mech" or len(items) > 1) else "%s_%s" % (prefix, name)
             rec = {"id": nid, "kind": KIND[kind], "type": name, "path": "res://%s/%s.glb" % (OUT[kind], nid), "source": f}
+            if kind == "mech": rec["path"] = "res://assets/mech_frames/mf_%s.scn" % nid[8:].lower()   # (the rigged, pre-cut game copy)
             if kind == "wpn":
                 sock = lay_weapon(m)
                 L = float(max(m.extents))
@@ -216,6 +265,11 @@ def main():
                         "game_class": t["game_class"], "users": t["users"], "mounts": MOUNTS[t["class"]], "damage": t["damage"], "rate": t["rate"],
                         "ammo": t["ammo"], "heat": t["heat"], "weight": t["weight"], "energy": t["energy"], "icon": ICON[t["game_class"]]}
                 rec["data"] = data
+            elif kind == "mech":
+                lay_mech(m)
+                crop_tex(m)
+                rec["size"] = [round(float(x), 3) for x in m.extents]
+                rec["tris"] = int(len(m.faces))
             elif kind == "ship":
                 lay_ship(m)
                 rec["size"] = [round(float(x), 3) for x in m.extents]
@@ -226,9 +280,9 @@ def main():
                 rec["size"] = [round(float(x), 3) for x in m.extents]
                 rec["len"] = round(float(max(m.extents)), 3)
             if not dry:
-                os.makedirs(os.path.join(ROOT, OUT[kind]), exist_ok=True)
-                light_tex(m)
-                m.export(os.path.join(ROOT, OUT[kind], nid + ".glb"))
+                os.makedirs(out_dir, exist_ok=True)
+                if kind != "mech": light_tex(m)   # (mechs keep full detail here: build_mechs.sh makes the game copy)
+                m.export(os.path.join(out_dir, nid + ".glb"))
                 if kind == "wpn":
                     os.makedirs(os.path.join(ROOT, WDATA), exist_ok=True)
                     json.dump(rec["data"], open(os.path.join(ROOT, WDATA, nid + ".json"), "w"), indent=1)

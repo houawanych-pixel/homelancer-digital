@@ -4206,7 +4206,7 @@ func _mechs_page() -> void:
 			row.add_child(b)
 		list.add_child(row)
 	var cap2 := _label(16, CYAN)
-	cap2.text = "FRAMES  ·  a frame gives you its arms, core and legs. Armour = core, gun power = arms, pace = legs."
+	cap2.text = "FRAMES  ·  a frame gives you its arms, core and legs. Every frame has the same stats: the look is yours, builds come from weapons and abilities."   # v12.84
 	cap2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	list.add_child(cap2)
 	for fid in Data.MECH_ORDER:
@@ -4214,7 +4214,7 @@ func _mechs_page() -> void:
 		var r := VBoxContainer.new()   # v11.4: the words over the button (the tablet is narrow)
 		r.add_theme_constant_override("separation", 4)
 		var l := _label(17, Color(1, 1, 1))
-		l.text = "%s   ·   armour %d%%  ·  gun x%.2f  ·  pace x%.2f" % [f["name"], int(round(float(f["armor"]) * 100.0)), float(f["arm"]), float(f["speed"])]
+		l.text = "%s   ·   style only (same stats)" % f["name"]   # v12.84 (owner: identical base stats, the look is pure style)
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		r.add_child(l)

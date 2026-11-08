@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.83"
+const VERSION := "v12.84"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1686,21 +1686,50 @@ const MOUNT_PODS := {
 # Buying a frame gives you all three of its parts. Part stats (PROVISIONAL): core "armor" = share of damage it stops
 # in mech form, arms "arm" = x gun damage in mech form, legs "speed" = x walking / flying pace in mech form.
 # Faction picks are guesses from the colours; the owner decides.
+## v12.84 (owner: "every mech has identical base stats, so the look is pure style and builds come from weapons and
+## abilities"): every frame's core / arms / legs give the same numbers; a frame is a look. 25 Tripo bodies added
+## (HL_MECH_*: the Chrome Blue-Gold and the 24 of the Faction Mecha Lineup, 8 colour schemes x Scout / Assault / Heavy).
+const MECH_BASE := {"armor": 0.15, "arm": 1.0, "speed": 1.0}   # (every MECHS entry below carries these same numbers)
 const MECHS := {
-	"blackgold": {"name": "Black-Gold Frame", "short": "Black-Gold", "model": "mech_player", "price": 0, "armor": 0.10, "arm": 1.00, "speed": 1.00},
-	"tannavy": {"name": "Tan-Navy Assault Frame", "short": "Tan-Navy", "model": "mech_tan", "price": 9000, "armor": 0.14, "arm": 1.05, "speed": 0.95},
-	"orange": {"name": "Red-Eye Cannon Frame", "short": "Red-Eye", "model": "mf_orange", "price": 12000, "armor": 0.16, "arm": 1.12, "speed": 0.92},
-	"rifle": {"name": "Gatling Rifle Frame", "short": "Gatling", "model": "mf_rifle", "price": 11000, "armor": 0.12, "arm": 1.15, "speed": 0.97},
-	"minigun_a": {"name": "White Minigun Frame", "short": "White Gun", "model": "mf_minigun_a", "price": 13000, "armor": 0.18, "arm": 1.10, "speed": 0.90},
-	"minigun_b": {"name": "Teal Minigun Frame", "short": "Teal Gun", "model": "mf_minigun_b", "price": 13500, "armor": 0.18, "arm": 1.12, "speed": 0.90},
-	"teal": {"name": "Teal Guardian Frame", "short": "Guardian", "model": "mf_teal", "price": 14000, "armor": 0.22, "arm": 1.00, "speed": 0.88},
-	"white": {"name": "White Lancer Frame", "short": "Lancer", "model": "mf_white", "price": 15000, "armor": 0.10, "arm": 1.08, "speed": 1.15},
-	"headless": {"name": "Headless Frame", "short": "Headless", "model": "mf_headless", "price": 12500, "armor": 0.20, "arm": 1.05, "speed": 0.94},
-	"mecblu": {"name": "Blue-White Frame", "short": "Blue-White", "model": "mf_mecblu", "price": 16000, "armor": 0.15, "arm": 1.10, "speed": 1.08},
-	"acmec": {"name": "Missile Wing Frame", "short": "Missile Wg", "model": "mf_acmec", "price": 18000, "armor": 0.16, "arm": 1.18, "speed": 1.00},
-	"mecbrn": {"name": "Cockpit Brute Frame", "short": "Brute", "model": "mf_mecbrn", "price": 17000, "armor": 0.25, "arm": 1.06, "speed": 0.86},
+	"blackgold": {"name": "Black-Gold Frame", "short": "Black-Gold", "model": "mech_player", "price": 0, "armor": 0.15, "arm": 1.0, "speed": 1.0},
+	"tannavy": {"name": "Tan-Navy Assault Frame", "short": "Tan-Navy", "model": "mech_tan", "price": 9000, "armor": 0.15, "arm": 1.0, "speed": 1.0},
+	"orange": {"name": "Red-Eye Cannon Frame", "short": "Red-Eye", "model": "mf_orange", "price": 12000, "armor": 0.15, "arm": 1.0, "speed": 1.0},
+	"rifle": {"name": "Gatling Rifle Frame", "short": "Gatling", "model": "mf_rifle", "price": 11000, "armor": 0.15, "arm": 1.0, "speed": 1.0},
+	"minigun_a": {"name": "White Minigun Frame", "short": "White Gun", "model": "mf_minigun_a", "price": 13000, "armor": 0.15, "arm": 1.0, "speed": 1.0},
+	"minigun_b": {"name": "Teal Minigun Frame", "short": "Teal Gun", "model": "mf_minigun_b", "price": 13500, "armor": 0.15, "arm": 1.0, "speed": 1.0},
+	"teal": {"name": "Teal Guardian Frame", "short": "Guardian", "model": "mf_teal", "price": 14000, "armor": 0.15, "arm": 1.0, "speed": 1.0},
+	"white": {"name": "White Lancer Frame", "short": "Lancer", "model": "mf_white", "price": 15000, "armor": 0.15, "arm": 1.0, "speed": 1.0},
+	"headless": {"name": "Headless Frame", "short": "Headless", "model": "mf_headless", "price": 12500, "armor": 0.15, "arm": 1.0, "speed": 1.0},
+	"mecblu": {"name": "Blue-White Frame", "short": "Blue-White", "model": "mf_mecblu", "price": 16000, "armor": 0.15, "arm": 1.0, "speed": 1.0},
+	"acmec": {"name": "Missile Wing Frame", "short": "Missile Wg", "model": "mf_acmec", "price": 18000, "armor": 0.15, "arm": 1.0, "speed": 1.0},
+	"mecbrn": {"name": "Cockpit Brute Frame", "short": "Brute", "model": "mf_mecbrn", "price": 17000, "armor": 0.15, "arm": 1.0, "speed": 1.0},
+	"chromebg": {"name": "Chrome Blue-Gold Frame", "short": "Blue-Gold", "model": "mf_chromebg", "price": 12000, "cosmetic": true, "armor": 0.15, "arm": 1.0, "speed": 1.0},   # v12.84: HL_MECH_ChromeBlueGoldRobot
+	"fml01": {"name": "Blue Scout Frame", "short": "Blue Scout", "model": "mf_fml01", "price": 8000, "cosmetic": true, "armor": 0.15, "arm": 1.0, "speed": 1.0},   # v12.84: HL_MECH_FactionMechaLineup_01
+	"fml02": {"name": "Blue Assault Frame", "short": "Blue Assault", "model": "mf_fml02", "price": 10000, "cosmetic": true, "armor": 0.15, "arm": 1.0, "speed": 1.0},   # v12.84: HL_MECH_FactionMechaLineup_02
+	"fml03": {"name": "Blue Heavy Frame", "short": "Blue Heavy", "model": "mf_fml03", "price": 12000, "cosmetic": true, "armor": 0.15, "arm": 1.0, "speed": 1.0},   # v12.84: HL_MECH_FactionMechaLineup_03
+	"fml04": {"name": "Silver Scout Frame", "short": "Silver Scout", "model": "mf_fml04", "price": 8000, "cosmetic": true, "armor": 0.15, "arm": 1.0, "speed": 1.0},   # v12.84: HL_MECH_FactionMechaLineup_04
+	"fml05": {"name": "Silver Assault Frame", "short": "Silver Assault", "model": "mf_fml05", "price": 10000, "cosmetic": true, "armor": 0.15, "arm": 1.0, "speed": 1.0},   # v12.84: HL_MECH_FactionMechaLineup_05
+	"fml06": {"name": "Silver Heavy Frame", "short": "Silver Heavy", "model": "mf_fml06", "price": 12000, "cosmetic": true, "armor": 0.15, "arm": 1.0, "speed": 1.0},   # v12.84: HL_MECH_FactionMechaLineup_06
+	"fml07": {"name": "Gold Scout Frame", "short": "Gold Scout", "model": "mf_fml07", "price": 8000, "cosmetic": true, "armor": 0.15, "arm": 1.0, "speed": 1.0},   # v12.84: HL_MECH_FactionMechaLineup_07
+	"fml08": {"name": "Gold Assault Frame", "short": "Gold Assault", "model": "mf_fml08", "price": 10000, "cosmetic": true, "armor": 0.15, "arm": 1.0, "speed": 1.0},   # v12.84: HL_MECH_FactionMechaLineup_08
+	"fml09": {"name": "Gold Heavy Frame", "short": "Gold Heavy", "model": "mf_fml09", "price": 12000, "cosmetic": true, "armor": 0.15, "arm": 1.0, "speed": 1.0},   # v12.84: HL_MECH_FactionMechaLineup_09
+	"fml10": {"name": "Crimson Scout Frame", "short": "Crimson Scout", "model": "mf_fml10", "price": 8000, "cosmetic": true, "armor": 0.15, "arm": 1.0, "speed": 1.0},   # v12.84: HL_MECH_FactionMechaLineup_10
+	"fml11": {"name": "Crimson Assault Frame", "short": "Crimson Assault", "model": "mf_fml11", "price": 10000, "cosmetic": true, "armor": 0.15, "arm": 1.0, "speed": 1.0},   # v12.84: HL_MECH_FactionMechaLineup_11
+	"fml12": {"name": "Crimson Heavy Frame", "short": "Crimson Heavy", "model": "mf_fml12", "price": 12000, "cosmetic": true, "armor": 0.15, "arm": 1.0, "speed": 1.0},   # v12.84: HL_MECH_FactionMechaLineup_12
+	"fml13": {"name": "Violet Scout Frame", "short": "Violet Scout", "model": "mf_fml13", "price": 8000, "cosmetic": true, "armor": 0.15, "arm": 1.0, "speed": 1.0},   # v12.84: HL_MECH_FactionMechaLineup_13
+	"fml14": {"name": "Violet Assault Frame", "short": "Violet Assault", "model": "mf_fml14", "price": 10000, "cosmetic": true, "armor": 0.15, "arm": 1.0, "speed": 1.0},   # v12.84: HL_MECH_FactionMechaLineup_14
+	"fml15": {"name": "Violet Heavy Frame", "short": "Violet Heavy", "model": "mf_fml15", "price": 12000, "cosmetic": true, "armor": 0.15, "arm": 1.0, "speed": 1.0},   # v12.84: HL_MECH_FactionMechaLineup_15
+	"fml16": {"name": "Jade Scout Frame", "short": "Jade Scout", "model": "mf_fml16", "price": 8000, "cosmetic": true, "armor": 0.15, "arm": 1.0, "speed": 1.0},   # v12.84: HL_MECH_FactionMechaLineup_16
+	"fml17": {"name": "Jade Assault Frame", "short": "Jade Assault", "model": "mf_fml17", "price": 10000, "cosmetic": true, "armor": 0.15, "arm": 1.0, "speed": 1.0},   # v12.84: HL_MECH_FactionMechaLineup_17
+	"fml18": {"name": "Jade Heavy Frame", "short": "Jade Heavy", "model": "mf_fml18", "price": 12000, "cosmetic": true, "armor": 0.15, "arm": 1.0, "speed": 1.0},   # v12.84: HL_MECH_FactionMechaLineup_18
+	"fml19": {"name": "Copper Scout Frame", "short": "Copper Scout", "model": "mf_fml19", "price": 8000, "cosmetic": true, "armor": 0.15, "arm": 1.0, "speed": 1.0},   # v12.84: HL_MECH_FactionMechaLineup_19
+	"fml20": {"name": "Copper Assault Frame", "short": "Copper Assault", "model": "mf_fml20", "price": 10000, "cosmetic": true, "armor": 0.15, "arm": 1.0, "speed": 1.0},   # v12.84: HL_MECH_FactionMechaLineup_20
+	"fml21": {"name": "Copper Heavy Frame", "short": "Copper Heavy", "model": "mf_fml21", "price": 12000, "cosmetic": true, "armor": 0.15, "arm": 1.0, "speed": 1.0},   # v12.84: HL_MECH_FactionMechaLineup_21
+	"fml22": {"name": "Teal Scout Frame", "short": "Teal Scout", "model": "mf_fml22", "price": 8000, "cosmetic": true, "armor": 0.15, "arm": 1.0, "speed": 1.0},   # v12.84: HL_MECH_FactionMechaLineup_22
+	"fml23": {"name": "Teal Assault Frame", "short": "Teal Assault", "model": "mf_fml23", "price": 10000, "cosmetic": true, "armor": 0.15, "arm": 1.0, "speed": 1.0},   # v12.84: HL_MECH_FactionMechaLineup_23
+	"fml24": {"name": "Teal Heavy Frame", "short": "Teal Heavy", "model": "mf_fml24", "price": 12000, "cosmetic": true, "armor": 0.15, "arm": 1.0, "speed": 1.0},   # v12.84: HL_MECH_FactionMechaLineup_24
 }
-const MECH_ORDER := ["blackgold", "tannavy", "rifle", "orange", "headless", "minigun_a", "minigun_b", "teal", "white", "mecblu", "mecbrn", "acmec"]
+const MECH_ORDER := ["blackgold", "tannavy", "rifle", "orange", "headless", "minigun_a", "minigun_b", "teal", "white", "mecblu", "mecbrn", "acmec", "chromebg", "fml01", "fml02", "fml03", "fml04", "fml05", "fml06", "fml07", "fml08", "fml09", "fml10", "fml11", "fml12", "fml13", "fml14", "fml15", "fml16", "fml17", "fml18", "fml19", "fml20", "fml21", "fml22", "fml23", "fml24"]
 const MECH_PART_NAMES := {"arms": "Arms", "core": "Core (upper body)", "legs": "Legs (lower body)"}
 const FACTION_MECH := {"Savagers": "orange", "Imperium": "rifle", "Unity": "white", "Liberator": "minigun_a", "Elyza": "mecblu",
 	"Covenant": "teal", "Solarion": "mecbrn", "Orion": "minigun_b", "Cybermorph": "headless", "Solrath": "acmec", "Kaijurai": "tannavy"}
