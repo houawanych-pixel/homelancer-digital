@@ -22,12 +22,13 @@ static func ready() -> bool:
 	return ResourceLoader.exists(GLB)
 
 ## The body, `height` m tall, feet at y = -feet_below (the player's origin is its middle), looking down -Z.
-func build(height: float, feet_below: float) -> Node3D:
+func build(height: float, feet_below: float, glb := "") -> Node3D:
 	root = Node3D.new()
 	root.name = "Pilot"
 	body = Node3D.new()
 	root.add_child(body)
-	var inst: Node3D = (load(GLB) as PackedScene).instantiate()
+	var path := glb if glb != "" and ResourceLoader.exists(glb) else GLB   # (v12.74: Hovick, or Judy from the gear store)
+	var inst: Node3D = (load(path) as PackedScene).instantiate()
 	var bb := _aabb(inst)
 	var k := height / maxf(0.01, bb.size.y)
 	inst.scale = Vector3.ONE * k
@@ -92,6 +93,19 @@ func _aim(name: String, child: String, dir_body: Vector3) -> void:
 	var par := skel.get_bone_parent(b)
 	var pg: Basis = skel.get_bone_global_pose(par).basis if par >= 0 else Basis.IDENTITY
 	skel.set_bone_pose_rotation(b, (pg.inverse() * nb).get_rotation_quaternion())
+
+## v12.74: the suit's colour over the body (until each suit has its own model): a see-through coat
+func tint(col: Color) -> void:
+	for mi: MeshInstance3D in body.find_children("*", "MeshInstance3D", true, false):
+		if col.a <= 0.0:
+			mi.material_overlay = null
+			continue
+		var m := StandardMaterial3D.new()
+		m.albedo_color = Color(col, 0.42)
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.metallic = 0.5
+		m.roughness = 0.4
+		mi.material_overlay = m
 
 ## v12.70: node `n`'s transform in `top`'s space (walks the parents; no scene tree needed)
 static func _rel(n: Node, top: Node) -> Transform3D:

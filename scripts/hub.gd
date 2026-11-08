@@ -4847,7 +4847,8 @@ func _gar_cats() -> Array:
 	match lo_frame:
 		"mech": return [["head", "Head"], ["core", "Core"], ["arms", "Arms"], ["legs", "Legs"], ["weapons", "Weapons"], ["backpack", "Back Pack"], ["paint", "Paint / Decals"]]
 		"ship": return [["weapons", "Weapons"], ["hull", "Hull"], ["wings", "Wings"], ["engines", "Engines"], ["backpack", "Weapon Set 2"], ["paint", "Paint / Decals"]]
-	return [["weapons", "Weapons"], ["suit", "Suit"], ["paint", "Paint / Decals"]]
+	# v12.74 (owner's PILOT GEAR STORE mock-up)
+	return [["body", "Pilot"], ["suit", "Armor Suit"], ["weapons", "Primary Weapon"], ["sidearm", "Secondary Weapon"], ["booster", "Booster Pack"], ["tactical", "Tactical Gear"]]
 
 func _gar_bg() -> String:
 	var fac := str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])).to_lower()
@@ -5067,6 +5068,7 @@ func _loadout_page() -> void:
 	if gar_cam.is_empty() or not gar_cam.has("dist"):
 		gar_goal = {}
 		_gar_view("main", true)
+	_gar_preview_suit()
 	_gar_tick(0.0)
 
 func _gar_vis() -> void:   # (a CanvasLayer doesn't hide with the hub: it goes when the hub does)
@@ -5087,7 +5089,7 @@ func _gar_draw_title(c: Control) -> void:
 	c.draw_colored_polygon(PackedVector2Array([a + Vector2(0, 16), a + Vector2(17, 46), a + Vector2(-17, 46)]), Color(0.02, 0.06, 0.12))
 	c.draw_colored_polygon(PackedVector2Array([a + Vector2(-30, 52), a + Vector2(-6, 40), a + Vector2(6, 40), a + Vector2(30, 52)]), Color(GAR_HI, 0.9))
 	c.draw_string(f, Vector2(74, 34), "HOMELANCER", HORIZONTAL_ALIGNMENT_LEFT, -1, 32, Color(0.95, 0.98, 1.0))
-	var sub: String = {"mech": "MECH GARAGE", "ship": "SHIP GARAGE", "pilot": "PILOT LOADOUT"}[lo_frame]
+	var sub: String = {"mech": "MECH GARAGE", "ship": "SHIP GARAGE", "pilot": "PILOT GEAR STORE"}[lo_frame]
 	c.draw_string(f, Vector2(76, 60), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 19, Color(0.75, 0.88, 1.0))
 
 func _gar_draw_cat(b: Control, key: String, txt: String, on: bool) -> void:
@@ -5103,11 +5105,11 @@ func _gar_draw_cat(b: Control, key: String, txt: String, on: bool) -> void:
 ## the category icons (drawn: helmet, chest, arm, legs, gun, pack, brush, hull, wing, engine, suit)
 func _gar_cat_icon(c: Control, m: Vector2, key: String, col: Color) -> void:
 	match key:
-		"head", "suit":
+		"head", "suit", "body":
 			c.draw_circle(m + Vector2(0, -2), 10, col)
 			c.draw_rect(Rect2(m + Vector2(-7, -4), Vector2(14, 4)), Color(0.05, 0.1, 0.2))
 			c.draw_rect(Rect2(m + Vector2(-6, 7), Vector2(12, 5)), col)
-		"core", "hull":
+		"core", "hull", "tactical":
 			c.draw_colored_polygon(PackedVector2Array([m + Vector2(-12, -9), m + Vector2(12, -9), m + Vector2(9, 8), m + Vector2(0, 12), m + Vector2(-9, 8)]), col)
 			c.draw_circle(m, 3.5, Color(0.2, 0.6, 1.0))
 		"arms":
@@ -5118,8 +5120,13 @@ func _gar_cat_icon(c: Control, m: Vector2, key: String, col: Color) -> void:
 			for sx in [-1.0, 1.0]:
 				c.draw_rect(Rect2(m + Vector2(sx * 6 - 4, -11), Vector2(8, 11)), col)
 				c.draw_rect(Rect2(m + Vector2(sx * 6 - 5, 1), Vector2(10, 10)), col)
-		"weapons", "backpack":
-			c.draw_rect(Rect2(m + Vector2(-14, -5), Vector2(28, 6)), col)
+		"weapons", "backpack", "sidearm", "booster":
+			if key == "booster":
+				c.draw_rect(Rect2(m + Vector2(-9, -11), Vector2(18, 18)), col)
+				for sx in [-5.0, 5.0]: c.draw_circle(m + Vector2(sx, 10), 3.5, Color(0.3, 0.7, 1.0))
+				return
+			var ln := 28.0 if key != "sidearm" else 18.0
+			c.draw_rect(Rect2(m + Vector2(-ln * 0.5, -5), Vector2(ln, 6)), col)
 			c.draw_rect(Rect2(m + Vector2(-8, 1), Vector2(6, 9)), col)
 			if key == "backpack": c.draw_rect(Rect2(m + Vector2(-10, -12), Vector2(20, 5)), col)
 		"wings":
@@ -5139,10 +5146,16 @@ func _gar_pick_cat(key: String) -> void:
 	elif key == "weapons":
 		lo_set = 0
 		lo_cat = "weapons"
+		if lo_frame == "pilot": lo_slot = "R_Hand"
+	elif key == "sidearm":
+		lo_set = 0
+		lo_cat = "sidearm"
+		lo_slot = "Sidearm"
 	else: lo_cat = key
+	if lo_frame == "pilot" and key in ["suit", "body"]: _gar_goal_set({"focus": Vector3(0, 2.2, 0), "dist": 14.0, "pitch": 0.08})   # (the camera to his torso, like the mock-up)
 	show_screen("loadout")
 
-func _gar_weapons_mode() -> bool: return lo_cat in ["weapons", "backpack"]
+func _gar_weapons_mode() -> bool: return lo_cat in ["weapons", "backpack", "sidearm"]
 
 ## the STATUS panel (numbers from the loadout's totals)
 func _gar_status() -> void:
@@ -5156,7 +5169,11 @@ func _gar_status() -> void:
 		var w := Loadout.weapon(str(Loadout.active_set(lo)[m]))
 		dps += float(w.get("damage", 0.0)) * float(w.get("rate", 0.0))
 	var rows: Array = []
-	if lo_frame == "ship":
+	if lo_frame == "pilot":   # v12.74: ARMOR · SHIELD · STAMINA · MOBILITY
+		var shd := 0.0
+		for sl in Loadout.SLOTS["pilot"]: shd += float(Loadout.part("pilot", sl, str(lo["parts"].get(sl, ""))).get("shield", 0.0))
+		rows = [["ARMOR", float(t["armor"]) * 30.0, 1800.0], ["SHIELD", shd * 40.0, 1800.0], ["STAMINA", float(t["gen"]) * 22.0, 1500.0], ["MOBILITY", float(t["boost"]) * 1000.0, 1600.0]]
+	elif lo_frame == "ship":
 		var sh: Dictionary = GS.ship()
 		rows = [["HULL", float(sh.get("hull", 100)) + float(t["armor"]) * 4.0, 1200.0], ["SHIELD", float(sh.get("shield", 60)), 600.0],
 			["MAX SPEED", float(sh.get("speed", 45.0)) * float(t["speed"]) * 10.0, 900.0], ["MANEUVER", float(sh.get("turn", 1.5)) * 50.0, 100.0], ["ATK", dps * 10.0, 3000.0]]
@@ -5223,6 +5240,7 @@ func _gar_right() -> void:
 		rp.add_child(pl)
 		return
 	if _gar_weapons_mode(): _gar_right_weapons(rp, lo, hd)
+	elif lo_cat == "body": _gar_right_body(rp, hd)
 	else: _gar_right_parts(rp, lo, hd)
 
 func _gar_num(n: int) -> String:
@@ -5399,7 +5417,7 @@ func _gar_right_parts(rp: Panel, lo: Dictionary, hd: Label) -> void:
 	var W: float = rp.size.x
 	var H: float = rp.size.y
 	var slot := lo_cat
-	hd.text = "%s Parts" % slot.capitalize()
+	hd.text = "Item Selection" if lo_frame == "pilot" else "%s Parts" % slot.capitalize()
 	var ids: Array = Loadout.parts_for(lo_frame, slot)
 	var cur := str(lo["parts"].get(slot, ""))
 	if lo_sel == "" or not (lo_sel in ids): lo_sel = cur
@@ -5430,8 +5448,10 @@ func _gar_right_parts(rp: Panel, lo: Dictionary, hd: Label) -> void:
 			else: row.draw_rect(r, Color(1, 1, 1, 0.04))
 			_gar_cat_icon(row, Vector2(30, 20), slot, Color(0.85, 0.93, 1.0))
 			row.draw_string(f, Vector2(64, 26), str(pd.get("name", pk)), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 64 - 104, 16, Color.WHITE)
-			row.draw_string(f, Vector2(r.size.x - 100, 26), "EQUIPPED" if on else "ARMOR %.0f" % float(pd.get("armor", 0.0)), HORIZONTAL_ALIGNMENT_RIGHT, 92, 15, Color(0.6, 0.95, 0.7) if on else GAR_GOLD))
-		row.pressed.connect(func(): lo_sel = pk; _gar_refresh())
+			var own: bool = _gear_owned(slot, pk)
+			var tag := "EQUIPPED" if on else ("OWNED" if own and int(pd.get("price", 0)) > 0 else ("ARMOR %.0f" % float(pd.get("armor", 0.0)) if own else _gar_num(int(pd.get("price", 0)))))
+			row.draw_string(f, Vector2(r.size.x - 100, 26), tag, HORIZONTAL_ALIGNMENT_RIGHT, 92, 15, Color(0.6, 0.95, 0.7) if on or (own and int(pd.get("price", 0)) > 0) else GAR_GOLD))
+		row.pressed.connect(func(): lo_sel = pk; _gar_refresh(); _gar_preview_suit())
 		list.add_child(row)
 	var pd2 := Loadout.part(lo_frame, slot, lo_sel)
 	var now := Loadout.part(lo_frame, slot, cur)
@@ -5441,7 +5461,9 @@ func _gar_right_parts(rp: Panel, lo: Dictionary, hd: Label) -> void:
 	dn.position = Vector2(16, dy)
 	rp.add_child(dn)
 	var yy := dy + 34
-	for sdef in [["Armor", "armor", 140.0], ["Weight", "weight", 80.0], ["Energy", "energy", 40.0], ["Generator" if pd2.has("gen") else "Carries", "gen" if pd2.has("gen") else "cap", 400.0]]:
+	var bars: Array = [["Armor", "armor", 140.0], ["Weight", "weight", 80.0], ["Energy", "energy", 40.0], ["Generator" if pd2.has("gen") else "Carries", "gen" if pd2.has("gen") else "cap", 400.0]]
+	if lo_frame == "pilot": bars = [["Armor", "armor", 50.0], ["Shield", "shield", 30.0], ["Weight", "weight", 25.0], ["Heat Resist", "heat", 40.0] if slot == "suit" else ["Boost", "boost", 1.6] if slot == "booster" else ["Energy", "energy", 12.0]]
+	for sdef in bars:
 		var bar := Control.new()
 		bar.position = Vector2(16, yy)
 		bar.size = Vector2(W - 32, 20)
@@ -5449,9 +5471,37 @@ func _gar_right_parts(rp: Panel, lo: Dictionary, hd: Label) -> void:
 		var sd: Array = sdef
 		var v := float(pd2.get(sd[1], 0.0))
 		var bv: float = float(now.get(sd[1], 0.0)) if lo_sel != cur else -1.0
-		bar.draw.connect(func(): _gar_bar(bar, str(sd[0]), v, float(sd[2]), bv, "%d" % int(v)))
+		bar.draw.connect(func(): _gar_bar(bar, str(sd[0]), v, float(sd[2]), bv, ("%.2f" % v) if str(sd[1]) == "boost" else "%d" % int(v)))
 		rp.add_child(bar)
 		yy += 22.0
+	if not _gear_owned(slot, lo_sel):   # v12.74: gear you don't have yet: BUY
+		var buy := Button.new()
+		buy.name = "LoBuy"
+		buy.position = Vector2(W * 0.5 - 110, H - 52)
+		buy.size = Vector2(220, 42)
+		buy.add_theme_font_size_override("font_size", Data.ts(17))
+		_gar_style(buy, true)
+		var pr: int = int(pd2.get("price", 0))
+		buy.text = "🛒  BUY  %s" % _gar_num(pr)
+		buy.disabled = GS.credits < pr
+		var bid := lo_sel
+		buy.pressed.connect(func():
+			GS.credits -= pr
+			GS.owned_gear.append(bid)
+			GS.save_game()
+			Sfx.play("pickup", -8.0)
+			lo_note = "Bought the %s." % str(pd2.get("name", bid))
+			_refresh_credits()
+			_gar_refresh())
+		rp.add_child(buy)
+		if pd2.has("sheet"):
+			var ml := _label(11, Color(0.7, 0.85, 1.0))
+			ml.text = "3D model on the way (from your %s sheet): the preview shows its colours." % str(pd2["sheet"])
+			ml.position = Vector2(16, H - 74)
+			ml.size = Vector2(W - 32, 18)
+			ml.clip_text = true
+			rp.add_child(ml)
+		return
 	var act := Button.new()
 	act.name = "LoEquip"
 	act.position = Vector2(W * 0.5 - 110, H - 52)
@@ -5467,8 +5517,60 @@ func _gar_right_parts(rp: Panel, lo: Dictionary, hd: Label) -> void:
 		lo_note = perr if perr != "" else _lo_change(before, Loadout.totals(lo2), str(Loadout.part(lo_frame, slot, lo_sel).get("name", lo_sel)))
 		GS.save_game()
 		if perr == "" and lo_frame == "mech" and slot in ["core", "arms", "legs"]: show_screen("loadout")   # (a new frame part: a new model)
-		else: _gar_refresh())
+		else:
+			_gar_refresh()
+			_gar_preview_suit())
 	rp.add_child(act)
+
+## v12.74: is a piece of pilot gear yours? (the free ones always are)
+func _gear_owned(slot: String, pid: String) -> bool:
+	if lo_frame != "pilot": return true
+	return GS.god_mode or int(Loadout.part("pilot", slot, pid).get("price", 0)) <= 0 or pid in GS.owned_gear
+
+## v12.74: the pilot shown in the suit picked in the list (or the one he wears): its colours over him
+func _gar_preview_suit() -> void:
+	if lo_frame != "pilot" or gar.is_empty() or not is_instance_valid(gar.get("model")): return
+	var m: Node3D = gar["model"]
+	if not m.has_meta("pilot_rig"): return
+	var sid := lo_sel if lo_cat == "suit" else str(Loadout.current("pilot")["parts"].get("suit", "st_std"))
+	(m.get_meta("pilot_rig") as PilotRig).tint(Loadout.part("pilot", "suit", sid).get("tint", Color(0, 0, 0, 0)))
+
+## v12.74: who you are: Hovick or Judy
+func _gar_right_body(rp: Panel, hd: Label) -> void:
+	var W: float = rp.size.x
+	hd.text = "Pilot"
+	var y := 52.0
+	for k in Loadout.PILOT_BODIES:
+		var b: Dictionary = Loadout.PILOT_BODIES[k]
+		var row := Button.new()
+		row.name = "LoBody_" + str(k)
+		row.position = Vector2(12, y)
+		row.size = Vector2(W - 24, 48)
+		row.text = "%s   ·   %s%s" % [b["name"], "man" if b["sex"] == "male" else "woman", "   ✓" if GS.pilot_body == k else ""]
+		row.toggle_mode = true
+		row.button_pressed = GS.pilot_body == k
+		row.add_theme_font_size_override("font_size", Data.ts(18))
+		_gar_style(row)
+		if not ResourceLoader.exists(str(b["glb"])):   # (no 3D model yet)
+			row.disabled = true
+			row.text = "%s   ·   3D model coming" % b["name"]
+		var kk := str(k)
+		row.pressed.connect(func():
+			GS.pilot_body = kk
+			var lo := Loadout.current("pilot")   # (a suit cut for the other body comes off)
+			var fit := str(Loadout.part("pilot", "suit", str(lo["parts"].get("suit", ""))).get("fit", "any"))
+			if fit != "any" and fit != Loadout.pilot_sex(): lo["parts"]["suit"] = "st_std"
+			GS.save_game()
+			lo_note = "You're %s now." % b["name"]
+			show_screen("loadout"))
+		rp.add_child(row)
+		y += 56.0
+	var nt := _label(13, Color(0.75, 0.88, 1.0))
+	nt.position = Vector2(16, y + 8)
+	nt.size = Vector2(W - 32, 120)
+	nt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	nt.text = "Suits are cut for a man or a woman; the rest of the gear fits both. On foot you are still Hovick until Judy's model is rigged (Tripo's auto-rig, like his)."
+	rp.add_child(nt)
 
 ## after a change: the model re-dressed, the panels redrawn (the 3D view and the camera keep going)
 func _gar_refresh() -> void:
@@ -5576,7 +5678,7 @@ func _lo_model() -> Node3D:
 	if lo_frame == "pilot":
 		if PilotRig.ready():
 			var pr := PilotRig.new()
-			var pm := pr.build(1.8, 0.0)
+			var pm := pr.build(1.8, 0.0, str(Loadout.PILOT_BODIES.get(GS.pilot_body, {}).get("glb", "")))
 			pm.set_meta("pilot_rig", pr)   # (v12.70: the bench poses his arms and puts the gun in his hand)
 			return pm
 		var st := Node3D.new()   # (until the pilot pack is in: a suited stand-in)

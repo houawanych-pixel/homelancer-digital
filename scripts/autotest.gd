@@ -2648,6 +2648,27 @@ func _run() -> void:
 				palm_d = (pv2.get_node("MountSocket") as Node3D).global_position.distance_to(hpos) / (lm.global_basis.get_scale().x * 1.8)
 		hand_ok = hand_ok and palm_d < 0.12
 		await _capture("tripo_garage_pilot_tripo")
+		# v12.74 (owner): the PILOT GEAR STORE: Judy, suits cut for her, gear to buy, the suit's colours on her at once
+		var keep_body: String = GS.pilot_body
+		var lo_p := Loadout.current("pilot")
+		GS.pilot_body = "hovick"
+		var refused: String = Loadout.set_part(lo_p, "suit", "st_valk_red")
+		GS.pilot_body = "judy"
+		var worn: String = Loadout.set_part(lo_p, "suit", "st_valk_red")
+		hb.lo_cat = "suit"
+		hb.lo_sel = ""
+		hb.gar_cam = {}
+		hb.show_screen("loadout")
+		await _wait(1.0)
+		var jm: Node3D = hb.lo_view.find_child("LoModel", true, false)
+		var judy_in: bool = jm != null and jm.find_children("*", "MeshInstance3D", true, false).size() > 0 and ResourceLoader.exists("res://assets/pilot/hl_judy.glb")
+		var tinted := false
+		if jm != null:
+			for mi: MeshInstance3D in jm.find_children("*", "MeshInstance3D", true, false): if mi.material_overlay != null: tinted = true
+		await _capture("gear_store_judy")
+		_check("v12.74 (owner): the PILOT GEAR STORE: Judy on the platform (%s); a women's suit refused for Hovick (%s) and worn by Judy (%s), its colours on her (%s)" % [judy_in, refused.left(40), worn == "", tinted], judy_in and refused != "" and worn == "" and tinted, "")
+		GS.pilot_body = keep_body
+		lo_p["parts"]["suit"] = "st_std"
 		hb.lo_frame = "mech"
 		hb.lo_slot = ""
 		hb.gar_cam = {}

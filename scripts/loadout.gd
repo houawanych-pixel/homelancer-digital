@@ -30,6 +30,7 @@ const MOUNTS := {
 	# v12.68 (owner's spec: "shared weapons can be Mech+Pilot, scaled per user"): the pilot on foot
 	"pilot": {
 		"R_Hand": {"classes": ["blaster", "rifle", "cannon", "rail"], "max_w": 10.0, "e_cap": 24.0, "at": Vector3(0.32, 0.55, -0.25), "label": "Right hand"},
+		"Sidearm": {"classes": ["blaster"], "max_w": 7.0, "e_cap": 16.0, "at": Vector3(0.36, 0.47, 0.0), "label": "Sidearm (hip)", "holster": true},   # v12.74: the secondary weapon
 		"Back_Stow": {"classes": [], "max_w": 0.0, "e_cap": 0.0, "at": Vector3(0.0, 0.7, 0.3), "label": "Back (stowed)", "stow": true},
 	},
 }
@@ -162,14 +163,32 @@ const PARTS := {
 			"en_lift": {"name": "Heavy-Lift Engines", "armor": 10.0, "weight": 18.0, "energy": 26.0, "cap": 160.0, "speed": 0.92, "boost": 0.9, "look": "quad"},
 		},
 	},
-	"pilot": {   # v12.68
+	"pilot": {   # v12.68; v12.74 (owner's PILOT GEAR STORE + his armor sheets): suits, booster packs, tactical gear
+		# fit: who it is cut for (any / male = Hovick / female = Judy); tint: how the preview shows it until its model is in
 		"suit": {
-			"st_std": {"name": "Flight Suit", "armor": 6.0, "weight": 4.0, "energy": 2.0, "gen": 40.0, "cap": 24.0, "look": "suit"},
-			"st_armored": {"name": "Armored Suit", "armor": 14.0, "weight": 9.0, "energy": 3.0, "gen": 44.0, "cap": 30.0, "look": "suit", "stagger": 0.1},
+			"st_std": {"name": "Flight Suit", "armor": 6.0, "shield": 0.0, "weight": 4.0, "energy": 2.0, "gen": 40.0, "cap": 24.0, "heat": 5.0, "look": "suit", "price": 0},
+			"st_armored": {"name": "Armored Flight Suit", "armor": 14.0, "shield": 4.0, "weight": 9.0, "energy": 3.0, "gen": 44.0, "cap": 30.0, "heat": 10.0, "look": "suit", "stagger": 0.1, "price": 6000, "tint": Color(0.35, 0.4, 0.45)},
+			"st_strike": {"name": "Strike Harness", "armor": 10.0, "shield": 10.0, "weight": 5.0, "energy": 3.0, "gen": 46.0, "cap": 28.0, "heat": 8.0, "look": "harness", "fit": "female", "price": 9000, "tint": Color(0.92, 0.92, 0.95), "sheet": "white-haired harness"},
+			"st_valk_steel": {"name": "Valkyrie Steel Armor", "armor": 26.0, "shield": 14.0, "weight": 12.0, "energy": 4.0, "gen": 50.0, "cap": 34.0, "heat": 20.0, "look": "armor", "fit": "female", "price": 18000, "tint": Color(0.45, 0.47, 0.5), "sheet": "grey female armor"},
+			"st_valk_red": {"name": "Valkyrie Red Armor", "armor": 30.0, "shield": 16.0, "weight": 13.0, "energy": 4.0, "gen": 52.0, "cap": 34.0, "heat": 24.0, "look": "armor", "fit": "female", "price": 20000, "tint": Color(0.75, 0.12, 0.12), "sheet": "black / red female armor"},
+			"st_valk_white": {"name": "Valkyrie White Armor", "armor": 32.0, "shield": 20.0, "weight": 14.0, "energy": 5.0, "gen": 54.0, "cap": 36.0, "heat": 28.0, "look": "armor", "fit": "female", "price": 22000, "tint": Color(0.95, 0.93, 0.92), "sheet": "white / red female armor"},
+			"st_vanguard": {"name": "Vanguard White Armor", "armor": 36.0, "shield": 18.0, "weight": 18.0, "energy": 5.0, "gen": 54.0, "cap": 38.0, "heat": 28.0, "look": "armor", "fit": "male", "price": 22000, "tint": Color(0.95, 0.92, 0.9), "sheet": "white / red male armor"},
+			"st_ares": {"name": "VX-07 Ares Assault Armor", "armor": 42.0, "shield": 20.0, "weight": 22.0, "energy": 6.0, "gen": 56.0, "cap": 40.0, "heat": 32.0, "look": "armor", "fit": "male", "price": 24000, "tint": Color(0.25, 0.26, 0.28), "sheet": "VX-07 Ares"},
+		},
+		"booster": {
+			"bp_std": {"name": "Standard Booster", "armor": 2.0, "weight": 3.0, "energy": 4.0, "speed": 0.0, "boost": 1.0, "price": 0},
+			"bp_sprint": {"name": "Sprint Booster", "armor": 1.0, "weight": 3.0, "energy": 7.0, "speed": 0.08, "boost": 1.25, "price": 8000},
+			"bp_jump": {"name": "Jump Jet Pack", "armor": 3.0, "weight": 5.0, "energy": 9.0, "speed": 0.04, "boost": 1.45, "price": 14000},
+		},
+		"tactical": {
+			"tg_belt": {"name": "Utility Belt", "armor": 1.0, "weight": 1.0, "energy": 0.0, "price": 0},
+			"tg_medkit": {"name": "Field Medkit", "armor": 1.0, "shield": 0.0, "weight": 2.0, "energy": 0.0, "heal": 25.0, "price": 4000},
+			"tg_shield": {"name": "Personal Shield Emitter", "armor": 0.0, "shield": 20.0, "weight": 3.0, "energy": 6.0, "price": 12000},
+			"tg_grenades": {"name": "Grenade Bandolier", "armor": 2.0, "weight": 4.0, "energy": 0.0, "price": 7000},
 		},
 	},
 }
-const SLOTS := {"mech": ["head", "core", "arms", "legs"], "ship": ["hull", "wings", "engines"], "pilot": ["suit"]}
+const SLOTS := {"mech": ["head", "core", "arms", "legs"], "ship": ["hull", "wings", "engines"], "pilot": ["suit", "booster", "tactical"]}
 
 ## a part's record (mech core / arms / legs from the frames)
 static func part(frame: String, slot: String, id: String) -> Dictionary:
@@ -184,6 +203,11 @@ static func part(frame: String, slot: String, id: String) -> Dictionary:
 			"arms": return {"name": "%s Arms" % f["short"], "armor": 14.0 + ar * 80.0, "weight": 12.0 + ar * 30.0, "energy": 6.0, "aim": float(f.get("arm", 1.0)), "frame": fid}
 			"legs": return {"name": "%s Legs" % f["short"], "armor": 18.0 + ar * 90.0, "weight": 20.0 + ar * 40.0, "energy": 12.0, "cap": 120.0 + ar * 260.0, "speed": sp, "boost": clampf(sp * 1.05, 0.7, 1.3), "stagger": ar, "frame": fid}
 	return PARTS.get(frame, {}).get(slot, {}).get(id, {})
+
+## v12.74: who the pilot is (the body the suits are cut for)
+const PILOT_BODIES := {"hovick": {"name": "Hovick", "sex": "male", "glb": "res://assets/pilot/hl_hova.glb"}, "judy": {"name": "Judy", "sex": "female", "glb": "res://assets/pilot/hl_judy.glb"},
+	"evee": {"name": "Evee", "sex": "female", "glb": "res://assets/pilot/hl_evee.glb"}}   # (owner: "next Evee and Judy"; Evee's 3D model still to be made)
+static func pilot_sex() -> String: return str(PILOT_BODIES.get(GS.pilot_body, PILOT_BODIES["hovick"])["sex"])
 
 ## the part ids you can fit in a slot (the mech's frame parts: the frames you own)
 static func parts_for(frame: String, slot: String) -> Array:
@@ -200,7 +224,7 @@ static func default_loadout(frame: String) -> Dictionary:
 		var mp: Dictionary = GS.mech_parts
 		return {"frame": "mech", "active": 0, "parts": {"head": "hd_std", "core": "core_" + str(mp.get("core", "blackgold")), "arms": "arms_" + str(mp.get("arms", "blackgold")), "legs": "legs_" + str(mp.get("legs", "blackgold"))},
 			"sets": [{"L_Arm": GS.weapon_id, "R_Arm": GS.weapon_id}, {}]}
-	if frame == "pilot": return {"frame": "pilot", "active": 0, "parts": {"suit": "st_std"}, "sets": [{"R_Hand": "pulse1"}, {}]}
+	if frame == "pilot": return {"frame": "pilot", "active": 0, "parts": {"suit": "st_std", "booster": "bp_std", "tactical": "tg_belt"}, "sets": [{"R_Hand": "pulse1"}, {}]}
 	return {"frame": "ship", "active": 0, "parts": {"hull": "hl_std", "wings": "wg_std", "engines": "en_std"},
 		"sets": [{"Nose": GS.weapon_id, "Wing_L": GS.weapon_id, "Wing_R": GS.weapon_id}, {}]}
 
@@ -225,7 +249,7 @@ static func fit_error(lo: Dictionary, set_i: int, mount: String, wid: String) ->
 	var w := weapon(wid)
 	if w.is_empty(): return "Unknown weapon."
 	if not (fr in (w.get("users", []) as Array)): return "%s isn't made for a %s." % [w["short"], USER_NAME.get(fr, fr)]
-	var by_hand: bool = fr == "pilot" and bool(w.get("hand_any", false))   # (a Tripo gun made for the pilot's hands too)
+	var by_hand: bool = fr == "pilot" and mount == "R_Hand" and bool(w.get("hand_any", false))   # (a Tripo gun made for the pilot's hands too)
 	if not by_hand and not (str(w["class"]) in (md["classes"] as Array)): return "%s (%s) doesn't fit the %s: it takes %s." % [w["short"], w["class"], md["label"], ", ".join(md["classes"])]
 	if by_hand: pass
 	elif float(w["weight"]) > float(md["max_w"]): return "%s weighs %.0f: the %s takes %.0f at most." % [w["short"], w["weight"], md["label"], md["max_w"]]
@@ -290,7 +314,7 @@ static func fit_error_mount_only(fr: String, mount: String, wid: String) -> Stri
 	var md: Dictionary = MOUNTS[fr].get(mount, {})
 	var w := weapon(wid)
 	if md.is_empty() or w.is_empty(): return "Bad fit."
-	if fr == "pilot" and bool(w.get("hand_any", false)): return ""
+	if fr == "pilot" and mount == "R_Hand" and bool(w.get("hand_any", false)): return ""
 	if not (str(w["class"]) in (md["classes"] as Array)) or float(w["weight"]) > float(md["max_w"]) or float(w["energy"]) > float(md["e_cap"]): return "%s doesn't fit the %s." % [w["short"], md["label"]]
 	return ""
 
@@ -307,6 +331,9 @@ static func fit(lo: Dictionary, set_i: int, mount: String, wid: String) -> Strin
 
 ## swap an armor part (blocked if it would put the build over the generator)
 static func set_part(lo: Dictionary, slot: String, pid: String) -> String:
+	var fit := str(part(str(lo["frame"]), slot, pid).get("fit", "any"))
+	if str(lo["frame"]) == "pilot" and fit != "any" and fit != pilot_sex():
+		return "The %s is cut for %s." % [part("pilot", slot, pid).get("name", pid), "Judy (and other women pilots)" if fit == "female" else "Hovick (and other men pilots)"]
 	var test := lo.duplicate(true)
 	test["parts"][slot] = pid
 	if bool(totals(test)["blocked"]): return "That part would put the build over the generator."
@@ -466,6 +493,9 @@ static func weapon_mesh(wid: String, frame_size: float, user := "mech") -> Node3
 ## wings and belly (the grip up, clicked into the hardpoint)
 static func seat(g: Node3D, frame: String, mount: String) -> void:
 	g.rotation = Vector3(0.0, 0.0, PI) if (frame == "ship" and mount in HANG_MOUNTS) else Vector3.ZERO
+	if frame == "pilot" and mount == "Sidearm":   # v12.74: holstered on the hip, muzzle down, small
+		g.rotation = Vector3(-PI * 0.5, 0.0, 0.0)
+		g.scale *= 0.55
 	var ms := g.get_node_or_null("MountSocket") as Node3D
 	if ms == null: return
 	g.position = -(g.basis * ms.position)
