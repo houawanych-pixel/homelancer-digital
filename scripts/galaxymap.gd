@@ -231,6 +231,7 @@ static func fog_state(id: String) -> String:
 
 ## The rectangle of the chart and the size of one tile (11 columns A-K, 11 rows 1-11, as on the owner's map).
 static var fz := 1.0             # v1.9e: chart zoom (+ / - buttons)
+static var orrery_min: float = Data.MAP_ORRERY_DETAIL   # v12.64: how wide a square must be to show its system (the poster shot sets it lower)
 static var fpan := Vector2.ZERO  # v1.9e: chart pan (drag the chart)
 static func flat_grid(S: Vector2) -> Array:
 	var org := Vector2(378.0, 96.0)
@@ -253,9 +254,64 @@ static func flat_pos(S: Vector2, col: int, row: int) -> Vector2:
 
 static func link_color(kind: String) -> Color:
 	match kind:
-		"warp_gate": return Color(0.4, 0.7, 1.0)
-		"rift_gate": return Color(0.8, 0.45, 1.0)
+		"warp_gate": return Color(1.0, 0.36, 0.3)   # v12.64 (owner): jump green, warp red, rift purple
+		"rift_gate": return Color(0.75, 0.45, 1.0)
 	return Color(0.4, 0.95, 0.55)
+
+## v12.64 (owner: "the planet the colour of the planet with a white stroke"): a planet's own colour, from its look
+static func planet_color(d: Dictionary) -> Color:
+	var lk: Array = SpaceSystem.PLANET_LOOKS.get(str(d.get("palette", "terran")), SpaceSystem.PLANET_LOOKS["terran"])
+	return (lk[1] as Color).lerp(lk[2], 0.45).lightened(0.12)
+
+## v12.64 (owner: "space stations as a sigil, all the factions"): each faction's mark, in its two colours, with a
+## white rim. A stand-in until the factions' own emblems are drawn: each side has its own shape and its initial.
+const SIGIL_SHAPE := {"Unity": "ring", "Elyza": "diamond", "Solarion": "sun", "Imperium": "crown", "Covenant": "hex", "Orion": "star",
+	"Savagers": "spike", "Liberator": "shield", "Kaijurai": "claw", "Cybermorph": "chip", "Enemy": "spike", "Phenom": "hex", "Arctides": "diamond", "Gadversee": "claw", "Solrath": "crown"}
+func sigil(p: Vector2, fac: String, r: float) -> void:
+	var fd: Dictionary = Factions.def(fac)
+	var c1: Color = fd.get("primary_color", (SystemBuilder.FACTIONS.get(fac, SystemBuilder.FACTIONS["Neutral"]) as Array)[3])
+	var c2: Color = fd.get("secondary_color", Color(0.1, 0.1, 0.14))
+	var shape: String = SIGIL_SHAPE.get(fac, "diamond")
+	var pts := PackedVector2Array()
+	match shape:
+		"ring":
+			for k in 20: pts.append(p + Vector2(cos(TAU * k / 20.0), sin(TAU * k / 20.0)) * r)
+		"diamond":
+			pts = PackedVector2Array([p + Vector2(0, -r * 1.15), p + Vector2(r, 0), p + Vector2(0, r * 1.15), p + Vector2(-r, 0)])
+		"hex":
+			for k in 6: pts.append(p + Vector2(cos(TAU * k / 6.0), sin(TAU * k / 6.0)) * r)
+		"sun", "star", "spike":
+			var n := 8 if shape == "sun" else (5 if shape == "star" else 6)
+			var inner := 0.62 if shape == "sun" else (0.45 if shape == "star" else 0.5)
+			for k in n * 2: pts.append(p + Vector2(cos(TAU * k / (n * 2.0) - PI * 0.5), sin(TAU * k / (n * 2.0) - PI * 0.5)) * r * (1.15 if k % 2 == 0 else inner))
+		"crown":
+			pts = PackedVector2Array([p + Vector2(-r, r * 0.7), p + Vector2(-r, -r * 0.5), p + Vector2(-r * 0.5, 0), p + Vector2(0, -r * 0.9), p + Vector2(r * 0.5, 0), p + Vector2(r, -r * 0.5), p + Vector2(r, r * 0.7)])
+		"shield":
+			pts = PackedVector2Array([p + Vector2(-r, -r * 0.85), p + Vector2(r, -r * 0.85), p + Vector2(r, r * 0.1), p + Vector2(0, r * 1.1), p + Vector2(-r, r * 0.1)])
+		"claw":
+			pts = PackedVector2Array([p + Vector2(-r, r), p + Vector2(-r * 0.7, -r), p + Vector2(-r * 0.25, r * 0.1), p + Vector2(0, -r * 1.1), p + Vector2(r * 0.25, r * 0.1), p + Vector2(r * 0.7, -r), p + Vector2(r, r)])
+		"chip":
+			pts = PackedVector2Array([p + Vector2(-r, -r * 0.6), p + Vector2(-r * 0.6, -r), p + Vector2(r * 0.6, -r), p + Vector2(r, -r * 0.6), p + Vector2(r, r * 0.6), p + Vector2(r * 0.6, r), p + Vector2(-r * 0.6, r), p + Vector2(-r, r * 0.6)])
+	draw_colored_polygon(pts, c1)
+	var ring := pts.duplicate()
+	ring.append(pts[0])
+	draw_polyline(ring, c2, maxf(1.5, r * 0.28), true)
+	var rim := PackedVector2Array()
+	for q in ring: rim.append(p + (q - p) * 1.22)
+	draw_polyline(rim, Color(1, 1, 1, 0.85), 1.2, true)
+	if r >= 7.0:
+		var fs := int(r * 1.05)
+		draw_string(font, p + Vector2(-r, fs * 0.36), fac.left(1), HORIZONTAL_ALIGNMENT_CENTER, r * 2.0, fs, c2)
+
+## v12.64: where a gate of system `id` sits on its square (to the system `other`), or INF
+func _gate_on(id: String, other: String, p: Vector2, cell: Vector2) -> Vector2:
+	if not Data.SYSTEMS.has(id): return Vector2.INF
+	var E: float = Data.SPACE_EDGE
+	for g in Data.SYSTEMS[id].get("gates", []):
+		if str(g.get("to", "")) == other:
+			var v: Vector3 = g["pos"]
+			return p + Vector2(clampf(v.x / E, -1.0, 1.0), clampf(v.z / E, -1.0, 1.0)) * (cell * 0.46)
+	return Vector2.INF
 
 ## The galaxy as it is on the owner's 11 x 11 map: every system in its tile, every gate as a line between tiles.
 ## Fog of war: you see the systems you have been to, the next ones along their gates as unknown contacts, and
@@ -299,7 +355,9 @@ func _draw_flat(S: Vector2) -> void:
 	for c in 11: draw_string(font, org + Vector2(c * cell.x, -8.0), "ABCDEFGHIJK"[c], HORIZONTAL_ALIGNMENT_CENTER, cell.x, Data.ts(13), Color(0.6, 0.78, 1.0, 0.7))
 	for r in 11: draw_string(font, org + Vector2(-26.0, r * cell.y + cell.y * 0.5 + 5.0), str(r + 1), HORIZONTAL_ALIGNMENT_CENTER, 22.0, Data.ts(13), Color(0.6, 0.78, 1.0, 0.7))
 	# gates: a glowing lane shows when you have been to at least one end of it
+	var orr: bool = cell.x >= orrery_min
 	for l in net["links"]:
+		if orr: break   # (v12.64: zoomed in, the lanes run gate to gate, drawn over the squares below)
 		var sa: String = state[l[0]]
 		var sb: String = state[l[1]]
 		if sa != "seen" and sb != "seen": continue
@@ -319,7 +377,7 @@ func _draw_flat(S: Vector2) -> void:
 		if st2 == "fog": continue
 		var p: Vector2 = at[id]
 		var s: Dictionary = sys[id]
-		if st2 == "seen" and cell.x >= Data.MAP_ORRERY_DETAIL:   # v10.6 (owner: pinch in to see the star and its planets)
+		if st2 == "seen" and cell.x >= orrery_min:   # v10.6 (owner: pinch in to see the star and its planets)
 			boxes += 1
 			var stp: Vector2 = _orrery(id, p, cell)
 			if id == current:
@@ -360,6 +418,20 @@ func _draw_flat(S: Vector2) -> void:
 				draw_line(q, q - Vector2(cn.x * 9, 0), Color.WHITE, 2.0)
 				draw_line(q, q - Vector2(0, cn.y * 9), Color.WHITE, 2.0)
 		_hits[id] = p
+	if orr:   # v12.64 (owner: "a line from the exact jump gate that crosses over to the exact other gate")
+		for l in net["links"]:
+			var sa2: String = state[l[0]]
+			var sb2: String = state[l[1]]
+			if sa2 != "seen" and sb2 != "seen": continue
+			var ga := _gate_on(l[0], l[1], at[l[0]], cell)
+			var gb := _gate_on(l[1], l[0], at[l[1]], cell)
+			if ga == Vector2.INF: ga = at[l[0]]
+			if gb == Vector2.INF: gb = at[l[1]]
+			var lc2 := link_color(l[2])
+			var both2: bool = sa2 == "seen" and sb2 == "seen"
+			draw_line(ga, gb, Color(lc2, 0.16 if both2 else 0.07), 7.0, true)
+			if l[2] == "jump_gate": draw_line(ga, gb, Color(lc2, 0.95 if both2 else 0.45), 2.0, true)
+			else: _dashed(self, ga, gb, Color(lc2, 0.95 if both2 else 0.45), 2.0, 8.0 if l[2] == "warp_gate" else 4.0)
 	# v10.6 (owner: "it needs to pulse to tell you what system you're at"): in an unknown area (not on the charts) you
 	# still get the pulse, on its tile
 	if not sys.has(current) and Data.SYSTEMS.has(current):
@@ -593,27 +665,52 @@ func _orrery(id: String, p: Vector2, cell: Vector2) -> Vector2:
 	var sun: Vector3 = SystemBuilder.sun_pos_of(d)
 	var sp: Vector2 = to2.call(sun)
 	var sun_in := absf(sun.x) < E and absf(sun.z) < E
-	var bodies: Array = [[d["planet"]["pos"], float(d["planet"].get("radius", 1000.0)), d["planet"].get("name", "")]]
-	for x in d.get("more_planets", []): bodies.append([x["pos"], float(x.get("radius", 600.0)), x.get("name", "")])
+	var bodies: Array = [[d["planet"]["pos"], float(d["planet"].get("radius", 1000.0)), d["planet"].get("name", ""), planet_color(d["planet"])]]
+	for x in d.get("more_planets", []): bodies.append([x["pos"], float(x.get("radius", 600.0)), x.get("name", ""), planet_color(x)])
+	var sc: Color = d.get("star", Color(1.0, 0.85, 0.5))
 	if sun_in:
-		for b in bodies: draw_arc(sp, (to2.call(b[0]) as Vector2).distance_to(sp), 0, TAU, 64, Color(0.55, 0.75, 1.0, 0.22), 1.0, true)
-		for k in 3: draw_circle(sp, cell.x * (0.05 - k * 0.012) + 1.0 * sin(t * 2.0), Color(1.0, 0.85, 0.5, 0.25 + k * 0.3))
+		for b in bodies: _clip_ring(sp, (to2.call(b[0]) as Vector2).distance_to(sp), r, Color(0.55, 0.75, 1.0, 0.22))   # (v12.64: kept inside its square)
+		# v12.64 (owner): the sun in its colour, a stroke of a lighter shade of it, and a small white core
+		var sr: float = cell.x * 0.045 + 0.8 * sin(t * 2.0)
+		draw_circle(sp, sr * 1.6, Color(sc, 0.16))
+		draw_circle(sp, sr, sc)
+		draw_arc(sp, sr, 0, TAU, 40, sc.lightened(0.55), maxf(1.5, sr * 0.18), true)
+		draw_circle(sp, sr * 0.35, Color.WHITE)
 	else:   # the star is far off this square: its light comes from that side
 		var dir := (sp - p).normalized()
-		draw_circle(p + dir * cell.x * 0.44, cell.x * 0.03, Color(1.0, 0.85, 0.5, 0.9))
+		var sq: Vector2 = p + dir * cell.x * 0.44
+		draw_circle(sq, cell.x * 0.03, sc)
+		draw_arc(sq, cell.x * 0.03, 0, TAU, 24, sc.lightened(0.55), 1.5, true)
+		draw_circle(sq, cell.x * 0.011, Color.WHITE)
 	var fs := clampi(int(cell.x / 22.0), 10, 15)
 	for b in bodies:
 		var bp: Vector2 = to2.call(b[0])
-		draw_circle(bp, clampf(float(b[1]) / 4000.0, 3.0, 9.0) * cell.x / 300.0 + 2.0, Color(0.45, 0.75, 1.0))
+		var br: float = clampf(float(b[1]) / 4000.0, 3.0, 9.0) * cell.x / 300.0 + 2.0
+		draw_circle(bp, br, b[3])
+		draw_arc(bp, br, 0, TAU, 24, Color.WHITE, maxf(1.2, br * 0.16), true)
 		if b[2] != "": draw_string(font, bp + Vector2(6, -4), str(b[2]), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0.75, 0.88, 1.0, 0.9))
 	var sts: Array = [d["station"]] + (d.get("more_stations", []) as Array).filter(func(b): return not b.get("hidden", false) or str(b.get("id", "")) in GS.found_stations)   # v11.54
-	for st in sts:
+	for st in sts:   # v12.64: each station its faction's sigil
 		var q: Vector2 = to2.call(st["pos"])
-		draw_rect(Rect2(q - Vector2(3, 3), Vector2(6, 6)), Color(0.4, 1.0, 0.6))
-	for g in d.get("gates", []):
-		draw_arc(to2.call(g["pos"]), 4.0, 0, TAU, 12, link_color(str(g.get("gkind", "jump")) + "_gate"), 1.5, true)
+		sigil(q, str(st.get("faction", d.get("faction", "Neutral"))), clampf(cell.x / 40.0, 4.0, 11.0))
+	for g in d.get("gates", []):   # the gates in their kind's colour (jump green, warp red, rift purple)
+		var gc := link_color(str(g.get("gkind", "jump")) + "_gate")
+		var gq: Vector2 = to2.call(g["pos"])
+		var gr: float = clampf(cell.x / 55.0, 4.0, 9.0)
+		draw_circle(gq, gr, Color(gc, 0.25))
+		draw_arc(gq, gr, 0, TAU, 20, gc, 2.0, true)
+		draw_arc(gq, gr * 0.45, 0, TAU, 12, Color.WHITE, 1.2, true)
 	draw_string(font, r.position + Vector2(6, fs + 4), str(d["name"]).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 12, fs + 2, Color.WHITE)
 	return to2.call(d["station"]["pos"])
+
+## v12.64: an orbit ring, only the part inside the system's square (it used to spill over the neighbours)
+func _clip_ring(c: Vector2, rad: float, box: Rect2, col: Color) -> void:
+	var n := 96
+	var prev := c + Vector2(rad, 0)
+	for k in range(1, n + 1):
+		var q := c + Vector2(cos(TAU * k / n), sin(TAU * k / n)) * rad
+		if box.has_point(prev) and box.has_point(q): draw_line(prev, q, col, 1.0, true)
+		prev = q
 
 ## v10.6: where you are: rings pulsing out from the system (a sonar ping) and a YOU tag, easy to find at a glance.
 func _you_pulse(p: Vector2) -> void:

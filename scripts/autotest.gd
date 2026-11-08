@@ -2300,6 +2300,31 @@ func _run() -> void:
 		_check("v12.56 (owner): INTERCEPT: their transport bound for their facility, its fighters and mechs (%d); transport down, paid (job over %s)" % [int(r1["spawned"]), (r1["left"] as Dictionary).is_empty()], int(r1["spawned"]) >= 6 and (r1["left"] as Dictionary).is_empty(), str(r1))
 		_finish_group()
 		return
+	if _flag("HL_GALAXYSHOT"):   # v12.64 (owner: "show me the complete map"): every system charted, zoomed out and in
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var keep_d: Array = GS.discovered.duplicate()
+		for id in Galaxy.network()["systems"]: if not (id in GS.discovered): GS.discovered.append(id)
+		var gm = main.galaxymap
+		gm.open(GS.system_id)
+		await _wait(0.5)
+		await _capture("galaxy_all")
+		gm.orrery_min = 40.0   # (the poster: every square shows its system at once)
+		await _wait(0.5)
+		await _capture("galaxy_poster")
+		gm.orrery_min = Data.MAP_ORRERY_DETAIL
+		var S: Vector2 = get_viewport().get_visible_rect().size
+		var cell0: float = (S.x - 378.0 - 24.0) / 11.0
+		gm.fz = maxf(1.0, Data.MAP_ORRERY_DETAIL / cell0 + 0.02)
+		var g0: Array = gm.flat_grid(S)
+		gm.fpan = Vector2.ZERO
+		await _wait(0.5)
+		await _capture("galaxy_systems")
+		_check("v12.64: the complete galaxy map drawn (%d systems charted, orrery %s)" % [GS.discovered.size(), (g0[1] as Vector2).x >= Data.MAP_ORRERY_DETAIL], (g0[1] as Vector2).x >= Data.MAP_ORRERY_DETAIL, "")
+		GS.discovered = keep_d
+		_finish_group()
+		return
 	if _flag("HL_AUTODOCK"):   # v12.62 (owner): GO TO a planet: the fastest way (trade lanes), down through the air and docked; look round in a lane
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
