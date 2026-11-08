@@ -4851,8 +4851,7 @@ func _gar_cats() -> Array:
 
 func _gar_bg() -> String:
 	var fac := str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])).to_lower()
-	if lo_frame == "mech": fac = "imperium" if not (fac in ["savagers", "covenant"]) else fac   # (the Imperium mech bay is the mech garage)
-	for k in ["unity", "savagers", "imperium", "covenant"]:
+	for k in ["unity", "savagers", "covenant"]:   # (v12.73, owner: not the Imperium mech bay: it has a mech painted in it)
 		if fac == k: return "res://assets/garage/hangar_%s.jpg" % k
 	return "res://assets/garage/hangar_unity.jpg"
 
