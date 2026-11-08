@@ -817,7 +817,7 @@ func _planet_bases() -> void:
 		var site: Dictionary = list[i]
 		var lay: Array = Surface.compound(site) if site.get("bunker", false) else []   # v12.1: a bunker is a compound of 3-6 parts
 		var spot: Vector2 = site["spot"]
-		var h := _ground_prop("res://assets/bases3d/%s.glb" % str(site["file"]), float(lay[0][2]) if not lay.is_empty() else Data.BASE_WIDTH, spot + (lay[0][1] as Vector2 if not lay.is_empty() else Vector2.ZERO), true, float(lay[0][3]) if not lay.is_empty() else 0.0)   # (on its own pad; v12.2: a fort's gate tower)
+		var h := _ground_prop("res://assets/bases3d/%s.glb" % str(lay[0][0] if not lay.is_empty() else site["file"]), float(lay[0][2]) if not lay.is_empty() else Data.BASE_WIDTH, spot + (lay[0][1] as Vector2 if not lay.is_empty() else Vector2.ZERO), true, float(lay[0][3]) if not lay.is_empty() else 0.0)   # (on its own pad; v12.2: a fort's gate tower)
 		if h == null: continue
 		h.name = str(site["name"])
 		h.set_meta("base", str(site["file"]))

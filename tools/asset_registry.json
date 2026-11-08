@@ -654,11 +654,11 @@
    ],
    "len": 38.4
   },
-  "HL_MECH_ArticulatedLegs": {
-   "id": "HL_MECH_ArticulatedLegs",
-   "kind": "mech",
+  "HL_FAC_Garage_ArticulatedLegs": {
+   "id": "HL_FAC_Garage_ArticulatedLegs",
+   "kind": "facility",
    "type": "ArticulatedLegs",
-   "path": "",
+   "path": "res://assets/bases3d/HL_FAC_Garage_ArticulatedLegs.glb",
    "source": "HL_MECH_ArticulatedLegs.glb",
    "size": [
     1.067,
@@ -666,363 +666,13 @@
     1.096
    ],
    "tris": 33664,
-   "held": "a box body on legs, not a humanoid mech (can't take the walking rig)"
+   "note": "a facility's main building on the planet terrain (Data.FACILITY_MAIN)"
   },
-  "HL_MECH_ChromeBlueGoldRobot": {
-   "id": "HL_MECH_ChromeBlueGoldRobot",
-   "kind": "mech",
-   "type": "ChromeBlueGoldRobot",
-   "path": "res://assets/mech_frames/mf_chromebg.scn",
-   "source": "HL_MECH_ChromeBlueGoldRobot.glb",
-   "size": [
-    0.698,
-    1.0,
-    0.293
-   ],
-   "tris": 37303,
-   "frame": "chromebg"
-  },
-  "HL_MECH_FactionMechaLineup_01": {
-   "id": "HL_MECH_FactionMechaLineup_01",
-   "kind": "mech",
-   "type": "FactionMechaLineup",
-   "path": "res://assets/mech_frames/mf_fml01.scn",
-   "source": "HL_MECH_FactionMechaLineup.glb",
-   "size": [
-    0.846,
-    1.0,
-    0.45
-   ],
-   "tris": 9356,
-   "frame": "fml01"
-  },
-  "HL_MECH_FactionMechaLineup_02": {
-   "id": "HL_MECH_FactionMechaLineup_02",
-   "kind": "mech",
-   "type": "FactionMechaLineup",
-   "path": "res://assets/mech_frames/mf_fml02.scn",
-   "source": "HL_MECH_FactionMechaLineup.glb",
-   "size": [
-    0.978,
-    1.0,
-    0.479
-   ],
-   "tris": 16948,
-   "frame": "fml02"
-  },
-  "HL_MECH_FactionMechaLineup_03": {
-   "id": "HL_MECH_FactionMechaLineup_03",
-   "kind": "mech",
-   "type": "FactionMechaLineup",
-   "path": "res://assets/mech_frames/mf_fml03.scn",
-   "source": "HL_MECH_FactionMechaLineup.glb",
-   "size": [
-    1.101,
-    1.0,
-    0.642
-   ],
-   "tris": 29598,
-   "frame": "fml03"
-  },
-  "HL_MECH_FactionMechaLineup_04": {
-   "id": "HL_MECH_FactionMechaLineup_04",
-   "kind": "mech",
-   "type": "FactionMechaLineup",
-   "path": "res://assets/mech_frames/mf_fml04.scn",
-   "source": "HL_MECH_FactionMechaLineup.glb",
-   "size": [
-    0.823,
-    1.0,
-    0.443
-   ],
-   "tris": 9126,
-   "frame": "fml04"
-  },
-  "HL_MECH_FactionMechaLineup_05": {
-   "id": "HL_MECH_FactionMechaLineup_05",
-   "kind": "mech",
-   "type": "FactionMechaLineup",
-   "path": "res://assets/mech_frames/mf_fml05.scn",
-   "source": "HL_MECH_FactionMechaLineup.glb",
-   "size": [
-    1.031,
-    1.0,
-    0.484
-   ],
-   "tris": 16412,
-   "frame": "fml05"
-  },
-  "HL_MECH_FactionMechaLineup_06": {
-   "id": "HL_MECH_FactionMechaLineup_06",
-   "kind": "mech",
-   "type": "FactionMechaLineup",
-   "path": "res://assets/mech_frames/mf_fml06.scn",
-   "source": "HL_MECH_FactionMechaLineup.glb",
-   "size": [
-    1.077,
-    1.0,
-    0.664
-   ],
-   "tris": 33738,
-   "frame": "fml06"
-  },
-  "HL_MECH_FactionMechaLineup_07": {
-   "id": "HL_MECH_FactionMechaLineup_07",
-   "kind": "mech",
-   "type": "FactionMechaLineup",
-   "path": "res://assets/mech_frames/mf_fml07.scn",
-   "source": "HL_MECH_FactionMechaLineup.glb",
-   "size": [
-    0.848,
-    1.0,
-    0.434
-   ],
-   "tris": 10552,
-   "frame": "fml07"
-  },
-  "HL_MECH_FactionMechaLineup_08": {
-   "id": "HL_MECH_FactionMechaLineup_08",
-   "kind": "mech",
-   "type": "FactionMechaLineup",
-   "path": "res://assets/mech_frames/mf_fml08.scn",
-   "source": "HL_MECH_FactionMechaLineup.glb",
-   "size": [
-    0.904,
-    1.0,
-    0.472
-   ],
-   "tris": 18092,
-   "frame": "fml08"
-  },
-  "HL_MECH_FactionMechaLineup_09": {
-   "id": "HL_MECH_FactionMechaLineup_09",
-   "kind": "mech",
-   "type": "FactionMechaLineup",
-   "path": "res://assets/mech_frames/mf_fml09.scn",
-   "source": "HL_MECH_FactionMechaLineup.glb",
-   "size": [
-    1.184,
-    1.0,
-    0.653
-   ],
-   "tris": 30666,
-   "frame": "fml09"
-  },
-  "HL_MECH_FactionMechaLineup_10": {
-   "id": "HL_MECH_FactionMechaLineup_10",
-   "kind": "mech",
-   "type": "FactionMechaLineup",
-   "path": "res://assets/mech_frames/mf_fml10.scn",
-   "source": "HL_MECH_FactionMechaLineup.glb",
-   "size": [
-    0.817,
-    1.0,
-    0.444
-   ],
-   "tris": 10748,
-   "frame": "fml10"
-  },
-  "HL_MECH_FactionMechaLineup_11": {
-   "id": "HL_MECH_FactionMechaLineup_11",
-   "kind": "mech",
-   "type": "FactionMechaLineup",
-   "path": "res://assets/mech_frames/mf_fml11.scn",
-   "source": "HL_MECH_FactionMechaLineup.glb",
-   "size": [
-    0.935,
-    1.0,
-    0.492
-   ],
-   "tris": 20550,
-   "frame": "fml11"
-  },
-  "HL_MECH_FactionMechaLineup_12": {
-   "id": "HL_MECH_FactionMechaLineup_12",
-   "kind": "mech",
-   "type": "FactionMechaLineup",
-   "path": "res://assets/mech_frames/mf_fml12.scn",
-   "source": "HL_MECH_FactionMechaLineup.glb",
-   "size": [
-    1.105,
-    1.0,
-    0.657
-   ],
-   "tris": 31458,
-   "frame": "fml12"
-  },
-  "HL_MECH_FactionMechaLineup_13": {
-   "id": "HL_MECH_FactionMechaLineup_13",
-   "kind": "mech",
-   "type": "FactionMechaLineup",
-   "path": "res://assets/mech_frames/mf_fml13.scn",
-   "source": "HL_MECH_FactionMechaLineup.glb",
-   "size": [
-    0.819,
-    1.0,
-    0.435
-   ],
-   "tris": 8850,
-   "frame": "fml13"
-  },
-  "HL_MECH_FactionMechaLineup_14": {
-   "id": "HL_MECH_FactionMechaLineup_14",
-   "kind": "mech",
-   "type": "FactionMechaLineup",
-   "path": "res://assets/mech_frames/mf_fml14.scn",
-   "source": "HL_MECH_FactionMechaLineup.glb",
-   "size": [
-    0.936,
-    1.0,
-    0.453
-   ],
-   "tris": 14804,
-   "frame": "fml14"
-  },
-  "HL_MECH_FactionMechaLineup_15": {
-   "id": "HL_MECH_FactionMechaLineup_15",
-   "kind": "mech",
-   "type": "FactionMechaLineup",
-   "path": "res://assets/mech_frames/mf_fml15.scn",
-   "source": "HL_MECH_FactionMechaLineup.glb",
-   "size": [
-    1.183,
-    1.0,
-    0.665
-   ],
-   "tris": 27084,
-   "frame": "fml15"
-  },
-  "HL_MECH_FactionMechaLineup_16": {
-   "id": "HL_MECH_FactionMechaLineup_16",
-   "kind": "mech",
-   "type": "FactionMechaLineup",
-   "path": "res://assets/mech_frames/mf_fml16.scn",
-   "source": "HL_MECH_FactionMechaLineup.glb",
-   "size": [
-    0.821,
-    1.0,
-    0.443
-   ],
-   "tris": 10018,
-   "frame": "fml16"
-  },
-  "HL_MECH_FactionMechaLineup_17": {
-   "id": "HL_MECH_FactionMechaLineup_17",
-   "kind": "mech",
-   "type": "FactionMechaLineup",
-   "path": "res://assets/mech_frames/mf_fml17.scn",
-   "source": "HL_MECH_FactionMechaLineup.glb",
-   "size": [
-    0.907,
-    1.0,
-    0.466
-   ],
-   "tris": 16764,
-   "frame": "fml17"
-  },
-  "HL_MECH_FactionMechaLineup_18": {
-   "id": "HL_MECH_FactionMechaLineup_18",
-   "kind": "mech",
-   "type": "FactionMechaLineup",
-   "path": "res://assets/mech_frames/mf_fml18.scn",
-   "source": "HL_MECH_FactionMechaLineup.glb",
-   "size": [
-    1.118,
-    1.0,
-    0.661
-   ],
-   "tris": 31422,
-   "frame": "fml18"
-  },
-  "HL_MECH_FactionMechaLineup_19": {
-   "id": "HL_MECH_FactionMechaLineup_19",
-   "kind": "mech",
-   "type": "FactionMechaLineup",
-   "path": "res://assets/mech_frames/mf_fml19.scn",
-   "source": "HL_MECH_FactionMechaLineup.glb",
-   "size": [
-    0.873,
-    1.0,
-    0.452
-   ],
-   "tris": 8736,
-   "frame": "fml19"
-  },
-  "HL_MECH_FactionMechaLineup_20": {
-   "id": "HL_MECH_FactionMechaLineup_20",
-   "kind": "mech",
-   "type": "FactionMechaLineup",
-   "path": "res://assets/mech_frames/mf_fml20.scn",
-   "source": "HL_MECH_FactionMechaLineup.glb",
-   "size": [
-    0.959,
-    1.0,
-    0.515
-   ],
-   "tris": 18408,
-   "frame": "fml20"
-  },
-  "HL_MECH_FactionMechaLineup_21": {
-   "id": "HL_MECH_FactionMechaLineup_21",
-   "kind": "mech",
-   "type": "FactionMechaLineup",
-   "path": "res://assets/mech_frames/mf_fml21.scn",
-   "source": "HL_MECH_FactionMechaLineup.glb",
-   "size": [
-    1.171,
-    1.0,
-    0.652
-   ],
-   "tris": 31160,
-   "frame": "fml21"
-  },
-  "HL_MECH_FactionMechaLineup_22": {
-   "id": "HL_MECH_FactionMechaLineup_22",
-   "kind": "mech",
-   "type": "FactionMechaLineup",
-   "path": "res://assets/mech_frames/mf_fml22.scn",
-   "source": "HL_MECH_FactionMechaLineup.glb",
-   "size": [
-    0.853,
-    1.0,
-    0.453
-   ],
-   "tris": 9036,
-   "frame": "fml22"
-  },
-  "HL_MECH_FactionMechaLineup_23": {
-   "id": "HL_MECH_FactionMechaLineup_23",
-   "kind": "mech",
-   "type": "FactionMechaLineup",
-   "path": "res://assets/mech_frames/mf_fml23.scn",
-   "source": "HL_MECH_FactionMechaLineup.glb",
-   "size": [
-    0.969,
-    1.0,
-    0.477
-   ],
-   "tris": 18272,
-   "frame": "fml23"
-  },
-  "HL_MECH_FactionMechaLineup_24": {
-   "id": "HL_MECH_FactionMechaLineup_24",
-   "kind": "mech",
-   "type": "FactionMechaLineup",
-   "path": "res://assets/mech_frames/mf_fml24.scn",
-   "source": "HL_MECH_FactionMechaLineup.glb",
-   "size": [
-    1.14,
-    1.0,
-    0.653
-   ],
-   "tris": 31304,
-   "frame": "fml24"
-  },
-  "HL_MECH_HeavyRectangularMech": {
-   "id": "HL_MECH_HeavyRectangularMech",
-   "kind": "mech",
+  "HL_FAC_Garage_HeavyRectangular": {
+   "id": "HL_FAC_Garage_HeavyRectangular",
+   "kind": "facility",
    "type": "HeavyRectangularMech",
-   "path": "",
+   "path": "res://assets/bases3d/HL_FAC_Garage_HeavyRectangular.glb",
    "source": "HL_MECH_HeavyRectangularMech.glb",
    "size": [
     1.873,
@@ -1030,13 +680,13 @@
     0.576
    ],
    "tris": 22268,
-   "held": "a long block, not a humanoid mech (can't take the walking rig)"
+   "note": "a facility's main building on the planet terrain (Data.FACILITY_MAIN)"
   },
-  "HL_MECH_WarframeBlockMech": {
-   "id": "HL_MECH_WarframeBlockMech",
-   "kind": "mech",
+  "HL_FAC_Garage_WarframeBlock": {
+   "id": "HL_FAC_Garage_WarframeBlock",
+   "kind": "facility",
    "type": "WarframeBlockMech",
-   "path": "",
+   "path": "res://assets/bases3d/HL_FAC_Garage_WarframeBlock.glb",
    "source": "HL_MECH_WarframeBlockMech.glb",
    "size": [
     0.846,
@@ -1044,7 +694,7 @@
     0.62
    ],
    "tris": 20652,
-   "held": "a block, not a humanoid mech (can't take the walking rig)"
+   "note": "a facility's main building on the planet terrain (Data.FACILITY_MAIN)"
   }
  }
 }

@@ -434,12 +434,17 @@ static func compound(site: Dictionary) -> Array:
 	var W: float = Data.BUNKER_WIDTH
 	var turn := rng.randf() * TAU
 	var spread: float = [PI, PI * 0.5, PI * 2.0 / 3.0][rng.randi() % 3]
-	var out: Array = [["HL_Asset_BunkerPillar", Vector2.ZERO, W, turn, Vector3.ONE]]
+	# v12.88 (owner: "those garages, those are facilities on the planet terrain"): a facility's main building is the
+	# bunker tower or one of the three Tripo garages (Data.FACILITY_MAIN), each with its gun batteries running out
+	var mains: Array = Data.FACILITY_MAIN
+	var main: Array = mains[rng.randi() % mains.size()]
+	var mw: float = W * float(main[1])
+	var out: Array = [[str(main[0]), Vector2.ZERO, mw, turn, Vector3.ONE]]
 	var lw := W * Data.BUNKER_WALK_W
 	for k in 2:
 		var a := turn + (0.0 if k == 0 else spread)
 		var dir := Vector2(cos(a), sin(a))
-		var off := dir * (W * 0.46 + lw * 0.5 - W * 0.06)   # (its end tucked into the tower's side)
+		var off := dir * (mw * 0.46 + lw * 0.5 - W * 0.06)   # (its end tucked into the main building's side)
 		out.append(["HL_Asset_GunBattery", off, lw, atan2(-dir.y, dir.x), Vector3.ONE])   # its long side running out from the tower
 	return out
 

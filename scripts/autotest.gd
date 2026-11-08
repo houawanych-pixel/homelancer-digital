@@ -2430,7 +2430,7 @@ func _run() -> void:
 		var s := _sp()
 		# 1. the split assets: every registry item has the right name, folder and a file that loads
 		var bad_items: Array = []
-		var pat := {"weapon": ["HL_WPN_", "res://assets/weapons/"], "ship_l3": ["HL_SHIP_L3_", "res://assets/ships/level3/"], "prop": ["HL_PROP_", "res://assets/props/"]}
+		var pat := {"weapon": ["HL_WPN_", "res://assets/weapons/"], "ship_l3": ["HL_SHIP_L3_", "res://assets/ships/level3/"], "prop": ["HL_PROP_", "res://assets/props/"], "facility": ["HL_FAC_", "res://assets/bases3d/"]}
 		for id in AssetRegistry.ITEMS:
 			var it: Dictionary = AssetRegistry.ITEMS[id]
 			var pp: Array = pat.get(str(it.get("kind", "")), ["?", "?"])
@@ -4403,20 +4403,6 @@ func _run() -> void:
 		await _capture("escape_chase")
 		_check("v12.30 (owner): board your ship in the hangar and you launch; %d of their ships after you (%d hostile); %s denies docking" % [main.escape_chasers, hostile, station_name],
 			board_vis and main.escape_chasers >= Data.ESCAPE_CHASERS and hostile >= Data.ESCAPE_CHASERS and denied, "board %s chasers %d hostile %d denied %s" % [board_vis, main.escape_chasers, hostile, denied])
-		_finish_group()
-		return
-	if OS.get_environment("HL_MECHLINEUP") != "":   # v12.84: the 25 Tripo mech frames built and walking, one picture
-		main.start_game()
-		await _until(func(): return main.state == "flight", 10.0)
-		await _wait(1.0)
-		for id in Data.MECH_ORDER.slice(12): await Packs.wait(ShipFactory.pack_of(str(Data.MECHS[id]["model"])), 30.0)
-		main.hud.visible = false
-		var lu: Node3D = load("res://tools/mechkit/mech_lineup.gd").new()
-		main.add_child(lu)
-		await _wait(0.6)
-		await _capture("mech_lineup")
-		_check("v12.84: the 25 new mech frames build as rigged mechs (%d built, %d with a skeleton)" % [lu.built, lu.skeletons], lu.built == 25 and lu.skeletons == 25)
-		lu.queue_free()
 		_finish_group()
 		return
 	if OS.get_environment("HL_WILDLINEUP") != "":   # (v12.41) every wildlife model in a line-up, for checking the looks
@@ -12142,7 +12128,7 @@ func _job_v19j() -> void:
 ## you own; the player's mech wears its fitted parts; every faction fields its own mech and a bigger boss.
 func _job_v19i() -> void:
 	var s := _sp()
-	var data_ok: bool = Data.MECHS.size() == 37 and Data.MECH_ORDER.size() == 37   # v12.84: + the 25 Tripo frames
+	var data_ok: bool = Data.MECHS.size() == 12 and Data.MECH_ORDER.size() == 12   # (v12.88: the 25 Tripo frames taken out again)
 	for id in Data.MECHS:   # v12.84: every frame the same stats (the look is style only)
 		for k3 in ["armor", "arm", "speed"]:
 			if not is_equal_approx(float(Data.MECHS[id][k3]), float(Data.MECH_BASE[k3])): data_ok = false
@@ -12182,13 +12168,6 @@ func _job_v19i() -> void:
 	GS.fit_mech_part("legs", "blackgold")
 	var parts_ok: bool = GS.mech_parts == {"arms": "acmec", "core": "mecbrn", "legs": "blackgold"} and refused and GS.mech_keys()["core"] == "mf_mecbrn" \
 		and is_equal_approx(GS.mech_armor(), float(Data.MECHS["mecbrn"]["armor"])) and is_equal_approx(GS.mech_speed(), 1.0)
-	# v12.84: a new Tripo frame fits like any other and changes nothing but the look
-	var st0 := [GS.mech_armor(), GS.mech_arm(), GS.mech_speed()]
-	GS.buy_mech("fml02")
-	for pt in ["core", "arms", "legs"]: GS.fit_mech_part(pt, "fml02")
-	var cos_ok: bool = GS.mech_keys()["core"] == "mf_fml02" and [GS.mech_armor(), GS.mech_arm(), GS.mech_speed()] == st0
-	parts_ok = parts_ok and cos_ok
-	GS.fit_mech_part("core", "mecbrn"); GS.fit_mech_part("arms", "acmec"); GS.fit_mech_part("legs", "blackgold")
 	# the player's mech form wears them
 	GS.form = "mech"
 	s.set_player_model()
