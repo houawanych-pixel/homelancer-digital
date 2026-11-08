@@ -845,6 +845,7 @@ func _top_bar_draw() -> void:
 	elif space.boosting: mode = "THRUST"
 	elif space.cruise_max: mode = "CRUISE" + ("  ·  ALT %d" % int(space.altitude) if space.surface_mode else "")
 	if space.surface_mode and mode == "": mode = "ALT %d m" % int(space.altitude)
+	if mode == "" and not space.lane.is_empty(): mode = "TRADE LANE"
 	if mode == "" and GS.form != "mech" and not space.on_foot: mode = "TAP = CRUISE"
 	_text(Vector2(sr.position.x, sr.position.y + 19.0), "%d m/s" % int(space.speed_now), 17, WHITE, HORIZONTAL_ALIGNMENT_CENTER, sr.size.x)
 	_text(Vector2(sr.position.x, sr.end.y - 3.0), mode if mode != "" else "SPEED", 9, GOLD if mode != "" else CYAN_HI, HORIZONTAL_ALIGNMENT_CENTER, sr.size.x)

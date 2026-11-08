@@ -2300,6 +2300,59 @@ func _run() -> void:
 		_check("v12.56 (owner): INTERCEPT: their transport bound for their facility, its fighters and mechs (%d); transport down, paid (job over %s)" % [int(r1["spawned"]), (r1["left"] as Dictionary).is_empty()], int(r1["spawned"]) >= 6 and (r1["left"] as Dictionary).is_empty(), str(r1))
 		_finish_group()
 		return
+	if _flag("HL_AUTODOCK"):   # v12.62 (owner): GO TO a planet: the fastest way (trade lanes), down through the air and docked; look round in a lane
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s := _sp()
+		GS.god_mode = true
+		main.open_map()
+		await _frames(2)
+		main.navmap.select("planet")
+		main.navmap.set_course()
+		var plan: Dictionary = s.plan_to(s.dock_point(s.planet))
+		# (the container runs slowly: the long legs are skipped by moving the ship; the autopilot does the rest)
+		var en: Vector3 = plan.get("entry", Vector3.ZERO)
+		var saw_lane := false
+		var look_ok := false
+		if str(plan.get("via", "")) == "lane":
+			_tp(en + (s.player.global_position - en).normalized() * 120.0, en)
+			await _until(func(): return not s.lane.is_empty(), 20.0)
+			saw_lane = not s.lane.is_empty() and s.ap_after_lane == s.planet
+			main.hud.aim_vec = Vector2(1, 0)
+			await _wait(1.5)
+			var co: Vector3 = s.player.global_basis.inverse() * (s.cam.global_position - s.player.global_position)
+			look_ok = co.z < 5.0
+			await _capture("lane_look")
+			main.hud.aim_vec = Vector2.ZERO
+			if not s.lane.is_empty():   # jump to the lane's end
+				var ln: Dictionary = s.lanes[s.lane["i"]]
+				var row: Array = ln["up"] if s.lane["fwd"] else ln["down"]
+				var last: int = row.size() - 1 if s.lane["fwd"] else 0
+				s.lane["k"] = last
+				s.player.global_position = (row[last] as Vector3) - (ln["dir"] as Vector3) * (1.0 if s.lane["fwd"] else -1.0) * 30.0
+				await _until(func(): return s.lane.is_empty(), 10.0)
+		var after_lane: bool = s.autopilot == s.planet
+		# near the planet: the autopilot takes it down and to the port
+		var pr: float = float(s.planet.get_meta("radius"))
+		var toward: Vector3 = (s.station.global_position - s.planet.global_position).normalized()
+		s.drop_warp()
+		_tp(s.planet.global_position + toward * pr * 1.05, s.planet.global_position)
+		s.autopilot = s.planet
+		await _until(func(): return main.state == "flight" and _sp().surface_mode, 120.0)
+		await _wait(1.0)
+		s = _sp()
+		var sg_ok: bool = s.autopilot != null and s.autodock_target == s.autopilot
+		if sg_ok:
+			var gp: Vector3 = s.autopilot.global_position
+			_tp(gp + Vector3(0, 0, 400), gp)
+		await _until(func(): return main.state == "hub", 60.0)
+		var docked: bool = main.state == "hub" and main.docked_node_kind == "planet"
+		_check("v12.62 (owner): GO TO New Terra: by %s; the autopilot docked into the lane (%s) and flew on from its end (%s); then it docked on the planet (%s, %s; by its port down there %s)" % [plan.get("via", "?"), saw_lane, after_lane, docked, main.hub.base.get("name", "") if docked else main.state, sg_ok],
+			docked and (str(plan.get("via", "")) != "lane" or (saw_lane and after_lane)), "state %s lane %s after %s sg %s" % [main.state, saw_lane, after_lane, sg_ok])
+		_check("v12.62 (owner): in a trade lane the right stick looks round the ship (%s)" % look_ok, look_ok or not saw_lane, "")
+		_finish_group()
+		return
 	if _flag("HL_RESPAWN"):   # v12.60 (owner): die and you're back at the last dock (a planet's too); ACCEPT drops the job you had
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)

@@ -246,7 +246,10 @@ func music_mood(dt: float) -> String:
 ## next system it flies on, and at the job's station it docks. Steering (the autopilot dropped) ends it.
 var _mission_auto := false
 func _mission_auto_step() -> void:
-	if not _mission_auto or state != "flight" or not is_instance_valid(space): return
+	if state != "flight" or not is_instance_valid(space): return
+	if not _mission_auto:
+		_auto_dock_step()
+		return
 	var a: Node3D = space.last_arrived
 	space.last_arrived = null
 	if space.autopilot != null and is_instance_valid(space.autopilot): return
@@ -263,6 +266,28 @@ func _mission_auto_step() -> void:
 		dock(a)
 		return
 	_mission_auto = false
+
+## v12.62 (owner: "GO TO a planet ... it will dock on the planet as the autopilot; or anywhere else"): a course you
+## set ends docked: at a station, a planet's landing field, a platform, or a dock down on a world.
+func _auto_dock_step() -> void:
+	var a: Node3D = space.last_arrived
+	if a == null: return
+	space.last_arrived = null
+	var spot: Dictionary = space.arrived_spot
+	space.arrived_spot = {}
+	var want: Node3D = space.autodock_target
+	if not Data.AUTOPILOT_DOCK or want == null or not is_instance_valid(want) or a != want: return
+	if space.autopilot != null and is_instance_valid(space.autopilot): return
+	space.autodock_target = null
+	var dc: Node3D = space.dock_candidate()
+	if space.surface_mode:
+		if str(spot.get("id", "")) == "" or dc == null: return   # (a facility or a job point: you just arrive)
+		hud.flash_message("Autopilot: docking at %s." % str(spot.get("name", dc.name)))
+		dock(dc)
+		return
+	if dc != null and (dc == a or a.get_meta("kind", "") in ["planet", "station"]):
+		hud.flash_message("Autopilot: docking at %s." % dc.name)
+		dock(dc)
 
 var _save_t := 0.0
 var _escape_t := 0.0
@@ -534,7 +559,7 @@ func _on_hud(id: String) -> void:
 			elif space.nav_dest != null and is_instance_valid(space.nav_dest):   # v1.7v (owner): the GPS destination picked on the map
 				var nd: Node3D = space.nav_dest
 				_mission_auto = false
-				space.route_go()
+				space.route_go()   # (v12.62: and docks at the last stop)
 				if nd.get_meta("kind", "") == "enemy": space.autopilot = space.waypoint_at(nd.global_position)   # (a hostile is flown TO, not docked with)
 				hud.flash_message("Autopilot engaged: %s" % nd.name)
 			elif space.target and is_instance_valid(space.target):   # (v6.7: a hostile you picked too: flown to, not docked with)
@@ -542,7 +567,7 @@ func _on_hud(id: String) -> void:
 				hud.flash_message("Autopilot engaged: %s" % space.target.name)
 			elif space.surface_mode and not space.nearest_base().is_empty():   # v1.8y: on a planet: the nearest base, wherever it is
 				var nb: Dictionary = space.nearest_base()
-				space.set_surface_goal(nb)
+				space.autodock_target = space.set_surface_goal(nb)
 				hud.flash_message("Autopilot engaged: %s" % nb["name"])
 			else:   # v1.8v (owner: GO TO always takes you somewhere): nothing picked and no job: the station (on a planet: its base), or the way home
 				var home: Node3D = space.station if is_instance_valid(space.station) and space.station.get_meta("kind", "") == "station" else null
@@ -593,7 +618,7 @@ func _on_hud(id: String) -> void:
 				var spots: Array = space.base_spots()
 				var bi := int(id.substr(6))
 				if bi < spots.size():
-					space.set_surface_goal(spots[bi])
+					space.autodock_target = space.set_surface_goal(spots[bi])
 					hud.planet_map = false
 					hud.flash_message("Autopilot engaged: %s" % spots[bi]["name"])
 				return
@@ -819,6 +844,7 @@ func _on_course(n: Node3D) -> void:
 	_on_map_closed()
 	space.target = n
 	space.autopilot = n
+	space.autodock_target = n   # v12.62: it docks there when it arrives
 	space.set_destination(n)   # v1.5i: the GPS follows it even after you take the stick
 	space.gps_mission = false   # (your own course: the GPS stops following the job)
 	hud.flash_message("Course set: %s. Autopilot engaged — steer to cancel." % n.name)
@@ -1449,6 +1475,7 @@ func _on_destroyed() -> void:
 func enter_atmosphere(planet_node: Node3D) -> void:
 	if state != "flight": return
 	state = "atmosphere"
+	var auto_land: bool = space.autodock_target != null and is_instance_valid(space.autodock_target) and space.autodock_target == planet_node   # v12.62
 	var pid: String = planet_node.get_meta("info")["id"]
 	var d: Vector3 = (space.player.global_position - planet_node.global_position).normalized()
 	var t := Surface.tile_from_direction(pid, d)
@@ -1522,6 +1549,10 @@ func enter_atmosphere(planet_node: Node3D) -> void:
 	hud.visible = true
 	state = "flight"
 	hud.flash_message("Welcome to %s." % Surface.tile_name(pid, t).capitalize())
+	if auto_land and not space.nearest_base().is_empty():   # v12.62: GO TO the planet carries on down here: to its port, and docks
+		var nb2: Dictionary = space.nearest_base()
+		space.autodock_target = space.set_surface_goal(nb2)
+		hud.flash_message("Autopilot: on to %s to dock." % nb2["name"])
 	if not Surface.is_sun(pid):
 		say_as("assistant", planet_brief(pid, t, visits))   # v12.52: Evee on what this world is
 		get_tree().create_timer(14.0).timeout.connect(func(): if state == "flight" and is_instance_valid(space) and space.surface_mode: evee_tip("planet"))   # v12.61

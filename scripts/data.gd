@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.61"
+const VERSION := "v12.62"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1702,6 +1702,10 @@ const MOTHERSHIP_SCALE := 1.6
 const WILD_BATTLESHIP_CHANCE := 0.4
 const RELIC_DROP := [1, 3]
 const RELIC_BIG_K := 3
+const AUTOPILOT_LANES := true
+const AUTOPILOT_DOCK := true    # v12.62: a course you set ends docked (station, planet, platform, a world's dock)   # v12.62: GO TO takes the trade lanes when they're quicker
+const LANE_LOOK_YAW := 2.6      # v12.62: cockpit look-round in a trade lane (radians at full stick)
+const LANE_LOOK_PITCH := 1.1
 const ATLAS_PRICE := 800   # v12.61: a planet's atlas (the whole planet map charted)
 const PLANET_INV_CALM := 2.5   # seconds of an empty sky before the invasion's paid
 const INVASION_DRAW := {"fighter": 2200.0, "capital": 9000.0, "lod_bias": 0.5, "capital_lod_bias": 0.08}   # m drawn to; lod_bias < 1 = simpler meshes sooner

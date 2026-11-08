@@ -5840,14 +5840,40 @@ func _booster_particles(dt: float, k: float) -> void:
 		_spark_v(at, back * (6.0 + 16.0 * k) + side * 2.0 + vel, col, 0.6 + 1.2 * k, 0.25 + 0.15 * k)
 
 var last_arrived: Node3D = null
+var ap_after_lane: Node3D = null   # v12.62: where the autopilot carries on to when the lane it took ends
+var _ap_plan := {}
+var _ap_plan_t := 0.0
+var ap_lane_legs := 0   # (tests) lanes the autopilot has taken
+var arrived_spot := {}
+var autodock_target: Node3D = null   # v12.62: a course you set: the autopilot docks when it gets there   # v12.62: the surface spot the autopilot just reached (main docks if it's a dock)
 func _autopilot_input() -> Array:
 	var goal: Vector3 = autopilot.global_position
 	var kind: String = autopilot.get_meta("kind", "")
-	if kind == "planet" or kind == "station": goal = dock_point(autopilot)
-	if kind == "landmark":      # stop a little way off a placeholder planet or station
+	if kind == "planet" or kind == "station" or autopilot.has_meta("dock") or kind == "platform": goal = dock_point(autopilot)
+	if kind == "landmark" and not autopilot.has_meta("dock"):      # stop a little way off a placeholder planet or station
 		var off: Vector3 = (player.global_position - autopilot.global_position).normalized()
 		goal = autopilot.global_position + off * (float(autopilot.get_meta("radius")) + Data.PH_GOTO_STANDOFF)
 	if kind == "gate": goal = autopilot.global_position + autopilot.global_basis.z * 120.0
+	# v12.62 (owner: "GO TO a planet: the autopilot goes through the trade lanes, the fastest route"): when the lanes
+	# are quicker, fly to the ring first, ride the lane, and carry on from its end (planned again every second)
+	if not surface_mode and lane.is_empty() and not autopilot.has_meta("lane_mouth") and Data.AUTOPILOT_LANES:
+		_ap_plan_t -= get_process_delta_time()
+		if _ap_plan_t <= 0.0:
+			_ap_plan_t = 1.0
+			_ap_plan = plan_to(goal)
+		if str(_ap_plan.get("via", "")) == "lane" and not bool(_ap_plan.get("riding", false)):
+			var en: Vector3 = _ap_plan["entry"]
+			if player.global_position.distance_to(en) < Data.LANE_DOCK_RANGE * 0.8:
+				drop_warp()
+				var keep_ap := autopilot
+				if lane_enter(goal):
+					ap_after_lane = keep_ap
+					ap_lane_legs += 1
+					_ap_plan = {}
+					return [Vector2.ZERO, Vector2.ZERO]
+			else:
+				goal = en
+				kind = "waypoint"
 	goal = _detour(goal)   # v11.91: round a (4x) station in the way, not through it
 	var to := goal - player.global_position
 	var local := player.global_basis.inverse() * to.normalized()
@@ -5860,6 +5886,7 @@ func _autopilot_input() -> Array:
 		return [Vector2.ZERO, Vector2.ZERO]
 	if dist < 170.0:
 		last_arrived = autopilot   # v1.9k: main sees where the autopilot got to (a job's GO TO carries on through gates)
+		arrived_spot = surf_goal.duplicate() if autopilot == _surf_goal_node else {}
 		autopilot = null
 		drop_warp()
 		if cruise_assist: braking = true   # stop at the destination instead of cruising past it
@@ -7008,10 +7035,27 @@ func _build_lanes() -> void:
 
 ## The ring you could dock right now: nearest live ring inside LANE_DOCK_RANGE (one with a ring after it).
 ## Returns {} or {"i": lane, "fwd": bool, "k": ring index, "to": destination name, "pos": Vector3}.
-func lane_candidate() -> Dictionary:
+func lane_candidate(toward := Vector3.INF) -> Dictionary:
 	if surface_mode or not lane.is_empty() or not controls or warp_state != "off" or GS.form == "mech": return {}
 	var best := {}
 	var bd: float = Data.LANE_DOCK_RANGE
+	if toward != Vector3.INF:   # v12.62: the autopilot's lane: of the rings in reach, the way that ends nearest where it's going
+		var bt := INF
+		for i in lanes.size():
+			var ln0: Dictionary = lanes[i]
+			var n0: int = ln0["up"].size()
+			for k in n0:
+				for fwd in [true, false]:
+					if (fwd and k >= n0 - 1) or (not fwd and k <= 0): continue
+					var row0: Array = ln0["up"] if fwd else ln0["down"]
+					var pos0: Vector3 = row0[k]
+					if player.global_position.distance_to(pos0) >= bd: continue
+					var endp: Vector3 = row0[-1] if fwd else row0[0]
+					var sc := endp.distance_to(toward)
+					if sc < bt:
+						bt = sc
+						best = {"i": i, "fwd": fwd, "k": k, "to": ln0["b"] if fwd else ln0["a"], "pos": pos0}
+		if not best.is_empty(): return best
 	for i in lanes.size():
 		var ln: Dictionary = lanes[i]
 		var n: int = ln["up"].size()
@@ -7026,23 +7070,25 @@ func lane_candidate() -> Dictionary:
 	return best
 
 ## Dock the ring in range: controls lock and the lane takes the ship.
-func lane_enter() -> bool:
-	var c := lane_candidate()
+func lane_enter(toward := Vector3.INF) -> bool:
+	var c := lane_candidate(toward)
 	if c.is_empty(): return false
 	lane = {"i": c["i"], "fwd": c["fwd"], "k": c["k"], "speed": maxf(vel.length(), 20.0), "t": 0.0, "to": c["to"]}
+	ap_after_lane = autopilot if toward != Vector3.INF else null   # v12.62: the autopilot flies on when the lane ends
 	autopilot = null
 	engine_kill = false
 	braking = false
 	holding = false
 	lane_stats["docks"] += 1
 	Sfx.play("warp_spool", -8.0, 1.4)
-	message.emit("Trade lane to %s. Controls locked." % c["to"])
+	message.emit("Trade lane to %s. Right stick: look around." % c["to"])
 	return true
 
 ## Leave the lane where you are (the button again, or the ship was destroyed).
 func lane_abort() -> void:
 	if lane.is_empty(): return
 	lane = {}
+	ap_after_lane = null
 	vel = -player.global_basis.z * Data.LANE_EXIT_SPEED
 	if is_instance_valid(lane_tunnel): lane_tunnel.visible = false
 	_lane_rings(0.0, -1.0)
@@ -7077,6 +7123,10 @@ func _lane_update(dt: float) -> void:
 				vel = out_dir * Data.LANE_EXIT_SPEED
 				message.emit("Lane exit: %s." % lane["to"])
 				lane = {}
+				if ap_after_lane != null and is_instance_valid(ap_after_lane):   # v12.62: on to where the autopilot was going
+					autopilot = ap_after_lane
+					_ap_plan_t = 0.0
+				ap_after_lane = null
 			else:
 				lane["k"] = int(lane["k"]) + step_k
 	speed_now = vel.length()
@@ -8782,6 +8832,7 @@ func _collisions(dt: float) -> void:
 	_bump_ships()   # v11.37
 	_nebula_depth(p)   # v1.9s: every cloud in the system
 
+var lane_look := Vector2.ZERO   # v12.62: the chase camera swung round the ship in a lane (yaw, pitch)
 var look := Vector2.ZERO   # cockpit free-look (-1..1): the pilot's head turns toward where you steer
 const LOOK_YAW := 0.5      # radians at full look left/right
 const LOOK_PITCH := 0.22   # radians at full look up/down (less: you shouldn't see past the canopy art)
@@ -8820,7 +8871,9 @@ func _update_camera(dt: float, snap: bool) -> void:
 		look = look.lerp(aim if controls else Vector2.ZERO, minf(1.0, dt * 3.0))
 		var b := player.global_basis
 		var rel1: Vector3 = b * Vector3(0, 0.9, -1.2)
-		var dir: Vector3 = (Basis(b.y, -look.x * LOOK_YAW) * Basis(b.x, -look.y * LOOK_PITCH)) * -b.z
+		var ly: float = LOOK_YAW if lane.is_empty() else Data.LANE_LOOK_YAW   # v12.62: in a lane the head turns right round
+		var lp: float = LOOK_PITCH if lane.is_empty() else Data.LANE_LOOK_PITCH
+		var dir: Vector3 = (Basis(b.y, -look.x * ly) * Basis(b.x, -look.y * lp)) * -b.z
 		var ahead := rel1 + dir * 60.0
 		if hit_shake > 0.0: ahead += Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), 0) * hit_shake * 1.2
 		_set_cam(rel1, ahead, b.y)
@@ -8850,6 +8903,12 @@ func _update_camera(dt: float, snap: bool) -> void:
 			clampf(-lv.y * Data.CAM_SWAY_K, -Data.CAM_SWAY_UP, Data.CAM_SWAY_UP))
 	cam_sway = sway_want if snap else cam_sway.lerp(sway_want, minf(1.0, dt * Data.CAM_SWAY_EASE))
 	var want_rel: Vector3 = player.global_basis * Vector3(cam_sway.x, up + cam_sway.y, back)
+	# v12.62 (owner: "in a trade lane you can use the right stick to look all around you"): the camera swings round
+	# the ship with the aim stick while the lane flies it, and settles back behind when you let go
+	lane_look = lane_look.lerp(Vector2(aim.x * PI, aim.y * 1.2) if not lane.is_empty() else Vector2.ZERO, minf(1.0, dt * 3.0))
+	if lane_look.length() > 0.01:
+		var lb := player.global_basis
+		want_rel = (Basis(lb.y, -lane_look.x) * Basis(lb.x, -lane_look.y)) * want_rel
 	var off: Vector3 = want_rel
 	if not snap:   # v8.9: the lag is on the offset from the ship, not on the world position (at warp / lane speed the camera kept falling km behind)
 		off = _cam_off
@@ -8858,6 +8917,7 @@ func _update_camera(dt: float, snap: bool) -> void:
 	_cam_off = off
 	var rel := _cam_clip(off)
 	var look_rel := -player.global_basis.z * 30.0 + player.global_basis.y * 2.6 + player.global_basis * Vector3(cam_sway.x, cam_sway.y, 0.0)
+	if lane_look.length() > 0.3: look_rel = player.global_basis.y * 2.6   # (looking round: at the ship)
 	if hit_shake > 0.0: look_rel += Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), 0) * hit_shake * 0.8
 	_set_cam(rel, look_rel, player.global_basis.y)
 	cam.fov = lerpf(cam.fov, 88.0 if warp_look() else (76.0 if boosting else 70.0), minf(1.0, dt * 2.0))
@@ -10141,8 +10201,12 @@ func _leg_time(d: float) -> float:
 
 func nav_plan() -> Dictionary:
 	if nav_dest == null or not is_instance_valid(nav_dest) or not is_instance_valid(player): return {}
+	return plan_to(nav_dest.global_position)
+
+## v12.62: the fastest way to a point: straight there, or by the trade lanes (fly to a ring, ride, fly on)
+func plan_to(goal: Vector3) -> Dictionary:
+	if not is_instance_valid(player): return {}
 	var p := player.global_position
-	var goal: Vector3 = nav_dest.global_position
 	var direct := {"via": "direct", "t": _leg_time(p.distance_to(goal)), "entry": goal, "exit": goal, "lane_name": ""}
 	if surface_mode: return direct
 	if not lane.is_empty():
@@ -10184,10 +10248,11 @@ func route_go() -> String:
 	nav_go = true
 	autopilot = nav_dest
 	target = nav_dest
+	autodock_target = nav_route[-1] if not nav_route.is_empty() else nav_dest   # v12.62: the last stop is docked at
 	return "Flying the route: %d stop%s. Steer to take over." % [nav_route.size(), "" if nav_route.size() == 1 else "s"]
 
 func _update_nav() -> void:
-	if nav_go and autopilot == null and not (nav_dest != null and is_instance_valid(nav_dest) and distance_to(nav_dest) < Data.GPS_ARRIVE): nav_go = false   # you took the stick (not: the autopilot just arrived)
+	if nav_go and autopilot == null and lane.is_empty() and ap_after_lane == null and not (nav_dest != null and is_instance_valid(nav_dest) and distance_to(nav_dest) < Data.GPS_ARRIVE): nav_go = false   # you took the stick (not: the autopilot just arrived)
 	if nav_dest == null and nav_route.is_empty(): return
 	if nav_dest == null or not is_instance_valid(nav_dest):
 		_route_changed()
