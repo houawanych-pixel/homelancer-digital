@@ -67,6 +67,20 @@ static func _all_planets() -> Dictionary:
 	out.merge(SystemBuilder.suns(out))
 	out.merge(SystemBuilder.planets(out))   # v1.4l: every planet has at least one tile
 	out.merge(SystemBuilder.added_planets(out))   # v12.26 (owner: "I couldn't enter the atmosphere" of Haven): planets added by hand too
+	# v12.66: the catalog's other worlds as the systems have them now: dropped ones gone, gas giants with no surface,
+	# the rest lifeless (their own biome), moons small worlds with one dock
+	var extra := {}
+	for sid in Data.SYSTEMS:
+		for x in (Data.SYSTEMS[sid] as Dictionary).get("more_planets", []): extra[str(x.get("id", ""))] = x
+	for pid in out.keys():
+		if not str(pid).contains("_planet_"): continue
+		if not extra.has(pid) or bool(extra[pid].get("gas_giant", false)):
+			out.erase(pid)
+			continue
+		var x: Dictionary = extra[pid]
+		out[pid]["tiles"] = [Data.PLANET_BIOME.get(str(x.get("palette", "")), "barren")]
+		if x.get("uninhabited", false): out[pid]["uninhabited"] = true
+		if x.get("moon", false): out[pid]["moon"] = true
 	for pid in out: _sky_docks(str(pid), out[pid])
 	return out
 
@@ -91,7 +105,7 @@ static func _sky_docks(pid: String, P: Dictionary) -> void:
 	if bool(P.get("sun", false)): return
 	var sides := planet_sides(pid, P)
 	var locs: Array = P.get("locations", [])
-	if sides.is_empty():
+	if sides.is_empty() or bool(P.get("uninhabited", false)):   # (v12.66: nobody lives on the lifeless worlds: no docks)
 		P["locations"] = []
 		return
 	var g := int(P.get("grid", 1))
@@ -114,6 +128,10 @@ static func _sky_docks(pid: String, P: Dictionary) -> void:
 		keep[i]["faction"] = sides[i]
 		keep[i]["sky"] = true
 		if i == 1 and str(keep[i].get("role", "")).find("dock") < 0: keep[i]["role"] = "%s air dock (rival)" % sides[1]
+	if bool(P.get("moon", false)):   # v12.66: a gas giant's moon: one small dock, its own side's
+		keep = keep.slice(0, 1)
+		keep[0]["name"] = "%s Moonbase" % str(P.get("name", nm))
+		keep[0]["role"] = "%s moon dock" % sides[0]
 	P["locations"] = keep
 const CORE_PLANETS := {
 	"new_terra": {"name": "New Terra", "system": "solara", "grid": 3,

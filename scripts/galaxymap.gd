@@ -665,8 +665,10 @@ func _orrery(id: String, p: Vector2, cell: Vector2) -> Vector2:
 	var sun: Vector3 = SystemBuilder.sun_pos_of(d)
 	var sp: Vector2 = to2.call(sun)
 	var sun_in := absf(sun.x) < E and absf(sun.z) < E
-	var bodies: Array = [[d["planet"]["pos"], float(d["planet"].get("radius", 1000.0)), d["planet"].get("name", ""), planet_color(d["planet"])]]
-	for x in d.get("more_planets", []): bodies.append([x["pos"], float(x.get("radius", 600.0)), x.get("name", ""), planet_color(x)])
+	var bodies: Array = [[d["planet"]["pos"], float(d["planet"].get("radius", 1000.0)), d["planet"].get("name", ""), planet_color(d["planet"]), false]]
+	for x in d.get("more_planets", []):
+		if x.get("moon", false): continue   # (v12.66: moons drawn beside their giant, below)
+		bodies.append([x["pos"], float(x.get("radius", 600.0)), x.get("name", ""), planet_color(x), bool(x.get("gas_giant", false))])
 	var sc: Color = d.get("star", Color(1.0, 0.85, 0.5))
 	if sun_in:
 		for b in bodies: _clip_ring(sp, (to2.call(b[0]) as Vector2).distance_to(sp), r, Color(0.55, 0.75, 1.0, 0.22))   # (v12.64: kept inside its square)
@@ -686,6 +688,12 @@ func _orrery(id: String, p: Vector2, cell: Vector2) -> Vector2:
 	for b in bodies:
 		var bp: Vector2 = to2.call(b[0])
 		var br: float = clampf(float(b[1]) / 4000.0, 3.0, 9.0) * cell.x / 300.0 + 2.0
+		if b[4]:   # v12.66: a gas giant: bigger, with its ring, and its moon beside it
+			br *= 1.35
+			var rg := PackedVector2Array()
+			for k in 33: rg.append(bp + Vector2(cos(TAU * k / 32.0) * br * 1.9, sin(TAU * k / 32.0) * br * 0.55))
+			draw_polyline(rg, Color(b[3].lightened(0.35), 0.9), maxf(1.2, br * 0.18), true)
+			draw_circle(bp + Vector2(br * 1.9, -br * 1.2), maxf(1.6, br * 0.3), Color(0.85, 0.88, 0.92))
 		draw_circle(bp, br, b[3])
 		draw_arc(bp, br, 0, TAU, 24, Color.WHITE, maxf(1.2, br * 0.16), true)
 		if b[2] != "": draw_string(font, bp + Vector2(6, -4), str(b[2]), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0.75, 0.88, 1.0, 0.9))

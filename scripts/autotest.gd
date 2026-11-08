@@ -2322,8 +2322,20 @@ func _run() -> void:
 		await _wait(0.5)
 		await _capture("galaxy_systems")
 		var most := 0
-		for sid2 in Data.SYSTEMS: most = maxi(most, 1 + (Data.SYSTEMS[sid2].get("more_planets", []) as Array).size())
+		var living := 0
+		var giants := 0
+		var giants_ok := 0
+		for sid2 in Data.SYSTEMS:
+			var mp2: Array = Data.SYSTEMS[sid2].get("more_planets", [])
+			most = maxi(most, 1 + mp2.filter(func(x): return not x.get("moon", false)).size())
+			for x in mp2:
+				if str(x.get("id", "")).contains("_planet_") and not x.get("moon", false) and str(x.get("palette", "")) in Data.LIVING_PALETTES: living += 1
+				if x.get("gas_giant", false):
+					giants += 1
+					var mid := str(x["id"]) + "_moon"
+					if not Surface.has_surface(str(x["id"])) and Surface.has_surface(mid) and (Surface.PLANETS[mid]["locations"] as Array).size() == 1: giants_ok += 1
 		_check("v12.65 (owner): no system has more than three planets (most: %d)" % most, most <= 3, "")
+		_check("v12.66 (owner): one living world a system (catalog worlds alive: %d); gas giants (%d) have no landing and a moon with a dock (%d)" % [living, giants, giants_ok], living == 0 and giants > 0 and giants_ok == giants, "")
 		_check("v12.64: the complete galaxy map drawn (%d systems charted, orrery %s)" % [GS.discovered.size(), (g0[1] as Vector2).x >= Data.MAP_ORRERY_DETAIL], (g0[1] as Vector2).x >= Data.MAP_ORRERY_DETAIL, "")
 		GS.discovered = keep_d
 		_finish_group()
@@ -2694,7 +2706,7 @@ func _run() -> void:
 			var docks: Array = P["locations"]
 			var sites: Array = Surface.facility_sites(pid)
 			var enemy: bool = Surface.planet_sides(pid, P).is_empty()
-			var want_d := 0 if enemy else 2
+			var want_d := 0 if enemy or bool(P.get("uninhabited", false)) else (1 if bool(P.get("moon", false)) else 2)   # (v12.66: lifeless worlds none, a moon one)
 			var want_f := clampi(g, 1, 3) * 2
 			var gap_ok := true
 			for i in sites.size():

@@ -5845,6 +5845,7 @@ var _ap_plan := {}
 var _ap_plan_t := 0.0
 var ap_lane_legs := 0   # (tests) lanes the autopilot has taken
 var arrived_spot := {}
+var _gas_warned := {}   # v12.66: gas giants already warned about this visit
 var autodock_target: Node3D = null   # v12.62: a course you set: the autopilot docks when it gets there   # v12.62: the surface spot the autopilot just reached (main docks if it's a dock)
 func _autopilot_input() -> Array:
 	var goal: Vector3 = autopilot.global_position
@@ -8795,6 +8796,11 @@ func _collisions(dt: float) -> void:
 					drop_warp()
 					_die()
 					continue
+		if body != planet and body != station and bool((body.get_meta("info", {}) as Dictionary).get("gas_giant", false)) and d2 < rad * 1.6:   # v12.66: no way down through a gas giant
+			if not _gas_warned.has(body):
+				_gas_warned[body] = true
+				var gi: Dictionary = body.get_meta("info")
+				message.emit("%s is a gas giant: no landing, its atmosphere would crush the ship. Dock on its moon, %s." % [body.name, str(gi.get("moon_name", "its moon"))])
 		if body != planet and body != station and Surface.has_surface(str(body.get_meta("info").get("id", ""))):
 			# v1.4l: every catalog planet has a surface too. Fly into it (not at warp) to go down.
 			if d2 < rad * Data.ATMO_INNER + 10.0 and controls and not entering and warp_state == "off":
