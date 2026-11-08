@@ -191,14 +191,10 @@ static func all(core: Dictionary) -> Dictionary:
 		for g in out[id]["gates"]:
 			if not g.has("gkind"): g["gkind"] = "jump"
 	for g in GalaxyData.GATES:
+		if g[0] != "jump": continue   # (v12.82: the warp and rift gates are all laid out by _regate)
 		_link(out, rows, g[0], g[1], g[2])
 		_link(out, rows, g[0], g[2], g[1])
-	var ul := unknown_links()   # v6.5: the unknown areas' warp gates (two-way, 3 squares, wrapping)
-	for a in ul["warp"]: _link(out, rows, "warp", a, ul["warp"][a], true)
-	for a in ul.get("warp2", {}):
-		_link(out, rows, "warp", a, ul["warp2"][a], true)
-		_link(out, rows, "warp", ul["warp2"][a], a, true)
-	_fill_links(out, rows)
+	_regate(out, rows)
 	for id in out:
 		if not out[id].has("gate"): out[id]["gate"] = out[id]["gates"][0] if not out[id]["gates"].is_empty() else {}
 	# the rest of each system from the catalog: placeholder planets and stations, spread round the system and kept
@@ -1391,6 +1387,89 @@ static func _keep_in_tile(sy: Dictionary) -> void:
 	for x in sy["more_planets"] + sy["more_stations"]: x["pos"] = place.call(x["pos"])
 
 ## One gate in system `a` leading to `b`, set in the direction `b` lies on the map (north on the map = -Z in flight).
+## v12.82 (owner: "only two warp gates in a star system at the most, and it travels 3 to 4 tiles; rift gates only one at
+## the most per star system, and they are rare, and they travel 5 to 6 tiles"; enemy factions have no jump gates).
+## Every warp / rift gate in the galaxy is laid out here, the same way every time:
+##  - no jump gate into or out of enemy space
+##  - every system with no jump gate gets warp gates (up to 2) to systems 3-4 squares away that have room for one
+##  - then any part of the galaxy you couldn't reach gets joined to the rest by a warp gate (still 3-4 squares, 2 max)
+##  - rare rift gates (about one system in seven, one each at most) to systems 5-6 squares away
+const RIFT_SHARE := 0.06   # (each rift has two ends: about one system in eight has one)
+static func _regate(out: Dictionary, rows: Dictionary) -> void:
+	var at := {}
+	for id in rows: at[id] = Vector2i(int(rows[id][3]), int(rows[id][4]))
+	var enemy := func(id: String) -> bool: return str(rows[id][5]) == "Enemy"
+	for id in out:   # strip: every warp / rift gate, and every jump gate that touches enemy space
+		if not rows.has(id): continue
+		out[id]["gates"] = (out[id]["gates"] as Array).filter(func(g):
+			var to := str(g.get("to", ""))
+			if not rows.has(to): return true
+			if str(g.get("gkind", "jump")) != "jump": return false
+			return not (enemy.call(id) or enemy.call(to)))
+	var dist := func(a: String, b: String) -> int: return maxi(absi(at[a].x - at[b].x), absi(at[a].y - at[b].y))
+	var count := func(id: String, kind: String) -> int: return (out[id]["gates"] as Array).filter(func(g): return str(g.get("gkind", "jump")) == kind and rows.has(str(g.get("to", "")))).size()
+	var linked := func(a: String, b: String) -> bool: return (out[a]["gates"] as Array).any(func(g): return str(g["to"]) == b)
+	var ids: Array = rows.keys().filter(func(i): return out.has(i))
+	ids.sort_custom(func(a, b): return hash("regate:" + a) < hash("regate:" + b))
+	var add := func(a: String, b: String, kind: String) -> void:
+		_link(out, rows, kind, a, b)
+		_link(out, rows, kind, b, a)
+	var pick := func(a: String, kind: String, lo: int, hi: int, cap: int, pool: Array) -> String:
+		var best := ""
+		var bs := 1e9
+		for b in pool:
+			if b == a or linked.call(a, b): continue
+			var d: int = dist.call(a, b)
+			if d < lo or d > hi or count.call(b, kind) >= cap: continue
+			var sc: float = float(count.call(b, kind)) * 10.0 + float(count.call(b, "jump") > 0) * 3.0 + float(hash(a + ":" + b) % 100) / 100.0
+			if sc < bs:
+				bs = sc
+				best = b
+		return best
+	var lo: int = Data.WARP_GATE_SQUARES[0]
+	var hi: int = Data.WARP_GATE_SQUARES[1]
+	for want in [1, 2]:   # the systems without a jump gate: one warp each first, then a second
+		for a in ids:
+			if count.call(a, "jump") > 0 or count.call(a, "warp") >= want: continue
+			var b: String = pick.call(a, "warp", lo, hi, 2, ids)
+			if b != "": add.call(a, b, "warp")
+	for pass_i in 6:   # join the parts you can't reach (from the first jump-gate system)
+		var seen := {}
+		var start := ""
+		for a in ids:
+			if count.call(a, "jump") > 0:
+				start = a
+				break
+		var stack: Array = [start]
+		seen[start] = true
+		while not stack.is_empty():
+			var c: String = stack.pop_back()
+			for g in out[c]["gates"]:
+				var to := str(g["to"])
+				if rows.has(to) and not seen.has(to):
+					seen[to] = true
+					stack.append(to)
+		var lost: Array = ids.filter(func(i): return not seen.has(i))
+		if lost.is_empty(): break
+		var joined := false
+		for a in lost:
+			if count.call(a, "warp") >= 2: continue
+			var b2: String = pick.call(a, "warp", lo, hi, 2, seen.keys())
+			if b2 != "":
+				add.call(a, b2, "warp")
+				joined = true
+				break
+		if not joined:   # (full ones: let one more warp in, still at most 2 on the lost side)
+			for a in lost:
+				var b3: String = pick.call(a, "warp", lo, hi, 2, seen.keys())
+				if b3 == "": continue
+				add.call(a, b3, "warp")
+				break
+	for a in ids:   # the rare rift gates
+		if count.call(a, "rift") > 0 or float(hash("rift:" + a) % 1000) / 1000.0 >= RIFT_SHARE: continue
+		var b4: String = pick.call(a, "rift", Data.RIFT_GATE_SQUARES[0], Data.RIFT_GATE_SQUARES[1], 1, ids)
+		if b4 != "": add.call(a, b4, "rift")
+
 ## v12.81 (owner: build up the emptier systems): enemy space, the uncharted zones and the void get more worlds and
 ## stations (as [system, "planet" / "station", name, type] rows, like the catalog's EXTRAS): enemy space to 3 worlds and
 ## 2 stations (its faction's outposts), an uncharted zone to 3 worlds and a lost relay, the void to 2 dead worlds.

@@ -490,7 +490,6 @@ func _draw_flat(S: Vector2) -> void:
 			var tt: String = str(to.get("tile", ""))
 			if tt.length() < 2: continue
 			var tp: Vector2 = flat_pos(S, "ABCDEFGHIJK".find(tt[0]), int(tt.substr(1)) - 1)
-			if tp.distance_to(op) > cell.x * 1.6: continue
 			_dashed(self, op, tp, Color(link_color(str(og.get("gkind", "warp")) + "_gate"), 0.85), 2.0, 8.0)
 		if cell.x > 70.0: _tag(op + Vector2(0, cell.y * 0.3), str(od.get("name", "")).to_upper(), Color(oc, 1.0).lightened(0.3))
 	# v10.6 (owner: "it needs to pulse to tell you what system you're at"): in an unknown area (not on the charts) you

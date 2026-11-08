@@ -2816,12 +2816,12 @@ func _run() -> void:
 			var sy: Dictionary = Data.SYSTEMS[sid]
 			if not str(sy.get("role", "")).ends_with(" colony"): continue
 			var ks: Array = (sy["gates"] as Array).map(func(g): return str(g.get("gkind", "jump")))
-			if not (sy.has("planet") and sy.has("asteroids") and sy.has("nebula") and not ("jump" in ks) and (ks.count("warp") >= 2 or "rift" in ks)): col_bad.append("%s %s" % [sid, ks])
+			if not (sy.has("planet") and sy.has("asteroids") and sy.has("nebula") and not ("jump" in ks) and (ks.count("warp") >= 1 or "rift" in ks)): col_bad.append("%s %s" % [sid, ks])
 		var open_bad: Array = []   # v12.80 (owner: "fill the rest"): every open square a full system you can reach, no jump gates
 		for t in SystemBuilder.open_rows():
 			var so: Dictionary = Data.SYSTEMS[t[0]]
 			var ks2: Array = (so.get("gates", []) as Array).map(func(g): return str(g.get("gkind", "jump")))
-			if not (so.has("planet") and so.has("asteroids") and so.has("nebula") and not ("jump" in ks2) and (ks2.count("warp") >= 2 or "rift" in ks2)): open_bad.append("%s %s" % [t[0], ks2])
+			if not (so.has("planet") and so.has("asteroids") and so.has("nebula") and not ("jump" in ks2) and (ks2.count("warp") >= 1 or "rift" in ks2)): open_bad.append("%s %s" % [t[0], ks2])
 		_check("v12.80 (owner): the %d open squares are full systems (star, planet, asteroids, nebula) with 2 warp gates or a rift (bad: %s)" % [SystemBuilder.open_rows().size(), str(open_bad)], open_bad.is_empty(), "")
 		var thin: Array = []   # v12.81 (owner: build up the emptier systems)
 		var counted := 0
@@ -2837,6 +2837,39 @@ func _run() -> void:
 			if pl1 < (2 if vd1 else 3) or st1 < (1 if vd1 else 2) or cl1 < 1: thin.append("%s pl%d st%d cl%d" % [sid1, pl1, st1, cl1])
 		_check("v12.81 (owner): the %d enemy / uncharted / void systems built up: 3 worlds and 2 stations (void: 2 worlds), clouds and fields (thin: %s)" % [counted, str(thin.slice(0, 6))], thin.is_empty(), "")
 		_check("v12.79 (owner): the 15 new enemy systems each have a star, planet, asteroids, nebula and 2 warp gates / a rift, no jump gates (bad: %s)" % str(col_bad), col_bad.is_empty(), "")
+		# v12.82 (owner): warp gates 2 at most a system, 3-4 squares; rift gates 1 at most, rare, 5-6 squares; all reachable
+		var gbad: Array = []
+		var rifts := 0
+		var sq := func(id: String) -> Vector2i:
+			var tl: String = str(Data.SYSTEMS[id].get("tile", "A1"))
+			return Vector2i("ABCDEFGHIJK".find(tl[0]), int(tl.substr(1)) - 1)
+		for sid2 in Data.SYSTEMS:
+			var gs2: Array = Data.SYSTEMS[sid2].get("gates", [])
+			var nw := 0
+			var nr := 0
+			for g2 in gs2:
+				if not Data.SYSTEMS.has(str(g2["to"])): continue
+				var d2: Vector2i = sq.call(sid2) - sq.call(str(g2["to"]))
+				var dd: int = maxi(absi(d2.x), absi(d2.y))
+				match str(g2.get("gkind", "jump")):
+					"warp":
+						nw += 1
+						if dd < 3 or dd > 4: gbad.append("%s>%s warp %d" % [sid2, g2["to"], dd])
+					"rift":
+						nr += 1
+						if dd < 5 or dd > 6: gbad.append("%s>%s rift %d" % [sid2, g2["to"], dd])
+			if nw > 2 or nr > 1: gbad.append("%s %dw %dr" % [sid2, nw, nr])
+			rifts += nr
+		var seen2 := {"solara": true}
+		var stk: Array = ["solara"]
+		while not stk.is_empty():
+			var c2: String = stk.pop_back()
+			for g3 in Data.SYSTEMS[c2].get("gates", []):
+				if Data.SYSTEMS.has(str(g3["to"])) and not seen2.has(str(g3["to"])):
+					seen2[str(g3["to"])] = true
+					stk.append(str(g3["to"]))
+		_check("v12.82 (owner): warp gates at most 2 a system, 3-4 squares; rift gates at most 1, rare (%d systems), 5-6 squares; every system reachable (%d of %d) (bad: %s)" % [rifts, seen2.size(), Data.SYSTEMS.size(), str(gbad.slice(0, 6))],
+			gbad.is_empty() and seen2.size() == Data.SYSTEMS.size() and rifts <= Data.SYSTEMS.size() / 4, "")
 		_check("v12.78 (owner): no jump gates into enemy-faction space, only warp / rift (%s)" % str(enemy_jumps), enemy_jumps.is_empty(), "")
 		_check("v12.64: the complete galaxy map drawn (%d systems charted, orrery %s)" % [GS.discovered.size(), (g0[1] as Vector2).x >= Data.MAP_ORRERY_DETAIL], (g0[1] as Vector2).x >= Data.MAP_ORRERY_DETAIL, "")
 		GS.discovered = keep_d
