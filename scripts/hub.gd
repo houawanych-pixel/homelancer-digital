@@ -629,7 +629,7 @@ func show_screen(s: String) -> void:
 			box.remove_child(c)
 			c.queue_free()
 	preview_vp = null
-	var hangar := s == "equipment"   # v1.9x: the HANGAR uses the whole width (BACK returns to the station menu)
+	var hangar := full_page(s)   # v1.9x: the HANGAR uses the whole width (BACK returns to the station menu)
 	left.visible = not hangar
 	var top := 22.0 if hangar else TOP_Y   # v3.1: no tabs in the hangar, so the name goes back up
 	header.position.y = top
@@ -639,7 +639,11 @@ func show_screen(s: String) -> void:
 	if hangar:
 		content.offset_left = 0.0
 		content.offset_right = 0.0
-	if hangar: header.text = "HANGAR"
+	if hangar: header.text = "HANGAR" if s == "equipment" else ""
+	header.visible = s != "loadout"   # v12.72: the garage draws its own title
+	subheader.visible = s != "loadout"
+	credits_label.visible = s != "loadout"
+	if s != "loadout": _gar_close()
 	# v3.1: HOME is open glass (the station picture shows through); the other pages keep their panel
 	if s == "hub": content.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	else: content.remove_theme_stylebox_override("panel")
@@ -755,7 +759,7 @@ void fragment() {
 ## v4.6 (owner): she stands on every station page (not in the hangar bay, where the shop is), at the right edge.
 func _asst_on(s: String) -> bool:
 	if lockdown: return false   # v9.2 (owner): Evee is not with you in a lockdown
-	return (s != "equipment" or panels_hidden) and Packs.is_ready("assistant") and ResourceLoader.exists("res://assets/assistant/idle_a.ogv")
+	return (not full_page(s) or panels_hidden) and Packs.is_ready("assistant") and ResourceLoader.exists("res://assets/assistant/idle_a.ogv")
 
 func _asst_w() -> float:   # the room the page leaves for her at the right (her body, not the whole clip)
 	var S := get_viewport_rect().size
@@ -1005,7 +1009,7 @@ func close_call(sd: String) -> void:
 
 ## v11.4: is the right-hand COMMS tab up (no call on the right)?
 func comms_tab_on() -> bool:
-	return calls["r"].is_empty() and not panels_hidden and screen != "equipment" and not lockdown
+	return calls["r"].is_empty() and not panels_hidden and not full_page(screen) and not lockdown
 
 func _place_calls() -> void:
 	if not call_ctl.has("l"): return
@@ -1749,12 +1753,12 @@ func _layout_windows(s: String) -> void:
 	_asst_show(s)
 	var split: bool = not (s in ["hub", "equipment"])
 	var one: bool = _panel_page(s)
-	content.mouse_filter = Control.MOUSE_FILTER_STOP if s != "equipment" else content.mouse_filter
-	var fold: bool = panels_hidden and s != "equipment"
+	content.mouse_filter = Control.MOUSE_FILTER_STOP if not full_page(s) else content.mouse_filter
+	var fold: bool = panels_hidden and not full_page(s)
 	content.visible = not fold and not (one and panel_min) and s != "hub"   # v11.61 (owner): no text box on the hub: the room, and the call on the right
 	leftwin.visible = split and not one and not fold
 	show_btn.visible = true
-	if s == "equipment":   # (the hangar uses the whole screen)
+	if full_page(s):   # (the hangar uses the whole screen; v12.72: the garage too)
 		content.anchor_left = 0.0
 		content.anchor_right = 1.0
 		content.clip_contents = false
@@ -1776,13 +1780,15 @@ func _layout_windows(s: String) -> void:
 
 ## v11.4 (owner): the MISSION BOARD is a big landscape window (3 wide for 2 tall); the SHIPYARD and MECHS have two
 ## 2 x 3 tablets, one each side.
-func board_page(s: String) -> bool: return s in ["missions", "bounty", "board", "loadout"]   # (v12.67: the LOADOUT bench is wide too)
+func board_page(s: String) -> bool: return s in ["missions", "bounty", "board"]
+## v12.72: pages that take the whole screen (the hangar bay; the garage, owner's mock-up)
+func full_page(s: String) -> bool: return s in ["equipment", "loadout"]
 func two_tablets(s: String) -> bool: return s in ["ships", "mechs"]
 
 ## The tablets sit between the calls: the page clear of the comms column on the right, the left tablet clear of a
 ## call on the left.
 func _place_tablets() -> void:
-	if content == null or screen == "equipment": return
+	if content == null or full_page(screen): return
 	var S := get_viewport_rect().size
 	var rr := right_reserve()
 	var pw := panel_w()
@@ -4815,255 +4821,755 @@ var lo_pick := ""        # the weapon picked by a tap (then tap a mount)
 var lo_note := ""        # the last change, said on the page
 var lo_targets := {}     # mount -> its button over the model (tests)
 var lo_view: SubViewport = null
-## v12.68 (owner's spec: the garage, "original design in a mech-shooter garage style"): MECH / SHIP / PILOT tabs; left
-## the mount slots, centre the live model turning (it changes the moment you pick a weapon), right the weapons that
-## user can take, each with its icon and before / after stat bars against what is on the slot now. A weapon that
-## can't go on the slot is greyed with the reason. (Drag still works: drop a weapon on a slot.)
+## v12.72 (owner's mock-ups: "HOMELANCER MECH GARAGE" / "SHIP GARAGE"): the whole screen is the faction's hangar with
+## your mech / ship / pilot on its platform (live 3D: drag to turn, wheel or ZOOM to zoom). Left: the categories
+## (head, core, arms, legs, weapons, back pack, paint...). Lower left: the STATUS panel. Right: the selection list
+## (icon, name, price) and the picked item's bars (damage, range, fire rate, energy) with BUY / EQUIP. Picking a mount
+## zooms the camera to it; equipping clicks the weapon on with a blue flash, then the camera pulls back. Bottom bar:
+## ROTATE · ZOOM · COMPARE · BACK · EQUIP (and FRONT / SIDE / REAR / DETAIL views for the ship).
+var lo_slot := ""            # the mount picked (weapons)
+var lo_nodes_view := {}      # the preview's weapon nodes by mount (tests)
+var lo_cat := "weapons"      # the category on the left
+var lo_sel := ""             # the item highlighted in the right list
+var lo_compare := true       # COMPARE: the slot's current item shows as a grey bar behind
+var gar := {}                # the garage's live nodes
+var gar_cam := {"yaw": PI + 0.55, "pitch": 0.16, "dist": 24.0, "focus": Vector3.ZERO}
+var gar_goal := {}           # where the camera is heading (eased to)
+var gar_spin := true         # ROTATE: the camera circles slowly
+var gar_drag := false
+var gar_back_t := 0.0        # s until the camera pulls back after a weapon is fitted
+
+const GAR_BLUE := Color(0.22, 0.62, 1.0)
+const GAR_HI := Color(0.55, 0.85, 1.0)
+const GAR_GOLD := Color(1.0, 0.8, 0.32)
+
+func _gar_cats() -> Array:
+	match lo_frame:
+		"mech": return [["head", "Head"], ["core", "Core"], ["arms", "Arms"], ["legs", "Legs"], ["weapons", "Weapons"], ["backpack", "Back Pack"], ["paint", "Paint / Decals"]]
+		"ship": return [["weapons", "Weapons"], ["hull", "Hull"], ["wings", "Wings"], ["engines", "Engines"], ["backpack", "Weapon Set 2"], ["paint", "Paint / Decals"]]
+	return [["weapons", "Weapons"], ["suit", "Suit"], ["paint", "Paint / Decals"]]
+
+func _gar_bg() -> String:
+	var fac := str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])).to_lower()
+	if lo_frame == "mech": fac = "imperium" if not (fac in ["savagers", "covenant"]) else fac   # (the Imperium mech bay is the mech garage)
+	for k in ["unity", "savagers", "imperium", "covenant"]:
+		if fac == k: return "res://assets/garage/hangar_%s.jpg" % k
+	return "res://assets/garage/hangar_unity.jpg"
+
+## the garage's buttons: dark glass, a blue edge; lit blue when on
+func _gar_style(b: Button, big := false) -> void:
+	for st in ["normal", "hover", "pressed", "disabled", "focus"]:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = {"normal": Color(0.02, 0.07, 0.14, 0.86), "hover": Color(0.05, 0.16, 0.32, 0.92), "pressed": Color(0.08, 0.34, 0.72, 0.95), "disabled": Color(0.03, 0.06, 0.1, 0.7), "focus": Color(0, 0, 0, 0)}[st]
+		sb.border_color = Color(GAR_HI, 0.95) if st in ["pressed", "hover"] else Color(GAR_BLUE, 0.6 if st != "disabled" else 0.25)
+		sb.set_border_width_all(2 if big or st == "pressed" else 1)
+		sb.set_corner_radius_all(4)
+		sb.content_margin_left = 12
+		sb.content_margin_right = 12
+		if st == "focus": sb.draw_center = false
+		b.add_theme_stylebox_override(st, sb)
+	if b.toggle_mode and b.button_pressed: b.add_theme_stylebox_override("normal", b.get_theme_stylebox("pressed"))
+	b.add_theme_color_override("font_color", Color(0.9, 0.96, 1.0))
+	b.add_theme_color_override("font_disabled_color", Color(0.55, 0.62, 0.7))
+
+func _gar_panel(r: Rect2, nm: String) -> Panel:
+	var p := Panel.new()
+	p.name = nm
+	p.position = r.position
+	p.size = r.size
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.01, 0.05, 0.11, 0.84)
+	sb.border_color = Color(GAR_BLUE, 0.75)
+	sb.set_border_width_all(2)
+	tech_cut(sb, 14)
+	p.add_theme_stylebox_override("panel", sb)
+	return p
+
 func _loadout_page() -> void:
-	var v := _page_box()
+	var S: Vector2 = get_viewport_rect().size
+	_gar_close()
+	if not visibility_changed.is_connected(_gar_vis): visibility_changed.connect(_gar_vis)
+	var layer := CanvasLayer.new()   # (over the whole station screen: its own title, credits and BACK)
+	layer.name = "GarageLayer"
+	layer.layer = 110
+	add_child(layer)
+	var root := Control.new()
+	root.name = "Garage"
+	root.position = Vector2.ZERO
+	root.size = S
+	layer.add_child(root)
+	gar = {"root": root, "S": S}
 	var lo := Loadout.current(lo_frame)
 	lo_set = clampi(lo_set, 0, (lo["sets"] as Array).size() - 1)
+	var cats: Array = _gar_cats().map(func(c): return c[0])
+	if not (lo_cat in cats): lo_cat = "weapons"
 	var slots: Array = (Loadout.MOUNTS[lo_frame] as Dictionary).keys().filter(func(m): return not Loadout.MOUNTS[lo_frame][m].get("stow", false))
 	if not (lo_slot in slots): lo_slot = str(slots[0])
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
-	v.add_child(row)
-	for fr in ["mech", "ship", "pilot"]:
-		var fb := Button.new()
-		fb.name = "LoFrame_" + fr
-		fb.text = fr.to_upper()
-		fb.toggle_mode = true
-		fb.button_pressed = fr == lo_frame
-		fb.custom_minimum_size = Vector2(84, 44)
-		fb.pressed.connect(func(): lo_frame = fr; lo_pick = ""; lo_slot = ""; show_screen("loadout"))
-		row.add_child(fb)
-	var gap := Control.new()
-	gap.custom_minimum_size = Vector2(18, 0)
-	row.add_child(gap)
-	for i in (lo["sets"] as Array).size():
-		var sb := Button.new()
-		sb.name = "LoSet_%d" % i
-		sb.text = "SET %d%s" % [i + 1, " ★" if i == int(lo["active"]) else ""]
-		sb.toggle_mode = true
-		sb.button_pressed = i == lo_set
-		sb.custom_minimum_size = Vector2(80, 44)
-		sb.pressed.connect(func(): lo_set = i; show_screen("loadout"))
-		row.add_child(sb)
-	var cols := HBoxContainer.new()
-	cols.name = "LoGarage"
-	cols.add_theme_constant_override("separation", 10)
-	v.add_child(cols)
-	# ---- left: the slots
-	var left := VBoxContainer.new()
-	left.name = "LoSlots"
-	left.custom_minimum_size = Vector2(168, 0)
-	left.add_theme_constant_override("separation", 6)
-	cols.add_child(left)
-	var lh := _label(14, CYAN)
-	lh.text = "MOUNT SLOTS"
-	left.add_child(lh)
-	lo_targets.clear()
-	var set_d: Dictionary = lo["sets"][lo_set]
-	for m in slots:
-		var md: Dictionary = Loadout.MOUNTS[lo_frame][m]
-		var tb := Button.new()
-		tb.name = "LoMount_" + m
-		var wid := str(set_d.get(m, ""))
-		var hang: bool = lo_frame == "ship" and m in Loadout.HANG_MOUNTS
-		tb.text = "%s%s\n%s" % [md["label"], "  ⤓" if hang else "", str(Loadout.weapon(wid).get("short", "— empty —")) if wid != "" else "— empty —"]
-		tb.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		tb.add_theme_font_size_override("font_size", Data.ts(12))
-		tb.custom_minimum_size = Vector2(168, 50)
-		tb.toggle_mode = true
-		tb.button_pressed = m == lo_slot
-		tb.modulate = Color(1.0, 0.9, 0.5) if wid != "" else Color(0.8, 0.9, 1.0, 0.85)
-		tb.tooltip_text = "%s · takes %s · up to W %.0f / E %.0f%s" % [md["label"], ", ".join(md["classes"]), md["max_w"], md["e_cap"], " · hangs upside down" if hang else ""]
-		left.add_child(tb)
-		lo_targets[m] = tb
-		tb.set_drag_forwarding(Callable(), func(_at, data): return data is Dictionary and data.has("lo_weapon"), func(_at, data): _lo_drop(m, str(data["lo_weapon"])))
-		tb.pressed.connect(func(): _lo_tap_mount(m))
-	var clr := Button.new()
-	clr.name = "LoClear"
-	clr.text = "CLEAR SLOT"
-	clr.custom_minimum_size = Vector2(168, 40)
-	clr.disabled = not set_d.has(lo_slot)
-	clr.pressed.connect(func():
-		var before := Loadout.totals(lo)
-		Loadout.fit(lo, lo_set, lo_slot, "")
-		lo_note = _lo_change(before, Loadout.totals(lo), "%s cleared" % Loadout.MOUNTS[lo_frame][lo_slot]["label"])
-		show_screen("loadout"))
-	left.add_child(clr)
-	# ---- centre: the live model, turning
-	var stage := Control.new()
-	stage.name = "LoStage"
-	stage.custom_minimum_size = Vector2(250, 300)
-	stage.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	stage.size_flags_vertical = Control.SIZE_SHRINK_BEGIN   # (it keeps its height: the weapon list scrolls on its own)
-	cols.add_child(stage)
+	# the hangar picture, edge to edge
+	var bg := TextureRect.new()
+	bg.name = "GarBg"
+	bg.texture = load(_gar_bg())
+	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(bg)
+	var shade := TextureRect.new()   # darker at the top and the bottom, so the panels read
+	var gt := GradientTexture2D.new()
+	gt.fill_from = Vector2(0, 0)
+	gt.fill_to = Vector2(0, 1)
+	var gr := Gradient.new()
+	gr.offsets = PackedFloat32Array([0.0, 0.22, 0.7, 1.0])
+	gr.colors = PackedColorArray([Color(0, 0.02, 0.06, 0.75), Color(0, 0.02, 0.06, 0.15), Color(0, 0.02, 0.06, 0.1), Color(0, 0.02, 0.06, 0.7)])
+	gt.gradient = gr
+	shade.texture = gt
+	shade.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	shade.stretch_mode = TextureRect.STRETCH_SCALE
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(shade)
+	# the live model on the platform
 	var svc := SubViewportContainer.new()
+	svc.name = "LoStage"
 	svc.stretch = true
 	svc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	svc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	stage.add_child(svc)
+	root.add_child(svc)
 	var vp := SubViewport.new()
 	vp.own_world_3d = true
 	vp.transparent_bg = true
 	vp.msaa_3d = Viewport.MSAA_2X
 	svc.add_child(vp)
 	lo_view = vp
-	var turn := Node3D.new()   # (turns; the pivot inside it centres and sizes the model)
-	turn.name = "LoTurn"
-	vp.add_child(turn)
 	var pivot := Node3D.new()
 	pivot.name = "LoPivot"
-	turn.add_child(pivot)
+	vp.add_child(pivot)
 	var model := _lo_model()
 	model.name = "LoModel"
 	pivot.add_child(model)
 	var bb0: AABB = ShipFactory._aabb(model, Transform3D.IDENTITY)
 	var span: float = maxf(bb0.size.x, maxf(bb0.size.y, bb0.size.z))
 	if span > 0.01: pivot.scale = Vector3.ONE * (12.0 / span)
-	pivot.position = -bb0.get_center() * pivot.scale.x
+	var k: float = pivot.scale.x
+	pivot.position = -bb0.get_center() * k
+	if lo_frame == "ship": pivot.position.y = -4.4 - bb0.position.y * k   # (a ship rests low on the pad)
+	else: pivot.position.y = -6.0 - bb0.position.y * k                   # (feet on the pad)
 	lo_nodes_view = Loadout.dress(model, _lo_view_set(lo))
-	var tw := turn.create_tween().set_loops()
-	tw.tween_property(turn, "rotation:y", TAU, 14.0).from(0.0)
 	var cam := Camera3D.new()
-	cam.fov = 38.0
+	cam.name = "GarCam"
+	cam.fov = 40.0
 	vp.add_child(cam)
-	cam.look_at_from_position(Vector3(13.0, 8.0, 19.0) if lo_frame == "ship" else Vector3(10.0, 4.0, -22.0), Vector3.ZERO, Vector3.UP)
 	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-50, 30, 0)
-	sun.light_energy = 1.4
+	sun.rotation_degrees = Vector3(-48, 35, 0)
+	sun.light_energy = 1.5
 	vp.add_child(sun)
+	var rim := DirectionalLight3D.new()   # the hangar's blue light from behind
+	rim.rotation_degrees = Vector3(-20, 200, 0)
+	rim.light_color = Color(0.45, 0.7, 1.0)
+	rim.light_energy = 1.1
+	vp.add_child(rim)
 	var env := WorldEnvironment.new()
 	env.environment = Environment.new()
 	env.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.environment.ambient_light_color = Color(0.55, 0.65, 0.8)
-	env.environment.ambient_light_energy = 0.8
+	env.environment.ambient_light_color = Color(0.55, 0.65, 0.85)
+	env.environment.ambient_light_energy = 0.75
 	vp.add_child(env)
-	var cap := _label(13, GOLD)   # what the selected slot holds, over the model
-	cap.name = "LoStageCap"
-	cap.position = Vector2(10, 6)
-	cap.size = Vector2(236, 22)
-	cap.clip_text = true
-	var cur_w := Loadout.weapon(str(set_d.get(lo_slot, "")))
-	cap.text = "%s  ·  %s" % [Loadout.MOUNTS[lo_frame][lo_slot]["label"].to_upper(), "%s (%s · %s)" % [cur_w["short"], cur_w["wclass"], str(cur_w["class"])] if not cur_w.is_empty() else "empty"]
-	stage.add_child(cap)
-	# ---- right: the weapons this user can take, with before / after bars
-	var rcol := VBoxContainer.new()
-	rcol.custom_minimum_size = Vector2(300, 0)
-	cols.add_child(rcol)
-	var wl := _label(14, CYAN)
-	wl.text = "WEAPONS · %s" % Loadout.USER_NAME[lo_frame].to_upper()
-	rcol.add_child(wl)
-	var rsc := ScrollContainer.new()
-	rsc.custom_minimum_size = Vector2(300, 280)
-	rsc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	rcol.add_child(rsc)
-	var right := VBoxContainer.new()
-	right.name = "LoWeapons"
-	right.custom_minimum_size = Vector2(290, 0)
-	right.add_theme_constant_override("separation", 5)
-	rsc.add_child(right)
-	var owned: Array = GS.owned_weapons.duplicate()
-	if GS.god_mode: owned = Loadout.all_weapons()
-	for k in AssetRegistry.ITEMS:   # v12.70 (owner: "add the weapons to the garage"): every Tripo weapon is on the bench
-		if str(AssetRegistry.ITEMS[k].get("kind", "")) == "weapon" and not (k in owned): owned.append(k)
-	for wid2 in owned:
-		var w := Loadout.weapon(str(wid2))
-		if w.is_empty() or not (lo_frame in (w["users"] as Array)): continue
-		var wid3 := str(wid2)
-		var err := Loadout.fit_error(lo, lo_set, lo_slot, wid3)
-		var wb := Button.new()
-		wb.name = "LoWeapon_" + wid3
-		wb.custom_minimum_size = Vector2(290, 74)
-		wb.toggle_mode = true
-		wb.button_pressed = str(set_d.get(lo_slot, "")) == wid3
-		wb.tooltip_text = err if err != "" else "Fit on the %s" % Loadout.MOUNTS[lo_frame][lo_slot]["label"]
-		if err != "": wb.modulate = Color(0.6, 0.6, 0.65, 0.8)
-		var card := Control.new()
-		card.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		card.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		card.draw.connect(func(): _lo_card(card, w, cur_w, err))
-		wb.add_child(card)
-		wb.set_drag_forwarding(func(_at):
-			var pv := Label.new()
-			pv.text = str(w["short"])
-			wb.set_drag_preview(pv)
-			return {"lo_weapon": wid3}, Callable(), Callable())
-		wb.pressed.connect(func(): _lo_select(wid3))
-		right.add_child(wb)
-	# the totals, and what the last change did
-	var t := Loadout.totals(lo)
-	var tl := _label(15, Color(0.85, 0.95, 1.0))
-	tl.name = "LoTotals"
-	tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	tl.text = "WEIGHT %.0f / %.0f%s   ·   ENERGY %.0f / %.0f%s\nARMOR %.0f   ·   SPEED %d%%   ·   BOOST %d%%   ·   STAGGER RES %d%%" % [t["weight"], t["cap"], "  OVERWEIGHT: slower" if float(t["over_w"]) > 0.0 else "", t["energy"], t["gen"], "  OVER: BLOCKED" if bool(t["blocked"]) else "",
-		t["armor"], int(float(t["speed"]) * 100.0), int(float(t["boost"]) * 100.0), int(float(t["stagger"]) * 100.0)]
-	v.add_child(tl)
-	if lo_note != "":
-		var nl := _label(14, GOLD)
-		nl.name = "LoNote"
-		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		nl.text = lo_note
-		v.add_child(nl)
-	# the armor parts
-	var al := _label(16, CYAN)
-	al.text = "ARMOR PARTS"
-	v.add_child(al)
-	for slot in Loadout.SLOTS[lo_frame]:
-		var pr := HBoxContainer.new()
-		pr.add_theme_constant_override("separation", 6)
-		v.add_child(pr)
-		var ids: Array = Loadout.parts_for(lo_frame, slot)
-		var cur := str(lo["parts"].get(slot, ""))
-		var pd := Loadout.part(lo_frame, slot, cur)
-		for d in [-1, 1]:
-			var ab := Button.new()
-			ab.name = "LoPart_%s_%s" % [slot, "prev" if d < 0 else "next"]
-			ab.text = "<" if d < 0 else ">"
-			ab.custom_minimum_size = Vector2(44, 44)
-			ab.disabled = ids.size() < 2
-			ab.pressed.connect(func():
-				var i := ids.find(cur)
-				var nid: String = ids[posmod(i + d, ids.size())]
-				var before := Loadout.totals(lo)
-				var perr := Loadout.set_part(lo, slot, nid)
-				lo_note = perr if perr != "" else _lo_change(before, Loadout.totals(lo), str(Loadout.part(lo_frame, slot, nid).get("name", nid)))
-				show_screen("loadout"))
-			if d < 0: pr.add_child(ab)
-			else:
-				var pl := _label(14, Color(1, 1, 1))
-				pl.name = "LoPartName_" + slot
-				pl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-				pl.text = "%s: %s\nArmor %.0f · W %.0f · E %.0f%s%s" % [slot.to_upper(), pd.get("name", "-"), pd.get("armor", 0.0), pd.get("weight", 0.0), pd.get("energy", 0.0),
-					(" · carries %.0f" % float(pd["cap"])) if pd.has("cap") else "", (" · makes %.0f" % float(pd["gen"])) if pd.has("gen") else ""]
-				pr.add_child(pl)
-				pr.add_child(ab)
-	# presets: save / load the loadout as data
-	var ps := HBoxContainer.new()
-	ps.add_theme_constant_override("separation", 6)
-	v.add_child(ps)
-	for i in 3:
-		var sv := Button.new()
-		sv.name = "LoSave_%d" % i
-		sv.text = "SAVE %d" % (i + 1)
-		sv.custom_minimum_size = Vector2(70, 40)
-		sv.pressed.connect(func(): Loadout.save_preset(i, lo_frame); GS.save_game(); lo_note = "Saved as preset %d." % (i + 1); show_screen("loadout"))
-		ps.add_child(sv)
-		var ld := Button.new()
-		ld.name = "LoLoad_%d" % i
-		ld.text = "LOAD %d" % (i + 1)
-		ld.custom_minimum_size = Vector2(70, 40)
-		ld.disabled = i >= GS.loadout_presets.size() or str(GS.loadout_presets[i]) == ""
-		ld.pressed.connect(func():
-			var e := Loadout.load_preset(i)
-			lo_note = e if e != "" else "Preset %d loaded." % (i + 1)
-			show_screen("loadout"))
-		ps.add_child(ld)
+	gar["cam"] = cam
+	gar["model"] = model
+	gar["pivot"] = pivot
+	# drag to turn, wheel / pinch to zoom (the open middle of the screen)
+	var orbit := Control.new()
+	orbit.name = "GarOrbit"
+	orbit.position = Vector2(300, 110)
+	orbit.size = Vector2(maxf(100.0, S.x - 300 - 470), maxf(100.0, S.y - 110 - 250))
+	orbit.mouse_filter = Control.MOUSE_FILTER_STOP
+	orbit.gui_input.connect(_gar_input)
+	root.add_child(orbit)
+	# the title
+	var title := Control.new()
+	title.name = "GarTitle"
+	title.position = Vector2(24, 14)
+	title.size = Vector2(440, 70)
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	title.draw.connect(func(): _gar_draw_title(title))
+	root.add_child(title)
+	# MECH / SHIP / PILOT
+	var tabs := HBoxContainer.new()
+	tabs.position = Vector2(30, 92)
+	tabs.add_theme_constant_override("separation", 6)
+	root.add_child(tabs)
+	for fr in ["mech", "ship", "pilot"]:
+		var fb := Button.new()
+		fb.name = "LoFrame_" + fr
+		fb.text = fr.to_upper()
+		fb.toggle_mode = true
+		fb.button_pressed = fr == lo_frame
+		fb.custom_minimum_size = Vector2(80, 38)
+		fb.add_theme_font_size_override("font_size", Data.ts(15))
+		fb.pressed.connect(func(): lo_frame = fr; lo_pick = ""; lo_slot = ""; lo_sel = ""; lo_cat = "weapons"; gar_cam = {}; show_screen("loadout"))
+		_gar_style(fb)
+		tabs.add_child(fb)
+	# the categories
+	var cl := _gar_panel(Rect2(24, 140, 252, 46.0 * _gar_cats().size() + 16.0), "LoCats")
+	root.add_child(cl)
+	var cy := 8.0
+	for c in _gar_cats():
+		var cb := Button.new()
+		cb.name = "LoCat_" + str(c[0])
+		cb.flat = true
+		cb.position = Vector2(6, cy)
+		cb.size = Vector2(240, 42)
+		cb.mouse_filter = Control.MOUSE_FILTER_STOP
+		var ck := str(c[0])
+		var on: bool = ck == lo_cat
+		cb.draw.connect(func(): _gar_draw_cat(cb, ck, str(c[1]), on))
+		cb.pressed.connect(func(): _gar_pick_cat(ck))
+		cl.add_child(cb)
+		cy += 46.0
+	# the status panel
+	var st := _gar_panel(Rect2(296, S.y - 236, 300, 166), "LoStatus")
+	root.add_child(st)
+	gar["status"] = st
+	_gar_status()
+	# the selection panel
+	var rp := _gar_panel(Rect2(S.x - 456, 96, 432, S.y - 96 - 72), "LoRight")
+	root.add_child(rp)
+	gar["right"] = rp
+	_gar_right()
+	# the note (what the last change did) and the bottom bar
+	var nl := _label(14, GOLD)
+	nl.name = "LoNote"
+	nl.position = Vector2(300, 92)
+	nl.size = Vector2(S.x - 300 - 480, 44)
+	nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	nl.text = lo_note
+	root.add_child(nl)
+	gar["note"] = nl
+	var hb := HBoxContainer.new()
+	hb.name = "GarHints"
+	hb.add_theme_constant_override("separation", 6)
+	root.add_child(hb)
+	var hints: Array = [["rotate", "⟳ ROTATE"], ["zoom", "⊕ ZOOM"], ["compare", "⇆ COMPARE"], ["back", "✕ BACK"], ["equip", "△ EQUIP"]]
+	if lo_frame == "ship": hints = [["front", "FRONT"], ["side", "SIDE"], ["rear", "REAR"], ["detail", "DETAIL"]] + hints
+	for h in hints:
+		var b := Button.new()
+		b.name = "GarHint_" + str(h[0])
+		b.text = str(h[1])
+		b.add_theme_font_size_override("font_size", Data.ts(13))
+		b.custom_minimum_size = Vector2(0, 34)
+		var hk := str(h[0])
+		if hk == "rotate": b.toggle_mode = true; b.button_pressed = gar_spin
+		if hk == "compare": b.toggle_mode = true; b.button_pressed = lo_compare
+		b.pressed.connect(func(): _gar_hint(hk))
+		_gar_style(b)
+		hb.add_child(b)
+	hb.reset_size()
+	hb.position = Vector2(S.x - 24 - hb.size.x, S.y - 58)
+	if gar_cam.is_empty() or not gar_cam.has("dist"):
+		gar_goal = {}
+		_gar_view("main", true)
+	_gar_tick(0.0)
 
-var lo_slot := ""            # v12.68: the garage slot picked on the left
-var lo_nodes_view := {}      # v12.68: the preview's weapon nodes by mount (tests)
+func _gar_vis() -> void:   # (a CanvasLayer doesn't hide with the hub: it goes when the hub does)
+	var l := get_node_or_null("GarageLayer") as CanvasLayer
+	if l != null: l.visible = visible and screen == "loadout"
+
+func _gar_close() -> void:
+	gar = {}
+	var old := get_node_or_null("GarageLayer")
+	if old != null:
+		remove_child(old)
+		old.queue_free()
+
+func _gar_draw_title(c: Control) -> void:
+	var f: Font = get_theme_default_font() if get_theme_default_font() != null else ThemeDB.fallback_font
+	var a := Vector2(30, 6)   # the mark: a sharp triangle over a broken one (original)
+	c.draw_colored_polygon(PackedVector2Array([a + Vector2(0, 0), a + Vector2(30, 52), a + Vector2(-30, 52)]), Color(GAR_BLUE, 0.95))
+	c.draw_colored_polygon(PackedVector2Array([a + Vector2(0, 16), a + Vector2(17, 46), a + Vector2(-17, 46)]), Color(0.02, 0.06, 0.12))
+	c.draw_colored_polygon(PackedVector2Array([a + Vector2(-30, 52), a + Vector2(-6, 40), a + Vector2(6, 40), a + Vector2(30, 52)]), Color(GAR_HI, 0.9))
+	c.draw_string(f, Vector2(74, 34), "HOMELANCER", HORIZONTAL_ALIGNMENT_LEFT, -1, 32, Color(0.95, 0.98, 1.0))
+	var sub: String = {"mech": "MECH GARAGE", "ship": "SHIP GARAGE", "pilot": "PILOT LOADOUT"}[lo_frame]
+	c.draw_string(f, Vector2(76, 60), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 19, Color(0.75, 0.88, 1.0))
+
+func _gar_draw_cat(b: Control, key: String, txt: String, on: bool) -> void:
+	var r := Rect2(Vector2.ZERO, b.size)
+	if on:
+		b.draw_rect(r, Color(0.08, 0.32, 0.7, 0.85))
+		b.draw_rect(r, Color(GAR_HI, 0.95), false, 2.0)
+	b.draw_line(Vector2(8, r.size.y), Vector2(r.size.x - 8, r.size.y), Color(1, 1, 1, 0.08), 1.0)
+	_gar_cat_icon(b, Vector2(26, r.size.y * 0.5), key, Color(0.85, 0.93, 1.0) if not on else Color.WHITE)
+	var f: Font = get_theme_default_font() if get_theme_default_font() != null else ThemeDB.fallback_font
+	b.draw_string(f, Vector2(58, r.size.y * 0.5 + 7), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 19, Color.WHITE if on else Color(0.85, 0.92, 1.0))
+
+## the category icons (drawn: helmet, chest, arm, legs, gun, pack, brush, hull, wing, engine, suit)
+func _gar_cat_icon(c: Control, m: Vector2, key: String, col: Color) -> void:
+	match key:
+		"head", "suit":
+			c.draw_circle(m + Vector2(0, -2), 10, col)
+			c.draw_rect(Rect2(m + Vector2(-7, -4), Vector2(14, 4)), Color(0.05, 0.1, 0.2))
+			c.draw_rect(Rect2(m + Vector2(-6, 7), Vector2(12, 5)), col)
+		"core", "hull":
+			c.draw_colored_polygon(PackedVector2Array([m + Vector2(-12, -9), m + Vector2(12, -9), m + Vector2(9, 8), m + Vector2(0, 12), m + Vector2(-9, 8)]), col)
+			c.draw_circle(m, 3.5, Color(0.2, 0.6, 1.0))
+		"arms":
+			c.draw_rect(Rect2(m + Vector2(-12, -10), Vector2(9, 9)), col)
+			c.draw_rect(Rect2(m + Vector2(-6, -3), Vector2(7, 14)), col)
+			c.draw_rect(Rect2(m + Vector2(3, 4), Vector2(9, 7)), col)
+		"legs":
+			for sx in [-1.0, 1.0]:
+				c.draw_rect(Rect2(m + Vector2(sx * 6 - 4, -11), Vector2(8, 11)), col)
+				c.draw_rect(Rect2(m + Vector2(sx * 6 - 5, 1), Vector2(10, 10)), col)
+		"weapons", "backpack":
+			c.draw_rect(Rect2(m + Vector2(-14, -5), Vector2(28, 6)), col)
+			c.draw_rect(Rect2(m + Vector2(-8, 1), Vector2(6, 9)), col)
+			if key == "backpack": c.draw_rect(Rect2(m + Vector2(-10, -12), Vector2(20, 5)), col)
+		"wings":
+			c.draw_colored_polygon(PackedVector2Array([m + Vector2(-14, 8), m + Vector2(0, -10), m + Vector2(14, 8), m + Vector2(0, 3)]), col)
+		"engines":
+			c.draw_circle(m, 10, col)
+			c.draw_circle(m, 5, Color(0.25, 0.65, 1.0))
+		_:
+			c.draw_circle(m, 10, col)
+			c.draw_circle(m + Vector2(4, -3), 3, Color(0.05, 0.1, 0.2))
+
+func _gar_pick_cat(key: String) -> void:
+	lo_sel = ""
+	if key == "backpack":   # (the second weapon set: stowed on the back / in the hull until you SWAP)
+		lo_set = 1
+		lo_cat = "backpack"
+	elif key == "weapons":
+		lo_set = 0
+		lo_cat = "weapons"
+	else: lo_cat = key
+	show_screen("loadout")
+
+func _gar_weapons_mode() -> bool: return lo_cat in ["weapons", "backpack"]
+
+## the STATUS panel (numbers from the loadout's totals)
+func _gar_status() -> void:
+	var st: Panel = gar.get("status")
+	if st == null or not is_instance_valid(st): return
+	for c in st.get_children(): c.free()
+	var lo := Loadout.current(lo_frame)
+	var t := Loadout.totals(lo)
+	var dps := 0.0
+	for m in Loadout.active_set(lo):
+		var w := Loadout.weapon(str(Loadout.active_set(lo)[m]))
+		dps += float(w.get("damage", 0.0)) * float(w.get("rate", 0.0))
+	var rows: Array = []
+	if lo_frame == "ship":
+		var sh: Dictionary = GS.ship()
+		rows = [["HULL", float(sh.get("hull", 100)) + float(t["armor"]) * 4.0, 1200.0], ["SHIELD", float(sh.get("shield", 60)), 600.0],
+			["MAX SPEED", float(sh.get("speed", 45.0)) * float(t["speed"]) * 10.0, 900.0], ["MANEUVER", float(sh.get("turn", 1.5)) * 50.0, 100.0], ["ATK", dps * 10.0, 3000.0]]
+	else:
+		rows = [["ATK", dps * 10.0, 3000.0], ["DEF", float(t["armor"]) * 10.0, 2500.0], ["EN", float(t["gen"]) * 6.0, 1500.0], ["MOBILITY", float(t["speed"]) * 320.0, 400.0]]
+	var hd := _label(15, Color.WHITE)
+	hd.text = {"mech": "MECH STATUS", "ship": "SHIP STATUS", "pilot": "PILOT STATUS"}[lo_frame]
+	hd.position = Vector2(14, 6)
+	st.add_child(hd)
+	var y := 32.0
+	for r in rows:
+		var bar := Control.new()
+		bar.position = Vector2(14, y)
+		bar.size = Vector2(272, 20)
+		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var rr: Array = r
+		bar.draw.connect(func(): _gar_bar(bar, str(rr[0]), float(rr[1]), float(rr[2]), -1.0, "%d" % int(rr[1])))
+		st.add_child(bar)
+		y += 21.0
+	var tl := _label(12, Color(0.8, 0.9, 1.0) if not bool(t["blocked"]) else Color(1.0, 0.45, 0.4))
+	tl.name = "LoTotals"
+	tl.position = Vector2(14, y + 2)
+	tl.text = "WEIGHT %.0f / %.0f%s · ENERGY %.0f / %.0f%s" % [t["weight"], t["cap"], " SLOW" if float(t["over_w"]) > 0.0 else "", t["energy"], t["gen"], " BLOCKED" if bool(t["blocked"]) else ""]
+	st.add_child(tl)
+
+## one stat bar: label, value bar (blue), and the slot's current value behind it (grey) when comparing
+func _gar_bar(c: Control, lbl: String, v: float, mx: float, before: float, txt: String) -> void:
+	var f: Font = get_theme_default_font() if get_theme_default_font() != null else ThemeDB.fallback_font
+	var w := c.size.x
+	c.draw_string(f, Vector2(0, 15), lbl, HORIZONTAL_ALIGNMENT_LEFT, w * 0.34, 14, Color(0.88, 0.94, 1.0))
+	var r := Rect2(w * 0.36, 6, w * 0.44, 8)
+	c.draw_rect(r, Color(1, 1, 1, 0.08))
+	if before >= 0.0 and lo_compare: c.draw_rect(Rect2(r.position, Vector2(r.size.x * clampf(before / mx, 0.0, 1.0), r.size.y)), Color(0.65, 0.68, 0.72, 0.8))
+	var col := GAR_BLUE
+	if before >= 0.0 and lo_compare: col = Color(0.35, 0.95, 0.55) if v >= before else Color(1.0, 0.5, 0.35)
+	c.draw_rect(Rect2(r.position + Vector2(0, 2 if before >= 0.0 and lo_compare else 0), Vector2(r.size.x * clampf(v / mx, 0.0, 1.0), r.size.y - (2 if before >= 0.0 and lo_compare else 0))), col)
+	c.draw_string(f, Vector2(w * 0.82, 15), txt, HORIZONTAL_ALIGNMENT_RIGHT, w * 0.18, 14, Color.WHITE)
+
+## the right panel: weapons (mounts, list, details, BUY / EQUIP) or parts (list, details, EQUIP)
+func _gar_right() -> void:
+	var rp: Panel = gar.get("right")
+	if rp == null or not is_instance_valid(rp): return
+	for c in rp.get_children(): c.free()
+	lo_targets.clear()
+	var lo := Loadout.current(lo_frame)
+	var W: float = rp.size.x
+	var hd := _label(20, Color.WHITE)
+	hd.position = Vector2(16, 8)
+	rp.add_child(hd)
+	var cr := _label(16, GAR_GOLD)   # the credits
+	cr.name = "LoCredits"
+	cr.text = "◎ %s Credits" % _gar_num(GS.credits)
+	cr.position = Vector2(W - 200, 12)
+	cr.size = Vector2(186, 24)
+	cr.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	rp.add_child(cr)
+	if lo_cat == "paint":
+		hd.text = "Paint / Decals"
+		var pl := _label(15, Color(0.85, 0.92, 1.0))
+		pl.position = Vector2(16, 50)
+		pl.size = Vector2(W - 32, 80)
+		pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		pl.text = "Paint schemes and decals are coming. Your faction's colours for now."
+		rp.add_child(pl)
+		return
+	if _gar_weapons_mode(): _gar_right_weapons(rp, lo, hd)
+	else: _gar_right_parts(rp, lo, hd)
+
+func _gar_num(n: int) -> String:
+	var s := str(absi(n))
+	var out := ""
+	while s.length() > 3:
+		out = "," + s.right(3) + out
+		s = s.left(s.length() - 3)
+	return ("-" if n < 0 else "") + s + out
+
+func _gar_owned(wid: String) -> bool: return GS.god_mode or wid in GS.owned_weapons or str(AssetRegistry.ITEMS.get(wid, {}).get("kind", "")) == "weapon"
+
+func _gar_right_weapons(rp: Panel, lo: Dictionary, hd: Label) -> void:
+	var W: float = rp.size.x
+	var H: float = rp.size.y
+	hd.text = "Weapon Selection" + ("  ·  SET 2 (stowed)" if lo_set == 1 else "")
+	var set_d: Dictionary = lo["sets"][lo_set]
+	# the mounts: tap one (the camera goes to it)
+	var mf := HFlowContainer.new()
+	mf.position = Vector2(14, 44)
+	mf.size = Vector2(W - 28, 40)
+	mf.add_theme_constant_override("h_separation", 5)
+	mf.add_theme_constant_override("v_separation", 5)
+	rp.add_child(mf)
+	for m in Loadout.MOUNTS[lo_frame]:
+		var md: Dictionary = Loadout.MOUNTS[lo_frame][m]
+		if md.get("stow", false): continue
+		var tb := Button.new()
+		tb.name = "LoMount_" + m
+		tb.text = str(md["label"]).replace(" (top)", "").replace(" (belly)", "").to_upper() + (" ⤓" if lo_frame == "ship" and m in Loadout.HANG_MOUNTS else "")
+		tb.toggle_mode = true
+		tb.button_pressed = m == lo_slot
+		tb.add_theme_font_size_override("font_size", Data.ts(11))
+		tb.custom_minimum_size = Vector2(0, 28)
+		tb.modulate = Color(1.0, 0.92, 0.6) if set_d.has(m) else Color(0.85, 0.92, 1.0)
+		tb.tooltip_text = "%s: %s" % [md["label"], Loadout.weapon(str(set_d[m])).get("name", "") if set_d.has(m) else "empty"]
+		tb.set_drag_forwarding(Callable(), func(_at, data): return data is Dictionary and data.has("lo_weapon"), func(_at, data): _lo_drop(m, str(data["lo_weapon"])))
+		tb.pressed.connect(func(): _lo_tap_mount(m))
+		_gar_style(tb)
+		mf.add_child(tb)
+		lo_targets[m] = tb
+	# the list
+	var ids: Array = []
+	for wid in Loadout.all_weapons():
+		var w := Loadout.weapon(str(wid))
+		if w.is_empty() or not (lo_frame in (w["users"] as Array)): continue
+		if not _gar_owned(str(wid)) and int(_gar_price(str(wid))) <= 0: continue
+		ids.append(str(wid))
+	ids.sort_custom(func(a, b): return [not _gar_owned(a), _gar_price(a)] < [not _gar_owned(b), _gar_price(b)])
+	var cur := str(set_d.get(lo_slot, ""))
+	if lo_sel == "" or not (lo_sel in ids): lo_sel = cur if cur in ids else (str(ids[0]) if not ids.is_empty() else "")
+	var sc := ScrollContainer.new()
+	sc.position = Vector2(12, 122)
+	sc.size = Vector2(W - 24, maxf(120.0, H - 122 - 230))
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	rp.add_child(sc)
+	var list := VBoxContainer.new()
+	list.name = "LoWeapons"
+	list.custom_minimum_size = Vector2(W - 36, 0)
+	list.add_theme_constant_override("separation", 3)
+	sc.add_child(list)
+	for wid2 in ids:
+		var w2 := Loadout.weapon(wid2)
+		var err := Loadout.fit_error(lo, lo_set, lo_slot, wid2)
+		var row := Button.new()
+		row.name = "LoWeapon_" + wid2
+		row.custom_minimum_size = Vector2(W - 36, 40)
+		row.flat = true
+		row.tooltip_text = err if err != "" else "Fit on the %s" % Loadout.MOUNTS[lo_frame][lo_slot]["label"]
+		var sel: bool = wid2 == lo_sel
+		var on_slot: bool = wid2 == cur
+		var owned := _gar_owned(wid2)
+		row.draw.connect(func(): _gar_draw_row(row, w2, sel, on_slot, owned, err))
+		row.set_drag_forwarding(func(_at):
+			var pv := Label.new()
+			pv.text = str(w2["short"])
+			row.set_drag_preview(pv)
+			return {"lo_weapon": wid2}, Callable(), Callable())
+		row.pressed.connect(func(): _lo_select(wid2))
+		list.add_child(row)
+	# the picked weapon's details
+	var dy: float = H - 222
+	var w3 := Loadout.weapon(lo_sel)
+	if w3.is_empty(): return
+	var dn := _label(18, Color.WHITE)
+	dn.name = "LoDetailName"
+	dn.text = str(w3["name"])
+	dn.position = Vector2(16, dy)
+	dn.size = Vector2(W - 32, 26)
+	dn.clip_text = true
+	rp.add_child(dn)
+	var users: Array = (w3["users"] as Array).map(func(u): return Loadout.USER_NAME[u])
+	var dsub := _label(12, Color(0.7, 0.85, 1.0))
+	dsub.text = "%s · %s · %s · %s" % [w3["wclass"], str(w3["class"]).capitalize(), "/".join(users), "∞ ammo" if int(w3["ammo"]) < 0 else "%d rds" % int(w3["ammo"])]
+	dsub.position = Vector2(16, dy + 26)
+	rp.add_child(dsub)
+	var now := Loadout.weapon(cur) if cur != "" else {}
+	var stats := [["Damage", "damage", 80.0, "%d"], ["Range", "range", 1500.0, "%d"], ["Fire Rate", "rate", 10.0, "%.1f"], ["Energy Use", "energy", 40.0, "%d"]]
+	var yy := dy + 48
+	for sdef in stats:
+		var bar := Control.new()
+		bar.position = Vector2(16, yy)
+		bar.size = Vector2(W - 32, 20)
+		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var sd: Array = sdef
+		var v := float(w3.get(sd[1], 0.0))
+		var bv: float = float(now.get(sd[1], 0.0)) if not now.is_empty() and cur != lo_sel else -1.0
+		var vs: String = (str(sd[3]) % v) if str(sd[3]) == "%.1f" else (str(sd[3]) % int(v))
+		bar.draw.connect(func(): _gar_bar(bar, str(sd[0]), v, float(sd[2]), bv, vs))
+		rp.add_child(bar)
+		yy += 22.0
+	var err2 := Loadout.fit_error(lo, lo_set, lo_slot, lo_sel)
+	var act := Button.new()
+	act.position = Vector2(W * 0.5 - 110, H - 52)
+	act.size = Vector2(220, 42)
+	act.add_theme_font_size_override("font_size", Data.ts(17))
+	_gar_style(act, true)
+	if not _gar_owned(lo_sel):
+		act.name = "LoBuy"
+		act.text = "🛒  BUY  %s" % _gar_num(_gar_price(lo_sel))
+		act.disabled = GS.credits < _gar_price(lo_sel)
+		act.pressed.connect(func(): _gar_buy(lo_sel))
+	elif lo_sel == cur:
+		act.name = "LoEquipped"
+		act.text = "EQUIPPED"
+		act.disabled = true
+	else:
+		act.name = "LoEquip"
+		act.text = "EQUIP"
+		act.disabled = err2 != ""
+		act.pressed.connect(func(): _lo_drop(lo_slot, lo_sel))
+	rp.add_child(act)
+	if err2 != "" and _gar_owned(lo_sel) and lo_sel != cur:
+		var el := _label(11, Color(1.0, 0.55, 0.45))
+		el.text = err2
+		el.position = Vector2(16, H - 72)
+		el.size = Vector2(W - 32, 18)
+		el.clip_text = true
+		rp.add_child(el)
+
+func _gar_draw_row(b: Control, w: Dictionary, sel: bool, on_slot: bool, owned: bool, err: String) -> void:
+	var r := Rect2(Vector2.ZERO, b.size)
+	var f: Font = get_theme_default_font() if get_theme_default_font() != null else ThemeDB.fallback_font
+	if sel:
+		b.draw_rect(r, Color(0.06, 0.3, 0.68, 0.9))
+		b.draw_rect(r, Color(GAR_HI, 1.0), false, 2.0)
+	else: b.draw_rect(r, Color(1, 1, 1, 0.04))
+	var a := 1.0 if err == "" or not owned else 0.5
+	_lo_icon(b, Rect2(6, 4, 52, 32), str(w["icon"]), Color(w.get("color", Color(1, 0.6, 0.3)), a))
+	b.draw_string(f, Vector2(68, 26), str(w["name"]), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 68 - 104, 16, Color(1, 1, 1, a))
+	var tag := "EQUIPPED" if on_slot else ("OWNED" if owned else _gar_num(_gar_price(str(w["id"]))))
+	b.draw_string(f, Vector2(r.size.x - 100, 26), tag, HORIZONTAL_ALIGNMENT_RIGHT, 92, 16, Color(GAR_GOLD, a) if not (on_slot or owned) else Color(0.6, 0.95, 0.7, a))
+
+func _gar_price(wid: String) -> int:
+	var src: Dictionary = Data.WEAPONS.get(wid, Data.MOUNT_PODS.get(wid, {}))
+	if not src.is_empty(): return int(src.get("price", 0))
+	var w := Loadout.weapon(wid)
+	return int(round((4000.0 + float(w.get("damage", 10.0)) * float(w.get("rate", 1.0)) * 120.0) / 500.0) * 500.0)
+
+func _gar_buy(wid: String) -> void:
+	var p := _gar_price(wid)
+	if GS.credits < p:
+		lo_note = "Not enough credits (%s needed)." % _gar_num(p)
+	else:
+		GS.credits -= p
+		GS.owned_weapons.append(wid)
+		GS.save_game()
+		Sfx.play("pickup", -8.0)
+		lo_note = "Bought the %s. EQUIP puts it on the %s." % [Loadout.weapon(wid)["name"], Loadout.MOUNTS[lo_frame][lo_slot]["label"]]
+		_refresh_credits()
+	_gar_refresh()
+
+func _gar_right_parts(rp: Panel, lo: Dictionary, hd: Label) -> void:
+	var W: float = rp.size.x
+	var H: float = rp.size.y
+	var slot := lo_cat
+	hd.text = "%s Parts" % slot.capitalize()
+	var ids: Array = Loadout.parts_for(lo_frame, slot)
+	var cur := str(lo["parts"].get(slot, ""))
+	if lo_sel == "" or not (lo_sel in ids): lo_sel = cur
+	var sc := ScrollContainer.new()
+	sc.position = Vector2(12, 50)
+	sc.size = Vector2(W - 24, maxf(120.0, H - 50 - 230))
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	rp.add_child(sc)
+	var list := VBoxContainer.new()
+	list.custom_minimum_size = Vector2(W - 36, 0)
+	list.add_theme_constant_override("separation", 3)
+	sc.add_child(list)
+	for pid in ids:
+		var pd := Loadout.part(lo_frame, slot, str(pid))
+		var row := Button.new()
+		row.name = "LoPart_%s_%s" % [slot, pid]
+		row.custom_minimum_size = Vector2(W - 36, 40)
+		row.flat = true
+		var sel: bool = str(pid) == lo_sel
+		var on: bool = str(pid) == cur
+		var pk := str(pid)
+		row.draw.connect(func():
+			var r := Rect2(Vector2.ZERO, row.size)
+			var f: Font = get_theme_default_font() if get_theme_default_font() != null else ThemeDB.fallback_font
+			if sel:
+				row.draw_rect(r, Color(0.06, 0.3, 0.68, 0.9))
+				row.draw_rect(r, Color(GAR_HI, 1.0), false, 2.0)
+			else: row.draw_rect(r, Color(1, 1, 1, 0.04))
+			_gar_cat_icon(row, Vector2(30, 20), slot, Color(0.85, 0.93, 1.0))
+			row.draw_string(f, Vector2(64, 26), str(pd.get("name", pk)), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 64 - 104, 16, Color.WHITE)
+			row.draw_string(f, Vector2(r.size.x - 100, 26), "EQUIPPED" if on else "ARMOR %.0f" % float(pd.get("armor", 0.0)), HORIZONTAL_ALIGNMENT_RIGHT, 92, 15, Color(0.6, 0.95, 0.7) if on else GAR_GOLD))
+		row.pressed.connect(func(): lo_sel = pk; _gar_refresh())
+		list.add_child(row)
+	var pd2 := Loadout.part(lo_frame, slot, lo_sel)
+	var now := Loadout.part(lo_frame, slot, cur)
+	var dy: float = H - 222
+	var dn := _label(18, Color.WHITE)
+	dn.text = str(pd2.get("name", lo_sel))
+	dn.position = Vector2(16, dy)
+	rp.add_child(dn)
+	var yy := dy + 34
+	for sdef in [["Armor", "armor", 140.0], ["Weight", "weight", 80.0], ["Energy", "energy", 40.0], ["Generator" if pd2.has("gen") else "Carries", "gen" if pd2.has("gen") else "cap", 400.0]]:
+		var bar := Control.new()
+		bar.position = Vector2(16, yy)
+		bar.size = Vector2(W - 32, 20)
+		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var sd: Array = sdef
+		var v := float(pd2.get(sd[1], 0.0))
+		var bv: float = float(now.get(sd[1], 0.0)) if lo_sel != cur else -1.0
+		bar.draw.connect(func(): _gar_bar(bar, str(sd[0]), v, float(sd[2]), bv, "%d" % int(v)))
+		rp.add_child(bar)
+		yy += 22.0
+	var act := Button.new()
+	act.name = "LoEquip"
+	act.position = Vector2(W * 0.5 - 110, H - 52)
+	act.size = Vector2(220, 42)
+	act.add_theme_font_size_override("font_size", Data.ts(17))
+	_gar_style(act, true)
+	act.text = "EQUIPPED" if lo_sel == cur else "EQUIP"
+	act.disabled = lo_sel == cur
+	act.pressed.connect(func():
+		var lo2 := Loadout.current(lo_frame)
+		var before := Loadout.totals(lo2)
+		var perr := Loadout.set_part(lo2, slot, lo_sel)
+		lo_note = perr if perr != "" else _lo_change(before, Loadout.totals(lo2), str(Loadout.part(lo_frame, slot, lo_sel).get("name", lo_sel)))
+		GS.save_game()
+		if perr == "" and lo_frame == "mech" and slot in ["core", "arms", "legs"]: show_screen("loadout")   # (a new frame part: a new model)
+		else: _gar_refresh())
+	rp.add_child(act)
+
+## after a change: the model re-dressed, the panels redrawn (the 3D view and the camera keep going)
+func _gar_refresh() -> void:
+	if gar.is_empty() or not is_instance_valid(gar.get("model")):
+		show_screen("loadout")
+		return
+	lo_nodes_view = Loadout.dress(gar["model"], _lo_view_set(Loadout.current(lo_frame)))
+	_gar_status()
+	_gar_right()
+	if is_instance_valid(gar.get("note")): (gar["note"] as Label).text = lo_note
+
+func _gar_hint(k: String) -> void:
+	match k:
+		"rotate": gar_spin = not gar_spin
+		"zoom":
+			var d := float(gar_goal.get("dist", gar_cam.get("dist", 24.0)))
+			_gar_goal_set({"dist": 15.0 if d > 20.0 else (10.0 if d > 12.0 else 24.0)})
+		"compare":
+			lo_compare = not lo_compare
+			_gar_refresh()
+		"back": show_screen("hub")
+		"equip":
+			if lo_sel != "" and _gar_weapons_mode() and _gar_owned(lo_sel): _lo_drop(lo_slot, lo_sel)
+		"front", "side", "rear", "detail", "main": _gar_view(k, false)
+
+## camera views: main (three-quarter), front, side, rear, detail (close on the engines)
+func _gar_view(k: String, now: bool) -> void:
+	var g := {"main": {"yaw": PI + 0.55, "pitch": 0.16, "dist": 24.0, "focus": Vector3.ZERO}, "front": {"yaw": PI, "pitch": 0.1, "dist": 22.0, "focus": Vector3.ZERO},
+		"side": {"yaw": PI * 0.5, "pitch": 0.08, "dist": 22.0, "focus": Vector3.ZERO}, "rear": {"yaw": 0.0, "pitch": 0.12, "dist": 22.0, "focus": Vector3.ZERO},
+		"detail": {"yaw": 0.45, "pitch": 0.2, "dist": 10.0, "focus": Vector3(1.5, -2.0, 4.0)}}
+	var v: Dictionary = g.get(k, g["main"])
+	if now: gar_cam = v.duplicate()
+	else:
+		gar_spin = false
+		_gar_goal_set(v)
+
+func _gar_goal_set(v: Dictionary) -> void:
+	for key in v: gar_goal[key] = v[key]
+
+## the camera zooms to a mount (picked or just fitted)
+func _gar_focus_mount(m: String) -> void:
+	if gar.is_empty() or not is_instance_valid(gar.get("model")): return
+	var rig: Dictionary = Loadout.rig(gar["model"], lo_frame)
+	if not rig.has(m): return
+	var p: Vector3 = (rig[m] as Node3D).global_position
+	var side := 1.0 if p.x >= 0.0 else -1.0
+	gar_spin = false
+	_gar_goal_set({"focus": p * 0.6, "dist": 16.0 if lo_frame != "pilot" else 15.0, "yaw": (PI - side * 0.9) if lo_frame != "ship" else side * PI * 0.5, "pitch": 0.25 if p.y > 0.0 else -0.12})
+
+func _gar_input(e: InputEvent) -> void:
+	if e is InputEventMouseButton:
+		var mb := e as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_WHEEL_UP and mb.pressed: _gar_goal_set({"dist": maxf(7.0, float(gar_goal.get("dist", gar_cam.get("dist", 24.0))) * 0.88)})
+		elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN and mb.pressed: _gar_goal_set({"dist": minf(34.0, float(gar_goal.get("dist", gar_cam.get("dist", 24.0))) / 0.88)})
+		elif mb.button_index == MOUSE_BUTTON_LEFT: gar_drag = mb.pressed
+	elif e is InputEventScreenTouch: gar_drag = (e as InputEventScreenTouch).pressed
+	elif e is InputEventMagnifyGesture: _gar_goal_set({"dist": clampf(float(gar_cam.get("dist", 24.0)) / (e as InputEventMagnifyGesture).factor, 7.0, 34.0)})
+	elif (e is InputEventMouseMotion and gar_drag) or e is InputEventScreenDrag:
+		var rel: Vector2 = e.relative
+		gar_spin = false
+		gar_goal.erase("yaw")
+		gar_goal.erase("pitch")
+		gar_cam["yaw"] = float(gar_cam.get("yaw", 0.0)) - rel.x * 0.008
+		gar_cam["pitch"] = clampf(float(gar_cam.get("pitch", 0.1)) + rel.y * 0.005, -0.25, 0.9)
+
+func _gar_tick(dt: float) -> void:
+	if gar.is_empty() or not is_instance_valid(gar.get("cam")): return
+	if gar_back_t > 0.0:
+		gar_back_t -= dt
+		if gar_back_t <= 0.0: _gar_goal_set({"focus": Vector3.ZERO, "dist": 24.0, "pitch": 0.16})   # pull back to the whole machine
+	if gar_spin and not gar_drag: gar_cam["yaw"] = float(gar_cam.get("yaw", 0.0)) + dt * 0.12
+	var a := clampf(dt * 3.5, 0.0, 1.0)
+	for key in gar_goal.keys():
+		if key == "focus": gar_cam["focus"] = (gar_cam.get("focus", Vector3.ZERO) as Vector3).lerp(gar_goal["focus"], a)
+		else: gar_cam[key] = lerpf(float(gar_cam.get(key, 0.0)), float(gar_goal[key]), a)
+	var fo: Vector3 = gar_cam.get("focus", Vector3.ZERO)
+	var y := float(gar_cam.get("yaw", 0.0))
+	var p := float(gar_cam.get("pitch", 0.1))
+	var d := float(gar_cam.get("dist", 24.0))
+	var cam: Camera3D = gar["cam"]
+	cam.position = fo + Vector3(sin(y) * cos(p), sin(p), cos(y) * cos(p)) * d
+	cam.look_at(fo, Vector3.UP)
+	cam.h_offset = d / 24.0 * 2.0 * (1.0 - clampf((24.0 - d) / 12.0, 0.0, 1.0))   # (the machine sits between the side panels)
+
+## a weapon clicks on: it grows from its mount with a blue flash
+func _gar_attach_fx(m: String) -> void:
+	var g: Node3D = lo_nodes_view.get(m)
+	if g == null or not is_instance_valid(g): return
+	var full := g.scale
+	g.scale = full * 0.05
+	var tw := g.create_tween()
+	tw.tween_property(g, "scale", full, 0.45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	var l := OmniLight3D.new()
+	l.light_color = Color(0.35, 0.7, 1.0)
+	l.light_energy = 8.0
+	l.omni_range = 6.0
+	(g.get_parent() as Node3D).add_child(l)
+	var tl := l.create_tween()
+	tl.tween_property(l, "light_energy", 0.0, 0.9)
+	tl.tween_callback(l.queue_free)
 
 ## v12.68: the model on the garage turntable: your mech, your ship, or you (the pilot) on foot
 func _lo_model() -> Node3D:
@@ -5089,6 +5595,10 @@ func _lo_model() -> Node3D:
 ## v12.68: a weapon picked on the right: it goes on the selected slot now (the preview changes with it)
 func _lo_select(wid: String) -> String:
 	if lo_slot == "": return "No slot."
+	lo_sel = wid
+	if not _gar_owned(wid):   # v12.72: one you don't own: its details and BUY
+		_gar_refresh()
+		return "Not owned."
 	return _lo_drop(lo_slot, wid)
 
 ## v12.68: a weapon's card: its icon, name, weight class, users, and bars (grey = the slot's weapon now, bright = this)
@@ -5167,35 +5677,40 @@ func _lo_place(tb: Control, cam: Camera3D, mp: Node3D, stage: Control) -> void:
 func _lo_drop(mount: String, wid: String) -> String:
 	var lo := Loadout.current(lo_frame)
 	var before := Loadout.totals(lo)
+	if not _gar_owned(wid):
+		lo_sel = wid
+		lo_note = "Buy the %s first (%s)." % [Loadout.weapon(wid).get("name", wid), _gar_num(_gar_price(wid))]
+		_gar_refresh()
+		return lo_note
 	var err := Loadout.fit(lo, lo_set, mount, wid)
 	if err != "":
 		lo_note = "Can't fit: " + err
-		if lo_targets.has(mount) and is_instance_valid(lo_targets[mount]): (lo_targets[mount] as Control).modulate = Color(1.0, 0.35, 0.3)
 		Sfx.play("button", -6.0, 0.6)
 		status.text = lo_note
-		get_tree().create_timer(0.6).timeout.connect(func(): if screen == "loadout": show_screen("loadout"))
+		_gar_refresh()
+		if lo_targets.has(mount) and is_instance_valid(lo_targets[mount]): (lo_targets[mount] as Control).modulate = Color(1.0, 0.35, 0.3)
 		return err
 	lo_pick = ""
+	lo_slot = mount
+	lo_sel = wid
 	lo_note = _lo_change(before, Loadout.totals(lo), "%s on the %s" % [Loadout.weapon(wid)["short"], Loadout.MOUNTS[lo_frame][mount]["label"]])
 	GS.save_game()
 	Sfx.play("pickup", -8.0)
-	show_screen("loadout")
+	_gar_refresh()   # (v12.72: in place: the camera goes to the mount, the gun clicks on, then it pulls back)
+	_gar_focus_mount(mount)
+	_gar_attach_fx(mount)
+	gar_back_t = 1.6
 	return ""
 
 func _lo_tap_mount(mount: String) -> void:
 	if lo_pick != "":
 		_lo_drop(mount, lo_pick)
 		return
-	if mount != lo_slot:   # v12.68: a tap picks the slot (the weapons list then shows what fits it)
-		lo_slot = mount
-		show_screen("loadout")
-		return
-	var lo := Loadout.current(lo_frame)
-	if (lo["sets"][lo_set] as Dictionary).has(mount):   # (nothing picked: a tap takes its weapon off)
-		var before := Loadout.totals(lo)
-		Loadout.fit(lo, lo_set, mount, "")
-		lo_note = _lo_change(before, Loadout.totals(lo), "%s cleared" % Loadout.MOUNTS[lo_frame][mount]["label"])
-		show_screen("loadout")
+	lo_slot = mount   # v12.72: a tap picks the mount: the camera zooms to it, the list shows what fits it
+	lo_sel = ""
+	_gar_refresh()
+	_gar_focus_mount(mount)
+	gar_back_t = 0.0
 
 func _lo_change(a: Dictionary, b: Dictionary, what: String) -> String:
 	return "%s.  Weight %.0f → %.0f · Energy %.0f → %.0f · Speed %d%% → %d%% · Armor %.0f → %.0f" % [what, a["weight"], b["weight"], a["energy"], b["energy"], int(float(a["speed"]) * 100.0), int(float(b["speed"]) * 100.0), a["armor"], b["armor"]]
@@ -5448,6 +5963,7 @@ func _process(dt: float) -> void:
 	t += dt
 	Music.duck(Sfx.voice_busy())   # v11.97 (owner): music down to nothing while someone talks to you
 	_update_room(dt)
+	if screen == "loadout": _gar_tick(dt)   # v12.72: the garage camera
 	_asst_place()
 	crew.tick(dt)
 	crowd.tick(dt)

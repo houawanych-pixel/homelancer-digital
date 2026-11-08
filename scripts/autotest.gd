@@ -2615,7 +2615,7 @@ func _run() -> void:
 		hb.lo_slot = "Wing_R"
 		hb.show_screen("loadout")
 		await _wait(0.5)
-		var tabs_ok: bool = hb.content.find_child("LoFrame_pilot", true, false) != null and hb.content.find_child("LoSlots", true, false) != null and hb.content.find_child("LoWeapons", true, false) != null
+		var tabs_ok: bool = hb.find_child("LoFrame_pilot", true, false) != null and hb.find_child("LoCats", true, false) != null and hb.find_child("LoWeapons", true, false) != null
 		var r0: String = hb._lo_select("rail_carbine")
 		await _wait(0.4)
 		var pv: Node3D = hb.lo_nodes_view.get("Wing_R")
@@ -2624,16 +2624,16 @@ func _run() -> void:
 		await _capture("tripo_garage_ship")
 		var bad2: String = hb._lo_drop("Nose", "hv_cannon")
 		await _wait(1.0)
-		var greyed: Button = hb.content.find_child("LoWeapon_hv_cannon", true, false)
+		var greyed: Button = hb.find_child("LoWeapon_hv_cannon", true, false)
 		hb.lo_frame = "pilot"
 		hb.lo_slot = ""
 		hb.show_screen("loadout")
 		await _wait(0.6)
 		var p_list := 0
-		var p_heavy := hb.content.find_child("LoWeapon_hv_cannon", true, false) != null
-		for c in hb.content.find_children("LoWeapon_*", "Button", true, false): p_list += 1
+		var p_heavy := hb.find_child("LoWeapon_hv_cannon", true, false) != null
+		for c in hb.find_children("LoWeapon_*", "Button", true, false): p_list += 1
 		await _capture("tripo_garage_pilot")
-		var tripo_in: bool = hb.content.find_child("LoWeapon_HL_WPN_DarkGunSet_02", true, false) != null
+		var tripo_in: bool = hb.find_child("LoWeapon_HL_WPN_DarkGunSet_02", true, false) != null
 		hb.lo_slot = "R_Hand"
 		var r_t: String = hb._lo_select("HL_WPN_DarkGunSet_02")
 		await _wait(0.6)
@@ -2648,6 +2648,17 @@ func _run() -> void:
 				palm_d = (pv2.get_node("MountSocket") as Node3D).global_position.distance_to(hpos) / (lm.global_basis.get_scale().x * 1.8)
 		hand_ok = hand_ok and palm_d < 0.12
 		await _capture("tripo_garage_pilot_tripo")
+		hb.lo_frame = "mech"
+		hb.lo_slot = ""
+		hb.gar_cam = {}
+		hb.show_screen("loadout")
+		await _wait(1.2)
+		await _capture("garage_mech")
+		hb.lo_frame = "ship"
+		hb.gar_cam = {}
+		hb.show_screen("loadout")
+		await _wait(1.2)
+		await _capture("garage_ship_main")
 		_check("v12.70 (owner): the Tripo weapons are in the garage (%s) and one goes in the pilot's hand on the preview (%s, grip %.2f of his height from his hand)" % [tripo_in, hand_ok, palm_d], tripo_in and hand_ok, r_t)
 		_check("v12.68 (owner): the garage: MECH / SHIP / PILOT tabs, slots left, weapons right (%s); picking a weapon puts it on the turning preview at once (%s %s); a bad fit refused with the reason (%s; greyed %s); the pilot tab lists only hand guns (%d, heavy shown %s)" % [tabs_ok, r0 == "", pv_ok, bad2.left(40), greyed != null and greyed.tooltip_text != "Fit on the Nose", p_list, p_heavy],
 			tabs_ok and r0 == "" and pv_ok and bad2 != "" and p_list > 0 and not p_heavy, "")

@@ -36,6 +36,8 @@ func _process(_d: float) -> void:
 func slot() -> Rect2:
 	var S: Vector2 = get_viewport().get_visible_rect().size
 	var m = get_tree().current_scene
+	if m != null and m.get("hub") != null and (m.hub as CanvasItem).visible and str(m.hub.get("screen")) == "loadout":   # v12.72: the garage: top right, clear of its panels
+		return Rect2(S.x - WIDTH - 24, 14, WIDTH, SIZE)
 	if m != null and str(m.get("state")) == "escape":   # v12.37 (owner): in the station escape it sits at the top
 		return Rect2(S.x * 0.5 - WIDTH * 0.5, MARGIN, WIDTH, SIZE)
 	if m != null and str(m.get("state")) == "map" and m.get("navmap") != null and (m.navmap as CanvasItem).visible:   # v12.61 (owner): on the map, up top, left of the mission block

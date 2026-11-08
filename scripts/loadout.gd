@@ -557,6 +557,9 @@ static func _dress_parts(model: Node3D, lo: Dictionary, size: float) -> void:
 	var fr := str(lo["frame"])
 	var root := Node3D.new()
 	root.name = "LoadoutArmor"
+	if fr == "pilot":   # v12.72: the pilot wears his suit (the ship's hull and wing plates were landing on him)
+		model.add_child(root)
+		return
 	model.add_child(root)
 	var bb: AABB = local_box(model)
 	if bb.size == Vector3.ZERO: return
