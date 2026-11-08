@@ -198,6 +198,7 @@ static func all(core: Dictionary) -> Dictionary:
 	for a in ul.get("warp2", {}):
 		_link(out, rows, "warp", a, ul["warp2"][a], true)
 		_link(out, rows, "warp", ul["warp2"][a], a, true)
+	_fill_links(out, rows)
 	for id in out:
 		if not out[id].has("gate"): out[id]["gate"] = out[id]["gates"][0] if not out[id]["gates"].is_empty() else {}
 	# the rest of each system from the catalog: placeholder planets and stations, spread round the system and kept
@@ -1390,6 +1391,34 @@ static func _keep_in_tile(sy: Dictionary) -> void:
 	for x in sy["more_planets"] + sy["more_stations"]: x["pos"] = place.call(x["pos"])
 
 ## One gate in system `a` leading to `b`, set in the direction `b` lies on the map (north on the map = -Z in flight).
+## v12.80 (owner: "fill the rest"): every open square is a full system (star, planet, asteroids, nebula, as all are) and
+## reachable: an enemy's held square gets warp gates to its home and to a neighbour; an uncharted square a second warp
+## gate to a neighbour. Never a jump gate (two-way, picked the same way every time).
+static func _fill_links(out: Dictionary, rows: Dictionary) -> void:
+	var at := {}
+	for id in rows: at[Vector2i(int(rows[id][3]), int(rows[id][4]))] = id
+	var warps := func(id: String) -> int: return (out[id]["gates"] as Array).filter(func(g): return str(g.get("gkind", "")) in ["warp", "rift"]).size()
+	for t in open_rows():
+		var id: String = t[0]
+		var c := Vector2i(int(t[3]), int(t[4]))
+		var nb: Array = []
+		for dy in [-1, 0, 1]:
+			for dx in [-1, 0, 1]:
+				var q := c + Vector2i(dx, dy)
+				if (dx != 0 or dy != 0) and at.has(q): nb.append(at[q])
+		nb.sort_custom(func(a, b): return hash(id + a) < hash(id + b))
+		var home := ""
+		if str(t[11]) != "":
+			for x in nb: if str(rows[x][6]) == str(t[11]) + " home": home = x
+			if home != "":
+				_link(out, rows, "warp", id, home)
+				_link(out, rows, "warp", home, id)
+		for x in nb:
+			if warps.call(id) >= 2: break
+			if x == home or str(rows[x][6]).ends_with(" home") or str(rows[x][5]) == "Heart": continue
+			_link(out, rows, "warp", id, x)
+			_link(out, rows, "warp", x, id)
+
 static func _link(out: Dictionary, rows: Dictionary, kind: String, a: String, b: String, wrap := false) -> void:
 	for g in out[a]["gates"]:
 		if g["to"] == b: return

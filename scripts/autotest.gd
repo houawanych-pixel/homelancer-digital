@@ -2817,6 +2817,12 @@ func _run() -> void:
 			if not str(sy.get("role", "")).ends_with(" colony"): continue
 			var ks: Array = (sy["gates"] as Array).map(func(g): return str(g.get("gkind", "jump")))
 			if not (sy.has("planet") and sy.has("asteroids") and sy.has("nebula") and not ("jump" in ks) and (ks.count("warp") >= 2 or "rift" in ks)): col_bad.append("%s %s" % [sid, ks])
+		var open_bad: Array = []   # v12.80 (owner: "fill the rest"): every open square a full system you can reach, no jump gates
+		for t in SystemBuilder.open_rows():
+			var so: Dictionary = Data.SYSTEMS[t[0]]
+			var ks2: Array = (so.get("gates", []) as Array).map(func(g): return str(g.get("gkind", "jump")))
+			if not (so.has("planet") and so.has("asteroids") and so.has("nebula") and not ("jump" in ks2) and (ks2.count("warp") >= 2 or "rift" in ks2)): open_bad.append("%s %s" % [t[0], ks2])
+		_check("v12.80 (owner): the %d open squares are full systems (star, planet, asteroids, nebula) with 2 warp gates or a rift (bad: %s)" % [SystemBuilder.open_rows().size(), str(open_bad)], open_bad.is_empty(), "")
 		_check("v12.79 (owner): the 15 new enemy systems each have a star, planet, asteroids, nebula and 2 warp gates / a rift, no jump gates (bad: %s)" % str(col_bad), col_bad.is_empty(), "")
 		_check("v12.78 (owner): no jump gates into enemy-faction space, only warp / rift (%s)" % str(enemy_jumps), enemy_jumps.is_empty(), "")
 		_check("v12.64: the complete galaxy map drawn (%d systems charted, orrery %s)" % [GS.discovered.size(), (g0[1] as Vector2).x >= Data.MAP_ORRERY_DETAIL], (g0[1] as Vector2).x >= Data.MAP_ORRERY_DETAIL, "")

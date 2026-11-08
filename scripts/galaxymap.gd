@@ -450,6 +450,32 @@ func _draw_flat(S: Vector2) -> void:
 		draw_rect(Rect2(zp - cell * 0.46, cell * 0.92), Color(zcol, 0.45), false, 1.5)
 		if cell.x > 44.0: draw_string(font, zp + Vector2(-cell.x * 0.45, cell.y * 0.42), str(Data.ZONE_TYPES[zk]["short"]), HORIZONTAL_ALIGNMENT_CENTER, cell.x * 0.9, Data.ts(9), Color(zcol, 0.9))
 		zones_drawn += 1
+	# v12.80 (owner: "fill the rest: nebula, clouds, asteroid fields, star and planet"): every open square shows its system:
+	# the nebula, a ring of asteroids, its star and its planet, its name, and its warp gates
+	for orow in SystemBuilder.open_rows():
+		var od: Dictionary = Data.SYSTEMS.get(orow[0], {})
+		if od.is_empty(): continue
+		var op: Vector2 = flat_pos(S, int(orow[3]), int(orow[4]))
+		var held: String = str(orow[11])
+		var oc: Color = (Factions.def(held).get("primary_color", Color(1.0, 0.45, 0.4)) as Color) if held != "" else Color(0.75, 0.8, 0.9)
+		draw_circle(op + cell * Vector2(0.18, -0.12), cell.x * 0.2, Color(od.get("nebula", {}).get("color", oc), 0.16))   # nebula
+		for i in 14:   # asteroid field
+			var aa := TAU * i / 14.0
+			draw_circle(op + cell * Vector2(-0.2, 0.12) + Vector2(cos(aa), sin(aa) * 0.5) * cell.x * 0.12, 1.4, Color(0.7, 0.65, 0.55, 0.7))
+		draw_circle(op, cell.x * 0.075, Color(od.get("star", Color(1.0, 0.85, 0.5)), 1.0))   # star
+		draw_circle(op, cell.x * 0.03, Color(1, 1, 1, 0.9))
+		var pd2: Dictionary = od.get("planet", {})
+		draw_circle(op + cell * Vector2(0.24, 0.16), cell.x * 0.05, planet_color(pd2))   # planet
+		draw_arc(op + cell * Vector2(0.24, 0.16), cell.x * 0.05, 0, TAU, 16, Color(1, 1, 1, 0.8), 1.0)
+		if held != "": draw_arc(op, cell.x * 0.11, 0, TAU, 20, Color(oc, 0.9), 2.0)
+		for og in od.get("gates", []):   # its warp gates (dashed, to the next square)
+			var to: Dictionary = Data.SYSTEMS.get(str(og["to"]), {})
+			var tt: String = str(to.get("tile", ""))
+			if tt.length() < 2: continue
+			var tp: Vector2 = flat_pos(S, "ABCDEFGHIJK".find(tt[0]), int(tt.substr(1)) - 1)
+			if tp.distance_to(op) > cell.x * 1.6: continue
+			_dashed(self, op, tp, Color(link_color(str(og.get("gkind", "warp")) + "_gate"), 0.85), 2.0, 8.0)
+		if cell.x > 70.0: _tag(op + Vector2(0, cell.y * 0.3), str(od.get("name", "")).to_upper(), Color(oc, 1.0).lightened(0.3))
 	# v10.6 (owner: "it needs to pulse to tell you what system you're at"): in an unknown area (not on the charts) you
 	# still get the pulse, on its tile
 	if not sys.has(current) and Data.SYSTEMS.has(current):
