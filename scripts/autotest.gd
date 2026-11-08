@@ -2823,6 +2823,19 @@ func _run() -> void:
 			var ks2: Array = (so.get("gates", []) as Array).map(func(g): return str(g.get("gkind", "jump")))
 			if not (so.has("planet") and so.has("asteroids") and so.has("nebula") and not ("jump" in ks2) and (ks2.count("warp") >= 2 or "rift" in ks2)): open_bad.append("%s %s" % [t[0], ks2])
 		_check("v12.80 (owner): the %d open squares are full systems (star, planet, asteroids, nebula) with 2 warp gates or a rift (bad: %s)" % [SystemBuilder.open_rows().size(), str(open_bad)], open_bad.is_empty(), "")
+		var thin: Array = []   # v12.81 (owner: build up the emptier systems)
+		var counted := 0
+		for sid1 in Data.SYSTEMS:
+			var s1: Dictionary = Data.SYSTEMS[sid1]
+			var pl1: int = 1 + (s1.get("more_planets", []) as Array).size()
+			var st1: int = 1 + (s1.get("more_stations", []) as Array).size()
+			var cl1: int = (s1.get("layout_clouds", []) as Array).size()
+			var vd1: bool = str(s1.get("faction", "")) == "Void" or str(s1.get("role", "")) == "void"
+			var en1: bool = SystemBuilder.is_enemy_space(s1)
+			if not (en1 or vd1 or SystemBuilder.is_unknown(s1)): continue
+			counted += 1
+			if pl1 < (2 if vd1 else 3) or st1 < (1 if vd1 else 2) or cl1 < 1: thin.append("%s pl%d st%d cl%d" % [sid1, pl1, st1, cl1])
+		_check("v12.81 (owner): the %d enemy / uncharted / void systems built up: 3 worlds and 2 stations (void: 2 worlds), clouds and fields (thin: %s)" % [counted, str(thin.slice(0, 6))], thin.is_empty(), "")
 		_check("v12.79 (owner): the 15 new enemy systems each have a star, planet, asteroids, nebula and 2 warp gates / a rift, no jump gates (bad: %s)" % str(col_bad), col_bad.is_empty(), "")
 		_check("v12.78 (owner): no jump gates into enemy-faction space, only warp / rift (%s)" % str(enemy_jumps), enemy_jumps.is_empty(), "")
 		_check("v12.64: the complete galaxy map drawn (%d systems charted, orrery %s)" % [GS.discovered.size(), (g0[1] as Vector2).x >= Data.MAP_ORRERY_DETAIL], (g0[1] as Vector2).x >= Data.MAP_ORRERY_DETAIL, "")

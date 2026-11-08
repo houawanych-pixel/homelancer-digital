@@ -203,7 +203,7 @@ static func all(core: Dictionary) -> Dictionary:
 		if not out[id].has("gate"): out[id]["gate"] = out[id]["gates"][0] if not out[id]["gates"].is_empty() else {}
 	# the rest of each system from the catalog: placeholder planets and stations, spread round the system and kept
 	# clear of everything already there (main planet, main station, gates, each other)
-	for e in GalaxyData.EXTRAS:
+	for e in GalaxyData.EXTRAS + _thin_extras(out):
 		var sid: String = e[0]
 		var sys: Dictionary = out[sid]
 		var f: Array = FACTIONS[rows[sid][5]]
@@ -329,7 +329,7 @@ static func auto_layouts(systems: Dictionary) -> Dictionary:
 	for sid in systems:
 		if Data.SYSTEM_LAYOUT.has(sid) or Data.SYSTEM_ROLES.has(sid): continue
 		var sy: Dictionary = systems[sid]
-		if is_unknown(sy) or str(sy.get("faction", "")) == "Void" or str(sy.get("role", "")) == "void" or not sy.has("station") or not sy.has("planet"): continue
+		if not sy.has("station") or not sy.has("planet"): continue   # (v12.81: the uncharted zones and the void get their clouds and fields too; no lanes or friendly posts there)
 		var L := _auto_layout(sid, sy)
 		if not L.is_empty(): out[sid] = L
 	return out
@@ -425,7 +425,7 @@ static func _auto_layout(sid: String, sy: Dictionary) -> Dictionary:
 	var adds: Array = []
 	var ally := ""
 	var rival := ""
-	var hostile_space := is_enemy_space(sy)   # v11.99 (owner): alien space has no lanes, no friendly stations, no spy
+	var hostile_space := is_enemy_space(sy) or is_unknown(sy) or str(sy.get("faction", "")) == "Void" or str(sy.get("role", "")) == "void"   # v11.99 (owner): alien space has no lanes, no friendly stations, no spy (v12.81: nor the wilds)
 	if hostile_space: pass
 	elif fac in MAJORS:
 		ally = str(ALLIES.get(fac, ""))
@@ -1391,6 +1391,36 @@ static func _keep_in_tile(sy: Dictionary) -> void:
 	for x in sy["more_planets"] + sy["more_stations"]: x["pos"] = place.call(x["pos"])
 
 ## One gate in system `a` leading to `b`, set in the direction `b` lies on the map (north on the map = -Z in flight).
+## v12.81 (owner: build up the emptier systems): enemy space, the uncharted zones and the void get more worlds and
+## stations (as [system, "planet" / "station", name, type] rows, like the catalog's EXTRAS): enemy space to 3 worlds and
+## 2 stations (its faction's outposts), an uncharted zone to 3 worlds and a lost relay, the void to 2 dead worlds.
+const THIN_WORLDS := ["dead", "ice", "toxic", "lava", "desert", "crystal"]   # (no gas giants: those come with a moon)
+static func _thin_extras(out: Dictionary) -> Array:
+	var rows: Array = []
+	var have := {}
+	for e in GalaxyData.EXTRAS: have[e[0]] = int(have.get(e[0], 0)) + 1
+	for sid in out:
+		var sy: Dictionary = out[sid]
+		var role := str(sy.get("role", ""))
+		var enemy := is_enemy_space(sy)
+		var unk := is_unknown(sy)
+		var vd := str(sy.get("faction", "")) == "Void" or role == "void"
+		if not (enemy or unk or vd) or int(have.get(sid, 0)) >= 3: continue
+		var nm := str(sy.get("name", sid))
+		var rng := RandomNumberGenerator.new()
+		rng.seed = hash("thin:" + sid)
+		var worlds := 1 if vd else 2
+		for i in worlds:
+			var pal: String = "dead" if vd else THIN_WORLDS[rng.randi() % THIN_WORLDS.size()]
+			rows.append([sid, "planet", "%s %s" % [nm, ["Minor", "Reach", "Deep", "Outer"][(i + rng.randi()) % 4]], pal])
+		if enemy:
+			var fac := str(sy.get("enemy_faction", sy.get("held_by", "")))
+			if fac == "": fac = role.get_slice(" ", 0) if role.contains(" ") else "Alien"
+			rows.append([sid, "station", "%s %s" % [fac, ["Watchpost", "Outpost", "Hive Node", "Listening Post"][rng.randi() % 4]], ""])
+		elif unk:
+			rows.append([sid, "station", "Lost Relay %s" % str(sy.get("tile", "")), ""])
+	return rows
+
 ## v12.80 (owner: "fill the rest"): every open square is a full system (star, planet, asteroids, nebula, as all are) and
 ## reachable: an enemy's held square gets warp gates to its home and to a neighbour; an uncharted square a second warp
 ## gate to a neighbour. Never a jump gate (two-way, picked the same way every time).
