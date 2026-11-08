@@ -84,7 +84,7 @@ func _aim(name: String, child: String, dir_body: Vector3) -> void:
 	var b := skel.find_bone(name)
 	var c := skel.find_bone(child)
 	if b < 0 or c < 0: return
-	var want: Vector3 = (skel.global_transform.basis.inverse() * (body.global_transform.basis * dir_body)).normalized()
+	var want: Vector3 = (_rel(skel, body).basis.inverse() * dir_body).normalized()   # (v12.70: works before he is in the scene too)
 	var gp := skel.get_bone_global_pose(b)
 	var cur := (skel.get_bone_global_pose(c).origin - gp.origin).normalized()
 	if cur.length() < 0.5: return
@@ -92,6 +92,44 @@ func _aim(name: String, child: String, dir_body: Vector3) -> void:
 	var par := skel.get_bone_parent(b)
 	var pg: Basis = skel.get_bone_global_pose(par).basis if par >= 0 else Basis.IDENTITY
 	skel.set_bone_pose_rotation(b, (pg.inverse() * nb).get_rotation_quaternion())
+
+## v12.70: node `n`'s transform in `top`'s space (walks the parents; no scene tree needed)
+static func _rel(n: Node, top: Node) -> Transform3D:
+	var xf := Transform3D.IDENTITY
+	var p: Node = n
+	while p != null and p != top:
+		if p is Node3D: xf = (p as Node3D).transform * xf
+		p = p.get_parent()
+	return xf
+
+## v12.70 (owner: "make the pilot hold the weapons correctly"): his arms in the aiming pose, and where his right palm
+## is then, in the root's space (a gun's grip goes there). The palm: a little past the wrist, along the forearm.
+func hand_point() -> Vector3:
+	if skel == null or not is_instance_valid(skel): return Vector3.INF
+	pose(0.0, 0.0, 1.0)
+	skel.force_update_all_bone_transforms()
+	var h := skel.find_bone("R_Hand")
+	var f := skel.find_bone("R_Forearm")
+	if h < 0: return Vector3.INF
+	var to_root := _rel(skel, root)
+	var hp: Vector3 = to_root * skel.get_bone_global_pose(h).origin
+	if f >= 0: hp += (hp - to_root * skel.get_bone_global_pose(f).origin) * 0.3
+	return hp
+
+## v12.70: hold a loadout weapon (made by Loadout.weapon_mesh) instead of the rifle: its grip in his right palm,
+## its muzzle forward. Returns false when there's no hand to put it in.
+func hold(g: Node3D) -> bool:
+	var hp := hand_point()
+	if hp == Vector3.INF: return false
+	var old := body.get_node_or_null("Rifle")
+	if old != null: old.visible = false
+	var held := body.get_node_or_null("Held")
+	if held != null: held.free()
+	g.name = "Held"
+	body.add_child(g)
+	var ms := g.get_node_or_null("MountSocket") as Node3D
+	g.position = hp - (g.basis * ms.position if ms != null else Vector3.ZERO)
+	return true
 
 static func _aabb(n: Node) -> AABB:
 	var out := AABB()

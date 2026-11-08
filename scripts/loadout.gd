@@ -427,6 +427,9 @@ static func rig(model: Node3D, frame: String) -> Dictionary:
 			(holder.get_node("R_Hand") as Node3D).position = (rf.get_parent() as Node3D).transform * rf.position if rf.get_parent() != model else rf.position
 			rf.visible = false
 			holder.set_meta("size", bb.size.y * 0.9)
+		if frame == "pilot" and model.has_meta("pilot_rig"):   # v12.70 (owner): in his palm, his arms up in the aiming pose
+			var hp: Vector3 = (model.get_meta("pilot_rig") as PilotRig).hand_point()
+			if hp != Vector3.INF: (holder.get_node("R_Hand") as Node3D).position = hp
 	var out := {}
 	for c2 in holder.get_children(): out[str(c2.name)] = c2
 	return out

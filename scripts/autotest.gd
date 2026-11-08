@@ -2639,8 +2639,16 @@ func _run() -> void:
 		await _wait(0.6)
 		var pv2: Node3D = hb.lo_nodes_view.get("R_Hand")
 		var hand_ok: bool = r_t == "" and pv2 != null and str(pv2.get_meta("weapon", "")) == "HL_WPN_DarkGunSet_02"
+		var palm_d := 99.0   # the grip in his palm: the socket next to his right hand bone (in his own height units)
+		if pv2 != null:
+			var lm: Node3D = hb.lo_view.find_child("LoModel", true, false)
+			var sk: Skeleton3D = lm.find_children("*", "Skeleton3D", true, false)[0] if lm != null and not lm.find_children("*", "Skeleton3D", true, false).is_empty() else null
+			if sk != null:
+				var hpos: Vector3 = sk.global_transform * sk.get_bone_global_pose(sk.find_bone("R_Hand")).origin
+				palm_d = (pv2.get_node("MountSocket") as Node3D).global_position.distance_to(hpos) / (lm.global_basis.get_scale().x * 1.8)
+		hand_ok = hand_ok and palm_d < 0.12
 		await _capture("tripo_garage_pilot_tripo")
-		_check("v12.70 (owner): the Tripo weapons are in the garage (%s) and one goes in the pilot's hand on the preview (%s)" % [tripo_in, hand_ok], tripo_in and hand_ok, r_t)
+		_check("v12.70 (owner): the Tripo weapons are in the garage (%s) and one goes in the pilot's hand on the preview (%s, grip %.2f of his height from his hand)" % [tripo_in, hand_ok, palm_d], tripo_in and hand_ok, r_t)
 		_check("v12.68 (owner): the garage: MECH / SHIP / PILOT tabs, slots left, weapons right (%s); picking a weapon puts it on the turning preview at once (%s %s); a bad fit refused with the reason (%s; greyed %s); the pilot tab lists only hand guns (%d, heavy shown %s)" % [tabs_ok, r0 == "", pv_ok, bad2.left(40), greyed != null and greyed.tooltip_text != "Fit on the Nose", p_list, p_heavy],
 			tabs_ok and r0 == "" and pv_ok and bad2 != "" and p_list > 0 and not p_heavy, "")
 		_finish_group()

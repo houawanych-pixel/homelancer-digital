@@ -5069,7 +5069,11 @@ var lo_nodes_view := {}      # v12.68: the preview's weapon nodes by mount (test
 func _lo_model() -> Node3D:
 	if lo_frame == "mech": return ShipFactory.build_mech(str(GS.mech_keys()["core"]), str(GS.mech_keys()["arms"]), str(GS.mech_keys()["legs"]))
 	if lo_frame == "pilot":
-		if PilotRig.ready(): return PilotRig.new().build(1.8, 0.0)
+		if PilotRig.ready():
+			var pr := PilotRig.new()
+			var pm := pr.build(1.8, 0.0)
+			pm.set_meta("pilot_rig", pr)   # (v12.70: the bench poses his arms and puts the gun in his hand)
+			return pm
 		var st := Node3D.new()   # (until the pilot pack is in: a suited stand-in)
 		var cap := MeshInstance3D.new()
 		var cm := CapsuleMesh.new()
