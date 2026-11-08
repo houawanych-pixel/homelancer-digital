@@ -222,9 +222,9 @@ static func _planet_offers(out: Array, rng: RandomNumberGenerator, sys_id: Strin
 	# v12.58 (owner: "a final mission: outside the atmosphere: 3 battleships, 5 vessels and a mothership (infinite high-level
 	# fighters; battleships carry 90 each, vessels 30). Destroy all 3 battleships before you can dock the mothership; it's
 	# huge, you fly inside with the ship ... for now space stations as placeholders")
-	out.append(base.merged({"kind": "mothership", "slot": Data.PATROL_MAX_SLOT, "pay": Data.MISSION_PAY["mothership"], "left": 3,
+	out.append(base.merged({"kind": "mothership", "slot": Data.PATROL_MAX_SLOT, "pay": Data.MISSION_PAY["mothership"], "left": int(Data.ARMADA["battleships"]),
 		"title": "FINAL: the %s armada over %s" % [enemy, pname],
-		"brief": "The %s armada is holding orbit over %s: three battleships, five warships and their MOTHERSHIP, which never stops launching its best fighters. Break the three battleships; then its shield drops: dock with the mothership and fly in. It's a maze of tunnels and chambers: fly it with care (side moves and dodges are safe, ramming the walls under thrust is not). Destroy it from the inside." % [enemy, pname],
+		"brief": "The %s armada is holding orbit over %s: two battleships and their MOTHERSHIP, which launches its best fighters (up to 200). Break the two battleships; then its shield drops: dock with the mothership and fly in. It's a maze of tunnels and chambers: fly it with care (side moves and dodges are safe, ramming the walls under thrust is not). Destroy it from the inside." % [enemy, pname],
 		"points": [{"dir": rng.randf() * TAU, "dist": float(Data.INVASION["dist"]), "y": 0.0}]}))
 
 ## v1.8n: a ground job's point: on dry land when a few tries find some, and well away from the other point.
@@ -497,7 +497,7 @@ static func waypoint(space: SpaceSystem) -> Dictionary:
 			if int(m.get("spawned", -1)) >= 0 and not bs.is_empty():
 				bs.sort_custom(func(x, y): return space.player.global_position.distance_to(x["node"].global_position) < space.player.global_position.distance_to(y["node"].global_position))
 				var st: String = "station DOWN" if bool(m.get("station_down", false)) else "station launching fighters"
-				return {"node": bs[0]["node"], "title": bs[0]["node"].name, "line": "SILVER: destroy the battleships (%d of %d left) · %d fighters · %s · %d allies" % [bs.size(), int(Data.INVASION["battleships"]), space.invasion_units("fighter").size(), st, space.allies.size()], "hops": 0}
+				return {"node": bs[0]["node"], "title": bs[0]["node"].name, "line": "SILVER: destroy the battleships (%d of %d left) · %d fighters · %s · %d allies" % [bs.size(), int((Data.ARMADA if str(m.get("kind", "")) == "mothership" else Data.INVASION)["battleships"]), space.invasion_units("fighter").size(), st, space.allies.size()], "hops": 0}
 			var ip := space.mission_point(point_pos(space, 0))
 			return {"node": ip, "title": "Invasion fleet", "line": "SILVER: fly to the invasion fleet (%d battleship%s)" % [int(m.get("left", 3)), "" if int(m.get("left", 3)) == 1 else "s"], "hops": 0}
 		"disturbance":   # v11.26: the cloud, then the hidden battleship / station

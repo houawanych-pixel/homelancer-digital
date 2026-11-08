@@ -4535,6 +4535,7 @@ func _update_carriers(dt: float) -> void:
 			message.emit("%s is launching fighters (%d aboard)! Destroy it to stop them." % [str(c["ent"]["node"].name), int(c["left"])])
 		c["cd"] = float(c["cd"]) - dt
 		if float(c["cd"]) > 0.0 or (c["kids"] as Array).size() >= int(c["out"]): continue
+		if c["ent"].get("invasion", false) and str(GS.mission.get("kind", "")) == "mothership" and invasion_units("fighter").size() >= int(Data.ARMADA["fighters_max"]): continue   # v12.89: 30 at once at most
 		c["cd"] = Data.FLEET_LAUNCH_EVERY
 		var out_dir := (pp - cn.global_position).normalized()
 		if war_on: out_dir = ((c["ent"]["war_foe"]["node"] as Node3D).global_position - cn.global_position).normalized()
@@ -7192,7 +7193,7 @@ void fragment() {
 	float streak = pow(fract(sin(floor(UV.x * 240.0) * 91.7) * 43758.5), 5.0);   // v1.4u: finer streaks for the wider tunnel
 	float flow = fract(UV.y * 2.0 + TIME * (1.6 + streak * 2.4) + streak * 7.0);
 	float band = smoothstep(0.0, 0.25, flow) * smoothstep(1.0, 0.55, flow);
-	float ends = smoothstep(0.0, 0.2, UV.y) * smoothstep(1.0, 0.75, UV.y);
+	float ends = smoothstep(0.0, 0.32, UV.y) * smoothstep(1.0, 0.68, UV.y);   // v12.89: a long soft fade at both ends (no hard rim when you look back)
 	ALBEDO = mix(tint, vec3(1.0), streak * 0.6);
 	ALPHA = (0.03 + streak * band * 0.6) * ends * power;
 }
@@ -7449,7 +7450,7 @@ func _build_lanes() -> void:
 	lane_tunnel = MeshInstance3D.new()
 	var cyl := CylinderMesh.new()
 	cyl.top_radius = Data.LANE_TUNNEL_RADIUS
-	cyl.bottom_radius = Data.LANE_TUNNEL_RADIUS * 1.15   # the end behind the ship flares out: its rim is off screen
+	cyl.bottom_radius = Data.LANE_TUNNEL_RADIUS * 1.35   # the end behind the ship flares out (v12.89: more, and it fades away)
 	cyl.height = Data.LANE_TUNNEL_LEN
 	cyl.radial_segments = 48
 	cyl.rings = 1
@@ -8081,7 +8082,7 @@ func _enemy_entry(n: Node3D) -> Dictionary:
 ## landed on that side (and it is still there), otherwise the core. Missiles and mines (no hit point) hit the core.
 func _damage_enemy(e: Dictionary, dmg: float, hit := Vector3.INF, sf := -1.0) -> void:
 	if e.get("mothership", false) and (e.get("locked", false) or e.get("outside_proof", false)):   # v12.58: only from the inside
-		if _rng.randf() < 0.05: message.emit("The mothership's shield holds: %s" % ("destroy its three battleships first." if e.get("locked", false) else "board it and destroy it from the inside."))
+		if _rng.randf() < 0.05: message.emit("The mothership's shield holds: %s" % ("destroy its battleships first." if e.get("locked", false) else "board it and destroy it from the inside."))
 		return
 	if e.get("locked", false):   # v11.45: the reactor core can't be hurt yet (grab the bounty first)
 		if _rng.randf() < 0.1: message.emit("The reactor's shield is up until their BOSS MECH is down.")
@@ -12580,10 +12581,12 @@ func spawn_invasion(at: Vector3, faction: String, left: int, station_up: bool) -
 		var p: Vector3 = at + Vector3(cos(ang) * spread * (0.5 if r[0] == "battleship" else 0.9), _rng.randf_range(-80, 80), sin(ang) * spread * (0.5 if r[0] == "battleship" else 0.9))
 		_spawn_capital(r[1], r[0], p, at, faction)
 		k += 1
-	if str(GS.mission.get("kind", "")) == "mothership":   # v12.58 (owner): battleships carry 90 fighters each, the warships 30
+	if str(GS.mission.get("kind", "")) == "mothership":   # v12.58 / v12.89 (owner): battleships carry 75 Level 2 fighters each
 		for c in carriers:
 			var r9: String = str((c["ent"] as Dictionary).get("inv_role", ""))
-			if r9 == "battleship": c["left"] = int(Data.ARMADA["bs_hangar"])
+			if r9 == "battleship":
+				c["left"] = int(Data.ARMADA["bs_hangar"])
+				c["mix"] = Data.ARMADA["bs_mix"]
 			elif r9 == "warship": c["left"] = int(Data.ARMADA["ws_hangar"])
 	if station_up:
 		var cmd := _spawn_capital("inv_command", "command", at + (at - player.global_position).normalized() * spread * 1.3, at, faction)
@@ -12598,6 +12601,11 @@ func spawn_invasion(at: Vector3, faction: String, left: int, station_up: bool) -
 					for c3 in (cmd["model"] as Node3D).get_children(): if c3 is Node3D: (c3 as Node3D).visible = false
 					(cmd["model"] as Node3D).add_child(hold3)
 			else: Packs.request(st3)
+			var flm: Dictionary = Data.FACTION_FLEET.get(faction, {})   # v12.89 (owner): the mothership launches 200 Level 3 fighters
+			var fk3 := str(flm.get("starfighter", ""))
+			if fk3 != "":
+				carriers.append({"ent": cmd, "left": int(Data.ARMADA["ms_hangar"]), "out": int(Data.ARMADA["ms_out"]), "kids": [], "cd": 1.0, "woke": false, "fighter": fk3,
+					"lineup": [fk3, str(flm.get("fighter_l2", fk3)), str(flm.get("fighter_l3", fk3))], "mix": Data.ARMADA["ms_mix"]})
 	_inv_fighters(at, faction, int(cfg["fighters"]))
 	_spawn_allies(faction)
 	_inv_wave_t = float(cfg["wave_every"])
@@ -12685,6 +12693,7 @@ func _spawn_allies(enemy_faction: String) -> void:
 	var cfg2: Dictionary = Data.ARMADA if armada else Data.INVASION
 	var pool: Array = Factions.DEFS.get(own, {}).get("fighter_pool", [])
 	var fk: String = str(Data.ENEMIES.get(str(pool[0]) if not pool.is_empty() else "", {}).get("model", "enemy"))
+	if armada: ally_hangar = maxi(0, int(Data.ARMADA["ally_hangar"]) - int(cfg2["ally_fighters"]))   # v12.89: the first ones came out of its 50
 	for i in int(cfg2["ally_fighters"]):
 		_spawn_ally("fighter", fk, player.global_position + player.global_basis.x * (40.0 + 25.0 * i) * (1.0 if i % 2 == 0 else -1.0) + player.global_basis.z * 30.0 - player.global_basis.z * (300.0 * (i / 4) if armada else 0.0), own)
 	for i in int(cfg2["ally_frigates"]):
@@ -12807,7 +12816,28 @@ func _update_capital(e: Dictionary, dt: float) -> void:
 
 ## Allies: each fighter takes the nearest enemy fighter (the frigate the nearest big ship), makes attack runs and
 ## fires; with nothing in reach they form up on you.
+## v12.89 (owner: "your alliance should have only 10 fighters; their battleship has a total of fifty"): the alliance
+## battleship keeps up to ARMADA.ally_out fighters out from its hangar of ARMADA.ally_hangar (the first ones count).
+var ally_hangar := 0
+var _ally_launch_t := 0.0
+func _ally_refill(dt: float) -> void:
+	if str(GS.mission.get("kind", "")) != "mothership" or ally_hangar <= 0: return
+	var bsl: Array = allies.filter(func(a): return a.get("battleship", false) and is_instance_valid(a["node"]))
+	if bsl.is_empty(): return
+	_ally_launch_t -= dt
+	if _ally_launch_t > 0.0: return
+	_ally_launch_t = float(Data.ARMADA["ally_launch_every"])
+	var out := allies.filter(func(a): return a["kind"] == "fighter" and is_instance_valid(a["node"])).size()
+	if out >= int(Data.ARMADA["ally_out"]): return
+	var bn: Node3D = bsl[0]["node"]
+	var own: String = str(bn.name).trim_suffix(" Battleship")
+	var pool: Array = Factions.DEFS.get(own, {}).get("fighter_pool", [])
+	var fk: String = str(Data.ENEMIES.get(str(pool[0]) if not pool.is_empty() else "", {}).get("model", "enemy"))
+	_spawn_ally("fighter", fk, bn.global_position + Vector3(_rng.randf_range(-60, 60), -40, _rng.randf_range(-60, 60)), own)
+	ally_hangar -= 1
+
 func _update_allies(dt: float) -> void:
+	_ally_refill(dt)
 	for i in range(allies.size() - 1, -1, -1):
 		var a: Dictionary = allies[i]
 		var n: Node3D = a["node"]
@@ -12872,9 +12902,9 @@ func invasion_tick(dt: float, m: Dictionary) -> void:
 	if int(m.get("spawned", -1)) < 0:
 		if player.global_position.distance_to(at) < float(cfg["arrive"]):
 			if str(m.get("kind", "")) == "mothership": m["armada_at"] = at   # (it holds there once it's come)
-			spawn_invasion(at, str(m["faction"]), int(m.get("left", cfg["battleships"])), not bool(m.get("station_down", false)))
+			spawn_invasion(at, str(m["faction"]), mini(int(m.get("left", cfg["battleships"])), int(cfg["battleships"])), not bool(m.get("station_down", false)))   # (v12.89: a job taken before keeps to the new count)
 			m["spawned"] = 0
-			if str(m.get("kind", "")) == "mothership": message.emit("FINAL: the %s armada. Three battleships guard the MOTHERSHIP: destroy all three and its shield drops." % str(m["faction"]))
+			if str(m.get("kind", "")) == "mothership": message.emit("FINAL: the %s armada. Two battleships guard the MOTHERSHIP: destroy both and its shield drops." % str(m["faction"]))
 			else: message.emit("SILVER: the %s fleet is here. Destroy the three battleships; your wing is with you." % (str(m["faction"]) if str(m["faction"]) != "" else "enemy"))
 		return
 	if not inv_here:
@@ -12898,7 +12928,8 @@ func invasion_tick(dt: float, m: Dictionary) -> void:
 		if _inv_wave_t <= 0.0:
 			_inv_wave_t = float(Data.ARMADA["wave_every"])
 			var msl: Array = enemies.filter(func(x): return x.get("mothership", false))
-			if not msl.is_empty(): _inv_fighters((msl[0]["node"] as Node3D).global_position, str(m["faction"]), int(Data.ARMADA["wave"]))
+			var ms_carrier: bool = not msl.is_empty() and carriers.any(func(c): return c["ent"] == msl[0])   # v12.89: it launches its own (200, Level 3)
+			if not msl.is_empty() and not ms_carrier and invasion_units("fighter").size() < int(Data.ARMADA["fighters_max"]): _inv_fighters((msl[0]["node"] as Node3D).global_position, str(m["faction"]), int(Data.ARMADA["wave"]))
 		return
 	if bs == 0:
 		inv_log.append("won")

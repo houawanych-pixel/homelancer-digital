@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.88"
+const VERSION := "v12.89"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -393,7 +393,7 @@ const LANE_RAMP := 2.5                # seconds to reach it
 const LANE_SLOW_DIST := 26000.0       # start slowing this far from the last ring (v9.0: was 700 at 650 m/s)
 const LANE_EXIT_SPEED := 50.0
 const LANE_TINT := Color(0.35, 0.85, 1.0)
-const LANE_TUNNEL_LEN := 640.0        # the energy tunnel that rides on the ship (v1.4u: was 240; long enough to pass behind the camera)
+const LANE_TUNNEL_LEN := 1800.0       # v12.89 (owner: looking back in the lane, "the hole behind me is incomplete ... make it longer ... a little fade"): was 640. The energy tunnel that rides on the ship (v1.4u: was 240; long enough to pass behind the camera)
 const LANE_MIN_SPREAD := 30.0         # v11.10 (owner): degrees two lanes leaving one place must be apart; closer = chain from the nearer place
 const LANE_RING_STRETCH := 220.0   # v11.89: 2x
 #     # v11.10 (owner): each light ring is a soft band this long along the lane
@@ -1278,7 +1278,7 @@ const UNKNOWN_ORBITS := {"station": 90000.0, "planet": 210000.0, "asteroids": 30
 const DOCK_RANGE_STATION := 190.0    # was 260: you must be this close to a station (or its docking mouth) for DOCK
 const DOCK3D_PAD := 450.0   # v12.6: a big 3D station's hull stops you up to ~400 m outside its dock ring from some sides: this much more reach
 const DOCK_RANGE_PLANET := 240.0     # was 300: measured from the planet's surface
-const LANE_TUNNEL_BACK := 0.42       # share of the lane tunnel's length that trails BEHIND the ship (so the camera never sees its rim)
+const LANE_TUNNEL_BACK := 0.5        # share of the lane tunnel's length that trails BEHIND the ship (so the camera never sees its rim)
 
 # ---------------------------------------------------------------- Job X (v1.4t): voice ON by default
 const VOICE_DEFAULT := "read"            # "read" = voice ON (lines are spoken), "bleep" = voice OFF (radio blips)
@@ -1739,8 +1739,13 @@ const INVASION := {"battleships": 1, "warships": 0, "destroyers": 0, "fighters":
 	"ally_fighters": 6, "ally_frigates": 1, "arrive": 2600.0, "spread": 900.0, "dist": 7000.0}   # dist: how far out from the station the fleet comes in
 ## v12.58 (owner): the final armada: 3 battleships (90 fighters each), 5 warships (30 each), the mothership (endless
 ## high-level fighters); a faction's military station stands in for the mothership
-const ARMADA := {"battleships": 3, "warships": 5, "destroyers": 0, "fighters": 18, "wave": 4, "wave_every": 8.0, "station_down_slow": 3.0,
-	"ally_fighters": 12, "ally_frigates": 0, "arrive": 4200.0, "spread": 1400.0, "dist": 8000.0, "bs_hangar": 90, "ws_hangar": 30, "ally_battleships": 1}
+## v12.89 (owner: "too much going on ... tone it down to 2 battleships and a mothership"): the enemy has 2 battleships
+## (75 Level 2 fighters each) and the mothership (200 Level 3 fighters); at most 30 of their fighters fly at once.
+## Your alliance's battleship carries 50 fighters, at most 10 out at a time.
+const ARMADA := {"battleships": 2, "warships": 0, "destroyers": 0, "fighters": 6, "wave": 4, "wave_every": 8.0, "station_down_slow": 3.0,
+	"ally_fighters": 10, "ally_frigates": 0, "arrive": 4200.0, "spread": 1400.0, "dist": 8000.0, "bs_hangar": 75, "ws_hangar": 0, "ally_battleships": 1,
+	"ms_hangar": 200, "ms_out": 15, "fighters_max": 30, "bs_mix": [0.0, 1.0, 0.0], "ms_mix": [0.0, 0.0, 1.0],
+	"ally_hangar": 50, "ally_out": 10, "ally_launch_every": 2.5}
 const MOTHERSHIP_SCALE := 1.6
 const ARMADA_ORBIT_GAP := 2200.0   # v12.62 (owner): the final battle is right outside the planet: this far past its air
 const ALLY_BATTLESHIP_K := 4.0     # the alliance battleship's hull (x a frigate's)

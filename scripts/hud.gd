@@ -2027,6 +2027,11 @@ func _draw() -> void:
 		var tp0 = _screen(tr["node"].global_position)
 		if tp0 != null and space.player.global_position.distance_to(tr["node"].global_position) < 900.0:
 			_brackets(tp0, 18.0, Color(GREEN, 0.85))
+	for al in ([] if dock_down else space.allies):   # v12.89 (owner): your alliance's ships: GREEN boxes, its battleship BLUE
+		if not is_instance_valid(al["node"]): continue
+		var apos = _screen(al["node"].global_position)
+		if apos != null and space.player.global_position.distance_to(al["node"].global_position) < 2500.0:
+			_brackets(apos, Data.SHIP_BOX * (1.4 if al.get("battleship", false) else 0.8), Color(Color(0.3, 0.6, 1.0) if al.get("battleship", false) else GREEN, 0.9))
 	# off-screen hostiles: red arrows at the view edge; friendlies green
 	var view := Rect2(Vector2(col_w + 30, 40), Vector2(S.x - col_w * 2 - 60, S.y - 80))
 	for e in space.enemies:
@@ -2679,6 +2684,7 @@ func _radar(rc: Vector2, rr: float, label: bool) -> void:
 	var items: Array = []   # [position, colour, kind, node]
 	for e in space.enemies: items.append([e["node"].global_position, RED if e["node"].get_meta("kind", "enemy") == "enemy" else GOLD, "ship", e["node"]])
 	for tr in space.traffic: items.append([tr["node"].global_position, GREEN, "ship", tr["node"]])
+	for al in space.allies: if is_instance_valid(al["node"]): items.append([al["node"].global_position, Color(0.3, 0.6, 1.0) if al.get("battleship", false) else GREEN, "ship", null])   # v12.89
 	if space.station.get_meta("kind", "") == "station" and space.station.visible: items.append([space.station.global_position, GREEN, "station", null])
 	if not space.surface_mode:
 		items.append([space.planet.global_position, Color(0.5, 0.8, 1.0), "planet", null])

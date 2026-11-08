@@ -3197,12 +3197,25 @@ func _run() -> void:
 		var hp0: float = float(mom.get("hp", 0.0))
 		if not mom.is_empty(): s._damage_enemy(mom, 50000.0)
 		var proof: bool = not mom.is_empty() and is_equal_approx(float(mom.get("hp", 0.0)), hp0) and s.enemies.has(mom)
-		_check("v12.58 (owner): the FINAL armada: %d battleships (hangars %s), %d warships and the MOTHERSHIP (%d), shielded while the battleships fly (%s)" % [bss.size(), str(hangars), wss.size(), msl.size(), proof], bss.size() == 3 and wss.size() == 5 and msl.size() == 1 and proof and hangars.all(func(h): return h >= 80), "bs %d ws %d ms %d proof %s h %s" % [bss.size(), wss.size(), msl.size(), proof, str(hangars)])
+		_check("v12.58 (owner): the FINAL armada: %d battleships (hangars %s), %d warships and the MOTHERSHIP (%d), shielded while the battleships fly (%s)" % [bss.size(), str(hangars), wss.size(), msl.size(), proof], bss.size() == 2 and wss.size() == 0 and msl.size() == 1 and proof and hangars.all(func(h): return h >= 60 and h <= 75), "bs %d ws %d ms %d proof %s h %s" % [bss.size(), wss.size(), msl.size(), proof, str(hangars)])
 		var pw: Node3D = s.planet_node(pid)
 		var pr: float = float(pw.get_meta("radius", 0.0)) if pw != null else 0.0
 		var off_air: float = (bss[0]["node"] as Node3D).global_position.distance_to(pw.global_position) - pr * Data.ATMO_OUTER if pw != null and not bss.is_empty() else INF
 		var ally_bs: int = s.allies.filter(func(a): return a.get("battleship", false)).size()
-		_check("v12.62 (owner: right outside the planet, the alliance's battleship and fighters in it too): the armada %.1f km past %s's air; allies %d (battleship %d)" % [off_air / 1000.0, pid, s.allies.size(), ally_bs], off_air < 4500.0 and ally_bs == 1 and s.allies.size() >= 12, "")
+		_check("v12.62 (owner: right outside the planet, the alliance's battleship and fighters in it too): the armada %.1f km past %s's air; allies %d (battleship %d)" % [off_air / 1000.0, pid, s.allies.size(), ally_bs], off_air < 4500.0 and ally_bs == 1 and s.allies.size() >= 10, "")
+		# v12.89 (owner: tone it down): 30 enemy fighters at most at once; the battleships launch Level 2, the mothership Level 3
+		# (200 of them); allies keep 10 fighters out from their battleship's 50
+		for k9 in 40:
+			s._update_carriers(2.0)
+			s._ally_refill(3.0)
+		var efs: int = s.invasion_units("fighter").size()
+		var ms_c: Array = s.carriers.filter(func(c): return c["ent"].get("mothership", false))
+		var bs_c: Array = s.carriers.filter(func(c): return str(c["ent"].get("inv_role", "")) == "battleship")
+		var afs: int = s.allies.filter(func(a): return a["kind"] == "fighter").size()
+		var mix_ok: bool = not ms_c.is_empty() and ms_c[0]["mix"] == Data.ARMADA["ms_mix"] and int(ms_c[0]["left"]) + (ms_c[0]["kids"] as Array).size() == 200 \
+			and bs_c.all(func(c): return c["mix"] == Data.ARMADA["bs_mix"])
+		_check("v12.89 (owner): enemy fighters capped at 30 (%d out); mothership 200 Level 3 / battleships 75 Level 2 (%s); allies %d fighters out (max 10, hangar %d)" % [efs, mix_ok, afs, s.ally_hangar],
+			efs <= 30 and mix_ok and afs <= 10 and afs >= 8, "")
 		if mom.is_empty():
 			_finish_group()
 			return
@@ -9179,6 +9192,8 @@ func _job_y() -> void:
 		cam_txt = "camera %d m behind the ship, %d m off its line; tunnel runs %d m behind, %d m wide" % [int(lc.z), int(radial), int(behind), int(Data.LANE_TUNNEL_RADIUS * 2.0)]
 		main.hud.visible = false
 		await _shot("y_lane_tunnel", 0.05)
+		s.lane_look = Vector2(PI * 0.98, 0.15)   # v12.89 (owner: looking back, "the hole behind me is incomplete"): the view back down the tunnel
+		await _shot("y_lane_look_back", 0.0)
 		main.hud.visible = true
 		if not s.lane.is_empty(): _press("lane")
 		await _until(func(): return s.lane.is_empty(), 8.0)
