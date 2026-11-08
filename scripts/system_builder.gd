@@ -1162,6 +1162,7 @@ static func _system(t: Array) -> Dictionary:
 		if zk0 != "brood": station["name"] = "%s %s" % [{"wildlife": "Drift Nest", "pirates": "Pirate Den", "drones": "Drone Foundry", "derelict": "Hulk Field"}[zk0], str(t[2])]
 	if t[6] == "capital": station["model"] = "wheel_station"
 	if t[5] == "Savagers": station["model"] = "savagers_cross_station"   # v1.4r: the patched-together cross station (the owner is making one per system)
+	if t[5] == "Savagers" and hash(id) % 2 == 1 and ResourceLoader.exists("res://assets/structures/HL_STATION_CrossShaped_01.glb"): station["model"] = "HL_STATION_CrossShaped_01"   # v12.68: the owner's new Tripo cross station takes every other Savagers system
 	var patrols: Array = []
 	for i in 3:
 		var pa := rng.randf() * TAU

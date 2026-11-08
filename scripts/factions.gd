@@ -12,7 +12,7 @@ const DEFS := {
 	"Savagers": {"faction_id": "savagers", "ui_background": "savagers", "display_name": "Savagers", "primary_color": Color(0.78, 0.25, 0.12), "secondary_color": Color(0.12, 0.11, 0.11),
 		"rival_faction_id": "Liberator", "reputation_mode": "normal", "base_standing": -40.0,
 		"character_roster": "Savagers", "fighter_pool": ["scrapfang", "redclaw", "ironhowl", "warboar"],
-		"station_pool": ["savagers_cross_station", "light_beacon_station"],
+		"station_pool": ["savagers_cross_station", "HL_STATION_CrossShaped_01", "light_beacon_station"],
 		"base_types": ["hidden station", "nebula hideout", "asteroid base", "underground hangar", "wreck field"],
 		"environment_tags": ["desert", "wasteland", "badlands", "scrapyard", "caves", "black market", "salvage"],
 		"spawn_weights": {"patrol": 6.0, "raider_group": 3.0, "scavenger_convoy": 1.0, "named": 1.0, "boss": 0.2}, "incursion": true, "replaces_patrols": true},

@@ -213,12 +213,12 @@ static func has_real_model(key: String) -> bool:
 
 ## v12.68: [path, length, yaw] for a key: the Tripo registry's replacement first, then its own split items, then GLB.
 static func entry(key: String) -> Array:
-	if AssetRegistry.MODELS.has(key) and GLB.has(key):
+	if AssetRegistry.MODELS.has(key):   # (a placeholder key, or an L3 stand-in, now played by a Tripo item)
 		var it: Dictionary = AssetRegistry.ITEMS.get(str(AssetRegistry.MODELS[key]), {})
-		if not it.is_empty(): return [str(it["path"]), float(GLB[key][1]), 0.0]
+		if not it.is_empty(): return [str(it["path"]), float(GLB[key][1]) if GLB.has(key) else float(it.get("len", 16.0)), float(it.get("yaw", 0.0))]
 	if AssetRegistry.ITEMS.has(key):
 		var it2: Dictionary = AssetRegistry.ITEMS[key]
-		return [str(it2["path"]), float(it2.get("len", 3.0)), 0.0]
+		return [str(it2["path"]), float(it2.get("len", 3.0)), float(it2.get("yaw", 0.0))]
 	for l3 in L3_STANDIN:   # an L3 key takes the first Tripo HL_SHIP_L3 model that names it
 		if key == l3:
 			for id in AssetRegistry.ITEMS:

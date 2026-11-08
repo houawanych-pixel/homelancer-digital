@@ -2526,6 +2526,17 @@ func _run() -> void:
 		var zn: int = s.zone_units.size()
 		var zone_ok: bool = s.zone_kind == "pirates" and s.zone_units.size() >= 4 and s.zone_units.all(func(e): return not e.has("faction")) and s.nests.is_empty()
 		await _capture("tripo_zone")
+		if not s.zone_l3.is_empty():   # a look at the L3 ship (and the drones' L3 beside it)
+			var l3n: Node3D = s.zone_l3[0]["node"]
+			s.controls = false
+			var w3 := s.spawn_unit("l3_sentinel", l3n.global_position + Vector3(45, 10, 0), l3n.global_position)
+			w3["zone"] = "test"
+			_tp(l3n.global_position + Vector3(60, 28, 95), l3n.global_position + Vector3(20, 0, 0))
+			await _wait(0.8)
+			await _capture("tripo_l3_ships")
+			s.enemies.erase(w3)
+			(w3["node"] as Node3D).queue_free()
+			s.controls = true
 		var only_here := true
 		var csid := "" 
 		for sid in Data.SYSTEMS: if not SystemBuilder.is_unknown(Data.SYSTEMS[sid]) and csid == "" and Data.SYSTEMS[sid].get("generated", false): csid = sid
@@ -2536,6 +2547,20 @@ func _run() -> void:
 		SpaceSystem.force_l3 = false
 		_check("v12.68 (owner): uncharted squares charted as zones %s, none of them a nation's (%s); a Pirate Haven fills with its own (%s, %d units) and its L3 ship %s; no L3 in general fleets (%s) or in a charted system (%s)" % [str(counts), faction_free, zone_ok, zn, str(zl3), not l3_general, only_here],
 			counts.size() >= 5 and faction_free and zone_ok and zl3.size() == 1 and not l3_general and only_here, "")
+		# 4b. the owner's Tripo L3 ships play the L3 parts (nose -Z, sized), the rest keep stand-ins; his cross station is in
+		var l3_real: Array = []
+		var l3_fit := true
+		for k in Data.L3_UNITS:
+			var mk3: String = str(Data.ENEMIES[k]["model"])
+			if not ShipFactory.has_real_model(mk3): continue
+			var m3 := ShipFactory.build(mk3)
+			var b3: AABB = ShipFactory._aabb(m3, Transform3D.IDENTITY)
+			if b3.size.z < b3.size.x * 0.9 and mk3 != "l3_sentinel": l3_fit = false   # (long ships lie along Z)
+			if absf(maxf(b3.size.x, b3.size.z) - float(ShipFactory.entry(mk3)[1])) > float(ShipFactory.entry(mk3)[1]) * 0.05: l3_fit = false
+			l3_real.append("%s=%s %.0fm" % [k, str(AssetRegistry.MODELS.get(mk3, "?")), maxf(b3.size.x, b3.size.z)])
+			m3.free()
+		var st_ok: bool = ResourceLoader.exists("res://assets/structures/HL_STATION_CrossShaped_01.glb") and Data.SYSTEMS.values().any(func(sy): return str(sy.get("station", {}).get("model", "")) == "HL_STATION_CrossShaped_01")
+		_check("v12.68 (owner's Tripo models): L3 ships in game: %s (sized %s); the cross station placed in Savagers space (%s)" % [", ".join(l3_real), l3_fit, st_ok], l3_real.size() >= 2 and l3_fit and st_ok, "")
 		# 5. the galaxy map shows the zones
 		main.galaxymap.open(GS.system_id)
 		await _wait(0.5)
@@ -8555,7 +8580,7 @@ func _job_v() -> void:
 		var sy: Dictionary = Data.SYSTEMS[id]
 		var is_sav: bool = str(sy.get("faction", "")) == "Savagers"
 		if is_sav: n_sav += 1
-		var sav_model: bool = str(sy["station"].get("model", "")) in ["savagers_cross_station", "st3d_savagers_asteroid"] or str(sy["station"].get("model", "")).begins_with("HL_Station_Savagers_")   # (v1.9d: Ravage Major wears the Living Asteroid Base; v1.9q: the RETOPO Savagers stations)
+		var sav_model: bool = str(sy["station"].get("model", "")) in ["savagers_cross_station", "HL_STATION_CrossShaped_01", "st3d_savagers_asteroid"] or str(sy["station"].get("model", "")).begins_with("HL_Station_Savagers_")   # (v1.9d: Ravage Major wears the Living Asteroid Base; v1.9q: the RETOPO Savagers stations)
 		if sav_model != is_sav: st_ok = false
 		if SpaceSystem.has_beacon(id, sy) != (is_sav or id == "solara"): st_ok = false
 	_check("Job V: the five Savagers systems wear a Savagers station (the cross station; v1.9d: Ravage Major the Living Asteroid Base), and each hides a light beacon in its nebula (so does Solara)", st_ok and n_sav == 5
