@@ -1783,6 +1783,7 @@ func _run() -> void:
 	main.hud.sp_open = true
 	main.hud.weapons_pinned = true   # (v7.0: every button up for the checks; the pop-up has its own check)
 	if not _flag("HL_PLANETSITES"): SpaceSystem.patrols_on = false   # v12.54: the planet patrols only where they're tested
+	if not _flag("HL_LOADOUT"): SpaceSystem.loadout_on = false   # v12.67: the older checks fly the old gun mounts
 	if not _flag("HL_LANDFILM"):   # v12.52: the landing film is cut short in the other checks (they time the descent)
 		main.landing_film_min = 0.0
 		main.landing_film_max = 0.4
@@ -2298,6 +2299,128 @@ func _run() -> void:
 			return {"spawned": spawned, "left": GS.mission.duplicate()}
 		var r1: Dictionary = await run_job.call("intercept")
 		_check("v12.56 (owner): INTERCEPT: their transport bound for their facility, its fighters and mechs (%d); transport down, paid (job over %s)" % [int(r1["spawned"]), (r1["left"] as Dictionary).is_empty()], int(r1["spawned"]) >= 6 and (r1["left"] as Dictionary).is_empty(), str(r1))
+		_finish_group()
+		return
+	if _flag("HL_LOADOUT"):   # v12.67 (owner's spec): mounts, swap, stow, HUD, ammo, invalid fits, armor stats, hangar, AI
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s := _sp()
+		GS.god_mode = false
+		for wid in ["pulse2", "rail_carbine", "plasma", "hv_cannon", "missile_pod", "rail_rifle"]: if not (wid in GS.owned_weapons): GS.owned_weapons.append(wid)
+		GS.loadouts = {}
+		GS.weapon_state = {}
+		var lo := Loadout.current("ship")
+		# invalid fits are refused (and nothing changes)
+		var e1 := Loadout.fit(lo, 0, "Nose", "hv_cannon")   # (heavy on the nose)
+		var e2 := Loadout.fit(lo, 0, "Dorsal", "pulse2")    # (a blaster on the heavy mount)
+		var e3 := Loadout.fit(lo, 1, "Dorsal", "hv_cannon")
+		var e4 := Loadout.fit(lo, 1, "Wing_L", "rail_carbine")
+		var e5 := Loadout.fit(lo, 1, "Wing_R", "missile_pod")
+		var nose_kept: bool = str(lo["sets"][0]["Nose"]) == GS.weapon_id
+		_check("v12.67 (owner): invalid fits are rejected (%s / %s) and change nothing (%s); valid ones fit (%s %s %s)" % [e1.left(40), e2.left(40), nose_kept, e3 == "", e4 == "", e5 == ""], e1 != "" and e2 != "" and nose_kept and e3 == "" and e4 == "" and e5 == "", "%s | %s | %s %s %s" % [e1, e2, e3, e4, e5])
+		# the generator: too much energy is a blocked build
+		var big := lo.duplicate(true)
+		big["parts"]["hull"] = "hl_light"
+		for m in ["Nose", "Wing_L", "Wing_R", "Ventral"]: big["sets"][0][m] = "rail_rifle"
+		big["sets"][0]["Dorsal"] = "hv_cannon"
+		var blocked: bool = Loadout.build_error(big) != ""
+		# armor swaps change the stats
+		var t0 := Loadout.totals(lo)
+		Loadout.set_part(lo, "hull", "hl_heavy")
+		var t1 := Loadout.totals(lo)
+		Loadout.set_part(lo, "engines", "en_lift")
+		var t2 := Loadout.totals(lo)
+		_check("v12.67: over the generator the build is blocked (%s); armor parts change the stats: heavy hull armor %.0f → %.0f, weight %.0f → %.0f; heavy-lift engines carry %.0f → %.0f" % [blocked, t0["armor"], t1["armor"], t0["weight"], t1["weight"], t1["cap"], t2["cap"]],
+			blocked and float(t1["armor"]) > float(t0["armor"]) and float(t1["weight"]) > float(t0["weight"]) and float(t2["cap"]) > float(t1["cap"]), "")
+		var over := lo.duplicate(true)
+		over["parts"]["engines"] = "en_boost"
+		over["parts"]["hull"] = "hl_heavy"
+		over["parts"]["wings"] = "wg_armored"
+		var to := Loadout.totals(over)
+		_check("v12.67: over the weight the engines carry = slower (%.0f / %.0f, speed %d%%)" % [to["weight"], to["cap"], int(float(to["speed"]) * 100.0)], float(to["over_w"]) <= 0.0 or float(to["slow"]) < 1.0, "")
+		# in flight: the active set on its mounts; SWAP: the new mesh on the mount, the old stowed, HUD, ammo kept
+		s.set_player_model()
+		await _frames(3)
+		var nose_ok: bool = s.lo_nodes.has("Nose") and str((s.lo_nodes["Nose"] as Node3D).get_meta("weapon", "")) == GS.weapon_id and (s.lo_nodes["Nose"] as Node3D).get_parent().name == "Nose"
+		s.target = null
+		s.fire_held = true
+		await _wait(0.6)
+		s.fire_held = false
+		var am0: int = int(Loadout.ensure_state("pulse1")["ammo"])
+		var heat0: float = float(Loadout.ensure_state("pulse1")["heat"])
+		main.hud._layout()
+		var said: String = s.loadout_swap()
+		var mid_block := s.swap_t > 0.0
+		var b0: int = s.bolts.size()
+		s._fire_loadout(-s.player.global_basis.z)
+		var no_fire: bool = s.bolts.size() == b0
+		await _wait(0.25)
+		await _capture("loadout_swapping")
+		await _until(func(): return s.swap_t <= 0.0, 3.0)
+		await _frames(3)
+		var dors: Node3D = s.lo_nodes.get("Dorsal")
+		var new_ok: bool = dors != null and str(dors.get_meta("weapon", "")) == "hv_cannon" and dors.get_parent().name == "Dorsal" and dors.visible
+		var stowed: Array = []
+		var holder: Node3D = s.model.get_node("LoadoutRig")
+		for mn in holder.get_children():
+			for c in mn.get_children(): if c.get_meta("stowed", false): stowed.append(str(c.get_meta("weapon", "")))
+		var old_away: bool = "pulse1" in stowed and not s.lo_nodes.has("Nose")
+		main.hud.queue_redraw()
+		await _frames(2)
+		var hud_ok: bool = main.hud.swap_drawn.begins_with("SET 2") and main.hud.swap_drawn.find("Hvy Cannon") >= 0
+		await _capture("loadout_set2")
+		var am1 := int(Loadout.ensure_state("pulse1")["ammo"])
+		s.loadout_swap()
+		await _until(func(): return s.swap_t <= 0.0, 3.0)
+		await _frames(2)
+		var back_ok: bool = s.lo_nodes.has("Nose") and int(Loadout.ensure_state("pulse1")["ammo"]) == am1
+		_check("v12.67 (owner): SWAP: %s; firing blocked mid-swap (%s); the new gun on its mount (%s); the old one retracted (%s); the HUD switched (%s); ammo / heat kept per weapon (%d, %.0f; back again %s)" % [said, no_fire, new_ok, old_away, main.hud.swap_drawn, am0, heat0, back_ok],
+			mid_block and no_fire and nose_ok and new_ok and old_away and hud_ok and back_ok and heat0 > 0.0, "nose %s new %s away %s hud %s back %s" % [nose_ok, new_ok, old_away, hud_ok, back_ok])
+		# the mech: the old set goes onto its back
+		var ml := Loadout.current("mech")
+		Loadout.fit(ml, 1, "L_Shoulder", "hv_cannon")
+		Loadout.fit(ml, 1, "R_Arm", "plasma")
+		GS.form = "mech"
+		s.set_player_model()
+		await _frames(3)
+		s.loadout_swap()
+		await _until(func(): return s.swap_t <= 0.0, 3.0)
+		await _frames(2)
+		var mh: Node3D = s.model.get_node("LoadoutRig")
+		var on_back: int = (mh.get_node("Back_Stow") as Node3D).get_child_count()
+		var arm_ok: bool = s.lo_nodes.has("R_Arm") and str((s.lo_nodes["R_Arm"] as Node3D).get_meta("weapon", "")) == "plasma"
+		await _capture("loadout_mech")
+		_check("v12.67: the mech swaps too: the new guns on its arm / shoulder (%s), the old ones slung on its back (%d)" % [arm_ok, on_back], arm_ok and on_back >= 2, "")
+		GS.form = "ship"
+		s.set_player_model()
+		# save / load as data
+		Loadout.save_preset(0, "ship")
+		var keep_txt: String = GS.loadout_presets[0]
+		Loadout.fit(Loadout.current("ship"), 0, "Nose", "")
+		var le := Loadout.load_preset(0)
+		var round_ok: bool = le == "" and Loadout.to_text(Loadout.current("ship")) == keep_txt
+		# the AI: the same system
+		var grp: Array = s.spawn_mission_group(s.player.global_position - s.player.global_basis.z * 400.0, "Imperium", 2, 2, "", -9)
+		var ai_ok: bool = not grp.is_empty() and grp.all(func(e): return e.has("lo") and Loadout.build_error(e["lo"]) == "" and float(e.get("dmg_k", 0.0)) > 0.0)
+		_check("v12.67: a loadout saves and loads as data (%s); the AI enemies are given loadouts by the same rules (%s)" % [round_ok, ai_ok], round_ok and ai_ok, "")
+		# the hangar bench: drag onto a mount (the drop), invalid refused, the 3D preview
+		main.dock(s.station)
+		await _until(func(): return main.state == "hub", 15.0)
+		var hb = main.hub
+		hb.lo_frame = "ship"
+		hb.lo_set = 0
+		hb.show_screen("loadout")
+		await _wait(0.6)
+		var targets: int = hb.lo_targets.size()
+		var bad: String = hb._lo_drop("Nose", "hv_cannon")
+		await _frames(2)
+		var good: String = hb._lo_drop("Ventral", "plasma")
+		await _wait(0.4)
+		var fitted: bool = str(Loadout.current("ship")["sets"][0].get("Ventral", "")) == "plasma"
+		await _wait(1.0)
+		await _capture("loadout_bench")
+		_check("v12.67 (owner): the hangar LOADOUT bench: the live 3D model with %d mount targets; a bad drop refused (%s), a good one fitted (%s) with its stat changes (%s)" % [targets, bad.left(50), fitted, hb.lo_note.left(80)], targets == 5 and bad != "" and good == "" and fitted and hb.lo_note.find("Speed") >= 0, "")
 		_finish_group()
 		return
 	if _flag("HL_GALAXYSHOT"):   # v12.64 (owner: "show me the complete map"): every system charted, zoomed out and in

@@ -4547,7 +4547,8 @@ func set_player_model() -> void:
 	Sections.set_side_visible(player_vis, "l", GS.wing_l > 0.0)
 	Sections.set_side_visible(player_vis, "r", GS.wing_r > 0.0)
 	_hw_cache.erase(str(GS.ship_id))
-	mount_visuals()
+	if loadout_live(): lo_nodes = Loadout.dress(model, Loadout.current(GS.form))   # v12.67: the loadout's weapons on their mounts, the armor parts
+	else: mount_visuals()
 
 ## v1.9g (owner): what each wing mount carries, on the wing: the shoulder gun on top near the core, the tip gun under
 ## the wing's end (hung upside down). Models come from the "wing_guns" pack; until it is in, nothing extra shows.
@@ -4584,6 +4585,117 @@ func mount_visuals() -> void:
 		if tip: gun.rotation_degrees.z = 180.0   # hung under the wing
 		gun.set_meta("mount", g)
 		holder.add_child(gun)
+
+# ---------------------------------------------------------------- v12.67: the loadout in flight (scripts/loadout.gd)
+static var loadout_on: bool = Data.LOADOUT_ON   # (the older tests turn it off)
+var lo_nodes := {}      # mount -> the weapon node on it (the active set)
+var swap_t := 0.0       # > 0 while the weapons swap (no firing)
+var _swap_moves: Array = []   # [node, from (model space), to, from scale, to scale, free at the end]
+var swaps := 0          # (tests)
+var _lo_tot := {}
+var _lo_tot_t := -1.0
+func lo_totals() -> Dictionary:   # (worked out a few times a second, not every frame)
+	if time - _lo_tot_t > 0.5 or _lo_tot.is_empty():
+		_lo_tot = Loadout.totals(Loadout.current(GS.form))
+		_lo_tot_t = time
+	return _lo_tot
+func lo_boost() -> float: return float(lo_totals()["boost"]) if loadout_live() else 1.0
+func loadout_live() -> bool:
+	return loadout_on and not on_foot and not escape_pilot and is_instance_valid(model) and (GS.form == "ship" or GS.form == "mech")
+
+## SWAP: the next weapon set (one with weapons on it) goes on the mounts. A mech's old guns go onto its back, a ship's
+## pull into the hull; the new ones come out and lock on. Firing waits until it's done.
+func loadout_swap() -> String:
+	if not loadout_live(): return "No weapon sets here."
+	if swap_t > 0.0: return "Swapping..."
+	var lo := Loadout.current(GS.form)
+	var n: int = (lo["sets"] as Array).size()
+	var nxt := -1
+	for k in range(1, n):
+		var i := (int(lo["active"]) + k) % n
+		if not (lo["sets"][i] as Dictionary).is_empty():
+			nxt = i
+			break
+	if nxt < 0: return "Only one weapon set fitted: fit SET 2 in the hangar."
+	var holder: Node3D = model.get_node("LoadoutRig")
+	var stow: Node3D = holder.get_node_or_null("Back_Stow")
+	var mounts := Loadout.rig(model, GS.form)
+	var size: float = float(holder.get_meta("size", 6.0))
+	_swap_moves.clear()
+	for m in lo_nodes:   # the old set: to the back / into the hull
+		var g: Node3D = lo_nodes[m]
+		if not is_instance_valid(g): continue
+		var p0 := model.to_local(g.global_position)
+		var p1 := model.to_local(stow.global_position) if GS.form == "mech" and stow != null else model.to_local((mounts[m] as Node3D).global_position).lerp(Vector3.ZERO, 0.6)
+		var keep_xf := g.global_transform
+		g.get_parent().remove_child(g)
+		model.add_child(g)
+		g.global_transform = keep_xf
+		_swap_moves.append([g, p0, p1, g.scale, g.scale * (0.6 if GS.form == "mech" else 0.001), true])
+	var act: Dictionary = lo["sets"][nxt]
+	for m in act:   # the new set: out from the back / the hull, onto its mount
+		if not mounts.has(m): continue
+		var g2 := Loadout.weapon_mesh(str(act[m]), size)
+		model.add_child(g2)
+		var to := model.to_local((mounts[m] as Node3D).global_position)
+		var fr: Vector3 = model.to_local(stow.global_position) if GS.form == "mech" and stow != null else to.lerp(Vector3.ZERO, 0.6)
+		g2.position = fr
+		_swap_moves.append([g2, fr, to, g2.scale * (0.6 if GS.form == "mech" else 0.001), g2.scale, true])
+	for c in (stow.get_children() if stow != null else []): c.visible = false   # (what was on the back is now coming off it)
+	lo["active"] = nxt
+	swap_t = Data.LOADOUT_SWAP_TIME
+	swaps += 1
+	Sfx.play("transform", -10.0, 1.8)
+	return "SET %d: %s" % [nxt + 1, ", ".join(act.values().map(func(w): return str(Loadout.weapon(str(w)).get("short", w))))]
+
+func _update_swap(dt: float) -> void:
+	if swap_t <= 0.0: return
+	swap_t = maxf(0.0, swap_t - dt)
+	var k := 1.0 - swap_t / Data.LOADOUT_SWAP_TIME
+	var e := k * k * (3.0 - 2.0 * k)
+	for mv in _swap_moves:
+		var g: Node3D = mv[0]
+		if not is_instance_valid(g): continue
+		g.position = (mv[1] as Vector3).lerp(mv[2], e)
+		g.scale = (mv[3] as Vector3).lerp(mv[4], e)
+	if swap_t <= 0.0:   # done: lock everything in its place
+		for mv in _swap_moves:
+			if is_instance_valid(mv[0]): (mv[0] as Node3D).queue_free()
+		_swap_moves.clear()
+		if is_instance_valid(model): lo_nodes = Loadout.dress(model, Loadout.current(GS.form))
+		Sfx.play("button", -8.0, 0.7)
+
+## FIRE with a loadout: every weapon of the active set fires from its own mount, at its own rate, while it has ammo
+## and isn't overheated; nothing fires mid-swap.
+func _fire_loadout(aim_dir: Vector3) -> void:
+	if swap_t > 0.0: return
+	var lo := Loadout.current(GS.form)
+	var act := Loadout.active_set(lo)
+	var next_cd := 10.0
+	var fired := false
+	var mk := GS.mech_arm() if GS.form == "mech" else 1.0
+	for m in act:
+		var wid := str(act[m])
+		var w := Loadout.weapon(wid)
+		if w.is_empty() or not Loadout.can_fire(wid): continue
+		var key: String = "lo_" + str(m)
+		var ready_at: float = float(mount_next.get(key, 0.0))
+		if time + 0.001 < ready_at:
+			next_cd = minf(next_cd, ready_at - time)
+			continue
+		mount_next[key] = time + 1.0 / float(w["rate"])
+		next_cd = minf(next_cd, 1.0 / float(w["rate"]))
+		var g: Node3D = lo_nodes.get(m)
+		var from: Vector3 = g.global_position - g.global_basis.z * 0.6 if g != null and is_instance_valid(g) else player.global_position + aim_dir * 5.0
+		var big := str(w["class"]) in ["heavy", "missile"]
+		_spawn_bolt(from, aim_dir * float(w["speed"]) + vel, float(w["damage"]) * mk * (1.6 if str(w["class"]) == "missile" else 1.0), w["color"], "player", float(w["range"]) / float(w["speed"]))
+		if big and not bolts.is_empty(): (bolts[-1]["node"] as Node3D).scale *= 2.2   # (a shell / rocket: a bigger round)
+		Loadout.shot(wid)
+		fired = true
+	gun_cd = minf(next_cd, 0.25)
+	if fired and _laser_sfx_cd <= 0.0:
+		Sfx.play("laser", -9.0)
+		_laser_sfx_cd = 0.07
 
 func _on_wing_guns(pk: String) -> void:
 	if pk == "wing_guns" and is_inside_tree(): mount_visuals()
@@ -5174,8 +5286,22 @@ func spawn_unit(kind: String, pos: Vector3, home: Vector3, model_key := "", scal
 		"spark_l": 0.0, "spark_r": 0.0, "sparks": 0, "gun": 0, "core_cd": _rng.randf_range(1.5, 3.0),
 		"cd": _rng.randf_range(0.5, 2.0), "orbit": _rng.randf() * TAU, "aggro": false, "strafe": _rng.randf_range(-1, 1), "prev_fwd": Vector3.FORWARD}
 	if e.get("capital", false): _ship_box(node, n)   # v11.37 (owner: "I fly through it, it needs to be solid")
+	if loadout_on and not e.get("capital", false):   # v12.67 (owner's spec: "AI enemies use the same system"): its loadout sets its hits, armor and speed
+		var lfr := "mech" if is_mech else "ship"
+		var el := Loadout.for_enemy(lfr, clampi(int(e.get("level", e.get("tier", 1))), 1, 5), "%s|%d" % [kind, _enemy_serial])
+		ent["lo"] = el["lo"]
+		ent["dmg_k"] = float(el["dmg_k"])
+		ent["speed_k"] = float(el["speed_k"])
+		ent["hp"] = float(ent["hp"]) * float(el["hp_k"])
+		ent["max"] = ent["hp"]
+		if is_mech: lo_dress_enemy(ent)
 	enemies.append(ent)
 	return ent
+
+## v12.67: an enemy mech wears its loadout's weapons on its mounts (the ships' are small: their stats only)
+func lo_dress_enemy(ent: Dictionary) -> void:
+	if not is_instance_valid(ent.get("model")): return
+	Loadout.dress(ent["model"], ent["lo"])
 
 ## Weapon mounts still working: "l"/"r" arm or wing guns, plus "core" for a mech's chest cannon.
 func unit_guns(e: Dictionary) -> Array:
@@ -5583,6 +5709,10 @@ func _update_player(dt: float) -> void:
 	var s: Dictionary = GS.ship()
 	var base_speed: float = s["speed"]
 	var turn: float = float(s["turn"]) * (1.0 + GS.mod("turn"))   # (v1.9w: + Control Unit)
+	if loadout_live():   # v12.67: the parts and the weight you carry set the speed; swaps and heat tick on
+		base_speed *= float(lo_totals()["speed"])
+		_update_swap(dt)
+		Loadout.cool(dt)
 	gun_cd = maxf(0.0, gun_cd - dt)
 	shield_delay = maxf(0.0, shield_delay - dt)
 	hit_shake = maxf(0.0, hit_shake - dt * 2.5)
@@ -5671,7 +5801,7 @@ func _update_player(dt: float) -> void:
 		if warp_drift and thrust_held and controls and GS.energy > 1.0:
 			boosting = true
 			GS.energy = maxf(0.0, GS.energy - Data.THRUST_ENERGY * dt)
-			var keep_v := maxf(vel.length(), base_speed * Data.BURST_MULT)
+			var keep_v := maxf(vel.length(), base_speed * Data.BURST_MULT * lo_boost())
 			var vd := vel.normalized() if vel.length() > 0.1 else fwd
 			vel = vd.slerp(fwd, minf(1.0, dt * Data.DRIFT_BOOST_RATE)).normalized() * keep_v   # (turn the vector, keep its length)
 			_booster_particles(dt, 0.5)
@@ -5712,13 +5842,13 @@ func _update_player(dt: float) -> void:
 		if burst_now and not _boost_was:
 			dash_dir = burst_dir(thrust)
 			last_dash = burst_name(thrust)
-			vel = player.global_basis * dash_dir * base_speed * Data.BURST_MULT
+			vel = player.global_basis * dash_dir * base_speed * Data.BURST_MULT * lo_boost()
 			Sfx.play("whoosh", -6.0, 1.3)
 		_boost_was = burst_now
 		if burst_now and dash_dir != Vector3.ZERO:
 			boosting = true
 			GS.energy = maxf(0.0, GS.energy - Data.THRUST_ENERGY * dt)
-			desired = player.global_basis * dash_dir * base_speed * Data.BURST_MULT
+			desired = player.global_basis * dash_dir * base_speed * Data.BURST_MULT * lo_boost()
 			rate = Data.BURST_RATE
 			_booster_particles(dt, 0.25)
 		vel = vel.lerp(desired, minf(1.0, dt * rate))
@@ -6069,6 +6199,9 @@ func _fire_guns() -> void:
 		var to := target.global_position - player.global_position
 		if fwd.dot(to.normalized()) > cos(deg_to_rad(10.0)):
 			aim_dir = (lead_point(target) - player.global_position).normalized()
+	if loadout_live() and not mech_fpv():   # v12.67: the loadout's weapons fire from their mounts
+		_fire_loadout(aim_dir)
+		return
 	if mech_fpv() and fpv != null:   # v1.7z: in the mech's first-person view the rifle fires (all guns' worth, one bolt) at the crosshair
 		var muzzle: Vector3 = cam.global_position - cam.global_basis.z * 4.0 if zoomed else fpv.global_transform * fpv_muzzle
 		var at: Vector3 = cam.global_position - cam.global_basis.z * float(w["range"])
@@ -7754,11 +7887,16 @@ func _player_hit(dmg: float, hit := Vector3.INF) -> void:
 		Sfx.play("shield_hit", -12.0, 1.6)
 		return
 	if GS.form == "mech": dmg *= 1.0 - GS.mech_armor()   # v1.9i: the core's armour
+	var stg := 0.0
+	if loadout_live():   # v12.67: the armor parts soak some of it; heavier builds stagger less
+		var lt := lo_totals()
+		dmg /= 1.0 + float(lt["armor"]) / Data.LOADOUT_ARMOR_K
+		stg = float(lt["stagger"])
 	if GS.shield > 0.0: shield_hit(hit)   # v8.6 (owner): the shield lights up round the ship like a force field
 	GS.super_charge = minf(1.0, GS.super_charge + dmg / Data.SUPER_FROM_TAKEN)   # v7.5 (owner): the super meter builds in a fight
 	Sfx.play("shield_hit" if GS.shield > 0.0 else "hull_hit", -6.0)
 	shield_delay = 3.0
-	hit_shake = 1.0
+	hit_shake = 1.0 - stg
 	var side := "core"
 	if hit != Vector3.INF: side = Sections.side_of_hit(player_vis, player, hit, 5.0)
 	var broke := GS.damage(dmg, side)
@@ -7893,7 +8031,7 @@ func _update_enemies(dt: float) -> void:
 				var from: Vector3 = n.global_position + n.global_basis.x * sx * 3.0 - n.global_basis.z * 5.0
 				var jitter := Vector3(_rng.randfn(0, 4), _rng.randfn(0, 4), _rng.randfn(0, 4))
 				var at_npc: bool = fa.has("def")   # v11.41: shooting at a rival's ship (not at you): the shot only hits that ship
-				_spawn_bolt(from, (lead + jitter - from).normalized() * 300.0, d["damage"], Color(1.0, 0.35, 0.25), "fx" if at_npc else "enemy", 1.6)
+				_spawn_bolt(from, (lead + jitter - from).normalized() * 300.0, float(d["damage"]) * float(e.get("dmg_k", 1.0)), Color(1.0, 0.35, 0.25), "fx" if at_npc else "enemy", 1.6)
 				if at_npc and _rng.randf() < Data.FLEET_NPC_HIT: _npc_hit(fa, float(d["damage"]))
 				if dist < 450.0: Sfx.play("laser_enemy", -12.0 - dist / 60.0)
 			if e["mech"] and e["core_cd"] <= 0.0:
@@ -12273,7 +12411,7 @@ func _update_capital(e: Dictionary, dt: float) -> void:
 	var hr: float = float(d.get("hit_r", 30.0))
 	var from: Vector3 = n.global_position + Vector3(_rng.randf_range(-1, 1), _rng.randf_range(-0.3, 0.6), _rng.randf_range(-1, 1)) * hr * 0.7
 	var lead: Vector3 = (pick[0] as Vector3) + (pick[1] as Vector3) * (best / 320.0) + Vector3(_rng.randfn(0, 6), _rng.randfn(0, 6), _rng.randfn(0, 6))
-	_spawn_bolt(from, (lead - from).normalized() * 320.0, float(d["damage"]), Color(1.0, 0.3, 0.2), "enemy", best / 300.0 + 0.6)
+	_spawn_bolt(from, (lead - from).normalized() * 320.0, float(d["damage"]) * float(e.get("dmg_k", 1.0)), Color(1.0, 0.3, 0.2), "enemy", best / 300.0 + 0.6)
 	if best < 600.0: Sfx.play("laser_enemy", -14.0 - best / 80.0, 0.6)
 
 ## Allies: each fighter takes the nearest enemy fighter (the frigate the nearest big ship), makes attack runs and

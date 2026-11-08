@@ -114,6 +114,9 @@ var planet_seen := {}       # v12.61: planet id -> sectors (tile numbers) you ha
 var atlases: Array = []     # v12.61: planets whose atlas you bought (their whole map is charted)
 var tips_on := true         # v12.61: Evee's tips (until you know them)
 var tips_known: Array = []  # v12.61: tips you have shown you know (Evee stops giving them)
+var loadouts := {}          # v12.67: frame ("mech" / "ship") -> its loadout (see Loadout): weapon sets, armor parts
+var loadout_presets: Array = []   # v12.67: saved loadouts (text)
+var weapon_state := {}      # v12.67: weapon id -> {ammo, heat, locked} (kept across swaps)
 var relics := {}            # v12.58: alien relics from enemy-faction wrecks: faction -> count (crafting still to come)
 var block_deltas := {}       # v1.5t EXPERIMENT: crater notes per block patch ("planet|tile" -> [[x, y, z, kind]]); the ground regrows from the seed and these are re-applied
 var bounty_jail := {}        # v1.8k: bounty pilots handed in or killed: id -> unix time they are back
@@ -123,7 +126,7 @@ var god_mode := false # only used by the automated route test
 # ---------------------------------------------------------------- v1.7y saving
 const SAVE_KEYS := ["build_mats", "credits", "ship_id", "owned_ships", "weapon_id", "owned_weapons", "missiles", "heavy_missiles", "mines", "nukes", "rack",
 	"owned_racks", "slots", "modes", "view", "system_id", "discovered", "explored", "last_base", "kills", "met", "mood", "memory", "heat_shield",
-	"bounty", "bounties_done", "mission", "cargo", "missions_done", "rep", "cast", "mine_kind", "block_deltas", "tutorial_seen", "bounty_jail", "mounts", "core_gun", "core_gun2", "core_gun3", "modules", "owned_modules", "gun_levels", "owned_mechs", "mech_parts", "pilot_name", "found_stations", "planet_visits", "relics", "respawn", "respawn_prev", "home_pinned", "planet_seen", "atlases", "tips_on", "tips_known"]   # (v1.9e: + mounts; v1.9i: + owned_mechs, mech_parts; v1.9j: + pilot_name)
+	"bounty", "bounties_done", "mission", "cargo", "missions_done", "rep", "cast", "mine_kind", "block_deltas", "tutorial_seen", "bounty_jail", "mounts", "core_gun", "core_gun2", "core_gun3", "modules", "owned_modules", "gun_levels", "owned_mechs", "mech_parts", "pilot_name", "found_stations", "planet_visits", "relics", "respawn", "respawn_prev", "home_pinned", "planet_seen", "atlases", "tips_on", "tips_known", "loadouts", "loadout_presets", "weapon_state"]   # (v1.9e: + mounts; v1.9i: + owned_mechs, mech_parts; v1.9j: + pilot_name)
 var save_path: String = Data.SAVE_PATH
 var save_enabled := true   # (the route test turns it off, so a test never reads or writes a player's save)
 var saves := 0             # (tests) saves written this session

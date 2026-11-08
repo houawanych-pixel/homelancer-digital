@@ -819,6 +819,32 @@ func _top_bar(tabs: Dictionary) -> void:
 	tabs["select"] = Rect2(x, y2, ws[2], TOP_BAR_H); x += ws[2] + gap
 	fs_slot = Rect2(x, y2, ws[3], TOP_BAR_H)
 	fs_exit_slot = fs_slot   # (one place, on or off)
+	if space and space.loadout_live(): tabs["swap"] = Rect2(x + ws[3] + gap, y2, 200.0, TOP_BAR_H)   # v12.67: SWAP weapon sets
+
+## v12.67: the SWAP button: the set on the mounts, its weapons with their ammo, a heat bar each; dim while swapping
+var swap_drawn := ""   # (tests) what it showed last
+func _swap_btn(r: Rect2) -> void:
+	var lo := Loadout.current(GS.form)
+	var act := Loadout.active_set(lo)
+	var busy: bool = space.swap_t > 0.0
+	_box(r, Color(GOLD, 0.25) if busy else Color(0.02, 0.08, 0.15, 0.86), Color(GOLD, 0.95), 8, 2)
+	var names: Array = []
+	for m in act: names.append(str(Loadout.weapon(str(act[m])).get("short", "")))
+	var line1 := "SWAP  ·  SET %d/%d" % [int(lo["active"]) + 1, (lo["sets"] as Array).size()]
+	_text(Vector2(r.position.x + 6.0, r.position.y + 15.0), line1 if not busy else "SWAPPING...", 12, GOLD)
+	var ws := act.values()
+	var cw := (r.size.x - 12.0) / maxf(1.0, float(ws.size()))
+	for i in ws.size():
+		var wid := str(ws[i])
+		var w := Loadout.weapon(wid)
+		var st := Loadout.ensure_state(wid)
+		var x0 := r.position.x + 6.0 + i * cw
+		_icon("guns", Vector2(x0 + 6.0, r.position.y + 27.0), 5.0, w.get("color", WHITE))
+		var am: int = int(st["ammo"])
+		_text(Vector2(x0 + 13.0, r.position.y + 31.0), "%s %s" % [str(w.get("short", "")).left(7), "∞" if am < 0 else str(am)], 9, RED if bool(st["locked"]) else WHITE, HORIZONTAL_ALIGNMENT_LEFT, cw - 14.0)
+		draw_rect(Rect2(x0 + 2.0, r.end.y - 5.0, (cw - 6.0), 3.0), Color(1, 1, 1, 0.15))
+		draw_rect(Rect2(x0 + 2.0, r.end.y - 5.0, (cw - 6.0) * clampf(float(st["heat"]) / 100.0, 0.0, 1.0), 3.0), RED if bool(st["locked"]) else ORANGE)
+	swap_drawn = "SET %d: %s" % [int(lo["active"]) + 1, ", ".join(names)]
 
 func _top_bar_draw() -> void:
 	if buttons.has("build"):
@@ -835,6 +861,7 @@ func _top_bar_draw() -> void:
 		_box(r, Color(col, 0.32) if on else Color(0.02, 0.08, 0.15, 0.86), Color(col, 0.95), 8, 2)
 		var txt: String = {"start": "START", "select": "SELECT", "goto": "AUTO ON" if space.autopilot != null else "GO TO"}[id]
 		_text(Vector2(r.position.x, r.position.y + 23.0), txt, 15, WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
+	if buttons.has("swap"): _swap_btn(buttons["swap"])
 	var sr := top_speed   # the SPEED readout (with the flight mode under it)
 	_box(sr, Color(GOLD, 0.3) if space.cruise_max else Color(0.02, 0.08, 0.15, 0.86), Color(GOLD, 0.95) if space.cruise_max else Color(CYAN, 0.8), 8, 2)
 	var mode := ""

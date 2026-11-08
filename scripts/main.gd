@@ -444,6 +444,8 @@ func _on_hud(id: String) -> void:
 		"stop":
 			space.full_stop()
 			hud.flash_message("Braking to a full stop.")
+		"swap":   # v12.67 (owner's spec): one button cycles the weapon sets
+			hud.flash_message(space.loadout_swap())
 		"cruise":   # v12.61 (owner): full speed without holding the stick forward
 			if GS.form == "mech" or space.on_foot: return
 			var con := space.toggle_cruise()

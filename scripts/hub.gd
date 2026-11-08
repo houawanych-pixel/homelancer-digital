@@ -622,7 +622,7 @@ func show_screen(s: String) -> void:
 	screen = s
 	_refresh_credits()
 	var sysname: String = Data.SYSTEMS[GS.system_id]["name"]
-	header.text = base["name"].to_upper() if s == "hub" else {"equipment": "WEAPONS & EQUIPMENT DEALER", "ships": "SHIP DEALER", "mechs": "MECH DEALER", "repair": "MEDICAL BAY", "supplies": "SUPPLIES", "command": "COMMAND", "bounty": "MISSION BOARD", "missions": "MISSION BOARD", "board": "MISSION BOARD", "ship": "YOUR SHIP", "faction": "FACTION", "surface": "PLANET DESTINATIONS", "lounge": "PILOTS' LOUNGE"}[s]
+	header.text = base["name"].to_upper() if s == "hub" else {"equipment": "WEAPONS & EQUIPMENT DEALER", "ships": "SHIP DEALER", "mechs": "MECH DEALER", "repair": "MEDICAL BAY", "supplies": "SUPPLIES", "command": "COMMAND", "bounty": "MISSION BOARD", "missions": "MISSION BOARD", "board": "MISSION BOARD", "ship": "YOUR SHIP", "faction": "FACTION", "surface": "PLANET DESTINATIONS", "lounge": "PILOTS' LOUNGE", "loadout": "LOADOUT"}[s]
 	subheader.text = "%s  ·  %s  ·  %s SYSTEM" % [str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])).to_upper(), "ORBITAL STATION" if kind == "station" else "PLANET SURFACE", sysname.to_upper()]   # v8.2 (owner): faction and station
 	for box in [left, content, leftwin]:   # take the old page out at once, so the new buttons keep their own names
 		for c in box.get_children():
@@ -715,6 +715,7 @@ func show_screen(s: String) -> void:
 		"ship": _ship_page()
 		"faction", "command": _faction_page()   # v9.5: COMMAND (hub) shows the faction page in the command room
 		"surface": _surface_page()
+		"loadout": _loadout_page()
 	if not (s in ["hub", "equipment"]): _wrap_rows(content)   # v4.6: long lines wrap (the page is narrower beside the assistant)
 	queue_redraw()
 
@@ -1775,7 +1776,7 @@ func _layout_windows(s: String) -> void:
 
 ## v11.4 (owner): the MISSION BOARD is a big landscape window (3 wide for 2 tall); the SHIPYARD and MECHS have two
 ## 2 x 3 tablets, one each side.
-func board_page(s: String) -> bool: return s in ["missions", "bounty", "board"]
+func board_page(s: String) -> bool: return s in ["missions", "bounty", "board", "loadout"]   # (v12.67: the LOADOUT bench is wide too)
 func two_tablets(s: String) -> bool: return s in ["ships", "mechs"]
 
 ## The tablets sit between the calls: the page clear of the comms column on the right, the left tablet clear of a
@@ -1922,7 +1923,7 @@ func nav_cats() -> Array:
 	var hubp: Array = [["hub", "STATION"], ["board", "MISSION BOARD"], ["command", "COMMAND"], ["map", "NAV MAP"]]
 	if _surface_planet() != "": hubp.insert(3, ["surface", "SURFACE"])
 	return [["hub", "HUB", hubp], ["lounge", "LOUNGE", [["lounge", "LOUNGE"]]],
-		["hangar", "HANGAR", [["ships", "SHIPYARD"], ["mechs", "MECHS"], ["equipment", "WEAPONS"]]],
+		["hangar", "HANGAR", [["ships", "SHIPYARD"], ["mechs", "MECHS"], ["equipment", "WEAPONS"], ["loadout", "LOADOUT"]]],
 		["supplies", "SUPPLIES", [["supplies", "REPAIR & AMMO"], ["repair", "MEDICAL BAY"]]], ["pilot", "PILOT", [["ship", "MY QUARTERS"], ["faction", "FACTION"]]]]
 
 func nav_cat(s: String) -> String:
@@ -4804,6 +4805,260 @@ func set_home_here() -> String:
 	GS.learn_tip("home")
 	GS.save_game()
 	return "Home point set: %s. If you're shot down, the tug brings you back here." % base.get("name", "this dock")
+
+# ---------------------------------------------------------------- v12.67: the LOADOUT bench (scripts/loadout.gd)
+## (owner's spec) Drag a weapon onto a mount on the live 3D model (or tap the weapon, then the mount); a fit that
+## doesn't work is refused and says why. The armor parts swap with < >. Weight, energy and what they do show live.
+var lo_frame := "ship"
+var lo_set := 0
+var lo_pick := ""        # the weapon picked by a tap (then tap a mount)
+var lo_note := ""        # the last change, said on the page
+var lo_targets := {}     # mount -> its button over the model (tests)
+var lo_view: SubViewport = null
+func _loadout_page() -> void:
+	var v := _page_box()
+	var lo := Loadout.current(lo_frame)
+	lo_set = clampi(lo_set, 0, (lo["sets"] as Array).size() - 1)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	v.add_child(row)
+	for fr in ["ship", "mech"]:
+		var fb := Button.new()
+		fb.name = "LoFrame_" + fr
+		fb.text = fr.to_upper()
+		fb.toggle_mode = true
+		fb.button_pressed = fr == lo_frame
+		fb.custom_minimum_size = Vector2(80, 44)
+		fb.pressed.connect(func(): lo_frame = fr; lo_pick = ""; show_screen("loadout"))
+		row.add_child(fb)
+	for i in (lo["sets"] as Array).size():
+		var sb := Button.new()
+		sb.name = "LoSet_%d" % i
+		sb.text = "SET %d%s" % [i + 1, " ★" if i == int(lo["active"]) else ""]
+		sb.toggle_mode = true
+		sb.button_pressed = i == lo_set
+		sb.custom_minimum_size = Vector2(80, 44)
+		sb.pressed.connect(func(): lo_set = i; show_screen("loadout"))
+		row.add_child(sb)
+	# the live 3D model with its mounts
+	var stage := Control.new()
+	stage.name = "LoStage"
+	stage.custom_minimum_size = Vector2(0, 330)
+	stage.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.add_child(stage)
+	var svc := SubViewportContainer.new()
+	svc.stretch = true
+	svc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	svc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage.add_child(svc)
+	var vp := SubViewport.new()
+	vp.own_world_3d = true
+	vp.transparent_bg = true
+	vp.msaa_3d = Viewport.MSAA_2X
+	svc.add_child(vp)
+	lo_view = vp
+	var pivot := Node3D.new()   # (the model scaled to a set size, like the hangar bay's turntable)
+	pivot.name = "LoPivot"
+	vp.add_child(pivot)
+	var model := ShipFactory.build_mech(str(GS.mech_keys()["core"]), str(GS.mech_keys()["arms"]), str(GS.mech_keys()["legs"])) if lo_frame == "mech" else ShipFactory.build(str(Data.SHIPS[GS.ship_id]["model"]), true)
+	model.name = "LoModel"
+	pivot.add_child(model)
+	var bb0: AABB = ShipFactory._aabb(model, Transform3D.IDENTITY)
+	var span: float = maxf(bb0.size.x, maxf(bb0.size.y, bb0.size.z))
+	if span > 0.01: pivot.scale = Vector3.ONE * (12.0 / span)
+	pivot.position = -bb0.get_center() * pivot.scale.x
+	Loadout.dress(model, _lo_view_set(lo))
+	var cam := Camera3D.new()
+	cam.fov = 38.0
+	vp.add_child(cam)
+	cam.look_at_from_position(Vector3(11.0, 8.0, 16.0) if lo_frame == "ship" else Vector3(9.0, 4.0, -18.0), Vector3.ZERO, Vector3.UP)
+	var sun := DirectionalLight3D.new()
+	sun.rotation_degrees = Vector3(-50, 30, 0)
+	sun.light_energy = 1.4
+	vp.add_child(sun)
+	var env := WorldEnvironment.new()
+	env.environment = Environment.new()
+	env.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.environment.ambient_light_color = Color(0.55, 0.65, 0.8)
+	env.environment.ambient_light_energy = 0.8
+	vp.add_child(env)
+	# the mounts: a drop target on each, where it sits on the model
+	lo_targets.clear()
+	var mounts := Loadout.rig(model, lo_frame)
+	var set_d: Dictionary = lo["sets"][lo_set]
+	for m in Loadout.MOUNTS[lo_frame]:
+		var md: Dictionary = Loadout.MOUNTS[lo_frame][m]
+		if md.get("stow", false): continue
+		var tb := Button.new()
+		tb.name = "LoMount_" + m
+		var wid := str(set_d.get(m, ""))
+		tb.text = "%s\n%s" % [md["label"], str(Loadout.weapon(wid).get("short", "— empty —")) if wid != "" else "— empty —"]
+		tb.add_theme_font_size_override("font_size", Data.ts(11))
+		tb.custom_minimum_size = Vector2(104, 40)
+		tb.size = Vector2(104, 40)
+		tb.modulate = Color(1.0, 0.9, 0.5) if wid != "" else Color(0.8, 0.9, 1.0, 0.85)
+		stage.add_child(tb)
+		lo_targets[m] = tb
+		tb.set_drag_forwarding(Callable(), func(_at, data): return data is Dictionary and data.has("lo_weapon"), func(_at, data): _lo_drop(m, str(data["lo_weapon"])))
+		tb.pressed.connect(func(): _lo_tap_mount(m))
+		var mp: Node3D = mounts[m]
+		stage.resized.connect(func(): _lo_place(tb, cam, mp, stage))
+		_lo_place.call_deferred(tb, cam, mp, stage)
+	# the totals, and what the last change did
+	var t := Loadout.totals(lo)
+	var tl := _label(15, Color(0.85, 0.95, 1.0))
+	tl.name = "LoTotals"
+	tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	tl.text = "WEIGHT %.0f / %.0f%s   ·   ENERGY %.0f / %.0f%s\nARMOR %.0f   ·   SPEED %d%%   ·   BOOST %d%%   ·   STAGGER RES %d%%" % [t["weight"], t["cap"], "  OVERWEIGHT: slower" if float(t["over_w"]) > 0.0 else "", t["energy"], t["gen"], "  OVER: BLOCKED" if bool(t["blocked"]) else "",
+		t["armor"], int(float(t["speed"]) * 100.0), int(float(t["boost"]) * 100.0), int(float(t["stagger"]) * 100.0)]
+	v.add_child(tl)
+	if lo_note != "":
+		var nl := _label(14, GOLD)
+		nl.name = "LoNote"
+		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		nl.text = lo_note
+		v.add_child(nl)
+	# the weapons you own: drag one onto a mount (or tap it, then tap the mount)
+	var wl := _label(16, CYAN)
+	wl.text = "WEAPONS  ·  drag onto a mount (or tap, then tap the mount)"
+	v.add_child(wl)
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	v.add_child(grid)
+	var owned: Array = GS.owned_weapons.duplicate()
+	if GS.god_mode: owned = Data.WEAPONS.keys() + Data.MOUNT_PODS.keys()
+	for wid2 in owned:
+		var w := Loadout.weapon(str(wid2))
+		if w.is_empty(): continue
+		var wb := Button.new()
+		wb.name = "LoWeapon_" + str(wid2)
+		wb.text = "%s  [%s]\nW %.0f · E %.0f · %s" % [w["short"], str(w["class"]).to_upper(), w["weight"], w["energy"], "∞" if int(w["ammo"]) < 0 else "%d rds" % int(w["ammo"])]
+		wb.add_theme_font_size_override("font_size", Data.ts(12))
+		wb.custom_minimum_size = Vector2(150, 48)
+		wb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		wb.toggle_mode = true
+		wb.button_pressed = lo_pick == str(wid2)
+		var wid3 := str(wid2)
+		wb.set_drag_forwarding(func(_at):
+			var pv := Label.new()
+			pv.text = str(w["short"])
+			wb.set_drag_preview(pv)
+			return {"lo_weapon": wid3}, Callable(), Callable())
+		wb.pressed.connect(func(): lo_pick = "" if lo_pick == wid3 else wid3; show_screen("loadout"))
+		grid.add_child(wb)
+	# the armor parts
+	var al := _label(16, CYAN)
+	al.text = "ARMOR PARTS"
+	v.add_child(al)
+	for slot in Loadout.SLOTS[lo_frame]:
+		var pr := HBoxContainer.new()
+		pr.add_theme_constant_override("separation", 6)
+		v.add_child(pr)
+		var ids: Array = Loadout.parts_for(lo_frame, slot)
+		var cur := str(lo["parts"].get(slot, ""))
+		var pd := Loadout.part(lo_frame, slot, cur)
+		for d in [-1, 1]:
+			var ab := Button.new()
+			ab.name = "LoPart_%s_%s" % [slot, "prev" if d < 0 else "next"]
+			ab.text = "<" if d < 0 else ">"
+			ab.custom_minimum_size = Vector2(44, 44)
+			ab.disabled = ids.size() < 2
+			ab.pressed.connect(func():
+				var i := ids.find(cur)
+				var nid: String = ids[posmod(i + d, ids.size())]
+				var before := Loadout.totals(lo)
+				var err := Loadout.set_part(lo, slot, nid)
+				lo_note = err if err != "" else _lo_change(before, Loadout.totals(lo), str(Loadout.part(lo_frame, slot, nid).get("name", nid)))
+				show_screen("loadout"))
+			if d < 0: pr.add_child(ab)
+			else:
+				var pl := _label(14, Color(1, 1, 1))
+				pl.name = "LoPartName_" + slot
+				pl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				pl.text = "%s: %s\nArmor %.0f · W %.0f · E %.0f%s%s" % [slot.to_upper(), pd.get("name", "-"), pd.get("armor", 0.0), pd.get("weight", 0.0), pd.get("energy", 0.0),
+					(" · carries %.0f" % float(pd["cap"])) if pd.has("cap") else "", (" · makes %.0f" % float(pd["gen"])) if pd.has("gen") else ""]
+				pr.add_child(pl)
+				pr.add_child(ab)
+	# presets: save / load the loadout as data
+	var ps := HBoxContainer.new()
+	ps.add_theme_constant_override("separation", 6)
+	v.add_child(ps)
+	for i in 3:
+		var sv := Button.new()
+		sv.name = "LoSave_%d" % i
+		sv.text = "SAVE %d" % (i + 1)
+		sv.custom_minimum_size = Vector2(70, 40)
+		sv.pressed.connect(func(): Loadout.save_preset(i, lo_frame); GS.save_game(); lo_note = "Saved as preset %d." % (i + 1); show_screen("loadout"))
+		ps.add_child(sv)
+		var ld := Button.new()
+		ld.name = "LoLoad_%d" % i
+		ld.text = "LOAD %d" % (i + 1)
+		ld.custom_minimum_size = Vector2(70, 40)
+		ld.disabled = i >= GS.loadout_presets.size() or str(GS.loadout_presets[i]) == ""
+		ld.pressed.connect(func():
+			var e := Loadout.load_preset(i)
+			lo_note = e if e != "" else "Preset %d loaded." % (i + 1)
+			show_screen("loadout"))
+		ps.add_child(ld)
+
+## the preview shows the set being edited on the mounts
+func _lo_view_set(lo: Dictionary) -> Dictionary:
+	var v := lo.duplicate(true)
+	v["active"] = lo_set
+	return v
+
+func _lo_place(tb: Control, cam: Camera3D, mp: Node3D, stage: Control) -> void:
+	if not is_instance_valid(tb) or not is_instance_valid(cam) or not cam.is_inside_tree(): return
+	var k := stage.size / Vector2(cam.get_viewport().size)
+	var sp := cam.unproject_position(mp.global_position) * k
+	var mid := cam.unproject_position(Vector3.ZERO) * k
+	var out := (sp - mid)
+	out = out.normalized() * 70.0 if out.length() > 1.0 else Vector2(0, -70)
+	tb.position = (sp + out - tb.size * 0.5).clamp(Vector2.ZERO, stage.size - tb.size)
+	var ln: Line2D = stage.get_node_or_null("Lead_" + str(tb.name))   # a line from the label to its mount
+	if ln == null:
+		ln = Line2D.new()
+		ln.name = "Lead_" + str(tb.name)
+		ln.width = 1.5
+		ln.default_color = Color(1.0, 0.85, 0.4, 0.8)
+		stage.add_child(ln)
+		stage.move_child(ln, 1)
+	ln.points = PackedVector2Array([sp, tb.position + tb.size * 0.5])
+
+## a weapon dropped (or tapped) onto a mount
+func _lo_drop(mount: String, wid: String) -> String:
+	var lo := Loadout.current(lo_frame)
+	var before := Loadout.totals(lo)
+	var err := Loadout.fit(lo, lo_set, mount, wid)
+	if err != "":
+		lo_note = "Can't fit: " + err
+		if lo_targets.has(mount) and is_instance_valid(lo_targets[mount]): (lo_targets[mount] as Control).modulate = Color(1.0, 0.35, 0.3)
+		Sfx.play("button", -6.0, 0.6)
+		status.text = lo_note
+		get_tree().create_timer(0.6).timeout.connect(func(): if screen == "loadout": show_screen("loadout"))
+		return err
+	lo_pick = ""
+	lo_note = _lo_change(before, Loadout.totals(lo), "%s on the %s" % [Loadout.weapon(wid)["short"], Loadout.MOUNTS[lo_frame][mount]["label"]])
+	GS.save_game()
+	Sfx.play("pickup", -8.0)
+	show_screen("loadout")
+	return ""
+
+func _lo_tap_mount(mount: String) -> void:
+	if lo_pick != "":
+		_lo_drop(mount, lo_pick)
+		return
+	var lo := Loadout.current(lo_frame)
+	if (lo["sets"][lo_set] as Dictionary).has(mount):   # (nothing picked: a tap takes its weapon off)
+		var before := Loadout.totals(lo)
+		Loadout.fit(lo, lo_set, mount, "")
+		lo_note = _lo_change(before, Loadout.totals(lo), "%s cleared" % Loadout.MOUNTS[lo_frame][mount]["label"])
+		show_screen("loadout")
+
+func _lo_change(a: Dictionary, b: Dictionary, what: String) -> String:
+	return "%s.  Weight %.0f → %.0f · Energy %.0f → %.0f · Speed %d%% → %d%% · Armor %.0f → %.0f" % [what, a["weight"], b["weight"], a["energy"], b["energy"], int(float(a["speed"]) * 100.0), int(float(b["speed"]) * 100.0), a["armor"], b["armor"]]
 
 func _ship_page() -> void:
 	var v := _page_box()

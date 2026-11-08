@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.66"
+const VERSION := "v12.67"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1341,7 +1341,7 @@ const LOC_ROOM_ALIAS := {"vega_vegasecundus": "vega_vegaminor", "aurelion_solari
 const ROOM_FACTIONS := ["liberator", "savagers", "orion", "covenant", "imperium", "solarion", "elyza", "unity"]
 const ROOM_OF := {"hub": "main_hub", "ships": "shipyard", "mechs": "mech_dealer", "repair": "medical_bay", "board": "mission_center",
 	"missions": "mission_center", "bounty": "mission_center", "ship": "private_quarters", "faction": "command", "surface": "main_hub",
-	"lounge": "pilots_lounge", "supplies": "supplies", "command": "command"}   # v9.5: SUPPLIES and COMMAND have their own links
+	"lounge": "pilots_lounge", "supplies": "supplies", "command": "command", "loadout": "mech_dealer"}   # v9.5: SUPPLIES and COMMAND have their own links
 # v11.84 (owner: "Freelancer used GLB characters ... we have them and rigs, we just need a toon shader"): the 3D crowd.
 # Per room: count, share walking, and the floor at the back and front of the room as [feet line, body height] in shares
 # of the strip's height (read off the picture's own people). Rooms not listed have no 3D crowd.
@@ -1704,6 +1704,14 @@ const ALLY_BATTLESHIP_K := 4.0     # the alliance battleship's hull (x a frigate
 const WILD_BATTLESHIP_CHANCE := 0.4
 const RELIC_DROP := [1, 3]
 const RELIC_BIG_K := 3
+## v12.67 (owner's spec): the loadout system (scripts/loadout.gd): weapon sets on mounts, modular armor, limits
+const LOADOUT_ON := true
+const LOADOUT_SWAP_TIME := 0.5     # the swap animation; no firing while it plays
+const LOADOUT_OVERWEIGHT_K := 1.5  # speed lost per share of the capacity you're over
+const LOADOUT_MIN_SPEED := 0.45    # (never slower than this)
+const LOADOUT_COOL := 22.0         # heat (of 100) a weapon sheds a second
+const LOADOUT_UNLOCK_HEAT := 35.0  # an overheated weapon fires again once it's this cool
+const LOADOUT_ARMOR_K := 600.0     # damage taken x 1 / (1 + armor / this)
 const MAX_SYSTEM_PLANETS := 3   # (moons don't count)
 const LIVING_PALETTES := ["terran", "jungle", "ocean", "city"]   # v12.66: only a system's main world (or one placed by hand) lives
 const LIFELESS_PALETTES := ["desert", "ice", "dead", "lava", "toxic", "crystal"]
