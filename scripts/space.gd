@@ -10274,7 +10274,7 @@ func base_spots() -> Array:
 	for l in Surface.PLANETS[planet_id].get("locations", []):
 		var t := int(l["tile"])
 		var lp: Vector2 = l["pos"]
-		out.append({"name": str(l["name"]), "id": str(l.get("id", "")), "tile": t, "x": lp.x, "z": lp.y,
+		out.append({"name": str(l["name"]), "id": str(l.get("id", "")), "tile": t, "x": lp.x, "z": lp.y, "faction": str(l.get("faction", "")),
 			"pos": surface_offset(t) + Vector3(lp.x, Surface.pad_top(planet_id, t) + 40.0, lp.y)})
 	return out
 

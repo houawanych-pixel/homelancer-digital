@@ -2300,6 +2300,38 @@ func _run() -> void:
 		_check("v12.56 (owner): INTERCEPT: their transport bound for their facility, its fighters and mechs (%d); transport down, paid (job over %s)" % [int(r1["spawned"]), (r1["left"] as Dictionary).is_empty()], int(r1["spawned"]) >= 6 and (r1["left"] as Dictionary).is_empty(), str(r1))
 		_finish_group()
 		return
+	if _flag("HL_PMAP"):   # v12.59 (owner): the planet map shows the job's waypoints (tap = autopilot there) and each side in its own two colours
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s := _sp()
+		var pid := "new_terra"
+		var dock: Dictionary = Surface.PLANETS[pid]["locations"][0]
+		var offs: Array = Missions.offers(s.sys_id, str(dock["id"]), "", "planet")
+		var o: Dictionary = offs.filter(func(x): return str(x["kind"]) == "air_sweep")[0]
+		Missions.accept(o)
+		main._load_surface(pid, int(dock["tile"]))
+		await _until(func(): return main.state == "flight" and _sp().surface_mode, 25.0)
+		await _wait(0.8)
+		s = _sp()
+		main.hud.planet_map = false
+		_press("radar")
+		main.hud._layout()
+		await _frames(2)
+		var jobs: Array = main.hud.pmap_job_points()
+		var sides: Array = Surface.planet_sides(pid, Surface.PLANETS[pid])
+		var tags: Array = sides.map(func(f): return main.hud._fac_tag(str(f), sides)[0])
+		var facs: Array = []
+		for sp in s.base_spots() + s.facility_spots(): if str(sp.get("faction", "")) != "" and not facs.has(str(sp["faction"])): facs.append(str(sp["faction"]))
+		await _shot("planet_map_jobs", 0.3)
+		_check("v12.59 (owner): the planet map: the job's waypoints numbered on it (%d: %s) with a tap target; every dock and facility in its side's colours (%s), tagged %s" % [jobs.size(), ", ".join(jobs.map(func(j): return str(j["label"]))), ", ".join(facs), str(tags)],
+			jobs.size() >= 2 and main.hud.buttons.has("pmap_job") and facs.size() >= 2 and tags == ["ALLY", "RIVAL"], "%d %s %s" % [jobs.size(), str(facs), str(tags)])
+		_press("pmap_job")
+		await _frames(2)
+		var gnode: Node3D = s.autopilot
+		_check("v12.59 (owner): tap the JOB point: GO TO it, the autopilot cruises there (%s)" % (str(gnode.name) if gnode != null else "none"), not main.hud.planet_map and gnode != null and str(gnode.name).begins_with("SWEEP"), str(gnode))
+		_finish_group()
+		return
 	if _flag("HL_ARMADA"):   # v12.58 (owner): the planetary invasion (board the battleship, then the fighters), the enemy worlds' battleships, the final armada and its mothership
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)

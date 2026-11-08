@@ -667,6 +667,11 @@ func _layout() -> void:
 			for i in fsp.size():
 				var fp := _pmap_point(mr, int(fsp[i]["tile"]), float(fsp[i]["x"]), float(fsp[i]["z"]))
 				buttons["pmap_f%d" % i] = Rect2(fp - Vector2(70, 22), Vector2(140, 44))
+			for jp in pmap_job_points():   # v12.59: the job's next point (laid last: it wins a tap over a base under it)
+				if jp["current"]:
+					var jv := _pmap_point(mr, int(jp["tile"]), float(jp["x"]), float(jp["z"]))
+					buttons["pmap_job"] = Rect2(jv - Vector2(30, 22), Vector2(60, 44))
+					break
 			return
 	if console_open:
 		var rr := contacts_rect()
@@ -1541,6 +1546,60 @@ func _deck_shape(rr: Rect2, shape: String) -> PackedVector2Array:
 	return PackedVector2Array([rr.position + Vector2(cut, 0), Vector2(rr.end.x - cut, rr.position.y), Vector2(rr.end.x, rr.position.y + cut), Vector2(rr.end.x, rr.end.y - cut),
 		Vector2(rr.end.x - cut, rr.end.y), Vector2(rr.position.x + cut, rr.end.y), Vector2(rr.position.x, rr.end.y - cut), Vector2(rr.position.x, rr.position.y + cut)])
 
+## v12.59 (owner: "each rival and alliance has its own team colours: give them their two colours, a colour with the
+## stroke"): a marker filled with the side's main colour, ringed in its second (a hexagon for a facility, a circle for
+## a dock), a thin white rim so dark colours still read on the land
+func _fac_marker(at: Vector2, fac: String, kind: String, on: bool, r: float) -> void:
+	var d: Dictionary = Factions.def(fac)
+	var c1: Color = d.get("primary_color", Color(0.6, 0.6, 0.6))
+	var c2: Color = d.get("secondary_color", Color(0.15, 0.15, 0.15))
+	if on: c1 = GOLD
+	var pts := PackedVector2Array()
+	var n := 6 if kind == "facility" else 20
+	for k in n + 1: pts.append(at + Vector2(cos(TAU * k / n), sin(TAU * k / n)) * r)
+	var fill := pts.duplicate()
+	fill.remove_at(n)
+	draw_colored_polygon(fill, c1)
+	draw_polyline(pts, c2, maxf(2.0, r * 0.45))
+	var rim := PackedVector2Array()
+	for k in n + 1: rim.append(at + Vector2(cos(TAU * k / n), sin(TAU * k / n)) * (r + r * 0.32))
+	draw_polyline(rim, Color(1, 1, 1, 0.75), 1.2)
+
+## ALLY (the world's own side), RIVAL (its rival), ENEMY (anyone else hostile), and the colour to say it in.
+func _fac_tag(fac: String, sides: Array) -> Array:
+	if fac == "": return ["", WHITE]
+	if not sides.is_empty() and fac == str(sides[0]): return ["ALLY", GREEN]
+	if sides.size() > 1 and fac == str(sides[1]): return ["RIVAL", Color(1.0, 0.6, 0.25)]
+	return ["ENEMY", Color(1.0, 0.35, 0.3)]
+
+## v12.59: the job's points on this world for the map: [{tile, x, z, label, current, done}]
+func pmap_job_points() -> Array:
+	var out: Array = []
+	var mi: Dictionary = GS.mission
+	if mi.is_empty() or not Missions.on_land(mi) or str(mi.get("planet", "")) != space.planet_id: return out
+	var kind := str(mi.get("kind", ""))
+	var name: String = {"ground": "STRIKE", "land_escort": "ESCORT", "intercept": "INTERCEPT", "air_sweep": "SWEEP", "facility": "RAID", "planet_invasion": "INVASION"}.get(kind, "JOB")
+	var pts: Array = mi.get("points", [])
+	var stage := int(mi.get("stage", 0))
+	if mi.has("tile"):
+		for i in pts.size():
+			var p: Dictionary = pts[i]
+			if not p.has("x"): continue
+			out.append({"tile": int(mi["tile"]), "x": float(p["x"]), "z": float(p["z"]), "label": "%s %d/%d" % [name, i + 1, pts.size()] if pts.size() > 1 else name, "current": i == stage, "done": i < stage})
+	var to = mi.get("to", null)
+	if to is Dictionary:   # the escort's end / the transport's facility
+		var tp = to.get("pos", null)
+		var tx: float = float(to.get("x", tp.x if tp is Vector2 else 0.0))
+		var tz: float = float(to.get("z", tp.y if tp is Vector2 else 0.0))
+		out.append({"tile": int(to.get("tile", mi.get("tile", 0))), "x": tx, "z": tz, "label": "%s: %s" % [name, str(to.get("name", "TARGET")).to_upper()] if to.has("name") else name + " TARGET", "current": out.is_empty() or kind == "land_escort", "done": false})
+	if out.is_empty() and kind == "facility":   # the raid: the facility itself
+		for f in space.facility_spots():
+			if str(f["name"]) == str(mi.get("site", "")): out.append({"tile": int(f["tile"]), "x": float(f["x"]), "z": float(f["z"]), "label": "RAID", "current": true, "done": false})
+	var any_cur := false
+	for o in out: if o["current"]: any_cur = true
+	if not any_cur and not out.is_empty(): out[0]["current"] = true
+	return out
+
 func _planet_map() -> void:
 	var mr := planet_map_rect()
 	if space.boarding:
@@ -1561,28 +1620,62 @@ func _planet_map() -> void:
 		else: draw_rect(cr.grow(-1), Color(1, 1, 1, 0.25), false, 1.0)
 		if t2 == space.tile: draw_rect(cr.grow(-2), Color(CYAN, 0.9), false, 2.0)
 		_text(cr.position + Vector2(6, 18), "%s%d %s" % ["ABCDEFG"[t2 / g], t2 % g + 1, str(b.get("name", "")).to_upper()], 12, Color(1, 1, 1, 0.75))
-	var mi: Dictionary = GS.mission   # the job's point, when it is down here
-	if mi.get("kind", "") == "ground" and str(mi.get("planet", "")) == pid and int(mi.get("stage", 0)) < (mi.get("points", []) as Array).size():
-		var mp: Dictionary = mi["points"][int(mi["stage"])]
-		var mv := _pmap_point(mr, int(mi["tile"]), float(mp["x"]), float(mp["z"]))
-		draw_colored_polygon(PackedVector2Array([mv + Vector2(0, -9), mv + Vector2(9, 0), mv + Vector2(0, 9), mv + Vector2(-9, 0)]), GOLD)
-		_text(mv + Vector2(12, 5), "JOB", 13, GOLD)
-	var spots: Array = space.base_spots()
+	var sides: Array = Surface.planet_sides(pid, Surface.PLANETS[pid])
+	var seen_fac: Array = []
+	var spots: Array = space.base_spots()   # v12.59 (owner): every side in its own two colours (fill + stroke), ALLY / RIVAL / ENEMY
 	for i in spots.size():
 		var bp := _pmap_point(mr, int(spots[i]["tile"]), float(spots[i]["x"]), float(spots[i]["z"]))
 		var on: bool = held.has("pmap_b%d" % i) or (not space.surf_goal.is_empty() and str(space.surf_goal.get("name", "")) == str(spots[i]["name"]))
-		draw_circle(bp, 7.0, GREEN if not on else GOLD)
-		draw_arc(bp, 11.0, 0, TAU, 20, Color(GREEN, 0.7), 2.0)
-		_text(bp + Vector2(-70, 26), str(spots[i]["name"]), 12, WHITE, HORIZONTAL_ALIGNMENT_CENTER, 140)
+		var bf := str(spots[i].get("faction", ""))
+		if bf != "" and not seen_fac.has(bf): seen_fac.append(bf)
+		_fac_marker(bp, bf, "dock", on, 11.0)
+		_text(bp + Vector2(-80, 30), str(spots[i]["name"]), 12, WHITE, HORIZONTAL_ALIGNMENT_CENTER, 160)
+		var btag := _fac_tag(bf, sides)
+		_text(bp + Vector2(-80, 44), btag[0], 10, btag[1], HORIZONTAL_ALIGNMENT_CENTER, 160)
 	var fsp: Array = space.facility_spots()   # v12.0: the facilities (bases and bunker entrances), with their level
 	for i in fsp.size():
 		var fp := _pmap_point(mr, int(fsp[i]["tile"]), float(fsp[i]["x"]), float(fsp[i]["z"]))
-		var hostile: bool = str(fsp[i].get("side", "hostile")) == "hostile"
-		var fc: Color = Color(1.0, 0.45, 0.3) if hostile else GREEN
-		var hx := PackedVector2Array()
-		for k in 6: hx.append(fp + Vector2(cos(TAU * k / 6.0), sin(TAU * k / 6.0)) * 9.0)
-		draw_colored_polygon(hx, fc if not held.has("pmap_f%d" % i) else GOLD)
-		_text(fp + Vector2(-80, 24), "%s  L%d" % [str(fsp[i]["name"]), int(fsp[i].get("difficulty", 1))], 12, WHITE, HORIZONTAL_ALIGNMENT_CENTER, 160)
+		var ff := str(fsp[i].get("faction", ""))
+		if ff != "" and not seen_fac.has(ff): seen_fac.append(ff)
+		var fon: bool = held.has("pmap_f%d" % i) or (not space.surf_goal.is_empty() and str(space.surf_goal.get("name", "")) == str(fsp[i]["name"]))
+		_fac_marker(fp, ff, "facility", fon, 11.0)
+		var tag := _fac_tag(ff, sides)
+		_text(fp + Vector2(-90, 26), "%s  L%d" % [str(fsp[i]["name"]), int(fsp[i].get("difficulty", 1))], 12, WHITE, HORIZONTAL_ALIGNMENT_CENTER, 180)
+		_text(fp + Vector2(-90, 40), tag[0], 10, tag[1], HORIZONTAL_ALIGNMENT_CENTER, 180)
+	# v12.59 (owner: "planet missions need to be like the space ones: waypoints and where to go"): the job's points,
+	# numbered, the route from you to the next one; tap it and the autopilot flies you there
+	var jobs := pmap_job_points()
+	var pp0: Vector3 = space.player.global_position
+	var prev := _pmap_point(mr, space.tile, pp0.x, pp0.z)
+	for j in jobs.size():
+		var jp: Dictionary = jobs[j]
+		var jv := _pmap_point(mr, int(jp["tile"]), float(jp["x"]), float(jp["z"]))
+		var cur: bool = bool(jp["current"])
+		if bool(jp["done"]):
+			draw_circle(jv, 6.0, Color(0.6, 0.6, 0.6, 0.6))
+			continue
+		var segs := int(prev.distance_to(jv) / 10.0)
+		for k in segs:   # a dashed course line
+			if k % 2 == 0: draw_line(prev.lerp(jv, float(k) / segs), prev.lerp(jv, float(k + 1) / segs), Color(GOLD, 0.85 if cur else 0.45), 2.0)
+		prev = jv
+		var pr: float = 11.0 + (2.0 * sin(t * 5.0) if cur else 0.0)
+		draw_colored_polygon(PackedVector2Array([jv + Vector2(0, -pr), jv + Vector2(pr, 0), jv + Vector2(0, pr), jv + Vector2(-pr, 0)]), GOLD if cur else Color(GOLD, 0.55))
+		draw_polyline(PackedVector2Array([jv + Vector2(0, -pr - 3), jv + Vector2(pr + 3, 0), jv + Vector2(0, pr + 3), jv + Vector2(-pr - 3, 0), jv + Vector2(0, -pr - 3)]), Color(0.1, 0.06, 0, 0.9), 2.0)
+		_text(jv + Vector2(-6, 5), str(j + 1), 12, Color(0.1, 0.06, 0))
+		_text(jv + Vector2(14, 5), str(jp["label"]), 13, GOLD)
+		if cur and held.has("pmap_job"): draw_arc(jv, pr + 8.0, 0, TAU, 24, WHITE, 2.0)
+	if not GS.mission.is_empty() and jobs.is_empty() and str(GS.mission.get("planet", "")) == pid and not Missions.on_land(GS.mission):
+		_text(Vector2(mr.position.x, mr.position.y + 70), "JOB: %s  —  up in ORBIT: launch from a dock" % str(GS.mission.get("title", "")), 13, GOLD, HORIZONTAL_ALIGNMENT_CENTER, mr.size.x)
+	# the key: each side's colours on this world
+	if not seen_fac.is_empty():
+		var lg := Rect2(mr.end - Vector2(210, 70 + 20 * seen_fac.size()), Vector2(196, 14 + 20 * seen_fac.size()))
+		draw_rect(lg, Color(0.02, 0.07, 0.14, 0.88))
+		draw_rect(lg, Color(CYAN, 0.6), false, 1.0)
+		for k in seen_fac.size():
+			var tg := _fac_tag(str(seen_fac[k]), sides)
+			_fac_marker(lg.position + Vector2(16, 17 + 20 * k), str(seen_fac[k]), "dock", false, 6.0)
+			_text(lg.position + Vector2(30, 22 + 20 * k), str(Factions.def(str(seen_fac[k])).get("display_name", seen_fac[k])).to_upper(), 11, WHITE)
+			_text(lg.position + Vector2(110, 22 + 20 * k), tg[0], 11, tg[1], HORIZONTAL_ALIGNMENT_RIGHT, 78)
 	var pp: Vector3 = space.player.global_position   # you: an arrow the way you face
 	var yv := _pmap_point(mr, space.tile, pp.x, pp.z)
 	var f3: Vector3 = -space.player.global_basis.z
@@ -1590,7 +1683,7 @@ func _planet_map() -> void:
 	if f2 == Vector2.ZERO: f2 = Vector2.UP
 	var sd := Vector2(-f2.y, f2.x)
 	draw_colored_polygon(PackedVector2Array([yv + f2 * 12.0, yv - f2 * 7.0 + sd * 7.0, yv - f2 * 7.0 - sd * 7.0]), CYAN_HI)
-	_text(Vector2(mr.position.x, mr.end.y - 8), "Tap a base or a facility to fly there.", 12, Color(1, 1, 1, 0.6), HORIZONTAL_ALIGNMENT_CENTER, mr.size.x)
+	_text(Vector2(mr.position.x, mr.end.y - 8), "Tap a base, a facility or the JOB point to fly there.", 12, Color(1, 1, 1, 0.6), HORIZONTAL_ALIGNMENT_CENTER, mr.size.x)
 	_pill("pmap_wild", "WILDLIFE TEST", space.wild_park, CYAN)   # v12.44: every animal round you here (tap again: off)
 	_pill("pmap_close", "CLOSE", false, CYAN)   # v12.43 (owner: "no close button"): drawn last, over the land picture
 

@@ -565,6 +565,16 @@ func _on_hud(id: String) -> void:
 			open_map()
 			if state == "map" and hud.radar_pick != Vector3.INF: navmap.select_near(hud.radar_pick)
 		_:
+			if id == "pmap_job":   # v12.59 (owner): the job's point tapped on the planet map: GO TO it, the autopilot cruises there
+				for jp in hud.pmap_job_points():
+					if jp["current"]:
+						var tile_j := int(jp["tile"])
+						space.set_surface_goal({"name": str(jp["label"]), "tile": tile_j, "x": float(jp["x"]), "z": float(jp["z"]),
+							"pos": space.surface_offset(tile_j) + Vector3(float(jp["x"]), Surface.pad_top(space.planet_id, tile_j) + 40.0, float(jp["z"]))})
+						hud.planet_map = false
+						hud.flash_message("Autopilot engaged: %s" % str(jp["label"]))
+						break
+				return
 			if id.begins_with("pmap_f"):   # v12.0: a facility tapped on the planet map: fly there
 				var fsp: Array = space.facility_spots()
 				var fi := int(id.substr(6))
