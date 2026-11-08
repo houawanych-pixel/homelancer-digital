@@ -2566,6 +2566,11 @@ func _run() -> void:
 		if not mom.is_empty(): s._damage_enemy(mom, 50000.0)
 		var proof: bool = not mom.is_empty() and is_equal_approx(float(mom.get("hp", 0.0)), hp0) and s.enemies.has(mom)
 		_check("v12.58 (owner): the FINAL armada: %d battleships (hangars %s), %d warships and the MOTHERSHIP (%d), shielded while the battleships fly (%s)" % [bss.size(), str(hangars), wss.size(), msl.size(), proof], bss.size() == 3 and wss.size() == 5 and msl.size() == 1 and proof and hangars.all(func(h): return h >= 80), "bs %d ws %d ms %d proof %s h %s" % [bss.size(), wss.size(), msl.size(), proof, str(hangars)])
+		var pw: Node3D = s.planet_node(pid)
+		var pr: float = float(pw.get_meta("radius", 0.0)) if pw != null else 0.0
+		var off_air: float = (bss[0]["node"] as Node3D).global_position.distance_to(pw.global_position) - pr * Data.ATMO_OUTER if pw != null and not bss.is_empty() else INF
+		var ally_bs: int = s.allies.filter(func(a): return a.get("battleship", false)).size()
+		_check("v12.62 (owner: right outside the planet, the alliance's battleship and fighters in it too): the armada %.1f km past %s's air; allies %d (battleship %d)" % [off_air / 1000.0, pid, s.allies.size(), ally_bs], off_air < 4500.0 and ally_bs == 1 and s.allies.size() >= 12, "")
 		if mom.is_empty():
 			_finish_group()
 			return

@@ -286,6 +286,14 @@ static func point_pos(space: SpaceSystem, i: int) -> Vector3:
 	if m.get("kind", "") == "ground" or (on_land(m) and m.has("tile")): return ground_pos(space, i)
 	var pts: Array = m.get("points", [])
 	if i < 0 or i >= pts.size() or not is_instance_valid(space.station): return Vector3.INF
+	if m.get("kind", "") == "mothership" and m.has("planet") and not space.surface_mode:   # v12.62 (owner: "right outside the planet, in front of you as you come out")
+		var pw: Node3D = space.planet_node(str(m["planet"]))
+		if pw != null:
+			var pr: float = float(pw.get_meta("radius", 800.0))
+			var near_pl: bool = space.player.global_position.distance_to(pw.global_position) < pr * 2.0
+			var dv: Vector3 = (space.player.global_position - pw.global_position) if near_pl else (space.station.global_position - pw.global_position)
+			if m.has("armada_at"): return m["armada_at"]
+			return pw.global_position + dv.normalized() * (pr * Data.ATMO_OUTER + Data.ARMADA_ORBIT_GAP)
 	var p: Dictionary = pts[i]
 	var base: Vector3 = space.station.global_position
 	var dir := Vector3(cos(float(p["dir"])), 0.0, sin(float(p["dir"])))

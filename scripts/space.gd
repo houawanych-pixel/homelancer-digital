@@ -12142,12 +12142,27 @@ func _spawn_allies(enemy_faction: String) -> void:
 		if is_instance_valid(a["node"]): a["node"].queue_free()
 	allies = []
 	var own: String = str(Data.SYSTEMS[str(GS.mission.get("giver_sys", sys_id))].get("faction", sys.get("faction", "")))
+	var armada: bool = str(GS.mission.get("kind", "")) == "mothership"
+	if armada:   # v12.62 (owner: "the alliance has a battleship and fighters helping against the threat"): the planet's own side
+		var gid := str(GS.mission.get("giver", ""))
+		for l in Surface.PLANETS.get(str(GS.mission.get("planet", "")), {}).get("locations", []):
+			if str(l.get("id", "")) == gid and Factions.has(str(l.get("faction", ""))): own = str(l["faction"])
+	var cfg2: Dictionary = Data.ARMADA if armada else Data.INVASION
 	var pool: Array = Factions.DEFS.get(own, {}).get("fighter_pool", [])
 	var fk: String = str(Data.ENEMIES.get(str(pool[0]) if not pool.is_empty() else "", {}).get("model", "enemy"))
-	for i in int(Data.INVASION["ally_fighters"]):
-		_spawn_ally("fighter", fk, player.global_position + player.global_basis.x * (40.0 + 25.0 * i) * (1.0 if i % 2 == 0 else -1.0) + player.global_basis.z * 30.0, own)
-	for i in int(Data.INVASION["ally_frigates"]):
+	for i in int(cfg2["ally_fighters"]):
+		_spawn_ally("fighter", fk, player.global_position + player.global_basis.x * (40.0 + 25.0 * i) * (1.0 if i % 2 == 0 else -1.0) + player.global_basis.z * 30.0 - player.global_basis.z * (300.0 * (i / 4) if armada else 0.0), own)
+	for i in int(cfg2["ally_frigates"]):
 		_spawn_ally("frigate", "carrier", player.global_position + player.global_basis.z * 260.0 + Vector3(0, 60, 0), own)
+	if armada:
+		var bk := str(Data.FACTION_FLEET.get(own, {}).get("battleship", ""))
+		for i in int(Data.ARMADA["ally_battleships"]):
+			_spawn_ally("frigate", bk if bk != "" and ShipFactory.has_real_model(bk) else "carrier", player.global_position - player.global_basis.z * 700.0 + player.global_basis.x * 500.0 + Vector3(0, 80, 0), own)
+			var ab: Dictionary = allies[-1]
+			ab["hp"] = float(Data.ALLY_FRIGATE["hull"]) * Data.ALLY_BATTLESHIP_K
+			ab["max"] = ab["hp"]
+			ab["battleship"] = true
+			(ab["node"] as Node3D).name = "%s Battleship" % own
 
 func _spawn_ally(kind: String, model_key: String, p: Vector3, faction: String) -> void:
 	var cfg: Dictionary = Data.ALLY_FIGHTER if kind == "fighter" else Data.ALLY_FRIGATE
@@ -12318,9 +12333,10 @@ func _ally_pick(a: Dictionary) -> Dictionary:
 func invasion_tick(dt: float, m: Dictionary) -> void:
 	var at := Missions.point_pos(self, 0)
 	if at == Vector3.INF: return
-	var cfg: Dictionary = Data.INVASION
+	var cfg: Dictionary = Data.ARMADA if str(m.get("kind", "")) == "mothership" else Data.INVASION
 	if int(m.get("spawned", -1)) < 0:
 		if player.global_position.distance_to(at) < float(cfg["arrive"]):
+			if str(m.get("kind", "")) == "mothership": m["armada_at"] = at   # (it holds there once it's come)
 			spawn_invasion(at, str(m["faction"]), int(m.get("left", cfg["battleships"])), not bool(m.get("station_down", false)))
 			m["spawned"] = 0
 			if str(m.get("kind", "")) == "mothership": message.emit("FINAL: the %s armada. Three battleships guard the MOTHERSHIP: destroy all three and its shield drops." % str(m["faction"]))

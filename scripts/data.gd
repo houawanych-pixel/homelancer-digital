@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.62"
+const VERSION := "v12.63"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1695,8 +1695,10 @@ const INVASION := {"battleships": 1, "warships": 0, "destroyers": 0, "fighters":
 ## v12.58 (owner): the final armada: 3 battleships (90 fighters each), 5 warships (30 each), the mothership (endless
 ## high-level fighters); a faction's military station stands in for the mothership
 const ARMADA := {"battleships": 3, "warships": 5, "destroyers": 0, "fighters": 18, "wave": 4, "wave_every": 8.0, "station_down_slow": 3.0,
-	"ally_fighters": 6, "ally_frigates": 1, "arrive": 3200.0, "spread": 1400.0, "dist": 8000.0, "bs_hangar": 90, "ws_hangar": 30}
+	"ally_fighters": 12, "ally_frigates": 0, "arrive": 4200.0, "spread": 1400.0, "dist": 8000.0, "bs_hangar": 90, "ws_hangar": 30, "ally_battleships": 1}
 const MOTHERSHIP_SCALE := 1.6
+const ARMADA_ORBIT_GAP := 2200.0   # v12.62 (owner): the final battle is right outside the planet: this far past its air
+const ALLY_BATTLESHIP_K := 4.0     # the alliance battleship's hull (x a frigate's)
 ## v12.58 (owner: "no mission with the enemy factions: you lessen the shield and go in"): an enemy world's sector
 ## may have one of their battleships in the sky, there to be boarded; and relics come out of their wrecks
 const WILD_BATTLESHIP_CHANCE := 0.4
