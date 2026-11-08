@@ -2796,11 +2796,31 @@ func _run() -> void:
 			var R4: float = float(rg4.get_meta("radius", 600.0))
 			var side4: Vector3 = Vector3(rg4.global_basis.z.x, 0, rg4.global_basis.z.z).normalized() if absf(rg4.global_basis.z.y) < 0.9 else Vector3(0, 0, 1)
 			s4.player.global_position = rg4.global_position + side4 * R4 * 2.2 + rg4.global_basis.z * R4 * 0.6 + Vector3(0, R4 * (0.9 if how != "ceiling" else -0.2), 0)
+			s4.player.global_position.y = minf(s4.player.global_position.y, Surface.CEILING - 300.0)   # (v12.87: the bigger rift; stay under the sky)
 			s4._face((rg4.global_position - s4.player.global_position).normalized())
 			s4._update_camera(1.0, true)
 			await _wait(1.0)
 			await _capture("rift_all_" + how)
+			# v12.87: and head-on, no HUD, no ship: the tear itself
+			main.hud.visible = false
+			s4.model.visible = false
+			s4.controls = false
+			s4.player.global_position = rg4.global_position + rg4.global_basis.z * R4 * 1.25 + (side4 if absf(rg4.global_basis.z.y) > 0.9 else Vector3.UP) * R4 * 0.25
+			s4.player.global_position.y = minf(s4.player.global_position.y, Surface.CEILING - 150.0)
+			s4._face((rg4.global_position - s4.player.global_position).normalized())
+			s4._update_camera(1.0, true)
+			await _wait(1.5)
+			await _capture("rift_face_" + how)
+			main.hud.visible = true
+			s4.model.visible = true
 		SpaceSystem.force_rift_spot = ""
+		var fxr = main.fx   # v12.87: the ride through: a clear living tube in a massive world of flesh
+		fxr.begin_warp("rift")
+		fxr.warp = 1.0
+		fxr.pace = 0.6
+		await _wait(1.5)
+		await _capture("rift_ride")
+		fxr.end_warp()
 		_finish_group()
 		return
 	if _flag("HL_GALAXYSHOT"):   # v12.64 (owner: "show me the complete map"): every system charted, zoomed out and in
@@ -15247,6 +15267,7 @@ func _job_unknown() -> void:
 		var R0: float = float(rg.get_meta("radius", 600.0))
 		var side0: Vector3 = Vector3(rg.global_basis.z.x, 0, rg.global_basis.z.z).normalized() if absf(rg.global_basis.z.y) < 0.9 else Vector3(0, 0, 1)
 		s.player.global_position = rg.global_position + side0 * R0 * 2.2 + rg.global_basis.z * R0 * 0.6 + Vector3(0, R0 * 0.9, 0)
+		s.player.global_position.y = minf(s.player.global_position.y, Surface.CEILING - 300.0)   # (v12.87: the bigger rift; stay under the sky)
 		s._face((rg.global_position - s.player.global_position).normalized())
 		s._update_camera(1.0, true)
 		await _wait(1.0)
@@ -15255,7 +15276,7 @@ func _job_unknown() -> void:
 		await _frames(2)
 	var docked: bool = main.dock_gate()
 	if docked: main.gate_activate()
-	var arrived := await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.surface_mode and main.space.planet_id == to_pid, 25.0)
+	var arrived := await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.surface_mode and main.space.planet_id == to_pid, 40.0)   # (v12.87: the ride is longer)
 	s = _sp()
 	var near: bool = arrived and s.planet_rift_gate != null and s.player.global_position.distance_to(s.planet_rift_gate.global_position) < float(s.planet_rift_gate.get_meta("radius", 600.0)) * 1.2
 	if arrived and s.planet_rift_gate != null:
@@ -15263,6 +15284,7 @@ func _job_unknown() -> void:
 		var R2: float = float(rg2.get_meta("radius", 600.0))
 		var side2: Vector3 = Vector3(rg2.global_basis.z.x, 0, rg2.global_basis.z.z).normalized() if absf(rg2.global_basis.z.y) < 0.9 else Vector3(0, 0, 1)
 		s.player.global_position = rg2.global_position + side2 * R2 * 2.2 + rg2.global_basis.z * R2 * 0.6 + Vector3(0, R2 * 0.9, 0)
+		s.player.global_position.y = minf(s.player.global_position.y, Surface.CEILING - 300.0)   # (v12.87: the bigger rift; stay under the sky)
 		s._face((rg2.global_position - s.player.global_position).normalized())
 		s._update_camera(1.0, true)
 		await _wait(1.0)

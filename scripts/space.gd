@@ -2598,67 +2598,71 @@ void fragment() {
 	ALPHA = clamp(a, 0.0, 1.0);
 }
 """
-## v12.83 (owner, his whirlpool picture: "instead of a star shape, a swirling whirlpool effect; you can still see the inside
-## of the skybox, the other side of the whirlpool"): a huge funnel of white-blue foam spiralling in, its walls sinking
-## away into a dark throat, and in the middle a window onto the other side's sky (by the way you look in, like a real
-## window). The foam is torn: through its gaps you see the sky behind as well.
+## v12.87 (owner: "the swirl looks so fast ... like a rip in the fabric of space and time; not just a tear in the sky, it
+## has to slowly move and not just rotating; magical, a lot bigger; like Pacific Rim, red light shining through it"):
+## a tall tear in space. Its lips flow slowly like something alive (two layers of noise drifting different ways, no
+## turning), it breathes, red-orange light pours out of it in slow rays, cracks crawl out through space round it, and
+## deep inside, past streams of light sliding slowly in, is the other world's sky.
 const RIFT_POOL_SHADER := """
 shader_type spatial;
-render_mode unshaded, cull_disabled, shadows_disabled, fog_disabled, depth_draw_always;
+render_mode unshaded, cull_disabled, shadows_disabled, fog_disabled;
 uniform sampler2D noise : repeat_enable, filter_linear;
 uniform sampler2D sky : source_color, filter_linear, repeat_enable;
 uniform float has_sky = 0.0;
-uniform vec3 foam : source_color = vec3(0.86, 0.94, 1.0);
-uniform vec3 deep : source_color = vec3(0.12, 0.3, 0.48);
-uniform float depth = 200.0;
+uniform vec3 hot : source_color = vec3(1.0, 0.22, 0.06);
+uniform vec3 blood : source_color = vec3(0.8, 0.05, 0.07);
+uniform float depth = 300.0;
 varying vec3 wpos;
+float half_w(float y, float t) {   // half the tear's width at height y (-1 .. 1); it breathes slowly
+	return 0.34 * pow(max(1.0 - y * y, 0.0), 0.8) * (1.0 + 0.06 * sin(t * 0.33) + 0.03 * sin(t * 0.71 + y * 3.0));
+}
 void vertex() {
-	float r = UV.x;
-	VERTEX.z -= depth * pow(1.0 - r, 1.6);   // the funnel sinks away from you
+	vec2 q = UV * 2.0 - 1.0;
+	float s = abs(q.x) / max(half_w(q.y, TIME), 0.002);
+	VERTEX.z -= depth * pow(clamp(1.0 - s, 0.0, 1.0), 0.55) * pow(max(1.0 - q.y * q.y, 0.0), 0.4);   // its throat sinks away
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
 void fragment() {
-	float r = UV.x;
-	float a = UV.y * 6.2832;
+	vec2 q = UV * 2.0 - 1.0;
 	float t = TIME;
-	// the water turns faster near the middle: rotate each point by a twist that grows inward (a spiral)
-	float tw = 5.0 * pow(1.0 - r, 1.7) + t * (0.12 + 0.55 * pow(1.0 - r, 2.0));
-	vec2 p = vec2(cos(a + tw), sin(a + tw)) * (0.25 + r * 0.75);
-	float n1 = texture(noise, p * 0.9 + vec2(0.31, 0.17)).r;
-	float n2 = texture(noise, p * 2.3 + vec2(t * 0.01, 0.5)).r;
-	float n3 = texture(noise, p * 6.0 - vec2(0.2, t * 0.015)).r;
-	float body = smoothstep(0.38, 0.7, n1 * 0.7 + n2 * 0.45);
-	float lace = smoothstep(0.55, 0.8, n2 * 0.55 + n3 * 0.55);
-	float f = clamp(body * 0.8 + lace * 0.7, 0.0, 1.0) * (0.45 + 0.55 * smoothstep(0.5, 0.9, r));
-	vec3 c = mix(deep * (0.3 + 0.7 * r), foam, f);
-	c += vec3(1.0) * pow(lace, 4.0) * 0.35 * smoothstep(0.5, 1.0, r);
-	// v12.84 (owner: "a hole inside, and inside it you see another skybox: two different worlds"): a wide round window
-	// onto the OTHER world's sky (its own panorama, by the way you look in, not this world's), with a bright lip
+	// slow, living flow: two noise layers drifting different ways bend the whole shape (nothing turns round)
+	vec2 w1 = vec2(texture(noise, q * 0.55 + vec2(t * 0.006, -t * 0.004)).r, texture(noise, q * 0.55 + vec2(0.37 - t * 0.005, 0.11 + t * 0.007)).r) - 0.5;
+	vec2 w2 = vec2(texture(noise, q * 1.6 + vec2(-t * 0.009, t * 0.006) + 0.5).r, texture(noise, q * 1.6 + vec2(t * 0.008, 0.73 - t * 0.005)).r) - 0.5;
+	vec2 wq = q + w1 * 0.2 + w2 * 0.06;
+	float W = half_w(wq.y, t);
+	float s = abs(wq.x) / max(W, 0.002);   // 0 = the middle, 1 = the lips
+	float lipn = texture(noise, vec2(wq.y * 1.3 + (wq.x > 0.0 ? 0.0 : 0.5), t * 0.008)).r;
+	float lip = 1.0 + (lipn - 0.5) * 0.45;
+	// the other world, seen in through the tear by the way you look in
 	vec3 d = normalize(wpos - CAMERA_POSITION_WORLD);
-	vec3 dl = normalize((inverse(MODEL_MATRIX) * vec4(d, 0.0)).xyz);   // (in the gate's own space: looking straight in = the other world's horizon)
-	vec2 e = vec2(atan(dl.x, -dl.z) / 6.2832 + 0.5 + t * 0.004, acos(clamp(dl.y, -1.0, 1.0)) / 3.1416);
-	vec3 other = has_sky > 0.5 ? texture(sky, e).rgb * 1.15 + vec3(0.01, 0.015, 0.03) : mix(vec3(0.02, 0.05, 0.12), vec3(0.3, 0.6, 0.9), texture(noise, e * 4.0).r);
-	float lip = 0.52 + (n2 - 0.5) * 0.06;
-	float hole = 1.0 - smoothstep(lip - 0.04, lip, r);
-	c = mix(c, other, hole);
-	c = mix(c, foam * 1.35, smoothstep(lip - 0.03, lip, r) * (1.0 - smoothstep(lip, lip + 0.06, r)) * 0.9);
-	// v12.84 (owner: "an electric swirl rotating round it, coming from the center"): bolts spiralling out from the middle
-	float bolts = 0.0;
-	for (int k = 0; k < 4; k++) {
-		float fk = float(k);
-		float arm = a + log(max(r, 0.02)) * 2.2 - t * (1.4 + fk * 0.23) + fk * 1.5708;
-		float jag = (texture(noise, vec2(r * 3.0 + fk * 0.37, t * 0.9 + fk)).r - 0.5) * 0.9;
-		float dd = abs(sin((arm + jag) * 0.5));
-		float life = smoothstep(0.0, 0.25, fract(t * 0.6 + fk * 0.27)) * (1.0 - smoothstep(0.7, 1.0, fract(t * 0.6 + fk * 0.27)));
-		bolts += (exp(-dd / 0.016) + exp(-dd / 0.07) * 0.45) * life * smoothstep(0.02, 0.12, r) * (1.0 - smoothstep(0.75, 0.98, r));
-	}
-	vec3 zap = mix(vec3(0.45, 0.8, 1.0), vec3(1.0), clamp(bolts - 0.6, 0.0, 1.0));
-	c += zap * bolts * 2.4;
-	// the torn outer edge, and gaps in the outer foam that you see through
-	float edge = 1.0 - smoothstep(0.82 + (n1 - 0.5) * 0.25, 0.99, r);
-	float gaps = mix(1.0, smoothstep(0.05, 0.3, f), smoothstep(0.7, 0.97, r));
+	vec3 dl = normalize((inverse(MODEL_MATRIX) * vec4(d, 0.0)).xyz);
+	vec2 e = vec2(atan(dl.x, -dl.z) / 6.2832 + 0.5, acos(clamp(dl.y, -1.0, 1.0)) / 3.1416);
+	vec3 other = has_sky > 0.5 ? texture(sky, e).rgb * 1.1 : mix(vec3(0.03, 0.01, 0.02), blood, texture(noise, e * 3.0).r);
+	// streams of light sliding slowly in toward the deep
+	float f1 = texture(noise, vec2(s * 1.1 + t * 0.018, wq.y * 0.9 + t * 0.002)).r;
+	float f2 = texture(noise, vec2(s * 2.6 + t * 0.03 + 0.4, wq.y * 2.2 - t * 0.003)).r;
+	float stream = smoothstep(0.5, 0.85, f1 * 0.6 + f2 * 0.5);
+	float beat = 0.85 + 0.15 * sin(t * 0.55);
+	float sr = s / lip;
+	vec3 inside = mix(other * vec3(1.15, 0.85, 0.8), hot * 1.5 * beat, smoothstep(0.55, 1.0, sr));
+	inside += hot * stream * 0.8 * smoothstep(0.35, 0.95, sr) + vec3(1.0, 0.6, 0.4) * pow(stream, 3.0) * 0.4 * sr;
+	// outside the lips: a white-hot rim, then torn space glowing red, cracks crawling out, and slow rays of light
+	float o = max(s - lip, 0.0);
+	float rim = exp(-o * 9.0);
+	float cr1 = 1.0 - abs(texture(noise, wq * vec2(2.2, 1.4) + vec2(t * 0.004, -t * 0.003)).r * 2.0 - 1.0);
+	float cr2 = 1.0 - abs(texture(noise, wq * vec2(5.0, 3.0) + vec2(0.3, t * 0.006)).r * 2.0 - 1.0);
+	float cracks = (pow(smoothstep(0.9, 1.0, cr1), 2.0) + pow(smoothstep(0.93, 1.0, cr2), 2.0) * 0.6) * exp(-o * 0.7);
+	float ang = atan(wq.y * 0.45, wq.x);
+	float rays = pow(texture(noise, vec2(ang * 0.8, t * 0.006)).r, 3.5) * 2.2 * exp(-o * 0.6);
+	float haze = exp(-o * 1.6);
+	vec3 outc = mix(blood * 0.6, hot, haze) * (haze * 0.5 + rays * 0.6) + vec3(1.0, 0.55, 0.35) * rim * 1.2 + hot * cracks * 1.3;
+	float oa = clamp(haze * 0.45 + rays * 0.35 + rim + cracks, 0.0, 1.0);
+	float inner = 1.0 - smoothstep(lip - 0.05, lip, s);
+	vec3 c = mix(outc, inside, inner);
+	float a = mix(oa, 1.0, inner);
+	a *= 1.0 - smoothstep(0.7, 1.0, max(abs(q.x), abs(q.y)));   // (the square it is drawn on never shows)
 	ALBEDO = c;
-	ALPHA = clamp(max(edge * max(gaps, hole), clamp(bolts, 0.0, 1.0) * edge), 0.0, 1.0);
+	ALPHA = clamp(a, 0.0, 1.0);
 }
 """
 func _rift_whirlpool(g: Node3D, d: Dictionary) -> MeshInstance3D:
@@ -2666,21 +2670,18 @@ func _rift_whirlpool(g: Node3D, d: Dictionary) -> MeshInstance3D:
 	if _rift_noise == null:
 		var fn := FastNoiseLite.new(); fn.seed = 77; fn.frequency = 0.02; fn.fractal_octaves = 4
 		_rift_noise = ImageTexture.create_from_image(fn.get_seamless_image(256, 256))
-	var st := SurfaceTool.new()   # a disc of rings (UV.x = 0 middle .. 1 edge, UV.y = round)
+	var st := SurfaceTool.new()   # a fine sheet (UV 0..1 across and up) so its throat can sink back smoothly
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var NR := 28
-	var NA := 72
-	for i in NR:
-		var r0 := float(i) / NR
-		var r1 := float(i + 1) / NR
-		for k in NA:
-			var a0 := TAU * k / NA
-			var a1 := TAU * (k + 1) / NA
-			var q := [[r0, a0, float(k) / NA], [r1, a0, float(k) / NA], [r1, a1, float(k + 1) / NA], [r0, a1, float(k + 1) / NA]]
+	var NX := 96
+	var NY := 72
+	for j in NY:
+		for i in NX:
+			var q := [[i, j], [i + 1, j], [i + 1, j + 1], [i, j + 1]]
 			for idx in [0, 1, 2, 0, 2, 3]:
-				var v: Array = q[idx]
-				st.set_uv(Vector2(v[0], v[2]))
-				st.add_vertex(Vector3(cos(v[1]) * v[0] * R, sin(v[1]) * v[0] * R, 0.0))
+				var u: float = float(q[idx][0]) / NX
+				var v: float = float(q[idx][1]) / NY
+				st.set_uv(Vector2(u, v))
+				st.add_vertex(Vector3((u * 2.0 - 1.0) * R, (v * 2.0 - 1.0) * R * 1.1, 0.0))
 	var mi := MeshInstance3D.new()
 	mi.name = "RiftWhirlpool"
 	mi.mesh = st.commit()
@@ -2690,7 +2691,7 @@ func _rift_whirlpool(g: Node3D, d: Dictionary) -> MeshInstance3D:
 	sh.code = RIFT_POOL_SHADER
 	sm.shader = sh
 	sm.set_shader_parameter("noise", _rift_noise)
-	sm.set_shader_parameter("depth", R * 0.7)
+	sm.set_shader_parameter("depth", R * 0.6)
 	var other_sys := str(d.get("to", ""))   # the other side's sky (its space panorama, when it is here)
 	var sp := "res://assets/skies/%s.jpg" % other_sys
 	if Data.CORE_SYSTEMS.has(other_sys): sp = "res://assets/sky/%s.jpg" % other_sys
@@ -2700,43 +2701,48 @@ func _rift_whirlpool(g: Node3D, d: Dictionary) -> MeshInstance3D:
 	mi.material_override = sm
 	mi.extra_cull_margin = R
 	g.add_child(mi)
-	var mist := CPUParticles3D.new()   # spray flung off the rim
-	mist.amount = 60
-	mist.lifetime = 4.0
-	mist.preprocess = 4.0
-	mist.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
-	mist.emission_ring_axis = Vector3(0, 0, 1)
-	mist.emission_ring_radius = R * 0.95
-	mist.emission_ring_inner_radius = R * 0.7
-	mist.emission_ring_height = 4.0
+	var mist := CPUParticles3D.new()   # embers drifting slowly out of the tear
+	mist.name = "RiftEmbers"
+	mist.amount = 120
+	mist.lifetime = 14.0
+	mist.preprocess = 14.0
+	mist.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	mist.emission_box_extents = Vector3(R * 0.22, R * 0.9, R * 0.1)
 	mist.direction = Vector3(0, 0, 1)
-	mist.spread = 60.0
-	mist.initial_velocity_min = 8.0
-	mist.initial_velocity_max = 30.0
+	mist.spread = 70.0
+	mist.initial_velocity_min = R * 0.004
+	mist.initial_velocity_max = R * 0.02
 	mist.gravity = Vector3.ZERO
-	mist.scale_amount_min = 0.6
-	mist.scale_amount_max = 1.6
-	var mq := QuadMesh.new(); mq.size = Vector2(R * 0.18, R * 0.18)
+	mist.scale_amount_min = 0.4
+	mist.scale_amount_max = 1.4
+	var mq := QuadMesh.new(); mq.size = Vector2(R * 0.035, R * 0.035)
 	var mmat := StandardMaterial3D.new()
 	mmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mmat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	mmat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	mmat.vertex_color_use_as_albedo = true
 	mmat.albedo_texture = _cloud_texture(Color(1, 1, 1), 91)
+	mmat.fog_enabled = false
 	mq.material = mmat
 	mist.mesh = mq
 	var mr := Gradient.new()
-	mr.set_color(0, Color(0.85, 0.95, 1.0, 0.0))
-	mr.add_point(0.3, Color(0.85, 0.95, 1.0, 0.35))
-	mr.set_color(mr.get_point_count() - 1, Color(0.6, 0.8, 1.0, 0.0))
+	mr.set_color(0, Color(1.0, 0.7, 0.3, 0.0))
+	mr.add_point(0.2, Color(1.0, 0.55, 0.2, 0.9))
+	mr.set_color(mr.get_point_count() - 1, Color(0.7, 0.05, 0.05, 0.0))
 	mist.color_ramp = mr
 	g.add_child(mist)
 	_rift_nebula(g, R)
-	var lamp := OmniLight3D.new()
-	lamp.light_color = Color(0.6, 0.85, 1.0)
-	lamp.light_energy = 2.5
-	lamp.omni_range = R * 3.0
+	var lamp := OmniLight3D.new()   # its red light falls on everything round it, slowly brighter and dimmer
+	lamp.name = "RiftGlow"
+	lamp.light_color = Color(1.0, 0.35, 0.15)
+	lamp.light_energy = 4.0
+	lamp.omni_range = R * 4.0
+	lamp.position = Vector3(0, 0, R * 0.3)
 	g.add_child(lamp)
+	var lt := lamp.create_tween().set_loops()
+	lt.tween_property(lamp, "light_energy", 6.0, 4.0).set_trans(Tween.TRANS_SINE)
+	lt.tween_property(lamp, "light_energy", 3.0, 5.0).set_trans(Tween.TRANS_SINE)
 	g.set_meta("radius", R * Data.GATE_GROW)
 	g.set_meta("rift_pool", true)
 	return mi
@@ -2751,7 +2757,7 @@ func _rift_nebula(g: Node3D, R: float) -> void:
 	neb.name = "RiftNebula"
 	g.add_child(neb)
 	var tex := _cloud_texture(Color(1, 1, 1), 91)
-	var cols := [Color(0.5, 0.25, 0.95), Color(0.2, 0.4, 1.0), Color(0.25, 0.8, 0.95), Color(0.75, 0.3, 0.85)]
+	var cols := [Color(0.55, 0.06, 0.1), Color(0.75, 0.18, 0.08), Color(0.4, 0.05, 0.25), Color(0.85, 0.3, 0.12)]   # v12.87: the breach's blood red and ember
 	for i in 48:   # the nebula: a shell of big soft clouds, thicker behind and to the sides
 		var q := MeshInstance3D.new()
 		var qm := QuadMesh.new()
@@ -2763,7 +2769,7 @@ func _rift_nebula(g: Node3D, R: float) -> void:
 		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 		m.albedo_texture = tex
-		m.albedo_color = Color((cols[rng.randi() % cols.size()] as Color) * 1.25, rng.randf_range(0.35, 0.6))
+		m.albedo_color = Color((cols[rng.randi() % cols.size()] as Color) * 1.25, rng.randf_range(0.3, 0.55))
 		m.disable_receive_shadows = true
 		m.fog_enabled = false
 		q.material_override = m
@@ -2783,7 +2789,7 @@ func _rift_nebula(g: Node3D, R: float) -> void:
 	wisps.initial_velocity_max = R * 0.03
 	wisps.gravity = Vector3.ZERO
 	wisps.orbit_velocity_min = 0.01
-	wisps.orbit_velocity_max = 0.03
+	wisps.orbit_velocity_max = 0.015
 	wisps.scale_amount_min = 0.5
 	wisps.scale_amount_max = 1.5
 	var wq := QuadMesh.new(); wq.size = Vector2(R * 0.16, R * 0.16)
@@ -2797,9 +2803,9 @@ func _rift_nebula(g: Node3D, R: float) -> void:
 	wq.material = wm
 	wisps.mesh = wq
 	var wr := Gradient.new()
-	wr.set_color(0, Color(0.7, 0.8, 1.0, 0.0))
-	wr.add_point(0.4, Color(0.75, 0.75, 1.0, 0.45))
-	wr.set_color(wr.get_point_count() - 1, Color(0.5, 0.6, 1.0, 0.0))
+	wr.set_color(0, Color(1.0, 0.5, 0.35, 0.0))
+	wr.add_point(0.4, Color(0.9, 0.35, 0.3, 0.4))
+	wr.set_color(wr.get_point_count() - 1, Color(0.5, 0.08, 0.12, 0.0))
 	wisps.color_ramp = wr
 	g.add_child(wisps)
 	var bsh := Shader.new(); bsh.code = RIFT_BOLT_SHADER   # lightning inside the clouds
@@ -2814,15 +2820,15 @@ func _rift_nebula(g: Node3D, R: float) -> void:
 		bm.transform = Transform3D(Basis(x, dir2.cross(x), dir2), dir2 * rng.randf_range(1.0, 1.8) * R)
 		var mm := ShaderMaterial.new(); mm.shader = bsh
 		mm.set_shader_parameter("noise", _rift_noise)
-		mm.set_shader_parameter("col", Color(0.6, 0.75, 1.0) if i % 2 == 0 else Color(0.8, 0.6, 1.0))
+		mm.set_shader_parameter("col", Color(1.0, 0.55, 0.3) if i % 2 == 0 else Color(1.0, 0.3, 0.35))
 		mm.set_shader_parameter("offset", float(i) * 0.53)
-		mm.set_shader_parameter("rate", 0.35 + 0.05 * float(i % 4))
+		mm.set_shader_parameter("rate", 0.18 + 0.03 * float(i % 4))
 		bm.material_override = mm
 		bm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		neb.add_child(bm)
 	var flash := OmniLight3D.new()   # the clouds light up with the strikes
 	flash.name = "RiftFlash"
-	flash.light_color = Color(0.7, 0.8, 1.0)
+	flash.light_color = Color(1.0, 0.5, 0.3)
 	flash.light_energy = 0.0
 	flash.omni_range = R * 4.5
 	flash.position = Vector3(0, R * 0.6, -R * 0.4)
@@ -10372,10 +10378,10 @@ func _planet_rift() -> void:
 		"ground": p.y = top + Data.RIFT_POOL_R * 0.75   # (its funnel sinks R x 0.7: kept clear of the hills)
 		"underwater": p.y = top + Data.RIFT_POOL_R * 0.75
 		"wall":
-			p.y = gy + R * 1.05
+			p.y = gy + R * 0.95
 			face = Vector3(-1, 0, 1).normalized()
 		"ceiling":
-			p.y = gy + R * 1.4 + 80.0
+			p.y = gy + R * 0.75 + 80.0   # (v12.87: the bigger tear's roof stays under the sky ceiling)
 			face = Vector3.DOWN
 	_build_gate({"id": planet_id + "_gate_rift", "name": "%s Rift" % Surface.PLANETS[to_pid]["name"], "pos": p, "to": to_sys,
 		"gkind": "rift", "planet_to": to_pid})
@@ -10429,8 +10435,8 @@ func _rift_rock(g: Node3D, how: String, R: float) -> void:
 			lump.call(Vector3(R * 0.9, R * 0.8, R * 0.6), Vector3(R * 1.4, -R * 0.5, -R * 0.4), false)
 			lump.call(Vector3(R * 0.8, R * 0.7, R * 0.5), Vector3(-R * 1.3, R * 0.7, -R * 0.4), false)
 		"ceiling":   # the rock roof above (behind the gate: -Z) on two craggy pillars down to the ground (+Z is down)
-			lump.call(Vector3(R * 2.2, R * 1.9, R * 0.6), Vector3(0, 0, -R * 0.8), true)
-			for sx in [-1.0, 1.0]: lump.call(Vector3(R * 0.35, R * 0.35, (R * 1.4 + 80.0) * 0.55), Vector3(sx * R * 1.45, sx * R * 0.2, R * 0.6), false)
+			lump.call(Vector3(R * 2.2, R * 1.9, R * 0.35), Vector3(0, 0, -R * 0.65), true)
+			for sx in [-1.0, 1.0]: lump.call(Vector3(R * 0.35, R * 0.35, (R * 0.75 + 80.0) * 0.55), Vector3(sx * R * 1.45, sx * R * 0.2, R * 0.6), false)
 
 ## Arriving through a planet rift: come out of this planet's own rift gate.
 func place_at_rift() -> void:

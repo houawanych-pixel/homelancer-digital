@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.86"
+const VERSION := "v12.87"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1333,7 +1333,9 @@ const RIFT_GATE_SQUARES := [5, 6]   # ... and a rift gate
 const RIFT_CLOUD := Color(0.55, 0.25, 0.95)   # v6.5: the purple cloud round a rift gate (in space and on planets)
 const PLANET_RIFT_POS := Vector3(1400.0, 0.0, -1400.0)   # where a planet's rift gate stands on its tile (height: above the ground)
 const PLANET_RIFT_HEIGHT := 650.0
-const RIFT_POOL_R := 320.0   # v12.83 (owner: "the rift gates are huge, huge enough for a giant kaiju to come out of it"): the whirlpool's radius (m, before GATE_GROW)
+const RIFT_POOL_R := 560.0   # v12.87 (owner: "a lot bigger")
+const RIFT_RIDE_EXTRA := 4.0   # v12.87: extra seconds floating through the rift's living tube
+const RIFT_POOL_R_V1283 := 320.0   # v12.83 (owner: "the rift gates are huge, huge enough for a giant kaiju to come out of it"): the whirlpool's radius (m, before GATE_GROW)
 const ENEMY_SPACE_POWER := 1.6   # v6.2 (owner): enemy space is deadlier: hull, shields, damage and pay x this
 const ENEMY_SPACE_GROUPS := 1     # v11.99 (owner): alien space has every patrol wing out (3, not 2)
 const ENEMY_SPACE_EXTRA := 2      # ... and one more ship in every patrol

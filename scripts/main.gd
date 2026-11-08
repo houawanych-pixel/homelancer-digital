@@ -1303,7 +1303,7 @@ func jump(gate: Node3D = null) -> void:
 	else: tw.parallel().tween_method(_tunnel, 0.0, 1.0, build_t)
 	await tw.finished
 	_jlog("hold")
-	var hold_end := Time.get_ticks_msec() + int(Data.JUMP_TUNNEL_HOLD_MIN * 1000.0)
+	var hold_end := Time.get_ticks_msec() + int((Data.JUMP_TUNNEL_HOLD_MIN + (Data.RIFT_RIDE_EXTRA if look == "rift" else 0.0)) * 1000.0)   # v12.87: the ride through the living tube lasts a while
 	while Time.get_ticks_msec() < hold_end:
 		if not reduced: _tunnel(1.0)
 		await get_tree().process_frame

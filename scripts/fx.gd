@@ -50,12 +50,12 @@ uniform sampler2D tunnel_tex_b : source_color, repeat_enable, filter_linear; // 
 uniform bool use_tex_b = false;
 uniform bool use_tex = false;
 uniform bool organic = true;     // v10.9: the rift's wormhole is a living, see-through tube (false = the old tear)
-uniform vec3 organ_a : source_color = vec3(0.32, 0.05, 0.22);   // deep flesh
-uniform vec3 organ_b : source_color = vec3(0.85, 0.32, 0.55);   // lit tissue
-uniform vec3 organ_c : source_color = vec3(1.0, 0.6, 0.85);     // veins / glow
+uniform vec3 organ_a : source_color = vec3(0.3, 0.02, 0.05);    // deep flesh (v12.87: blood red, Pacific Rim)
+uniform vec3 organ_b : source_color = vec3(0.85, 0.16, 0.14);   // lit tissue
+uniform vec3 organ_c : source_color = vec3(1.0, 0.55, 0.3);     // veins / glow
 uniform float membrane = 0.55;
 uniform float bolt_rate = 0.55;
-uniform vec3 bolt_col : source_color = vec3(0.55, 0.8, 1.0);
+uniform vec3 bolt_col : source_color = vec3(1.0, 0.6, 0.35);
 uniform vec3 hole_tint = vec3(1.0, 0.45, 0.85);   // v10.6: the warp gate's living pink
 uniform float tint_amt = 0.6;
 uniform float flow = 0.16;
@@ -71,8 +71,47 @@ uniform float twist = 0.55;
 uniform float bands = 3.0;
 uniform float alpha = 0.96;
 uniform float ring_amt = 0.55;    // v11.7 (owner): rings of light you pass through, in every tunnel
-uniform float clarity = 0.72;     // v11.7 (owner: "the tube more clear, floating in a much bigger world"): how much of the sky shows through the rift's tube
+uniform float clarity = 0.8;     // v11.7 (owner: "the tube more clear, floating in a much bigger world"): how much of the sky shows through the rift's tube
 float nz(vec2 uv) { return textureLod(noise_tex, uv, 0.0).r; }
+// v12.87 (owner: "you're inside of organs and flesh, inside something alive, like a blood cell floating through a
+// transparent tube, to see the massive world of life"): the giant living world round the clear tube: huge organ
+// masses, great arteries branching across, light shining through the flesh, all beating slowly like a heart
+vec3 life_world(vec3 dv, float t, float go) {
+	float yaw = atan(dv.x, dv.z);
+	float pit = acos(clamp(dv.y, -1.0, 1.0));
+	vec2 u = vec2(yaw / 6.2832 * 3.0 + go * 0.015, pit / 3.1416 * 1.6);
+	float m1 = nz(u * 0.6 + vec2(t * 0.003, 0.0));
+	float m2 = nz(u * 1.7 + 0.4 - vec2(0.0, t * 0.004));
+	float mass = smoothstep(0.3, 0.8, m1 * 0.65 + m2 * 0.45);
+	float beat = 0.8 + 0.25 * pow(0.5 + 0.5 * sin(t * 1.3), 6.0);
+	vec3 c = mix(vec3(0.05, 0.0, 0.01), vec3(0.6, 0.07, 0.08) * beat, mass);
+	float a1 = 1.0 - abs(nz(u * 1.0 + vec2(0.13, t * 0.002)) * 2.0 - 1.0);
+	float a2 = 1.0 - abs(nz(u * 2.4 + vec2(0.71, 0.29)) * 2.0 - 1.0);
+	float a3 = 1.0 - abs(nz(u * 5.5 + vec2(0.2, 0.9)) * 2.0 - 1.0);
+	float art = pow(smoothstep(0.84, 1.0, a1), 2.0) * 1.2 + pow(smoothstep(0.88, 1.0, a2), 2.0) * 0.7 + pow(smoothstep(0.92, 1.0, a3), 2.0) * 0.35 * mass;
+	c += vec3(1.0, 0.3, 0.15) * art * beat;
+	c += vec3(1.0, 0.5, 0.22) * pow(smoothstep(0.55, 0.95, m2), 3.0) * 0.8 * beat;   // light shining through the flesh
+	return c;
+}
+// v12.87: blood cells drifting along with you inside the tube (a nearer, thinner layer than the wall)
+vec3 cells_layer(vec3 col, float r, float th, float go, float t) {
+	for (int L = 0; L < 2; L++) {
+		float fl = float(L);
+		float dep = (0.14 + fl * 0.06) / r;
+		vec2 c = vec2(dep * 2.2 + go * (0.25 + fl * 0.1), th * (10.0 + fl * 4.0) + t * 0.01);
+		vec2 id = floor(c);
+		float h = fract(sin(dot(id + fl * 7.0, vec2(12.9898, 78.233))) * 43758.5453);
+		if (h > 0.62) {
+			vec2 f = fract(c) - 0.5 - (vec2(fract(h * 13.1), fract(h * 7.7)) - 0.5) * 0.4;
+			float d = length(f * vec2(1.0, 1.3)) / (0.18 + 0.1 * fract(h * 3.3));
+			float disc = 1.0 - smoothstep(0.85, 1.0, d);
+			float dimple = 0.55 + 0.45 * smoothstep(0.2, 0.75, d);
+			vec3 cc = vec3(0.75, 0.06, 0.07) * dimple + vec3(1.0, 0.5, 0.4) * pow(smoothstep(0.55, 0.9, d) * (1.0 - smoothstep(0.9, 1.0, d)), 1.5) * 0.6;
+			col = mix(col, cc, disc * 0.85 * smoothstep(0.05, 0.25, r));
+		}
+	}
+	return col;
+}
 // v11.7 (owner): a ring of light rushing out at you (it comes from far down the tunnel and passes round you).
 // depth = how far down the tunnel this pixel looks; rings sit at fixed places along the tunnel, so riding forward they grow.
 float light_rings(float depth, float go, float r) {
@@ -178,7 +217,7 @@ void fragment() {
 		vec3 outer = mix(organ_a * 0.25, organ_b, folds) * opulse;
 		outer += organ_c * pow(smoothstep(0.6, 0.95, o1), 3.0) * 0.8 * opulse;
 		// the near membrane: translucent, veined, rushing past
-		vec2 muv = vec2(depth + travel * 0.6, th + sway * 0.5);
+		vec2 muv = vec2(depth + travel * 0.35, th + sway * 0.5);   // (v12.87: slower, it floats)
 		float cells = nz(muv * vec2(2.0, 6.0));
 		float vein = 1.0 - abs(nz(muv * vec2(1.2, 4.0) + 0.17) * 2.0 - 1.0);
 		vein = pow(smoothstep(0.75, 1.0, vein), 2.0);
@@ -189,10 +228,7 @@ void fragment() {
 		// v11.7 (owner: "see a small skybox in there; the tube more clear; floating in a much bigger world"): through the
 		// clear tube, the sky of the place you are going, huge and slow round you
 		vec3 dv = normalize(vec3(p.x, p.y, 0.85));
-		float yaw = atan(dv.x, dv.z) / 6.2832 + 0.5 + t * 0.006 + travel * 0.004;
-		vec3 sky = textureLod(sky_b, vec2(yaw, acos(clamp(dv.y, -1.0, 1.0)) / 3.14159), 0.0).rgb;
-		vec3 sky2 = textureLod(sky_a, vec2(yaw * 2.0 + 0.3, acos(clamp(dv.y, -1.0, 1.0)) / 3.14159), 0.0).rgb;
-		vec3 world = mix(sky2, sky, smoothstep(0.0, 1.0, min(travel * 0.15, 1.0))) * 1.25;
+		vec3 world = life_world(dv, t, travel) * 1.3;   // v12.87: a massive living world outside the clear tube
 		float thin = clarity * (0.75 + 0.25 * (1.0 - cells));
 		col = mix(col, world + organ_c * vein * 0.6, thin);
 		col += mix(organ_c, vec3(1.0), 0.5) * light_rings(depth, travel * 0.84, r) * ring_amt;   // rings of light you pass through
@@ -214,6 +250,7 @@ void fragment() {
 				col += (bolt_col * glow * 0.6 + vec3(1.0) * core) * fade;
 			}
 		}
+		col = cells_layer(col, r, th, travel, t);
 		col *= 0.3 + 0.9 * smoothstep(0.0, 0.4, r);
 		col += mix(organ_c, vec3(1.0), 0.6) * (0.035 / (r * r * 6.0 + 0.04)) * (0.8 + 0.2 * sin(t * 2.0));
 		} else {
