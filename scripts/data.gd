@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.78"
+const VERSION := "v12.79"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1129,6 +1129,14 @@ const SHIP_FLOW := {
 # which ships fly the patrols of an enemy home system (by the map's role text). The patrol's ships are taken from this
 # list in turn. Systems not listed keep sys["enemy"].
 const HOME_FLEETS := {
+	"Nexus colony": ["ph_nexus", "ph_nexus", "ph_nexus_heavy"],
+	"Unknown colony": ["ph_unknown", "ph_unknown", "ph_unknown_heavy"],
+	"Exile colony": ["ph_exile", "ph_exile", "ph_exile_heavy"],
+	"Celeste colony": ["ph_celeste", "ph_celeste", "ph_celeste_heavy"],
+	"Zard colony": ["ph_zard", "ph_zard", "ph_zard_heavy"],
+	"Voidborn colony": ["ph_voidborn", "ph_voidborn", "ph_voidborn_heavy"],
+	"Nether colony": ["ph_nether", "ph_nether", "ph_nether_heavy"],
+	"Yezer colony": ["ph_yezer", "ph_yezer", "ph_yezer_heavy"],
 	"Nexus home": ["ph_nexus", "ph_nexus", "ph_nexus_heavy"],   # v12.78: stand-ins until its own ships
 	"Unknown home": ["ph_unknown", "ph_unknown", "ph_unknown_heavy"],   # v12.78: stand-ins until its own ships
 	"Exile home": ["ph_exile", "ph_exile", "ph_exile_heavy"],   # v12.78: stand-ins until its own ships
@@ -1147,7 +1155,7 @@ const HOME_FLEETS := {
 # ---------------------------------------------------------------- Job AD (v1.4z): the six enemy casts
 # whose people fly the patrols of an enemy home system (by the map's role text). Only factions with a roster AND
 # ships in the game are listed; the ship lists above stay as the fallback when no one from the roster can fly.
-const HOME_FACTION := {"Kaijurai home": "Kaijurai", "Phenom home": "Phenom", "Cybermorph home": "Cybermorph", "Solrath home": "Solrath", "Nexus home": "Nexus", "Unknown home": "Unknown", "Exile home": "Exile", "Celeste home": "Celeste", "Zard home": "Zard", "Voidborn home": "Voidborn", "Nether home": "Nether", "Yezer home": "Yezer"}   # v12.78 (owner): + 8 enemy factions   # v1.5c: + Cybernet, Void System
+const HOME_FACTION := {"Kaijurai home": "Kaijurai", "Phenom home": "Phenom", "Cybermorph home": "Cybermorph", "Solrath home": "Solrath", "Nexus home": "Nexus", "Unknown home": "Unknown", "Exile home": "Exile", "Celeste home": "Celeste", "Zard home": "Zard", "Voidborn home": "Voidborn", "Nether home": "Nether", "Yezer home": "Yezer", "Nexus colony": "Nexus", "Unknown colony": "Unknown", "Exile colony": "Exile", "Celeste colony": "Celeste", "Zard colony": "Zard", "Voidborn colony": "Voidborn", "Nether colony": "Nether", "Yezer colony": "Yezer"}   # v12.78 (owner): + 8 enemy factions   # v1.5c: + Cybernet, Void System
 # ---------------------------------------------------------------- Job AB (v1.4x): one warp effect, three looks
 # gate kind -> look.  tunnel = jump gate (energy tube), cloud = warp gate (gas anomaly), rift = rift gate (a tear in space)
 const WARP_SKINS := {"jump": "tunnel", "warp": "cloud", "rift": "rift"}

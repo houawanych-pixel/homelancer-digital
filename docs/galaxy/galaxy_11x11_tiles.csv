@@ -91,3 +91,18 @@ D7,Zardos,Enemy,Zard home,1,1,zardos.jpg
 H7,Voidmaw,Enemy,Voidborn home,1,1,voidmaw.jpg
 C10,Netherhold,Enemy,Nether home,1,1,netherhold.jpg
 F11,Yezeroth,Enemy,Yezer home,1,1,yezeroth.jpg
+D1,Nexus Relay,Enemy,Nexus colony,1,1,nexus_relay.jpg
+A4,Whisper Hollow,Enemy,Unknown colony,1,1,whisper_hollow.jpg
+C2,Blank Reach,Enemy,Unknown colony,1,1,blank_reach.jpg
+K2,Exile Drift,Enemy,Exile colony,1,1,exile_drift.jpg
+I4,Outcast Belt,Enemy,Exile colony,1,1,outcast_belt.jpg
+J5,Seraph's Light,Enemy,Celeste colony,1,1,seraphs_light.jpg
+J7,Choir's End,Enemy,Celeste colony,1,1,choirs_end.jpg
+C6,Scaleback,Enemy,Zard colony,1,1,scaleback.jpg
+E8,Ember Den,Enemy,Zard colony,1,1,ember_den.jpg
+G6,Voidspawn,Enemy,Voidborn colony,1,1,voidspawn.jpg
+I8,Dark Nursery,Enemy,Voidborn colony,1,1,dark_nursery.jpg
+B9,Underhold,Enemy,Nether colony,1,1,underhold.jpg
+D9,Grave Shelf,Enemy,Nether colony,1,1,grave_shelf.jpg
+E10,Yez Minor,Enemy,Yezer colony,1,1,yez_minor.jpg
+G10,Frostspire,Enemy,Yezer colony,1,1,frostspire.jpg

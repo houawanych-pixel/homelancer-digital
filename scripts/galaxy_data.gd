@@ -80,6 +80,21 @@ const TILES := [
 	["voidmaw", "Voidmaw", "H7", 7, 6, "Enemy", "Voidborn home", "Hollow Star", "dead", "Void Cathedral"],   # v12.78 (owner)
 	["netherhold", "Netherhold", "C10", 2, 9, "Enemy", "Nether home", "Netherhold", "toxic", "Nether Gate Keep"],   # v12.78 (owner)
 	["yezeroth", "Yezeroth", "F11", 5, 10, "Enemy", "Yezer home", "Yezeroth", "ice", "Yezer Citadel"],   # v12.78 (owner)
+	["nexus_relay", "Nexus Relay", "D1", 3, 0, "Enemy", "Nexus colony", "Nexus Relay", "machine", "Nexus Relay Outpost"],   # v12.78b (owner: 1-2 more systems each)
+	["whisper_hollow", "Whisper Hollow", "A4", 0, 3, "Enemy", "Unknown colony", "Whisper Hollow", "dead", "Whisper Hollow Outpost"],   # v12.78b (owner: 1-2 more systems each)
+	["blank_reach", "Blank Reach", "C2", 2, 1, "Enemy", "Unknown colony", "Blank Reach", "ice", "Blank Reach Outpost"],   # v12.78b (owner: 1-2 more systems each)
+	["exile_drift", "Exile Drift", "K2", 10, 1, "Enemy", "Exile colony", "Exile Drift", "desert", "Exile Drift Outpost"],   # v12.78b (owner: 1-2 more systems each)
+	["outcast_belt", "Outcast Belt", "I4", 8, 3, "Enemy", "Exile colony", "Outcast Belt", "dead", "Outcast Belt Outpost"],   # v12.78b (owner: 1-2 more systems each)
+	["seraphs_light", "Seraph's Light", "J5", 9, 4, "Enemy", "Celeste colony", "Seraph's Light", "crystal", "Seraph's Light Outpost"],   # v12.78b (owner: 1-2 more systems each)
+	["choirs_end", "Choir's End", "J7", 9, 6, "Enemy", "Celeste colony", "Choir's End", "ice", "Choir's End Outpost"],   # v12.78b (owner: 1-2 more systems each)
+	["scaleback", "Scaleback", "C6", 2, 5, "Enemy", "Zard colony", "Scaleback", "jungle", "Scaleback Outpost"],   # v12.78b (owner: 1-2 more systems each)
+	["ember_den", "Ember Den", "E8", 4, 7, "Enemy", "Zard colony", "Ember Den", "lava", "Ember Den Outpost"],   # v12.78b (owner: 1-2 more systems each)
+	["voidspawn", "Voidspawn", "G6", 6, 5, "Enemy", "Voidborn colony", "Voidspawn", "dead", "Voidspawn Outpost"],   # v12.78b (owner: 1-2 more systems each)
+	["dark_nursery", "Dark Nursery", "I8", 8, 7, "Enemy", "Voidborn colony", "Dark Nursery", "toxic", "Dark Nursery Outpost"],   # v12.78b (owner: 1-2 more systems each)
+	["underhold", "Underhold", "B9", 1, 8, "Enemy", "Nether colony", "Underhold", "toxic", "Underhold Outpost"],   # v12.78b (owner: 1-2 more systems each)
+	["grave_shelf", "Grave Shelf", "D9", 3, 8, "Enemy", "Nether colony", "Grave Shelf", "dead", "Grave Shelf Outpost"],   # v12.78b (owner: 1-2 more systems each)
+	["yez_minor", "Yez Minor", "E10", 4, 9, "Enemy", "Yezer colony", "Yez Minor", "ice", "Yez Minor Outpost"],   # v12.78b (owner: 1-2 more systems each)
+	["frostspire", "Frostspire", "G10", 6, 9, "Enemy", "Yezer colony", "Frostspire", "ice", "Frostspire Outpost"],   # v12.78b (owner: 1-2 more systems each)
 ]
 
 # kind (jump | warp | rift), system a, system b.  Every gate works both ways.
@@ -197,6 +212,36 @@ const GATES := [
 	["rift", "netherhold", "derelicta"],
 	["warp", "yezeroth", "vortegan"],
 	["rift", "yezeroth", "ironvast"],
+	["warp", "nexus_relay", "nexus_prime"],
+	["warp", "whisper_hollow", "the_unseen"],
+	["warp", "blank_reach", "the_unseen"],
+	["warp", "exile_drift", "exiles_rest"],
+	["warp", "outcast_belt", "exiles_rest"],
+	["warp", "seraphs_light", "celestia"],
+	["warp", "choirs_end", "celestia"],
+	["warp", "scaleback", "zardos"],
+	["warp", "ember_den", "zardos"],
+	["warp", "voidspawn", "voidmaw"],
+	["warp", "dark_nursery", "voidmaw"],
+	["warp", "underhold", "netherhold"],
+	["warp", "grave_shelf", "netherhold"],
+	["warp", "yez_minor", "yezeroth"],
+	["warp", "frostspire", "yezeroth"],
+	["warp", "nexus_relay", "velanthos"],   # v12.79 (owner: two warp gates each)
+	["warp", "whisper_hollow", "farreach_outpost"],   # v12.79 (owner: two warp gates each)
+	["warp", "blank_reach", "selenvar"],   # v12.79 (owner: two warp gates each)
+	["warp", "exile_drift", "nebulax"],   # v12.79 (owner: two warp gates each)
+	["warp", "outcast_belt", "synthari_capital"],   # v12.79 (owner: two warp gates each)
+	["warp", "seraphs_light", "vorreth"],   # v12.79 (owner: two warp gates each)
+	["warp", "choirs_end", "empire_major"],   # v12.79 (owner: two warp gates each)
+	["warp", "scaleback", "exodus_point"],   # v12.79 (owner: two warp gates each)
+	["warp", "ember_den", "raptian_major"],   # v12.79 (owner: two warp gates each)
+	["warp", "voidspawn", "vexara"],   # v12.79 (owner: two warp gates each)
+	["warp", "dark_nursery", "sepheron"],   # v12.79 (owner: two warp gates each)
+	["warp", "underhold", "shroud"],   # v12.79 (owner: two warp gates each)
+	["warp", "grave_shelf", "scavaris"],   # v12.79 (owner: two warp gates each)
+	["warp", "yez_minor", "ravage_major"],   # v12.79 (owner: two warp gates each)
+	["warp", "frostspire", "ironvast"],   # v12.79 (owner: two warp gates each)
 ]
 
 # The rest of each system from the catalog (PROPOSED): system, kind (planet | station), name, planet type.

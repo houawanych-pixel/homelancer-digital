@@ -515,7 +515,7 @@ func _galaxy() -> void:
 				seen[g["to"]] = true
 				todo.append(g["to"])
 	_check("Galaxy: %d star systems, each with a star you can enter, a station, a planet and two-way gates; all reachable from Solara" % _stars().size(),
-		_stars().size() == 75 and bad.is_empty() and _stars().all(func(k): return seen.has(k)), "reachable %d; %s" % [_stars().filter(func(k): return seen.has(k)).size(), ", ".join(bad.slice(0, 4))])   # (v6.5: gates also reach unknown areas)
+		_stars().size() == 90 and bad.is_empty() and _stars().all(func(k): return seen.has(k)), "reachable %d; %s" % [_stars().filter(func(k): return seen.has(k)).size(), ", ".join(bad.slice(0, 4))])   # (v6.5: gates also reach unknown areas)
 	# real planets: NASA maps, a fixed day and night side, clouds, and the docking gate on top of the atmosphere
 	var s := _sp()
 	await Packs.wait("worlds", 40.0)
@@ -2811,6 +2811,13 @@ func _run() -> void:
 		var enemy_jumps: Array = []   # (owner: enemy factions have no jump gates: only warp and rift gates)
 		for l in Galaxy.network()["links"]:
 			if str(l[2]) == "jump_gate" and (SystemBuilder.is_enemy_space(Data.SYSTEMS[l[0]]) or SystemBuilder.is_enemy_space(Data.SYSTEMS[l[1]])): enemy_jumps.append("%s-%s" % [l[0], l[1]])
+		var col_bad: Array = []   # v12.79 (owner): each new enemy system: a star, a planet, asteroids, nebula; 2 warp gates or a rift
+		for sid in Data.SYSTEMS:
+			var sy: Dictionary = Data.SYSTEMS[sid]
+			if not str(sy.get("role", "")).ends_with(" colony"): continue
+			var ks: Array = (sy["gates"] as Array).map(func(g): return str(g.get("gkind", "jump")))
+			if not (sy.has("planet") and sy.has("asteroids") and sy.has("nebula") and not ("jump" in ks) and (ks.count("warp") >= 2 or "rift" in ks)): col_bad.append("%s %s" % [sid, ks])
+		_check("v12.79 (owner): the 15 new enemy systems each have a star, planet, asteroids, nebula and 2 warp gates / a rift, no jump gates (bad: %s)" % str(col_bad), col_bad.is_empty(), "")
 		_check("v12.78 (owner): no jump gates into enemy-faction space, only warp / rift (%s)" % str(enemy_jumps), enemy_jumps.is_empty(), "")
 		_check("v12.64: the complete galaxy map drawn (%d systems charted, orrery %s)" % [GS.discovered.size(), (g0[1] as Vector2).x >= Data.MAP_ORRERY_DETAIL], (g0[1] as Vector2).x >= Data.MAP_ORRERY_DETAIL, "")
 		GS.discovered = keep_d
