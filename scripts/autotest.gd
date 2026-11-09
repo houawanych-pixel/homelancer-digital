@@ -2775,6 +2775,106 @@ func _run() -> void:
 			tabs_ok and r0 == "" and pv_ok and bad2 != "" and p_list > 0 and not p_heavy, "")
 		_finish_group()
 		return
+	if _flag("HL_BOARDART"):   # v12.92 (owner, tabletop board): the sun and the worlds as the game draws them, glow and all, on black
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(2.0)
+		var s := _sp()
+		s.controls = false
+		main.hud.visible = false
+		s.model.visible = false
+		var e: Environment = s.env.environment
+		e.background_mode = Environment.BG_COLOR
+		e.background_color = Color(0, 0, 0)
+		e.fog_enabled = false
+		var c := Camera3D.new()
+		c.fov = 40.0
+		c.near = 5.0
+		c.far = 4000000.0
+		c.top_level = true
+		s.add_child(c)
+		c.make_current()
+		var shots := {}
+		GS.god_mode = true
+		if Fs.btn: Fs.btn.visible = false
+		# the sun as you see it in the game: from the ship's own camera, looking straight at it (its bloom on)
+		for ch in s.get_children():
+			if ch is Node3D and not (ch in [s.env, s.sun_core, s.sun_glow, s.cam, s.player, c]) and not (ch is DirectionalLight3D): (ch as Node3D).visible = false
+		var sunp: Vector3 = s.sun_body.global_position
+		s.cam.make_current()
+		var sd: float = s.sun_radius / tan(deg_to_rad(s.cam.fov * 0.5)) / 0.2
+		_tp(sunp + Vector3(0.3, 0.15, 1.0).normalized() * sd, sunp)
+		await _wait(2.0)
+		var img0 := get_viewport().get_texture().get_image()
+		var H0 := img0.get_height()
+		var cx0 := img0.get_width() / 2
+		img0.get_region(Rect2i(cx0 - H0 / 2, 0, H0, H0)).save_png(OS.get_environment("HL_SHOT_DIR").path_join("art_sun.png"))
+		var sp0 := s.cam.unproject_position(sunp)
+		shots["sun"] = {"cx": sp0.x - (cx0 - H0 / 2), "cy": sp0.y, "r": sp0.distance_to(s.cam.unproject_position(sunp + s.cam.global_basis.x * s.sun_radius)), "size": H0}
+		var targets: Array = []
+		for b in [s.sys["planet"]] + (s.sys.get("more_planets", []) as Array):
+			var nd: Node3D = s.find_child(str(b["name"]), true, false)
+			if nd != null and nd is Node3D: targets.append([str(b["name"]).to_lower().replace(" ", "_"), nd, float(b["radius"])])
+		for t in targets:
+			var nd: Node3D = t[1]
+			var R: float = t[2]
+			var chain: Array = []   # (the world and every node above it stay shown)
+			var up: Node = nd
+			while up != null and up != s:
+				chain.append(up)
+				up = up.get_parent()
+			for ch in s.get_children():
+				if ch is Node3D: (ch as Node3D).visible = (ch in chain) or ch == s.env or ch == s.cam or ch == s.player or ch is DirectionalLight3D
+			nd.visible = true
+			var at: Vector3 = nd.global_position
+			var to_sun: Vector3 = (s.sun_body.global_position - at).normalized()
+			var side := to_sun.cross(Vector3.UP).normalized()
+			var dirv := (to_sun * 0.75 + side * 0.66 + Vector3.UP * 0.12).normalized()
+			var dist := R / tan(deg_to_rad(s.cam.fov * 0.5)) / 0.3
+			_tp(at + dirv * dist, at)
+			s.model.visible = false
+			await _wait(1.0)
+			at = nd.global_position
+			var img := get_viewport().get_texture().get_image()
+			var sp := s.cam.unproject_position(at)
+			var r := sp.distance_to(s.cam.unproject_position(at + s.cam.global_basis.x * R))
+			var half := int(minf(r * 1.9, img.get_height() * 0.5 - 1))
+			var x0 := clampi(int(sp.x) - half, 0, img.get_width() - half * 2)
+			var y0 := clampi(int(sp.y) - half, 0, img.get_height() - half * 2)
+			img.get_region(Rect2i(x0, y0, half * 2, half * 2)).save_png(OS.get_environment("HL_SHOT_DIR").path_join("art_%s.png" % t[0]))
+			shots[t[0]] = {"cx": sp.x - x0, "cy": sp.y - y0, "r": r, "size": half * 2}
+		# the clouds as the game draws them, seen from straight above (the game's own camera, held still)
+		s.set_process(false)
+		s.set_physics_process(false)
+		var neb: Node3D = s.find_child("Nebula", false, false)
+		for ch in s.get_children():
+			if ch is Node3D: (ch as Node3D).visible = ch == neb or ch == s.env or ch == s.cam or ch is DirectionalLight3D
+		s.cam.make_current()
+		for nd: Dictionary in s.nebulae:
+			var mmi: Node3D = nd.get("mmi")
+			if mmi == null: continue
+			for ch in neb.get_children(): if ch is Node3D: (ch as Node3D).visible = ch == mmi or (ch.name.begins_with("Rocks") and false)
+			var R: float = float(nd["radius"])
+			var at: Vector3 = mmi.global_position
+			var h: float = R / tan(deg_to_rad(s.cam.fov * 0.5)) / 0.4
+			s.cam.global_position = at + Vector3.UP * h
+			s.cam.look_at(at, Vector3.FORWARD)
+			await _frames(4)
+			var img := get_viewport().get_texture().get_image()
+			var sp := s.cam.unproject_position(at)
+			var r := sp.distance_to(s.cam.unproject_position(at + s.cam.global_basis.x * R))
+			var H := img.get_height()
+			var x0 := int(sp.x) - H / 2
+			var key := "cloud_" + str(nd.get("name", "")).to_lower().replace(" ", "_")
+			img.get_region(Rect2i(x0, 0, H, H)).save_png(OS.get_environment("HL_SHOT_DIR").path_join("art_%s.png" % key))
+			shots[key] = {"cx": sp.x - x0, "cy": sp.y, "r": r, "size": H}
+		s.set_process(true)
+		s.set_physics_process(true)
+		var fo := FileAccess.open(OS.get_environment("HL_SHOT_DIR").path_join("art.json"), FileAccess.WRITE)
+		if fo: fo.store_string(JSON.stringify(shots, "  "))
+		_check("v12.92: the board art: the sun and every world of the start system drawn by the game", shots.size() >= 3, str(shots.keys()))
+		_finish_group()
+		return
 	if _flag("HL_ORBITS"):   # v12.91 (owner): planet sizes set their maps; every world on its own orbit, well apart
 		var w: float = 2.0 * Data.SPACE_EDGE / float(Data.MAP_CELLS)
 		var bad: Array = []
