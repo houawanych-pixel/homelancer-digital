@@ -4471,6 +4471,27 @@ func _run() -> void:
 		var fallback: bool = hb._ps() == null and (hb.find_child("LoStage", true, false) as Control).visible
 		_check("v12.91 (owner): the anime scene replaces the 3D pilot (%s); UPPER zooms in A->B (%s, %s); a jacket previews as its still (%s); EQUIP plays the try-on (%s) and ends on it (%s); LOWER cuts to the full jacket picture with no clip made (%s); the alive moments fit the jacket (%s); no art = the 3D pilot (%s)" % [shown, zoomed_in, at_b, prev_c, tried, worn_ok, cut_d, alive_ok, fallback],
 			shown and zoomed_in and at_b and prev_c and tried and worn_ok and cut_d and alive_ok and fallback)
+		# v12.92: the owner's real pictures (Judy's build): A and the four whole outfits
+		PilotScene.root_dir = "res://assets/pilot_scene"
+		GS.pilot_body = "judy"
+		GS.pilot_suit = ""
+		hb.ps_node = null
+		hb.lo_cat = "upper"
+		hb.lo_sel = ""
+		Loadout.set_part(Loadout.current("pilot"), "upper", "up_flight")
+		hb.show_screen("loadout")
+		await _wait(0.6)
+		var real: Array = []
+		for jk in ["up_flight", "up_vjacket", "up_casual", "up_officer", "up_valk_steel"]:
+			hb.lo_sel = jk
+			hb._gar_refresh()
+			hb._gar_preview_suit()
+			await _wait(0.3)
+			var rp: PilotScene = hb._ps()
+			real.append("%s=%s" % [jk, rp.still_name() if rp != null else "none"])
+			await _capture("judy_" + jk)
+		_check("v12.92: Judy's own pictures: the bodysuit start and the four whole outfits show as their stills (%s)" % ", ".join(real), real == ["up_flight=A", "up_vjacket=D_up_vjacket", "up_casual=D_up_casual", "up_officer=D_up_officer", "up_valk_steel=D_up_valk_steel"])
+		GS.pilot_body = "hovick"
 		Loadout.set_part(Loadout.current("pilot"), "upper", "up_flight")
 		_finish_group()
 		return

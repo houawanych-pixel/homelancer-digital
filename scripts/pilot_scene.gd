@@ -78,9 +78,9 @@ func setup(b: String, worn: String, f: String) -> void:
 
 ## the picture for the current framing and jacket (C / D for a jacket when they're in, else B / A)
 func still_name() -> String:
-	if jacket != NO_JACKET:
-		var j := ("C_" if focus == "waist" else "D_") + jacket
-		if pic(body, j) != "": return j
+	if jacket != NO_JACKET:   # (waist-up: C, else its full body D; full: D)
+		for j in (["C_" + jacket, "D_" + jacket] if focus == "waist" else ["D_" + jacket]):
+			if pic(body, j) != "": return j
 	return "B" if focus == "waist" and pic(body, "B") != "" else "A"
 
 func _show_still() -> void:
