@@ -81,7 +81,30 @@ static func _all_planets() -> Dictionary:
 		out[pid]["tiles"] = [Data.PLANET_BIOME.get(str(x.get("palette", "")), "barren")]
 		if x.get("uninhabited", false): out[pid]["uninhabited"] = true
 		if x.get("moon", false): out[pid]["moon"] = true
+	# v12.91 (owner: "the planet's size decides its map"): small 1 tile, medium 2 x 2, large 3 x 3 (hand-made maps kept)
+	var bodies := {}
+	for sid in Data.SYSTEMS:
+		var sy: Dictionary = Data.SYSTEMS[sid]
+		if (sy.get("planet", {}) as Dictionary).has("id"): bodies[str(sy["planet"]["id"])] = sy["planet"]
+		for x in sy.get("more_planets", []): bodies[str(x.get("id", ""))] = x
+	for pid in out.keys():
+		if CORE_PLANETS.has(pid) or bool(out[pid].get("sun", false)) or not bodies.has(pid): continue
+		var sz := str(bodies[pid].get("size", ""))
+		if not Data.PLANET_SIZES.has(sz): continue
+		var g := int(Data.PLANET_SIZES[sz]["grid"])
+		if g < 1 or g == int(out[pid]["grid"]): continue
+		out[pid]["grid"] = g
+		out[pid]["tiles"] = mixed_tiles(str(out[pid]["tiles"][0]), g, str(pid))
 	for pid in out: _sky_docks(str(pid), out[pid])
+	return out
+
+## v12.91: a bigger world's sectors: its own ground in the first and in at least half, its neighbours in the rest
+static func mixed_tiles(base: String, g: int, pid: String) -> Array:
+	var mix: Array = Data.PLANET_TILE_MIX.get(base, [base])
+	var out: Array = []
+	for i in g * g:
+		var h := absi(hash(pid + ":" + str(i)))
+		out.append(base if i == 0 or h % 2 == 0 else str(mix[h % mix.size()]))
 	return out
 
 ## v12.54 (owner: "too many docking stations ... a faction's planet has two: its own and the rival's, like the allies

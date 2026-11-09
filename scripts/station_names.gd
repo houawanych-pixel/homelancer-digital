@@ -254,6 +254,9 @@ static func apply(systems: Dictionary) -> Dictionary:
 		var hand: Array = mp.filter(func(x): return not str(x.get("id", "")).contains("_planet_"))
 		var cat: Array = mp.filter(func(x): return str(x.get("id", "")).contains("_planet_"))
 		systems[sid]["more_planets"] = (hand + cat).slice(0, Data.MAX_SYSTEM_PLANETS - 1)
+	# v12.91 (owner): every world gets its size (small, medium, large or a gas giant), then its own orbit, well apart
+	SystemBuilder.size_planets(systems)
+	for sid in systems: SystemBuilder.space_orbits(systems[sid])
 	# v12.66 (owner: "like ours: only one liveable planet; or a gas planet like Saturn or Jupiter you can't dock on
 	# because of its gas atmosphere, but you can dock on its moon"): the catalog's other worlds are lifeless (barren,
 	# ice, lava ...: you can land and explore, nobody lives there); a gas giant has no surface, and a moon with a dock
@@ -272,7 +275,7 @@ static func apply(systems: Dictionary) -> Dictionary:
 				var mr: float = float(x["radius"]) * Data.MOON_RADIUS_K
 				var mn: String = "%s %s" % [str(x["name"]), ["Minor", "Moon", "I", "Prime Moon"][rng.randi() % 4]]
 				moons.append({"id": str(x["id"]) + "_moon", "name": mn, "palette": ["ice", "dead", "crystal"][rng.randi() % 3], "kind": "landmark", "placeholder": true,
-					"pos": (x["pos"] as Vector3) + Vector3(cos(a), 0.0, sin(a)) * float(x["radius"]) * Data.MOON_ORBIT_K, "radius": mr, "moon": true, "moon_of": str(x["id"]),
+					"pos": (x["pos"] as Vector3) + Vector3(cos(a), 0.0, sin(a)) * float(x["radius"]) * Data.MOON_ORBIT_K, "radius": mr, "moon": true, "moon_of": str(x["id"]), "size": "small",
 					"desc": "Moon of %s. A small dock on the surface." % str(x["name"])})
 				x["moon_name"] = mn
 			elif pal in Data.LIVING_PALETTES:

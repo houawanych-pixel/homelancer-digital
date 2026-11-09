@@ -2775,6 +2775,50 @@ func _run() -> void:
 			tabs_ok and r0 == "" and pv_ok and bad2 != "" and p_list > 0 and not p_heavy, "")
 		_finish_group()
 		return
+	if _flag("HL_ORBITS"):   # v12.91 (owner): planet sizes set their maps; every world on its own orbit, well apart
+		var w: float = 2.0 * Data.SPACE_EDGE / float(Data.MAP_CELLS)
+		var bad: Array = []
+		var squeezed: Array = []
+		var counts := {"small": 0, "medium": 0, "large": 0, "giant": 0}
+		var grid_bad: Array = []
+		for sid in Data.SYSTEMS:
+			var sy: Dictionary = Data.SYSTEMS[sid]
+			var sun := SystemBuilder.sun_pos_of(sy)
+			var rs: Array = []
+			var bodies: Array = []
+			if (sy.get("planet", {}) as Dictionary).has("pos"): bodies.append(sy["planet"])
+			for x in sy.get("more_planets", []): bodies.append(x)
+			for b in bodies:
+				var sz := str(b.get("size", ""))
+				if counts.has(sz): counts[sz] += 1
+				var rr: Array = Data.PLANET_SIZES.get(sz, {"radius": [0.0, 0.0]})["radius"]
+				if float(b["radius"]) < float(rr[0]) - 1.0 or float(b["radius"]) > float(rr[1]) + 1.0: grid_bad.append("%s radius %d (%s)" % [b.get("id", ""), int(b["radius"]), sz])
+				var pid := str(b.get("id", ""))
+				if sz == "giant" and pid.contains("_planet_") and Surface.PLANETS.has(pid): grid_bad.append(pid + " giant has ground")
+				if sz in ["small", "medium", "large"] and Surface.PLANETS.has(pid) and not Surface.CORE_PLANETS.has(pid) and Surface.grid(pid) != int(Data.PLANET_SIZES[sz]["grid"]): grid_bad.append("%s grid %d (%s)" % [pid, Surface.grid(pid), sz])
+				if bool(b.get("moon", false)): continue
+				if bool(b.get("orbit_squeezed", false)): squeezed.append(pid)
+				var c := SystemBuilder.cell_of(b["pos"])
+				if c.x < 2.0 or c.x > 10.0 or c.y < 2.0 or c.y > 10.0: bad.append(pid + " on the border")
+				rs.append(Vector2(b["pos"].x - sun.x, b["pos"].z - sun.z).length())
+			rs.sort()
+			for i in rs.size():
+				if i == 0 and rs[0] < Data.ORBIT_MIN * w * 0.98: bad.append("%s first orbit %.2f sq" % [sid, rs[0] / w])
+				if i > 0 and rs[i] - rs[i - 1] < Data.ORBIT_GAP * w * 0.98: bad.append("%s orbits %.2f / %.2f sq" % [sid, rs[i - 1] / w, rs[i] / w])
+		_check("v12.91 (owner): every world on its own orbit round the star, %.1f squares apart (%d squeezed)" % [Data.ORBIT_GAP, squeezed.size()], bad.is_empty() and squeezed.size() <= 3, ", ".join(bad.slice(0, 6)) + " | " + ", ".join(squeezed.slice(0, 4)))
+		_check("v12.91 (owner): a world's size sets its map (small 1 tile, medium 2x2, large 3x3; gas giants no ground): %s" % str(counts), grid_bad.is_empty() and counts["small"] > 0 and counts["medium"] > 0 and counts["large"] > 0, ", ".join(grid_bad.slice(0, 6)))
+		# the Solara board for the tabletop game: where everything is, in map squares
+		var so: Dictionary = Data.SYSTEMS["solara"]
+		var cell := func(p: Vector3) -> Array: var c := SystemBuilder.cell_of(p); return [snappedf(c.x, 0.01), snappedf(c.y, 0.01)]
+		var out := {"sun": cell.call(SystemBuilder.sun_pos_of(so)), "planets": [], "stations": [], "gates": []}
+		for b in [so["planet"]] + (so.get("more_planets", []) as Array):
+			out["planets"].append({"name": b["name"], "at": cell.call(b["pos"]), "size": b.get("size", ""), "radius": b["radius"], "grid": Surface.grid(str(b["id"])) if Surface.PLANETS.has(str(b["id"])) else 0})
+		for b in [so["station"]] + (so.get("more_stations", []) as Array): out["stations"].append({"name": b["name"], "at": cell.call(b["pos"]), "hidden": b.get("hidden", false)})
+		for g in so["gates"]: out["gates"].append({"to": g["to"], "at": cell.call(g["pos"])})
+		var fo := FileAccess.open(OS.get_environment("HL_SHOT_DIR").path_join("solara_layout.json"), FileAccess.WRITE)
+		if fo: fo.store_string(JSON.stringify(out, "  "))
+		_finish_group()
+		return
 	if _flag("HL_RIFTPOOL"):   # v12.83 (owner): the rift gates: whirlpools on planets only, huge, planet to planet
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)

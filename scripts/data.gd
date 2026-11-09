@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v12.90"
+const VERSION := "v12.91"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1766,6 +1766,20 @@ const MAX_SYSTEM_PLANETS := 3   # (moons don't count)
 const LIVING_PALETTES := ["terran", "jungle", "ocean", "city"]   # v12.66: only a system's main world (or one placed by hand) lives
 const LIFELESS_PALETTES := ["desert", "ice", "dead", "lava", "toxic", "crystal"]
 const MOON_RADIUS_K := 0.3    # a gas giant's moon, x its radius
+## v12.91 (owner: "the planet's size decides its map: bigger has 3 tile maps, smaller has one; only three sizes, unless
+## you got gas planets like Jupiter or Saturn"): small = 1 tile, medium = 2 x 2, large = 3 x 3; a gas giant is bigger
+## still, with no ground (its moon has the dock). Radius in metres, as the system has it (already grown).
+const PLANET_SIZES := {"small": {"grid": 1, "radius": [2400.0, 3800.0]}, "medium": {"grid": 2, "radius": [4400.0, 7100.0]},
+	"large": {"grid": 3, "radius": [7400.0, 8800.0]}, "giant": {"grid": 0, "radius": [9600.0, 12000.0]}}
+const PLANET_SIZE_FIXED := {"new_terra": "large", "eden_prime": "medium"}   # the hand-made worlds keep their maps
+const PLANET_TILE_MIX := {"forest": ["forest", "mountains", "coast", "ocean"], "jungle": ["jungle", "coast", "volcanic"], "ocean": ["ocean", "coast"],
+	"ice": ["ice", "mountains"], "desert": ["desert", "canyon", "mountains"], "volcanic": ["volcanic", "wasteland", "canyon"], "barren": ["barren", "canyon", "wasteland"],
+	"crystal": ["crystal", "barren", "mountains"], "toxic": ["toxic", "wasteland", "barren"], "machine": ["machine", "industrial", "wasteland"],
+	"city": ["city", "industrial", "coast", "forest"]}   # a bigger world's other sectors: its own ground and its neighbours
+## v12.91 (owner: "we can't have those planets too close, they'd collide; a good distance so they don't disturb each
+## other's gravity"): every world has its own orbit round the star, at least ORBIT_GAP map squares from the next one
+const ORBIT_GAP := 1.5   # map squares (100 km each)
+const ORBIT_MIN := 1.2   # the first orbit, this far from the star at least
 const MOON_ORBIT_K := 2.6     # how far out it sits, x the giant's radius   # v12.65 (owner): a system has at most three planets (its main world and two more)
 const AUTOPILOT_LANES := true
 const AUTOPILOT_DOCK := true    # v12.62: a course you set ends docked (station, planet, platform, a world's dock)   # v12.62: GO TO takes the trade lanes when they're quicker

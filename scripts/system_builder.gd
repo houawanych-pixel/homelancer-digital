@@ -1254,6 +1254,113 @@ static func _positions(sy: Dictionary) -> Array:
 	for x in sy["more_planets"] + sy["more_stations"]: out.append(x["pos"])
 	return out
 
+## v12.91 (owner: "the planet's size decides its map ... only three sizes, unless gas planets"): which size a world is
+static func size_class(sy: Dictionary, body: Dictionary, main: bool) -> String:
+	var id := str(body.get("id", ""))
+	if Data.PLANET_SIZE_FIXED.has(id): return str(Data.PLANET_SIZE_FIXED[id])
+	if str(body.get("palette", "")) == "gas": return "giant"
+	if bool(body.get("moon", false)): return "small"
+	if main:
+		if sy.get("small_sun", false): return "small"   # (the void's dead little worlds)
+		if str(sy.get("role", "")) == "capital": return "large"
+		return ["small", "medium", "medium", "large"][absi(hash(id + "|size")) % 4]
+	if not id.contains("_planet_"): return str(body.get("size", "small"))   # (placed by hand: Solara's Haven)
+	return ["small", "small", "medium", "medium", "large"][absi(hash(id + "|size")) % 5]
+
+## v12.91: every world gets its size, and a radius inside that size (kept if it already is)
+static func size_planets(systems: Dictionary) -> void:
+	for sid in systems:
+		var sy: Dictionary = systems[sid]
+		var bodies: Array = []
+		if (sy.get("planet", {}) as Dictionary).has("pos"): bodies.append([sy["planet"], true])
+		for x in sy.get("more_planets", []): bodies.append([x, false])
+		for b in bodies:
+			var body: Dictionary = b[0]
+			var c := size_class(sy, body, b[1])
+			var rr: Array = Data.PLANET_SIZES[c]["radius"]
+			body["size"] = c
+			var r0 := float(body.get("radius", 0.0))
+			if r0 < float(rr[0]) or r0 > float(rr[1]):
+				body["radius"] = lerpf(float(rr[0]), float(rr[1]), float(absi(hash(str(body.get("id", "")) + "|r")) % 1000) / 999.0)
+
+## v12.91 (owner: "we can't have those planets too close, they'd collide ... a good distance so they don't disturb each
+## other's gravity"): each world on its own orbit round the star, ORBIT_GAP squares from the next and ORBIT_MIN from the
+## star. A world keeps its bearing and moves out along it; when that runs off the map (or onto a station or gate), the
+## nearest bearing on the same orbit that fits.
+static func space_orbits(sy: Dictionary) -> void:
+	var was: Array = []
+	for x in [sy.get("planet", {})] + (sy.get("more_planets", []) as Array): if (x as Dictionary).has("pos"): was.append([x, x["pos"]])
+	_space_orbits(sy, -1.0)
+	var squeezed := was.any(func(e): return bool(e[0].get("orbit_squeezed", false)))
+	if not squeezed: return
+	# (the worlds sit far out and the last one runs off the map: bring them in, one orbit after the next from the
+	# farthest room the map has, so all of them fit)
+	var w: float = 2.0 * Data.SPACE_EDGE / float(Data.MAP_CELLS)
+	var sun := sun_pos_of(sy)
+	var far := 0.0
+	for cx in [2.0 + Data.BORDER_MARGIN, float(Data.MAP_CELLS) - Data.BORDER_MARGIN]:
+		for cy in [2.0 + Data.BORDER_MARGIN, float(Data.MAP_CELLS) - Data.BORDER_MARGIN]:
+			var q := cell_pos([cx, cy])
+			far = maxf(far, Vector2(q.x - sun.x, q.z - sun.z).length())
+	var n := was.filter(func(e): return not bool(e[0].get("moon", false))).size()
+	for e in was:
+		e[0]["pos"] = e[1]
+		e[0].erase("orbit_squeezed")
+	_space_orbits(sy, maxf(Data.ORBIT_MIN * w, far - w * 1.0 - (n - 1) * Data.ORBIT_GAP * w - w * 0.6))
+
+static func _space_orbits(sy: Dictionary, start: float) -> void:
+	var w: float = 2.0 * Data.SPACE_EDGE / float(Data.MAP_CELLS)
+	var sun := sun_pos_of(sy)
+	sun.y = 0.0
+	var bodies: Array = []
+	if (sy.get("planet", {}) as Dictionary).has("pos"): bodies.append(sy["planet"])
+	for x in sy.get("more_planets", []): if not bool(x.get("moon", false)): bodies.append(x)
+	if bodies.is_empty(): return
+	var flat := func(p: Vector3) -> Vector3: return Vector3(p.x - sun.x, 0.0, p.z - sun.z)
+	bodies.sort_custom(func(a, b): return (flat.call(a["pos"]) as Vector3).length() < (flat.call(b["pos"]) as Vector3).length())
+	var keep: Array = [sy["station"]["pos"]]
+	for g in sy.get("gates", []): keep.append(g["pos"])
+	for x in sy.get("more_stations", []): keep.append(x["pos"])
+	var gap: float = Data.ORBIT_GAP * w
+	var last: float = Data.ORBIT_MIN * w - gap
+	var placed: Array = []
+	for body: Dictionary in bodies:
+		var p0: Vector3 = body["pos"]
+		var v: Vector3 = flat.call(p0)
+		var r: float = v.length()
+		var want: float = maxf(r, last + gap) if start < 0.0 else (start if placed.is_empty() else last + gap)
+		var a0: float = atan2(v.z, v.x)
+		var pr: float = float(body.get("radius", 0.0)) / w
+		var fits := func(p: Vector3) -> bool:
+			var c := cell_of(p)
+			var lo: float = 2.0 + Data.BORDER_MARGIN + pr
+			var hi: float = float(Data.MAP_CELLS) - Data.BORDER_MARGIN - pr
+			if c.x < lo or c.x > hi or c.y < lo or c.y > hi: return false
+			for k in keep: if Vector2(p.x - k.x, p.z - k.z).length() < w * 0.5 + float(body.get("radius", 0.0)): return false
+			for q in placed: if Vector2(p.x - q.x, p.z - q.z).length() < gap * 0.9: return false
+			return true
+		var at := Vector3(sun.x + cos(a0) * want, p0.y, sun.z + sin(a0) * want)
+		if want != r or not fits.call(at):
+			var found := false
+			for tries in 2:
+				for k in 73:
+					var a: float = a0 + (float((k + 1) / 2) * (1.0 if k % 2 == 0 else -1.0)) * TAU / 72.0
+					var q := Vector3(sun.x + cos(a) * want, p0.y, sun.z + sin(a) * want)
+					if fits.call(q):
+						at = q
+						found = true
+						break
+				if found: break
+				want += gap * 0.25   # (a little further out and look again)
+			if not found:
+				body["orbit_squeezed"] = true
+				at = Vector3(sun.x + cos(a0) * (last + gap), p0.y, sun.z + sin(a0) * (last + gap))
+				at = inside_cells(at, Data.BORDER_MARGIN + pr)
+		body["pos"] = at
+		body["orbit"] = (flat.call(at) as Vector3).length()
+		placed.append(at)
+		last = body["orbit"]
+
 ## Where the sun sits: in the middle of an unknown area, else far out along its light (space.gd uses the same rule).
 static func sun_pos_of(sy: Dictionary) -> Vector3:
 	if sy.get("sun_center", false): return Vector3.ZERO
