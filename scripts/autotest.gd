@@ -2924,6 +2924,32 @@ func _run() -> void:
 		_check("v12.93: every sector of the start system's worlds photographed from above, with its docks and facilities", pids.size() >= 1, str(pids))
 		_finish_group()
 		return
+	if _flag("HL_TITLESHOT"):   # v12.94 (owner): the title screen and the pilot picker, as the phone sees them
+		var keep := {"save_enabled": GS.save_enabled, "slot_pattern": GS.slot_pattern, "old_save_path": GS.old_save_path}
+		GS.save_enabled = true
+		GS.slot_pattern = "user://route_test_slot_%d.txt"
+		GS.old_save_path = "user://route_test_old_save.txt"
+		for i in range(1, 4): GS.erase_slot(i)
+		GS.use_slot(1)
+		GS.pilot_name = "rick hunter"
+		GS.credits = 43811
+		GS.save_game()
+		var tt = main.title
+		tt.visible = true
+		main.hud.visible = false
+		tt.t = 0.0
+		await _wait(3.5)
+		await _shot("title", 0.0)
+		tt._open_slots()
+		await _wait(1.0)
+		await _shot("title_picker", 0.0)
+		var pb: Button = tt.find_child("Play_1", true, false)
+		var clear: bool = pb != null and pb.text == "CONTINUE" and not tt.start_btn.visible and not tt.music_btn.visible
+		_check("v12.94 (owner): the pilot picker is see-through, under the logo, alone on screen (START / MUSIC / SETTINGS hidden), CONTINUE a pilot", clear)
+		for i in range(1, 4): GS.erase_slot(i)
+		for k in keep: GS.set(k, keep[k])
+		_finish_group()
+		return
 	if _flag("HL_ORBITS"):   # v12.91 (owner): planet sizes set their maps; every world on its own orbit, well apart
 		var w: float = 2.0 * Data.SPACE_EDGE / float(Data.MAP_CELLS)
 		var bad: Array = []
