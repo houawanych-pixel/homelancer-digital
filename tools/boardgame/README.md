@@ -18,3 +18,14 @@ a 3x3 world = two portrait cards side by side (8 x 6 in), a 2x2 world = one land
 
 ## Station cards
 `python3 tools/boardgame/make_station.py <out>`: one 4 x 6 card per station: its model as a hologram (holo.py), the game description, and its four rooms (assets/rooms/loc pictures) with what each is for. A hidden station says so on the card.
+
+## The card system (owner's handoff, Nov 9)
+- **Every card is 4 x 6 in LANDSCAPE** (1800 x 1200 px): left 3.6 in = art, right 2.4 in = info panel (WHERE, SECURITY,
+  OBJECTIVE, SPECIAL RULE, REWARD, MAP; any section can grow). `make_refcards.py`.
+- **The back of a facility or ship card is its playable interior**, drawn from the game's own layout
+  (`HL_DUNGEONS` → `dungeons.json` → `make_dungeon.py`): grid squares = moves, start / objective / exit, red guards,
+  ramps; a battleship's three decks side by side, lifts marked on both decks.
+- **The strategic maps stay clean**: small markers only (`HL_HOLO_ON_MAP=0`, the default); each facility marker names
+  its card (CARD F06 → HL-SOL-F06). Big art lives on the cards.
+- **Tokens** (cut-outs, top-down from the models): 1 x 1 in fighters / objectives / guards, 2 x 1 in frigates and
+  freighters, 3 x 1 in battleships.

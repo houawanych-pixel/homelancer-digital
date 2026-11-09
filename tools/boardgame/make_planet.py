@@ -7,6 +7,7 @@ ART = os.environ.get("HL_PLANET_ART", "/tmp/claude-0/pl")
 HOLO = os.environ.get("HL_BOARD_HOLO", "/tmp/claude-0/board/wire")
 # a dock is drawn with its side's own base model (the game's dock is a plain landing pad)
 DOCK_MODEL = {"Unity": "HL_Base_Unity_Hangar", "Elyza": "HL_Base_Elyza_CrystalCourt", "Imperium": "HL_Base_Imperium_Bastion", "Liberator": "HL_Base_Liberator_Outpost"}
+HOLO_ON_MAP = os.environ.get("HL_HOLO_ON_MAP", "0") == "1"
 OUT = sys.argv[1] if len(sys.argv) > 1 else "out"
 SYSTEM, GALAXY = os.environ.get("HL_SYS_NAME", "SOLARA"), os.environ.get("HL_SYS_TILE", "F3")
 F = "/usr/share/fonts/opentype/inter/"
@@ -14,6 +15,8 @@ def fnt(n, sz): return ImageFont.truetype(F + n, int(sz))
 CY = (95, 215, 255)
 FAC_COL = {"Unity": (90, 190, 255), "Liberator": (110, 230, 170), "Imperium": (240, 90, 90), "Elyza": (255, 170, 80), "Savagers": (230, 120, 60), "Covenant": (200, 150, 255), "Orion": (255, 220, 110), "Solarion": (255, 200, 90)}
 info = json.load(open(ART + "/planets.json"))
+_dg = os.environ.get("HL_DUNGEONS_JSON", "/tmp/claude-0/dg/dungeons.json")   # the reference-card number of each facility (HL-SOL-Fnn)
+CODES = {k: "F%02d" % (i + 1) for i, k in enumerate(sorted(json.load(open(_dg))["facilities"]))} if os.path.exists(_dg) else {}
 def stroke_text(d, xy, t, f, col, anchor="la", sw=3):
     d.text(xy, t, font=f, fill=col, anchor=anchor, stroke_width=sw, stroke_fill=(0, 0, 0))
 def hexagon(cx, cy, R, rot=0.0): return [(cx + R * math.cos(rot + i * math.tau / 6), cy + R * math.sin(rot + i * math.tau / 6)) for i in range(6)]
@@ -38,7 +41,7 @@ def map_image(pid, P, sector_px):
         stroke_text(d, (x0 + 16, y0 + 54), P["tiles"][t]["name"].upper(), fb, CY)
     def holo(file, x, y, wpx, col):   # the model as a hologram in its side's colour, with a soft shadow
         p = f"{HOLO}/{file}.png"
-        if not os.path.exists(p): return 0, 0
+        if not HOLO_ON_MAP or not os.path.exists(p): return 0, 0   # (the tabletop standard: the map keeps small markers; the art is on the reference cards)
         im = Image.open(p).convert("RGBA"); k = wpx / max(im.width, im.height)
         im = im.resize((int(im.width * k), int(im.height * k)), Image.LANCZOS)
         r_, g_, b_, a_ = im.split(); lum = Image.merge("RGB", (r_, g_, b_)).convert("L").point(lambda v: min(255, int(v * 1.5)))
@@ -57,26 +60,33 @@ def map_image(pid, P, sector_px):
         bx, by = x - hw * 0.5, y - hh * 0.62
         d.rectangle([bx - R, by - R, bx + R, by + R], fill=(10, 14, 22, 235), outline=col + (255,), width=5)
         d.text((bx, by + 1), str(f["level"]), font=ff, fill=col, anchor="mm")
-        y = y + hh * 0.38 - R
+        if hw: y = y + hh * 0.38 - R
+        cid = "%s|%s|%d" % (pid, f["name"], f["tile"])
         near = any(l["tile"] == f["tile"] and math.hypot(l["x"] - f["x"], l["y"] - f["y"]) * k < 140 for l in P["locations"])
         nm = f["name"].replace(P["name"] + " ", "").replace("Solara Haven ", "").upper()
         if near:   # (a dock right by it: the name goes to the side)
             stroke_text(d, (x + R + 10, y - 14), nm, fl, (240, 248, 255), "lm")
             stroke_text(d, (x + R + 10, y + 10), "%s FACILITY · LV %d" % (f["faction"].upper(), f["level"]), fnt("Inter-SemiBold.otf", 15), col, "lm")
+            if cid in CODES: stroke_text(d, (x + R + 10, y + 32), "CARD " + CODES[cid], fnt("InterDisplay-Bold.otf", 16), (255, 255, 255), "lm")
         else:
             stroke_text(d, (x, y + R + 8), nm, fl, (240, 248, 255), "ma")
             stroke_text(d, (x, y + R + 32), "%s FACILITY · LV %d" % (f["faction"].upper(), f["level"]), fnt("Inter-SemiBold.otf", 15), col, "ma")
+            if cid in CODES: stroke_text(d, (x, y + R + 52), "CARD " + CODES[cid], fnt("InterDisplay-Bold.otf", 16), (255, 255, 255), "ma")
     # docks: hexagon, coloured by side
     for l in P["locations"]:
         x, y = at(l["tile"], l["x"], l["y"]); col = FAC_COL.get(l["faction"], (230, 230, 230)); R = 26
         crowded = any(f["tile"] == l["tile"] and math.hypot(l["x"] - f["x"], l["y"] - f["y"]) * k < 160 for f in P["facilities"])
-        hw, hh = (sector_px * 0.3, sector_px * 0.2) if crowded else holo(DOCK_MODEL.get(l["faction"], "HL_Base_Unity_Hangar"), x, y, sector_px * 0.32, col)
-        if crowded: x, y = x - sector_px * 0.3, y - sector_px * 0.02   # (a facility stands right there: the dock's mark sits beside it)
+        if HOLO_ON_MAP:
+            hw, hh = (sector_px * 0.3, sector_px * 0.2) if crowded else holo(DOCK_MODEL.get(l["faction"], "HL_Base_Unity_Hangar"), x, y, sector_px * 0.32, col)
+            if crowded: x, y = x - sector_px * 0.3, y - sector_px * 0.02   # (a facility stands right there: the dock's mark sits beside it)
+        else:
+            hw, hh = 0, 0
+            if crowded: x = x - 80   # (a facility right there: the dock's badge sits beside it)
         d = ImageDraw.Draw(im)
         hx, hy = x + hw * 0.5, y - hh * 0.62
         d.polygon(hexagon(hx, hy, R), fill=(10, 14, 22, 235), outline=col + (255,), width=5)
         d.polygon(hexagon(hx, hy, R * 0.45, math.pi / 6), fill=col + (255,))
-        y = y - hh * 0.62 + R
+        if hw: y = y - hh * 0.62 + R
         stroke_text(d, (x, y - R - 34), l["name"].upper(), fnt("InterDisplay-Bold.otf", 21), (240, 248, 255), "ma")
         stroke_text(d, (x, y - R - 12), "%s DOCK" % l["faction"].upper(), fnt("Inter-SemiBold.otf", 15), col, "ma")
     d.rectangle([0, 0, M - 1, M - 1], outline=(225, 245, 255, 255), width=5)

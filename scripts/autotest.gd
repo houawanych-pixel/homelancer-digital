@@ -2950,6 +2950,19 @@ func _run() -> void:
 		for k in keep: GS.set(k, keep[k])
 		_finish_group()
 		return
+	if _flag("HL_DUNGEONS"):   # (owner, tabletop): every facility's interior and the battleship's, as the game builds them
+		var out := {"ship": {"rooms": Boarding.SHIP_ROOMS, "route_in": Boarding.SHIP_ROUTE_IN, "route_out": Boarding.SHIP_ROUTE_OUT, "core": [Boarding.SHIP_CORE_AT.x, Boarding.SHIP_CORE_AT.z]}, "facilities": {}}
+		for pid in Surface.PLANETS:
+			if str(Surface.PLANETS[pid].get("system", "")) != "solara" or bool(Surface.PLANETS[pid].get("sun", false)): continue
+			for site in Surface.facility_sites(pid):
+				var L: Dictionary = Boarding.facility("%s:%s" % [str(site.get("planet", "")), str(site["name"])], int(site.get("difficulty", 1)), str(site["name"]))
+				out["facilities"]["%s|%s|%d" % [pid, site["name"], int(site["tile"])]] = {"name": site["name"], "faction": site.get("faction", ""), "level": int(site.get("difficulty", 1)), "tile": int(site["tile"]),
+					"rooms": L["rooms"], "route_in": L["route_in"], "route_out": L["route_out"], "info": L.get("info", {})}
+		var fo := FileAccess.open(OS.get_environment("HL_SHOT_DIR").path_join("dungeons.json"), FileAccess.WRITE)
+		if fo: fo.store_string(JSON.stringify(out, "  "))
+		_check("tabletop: the facility and battleship interiors written out", (out["facilities"] as Dictionary).size() > 0, str((out["facilities"] as Dictionary).size()))
+		_finish_group()
+		return
 	if _flag("HL_ORBITS"):   # v12.91 (owner): planet sizes set their maps; every world on its own orbit, well apart
 		var w: float = 2.0 * Data.SPACE_EDGE / float(Data.MAP_CELLS)
 		var bad: Array = []
