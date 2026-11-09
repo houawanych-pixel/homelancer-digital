@@ -10,3 +10,8 @@
    → the whole board, the six cards and a print PDF.
 
 Layout numbers in make_board.py's SYS table are the game's own (HL_ORBITS writes solara_layout.json).
+
+## Planet maps
+`env HL_PLANETART=1 HL_SHOT_DIR=<dir> ... --autotest` photographs every sector of the start system's worlds from straight
+above and writes `planets.json` (sectors, docks, facilities). Then `HL_PLANET_ART=<dir> python3 tools/boardgame/make_planet.py <out>`:
+a 3x3 world = two portrait cards side by side (8 x 6 in), a 2x2 world = one landscape card, a 1-sector world = one portrait card.

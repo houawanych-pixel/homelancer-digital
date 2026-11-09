@@ -2875,6 +2875,52 @@ func _run() -> void:
 		_check("v12.92: the board art: the sun and every world of the start system drawn by the game", shots.size() >= 3, str(shots.keys()))
 		_finish_group()
 		return
+	if _flag("HL_PLANETART"):   # v12.93 (owner, tabletop): each sector of the start system's worlds from straight above, and what is on it
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		GS.god_mode = true
+		if Fs.btn: Fs.btn.visible = false
+		var dir := OS.get_environment("HL_SHOT_DIR")
+		var info := {}
+		var pids: Array = []
+		for pid in Surface.PLANETS:
+			if str(Surface.PLANETS[pid].get("system", "")) == GS.system_id and not bool(Surface.PLANETS[pid].get("sun", false)): pids.append(pid)
+		for pid in pids:
+			var P: Dictionary = Surface.PLANETS[pid]
+			var g := Surface.grid(pid)
+			var locs: Array = []
+			for l in P.get("locations", []): locs.append({"name": l["name"], "role": l.get("role", ""), "faction": l.get("faction", ""), "tile": l["tile"], "x": (l["pos"] as Vector2).x, "y": (l["pos"] as Vector2).y})
+			var facs: Array = []
+			for f in Surface.facility_sites(pid): facs.append({"name": f["name"], "faction": f.get("faction", ""), "level": f.get("difficulty", 1), "tile": f["tile"], "x": (f["spot"] as Vector2).x, "y": (f["spot"] as Vector2).y})
+			var tiles: Array = []
+			for t in g * g: tiles.append({"biome": P["tiles"][t], "name": Surface.biome(pid, t)["name"]})
+			info[pid] = {"name": P["name"], "grid": g, "tile_m": Surface.TILE, "tiles": tiles, "locations": locs, "facilities": facs}
+			for t in g * g:
+				main._load_surface(pid, t)
+				await _wait(2.5)
+				var s := _sp()
+				main.hud.visible = false
+				s.model.visible = false
+				s.controls = false
+				if s.env and s.env.environment: s.env.environment.fog_enabled = false
+				s.set_process(false)
+				s.set_physics_process(false)
+				var h: float = Surface.EDGE / tan(deg_to_rad(s.cam.fov * 0.5))
+				s.cam.far = 20000.0
+				s.cam.global_position = Vector3(0, h, 0)
+				s.cam.look_at(Vector3.ZERO, Vector3.FORWARD)
+				await _frames(6)
+				var img := get_viewport().get_texture().get_image()
+				var H := img.get_height()
+				img.get_region(Rect2i(img.get_width() / 2 - H / 2, 0, H, H)).save_png(dir.path_join("surf_%s_%d.png" % [pid, t]))
+				s.set_process(true)
+				s.set_physics_process(true)
+		var fo := FileAccess.open(dir.path_join("planets.json"), FileAccess.WRITE)
+		if fo: fo.store_string(JSON.stringify(info, "  "))
+		_check("v12.93: every sector of the start system's worlds photographed from above, with its docks and facilities", pids.size() >= 1, str(pids))
+		_finish_group()
+		return
 	if _flag("HL_ORBITS"):   # v12.91 (owner): planet sizes set their maps; every world on its own orbit, well apart
 		var w: float = 2.0 * Data.SPACE_EDGE / float(Data.MAP_CELLS)
 		var bad: Array = []
