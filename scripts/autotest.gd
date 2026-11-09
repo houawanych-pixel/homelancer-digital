@@ -2944,7 +2944,7 @@ func _run() -> void:
 		await _wait(1.0)
 		await _shot("title_picker", 0.0)
 		var pb: Button = tt.find_child("Play_1", true, false)
-		var clear: bool = pb != null and pb.text == "CONTINUE" and not tt.start_btn.visible and not tt.music_btn.visible
+		var clear: bool = pb != null and pb.text == "CONTINUE" and not tt.start_btn.visible and not tt.music_btn.visible and tt.find_child("SlotsSettings", true, false) != null
 		_check("v12.94 (owner): the pilot picker is see-through, under the logo, alone on screen (START / MUSIC / SETTINGS hidden), CONTINUE a pilot", clear)
 		for i in range(1, 4): GS.erase_slot(i)
 		for k in keep: GS.set(k, keep[k])

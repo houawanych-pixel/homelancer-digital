@@ -275,13 +275,23 @@ func _open_slots() -> void:
 		nrow.add_child(ok)
 		v.add_child(nrow)
 		le.call_deferred("grab_focus")
+	var foot := HBoxContainer.new()   # BACK, and SETTINGS (custom keys, controls) right here too
+	foot.add_theme_constant_override("separation", 14)
+	foot.alignment = BoxContainer.ALIGNMENT_CENTER
 	var back := _btn("SlotsBack", "BACK", "plain", 170, 48)
 	back.pressed.connect(func():
 		_naming = 0
 		slots_panel.queue_free()
 		slots_panel = null)
-	v.add_child(back)
-	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	foot.add_child(back)
+	var sett := _btn("SlotsSettings", "SETTINGS · KEYS", "plain", 230, 48)
+	sett.pressed.connect(func():   # (the picker closes first, so Settings is the only thing on screen)
+		_naming = 0
+		slots_panel.queue_free()
+		slots_panel = null
+		settings_pressed.emit())
+	foot.add_child(sett)
+	v.add_child(foot)
 	slots_panel.reset_size()
 
 func _pick_slot(i: int, empty: bool) -> void:
