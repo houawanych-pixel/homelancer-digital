@@ -2892,7 +2892,10 @@ func _run() -> void:
 			var locs: Array = []
 			for l in P.get("locations", []): locs.append({"name": l["name"], "role": l.get("role", ""), "faction": l.get("faction", ""), "tile": l["tile"], "x": (l["pos"] as Vector2).x, "y": (l["pos"] as Vector2).y})
 			var facs: Array = []
-			for f in Surface.facility_sites(pid): facs.append({"name": f["name"], "faction": f.get("faction", ""), "level": f.get("difficulty", 1), "tile": f["tile"], "x": (f["spot"] as Vector2).x, "y": (f["spot"] as Vector2).y})
+			for f in Surface.facility_sites(pid):
+				var lay: Array = Surface.compound(f) if f.get("bunker", false) else []
+				facs.append({"name": f["name"], "faction": f.get("faction", ""), "level": f.get("difficulty", 1), "tile": f["tile"], "x": (f["spot"] as Vector2).x, "y": (f["spot"] as Vector2).y,
+					"model": str(lay[0][0]) if not lay.is_empty() else str(f.get("file", ""))})
 			var tiles: Array = []
 			for t in g * g: tiles.append({"biome": P["tiles"][t], "name": Surface.biome(pid, t)["name"]})
 			info[pid] = {"name": P["name"], "grid": g, "tile_m": Surface.TILE, "tiles": tiles, "locations": locs, "facilities": facs}
