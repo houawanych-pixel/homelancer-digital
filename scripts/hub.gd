@@ -4931,6 +4931,13 @@ func _loadout_page() -> void:
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(shade)
+	if lo_frame == "pilot" and PilotScene.available(GS.pilot_body):   # v12.91 (owner): the anime scene instead of the 3D pilot
+		if ps_node == null or not is_instance_valid(ps_node) or ps_node.body != GS.pilot_body:   # (kept over page rebuilds: a clip keeps playing)
+			if ps_node != null and is_instance_valid(ps_node): ps_node.queue_free()
+			ps_node = PilotScene.new()
+			ps_node.setup(GS.pilot_body, str(Loadout.current("pilot")["parts"].get("upper", "")), "waist" if lo_cat in PS_WAIST else "full")
+		root.add_child(ps_node)
+		gar["scene"] = ps_node
 	# the live model on the platform
 	var svc := SubViewportContainer.new()
 	svc.name = "LoStage"
@@ -4938,6 +4945,7 @@ func _loadout_page() -> void:
 	svc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	svc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(svc)
+	if gar.has("scene"): svc.visible = false   # (the 3D pilot still dresses behind the scenes: the stats and tests use it)
 	var vp := SubViewport.new()
 	vp.own_world_3d = true
 	vp.transparent_bg = true
@@ -5079,6 +5087,13 @@ func _loadout_page() -> void:
 	_gar_preview_suit()
 	_gar_tick(0.0)
 
+## v12.91: the categories the scene frames at the waist (the rest show the whole pilot)
+const PS_WAIST := ["upper", "helmet"]
+var ps_node: PilotScene = null
+func _ps() -> PilotScene:
+	var ps = gar.get("scene")
+	return ps if ps != null and is_instance_valid(ps) else null
+
 ## v12.90: open the PILOT CREATOR: the Pilot Gear Store on its own (no MECH / SHIP tabs, no BACK), starting on who you are.
 func start_creator() -> void:
 	lo_creator = true
@@ -5095,6 +5110,7 @@ func _gar_vis() -> void:   # (a CanvasLayer doesn't hide with the hub: it goes w
 	if l != null: l.visible = visible and screen == "loadout"
 
 func _gar_close() -> void:
+	if ps_node != null and is_instance_valid(ps_node) and ps_node.get_parent() != null: ps_node.get_parent().remove_child(ps_node)   # v12.91: kept for the next build
 	gar = {}
 	var old := get_node_or_null("GarageLayer")
 	if old != null:
@@ -5174,6 +5190,7 @@ func _gar_pick_cat(key: String) -> void:
 	else: lo_cat = key
 	show_screen("loadout")
 	_gar_cat_camera()
+	if _ps() != null: _ps().go("waist" if key in PS_WAIST else "full")   # v12.91: the zoom clip (on the scene kept over the rebuild)
 
 ## v12.75 (owner's spec: "the camera must automatically reposition to show the selected equipment clearly"): per
 ## category it eases to the part: the head, the chest and shoulders, the legs, the gun hand, the hip, round to the back
@@ -5578,6 +5595,7 @@ func _gar_right_parts(rp: Panel, lo: Dictionary, hd: Label) -> void:
 		var before := Loadout.totals(lo2)
 		var perr := Loadout.set_part(lo2, slot, lo_sel)
 		lo_note = perr if perr != "" else _lo_change(before, Loadout.totals(lo2), str(Loadout.part(lo_frame, slot, lo_sel).get("name", lo_sel)))
+		if perr == "" and lo_frame == "pilot" and slot == "upper" and _ps() != null: _ps().equipped(lo_sel)   # v12.91: the try-on clip
 		GS.save_game()
 		if perr == "" and lo_frame == "mech" and slot in ["core", "arms", "legs"]: show_screen("loadout")   # (a new frame part: a new model)
 		else:
@@ -5661,6 +5679,9 @@ func _gear_owned(slot: String, pid: String) -> bool:
 ## v12.75 (owner: "when selecting a new helmet, update the 3D model immediately"): the item picked in the list is
 ## shown on the pilot at once (a preview: EQUIP keeps it, anything else puts back what he wears)
 func _gar_preview_suit() -> void:
+	if lo_frame == "pilot" and _ps() != null:   # v12.91: the scene shows the jacket picked (a still), or the one worn
+		var worn := str(Loadout.current("pilot")["parts"].get("upper", ""))
+		_ps().show_outfit(lo_sel if lo_cat == "upper" and lo_sel != "" else worn)
 	if lo_frame != "pilot" or gar.is_empty() or not is_instance_valid(gar.get("model")): return
 	var v := _lo_view_set(Loadout.current("pilot"))
 	if lo_cat in PilotGear.SLOTS and lo_sel != "": v["parts"][lo_cat] = lo_sel

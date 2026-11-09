@@ -4418,6 +4418,62 @@ func _run() -> void:
 			board_vis and main.escape_chasers >= Data.ESCAPE_CHASERS and hostile >= Data.ESCAPE_CHASERS and denied, "board %s chasers %d hostile %d denied %s" % [board_vis, main.escape_chasers, hostile, denied])
 		_finish_group()
 		return
+	if OS.get_environment("HL_PILOTSCENE") != "":   # v12.91 (owner): the anime scene in the pilot store (sample art)
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		PilotScene.root_dir = "res://assets/pilot_scene/_sample"
+		GS.pilot_body = "hovick"
+		GS.pilot_suit = ""
+		if not ("up_padded" in GS.owned_gear): GS.owned_gear.append("up_padded")
+		Loadout.set_part(Loadout.current("pilot"), "upper", "up_flight")
+		main.dock(_sp().station)
+		await _until(func(): return main.state == "hub", 12.0)
+		var hb = main.hub
+		hb.lo_frame = "pilot"
+		hb.lo_cat = "body"
+		hb.lo_sel = ""
+		hb.show_screen("loadout")
+		await _wait(0.6)
+		var ps: PilotScene = hb._ps()
+		var shown: bool = ps != null and ps.still_name() == "A" and not (hb.find_child("LoStage", true, false) as Control).visible
+		await _capture("pilotscene_A")
+		hb._gar_pick_cat("upper")
+		await _wait(0.2)
+		ps = hb._ps()
+		var zoomed_in: bool = ps != null and "zoom_in" in ps.played
+		await _until(func(): return ps.playing == "", 4.0)
+		var at_b: bool = ps.focus == "waist" and ps.still_name() == "B"
+		hb.lo_sel = "up_padded"
+		hb._gar_refresh()
+		hb._gar_preview_suit()
+		var prev_c: bool = ps.still_name() == "C_up_padded" and ps.playing == ""
+		await _capture("pilotscene_preview_C")
+		var eq: Button = hb.find_child("LoEquip", true, false)
+		if eq != null and not eq.disabled: eq.pressed.emit()
+		await _wait(0.2)
+		var tried: bool = "tryon_up_padded" in ps.played
+		await _until(func(): return ps.playing == "", 4.0)
+		var worn_ok: bool = str(Loadout.current("pilot")["parts"]["upper"]) == "up_padded" and ps.still_name() == "C_up_padded"
+		hb._gar_pick_cat("lower")
+		await _wait(0.3)
+		ps = hb._ps()
+		var cut_d: bool = ps.focus == "full" and ps.still_name() == "D_up_padded" and not ("zoom_out_up_padded" in ps.played)
+		ps._idle_t = 0.0
+		await _wait(0.2)
+		var alive_ok: bool = "alive_hair_up_padded" in ps.played and not ("alive_cold" in ps.played)
+		await _capture("pilotscene_D")
+		# without the art: the 3D pilot as before
+		PilotScene.root_dir = "res://nothing_here"
+		hb.ps_node = null
+		hb.show_screen("loadout")
+		await _wait(0.4)
+		var fallback: bool = hb._ps() == null and (hb.find_child("LoStage", true, false) as Control).visible
+		_check("v12.91 (owner): the anime scene replaces the 3D pilot (%s); UPPER zooms in A->B (%s, %s); a jacket previews as its still (%s); EQUIP plays the try-on (%s) and ends on it (%s); LOWER cuts to the full jacket picture with no clip made (%s); the alive moments fit the jacket (%s); no art = the 3D pilot (%s)" % [shown, zoomed_in, at_b, prev_c, tried, worn_ok, cut_d, alive_ok, fallback],
+			shown and zoomed_in and at_b and prev_c and tried and worn_ok and cut_d and alive_ok and fallback)
+		Loadout.set_part(Loadout.current("pilot"), "upper", "up_flight")
+		_finish_group()
+		return
 	if OS.get_environment("HL_CREATOR") != "":   # v12.90 (owner): a new pilot goes through the PILOT CREATOR, then flies
 		GS.pilot_name = "Hova"
 		main.start_game()
