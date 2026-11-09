@@ -29,3 +29,6 @@ a 3x3 world = two portrait cards side by side (8 x 6 in), a 2x2 world = one land
   its card (CARD F06 → HL-SOL-F06). Big art lives on the cards.
 - **Tokens** (cut-outs, top-down from the models): 1 x 1 in fighters / objectives / guards, 2 x 1 in frigates and
   freighters, 3 x 1 in battleships.
+
+## Interiors v2 (owner: "rooms nest together, like the ship plans; dungeons like Zelda")
+`make_interiors.py`: the battleship as a real deck plan (three decks cut through its own top-down hull outline, rooms sharing walls, doors, numbered key, lifts and ramps between decks); each facility as a Zelda-style dungeon on the game's own room grid (rooms touching, doors where the tunnels join, room features from the game: ring, pillars, split, chamfered), floors B1.. banded to the game's level count.
