@@ -240,7 +240,7 @@ def _diamond(k):
     for y in range(2 * k + 1): w = k - abs(y - k); m[y, k - w:k + w + 1] = 1
     return m
 
-def complex_(dk, r0, r1, a0, a1, rows, G=40.0):
+def complex_(dk, r0, r1, a0, a1, rows, G=40.0, av_half=15.0):
     """A district as ONE complex (owner's ChatGPT interior study of this deck, 10 Nov: "Arrivals & Customs" with its
     arrivals hall, screening lanes, baggage inspection and waiting lounge, and so on): a walled block between the ring,
     the promenade and two avenues, with its own corridors inside and its named rooms as walled rooms off them.
@@ -256,7 +256,7 @@ def complex_(dk, r0, r1, a0, a1, rows, G=40.0):
     tot = sum(r[0] for r in rows); depth = (r1 - r0) - G * (len(rows) + 1); ra = r0 + G; made = []
     for wgt, cells in rows:
         rb = ra + depth * wgt / tot; rm = (ra + rb) / 2
-        mg = np.degrees((15.0 + WALL + G) / ra); g = np.degrees(G / rm)
+        mg = np.degrees((av_half + WALL + G) / ra); g = np.degrees(G / rm)
         use = span - 2 * mg - g * (len(cells) - 1); tw = sum(c[1] for c in cells); b0 = a0 + mg
         for nm, cw, kind in cells:
             b1 = b0 + use * cw / tw; mid = (b0 + b1) / 2
@@ -289,7 +289,7 @@ def complex_(dk, r0, r1, a0, a1, rows, G=40.0):
     for fa in (0.22, 0.5, 0.78): dk.rdoor(r1 + WALL / 2, a0 + span * fa, None, w=22.0)
     for av, sg in ((a0, 1), (a1, -1)):
         for fr in (0.3, 0.72):
-            rr = r0 + (r1 - r0) * fr; x, z = pol(rr, av); t = np.radians(av); q = np.array([np.cos(t), np.sin(t)]) * sg * (15.0 + WALL / 2)
+            rr = r0 + (r1 - r0) * fr; x, z = pol(rr, av); t = np.radians(av); q = np.array([np.cos(t), np.sin(t)]) * sg * (av_half + WALL / 2)
             dk.door(x + q[0], z + q[1], av + 90, 20.0, depth=WALL + 16.0)
     return made
 
@@ -365,6 +365,7 @@ def build(glb, outdir, repdir=None):
         # than the spoke, the deck is wider than the model there: counted in the report.)
         foot = (tmp.R < Rin).astype(np.uint8)
         arm_parts = []
+        ports = []
         if lid == "L3":
             beyond = (mfoot & (tmp.R > Rin + 14).astype(np.uint8))
             names = {0: "North Docking Bay", 180: "South Docking Bay", 90: "East Hangar Approach", 270: "West Hangar Approach"}
@@ -384,6 +385,14 @@ def build(glb, outdir, repdir=None):
                 pm = shape("cross" if cardinal else pod_kinds[ai % 3], c, a_true, size, size * (1.5 if cardinal else 0.8))
                 sp = np.zeros((N, N), np.uint8); cv2.line(sp, P(*pol(Rin - 12, a_true)), P(*c), 1, int(round(36.0 / PX)))
                 node = shape("oct", np.array(pol((Rin + r_pod) / 2, a_true)), a_true, 34.0, 34.0)   # a junction halfway out
+                # docking ports along the spoke (owner: "multiple ships can dock on there at once to load unload"):
+                # airlock bays on both sides, a quarter and three quarters of the way out
+                for fr in (0.27, 0.73):
+                    rr_p = Rin + (r_pod - size - Rin) * fr
+                    for sg in (-1, 1):
+                        pc = _w(np.array(pol(rr_p, a_true)), a_true, 0.0, sg * 38.0)
+                        node |= shape("oct", pc, a_true, 30.0, 24.0)
+                        ports.append({"x": round(float(pc[0]), 1), "z": round(float(pc[1]), 1), "arm": nm, "side": "cw" if sg > 0 else "ccw"})
                 foot |= pm | sp | node
                 arm_parts.append({"name": nm, "a": a_true, "built": True, "pod": pm, "spoke": sp | node, "c": c, "r_pod": r_pod,
                                   "model_arm_inside_width_m": round(2 * float(cv2.distanceTransform((beyond & (dev < 4) & (tmp.R < Rin + 200)).astype(np.uint8), cv2.DIST_L2, 5).max()) * PX, 1)})
@@ -428,8 +437,13 @@ def build(glb, outdir, repdir=None):
             Ro = Rin - 6
             spans = [("Delegate Offices (north)", 330, 30, (2,)), ("Delegate Offices", 30, 140, (4,)), ("Officer Quarters", 140, 250, (4,)), ("Command / Comms", 250, 330, (3,))]
             for a in (330, 30, 140, 250): dk.avenue(a, 470.0, Ro - 20, 24.0)
+            sec = "sector"
+            L2C = {"Delegate Offices (north)": [(1, [("Delegate Office 1", 1, sec), ("Delegate Office 2", 1, "oct")])],
+                   "Delegate Offices": [(1, [("Delegate Office 3", 1, sec), ("Delegate Office 4", 1, "apse"), ("Delegate Office 5", 1, sec), ("Delegate Office 6", 1, "oct")])],
+                   "Officer Quarters": [(1, [("Officer Quarters 1", 1, sec), ("Officer Quarters 2", 1, "oct"), ("Officer Quarters 3", 1, sec), ("Officer Quarters 4", 1, "keystone")])],
+                   "Command / Comms": [(1, [("Command Center", 1.4, "bays"), ("Comms Room", 1, sec)])]}
             for si, (nm, a0, a1, rows) in enumerate(spans):
-                district(dk, nm, 470.0 + WALL, Ro, a0, a1, rows, 31 + si, outer=False, pad=20.0)
+                complex_(dk, 470.0 + WALL, Ro, a0, a1, L2C[nm], G=30.0, av_half=12.0)
         elif lid == "L1":
             dk.corridor(dk.band(410.0, min(470.0, Rin)))
             arch = dk.room("Archives / Records", scalloped(dk, 200.0, 12, (60, 240)))
@@ -446,16 +460,24 @@ def build(glb, outdir, repdir=None):
             dk.corridor(dk.band(Ro0, Rin - 20.0))                # the outer service ring
             spans = [("Security / Brig", 300, 60, (3, 4)), ("Life Support", 60, 180, (2, 3)), ("Maintenance", 180, 300, (4, 3))]
             for a in (300, 60, 180): dk.avenue(a, 470.0, Ro0, 30.0)
+            sec = "sector"
+            L4C = {"Security / Brig": [(1.0, [("Brig Processing", 1, "apse"), ("Security Office", 1, "oct")]), (1.2, [("Brig Cells A", 1, "bays"), ("Brig Cells B", 1, "bays"), ("Armory Locker", 0.8, sec)]),
+                                       (1.1, [("Brig Storage %d" % k, 1, sec) for k in (1, 2, 3, 4)])],
+                   "Life Support": [(1.0, [("Life Support Control", 1, "oct")]), (1.3, [("Air Plant", 1, "capsule"), ("Water Plant", 1, "capsule")]),
+                                    (1.1, [("Life Support Bay %d" % k, 1, (sec if k != 2 else "hex")) for k in (1, 2, 3)])],
+                   "Maintenance": [(1.0, [("Maintenance Office", 1, "oct"), ("Tool Store", 1, sec)]), (1.2, [("Workshop A", 1, "bays"), ("Workshop B", 1, sec), ("Parts Store", 1, "keystone")]),
+                                   (1.1, [("Maintenance Bay %d" % k, 1, sec) for k in (1, 2, 3, 4)])]}
             for si, (nm, a0, a1, rows) in enumerate(spans):
-                district(dk, nm, 470.0 + WALL, Ro0 - WALL, a0, a1, rows, 51 + si)
+                complex_(dk, 470.0 + WALL, Ro0 - WALL, a0, a1, L4C[nm])
         else:
             ring_core(dk, "Reactor", 380.0, hub_doors=(90, 270))
             Ro = Rin - 6
             for a in (150, 210, 330, 30): dk.avenue(a, 470.0, Ro - 20, 20.0)
-            district(dk, "Cargo", 470.0 + WALL, Ro, 210, 330, (3,), 71, outer=False, pad=18.0)
-            district(dk, "Cargo (starboard hold)", 470.0 + WALL, Ro, 30, 150, (2,), 72, outer=False, pad=18.0)
-            district(dk, "Escape Pod", 470.0 + WALL, Ro, 150, 210, (1,), 73, outer=False, pad=18.0)
-            district(dk, "Reactor Control", 470.0 + WALL, Ro, 330, 30, (1,), 74, outer=False, pad=18.0)   # (working label: a designed addition)
+            sec = "sector"
+            complex_(dk, 470.0 + WALL, Ro, 210, 330, [(1, [("Cargo Hold %d" % k, 1, sec) for k in (1, 2, 3, 4)])], G=30.0, av_half=10.0)
+            complex_(dk, 470.0 + WALL, Ro, 30, 150, [(1, [("Cargo Hold %d" % k, 1, sec) for k in (5, 6, 7, 8)])], G=30.0, av_half=10.0)
+            complex_(dk, 470.0 + WALL, Ro, 150, 210, [(1, [("Escape Pod", 1, "capsule"), ("Coolant Store", 1, sec)])], G=30.0, av_half=10.0)
+            complex_(dk, 470.0 + WALL, Ro, 330, 30, [(1, [("Reactor Control", 1.3, "bays"), ("Reactor Monitoring", 1, sec)])], G=30.0, av_half=10.0)   # (working labels: a designed addition)
         for (x, z) in lifts_xy():                                # the shafts: a lobby bay on the concourse
             m = np.zeros((N, N), np.uint8); cv2.circle(m, P(x, z), int(26 / PX), 1, -1); dk.f |= (m & foot)
         dk.f &= foot
@@ -500,7 +522,7 @@ def build(glb, outdir, repdir=None):
         levels_out.append({"id": lid, "name": lname, "y": round(ym * K, 1), "proposed": proposed, "map": mp,
                            "walls": outlines(dk.f), "doors": dk.doors,
                            "rooms": [{"name": r["name"], "x": round(r["at"][0], 1), "z": round(r["at"][1], 1), "rad": round(r["rad"] * 1.4, 1)} for r in dk.rooms],
-                           "lifts": lifts_xy()})
+                           "lifts": lifts_xy(), "ports": ports})
     # lift alignment: the same x,z on every deck, on walkable floor on every deck
     rep["lifts"] = {"shafts_xz_m": dict(zip(("NE", "SE", "SW", "NW"), lifts_xy())), "distance_from_axis_m": LIFT_R,
                     "serve": "all four shafts serve L1-L5" if all(all(rep[l[0]]["lifts_on_walkable_floor"]) for l in LEVELS) else "NOT all shafts reach every deck: see each deck"}
