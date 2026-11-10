@@ -19,6 +19,8 @@ const M_PER_CELL := 0.6      # 1 plan cell = 4 px = 0.6 m (1 px = 0.15 m: the Un
 const WALL_H := 3.4
 const SHELL_H := 8.8          # v13.00 shell decks: wall height under the ceiling (owner: "higher, like two stories")
 const STOREY := 4.4
+const CHAMFER_LO := 0.55      # v13.00 (owner: "I don't want square hallways ... hexagons or octagons, the top, bottom and side walls longer than the diagonal walls"): the slanted panel where wall meets floor
+const CHAMFER_HI := 1.3       # and where wall meets ceiling: an eight-sided passage, not a box
 const DECK_GAP := 11.0       # v13.00: metres between deck floors (upper deck +1, lower deck -1)
 const SHOULDER := Vector3(0.7, 0.2, 2.9)   # v13.00: the over-the-shoulder camera (right, up, back), as on the station escape
 const PILOT_GLB := "res://assets/pilot/hl_hova.glb"
@@ -553,6 +555,11 @@ func _band(st: SurfaceTool, a: Vector3, b: Vector3, n: Vector3, y0: float, y1: f
 		st.set_normal(n)
 		st.add_vertex(v)
 
+func _quad(st: SurfaceTool, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, n: Vector3) -> void:
+	for v in [p0, p1, p2, p0, p2, p3]:
+		st.set_normal(n)
+		st.add_vertex(v)
+
 func _outline(poly: Array) -> PackedVector3Array:
 	var pts := PackedVector3Array()
 	for i in range(0, poly.size(), 2): pts.append(cell_to_world(float(poly[i]), float(poly[i + 1])))
@@ -564,6 +571,7 @@ func _shell_deck(sh: Dictionary, y0: float, tag: String) -> void:
 	var lo := SurfaceTool.new(); lo.begin(Mesh.PRIMITIVE_TRIANGLES)       # cyan line at the foot (the plan's line colour)
 	var hi := SurfaceTool.new(); hi.begin(Mesh.PRIMITIVE_TRIANGLES)       # light strip under the ceiling
 	var cv := SurfaceTool.new(); cv.begin(Mesh.PRIMITIVE_TRIANGLES)       # cover
+	var chm := SurfaceTool.new(); chm.begin(Mesh.PRIMITIVE_TRIANGLES)     # the slanted corner panels (looks only: the wall behind is what stops you)
 	var faces := PackedVector3Array()
 	for kind in ["walls", "cover"]:
 		var top: float = wall_h if kind == "walls" else 1.15
@@ -577,9 +585,15 @@ func _shell_deck(sh: Dictionary, y0: float, tag: String) -> void:
 				if e.length() < 0.01: continue
 				var nrm := Vector3(e.z, 0, -e.x).normalized()   # the walkable side (shell.py keeps it on the left)
 				_band(st if kind == "walls" else cv, a, b, nrm, 0.0, top, 0.0)
-				_band(lo, a, b, nrm, 0.0, 0.1, 0.02)
+				var slant: bool = kind == "walls" and e.length() >= 2.2   # (short pieces are door jambs and nibs: left square so doorways stay full width)
+				_band(lo, a, b, nrm, 0.0, 0.1, (CHAMFER_LO + 0.02) if slant else 0.02)
+				if slant:
+					var upv := Vector3.UP
+					_quad(chm, a + nrm * CHAMFER_LO, b + nrm * CHAMFER_LO, b + upv * CHAMFER_LO, a + upv * CHAMFER_LO, (nrm + upv).normalized())
+					_quad(chm, a + upv * (top - CHAMFER_HI), b + upv * (top - CHAMFER_HI), b + nrm * CHAMFER_HI + upv * top, a + nrm * CHAMFER_HI + upv * top, (nrm - upv).normalized())
 				if kind == "walls":
-					_band(hi, a, b, nrm, top - 0.55, top - 0.47, 0.02)
+					var hy: float = top - (CHAMFER_HI + 0.2 if slant else 0.55)
+					_band(hi, a, b, nrm, hy, hy + 0.08, 0.02)
 					_band(lo, a, b, nrm, STOREY - 0.06, STOREY + 0.06, 0.02)   # the line between the two storeys
 				var up := Vector3(0, top, 0)
 				faces.append_array([a, b, b + up, a, b + up, a + up])
@@ -592,7 +606,7 @@ func _shell_deck(sh: Dictionary, y0: float, tag: String) -> void:
 					cv.add_vertex(Vector3(p2[t].x, y0 + top, p2[t].y))
 				for t in range(0, tri.size(), 3):
 					faces.append_array([Vector3(p2[tri[t]].x, y0 + top, p2[tri[t]].y), Vector3(p2[tri[t + 1]].x, y0 + top, p2[tri[t + 1]].y), Vector3(p2[tri[t + 2]].x, y0 + top, p2[tri[t + 2]].y)])
-	for pair in [[st, "ShellWalls", _wall_mat(Color(0.6, 0.68, 0.8))], [cv, "Cover", _wall_mat(Color(0.42, 0.47, 0.56))],
+	for pair in [[st, "ShellWalls", _wall_mat(Color(0.6, 0.68, 0.8))], [cv, "Cover", _wall_mat(Color(0.42, 0.47, 0.56))], [chm, "Chamfers", _wall_mat(Color(0.47, 0.54, 0.66))],
 			[lo, "WallTrim", _glow(Color(0.25, 0.8, 0.95))], [hi, "LightStrip", _glow(Color(0.75, 0.95, 1.0))]]:
 		var made: ArrayMesh = (pair[0] as SurfaceTool).commit()
 		if made == null or made.get_surface_count() == 0: continue   # (a deck with no cover)

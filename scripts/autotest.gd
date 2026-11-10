@@ -2968,7 +2968,7 @@ func _run() -> void:
 		_check("v12.97: the fleet catalog has all 72 faction ships", all.size() == 72, str(all.size()))
 		var no_tok := all.values().filter(func(e): return not ResourceLoader.exists(str(e["token"])))
 		_check("v12.97: every fleet ship has its roster token", no_tok.is_empty(), str(no_tok.map(func(e): return e["id"])))
-		_check("v12.97: HoloDeck pointers only where the file exists (13: Unity 9, Elyza 4)", FleetCatalog.all().values().filter(func(e): return str(e["holodeck"]) != "").size() == 13 and ResourceLoader.exists(str(all["unity_capital"]["holodeck_res"])))
+		_check("v12.97: HoloDeck pointers only where the file exists (14: Unity 9, Elyza 5)", FleetCatalog.all().values().filter(func(e): return str(e["holodeck"]) != "").size() == 14 and ResourceLoader.exists(str(all["unity_capital"]["holodeck_res"])))
 		_check("v12.97: crops for every ship", all.keys().all(func(k): return FleetCatalog.crop(k).size() == 4))
 		_check("v12.97: the player dealer ships are unchanged", Data.SHIP_ORDER.size() >= 3 and Data.SHIPS.has("cadet"))
 		main.start_game()
