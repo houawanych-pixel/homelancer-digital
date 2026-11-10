@@ -1,0 +1,104 @@
+{
+ "plan": "HL_ElyzaFrigate_HoloDeck_20261109_v1.png",
+ "auto": true,
+ "start": [
+  629,
+  685
+ ],
+ "ignore": [],
+ "open": [],
+ "rooms": [
+  {
+   "name": "Bridge",
+   "at": [
+    513,
+    257
+   ]
+  },
+  {
+   "name": "Sensors Suite",
+   "at": [
+    513,
+    366
+   ]
+  },
+  {
+   "name": "CIC (Combat Information Center)",
+   "at": [
+    513,
+    517
+   ]
+  },
+  {
+   "name": "Crew Quarters A",
+   "at": [
+    394,
+    540
+   ]
+  },
+  {
+   "name": "Crew Quarters B",
+   "at": [
+    632,
+    542
+   ]
+  },
+  {
+   "name": "Galley & Mess",
+   "at": [
+    402,
+    680
+   ]
+  },
+  {
+   "name": "Medbay",
+   "at": [
+    629,
+    685
+   ]
+  },
+  {
+   "name": "Magazine (Ordnance)",
+   "at": [
+    662,
+    837
+   ]
+  },
+  {
+   "name": "Armory",
+   "at": [
+    378,
+    850
+   ]
+  },
+  {
+   "name": "Craft Bay",
+   "at": [
+    513,
+    908
+   ]
+  },
+  {
+   "name": "Engineering Deck",
+   "at": [
+    513,
+    1046
+   ]
+  },
+  {
+   "name": "Reactor Core",
+   "at": [
+    512,
+    1159
+   ]
+  },
+  {
+   "name": "Engine Room",
+   "at": [
+    513,
+    1262
+   ]
+  }
+ ],
+ "lifts": []
+}

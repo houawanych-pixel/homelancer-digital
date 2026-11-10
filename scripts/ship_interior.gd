@@ -17,6 +17,10 @@ signal left
 
 const M_PER_CELL := 0.6      # 1 plan cell = 4 px = 0.6 m (1 px = 0.15 m: the Unity Capital deck is about 154 x 230 m)
 const WALL_H := 3.4
+const SHELL_H := 8.8          # v13.00 shell decks: wall height under the ceiling (owner: "higher, like two stories")
+const STOREY := 4.4
+const SHOULDER := Vector3(0.7, 0.2, 2.9)   # v13.00: the over-the-shoulder camera (right, up, back), as on the station escape
+const PILOT_GLB := "res://assets/pilot/hl_hova.glb"
 const CAM_OFF := Vector3(0, 14.0, 7.0)   # above and behind (south of) you, looking down: the MGS view
 const WALK_SPEED := 4.6      # (same as the on-foot escape, StationEscape)
 const RUN_SPEED := 7.2
@@ -41,6 +45,12 @@ var _room_grid := PackedInt32Array()
 var rooms_by_id := {}
 var doors: Array = []
 var _grid_tex: Texture2D
+var shell := false            # v13.00: this deck has traced wall outlines (tools/holodeck/shell.py): 3D walk-through view
+var yaw := 0.0
+var pitch := -0.12
+var _look_id := -1
+var _look_last := Vector2.ZERO
+var wall_h := WALL_H
 
 static func can_open(id: String) -> bool:
 	return str(FleetCatalog.get_entry(id).get("stage", "")) != ""
@@ -99,10 +109,13 @@ func _build() -> void:
 	sun.rotation_degrees = Vector3(-62, 35, 0)
 	sun.light_energy = 0.55
 	world.add_child(sun)
+	shell = data.has("shell")
+	wall_h = SHELL_H if shell else WALL_H
 	_grid_tex = _make_grid()
 	_grid()
 	_floor_ceiling()
-	_walls()
+	if shell: _shell_walls()
+	else: _walls()
 	_rooms()
 	_doors()
 	_lifts()
@@ -246,8 +259,8 @@ func _rooms() -> void:
 		lb.pixel_size = 0.008
 		lb.outline_size = 10
 		lb.modulate = Color(0.85, 1.0, 1.0)
-		lb.pixel_size = 0.014
-		lb.position = cell_to_world(float(r["at"][0]), float(r["at"][1])) + Vector3(0, 3.8, 0)
+		lb.pixel_size = 0.005 if shell else 0.014   # (a door-sign size when you are inside; big when seen from above)
+		lb.position = cell_to_world(float(r["at"][0]), float(r["at"][1])) + Vector3(0, 3.1 if shell else 3.8, 0)
 		rn.add_child(lb)
 
 ## The green squares: a doorway each (the opening, green door lights on top of the walls beside it, the green floor
@@ -276,7 +289,7 @@ func _doors() -> void:
 		lm.size = Vector3(clampf(float(d[2]) * M_PER_CELL, 0.5, 1.4), 0.12, clampf(float(d[3]) * M_PER_CELL, 0.5, 1.4))
 		lt.mesh = lm
 		lt.material_override = gmat
-		lt.position.y = WALL_H + 0.05
+		lt.position.y = 3.4 if shell else WALL_H + 0.05
 		dn.add_child(lt)
 		var fl := MeshInstance3D.new()   # and a green mark on the floor of the doorway (the plan's square)
 		var fm := BoxMesh.new()
@@ -292,7 +305,7 @@ func _doors() -> void:
 			al.font_size = 32
 			al.pixel_size = 0.008
 			al.modulate = Color(0.5, 1.0, 0.6)
-			al.position.y = WALL_H + 0.6
+			al.position.y = 2.8 if shell else WALL_H + 0.6
 			dn.add_child(al)
 		doors.append(dn)
 
@@ -357,13 +370,16 @@ func _ready() -> void:
 	_cam_follow(1.0)
 
 func _cam_follow(k: float) -> void:
+	if shell:
+		_cam_shoulder()
+		return
 	cam.global_position = cam.global_position.lerp(body.global_position + CAM_OFF, k)
 	cam.look_at(body.global_position + Vector3(0, 1.0, -1.0), Vector3.UP)
 
 func _ui() -> void:
 	var top := Label.new()
 	top.name = "ShipName"
-	top.text = "%s  ·  MAIN DECK  ·  graybox" % str(entry["name"]).to_upper()
+	top.text = "%s  ·  MAIN DECK  ·  graybox%s" % [str(entry["name"]).to_upper(), "  ·  PROTOTYPE" if shell else ""]
 	top.position = Vector2(20, 14)
 	top.add_theme_font_size_override("font_size", 20)
 	top.add_theme_color_override("font_color", Color(0.7, 0.95, 1.0))
@@ -379,7 +395,7 @@ func _ui() -> void:
 	room_label.add_theme_color_override("font_outline_color", Color(0, 0.1, 0.2))
 	add_child(room_label)
 	var hint := Label.new()
-	hint.text = "WASD / arrows walk (up = toward the bow) · Shift run  |  touch: drag to walk"
+	hint.text = "WASD walk · Shift run · drag right side to look  |  touch: left side walks, right side looks" if shell else "WASD / arrows walk (up = toward the bow) · Shift run  |  touch: drag to walk"
 	hint.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	hint.position = Vector2(20, -40)
 	hint.add_theme_font_size_override("font_size", 15)
@@ -415,6 +431,9 @@ func close() -> void:
 	queue_free()
 
 func _gui_input(ev: InputEvent) -> void:
+	if shell:
+		_shell_input(ev)
+		return
 	# touch / mouse drag anywhere = a walking stick (up on the screen = toward the bow)
 	if ev is InputEventScreenTouch or ev is InputEventMouseButton:
 		var pressed: bool = ev.pressed
@@ -435,6 +454,7 @@ func _physics_process(dt: float) -> void:
 	if v.length() > 1.0: v = v.normalized()
 	var sp := RUN_SPEED if Input.is_key_pressed(KEY_SHIFT) else WALK_SPEED
 	var dir := Vector3(v.x, 0, -v.y)   # the camera looks bow-ward (-Z): up on the stick is toward the bow
+	if shell: dir = Basis(Vector3.UP, yaw) * dir   # (walk where the camera looks)
 	body.velocity.x = dir.x * sp
 	body.velocity.z = dir.z * sp
 	body.velocity.y = 0.0 if body.is_on_floor() else body.velocity.y - GRAV * dt
@@ -444,6 +464,7 @@ func _physics_process(dt: float) -> void:
 	room_now = room_at(body.global_position)
 	room_label.text = room_now if room_now != "" else "Corridor"
 	var c := world_to_cell(body.global_position)
+	if shell and dir.length() < 0.1: body.rotation.y = lerp_angle(body.rotation.y, yaw, clampf(dt * 10.0, 0.0, 1.0))
 	dot.position = Vector2(c.x / float(data["w"]) * minimap.size.x, c.y / float(data["h"]) * minimap.size.y) - dot.size * 0.5
 
 ## The labelled room under a point ("" = corridor or open deck).
@@ -459,3 +480,155 @@ func room_point(nm: String) -> Vector3:
 	for r in data["rooms"]:
 		if str(r["name"]) == nm: return cell_to_world(float(r["at"][0]), float(r["at"][1]))
 	return Vector3.INF
+
+# ---------------------------------------------------------------------------------------------------------------------
+## v13.00 (owner: "the gameplay should never really be a top-down Zelda, that's more for the map ... when you start
+## grayboxing it needs to match those shapes"): a deck with traced outlines ("shell" in its json, tools/holodeck/shell.py)
+## is walked in 3D from over the shoulder, like the station escape. The walls follow the plan's own lines (slants and
+## curves, not 0.6 m steps), under a ceiling; the plan stays as the GPS map. Drawn equipment inside a room is low cover.
+func _wall_mat(col: Color) -> StandardMaterial3D:
+	var m := _grey(col)
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	return m
+func _glow(col: Color) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.albedo_color = col
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	return m
+
+func _band(st: SurfaceTool, a: Vector3, b: Vector3, n: Vector3, y0: float, y1: float, off: float) -> void:
+	var o := n * off
+	var p0 := a + o + Vector3(0, y0, 0); var p1 := b + o + Vector3(0, y0, 0)
+	var p2 := b + o + Vector3(0, y1, 0); var p3 := a + o + Vector3(0, y1, 0)
+	for v in [p0, p1, p2, p0, p2, p3]:
+		st.set_normal(n)
+		st.add_vertex(v)
+
+func _outline(poly: Array) -> PackedVector3Array:
+	var pts := PackedVector3Array()
+	for i in range(0, poly.size(), 2): pts.append(cell_to_world(float(poly[i]), float(poly[i + 1])))
+	return pts
+
+func _shell_walls() -> void:
+	var sh: Dictionary = data["shell"]
+	var st := SurfaceTool.new(); st.begin(Mesh.PRIMITIVE_TRIANGLES)       # walls
+	var lo := SurfaceTool.new(); lo.begin(Mesh.PRIMITIVE_TRIANGLES)       # cyan line at the foot (the plan's line colour)
+	var hi := SurfaceTool.new(); hi.begin(Mesh.PRIMITIVE_TRIANGLES)       # light strip under the ceiling
+	var cv := SurfaceTool.new(); cv.begin(Mesh.PRIMITIVE_TRIANGLES)       # cover
+	var faces := PackedVector3Array()
+	for kind in ["walls", "cover"]:
+		var top: float = wall_h if kind == "walls" else 1.15
+		for poly in sh[kind]:
+			var pts := _outline(poly)
+			var n := pts.size()
+			for i in n:
+				var a := pts[i]; var b := pts[(i + 1) % n]
+				var e := b - a
+				if e.length() < 0.01: continue
+				var nrm := Vector3(e.z, 0, -e.x).normalized()   # the walkable side (shell.py keeps it on the left)
+				_band(st if kind == "walls" else cv, a, b, nrm, 0.0, top, 0.0)
+				_band(lo, a, b, nrm, 0.0, 0.1, 0.02)
+				if kind == "walls":
+					_band(hi, a, b, nrm, top - 0.55, top - 0.47, 0.02)
+					_band(lo, a, b, nrm, STOREY - 0.06, STOREY + 0.06, 0.02)   # the line between the two storeys
+				var up := Vector3(0, top, 0)
+				faces.append_array([a, b, b + up, a, b + up, a + up])
+			if kind == "cover":   # a lid on each piece of cover
+				var p2 := PackedVector2Array()
+				for p in pts: p2.append(Vector2(p.x, p.z))
+				var tri := Geometry2D.triangulate_polygon(p2)
+				for t in tri:
+					cv.set_normal(Vector3.UP)
+					cv.add_vertex(Vector3(p2[t].x, top, p2[t].y))
+				for t in range(0, tri.size(), 3):
+					faces.append_array([Vector3(p2[tri[t]].x, top, p2[tri[t]].y), Vector3(p2[tri[t + 1]].x, top, p2[tri[t + 1]].y), Vector3(p2[tri[t + 2]].x, top, p2[tri[t + 2]].y)])
+	for pair in [[st, "ShellWalls", _wall_mat(Color(0.6, 0.68, 0.8))], [cv, "Cover", _wall_mat(Color(0.42, 0.47, 0.56))],
+			[lo, "WallTrim", _glow(Color(0.25, 0.8, 0.95))], [hi, "LightStrip", _glow(Color(0.75, 0.95, 1.0))]]:
+		var mi := MeshInstance3D.new()
+		mi.name = pair[1]
+		mi.mesh = (pair[0] as SurfaceTool).commit()
+		mi.material_override = pair[2]
+		world.add_child(mi)
+	var sb := StaticBody3D.new()
+	sb.name = "Walls"
+	var cs := CollisionShape3D.new()
+	var shp := ConcavePolygonShape3D.new()
+	shp.backface_collision = true
+	shp.set_faces(faces)
+	cs.shape = shp
+	sb.add_child(cs)
+	world.add_child(sb)
+	# the ceiling (you are inside now)
+	var sz := Vector2(float(data["w"]), float(data["h"])) * M_PER_CELL
+	var ce := MeshInstance3D.new()
+	ce.name = "Ceiling"
+	var bm := BoxMesh.new()
+	bm.size = Vector3(sz.x, 0.2, sz.y)
+	ce.mesh = bm
+	ce.position.y = wall_h + 0.1
+	ce.material_override = _grey(Color(0.3, 0.34, 0.42))
+	world.add_child(ce)
+	(world.get_node("Floor") as MeshInstance3D).material_override = _grey(Color(0.42, 0.47, 0.56))
+	# the pilot: the owner's own model in place of the stand-in
+	if ResourceLoader.exists(PILOT_GLB): call_deferred("_shell_pilot")
+
+func _shell_pilot() -> void:
+	if not is_instance_valid(body): return
+	var inst: Node3D = (load(PILOT_GLB) as PackedScene).instantiate()
+	var bb := AABB()
+	var first := true
+	for m in inst.find_children("*", "MeshInstance3D", true, false):
+		var mi := m as MeshInstance3D
+		var a := mi.get_aabb()
+		var x := mi.transform
+		var par := mi.get_parent()
+		while par != null and par != inst and par is Node3D:
+			x = (par as Node3D).transform * x
+			par = par.get_parent()
+		a = x * a
+		bb = a if first else bb.merge(a)
+		first = false
+	if first: return
+	var k := 1.8 / maxf(0.01, bb.size.y)
+	inst.scale = Vector3.ONE * k
+	inst.rotation.y = PI / 2 if bb.size.z > bb.size.x * 1.3 else PI   # (faces away from the camera, as on the station escape)
+	inst.position = Vector3(0, -bb.position.y * k, 0)
+	body.add_child(inst)
+	for c in body.get_children():
+		if c is MeshInstance3D: (c as MeshInstance3D).visible = false
+
+func _cam_shoulder() -> void:
+	var pivot := body.global_position + Vector3(0, 1.55, 0)
+	var b := Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
+	var want := pivot + b * SHOULDER
+	var q := PhysicsRayQueryParameters3D.create(pivot, want)   # never through a wall: pull the camera in
+	q.exclude = [body.get_rid()]
+	var hit := body.get_world_3d().direct_space_state.intersect_ray(q)
+	if not hit.is_empty(): want = pivot + (hit["position"] - pivot) * 0.86
+	cam.global_position = want
+	cam.global_transform.basis = b
+
+func look(d: Vector2) -> void:
+	yaw -= d.x * 0.006
+	pitch = clampf(pitch - d.y * 0.005, -0.9, 0.7)
+
+func _shell_input(ev: InputEvent) -> void:
+	if ev is InputEventScreenTouch or ev is InputEventMouseButton:
+		var pressed: bool = ev.pressed
+		var idx: int = ev.index if ev is InputEventScreenTouch else 0
+		var left: bool = ev.position.x < size.x * 0.5
+		if pressed:
+			if left and _stick_id == -1: _stick_id = idx; _stick_from = ev.position
+			elif not left and _look_id == -1: _look_id = idx; _look_last = ev.position
+		else:
+			if idx == _stick_id: _stick_id = -1; move_override = Vector2.ZERO
+			if idx == _look_id: _look_id = -1
+	elif ev is InputEventScreenDrag or ev is InputEventMouseMotion:
+		var idx2: int = ev.index if ev is InputEventScreenDrag else (_stick_id if _stick_id != -1 else _look_id)
+		if idx2 == _stick_id and _stick_id != -1:
+			var d: Vector2 = (ev.position - _stick_from) / 70.0
+			move_override = Vector2(clampf(d.x, -1, 1), clampf(-d.y, -1, 1))
+		elif idx2 == _look_id and _look_id != -1:
+			look(ev.position - _look_last)
+			_look_last = ev.position

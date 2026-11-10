@@ -58,7 +58,7 @@ const HOLODECK_FILES := [
 	"HL_UnityResupply_HoloDeck_20261109_v1", "HL_UnityTroopTransport_HoloDeck_20261109_v1", "HL_UnityFrigate_HoloDeck_20261109_v1",
 	"HL_UnityEscort_HoloDeck_20261109_v1", "HL_UnityScout_HoloDeck_20261109_v1", "HL_UnityBomber_HoloDeck_20261109_v1",
 	"HL_ElyzaCapital_HoloDeck_20261109_v1", "HL_ElyzaCruiser_HoloDeck_20261109_v1", "HL_ElyzaDestroyer_HoloDeck_20261109_v1",
-	"HL_ElyzaResupply_HoloDeck_20261109_v1",
+	"HL_ElyzaResupply_HoloDeck_20261109_v1", "HL_ElyzaFrigate_HoloDeck_20261109_v1",
 ]
 ## How a faction's own systems show its fleet (FleetCatalog.spawn_plan): where each class sits.
 ##   patrol = slow loop well out from the station; screen = tighter loop near the station;
