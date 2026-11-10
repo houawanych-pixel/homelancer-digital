@@ -109,53 +109,126 @@ class Deck:
     def tdoor(self, r, a, room=None, w=14.0):             # a door through a radial wall (you walk round the ring)
         x, z = pol(r, a); return self.door(x, z, a + 90, w, room=room)
 
-def district(dk, name, r0, r1, a0, a1, rows, seed, inner=True, outer=True, sides=(None, None)):
-    """A district between two ring passages, cut into a varied cluster of rooms (never equal wedges): `rows` gives
-    how many rooms each row across the depth holds; the cuts are uneven. Each room opens onto the passage it faces;
-    a middle-row room opens into its neighbours. Returns the rooms made."""
+# ---- room modules (owner: "You can't just use basic shapes like pie shapes ... more advanced shapes"; the reference
+# deck plans he sent are separate, purpose-shaped rooms joined by short necks, inside a solid hull) ----
+def _w(c, ang, u, t):     # local (u = outward along the radius, t = clockwise round the ring) -> world x,z
+    a = np.radians(ang); d = np.array([np.sin(a), -np.cos(a)]); q = np.array([np.cos(a), np.sin(a)])
+    return c + u * d + t * q
+def _poly(m, c, ang, pts): cv2.fillPoly(m, [np.array([P(*_w(c, ang, u, t)) for u, t in pts], np.int32)], 1)
+def _disc(m, c, ang, u, t, r): cv2.circle(m, P(*_w(c, ang, u, t)), max(2, int(round(r / PX))), 1, -1)
+def _oct(m, c, ang, a, b, u0=0.0, t0=0.0, k=0.34):
+    ch = k * min(a, b)
+    _poly(m, c, ang, [(u0 + u, t0 + t) for u, t in ((-a + ch, -b), (a - ch, -b), (a, -b + ch), (a, b - ch), (a - ch, b), (-a + ch, b), (-a, b - ch), (-a, -b + ch))])
+
+SHAPES = ("oct", "capsule", "rotunda", "bays", "apse", "cross", "hex", "twin", "keystone")
+def shape(kind, c, ang, a, b):
+    """One room module centred at c, turned to face along the radius `ang`; a = half-depth (radial), b = half-width."""
+    m = np.zeros((N, N), np.uint8)
+    if kind == "oct": _oct(m, c, ang, a, b)
+    elif kind == "capsule":
+        e = max(0.0, b - a); _poly(m, c, ang, [(-a, -e), (a, -e), (a, e), (-a, e)]); _disc(m, c, ang, 0, -e, a); _disc(m, c, ang, 0, e, a)
+    elif kind == "rotunda":                                # a round chamber with alcoves, octagonal wings if there is width
+        R = min(a, b)
+        _disc(m, c, ang, 0, 0, R * 0.84)
+        for k in range(6): q = np.radians(30 + 60 * k); _disc(m, c, ang, 0.8 * R * np.cos(q), 0.8 * R * np.sin(q), 0.2 * R)
+        if b > 1.5 * R:
+            hw = (b - R * 0.7) / 2
+            for sg in (-1, 1): _oct(m, c, ang, 0.5 * a, hw, 0.0, sg * (R * 0.7 + hw))
+    elif kind == "bays":                                   # a hall with a row of alcoves along its outer wall
+        _oct(m, c, ang, 0.7 * a, b, -0.3 * a, 0.0, 0.25)
+        n = max(2, int(b / (0.55 * a))); w = 2 * b / (2 * n + 1)
+        for k in range(n):
+            t = -b + w * (2 * k + 1.5); _oct(m, c, ang, 0.36 * a, w * 0.5, 0.64 * a, t, 0.4)
+    elif kind == "apse":                                   # a hall that ends in a half-round
+        _oct(m, c, ang, 0.5 * a, b, -0.5 * a, 0.0, 0.2)
+        _poly(m, c, ang, [(a * np.sin(q), b * 0.86 * np.cos(q)) for q in np.linspace(0, np.pi, 40)])
+    elif kind == "cross":
+        _oct(m, c, ang, 0.62 * a, 0.62 * b); _oct(m, c, ang, a, 0.3 * b, k=0.3); _oct(m, c, ang, 0.34 * a, b, k=0.3)
+    elif kind == "hex":
+        e = max(0.0, b - 0.75 * a); _poly(m, c, ang, [(a, -e), (a, e), (0, b), (-a, e), (-a, -e), (0, -b)])
+    elif kind == "twin":                                   # two chambers and the link between them: one room
+        for sg in (-1, 1): _oct(m, c, ang, a, 0.42 * b, 0.0, sg * 0.56 * b)
+        _poly(m, c, ang, [(-0.3 * a, -0.2 * b), (0.3 * a, -0.2 * b), (0.3 * a, 0.2 * b), (-0.3 * a, 0.2 * b)])
+    else:                                                  # keystone: wide outside, narrow inside, cut corners
+        _poly(m, c, ang, [(-a, -0.55 * b), (-a, 0.55 * b), (-0.2 * a, b), (0.7 * a, b), (a, 0.8 * b), (a, -0.8 * b), (0.7 * a, -b), (-0.2 * a, -b)])
+    return m
+
+def module(dk, name, kind, c, ang, a, b, allowed):
+    """Place one module, shrunk until it sits wholly inside `allowed`."""
+    for _ in range(14):
+        m = shape(kind, c, ang, a, b)
+        if not (m & (1 - allowed)).any(): break
+        a *= 0.93; b *= 0.93
+    else: return None
+    if m.sum() * PX * PX < 1500.0: return None
+    dm = cv2.distanceTransform(m, cv2.DIST_L2, 5); cp = P(*c)
+    dk.f |= m
+    r = {"name": name, "mask": m, "at": (float(c[0]), float(c[1])), "rad": float(dm[cp[1], cp[0]]) * PX, "doors": 0, "links": set()}
+    dk.rooms.append(r); return r
+
+def neck(dk, p0, p1, r0, r1=None, w=18.0):
+    """A short passage from room r0 (centre p0) to p1 (a point on a passage, or room r1's centre); one sliding door
+    where it leaves r0."""
+    p0 = np.array(p0, float); p1 = np.array(p1, float)
+    m = np.zeros((N, N), np.uint8); cv2.line(m, P(*p0), P(*p1), 1, max(3, int(round(w / PX))))
+    if (m & (1 - dk.foot)).any(): return False
+    L = float(np.hypot(*(p1 - p0)));
+    if L < 1: return False
+    d = (p1 - p0) / L; q = None
+    for k in range(int(L / 2.0)):
+        pt = p0 + d * k * 2.0; px = P(*pt)
+        if not r0["mask"][px[1], px[0]]: q = pt + d * 6.0; break
+    if q is None: return False
+    dk.f |= m
+    yaw = float(np.degrees(np.arctan2(d[0], -d[1])) % 360)
+    dk.doors.append({"x": round(float(q[0]), 1), "z": round(float(q[1]), 1), "yaw": round(yaw, 1), "w": w})
+    r0["doors"] += 1
+    if r1 is not None: r1["doors"] += 1; r0["links"].add(r1["name"]); r1["links"].add(r0["name"])
+    return True
+
+def district(dk, name, r0, r1, av0, av1, rows, seed, inner=True, outer=True, pad=24.0):
+    """A district between two ring passages and two avenues (at av0 and av1 degrees): rows of separate room modules,
+    each a different shape, joined by necks to the passages, to each other and across the rows. No pie slices."""
     rng = np.random.RandomState(seed)
-    span = (a1 - a0) % 360
+    span = (av1 - av0) % 360
+    allowed = (dk.foot & (1 - cv2.dilate(dk.f, np.ones((2 * int((WALL + 6) / PX) + 1,) * 2, np.uint8)))).astype(np.uint8)
     edges = np.linspace(r0, r1, len(rows) + 1)
-    if len(rows) > 1: edges[1:-1] += rng.uniform(-0.12, 0.12, len(rows) - 1) * (r1 - r0) / len(rows)
-    made = []; k = 0
+    if len(rows) > 1: edges[1:-1] += rng.uniform(-0.1, 0.1, len(rows) - 1) * (r1 - r0) / len(rows)
+    kinds = list(SHAPES); rng.shuffle(kinds); ki = 0
+    grid = []; k = 0
     for ri, cnt in enumerate(rows):
-        ra, rb = edges[ri] + (WALL / 2 if ri else 0), edges[ri + 1] - (WALL / 2 if ri < len(rows) - 1 else 0)
-        cuts = np.sort(rng.uniform(0.25, 0.75, cnt - 1) * 0 + (np.arange(1, cnt) / cnt + rng.uniform(-0.3, 0.3, cnt - 1) / cnt)) if cnt > 1 else []
-        ang = [0.0] + list(cuts) + [1.0]
-        gap = np.degrees(WALL / 2 / ((ra + rb) / 2))
-        row = []
+        ra, rb = edges[ri] + 10.0, edges[ri + 1] - 10.0; rm = (ra + rb) / 2
+        pd = np.degrees(pad / rm)
+        cuts = (np.arange(1, cnt) / cnt + rng.uniform(-0.22, 0.22, cnt - 1) / cnt) if cnt > 1 else []
+        ang = [0.0] + list(cuts) + [1.0]; row = []
         for ci in range(cnt):
-            b0 = a0 + ang[ci] * span + (gap if ci else 0); b1 = a0 + ang[ci + 1] * span - (gap if ci < cnt - 1 else 0)
+            b0 = av0 + pd + ang[ci] * (span - 2 * pd); b1 = av0 + pd + ang[ci + 1] * (span - 2 * pd)
+            mid = (b0 + b1) / 2; half = np.radians((b1 - b0) / 2) * rm - 10.0
             k += 1
-            r = dk.room("%s %d" % (name, k) if sum(rows) > 1 else name, dk.band(ra, rb, b0, b1))
-            if r is None: row.append(None); continue
-            mid = a0 + (ang[ci] + ang[ci + 1]) / 2 * span
-            if ri == 0 and inner: dk.rdoor(r0 - WALL / 2, mid, r)
-            if ri == len(rows) - 1 and outer: dk.rdoor(r1 + WALL / 2, mid, r)
-            r["_mid"] = mid; r["_r"] = (ra, rb); r["_b"] = (b0, b1); row.append(r); made.append(r)
-        for ci in range(cnt - 1):                          # neighbours along the row
-            if row[ci] and row[ci + 1] and (row[ci]["doors"] < 2 or row[ci + 1]["doors"] < 2 or rng.rand() < 0.5):
-                if dk.tdoor((ra + rb) / 2, a0 + ang[ci + 1] * span, row[ci]): row[ci + 1]["doors"] += 1
-        if ri > 0:                                         # and through to the row inside it
-            prev = [p for p in made if p.get("_row") == ri - 1]
-            for r in row:
-                if r is None: continue
-                for p in prev:
-                    lo, hi = max(r["_b"][0], p["_b"][0]), min(r["_b"][1], p["_b"][1])
-                    if hi - lo > 2 * np.degrees(12.0 / ra) and (r["doors"] < 2 or p["doors"] < 2):
-                        if dk.rdoor(ra - WALL / 2, (lo + hi) / 2, r): p["doors"] += 1
-                        break
-        for r in row:
-            if r is not None: r["_row"] = ri
-    # the district's end rooms open onto the avenues beside it
-    for r in made:
-        for side, av in ((0, sides[0]), (1, sides[1])):
-            if av is None: continue
-            edge = r["_b"][side]
-            if abs(((edge - (a0 if side == 0 else a1)) + 180) % 360 - 180) < 1.5 and r["doors"] < 2:
-                rr = (r["_r"][0] + r["_r"][1]) / 2
-                off = np.degrees((WALL / 2 + 1) / rr) * (-1 if side == 0 else 1)
-                dk.tdoor(rr, (a0 if side == 0 else a1) + off * 0 + (np.degrees(WALL / 2 / rr) * (-1 if side == 0 else 1)), r)
+            cell = (allowed & dk.band(ra, rb, b0, b1)).astype(np.uint8)
+            kind = kinds[ki % len(kinds)]; ki += 1
+            a, b = (rb - ra) / 2, max(20.0, half)
+            if kind in ("rotunda",) and b < a: a = b
+            r = module(dk, "%s %d" % (name, k) if sum(rows) > 1 else name, kind, np.array(pol(rm, mid)), mid, a, b, cell)
+            if r is not None: r["_rm"] = rm; r["_mid"] = mid; r["_kind"] = kind
+            row.append(r)
+        grid.append(row)
+    made = [r for row in grid for r in row if r is not None]
+    for ri, row in enumerate(grid):
+        for ci, r in enumerate(row):
+            if r is None: continue
+            if ri == 0 and inner: neck(dk, r["at"], pol(r0 - WALL - 4, r["_mid"]), r)
+            if ri == len(grid) - 1 and outer: neck(dk, r["at"], pol(r1 + WALL + 4, r["_mid"]), r)
+            if ci + 1 < len(row) and row[ci + 1] is not None: neck(dk, r["at"], row[ci + 1]["at"], r, row[ci + 1])
+            if ri > 0:
+                prev = [p for p in grid[ri - 1] if p is not None]
+                if prev:
+                    p = min(prev, key=lambda q: abs((q["_mid"] - r["_mid"] + 180) % 360 - 180))
+                    neck(dk, r["at"], p["at"], r, p)
+    for r in made:                                        # no dead ends: a room with one way in gets a second, to an avenue
+        if r["doors"] >= 2: continue
+        for av in sorted((av0, av1), key=lambda q: abs((q - r["_mid"] + 180) % 360 - 180)):
+            if neck(dk, r["at"], pol(r["_rm"], av), r): break
     return made
 
 def outlines(mask):
@@ -178,10 +251,18 @@ def outlines(mask):
 
 def lifts_xy(): return [[round(v, 1) for v in pol(LIFT_R, a)] for a in LIFT_A]
 
+def scalloped(dk, r_out, n=16, big=()):
+    """A round hall with a ring of alcoves (bigger ones where its doors are)."""
+    m = np.zeros((N, N), np.uint8); cv2.circle(m, P(0, 0), int((r_out - 34.0) / PX), 1, -1)
+    for k in range(n):
+        a = 360.0 * k / n; rr = 40.0 if any(abs((a - q + 180) % 360 - 180) < 1 for q in big) else 24.0
+        cv2.circle(m, P(*pol(r_out - rr, a)), int(rr / PX), 1, -1)
+    return m
+
 def ring_core(dk, hub_name, hub_r, ring=(410.0, 470.0), hub_doors=(0, 90, 180, 270)):
-    """What every deck shares: the central room, the lift concourse round it with the four shafts on it."""
+    """What every deck shares: the central hall, the lift concourse round it with the four shafts on it."""
     dk.corridor(dk.band(ring[0], ring[1]))
-    hub = dk.room(hub_name, dk.band(0, ring[0] - WALL))
+    hub = dk.room(hub_name, scalloped(dk, ring[0] - WALL, 16, hub_doors))
     for a in hub_doors: dk.rdoor(ring[0] - WALL / 2, a, hub, w=22.0)
     return hub
 
@@ -212,81 +293,95 @@ def build(glb, outdir, repdir=None):
     decks = []; levels_out = []
     for lid, lname, ym, proposed in LEVELS:
         # the hull must hold the room at floor height AND at ceiling height (a thin cut at each, both must cover it)
-        foot, raw = footprint(tri, ym * K)
+        mfoot, raw = footprint(tri, ym * K)
+        tmp = Deck(mfoot)
+        Rin = float(tmp.R[mfoot == 0].min()) if (mfoot == 0).any() else 9999.0  # the biggest circle about the axis inside the hull
+        # Owner: "fix those outer silhouette ... looks like a scribble and needs to be connected ... cylinders, the right
+        # shape, the right squares. The right line work." So the deck's edge is CLEAN geometry fitted to the measurement:
+        # the body is the largest circle that fits inside the measured hull; each arm the model has is a straight
+        # spoke to a cleanly shaped pod at the measured direction and distance. (Where an arm on the model is thinner
+        # than the spoke, the deck is wider than the model there: counted in the report.)
+        foot = (tmp.R < Rin).astype(np.uint8)
+        arm_parts = []
+        if lid == "L3":
+            beyond = (mfoot & (tmp.R > Rin + 14).astype(np.uint8))
+            names = {0: "North Docking Bay", 180: "South Docking Bay", 90: "East Hangar Approach", 270: "West Hangar Approach"}
+            pod_kinds = ("rotunda", "oct", "capsule")
+            for ai, a_arm in enumerate(arm_dirs):
+                near = min(names, key=lambda q: abs((a_arm - q + 180) % 360 - 180))
+                cardinal = abs((a_arm - near + 180) % 360 - 180) < 8
+                nm = names[near] if cardinal else "Docking Arm %03d" % int(round(a_arm))
+                dev = np.abs((tmp.A - a_arm + 180) % 360 - 180)
+                pod = (beyond & (dev < 7) & (tmp.R > 1500)).astype(np.uint8)
+                if pod.sum() == 0: arm_parts.append({"name": nm, "a": a_arm, "built": False}); continue
+                ys, xs = np.nonzero(pod); rr_ = tmp.R[ys, xs]
+                a_true = float(np.degrees(np.arctan2((xs - C).mean(), -(ys - C).mean())) % 360)
+                r_far = float(np.percentile(rr_, 97)); wid = float(cv2.distanceTransform(pod, cv2.DIST_L2, 5).max()) * PX
+                size = float(np.clip(wid * 1.5, 80.0, 125.0)); r_pod = r_far - size
+                c = np.array(pol(r_pod, a_true))
+                pm = shape("cross" if cardinal else pod_kinds[ai % 3], c, a_true, size, size * (1.5 if cardinal else 0.8))
+                sp = np.zeros((N, N), np.uint8); cv2.line(sp, P(*pol(Rin - 12, a_true)), P(*c), 1, int(round(36.0 / PX)))
+                node = shape("oct", np.array(pol((Rin + r_pod) / 2, a_true)), a_true, 34.0, 34.0)   # a junction halfway out
+                foot |= pm | sp | node
+                arm_parts.append({"name": nm, "a": a_true, "built": True, "pod": pm, "spoke": sp | node, "c": c, "r_pod": r_pod,
+                                  "model_arm_inside_width_m": round(2 * float(cv2.distanceTransform((beyond & (dev < 4) & (tmp.R < Rin + 200)).astype(np.uint8), cv2.DIST_L2, 5).max()) * PX, 1)})
         dk = Deck(foot)
-        Rin = float(dk.R[foot == 0].min()) if (foot == 0).any() else 9999.0     # the biggest circle about the axis inside the hull
         if lid == "L3":
             ring_core(dk, "Central Public Hub / Senate Rotunda", 380.0, hub_doors=(0, 45, 90, 135, 180, 225, 270, 315))
-            Rp0 = Rin - 150.0                                   # the promenade follows the rim, 150 m wide
-            dk.corridor(dk.band(Rp0, Rin + 5))
+            Rp0 = Rin - 64.0                                    # the promenade round the rim
+            dk.corridor(dk.band(Rp0, Rin))
             spans = [("Customs / Arrivals", 336, 22, (2, 3)), ("Medbay", 22, 62, (2, 2)), ("Mission Center", 62, 108, (1, 2)),
-                     ("Security Post", 108, 166, (2, 2)), ("Cantina / Lounge", 192, 244, (2, 3)),
+                     ("Security Post", 108, 166, (2, 2)), ("Escape Pod", 166, 192, (1,)), ("Cantina / Lounge", 192, 244, (2, 3)),
                      ("Embassy Row", 244, 292, (3, 2)), ("Market / Shops", 292, 336, (3, 4))]
-            bounds = sorted({s[1] for s in spans} | {s[2] for s in spans} | {166, 192})
-            for a in bounds: dk.avenue(a, 470.0, Rp0, 30.0)     # avenues between the districts, ring to promenade
-            av = np.degrees(15.0 + WALL) / 1.0
+            for a in sorted({s_[1] for s_ in spans}): dk.avenue(a, 470.0, Rp0, 30.0)   # avenues between the districts
             for si, (nm, a0, a1, rows) in enumerate(spans):
-                pad0 = np.degrees((15.0 + WALL) / 700.0)
-                district(dk, nm, 470.0 + WALL, Rp0 - WALL, a0 + pad0, a1 - pad0, rows, 11 + si)
-            ep = dk.room("Escape Pod", dk.band(470.0 + WALL, 640.0, 166 + 2.4, 192 - 2.4))
-            if ep: dk.rdoor(470.0 + WALL / 2, 179, ep)
-            # the arms, the outer arcs and the pods: whatever of the measured footprint lies beyond the rim is walkable
-            # as measured. Each arm the model has (directions read from the model above) gets a gate on the promenade
-            # and its pod is a named place.
-            beyond = (foot & (dk.R > Rin + 5 + WALL).astype(np.uint8))
-            dk.f |= beyond
-            names = {0: "North Docking Bay", 180: "South Docking Bay", 90: "East Hangar Approach", 270: "West Hangar Approach"}
+                if nm == "Escape Pod": district(dk, nm, 470.0 + WALL, 700.0, a0, a1, rows, 11 + si, outer=False)
+                else: district(dk, nm, 470.0 + WALL, Rp0 - WALL, a0, a1, rows, 11 + si)
             got = []
-            for a_arm in arm_dirs:
-                near_name = min(names, key=lambda q: abs((a_arm - q + 180) % 360 - 180))
-                nm = names[near_name] if abs((a_arm - near_name + 180) % 360 - 180) < 8 else "Docking Arm %03d" % int(round(a_arm))
-                dev = np.abs((dk.A - a_arm + 180) % 360 - 180)
-                pod = (beyond & (dev < 7) & (dk.R > 1650)).astype(np.uint8)
-                neck = (beyond & (dev < 4) & (dk.R < Rin + 120)).astype(np.uint8)
-                if pod.sum() == 0 or neck.sum() == 0: got.append({"name": nm, "direction_deg": a_arm, "built": False}); continue
-                dm = cv2.distanceTransform(pod, cv2.DIST_L2, 5); y, x = np.unravel_index(int(np.argmax(dm)), dm.shape)
-                r = {"name": nm, "mask": pod, "at": ((x - C) * PX, (y - C) * PX), "rad": float(dm[y, x]) * PX, "doors": 1}
+            for ap in arm_parts:
+                if not ap["built"]: got.append({"name": ap["name"], "direction_deg": round(ap["a"], 1), "built": False}); continue
+                dk.f |= ap["spoke"] | ap["pod"]
+                dm = cv2.distanceTransform(ap["pod"], cv2.DIST_L2, 5); cp = P(*ap["c"])
+                r = {"name": ap["name"], "mask": ap["pod"], "at": (float(ap["c"][0]), float(ap["c"][1])), "rad": float(dm[cp[1], cp[0]]) * PX, "doors": 1, "links": set()}
                 dk.rooms.append(r)
-                nys, nxs = np.nonzero(neck); a_gate = float(np.degrees(np.arctan2(nxs.mean() - C, -(nys.mean() - C))) % 360)
-                wn = float(cv2.distanceTransform(neck, cv2.DIST_L2, 5).max()) * PX * 2
-                dk.rdoor(Rin + 5 + WALL / 2, a_gate, None, w=min(18.0, max(8.0, wn - 4)), clip=True)
-                got.append({"name": nm, "direction_deg": a_arm, "built": True, "reaches_m": round(float(dk.R[pod > 0].max())), "arm_inside_width_m": round(wn, 1)})
+                x, z = pol(Rin + 14, ap["a"])                   # the gate where the arm leaves the promenade
+                dk.doors.append({"x": round(float(x), 1), "z": round(float(z), 1), "yaw": round(ap["a"], 1), "w": 36.0})
+                got.append({"name": ap["name"], "direction_deg": round(ap["a"], 1), "built": True, "pod_centre_from_axis_m": round(ap["r_pod"]),
+                            "model_arm_inside_width_m": ap["model_arm_inside_width_m"], "spoke_width_m": 36.0})
             rep["main_deck_arms_built"] = got
         elif lid == "L2":
             ring_core(dk, "Senate Chamber", 380.0)
             Ro = Rin - 6
             spans = [("Delegate Offices (north)", 330, 30, (3,)), ("Delegate Offices", 30, 140, (5,)), ("Officer Quarters", 140, 250, (6,)), ("Command / Comms", 250, 330, (3,))]
-            for a in (330, 30, 140, 250): dk.avenue(a, 470.0, Ro, 24.0)
+            for a in (330, 30, 140, 250): dk.avenue(a, 470.0, Ro - 20, 24.0)
             for si, (nm, a0, a1, rows) in enumerate(spans):
-                pad0 = np.degrees((12.0 + WALL) / 560.0)
-                district(dk, nm, 470.0 + WALL, Ro, a0 + pad0, a1 - pad0, rows, 31 + si, outer=False)
+                district(dk, nm, 470.0 + WALL, Ro, a0, a1, rows, 31 + si, outer=False, pad=20.0)
         elif lid == "L1":
             dk.corridor(dk.band(410.0, min(470.0, Rin)))
-            arch = dk.room("Archives / Records", dk.band(0, 210.0))
-            gal = dk.room("Observation Gallery", dk.band(210.0 + WALL, 400.0 - WALL / 2))
-            for a in (0, 90, 180, 270): dk.rdoor(405.0 - WALL / 2, a, gal, w=22.0)
-            for a in (60, 240): dk.rdoor(210.0 + WALL / 2, a, arch)
+            arch = dk.room("Archives / Records", scalloped(dk, 200.0, 12, (60, 240)))
+            gm = dk.band(214.0 + WALL, 372.0)                   # the gallery: a ring hall with viewing alcoves on its outer wall
+            for k_ in range(12):
+                if k_ % 3: cv2.circle(gm, P(*pol(372.0, 30.0 * k_)), int(24 / PX), 1, -1)
+            gal = dk.room("Observation Gallery", gm)
+            for a in (0, 90, 180, 270): dk.door(*pol(390.0, a), a, 22.0, depth=44.0, room=gal)
+            for a in (60, 240): dk.door(*pol(206.0, a), a, 14.0, depth=40.0, room=arch)
             if gal: gal["doors"] += 2
         elif lid == "L4":
             ring_core(dk, "Engineering", 380.0)
-            Ro0 = Rin - 70.0
-            dk.corridor(dk.band(Ro0, Rin - 30.0))                # the outer service ring
+            Ro0 = Rin - 64.0
+            dk.corridor(dk.band(Ro0, Rin - 20.0))                # the outer service ring
             spans = [("Security / Brig", 300, 60, (3, 4)), ("Life Support", 60, 180, (2, 3)), ("Maintenance", 180, 300, (4, 3))]
             for a in (300, 60, 180): dk.avenue(a, 470.0, Ro0, 30.0)
             for si, (nm, a0, a1, rows) in enumerate(spans):
-                pad0 = np.degrees((15.0 + WALL) / 760.0)
-                district(dk, nm, 470.0 + WALL, Ro0 - WALL, a0 + pad0, a1 - pad0, rows, 51 + si)
+                district(dk, nm, 470.0 + WALL, Ro0 - WALL, a0, a1, rows, 51 + si)
         else:
             ring_core(dk, "Reactor", 380.0, hub_doors=(90, 270))
             Ro = Rin - 6
-            for a in (150, 210, 330, 30): dk.avenue(a, 470.0, Ro, 20.0)
-            pad0 = np.degrees((10.0 + WALL) / 520.0)
-            district(dk, "Cargo", 470.0 + WALL, Ro, 210 + pad0, 330 - pad0, (3,), 71, outer=False)
-            district(dk, "Cargo (starboard hold)", 470.0 + WALL, Ro, 30 + pad0, 150 - pad0, (2,), 72, outer=False)
-            ep = dk.room("Escape Pod", dk.band(470.0 + WALL, Ro, 150 + pad0, 210 - pad0))
-            if ep: dk.rdoor(470.0 + WALL / 2, 180, ep)
-            st_ = dk.room("Reactor Control", dk.band(470.0 + WALL, Ro, 330 + pad0, 30 - pad0))   # (working label: a designed addition)
-            if st_: dk.rdoor(470.0 + WALL / 2, 0, st_)
+            for a in (150, 210, 330, 30): dk.avenue(a, 470.0, Ro - 20, 20.0)
+            district(dk, "Cargo", 470.0 + WALL, Ro, 210, 330, (3,), 71, outer=False, pad=18.0)
+            district(dk, "Cargo (starboard hold)", 470.0 + WALL, Ro, 30, 150, (2,), 72, outer=False, pad=18.0)
+            district(dk, "Escape Pod", 470.0 + WALL, Ro, 150, 210, (1,), 73, outer=False, pad=18.0)
+            district(dk, "Reactor Control", 470.0 + WALL, Ro, 330, 30, (1,), 74, outer=False, pad=18.0)   # (working label: a designed addition)
         for (x, z) in lifts_xy():                                # the shafts: a lobby bay on the concourse
             m = np.zeros((N, N), np.uint8); cv2.circle(m, P(x, z), int(26 / PX), 1, -1); dk.f |= (m & foot)
         dk.f &= foot
@@ -302,14 +397,17 @@ def build(glb, outdir, repdir=None):
         outside = int((dk.f & (1 - raw)).sum())
         lifts_ok = [bool(s0 and lab[p[1], p[0]] == s0) for p in lx]
         one_door = sorted(r["name"] for r in dk.rooms if r["doors"] < 2)
+        shapes_used = sorted({r.get("_kind", "") for r in dk.rooms} - {""})
         rep[lid] = {"name": lname, "height_m": round(ym * K), "proposed_addition": proposed, "hull_inscribed_radius_m": round(Rin),
                     "floor_area_km2": round(float(dk.f.sum()) * PX * PX / 1e6, 3), "floor_outside_measured_hull_px": outside,
                     "rooms": len(dk.rooms), "doors": len(dk.doors), "rooms_dropped_unreachable": cut,
-                    "lifts_on_walkable_floor": lifts_ok, "one_door_rooms": one_door}
+                    "lifts_on_walkable_floor": lifts_ok, "one_door_rooms": one_door, "room_shapes": shapes_used,
+                    "floor_outside_measured_hull_m2": round(outside * PX * PX)}
         decks.append((lid, lname, ym, proposed, dk, raw))
         # the deck map (north up = the docking front), the measured hull behind the rooms
-        im = np.zeros((N, N, 3), np.uint8); im[:] = (40, 16, 8); im[raw > 0] = (70, 34, 14); im[dk.f > 0] = (110, 62, 20)
-        cs, _ = cv2.findContours(raw, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE); cv2.drawContours(im, cs, -1, (160, 110, 40), 2, cv2.LINE_AA)
+        hullm = cv2.dilate(foot, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (13, 13)))   # the clean hull line: the deck's edge plus the hull's thickness
+        im = np.zeros((N, N, 3), np.uint8); im[:] = (40, 16, 8); im[hullm > 0] = (62, 30, 12); im[dk.f > 0] = (110, 62, 20)
+        cs, _ = cv2.findContours(hullm, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE); cv2.drawContours(im, cs, -1, (200, 150, 60), 2, cv2.LINE_AA)
         cs, _ = cv2.findContours(dk.f, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE); cv2.drawContours(im, cs, -1, (255, 230, 90), 1, cv2.LINE_AA)
         for d_ in dk.doors: cv2.circle(im, P(d_["x"], d_["z"]), 3, (90, 255, 90), -1)
         for (x, z), nm in zip(lifts_xy(), ("NE", "SE", "SW", "NW")):
@@ -320,7 +418,7 @@ def build(glb, outdir, repdir=None):
             sz = cv2.getTextSize(t, cv2.FONT_HERSHEY_SIMPLEX, fs, 1)[0]; p = P(*r["at"])
             cv2.putText(im, t, (p[0] - sz[0] // 2, p[1] + 4), cv2.FONT_HERSHEY_SIMPLEX, fs, (255, 255, 255), 1, cv2.LINE_AA)
         cv2.putText(im, "VERANTHOS SENATE STATION  -  %s %s" % (lid, lname), (30, 44), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 240, 170), 2, cv2.LINE_AA)
-        cv2.putText(im, ("DESIGNED ADDITION - not on the blueprint picture" if proposed else "rooms from the blueprint concept") + "  |  outline measured from st3d_veranthos_senate at %+d m" % round(ym * K),
+        cv2.putText(im, ("DESIGNED ADDITION - not on the blueprint picture" if proposed else "rooms from the blueprint concept") + "  |  clean outline fitted to st3d_veranthos_senate at %+d m" % round(ym * K),
                     (30, 72), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (120, 200, 255), 1, cv2.LINE_AA)
         mp = "veranthos_%s.jpg" % lid.lower()
         cv2.imwrite(os.path.join(outdir, mp), cv2.resize(im, (1024, 1024), interpolation=cv2.INTER_AREA), [cv2.IMWRITE_JPEG_QUALITY, 85])
