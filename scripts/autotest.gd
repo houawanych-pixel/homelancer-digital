@@ -3047,6 +3047,49 @@ func _run() -> void:
 			await _wait(0.4)
 			_check("v12.97: standing in %s reads %s" % [nm, nm], st.room_now == nm, st.room_now)
 			if nm in ["Bridge", "CIC (Combat Information Center)", "Engineering Deck", "Reactor Core"]: await _shot("interior_" + nm.to_lower().replace(" ", "_").left(12), 0.2)
+		# v13.00: the upper and lower decks (proposed layouts) and the lifts
+		_check("v13.00: three decks (main + upper + lower), four lift shafts", st.decks.size() == 3 and st.lift_pads.size() == 8, "%d %d" % [st.decks.size(), st.lift_pads.size()])
+		var fwd: Dictionary = st.lift_pads.filter(func(p): return int(p["level"]) == 0 and st.lift_stops(p).has(1))[0]
+		var aft: Dictionary = st.lift_pads.filter(func(p): return int(p["level"]) == 0 and st.lift_stops(p).has(-1))[0]
+		_check("v13.00: forward lifts go up only, aft lifts go down only", not st.lift_stops(fwd).has(-1) and not st.lift_stops(aft).has(1))
+		st.body.global_position = (fwd["pos"] as Vector3) + Vector3(0, 0.1, 0)
+		await _wait(0.4)
+		_check("v13.00: standing on a lift shows its button", st._lift_box.visible and (st._lift_box.get_node("Up") as Button).visible and not (st._lift_box.get_node("Down") as Button).visible)
+		await _shot("deck_lift_main", 0.2)
+		_check("v13.00: the lift takes you up", st.ride(1))
+		await _wait(0.8)
+		_check("v13.00: you stand on the upper deck floor", st.level == 1 and absf(st.body.global_position.y - ShipInterior.DECK_GAP) < 0.5 and "UPPER DECK" in st._top.text and "PROPOSED" in st._top.text, "%s %s" % [str(st.body.global_position), st._top.text])
+		await _shot("deck_upper_lift", 0.2)
+		for nm in ["Observation Lounge", "Captain's Quarters", "Wardroom"]:
+			var rn: Node3D = st.world.get_node("Room_upper_" + nm.validate_node_name().replace(" ", "_"))
+			st.body.global_position = rn.global_position + Vector3(0, 0.1, 0)
+			await _wait(0.5)
+			_check("v13.00: upper deck, standing in %s" % nm, st.room_now == nm and absf(st.body.global_position.y - ShipInterior.DECK_GAP) < 0.5, "%s %s" % [st.room_now, str(st.body.global_position)])
+			await _shot("deck_upper_" + nm.to_lower().replace(" ", "_").replace("'", ""), 0.2)
+		st.body.global_position = (st.lift_stops(fwd)[1]["pos"] as Vector3) + Vector3(0, 0.1, 0)
+		await _wait(0.4)
+		_check("v13.00: and back down to the main deck", st.ride(-1))
+		await _wait(0.5)
+		_check("v13.00: main deck again, its own plan as the map", st.level == 0 and "MAIN DECK" in st._top.text)
+		st.body.global_position = (aft["pos"] as Vector3) + Vector3(0, 0.1, 0)
+		await _wait(0.4)
+		_check("v13.00: the aft lift takes you down", st.ride(-1))
+		await _wait(0.8)
+		_check("v13.00: you stand on the lower deck floor", st.level == -1 and absf(st.body.global_position.y + ShipInterior.DECK_GAP) < 0.5, str(st.body.global_position))
+		await _shot("deck_lower_lift", 0.2)
+		for nm in ["Brig", "Life Support", "Pump Room"]:
+			var rn2: Node3D = st.world.get_node("Room_lower_" + nm.validate_node_name().replace(" ", "_"))
+			st.body.global_position = rn2.global_position + Vector3(0, 0.1, 0)
+			await _wait(0.5)
+			_check("v13.00: lower deck, standing in %s" % nm, st.room_now == nm, st.room_now)
+			await _shot("deck_lower_" + nm.to_lower().replace(" ", "_"), 0.2)
+		# walk on the lower deck: forward along the spine from Life Support for 2 s
+		var dq0 := st.body.global_position
+		st.yaw = 0.0
+		st.move_override = Vector2(0, 1)
+		await _wait(1.5)
+		st.move_override = Vector2.ZERO
+		_check("v13.00: you walk on the lower deck", st.body.global_position.distance_to(dq0) > 2.0 and absf(st.body.global_position.y + ShipInterior.DECK_GAP) < 0.5, str(st.body.global_position))
 		st.close()
 		await _wait(0.3)
 		_check("v12.97: LEAVE SHIP returns", not is_instance_valid(main.ship_deck) and main.state != "ship_deck", main.state)

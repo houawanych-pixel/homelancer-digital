@@ -19,6 +19,7 @@ const M_PER_CELL := 0.6      # 1 plan cell = 4 px = 0.6 m (1 px = 0.15 m: the Un
 const WALL_H := 3.4
 const SHELL_H := 8.8          # v13.00 shell decks: wall height under the ceiling (owner: "higher, like two stories")
 const STOREY := 4.4
+const DECK_GAP := 11.0       # v13.00: metres between deck floors (upper deck +1, lower deck -1)
 const SHOULDER := Vector3(0.7, 0.2, 2.9)   # v13.00: the over-the-shoulder camera (right, up, back), as on the station escape
 const PILOT_GLB := "res://assets/pilot/hl_hova.glb"
 const CAM_OFF := Vector3(0, 14.0, 7.0)   # above and behind (south of) you, looking down: the MGS view
@@ -51,6 +52,14 @@ var pitch := -0.12
 var _look_id := -1
 var _look_last := Vector2.ZERO
 var wall_h := WALL_H
+var decks: Array = []         # v13.00: every deck of this ship, the main one (level 0) first
+var lift_pads: Array = []    # {pos, level, cell}
+var level := 0
+var at_lift := {}
+var _lift_box: HBoxContainer
+var _fade: ColorRect
+var _top: Label
+var _maps := {}
 
 static func can_open(id: String) -> bool:
 	return str(FleetCatalog.get_entry(id).get("stage", "")) != ""
@@ -114,7 +123,9 @@ func _build() -> void:
 	_grid_tex = _make_grid()
 	_grid()
 	_floor_ceiling()
-	if shell: _shell_walls()
+	if shell:
+		_shell_deck(data["shell"], 0.0, "")
+		_more_decks()
 	else: _walls()
 	_rooms()
 	_doors()
@@ -318,7 +329,7 @@ func _lifts() -> void:
 		ln.position = cell_to_world(float(l[0]), float(l[1]))
 		world.add_child(ln)
 		var lb := Label3D.new()
-		lb.text = "LIFT (one deck only)"
+		lb.text = "LIFT" if data.has("decks") else "LIFT (one deck only)"
 		lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 		lb.font_size = 28
 		lb.pixel_size = 0.008
@@ -380,6 +391,7 @@ func _ui() -> void:
 	var top := Label.new()
 	top.name = "ShipName"
 	top.text = "%s  ·  MAIN DECK  ·  graybox%s" % [str(entry["name"]).to_upper(), "  ·  PROTOTYPE" if shell else ""]
+	_top = top
 	top.position = Vector2(20, 14)
 	top.add_theme_font_size_override("font_size", 20)
 	top.add_theme_color_override("font_color", Color(0.7, 0.95, 1.0))
@@ -425,6 +437,7 @@ func _ui() -> void:
 	leave.add_theme_font_size_override("font_size", 20)
 	leave.pressed.connect(close)
 	add_child(leave)
+	if not decks.is_empty(): _lift_ui()
 
 func close() -> void:
 	left.emit()
@@ -461,6 +474,7 @@ func _physics_process(dt: float) -> void:
 	if dir.length() > 0.1: body.rotation.y = lerp_angle(body.rotation.y, atan2(-dir.x, -dir.z), clampf(dt * 12.0, 0.0, 1.0))
 	body.move_and_slide()
 	_cam_follow(clampf(dt * 6.0, 0.0, 1.0))
+	if not decks.is_empty(): _deck_tick()
 	room_now = room_at(body.global_position)
 	room_label.text = room_now if room_now != "" else "Corridor"
 	var c := world_to_cell(body.global_position)
@@ -470,6 +484,10 @@ func _physics_process(dt: float) -> void:
 ## The labelled room under a point ("" = corridor or open deck).
 func room_at(p: Vector3) -> String:
 	var c := world_to_cell(p)
+	if level != 0:   # the other decks: the room whose centre you are near (its rough size comes with the layout)
+		for r in deck_of(level).get("rooms", []):
+			if c.distance_to(Vector2(float(r["at"][0]), float(r["at"][1]))) <= float(r.get("rad", 8.0)): return str(r["name"])
+		return ""
 	var x := int(c.x); var y := int(c.y); var w := int(data["w"])
 	if x < 0 or y < 0 or x >= w or y >= int(data["h"]): return ""
 	var rid := _room_grid[y * w + x]
@@ -510,8 +528,8 @@ func _outline(poly: Array) -> PackedVector3Array:
 	for i in range(0, poly.size(), 2): pts.append(cell_to_world(float(poly[i]), float(poly[i + 1])))
 	return pts
 
-func _shell_walls() -> void:
-	var sh: Dictionary = data["shell"]
+func _shell_deck(sh: Dictionary, y0: float, tag: String) -> void:
+	var lift := Vector3(0, y0, 0)
 	var st := SurfaceTool.new(); st.begin(Mesh.PRIMITIVE_TRIANGLES)       # walls
 	var lo := SurfaceTool.new(); lo.begin(Mesh.PRIMITIVE_TRIANGLES)       # cyan line at the foot (the plan's line colour)
 	var hi := SurfaceTool.new(); hi.begin(Mesh.PRIMITIVE_TRIANGLES)       # light strip under the ceiling
@@ -521,6 +539,7 @@ func _shell_walls() -> void:
 		var top: float = wall_h if kind == "walls" else 1.15
 		for poly in sh[kind]:
 			var pts := _outline(poly)
+			for pi in pts.size(): pts[pi] += lift
 			var n := pts.size()
 			for i in n:
 				var a := pts[i]; var b := pts[(i + 1) % n]
@@ -540,18 +559,20 @@ func _shell_walls() -> void:
 				var tri := Geometry2D.triangulate_polygon(p2)
 				for t in tri:
 					cv.set_normal(Vector3.UP)
-					cv.add_vertex(Vector3(p2[t].x, top, p2[t].y))
+					cv.add_vertex(Vector3(p2[t].x, y0 + top, p2[t].y))
 				for t in range(0, tri.size(), 3):
-					faces.append_array([Vector3(p2[tri[t]].x, top, p2[tri[t]].y), Vector3(p2[tri[t + 1]].x, top, p2[tri[t + 1]].y), Vector3(p2[tri[t + 2]].x, top, p2[tri[t + 2]].y)])
+					faces.append_array([Vector3(p2[tri[t]].x, y0 + top, p2[tri[t]].y), Vector3(p2[tri[t + 1]].x, y0 + top, p2[tri[t + 1]].y), Vector3(p2[tri[t + 2]].x, y0 + top, p2[tri[t + 2]].y)])
 	for pair in [[st, "ShellWalls", _wall_mat(Color(0.6, 0.68, 0.8))], [cv, "Cover", _wall_mat(Color(0.42, 0.47, 0.56))],
 			[lo, "WallTrim", _glow(Color(0.25, 0.8, 0.95))], [hi, "LightStrip", _glow(Color(0.75, 0.95, 1.0))]]:
+		var made: ArrayMesh = (pair[0] as SurfaceTool).commit()
+		if made == null or made.get_surface_count() == 0: continue   # (a deck with no cover)
 		var mi := MeshInstance3D.new()
-		mi.name = pair[1]
-		mi.mesh = (pair[0] as SurfaceTool).commit()
+		mi.name = str(pair[1]) + tag
+		mi.mesh = made
 		mi.material_override = pair[2]
 		world.add_child(mi)
 	var sb := StaticBody3D.new()
-	sb.name = "Walls"
+	sb.name = "Walls" + tag
 	var cs := CollisionShape3D.new()
 	var shp := ConcavePolygonShape3D.new()
 	shp.backface_collision = true
@@ -562,16 +583,35 @@ func _shell_walls() -> void:
 	# the ceiling (you are inside now)
 	var sz := Vector2(float(data["w"]), float(data["h"])) * M_PER_CELL
 	var ce := MeshInstance3D.new()
-	ce.name = "Ceiling"
+	ce.name = "Ceiling" + tag
 	var bm := BoxMesh.new()
 	bm.size = Vector3(sz.x, 0.2, sz.y)
 	ce.mesh = bm
-	ce.position.y = wall_h + 0.1
+	ce.position.y = y0 + wall_h + 0.1
 	ce.material_override = _grey(Color(0.3, 0.34, 0.42))
 	world.add_child(ce)
-	(world.get_node("Floor") as MeshInstance3D).material_override = _grey(Color(0.42, 0.47, 0.56))
-	# the pilot: the owner's own model in place of the stand-in
-	if ResourceLoader.exists(PILOT_GLB): call_deferred("_shell_pilot")
+	if tag == "":
+		(world.get_node("Floor") as MeshInstance3D).material_override = _grey(Color(0.42, 0.47, 0.56))
+		# the pilot: the owner's own model in place of the stand-in
+		if ResourceLoader.exists(PILOT_GLB): call_deferred("_shell_pilot")
+	else:   # another deck: its own floor (the main deck's floor is made in _floor_ceiling)
+		var fl := MeshInstance3D.new()
+		fl.name = "Floor" + tag
+		var fm := BoxMesh.new()
+		fm.size = Vector3(sz.x, 0.4, sz.y)
+		fl.mesh = fm
+		fl.position.y = y0 - 0.2
+		fl.material_override = _grey(Color(0.42, 0.47, 0.56))
+		world.add_child(fl)
+		var fb := StaticBody3D.new()
+		fb.name = "FloorBody" + tag
+		var fcs := CollisionShape3D.new()
+		var fbs := BoxShape3D.new()
+		fbs.size = fm.size
+		fcs.shape = fbs
+		fcs.position.y = y0 - 0.2
+		fb.add_child(fcs)
+		world.add_child(fb)
 
 func _shell_pilot() -> void:
 	if not is_instance_valid(body): return
@@ -632,3 +672,136 @@ func _shell_input(ev: InputEvent) -> void:
 		elif idx2 == _look_id and _look_id != -1:
 			look(ev.position - _look_last)
 			_look_last = ev.position
+
+# ---------------------------------------------------------------------------------------------------------------------
+## v13.00 (owner: "two more ship levels, top level and lower level, different rooms and smaller ... put in the elevator
+## system ... only two or four for the ships"): a deck json may carry "decks" (tools/holodeck/decks_<ship>.py): more
+## decks stacked above (level +1) and below (level -1) the plan's main deck, each with its own outlines, rooms and map.
+## The plan's lift squares are the shafts: a lift stops at every deck that has a lift at that same spot. Stand on a
+## lift pad and the UP / DOWN buttons appear. Decks with no blueprint are marked PROPOSED on screen and on their map.
+func deck_of(lv: int) -> Dictionary:
+	for dk in decks:
+		if int(dk["level"]) == lv: return dk
+	return {}
+
+func _more_decks() -> void:
+	if not data.has("decks"): return
+	decks = [{"id": "main", "level": 0, "name": "MAIN DECK", "proposed": false, "rooms": data["rooms"], "lifts": data.get("lifts", []),
+		"map": str(entry["holodeck_res"])}]
+	for dk in data["decks"]:
+		var e: Dictionary = (dk as Dictionary).duplicate()
+		e["map"] = FleetCatalog.HOLODECK_DIR + str(dk["map"])
+		decks.append(e)
+		var y0 := float(int(dk["level"])) * DECK_GAP
+		_shell_deck(dk["shell"], y0, "_" + str(dk["id"]))
+		for r in dk["rooms"]:
+			var rn := Node3D.new()
+			rn.name = "Room_%s_%s" % [str(dk["id"]), str(r["name"]).validate_node_name().replace(" ", "_")]
+			rn.set_meta("room", r["name"])
+			rn.position = cell_to_world(float(r["at"][0]), float(r["at"][1])) + Vector3(0, y0, 0)
+			world.add_child(rn)
+			var lb := Label3D.new()
+			lb.text = str(r["name"]).to_upper()
+			lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			lb.font_size = 48
+			lb.outline_size = 10
+			lb.pixel_size = 0.005
+			lb.modulate = Color(0.85, 1.0, 1.0)
+			lb.position.y = 3.1
+			rn.add_child(lb)
+	var pad_mat := _glow(Color(0.3, 0.95, 1.0))
+	for dk in decks:
+		var i := 0
+		for l in dk["lifts"]:
+			i += 1
+			var pos := cell_to_world(float(l[0]), float(l[1])) + Vector3(0, float(int(dk["level"])) * DECK_GAP, 0)
+			lift_pads.append({"pos": pos, "level": int(dk["level"]), "cell": Vector2(float(l[0]), float(l[1]))})
+			var pad := MeshInstance3D.new()   # the pad you stand on (a flat ring of light, graybox)
+			pad.name = "LiftPad_%s_%d" % [str(dk["id"]), i]
+			var tm := TorusMesh.new()
+			tm.inner_radius = 0.95
+			tm.outer_radius = 1.15
+			tm.rings = 24
+			tm.ring_segments = 6
+			pad.mesh = tm
+			pad.scale.y = 0.15
+			pad.material_override = pad_mat
+			pad.position = pos + Vector3(0, 0.03, 0)
+			world.add_child(pad)
+			if int(dk["level"]) != 0:
+				var lb2 := Label3D.new()
+				lb2.text = "LIFT"
+				lb2.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+				lb2.font_size = 28
+				lb2.pixel_size = 0.008
+				lb2.position = pos + Vector3(0, 2.1, 0)
+				world.add_child(lb2)
+
+## The decks a lift at this spot can take you to from this level: {+1: pad, -1: pad}.
+func lift_stops(pad: Dictionary) -> Dictionary:
+	var out := {}
+	for p in lift_pads:
+		if absi(int(p["level"]) - int(pad["level"])) == 1 and (p["cell"] as Vector2).distance_to(pad["cell"]) < 1.5:
+			out[int(p["level"]) - int(pad["level"])] = p
+	return out
+
+func _lift_ui() -> void:
+	_lift_box = HBoxContainer.new()
+	_lift_box.name = "LiftButtons"
+	_lift_box.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_lift_box.position = Vector2(-230, -150)
+	_lift_box.custom_minimum_size = Vector2(460, 64)
+	_lift_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	_lift_box.add_theme_constant_override("separation", 18)
+	_lift_box.visible = false
+	add_child(_lift_box)
+	for dir in [1, -1]:
+		var b := Button.new()
+		b.name = "Up" if dir == 1 else "Down"
+		b.custom_minimum_size = Vector2(220, 64)
+		b.add_theme_font_size_override("font_size", 20)
+		b.pressed.connect(ride.bind(dir))
+		_lift_box.add_child(b)
+	_fade = ColorRect.new()
+	_fade.color = Color(0, 0, 0, 0)
+	_fade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_fade)
+
+## Take the lift you are standing on one deck up (+1) or down (-1). False when it does not go that way.
+func ride(dir: int) -> bool:
+	if at_lift.is_empty(): return false
+	var stops := lift_stops(at_lift)
+	if not stops.has(dir): return false
+	var to: Dictionary = stops[dir]
+	body.global_position = (to["pos"] as Vector3) + Vector3(0, 0.1, 0)
+	body.velocity = Vector3.ZERO
+	if is_instance_valid(_fade):
+		_fade.color = Color(0, 0, 0, 1)
+		create_tween().tween_property(_fade, "color", Color(0, 0, 0, 0), 0.45)
+	_deck_tick()
+	return true
+
+func _deck_tick() -> void:
+	var lv := int(round(body.global_position.y / DECK_GAP))
+	if lv != level or _top.get_meta("lv", 99) != lv:
+		level = lv
+		_top.set_meta("lv", lv)
+		var dk := deck_of(lv)
+		_top.text = "%s  ·  %s  ·  graybox%s" % [str(entry["name"]).to_upper(), str(dk.get("name", "DECK")), "  ·  PROPOSED LAYOUT (no blueprint yet)" if bool(dk.get("proposed", false)) else "  ·  PROTOTYPE"]
+		var mp := str(dk.get("map", ""))
+		if mp != "" and ResourceLoader.exists(mp):
+			if not _maps.has(mp): _maps[mp] = load(mp)
+			minimap.texture = _maps[mp]
+	at_lift = {}
+	for p in lift_pads:
+		if int(p["level"]) == level and (p["pos"] as Vector3).distance_to(body.global_position) < 1.7: at_lift = p
+	if at_lift.is_empty():
+		_lift_box.visible = false
+		return
+	var stops := lift_stops(at_lift)
+	_lift_box.visible = not stops.is_empty()
+	for dir in [1, -1]:
+		var b: Button = _lift_box.get_node("Up" if dir == 1 else "Down")
+		b.visible = stops.has(dir)
+		if stops.has(dir): b.text = ("▲  " if dir == 1 else "▼  ") + str(deck_of(level + dir).get("name", "DECK"))
