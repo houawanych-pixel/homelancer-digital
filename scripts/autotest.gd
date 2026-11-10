@@ -3163,7 +3163,7 @@ func _run() -> void:
 		_check("v13.00: Cruiser lift up", cs.ride(1))
 		await _wait(0.8)
 		await _shot("cruiser_upper_ring", 0.2)
-		for nm in ["Operations Hub", "Ready Room", "Observation Lounge"]:
+		for nm in ["Operations Hub", "Ready Room", "Wardroom"]:
 			var crn: Node3D = cs.world.get_node_or_null("Room_upper_" + nm.validate_node_name().replace(" ", "_"))
 			_check("v13.00: Cruiser upper deck has %s" % nm, crn != null)
 			if crn == null: continue

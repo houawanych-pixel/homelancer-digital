@@ -28,6 +28,12 @@ THREE = ("Capital", "Cruiser", "Destroyer", "Resupply", "TroopTransport")
 TWO = ("Frigate", "Escort")
 UPPER_NAMES = ["Ready Room", "Comms Center", "Chart Room", "Signal Office"]; UPPER_END = "Observation Lounge"
 LOWER_NAMES = ["Brig", "Machine Shop", "Munitions Store", "Water Reclamation"]; LOWER_END = "Pump Room"
+UPPER_FILL = ["Officers' Quarters", "Briefing Room", "Flight Control", "Gunnery Control", "Records Office", "Officers' Mess", "Guest Quarters",
+              "Gym", "Library", "Sick Bay", "Signal Store", "Map Room", "Duty Office", "Watch Room", "Stateroom", "Conference Room"]
+LOWER_FILL = ["Storage", "Workshop", "Parts Store", "Water Tanks", "Fuel Control", "Waste Processing", "Laundry", "Cold Store", "Crew Mess",
+              "Bunk Room", "Tool Crib", "Battery Room", "Air Plant", "Locker Room", "Cable Run", "Filter Room"]
+UPPER_HALLS = ["Wardroom", "Observation Lounge", "Assembly Hall", "Mess Hall"]; LOWER_HALLS = ["Pump Room", "Cargo Hall", "Machine Hall", "Tank Hall"]
+PX, PY = 124, 112   # px: the room grid's pitch across and along the ship (a passage, a wall, a room, a wall): rooms about 13 x 11 m
 LOCK_TRY = {1: ["Armory", "Weapons Locker", "Magazine", "Cargo"], 2: ["Engine Room", "Reactor", "Engineering"], 3: ["Bridge", "Cockpit", "CIC"]}
 GUARD_TRY = ["Medbay", "Galley", "Crew Quarters", "Mess"]
 
@@ -165,7 +171,7 @@ def choose_ring(d, floor, doors, start, D, plan_lifts):
         for b in plan_lifts:
             if a[0] < b[0] and abs(a[1] - b[1]) <= 10 and abs((a[0] + b[0]) / 2.0 - cx) <= 12:
                 rr = (np.hypot(a[0] - cx, a[1] - cy) + np.hypot(b[0] - cx, b[1] - cy)) / 2.0
-                if 46 <= rr and rr + CW / 2 + 8 + 36 <= R: return cx, cy, float(rr), [a, b], "the plan's own pair"
+                if 46 <= rr <= 110 and rr + CW / 2 + 8 + 36 <= R: return cx, cy, float(rr), [a, b], "the plan's own pair"
     reach = reach_at(floor, doors, 0, start).astype(np.uint8)
     corr = (room_grid(d, H, W) == 0)
     ok = reach.copy()
@@ -173,7 +179,7 @@ def choose_ring(d, floor, doors, start, D, plan_lifts):
         x0, y0, x1, y1 = [int(round(v)) for v in dr["rect"]]; ok[max(0, y0 - 12):y1 + 12, max(0, x0 - 12):x1 + 12] = 0
     clear = cv2.distanceTransform(ok, cv2.DIST_L2, 5)
     best = None
-    for rr in range(46, max(47, min(124, int(R - CW / 2 - 8 - 36)) + 1), 4):
+    for rr in range(46, max(47, min(110, int(R - CW / 2 - 8 - 36)) + 1), 4):
         for th in range(-50, 51, 5):
             px = rr * np.cos(np.radians(th)); py = rr * np.sin(np.radians(th))
             a = (int(round(cx - px)), int(round(cy + py))); b = (int(round(cx + px)), int(round(cy + py)))
@@ -196,7 +202,7 @@ def radial(D, cx, yc, rr, lifts, variant, names, hub_name, end_names):
     R = float(dist[yc, cx])
     if rr < 46 or R < rr + CW / 2 + 8 + 36: return None
     rh = rr - CW / 2 - 8                  # hub
-    Ro = min(R - 3, rr + CW / 2 + 8 + 84) # outer reach of the wedge rooms
+    Ro = min(R - 3, rr + CW / 2 + 8 + 96)  # outer reach of the wedge rooms
     k = U.Deck(H, W); k.CX = cx
     ring = np.zeros((H, W), np.uint8); hole = np.zeros((H, W), np.uint8)
     # the ring is round on both decks (so a lift anywhere on it lines up deck to deck); the hub's shape differs
@@ -240,8 +246,71 @@ def radial(D, cx, yc, rr, lifts, variant, names, hub_name, end_names):
                             "rot": round(float(np.degrees(np.arctan2(-v[1], v[0]))), 1), "w": 2 * hw_, "l": 2 * hl})
             mid = c + (ai + ao) / 2 * u
             k.room(names[qi % len(names)], int(mid[0]), int(mid[1])); n += 1
-    # the spokes: bow-ward and stern-ward to an end room, where the hull has the room
+    # v13.00 (owner: "more full, more bigger, more things ... you got a big silhouette to work with"): the rest of the
+    # hull is filled. A grid of passages runs out from the hub, bow to stern and side to side, with a room in every
+    # cell that fits inside the hull. Every second row the centre passage stops at a wide hall you walk through, so
+    # there is no straight run end to end. Rooms take their door on the side toward the centre line.
+    xl = lambda kk: cx + kk * PX
+    yl = lambda r: yc - PY // 2 + r * PY
+    built = cv2.dilate(k.f, np.ones((21, 21), np.uint8))   # the hub, ring and wedge rooms, with a wall's width round them
+    def far(x0, y0, x1, y1, _lim):   # clear of everything built so far
+        return not built[int(y0):int(y1), int(x0):int(x1)].any()
+    def inside(x0, y0, x1, y1, pad):
+        x0, y0, x1, y1 = int(x0 - pad), int(y0 - pad), int(x1 + pad), int(y1 + pad)
+        return x0 >= 0 and y0 >= 0 and x1 < W and y1 < H and bool(D[y0:y1, x0:x1].all())
+    KS = range(-9, 9); RS = range(-12, 12)
+    cell = {}
+    for kk in KS:
+        for r in RS:
+            box = (xl(kk) + 18, yl(r) + 18, xl(kk + 1) - 18, yl(r + 1) - 18)
+            if inside(*box, 10) and far(*box, Ro + 14): cell[(kk, r)] = box
+    hall = {r: (xl(-1) + 18, yl(r) + 18, xl(1) - 18, yl(r + 1) - 18) for r in RS if r % 2 == 0 and (-1, r) in cell and (0, r) in cell}
+    vseg = {}; hseg = {}
+    for kk in KS:
+        for r in RS:
+            if ((kk - 1, r) in cell or (kk, r) in cell) and not (kk == 0 and r in hall):
+                box = (xl(kk) - 10, yl(r) - 10, xl(kk) + 10, yl(r + 1) + 10)
+                if inside(*box, 2) and far(*box, Ro + 12): vseg[(kk, r)] = box
+            if (kk, r - 1) in cell or (kk, r) in cell:
+                box = (xl(kk) - 10, yl(r) - 10, xl(kk + 1) + 10, yl(r) + 10)
+                if inside(*box, 2) and far(*box, Ro + 12): hseg[(kk, r)] = box
+    for box in list(vseg.values()) + list(hseg.values()): k.box(*box)
+    fill = list(UPPER_FILL if variant == "oct" else LOWER_FILL); halls = list(UPPER_HALLS if variant == "oct" else LOWER_HALLS)
+    used = {}
+    def label(nm):
+        used[nm] = used.get(nm, 0) + 1
+        return nm if used[nm] == 1 else "%s %d" % (nm, used[nm])
+    extra = []   # (name, at, box, [door indices])
+    for r in sorted(hall, key=abs):
+        x0, y0, x1, y1 = hall[r]; ds = []
+        for (line, dy0, dy1) in ((yl(r), yl(r) + 8, yl(r) + 20), (yl(r + 1), yl(r + 1) - 20, yl(r + 1) - 8)):
+            if (-1, r if line == yl(r) else r + 1) in hseg or (0, r if line == yl(r) else r + 1) in hseg:
+                k.door(cx - 11, int(dy0), cx + 11, int(dy1), 0); ds.append(len(k.doors) - 1)
+        if not ds: continue
+        k.box(x0, y0, x1, y1, 16)
+        nm = label(halls[(abs(r) // 2 - 1) % len(halls)]); k.room(nm, cx, (y0 + y1) // 2); extra.append((nm, r, (x0, y0, x1, y1), ds))
+    order = sorted([c for c in cell if not (c[1] in hall and c[0] in (-1, 0))], key=lambda c: (abs(c[1]), abs(c[0] + 0.5), c[0]))
+    for i, (kk, r) in enumerate(order):
+        x0, y0, x1, y1 = cell[(kk, r)]; my = (y0 + y1) // 2; mx = (x0 + x1) // 2
+        inner = (kk, r) if kk >= 0 else (kk + 1, r)          # the passage on the side toward the centre line
+        toward = (kk, r) if r > 0 else (kk, r + 1)            # the cross passage on the side toward the hub
+        away = (kk, r + 1) if r > 0 else (kk, r)
+        if inner in vseg:
+            dr = (x0 - 10, my - 11, x0 + 2, my + 11) if kk >= 0 else (x1 - 2, my - 11, x1 + 10, my + 11)
+        elif toward in hseg:
+            dr = (mx - 11, y0 - 10, mx + 11, y0 + 2) if r > 0 else (mx - 11, y1 - 2, mx + 11, y1 + 10)
+        elif away in hseg:
+            dr = (mx - 11, y1 - 2, mx + 11, y1 + 10) if r > 0 else (mx - 11, y0 - 10, mx + 11, y0 + 2)
+        else: continue
+        k.box(x0, y0, x1, y1, 12); k.door(int(dr[0]), int(dr[1]), int(dr[2]), int(dr[3]), 0)
+        nm = label(fill[(abs(kk) + abs(r) * 3 + (0 if kk >= 0 else 1)) % len(fill)]); k.room(nm, mx, my); extra.append((nm, r, (x0, y0, x1, y1), [len(k.doors) - 1]))
+    # the spokes: from the ring bow-ward and stern-ward along the centre line, and out to each side, to the first
+    # passage of the grid; where the grid has nothing that way, to an end room as before
     for si, sgn in enumerate((-1, 1)):
+        lines = [yl(r) for (kk, r) in hseg if kk in (-1, 0) and (yl(r) - yc) * sgn > rr + CW]
+        if lines:
+            y_to = min(lines, key=lambda y: abs(y - yc)); y_ring = int(yc + sgn * (rr - 2))
+            k.box(cx - CW // 2, min(y_ring, y_to), cx + CW // 2, max(y_ring, y_to)); continue
         got = None
         for hr in (96, 80, 64, 48):
             for wr in (64, 52, 40):
@@ -254,11 +323,36 @@ def radial(D, cx, yc, rr, lifts, variant, names, hub_name, end_names):
         k.box(cx - wr, ya, cx + wr, ya + hr, 14)
         y_ring = int(yc + sgn * (rr + CW / 2 - 2)); y_room = ya if sgn > 0 else ya + hr
         k.box(cx - CW // 2, min(y_ring, y_room), cx + CW // 2, max(y_ring, y_room))
-        end_lv = 3 if si == (0 if variant == "oct" else 1) else 0      # the red room: bow end on the upper deck, stern end on the lower
         dy0 = y_room - 12 if sgn > 0 else y_room - 2
-        k.door(cx - 11, dy0, cx + 11, dy0 + 14, end_lv)
-        k.room(end_names[si], cx, ya + hr // 2)
+        k.door(cx - 11, dy0, cx + 11, dy0 + 14, 0)
+        nm = label(end_names[si]); k.room(nm, cx, ya + hr // 2); extra.append((nm, sgn * 99, (cx - wr, ya, cx + wr, ya + hr), [len(k.doors) - 1]))
+    for sgn in (-1, 1):
+        lines = [xl(kk) for (kk, r) in vseg if yl(r) <= yc <= yl(r + 1) and (xl(kk) - cx) * sgn > rr + CW]
+        if lines:
+            x_to = min(lines, key=lambda x: abs(x - cx)); x_ring = int(cx + sgn * (rr - 2))
+            k.box(min(x_ring, x_to), yc - CW // 2, max(x_ring, x_to), yc + CW // 2)
     k.f &= D
+    # keep only what can be walked to from the ring; drop the rest
+    er = cv2.erode(k.f, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7)))
+    _, lab = cv2.connectedComponents(er, connectivity=4)
+    s0 = lab[int(lifts[0][1]), int(lifts[0][0])]
+    live = cv2.dilate((lab == s0).astype(np.uint8), np.ones((9, 9), np.uint8)) if s0 else k.f
+    k.f &= live
+    alive = {r["name"] for r in k.rooms if live[int(r["at"][1]), int(r["at"][0])]}
+    dead_doors = {di for (nm, _, _, ds) in extra if nm not in alive for di in ds}
+    k.rooms = [r for r in k.rooms if r["name"] in alive]
+    extra = [e for e in extra if e[0] in alive]
+    # access: the furthest room toward the bow (upper deck) or the stern (lower deck) is red; one more yellow and
+    # one more orange among the filled rooms (the wedge rooms and the round core already carry some)
+    if extra:
+        want_sgn = -1 if variant == "oct" else 1
+        red = max(extra, key=lambda e: (e[1] * want_sgn, -abs(e[2][0] + e[2][2] - 2 * cx)))
+        for di in red[3]: k.doors[di]["level"] = 3
+        rest = [e for e in extra if e is not red and len(e[3]) == 1]
+        rest.sort(key=lambda e: (-e[1] * want_sgn, abs(e[2][0] + e[2][2] - 2 * cx)))
+        if len(rest) >= 2: k.doors[rest[0][3][0]]["level"] = 2
+        if len(rest) >= 4: k.doors[rest[len(rest) // 2][3][0]]["level"] = 1
+    k.doors = [q for i, q in enumerate(k.doors) if i not in dead_doors]
     return k, (int(cx - Ro), int(yc - Ro), int(cx + Ro), int(yc + Ro))
 
 def lock_main(d, floor, doors, start, at):
