@@ -1,24 +1,27 @@
 class_name ShipInterior
 extends Control
-## v12.97 (owner brief, job 2): a SHIP INTERIOR STAGE built from the official holographic deck plan
-## (HL_<Faction><Class>_HoloDeck_*.png). A new stage type: not rooms.gd (the station 360 panoramas) and not
-## Boarding (the mech-scale flight-game boarding). On foot, one main deck, blocked out from basic shapes:
-##   - the plan itself is the floor (the official overlay) and the minimap
-##   - every cyan wall line the plan draws is a box with collision (tools/holodeck/extract.py turns the PNG into
-##     assets/holodeck/<id>.json: wall boxes, room floors, green-square doors, room names)
-##   - every labelled room is a named Room_<name> node with its floor patch and its name over it
-##   - every green square is a Door_<n> node (an opening through the wall with a green frame); one on the outer
-##     hull is an AIRLOCK
-## Nothing else is invented: no extra decks, no props. Lifts drawn on the plan are marked but go nowhere (one deck).
-## Runs in its own 3D world (a SubViewport), so the flight scene underneath is untouched; LEAVE puts you back.
+## v12.97 / v12.98 (owner: "graybox, just like the regular dungeons, but now we actually have the floor plan ...
+## do it like Metal Gear Solid style, we only need the inside"): a SHIP INTERIOR STAGE seen from above and behind
+## (the Metal Gear Solid camera), graybox, laid out exactly from the official holographic deck plan
+## (HL_<Faction><Class>_HoloDeck_*.png). Not rooms.gd (station 360 panoramas) and not Boarding (mech-scale). One deck:
+##   - every cyan wall line the plan draws is a full-height grey wall with collision, on a grey grid floor
+##     (tools/holodeck/extract.py turns the PNG into assets/holodeck/<id>.json); no ceiling (the camera is above)
+##   - every labelled room is a Room_<name> node: a colour-coded floor patch and its name sign
+##   - every green square is a Door_<n> doorway (the opening, green door lights, the green floor mark); AIRLOCK on the hull
+##   - the plan itself is the minimap, with you on it
+## Nothing invented: no extra decks, no props. Lifts drawn on the plan are marked but go nowhere (one deck).
+## Runs in its own 3D world (a SubViewport); LEAVE SHIP puts you back where you were.
+## Keys: WASD / arrows move (up = toward the bow), Shift run. Touch: drag anywhere to move.
 
 signal left
 
 const M_PER_CELL := 0.6      # 1 plan cell = 4 px = 0.6 m (1 px = 0.15 m: the Unity Capital deck is about 154 x 230 m)
-const WALL_H := 2.6
-const WALK_SPEED := 6.0
-const RUN_SPEED := 10.0
-const CAM_OFF := Vector3(0, 22.0, 12.0)
+const WALL_H := 3.4
+const CAM_OFF := Vector3(0, 14.0, 7.0)   # above and behind (south of) you, looking down: the MGS view
+const WALK_SPEED := 4.6      # (same as the on-foot escape, StationEscape)
+const RUN_SPEED := 7.2
+const GRAV := 18.0
+const FOV := 50.0
 
 var ship_id := ""
 var entry := {}
@@ -37,6 +40,7 @@ var _stick_from := Vector2.ZERO
 var _room_grid := PackedInt32Array()
 var rooms_by_id := {}
 var doors: Array = []
+var _grid_tex: Texture2D
 
 static func can_open(id: String) -> bool:
 	return str(FleetCatalog.get_entry(id).get("stage", "")) != ""
@@ -58,6 +62,10 @@ func cell_to_world(cx: float, cy: float) -> Vector3:
 	return Vector3((cx - float(data["w"]) * 0.5) * M_PER_CELL, 0.0, (cy - float(data["h"]) * 0.5) * M_PER_CELL)
 func world_to_cell(p: Vector3) -> Vector2:
 	return Vector2(p.x / M_PER_CELL + float(data["w"]) * 0.5, p.z / M_PER_CELL + float(data["h"]) * 0.5)
+func _rect_center(r: Array) -> Vector3:
+	return cell_to_world(float(r[0]) + float(r[2]) * 0.5, float(r[1]) + float(r[3]) * 0.5)
+func _rect_size(r: Array, h: float) -> Vector3:
+	return Vector3(float(r[2]) * M_PER_CELL, h, float(r[3]) * M_PER_CELL)
 
 func _build() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -77,26 +85,51 @@ func _build() -> void:
 	var env := WorldEnvironment.new()
 	var e := Environment.new()
 	e.background_mode = Environment.BG_COLOR
-	e.background_color = Color(0.02, 0.05, 0.12)
+	e.background_color = Color(0.03, 0.035, 0.05)
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	e.ambient_light_color = Color(0.55, 0.7, 0.85)
-	e.ambient_light_energy = 0.8
-	e.glow_enabled = true
-	e.glow_intensity = 0.6
+	e.ambient_light_color = Color(0.62, 0.65, 0.72)
+	e.ambient_light_energy = 0.75
+	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	e.fog_enabled = true
+	e.fog_light_color = Color(0.12, 0.14, 0.18)
+	e.fog_density = 0.006
 	env.environment = e
 	world.add_child(env)
-	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-60, 30, 0)
-	sun.light_energy = 0.7
+	var sun := DirectionalLight3D.new()   # a soft key light so walls and floor read apart (graybox shading)
+	sun.rotation_degrees = Vector3(-62, 35, 0)
+	sun.light_energy = 0.55
 	world.add_child(sun)
+	_grid_tex = _make_grid()
 	_grid()
-	_plan_floor()
+	_floor_ceiling()
 	_walls()
 	_rooms()
 	_doors()
 	_lifts()
 	_player()
 	_ui()
+
+## The graybox grid: a 2 m tile with a darker line round it (one texture, laid in world space on every surface).
+static func _make_grid() -> Texture2D:
+	var img := Image.create(128, 128, true, Image.FORMAT_RGB8)
+	img.fill(Color(0.62, 0.63, 0.66))
+	for i in 128:
+		for t in 3:
+			img.set_pixel(i, t, Color(0.42, 0.43, 0.46)); img.set_pixel(t, i, Color(0.42, 0.43, 0.46))
+		img.set_pixel(i, 64, Color(0.55, 0.56, 0.59)); img.set_pixel(64, i, Color(0.55, 0.56, 0.59))
+	img.generate_mipmaps()
+	return ImageTexture.create_from_image(img)
+
+func _grey(col: Color, scale := 0.5) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_texture = _grid_tex
+	m.albedo_color = col
+	m.uv1_triplanar = true
+	m.uv1_world_triplanar = true
+	m.uv1_scale = Vector3.ONE * scale   # 1 / 2 m tiles
+	m.roughness = 0.85
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+	return m
 
 func _grid() -> void:
 	var w := int(data["w"]); var h := int(data["h"])
@@ -108,32 +141,28 @@ func _grid() -> void:
 		y += 1
 	for r in data["rooms"]: rooms_by_id[int(r["id"])] = r
 
-## The official plan as the deck floor, true to scale; one flat collision slab under the whole hull.
-func _plan_floor() -> void:
-	var tex: Texture2D = load(str(entry["holodeck_res"]))
+## A grey grid floor over the whole deck and one flat collision slab (no ceiling: the camera looks down from above).
+func _floor_ceiling() -> void:
 	var sz := Vector2(float(data["w"]), float(data["h"])) * M_PER_CELL
-	var mi := MeshInstance3D.new()
-	mi.name = "PlanFloor"
+	var fl := MeshInstance3D.new()
+	fl.name = "Floor"
 	var pm := PlaneMesh.new()
 	pm.size = sz
-	mi.mesh = pm
-	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.albedo_texture = tex
-	mat.albedo_color = Color(0.85, 0.9, 1.0)
-	mi.material_override = mat
-	world.add_child(mi)
+	fl.mesh = pm
+	fl.material_override = _grey(Color(0.78, 0.8, 0.84))
+	world.add_child(fl)
 	var sb := StaticBody3D.new()
 	sb.name = "FloorBody"
-	var cs := CollisionShape3D.new()
-	var bs := BoxShape3D.new()
-	bs.size = Vector3(sz.x, 0.4, sz.y)
-	cs.shape = bs
-	cs.position.y = -0.2
-	sb.add_child(cs)
+	for yy in [-0.2]:
+		var cs := CollisionShape3D.new()
+		var bs := BoxShape3D.new()
+		bs.size = Vector3(sz.x, 0.4, sz.y)
+		cs.shape = bs
+		cs.position.y = yy
+		sb.add_child(cs)
 	world.add_child(sb)
 
-## Every wall the plan draws, as a box (one MultiMesh for the looks, one box shape each for collision).
+## Every wall the plan draws: a full-height grey box (one MultiMesh for the looks, a box shape each for collision).
 func _walls() -> void:
 	var walls: Array = data["walls"]
 	var mm := MultiMesh.new()
@@ -147,66 +176,82 @@ func _walls() -> void:
 	world.add_child(sb)
 	var i := 0
 	for r in walls:
-		var c := cell_to_world(float(r[0]) + float(r[2]) * 0.5, float(r[1]) + float(r[3]) * 0.5)
-		var s := Vector3(float(r[2]) * M_PER_CELL, WALL_H, float(r[3]) * M_PER_CELL)
-		mm.set_instance_transform(i, Transform3D(Basis.from_scale(s), c + Vector3(0, WALL_H * 0.5, 0)))
+		var c := _rect_center(r) + Vector3(0, WALL_H * 0.5, 0)
+		var s := _rect_size(r, WALL_H)
+		mm.set_instance_transform(i, Transform3D(Basis.from_scale(s), c))
 		var cs := CollisionShape3D.new()
 		var bs := BoxShape3D.new()
 		bs.size = s
 		cs.shape = bs
-		cs.position = c + Vector3(0, WALL_H * 0.5, 0)
+		cs.position = c
 		sb.add_child(cs)
 		i += 1
 	var mmi := MultiMeshInstance3D.new()
 	mmi.name = "WallBoxes"
 	mmi.multimesh = mm
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.35, 0.85, 1.0, 0.38)
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.emission_enabled = true
-	mat.emission = Color(0.1, 0.65, 0.9)
-	mat.emission_energy_multiplier = 0.35
-	mmi.material_override = mat
+	mmi.material_override = _grey(Color(0.68, 0.7, 0.75))
 	world.add_child(mmi)
+	# a thin cyan strip along the foot of every wall: the plan's line colour, so you can read the layout
+	var mm2 := MultiMesh.new()
+	mm2.transform_format = MultiMesh.TRANSFORM_3D
+	mm2.mesh = bm
+	mm2.instance_count = walls.size()
+	i = 0
+	for r in walls:
+		var s2 := _rect_size(r, 0.08) + Vector3(0.04, 0, 0.04)
+		mm2.set_instance_transform(i, Transform3D(Basis.from_scale(s2), _rect_center(r) + Vector3(0, 0.04, 0)))
+		i += 1
+	var trim := MultiMeshInstance3D.new()
+	trim.name = "WallTrim"
+	trim.multimesh = mm2
+	var tm := StandardMaterial3D.new()
+	tm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	tm.albedo_color = Color(0.25, 0.8, 0.95)
+	trim.material_override = tm
+	world.add_child(trim)
 
-## Each labelled room: a Room_<name> node with its floor patch (a thin box) and its name over it.
+## Each labelled room: a Room_<name> node with its floor patch (a colour-coded graybox tint) and its name sign.
+const ROOM_TINTS := [Color(0.55, 0.75, 0.95), Color(0.95, 0.8, 0.5), Color(0.6, 0.9, 0.65), Color(0.9, 0.6, 0.6),
+	Color(0.75, 0.65, 0.95), Color(0.6, 0.9, 0.9), Color(0.95, 0.7, 0.85)]
 func _rooms() -> void:
-	var tint := StandardMaterial3D.new()
-	tint.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	tint.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	tint.albedo_color = Color(0.2, 0.7, 1.0, 0.12)
+	var k := 0
 	for r in data["rooms"]:
 		var rn := Node3D.new()
 		rn.name = "Room_" + str(r["name"]).validate_node_name().replace(" ", "_")
 		rn.set_meta("room", r["name"])
 		world.add_child(rn)
+		var tint := StandardMaterial3D.new()
+		tint.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		tint.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		var tc: Color = ROOM_TINTS[k % ROOM_TINTS.size()]
+		tint.albedo_color = Color(tc.r, tc.g, tc.b, 0.22)
+		k += 1
 		for b in (data["room_floor"] as Dictionary).get(str(r["id"]), []):
 			var mi := MeshInstance3D.new()
-			var bm := BoxMesh.new()
-			bm.size = Vector3(float(b[2]) * M_PER_CELL, 0.04, float(b[3]) * M_PER_CELL)
-			mi.mesh = bm
+			var pm := BoxMesh.new()
+			pm.size = _rect_size(b, 0.02)
+			mi.mesh = pm
 			mi.material_override = tint
-			mi.position = cell_to_world(float(b[0]) + float(b[2]) * 0.5, float(b[1]) + float(b[3]) * 0.5) + Vector3(0, 0.03, 0)
+			mi.position = _rect_center(b) + Vector3(0, 0.012, 0)
 			rn.add_child(mi)
 		var lb := Label3D.new()
 		lb.text = str(r["name"]).to_upper()
 		lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		lb.font_size = 72
-		lb.pixel_size = 0.02
-		lb.outline_size = 14
+		lb.font_size = 48
+		lb.pixel_size = 0.008
+		lb.outline_size = 10
 		lb.modulate = Color(0.85, 1.0, 1.0)
-		lb.no_depth_test = true
-		lb.position = cell_to_world(float(r["at"][0]), float(r["at"][1])) + Vector3(0, 4.0, 0)
+		lb.pixel_size = 0.014
+		lb.position = cell_to_world(float(r["at"][0]), float(r["at"][1])) + Vector3(0, 3.8, 0)
 		rn.add_child(lb)
 
-## The green squares: a Door_<n> node each, a green frame round the opening; AIRLOCK when it is on the hull.
+## The green squares: a doorway each (the opening, green door lights on top of the walls beside it, the green floor
+## mark of the plan's square); AIRLOCK on the hull.
 func _doors() -> void:
 	var rows: Array = data["rows"]
 	var gmat := StandardMaterial3D.new()
-	gmat.albedo_color = Color(0.2, 1.0, 0.35)
-	gmat.emission_enabled = true
-	gmat.emission = Color(0.15, 1.0, 0.3)
-	gmat.emission_energy_multiplier = 1.4
+	gmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	gmat.albedo_color = Color(0.25, 1.0, 0.4)
 	var n := 0
 	for d in data["doors"]:
 		n += 1
@@ -221,30 +266,28 @@ func _doors() -> void:
 		dn.set_meta("airlock", hull)
 		dn.position = cell_to_world(cx, cy)
 		world.add_child(dn)
-		var s := maxf(float(d[2]), float(d[3])) * M_PER_CELL + 1.2
-		for k in 4:   # a square green frame lying round the opening, plus a lintel bar
-			var mi := MeshInstance3D.new()
-			var bm := BoxMesh.new()
-			bm.size = Vector3(s if k < 2 else 0.25, 0.12, 0.25 if k < 2 else s)
-			mi.mesh = bm
-			mi.material_override = gmat
-			mi.position = [Vector3(0, 0.08, -s * 0.5), Vector3(0, 0.08, s * 0.5), Vector3(-s * 0.5, 0.08, 0), Vector3(s * 0.5, 0.08, 0)][k]
-			dn.add_child(mi)
-		var lt := MeshInstance3D.new()
+		var lt := MeshInstance3D.new()   # the green door light, just under the header
 		var lm := BoxMesh.new()
-		lm.size = Vector3(0.6, 0.6, 0.6)
+		lm.size = Vector3(maxf(float(d[2]) * M_PER_CELL, 0.5), 0.12, maxf(float(d[3]) * M_PER_CELL, 0.5))
 		lt.mesh = lm
 		lt.material_override = gmat
-		lt.position.y = WALL_H + 0.2
+		lt.position.y = WALL_H + 0.05
 		dn.add_child(lt)
+		var fl := MeshInstance3D.new()   # and a green mark on the floor of the doorway (the plan's square)
+		var fm := BoxMesh.new()
+		fm.size = Vector3(maxf(float(d[2]) * M_PER_CELL, 0.5), 0.02, maxf(float(d[3]) * M_PER_CELL, 0.5))
+		fl.mesh = fm
+		fl.material_override = gmat
+		fl.position.y = 0.02
+		dn.add_child(fl)
 		if hull:
 			var al := Label3D.new()
 			al.text = "AIRLOCK"
 			al.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-			al.font_size = 40
-			al.pixel_size = 0.02
+			al.font_size = 32
+			al.pixel_size = 0.008
 			al.modulate = Color(0.5, 1.0, 0.6)
-			al.position.y = WALL_H + 1.2
+			al.position.y = WALL_H + 0.6
 			dn.add_child(al)
 		doors.append(dn)
 
@@ -259,10 +302,10 @@ func _lifts() -> void:
 		var lb := Label3D.new()
 		lb.text = "LIFT (one deck only)"
 		lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		lb.font_size = 32
-		lb.pixel_size = 0.02
-		lb.modulate = Color(1, 1, 1, 0.8)
-		lb.position.y = 2.0
+		lb.font_size = 28
+		lb.pixel_size = 0.008
+		lb.modulate = Color(1, 1, 1, 0.85)
+		lb.position.y = 2.1
 		ln.add_child(lb)
 
 func _player() -> void:
@@ -275,40 +318,47 @@ func _player() -> void:
 	cs.shape = cap
 	cs.position.y = 0.9
 	body.add_child(cs)
-	var mi := MeshInstance3D.new()
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(1.0, 0.72, 0.28)
+	mat.emission_enabled = true
+	mat.emission = Color(0.35, 0.2, 0.05)
+	var mi := MeshInstance3D.new()   # a stand-in figure (graybox): body and a visor showing which way you face
 	var cm := CapsuleMesh.new()
 	cm.radius = 0.35
 	cm.height = 1.75
 	mi.mesh = cm
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(1.0, 0.75, 0.3)
-	mat.emission_enabled = true
-	mat.emission = Color(0.6, 0.35, 0.1)
 	mi.material_override = mat
 	mi.position.y = 0.9
 	body.add_child(mi)
-	var nose := MeshInstance3D.new()   # which way you face
-	var nb := BoxMesh.new()
-	nb.size = Vector3(0.2, 0.2, 0.4)
-	nose.mesh = nb
-	nose.material_override = mat
-	nose.position = Vector3(0, 1.4, -0.4)
-	body.add_child(nose)
+	var visor := MeshInstance3D.new()
+	var vb := BoxMesh.new()
+	vb.size = Vector3(0.42, 0.16, 0.3)
+	visor.mesh = vb
+	var vm := StandardMaterial3D.new()
+	vm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	vm.albedo_color = Color(0.3, 0.9, 1.0)
+	visor.material_override = vm
+	visor.position = Vector3(0, 1.5, -0.28)
+	body.add_child(visor)
 	world.add_child(body)
 	var st: Array = data["start"]
 	body.position = cell_to_world(float(st[0]), float(st[1])) + Vector3(0, 0.1, 0)
 	cam = Camera3D.new()
-	cam.fov = 55
+	cam.fov = FOV
 	cam.current = true
 	world.add_child(cam)
 
 func _ready() -> void:
 	_cam_follow(1.0)
 
+func _cam_follow(k: float) -> void:
+	cam.global_position = cam.global_position.lerp(body.global_position + CAM_OFF, k)
+	cam.look_at(body.global_position + Vector3(0, 1.0, -1.0), Vector3.UP)
+
 func _ui() -> void:
 	var top := Label.new()
 	top.name = "ShipName"
-	top.text = "%s  ·  MAIN DECK  ·  blockout (basic shapes)" % str(entry["name"]).to_upper()
+	top.text = "%s  ·  MAIN DECK  ·  graybox" % str(entry["name"]).to_upper()
 	top.position = Vector2(20, 14)
 	top.add_theme_font_size_override("font_size", 20)
 	top.add_theme_color_override("font_color", Color(0.7, 0.95, 1.0))
@@ -324,11 +374,11 @@ func _ui() -> void:
 	room_label.add_theme_color_override("font_outline_color", Color(0, 0.1, 0.2))
 	add_child(room_label)
 	var hint := Label.new()
-	hint.text = "WASD / arrows to walk · Shift to run · drag on the left to walk (touch)"
+	hint.text = "WASD / arrows walk (up = toward the bow) · Shift run  |  touch: drag to walk"
 	hint.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	hint.position = Vector2(20, -40)
 	hint.add_theme_font_size_override("font_size", 15)
-	hint.add_theme_color_override("font_color", Color(0.7, 0.85, 0.95, 0.85))
+	hint.add_theme_color_override("font_color", Color(0.75, 0.85, 0.95, 0.85))
 	add_child(hint)
 	# the official plan as the minimap, with you on it
 	minimap = TextureRect.new()
@@ -359,18 +409,12 @@ func close() -> void:
 	left.emit()
 	queue_free()
 
-func _cam_follow(k: float) -> void:
-	var want := body.global_position + CAM_OFF
-	cam.global_position = cam.global_position.lerp(want, k)
-	cam.look_at(body.global_position + Vector3(0, 1.0, 0), Vector3.UP)
-
 func _gui_input(ev: InputEvent) -> void:
-	# touch / mouse drag on the left half = a walking stick
+	# touch / mouse drag anywhere = a walking stick (up on the screen = toward the bow)
 	if ev is InputEventScreenTouch or ev is InputEventMouseButton:
 		var pressed: bool = ev.pressed
-		var pos: Vector2 = ev.position
 		var idx: int = ev.index if ev is InputEventScreenTouch else 0
-		if pressed and pos.x < size.x * 0.5 and _stick_id == -1: _stick_id = idx; _stick_from = pos
+		if pressed and _stick_id == -1: _stick_id = idx; _stick_from = ev.position
 		elif not pressed and idx == _stick_id: _stick_id = -1; move_override = Vector2.ZERO
 	elif (ev is InputEventScreenDrag or ev is InputEventMouseMotion) and _stick_id != -1:
 		var d: Vector2 = (ev.position - _stick_from) / 70.0
@@ -385,11 +429,11 @@ func _physics_process(dt: float) -> void:
 	if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN): v.y -= 1
 	if v.length() > 1.0: v = v.normalized()
 	var sp := RUN_SPEED if Input.is_key_pressed(KEY_SHIFT) else WALK_SPEED
-	var dir := Vector3(v.x, 0, -v.y)   # the camera looks nose-up (-Z), so up on the stick is toward the bow
+	var dir := Vector3(v.x, 0, -v.y)   # the camera looks bow-ward (-Z): up on the stick is toward the bow
 	body.velocity.x = dir.x * sp
 	body.velocity.z = dir.z * sp
-	body.velocity.y = 0.0 if body.is_on_floor() else body.velocity.y - 20.0 * dt
-	if dir.length() > 0.1: body.rotation.y = atan2(-dir.x, -dir.z)
+	body.velocity.y = 0.0 if body.is_on_floor() else body.velocity.y - GRAV * dt
+	if dir.length() > 0.1: body.rotation.y = lerp_angle(body.rotation.y, atan2(-dir.x, -dir.z), clampf(dt * 12.0, 0.0, 1.0))
 	body.move_and_slide()
 	_cam_follow(clampf(dt * 6.0, 0.0, 1.0))
 	room_now = room_at(body.global_position)
