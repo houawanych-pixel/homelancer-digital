@@ -3020,7 +3020,7 @@ func _run() -> void:
 	if _flag("HL_STATION"):   # v13.01 station rebuild: Veranthos, measured from st3d_veranthos_senate
 		_check("v13.01: Veranthos' main station is the Senate model its interior is measured from", str(Data.SYSTEMS["veranthos"]["station"].get("model", "")) == "st3d_veranthos_senate" and StationInterior.for_model("st3d_veranthos_senate") == "veranthos", str(Data.SYSTEMS["veranthos"]["station"].get("model", "")))
 		_check("v13.01: only a rebuilt station opens", StationInterior.can_open("veranthos") and not StationInterior.can_open("aurelion") and not main.open_station_interior("aurelion"))
-		var st0 := main.state
+		var st0: String = str(main.state)
 		var okv: bool = main.open_station_interior("veranthos")
 		await _wait(1.0)
 		var sn: StationInterior = main.station_deck
@@ -3089,6 +3089,9 @@ func _run() -> void:
 		sn.close()
 		await _wait(0.4)
 		_check("v13.01: LEAVE STATION puts you back", not is_instance_valid(main.station_deck) and main.state == st0, main.state)
+		if not _flag("HL_INTERIOR"):
+			_finish_group()
+			return
 	if _flag("HL_INTERIOR"):   # v12.97 (owner brief job 2): Unity Capital main deck, on foot, from the HoloDeck plan
 		_check("v12.97: only ships with a built plan open", ShipInterior.can_open("unity_capital") and not ShipInterior.can_open("elyza_scout"))
 		var ok: bool = main.open_ship_interior("unity_capital")
@@ -14947,7 +14950,7 @@ func _job_v19q() -> void:
 			b_files.append(path)
 			if t2 < 7500 or t2 > 8500: bad.append("%s:%d" % [path.get_file(), t2])
 	_check("v1.9q (RETOPO): 38 station files (about 12k triangles, one pack each) and 15 planetary building files (about 8k, one pack per faction), names as delivered",
-		st_keys.size() == 38 and b_files.size() == 15 and bad.is_empty(), "stations %d buildings %d bad %s" % [st_keys.size(), b_files.size(), bad])
+		st_keys.size() == 37 and b_files.size() == 15 and bad.is_empty(), "stations %d buildings %d bad %s" % [st_keys.size(), b_files.size(), bad])   # (v13.01: 37 placed; the Unity capital file is kept, unused at Veranthos)
 	# 2. each one in its own faction's space, in the right slot
 	var wrong: Array = []
 	for sid in Data.RETOPO_STATIONS:
@@ -14967,10 +14970,11 @@ func _job_v19q() -> void:
 			if not own or body.get("model", "") != key or (slot != "*" and body.get("kind", "") != "station") or not cap_ok: wrong.append("%s/%s" % [sid, slot])
 	_check("v1.9q: every station sits in its own faction's space (Capital at the homeworld, Military on a frontline, Trade at a hub, Outpost on the edge); enemy homes get their Military station beside the main one",
 		wrong.is_empty(), str(wrong))
-	# 3. Veranthos: the Unity capital wears it, big, with a box you bump off
-	main._load_system("veranthos", "station")
+	# 3. A capital wears it, big, with a box you bump off. (v13.01 station rebuild: Veranthos now shows its own Senate model,
+	# st3d_veranthos_senate, so this check moved to the Imperium capital at Malachar; it was Veranthos before.)
+	main._load_system("malachar", "station")
 	await _wait(1.0)
-	var key0: String = Data.RETOPO_STATIONS["veranthos"]["*"]
+	var key0: String = Data.RETOPO_STATIONS["malachar"]["*"]
 	await Packs.wait(key0, 30.0)
 	var s := _sp()
 	await _until(func(): return s.station_model != null, Data.PH_BUILD_DELAY + 4.0)
