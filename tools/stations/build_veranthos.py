@@ -10,8 +10,9 @@ geometry: the rooms it names are kept; every outline here comes from the model s
 
 What is measured (and written to the report):
   - the model's size at the game's scale (STATION_WIDTH 340 m x st3d_scale 12.8 = 4352 m per model unit)
-  - the hull footprint at each deck's height: every triangle crossing a thin slab at that height, drawn from above,
-    closed, small holes filled, only the piece joined to the centre kept, then pulled in 9 m for the hull's thickness
+  - the hull footprint at each deck: the model as two height maps (top surface, underside); a deck may only use
+    ground where the underside is below its floor and the top surface above its ceiling (floor + 18 m), joined to
+    the axis, pulled in 9 m for the hull's thickness
   - the radial arms on the main deck (their directions are read from the model, not from the picture)
 Decks: L3 MAIN, L2 UPPER and L4 LOWER follow the three pictured decks. L1 DOME and L5 KEEL are DESIGNED ADDITIONS
 (marked "proposed"): the picture has no such floors; rooms the picture puts on its upper / lower map are moved there.
@@ -28,6 +29,7 @@ N = 1500                  # mask size (4500 m square, the station in the middle)
 HULL = 9.0                # m: hull thickness kept clear inside the measured footprint
 WALL = 9.0                # m: wall between rooms
 BODY_R = 1250.0           # m: a hole in a slab that lies wholly inside this radius is the body's own inside
+ROOM_H = 18.0             # m: wall height in the game (StationInterior.WALL_H)
 LIFT_R = 440.0            # m: the four shafts' distance from the axis (inside the smallest deck, outside the hub)
 LIFT_A = (45, 135, 225, 315)
 C = N / 2.0
@@ -36,17 +38,26 @@ def P(x, z): return (int(round(C + x / PX)), int(round(C + z / PX)))
 def pol(r, a):            # a: degrees clockwise from the front (-Z), as on the map (north up)
     t = np.radians(a); return r * np.sin(t), -r * np.cos(t)
 
-def footprint(tri, y, half=0.012 * K, fill_holes_below=40000.0):
-    m = (tri[:, :, 1].max(1) >= y - half) & (tri[:, :, 1].min(1) <= y + half)
-    im = np.zeros((N, N), np.uint8)
-    pts = (tri[m][:, :, [0, 2]] / PX + C).round().astype(np.int32)
-    cv2.fillPoly(im, list(pts), 1)
-    im = cv2.morphologyEx(im, cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8))
-    cs, hier = cv2.findContours(im, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
-    for i, c in enumerate(cs):   # the model is a shell: the body's inside is filled; the open sky between the outer arcs is not
-        if hier[0][i][3] < 0: continue
-        far = float(np.hypot(c[:, 0, 0] - C, c[:, 0, 1] - C).max()) * PX
-        if cv2.contourArea(c) * PX * PX < fill_holes_below or far < BODY_R: cv2.drawContours(im, cs, i, 1, -1)
+_HM = {}
+def heightmaps(tri):
+    """The hull as two height maps seen from above: its top surface and its underside over every 3 m square.
+    Conservative: a triangle counts at its LOWEST point for the top map and its HIGHEST point for the underside."""
+    if "top" in _HM: return _HM["top"], _HM["bot"]
+    pts = (tri[:, :, [0, 2]] / PX + C).round().astype(np.int32)
+    top = np.full((N, N), -1e9, np.float32); bot = np.full((N, N), 1e9, np.float32)
+    lo = tri[:, :, 1].min(1); hi = tri[:, :, 1].max(1)
+    for i in np.argsort(lo): cv2.fillPoly(top, [pts[i]], float(lo[i]))        # ascending: the highest ends on top
+    for i in np.argsort(-hi): cv2.fillPoly(bot, [pts[i]], float(hi[i]))       # descending: the lowest ends on top
+    _HM["top"], _HM["bot"] = top, bot
+    return top, bot
+
+def footprint(tri, y, clear=3.0):
+    """Where a room with its floor at height y fits inside the hull: the hull's underside is below the floor and its
+    top surface above the ceiling (floor + ROOM_H), with `clear` metres to spare each way. Only the piece joined to
+    the station's axis is kept; then it is pulled in 9 m for the hull's own thickness."""
+    top, bot = heightmaps(tri)
+    im = ((bot < y - clear) & (top > y + ROOM_H + clear)).astype(np.uint8)
+    im = cv2.morphologyEx(im, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
     n, lab = cv2.connectedComponents(im, connectivity=8)
     core = (lab == lab[int(C), int(C)]).astype(np.uint8) if lab[int(C), int(C)] else np.zeros_like(im)
     k = int(round(HULL / PX))
@@ -193,10 +204,14 @@ def build(glb, outdir, repdir=None):
         elif arms and arms[-1][1] is None: arms[-1][1] = jj
     arm_dirs = sorted(round((a[2] / a[3]) % 360, 1) for a in arms if a[3] > 0)
     rep["arms"] = {"count": len(arm_dirs), "directions_deg_clockwise_from_front": arm_dirs, "blueprint_picture_shows": 10}
-    LEVELS = [("L1", "DOME DECK", 0.11, True), ("L2", "UPPER DECK", 0.06, False), ("L3", "MAIN DECK", -0.035, False),
-              ("L4", "LOWER DECK", -0.065, False), ("L5", "KEEL DECK", -0.11, True)]
+    # Floor heights (m, from the model's centre), chosen from the measured top and underside of the hull:
+    # the wide disc is only about 130 m thick at its rim (top about -130 m, underside -259 m), so the two full-width
+    # decks (MAIN, LOWER) both sit inside it; UPPER and DOME are in the drum and dome above, KEEL in the plug below.
+    LEVELS = [("L1", "DOME DECK", 340.0 / K, True), ("L2", "UPPER DECK", 100.0 / K, False), ("L3", "MAIN DECK", -185.0 / K, False),
+              ("L4", "LOWER DECK", -235.0 / K, False), ("L5", "KEEL DECK", -340.0 / K, True)]
     decks = []; levels_out = []
     for lid, lname, ym, proposed in LEVELS:
+        # the hull must hold the room at floor height AND at ceiling height (a thin cut at each, both must cover it)
         foot, raw = footprint(tri, ym * K)
         dk = Deck(foot)
         Rin = float(dk.R[foot == 0].min()) if (foot == 0).any() else 9999.0     # the biggest circle about the axis inside the hull
@@ -336,7 +351,7 @@ def build(glb, outdir, repdir=None):
             cv2.putText(im, "%s %s  %+d m" % (lid, lname, round(ym * K)), (20, y + 4), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1, cv2.LINE_AA)
         for a in LIFT_A:
             x = pol(LIFT_R, a)[0]
-            cv2.line(im, (int(x * S + W_ / 2), int(-0.11 * K * S + H_ / 2)), (int(x * S + W_ / 2), int(0.11 * K * S + H_ / 2)), (255, 255, 255), 1)
+            cv2.line(im, (int(x * S + W_ / 2), int(340.0 * S + H_ / 2)), (int(x * S + W_ / 2), int(-340.0 * S + H_ / 2)), (255, 255, 255), 1)
         cv2.putText(im, "SIDE VIEW (from the front): st3d_veranthos_senate at game scale, deck floors and lift shafts", (20, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 240, 170), 1, cv2.LINE_AA)
         cv2.imwrite(os.path.join(repdir, "veranthos_side.jpg"), im, [cv2.IMWRITE_JPEG_QUALITY, 88])
     print(json.dumps(rep, indent=1))
