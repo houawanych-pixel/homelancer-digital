@@ -136,8 +136,13 @@ func _grid() -> void:
 	_room_grid.resize(w * h)
 	var y := 0
 	for row in data["room_rows"]:
-		var parts: PackedStringArray = str(row).split(",")
-		for x in mini(w, parts.size()): _room_grid[y * w + x] = int(parts[x])
+		var x := 0
+		for run in str(row).split(","):   # runs of "room id*count" (tools/holodeck/extract.py rle)
+			var vn: PackedStringArray = run.split("*")
+			var n := int(vn[1]) if vn.size() > 1 else 1
+			for k in n:
+				if x < w: _room_grid[y * w + x] = int(vn[0])
+				x += 1
 		y += 1
 	for r in data["rooms"]: rooms_by_id[int(r["id"])] = r
 
@@ -268,14 +273,14 @@ func _doors() -> void:
 		world.add_child(dn)
 		var lt := MeshInstance3D.new()   # the green door light, just under the header
 		var lm := BoxMesh.new()
-		lm.size = Vector3(maxf(float(d[2]) * M_PER_CELL, 0.5), 0.12, maxf(float(d[3]) * M_PER_CELL, 0.5))
+		lm.size = Vector3(clampf(float(d[2]) * M_PER_CELL, 0.5, 1.4), 0.12, clampf(float(d[3]) * M_PER_CELL, 0.5, 1.4))
 		lt.mesh = lm
 		lt.material_override = gmat
 		lt.position.y = WALL_H + 0.05
 		dn.add_child(lt)
 		var fl := MeshInstance3D.new()   # and a green mark on the floor of the doorway (the plan's square)
 		var fm := BoxMesh.new()
-		fm.size = Vector3(maxf(float(d[2]) * M_PER_CELL, 0.5), 0.02, maxf(float(d[3]) * M_PER_CELL, 0.5))
+		fm.size = Vector3(clampf(float(d[2]) * M_PER_CELL, 0.5, 1.4), 0.02, clampf(float(d[3]) * M_PER_CELL, 0.5, 1.4))   # (the plan's small square)
 		fl.mesh = fm
 		fl.material_override = gmat
 		fl.position.y = 0.02

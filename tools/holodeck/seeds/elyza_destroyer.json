@@ -1,0 +1,190 @@
+{
+ "plan": "HL_ElyzaDestroyer_HoloDeck_20261109_v1.png",
+ "start": [
+  519,
+  646
+ ],
+ "ignore": [],
+ "open": [],
+ "rooms": [
+  {
+   "name": "Sensors",
+   "at": [
+    512,
+    151
+   ]
+  },
+  {
+   "name": "Bridge",
+   "at": [
+    512,
+    253
+   ]
+  },
+  {
+   "name": "CIC",
+   "at": [
+    510,
+    375
+   ],
+   "box": [
+    457,
+    337,
+    562,
+    465
+   ]
+  },
+  {
+   "name": "Crew Quarters (port)",
+   "at": [
+    410,
+    397
+   ],
+   "box": [
+    360,
+    330,
+    472,
+    457
+   ]
+  },
+  {
+   "name": "Crew Quarters (starboard)",
+   "at": [
+    612,
+    397
+   ],
+   "box": [
+    547,
+    330,
+    667,
+    457
+   ]
+  },
+  {
+   "name": "Medbay",
+   "at": [
+    610,
+    509
+   ],
+   "box": [
+    547,
+    487,
+    667,
+    577
+   ]
+  },
+  {
+   "name": "Galley & Mess",
+   "at": [
+    412,
+    520
+   ],
+   "box": [
+    352,
+    487,
+    472,
+    577
+   ]
+  },
+  {
+   "name": "Armory (port)",
+   "at": [
+    360,
+    640
+   ]
+  },
+  {
+   "name": "Armory (starboard)",
+   "at": [
+    662,
+    640
+   ]
+  },
+  {
+   "name": "Launch Bay",
+   "at": [
+    519,
+    646
+   ]
+  },
+  {
+   "name": "Missile Magazine",
+   "at": [
+    511,
+    776
+   ]
+  },
+  {
+   "name": "Cargo Hold B",
+   "at": [
+    685,
+    859
+   ]
+  },
+  {
+   "name": "Cargo Hold A",
+   "at": [
+    326,
+    867
+   ]
+  },
+  {
+   "name": "Supply",
+   "at": [
+    512,
+    884
+   ]
+  },
+  {
+   "name": "Weapon Systems (port)",
+   "at": [
+    180,
+    935
+   ]
+  },
+  {
+   "name": "Weapon Systems (starboard)",
+   "at": [
+    841,
+    935
+   ]
+  },
+  {
+   "name": "Engineering",
+   "at": [
+    512,
+    1020
+   ]
+  },
+  {
+   "name": "Coolant (port)",
+   "at": [
+    189,
+    1061
+   ]
+  },
+  {
+   "name": "Coolant (starboard)",
+   "at": [
+    831,
+    1061
+   ]
+  },
+  {
+   "name": "Reactor Core",
+   "at": [
+    511,
+    1171
+   ]
+  },
+  {
+   "name": "Engine Room",
+   "at": [
+    511,
+    1285
+   ]
+  }
+ ],
+ "lifts": [],
+ "note": "Labels found by auto_seeds.py (OCR), then checked and fixed by eye against the plan (names, missing labels, boxes, open)."
+}

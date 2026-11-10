@@ -1,0 +1,160 @@
+{
+ "plan": "HL_ElyzaResupply_HoloDeck_20261109_v1.png",
+ "start": [
+  525,
+  629
+ ],
+ "ignore": [],
+ "open": [],
+ "rooms": [
+  {
+   "name": "Bridge",
+   "at": [
+    516,
+    172
+   ]
+  },
+  {
+   "name": "CIC",
+   "at": [
+    562,
+    260
+   ]
+  },
+  {
+   "name": "Sensors Suite",
+   "at": [
+    467,
+    261
+   ]
+  },
+  {
+   "name": "Crew Quarters (port)",
+   "at": [
+    404,
+    346
+   ]
+  },
+  {
+   "name": "Crew Quarters (starboard)",
+   "at": [
+    628,
+    346
+   ]
+  },
+  {
+   "name": "Medbay",
+   "at": [
+    623,
+    430
+   ]
+  },
+  {
+   "name": "Galley / Mess",
+   "at": [
+    420,
+    432
+   ]
+  },
+  {
+   "name": "Cargo Hold A",
+   "at": [
+    322,
+    525
+   ]
+  },
+  {
+   "name": "Cargo Hold B",
+   "at": [
+    704,
+    525
+   ]
+  },
+  {
+   "name": "Loading / Vehicle Bay",
+   "at": [
+    525,
+    629
+   ]
+  },
+  {
+   "name": "Cargo Hold C",
+   "at": [
+    323,
+    693
+   ]
+  },
+  {
+   "name": "Cargo Hold D",
+   "at": [
+    704,
+    693
+   ]
+  },
+  {
+   "name": "Cargo Hold E",
+   "at": [
+    323,
+    854
+   ]
+  },
+  {
+   "name": "Cargo Hold F",
+   "at": [
+    707,
+    854
+   ]
+  },
+  {
+   "name": "General Storage",
+   "at": [
+    419,
+    959
+   ]
+  },
+  {
+   "name": "Refrigerated Stores",
+   "at": [
+    613,
+    959
+   ]
+  },
+  {
+   "name": "Munitions Resupply",
+   "at": [
+    425,
+    1011
+   ]
+  },
+  {
+   "name": "Spare Parts",
+   "at": [
+    628,
+    1011
+   ]
+  },
+  {
+   "name": "Engineering Deck",
+   "at": [
+    517,
+    1097
+   ]
+  },
+  {
+   "name": "Reactor Core",
+   "at": [
+    516,
+    1195
+   ]
+  },
+  {
+   "name": "Engine Room",
+   "at": [
+    518,
+    1304
+   ]
+  }
+ ],
+ "lifts": [],
+ "note": "Labels found by auto_seeds.py (OCR), then checked and fixed by eye against the plan (names, missing labels, boxes, open)."
+}

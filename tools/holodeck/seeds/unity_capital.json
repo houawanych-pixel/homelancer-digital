@@ -1,23 +1,265 @@
-{"plan": "HL_UnityCapital_HoloDeck_20261109_v1.png", "start": [513, 700],
+{
+ "plan": "HL_UnityCapital_HoloDeck_20261109_v1.png",
+ "start": [
+  513,
+  700
+ ],
  "note": "Pixel coordinates on the 1024x1536 plan. 'at' = the room label, 'box' = the drawn walls around that room (read off the plan by eye), 'open' = gaps drawn in the plan that have no green square.",
- "ignore": [[30, 20, 340, 130]],
- "open": [[500, 195, 526, 236]],
+ "ignore": [
+  [
+   30,
+   20,
+   340,
+   130
+  ]
+ ],
+ "open": [
+  [
+   500,
+   195,
+   526,
+   236
+  ]
+ ],
  "rooms": [
-  {"name": "Bridge", "at": [513, 160], "box": [435, 105, 590, 225]},
-  {"name": "Sensors Suite", "at": [452, 277], "box": [405, 238, 495, 318]},
-  {"name": "Briefing Room", "at": [574, 277], "box": [533, 238, 625, 318]},
-  {"name": "CIC (Combat Information Center)", "at": [513, 360], "box": [446, 318, 582, 452]},
-  {"name": "Crew Quarters (port)", "at": [370, 430], "box": [318, 368, 417, 482]},
-  {"name": "Crew Quarters (starboard)", "at": [655, 430], "box": [605, 368, 712, 482]},
-  {"name": "Galley & Mess", "at": [362, 537], "box": [313, 488, 417, 588]},
-  {"name": "Medbay", "at": [667, 537], "box": [608, 488, 722, 588]},
-  {"name": "Hangar Bay", "at": [513, 700], "box": [383, 598, 647, 888]},
-  {"name": "Armory (port)", "at": [285, 780], "box": [238, 658, 345, 817]},
-  {"name": "Armory (starboard)", "at": [740, 780], "box": [688, 658, 792, 817]},
-  {"name": "Cargo Hold A", "at": [295, 898], "box": [223, 823, 352, 987]},
-  {"name": "Cargo Hold B", "at": [730, 898], "box": [678, 823, 807, 987]},
-  {"name": "Vehicle Bay", "at": [513, 937], "box": [383, 893, 647, 982]},
-  {"name": "Engineering Deck", "at": [513, 1080], "box": [323, 988, 707, 1122]},
-  {"name": "Reactor Core", "at": [513, 1192], "box": [438, 1128, 592, 1262]},
-  {"name": "Engine Room", "at": [513, 1305], "box": [428, 1268, 597, 1382]}],
- "lifts": [[463, 474], [557, 474], [366, 840], [658, 840]]}
+  {
+   "name": "Bridge",
+   "at": [
+    513,
+    160
+   ],
+   "box": [
+    435,
+    105,
+    590,
+    225
+   ]
+  },
+  {
+   "name": "Sensors Suite",
+   "at": [
+    452,
+    277
+   ],
+   "box": [
+    405,
+    238,
+    495,
+    318
+   ]
+  },
+  {
+   "name": "Briefing Room",
+   "at": [
+    574,
+    277
+   ],
+   "box": [
+    533,
+    238,
+    625,
+    318
+   ]
+  },
+  {
+   "name": "CIC (Combat Information Center)",
+   "at": [
+    513,
+    360
+   ],
+   "box": [
+    446,
+    318,
+    582,
+    452
+   ]
+  },
+  {
+   "name": "Crew Quarters (port)",
+   "at": [
+    370,
+    430
+   ],
+   "box": [
+    318,
+    368,
+    417,
+    482
+   ]
+  },
+  {
+   "name": "Crew Quarters (starboard)",
+   "at": [
+    655,
+    430
+   ],
+   "box": [
+    605,
+    368,
+    712,
+    482
+   ]
+  },
+  {
+   "name": "Galley & Mess",
+   "at": [
+    362,
+    537
+   ],
+   "box": [
+    313,
+    488,
+    417,
+    588
+   ]
+  },
+  {
+   "name": "Medbay",
+   "at": [
+    667,
+    537
+   ],
+   "box": [
+    608,
+    488,
+    722,
+    588
+   ]
+  },
+  {
+   "name": "Hangar Bay",
+   "at": [
+    513,
+    700
+   ],
+   "box": [
+    383,
+    598,
+    647,
+    888
+   ]
+  },
+  {
+   "name": "Armory (port)",
+   "at": [
+    285,
+    780
+   ],
+   "box": [
+    238,
+    658,
+    345,
+    817
+   ]
+  },
+  {
+   "name": "Armory (starboard)",
+   "at": [
+    740,
+    780
+   ],
+   "box": [
+    688,
+    658,
+    792,
+    817
+   ]
+  },
+  {
+   "name": "Cargo Hold A",
+   "at": [
+    295,
+    898
+   ],
+   "box": [
+    223,
+    823,
+    352,
+    987
+   ]
+  },
+  {
+   "name": "Cargo Hold B",
+   "at": [
+    730,
+    898
+   ],
+   "box": [
+    678,
+    823,
+    807,
+    987
+   ]
+  },
+  {
+   "name": "Vehicle Bay",
+   "at": [
+    513,
+    937
+   ],
+   "box": [
+    383,
+    893,
+    647,
+    982
+   ]
+  },
+  {
+   "name": "Engineering Deck",
+   "at": [
+    513,
+    1080
+   ],
+   "box": [
+    323,
+    988,
+    707,
+    1122
+   ]
+  },
+  {
+   "name": "Reactor Core",
+   "at": [
+    513,
+    1192
+   ],
+   "box": [
+    438,
+    1128,
+    592,
+    1262
+   ]
+  },
+  {
+   "name": "Engine Room",
+   "at": [
+    513,
+    1305
+   ],
+   "box": [
+    428,
+    1268,
+    597,
+    1382
+   ]
+  }
+ ],
+ "lifts": [
+  [
+   463,
+   474
+  ],
+  [
+   557,
+   474
+  ],
+  [
+   366,
+   840
+  ],
+  [
+   658,
+   840
+  ]
+ ]
+}

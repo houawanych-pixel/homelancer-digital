@@ -1,0 +1,203 @@
+{
+ "plan": "HL_UnityResupply_HoloDeck_20261109_v1.png",
+ "start": [
+  514,
+  736
+ ],
+ "ignore": [],
+ "open": [
+  [
+   499,
+   212,
+   527,
+   252
+  ],
+  [
+   500,
+   295,
+   526,
+   350
+  ],
+  [
+   500,
+   395,
+   526,
+   460
+  ],
+  [
+   500,
+   1120,
+   528,
+   1160
+  ],
+  [
+   500,
+   1228,
+   528,
+   1292
+  ]
+ ],
+ "rooms": [
+  {
+   "name": "Bridge",
+   "at": [
+    514,
+    183
+   ]
+  },
+  {
+   "name": "Sensors Suite",
+   "at": [
+    513,
+    267
+   ]
+  },
+  {
+   "name": "CIC",
+   "at": [
+    513,
+    366
+   ]
+  },
+  {
+   "name": "Crew Quarters (starboard)",
+   "at": [
+    648,
+    378
+   ]
+  },
+  {
+   "name": "Crew Quarters (port)",
+   "at": [
+    385,
+    379
+   ]
+  },
+  {
+   "name": "Medbay",
+   "at": [
+    663,
+    490
+   ]
+  },
+  {
+   "name": "Galley & Mess",
+   "at": [
+    360,
+    492
+   ]
+  },
+  {
+   "name": "Cargo Control",
+   "at": [
+    514,
+    560
+   ]
+  },
+  {
+   "name": "Supplies Storage",
+   "at": [
+    229,
+    732
+   ]
+  },
+  {
+   "name": "Munitions Resupply",
+   "at": [
+    803,
+    732
+   ]
+  },
+  {
+   "name": "Loader & Vehicle Bay",
+   "at": [
+    514,
+    736
+   ]
+  },
+  {
+   "name": "Cargo Hold A",
+   "at": [
+    368,
+    762
+   ]
+  },
+  {
+   "name": "Cargo Hold B",
+   "at": [
+    657,
+    762
+   ]
+  },
+  {
+   "name": "Spare Parts & Equipment",
+   "at": [
+    805,
+    870
+   ]
+  },
+  {
+   "name": "Refrigerated Stores",
+   "at": [
+    226,
+    885
+   ]
+  },
+  {
+   "name": "Cargo Transfer Hub",
+   "at": [
+    521,
+    1008
+   ],
+   "box": [
+    440,
+    975,
+    600,
+    1045
+   ]
+  },
+  {
+   "name": "Logistics Office",
+   "at": [
+    699,
+    1082
+   ]
+  },
+  {
+   "name": "Workshop & Maintenance",
+   "at": [
+    321,
+    1085
+   ]
+  },
+  {
+   "name": "Engineering Deck",
+   "at": [
+    514,
+    1094
+   ],
+   "box": [
+    440,
+    1045,
+    600,
+    1132
+   ]
+  },
+  {
+   "name": "Reactor Core",
+   "at": [
+    514,
+    1198
+   ]
+  },
+  {
+   "name": "Engine Room",
+   "at": [
+    515,
+    1295
+   ]
+  }
+ ],
+ "lifts": [],
+ "note": "Labels found by auto_seeds.py (OCR), then checked and fixed by eye against the plan (names, missing labels, boxes, open)."
+}

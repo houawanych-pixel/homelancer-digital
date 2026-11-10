@@ -1,0 +1,179 @@
+{
+ "plan": "HL_UnityDestroyer_HoloDeck_20261109_v1.png",
+ "start": [
+  512,
+  785
+ ],
+ "ignore": [],
+ "open": [
+  [
+   273,
+   772,
+   297,
+   808
+  ],
+  [
+   729,
+   772,
+   753,
+   808
+  ],
+  [
+   729,
+   848,
+   753,
+   913
+  ]
+ ],
+ "rooms": [
+  {
+   "name": "Bridge",
+   "at": [
+    513,
+    179
+   ]
+  },
+  {
+   "name": "Sensors Suite",
+   "at": [
+    512,
+    275
+   ]
+  },
+  {
+   "name": "CIC (Combat Information Center)",
+   "at": [
+    512,
+    408
+   ]
+  },
+  {
+   "name": "Crew Quarters (port)",
+   "at": [
+    419,
+    463
+   ]
+  },
+  {
+   "name": "Crew Quarters (starboard)",
+   "at": [
+    605,
+    463
+   ]
+  },
+  {
+   "name": "Galley & Mess",
+   "at": [
+    424,
+    587
+   ]
+  },
+  {
+   "name": "Medbay",
+   "at": [
+    603,
+    607
+   ]
+  },
+  {
+   "name": "Armory (port)",
+   "at": [
+    406,
+    710
+   ]
+  },
+  {
+   "name": "Armory (starboard)",
+   "at": [
+    619,
+    710
+   ]
+  },
+  {
+   "name": "Engine Access (port)",
+   "at": [
+    285,
+    733
+   ]
+  },
+  {
+   "name": "Engine Access (starboard)",
+   "at": [
+    740,
+    733
+   ]
+  },
+  {
+   "name": "Launch Bay",
+   "at": [
+    512,
+    785
+   ]
+  },
+  {
+   "name": "Coolant System (starboard)",
+   "at": [
+    741,
+    828
+   ]
+  },
+  {
+   "name": "Coolant System (port)",
+   "at": [
+    285,
+    837
+   ]
+  },
+  {
+   "name": "Missile Magazine",
+   "at": [
+    628,
+    911
+   ]
+  },
+  {
+   "name": "Cargo Hold",
+   "at": [
+    398,
+    918
+   ]
+  },
+  {
+   "name": "Power Core (port)",
+   "at": [
+    285,
+    930
+   ]
+  },
+  {
+   "name": "Power Core (starboard)",
+   "at": [
+    741,
+    930
+   ]
+  },
+  {
+   "name": "Engineering Deck",
+   "at": [
+    512,
+    1062
+   ]
+  },
+  {
+   "name": "Reactor Core",
+   "at": [
+    512,
+    1199
+   ]
+  },
+  {
+   "name": "Engine Room",
+   "at": [
+    512,
+    1306
+   ]
+  }
+ ],
+ "lifts": [],
+ "note": "Labels found by auto_seeds.py (OCR), then checked and fixed by eye against the plan (names, missing labels, boxes, open)."
+}

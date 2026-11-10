@@ -9,7 +9,17 @@ from collections import deque
 CELL = 4            # px per grid cell
 WALL_G = 150        # how bright a cyan line must be to count as a wall (dim lines are floor markings)
 MIN_WALL = 24
+LINK_MAX = 14       # walls: the most wall cells an auto-link may cut through to reach a cut-off room
+TUNNEL_MAX = 9      # cells: the thickest wall a door may tunnel through (both sides must reach open floor)
 DOOR_GROW = 5       # cells: how far a door opening is widened to cut fully through its wall       # wall pieces smaller than this many cells are decoration (icons, markings)
+def rle(row):
+    """One grid row of room ids as runs: "0*40,3*12,0*9" (value*count)."""
+    out = []; i = 0
+    while i < len(row):
+        j = i
+        while j < len(row) and row[j] == row[i]: j += 1
+        out.append("%d*%d" % (row[i], j - i)); i = j
+    return ",".join(out)
 def rects(mask):
     """Greedy merge of a cell mask into few axis-aligned [x, y, w, h] boxes (one box per wall run, floor patch, ...)."""
     m = mask.copy(); out = []
@@ -98,6 +108,26 @@ def main(png, seeds_path, out_path, dbg=None):
     edge = in_hull & ~(np.array(Image.fromarray((in_hull * 255).astype(np.uint8)).filter(ImageFilter.MinFilter(3))) > 0)
     wall |= edge & ~door
     for (x0, y0, x1, y1) in seeds.get("open", []): wall[y0 // CELL:y1 // CELL, x0 // CELL:x1 // CELL] = False
+    # a door on a thick (or double) wall: tunnel straight through it, across the wall, to open floor on both sides
+    for (dcx, dcy, dw, dh) in door_marks:
+        cx, cy = int(dcx), int(dcy); best = None
+        for ax in ((1, 0), (0, 1)):
+            ends = []
+            for sgn in (1, -1):
+                k = 1
+                while k <= TUNNEL_MAX:
+                    x, y = cx + ax[0] * k * sgn, cy + ax[1] * k * sgn
+                    if not (0 <= x < gw and 0 <= y < gh) or not in_hull[y, x]: k = None; break
+                    if not wall[y, x] and not door[y, x]: break
+                    k += 1
+                ends.append(k if k and k <= TUNNEL_MAX else None)
+            if None not in ends and (best is None or sum(ends) < best[1]): best = (ax, sum(ends), ends)
+        if best is None: continue
+        (axx, axy), _, (kp, km) = best
+        for k in range(-km, kp + 1):
+            for wdt in (-1, 0, 1):
+                x, y = cx + axx * k + axy * wdt, cy + axy * k + axx * wdt
+                if 0 <= x < gw and 0 <= y < gh and in_hull[y, x]: wall[y, x] = False; door[y, x] = True
     floor = in_hull & ~wall
     # rooms: flood from each label point through floor (doors stop the flood: they belong to no room)
     room = np.zeros((gh, gw), np.int32)
@@ -124,27 +154,65 @@ def main(png, seeds_path, out_path, dbg=None):
                     room[ny, nx] = rid; q.append((ny, nx)); n += 1
         rooms.append({**s, "id": rid, "cells": n})
     # what the player can reach from the start (floor + doors)
-    walk = floor | door
     start = seeds["start"]; sy, sx = start[1] // CELL, start[0] // CELL
-    reach = np.zeros_like(walk); q = deque()
-    for r in range(0, 10):
-        hit = [(yy, xx) for yy in range(sy - r, sy + r + 1) for xx in range(sx - r, sx + r + 1) if 0 <= yy < gh and 0 <= xx < gw and walk[yy, xx]]
-        if hit: reach[hit[0]] = True; q.append(hit[0]); break
-    while q:
-        y, x = q.popleft()
-        for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-            ny, nx = y + dy, x + dx
-            if 0 <= ny < gh and 0 <= nx < gw and walk[ny, nx] and not reach[ny, nx]: reach[ny, nx] = True; q.append((ny, nx))
+    def compute_reach():
+        walk = floor | door
+        reach = np.zeros_like(walk); q = deque()
+        for r in range(0, 10):
+            hit = [(yy, xx) for yy in range(sy - r, sy + r + 1) for xx in range(sx - r, sx + r + 1) if 0 <= yy < gh and 0 <= xx < gw and walk[yy, xx]]
+            if hit: reach[hit[0]] = True; q.append(hit[0]); break
+        while q:
+            y, x = q.popleft()
+            for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                ny, nx = y + dy, x + dx
+                if 0 <= ny < gh and 0 <= nx < gw and walk[ny, nx] and not reach[ny, nx]: reach[ny, nx] = True; q.append((ny, nx))
+        return walk, reach
+    walk, reach = compute_reach()
+    # AUTO-LINK: a labelled room the walls cut off (equipment outlines drawn as solid lines, a door on a wall too thick
+    # to read) gets the shortest way in through the fewest wall cells, from the room itself. Each link is listed in the output ("links") so it can be checked against the plan.
+    links = []
+    if seeds.get("autolink", True):
+        for _ in range(len(rooms)):
+            changed = False
+            for r in rooms:
+                rm = room == r["id"]
+                if not r["cells"] or (rm & reach).any(): continue
+                src = list(zip(*np.nonzero(rm)))
+                dist = {c: 0 for c in src}; prev = {}; dq = deque(src); goal = None
+                while dq:
+                    c = dq.popleft(); y, x = c
+                    if reach[y, x]: goal = c; break
+                    for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                        ny, nx = y + dy, x + dx
+                        if not (0 <= ny < gh and 0 <= nx < gw) or not in_hull[ny, nx]: continue
+                        w = 1 if wall[ny, nx] else 0
+                        nd = dist[c] + w
+                        if nd > LINK_MAX or nd >= dist.get((ny, nx), 1 << 30): continue
+                        dist[(ny, nx)] = nd; prev[(ny, nx)] = c
+                        if w: dq.append((ny, nx))
+                        else: dq.appendleft((ny, nx))
+                if goal is None: continue
+                c = goal; carved = 0
+                while c in prev:
+                    y, x = c
+                    for dy, dx in ((0, 0), (1, 0), (0, 1)):
+                        yy, xx = y + dy, x + dx
+                        if 0 <= yy < gh and 0 <= xx < gw and in_hull[yy, xx] and wall[yy, xx]: wall[yy, xx] = False; floor[yy, xx] = True; carved += 1
+                    c = prev[c]
+                if not carved: continue
+                links.append({"room": r["name"], "carved_cells": carved}); changed = True
+                walk, reach = compute_reach()
+            if not changed: break
     # rows of the grid as strings: '#' wall, '.' floor, 'D' door, ' ' outside; plus the room id per floor cell
     rows = []
     for y in range(gh):
         rows.append("".join("D" if door[y, x] else "#" if wall[y, x] else "." if floor[y, x] else " " for x in range(gw)))
-    out = {"source": png.split("/")[-1], "cell_px": CELL, "w": gw, "h": gh, "rows": rows, "room_rows": [",".join(str(v) for v in room[y]) for y in range(gh)],
+    out = {"source": png.split("/")[-1], "cell_px": CELL, "w": gw, "h": gh, "rows": rows, "room_rows": [rle(room[y]) for y in range(gh)],
            "rooms": [{"id": r["id"], "name": r["name"], "cells": r["cells"], "box": [v / CELL for v in r.get("box", [0, 0, 0, 0])], "at": [r["at"][0] / CELL, r["at"][1] / CELL], "reachable": bool(r["cells"] and reach[min(gh - 1, r["at"][1] // CELL), min(gw - 1, r["at"][0] // CELL)] or any(reach[room == r["id"]])) } for r in rooms],
            "lifts": [[l[0] / CELL, l[1] / CELL] for l in seeds.get("lifts", [])], "start": [start[0] / CELL, start[1] / CELL],
            "walls": rects(wall), "corridor": rects(floor & (room == 0) & reach), "sealed": rects(walk & ~reach),
            "room_floor": {str(r["id"]): rects(room == r["id"]) for r in rooms}, "doors": door_marks, "door_open": rects(door),
-           "walk_cells": int(walk.sum()), "reach_cells": int(reach.sum())}
+           "links": links, "walk_cells": int(walk.sum()), "reach_cells": int(reach.sum())}
     json.dump(out, open(out_path, "w"))
     if dbg:
         rgb = np.zeros((gh, gw, 3), np.uint8)
@@ -155,6 +223,6 @@ def main(png, seeds_path, out_path, dbg=None):
         rgb[wall] = (230, 230, 230); rgb[door] = (0, 255, 0)
         rgb[walk & ~reach] = (255, 0, 0)
         Image.fromarray(rgb).resize((gw * 3, gh * 3), Image.NEAREST).save(dbg)
-    print(json.dumps({"rooms": [(r["name"], r["cells"]) for r in rooms], "walk": int(walk.sum()), "reach": int(reach.sum()), "grid": [gw, gh]}))
+    print(json.dumps({"links": links, "rooms": [(r["name"], r["cells"]) for r in rooms], "walk": int(walk.sum()), "reach": int(reach.sum()), "grid": [gw, gh]}))
 if __name__ == "__main__":
     main(*sys.argv[1:])

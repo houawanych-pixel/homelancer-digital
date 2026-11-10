@@ -1,0 +1,90 @@
+{
+ "plan": "HL_UnityEscort_HoloDeck_20261109_v1.png",
+ "start": [
+  500,
+  982
+ ],
+ "ignore": [],
+ "open": [],
+ "rooms": [
+  {
+   "name": "Bridge",
+   "at": [
+    499,
+    278
+   ]
+  },
+  {
+   "name": "Sensors",
+   "at": [
+    497,
+    403
+   ]
+  },
+  {
+   "name": "CIC Tactical",
+   "at": [
+    500,
+    557
+   ]
+  },
+  {
+   "name": "Galley / Med",
+   "at": [
+    617,
+    636
+   ]
+  },
+  {
+   "name": "Crew Bunks",
+   "at": [
+    408,
+    648
+   ]
+  },
+  {
+   "name": "Armory",
+   "at": [
+    406,
+    806
+   ]
+  },
+  {
+   "name": "Support & Stores",
+   "at": [
+    622,
+    846
+   ]
+  },
+  {
+   "name": "Engineering Deck",
+   "at": [
+    500,
+    982
+   ]
+  },
+  {
+   "name": "Reactor Core",
+   "at": [
+    499,
+    1128
+   ]
+  },
+  {
+   "name": "Engine Room A",
+   "at": [
+    422,
+    1230
+   ]
+  },
+  {
+   "name": "Engine Room B",
+   "at": [
+    567,
+    1230
+   ]
+  }
+ ],
+ "lifts": [],
+ "note": "Labels found by auto_seeds.py (OCR), then checked and fixed by eye against the plan (names, missing labels, boxes, open)."
+}

@@ -3051,14 +3051,22 @@ func _run() -> void:
 		await _wait(0.3)
 		_check("v12.97: LEAVE SHIP returns", not is_instance_valid(main.ship_deck) and main.state != "ship_deck", main.state)
 		var built := FleetCatalog.with_stage().map(func(e): return str(e["id"]))
-		_check("v12.97: stages built: Unity Capital and Elyza Capital", built.size() == 2 and "elyza_capital" in built, str(built))
-		main.open_ship_interior("elyza_capital")
-		await _wait(0.6)
-		var es: ShipInterior = main.ship_deck
-		_check("v12.97: Elyza Capital loads, 17 rooms, all reachable", is_instance_valid(es) and es.data["rooms"].size() == 17 and es.data["rooms"].all(func(r): return bool(r["reachable"])))
-		await _shot("interior_elyza_capital", 0.3)
-		es.close()
-		await _wait(0.3)
+		_check("v12.99: a stage for every HoloDeck plan in hand (13: Unity 9, Elyza 4)", built.size() == 13, str(built))
+		for sid in built:
+			main.open_ship_interior(str(sid))
+			await _wait(0.5)
+			var es: ShipInterior = main.ship_deck
+			var ok2: bool = is_instance_valid(es) and es.data["rooms"].size() >= 7 and es.data["rooms"].all(func(r): return bool(r["reachable"]))
+			if ok2:   # walk from the start for a second: you move and stay on the deck
+				var q0 := es.body.global_position
+				es.move_override = Vector2(0, 1)
+				await _wait(1.0)
+				es.move_override = Vector2.ZERO
+				ok2 = absf(es.body.global_position.y) < 0.6
+				await _shot("deck_" + str(sid), 0.1)
+			_check("v12.99: %s loads, every labelled room reachable on foot" % sid, ok2, str(es.data["rooms"].size()) if is_instance_valid(es) else "")
+			if is_instance_valid(es): es.close()
+			await _wait(0.3)
 		_finish_group()
 		return
 	if _flag("HL_ORBITS"):   # v12.91 (owner): planet sizes set their maps; every world on its own orbit, well apart

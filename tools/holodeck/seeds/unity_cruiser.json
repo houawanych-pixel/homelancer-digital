@@ -1,0 +1,152 @@
+{
+ "plan": "HL_UnityCruiser_HoloDeck_20261109_v1.png",
+ "start": [
+  632,
+  681
+ ],
+ "ignore": [],
+ "open": [],
+ "rooms": [
+  {
+   "name": "Bridge",
+   "at": [
+    627,
+    213
+   ]
+  },
+  {
+   "name": "Sensors Suite",
+   "at": [
+    627,
+    303
+   ]
+  },
+  {
+   "name": "CIC (Combat Information Center)",
+   "at": [
+    628,
+    422
+   ]
+  },
+  {
+   "name": "Crew Quarters (port)",
+   "at": [
+    523,
+    425
+   ]
+  },
+  {
+   "name": "Crew Quarters (starboard)",
+   "at": [
+    732,
+    425
+   ]
+  },
+  {
+   "name": "Galley & Mess",
+   "at": [
+    510,
+    558
+   ]
+  },
+  {
+   "name": "Medbay",
+   "at": [
+    750,
+    560
+   ]
+  },
+  {
+   "name": "Armory (port)",
+   "at": [
+    486,
+    659
+   ]
+  },
+  {
+   "name": "Armory (starboard)",
+   "at": [
+    769,
+    659
+   ]
+  },
+  {
+   "name": "Launch Bay (Hangar)",
+   "at": [
+    632,
+    681
+   ]
+  },
+  {
+   "name": "Weapon Bay (port)",
+   "at": [
+    408,
+    701
+   ]
+  },
+  {
+   "name": "Weapon Bay (starboard)",
+   "at": [
+    846,
+    701
+   ]
+  },
+  {
+   "name": "Coolant & Utility (starboard)",
+   "at": [
+    1013,
+    717
+   ]
+  },
+  {
+   "name": "Coolant & Utility (port)",
+   "at": [
+    236,
+    728
+   ]
+  },
+  {
+   "name": "Cargo Hold",
+   "at": [
+    555,
+    860
+   ]
+  },
+  {
+   "name": "Vehicle Bay",
+   "at": [
+    711,
+    860
+   ],
+   "box": [
+    650,
+    800,
+    770,
+    915
+   ]
+  },
+  {
+   "name": "Engineering Deck",
+   "at": [
+    627,
+    958
+   ]
+  },
+  {
+   "name": "Reactor Core",
+   "at": [
+    627,
+    1048
+   ]
+  },
+  {
+   "name": "Engine Room",
+   "at": [
+    628,
+    1128
+   ]
+  }
+ ],
+ "lifts": [],
+ "note": "Labels found by auto_seeds.py (OCR), then checked and fixed by eye against the plan (names, missing labels, boxes, open)."
+}

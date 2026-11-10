@@ -1,0 +1,104 @@
+{
+ "plan": "HL_UnityFrigate_HoloDeck_20261109_v1.png",
+ "start": [
+  514,
+  839
+ ],
+ "ignore": [],
+ "open": [],
+ "rooms": [
+  {
+   "name": "Bridge",
+   "at": [
+    513,
+    214
+   ]
+  },
+  {
+   "name": "Sensors Suite",
+   "at": [
+    512,
+    323
+   ]
+  },
+  {
+   "name": "CIC (Combat Information Center)",
+   "at": [
+    512,
+    459
+   ]
+  },
+  {
+   "name": "Crew Quarters A",
+   "at": [
+    360,
+    477
+   ]
+  },
+  {
+   "name": "Crew Quarters B",
+   "at": [
+    667,
+    477
+   ]
+  },
+  {
+   "name": "Galley & Mess",
+   "at": [
+    376,
+    649
+   ]
+  },
+  {
+   "name": "Medbay",
+   "at": [
+    658,
+    659
+   ]
+  },
+  {
+   "name": "Armory",
+   "at": [
+    372,
+    815
+   ]
+  },
+  {
+   "name": "Weapons Magazine",
+   "at": [
+    662,
+    822
+   ]
+  },
+  {
+   "name": "Craft Bay",
+   "at": [
+    514,
+    839
+   ]
+  },
+  {
+   "name": "Engineering Deck",
+   "at": [
+    513,
+    1016
+   ]
+  },
+  {
+   "name": "Reactor Core",
+   "at": [
+    512,
+    1131
+   ]
+  },
+  {
+   "name": "Engine Room",
+   "at": [
+    512,
+    1270
+   ]
+  }
+ ],
+ "lifts": [],
+ "note": "Labels found by auto_seeds.py (OCR), then checked and fixed by eye against the plan (names, missing labels, boxes, open)."
+}

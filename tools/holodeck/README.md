@@ -20,7 +20,13 @@ Steps
 3. Copy the plan into `assets/holodeck/` as a .jpg (same name) and add it to `FleetCatalog.HOLODECK_FILES`.
    The stage then shows up by itself (FleetCatalog `stage`), with a DECK PLAN button at the station dealer.
 
-Status (2026-11-09)
-- Done by hand and in the game: unity_capital, elyza_capital.
-- Plans in hand, not built yet (auto first pass only): Unity Cruiser, Destroyer, Resupply, TroopTransport,
-  Frigate, Escort, Scout, Bomber; Elyza Cruiser, Destroyer, Resupply.
+Doors on thick or double walls tunnel straight through to open floor. A labelled room the walls still cut off
+(equipment drawn as solid lines) gets an AUTO-LINK: the shortest way in through the fewest wall cells; every link is
+listed in the output ("links") so it can be checked against the plan.
+
+Status (2026-11-10)
+- Built and in the game (13): Unity Capital, Cruiser, Destroyer, Resupply, Troop Transport, Frigate, Escort, Scout,
+  Bomber; Elyza Capital, Cruiser, Destroyer, Resupply. Every labelled room reachable on foot.
+- Unity / Elyza Capital seeds made fully by hand; the other 11 from the OCR first pass, names and boxes fixed by eye.
+- No plan yet: Elyza Troop Transport, Frigate, Escort, Scout, Bomber; all 9 for Solarion, Covenant, Savagers,
+  Imperium, Orion, Liberator.
