@@ -2128,7 +2128,9 @@ const RETOPO_STATIONS := {
 	"techanis": {"*": "HL_Station_Solarion_Military_retopo"},         # borders the Arctides home and Unity
 	"crossma_major": {"*": "HL_Station_Solarion_Trade_retopo"},       # Crossma Freeport (4 jump links)
 	"kellova": {"*": "HL_Station_Solarion_Outpost_retopo"},           # Cargo Depot on the far edge
-	"veranthos": {"*": "HL_Station_Unity_Capital_retopo"},            # Unity capital
+	# v13.01 station rebuild (owner: "Use st3d_veranthos_senate for Veranthos ... so exterior and interior represent the same
+	# station"): Veranthos' main station is no longer the generic Unity capital shape; STATION3D's st3d_veranthos_senate shows.
+	# (HL_Station_Unity_Capital_retopo stays in the build, unused here, for rollback.)
 	"federis": {"*": "HL_Station_Unity_Military_retopo"},             # borders two Solarion systems
 	"aurentum": {"*": "HL_Station_Unity_Trade_retopo"},               # has the Trade Dock
 	"void_system": {"*": "HL_Station_Solrath_Capital_retopo", "Gate Anchor": "HL_Station_Solrath_Military_retopo"},

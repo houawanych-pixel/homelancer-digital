@@ -1772,6 +1772,7 @@ func _showcase() -> void:
 	get_tree().quit()
 
 ## An env flag, or on the web the same name in the page address (?autotest&HL_V19Z) to run one job in the browser.
+var _shots_done := {}
 func _flag(n: String) -> bool:
 	if OS.get_environment(n) != "": return true
 	if OS.has_feature("web"): return str(JavaScriptBridge.eval("location.search", true)).find(n) >= 0
@@ -3016,6 +3017,78 @@ func _run() -> void:
 				main.hub.visible = false
 		_finish_group()
 		return
+	if _flag("HL_STATION"):   # v13.01 station rebuild: Veranthos, measured from st3d_veranthos_senate
+		_check("v13.01: Veranthos' main station is the Senate model its interior is measured from", str(Data.SYSTEMS["veranthos"]["station"].get("model", "")) == "st3d_veranthos_senate" and StationInterior.for_model("st3d_veranthos_senate") == "veranthos", str(Data.SYSTEMS["veranthos"]["station"].get("model", "")))
+		_check("v13.01: only a rebuilt station opens", StationInterior.can_open("veranthos") and not StationInterior.can_open("aurelion") and not main.open_station_interior("aurelion"))
+		var st0 := main.state
+		var okv: bool = main.open_station_interior("veranthos")
+		await _wait(1.0)
+		var sn: StationInterior = main.station_deck
+		_check("v13.01: the Veranthos interior opens", okv and is_instance_valid(sn) and main.state == "station_deck")
+		var lvs: Array = sn.data["levels"]
+		_check("v13.01: five decks, L1 and L5 marked as designed additions", lvs.size() == 5 and bool(lvs[0]["proposed"]) and bool(lvs[4]["proposed"]) and not bool(lvs[1]["proposed"]) and not bool(lvs[2]["proposed"]) and not bool(lvs[3]["proposed"]))
+		var same := true
+		for lv in lvs:
+			for k in 4:
+				if Vector2(float(lv["lifts"][k][0]), float(lv["lifts"][k][1])).distance_to(Vector2(float(lvs[0]["lifts"][k][0]), float(lvs[0]["lifts"][k][1]))) > 0.01: same = false
+		_check("v13.01: four lift shafts at the same x,z on all five decks, none at the centre", same and sn.lift_pads.size() == 20 and Vector2(float(lvs[0]["lifts"][0][0]), float(lvs[0]["lifts"][0][1])).length() > 400.0)
+		_check("v13.01: you start on the main deck", str(sn.level()["id"]) == "L3" and absf(sn.body.global_position.y - sn.level_y(sn.level_i)) < 1.0, str(sn.body.global_position))
+		await _shot("station_main_lift", 0.4)
+		# walk: 2 s along the concourse, on the floor, not through a wall
+		var s0 := sn.body.global_position
+		sn.yaw = atan2(-s0.z, s0.x) + PI / 2    # (round the ring)
+		sn.move_override = Vector2(0, 1)
+		await _wait(2.0)
+		sn.move_override = Vector2.ZERO
+		_check("v13.01: you walk on the deck", sn.body.global_position.distance_to(s0) > 4.0 and absf(sn.body.global_position.y - sn.level_y(sn.level_i)) < 1.0, str(sn.body.global_position - s0))
+		# every deck by lift: down to L5, then up to L1
+		var pad: Dictionary = sn.lift_pads.filter(func(p): return int(p["level"]) == sn.level_i)[0]
+		sn.body.global_position = (pad["pos"] as Vector3) + Vector3(0, 0.1, 0)
+		await _wait(0.5)
+		_check("v13.01: on a lift pad both buttons show", sn._lift_box.visible and (sn._lift_box.get_node("Up") as Button).visible and (sn._lift_box.get_node("Down") as Button).visible)
+		var rode := []
+		for step in [1, 1, -1, -1, -1, -1]:
+			var okr: bool = sn.ride(step)
+			await _wait(0.7)
+			rode.append("%s:%s" % [str(sn.level()["id"]), str(okr and absf(sn.body.global_position.y - sn.level_y(sn.level_i)) < 1.0)])
+		_check("v13.01: the lift goes to every deck and you stand on its floor (L4, L5, L4, L3, L2, L1)", rode == ["L4:true", "L5:true", "L4:true", "L3:true", "L2:true", "L1:true"], str(rode))
+		_check("v13.01: no deck above the top one", not sn.ride(-1))
+		await _shot("station_dome_lift", 0.3)
+		# stand in a room of each deck
+		for pr in [["L1", "Observation Gallery"], ["L2", "Senate Chamber"], ["L3", "Central Public Hub / Senate Rotunda"], ["L3", "North Docking Bay"], ["L4", "Engineering"], ["L5", "Reactor"]]:
+			var rp := sn.room_point(pr[0], pr[1])
+			_check("v13.01: %s has %s" % [pr[0], pr[1]], rp != Vector3.INF)
+			if rp == Vector3.INF: continue
+			sn.place(pr[0], rp)
+			await _wait(0.6)
+			_check("v13.01: standing in %s on %s" % [pr[1], pr[0]], sn.room_now == pr[1] and absf(sn.body.global_position.y - sn.level_y(sn.level_i)) < 1.0, "%s %s" % [sn.room_now, str(sn.body.global_position)])
+			await _shot("station_%s_%s" % [str(pr[0]).to_lower(), str(pr[1]).to_lower().replace(" / ", "_").replace(" ", "_").left(18)], 0.2)
+		# a door opens as you come up to it and you pass through
+		sn.place("L3", Vector3.ZERO)
+		var hubp := sn.room_point("L3", "Central Public Hub / Senate Rotunda")
+		var gate: Dictionary = {}
+		for g in sn.gates:
+			if int(g["level"]) == sn.level_i and Vector2((g["pos"] as Vector3).x, (g["pos"] as Vector3).z).length() < 420.0 and absf((g["pos"] as Vector3).x) < 5.0 and (g["pos"] as Vector3).z < 0.0: gate = g
+		_check("v13.01: the hub has a north door", not gate.is_empty())
+		if not gate.is_empty():
+			var gp: Vector3 = gate["pos"]
+			sn.place("L3", gp + Vector3(0, 0, 30.0))
+			await _wait(0.5)
+			_check("v13.01: a door is shut when you are away from it", not bool(gate["open"]))
+			sn.yaw = 0.0
+			sn.move_override = Vector2(0, 1)
+			var t0 := 0.0
+			while t0 < 9.0 and sn.body.global_position.z > gp.z - 12.0:
+				await _wait(0.25)
+				t0 += 0.25
+				if absf(sn.body.global_position.z - gp.z) < 3.0 and t0 > 0.0 and not _shots_done.has("station_door"):
+					_shots_done["station_door"] = true
+					await _shot("station_door_open", 0.05)
+			sn.move_override = Vector2.ZERO
+			_check("v13.01: it opens and you walk through, hub to concourse", sn.body.global_position.z < gp.z - 8.0, str(sn.body.global_position - gp))
+		sn.close()
+		await _wait(0.4)
+		_check("v13.01: LEAVE STATION puts you back", not is_instance_valid(main.station_deck) and main.state == st0, main.state)
 	if _flag("HL_INTERIOR"):   # v12.97 (owner brief job 2): Unity Capital main deck, on foot, from the HoloDeck plan
 		_check("v12.97: only ships with a built plan open", ShipInterior.can_open("unity_capital") and not ShipInterior.can_open("elyza_scout"))
 		var ok: bool = main.open_ship_interior("unity_capital")

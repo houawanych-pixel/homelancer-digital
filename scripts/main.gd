@@ -394,6 +394,38 @@ func _close_ship_interior() -> void:
 	if is_instance_valid(_deck_layer): _deck_layer.queue_free()
 	ship_deck = null
 
+## v13.01 station rebuild (Veranthos first): the rebuilt station interior, on foot (StationInterior). Opened from the
+## Station Viewer (WALK INSIDE) while it is reviewed; docking, services, missions, the alarm and the escape are NOT
+## switched over to it yet and work as before.
+var station_deck: StationInterior
+var _stn_layer: CanvasLayer
+var _stn_from := ""
+func open_station_interior(id: String) -> bool:
+	if is_instance_valid(station_deck) or is_instance_valid(ship_deck): return false
+	var st := StationInterior.create(id)
+	if st == null:
+		hud.flash_message("That station has not been rebuilt yet.")
+		return false
+	station_deck = st
+	_stn_from = state
+	_stn_layer = CanvasLayer.new()
+	_stn_layer.layer = 61
+	add_child(_stn_layer)
+	_stn_layer.add_child(st)
+	_stn_hid = [hud.visible, hub.visible]
+	hud.visible = false
+	hub.visible = false
+	state = "station_deck"
+	st.left.connect(_close_station_interior)
+	return true
+var _stn_hid: Array = [false, false]
+func _close_station_interior() -> void:
+	state = _stn_from if _stn_from != "" else "hub"
+	hud.visible = bool(_stn_hid[0])
+	hub.visible = bool(_stn_hid[1])
+	if is_instance_valid(_stn_layer): _stn_layer.queue_free()
+	station_deck = null
+
 var _web_t := 0.0
 ## Small read-only status for browser test harnesses (window.__hlstate).
 func _web_state() -> void:

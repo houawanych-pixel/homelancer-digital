@@ -36,6 +36,14 @@ var _pinch0 := 0.0
 var _loading := false
 var single := false          # v11.28: showing one scanned thing (no ◀ ▶ through the stations)
 var arrows: Array = []
+var walk_btn: Button         # v13.01: opens the rebuilt interior of the station on show (StationInterior)
+var shown_key := ""
+## v13.01: walk the rebuilt interior of the station on show (under review: docking still opens the old station screens).
+func walk_inside() -> bool:
+	var id := StationInterior.for_model(shown_key)
+	var m := get_tree().current_scene
+	if id == "" or m == null or not m.has_method("open_station_interior"): return false
+	return bool(m.call("open_station_interior", id))
 
 static func station_keys() -> Array:
 	var out: Array = []
@@ -163,6 +171,10 @@ func _build_ui() -> void:
 		_camera())
 	bot.add_child(ob)
 	bot.add_child(_button("HIDE BUTTONS", func(): _hide_ui(true), 170))
+	walk_btn = _button("WALK INSIDE", func(): walk_inside(), 170)   # v13.01 station rebuild: only on a station that has been rebuilt
+	walk_btn.name = "WalkInside"
+	walk_btn.visible = false
+	bot.add_child(walk_btn)
 	bot.add_child(_button("CLOSE", func(): queue_free(), 120))
 	status = Label.new()
 	status.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
@@ -194,6 +206,8 @@ func show_station(i: int) -> void:
 	idx = wrapi(i, 0, keys.size())
 	var key: String = keys[idx]
 	name_label.text = "%s   (%d / %d)" % [pretty(key), idx + 1, keys.size()]
+	shown_key = key
+	if is_instance_valid(walk_btn): walk_btn.visible = StationInterior.for_model(key) != "" and StationInterior.can_open(StationInterior.for_model(key))
 	for c in pivot.get_children(): c.queue_free()
 	var path := "res://assets/stations3d/%s.glb" % key
 	if not ResourceLoader.exists(path) and Packs.PACKS.has(key):
