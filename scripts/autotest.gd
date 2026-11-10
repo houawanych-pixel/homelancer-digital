@@ -3113,6 +3113,8 @@ func _run() -> void:
 		st.body.global_position = (kg1["pos"] as Vector3) + Vector3(2.6, 0.1, 0)
 		st.yaw = PI / 2
 		await _wait(0.5)
+		await _wait(1.0)
+		_check("v13.00: the key guard wears the game's guard model, not the grey stand-in", bool(kg1["dressed"]) and (kg1["node"] as Node3D).get_node_or_null("Model") != null and not ((kg1["node"] as Node3D).get_node("StandIn") as Node3D).visible)
 		await _shot("deck_key_guard", 0.2)
 		st.body.global_position = (kg1["pos"] as Vector3) + Vector3(0.6, 0.1, 0)
 		await _wait(0.5)

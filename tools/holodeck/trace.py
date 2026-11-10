@@ -11,6 +11,7 @@ Writes "shell" into the json (outlines in grid-cell units, walkable side on the 
 Check: the floor is shrunk by the player's width and every labelled room must still be reachable from the start.
 """
 import json, sys
+from collections import deque
 import numpy as np, cv2
 
 CELL = 4
@@ -20,6 +21,7 @@ SMALL = 260        # px area: bright bits smaller than this are letters / icons 
 COVER_MAX = 2600   # px area: a free-standing solid up to this is cover
 DOOR_PAD = 7       # px: a door opening reaches this far past the green square (through double walls)
 PLAYER_R = 3       # px (0.45 m)
+LINK_MAX = 96      # px of wall an AUTO-LINK may cut through to reach a labelled room the walls shut off
 TUN = 44           # px: the thickest wall band a door may tunnel through
 FLOOR_RUN = 8      # px of clear floor that counts as the far side
 COVER_LEN = 44     # px: cover is compact (under 6.6 m across)
@@ -28,6 +30,8 @@ DOOR_W = 20        # px: the narrowest doorway (3.0 m; owner: "the doorway shoul
 def main(png, jpath, dbg=None, seeds=None):
     d = json.load(open(jpath))
     opens = json.load(open(seeds)).get("open", []) if seeds else []
+    if seeds and json.load(open(seeds)).get("lifts"):   # the plan's lift squares, marked by eye in the seeds (plan px)
+        d["plan_lifts"] = [[l[0] / CELL, l[1] / CELL] for l in json.load(open(seeds))["lifts"]]
     im = cv2.imread(png).astype(int)
     H, W = im.shape[:2]
     B, G, R = im[..., 0], im[..., 1], im[..., 2]
@@ -80,10 +84,74 @@ def main(png, jpath, dbg=None, seeds=None):
         door[y0:y1, x0:x1] = 1; rects.append([x0, y0, x1, y1])
     floor = (hull & (1 - wall)) | (door & hull)
     sx, sy = int(d["start"][0] * CELL), int(d["start"][1] * CELL)
-    _, labf = cv2.connectedComponents(floor.astype(np.uint8), connectivity=4)
-    if labf[sy, sx] == 0:
-        ys, xs = np.nonzero(labf[sy - 20:sy + 20, sx - 20:sx + 20]); sy, sx = sy - 20 + ys[0], sx - 20 + xs[0]
-    reach = (labf == labf[sy, sx]).astype(np.uint8)
+    def flood():
+        nonlocal sx, sy
+        _, labf = cv2.connectedComponents(floor.astype(np.uint8), connectivity=4)
+        if labf[sy, sx] == 0:
+            ys, xs = np.nonzero(labf[sy - 20:sy + 20, sx - 20:sx + 20]); sy, sx = sy - 20 + ys[0], sx - 20 + xs[0]
+        return (labf == labf[sy, sx]).astype(np.uint8)
+    reach = flood()
+    # AUTO-LINK: a labelled room the walls still shut off (a door the reader could not open, a lift drawn across a
+    # passage, equipment drawn as solid lines) gets the way in that cuts the least wall, found on a half-size grid.
+    # Every link is listed ("links") so it can be checked against the plan; it becomes a doorway like the others.
+    links = []
+    hh, hw2 = H // 2, W // 2
+    for _ in range(40):
+        # judged on floor a person fits through (shrunk by the player's width): a thin gap between two lines is wall
+        fe = cv2.erode(floor.astype(np.uint8), cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * PLAYER_R + 1,) * 2))
+        _, labe = cv2.connectedComponents(fe, connectivity=4)
+        win = labe[sy - 8:sy + 9, sx - 8:sx + 9]
+        if not (win > 0).any(): break
+        re_ = (labe == int(np.bincount(win[win > 0]).argmax())).astype(np.uint8)
+        cut = []
+        for rm in d["rooms"]:
+            x, y = int(rm["at"][0] * CELL), int(rm["at"][1] * CELL)
+            if not re_[max(0, y - 30):y + 31, max(0, x - 30):x + 31].any(): cut.append((rm["name"], x, y))
+        for li, l in enumerate(d.get("plan_lifts", [])):   # a lift drawn as a shut box gets a way in as well
+            x, y = int(l[0] * CELL), int(l[1] * CELL)
+            if not re_[max(0, y - 10):y + 11, max(0, x - 10):x + 11].any(): cut.append(("lift %d" % (li + 1), x, y))
+        if not cut: break
+        fl2 = fe[:hh * 2, :hw2 * 2].reshape(hh, 2, hw2, 2).min(axis=(1, 3))        # half-size: floor only if all 4 px are
+        hu2 = hull[:hh * 2, :hw2 * 2].reshape(hh, 2, hw2, 2).min(axis=(1, 3))
+        re2 = re_[:hh * 2, :hw2 * 2].reshape(hh, 2, hw2, 2).min(axis=(1, 3))
+        INF = 1 << 30
+        dist = np.full(hh * hw2, INF, np.int32); prev = np.full(hh * hw2, -1, np.int32)
+        src = np.flatnonzero(re2.reshape(-1)); dist[src] = 0
+        dq = deque(src.tolist()); flf = fl2.reshape(-1); huf = hu2.reshape(-1)
+        while dq:
+            c = dq.popleft(); dc = dist[c]; cy, cx_ = divmod(c, hw2)
+            for nb in (c - 1 if cx_ > 0 else -1, c + 1 if cx_ < hw2 - 1 else -1, c - hw2 if cy > 0 else -1, c + hw2 if cy < hh - 1 else -1):
+                if nb < 0 or not huf[nb]: continue
+                w = 0 if flf[nb] else 1
+                nd = dc + w
+                if nd < dist[nb] and nd * 2 <= LINK_MAX:
+                    dist[nb] = nd; prev[nb] = c
+                    if w: dq.append(nb)
+                    else: dq.appendleft(nb)
+        done = False
+        for name, x, y in cut:
+            # the room's own floor nearest its label
+            best = None
+            for r in range(0, 16):
+                ys_, xs_ = np.nonzero(fl2[max(0, y // 2 - r):y // 2 + r + 1, max(0, x // 2 - r):x // 2 + r + 1])
+                if len(ys_): best = (max(0, y // 2 - r) + ys_[0], max(0, x // 2 - r) + xs_[0]); break
+            if best is None or dist[best[0] * hw2 + best[1]] >= INF: continue
+            c = best[0] * hw2 + best[1]; run = []; carved = 0
+            def close_run():
+                if not run: return
+                xs_ = [q % hw2 * 2 for q in run]; ys_ = [q // hw2 * 2 for q in run]; hwd = DOOR_W // 2
+                r_ = [max(0, min(xs_) - hwd), max(0, min(ys_) - hwd), min(W, max(xs_) + hwd + 2), min(H, max(ys_) + hwd + 2)]
+                door[r_[1]:r_[3], r_[0]:r_[2]] = 1; rects.append(r_); run.clear()
+            while c >= 0:
+                if not flf[c]: run.append(c); carved += 1
+                else: close_run()
+                c = int(prev[c])
+            close_run()
+            if carved:
+                links.append({"room": name, "wall_px": carved * 2}); done = True
+                floor = (hull & (1 - wall)) | (door & hull); reach = flood()
+                break
+        if not done: break
     solid = 1 - reach
     n2, lab2, st2, _ = cv2.connectedComponentsWithStats(solid, connectivity=8)
     cover = np.zeros_like(solid)
@@ -126,10 +194,10 @@ def main(png, jpath, dbg=None, seeds=None):
         x, y = int(rm["at"][0] * CELL), int(rm["at"][1] * CELL)
         if s == 0 or not (lab3[max(0, y - 30):y + 31, max(0, x - 30):x + 31] == s).any(): bad.append(rm["name"])
     d["shell"] = {"walls": walls, "cover": covers, "eps_px": EPS, "from": "trace.py",
-                  "doors": [{"rect": [round(v / CELL, 2) for v in r], "level": 0} for r in rects],
+                  "doors": [{"rect": [round(v / CELL, 2) for v in r], "level": 0} for r in rects], "links": links,
                   "check": {"rooms": len(d["rooms"]), "cut_off": bad, "start_ok": bool(s != 0)}}
     json.dump(d, open(jpath, "w"), separators=(",", ":"))
-    print(json.dumps({"walls": len(walls), "points": sum(len(p) // 2 for p in walls), "cover": len(covers), "cut_off": bad, "start_ok": bool(s != 0)}))
+    print(json.dumps({"walls": len(walls), "points": sum(len(p) // 2 for p in walls), "cover": len(covers), "doors": len(rects), "links": [l["room"] for l in links], "cut_off": bad, "start_ok": bool(s != 0)}))
     if dbg:
         v = np.zeros((H, W, 3), np.uint8)
         v[floor > 0] = (45, 45, 45); v[big > 0] = (90, 70, 40); v[(lab3 == s) & (s != 0)] = (150, 110, 50)

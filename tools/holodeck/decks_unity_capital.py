@@ -85,7 +85,8 @@ def hull_px(d, H, W):
 class Deck:
     def __init__(self, H, W):
         self.f = np.zeros((H, W), np.uint8); self.rooms = []; self.doors = []; self.H = H; self.W = W
-    def mir(self, pts): return [(2 * CX - x, y) for x, y in pts][::-1]
+    CX = CX
+    def mir(self, pts): return [(2 * self.CX - x, y) for x, y in pts][::-1]
     def poly(self, pts, both=False):
         cv2.fillPoly(self.f, [np.round(np.array(pts)).astype(np.int32)], 1)
         if both: cv2.fillPoly(self.f, [np.round(np.array(self.mir(pts))).astype(np.int32)], 1)
@@ -96,7 +97,7 @@ class Deck:
     def disc(self, x, y, r): cv2.circle(self.f, (int(x), int(y)), int(r), 1, -1)
     def room(self, name, x, y, names_both=None):
         self.rooms.append({"name": name, "at": [x, y]})
-        if names_both: self.rooms.append({"name": names_both, "at": [2 * CX - x, y]})
+        if names_both: self.rooms.append({"name": names_both, "at": [2 * self.CX - x, y]})
 
 def outlines(mask, want=1):
     H, W = mask.shape

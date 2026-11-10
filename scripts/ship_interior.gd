@@ -889,7 +889,6 @@ func _gates(sh: Dictionary, y0: float) -> void:
 			"slide": slide, "wide": wide, "k": 0.0})
 
 func _key_guards() -> void:
-	var has_glb := ResourceLoader.exists("res://assets/crowd3d/future_soldier.glb")
 	for kg in data.get("key_guards", []):
 		var lv := int(kg["key"])
 		var dlevel := 0
@@ -925,7 +924,8 @@ func _key_guards() -> void:
 		lb.modulate = KEY_COL[lv]
 		lb.position.y = 2.6
 		n.add_child(lb)
-		key_guards.append({"node": n, "pos": n.position, "key": lv, "room": str(kg["room"]), "has_glb": has_glb})
+		fig.name = "StandIn"
+		key_guards.append({"node": n, "pos": n.position, "key": lv, "room": str(kg["room"]), "dressed": false, "asked": false})
 
 func _key_ui() -> void:
 	var row := HBoxContainer.new()
@@ -1000,6 +1000,57 @@ func _gate_tick(dt: float) -> void:
 			(g["b"] as Node3D).position = off + Vector3(0, DOOR_H * 0.5, 0)
 	for kg in key_guards:
 		if not is_instance_valid(kg["node"]): continue
+		if not bool(kg["dressed"]): _dress_guard(kg)
 		if (kg["pos"] as Vector3).distance_to(me) < 1.5:
 			give_key(int(kg["key"]))
 			(kg["node"] as Node3D).queue_free()
+
+## v13.00 (owner: "I had given you a lot of GLB characters to use, we can use that versus your shape character"):
+## the key guards wear the game's own rigged guard model (the station escape's, assets/crowd3d) in place of the grey
+## stand-in. It loads with its pack; until then (or if the pack is missing) the stand-in shows.
+const GUARD_GLB := "res://assets/crowd3d/future_soldier.glb"
+const GUARD_PACK := "crowd3d"
+func _dress_guard(kg: Dictionary) -> void:
+	if not Packs.is_ready(GUARD_PACK):
+		if not bool(kg["asked"]):
+			kg["asked"] = true
+			Packs.request(GUARD_PACK)
+		return
+	kg["dressed"] = true
+	if not ResourceLoader.exists(GUARD_GLB): return
+	var inst: Node3D = (load(GUARD_GLB) as PackedScene).instantiate()
+	var bb := _model_box(inst)
+	if bb.size.y < 0.01: return
+	var k := 1.85 / bb.size.y
+	inst.scale = Vector3.ONE * k
+	inst.position = Vector3(-bb.get_center().x * k, -bb.position.y * k, -bb.get_center().z * k)
+	var holder := Node3D.new()
+	holder.name = "Model"
+	(kg["node"] as Node3D).add_child(holder)
+	holder.add_child(inst)
+	var gray := (kg["node"] as Node3D).get_node_or_null("StandIn")
+	if gray: (gray as Node3D).visible = false
+	for ap in inst.find_children("*", "AnimationPlayer", true, false):   # his own idle clip, if the model has one
+		var pl := ap as AnimationPlayer
+		for a in pl.get_animation_list():
+			if str(a).to_lower().ends_with("idle"):
+				pl.get_animation(a).loop_mode = Animation.LOOP_LINEAR
+				pl.play(a)
+				break
+		break
+
+## The box round every mesh of a model, in the model's own space.
+func _model_box(inst: Node3D) -> AABB:
+	var bb := AABB()
+	var first := true
+	for m in inst.find_children("*", "MeshInstance3D", true, false):
+		var mi := m as MeshInstance3D
+		var x := mi.transform
+		var par := mi.get_parent()
+		while par != null and par != inst and par is Node3D:
+			x = (par as Node3D).transform * x
+			par = par.get_parent()
+		var a := x * mi.get_aabb()
+		bb = a if first else bb.merge(a)
+		first = false
+	return bb
