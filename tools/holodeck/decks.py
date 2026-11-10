@@ -152,36 +152,68 @@ def _oct(cx, cy, apo):
     r = apo / np.cos(np.pi / 8)
     return [(cx + r * np.cos(np.pi / 8 + k * np.pi / 4), cy + r * np.sin(np.pi / 8 + k * np.pi / 4)) for k in range(8)]
 
-def radial(D, lifts, variant, names, hub_name, end_names):
+def choose_ring(d, floor, doors, start, D, plan_lifts):
+    """v13.00 (owner: "they all need to be centre mass ... in the centre of the silhouette"): the extra decks are
+    centred on the middle of the hull's own outline, and the lifts go where the deck's ring passage is.
+    Returns (cx, cy, ring radius, lifts, how). The plan's own lift pair is used when the ring can pass through it;
+    otherwise a matched pair of pads is put on the ring where the main deck below has clear floor."""
+    H, W = D.shape
+    ys, xs = np.nonzero(D)
+    cx, cy = int(round(xs.mean())), int(round(ys.mean()))
+    R = float(cv2.distanceTransform(D, cv2.DIST_L2, 5)[cy, cx])
+    for a in plan_lifts:
+        for b in plan_lifts:
+            if a[0] < b[0] and abs(a[1] - b[1]) <= 10 and abs((a[0] + b[0]) / 2.0 - cx) <= 12:
+                rr = (np.hypot(a[0] - cx, a[1] - cy) + np.hypot(b[0] - cx, b[1] - cy)) / 2.0
+                if 46 <= rr and rr + CW / 2 + 8 + 36 <= R: return cx, cy, float(rr), [a, b], "the plan's own pair"
+    reach = reach_at(floor, doors, 0, start).astype(np.uint8)
+    corr = (room_grid(d, H, W) == 0)
+    ok = reach.copy()
+    for dr in doors:
+        x0, y0, x1, y1 = [int(round(v)) for v in dr["rect"]]; ok[max(0, y0 - 12):y1 + 12, max(0, x0 - 12):x1 + 12] = 0
+    clear = cv2.distanceTransform(ok, cv2.DIST_L2, 5)
+    best = None
+    for rr in range(46, max(47, min(124, int(R - CW / 2 - 8 - 36)) + 1), 4):
+        for th in range(-50, 51, 5):
+            px = rr * np.cos(np.radians(th)); py = rr * np.sin(np.radians(th))
+            a = (int(round(cx - px)), int(round(cy + py))); b = (int(round(cx + px)), int(round(cy + py)))
+            if not all(0 <= q[0] < W and 0 <= q[1] < H for q in (a, b)): continue
+            c = min(clear[a[1], a[0]], clear[b[1], b[0]])
+            if c < 7: continue
+            sc = min(c, 14) + 6 * (corr[a[1], a[0]] and corr[b[1], b[0]]) - 0.1 * abs(th) - 0.05 * abs(rr - 70)
+            if best is None or sc > best[0]: best = (sc, float(rr), [list(a), list(b)])
+    if best: return cx, cy, best[1], best[2], "added pair, on the ring"
+    return cx, cy, 0.0, [], "none"
+
+def radial(D, cx, yc, rr, lifts, variant, names, hub_name, end_names):
     """v13.00 (owner: "upper and lower rooms need to be more towards the centre ... triple-A style"): a deck built
     round the middle of the ship. A central hub room, a ring passage round it with the lifts on the ring, four wedge
     rooms fanning off the ring on the diagonals, and a spoke to an end room toward the bow and one toward the stern.
     variant "oct": an eight-sided hub you walk through (doors bow and stern side). variant "round": a round core
     room, shut behind orange doors, that you go round. Returns None when the hull is too narrow here for it."""
     H, W = D.shape
-    cx = int(round(sum(l[0] for l in lifts) / len(lifts))); yc = int(lifts[0][1])
-    dx = max(abs(l[0] - cx) for l in lifts)
     dist = cv2.distanceTransform(D, cv2.DIST_L2, 5)
     R = float(dist[yc, cx])
-    rr = max(dx, 46)                      # ring centre line (the lifts sit on it when they are far enough apart)
-    if R < rr + CW / 2 + 8 + 36: return None
+    if rr < 46 or R < rr + CW / 2 + 8 + 36: return None
     rh = rr - CW / 2 - 8                  # hub
     Ro = min(R - 3, rr + CW / 2 + 8 + 84) # outer reach of the wedge rooms
     k = U.Deck(H, W); k.CX = cx
     ring = np.zeros((H, W), np.uint8); hole = np.zeros((H, W), np.uint8)
-    if variant == "oct":
-        cv2.fillPoly(ring, [np.round(np.array(_oct(cx, yc, rr + CW / 2))).astype(np.int32)], 1)
-        cv2.fillPoly(hole, [np.round(np.array(_oct(cx, yc, rr - CW / 2))).astype(np.int32)], 1)
-        k.poly(_oct(cx, yc, rh))
-    else:
-        cv2.circle(ring, (cx, yc), int(rr + CW / 2), 1, -1); cv2.circle(hole, (cx, yc), int(rr - CW / 2), 1, -1)
-        k.disc(cx, yc, rh)
+    # the ring is round on both decks (so a lift anywhere on it lines up deck to deck); the hub's shape differs
+    cv2.circle(ring, (cx, yc), int(rr + CW / 2), 1, -1); cv2.circle(hole, (cx, yc), int(rr - CW / 2), 1, -1)
+    if variant == "oct": k.poly(_oct(cx, yc, rh * np.cos(np.pi / 8) + 2))
+    else: k.disc(cx, yc, rh)
+    if rh > 70:   # a big hub is a hall: four pillars stand in it (cover), on the diagonals for the eight-sided one
+        for q in range(4):
+            a = np.radians(45 + 90 * q if variant == "oct" else 90 * q)
+            px, py = cx + 0.55 * rh * np.cos(a), yc + 0.55 * rh * np.sin(a)
+            cv2.fillPoly(k.f, [np.round(np.array(_oct(px, py, max(9.0, rh * 0.11)))).astype(np.int32)], 0)
     k.f |= ring & (1 - hole)
-    for lx, _ in lifts: k.box(lx - 15, yc - 15, lx + 15, yc + 15, 4)
+    for lx, ly_ in lifts: k.box(lx - 15, ly_ - 15, lx + 15, ly_ + 15, 4)
     hub_lv = 0 if variant == "oct" else 2
     if variant == "oct":                  # through the hub bow to stern
-        k.door(cx - 11, int(yc - rr + CW / 2) - 2, cx + 11, int(yc - rh) + 2, hub_lv)
-        k.door(cx - 11, int(yc + rh) - 2, cx + 11, int(yc + rr - CW / 2) + 2, hub_lv)
+        k.door(cx - 11, int(yc - rr + CW / 2) - 2, cx + 11, int(yc - rh * np.cos(np.pi / 8)) + 4, hub_lv)
+        k.door(cx - 11, int(yc + rh * np.cos(np.pi / 8)) - 4, cx + 11, int(yc + rr - CW / 2) + 2, hub_lv)
     else:                                 # the core opens port and starboard
         k.door(int(cx - rr + CW / 2) - 2, yc - 11, int(cx - rh) + 2, yc + 11, hub_lv)
         k.door(int(cx + rh) - 2, yc - 11, int(cx + rr - CW / 2) + 2, yc + 11, hub_lv)
@@ -272,34 +304,20 @@ def main(jpath, outdir, dbg=None):
     d["plan_lifts"] = [[l[0] / CELL, l[1] / CELL] for l in plan_lifts]
     r0 = reach_at(floor, doors, 0, start)
     plan_lifts = [l for l in plan_lifts if near(r0, l[0], l[1], 14)]
-    lifts_for = {}
+    dh = cv2.erode(hull, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (45, 45)))
+    ring = None
     if want:
-        if len(plan_lifts) >= 4:
-            plan_lifts.sort(key=lambda l: l[1])
-            lifts_for = {"upper": sorted(plan_lifts[:2]), "lower": sorted(plan_lifts[-2:])}; report["lifts"] = "the plan's four"
-        elif len(plan_lifts) >= 2:
-            pair = next(([a, b] for a in plan_lifts for b in plan_lifts if a[0] < b[0] and abs(a[1] - b[1]) <= 10), plan_lifts[:1])
-            lifts_for = {"upper": sorted(pair), "lower": sorted(pair)}; report["lifts"] = "the plan's own (%d used)" % len(pair)
-        elif len(plan_lifts) == 1:
-            lifts_for = {"upper": plan_lifts, "lower": plan_lifts}; report["lifts"] = "the plan's one"
-        else:
-            got, how = pick_lifts(d, floor, doors, start, hull)
-            lifts_for = {"upper": got, "lower": got}; report["lifts"] = "added (%s): none usable on the plan" % how
+        ring = choose_ring(d, floor, doors, start, dh, plan_lifts)
+        report["lifts"] = ring[4]; report["centre"] = [ring[0], ring[1]]
     locked, notes = lock_main(d, floor, doors, start, at)
     world = {"main": (floor, doors, start, at)}
     decks = []; used_lifts = []
-    dh = cv2.erode(hull, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (45, 45)))
     for did in want:
-        lifts = lifts_for.get(did, [])
-        if not lifts: notes.append(did + " deck: no lift position found, not built"); continue
-        bias = -1 if did == "upper" else 1
-        got = radial(dh, lifts, "oct" if did == "upper" else "round", UPPER_NAMES if did == "upper" else LOWER_NAMES,
+        cx_, cy_, rr_, lifts, _how = ring
+        if not lifts: notes.append(did + " deck: no clear floor for a lift pair round the centre, not built"); continue
+        got = radial(dh, cx_, cy_, rr_, lifts, "oct" if did == "upper" else "round", UPPER_NAMES if did == "upper" else LOWER_NAMES,
                      "Operations Hub" if did == "upper" else "Life Support", (UPPER_END, "Wardroom") if did == "upper" else ("Stores", LOWER_END))
-        style = "hub"
-        if got is None:   # too narrow for the hub: the loop layout, centred on the lifts
-            got = layout(dh, lifts, 0, UPPER_NAMES if did == "upper" else LOWER_NAMES, UPPER_END if did == "upper" else LOWER_END); style = "loop"
-        report.setdefault("style", {})[did] = style
-        if got is None: notes.append(did + " deck: the hull is too narrow round the lifts, not built"); continue
+        if got is None: notes.append(did + " deck: the hull is too narrow at its centre for the hub layout, not built"); continue
         k, rect = got
         er = cv2.erode(k.f, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7)))
         _, lab = cv2.connectedComponents(er, connectivity=4)

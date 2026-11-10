@@ -3047,43 +3047,45 @@ func _run() -> void:
 			await _wait(0.4)
 			_check("v12.97: standing in %s reads %s" % [nm, nm], st.room_now == nm, st.room_now)
 			if nm in ["Bridge", "CIC (Combat Information Center)", "Engineering Deck", "Reactor Core"]: await _shot("interior_" + nm.to_lower().replace(" ", "_").left(12), 0.2)
-		# v13.00: the upper and lower decks (proposed layouts) and the lifts
-		_check("v13.00: three decks (main + upper + lower), four lift shafts", st.decks.size() == 3 and st.lift_pads.size() == 8, "%d %d" % [st.decks.size(), st.lift_pads.size()])
-		var fwd: Dictionary = st.lift_pads.filter(func(p): return int(p["level"]) == 0 and st.lift_stops(p).has(1))[0]
-		var aft: Dictionary = st.lift_pads.filter(func(p): return int(p["level"]) == 0 and st.lift_stops(p).has(-1))[0]
-		_check("v13.00: forward lifts go up only, aft lifts go down only", not st.lift_stops(fwd).has(-1) and not st.lift_stops(aft).has(1))
-		st.body.global_position = (fwd["pos"] as Vector3) + Vector3(0, 0.1, 0)
+		# v13.00: the upper and lower decks (proposed layouts, centred on the hull) and the lifts
+		_check("v13.00: three decks (main + upper + lower), one lift pair through all three", st.decks.size() == 3 and st.lift_pads.size() == 6, "%d %d" % [st.decks.size(), st.lift_pads.size()])
+		var lp: Dictionary = st.lift_pads.filter(func(p): return int(p["level"]) == 0)[0]
+		_check("v13.00: from the main deck a lift goes up and down", st.lift_stops(lp).has(1) and st.lift_stops(lp).has(-1))
+		st.body.global_position = (lp["pos"] as Vector3) + Vector3(0, 0.1, 0)
 		await _wait(0.4)
-		_check("v13.00: standing on a lift shows its button", st._lift_box.visible and (st._lift_box.get_node("Up") as Button).visible and not (st._lift_box.get_node("Down") as Button).visible)
+		_check("v13.00: standing on a lift shows both buttons", st._lift_box.visible and (st._lift_box.get_node("Up") as Button).visible and (st._lift_box.get_node("Down") as Button).visible)
 		await _shot("deck_lift_main", 0.2)
 		_check("v13.00: the lift takes you up", st.ride(1))
 		await _wait(0.8)
 		_check("v13.00: you stand on the upper deck floor", st.level == 1 and absf(st.body.global_position.y - ShipInterior.DECK_GAP) < 0.5 and "UPPER DECK" in st._top.text and "PROPOSED" in st._top.text, "%s %s" % [str(st.body.global_position), st._top.text])
 		await _shot("deck_upper_lift", 0.2)
-		for nm in ["Observation Lounge", "Captain's Quarters", "Wardroom"]:
+		var hull_mid := st.cell_to_world(float(st.data["w"]) * 0.5, float(st.data["h"]) * 0.5)
+		for nm in ["Operations Hub", "Ready Room", "Observation Lounge"]:
 			var rn: Node3D = st.world.get_node("Room_upper_" + nm.validate_node_name().replace(" ", "_"))
 			st.body.global_position = rn.global_position + Vector3(0, 0.1, 0)
 			await _wait(0.5)
 			_check("v13.00: upper deck, standing in %s" % nm, st.room_now == nm and absf(st.body.global_position.y - ShipInterior.DECK_GAP) < 0.5, "%s %s" % [st.room_now, str(st.body.global_position)])
-			await _shot("deck_upper_" + nm.to_lower().replace(" ", "_").replace("'", ""), 0.2)
-		st.body.global_position = (st.lift_stops(fwd)[1]["pos"] as Vector3) + Vector3(0, 0.1, 0)
+			await _shot("deck_upper_" + nm.to_lower().replace(" ", "_"), 0.2)
+		var hubn: Node3D = st.world.get_node("Room_upper_Operations_Hub")
+		_check("v13.00: the upper deck's hub sits at the middle of the ship (within 12 m of the plan's centre line and mid-length)", absf(hubn.global_position.x - hull_mid.x) < 12.0 and absf(hubn.global_position.z - hull_mid.z) < 30.0, str(hubn.global_position - hull_mid))
+		st.body.global_position = (st.lift_stops(lp)[1]["pos"] as Vector3) + Vector3(0, 0.1, 0)
 		await _wait(0.4)
 		_check("v13.00: and back down to the main deck", st.ride(-1))
 		await _wait(0.5)
 		_check("v13.00: main deck again, its own plan as the map", st.level == 0 and "MAIN DECK" in st._top.text)
-		st.body.global_position = (aft["pos"] as Vector3) + Vector3(0, 0.1, 0)
-		await _wait(0.4)
-		_check("v13.00: the aft lift takes you down", st.ride(-1))
+		_check("v13.00: the same lift goes on down", st.ride(-1))
 		await _wait(0.8)
 		_check("v13.00: you stand on the lower deck floor", st.level == -1 and absf(st.body.global_position.y + ShipInterior.DECK_GAP) < 0.5, str(st.body.global_position))
 		await _shot("deck_lower_lift", 0.2)
-		for nm in ["Brig", "Life Support", "Pump Room"]:
+		for nm in ["Life Support", "Brig", "Pump Room"]:
 			var rn2: Node3D = st.world.get_node("Room_lower_" + nm.validate_node_name().replace(" ", "_"))
 			st.body.global_position = rn2.global_position + Vector3(0, 0.1, 0)
 			await _wait(0.5)
 			_check("v13.00: lower deck, standing in %s" % nm, st.room_now == nm, st.room_now)
 			await _shot("deck_lower_" + nm.to_lower().replace(" ", "_"), 0.2)
-		# walk on the lower deck: forward along the spine from Life Support for 2 s
+		# walk on the lower deck: across Life Support for 1.5 s
+		st.body.global_position = st.world.get_node("Room_lower_Life_Support").global_position + Vector3(0, 0.1, 0)
+		await _wait(0.3)
 		var dq0 := st.body.global_position
 		st.yaw = 0.0
 		st.move_override = Vector2(0, 1)
@@ -3095,7 +3097,7 @@ func _run() -> void:
 		await _wait(0.4)
 		var by_lv := [0, 0, 0, 0]
 		for g in st.gates: by_lv[int(g["level"])] += 1
-		_check("v13.00: every doorway is a door; yellow, orange and red ones on all three decks", st.gates.size() >= 60 and by_lv[1] >= 3 and by_lv[2] >= 3 and by_lv[3] >= 3, str(by_lv))
+		_check("v13.00: every doorway is a door; yellow, orange and red ones on all three decks", st.gates.size() >= 60 and by_lv[1] >= 3 and by_lv[2] >= 2 and by_lv[3] >= 3, str(by_lv))
 		_check("v13.00: you start with no keys; three key guards", not st.keys[1] and not st.keys[2] and not st.keys[3] and st.key_guards.size() == 3)
 		var yg: Dictionary = st.gates.filter(func(g): return int(g["level"]) == 1 and absf((g["pos"] as Vector3).y) < 1.0)[0]
 		var trav := Vector3((yg["slide"] as Vector3).z, 0, (yg["slide"] as Vector3).x)
