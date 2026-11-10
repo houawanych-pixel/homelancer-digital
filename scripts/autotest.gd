@@ -2963,6 +2963,104 @@ func _run() -> void:
 		_check("tabletop: the facility and battleship interiors written out", (out["facilities"] as Dictionary).size() > 0, str((out["facilities"] as Dictionary).size()))
 		_finish_group()
 		return
+	if _flag("HL_FLEETCAT"):   # v12.97 (owner brief job 1): 8 x 9 fleet catalog, spawned in their own systems
+		var all := FleetCatalog.all()
+		_check("v12.97: the fleet catalog has all 72 faction ships", all.size() == 72, str(all.size()))
+		var no_tok := all.values().filter(func(e): return not ResourceLoader.exists(str(e["token"])))
+		_check("v12.97: every fleet ship has its roster token", no_tok.is_empty(), str(no_tok.map(func(e): return e["id"])))
+		_check("v12.97: HoloDeck pointers only where the file exists (13: Unity 9, Elyza 4)", FleetCatalog.all().values().filter(func(e): return str(e["holodeck"]) != "").size() == 13 and ResourceLoader.exists(str(all["unity_capital"]["holodeck_res"])))
+		_check("v12.97: crops for every ship", all.keys().all(func(k): return FleetCatalog.crop(k).size() == 4))
+		_check("v12.97: the player dealer ships are unchanged", Data.SHIP_ORDER.size() >= 3 and Data.SHIPS.has("cadet"))
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		for fac in ["Unity", "Elyza"]:
+			var sids := FleetCatalog.systems_of(fac)
+			if sids.is_empty(): _check("v12.97: %s owns a system" % fac, false); continue
+			main._load_system(str(sids[0]), "station")
+			await _until(func(): return main.state == "flight" and main.space.sys_id == str(sids[0]), 15.0)
+			await _wait(1.5)
+			var s := _sp()
+			var ids: Array = s.fleet_visitors.map(func(v): return str(v["id"]))
+			_check("v12.97: %s's 9 fleet ships fly in %s" % [fac, sids[0]], ids.size() == 9 and ids.all(func(i): return str(i).begins_with(fac.to_lower())), str(ids))
+			if fac == "Unity":
+				var cap: Node3D = s.fleet_visitors[0]["node"]
+				var p0 := cap.global_position
+				await _wait(1.0)
+				_check("v12.97: the capital is on patrol (moving)", cap.global_position.distance_to(p0) > 1.0)
+				var dk: Node3D = s.fleet_visitors.filter(func(v): return v["mode"] == "docked")[0]["node"]
+				_tp(dk.global_position + Vector3(0, 260, 520), dk.global_position)
+				s.controls = false
+				await _shot("fleet_docked_visitors", 0.6)
+				s.set_process(false)   # straight down on it: the token's nose must point where the prism points
+				s.cam.global_position = dk.global_position + Vector3(0, 520, 0)
+				s.cam.look_at(dk.global_position, Vector3(0, 0, -1))
+				await _capture("fleet_topdown_check")
+				s.set_process(true)
+				var sc: Node3D = s.fleet_visitors.filter(func(v): return v["mode"] == "screen")[0]["node"]
+				_tp(sc.global_position + Vector3(0, 200, 330), sc.global_position)
+				await _shot("fleet_screen", 0.3)
+				_tp(cap.global_position + Vector3(0, 1400, 1600), cap.global_position)
+				await _shot("fleet_capital", 0.3)
+				# the dealer hook: the station's ship list keeps its own ships and adds the faction fleet below
+				GS.system_id = str(sids[0])
+				main.hub.visible = true
+				main.hub.show_screen("ships")
+				await _wait(0.5)
+				_check("v12.97: dealer keeps Cadet/Ranger/Lancer and adds the Unity fleet (DECK PLAN on the capital)", main.hub.find_child("Ship_cadet", true, false) != null and main.hub.find_child("Fleet_unity_scout", true, false) != null and main.hub.find_child("Deck_unity_capital", true, false) != null)
+				await _shot("dealer_fleet", 0.2)
+				(main.hub.find_child("Deck_unity_capital", true, false) as Button).pressed.emit()
+				await _wait(0.5)
+				_check("v12.97: DECK PLAN opens the walkable deck", is_instance_valid(main.ship_deck))
+				if is_instance_valid(main.ship_deck): main.ship_deck.close()
+				await _wait(0.3)
+				main.hub.visible = false
+		_finish_group()
+		return
+	if _flag("HL_INTERIOR"):   # v12.97 (owner brief job 2): Unity Capital main deck, on foot, from the HoloDeck plan
+		_check("v12.97: only ships with a built plan open", ShipInterior.can_open("unity_capital") and not ShipInterior.can_open("elyza_scout"))
+		var ok: bool = main.open_ship_interior("unity_capital")
+		await _wait(0.6)
+		var st: ShipInterior = main.ship_deck
+		_check("v12.97: the Unity Capital stage loads", ok and is_instance_valid(st) and main.state == "ship_deck")
+		var names: Array = st.data["rooms"].map(func(r): return str(r["name"]))
+		var nodes := names.filter(func(nm): return st.world.get_node_or_null("Room_" + str(nm).validate_node_name().replace(" ", "_")) != null)
+		_check("v12.97: every labelled room is a room node (17)", nodes.size() == 17 and names.size() == 17, str(names))
+		_check("v12.97: every room is reachable on foot from the hangar", st.data["rooms"].all(func(r): return bool(r["reachable"])))
+		_check("v12.97: green-square doors placed", st.doors.size() >= 30, str(st.doors.size()))
+		await _shot("interior_hangar", 0.4)
+		# walk: forward (bow-ward) out of the hangar for 2 s, never through a wall
+		var p0 := st.body.global_position
+		st.move_override = Vector2(0, 1)
+		await _wait(2.0)
+		st.move_override = Vector2.ZERO
+		_check("v12.97: you walk on the deck", st.body.global_position.distance_to(p0) > 3.0 and absf(st.body.global_position.y) < 0.5, str(st.body.global_position))
+		# walls stop you: push sideways for 6 s from the hangar centre; must end inside the hull, not past a wall
+		st.body.global_position = st.room_point("Hangar Bay") + Vector3(0, 0.1, 0)
+		st.move_override = Vector2(1, 0)
+		await _wait(4.0)
+		st.move_override = Vector2.ZERO
+		var c: Vector2 = st.world_to_cell(st.body.global_position)
+		_check("v12.97: walls block (still inside the hangar's wall line)", st.room_at(st.body.global_position) == "Hangar Bay" or c.x < 170.0, str(c))
+		await _shot("interior_wall_stop", 0.2)
+		for nm in ["Bridge", "CIC (Combat Information Center)", "Engineering Deck", "Reactor Core", "Cargo Hold A", "Medbay"]:
+			st.body.global_position = st.room_point(nm) + Vector3(0, 0.1, 0)
+			await _wait(0.4)
+			_check("v12.97: standing in %s reads %s" % [nm, nm], st.room_now == nm, st.room_now)
+			if nm in ["Bridge", "Engineering Deck"]: await _shot("interior_" + nm.to_lower().replace(" ", "_"), 0.2)
+		st.close()
+		await _wait(0.3)
+		_check("v12.97: LEAVE SHIP returns", not is_instance_valid(main.ship_deck) and main.state != "ship_deck", main.state)
+		var built := FleetCatalog.with_stage().map(func(e): return str(e["id"]))
+		_check("v12.97: stages built: Unity Capital and Elyza Capital", built.size() == 2 and "elyza_capital" in built, str(built))
+		main.open_ship_interior("elyza_capital")
+		await _wait(0.6)
+		var es: ShipInterior = main.ship_deck
+		_check("v12.97: Elyza Capital loads, 17 rooms, all reachable", is_instance_valid(es) and es.data["rooms"].size() == 17 and es.data["rooms"].all(func(r): return bool(r["reachable"])))
+		await _shot("interior_elyza_capital", 0.3)
+		es.close()
+		await _wait(0.3)
+		_finish_group()
+		return
 	if _flag("HL_ORBITS"):   # v12.91 (owner): planet sizes set their maps; every world on its own orbit, well apart
 		var w: float = 2.0 * Data.SPACE_EDGE / float(Data.MAP_CELLS)
 		var bad: Array = []

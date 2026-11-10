@@ -7,6 +7,7 @@ signal escape_requested(faction: String)   # v12.30: the 3D on-foot escape (main
 signal map_requested
 signal galaxy_requested   # v3.1: the GALAXY MAP tile on HOME
 signal descend_requested(planet_id: String, location_id: String)
+signal interior_requested(ship_id: String)   # v12.97: walk a fleet ship's deck plan (ShipInterior)
 
 const CYAN := Color(0.4, 0.86, 1.0)
 const HudStick := preload("res://scripts/hud.gd")
@@ -4122,6 +4123,7 @@ func _ships_page() -> void:
 		row.add_child(pv)
 		card.add_child(row)
 		list.add_child(card)
+	_fleet_dealer_cards(list)   # v12.97: extra entries only (the ships above are unchanged)
 	# 3D showroom
 	var svc := SubViewportContainer.new()
 	svc.stretch = true
@@ -6329,3 +6331,38 @@ func _surface_page() -> void:
 		b.pressed.connect(func(): descend_requested.emit(pid, l["id"]))
 		row.add_child(b)
 		v.add_child(row)
+
+
+## v12.97 (owner brief: dealer hooks, ADDITIONAL entries): the station faction's fleet (FleetCatalog), below the ships
+## for sale. Not for sale; stats are the PLACEHOLDER table. A ship whose deck plan is built has a DECK PLAN button.
+func _fleet_dealer_cards(list: VBoxContainer) -> void:
+	var fac := str((Data.SYSTEMS.get(GS.system_id, {}) as Dictionary).get("faction", ""))
+	var ents := FleetCatalog.dealer_entries(fac)
+	if ents.is_empty(): return
+	var hd := _label(18, GOLD)
+	hd.text = "%s FLEET  ·  not for sale (stats are placeholders)" % fac.to_upper()
+	hd.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	list.add_child(hd)
+	for e in ents:
+		var card := HBoxContainer.new()
+		card.name = "Fleet_" + str(e["id"])
+		var tr := TextureRect.new()
+		tr.texture = load(str(e["token"])) if ResourceLoader.exists(str(e["token"])) else null
+		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		tr.custom_minimum_size = Vector2(54, 54)
+		card.add_child(tr)
+		var l := _label(15, Color(1, 1, 1))
+		l.text = "%s — %s" % [str(e["name"]).to_upper(), str(e["role"])]
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		card.add_child(l)
+		if ShipInterior.can_open(str(e["id"])):
+			var b := Button.new()
+			b.name = "Deck_" + str(e["id"])
+			b.text = "DECK PLAN"
+			b.custom_minimum_size = Vector2(120, 46)
+			var sid := str(e["id"])
+			b.pressed.connect(func(): interior_requested.emit(sid))
+			card.add_child(b)
+		list.add_child(card)

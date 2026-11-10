@@ -132,6 +132,7 @@ var belt_radius := 0.0
 var rocks: Array = [] # [Vector3 pos, float radius]
 var enemies: Array = [] # Dictionaries
 var traffic: Array = []
+var fleet_visitors: Array = []   # v12.97: FleetCatalog ships in their own faction's systems: {id, node, mode, ...}
 var freighters: Array = []   # v11.63: the lane freighters {node, type, faction, lane, track, s, hp, max, boost_hp, boost_max, len, dead}
 var _freighter_wait := 0.0   # v11.63: s until a destroyed freighter is replaced
 var tanker: Node3D           # the big liquid tanker by the planet
@@ -233,6 +234,7 @@ func _setup(id: String, arrival: String, staged: bool) -> void:
 	_prof("patrols")
 	if staged: await get_tree().process_frame
 	_build_traffic()
+	_spawn_fleet_catalog()   # v12.97: the faction's 9-class fleet (FleetCatalog), placeholder stand-ins
 	_build_carrier()
 	_prof("traffic + carrier")
 	if staged: await get_tree().process_frame
@@ -5894,6 +5896,7 @@ func _process(dt: float) -> void:
 	_update_enemies(dt)
 	if not allies.is_empty(): _update_allies(dt)   # v1.9n
 	_update_traffic(dt)
+	if not fleet_visitors.is_empty(): _update_fleet_visitors(dt)   # v12.97
 	if not _pieces.is_empty(): _update_pieces(dt)   # v11.67: burning wreck pieces
 	if not post_wave.is_empty(): _update_post_wave()   # v11.70
 	if not freighters.is_empty() or _freighter_wait > 0.0: _update_freighters(dt)   # v11.63
@@ -13027,3 +13030,111 @@ func _is_planet_end(n: Node3D) -> bool:
 
 static func lane_planet_end(radius: float) -> float:
 	return radius * Data.ATMO_OUTER + Data.LANE_PLANET_STANDOFF
+
+
+# ---------------------------------------------------------------- v12.97: the faction fleet rosters (FleetCatalog)
+## Owner brief: friendly faction ships appear in their own faction's systems as patrols, a screen near the station,
+## docked visitors and lane traffic. Peaceful, not targets. There are no 3D models of these ships yet, so each is a
+## PLACEHOLDER: a plain grey prism (pointing nose-first, sized by class) with the ship's own top-down token from the
+## roster sheet laid on its deck and a "(PLACEHOLDER)" name tag.
+func _spawn_fleet_catalog() -> void:
+	for v in fleet_visitors:
+		if is_instance_valid(v["node"]): v["node"].queue_free()
+	fleet_visitors = []
+	if surface_mode or not is_instance_valid(station): return
+	var fac := str(sys.get("faction", ""))
+	if not fac in FleetCatalog.FACTIONS: return
+	var c0: Vector3 = station.global_position
+	var a0 := float(absi(hash(sys_id + "_fleetcat")) % 628) / 100.0
+	var i := 0
+	for e in FleetCatalog.of_faction(fac):
+		var n := _fleet_standin(e)
+		add_child(n)
+		var st: Dictionary = e["stats"]
+		var v := {"id": e["id"], "node": n, "mode": e["presence"], "speed": float(st["speed"]), "ang": a0 + float(i) * 0.7}
+		match str(e["presence"]):
+			"patrol":
+				v["r"] = {"Capital": 9000.0, "Cruiser": 6200.0, "Destroyer": 4600.0}.get(str(e["class"]), 5000.0)
+				v["y"] = 260.0 + 90.0 * float(i)
+			"screen":
+				v["r"] = 2000.0 + 450.0 * float(i % 2)
+				v["y"] = 120.0
+			"docked":   # parked off the station, nose out
+				var side := -1.0 if str(e["class"]) == "Resupply" else 1.0
+				n.global_position = c0 + Vector3(side * 1300.0, 60.0, 900.0)   # (clear of the 4x station)
+				face(n, Vector3(side * 0.3, 0, 1).normalized())
+			"traffic":
+				v["t"] = 0.25 + 0.5 * float(i % 2)
+				v["dir"] = 1.0 if i % 2 == 0 else -1.0
+		fleet_visitors.append(v)
+		i += 1
+	_update_fleet_visitors(0.0)
+
+static func _fleet_standin(e: Dictionary) -> Node3D:
+	var n := Node3D.new()
+	n.name = "%s (PLACEHOLDER)" % str(e["name"])
+	n.set_meta("kind", "fleet_visitor")
+	n.set_meta("fleet_id", e["id"])
+	var ln := float(e["stats"]["len"])
+	n.set_meta("radius", ln * 0.4)
+	var tex: Texture2D = load(str(e["token"])) if ResourceLoader.exists(str(e["token"])) else null
+	var aspect := 0.6
+	if tex: aspect = float(tex.get_width()) / float(tex.get_height())
+	var w := ln * aspect
+	var thick := ln * 0.1
+	var hull := MeshInstance3D.new()
+	hull.name = "PlaceholderPrism"
+	var pm := PrismMesh.new()
+	pm.size = Vector3(w * 0.75, ln, thick)
+	hull.mesh = pm
+	hull.rotation_degrees.x = -90.0   # the prism's point is the bow (-Z)
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.32, 0.36, 0.44)
+	mat.roughness = 0.7
+	hull.material_override = mat
+	n.add_child(hull)
+	if tex:
+		var sp := Sprite3D.new()
+		sp.name = "Token"
+		sp.texture = tex
+		sp.axis = Vector3.AXIS_Y   # (lying flat the sheet's top is the bow, -Z: checked from straight above, HL_FLEETCAT fleet_topdown_check)
+		sp.pixel_size = ln / float(tex.get_height())
+		sp.double_sided = true
+		sp.shaded = false
+		sp.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+		sp.position.y = thick * 0.5 + ln * 0.004
+		n.add_child(sp)
+	var lb := Label3D.new()
+	lb.name = "Tag"
+	lb.text = "%s (PLACEHOLDER)" % str(e["name"])
+	lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	lb.fixed_size = true
+	lb.pixel_size = 0.0011
+	lb.font_size = 26
+	lb.outline_size = 8
+	lb.modulate = Color(0.75, 0.9, 1.0, 0.85)
+	lb.position.y = thick + ln * 0.08
+	lb.visibility_range_end = maxf(ln * 14.0, 1500.0)
+	n.add_child(lb)
+	return n
+
+func _update_fleet_visitors(dt: float) -> void:
+	var c0: Vector3 = station.global_position if is_instance_valid(station) else Vector3.ZERO
+	for v in fleet_visitors:
+		var n: Node3D = v["node"]
+		if not is_instance_valid(n): continue
+		match str(v["mode"]):
+			"patrol", "screen":
+				var r := float(v["r"])
+				v["ang"] = float(v["ang"]) + dt * float(v["speed"]) * 0.5 / r
+				var a := float(v["ang"])
+				n.global_position = c0 + Vector3(cos(a) * r, float(v["y"]), sin(a) * r)
+				face(n, Vector3(-sin(a), 0, cos(a)))
+			"traffic":
+				if not is_instance_valid(planet): continue
+				var pa := dock_point(station); var pb := dock_point(planet)
+				v["t"] = float(v["t"]) + dt * float(v["speed"]) * 0.25 / maxf(pa.distance_to(pb), 1.0) * float(v["dir"])
+				if v["t"] > 1.0 or v["t"] < 0.0:
+					v["dir"] = -float(v["dir"]); v["t"] = clampf(float(v["t"]), 0.0, 1.0)
+				n.global_position = pa.lerp(pb, float(v["t"])) + Vector3(0, 90.0 + 25.0 * float(v["dir"]), 60.0 * float(v["dir"]))
+				face(n, (pb - pa).normalized() * float(v["dir"]))

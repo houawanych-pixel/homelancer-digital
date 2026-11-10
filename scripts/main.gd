@@ -53,6 +53,7 @@ func _ready() -> void:
 	hub.map_requested.connect(func(): navmap.open(null))
 	hub.galaxy_requested.connect(func(): galaxymap.open(GS.system_id))   # v3.1: the GALAXY MAP tile on HOME
 	hub.descend_requested.connect(descend_to)
+	hub.interior_requested.connect(open_ship_interior)   # v12.97: a fleet ship's DECK PLAN (ShipInterior)
 	navmap.closed.connect(_on_map_closed)
 	navmap.wild_toggle.connect(func(): if is_instance_valid(space) and space.surface_mode: wild_test_here(not space.wild_park))
 	navmap.course_set.connect(_on_course)
@@ -358,6 +359,40 @@ func _process(_dt: float) -> void:
 					_meet("rennick", "friendly")
 					break
 	_web_state()
+
+## v12.97 (owner brief, job 2): walk a fleet ship's main deck on foot, built from its official HoloDeck plan.
+## Opened from the station's ship dealer (FACTION FLEET list, DECK PLAN). A separate 3D world over everything; the
+## flight scene and the hub stay as they were and come back on LEAVE SHIP.
+## PROPOSAL (not wired): boarding a friendly fleet ship in flight (a docked visitor, see SpaceSystem.fleet_visitors)
+## could open this same stage: on the dock prompt, if ShipInterior.can_open(visitor id) -> open_ship_interior(id)
+## instead of the station hub. Left for the owner to decide; docking to a station is unchanged.
+var ship_deck: ShipInterior
+var _deck_layer: CanvasLayer
+var _deck_from := ""
+func open_ship_interior(id: String) -> bool:
+	if is_instance_valid(ship_deck): return false
+	var st := ShipInterior.create(id)
+	if st == null:
+		hud.flash_message("No deck plan for that ship yet.")
+		return false
+	ship_deck = st
+	_deck_from = state
+	_deck_layer = CanvasLayer.new()
+	_deck_layer.layer = 60
+	add_child(_deck_layer)
+	_deck_layer.add_child(st)
+	hud.visible = false
+	hub.visible = false
+	state = "ship_deck"
+	st.left.connect(_close_ship_interior)
+	return true
+
+func _close_ship_interior() -> void:
+	state = _deck_from if _deck_from != "" else "hub"
+	if state == "hub": hub.visible = true
+	else: hud.visible = true
+	if is_instance_valid(_deck_layer): _deck_layer.queue_free()
+	ship_deck = null
 
 var _web_t := 0.0
 ## Small read-only status for browser test harnesses (window.__hlstate).
