@@ -55,6 +55,56 @@ SPECS = {
     },
 }
 
+def finish(sp, sid, L, dk, foot, raw, lifts, ports, outdir, repdir, rep, Rin):
+    """Lift lobbies, what can be walked to, the report, the deck map and the deck's JSON."""
+    lid, y = L["id"], L["y"]
+    for (x, z) in lifts:
+        m = np.zeros((N, N), np.uint8); cv2.circle(m, P(x, z), int(24 / PX), 1, -1); dk.f |= (m & foot)
+    dk.f &= foot
+    er = cv2.erode(dk.f, np.ones((3, 3), np.uint8))
+    _, lab = cv2.connectedComponents(er, connectivity=4)
+    lx = [P(x, z) for x, z in lifts]
+    s0 = lab[lx[0][1], lx[0][0]]
+    live = cv2.dilate((lab == s0).astype(np.uint8), np.ones((5, 5), np.uint8)) if s0 else np.zeros_like(dk.f)
+    cut = [r["name"] for r in dk.rooms if not live[int(C + r["at"][1] / PX), int(C + r["at"][0] / PX)]]
+    dk.f &= live
+    dk.rooms = [r for r in dk.rooms if r["name"] not in cut]
+    outside = int((dk.f & (1 - raw)).sum())
+    rep[lid] = {"name": L["name"], "height_m": round(y), "proposed_addition": L["proposed"], "hull_inscribed_radius_m": round(Rin),
+                "floor_area_km2": round(float(dk.f.sum()) * PX * PX / 1e6, 3), "floor_outside_measured_hull_m2": round(outside * PX * PX),
+                "rooms": len(dk.rooms), "doors": len(dk.doors), "rooms_dropped_unreachable": cut,
+                "lifts_on_walkable_floor": [bool(s0 and lab[p[1], p[0]] == s0) for p in lx],
+                "one_door_rooms": sorted(r["name"] for r in dk.rooms if r["doors"] < 2)}
+    hullm = cv2.dilate(foot, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (13, 13)))
+    im = np.zeros((N, N, 3), np.uint8); im[:] = (40, 16, 8); im[hullm > 0] = (62, 30, 12); im[dk.f > 0] = (110, 62, 20)
+    cs, _ = cv2.findContours(hullm, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE); cv2.drawContours(im, cs, -1, (200, 150, 60), 2, cv2.LINE_AA)
+    cs, _ = cv2.findContours(dk.f, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE); cv2.drawContours(im, cs, -1, (255, 230, 90), 1, cv2.LINE_AA)
+    # crop to the station, so the map fills its frame
+    ext = float(Deck(foot).R[foot > 0].max()) + 120.0; h_ = int(min(C, ext / PX))
+    for d_ in dk.doors: cv2.circle(im, P(d_["x"], d_["z"]), 3, (90, 255, 90), -1)
+    for (x, z), nm in zip(lifts, L.get("lift_names", ("NE", "SE", "SW", "NW"))):
+        p = P(x, z); cv2.rectangle(im, (p[0] - 7, p[1] - 7), (p[0] + 7, p[1] + 7), (255, 255, 255), 2)
+    im = im[int(C) - h_:int(C) + h_, int(C) - h_:int(C) + h_]
+    sc = 1500.0 / im.shape[0]; im = cv2.resize(im, (1500, 1500), interpolation=cv2.INTER_AREA if sc < 1 else cv2.INTER_CUBIC)
+    def Q(x, z): return (int(750 + x / PX * sc), int(750 + z / PX * sc))
+    for (x, z), nm in zip(lifts, L.get("lift_names", ("NE", "SE", "SW", "NW"))):
+        p = Q(x, z); cv2.putText(im, "LIFT " + nm, (p[0] - 26, p[1] - 14), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1, cv2.LINE_AA)
+    for r in dk.rooms:
+        t = r["name"].upper(); fs = 0.42 if r["rad"] * sc > 60 else 0.32
+        sz = cv2.getTextSize(t, cv2.FONT_HERSHEY_SIMPLEX, fs, 1)[0]; p = Q(*r["at"])
+        cv2.putText(im, t, (p[0] - sz[0] // 2, p[1] + 4), cv2.FONT_HERSHEY_SIMPLEX, fs, (255, 255, 255), 1, cv2.LINE_AA)
+    cv2.putText(im, "%s  -  %s %s" % (sp["name"].upper(), lid, L["name"]), (30, 44), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 240, 170), 2, cv2.LINE_AA)
+    cv2.putText(im, ("DESIGNED ADDITION - not on the blueprint picture" if L["proposed"] else "districts from the blueprint concept") + "  |  clean outline fitted to %s at %+d m" % (sp["model"], round(y)),
+                (30, 72), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (120, 200, 255), 1, cv2.LINE_AA)
+    mp = "%s_%s.jpg" % (sid, lid.lower())
+    cv2.imwrite(os.path.join(outdir, mp), cv2.resize(im, (1024, 1024), interpolation=cv2.INTER_AREA), [cv2.IMWRITE_JPEG_QUALITY, 85])
+    if repdir: cv2.imwrite(os.path.join(repdir, "%s_%s_full.jpg" % (sid, lid.lower())), im, [cv2.IMWRITE_JPEG_QUALITY, 88])
+    return ({"id": lid, "name": L["name"], "y": round(y, 1), "proposed": L["proposed"], "map": mp, "map_extent_m": round(2 * h_ * PX, 1),
+                       "walls": outlines(dk.f), "doors": dk.doors,
+                       "rooms": [{"name": r["name"], "x": round(r["at"][0], 1), "z": round(r["at"][1], 1), "rad": round(r["rad"] * 1.4, 1)} for r in dk.rooms],
+                       "lifts": lifts, "ports": ports})
+
+
 def build(sid, glbdir, outdir, repdir=None):
     sp = SPECS[sid]
     mesh = trimesh.load(os.path.join(glbdir, sp["model"] + ".glb"), force="scene")
@@ -137,52 +187,7 @@ def build(sid, glbdir, outdir, repdir=None):
             dk.doors.append({"x": round(float(x), 1), "z": round(float(z), 1), "yaw": round(ap["a"], 1), "w": 36.0})
             got.append({"name": ap["name"], "direction_deg": round(ap["a"], 1), "pod_centre_from_axis_m": round(ap["r_pod"])})
         if got: rep["main_deck_arms_built"] = got
-        for (x, z) in lifts:
-            m = np.zeros((N, N), np.uint8); cv2.circle(m, P(x, z), int(24 / PX), 1, -1); dk.f |= (m & foot)
-        dk.f &= foot
-        er = cv2.erode(dk.f, np.ones((3, 3), np.uint8))
-        _, lab = cv2.connectedComponents(er, connectivity=4)
-        lx = [P(x, z) for x, z in lifts]
-        s0 = lab[lx[0][1], lx[0][0]]
-        live = cv2.dilate((lab == s0).astype(np.uint8), np.ones((5, 5), np.uint8)) if s0 else np.zeros_like(dk.f)
-        cut = [r["name"] for r in dk.rooms if not live[int(C + r["at"][1] / PX), int(C + r["at"][0] / PX)]]
-        dk.f &= live
-        dk.rooms = [r for r in dk.rooms if r["name"] not in cut]
-        outside = int((dk.f & (1 - raw)).sum())
-        rep[lid] = {"name": L["name"], "height_m": round(y), "proposed_addition": L["proposed"], "hull_inscribed_radius_m": round(Rin),
-                    "floor_area_km2": round(float(dk.f.sum()) * PX * PX / 1e6, 3), "floor_outside_measured_hull_m2": round(outside * PX * PX),
-                    "rooms": len(dk.rooms), "doors": len(dk.doors), "rooms_dropped_unreachable": cut,
-                    "lifts_on_walkable_floor": [bool(s0 and lab[p[1], p[0]] == s0) for p in lx],
-                    "one_door_rooms": sorted(r["name"] for r in dk.rooms if r["doors"] < 2)}
-        decks.append((L, dk))
-        hullm = cv2.dilate(foot, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (13, 13)))
-        im = np.zeros((N, N, 3), np.uint8); im[:] = (40, 16, 8); im[hullm > 0] = (62, 30, 12); im[dk.f > 0] = (110, 62, 20)
-        cs, _ = cv2.findContours(hullm, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE); cv2.drawContours(im, cs, -1, (200, 150, 60), 2, cv2.LINE_AA)
-        cs, _ = cv2.findContours(dk.f, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE); cv2.drawContours(im, cs, -1, (255, 230, 90), 1, cv2.LINE_AA)
-        # crop to the station, so the map fills its frame
-        ext = max(Rin + 120.0, float(Deck(foot).R[foot > 0].max()) + 80.0); h_ = int(min(C, ext / PX))
-        for d_ in dk.doors: cv2.circle(im, P(d_["x"], d_["z"]), 3, (90, 255, 90), -1)
-        for (x, z), nm in zip(lifts, ("NE", "SE", "SW", "NW")):
-            p = P(x, z); cv2.rectangle(im, (p[0] - 7, p[1] - 7), (p[0] + 7, p[1] + 7), (255, 255, 255), 2)
-        im = im[int(C) - h_:int(C) + h_, int(C) - h_:int(C) + h_]
-        sc = 1500.0 / im.shape[0]; im = cv2.resize(im, (1500, 1500), interpolation=cv2.INTER_AREA if sc < 1 else cv2.INTER_CUBIC)
-        def Q(x, z): return (int(750 + x / PX * sc), int(750 + z / PX * sc))
-        for (x, z), nm in zip(lifts, ("NE", "SE", "SW", "NW")):
-            p = Q(x, z); cv2.putText(im, "LIFT " + nm, (p[0] - 26, p[1] - 14), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1, cv2.LINE_AA)
-        for r in dk.rooms:
-            t = r["name"].upper(); fs = 0.42 if r["rad"] * sc > 60 else 0.32
-            sz = cv2.getTextSize(t, cv2.FONT_HERSHEY_SIMPLEX, fs, 1)[0]; p = Q(*r["at"])
-            cv2.putText(im, t, (p[0] - sz[0] // 2, p[1] + 4), cv2.FONT_HERSHEY_SIMPLEX, fs, (255, 255, 255), 1, cv2.LINE_AA)
-        cv2.putText(im, "%s  -  %s %s" % (sp["name"].upper(), lid, L["name"]), (30, 44), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 240, 170), 2, cv2.LINE_AA)
-        cv2.putText(im, ("DESIGNED ADDITION - not on the blueprint picture" if L["proposed"] else "districts from the blueprint concept") + "  |  clean outline fitted to %s at %+d m" % (sp["model"], round(y)),
-                    (30, 72), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (120, 200, 255), 1, cv2.LINE_AA)
-        mp = "%s_%s.jpg" % (sid, lid.lower())
-        cv2.imwrite(os.path.join(outdir, mp), cv2.resize(im, (1024, 1024), interpolation=cv2.INTER_AREA), [cv2.IMWRITE_JPEG_QUALITY, 85])
-        if repdir: cv2.imwrite(os.path.join(repdir, "%s_%s_full.jpg" % (sid, lid.lower())), im, [cv2.IMWRITE_JPEG_QUALITY, 88])
-        levels_out.append({"id": lid, "name": L["name"], "y": round(y, 1), "proposed": L["proposed"], "map": mp, "map_extent_m": round(2 * h_ * PX, 1),
-                           "walls": outlines(dk.f), "doors": dk.doors,
-                           "rooms": [{"name": r["name"], "x": round(r["at"][0], 1), "z": round(r["at"][1], 1), "rad": round(r["rad"] * 1.4, 1)} for r in dk.rooms],
-                           "lifts": lifts, "ports": ports})
+        levels_out.append(finish(sp, sid, L, dk, foot, raw, lifts, ports, outdir, repdir, rep, Rin)); decks.append((L, dk))
     rep["lifts"] = {"shafts_xz_m": dict(zip(("NE", "SE", "SW", "NW"), lifts)), "distance_from_axis_m": LIFT_R,
                     "serve": "all four shafts serve every deck" if all(all(rep[L["id"]]["lifts_on_walkable_floor"]) for L in sp["levels"]) else "NOT all shafts reach every deck"}
     main = next(L for L in sp["levels"] if L["id"] == sp.get("start_level", "L3"))
@@ -210,5 +215,100 @@ def build(sid, glbdir, outdir, repdir=None):
         cv2.imwrite(os.path.join(repdir, sid + "_side.jpg"), im, [cv2.IMWRITE_JPEG_QUALITY, 88])
     print(json.dumps({k: (v_ if not isinstance(v_, dict) or k in ("lifts", "arms") else {q: v_[q] for q in v_ if q in ("hull_inscribed_radius_m", "rooms", "doors", "rooms_dropped_unreachable", "lifts_on_walkable_floor", "one_door_rooms", "floor_outside_measured_hull_m2")}) for k, v_ in rep.items() if k not in ("main_deck_arms_built",)}, indent=0))
 
+# ---- Solarion: a wheel standing on edge. Owner: "four for Solarion (decks stacked along the axle, lower-middle void
+# empty, central sphere sealed for now)"; lifts "NW/NE on all levels, SW/SE on L2-L4". The plan of every deck is the
+# wheel seen from the front; the decks are slices along the axle (the model's Z), so "up" in the interior is the axle.
+def _rows(D, n_out, shapes=("apse", "bays", "oct", "keystone", "hex", "capsule")):
+    k = sum(map(ord, D)) % len(shapes)
+    return [(1.0, [(D + " Front Hall", 1, shapes[k])]),
+            (1.3, [("%s Bay %d" % (D, i + 1), 1, (SEC if i % 2 == 0 else shapes[(k + 1 + i) % len(shapes)])) for i in range(n_out)])]
+def _row1(D, n, shapes=("oct", "bays", "keystone", "capsule")):
+    k = sum(map(ord, D)) % len(shapes)
+    return [(1, [("%s %d" % (D, i + 1), 1, (SEC if i % 2 else shapes[(k + i) % len(shapes)])) for i in range(n)])]
+
+WHEEL = {
+    "id": "synthari_capital", "name": "Solarion Capital Station", "model": "HL_Station_Solarion_Capital_retopo", "system": "synthari_capital",
+    "lift_r": 1382.0,
+    # District names: the owner's deck picture (HL_Solarion-Capital-ClassModel_Hub3Level_BLUEPRINT_GENERATED_20261110_v1).
+    # The picture has three decks; the fourth (L3) is a designed addition holding districts the picture puts elsewhere.
+    "levels": [
+        {"id": "L1", "name": "SOLAR CROWN", "h": -94.0, "proposed": False, "kind": "rail", "arc": (270, 90), "lifts": ("NE", "NW"),
+         "districts": [(270, 315, _row1("Crew Quarters", 4)), (315, 45, _row1("Command / Flight Control", 5)), (45, 90, _row1("Comms / Data Relay", 4))]},
+        {"id": "L2", "name": "EXCHANGE RING", "h": -130.0, "proposed": False, "kind": "full", "lifts": ("NE", "SE", "SW", "NW"),
+         "districts": [(315, 0, _rows("Mech Dealer", 3)), (0, 45, _rows("Medbay", 3)), (45, 90, _rows("Mission Center", 3)), (90, 135, _rows("Weapons & Outfitter", 3)),
+                       (135, 180, _rows("Supplies", 3)), (180, 225, _rows("Customs & Tariff Office", 3)), (225, 270, _rows("Pilots Lounge / Cantina", 3)),
+                       (270, 315, _rows("Trade Floor / Commodity Exchange", 3))]},
+        {"id": "L3", "name": "DOCK RING", "h": -154.0, "proposed": True, "kind": "full", "lifts": ("NE", "SE", "SW", "NW"),
+         "districts": [(315, 0, _rows("Guild & Brokerage Offices", 3)), (0, 45, _rows("Executive Suites", 3)), (45, 90, _rows("Arcade East", 3)), (90, 135, _rows("Security Post", 3)),
+                       (135, 180, _rows("Hangar Pods East", 2)), (180, 225, _rows("Hangar Pods West", 2)), (225, 270, _rows("Freighter Docks", 2)), (270, 315, _rows("Arcade West", 3))]},
+        {"id": "L4", "name": "FOUNDRY HORSESHOE", "h": -190.0, "proposed": False, "kind": "rail", "arc": (20, 340), "lifts": ("NE", "SE", "SW", "NW"),
+         "districts": [(20, 45, _row1("Security / Brig", 2)), (45, 135, _row1("Life Support", 6)), (135, 225, _row1("Cargo Hold", 6)), (225, 315, _row1("Engineering", 6)), (315, 340, _row1("Maintenance", 2))]},
+    ],
+}
+
+def build_wheel(glbdir, outdir, repdir=None):
+    sp = WHEEL; sid = sp["id"]
+    mesh = trimesh.load(os.path.join(glbdir, sp["model"] + ".glb"), force="scene")
+    mesh = mesh.to_geometry() if hasattr(mesh, "to_geometry") else mesh.dump(concatenate=True)
+    v0 = np.asarray(mesh.vertices) * K
+    v = np.stack([v0[:, 0], v0[:, 2], -v0[:, 1]], 1)        # plan x = model x, plan z = -model y (wheel's top = north), height = model z (the axle)
+    tri = v[np.asarray(mesh.faces)]
+    B._HM.clear(); top, bot = B.heightmaps(tri)
+    ANG = {"NE": 45, "SE": 135, "SW": 225, "NW": 315}
+    rep = {"model": sp["model"], "metres_per_model_unit": K, "plan": "front view of the wheel; decks are slices along the axle (model Z)",
+           "size_m": {"x": round(float(np.ptp(v0[:, 0]))), "y": round(float(np.ptp(v0[:, 1]))), "axle_z": round(float(np.ptp(v0[:, 2])))},
+           "sphere": "sealed: no deck enters the central sphere", "spokes": "not walkable in this pass (they lead only to the sealed sphere)",
+           "lower_middle_void": "empty: nothing is built inside the ring"}
+    levels_out = []; tmp = Deck(np.ones((N, N), np.uint8))
+    for L in sp["levels"]:
+        h = L["h"]
+        raw = ((bot < h - 3.0) & (top > h + B.ROOM_H + 3.0)).astype(np.uint8)
+        raw = cv2.morphologyEx(raw, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+        arc = L.get("arc"); am = tmp.band(0, 9999, arc[0], arc[1]) if arc else np.ones((N, N), np.uint8)
+        # the ring at this slice: the widest run of radii where the hull is solid all the way round (the deck's arc)
+        cov = {r: float(raw[(tmp.R >= r) & (tmp.R < r + 10) & (am > 0)].mean()) for r in range(900, 1700, 10)}
+        runs = []; cur = []
+        for r in sorted(cov):
+            if cov[r] >= 0.985: cur.append(r)
+            elif cur: runs.append(cur); cur = []
+        if cur: runs.append(cur)
+        runs = [q for q in runs if q[0] <= sp["lift_r"] <= q[-1] + 10]      # the band the lift shafts stand in
+        ri, ro = runs[0][0] + B.HULL, runs[0][-1] + 10 - B.HULL
+        foot = (tmp.band(ri, ro) & am).astype(np.uint8)
+        dk = Deck(foot)
+        lifts = [[round(q, 1) for q in pol(sp["lift_r"], ANG[nm])] for nm in L["lifts"]]
+        L["lift_names"] = L["lifts"]; L["y"] = h
+        avs = sorted({d[0] for d in L["districts"]} | {d[1] for d in L["districts"]})
+        if L["kind"] == "full":
+            dk.corridor(dk.band(ri, ri + 36.0)); dk.corridor(dk.band(ro - 36.0, ro))
+            for a in avs: dk.avenue(a, ri + 30.0, ro - 30.0, 28.0)
+            for a0, a1, rows in L["districts"]: complex_(dk, ri + 36.0 + WALL, ro - 36.0 - WALL, a0, a1, rows, G=34.0, av_half=14.0)
+        else:
+            # a rail deck: the ring is only solid in a narrow outer rail at this slice. A walkway along its inner side,
+            # one row of rooms against the outer hull, each with a door to the walkway and a door to its neighbour.
+            cw = 26.0; dk.corridor(dk.band(ri, ri + cw))
+            for a0, a1, rows in L["districts"]:
+                cells = rows[0][1]; span = (a1 - a0) % 360; gapd = np.degrees(WALL / (ri + cw))
+                edge = np.degrees(14.0 / ri); prev = None
+                for ci, (nm, wgt, kind) in enumerate(cells):
+                    b0 = a0 + edge + (span - 2 * edge) * ci / len(cells) + gapd / 2; b1 = a0 + edge + (span - 2 * edge) * (ci + 1) / len(cells) - gapd / 2
+                    cell = cv2.morphologyEx(dk.band(ri + cw + WALL, ro, b0, b1), cv2.MORPH_OPEN, B._diamond(4))
+                    r = dk.room(nm, cell)
+                    if r is None: prev = None; continue
+                    dk.rdoor(ri + cw + WALL / 2, (b0 + b1) / 2, r)
+                    if prev is not None and dk.tdoor((ri + cw + WALL + ro) / 2, b0 - gapd / 2, r): prev["doors"] += 1
+                    prev = r
+        levels_out.append(finish(sp, sid, L, dk, foot, raw, lifts, [], outdir, repdir, rep, ro))
+        rep[L["id"]]["ring_inner_outer_m"] = [round(ri), round(ro)]; rep[L["id"]]["kind"] = L["kind"]; rep[L["id"]]["lifts"] = list(L["lifts"])
+    st = next(l for l in levels_out if l["id"] == "L2"); nw = pol(sp["lift_r"], 315)
+    out = {"id": sid, "name": sp["name"], "model": sp["model"], "system": sp["system"], "extent_m": N * PX,
+           "start": {"level": "L2", "x": round(nw[0] * 0.985, 1), "z": round(nw[1] * 0.985, 1), "lift": [round(nw[0], 1), round(nw[1], 1)]},
+           "note": "A wheel on edge: each deck is the ring seen from the front, the decks are stacked along the axle. The sphere is sealed and nothing is built inside the ring. Room names are working labels. No combat, quests or key locks in this pass.",
+           "levels": levels_out}
+    json.dump(out, open(os.path.join(outdir, sid + ".json"), "w"), separators=(",", ":"))
+    if repdir: json.dump(rep, open(os.path.join(repdir, sid + "_report.json"), "w"), indent=1)
+    print(json.dumps({k: v_ for k, v_ in rep.items()}, indent=0))
+
 if __name__ == "__main__":
-    build(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4] if len(sys.argv) > 4 else None)
+    if sys.argv[1] == "synthari_capital": build_wheel(sys.argv[2], sys.argv[3], sys.argv[4] if len(sys.argv) > 4 else None)
+    else: build(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4] if len(sys.argv) > 4 else None)

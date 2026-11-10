@@ -59,7 +59,7 @@ static func path_of(id: String) -> String: return DIR + id + ".json"
 static func can_open(id: String) -> bool: return FileAccess.file_exists(path_of(id))
 ## The rebuilt station that stands for a 3D station model key ("" = none yet).
 static func for_model(key: String) -> String:
-	return str({"st3d_veranthos_senate": "veranthos", "st3d_aurelion_citadel": "aurelion"}.get(key, ""))
+	return str({"st3d_veranthos_senate": "veranthos", "st3d_aurelion_citadel": "aurelion", "HL_Station_Solarion_Capital_retopo": "synthari_capital"}.get(key, ""))
 
 static func create(id: String) -> StationInterior:
 	if not can_open(id): return null

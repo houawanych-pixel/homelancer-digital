@@ -3090,7 +3090,7 @@ func _run() -> void:
 		await _wait(0.4)
 		_check("v13.01: LEAVE STATION puts you back", not is_instance_valid(main.station_deck) and main.state == st0, main.state)
 		# the other rebuilt stations: each opens, has its decks, the lift reaches every deck, every listed room can be stood in
-		for sid2 in ["aurelion"]:
+		for sid2 in ["aurelion", "synthari_capital"]:
 			var mk: String = str(Data.SYSTEMS[sid2]["station"].get("model", ""))
 			_check("v13.01: %s's station model has its rebuilt interior" % sid2, StationInterior.for_model(mk) == sid2 and StationInterior.can_open(sid2), mk)
 			var ok2: bool = main.open_station_interior(sid2)
@@ -3112,7 +3112,8 @@ func _run() -> void:
 				if absf(s2.body.global_position.y - s2.level_y(s2.level_i)) > 1.0 or s2.room_now != str((lv2[li]["rooms"] as Array)[0]["name"]): bad2.append("%s: not standing in %s (%s)" % [str(lv2[li]["id"]), str((lv2[li]["rooms"] as Array)[0]["name"]), s2.room_now])
 				await _shot("station_%s_%s" % [sid2, str(lv2[li]["id"]).to_lower()], 0.2)
 			_check("v13.01: %s: every deck's rooms are there and you can stand in each deck's hall (%d rooms)" % [sid2, seen2], bad2.is_empty() and seen2 > 20, str(bad2))
-			s2.place(str(s2.data["start"]["level"]), Vector3(float(s2.data["start"]["x"]) - 30.0, 0, float(s2.data["start"]["z"])))
+			var lf2: Array = s2.data["start"].get("lift", [float(s2.data["start"]["x"]) - 30.0, float(s2.data["start"]["z"])])   # (a shaft that serves every deck)
+			s2.place(str(s2.data["start"]["level"]), Vector3(float(lf2[0]), 0, float(lf2[1])))
 			await _wait(0.5)
 			var top2 := 0
 			while s2.ride(-1):
