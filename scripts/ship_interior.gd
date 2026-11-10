@@ -496,9 +496,14 @@ func _physics_process(dt: float) -> void:
 func room_at(p: Vector3) -> String:
 	var c := world_to_cell(p)
 	if level != 0:   # the other decks: the room whose centre you are near (its rough size comes with the layout)
-		for r in deck_of(level).get("rooms", []):
-			if c.distance_to(Vector2(float(r["at"][0]), float(r["at"][1]))) <= float(r.get("rad", 8.0)): return str(r["name"])
-		return ""
+		var best := ""
+		var best_k := 1.0
+		for r in deck_of(level).get("rooms", []):   # the room you are deepest inside (rooms nest, so their rough circles overlap)
+			var kk := c.distance_to(Vector2(float(r["at"][0]), float(r["at"][1]))) / maxf(1.0, float(r.get("rad", 8.0)))
+			if kk <= best_k:
+				best_k = kk
+				best = str(r["name"])
+		return best
 	var x := int(c.x); var y := int(c.y); var w := int(data["w"])
 	if x < 0 or y < 0 or x >= w or y >= int(data["h"]): return ""
 	var rid := _room_grid[y * w + x]

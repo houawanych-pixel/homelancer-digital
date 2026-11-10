@@ -355,6 +355,187 @@ def radial(D, cx, yc, rr, lifts, variant, names, hub_name, end_names):
     k.doors = [q for i, q in enumerate(k.doors) if i not in dead_doors]
     return k, (int(cx - Ro), int(yc - Ro), int(cx + Ro), int(yc + Ro))
 
+def hullplan(D, cx, cy, rr, lifts, variant):
+    """v13.00 (owner, showing the Unity Capital blueprint: "look at this for example"): an extra deck laid out the way
+    the blueprints are. The whole silhouette is used and the rooms take the hull's own shape:
+      - a passage runs right round the deck, following the hull line a room's depth inside it
+      - between that passage and the hull, a row of rooms all the way round, their outer walls the hull's curve
+      - inside the passage: a big central hub at the ship's centre of mass with the two lifts in it, cross passages,
+        and rows that alternate between a wide hall you walk through and a pair of rooms either side of a short spine
+    Nothing here is on a blueprint: it is a PROPOSAL. variant "oct" (upper deck) or "round" (lower deck)."""
+    H, W = D.shape
+    dist = cv2.distanceTransform(D, cv2.DIST_L2, 5)
+    Rmax = float(dist.max())
+    t1 = int(min(96, max(48, 0.30 * Rmax)))          # depth of the hull-side rooms
+    c_in = t1 + 8                                      # the round-ship passage: dist in (c_in, c_in + CW]
+    I = (dist > c_in + CW + 8).astype(np.uint8)        # inside the passage (a wall's width in from it)
+    if I.sum() < 9000: return None
+    k = U.Deck(H, W); k.CX = cx
+    k.f |= ((dist > c_in) & (dist <= c_in + CW)).astype(np.uint8)
+    rooms = []        # {"name", "mask", "doors": [idx], "kind", "y"}
+    def add_room(mask, kind, doors):
+        mask = mask.astype(np.uint8)
+        n, lab, st, _ = cv2.connectedComponentsWithStats(mask, connectivity=4)
+        if n < 2: return None
+        i = 1 + int(np.argmax(st[1:, cv2.CC_STAT_AREA]))
+        if st[i, cv2.CC_STAT_AREA] < 1500: return None
+        m = (lab == i).astype(np.uint8)
+        dm = cv2.distanceTransform(m, cv2.DIST_L2, 5); y, x = np.unravel_index(int(np.argmax(dm)), dm.shape)
+        k.f |= m
+        rooms.append({"mask": m, "kind": kind, "doors": doors, "at": (int(x), int(y))}); return rooms[-1]
+    def rot_door(c, wdir, ndir, w=22, l=16, level=0):
+        c = np.array(c, float); wdir = np.array(wdir, float); ndir = np.array(ndir, float)
+        pts = [c + a * wdir * w / 2 + b * ndir * l / 2 for a, b in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
+        cv2.fillPoly(k.f, [np.round(np.array(pts)).astype(np.int32)], 1)
+        xs = [q[0] for q in pts]; ys = [q[1] for q in pts]
+        k.doors.append({"rect": [int(min(xs)), int(min(ys)), int(max(xs)) + 1, int(max(ys)) + 1], "level": level,
+                        "rot": round(float(np.degrees(np.arctan2(-wdir[1], wdir[0]))), 1), "w": w, "l": l})
+        return len(k.doors) - 1
+    # --- the hull-side rooms, cut along the passage's length
+    mid = (dist > c_in + CW / 2).astype(np.uint8)
+    cs, _ = cv2.findContours(mid, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    C = max(cs, key=len).reshape(-1, 2)
+    N = len(C)
+    z = np.full((H, W), 255, np.uint8); z[C[:, 1], C[:, 0]] = 0
+    dC, lab = cv2.distanceTransformWithLabels(z, cv2.DIST_L2, 5, labelType=cv2.DIST_LABEL_PIXEL)
+    start_i = int(np.argmin(np.abs(C[:, 0] - cx) * 4 + C[:, 1]))        # the bow point of the passage
+    idx_of = np.zeros(int(lab.max()) + 1, np.int32); idx_of[lab[C[:, 1], C[:, 0]]] = (np.arange(N) - start_i) % N
+    nseg = max(4, 2 * int(round(N / 2.0 / 150)))
+    half = N / (2.0 * nseg)
+    seg = (((idx_of[lab] + half) % N) * nseg / N).astype(np.int32) % nseg
+    O = (dist > 5) & (dist <= t1) & (dC <= t1 + 8 + CW / 2 + 6)
+    gy, gx = np.gradient(cv2.GaussianBlur(dist, (0, 0), 3))
+    Cs = np.roll(C, -start_i, axis=0)
+    ker = np.ones((9, 9), np.uint8)
+    outer = {}
+    for sgi in range(nseg):
+        m = (O & (seg == sgi)).astype(np.uint8)
+        if m.sum() < 1500: continue
+        other = (O & (seg != sgi)).astype(np.uint8)
+        m &= 1 - cv2.dilate(other, ker)
+        pi = int(round(sgi * N / nseg)) % N
+        px, py = Cs[pi]
+        nrm = -np.array([gx[py, px], gy[py, px]]); L = np.hypot(*nrm)
+        if L < 1e-6: continue
+        nrm /= L; tan = np.array([-nrm[1], nrm[0]])
+        probe = np.array([px, py]) + nrm * (CW / 2 + 8 + 10)
+        qx, qy = int(round(probe[0])), int(round(probe[1]))
+        if not (0 <= qx < W and 0 <= qy < H) or not m[max(0, qy - 3):qy + 4, max(0, qx - 3):qx + 4].any(): continue
+        nd = len(k.doors)
+        r = add_room(m, "outer", [nd])
+        if r is None: continue
+        rot_door(np.array([px, py]) + nrm * (CW / 2 + 4), tan, nrm)
+        r["seg"] = sgi; outer[sgi] = r
+    # --- inside the passage: the hub, cross passages, and rows of halls and room pairs
+    rh = int(rr + 26)
+    ys_, xs_ = np.nonzero(I); ytop, ybot = int(ys_.min()), int(ys_.max())
+    RH = 116
+    def strip(y0, y1): 
+        m = np.zeros((H, W), np.uint8); m[max(0, y0):max(0, y1)] = 1; return m
+    wide = (dist > c_in).astype(np.uint8)              # cross passages run out through the wall to the round passage
+    bands = []                                          # (y0, y1, index from the hub, side)
+    for sgn in (-1, 1):
+        y = cy + sgn * (rh + 8)
+        i = 0
+        while True:
+            c0, c1 = (y - CW, y) if sgn < 0 else (y, y + CW)
+            if (strip(c0, c1) & I).sum() < 200: break
+            k.f |= strip(c0, c1) & wide
+            b0, b1 = (c0 - RH, c0) if sgn < 0 else (c1, c1 + RH)
+            if (strip(b0 + 8, b1 - 8) & I).sum() < 1500: break
+            bands.append((b0, b1, i, sgn)); i += 1
+            y = b0 if sgn < 0 else b1
+    first_hall = 1 if variant == "oct" else 0
+    for (b0, b1, i, sgn) in bands:
+        band = strip(b0 + 8, b1 - 8) & I
+        xs_b = np.nonzero(band.any(axis=0))[0]; width = int(xs_b.max() - xs_b.min()) if len(xs_b) else 0
+        near_edge, far_edge = (b1, b0) if sgn < 0 else (b0, b1)
+        if i % 2 == first_hall or width < 190:
+            nd = len(k.doors)
+            r = add_room(band, "hall", [])
+            if r is None: continue
+            k.door(cx - 11, b1 - 10, cx + 11, b1 + 2, 0) if (strip(b1, b1 + CW) & k.f)[:, cx].any() else None
+            k.door(cx - 11, b0 - 2, cx + 11, b0 + 10, 0) if (strip(b0 - CW, b0) & k.f)[:, cx].any() else None
+            r["doors"] = list(range(nd, len(k.doors))); r["y"] = sgn * (i + 1)
+        else:
+            sp = strip(b0, b1); sp[:, :cx - CW // 2] = 0; sp[:, cx + CW // 2:] = 0
+            k.f |= sp & wide
+            for side in (-1, 1):
+                m = band.copy()
+                if side < 0: m[:, cx - CW // 2 - 8:] = 0
+                else: m[:, :cx + CW // 2 + 8] = 0
+                nd = len(k.doors)
+                r = add_room(m, "side", [nd])
+                if r is None: continue
+                my = (b0 + b1) // 2
+                if side < 0: k.door(cx - CW // 2 - 10, my - 11, cx - CW // 2 + 2, my + 11, 0)
+                else: k.door(cx + CW // 2 - 2, my - 11, cx + CW // 2 + 10, my + 11, 0)
+                r["y"] = sgn * (i + 1); r["side"] = side
+    # the hub: cleared round, then built; the lifts stand in it
+    clear = np.zeros((H, W), np.uint8); cv2.circle(clear, (cx, cy), rh + 8, 1, -1)
+    hubrow = strip(cy - rh, cy + rh) & I & (1 - clear)
+    k.f &= 1 - (clear & strip(cy - rh - 8, cy + rh + 8))
+    hub = np.zeros((H, W), np.uint8)
+    if variant == "oct": cv2.fillPoly(hub, [np.round(np.array(_oct(cx, cy, rh * np.cos(np.pi / 8) + 2))).astype(np.int32)], 1)
+    else: cv2.circle(hub, (cx, cy), rh, 1, -1)
+    hub &= D
+    for sy in (-1, 1):                                  # hub doors: bow side and stern side
+        ya_, yb_ = sorted((cy + sy * (rh - 18), cy + sy * (rh + 14)))   # (reaches in past the eight-sided hub's flat side)
+        k.door(cx - 14, ya_, cx + 14, yb_, 0)
+    nd0 = len(k.doors)
+    k.f |= hub
+    rooms.append({"mask": hub, "kind": "hub", "doors": [nd0 - 2, nd0 - 1], "at": (cx, cy), "y": 0})
+    for side in (-1, 1):                                # the rooms beside the hub
+        m = hubrow.copy()
+        if side < 0: m[:, cx:] = 0
+        else: m[:, :cx] = 0
+        cols = np.nonzero(m[cy - rh:cy - rh + 12].any(axis=0))[0]
+        if not len(cols): continue
+        xm = int(np.median(cols)); nd = len(k.doors)
+        r = add_room(m, "side", [nd])
+        if r is None: continue
+        k.door(xm - 11, cy - rh - 10, xm + 11, cy - rh + 4, 0); r["y"] = 0; r["side"] = side
+    k.f &= D
+    # keep what can be walked to from the lifts
+    er = cv2.erode(k.f, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7)))
+    _, labc = cv2.connectedComponents(er, connectivity=4)
+    s0 = labc[int(lifts[0][1]), int(lifts[0][0])]
+    if s0 == 0: return None
+    live = cv2.dilate((labc == s0).astype(np.uint8), np.ones((9, 9), np.uint8))
+    k.f &= live
+    keep = [r for r in rooms if live[r["at"][1], r["at"][0]]]
+    kept = {id(r) for r in keep}
+    dead = {di for r in rooms if id(r) not in kept for di in r["doors"]}
+    # names
+    up = variant == "oct"
+    side_names = (UPPER_NAMES + UPPER_FILL) if up else (LOWER_NAMES + LOWER_FILL)
+    hall_names = UPPER_HALLS if up else LOWER_HALLS
+    n_side = n_hall = n_out = 0
+    for r in sorted(keep, key=lambda r: (abs(r.get("y", 0)), r.get("y", 0), r.get("side", 0), r.get("seg", 0))):
+        if r["kind"] == "hub": nm = "Operations Hub" if up else "Life Support"
+        elif r["kind"] == "hall":
+            nm = hall_names[n_hall % len(hall_names)] + ("" if n_hall < len(hall_names) else " %d" % (n_hall // len(hall_names) + 1)); n_hall += 1
+        elif r["kind"] == "side":
+            nm = side_names[n_side % len(side_names)] + ("" if n_side < len(side_names) else " %d" % (n_side // len(side_names) + 1)); n_side += 1
+        else:
+            n_out += 1; nm = ("Cabin %d" if up else "Storage Bay %d") % n_out
+        r["name"] = nm; k.room(nm, r["at"][0], r["at"][1])
+    # access: red at the bow end (upper) or the stern end (lower); orange and yellow among the single-door rooms
+    one = [r for r in keep if len(r["doors"]) == 1]
+    def ypos(r): return r["at"][1]
+    if one:
+        red = (min if up else max)(one, key=lambda r: (ypos(r) if up else ypos(r), abs(r["at"][0] - cx)) if up else (ypos(r), -abs(r["at"][0] - cx)))
+        k.doors[red["doors"][0]]["level"] = 3
+        rest = [r for r in one if r is not red]
+        sides = sorted([r for r in rest if r["kind"] == "side"], key=lambda r: (-ypos(r) if up else ypos(r)))
+        outs = sorted([r for r in rest if r["kind"] == "outer"], key=lambda r: r["seg"])
+        if sides: k.doors[sides[0]["doors"][0]]["level"] = 2
+        if len(outs) >= 3: k.doors[outs[len(outs) // 3]["doors"][0]]["level"] = 2
+        if len(sides) >= 2: k.doors[sides[-1]["doors"][0]]["level"] = 1
+        if len(outs) >= 3: k.doors[outs[(2 * len(outs)) // 3]["doors"][0]]["level"] = 1
+    k.doors = [q for i, q in enumerate(k.doors) if i not in dead]
+    return k, (0, 0, W, H)
+
 def lock_main(d, floor, doors, start, at):
     shut = floor.copy()
     for dr in doors:
@@ -409,8 +590,10 @@ def main(jpath, outdir, dbg=None):
     for did in want:
         cx_, cy_, rr_, lifts, _how = ring
         if not lifts: notes.append(did + " deck: no clear floor for a lift pair round the centre, not built"); continue
-        got = radial(dh, cx_, cy_, rr_, lifts, "oct" if did == "upper" else "round", UPPER_NAMES if did == "upper" else LOWER_NAMES,
-                     "Operations Hub" if did == "upper" else "Life Support", (UPPER_END, "Wardroom") if did == "upper" else ("Stores", LOWER_END))
+        got = hullplan(dh, cx_, cy_, rr_, lifts, "oct" if did == "upper" else "round")
+        if got is None:
+            got = radial(dh, cx_, cy_, rr_, lifts, "oct" if did == "upper" else "round", UPPER_NAMES if did == "upper" else LOWER_NAMES,
+                         "Operations Hub" if did == "upper" else "Life Support", (UPPER_END, "Wardroom") if did == "upper" else ("Stores", LOWER_END))
         if got is None: notes.append(did + " deck: the hull is too narrow at its centre for the hub layout, not built"); continue
         k, rect = got
         er = cv2.erode(k.f, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7)))
