@@ -154,12 +154,15 @@ def shape(kind, c, ang, a, b):
     return m
 
 def module(dk, name, kind, c, ang, a, b, allowed):
-    """Place one module, shrunk until it sits wholly inside `allowed`."""
-    for _ in range(14):
-        m = shape(kind, c, ang, a, b)
-        if not (m & (1 - allowed)).any(): break
-        a *= 0.93; b *= 0.93
-    else: return None
+    """Place one module as large as fits wholly inside `allowed` (depth and width are fitted separately)."""
+    best = None; no = (1 - allowed)
+    for sa in (1.0, 0.9, 0.8, 0.7, 0.6, 0.5):
+        for sb in (1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4):
+            if best is not None and sa * sb <= best[0]: continue
+            mm = shape(kind, c, ang, a * sa, b * sb)
+            if not (mm & no).any(): best = (sa * sb, mm)
+    if best is None: return None
+    m = best[1]
     if m.sum() * PX * PX < 1500.0: return None
     dm = cv2.distanceTransform(m, cv2.DIST_L2, 5); cp = P(*c)
     dk.f |= m
@@ -208,6 +211,7 @@ def district(dk, name, r0, r1, av0, av1, rows, seed, inner=True, outer=True, pad
             cell = (allowed & dk.band(ra, rb, b0, b1)).astype(np.uint8)
             kind = kinds[ki % len(kinds)]; ki += 1
             a, b = (rb - ra) / 2, max(20.0, half)
+            if rb - ra < 200.0: b = min(b, 1.5 * a)          # in a thin ring a straight room cannot be long: keep it compact
             if kind in ("rotunda",) and b < a: a = b
             r = module(dk, "%s %d" % (name, k) if sum(rows) > 1 else name, kind, np.array(pol(rm, mid)), mid, a, b, cell)
             if r is not None: r["_rm"] = rm; r["_mid"] = mid; r["_kind"] = kind
@@ -331,11 +335,11 @@ def build(glb, outdir, repdir=None):
             Rp0 = Rin - 64.0                                    # the promenade round the rim
             dk.corridor(dk.band(Rp0, Rin))
             spans = [("Customs / Arrivals", 336, 22, (2, 3)), ("Medbay", 22, 62, (2, 2)), ("Mission Center", 62, 108, (1, 2)),
-                     ("Security Post", 108, 166, (2, 2)), ("Escape Pod", 166, 192, (1,)), ("Cantina / Lounge", 192, 244, (2, 3)),
+                     ("Security Post", 108, 172, (2, 2)), ("Escape Pod", 172, 187, (1,)), ("Cantina / Lounge", 187, 244, (2, 3)),
                      ("Embassy Row", 244, 292, (3, 2)), ("Market / Shops", 292, 336, (3, 4))]
             for a in sorted({s_[1] for s_ in spans}): dk.avenue(a, 470.0, Rp0, 30.0)   # avenues between the districts
             for si, (nm, a0, a1, rows) in enumerate(spans):
-                if nm == "Escape Pod": district(dk, nm, 470.0 + WALL, 700.0, a0, a1, rows, 11 + si, outer=False)
+                if nm == "Escape Pod": district(dk, nm, Rp0 - WALL - 230.0, Rp0 - WALL, a0, a1, rows, 11 + si, inner=False)   # at the rim, where a pod can leave
                 else: district(dk, nm, 470.0 + WALL, Rp0 - WALL, a0, a1, rows, 11 + si)
             got = []
             for ap in arm_parts:
@@ -352,7 +356,7 @@ def build(glb, outdir, repdir=None):
         elif lid == "L2":
             ring_core(dk, "Senate Chamber", 380.0)
             Ro = Rin - 6
-            spans = [("Delegate Offices (north)", 330, 30, (3,)), ("Delegate Offices", 30, 140, (5,)), ("Officer Quarters", 140, 250, (6,)), ("Command / Comms", 250, 330, (3,))]
+            spans = [("Delegate Offices (north)", 330, 30, (2,)), ("Delegate Offices", 30, 140, (4,)), ("Officer Quarters", 140, 250, (4,)), ("Command / Comms", 250, 330, (3,))]
             for a in (330, 30, 140, 250): dk.avenue(a, 470.0, Ro - 20, 24.0)
             for si, (nm, a0, a1, rows) in enumerate(spans):
                 district(dk, nm, 470.0 + WALL, Ro, a0, a1, rows, 31 + si, outer=False, pad=20.0)
