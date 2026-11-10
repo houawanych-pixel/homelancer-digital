@@ -60,6 +60,12 @@ var _lift_box: HBoxContainer
 var _fade: ColorRect
 var _top: Label
 var _maps := {}
+var gates: Array = []        # v13.00 sliding doors: {node, pos, level, open, a, b, body, slide, k}
+var keys := [true, false, false, false]   # green is always open; 1 yellow, 2 orange, 3 red
+var key_guards: Array = []   # {node, pos, key}
+var _msg: Label
+var _msg_t := 0.0
+var _chips: Array = []
 
 static func can_open(id: String) -> bool:
 	return str(FleetCatalog.get_entry(id).get("stage", "")) != ""
@@ -126,6 +132,9 @@ func _build() -> void:
 	if shell:
 		_shell_deck(data["shell"], 0.0, "")
 		_more_decks()
+		_gates(data["shell"], 0.0)
+		for dk in data.get("decks", []): _gates(dk["shell"], float(int(dk["level"])) * DECK_GAP)
+		_key_guards()
 	else: _walls()
 	_rooms()
 	_doors()
@@ -438,6 +447,7 @@ func _ui() -> void:
 	leave.pressed.connect(close)
 	add_child(leave)
 	if not decks.is_empty(): _lift_ui()
+	if shell: _key_ui()
 
 func close() -> void:
 	left.emit()
@@ -475,6 +485,7 @@ func _physics_process(dt: float) -> void:
 	body.move_and_slide()
 	_cam_follow(clampf(dt * 6.0, 0.0, 1.0))
 	if not decks.is_empty(): _deck_tick()
+	if shell: _gate_tick(dt)
 	room_now = room_at(body.global_position)
 	room_label.text = room_now if room_now != "" else "Corridor"
 	var c := world_to_cell(body.global_position)
@@ -805,3 +816,190 @@ func _deck_tick() -> void:
 		var b: Button = _lift_box.get_node("Up" if dir == 1 else "Down")
 		b.visible = stops.has(dir)
 		if stops.has(dir): b.text = ("▲  " if dir == 1 else "▼  ") + str(deck_of(level + dir).get("name", "DECK"))
+
+# ---------------------------------------------------------------------------------------------------------------------
+## v13.00 (owner: "the doorway should be a little bit bigger ... certain doors should be coloured yellow, orange and
+## red, three different access levels, green is always open ... find those guards with those keys"; "make it work like
+## how it opens up"): every doorway of a shell deck is a sliding door. Two leaves part into the walls as you walk up.
+## Green opens for anyone; yellow / orange / red stay shut until you carry that key. Each key is on a guard somewhere
+## your current access can reach. Which doors are locked and where the guards stand is PROPOSED gameplay
+## (tools/holodeck/decks_<ship>.py), not something the blueprint shows.
+## The leaves are graybox stand-ins shaped to take the owner's door models later (one closed model per leaf pair).
+const KEY_COL := [Color(0.25, 1.0, 0.4), Color(1.0, 0.9, 0.15), Color(1.0, 0.55, 0.1), Color(1.0, 0.2, 0.2)]
+const KEY_NAME := ["GREEN", "YELLOW", "ORANGE", "RED"]
+const DOOR_H := 3.6
+const DOOR_PAD := 0.45    # the leaves reach this far into the wall each side (no gap round a shut door)
+
+func _gates(sh: Dictionary, y0: float) -> void:
+	var leaf_mat := _grey(Color(0.26, 0.3, 0.38))   # (darker than the walls, so a shut door reads as a door)
+	var head_mat := _grey(Color(0.36, 0.4, 0.48))
+	for dr in sh.get("doors", []):
+		var r: Array = dr["rect"]
+		var lv := int(dr["level"])
+		var along_y: bool = str(dr.get("ax", "y")) == "y"    # you walk bow-stern through it: the leaves slide port-starboard
+		var c := cell_to_world((float(r[0]) + float(r[2])) * 0.5, (float(r[1]) + float(r[3])) * 0.5) + Vector3(0, y0, 0)
+		var wide := (float(r[2]) - float(r[0]) if along_y else float(r[3]) - float(r[1])) * M_PER_CELL + DOOR_PAD * 2.0
+		var slide := Vector3(1, 0, 0) if along_y else Vector3(0, 0, 1)
+		var g := Node3D.new()
+		g.name = "Gate_%d" % gates.size()
+		g.position = c
+		g.set_meta("level", lv)
+		world.add_child(g)
+		var leaves := []
+		for sgn in [-1.0, 1.0]:
+			var leaf := MeshInstance3D.new()
+			var bm := BoxMesh.new()
+			bm.size = (Vector3(wide * 0.5, DOOR_H, 0.35) if along_y else Vector3(0.35, DOOR_H, wide * 0.5))
+			leaf.mesh = bm
+			leaf.material_override = leaf_mat
+			leaf.position = slide * (sgn * wide * 0.25) + Vector3(0, DOOR_H * 0.5, 0)
+			g.add_child(leaf)
+			var stripe := MeshInstance3D.new()   # the access colour, across each leaf on both faces
+			var sm := BoxMesh.new()
+			sm.size = (Vector3(wide * 0.5 - 0.3, 1.0, 0.39) if along_y else Vector3(0.39, 1.0, wide * 0.5 - 0.3))
+			stripe.mesh = sm
+			stripe.material_override = _glow(KEY_COL[lv])
+			stripe.position.y = -0.35
+			leaf.add_child(stripe)
+			leaves.append(leaf)
+		var head := MeshInstance3D.new()        # the wall above the door, up to the ceiling
+		var hm := BoxMesh.new()
+		hm.size = (Vector3(wide, wall_h - DOOR_H, 0.6) if along_y else Vector3(0.6, wall_h - DOOR_H, wide))
+		head.mesh = hm
+		head.material_override = head_mat
+		head.position.y = DOOR_H + (wall_h - DOOR_H) * 0.5
+		g.add_child(head)
+		var lamp := MeshInstance3D.new()        # and the access light over it
+		var lm := BoxMesh.new()
+		lm.size = (Vector3(wide * 0.6, 0.18, 0.66) if along_y else Vector3(0.66, 0.18, wide * 0.6))
+		lamp.mesh = lm
+		lamp.material_override = _glow(KEY_COL[lv])
+		lamp.position.y = DOOR_H + 0.25
+		g.add_child(lamp)
+		var sb := StaticBody3D.new()
+		var cs := CollisionShape3D.new()
+		var bs := BoxShape3D.new()
+		# shut, the whole doorway is blocked (its full footprint plus the pad), whichever way the leaves face
+		bs.size = Vector3((float(r[2]) - float(r[0])) * M_PER_CELL + DOOR_PAD * 2.0, DOOR_H, (float(r[3]) - float(r[1])) * M_PER_CELL + DOOR_PAD * 2.0)
+		cs.shape = bs
+		cs.position.y = DOOR_H * 0.5
+		sb.add_child(cs)
+		g.add_child(sb)
+		gates.append({"node": g, "pos": c, "level": lv, "open": false, "a": leaves[0], "b": leaves[1], "shape": cs,
+			"slide": slide, "wide": wide, "k": 0.0})
+
+func _key_guards() -> void:
+	var has_glb := ResourceLoader.exists("res://assets/crowd3d/future_soldier.glb")
+	for kg in data.get("key_guards", []):
+		var lv := int(kg["key"])
+		var dlevel := 0
+		for dk in data.get("decks", []):
+			if str(dk["id"]) == str(kg["deck"]): dlevel = int(dk["level"])
+		var n := Node3D.new()
+		n.name = "KeyGuard_%s" % KEY_NAME[lv].to_lower()
+		n.position = cell_to_world(float(kg["at"][0]), float(kg["at"][1])) + Vector3(0, float(dlevel) * DECK_GAP, 0)
+		world.add_child(n)
+		var fig := MeshInstance3D.new()   # a stand-in guard (graybox) until the owner's guard models are plugged in
+		var cm := CapsuleMesh.new()
+		cm.radius = 0.38
+		cm.height = 1.85
+		fig.mesh = cm
+		var fm := StandardMaterial3D.new()
+		fm.albedo_color = Color(0.25, 0.27, 0.32)
+		fig.material_override = fm
+		fig.position.y = 0.93
+		n.add_child(fig)
+		var card := MeshInstance3D.new()  # the key card he carries, in its colour
+		var cb := BoxMesh.new()
+		cb.size = Vector3(0.34, 0.22, 0.04)
+		card.mesh = cb
+		card.material_override = _glow(KEY_COL[lv])
+		card.position = Vector3(0, 2.25, 0)
+		n.add_child(card)
+		var lb := Label3D.new()
+		lb.text = "GUARD  ·  %s KEY" % KEY_NAME[lv]
+		lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		lb.font_size = 40
+		lb.pixel_size = 0.005
+		lb.outline_size = 8
+		lb.modulate = KEY_COL[lv]
+		lb.position.y = 2.6
+		n.add_child(lb)
+		key_guards.append({"node": n, "pos": n.position, "key": lv, "room": str(kg["room"]), "has_glb": has_glb})
+
+func _key_ui() -> void:
+	var row := HBoxContainer.new()
+	row.name = "Keys"
+	row.position = Vector2(20, 88)
+	row.add_theme_constant_override("separation", 8)
+	add_child(row)
+	for lv in [1, 2, 3]:
+		var chip := Label.new()
+		chip.text = " %s KEY " % KEY_NAME[lv]
+		chip.add_theme_font_size_override("font_size", 15)
+		var sbx := StyleBoxFlat.new()
+		sbx.bg_color = Color(0.1, 0.12, 0.16, 0.8)
+		sbx.border_color = KEY_COL[lv]
+		sbx.set_border_width_all(2)
+		sbx.set_corner_radius_all(5)
+		chip.add_theme_stylebox_override("normal", sbx)
+		row.add_child(chip)
+		_chips.append(chip)
+	_msg = Label.new()
+	_msg.name = "DoorMsg"
+	_msg.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_msg.position = Vector2(-300, 150)
+	_msg.custom_minimum_size = Vector2(600, 0)
+	_msg.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_msg.add_theme_font_size_override("font_size", 24)
+	_msg.add_theme_constant_override("outline_size", 8)
+	_msg.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	add_child(_msg)
+	_chip_show()
+
+func _chip_show() -> void:
+	for i in _chips.size():
+		var lv := i + 1
+		var chip: Label = _chips[i]
+		chip.add_theme_color_override("font_color", KEY_COL[lv] if keys[lv] else Color(0.45, 0.47, 0.52))
+		(chip.get_theme_stylebox("normal") as StyleBoxFlat).bg_color = Color(KEY_COL[lv].r, KEY_COL[lv].g, KEY_COL[lv].b, 0.28) if keys[lv] else Color(0.1, 0.12, 0.16, 0.8)
+
+func say(t: String, col: Color) -> void:
+	if not is_instance_valid(_msg): return
+	_msg.text = t
+	_msg.add_theme_color_override("font_color", col)
+	_msg_t = 2.2
+
+## Hand yourself a key (a guard's, or a test).
+func give_key(lv: int) -> void:
+	keys[lv] = true
+	_chip_show()
+	say("%s KEY TAKEN  ·  %s doors now open for you" % [KEY_NAME[lv], KEY_NAME[lv].to_lower()], KEY_COL[lv])
+
+func _gate_tick(dt: float) -> void:
+	var me := body.global_position
+	if _msg_t > 0.0:
+		_msg_t -= dt
+		if _msg_t <= 0.0: _msg.text = ""
+	for g in gates:
+		var d := Vector2(me.x - (g["pos"] as Vector3).x, me.z - (g["pos"] as Vector3).z).length()
+		var same := absf(me.y - (g["pos"] as Vector3).y) < 3.0
+		var reach: float = float(g["wide"]) * 0.5 + 3.2
+		var want: bool = same and d < reach and keys[int(g["level"])]
+		if same and d < reach - 0.3 and not keys[int(g["level"])] and _msg_t <= 0.0:
+			say("%s KEY NEEDED  ·  a guard on this ship carries it" % KEY_NAME[int(g["level"])], KEY_COL[int(g["level"])])
+		if want != bool(g["open"]):
+			g["open"] = want
+			(g["shape"] as CollisionShape3D).disabled = want
+		var k: float = move_toward(float(g["k"]), 1.0 if want else 0.0, dt * 3.2)
+		if k != float(g["k"]):
+			g["k"] = k
+			var w: float = float(g["wide"])
+			var off: Vector3 = (g["slide"] as Vector3) * (w * 0.25 + k * w * 0.5)
+			(g["a"] as Node3D).position = -off + Vector3(0, DOOR_H * 0.5, 0)
+			(g["b"] as Node3D).position = off + Vector3(0, DOOR_H * 0.5, 0)
+	for kg in key_guards:
+		if not is_instance_valid(kg["node"]): continue
+		if (kg["pos"] as Vector3).distance_to(me) < 1.5:
+			give_key(int(kg["key"]))
+			(kg["node"] as Node3D).queue_free()

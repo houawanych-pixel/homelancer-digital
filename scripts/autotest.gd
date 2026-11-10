@@ -3090,6 +3090,44 @@ func _run() -> void:
 		await _wait(1.5)
 		st.move_override = Vector2.ZERO
 		_check("v13.00: you walk on the lower deck", st.body.global_position.distance_to(dq0) > 2.0 and absf(st.body.global_position.y + ShipInterior.DECK_GAP) < 0.5, str(st.body.global_position))
+		# v13.00: sliding doors, access colours and key guards (proposed gameplay)
+		st.body.global_position = st.room_point("Hangar Bay") + Vector3(0, 0.1, 0)
+		await _wait(0.4)
+		var by_lv := [0, 0, 0, 0]
+		for g in st.gates: by_lv[int(g["level"])] += 1
+		_check("v13.00: every doorway is a door; yellow, orange and red ones on all three decks", st.gates.size() >= 60 and by_lv[1] >= 3 and by_lv[2] >= 3 and by_lv[3] >= 3, str(by_lv))
+		_check("v13.00: you start with no keys; three key guards", not st.keys[1] and not st.keys[2] and not st.keys[3] and st.key_guards.size() == 3)
+		var yg: Dictionary = st.gates.filter(func(g): return int(g["level"]) == 1 and absf((g["pos"] as Vector3).y) < 1.0)[0]
+		var trav := Vector3((yg["slide"] as Vector3).z, 0, (yg["slide"] as Vector3).x)
+		var stand: Vector3 = (yg["pos"] as Vector3) + trav * 3.3 + Vector3(0, 0.1, 0)
+		st.body.global_position = stand
+		st.yaw = atan2(trav.x, trav.z)
+		await _wait(0.8)
+		_check("v13.00: a yellow door stays shut without the key, and says so", not bool(yg["open"]) and "YELLOW KEY NEEDED" in st._msg.text, "%s | t %s | at %s | gate %s | wide %s | keys %s" % [st._msg.text, str(st._msg_t), str(st.body.global_position), str(yg["pos"]), str(yg["wide"]), str(st.keys)])
+		await _shot("deck_yellow_door_shut", 0.2)
+		st.move_override = Vector2(0, 1)   # and it stops you
+		await _wait(1.6)
+		st.move_override = Vector2.ZERO
+		_check("v13.00: the shut door blocks the way", (st.body.global_position - stand).dot(-trav) < 2.0, str(st.body.global_position - stand))
+		var kg1: Dictionary = st.key_guards.filter(func(k): return int(k["key"]) == 1)[0]
+		st.body.global_position = (kg1["pos"] as Vector3) + Vector3(2.6, 0.1, 0)
+		st.yaw = PI / 2
+		await _wait(0.5)
+		await _shot("deck_key_guard", 0.2)
+		st.body.global_position = (kg1["pos"] as Vector3) + Vector3(0.6, 0.1, 0)
+		await _wait(0.5)
+		_check("v13.00: reaching the guard gives his key", st.keys[1] and not is_instance_valid(kg1["node"]) and "YELLOW KEY TAKEN" in st._msg.text, st._msg.text)
+		st.body.global_position = stand
+		st.yaw = atan2(trav.x, trav.z)
+		await _wait(1.0)
+		_check("v13.00: now the yellow door slides open", bool(yg["open"]) and float(yg["k"]) > 0.9)
+		await _shot("deck_yellow_door_open", 0.2)
+		st.move_override = Vector2(0, 1)
+		await _wait(1.8)
+		st.move_override = Vector2.ZERO
+		_check("v13.00: and you walk through", (st.body.global_position - stand).dot(-trav) > 4.5, str(st.body.global_position - stand))
+		var og: Dictionary = st.gates.filter(func(g): return int(g["level"]) == 2)[0]
+		_check("v13.00: orange is still shut", not st.keys[2] and not bool(og["open"]))
 		st.close()
 		await _wait(0.3)
 		_check("v12.97: LEAVE SHIP returns", not is_instance_valid(main.ship_deck) and main.state != "ship_deck", main.state)

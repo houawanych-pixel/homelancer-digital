@@ -23,7 +23,7 @@ PLAYER_R = 3       # px (0.45 m)
 TUN = 44           # px: the thickest wall band a door may tunnel through
 FLOOR_RUN = 8      # px of clear floor that counts as the far side
 COVER_LEN = 44     # px: cover is compact (under 6.6 m across)
-DOOR_W = 12        # px: the narrowest doorway (1.8 m)
+DOOR_W = 20        # px: the narrowest doorway (3.0 m; owner: "the doorway should be a little bit bigger")
 
 def main(png, jpath, dbg=None, seeds=None):
     d = json.load(open(jpath))
@@ -46,6 +46,7 @@ def main(png, jpath, dbg=None, seeds=None):
     # door openings
     n, lab, st, _ = cv2.connectedComponentsWithStats(green, connectivity=8)
     door = np.zeros_like(green)
+    rects = []   # each green door's opening [x0, y0, x1, y1] px (a locked door's barrier fills it)
     for i in range(1, n):
         x, y, w, h, a = st[i]
         if a < 30 or max(w, h) > 40: continue
@@ -69,12 +70,14 @@ def main(png, jpath, dbg=None, seeds=None):
             if None not in ends and (best is None or sum(ends) < best[1]): best = (ax, sum(ends), ends)
         if best is None:
             door[max(0, y - 4):y + h + 4, max(0, x - 4):x + w + 4] = 1
+            rects.append([x - 4, y - 4, x + w + 4, y + h + 4])
             continue
         (axx, axy), _, (kp, km) = best
         wd = max(DOOR_W, (w if axy else h)) // 2
-        if axy: door[cy - km:cy + kp + 1, cx - wd:cx + wd + 1] = 1
-        else: door[cy - wd:cy + wd + 1, cx - km:cx + kp + 1] = 1
-    for (x0, y0, x1, y1) in opens: door[y0:y1, x0:x1] = 1   # drawn passages with no green square (stairs, ramps): seeds "open"
+        if axy: door[cy - km:cy + kp + 1, cx - wd:cx + wd + 1] = 1; rects.append([cx - wd, cy - km, cx + wd + 1, cy + kp + 1])
+        else: door[cy - wd:cy + wd + 1, cx - km:cx + kp + 1] = 1; rects.append([cx - km, cy - wd, cx + kp + 1, cy + wd + 1])
+    for (x0, y0, x1, y1) in opens:   # drawn passages with no green square (stairs, ramps): seeds "open"; doorways too
+        door[y0:y1, x0:x1] = 1; rects.append([x0, y0, x1, y1])
     floor = (hull & (1 - wall)) | (door & hull)
     sx, sy = int(d["start"][0] * CELL), int(d["start"][1] * CELL)
     _, labf = cv2.connectedComponents(floor.astype(np.uint8), connectivity=4)
@@ -123,6 +126,7 @@ def main(png, jpath, dbg=None, seeds=None):
         x, y = int(rm["at"][0] * CELL), int(rm["at"][1] * CELL)
         if s == 0 or not (lab3[max(0, y - 30):y + 31, max(0, x - 30):x + 31] == s).any(): bad.append(rm["name"])
     d["shell"] = {"walls": walls, "cover": covers, "eps_px": EPS, "from": "trace.py",
+                  "doors": [{"rect": [round(v / CELL, 2) for v in r], "level": 0} for r in rects],
                   "check": {"rooms": len(d["rooms"]), "cut_off": bad, "start_ok": bool(s != 0)}}
     json.dump(d, open(jpath, "w"), separators=(",", ":"))
     print(json.dumps({"walls": len(walls), "points": sum(len(p) // 2 for p in walls), "cover": len(covers), "cut_off": bad, "start_ok": bool(s != 0)}))
