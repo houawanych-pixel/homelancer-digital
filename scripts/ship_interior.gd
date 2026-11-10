@@ -1257,7 +1257,7 @@ func _mission_tick(dt: float) -> void:
 			return
 	_next_step()
 	_timer_label.text = ("%d:%02d" % [int(m_timer) / 60, int(m_timer) % 60]) if (m_stage == 1 and mission == "sabotage") else ""
-	var line := MISSION_TITLE[mission] + "\n"
+	var line: String = str(MISSION_TITLE[mission]) + "\n"
 	if m_stage == 2: line += "DONE  ·  LEAVE SHIP"
 	else:
 		line += "NEXT: " + waypoint_text
