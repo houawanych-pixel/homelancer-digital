@@ -59,7 +59,7 @@ static func path_of(id: String) -> String: return DIR + id + ".json"
 static func can_open(id: String) -> bool: return FileAccess.file_exists(path_of(id))
 ## The rebuilt station that stands for a 3D station model key ("" = none yet).
 static func for_model(key: String) -> String:
-	return "veranthos" if key == "st3d_veranthos_senate" else ""
+	return str({"st3d_veranthos_senate": "veranthos", "st3d_aurelion_citadel": "aurelion"}.get(key, ""))
 
 static func create(id: String) -> StationInterior:
 	if not can_open(id): return null
@@ -528,7 +528,7 @@ func _physics_process(dt: float) -> void:
 				b.text = "%s  %s %s" % ["▲" if dir2 == -1 else "▼", str(tl["id"]), str(tl["name"])]
 	room_now = room_at(me)
 	_room.text = room_now if room_now != "" else "Concourse"
-	var ext := float(data["extent_m"])
+	var ext := float(level().get("map_extent_m", data["extent_m"]))   # (a deck's map may be cropped to the station)
 	dot.position = Vector2((me.x / ext + 0.5) * minimap.size.x, (me.z / ext + 0.5) * minimap.size.y) - dot.size * 0.5
 
 ## The room you are deepest inside on this deck ("" = a passage).

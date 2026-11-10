@@ -3019,7 +3019,7 @@ func _run() -> void:
 		return
 	if _flag("HL_STATION"):   # v13.01 station rebuild: Veranthos, measured from st3d_veranthos_senate
 		_check("v13.01: Veranthos' main station is the Senate model its interior is measured from", str(Data.SYSTEMS["veranthos"]["station"].get("model", "")) == "st3d_veranthos_senate" and StationInterior.for_model("st3d_veranthos_senate") == "veranthos", str(Data.SYSTEMS["veranthos"]["station"].get("model", "")))
-		_check("v13.01: only a rebuilt station opens", StationInterior.can_open("veranthos") and not StationInterior.can_open("aurelion") and not main.open_station_interior("aurelion"))
+		_check("v13.01: only a rebuilt station opens", StationInterior.can_open("veranthos") and not StationInterior.can_open("malachar") and not main.open_station_interior("malachar"))
 		var st0: String = str(main.state)
 		var okv: bool = main.open_station_interior("veranthos")
 		await _wait(1.0)
@@ -3089,6 +3089,43 @@ func _run() -> void:
 		sn.close()
 		await _wait(0.4)
 		_check("v13.01: LEAVE STATION puts you back", not is_instance_valid(main.station_deck) and main.state == st0, main.state)
+		# the other rebuilt stations: each opens, has its decks, the lift reaches every deck, every listed room can be stood in
+		for sid2 in ["aurelion"]:
+			var mk: String = str(Data.SYSTEMS[sid2]["station"].get("model", ""))
+			_check("v13.01: %s's station model has its rebuilt interior" % sid2, StationInterior.for_model(mk) == sid2 and StationInterior.can_open(sid2), mk)
+			var ok2: bool = main.open_station_interior(sid2)
+			await _wait(1.0)
+			var s2: StationInterior = main.station_deck
+			_check("v13.01: the %s interior opens" % sid2, ok2 and is_instance_valid(s2) and main.state == "station_deck")
+			if not (ok2 and is_instance_valid(s2)): continue
+			var lv2: Array = s2.data["levels"]
+			_check("v13.01: %s has %d decks" % [sid2, lv2.size()], lv2.size() >= 4)
+			var bad2: Array = []
+			var seen2 := 0
+			for li in lv2.size():
+				for rm in (lv2[li]["rooms"] as Array):
+					var rp2 := s2.room_point(str(lv2[li]["id"]), str(rm["name"]))
+					if rp2 == Vector3.INF: bad2.append("%s %s missing" % [str(lv2[li]["id"]), str(rm["name"])]); continue
+					seen2 += 1
+				s2.place(str(lv2[li]["id"]), s2.room_point(str(lv2[li]["id"]), str((lv2[li]["rooms"] as Array)[0]["name"])))
+				await _wait(0.5)
+				if absf(s2.body.global_position.y - s2.level_y(s2.level_i)) > 1.0 or s2.room_now != str((lv2[li]["rooms"] as Array)[0]["name"]): bad2.append("%s: not standing in %s (%s)" % [str(lv2[li]["id"]), str((lv2[li]["rooms"] as Array)[0]["name"]), s2.room_now])
+				await _shot("station_%s_%s" % [sid2, str(lv2[li]["id"]).to_lower()], 0.2)
+			_check("v13.01: %s: every deck's rooms are there and you can stand in each deck's hall (%d rooms)" % [sid2, seen2], bad2.is_empty() and seen2 > 20, str(bad2))
+			s2.place(str(s2.data["start"]["level"]), Vector3(float(s2.data["start"]["x"]) - 30.0, 0, float(s2.data["start"]["z"])))
+			await _wait(0.5)
+			var top2 := 0
+			while s2.ride(-1):
+				await _wait(0.7)
+				top2 += 1
+			var down2 := 0
+			while s2.ride(1):
+				await _wait(0.7)
+				down2 += 1
+			_check("v13.01: %s: the lift runs from the top deck to the bottom deck" % sid2, down2 == lv2.size() - 1 and s2.level_i == lv2.size() - 1 and absf(s2.body.global_position.y - s2.level_y(s2.level_i)) < 1.0, "up %d down %d" % [top2, down2])
+			s2.close()
+			await _wait(0.4)
+			_check("v13.01: %s: LEAVE STATION puts you back" % sid2, not is_instance_valid(main.station_deck) and main.state == st0, main.state)
 		if not _flag("HL_INTERIOR"):
 			_finish_group()
 			return
@@ -14950,7 +14987,7 @@ func _job_v19q() -> void:
 			b_files.append(path)
 			if t2 < 7500 or t2 > 8500: bad.append("%s:%d" % [path.get_file(), t2])
 	_check("v1.9q (RETOPO): 38 station files (about 12k triangles, one pack each) and 15 planetary building files (about 8k, one pack per faction), names as delivered",
-		st_keys.size() == 37 and b_files.size() == 15 and bad.is_empty(), "stations %d buildings %d bad %s" % [st_keys.size(), b_files.size(), bad])   # (v13.01: 37 placed; the Unity capital file is kept, unused at Veranthos)
+		st_keys.size() == 36 and b_files.size() == 15 and bad.is_empty(), "stations %d buildings %d bad %s" % [st_keys.size(), b_files.size(), bad])   # (v13.01: 37 placed; the Unity capital file is kept, unused at Veranthos)
 	# 2. each one in its own faction's space, in the right slot
 	var wrong: Array = []
 	for sid in Data.RETOPO_STATIONS:

@@ -2111,7 +2111,8 @@ const RETOPO_STATIONS := {
 	"sepheron": {"*": "HL_Station_Covenant_Capital_retopo"},          # Covenant capital
 	"valdris": {"*": "HL_Station_Covenant_Military_retopo"},          # borders the Phenom home and Imperium
 	"sanctum_major": {"*": "HL_Station_Covenant_Trade_retopo"},       # Sanctuary Station (links to Sigma-19)
-	"aurelion": {"*": "HL_Station_Elyza_Capital_retopo"},             # Elyza capital
+	# (v13.01 station rebuild, owner: "st3d_aurelion_citadel for Aurelion ... so exterior and interior match": the Elyza capital
+	#  slot is left to STATION3D's st3d_aurelion_citadel; the file HL_Station_Elyza_Capital_retopo is kept, unused here.)
 	"velanthos": {"*": "HL_Station_Elyza_Military_retopo"},           # borders the Solrath home and Unity
 	"crystara": {"*": "HL_Station_Elyza_Trade_retopo"},               # Elyza's inner hub (4 jump links)
 	"malachar": {"*": "HL_Station_Imperium_Capital_retopo"},          # Imperium capital
