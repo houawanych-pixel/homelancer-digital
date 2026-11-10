@@ -235,6 +235,64 @@ def district(dk, name, r0, r1, av0, av1, rows, seed, inner=True, outer=True, pad
             if neck(dk, r["at"], pol(r["_rm"], av), r): break
     return made
 
+def _diamond(k):
+    m = np.zeros((2 * k + 1, 2 * k + 1), np.uint8)
+    for y in range(2 * k + 1): w = k - abs(y - k); m[y, k - w:k + w + 1] = 1
+    return m
+
+def complex_(dk, r0, r1, a0, a1, rows, G=40.0):
+    """A district as ONE complex (owner's ChatGPT interior study of this deck, 10 Nov: "Arrivals & Customs" with its
+    arrivals hall, screening lanes, baggage inspection and waiting lounge, and so on): a walled block between the ring,
+    the promenade and two avenues, with its own corridors inside and its named rooms as walled rooms off them.
+    rows: inner to outer, each (depth weight, [(name, width weight, kind), ...]); kind "sector" follows the block's
+    curve with cut corners, any SHAPES name is fitted into its cell."""
+    span = (a1 - a0) % 360
+    D = (dk.band(r0, r1, a0, a1) & dk.foot & (1 - cv2.dilate(dk.f, np.ones((2 * int(WALL / PX) + 1,) * 2, np.uint8)))).astype(np.uint8)
+    n, lab, st, _ = cv2.connectedComponentsWithStats(D, connectivity=4)
+    if n < 2: return []
+    D = (lab == 1 + int(np.argmax(st[1:, cv2.CC_STAT_AREA]))).astype(np.uint8)
+    dk.f |= D
+    kw = np.ones((2 * int(WALL / PX) + 1,) * 2, np.uint8)
+    tot = sum(r[0] for r in rows); depth = (r1 - r0) - G * (len(rows) + 1); ra = r0 + G; made = []
+    for wgt, cells in rows:
+        rb = ra + depth * wgt / tot; rm = (ra + rb) / 2
+        mg = np.degrees((15.0 + WALL + G) / ra); g = np.degrees(G / rm)
+        use = span - 2 * mg - g * (len(cells) - 1); tw = sum(c[1] for c in cells); b0 = a0 + mg
+        for nm, cw, kind in cells:
+            b1 = b0 + use * cw / tw; mid = (b0 + b1) / 2
+            cell = (cv2.morphologyEx(dk.band(ra, rb, b0, b1), cv2.MORPH_OPEN, _diamond(6)) & D).astype(np.uint8)
+            c = np.array(pol(rm, mid))
+            if kind != "sector":
+                a, b = (rb - ra) / 2, np.radians((b1 - b0) / 2) * rm; best = None; no = 1 - cell
+                for sa in (1.0, 0.9, 0.8, 0.7, 0.6, 0.5):
+                    for sb in (1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4):
+                        if best is not None and sa * sb <= best[0]: continue
+                        mm = shape(kind, c, mid, a * sa, b * sb)
+                        if not (mm & no).any(): best = (sa * sb, mm)
+                if best is not None: cell = best[1]
+            b0 = b1 + g
+            if cell.sum() * PX * PX < 1500.0: continue
+            dk.f &= (1 - (cv2.dilate(cell, kw) & (1 - cell) & D))             # the room's own walls
+            dm = cv2.distanceTransform(cell, cv2.DIST_L2, 5); cp = P(*c)
+            r = {"name": nm, "mask": cell, "at": (float(c[0]), float(c[1])), "rad": float(dm[cp[1], cp[0]]) * PX, "doors": 0, "links": set(), "_kind": kind}
+            dk.rooms.append(r); made.append(r)
+            wide = np.radians(b1 - b0 + g) * rm > 1.6 * (rb - ra)
+            for yaw in (mid, mid + 180) + ((mid + 90, mid - 90) if wide else ()):   # doors: to the corridors inside and outside it
+                t = np.radians(yaw); d = np.array([np.sin(t), -np.cos(t)])
+                for k in range(1, 400):
+                    q = c + d * k * 2.0; px = P(*q)
+                    if not cell[px[1], px[0]]:
+                        dk.door(q[0] + d[0] * WALL / 2, q[1] + d[1] * WALL / 2, yaw, 16.0, depth=WALL + 16.0, room=r); break
+        ra = rb + G
+    # the complex's gates: two on the lift concourse side, three on the promenade, two on each avenue
+    for fa in (0.3, 0.7): dk.rdoor(r0 - WALL / 2, a0 + span * fa, None, w=22.0)
+    for fa in (0.22, 0.5, 0.78): dk.rdoor(r1 + WALL / 2, a0 + span * fa, None, w=22.0)
+    for av, sg in ((a0, 1), (a1, -1)):
+        for fr in (0.3, 0.72):
+            rr = r0 + (r1 - r0) * fr; x, z = pol(rr, av); t = np.radians(av); q = np.array([np.cos(t), np.sin(t)]) * sg * (15.0 + WALL / 2)
+            dk.door(x + q[0], z + q[1], av + 90, 20.0, depth=WALL + 16.0)
+    return made
+
 def outlines(mask):
     cs, _ = cv2.findContours(mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
     out = []
@@ -337,10 +395,22 @@ def build(glb, outdir, repdir=None):
             spans = [("Customs / Arrivals", 336, 22, (2, 3)), ("Medbay", 22, 62, (2, 2)), ("Mission Center", 62, 108, (1, 2)),
                      ("Security Post", 108, 172, (2, 2)), ("Escape Pod", 172, 187, (1,)), ("Cantina / Lounge", 187, 244, (2, 3)),
                      ("Embassy Row", 244, 292, (3, 2)), ("Market / Shops", 292, 336, (3, 4))]
+            # Room names inside each complex are the working labels on the owner's ChatGPT interior study (not canon).
+            sec = "sector"
+            COMPLEX = {
+                "Customs / Arrivals": [(1.0, [("Waiting Lounge", 1, "apse")]), (2.2, [("Arrivals Hall", 1, sec), ("Screening Lanes", 1.5, "bays"), ("Baggage Inspection", 1, sec)])],
+                "Medbay": [(1.0, [("Pharmacy", 1, "oct")]), (1.2, [("Ward A", 1, sec), ("Ward B", 1, sec)]), (1.2, [("Triage", 1, "keystone"), ("Treatment", 1, sec)])],
+                "Mission Center": [(1.0, [("Briefing Room A", 1, "oct"), ("Briefing Room B", 1, "oct")]), (1.3, [("Terminal Hall", 1, "bays")])],
+                "Security Post": [(1.0, [("Security Reception", 1, "apse")]), (1.2, [("Interview Rooms", 1, "oct"), ("Holding Cells", 1.3, "bays")]), (1.2, [("Equipment Lockers", 1, sec)])],
+                "Cantina / Lounge": [(1.0, [("Lounge Booths 1", 1, sec), ("Lounge Booths 2", 1, sec)]), (1.6, [("Cantina Bar", 1, "capsule")]), (1.0, [("Lounge Booths 3", 1, sec), ("Lounge Booths 4", 1, "hex"), ("Lounge Booths 5", 1, sec)])],
+                "Embassy Row": [(1.0, [("Embassy Reception", 1, "apse")]), (1.3, [("Embassy Conference Hall", 1.4, "oct"), ("Embassy Suite 1", 1, sec)]), (1.2, [("Embassy Suite 2", 1, sec), ("Embassy Suite 3", 1, "keystone"), ("Embassy Suite 4", 1, sec)])],
+                "Market / Shops": [(1.0, [("Market Stall %d" % k, 1, sec) for k in (1, 2)]), (1.0, [("Market Stall %d" % k, 1, ("oct" if k == 4 else sec)) for k in (3, 4, 5)]),
+                                   (1.0, [("Market Stall %d" % k, 1, sec) for k in (6, 7, 8, 9)]), (1.0, [("Market Stall %d" % k, 1, ("hex" if k == 12 else sec)) for k in (10, 11, 12, 13, 14)])],
+            }
             for a in sorted({s_[1] for s_ in spans}): dk.avenue(a, 470.0, Rp0, 30.0)   # avenues between the districts
             for si, (nm, a0, a1, rows) in enumerate(spans):
                 if nm == "Escape Pod": district(dk, nm, Rp0 - WALL - 230.0, Rp0 - WALL, a0, a1, rows, 11 + si, inner=False)   # at the rim, where a pod can leave
-                else: district(dk, nm, 470.0 + WALL, Rp0 - WALL, a0, a1, rows, 11 + si)
+                else: complex_(dk, 470.0 + WALL, Rp0 - WALL, a0, a1, COMPLEX[nm])
             got = []
             for ap in arm_parts:
                 if not ap["built"]: got.append({"name": ap["name"], "direction_deg": round(ap["a"], 1), "built": False}); continue
