@@ -837,13 +837,17 @@ func _gates(sh: Dictionary, y0: float) -> void:
 		var r: Array = dr["rect"]
 		var lv := int(dr["level"])
 		var along_y: bool = str(dr.get("ax", "y")) == "y"    # you walk bow-stern through it: the leaves slide port-starboard
+		var turned: bool = dr.has("rot")                      # a door on a slanted wall (the wedge rooms): built square, then turned
+		if turned: along_y = true
 		var c := cell_to_world((float(r[0]) + float(r[2])) * 0.5, (float(r[1]) + float(r[3])) * 0.5) + Vector3(0, y0, 0)
 		var wide := (float(r[2]) - float(r[0]) if along_y else float(r[3]) - float(r[1])) * M_PER_CELL + DOOR_PAD * 2.0
+		if turned: wide = float(dr["w"]) * M_PER_CELL + DOOR_PAD * 2.0
 		var slide := Vector3(1, 0, 0) if along_y else Vector3(0, 0, 1)
 		var g := Node3D.new()
 		g.name = "Gate_%d" % gates.size()
 		g.position = c
 		g.set_meta("level", lv)
+		if turned: g.rotation.y = deg_to_rad(float(dr["rot"]))
 		world.add_child(g)
 		var leaves := []
 		for sgn in [-1.0, 1.0]:
@@ -881,6 +885,7 @@ func _gates(sh: Dictionary, y0: float) -> void:
 		var bs := BoxShape3D.new()
 		# shut, the whole doorway is blocked (its full footprint plus the pad), whichever way the leaves face
 		bs.size = Vector3((float(r[2]) - float(r[0])) * M_PER_CELL + DOOR_PAD * 2.0, DOOR_H, (float(r[3]) - float(r[1])) * M_PER_CELL + DOOR_PAD * 2.0)
+		if turned: bs.size = Vector3(wide, DOOR_H, float(dr["l"]) * M_PER_CELL + DOOR_PAD * 2.0)
 		cs.shape = bs
 		cs.position.y = DOOR_H * 0.5
 		sb.add_child(cs)

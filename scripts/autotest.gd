@@ -3150,6 +3150,27 @@ func _run() -> void:
 			_check("v12.99: %s loads, every labelled room reachable on foot" % sid, ok2, str(es.data["rooms"].size()) if is_instance_valid(es) else "")
 			if is_instance_valid(es): es.close()
 			await _wait(0.3)
+		# v13.00: a rule-built ship (Unity Cruiser): ride a lift to the centred upper deck, stand in its hub and a wedge room
+		main.open_ship_interior("unity_cruiser")
+		await _wait(0.6)
+		var cs: ShipInterior = main.ship_deck
+		var cup: Array = cs.lift_pads.filter(func(p): return int(p["level"]) == 0 and cs.lift_stops(p).has(1))
+		_check("v13.00: the Cruiser has three decks and lifts that go up", cs.decks.size() == 3 and cup.size() >= 1, "%d %d" % [cs.decks.size(), cup.size()])
+		cs.body.global_position = (cup[0]["pos"] as Vector3) + Vector3(0, 0.1, 0)
+		await _wait(0.5)
+		_check("v13.00: Cruiser lift up", cs.ride(1))
+		await _wait(0.8)
+		await _shot("cruiser_upper_ring", 0.2)
+		for nm in ["Operations Hub", "Ready Room", "Observation Lounge"]:
+			var crn: Node3D = cs.world.get_node_or_null("Room_upper_" + nm.validate_node_name().replace(" ", "_"))
+			_check("v13.00: Cruiser upper deck has %s" % nm, crn != null)
+			if crn == null: continue
+			cs.body.global_position = crn.global_position + Vector3(0, 0.1, 0)
+			await _wait(0.6)
+			_check("v13.00: Cruiser upper deck, standing in %s" % nm, cs.room_now == nm and absf(cs.body.global_position.y - ShipInterior.DECK_GAP) < 0.5, "%s %s" % [cs.room_now, str(cs.body.global_position)])
+			await _shot("cruiser_upper_" + nm.to_lower().replace(" ", "_"), 0.2)
+		cs.close()
+		await _wait(0.3)
 		_finish_group()
 		return
 	if _flag("HL_ORBITS"):   # v12.91 (owner): planet sizes set their maps; every world on its own orbit, well apart

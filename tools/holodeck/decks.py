@@ -63,7 +63,7 @@ def pick_lifts(d, floor, doors, start, hull):
         if x >= cx - 30 or x < cx - 110: continue
         mx = int(round(2 * cx - x))
         if not (0 <= mx < W) or dist[y, mx] < 8: continue
-        sc = min(dist[y, x], dist[y, mx]) - 0.03 * abs(y - ymid) - 0.02 * abs((cx - x) - 60)
+        sc = min(dist[y, x], dist[y, mx]) - 0.08 * abs(y - ymid) - 0.02 * abs((cx - x) - 60)
         if best is None or sc > best[0]: best = (sc, [[int(x), int(y)], [mx, int(y)]])
     if best: return best[1], "pair"
     if not len(py): return [], "none"
@@ -147,6 +147,88 @@ def layout(D, lifts, bias, names, end_name):
     k.f &= D
     return k, rect
 
+def _oct(cx, cy, apo):
+    """A regular octagon with flat sides facing bow, stern, port, starboard and the four diagonals."""
+    r = apo / np.cos(np.pi / 8)
+    return [(cx + r * np.cos(np.pi / 8 + k * np.pi / 4), cy + r * np.sin(np.pi / 8 + k * np.pi / 4)) for k in range(8)]
+
+def radial(D, lifts, variant, names, hub_name, end_names):
+    """v13.00 (owner: "upper and lower rooms need to be more towards the centre ... triple-A style"): a deck built
+    round the middle of the ship. A central hub room, a ring passage round it with the lifts on the ring, four wedge
+    rooms fanning off the ring on the diagonals, and a spoke to an end room toward the bow and one toward the stern.
+    variant "oct": an eight-sided hub you walk through (doors bow and stern side). variant "round": a round core
+    room, shut behind orange doors, that you go round. Returns None when the hull is too narrow here for it."""
+    H, W = D.shape
+    cx = int(round(sum(l[0] for l in lifts) / len(lifts))); yc = int(lifts[0][1])
+    dx = max(abs(l[0] - cx) for l in lifts)
+    dist = cv2.distanceTransform(D, cv2.DIST_L2, 5)
+    R = float(dist[yc, cx])
+    rr = max(dx, 46)                      # ring centre line (the lifts sit on it when they are far enough apart)
+    if R < rr + CW / 2 + 8 + 36: return None
+    rh = rr - CW / 2 - 8                  # hub
+    Ro = min(R - 3, rr + CW / 2 + 8 + 84) # outer reach of the wedge rooms
+    k = U.Deck(H, W); k.CX = cx
+    ring = np.zeros((H, W), np.uint8); hole = np.zeros((H, W), np.uint8)
+    if variant == "oct":
+        cv2.fillPoly(ring, [np.round(np.array(_oct(cx, yc, rr + CW / 2))).astype(np.int32)], 1)
+        cv2.fillPoly(hole, [np.round(np.array(_oct(cx, yc, rr - CW / 2))).astype(np.int32)], 1)
+        k.poly(_oct(cx, yc, rh))
+    else:
+        cv2.circle(ring, (cx, yc), int(rr + CW / 2), 1, -1); cv2.circle(hole, (cx, yc), int(rr - CW / 2), 1, -1)
+        k.disc(cx, yc, rh)
+    k.f |= ring & (1 - hole)
+    for lx, _ in lifts: k.box(lx - 15, yc - 15, lx + 15, yc + 15, 4)
+    hub_lv = 0 if variant == "oct" else 2
+    if variant == "oct":                  # through the hub bow to stern
+        k.door(cx - 11, int(yc - rr + CW / 2) - 2, cx + 11, int(yc - rh) + 2, hub_lv)
+        k.door(cx - 11, int(yc + rh) - 2, cx + 11, int(yc + rr - CW / 2) + 2, hub_lv)
+    else:                                 # the core opens port and starboard
+        k.door(int(cx - rr + CW / 2) - 2, yc - 11, int(cx - rh) + 2, yc + 11, hub_lv)
+        k.door(int(cx + rh) - 2, yc - 11, int(cx + rr - CW / 2) + 2, yc + 11, hub_lv)
+    k.room(hub_name, cx, yc)
+    # the four wedge rooms on the diagonals
+    ai = rr + CW / 2 + 8; ao = (Ro - 2) * np.cos(np.radians(21)); n = 0
+    lv = {0: 1, 1: (2 if variant == "oct" else 0)}
+    if ao - ai >= 30:
+        for qi, ang in enumerate((225, 315, 135, 45)):          # port-bow, starboard-bow, port-stern, starboard-stern
+            u = np.array([np.cos(np.radians(ang)), np.sin(np.radians(ang))]); v = np.array([-u[1], u[0]])
+            hi = ai * np.tan(np.radians(22.5)) - 5; ho = ao * np.tan(np.radians(21)); ch = 9
+            c = np.array([cx, yc], float)
+            pts = [c + ai * u - hi * v, c + ai * u + hi * v, c + (ao - ch) * u + ho * v, c + ao * u + (ho - ch) * v,
+                   c + ao * u - (ho - ch) * v, c + (ao - ch) * u - ho * v]
+            m = np.zeros((H, W), np.uint8); cv2.fillPoly(m, [np.round(np.array(pts)).astype(np.int32)], 1)
+            if (m & (1 - D)).sum(): continue
+            k.f |= m
+            # its door: across the 8 px wall, square to the diagonal
+            dc = c + (ai - 4) * u; hw_ = 11; hl = 7
+            dp = [dc + a * v + b * u for a, b in ((-hw_, -hl), (hw_, -hl), (hw_, hl), (-hw_, hl))]
+            dm = np.zeros((H, W), np.uint8); cv2.fillPoly(dm, [np.round(np.array(dp)).astype(np.int32)], 1); k.f |= dm
+            xs = [p[0] for p in dp]; ys = [p[1] for p in dp]
+            k.doors.append({"rect": [int(min(xs)), int(min(ys)), int(max(xs)) + 1, int(max(ys)) + 1], "level": lv.get(n, 0),
+                            "rot": round(float(np.degrees(np.arctan2(-v[1], v[0]))), 1), "w": 2 * hw_, "l": 2 * hl})
+            mid = c + (ai + ao) / 2 * u
+            k.room(names[qi % len(names)], int(mid[0]), int(mid[1])); n += 1
+    # the spokes: bow-ward and stern-ward to an end room, where the hull has the room
+    for si, sgn in enumerate((-1, 1)):
+        got = None
+        for hr in (96, 80, 64, 48):
+            for wr in (64, 52, 40):
+                ya = int(yc + sgn * (Ro + 14)) if sgn > 0 else int(yc - Ro - 14 - hr)
+                if ya < 2 or ya + hr >= H - 2: continue
+                if D[ya - 3:ya + hr + 3, cx - wr - 3:cx + wr + 3].all(): got = (ya, hr, wr); break
+            if got: break
+        if not got: continue
+        ya, hr, wr = got
+        k.box(cx - wr, ya, cx + wr, ya + hr, 14)
+        y_ring = int(yc + sgn * (rr + CW / 2 - 2)); y_room = ya if sgn > 0 else ya + hr
+        k.box(cx - CW // 2, min(y_ring, y_room), cx + CW // 2, max(y_ring, y_room))
+        end_lv = 3 if si == (0 if variant == "oct" else 1) else 0      # the red room: bow end on the upper deck, stern end on the lower
+        dy0 = y_room - 12 if sgn > 0 else y_room - 2
+        k.door(cx - 11, dy0, cx + 11, dy0 + 14, end_lv)
+        k.room(end_names[si], cx, ya + hr // 2)
+    k.f &= D
+    return k, (int(cx - Ro), int(yc - Ro), int(cx + Ro), int(yc + Ro))
+
 def lock_main(d, floor, doors, start, at):
     shut = floor.copy()
     for dr in doors:
@@ -211,7 +293,12 @@ def main(jpath, outdir, dbg=None):
         lifts = lifts_for.get(did, [])
         if not lifts: notes.append(did + " deck: no lift position found, not built"); continue
         bias = -1 if did == "upper" else 1
-        got = layout(dh, lifts, bias, UPPER_NAMES if did == "upper" else LOWER_NAMES, UPPER_END if did == "upper" else LOWER_END)
+        got = radial(dh, lifts, "oct" if did == "upper" else "round", UPPER_NAMES if did == "upper" else LOWER_NAMES,
+                     "Operations Hub" if did == "upper" else "Life Support", (UPPER_END, "Wardroom") if did == "upper" else ("Stores", LOWER_END))
+        style = "hub"
+        if got is None:   # too narrow for the hub: the loop layout, centred on the lifts
+            got = layout(dh, lifts, 0, UPPER_NAMES if did == "upper" else LOWER_NAMES, UPPER_END if did == "upper" else LOWER_END); style = "loop"
+        report.setdefault("style", {})[did] = style
         if got is None: notes.append(did + " deck: the hull is too narrow round the lifts, not built"); continue
         k, rect = got
         er = cv2.erode(k.f, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7)))
@@ -227,7 +314,8 @@ def main(jpath, outdir, dbg=None):
         used_lifts += [l for l in lifts if l not in used_lifts]
         decks.append({"id": did, "level": 1 if did == "upper" else -1, "name": name, "proposed": True,
                       "shell": {"walls": outlines(k.f), "cover": [],
-                                "doors": [{"rect": [round(v / CELL, 2) for v in q["rect"]], "level": q["level"], "ax": travel_axis(k.f, q["rect"])} for q in k.doors]},
+                                "doors": [dict({"rect": [round(v / CELL, 2) for v in q["rect"]], "level": q["level"], "ax": travel_axis(k.f, q["rect"])},
+                                               **({"rot": q["rot"], "w": q["w"] / CELL, "l": q["l"] / CELL} if "rot" in q else {})) for q in k.doors]},
                       "rooms": [{"name": r["name"], "at": [round(r["at"][0] / CELL, 2), round(r["at"][1] / CELL, 2)],
                                  "rad": round(float(dist[int(r["at"][1]), int(r["at"][0])]) * 1.45 / CELL, 2)} for r in k.rooms],
                       "lifts": [[l[0] / CELL, l[1] / CELL] for l in lifts], "start": [lifts[0][0] / CELL, lifts[0][1] / CELL],
