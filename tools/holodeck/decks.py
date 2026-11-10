@@ -426,6 +426,27 @@ def hullplan(D, cx, cy, rr, lifts, variant):
         if r is None: continue
         rot_door(np.array([px, py]) + nrm * (CW / 2 + 4), tan, nrm)
         r["seg"] = sgi; outer[sgi] = r
+    # v13.00 (owner: "make sure rooms connect to certain rooms and there isn't just a dead end room to itself"):
+    # hull-side rooms join their neighbour in pairs through the wall they share, so each has two ways out
+    def join(sgi):   # a door between hull-side rooms sgi and sgi + 1
+        a, b = outer.get(sgi % nseg), outer.get((sgi + 1) % nseg)
+        if a is None or b is None: return False
+        pi = int(round((sgi + 0.5) * N / nseg)) % N
+        px, py = Cs[pi]
+        nrm = -np.array([gx[py, px], gy[py, px]]); L = np.hypot(*nrm)
+        if L < 1e-6: return False
+        nrm /= L; tan = np.array([-nrm[1], nrm[0]])
+        c = np.array([px, py], float) + nrm * (CW / 2 + 8 + max(16.0, (t1 - 8) / 2.0))
+        both = a["mask"] | b["mask"]
+        for sg in (-1, 1):
+            q = c + sg * tan * 15; qx, qy = int(round(q[0])), int(round(q[1]))
+            if not (0 <= qx < W and 0 <= qy < H) or not both[max(0, qy - 3):qy + 4, max(0, qx - 3):qx + 4].any(): return False
+        di = rot_door(c, nrm, tan, 22, 22)
+        a["doors"].append(di); b["doors"].append(di); return True
+    for sgi in range(0, nseg, 2): join(sgi)
+    for sgi in range(nseg):                  # anyone still on one door tries the neighbour on its other side
+        r = outer.get(sgi)
+        if r is not None and len(r["doors"]) < 2: join(sgi - 1) or join(sgi)
     # --- inside the passage: the hub, cross passages, and rows of halls and room pairs
     rh = int(rr + 26)
     ys_, xs_ = np.nonzero(I); ytop, ybot = int(ys_.min()), int(ys_.max())
@@ -471,6 +492,10 @@ def hullplan(D, cx, cy, rr, lifts, variant):
                 if side < 0: k.door(cx - CW // 2 - 10, my - 11, cx - CW // 2 + 2, my + 11, 0)
                 else: k.door(cx + CW // 2 - 2, my - 11, cx + CW // 2 + 10, my + 11, 0)
                 r["y"] = sgn * (i + 1); r["side"] = side
+                ax = r["at"][0]                         # and a second door, onto the cross passage on the hub's side
+                rect, py_ = ((ax - 11, b1 - 10, ax + 11, b1 + 2), b1 - 14) if sgn < 0 else ((ax - 11, b0 - 2, ax + 11, b0 + 10), b0 + 14)
+                if 0 <= py_ < H and r["mask"][py_, ax]:
+                    k.door(*rect, 0); r["doors"].append(len(k.doors) - 1)
     # the hub: cleared round, then built; the lifts stand in it
     clear = np.zeros((H, W), np.uint8); cv2.circle(clear, (cx, cy), rh + 8, 1, -1)
     hubrow = strip(cy - rh, cy + rh) & I & (1 - clear)
@@ -495,6 +520,10 @@ def hullplan(D, cx, cy, rr, lifts, variant):
         r = add_room(m, "side", [nd])
         if r is None: continue
         k.door(xm - 11, cy - rh - 10, xm + 11, cy - rh + 4, 0); r["y"] = 0; r["side"] = side
+        if side > 0:   # the starboard one opens both ways; the port one is the deck's vault (one door, red)
+            cols2 = np.nonzero(m[cy + rh - 12:cy + rh].any(axis=0))[0]
+            if len(cols2):
+                xm2 = int(np.median(cols2)); k.door(xm2 - 11, cy + rh - 4, xm2 + 11, cy + rh + 10, 0); r["doors"].append(len(k.doors) - 1)
     k.f &= D
     # keep what can be walked to from the lifts
     er = cv2.erode(k.f, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7)))
@@ -520,19 +549,20 @@ def hullplan(D, cx, cy, rr, lifts, variant):
         else:
             n_out += 1; nm = ("Cabin %d" if up else "Storage Bay %d") % n_out
         r["name"] = nm; k.room(nm, r["at"][0], r["at"][1])
-    # access: red at the bow end (upper) or the stern end (lower); orange and yellow among the single-door rooms
-    one = [r for r in keep if len(r["doors"]) == 1]
-    def ypos(r): return r["at"][1]
-    if one:
-        red = (min if up else max)(one, key=lambda r: (ypos(r) if up else ypos(r), abs(r["at"][0] - cx)) if up else (ypos(r), -abs(r["at"][0] - cx)))
-        k.doors[red["doors"][0]]["level"] = 3
-        rest = [r for r in one if r is not red]
-        sides = sorted([r for r in rest if r["kind"] == "side"], key=lambda r: (-ypos(r) if up else ypos(r)))
-        outs = sorted([r for r in rest if r["kind"] == "outer"], key=lambda r: r["seg"])
-        if sides: k.doors[sides[0]["doors"][0]]["level"] = 2
-        if len(outs) >= 3: k.doors[outs[len(outs) // 3]["doors"][0]]["level"] = 2
-        if len(sides) >= 2: k.doors[sides[-1]["doors"][0]]["level"] = 1
-        if len(outs) >= 3: k.doors[outs[(2 * len(outs)) // 3]["doors"][0]]["level"] = 1
+    # access. The vault (the room beside the hub, port side: the Ready Room on the upper deck, the Brig on the lower)
+    # is RED and stands right by the lifts: you see its door when you arrive and come back for it with the red key.
+    # One inner room and one hull-side room are orange, one of each yellow. A locked room locks every door it has.
+    def lock(r, lv):
+        for di in r["doors"]: k.doors[di]["level"] = max(k.doors[di]["level"], lv)
+    vault = sorted([r for r in keep if r["kind"] == "side"], key=lambda r: (abs(r.get("y", 0)), r.get("y", 0), r.get("side", 0)))[:1]   # (the room that is named Ready Room / Brig)
+    if vault: lock(vault[0], 3)
+    sides = sorted([r for r in keep if r["kind"] == "side" and r is not (vault[0] if vault else None) and r.get("y") != 0], key=lambda r: (-r["at"][1] if up else r["at"][1]))
+    outs = sorted([r for r in keep if r["kind"] == "outer"], key=lambda r: r["seg"])
+    if sides: lock(sides[0], 2)
+    if len(outs) >= 3: lock(outs[len(outs) // 3], 2)
+    if len(sides) >= 2: lock(sides[-1], 1)
+    if len(outs) >= 3: lock(outs[(2 * len(outs)) // 3], 1)
+    k.dead_ends = sorted(r["name"] for r in keep if len(r["doors"]) < 2 and not (vault and r is vault[0]))
     k.doors = [q for i, q in enumerate(k.doors) if i not in dead]
     return k, (0, 0, W, H)
 
@@ -616,6 +646,7 @@ def main(jpath, outdir, dbg=None):
                       "lifts": [[l[0] / CELL, l[1] / CELL] for l in lifts], "start": [lifts[0][0] / CELL, lifts[0][1] / CELL],
                       "map": mp, "check": {"cut_off": bad}})
         if bad: notes.append("%s deck: cut off: %s" % (did, ", ".join(bad)))
+        if getattr(k, "dead_ends", None): notes.append("%s deck: one-door rooms: %s" % (did, ", ".join(k.dead_ends)))
     for i, dr in enumerate(doors): sh["doors"][i]["level"] = dr["level"]; sh["doors"][i]["ax"] = travel_axis(floor, dr["rect"])
     # the key chain
     def opens(a):
@@ -635,9 +666,31 @@ def main(jpath, outdir, dbg=None):
     has = [bool(op[a] - op[a - 1]) for a in (1, 2, 3)]            # is anything behind yellow / orange / red at all
     open_rooms = [k for k in sorted(op[0]) if k.startswith("main/") and near(reach_at(floor, doors, 0, start), *at[k[5:]]) and k[5:] != "Hangar Bay"]
     pref = [k for g in GUARD_TRY for k in open_rooms if k[5:].startswith(g)] + open_rooms
-    if has[0]: place(1, pref)
-    if has[1]: place(2, sorted(op[1] - op[0]))
-    if has[2]: place(3, sorted(op[2] - op[1]))
+    taken = set()
+    def pool(lv):   # where the guard with key lv stands: behind the colour before his, or (when that colour has no rooms) an open room
+        behind = sorted(op[lv - 1] - (op[lv - 2] if lv >= 2 else set())) if lv >= 2 else []
+        return [k for k in (behind + pref) if k not in taken]
+    for lv in (1, 2, 3):
+        if has[lv - 1]:
+            pl = pool(lv)
+            if pl and place(lv, pl): taken.add(pl[0])
+    # v13.00 (owner): three missions per ship, each then a run back to the hangar. PROPOSED placement.
+    #   sabotage: blow the generator (a timer starts)  ·  capture: the captain, high in the ship, behind red
+    #   rescue: the hostage in the brig, behind red
+    def need_of(key): return next((a for a in range(4) if key in op[a]), None)
+    def obj(did, room):
+        p = world[did][3][room]
+        return {"deck": did, "room": room, "at": [round(p[0] / CELL, 2), round(p[1] / CELL, 2)], "need": need_of("%s/%s" % (did, room))}
+    objectives = {}
+    gens = [n for pat in ("Reactor Core", "Engine Room", "Power Core", "Engineering") for n in at if n.startswith(pat) and need_of("main/" + n) is not None]
+    if gens: objectives["sabotage"] = obj("main", max(gens, key=lambda n: need_of("main/" + n)))
+    if "upper" in world and "Ready Room" in world["upper"][3] and need_of("upper/Ready Room") is not None: objectives["capture"] = obj("upper", "Ready Room")
+    else:
+        br = [n for pat in ("Bridge", "Cockpit") for n in at if n.startswith(pat) and need_of("main/" + n) is not None]
+        if br: objectives["capture"] = obj("main", br[0])
+    if "lower" in world and "Brig" in world["lower"][3] and need_of("lower/Brig") is not None: objectives["rescue"] = obj("lower", "Brig")
+    d["objectives"] = objectives
+    report["objectives"] = {k_: "%s/%s needs %s" % (v["deck"], v["room"], KEY_NAME[v["need"]]) for k_, v in objectives.items()}
     total = sum(len(w[3]) for w in world.values())
     report.update({"decks": ["main"] + [x["id"] for x in decks], "rooms": total,
                    "behind": {KEY_NAME[a]: len(op[a] - op[a - 1]) for a in (1, 2, 3)},

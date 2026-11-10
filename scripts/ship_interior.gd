@@ -66,6 +66,18 @@ var key_guards: Array = []   # {node, pos, key}
 var _msg: Label
 var _msg_t := 0.0
 var _chips: Array = []
+# v13.00 missions (owner: three kinds on every ship, each then a run back to the hangar)
+var mission := ""            # "" (walking round) | sabotage | capture | rescue
+var m_stage := 0             # 0 get to the target · 1 back to the hangar · 2 done · -1 failed
+var m_timer := 0.0           # sabotage: seconds until the ship goes up
+var waypoint := Vector3.INF
+var waypoint_text := ""
+var _obj_label: Label
+var _wp_dot: ColorRect
+var _beacon: MeshInstance3D
+var _pick: Control
+var _target_node: Node3D
+var _timer_label: Label
 
 static func can_open(id: String) -> bool:
 	return str(FleetCatalog.get_entry(id).get("stage", "")) != ""
@@ -448,6 +460,7 @@ func _ui() -> void:
 	add_child(leave)
 	if not decks.is_empty(): _lift_ui()
 	if shell: _key_ui()
+	if shell and not (data.get("objectives", {}) as Dictionary).is_empty(): _mission_ui()
 
 func close() -> void:
 	left.emit()
@@ -486,6 +499,7 @@ func _physics_process(dt: float) -> void:
 	_cam_follow(clampf(dt * 6.0, 0.0, 1.0))
 	if not decks.is_empty(): _deck_tick()
 	if shell: _gate_tick(dt)
+	if mission != "": _mission_tick(dt)
 	room_now = room_at(body.global_position)
 	room_label.text = room_now if room_now != "" else "Corridor"
 	var c := world_to_cell(body.global_position)
@@ -1064,3 +1078,208 @@ func _model_box(inst: Node3D) -> AABB:
 		bb = a if first else bb.merge(a)
 		first = false
 	return bb
+
+# ---------------------------------------------------------------------------------------------------------------------
+## v13.00 (owner: "these are like the mini spaceship dungeons ... you gotta go and get the key ... you might pass one
+## door in the beginning just to realize that you gotta come back to that door ... there's 3 types of missions"):
+##   SABOTAGE  blow the generator: a countdown starts, get back to your ship in the hangar before it hits zero
+##   CAPTURE   take the captain (high in the ship, behind red), then get him back to the hangar
+##   RESCUE    free the hostage from the brig (behind red), then get them back to the hangar
+## The targets and the key each needs come with the deck data ("objectives", tools/holodeck/decks.py: PROPOSED).
+## The waypoint always points at the next thing to do: the guard carrying the next key you are missing, then the
+## target, then the hangar. Fights are not in yet (the owner: "plug in the gameplay at the end"): reaching a guard
+## takes his key, reaching the target does the deed.
+const MISSION_TITLE := {"sabotage": "SABOTAGE  ·  blow the generator", "capture": "CAPTURE  ·  take the captain", "rescue": "RESCUE  ·  free the hostage"}
+const MISSION_DONE := {"sabotage": "CHARGE SET", "capture": "CAPTAIN CAPTURED", "rescue": "HOSTAGE FREED"}
+const MISSION_THING := {"sabotage": "GENERATOR", "capture": "CAPTAIN", "rescue": "HOSTAGE"}
+const SABOTAGE_SECONDS := 150.0
+
+func deck_y(deck_id: String) -> float:
+	for dk in data.get("decks", []):
+		if str(dk["id"]) == deck_id: return float(int(dk["level"])) * DECK_GAP
+	return 0.0
+func deck_title(y: float) -> String:
+	return str(deck_of(int(round(y / DECK_GAP))).get("name", "MAIN DECK"))
+func objective_pos(kind: String) -> Vector3:
+	var o: Dictionary = data["objectives"][kind]
+	return cell_to_world(float(o["at"][0]), float(o["at"][1])) + Vector3(0, deck_y(str(o["deck"])), 0)
+func hangar_pos() -> Vector3:
+	return cell_to_world(float(data["start"][0]), float(data["start"][1]))
+
+func _mission_ui() -> void:
+	_obj_label = Label.new()
+	_obj_label.name = "Objective"
+	_obj_label.position = Vector2(20, 122)
+	_obj_label.add_theme_font_size_override("font_size", 18)
+	_obj_label.add_theme_color_override("font_color", Color(1.0, 0.95, 0.7))
+	_obj_label.add_theme_constant_override("outline_size", 6)
+	_obj_label.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	add_child(_obj_label)
+	_timer_label = Label.new()
+	_timer_label.name = "Countdown"
+	_timer_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_timer_label.position = Vector2(-80, 96)
+	_timer_label.custom_minimum_size = Vector2(160, 0)
+	_timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_timer_label.add_theme_font_size_override("font_size", 40)
+	_timer_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.25))
+	_timer_label.add_theme_constant_override("outline_size", 10)
+	_timer_label.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	add_child(_timer_label)
+	_wp_dot = ColorRect.new()
+	_wp_dot.color = Color(1.0, 0.9, 0.2)
+	_wp_dot.size = Vector2(11, 11)
+	_wp_dot.rotation = PI / 4
+	_wp_dot.visible = false
+	minimap.add_child(_wp_dot)
+	_beacon = MeshInstance3D.new()          # a column of light at the waypoint, seen down a corridor
+	_beacon.name = "Waypoint"
+	var bm := BoxMesh.new()
+	bm.size = Vector3(0.35, 7.0, 0.35)
+	_beacon.mesh = bm
+	var mat := _glow(Color(1.0, 0.9, 0.2, 0.55))
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_beacon.material_override = mat
+	_beacon.visible = false
+	world.add_child(_beacon)
+	# the mission picker
+	_pick = PanelContainer.new()
+	_pick.name = "MissionPick"
+	_pick.set_anchors_preset(Control.PRESET_CENTER)
+	_pick.position = Vector2(-250, -150)
+	_pick.custom_minimum_size = Vector2(500, 0)
+	add_child(_pick)
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 10)
+	_pick.add_child(vb)
+	var t := Label.new()
+	t.text = "BOARDING  ·  choose the mission"
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	t.add_theme_font_size_override("font_size", 22)
+	vb.add_child(t)
+	for kind in ["sabotage", "capture", "rescue"]:
+		if not (data["objectives"] as Dictionary).has(kind): continue
+		var o: Dictionary = data["objectives"][kind]
+		var b := Button.new()
+		b.name = "Pick_" + kind
+		b.text = "%s\n%s  ·  %s  ·  %s key" % [MISSION_TITLE[kind], str(o["room"]), deck_title(deck_y(str(o["deck"]))), KEY_NAME[int(o["need"])]]
+		b.custom_minimum_size = Vector2(0, 66)
+		b.add_theme_font_size_override("font_size", 17)
+		b.pressed.connect(start_mission.bind(kind))
+		vb.add_child(b)
+	var ex := Button.new()
+	ex.name = "Pick_none"
+	ex.text = "JUST LOOK ROUND"
+	ex.custom_minimum_size = Vector2(0, 46)
+	ex.pressed.connect(func(): _pick.visible = false)
+	vb.add_child(ex)
+
+func start_mission(kind: String) -> bool:
+	if not (data.get("objectives", {}) as Dictionary).has(kind): return false
+	mission = kind
+	m_stage = 0
+	m_timer = 0.0
+	if is_instance_valid(_pick): _pick.visible = false
+	if is_instance_valid(_target_node): _target_node.queue_free()
+	_target_node = Node3D.new()             # the thing itself, a graybox stand-in with its name over it
+	_target_node.name = "MissionTarget"
+	_target_node.position = objective_pos(kind)
+	world.add_child(_target_node)
+	var fig := MeshInstance3D.new()
+	if kind == "sabotage":
+		var gm := CylinderMesh.new()
+		gm.top_radius = 0.7
+		gm.bottom_radius = 0.9
+		gm.height = 2.2
+		gm.radial_segments = 8
+		fig.mesh = gm
+		fig.position.y = 1.1
+		fig.material_override = _glow(Color(0.4, 0.9, 1.0))
+	else:
+		var cm := CapsuleMesh.new()
+		cm.radius = 0.36
+		cm.height = 1.8
+		fig.mesh = cm
+		fig.position.y = 0.9
+		var fm := StandardMaterial3D.new()
+		fm.albedo_color = Color(0.85, 0.75, 0.3) if kind == "capture" else Color(0.5, 0.8, 0.55)
+		fig.material_override = fm
+	_target_node.add_child(fig)
+	var lb := Label3D.new()
+	lb.text = MISSION_THING[kind]
+	lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	lb.font_size = 44
+	lb.pixel_size = 0.005
+	lb.outline_size = 8
+	lb.modulate = Color(1.0, 0.9, 0.3)
+	lb.position.y = 2.7
+	_target_node.add_child(lb)
+	_mission_tick(0.0)
+	return true
+
+## The next thing to do, as a place and a line of text.
+func _next_step() -> void:
+	var o: Dictionary = data["objectives"][mission]
+	if m_stage == 1:
+		waypoint = hangar_pos()
+		waypoint_text = "Get back to YOUR SHIP in the hangar  ·  MAIN DECK"
+		return
+	if m_stage != 0:
+		waypoint = Vector3.INF
+		return
+	for lv in range(1, int(o["need"]) + 1):     # the lowest key you still need that a guard carries
+		if keys[lv]: continue
+		for kg in key_guards:
+			if int(kg["key"]) == lv and is_instance_valid(kg["node"]):
+				waypoint = kg["pos"]
+				waypoint_text = "Take the %s KEY from the guard  ·  %s  ·  %s" % [KEY_NAME[lv], str(kg["room"]), deck_title((kg["pos"] as Vector3).y)]
+				return
+	waypoint = objective_pos(mission)
+	waypoint_text = "%s  ·  %s  ·  %s" % [MISSION_THING[mission], str(o["room"]), deck_title(waypoint.y)]
+
+func _mission_tick(dt: float) -> void:
+	var me := body.global_position
+	if m_stage == 0 and me.distance_to(objective_pos(mission)) < 2.2:
+		m_stage = 1
+		if mission == "sabotage": m_timer = SABOTAGE_SECONDS
+		if is_instance_valid(_target_node) and mission != "sabotage": _target_node.visible = false   # (they come with you)
+		say("%s  ·  now get back to the hangar" % MISSION_DONE[mission], Color(1.0, 0.9, 0.3))
+	elif m_stage == 1 and absf(me.y) < 2.0 and Vector2(me.x - hangar_pos().x, me.z - hangar_pos().z).length() < 3.5:
+		m_stage = 2
+		m_timer = 0.0
+		say("MISSION COMPLETE  ·  LEAVE SHIP to launch", Color(0.4, 1.0, 0.5))
+	if m_stage == 1 and mission == "sabotage":
+		m_timer -= dt
+		if m_timer <= 0.0:
+			m_stage = -1
+			say("THE SHIP WENT UP WITH YOU ABOARD  ·  mission failed, starting again", Color(1.0, 0.3, 0.25))
+			restart_mission()
+			return
+	_next_step()
+	_timer_label.text = ("%d:%02d" % [int(m_timer) / 60, int(m_timer) % 60]) if (m_stage == 1 and mission == "sabotage") else ""
+	var line := MISSION_TITLE[mission] + "\n"
+	if m_stage == 2: line += "DONE  ·  LEAVE SHIP"
+	else:
+		line += "NEXT: " + waypoint_text
+		if waypoint != Vector3.INF and absf(waypoint.y - me.y) > 3.0: line += "   (take a lift %s)" % ("▲" if waypoint.y > me.y else "▼")
+	_obj_label.text = line
+	var here: bool = waypoint != Vector3.INF and absf(waypoint.y - me.y) <= 3.0
+	_wp_dot.visible = here
+	_beacon.visible = here
+	if here:
+		var c := world_to_cell(waypoint)
+		_wp_dot.position = Vector2(c.x / float(data["w"]) * minimap.size.x, c.y / float(data["h"]) * minimap.size.y) - Vector2(0, 7)
+		_beacon.position = waypoint + Vector3(0, 3.5, 0)
+
+## The mission from the top (you failed it): back in the hangar, no keys, the guards back at their posts.
+func restart_mission() -> void:
+	var kind := mission
+	body.global_position = hangar_pos() + Vector3(0, 0.1, 0)
+	body.velocity = Vector3.ZERO
+	keys = [true, false, false, false]
+	_chip_show()
+	for kg in key_guards:
+		if is_instance_valid(kg["node"]): (kg["node"] as Node3D).queue_free()
+	key_guards.clear()
+	_key_guards()
+	start_mission(kind)

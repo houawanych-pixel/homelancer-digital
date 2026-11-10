@@ -3137,7 +3137,7 @@ func _run() -> void:
 		_check("v12.97: LEAVE SHIP returns", not is_instance_valid(main.ship_deck) and main.state != "ship_deck", main.state)
 		var built := FleetCatalog.with_stage().map(func(e): return str(e["id"]))
 		_check("v13.00: a stage for every HoloDeck plan in hand (14: Unity 9, Elyza 5)", built.size() == 14, str(built))
-		for sid in built:
+		for sid in (built if OS.get_environment("HL_DECKS_ONLY") == "" else []):   # (HL_DECKS_ONLY=1: skip the every-ship pass while working on one ship)
 			main.open_ship_interior(str(sid))
 			await _wait(0.5)
 			var es: ShipInterior = main.ship_deck
@@ -3152,6 +3152,51 @@ func _run() -> void:
 			_check("v12.99: %s loads, every labelled room reachable on foot" % sid, ok2, str(es.data["rooms"].size()) if is_instance_valid(es) else "")
 			if is_instance_valid(es): es.close()
 			await _wait(0.3)
+		# v13.00: the three missions (Unity Capital): the waypoint walks you through the keys, the target, then the hangar
+		main.open_ship_interior("unity_capital")
+		await _wait(0.8)
+		var ms: ShipInterior = main.ship_deck
+		_check("v13.00: the mission picker offers sabotage, capture and rescue", ms._pick.visible and ms._pick.find_child("Pick_sabotage", true, false) != null and ms._pick.find_child("Pick_capture", true, false) != null and ms._pick.find_child("Pick_rescue", true, false) != null)
+		await _shot("mission_pick", 0.2)
+		_check("v13.00: RESCUE starts", ms.start_mission("rescue") and ms.mission == "rescue" and not ms._pick.visible)
+		_check("v13.00: no keys yet, so the first waypoint is the yellow key's guard", "YELLOW KEY" in ms.waypoint_text, ms.waypoint_text)
+		await _shot("mission_rescue_start", 0.3)
+		var want_next := ["ORANGE KEY", "RED KEY", "HOSTAGE"]
+		for lv in [1, 2, 3]:
+			var gk: Dictionary = ms.key_guards.filter(func(k): return int(k["key"]) == lv)[0]
+			ms.body.global_position = (gk["pos"] as Vector3) + Vector3(0.6, 0.1, 0)
+			await _wait(0.6)
+			_check("v13.00: the %s key is taken and the waypoint moves on to %s" % [ShipInterior.KEY_NAME[lv], want_next[lv - 1]], ms.keys[lv] and want_next[lv - 1] in ms.waypoint_text, ms.waypoint_text)
+		_check("v13.00: the hostage is in the Brig on the lower deck, behind red", "Brig" in ms.waypoint_text and "LOWER DECK" in ms.waypoint_text and int(ms.data["objectives"]["rescue"]["need"]) == 3, ms.waypoint_text)
+		ms.body.global_position = ms.objective_pos("rescue") + Vector3(0.8, 0.1, 0)
+		await _wait(0.6)
+		_check("v13.00: reaching the hostage sends you back to the hangar", ms.m_stage == 1 and "hangar" in ms.waypoint_text, "%d %s" % [ms.m_stage, ms.waypoint_text])
+		await _shot("mission_rescue_freed", 0.2)
+		ms.body.global_position = ms.hangar_pos() + Vector3(1.0, 0.1, 0)
+		await _wait(0.6)
+		_check("v13.00: back at your ship, the mission is complete", ms.m_stage == 2 and "DONE" in ms._obj_label.text, ms._obj_label.text)
+		await _shot("mission_rescue_done", 0.2)
+		# sabotage: the charge starts a countdown; run out of time and it starts again
+		ms.mission = "sabotage"
+		ms.restart_mission()
+		await _wait(0.8)
+		_check("v13.00: a fresh mission: no keys, the guards back", not ms.keys[1] and not ms.keys[2] and not ms.keys[3] and ms.key_guards.size() == 3 and ms.m_stage == 0)
+		for lv in range(1, int(ms.data["objectives"]["sabotage"]["need"]) + 1):
+			var gk2: Array = ms.key_guards.filter(func(k): return int(k["key"]) == lv)
+			if gk2.is_empty(): continue
+			ms.body.global_position = (gk2[0]["pos"] as Vector3) + Vector3(0.6, 0.1, 0)
+			await _wait(0.6)
+		_check("v13.00: with the keys the waypoint is the generator", "GENERATOR" in ms.waypoint_text, ms.waypoint_text)
+		ms.body.global_position = ms.objective_pos("sabotage") + Vector3(0.8, 0.1, 0)
+		await _wait(0.6)
+		_check("v13.00: the charge is set and the countdown runs", ms.m_stage == 1 and ms.m_timer > 100.0 and ms._timer_label.text != "", "%d %s %s" % [ms.m_stage, str(ms.m_timer), ms._timer_label.text])
+		await _shot("mission_sabotage_countdown", 0.2)
+		ms.m_timer = 0.3
+		await _wait(1.0)
+		_check("v13.00: out of time: back in the hangar with the mission started again", ms.m_stage == 0 and ms.body.global_position.distance_to(ms.hangar_pos()) < 3.0 and not ms.keys[1], "%d %s" % [ms.m_stage, str(ms.body.global_position)])
+		_check("v13.00: CAPTURE targets the Ready Room on the upper deck, behind red", ms.start_mission("capture") and str(ms.data["objectives"]["capture"]["room"]) == "Ready Room" and int(ms.data["objectives"]["capture"]["need"]) == 3)
+		ms.close()
+		await _wait(0.3)
 		# v13.00: a rule-built ship (Unity Cruiser): ride a lift to the centred upper deck, stand in its hub and a wedge room
 		main.open_ship_interior("unity_cruiser")
 		await _wait(0.6)
