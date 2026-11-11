@@ -55,6 +55,90 @@ SPECS = {
     },
 }
 
+# ---- the five stations added from the owner's FRIENDLY EIGHT concept sheets (10 Nov, "concept only"). Station
+# names and room names are the ones printed on those sheets. The sheets' hull shapes are NOT used: every deck is the
+# largest round body that fits inside the model at that height (so the plan is smaller and rounder than the sheet).
+_SH = ("oct", "bays", "keystone", "apse", "hex", "capsule")
+def _row(names, k=0): return [(n, 1, (SEC if i % 2 else _SH[(k + i) % len(_SH)])) for i, n in enumerate(names)]
+def D1(a0, a1, names, k=0): return (a0, a1, [(1, _row(names, k))])
+def D2(a0, a1, inner, outer, k=0): return (a0, a1, [(1.0, _row(inner, k)), (1.25, _row(outer, k + 2))])
+UP, DN, ALL4 = ("NE", "NW"), ("SE", "SW"), ("NE", "SE", "SW", "NW")
+_NOTE = "rooms named on the owner's concept sheet (concept only)"
+SPECS.update({
+    "sepheron": {"name": "Library Station", "model": "HL_Station_Covenant_Capital_retopo", "system": "sepheron", "centre": (0.0, -90.0),
+        "lift_r": 330.0, "ring": (300.0, 360.0), "av_w": 24.0, "source_note": _NOTE, "arm_names": {},
+        "levels": [
+            {"id": "U2", "name": "OBSERVATORY & RESEARCH", "y": 280.0, "proposed": False, "hub": "Advanced Research Wing", "hub_doors": (0, 90, 180, 270), "G": 26.0, "lifts": UP,
+             "districts": [D1(300, 60, ["Observatory & Skydeck", "Sensor Array", "Comms Relay"]), D1(60, 180, ["Research Offices", "High Archive (Restricted)", "Archive Stack A"], 1), D1(180, 300, ["Data Analysis", "Telescope Control", "Astro Research Lab"], 2)]},
+            {"id": "U1", "name": "LIBRARY & SCHOLAR WING", "y": 120.0, "proposed": False, "hub": "Scholar Commons", "hub_doors": (0, 90, 180, 270), "G": 28.0, "lifts": UP,
+             "districts": [D1(300, 60, ["Grand Reading Hall", "Library Stacks C", "Archive Catalog"]), D1(60, 180, ["Seminar Halls", "Rare Texts Vault", "Cultural Archives"], 1), D1(180, 300, ["Digital Library", "Study Rooms", "Library Stacks B"], 2)]},
+            {"id": "MAIN", "name": "PUBLIC & OPERATIONS HUB", "y": -114.0, "proposed": False, "hub": "Hub (Public Plaza)", "hub_doors": (0, 45, 90, 135, 180, 225, 270, 315), "G": 32.0, "promenade": 44.0, "lifts": ALL4,
+             "districts": [D2(315, 45, ["Mission Board Office"], ["Command / Administration", "Medical Bay & Triage", "Crew Quarters"]), D2(45, 135, ["Supplies / Trade Counter"], ["Weapons Shop", "Private Quarters (Block)", "Docking Concourse B"], 1),
+                           D2(135, 225, ["Library Operations"], ["Mess / Galley", "Pilots' Lounge", "Mech Dealer"], 2), D2(225, 315, ["Shipyard / Repair Bay"], ["Hangar / Docking Concourse", "Armory", "Security & Brig"], 3)]},
+            {"id": "L1", "name": "ENGINEERING & SUPPORT", "y": -156.0, "proposed": False, "hub": "Power Distribution", "hub_doors": (0, 90, 180, 270), "G": 30.0, "lifts": DN,
+             "districts": [D1(300, 60, ["Server / Data Center", "Machine Plant", "Waste Processing"]), D1(60, 180, ["Maintenance Workshops", "Cargo Lockers", "Drone Bays"], 1), D1(180, 300, ["Water Reclamation", "Life Support (Atmos)"], 2)]},
+            {"id": "L2", "name": "SYSTEMS & EMERGENCY", "y": -200.0, "proposed": False, "hub": "Systems Integrations", "hub_doors": (0, 90, 180, 270), "G": 26.0, "lifts": DN,
+             "districts": [D1(300, 60, ["Cold Storage", "Fire Suppression Control", "Laundry"]), D1(60, 180, ["Escape Pod Control", "Lifeboat / Escape Pod Bay"], 1), D1(180, 300, ["Emergency Suit Lockers", "Utility / Janitor", "Air Scrubbers"], 2)]},
+        ]},
+    "raptian_major": {"name": "Scrap Citadel", "model": "HL_Station_Savagers_Capital_retopo", "system": "raptian_major", "centre": (8.0, 190.0),
+        "lift_r": 330.0, "ring": (300.0, 360.0), "av_w": 24.0, "source_note": _NOTE, "arm_names": {}, "start_level": "MAIN",
+        "levels": [
+            {"id": "U1", "name": "OPERATIONS / COMMAND", "y": 560.0, "proposed": False, "hub": "Strategy Hub", "hub_doors": (0, 90, 180, 270), "G": 30.0, "lifts": UP,
+             "districts": [D1(300, 60, ["Command Center", "Comms / Sensor Center", "Admin / Faction Offices", "Ops Control"]), D1(60, 180, ["Briefing Rooms", "Data / Server Rooms", "Surveillance & Records", "Crew Operations"], 1), D1(180, 300, ["Armory", "Security Operations", "Intel / Mission Planning"], 2)]},
+            {"id": "MAIN", "name": "PUBLIC HUB / DOCKS", "y": 380.0, "proposed": False, "hub": "Public Hub", "hub_doors": (0, 45, 90, 135, 180, 225, 270, 315), "G": 30.0, "promenade": 40.0, "lifts": ALL4,
+             "districts": [D1(315, 45, ["Mech Dealer", "Weapons Shop", "Pilots' Lounge", "Supplies & Trade"]), D1(45, 135, ["Medical Bay (Triage)", "Brig / Detainment", "Security Post", "Fighting Pit"], 1),
+                           D1(135, 225, ["Hangar / Docking Concourse", "Boarding Docks"], 2), D1(225, 315, ["Salvage Sorting", "Shipyard / Repair Bay", "Mission Board (Office)"], 3)]},
+            {"id": "L1", "name": "CREW / HABITATION / SERVICES", "y": 100.0, "proposed": False, "hub": "Recreation Lounge", "hub_doors": (0, 90, 180, 270), "G": 30.0, "lifts": ALL4,
+             "districts": [D1(300, 60, ["Crew Quarters (A)", "Mess / Galley", "Crew Quarters (B)"]), D1(60, 180, ["Laundry & Sanitation", "Waste Processing", "Maintenance Workshops"], 1), D1(180, 300, ["Life Support / Air Scrubbers", "Water Reclamation", "Private Quarters (Block)"], 2)]},
+            {"id": "L2", "name": "INFRASTRUCTURE / INDUSTRIAL", "y": -200.0, "proposed": False, "hub": "Engineering Core", "hub_doors": (0, 90, 180, 270), "G": 30.0, "lifts": DN,
+             "districts": [D1(300, 60, ["Power Distribution (Alpha)", "Machine / Plant Rooms", "Power Distribution (Beta)"]), D1(60, 180, ["Cargo Lockers (B)", "Fire Suppression & Safety", "Utility Services", "Escape-Pod / Lifeboat Bays"], 1), D1(180, 300, ["Cold Storage", "Drone Bays", "Cargo Lockers (A)"], 2)]},
+        ]},
+    "malachar": {"name": "Orbital Command", "model": "HL_Station_Imperium_Capital_retopo", "system": "malachar", "centre": (0.0, 300.0),
+        "lift_r": 280.0, "ring": (250.0, 310.0), "av_w": 22.0, "source_note": _NOTE, "arm_names": {}, "start_level": "MAIN",
+        "levels": [
+            {"id": "U2", "name": "HIGH COMMAND", "y": 480.0, "proposed": False, "hub": "War Room", "hub_doors": (0, 90, 180, 270), "G": 26.0, "lifts": UP,
+             "districts": [D1(300, 60, ["Intel Analysis", "High Command", "Comms / Sensor"]), D1(60, 180, ["Fleet Operations", "Data Archive", "Secure Briefing"], 1), D1(180, 300, ["Encryption / Cipher", "Strategy Planning", "Situation Center"], 2)]},
+            {"id": "U1", "name": "ADMINISTRATION & GARRISON", "y": 380.0, "proposed": False, "hub": "Garrison Barracks", "hub_doors": (0, 90, 180, 270), "G": 28.0, "lifts": UP,
+             "districts": [D1(300, 60, ["Officer Quarters", "Administration Offices", "Staff Quarters"]), D1(60, 180, ["Brig / Holding", "Personnel Records", "Training Simulation"], 1), D1(180, 300, ["Armory", "Security Operations"], 2)]},
+            {"id": "MAIN", "name": "PRIMARY DECK", "y": 150.0, "proposed": False, "hub": "Public Hub", "hub_doors": (0, 45, 90, 135, 180, 225, 270, 315), "G": 30.0, "promenade": 40.0, "lifts": ALL4,
+             "districts": [D2(315, 45, ["Parade Concourse"], ["Mech Dealer", "Throne / Audience Hall", "Weapons Shop"]), D2(45, 135, ["Pilots' Lounge"], ["Supplies (Trade)", "Hangar / Docking Concourse", "Private Quarters (Block B)"], 1),
+                           D2(135, 225, ["Security Checkpoint (Arrivals)"], ["Garrison Control", "Command Operations"], 2), D2(225, 315, ["Medical Bay & Triage"], ["Private Quarters (Block A)", "Shipyard / Repair Bay", "Mission Board Office"], 3)]},
+            {"id": "L1", "name": "ENGINEERING & LOGISTICS", "y": 60.0, "proposed": False, "hub": "Reactor Support", "hub_doors": (0, 90, 180, 270), "G": 24.0, "lifts": DN,
+             "districts": [D1(300, 60, ["Power Distribution", "Engineering Control", "Life Support"]), D1(60, 180, ["Cargo Lockers", "Crew Quarters", "Crew Mess / Galley"], 1), D1(180, 300, ["Laundry", "Maintenance Workshops", "Drone Bays"], 2)]},
+            {"id": "L2", "name": "UTILITIES & RESERVES", "y": -60.0, "proposed": False, "hub": "Supply Reserves", "hub_doors": (0, 90, 180, 270), "G": 24.0, "lifts": DN,
+             "districts": [D1(300, 60, ["Water Reclamation", "Environmental Processing", "Waste Processing"]), D1(60, 180, ["Utility Plant", "Escape-Pod / Lifeboat Bays"], 1), D1(180, 300, ["Cold Storage", "Air Scrubbers"], 2)]},
+        ]},
+    "dreadholm": {"name": "Fleet Command", "model": "st3d_veranthos_summit", "system": "dreadholm", "centre": (0.0, 0.0),
+        "lift_r": 440.0, "ring": (410.0, 470.0), "av_w": 26.0, "source_note": _NOTE, "start_level": "MAIN",
+        "arm_names": {0: "Hangar / Docking Concourse", 180: "Dock / Airlock (South)", 90: "Dock / Airlock (East)", 270: "Dock / Airlock (West)"},
+        "levels": [
+            {"id": "U1", "name": "COMMAND / FLEET OPS / ACADEMY", "y": -60.0, "proposed": False, "hub": "Academy Halls (Training / Sim)", "hub_doors": (0, 90, 180, 270), "G": 32.0, "lifts": UP,
+             "districts": [D1(300, 60, ["Comms / Sensor Array", "Fleet Operations Centre", "Strategic Planning", "Command Bridge (Fleet)"]), D1(60, 180, ["Admin Offices", "Officer Training", "Briefing Theaters"], 1), D1(180, 300, ["Tactical Training", "Data Servers"], 2)]},
+            {"id": "MAIN", "name": "HUB / HANGAR / TRADE / SERVICES", "y": -218.0, "proposed": False, "hub": "Public Hub (Concourse)", "hub_doors": (0, 45, 90, 135, 180, 225, 270, 315), "G": 34.0, "promenade": 50.0, "arms": True, "lifts": ALL4,
+             "districts": [D2(315, 45, ["Mission Board Office", "Shipyard / Drydock"], ["Docking Concourse Hall", "Arrivals Hall", "Dock Office"]), D2(45, 135, ["Supplies (Trade)"], ["Pilots' Lounge", "Trade Hall", "Quartermaster"], 1),
+                           D2(135, 225, ["Medical Bay (Triage / Treatment)"], ["Security Post", "Brig", "Treatment Ward"], 2), D2(225, 315, ["Mech Dealer"], ["Weapons Shop", "Armory", "Munitions Counter"], 3)]},
+            {"id": "L1", "name": "CREW / LOGISTICS / SUPPORT", "y": -300.0, "proposed": False, "hub": "Recreation / Crew Lounge", "hub_doors": (0, 90, 180, 270), "G": 32.0, "lifts": UP,
+             "districts": [D2(300, 60, ["Mess / Galley"], ["Crew Quarters (A)", "Crew Quarters (B)", "Laundry"]), D2(60, 180, ["Janitor / Utility"], ["Cargo Lockers", "General Maintenance Workshops"], 1), D2(180, 300, ["Water Reclamation"], ["Cold Storage", "Life Support (Air & Env)"], 2)]},
+            {"id": "L2", "name": "ENGINEERING / PRODUCTION / EMERGENCY", "y": -380.0, "proposed": False, "hub": "Engineering Plant (Main Systems)", "hub_doors": (0, 90, 180, 270), "G": 30.0, "lifts": DN,
+             "districts": [D1(300, 60, ["Machine Rooms (Engines)", "Power Distribution", "Munitions (Ordnance)"]), D1(60, 180, ["Drone Bays", "Lifeboat / Escape-Pod Bays"], 1), D1(180, 300, ["Emergency Suit Lockers", "Waste Processing"], 2)]},
+        ]},
+    "vantara": {"name": "Resistance Headquarters", "model": "HL_Station_Liberator_Capital_retopo", "system": "vantara", "centre": (0.0, 110.0),
+        "lift_r": 300.0, "ring": (270.0, 330.0), "av_w": 22.0, "source_note": _NOTE, "arm_names": {}, "start_level": "MAIN",
+        "levels": [
+            {"id": "U2", "name": "OPERATIONS & INTEL", "y": 540.0, "proposed": False, "hub": "Ops Strategy Center", "hub_doors": (0, 90, 180, 270), "G": 28.0, "lifts": UP,
+             "districts": [D1(300, 60, ["Recon Intel", "Comms / Sensor Array", "Data Core"]), D1(60, 180, ["Sim Training", "Command Bridge"], 1), D1(180, 300, ["R&D Lab", "Intel Annex"], 2)]},
+            {"id": "U1", "name": "ADMIN & MISSION", "y": 400.0, "proposed": False, "hub": "Mission Control", "hub_doors": (0, 90, 180, 270), "G": 28.0, "lifts": UP,
+             "districts": [D1(300, 60, ["Staff Quarters", "Admin Offices", "Briefing Suites"]), D1(60, 180, ["Intel Analysis", "Field Command Ops"], 1), D1(180, 300, ["Fleet Coordination", "Mission Annex"], 2)]},
+            {"id": "MAIN", "name": "PUBLIC / OPERATIONS", "y": 250.0, "proposed": False, "hub": "Public Hub", "hub_doors": (0, 45, 90, 135, 180, 225, 270, 315), "G": 28.0, "promenade": 36.0, "lifts": ALL4,
+             "districts": [D1(315, 45, ["Shipyard / Repair Bay", "Hangar / Docking Concourse", "Hangar Control", "Drone Bays"]), D1(45, 135, ["Supplies / Trade", "Cargo Lockers", "Pilots' Lounge", "Command / Administration"], 1),
+                           D1(135, 225, ["Private Quarters (Block B)", "Crew Mess / Galley", "Arrivals / Refugee Processing", "Private Quarters (Block A)"], 2), D1(225, 315, ["Security / Brig", "Medical Bay / Triage (Field Hospital)", "Mission Board Office", "Armory", "Weapons Shop", "Mech Dealer"], 3)]},
+            {"id": "L1", "name": "ENGINEERING & PLANT", "y": 100.0, "proposed": False, "hub": "Engineering & Plant Operations", "hub_doors": (0, 90, 180, 270), "G": 28.0, "lifts": DN,
+             "districts": [D1(300, 60, ["Life Support", "Power Distribution", "Air Scrubbers"]), D1(60, 180, ["Waste Processing", "Maintenance Workshops"], 1), D1(180, 300, ["Water Reclamation", "Plant Store"], 2)]},
+            {"id": "L2", "name": "LOGISTICS & SURVIVAL", "y": -20.0, "proposed": False, "hub": "General Services & Storage", "hub_doors": (0, 90, 180, 270), "G": 24.0, "lifts": DN,
+             "districts": [D1(300, 60, ["Laundry", "Cold Storage", "Janitor / Utility"]), D1(60, 180, ["Spare Parts & Logistics", "Lifeboat / Escape Pod Bay"], 4), D1(180, 300, ["Emergency Suit Lockers", "Survival Stores"], 2)]},
+        ]},
+})
+
 def finish(sp, sid, L, dk, foot, raw, lifts, ports, outdir, repdir, rep, Rin):
     """Lift lobbies, what can be walked to, the report, the deck map and the deck's JSON."""
     lid, y = L["id"], L["y"]
@@ -94,7 +178,7 @@ def finish(sp, sid, L, dk, foot, raw, lifts, ports, outdir, repdir, rep, Rin):
         sz = cv2.getTextSize(t, cv2.FONT_HERSHEY_SIMPLEX, fs, 1)[0]; p = Q(*r["at"])
         cv2.putText(im, t, (p[0] - sz[0] // 2, p[1] + 4), cv2.FONT_HERSHEY_SIMPLEX, fs, (255, 255, 255), 1, cv2.LINE_AA)
     cv2.putText(im, "%s  -  %s %s" % (sp["name"].upper(), lid, L["name"]), (30, 44), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 240, 170), 2, cv2.LINE_AA)
-    cv2.putText(im, ("DESIGNED ADDITION - not on the blueprint picture" if L["proposed"] else "districts from the blueprint concept") + "  |  clean outline fitted to %s at %+d m" % (sp["model"], round(y)),
+    cv2.putText(im, ("DESIGNED ADDITION - not on the blueprint picture" if L["proposed"] else sp.get("source_note", "districts from the blueprint concept")) + "  |  clean outline fitted to %s at %+d m" % (sp["model"], round(y)),
                 (30, 72), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (120, 200, 255), 1, cv2.LINE_AA)
     mp = "%s_%s.jpg" % (sid, lid.lower())
     cv2.imwrite(os.path.join(outdir, mp), cv2.resize(im, (1024, 1024), interpolation=cv2.INTER_AREA), [cv2.IMWRITE_JPEG_QUALITY, 85])
@@ -114,13 +198,16 @@ def build(sid, glbdir, outdir, repdir=None):
     tri = v[np.asarray(mesh.faces)]
     B._HM.clear()
     LIFT_R = sp["lift_r"]; ring = sp["ring"]; LIFT_A = (45, 135, 225, 315)
-    lifts = [[round(q, 1) for q in pol(LIFT_R, a)] for a in LIFT_A]
+    ANG4 = {"NE": 45, "SE": 135, "SW": 225, "NW": 315}
+    lifts_all = [[round(q, 1) for q in pol(LIFT_R, a)] for a in LIFT_A]; lifts = lifts_all
     rep = {"model": sp["model"], "metres_per_model_unit": K, "body_centre_from_model_origin_m": list(sp["centre"]),
            "size_m": {"x": round(float(np.ptp(v[:, 0]))), "z": round(float(np.ptp(v[:, 2]))), "height": round(float(np.ptp(v[:, 1])))}}
     top, bot = B.heightmaps(tri)
     decks = []; levels_out = []
     for L in sp["levels"]:
         lid, y, G = L["id"], L["y"], L.get("G", 34.0)
+        L["lift_names"] = tuple(L.get("lifts", ("NE", "SE", "SW", "NW")))      # which shafts stop at this deck
+        lifts = [[round(q, 1) for q in pol(LIFT_R, ANG4[nm])] for nm in L["lift_names"]]
         mfoot, raw = B.footprint(tri, y)
         tmp = Deck(mfoot)
         Rin = float(tmp.R[mfoot == 0].min())
@@ -188,11 +275,11 @@ def build(sid, glbdir, outdir, repdir=None):
             got.append({"name": ap["name"], "direction_deg": round(ap["a"], 1), "pod_centre_from_axis_m": round(ap["r_pod"])})
         if got: rep["main_deck_arms_built"] = got
         levels_out.append(finish(sp, sid, L, dk, foot, raw, lifts, ports, outdir, repdir, rep, Rin)); decks.append((L, dk))
-    rep["lifts"] = {"shafts_xz_m": dict(zip(("NE", "SE", "SW", "NW"), lifts)), "distance_from_axis_m": LIFT_R,
+    rep["lifts"] = {"shafts_xz_m": dict(zip(("NE", "SE", "SW", "NW"), lifts_all)), "distance_from_axis_m": LIFT_R, "stops": {L["id"]: list(L["lift_names"]) for L in sp["levels"]},
                     "serve": "all four shafts serve every deck" if all(all(rep[L["id"]]["lifts_on_walkable_floor"]) for L in sp["levels"]) else "NOT all shafts reach every deck"}
-    main = next(L for L in sp["levels"] if L["id"] == sp.get("start_level", "L3"))
+    main = next(L for L in sp["levels"] if L["id"] == sp.get("start_level", "MAIN" if any(q["id"] == "MAIN" for q in sp["levels"]) else "L3"))
     out = {"id": sid, "name": sp["name"], "model": sp["model"], "system": sp["system"], "extent_m": N * PX,
-           "start": {"level": main["id"], "x": lifts[2][0] + 30.0, "z": lifts[2][1]},
+           "start": {"level": main["id"], "x": lifts_all[2][0] + 30.0, "z": lifts_all[2][1], "lift": lifts_all[2]},
            "note": "Clean outline fitted to the exterior model. Districts follow the blueprint concept; room names are working labels. No combat, quests or key locks in this pass.",
            "levels": levels_out}
     json.dump(out, open(os.path.join(outdir, sid + ".json"), "w"), separators=(",", ":"))
@@ -210,7 +297,8 @@ def build(sid, glbdir, outdir, repdir=None):
         ys_ = [L["y"] for L in sp["levels"]]
         for a in LIFT_A:
             x = pol(LIFT_R, a)[0]
-            cv2.line(im, (int(x * S + W_ / 2), int(-max(ys_) * S + H_ / 2)), (int(x * S + W_ / 2), int(-min(ys_) * S + H_ / 2)), (255, 255, 255), 1)
+            nm_ = {45: "NE", 135: "SE", 225: "SW", 315: "NW"}[a]; yy_ = [L["y"] for L in sp["levels"] if nm_ in L["lift_names"]]
+            cv2.line(im, (int(x * S + W_ / 2), int(-max(yy_) * S + H_ / 2)), (int(x * S + W_ / 2), int(-min(yy_) * S + H_ / 2)), (255, 255, 255), 1)
         cv2.putText(im, "SIDE VIEW (from the front): %s at game scale, deck floors and lift shafts" % sp["model"], (20, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 240, 170), 1, cv2.LINE_AA)
         cv2.imwrite(os.path.join(repdir, sid + "_side.jpg"), im, [cv2.IMWRITE_JPEG_QUALITY, 88])
     print(json.dumps({k: (v_ if not isinstance(v_, dict) or k in ("lifts", "arms") else {q: v_[q] for q in v_ if q in ("hull_inscribed_radius_m", "rooms", "doors", "rooms_dropped_unreachable", "lifts_on_walkable_floor", "one_door_rooms", "floor_outside_measured_hull_m2")}) for k, v_ in rep.items() if k not in ("main_deck_arms_built",)}, indent=0))

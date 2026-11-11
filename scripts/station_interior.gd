@@ -91,7 +91,9 @@ static func path_of(id: String) -> String: return DIR + id + ".json"
 static func can_open(id: String) -> bool: return FileAccess.file_exists(path_of(id))
 ## The rebuilt station that stands for a 3D station model key ("" = none yet).
 static func for_model(key: String) -> String:
-	return str({"st3d_veranthos_senate": "veranthos", "st3d_aurelion_citadel": "aurelion", "HL_Station_Solarion_Capital_retopo": "synthari_capital"}.get(key, ""))
+	return str({"st3d_veranthos_senate": "veranthos", "st3d_aurelion_citadel": "aurelion", "HL_Station_Solarion_Capital_retopo": "synthari_capital",
+		"HL_Station_Covenant_Capital_retopo": "sepheron", "HL_Station_Savagers_Capital_retopo": "raptian_major", "HL_Station_Imperium_Capital_retopo": "malachar",
+		"st3d_veranthos_summit": "dreadholm", "HL_Station_Liberator_Capital_retopo": "vantara"}.get(key, ""))
 
 static func create(id: String) -> StationInterior:
 	if not can_open(id): return null
@@ -486,9 +488,12 @@ func close() -> void:
 
 ## The pad on the deck above (dir -1) or below (dir +1) in the same shaft, or {}.
 func lift_stop(pad: Dictionary, dir: int) -> Dictionary:
+	# (a shaft may pass a deck without stopping: the next deck this shaft serves in that direction)
+	var best := {}
 	for p in lift_pads:
-		if int(p["level"]) == int(pad["level"]) + dir and (p["xz"] as Vector2).distance_to(pad["xz"]) < 0.5: return p
-	return {}
+		var dl: int = (int(p["level"]) - int(pad["level"])) * dir
+		if dl >= 1 and (p["xz"] as Vector2).distance_to(pad["xz"]) < 0.5 and (best.is_empty() or dl < (int(best["level"]) - int(pad["level"])) * dir): best = p
+	return best
 
 func ride(dir: int) -> bool:
 	if at_lift.is_empty(): return false

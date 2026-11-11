@@ -3100,7 +3100,7 @@ func _run() -> void:
 		return
 	if _flag("HL_STATION"):   # v13.01 station rebuild: Veranthos, measured from st3d_veranthos_senate
 		_check("v13.01: Veranthos' main station is the Senate model its interior is measured from", str(Data.SYSTEMS["veranthos"]["station"].get("model", "")) == "st3d_veranthos_senate" and StationInterior.for_model("st3d_veranthos_senate") == "veranthos", str(Data.SYSTEMS["veranthos"]["station"].get("model", "")))
-		_check("v13.01: only a rebuilt station opens", StationInterior.can_open("veranthos") and not StationInterior.can_open("malachar") and not main.open_station_interior("malachar"))
+		_check("v13.01: only a rebuilt station opens", StationInterior.can_open("veranthos") and not StationInterior.can_open("solara") and not main.open_station_interior("solara"))
 		var st0: String = str(main.state)
 		var okv: bool = main.open_station_interior("veranthos")
 		await _wait(1.0)
@@ -3217,7 +3217,7 @@ func _run() -> void:
 		if is_instance_valid(main.station_deck): main.station_deck.close()
 		await _wait(0.4)
 		# the other rebuilt stations: each opens, has its decks, the lift reaches every deck, every listed room can be stood in
-		for sid2 in ["aurelion", "synthari_capital"]:
+		for sid2 in ["aurelion", "synthari_capital", "sepheron", "raptian_major", "malachar", "dreadholm", "vantara"]:
 			var mk: String = str(Data.SYSTEMS[sid2]["station"].get("model", ""))
 			_check("v13.01: %s's station model has its rebuilt interior" % sid2, StationInterior.for_model(mk) == sid2 and StationInterior.can_open(sid2), mk)
 			var ok2: bool = main.open_station_interior(sid2)
@@ -3239,18 +3239,32 @@ func _run() -> void:
 				if absf(s2.body.global_position.y - s2.level_y(s2.level_i)) > 1.0 or s2.room_now != str((lv2[li]["rooms"] as Array)[0]["name"]): bad2.append("%s: not standing in %s (%s)" % [str(lv2[li]["id"]), str((lv2[li]["rooms"] as Array)[0]["name"]), s2.room_now])
 				await _shot("station_%s_%s" % [sid2, str(lv2[li]["id"]).to_lower()], 0.2)
 			_check("v13.01: %s: every deck's rooms are there and you can stand in each deck's hall (%d rooms)" % [sid2, seen2], bad2.is_empty() and seen2 > 20, str(bad2))
-			var lf2: Array = s2.data["start"].get("lift", [float(s2.data["start"]["x"]) - 30.0, float(s2.data["start"]["z"])])   # (a shaft that serves every deck)
-			s2.place(str(s2.data["start"]["level"]), Vector3(float(lf2[0]), 0, float(lf2[1])))
-			await _wait(0.5)
-			var top2 := 0
-			while s2.ride(-1):
-				await _wait(0.7)
-				top2 += 1
-			var down2 := 0
-			while s2.ride(1):
-				await _wait(0.7)
-				down2 += 1
-			_check("v13.01: %s: the lift runs from the top deck to the bottom deck" % sid2, down2 == lv2.size() - 1 and s2.level_i == lv2.size() - 1 and absf(s2.body.global_position.y - s2.level_y(s2.level_i)) < 1.0, "up %d down %d" % [top2, down2])
+			# lifts: a shaft may stop at only some decks (the owner's sheets: upper decks NW/NE, lower decks SW/SE). Every deck
+			# must be reachable from the start deck by riding shafts, and a shaft's pads sit at the same x,z on each deck it serves.
+			var reach2: Array = [s2.find_level(str(s2.data["start"]["level"]))]
+			var grew := true
+			while grew:
+				grew = false
+				for li in lv2.size():
+					if li in reach2: continue
+					for lj in reach2:
+						for pa in (lv2[li]["lifts"] as Array):
+							for pb in (lv2[lj]["lifts"] as Array):
+								if Vector2(float(pa[0]), float(pa[1])).distance_to(Vector2(float(pb[0]), float(pb[1]))) < 0.5 and not (li in reach2):
+									reach2.append(li)
+									grew = true
+			_check("v13.01: %s: every deck can be reached from the start deck by lift (%d decks)" % [sid2, lv2.size()], reach2.size() == lv2.size(), str(reach2))
+			# and really ride: from the start deck, up as far as a shaft goes and back down past it
+			var rode2 := 0
+			for nm2 in (lv2[s2.find_level(str(s2.data["start"]["level"]))]["lifts"] as Array):
+				s2.place(str(s2.data["start"]["level"]), Vector3(float(nm2[0]), 0, float(nm2[1])))
+				await _wait(0.4)
+				for dir3 in [-1, 1]:
+					while s2.ride(dir3):
+						await _wait(0.5)
+						rode2 += 1
+						if absf(s2.body.global_position.y - s2.level_y(s2.level_i)) > 1.0: bad2.append("lift left you off the floor on %s" % str(s2.level()["id"]))
+			_check("v13.01: %s: the lifts carry you between decks and set you on the floor (%d rides)" % [sid2, rode2], rode2 >= lv2.size() - 1 and bad2.is_empty(), str(bad2))
 			s2.close()
 			await _wait(0.4)
 			_check("v13.01: %s: LEAVE STATION puts you back" % sid2, not is_instance_valid(main.station_deck) and main.state == st0, main.state)
