@@ -135,7 +135,7 @@ SPECS.update({
             {"id": "L1", "name": "ENGINEERING & PLANT", "y": 100.0, "proposed": False, "hub": "Engineering & Plant Operations", "hub_doors": (0, 90, 180, 270), "G": 28.0, "lifts": DN,
              "districts": [D1(300, 60, ["Life Support", "Power Distribution", "Air Scrubbers"]), D1(60, 180, ["Waste Processing", "Maintenance Workshops"], 1), D1(180, 300, ["Water Reclamation", "Plant Store"], 2)]},
             {"id": "L2", "name": "LOGISTICS & SURVIVAL", "y": -20.0, "proposed": False, "hub": "General Services & Storage", "hub_doors": (0, 90, 180, 270), "G": 24.0, "lifts": DN,
-             "districts": [D1(300, 60, ["Laundry", "Cold Storage", "Janitor / Utility"]), D1(60, 180, ["Spare Parts & Logistics", "Lifeboat / Escape Pod Bay"], 4), D1(180, 300, ["Emergency Suit Lockers", "Survival Stores"], 2)]},
+             "districts": [D1(300, 60, ["Laundry", "Cold Storage", "Janitor / Utility"]), D1(60, 180, ["Lifeboat / Escape Pod Bay", "Spare Parts & Logistics"], 0), D1(180, 300, ["Emergency Suit Lockers", "Survival Stores"], 2)]},
         ]},
 })
 
