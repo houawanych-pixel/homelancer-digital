@@ -5184,6 +5184,28 @@ func _run() -> void:
 			board_vis and main.escape_chasers >= Data.ESCAPE_CHASERS and hostile >= Data.ESCAPE_CHASERS and denied, "board %s chasers %d hostile %d denied %s" % [board_vis, main.escape_chasers, hostile, denied])
 		_finish_group()
 		return
+	if OS.get_environment("HL_CREATOR2") != "":   # v13.08 (owner: the creator showed a capsule; gloves / boots zoom)
+		var hb2 = main.hub
+		GS.creator_done = false
+		hb2.open(Data.SYSTEMS[GS.system_id]["station"])
+		hb2.start_creator()
+		await _until(func(): return PilotRig.ready(), 40.0)
+		await _wait(1.0)
+		var mdl = hb2.gar.get("model")
+		_check("v13.08: once the pilot models are in, the creator shows the real pilot (not the capsule stand-in)", is_instance_valid(mdl) and mdl.has_meta("pilot_rig"), str(mdl))
+		var rows_ok: bool = hb2.find_child("LoBody_hovick", true, false) != null and not (hb2.find_child("LoBody_hovick", true, false) as Button).disabled
+		_check("v13.08: Hovick can be picked (no '3D model coming')", rows_ok)
+		var foc := {}
+		for c in ["helmet", "upper", "gloves", "lower", "boots"]:
+			hb2._gar_pick_cat(c)
+			await _wait(1.6)
+			foc[c] = [hb2.gar_cam.get("focus", Vector3.ZERO), float(hb2.gar_cam.get("dist", 0.0))]
+			await _shot("creator_" + c, 0.2)
+		var ys: Array = ["helmet", "upper", "gloves", "lower", "boots"].map(func(c): return (foc[c][0] as Vector3).y)
+		_check("v13.08: each part moves the camera to it, top to bottom (helmet > upper > gloves > lower > boots) and close in", ys[0] > ys[1] and ys[1] > ys[2] and ys[2] > ys[3] and ys[3] > ys[4] and float(foc["gloves"][1]) < 5.0 and float(foc["boots"][1]) < 5.0, str(foc))
+		_check("v13.08: Gloves and Boots say what they come with", hb2.find_child("LoGearNote", true, false) != null)
+		_finish_group()
+		return
 	if OS.get_environment("HL_CREATOR") != "":   # v12.90 (owner): a new pilot goes through the PILOT CREATOR, then flies
 		GS.pilot_name = "Hova"
 		main.start_game()

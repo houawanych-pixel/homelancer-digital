@@ -293,6 +293,9 @@ static func _frame(model: Node3D, sk: Skeleton3D, body: Node3D) -> Dictionary:
 			f["at"]["knee_" + side] = [ca - bk * 0.06 * s, P + "Calf"]
 			f["at"]["shin_" + side] = [ca.lerp(ft, 0.5) - bk * 0.05 * s, P + "Calf"]
 			f["at"]["hip_" + side] = [bp.call("Waist") + rt * sx * 0.16 * s - up * 0.04 * s, "Waist"]
+			var hd_: Vector3 = bp.call(P + "Hand")
+			f["at"]["hand_" + side] = [hd_ if hd_ != Vector3.ZERO else bp.call(P + "Forearm"), P + "Hand"]
+			f["at"]["foot_" + side] = [ft - bk * 0.06 * s - up * 0.02 * s, P + "Foot"]
 	else:   # no skeleton: by the body's height (body space)
 		var bb := PilotRig._aabb(body)
 		var h := bb.size.y
@@ -313,6 +316,8 @@ static func _frame(model: Node3D, sk: Skeleton3D, body: Node3D) -> Dictionary:
 			f["at"]["knee_" + side] = at.call(sx2 * 0.1, 0.5, -0.06)
 			f["at"]["shin_" + side] = at.call(sx2 * 0.1, 0.3, -0.05)
 			f["at"]["hip_" + side] = at.call(sx2 * 0.16, 0.98, 0.0)
+			f["at"]["hand_" + side] = at.call(sx2 * 0.3, 0.82, 0.0)
+			f["at"]["foot_" + side] = at.call(sx2 * 0.1, 0.08, -0.06)
 	return f
 
 static func _hang(model: Node3D, sk: Skeleton3D, body: Node3D, f: Dictionary, anc: String, node: Node3D) -> void:
@@ -353,5 +358,7 @@ static func focus(model: Node3D, slot: String) -> Array:
 	var key: String = {"helmet": "eyes", "upper": "chest", "lower": "shin_r", "booster": "back", "tactical": "waist", "sidearm": "hip_r"}.get(slot, "chest")
 	var p: Vector3 = f["at"].get(key, [Vector3.ZERO, ""])[0]
 	if slot == "lower": p = (f["at"]["knee_l"][0] + f["at"]["knee_r"][0]) * 0.5
+	if slot == "gloves": p = f["at"].get("hand_l", [p])[0]          # v13.08 (owner): the camera goes to the gloves (the free hand: the right one holds the gun)
+	if slot == "boots": p = (f["at"]["foot_l"][0] + f["at"]["foot_r"][0]) * 0.5   # ... and to the boots
 	var world: Vector3 = (sk.global_transform * p) if sk != null else body.global_transform * p
 	return [world, "back" if slot == "booster" else "front"]

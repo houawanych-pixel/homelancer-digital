@@ -478,7 +478,13 @@ func _ready() -> void:
 	add_child(launch_btn)   # last child: drawn over everything, nothing can cover it
 	GS.changed.connect(_refresh_credits)
 	Packs.pack_ready.connect(func(pk: String):
-		if visible and pk == bg.get("pack", "-"): _load_background())
+		if visible and pk == bg.get("pack", "-"): _load_background()
+		# v13.08 (owner's screenshot: a white capsule and "3D model coming" in the PILOT CREATOR): the pilot opened before
+		# his models were downloaded and never redrew. When they arrive, the garage is rebuilt with the real pilot.
+		if visible and pk == PilotRig.PACK and screen == "loadout" and lo_frame == "pilot":
+			gar_cam = {}
+			show_screen("loadout")
+			_gar_cat_camera())
 	visibility_changed.connect(func():
 		if not visible:
 			bg_tex = null
@@ -4941,7 +4947,8 @@ func _gar_cats() -> Array:
 		"ship": return [["weapons", "Weapons"], ["hull", "Hull"], ["wings", "Wings"], ["engines", "Engines"], ["backpack", "Weapon Set 2"], ["paint", "Paint / Decals"]]
 	# v12.74 (owner's PILOT GEAR STORE mock-up)
 	# v12.75 (owner's "DYNAMIC PILOT EQUIPMENT CAMERA SYSTEM"): the seven equipment categories (+ who you are)
-	return [["body", "Pilot"], ["helmet", "Helmet"], ["upper", "Upper Uniform"], ["lower", "Lower Uniform"], ["weapons", "Primary Weapon"], ["sidearm", "Secondary Weapon"], ["booster", "Booster Pack"], ["tactical", "Tactical Gear"]]
+	# v13.08 (owner: "body, lower body, gloves, helmet, shoes, boots ... the camera automatically does a zoom to that section"): + Gloves, Boots
+	return [["body", "Pilot"], ["helmet", "Helmet"], ["upper", "Upper Uniform"], ["gloves", "Gloves"], ["lower", "Lower Uniform"], ["boots", "Boots"], ["weapons", "Primary Weapon"], ["sidearm", "Secondary Weapon"], ["booster", "Booster Pack"], ["tactical", "Tactical Gear"]]
 
 func _gar_bg() -> String:
 	var fac := str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])).to_lower()
@@ -5268,7 +5275,7 @@ func _gar_pick_cat(key: String) -> void:
 ## v12.75 (owner's spec: "the camera must automatically reposition to show the selected equipment clearly"): per
 ## category it eases to the part: the head, the chest and shoulders, the legs, the gun hand, the hip, round to the back
 ## for the booster, the belt for tactical gear. Drag still turns it; FRONT / SIDE / REAR look at the same part.
-const GAR_CAT_CAM := {"helmet": [4.6, 0.06], "upper": [7.5, 0.1], "lower": [9.0, 0.02], "weapons": [7.0, 0.08], "sidearm": [5.5, 0.0], "booster": [7.5, 0.18], "tactical": [6.5, 0.05]}
+const GAR_CAT_CAM := {"helmet": [4.6, 0.06], "upper": [7.5, 0.1], "gloves": [3.6, 0.04], "lower": [9.0, 0.02], "boots": [4.4, -0.12], "weapons": [7.0, 0.08], "sidearm": [5.5, 0.0], "booster": [7.5, 0.18], "tactical": [6.5, 0.05]}
 func _gar_cat_camera() -> void:
 	if lo_frame != "pilot" or gar.is_empty() or not is_instance_valid(gar.get("model")): return
 	if not GAR_CAT_CAM.has(lo_cat):
@@ -5377,6 +5384,16 @@ func _gar_right() -> void:
 		pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		pl.text = "Paint schemes and decals are coming. Your faction's colours for now."
 		rp.add_child(pl)
+		return
+	if lo_cat in ["gloves", "boots"]:   # v13.08: a camera stop; no separate glove / boot pieces in the store yet
+		hd.text = "Gloves" if lo_cat == "gloves" else "Boots"
+		var gl := _label(15, Color(0.85, 0.92, 1.0))
+		gl.name = "LoGearNote"
+		gl.position = Vector2(16, 50)
+		gl.size = Vector2(W - 32, 120)
+		gl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		gl.text = ("Your gloves come with the body suit and the Upper Uniform for now." if lo_cat == "gloves" else "Your boots come with the body suit and the Lower Uniform for now.") + " Separate pieces join this list when their art is in."
+		rp.add_child(gl)
 		return
 	if _gar_weapons_mode(): _gar_right_weapons(rp, lo, hd)
 	elif lo_cat == "body": _gar_right_body(rp, hd)
@@ -5785,7 +5802,8 @@ func _gar_right_body(rp: Panel, hd: Label) -> void:
 			_gar_style(row)
 			if not ResourceLoader.exists(glb):
 				row.disabled = true
-				row.text = "%s   ·   3D model coming" % b["name"]
+				# v13.08: the pilot models come in their own download; until it is in say so (it is not "coming")
+				row.text = ("%s   ·   loading 3D model…" % b["name"]) if (not Packs.is_ready(PilotRig.PACK) and str(glb).begins_with("res://assets/pilot/")) else ("%s   ·   3D model coming" % b["name"])
 			var kk := str(k)
 			row.pressed.connect(func():
 				if is_head: GS.pilot_body = kk
