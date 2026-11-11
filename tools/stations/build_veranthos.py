@@ -51,12 +51,25 @@ def heightmaps(tri):
     _HM["top"], _HM["bot"] = top, bot
     return top, bot
 
-def footprint(tri, y, clear=3.0):
+def mirror_clean(mk):
+    """Owner (10 Nov): "clean it up ... with a mirror from the front view or the top view ... fixing some of the sloppy
+    lines". The section is mirrored left-right and top-bottom, kept where at least 2 of the 4 copies agree, and every
+    outline straightened into a few straight runs."""
+    s_ = mk.astype(np.int32) + mk[:, ::-1] + mk[::-1, :] + mk[::-1, ::-1]; out = (s_ >= 2).astype(np.uint8)
+    k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9)); out = cv2.morphologyEx(cv2.morphologyEx(out, cv2.MORPH_CLOSE, k), cv2.MORPH_OPEN, k)
+    n, lab = cv2.connectedComponents(out, connectivity=8)
+    out = (lab == lab[int(C), int(C)]).astype(np.uint8) if lab[int(C), int(C)] else out * 0
+    cs, h = cv2.findContours(out, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE); cl = np.zeros_like(out)
+    for i, c in enumerate(cs):
+        if h[0][i][3] < 0 and len(c) >= 20: cv2.fillPoly(cl, [cv2.approxPolyDP(c, 2.5, True)], 1)
+    return cl
+
+def footprint(tri, y, clear=3.0, room_h=None):
     """Where a room with its floor at height y fits inside the hull: the hull's underside is below the floor and its
     top surface above the ceiling (floor + ROOM_H), with `clear` metres to spare each way. Only the piece joined to
     the station's axis is kept; then it is pulled in 9 m for the hull's own thickness."""
     top, bot = heightmaps(tri)
-    im = ((bot < y - clear) & (top > y + ROOM_H + clear)).astype(np.uint8)
+    im = ((bot < y - clear) & (top > y + (room_h or ROOM_H) + clear)).astype(np.uint8)
     im = cv2.morphologyEx(im, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
     n, lab = cv2.connectedComponents(im, connectivity=8)
     core = (lab == lab[int(C), int(C)]).astype(np.uint8) if lab[int(C), int(C)] else np.zeros_like(im)
@@ -350,54 +363,58 @@ def build(glb, outdir, repdir=None):
     # Floor heights (m, from the model's centre), chosen from the measured top and underside of the hull:
     # the wide disc is only about 130 m thick at its rim (top about -130 m, underside -259 m), so the two full-width
     # decks (MAIN, LOWER) both sit inside it; UPPER and DOME are in the drum and dome above, KEEL in the plug below.
-    LEVELS = [("L1", "DOME DECK", 340.0 / K, True), ("L2", "UPPER DECK", 100.0 / K, False), ("L3", "MAIN DECK", -185.0 / K, False),
-              ("L4", "LOWER DECK", -235.0 / K, False), ("L5", "KEEL DECK", -340.0 / K, True)]
+    # v13.05 layers (owner, 10 Nov): "chop up the front view in sections ... the true silhouette ... with all levels";
+    # "each layer should be like 2 stories high ... some floors are even bigger 3 to 4 floors"; "docking spokes: make
+    # them straight, put a correct shape on the end, make them all the same size, for transports to stop and dock on".
+    # (id, name, floor m, storeys of 18 m, layout, proposed). Heights were picked by scanning where a room that tall
+    # fits inside the hull: the wide disc is about 95 m thick inside, so it is ONE four-storey layer, not two decks.
+    LEVELS = [("L1", "CROWN", 300.0, 4, "crown", True), ("L2", "GALLERY", 140.0, 4, "gallery", False), ("L3", "HUB ATRIUM", 20.0, 6, "atrium", False),
+              ("L4", "MAIN / DOCKS", -250.0, 4, "main", False), ("L5", "KEEL", -380.0, 4, "keel", True)]
+    ARMS12 = [0, 24, 48, 90, 132, 156, 180, 204, 228, 270, 312, 336]     # the model's twelve arms, made symmetrical
+    SPOKE_W = 60.0; POD_R = 1900.0
     decks = []; levels_out = []
-    for lid, lname, ym, proposed in LEVELS:
-        # the hull must hold the room at floor height AND at ceiling height (a thin cut at each, both must cover it)
-        mfoot, raw = footprint(tri, ym * K)
+    for lid, lname, ym_m, storeys, lay, proposed in LEVELS:
+        ym = ym_m / K; hgt = storeys * ROOM_H
+        mfoot, raw = footprint(tri, ym_m, room_h=hgt)
+        sil = mirror_clean(raw)                                  # the layer's true silhouette, mirrored and straightened
         tmp = Deck(mfoot)
-        Rin = float(tmp.R[mfoot == 0].min()) if (mfoot == 0).any() else 9999.0  # the biggest circle about the axis inside the hull
-        # Owner: "fix those outer silhouette ... looks like a scribble and needs to be connected ... cylinders, the right
-        # shape, the right squares. The right line work." So the deck's edge is CLEAN geometry fitted to the measurement:
-        # the body is the largest circle that fits inside the measured hull; each arm the model has is a straight
-        # spoke to a cleanly shaped pod at the measured direction and distance. (Where an arm on the model is thinner
-        # than the spoke, the deck is wider than the model there: counted in the report.)
+        Rin = float(tmp.R[(mfoot == 0) | (sil == 0)].min())     # the biggest circle about the axis inside the hull
         foot = (tmp.R < Rin).astype(np.uint8)
         arm_parts = []
         ports = []
-        if lid == "L3":
-            beyond = (mfoot & (tmp.R > Rin + 14).astype(np.uint8))
+        lobes = []
+        if lay == "main":
             names = {0: "North Docking Bay", 180: "South Docking Bay", 90: "East Hangar Approach", 270: "West Hangar Approach"}
-            pod_kinds = ("rotunda", "oct", "capsule")
-            for ai, a_arm in enumerate(arm_dirs):
-                near = min(names, key=lambda q: abs((a_arm - q + 180) % 360 - 180))
-                cardinal = abs((a_arm - near + 180) % 360 - 180) < 8
-                nm = names[near] if cardinal else "Docking Arm %03d" % int(round(a_arm))
-                dev = np.abs((tmp.A - a_arm + 180) % 360 - 180)
-                pod = (beyond & (dev < 7) & (tmp.R > 1500)).astype(np.uint8)
-                if pod.sum() == 0: arm_parts.append({"name": nm, "a": a_arm, "built": False}); continue
-                ys, xs = np.nonzero(pod); rr_ = tmp.R[ys, xs]
-                a_true = float(np.degrees(np.arctan2((xs - C).mean(), -(ys - C).mean())) % 360)
-                r_far = float(np.percentile(rr_, 97)); wid = float(cv2.distanceTransform(pod, cv2.DIST_L2, 5).max()) * PX
-                size = float(np.clip(wid * 1.5, 80.0, 125.0)); r_pod = r_far - size
-                c = np.array(pol(r_pod, a_true))
-                pm = shape("cross" if cardinal else pod_kinds[ai % 3], c, a_true, size, size * (1.5 if cardinal else 0.8))
-                sp = np.zeros((N, N), np.uint8); cv2.line(sp, P(*pol(Rin - 12, a_true)), P(*c), 1, int(round(36.0 / PX)))
-                node = shape("oct", np.array(pol((Rin + r_pod) / 2, a_true)), a_true, 34.0, 34.0)   # a junction halfway out
-                # docking ports along the spoke (owner: "multiple ships can dock on there at once to load unload"):
-                # airlock bays on both sides, a quarter and three quarters of the way out
-                for fr in (0.27, 0.73):
-                    rr_p = Rin + (r_pod - size - Rin) * fr
+            for a_arm in ARMS12:
+                nm = names.get(a_arm, "Docking Arm %03d" % a_arm)
+                c = np.array(pol(POD_R, a_arm))
+                sp = np.zeros((N, N), np.uint8); cv2.line(sp, P(*pol(Rin - 12, a_arm)), P(*c), 1, int(round(SPOKE_W / PX)))
+                pm = shape("oct", c, a_arm, 120.0, 95.0)                                     # the dock head: one shape on every arm
+                for sg in (-1, 1): pm |= shape("oct", _w(c, a_arm, -10.0, sg * 120.0), a_arm, 55.0, 45.0)     # two berth wings
+                pm |= shape("oct", _w(c, a_arm, 135.0, 0.0), a_arm, 40.0, 50.0)                               # the end airlock
+                node = np.zeros((N, N), np.uint8)
+                for fr in (0.35, 0.7):                                                       # docking ports along the spoke
                     for sg in (-1, 1):
-                        pc = _w(np.array(pol(rr_p, a_true)), a_true, 0.0, sg * 38.0)
-                        node |= shape("oct", pc, a_true, 30.0, 24.0)
+                        pc = _w(np.array(pol(Rin + (POD_R - 120.0 - Rin) * fr, a_arm)), a_arm, 0.0, sg * 62.0)
+                        node |= shape("oct", pc, a_arm, 34.0, 34.0)
                         ports.append({"x": round(float(pc[0]), 1), "z": round(float(pc[1]), 1), "arm": nm, "side": "cw" if sg > 0 else "ccw"})
                 foot |= pm | sp | node
-                arm_parts.append({"name": nm, "a": a_true, "built": True, "pod": pm, "spoke": sp | node, "c": c, "r_pod": r_pod,
-                                  "model_arm_inside_width_m": round(2 * float(cv2.distanceTransform((beyond & (dev < 4) & (tmp.R < Rin + 200)).astype(np.uint8), cv2.DIST_L2, 5).max()) * PX, 1)})
+                arm_parts.append({"name": nm, "a": float(a_arm), "built": True, "pod": pm, "spoke": sp | node, "c": c, "r_pod": POD_R, "model_arm_inside_width_m": 0.0})
+        else:
+            # where the true silhouette reaches out past the round body (the four square bays under the dome, the keel's
+            # teeth), that floor is kept as an outer bay off the body
+            beyond = (sil & (tmp.R > Rin + WALL + 6).astype(np.uint8))
+            n_, lab_, st_, cen_ = cv2.connectedComponentsWithStats(beyond, connectivity=8)
+            for i_ in range(1, n_):
+                if st_[i_, cv2.CC_STAT_AREA] * PX * PX < 9000.0: continue
+                lm = (lab_ == i_).astype(np.uint8)
+                ang_ = float(np.degrees(np.arctan2(cen_[i_][0] - C, -(cen_[i_][1] - C))) % 360)
+                lobes.append({"mask": lm, "a": ang_, "c": ((cen_[i_][0] - C) * PX, (cen_[i_][1] - C) * PX)})
+                foot |= lm
+                band_ = np.zeros((N, N), np.uint8); cv2.line(band_, P(*pol(Rin - 10, ang_)), P(*lobes[-1]["c"]), 1, int(round(30.0 / PX))); foot |= band_
+                lobes[-1]["neck"] = band_
         dk = Deck(foot)
-        if lid == "L3":
+        if lay == "main":
             ring_core(dk, "Central Public Hub / Senate Rotunda", 380.0, hub_doors=(0, 45, 90, 135, 180, 225, 270, 315))
             Rp0 = Rin - 64.0                                    # the promenade round the rim
             dk.corridor(dk.band(Rp0, Rin))
@@ -428,14 +445,24 @@ def build(glb, outdir, repdir=None):
                 r = {"name": ap["name"], "mask": ap["pod"], "at": (float(ap["c"][0]), float(ap["c"][1])), "rad": float(dm[cp[1], cp[0]]) * PX, "doors": 1, "links": set()}
                 dk.rooms.append(r)
                 x, z = pol(Rin + 14, ap["a"])                   # the gate where the arm leaves the promenade
-                dk.doors.append({"x": round(float(x), 1), "z": round(float(z), 1), "yaw": round(ap["a"], 1), "w": 36.0})
-                got.append({"name": ap["name"], "direction_deg": round(ap["a"], 1), "built": True, "pod_centre_from_axis_m": round(ap["r_pod"]),
-                            "model_arm_inside_width_m": ap["model_arm_inside_width_m"], "spoke_width_m": 36.0})
+                dk.doors.append({"x": round(float(x), 1), "z": round(float(z), 1), "yaw": round(ap["a"], 1), "w": SPOKE_W})
+                got.append({"name": ap["name"], "direction_deg": round(ap["a"], 1), "built": True, "pod_centre_from_axis_m": round(ap["r_pod"]), "spoke_width_m": SPOKE_W})
             rep["main_deck_arms_built"] = got
-        elif lid == "L2":
-            ring_core(dk, "Senate Chamber", 380.0)
+        elif lay == "atrium":
+            # the tall hall under the dome: the Senate Chamber, six storeys, with the station's officers and security round it
+            ring_core(dk, "Senate Chamber", 380.0, hub_doors=(0, 45, 90, 135, 180, 225, 270, 315))
+            Ro = Rin - 6
+            for a in (315, 45, 135, 225): dk.avenue(a, 470.0, Ro - 20, 26.0)
+            sec = "sector"
+            complex_(dk, 470.0 + WALL, Ro, 315, 45, [(1, [("Senate Lobby", 1.3, "apse"), ("Protocol Office", 1, sec), ("Press Gallery", 1, "oct")])], G=30.0, av_half=13.0)
+            complex_(dk, 470.0 + WALL, Ro, 45, 135, [(1, [("Officer Quarters 1", 1, sec), ("Officer Quarters 2", 1, "oct"), ("Officer Quarters 3", 1, sec), ("Officers' Mess", 1.2, "capsule")])], G=30.0, av_half=13.0)
+            complex_(dk, 470.0 + WALL, Ro, 135, 225, [(1, [("Security Office", 1, "oct"), ("Brig Cells", 1.3, "bays"), ("Brig Processing", 1, sec), ("Armory Locker", 0.8, sec)])], G=30.0, av_half=13.0)
+            complex_(dk, 470.0 + WALL, Ro, 225, 315, [(1, [("Officer Quarters 4", 1, sec), ("Officer Quarters 5", 1, "keystone"), ("Staff Lounge", 1.2, "capsule"), ("Sanitation", 0.7, sec)])], G=30.0, av_half=13.0)
+        elif lay == "gallery":
+            ring_core(dk, "Senate Gallery", 380.0)
             Ro = Rin - 6
             spans = [("Delegate Offices (north)", 330, 30, (2,)), ("Delegate Offices", 30, 140, (4,)), ("Officer Quarters", 140, 250, (4,)), ("Command / Comms", 250, 330, (3,))]
+            L2C_Q = [(1, [("Committee Room 1", 1, "sector"), ("Committee Room 2", 1, "oct"), ("Records Office", 1, "sector"), ("Staff Room", 1, "keystone")])]
             for a in (330, 30, 140, 250): dk.avenue(a, 470.0, Ro - 20, 24.0)
             sec = "sector"
             L2C = {"Delegate Offices (north)": [(1, [("Delegate Office 1", 1, sec), ("Delegate Office 2", 1, "oct")])],
@@ -443,8 +470,8 @@ def build(glb, outdir, repdir=None):
                    "Officer Quarters": [(1, [("Officer Quarters 1", 1, sec), ("Officer Quarters 2", 1, "oct"), ("Officer Quarters 3", 1, sec), ("Officer Quarters 4", 1, "keystone")])],
                    "Command / Comms": [(1, [("Command Center", 1.4, "bays"), ("Comms Room", 1, sec)])]}
             for si, (nm, a0, a1, rows) in enumerate(spans):
-                complex_(dk, 470.0 + WALL, Ro, a0, a1, L2C[nm], G=30.0, av_half=12.0)
-        elif lid == "L1":
+                complex_(dk, 470.0 + WALL, Ro, a0, a1, L2C_Q if nm == "Officer Quarters" else L2C[nm], G=30.0, av_half=12.0)
+        elif lay == "crown":
             dk.corridor(dk.band(410.0, min(470.0, Rin)))
             arch = dk.room("Archives / Records", scalloped(dk, 200.0, 12, (60, 240)))
             gm = dk.band(214.0 + WALL, 372.0)                   # the gallery: a ring hall with viewing alcoves on its outer wall
@@ -454,7 +481,7 @@ def build(glb, outdir, repdir=None):
             for a in (0, 90, 180, 270): dk.door(*pol(390.0, a), a, 22.0, depth=44.0, room=gal)
             for a in (60, 240): dk.door(*pol(206.0, a), a, 14.0, depth=40.0, room=arch)
             if gal: gal["doors"] += 2
-        elif lid == "L4":
+        elif lay == "lower_unused":
             ring_core(dk, "Engineering", 380.0)
             Ro0 = Rin - 64.0
             dk.corridor(dk.band(Ro0, Rin - 20.0))                # the outer service ring
@@ -474,10 +501,18 @@ def build(glb, outdir, repdir=None):
             Ro = Rin - 6
             for a in (150, 210, 330, 30): dk.avenue(a, 470.0, Ro - 20, 20.0)
             sec = "sector"
-            complex_(dk, 470.0 + WALL, Ro, 210, 330, [(1, [("Cargo Hold %d" % k, 1, sec) for k in (1, 2, 3, 4)])], G=30.0, av_half=10.0)
-            complex_(dk, 470.0 + WALL, Ro, 30, 150, [(1, [("Cargo Hold %d" % k, 1, sec) for k in (5, 6, 7, 8)])], G=30.0, av_half=10.0)
+            complex_(dk, 470.0 + WALL, Ro, 210, 330, [(1, [("Engineering Control", 1.2, "bays"), ("Workshop", 1, sec), ("Parts Store", 1, "oct"), ("Maintenance Office", 0.8, sec)])], G=30.0, av_half=10.0)
+            complex_(dk, 470.0 + WALL, Ro, 30, 150, [(1, [("Life Support Control", 1, "oct"), ("Air Plant", 1.2, "capsule"), ("Water Plant", 1, sec), ("Cargo Hold", 1.2, sec)])], G=30.0, av_half=10.0)
             complex_(dk, 470.0 + WALL, Ro, 150, 210, [(1, [("Escape Pod", 1, "capsule"), ("Coolant Store", 1, sec)])], G=30.0, av_half=10.0)
             complex_(dk, 470.0 + WALL, Ro, 330, 30, [(1, [("Reactor Control", 1.3, "bays"), ("Reactor Monitoring", 1, sec)])], G=30.0, av_half=10.0)   # (working labels: a designed addition)
+        for lb in lobes:                                         # the silhouette's outer bays: floor, a neck to the body, a door
+            dk.f |= lb["mask"] | lb["neck"]
+            nm_ = min({0: "North Bay", 90: "East Bay", 180: "South Bay", 270: "West Bay"}.items(), key=lambda q: abs((lb["a"] - q[0] + 180) % 360 - 180))
+            nm_ = nm_[1] if abs((lb["a"] - nm_[0] + 180) % 360 - 180) < 12 else "Outer Bay %03d" % int(round(lb["a"]))
+            dm_ = cv2.distanceTransform(lb["mask"], cv2.DIST_L2, 5); y_, x_ = np.unravel_index(int(np.argmax(dm_)), dm_.shape)
+            dk.rooms.append({"name": nm_, "mask": lb["mask"], "at": ((x_ - C) * PX, (y_ - C) * PX), "rad": float(dm_[y_, x_]) * PX, "doors": 1, "links": set()})
+            xg, zg = pol(Rin + 4, lb["a"])
+            dk.doors.append({"x": round(float(xg), 1), "z": round(float(zg), 1), "yaw": round(lb["a"], 1), "w": 30.0})
         for (x, z) in lifts_xy():                                # the shafts: a lobby bay on the concourse
             m = np.zeros((N, N), np.uint8); cv2.circle(m, P(x, z), int(26 / PX), 1, -1); dk.f |= (m & foot)
         dk.f &= foot
@@ -519,7 +554,7 @@ def build(glb, outdir, repdir=None):
         mp = "veranthos_%s.jpg" % lid.lower()
         cv2.imwrite(os.path.join(outdir, mp), cv2.resize(im, (1024, 1024), interpolation=cv2.INTER_AREA), [cv2.IMWRITE_JPEG_QUALITY, 85])
         if repdir: cv2.imwrite(os.path.join(repdir, "veranthos_%s_full.jpg" % lid.lower()), im, [cv2.IMWRITE_JPEG_QUALITY, 88])
-        levels_out.append({"id": lid, "name": lname, "y": round(ym * K, 1), "proposed": proposed, "map": mp,
+        levels_out.append({"id": lid, "name": lname, "y": round(ym * K, 1), "proposed": proposed, "map": mp, "h": hgt, "storeys": storeys,
                            "walls": outlines(dk.f), "doors": dk.doors,
                            "rooms": [{"name": r["name"], "x": round(r["at"][0], 1), "z": round(r["at"][1], 1), "rad": round(r["rad"] * 1.4, 1)} for r in dk.rooms],
                            "lifts": lifts_xy(), "ports": ports})
@@ -527,7 +562,7 @@ def build(glb, outdir, repdir=None):
     rep["lifts"] = {"shafts_xz_m": dict(zip(("NE", "SE", "SW", "NW"), lifts_xy())), "distance_from_axis_m": LIFT_R,
                     "serve": "all four shafts serve L1-L5" if all(all(rep[l[0]]["lifts_on_walkable_floor"]) for l in LEVELS) else "NOT all shafts reach every deck: see each deck"}
     out = {"id": "veranthos", "name": "Veranthos Senate Station", "model": "st3d_veranthos_senate", "system": "veranthos",
-           "extent_m": N * PX, "start": {"level": "L3", "x": lifts_xy()[2][0] + 30.0, "z": lifts_xy()[2][1]},
+           "extent_m": N * PX, "start": {"level": "L4", "x": lifts_xy()[2][0] + 30.0, "z": lifts_xy()[2][1]},
            "note": "Outlines measured from the exterior model. Rooms follow the blueprint concept on L2-L4; L1 and L5 are designed additions. No combat, quests or key locks in this pass.",
            "levels": levels_out}
     json.dump(out, open(os.path.join(outdir, "veranthos.json"), "w"), separators=(",", ":"))

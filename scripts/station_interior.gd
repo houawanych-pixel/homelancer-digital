@@ -175,6 +175,7 @@ func _quad(st: SurfaceTool, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, 
 func _deck(i: int) -> void:
 	var lv: Dictionary = data["levels"][i]
 	var y0 := float(lv["y"])
+	var wh := float(lv.get("h", WALL_H))   # v13.05 (owner: "each layer should be like 2 stories high ... some 3 to 4 floors"): a layer has its own height
 	var ext := float(data["extent_m"])
 	var tag := "_" + str(lv["id"])
 	var st := SurfaceTool.new(); st.begin(Mesh.PRIMITIVE_TRIANGLES)     # walls
@@ -192,15 +193,15 @@ func _deck(i: int) -> void:
 			var e := b - a
 			if e.length() < 0.05: continue
 			var nrm := Vector3(e.z, 0, -e.x).normalized()   # the walkable side (the builder keeps it on the left)
-			_quad(st, a, b, b + up * WALL_H, a + up * WALL_H, nrm)
-			faces.append_array([a, b, b + up * WALL_H, a, b + up * WALL_H, a + up * WALL_H])
+			_quad(st, a, b, b + up * wh, a + up * wh, nrm)
+			faces.append_array([a, b, b + up * wh, a, b + up * wh, a + up * wh])
 			var slant := e.length() >= 6.0
 			var off: float = CHAMFER_LO + 0.03 if slant else 0.03
 			_quad(lo, a + nrm * off, b + nrm * off, b + nrm * off + up * 0.18, a + nrm * off + up * 0.18, nrm)
 			if slant:
 				_quad(ch, a + nrm * CHAMFER_LO, b + nrm * CHAMFER_LO, b + up * CHAMFER_LO, a + up * CHAMFER_LO, (nrm + up).normalized())
-				_quad(ch, a + up * (WALL_H - CHAMFER_HI), b + up * (WALL_H - CHAMFER_HI), b + nrm * CHAMFER_HI + up * WALL_H, a + nrm * CHAMFER_HI + up * WALL_H, (nrm - up).normalized())
-			var hy: float = WALL_H - (CHAMFER_HI + 0.4 if slant else 1.0)
+				_quad(ch, a + up * (wh - CHAMFER_HI), b + up * (wh - CHAMFER_HI), b + nrm * CHAMFER_HI + up * wh, a + nrm * CHAMFER_HI + up * wh, (nrm - up).normalized())
+			var hy: float = wh - (CHAMFER_HI + 0.4 if slant else 1.0)
 			_quad(hi, a + nrm * 0.03 + up * hy, b + nrm * 0.03 + up * hy, b + nrm * 0.03 + up * (hy + 0.16), a + nrm * 0.03 + up * (hy + 0.16), nrm)
 	for pair in [[st, "Walls", _mat(Color(0.6, 0.68, 0.8))], [ch, "Chamfers", _mat(Color(0.47, 0.54, 0.66))],
 			[lo, "Trim", _glow(Color(0.25, 0.8, 0.95))], [hi, "LightStrip", _glow(Color(0.75, 0.95, 1.0))]]:
@@ -220,7 +221,7 @@ func _deck(i: int) -> void:
 	cs.shape = shp
 	sb.add_child(cs)
 	world.add_child(sb)
-	for part in [["Floor", y0 - 0.25, 0.5, Color(0.42, 0.47, 0.56)], ["Ceiling", y0 + WALL_H + 0.25, 0.5, Color(0.3, 0.34, 0.42)]]:
+	for part in [["Floor", y0 - 0.25, 0.5, Color(0.42, 0.47, 0.56)], ["Ceiling", y0 + wh + 0.25, 0.5, Color(0.3, 0.34, 0.42)]]:
 		var mi2 := MeshInstance3D.new()
 		mi2.name = str(part[0]) + tag
 		var bm := BoxMesh.new()
@@ -283,10 +284,10 @@ func _deck(i: int) -> void:
 			leaves.append(leaf)
 		var head := MeshInstance3D.new()
 		var hm := BoxMesh.new()
-		hm.size = Vector3(wide, WALL_H - DOOR_H, 1.4)
+		hm.size = Vector3(wide, wh - DOOR_H, 1.4)
 		head.mesh = hm
 		head.material_override = head_mat
-		head.position.y = DOOR_H + (WALL_H - DOOR_H) * 0.5
+		head.position.y = DOOR_H + (wh - DOOR_H) * 0.5
 		g.add_child(head)
 		var gb := StaticBody3D.new()
 		var gcs := CollisionShape3D.new()

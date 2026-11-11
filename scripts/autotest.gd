@@ -3113,7 +3113,7 @@ func _run() -> void:
 			for k in 4:
 				if Vector2(float(lv["lifts"][k][0]), float(lv["lifts"][k][1])).distance_to(Vector2(float(lvs[0]["lifts"][k][0]), float(lvs[0]["lifts"][k][1]))) > 0.01: same = false
 		_check("v13.01: four lift shafts at the same x,z on all five decks, none at the centre", same and sn.lift_pads.size() == 20 and Vector2(float(lvs[0]["lifts"][0][0]), float(lvs[0]["lifts"][0][1])).length() > 400.0)
-		_check("v13.01: you start on the main deck", str(sn.level()["id"]) == "L3" and absf(sn.body.global_position.y - sn.level_y(sn.level_i)) < 1.0, str(sn.body.global_position))
+		_check("v13.01: you start on the main deck", str(sn.level()["id"]) == "L4" and absf(sn.body.global_position.y - sn.level_y(sn.level_i)) < 1.0, str(sn.body.global_position))
 		await _shot("station_main_lift", 0.4)
 		# walk: 2 s along the concourse, on the floor, not through a wall
 		var s0 := sn.body.global_position
@@ -3128,15 +3128,15 @@ func _run() -> void:
 		await _wait(0.5)
 		_check("v13.01: on a lift pad both buttons show", sn._lift_box.visible and (sn._lift_box.get_node("Up") as Button).visible and (sn._lift_box.get_node("Down") as Button).visible)
 		var rode := []
-		for step in [1, 1, -1, -1, -1, -1]:
+		for step in [1, -1, -1, -1, -1]:
 			var okr: bool = sn.ride(step)
 			await _wait(0.7)
 			rode.append("%s:%s" % [str(sn.level()["id"]), str(okr and absf(sn.body.global_position.y - sn.level_y(sn.level_i)) < 1.0)])
-		_check("v13.01: the lift goes to every deck and you stand on its floor (L4, L5, L4, L3, L2, L1)", rode == ["L4:true", "L5:true", "L4:true", "L3:true", "L2:true", "L1:true"], str(rode))
+		_check("v13.01: the lift goes to every deck and you stand on its floor (L5, L4, L3, L2, L1)", rode == ["L5:true", "L4:true", "L3:true", "L2:true", "L1:true"], str(rode))
 		_check("v13.01: no deck above the top one", not sn.ride(-1))
 		await _shot("station_dome_lift", 0.3)
 		# stand in a room of each deck
-		for pr in [["L1", "Observation Gallery"], ["L2", "Senate Chamber"], ["L3", "Central Public Hub / Senate Rotunda"], ["L3", "North Docking Bay"], ["L4", "Engineering"], ["L5", "Reactor"]]:
+		for pr in [["L1", "Observation Gallery"], ["L2", "Senate Gallery"], ["L3", "Senate Chamber"], ["L4", "Central Public Hub / Senate Rotunda"], ["L4", "North Docking Bay"], ["L5", "Reactor"]]:
 			var rp := sn.room_point(pr[0], pr[1])
 			_check("v13.01: %s has %s" % [pr[0], pr[1]], rp != Vector3.INF)
 			if rp == Vector3.INF: continue
@@ -3145,15 +3145,15 @@ func _run() -> void:
 			_check("v13.01: standing in %s on %s" % [pr[1], pr[0]], sn.room_now == pr[1] and absf(sn.body.global_position.y - sn.level_y(sn.level_i)) < 1.0, "%s %s" % [sn.room_now, str(sn.body.global_position)])
 			await _shot("station_%s_%s" % [str(pr[0]).to_lower(), str(pr[1]).to_lower().replace(" / ", "_").replace(" ", "_").left(18)], 0.2)
 		# a door opens as you come up to it and you pass through
-		sn.place("L3", Vector3.ZERO)
-		var hubp := sn.room_point("L3", "Central Public Hub / Senate Rotunda")
+		sn.place("L4", Vector3.ZERO)
+		var hubp := sn.room_point("L4", "Central Public Hub / Senate Rotunda")
 		var gate: Dictionary = {}
 		for g in sn.gates:
 			if int(g["level"]) == sn.level_i and Vector2((g["pos"] as Vector3).x, (g["pos"] as Vector3).z).length() < 420.0 and absf((g["pos"] as Vector3).x) < 5.0 and (g["pos"] as Vector3).z < 0.0: gate = g
 		_check("v13.01: the hub has a north door", not gate.is_empty())
 		if not gate.is_empty():
 			var gp: Vector3 = gate["pos"]
-			sn.place("L3", gp + Vector3(0, 0, 30.0))
+			sn.place("L4", gp + Vector3(0, 0, 30.0))
 			await _wait(0.5)
 			_check("v13.01: a door is shut when you are away from it", not bool(gate["open"]))
 			sn.yaw = 0.0
@@ -3195,14 +3195,14 @@ func _run() -> void:
 			await _wait(0.4)
 			_check("v13.02: the docking bay offers LAUNCH", sw.room_now.containsn("Docking") and not sw.service_now.is_empty() and str(sw.service_now[1]) == "launch" and sw._svc_btn.visible, "%s %s" % [sw.room_now, str(sw.service_now)])
 			await _shot("station_service_launch", 0.2)
-			sw.place("L3", sw.room_point("L3", "Briefing Room A"))
+			sw.place("L4", sw.room_point("L4", "Briefing Room A"))
 			await _wait(0.5)
 			_check("v13.02: Briefing Room A offers the MISSION BOARD", str(sw.service_now[1] if not sw.service_now.is_empty() else "") == "board" and sw._svc_btn.text.containsn("MISSION BOARD"), sw.room_now)
 			await _shot("station_service_board", 0.2)
-			sw.place("L3", sw.room_point("L3", "Holding Cells"))
+			sw.place("L4", sw.room_point("L4", "Holding Cells"))
 			await _wait(0.5)
 			_check("v13.02: a room with no service shows no button", sw.service_now.is_empty() and not sw._svc_btn.visible, sw.room_now)
-			sw.place("L3", sw.room_point("L3", "Briefing Room A"))
+			sw.place("L4", sw.room_point("L4", "Briefing Room A"))
 			await _wait(0.5)
 			sw._svc_btn.pressed.emit()
 			await _wait(0.6)
