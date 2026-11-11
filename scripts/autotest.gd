@@ -2964,6 +2964,66 @@ func _run() -> void:
 		_check("tabletop: the facility and battleship interiors written out", (out["facilities"] as Dictionary).size() > 0, str((out["facilities"] as Dictionary).size()))
 		_finish_group()
 		return
+	if _flag("HL_BOARDJOB"):   # v13.02 (owner): BOARDING missions on the station Mission Board
+		var offs: Array = BoardingJobs.offers("malachar", "Imperium")
+		_check("v13.02: an Imperium station lists its rival Unity's five big ships to board (no bomber, no scout)", offs.size() == 5 and offs.all(func(o): return str(o["faction"]) == "Unity" and str(o["class"]) in BoardingJobs.BIG), str(offs.map(func(o): return o["id"])))
+		_check("v13.02: every one has a deck mission, 10 to 15 fighters by size (the capital the most), and pay", offs.all(func(o): return bool(o["ready"]) and str(o["kind"]) in ["sabotage", "capture", "rescue"] and int(o["fighters"]) >= 10 and int(o["fighters"]) <= 15 and int(o["pay"]) > 0)
+			and int(offs.filter(func(o): return str(o["class"]) == "Capital")[0]["fighters"]) == 15, str(offs.map(func(o): return [o["id"], o["kind"], o["fighters"], o["pay"]])))
+		var offs_u: Array = BoardingJobs.offers("aurelion", "Elyza")
+		_check("v13.02: a ship whose deck plan has no missions yet is listed but cannot be taken (Covenant ships, at an Elyza station)", offs_u.size() >= 1 and offs_u.all(func(o): return not bool(o["ready"])), str(offs_u.map(func(o): return [o["id"], o["ready"]])))
+		var pts0: Array = BoardingJobs.points("aurelion", Vector3.ZERO, [])
+		var pts1: Array = BoardingJobs.points("aurelion", Vector3.ZERO, [{"center": Vector3(30000, 0, 0), "radius": 4000.0}])
+		_check("v13.02: three waiting places, each 16 km or more from the station; with a nebula in the system one is inside it", pts0.size() == 3 and pts0.all(func(q): return (q["pos"] as Vector3).length() >= 15900.0) and bool(pts1[0]["nebula"]) and (pts1[0]["pos"] as Vector3).is_equal_approx(Vector3(30000, 0, 0)), str(pts0))
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		main._load_system("malachar", "station")
+		await _until(func(): return main.state == "flight" and main.space.sys_id == "malachar", 15.0)
+		await _wait(1.0)
+		var sb := _sp()
+		_check("v13.02: no job, no target ship", not is_instance_valid(main.board_ship))
+		# the board page (docked at Malachar's station, Imperium)
+		main.hub.open(Data.SYSTEMS["malachar"]["station"])
+		if main.hub.lockdown: main.hub._end_lockdown()
+		main.hub.show_screen("boarding")
+		await _wait(0.3)
+		var tabb: Node = main.hub.find_child("Tab_boarding", true, false)
+		var takeb := main.hub.find_child("Take_Board_unity_capital", true, false) as Button
+		_check("v13.02: the Mission Board has a BOARDING tab with the Unity Capital on it", tabb != null and takeb != null and takeb.text == "ACCEPT")
+		await _shot("boardjob_board", 0.3)
+		if takeb != null: takeb.pressed.emit()
+		await _wait(0.3)
+		var jb: Dictionary = main.hub.board_job
+		_check("v13.02: ACCEPT takes the job and picks one of the three places at random", str(jb.get("id", "")) == "unity_capital" and int(jb.get("pt", -1)) in [0, 1, 2] and (main.hub.find_child("Take_Board_unity_capital", true, false) as Button).text == "DROP", str(jb))
+		main.hub.visible = false
+		await _wait(1.2)
+		var ship: Node3D = main.board_ship
+		_check("v13.02: in flight the ship is now out there, a good distance from the station, with its 15 fighters and a waypoint on it", is_instance_valid(ship) and ship.global_position.distance_to(sb.station.global_position) > 9000.0 and int(jb.get("escort", 0)) == 15
+			and is_instance_valid(sb.waypoint) and sb.waypoint.global_position.distance_to(ship.global_position) < 5.0, "%s escort %s" % [str(is_instance_valid(ship)), str(jb.get("escort", 0))])
+		if is_instance_valid(ship):
+			_tp(ship.global_position + Vector3(0, 300, 2400), ship.global_position)
+			await _shot("boardjob_ship", 0.8)
+			_tp(ship.global_position + Vector3(0, 0, float(ship.get_meta("radius")) + 150.0), ship.global_position)
+			await _until(func(): return is_instance_valid(main.ship_deck), 6.0)
+			var sd2: ShipInterior = main.ship_deck
+			_check("v13.02: reaching the ship puts you aboard its deck plan with the job's mission running", is_instance_valid(sd2) and main.state == "ship_deck" and sd2.mission == str(jb["kind"]) and sd2.m_stage == 0, main.state)
+			if is_instance_valid(sd2):
+				await _shot("boardjob_aboard", 0.5)
+				var cr0: int = GS.credits
+				sd2.close()      # leaving early: no pay, the ship stays
+				await _wait(0.6)
+				_check("v13.02: leaving early pays nothing and the ship is still there; you are back in flight clear of it", GS.credits == cr0 and is_instance_valid(main.board_ship) and main.state == "flight" and not main.hub.board_job.is_empty()
+					and sb.player.global_position.distance_to(ship.global_position) > float(ship.get_meta("radius")) + BoardingJobs.BOARD_RANGE + 300.0)
+				await _wait(6.5)
+				_tp(ship.global_position + Vector3(0, 0, float(ship.get_meta("radius")) + 150.0), ship.global_position)
+				await _until(func(): return is_instance_valid(main.ship_deck), 6.0)
+				var sd3: ShipInterior = main.ship_deck
+				if is_instance_valid(sd3):
+					sd3.m_stage = 2      # (the deck mission itself is covered by HL_INTERIOR; here: done and out by the hangar)
+					sd3.close()
+					await _wait(0.6)
+				_check("v13.02: finishing the deck mission and leaving pays the job and clears it; the ship is gone", GS.credits == cr0 + int(jb["pay"]) and main.hub.board_job.is_empty() and not is_instance_valid(main.board_ship) and main.state == "flight", "%d -> %d" % [cr0, GS.credits])
+		_finish_group()
+		return
 	if _flag("HL_FLEETCAT"):   # v12.97 (owner brief job 1): 8 x 9 fleet catalog, spawned in their own systems
 		var all := FleetCatalog.all()
 		_check("v12.97: the fleet catalog has all 72 faction ships", all.size() == 72, str(all.size()))

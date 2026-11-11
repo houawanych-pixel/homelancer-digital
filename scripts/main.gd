@@ -325,6 +325,7 @@ var _escape_t := 0.0
 func _process(_dt: float) -> void:
 	Music.want(music_mood(_dt))
 	_mission_auto_step()
+	_board_job_step(_dt)
 	_escape_t += _dt
 	if _escape_t >= 10.0 and state != "title":   # v1.8k: a jailed pilot whose time is up breaks out
 		_escape_t = 0.0
@@ -394,6 +395,76 @@ func _close_ship_interior() -> void:
 	else: hud.visible = true
 	if is_instance_valid(_deck_layer): _deck_layer.queue_free()
 	ship_deck = null
+
+## v13.02 BOARDING missions (BoardingJobs; the job itself is hub.board_job). In flight in the job's system the ship is
+## out there with its fighters and a waypoint on it; reach it and you are aboard (its deck plan, with the job's deck
+## mission running); finish and leave by the hangar and you are paid, leave early and it is still there.
+var board_ship: Node3D
+var board_escort: Array = []
+var _board_cd := 0.0
+func board_job() -> Dictionary: return hub.board_job if is_instance_valid(hub) else {}
+func _board_job_step(dt: float) -> void:
+	_board_cd = maxf(0.0, _board_cd - dt)
+	var j := board_job()
+	if j.is_empty() or state != "flight" or not is_instance_valid(space) or space.surface_mode or str(j["sys"]) != str(space.sys_id) or space.sys_id != GS.system_id:
+		if j.is_empty() and is_instance_valid(board_ship): board_ship.queue_free()
+		return
+	if is_instance_valid(ship_deck) or is_instance_valid(station_deck): return
+	if not is_instance_valid(board_ship): _board_job_spawn(j)
+	elif _board_cd <= 0.0 and is_instance_valid(space.player) and space.player.global_position.distance_to(board_ship.global_position) < float(board_ship.get_meta("radius", 200.0)) + BoardingJobs.BOARD_RANGE:
+		_board_enter(j)
+func _board_job_spawn(j: Dictionary) -> void:
+	var e: Dictionary = FleetCatalog.get_entry(str(j["id"]))
+	if e.is_empty() or not is_instance_valid(space.station): return
+	var clouds: Array = []
+	for nb in space.nebulae:
+		if nb is Dictionary and (nb as Dictionary).has("center"): clouds.append({"center": nb["center"], "radius": float((nb as Dictionary).get("radius", 0.0))})
+	var pts: Array = BoardingJobs.points(str(j["sys"]), space.station.global_position, clouds)
+	var pt: Dictionary = pts[clampi(int(j.get("pt", 0)), 0, pts.size() - 1)]
+	board_ship = SpaceSystem._fleet_standin(e)
+	board_ship.name = "%s (boarding target)" % str(e["name"])
+	board_ship.set_meta("kind", "board_target")
+	space.add_child(board_ship)
+	board_ship.global_position = pt["pos"]
+	board_ship.rotation.y = float(absi(hash(str(j["id"]))) % 628) / 100.0
+	board_escort = []
+	if Factions.has_fighters(str(j["faction"])):
+		board_escort = space.spawn_mission_group((pt["pos"] as Vector3) + Vector3(0, 90, 0), str(j["faction"]), int(j["fighters"]), 2, "", 0)
+	j["escort"] = board_escort.size()
+	j["in_nebula"] = bool(pt["nebula"])
+	space.set_destination(space.waypoint_at(pt["pos"]))
+	hud.flash_message("%s: target ship %s, %d fighters with it. Waypoint set: GO TO flies it. Reach the ship to board." % [str(j["title"]), "hidden in a nebula" if bool(pt["nebula"]) else "located", board_escort.size()])
+func _board_enter(j: Dictionary) -> void:
+	space.controls = false
+	space.autopilot = null
+	if not open_ship_interior(str(j["id"])):
+		space.controls = true
+		_board_cd = 8.0
+		return
+	space.process_mode = Node.PROCESS_MODE_DISABLED    # (the fight outside waits while you are aboard)
+	var sd: ShipInterior = ship_deck
+	sd.start_mission(str(j["kind"]))
+	sd.left.connect(func(): _board_left(sd.mission == str(j["kind"]) and sd.m_stage == 2))
+func _board_left(done: bool) -> void:
+	if not is_instance_valid(space): return
+	space.process_mode = Node.PROCESS_MODE_INHERIT
+	space.controls = true
+	var j := board_job()
+	if is_instance_valid(board_ship) and is_instance_valid(space.player):   # you launch clear of the hull
+		var away: Vector3 = (space.player.global_position - board_ship.global_position)
+		away.y = 0.0
+		away = away.normalized() if away.length() > 1.0 else Vector3(0, 0, 1)
+		space.player.global_position = board_ship.global_position + away * (float(board_ship.get_meta("radius", 200.0)) + BoardingJobs.BOARD_RANGE + 500.0)
+	_board_cd = 6.0
+	if done and not j.is_empty():
+		GS.add_credits(int(j["pay"]))
+		hud.flash_message("BOARDING MISSION COMPLETE: %s. Paid %d cr." % [str(j["title"]), int(j["pay"])])
+		if is_instance_valid(board_ship): board_ship.queue_free()
+		board_ship = null
+		hub.board_job = {}
+		GS.save_game()
+	elif not j.is_empty():
+		hud.flash_message("You left the ship with the job unfinished. It is still out here: reach it again to go back aboard.")
 
 ## v13.01 station rebuild (Veranthos first): the rebuilt station interior, on foot (StationInterior). Opened from the
 ## Station Viewer (WALK INSIDE) while it is reviewed; docking, services, missions, the alarm and the escape are NOT

@@ -640,7 +640,7 @@ func show_screen(s: String) -> void:
 	screen = s
 	_refresh_credits()
 	var sysname: String = Data.SYSTEMS[GS.system_id]["name"]
-	header.text = base["name"].to_upper() if s == "hub" else {"equipment": "WEAPONS & EQUIPMENT DEALER", "ships": "SHIP DEALER", "mechs": "MECH DEALER", "repair": "MEDICAL BAY", "supplies": "SUPPLIES", "command": "COMMAND", "bounty": "MISSION BOARD", "missions": "MISSION BOARD", "board": "MISSION BOARD", "ship": "YOUR SHIP", "faction": "FACTION", "surface": "PLANET DESTINATIONS", "lounge": "PILOTS' LOUNGE", "loadout": "LOADOUT"}[s]
+	header.text = base["name"].to_upper() if s == "hub" else {"equipment": "WEAPONS & EQUIPMENT DEALER", "ships": "SHIP DEALER", "mechs": "MECH DEALER", "repair": "MEDICAL BAY", "supplies": "SUPPLIES", "command": "COMMAND", "bounty": "MISSION BOARD", "missions": "MISSION BOARD", "boarding": "MISSION BOARD", "board": "MISSION BOARD", "ship": "YOUR SHIP", "faction": "FACTION", "surface": "PLANET DESTINATIONS", "lounge": "PILOTS' LOUNGE", "loadout": "LOADOUT"}[s]
 	subheader.text = "%s  ·  %s  ·  %s SYSTEM" % [str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])).to_upper(), "ORBITAL STATION" if kind == "station" else "PLANET SURFACE", sysname.to_upper()]   # v8.2 (owner): faction and station
 	for box in [left, content, leftwin]:   # take the old page out at once, so the new buttons keep their own names
 		for c in box.get_children():
@@ -693,7 +693,7 @@ func show_screen(s: String) -> void:
 				sb2.flat = false   # v9.9: (a flat button draws no box at all)
 				sb2.custom_minimum_size = Vector2(104, 30)
 				sb2.add_theme_font_size_override("font_size", Data.ts(15))
-				var on: bool = pg[0] == s or (pg[0] == "board" and s in ["missions", "bounty"])
+				var on: bool = pg[0] == s or (pg[0] == "board" and s in ["missions", "bounty", "boarding"])
 				sb2.add_theme_color_override("font_color", Color.WHITE if on else Color(0.62, 0.92, 1.0))
 				sb2.add_theme_color_override("font_hover_color", Color.WHITE)
 				# v9.9 (owner: "hard to read the top options"): each page name sits in its own see-through dark box
@@ -729,6 +729,9 @@ func show_screen(s: String) -> void:
 			_mechs_page()
 		"repair", "supplies": _repair_page()   # v9.5: in the medical bay, or in the supplies room
 		"board": show_screen(board_tab)
+		"boarding":
+			board_tab = "boarding"
+			_boarding_page()
 		"bounty":
 			board_tab = "bounty"
 			_bounty_page()
@@ -1802,7 +1805,7 @@ func _layout_windows(s: String) -> void:
 
 ## v11.4 (owner): the MISSION BOARD is a big landscape window (3 wide for 2 tall); the SHIPYARD and MECHS have two
 ## 2 x 3 tablets, one each side.
-func board_page(s: String) -> bool: return s in ["missions", "bounty", "board"]
+func board_page(s: String) -> bool: return s in ["missions", "bounty", "boarding", "board"]
 ## v12.72: pages that take the whole screen (the hangar bay; the garage, owner's mock-up)
 func full_page(s: String) -> bool: return s in ["equipment", "loadout"]
 func two_tablets(s: String) -> bool: return s in ["ships", "mechs"]
@@ -1963,7 +1966,7 @@ func rebuilt_id() -> String:
 	return id if id != "" and StationInterior.can_open(id) else ""
 
 func nav_cat(s: String) -> String:
-	if s in ["missions", "bounty"]: s = "board"
+	if s in ["missions", "bounty", "boarding"]: s = "board"
 	for cg in nav_cats():
 		for pg in cg[2]:
 			if pg[0] == s: return cg[0]
@@ -4479,7 +4482,7 @@ func _insp_camera() -> void:
 func _board_head(v: VBoxContainer, tab: String) -> void:
 	var bar := HBoxContainer.new()
 	bar.add_theme_constant_override("separation", 10)
-	for tb in [["missions", "MISSIONS"], ["bounty", "BOUNTIES"]]:
+	for tb in [["missions", "MISSIONS"], ["bounty", "BOUNTIES"], ["boarding", "BOARDING"]]:   # v13.02: + BOARDING
 		var b := Button.new()
 		b.name = "Tab_" + tb[0]
 		b.text = tb[1]
@@ -4761,6 +4764,63 @@ func difficulty_text(pay: int) -> String:
 	var tier := Data.tier_of_pay(pay)
 	var stars := clampi(int(ceil(float(tier) / 2.0)), 1, 5)
 	return "Difficulty %s%s %s" % ["★".repeat(stars), "☆".repeat(5 - stars), Data.TIER_NAMES[tier - 1]]
+
+## v13.02 (owner): the BOARDING list: the rival faction's big ships you can board from this station (BoardingJobs).
+## One boarding job at a time; taking one drops the mission or bounty you had.
+var board_job: Dictionary = {}   # the boarding job you hold ({} = none); main spawns the ship and runs it
+func _boarding_page() -> void:
+	var v := _scroll_box()
+	_board_head(v, "boarding")
+	var own := str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id]))
+	var l := _label(17, Color(1, 1, 1))
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var jobs: Array = BoardingJobs.offers(GS.system_id, own) if str(base.get("kind", "station")) == "station" else []
+	var rv := Factions.rival(own)
+	l.text = ("Boarding work for %s against %s ships. ACCEPT and the ship turns up well away from the station, some hidden in a nebula. Reach it and you are aboard. Fighters and bombers can't be boarded." % [own, rv]) if not jobs.is_empty() \
+		else ("No boarding work here: boarding jobs are given at space stations against the owner's rival fleet." if rv == "" or str(base.get("kind", "station")) != "station" else "No boarding work here yet: no %s ship has a deck plan with missions built." % rv)
+	v.add_child(l)
+	if not board_job.is_empty():
+		var cur := _label(17, GOLD)
+		cur.name = "BoardingNow"
+		cur.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		cur.text = "YOUR BOARDING JOB: %s (%s system)" % [str(board_job["title"]), str(Data.SYSTEMS[str(board_job["sys"])]["name"])]
+		v.add_child(cur)
+	if _board_locked(v): return
+	for o in jobs:
+		var row := HBoxContainer.new()
+		row.name = "Board_" + str(o["id"])
+		row.add_theme_constant_override("separation", 14)
+		var mine: bool = not board_job.is_empty() and str(board_job["id"]) == str(o["id"]) and str(board_job["sys"]) == str(o["sys"])
+		var e: Dictionary = FleetCatalog.get_entry(str(o["id"]))
+		var pic := TextureRect.new()
+		pic.custom_minimum_size = Vector2(96, 96)
+		pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		if ResourceLoader.exists(str(e.get("token", ""))): pic.texture = load(str(e["token"]))
+		row.add_child(pic)
+		var t := _label(Data.BOARD_FONT, CYAN)
+		t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		t.text = "%s\n%s\nReward %d cr" % [str(o["title"]), str(o["brief"]), int(o["pay"])]
+		row.add_child(t)
+		var b := Button.new()
+		b.name = "Take_" + row.name
+		b.custom_minimum_size = Vector2(230, 56)
+		b.text = "DROP" if mine else ("ACCEPT" if bool(o["ready"]) else "NOT BUILT YET")
+		b.disabled = not bool(o["ready"])
+		b.pressed.connect(func():
+			if mine:
+				board_job = {}
+				status.text = "Boarding job dropped."
+			else:
+				var had := ""
+				if not GS.mission.is_empty() or not GS.bounty.is_empty(): had = " " + Missions.disengage()
+				board_job = (o as Dictionary).duplicate(true)
+				board_job["pt"] = randi() % 3
+				status.text = "Boarding job accepted: %s. LAUNCH and follow the waypoint.%s" % [str(o["title"]), had]
+			show_screen("boarding"))
+		row.add_child(b)
+		v.add_child(_row_frame(row, mine))
 
 func _missions_page() -> void:
 	var v := _scroll_box()
