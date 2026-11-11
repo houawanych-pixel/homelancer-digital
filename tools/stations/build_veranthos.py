@@ -309,6 +309,91 @@ def complex_(dk, r0, r1, a0, a1, rows, G=40.0, av_half=15.0):
             dk.door(x + q[0], z + q[1], av + 90, 20.0, depth=WALL + 16.0)
     return made
 
+BAY_POOL = ["Storage", "Staff Room", "Equipment Store", "Sanitation", "Office", "Workshop", "Store Room", "Locker Room",
+            "Utility Room", "Records Room", "Supply Room", "Crew Rest", "Maintenance Closet", "Server Room", "Break Room"]
+BIG_POOL = ["Cargo Bay", "Assembly Hall", "Loading Bay", "Freight Hall", "Vehicle Bay", "Depot Hall"]
+def fill_bay(dk, lb, rin, label, counter):
+    """v13.07 (owner's brief: "smaller offices, storage, staff rooms, sanitation and equipment spaces ... functional room
+    clusters, not vast empty chambers"): an outer bay of the true outline is built out, not left as open floor.
+    Passages: the neck from the body, an arc just outside the body, more arcs every 100 m out, radial passages about
+    every 120 m round, all inside the bay; only passage joined to the neck is kept. What is left between passages is
+    cut into rooms, each with a door onto the passage it touches, and a door to a neighbour where two rooms meet.
+    Room names are working labels from BAY_POOL / BIG_POOL."""
+    lm = lb["mask"].astype(np.uint8)
+    if not lm.any(): return []
+    R, A = dk.R, dk.A
+    ys, xs = np.nonzero(lm); rr = R[ys, xs]; r_far = float(rr.max())
+    angs = A[ys, xs]; a_c = lb["a"]
+    dev = ((angs - a_c + 180) % 360) - 180; a_lo, a_hi = a_c + float(dev.min()), a_c + float(dev.max())
+    pas = np.zeros((N, N), np.uint8)
+    r0 = rin + WALL
+    pas |= dk.band(r0, r0 + 24.0)
+    r_ = r0 + 24.0 + 130.0
+    while r_ < r_far - 60.0:
+        pas |= dk.band(r_, r_ + 22.0); r_ += 130.0 + 22.0
+    span_m = np.radians(a_hi - a_lo) * (rin + r_far) / 2
+    n_rad = max(1, int(span_m / 170.0))
+    for k in range(n_rad + 1):
+        a = a_lo + (a_hi - a_lo) * (k + 0.5) / (n_rad + 1) if n_rad else a_c
+        cv2.line(pas, P(*pol(r0, a)), P(*pol(r_far + 20.0, a)), 1, int(round(22.0 / PX)))
+    pas = (pas & lm) | lb["neck"]
+    n_, lab_ = cv2.connectedComponents(pas, connectivity=4)
+    ny, nx = np.nonzero(lb["neck"])
+    keep = set(int(v) for v in np.unique(lab_[ny, nx]) if v)
+    pas = np.isin(lab_, list(keep)).astype(np.uint8) if keep else lb["neck"].copy()
+    dk.f |= pas | lb["neck"]
+    xg, zg = pol(rin + 4, lb["a"])
+    dk.door(xg, zg, lb["a"], 26.0, depth=WALL + 20.0, clip=True)
+    kw = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * int(WALL / PX) + 1,) * 2)
+    rest = (lm & (1 - cv2.dilate(pas, kw)) & cv2.erode(lm, np.ones((5, 5), np.uint8))).astype(np.uint8)
+    n, lab, st, cen = cv2.connectedComponentsWithStats(rest, connectivity=4)
+    near = cv2.distanceTransform((1 - pas).astype(np.uint8), cv2.DIST_L2, 5)
+    py_, px_ = np.nonzero(pas)
+    made = []
+    for i_ in range(1, n):
+        area = st[i_, cv2.CC_STAT_AREA] * PX * PX
+        if area < 2400.0: continue
+        m = (lab == i_).astype(np.uint8)
+        dm = cv2.distanceTransform(m, cv2.DIST_L2, 5)
+        if dm.max() * PX < 12.0: continue
+        big = area > 16000.0
+        if big: nm = "%s %s" % (label, BIG_POOL[counter[1] % len(BIG_POOL)]); counter[1] += 1
+        else: nm = "%s %s" % (label, BAY_POOL[counter[0] % len(BAY_POOL)]); counter[0] += 1
+        y_, x_ = np.unravel_index(int(np.argmax(dm)), dm.shape)
+        r = {"name": nm, "mask": m, "at": ((x_ - C) * PX, (y_ - C) * PX), "rad": float(dm[y_, x_]) * PX, "doors": 0, "links": set()}
+        mm = np.where(m > 0, near, 1e9); yy2, xx2 = np.unravel_index(int(np.argmin(mm)), mm.shape)
+        if near[yy2, xx2] * PX > WALL + 14 or len(px_) == 0: continue
+        k_ = int(np.argmin((py_ - yy2) ** 2 + (px_ - xx2) ** 2))
+        pa = np.array([(xx2 - C) * PX, (yy2 - C) * PX]); pb = np.array([(px_[k_] - C) * PX, (py_[k_] - C) * PX])
+        dv = pb - pa; L = float(np.hypot(*dv))
+        if L < 0.5: dv = np.array([0.0, -1.0]); L = 1.0
+        mid = (pa + pb) / 2; yaw = float(np.degrees(np.arctan2(dv[0] / L, -dv[1] / L)) % 360)
+        dk.f |= m
+        if not dk.door(mid[0], mid[1], yaw, 16.0, depth=L + 10.0, room=r, clip=True): continue
+        dk.rooms.append(r); made.append(r)
+        # a second door onto another passage it borders (no dead-end rooms), at least 40 m from the first
+        band_ = (cv2.dilate(m, kw, iterations=2) & pas)
+        by_, bx_ = np.nonzero(band_)
+        if len(bx_):
+            far_ = (bx_ - xx2) ** 2 + (by_ - yy2) ** 2
+            j_ = int(np.argmax(far_))
+            if far_[j_] * PX * PX > 1600.0:
+                pb2 = np.array([(bx_[j_] - C) * PX, (by_[j_] - C) * PX])
+                mm2 = np.where(m > 0, (np.arange(N)[None, :] - bx_[j_]) ** 2 + (np.arange(N)[:, None] - by_[j_]) ** 2, 1e12)
+                yy4, xx4 = np.unravel_index(int(np.argmin(mm2)), mm2.shape)
+                pa2 = np.array([(xx4 - C) * PX, (yy4 - C) * PX]); dv2 = pb2 - pa2; L2 = float(np.hypot(*dv2)) or 1.0
+                dk.door(*((pa2 + pb2) / 2), float(np.degrees(np.arctan2(dv2[0] / L2, -dv2[1] / L2)) % 360), 16.0, depth=L2 + 10.0, room=r, clip=True)
+    for i1 in range(len(made)):          # neighbours that meet across a wall: a second way out
+        for i2 in range(i1 + 1, len(made)):
+            if made[i1]["doors"] >= 2 and made[i2]["doors"] >= 2: continue
+            a1 = cv2.dilate(made[i1]["mask"], kw) & made[i2]["mask"]
+            if a1.sum() < 25: continue
+            yy3, xx3 = np.nonzero(a1); cy3, cx3 = yy3.mean(), xx3.mean()
+            c1 = np.array(made[i1]["at"]); c2 = np.array(made[i2]["at"]); dv = c2 - c1; L = float(np.hypot(*dv)) or 1.0
+            yaw = float(np.degrees(np.arctan2(dv[0] / L, -dv[1] / L)) % 360)
+            if dk.door((cx3 - C) * PX, (cy3 - C) * PX, yaw, 12.0, depth=WALL + 14.0, room=made[i1], clip=True): made[i2]["doors"] += 1
+    return made
+
 def outlines(mask):
     cs, _ = cv2.findContours(mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
     out = []
@@ -523,14 +608,10 @@ def build(glb, outdir, repdir=None):
             complex_(dk, 470.0 + WALL, Ro, 30, 150, [(1, [("Life Support Control", 1, "oct"), ("Air Plant", 1.2, "capsule"), ("Water Plant", 1, sec), ("Cargo Hold", 1.2, sec)])], G=30.0, av_half=10.0)
             complex_(dk, 470.0 + WALL, Ro, 150, 210, [(1, [("Escape Pod", 1, "capsule"), ("Coolant Store", 1, sec)])], G=30.0, av_half=10.0)
             complex_(dk, 470.0 + WALL, Ro, 330, 30, [(1, [("Reactor Control", 1.3, "bays"), ("Reactor Monitoring", 1, sec)])], G=30.0, av_half=10.0)   # (working labels: a designed addition)
-        for lb in lobes:                                         # the silhouette's outer bays: floor, a neck to the body, a door
-            dk.f |= lb["mask"] | lb["neck"]
-            nm_ = min({0: "North Bay", 90: "East Bay", 180: "South Bay", 270: "West Bay"}.items(), key=lambda q: abs((lb["a"] - q[0] + 180) % 360 - 180))
-            nm_ = nm_[1] if abs((lb["a"] - nm_[0] + 180) % 360 - 180) < 12 else "Outer Bay %03d" % int(round(lb["a"]))
-            dm_ = cv2.distanceTransform(lb["mask"], cv2.DIST_L2, 5); y_, x_ = np.unravel_index(int(np.argmax(dm_)), dm_.shape)
-            dk.rooms.append({"name": nm_, "mask": lb["mask"], "at": ((x_ - C) * PX, (y_ - C) * PX), "rad": float(dm_[y_, x_]) * PX, "doors": 1, "links": set()})
-            xg, zg = pol(Rin + 4, lb["a"])
-            dk.doors.append({"x": round(float(xg), 1), "z": round(float(zg), 1), "yaw": round(lb["a"], 1), "w": 30.0})
+        bay_n = [0, 0]
+        for lb in lobes:                                         # the silhouette's outer bays, built out into rooms
+            q_ = min({0: "North", 90: "East", 180: "South", 270: "West"}.items(), key=lambda q: abs((lb["a"] - q[0] + 180) % 360 - 180))
+            fill_bay(dk, lb, Rin, q_[1] if abs((lb["a"] - q_[0] + 180) % 360 - 180) < 14 else "Outer", bay_n)
         for (x, z) in lifts_xy():                                # the shafts: a lobby bay on the concourse
             m = np.zeros((N, N), np.uint8); cv2.circle(m, P(x, z), int(26 / PX), 1, -1); dk.f |= (m & foot)
         dk.f &= foot

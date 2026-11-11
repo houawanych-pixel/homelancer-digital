@@ -283,49 +283,9 @@ func _deck(i: int) -> void:
 		lb.modulate = Color(0.85, 1.0, 1.0)
 		lb.position.y = 9.0
 		rn.add_child(lb)
-	# doors: two leaves that part along the wall
-	var leaf_mat := _mat(Color(0.26, 0.3, 0.38), 0.25)
-	var head_mat := _mat(Color(0.36, 0.4, 0.48), 0.25)
-	for d in lv["doors"]:
-		var wide := float(d["w"]) + 1.2
-		var g := Node3D.new()
-		g.name = "Gate%s_%d" % [tag, gates.size()]
-		g.position = Vector3(float(d["x"]), y0, float(d["z"]))
-		g.rotation.y = -deg_to_rad(float(d["yaw"]))     # yaw: the way you walk through, clockwise from the front (-Z)
-		world.add_child(g)
-		var leaves := []
-		for sgn in [-1.0, 1.0]:
-			var leaf := MeshInstance3D.new()
-			var bm2 := BoxMesh.new()
-			bm2.size = Vector3(wide * 0.5, DOOR_H, 0.8)
-			leaf.mesh = bm2
-			leaf.material_override = leaf_mat
-			leaf.position = Vector3(sgn * wide * 0.25, DOOR_H * 0.5, 0)
-			g.add_child(leaf)
-			var stripe := MeshInstance3D.new()
-			var sm := BoxMesh.new()
-			sm.size = Vector3(wide * 0.5 - 0.6, 1.4, 0.86)
-			stripe.mesh = sm
-			stripe.material_override = _glow(Color(0.25, 1.0, 0.4))
-			stripe.position.y = -1.0
-			leaf.add_child(stripe)
-			leaves.append(leaf)
-		var head := MeshInstance3D.new()
-		var hm := BoxMesh.new()
-		hm.size = Vector3(wide, wh - DOOR_H, 1.4)
-		head.mesh = hm
-		head.material_override = head_mat
-		head.position.y = DOOR_H + (wh - DOOR_H) * 0.5
-		g.add_child(head)
-		var gb := StaticBody3D.new()
-		var gcs := CollisionShape3D.new()
-		var gbs := BoxShape3D.new()
-		gbs.size = Vector3(wide, DOOR_H, 1.0)
-		gcs.shape = gbs
-		gcs.position.y = DOOR_H * 0.5
-		gb.add_child(gcs)
-		g.add_child(gb)
-		gates.append({"node": g, "pos": g.position, "level": i, "a": leaves[0], "b": leaves[1], "shape": gcs, "wide": wide, "k": 0.0, "open": false})
+	# doors: built when you are on this deck (v13.07: a station can have over a thousand doorways; only the deck you
+	# stand on has door nodes, which keeps a phone light)
+	_door_specs[i] = {"doors": lv["doors"], "y0": y0, "wh": wh, "tag": tag}
 	# lift pads
 	var n_l := 0
 	for l in lv["lifts"]:
@@ -502,7 +462,66 @@ func _ui() -> void:
 	add_child(_fade)
 	_show_level()
 
+## v13.07: the sliding doors of deck i, made when you arrive on it (and those of the deck you left freed). Meshes and
+## materials are shared by every door of the same width.
+var _door_specs := {}
+var _doors_built := -1
+var _door_res := {}
+func _door_res_of(wide: float, hh: float) -> Array:
+	var key := "%d_%d" % [int(round(wide * 10.0)), int(round(hh * 10.0))]
+	if _door_res.has(key): return _door_res[key]
+	if not _door_res.has("mats"): _door_res["mats"] = [_mat(Color(0.26, 0.3, 0.38), 0.25), _mat(Color(0.36, 0.4, 0.48), 0.25), _glow(Color(0.25, 1.0, 0.4))]
+	var bm2 := BoxMesh.new(); bm2.size = Vector3(wide * 0.5, DOOR_H, 0.8)
+	var sm := BoxMesh.new(); sm.size = Vector3(wide * 0.5 - 0.6, 1.4, 0.86)
+	var hm := BoxMesh.new(); hm.size = Vector3(wide, maxf(0.5, hh - DOOR_H), 1.4)
+	var gbs := BoxShape3D.new(); gbs.size = Vector3(wide, DOOR_H, 1.0)
+	_door_res[key] = [bm2, sm, hm, gbs]
+	return _door_res[key]
+func _build_doors(i: int) -> void:
+	if _doors_built == i or not _door_specs.has(i): return
+	for g0 in gates: if is_instance_valid(g0["node"]): (g0["node"] as Node).queue_free()
+	gates = []
+	_doors_built = i
+	var sp: Dictionary = _door_specs[i]
+	var y0: float = sp["y0"]; var wh: float = sp["wh"]; var tag: String = sp["tag"]
+	if not _door_res.has("mats"): _door_res_of(1.0, wh)
+	var mats: Array = _door_res["mats"]
+	for d in sp["doors"]:
+		var wide := float(d["w"]) + 1.2
+		var res: Array = _door_res_of(wide, wh)
+		var g := Node3D.new()
+		g.name = "Gate%s_%d" % [tag, gates.size()]
+		g.position = Vector3(float(d["x"]), y0, float(d["z"]))
+		g.rotation.y = -deg_to_rad(float(d["yaw"]))     # yaw: the way you walk through, clockwise from the front (-Z)
+		world.add_child(g)
+		var leaves := []
+		for sgn in [-1.0, 1.0]:
+			var leaf := MeshInstance3D.new()
+			leaf.mesh = res[0]
+			leaf.material_override = mats[0]
+			leaf.position = Vector3(sgn * wide * 0.25, DOOR_H * 0.5, 0)
+			g.add_child(leaf)
+			var stripe := MeshInstance3D.new()
+			stripe.mesh = res[1]
+			stripe.material_override = mats[2]
+			stripe.position.y = -1.0
+			leaf.add_child(stripe)
+			leaves.append(leaf)
+		var head := MeshInstance3D.new()
+		head.mesh = res[2]
+		head.material_override = mats[1]
+		head.position.y = DOOR_H + (wh - DOOR_H) * 0.5
+		g.add_child(head)
+		var gb := StaticBody3D.new()
+		var gcs := CollisionShape3D.new()
+		gcs.shape = res[3]
+		gcs.position.y = DOOR_H * 0.5
+		gb.add_child(gcs)
+		g.add_child(gb)
+		gates.append({"node": g, "pos": g.position, "level": i, "a": leaves[0], "b": leaves[1], "shape": gcs, "wide": wide, "k": 0.0, "open": false})
+
 func _show_level() -> void:
+	_build_doors(level_i)
 	var lv := level()
 	_top.text = "%s  ·  %s %s  ·  graybox  ·  %s" % [str(data["name"]).to_upper(), str(lv["id"]), str(lv["name"]),
 		"DESIGNED ADDITION (not on the blueprint)" if bool(lv["proposed"]) else "rooms from the blueprint concept"]

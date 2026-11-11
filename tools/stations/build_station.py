@@ -305,16 +305,10 @@ def build(sid, glbdir, outdir, repdir=None):
             dk.doors.append({"x": round(float(x), 1), "z": round(float(z), 1), "yaw": round(ap["a"], 1), "w": 36.0})
             got.append({"name": ap["name"], "direction_deg": round(ap["a"], 1), "pod_centre_from_axis_m": round(ap["r_pod"])})
         if got: rep["main_deck_arms_built"] = got
-        used_ = {}
-        for lb in lobes:                                         # the outline's outer bays: floor, a neck to the body, a door
-            dk.f |= lb["mask"] | lb["neck"]
-            q_ = min({0: "North Bay", 90: "East Bay", 180: "South Bay", 270: "West Bay"}.items(), key=lambda q: abs((lb["a"] - q[0] + 180) % 360 - 180))
-            nm_ = q_[1] if abs((lb["a"] - q_[0] + 180) % 360 - 180) < 14 else "Outer Bay %03d" % int(round(lb["a"]))
-            used_[nm_] = used_.get(nm_, 0) + 1
-            if used_[nm_] > 1: nm_ = "%s %d" % (nm_, used_[nm_])
-            dk.rooms.append({"name": nm_, "mask": lb["mask"], "at": lb["c"], "rad": lb["rad"], "doors": 1, "links": set()})
-            xg, zg = pol(Rin + 4, lb["a"])
-            dk.doors.append({"x": round(float(xg), 1), "z": round(float(zg), 1), "yaw": round(lb["a"], 1), "w": 30.0})
+        bay_n = [0, 0]
+        for lb in lobes:                                         # the outline's outer bays, built out into rooms
+            q_ = min({0: "North", 90: "East", 180: "South", 270: "West"}.items(), key=lambda q: abs((lb["a"] - q[0] + 180) % 360 - 180))
+            B.fill_bay(dk, lb, Rin, q_[1] if abs((lb["a"] - q_[0] + 180) % 360 - 180) < 14 else "Outer", bay_n)
         # floors inside the tall hall: balcony rings and ramps, sized to this station's hall
         rw = ring[0] - WALL - 34.0; din = []
         if storeys >= 4 and rw >= 200.0:

@@ -3246,6 +3246,9 @@ func _run() -> void:
 			if not (ok2 and is_instance_valid(s2)): continue
 			var lv2: Array = s2.data["levels"]
 			_check("v13.01: %s has %d decks" % [sid2, lv2.size()], lv2.size() >= 4)
+			var nodes2 := 0
+			for c in s2.world.get_children(): nodes2 += 1 + c.get_child_count()
+			_check("v13.07: %s stays light: doors only on the deck you stand on (%d nodes in the stage)" % [sid2, nodes2], nodes2 < 6000 and s2.gates.all(func(g): return int(g["level"]) == s2.level_i), str(nodes2))
 			var bad2: Array = []
 			var seen2 := 0
 			for li in lv2.size():
