@@ -667,7 +667,9 @@ func show_screen(s: String) -> void:
 	header.visible = s != "loadout"   # v12.72: the garage draws its own title
 	subheader.visible = s != "loadout"
 	credits_label.visible = s != "loadout"
-	if s != "loadout": _gar_close()
+	if s != "loadout":
+		_gar_close()
+		lo_quarters = false
 	# v3.1: HOME is open glass (the station picture shows through); the other pages keep their panel
 	if s == "hub": content.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	else: content.remove_theme_stylebox_override("panel")
@@ -4913,6 +4915,7 @@ func set_home_here() -> String:
 ## (owner's spec) Drag a weapon onto a mount on the live 3D model (or tap the weapon, then the mount); a fit that
 ## doesn't work is refused and says why. The armor parts swap with < >. Weight, energy and what they do show live.
 var lo_frame := "ship"
+var lo_quarters := false    # v13.09 (owner): the Pilot Gear Store opened from MY QUARTERS (pilot only, BACK = quarters)
 var lo_creator := false     # v12.90 (owner): the PILOT CREATOR (a new pilot: who you are and your clothes, then START FLYING)
 var lo_set := 0
 var lo_pick := ""        # the weapon picked by a tap (then tap a mount)
@@ -5098,7 +5101,7 @@ func _loadout_page() -> void:
 	tabs.position = Vector2(30, 92)
 	tabs.add_theme_constant_override("separation", 6)
 	root.add_child(tabs)
-	for fr in ([] if lo_creator else ["mech", "ship", "pilot"]):   # (v12.90: the creator is the pilot only)
+	for fr in ([] if lo_creator or lo_quarters else ["mech", "ship", "pilot"]):   # (v12.90: the creator is the pilot only)
 		var fb := Button.new()
 		fb.name = "LoFrame_" + fr
 		fb.text = fr.to_upper()
@@ -5176,6 +5179,20 @@ func _loadout_page() -> void:
 	_gar_preview_suit()
 	_gar_tick(0.0)
 
+## v13.09: the Pilot Gear Store from MY QUARTERS: your pilot on the pad, helmet / uniform / gloves / boots with the camera zoom.
+func open_quarters_gear() -> void:
+	lo_creator = false
+	lo_frame = "pilot"
+	lo_cat = "helmet"
+	lo_pick = ""
+	lo_slot = ""
+	lo_sel = ""
+	gar_cam = {}
+	lo_note = ""
+	lo_quarters = true
+	show_screen("loadout")
+	_gar_cat_camera()
+
 ## v12.90: open the PILOT CREATOR: the Pilot Gear Store on its own (no MECH / SHIP tabs, no BACK), starting on who you are.
 func start_creator() -> void:
 	lo_creator = true
@@ -5206,6 +5223,7 @@ func _gar_draw_title(c: Control) -> void:
 	c.draw_colored_polygon(PackedVector2Array([a + Vector2(-30, 52), a + Vector2(-6, 40), a + Vector2(6, 40), a + Vector2(30, 52)]), Color(GAR_HI, 0.9))
 	c.draw_string(f, Vector2(74, 34), "HOMELANCER", HORIZONTAL_ALIGNMENT_LEFT, -1, 32, Color(0.95, 0.98, 1.0))
 	var sub: String = {"mech": "MECH GARAGE", "ship": "SHIP GARAGE", "pilot": "PILOT GEAR STORE"}[lo_frame]
+	if lo_quarters: sub = "PILOT'S QUARTERS  ·  GEAR STORE"   # v13.09
 	if lo_creator: sub = "PILOT CREATOR  ·  %s" % (GS.pilot_name.to_upper() if GS.pilot_name != "" else "NEW PILOT")   # v12.90
 	c.draw_string(f, Vector2(76, 60), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 19, Color(0.75, 0.88, 1.0))
 
@@ -5845,7 +5863,7 @@ func _gar_hint(k: String) -> void:
 		"compare":
 			lo_compare = not lo_compare
 			_gar_refresh()
-		"back": show_screen("hub")
+		"back": show_screen("ship" if lo_quarters else "hub")   # v13.09: back to MY QUARTERS when you came from there
 		"start":   # v12.90: the PILOT CREATOR is done: out you fly
 			lo_creator = false
 			lo_note = ""
@@ -6116,6 +6134,14 @@ func _ship_page() -> void:
 	var head := _label(22, Color(1, 1, 1))
 	head.text = "%s  ·  %s" % [str(sh["name"]).to_upper(), sh["class"]]
 	v.add_child(head)
+	# v13.09 (owner: "this should activate while you're in the pilot's room"): your pilot and his gear, from your quarters
+	var gs_btn := Button.new()
+	gs_btn.name = "QuartersGear"
+	gs_btn.text = "MY PILOT  ·  GEAR & UNIFORMS"
+	gs_btn.custom_minimum_size = Vector2(0, 60)
+	gs_btn.add_theme_color_override("font_color", GOLD)
+	gs_btn.pressed.connect(open_quarters_gear)
+	v.add_child(gs_btn)
 	var w := _label(18, CYAN)
 	w.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	w.name = "Weapons"

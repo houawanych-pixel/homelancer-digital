@@ -5184,6 +5184,27 @@ func _run() -> void:
 			board_vis and main.escape_chasers >= Data.ESCAPE_CHASERS and hostile >= Data.ESCAPE_CHASERS and denied, "board %s chasers %d hostile %d denied %s" % [board_vis, main.escape_chasers, hostile, denied])
 		_finish_group()
 		return
+	if OS.get_environment("HL_QUARTERS") != "":   # v13.09 (owner): the pilot and his gear open from MY QUARTERS
+		var hq = main.hub
+		GS.creator_done = true
+		hq.open(Data.SYSTEMS[GS.system_id]["station"])
+		hq.show_screen("ship")
+		await _wait(0.5)
+		var qb = hq.find_child("QuartersGear", true, false)
+		_check("v13.09: MY QUARTERS has the pilot gear button", qb != null)
+		if qb != null: (qb as Button).pressed.emit()
+		await _until(func(): return PilotRig.ready(), 40.0)
+		await _wait(1.6)
+		_check("v13.09: it opens the Pilot Gear Store, pilot only (no MECH / SHIP tabs)", hq.screen == "loadout" and hq.lo_frame == "pilot" and hq.lo_quarters and hq.find_child("LoFrame_mech", true, false) == null)
+		await _shot("quarters_gear", 0.2)
+		hq._gar_pick_cat("upper")
+		await _wait(1.6)
+		_check("v13.09: picking Upper Uniform zooms in", float(hq.gar_cam.get("dist", 99.0)) < 8.0, str(hq.gar_cam.get("dist")))
+		hq._gar_hint("back")
+		await _wait(0.4)
+		_check("v13.09: BACK returns to MY QUARTERS", hq.screen == "ship" and not hq.lo_quarters, hq.screen)
+		_finish_group()
+		return
 	if OS.get_environment("HL_CREATOR2") != "":   # v13.08 (owner: the creator showed a capsule; gloves / boots zoom)
 		var hb2 = main.hub
 		GS.creator_done = false
