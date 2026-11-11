@@ -16,6 +16,10 @@ const KIND_BRIEF := {"sabotage": "Get aboard, reach the generator and set it to 
 	"capture": "Get aboard, fight up to the top-level rooms, take the captain and bring them back to the hangar.",
 	"rescue": "Get aboard, find the prison on the top access level, free the hostage and bring them back to the hangar."}
 const DIST := [16000.0, 19000.0, 22000.0]   # m from the station: the three places the ship can be waiting
+## Owner (10 Nov): "I need to either bring the shield down or bring the ship's power down by fifty percent. When the ship
+## reaches 50%, it cannot generate its shield anymore because its shield is damaged." Your shots take the ship's power
+## from 100% to 50%; there the shield fails for good and you can board. It never goes below 50% (you board it, not sink it).
+const SHIELD_HP := {"Capital": 900.0, "Cruiser": 700.0, "Destroyer": 600.0, "TroopTransport": 500.0, "Resupply": 450.0}   # laser damage to take 100% -> 50%
 const BOARD_RANGE := 260.0                  # m past the hull: this close and you are aboard
 
 ## The deck missions a ship's plan has ([] = no deck plan with missions yet).
