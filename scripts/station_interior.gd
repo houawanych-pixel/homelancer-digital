@@ -203,7 +203,35 @@ func _deck(i: int) -> void:
 				_quad(ch, a + up * (wh - CHAMFER_HI), b + up * (wh - CHAMFER_HI), b + nrm * CHAMFER_HI + up * wh, a + nrm * CHAMFER_HI + up * wh, (nrm - up).normalized())
 			var hy: float = wh - (CHAMFER_HI + 0.4 if slant else 1.0)
 			_quad(hi, a + nrm * 0.03 + up * hy, b + nrm * 0.03 + up * hy, b + nrm * 0.03 + up * (hy + 0.16), a + nrm * 0.03 + up * (hy + 0.16), nrm)
-	for pair in [[st, "Walls", _mat(Color(0.6, 0.68, 0.8))], [ch, "Chamfers", _mat(Color(0.47, 0.54, 0.66))],
+	# v13.05 (owner: "we don't want just one floor, they need to be like two or even three floors"; the 360 hub pictures
+	# show balcony levels round a tall hall): floors INSIDE a tall layer. Each piece is a ring sector between two radii
+	# and two bearings (degrees clockwise from north); h0 == h1 is a balcony, h0 != h1 a ramp that climbs along the arc.
+	var bk := SurfaceTool.new(); bk.begin(Mesh.PRIMITIVE_TRIANGLES)     # balcony / ramp decks
+	var rl := SurfaceTool.new(); rl.begin(Mesh.PRIMITIVE_TRIANGLES)     # their rails
+	for pc in lv.get("decks_in", []):
+		var pr0 := float(pc["r0"]); var pr1 := float(pc["r1"])
+		var pa0 := float(pc["a0"]); var pa1 := float(pc["a1"])
+		var ph0 := float(pc["h0"]); var ph1 := float(pc["h1"])
+		var nseg := maxi(1, int(ceil(absf(pa1 - pa0) / 3.0)))
+		var gaps: Array = pc.get("gaps", [])
+		for k in nseg:
+			var t0 := float(k) / float(nseg); var t1 := float(k + 1) / float(nseg)
+			var b0 := deg_to_rad(lerpf(pa0, pa1, t0)); var b1 := deg_to_rad(lerpf(pa0, pa1, t1))
+			var e0 := y0 + lerpf(ph0, ph1, t0); var e1 := y0 + lerpf(ph0, ph1, t1)
+			var q00 := Vector3(pr0 * sin(b0), e0, -pr0 * cos(b0)); var q10 := Vector3(pr1 * sin(b0), e0, -pr1 * cos(b0))
+			var q11 := Vector3(pr1 * sin(b1), e1, -pr1 * cos(b1)); var q01 := Vector3(pr0 * sin(b1), e1, -pr0 * cos(b1))
+			_quad(bk, q00, q10, q11, q01, Vector3.UP)
+			faces.append_array([q00, q10, q11, q00, q11, q01])
+			var mid := fposmod(rad_to_deg((b0 + b1) * 0.5), 360.0)
+			var open := false
+			for gp in gaps:
+				if mid >= float(gp[0]) and mid <= float(gp[1]): open = true
+			for side in [["rail_in", q00, q01], ["rail_out", q10, q11]]:
+				if not bool(pc.get(side[0], false)) or (open and side[0] == "rail_in"): continue
+				var ra: Vector3 = side[1]; var rb: Vector3 = side[2]
+				_quad(rl, ra, rb, rb + up * 1.4, ra + up * 1.4, Vector3.UP)
+				faces.append_array([ra, rb, rb + up * 1.4, ra, rb + up * 1.4, ra + up * 1.4])
+	for pair in [[st, "Walls", _mat(Color(0.6, 0.68, 0.8))], [ch, "Chamfers", _mat(Color(0.47, 0.54, 0.66))], [bk, "Balconies", _mat(Color(0.5, 0.58, 0.72))], [rl, "Rails", _glow(Color(0.25, 0.8, 0.95))],
 			[lo, "Trim", _glow(Color(0.25, 0.8, 0.95))], [hi, "LightStrip", _glow(Color(0.75, 0.95, 1.0))]]:
 		var made: ArrayMesh = (pair[0] as SurfaceTool).commit()
 		if made == null or made.get_surface_count() == 0: continue

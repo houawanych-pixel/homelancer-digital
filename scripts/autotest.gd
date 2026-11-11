@@ -3144,6 +3144,25 @@ func _run() -> void:
 			await _wait(0.6)
 			_check("v13.01: standing in %s on %s" % [pr[1], pr[0]], sn.room_now == pr[1] and absf(sn.body.global_position.y - sn.level_y(sn.level_i)) < 1.0, "%s %s" % [sn.room_now, str(sn.body.global_position)])
 			await _shot("station_%s_%s" % [str(pr[0]).to_lower(), str(pr[1]).to_lower().replace(" / ", "_").replace(" ", "_").left(18)], 0.2)
+		# v13.05 (owner: two or three floors): the Senate Chamber has two balcony rings and ramps; you can walk up a ramp
+		var l3: Dictionary = lvs[2]
+		var bal: Array = (l3.get("decks_in", []) as Array).filter(func(q): return str(q["name"]).begins_with("Balcony"))
+		_check("v13.05: the Hub Atrium is six storeys with two balcony rings and four ramps inside the Senate Chamber", float(l3["h"]) == 108.0 and bal.size() == 2 and (l3["decks_in"] as Array).filter(func(q): return str(q["name"]).begins_with("Ramp")).size() == 4 and sn.world.get_node_or_null("Balconies_L3") != null)
+		sn.place("L3", Vector3(219.0 * sin(deg_to_rad(8.0)), 0, -219.0 * cos(deg_to_rad(8.0))))     # at the foot of the ramp that climbs from bearing 10 to 50
+		await _wait(0.4)
+		var by0: float = sn.body.global_position.y
+		for kk in 110:      # walk round the arc, up the ramp (keep turning to follow it)
+			var pp: Vector3 = sn.body.global_position
+			var brg: float = atan2(pp.x, -pp.z) + deg_to_rad(6.0)
+			var aim := Vector3(219.0 * sin(brg), pp.y, -219.0 * cos(brg))
+			sn.yaw = atan2(-(aim.x - pp.x), -(aim.z - pp.z))
+			sn.move_override = Vector2(0, 1)
+			await _wait(0.5)
+			if sn.body.global_position.y - by0 > 34.0: break
+		sn.move_override = Vector2.ZERO
+		await _wait(0.4)
+		_check("v13.05: you walk up the ramp onto the first balcony, 36 m above the hall floor", sn.body.global_position.y - by0 > 34.0 and sn.body.global_position.y - by0 < 38.5 and sn.body.is_on_floor(), "%.1f" % (sn.body.global_position.y - by0))
+		await _shot("station_balcony", 0.3)
 		# a door opens as you come up to it and you pass through
 		sn.place("L4", Vector3.ZERO)
 		var hubp := sn.room_point("L4", "Central Public Hub / Senate Rotunda")
@@ -3217,7 +3236,7 @@ func _run() -> void:
 		if is_instance_valid(main.station_deck): main.station_deck.close()
 		await _wait(0.4)
 		# the other rebuilt stations: each opens, has its decks, the lift reaches every deck, every listed room can be stood in
-		for sid2 in ["aurelion", "synthari_capital", "sepheron", "raptian_major", "malachar", "dreadholm", "vantara"]:
+		for sid2 in ([] if _flag("HL_STATION_VER_ONLY") else ["aurelion", "synthari_capital", "sepheron", "raptian_major", "malachar", "dreadholm", "vantara"]):
 			var mk: String = str(Data.SYSTEMS[sid2]["station"].get("model", ""))
 			_check("v13.01: %s's station model has its rebuilt interior" % sid2, StationInterior.for_model(mk) == sid2 and StationInterior.can_open(sid2), mk)
 			var ok2: bool = main.open_station_interior(sid2)

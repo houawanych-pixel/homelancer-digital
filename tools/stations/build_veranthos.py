@@ -370,6 +370,21 @@ def build(glb, outdir, repdir=None):
     # fits inside the hull: the wide disc is about 95 m thick inside, so it is ONE four-storey layer, not two decks.
     LEVELS = [("L1", "CROWN", 300.0, 4, "crown", True), ("L2", "GALLERY", 140.0, 4, "gallery", False), ("L3", "HUB ATRIUM", 20.0, 6, "atrium", False),
               ("L4", "MAIN / DOCKS", -250.0, 4, "main", False), ("L5", "KEEL", -380.0, 4, "keel", True)]
+    # Floors inside the tall layers (owner: two or three floors, like the 360 hub pictures: balcony rings round the hall,
+    # ramps wide enough for a mech). Radii in m from the axis, bearings in degrees clockwise from north, heights above
+    # the layer's floor. The hall's wall is at about 367 m.
+    def _hall(top_levels):
+        out = [{"r0": 250.0, "r1": 362.0, "a0": 0.0, "a1": 360.0, "h0": 36.0, "h1": 36.0, "rail_in": True, "rail_out": True, "gaps": [[50, 58], [230, 238], [100, 108], [280, 288]], "name": "Balcony 1"}]
+        for a in (10.0, 190.0):
+            out.append({"r0": 190.0, "r1": 248.0, "a0": a, "a1": a + 40.0, "h0": 0.0, "h1": 36.0, "rail_in": True, "rail_out": True, "name": "Ramp to Balcony 1"})
+            out.append({"r0": 190.0, "r1": 250.0, "a0": a + 40.0, "a1": a + 48.0, "h0": 36.0, "h1": 36.0, "rail_in": True, "name": "Landing"})
+        if top_levels >= 2:
+            out.append({"r0": 305.0, "r1": 362.0, "a0": 0.0, "a1": 360.0, "h0": 72.0, "h1": 72.0, "rail_in": True, "rail_out": True, "gaps": [[140, 148], [320, 328]], "name": "Balcony 2"})
+            for a in (100.0, 280.0):
+                out.append({"r0": 250.0, "r1": 303.0, "a0": a, "a1": a + 40.0, "h0": 36.0, "h1": 72.0, "rail_in": True, "rail_out": True, "name": "Ramp to Balcony 2"})
+                out.append({"r0": 250.0, "r1": 305.0, "a0": a + 40.0, "a1": a + 48.0, "h0": 72.0, "h1": 72.0, "rail_in": True, "name": "Landing"})
+        return out
+    DECKS_IN = {"atrium": _hall(2), "main": _hall(1), "gallery": _hall(1)}
     ARMS12 = [0, 24, 48, 90, 132, 156, 180, 204, 228, 270, 312, 336]     # the model's twelve arms, made symmetrical
     SPOKE_W = 60.0; POD_R = 1900.0
     decks = []; levels_out = []
@@ -554,7 +569,7 @@ def build(glb, outdir, repdir=None):
         mp = "veranthos_%s.jpg" % lid.lower()
         cv2.imwrite(os.path.join(outdir, mp), cv2.resize(im, (1024, 1024), interpolation=cv2.INTER_AREA), [cv2.IMWRITE_JPEG_QUALITY, 85])
         if repdir: cv2.imwrite(os.path.join(repdir, "veranthos_%s_full.jpg" % lid.lower()), im, [cv2.IMWRITE_JPEG_QUALITY, 88])
-        levels_out.append({"id": lid, "name": lname, "y": round(ym * K, 1), "proposed": proposed, "map": mp, "h": hgt, "storeys": storeys,
+        levels_out.append({"id": lid, "name": lname, "y": round(ym * K, 1), "proposed": proposed, "map": mp, "h": hgt, "storeys": storeys, "decks_in": DECKS_IN.get(lay, []),
                            "walls": outlines(dk.f), "doors": dk.doors,
                            "rooms": [{"name": r["name"], "x": round(r["at"][0], 1), "z": round(r["at"][1], 1), "rad": round(r["rad"] * 1.4, 1)} for r in dk.rooms],
                            "lifts": lifts_xy(), "ports": ports})
