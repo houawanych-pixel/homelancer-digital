@@ -154,7 +154,7 @@ def finish(sp, sid, L, dk, foot, raw, lifts, ports, outdir, repdir, rep, Rin):
     dk.f &= live
     dk.rooms = [r for r in dk.rooms if r["name"] not in cut]
     outside = int((dk.f & (1 - raw)).sum())
-    rep[lid] = {"name": L["name"], "height_m": round(y), "proposed_addition": L["proposed"], "hull_inscribed_radius_m": round(Rin),
+    rep[lid] = {"name": L["name"], "height_m": round(y), "storeys": L.get("storeys", 1), "proposed_addition": L["proposed"], "hull_inscribed_radius_m": round(Rin),
                 "floor_area_km2": round(float(dk.f.sum()) * PX * PX / 1e6, 3), "floor_outside_measured_hull_m2": round(outside * PX * PX),
                 "rooms": len(dk.rooms), "doors": len(dk.doors), "rooms_dropped_unreachable": cut,
                 "lifts_on_walkable_floor": [bool(s0 and lab[p[1], p[0]] == s0) for p in lx],
@@ -183,7 +183,7 @@ def finish(sp, sid, L, dk, foot, raw, lifts, ports, outdir, repdir, rep, Rin):
     mp = "%s_%s.jpg" % (sid, lid.lower())
     cv2.imwrite(os.path.join(outdir, mp), cv2.resize(im, (1024, 1024), interpolation=cv2.INTER_AREA), [cv2.IMWRITE_JPEG_QUALITY, 85])
     if repdir: cv2.imwrite(os.path.join(repdir, "%s_%s_full.jpg" % (sid, lid.lower())), im, [cv2.IMWRITE_JPEG_QUALITY, 88])
-    return ({"id": lid, "name": L["name"], "y": round(y, 1), "proposed": L["proposed"], "map": mp, "map_extent_m": round(2 * h_ * PX, 1),
+    return ({"id": lid, "name": L["name"], "y": round(y, 1), "proposed": L["proposed"], "map": mp, "map_extent_m": round(2 * h_ * PX, 1), "h": L.get("h", B.ROOM_H), "storeys": L.get("storeys", 1), "decks_in": L.get("decks_in", []),
                        "walls": outlines(dk.f), "doors": dk.doors,
                        "rooms": [{"name": r["name"], "x": round(r["at"][0], 1), "z": round(r["at"][1], 1), "rad": round(r["rad"] * 1.4, 1)} for r in dk.rooms],
                        "lifts": lifts, "ports": ports})
@@ -208,11 +208,42 @@ def build(sid, glbdir, outdir, repdir=None):
         lid, y, G = L["id"], L["y"], L.get("G", 34.0)
         L["lift_names"] = tuple(L.get("lifts", ("NE", "SE", "SW", "NW")))      # which shafts stop at this deck
         lifts = [[round(q, 1) for q in pol(LIFT_R, ANG4[nm])] for nm in L["lift_names"]]
-        mfoot, raw = B.footprint(tri, y)
+        # v13.05 layer method (owner): each layer is two or more storeys tall, as tall as the hull allows up to the layer
+        # above; its outline is the model's true section there, mirrored and straightened; where that outline reaches
+        # past the round body, the extra floor is kept as an outer bay.
+        ups = sorted(q["y"] for q in sp["levels"] if q["y"] > y)
+        room_cap = (ups[0] - 6.0 - y) if ups else 9999.0
+        base_r = None; storeys = 2
+        for st_ in (2, 3, 4, 6):
+            if st_ * B.ROOM_H > room_cap: break
+            mf_, _ = B.footprint(tri, y, room_h=st_ * B.ROOM_H)
+            if not mf_.any(): break
+            r_ = float(Deck(mf_).R[mf_ == 0].min())
+            if base_r is None: base_r = r_
+            if r_ < max(LIFT_R + 50.0, 0.9 * base_r): break
+            storeys = st_
+        storeys = int(L.get("storeys", storeys)); hgt = storeys * B.ROOM_H
+        L["h"] = hgt; L["storeys"] = storeys
+        mfoot, raw = B.footprint(tri, y, room_h=hgt)
+        sil = B.mirror_clean(raw, sp.get("mirror", "LR"))
         tmp = Deck(mfoot)
-        Rin = float(tmp.R[mfoot == 0].min())
+        Rin = float(tmp.R[(mfoot == 0) | (sil == 0)].min())
         foot = (tmp.R < Rin).astype(np.uint8)
-        arm_parts = []; ports = []
+        arm_parts = []; ports = []; lobes = []
+        if not L.get("arms"):
+            beyond = (sil & (tmp.R > Rin + WALL + 6).astype(np.uint8))
+            beyond = cv2.morphologyEx(beyond, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15)))
+            n_, lab_, st2_, cen_ = cv2.connectedComponentsWithStats(beyond, connectivity=8)
+            for i_ in range(1, n_):
+                if st2_[i_, cv2.CC_STAT_AREA] * PX * PX < 9000.0: continue
+                lm = (lab_ == i_).astype(np.uint8)
+                dm_ = cv2.distanceTransform(lm, cv2.DIST_L2, 5); yy_, xx_ = np.unravel_index(int(np.argmax(dm_)), dm_.shape)
+                if dm_[yy_, xx_] * PX < 22.0: continue                    # (too thin to stand in)
+                cx_, cz_ = (xx_ - C) * PX, (yy_ - C) * PX
+                ang_ = float(np.degrees(np.arctan2(cx_, -cz_)) % 360)
+                neck_ = np.zeros((N, N), np.uint8); cv2.line(neck_, P(*pol(Rin - 10, ang_)), P(cx_, cz_), 1, int(round(30.0 / PX)))
+                lobes.append({"mask": lm, "neck": neck_, "a": ang_, "c": (cx_, cz_), "rad": float(dm_[yy_, xx_]) * PX})
+                foot |= lm | neck_
         if L.get("arms"):
             # arms: read from the model's outline round this deck's height (the hull within 120 m above or below it)
             sil = ((bot < y + 120.0) & (top > y - 120.0)).astype(np.uint8)
@@ -274,6 +305,31 @@ def build(sid, glbdir, outdir, repdir=None):
             dk.doors.append({"x": round(float(x), 1), "z": round(float(z), 1), "yaw": round(ap["a"], 1), "w": 36.0})
             got.append({"name": ap["name"], "direction_deg": round(ap["a"], 1), "pod_centre_from_axis_m": round(ap["r_pod"])})
         if got: rep["main_deck_arms_built"] = got
+        used_ = {}
+        for lb in lobes:                                         # the outline's outer bays: floor, a neck to the body, a door
+            dk.f |= lb["mask"] | lb["neck"]
+            q_ = min({0: "North Bay", 90: "East Bay", 180: "South Bay", 270: "West Bay"}.items(), key=lambda q: abs((lb["a"] - q[0] + 180) % 360 - 180))
+            nm_ = q_[1] if abs((lb["a"] - q_[0] + 180) % 360 - 180) < 14 else "Outer Bay %03d" % int(round(lb["a"]))
+            used_[nm_] = used_.get(nm_, 0) + 1
+            if used_[nm_] > 1: nm_ = "%s %d" % (nm_, used_[nm_])
+            dk.rooms.append({"name": nm_, "mask": lb["mask"], "at": lb["c"], "rad": lb["rad"], "doors": 1, "links": set()})
+            xg, zg = pol(Rin + 4, lb["a"])
+            dk.doors.append({"x": round(float(xg), 1), "z": round(float(zg), 1), "yaw": round(lb["a"], 1), "w": 30.0})
+        # floors inside the tall hall: balcony rings and ramps, sized to this station's hall
+        rw = ring[0] - WALL - 34.0; din = []
+        if storeys >= 4 and rw >= 200.0:
+            b0 = round(rw * 0.68, 1); r0_ = round(rw * 0.52, 1)
+            din.append({"r0": b0, "r1": round(rw - 5.0, 1), "a0": 0.0, "a1": 360.0, "h0": 36.0, "h1": 36.0, "rail_in": True, "rail_out": True, "gaps": [[50, 58], [230, 238], [100, 108], [280, 288]], "name": "Balcony 1"})
+            for a in (10.0, 190.0):
+                din.append({"r0": r0_, "r1": b0 - 2.0, "a0": a, "a1": a + 40.0, "h0": 0.0, "h1": 36.0, "rail_in": True, "rail_out": True, "name": "Ramp to Balcony 1"})
+                din.append({"r0": r0_, "r1": b0, "a0": a + 40.0, "a1": a + 48.0, "h0": 36.0, "h1": 36.0, "rail_in": True, "name": "Landing"})
+            if storeys >= 6:
+                b1 = round(rw * 0.83, 1)
+                din.append({"r0": b1, "r1": round(rw - 5.0, 1), "a0": 0.0, "a1": 360.0, "h0": 72.0, "h1": 72.0, "rail_in": True, "rail_out": True, "gaps": [[140, 148], [320, 328]], "name": "Balcony 2"})
+                for a in (100.0, 280.0):
+                    din.append({"r0": b0, "r1": b1 - 2.0, "a0": a, "a1": a + 40.0, "h0": 36.0, "h1": 72.0, "rail_in": True, "rail_out": True, "name": "Ramp to Balcony 2"})
+                    din.append({"r0": b0, "r1": b1, "a0": a + 40.0, "a1": a + 48.0, "h0": 72.0, "h1": 72.0, "rail_in": True, "name": "Landing"})
+        L["decks_in"] = din
         levels_out.append(finish(sp, sid, L, dk, foot, raw, lifts, ports, outdir, repdir, rep, Rin)); decks.append((L, dk))
     rep["lifts"] = {"shafts_xz_m": dict(zip(("NE", "SE", "SW", "NW"), lifts_all)), "distance_from_axis_m": LIFT_R, "stops": {L["id"]: list(L["lift_names"]) for L in sp["levels"]},
                     "serve": "all four shafts serve every deck" if all(all(rep[L["id"]]["lifts_on_walkable_floor"]) for L in sp["levels"]) else "NOT all shafts reach every deck"}

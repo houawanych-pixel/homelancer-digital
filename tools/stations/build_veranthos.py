@@ -51,11 +51,14 @@ def heightmaps(tri):
     _HM["top"], _HM["bot"] = top, bot
     return top, bot
 
-def mirror_clean(mk):
+def mirror_clean(mk, mode="D2"):
     """Owner (10 Nov): "clean it up ... with a mirror from the front view or the top view ... fixing some of the sloppy
     lines". The section is mirrored left-right and top-bottom, kept where at least 2 of the 4 copies agree, and every
     outline straightened into a few straight runs."""
-    s_ = mk.astype(np.int32) + mk[:, ::-1] + mk[::-1, :] + mk[::-1, ::-1]; out = (s_ >= 2).astype(np.uint8)
+    # (mode "LR": left-right only, kept where either copy has hull, the owner-approved "LR union" envelope)
+    if mode == "LR": out = (mk | mk[:, ::-1]).astype(np.uint8)
+    else:
+        s_ = mk.astype(np.int32) + mk[:, ::-1] + mk[::-1, :] + mk[::-1, ::-1]; out = (s_ >= 2).astype(np.uint8)
     k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9)); out = cv2.morphologyEx(cv2.morphologyEx(out, cv2.MORPH_CLOSE, k), cv2.MORPH_OPEN, k)
     n, lab = cv2.connectedComponents(out, connectivity=8)
     out = (lab == lab[int(C), int(C)]).astype(np.uint8) if lab[int(C), int(C)] else out * 0
