@@ -1,0 +1,125 @@
+{
+ "plan": "HL_ImperiumTroopTransport_HoloDeck_20261109_v1.png",
+ "auto": true,
+ "start": [
+  625,
+  474
+ ],
+ "ignore": [],
+ "open": [],
+ "rooms": [
+  {
+   "name": "Bridge",
+   "at": [
+    494,
+    151
+   ]
+  },
+  {
+   "name": "Sensors Suite",
+   "at": [
+    495,
+    237
+   ]
+  },
+  {
+   "name": "Briefing Room",
+   "at": [
+    387,
+    340
+   ]
+  },
+  {
+   "name": "Comms Center",
+   "at": [
+    606,
+    340
+   ]
+  },
+  {
+   "name": "Command & Control",
+   "at": [
+    494,
+    360
+   ]
+  },
+  {
+   "name": "Armory",
+   "at": [
+    365,
+    474
+   ]
+  },
+  {
+   "name": "Medbay",
+   "at": [
+    625,
+    474
+   ]
+  },
+  {
+   "name": "Barracks",
+   "at": [
+    298,
+    654
+   ]
+  },
+  {
+   "name": "Barracks",
+   "at": [
+    691,
+    662
+   ]
+  },
+  {
+   "name": "Ready Room",
+   "at": [
+    700,
+    768
+   ]
+  },
+  {
+   "name": "Ready Room",
+   "at": [
+    289,
+    769
+   ]
+  },
+  {
+   "name": "Lockers",
+   "at": [
+    706,
+    871
+   ]
+  },
+  {
+   "name": "Lockers",
+   "at": [
+    284,
+    879
+   ]
+  },
+  {
+   "name": "Engineering Deck",
+   "at": [
+    498,
+    1145
+   ]
+  },
+  {
+   "name": "Reactor Core",
+   "at": [
+    494,
+    1272
+   ]
+  },
+  {
+   "name": "Engine Room",
+   "at": [
+    494,
+    1377
+   ]
+  }
+ ],
+ "lifts": []
+}

@@ -1,0 +1,153 @@
+{
+ "plan": "HL_ImperiumCapital_HoloDeck_20261109_v1.png",
+ "auto": true,
+ "start": [
+  506,
+  195
+ ],
+ "ignore": [],
+ "open": [],
+ "rooms": [
+  {
+   "name": "Bridge Command Deck",
+   "at": [
+    506,
+    195
+   ]
+  },
+  {
+   "name": "Briefing Room",
+   "at": [
+    572,
+    282
+   ]
+  },
+  {
+   "name": "Sensors Suite",
+   "at": [
+    439,
+    291
+   ]
+  },
+  {
+   "name": "CIC (Combat Information Center)",
+   "at": [
+    506,
+    391
+   ]
+  },
+  {
+   "name": "Crew Quarters",
+   "at": [
+    635,
+    464
+   ]
+  },
+  {
+   "name": "Galley & Mess",
+   "at": [
+    374,
+    537
+   ]
+  },
+  {
+   "name": "Medbay",
+   "at": [
+    640,
+    553
+   ]
+  },
+  {
+   "name": "Weapon Control",
+   "at": [
+    272,
+    656
+   ]
+  },
+  {
+   "name": "Weapon Control",
+   "at": [
+    743,
+    656
+   ]
+  },
+  {
+   "name": "Hangar Bay",
+   "at": [
+    516,
+    716
+   ]
+  },
+  {
+   "name": "Armory",
+   "at": [
+    270,
+    758
+   ]
+  },
+  {
+   "name": "Armory",
+   "at": [
+    743,
+    758
+   ]
+  },
+  {
+   "name": "Barracks",
+   "at": [
+    133,
+    825
+   ]
+  },
+  {
+   "name": "Barracks",
+   "at": [
+    879,
+    826
+   ]
+  },
+  {
+   "name": "Vehicle Bay",
+   "at": [
+    507,
+    951
+   ]
+  },
+  {
+   "name": "Cargo Hold A",
+   "at": [
+    737,
+    956
+   ]
+  },
+  {
+   "name": "Cargo Hold B",
+   "at": [
+    289,
+    960
+   ]
+  },
+  {
+   "name": "Engineering Deck",
+   "at": [
+    506,
+    1080
+   ]
+  },
+  {
+   "name": "Reactor Core",
+   "at": [
+    506,
+    1212
+   ]
+  },
+  {
+   "name": "Engine Room",
+   "at": [
+    507,
+    1323
+   ]
+  }
+ ],
+ "lifts": []
+}

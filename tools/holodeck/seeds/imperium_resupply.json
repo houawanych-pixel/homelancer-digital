@@ -1,0 +1,132 @@
+{
+ "plan": "HL_ImperiumResupply_HoloDeck_20261109_v1.png",
+ "auto": true,
+ "start": [
+  660,
+  438
+ ],
+ "ignore": [],
+ "open": [],
+ "rooms": [
+  {
+   "name": "Bridge",
+   "at": [
+    512,
+    166
+   ]
+  },
+  {
+   "name": "Sensors Suite",
+   "at": [
+    434,
+    258
+   ]
+  },
+  {
+   "name": "Sensors Suite",
+   "at": [
+    589,
+    258
+   ]
+  },
+  {
+   "name": "CIC",
+   "at": [
+    512,
+    318
+   ]
+  },
+  {
+   "name": "Crew Quarters",
+   "at": [
+    363,
+    346
+   ]
+  },
+  {
+   "name": "Crew Quarters",
+   "at": [
+    660,
+    346
+   ]
+  },
+  {
+   "name": "Medbay",
+   "at": [
+    660,
+    438
+   ]
+  },
+  {
+   "name": "Galley & Mess",
+   "at": [
+    364,
+    453
+   ]
+  },
+  {
+   "name": "Cargo Transfer Hub",
+   "at": [
+    513,
+    608
+   ]
+  },
+  {
+   "name": "Munitions Resupply",
+   "at": [
+    683,
+    1023
+   ]
+  },
+  {
+   "name": "Refrigerated Stores",
+   "at": [
+    352,
+    1024
+   ]
+  },
+  {
+   "name": "General Storage",
+   "at": [
+    513,
+    1036
+   ]
+  },
+  {
+   "name": "Engineering Deck",
+   "at": [
+    512,
+    1125
+   ]
+  },
+  {
+   "name": "Coolant / Systems",
+   "at": [
+    263,
+    1141
+   ]
+  },
+  {
+   "name": "Coolant / Systems",
+   "at": [
+    778,
+    1141
+   ]
+  },
+  {
+   "name": "Reactor Core",
+   "at": [
+    512,
+    1232
+   ]
+  },
+  {
+   "name": "Engine Room",
+   "at": [
+    513,
+    1299
+   ]
+  }
+ ],
+ "lifts": []
+}

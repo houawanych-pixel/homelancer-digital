@@ -2969,6 +2969,10 @@ func _run() -> void:
 		_check("v13.02: an Imperium station lists its rival Unity's five big ships to board (no bomber, no scout)", offs.size() == 5 and offs.all(func(o): return str(o["faction"]) == "Unity" and str(o["class"]) in BoardingJobs.BIG), str(offs.map(func(o): return o["id"])))
 		_check("v13.02: every one has a deck mission, 10 to 15 fighters by size (the capital the most), and pay", offs.all(func(o): return bool(o["ready"]) and str(o["kind"]) in ["sabotage", "capture", "rescue"] and int(o["fighters"]) >= 10 and int(o["fighters"]) <= 15 and int(o["pay"]) > 0)
 			and int(offs.filter(func(o): return str(o["class"]) == "Capital")[0]["fighters"]) == 15, str(offs.map(func(o): return [o["id"], o["kind"], o["fighters"], o["pay"]])))
+		var off_v: Array = BoardingJobs.offers("veranthos", "Unity")
+		var off_c: Array = BoardingJobs.offers("sepheron", "Covenant")
+		_check("v13.03 (owner: build every fleet ship we have plans for): a Unity station now offers the five Imperium big ships, a Covenant station the four Elyza ones that have plans (no Elyza Troop Transport plan is built)",
+			off_v.size() == 5 and off_v.all(func(o): return bool(o["ready"]) and str(o["faction"]) == "Imperium") and off_c.filter(func(o): return bool(o["ready"]) and str(o["faction"]) == "Elyza").size() == 4, "%s | %s" % [str(off_v.map(func(o): return [o["id"], o["ready"]])), str(off_c.map(func(o): return [o["id"], o["ready"]]))])
 		var offs_u: Array = BoardingJobs.offers("aurelion", "Elyza")
 		_check("v13.02: a ship whose deck plan has no missions yet is listed but cannot be taken (Covenant ships, at an Elyza station)", offs_u.size() >= 1 and offs_u.all(func(o): return not bool(o["ready"])), str(offs_u.map(func(o): return [o["id"], o["ready"]])))
 		var pts0: Array = BoardingJobs.points("aurelion", Vector3.ZERO, [])
@@ -3017,7 +3021,10 @@ func _run() -> void:
 			main.board_damage(5000.0)
 			_check("v13.02 (owner): it stops at 50%: the shield is down for good", is_equal_approx(main.board_power(), 50.0) and (ship.get_node("PowerLabel") as Label3D).text.contains("SHIELD DOWN"))
 			await _shot("boardjob_shield_down", 0.4)
-			await _until(func(): return is_instance_valid(main.ship_deck), 6.0)
+			for k9 in 8:      # (the escort is shooting and pushing: fly back to the hull until you are aboard)
+				if is_instance_valid(main.ship_deck): break
+				_tp(ship.global_position + Vector3(0, 0, float(ship.get_meta("radius")) + 150.0), ship.global_position)
+				await _wait(1.0)
 			var sd2: ShipInterior = main.ship_deck
 			_check("v13.02: reaching the ship puts you aboard its deck plan with the job's mission running", is_instance_valid(sd2) and main.state == "ship_deck" and sd2.mission == str(jb["kind"]) and sd2.m_stage == 0, main.state)
 			if is_instance_valid(sd2):
@@ -3043,7 +3050,7 @@ func _run() -> void:
 		_check("v12.97: the fleet catalog has all 72 faction ships", all.size() == 72, str(all.size()))
 		var no_tok := all.values().filter(func(e): return not ResourceLoader.exists(str(e["token"])))
 		_check("v12.97: every fleet ship has its roster token", no_tok.is_empty(), str(no_tok.map(func(e): return e["id"])))
-		_check("v12.97: HoloDeck pointers only where the file exists (14: Unity 9, Elyza 5)", FleetCatalog.all().values().filter(func(e): return str(e["holodeck"]) != "").size() == 14 and ResourceLoader.exists(str(all["unity_capital"]["holodeck_res"])))
+		_check("v12.97: HoloDeck pointers only where the file exists (one per listed plan file)", FleetCatalog.all().values().filter(func(e): return str(e["holodeck"]) != "").size() == FleetCatalog.HOLODECK_FILES.size() and FleetCatalog.HOLODECK_FILES.size() >= 19 and ResourceLoader.exists(str(all["unity_capital"]["holodeck_res"])))
 		_check("v12.97: crops for every ship", all.keys().all(func(k): return FleetCatalog.crop(k).size() == 4))
 		_check("v12.97: the player dealer ships are unchanged", Data.SHIP_ORDER.size() >= 3 and Data.SHIPS.has("cadet"))
 		main.start_game()
