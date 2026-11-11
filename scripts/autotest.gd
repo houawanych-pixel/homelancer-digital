@@ -2973,8 +2973,8 @@ func _run() -> void:
 		var off_c: Array = BoardingJobs.offers("sepheron", "Covenant")
 		_check("v13.03 (owner: build every fleet ship we have plans for): a Unity station now offers the five Imperium big ships, a Covenant station the four Elyza ones that have plans (no Elyza Troop Transport plan is built)",
 			off_v.size() == 5 and off_v.all(func(o): return bool(o["ready"]) and str(o["faction"]) == "Imperium") and off_c.filter(func(o): return bool(o["ready"]) and str(o["faction"]) == "Elyza").size() == 4, "%s | %s" % [str(off_v.map(func(o): return [o["id"], o["ready"]])), str(off_c.map(func(o): return [o["id"], o["ready"]]))])
-		var offs_u: Array = BoardingJobs.offers("aurelion", "Elyza")
-		_check("v13.02: a ship whose deck plan has no missions yet is listed but cannot be taken (Covenant ships, at an Elyza station)", offs_u.size() >= 1 and offs_u.all(func(o): return not bool(o["ready"])), str(offs_u.map(func(o): return [o["id"], o["ready"]])))
+		var offs_u: Array = BoardingJobs.offers("synthari_capital", "Solarion")
+		_check("v13.02: a ship whose deck plan has no missions yet is listed but cannot be taken (Orion ships, at a Solarion station)", offs_u.size() >= 1 and offs_u.all(func(o): return not bool(o["ready"])), str(offs_u.map(func(o): return [o["id"], o["ready"]])))
 		var pts0: Array = BoardingJobs.points("aurelion", Vector3.ZERO, [])
 		var pts1: Array = BoardingJobs.points("aurelion", Vector3.ZERO, [{"center": Vector3(30000, 0, 0), "radius": 4000.0}])
 		_check("v13.02: three waiting places, each 16 km or more from the station; with a nebula in the system one is inside it", pts0.size() == 3 and pts0.all(func(q): return (q["pos"] as Vector3).length() >= 15900.0) and bool(pts1[0]["nebula"]) and (pts1[0]["pos"] as Vector3).is_equal_approx(Vector3(30000, 0, 0)), str(pts0))

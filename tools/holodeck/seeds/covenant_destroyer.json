@@ -1,0 +1,146 @@
+{
+ "plan": "HL_CovenantDestroyer_HoloDeck_20261109_v1.png",
+ "auto": true,
+ "start": [
+  610,
+  542
+ ],
+ "ignore": [],
+ "open": [],
+ "rooms": [
+  {
+   "name": "Bridge",
+   "at": [
+    512,
+    213
+   ]
+  },
+  {
+   "name": "Sensors",
+   "at": [
+    462,
+    291
+   ]
+  },
+  {
+   "name": "Sensors",
+   "at": [
+    561,
+    291
+   ]
+  },
+  {
+   "name": "CIC",
+   "at": [
+    512,
+    377
+   ]
+  },
+  {
+   "name": "Crew Quarters",
+   "at": [
+    416,
+    452
+   ]
+  },
+  {
+   "name": "Crew Quarters",
+   "at": [
+    607,
+    452
+   ]
+  },
+  {
+   "name": "Galley & Mess",
+   "at": [
+    415,
+    523
+   ]
+  },
+  {
+   "name": "Medbay",
+   "at": [
+    610,
+    542
+   ]
+  },
+  {
+   "name": "Armory",
+   "at": [
+    512,
+    583
+   ]
+  },
+  {
+   "name": "Launch Bay",
+   "at": [
+    512,
+    700
+   ]
+  },
+  {
+   "name": "Weapons Bay",
+   "at": [
+    321,
+    721
+   ]
+  },
+  {
+   "name": "Weapons Bay",
+   "at": [
+    702,
+    721
+   ]
+  },
+  {
+   "name": "Missile Magazine",
+   "at": [
+    512,
+    835
+   ]
+  },
+  {
+   "name": "Cargo Hold",
+   "at": [
+    404,
+    934
+   ]
+  },
+  {
+   "name": "Cargo Hold",
+   "at": [
+    620,
+    934
+   ]
+  },
+  {
+   "name": "Engineering",
+   "at": [
+    512,
+    1021
+   ]
+  },
+  {
+   "name": "Reactor Core",
+   "at": [
+    512,
+    1111
+   ]
+  },
+  {
+   "name": "Engine Room",
+   "at": [
+    411,
+    1152
+   ]
+  },
+  {
+   "name": "Engine Room",
+   "at": [
+    613,
+    1152
+   ]
+  }
+ ],
+ "lifts": []
+}

@@ -62,6 +62,8 @@ const HOLODECK_FILES := [
 	# v13.03 (owner: "build every one of those fleet ships ... build what we have first"): the big ships first
 	"HL_ImperiumCapital_HoloDeck_20261109_v1", "HL_ImperiumCruiser_HoloDeck_20261109_v1", "HL_ImperiumDestroyer_HoloDeck_20261109_v1",
 	"HL_ImperiumResupply_HoloDeck_20261109_v1", "HL_ImperiumTroopTransport_HoloDeck_20261109_v1",
+	"HL_CovenantCapital_HoloDeck_20261109_v1", "HL_CovenantCruiser_HoloDeck_20261109_v1", "HL_CovenantDestroyer_HoloDeck_20261109_v1",
+	"HL_CovenantResupply_HoloDeck_20261109_v1", "HL_CovenantTroopTransport_HoloDeck_20261109_v1",
 ]
 ## How a faction's own systems show its fleet (FleetCatalog.spawn_plan): where each class sits.
 ##   patrol = slow loop well out from the station; screen = tighter loop near the station;

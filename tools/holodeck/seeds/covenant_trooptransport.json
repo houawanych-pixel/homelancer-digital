@@ -1,0 +1,132 @@
+{
+ "plan": "HL_CovenantTroopTransport_HoloDeck_20261109_v1.png",
+ "auto": true,
+ "start": [
+  720,
+  919
+ ],
+ "ignore": [],
+ "open": [],
+ "rooms": [
+  {
+   "name": "Bridge",
+   "at": [
+    513,
+    199
+   ]
+  },
+  {
+   "name": "Sensors Suite",
+   "at": [
+    513,
+    269
+   ]
+  },
+  {
+   "name": "Command & Control",
+   "at": [
+    512,
+    359
+   ]
+  },
+  {
+   "name": "Briefing Room",
+   "at": [
+    513,
+    463
+   ]
+  },
+  {
+   "name": "Ready Room (L)",
+   "at": [
+    357,
+    573
+   ]
+  },
+  {
+   "name": "Ready Room (R)",
+   "at": [
+    678,
+    573
+   ]
+  },
+  {
+   "name": "Barracks",
+   "at": [
+    346,
+    647
+   ]
+  },
+  {
+   "name": "Barracks",
+   "at": [
+    680,
+    647
+   ]
+  },
+  {
+   "name": "Barracks",
+   "at": [
+    346,
+    732
+   ]
+  },
+  {
+   "name": "Barracks",
+   "at": [
+    680,
+    732
+   ]
+  },
+  {
+   "name": "Lockers",
+   "at": [
+    347,
+    813
+   ]
+  },
+  {
+   "name": "Lockers",
+   "at": [
+    680,
+    813
+   ]
+  },
+  {
+   "name": "Medbay",
+   "at": [
+    720,
+    919
+   ]
+  },
+  {
+   "name": "Armory",
+   "at": [
+    306,
+    921
+   ]
+  },
+  {
+   "name": "Engineering Deck",
+   "at": [
+    513,
+    1114
+   ]
+  },
+  {
+   "name": "Reactor Core",
+   "at": [
+    513,
+    1222
+   ]
+  },
+  {
+   "name": "Engine Room",
+   "at": [
+    513,
+    1328
+   ]
+  }
+ ],
+ "lifts": []
+}
