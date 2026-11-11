@@ -32,6 +32,13 @@ def main(png, dbg=None):
     rc, o = run(os.path.join(HERE, "decks.py"), out, os.path.join(ROOT, "assets", "holodeck"), os.path.join(dbg, sid + "_decks.jpg"))
     if rc: res["fail"] = "decks: " + o[-300:]; print(json.dumps(res)); return res
     dk = json.loads(o.splitlines()[-1]); d = json.load(open(out))
+    # "reachable" on each room was set by extract.py on its coarse 0.6 m grid. The game walks the traced shell, and
+    # trace.py has just checked every labelled room on that (floor shrunk by the player's width, its auto-links listed
+    # in "links"): record that result, so the flag says what is true in the game.
+    grid_cut = [r["name"] for r in d["rooms"] if not r.get("reachable", True)]
+    for r in d["rooms"]: r["reachable"] = r["name"] not in tr["cut_off"]
+    d["reach_note"] = {"checked_on": "traced shell (trace.py)", "coarse_grid_said_cut_off": grid_cut, "shell_links": tr["links"]}
+    json.dump(d, open(out, "w"), separators=(",", ":"))
     res.update({"rooms_main": len(d["rooms"]), "names": [r["name"] for r in d["rooms"]], "cut_off": tr["cut_off"], "links": tr["links"], "start_ok": tr["start_ok"],
                 "decks": dk["decks"], "missions": sorted(dk["objectives"].keys())})
     res["ok"] = bool(tr["start_ok"]) and not tr["cut_off"] and {"sabotage", "capture"} <= set(dk["objectives"].keys()) and len(d["rooms"]) >= 6

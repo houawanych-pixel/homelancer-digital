@@ -3377,7 +3377,7 @@ func _run() -> void:
 		await _wait(0.3)
 		_check("v12.97: LEAVE SHIP returns", not is_instance_valid(main.ship_deck) and main.state != "ship_deck", main.state)
 		var built := FleetCatalog.with_stage().map(func(e): return str(e["id"]))
-		_check("v13.00: a stage for every HoloDeck plan in hand (14: Unity 9, Elyza 5)", built.size() == 14, str(built))
+		_check("v13.00: a stage for every HoloDeck plan in hand (one per listed plan file)", built.size() == FleetCatalog.HOLODECK_FILES.size() and built.size() >= 24, str(built.size()))
 		for sid in (built if OS.get_environment("HL_DECKS_ONLY") == "" else []):   # (HL_DECKS_ONLY=1: skip the every-ship pass while working on one ship)
 			main.open_ship_interior(str(sid))
 			await _wait(0.5)
