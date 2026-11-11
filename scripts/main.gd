@@ -53,6 +53,7 @@ func _ready() -> void:
 	hub.map_requested.connect(func(): navmap.open(null))
 	hub.galaxy_requested.connect(func(): galaxymap.open(GS.system_id))   # v3.1: the GALAXY MAP tile on HOME
 	hub.descend_requested.connect(descend_to)
+	hub.walk_requested.connect(func(id: String): open_station_interior(id, true))   # v13.02: WALK THE STATION (rebuilt stations)
 	hub.interior_requested.connect(open_ship_interior)   # v12.97: a fleet ship's DECK PLAN (ShipInterior)
 	navmap.closed.connect(_on_map_closed)
 	navmap.wild_toggle.connect(func(): if is_instance_valid(space) and space.surface_mode: wild_test_here(not space.wild_park))
@@ -400,7 +401,7 @@ func _close_ship_interior() -> void:
 var station_deck: StationInterior
 var _stn_layer: CanvasLayer
 var _stn_from := ""
-func open_station_interior(id: String) -> bool:
+func open_station_interior(id: String, docked := false) -> bool:
 	if is_instance_valid(station_deck) or is_instance_valid(ship_deck): return false
 	var st := StationInterior.create(id)
 	if st == null:
@@ -417,7 +418,20 @@ func open_station_interior(id: String) -> bool:
 	hub.visible = false
 	state = "station_deck"
 	st.left.connect(_close_station_interior)
+	# v13.02: docked here = the rooms are the station's services, and you come aboard at a docking bay
+	st.services_on = docked and _stn_from == "hub"
+	if st.services_on:
+		st.service.connect(_stn_service)
+		var at := st.arrival()
+		if at != Vector3.INF: st.place(str(st.data["start"]["level"]), at)
 	return true
+## v13.02: a service asked for from its room: back to the station page that does the work (or out to your ship).
+func _stn_service(screen: String) -> void:
+	if not is_instance_valid(station_deck): return
+	station_deck.close()
+	if state != "hub": return
+	if screen == "launch": launch()
+	else: hub.show_screen(screen)
 var _stn_hid: Array = [false, false]
 func _close_station_interior() -> void:
 	state = _stn_from if _stn_from != "" else "hub"

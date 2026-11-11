@@ -7,6 +7,7 @@ signal escape_requested(faction: String)   # v12.30: the 3D on-foot escape (main
 signal map_requested
 signal galaxy_requested   # v3.1: the GALAXY MAP tile on HOME
 signal descend_requested(planet_id: String, location_id: String)
+signal walk_requested(station_id: String)   # v13.02: walk the rebuilt station you are docked at (StationInterior)
 signal interior_requested(ship_id: String)   # v12.97: walk a fleet ship's deck plan (ShipInterior)
 
 const CYAN := Color(0.4, 0.86, 1.0)
@@ -44,6 +45,7 @@ var t := 0.0
 var asst_hit: Control
 var crew: StationCrew   # v11.14
 var alarm_btn: Button   # v11.18
+var walk_btn: Button    # v13.02
 var asst: VideoStreamPlayer   # v3.7 (owner): the station assistant, standing in the HOME room
 var asst_chat: Panel       # v11.4: the comms bar under the call screen
 var comms_panel: Panel     # v11.4 (owner): CONTACTS / chat LOG, on the left like the flight comms
@@ -174,6 +176,20 @@ func _ready() -> void:
 	launch_btn.add_theme_stylebox_override("hover", lsh)
 	launch_btn.add_theme_stylebox_override("pressed", lsh)
 	launch_btn.pressed.connect(func(): launch_requested.emit())
+	# v13.02 (station rebuild): at a station that has been rebuilt, WALK THE STATION under LAUNCH on the station page
+	walk_btn = Button.new()
+	walk_btn.name = "WalkStation"
+	walk_btn.text = "WALK THE STATION"
+	walk_btn.anchor_left = 1.0
+	walk_btn.anchor_right = 1.0
+	walk_btn.offset_left = -36 - Data.HUB_LAUNCH_SIZE.x
+	walk_btn.offset_right = -36
+	walk_btn.offset_top = TOP_Y + Data.HUB_LAUNCH_SIZE.y + 10
+	walk_btn.offset_bottom = TOP_Y + Data.HUB_LAUNCH_SIZE.y + 10 + 46
+	walk_btn.add_theme_font_size_override("font_size", Data.ts(17))
+	walk_btn.visible = false
+	walk_btn.pressed.connect(func(): if rebuilt_id() != "": walk_requested.emit(rebuilt_id()))
+	add_child(walk_btn)
 	# v3.1 (owner's concept art): the station's services as a tab bar along the top
 	left = HBoxContainer.new()
 	left.name = "Tabs"
@@ -693,6 +709,7 @@ func show_screen(s: String) -> void:
 				sb2.pressed.connect(_menu.bind(str(pg[0])))
 				subtabs.add_child(sb2)
 	subtabs.visible = subtabs.get_child_count() > 0 and not hangar and not panels_hidden
+	if walk_btn != null: walk_btn.visible = s == "hub" and not lockdown and rebuilt_id() != ""
 	_layout_windows(s)
 	header.reset_size()   # v5.3: the boxes fit the words
 	subheader.reset_size()
@@ -1060,6 +1077,9 @@ func _place_calls() -> void:
 	if launch_btn != null:   # v11.10: LAUNCH moves left to make room for the COMMS tab beside it
 		launch_btn.offset_right = -(8.0 + call_w() + 10.0) if comms_up() else -36.0
 		launch_btn.offset_left = launch_btn.offset_right - Data.HUB_LAUNCH_SIZE.x
+		if walk_btn != null:
+			walk_btn.offset_right = launch_btn.offset_right
+			walk_btn.offset_left = launch_btn.offset_left
 		credits_label.offset_right = launch_btn.offset_right
 		credits_label.offset_left = credits_label.offset_right - 250.0
 
@@ -1933,6 +1953,14 @@ func nav_cats() -> Array:
 	return [["hub", "HUB", hubp], ["lounge", "LOUNGE", [["lounge", "LOUNGE"]]],
 		["hangar", "HANGAR", [["ships", "SHIPYARD"], ["mechs", "MECHS"], ["equipment", "WEAPONS"], ["loadout", "LOADOUT"]]],
 		["supplies", "SUPPLIES", [["supplies", "REPAIR & AMMO"], ["repair", "MEDICAL BAY"]]], ["pilot", "PILOT", [["ship", "MY QUARTERS"], ["faction", "FACTION"]]]]
+
+## v13.02: the rebuilt interior of the station you are docked at ("" = not rebuilt, or not the system's main station).
+func rebuilt_id() -> String:
+	if kind != "station" or not Data.SYSTEMS.has(GS.system_id): return ""
+	var st: Dictionary = Data.SYSTEMS[GS.system_id].get("station", {})
+	if str(base.get("name", "")) != str(st.get("name", "?")): return ""
+	var id := StationInterior.for_model(str(st.get("model", "")))
+	return id if id != "" and StationInterior.can_open(id) else ""
 
 func nav_cat(s: String) -> String:
 	if s in ["missions", "bounty"]: s = "board"

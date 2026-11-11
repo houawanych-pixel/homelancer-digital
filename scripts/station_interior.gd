@@ -15,6 +15,7 @@ extends Control
 ## Keys: WASD move, Shift run, drag the right side to look. Touch: left side walks, right side looks.
 
 signal left
+signal service(screen: String)   # v13.02: a station service asked for from the room it lives in ("launch" = your ship)
 
 const DIR := "res://assets/stations_int/"
 const WALL_H := 18.0
@@ -34,6 +35,37 @@ var world: Node3D
 var vp: SubViewport
 var cam: Camera3D
 var body: CharacterBody3D
+## v13.02 (owner: "go" on connecting docking and services to the rebuilt stations): while you are DOCKED, the rooms
+## are the station's services. Stand in a room whose name holds one of these words and its button comes up. The old
+## station pages still do the work (nothing is removed); this is the way to them on foot.
+const SERVICES := [["Docking", "launch", "LAUNCH (your ship)"], ["Hangar", "launch", "LAUNCH (your ship)"], ["Freighter Docks", "launch", "LAUNCH (your ship)"],
+	["Mission", "board", "MISSION BOARD"], ["Briefing", "board", "MISSION BOARD"], ["Terminal Hall", "board", "MISSION BOARD"],
+	["Medbay", "repair", "MEDICAL BAY"], ["Triage", "repair", "MEDICAL BAY"], ["Ward", "repair", "MEDICAL BAY"], ["Treatment", "repair", "MEDICAL BAY"], ["Pharmacy", "repair", "MEDICAL BAY"],
+	["Mech Dealer", "mechs", "MECH DEALER"], ["Weapons", "equipment", "WEAPONS DEALER"],
+	["Market", "supplies", "SUPPLIES"], ["Supplies", "supplies", "SUPPLIES"], ["Trade Floor", "supplies", "SUPPLIES"],
+	["Cantina", "lounge", "LOUNGE"], ["Lounge", "lounge", "LOUNGE"],
+	["Command", "command", "COMMAND"], ["Embassy", "faction", "FACTION"], ["Quarters", "ship", "MY QUARTERS"]]
+var services_on := false      # true while docked here (main sets it)
+var service_now: Array = []   # the SERVICES row of the room you stand in ([] = none)
+var _svc_btn: Button
+
+## The service a room offers ([] = none).
+static func service_of(room: String) -> Array:
+	if room.containsn("Wardroom"): return []
+	for sv in SERVICES:
+		if room.containsn(str(sv[0])): return sv
+	return []
+
+## Where you come aboard: a docking bay on the start deck (else the start point).
+func arrival() -> Vector3:
+	var lid := str(data["start"]["level"])
+	for lv in data["levels"]:
+		if str(lv["id"]) != lid: continue
+		for want in ["Docking Bay", "Docking Approach", "Docking Arm", "Freighter Docks", "Hangar"]:
+			for r in lv["rooms"]:
+				if str(r["name"]).containsn(want): return Vector3(float(r["x"]), float(lv["y"]), float(r["z"]))
+	return Vector3.INF
+
 var level_i := 0             # index into data["levels"] (0 = the top deck)
 var gates: Array = []        # {pos, level, a, b, shape, slide, wide, k, open}
 var lift_pads: Array = []    # {pos, level, xz}
@@ -414,6 +446,15 @@ func _ui() -> void:
 		b.add_theme_font_size_override("font_size", 19)
 		b.pressed.connect(ride.bind(dir))
 		_lift_box.add_child(b)
+	_svc_btn = Button.new()
+	_svc_btn.name = "Service"
+	_svc_btn.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_svc_btn.custom_minimum_size = Vector2(380, 64)
+	_svc_btn.position = Vector2(-190, -230)
+	_svc_btn.add_theme_font_size_override("font_size", 22)
+	_svc_btn.visible = false
+	_svc_btn.pressed.connect(func(): if not service_now.is_empty(): service.emit(str(service_now[1])))
+	add_child(_svc_btn)
 	var leave := Button.new()
 	leave.name = "Leave"
 	leave.text = "LEAVE STATION"
@@ -528,6 +569,9 @@ func _physics_process(dt: float) -> void:
 				b.text = "%s  %s %s" % ["▲" if dir2 == -1 else "▼", str(tl["id"]), str(tl["name"])]
 	room_now = room_at(me)
 	_room.text = room_now if room_now != "" else "Concourse"
+	service_now = service_of(room_now) if services_on else []
+	_svc_btn.visible = not service_now.is_empty()
+	if not service_now.is_empty(): _svc_btn.text = "OPEN  " + str(service_now[2])
 	var ext := float(level().get("map_extent_m", data["extent_m"]))   # (a deck's map may be cropped to the station)
 	dot.position = Vector2((me.x / ext + 0.5) * minimap.size.x, (me.z / ext + 0.5) * minimap.size.y) - dot.size * 0.5
 

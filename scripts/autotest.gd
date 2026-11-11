@@ -3089,6 +3089,52 @@ func _run() -> void:
 		sn.close()
 		await _wait(0.4)
 		_check("v13.01: LEAVE STATION puts you back", not is_instance_valid(main.station_deck) and main.state == st0, main.state)
+		# v13.02: docked at a rebuilt station, WALK THE STATION is on the station page; you come aboard at a docking bay; a
+		# room that holds a service opens that station page; a docking bay launches. From the viewer (not docked): no services.
+		_check("v13.02: rooms map to services (and plain rooms to none)", str(StationInterior.service_of("Briefing Room A")[1]) == "board" and str(StationInterior.service_of("North Docking Bay")[1]) == "launch"
+			and str(StationInterior.service_of("Triage")[1]) == "repair" and str(StationInterior.service_of("Cantina Bar")[1]) == "lounge" and StationInterior.service_of("Holding Cells").is_empty() and StationInterior.service_of("Wardroom").is_empty())
+		var sys_w: String = GS.system_id
+		var st_w: String = str(main.state)
+		var hub_vis: bool = main.hub.visible
+		GS.system_id = "veranthos"
+		main.hub.open(Data.SYSTEMS["veranthos"]["station"])
+		main.state = "hub"
+		await _wait(0.3)
+		if main.hub.lockdown: main.hub._end_lockdown()
+		main.hub.show_screen("hub")
+		_check("v13.02: docked at Veranthos, WALK THE STATION shows on the station page (and not on another page)", main.hub.rebuilt_id() == "veranthos" and main.hub.walk_btn.visible, main.hub.rebuilt_id())
+		main.hub.show_screen("supplies")
+		var off_other: bool = not main.hub.walk_btn.visible
+		main.hub.show_screen("hub")
+		main.hub.walk_btn.pressed.emit()
+		await _wait(1.0)
+		var sw: StationInterior = main.station_deck
+		_check("v13.02: it opens the interior with services on, and you come aboard in a docking bay", off_other and is_instance_valid(sw) and sw.services_on and main.state == "station_deck", str(main.state))
+		if is_instance_valid(sw):
+			await _wait(0.4)
+			_check("v13.02: the docking bay offers LAUNCH", sw.room_now.containsn("Docking") and not sw.service_now.is_empty() and str(sw.service_now[1]) == "launch" and sw._svc_btn.visible, "%s %s" % [sw.room_now, str(sw.service_now)])
+			await _shot("station_service_launch", 0.2)
+			sw.place("L3", sw.room_point("L3", "Briefing Room A"))
+			await _wait(0.5)
+			_check("v13.02: Briefing Room A offers the MISSION BOARD", str(sw.service_now[1] if not sw.service_now.is_empty() else "") == "board" and sw._svc_btn.text.containsn("MISSION BOARD"), sw.room_now)
+			await _shot("station_service_board", 0.2)
+			sw.place("L3", sw.room_point("L3", "Holding Cells"))
+			await _wait(0.5)
+			_check("v13.02: a room with no service shows no button", sw.service_now.is_empty() and not sw._svc_btn.visible, sw.room_now)
+			sw.place("L3", sw.room_point("L3", "Briefing Room A"))
+			await _wait(0.5)
+			sw._svc_btn.pressed.emit()
+			await _wait(0.6)
+			_check("v13.02: the button takes you to that station page, still docked", not is_instance_valid(main.station_deck) and main.state == "hub" and main.hub.visible and main.hub.screen in ["board", "missions"], "%s %s" % [main.state, main.hub.screen])
+		main.hub.show_screen("hub")
+		main.hub.visible = hub_vis
+		main.state = st_w
+		GS.system_id = sys_w
+		var okv2: bool = main.open_station_interior("veranthos")
+		await _wait(0.8)
+		_check("v13.02: opened from the viewer (not docked) there are no services", okv2 and is_instance_valid(main.station_deck) and not main.station_deck.services_on)
+		if is_instance_valid(main.station_deck): main.station_deck.close()
+		await _wait(0.4)
 		# the other rebuilt stations: each opens, has its decks, the lift reaches every deck, every listed room can be stood in
 		for sid2 in ["aurelion", "synthari_capital"]:
 			var mk: String = str(Data.SYSTEMS[sid2]["station"].get("model", ""))
