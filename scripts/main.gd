@@ -410,9 +410,38 @@ func _board_job_step(dt: float) -> void:
 		if j.is_empty() and is_instance_valid(board_ship): board_ship.queue_free()
 		return
 	if is_instance_valid(ship_deck) or is_instance_valid(station_deck): return
-	if not is_instance_valid(board_ship): _board_job_spawn(j)
-	elif _board_cd <= 0.0 and is_instance_valid(space.player) and space.player.global_position.distance_to(board_ship.global_position) < float(board_ship.get_meta("radius", 200.0)) + BoardingJobs.BOARD_RANGE:
-		_board_enter(j)
+	if not is_instance_valid(board_ship):
+		_board_job_spawn(j)
+		return
+	# your laser shots that reach the hull take its power down (100% -> 50%: the shield fails and stays down)
+	var rad: float = float(board_ship.get_meta("radius", 200.0))
+	if board_power() > 50.0:
+		for b in space.bolts:
+			if str(b.get("owner", "")) != "player" or float(b.get("life", 0.0)) <= 0.0 or not is_instance_valid(b["node"]): continue
+			if (b["node"] as Node3D).global_position.distance_to(board_ship.global_position) < rad * 0.6:
+				b["life"] = 0.0
+				board_damage(float(b.get("dmg", 1.0)))
+	var near: bool = is_instance_valid(space.player) and space.player.global_position.distance_to(board_ship.global_position) < rad + BoardingJobs.BOARD_RANGE
+	if near and _board_cd <= 0.0:
+		if board_power() <= 50.0: _board_enter(j)
+		else:
+			_board_cd = 5.0
+			hud.flash_message("SHIELDS UP: you can't board yet. Shoot the ship down to 50%% power (now %d%%)." % int(ceil(board_power())))
+## The target ship's power, 100 down to 50 (%).
+func board_power() -> float: return float(board_ship.get_meta("power", 100.0)) if is_instance_valid(board_ship) else 100.0
+## Laser damage on the target ship. At 50% the shield fails for good.
+func board_damage(dmg: float) -> void:
+	if not is_instance_valid(board_ship) or board_power() <= 50.0: return
+	var hp: float = float(BoardingJobs.SHIELD_HP.get(str(board_job().get("class", "")), 600.0))
+	var pw: float = maxf(50.0, board_power() - 50.0 * dmg / hp)
+	board_ship.set_meta("power", pw)
+	var lb := board_ship.get_node_or_null("PowerLabel") as Label3D
+	if lb != null:
+		lb.text = ("POWER %d%%  ·  SHIELD UP" % int(ceil(pw))) if pw > 50.0 else "POWER 50%  ·  SHIELD DOWN  ·  BOARD NOW"
+		lb.modulate = Color(0.5, 0.85, 1.0) if pw > 50.0 else Color(0.45, 1.0, 0.55)
+	if pw <= 50.0:
+		_board_cd = 0.0
+		hud.flash_message("SHIELD DOWN: the ship is at 50% power and can't raise it again. Fly to the hull to board.")
 func _board_job_spawn(j: Dictionary) -> void:
 	var e: Dictionary = FleetCatalog.get_entry(str(j["id"]))
 	if e.is_empty() or not is_instance_valid(space.station): return
@@ -427,13 +456,26 @@ func _board_job_spawn(j: Dictionary) -> void:
 	space.add_child(board_ship)
 	board_ship.global_position = pt["pos"]
 	board_ship.rotation.y = float(absi(hash(str(j["id"]))) % 628) / 100.0
+	board_ship.set_meta("power", 100.0)
+	var lb := Label3D.new()
+	lb.name = "PowerLabel"
+	lb.text = "POWER 100%  ·  SHIELD UP"
+	lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	lb.no_depth_test = true
+	lb.fixed_size = true
+	lb.pixel_size = 0.0011
+	lb.font_size = 40
+	lb.outline_size = 10
+	lb.modulate = Color(0.5, 0.85, 1.0)
+	lb.position = Vector3(0, float(board_ship.get_meta("radius", 200.0)) * 0.6, 0)
+	board_ship.add_child(lb)
 	board_escort = []
 	if Factions.has_fighters(str(j["faction"])):
 		board_escort = space.spawn_mission_group((pt["pos"] as Vector3) + Vector3(0, 90, 0), str(j["faction"]), int(j["fighters"]), 2, "", 0)
 	j["escort"] = board_escort.size()
 	j["in_nebula"] = bool(pt["nebula"])
 	space.set_destination(space.waypoint_at(pt["pos"]))
-	hud.flash_message("%s: target ship %s, %d fighters with it. Waypoint set: GO TO flies it. Reach the ship to board." % [str(j["title"]), "hidden in a nebula" if bool(pt["nebula"]) else "located", board_escort.size()])
+	hud.flash_message("%s: target ship %s, %d fighters with it. Waypoint set: GO TO flies it. Shoot the ship down to 50%% power to break its shield, then fly to the hull to board." % [str(j["title"]), "hidden in a nebula" if bool(pt["nebula"]) else "located", board_escort.size()])
 func _board_enter(j: Dictionary) -> void:
 	space.controls = false
 	space.autopilot = null

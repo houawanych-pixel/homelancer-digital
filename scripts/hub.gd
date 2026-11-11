@@ -4776,7 +4776,7 @@ func _boarding_page() -> void:
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var jobs: Array = BoardingJobs.offers(GS.system_id, own) if str(base.get("kind", "station")) == "station" else []
 	var rv := Factions.rival(own)
-	l.text = ("Boarding work for %s against %s ships. ACCEPT and the ship turns up well away from the station, some hidden in a nebula. Reach it and you are aboard. Fighters and bombers can't be boarded." % [own, rv]) if not jobs.is_empty() \
+	l.text = ("Boarding work for %s against %s ships. ACCEPT and the ship turns up well away from the station, some hidden in a nebula. Shoot it down to 50%% power: its shield fails and you can board. Fighters and bombers can't be boarded." % [own, rv]) if not jobs.is_empty() \
 		else ("No boarding work here: boarding jobs are given at space stations against the owner's rival fleet." if rv == "" or str(base.get("kind", "station")) != "station" else "No boarding work here yet: no %s ship has a deck plan with missions built." % rv)
 	v.add_child(l)
 	if not board_job.is_empty():

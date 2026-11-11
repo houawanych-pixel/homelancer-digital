@@ -3003,6 +3003,20 @@ func _run() -> void:
 			_tp(ship.global_position + Vector3(0, 300, 2400), ship.global_position)
 			await _shot("boardjob_ship", 0.8)
 			_tp(ship.global_position + Vector3(0, 0, float(ship.get_meta("radius")) + 150.0), ship.global_position)
+			await _wait(1.5)
+			_check("v13.02 (owner): at full power the shield is up: reaching the ship does NOT board it", not is_instance_valid(main.ship_deck) and main.board_power() == 100.0 and main.state == "flight")
+			main.board_damage(450.0)      # (half the capital's 900)
+			var half_way: float = main.board_power()
+			# a real laser shot of yours that reaches the hull counts
+			var bn := MeshInstance3D.new()
+			sb.add_child(bn)
+			bn.global_position = ship.global_position
+			sb.bolts.append({"node": bn, "vel": Vector3.ZERO, "life": 2.0, "dmg": 90.0, "owner": "player", "sf": -1.0, "lit": false})
+			await _wait(0.4)
+			_check("v13.02 (owner): your shots take its power down (100 -> 75 -> 70%), still shielded above 50%", is_equal_approx(half_way, 75.0) and is_equal_approx(main.board_power(), 70.0) and not is_instance_valid(main.ship_deck), "%.1f %.1f" % [half_way, main.board_power()])
+			main.board_damage(5000.0)
+			_check("v13.02 (owner): it stops at 50%: the shield is down for good", is_equal_approx(main.board_power(), 50.0) and (ship.get_node("PowerLabel") as Label3D).text.contains("SHIELD DOWN"))
+			await _shot("boardjob_shield_down", 0.4)
 			await _until(func(): return is_instance_valid(main.ship_deck), 6.0)
 			var sd2: ShipInterior = main.ship_deck
 			_check("v13.02: reaching the ship puts you aboard its deck plan with the job's mission running", is_instance_valid(sd2) and main.state == "ship_deck" and sd2.mission == str(jb["kind"]) and sd2.m_stage == 0, main.state)
