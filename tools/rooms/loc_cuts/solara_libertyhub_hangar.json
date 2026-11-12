@@ -1,0 +1,54 @@
+{
+ "src": "assets/rooms/loc/solara_libertyhub_hangar.jpg",
+ "strip": [
+  4096,
+  427
+ ],
+ "cuts": [
+  22,
+  1517,
+  3023
+ ],
+ "overlap": 40,
+ "frame": [
+  1920,
+  1080
+ ],
+ "parts": [
+  {
+   "file": "LibertyHub_Hangar_part1.png",
+   "strip_x0": 4078,
+   "strip_w": 1575,
+   "frame_rect": [
+    0,
+    279,
+    1920,
+    521
+   ]
+  },
+  {
+   "file": "LibertyHub_Hangar_part2.png",
+   "strip_x0": 1477,
+   "strip_w": 1586,
+   "frame_rect": [
+    0,
+    281,
+    1920,
+    517
+   ]
+  },
+  {
+   "file": "LibertyHub_Hangar_part3.png",
+   "strip_x0": 2983,
+   "strip_w": 1175,
+   "frame_rect": [
+    0,
+    191,
+    1920,
+    698
+   ]
+  }
+ ],
+ "people": 128,
+ "cuts_touching_people": []
+}

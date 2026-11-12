@@ -120,8 +120,10 @@ func setup(h: Node) -> void:
 func _refresh() -> void:
 	var on: bool = crowd.edit_on
 	queue_redraw()   # (v13.76: the boxes go when editing stops)
-	for k in btns: (btns[k] as Button).visible = on or k == "edit"
-	(btns["edit"] as Button).text = "CROWD EDIT: ON" if on else "CROWD EDIT"
+	for k in btns: (btns[k] as Button).visible = on   # v13.78: CROWD EDIT itself is on the bottom bar; up here only while editing
+	(btns["edit"] as Button).text = "DONE"
+	var lb: Button = hub.look_bar.get_node_or_null("Crowd") if hub.get("look_bar") != null else null
+	if lb != null: lb.text = "EDITING..." if on else "CROWD EDIT"
 	(btns["preview"] as Button).text = "STOP" if crowd.preview else "PREVIEW"
 	var p := _sel()
 	(btns["walk"] as Button).text = "STANDS" if not p.is_empty() and not bool(p["src"].get("walk", true)) else "WALKS"

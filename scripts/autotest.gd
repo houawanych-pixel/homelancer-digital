@@ -4333,7 +4333,11 @@ func _run() -> void:
 		var hb = main.hub
 		hb.set_panels_hidden(true)
 		var ed = hb.crowd_edit
-		ed._on("edit")
+		var cb: Button = hb.look_bar.get_node_or_null("Crowd")
+		var bar_ok: bool = cb != null and cb.is_visible_in_tree()
+		if cb != null: cb.emit_signal("pressed")
+		else: ed._on("edit")
+		bar_ok = bar_ok and hb.crowd.edit_on
 		ed._on("add")
 		await _frames(3)
 		await _wait(0.5)
@@ -4369,7 +4373,7 @@ func _run() -> void:
 		await _capture("roster_placed")
 		var txt: String = ed.copy_text()
 		_check("v13.76 (owner): + ADD opens the roster (%d faces from %s, %d crew); picking one puts them in the room (%s); tapping them calls them (%s); COPY ALL keeps who they are (%s)" % [fac_n, hb.crowd.full, crew_list.size(), placed_ok, called, txt.contains(str(pick.get("who", "?")))],
-			tiles_ok and placed_ok and called and txt.contains(str(pick.get("who", "?"))))
+			bar_ok and tiles_ok and placed_ok and called and txt.contains(str(pick.get("who", "?"))))
 		_finish_group()
 		return
 	if OS.get_environment("HL_CROWDEDIT") != "":   # v12.11: the Crowd Edit dev tool (any room: HL_SYS, else the Dreadholm planet hub)

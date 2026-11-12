@@ -1,0 +1,54 @@
+{
+ "src": "assets/rooms/loc/solara_libertyhub_lounge.jpg",
+ "strip": [
+  4096,
+  427
+ ],
+ "cuts": [
+  1844,
+  2809,
+  3893
+ ],
+ "overlap": 40,
+ "frame": [
+  1920,
+  1080
+ ],
+ "parts": [
+  {
+   "file": "LibertyHub_Lounge_part1.png",
+   "strip_x0": 1804,
+   "strip_w": 1045,
+   "frame_rect": [
+    0,
+    147,
+    1920,
+    785
+   ]
+  },
+  {
+   "file": "LibertyHub_Lounge_part2.png",
+   "strip_x0": 2769,
+   "strip_w": 1164,
+   "frame_rect": [
+    0,
+    188,
+    1920,
+    704
+   ]
+  },
+  {
+   "file": "LibertyHub_Lounge_part3.png",
+   "strip_x0": 3853,
+   "strip_w": 2127,
+   "frame_rect": [
+    0,
+    347,
+    1920,
+    385
+   ]
+  }
+ ],
+ "people": 74,
+ "cuts_touching_people": []
+}

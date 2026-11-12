@@ -436,7 +436,10 @@ func _ready() -> void:
 	look_bar.offset_bottom = -12
 	look_bar.add_theme_constant_override("separation", 8)
 	look_bar.visible = false
-	for b in [["Panels", "◉ PANELS"], ["Lock", "LOCK"], ["Call", "CALL EVEE"]]:
+	if Data.DEV_TOOLS:   # v13.78 (owner: "the crowd edit button needs to be moved onto the bottom column ... I can't even click on it")
+		look_bar.offset_left = -360   # (shifted left: FULL SCREEN sits just right of the middle)
+		look_bar.offset_right = 110
+	for b in [["Panels", "◉ PANELS"], ["Lock", "LOCK"], ["Call", "CALL EVEE"]] + ([["Crowd", "CROWD EDIT"]] if Data.DEV_TOOLS else []):
 		var bb := Button.new()
 		bb.name = b[0]
 		bb.text = b[1]
@@ -449,6 +452,7 @@ func _ready() -> void:
 		set_look_motion(not look_motion)
 		_photo_words())
 	(look_bar.get_node("Call") as Button).pressed.connect(func(): asst_tap())
+	if look_bar.has_node("Crowd"): (look_bar.get_node("Crowd") as Button).pressed.connect(func(): if crowd_edit != null: crowd_edit._on("edit"))
 	add_child(look_bar)
 	add_child(show_btn)
 	fs_btn = Button.new()   # v9.9 (owner: "no full screen button"): the browser's full screen on / off, above HIDE PANELS

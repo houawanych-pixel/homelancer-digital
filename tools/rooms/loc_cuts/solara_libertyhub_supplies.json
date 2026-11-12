@@ -1,0 +1,54 @@
+{
+ "src": "assets/rooms/loc/solara_libertyhub_supplies.jpg",
+ "strip": [
+  4096,
+  427
+ ],
+ "cuts": [
+  544,
+  1792,
+  2917
+ ],
+ "overlap": 40,
+ "frame": [
+  1920,
+  1080
+ ],
+ "parts": [
+  {
+   "file": "LibertyHub_Supplies_part1.png",
+   "strip_x0": 504,
+   "strip_w": 1328,
+   "frame_rect": [
+    0,
+    231,
+    1920,
+    617
+   ]
+  },
+  {
+   "file": "LibertyHub_Supplies_part2.png",
+   "strip_x0": 1752,
+   "strip_w": 1205,
+   "frame_rect": [
+    0,
+    200,
+    1920,
+    680
+   ]
+  },
+  {
+   "file": "LibertyHub_Supplies_part3.png",
+   "strip_x0": 2877,
+   "strip_w": 1803,
+   "frame_rect": [
+    0,
+    312,
+    1920,
+    455
+   ]
+  }
+ ],
+ "people": 62,
+ "cuts_touching_people": []
+}
