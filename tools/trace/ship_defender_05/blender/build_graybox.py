@@ -38,6 +38,14 @@ add(lf, SLAB, -SLAB, "lower_floor", M_FLOOR, cL); add(lw, WALL_H, 0, "lower_wall
 cF = coll("DECK_flight")
 ff, fw = to_m(shape(F["floor"])), to_m(shape(F["walls"]))
 add(ff, SLAB, DECK - SLAB, "flight_floor", M_FLOOR, cF); add(fw, WALL_H, DECK, "flight_walls", M_WALL_F, cF)
+# exterior hull outline from the world map, as a red guide line at the lower floor
+from shapely.geometry import Polygon
+H = json.load(open(os.path.join(ENG, "hull_outline.json"))); hk = H["to_flight_px"]
+hull = Polygon(H["outline"])
+hull = affinity.affine_transform(hull, [hk["scale"], 0, 0, hk["scale"], hk["flight_round_room"][0] - hk["scale"] * hk["world_hub"][0],
+                                        hk["flight_round_room"][1] - hk["scale"] * hk["world_hub"][1]])
+M_HULL = mat("hull_ref", (0.9, 0.45, 0.45))
+add(to_m(hull).exterior.buffer(0.15), 0.3, -SLAB, "hull_outline", M_HULL, coll("HULL_reference"))
 hm = bpy.data.objects.new("scale_human_1.8m", None); hm.empty_display_type = "SINGLE_ARROW"; hm.empty_display_size = 1.8
 bpy.context.scene.collection.objects.link(hm)
 out = os.path.join(HERE, "defender_graybox_WIP_NOT_APPROVED")
@@ -45,4 +53,4 @@ bpy.ops.wm.save_as_mainfile(filepath=out + ".blend")
 bpy.ops.export_scene.gltf(filepath=out + ".glb", export_format="GLB")
 sz = lambda g: f"{g.bounds[2]-g.bounds[0]:.1f} x {g.bounds[3]-g.bounds[1]:.1f}"
 u = ff.union(lf)
-print("flight deck m:", sz(ff), "| lower deck m:", sz(lf), "| whole:", sz(u))
+print("flight deck m:", sz(ff), "| lower deck m:", sz(lf), "| whole:", sz(u), "| hull:", sz(to_m(hull)))

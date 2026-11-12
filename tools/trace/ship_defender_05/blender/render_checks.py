@@ -15,6 +15,6 @@ def shot(name, loc, target, ortho=None, res=(1000, 1600), hide=()):
         cam.type = 'PERSP'; cam.lens = 28
         co.rotation_euler = (mathutils.Vector(target) - co.location).to_track_quat('-Z', 'Y').to_euler()
     sc.render.filepath = os.path.join(HERE, "check_" + name + ".png"); bpy.ops.render.render(write_still=True)
-shot("top", (0, -16, 80), None, ortho=34)
-shot("persp", (15, -40, 19), (0, -16, 1), res=(1600, 1000))
-shot("lower_deck", (15, -40, 19), (0, -16, 1), res=(1600, 1000), hide=("flight_walls", "flight_floor"))
+shot("top", (0, -17, 80), None, ortho=40)
+shot("persp", (20, -50, 24), (0, -17, 1), res=(1600, 1000))
+shot("lower_deck", (20, -50, 24), (0, -17, 1), res=(1600, 1000), hide=("flight_walls", "flight_floor"))
