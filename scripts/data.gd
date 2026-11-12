@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.67"
+const VERSION := "v13.68"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1806,6 +1806,7 @@ const GUN_FLASH_SIZE := 4.6        # each gun's muzzle flash (was 3.2)
 const GUN_BEAM_LEN := 70.0        # v10.6: the blink of a beam each gun throws as it fires (m) ...
 const GUN_BEAM_W := 0.7
 const GUN_BEAM_TIME := 0.09        # ... gone in this long (s)
+const MECH_SHOULDER := 4.5       # v13.68 (owner: "the player flush to the right or left side ... to see what's happening in the middle", "for the mech as well"): the mech's chase camera sits this far to the right, so the mech stands left of centre and the middle stays clear (it still looks at the point ahead of the mech, so the crosshair is where the guns go)
 const CAM_UP := 3.6               # v10.6 (owner: see every gun fire): the chase camera sits this high (was 2.2)
 const CAM_SWAY_K := 0.09          # v10.4 (owner): the chase camera trails sliding moves: metres per m/s of climb / slide
 const CAM_SWAY_UP := 3.2          # ... at most this far (climbing lifts the ship up the screen, diving drops it)

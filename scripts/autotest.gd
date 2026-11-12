@@ -4806,6 +4806,44 @@ func _run() -> void:
 			s.holding = false
 		get_tree().quit()
 		return
+	if _flag("HL_SHOULDER"):   # v13.68 (owner): the mech's camera over its shoulder; on foot COCKPIT = first person, like Call of Duty
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main._load_surface("eden_prime", 0)
+		await _wait(0.5)
+		var s := _sp()
+		var hold := s.player.global_position
+		await _until(func(): s.player.global_position = hold; return s._regions.size() >= 4 and s._building == null, 150.0)
+		GS.form = "mech"
+		s.set_player_model()
+		s.ground_mode = true
+		var gp := s.player.global_position
+		s.player.global_position = Vector3(gp.x, s._ground(gp.x, gp.z) + 6.0, gp.z)
+		s.vel = Vector3.ZERO
+		if GS.view != "chase": s.set_view("chase")
+		await _wait(1.5)
+		var loc: Vector3 = s.player.global_basis.inverse() * s._cam_off   # (the camera's wanted place; a hill behind can pull it in)
+		var mech_right: bool = loc.x > 2.5
+		var look_mid: Vector3 = -Vector3.FORWARD * 0.0 + Vector3(0, 2.6, -30.0)   # it looks at the point ahead of the mech
+		var mech_left_of_mid: bool = Vector2(loc.x, loc.z).angle_to(Vector2(look_mid.x - loc.x, look_mid.z - loc.z)) != 0.0 and loc.x > look_mid.x
+		main.hud.visible = true
+		await _capture("shoulder_mech")
+		main._on_hud("eject")
+		await _wait(1.0)
+		var foot: bool = s.on_foot
+		main._on_hud("view")
+		await _wait(0.6)
+		var eye_d: float = s.cam.global_position.distance_to(s.player.global_position + s.player.global_basis * Vector3(0.0, -6.0 + Data.FOOT_H * 0.93, -0.25))
+		var fpv: bool = GS.view == "cockpit" and eye_d < 0.6 and not s.model.visible
+		await _capture("shoulder_foot_fpv")
+		main._on_hud("view")
+		await _wait(0.6)
+		var back: bool = GS.view == "chase" and s.model.visible
+		_check("v13.68 (owner): mech camera over the right shoulder (x %.1f m: %s, mech left of the middle: %s); on foot (%s) COCKPIT = first person (eye %.2f m: %s), again = back (%s)" % [loc.x, mech_right, mech_left_of_mid, foot, eye_d, fpv, back],
+			mech_right and mech_left_of_mid and foot and fpv and back)
+		_finish_group()
+		return
 	if _flag("HL_EJECT"):   # v12.39: EJECT on a world, walk at human size, ENTER again
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)

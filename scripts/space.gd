@@ -9353,6 +9353,13 @@ func _update_camera(dt: float, snap: bool) -> void:
 	_sync_hand_gun()
 	# v9.1 (owner: 1,000 km systems): the camera is worked out as an offset from the ship (rel), never from its own far-out
 	# world position, so it stays exact when the frame is drawn with the world shifted near zero (see _pre_draw)
+	if on_foot and GS.view == "cockpit" and is_instance_valid(player):   # v13.68 (owner: "pushing the cockpit button puts them at a first person view, like Call of Duty"): out of the pilot's eyes
+		var fb0 := player.global_basis
+		var eye := fb0 * Vector3(0.0, -6.0 + Data.FOOT_H * 0.93, -0.25)
+		_cam_off = Vector3.ZERO
+		_set_cam(eye, fb0 * Vector3(0.0, -6.0 + Data.FOOT_H * 0.9, -30.0), fb0.y)
+		cam.fov = lerpf(cam.fov, 22.0 if zoomed else 74.0, minf(1.0, dt * 6.0) if not snap else 1.0)
+		return
 	if GS.view == "cockpit" and GS.form == "mech" and is_instance_valid(player):   # v1.7z: out of the mech's head, rifle in hand
 		var mb := player.global_basis
 		var rel0: Vector3 = mb * Data.FPV_EYE
@@ -9398,7 +9405,8 @@ func _update_camera(dt: float, snap: bool) -> void:
 		sway_want = Vector2(clampf(-lv.x * Data.CAM_SWAY_K, -Data.CAM_SWAY_SIDE, Data.CAM_SWAY_SIDE),
 			clampf(-lv.y * Data.CAM_SWAY_K, -Data.CAM_SWAY_UP, Data.CAM_SWAY_UP))
 	cam_sway = sway_want if snap else cam_sway.lerp(sway_want, minf(1.0, dt * Data.CAM_SWAY_EASE))
-	var want_rel: Vector3 = player.global_basis * Vector3(cam_sway.x, up + cam_sway.y, back)
+	var side := Data.MECH_SHOULDER if GS.form == "mech" else 0.0   # v13.68 (owner): over the mech's shoulder
+	var want_rel: Vector3 = player.global_basis * Vector3(cam_sway.x + side, up + cam_sway.y, back)
 	# v12.62 (owner: "in a trade lane you can use the right stick to look all around you"): the camera swings round
 	# the ship with the aim stick while the lane flies it, and settles back behind when you let go
 	lane_look = lane_look.lerp(Vector2(aim.x * PI, aim.y * 1.2) if not lane.is_empty() else Vector2.ZERO, minf(1.0, dt * 3.0))
