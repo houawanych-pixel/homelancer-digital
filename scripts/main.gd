@@ -421,19 +421,26 @@ func _board_job_step(dt: float) -> void:
 		_board_job_spawn(j)
 		return
 	# your laser shots that reach the hull take its power down (100% -> 50%: the shield fails and stays down)
-	var rad: float = float(board_ship.get_meta("radius", 200.0))
+	# v13.10 (owner: "I couldn't board their ship"): a shot counts anywhere on the hull (its box), not only near the
+	# middle, and you board anywhere along the hull once the shield is down.
 	if board_power() > 50.0:
 		for b in space.bolts:
 			if str(b.get("owner", "")) != "player" or float(b.get("life", 0.0)) <= 0.0 or not is_instance_valid(b["node"]): continue
-			if (b["node"] as Node3D).global_position.distance_to(board_ship.global_position) < rad * 0.6:
+			if board_hull_dist((b["node"] as Node3D).global_position) < 12.0:
 				b["life"] = 0.0
 				board_damage(float(b.get("dmg", 1.0)))
-	var near: bool = is_instance_valid(space.player) and space.player.global_position.distance_to(board_ship.global_position) < rad + BoardingJobs.BOARD_RANGE
+	var near: bool = is_instance_valid(space.player) and board_hull_dist(space.player.global_position) < BoardingJobs.BOARD_RANGE
 	if near and _board_cd <= 0.0:
 		if board_power() <= 50.0: _board_enter(j)
 		else:
 			_board_cd = 5.0
 			hud.flash_message("SHIELDS UP: you can't board yet. Shoot the ship down to 50%% power (now %d%%)." % int(ceil(board_power())))
+## How far a point is from the target ship's hull box (0 = on or inside it).
+func board_hull_dist(p: Vector3) -> float:
+	if not is_instance_valid(board_ship): return INF
+	var hh: Vector3 = board_ship.get_meta("hit_half", Vector3.ONE * float(board_ship.get_meta("radius", 200.0)) * 0.6)
+	var lp: Vector3 = board_ship.global_transform.affine_inverse() * p
+	return Vector3(maxf(absf(lp.x) - hh.x, 0.0), maxf(absf(lp.y) - hh.y, 0.0), maxf(absf(lp.z) - hh.z, 0.0)).length()
 ## The target ship's power, 100 down to 50 (%).
 func board_power() -> float: return float(board_ship.get_meta("power", 100.0)) if is_instance_valid(board_ship) else 100.0
 ## Laser damage on the target ship. At 50% the shield fails for good.
@@ -506,7 +513,8 @@ func _board_left(done: bool) -> void:
 		var away: Vector3 = (space.player.global_position - board_ship.global_position)
 		away.y = 0.0
 		away = away.normalized() if away.length() > 1.0 else Vector3(0, 0, 1)
-		space.player.global_position = board_ship.global_position + away * (float(board_ship.get_meta("radius", 200.0)) + BoardingJobs.BOARD_RANGE + 500.0)
+		var hh: Vector3 = board_ship.get_meta("hit_half", Vector3.ONE * float(board_ship.get_meta("radius", 200.0)))
+		space.player.global_position = board_ship.global_position + away * (maxf(hh.x, hh.z) + BoardingJobs.BOARD_RANGE + 500.0)
 	_board_cd = 6.0
 	if done and not j.is_empty():
 		GS.add_credits(int(j["pay"]))

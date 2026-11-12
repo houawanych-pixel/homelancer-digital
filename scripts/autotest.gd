@@ -3019,9 +3019,26 @@ func _run() -> void:
 		if is_instance_valid(ship):
 			_tp(ship.global_position + Vector3(0, 300, 2400), ship.global_position)
 			await _shot("boardjob_ship", 0.8)
-			_tp(ship.global_position + Vector3(0, 0, float(ship.get_meta("radius")) + 150.0), ship.global_position)
+			sb.target = null      # (your guns would fire on it by themselves: v13.10; here the hits are counted by hand)
+			ship.set_meta("power", 100.0)
+			_tp(ship.global_transform * Vector3((ship.get_meta("hit_half") as Vector3).x + 120.0, 0, 0), ship.global_position)
 			await _wait(1.5)
 			_check("v13.02 (owner): at full power the shield is up: reaching the ship does NOT board it", not is_instance_valid(main.ship_deck) and main.board_power() == 100.0 and main.state == "flight")
+			# v13.10 (owner: "I couldn't board their ship"): a shot on the far end of the hull counts, and your guns fire on it
+			var bow: Vector3 = ship.global_transform * Vector3(0, 0, -(ship.get_meta("hit_half") as Vector3).z * 0.95)
+			var bn0 := MeshInstance3D.new()
+			sb.add_child(bn0)
+			bn0.global_position = bow
+			sb.bolts.append({"node": bn0, "vel": Vector3.ZERO, "life": 2.0, "dmg": 9.0, "owner": "player", "sf": -1.0, "lit": false})
+			await _wait(0.4)
+			_check("v13.10: a shot on the bow end of the hull takes power down (not only near the middle)", main.board_power() < 100.0, "%.2f" % main.board_power())
+			_tp(ship.global_transform * Vector3((ship.get_meta("hit_half") as Vector3).x + 300.0, 0, 0), ship.global_position)
+			sb.target = ship
+			var cone_ok: bool = sb._in_fire_cone(ship)
+			sb.target = null
+			_check("v13.10: with the ship targeted and in front of you, the guns fire on it on their own", cone_ok, str(GS.weapon()["range"]))
+			main.board_power()
+			ship.set_meta("power", 100.0)
 			main.board_damage(450.0)      # (half the capital's 900)
 			var half_way: float = main.board_power()
 			# a real laser shot of yours that reaches the hull counts
@@ -3036,7 +3053,7 @@ func _run() -> void:
 			await _shot("boardjob_shield_down", 0.4)
 			for k9 in 8:      # (the escort is shooting and pushing: fly back to the hull until you are aboard)
 				if is_instance_valid(main.ship_deck): break
-				_tp(ship.global_position + Vector3(0, 0, float(ship.get_meta("radius")) + 150.0), ship.global_position)
+				_tp(ship.global_transform * Vector3((ship.get_meta("hit_half") as Vector3).x + 120.0, 0, 0), ship.global_position)
 				await _wait(1.0)
 			var sd2: ShipInterior = main.ship_deck
 			_check("v13.02: reaching the ship puts you aboard its deck plan with the job's mission running", is_instance_valid(sd2) and main.state == "ship_deck" and sd2.mission == str(jb["kind"]) and sd2.m_stage == 0, main.state)
@@ -3048,7 +3065,7 @@ func _run() -> void:
 				_check("v13.02: leaving early pays nothing and the ship is still there; you are back in flight clear of it", GS.credits == cr0 and is_instance_valid(main.board_ship) and main.state == "flight" and not main.hub.board_job.is_empty()
 					and sb.player.global_position.distance_to(ship.global_position) > float(ship.get_meta("radius")) + BoardingJobs.BOARD_RANGE + 300.0)
 				await _wait(6.5)
-				_tp(ship.global_position + Vector3(0, 0, float(ship.get_meta("radius")) + 150.0), ship.global_position)
+				_tp(ship.global_transform * Vector3((ship.get_meta("hit_half") as Vector3).x + 120.0, 0, 0), ship.global_position)
 				await _until(func(): return is_instance_valid(main.ship_deck), 6.0)
 				var sd3: ShipInterior = main.ship_deck
 				if is_instance_valid(sd3):

@@ -6390,10 +6390,12 @@ func _detour(goal: Vector3) -> Vector3:
 func _in_fire_cone(tv) -> bool:   # (untyped: a target freed this frame is just "no", not a script error)
 	if tv == null or not is_instance_valid(tv): return false
 	var t: Node3D = tv
-	if t.get_meta("kind", "") != "enemy": return false
+	var bt: bool = t.get_meta("kind", "") == "board_target" and float(board_mission.get("power", 100.0)) > 50.0   # v13.10 (owner: couldn't take the ship's shield down)
+	if t.get_meta("kind", "") != "enemy" and not bt: return false
 	var to := t.global_position - player.global_position
 	var w: Dictionary = GS.weapon()
-	if to.length() > float(w["range"]): return false
+	if to.length() - (float(t.get_meta("radius", 0.0)) if bt else 0.0) > float(w["range"]): return false
+	if bt: return (-player.global_basis.z).dot(to.normalized()) > cos(deg_to_rad(20.0))
 	return (-player.global_basis.z).dot(to.normalized()) > cos(deg_to_rad(8.0))
 
 ## Where to aim so the guns hit the target: its position plus how far it moves (relative to you) while the bolt flies.
@@ -6527,9 +6529,9 @@ func _fire_guns() -> void:
 	var fwd := -player.global_basis.z
 	var aim_dir := fwd
 	# light aim assist toward the lead point of a target inside a small cone
-	if target and is_instance_valid(target) and target.get_meta("kind", "") == "enemy":
+	if target and is_instance_valid(target) and target.get_meta("kind", "") in ["enemy", "board_target"]:
 		var to := target.global_position - player.global_position
-		if fwd.dot(to.normalized()) > cos(deg_to_rad(10.0)):
+		if fwd.dot(to.normalized()) > cos(deg_to_rad(20.0 if target.get_meta("kind", "") == "board_target" else 10.0)):
 			aim_dir = (lead_point(target) - player.global_position).normalized()
 	if loadout_live() and not mech_fpv():   # v12.67: the loadout's weapons fire from their mounts
 		_fire_loadout(aim_dir)
@@ -13105,6 +13107,7 @@ static func _fleet_standin(e: Dictionary) -> Node3D:
 	if tex: aspect = float(tex.get_width()) / float(tex.get_height())
 	var w := ln * aspect
 	var thick := ln * 0.1
+	n.set_meta("hit_half", Vector3(w * 0.375, maxf(thick * 0.5, 15.0), ln * 0.5))   # v13.10: the hull's box (shots, boarding)
 	var hull := MeshInstance3D.new()
 	hull.name = "PlaceholderPrism"
 	var pm := PrismMesh.new()
