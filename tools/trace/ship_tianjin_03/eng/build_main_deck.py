@@ -47,11 +47,28 @@ s2_walls = [wall((1901, 638), (2150, 638), [168]),     # owner X: escape-pod roo
 s2_walls = s2_walls + [mirror(w) for w in s2_walls] + [
             wall((2120, 1047), (2120, 2 * CY - 1047), [CY - 1047]),   # centre room / forward corridor
             wall((1872, 1047), (1872, 2 * CY - 1047), [CY - 1047])]   # centre room / CIC (next section)
-floor = unary_union([pod, mirror(pod), corridor, bay, col])
+# ---- section 3: round CIC (circle fit R 201 about (1640, 1161)), the spine aft, two octagon rooms on links
+from shapely.geometry import Point
+def octagon(cx, cy, a):   # regular octagon, flat top/bottom/sides, apothem a
+    r = a / np.cos(np.pi / 8)
+    return Polygon([(cx + r * np.cos(np.pi / 8 + k * np.pi / 4), cy + r * np.sin(np.pi / 8 + k * np.pi / 4)) for k in range(8)])
+cic3 = Point(1640, CY).buffer(201, 128)
+spine = box(900, CY - 42, 1445, CY + 42)                       # wall centres 1118 / 1202 (measured 1122 / 1205)
+cic_link = box(1835, CY - DOOR / 2 - 14, 1885, CY + DOOR / 2 + 14)
+octa = octagon(1273, 915, 120)
+olink = box(1216, 1030, 1288, CY - 30)                         # octagon down to the spine
+stub = box(1604, 860, 1676, 970)                                # CIC up to the Galley wedge (next section)
+s3_walls = [wall((1216, 1031), (1288, 1031), [36]), wall((1216, CY - 42), (1288, CY - 42), [36])]   # framed doors at both ends
+s3_walls = s3_walls + [mirror(w) for w in s3_walls] + [
+    wall((1445, CY - 42), (1445, CY + 42), [42]),               # spine into the CIC
+    wall((1604, 965), (1676, 965), [36]), mirror(wall((1604, 965), (1676, 965), [36]))]
+s3 = unary_union([cic3, spine, cic_link, octa, mirror(octa), olink, mirror(olink), stub, mirror(stub)])
+floor = unary_union([pod, mirror(pod), corridor, bay, col, s3])
 walls = floor.buffer(T / 2, join_style=2).difference(floor.buffer(-T / 2, join_style=2))
-inner = unary_union(pod_walls + [mirror(w) for w in pod_walls] + bay_walls + s2_walls).intersection(floor.buffer(T / 2, join_style=2))   # no stubs outside
+inner = unary_union(pod_walls + [mirror(w) for w in pod_walls] + bay_walls + s2_walls + s3_walls).intersection(floor.buffer(T / 2, join_style=2))   # no stubs outside
 walls = unary_union([walls, inner])
-for o in [box(1855, CY - DOOR / 2, 1890, CY + DOOR / 2)]:            # centre room opens aft into the CIC (next section)
+for o in [box(880, CY - 36, 912, CY + 36),                            # spine runs on aft (next section)
+          box(1610, 850, 1670, 868), mirror(box(1610, 850, 1670, 868))]:   # CIC stubs run on (next section)
     walls = walls.difference(o)
 
 src = cv2.imread(os.path.join(HERE, "..", "part_main_deck_x4.jpg")); H, W = src.shape[:2]
@@ -66,6 +83,7 @@ for im in (plan, ov): cv2.drawContours(im, cs, -1, (255, 255, 255), 3, cv2.LINE_
 cv2.imwrite(os.path.join(HERE, "main_plan.png"), plan)
 cv2.imwrite(os.path.join(HERE, "main_plan_on_map.jpg"), ov, [cv2.IMWRITE_JPEG_QUALITY, 88])
 cv2.imwrite(os.path.join(HERE, "main_plan_section1.jpg"), ov[520:1800, 1900:2950], [cv2.IMWRITE_JPEG_QUALITY, 90])
+cv2.imwrite(os.path.join(HERE, "main_s3_big.jpg"), cv2.resize(ov[600:1720, 860:1900], None, fx=1.3, fy=1.3, interpolation=cv2.INTER_CUBIC), [cv2.IMWRITE_JPEG_QUALITY, 90])
 cv2.imwrite(os.path.join(HERE, "main_s2_big.jpg"), cv2.resize(ov[500:1830, 1820:2340], None, fx=1.6, fy=1.6, interpolation=cv2.INTER_CUBIC), [cv2.IMWRITE_JPEG_QUALITY, 90])
 json.dump({"units": "x4 main-deck px", "mirror_y": CY, "thickness": T, "door": DOOR, "floor": mapping(floor), "walls": mapping(walls)},
           open(os.path.join(HERE, "main_plan.json"), "w"))
