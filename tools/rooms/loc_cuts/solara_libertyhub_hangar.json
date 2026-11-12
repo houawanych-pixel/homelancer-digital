@@ -5,18 +5,22 @@
   427
  ],
  "seams": [
-  713,
-  1522,
-  2802,
-  3581
+  49,
+  768,
+  1487,
+  2090,
+  2809,
+  3434
  ],
  "cuts": [
-  713,
-  1522,
-  2802,
-  3581
+  49,
+  768,
+  1487,
+  2090,
+  2809,
+  3434
  ],
- "overlap": 40,
+ "overlap": 20,
  "frame": [
   1920,
   1080
@@ -25,11 +29,11 @@
  "parts": [
   {
    "file": "LibertyHub_Hangar_part1.png",
-   "strip_x0": 738,
+   "strip_x0": 29,
    "strip_w": 759,
    "keep": [
-    713,
-    809
+    49,
+    719
    ],
    "frame_rect": [
     0,
@@ -40,11 +44,11 @@
   },
   {
    "file": "LibertyHub_Hangar_part2.png",
-   "strip_x0": 1783,
+   "strip_x0": 748,
    "strip_w": 759,
    "keep": [
-    1522,
-    1280
+    768,
+    719
    ],
    "frame_rect": [
     0,
@@ -55,11 +59,11 @@
   },
   {
    "file": "LibertyHub_Hangar_part3.png",
-   "strip_x0": 2812,
+   "strip_x0": 1409,
    "strip_w": 759,
    "keep": [
-    2802,
-    779
+    1487,
+    603
    ],
    "frame_rect": [
     0,
@@ -70,11 +74,41 @@
   },
   {
    "file": "LibertyHub_Hangar_part4.png",
-   "strip_x0": 3816,
+   "strip_x0": 2070,
    "strip_w": 759,
    "keep": [
-    3581,
-    1228
+    2090,
+    719
+   ],
+   "frame_rect": [
+    0,
+    0,
+    1920,
+    1080
+   ]
+  },
+  {
+   "file": "LibertyHub_Hangar_part5.png",
+   "strip_x0": 2742,
+   "strip_w": 759,
+   "keep": [
+    2809,
+    625
+   ],
+   "frame_rect": [
+    0,
+    0,
+    1920,
+    1080
+   ]
+  },
+  {
+   "file": "LibertyHub_Hangar_part6.png",
+   "strip_x0": 3410,
+   "strip_w": 759,
+   "keep": [
+    3434,
+    711
    ],
    "frame_rect": [
     0,
@@ -90,28 +124,28 @@
   {
    "file": "LibertyHub_Hangar_pic1.png",
    "size": [
-    1708,
+    953,
     1080
    ],
    "scale": 1.255813953488372,
    "rows": [
     {
      "row": 0,
-     "strip_x0": 437,
-     "strip_w": 1360,
+     "strip_x0": 29,
+     "strip_w": 759,
      "keep": [
-      713,
-      809
+      49,
+      719
      ],
      "y0": 0
     },
     {
      "row": 1,
-     "strip_x0": 1482,
-     "strip_w": 1360,
+     "strip_x0": 748,
+     "strip_w": 759,
      "keep": [
-      1522,
-      1280
+      768,
+      719
      ],
      "y0": 433
     }
@@ -120,28 +154,58 @@
   {
    "file": "LibertyHub_Hangar_pic2.png",
    "size": [
-    1643,
+    953,
     1080
    ],
    "scale": 1.255813953488372,
    "rows": [
     {
      "row": 0,
-     "strip_x0": 2537,
-     "strip_w": 1308,
+     "strip_x0": 1409,
+     "strip_w": 759,
      "keep": [
-      2802,
-      779
+      1487,
+      603
      ],
      "y0": 0
     },
     {
      "row": 1,
-     "strip_x0": 3541,
-     "strip_w": 1308,
+     "strip_x0": 2070,
+     "strip_w": 759,
      "keep": [
-      3581,
-      1228
+      2090,
+      719
+     ],
+     "y0": 433
+    }
+   ]
+  },
+  {
+   "file": "LibertyHub_Hangar_pic3.png",
+   "size": [
+    943,
+    1080
+   ],
+   "scale": 1.255813953488372,
+   "rows": [
+    {
+     "row": 0,
+     "strip_x0": 2746,
+     "strip_w": 751,
+     "keep": [
+      2809,
+      625
+     ],
+     "y0": 0
+    },
+    {
+     "row": 1,
+     "strip_x0": 3414,
+     "strip_w": 751,
+     "keep": [
+      3434,
+      711
      ],
      "y0": 433
     }

@@ -5,18 +5,22 @@
   427
  ],
  "seams": [
-  1034,
-  2166,
+  257,
+  861,
+  1562,
+  2264,
   2934,
-  4055
+  3635
  ],
  "cuts": [
-  1034,
-  2166,
+  257,
+  861,
+  1562,
+  2264,
   2934,
-  4055
+  3635
  ],
- "overlap": 40,
+ "overlap": 20,
  "frame": [
   1920,
   1080
@@ -25,11 +29,11 @@
  "parts": [
   {
    "file": "LibertyHub_Hub_part1.png",
-   "strip_x0": 1221,
+   "strip_x0": 180,
    "strip_w": 759,
    "keep": [
-    1034,
-    1132
+    257,
+    604
    ],
    "frame_rect": [
     0,
@@ -40,11 +44,11 @@
   },
   {
    "file": "LibertyHub_Hub_part2.png",
-   "strip_x0": 2171,
+   "strip_x0": 832,
    "strip_w": 759,
    "keep": [
-    2166,
-    768
+    861,
+    701
    ],
    "frame_rect": [
     0,
@@ -55,11 +59,11 @@
   },
   {
    "file": "LibertyHub_Hub_part3.png",
-   "strip_x0": 3115,
+   "strip_x0": 1534,
    "strip_w": 759,
    "keep": [
-    2934,
-    1121
+    1562,
+    702
    ],
    "frame_rect": [
     0,
@@ -70,11 +74,41 @@
   },
   {
    "file": "LibertyHub_Hub_part4.png",
-   "strip_x0": 117,
+   "strip_x0": 2220,
    "strip_w": 759,
    "keep": [
-    4055,
-    1075
+    2264,
+    670
+   ],
+   "frame_rect": [
+    0,
+    0,
+    1920,
+    1080
+   ]
+  },
+  {
+   "file": "LibertyHub_Hub_part5.png",
+   "strip_x0": 2905,
+   "strip_w": 759,
+   "keep": [
+    2934,
+    701
+   ],
+   "frame_rect": [
+    0,
+    0,
+    1920,
+    1080
+   ]
+  },
+  {
+   "file": "LibertyHub_Hub_part6.png",
+   "strip_x0": 3615,
+   "strip_w": 759,
+   "keep": [
+    3635,
+    718
    ],
    "frame_rect": [
     0,
@@ -90,28 +124,28 @@
   {
    "file": "LibertyHub_Hub_pic1.png",
    "size": [
-    1522,
+    931,
     1080
    ],
    "scale": 1.255813953488372,
    "rows": [
     {
      "row": 0,
-     "strip_x0": 994,
-     "strip_w": 1212,
+     "strip_x0": 189,
+     "strip_w": 741,
      "keep": [
-      1034,
-      1132
+      257,
+      604
      ],
      "y0": 0
     },
     {
      "row": 1,
-     "strip_x0": 1944,
-     "strip_w": 1212,
+     "strip_x0": 841,
+     "strip_w": 741,
      "keep": [
-      2166,
-      768
+      861,
+      701
      ],
      "y0": 433
     }
@@ -120,28 +154,58 @@
   {
    "file": "LibertyHub_Hub_pic2.png",
    "size": [
-    1508,
+    932,
     1080
    ],
    "scale": 1.255813953488372,
    "rows": [
     {
      "row": 0,
-     "strip_x0": 2894,
-     "strip_w": 1201,
+     "strip_x0": 1542,
+     "strip_w": 742,
      "keep": [
-      2934,
-      1121
+      1562,
+      702
      ],
      "y0": 0
     },
     {
      "row": 1,
-     "strip_x0": 3992,
-     "strip_w": 1201,
+     "strip_x0": 2228,
+     "strip_w": 742,
      "keep": [
-      4055,
-      1075
+      2264,
+      670
+     ],
+     "y0": 433
+    }
+   ]
+  },
+  {
+   "file": "LibertyHub_Hub_pic3.png",
+   "size": [
+    952,
+    1080
+   ],
+   "scale": 1.255813953488372,
+   "rows": [
+    {
+     "row": 0,
+     "strip_x0": 2905,
+     "strip_w": 758,
+     "keep": [
+      2934,
+      701
+     ],
+     "y0": 0
+    },
+    {
+     "row": 1,
+     "strip_x0": 3615,
+     "strip_w": 758,
+     "keep": [
+      3635,
+      718
      ],
      "y0": 433
     }

@@ -5,18 +5,22 @@
   427
  ],
  "seams": [
-  1066,
-  1844,
+  66,
+  785,
+  1491,
+  2186,
   2808,
-  3893
+  3527
  ],
  "cuts": [
-  1066,
-  1844,
+  66,
+  785,
+  1491,
+  2186,
   2808,
-  3893
+  3527
  ],
- "overlap": 40,
+ "overlap": 20,
  "frame": [
   1920,
   1080
@@ -25,11 +29,11 @@
  "parts": [
   {
    "file": "LibertyHub_Lounge_part1.png",
-   "strip_x0": 1076,
+   "strip_x0": 46,
    "strip_w": 759,
    "keep": [
-    1066,
-    778
+    66,
+    719
    ],
    "frame_rect": [
     0,
@@ -40,11 +44,11 @@
   },
   {
    "file": "LibertyHub_Lounge_part2.png",
-   "strip_x0": 1947,
+   "strip_x0": 759,
    "strip_w": 759,
    "keep": [
-    1844,
-    964
+    785,
+    706
    ],
    "frame_rect": [
     0,
@@ -55,11 +59,11 @@
   },
   {
    "file": "LibertyHub_Lounge_part3.png",
-   "strip_x0": 2971,
+   "strip_x0": 1459,
    "strip_w": 759,
    "keep": [
-    2808,
-    1085
+    1491,
+    695
    ],
    "frame_rect": [
     0,
@@ -70,11 +74,41 @@
   },
   {
    "file": "LibertyHub_Lounge_part4.png",
-   "strip_x0": 52,
+   "strip_x0": 2118,
    "strip_w": 759,
    "keep": [
-    3893,
-    1269
+    2186,
+    622
+   ],
+   "frame_rect": [
+    0,
+    0,
+    1920,
+    1080
+   ]
+  },
+  {
+   "file": "LibertyHub_Lounge_part5.png",
+   "strip_x0": 2788,
+   "strip_w": 759,
+   "keep": [
+    2808,
+    719
+   ],
+   "frame_rect": [
+    0,
+    0,
+    1920,
+    1080
+   ]
+  },
+  {
+   "file": "LibertyHub_Lounge_part6.png",
+   "strip_x0": 3465,
+   "strip_w": 759,
+   "keep": [
+    3527,
+    635
    ],
    "frame_rect": [
     0,
@@ -90,28 +124,28 @@
   {
    "file": "LibertyHub_Lounge_pic1.png",
    "size": [
-    1311,
+    953,
     1080
    ],
    "scale": 1.255813953488372,
    "rows": [
     {
      "row": 0,
-     "strip_x0": 933,
-     "strip_w": 1044,
+     "strip_x0": 46,
+     "strip_w": 759,
      "keep": [
-      1066,
-      778
+      66,
+      719
      ],
      "y0": 0
     },
     {
      "row": 1,
-     "strip_x0": 1804,
-     "strip_w": 1044,
+     "strip_x0": 759,
+     "strip_w": 759,
      "keep": [
-      1844,
-      964
+      785,
+      706
      ],
      "y0": 433
     }
@@ -120,28 +154,58 @@
   {
    "file": "LibertyHub_Lounge_pic2.png",
    "size": [
-    1694,
+    923,
     1080
    ],
    "scale": 1.255813953488372,
    "rows": [
     {
      "row": 0,
-     "strip_x0": 2676,
-     "strip_w": 1349,
+     "strip_x0": 1471,
+     "strip_w": 735,
      "keep": [
-      2808,
-      1085
+      1491,
+      695
      ],
      "y0": 0
     },
     {
      "row": 1,
-     "strip_x0": 3853,
-     "strip_w": 1349,
+     "strip_x0": 2130,
+     "strip_w": 735,
      "keep": [
-      3893,
-      1269
+      2186,
+      622
+     ],
+     "y0": 433
+    }
+   ]
+  },
+  {
+   "file": "LibertyHub_Lounge_pic3.png",
+   "size": [
+    953,
+    1080
+   ],
+   "scale": 1.255813953488372,
+   "rows": [
+    {
+     "row": 0,
+     "strip_x0": 2788,
+     "strip_w": 759,
+     "keep": [
+      2808,
+      719
+     ],
+     "y0": 0
+    },
+    {
+     "row": 1,
+     "strip_x0": 3465,
+     "strip_w": 759,
+     "keep": [
+      3527,
+      635
      ],
      "y0": 433
     }
