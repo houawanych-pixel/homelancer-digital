@@ -408,3 +408,15 @@ func tick(dt: float) -> void:
 		people.sort_custom(func(a, b): return lst.find(a["src"]) < lst.find(b["src"]))
 	else: people.sort_custom(func(a, b): return float(a["d"]) < float(b["d"]))
 	for i in people.size(): holder.move_child(people[i]["node"], i)
+
+## v13.76 (owner: "I should be able to call that person"): the placed roster person under a screen point ({} = nobody)
+func person_at(pos: Vector2) -> Dictionary:
+	if edit_on: return {}
+	var k: Vector2 = screen_per_strip()
+	for i in range(people.size() - 1, -1, -1):
+		var p: Dictionary = people[i]
+		if not p.has("src") or str(p["src"].get("who", "")) == "": continue
+		var f: Vector2 = to_screen(float(p.get("x", 0.0)), float(p.get("feet", 0.0)))
+		var bh := float(p.get("h0", 0.1)) * k.y
+		if Rect2(f.x - bh * 0.3, f.y - bh, bh * 0.6, bh).has_point(pos): return p["src"]
+	return {}

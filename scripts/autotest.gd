@@ -4324,6 +4324,54 @@ func _run() -> void:
 			await _capture("station_%d" % i)
 		get_tree().quit()
 		return
+	if OS.get_environment("HL_ROSTER") != "":   # v13.76 (owner): CROWD EDIT + ADD = a roster of face profiles (faction / my crew); a placed person stands in the 360 room and picks up when tapped
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		main.dock(_sp().station)
+		await _until(func(): return main.state == "hub", 15.0)
+		await _wait(2.0)
+		var hb = main.hub
+		hb.set_panels_hidden(true)
+		var ed = hb.crowd_edit
+		ed._on("edit")
+		ed._on("add")
+		await _frames(3)
+		await _wait(0.5)
+		await _capture("roster_open")
+		var fac_n: int = ed.picker.get_child_count()
+		var fac_list: Array = ed.roster_people("faction")
+		var crew_list: Array = ed.roster_people("crew")
+		var tiles_ok: bool = ed.roster.visible and fac_n == fac_list.size() and fac_n > 0 and not crew_list.is_empty()
+		var pick: Dictionary = fac_list[0] if not fac_list.is_empty() else {}
+		var n0: int = hb.crowd.people.size()
+		if not pick.is_empty(): ed._add_who(pick)
+		await _until(func(): return Packs.is_ready("crowd3d_orion") and hb.crowd.people.size() > n0, 30.0)
+		await _wait(0.5)
+		var placed_ok: bool = hb.crowd.people.size() == n0 + 1 and str(hb.crowd.people[-1]["src"].get("who", "")) == str(pick.get("who", ""))
+		ed._on("edit")   # (edit off: they stand in the room)
+		await _wait(0.8)
+		var pp: Dictionary = {}
+		for q in hb.crowd.people: if q.has("src") and str(q["src"].get("who", "")) == str(pick.get("who", "")): pp = q
+		var called := false
+		if not pp.is_empty():
+			var k: Vector2 = hb.crowd.screen_per_strip()
+			var fpt: Vector2 = hb.crowd.to_screen(float(pp["x"]), float(pp["feet"]))
+			var tap: Vector2 = fpt - Vector2(0, float(pp["h0"]) * k.y * 0.5)
+			for pressed in [true, false]:
+				var ev := InputEventScreenTouch.new()
+				ev.index = 0
+				ev.pressed = pressed
+				ev.position = tap
+				hb._look_input(ev)
+			await _frames(2)
+			called = hb.placed_calls.has(str(pick["who"])) and (hb.calls.get("l", {}).get("from", "") == str(pick["name"]) or hb.calls.get("r", {}).get("from", "") == str(pick["name"]))
+		await _wait(1.0)
+		await _capture("roster_placed")
+		var txt: String = ed.copy_text()
+		_check("v13.76 (owner): + ADD opens the roster (%d faces from %s, %d crew); picking one puts them in the room (%s); tapping them calls them (%s); COPY ALL keeps who they are (%s)" % [fac_n, hb.crowd.full, crew_list.size(), placed_ok, called, txt.contains(str(pick.get("who", "?")))],
+			tiles_ok and placed_ok and called and txt.contains(str(pick.get("who", "?"))))
+		_finish_group()
+		return
 	if OS.get_environment("HL_CROWDEDIT") != "":   # v12.11: the Crowd Edit dev tool (any room: HL_SYS, else the Dreadholm planet hub)
 		await _smoke_core()
 		if main.state == "hub": main.launch()

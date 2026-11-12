@@ -13,6 +13,8 @@ var hub: Node
 var crowd: Crowd3D
 var bar: HBoxContainer
 var picker: GridContainer
+var roster: PanelContainer
+var roster_tab := "faction"
 var out_box: TextEdit
 var sel_src = null             # the selected person's entry in the room's list (people get re-sorted each frame)
 var layers: PanelContainer     # v12.12 (owner: "a side window like Photoshop, character order top to bottom")
@@ -41,19 +43,43 @@ func setup(h: Node) -> void:
 		b.pressed.connect(_on.bind(k[0]))
 		bar.add_child(b)
 		btns[k[0]] = b
+	# v13.76 (owner: "it should open a roster: who to pick to set in there; the roster is just the face profiles, for that
+	# faction or my crew; I should be able to call that person, and they'd be in that 360 area"): + ADD opens the ROSTER
+	roster = PanelContainer.new()
+	roster.name = "Roster"
+	var rsb := StyleBoxFlat.new()
+	rsb.bg_color = Color(0.03, 0.06, 0.09, 0.94)
+	rsb.border_color = Color(0.22, 0.8, 0.75, 0.8)
+	rsb.set_border_width_all(2)
+	rsb.set_corner_radius_all(8)
+	rsb.set_content_margin_all(10)
+	roster.add_theme_stylebox_override("panel", rsb)
+	roster.position = Vector2(12, 116)
+	roster.visible = false
+	add_child(roster)
+	var rv := VBoxContainer.new()
+	roster.add_child(rv)
+	var tabs := HBoxContainer.new()
+	tabs.add_theme_constant_override("separation", 8)
+	rv.add_child(tabs)
+	for t in [["faction", "FACTION"], ["crew", "MY CREW"]]:
+		var tb := Button.new()
+		tb.name = "RosterTab_" + t[0]
+		tb.text = t[1]
+		tb.toggle_mode = true
+		tb.focus_mode = Control.FOCUS_NONE
+		tb.add_theme_font_size_override("font_size", 16)
+		tb.pressed.connect(func(): roster_tab = t[0]; _fill_roster())
+		tabs.add_child(tb)
+	var rsc := ScrollContainer.new()
+	rsc.custom_minimum_size = Vector2(640, 300)
+	rsc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	rv.add_child(rsc)
 	picker = GridContainer.new()
-	picker.columns = 4
-	picker.position = Vector2(12, 116)
-	picker.visible = false
-	add_child(picker)
-	for m in Data.CROWD3D_CREWS["orion"]["models"]:
-		var b := Button.new()
-		var short := str(m).substr(12)
-		b.text = short
-		b.focus_mode = Control.FOCUS_NONE
-		b.add_theme_font_size_override("font_size", 13)
-		b.pressed.connect(_add.bind(short))
-		picker.add_child(b)
+	picker.columns = 5
+	picker.add_theme_constant_override("h_separation", 8)
+	picker.add_theme_constant_override("v_separation", 8)
+	rsc.add_child(picker)
 	out_box = TextEdit.new()
 	out_box.visible = false
 	out_box.position = Vector2(12, 116)
@@ -93,6 +119,7 @@ func setup(h: Node) -> void:
 
 func _refresh() -> void:
 	var on: bool = crowd.edit_on
+	queue_redraw()   # (v13.76: the boxes go when editing stops)
 	for k in btns: (btns[k] as Button).visible = on or k == "edit"
 	(btns["edit"] as Button).text = "CROWD EDIT: ON" if on else "CROWD EDIT"
 	(btns["preview"] as Button).text = "STOP" if crowd.preview else "PREVIEW"
@@ -101,7 +128,7 @@ func _refresh() -> void:
 	layers.visible = on
 	if on: _layer_rows()
 	if not on:
-		picker.visible = false
+		roster.visible = false
 		out_box.visible = false
 
 func _sel() -> Dictionary:
@@ -123,7 +150,8 @@ func _on(k: String) -> void:
 			sel_src = null
 			crowd.rebuild()
 		"add":
-			picker.visible = not picker.visible
+			roster.visible = not roster.visible
+			if roster.visible: _fill_roster()
 			out_box.visible = false
 		"smaller", "bigger":
 			if not p.is_empty():
@@ -162,7 +190,7 @@ func copy_text() -> String:
 	for rk in Crowd3D.edits:
 		var ppl: Array = []
 		for pl in Crowd3D.edits[rk]:
-			ppl.append({"model": pl["model"], "x": snappedf(float(pl["x"]), 0.0001), "feet": snappedf(float(pl["feet"]), 0.0001), "h": snappedf(float(pl["h"]), 0.0001),
+			ppl.append({"who": str(pl.get("who", "")), "who_kind": str(pl.get("who_kind", "")), "name": str(pl.get("name", "")), "model": pl["model"], "x": snappedf(float(pl["x"]), 0.0001), "feet": snappedf(float(pl["feet"]), 0.0001), "h": snappedf(float(pl["h"]), 0.0001),
 				"walk": bool(pl.get("walk", true)), "face": int(pl.get("face", 1)), "zone": (pl["zone"] as Array).map(func(v): return snappedf(float(v), 0.0001))})
 		lines.append("HL_CROWD " + JSON.stringify({"room": rk, "people": ppl}))
 	return "\n".join(lines)
@@ -217,8 +245,61 @@ func move_layer(src: Dictionary, step: int) -> void:
 func _fit() -> Array:
 	return Data.CROWD3D_PLACED_FIT.get(crowd.full, [1.0, -0.44])
 
+## v13.76: everyone you can put in this room: the room's faction (leader and pilots, their face profiles) or your crew.
+func roster_people(tab: String) -> Array:
+	var out: Array = []
+	if tab == "faction":
+		var f := str(crowd.full.get_slice("/", 0)).capitalize()
+		var R: Dictionary = Data.ROSTERS.get(f, {})
+		for p in R.get("pilots", []):
+			out.append({"who": str(p["id"]), "kind": "pilot", "name": str(p["name"]), "sub": str(p.get("role", "")), "face": str(p.get("portrait_clean", "res://assets/enemy_pilots/%s_clean.jpg" % str(p["id"]))), "faction": f})
+	else:
+		for fk in Data.CREW:
+			for c in Data.CREW[fk]:
+				out.append({"who": str(c["id"]), "kind": "crew", "name": str(c["name"]), "sub": str(c.get("role", "")), "face": "res://assets/crew/%s/%s_face.png" % [fk, str(c["file"])], "faction": fk})
+	return out
+
+func _fill_roster() -> void:
+	for c in picker.get_children(): c.queue_free()
+	for t in ["faction", "crew"]:
+		var tb := roster.find_child("RosterTab_" + t, true, false) as Button
+		if tb != null: tb.button_pressed = t == roster_tab
+	if roster_tab == "faction" and not Packs.is_ready("enemies"):   # (the pilots' faces come in their own pack on the web)
+		Packs.request("enemies")
+		if not Packs.pack_ready.is_connected(_on_roster_pack): Packs.pack_ready.connect(_on_roster_pack)
+	for who in roster_people(roster_tab):
+		var b := Button.new()
+		b.name = "Pick_" + str(who["who"])
+		b.custom_minimum_size = Vector2(118, 150)
+		b.focus_mode = Control.FOCUS_NONE
+		b.clip_text = true
+		b.text = str(who["name"])
+		b.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
+		b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		b.expand_icon = true
+		b.add_theme_font_size_override("font_size", 12)
+		if ResourceLoader.exists(str(who["face"])): b.icon = load(str(who["face"]))
+		b.pressed.connect(_add_who.bind(who))
+		picker.add_child(b)
+
+func _on_roster_pack(pk: String) -> void:
+	if pk == "enemies" and roster.visible: _fill_roster()
+
+## Put someone from the roster in the room: their face, name and voice; a body from the 3D crowd (the same one each time).
+func _add_who(who: Dictionary) -> void:
+	var ms: Array = Data.CROWD3D_CREWS["orion"]["models"]
+	var body := str(ms[absi(hash(str(who["who"]))) % ms.size()]).substr(12)
+	_add(body)
+	var pl: Dictionary = _list()[-1]
+	pl["who"] = str(who["who"])
+	pl["who_kind"] = str(who["kind"])
+	pl["name"] = str(who["name"])
+	pl["walk"] = false
+	crowd.rebuild()
+	editor_log.append("who:" + str(who["who"]))
+
 func _add(model: String) -> void:
-	picker.visible = false
+	roster.visible = false
 	var c: Vector2 = crowd.from_screen(get_viewport_rect().size * Vector2(0.5, 0.78))
 	var fit := _fit()
 	var h := maxf(0.05, float(fit[0]) * c.y + float(fit[1]))
@@ -350,3 +431,6 @@ func _pick(pos: Vector2) -> String:
 		return "body"
 	if not p.is_empty() and _zone_rect(p).has_point(pos): return "zone"
 	return ""
+
+## v13.76: the screen box of a placed person (tests / taps)
+func body_rect(p: Dictionary) -> Rect2: return _body_rect(p)

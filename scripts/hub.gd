@@ -203,6 +203,7 @@ func _ready() -> void:
 	add_child(left)
 	subtabs = HBoxContainer.new()   # v8.2: the active category's pages, small, under it
 	subtabs.name = "SubTabs"
+	subtabs.mouse_filter = Control.MOUSE_FILTER_IGNORE   # v13.76 (owner: "CROWD EDIT doesn't work, nothing happens"): its empty box sat over the button and ate the tap (its own tab buttons still work)
 	subtabs.anchor_right = 1.0
 	subtabs.offset_top = 6 + TAB_H - 4
 	subtabs.offset_bottom = 6 + TAB_H + 28
@@ -1253,6 +1254,33 @@ func _call_input(e: InputEvent, sd: String) -> void:
 	else: talk_side = sd   # tap a call: talk to that person
 	_place_calls()
 
+## v13.76 (owner: "I should be able to call that person, and that person would be in that 360 area"): someone you
+## placed from the Crowd Edit roster picks up: a faction pilot (their face, their voice) or one of the crews.
+var _tap_from := {}
+var placed_calls: Array = []   # (tests)
+func call_placed(who: Dictionary) -> void:
+	var id := str(who.get("who", ""))
+	placed_calls.append(id)
+	if panels_hidden: set_panels_hidden(false)   # (the call box shows with the panels)
+	if str(who.get("who_kind", "")) == "crew":
+		for fk in Data.CREW:
+			for c in Data.CREW[fk]:
+				if str(c["id"]) != id: continue
+				var line := str(c.get("line", "%s here." % str(c["name"])))
+				open_call("r", str(c["name"]), "%s · here" % str(c.get("role", "Crew")), line, "res://assets/crew/%s/%s_face.png" % [fk, str(c["file"])], 0.0, {"id": id, "voice_id": id, "female": bool(c.get("female", false))})
+				status.text = "%s: %s" % [c["name"], line]
+				if Sfx.voice_on(): Sfx.read_aloud(line, "", 1.0, bool(c.get("female", false)))
+				return
+		return
+	for f in Data.ROSTERS:
+		for p in Data.ROSTERS[f].get("pilots", []):
+			if str(p["id"]) != id: continue
+			var pd: Dictionary = (p as Dictionary).duplicate()
+			pd["faction"] = f
+			if not pd.has("portrait_clean"): pd["portrait_clean"] = "res://assets/enemy_pilots/%s_clean.jpg" % id
+			call_person(pd, "right here", "%s here. What do you need, pilot?" % str(p["name"]))
+			return
+
 ## v11.4 (owner): call someone from CONTACTS or a TALK button: your side on the right, anyone else on the left.
 func side_for(faction: String) -> String:
 	return "l" if faction != "" and Factions.has(faction) and Factions.hostile(faction) else "r"
@@ -1831,6 +1859,13 @@ func _look_input(e: InputEvent) -> void:
 		idx = 99
 		pos = (e as InputEventMouseMotion).position
 	else: return
+	if down: _tap_from[idx] = [pos, Time.get_ticks_msec()]
+	elif up and _tap_from.has(idx):   # v13.76 (owner): a tap on a person you placed calls them
+		var t0: Array = _tap_from[idx]
+		_tap_from.erase(idx)
+		if (t0[0] as Vector2).distance_to(pos) < 14.0 and Time.get_ticks_msec() - int(t0[1]) < 450 and crowd != null:
+			var who: Dictionary = crowd.person_at(pos)
+			if not who.is_empty(): call_placed(who)
 	if down:
 		for sd in ["l", "r"]:
 			if not look_motion and pos.distance_to(stick_home(sd)) < stick_r() * 1.4: stick_own[idx] = sd
