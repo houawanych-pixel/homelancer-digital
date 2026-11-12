@@ -6810,7 +6810,7 @@ func fire_volley(heavy: bool, count: int) -> int:
 
 func fire_missile(heavy := false, k := 0, n := 1, scale := 1.0, forced: Node3D = null, straight := false) -> bool:
 	if (GS.nukes if _firing_nuke else (GS.heavy_missiles if heavy else GS.missiles)) <= 0: return false
-	var t := target if (target and is_instance_valid(target) and target.get_meta("kind", "") == "enemy") else null
+	var t := target if (target and is_instance_valid(target) and (target.get_meta("kind", "") == "enemy" or (target == board_target()))) else null   # v13.11: and the boarding target
 	if forced != null and is_instance_valid(forced): t = forced
 	if t == null and not straight: t = _nearest_enemy(900.0)
 	if straight: t = null   # v1.9u: no lock: straight ahead
@@ -7996,7 +7996,7 @@ func _update_missiles(dt: float) -> void:
 		var n: Node3D = m["node"]
 		var tv = m["target"]
 		var t: Node3D = tv if is_instance_valid(tv) else null
-		if t != null and t.get_meta("kind", "") != "enemy": t = null   # (a wreck is no target)
+		if t != null and t.get_meta("kind", "") != "enemy" and t != board_target(): t = null   # (a wreck is no target; v13.11: the boarding ship is)
 		if t == null and not m.get("shaken", false):
 			# v1.4m: its target is gone: the missile goes after the nearest hostile it can reach
 			var nb: Node3D = null
@@ -8051,7 +8051,13 @@ func _update_missiles(dt: float) -> void:
 			done = true
 		elif boarding and _missile_wall(m, n.global_position - (v + wv2) * dt, n.global_position):   # v12.48: a missile meets a wall / prop: blows a hole
 			done = true
-		elif is_instance_valid(t) and n.global_position.distance_to(t.global_position) < (Data.HEAVY_MISSILE_HIT_RADIUS if m.get("heavy", false) else Data.MISSILE_HIT_RADIUS) + _hull_r(_enemy_entry(t)) * 0.8:
+		elif board_target() != null and board_hull_dist(n.global_position) < (Data.HEAVY_MISSILE_HIT_RADIUS if m.get("heavy", false) else Data.MISSILE_HIT_RADIUS):   # v13.11: it meets the boarding ship's hull
+			if m.get("nuke", false): _blast(n.global_position, Data.BLAST_NUKE, "nuke")
+			elif m.get("heavy", false): _blast(n.global_position, Data.BLAST_HEAVY_MISSILE, "heavy_missile")
+			else: _blast(n.global_position, Data.BLAST_WING, "board_hit")
+			missile_blast(n.global_position, m, null)
+			done = true
+		elif is_instance_valid(t) and not _enemy_entry(t).is_empty() and n.global_position.distance_to(t.global_position) < (Data.HEAVY_MISSILE_HIT_RADIUS if m.get("heavy", false) else Data.MISSILE_HIT_RADIUS) + _hull_r(_enemy_entry(t)) * 0.8:
 			var e := _enemy_entry(t)
 			if not e.is_empty():
 				if m.get("nuke", false) and e["def"].has("carrier"):   # v11.33 (owner: "35 nukes to blow up one of those battleships")
@@ -9698,6 +9704,7 @@ func trigger_system(id: String) -> bool:
 ## nearest one ahead of you (inside Data.NUKE_SEEK_CONE) within Data.NUKE_SEEK; none = straight ahead.
 func nuke_target() -> Node3D:
 	if target != null and is_instance_valid(target) and not _enemy_entry(target).is_empty(): return target
+	if target != null and target == board_target(): return target   # v13.11: nuke the boarding ship
 	var best: Node3D = null
 	var bd: float = Data.NUKE_SEEK
 	var fwd := -player.global_basis.z
@@ -9801,16 +9808,26 @@ func _update_mines(dt: float) -> void:
 				if d0 < pd:
 					pd = d0
 					prey = e["node"]
+			var bt := board_target()   # v13.11: a mine goes for the boarding ship's hull too
+			if bt != null and board_hull_dist(n.global_position) < pd:
+				pd = board_hull_dist(n.global_position)
+				var bl: Vector3 = bt.global_transform.affine_inverse() * n.global_position
+				var hh: Vector3 = bt.get_meta("hit_half", Vector3.ONE)
+				prey = bt
+				m["aim"] = bt.global_transform * Vector3(clampf(bl.x, -hh.x, hh.x), clampf(bl.y, -hh.y, hh.y), clampf(bl.z, -hh.z, hh.z))
+			else: m.erase("aim")
 			if prey != null:
 				if not m.get("awake", false):
 					m["awake"] = true
 					Sfx.play("mine_wake", -8.0)
-				var want := (prey.global_position - n.global_position).normalized() * 95.0
+				var aim_at: Vector3 = m["aim"] if m.has("aim") else prey.global_position
+				var want := (aim_at - n.global_position).normalized() * 95.0
 				m["vel"] = (m["vel"] as Vector3).lerp(want, minf(1.0, dt * 3.0))
 				n.rotate_y(dt * 8.0)
 				if pd < 12.0: boom = true
 		if boom:
 			_explode(n.global_position)
+			_board_blast(n.global_position, Data.MINE_RADIUS, BOARD_MINE)   # v13.11
 			for e in enemies.duplicate():
 				var d: float = maxf(0.0, e["node"].global_position.distance_to(n.global_position) - _hull_r(e) * 0.8)
 				if d < Data.MINE_RADIUS:
@@ -10619,6 +10636,25 @@ func mission_waypoint() -> Dictionary:
 ## destination in gold"): main keeps this set while you hold a boarding job: {"sys", "title", "node" (the target ship
 ## once it is out), "power"}. The waypoint is the gate toward its system, then the ship itself.
 var board_mission: Dictionary = {}
+var board_hits := 0.0   # v13.11: damage your missiles, nukes and mines did to the boarding target (main takes it)
+## The boarding target while its shield is up (null otherwise): what your missiles, nukes and mines can damage.
+func board_target() -> Node3D:
+	var n = board_mission.get("node")
+	if n == null or not is_instance_valid(n) or float(board_mission.get("power", 100.0)) <= 50.0: return null
+	return n
+## How far a point is from the boarding target's hull box (0 = on or in it; INF = no target).
+func board_hull_dist(p: Vector3) -> float:
+	var n = board_mission.get("node")
+	if n == null or not is_instance_valid(n): return INF
+	var bs: Node3D = n
+	var hh: Vector3 = bs.get_meta("hit_half", Vector3.ONE * float(bs.get_meta("radius", 200.0)) * 0.6)
+	var lp: Vector3 = bs.global_transform.affine_inverse() * p
+	return Vector3(maxf(absf(lp.x) - hh.x, 0.0), maxf(absf(lp.y) - hh.y, 0.0), maxf(absf(lp.z) - hh.z, 0.0)).length()
+## A blast of `full` damage at `at` with radius r: the boarding target takes it (less the farther off its hull).
+func _board_blast(at: Vector3, r: float, full: float) -> void:
+	if board_target() == null: return
+	var d := board_hull_dist(at)
+	if d < r: board_hits += full * (1.0 - 0.5 * d / maxf(r, 1.0))
 func _board_waypoint() -> Dictionary:
 	if surface_mode or not is_instance_valid(player): return {}
 	var bm := board_mission
@@ -11631,10 +11667,16 @@ func _missile_wall(m: Dictionary, from: Vector3, to: Vector3) -> bool:
 	missile_blast(at, m, null)
 	return true
 
+const BOARD_MISSILE := 120.0   # v13.11: what a hit does to a boarding target's power (its SHIELD_HP takes it 100% -> 50%)
+const BOARD_HEAVY := 420.0
+const BOARD_NUKE := 900.0
+const BOARD_MINE := 420.0
 func missile_blast(at: Vector3, m: Dictionary, hit: Node3D) -> void:
 	if boarding and life != null: life.explosion(at, 55.0 if m.get("heavy", false) else 35.0)
 	var heavy: bool = m.get("heavy", false)
 	var r: float = Data.HEAVY_MISSILE_BLAST_RADIUS if heavy else Data.MISSILE_BLAST_RADIUS
+	# v13.11 (owner: "missiles, nukes, anything hitting the ship should damage it")
+	_board_blast(at, r * (Data.NUKE_BLAST_K if m.get("nuke", false) else 1.0), BOARD_NUKE if m.get("nuke", false) else (BOARD_HEAVY if heavy else BOARD_MISSILE * float(m.get("scale", 1.0))))
 	if m.get("nuke", false):   # v11.25 (owner): twice the blast at 3x the damage, then a second, bigger one
 		r *= Data.NUKE_BLAST_K
 		nuke_later.append({"at": at, "t": float(Data.NUKE_SECOND[0])})
@@ -11674,6 +11716,7 @@ func _update_nukes(dt: float) -> void:
 		Sfx.play("explosion", 0.0, 0.6)
 		hit_shake = maxf(hit_shake, 0.6)
 		_nuke_splash(b["at"], Data.HEAVY_MISSILE_BLAST_RADIUS * float(Data.NUKE_SECOND[1]), float(Data.NUKE_SECOND[2]), null, "second")
+		_board_blast(b["at"], Data.HEAVY_MISSILE_BLAST_RADIUS * float(Data.NUKE_SECOND[1]), BOARD_NUKE * 0.5)   # v13.11
 	nuke_later = nuke_later.filter(func(o): return float(o["t"]) > 0.0)
 
 var _blast_mat: StandardMaterial3D = null

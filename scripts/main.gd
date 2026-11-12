@@ -423,6 +423,9 @@ func _board_job_step(dt: float) -> void:
 	# your laser shots that reach the hull take its power down (100% -> 50%: the shield fails and stays down)
 	# v13.10 (owner: "I couldn't board their ship"): a shot counts anywhere on the hull (its box), not only near the
 	# middle, and you board anywhere along the hull once the shield is down.
+	if space.board_hits > 0.0:   # v13.11: missiles, nukes and mines that reached it
+		board_damage(space.board_hits)
+		space.board_hits = 0.0
 	if board_power() > 50.0:
 		for b in space.bolts:
 			if str(b.get("owner", "")) != "player" or float(b.get("life", 0.0)) <= 0.0 or not is_instance_valid(b["node"]): continue

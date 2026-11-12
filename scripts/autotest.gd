@@ -3037,8 +3037,25 @@ func _run() -> void:
 			var cone_ok: bool = sb._in_fire_cone(ship)
 			sb.target = null
 			_check("v13.10: with the ship targeted and in front of you, the guns fire on it on their own", cone_ok, str(GS.weapon()["range"]))
-			main.board_power()
+			# v13.11 (owner: "missiles, nukes, anything hitting the ship should damage it")
 			ship.set_meta("power", 100.0)
+			await _wait(0.2)
+			sb.missile_blast(ship.global_transform * Vector3(0, 0, (ship.get_meta("hit_half") as Vector3).z * 0.9), {"heavy": false, "scale": 1.0}, null)
+			await _wait(0.3)
+			var after_m: float = main.board_power()
+			sb.missile_blast(ship.global_position, {"heavy": true}, null)
+			await _wait(0.3)
+			var after_h: float = main.board_power()
+			_check("v13.11: a missile and a heavy missile on the hull take its power down (100 -> 93.3 -> 70%)", absf(after_m - 93.33) < 0.2 and absf(after_h - 70.0) < 0.2, "%.2f %.2f" % [after_m, after_h])
+			GS.missiles = maxi(GS.missiles, 2)
+			_tp(ship.global_transform * Vector3((ship.get_meta("hit_half") as Vector3).x + 300.0, 0, 0), ship.global_position)
+			sb.target = ship
+			var shot_ok: bool = sb.fire_missile(false)
+			var locked: bool = shot_ok and not sb.missiles_live.is_empty() and sb.missiles_live[-1]["target"] == ship
+			sb.target = null
+			_check("v13.11: a missile locks on the boarding ship (and a nuke would: nuke_target)", locked and (func(): sb.target = ship; var nt = sb.nuke_target(); sb.target = null; return nt == ship).call(), str(shot_ok))
+			ship.set_meta("power", 100.0)
+			await _wait(0.2)
 			main.board_damage(450.0)      # (half the capital's 900)
 			var half_way: float = main.board_power()
 			# a real laser shot of yours that reaches the hull counts
