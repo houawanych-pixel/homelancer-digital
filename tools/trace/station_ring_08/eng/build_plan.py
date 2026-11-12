@@ -47,7 +47,7 @@ wing_walls = [radial_wall(204.3, 465, 600, [495]), radial_wall(M(204.3), 465, 60
               radial_wall(187, 465, 600, [532]), radial_wall(263, 465, 600, [532]),          # end rooms / spokes
               arc_wall(187, 263, 600, [196, 215.5, 234.5, 254])]                             # into the ring corridor
 for a0, a1 in AR:
-    wing_walls += [arc_wall(a0, a1, 523), radial_wall(a0, 523, 600), radial_wall(a1, 523, 600)]
+    wing_walls += [arc_wall(a0, a1, 523, [(a0 + a1) / 2]), radial_wall(a0, 523, 600), radial_wall(a1, 523, 600)]   # door from the inner hall
 for a0, a1 in ISL:
     m = (a0 + a1) / 2; g = chord(a0, a1, 700, 773)
     wing_walls.append(g.exterior.buffer(T / 2).difference(Point(P(m, 700 * math.cos(math.radians((a1 - a0) / 2)))).buffer(DOOR / 2)))
@@ -81,6 +81,7 @@ LABELS = [(P(225, 700), 'CREW SKILLS'), (P(315, 700), 'GTN market'), (P(45, 700)
           (P(250, 180), 'hub concourse')]
 floor = unary_union([rot(g, k) for k in range(4) for g in wing_floor] + [g for f, _ in spokes for g in f] + hub)
 inner = [rot(w, k) for k in range(4) for w in wing_walls] + [w for _, ws in spokes for w in ws] + hub_walls
+floor = floor.buffer(3, join_style=2).buffer(-3, join_style=2)   # close hairline gaps where arcs of different pieces meet (they made false walls)
 walls = floor.buffer(T / 2, join_style=2).difference(floor.buffer(-T / 2, join_style=2))
 walls = unary_union([walls, unary_union(inner).intersection(floor.buffer(T / 2, join_style=2))])
 walls = unary_union([p for p in getattr(walls, "geoms", [walls]) if p.area > 400])
