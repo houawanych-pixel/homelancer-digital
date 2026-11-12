@@ -6,22 +6,13 @@
  ],
  "seams": [
   797,
-  1042,
-  1650,
   2279,
-  2938,
-  3410,
   4055
  ],
  "cuts": [
   797,
-  1042,
-  1650,
   2279,
-  2938,
-  3410,
-  4055,
-  243
+  4055
  ],
  "overlap": 40,
  "frame": [
@@ -32,130 +23,52 @@
  "parts": [
   {
    "file": "LibertyHub_Hub_part1.png",
-   "strip_x0": 540,
-   "strip_w": 759,
+   "strip_x0": 757,
+   "strip_w": 1562,
    "keep": [
     797,
-    245
+    1482
    ],
    "frame_rect": [
     0,
-    0,
+    278,
     1920,
-    1080
+    525
    ]
   },
   {
    "file": "LibertyHub_Hub_part2.png",
-   "strip_x0": 967,
-   "strip_w": 759,
+   "strip_x0": 2239,
+   "strip_w": 1856,
    "keep": [
-    1042,
-    608
+    2279,
+    1776
    ],
    "frame_rect": [
     0,
-    0,
+    319,
     1920,
-    1080
+    442
    ]
   },
   {
    "file": "LibertyHub_Hub_part3.png",
-   "strip_x0": 1585,
-   "strip_w": 759,
-   "keep": [
-    1650,
-    629
-   ],
-   "frame_rect": [
-    0,
-    0,
-    1920,
-    1080
-   ]
-  },
-  {
-   "file": "LibertyHub_Hub_part4.png",
-   "strip_x0": 2229,
-   "strip_w": 759,
-   "keep": [
-    2279,
-    659
-   ],
-   "frame_rect": [
-    0,
-    0,
-    1920,
-    1080
-   ]
-  },
-  {
-   "file": "LibertyHub_Hub_part5.png",
-   "strip_x0": 2795,
-   "strip_w": 759,
-   "keep": [
-    2938,
-    472
-   ],
-   "frame_rect": [
-    0,
-    0,
-    1920,
-    1080
-   ]
-  },
-  {
-   "file": "LibertyHub_Hub_part6.png",
-   "strip_x0": 3353,
-   "strip_w": 759,
-   "keep": [
-    3410,
-    645
-   ],
-   "frame_rect": [
-    0,
-    0,
-    1920,
-    1080
-   ]
-  },
-  {
-   "file": "LibertyHub_Hub_part7.png",
-   "strip_x0": 3818,
-   "strip_w": 759,
+   "strip_x0": 4015,
+   "strip_w": 918,
    "keep": [
     4055,
-    284
+    838
    ],
    "frame_rect": [
     0,
-    0,
+    92,
     1920,
-    1080
-   ]
-  },
-  {
-   "file": "LibertyHub_Hub_part8.png",
-   "strip_x0": 141,
-   "strip_w": 759,
-   "keep": [
-    243,
-    554
-   ],
-   "frame_rect": [
-    0,
-    0,
-    1920,
-    1080
+    893
    ]
   }
  ],
  "people": 195,
  "cuts_touching_people": [
-  797,
-  1042,
-  2938,
-  3410
+  797
  ]
 }

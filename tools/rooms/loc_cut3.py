@@ -64,7 +64,9 @@ def main():
     # context that the join throws away.
     WIN = int(round(H * 16 / 9.0)); OV = v2_cut3.OV; KEEP = WIN - 2 * OV
     cuts = []
+    FILL = "--fill" in args or "--fill" in sys.argv
     for i in range(len(seams)):
+        if FILL: cuts.append(seams[i]); continue
         a = seams[i]; b = seams[i + 1] if i < len(seams) - 1 else seams[0] + W
         n = -(-(b - a) // KEEP)
         cuts.append(a)
@@ -90,7 +92,30 @@ def main():
     wrap = np.concatenate([pano, pano, pano], axis=1)
     meta = {"src": src.replace(ROOT + "/", ""), "strip": [W, H], "seams": seams, "cuts": cuts, "overlap": OV, "frame": [FW, FH], "window": WIN, "parts": [], "people": len(boxes), "cuts_touching_people": hit}
     N = len(cuts)
-    for i in range(N):
+    for i in range(N if FILL else 0):
+        # v13.80 (owner: "we can't have too many cuts ... they gotta be 16:9 landscape"): keep the 3 seams; each piece
+        # (+OV each side) fills the frame's width and the bands above and below are the picture itself mirrored and
+        # blurred out (ceiling up, floor down), so there is no white and the frame is 16:9. The join keeps only frame_rect.
+        a = cuts_u[i] - OV; b = (cuts_u[i + 1] if i < N - 1 else cuts_u[0] + W) + OV
+        piece = wrap[:, W + a:W + b]; pw = b - a
+        fh = int(round(pw * 9 / 16.0)); t = (fh - H) // 2; bt = fh - H - t
+        frame = np.zeros((fh, pw, 3), np.uint8); frame[t:t + H] = piece
+        def band(src, n):            # src rows nearest the edge first
+            rows = np.concatenate([src] * (n // len(src) + 1))[:n].astype(np.float32)
+            out = rows.copy()
+            for k, sig in enumerate((6, 18, 40)):
+                bl = cv2.GaussianBlur(rows, (0, 0), sig)
+                w = np.clip((np.arange(n) / max(1, n - 1)) * 3 - k, 0, 1)[:, None, None]
+                out = out * (1 - w) + bl * w
+            fade = (1 - 0.25 * np.arange(n) / max(1, n - 1))[:, None, None]
+            return np.clip(out * fade, 0, 255).astype(np.uint8)
+        frame[:t] = band(piece, t)[::-1]              # mirror of the ceiling, upwards
+        frame[t + H:] = band(piece[::-1], bt)         # mirror of the floor, downwards
+        name = "%s_%s_part%d.png" % (place, room, i + 1)
+        cv2.imwrite(os.path.join(out_dir, name), frame)   # native; loc_upscale.py brings it to 1920x1080
+        k = FW / float(pw)
+        meta["parts"].append({"file": name, "strip_x0": a % W, "strip_w": pw, "keep": [cuts_u[i] % W, pw - 2 * OV], "frame_rect": [0, int(round(t * k)), FW, int(round(H * k))]})
+    for i in range(0 if FILL else N):
         a = cuts_u[i]; b = cuts_u[i + 1] if i < N - 1 else cuts_u[0] + W
         w0 = (a + b) // 2 - WIN // 2          # window centred on the kept span
         piece = wrap[:, W + w0:W + w0 + WIN]
