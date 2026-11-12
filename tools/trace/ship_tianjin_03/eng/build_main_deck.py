@@ -63,12 +63,36 @@ s3_walls = s3_walls + [mirror(w) for w in s3_walls] + [
     wall((1445, CY - 42), (1445, CY + 42), [42]),               # spine into the CIC
     wall((1604, 965), (1676, 965), [36]), mirror(wall((1604, 965), (1676, 965), [36]))]
 s3 = unary_union([cic3, spine, cic_link, octa, mirror(octa), olink, mirror(olink), stub, mirror(stub)])
-floor = unary_union([pod, mirror(pod), corridor, bay, col, s3])
+# ---- section 4: the aft half (Galley / Armory wedges, side hallways, Communication / Targeting pods, Medlab, Machineshop)
+ac, AR = (1277.0, 940.0), 621.0                                   # the wedge's outer arc (circle fit through its wall)
+arc = [(ac[0] + AR * np.cos(t), ac[1] + AR * np.sin(t)) for t in np.linspace(np.arctan2(860 - ac[1], 1893 - ac[0]), np.arctan2(330 - ac[1], 1395 - ac[0]), 48)]
+galley = Polygon([(1395, 720), (1560, 860)] + arc)
+hall_v = box(1226, 548, 1298, 795)                                 # side hallway up from the octagon
+hall_h = box(1226, 548, 1395, 620)                                 # and across into the Galley
+comm = box(1020, 725, 1150, 1095)                                  # Communication pod (Targeting mirrored)
+s4_walls = [wall((1226, 795), (1298, 795), [36]),                 # octagon top door
+            wall((1395, 548), (1395, 620), [36]),                 # into the Galley
+            wall((1604, 860), (1676, 860), [36]),                 # CIC stub into the Galley
+            wall((1150, 880), (1155, 950), [35]), wall((1150, 880), (1150, 950), [35])]   # pod into the octagon
+s4_walls = s4_walls + [mirror(w) for w in s4_walls]
+plink = box(1150, 890, 1160, 940)
+spine_aft = box(825, CY - 42, 905, CY + 42)
+medlab = unary_union([box(625, 785, 795, 1050), box(600, 1050, 825, 1310), box(600, 1310, 825, 1460),
+                      box(470, 1315, 600, 1460), Point(445, 1388).buffer(40, 64)])   # asym: one side only
+mshop = unary_union([box(800, 1665, 1030, 1955), box(1030, 1665, 1125, 1955), box(535, 1775, 800, 1955),
+                     box(1125, 1720, 1230, 1780)])                 # asym; its hallway joins the Armory side hallway
+s4_walls += [wall((825, CY - 42), (825, CY + 42), [42]),           # spine into the Medlab
+             wall((600, 1315), (600, 1460), [72]), wall((470, 1350), (470, 1425), [37]),   # Medlab wards / airlock
+             wall((625, 1050), (795, 1050), [85]), wall((600, 1310), (825, 1310), [112]),
+             wall((800, 1810), (1030, 1810), [115]), wall((1030, 1665), (1030, 1955), [70, 215]),
+             wall((800, 1775), (800, 1955), [90]), wall((1125, 1720), (1125, 1780), [30]), wall((1230, 1720), (1230, 1780), [30])]
+s4 = unary_union([galley, mirror(galley), hall_v, mirror(hall_v), hall_h, mirror(hall_h), comm, mirror(comm),
+                  plink, mirror(plink), spine_aft, medlab, mshop])
+floor = unary_union([pod, mirror(pod), corridor, bay, col, s3, s4])
 walls = floor.buffer(T / 2, join_style=2).difference(floor.buffer(-T / 2, join_style=2))
-inner = unary_union(pod_walls + [mirror(w) for w in pod_walls] + bay_walls + s2_walls + s3_walls).intersection(floor.buffer(T / 2, join_style=2))   # no stubs outside
+inner = unary_union(pod_walls + [mirror(w) for w in pod_walls] + bay_walls + s2_walls + s3_walls + s4_walls).intersection(floor.buffer(T / 2, join_style=2))   # no stubs outside
 walls = unary_union([walls, inner])
-for o in [box(880, CY - 36, 912, CY + 36),                            # spine runs on aft (next section)
-          box(1610, 850, 1670, 868), mirror(box(1610, 850, 1670, 868))]:   # CIC stubs run on (next section)
+for o in []:
     walls = walls.difference(o)
 
 src = cv2.imread(os.path.join(HERE, "..", "part_main_deck_x4.jpg")); H, W = src.shape[:2]
@@ -83,6 +107,8 @@ for im in (plan, ov): cv2.drawContours(im, cs, -1, (255, 255, 255), 3, cv2.LINE_
 cv2.imwrite(os.path.join(HERE, "main_plan.png"), plan)
 cv2.imwrite(os.path.join(HERE, "main_plan_on_map.jpg"), ov, [cv2.IMWRITE_JPEG_QUALITY, 88])
 cv2.imwrite(os.path.join(HERE, "main_plan_section1.jpg"), ov[520:1800, 1900:2950], [cv2.IMWRITE_JPEG_QUALITY, 90])
+cv2.imwrite(os.path.join(HERE, "main_full_view.jpg"), cv2.resize(ov[250:2100, 350:3000], None, fx=0.7, fy=0.7), [cv2.IMWRITE_JPEG_QUALITY, 88])
+cv2.imwrite(os.path.join(HERE, "main_s4_big.jpg"), cv2.resize(ov[280:2080, 380:1950], None, fx=0.85, fy=0.85, interpolation=cv2.INTER_AREA), [cv2.IMWRITE_JPEG_QUALITY, 90])
 cv2.imwrite(os.path.join(HERE, "main_s3_big.jpg"), cv2.resize(ov[600:1720, 860:1900], None, fx=1.3, fy=1.3, interpolation=cv2.INTER_CUBIC), [cv2.IMWRITE_JPEG_QUALITY, 90])
 cv2.imwrite(os.path.join(HERE, "main_s2_big.jpg"), cv2.resize(ov[500:1830, 1820:2340], None, fx=1.6, fy=1.6, interpolation=cv2.INTER_CUBIC), [cv2.IMWRITE_JPEG_QUALITY, 90])
 json.dump({"units": "x4 main-deck px", "mirror_y": CY, "thickness": T, "door": DOOR, "floor": mapping(floor), "walls": mapping(walls)},
