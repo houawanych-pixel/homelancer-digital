@@ -5105,8 +5105,14 @@ func _run() -> void:
 		var hull1: float = GS.hull
 		var dealt: float = s.collision_damage("ship", 3000.0)
 		var stopped: bool = s.warp_state == "off" and s.vel.length() < 400.0 and dealt == 0.0 and GS.hull == hull1
+		s.warp_state = "on"
+		s.vel = fwd * 3000.0
+		await _wait(3.0)
+		var half: bool = s.speed_now <= Data.RAM_WARP_SPEED + 60.0 and s.speed_now > Data.RAM_WARP_SPEED * 0.8
+		print("[ram] speed with the shield up at warp: ", s.speed_now)
+		s.warp_state = "off"
 		var hb = main.hud
-		var swapped: bool = hb.buttons.has("spare_l") and hb.buttons.has("thrust") and (hb.buttons["spare_l"] as Rect2).position.x > (hb.buttons["thrust"] as Rect2).position.x
+		var swapped: bool = half and hb.buttons.has("spare_l") and hb.buttons.has("thrust") and (hb.buttons["spare_l"] as Rect2).position.x > (hb.buttons["thrust"] as Rect2).position.x
 		await _capture("ram_shield")
 		main._on_hud("spare_l")
 		_check("v13.75 (owner): SHIELD as a ship = the swirling RAM SHIELD (%s, swirl %s): no damage (%s); at warp it smashes a fighter you fly through (%s); a big ship stops you out of warp, unharmed (%s); SHIELD and JUMP swapped on the console (%s)" % [on, fx_ok, no_dmg, smashed, stopped, swapped],

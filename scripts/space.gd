@@ -6401,6 +6401,7 @@ func _update_player(dt: float) -> void:
 		_mech_move(dt, thrust, base_speed)
 	elif warp_state == "on":
 		var wsp: float = base_speed * Data.WARP_MULT
+		if ram_shield: wsp = minf(wsp, Data.RAM_WARP_SPEED)   # v13.77 (owner): with the ram shield up, half warp speed
 		if autopilot != null and is_instance_valid(autopilot):   # v8.9: at ~3 km/s the autopilot eases off as it closes in (no overshoot)
 			wsp = minf(wsp, maxf(base_speed * 4.0, (autopilot.global_position.distance_to(player.global_position) - 400.0) / Data.WARP_EASE))
 		vel = vel.lerp(fwd * wsp, minf(1.0, dt * 1.2))
@@ -8813,37 +8814,45 @@ func _update_ram_shield(dt: float) -> void:
 		if _ram_fx != null and is_instance_valid(_ram_fx): _ram_fx.visible = false
 		return
 	if _ram_fx == null or not is_instance_valid(_ram_fx):
+		# v13.77 (owner: "too big, too OP: just a cone in front of the ship, enough to cover the ship"): a cone of light
+		# over the nose, swirl rings round its mouth
 		_ram_fx = Node3D.new()
 		_ram_fx.name = "RamShield"
-		var r: float = float(Data.SHIPS.get(GS.ship_id, {}).get("length", 14.0)) * 0.9 if Data.SHIPS.has(GS.ship_id) else 12.0
-		r = maxf(r, 10.0)
-		var bubble := MeshInstance3D.new()
-		var sm := SphereMesh.new()
-		sm.radius = r
-		sm.height = r * 2.0
-		bubble.mesh = sm
+		var L: float = maxf(_ship_length(), 6.0)
+		var w: float = maxf(_ship_half_width() * 1.25, L * 0.35)
+		var cone := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.top_radius = w * 0.08
+		cm.bottom_radius = w
+		cm.height = L * 0.9
+		cm.cap_top = false
+		cm.cap_bottom = false
+		cone.mesh = cm
+		cone.rotation.x = -PI * 0.5   # the tip forward (-Z)
+		cone.position = Vector3(0, 0, -L * 0.55)
 		var bm: StandardMaterial3D = _glow_mat(Color(0.35, 0.75, 1.0)).duplicate()
-		bm.albedo_color = Color(0.35, 0.75, 1.0, 0.16)
+		bm.albedo_color = Color(0.35, 0.75, 1.0, 0.22)
 		bm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		bm.cull_mode = BaseMaterial3D.CULL_DISABLED
-		bubble.material_override = bm
-		_ram_fx.add_child(bubble)
-		for k in 3:   # the swirl: three tilted rings spinning round the ship
+		cone.material_override = bm
+		_ram_fx.add_child(cone)
+		for k in 2:
 			var ring := MeshInstance3D.new()
 			var tm := TorusMesh.new()
-			tm.inner_radius = r * 0.94
-			tm.outer_radius = r * 1.02
+			tm.inner_radius = w * (0.62 - 0.25 * float(k))
+			tm.outer_radius = w * (0.68 - 0.25 * float(k))
 			ring.mesh = tm
-			ring.material_override = _glow_mat(Color(0.5, 0.9, 1.0) if k != 1 else Color(0.8, 0.95, 1.0))
-			ring.rotation = Vector3(0.9 * float(k), 0.6 * float(k), 0.0)
+			ring.material_override = _glow_mat(Color(0.5, 0.9, 1.0))
+			ring.rotation.x = PI * 0.5
+			ring.position = Vector3(0, 0, -L * (0.35 + 0.3 * float(k)))
 			ring.name = "Ring%d" % k
 			_ram_fx.add_child(ring)
+		_ram_fx.set_meta("r", maxf(L * 0.55, w))
 		player.add_child(_ram_fx)
 	_ram_fx.visible = true
-	_ram_fx.set_meta("r", _ram_fx.get_child(0).mesh.radius)
-	for k in 3:
+	for k in 2:
 		var ring := _ram_fx.get_node_or_null("Ring%d" % k) as Node3D
-		if ring != null: ring.rotate_object_local(Vector3.UP, dt * (6.0 + 2.0 * float(k)) * (1.0 if k % 2 == 0 else -1.0))
+		if ring != null: ring.rotate_object_local(Vector3.UP, dt * (7.0 + 3.0 * float(k)) * (1.0 if k == 0 else -1.0))
 	# smash the fighters you fly into; big ships just stop you (the solid hull push does that, see collision_damage)
 	var p := player.global_position
 	var rr: float = float(_ram_fx.get_meta("r"))
