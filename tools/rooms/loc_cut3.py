@@ -66,10 +66,15 @@ def main():
         # v13.82 (owner: the generator takes 16:9 or narrower, never wider; keep the cuts few): the fewest pieces that each
         # fit one 16:9 window, the cuts placed anywhere round the circle at the calmest people-free columns.
         WIN0 = int(round(H * 16 / 9.0)); KEEP0 = WIN0 - 2 * v2_cut3.OV
-        n0 = -(-W // KEEP0); lo = KEEP0 // 2
+        if "--pieces" in sys.argv:   # v13.83: a set number of pieces (stacked two to a picture by loc_pack_rows.py)
+            NP = int(sys.argv[sys.argv.index("--pieces") + 1]); KEEP0 = int(W / NP * 1.25)
+            n0 = NP
+        else:
+            n0 = -(-W // KEEP0)
+        lo = KEEP0 // 2
         c = np.minimum(cost, 1e6)
         for n in (n0, n0 + 1, n0 + 2):     # one more piece only if the fewest would cut through someone
-          lo = min(KEEP0 // 2, W // n - 40)
+          lo = min(KEEP0 // 2, W // n - 40) if "--pieces" not in sys.argv else int(W / n0 * 0.75)
           bestf = None
           for a in np.argsort(c)[:300]:
               a = int(a); L = W
@@ -102,7 +107,7 @@ def main():
     for i in range(len(seams)):
         if FILL: cuts.append(seams[i]); continue
         a = seams[i]; b = seams[i + 1] if i < len(seams) - 1 else seams[0] + W
-        n = -(-(b - a) // KEEP)
+        n = -(-(b - a) // KEEP) if "--pieces" not in sys.argv else 1
         cuts.append(a)
         if n > 1:   # DP: n-1 inner cuts, every span in [KEEP*0.45, KEEP], least summed cost
             lo = int(KEEP * 0.5)

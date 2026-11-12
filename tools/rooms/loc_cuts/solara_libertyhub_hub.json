@@ -5,22 +5,18 @@
   427
  ],
  "seams": [
-  257,
-  861,
-  1562,
-  2264,
+  1034,
+  2166,
   2934,
-  3635
+  4055
  ],
  "cuts": [
-  257,
-  861,
-  1562,
-  2264,
+  1034,
+  2166,
   2934,
-  3635
+  4055
  ],
- "overlap": 20,
+ "overlap": 40,
  "frame": [
   1920,
   1080
@@ -29,11 +25,11 @@
  "parts": [
   {
    "file": "LibertyHub_Hub_part1.png",
-   "strip_x0": 180,
+   "strip_x0": 1221,
    "strip_w": 759,
    "keep": [
-    257,
-    604
+    1034,
+    1132
    ],
    "frame_rect": [
     0,
@@ -44,11 +40,11 @@
   },
   {
    "file": "LibertyHub_Hub_part2.png",
-   "strip_x0": 832,
+   "strip_x0": 2171,
    "strip_w": 759,
    "keep": [
-    861,
-    701
+    2166,
+    768
    ],
    "frame_rect": [
     0,
@@ -59,11 +55,11 @@
   },
   {
    "file": "LibertyHub_Hub_part3.png",
-   "strip_x0": 1534,
+   "strip_x0": 3115,
    "strip_w": 759,
    "keep": [
-    1562,
-    702
+    2934,
+    1121
    ],
    "frame_rect": [
     0,
@@ -74,41 +70,11 @@
   },
   {
    "file": "LibertyHub_Hub_part4.png",
-   "strip_x0": 2220,
+   "strip_x0": 117,
    "strip_w": 759,
    "keep": [
-    2264,
-    670
-   ],
-   "frame_rect": [
-    0,
-    0,
-    1920,
-    1080
-   ]
-  },
-  {
-   "file": "LibertyHub_Hub_part5.png",
-   "strip_x0": 2905,
-   "strip_w": 759,
-   "keep": [
-    2934,
-    701
-   ],
-   "frame_rect": [
-    0,
-    0,
-    1920,
-    1080
-   ]
-  },
-  {
-   "file": "LibertyHub_Hub_part6.png",
-   "strip_x0": 3615,
-   "strip_w": 759,
-   "keep": [
-    3635,
-    718
+    4055,
+    1075
    ],
    "frame_rect": [
     0,
@@ -119,5 +85,67 @@
   }
  ],
  "people": 195,
- "cuts_touching_people": []
+ "cuts_touching_people": [],
+ "pictures": [
+  {
+   "file": "LibertyHub_Hub_pic1.png",
+   "size": [
+    1522,
+    1080
+   ],
+   "scale": 1.255813953488372,
+   "rows": [
+    {
+     "row": 0,
+     "strip_x0": 994,
+     "strip_w": 1212,
+     "keep": [
+      1034,
+      1132
+     ],
+     "y0": 0
+    },
+    {
+     "row": 1,
+     "strip_x0": 1944,
+     "strip_w": 1212,
+     "keep": [
+      2166,
+      768
+     ],
+     "y0": 433
+    }
+   ]
+  },
+  {
+   "file": "LibertyHub_Hub_pic2.png",
+   "size": [
+    1508,
+    1080
+   ],
+   "scale": 1.255813953488372,
+   "rows": [
+    {
+     "row": 0,
+     "strip_x0": 2894,
+     "strip_w": 1201,
+     "keep": [
+      2934,
+      1121
+     ],
+     "y0": 0
+    },
+    {
+     "row": 1,
+     "strip_x0": 3992,
+     "strip_w": 1201,
+     "keep": [
+      4055,
+      1075
+     ],
+     "y0": 433
+    }
+   ]
+  }
+ ]
 }
