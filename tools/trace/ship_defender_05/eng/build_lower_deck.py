@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Defender lower deck as a clean engineering plan, measured on lower_deck_x4.jpg (EDSR x4 of the 512 px minimap, 2048 px).
 Floors are the measured inner wall faces; walls = floor edge +/- T/2; inner walls as centre lines with standard doors.
-Scale guess: side passages ~2 m wide -> ~80 px/m, so DOOR 96 px = 1.2 m."""
+Scale: 0.63 x the flight deck minimap (measured against the labelled sheet: hall widths and the wings vs the round room)."""
 import json, os, sys
 import cv2, numpy as np
 from shapely.geometry import LineString, Polygon, box, mapping
 from shapely.ops import unary_union, substring
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-T, DOOR = 20.0, 96.0
+T, DOOR = 32.0, 152.0   # this minimap is zoomed ~1.6x vs the flight deck one (0.63 scale), so 152 px here = 96 px there = 1.2 m
 def wall(p0, p1, doors=()):
     L = LineString([p0, p1]); cuts = [0.0]
     for d in doors: cuts += [d - DOOR / 2, d + DOOR / 2]
