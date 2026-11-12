@@ -18,43 +18,48 @@ def wall(p0, p1, doors=()):
     cuts.append(L.length)
     return unary_union([substring(L, cuts[i], cuts[i + 1]).buffer(T / 2, cap_style=2) for i in range(0, len(cuts), 2) if cuts[i + 1] > cuts[i]])
 
-corr = box(313, 1310, 1757, 1430)                                                  # main cross corridor
-r7 = box(229, 1300, 313, 1440); r9 = M(r7)                                         # 7 / 9 turret maintenance hatches
-r2 = Polygon([(290, 1310), (290, 1110), (435, 860), (560, 860), (560, 1310)])      # 2 Cargo Hold
-r3 = Polygon([(600, 1025), (790, 1025), (790, 1180), (645, 1310), (600, 1310)])    # 3 Crew Quarters
-r1 = unary_union([box(908, 915, 1162, 1120), box(985, 875, 1085, 915)])            # 1 Bridge
-r8 = Polygon([(666, 1310), (908, 1120), (1162, 1120), (1290, 1190), (1290, 1310)]) # 8 Lounge
-lobby = unary_union([box(1162, 1000, 1390, 1110), box(1300, 1110, 1390, 1310)])    # passage bridge -> lockers -> corridor
-r4 = Polygon([(1440, 963), (1512, 1035), (1440, 1107), (1368, 1035)])              # 4 Ship's Locker
-r5 = Polygon([(1460, 855), (1650, 855), (1700, 1000), (1700, 1060), (1537, 1060), (1440, 963)])   # 5 Captain's Quarters
-r6 = box(1490, 1060, 1720, 1310)                                                   # 6 Secondary Quarters
-r10 = Polygon([(295, 1430), (680, 1430), (680, 1745), (345, 1745), (295, 1695)]); r13 = M(r10)   # 10 / 13 engine rooms
-r11 = Polygon([(690, 1430), (880, 1430), (880, 1673), (740, 1673), (690, 1623)]); r12 = M(r11)   # 11 Medical Bay / 12 Fresher
-r14 = box(950, 1430, 1120, 1710)                                                   # 14 ventral entry ramp
+corr = box(330, 1313, 1740, 1434)                                                  # main cross corridor (measured 1313-1434)
+r7 = box(238, 1313, 330, 1434); r9 = M(r7)                                         # 7 / 9 turret maintenance hatches
+r2 = Polygon([(290, 1265), (290, 1110), (435, 860), (560, 860), (560, 1265)])      # 2 Cargo Hold
+c2 = box(426, 1265, 497, 1313)                                                     # stepped connector Cargo -> corridor
+r3 = Polygon([(610, 1050), (865, 1050), (865, 1150), (690, 1313), (610, 1313)])    # 3 Crew Quarters (shares the diagonal with the Lounge)
+r1 = Polygon([(905, 1135), (905, 990), (985, 915), (1085, 915), (1165, 990), (1165, 1135)])   # 1 Bridge (chevron nose)
+r8 = Polygon([(690, 1313), (865, 1150), (865, 1135), (1218, 1135), (1218, 1313)])  # 8 Lounge
+lobby = Polygon([(1165, 1000), (1403, 1000), (1403, 1313), (1218, 1313), (1218, 1135), (1165, 1135)])   # passage bridge -> lockers -> corridor
+r4 = Polygon([(1447, 941), (1522, 1016), (1447, 1091), (1372, 1016)])              # 4 Ship's Locker (45 deg)
+r5 = Polygon([(1472, 840), (1672, 840), (1734, 1000), (1734, 1045), (1551, 1045), (1447, 941), (1472, 916)])   # 5 Captain's Quarters
+r6 = Polygon([(1525, 1045), (1740, 1045), (1780, 1090), (1780, 1313), (1485, 1313), (1485, 1150), (1525, 1150)])  # 6 Secondary Quarters
+r10 = Polygon([(297, 1484), (667, 1484), (667, 1612), (705, 1650), (705, 1745), (440, 1745), (297, 1690)]); r13 = M(r10)   # 10 / 13 engine rooms
+c10 = box(426, 1434, 497, 1484); c13 = M(c10)                                      # stepped connectors corridor -> engine rooms
+r11 = Polygon([(667, 1470), (880, 1470), (880, 1680), (735, 1680), (667, 1612)]); r12 = M(r11)   # 11 Medical Bay / 12 Fresher
+c11 = box(760, 1434, 808, 1470); c12 = M(c11)
+r14 = box(950, 1434, 1120, 1710)                                                   # 14 ventral entry ramp
 r15 = box(1000, 1710, 1070, 1830)                                                  # 15 access to the aft escape pod
-LABELS = [((1035, 1010), '1 Bridge'), ((425, 1200), '2 Cargo'), ((700, 1120), '3 Crew'), ((1440, 1045), '4'),
-          ((1575, 930), '5 Captain'), ((1605, 1190), '6 Quarters'), ((271, 1380), '7'), ((1799, 1380), '9'),
-          ((1035, 1230), '8 Lounge'), ((490, 1590), '10 Engine'), ((1580, 1590), '13 Engine'), ((785, 1550), '11 Med'),
-          ((1285, 1550), '12 Fresher'), ((1035, 1560), '14 Ramp'), ((1035, 1780), '15')]
-side = [wall((313, 1310), (313, 1430), [60]),                                      # corridor / hatch
-        wall((290, 1310), (560, 1310), [170]),                                     # Cargo Hold
-        wall((295, 1430), (680, 1430), [290]),                                     # engine room
-        wall((690, 1430), (880, 1430), [95])]                                      # Medical Bay / Fresher
+LABELS = [((1035, 1040), '1 Bridge'), ((425, 1200), '2 Cargo'), ((720, 1110), '3 Crew'), ((1447, 1026), '4'),
+          ((1600, 930), '5 Captain'), ((1630, 1200), '6 Quarters'), ((284, 1380), '7'), ((1786, 1380), '9'),
+          ((1035, 1240), '8 Lounge'), ((490, 1620), '10 Engine'), ((1580, 1620), '13 Engine'), ((790, 1570), '11 Med'),
+          ((1280, 1570), '12 Fresher'), ((1035, 1560), '14 Ramp'), ((1035, 1780), '15')]
+side = [wall((330, 1313), (330, 1434), [60.5]),                                    # corridor / hatch
+        wall((426, 1265), (497, 1265), [35.5]), wall((426, 1484), (497, 1484), [35.5]),   # Cargo / engine room connectors
+        wall((760, 1470), (808, 1470), [24])]                                      # Medical Bay / Fresher
 inner = side + [M(w) for w in side] + [
-        wall((600, 1310), (645, 1310), [22.5]),                                      # Crew Quarters
-        wall((666, 1310), (1290, 1310), [369]),                                    # Lounge into the corridor
-        wall((908, 1120), (1162, 1120), [127]),                                    # Bridge into the Lounge
-        wall((1162, 1000), (1162, 1120), [60]),                                    # Bridge into the passage
-        wall((1300, 1310), (1390, 1310), [45]),                                    # passage into the corridor
-        wall((1368, 1035), (1440, 1107), [51]),                                    # passage into the lockers (4)
-        wall((1440, 963), (1512, 1035), [51]),                                     # lockers into the Captain's Quarters
-        wall((1537, 1060), (1700, 1060), [81]),                                    # Captain / Secondary Quarters
-        wall((1490, 1310), (1720, 1310), [115]),                                   # Secondary Quarters into the corridor
-        wall((950, 1430), (1120, 1430), [85]),                                     # ramp room
+        wall((610, 1313), (690, 1313), [40]),                                      # Crew Quarters into the corridor
+        wall((690, 1313), (865, 1150), []),                                        # Crew Quarters / Lounge (shared diagonal)
+        wall((690, 1313), (1218, 1313), [345]),                                    # Lounge into the corridor
+        wall((905, 1135), (1165, 1135), [130]),                                    # Bridge into the Lounge
+        wall((1165, 1000), (1165, 1135), [67]),                                    # Bridge into the passage
+        wall((1218, 1313), (1403, 1313), [92]),                                    # passage into the corridor
+        wall((1218, 1135), (1218, 1313), [89]),                                    # Lounge / passage
+        wall((1372, 1016), (1447, 1091), [53]),                                    # passage into the lockers (4)
+        wall((1447, 941), (1522, 1016), [53]),                                     # lockers into the Captain's Quarters
+        wall((1525, 1045), (1734, 1045), [110]),                                   # Captain / Secondary Quarters
+        wall((1485, 1313), (1780, 1313), [147]),                                   # Secondary Quarters into the corridor
+        wall((950, 1434), (1120, 1434), [85]),                                     # ramp room
         wall((1000, 1710), (1070, 1710), [35])]                                    # escape pod access
-floor = unary_union([corr, r7, r9, r2, r3, r1, r8, lobby, r4, r5, r6, r10, r13, r11, r12, r14, r15])
+floor = unary_union([corr, r7, r9, r2, c2, r3, r1, r8, lobby, r4, r5, r6, r10, r13, c10, c13, r11, r12, c11, c12, r14, r15])
 walls = floor.buffer(T / 2, join_style=2).difference(floor.buffer(-T / 2, join_style=2))
 walls = unary_union([walls, unary_union(inner).intersection(floor.buffer(T / 2, join_style=2))])
+walls = unary_union([p for p in getattr(walls, 'geoms', [walls]) if p.area > 600])   # drop slivers
 
 src = cv2.imread(os.path.join(HERE, "..", "map_x4.jpg")); H, W = src.shape[:2]
 mask = np.zeros((H, W), np.uint8)
