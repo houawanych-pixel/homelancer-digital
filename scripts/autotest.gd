@@ -5231,6 +5231,27 @@ func _run() -> void:
 			board_vis and main.escape_chasers >= Data.ESCAPE_CHASERS and hostile >= Data.ESCAPE_CHASERS and denied, "board %s chasers %d hostile %d denied %s" % [board_vis, main.escape_chasers, hostile, denied])
 		_finish_group()
 		return
+	if OS.get_environment("HL_ALARMCLIP") != "":   # v13.13 (owner): the faction's alarm clip plays when you press ALARM
+		var ha = main.hub
+		ha.open(Data.SYSTEMS[GS.system_id]["station"])
+		if ha.lockdown: ha._end_lockdown()
+		await _wait(0.5)
+		var fac: String = ha.lockdown_faction()
+		_check("v13.13: all eight faction clips are in their packs", ["unity", "imperium", "elyza", "orion", "covenant", "solarion", "savagers", "liberator"].all(func(k): return Packs.PACKS.has("alarm_" + k) and ResourceLoader.exists("res://assets/alarm/alarm_%s.ogv" % k)))
+		ha.test_alarm()
+		await _wait(2.0)
+		var vp = ha.find_child("AlarmVideo", true, false)
+		_check("v13.13: pressing ALARM plays this station's faction clip full screen first (lockdown not started yet)", vp != null and (vp as VideoStreamPlayer).is_playing() and ha.alarm_clip_played == fac and not ha.lockdown, "%s %s" % [fac, ha.alarm_clip_played])
+		await _shot("alarm_clip", 0.3)
+		var tap := InputEventMouseButton.new()
+		tap.button_index = MOUSE_BUTTON_LEFT
+		tap.pressed = false
+		var bgr = ha.alarm_clip.get_child(0) if ha.alarm_clip != null else null
+		if bgr != null: (bgr as Control).gui_input.emit(tap)
+		await _wait(1.0)
+		_check("v13.13: a tap skips it and the alarm goes on (lockdown)", ha.alarm_clip == null and ha.lockdown, str(ha.lockdown))
+		_finish_group()
+		return
 	if OS.get_environment("HL_QUARTERS") != "":   # v13.09 (owner): the pilot and his gear open from MY QUARTERS
 		var hq = main.hub
 		GS.creator_done = true

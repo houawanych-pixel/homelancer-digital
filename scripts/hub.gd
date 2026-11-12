@@ -564,6 +564,7 @@ func open(station_or_planet: Dictionary) -> void:
 	comms_big = false
 	typing = false
 	lockdown = lockdown_due()
+	if kind == "station" and Packs.PACKS.has("alarm_" + lockdown_faction()): Packs.request("alarm_" + lockdown_faction())   # v13.13: ready for the ALARM
 	show_screen("hub")
 	if lockdown:
 		_start_lockdown()
@@ -596,6 +597,10 @@ func lockdown_faction() -> String:
 ## v11.17 (owner): "an alarm test button": start the lockdown here on demand (the faction with fighter clips when this
 ## station's own have none yet), to try the fight from any station.
 func test_alarm() -> void:
+	if lockdown or alarm_clip != null: return
+	# v13.13 (owner: "load in the alarm video anytime you press that alarm button ... the faction video that I sent"):
+	# this station's faction's 15 s clip plays full screen first (tap to skip), then the lockdown starts as before.
+	await play_alarm_clip(lockdown_faction())
 	if lockdown: return
 	if screen == "equipment": show_screen("hub")
 	var f := lockdown_faction()
@@ -603,6 +608,73 @@ func test_alarm() -> void:
 	lockdown = true
 	show_screen("hub")
 	_start_lockdown(f)
+
+## v13.13: the faction's alarm clip (assets/alarm/alarm_<faction>.ogv, its own pack "alarm_<faction>"), full screen with
+## sound, TAP TO SKIP. Returns when it ends or is skipped; at once when there is no clip (or it can't be fetched).
+var alarm_clip: CanvasLayer = null
+var alarm_clip_played := ""   # (tests) the last faction whose clip started
+func play_alarm_clip(f: String) -> void:
+	var pk := "alarm_" + f
+	var path := "res://assets/alarm/alarm_%s.ogv" % f
+	if not Packs.PACKS.has(pk): return
+	var lay := CanvasLayer.new()
+	lay.name = "AlarmClip"
+	lay.layer = 120
+	add_child(lay)
+	alarm_clip = lay
+	var bgr := ColorRect.new()
+	bgr.color = Color.BLACK
+	bgr.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bgr.mouse_filter = Control.MOUSE_FILTER_STOP
+	lay.add_child(bgr)
+	var cap := Label.new()
+	cap.text = "⚠ INCOMING ALERT…"
+	cap.add_theme_font_size_override("font_size", Data.ts(22))
+	cap.add_theme_color_override("font_color", Color(1.0, 0.35, 0.3))
+	cap.set_anchors_preset(Control.PRESET_CENTER)
+	lay.add_child(cap)
+	if not Packs.is_ready(pk): await Packs.wait(pk, 20.0)
+	if not is_instance_valid(lay): return
+	if not ResourceLoader.exists(path):
+		lay.queue_free()
+		alarm_clip = null
+		return
+	cap.visible = false
+	var vp := VideoStreamPlayer.new()
+	vp.name = "AlarmVideo"
+	vp.stream = load(path)
+	vp.expand = true
+	vp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var arc := AspectRatioContainer.new()   # (its own shape, black bars on a wider screen)
+	arc.ratio = 1264.0 / 720.0
+	arc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	arc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	arc.add_child(vp)
+	lay.add_child(arc)
+	var skip := Label.new()
+	skip.text = "TAP TO SKIP"
+	skip.add_theme_font_size_override("font_size", Data.ts(15))
+	skip.add_theme_color_override("font_color", Color(1, 1, 1, 0.75))
+	skip.anchor_left = 1.0
+	skip.anchor_right = 1.0
+	skip.anchor_top = 1.0
+	skip.anchor_bottom = 1.0
+	skip.offset_left = -190
+	skip.offset_top = -46
+	lay.add_child(skip)
+	Sfx.stop_voice()
+	var done := [false]
+	vp.finished.connect(func(): done[0] = true)
+	bgr.gui_input.connect(func(ev: InputEvent):
+		if (ev is InputEventScreenTouch and not ev.pressed) or (ev is InputEventMouseButton and not ev.pressed): done[0] = true)
+	alarm_clip_played = f
+	vp.play()
+	var t := 0.0
+	while not done[0] and is_instance_valid(lay) and t < 20.0:
+		await get_tree().process_frame
+		t += get_process_delta_time()
+	if is_instance_valid(lay): lay.queue_free()
+	alarm_clip = null
 
 func _start_lockdown(force_faction := "") -> void:
 	var f := lockdown_faction() if force_faction == "" else force_faction

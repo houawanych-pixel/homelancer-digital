@@ -465,6 +465,14 @@ const PACKS := {
 	"lancer": {"folders": ["res://assets/ships/player"], "match": "lancer", "probe": "res://assets/ships/player/lancer.glb"},
 	"enemies": {"folders": ["res://assets/enemy_pilots"], "probe": "res://assets/enemy_pilots/ax01_normal.jpg"},
 	"intro": {"folders": ["res://assets/intro"], "probe": "res://assets/intro/title_movie.ogv"},
+	"alarm_unity": {"folders": ["res://assets/alarm"], "match": "alarm_unity.", "probe": "res://assets/alarm/alarm_unity.ogv"},   # v13.13: the owner's alarm clip (15 s)
+	"alarm_imperium": {"folders": ["res://assets/alarm"], "match": "alarm_imperium.", "probe": "res://assets/alarm/alarm_imperium.ogv"},   # v13.13: the owner's alarm clip (15 s)
+	"alarm_elyza": {"folders": ["res://assets/alarm"], "match": "alarm_elyza.", "probe": "res://assets/alarm/alarm_elyza.ogv"},   # v13.13: the owner's alarm clip (15 s)
+	"alarm_orion": {"folders": ["res://assets/alarm"], "match": "alarm_orion.", "probe": "res://assets/alarm/alarm_orion.ogv"},   # v13.13: the owner's alarm clip (15 s)
+	"alarm_covenant": {"folders": ["res://assets/alarm"], "match": "alarm_covenant.", "probe": "res://assets/alarm/alarm_covenant.ogv"},   # v13.13: the owner's alarm clip (15 s)
+	"alarm_solarion": {"folders": ["res://assets/alarm"], "match": "alarm_solarion.", "probe": "res://assets/alarm/alarm_solarion.ogv"},   # v13.13: the owner's alarm clip (15 s)
+	"alarm_savagers": {"folders": ["res://assets/alarm"], "match": "alarm_savagers.", "probe": "res://assets/alarm/alarm_savagers.ogv"},   # v13.13: the owner's alarm clip (15 s)
+	"alarm_liberator": {"folders": ["res://assets/alarm"], "match": "alarm_liberator.", "probe": "res://assets/alarm/alarm_liberator.ogv"},   # v13.13: the owner's alarm clip (15 s)
 	# v1.4s: one static interface background per faction; only the one for the station you dock at is fetched
 	# v2.0: her voice clips, one small pack each
 	"worlds": {"folders": ["res://assets/worlds"], "probe": "res://assets/worlds/earth.jpg"},
