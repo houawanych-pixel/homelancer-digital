@@ -47,6 +47,27 @@ for o in [box(1040, 842, 1080, 894)] + [box(xc - W / 2 + T / 2, 0, xc + W / 2 - 
         + [box(xc - W / 2 + T / 2, 2 * CY - 548, xc + W / 2 - T / 2, 4000) for xc in (356, 2 * CX - 356)]:
     mid_walls = mid_walls.difference(o)
 
+# owner: "all doors should have the same size opening": a wall across each hallway where it meets the hall, across
+# room 1's link and across its east exit, each with one standard door (DOOR_W) in the middle
+DOOR_W = float(top.get("door_width", 28))
+def door_wall(p, n, span):
+    """a wall of `span` across direction n at point p, with a DOOR_W opening centred on p"""
+    n = np.array(n, float) / np.linalg.norm(n); t = np.array([-n[1], n[0]])
+    out = []
+    for a, b in ((-span / 2, -DOOR_W / 2), (DOOR_W / 2, span / 2)):
+        q0 = np.array(p) + t * a; q1 = np.array(p) + t * b
+        out.append(LineString([tuple(q0), tuple(q1)]).buffer(T / 2, cap_style=2))
+    return unary_union(out)
+dws = []
+for sx in (1, -1):
+    for sy in (1, -1):
+        k = np.roots([1, 2 * d.dot(bend - [CX, CY]), np.sum((bend - [CX, CY]) ** 2) - (R + 14) ** 2]); k = min(k.real[k.real > 0])
+        pt = bend + d * k
+        pt = np.array([CX + sx * (pt[0] - CX), CY + sy * (pt[1] - CY)]); dn = np.array([sx * d[0], sy * d[1]])
+        dws.append(door_wall(pt, dn, W + T))
+dws += [door_wall((842, 868), (1, 0), 66 + T), door_wall((1008, 868), (1, 0), 52 + T)]
+mid_walls = unary_union([mid_walls] + dws)
+
 walls = unary_union([top_walls, affinity.scale(top_walls, yfact=-1, origin=(0, CY)), mid_walls])
 
 # ---- draw
