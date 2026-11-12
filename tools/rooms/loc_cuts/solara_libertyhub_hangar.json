@@ -4,210 +4,125 @@
   4096,
   427
  ],
- "seams": [
-  49,
-  768,
-  1487,
-  2090,
-  2809,
-  3434
- ],
  "cuts": [
-  49,
-  768,
-  1487,
-  2090,
-  2809,
-  3434
+  1510,
+  1910,
+  2822,
+  3222,
+  3706,
+  10
  ],
- "overlap": 20,
- "frame": [
-  1920,
-  1080
- ],
- "window": 759,
- "parts": [
-  {
-   "file": "LibertyHub_Hangar_part1.png",
-   "strip_x0": 29,
-   "strip_w": 759,
-   "keep": [
-    49,
-    719
-   ],
-   "frame_rect": [
-    0,
-    0,
-    1920,
-    1080
-   ]
-  },
-  {
-   "file": "LibertyHub_Hangar_part2.png",
-   "strip_x0": 748,
-   "strip_w": 759,
-   "keep": [
-    768,
-    719
-   ],
-   "frame_rect": [
-    0,
-    0,
-    1920,
-    1080
-   ]
-  },
-  {
-   "file": "LibertyHub_Hangar_part3.png",
-   "strip_x0": 1409,
-   "strip_w": 759,
-   "keep": [
-    1487,
-    603
-   ],
-   "frame_rect": [
-    0,
-    0,
-    1920,
-    1080
-   ]
-  },
-  {
-   "file": "LibertyHub_Hangar_part4.png",
-   "strip_x0": 2070,
-   "strip_w": 759,
-   "keep": [
-    2090,
-    719
-   ],
-   "frame_rect": [
-    0,
-    0,
-    1920,
-    1080
-   ]
-  },
-  {
-   "file": "LibertyHub_Hangar_part5.png",
-   "strip_x0": 2742,
-   "strip_w": 759,
-   "keep": [
-    2809,
-    625
-   ],
-   "frame_rect": [
-    0,
-    0,
-    1920,
-    1080
-   ]
-  },
-  {
-   "file": "LibertyHub_Hangar_part6.png",
-   "strip_x0": 3410,
-   "strip_w": 759,
-   "keep": [
-    3434,
-    711
-   ],
-   "frame_rect": [
-    0,
-    0,
-    1920,
-    1080
-   ]
-  }
+ "overlap": 0,
+ "clear": 30,
+ "avoid": [
+  [
+   470,
+   900
+  ],
+  [
+   260,
+   420
+  ],
+  [
+   2360,
+   2460
+  ]
  ],
  "people": 128,
- "cuts_touching_people": [],
+ "method": "loc_cut_pairs (6 pieces, equal pairs, stacked 3 pictures)",
+ "gaps": [
+  149,
+  205,
+  54,
+  33,
+  152,
+  70
+ ],
  "pictures": [
   {
-   "file": "LibertyHub_Hangar_pic1.png",
+   "file": "LibertyHub_Hangar_clip1.png",
    "size": [
-    953,
+    502,
     1080
    ],
-   "scale": 1.255813953488372,
    "rows": [
     {
-     "row": 0,
-     "strip_x0": 29,
-     "strip_w": 759,
-     "keep": [
-      49,
-      719
+     "piece": 1,
+     "strip": [
+      1510,
+      400
      ],
-     "y0": 0
+     "y": 0.0,
+     "h": 536.23,
+     "px_per_strip_px": 1.2558
     },
     {
-     "row": 1,
-     "strip_x0": 748,
-     "strip_w": 759,
-     "keep": [
-      768,
-      719
+     "piece": 3,
+     "strip": [
+      2822,
+      400
      ],
-     "y0": 433
+     "y": 543.77,
+     "h": 536.23,
+     "px_per_strip_px": 1.2558
     }
    ]
   },
   {
-   "file": "LibertyHub_Hangar_pic2.png",
+   "file": "LibertyHub_Hangar_clip2.png",
    "size": [
-    953,
+    1427,
     1080
    ],
-   "scale": 1.255813953488372,
    "rows": [
     {
-     "row": 0,
-     "strip_x0": 1409,
-     "strip_w": 759,
-     "keep": [
-      1487,
-      603
+     "piece": 2,
+     "strip": [
+      1910,
+      912
      ],
-     "y0": 0
+     "y": 0.0,
+     "h": 667.98,
+     "px_per_strip_px": 1.565
     },
     {
-     "row": 1,
-     "strip_x0": 2070,
-     "strip_w": 759,
-     "keep": [
-      2090,
-      719
+     "piece": 6,
+     "strip": [
+      10,
+      1500
      ],
-     "y0": 433
+     "y": 673.69,
+     "h": 406.31,
+     "px_per_strip_px": 0.9515
     }
    ]
   },
   {
-   "file": "LibertyHub_Hangar_pic3.png",
+   "file": "LibertyHub_Hangar_clip3.png",
    "size": [
-    943,
+    550,
     1080
    ],
-   "scale": 1.255813953488372,
    "rows": [
     {
-     "row": 0,
-     "strip_x0": 2746,
-     "strip_w": 751,
-     "keep": [
-      2809,
-      625
+     "piece": 4,
+     "strip": [
+      3222,
+      484
      ],
-     "y0": 0
+     "y": 0.0,
+     "h": 485.43,
+     "px_per_strip_px": 1.1368
     },
     {
-     "row": 1,
-     "strip_x0": 3414,
-     "strip_w": 751,
-     "keep": [
-      3434,
-      711
+     "piece": 5,
+     "strip": [
+      3706,
+      400
      ],
-     "y0": 433
+     "y": 492.25,
+     "h": 587.75,
+     "px_per_strip_px": 1.3756
     }
    ]
   }

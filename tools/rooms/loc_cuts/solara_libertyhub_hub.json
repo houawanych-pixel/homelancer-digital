@@ -4,210 +4,141 @@
   4096,
   427
  ],
- "seams": [
-  257,
-  861,
-  1562,
-  2264,
-  2934,
-  3635
- ],
  "cuts": [
-  257,
-  861,
-  1562,
-  2264,
-  2934,
-  3635
+  3963,
+  243,
+  1689,
+  2039,
+  2533,
+  3613
  ],
- "overlap": 20,
- "frame": [
-  1920,
-  1080
- ],
- "window": 759,
- "parts": [
-  {
-   "file": "LibertyHub_Hub_part1.png",
-   "strip_x0": 180,
-   "strip_w": 759,
-   "keep": [
-    257,
-    604
-   ],
-   "frame_rect": [
-    0,
-    0,
-    1920,
-    1080
-   ]
-  },
-  {
-   "file": "LibertyHub_Hub_part2.png",
-   "strip_x0": 832,
-   "strip_w": 759,
-   "keep": [
-    861,
-    701
-   ],
-   "frame_rect": [
-    0,
-    0,
-    1920,
-    1080
-   ]
-  },
-  {
-   "file": "LibertyHub_Hub_part3.png",
-   "strip_x0": 1534,
-   "strip_w": 759,
-   "keep": [
-    1562,
-    702
-   ],
-   "frame_rect": [
-    0,
-    0,
-    1920,
-    1080
-   ]
-  },
-  {
-   "file": "LibertyHub_Hub_part4.png",
-   "strip_x0": 2220,
-   "strip_w": 759,
-   "keep": [
-    2264,
-    670
-   ],
-   "frame_rect": [
-    0,
-    0,
-    1920,
-    1080
-   ]
-  },
-  {
-   "file": "LibertyHub_Hub_part5.png",
-   "strip_x0": 2905,
-   "strip_w": 759,
-   "keep": [
-    2934,
-    701
-   ],
-   "frame_rect": [
-    0,
-    0,
-    1920,
-    1080
-   ]
-  },
-  {
-   "file": "LibertyHub_Hub_part6.png",
-   "strip_x0": 3615,
-   "strip_w": 759,
-   "keep": [
-    3635,
-    718
-   ],
-   "frame_rect": [
-    0,
-    0,
-    1920,
-    1080
-   ]
-  }
+ "overlap": 0,
+ "clear": 12,
+ "avoid": [
+  [
+   1210,
+   1330
+  ],
+  [
+   2670,
+   2740
+  ],
+  [
+   2090,
+   2145
+  ],
+  [
+   2700,
+   3080
+  ],
+  [
+   520,
+   680
+  ],
+  [
+   3420,
+   3485
+  ],
+  [
+   2300,
+   2380
+  ]
  ],
  "people": 195,
- "cuts_touching_people": [],
+ "method": "loc_cut_pairs (6 pieces, equal pairs, stacked 3 pictures)",
+ "gaps": [
+  155,
+  25,
+  149,
+  51,
+  25,
+  42
+ ],
  "pictures": [
   {
-   "file": "LibertyHub_Hub_pic1.png",
+   "file": "LibertyHub_Hub_clip1.png",
    "size": [
-    931,
+    537,
     1080
    ],
-   "scale": 1.255813953488372,
    "rows": [
     {
-     "row": 0,
-     "strip_x0": 189,
-     "strip_w": 741,
-     "keep": [
-      257,
-      604
+     "piece": 1,
+     "strip": [
+      3963,
+      376
      ],
-     "y0": 0
+     "y": 0.0,
+     "h": 609.54,
+     "px_per_strip_px": 1.4275
     },
     {
-     "row": 1,
-     "strip_x0": 841,
-     "strip_w": 741,
-     "keep": [
-      861,
-      701
+     "piece": 4,
+     "strip": [
+      2039,
+      494
      ],
-     "y0": 433
+     "y": 616.06,
+     "h": 463.94,
+     "px_per_strip_px": 1.0865
     }
    ]
   },
   {
-   "file": "LibertyHub_Hub_pic2.png",
+   "file": "LibertyHub_Hub_clip2.png",
    "size": [
-    932,
+    1554,
     1080
    ],
-   "scale": 1.255813953488372,
    "rows": [
     {
-     "row": 0,
-     "strip_x0": 1542,
-     "strip_w": 742,
-     "keep": [
-      1562,
-      702
+     "piece": 2,
+     "strip": [
+      243,
+      1446
      ],
-     "y0": 0
+     "y": 0.0,
+     "h": 458.87,
+     "px_per_strip_px": 1.0746
     },
     {
-     "row": 1,
-     "strip_x0": 2228,
-     "strip_w": 742,
-     "keep": [
-      2264,
-      670
+     "piece": 5,
+     "strip": [
+      2533,
+      1080
      ],
-     "y0": 433
+     "y": 465.31,
+     "h": 614.69,
+     "px_per_strip_px": 1.4388
     }
    ]
   },
   {
-   "file": "LibertyHub_Hub_pic3.png",
+   "file": "LibertyHub_Hub_clip3.png",
    "size": [
-    952,
+    440,
     1080
    ],
-   "scale": 1.255813953488372,
    "rows": [
     {
-     "row": 0,
-     "strip_x0": 2905,
-     "strip_w": 758,
-     "keep": [
-      2934,
-      701
+     "piece": 3,
+     "strip": [
+      1689,
+      350
      ],
-     "y0": 0
+     "y": 0.0,
+     "h": 536.23,
+     "px_per_strip_px": 1.2558
     },
     {
-     "row": 1,
-     "strip_x0": 3615,
-     "strip_w": 758,
-     "keep": [
-      3635,
-      718
+     "piece": 6,
+     "strip": [
+      3613,
+      350
      ],
-     "y0": 433
+     "y": 543.77,
+     "h": 536.23,
+     "px_per_strip_px": 1.2558
     }
    ]
   }

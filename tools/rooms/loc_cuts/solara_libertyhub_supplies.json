@@ -4,210 +4,117 @@
   4096,
   427
  ],
- "seams": [
-  63,
-  782,
-  1493,
-  2109,
-  2828,
-  3547
- ],
  "cuts": [
-  63,
-  782,
-  1493,
-  2109,
-  2828,
-  3547
+  2089,
+  2927,
+  3621,
+  4071,
+  849,
+  1583
  ],
- "overlap": 20,
- "frame": [
-  1920,
-  1080
- ],
- "window": 759,
- "parts": [
-  {
-   "file": "LibertyHub_Supplies_part1.png",
-   "strip_x0": 43,
-   "strip_w": 759,
-   "keep": [
-    63,
-    719
-   ],
-   "frame_rect": [
-    0,
-    0,
-    1920,
-    1080
-   ]
-  },
-  {
-   "file": "LibertyHub_Supplies_part2.png",
-   "strip_x0": 758,
-   "strip_w": 759,
-   "keep": [
-    782,
-    711
-   ],
-   "frame_rect": [
-    0,
-    0,
-    1920,
-    1080
-   ]
-  },
-  {
-   "file": "LibertyHub_Supplies_part3.png",
-   "strip_x0": 1422,
-   "strip_w": 759,
-   "keep": [
-    1493,
-    616
-   ],
-   "frame_rect": [
-    0,
-    0,
-    1920,
-    1080
-   ]
-  },
-  {
-   "file": "LibertyHub_Supplies_part4.png",
-   "strip_x0": 2089,
-   "strip_w": 759,
-   "keep": [
-    2109,
-    719
-   ],
-   "frame_rect": [
-    0,
-    0,
-    1920,
-    1080
-   ]
-  },
-  {
-   "file": "LibertyHub_Supplies_part5.png",
-   "strip_x0": 2808,
-   "strip_w": 759,
-   "keep": [
-    2828,
-    719
-   ],
-   "frame_rect": [
-    0,
-    0,
-    1920,
-    1080
-   ]
-  },
-  {
-   "file": "LibertyHub_Supplies_part6.png",
-   "strip_x0": 3474,
-   "strip_w": 759,
-   "keep": [
-    3547,
-    612
-   ],
-   "frame_rect": [
-    0,
-    0,
-    1920,
-    1080
-   ]
-  }
+ "overlap": 0,
+ "clear": 30,
+ "avoid": [
+  [
+   300,
+   400
+  ]
  ],
  "people": 62,
- "cuts_touching_people": [],
+ "method": "loc_cut_pairs (6 pieces, equal pairs, stacked 3 pictures)",
+ "gaps": [
+  178,
+  145,
+  144,
+  114,
+  91,
+  150
+ ],
  "pictures": [
   {
-   "file": "LibertyHub_Supplies_pic1.png",
+   "file": "LibertyHub_Supplies_clip1.png",
    "size": [
-    953,
+    1075,
     1080
    ],
-   "scale": 1.255813953488372,
    "rows": [
     {
-     "row": 0,
-     "strip_x0": 43,
-     "strip_w": 759,
-     "keep": [
-      63,
-      719
+     "piece": 1,
+     "strip": [
+      2089,
+      838
      ],
-     "y0": 0
+     "y": 0.0,
+     "h": 547.38,
+     "px_per_strip_px": 1.2829
     },
     {
-     "row": 1,
-     "strip_x0": 758,
-     "strip_w": 759,
-     "keep": [
-      782,
-      711
+     "piece": 4,
+     "strip": [
+      4071,
+      874
      ],
-     "y0": 433
+     "y": 554.76,
+     "h": 525.24,
+     "px_per_strip_px": 1.2301
     }
    ]
   },
   {
-   "file": "LibertyHub_Supplies_pic2.png",
+   "file": "LibertyHub_Supplies_clip2.png",
    "size": [
-    953,
+    896,
     1080
    ],
-   "scale": 1.255813953488372,
    "rows": [
     {
-     "row": 0,
-     "strip_x0": 1422,
-     "strip_w": 759,
-     "keep": [
-      1493,
-      616
+     "piece": 2,
+     "strip": [
+      2927,
+      694
      ],
-     "y0": 0
+     "y": 0.0,
+     "h": 551.59,
+     "px_per_strip_px": 1.2907
     },
     {
-     "row": 1,
-     "strip_x0": 2089,
-     "strip_w": 759,
-     "keep": [
-      2109,
-      719
+     "piece": 5,
+     "strip": [
+      849,
+      734
      ],
-     "y0": 433
+     "y": 558.92,
+     "h": 521.08,
+     "px_per_strip_px": 1.2203
     }
    ]
   },
   {
-   "file": "LibertyHub_Supplies_pic3.png",
+   "file": "LibertyHub_Supplies_clip3.png",
    "size": [
-    953,
+    599,
     1080
    ],
-   "scale": 1.255813953488372,
    "rows": [
     {
-     "row": 0,
-     "strip_x0": 2808,
-     "strip_w": 759,
-     "keep": [
-      2828,
-      719
+     "piece": 3,
+     "strip": [
+      3621,
+      450
      ],
-     "y0": 0
+     "y": 0.0,
+     "h": 567.8,
+     "px_per_strip_px": 1.3301
     },
     {
-     "row": 1,
-     "strip_x0": 3474,
-     "strip_w": 759,
-     "keep": [
-      3547,
-      612
+     "piece": 6,
+     "strip": [
+      1583,
+      506
      ],
-     "y0": 433
+     "y": 574.9,
+     "h": 505.1,
+     "px_per_strip_px": 1.1829
     }
    ]
   }
