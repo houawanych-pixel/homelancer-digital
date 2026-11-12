@@ -27,6 +27,7 @@ inner = [wall((871, 433), (1120, 433), [122]),                                  
          wall((760, 505), (760, 660), [48]), wall((1220, 505), (1220, 660), [48]),    # side rooms into the hall
          wall((900, 1100), (1075, 1100), [87.5]),                                  # hall into the passage
          wall((1345, 1572), (1345, 1668), [48])]                                   # round room into the side room
+LABELS = [((995, 230), '4 Bridge'), ((995, 110), '5 Navi-|computer'), ((570, 280), '7 Living|Accommodations'), ((1370, 280), '6 Secondary|Conference'), ((663, 560), '10 Escape|Pod'), ((1313, 560), '9 Bunks'), ((997, 700), '8 Boarding|Ramp'), ((990, 1190), '11 To Lower|Deck'), ((987, 1560), '13 Main|Conference Room'), ((987, 1720), '14 Holoterminal'), ((640, 1800), '15 Port|Hatch'), ((1490, 1630), '16 Starboard|Hatch')]
 floor = unary_union([cockpit, roomL, roomR, smallL, smallR, hall, link, rnd, alcL, alcB, trap, trapLink])
 walls = floor.buffer(T / 2, join_style=2).difference(floor.buffer(-T / 2, join_style=2))
 walls = unary_union([walls, unary_union(inner).intersection(floor.buffer(T / 2, join_style=2))])
@@ -40,6 +41,11 @@ for p in getattr(walls, "geoms", [walls]):
 cs, _ = cv2.findContours(mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
 plan = np.zeros_like(src); ov = (src * 0.5).astype(np.uint8)
 for im in (plan, ov): cv2.drawContours(im, cs, -1, (255, 255, 255), 4, cv2.LINE_AA)
+for (x, y), t in LABELS:   # room names from the owner's labelled Defender sheet (numbers as on that sheet)
+    for k, line in enumerate(t.split("|")):
+        for im in (plan, ov):
+            (w, h), _ = cv2.getTextSize(line, cv2.FONT_HERSHEY_SIMPLEX, 1.1, 2)
+            cv2.putText(im, line, (int(x - w / 2), int(y + k * 40)), cv2.FONT_HERSHEY_SIMPLEX, 1.1, (80, 220, 255), 2, cv2.LINE_AA)
 cv2.imwrite(os.path.join(HERE, "flight_plan.png"), plan)
 cv2.imwrite(os.path.join(HERE, "flight_plan_on_map.jpg"), ov, [cv2.IMWRITE_JPEG_QUALITY, 88])
 json.dump({"units": "flight_deck_x4 px", "thickness": T, "door": DOOR, "floor": mapping(floor), "walls": mapping(walls)},
