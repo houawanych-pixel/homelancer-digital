@@ -32,13 +32,13 @@ def radial(a_deg, r0, r1, doors=()):
 fanT = Point(C).buffer(1468, 512).intersection(box(0, 0, 1310, 1255)).difference(Point(C).buffer(735, 512))
 mid = box(330, 1395, 880, 1585)                      # middle block between the fans
 stN = box(605, 1240, 839, 1395)                      # stairs up into the top fan
-brW = box(880, 1440, 975, 1540); airW = box(975, 1369, 1108, 1611)   # bridge and west airlock
+brW = box(880, 1440, 975, 1540); airW = box(975, 1369, 1125, 1611)   # bridge and west airlock
 airE = affinity.scale(airW, -1, 1, origin=(C[0], 0))
 hub = Point(C).buffer(430, 256)                     # hub hall; the centre circle is a railing, not a wall
 # ---- north spine
 oct1 = Point(1546, 94).buffer(52, 2); roomA = box(1431, 144, 1656, 262)
 hallN = unary_union([box(1460, 262, 1640, 775), box(1310, 550, 1656, 775)])
-oct2 = Point(1546, 840).buffer(56, 2); roomC = box(1431, 875, 1656, 1080)
+oct2 = unary_union([Point(1546, 840).buffer(56, 2), box(1518, 770, 1574, 800)]); roomC = box(1431, 875, 1656, 1080)
 # ---- south spine
 stS = box(1437, 1900, 1650, 2177)
 hallS = unary_union([box(1310, 2177, 1650, 2400), box(1437, 2400, 1650, 2697)])
