@@ -2156,7 +2156,8 @@ func _draw() -> void:
 	# defence and special moves (right block), speed (left block)
 	var sh_cd: float = space.shield_cd / Data.SHIELD_BOOST_COOLDOWN
 	pass   # (v7.6 / v8.3: SHIELD and REPAIR are drawn by the console)
-	_corner("tractor", "TRACTOR", "tractor", Color(0.45, 0.9, 1.0), space.tractor_t > 0.0, str(space.loot.size()) if space.loot.size() > 0 else "")
+	if space.escape_pilot or space.on_foot: _corner("tractor", "CUTTER", "kill", Color(1.0, 0.6, 0.2), space.cut_a != Vector3.INF, "")   # v13.73 (owner): on foot the CUTTER
+	else: _corner("tractor", "TRACTOR", "tractor", Color(0.45, 0.9, 1.0), space.tractor_t > 0.0, str(space.loot.size()) if space.loot.size() > 0 else "")
 	var tf: bool = space.transform_t > 0.0
 	pass   # (v8.3: TRANSFORM is drawn by the console)
 	var wsub := ""

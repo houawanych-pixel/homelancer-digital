@@ -4,6 +4,7 @@ extends Node
 signal changed
 
 var credits := 500
+var has_cutter := true   # v13.73 (owner: "if you have it, it can provide a short cut"): the CUTTER tool (you start with it for now)
 var ship_id := "cadet"
 var owned_ships := ["cadet"]
 var weapon_id := "pulse1"

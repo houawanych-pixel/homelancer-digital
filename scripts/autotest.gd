@@ -1830,7 +1830,7 @@ func _run() -> void:
 		_check("v12.52 (owner): back on a world you've been to: nothing kept from last time, a new seed, and Evee knows it (visit %d)" % int(GS.planet_visits.get(pid0, 0)), again, "visits %s salt %s deltas kept %s" % [GS.planet_visits, BlockField.visit_salt, GS.block_deltas.has(pid0 + "|0|0|0")])
 		_finish_group()
 		return
-	if OS.get_environment("HL_ESCAPE") == "" and not _flag("HL_BREAKOUT"): main.hub.escape_3d = false   # v12.30: the older lockdown checks test the panorama fight (HL_ESCAPE tests the 3D one)
+	if OS.get_environment("HL_ESCAPE") == "" and not _flag("HL_BREAKOUT") and not _flag("HL_CUTTER"): main.hub.escape_3d = false   # v12.30: the older lockdown checks test the panorama fight (HL_ESCAPE tests the 3D one)
 	if OS.get_environment("HL_SMOKE") != "":   # Nov 2 (owner): the fast pre-deploy check (< 2 min)
 		await _smoke()
 		_finish_group()
@@ -5032,6 +5032,64 @@ func _run() -> void:
 		_check("v12.39 (owner): EJECT on a world (prompt %s): on foot at human size (%.1f m), the mech parked; walk away and ENTER is gone, come back and ENTER takes you in" % [pr0, bb.size.y], pr0 == "eject" and small and far_none and near_enter and back_in, "small %s far %s near %s back %s" % [small, far_none, near_enter, back_in])
 		_finish_group()
 		return
+	if _flag("HL_CUTTER"):   # v13.73 (owner): the CUTTER: two points across the wreckage cut it and open the short cut
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s := _sp()
+		main.dock(s.station)
+		await _until(func(): return main.state == "hub", 15.0)
+		await _wait(0.5)
+		main.hub.test_alarm()
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.escape_pilot and not main.space.board_doors.is_empty(), 120.0)
+		await _wait(2.0)
+		s = _sp()
+		var has_w: bool = not s.wrecks.is_empty()
+		var label_ok: bool = main.hud.buttons.has("tractor")
+		var ok_block := false
+		var ok_miss := false
+		var ok_short := false
+		var ok_cut := false
+		var ok_pass := false
+		if has_w:
+			var wk: Dictionary = s.wrecks[0]
+			var bb: AABB = wk["box"]
+			var c := bb.get_center()
+			var nrm := Vector3(1, 0, 0) if wk["axis"] == "x" else Vector3(0, 0, 1)
+			var stand := c + nrm * 70.0
+			stand.y = Boarding.floor_at(stand) + 6.0
+			s.process_mode = Node.PROCESS_MODE_DISABLED
+			s.player.global_position = c + nrm * 2.0   # (into it: pushed out)
+			s._board_doors(0.016)
+			ok_block = not bb.has_point(s.player.global_position)
+			var aim_at := func(p: Vector3):
+				s.cam.global_position = stand + Vector3(0, 8, 0)
+				s.cam.look_at(p, Vector3.UP)
+			aim_at.call(c + Vector3(0, 400, 0) + nrm * 300.0)   # at nothing
+			ok_miss = s.cutter_press() == "miss"
+			var hs: Vector3 = bb.size * 0.5
+			aim_at.call(c + Vector3(0, hs.y * 0.8, 0))
+			var r1: String = s.cutter_press()
+			aim_at.call(c + Vector3(0, hs.y * 0.6, 0))
+			ok_short = r1 == "first" and s.cutter_press() == "short"
+			aim_at.call(c + Vector3(0, hs.y * 0.85, 0))
+			var r2: String = s.cutter_press()
+			aim_at.call(c - Vector3(0, hs.y * 0.85, 0))
+			s._update_cutter(0.016)
+			main.hud.visible = false
+			await _capture("cutter_line")
+			main.hud.visible = true
+			ok_cut = r2 == "first" and s.cutter_press() == "cut" and bool(wk["cut"])
+			s.player.global_position = c + nrm * 2.0
+			s._board_doors(0.016)
+			ok_pass = s.player.global_position.distance_to(c + nrm * 2.0) < 0.5
+			s.process_mode = Node.PROCESS_MODE_INHERIT
+			await _wait(1.2)
+			await _capture("cutter_cut")
+		_check("v13.73 (owner): the breakout short cuts are cuttable wreckage (%d), solid until cut (%s); CUTTER on the button (%s); aiming at nothing does nothing (%s), a short line doesn't cut (%s), a line across it cuts it (%s) and you walk through (%s)" % [s.wrecks.size(), ok_block, label_ok, ok_miss, ok_short, ok_cut, ok_pass],
+			has_w and ok_block and label_ok and ok_miss and ok_short and ok_cut and ok_pass)
+		_finish_group()
+		return
 	if _flag("HL_BREAKOUT"):   # v12.38: the breakout inside the real mech game (boarding), the whole HUD
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -5066,10 +5124,10 @@ func _run() -> void:
 		var way := 0
 		for k in Boarding.ROUTE_OUT: if not str(Boarding.ROOMS[k].get("hex", false)) == "true": way += 1
 		var sealed := 0
-		for d in s.board_doors: if bool(d["sealed"]): sealed += 1
+		for d in s.board_doors: if bool(d["sealed"]) or (d.has("wreck") and not bool(d["wreck"]["cut"])): sealed += 1   # (v13.73: wreckage blocks them now)
 		var lifts := 0
 		for k in Boarding.ROUTE_OUT: if str(Boarding.ROOMS[k].get("label", "")).begins_with("LIFT"): lifts += 1
-		_check("v12.50 (owner: \"too easy, one straight path ... ways blocked, go around, up and down, 3 floors\"): the way to the hangar winds through %d rooms with %d lifts, over %d decks; %d sealed doors" % [way, lifts, decks.size(), sealed], way >= 6 and decks.size() >= 3 and lifts >= 2 and sealed >= 2, "way %d lifts %d decks %s sealed %d" % [way, lifts, str(decks.keys()), sealed])
+		_check("v12.50 (owner: \"too easy, one straight path ... ways blocked, go around, up and down, 3 floors\"): the way to the hangar winds through %d rooms with %d lifts, over %d decks; %d sealed doors" % [way, lifts, decks.size(), sealed], way >= 6 and decks.size() >= 3 and lifts >= 2 and sealed >= 1, "way %d lifts %d decks %s sealed %d" % [way, lifts, str(decks.keys()), sealed])
 		# v12.47: laid out from the station's own Tripo model, which is set round it as the shell
 		var big := 0
 		for k in Boarding.ROOMS: if str(Boarding.ROOMS[k].get("label", "")) != "CORRIDOR": big += 1

@@ -1532,7 +1532,11 @@ func setup_boarding(info: Dictionary) -> void:
 		for d in board_doors:
 			if Boarding.is_door(d, Boarding.ESCAPE_DOOR): d["locked"] = false
 			for pr: Array in Boarding.INFO.get("blocked", []):   # v12.50: the sealed short cuts (red doors)
-				if Boarding.is_door(d, pr): d["sealed"] = true
+				if Boarding.is_door(d, pr):
+					if Data.CUTTER_WRECKS:
+						if not _wrecked_tunnels.has(str(pr[1])): _make_wreck(root, d)   # (one wreck per blocked passage; its other end is just open)
+						_wrecked_tunnels[str(pr[1])] = true   # v13.73 (owner): the short cuts are blocked by wreckage the CUTTER cuts through (doors themselves can't be cut)
+					else: d["sealed"] = true
 		if is_instance_valid(_board_path): _board_path.visible = false   # v12.50 (owner: "too easy"): no lights to the hangar; the deck map shows where it is
 		_breakout_guards(fac)
 		if Data.BREAKOUT_SHELL_SHOWN: _breakout_shell(root)   # v12.49 (owner): the shell was the guide for the layout; it blocked the view: not drawn
@@ -1978,11 +1982,176 @@ func room_guards_left(room: String) -> int:
 ## v11.70: the sliding doors. A door opens as you walk up to it, unless it is locked (the way out, until the core blows)
 ## or sealed (the way you came, after); shut, it is a solid wall. Its stripe is green when it will open, red when not.
 var board_doors: Array = []
+## v13.73 (owner: "the cutter doesn't work. It should be a tool that lets you draw a line and it cuts through that object:
+## two points, and it cuts through it, if the object is cuttable ... big objects in the way, not doors ... cut and pulled
+## away to give you passage. An obstacle remover for checkpoints: if you have it, it can give a short cut."):
+## the breakout's short cuts are blocked by WRECKAGE (orange, hazard-striped) in the doorway. CUTTER marks a point where
+## the crosshair hits it; aim across it and CUTTER again: a line across most of it cuts it in two and the halves fall
+## away, opening the way. A short line, or points on two different things, does nothing. Doors and walls can't be cut.
+var wrecks: Array = []           # {node, box (world AABB), cut, door}
+var _wrecked_tunnels := {}
+var cut_a := Vector3.INF         # the first point of the cut (INF = none yet)
+var _cut_wreck: Dictionary = {}
+var _cut_beam: MeshInstance3D
+func _make_wreck(root: Node3D, d: Dictionary) -> void:
+	var w: float = float(d["hi"]) - float(d["lo"])
+	var h: float = float(d["h"]) - 2.0
+	var mid: float = (float(d["lo"]) + float(d["hi"])) * 0.5
+	var base: float = d["base"]
+	var th := 12.0
+	var size := Vector3(th, h, w) if d["axis"] == "x" else Vector3(w, h, th)
+	var c := Vector3(float(d["at"]), base + h * 0.5, mid) if d["axis"] == "x" else Vector3(mid, base + h * 0.5, float(d["at"]))
+	var n := Node3D.new()
+	n.name = "Wreckage"
+	n.position = c
+	root.add_child(n)
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = size
+	mi.mesh = bm
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.55, 0.32, 0.14)
+	mat.roughness = 0.85
+	mat.metallic = 0.4
+	mi.material_override = mat
+	n.add_child(mi)
+	for k in 3:   # hazard stripes: cut here
+		var st := MeshInstance3D.new()
+		var sb := BoxMesh.new()
+		sb.size = Vector3(th + 0.4, 1.6, w * 0.9) if d["axis"] == "x" else Vector3(w * 0.9, 1.6, th + 0.4)
+		st.mesh = sb
+		st.position = Vector3(0, h * (0.25 * float(k + 1) - 0.5), 0)
+		st.material_override = ShipFactory.mat(Color(1.0, 0.75, 0.1), true)
+		n.add_child(st)
+	var lb := Label3D.new()
+	lb.text = "WRECKAGE · CUTTABLE"
+	lb.font_size = 64
+	lb.pixel_size = 0.05
+	lb.outline_size = 12
+	lb.modulate = Color(1.0, 0.8, 0.3)
+	lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	lb.position = Vector3(0, h * 0.5 + 3.0, 0)
+	n.add_child(lb)
+	var wk := {"node": n, "box": AABB(c - size * 0.5, size), "cut": false, "door": d, "axis": d["axis"], "size": size}
+	d["wreck"] = wk
+	d["locked"] = false
+	d["sealed"] = false
+	wrecks.append(wk)
+## What the crosshair points at: {pos, wreck} (wreck empty when it is not on a wreck; pos INF when nothing in reach)
+func cutter_aim() -> Dictionary:
+	if not is_instance_valid(cam): return {"pos": Vector3.INF, "wreck": {}}
+	var o := cam.global_position
+	var dir := -cam.global_basis.z
+	var best := INF
+	var out := {"pos": Vector3.INF, "wreck": {}}
+	for wk in wrecks:
+		if bool(wk["cut"]): continue
+		var hp = (wk["box"] as AABB).intersects_ray(o, dir)
+		if hp != null and o.distance_to(hp) < best and o.distance_to(hp) < Data.CUTTER_RANGE:
+			best = o.distance_to(hp)
+			out = {"pos": hp, "wreck": wk}
+	return out
+## CUTTER: the first press marks a point on the wreckage, the second one cuts along the line to where you aim now.
+func cutter_press() -> String:
+	if not GS.has_cutter: return "none"
+	var a := cutter_aim()
+	if (a["wreck"] as Dictionary).is_empty():
+		cut_a = Vector3.INF
+		_cut_wreck = {}
+		return "miss"
+	if cut_a == Vector3.INF or _cut_wreck != a["wreck"]:
+		cut_a = a["pos"]
+		_cut_wreck = a["wreck"]
+		Sfx.play("saber_on", -6.0, 1.3)
+		return "first"
+	var wk: Dictionary = _cut_wreck
+	var line: Vector3 = (a["pos"] as Vector3) - cut_a
+	var sz: Vector3 = wk["size"]
+	var span := minf(sz.y, sz.z if wk["axis"] == "x" else sz.x)   # (across its short side is enough)
+	cut_a = Vector3.INF
+	_cut_wreck = {}
+	if line.length() < span * Data.CUTTER_SPAN:
+		Sfx.play("shield_block", -6.0)
+		return "short"
+	_cut_through(wk, a["pos"] - line, a["pos"])
+	return "cut"
+func _cut_through(wk: Dictionary, a: Vector3, b: Vector3) -> void:
+	wk["cut"] = true
+	var n: Node3D = wk["node"]
+	var sz: Vector3 = wk["size"]
+	var line := b - a
+	var vertical := absf(line.y) >= Vector2(line.x, line.z).length()   # a top-to-bottom cut splits it left / right
+	for c in n.get_children(): c.queue_free()
+	for sgn in [-1.0, 1.0]:
+		var half := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		var hs := sz
+		var off := Vector3.ZERO
+		if vertical:
+			if wk["axis"] == "x":
+				hs.z *= 0.5
+				off.z = sgn * sz.z * 0.25
+			else:
+				hs.x *= 0.5
+				off.x = sgn * sz.x * 0.25
+		else:
+			hs.y *= 0.5
+			off.y = sgn * sz.y * 0.25
+		bm.size = hs
+		half.mesh = bm
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = Color(0.55, 0.32, 0.14)
+		mat.emission_enabled = true
+		mat.emission = Color(1.0, 0.45, 0.1)
+		mat.emission_energy_multiplier = 0.6   # the cut edge still glowing
+		half.material_override = mat
+		half.position = off
+		n.add_child(half)
+		var tw := create_tween()
+		var fall: Vector3 = off * 1.8 + Vector3(0, -sz.y * (0.6 if vertical else (1.1 if sgn > 0.0 else 0.2)), 0)
+		tw.tween_property(half, "position", fall, 1.1).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+		tw.parallel().tween_property(half, "rotation", Vector3(sgn * 0.6, 0, sgn * (1.2 if vertical else 0.3)), 1.1)
+		tw.tween_property(half, "scale", Vector3.ONE * 0.01, 0.6).set_delay(2.0)
+	for i in 14:
+		_spark(a.lerp(b, float(i) / 13.0), Color(1.0, 0.6, 0.2), 6.0, 0.5)
+	Sfx.play("saber_hit", -2.0, 0.8)
+	hit_shake = maxf(hit_shake, 0.5)
+	message.emit("CUT THROUGH: the wreckage falls away. A short cut is open.")
+## the cutter's beam: from the first point to where you aim (while a cut is started)
+func _update_cutter(_dt: float) -> void:
+	if cut_a == Vector3.INF:
+		if _cut_beam != null and is_instance_valid(_cut_beam): _cut_beam.visible = false
+		return
+	if _cut_beam == null or not is_instance_valid(_cut_beam):
+		_cut_beam = MeshInstance3D.new()
+		_cut_beam.mesh = ImmediateMesh.new()
+		_cut_beam.material_override = ShipFactory.mat(Color(1.0, 0.55, 0.15), true)
+		add_child(_cut_beam)
+	_cut_beam.visible = true
+	var a := cutter_aim()
+	var b: Vector3 = a["pos"] if a["pos"] != Vector3.INF else cut_a
+	var im := _cut_beam.mesh as ImmediateMesh
+	im.clear_surfaces()
+	im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+	var tc: Vector3 = (cam.global_position - cut_a).normalized() if is_instance_valid(cam) else Vector3.UP
+	var p0 := cut_a + tc * 0.8   # (just off the surface, toward you: no flicker)
+	var p1 := b + tc * 0.8
+	var side := (p1 - p0).cross(tc).normalized() * 0.7 if (p1 - p0).length() > 0.1 else Vector3.RIGHT * 0.7
+	for v in [p0 - side, p1 - side, p1 + side, p0 - side, p1 + side, p0 + side]: im.surface_add_vertex(v)
+	_spark(p1, Color(1.0, 0.6, 0.2), 3.0, 0.15)
+	im.surface_end()
 var _board_alarm: Array = []
 var _board_path: Node3D = null
 func _board_doors(dt: float) -> void:
 	var pp := player.global_position
+	_update_cutter(dt)
 	for d in board_doors:
+		if d.has("wreck"):   # v13.73: a doorway jammed open behind wreckage: the wreck is the wall until it's cut
+			d["open"] = 1.0
+			for mi: MeshInstance3D in d["panels"]: mi.position = (mi.get_meta("closed_at") as Vector3) + (mi.get_meta("open_off") as Vector3)
+			var wk: Dictionary = d["wreck"]
+			if not bool(wk["cut"]): _push_out_box(self, wk["box"], "ground")
+			continue
 		var shut: bool = bool(d["locked"]) or bool(d["sealed"])
 		var near: bool = Vector2(pp.x - (d["center"] as Vector3).x, pp.z - (d["center"] as Vector3).z).length() < Boarding.DOOR_OPEN_AT
 		var want := 0.0 if shut or not near else 1.0
@@ -2068,6 +2237,12 @@ func board_wall_hit(from: Vector3, to: Vector3) -> Array:
 				best = from.distance_to(hp) / L
 				bn = _box_normal(bb, hp)
 	for d in board_doors:
+		if d.has("wreck") and not bool(d["wreck"]["cut"]):   # v13.73: the wreckage blocks sight too
+			var hp3 = (d["wreck"]["box"] as AABB).intersects_segment(from, to)
+			if hp3 != null and from.distance_to(hp3) / L < best:
+				best = from.distance_to(hp3) / L
+				bn = _box_normal(d["wreck"]["box"], hp3)
+			continue
 		if float(d["open"]) >= 0.8: continue
 		var dh: Node3D = d["box"][0]
 		var db: AABB = (dh.global_transform if is_instance_valid(dh) and dh.is_inside_tree() else Transform3D.IDENTITY) * (d["box"][1] as AABB)

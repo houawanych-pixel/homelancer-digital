@@ -501,11 +501,13 @@ static func deckplan(seed_key: String, kind: String, difficulty: int, name := "S
 		var th: String = link.call("fhold", "sbay")
 		# the short cuts that aren't there: sealed passages (red doors) between neighbours the maze doesn't join
 		var blocked: Array = []
+		var cand_n := 0   # v13.73 (owner: the CUTTER's short cuts): there is always at least one
 		for c10: Vector2i in cells:
 			for dv3 in [Vector2i(1, 0), Vector2i(0, 1)]:
 				var o: Vector2i = c10 + dv3
 				if not comp.has(o) or best_par.get(o, Vector2i(-9, -9)) == c10 or best_par.get(c10, Vector2i(-9, -9)) == o: continue
-				if rng.randf() < 0.55:
+				cand_n += 1
+				if rng.randf() < 0.55 or (blocked.is_empty() and cand_n >= 2):
 					var tb: String = link.call(key[c10], key[o])
 					rooms[tb]["label"] = "SEALED PASSAGE"
 					blocked.append([key[c10], tb])
