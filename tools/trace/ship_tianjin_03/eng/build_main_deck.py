@@ -24,7 +24,7 @@ pod = unary_union([
     Polygon([(2310, 615), (2650, 650), (2650, 875), (2310, 970)]),               # tapered main hall
     Polygon([(2650, 640), (2725, 640), (2765, 690), (2765, 815), (2725, 870), (2650, 870)]),   # nose cap
 ])
-pod_walls = [wall((2145, 785), (2310, 785), [85]), wall((2310, 615), (2310, 970), [85, 310]),
+pod_walls = [wall((2145, 785), (2310, 785), []),    # owner O: comm room / side room closed wall((2310, 615), (2310, 970), [85, 310]),
              wall((2515, 636), (2515, 913), [135]), wall((2650, 640), (2650, 875), [118]),
              wall((2190, 900), (2190, 985), [])]
 corridor = unary_union([LineString([(2120, CY), (2625, CY)]).buffer(50, cap_style=2),
@@ -39,9 +39,9 @@ rooms2 = [box(1972, 548, 2086, 627), box(2041, 649, 2134, 841), unary_union([box
 centre = box(1883, 1056, 2119, 2 * CY - 1056)
 col = unary_union([r.buffer(G, join_style=2) for r in rooms2])
 col = unary_union([col, mirror(col), centre.buffer(G, join_style=2)])
-s2_walls = [wall((1901, 638), (2150, 638), [109]),                 # escape-pod room / lobby row, door into the side room
+s2_walls = [wall((1901, 638), (2150, 638), [168]),     # owner X: escape-pod room opens into the lobby                 # escape-pod room / lobby row, door into the side room
             wall((2033, 638), (2033, 853), [122]),                 # side room / lobby
-            wall((1901, 853), (2150, 853), [99, 189]),             # to the ready room
+            wall((1901, 853), (2150, 853), [189]),     # owner O: side room / ready room closed             # to the ready room
             wall((1872, 1047), (2131, 1047), [117]),               # ready room / centre room
             wall((2145, 638), (2145, 853), [122])]                 # lobby / pod (the pod's aft door)
 s2_walls = s2_walls + [mirror(w) for w in s2_walls] + [
