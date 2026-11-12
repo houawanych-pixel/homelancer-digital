@@ -653,22 +653,38 @@ func _bump_ships() -> void:
 	for e in enemies:
 		var n: Node3D = e["node"]
 		if not is_instance_valid(n): continue
-		if n.global_position.distance_to(p) > float(e["def"].get("hit_r", 60.0)) * 4.0 + 200.0: continue
 		if not n.has_meta("ship_box"): _solid_box(n)
+		if n.global_position.distance_to(p) > maxf(float(e["def"].get("hit_r", 60.0)) * 4.0 + 200.0, _box_reach(n)): continue   # v13.71: a battleship's far end counts too
 		if n.has_meta("ship_box") and _push_out_box(n.get_meta("box_holder"), n.get_meta("box_aabb"), "ship"): ship_bumps += 1
 	# v11.99 (owner: "I went through a cargo ship ... everything should be a solid"): freighters, traffic, patrols
 	for lst in [freighters, traffic, fleet_patrols]:
 		for f in lst:
 			var fn: Node3D = f.get("node", null) if f is Dictionary else f
 			if fn == null or not is_instance_valid(fn) or not fn.visible: continue
-			if fn.global_position.distance_to(p) > 1600.0: continue
 			if not fn.has_meta("ship_box"): _solid_box(fn)
+			if fn.global_position.distance_to(p) > maxf(1600.0, _box_reach(fn)): continue   # v13.71 (owner: "all ships should be solid"): big ones are longer than 1.6 km
 			if fn.has_meta("ship_box") and _push_out_box(fn.get_meta("box_holder"), fn.get_meta("box_aabb"), "ship"): ship_bumps += 1
+	for v in fleet_visitors:   # v13.71 (owner: "all ship should be solid"): the faction fleet catalog ships, by their hull box
+		var vn: Node3D = v.get("node", null)
+		if vn == null or not is_instance_valid(vn) or not vn.has_meta("hit_half"): continue
+		var vh: Vector3 = vn.get_meta("hit_half")
+		if vn.global_position.distance_to(p) > vh.length() + 300.0: continue
+		if _push_out_box(vn, AABB(-vh, vh * 2.0), "ship"): ship_bumps += 1
 	_bump_lane_rings(p)
 	for n in fleet_guard:
 		if not is_instance_valid(n) or not n.has_meta("ship_box"): continue
 		if n.global_position.distance_to(p) > float(n.get_meta("radius", 60.0)) * 4.0 + 200.0: continue
 		if _push_out_box(n.get_meta("box_holder"), n.get_meta("box_aabb"), "station"): ship_bumps += 1
+
+## v13.71: how far from a ship's middle its solid box can reach (0 when it has none)
+func _box_reach(n: Node3D) -> float:
+	if not n.has_meta("box_aabb") or not is_instance_valid(n.get_meta("box_holder", null)): return 0.0
+	if not n.has_meta("box_reach"):
+		var bb: AABB = n.get_meta("box_aabb")
+		var hd: Node3D = n.get_meta("box_holder")
+		var far := maxf((bb.position).length(), (bb.end).length())
+		n.set_meta("box_reach", far * hd.global_transform.basis.get_scale().x + 300.0)
+	return float(n.get_meta("box_reach"))
 
 ## v11.99: a ship with no box yet gets one from its own meshes, once (tried once even if it has no mesh).
 func _solid_box(n: Node3D) -> void:
@@ -1286,6 +1302,8 @@ func _fleet_patrols() -> void:
 		if key == "" or not ShipFactory.has_real_model(key): continue
 		var ang := a0 + TAU * float(k) / float(n_roles)
 		var home: Vector3 = c0 + Vector3(cos(ang), 0.0, sin(ang)) * float(Data.FLEET_PATROL_AT[role])
+		var hy := absi(hash(sys_id + role + str(k)))   # v13.71 (owner): not every ship on the same horizon
+		home.y += (1.0 if hy % 2 == 0 else -1.0) * lerpf(Data.FLEET_LIFT[0], Data.FLEET_LIFT[1], float(hy % 1000) / 1000.0)
 		var e := spawn_unit(key, home + Vector3(float(Data.FLEET_PATROL_LOOP[role]), 0, 0), home)
 		e["faction"] = fac
 		e["fleet_patrol"] = true
@@ -1309,6 +1327,7 @@ func _fleet_patrols() -> void:
 	var hb: Dictionary = fleet_patrols[0]
 	var away: Vector3 = ((hb["home"] as Vector3) - c0).normalized().rotated(Vector3.UP, 0.9)
 	var rhome: Vector3 = (hb["home"] as Vector3) + away * Data.FLEET_CLASH_APART
+	rhome.y = c0.y - ((hb["home"] as Vector3).y - c0.y)   # v13.71: the raider on the other side of the plane
 	var re := spawn_unit(rkey, rhome + Vector3(-float(Data.FLEET_PATROL_LOOP["battleship"]), 0, 0), rhome)
 	re["faction"] = rv
 	re["fleet_patrol"] = true
@@ -3451,8 +3470,14 @@ static func nebulae_of(id: String, s: Dictionary) -> Array:
 	var out: Array = []
 	var n: Dictionary = s.get("nebula", {})
 	if n.is_empty() or float(n.get("radius", 0.0)) <= 1.0: return out
-	out.append({"name": str(n["name"]), "center": n["center"], "radius": float(n["radius"]) * Data.NEBULA_SIZE, "color": n["color"], "main": true})
-	for lc in s.get("layout_clouds", []): out.append((lc as Dictionary).duplicate())   # v11.65: the layout's own clouds (a rock field, a storm)
+	var lift_rng := RandomNumberGenerator.new()   # v13.71 (owner): the clouds sit at different heights (own seed: the layout below is unchanged)
+	lift_rng.seed = hash(id + "_nebula_lift")
+	var mr: float = float(n["radius"]) * Data.NEBULA_SIZE
+	out.append({"name": str(n["name"]), "center": (n["center"] as Vector3) + Vector3(0, lift_rng.randf_range(-1.0, 1.0) * Data.NEBULA_LIFT * mr, 0), "radius": mr, "color": n["color"], "main": true})
+	for lc in s.get("layout_clouds", []):   # v11.65: the layout's own clouds (a rock field, a storm); v13.71: at their own heights
+		var lcd: Dictionary = (lc as Dictionary).duplicate()
+		lcd["center"] = (lcd["center"] as Vector3) + Vector3(0, lift_rng.randf_range(-1.0, 1.0) * Data.NEBULA_LIFT * 0.6 * float(lcd.get("radius", 0.0)), 0)
+		out.append(lcd)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(id + "_nebulae")
 	var o: Vector3 = s["station"]["pos"]
@@ -3495,7 +3520,7 @@ static func nebulae_of(id: String, s: Dictionary) -> Array:
 		col.h = fposmod(col.h + float(shifts[(out.size() - 1 + rng.randi_range(0, 1)) % shifts.size()]), 1.0)
 		col.s = clampf(col.s * rng.randf_range(0.8, 1.15), 0.25, 0.9)
 		col.v = clampf(col.v * rng.randf_range(0.85, 1.1), 0.55, 1.0)
-		out.append({"name": "", "center": c, "radius": r, "color": col, "main": false})
+		out.append({"name": "", "center": c + Vector3(0, lift_rng.randf_range(-1.0, 1.0) * Data.NEBULA_LIFT * r, 0), "radius": r, "color": col, "main": false})
 	# v12.2 (owner: "some of them can be pushed back and scaled up like Freelancer ... make it big"): two or three huge
 	# backdrop clouds out past the edge of the system, in the system's own colours, seen from anywhere in it
 	for bi in Data.NEBULA_BACKDROPS:

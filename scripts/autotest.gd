@@ -4830,6 +4830,48 @@ func _run() -> void:
 			s.holding = false
 		get_tree().quit()
 		return
+	if _flag("HL_SOLID3"):   # v13.71 (owner): all ships solid end to end; the sun up out of the travel plane; clouds and fleet ships at different heights
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		var s := _sp()
+		await _until(func(): return not s.fleet_patrols.is_empty(), 90.0)
+		var far_ok := false
+		var far_txt := "no patrol"
+		if not s.fleet_patrols.is_empty():
+			var fe: Dictionary = s.fleet_patrols[0]
+			var fn: Node3D = fe["node"]
+			s._solid_box(fn)
+			if fn.has_meta("box_aabb"):
+				var hd: Node3D = fn.get_meta("box_holder")
+				var bb: AABB = fn.get_meta("box_aabb")
+				var lp := bb.get_center()
+				var ax := 0 if bb.size.x >= bb.size.z else 2
+				lp[ax] = bb.position[ax] + bb.size[ax] * 0.93   # near one end of the hull
+				var wp: Vector3 = hd.global_transform * lp
+				s.process_mode = Node.PROCESS_MODE_DISABLED
+				s.player.global_position = wp
+				s.vel = Vector3.ZERO
+				s._bump_ships()
+				var q: Vector3 = hd.global_transform.affine_inverse() * s.player.global_position
+				var inside: bool = bb.grow(-0.5).has_point(q)
+				far_ok = not inside and s.player.global_position.distance_to(wp) > 1.0
+				far_txt = "%s: end %.0f m from its middle, pushed %.0f m" % [fn.name, wp.distance_to(fn.global_position), s.player.global_position.distance_to(wp)]
+				s.process_mode = Node.PROCESS_MODE_INHERIT
+		_check("v13.71 (owner: all ships solid): flying into the far end of a battleship pushes you out (%s)" % far_txt, far_ok)
+		var low: Array = []
+		for sid in Data.SYSTEMS:
+			var sy: Dictionary = Data.SYSTEMS[sid]
+			var sp: Vector3 = SystemBuilder.sun_pos_of(sy)
+			var sr: float = Data.SUN_RADIUS * (0.35 if sy.get("small_sun", false) else 1.0)
+			if sp.y - sr < sr * (Data.SUN_LIFT - 1.0) - 1.0: low.append(sid)
+		_check("v13.71 (owner: 'move the Sun up so at warp you never hit it'): every system's star sits above the travel plane (bottom %.0f+ km up)" % (Data.SUN_RADIUS * (Data.SUN_LIFT - 1.0) * 0.35 / 1000.0), low.is_empty(), str(low))
+		var ys: Array = s.nebulae.filter(func(nd): return not nd.has("gate") and not nd.get("belt", false)).map(func(nd): return snappedf((nd["center"] as Vector3).y, 100.0))
+		var through: bool = s.nebulae.all(func(nd): return absf((nd["center"] as Vector3).y) <= float(nd["radius"]) * 0.95 or float(nd["radius"]) > 200000.0 or absf((nd["center"] as Vector3).y) > 50000.0)
+		var hy: Array = s.fleet_patrols.map(func(e): return snappedf((e["home"] as Vector3).y, 10.0))
+		_check("v13.71 (owner): the clouds sit at different heights (%s) and the flight plane still runs through them (%s); fleet ships off the horizon (%s)" % [str(ys.slice(0, 6)), through, str(hy)],
+			ys.size() >= 2 and Array(ys).any(func(y): return absf(float(y)) > 2000.0) and hy.all(func(y): return absf(float(y) - float(s.sys["station"]["pos"].y)) >= 200.0))
+		_finish_group()
+		return
 	if _flag("HL_SHOULDER"):   # v13.68 (owner): the mech's camera over its shoulder; on foot COCKPIT = first person, like Call of Duty
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)

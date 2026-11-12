@@ -1363,8 +1363,12 @@ static func _space_orbits(sy: Dictionary, start: float) -> void:
 
 ## Where the sun sits: in the middle of an unknown area, else far out along its light (space.gd uses the same rule).
 static func sun_pos_of(sy: Dictionary) -> Vector3:
-	if sy.get("sun_center", false): return Vector3.ZERO
-	return -(sy.get("sun_dir", Vector3(0, -0.3, 1)) as Vector3).normalized() * float(sy.get("sun_dist", Data.SUN_DIST))
+	var p: Vector3 = Vector3.ZERO if sy.get("sun_center", false) else -(sy.get("sun_dir", Vector3(0, -0.3, 1)) as Vector3).normalized() * float(sy.get("sun_dist", Data.SUN_DIST))
+	# v13.71 (owner: "move the Sun up, so when you're flying at warp speed it'll never hit the Sun"): the star sits up out
+	# of the plane everything travels on: its lowest point is SUN_LIFT - 1 radii above the lanes and waypoints
+	var lift: float = Data.SUN_RADIUS * (0.35 if sy.get("small_sun", false) else 1.0) * Data.SUN_LIFT
+	if p.y < lift: p.y = lift
+	return p
 
 ## v10.6 (owner: "that sun is so close to the trade lanes ... things should be fanned out"): the sun keeps its size but
 ## swings round the system (same height, same distance) to the bearing farthest from every trade-lane line and place;

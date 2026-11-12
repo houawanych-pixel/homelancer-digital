@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.70"
+const VERSION := "v13.71"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1265,6 +1265,9 @@ const SYSTEM_EDGE_SOFT := 380000.0   # past this, places are pulled in toward th
 const FIELD_GROW := 95.0             # v10.4 (owner): ~2.1x (fields ~36 km out from their middle, was ~17). v9.0: asteroid fields grow this much (380 m radius -> ~11 km)
 const PLANET_GROW := 8.0             # v10.6 (owner): twice the size again (was 4.0). v9.0: planets grow this much (so they read across a 400 km system)
 const SUN_LANE_CLEAR := 3.2         # v10.6 (owner: "the sun is so close to the trade lanes"): the sun keeps this many of its radii from every lane line and place
+const SUN_LIFT := 1.6                 # v13.71 (owner): the sun's middle is at least this many of its radii above the travel plane
+const NEBULA_LIFT := 0.3              # v13.71 (owner: "offset the nebula clouds ... not all on the same horizon line, but you still hit it"): a cloud's middle up or down by up to this share of its radius
+const FLEET_LIFT := [250.0, 900.0]    # v13.71 (owner: "same with ships, push them off a little"): a fleet ship's patrol height, up or down (m)
 const SUN_KEEP_OUT := 2.2            # v9.0: nothing is placed within this many sun radii of the sun
 const UNKNOWN_STORMS := 6                        # v12.6 (owner): the uncharted areas: big storm clouds ...
 const UNKNOWN_STORM_R := [55000.0, 95000.0]
