@@ -5179,7 +5179,7 @@ func _loadout_page() -> void:
 	tabs.position = Vector2(30, 92)
 	tabs.add_theme_constant_override("separation", 6)
 	root.add_child(tabs)
-	for fr in ([] if lo_creator or lo_quarters else ["mech", "ship", "pilot"]):   # (v12.90: the creator is the pilot only)
+	for fr in ([] if lo_creator or lo_quarters else (["mech", "ship", "pilot"] if Data.PILOT_OUTFITS else ["mech", "ship"])):   # (v13.67: no PILOT tab while PILOT_OUTFITS is off)   # (v12.90: the creator is the pilot only)
 		var fb := Button.new()
 		fb.name = "LoFrame_" + fr
 		fb.text = fr.to_upper()
@@ -6219,7 +6219,8 @@ func _ship_page() -> void:
 	gs_btn.custom_minimum_size = Vector2(0, 60)
 	gs_btn.add_theme_color_override("font_color", GOLD)
 	gs_btn.pressed.connect(open_quarters_gear)
-	v.add_child(gs_btn)
+	if Data.PILOT_OUTFITS: v.add_child(gs_btn)   # v13.67 (owner): off for now
+	else: gs_btn.free()
 	var w := _label(18, CYAN)
 	w.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	w.name = "Weapons"

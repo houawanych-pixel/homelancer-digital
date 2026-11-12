@@ -5252,7 +5252,23 @@ func _run() -> void:
 		_check("v13.13: a tap skips it and the alarm goes on (lockdown)", ha.alarm_clip == null and ha.lockdown, str(ha.lockdown))
 		_finish_group()
 		return
-	if OS.get_environment("HL_QUARTERS") != "":   # v13.09 (owner): the pilot and his gear open from MY QUARTERS
+	if OS.get_environment("HL_NOPILOT") != "":   # v13.67 (owner): one pilot, no creator, no PILOT tab or gear store for now
+		GS.pilot_name = "Hova"
+		main.start_game()
+		await _until(func(): return main.state == "flight" or (main.state == "hub" and main.hub.lo_creator), 15.0)
+		var flew: bool = main.state == "flight"
+		main.hub.open({"id": "test", "kind": "station", "name": "Test"})
+		await _wait(0.8)
+		main.hub.show_screen("loadout")
+		await _wait(0.8)
+		var no_pilot_tab: bool = main.hub.find_child("LoFrame_pilot", true, false) == null and main.hub.find_child("LoFrame_ship", true, false) != null
+		main.hub.show_screen("ship")
+		await _wait(0.6)
+		var no_gear_btn: bool = main.hub.find_child("QuartersGear", true, false) == null
+		_check("v13.67 (owner): no pilot creator at the start (flying: %s), no PILOT tab in the garage (%s), no gear store in MY QUARTERS (%s)" % [flew, no_pilot_tab, no_gear_btn], flew and no_pilot_tab and no_gear_btn)
+		_finish_group()
+		return
+	if OS.get_environment("HL_QUARTERS") != "" and Data.PILOT_OUTFITS:   # v13.09 (owner): the pilot and his gear open from MY QUARTERS
 		var hq = main.hub
 		GS.creator_done = true
 		hq.open(Data.SYSTEMS[GS.system_id]["station"])
@@ -5273,7 +5289,7 @@ func _run() -> void:
 		_check("v13.09: BACK returns to MY QUARTERS", hq.screen == "ship" and not hq.lo_quarters, hq.screen)
 		_finish_group()
 		return
-	if OS.get_environment("HL_CREATOR2") != "":   # v13.08 (owner: the creator showed a capsule; gloves / boots zoom)
+	if OS.get_environment("HL_CREATOR2") != "" and Data.PILOT_OUTFITS:   # v13.08 (owner: the creator showed a capsule; gloves / boots zoom)
 		var hb2 = main.hub
 		GS.creator_done = false
 		hb2.open(Data.SYSTEMS[GS.system_id]["station"])
@@ -5295,7 +5311,7 @@ func _run() -> void:
 		_check("v13.08: Gloves and Boots say what they come with", hb2.find_child("LoGearNote", true, false) != null)
 		_finish_group()
 		return
-	if OS.get_environment("HL_CREATOR") != "":   # v12.90 (owner): a new pilot goes through the PILOT CREATOR, then flies
+	if OS.get_environment("HL_CREATOR") != "" and Data.PILOT_OUTFITS:   # v12.90 (owner): a new pilot goes through the PILOT CREATOR, then flies
 		GS.pilot_name = "Hova"
 		main.start_game()
 		await _until(func(): return main.state == "hub" and main.hub.lo_creator, 15.0)

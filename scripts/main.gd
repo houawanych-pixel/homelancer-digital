@@ -127,7 +127,7 @@ func start_game() -> void:
 		await _load_system(GS.system_id, "station")
 		space.controls = false
 	GS.restore_full()
-	if (not back or not GS.creator_done) and (not autotest or OS.get_environment("HL_CREATOR") != ""):   # v12.90 (owner): a new pilot makes their character first
+	if Data.PILOT_OUTFITS and (not back or not GS.creator_done) and (not autotest or OS.get_environment("HL_CREATOR") != ""):   # v12.90 (owner): a new pilot makes their character first
 		open_creator()
 		return
 	_launch_sequence(str(Data.SYSTEMS[GS.system_id]["station"]["name"]) if back else "Liberty Hub", false)   # v1.7n (owner): no radio call at the very start

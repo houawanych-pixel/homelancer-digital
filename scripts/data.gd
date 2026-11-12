@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.66"
+const VERSION := "v13.67"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1395,6 +1395,7 @@ const CROWD3D_TALL := {"WhiteDragonSoldier": 1.06, "DarkHairedPilot": 1.0, "Lave
 	"MaleMedic": 1.0, "RedHairedPilot": 0.92, "DarkHairedArmoredOfficer": 1.0, "SilverPonytailOfficer": 0.93, "VioletMissionSpecialist": 0.93, "MagmaOfficer": 1.02}   # v12.10: real heights (the models all come 1 m tall)
 ## v12.11: the owner's placements from the Crowd Placer tool (room -> people), and that room's floor size line
 ## [a, b] (a person's height = a * feet + b, shares of the strip's height). Empty: the random crowd as before.
+const PILOT_OUTFITS := false   # v13.67 (owner: "we don't need a character select ... you are only playing as one character, from Freelancer ... drop it, maybe that could come later; for now a good playable game"): no PILOT CREATOR at the start, no PILOT tab / gear store. Kept in code: true brings it back.
 const DEV_TOOLS := true   # v12.11 (owner: "an editing tool for me ... take it off later before the launch"): Crowd Edit on every room. SET false FOR LAUNCH.
 const CROWD3D_PLACED := {}
 const CROWD3D_PLACED_FIT := {}
