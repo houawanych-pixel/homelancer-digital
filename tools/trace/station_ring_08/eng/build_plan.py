@@ -35,14 +35,14 @@ rot = lambda g, k: affinity.rotate(g, 90 * k, origin=C)
 # ---- one wing (top-left quadrant), measured zoomed in on the polar unwrap (0.05 deg x 0.5 px), symmetric about 225 deg
 M = lambda a: 450 - a                                        # mirror an angle about 225
 chord = lambda a0, a1, r0, r1: Polygon([P(a0, r0), P(a0, r1), P(a1, r1), P(a1, r0)])
-CAB = [194.3, 205.1, 217.6, 232.4, 244.9, 255.7]             # cabin dividers (deg), middle cabin is the wide one
+TEETH = [(194.5, 204.5), (206.8, 217.3), (219.6, 230.4), (M(217.3), M(206.8)), (M(204.5), M(194.5))]   # cabins stick out as gear teeth, ~2.3 deg notches between
 ISL = [(201.3, 213.4), (217.2, 232.8), (M(213.4), M(201.3))]  # island rooms in the ring corridor
 AR = [(207.2, 223.8), (M(223.8), M(207.2))]                  # rooms A off the inner hall
 wing_floor = [sector(187, 263, 465, 600),                     # end rooms + inner hall + rooms A
               sector(193.5, M(193.5), 600, 700),              # ring corridor, inner part
               sector(197.4, M(197.4), 700, 773),              # island row (islands sit inside it)
               sector(191, M(191), 773, 848)]                  # ring corridor, outer part
-wing_floor += [chord(a0, a1, 848, 952) for a0, a1 in zip(CAB[:-1], CAB[1:])]          # five flat-faced cabins
+wing_floor += [chord(a0, a1, 846, 955) for a0, a1 in TEETH]                            # five flat-faced cabin teeth
 wing_walls = [radial_wall(204.3, 465, 600, [495]), radial_wall(M(204.3), 465, 600, [495]),   # end rooms / inner hall
               radial_wall(187, 465, 600, [532]), radial_wall(263, 465, 600, [532]),          # end rooms / spokes
               arc_wall(187, 263, 600, [196, 215.5, 234.5, 254])]                             # into the ring corridor
@@ -51,8 +51,7 @@ for a0, a1 in AR:
 for a0, a1 in ISL:
     m = (a0 + a1) / 2; g = chord(a0, a1, 700, 773)
     wing_walls.append(g.exterior.buffer(T / 2).difference(Point(P(m, 700 * math.cos(math.radians((a1 - a0) / 2)))).buffer(DOOR / 2)))
-wing_walls.append(arc_wall(CAB[0], CAB[-1], 848, [(x + y) / 2 for x, y in zip(CAB[:-1], CAB[1:])]))   # cabin doors
-for a in CAB[1:-1]: wing_walls.append(radial_wall(a, 848, 952))                                      # cabin dividers
+wing_walls.append(arc_wall(191, M(191), 848, [(x + y) / 2 for x, y in TEETH]))       # cabin doors
 
 # ---- spokes (measured on the W and N spokes): entry r 215-285, stair corridor 285-440, cross room 440-585, end room 585-685
 def spoke(a, end_room=True):
@@ -68,8 +67,8 @@ def spoke(a, end_room=True):
     return fl, wl
 spokes = [spoke(180), spoke(0), spoke(90), spoke(270, end_room=False)]
 
-hub = [Point(C).buffer(285, 256)]
-hub_walls = [ring_wall(285, [0, 90, 180, 270], 130), ring_wall(215, [0, 90, 180, 270]), ring_wall(100, [45, 135, 225, 315])]
+hub = [Point(C).buffer(290, 256).difference(unary_union([rot(sector(217.5, 232.5, 262, 320), k) for k in range(4)]))]   # hub with four notches (gear look)
+hub_walls = [ring_wall(290, [0, 90, 180, 270], 130), ring_wall(215, [0, 90, 180, 270]), ring_wall(100, [45, 135, 225, 315])]
 
 floor = unary_union([rot(g, k) for k in range(4) for g in wing_floor] + [g for f, _ in spokes for g in f] + hub)
 inner = [rot(w, k) for k in range(4) for w in wing_walls] + [w for _, ws in spokes for w in ws] + hub_walls
