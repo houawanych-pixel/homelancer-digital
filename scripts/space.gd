@@ -4742,6 +4742,85 @@ func _foot_speed(dt: float) -> void:
 	_boost_glow.light_energy = (3.5 if speed_k >= 1.0 else 1.5 * speed_k * (0.5 + 0.5 * sin(time * (8.0 + 30.0 * speed_k)))) * (0.8 + 0.2 * sin(time * 30.0))   # (charging: it flickers faster and faster)
 	_boost_glow.position = Vector3(0, -6.0 + Data.FOOT_H * 0.5 * scale_k, 0)
 
+## v13.72 (owner: "when I push WARP in the player or mech mode ... speed run on the ground, or fly fast in the air like a
+## regular warp: it charges and moves just like warp. In warp, if I hit an enemy it destroys it; if I hit a wall it stops
+## and I don't move ... it should feel fast like the jumping attack, and in warp I can still do that jump attack to keep
+## my momentum; only a solid wall stops me"): the RUSH. WARP charges it (RUSH_CHARGE s, the glow building), then you
+## shoot forward at RUSH_SPEED: along the ground when GROUND is on (gravity still holds you), the way you face in the air.
+## WARP again ends it. Enemies you run into are smashed (big ships stop you like a wall); a wall stops you dead.
+var rush_state := "off"   # off | charging | on
+var rush_t := 0.0
+var rush_kills := 0       # (tests)
+var _rush_prev := Vector3.INF
+var _rush_want := 0.0
+func rush_ok() -> bool:
+	return (on_foot or escape_pilot or GS.form == "mech") and transform_t <= 0.0 and warp_state == "off"
+func toggle_rush() -> String:
+	if rush_state != "off":
+		rush_state = "off"
+		return "off"
+	if not rush_ok(): return "no"
+	rush_state = "charging"
+	rush_t = 0.0
+	Sfx.play("warp_spool", -6.0, 1.4)
+	return "charging"
+func rush_speed() -> float:
+	return Data.RUSH_SPEED * (Data.RUSH_FOOT_K if on_foot else 1.0)
+func _rush_vel(dt: float) -> void:
+	if rush_state == "off" or not is_instance_valid(player): return
+	if not rush_ok():
+		rush_state = "off"
+		return
+	rush_t += dt
+	if rush_state == "charging":
+		_booster_particles(dt, clampf(rush_t / Data.RUSH_CHARGE, 0.0, 1.0) * 0.4)
+		if rush_t >= Data.RUSH_CHARGE:
+			rush_state = "on"
+			rush_t = 0.0
+			_rush_prev = Vector3.INF
+			Sfx.play("warp_go", -4.0, 1.3)
+			message.emit("RUSH! WARP again to stop. You smash what you hit; a wall stops you.")
+		return
+	# a wall: last frame you hardly moved although you were going full speed
+	var p := player.global_position
+	if _rush_prev != Vector3.INF and rush_t > 0.15 and _rush_want > 1.0 and sword_kind == "":
+		var moved := Vector3(p.x - _rush_prev.x, (p.y - _rush_prev.y) if not ground_mode else 0.0, p.z - _rush_prev.z).length()
+		if moved < _rush_want * 0.35:
+			_rush_stop("wall")
+			return
+	_rush_prev = p
+	if sword_kind == "flip" or sword_kind == "roll":   # the jump attack carries the rush's speed itself (v12.51 _flip_speed)
+		_rush_want = 0.0
+		return
+	var fwd := -player.global_basis.z
+	var sp := rush_speed()
+	if ground_mode:
+		var fh := Vector3(fwd.x, 0.0, fwd.z)
+		fh = fh.normalized() if fh.length() > 0.01 else Vector3.FORWARD
+		vel = Vector3(fh.x * sp, vel.y, fh.z * sp)
+	else:
+		vel = fwd * sp
+	_rush_want = sp * dt
+	if is_instance_valid(model) and model.visible: _speed_ghosts(dt)
+	# what you run into
+	for e in enemies.duplicate():
+		var n: Node3D = e.get("node", null)
+		if n == null or not is_instance_valid(n): continue
+		var r: float = float((e["def"] as Dictionary).get("hit_r", 7.5)) + Data.RUSH_REACH * (0.25 if on_foot else 1.0)
+		if n.global_position.distance_to(p) > r: continue
+		if (e["def"] as Dictionary).get("capital", false) or (e["def"] as Dictionary).has("carrier"):
+			_rush_stop("wall")
+			return
+		_destroy_unit(e)
+		rush_kills += 1
+		hit_shake = maxf(hit_shake, 0.35)
+func _rush_stop(why: String) -> void:
+	rush_state = "off"
+	vel = Vector3(0.0, vel.y if ground_mode else 0.0, 0.0)
+	hit_shake = maxf(hit_shake, 0.6)
+	Sfx.play("hull_hit", -4.0, 0.8)
+	if why == "wall": message.emit("RUSH: you hit a wall.")
+
 ## The shadow runners: every GHOST_EVERY s a see-through blue copy of you, frozen in that stride, left behind to fade.
 var _ghost_cd := 0.0
 var _run_last := 0.0
@@ -6209,6 +6288,7 @@ func _update_player(dt: float) -> void:
 			rate = Data.BURST_RATE
 			_booster_particles(dt, 0.25)
 		vel = vel.lerp(desired, minf(1.0, dt * rate))
+	_rush_vel(dt)   # v13.72: the pilot's / mech's WARP rush sets the speed last
 	player.global_position += vel * dt
 	speed_now = vel.length()
 	if controls and warp_state == "off" and transform_t <= 0.0:
@@ -8950,7 +9030,7 @@ func _update_sword(dt: float) -> void:
 			_sword_start("roll", right * signf(move.x), 0)   # v12.55 (owner): a dodging roll to that side
 			dodge_t = Data.DODGE_TIME
 			_shake_locks()
-		elif move.y >= 0.45 or _test_run or (speed_k >= 1.0 and Vector2(vel.x, vel.z).length() > 20.0):
+		elif move.y >= 0.45 or _test_run or rush_state == "on" or (speed_k >= 1.0 and Vector2(vel.x, vel.z).length() > 20.0):   # (v13.72: and in the rush)
 			# v12.51 (owner: "the sword attack is fast and goes too far; it should be a somersault jump attack, and you
 			# can do it in the speed run"): holding forward, a forward flip over a short hop, the blade landing at the end
 			_sword_start("flip", fwd, 1)

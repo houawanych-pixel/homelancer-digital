@@ -4830,6 +4830,49 @@ func _run() -> void:
 			s.holding = false
 		get_tree().quit()
 		return
+	if _flag("HL_RUSH"):   # v13.72 (owner): WARP on foot / in the mech = the RUSH: charge, then fast; smash enemies; a wall stops it; the jump attack keeps it going
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main._load_surface("eden_prime", 0)
+		await _wait(0.5)
+		var s := _sp()
+		var hold := s.player.global_position
+		await _until(func(): s.player.global_position = hold; return s._regions.size() >= 4 and s._building == null, 150.0)
+		GS.form = "mech"
+		s.set_player_model()
+		s.ground_mode = true
+		var gp := s.player.global_position
+		s.player.global_position = Vector3(gp.x, s._ground(gp.x, gp.z) + 6.0, gp.z)
+		s.vel = Vector3.ZERO
+		await _wait(1.0)
+		main._on_hud("warp")
+		var charging: bool = s.rush_state == "charging"
+		await _wait(Data.RUSH_CHARGE + 0.3)
+		var on: bool = s.rush_state == "on"
+		await _wait(0.4)
+		var spd: float = Vector2(s.vel.x, s.vel.z).length()
+		var e := s.spawn_unit("unity_starfighter", s.player.global_position - s.player.global_basis.z * 30.0, s.player.global_position)
+		var k0: int = s.rush_kills
+		await _until(func(): return s.rush_kills > k0, 2.0)
+		var smashed: bool = s.rush_kills > k0
+		s._flip_speed = 0.0
+		s.sword_held = true   # (the HUD lets go of it the next frame: a tap)
+		await _frames(4)
+		var flip_fast: bool = s._flip_speed >= Data.RUSH_SPEED * 0.9 and s.rush_state == "on"
+		await _until(func(): return s.sword_kind == "", 3.0)
+		await _wait(0.3)
+		var still_on: bool = s.rush_state == "on" and Vector2(s.vel.x, s.vel.z).length() > Data.RUSH_SPEED * 0.8
+		var wall_at := s.player.global_position
+		for i in 12:
+			s.player.global_position = wall_at   # (held in place: a wall)
+			await get_tree().process_frame
+		var stopped: bool = s.rush_state == "off" and Vector2(s.vel.x, s.vel.z).length() < 1.0
+		await _capture("rush_mech")
+		_check("v13.72 (owner): mech WARP = RUSH: charges (%s), then goes (%s) at %.0f m/s; runs over a fighter (%s); the jump attack keeps the rush speed (%s) and the rush goes on after it (%s); a wall stops it dead (%s)" % [charging, on, spd, smashed, flip_fast, still_on, stopped],
+			charging and on and spd > Data.RUSH_SPEED * 0.9 and smashed and flip_fast and still_on and stopped)
+		_finish_group()
+		return
 	if _flag("HL_SOLID3"):   # v13.71 (owner): all ships solid end to end; the sun up out of the travel plane; clouds and fleet ships at different heights
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -4933,8 +4976,8 @@ func _run() -> void:
 		var small: bool = s.on_foot and bb.size.y < 3.0 and is_instance_valid(s.parked)
 		main.hud.visible = true
 		await _capture("eject_on_foot")
-		# v12.45: SPEED RUN builds up; GROUND off = jetpack
-		main._on_hud("warp")
+		# v12.45: SPEED RUN builds up; GROUND off = jetpack (v13.72: WARP is now the RUSH, so the old run is switched on by hand)
+		s.sprint = true
 		s._test_run = true
 		var fwd := -s.player.global_basis.z
 		var top := 0.0
@@ -4944,12 +4987,12 @@ func _run() -> void:
 			s._foot_speed(1.0 / 60.0)
 			top = Vector2(s.vel.x, s.vel.z).length()   # (stepped by hand: the stick isn't held in the test)
 			if i == 40: charging = top
-		var boost_ok: bool = s.sprint and s.speed_k > 0.9 and top > Data.FOOT_SPEED * 3.0
+		var boost_ok: bool = s.speed_k > 0.9 and top > Data.FOOT_SPEED * 3.0
 		await _capture("speed_ghosts")
 		var ghosts_n: int = s.ghosts.size()
 		_check("v12.46 (owner: \"charge before it runs fast, shadow runners behind you\"): charging it's a plain run (%.1f m/s), charged a speed boost (%.0f m/s) with %d shadow runners" % [charging, top, ghosts_n], charging <= Data.FOOT_SPEED * Data.SPRINT_K + 0.5 and top > charging * 1.8 and ghosts_n > 0, "charge %.1f top %.1f ghosts %d" % [charging, top, ghosts_n])
 		var k_was: float = s.speed_k
-		main._on_hud("warp")
+		s.sprint = false
 		main._on_hud("ground")
 		await _frames(2)
 		s.vel = Vector3(fwd.x * 100.0, 0, fwd.z * 100.0)

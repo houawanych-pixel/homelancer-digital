@@ -1700,6 +1700,9 @@ func _update_room(dt: float) -> void:
 ## heading; iPhones ask for permission on the next tap).
 func set_look_motion(on: bool) -> void:
 	look_motion = on
+	stick_vec = {"l": Vector2.ZERO, "r": Vector2.ZERO}
+	stick_own = {}
+	if look_ui != null: look_ui.queue_redraw()
 	_motion0 = -999.0
 	if on and OS.has_feature("web"): JavaScriptBridge.eval("window.hlMotionStart && window.hlMotionStart()")
 
@@ -1799,6 +1802,7 @@ func stick_home(sd: String) -> Vector2:
 
 func _draw_look() -> void:
 	if not room_view.visible: return
+	if look_motion: return   # v13.72 (owner: "remove the analog sticks when you have it on TILT"): the phone does the looking
 	for sd in ["l", "r"]:
 		var c := stick_home(sd)
 		var r := stick_r()
@@ -1829,7 +1833,7 @@ func _look_input(e: InputEvent) -> void:
 	else: return
 	if down:
 		for sd in ["l", "r"]:
-			if pos.distance_to(stick_home(sd)) < stick_r() * 1.4: stick_own[idx] = sd
+			if not look_motion and pos.distance_to(stick_home(sd)) < stick_r() * 1.4: stick_own[idx] = sd
 		if not stick_own.has(idx):   # (not on a stick: drag the room as before)
 			look_ui.mouse_filter = Control.MOUSE_FILTER_PASS
 			return

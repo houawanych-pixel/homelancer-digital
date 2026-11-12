@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.71"
+const VERSION := "v13.72"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -2717,6 +2717,10 @@ const FOOT_H := 1.8            # m tall
 const FOOT_SPEED := 7.0        # m/s at most
 const SPRINT_K := 1.8          # v12.45: SPEED RUN top speed at the start (x the walk)
 const SPEED_BOOST_K := 4.0     # ... and fully built up (Metroid's speed booster)
+const RUSH_CHARGE := 0.9       # v13.72 (owner): WARP on foot / in the mech charges this long, then you RUSH
+const RUSH_SPEED := 160.0      # m/s: the rush (the jump attack's burst feel; the ship's warp is far faster)
+const RUSH_FOOT_K := 0.3       # ... on foot at human size, this share of it
+const RUSH_REACH := 8.0        # m past an enemy's own size: run into it and it is smashed
 const SPEED_BUILD := 1.6       # s of running to build it up
 const JETPACK_SPEED := 22.0    # m/s flying on foot with GROUND off
 const JETPACK_BOOST_K := 1.8   # THRUST boost

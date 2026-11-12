@@ -730,9 +730,11 @@ func _on_hud(id: String) -> void:
 			elif space.warp_active(): hud.flash_message("Wait for the warp drive to finish spooling.")
 			else: hud.flash_message("Engines OFF — drifting. You can still turn and shoot; THRUST restarts them." if space.toggle_engine_kill() else "Engines restarted.")
 		"warp":
-			if space.on_foot or space.escape_pilot:   # v12.45: on foot WARP is the speed run
-				space.sprint = not space.sprint
-				hud.flash_message("SPEED RUN on: keep running and you build up to a speed boost." if space.sprint else "Speed run off.")
+			if space.on_foot or space.escape_pilot or (GS.form == "mech" and space.warp_state == "off"):   # v13.72 (owner): on foot or in the mech, WARP is the RUSH (was v12.45's speed run)
+				match space.toggle_rush():
+					"charging": hud.flash_message("RUSH charging...")
+					"off": hud.flash_message("Rush off.")
+					"no": hud.flash_message("Finish transforming first.")
 				return
 			match space.request_warp():
 				"charging": hud.flash_message("Warp spooling — 5 s. Weapons locked. Keep flying!")
