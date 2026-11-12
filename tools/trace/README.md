@@ -24,4 +24,4 @@ inset), which sits in the square-and-round block at the stern centre. Floor leve
 | ship_defender_05 | SWTOR Defender (Jedi ship) in-game minimaps, flight + lower deck clean plans, rooms named from the labelled fan sheet the owner sent (sheet itself not stored) |
 | ship_fury_07 | Fury-class Interceptor (Sith ship), one deck, rooms 1-15, real size 47.8 x 41 m |
 | station_republic_06 | Darth Malgus space station, Command Deck (flashpoint The False Emperor): two fan wings around a round hub, north/south spines; fans mirrored about the hub centre |
-| station_ring_08 | Round station: four wings (cabins, ring corridor, islands) around a hub, four spokes; one wing drawn in polar and rotated |
+| station_ring_08 | Carrick Station (Republic Fleet) main floor, round gear station: four wings (cabins, ring corridor, islands) around a hub, four spokes; one wing drawn in polar and rotated |

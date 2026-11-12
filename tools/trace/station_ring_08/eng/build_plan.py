@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Round station (game minimap the owner sent): four wings around a central hub, joined by four spokes.
+"""Carrick Station, Republic Fleet main floor (SWTOR; identified from the owner's in-game screenshots, 12 Nov 2026): four wings around a central hub, joined by four spokes.
 Measured on map_x4.jpg (EDSR x4) partly in polar form (cv2.warpPolar about the hub centre) so the rings read as straight lines.
 One wing (the top-left quadrant, 180-270 deg, symmetric about 225 deg) is drawn in polar (angle, radius) and rotated to all four.
 Spokes W, E, S end in an end room with a small round bulb; the N spoke stops at its cross room. Scale not set yet (DOOR 56 px)."""
@@ -70,6 +70,15 @@ spokes = [spoke(180), spoke(0), spoke(90), spoke(270, end_room=False)]
 hub = [Point(C).buffer(290, 256).difference(unary_union([rot(sector(217.5, 232.5, 262, 320), k) for k in range(4)]))]   # hub with four notches (gear look)
 hub_walls = [ring_wall(290, [0, 90, 180, 270], 130), ring_wall(215, [0, 90, 180, 270]), ring_wall(100, [45, 135, 225, 315])]
 
+# names and level changes from the in-game shots (yellow, not walls)
+def stair(a):
+    u = (math.cos(math.radians(a)), math.sin(math.radians(a))); v = (-u[1], u[0])
+    return Polygon([(C[0] + r * u[0] + s * v[0], C[1] + r * u[1] + s * v[1]) for r, s in ((295, -60), (430, -60), (430, 60), (295, 60))])
+FEATURES = [(stair(a), 'stairs') for a in (0, 90, 180, 270)] + [(Point(C).buffer(100, 128), 'cantina + VIP lifts')] + \
+           [(Point(P(a, 712)).buffer(34, 64), 'lift') for a in (0, 90, 180)]
+LABELS = [(P(225, 700), 'CREW SKILLS'), (P(315, 700), 'GTN market'), (P(45, 700), 'SUPPLIES'), (P(135, 700), 'SW wing'),
+          (P(180, 790), 'Tython / Ord Mantell'), (P(0, 790), 'missions'), (P(90, 790), 'Coruscant'), (P(270, 640), 'Cartel Bazaar'),
+          (P(250, 180), 'hub concourse')]
 floor = unary_union([rot(g, k) for k in range(4) for g in wing_floor] + [g for f, _ in spokes for g in f] + hub)
 inner = [rot(w, k) for k in range(4) for w in wing_walls] + [w for _, ws in spokes for w in ws] + hub_walls
 walls = floor.buffer(T / 2, join_style=2).difference(floor.buffer(-T / 2, join_style=2))
@@ -85,8 +94,14 @@ for p in getattr(walls, "geoms", [walls]):
 cs, _ = cv2.findContours(mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
 plan = np.zeros_like(src); ov = (src * 0.45).astype(np.uint8)
 for im in (plan, ov): cv2.drawContours(im, cs, -1, (255, 255, 255), 3, cv2.LINE_AA)
+for g, n in FEATURES:
+    for im in (plan, ov): cv2.polylines(im, [np.array(g.exterior.coords, np.int32)], True, (60, 210, 255), 3, cv2.LINE_AA)
+for (x, y), t in LABELS + [((g.centroid.x, g.centroid.y + 5), n) for g, n in FEATURES if n == 'stairs']:
+    for im in (plan, ov):
+        (w, h), _ = cv2.getTextSize(t, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)
+        cv2.putText(im, t, (int(x - w / 2), int(y)), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (60, 210, 255), 2, cv2.LINE_AA)
 cv2.imwrite(os.path.join(HERE, "plan.png"), plan)
 cv2.imwrite(os.path.join(HERE, "plan_on_map.jpg"), ov, [cv2.IMWRITE_JPEG_QUALITY, 86])
-json.dump({"units": "map_x4 px", "thickness": T, "door": DOOR, "centre": C, "floor": mapping(floor), "walls": mapping(walls)},
+json.dump({"name": "Carrick Station main floor", "features": [{"name": n, "shape": mapping(g)} for g, n in FEATURES], "units": "map_x4 px", "thickness": T, "door": DOOR, "centre": C, "floor": mapping(floor), "walls": mapping(walls)},
           open(os.path.join(HERE, "plan.json"), "w"))
 print("ok")
