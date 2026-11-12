@@ -8,7 +8,11 @@ crop pixels) to extrude into a graybox later.
 | Folder | Source | Mode | Status |
 | --- | --- | --- | --- |
 | `hub_hex_01` | hex hub with four rooms (owner, via GPT) | `--mode glow --crop 655:1745,0:1080` | approved 11 Nov |
-| `temple_02` | Temple Marché / Cantina level | `--mode line` (default) | shown 11 Nov |
+| `temple_02` | Temple Marché / Cantina level | `--mode line` (default) | outer silhouette into every notch, approved 11 Nov |
 
 Not yet: the real-world size (metres per pixel) for each one, doors, and inner walls between rooms. Ask the owner
 for one size (whole width or one door) before extruding.
+
+Owner rules learned on `temple_02`: the outline must step INTO every notch between rooms and back out (never bridge
+across); only the outer white line is used for extruding (inner face lines were too messy). Corridor diagonals with
+tread lines are stairs: the two mirrored pairs lead up to a second floor.

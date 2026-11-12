@@ -31,7 +31,7 @@ ap.add_argument("--dark", type=int, default=65, help="max mean brightness of an 
 ap.add_argument("--mode", default="line", choices=["line", "glow"])
 ap.add_argument("--bright", type=int, default=140, help="glow mode: brightness of the outline")
 ap.add_argument("--notch", type=int, default=9, help="glow mode: closes desk / console bites up to this many px")
-ap.add_argument("--eps", type=float, default=2.5); ap.add_argument("--scale", type=int, default=2)
+ap.add_argument("--eps", type=float, default=2.0); ap.add_argument("--scale", type=int, default=2)
 a = ap.parse_args()
 os.makedirs(a.out, exist_ok=True)
 src = cv2.imread(a.image)
@@ -71,18 +71,26 @@ def line_solid():
     n, lab, st, _ = cv2.connectedComponentsWithStats(1 - seal, 4)
     border = (set(lab[0, :]) | set(lab[-1, :]) | set(lab[:, 0]) | set(lab[:, -1])) - {0}
     solid = (~np.isin(lab, list(border))).astype(np.uint8)
+    floor = ((lab > 0) & ~np.isin(lab, list(border))).astype(np.uint8)       # rooms and corridors
     courts = np.zeros_like(solid)
     for i in range(1, n):
         if i not in border and st[i, 4] > a.court and v[lab == i].mean() < a.dark: courts[lab == i] = 1
+    # owner (11 Nov): the outline goes INTO every notch between rooms and back out, it doesn't bridge them. The
+    # sealing above bridges them, so the real outside is flooded again with only the walls and the room floors as
+    # barriers (it reaches every notch, never a room).
+    barrier = cv2.dilate(line, np.ones((3, 3), np.uint8)) | cv2.dilate(floor, np.ones((9, 9), np.uint8))
+    nb, lb, _, _ = cv2.connectedComponentsWithStats(1 - barrier, 4)
+    bb = (set(lb[0, :]) | set(lb[-1, :]) | set(lb[:, 0]) | set(lb[:, -1])) - {0}
+    solid[np.isin(lb, list(bb))] = 0
     solid[cv2.dilate(courts, np.ones((5, 5), np.uint8)) > 0] = 0
-    solid = cv2.morphologyEx(solid, cv2.MORPH_OPEN, np.ones((9, 9), np.uint8))
+    solid = cv2.morphologyEx(solid, cv2.MORPH_OPEN, np.ones((5, 5), np.uint8))
     n2, l2, s2, _ = cv2.connectedComponentsWithStats(solid, 8)
     solid = (l2 == 1 + np.argmax(s2[1:, 4])).astype(np.uint8)
-    return solid
+    return cv2.morphologyEx(solid, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5)))
 
 if a.mode == "glow":
     if a.court == 30000: a.court = 5000
-    if a.eps == 2.5: a.eps = 2.2
+    if a.eps == 2.0: a.eps = 2.2
     solid = glow_solid()
 else: solid = line_solid()
 cs, h = cv2.findContours(solid, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
