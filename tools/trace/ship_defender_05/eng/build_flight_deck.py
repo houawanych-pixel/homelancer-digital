@@ -15,7 +15,7 @@ roomL = box(413, 133, 727, 433)                                                 
 roomR = Polygon([(1160, 100), (1450, 93), (1580, 140), (1580, 433), (1160, 433)])  # starboard room (table)
 smallL, smallR = box(567, 433, 760, 660), box(1220, 433, 1407, 660)               # small side rooms
 hall = box(787, 433, 1207, 1100).buffer(-30, join_style=1).buffer(30, join_style=1).union(box(787, 433, 1207, 600))
-link = box(900, 1090, 1075, 1310)                                                  # sloped passage to the round room
+link = box(900, 1090, 1075, 1360)                                                  # sloped passage to the round room
 RC = (987, 1619)
 rnd = Point(RC).buffer(300, 16)                                                    # round meditation / training room
 alcL = box(585, 1515, 700, 1725).buffer(-25, join_style=2).buffer(25, join_style=1)
@@ -26,6 +26,7 @@ inner = [wall((871, 433), (1120, 433), [122]),                                  
          wall((567, 433), (727, 433), [73]), wall((1220, 433), (1407, 433), [117]),   # side rooms into the big rooms
          wall((760, 505), (760, 660), [48]), wall((1220, 505), (1220, 660), [48]),    # side rooms into the hall
          wall((900, 1100), (1075, 1100), [87.5]),                                  # hall into the passage
+         wall((900, 1322), (1075, 1322), [87.5]),                                  # passage into the round room
          wall((1345, 1572), (1345, 1668), [48])]                                   # round room into the side room
 LABELS = [((995, 230), '4 Bridge'), ((995, 110), '5 Navi-|computer'), ((570, 280), '7 Living|Accommodations'), ((1370, 280), '6 Secondary|Conference'), ((663, 560), '10 Escape|Pod'), ((1313, 560), '9 Bunks'), ((997, 700), '8 Boarding|Ramp'), ((990, 1190), '11 To Lower|Deck'), ((987, 1560), '13 Main|Conference Room'), ((987, 1720), '14 Holoterminal'), ((640, 1800), '15 Port|Hatch'), ((1490, 1630), '16 Starboard|Hatch')]
 floor = unary_union([cockpit, roomL, roomR, smallL, smallR, hall, link, rnd, alcL, alcB, trap, trapLink])
