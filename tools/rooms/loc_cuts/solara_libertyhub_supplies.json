@@ -5,23 +5,38 @@
   427
  ],
  "cuts": [
-  3627,
-  849,
-  2147
+  900,
+  2120,
+  3610
  ],
- "overlap": 0,
- "clear": 30,
- "avoid": [
-  [
-   300,
-   400
-  ]
- ],
- "people": 62,
- "method": "loc_cut_pairs (6 pieces, equal pairs, stacked 3 pictures)",
- "gaps": [
-  150,
-  91,
-  120
+ "method": "crisp: 3 continuous pieces seam-to-seam, joined edge to edge, no blend",
+ "parts": [
+  {
+   "file": "LibertyHub_Supplies_clip1.png",
+   "strip_x0": 900,
+   "strip_w": 1220,
+   "size": [
+    1920,
+    672
+   ]
+  },
+  {
+   "file": "LibertyHub_Supplies_clip2.png",
+   "strip_x0": 2120,
+   "strip_w": 1490,
+   "size": [
+    1920,
+    550
+   ]
+  },
+  {
+   "file": "LibertyHub_Supplies_clip3.png",
+   "strip_x0": 3610,
+   "strip_w": 1386,
+   "size": [
+    1920,
+    592
+   ]
+  }
  ]
 }
