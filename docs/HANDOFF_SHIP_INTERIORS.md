@@ -116,3 +116,111 @@ Shapes the owner liked: round rooms, hex rooms, gear teeth, raised stages with s
   (Sevastopol) doc, folder "HL Ship Traces".
 - SWTOR (PC, Steam, free): ship and station layouts. Alien: Isolation (PS4/PC): station decks.
 - Grok finds in-game screenshots for him; write him a Grok block when you need shots of an area.
+
+---
+
+# PART 2: The Fleet Interiors Programme (the full job)
+
+## 6. Scope: 64 ships
+
+Every faction fleet ship gets a boardable interior **mini-game** (a graybox stage you walk with keys, guards, a
+mission and doors), **except Bombers and fighters**. 8 factions x 8 classes = 64 ships
+(Capital, Cruiser, Destroyer, Resupply, Troop Transport, Frigate, Escort, Scout). Ids are `faction_class`
+(`imperium_trooptransport`), from `scripts/fleet_catalog.gd`.
+
+Status on 12 Nov 2026 (v13.77). "plan + stage" = a HoloDeck plan and an old auto-extracted stage exist; the owner
+says these are **not acceptable** (no proper doors, not extruded properly, black on his phone). Every ship is rebuilt.
+
+| Faction | Capital | Cruiser | Destroyer | Resupply | TroopTransport | Frigate | Escort | Scout |
+|---|---|---|---|---|---|---|---|---|
+| Unity | plan + stage | plan + stage | plan + stage | plan + stage | plan + stage | plan + stage | plan + stage | plan + stage |
+| Elyza | plan + stage | plan + stage | plan + stage | plan + stage | **needs plan** | plan + stage | **needs plan** | **needs plan** |
+| Solarion | **needs plan** | **needs plan** | **needs plan** | **needs plan** | **needs plan** | **needs plan** | **needs plan** | **needs plan** |
+| Covenant | plan + stage | plan + stage | plan + stage | plan + stage | plan + stage | **needs plan** | **needs plan** | **needs plan** |
+| Savagers | **needs plan** | **needs plan** | **needs plan** | **needs plan** | **needs plan** | **needs plan** | **needs plan** | **needs plan** |
+| Imperium | plan + stage | plan + stage | plan + stage | plan + stage | plan + stage | **needs plan** | **needs plan** | **needs plan** |
+| Orion | **needs plan** | **needs plan** | **needs plan** | **needs plan** | **needs plan** | **needs plan** | **needs plan** | **needs plan** |
+| Liberator | **needs plan** | **needs plan** | **needs plan** | **needs plan** | **needs plan** | **needs plan** | **needs plan** | **needs plan** |
+
+23 ships have the owner's HoloDeck plan picture (`assets/holodeck/HL_<Faction><Class>_HoloDeck_*.jpg`). 41 have none.
+
+**For ships with no plan, ask the owner which way:** (a) he makes the HoloDeck picture (his usual GPT sheet, same
+style as the others), or (b) you compose one from the traced kit (section 2a) inside the ship's silhouette
+(its fleet token in `assets/fleet_tokens/`), following the class rules below, and show it for approval. Never
+skip the approval.
+
+## 7. Class rules (so every ship of a class plays alike across factions; the faction changes the look)
+
+Room sizes from Homelancer metrics: corridors 2 m wide, doors 1.2 x 2.2 m, decks 3.5 m apart (4.4 m storey in
+`ship_interior.gd` today; keep one number per ship), lifts between decks lined up exactly.
+
+| Class | Decks | Must have | Size feel |
+|---|---|---|---|
+| Capital | 3 | bridge, CIC, hangar (you board here), reactor, barracks, brig, captain's quarters, cargo | biggest, long spine corridor |
+| Cruiser | 2-3 | bridge, gunnery, reactor, crew quarters, med bay, cargo | big |
+| Destroyer | 2 | bridge, weapons bay, engine room, crew, armoury | long and narrow |
+| Resupply | 2 | cargo holds (big open rooms), loading bay, bridge, fuel/reactor | wide holds |
+| Troop Transport | 2 | barracks, drop bay, armoury, med bay, bridge | barracks rows |
+| Frigate | 1-2 | bridge, engine, crew, gun deck | medium |
+| Escort | 1 | bridge, engine, gun room, crew | small |
+| Scout | 1 | cockpit, sensors, engine, bunk | smallest, like the Fury / Defender |
+
+Learn proportions from the traced SWTOR ships: Fury (1 deck, cross hallway, hatches at both ends), Defender
+(2 decks around a round heart room, ramp down), Tianjin (long spine, round CIC, command tower).
+
+## 8. The mini-game on every ship (same rules everywhere, like the regular missions)
+
+- **Entry:** you board at the airlock / hangar (BOARD button at the hull, v13.69). Same start point every time.
+- **Missions:** one of sabotage (blow the generator), capture (take the captain), rescue (free the hostage), from
+  the Mission Board job (`boarding_jobs.gd`). The target room is fixed per ship and marked on the plan.
+- **Key-card doors:** GREEN (open), YELLOW, ORANGE, RED, in that order deeper into the ship. Each card is carried by
+  one named guard; beating that guard drops it. The mission target is behind the last colour the ship uses
+  (small ships: YELLOW only; Capitals: up to RED). One card colour per deck section, never a dead end.
+- **Doors:** every doorway has a real sliding door that opens as you walk up and closes behind you; locked doors
+  show the card colour; sealed doors are red. Same door model and timing as the breakout (`board_doors`).
+- **Lifts:** a platform that carries you between decks (like `board_lifts` / `ship_interior.gd` `ride`), lined up
+  with the floor plans.
+- **Short cuts:** at least one orange wreckage block per ship that the CUTTER can open (v13.73), never on the only
+  way to the target.
+- **Enemies:** guards on patrol routes per room (sneak like the breakout), the key carriers, the boss next to the
+  target on big ships.
+- **Exit:** finish the mission, get back to the airlock / hangar, LEAVE SHIP; paid by the job.
+- **Camera and controls:** the pilot over the right shoulder, COCKPIT = first person, RUSH on WARP, jump attack,
+  CUTTER. Same HUD as the breakout.
+
+## 9. Per-ship pipeline and checklist (do not skip a step; each step has an owner approval)
+
+1. Plan picture in hand (his, or composed and approved).
+2. Trace to a clean plan (`tools/trace/fleet_<id>/eng/build_plan.py`), on the original + white on black.
+   APPROVAL 1 (he marks X / O; fix; repeat).
+3. Gameplay overlay on the plan: entry, key doors by colour, card carriers, guard routes, lifts, wreckage short cut,
+   mission target, way out. APPROVAL 2.
+4. Blender graybox (`tools/trace/fleet_<id>/blender/build_graybox.py`, the Defender/Fury pattern): walls 3 m, slab,
+   doors as openings with frames, lift shafts, red hull guide. Check renders. APPROVAL 3.
+5. Into the game: write `assets/holodeck/<id>.json` in the schema `ship_interior.gd` reads (keys today: rooms, walls,
+   doors, door_open, lifts, start, decks, shell{walls,doors,links}, objectives, key_guards, room_floor, corridor,
+   sealed). Prefer one new converter, `tools/trace/to_deck_json.py`, that turns an approved `eng/*_plan.json` +
+   gameplay overlay into that JSON, so all 64 go through the same code. Extend `ship_interior.gd` only where the
+   new plans need it (real sliding doors, card colours from the overlay).
+6. Test group per ship in `scripts/autotest.gd` (`HL_DECK_<ID>`): builds, every room reachable, each card door opens
+   only with its card, every lift reaches its decks, the mission completes, LEAVE SHIP returns to space, frame time OK
+   on the web build. xvfb screenshots of each room checked by you before he sees them.
+7. Phone check by the owner, then version bump and push. Update the status table above.
+
+Track the 64 ships in a task list; mark each step. Report to him per ship with one picture and one line.
+
+## 10. Order of work
+
+1. Fix the black interior on the phone (section 2b). Nothing else counts until boarding shows the ship.
+2. Build the converter (step 5) on the first ship.
+3. First ship end to end: **Imperium Troop Transport** (he boarded it). Get every approval, then use it as the
+   template for the rest.
+4. The 22 other ships that have plans, faction by faction (Imperium, Unity, Elyza, Covenant), biggest first.
+5. Ask him for the 41 missing plans (or approval to compose them), faction by faction.
+6. Space stations afterwards with the same method (breakout station, Carrick-style ring, Malgus Command Deck).
+
+## 11. Size budget
+
+The repo is near the owner's limit. Per ship keep: the plan JPG, the `eng/` script + JSON, one plan-on-map JPG, the
+`.glb` graybox (under 2 MB). No PNG copies, no upscales over ~3 MB, no `.blend1`. Big source art goes to Drive
+("HL Ship Interior References" / "HL Ship Traces"), not the repo.
