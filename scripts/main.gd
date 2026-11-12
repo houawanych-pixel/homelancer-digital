@@ -413,6 +413,7 @@ func _board_job_step(dt: float) -> void:
 			space.gps_mission = true
 			var mw0: Dictionary = space.mission_waypoint()
 			if not mw0.is_empty(): space.set_destination(mw0["node"])
+	if is_instance_valid(space): space.board_ready = false
 	if j.is_empty() or state != "flight" or not is_instance_valid(space) or space.surface_mode or str(j["sys"]) != str(space.sys_id) or space.sys_id != GS.system_id:
 		if j.is_empty() and is_instance_valid(board_ship): board_ship.queue_free()
 		return
@@ -432,10 +433,14 @@ func _board_job_step(dt: float) -> void:
 			if board_hull_dist((b["node"] as Node3D).global_position) < 12.0:
 				b["life"] = 0.0
 				board_damage(float(b.get("dmg", 1.0)))
+	# v13.69 (owner: "the ship is not a solid, I'm flying right through it"): its hull box pushes you out like a station's
+	if is_instance_valid(space.player) and is_instance_valid(board_ship):
+		var hh2: Vector3 = board_ship.get_meta("hit_half", Vector3.ONE * float(board_ship.get_meta("radius", 200.0)) * 0.6)
+		space._push_out_box(board_ship, AABB(-hh2, hh2 * 2.0), "station")
 	var near: bool = is_instance_valid(space.player) and board_hull_dist(space.player.global_position) < BoardingJobs.BOARD_RANGE
+	space.board_ready = near and board_power() <= 50.0   # v13.69 (owner): a BOARD button, like the other missions (no more boarding the moment you touch it)
 	if near and _board_cd <= 0.0:
-		if board_power() <= 50.0: _board_enter(j)
-		else:
+		if board_power() > 50.0:
 			_board_cd = 5.0
 			hud.flash_message("SHIELDS UP: you can't board yet. Shoot the ship down to 50%% power (now %d%%)." % int(ceil(board_power())))
 ## How far a point is from the target ship's hull box (0 = on or inside it).
@@ -756,7 +761,8 @@ func _on_hud(id: String) -> void:
 		"lock_a", "lock_c": hud.flash_message("Locked for now.")
 		"cloak": space.set_cloak(not space.cloaked)   # v8.3 (owner)
 		"board":   # v11.60 (owner): BOARD the battleship whose shield you broke
-			if not space.board_now(): hud.flash_message("Get closer, with its shield broken.")
+			if space.board_ready and not board_job().is_empty(): _board_enter(board_job())   # v13.69: the boarding job's ship
+			elif not space.board_now(): hud.flash_message("Get closer, with its shield broken.")
 		"tgt_front":   # v8.3 (owner): TARGET = the hostile in front of you, closest
 			var tf: Node3D = space.target_front()
 			if tf == null: hud.flash_message("No hostiles around.")

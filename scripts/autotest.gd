@@ -3068,12 +3068,30 @@ func _run() -> void:
 			main.board_damage(5000.0)
 			_check("v13.02 (owner): it stops at 50%: the shield is down for good", is_equal_approx(main.board_power(), 50.0) and (ship.get_node("PowerLabel") as Label3D).text.contains("SHIELD DOWN"))
 			await _shot("boardjob_shield_down", 0.4)
-			for k9 in 8:      # (the escort is shooting and pushing: fly back to the hull until you are aboard)
+			# v13.69 (owner: "I'm flying right through it"): the hull is solid; (owner: "a button like on the regular missions"): BOARD
+			_tp(ship.global_position, ship.global_position + ship.global_basis.z)
+			var was_in := true
+			await _until(func(): return main.board_hull_dist(sb.player.global_position) > 0.5, 2.0)
+			var pushed: float = main.board_hull_dist(sb.player.global_position)
+			_check("v13.69 (owner): the target ship is solid: flying into its middle pushes you out to the hull", was_in and not is_instance_valid(main.ship_deck) and main.state == "flight" and pushed > 0.5 and pushed < 60.0, "%.1f" % pushed)
+			var btn_ok := false
+			for k8 in 8:
+				_tp(ship.global_transform * Vector3((ship.get_meta("hit_half") as Vector3).x + 120.0, 0, 0), ship.global_position)
+				await _wait(0.3)
+				if sb.board_ready and sb.prompt() == "board":
+					btn_ok = true
+					break
+			await _wait(1.0)
+			_check("v13.69 (owner): at the hull with the shield down a BOARD button shows, and you are not taken aboard until you press it", btn_ok and not is_instance_valid(main.ship_deck), sb.prompt())
+			for k9 in 8:      # (the escort is shooting and pushing: fly back to the hull, press BOARD)
 				if is_instance_valid(main.ship_deck): break
 				_tp(ship.global_transform * Vector3((ship.get_meta("hit_half") as Vector3).x + 120.0, 0, 0), ship.global_position)
-				await _wait(1.0)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				main._on_hud("board")
+				await _wait(0.5)
 			var sd2: ShipInterior = main.ship_deck
-			_check("v13.02: reaching the ship puts you aboard its deck plan with the job's mission running", is_instance_valid(sd2) and main.state == "ship_deck" and sd2.mission == str(jb["kind"]) and sd2.m_stage == 0, main.state)
+			_check("v13.02: BOARD at the hull puts you aboard its deck plan with the job's mission running", is_instance_valid(sd2) and main.state == "ship_deck" and sd2.mission == str(jb["kind"]) and sd2.m_stage == 0, main.state)
 			if is_instance_valid(sd2):
 				await _shot("boardjob_aboard", 0.5)
 				var cr0: int = GS.credits
@@ -3083,7 +3101,13 @@ func _run() -> void:
 					and sb.player.global_position.distance_to(ship.global_position) > float(ship.get_meta("radius")) + BoardingJobs.BOARD_RANGE + 300.0)
 				await _wait(6.5)
 				_tp(ship.global_transform * Vector3((ship.get_meta("hit_half") as Vector3).x + 120.0, 0, 0), ship.global_position)
-				await _until(func(): return is_instance_valid(main.ship_deck), 6.0)
+				for k7 in 6:
+					if is_instance_valid(main.ship_deck): break
+					_tp(ship.global_transform * Vector3((ship.get_meta("hit_half") as Vector3).x + 120.0, 0, 0), ship.global_position)
+					await get_tree().process_frame
+					await get_tree().process_frame
+					main._on_hud("board")
+					await _wait(0.5)
 				var sd3: ShipInterior = main.ship_deck
 				if is_instance_valid(sd3):
 					sd3.m_stage = 2      # (the deck mission itself is covered by HL_INTERIOR; here: done and out by the hangar)

@@ -8939,6 +8939,11 @@ func _update_sword(dt: float) -> void:
 			sword_t = Data.SWORD_COMBO * Data.SWORD_COMBO_GAP + 0.1
 	_sword_prev = sword_held
 	if sword_kind != "": _sword_step(dt, fwd)
+	if sword_kind != "flip" and sword_kind != "roll":   # v13.69 (owner: "my character is upside down ... when I did a flip it got stuck in that pose"): a flip or roll cut short (another move, a wall, a room change) never leaves the body turned
+		var up_body: Node3D = pilot_rig.body if pilot_rig != null and is_instance_valid(pilot_rig.body) else null
+		if up_body != null and (up_body.rotation.x != 0.0 or up_body.rotation.z != 0.0):
+			up_body.rotation.x = 0.0
+			up_body.rotation.z = 0.0
 	_update_blade(dt)
 
 func _sword_step(dt: float, fwd: Vector3) -> void:
@@ -9389,6 +9394,17 @@ func _update_camera(dt: float, snap: bool) -> void:
 		var foff: Vector3 = want if snap or _cam_off.length() > 40.0 else _cam_off.lerp(want, minf(1.0, dt * 10.0))
 		_cam_off = foff
 		_set_cam(_cam_clip(foff), fb * Vector3(0.3, head, -30.0), fb.y)
+		cam.fov = lerpf(cam.fov, 22.0 if zoomed else 66.0, minf(1.0, dt * 6.0) if not snap else 1.0)
+		return
+	if escape_pilot and is_instance_valid(player):   # v13.69 (owner: "my character more to the left and bigger, only upper body and head ... 75% of the screen"): close over his right shoulder
+		var eb := player.global_basis
+		var H := Data.ESCAPE_PILOT_H
+		var want_e := eb * Vector3(Data.ESCAPE_CAM[0] * H, -6.0 + Data.ESCAPE_CAM[1] * H, Data.ESCAPE_CAM[2] * H)
+		var eoff: Vector3 = want_e if snap or _cam_off.length() > H * 4.0 else _cam_off.lerp(want_e, minf(1.0, dt * 10.0))
+		_cam_off = eoff
+		var look_e := eb * Vector3(0.0, -6.0 + 0.8 * H, -Data.ESCAPE_CAM[3] * H)
+		if hit_shake > 0.0: look_e += Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), 0) * hit_shake * 0.8
+		_set_cam(_cam_clip(eoff), look_e, eb.y)
 		cam.fov = lerpf(cam.fov, 22.0 if zoomed else 66.0, minf(1.0, dt * 6.0) if not snap else 1.0)
 		return
 	var back := 15.0 + (4.0 if warp_look() else (1.5 if boosting else 0.0))
@@ -10277,6 +10293,7 @@ func prompt() -> String:
 	var dc := dock_candidate()
 	var lc: Dictionary = lane_candidate() if lane.is_empty() else {}
 	if not lane.is_empty(): return "lane"
+	if board_ready: return "board"   # v13.69 (owner): at the boarding ship with its shield down, BOARD comes first
 	if dc != null:
 		if not lc.is_empty() and player.global_position.distance_to(lc["pos"]) < dock_distance(dc): return "lane"
 		return "dock"
@@ -10644,6 +10661,7 @@ func mission_waypoint() -> Dictionary:
 ## destination in gold"): main keeps this set while you hold a boarding job: {"sys", "title", "node" (the target ship
 ## once it is out), "power"}. The waypoint is the gate toward its system, then the ship itself.
 var board_mission: Dictionary = {}
+var board_ready := false   # v13.69 (owner: "there should be a button like on the regular missions so that I can board it"): main sets it when the shield is down and you are at the hull
 var board_hits := 0.0   # v13.11: damage your missiles, nukes and mines did to the boarding target (main takes it)
 ## The boarding target while its shield is up (null otherwise): what your missiles, nukes and mines can damage.
 func board_target() -> Node3D:

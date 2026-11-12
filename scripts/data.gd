@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.68"
+const VERSION := "v13.69"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -2721,6 +2721,7 @@ const EJECT_MAX_SPEED := 6.0   # slow enough to get out
 const EJECT_MAX_ALT := 14.0    # m over the ground at most
 const EJECT_STEP := 9.0        # m to the side you step out
 const ENTER_REACH := 16.0      # m from your mech / ship to ENTER      # s to reach the launch bay
+const ESCAPE_CAM := [0.34, 0.84, 0.62, 6.0]   # v13.69 (owner): the breakout camera, in pilot heights: right of him, eye height, behind; it looks at the point this many heights ahead (the guns' aim)
 const ESCAPE_PILOT_H := 13.0    # m: the pilot drawn at the mech's size (the decks are mech-sized)
 const ESCAPE_CHASERS := 20
 ## v12.46 (owner: "Metal Gear: guards walking around ... Freeze, you're under arrest ... only then you're locked down"):
