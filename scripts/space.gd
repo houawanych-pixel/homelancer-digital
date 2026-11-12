@@ -10588,6 +10588,7 @@ var _prepared := {}
 ## ship is down -> the drifting pilot; once the pilot is in your hold -> the station (dock anywhere to be paid).
 func mission_waypoint() -> Dictionary:
 	if not GS.mission.is_empty(): return Missions.waypoint(self)   # v1.5f: a job from the board (bounties included)
+	if not board_mission.is_empty(): return _board_waypoint()   # v13.10: a boarding job is a mission like the others
 	var b: Dictionary = GS.bounty
 	if b.is_empty() or surface_mode or not is_instance_valid(player): return {}
 	var p: Dictionary = Data.roster_pilot(str(b.get("id", "")))
@@ -10612,6 +10613,28 @@ func mission_waypoint() -> Dictionary:
 			return {"node": o["node"], "title": who, "line": "Bounty on %s: destroy the ship, then TRACTOR the pilot in" % who, "hops": 0}
 	return {}
 
+## v13.10 (owner: "when I accept a boarding mission, it should be in the GPS map on the top like the other ones, with the
+## destination in gold"): main keeps this set while you hold a boarding job: {"sys", "title", "node" (the target ship
+## once it is out), "power"}. The waypoint is the gate toward its system, then the ship itself.
+var board_mission: Dictionary = {}
+func _board_waypoint() -> Dictionary:
+	if surface_mode or not is_instance_valid(player): return {}
+	var bm := board_mission
+	var title := str(bm.get("title", "Boarding job"))
+	if str(bm.get("sys", "")) != sys_id:
+		var route: Array = Data.gate_route(sys_id, str(bm.get("sys", "")))
+		if route.size() < 2: return {}
+		for g in gates:
+			if is_instance_valid(g) and str((g.get_meta("info", {}) as Dictionary).get("to", "")) == str(route[1]):
+				var hops: int = route.size() - 1
+				return {"node": g, "title": g.name, "line": "%s: %d jump%s to %s. Take the %s" % [title, hops, "" if hops == 1 else "s", Data.SYSTEMS[bm["sys"]]["name"], g.name], "hops": hops}
+		return {}
+	var n = bm.get("node")
+	if n == null or not is_instance_valid(n): return {}
+	var pw := float(bm.get("power", 100.0))
+	var line := ("%s: shoot the ship down to 50%% power (now %d%%), then fly to the hull" % [title, int(ceil(pw))]) if pw > 50.0 else "%s: shield down. Fly to the hull to board" % title
+	return {"node": n, "title": (n as Node3D).name, "line": line, "hops": 0}
+
 var escort_node: Node3D = null   # v1.5f: the freighter of an escort mission (null = none out)
 
 ## v1.7o (owner: "the GPS doesn't work there"): with a job on, the GPS destination follows the mission waypoint (the
@@ -10623,7 +10646,7 @@ func _follow_mission(dt: float) -> void:
 	_gps_chk -= dt
 	if _gps_chk > 0.0: return
 	_gps_chk = 0.5
-	if GS.mission.is_empty() and GS.bounty.is_empty():
+	if GS.mission.is_empty() and GS.bounty.is_empty() and board_mission.is_empty():
 		gps_mission = false
 		return
 	var mw := mission_waypoint()

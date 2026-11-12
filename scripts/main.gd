@@ -406,6 +406,13 @@ func board_job() -> Dictionary: return hub.board_job if is_instance_valid(hub) e
 func _board_job_step(dt: float) -> void:
 	_board_cd = maxf(0.0, _board_cd - dt)
 	var j := board_job()
+	if is_instance_valid(space):   # v13.10: the job shows on the GPS and the map like any mission (gold waypoint)
+		var was: bool = not space.board_mission.is_empty()
+		space.board_mission = {} if j.is_empty() else {"sys": str(j["sys"]), "title": str(j["title"]), "node": board_ship if is_instance_valid(board_ship) else null, "power": board_power()}
+		if not was and not j.is_empty() and state == "flight":
+			space.gps_mission = true
+			var mw0: Dictionary = space.mission_waypoint()
+			if not mw0.is_empty(): space.set_destination(mw0["node"])
 	if j.is_empty() or state != "flight" or not is_instance_valid(space) or space.surface_mode or str(j["sys"]) != str(space.sys_id) or space.sys_id != GS.system_id:
 		if j.is_empty() and is_instance_valid(board_ship): board_ship.queue_free()
 		return
@@ -451,7 +458,7 @@ func _board_job_spawn(j: Dictionary) -> void:
 	var pts: Array = BoardingJobs.points(str(j["sys"]), space.station.global_position, clouds)
 	var pt: Dictionary = pts[clampi(int(j.get("pt", 0)), 0, pts.size() - 1)]
 	board_ship = SpaceSystem._fleet_standin(e)
-	board_ship.name = "%s (boarding target)" % str(e["name"])
+	board_ship.name = str(e["name"]).validate_node_name()   # v13.10: its own name on the GPS (it is the mission)
 	board_ship.set_meta("kind", "board_target")
 	space.add_child(board_ship)
 	board_ship.global_position = pt["pos"]
@@ -474,7 +481,10 @@ func _board_job_spawn(j: Dictionary) -> void:
 		board_escort = space.spawn_mission_group((pt["pos"] as Vector3) + Vector3(0, 90, 0), str(j["faction"]), int(j["fighters"]), 2, "", 0)
 	j["escort"] = board_escort.size()
 	j["in_nebula"] = bool(pt["nebula"])
-	space.set_destination(space.waypoint_at(pt["pos"]))
+	space.board_mission = {"sys": str(j["sys"]), "title": str(j["title"]), "node": board_ship, "power": 100.0}
+	space.gps_mission = true
+	space.set_destination(board_ship)   # v13.10: the ship itself, gold on the map (was a plain waypoint)
+	space.target = board_ship
 	hud.flash_message("%s: target ship %s, %d fighters with it. Waypoint set: GO TO flies it. Shoot the ship down to 50%% power to break its shield, then fly to the hull to board." % [str(j["title"]), "hidden in a nebula" if bool(pt["nebula"]) else "located", board_escort.size()])
 func _board_enter(j: Dictionary) -> void:
 	space.controls = false

@@ -2992,17 +2992,30 @@ func _run() -> void:
 		await _wait(0.3)
 		var tabb: Node = main.hub.find_child("Tab_boarding", true, false)
 		var takeb := main.hub.find_child("Take_Board_unity_capital", true, false) as Button
-		_check("v13.02: the Mission Board has a BOARDING tab with the Unity Capital on it", tabb != null and takeb != null and takeb.text == "ACCEPT")
+		_check("v13.02: the Mission Board has a BOARDING tab with the Unity Capital on it", tabb != null and takeb != null and takeb.text.begins_with("ACCEPT"))
+		var briefb := main.hub.find_child("Brief_Take_Board_unity_capital", true, false) as Button
+		_check("v13.10 (owner: same rules as the other jobs): MISSION BRIEF first, ACCEPT hidden until it is heard", briefb != null and not takeb.visible)
+		if briefb != null: briefb.pressed.emit()
+		await _wait(0.3)
+		takeb = main.hub.find_child("Take_Board_unity_capital", true, false) as Button
+		_check("v13.10: the brief is read out, then ACCEPT / DECLINE", main.hub.last_read.contains("BOARD THE") and takeb != null and takeb.visible and main.hub.find_child("Decline_Take_Board_unity_capital", true, false) != null, main.hub.last_read)
 		await _shot("boardjob_board", 0.3)
 		if takeb != null: takeb.pressed.emit()
 		await _wait(0.3)
 		var jb: Dictionary = main.hub.board_job
-		_check("v13.02: ACCEPT takes the job and picks one of the three places at random", str(jb.get("id", "")) == "unity_capital" and int(jb.get("pt", -1)) in [0, 1, 2] and (main.hub.find_child("Take_Board_unity_capital", true, false) as Button).text == "DROP", str(jb))
+		_check("v13.02: ACCEPT takes the job and picks one of the three places at random", str(jb.get("id", "")) == "unity_capital" and int(jb.get("pt", -1)) in [0, 1, 2] and (main.hub.find_child("Take_Board_unity_capital", true, false) as Button).text == "DISENGAGE" and main.hub.find_child("Continue_Take_Board_unity_capital", true, false) != null, str(jb))
 		main.hub.visible = false
 		await _wait(1.2)
 		var ship: Node3D = main.board_ship
 		_check("v13.02: in flight the ship is now out there, a good distance from the station, with its 15 fighters and a waypoint on it", is_instance_valid(ship) and ship.global_position.distance_to(sb.station.global_position) > 9000.0 and int(jb.get("escort", 0)) == 15
-			and is_instance_valid(sb.waypoint) and sb.waypoint.global_position.distance_to(ship.global_position) < 5.0, "%s escort %s" % [str(is_instance_valid(ship)), str(jb.get("escort", 0))])
+			, "%s escort %s" % [str(is_instance_valid(ship)), str(jb.get("escort", 0))])
+		var bmw: Dictionary = sb.mission_waypoint()
+		_check("v13.10 (owner): the boarding job is the GPS mission: gold waypoint on the ship, GPS destination set, MISSION line on top", not bmw.is_empty() and bmw["node"] == ship and sb.nav_dest == ship and sb.gps_mission and main._objective().begins_with("MISSION:"), "%s | %s | %s" % [str(bmw.get("title", "")), str(sb.nav_dest), main._objective()])
+		if is_instance_valid(main.navmap):
+			main.navmap.open(sb)
+			await _shot("boardjob_gps", 0.6)
+			_check("v13.10: the map shows it as the current mission (MISSION · SET on top)", main.navmap.mission_ready() and main.navmap.dest_list()[0]["key"] == "mission")
+			main.navmap.visible = false
 		if is_instance_valid(ship):
 			_tp(ship.global_position + Vector3(0, 300, 2400), ship.global_position)
 			await _shot("boardjob_ship", 0.8)

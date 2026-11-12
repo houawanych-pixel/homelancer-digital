@@ -4586,6 +4586,7 @@ func _bounty_page() -> void:
 		row.add_child(_board_buttons("Bounty_" + id, key, mine, shut,
 			func():
 				var said := Missions.toggle_bounty(id)
+				if GS.bounty.get("id", "") == id: board_job = {}   # v13.10: one job at a time
 				status.text = ("Bounty accepted: %s." % str(p["name"])) if GS.bounty.get("id", "") == id else said   # v11.97 (owner): just say it was accepted
 				_note_giver()
 				if GS.bounty.get("id", "") == id and board_pick != key: read_bounty(p)   # v1.7v: read out when taken (unless just heard)
@@ -4709,7 +4710,7 @@ func _board_buttons(main_name: String, key: String, mine: bool, shut: String, on
 		return col
 	b.text = "ACCEPT"
 	b.add_theme_color_override("font_color", Color(0.55, 1.0, 0.6))
-	if not GS.mission.is_empty() or not GS.bounty.is_empty():   # v12.60 (owner: "accept the mission and you disengage your current one")
+	if not GS.mission.is_empty() or not GS.bounty.is_empty() or not board_job.is_empty():   # v12.60 (owner: "accept the mission and you disengage your current one")
 		b.text = "ACCEPT\n(drops current job)"
 		b.custom_minimum_size = Vector2(230, 66)
 	b.pressed.connect(func(): if not board_dragged: on_accept.call())
@@ -4805,30 +4806,34 @@ func _boarding_page() -> void:
 		pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		if ResourceLoader.exists(str(e.get("token", ""))): pic.texture = load(str(e["token"]))
-		row.add_child(pic)
+		row.add_child(tier_frame(pic, Data.tier_of_pay(int(o["pay"]))))
 		var t := _label(Data.BOARD_FONT, CYAN)
 		t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		t.text = "%s\n%s\nReward %d cr" % [str(o["title"]), str(o["brief"]), int(o["pay"])]
+		t.text = "%s\n%s\nReward %d cr  ·  %s" % [str(o["title"]), str(o["brief"]), int(o["pay"]), difficulty_text(int(o["pay"]))]
 		row.add_child(t)
-		var b := Button.new()
-		b.name = "Take_" + row.name
-		b.custom_minimum_size = Vector2(230, 56)
-		b.text = "DROP" if mine else ("ACCEPT" if bool(o["ready"]) else "NOT BUILT YET")
-		b.disabled = not bool(o["ready"])
-		b.pressed.connect(func():
-			if mine:
-				board_job = {}
-				status.text = "Boarding job dropped."
-			else:
+		# v13.10 (owner: "set it up the same way, so it follows the same rules"): like the other jobs: MISSION BRIEF (read
+		# out by the coordinator), then ACCEPT / DECLINE; the job you hold shows CONTINUE / DISENGAGE.
+		var key := "bj:" + str(o["id"])
+		var hear := func(): read_job(o)
+		_tap_to_hear([row.get_child(0), t], key, hear)
+		row.add_child(_board_buttons("Take_" + row.name, key, mine, "" if bool(o["ready"]) else "NOT BUILT YET",
+			func():
 				var had := ""
 				if not GS.mission.is_empty() or not GS.bounty.is_empty(): had = " " + Missions.disengage()
 				board_job = (o as Dictionary).duplicate(true)
 				board_job["pt"] = randi() % 3
-				status.text = "Boarding job accepted: %s. LAUNCH and follow the waypoint.%s" % [str(o["title"]), had]
-			show_screen("boarding"))
-		row.add_child(b)
-		v.add_child(_row_frame(row, mine))
+				status.text = "Boarding job accepted: %s.%s" % [str(o["title"]), had]
+				_note_giver()
+				if board_pick != key: read_job(o)
+				board_pick = ""
+				show_screen("boarding"),
+			func():
+				board_job = {}
+				status.text = "Boarding job dropped."
+				board_pick = ""
+				show_screen("boarding"), hear))
+		v.add_child(_row_frame(row, mine or board_pick == key))
 
 func _missions_page() -> void:
 	var v := _scroll_box()
@@ -4859,6 +4864,7 @@ func _missions_page() -> void:
 			func():
 				var had := str(GS.mission.get("title", "")) if not GS.mission.is_empty() else ""
 				var said_j := Missions.toggle(o) if not Missions.is_current(o) else status.text
+				if Missions.is_current(o): board_job = {}   # v13.10: one job at a time
 				status.text = (("Mission accepted: %s." % str(o["title"])) + ((" Disengaged: %s." % had) if had != "" else "")) if Missions.is_current(o) else said_j   # v11.97 (owner): just say it was accepted (v12.60: and what was dropped)
 				_note_giver()
 				if Missions.is_current(o) and board_pick != key: read_job(o)   # v1.7p: read out when taken (unless just heard)
