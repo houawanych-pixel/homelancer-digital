@@ -1,0 +1,8 @@
+{"units": "crop px", "centre": [557, 868], "symmetry": "mirror on x=557 and y=868 (built as one quadrant)",
+ "hall": {"shape": "circle cut flat on the west side", "radius_inside_face": 250, "flat_west_x": 326},
+ "stair_halls": {"width": 68, "centre_line_ul": [[356, 540], [356, 566.6], [418.1, 655.3]], "run_angle_deg": 55,
+                 "note": "constant width through the bend (offset of a centre line); tread lines = stairs up (owner)"},
+ "room1": {"hex": [[886,671],[962,671],[1008,767],[1008,969],[962,1065],[886,1065],[838,969],[838,767]],
+           "link_to_hall": [807, 835, 848, 901], "east_exit": [1000, 842, 1046, 894]},
+ "wall_thickness": 8,
+ "not_walls": "inner rings of the hall (floor steps?), stair arcs, benches, centre emblem: left out"}
