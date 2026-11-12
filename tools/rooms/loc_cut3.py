@@ -26,6 +26,10 @@ def main():
     avoid = []
     if "--avoid" in args:   # x0-x1,x0-x1: people the detector missed (e.g. the seated wolf man)
         i = args.index("--avoid"); avoid = [tuple(int(v) for v in r.split("-")) for r in args[i + 1].split(",")]; del args[i:i + 2]
+    if "--clear" in args:   # px a cut keeps from anyone's box (crowded rooms need less)
+        i = args.index("--clear"); v2_cut3.CLEAR = int(args[i + 1]); del args[i:i + 2]
+    if "--ov" in args:   # overlap px each side (smaller = fewer pieces at 16:9)
+        i = args.index("--ov"); v2_cut3.OV = int(args[i + 1]); del args[i:i + 2]
     if "--cuts" in args:
         i = args.index("--cuts"); manual = sorted(int(v) for v in args[i + 1].split(",")); del args[i:i + 2]
     sy, place, room, out_dir = args[:4]
@@ -58,6 +62,36 @@ def main():
         score = total + 2.0 * (max(widths) - min(widths)) / W
         if best is None or score < best[0]: best = (score, cs, widths)
     seams = manual if manual else best[1]          # the main seams (owner-checked)
+    if "--fewest" in sys.argv:
+        # v13.82 (owner: the generator takes 16:9 or narrower, never wider; keep the cuts few): the fewest pieces that each
+        # fit one 16:9 window, the cuts placed anywhere round the circle at the calmest people-free columns.
+        WIN0 = int(round(H * 16 / 9.0)); KEEP0 = WIN0 - 2 * v2_cut3.OV
+        n0 = -(-W // KEEP0); lo = KEEP0 // 2
+        c = np.minimum(cost, 1e6)
+        for n in (n0, n0 + 1, n0 + 2):     # one more piece only if the fewest would cut through someone
+          lo = min(KEEP0 // 2, W // n - 40)
+          bestf = None
+          for a in np.argsort(c)[:300]:
+              a = int(a); L = W
+              d = np.full(L + 1, np.inf); d[0] = 0.0; back = []
+              cc = np.array([c[(a + x) % W] for x in range(L + 1)])
+              for k in range(n - 1):
+                  nd = np.full(L + 1, np.inf); bk = np.zeros(L + 1, int)
+                  for x in range(lo, L + 1):
+                      j0, j1 = max(0, x - KEEP0), x - lo
+                      seg = d[j0:j1 + 1]; jj = int(np.argmin(seg))
+                      nd[x] = seg[jj] + cc[x]; bk[x] = j0 + jj
+                  d = nd; back.append(bk)
+              ok = [x for x in range(L - KEEP0, L - lo + 1) if np.isfinite(d[x])]
+              if not ok: continue
+              x = min(ok, key=lambda v: d[v]); tot = d[x] + c[a]
+              if bestf is None or tot < bestf[0]:
+                  path = [x]
+                  for bk in reversed(back[1:]): path.append(int(bk[path[-1]]))
+                  bestf = (tot, sorted(a + q for q in path) + [a])
+          if bestf and bestf[0] < 1e6: break
+        seams = sorted(v % W for v in bestf[1])
+        print("fewest:", n, "pieces, cost", round(float(bestf[0]), 1))
     # v13.79 (owner: "make sure I don't have any white space ... it may alter the render"): no white bands. Every piece is
     # a full 16:9 window of the strip (WIN px wide at the strip's full height), so each main third is split again at the
     # calmest people-free columns until every kept span fits inside one window; the window's extra width either side is
@@ -71,7 +105,7 @@ def main():
         n = -(-(b - a) // KEEP)
         cuts.append(a)
         if n > 1:   # DP: n-1 inner cuts, every span in [KEEP*0.45, KEEP], least summed cost
-            lo = int(KEEP * 0.3)
+            lo = int(KEEP * 0.5)
             pos = list(range(a + lo, b - lo + 1))
             prev = {a: (0.0, [])}
             for k in range(n - 1):

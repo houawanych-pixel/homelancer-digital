@@ -5,74 +5,116 @@
   427
  ],
  "seams": [
-  544,
-  1792,
-  2917
+  63,
+  782,
+  1493,
+  2109,
+  2828,
+  3547
  ],
  "cuts": [
-  544,
-  1792,
-  2917
+  63,
+  782,
+  1493,
+  2109,
+  2828,
+  3547
  ],
- "overlap": 40,
- "frame": "piece only, 1920 wide (v13.81: no bands)",
+ "overlap": 20,
+ "frame": [
+  1920,
+  1080
+ ],
  "window": 759,
  "parts": [
   {
    "file": "LibertyHub_Supplies_part1.png",
-   "strip_x0": 504,
-   "strip_w": 1328,
+   "strip_x0": 43,
+   "strip_w": 759,
    "keep": [
-    544,
-    1248
+    63,
+    719
    ],
    "frame_rect": [
     0,
     0,
     1920,
-    617
-   ],
-   "frame": [
-    1920,
-    617
+    1080
    ]
   },
   {
    "file": "LibertyHub_Supplies_part2.png",
-   "strip_x0": 1752,
-   "strip_w": 1205,
+   "strip_x0": 758,
+   "strip_w": 759,
    "keep": [
-    1792,
-    1125
+    782,
+    711
    ],
    "frame_rect": [
     0,
     0,
     1920,
-    680
-   ],
-   "frame": [
-    1920,
-    680
+    1080
    ]
   },
   {
    "file": "LibertyHub_Supplies_part3.png",
-   "strip_x0": 2877,
-   "strip_w": 1803,
+   "strip_x0": 1422,
+   "strip_w": 759,
    "keep": [
-    2917,
-    1723
+    1493,
+    616
    ],
    "frame_rect": [
     0,
     0,
     1920,
-    455
+    1080
+   ]
+  },
+  {
+   "file": "LibertyHub_Supplies_part4.png",
+   "strip_x0": 2089,
+   "strip_w": 759,
+   "keep": [
+    2109,
+    719
    ],
-   "frame": [
+   "frame_rect": [
+    0,
+    0,
     1920,
-    455
+    1080
+   ]
+  },
+  {
+   "file": "LibertyHub_Supplies_part5.png",
+   "strip_x0": 2808,
+   "strip_w": 759,
+   "keep": [
+    2828,
+    719
+   ],
+   "frame_rect": [
+    0,
+    0,
+    1920,
+    1080
+   ]
+  },
+  {
+   "file": "LibertyHub_Supplies_part6.png",
+   "strip_x0": 3474,
+   "strip_w": 759,
+   "keep": [
+    3547,
+    612
+   ],
+   "frame_rect": [
+    0,
+    0,
+    1920,
+    1080
    ]
   }
  ],
