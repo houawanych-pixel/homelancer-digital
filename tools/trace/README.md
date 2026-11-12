@@ -16,3 +16,8 @@ for one size (whole width or one door) before extruding.
 Owner rules learned on `temple_02`: the outline must step INTO every notch between rooms and back out (never bridge
 across); only the outer white line is used for extruding (inner face lines were too messy). Corridor diagonals with
 tread lines are stairs: the two mirrored pairs lead up to a second floor.
+
+`ship_tianjin_03` (UPP Tianjin sheet): the top-right inset is the ship's EXTERIOR, seen from above (owner). Its outline,
+`eng/exterior_silhouette.json`, is the true hull; it has two levels: the main deck (`eng/build_main_deck.py`,
+the centre of the sheet) and the command tower, the whole upper deck (`eng/build_command_tower.py`, the top-left
+inset), which sits in the square-and-round block at the stern centre. Floor levels inside rooms: `eng/main_levels.json`.
