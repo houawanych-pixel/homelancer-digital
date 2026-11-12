@@ -41,13 +41,14 @@ def main():
     dd = np.abs(cols[:, None] - idx[None, :]); dist = np.minimum(dd, W - dd).min(1)
     # want the widest gaps: cost falls as the gap grows (to 150 px), a little extra for busy texture
     cost = np.where(dist < clear, 1e6, 150 - np.minimum(dist, 150)) + 5 * e
+    NCUT = int(os.environ.get("HL_NCUT", 6))
     MINW, MAXW = int(os.environ.get("HL_MINW", 520)), int(os.environ.get("HL_MAXW", 860))
     best = None
     for c0 in np.argsort(cost)[:200]:
         c0 = int(c0)
         cc = cost[(c0 + np.arange(W + 1)) % W]
         d = np.full(W + 1, np.inf); d[0] = 0.0; back = []
-        for k in range(5):
+        for k in range(NCUT - 1):
             nd = np.full(W + 1, np.inf); bk = np.zeros(W + 1, int)
             for x in range(MINW, W + 1, 2):
                 j0, j1 = max(0, x - MAXW), x - MINW
@@ -77,7 +78,7 @@ def main():
     for i, c in enumerate(cuts):
         cv2.line(pv, (c, 0), (c, H), (0, 0, 255), 5); cv2.putText(pv, str(i + 1), (c + 8, 40), 0, 1.2, (255, 255, 255), 3)
     cv2.imwrite(os.path.join(out_dir, "%s_%s_cuts_preview.jpg" % (place, room)), pv, [cv2.IMWRITE_JPEG_QUALITY, 85])
-    sp = [(cu[(i + 1) % 6] if i < 5 else cu[0] + W) - cu[i] for i in range(6)]
+    n = len(cu); sp = [(cu[i + 1] if i < n - 1 else cu[0] + W) - cu[i] for i in range(n)]
     print("%s %s: cuts %s spans %s gap to nearest person %s" % (place, room, cuts, sp, gaps)); meta["gaps"] = gaps
 
 main()

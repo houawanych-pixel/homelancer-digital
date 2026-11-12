@@ -5,12 +5,9 @@
   427
  ],
  "cuts": [
-  3963,
-  243,
-  1689,
-  2039,
-  2533,
-  3613
+  3788,
+  1042,
+  2274
  ],
  "overlap": 0,
  "clear": 12,
@@ -28,119 +25,23 @@
    2145
   ],
   [
-   2700,
-   3080
-  ],
-  [
    520,
    680
   ],
   [
-   3420,
-   3485
-  ],
-  [
    2300,
    2380
+  ],
+  [
+   3420,
+   3485
   ]
  ],
  "people": 195,
  "method": "loc_cut_pairs (6 pieces, equal pairs, stacked 3 pictures)",
  "gaps": [
-  155,
-  25,
-  149,
-  51,
-  25,
-  42
- ],
- "pictures": [
-  {
-   "file": "LibertyHub_Hub_clip1.png",
-   "size": [
-    537,
-    1080
-   ],
-   "rows": [
-    {
-     "piece": 1,
-     "strip": [
-      3963,
-      376
-     ],
-     "y": 0.0,
-     "h": 609.54,
-     "px_per_strip_px": 1.4275
-    },
-    {
-     "piece": 4,
-     "strip": [
-      2039,
-      494
-     ],
-     "y": 616.06,
-     "h": 463.94,
-     "px_per_strip_px": 1.0865
-    }
-   ]
-  },
-  {
-   "file": "LibertyHub_Hub_clip2.png",
-   "size": [
-    1554,
-    1080
-   ],
-   "rows": [
-    {
-     "piece": 2,
-     "strip": [
-      243,
-      1446
-     ],
-     "y": 0.0,
-     "h": 458.87,
-     "px_per_strip_px": 1.0746
-    },
-    {
-     "piece": 5,
-     "strip": [
-      2533,
-      1080
-     ],
-     "y": 465.31,
-     "h": 614.69,
-     "px_per_strip_px": 1.4388
-    }
-   ]
-  },
-  {
-   "file": "LibertyHub_Hub_clip3.png",
-   "size": [
-    440,
-    1080
-   ],
-   "rows": [
-    {
-     "piece": 3,
-     "strip": [
-      1689,
-      350
-     ],
-     "y": 0.0,
-     "h": 536.23,
-     "px_per_strip_px": 1.2558
-    },
-    {
-     "piece": 6,
-     "strip": [
-      3613,
-      350
-     ],
-     "y": 543.77,
-     "h": 536.23,
-     "px_per_strip_px": 1.2558
-    }
-   ]
-  }
+  217,
+  19,
+  25
  ]
 }

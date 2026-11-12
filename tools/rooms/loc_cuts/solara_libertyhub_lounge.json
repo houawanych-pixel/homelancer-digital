@@ -6,11 +6,8 @@
  ],
  "cuts": [
   2121,
-  2777,
   3551,
-  4057,
-  1077,
-  1591
+  791
  ],
  "overlap": 0,
  "clear": 30,
@@ -24,99 +21,7 @@
  "method": "loc_cut_pairs (6 pieces, equal pairs, stacked 3 pictures)",
  "gaps": [
   150,
-  97,
   292,
-  150,
-  36,
-  158
- ],
- "pictures": [
-  {
-   "file": "LibertyHub_Lounge_clip1.png",
-   "size": [
-    718,
-    1080
-   ],
-   "rows": [
-    {
-     "piece": 1,
-     "strip": [
-      2121,
-      656
-     ],
-     "y": 0.0,
-     "h": 467.23,
-     "px_per_strip_px": 1.0942
-    },
-    {
-     "piece": 3,
-     "strip": [
-      3551,
-      506
-     ],
-     "y": 473.8,
-     "h": 606.2,
-     "px_per_strip_px": 1.4186
-    }
-   ]
-  },
-  {
-   "file": "LibertyHub_Lounge_clip2.png",
-   "size": [
-    1149,
-    1080
-   ],
-   "rows": [
-    {
-     "piece": 2,
-     "strip": [
-      2777,
-      774
-     ],
-     "y": 0.0,
-     "h": 634.2,
-     "px_per_strip_px": 1.4845
-    },
-    {
-     "piece": 4,
-     "strip": [
-      4057,
-      1116
-     ],
-     "y": 640.38,
-     "h": 439.62,
-     "px_per_strip_px": 1.0296
-    }
-   ]
-  },
-  {
-   "file": "LibertyHub_Lounge_clip3.png",
-   "size": [
-    656,
-    1080
-   ],
-   "rows": [
-    {
-     "piece": 5,
-     "strip": [
-      1077,
-      514
-     ],
-     "y": 0.0,
-     "h": 544.33,
-     "px_per_strip_px": 1.2756
-    },
-    {
-     "piece": 6,
-     "strip": [
-      1591,
-      530
-     ],
-     "y": 551.75,
-     "h": 528.25,
-     "px_per_strip_px": 1.2371
-    }
-   ]
-  }
+  31
  ]
 }

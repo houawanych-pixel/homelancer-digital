@@ -5,12 +5,9 @@
   427
  ],
  "cuts": [
-  1510,
-  1910,
-  2822,
-  3222,
-  3706,
-  10
+  3802,
+  1216,
+  2496
  ],
  "overlap": 0,
  "clear": 30,
@@ -26,105 +23,21 @@
   [
    2360,
    2460
+  ],
+  [
+   2825,
+   2940
+  ],
+  [
+   15,
+   85
   ]
  ],
  "people": 128,
  "method": "loc_cut_pairs (6 pieces, equal pairs, stacked 3 pictures)",
  "gaps": [
-  149,
-  205,
-  54,
-  33,
-  152,
-  70
- ],
- "pictures": [
-  {
-   "file": "LibertyHub_Hangar_clip1.png",
-   "size": [
-    502,
-    1080
-   ],
-   "rows": [
-    {
-     "piece": 1,
-     "strip": [
-      1510,
-      400
-     ],
-     "y": 0.0,
-     "h": 536.23,
-     "px_per_strip_px": 1.2558
-    },
-    {
-     "piece": 3,
-     "strip": [
-      2822,
-      400
-     ],
-     "y": 543.77,
-     "h": 536.23,
-     "px_per_strip_px": 1.2558
-    }
-   ]
-  },
-  {
-   "file": "LibertyHub_Hangar_clip2.png",
-   "size": [
-    1427,
-    1080
-   ],
-   "rows": [
-    {
-     "piece": 2,
-     "strip": [
-      1910,
-      912
-     ],
-     "y": 0.0,
-     "h": 667.98,
-     "px_per_strip_px": 1.565
-    },
-    {
-     "piece": 6,
-     "strip": [
-      10,
-      1500
-     ],
-     "y": 673.69,
-     "h": 406.31,
-     "px_per_strip_px": 0.9515
-    }
-   ]
-  },
-  {
-   "file": "LibertyHub_Hangar_clip3.png",
-   "size": [
-    550,
-    1080
-   ],
-   "rows": [
-    {
-     "piece": 4,
-     "strip": [
-      3222,
-      484
-     ],
-     "y": 0.0,
-     "h": 485.43,
-     "px_per_strip_px": 1.1368
-    },
-    {
-     "piece": 5,
-     "strip": [
-      3706,
-      400
-     ],
-     "y": 492.25,
-     "h": 587.75,
-     "px_per_strip_px": 1.3756
-    }
-   ]
-  }
+  248,
+  32,
+  36
  ]
 }
