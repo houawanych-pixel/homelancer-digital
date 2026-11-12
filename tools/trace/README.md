@@ -22,3 +22,4 @@ tread lines are stairs: the two mirrored pairs lead up to a second floor.
 the centre of the sheet) and the command tower, the whole upper deck (`eng/build_command_tower.py`, the top-left
 inset), which sits in the square-and-round block at the stern centre. Floor levels inside rooms: `eng/main_levels.json`.
 | ship_defender_05 | SWTOR Defender (Jedi ship) in-game minimaps, flight + lower deck clean plans, rooms named from the labelled fan sheet the owner sent (sheet itself not stored) |
+| ship_fury_07 | Fury-class Interceptor (Sith ship), one deck, rooms 1-15, real size 47.8 x 41 m |
