@@ -32,24 +32,27 @@ def ring_wall(r, door_deg, w=DOOR):
     return g
 rot = lambda g, k: affinity.rotate(g, 90 * k, origin=C)
 
-# ---- one wing (top-left quadrant), measured in polar
-CAB = [192.5, 205.3, 218.2, 231.0, 243.8, 256.5]          # cabin dividers (deg)
+# ---- one wing (top-left quadrant), measured zoomed in on the polar unwrap (0.05 deg x 0.5 px), symmetric about 225 deg
+M = lambda a: 450 - a                                        # mirror an angle about 225
 chord = lambda a0, a1, r0, r1: Polygon([P(a0, r0), P(a0, r1), P(a1, r1), P(a1, r0)])
-wing_floor = [sector(188, 262, 465, 600),                     # end rooms + inner hall + rooms A (one band)
-              sector(192, 258, 600, 825),                     # ring corridor (islands sit inside it)
-              ] + [Polygon([P(a0, 825), P(a0, 948), P(a1, 948), P(a1, 825)]) for a0, a1 in zip(CAB[:-1], CAB[1:])]   # five flat-faced cabins
-wing_walls = [radial_wall(205, 465, 600, [492]), radial_wall(245, 465, 600, [492]),            # end rooms / inner hall
-              arc_wall(205, 245, 520, [215, 235]),                                               # inner hall / rooms A
-              radial_wall(207, 520, 600), radial_wall(223, 520, 600), radial_wall(227, 520, 600), radial_wall(243, 520, 600),
-              arc_wall(188, 262, 600, [196.5, 215, 235, 253.5]),                                 # into the ring corridor
-              arc_wall(192.5, 256.5, 825, [198.9, 211.6, 224.5, 237.4, 250.1])]                  # cabins
-for a in CAB[1:-1]: wing_walls.append(radial_wall(a, 825, 948))                                 # cabin dividers
-islands = [chord(197, 213, 690, 775), chord(217, 233, 690, 775), chord(237, 253, 690, 775)]   # flat island rooms
-for g in islands: wing_walls.append(g.exterior.buffer(T / 2))
-for a0, a1 in ((197, 213), (217, 233), (237, 253)):        # island doors on the inner face
-    m = (a0 + a1) / 2; wing_walls[-3 + [(197, 213), (217, 233), (237, 253)].index((a0, a1))] = chord(a0, a1, 690, 775).exterior.buffer(T / 2).difference(Point(P(m, 690 * math.cos(math.radians(8)))).buffer(DOOR / 2))
-# doors from the end rooms into the spokes
-wing_walls += [radial_wall(188, 465, 600, [532]), radial_wall(262, 465, 600, [532])]
+CAB = [194.3, 205.1, 217.6, 232.4, 244.9, 255.7]             # cabin dividers (deg), middle cabin is the wide one
+ISL = [(201.3, 213.4), (217.2, 232.8), (M(213.4), M(201.3))]  # island rooms in the ring corridor
+AR = [(207.2, 223.8), (M(223.8), M(207.2))]                  # rooms A off the inner hall
+wing_floor = [sector(187, 263, 465, 600),                     # end rooms + inner hall + rooms A
+              sector(193.5, M(193.5), 600, 700),              # ring corridor, inner part
+              sector(197.4, M(197.4), 700, 773),              # island row (islands sit inside it)
+              sector(191, M(191), 773, 848)]                  # ring corridor, outer part
+wing_floor += [chord(a0, a1, 848, 952) for a0, a1 in zip(CAB[:-1], CAB[1:])]          # five flat-faced cabins
+wing_walls = [radial_wall(204.3, 465, 600, [495]), radial_wall(M(204.3), 465, 600, [495]),   # end rooms / inner hall
+              radial_wall(187, 465, 600, [532]), radial_wall(263, 465, 600, [532]),          # end rooms / spokes
+              arc_wall(187, 263, 600, [196, 215.5, 234.5, 254])]                             # into the ring corridor
+for a0, a1 in AR:
+    wing_walls += [arc_wall(a0, a1, 523), radial_wall(a0, 523, 600), radial_wall(a1, 523, 600)]
+for a0, a1 in ISL:
+    m = (a0 + a1) / 2; g = chord(a0, a1, 700, 773)
+    wing_walls.append(g.exterior.buffer(T / 2).difference(Point(P(m, 700 * math.cos(math.radians((a1 - a0) / 2)))).buffer(DOOR / 2)))
+wing_walls.append(arc_wall(CAB[0], CAB[-1], 848, [(x + y) / 2 for x, y in zip(CAB[:-1], CAB[1:])]))   # cabin doors
+for a in CAB[1:-1]: wing_walls.append(radial_wall(a, 848, 952))                                      # cabin dividers
 
 # ---- spokes (measured on the W and N spokes): entry r 215-285, stair corridor 285-440, cross room 440-585, end room 585-685
 def spoke(a, end_room=True):
