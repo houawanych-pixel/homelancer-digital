@@ -23,8 +23,11 @@ def add(geom, height, z, name, material):
 P = json.load(open(os.path.join(ENG, "plan.json"))); s = 1.0 / float(P["px_per_m"]); ax = P["mirror_x"]
 to_m = lambda g: affinity.affine_transform(g, [s, 0, 0, -s, -ax * s, 870 * s])   # centre line x 0, nose y 0
 add(to_m(shape(P["floor"])), SLAB, -SLAB, "floor", M_FLOOR); add(to_m(shape(P["walls"])), WALL_H, 0, "walls", M_WALL)
+from shapely.geometry import Polygon
+hull = to_m(Polygon(json.load(open(os.path.join(ENG, "hull_outline.json")))["outline"]))   # exterior outline, red guide
+add(hull.exterior.buffer(0.15), 0.3, -SLAB, "hull_outline", mat("hull_ref", (0.9, 0.45, 0.45)))
 hm = bpy.data.objects.new("scale_human_1.8m", None); hm.empty_display_type = "SINGLE_ARROW"; hm.empty_display_size = 1.8
 bpy.context.scene.collection.objects.link(hm)
 out = os.path.join(HERE, "fury_graybox_WIP_NOT_APPROVED")
 bpy.ops.wm.save_as_mainfile(filepath=out + ".blend"); bpy.ops.export_scene.gltf(filepath=out + ".glb", export_format="GLB")
-b = to_m(shape(P["floor"])).bounds; print("deck m:", round(b[2] - b[0], 1), "x", round(b[3] - b[1], 1))
+b = to_m(shape(P["floor"])).bounds; print("deck m:", round(b[2] - b[0], 1), "x", round(b[3] - b[1], 1), "| hull m:", [round(v, 1) for v in (hull.bounds[2] - hull.bounds[0], hull.bounds[3] - hull.bounds[1])])

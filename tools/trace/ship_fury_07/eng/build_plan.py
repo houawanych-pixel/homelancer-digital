@@ -65,12 +65,14 @@ for p in getattr(walls, "geoms", [walls]):
 cs, _ = cv2.findContours(mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
 plan = np.zeros_like(src); ov = (src * 0.45).astype(np.uint8)
 for im in (plan, ov): cv2.drawContours(im, cs, -1, (255, 255, 255), 3, cv2.LINE_AA)
+HULL = np.array(json.load(open(os.path.join(HERE, "hull_outline.json")))["outline"], np.int32)   # exterior, light red
+for im in (plan, ov): cv2.polylines(im, [HULL], True, (110, 110, 255), 4, cv2.LINE_AA)
 for (x, y), t in LABELS:
     for im in (plan, ov):
         (w, h), _ = cv2.getTextSize(t, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)
         cv2.putText(im, t, (int(x - w / 2), int(y)), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (80, 220, 255), 2, cv2.LINE_AA)
-cv2.imwrite(os.path.join(HERE, "plan.png"), plan[750:1950, 150:1950])
-cv2.imwrite(os.path.join(HERE, "plan_on_map.jpg"), ov[750:1950, 150:1950], [cv2.IMWRITE_JPEG_QUALITY, 88])
+cv2.imwrite(os.path.join(HERE, "plan.png"), plan[0:2080, 150:1950])
+cv2.imwrite(os.path.join(HERE, "plan_on_map.jpg"), ov[0:2080, 150:1950], [cv2.IMWRITE_JPEG_QUALITY, 88])
 json.dump({"units": "map_x4 px", "px_per_m": 40.0, "thickness": T, "door": DOOR, "mirror_x": AX, "floor": mapping(floor), "walls": mapping(walls)},
           open(os.path.join(HERE, "plan.json"), "w"))
 print("ok")
