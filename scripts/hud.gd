@@ -591,7 +591,7 @@ func _layout() -> void:
 		var key: String = ["missile1", "missile2", "mine"][k] if k < 3 else ""   # v11.29 (owner): a slot keeps its spot whatever is fitted (the NUKE takes MISSILE 2's)
 		if key != "": buttons["slot_%d" % k] = dg[key]
 	# v7.8 (owner): TRACTOR and FULL SCREEN sit down with the other buttons: on top of each block, by the radar
-	for id in ["tractor", "ground", "cloak", "dash_next", "dash_tgt", "sidestep", "spare_l"]: buttons[id] = dg[id]
+	for id in ["tractor", "ground", "cloak", "cutter", "sidestep", "spare_l"]: buttons[id] = dg[id]   # v13.74 (owner): NEXT and TARGET off the console; CUTTER top left
 	# (v11.1 (owner): FULL SCREEN left the SPEED readout: one button in the top-left corner on every screen, FsButton)
 	if not weapons_shown():
 		for id in COMBAT_IDS: buttons.erase(id)
@@ -1143,6 +1143,16 @@ static func draw_icon(ci: CanvasItem, id: String, c: Vector2, s: float, col: Col
 			ci.draw_colored_polygon(PackedVector2Array([c + hdir * s * 1.05, c + hdir * s * 0.45 + hperp * s * 0.3, c + hdir * s * 0.45 - hperp * s * 0.3]), col)
 			ci.draw_colored_polygon(PackedVector2Array([c - hdir * s * 0.5 + hperp * s * 0.6, c - hdir * s * 0.95, c - hdir * s * 0.5 - hperp * s * 0.6]), col)
 			ci.draw_line(c - hdir * s * 0.1 + hperp * s * 0.3, c - hdir * s * 0.1 - hperp * s * 0.3, RED, 3.0)
+		"cutter":   # v13.74: a hand cutter: grip, nozzle, a cutting beam across a plate, sparks
+			ci.draw_rect(Rect2(c + Vector2(-s * 0.95, s * 0.15), Vector2(s * 0.75, s * 0.32)), col)
+			ci.draw_rect(Rect2(c + Vector2(-s * 0.85, s * 0.45), Vector2(s * 0.28, s * 0.5)), col)
+			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(-s * 0.2, s * 0.17), c + Vector2(s * 0.05, s * 0.24), c + Vector2(s * 0.05, s * 0.38), c + Vector2(-s * 0.2, s * 0.45)]), col.lightened(0.3))
+			ci.draw_line(c + Vector2(s * 0.05, s * 0.31), c + Vector2(s * 0.95, -s * 0.85), Color(1.0, 0.85, 0.4), 3.0)
+			ci.draw_line(c + Vector2(s * 0.35, -s * 0.95), c + Vector2(s * 0.9, s * 0.2), Color(col, 0.55), 2.0)
+			for k in 4:
+				var a := deg_to_rad(200.0 + 40.0 * k)
+				ci.draw_line(c + Vector2(s * 0.95, -s * 0.85), c + Vector2(s * 0.95, -s * 0.85) + Vector2(cos(a), sin(a)) * s * 0.32, Color(1.0, 0.9, 0.5), 1.5)
+			return
 		"tractor":
 			# a beam cone pulling a crate in
 			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(-s * 0.2, -s * 0.85), c + Vector2(s * 0.2, -s * 0.85), c + Vector2(s * 0.75, s * 0.35), c + Vector2(-s * 0.75, s * 0.35)]), Color(col, 0.35))
@@ -2156,8 +2166,7 @@ func _draw() -> void:
 	# defence and special moves (right block), speed (left block)
 	var sh_cd: float = space.shield_cd / Data.SHIELD_BOOST_COOLDOWN
 	pass   # (v7.6 / v8.3: SHIELD and REPAIR are drawn by the console)
-	if space.escape_pilot or space.on_foot: _corner("tractor", "CUTTER", "kill", Color(1.0, 0.6, 0.2), space.cut_a != Vector3.INF, "")   # v13.73 (owner): on foot the CUTTER
-	else: _corner("tractor", "TRACTOR", "tractor", Color(0.45, 0.9, 1.0), space.tractor_t > 0.0, str(space.loot.size()) if space.loot.size() > 0 else "")
+	_corner("tractor", "TRACTOR", "tractor", Color(0.45, 0.9, 1.0), space.tractor_t > 0.0, str(space.loot.size()) if space.loot.size() > 0 else "")
 	var tf: bool = space.transform_t > 0.0
 	pass   # (v8.3: TRANSFORM is drawn by the console)
 	var wsub := ""
@@ -2173,8 +2182,7 @@ func _draw() -> void:
 	for lid in ["lock_a", "lock_c"]: _padlocked(lid, "")
 	_corner("spare_l", "SHIELD", "shield", Color(0.4, 0.8, 1.0), space.laser_shield, "", 0.0, GS.form != "mech")   # v12.15 (owner): the mech's laser shield
 	_sword_locks()
-	_corner("dash_next", "NEXT", "target", GOLD, false)   # v12.2: switch targets
-	_corner("dash_tgt", "TARGET", "target", RED, false)
+	_corner("cutter", "CUTTER", "cutter", Color(1.0, 0.6, 0.2), space.cut_a != Vector3.INF, "" if GS.has_cutter else "-")   # v13.74 (owner): ship, mech and pilot
 	_corner("sidestep", "SWORD", "sword", Color(0.55, 0.9, 1.0), space.sword_kind != "" or not space.boomers.is_empty(), str(space.sword_locks.size()) if not space.sword_locks.is_empty() else "")   # v12.15 (owner): the sword; v12.55: in the ship too (burst / evade / throw)
 	pass   # (v8.3: FULL SCREEN is the SPEED readout)
 	_corner("stop", "STOP", "stop", RED, space.braking or space.holding, "", 0.0, false, "STOPPED" if space.holding else "FULL STOP")
@@ -2438,8 +2446,8 @@ func dash_geo() -> Dictionary:
 		# v12.2 (owner: "another column ... on the right SIDESTEP and on top of that the SPECIAL; on the left NEXT, and one
 		# that's not anything yet"): left outside NEXT over a spare; SUPER moved to the right outside over SIDESTEP;
 		# TARGET (the hostile in front) takes SUPER's old place
-		"dash_next": lb.call(0, by1), "spare_l": lb.call(0, by2),
-		"tractor": lb.call(1, by1), "dash_tgt": lb.call(1, by2),
+		"cutter": lb.call(0, by1), "spare_l": lb.call(0, by2),   # v13.74 (owner): CUTTER where NEXT was; TARGET's spot is free
+		"tractor": lb.call(1, by1),
 		"fire": lb.call(2, by1), "form": lb.call(3, by1), "shield": lb.call(4, by1),
 		"missile1": lb.call(2, by2), "kill": lb.call(3, by2), "thrust": lb.call(4, by2),
 		"repair": rb.call(0, by1), "cloak": rb.call(1, by1), "mine": rb.call(2, by1), "view": rb.call(3, by1),   # v8.3 (owner): CLOAK, COCKPIT

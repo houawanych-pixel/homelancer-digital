@@ -5045,7 +5045,7 @@ func _run() -> void:
 		await _wait(2.0)
 		s = _sp()
 		var has_w: bool = not s.wrecks.is_empty()
-		var label_ok: bool = main.hud.buttons.has("tractor")
+		var label_ok: bool = main.hud.buttons.has("cutter") and not main.hud.buttons.has("dash_tgt") and not main.hud.buttons.has("dash_next")
 		var ok_block := false
 		var ok_miss := false
 		var ok_short := false

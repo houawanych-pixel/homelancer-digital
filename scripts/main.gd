@@ -666,15 +666,14 @@ func _on_hud(id: String) -> void:
 		"missile": space.trigger_system("missile")
 		"shield": space.trigger_system("shield")
 		"repair": space.trigger_system("hull")
+		"cutter":   # v13.74 (owner): its own button, for the ship, the mech and the pilot
+			match space.cutter_press():
+				"first": hud.flash_message("CUTTER: point set. Aim across the wreckage and press CUTTER again to cut.")
+				"cut": pass
+				"short": hud.flash_message("Too short: cut right across the wreckage.")
+				"miss": hud.flash_message("CUTTER: aim at something cuttable (orange wreckage). Doors and walls can't be cut.")
+				"none": hud.flash_message("You don't have a cutter.")
 		"tractor":
-			if space.escape_pilot or space.on_foot:   # v13.73 (owner): on foot this button is the CUTTER
-				match space.cutter_press():
-					"first": hud.flash_message("CUTTER: point set. Aim across the wreckage and press CUTTER again to cut.")
-					"cut": pass
-					"short": hud.flash_message("Too short: cut right across the wreckage.")
-					"miss": hud.flash_message("CUTTER: aim at something cuttable (orange wreckage). Doors and walls can't be cut.")
-					"none": hud.flash_message("You don't have a cutter.")
-				return
 			var tm: String = space.tractor()
 			hud.flash_message(tm)
 			if space.tractor_t > 0.0: Sfx.play("tractor", -6.0)
