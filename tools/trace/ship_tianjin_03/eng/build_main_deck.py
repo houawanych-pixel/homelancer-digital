@@ -10,7 +10,7 @@ from shapely.ops import unary_union, substring
 from shapely import affinity
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-CY, T, DOOR = 1155.0, 12.0, 56.0
+CY, T, DOOR = 1160.0, 12.0, 56.0   # mirror line from paired rooms (548/1782, 649/1681)
 def mirror(g): return affinity.scale(g, yfact=-1, origin=(0, CY))
 def wall(p0, p1, doors=()):
     L = LineString([p0, p1]); cuts = [0.0]
@@ -32,12 +32,26 @@ corridor = unary_union([LineString([(2120, CY), (2625, CY)]).buffer(50, cap_styl
 bay = unary_union([box(2620, 1010, 2800, 1300), box(2800, 1030, 2855, 1280)])
 bay_walls = [wall((2620, 1010), (2620, 1300), [145]), wall((2800, 1030), (2800, 1280), [125])]
 
-floor = unary_union([pod, mirror(pod), corridor, bay])
+# ---- section 2: the room column between the pods and the CIC (boxes measured on the x4 deck, top half; mirrored)
+G = 11   # half the wall gap between neighbouring rooms: rooms grow to the wall centre line
+rooms2 = [box(1972, 548, 2086, 627), box(2041, 649, 2134, 841), unary_union([box(1927, 673, 2025, 760), box(1912, 751, 2022, 851)]),
+          box(1967, 861, 2120, 1037)]
+centre = box(1883, 1056, 2119, 2 * CY - 1056)
+col = unary_union([r.buffer(G, join_style=2) for r in rooms2])
+col = unary_union([col, mirror(col), centre.buffer(G, join_style=2)])
+s2_walls = [wall((1901, 638), (2150, 638), [109]),                 # escape-pod room / lobby row, door into the side room
+            wall((2033, 638), (2033, 853), [122]),                 # side room / lobby
+            wall((1901, 853), (2150, 853), [99, 189]),             # to the ready room
+            wall((1872, 1047), (2131, 1047), [117]),               # ready room / centre room
+            wall((2145, 638), (2145, 853), [122])]                 # lobby / pod (the pod's aft door)
+s2_walls = s2_walls + [mirror(w) for w in s2_walls] + [
+            wall((2120, 1047), (2120, 2 * CY - 1047), [CY - 1047]),   # centre room / forward corridor
+            wall((1872, 1047), (1872, 2 * CY - 1047), [CY - 1047])]   # centre room / CIC (next section)
+floor = unary_union([pod, mirror(pod), corridor, bay, col])
 walls = floor.buffer(T / 2, join_style=2).difference(floor.buffer(-T / 2, join_style=2))
-inner = unary_union(pod_walls + [mirror(w) for w in pod_walls] + bay_walls)
+inner = unary_union(pod_walls + [mirror(w) for w in pod_walls] + bay_walls + s2_walls).intersection(floor.buffer(T / 2, join_style=2))   # no stubs outside
 walls = unary_union([walls, inner])
-for o in [box(2100, CY - 44, 2128, CY + 44),                          # corridor runs on aft (next section)
-          box(2130, 800, 2160, 856), mirror(box(2130, 800, 2160, 856))]:   # pod doors aft (next section)
+for o in [box(1855, CY - DOOR / 2, 1890, CY + DOOR / 2)]:            # centre room opens aft into the CIC (next section)
     walls = walls.difference(o)
 
 src = cv2.imread(os.path.join(HERE, "..", "part_main_deck_x4.jpg")); H, W = src.shape[:2]
@@ -52,6 +66,7 @@ for im in (plan, ov): cv2.drawContours(im, cs, -1, (255, 255, 255), 3, cv2.LINE_
 cv2.imwrite(os.path.join(HERE, "main_plan.png"), plan)
 cv2.imwrite(os.path.join(HERE, "main_plan_on_map.jpg"), ov, [cv2.IMWRITE_JPEG_QUALITY, 88])
 cv2.imwrite(os.path.join(HERE, "main_plan_section1.jpg"), ov[520:1800, 1900:2950], [cv2.IMWRITE_JPEG_QUALITY, 90])
+cv2.imwrite(os.path.join(HERE, "main_s2_big.jpg"), cv2.resize(ov[500:1830, 1820:2340], None, fx=1.6, fy=1.6, interpolation=cv2.INTER_CUBIC), [cv2.IMWRITE_JPEG_QUALITY, 90])
 json.dump({"units": "x4 main-deck px", "mirror_y": CY, "thickness": T, "door": DOOR, "floor": mapping(floor), "walls": mapping(walls)},
           open(os.path.join(HERE, "main_plan.json"), "w"))
 print("ok")
