@@ -5032,6 +5032,39 @@ func _run() -> void:
 		_check("v12.39 (owner): EJECT on a world (prompt %s): on foot at human size (%.1f m), the mech parked; walk away and ENTER is gone, come back and ENTER takes you in" % [pr0, bb.size.y], pr0 == "eject" and small and far_none and near_enter and back_in, "small %s far %s near %s back %s" % [small, far_none, near_enter, back_in])
 		_finish_group()
 		return
+	if _flag("HL_RAM"):   # v13.75 (owner): the ship's swirling RAM SHIELD at warp: fighters smashed, no damage, a big ship stops you unharmed
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s := _sp()
+		GS.energy = 100.0
+		main._on_hud("spare_l")
+		var on: bool = s.ram_shield
+		await _frames(3)
+		var fx_ok: bool = s._ram_fx != null and s._ram_fx.visible
+		var hull0: float = GS.hull
+		var sh0: float = GS.shield
+		s._player_hit(50.0)
+		var no_dmg: bool = GS.hull == hull0 and GS.shield == sh0
+		var fwd := -s.player.global_basis.z
+		var e := s.spawn_unit("unity_starfighter", s.player.global_position + fwd * 400.0, s.player.global_position + fwd * 400.0)
+		s.warp_state = "on"
+		s.vel = fwd * 3000.0
+		var k0: int = s.ram_kills
+		await _until(func(): return s.ram_kills > k0, 2.0)
+		var smashed: bool = s.ram_kills > k0
+		s.vel = fwd * 3000.0
+		var hull1: float = GS.hull
+		var dealt: float = s.collision_damage("ship", 3000.0)
+		var stopped: bool = s.warp_state == "off" and s.vel.length() < 400.0 and dealt == 0.0 and GS.hull == hull1
+		var hb = main.hud
+		var swapped: bool = hb.buttons.has("spare_l") and hb.buttons.has("thrust") and (hb.buttons["spare_l"] as Rect2).position.x > (hb.buttons["thrust"] as Rect2).position.x
+		await _capture("ram_shield")
+		main._on_hud("spare_l")
+		_check("v13.75 (owner): SHIELD as a ship = the swirling RAM SHIELD (%s, swirl %s): no damage (%s); at warp it smashes a fighter you fly through (%s); a big ship stops you out of warp, unharmed (%s); SHIELD and JUMP swapped on the console (%s)" % [on, fx_ok, no_dmg, smashed, stopped, swapped],
+			on and fx_ok and no_dmg and smashed and stopped and swapped and not s.ram_shield)
+		_finish_group()
+		return
 	if _flag("HL_CUTTER"):   # v13.73 (owner): the CUTTER: two points across the wreckage cut it and open the short cut
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)

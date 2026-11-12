@@ -8505,6 +8505,9 @@ func _player_hit(dmg: float, hit := Vector3.INF) -> void:
 	if dodge_t > 0.0:   # v12.55: rolling clear
 		_spark(hit if hit != Vector3.INF else player.global_position, Color(0.8, 0.95, 1.0), 3.0, 0.2)
 		return
+	if ram_shield:   # v13.75 (owner): nothing gets through the swirling shield
+		_spark(hit if hit != Vector3.INF else player.global_position, Color(0.5, 0.85, 1.0), 4.0, 0.2)
+		return
 	if Data.ROLL_DEFLECT and man_kind != "" and GS.form != "mech":   # v8.3 (owner, Star Fox): rolling knocks the fire away
 		deflected += 1
 		_spark(hit if hit != Vector3.INF else player.global_position, Color(0.7, 0.95, 1.0), 4.0, 0.25)
@@ -8734,6 +8737,12 @@ func collision_damage(kind: String, impact: float, at := Vector3.INF) -> float:
 	if kind == "ground" and surface_mode and _over_blocks():   # EXPERIMENT (v1.5u): bumping the block ground
 		if GS.form == "mech" or braking or impact <= Data.BLOCK_SAFE_BUMP: return 0.0
 		impact -= Data.BLOCK_SAFE_BUMP - Data.COLLIDE_THRESHOLD   # only the speed past cruise counts
+	if ram_shield and kind != "ground":   # v13.75 (owner: "if I hit a big ship it stops me, but it won't destroy me with my shield on")
+		if warp_state != "off": cancel_warp_for_ram()
+		vel = vel * 0.1
+		hit_shake = maxf(hit_shake, 0.7)
+		Sfx.play("shield_block", -4.0, 0.8)
+		return 0.0
 	if impact <= Data.COLLIDE_THRESHOLD or not controls or collide_grace > 0.0: return 0.0
 	var dmg := (impact - Data.COLLIDE_THRESHOLD) * Data.COLLIDE_MULT
 	collide_grace = Data.COLLIDE_GRACE
@@ -8774,6 +8783,80 @@ var shield_blocks := 0          # shots stopped (for the tests)
 var shot_recent := 0.0          # > 0 just after the mech fired: the shield swings to the left side
 var _lshield: Node3D = null
 var _lshield_side := 0.0        # 0 = in front, 1 = on the left
+
+## v13.75 (owner: "I wanna warp, and then if I use the shield it's gonna have a swirling effect. As a ship it lets me
+## destroy enemy fighters when I fly through them and I don't take any damage. If I hit a big ship it stops me, but it
+## won't destroy me if I have my shield on"): the ship's SHIELD is the RAM SHIELD: a swirl of light round the ship; no
+## hit gets through, fighters you fly into are smashed, a big ship stops you dead (out of warp) without harm. It drains
+## energy (RAM_SHIELD_DRAIN a second) and drops when the energy runs out.
+var ram_shield := false
+var ram_kills := 0   # (tests)
+var _ram_fx: Node3D
+func toggle_ram_shield() -> String:
+	if transform_t > 0.0: return "busy"
+	if not ram_shield and GS.energy < Data.RAM_SHIELD_MIN: return "energy"
+	ram_shield = not ram_shield
+	Sfx.play("saber_on" if ram_shield else "saber_off", -4.0, 0.7)
+	return "on" if ram_shield else "off"
+func cancel_warp_for_ram() -> void:
+	warp_state = "off"
+	warp_t = 0.0
+	message.emit("RAM SHIELD: you hit something big. Out of warp, no harm done.")
+func _update_ram_shield(dt: float) -> void:
+	if ram_shield and (GS.form == "mech" or on_foot or escape_pilot or not is_instance_valid(player)): ram_shield = false
+	if ram_shield:
+		GS.energy = maxf(0.0, GS.energy - Data.RAM_SHIELD_DRAIN * dt)
+		if GS.energy <= 0.0:
+			ram_shield = false
+			message.emit("RAM SHIELD down: out of energy.")
+	if not ram_shield:
+		if _ram_fx != null and is_instance_valid(_ram_fx): _ram_fx.visible = false
+		return
+	if _ram_fx == null or not is_instance_valid(_ram_fx):
+		_ram_fx = Node3D.new()
+		_ram_fx.name = "RamShield"
+		var r: float = float(Data.SHIPS.get(GS.ship_id, {}).get("length", 14.0)) * 0.9 if Data.SHIPS.has(GS.ship_id) else 12.0
+		r = maxf(r, 10.0)
+		var bubble := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = r
+		sm.height = r * 2.0
+		bubble.mesh = sm
+		var bm: StandardMaterial3D = _glow_mat(Color(0.35, 0.75, 1.0)).duplicate()
+		bm.albedo_color = Color(0.35, 0.75, 1.0, 0.16)
+		bm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		bm.cull_mode = BaseMaterial3D.CULL_DISABLED
+		bubble.material_override = bm
+		_ram_fx.add_child(bubble)
+		for k in 3:   # the swirl: three tilted rings spinning round the ship
+			var ring := MeshInstance3D.new()
+			var tm := TorusMesh.new()
+			tm.inner_radius = r * 0.94
+			tm.outer_radius = r * 1.02
+			ring.mesh = tm
+			ring.material_override = _glow_mat(Color(0.5, 0.9, 1.0) if k != 1 else Color(0.8, 0.95, 1.0))
+			ring.rotation = Vector3(0.9 * float(k), 0.6 * float(k), 0.0)
+			ring.name = "Ring%d" % k
+			_ram_fx.add_child(ring)
+		player.add_child(_ram_fx)
+	_ram_fx.visible = true
+	_ram_fx.set_meta("r", _ram_fx.get_child(0).mesh.radius)
+	for k in 3:
+		var ring := _ram_fx.get_node_or_null("Ring%d" % k) as Node3D
+		if ring != null: ring.rotate_object_local(Vector3.UP, dt * (6.0 + 2.0 * float(k)) * (1.0 if k % 2 == 0 else -1.0))
+	# smash the fighters you fly into; big ships just stop you (the solid hull push does that, see collision_damage)
+	var p := player.global_position
+	var rr: float = float(_ram_fx.get_meta("r"))
+	for e in enemies.duplicate():
+		var n: Node3D = e.get("node", null)
+		if n == null or not is_instance_valid(n): continue
+		var d: Dictionary = e["def"]
+		if d.get("capital", false) or d.has("carrier") or bool(e.get("board_core", false)): continue
+		var reach: float = rr + float(d.get("hit_r", 7.5)) + vel.length() * dt   # (at warp speed: what you passed this frame)
+		if n.global_position.distance_to(p) > reach and Geometry3D.get_closest_point_to_segment(n.global_position, p - vel * dt, p).distance_to(n.global_position) > rr + float(d.get("hit_r", 7.5)): continue
+		_destroy_unit(e)
+		ram_kills += 1
+		hit_shake = maxf(hit_shake, 0.3)
 
 func toggle_laser_shield() -> String:
 	if GS.form != "mech" or transform_t > 0.0: return "ship"
@@ -9507,6 +9590,7 @@ func _update_lamp(dt: float) -> void:
 func _collisions(dt: float) -> void:
 	sidestep_t = maxf(0.0, sidestep_t - dt)
 	_update_laser_shield(dt)
+	_update_ram_shield(dt)   # v13.75
 	_update_lamp(dt)
 	if on_foot or escape_pilot: _foot_speed(dt)
 	if not ghosts.is_empty(): _update_ghosts(dt)

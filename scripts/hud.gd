@@ -2180,7 +2180,7 @@ func _draw() -> void:
 	var gm: bool = space.ground_mode   # v1.8r: GROUND: gravity on, walk / land
 	_corner("ground", "GROUND", "ground", GREEN, gm, "", 0.0, false, ("WALKING" if GS.form == "mech" else "LANDED") if gm and space.grounded else ("FALLING" if gm else ("WALK" if GS.form == "mech" else "LAND")))
 	for lid in ["lock_a", "lock_c"]: _padlocked(lid, "")
-	_corner("spare_l", "SHIELD", "shield", Color(0.4, 0.8, 1.0), space.laser_shield, "", 0.0, GS.form != "mech")   # v12.15 (owner): the mech's laser shield
+	_corner("spare_l", "SHIELD", "shield", Color(0.4, 0.8, 1.0), space.laser_shield or space.ram_shield, "", 0.0, space.on_foot or space.escape_pilot)   # v12.15 (owner): the mech's laser shield; v13.75: the ship's ram shield
 	_sword_locks()
 	_corner("cutter", "CUTTER", "cutter", Color(1.0, 0.6, 0.2), space.cut_a != Vector3.INF, "" if GS.has_cutter else "-")   # v13.74 (owner): ship, mech and pilot
 	_corner("sidestep", "SWORD", "sword", Color(0.55, 0.9, 1.0), space.sword_kind != "" or not space.boomers.is_empty(), str(space.sword_locks.size()) if not space.sword_locks.is_empty() else "")   # v12.15 (owner): the sword; v12.55: in the ship too (burst / evade / throw)
@@ -2446,10 +2446,10 @@ func dash_geo() -> Dictionary:
 		# v12.2 (owner: "another column ... on the right SIDESTEP and on top of that the SPECIAL; on the left NEXT, and one
 		# that's not anything yet"): left outside NEXT over a spare; SUPER moved to the right outside over SIDESTEP;
 		# TARGET (the hostile in front) takes SUPER's old place
-		"cutter": lb.call(0, by1), "spare_l": lb.call(0, by2),   # v13.74 (owner): CUTTER where NEXT was; TARGET's spot is free
+		"cutter": lb.call(0, by1), "spare_l": lb.call(4, by2),   # v13.74 (owner): CUTTER where NEXT was; TARGET's spot is free; v13.75 (owner): SHIELD and JUMP/THRUST swapped
 		"tractor": lb.call(1, by1),
 		"fire": lb.call(2, by1), "form": lb.call(3, by1), "shield": lb.call(4, by1),
-		"missile1": lb.call(2, by2), "kill": lb.call(3, by2), "thrust": lb.call(4, by2),
+		"missile1": lb.call(2, by2), "kill": lb.call(3, by2), "thrust": lb.call(0, by2),
 		"repair": rb.call(0, by1), "cloak": rb.call(1, by1), "mine": rb.call(2, by1), "view": rb.call(3, by1),   # v8.3 (owner): CLOAK, COCKPIT
 		"stop": rb.call(0, by2), "warp": rb.call(1, by2), "missile2": rb.call(2, by2), "ground": rb.call(3, by2),
 		"special": rb.call(4, by1), "super_btn": rb.call(4, by1), "sidestep": rb.call(4, by2)}

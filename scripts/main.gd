@@ -682,7 +682,14 @@ func _on_hud(id: String) -> void:
 			hud.target_menu = false
 		"dash_tgt": _on_hud("tgt_front")
 		"sidestep": pass   # v12.55: the SWORD button in every form (space._update_sword acts on let-go)
-		"spare_l":   # v12.15 (owner): the mech's laser shield
+		"spare_l":   # v12.15 (owner): the mech's laser shield; v13.75 (owner): the ship's swirling RAM SHIELD
+			if GS.form != "mech" and not space.on_foot and not space.escape_pilot:
+				match space.toggle_ram_shield():
+					"on": hud.flash_message("RAM SHIELD up: fly through fighters to smash them, nothing hurts you; a big ship stops you. It drains energy.")
+					"off": hud.flash_message("Ram shield down.")
+					"energy": hud.flash_message("Not enough energy for the ram shield.")
+					_: hud.flash_message("Finish transforming first.")
+				return
 			match space.toggle_laser_shield():
 				"on": hud.flash_message("LASER SHIELD up: it blocks shots from in front, and swings to your left while you fire.")
 				"off": hud.flash_message("Laser shield down.")
