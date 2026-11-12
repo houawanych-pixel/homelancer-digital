@@ -35,9 +35,9 @@ infLink = box(400, 1405, 405, 1460)
 shop = Polygon([(805, 1040), (900, 1040), (960, 1120), (960, 1340), (805, 1340)])
 shopLink = box(770, 1222, 805, 1278)
 annex = Polygon([(830, 1360), (945, 1360), (960, 1470), (815, 1470)])
-annexLinks = [box(860, 1340, 916, 1360), box(860, 1470, 916, 1540)]
+annexLinks = [box(860, 1340, 916, 1360), box(872, 1470, 928, 1580)]
 roundRm = Point(900, 1660).buffer(125, 128)
-roundLink = box(752, 1610, 780, 1666)
+roundLink = box(752, 1610, 800, 1666)
 s2_walls = [wall((470, 940), (722, 940), [127]), wall((455, 1145), (738, 1145), [142]),      # passage / mid / spine
             wall((572, 1195), (572, 1300), [52.5]), wall((624, 1195), (624, 1300), [52.5]),   # pods off the spine
             wall((445, 1350), (720, 1350), [152]),                                            # spine into the hall
@@ -45,7 +45,7 @@ s2_walls = [wall((470, 940), (722, 940), [127]), wall((455, 1145), (738, 1145), 
             wall((215, 1335), (400, 1335), [92.5]),                                           # Infirmary fore / aft
             wall((402, 1390), (402, 1540), [42]),                                             # Infirmary into the hall
             wall((770, 1222), (770, 1278), [28]), wall((805, 1222), (805, 1278), [28]),       # pod into the Machine Shop
-            wall((805, 1340), (960, 1340), [83]), wall((815, 1470), (960, 1470), [73]),       # shop / annex / round room
+            wall((805, 1340), (960, 1340), [83]), wall((815, 1470), (960, 1470), [85]),       # shop / annex / round room
             wall((752, 1610), (752, 1666), [28])]                                             # lower room into the round room
 # ---- section 3: stern (Engine Room with the two engine bays)
 spine3 = box(572, 1780, 624, 1890)
