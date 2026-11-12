@@ -74,9 +74,11 @@ walls = unary_union([top_walls, affinity.scale(top_walls, yfact=-1, origin=(0, C
 c = cv2.imread(SRC); S = 2
 H, Wd = c.shape[:2]
 mask = np.zeros((H * S, Wd * S), np.uint8)
-for p in getattr(walls, "geoms", [walls]):
-    cv2.fillPoly(mask, [np.array([(x * S, y * S) for x, y in p.exterior.coords], np.int32)], 255)
-    for r in p.interiors: cv2.fillPoly(mask, [np.array([(x * S, y * S) for x, y in r.coords], np.int32)], 0)
+for p in getattr(walls, "geoms", [walls]):   # each piece on its own layer, so one piece's holes never erase another
+    m1 = np.zeros_like(mask)
+    cv2.fillPoly(m1, [np.array([(x * S, y * S) for x, y in p.exterior.coords], np.int32)], 255)
+    for r in p.interiors: cv2.fillPoly(m1, [np.array([(x * S, y * S) for x, y in r.coords], np.int32)], 0)
+    mask |= m1
 cs, _ = cv2.findContours(mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
 plan = np.zeros((H * S, Wd * S, 3), np.uint8); ov = cv2.resize((c * 0.55).astype(np.uint8), None, fx=S, fy=S)
 for im in (plan, ov): cv2.drawContours(im, cs, -1, (255, 255, 255), 2, cv2.LINE_AA)
