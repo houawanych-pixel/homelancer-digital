@@ -14,12 +14,12 @@ converter: tools/trace/to_deck_json.py; test group: HL_FLEETDECK=<id>.
 | unity_frigate | yes | done | shown | shown | tested (not pushed) | waiting | regular boarding run (local) |
 | unity_escort | yes | done | shown | shown | tested (not pushed) | waiting | regular boarding run (local) |
 | unity_scout | yes | done | shown | shown | tested (not pushed) | waiting | regular boarding run (local) |
-| elyza_capital | yes | - | - | - | - | - | old deck |
-| elyza_cruiser | yes | - | - | - | - | - | old deck |
-| elyza_destroyer | yes | - | - | - | - | - | old deck |
-| elyza_resupply | yes | - | - | - | - | - | old deck |
+| elyza_capital | yes | done | shown | shown | tested (not pushed) | waiting | regular boarding run (local) |
+| elyza_cruiser | yes | done | shown | shown | tested (not pushed) | waiting | regular boarding run (local) |
+| elyza_destroyer | yes | done | shown | shown | tested (not pushed) | waiting | regular boarding run (local) |
+| elyza_resupply | yes | done | shown | shown | tested (not pushed) | waiting | regular boarding run (local) |
 | elyza_trooptransport | **ask owner** | - | - | - | - | - | - |
-| elyza_frigate | yes | - | - | - | - | - | old deck |
+| elyza_frigate | yes | done | shown | shown | tested (not pushed) | waiting | regular boarding run (local) |
 | elyza_escort | **ask owner** | - | - | - | - | - | - |
 | elyza_scout | **ask owner** | - | - | - | - | - | - |
 | solarion_capital | **ask owner** | - | - | - | - | - | - |
