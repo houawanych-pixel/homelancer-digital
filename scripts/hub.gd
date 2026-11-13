@@ -5146,8 +5146,8 @@ const GAR_GOLD := Color(1.0, 0.8, 0.32)
 
 func _gar_cats() -> Array:
 	match lo_frame:
-		"mech": return [["head", "Head"], ["core", "Core"], ["arms", "Arms"], ["legs", "Legs"], ["weapons", "Weapons"], ["backpack", "Back Pack"], ["paint", "Paint / Decals"]]
-		"ship": return [["weapons", "Weapons"], ["hull", "Hull"], ["wings", "Wings"], ["engines", "Engines"], ["backpack", "Weapon Set 2"], ["paint", "Paint / Decals"]]
+		"mech": return [["head", "Head"], ["core", "Core"], ["arms", "Arms"], ["legs", "Legs"], ["weapons", "Weapons"], ["paint", "Paint / Decals"]]   # v14.1 (owner: "get rid of the 2nd weapon set"): no Back Pack / Weapon Set 2
+		"ship": return [["weapons", "Weapons"], ["hull", "Hull"], ["wings", "Wings"], ["engines", "Engines"], ["paint", "Paint / Decals"]]
 	# v12.74 (owner's PILOT GEAR STORE mock-up)
 	# v12.75 (owner's "DYNAMIC PILOT EQUIPMENT CAMERA SYSTEM"): the seven equipment categories (+ who you are)
 	# v13.08 (owner: "body, lower body, gloves, helmet, shoes, boots ... the camera automatically does a zoom to that section"): + Gloves, Boots

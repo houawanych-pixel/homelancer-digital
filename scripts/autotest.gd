@@ -2472,7 +2472,7 @@ func _run() -> void:
 		_check("v12.56 (owner): INTERCEPT: their transport bound for their facility, its fighters and mechs (%d); transport down, paid (job over %s)" % [int(r1["spawned"]), (r1["left"] as Dictionary).is_empty()], int(r1["spawned"]) >= 6 and (r1["left"] as Dictionary).is_empty(), str(r1))
 		_finish_group()
 		return
-	if _flag("HL_LOADOUT"):   # v12.67 (owner's spec): mounts, swap, stow, HUD, ammo, invalid fits, armor stats, hangar, AI
+	if _flag("HL_LOADOUT") and Data.WEAPON_SET_2:   # v12.67 (owner's spec): mounts, swap, stow, HUD, ammo, invalid fits, armor stats, hangar, AI
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
 		await _wait(1.0)

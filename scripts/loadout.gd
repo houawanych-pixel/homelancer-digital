@@ -273,6 +273,7 @@ static func current(frame: String) -> Dictionary:
 		for k in dp: if not pp.has(k) or part("pilot", k, str(pp[k])).is_empty(): pp[k] = dp[k]
 		if not (GS.loadouts[frame]["sets"][0] as Dictionary).has("R_Hand"): (GS.loadouts[frame]["sets"][0] as Dictionary)["R_Hand"] = "pulse1"
 		if not (GS.loadouts[frame]["sets"][0] as Dictionary).has("Sidearm"): (GS.loadouts[frame]["sets"][0] as Dictionary)["Sidearm"] = "pulse1"
+	if not Data.WEAPON_SET_2 and int(GS.loadouts[frame].get("active", 0)) != 0: GS.loadouts[frame]["active"] = 0   # v14.1: one set only
 	return GS.loadouts[frame]
 
 static func active_set(lo: Dictionary) -> Dictionary:

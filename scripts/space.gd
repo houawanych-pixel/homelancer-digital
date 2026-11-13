@@ -5390,6 +5390,7 @@ func loadout_live() -> bool:
 ## v14.0 (owner: "not sure what that button does, it doesn't seem to do anything"): SWAP shows only when another,
 ## different weapon set is fitted (SET 2 in the garage); with one set it did nothing.
 func loadout_can_swap() -> bool:
+	if not Data.WEAPON_SET_2: return false   # v14.1 (owner: "get rid of the 2nd weapon set")
 	if not loadout_live(): return false
 	var lo := Loadout.current(GS.form)
 	var sets: Array = lo["sets"]
@@ -5399,6 +5400,7 @@ func loadout_can_swap() -> bool:
 	return false
 
 func loadout_swap() -> String:
+	if not Data.WEAPON_SET_2: return "One weapon set."
 	if not loadout_live(): return "No weapon sets here."
 	if swap_t > 0.0: return "Swapping..."
 	var lo := Loadout.current(GS.form)
