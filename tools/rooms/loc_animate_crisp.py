@@ -14,14 +14,25 @@ seam, the last second fades (in time) into the first so the motion loops. Writes
 import json, os, subprocess, sys
 import cv2, numpy as np
 sy, place, room, cdir = sys.argv[1:5]
-take = sys.argv[5] if len(sys.argv) > 5 else ""   # v13.91 (owner: "a second clip back to back"): b -> <key>.b.ogv, played after the first; keeps the first take's sound
+take = sys.argv[5] if len(sys.argv) > 5 and sys.argv[5] != "-" else ""
+OUT_BASE = sys.argv[6] if len(sys.argv) > 6 else ""   # v13.103: e.g. assets/rooms/unity/private_quarters (a faction room)   # v13.91 (owner: "a second clip back to back"): b -> <key>.b.ogv, played after the first; keeps the first take's sound
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(os.path.dirname(HERE))
 key = "%s_%s_%s" % (sy, place.lower(), room.lower())
 meta = json.load(open(os.path.join(HERE, "loc_cuts", key + ".json")))
 still = cv2.imread(os.path.join(ROOT, meta["src"])); H, W = still.shape[:2]
 GW = 3072; GH = int(round(GW * H / W / 2) * 2); s = GW / W; FADE = 1.0
 wrap = np.concatenate([still, still], 1)
-caps, warps, bounds = [], [], []
+caps, warps, bounds, first = [], [], [], []
+SIFT = cv2.SIFT_create(1500)
+def drift(f0, f):   # v13.103: the generator creeps (zoom / slide ~1 %); this maps frame f back onto frame 0
+    a = cv2.resize(cv2.cvtColor(f0, cv2.COLOR_BGR2GRAY), None, fx=0.5, fy=0.5); b = cv2.resize(cv2.cvtColor(f, cv2.COLOR_BGR2GRAY), None, fx=0.5, fy=0.5)
+    k0, d0 = SIFT.detectAndCompute(a, None); k1, d1 = SIFT.detectAndCompute(b, None)
+    if d0 is None or d1 is None: return None
+    ms = [x for x, y in cv2.BFMatcher().knnMatch(d1, d0, k=2) if x.distance < 0.75 * y.distance]
+    if len(ms) < 30: return None
+    p1 = np.float32([k1[q.queryIdx].pt for q in ms]) * 2; p0 = np.float32([k0[q.trainIdx].pt for q in ms]) * 2
+    D2, _ = cv2.estimateAffinePartial2D(p1, p0, ransacReprojThreshold=3)
+    return D2
 cuts = meta["cuts"]
 for i, pt in enumerate(meta["parts"]):
     c = os.path.join(cdir, "%s_%s_clip%d.mp4" % (place, room, i + 1))
@@ -45,19 +56,25 @@ for i, pt in enumerate(meta["parts"]):
     if errp <= err: M, err = plain, errp
     print("clip %d: %dx%d -> %dx%d, fit error %.1f (%d features)" % (i + 1, fr.shape[1], fr.shape[0], gw, GH, err, int(inl.sum()) if inl is not None else 0))
     caps.append(cap); warps.append((M, gw)); bounds.append(gx0)
+    first.append(fr)
 N = int(min(c.get(cv2.CAP_PROP_FRAME_COUNT) for c in caps)); fps = caps[0].get(cv2.CAP_PROP_FPS) or 24.0
 nf = int(round(FADE * fps))
-out = os.path.join(ROOT, "assets/rooms/loc", key + ("." + take if take else "") + ".ogv")
+out = os.path.join(ROOT, (OUT_BASE if OUT_BASE else "assets/rooms/loc/" + key) + ("." + take if take else "") + ".ogv")
 enc = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", "%dx%d" % (GW, GH), "-r", str(fps), "-i", "-",
                         "-c:v", "libtheora", "-q:v", "4", "-pix_fmt", "yuv420p", out], stdin=subprocess.PIPE)
-head = []; snaps = {}
+head = []; snaps = {}; track = [None, None, None]
 for k in range(N):
     full = np.zeros((GH, GW, 3), np.uint8)
     for i, cap in enumerate(caps):   # hard seams: each clip owns exactly its own columns
         ok, fr = cap.read()
         if not ok: break
         M, gw = warps[i]
-        full[:, (np.arange(gw) + bounds[i]) % GW] = cv2.warpAffine(fr, M, (gw, GH), flags=cv2.INTER_AREA, borderMode=cv2.BORDER_REPLICATE)
+        if k % 6 == 0:
+            d2 = drift(first[i], fr)
+            if d2 is not None: track[i] = d2
+        T = np.vstack([track[i], [0, 0, 1]]) if track[i] is not None else np.eye(3)
+        MM = (np.vstack([M, [0, 0, 1]]) @ T)[:2]
+        full[:, (np.arange(gw) + bounds[i]) % GW] = cv2.warpAffine(fr, MM, (gw, GH), flags=cv2.INTER_AREA, borderMode=cv2.BORDER_REPLICATE)
     if k in (0, N // 2, N - 1): snaps[k] = full.copy()
     if k < nf: head.append(full); continue
     if k >= N - nf:   # loop: fade IN TIME into the first second (not across the picture)
@@ -74,7 +91,7 @@ for i, pt in enumerate(meta["parts"]):
     thirds[t] = i
 for t in (range(3) if not take else []):
     a = os.path.join(cdir, "%s_%s_clip%d.mp4" % (place, room, thirds[t] + 1))
-    o = os.path.join(ROOT, "assets/rooms/loc", "%s.a%d.ogg" % (key, t + 1))
+    o = os.path.join(ROOT, "%s.a%d.ogg" % (OUT_BASE if OUT_BASE else "assets/rooms/loc/" + key, t + 1))
     af = "[0:a]atrim=%.3f:%.3f,asetpts=PTS-STARTPTS[bb];[1:a]atrim=0:%.3f,asetpts=PTS-STARTPTS[hh];[bb][hh]acrossfade=d=%.3f[o]" % (FADE, T + FADE, FADE, FADE)
     r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", a, "-i", a, "-filter_complex", af, "-map", "[o]", "-ac", "1", "-ar", "32000", "-c:a", "libvorbis", "-q:a", "3", o])
     if r.returncode: print("no sound for third", t + 1)

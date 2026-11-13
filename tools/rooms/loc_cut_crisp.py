@@ -12,6 +12,7 @@ sy, place, room, d, cs = sys.argv[1:6]
 cuts = sorted(int(v) for v in cs.split(","))
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(os.path.dirname(HERE))
 src = "assets/rooms/loc/%s_%s_%s.jpg" % (sy, place.lower(), room.lower())
+if len(sys.argv) > 6: src = sys.argv[6]   # v13.103: any 360 strip (e.g. assets/rooms/unity/private_quarters.jpg)
 im = cv2.imread(os.path.join(ROOT, src)); H, W = im.shape[:2]
 wrap = np.concatenate([im, im], axis=1)
 sr = cv2.dnn_superres.DnnSuperResImpl_create(); sr.readModel("/tmp/srm/FSRCNN_x4.pb"); sr.setModel("fsrcnn", 4)
