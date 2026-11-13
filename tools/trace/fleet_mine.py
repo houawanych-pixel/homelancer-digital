@@ -9,11 +9,11 @@ TR = os.path.dirname(os.path.abspath(__file__))
 DONOR = {"capital": "imperium_capital", "cruiser": "imperium_cruiser", "destroyer": "imperium_destroyer", "resupply": "imperium_resupply",
          "trooptransport": "imperium_trooptransport", "frigate": "elyza_frigate", "escort": "unity_escort", "scout": "unity_scout"}
 # upper / lower deck settings by class (as on the donor); escort and scout are one deck (class rules)
-# owner: "keep in mind the size of the ship gets bigger": the decks above / below grow with the class
-# capital (full) > cruiser (full, short aft) > resupply / troop transport (aft machinery row left out) > destroyer
-# (narrow) > frigate (narrow, short, ONE extra deck) > escort / scout (main deck only)
-DECKS = {"capital": {}, "cruiser": {"max_y": 1040}, "resupply": {"max_y": 960}, "trooptransport": {"max_y": 960},
-         "destroyer": {"narrow": True}, "frigate": {"narrow": True, "max_y": 900, "decks": ("upper",)}}
+# owner (Nov 13): the ship gets bigger with the class, in the game's order: scout < escort < frigate (1 extra deck) <
+# resupply < troop transport (main deck only) < destroyer (narrow, 2 extra) < cruiser (3 extra) < capital (4 extra)
+DECKS = {"capital": {"decks": ("upper2", "upper", "lower", "lower2")}, "cruiser": {"max_y": 1040, "decks": ("upper", "lower", "lower2")},
+         "destroyer": {"narrow": True}, "frigate": {"narrow": True, "max_y": 900, "decks": ("upper",)},
+         "trooptransport": {"decks": ()}, "resupply": {"decks": ()}}
 EXTRA = {"elyza_trooptransport": {"drop": ("Magazine P",)}, "orion_cruiser": {"drop": ("Magazine P",)}}   # (frame names: their twins go too)
 SHIPS = ["orion_" + c for c in DONOR] + ["liberator_" + c for c in DONOR] + \
         ["imperium_frigate", "imperium_escort", "imperium_scout", "elyza_trooptransport", "elyza_escort", "elyza_scout"]

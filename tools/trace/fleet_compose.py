@@ -239,82 +239,117 @@ def _prune(D, drop, keep_x=None, max_y=None):
     D.HATCH = [h for h in D.HATCH if walk.contains(Point(h[0]))]
     return gone
 
-def compose(sid, here, src, ax, shaft, cls="capital", names=None, titles=None, dy_extra=0.0, narrow=False, max_y=None, coverage=None, drop=(), decks=("upper", "lower")):
-    """narrow: drop the outer columns (a destroyer / frigate hull); max_y: drop everything below this FRAME y (a short hull)"""
-    nm = dict(CLASS_NAMES.get(cls, {})); nm.update(names or {})
-    dx = ax - FX; dy = shaft[1] - FLIFT[1] + dy_extra
-    U, SU = _upper(); L, SL, WH = _lower()
-    if drop:
-        for D in (U, L): _prune(D, lambda k, c: k in drop)
-    if narrow or max_y:
-        kx = (395, 2 * FX - 395) if narrow else None
-        dropf = lambda k, c: (narrow and (c.x < 400 or c.x > 2 * FX - 400)) or (max_y and c.y > max_y)
-        for D in (U, L):
-            g = _prune(D, dropf, kx, (max_y + 40) if max_y else None)
-            print("  frame rooms left out:", sorted(g))
-    for D in (U, L):
-        _move(D, dx, dy); _reseat_lift(D, ax, shaft, dx, dy)
-    SU = _ren(U, nm, SU); SL = _ren(L, nm, SL)
-    n = lambda k: nm.get(k, k)
-    cut_any = [bool(max_y)]
-    # rooms that poke out of a narrower hull: trimmed to the hull (a straight cut, mirrored to the twin)
-    hp = decklib.hull(src, ax).buffer(-decklib.T - 2, join_style=2)
-    for D in (U, L):
-        stb = set(D.TW.values()); small = set(); trimmed = []
-        for k in list(D.R):
-            if k in stb or k == "Lift": continue
-            g = D.R[k]
-            if hp.contains(g): continue
-            x0, y0, x1, y1 = g.bounds
-            c = g.centroid; outer = "w" if c.x < ax - 1 else ("e" if c.x > ax + 1 else None)
+# second decks (the outer decks of a big ship): the same frame, narrower and shorter, as a crew-life deck above and a
+# reserve / engineering deck below (owner: "the size of the ship gets bigger" with the class)
+UPPER2_NAMES = {"Observation Dome": "Crew Commons", "Flag Briefing": "Classroom", "Holo Chart Room": "Library",
+                "Security Office": "Duty Office", "Weapons Locker": "Gear Store", "Admiral's Quarters": "Senior Quarters A",
+                "Captain's Quarters": "Senior Quarters B", "War Room": "Crew Mess", "Fleet Ops": "Rec Room",
+                "Flag Holo Room": "Holo Theatre", "Comms Center": "Gym", "Officers' Mess": "Canteen", "Wardroom": "Sick Bay",
+                "Lounge P": "Crew Lounge P", "Lounge S": "Crew Lounge S", "Cabins A": "Bunks A", "Cabins B": "Bunks B",
+                "Galley": "Pantry", "Ready Room": "Laundry", "Gunnery Control": "Sensor Room"}
+LOWER2_NAMES = {"Life Support": "Air Plant", "Water Recycling": "Water Plant", "Magazine P": "Reserve Magazine P",
+                "Magazine S": "Reserve Magazine S", "Cargo Hold A": "Deep Hold A", "Cargo Hold B": "Deep Hold B",
+                "Shield Gen P": "Aux Shield P", "Shield Gen S": "Aux Shield S", "Machine Shop": "Fabricator",
+                "Fuel Store": "Reserve Fuel", "Spare Parts": "Parts Store", "Med Store": "Med Reserve",
+                "Hangar Workshop": "Drone Bay", "Vehicle Store": "Drone Store", "Coolant Pumps": "Coolant Plant",
+                "Escape Pods": "Lifeboats", "Battery P": "Capacitor P", "Battery S": "Capacitor S", "Pump Room": "Ballast Room",
+                "Fuel Pumps": "Transfer Pumps", "Brig": "Store Aisle", "Detention": "Stores Office"}
+LOWER2_NAMES.update({"Cell %d" % i: "Store %d" % i for i in range(1, 13)})
+DECK_SPEC = {   # name: (level, frame, title)
+    "upper2": (2, "U", "UPPER DECK 2 - CREW"), "upper": (1, "U", None),
+    "lower": (-1, "L", None), "lower2": (-2, "L", "LOWER DECK 2 - RESERVE")}
+
+def _trim_to_hull(D, hp, ax):
+    """rooms that poke out of a narrower hull: trimmed to the hull (a straight cut, mirrored to the twin)"""
+    stb = set(D.TW.values()); small = set(); trimmed = []
+    for k in list(D.R):
+        if k in stb or k == "Lift": continue
+        g = D.R[k]
+        if hp.contains(g): continue
+        x0, y0, x1, y1 = g.bounds
+        c = g.centroid; outer = "w" if c.x < ax - 1 else ("e" if c.x > ax + 1 else None)
+        q = g
+        for cut in range(2, 90, 2):     # shave strips off the OUTER side (away from the spine), then the nose side
+            cx_ = min(cut, 60); cy_ = max(0, cut - 60) * 2
             q = g
-            for cut in range(2, 90, 2):     # shave strips off the OUTER side (away from the spine), then the nose side
-                cx_ = min(cut, 60); cy_ = max(0, cut - 60) * 2
-                q = g
-                if outer == "w": q = q.intersection(box(x0 + cx_, y0 - 1, x1 + 1, y1 + 1))
-                if outer == "e": q = q.intersection(box(x0 - 1, y0 - 1, x1 - cx_, y1 + 1))
-                if outer is None or cy_: q = q.intersection(box(x0 - 1, y0 + (cy_ or cut), x1 + 1, y1 + 1))
-                if hp.contains(q): break
-            if q.is_empty or q.area < 0.45 * g.area:
-                small.add(k); print("  too little left inside the hull, left out:", k); continue
-            q = decklib.dedupe(max(getattr(q, "geoms", [q]), key=lambda r: r.area))
-            q2 = decklib.clean(q, nub=6.0)
-            q2 = max(getattr(q2, "geoms", [q2]), key=lambda r: r.area)
-            if hp.contains(q2) and q2.area > 0.9 * q.area: q = decklib.dedupe(q2)
-            D.R[k] = q; trimmed.append(k)
-            D.F[k] = [f for f in D.F.get(k, []) if q.buffer(-3.0).contains(f)]
-            if k in D.TW: D.F[D.TW[k]] = [D.M(f) for f in D.F[k]]
-            D.NICHE = [n for n in D.NICHE if n[0] not in (k, D.TW.get(k)) or (D.R[n[0]] if n[0] == k else D.M(q)).buffer(-1).contains(box(n[1][0] - 8, n[1][1] - 8, n[1][0] + 8, n[1][1] + 8))]
-            if k in D.TW: D.R[D.TW[k]] = D.M(q)
-            print("  trimmed to the hull:", k, "(%.0f%% kept)" % (100 * q.area / g.area))
-        if small: _prune(D, lambda k, c, sm=frozenset(small): k in sm)
-        if small or trimmed or max_y: cut_any[0] = True
+            if outer == "w": q = q.intersection(box(x0 + cx_, y0 - 1, x1 + 1, y1 + 1))
+            if outer == "e": q = q.intersection(box(x0 - 1, y0 - 1, x1 - cx_, y1 + 1))
+            if outer is None or cy_: q = q.intersection(box(x0 - 1, y0 + (cy_ or cut), x1 + 1, y1 + 1))
+            if hp.contains(q): break
+        if q.is_empty or q.area < 0.45 * g.area:
+            small.add(k); print("  too little left inside the hull, left out:", k); continue
+        q = decklib.dedupe(max(getattr(q, "geoms", [q]), key=lambda r: r.area))
+        q2 = decklib.clean(q, nub=6.0)
+        q2 = max(getattr(q2, "geoms", [q2]), key=lambda r: r.area)
+        if hp.contains(q2) and q2.area > 0.9 * q.area: q = decklib.dedupe(q2)
+        D.R[k] = q; trimmed.append(k)
+        D.F[k] = [f for f in D.F.get(k, []) if q.buffer(-3.0).contains(f)]
+        if k in D.TW: D.F[D.TW[k]] = [D.M(f) for f in D.F[k]]
+        D.NICHE = [n for n in D.NICHE if n[0] not in (k, D.TW.get(k)) or (D.R[n[0]] if n[0] == k else D.M(q)).buffer(-1).contains(box(n[1][0] - 8, n[1][1] - 8, n[1][0] + 8, n[1][1] + 8))]
+        if k in D.TW: D.R[D.TW[k]] = D.M(q)
+        print("  trimmed to the hull:", k, "(%.0f%% kept)" % (100 * q.area / g.area))
+    if small: _prune(D, lambda k, c, sm=frozenset(small): k in sm)
+    return bool(small or trimmed)
+
+def compose(sid, here, src, ax, shaft, cls="capital", names=None, titles=None, dy_extra=0.0, narrow=False, max_y=None,
+            coverage=None, drop=(), decks=("upper", "lower"), outer=None):
+    """narrow: drop the outer columns (a destroyer / frigate hull); max_y: drop everything below this FRAME y (a short hull);
+    decks: which extra decks (upper2 / upper / lower / lower2); outer: {"upper2" | "lower2": (narrow, max_y)}"""
+    nm0 = dict(CLASS_NAMES.get(cls, {})); nm0.update(names or {})
+    dx = ax - FX; dy = shaft[1] - FLIFT[1] + dy_extra
+    tu, tl = titles or ("UPPER DECK - COMMAND", "LOWER DECK - HOLD")
+    hp = decklib.hull(src, ax).buffer(-decklib.T - 2, join_style=2)
     P = json.load(open(os.path.join(here, "plan.json")))
-    LIFT = U.R["Lift"]
     lifts_main = [k for k in P["rooms"] if "ift" in k]
     if not lifts_main: print("  NOTE: the main deck has no lift: a NEW shaft at %s (the main deck needs a lift there too)" % (shaft,))
-    lift_ok = [] if not lifts_main or any(_shape(g).buffer(2).contains(LIFT) for k, g in P["rooms"].items() if "ift" in k) else ["the shaft is not a main deck lift"]
-    CH = dict(service=SERVICE, lift_ok=lift_ok, outline_style="ring", coverage=coverage or ((0.40, 0.65) if narrow else ((0.50, 0.65) if cut_any[0] else (0.55, 0.65))))
-    if cut_any[0] and not narrow: print("  NOTE: rooms trimmed / left out for this hull: rooms / deck target 50-65%")
-    if narrow: print("  NOTE: narrow hull (outer columns left out): rooms / deck target 40-65%")
-    tu, tl = titles or ("UPPER DECK - COMMAND", "LOWER DECK - HOLD")
-    bad = decklib.run(sid, here, src, ax, "upper", 1, U.R, U.H, U.D, [tuple(shaft)], title=tu, features=U.F, short=SU,
-                      whole={"Observation Dome", "Lift"} and {n("Observation Dome"), "Lift"}, niches=U.NICHE, hatches=U.HATCH, source=U.FROM,
-                      fits=U.FIT, round_rooms={n(k) for k in UP_ROUND}, **CH)
-    if "lower" not in decks:   # (a small class: one extra deck only)
-        for f in ("deck_lower.json", "deck_lower.png", "deck_lower_on_map.jpg"):
+    for f in os.listdir(here):     # decks no longer built for this class go
+        if f.startswith("deck_") and f.split(".")[0].split("_")[1] not in decks: os.remove(os.path.join(here, f))
+    bad = []; built = []
+    for dk in decks:
+        level, frame, title = DECK_SPEC[dk]
+        title = title or (tu if dk == "upper" else tl)
+        print("== deck", dk)
+        D, S, WH = (_upper() + (None,)) if frame == "U" else _lower()
+        nm = dict(nm0)
+        if dk == "upper2": nm = dict(UPPER2_NAMES)
+        if dk == "lower2": nm = dict(LOWER2_NAMES)
+        if dk in ("upper2", "lower2"): S = {k: v for k, v in S.items() if k not in nm}   # (the frame's short labels name the old rooms)
+        if drop: _prune(D, lambda k, c: k in drop)
+        nw, my = ((outer or {}).get(dk) or {"upper2": (True, 960), "lower2": (False, 1100)}[dk]) if dk in ("upper2", "lower2") else (narrow, max_y)
+        if nw or my:
+            kx = (395, 2 * FX - 395) if nw else None
+            dropf = lambda k, c: (nw and (c.x < 400 or c.x > 2 * FX - 400)) or (my and c.y > my)
+            print("  frame rooms left out:", sorted(_prune(D, dropf, kx, (my + 40) if my else None)))
+        _move(D, dx, dy); _reseat_lift(D, ax, shaft, dx, dy)
+        S = _ren(D, nm, S)
+        n = lambda k: nm.get(k, k)
+        cut = _trim_to_hull(D, hp, ax) or bool(my)
+        LIFT = D.R["Lift"]
+        lift_ok = [] if not lifts_main or any(_shape(g).buffer(2).contains(LIFT) for k, g in P["rooms"].items() if "ift" in k) else ["the shaft is not a main deck lift"]
+        cov = coverage or ((0.40, 0.65) if (nw or dk in ("upper2", "lower2")) else ((0.50, 0.65) if cut else (0.55, 0.65)))
+        CH = dict(service=SERVICE, lift_ok=lift_ok, outline_style="ring", coverage=cov)
+        if frame == "U":
+            bad += decklib.run(sid, here, src, ax, dk, level, D.R, D.H, D.D, [tuple(shaft)], title=title, features=D.F, short=S,
+                               whole={n("Observation Dome"), "Lift"}, niches=D.NICHE, hatches=D.HATCH, source=D.FROM,
+                               fits=D.FIT, round_rooms={n(k) for k in UP_ROUND}, **CH)
+        else:
+            bad += decklib.run(sid, here, src, ax, dk, level, D.R, D.H, D.D, [tuple(shaft)], title=title, features=D.F, short=S,
+                               whole={n(k) for k in WH}, niches=D.NICHE, hatches=D.HATCH, source=D.FROM, fits=D.FIT,
+                               anchor={n("Escape Pods"): (527 + dx, 1146 + dy)}, round_rooms={n(k) for k in LO_ROUND}, **CH)
+        built.append(dk)
+    if not built:      # main deck only (a small class)
+        for f in ("decks_plan.jpg", "decks_on_map.jpg", "decks_sources.jpg"):
             if os.path.exists(os.path.join(here, f)): os.remove(os.path.join(here, f))
-        import cv2
-        cv2.imwrite(os.path.join(here, "decks_plan.jpg"), cv2.imread(os.path.join(here, "deck_upper.png")))
-        cv2.imwrite(os.path.join(here, "decks_on_map.jpg"), cv2.imread(os.path.join(here, "deck_upper_on_map.jpg")))
-        decklib.source_sheet([os.path.join(here, "deck_upper.json")], os.path.join(here, "decks_sources.jpg"))
-        print("TOTAL FAILURES (upper deck only):", len(bad))
-        return bad
-    bad += decklib.run(sid, here, src, ax, "lower", -1, L.R, L.H, L.D, [tuple(shaft)], title=tl, features=L.F, short=SL,
-                       whole={n(k) for k in WH}, niches=L.NICHE, hatches=L.HATCH, source=L.FROM, fits=L.FIT,
-                       anchor={n("Escape Pods"): (527 + dx, 1146 + dy)}, round_rooms={n(k) for k in LO_ROUND}, **CH)
-    decklib.both(os.path.join(here, "deck_upper.png"), os.path.join(here, "deck_lower.png"), os.path.join(here, "decks_plan.jpg"))
-    decklib.both(os.path.join(here, "deck_upper_on_map.jpg"), os.path.join(here, "deck_lower_on_map.jpg"), os.path.join(here, "decks_on_map.jpg"))
-    decklib.source_sheet([os.path.join(here, "deck_upper.json"), os.path.join(here, "deck_lower.json")], os.path.join(here, "decks_sources.jpg"))
-    print("TOTAL FAILURES (both decks):", len(bad))
+        print("TOTAL FAILURES (main deck only): 0"); return []
+    import cv2, numpy as np
+    def stack(kind, out):
+        ims = [cv2.imread(os.path.join(here, "deck_%s%s" % (d, kind))) for d in built]
+        if len(ims) == 1: cv2.imwrite(os.path.join(here, out), ims[0]); return
+        if len(ims) == 2: decklib.both(*[os.path.join(here, "deck_%s%s" % (d, kind)) for d in built], os.path.join(here, out)); return
+        h = max(i.shape[0] for i in ims)
+        ims = [cv2.copyMakeBorder(i, 0, h - i.shape[0], 0, 0, cv2.BORDER_CONSTANT) for i in ims]
+        cv2.imwrite(os.path.join(here, out), np.hstack(ims))
+    stack(".png", "decks_plan.jpg"); stack("_on_map.jpg", "decks_on_map.jpg")
+    decklib.source_sheet([os.path.join(here, "deck_%s.json" % d) for d in built], os.path.join(here, "decks_sources.jpg"))
+    print("TOTAL FAILURES (%s):" % ", ".join(built), len(bad))
     return bad

@@ -6,5 +6,5 @@ import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 from fleet_compose import compose
 HERE = os.path.dirname(os.path.abspath(__file__))
-bad = compose("elyza_cruiser", HERE, os.path.join(HERE, "..", "source.jpg"), 657.0, (617, 520), "cruiser", max_y=960)
+bad = compose("elyza_cruiser", HERE, os.path.join(HERE, "..", "source.jpg"), 657.0, (617, 520), "cruiser", max_y=960, decks=("upper", "lower", "lower2"))
 sys.exit(1 if bad else 0)
