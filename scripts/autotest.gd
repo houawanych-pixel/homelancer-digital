@@ -5262,7 +5262,9 @@ func _run() -> void:
 		GS.missiles = 0
 		hb.open(Data.SYSTEMS["solara"]["station"])
 		await _frames(3)
-		var refilled: bool = GS.missiles == GS.max_missiles()
+		hb.show_screen("supplies")
+		await _frames(3)
+		var refilled: bool = hb.find_child("RestockAll", true, false) != null and hb.find_child("RepairAll", true, false) != null   # v13.98: REPAIR / RESTOCK in the supplies room
 		hb.eq_tab = "hangar"
 		hb.eq_view = "ship"
 		hb.bay_zoom_on = false
@@ -5313,7 +5315,7 @@ func _run() -> void:
 		hb.show_screen("equipment")
 		await _wait(1.6)
 		var back_out: bool = hb.bay_zoom_k < 1.05
-		_check("v13.97 (owner: Armored Core hangar): no REPAIR & AMMO tab (docking refills %s), no dark room, a picked slot zooms in (%.2f), the picked weapon shows on it (preview %s) with NOW / PICKED stats, and it pulls back out" % [refilled, hb.bay_zoom_k, has_gun],
+		_check("v13.97 (owner: Armored Core hangar): no REPAIR & AMMO tab (REPAIR / RESTOCK in SUPPLIES %s), no dark room, a picked slot zooms in (%.2f), the picked weapon shows on it (preview %s) with NOW / PICKED stats, and it pulls back out" % [refilled, hb.bay_zoom_k, has_gun],
 			refilled and not ("Tab_ammo" in tabs) and no_room and zoomed and has_gun and cmp and back_out, "tabs %s room %s zoom %s gun %s cmp %s back %s" % [tabs, not no_room, zoomed, has_gun, cmp, back_out])
 		_finish_group()
 		return

@@ -570,13 +570,6 @@ func open(station_or_planet: Dictionary) -> void:
 	typing = false
 	lockdown = lockdown_due()
 	if kind == "station" and Packs.PACKS.has("alarm_" + lockdown_faction()): Packs.request("alarm_" + lockdown_faction())   # v13.13: ready for the ALARM
-	if not lockdown:   # v13.97 (owner: "no need for ammo"): docking refills every rack and mends the hull, free
-		GS.repair_all()
-		GS.missiles = GS.max_missiles()
-		GS.heavy_missiles = GS.max_heavy()
-		GS.mines = GS.max_mines()
-		GS.nukes = GS.max_nukes()
-		GS.changed.emit()
 	show_screen("hub")
 	if lockdown:
 		_start_lockdown()
@@ -587,7 +580,7 @@ func open(station_or_planet: Dictionary) -> void:
 		open_call(side_for(str(p.get("faction", ""))), str(p["name"]), str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])) + " · " + ("leader" if folk[0]["role"] == "leader" else "coordinator"),
 			("%s. Welcome to %s." % [str(p["name"]), base["name"]]) if folk[0]["role"] == "leader" else ("%s here. Welcome to %s. I have work for you on the Mission Board." % [p["name"], base["name"]]), str(p["portrait_clean"]), Data.CALL_FOLD_AFTER,
 			{"id": str(p["id"]), "voice_id": str(p.get("voice_id", p["id"])), "voice": float(p.get("voice", 1.0)), "female": str(p.get("sex", "")) == "female"})
-	status.text = ("Docked at %s. Hull, shields and every rack restored." if not lockdown else "Docked at %s. Shields and energy restored.") % base["name"]
+	status.text = "Docked at %s. Shields and energy restored. REPAIR and RESTOCK are in SUPPLIES." % base["name"]   # v13.98 (owner: "we will need repairs and ammo restock"): in the supplies room
 	if GS.ore_worth(str(base["name"])) > 0: status.text = "Docked at %s. You carry gold / diamond worth %d cr here: sell it under YOUR SHIP." % [base["name"], GS.ore_worth(str(base["name"]))]
 
 ## v9.2 (owner): the lockdown. A station whose people are HOSTILE to you (or worse) sounds the alarm when you dock:
@@ -2569,7 +2562,7 @@ func _equipment_page() -> void:
 	back.custom_minimum_size = Vector2(0, 42)
 	back.pressed.connect(func(): show_screen("hub"))
 	menu.add_child(back)
-	for tb in [["hangar", "HANGAR"], ["weapon", "WEAPONS"], ["module", "EQUIPMENT"]]:   # v13.97 (owner: "no need for ammo"): racks refill and the hull mends when you dock
+	for tb in [["hangar", "HANGAR"], ["weapon", "WEAPONS"], ["module", "EQUIPMENT"]]:   # v13.97 (owner: "no need for ammo" here): REPAIR / RESTOCK live in the SUPPLIES room
 		var b := Button.new()
 		b.name = "Tab_" + tb[0]
 		b.text = tb[1]
