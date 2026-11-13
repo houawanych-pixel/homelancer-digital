@@ -79,7 +79,7 @@ def build(sid, here, ax, lift, s=1.0, names=None, move=None, size=None, drop=(),
           ("Security Office", "fury_08", 450, 425, 5.6, 4.8, {}, "fury_08 secondary quarters (angled)", "Weapons Locker"),
           ("Captain's Quarters", "fury_04", 440, 540, 9.2, 6.4, {"flip": True}, "fury_04 captain's quarters", "First Officer"),
           ("Targeting", "kasparov_a_09", 446, 612, 9.7, 5.2, {}, "kasparov_a_09 central hall (chamfered)", "Fleet Ops"),
-          ("Lounge P", "fury_06", 421, 700, 13.0, 4.5, {}, "fury_06 lounge + holoterminal", "Lounge S"),
+          ("Lounge P", "fury_06", 421, 700, 13.0, 5.0, {}, "fury_06 lounge + holoterminal", "Lounge S"),
           ("Cabins A", "kasparov_b_03", 419, 771, 10.9, 6.5, {}, "kasparov_b_03 passenger quarters", "Cabins B"),
           ("Galley", "tianjin_01", 436, 862, 6.9, 7.3, {"flip": True}, "tianjin_01 galley (quarter round)", "Wardroom")]
     for k, rid, x, y, w, h, kw, why, tw in UP:
