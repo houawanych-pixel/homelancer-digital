@@ -239,7 +239,7 @@ def _prune(D, drop, keep_x=None, max_y=None):
     D.HATCH = [h for h in D.HATCH if walk.contains(Point(h[0]))]
     return gone
 
-def compose(sid, here, src, ax, shaft, cls="capital", names=None, titles=None, dy_extra=0.0, narrow=False, max_y=None, coverage=None, drop=()):
+def compose(sid, here, src, ax, shaft, cls="capital", names=None, titles=None, dy_extra=0.0, narrow=False, max_y=None, coverage=None, drop=(), decks=("upper", "lower")):
     """narrow: drop the outer columns (a destroyer / frigate hull); max_y: drop everything below this FRAME y (a short hull)"""
     nm = dict(CLASS_NAMES.get(cls, {})); nm.update(names or {})
     dx = ax - FX; dy = shaft[1] - FLIFT[1] + dy_extra
@@ -301,6 +301,15 @@ def compose(sid, here, src, ax, shaft, cls="capital", names=None, titles=None, d
     bad = decklib.run(sid, here, src, ax, "upper", 1, U.R, U.H, U.D, [tuple(shaft)], title=tu, features=U.F, short=SU,
                       whole={"Observation Dome", "Lift"} and {n("Observation Dome"), "Lift"}, niches=U.NICHE, hatches=U.HATCH, source=U.FROM,
                       fits=U.FIT, round_rooms={n(k) for k in UP_ROUND}, **CH)
+    if "lower" not in decks:   # (a small class: one extra deck only)
+        for f in ("deck_lower.json", "deck_lower.png", "deck_lower_on_map.jpg"):
+            if os.path.exists(os.path.join(here, f)): os.remove(os.path.join(here, f))
+        import cv2
+        cv2.imwrite(os.path.join(here, "decks_plan.jpg"), cv2.imread(os.path.join(here, "deck_upper.png")))
+        cv2.imwrite(os.path.join(here, "decks_on_map.jpg"), cv2.imread(os.path.join(here, "deck_upper_on_map.jpg")))
+        decklib.source_sheet([os.path.join(here, "deck_upper.json")], os.path.join(here, "decks_sources.jpg"))
+        print("TOTAL FAILURES (upper deck only):", len(bad))
+        return bad
     bad += decklib.run(sid, here, src, ax, "lower", -1, L.R, L.H, L.D, [tuple(shaft)], title=tl, features=L.F, short=SL,
                        whole={n(k) for k in WH}, niches=L.NICHE, hatches=L.HATCH, source=L.FROM, fits=L.FIT,
                        anchor={n("Escape Pods"): (527 + dx, 1146 + dy)}, round_rooms={n(k) for k in LO_ROUND}, **CH)
