@@ -1628,7 +1628,7 @@ func _board_update(dt: float) -> void:
 		if player.global_position.y < floor_y:
 			player.global_position.y = floor_y
 			if vel.y < 0.0: vel.y = 0.0
-		var roof := Boarding.roof_at(player.global_position) - 8.0
+		var roof := maxf(Boarding.roof_at(player.global_position) - 8.0, floor_y)   # (v13.128: a low pilot room never pushes you under its floor)
 		if player.global_position.y > roof:
 			player.global_position.y = roof
 			if vel.y > 0.0: vel.y = 0.0
@@ -1636,7 +1636,7 @@ func _board_update(dt: float) -> void:
 	# a walking pace through the decks, and anything that ends up outside every room is put back in the nearest one
 	var hv := Vector3(vel.x, 0, vel.z)
 	var hv_cap: float = Data.BOARD_MAX_SPEED
-	if escape_pilot and sprint and speed_k >= 1.0: hv_cap = Data.FOOT_SPEED * Data.SPEED_BOOST_K * Data.ESCAPE_PILOT_H / Data.FOOT_H   # (the speed boost)
+	if escape_pilot and sprint and speed_k >= 1.0: hv_cap = Data.FOOT_SPEED * Data.SPEED_BOOST_K * esc_h() / Data.FOOT_H   # (the speed boost)
 	if hv.length() > hv_cap:
 		hv = hv.normalized() * hv_cap
 		vel = Vector3(hv.x, vel.y, hv.z)
@@ -1646,6 +1646,7 @@ func _board_update(dt: float) -> void:
 		player.global_position = Vector3(q.x, player.global_position.y, q.z)
 		vel = Vector3(0, vel.y, 0)
 	for bx: Array in surf_boxes: _push_out_box(bx[0], bx[1], "ground")
+	_fleet_mech_bounds(dt)
 	if life != null:
 		var pq := life.push_out(player.global_position, 5.0)
 		if Vector2(pq.x - player.global_position.x, pq.z - player.global_position.z).length() > 0.01:
@@ -1892,7 +1893,7 @@ func _fleet_setup(root: Node3D, info: Dictionary, fac: String) -> void:
 			bm.size = Vector3(4.0, 2.6, 0.6)
 			cm.mesh = bm
 			cm.material_override = _glow_mat(ShipInterior.KEY_COL[int(c["key"])])
-			cm.position = Vector3(0, Data.GUARD_H - Data.WALKER_STAND + 3.0, 0)
+			cm.position = Vector3(0, guard_h() - Data.WALKER_STAND + 3.0, 0)
 			cm.name = "Card"
 			(k["node"] as Node3D).add_child(cm)
 			(k["node"] as Node3D).name = "%s Guard · %s card" % [fac, ShipInterior.KEY_NAME[int(c["key"])]]
@@ -1935,7 +1936,7 @@ func _fleet_setup(root: Node3D, info: Dictionary, fac: String) -> void:
 				if ResourceLoader.exists(GUARD_GLB):
 					var inst: Node3D = (load(GUARD_GLB) as PackedScene).instantiate()
 					var bb := PilotRig._aabb(inst)
-					var sk := Data.GUARD_H / maxf(0.01, bb.size.y)
+					var sk := guard_h() / maxf(0.01, bb.size.y)
 					inst.scale = Vector3.ONE * sk
 					inst.position = Vector3(-bb.get_center().x * sk, -bb.position.y * sk, -bb.get_center().z * sk)
 					hn.add_child(inst)
@@ -1945,7 +1946,7 @@ func _fleet_setup(root: Node3D, info: Dictionary, fac: String) -> void:
 				lb.font_size = 64
 				lb.pixel_size = 0.06
 				lb.modulate = Color(0.5, 1.0, 0.6)
-				lb.position.y = Data.GUARD_H + 4.0
+				lb.position.y = guard_h() + 4.0
 				hn.add_child(lb)
 				fl["hostage"] = hn
 		var bc := MeshInstance3D.new()   # a column of light on the next place to go (the target, then the way out)
@@ -2132,7 +2133,7 @@ func _soldierify(e: Dictionary, fac: String) -> void:
 	if not ResourceLoader.exists(path): return
 	var inst: Node3D = (load(path) as PackedScene).instantiate()
 	var bb := PilotRig._aabb(inst)
-	var k := Data.GUARD_H / maxf(0.01, bb.size.y)
+	var k := guard_h() / maxf(0.01, bb.size.y)
 	inst.scale = Vector3.ONE * k
 	inst.position = Vector3(-bb.get_center().x * k, -bb.position.y * k - Data.WALKER_STAND, -bb.get_center().z * k)
 	inst.rotation.y = PI / 2 if bb.size.z > bb.size.x * 1.3 else PI   # (the models face +Z: turned to look down -Z)
@@ -5157,7 +5158,7 @@ var speed_k := 0.0     # 0..1: how far the speed run has built up
 var _boost_glow: OmniLight3D
 func _foot_speed(dt: float) -> void:
 	var fh := Vector3(vel.x, 0, vel.z)
-	var scale_k := Data.ESCAPE_PILOT_H / Data.FOOT_H if escape_pilot else 1.0   # (the breakout pilot is drawn at mech size)
+	var scale_k := esc_h() / Data.FOOT_H if escape_pilot else 1.0   # (the breakout pilot is drawn at mech size)
 	var run_cap: float = Data.FOOT_SPEED
 	# v12.46 (owner: "the speed run has to charge before it starts running fast, with shadow runners behind you"):
 	# run with SPEED on and it CHARGES (a plain run, the glow building); full, it kicks in all at once: speed-booster pace,
@@ -5326,11 +5327,17 @@ func _update_ghosts(dt: float) -> void:
 var parked: Node3D
 var parked_form := ""
 func can_eject() -> bool:
+	if fleet_mech():
+		return controls and not escape_pilot and GS.form == "mech" and transform_t <= 0.0 and is_instance_valid(model) and not is_instance_valid(parked)
 	if not surface_mode or boarding or on_foot or sun_surface or not is_instance_valid(player) or not controls: return false
 	if transform_t > 0.0 or warp_active() or vel.length() > Data.EJECT_MAX_SPEED: return false
 	return altitude < Data.EJECT_MAX_ALT
 
 func near_parked() -> bool:
+	if fleet_mech():
+		if not escape_pilot or not is_instance_valid(parked): return false
+		var dm := player.global_position - parked.global_position
+		return Vector2(dm.x, dm.z).length() < Data.SHIP_ENTER_REACH and absf(dm.y) < 40.0
 	if on_foot and not is_instance_valid(parked): return true   # (its sector was unloaded: it comes to you)
 	if not on_foot: return false
 	var d := player.global_position - parked.global_position
@@ -5339,6 +5346,7 @@ func near_parked() -> bool:
 func eject() -> String:
 	if not can_eject(): return ""
 	if not PilotRig.ready(): return "loading"
+	if fleet_mech(): return _fleet_eject()
 	parked_form = GS.form
 	var keep_at := model.global_transform
 	model.get_parent().remove_child(model)
@@ -5361,6 +5369,7 @@ func eject() -> String:
 
 func enter_vehicle() -> bool:
 	if not near_parked(): return false
+	if fleet_mech(): return _fleet_enter()
 	var at := parked.global_transform if is_instance_valid(parked) else player.global_transform
 	if is_instance_valid(parked): parked.queue_free()
 	parked = null
@@ -5373,16 +5382,71 @@ func enter_vehicle() -> bool:
 	message.emit("Back in your %s." % ("mech" if GS.form == "mech" else "ship"))
 	return true
 
+func _fleet_eject() -> String:
+	parked_form = "mech"
+	var keep_at := model.global_transform
+	model.get_parent().remove_child(model)
+	add_child(model)
+	model.global_transform = keep_at
+	model.visible = true
+	model.name = "ParkedMech"
+	parked = model
+	model = null
+	escape_pilot = true
+	ground_mode = true
+	vel = Vector3.ZERO
+	set_player_model()
+	player.global_position += player.global_basis.x * Data.SHIP_EJECT_STEP
+	_update_camera(1.0, true)
+	message.emit("EJECTED. On foot you fit the low PILOT rooms (blue on the map). Walk back to the mech and ENTER.")
+	return "out"
+
+func _fleet_enter() -> bool:
+	var at := parked.global_transform
+	parked.queue_free()
+	parked = null
+	escape_pilot = false
+	GS.form = "mech"
+	player.global_position = at.origin
+	set_player_model()
+	vel = Vector3.ZERO
+	_mech_ok = player.global_position
+	_update_camera(1.0, true)
+	message.emit("Back in the mech.")
+	return true
+
+## The mech is kept out of the pilot rooms, halls and doors (it stops at the doorway).
+func _fleet_mech_bounds(dt: float) -> void:
+	_mech_said = maxf(0.0, _mech_said - dt)
+	if escape_pilot or not fleet_mech(): return
+	var k := Boarding.room_at(player.global_position, 4.0)
+	if k != "" and bool(Boarding.ROOMS[k].get("pilot", false)):
+		if _mech_ok != Vector3.ZERO: player.global_position = Vector3(_mech_ok.x, player.global_position.y, _mech_ok.z)
+		vel = Vector3(0, vel.y, 0)
+		if _mech_said <= 0.0:
+			_mech_said = 4.0
+			message.emit("Too low for the mech: a PILOT way. EJECT and go in on foot.")
+	else: _mech_ok = player.global_position
+
 var escape_pilot := false   # v12.38: in the station breakout you're the owner's pilot on foot, not a mech
+## v13.128 (owner: "I'd rather play in there as a mech ... little rooms where you have to be a person: eject out of
+## the mech to move around and open the door for the mech"): on a fleet ship you come aboard in the MECH; EJECT puts
+## the pilot (smaller, Data.SHIP_PILOT_H) beside it, the mech stays parked; ENTER near it climbs back in. The mech can't
+## go into the PILOT rooms, halls and doors (low ceilings, narrow doors: the deck json marks them).
+func esc_h() -> float: return Data.SHIP_PILOT_H if fleet_mech() else Data.ESCAPE_PILOT_H
+func guard_h() -> float: return Data.SHIP_PILOT_H if fleet_mech() else Data.GUARD_H
+func fleet_mech() -> bool: return Data.FLEET_MECH and boarding and Boarding.INFO.has("fleet")
+var _mech_ok := Vector3.ZERO      # the mech's last place outside the pilot areas
+var _mech_said := 0.0
 var pilot_rig: PilotRig
 func _player_mech_model() -> Node3D:
 	if (escape_pilot or on_foot) and PilotRig.ready():
 		pilot_rig = PilotRig.new()
 		var gl: Array = Loadout.pilot_glbs() if loadout_on else ["", ""]   # v12.76: your head on your suit (the bench's choice)
-		var pm := pilot_rig.build(Data.FOOT_H if on_foot else Data.ESCAPE_PILOT_H, 6.0, str(gl[0]), str(gl[1]), Loadout.pilot_head_yaw() if loadout_on else INF)
+		var pm := pilot_rig.build(Data.FOOT_H if on_foot else esc_h(), 6.0, str(gl[0]), str(gl[1]), Loadout.pilot_head_yaw() if loadout_on else INF)
 		var pw := str(Loadout.active_set(Loadout.current("pilot")).get("R_Hand", ""))
 		if loadout_on and pw != "":   # v12.70 (owner): on foot he holds the gun fitted on the PILOT bench, grip in his palm
-			var hgt: float = Data.FOOT_H if on_foot else Data.ESCAPE_PILOT_H
+			var hgt: float = Data.FOOT_H if on_foot else esc_h()
 			pilot_rig.hold(Loadout.weapon_mesh(pw, hgt * 0.9, "pilot"))
 		if loadout_on: PilotGear.apply(pm, Loadout.current("pilot"))   # v12.75: his gear on his bones (it moves with him)
 		return pm
@@ -9473,7 +9537,7 @@ func _throw_boomer(fwd: Vector3, targets: Array) -> void:
 	add_child(nd)
 	var core := MeshInstance3D.new()
 	var bm := BoxMesh.new()
-	var L := Data.SWORD_BLADE_LEN * (1.6 if GS.form != "mech" else 1.0) * (Data.ESCAPE_PILOT_H / 13.0)
+	var L := Data.SWORD_BLADE_LEN * (1.6 if GS.form != "mech" else 1.0) * (esc_h() / 13.0)
 	bm.size = Vector3(L, 0.6, 0.6)
 	core.mesh = bm
 	var m := StandardMaterial3D.new()
@@ -10068,7 +10132,7 @@ func _update_camera(dt: float, snap: bool) -> void:
 		return
 	if escape_pilot and is_instance_valid(player):   # v13.69 (owner: "my character more to the left and bigger, only upper body and head ... 75% of the screen"): close over his right shoulder
 		var eb := player.global_basis
-		var H := Data.ESCAPE_PILOT_H
+		var H := esc_h()
 		var want_e := eb * Vector3(Data.ESCAPE_CAM[0] * H, -6.0 + Data.ESCAPE_CAM[1] * H, Data.ESCAPE_CAM[2] * H)
 		var eoff: Vector3 = want_e if snap or _cam_off.length() > H * 4.0 else _cam_off.lerp(want_e, minf(1.0, dt * 10.0))
 		_cam_off = eoff
@@ -10968,7 +11032,7 @@ func prompt() -> String:
 		if not lc.is_empty() and player.global_position.distance_to(lc["pos"]) < dock_distance(dc): return "lane"
 		return "dock"
 	if gate_in_range(): return "jump"
-	if on_foot: return "enter" if near_parked() else ""   # v12.39
+	if on_foot or (fleet_mech() and escape_pilot and is_instance_valid(parked)): return "enter" if near_parked() else ""   # v12.39
 	if not board_candidate().is_empty() or not facility_candidate().is_empty(): return "board"   # v11.60 (owner); v11.96: ENTER a facility
 	if can_eject(): return "eject"
 	return "lane" if not lc.is_empty() else ""

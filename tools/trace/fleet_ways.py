@@ -96,6 +96,7 @@ def ways(sid):
                       "mech_doors": sum(d["type"] == "mech" for d in D), "pilot_doors": sum(d["type"] == "pilot" for d in D),
                       "locked": {KEY_NAME[k]: sum(d["key"] == k for d in D) for k in KEY_NAME}}}
     json.dump(out, open(os.path.join(here, "ways.json"), "w"), indent=1)
+    cv2.imwrite(os.path.join(here, "ways_mech_halls.png"), mech_hall.astype(np.uint8) * 255)   # (to_deck_json: which halls the mech may use)
     # the picture: the HoloDeck / token art, red mech ways, blue pilot ways, yellow lifts, doors by key
     pic = im.copy()
     over = pic.copy()

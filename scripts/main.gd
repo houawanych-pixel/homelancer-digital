@@ -2362,6 +2362,9 @@ func board_fleet_ship(id: String, kind: String, job := {}) -> void:
 	Packs.request(gpk)
 	await Packs.wait(gpk, 30.0)
 	GS.form = "mech"
+	if Data.FLEET_MECH:   # v13.128 (owner: "I'd rather play in there as a mech"): aboard in your mech
+		Packs.request("mechs")
+		await Packs.wait("mechs", 60.0)
 	Boarding.use(L)
 	Boarding.INFO["name"] = nm
 	Boarding.INFO["plan_tex"] = str(e.get("holodeck_res", ""))
@@ -2371,7 +2374,7 @@ func board_fleet_ship(id: String, kind: String, job := {}) -> void:
 		if ResourceLoader.exists(dp): dmaps[dd[0]] = dp
 	Boarding.INFO["plan_tex_decks"] = dmaps
 	_new_space("Boarding")
-	space.escape_pilot = true
+	space.escape_pilot = not (Data.FLEET_MECH and Packs.is_ready("mechs"))   # (the mech; the pilot if its pack never came)
 	space.setup_boarding({"sys": board_from["sys"], "faction": fac, "name": nm, "escape": true, "mission": kind})
 	_connect_space()
 	var tw2 := create_tween()

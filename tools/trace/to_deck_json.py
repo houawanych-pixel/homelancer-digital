@@ -23,10 +23,15 @@ CELL = 4.0
 # bigger on the inside"): 2.5x (was 1.6 u per px, rooms 48 / halls 36 u tall, decks 80 u apart)
 S_BOARD = 4.0          # boarding units (the mech-sized decks: pilot 13 u tall) per plan px; a 2 m hall = 80 u, a door 64 u
 H_ROOM, H_HALL = 100.0, 72.0
+# v13.128 (owner: "mech doors a lot bigger than pilot doors ... rooms mechs can't go into, the ceiling so low only the
+# pilot can go in"): from eng/ways.json (tools/trace/fleet_ways.py) the PILOT rooms, halls and doors are low and the
+# pilot doors narrow; the engine keeps the mech out of them (eject and go in on foot)
+H_PILOT = 14.0         # u: the pilot (6.5 u) walks in under it; the mech (13 u) is kept out (it would scrape it)
+PILOT_DOOR_K = 0.4     # a pilot door is this share of a mech door's width (26 u: 3-4 pilots side by side)
 DECK_DY = 170.0        # boarding units between deck floors (a room is 100 u tall: slab and service space between)
 DECKS = {"main": ("", 0.0), "upper": ("u_", DECK_DY), "lower": ("l_", -DECK_DY)}   # deck -> (room key prefix, floor y)
 
-def board_layout(plan, play, src_w, src_h, pre="", y0=0.0):
+def board_layout(plan, play, src_w, src_h, pre="", y0=0.0, ways=None):
     """The same deck as a Boarding layout (scripts/boarding.gd schema): axis-aligned rects (rooms keep their real
     shape as a 'poly' outline), every hallway cut into rects that join with no door, and a short connector at every
     plan door. Played by the regular boarding / breakout engine: HUD, controls, guards, CUTTER, doors."""
@@ -49,6 +54,10 @@ def board_layout(plan, play, src_w, src_h, pre="", y0=0.0):
         shapes[key] = [poly, [x0, y0, x1, y1], nm]
         rooms[key] = {"r": [W(x0), W(x1), Z(y0), Z(y1)], "y": [DY, DY], "axis": "x" if x1 - x0 >= y1 - y0 else "z", "h": H_ROOM,
                       "label": nm.upper(), "guards": guards.get(nm, 0), "hex": False, "shape": "rect"}
+        if ways and key != "sbay":
+            kd = ways["kinds"].get(nm, "pilot")
+            rooms[key]["kind"] = kd
+            if kd == "pilot": rooms[key].update({"pilot": True, "h": H_PILOT})
     # hallways: one network, shrunk off the walls, cut into rects on every vertex line (and at the wreck points)
     halls = unary_union([shape(h) for h in plan["halls"]]).buffer(-g, join_style=2)
     # the engine's rooms are their boxes: hallways stop short of every room's box (a round room's corners are wall)
@@ -87,6 +96,12 @@ def board_layout(plan, play, src_w, src_h, pre="", y0=0.0):
         shapes[key] = [sbox(x0, y0, x1, y1), [x0, y0, x1, y1], "corridor"]
         rooms[key] = {"r": [W(x0), W(x1), Z(y0), Z(y1)], "y": [DY, DY], "axis": "x" if x1 - x0 >= y1 - y0 else "z", "h": H_HALL,
                       "label": "CORRIDOR", "guards": 0, "hex": False, "shape": "rect", "flow": True}
+        if ways is not None:
+            mm = ways["mask"]; cx, cy = int((x0 + x1) / 2), int((y0 + y1) / 2)
+            sub = mm[max(0, int(y0)):int(y1) + 1, max(0, int(x0)):int(x1) + 1]
+            mech = sub.size > 0 and sub.mean() > 0.35
+            rooms[key]["kind"] = "mech" if mech else "pilot"
+            if not mech: rooms[key].update({"pilot": True, "h": H_PILOT, "label": "PILOT WAY"})
     def at(px, py):
         for k, (poly, r, _) in shapes.items():
             if r[0] - 0.01 <= px <= r[2] + 0.01 and r[1] - 0.01 <= py <= r[3] + 0.01 and (not rooms[k].get("flow") or poly.buffer(0.5).contains(Point(px, py))): return k
@@ -125,14 +140,19 @@ def board_layout(plan, play, src_w, src_h, pre="", y0=0.0):
                 hit = at(x, rb0[1] - st_) if o == "h" else at(rb0[0] - st_, y)
                 if hit and rooms[hit].get("flow"): a = hit; break
         ra, rb = shapes[a][1], shapes[b][1]
-        if o == "h": c = [x - D / 2, ra[3], x + D / 2, rb[1]]
-        else: c = [ra[2], y - D / 2, rb[0], y + D / 2]
+        pdoor = bool(rooms[a].get("pilot") or rooms[b].get("pilot"))
+        Dw = D * PILOT_DOOR_K if pdoor else D
+        if o == "h": c = [x - Dw / 2, ra[3], x + Dw / 2, rb[1]]
+        else: c = [ra[2], y - Dw / 2, rb[0], y + Dw / 2]
         if c[2] - c[0] <= 0.05 or c[3] - c[1] <= 0.05: problems.append([x, y, o, a, b, "no gap"]); continue
         conns += 1
         key = pre + "d%d" % conns
         door_to = a if not rooms[a].get("flow") else b      # the sliding door is on the room's side
         rooms[key] = {"r": [W(c[0]), W(c[2]), Z(c[1]), Z(c[3])], "y": [DY, DY], "axis": "z" if o == "h" else "x", "h": H_HALL,
                       "label": "DOOR", "guards": 0, "hex": False, "shape": "rect", "conn": True, "door_to": door_to}
+        if ways is not None:
+            rooms[key]["kind"] = "pilot" if pdoor else "mech"
+            if pdoor: rooms[key].update({"pilot": True, "h": H_PILOT, "label": "PILOT DOOR"})
         for k2 in (a, b):   # a shaped room reaches its rect edge across the doorway, so the doorway is clear
             poly, r, nm = shapes[k2]
             if rooms[k2].get("flow"): continue
@@ -292,7 +312,11 @@ def main():
         "wrecks": [{"at": c(*w["at"]), "across": w["across"]} for w in play.get("wreck", [])],
         "patrols": [{"room": p["room"], "path": [c(*q) for q in p["path"]]} for p in play.get("patrols", [])],
     }
-    lay, rep = board_layout(plan, play, SW, SH)
+    ways = None
+    wj, wm = os.path.join(eng, "ways.json"), os.path.join(eng, "ways_mech_halls.png")
+    if os.path.exists(wj) and os.path.exists(wm):
+        ways = {"kinds": json.load(open(wj))["rooms"], "mask": (cv2.imread(wm, cv2.IMREAD_GRAYSCALE) > 127).astype(np.float32)}
+    lay, rep = board_layout(plan, play, SW, SH, ways=ways)
     # v13.96 (owner: "compose it, do top and bottom floor"): the composed upper / lower decks (eng/deck_<name>.json),
     # stacked over / under the main deck, joined by the lifts (gameplay "elevators": a car on each of its two decks)
     decks_done = {"main": rep}

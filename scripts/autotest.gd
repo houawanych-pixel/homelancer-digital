@@ -1810,8 +1810,34 @@ func _run() -> void:
 				if e.has("card"): cards += 1
 			var hud_ok: bool = hb.visible and hb.buttons.has("fire") and hb.buttons.has("cutter")
 			_check("%s %s: the regular boarding HUD, on foot, %d GLB soldiers, %d card carriers, %d doors (%d card doors)" % [fid, kind, soldiers, cards, s.board_doors.size(), s.board_doors.filter(func(d): return int(d.get("key", 0)) > 0).size()],
-				hud_ok and s.pilot_rig != null and soldiers >= 4 and cards == (Boarding.INFO["fleet"]["cards"] as Array).size() and b.has("fleet") and s.board_doors.filter(func(d): return int(d.get("key", 0)) > 0).size() == Boarding.INFO["fleet"]["locks"].size(), "hud %s (vis %s fire %s target %s) rig %s" % [hud_ok, hb.visible, hb.buttons.has("fire"), hb.buttons.has("target") or hb.buttons.has("tgt_front"), s.pilot_rig != null])
+				hud_ok and (s.pilot_rig != null or Data.FLEET_MECH) and soldiers >= 4 and cards == (Boarding.INFO["fleet"]["cards"] as Array).size() and b.has("fleet") and s.board_doors.filter(func(d): return int(d.get("key", 0)) > 0).size() == Boarding.INFO["fleet"]["locks"].size(), "hud %s (vis %s fire %s target %s) rig %s" % [hud_ok, hb.visible, hb.buttons.has("fire"), hb.buttons.has("target") or hb.buttons.has("tgt_front"), s.pilot_rig != null])
 			_check("%s %s: you start in the bay you boarded by" % [fid, kind], Boarding.room_at(s.player.global_position) == "sbay", Boarding.room_at(s.player.global_position))
+			if Data.FLEET_MECH:   # v13.128 (owner): aboard in the mech; the mech can't go into a pilot room; EJECT, ENTER
+				var in_mech: bool = s.pilot_rig == null and GS.form == "mech" and not s.escape_pilot
+				var pk := ""
+				for rk2 in Boarding.ROOMS:
+					if bool(Boarding.ROOMS[rk2].get("pilot", false)) and not bool(Boarding.ROOMS[rk2].get("conn", false)) and not bool(Boarding.ROOMS[rk2].get("flow", false)): pk = rk2
+				var blocked := true
+				if pk != "":
+					var pr2: Array = Boarding.ROOMS[pk]["r"]
+					s.player.global_position = Vector3((float(pr2[0]) + float(pr2[1])) * 0.5, s.player.global_position.y, (float(pr2[2]) + float(pr2[3])) * 0.5)
+					await _wait(0.3)
+					blocked = Boarding.room_at(s.player.global_position, 4.0) != pk
+				var sb9: Array = Boarding.ROOMS["sbay"]["r"]
+				s.player.global_position = Vector3((float(sb9[0]) + float(sb9[1])) * 0.5, 6.0, (float(sb9[2]) + float(sb9[3])) * 0.5)
+				await _wait(0.3)
+				var pr_ej: String = s.prompt()
+				var ej: String = s.eject()
+				await _wait(0.5)
+				var out_ok: bool = ej == "out" and s.escape_pilot and s.pilot_rig != null and is_instance_valid(s.parked)
+				if kind == "sabotage": await _capture("fb_%s_ejected" % fid)
+				var pr_in: String = s.prompt()
+				var back_ok: bool = s.enter_vehicle() and not s.escape_pilot and s.pilot_rig == null
+				await _wait(0.3)
+				var ej2: String = s.eject()   # (out again: the rest of the run is on foot)
+				await _wait(0.3)
+				_check("%s %s: aboard in the MECH (%s), kept out of a pilot room (%s); EJECT (%s) puts the pilot out beside it, ENTER (%s) back in" % [fid, kind, in_mech, pk, pr_ej, pr_in],
+					in_mech and blocked and pr_ej == "eject" and out_ok and pr_in == "enter" and back_ok and ej2 == "out", "mech %s blocked %s prompt %s out %s in %s back %s again %s" % [in_mech, blocked, pr_ej, out_ok, pr_in, back_ok, ej2])
 			if kind == "sabotage":   # every room can be stood in (nothing holds you back to one side of the ship)
 				var stuck: Array = []
 				for rk in Boarding.ROOMS:

@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.127"
+const VERSION := "v13.128"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -2763,6 +2763,10 @@ const PLANET_HINTS := {
 	"clouds": "A gas world: endless cloud, nowhere solid to land."}
 const LIFT_SPEED := 18.0        # v12.51: m/s a lift platform moves
 const GUARD_H := 13.0           # m: drawn at the pilot's (mech-sized) height
+const FLEET_MECH := true         # v13.128 (owner): aboard a fleet ship in your mech; EJECT for the low pilot rooms
+const SHIP_PILOT_H := 6.5        # m: the pilot (and the crew) inside a fleet ship: half the mech's height
+const SHIP_ENTER_REACH := 60.0   # m: this close to the parked mech, ENTER
+const SHIP_EJECT_STEP := 26.0    # m: the pilot steps out this far to the mech's side
 const GUARD_HP := 70.0          # a soldier: far less than a mech
 const GUARD_SEE := 260.0        # m: how far a guard sees you (in front of him, in his room)
 const GUARD_SEE_COS := 0.35     # his view cone (cos of the half angle)
