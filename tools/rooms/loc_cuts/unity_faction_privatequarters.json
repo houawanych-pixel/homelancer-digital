@@ -1,0 +1,42 @@
+{
+ "src": "assets/rooms/unity/private_quarters.jpg",
+ "strip": [
+  4096,
+  462
+ ],
+ "cuts": [
+  425,
+  1740,
+  3300
+ ],
+ "method": "crisp: 3 continuous pieces seam-to-seam, joined edge to edge, no blend",
+ "parts": [
+  {
+   "file": "Faction_PrivateQuarters_clip1.png",
+   "strip_x0": 425,
+   "strip_w": 1315,
+   "size": [
+    1920,
+    675
+   ]
+  },
+  {
+   "file": "Faction_PrivateQuarters_clip2.png",
+   "strip_x0": 1740,
+   "strip_w": 1560,
+   "size": [
+    1920,
+    569
+   ]
+  },
+  {
+   "file": "Faction_PrivateQuarters_clip3.png",
+   "strip_x0": 3300,
+   "strip_w": 1221,
+   "size": [
+    1920,
+    726
+   ]
+  }
+ ]
+}
