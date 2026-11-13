@@ -6,14 +6,14 @@ converter: tools/trace/to_deck_json.py; test group: HL_FLEETDECK=<id>.
 
 | Ship id | Plan picture | Trace | A1 plan | A2 gameplay | A3 graybox | A4 phone | In game |
 |---|---|---|---|---|---|---|---|
-| unity_capital | yes | - | - | - | - | - | old deck |
-| unity_cruiser | yes | - | - | - | - | - | old deck |
-| unity_destroyer | yes | - | - | - | - | - | old deck |
-| unity_resupply | yes | - | - | - | - | - | old deck |
-| unity_trooptransport | yes | - | - | - | - | - | old deck |
-| unity_frigate | yes | - | - | - | - | - | old deck |
-| unity_escort | yes | - | - | - | - | - | old deck |
-| unity_scout | yes | - | - | - | - | - | old deck |
+| unity_capital | yes | done | shown | shown | tested (not pushed) | waiting | regular boarding run (local) |
+| unity_cruiser | yes | done | shown | shown | tested (not pushed) | waiting | regular boarding run (local) |
+| unity_destroyer | yes | done | shown | shown | tested (not pushed) | waiting | regular boarding run (local) |
+| unity_resupply | yes | done | shown | shown | tested (not pushed) | waiting | regular boarding run (local) |
+| unity_trooptransport | yes | done | shown | shown | tested (not pushed) | waiting | regular boarding run (local) |
+| unity_frigate | yes | done | shown | shown | tested (not pushed) | waiting | regular boarding run (local) |
+| unity_escort | yes | done | shown | shown | tested (not pushed) | waiting | regular boarding run (local) |
+| unity_scout | yes | done | shown | shown | tested (not pushed) | waiting | regular boarding run (local) |
 | elyza_capital | yes | - | - | - | - | - | old deck |
 | elyza_cruiser | yes | - | - | - | - | - | old deck |
 | elyza_destroyer | yes | - | - | - | - | - | old deck |
@@ -47,9 +47,9 @@ converter: tools/trace/to_deck_json.py; test group: HL_FLEETDECK=<id>.
 | savagers_escort | **ask owner** | - | - | - | - | - | - |
 | savagers_scout | **ask owner** | - | - | - | - | - | - |
 | imperium_capital | yes | done | shown | shown | in game (v13.95) | waiting | regular boarding run |
-| imperium_cruiser | yes | - | - | - | - | - | old deck |
-| imperium_destroyer | yes | - | - | - | - | - | old deck |
-| imperium_resupply | yes | - | - | - | - | - | old deck |
+| imperium_cruiser | yes | done | shown | shown | tested (not pushed) | waiting | regular boarding run (local) |
+| imperium_destroyer | yes | done | shown | shown | tested (not pushed) | waiting | regular boarding run (local) |
+| imperium_resupply | yes | done | shown | shown | tested (not pushed) | waiting | regular boarding run (local) |
 | imperium_trooptransport | yes | done | OK (Nov 12) | in game for test | in game (v13.91) | waiting | regular boarding run |
 | imperium_frigate | **ask owner** | - | - | - | - | - | - |
 | imperium_escort | **ask owner** | - | - | - | - | - | - |
