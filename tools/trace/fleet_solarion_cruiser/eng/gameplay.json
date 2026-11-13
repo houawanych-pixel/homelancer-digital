@@ -1,76 +1,92 @@
 {
  "entry": {
-  "room": "Hangar",
+  "room": "Hangar Bay",
   "at": [
-   512,
-   875
+   587,
+   720
   ]
  },
  "locks": [
   {
    "door": [
-    512,
-    941
+    548,
+    929
    ],
    "key": 1,
-   "why": "aft of the bay"
+   "why": "engineering"
   },
   {
    "door": [
-    512,
-    575
+    626,
+    929
+   ],
+   "key": 1,
+   "why": "engineering"
+  },
+  {
+   "door": [
+    587,
+    1016
    ],
    "key": 2,
-   "why": "the command section"
+   "why": "the reactor"
   },
   {
    "door": [
-    512,
-    425
+    545,
+    1066
    ],
-   "key": 3,
-   "why": "the bridge"
+   "key": 2,
+   "why": "the reactor"
   },
   {
    "door": [
-    512,
-    1100
+    629,
+    1066
    ],
-   "key": 3,
-   "why": "the reactor core"
+   "key": 2,
+   "why": "the reactor"
   },
   {
    "door": [
-    502,
-    776
+    537,
+    448
    ],
-   "key": 3,
-   "why": "the brig"
+   "key": 2,
+   "why": "the CIC side passage"
+  },
+  {
+   "door": [
+    637,
+    448
+   ],
+   "key": 2,
+   "why": "the CIC side passage"
+  },
+  {
+   "door": [
+    587,
+    470
+   ],
+   "key": 2,
+   "why": "the CIC, from the spine"
   }
  ],
  "guards": [
   {
    "key": 1,
-   "room": "Medbay",
+   "room": "Barracks (port)",
    "at": [
-    641,
-    776
+    320,
+    800
    ]
   },
   {
    "key": 2,
-   "room": "Engineering",
+   "room": "Engineering Deck",
    "at": [
-    512,
-    1062
-   ]
-  },
-  {
-   "key": 3,
-   "room": "CIC",
-   "at": [
-    512,
-    533
+    587,
+    965
    ]
   }
  ],
@@ -78,59 +94,92 @@
   "sabotage": {
    "room": "Reactor Core",
    "at": [
-    512,
-    1141
+    587,
+    1066
    ],
-   "key": 3
+   "key": 2
   },
   "capture": {
    "room": "Bridge",
    "at": [
-    512,
-    399
+    587,
+    190
    ],
-   "key": 3
+   "key": 2
   },
   "rescue": {
-   "room": "Brig",
+   "room": "Sensors Suite",
    "at": [
-    382,
-    776
+    587,
+    288
    ],
-   "key": 3
+   "key": 2
   }
  },
- "wreck": [],
+ "wreck": [
+  {
+   "at": [
+    300,
+    893
+   ],
+   "across": "v",
+   "why": "the port wing run: a side way, never the only way"
+  }
+ ],
  "lifts": [
   {
    "room": "Lift (port)",
    "at": [
-    488,
-    655
+    556,
+    539
    ]
   },
   {
    "room": "Lift (starboard)",
    "at": [
-    536,
-    655
+    618,
+    539
    ]
   }
  ],
- "patrols": [],
+ "patrols": [
+  {
+   "room": "Hangar Bay",
+   "path": [
+    [
+     520,
+     680
+    ],
+    [
+     520,
+     770
+    ],
+    [
+     654,
+     770
+    ],
+    [
+     654,
+     680
+    ]
+   ]
+  }
+ ],
  "room_guards": {
-  "Bridge": 1,
-  "CIC": 1,
-  "Captain's Quarters": 2,
-  "Officers' Quarters": 2,
-  "Crew Quarters": 2,
-  "Galley & Mess": 2,
-  "Brig": 2,
-  "Medbay": 2,
-  "Cargo Hold A": 2,
-  "Cargo Hold B": 2,
-  "Engineering": 1,
+  "Vehicle Bay": 2,
+  "Engineering Deck": 2,
+  "CIC (Combat Information Center)": 2,
+  "Bridge": 2,
   "Reactor Core": 1,
+  "Armory (starboard)": 1,
+  "Barracks (starboard)": 2,
+  "Galley & Mess": 1,
+  "Medbay": 1,
+  "Cargo Hold (port)": 1,
+  "Crew Quarters (port)": 1,
+  "Weapon Systems (starboard)": 1,
   "Engine Room": 1
- }
+ },
+ "derived_from": "imperium_cruiser",
+ "gameplay_from": "orion_cruiser"
 }

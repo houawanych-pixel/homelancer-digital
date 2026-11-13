@@ -1,75 +1,139 @@
 {
  "entry": {
-  "room": "Hangar",
+  "room": "Hangar Bay",
   "at": [
-   512,
-   885
+   510,
+   760
   ]
  },
  "locks": [
   {
    "door": [
-    512,
-    971
+    486,
+    1028
    ],
    "key": 1,
-   "why": "aft of the bay"
+   "why": "engineering"
   },
   {
    "door": [
-    512,
-    467
+    534,
+    1028
+   ],
+   "key": 1,
+   "why": "engineering"
+  },
+  {
+   "door": [
+    510,
+    456
    ],
    "key": 2,
-   "why": "the command section"
+   "why": "the CIC"
   },
   {
    "door": [
-    512,
-    297
+    453,
+    399
+   ],
+   "key": 2,
+   "why": "the CIC"
+  },
+  {
+   "door": [
+    567,
+    399
+   ],
+   "key": 2,
+   "why": "the CIC"
+  },
+  {
+   "door": [
+    510,
+    240
    ],
    "key": 3,
    "why": "the bridge"
   },
   {
    "door": [
-    512,
-    1143
+    494,
+    1137
    ],
    "key": 3,
-   "why": "the reactor core"
+   "why": "the reactor"
   },
   {
    "door": [
-    502,
-    761
+    526,
+    1137
    ],
    "key": 3,
-   "why": "the brig"
+   "why": "the reactor"
+  },
+  {
+   "door": [
+    465,
+    1197
+   ],
+   "key": 3,
+   "why": "the reactor"
+  },
+  {
+   "door": [
+    555,
+    1197
+   ],
+   "key": 3,
+   "why": "the reactor"
+  },
+  {
+   "door": [
+    510,
+    1246
+   ],
+   "key": 3,
+   "why": "the reactor"
+  },
+  {
+   "door": [
+    524,
+    300
+   ],
+   "key": 3,
+   "why": "the briefing room"
+  },
+  {
+   "door": [
+    590,
+    332
+   ],
+   "key": 3,
+   "why": "the briefing room"
   }
  ],
  "guards": [
   {
    "key": 1,
-   "room": "Medbay",
+   "room": "Armory (port)",
    "at": [
-    613,
-    761
+    283,
+    770
    ]
   },
   {
    "key": 2,
-   "room": "Engineering",
+   "room": "Engineering Deck",
    "at": [
-    512,
-    1105
+    510,
+    1075
    ]
   },
   {
    "key": 3,
-   "room": "CIC",
+   "room": "CIC (Combat Information Center)",
    "at": [
-    512,
+    510,
     415
    ]
   }
@@ -78,63 +142,70 @@
   "sabotage": {
    "room": "Reactor Core",
    "at": [
-    512,
-    1191
+    510,
+    1197
    ],
    "key": 3
   },
   "capture": {
-   "room": "Bridge",
+   "room": "Bridge Command Deck",
    "at": [
-    512,
-    266
+    510,
+    182
    ],
    "key": 3
   },
   "rescue": {
-   "room": "Brig",
+   "room": "Briefing Room",
    "at": [
-    411,
-    761
+    567,
+    300
    ],
    "key": 3
   }
  },
- "wreck": [],
+ "wreck": [
+  {
+   "at": [
+    365,
+    870
+   ],
+   "across": "h",
+   "why": "the ring's port side: a side way"
+  }
+ ],
  "lifts": [
   {
    "room": "Lift (port)",
    "at": [
-    488,
-    557
+    482,
+    494
    ]
   },
   {
    "room": "Lift (starboard)",
    "at": [
-    536,
-    557
+    538,
+    494
    ]
   }
  ],
  "patrols": [],
  "room_guards": {
-  "Bridge": 1,
-  "Sensors": 1,
-  "Comms": 1,
-  "CIC": 1,
-  "Captain's Quarters": 2,
-  "Officers' Quarters": 2,
-  "Crew Quarters A": 2,
-  "Crew Quarters B": 2,
-  "Barracks A": 2,
-  "Barracks B": 2,
-  "Brig": 2,
-  "Medbay": 2,
-  "Cargo Hold A": 2,
-  "Cargo Hold B": 2,
-  "Engineering": 2,
-  "Reactor Core": 1,
-  "Engine Room": 1
- }
+  "Vehicle Bay": 3,
+  "Engineering Deck": 2,
+  "CIC (Combat Information Center)": 2,
+  "Reactor Core": 2,
+  "Engine Room": 1,
+  "Armory (starboard)": 1,
+  "Cargo Hold A": 1,
+  "Cargo Hold B": 1,
+  "Galley & Mess": 1,
+  "Medbay": 1,
+  "Sensors Suite": 1,
+  "Crew Quarters A": 1,
+  "Bridge Command Deck": 3
+ },
+ "derived_from": "elyza_capital",
+ "gameplay_from": "elyza_capital"
 }

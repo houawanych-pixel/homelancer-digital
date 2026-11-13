@@ -1,13 +1,8 @@
 #!/usr/bin/env python3
-"""Unity Destroyer: PROPOSED upper (command) and lower (hold) decks from the proven fleet deck template
-(tools/trace/fleetdecks.py, pass 2a style, traced library rooms), mirrored about x 512. Both decks stop at ONE lift
-shaft: the main deck's centreline Lift, (512, 597), doors fore and aft. decklib.check() runs on both."""
+"""unity_destroyer: PROPOSED extra decks (tools/trace/fleet_compose.py, class table tools/trace/fleet_mine.DECKS), on the traced main deck, shaft (512, 597)."""
 import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-import fleetdecks
-from shapely.geometry import box
-
+from fleet_compose import compose
 HERE = os.path.dirname(os.path.abspath(__file__))
-bad = fleetdecks.build("unity_destroyer", HERE, ax=512.0, lift=box(498, 583, 526, 611), s=1.0, lift_room="Lift",
-                       names={"Observation Dome": "Observation", "Targeting": "Tactical", "Gunnery Control": "Weapons Control"})
+bad = compose("unity_destroyer", HERE, os.path.join(HERE, "..", "source.jpg"), 512.0, (512, 597), "destroyer", narrow=True, max_y=1040, decks=('upper2', 'upper', 'lower'))
 sys.exit(1 if bad else 0)

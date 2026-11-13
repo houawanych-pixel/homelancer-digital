@@ -1,14 +1,8 @@
 #!/usr/bin/env python3
-"""Unity Frigate: PROPOSED upper (command) and lower (hold) decks from the proven fleet deck template
-(tools/trace/fleetdecks.py, pass 2a style, traced library rooms), mirrored about x 512. Both decks stop at ONE
-lift shaft: the main deck's Lift (port), (475, 568). decklib.check() runs on both."""
+"""unity_frigate: PROPOSED extra decks (tools/trace/fleet_compose.py, class table tools/trace/fleet_mine.DECKS), on the traced main deck, shaft (475, 568)."""
 import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-import fleetdecks
-from shapely.geometry import box
-
+from fleet_compose import compose
 HERE = os.path.dirname(os.path.abspath(__file__))
-bad = fleetdecks.build("unity_frigate", HERE, ax=512.0, lift=box(462, 553, 488, 583), s=1.0, decks=("upper",), **fleetdecks.SHORT_UPPER,
-                       names={"Observation Dome": "Observation", "Targeting": "Tactical", "Gunnery Control": "Weapons Control",
-                              "Torpedo Store P": "Missile Store P", "Torpedo Store S": "Missile Store S"})
+bad = compose("unity_frigate", HERE, os.path.join(HERE, "..", "source.jpg"), 512.0, (475, 568), "frigate", narrow=True, max_y=900, decks=('upper',))
 sys.exit(1 if bad else 0)

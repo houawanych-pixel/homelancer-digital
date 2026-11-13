@@ -39,6 +39,7 @@ def _token_source(tok, W, H, ax, top, height):
     out[y0c:y0c + h, x0c:x0c + w] = (base * (1 - al) + rgb * al).astype(np.uint8)
     return out
 
+LAST_K = None
 def derive(target, donor):
     dd = os.path.join(TR, "fleet_" + donor); td = os.path.join(TR, "fleet_" + target)
     os.makedirs(os.path.join(td, "eng"), exist_ok=True)
@@ -77,5 +78,6 @@ def derive(target, donor):
     cv2.putText(im, "%s MAIN DECK (PROPOSED: the traced %s deck in this ship's silhouette)" % (target.upper(), donor.upper()), (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
     cv2.imwrite(os.path.join(td, "eng", "plan_on_map.jpg"), im, [cv2.IMWRITE_JPEG_QUALITY, 85])
     lifts = {k: [round(v) for v in shape(g).centroid.coords[0]] for k, g in P["rooms"].items() if "ift" in k}
+    global LAST_K; LAST_K = k   # (fleet_takeover.py picks the donor that fits at the smallest scale)
     print(target, "<-", donor, "token scale %.2f" % k, "lifts", lifts)
     return ax, lifts

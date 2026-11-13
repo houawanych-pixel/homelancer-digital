@@ -1,0 +1,82 @@
+{
+ "entry": {
+  "room": "Airlock",
+  "at": [
+   512,
+   737
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    512,
+    519
+   ],
+   "key": 1,
+   "why": "the bridge"
+  },
+  {
+   "door": [
+    512,
+    863
+   ],
+   "key": 1,
+   "why": "the engine room"
+  },
+  {
+   "door": [
+    522,
+    651
+   ],
+   "key": 1,
+   "why": "the med / galley"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Bunk",
+   "at": [
+    453,
+    651
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Engine Room",
+   "at": [
+    512,
+    891
+   ],
+   "key": 1
+  },
+  "capture": {
+   "room": "Cockpit",
+   "at": [
+    512,
+    492
+   ],
+   "key": 1
+  },
+  "rescue": {
+   "room": "Med / Galley",
+   "at": [
+    570,
+    651
+   ],
+   "key": 1
+  }
+ },
+ "wreck": [],
+ "lifts": [],
+ "patrols": [],
+ "room_guards": {
+  "Cockpit": 1,
+  "Sensors Suite": 1,
+  "Bunk": 1,
+  "Med / Galley": 1,
+  "Engineering": 1,
+  "Engine Room": 2
+ }
+}

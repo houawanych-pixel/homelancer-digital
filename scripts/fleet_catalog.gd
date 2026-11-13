@@ -66,7 +66,7 @@ const HOLODECK_FILES := [
 	"HL_CovenantResupply_HoloDeck_20261109_v1", "HL_CovenantTroopTransport_HoloDeck_20261109_v1",
 ]
 ## v13.117: ships with no deck-plan file whose main deck was COMPOSED inside the fleet token
-## (tools/trace/fleetmain.py, PROPOSED, waiting for the owner's OK): boardable from assets/holodeck/<id>.json, map
+## (v13.123: rebuilt the DERIVED_DECKS way, tools/trace/fleet_takeover.py: a traced deck of the class in the token; PROPOSED): boardable from assets/holodeck/<id>.json, map
 ## picture assets/holodeck/<id>_plan.jpg. The official HoloDeck pointer stays empty.
 const COMPOSED := [
 	"solarion_capital", "solarion_cruiser", "solarion_destroyer", "solarion_resupply", "solarion_trooptransport",
@@ -81,6 +81,7 @@ const DERIVED_DECKS := [
 	"orion_capital", "orion_cruiser", "orion_destroyer", "orion_resupply", "orion_trooptransport", "orion_frigate", "orion_escort", "orion_scout",
 	"liberator_capital", "liberator_cruiser", "liberator_destroyer", "liberator_resupply", "liberator_trooptransport", "liberator_frigate", "liberator_escort", "liberator_scout",
 	"imperium_frigate", "imperium_escort", "imperium_scout", "elyza_trooptransport", "elyza_escort", "elyza_scout",
+	"covenant_frigate", "covenant_escort", "covenant_scout",
 ]
 ## How a faction's own systems show its fleet (FleetCatalog.spawn_plan): where each class sits.
 ##   patrol = slow loop well out from the station; screen = tighter loop near the station;

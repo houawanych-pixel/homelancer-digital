@@ -194,9 +194,47 @@ def _reseat_lift(D, ax, shaft, dx, dy):
         D.R["Lift"] = box(ax - 14, sy - 14, ax + 14, sy + 14)
         D.D += [(ax, sy - 14, "h"), (ax, sy + 14, "h")]
     elif sx < ax - 12:
-        D.H.append(box(sx + 14, sy - 8, ax - 11, sy + 8)); D.D.append((sx + 14, sy, "v"))
+        if (ax - 11) - (sx + 14) > 0: D.H.append(box(sx + 14, sy - 8, ax - 11, sy + 8))
+        else: _clear_car(D)     # (the car right beside the spine: no connector, the spine stops at the car)
+        D.D.append((sx + 14, sy, "v"))
     elif sx > ax + 12:
-        D.H.append(box(ax + 11, sy - 8, sx - 14, sy + 8)); D.D.append((sx - 14, sy, "v"))
+        if (sx - 14) - (ax + 11) > 0: D.H.append(box(ax + 11, sy - 8, sx - 14, sy + 8))
+        else: _clear_car(D)
+        D.D.append((sx - 14, sy, "v"))
+
+def _clear_car(D):
+    car = D.R["Lift"]
+    out = []
+    for h in D.H:
+        q = h.difference(car)
+        out += [g for g in getattr(q, "geoms", [q]) if not g.is_empty and g.area > 4]
+    D.H = out
+
+def _fit_car(D, ax, shaft, P):
+    """a main-deck lift smaller than the 2.8 m car: the car takes the main lift's own size (so it lines up)"""
+    from shapely.geometry import Point
+    sx, sy = shaft
+    for k, g in P["rooms"].items():
+        g = _shape(g)
+        if "ift" not in k or not g.buffer(2).contains(Point(sx, sy)): continue
+        x0, y0, x1, y1 = g.bounds
+        car = D.R["Lift"]; cx0, cy0, cx1, cy1 = car.bounds
+        if g.buffer(2).contains(car): return
+        nb = box(max(cx0, x0 + 1), max(cy0, y0 + 1), min(cx1, x1 - 1), min(cy1, y1 - 1))
+        D.R["Lift"] = nb
+        D.D = [((d[0], nb.bounds[1], d[2]) if (d[2] == "h" and abs(d[1] - cy0) < 0.6 and cx0 <= d[0] <= cx1) else
+                (d[0], nb.bounds[3], d[2]) if (d[2] == "h" and abs(d[1] - cy1) < 0.6 and cx0 <= d[0] <= cx1) else
+                (nb.bounds[0], d[1], d[2]) if (d[2] == "v" and abs(d[0] - cx0) < 0.6 and cy0 <= d[1] <= cy1) else
+                (nb.bounds[2], d[1], d[2]) if (d[2] == "v" and abs(d[0] - cx1) < 0.6 and cy0 <= d[1] <= cy1) else d) for d in D.D]
+        # the connector hall reaches the new car face
+        def reach(h):
+            if not (0 < h.distance(nb) < 6): return h
+            hx0, hy0, hx1, hy1 = h.bounds
+            if hx1 > nb.bounds[0] and hx0 < nb.bounds[2]:     # above / below the car: grow vertically
+                return h.union(box(hx0, min(hy0, nb.bounds[3]), hx1, max(hy1, nb.bounds[1])))
+            return h.union(box(min(hx0, nb.bounds[2]), hy0, max(hx1, nb.bounds[0]), hy1))
+        D.H = [reach(h) for h in D.H]
+        return
 
 def _prune(D, drop, keep_x=None, max_y=None):
     """take rooms out of the frame deck (a narrower / shorter hull): rooms with drop(name, centroid) go (with their
@@ -321,6 +359,7 @@ def compose(sid, here, src, ax, shaft, cls="capital", names=None, titles=None, d
             dropf = lambda k, c: (nw and (c.x < 400 or c.x > 2 * FX - 400)) or (my and c.y > my)
             print("  frame rooms left out:", sorted(_prune(D, dropf, kx, (my + 40) if my else None)))
         _move(D, dx, dy); _reseat_lift(D, ax, shaft, dx, dy)
+        _fit_car(D, ax, shaft, P)
         S = _ren(D, nm, S)
         n = lambda k: nm.get(k, k)
         cut = _trim_to_hull(D, hp, ax) or bool(my)

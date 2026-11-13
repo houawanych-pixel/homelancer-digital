@@ -1,12 +1,8 @@
 #!/usr/bin/env python3
-"""Savagers Frigate: PROPOSED upper and lower decks from the proven fleet deck template (tools/trace/fleetdecks.py, pass 2a style,
-traced library rooms), mirrored about x 512. Both decks stop at ONE lift shaft: the composed main deck's
-Lift (port), (488, 500). decklib.check() runs on both."""
+"""savagers_frigate: PROPOSED extra decks (tools/trace/fleet_compose.py, class table tools/trace/fleet_mine.DECKS), main deck derived from elyza_frigate (tools/trace/fleet_derive.py), shaft (512, 664)."""
 import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-import fleetfit, fleetdecks
-from shapely.geometry import box
-
+from fleet_compose import compose
 HERE = os.path.dirname(os.path.abspath(__file__))
-bad = fleetfit.fit("savagers_frigate", HERE, ax=512.0, lift=box(474, 486, 502, 514), s=1.0, decks=("upper",), **fleetdecks.SHORT_UPPER)
+bad = compose("savagers_frigate", HERE, os.path.join(HERE, "..", "source.jpg"), 512.0, (512, 664), "frigate", narrow=True, max_y=900, decks=('upper',))
 sys.exit(1 if bad else 0)

@@ -1,0 +1,120 @@
+{
+ "entry": {
+  "room": "Airlock Bay",
+  "at": [
+   512,
+   757
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    512,
+    826
+   ],
+   "key": 1,
+   "why": "aft of the bay"
+  },
+  {
+   "door": [
+    512,
+    328
+   ],
+   "key": 2,
+   "why": "the bridge"
+  },
+  {
+   "door": [
+    512,
+    1010
+   ],
+   "key": 2,
+   "why": "the reactor core"
+  },
+  {
+   "door": [
+    502,
+    648
+   ],
+   "key": 2,
+   "why": "the medbay"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Armory",
+   "at": [
+    566,
+    648
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Engineering",
+   "at": [
+    512,
+    964
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Reactor Core",
+   "at": [
+    512,
+    1056
+   ],
+   "key": 2
+  },
+  "capture": {
+   "room": "Bridge",
+   "at": [
+    512,
+    296
+   ],
+   "key": 2
+  },
+  "rescue": {
+   "room": "Medbay",
+   "at": [
+    457,
+    648
+   ],
+   "key": 2
+  }
+ },
+ "wreck": [],
+ "lifts": [
+  {
+   "room": "Lift (port)",
+   "at": [
+    488,
+    502
+   ]
+  },
+  {
+   "room": "Lift (starboard)",
+   "at": [
+    536,
+    502
+   ]
+  }
+ ],
+ "patrols": [],
+ "room_guards": {
+  "Bridge": 1,
+  "Sensors": 1,
+  "Comms": 1,
+  "CIC": 1,
+  "Crew Quarters": 1,
+  "Galley & Mess": 1,
+  "Medbay": 1,
+  "Armory": 1,
+  "Gun Deck A": 1,
+  "Gun Deck B": 1,
+  "Engineering": 2,
+  "Reactor Core": 1,
+  "Engine Room": 2
+ }
+}

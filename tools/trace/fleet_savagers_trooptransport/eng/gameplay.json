@@ -1,76 +1,100 @@
 {
  "entry": {
-  "room": "Drop Bay",
+  "room": "Deploy Bay B",
   "at": [
-   512,
-   781
+   838,
+   840
   ]
  },
  "locks": [
   {
    "door": [
-    512,
-    866
+    494,
+    1095
    ],
    "key": 1,
-   "why": "aft of the bay"
+   "why": "the aft section (engineering, maint, supply, reactor)"
   },
   {
    "door": [
-    512,
-    416
+    494,
+    435
    ],
    "key": 2,
-   "why": "the command section"
+   "why": "Command & Control from the lift lobby"
   },
   {
    "door": [
-    512,
-    258
+    436,
+    377
    ],
-   "key": 3,
-   "why": "the bridge"
+   "key": 2,
+   "why": "Command & Control, left"
   },
   {
    "door": [
-    512,
-    1024
+    552,
+    377
    ],
-   "key": 3,
-   "why": "the reactor core"
+   "key": 2,
+   "why": "Command & Control, right"
   },
   {
    "door": [
-    522,
-    654
+    424,
+    298
    ],
-   "key": 3,
-   "why": "the medbay"
+   "key": 2,
+   "why": "sensor store A from the left spine"
+  },
+  {
+   "door": [
+    564,
+    298
+   ],
+   "key": 2,
+   "why": "sensor store B"
+  },
+  {
+   "door": [
+    494,
+    1240
+   ],
+   "key": 2,
+   "why": "reactor from engineering"
+  },
+  {
+   "door": [
+    447,
+    1272
+   ],
+   "key": 2,
+   "why": "reactor, left"
+  },
+  {
+   "door": [
+    541,
+    1272
+   ],
+   "key": 2,
+   "why": "reactor, right"
   }
  ],
  "guards": [
   {
    "key": 1,
-   "room": "Armory",
+   "room": "Barracks A",
    "at": [
-    428,
-    654
+    300,
+    650
    ]
   },
   {
    "key": 2,
-   "room": "Engineering",
+   "room": "Maint. Bay",
    "at": [
-    512,
-    982
-   ]
-  },
-  {
-   "key": 3,
-   "room": "Command",
-   "at": [
-    512,
-    374
+    318,
+    1170
    ]
   }
  ],
@@ -78,61 +102,131 @@
   "sabotage": {
    "room": "Reactor Core",
    "at": [
-    512,
-    1072
+    494,
+    1288
    ],
-   "key": 3
+   "key": 2
   },
   "capture": {
    "room": "Bridge",
    "at": [
-    512,
-    229
+    494,
+    147
    ],
-   "key": 3
+   "key": 2
   },
   "rescue": {
-   "room": "Medbay",
+   "room": "Sensor Store B",
    "at": [
-    595,
-    654
+    561,
+    269
    ],
-   "key": 3
+   "key": 2,
+   "why": "the prisoner is held in the locked sensor store"
   }
  },
- "wreck": [],
+ "wreck": [
+  {
+   "at": [
+    771,
+    1010
+   ],
+   "across": "h",
+   "why": "outer hall B -> vehicle bay: a side way round, never the only way"
+  }
+ ],
  "lifts": [
   {
-   "room": "Lift (port)",
+   "room": "Lift A",
    "at": [
-    488,
-    430
+    459,
+    490
    ]
   },
   {
-   "room": "Lift (starboard)",
+   "room": "Lift B",
    "at": [
-    536,
-    430
+    529,
+    490
    ]
   }
  ],
- "patrols": [],
+ "patrols": [
+  {
+   "room": "Troop Bay",
+   "path": [
+    [
+     420,
+     620
+    ],
+    [
+     420,
+     900
+    ],
+    [
+     570,
+     900
+    ],
+    [
+     570,
+     620
+    ]
+   ]
+  },
+  {
+   "room": "Vehicle / Dropship Bay",
+   "path": [
+    [
+     320,
+     1030
+    ],
+    [
+     670,
+     1030
+    ]
+   ]
+  },
+  {
+   "room": "Engineering Deck",
+   "path": [
+    [
+     430,
+     1160
+    ],
+    [
+     560,
+     1160
+    ]
+   ]
+  },
+  {
+   "room": "Command & Control",
+   "path": [
+    [
+     470,
+     360
+    ],
+    [
+     520,
+     400
+    ]
+   ]
+  }
+ ],
  "room_guards": {
-  "Bridge": 1,
-  "Sensors": 1,
-  "Briefing Room": 1,
-  "Command": 1,
-  "Barracks A": 2,
-  "Barracks B": 2,
-  "Barracks C": 2,
-  "Barracks D": 2,
-  "Armory": 2,
-  "Medbay": 2,
-  "Lockers & Gear": 2,
-  "Ready Room": 2,
-  "Engineering": 2,
+  "Troop Bay": 3,
+  "Vehicle / Dropship Bay": 2,
+  "Engineering Deck": 2,
+  "Command & Control": 2,
+  "Bridge": 2,
   "Reactor Core": 1,
-  "Engine Room": 2
- }
+  "Ready Room A": 1,
+  "Armory": 1,
+  "Medbay": 1,
+  "Barracks B": 1,
+  "Lockers A": 1,
+  "Supply Depot": 1
+ },
+ "derived_from": "imperium_trooptransport",
+ "gameplay_from": "orion_trooptransport"
 }

@@ -1,13 +1,8 @@
 #!/usr/bin/env python3
-"""RETIRED v13.119 (class rule v13.118: this class has the main deck only). Kept for reference, outputs removed.
-Solarion Troop Transport: PROPOSED upper and lower decks from the proven fleet deck template (tools/trace/fleetdecks.py, pass 2a style,
-traced library rooms), mirrored about x 512. Both decks stop at ONE lift shaft: the composed main deck's
-Lift (port), (488, 428). decklib.check() runs on both."""
+"""solarion_trooptransport: PROPOSED extra decks (tools/trace/fleet_compose.py, class table tools/trace/fleet_mine.DECKS), main deck derived from imperium_trooptransport (tools/trace/fleet_derive.py), shaft (459, 490)."""
 import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-import fleetfit
-from shapely.geometry import box
-
+from fleet_compose import compose
 HERE = os.path.dirname(os.path.abspath(__file__))
-bad = fleetfit.fit("solarion_trooptransport", HERE, ax=512.0, lift=box(474, 414, 502, 442), s=1.0, names={"Targeting": "Barracks A", "Fleet Ops": "Barracks B", "Cabins A": "Barracks C", "Cabins B": "Barracks D", "Officers' Mess": "Troop Mess", "Gunnery Control": "Ready Room"}, upper_title="UPPER DECK - TROOP BERTHS")
+bad = compose("solarion_trooptransport", HERE, os.path.join(HERE, "..", "source.jpg"), 494.0, (459, 490), "trooptransport", decks=())
 sys.exit(1 if bad else 0)

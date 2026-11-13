@@ -1,12 +1,8 @@
 #!/usr/bin/env python3
-"""Solarion Destroyer: PROPOSED upper and lower decks from the proven fleet deck template (tools/trace/fleetdecks.py, pass 2a style,
-traced library rooms), mirrored about x 512. Both decks stop at ONE lift shaft: the composed main deck's
-Lift (port), (488, 609). decklib.check() runs on both."""
+"""solarion_destroyer: PROPOSED extra decks (tools/trace/fleet_compose.py, class table tools/trace/fleet_mine.DECKS), main deck derived from imperium_destroyer (tools/trace/fleet_derive.py), shaft (484, 492)."""
 import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-import fleetdecks
-from shapely.geometry import box
-
+from fleet_compose import compose
 HERE = os.path.dirname(os.path.abspath(__file__))
-bad = fleetdecks.build("solarion_destroyer", HERE, ax=512.0, lift=box(474, 595, 502, 623), s=1.0)
+bad = compose("solarion_destroyer", HERE, os.path.join(HERE, "..", "source.jpg"), 512.0, (484, 492), "destroyer", narrow=True, decks=('upper2', 'upper', 'lower'))
 sys.exit(1 if bad else 0)

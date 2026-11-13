@@ -1,0 +1,138 @@
+{
+ "entry": {
+  "room": "Loading Bay",
+  "at": [
+   512,
+   783
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    512,
+    844
+   ],
+   "key": 1,
+   "why": "aft of the bay"
+  },
+  {
+   "door": [
+    512,
+    562
+   ],
+   "key": 2,
+   "why": "the command section"
+  },
+  {
+   "door": [
+    512,
+    440
+   ],
+   "key": 3,
+   "why": "the bridge"
+  },
+  {
+   "door": [
+    512,
+    1124
+   ],
+   "key": 3,
+   "why": "the reactor core"
+  },
+  {
+   "door": [
+    502,
+    691
+   ],
+   "key": 3,
+   "why": "the brig"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Medbay",
+   "at": [
+    632,
+    691
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Engineering",
+   "at": [
+    512,
+    1089
+   ]
+  },
+  {
+   "key": 3,
+   "room": "Ops Center",
+   "at": [
+    512,
+    527
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Reactor Core",
+   "at": [
+    512,
+    1163
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Bridge",
+   "at": [
+    512,
+    415
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Brig",
+   "at": [
+    391,
+    691
+   ],
+   "key": 3
+  }
+ },
+ "wreck": [],
+ "lifts": [
+  {
+   "room": "Lift (port)",
+   "at": [
+    488,
+    646
+   ]
+  },
+  {
+   "room": "Lift (starboard)",
+   "at": [
+    536,
+    646
+   ]
+  }
+ ],
+ "patrols": [],
+ "room_guards": {
+  "Bridge": 1,
+  "Sensors": 2,
+  "Comms": 2,
+  "Ops Center": 1,
+  "Crew Quarters": 2,
+  "Galley": 2,
+  "Brig": 2,
+  "Medbay": 2,
+  "Cargo Hold A": 2,
+  "Cargo Hold B": 2,
+  "Fuel Store": 2,
+  "Cargo Hold C": 2,
+  "Engineering": 2,
+  "Reactor Core": 1,
+  "Engine Room": 1
+ }
+}

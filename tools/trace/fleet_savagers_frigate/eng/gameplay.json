@@ -1,60 +1,76 @@
 {
  "entry": {
-  "room": "Airlock Bay",
+  "room": "Craft Bay",
   "at": [
    512,
-   755
+   925
   ]
  },
  "locks": [
   {
    "door": [
     512,
-    824
+    569
    ],
    "key": 1,
-   "why": "aft of the bay"
+   "why": "the CIC"
+  },
+  {
+   "door": [
+    455,
+    500
+   ],
+   "key": 1,
+   "why": "the CIC"
+  },
+  {
+   "door": [
+    569,
+    500
+   ],
+   "key": 1,
+   "why": "the CIC"
   },
   {
    "door": [
     512,
-    326
+    1112
    ],
-   "key": 2,
-   "why": "the bridge"
+   "key": 1,
+   "why": "the reactor"
+  },
+  {
+   "door": [
+    466,
+    1158
+   ],
+   "key": 1,
+   "why": "the reactor"
+  },
+  {
+   "door": [
+    558,
+    1158
+   ],
+   "key": 1,
+   "why": "the reactor"
   },
   {
    "door": [
     512,
-    1008
+    1204
    ],
-   "key": 2,
-   "why": "the reactor core"
-  },
-  {
-   "door": [
-    502,
-    646
-   ],
-   "key": 2,
-   "why": "the medbay"
+   "key": 1,
+   "why": "the reactor"
   }
  ],
  "guards": [
   {
    "key": 1,
-   "room": "Armory",
+   "room": "Engineering Deck",
    "at": [
-    568,
-    646
-   ]
-  },
-  {
-   "key": 2,
-   "room": "Engineering",
-   "at": [
-    512,
-    962
+    560,
+    1040
    ]
   }
  ],
@@ -63,58 +79,66 @@
    "room": "Reactor Core",
    "at": [
     512,
-    1054
+    1158
    ],
-   "key": 2
+   "key": 1
   },
   "capture": {
    "room": "Bridge",
    "at": [
     512,
-    294
+    262
    ],
-   "key": 2
+   "key": 1
   },
   "rescue": {
-   "room": "Medbay",
+   "room": "Sensors Suite",
    "at": [
-    455,
-    646
+    512,
+    376
    ],
-   "key": 2
+   "key": 1
   }
  },
- "wreck": [],
+ "wreck": [
+  {
+   "at": [
+    420,
+    1200
+   ],
+   "across": "h",
+   "why": "engineering's port side way: a side way"
+  }
+ ],
  "lifts": [
   {
-   "room": "Lift (port)",
+   "room": "Lift A",
    "at": [
-    488,
-    500
+    512,
+    664
    ]
   },
   {
-   "room": "Lift (starboard)",
+   "room": "Lift B",
    "at": [
-    536,
-    500
+    512,
+    829
    ]
   }
  ],
  "patrols": [],
  "room_guards": {
-  "Bridge": 1,
-  "Sensors": 1,
-  "Comms": 1,
-  "CIC": 1,
-  "Crew Quarters": 1,
   "Galley & Mess": 1,
   "Medbay": 1,
   "Armory": 1,
-  "Gun Deck A": 2,
-  "Gun Deck B": 2,
-  "Engineering": 2,
+  "Magazine (Ordnance)": 1,
+  "Engineering Deck": 2,
+  "CIC (Combat Information Center)": 2,
+  "Bridge": 2,
   "Reactor Core": 1,
+  "Crew Quarters A": 1,
   "Engine Room": 1
- }
+ },
+ "derived_from": "elyza_frigate",
+ "gameplay_from": "orion_frigate"
 }

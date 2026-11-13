@@ -1,0 +1,107 @@
+{
+ "entry": {
+  "room": "Engine Access (L)",
+  "at": [
+   265,
+   1100
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    512,
+    474
+   ],
+   "key": 1,
+   "why": "the cockpit"
+  },
+  {
+   "door": [
+    512,
+    1069
+   ],
+   "key": 1,
+   "why": "the engine room"
+  },
+  {
+   "door": [
+    567,
+    680
+   ],
+   "key": 1,
+   "why": "med / galley (holding the hostage)"
+  },
+  {
+   "door": [
+    533,
+    747
+   ],
+   "key": 1,
+   "why": "med / galley"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Sensors / Recon Suite",
+   "at": [
+    512,
+    560
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Engine Room",
+   "at": [
+    512,
+    1105
+   ],
+   "key": 1
+  },
+  "capture": {
+   "room": "Bridge (Cockpit)",
+   "at": [
+    512,
+    410
+   ],
+   "key": 1
+  },
+  "rescue": {
+   "room": "Med / Galley",
+   "at": [
+    586,
+    750
+   ],
+   "key": 1
+  }
+ },
+ "wreck": [],
+ "lifts": [
+  {
+   "room": "Lift (port)",
+   "at": [
+    472,
+    800
+   ]
+  },
+  {
+   "room": "Lift (starboard)",
+   "at": [
+    552,
+    800
+   ]
+  }
+ ],
+ "patrols": [],
+ "room_guards": {
+  "Sensors / Recon Suite": 1,
+  "Engineering": 2,
+  "Bunk (4)": 1,
+  "Med / Galley": 1,
+  "Bridge (Cockpit)": 1,
+  "Mission / Data Room": 1
+ },
+ "derived_from": "unity_scout",
+ "gameplay_from": "unity_scout"
+}

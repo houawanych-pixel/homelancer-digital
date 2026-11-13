@@ -1,76 +1,124 @@
 {
  "entry": {
-  "room": "Loading Bay",
+  "room": "Vehicle / Loader Bay",
   "at": [
    512,
-   729
+   840
   ]
  },
  "locks": [
   {
    "door": [
     512,
-    806
+    1108
    ],
    "key": 1,
-   "why": "aft of the bay"
+   "why": "engineering"
+  },
+  {
+   "door": [
+    343,
+    1162
+   ],
+   "key": 1,
+   "why": "engineering"
+  },
+  {
+   "door": [
+    681,
+    1162
+   ],
+   "key": 1,
+   "why": "engineering"
   },
   {
    "door": [
     512,
-    458
+    372
    ],
    "key": 2,
-   "why": "the command section"
+   "why": "the CIC"
+  },
+  {
+   "door": [
+    462,
+    344
+   ],
+   "key": 2,
+   "why": "the CIC"
+  },
+  {
+   "door": [
+    562,
+    344
+   ],
+   "key": 2,
+   "why": "the CIC"
   },
   {
    "door": [
     512,
-    304
+    288
    ],
-   "key": 3,
+   "key": 2,
+   "why": "the CIC"
+  },
+  {
+   "door": [
+    512,
+    217
+   ],
+   "key": 2,
    "why": "the bridge"
   },
   {
    "door": [
     512,
-    1159
+    1194
    ],
-   "key": 3,
-   "why": "the reactor core"
+   "key": 2,
+   "why": "the reactor"
   },
   {
    "door": [
-    502,
-    613
+    472,
+    1226
    ],
-   "key": 3,
-   "why": "the brig"
+   "key": 2,
+   "why": "the reactor"
+  },
+  {
+   "door": [
+    552,
+    1226
+   ],
+   "key": 2,
+   "why": "the reactor"
+  },
+  {
+   "door": [
+    512,
+    1283
+   ],
+   "key": 2,
+   "why": "the reactor"
   }
  ],
  "guards": [
   {
    "key": 1,
-   "room": "Medbay",
+   "room": "Cargo Hold A2",
    "at": [
-    593,
-    613
+    290,
+    755
    ]
   },
   {
    "key": 2,
-   "room": "Engineering",
+   "room": "Engineering Deck",
    "at": [
     512,
-    1114
-   ]
-  },
-  {
-   "key": 3,
-   "room": "Ops Center",
-   "at": [
-    512,
-    414
+    1150
    ]
   }
  ],
@@ -79,60 +127,63 @@
    "room": "Reactor Core",
    "at": [
     512,
-    1208
+    1240
    ],
-   "key": 3
+   "key": 2
   },
   "capture": {
    "room": "Bridge",
    "at": [
     512,
-    272
+    175
    ],
-   "key": 3
+   "key": 2
   },
   "rescue": {
-   "room": "Brig",
+   "room": "CIC",
    "at": [
-    430,
-    613
+    512,
+    330
    ],
-   "key": 3
+   "key": 2
   }
  },
- "wreck": [],
+ "wreck": [
+  {
+   "at": [
+    410,
+    870
+   ],
+   "across": "h",
+   "why": "the port run beside the bay: a side way, never the only way"
+  }
+ ],
  "lifts": [
   {
-   "room": "Lift (port)",
+   "room": "Lift",
    "at": [
-    488,
-    560
-   ]
-  },
-  {
-   "room": "Lift (starboard)",
-   "at": [
-    536,
-    560
+    512,
+    459
    ]
   }
  ],
  "patrols": [],
  "room_guards": {
-  "Bridge": 1,
-  "Sensors": 2,
-  "Comms": 2,
-  "Ops Center": 1,
-  "Crew Quarters": 2,
-  "Galley": 2,
-  "Brig": 2,
-  "Medbay": 2,
-  "Cargo Hold A": 2,
-  "Cargo Hold B": 2,
-  "Fuel Store": 2,
-  "Cargo Hold C": 2,
-  "Engineering": 2,
+  "Cargo Hold A1": 1,
+  "Cargo Hold B2": 2,
+  "Cargo Hold A3": 1,
+  "Cargo Hold B3": 1,
+  "Cargo Transfer Hub": 2,
+  "General Storage": 1,
+  "Engineering Deck": 2,
+  "CIC": 2,
+  "Bridge": 2,
   "Reactor Core": 1,
+  "Galley & Mess": 1,
+  "Medbay": 1,
+  "Munitions Resupply": 1,
   "Engine Room": 1
- }
+ },
+ "derived_from": "imperium_resupply",
+ "gameplay_from": "orion_resupply"
 }
