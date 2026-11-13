@@ -27,6 +27,7 @@ L = {
     "Weapons Bay": box(262, 662, 395, 770),
     "Cargo Hold": box(360, 877, 447, 975),
     "Engine Room": box(368, 1120, 452, 1185),
+    "Lift": box(468, 468, 496, 500),
 }
 TWIN = {"Galley & Mess": ("Galley & Mess", "Medbay")}
 for k, g in L.items():
@@ -51,9 +52,9 @@ DC = [(512, 251, "h"), (512, 326, "h"), (512, 427, "h"), (512, 548, "h"), (512, 
       (512, 875, "h"), (512, 978, "h"), (512, 1055, "h")]
 DL = [(504, 291, "v"), (460, 376, "v"), (418, 408, "h"), (459, 454, "v"), (415, 492, "h"), (459, 516, "v"), (460, 582, "v"),
       (405, 587, "h"), (395, 727, "v"), (415, 781, "v"), (439, 833, "v"), (405, 875, "h"), (449, 930, "v"), (401, 976, "h"),
-      (431, 1024, "v"), (461, 1108, "v"), (411, 1118, "h")]
+      (431, 1024, "v"), (461, 1108, "v"), (411, 1118, "h"), (498, 484, "v")]
 DOORS = DC + DL + [(2 * AX - x, y, o) for x, y, o in DL]
 
-S = Ship("covenant_destroyer", HERE, os.path.join(HERE, "..", "source.jpg"), AX, R, HALLS, DOORS, start=(512, 720), proposed=[])
+S = Ship("covenant_destroyer", HERE, os.path.join(HERE, "..", "source.jpg"), AX, R, HALLS, DOORS, start=(512, 720), proposed=[(498, 484), (526, 484)])
 if __name__ == "__main__":
     run(S)
