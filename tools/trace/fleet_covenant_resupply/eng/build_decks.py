@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Covenant Resupply Ship: PROPOSED upper (command / crew) and lower (stores) decks in the owner-preferred pass 2a
+"""RETIRED v13.119 (class rule v13.118: this class has the main deck only). Kept for reference, outputs removed.
+Covenant Resupply Ship: PROPOSED upper (command / crew) and lower (stores) decks in the owner-preferred pass 2a
 style (traced rooms from tools/trace/shape_library.json picked by function, service space, spine with junction rooms,
 niches, hatches), mirrored about x 567. Both decks stop at ONE lift shaft: the main deck's Lift on the centreline,
 (567, 389), doors fore and aft. decklib.check() runs on both."""

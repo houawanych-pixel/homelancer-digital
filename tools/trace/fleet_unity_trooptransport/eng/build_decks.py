@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Unity Troop Transport: PROPOSED upper (troop berths) and lower (hold) decks from the proven fleet deck template
+"""RETIRED v13.119 (class rule v13.118: this class has the main deck only). Kept for reference, outputs removed.
+Unity Troop Transport: PROPOSED upper (troop berths) and lower (hold) decks from the proven fleet deck template
 (tools/trace/fleetdecks.py, pass 2a style, traced library rooms), mirrored about x 464. Both decks stop at ONE lift
 shaft: the main deck's Lift (port), (357, 503), added off the side corridor; a cross corridor joins it to the spine."""
 import os, sys

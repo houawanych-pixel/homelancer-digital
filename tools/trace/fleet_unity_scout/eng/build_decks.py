@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Unity Scout: PROPOSED upper (command) and lower (hold) decks from the proven fleet deck template
+"""RETIRED v13.119 (class rule v13.118: this class has the main deck only). Kept for reference, outputs removed.
+Unity Scout: PROPOSED upper (command) and lower (hold) decks from the proven fleet deck template
 (tools/trace/fleetdecks.py, pass 2a style, traced library rooms), mirrored about x 512, cut short for the small
 hull (no gunnery, pods, batteries, coolant or machine shop: the engine pods start at y 1180). Both decks stop at
 ONE lift shaft: the main deck's Lift (port), (472, 800), added in the bunk room's aft corner."""

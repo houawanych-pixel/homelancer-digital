@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Covenant Troop Transport: PROPOSED upper (troop berths) and lower (hold) decks in the owner-preferred pass 2a style (traced
+"""RETIRED v13.119 (class rule v13.118: this class has the main deck only). Kept for reference, outputs removed.
+Covenant Troop Transport: PROPOSED upper (troop berths) and lower (hold) decks in the owner-preferred pass 2a style (traced
 rooms from tools/trace/shape_library.json picked by function, service space, spine with junction rooms, niches,
 hatches), centre mass in the narrow hull body and the wing roots, mirrored about x 512. Both decks stop at ONE lift
 shaft: the main deck's Lift (port), (444, 517), joined to the spine by a short corridor. decklib.check() runs on both."""

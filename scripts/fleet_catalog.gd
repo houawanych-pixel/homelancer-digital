@@ -65,6 +65,15 @@ const HOLODECK_FILES := [
 	"HL_CovenantCapital_HoloDeck_20261109_v1", "HL_CovenantCruiser_HoloDeck_20261109_v1", "HL_CovenantDestroyer_HoloDeck_20261109_v1",
 	"HL_CovenantResupply_HoloDeck_20261109_v1", "HL_CovenantTroopTransport_HoloDeck_20261109_v1",
 ]
+## v13.117: ships with no deck-plan file whose main deck was COMPOSED inside the fleet token
+## (tools/trace/fleetmain.py, PROPOSED, waiting for the owner's OK): boardable from assets/holodeck/<id>.json, map
+## picture assets/holodeck/<id>_plan.jpg. The official HoloDeck pointer stays empty.
+const COMPOSED := [
+	"solarion_capital", "solarion_cruiser", "solarion_destroyer", "solarion_resupply", "solarion_trooptransport",
+	"solarion_frigate", "solarion_escort", "solarion_scout",
+	"savagers_capital", "savagers_cruiser", "savagers_destroyer", "savagers_resupply", "savagers_trooptransport",
+	"savagers_frigate", "savagers_escort", "savagers_scout",
+]
 ## How a faction's own systems show its fleet (FleetCatalog.spawn_plan): where each class sits.
 ##   patrol = slow loop well out from the station; screen = tighter loop near the station;
 ##   docked = parked beside the station (a visitor); traffic = runs the station-planet lane.
@@ -86,8 +95,8 @@ static func all() -> Dictionary:
 			_all[id] = {
 				"id": id, "name": "%s %s" % [f, CLASS_NAME[c]], "faction": f, "class": c, "role": ROLE[c],
 				"holodeck": (hd + ".png") if has_hd else "",                     # the official file name (Drive: Homelancer Art)
-				"holodeck_res": (HOLODECK_DIR + hd + ".jpg") if has_hd else "",  # the game copy
-				"stage": stage if has_hd and FileAccess.file_exists(stage) else "",
+				"holodeck_res": (HOLODECK_DIR + hd + ".jpg") if has_hd else ((HOLODECK_DIR + id + "_plan.jpg") if id in COMPOSED else ""),
+				"stage": stage if (has_hd or id in COMPOSED) and FileAccess.file_exists(stage) else "",
 				"sheet": "HL_%sFleet_TopDown_%s_v1.png" % [f, ART_DATE],
 				"token": TOKEN_DIR + "%s.png" % id,
 				"stats": PLACEHOLDER_STATS[c], "stats_placeholder": true,

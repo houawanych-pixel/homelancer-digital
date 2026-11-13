@@ -1,0 +1,101 @@
+{
+ "entry": {
+  "room": "Airlock Bay",
+  "at": [
+   512,
+   664
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    512,
+    407
+   ],
+   "key": 1,
+   "why": "the bridge"
+  },
+  {
+   "door": [
+    512,
+    893
+   ],
+   "key": 1,
+   "why": "the reactor core"
+  },
+  {
+   "door": [
+    522,
+    533
+   ],
+   "key": 1,
+   "why": "the galley / med"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Crew Bunks",
+   "at": [
+    459,
+    533
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Reactor Core",
+   "at": [
+    512,
+    939
+   ],
+   "key": 1
+  },
+  "capture": {
+   "room": "Bridge",
+   "at": [
+    512,
+    380
+   ],
+   "key": 1
+  },
+  "rescue": {
+   "room": "Galley / Med",
+   "at": [
+    564,
+    533
+   ],
+   "key": 1
+  }
+ },
+ "wreck": [],
+ "lifts": [
+  {
+   "room": "Lift (port)",
+   "at": [
+    488,
+    593
+   ]
+  },
+  {
+   "room": "Lift (starboard)",
+   "at": [
+    536,
+    593
+   ]
+  }
+ ],
+ "patrols": [],
+ "room_guards": {
+  "Bridge": 1,
+  "Sensors": 1,
+  "Gun Room": 1,
+  "Crew Bunks": 1,
+  "Galley / Med": 1,
+  "Armory": 2,
+  "Stores": 2,
+  "Engineering": 2,
+  "Reactor Core": 1,
+  "Engine Room": 2
+ }
+}

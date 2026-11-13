@@ -8,7 +8,7 @@ import fleetdecks
 from shapely.geometry import box
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-bad = fleetdecks.build("unity_frigate", HERE, ax=512.0, lift=box(462, 553, 488, 583), s=1.0,
+bad = fleetdecks.build("unity_frigate", HERE, ax=512.0, lift=box(462, 553, 488, 583), s=1.0, decks=("upper",),
                        names={"Observation Dome": "Observation", "Targeting": "Tactical", "Gunnery Control": "Weapons Control",
                               "Torpedo Store P": "Missile Store P", "Torpedo Store S": "Missile Store S"})
 sys.exit(1 if bad else 0)

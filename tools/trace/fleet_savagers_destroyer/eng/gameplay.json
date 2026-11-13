@@ -1,0 +1,138 @@
+{
+ "entry": {
+  "room": "Launch Bay",
+  "at": [
+   512,
+   800
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    512,
+    869
+   ],
+   "key": 1,
+   "why": "aft of the bay"
+  },
+  {
+   "door": [
+    512,
+    427
+   ],
+   "key": 2,
+   "why": "the command section"
+  },
+  {
+   "door": [
+    512,
+    255
+   ],
+   "key": 3,
+   "why": "the bridge"
+  },
+  {
+   "door": [
+    512,
+    1053
+   ],
+   "key": 3,
+   "why": "the reactor core"
+  },
+  {
+   "door": [
+    522,
+    915
+   ],
+   "key": 3,
+   "why": "the brig"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Weapons Bay A",
+   "at": [
+    437,
+    679
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Engineering",
+   "at": [
+    512,
+    1007
+   ]
+  },
+  {
+   "key": 3,
+   "room": "CIC",
+   "at": [
+    512,
+    381
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Reactor Core",
+   "at": [
+    512,
+    1105
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Bridge",
+   "at": [
+    512,
+    222
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Brig",
+   "at": [
+    587,
+    915
+   ],
+   "key": 3
+  }
+ },
+ "wreck": [],
+ "lifts": [
+  {
+   "room": "Lift (port)",
+   "at": [
+    488,
+    521
+   ]
+  },
+  {
+   "room": "Lift (starboard)",
+   "at": [
+    536,
+    521
+   ]
+  }
+ ],
+ "patrols": [],
+ "room_guards": {
+  "Bridge": 1,
+  "Sensors": 1,
+  "Weapons Locker": 1,
+  "CIC": 1,
+  "Captain's Quarters": 1,
+  "Armory": 1,
+  "Crew Quarters": 2,
+  "Galley & Mess": 2,
+  "Weapons Bay A": 2,
+  "Weapons Bay B": 2,
+  "Missile Magazine": 2,
+  "Brig": 2,
+  "Engineering": 2,
+  "Reactor Core": 1,
+  "Engine Room": 2
+ }
+}

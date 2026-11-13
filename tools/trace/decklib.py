@@ -20,8 +20,12 @@ def hull(src_path, ax, fin=14):
     """The ship's outer silhouette from its HoloDeck picture: glow pixels, closed, holes filled, mirrored about ax,
     then opened by `fin` px so thin fins and spikes drop out (the decks belong in the body)."""
     im = cv2.imread(src_path)
-    hsv = cv2.cvtColor(im, cv2.COLOR_BGR2HSV)
-    m = ((hsv[:, :, 2] > 70) & (hsv[:, :, 1] > 60)).astype(np.uint8)
+    side = os.path.splitext(src_path)[0] + "_mask.png"   # (a composed ship: the silhouette comes with the picture)
+    if os.path.exists(side):
+        m = (cv2.imread(side, cv2.IMREAD_GRAYSCALE) > 127).astype(np.uint8)
+    else:
+        hsv = cv2.cvtColor(im, cv2.COLOR_BGR2HSV)
+        m = ((hsv[:, :, 2] > 70) & (hsv[:, :, 1] > 60)).astype(np.uint8)
     m[:, :] &= 1
     H, W = m.shape
     m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15)))

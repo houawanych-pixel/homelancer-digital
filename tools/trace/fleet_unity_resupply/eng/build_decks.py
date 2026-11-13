@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Unity Resupply: PROPOSED upper (command / crew) and lower (stores) decks from the proven fleet deck template
+"""RETIRED v13.119 (class rule v13.118: this class has the main deck only). Kept for reference, outputs removed.
+Unity Resupply: PROPOSED upper (command / crew) and lower (stores) decks from the proven fleet deck template
 (tools/trace/fleetdecks.py, pass 2a style, traced library rooms), mirrored about x 514. Both decks stop at ONE
 lift shaft: the main deck's Lift (port), (473, 464). decklib.check() runs on both."""
 import os, sys
