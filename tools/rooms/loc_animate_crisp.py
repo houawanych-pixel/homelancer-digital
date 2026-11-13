@@ -14,6 +14,7 @@ seam, the last second fades (in time) into the first so the motion loops. Writes
 import json, os, subprocess, sys
 import cv2, numpy as np
 sy, place, room, cdir = sys.argv[1:5]
+take = sys.argv[5] if len(sys.argv) > 5 else ""   # v13.91 (owner: "a second clip back to back"): b -> <key>.b.ogv, played after the first; keeps the first take's sound
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(os.path.dirname(HERE))
 key = "%s_%s_%s" % (sy, place.lower(), room.lower())
 meta = json.load(open(os.path.join(HERE, "loc_cuts", key + ".json")))
@@ -46,7 +47,7 @@ for i, pt in enumerate(meta["parts"]):
     caps.append(cap); warps.append((M, gw)); bounds.append(gx0)
 N = int(min(c.get(cv2.CAP_PROP_FRAME_COUNT) for c in caps)); fps = caps[0].get(cv2.CAP_PROP_FPS) or 24.0
 nf = int(round(FADE * fps))
-out = os.path.join(ROOT, "assets/rooms/loc", key + ".ogv")
+out = os.path.join(ROOT, "assets/rooms/loc", key + ("." + take if take else "") + ".ogv")
 enc = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", "%dx%d" % (GW, GH), "-r", str(fps), "-i", "-",
                         "-c:v", "libtheora", "-q:v", "4", "-pix_fmt", "yuv420p", out], stdin=subprocess.PIPE)
 head = []; snaps = {}
@@ -71,7 +72,7 @@ for i, pt in enumerate(meta["parts"]):
     t = int(((pt["strip_x0"] + pt["strip_w"] / 2.0) % W) / W * 3) % 3
     while t in thirds: t = (t + 1) % 3
     thirds[t] = i
-for t in range(3):
+for t in (range(3) if not take else []):
     a = os.path.join(cdir, "%s_%s_clip%d.mp4" % (place, room, thirds[t] + 1))
     o = os.path.join(ROOT, "assets/rooms/loc", "%s.a%d.ogg" % (key, t + 1))
     af = "[0:a]atrim=%.3f:%.3f,asetpts=PTS-STARTPTS[bb];[1:a]atrim=0:%.3f,asetpts=PTS-STARTPTS[hh];[bb][hh]acrossfade=d=%.3f[o]" % (FADE, T + FADE, FADE, FADE)
