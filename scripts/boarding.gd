@@ -924,7 +924,7 @@ static func build(root: Node3D, tint: Color) -> Dictionary:
 			_ramp(root, k, h, roof_m)       # the roof, the same height over it
 		for side in [["x", x0, z0, z1, -1.0], ["x", x1, z0, z1, 1.0], ["z", z0, x0, x1, -1.0], ["z", z1, x0, x1, 1.0]]:
 			if k == "lbay" and side[0] == "x" and is_equal_approx(float(side[1]), x0): continue   # the port bay's open side (in)
-			if k == "sbay" and side[0] == "x" and is_equal_approx(float(side[1]), x1): continue   # the starboard bay's open side (out)
+			if k == "sbay" and side[0] == "x" and is_equal_approx(float(side[1]), x1) and not INFO.has("fleet"): continue   # the starboard bay's open side (out) (v13.92: a fleet ship's bay is closed: you leave by reaching it)
 			var cuts: Array = []
 			for d in dl:
 				if not (d["rooms"] as Array).has(k) or d["axis"] != side[0] or absf(float(d["at"]) - float(side[1])) > 0.5: continue

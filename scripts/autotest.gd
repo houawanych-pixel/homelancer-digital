@@ -1789,11 +1789,14 @@ func _run() -> void:
 		main.landing_film_min = 0.0
 		main.landing_film_max = 0.4
 	if _flag("HL_FLEETBOARD"):   # v13.89 (owner: "use the same gameplay from the regular board missions"): a traced fleet deck in the boarding engine
-		var fid := "imperium_trooptransport"
+		var fids := ["imperium_trooptransport"]
+		if OS.get_environment("HL_FLEETBOARD") not in ["", "1"]: fids = OS.get_environment("HL_FLEETBOARD").split(",")
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
 		await _wait(1.0)
-		for kind in ["sabotage", "capture", "rescue"]:
+		for run in fids.size() * 3:
+			var fid: String = fids[run / 3]
+			var kind: String = ["sabotage", "capture", "rescue"][run % 3]
 			main.board_fleet_ship(fid, kind, {})
 			await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding and main.hud.visible, 90.0)
 			await _wait(1.5)
@@ -1807,13 +1810,13 @@ func _run() -> void:
 				if e.has("card"): cards += 1
 			var hud_ok: bool = hb.visible and hb.buttons.has("fire") and hb.buttons.has("cutter")
 			_check("%s %s: the regular boarding HUD, on foot, %d GLB soldiers, %d card carriers, %d doors (%d card doors)" % [fid, kind, soldiers, cards, s.board_doors.size(), s.board_doors.filter(func(d): return int(d.get("key", 0)) > 0).size()],
-				hud_ok and s.pilot_rig != null and soldiers >= 10 and cards == 2 and b.has("fleet") and s.board_doors.filter(func(d): return int(d.get("key", 0)) > 0).size() == 9, "hud %s (vis %s fire %s target %s) rig %s" % [hud_ok, hb.visible, hb.buttons.has("fire"), hb.buttons.has("target") or hb.buttons.has("tgt_front"), s.pilot_rig != null])
-			_check("%s %s: you start in the deploy bay" % [fid, kind], Boarding.room_at(s.player.global_position) == "sbay", Boarding.room_at(s.player.global_position))
+				hud_ok and s.pilot_rig != null and soldiers >= 10 and cards == (Boarding.INFO["fleet"]["cards"] as Array).size() and b.has("fleet") and s.board_doors.filter(func(d): return int(d.get("key", 0)) > 0).size() == Boarding.INFO["fleet"]["locks"].size(), "hud %s (vis %s fire %s target %s) rig %s" % [hud_ok, hb.visible, hb.buttons.has("fire"), hb.buttons.has("target") or hb.buttons.has("tgt_front"), s.pilot_rig != null])
+			_check("%s %s: you start in the bay you boarded by" % [fid, kind], Boarding.room_at(s.player.global_position) == "sbay", Boarding.room_at(s.player.global_position))
 			if kind == "sabotage":
-				await _capture("fb_start")
+				await _capture("fb_%s_start" % fid)
 				main.hud.planet_map = true
 				await _wait(0.4)
-				await _capture("fb_map")
+				await _capture("fb_%s_map" % fid)
 				main.hud.planet_map = false
 				# you can't leave yet
 				s.player.global_position = Vector3(Boarding.EXIT_X + 3.0, s.player.global_position.y, s.player.global_position.z)
@@ -1836,21 +1839,18 @@ func _run() -> void:
 				_check("%s: beating a card guard gives his card" % fid, s._fleet_has(1))
 			var tgt: Vector3 = b["fleet"]["target_at"]
 			s._fleet_card(2, tgt)
-			s.player.global_position = Vector3(tgt.x + 30.0, Boarding.floor_at(tgt) + 6.0, tgt.z + 30.0)
+			s.player.global_position = Vector3(tgt.x + 18.0, Boarding.floor_at(tgt) + 6.0, tgt.z + 18.0)
 			await _wait(1.0)
-			await _capture("fb_target_" + kind)
+			await _capture("fb_%s_%s" % [fid, kind])
 			if kind == "sabotage": s._destroy_unit(b["core"])
 			elif kind == "capture": s._destroy_unit(b["fleet"]["captain"])
 			await _wait(0.6)
 			_check("%s %s: the job's target is done" % [fid, kind], bool(b["fleet"]["done"]), str(b["fleet"]["done"]))
-			var ex: Array = Boarding.ROOMS["sbay"]["r"]
-			s.player.global_position = Vector3(float(ex[1]) - 10.0, s.player.global_position.y, (float(ex[2]) + float(ex[3])) * 0.5)
-			s.vel = Vector3(200, 0, 0)
-			await _wait(0.6)
-			if is_instance_valid(s) and s.boarding: s.player.global_position.x = Boarding.EXIT_X + 5.0
+			var ex: Array = Boarding.ROOMS["sbay"]["r"]   # back to the bay you came aboard by (v13.92: the way out, wherever it is)
+			s.player.global_position = Vector3((float(ex[0]) + float(ex[1])) * 0.5, s.player.global_position.y, (float(ex[2]) + float(ex[3])) * 0.5)
 			await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and not main.space.boarding, 20.0)
 			await _wait(1.0)
-			_check("%s %s: out through the deploy bay, back in space" % [fid, kind], main.state == "flight" and not main.space.boarding, main.state)
+			_check("%s %s: back to the bay you boarded by: out, back in space" % [fid, kind], main.state == "flight" and not main.space.boarding, main.state)
 		_finish_group()
 		return
 	if _flag("HL_FLEETDECK"):   # v13.78 fleet interiors programme: every ship rebuilt from an approved traced plan

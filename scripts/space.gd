@@ -1712,7 +1712,7 @@ func _board_steps(dt: float) -> void:
 				if is_instance_valid(board.get("shield")): (board["shield"] as Node3D).visible = false
 				message.emit("Their boss is down: the REACTOR'S SHIELD IS DOWN. Blow it!")
 		"sneak":   # v12.46: the breakout, unseen so far: walk out to your ship
-			if player.global_position.x > Boarding.EXIT_X and _fleet_may_leave():
+			if _out_now():
 				board["phase"] = "out"
 				board_exit.emit(true)
 		"escape":
@@ -1724,7 +1724,7 @@ func _board_steps(dt: float) -> void:
 						if Boarding.is_door(d, Boarding.ESCAPE_DOOR): d["locked"] = false
 					Sfx.play("button", -2.0, 0.8)
 					message.emit("Lockdown override! The HANGAR is open: get to your ship!")
-				if player.global_position.x > Boarding.EXIT_X and _fleet_may_leave():
+				if _out_now():
 					board["phase"] = "out"
 					board_exit.emit(true)
 				return
@@ -1733,7 +1733,7 @@ func _board_steps(dt: float) -> void:
 			if left != int(board["said"]) and (left % 10 == 0 or left <= 5):
 				board["said"] = left
 				message.emit("%d SECONDS!" % left)
-			if player.global_position.x > Boarding.EXIT_X:
+			if _out_now():
 				board["phase"] = "out"
 				if board.get("hostage_pay", false): GS.credits += Data.BOARD_BOUNTY_PAY
 				board_exit.emit(true)
@@ -1980,6 +1980,14 @@ func _fleet_done() -> void:
 	if is_instance_valid(fl.get("beacon")): (fl["beacon"] as Node3D).global_position = out + Vector3(0, 15.0, 0)
 	if str(fl["kind"]) == "capture": message.emit("CAPTAIN TAKEN! Get him back to the %s." % str(Boarding.ROOMS["sbay"]["label"]))
 	if str(fl["kind"]) == "rescue": message.emit("HOSTAGE FREED! She's with you: back to the %s." % str(Boarding.ROOMS["sbay"]["label"]))
+
+## Out of the ship this frame? The regular decks: past the open side of the starboard bay. A fleet ship (v13.92): back
+## in the bay you came aboard by, once you have been out of it and the job is done.
+func _out_now() -> bool:
+	if not board.has("fleet"): return player.global_position.x > Boarding.EXIT_X
+	var here := Boarding.room_at(player.global_position)
+	if here != "sbay": board["fleet"]["left_bay"] = true
+	return here == "sbay" and bool(board["fleet"].get("left_bay", false)) and _fleet_may_leave()
 
 func _fleet_may_leave() -> bool:
 	if not board.has("fleet"): return true

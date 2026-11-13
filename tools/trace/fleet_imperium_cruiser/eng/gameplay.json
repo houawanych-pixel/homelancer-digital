@@ -1,0 +1,23 @@
+{
+ "entry": {"room": "Hangar Bay", "at": [587, 720]},
+ "locks": [
+  {"door": [548, 929], "key": 1, "why": "engineering"}, {"door": [626, 929], "key": 1, "why": "engineering"},
+  {"door": [540, 446], "key": 2, "why": "the CIC (and the sensors and bridge past it)"}, {"door": [634, 446], "key": 2, "why": "the CIC"},
+  {"door": [587, 1016], "key": 2, "why": "the reactor"}, {"door": [545, 1066], "key": 2, "why": "the reactor"}, {"door": [629, 1066], "key": 2, "why": "the reactor"}
+ ],
+ "guards": [
+  {"key": 1, "room": "Barracks (port)", "at": [320, 800]},
+  {"key": 2, "room": "Engineering Deck", "at": [587, 965]}
+ ],
+ "targets": {
+  "sabotage": {"room": "Reactor Core", "at": [587, 1066], "key": 2},
+  "capture": {"room": "Bridge", "at": [587, 190], "key": 2},
+  "rescue": {"room": "Sensors Suite", "at": [587, 288], "key": 2}
+ },
+ "wreck": [{"at": [300, 893], "across": "v", "why": "the port wing run: a side way, never the only way"}],
+ "lifts": [{"room": "Lift (port)", "at": [552, 513]}, {"room": "Lift (starboard)", "at": [622, 513]}],
+ "patrols": [{"room": "Hangar Bay", "path": [[520, 680], [520, 770], [654, 770], [654, 680]]}],
+ "room_guards": {"Vehicle Bay": 2, "Engineering Deck": 2, "CIC (Combat Information Center)": 2, "Bridge": 2, "Reactor Core": 1,
+   "Armory (starboard)": 1, "Barracks (starboard)": 2, "Galley & Mess": 1, "Medbay": 1, "Cargo Hold (port)": 1, "Crew Quarters (port)": 1,
+   "Weapon Systems (starboard)": 1, "Engine Room": 1}
+}

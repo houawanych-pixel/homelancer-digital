@@ -46,6 +46,9 @@ def board_layout(plan, play, src_w, src_h):
                       "label": nm.upper(), "guards": guards.get(nm, 0), "hex": False, "shape": "rect"}
     # hallways: one network, shrunk off the walls, cut into rects on every vertex line (and at the wreck points)
     halls = unary_union([shape(h) for h in plan["halls"]]).buffer(-g, join_style=2)
+    # the engine's rooms are their boxes: hallways stop short of every room's box (a round room's corners are wall)
+    halls = halls.difference(unary_union([sbox(*v[1]).buffer(2 * g, join_style=2) for v in shapes.values()]))
+    halls = unary_union([p for p in getattr(halls, "geoms", [halls]) if p.area > 30])
     xs, ys = set(), set()
     for p in getattr(halls, "geoms", [halls]):
         for ring in [p.exterior] + list(p.interiors):
@@ -81,7 +84,13 @@ def board_layout(plan, play, src_w, src_h):
                       "label": "CORRIDOR", "guards": 0, "hex": False, "shape": "rect", "flow": True}
     def at(px, py):
         for k, (poly, r, _) in shapes.items():
-            if r[0] - 0.01 <= px <= r[2] + 0.01 and r[1] - 0.01 <= py <= r[3] + 0.01 and poly.buffer(0.5).contains(Point(px, py)): return k
+            if r[0] - 0.01 <= px <= r[2] + 0.01 and r[1] - 0.01 <= py <= r[3] + 0.01 and (not rooms[k].get("flow") or poly.buffer(0.5).contains(Point(px, py))): return k
+        return None
+    def side(px, py, dx, dy, first):
+        """the first thing (other than `first`) met stepping from the door point along (dx, dy)"""
+        for st_ in range(2, 60):
+            k = at(px + dx * st_, py + dy * st_)
+            if k is not None and k != first: return k
         return None
     # a connector at every door, from one side's rect edge to the other's; locks by key level
     locks = {tuple(l["door"]): int(l["key"]) for l in play.get("locks", [])}
@@ -89,7 +98,27 @@ def board_layout(plan, play, src_w, src_h):
     for x, y, o in plan["doors"]:
         if o == "h": a, b = at(x, y - 2 * T - 2), at(x, y + 2 * T + 2)
         else: a, b = at(x - 2 * T - 2, y), at(x + 2 * T + 2, y)
+        if a is not None and a == b and not rooms[a].get("flow"):   # the door sits inside a shaped room's box: look past it
+            if o == "h": a2, b2 = side(x, y, 0, -1, a), side(x, y, 0, 1, a)
+            else: a2, b2 = side(x, y, -1, 0, a), side(x, y, 1, 0, a)
+            if b2 is not None and (a2 is None or abs((shapes[b2][1][1] if o == "h" else shapes[b2][1][0]) - (y if o == "h" else x)) < abs((shapes[a2][1][3] if o == "h" else shapes[a2][1][2]) - (y if o == "h" else x))): b = b2
+            elif a2 is not None: a = a2
+        if a is None: a = side(x, y, 0, -1, b) if o == "h" else side(x, y, -1, 0, b)
+        if b is None: b = side(x, y, 0, 1, a) if o == "h" else side(x, y, 1, 0, a)
+        if a is not None and a == b and rooms[a].get("flow"): continue   # (a door square between two hallway runs: open)
+        if a is not None and b is not None and rooms[a].get("flow") and rooms[b].get("flow"): continue
         if a is None or b is None or a == b: problems.append([x, y, o, a, b]); continue
+        # the hallway side: the hall rect right across the gap from the room's edge (not one further in)
+        if rooms[b].get("flow") and not rooms[a].get("flow"):
+            ra0 = shapes[a][1]
+            for st_ in range(1, 16):
+                hit = at(x, ra0[3] + st_) if o == "h" else at(ra0[2] + st_, y)
+                if hit and rooms[hit].get("flow"): b = hit; break
+        elif rooms[a].get("flow") and not rooms[b].get("flow"):
+            rb0 = shapes[b][1]
+            for st_ in range(1, 16):
+                hit = at(x, rb0[1] - st_) if o == "h" else at(rb0[0] - st_, y)
+                if hit and rooms[hit].get("flow"): a = hit; break
         ra, rb = shapes[a][1], shapes[b][1]
         if o == "h": c = [x - D / 2, ra[3], x + D / 2, rb[1]]
         else: c = [ra[2], y - D / 2, rb[0], y + D / 2]
@@ -129,6 +158,19 @@ def board_layout(plan, play, src_w, src_h):
         a, b = (at(wx, wy - 3), at(wx, wy + 3)) if w["across"] == "h" else (at(wx - 3, wy), at(wx + 3, wy))
         if a and b and a != b: wreck.append([a, b])
         else: problems.append(["wreck", wx, wy, a, b])
+    # every room linked to the boarding bay through the engine's joints (touching rect edges, > 4 u of overlap)
+    def joint(A, B):
+        for p1, p2 in ((A[1], B[0]), (A[0], B[1])):
+            if abs(p1 - p2) < 0.5 and min(A[3], B[3]) - max(A[2], B[2]) > 4.0: return True
+        for p1, p2 in ((A[3], B[2]), (A[2], B[3])):
+            if abs(p1 - p2) < 0.5 and min(A[1], B[1]) - max(A[0], B[0]) > 4.0: return True
+        return False
+    seen, todo = {"sbay"}, ["sbay"]
+    while todo:
+        k0 = todo.pop()
+        for k1 in rooms:
+            if k1 not in seen and joint(rooms[k0]["r"], rooms[k1]["r"]): seen.add(k1); todo.append(k1)
+    cut_off = [rooms[k]["label"] for k in rooms if k not in seen and not rooms[k].get("flow") and not rooms[k].get("conn")]
     tw = lambda pt: [W(pt[0]), 0.0, Z(pt[1])]
     ent = shapes["sbay"][1]
     targets = {k: {"room": "sbay" if t["room"] == entry else "r_" + slug(t["room"]), "at": tw(t["at"]), "key": int(t["key"])} for k, t in play["targets"].items()}
@@ -139,7 +181,7 @@ def board_layout(plan, play, src_w, src_h):
            "seal": ["none", "none"], "escape": ["none", "none"], "route_in": [], "route_out": [],
            "info": {"kind": "fleet", "blocked": wreck},
            "fleet": {"locks": lock_list, "cards": cards, "targets": targets, "entry": "sbay"}}
-    return lay, {"connectors": conns, "halls": len(merged), "problems": problems, "overlaps": overlaps}
+    return lay, {"cut_off": cut_off, "connectors": conns, "halls": len(merged), "problems": problems, "overlaps": overlaps}
 
 def raster(g, H, W, scale):
     out = np.zeros((H, W), np.uint8)
@@ -242,7 +284,8 @@ def main():
     out["board"] = lay
     print("board layout: %d rooms+halls+doors, %d hall rects, %d door connectors, %d locked" % (len(lay["rooms"]), rep["halls"], rep["connectors"], len(lay["fleet"]["locks"])))
     if rep["problems"]: print("PROBLEMS:", rep["problems"])
-    if rep["overlaps"]: print("OVERLAPPING RECTS:", rep["overlaps"])
+    if rep["cut_off"]: print("CUT OFF FROM THE BAY:", rep["cut_off"])
+    if rep["overlaps"]: print("OVERLAPPING RECTS:", [[k1, lay["rooms"][k1]["r"], k2, lay["rooms"][k2]["r"]] for k1, k2 in rep["overlaps"]])
     dst = a.out or os.path.join("assets", "holodeck", sid + ".json")
     json.dump(out, open(dst, "w"), separators=(",", ":"))
     print(sid, "->", dst, "%d rooms, %d wall faces, %d doors (%d locked), %.1f KB" % (

@@ -46,7 +46,7 @@ converter: tools/trace/to_deck_json.py; test group: HL_FLEETDECK=<id>.
 | savagers_frigate | **ask owner** | - | - | - | - | - | - |
 | savagers_escort | **ask owner** | - | - | - | - | - | - |
 | savagers_scout | **ask owner** | - | - | - | - | - | - |
-| imperium_capital | yes | - | - | - | - | - | old deck |
+| imperium_capital | yes | done | shown | shown | in game (v13.95) | waiting | regular boarding run |
 | imperium_cruiser | yes | - | - | - | - | - | old deck |
 | imperium_destroyer | yes | - | - | - | - | - | old deck |
 | imperium_resupply | yes | - | - | - | - | - | old deck |
