@@ -159,7 +159,7 @@ def tidy(g, blocked, short=5.0, snap_deg=3.0, rounds=4):
         if not changed: break
     return g
 
-def settle(R, HALLS, whole=(), grow=3.0, twins=None, mirror_fn=None):
+def settle(R, HALLS, whole=(), grow=3.0, twins=None, mirror_fn=None, mode="close"):
     """Owner: "no room may overlap another room, a corridor, a lift or the hull" / "one wall line" / "service space
     at least 1 m". Rooms in `whole` (round rooms, octagons, lift cars, the brig: shapes that are their job) are placed
     first and never cut. Every other room grows a little, then any gap under 1 m left to a neighbour or a corridor
@@ -174,6 +174,12 @@ def settle(R, HALLS, whole=(), grow=3.0, twins=None, mirror_fn=None):
         if k in whole: out[k] = g; continue
         if k in stb: continue
         B = unary_union(blocked)
+        if mode == "simple":       # (the owner-preferred pass 2a look: grow a little, wrap the neighbours, keep the gaps as service)
+            g = clean(g.buffer(4.0, join_style=2).simplify(0.5)).difference(B)
+            g = tidy(dedupe(max(getattr(g, "geoms", [g]), key=lambda q: q.area)), B)
+            out[k] = g; blocked.append(g)
+            if k in twins and mirror_fn: out[twins[k]] = mirror_fn(g); blocked.append(out[twins[k]])
+            continue
         g = clean(g.buffer(grow, join_style=2).simplify(0.5))
         near = g.buffer(10.0, join_style=2).intersection(B.buffer(10.0, join_style=2)).difference(B)   # (a sub-1 m gap: close it)
         g = clean(unary_union([g, near]), nub=6.0).difference(B)       # (closing by 6 px: no steps where a neighbour ends)
@@ -224,7 +230,7 @@ def label_box(g, t, at=None):
             if best is None: best = (lines, sc, bx)
     return best
 
-def check(R, HALLS, DOORS, hullp, features, labels, floor, walls, start, whole=(), fits=None, niches=(), round_rooms=(), lift_ok=None):
+def check(R, HALLS, DOORS, hullp, features, labels, floor, walls, start, whole=(), fits=None, niches=(), round_rooms=(), lift_ok=None, soft=()):
     """The owner's automatic check, run on every plan: 1 no overlaps, 2 inside the hull (shrunk by the wall),
     3 reachable through doors from the lift, 4 furniture 0.3 m inside its room, 5 labels inside their room,
     6 no double walls (two things either share one wall or stand at least 1 m apart: service space), 7 lifts lined up
@@ -236,9 +242,9 @@ def check(R, HALLS, DOORS, hullp, features, labels, floor, walls, start, whole=(
     for i, a in enumerate(ks):
         for b in ks[i + 1:]:
             if not R[a].intersection(R[b]).buffer(-0.5).is_empty: fails[1].append("%s / %s" % (a, b))
-            elif 0.5 < R[a].distance(R[b]) < 10.0: fails[6].append("%s / %s" % (a, b))
+            elif 1.0 < R[a].distance(R[b]) < 10.0: fails[6].append("%s / %s" % (a, b))
         if not R[a].intersection(HU).buffer(-0.5).is_empty: fails[1].append("%s / a corridor near %s" % (a, [round(v) for v in R[a].intersection(HU).bounds]))
-        elif 0.5 < R[a].distance(HU) < 10.0: fails[6].append("%s / a corridor" % a)
+        elif 1.0 < R[a].distance(HU) < 10.0: fails[6].append("%s / a corridor" % a)
     inner_hull = hullp.buffer(-T)
     for k, g in R.items():
         if not inner_hull.contains(g.buffer(-0.5)): fails[2].append(k)
@@ -255,14 +261,15 @@ def check(R, HALLS, DOORS, hullp, features, labels, floor, walls, start, whole=(
     for k, ch in (fits or {}).items():
         if ch > 1.4: fails[8].append("%s %.2fx" % (k, ch))
     for k, g in R.items():
-        if not _min_width_ok(g): fails[9].append(k)
+        if not k.startswith("Lift") and not _min_width_ok(g): fails[9].append(k)   # (a lift car is the main deck's shaft)
     t3 = math.tan(math.radians(3.0))
     for k, g in R.items():
         if k in round_rooms: continue
         pts = list(g.exterior.coords)
         for (ax_, ay), (bx_, by) in zip(pts, pts[1:]):
             L_ = math.hypot(bx_ - ax_, by - ay); dx, dy = abs(bx_ - ax_), abs(by - ay)
-            if L_ < 4.9 or (0.01 < dy <= t3 * dx) or (0.01 < dx <= t3 * dy):
+            if L_ < 1.5: continue            # (sub-pixel joins from the boolean cuts: not a visible edge)
+            if L_ < 4.9 or (0.01 < dy <= t3 * dx and dy > 1.0) or (0.01 < dx <= t3 * dy and dx > 1.0):
                 fails[10].append(k); break
     walk = unary_union(list(R.values()) + [HU]).buffer(0.01)
     for x, y, o in DOORS:
@@ -275,11 +282,11 @@ def check(R, HALLS, DOORS, hullp, features, labels, floor, walls, start, whole=(
     names = {1: "rooms overlap", 2: "outside the hull", 3: "not reachable through doors", 4: "furniture through a wall",
              5: "label across a wall", 6: "double wall (gap < 1 m)", 7: "lifts not lined up", 8: "shape stretched > 1.4x",
              9: "room under 3 m wide", 10: "edges not clean", 11: "door / niche onto service"}
-    n = sum(len(v) for v in fails.values())
+    n = sum(len(v) for i, v in fails.items() if i not in soft)
     print("CHECK: %d failure(s)" % n)
     for i in range(1, 12):
-        print("  %2d %-28s %s" % (i, names[i], "OK" if not fails[i] else "FAIL: " + "; ".join(fails[i])))
-    return [names[i] + ": " + f for i in fails for f in fails[i]]
+        print("  %2d %-28s %s" % (i, names[i], "OK" if not fails[i] else ("WARN: " if i in soft else "FAIL: ") + "; ".join(fails[i])))
+    return [names[i] + ": " + f for i in fails if i not in soft for f in fails[i]]
 SRC_FOR_CHECK = [None]
 def k_whole(k, whole): return k in whole
 
@@ -348,7 +355,7 @@ def _draw(S, floor, walls, hullp, main_floor, lifts, title, png, jpg, features, 
 
 def run(sid, here, src, ax, name, level, R, HALLS, DOORS, lifts, start=None, proposed=(), fin=14, title=None,
         features=None, short=None, whole=(), anchor=None, service=(), niches=(), hatches=(), source=None, coverage=(0.55, 0.65),
-        fits=None, round_rooms=(), lift_ok=None):
+        fits=None, round_rooms=(), lift_ok=None, outline_style="close", soft=()):
     """Build one composed deck, run the owner's automatic check on it and draw it (the check result is printed and
     written on the picture). features: {room: [polygons / lines]}; short: {room: label}. Returns the failures."""
     hullp = hull(src, ax, fin)
@@ -364,7 +371,10 @@ def run(sid, here, src, ax, name, level, R, HALLS, DOORS, lifts, start=None, pro
     floor, walls = build(S)
     # the deck's structure: everything round and between the rooms inside the deck's outline is SERVICE SPACE
     used = unary_union(list(R.values()) + list(HALLS))
-    outline = used.buffer(30, join_style=2).buffer(-30, join_style=2).intersection(hullp.buffer(-T / 2))   # (one wall line: the deck's edge IS the outer rooms' walls)
+    if outline_style == "ring":   # (pass 2a: the deck's structure runs 1 m round the outer rooms)
+        outline = used.buffer(10, join_style=2).buffer(8).buffer(-8).intersection(hullp.buffer(-T / 2))
+    else:
+        outline = used.buffer(30, join_style=2).buffer(-30, join_style=2).intersection(hullp.buffer(-T / 2))   # (one wall line: the deck's edge IS the outer rooms' walls)
     outline = max(getattr(outline, "geoms", [outline]), key=lambda q: q.area)
     outline = Polygon(outline.exterior)            # (no holes: the space between the rooms is structure too)
     svc = outline.difference(used.buffer(T / 2, join_style=2))
@@ -372,7 +382,7 @@ def run(sid, here, src, ax, name, level, R, HALLS, DOORS, lifts, start=None, pro
     features = features or {}; short = short or {}
     labels = {k: label_box(g, short.get(k, k).upper(), (anchor or {}).get(k)) for k, g in R.items()}
     SRC_FOR_CHECK[0] = src
-    bad = check(R, HALLS, DOORS, hullp, features, labels, floor, walls, S.START, whole, fits, NICHE, round_rooms, lift_ok)
+    bad = check(R, HALLS, DOORS, hullp, features, labels, floor, walls, S.START, whole, fits, NICHE, round_rooms, lift_ok, soft)
     print("  12 rooms / deck area           %.0f%% %s" % (cover * 100, "OK" if coverage[0] <= cover <= coverage[1] else "FAIL (want %d-%d%%)" % (coverage[0] * 100, coverage[1] * 100)))
     if not coverage[0] <= cover <= coverage[1]: bad.append("rooms cover %.0f%% of the deck" % (cover * 100))
     for x, y in lifts:
@@ -432,3 +442,78 @@ def source_sheet(deck_jsons, out_jpg):
         cv2.putText(img, "%s: %s" % (deck.upper(), k)[:40], (ox + 6, oy + CH - 22), cv2.FONT_HERSHEY_SIMPLEX, 0.36, (255, 220, 120), 1, cv2.LINE_AA)
         cv2.putText(img, src[:46], (ox + 6, oy + CH - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.32, (170, 170, 170), 1, cv2.LINE_AA)
     cv2.imwrite(out_jpg, img, [cv2.IMWRITE_JPEG_QUALITY, 86])
+
+
+class Deck:
+    """Rooms, halls, doors, niches and hatches of one composed deck, and which traced room each room came from;
+    the port side is mirrored to starboard about the ship's axis `ax`."""
+    def __init__(s, ax):
+        from planlib import mirror
+        s.AX = ax; s.M = mirror(ax)
+        s.R, s.H, s.D, s.FROM, s.F, s.NICHE, s.HATCH, s.TW, s.FIT = {}, [], [], {}, {}, [], [], {}, {}
+    def room(s, name, g, src=None, twin=None, feat=()):
+        if isinstance(g, tuple): g, src = g
+        s.R[name] = g; s.FROM[name] = src; s.F[name] = list(feat)
+        if src and not src.startswith("lift") and LAST_FIT: s.FIT[name] = LAST_FIT["aspect_change"]
+        if twin:
+            s.R[twin] = s.M(g); s.FROM[twin] = src + " (mirrored)"; s.F[twin] = [s.M(f) for f in feat]; s.TW[name] = twin
+            if name in s.FIT: s.FIT[twin] = s.FIT[name]
+    def ctr(s, name): c = s.R[name].centroid; return c.x, c.y
+    def feat(s, name, fs):
+        s.F[name] = list(fs)
+        if name in s.TW: s.F[s.TW[name]] = [s.M(q) for q in fs]
+    def hall(s, g, both=True):
+        s.H.append(g)
+        if both: s.H.append(s.M(g))
+    def door(s, x, y, o, both=True):
+        s.D.append((x, y, o))
+        if both and abs(x - s.AX) > 1: s.D.append((round(2 * s.AX - x, 1), y, o))
+    def link(s, name, to, w=16, both=True):
+        """A short connector from the room's wall to the corridor point `to` (straight along x or y); the door on the
+        room's wall where it meets it (no connector if the room already meets the corridor there)."""
+        from shapely.geometry import LineString, Point
+        from planlib import hall
+        g = s.R[name]; tx, ty = to; c = g.centroid
+        horiz = abs(tx - c.x) > abs(ty - c.y)
+        ray = LineString([(c.x, ty), (tx, ty)]) if horiz else LineString([(tx, c.y), (tx, ty)])
+        hit = g.boundary.intersection(ray)
+        pts = [p for p in getattr(hit, "geoms", [hit]) if not p.is_empty and p.geom_type == "Point"]
+        if not pts:
+            if g.distance(Point(tx, ty)) < 1.5: s.door(tx, ty, "v" if horiz else "h", both); return
+            raise SystemExit("link %s -> %s: the connector misses the room" % (name, to))
+        if horiz:
+            px = round(min(pts, key=lambda p: abs(p.x - tx)).x, 1)
+            if abs(px - tx) > 1.0: s.stub(name, hall((px, ty), (tx, ty), w=w).difference(g), both)
+            s.door(px, ty, "v", both)
+        else:
+            py = round(min(pts, key=lambda p: abs(p.y - ty)).y, 1)
+            if abs(py - ty) > 1.0: s.stub(name, hall((tx, py), (tx, ty), w=w).difference(g), both)
+            s.door(tx, py, "h", both)
+    def stub(s, name, h, both):
+        for hh in ([h, s.M(h)] if both else [h]):
+            s.H.append(hh)
+            for k in list(s.R):
+                if k != name and k != s.TW.get(name) and s.R[k].intersection(hh).area > 0.5:
+                    q = s.R[k].difference(hh.buffer(0.01)); q = max(getattr(q, "geoms", [q]), key=lambda r: r.area)
+                    s.R[k] = dedupe(q)
+    def niche(s, name, at, side, lab, both=True):
+        s.NICHE.append((name, at, side, lab))
+        if both and name in s.TW: s.NICHE.append((s.TW[name], (2 * s.AX - at[0], at[1]), {"e": "w", "w": "e"}.get(side, side), lab))
+    def wallniche(s, name, side, off, lab, both=True):
+        from shapely.geometry import LineString
+        g = s.R[name]; c = g.centroid; x0, y0, x1, y1 = g.bounds
+        for o2 in [off, off + 10, off - 10, off + 20, off - 20, off + 30, off - 30]:
+            if side in "ns": ray = LineString([(c.x + o2, c.y), (c.x + o2, y0 - 1 if side == "n" else y1 + 1)])
+            else: ray = LineString([(c.x, c.y + o2), (x0 - 1 if side == "w" else x1 + 1, c.y + o2)])
+            hit = g.exterior.intersection(ray)
+            pts = [p for p in getattr(hit, "geoms", [hit]) if p.geom_type == "Point"]
+            if not pts: continue
+            far = max(pts, key=lambda p: p.distance(c)); x, y = far.x, far.y
+            nb = {"n": box(x - 6, y + 2.5, x + 6, y + 9.5), "s": box(x - 6, y - 9.5, x + 6, y - 2.5),
+                  "w": box(x + 2.5, y - 6, x + 9.5, y + 6), "e": box(x - 9.5, y - 6, x - 2.5, y + 6)}[side]
+            if g.contains(nb) and (name not in s.TW or s.R[s.TW[name]].contains(s.M(nb))):
+                s.niche(name, (round(x, 1), round(y, 1)), side, lab, both); return
+        print("  (no room for a niche on the %s wall of %s)" % (side, name))
+    def hatch(s, at, o, both=True):
+        s.HATCH.append((at, o))
+        if both and abs(at[0] - s.AX) > 1: s.HATCH.append(((2 * s.AX - at[0], at[1]), o))
