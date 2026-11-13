@@ -74,13 +74,8 @@ def reach(S, floor, walls, start):
 def draw(S, floor, walls, path_png, path_jpg):
     src = cv2.imread(S.src)
     plan = np.zeros_like(src); ov = (src * 0.4).astype(np.uint8)
-    for p in getattr(walls, "geoms", [walls]):
-        pts = np.array(p.exterior.coords, np.int32)
-        for im in (plan, ov): cv2.fillPoly(im, [pts], (255, 255, 255))
-        for r in p.interiors:
-            for im, base in ((plan, None), (ov, src)):
-                mk = np.zeros(im.shape[:2], np.uint8); cv2.fillPoly(mk, [np.array(r.coords, np.int32)], 1)
-                im[mk > 0] = 0 if base is None else (base[mk > 0] * 0.4).astype(np.uint8)
+    wm = raster(walls, src.shape[:2]) > 0          # per-polygon fill (a wall piece inside another's hole stays drawn)
+    plan[wm] = (255, 255, 255); ov[wm] = (255, 255, 255)
     for x, y in S.PROPOSED_DOORS:
         for im in (plan, ov): cv2.circle(im, (int(x), int(y)), 14, (0, 200, 255), 2, cv2.LINE_AA)
     for k, g in S.R.items():

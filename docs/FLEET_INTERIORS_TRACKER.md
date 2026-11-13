@@ -30,8 +30,8 @@ converter: tools/trace/to_deck_json.py; test group: HL_FLEETDECK=<id>.
 | solarion_frigate | **ask owner** | - | - | - | - | - | - |
 | solarion_escort | **ask owner** | - | - | - | - | - | - |
 | solarion_scout | **ask owner** | - | - | - | - | - | - |
-| covenant_capital | yes | - | - | - | - | - | old deck |
-| covenant_cruiser | yes | - | - | - | - | - | old deck |
+| covenant_capital | yes | done | shown | shown | tested (not pushed) | waiting | regular boarding run (local) |
+| covenant_cruiser | yes | done | shown | shown | tested (not pushed) | waiting | regular boarding run (local) |
 | covenant_destroyer | yes | - | - | - | - | - | old deck |
 | covenant_resupply | yes | - | - | - | - | - | old deck |
 | covenant_trooptransport | yes | - | - | - | - | - | old deck |
