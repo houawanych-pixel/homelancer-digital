@@ -1,0 +1,774 @@
+{
+ "ship": "elyza_trooptransport",
+ "rooms": {
+  "Bridge": "pilot",
+  "Sensors Suite": "pilot",
+  "Command & Control": "pilot",
+  "Troop Bay": "mech",
+  "Vehicle / Dropship Bay": "mech",
+  "Engineering Deck": "mech",
+  "Reactor Core": "mech",
+  "Engine Room": "mech",
+  "Sensor Store A": "pilot",
+  "Sensor Store B": "pilot",
+  "Briefing Room": "pilot",
+  "Comms Center": "pilot",
+  "Armory": "pilot",
+  "Medbay": "pilot",
+  "Lift A": "lift",
+  "Lift B": "lift",
+  "Barracks A": "pilot",
+  "Barracks B": "pilot",
+  "Ready Room A": "pilot",
+  "Ready Room B": "pilot",
+  "Lockers A": "pilot",
+  "Lockers B": "pilot",
+  "Deploy Bay A": "mech",
+  "Deploy Bay B": "mech",
+  "Maint. Bay": "mech",
+  "Supply Depot": "mech"
+ },
+ "doors": [
+  {
+   "at": [
+    494,
+    197
+   ],
+   "o": "h",
+   "rooms": [
+    "Bridge",
+    "Sensors Suite"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    494,
+    285
+   ],
+   "o": "h",
+   "rooms": [
+    "Sensors Suite"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    494,
+    319
+   ],
+   "o": "h",
+   "rooms": [
+    "Command & Control"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    494,
+    435
+   ],
+   "o": "h",
+   "rooms": [
+    "Command & Control"
+   ],
+   "type": "pilot",
+   "key": 2
+  },
+  {
+   "at": [
+    494,
+    1095
+   ],
+   "o": "h",
+   "rooms": [
+    "Vehicle / Dropship Bay"
+   ],
+   "type": "mech",
+   "key": 1
+  },
+  {
+   "at": [
+    494,
+    1113
+   ],
+   "o": "h",
+   "rooms": [
+    "Engineering Deck"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    494,
+    1240
+   ],
+   "o": "h",
+   "rooms": [
+    "Engineering Deck",
+    "Reactor Core"
+   ],
+   "type": "mech",
+   "key": 2
+  },
+  {
+   "at": [
+    494,
+    1336
+   ],
+   "o": "h",
+   "rooms": [
+    "Reactor Core",
+    "Engine Room"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    470,
+    573
+   ],
+   "o": "h",
+   "rooms": [
+    "Troop Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    470,
+    937
+   ],
+   "o": "h",
+   "rooms": [
+    "Troop Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    454,
+    257
+   ],
+   "o": "v",
+   "rooms": [
+    "Sensors Suite",
+    "Sensor Store A"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    424,
+    298
+   ],
+   "o": "h",
+   "rooms": [
+    "Sensor Store A"
+   ],
+   "type": "pilot",
+   "key": 2
+  },
+  {
+   "at": [
+    412,
+    330
+   ],
+   "o": "v",
+   "rooms": [
+    "Briefing Room"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    436,
+    377
+   ],
+   "o": "v",
+   "rooms": [
+    "Command & Control"
+   ],
+   "type": "pilot",
+   "key": 2
+  },
+  {
+   "at": [
+    412,
+    452
+   ],
+   "o": "v",
+   "rooms": [
+    "Armory"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    368,
+    553
+   ],
+   "o": "h",
+   "rooms": [
+    "Armory"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    468,
+    470
+   ],
+   "o": "h",
+   "rooms": [
+    "Lift A"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    468,
+    510
+   ],
+   "o": "h",
+   "rooms": [
+    "Lift A"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    356,
+    615
+   ],
+   "o": "v",
+   "rooms": [
+    "Barracks A"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    330,
+    730
+   ],
+   "o": "h",
+   "rooms": [
+    "Barracks A",
+    "Ready Room A"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    232,
+    785
+   ],
+   "o": "v",
+   "rooms": [
+    "Ready Room A"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    356,
+    780
+   ],
+   "o": "v",
+   "rooms": [
+    "Ready Room A"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    230,
+    877
+   ],
+   "o": "v",
+   "rooms": [
+    "Lockers A"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    356,
+    897
+   ],
+   "o": "v",
+   "rooms": [
+    "Lockers A"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    380,
+    650
+   ],
+   "o": "v",
+   "rooms": [
+    "Troop Bay"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    380,
+    752
+   ],
+   "o": "v",
+   "rooms": [
+    "Troop Bay"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    380,
+    867
+   ],
+   "o": "v",
+   "rooms": [
+    "Troop Bay"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    268,
+    1065
+   ],
+   "o": "v",
+   "rooms": [
+    "Vehicle / Dropship Bay"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    310,
+    962
+   ],
+   "o": "h",
+   "rooms": [
+    "Vehicle / Dropship Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    310,
+    1115
+   ],
+   "o": "h",
+   "rooms": [
+    "Maint. Bay"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    372,
+    1168
+   ],
+   "o": "v",
+   "rooms": [
+    "Maint. Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    397,
+    1168
+   ],
+   "o": "v",
+   "rooms": [
+    "Engineering Deck"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    410,
+    1113
+   ],
+   "o": "h",
+   "rooms": [
+    "Engineering Deck"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    447,
+    1272
+   ],
+   "o": "v",
+   "rooms": [
+    "Reactor Core"
+   ],
+   "type": "pilot",
+   "key": 2
+  },
+  {
+   "at": [
+    190,
+    870
+   ],
+   "o": "v",
+   "rooms": [
+    "Deploy Bay A"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    534.0,
+    257
+   ],
+   "o": "v",
+   "rooms": [
+    "Sensors Suite",
+    "Sensor Store B"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    564.0,
+    298
+   ],
+   "o": "h",
+   "rooms": [
+    "Sensor Store B"
+   ],
+   "type": "pilot",
+   "key": 2
+  },
+  {
+   "at": [
+    576.0,
+    330
+   ],
+   "o": "v",
+   "rooms": [
+    "Comms Center"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    552.0,
+    377
+   ],
+   "o": "v",
+   "rooms": [
+    "Command & Control"
+   ],
+   "type": "pilot",
+   "key": 2
+  },
+  {
+   "at": [
+    576.0,
+    452
+   ],
+   "o": "v",
+   "rooms": [
+    "Medbay"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    620.0,
+    553
+   ],
+   "o": "h",
+   "rooms": [
+    "Medbay"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    520.0,
+    470
+   ],
+   "o": "h",
+   "rooms": [
+    "Lift B"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    520.0,
+    510
+   ],
+   "o": "h",
+   "rooms": [
+    "Lift B"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    632.0,
+    615
+   ],
+   "o": "v",
+   "rooms": [
+    "Barracks B"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    658.0,
+    730
+   ],
+   "o": "h",
+   "rooms": [
+    "Barracks B",
+    "Ready Room B"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    756.0,
+    785
+   ],
+   "o": "v",
+   "rooms": [
+    "Ready Room B"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    632.0,
+    780
+   ],
+   "o": "v",
+   "rooms": [
+    "Ready Room B"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    758.0,
+    877
+   ],
+   "o": "v",
+   "rooms": [
+    "Lockers B"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    632.0,
+    897
+   ],
+   "o": "v",
+   "rooms": [
+    "Lockers B"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    608.0,
+    650
+   ],
+   "o": "v",
+   "rooms": [
+    "Troop Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    608.0,
+    752
+   ],
+   "o": "v",
+   "rooms": [
+    "Troop Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    608.0,
+    867
+   ],
+   "o": "v",
+   "rooms": [
+    "Troop Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    720.0,
+    1065
+   ],
+   "o": "v",
+   "rooms": [
+    "Vehicle / Dropship Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    678.0,
+    962
+   ],
+   "o": "h",
+   "rooms": [
+    "Vehicle / Dropship Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    678.0,
+    1115
+   ],
+   "o": "h",
+   "rooms": [
+    "Supply Depot"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    616.0,
+    1168
+   ],
+   "o": "v",
+   "rooms": [
+    "Supply Depot"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    591.0,
+    1168
+   ],
+   "o": "v",
+   "rooms": [
+    "Engineering Deck"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    578.0,
+    1113
+   ],
+   "o": "h",
+   "rooms": [
+    "Engineering Deck"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    541.0,
+    1272
+   ],
+   "o": "v",
+   "rooms": [
+    "Reactor Core"
+   ],
+   "type": "pilot",
+   "key": 2
+  },
+  {
+   "at": [
+    798.0,
+    870
+   ],
+   "o": "v",
+   "rooms": [
+    "Deploy Bay B"
+   ],
+   "type": "mech",
+   "key": 0
+  }
+ ],
+ "entry": "Deploy Bay B",
+ "mech_rooms_unreached": [],
+ "counts": {
+  "mech_rooms": 9,
+  "pilot_rooms": 15,
+  "mech_doors": 21,
+  "pilot_doors": 39,
+  "locked": {
+   "OPEN": 51,
+   "YELLOW": 1,
+   "ORANGE": 8,
+   "RED": 0
+  }
+ }
+}

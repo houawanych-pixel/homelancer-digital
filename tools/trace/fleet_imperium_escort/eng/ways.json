@@ -1,0 +1,329 @@
+{
+ "ship": "imperium_escort",
+ "rooms": {
+  "Bridge": "pilot",
+  "Sensors": "pilot",
+  "CIC Tactical": "pilot",
+  "Engineering Deck": "mech",
+  "Reactor Core": "mech",
+  "Crew Bunks": "pilot",
+  "Galley / Med": "pilot",
+  "Armory": "pilot",
+  "Support & Stores": "mech",
+  "Engine Room A": "mech",
+  "Engine Room B": "mech"
+ },
+ "doors": [
+  {
+   "at": [
+    497,
+    345
+   ],
+   "o": "h",
+   "rooms": [
+    "Bridge"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    497,
+    367
+   ],
+   "o": "h",
+   "rooms": [
+    "Sensors"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    497,
+    472
+   ],
+   "o": "h",
+   "rooms": [
+    "Sensors"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    497,
+    494
+   ],
+   "o": "h",
+   "rooms": [
+    "CIC Tactical"
+   ],
+   "type": "pilot",
+   "key": 1
+  },
+  {
+   "at": [
+    497,
+    620
+   ],
+   "o": "h",
+   "rooms": [
+    "CIC Tactical"
+   ],
+   "type": "pilot",
+   "key": 1
+  },
+  {
+   "at": [
+    497,
+    925
+   ],
+   "o": "h",
+   "rooms": [
+    "Engineering Deck"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    497,
+    1074
+   ],
+   "o": "h",
+   "rooms": [
+    "Engineering Deck",
+    "Reactor Core"
+   ],
+   "type": "mech",
+   "key": 1
+  },
+  {
+   "at": [
+    434,
+    558
+   ],
+   "o": "v",
+   "rooms": [
+    "CIC Tactical",
+    "Crew Bunks"
+   ],
+   "type": "pilot",
+   "key": 1
+  },
+  {
+   "at": [
+    435,
+    667
+   ],
+   "o": "v",
+   "rooms": [
+    "Crew Bunks"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    386,
+    716
+   ],
+   "o": "h",
+   "rooms": [
+    "Crew Bunks"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    386,
+    738
+   ],
+   "o": "h",
+   "rooms": [],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    386,
+    763
+   ],
+   "o": "h",
+   "rooms": [
+    "Armory"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    477,
+    800
+   ],
+   "o": "v",
+   "rooms": [],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    370,
+    920
+   ],
+   "o": "h",
+   "rooms": [
+    "Engineering Deck",
+    "Armory"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    392,
+    1072
+   ],
+   "o": "h",
+   "rooms": [
+    "Engineering Deck"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    392,
+    1188
+   ],
+   "o": "h",
+   "rooms": [
+    "Engine Room A"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    560.0,
+    558
+   ],
+   "o": "v",
+   "rooms": [
+    "CIC Tactical",
+    "Galley / Med"
+   ],
+   "type": "pilot",
+   "key": 1
+  },
+  {
+   "at": [
+    559.0,
+    667
+   ],
+   "o": "v",
+   "rooms": [
+    "Galley / Med"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    608.0,
+    716
+   ],
+   "o": "h",
+   "rooms": [
+    "Galley / Med"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    608.0,
+    738
+   ],
+   "o": "h",
+   "rooms": [],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    608.0,
+    763
+   ],
+   "o": "h",
+   "rooms": [
+    "Support & Stores"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    517.0,
+    800
+   ],
+   "o": "v",
+   "rooms": [],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    624.0,
+    920
+   ],
+   "o": "h",
+   "rooms": [
+    "Engineering Deck",
+    "Support & Stores"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    602.0,
+    1072
+   ],
+   "o": "h",
+   "rooms": [
+    "Engineering Deck"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    602.0,
+    1188
+   ],
+   "o": "h",
+   "rooms": [
+    "Engine Room B"
+   ],
+   "type": "mech",
+   "key": 0
+  }
+ ],
+ "entry": "Support & Stores",
+ "mech_rooms_unreached": [],
+ "counts": {
+  "mech_rooms": 5,
+  "pilot_rooms": 6,
+  "mech_doors": 6,
+  "pilot_doors": 19,
+  "locked": {
+   "OPEN": 20,
+   "YELLOW": 5,
+   "ORANGE": 0,
+   "RED": 0
+  }
+ }
+}

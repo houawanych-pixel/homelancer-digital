@@ -1,0 +1,353 @@
+{
+ "ship": "unity_trooptransport",
+ "rooms": {
+  "Bridge": "pilot",
+  "Sensors & Comms": "pilot",
+  "Troop Bay": "mech",
+  "Engineering": "mech",
+  "Reactor Core": "mech",
+  "Lift (port)": "lift",
+  "Lift (starboard)": "lift",
+  "Briefing Room": "pilot",
+  "Medbay": "pilot",
+  "Barracks (port)": "pilot",
+  "Barracks (starboard)": "pilot",
+  "Armory": "pilot",
+  "Lockers": "pilot",
+  "Vehicle Bay": "mech",
+  "Ready Room": "pilot"
+ },
+ "doors": [
+  {
+   "at": [
+    464,
+    266
+   ],
+   "o": "h",
+   "rooms": [
+    "Bridge",
+    "Sensors & Comms"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    464,
+    342
+   ],
+   "o": "h",
+   "rooms": [
+    "Sensors & Comms"
+   ],
+   "type": "pilot",
+   "key": 2
+  },
+  {
+   "at": [
+    464,
+    489
+   ],
+   "o": "h",
+   "rooms": [
+    "Troop Bay"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    464,
+    1080
+   ],
+   "o": "h",
+   "rooms": [
+    "Troop Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    464,
+    1102
+   ],
+   "o": "h",
+   "rooms": [
+    "Engineering"
+   ],
+   "type": "mech",
+   "key": 1
+  },
+  {
+   "at": [
+    464,
+    1230
+   ],
+   "o": "h",
+   "rooms": [
+    "Engineering"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    464,
+    1273
+   ],
+   "o": "h",
+   "rooms": [
+    "Reactor Core"
+   ],
+   "type": "mech",
+   "key": 2
+  },
+  {
+   "at": [
+    372,
+    503
+   ],
+   "o": "v",
+   "rooms": [
+    "Lift (port)"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    434,
+    410
+   ],
+   "o": "v",
+   "rooms": [],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    367,
+    635
+   ],
+   "o": "v",
+   "rooms": [
+    "Barracks (port)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    392,
+    700
+   ],
+   "o": "v",
+   "rooms": [
+    "Troop Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    392,
+    940
+   ],
+   "o": "v",
+   "rooms": [
+    "Troop Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    298,
+    753
+   ],
+   "o": "h",
+   "rooms": [
+    "Barracks (port)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    298,
+    783
+   ],
+   "o": "h",
+   "rooms": [
+    "Armory"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    367,
+    824
+   ],
+   "o": "v",
+   "rooms": [],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    372,
+    990
+   ],
+   "o": "v",
+   "rooms": [
+    "Vehicle Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    381,
+    1100
+   ],
+   "o": "h",
+   "rooms": [
+    "Engineering"
+   ],
+   "type": "mech",
+   "key": 1
+  },
+  {
+   "at": [
+    556.0,
+    503
+   ],
+   "o": "v",
+   "rooms": [
+    "Lift (starboard)"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    494.0,
+    410
+   ],
+   "o": "v",
+   "rooms": [],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    561.0,
+    635
+   ],
+   "o": "v",
+   "rooms": [
+    "Barracks (starboard)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    536.0,
+    700
+   ],
+   "o": "v",
+   "rooms": [
+    "Troop Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    536.0,
+    940
+   ],
+   "o": "v",
+   "rooms": [
+    "Troop Bay"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    630.0,
+    753
+   ],
+   "o": "h",
+   "rooms": [
+    "Barracks (starboard)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    630.0,
+    783
+   ],
+   "o": "h",
+   "rooms": [
+    "Lockers"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    561.0,
+    824
+   ],
+   "o": "v",
+   "rooms": [],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    556.0,
+    990
+   ],
+   "o": "v",
+   "rooms": [
+    "Ready Room"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    547.0,
+    1100
+   ],
+   "o": "h",
+   "rooms": [
+    "Engineering"
+   ],
+   "type": "mech",
+   "key": 1
+  }
+ ],
+ "entry": "Vehicle Bay",
+ "mech_rooms_unreached": [],
+ "counts": {
+  "mech_rooms": 4,
+  "pilot_rooms": 9,
+  "mech_doors": 13,
+  "pilot_doors": 14,
+  "locked": {
+   "OPEN": 22,
+   "YELLOW": 3,
+   "ORANGE": 2,
+   "RED": 0
+  }
+ }
+}

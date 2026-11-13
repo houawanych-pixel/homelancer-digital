@@ -1,0 +1,458 @@
+{
+ "ship": "elyza_cruiser",
+ "rooms": {
+  "Bridge": "pilot",
+  "Sensor Suite": "pilot",
+  "CIC (Combat Information Center)": "pilot",
+  "Hangar Bay": "mech",
+  "Engineering Deck": "mech",
+  "Reactor Core": "mech",
+  "Crew Quarters (port)": "pilot",
+  "Crew Quarters (starboard)": "pilot",
+  "Galley & Mess": "pilot",
+  "Medbay": "pilot",
+  "Armory (port)": "pilot",
+  "Armory (starboard)": "pilot",
+  "Coolant & Systems (port)": "pilot",
+  "Coolant & Systems (starboard)": "pilot",
+  "Weapon Bay (port)": "mech",
+  "Weapon Bay (starboard)": "mech",
+  "Cargo Hold": "mech",
+  "Vehicle Bay": "mech",
+  "Engine Room (port)": "mech",
+  "Engine Room (starboard)": "mech"
+ },
+ "doors": [
+  {
+   "at": [
+    657,
+    241
+   ],
+   "o": "h",
+   "rooms": [
+    "Bridge",
+    "Sensor Suite"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    657,
+    302
+   ],
+   "o": "h",
+   "rooms": [
+    "Sensor Suite"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    657,
+    338
+   ],
+   "o": "h",
+   "rooms": [
+    "CIC (Combat Information Center)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    657,
+    446
+   ],
+   "o": "h",
+   "rooms": [
+    "CIC (Combat Information Center)"
+   ],
+   "type": "pilot",
+   "key": 2
+  },
+  {
+   "at": [
+    657,
+    591
+   ],
+   "o": "h",
+   "rooms": [
+    "Hangar Bay"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    657,
+    728
+   ],
+   "o": "h",
+   "rooms": [
+    "Hangar Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    657,
+    846
+   ],
+   "o": "h",
+   "rooms": [
+    "Engineering Deck"
+   ],
+   "type": "mech",
+   "key": 1
+  },
+  {
+   "at": [
+    657,
+    921
+   ],
+   "o": "h",
+   "rooms": [
+    "Engineering Deck",
+    "Reactor Core"
+   ],
+   "type": "mech",
+   "key": 2
+  },
+  {
+   "at": [
+    573,
+    394
+   ],
+   "o": "v",
+   "rooms": [
+    "Crew Quarters (port)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    603,
+    394
+   ],
+   "o": "v",
+   "rooms": [
+    "CIC (Combat Information Center)"
+   ],
+   "type": "pilot",
+   "key": 2
+  },
+  {
+   "at": [
+    561,
+    480
+   ],
+   "o": "h",
+   "rooms": [
+    "Crew Quarters (port)",
+    "Galley & Mess"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    591,
+    520
+   ],
+   "o": "v",
+   "rooms": [
+    "Galley & Mess"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    533,
+    557
+   ],
+   "o": "h",
+   "rooms": [
+    "Galley & Mess"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    550,
+    665
+   ],
+   "o": "v",
+   "rooms": [
+    "Hangar Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    505,
+    700
+   ],
+   "o": "v",
+   "rooms": [
+    "Armory (port)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    408,
+    733
+   ],
+   "o": "v",
+   "rooms": [
+    "Coolant & Systems (port)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    436,
+    733
+   ],
+   "o": "v",
+   "rooms": [
+    "Armory (port)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    289,
+    733
+   ],
+   "o": "v",
+   "rooms": [
+    "Coolant & Systems (port)",
+    "Weapon Bay (port)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    533,
+    762
+   ],
+   "o": "h",
+   "rooms": [
+    "Cargo Hold"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    506,
+    846
+   ],
+   "o": "h",
+   "rooms": [
+    "Cargo Hold"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    506,
+    940
+   ],
+   "o": "h",
+   "rooms": [
+    "Engine Room (port)"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    741.0,
+    394
+   ],
+   "o": "v",
+   "rooms": [
+    "Crew Quarters (starboard)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    711.0,
+    394
+   ],
+   "o": "v",
+   "rooms": [
+    "CIC (Combat Information Center)"
+   ],
+   "type": "pilot",
+   "key": 2
+  },
+  {
+   "at": [
+    753.0,
+    480
+   ],
+   "o": "h",
+   "rooms": [
+    "Crew Quarters (starboard)",
+    "Medbay"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    723.0,
+    520
+   ],
+   "o": "v",
+   "rooms": [
+    "Medbay"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    781.0,
+    557
+   ],
+   "o": "h",
+   "rooms": [
+    "Medbay"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    764.0,
+    665
+   ],
+   "o": "v",
+   "rooms": [
+    "Hangar Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    809.0,
+    700
+   ],
+   "o": "v",
+   "rooms": [
+    "Armory (starboard)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    906.0,
+    733
+   ],
+   "o": "v",
+   "rooms": [
+    "Coolant & Systems (starboard)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    878.0,
+    733
+   ],
+   "o": "v",
+   "rooms": [
+    "Armory (starboard)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1025.0,
+    733
+   ],
+   "o": "v",
+   "rooms": [
+    "Coolant & Systems (starboard)",
+    "Weapon Bay (starboard)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    781.0,
+    762
+   ],
+   "o": "h",
+   "rooms": [
+    "Vehicle Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    808.0,
+    846
+   ],
+   "o": "h",
+   "rooms": [
+    "Vehicle Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    808.0,
+    940
+   ],
+   "o": "h",
+   "rooms": [
+    "Engine Room (starboard)"
+   ],
+   "type": "mech",
+   "key": 0
+  }
+ ],
+ "entry": "Hangar Bay",
+ "mech_rooms_unreached": [
+  "Weapon Bay (port)",
+  "Weapon Bay (starboard)"
+ ],
+ "counts": {
+  "mech_rooms": 9,
+  "pilot_rooms": 11,
+  "mech_doors": 11,
+  "pilot_doors": 23,
+  "locked": {
+   "OPEN": 29,
+   "YELLOW": 1,
+   "ORANGE": 4,
+   "RED": 0
+  }
+ }
+}

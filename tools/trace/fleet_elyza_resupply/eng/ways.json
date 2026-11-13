@@ -1,0 +1,574 @@
+{
+ "ship": "elyza_resupply",
+ "rooms": {
+  "Bridge": "pilot",
+  "Loading / Vehicle Bay": "mech",
+  "Engineering Deck": "mech",
+  "Reactor Core": "mech",
+  "Engine Room": "mech",
+  "Sensors Suite": "pilot",
+  "CIC": "pilot",
+  "Crew Quarters (port)": "pilot",
+  "Crew Quarters (starboard)": "pilot",
+  "Galley / Mess": "pilot",
+  "Medbay": "pilot",
+  "Cargo Hold A": "mech",
+  "Cargo Hold B": "mech",
+  "Cargo Hold C": "mech",
+  "Cargo Hold D": "mech",
+  "Cargo Hold E": "mech",
+  "Cargo Hold F": "mech",
+  "General Storage": "pilot",
+  "Refrigerated Stores": "pilot",
+  "Munitions Resupply": "mech",
+  "Spare Parts": "pilot"
+ },
+ "doors": [
+  {
+   "at": [
+    515,
+    226
+   ],
+   "o": "h",
+   "rooms": [
+    "Bridge"
+   ],
+   "type": "pilot",
+   "key": 2
+  },
+  {
+   "at": [
+    515,
+    505
+   ],
+   "o": "h",
+   "rooms": [
+    "Loading / Vehicle Bay"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    515,
+    1047
+   ],
+   "o": "h",
+   "rooms": [
+    "Engineering Deck"
+   ],
+   "type": "pilot",
+   "key": 1
+  },
+  {
+   "at": [
+    515,
+    1144
+   ],
+   "o": "h",
+   "rooms": [
+    "Engineering Deck",
+    "Reactor Core"
+   ],
+   "type": "mech",
+   "key": 2
+  },
+  {
+   "at": [
+    515,
+    1243
+   ],
+   "o": "h",
+   "rooms": [
+    "Reactor Core"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    515,
+    1272
+   ],
+   "o": "h",
+   "rooms": [
+    "Engine Room"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    501,
+    265
+   ],
+   "o": "v",
+   "rooms": [
+    "Sensors Suite"
+   ],
+   "type": "pilot",
+   "key": 2
+  },
+  {
+   "at": [
+    453,
+    387
+   ],
+   "o": "v",
+   "rooms": [
+    "Crew Quarters (port)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    500,
+    447
+   ],
+   "o": "v",
+   "rooms": [
+    "Galley / Mess"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    357,
+    440
+   ],
+   "o": "v",
+   "rooms": [
+    "Galley / Mess"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    331,
+    478
+   ],
+   "o": "h",
+   "rooms": [
+    "Cargo Hold A"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    322,
+    602
+   ],
+   "o": "h",
+   "rooms": [
+    "Cargo Hold A"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    322,
+    629
+   ],
+   "o": "h",
+   "rooms": [
+    "Cargo Hold C"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    322,
+    761
+   ],
+   "o": "h",
+   "rooms": [
+    "Cargo Hold C"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    322,
+    789
+   ],
+   "o": "h",
+   "rooms": [
+    "Cargo Hold E"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    408,
+    533
+   ],
+   "o": "v",
+   "rooms": [
+    "Cargo Hold A"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    408,
+    695
+   ],
+   "o": "v",
+   "rooms": [
+    "Cargo Hold C"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    408,
+    853
+   ],
+   "o": "v",
+   "rooms": [],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    470,
+    607
+   ],
+   "o": "v",
+   "rooms": [
+    "Loading / Vehicle Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    470,
+    736
+   ],
+   "o": "v",
+   "rooms": [
+    "Loading / Vehicle Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    470,
+    856
+   ],
+   "o": "v",
+   "rooms": [
+    "Loading / Vehicle Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    455,
+    932
+   ],
+   "o": "h",
+   "rooms": [
+    "General Storage"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    500,
+    964
+   ],
+   "o": "v",
+   "rooms": [
+    "General Storage"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    500,
+    1012
+   ],
+   "o": "v",
+   "rooms": [
+    "Munitions Resupply"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    430,
+    1041
+   ],
+   "o": "h",
+   "rooms": [
+    "Engineering Deck",
+    "Munitions Resupply"
+   ],
+   "type": "mech",
+   "key": 1
+  },
+  {
+   "at": [
+    529.0,
+    265
+   ],
+   "o": "v",
+   "rooms": [
+    "CIC"
+   ],
+   "type": "pilot",
+   "key": 2
+  },
+  {
+   "at": [
+    577.0,
+    387
+   ],
+   "o": "v",
+   "rooms": [
+    "Crew Quarters (starboard)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    530.0,
+    447
+   ],
+   "o": "v",
+   "rooms": [
+    "Medbay"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    673.0,
+    440
+   ],
+   "o": "v",
+   "rooms": [
+    "Medbay"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    699.0,
+    478
+   ],
+   "o": "h",
+   "rooms": [
+    "Cargo Hold B"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    708.0,
+    602
+   ],
+   "o": "h",
+   "rooms": [
+    "Cargo Hold B"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    708.0,
+    629
+   ],
+   "o": "h",
+   "rooms": [
+    "Cargo Hold D"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    708.0,
+    761
+   ],
+   "o": "h",
+   "rooms": [
+    "Cargo Hold D"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    708.0,
+    789
+   ],
+   "o": "h",
+   "rooms": [
+    "Cargo Hold F"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    622.0,
+    533
+   ],
+   "o": "v",
+   "rooms": [
+    "Cargo Hold B"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    622.0,
+    695
+   ],
+   "o": "v",
+   "rooms": [
+    "Cargo Hold D"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    622.0,
+    853
+   ],
+   "o": "v",
+   "rooms": [],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    560.0,
+    607
+   ],
+   "o": "v",
+   "rooms": [
+    "Loading / Vehicle Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    560.0,
+    736
+   ],
+   "o": "v",
+   "rooms": [
+    "Loading / Vehicle Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    560.0,
+    856
+   ],
+   "o": "v",
+   "rooms": [
+    "Loading / Vehicle Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    575.0,
+    932
+   ],
+   "o": "h",
+   "rooms": [
+    "Refrigerated Stores"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    530.0,
+    964
+   ],
+   "o": "v",
+   "rooms": [
+    "Refrigerated Stores"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    530.0,
+    1012
+   ],
+   "o": "v",
+   "rooms": [
+    "Spare Parts"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    600.0,
+    1041
+   ],
+   "o": "h",
+   "rooms": [
+    "Engineering Deck",
+    "Spare Parts"
+   ],
+   "type": "pilot",
+   "key": 1
+  }
+ ],
+ "entry": "Loading / Vehicle Bay",
+ "mech_rooms_unreached": [
+  "Engineering Deck",
+  "Reactor Core",
+  "Engine Room",
+  "Munitions Resupply"
+ ],
+ "counts": {
+  "mech_rooms": 11,
+  "pilot_rooms": 10,
+  "mech_doors": 14,
+  "pilot_doors": 30,
+  "locked": {
+   "OPEN": 37,
+   "YELLOW": 3,
+   "ORANGE": 4,
+   "RED": 0
+  }
+ }
+}

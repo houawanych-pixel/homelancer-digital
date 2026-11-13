@@ -1,0 +1,633 @@
+{
+ "ship": "covenant_resupply",
+ "rooms": {
+  "Bridge": "pilot",
+  "Lift": "lift",
+  "Cargo Transfer Hub": "mech",
+  "Vehicle / Loader Bay": "mech",
+  "Munitions Resupply": "mech",
+  "Engineering Deck": "mech",
+  "Reactor Core": "mech",
+  "Engine Room": "mech",
+  "Sensors Suite": "pilot",
+  "CIC": "pilot",
+  "Crew Quarters (port)": "pilot",
+  "Crew Quarters (starboard)": "pilot",
+  "Galley & Mess": "pilot",
+  "Medbay": "pilot",
+  "Cargo Hold A": "mech",
+  "Cargo Hold B": "mech",
+  "Coolant & Systems (port)": "pilot",
+  "Coolant & Systems (starboard)": "pilot",
+  "Cargo Lift (port)": "lift",
+  "Cargo Lift (starboard)": "lift",
+  "Storage & Supplies": "pilot",
+  "Refrigerated Stores": "pilot"
+ },
+ "doors": [
+  {
+   "at": [
+    567,
+    197
+   ],
+   "o": "h",
+   "rooms": [
+    "Bridge"
+   ],
+   "type": "pilot",
+   "key": 3
+  },
+  {
+   "at": [
+    567,
+    379
+   ],
+   "o": "h",
+   "rooms": [
+    "Lift"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    567,
+    534
+   ],
+   "o": "h",
+   "rooms": [
+    "Cargo Transfer Hub"
+   ],
+   "type": "mech",
+   "key": 2
+  },
+  {
+   "at": [
+    567,
+    652
+   ],
+   "o": "h",
+   "rooms": [
+    "Cargo Transfer Hub"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    567,
+    667
+   ],
+   "o": "h",
+   "rooms": [
+    "Vehicle / Loader Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    567,
+    859
+   ],
+   "o": "h",
+   "rooms": [
+    "Vehicle / Loader Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    567,
+    875
+   ],
+   "o": "h",
+   "rooms": [
+    "Munitions Resupply"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    567,
+    1049
+   ],
+   "o": "h",
+   "rooms": [
+    "Engineering Deck"
+   ],
+   "type": "mech",
+   "key": 3
+  },
+  {
+   "at": [
+    567,
+    1059
+   ],
+   "o": "h",
+   "rooms": [
+    "Reactor Core"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    567,
+    1151
+   ],
+   "o": "h",
+   "rooms": [
+    "Reactor Core"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    567,
+    1169
+   ],
+   "o": "h",
+   "rooms": [
+    "Engine Room"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    547,
+    225
+   ],
+   "o": "v",
+   "rooms": [
+    "Sensors Suite"
+   ],
+   "type": "pilot",
+   "key": 3
+  },
+  {
+   "at": [
+    497,
+    254
+   ],
+   "o": "h",
+   "rooms": [
+    "Sensors Suite",
+    "Crew Quarters (port)"
+   ],
+   "type": "pilot",
+   "key": 3
+  },
+  {
+   "at": [
+    547,
+    308
+   ],
+   "o": "v",
+   "rooms": [
+    "Crew Quarters (port)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    494,
+    373
+   ],
+   "o": "h",
+   "rooms": [
+    "Crew Quarters (port)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    494,
+    399
+   ],
+   "o": "h",
+   "rooms": [
+    "Galley & Mess"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    547,
+    458
+   ],
+   "o": "v",
+   "rooms": [
+    "Galley & Mess"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    449,
+    421
+   ],
+   "o": "v",
+   "rooms": [
+    "Galley & Mess"
+   ],
+   "type": "pilot",
+   "key": 2
+  },
+  {
+   "at": [
+    501,
+    589
+   ],
+   "o": "v",
+   "rooms": [
+    "Cargo Transfer Hub"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    410,
+    589
+   ],
+   "o": "v",
+   "rooms": [
+    "Cargo Hold A"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    297,
+    705
+   ],
+   "o": "v",
+   "rooms": [
+    "Cargo Hold A"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    203,
+    705
+   ],
+   "o": "v",
+   "rooms": [
+    "Coolant & Systems (port)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    351,
+    771
+   ],
+   "o": "h",
+   "rooms": [
+    "Cargo Hold A"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    351,
+    829
+   ],
+   "o": "h",
+   "rooms": [
+    "Storage & Supplies"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    448,
+    775
+   ],
+   "o": "v",
+   "rooms": [
+    "Cargo Lift (port)"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    468,
+    723
+   ],
+   "o": "v",
+   "rooms": [
+    "Vehicle / Loader Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    448,
+    880
+   ],
+   "o": "v",
+   "rooms": [
+    "Storage & Supplies"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    540,
+    977
+   ],
+   "o": "h",
+   "rooms": [
+    "Engineering Deck"
+   ],
+   "type": "mech",
+   "key": 1
+  },
+  {
+   "at": [
+    490,
+    1049
+   ],
+   "o": "h",
+   "rooms": [
+    "Engineering Deck"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    522,
+    1104
+   ],
+   "o": "v",
+   "rooms": [
+    "Reactor Core"
+   ],
+   "type": "pilot",
+   "key": 3
+  },
+  {
+   "at": [
+    587.0,
+    225
+   ],
+   "o": "v",
+   "rooms": [
+    "CIC"
+   ],
+   "type": "pilot",
+   "key": 3
+  },
+  {
+   "at": [
+    637.0,
+    254
+   ],
+   "o": "h",
+   "rooms": [
+    "CIC",
+    "Crew Quarters (starboard)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    587.0,
+    308
+   ],
+   "o": "v",
+   "rooms": [
+    "Crew Quarters (starboard)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    640.0,
+    373
+   ],
+   "o": "h",
+   "rooms": [
+    "Crew Quarters (starboard)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    640.0,
+    399
+   ],
+   "o": "h",
+   "rooms": [
+    "Medbay"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    587.0,
+    458
+   ],
+   "o": "v",
+   "rooms": [
+    "Medbay"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    685.0,
+    421
+   ],
+   "o": "v",
+   "rooms": [
+    "Medbay"
+   ],
+   "type": "pilot",
+   "key": 2
+  },
+  {
+   "at": [
+    633.0,
+    589
+   ],
+   "o": "v",
+   "rooms": [
+    "Cargo Transfer Hub"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    724.0,
+    589
+   ],
+   "o": "v",
+   "rooms": [
+    "Cargo Hold B"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    837.0,
+    705
+   ],
+   "o": "v",
+   "rooms": [
+    "Cargo Hold B"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    931.0,
+    705
+   ],
+   "o": "v",
+   "rooms": [
+    "Coolant & Systems (starboard)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    783.0,
+    771
+   ],
+   "o": "h",
+   "rooms": [
+    "Cargo Hold B"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    783.0,
+    829
+   ],
+   "o": "h",
+   "rooms": [
+    "Refrigerated Stores"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    686.0,
+    775
+   ],
+   "o": "v",
+   "rooms": [
+    "Cargo Lift (starboard)"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    666.0,
+    723
+   ],
+   "o": "v",
+   "rooms": [
+    "Vehicle / Loader Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    686.0,
+    880
+   ],
+   "o": "v",
+   "rooms": [
+    "Refrigerated Stores"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    594.0,
+    977
+   ],
+   "o": "h",
+   "rooms": [
+    "Engineering Deck"
+   ],
+   "type": "pilot",
+   "key": 1
+  },
+  {
+   "at": [
+    644.0,
+    1049
+   ],
+   "o": "h",
+   "rooms": [
+    "Engineering Deck"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    612.0,
+    1104
+   ],
+   "o": "v",
+   "rooms": [
+    "Reactor Core"
+   ],
+   "type": "pilot",
+   "key": 3
+  }
+ ],
+ "entry": "Vehicle / Loader Bay",
+ "mech_rooms_unreached": [],
+ "counts": {
+  "mech_rooms": 8,
+  "pilot_rooms": 11,
+  "mech_doors": 19,
+  "pilot_doors": 30,
+  "locked": {
+   "OPEN": 37,
+   "YELLOW": 2,
+   "ORANGE": 3,
+   "RED": 7
+  }
+ }
+}

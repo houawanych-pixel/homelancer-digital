@@ -1,0 +1,604 @@
+{
+ "ship": "elyza_capital",
+ "rooms": {
+  "Bridge Command Deck": "pilot",
+  "CIC (Combat Information Center)": "pilot",
+  "Hangar Bay": "mech",
+  "Vehicle Bay": "mech",
+  "Engineering Deck": "mech",
+  "Reactor Core": "mech",
+  "Engine Room": "mech",
+  "Sensors Suite": "pilot",
+  "Briefing Room": "pilot",
+  "Crew Quarters A": "pilot",
+  "Crew Quarters B": "pilot",
+  "Galley & Mess": "pilot",
+  "Medbay": "pilot",
+  "Lift (port)": "lift",
+  "Lift (starboard)": "lift",
+  "Armory (port)": "pilot",
+  "Armory (starboard)": "pilot",
+  "Cargo Hold A": "mech",
+  "Cargo Hold B": "mech"
+ },
+ "doors": [
+  {
+   "at": [
+    510,
+    240
+   ],
+   "o": "h",
+   "rooms": [
+    "Bridge Command Deck"
+   ],
+   "type": "pilot",
+   "key": 3
+  },
+  {
+   "at": [
+    510,
+    342
+   ],
+   "o": "h",
+   "rooms": [
+    "CIC (Combat Information Center)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    510,
+    456
+   ],
+   "o": "h",
+   "rooms": [
+    "CIC (Combat Information Center)"
+   ],
+   "type": "pilot",
+   "key": 2
+  },
+  {
+   "at": [
+    510,
+    632
+   ],
+   "o": "h",
+   "rooms": [
+    "Hangar Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    510,
+    1246
+   ],
+   "o": "h",
+   "rooms": [
+    "Reactor Core"
+   ],
+   "type": "pilot",
+   "key": 3
+  },
+  {
+   "at": [
+    510,
+    1270
+   ],
+   "o": "h",
+   "rooms": [
+    "Engine Room"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    496,
+    300
+   ],
+   "o": "v",
+   "rooms": [
+    "Sensors Suite"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    430,
+    332
+   ],
+   "o": "h",
+   "rooms": [
+    "Sensors Suite"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    416,
+    450
+   ],
+   "o": "v",
+   "rooms": [],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    453,
+    399
+   ],
+   "o": "v",
+   "rooms": [
+    "CIC (Combat Information Center)"
+   ],
+   "type": "pilot",
+   "key": 2
+  },
+  {
+   "at": [
+    362,
+    502
+   ],
+   "o": "h",
+   "rooms": [
+    "Crew Quarters A"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    362,
+    517
+   ],
+   "o": "h",
+   "rooms": [
+    "Galley & Mess"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    496,
+    494
+   ],
+   "o": "v",
+   "rooms": [
+    "Lift (port)"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    332,
+    740
+   ],
+   "o": "v",
+   "rooms": [
+    "Armory (port)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    394,
+    806
+   ],
+   "o": "v",
+   "rooms": [
+    "Hangar Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    270,
+    814
+   ],
+   "o": "h",
+   "rooms": [
+    "Armory (port)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    270,
+    834
+   ],
+   "o": "h",
+   "rooms": [
+    "Cargo Hold A"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    349,
+    921
+   ],
+   "o": "v",
+   "rooms": [
+    "Cargo Hold A"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    380,
+    951
+   ],
+   "o": "v",
+   "rooms": [
+    "Vehicle Bay"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    463,
+    893
+   ],
+   "o": "h",
+   "rooms": [
+    "Vehicle Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    463,
+    976
+   ],
+   "o": "h",
+   "rooms": [
+    "Vehicle Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    486,
+    995
+   ],
+   "o": "h",
+   "rooms": [],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    486,
+    1028
+   ],
+   "o": "h",
+   "rooms": [
+    "Engineering Deck"
+   ],
+   "type": "mech",
+   "key": 1
+  },
+  {
+   "at": [
+    494,
+    1137
+   ],
+   "o": "h",
+   "rooms": [],
+   "type": "mech",
+   "key": 3
+  },
+  {
+   "at": [
+    426,
+    1127
+   ],
+   "o": "h",
+   "rooms": [
+    "Engineering Deck"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    465,
+    1197
+   ],
+   "o": "v",
+   "rooms": [
+    "Reactor Core"
+   ],
+   "type": "mech",
+   "key": 3
+  },
+  {
+   "at": [
+    458,
+    1300
+   ],
+   "o": "v",
+   "rooms": [
+    "Engine Room"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    524.0,
+    300
+   ],
+   "o": "v",
+   "rooms": [
+    "Briefing Room"
+   ],
+   "type": "pilot",
+   "key": 3
+  },
+  {
+   "at": [
+    590.0,
+    332
+   ],
+   "o": "h",
+   "rooms": [
+    "Briefing Room"
+   ],
+   "type": "pilot",
+   "key": 3
+  },
+  {
+   "at": [
+    604.0,
+    450
+   ],
+   "o": "v",
+   "rooms": [],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    567.0,
+    399
+   ],
+   "o": "v",
+   "rooms": [
+    "CIC (Combat Information Center)"
+   ],
+   "type": "pilot",
+   "key": 2
+  },
+  {
+   "at": [
+    658.0,
+    502
+   ],
+   "o": "h",
+   "rooms": [
+    "Crew Quarters B"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    658.0,
+    517
+   ],
+   "o": "h",
+   "rooms": [
+    "Medbay"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    524.0,
+    494
+   ],
+   "o": "v",
+   "rooms": [
+    "Lift (starboard)"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    688.0,
+    740
+   ],
+   "o": "v",
+   "rooms": [
+    "Armory (starboard)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    626.0,
+    806
+   ],
+   "o": "v",
+   "rooms": [
+    "Hangar Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    750.0,
+    814
+   ],
+   "o": "h",
+   "rooms": [
+    "Armory (starboard)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    750.0,
+    834
+   ],
+   "o": "h",
+   "rooms": [
+    "Cargo Hold B"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    671.0,
+    921
+   ],
+   "o": "v",
+   "rooms": [
+    "Cargo Hold B"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    640.0,
+    951
+   ],
+   "o": "v",
+   "rooms": [
+    "Vehicle Bay"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    557.0,
+    893
+   ],
+   "o": "h",
+   "rooms": [
+    "Vehicle Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    557.0,
+    976
+   ],
+   "o": "h",
+   "rooms": [
+    "Vehicle Bay"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    534.0,
+    995
+   ],
+   "o": "h",
+   "rooms": [],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    534.0,
+    1028
+   ],
+   "o": "h",
+   "rooms": [
+    "Engineering Deck"
+   ],
+   "type": "pilot",
+   "key": 1
+  },
+  {
+   "at": [
+    526.0,
+    1137
+   ],
+   "o": "h",
+   "rooms": [],
+   "type": "mech",
+   "key": 3
+  },
+  {
+   "at": [
+    594.0,
+    1127
+   ],
+   "o": "h",
+   "rooms": [
+    "Engineering Deck"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    555.0,
+    1197
+   ],
+   "o": "v",
+   "rooms": [
+    "Reactor Core"
+   ],
+   "type": "pilot",
+   "key": 3
+  },
+  {
+   "at": [
+    562.0,
+    1300
+   ],
+   "o": "v",
+   "rooms": [
+    "Engine Room"
+   ],
+   "type": "pilot",
+   "key": 0
+  }
+ ],
+ "entry": "Hangar Bay",
+ "mech_rooms_unreached": [],
+ "counts": {
+  "mech_rooms": 7,
+  "pilot_rooms": 10,
+  "mech_doors": 17,
+  "pilot_doors": 31,
+  "locked": {
+   "OPEN": 35,
+   "YELLOW": 2,
+   "ORANGE": 3,
+   "RED": 8
+  }
+ }
+}
