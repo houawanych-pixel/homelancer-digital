@@ -21,8 +21,10 @@ from shapely.geometry.polygon import orient
 CELL = 4.0
 S_BOARD = 1.6          # boarding units (the mech-sized decks: pilot 13 u tall) per plan px; a 2 m hall = 32 u
 H_ROOM, H_HALL = 48.0, 36.0
+DECK_DY = 80.0         # boarding units between deck floors (a room is 48 u tall: slab and service space between)
+DECKS = {"main": ("", 0.0), "upper": ("u_", DECK_DY), "lower": ("l_", -DECK_DY)}   # deck -> (room key prefix, floor y)
 
-def board_layout(plan, play, src_w, src_h):
+def board_layout(plan, play, src_w, src_h, pre="", y0=0.0):
     """The same deck as a Boarding layout (scripts/boarding.gd schema): axis-aligned rects (rooms keep their real
     shape as a 'poly' outline), every hallway cut into rects that join with no door, and a short connector at every
     plan door. Played by the regular boarding / breakout engine: HUD, controls, guards, CUTTER, doors."""
@@ -33,16 +35,17 @@ def board_layout(plan, play, src_w, src_h):
     AX, CY = float(plan["mirror_x"]), float(plan.get("center_y", src_h / 2.0))
     W = lambda x: round((x - AX) * S_BOARD, 2)
     Z = lambda y: round((y - CY) * S_BOARD, 2)
+    DY = float(y0)
     rooms, shapes = {}, {}          # key -> boarding room; key -> (plan polygon, rect px)
     slug = lambda n: "".join(ch if ch.isalnum() else "_" for ch in n.lower()).strip("_")
-    entry = play["entry"]["room"]
+    entry = play["entry"]["room"] if not pre else None
     guards = {k: int(v) for k, v in play.get("room_guards", {}).items()}
     for nm, gj in plan["rooms"].items():
         poly = shape(gj).buffer(-g, join_style=2)
         x0, y0, x1, y1 = poly.bounds
-        key = "sbay" if nm == entry else "r_" + slug(nm)
+        key = "sbay" if nm == entry else pre + "r_" + slug(nm)
         shapes[key] = [poly, [x0, y0, x1, y1], nm]
-        rooms[key] = {"r": [W(x0), W(x1), Z(y0), Z(y1)], "y": [0.0, 0.0], "axis": "x" if x1 - x0 >= y1 - y0 else "z", "h": H_ROOM,
+        rooms[key] = {"r": [W(x0), W(x1), Z(y0), Z(y1)], "y": [DY, DY], "axis": "x" if x1 - x0 >= y1 - y0 else "z", "h": H_ROOM,
                       "label": nm.upper(), "guards": guards.get(nm, 0), "hex": False, "shape": "rect"}
     # hallways: one network, shrunk off the walls, cut into rects on every vertex line (and at the wreck points)
     halls = unary_union([shape(h) for h in plan["halls"]]).buffer(-g, join_style=2)
@@ -78,9 +81,9 @@ def board_layout(plan, play, src_w, src_h):
             if m[0] == r[0] and m[1] == r[1] and abs(m[3] - r[2]) < 1e-6 and r[2] not in cut_y: m[3] = r[3]; break
         else: merged.append(list(r))
     for n, (x0, x1, y0, y1) in enumerate(merged, 1):
-        key = "h%d" % n
+        key = pre + "h%d" % n
         shapes[key] = [sbox(x0, y0, x1, y1), [x0, y0, x1, y1], "corridor"]
-        rooms[key] = {"r": [W(x0), W(x1), Z(y0), Z(y1)], "y": [0.0, 0.0], "axis": "x" if x1 - x0 >= y1 - y0 else "z", "h": H_HALL,
+        rooms[key] = {"r": [W(x0), W(x1), Z(y0), Z(y1)], "y": [DY, DY], "axis": "x" if x1 - x0 >= y1 - y0 else "z", "h": H_HALL,
                       "label": "CORRIDOR", "guards": 0, "hex": False, "shape": "rect", "flow": True}
     def at(px, py):
         for k, (poly, r, _) in shapes.items():
@@ -124,9 +127,9 @@ def board_layout(plan, play, src_w, src_h):
         else: c = [ra[2], y - D / 2, rb[0], y + D / 2]
         if c[2] - c[0] <= 0.05 or c[3] - c[1] <= 0.05: problems.append([x, y, o, a, b, "no gap"]); continue
         conns += 1
-        key = "d%d" % conns
+        key = pre + "d%d" % conns
         door_to = a if not rooms[a].get("flow") else b      # the sliding door is on the room's side
-        rooms[key] = {"r": [W(c[0]), W(c[2]), Z(c[1]), Z(c[3])], "y": [0.0, 0.0], "axis": "z" if o == "h" else "x", "h": H_HALL,
+        rooms[key] = {"r": [W(c[0]), W(c[2]), Z(c[1]), Z(c[3])], "y": [DY, DY], "axis": "z" if o == "h" else "x", "h": H_HALL,
                       "label": "DOOR", "guards": 0, "hex": False, "shape": "rect", "conn": True, "door_to": door_to}
         for k2 in (a, b):   # a shaped room reaches its rect edge across the doorway, so the doorway is clear
             poly, r, nm = shapes[k2]
@@ -165,23 +168,29 @@ def board_layout(plan, play, src_w, src_h):
         for p1, p2 in ((A[3], B[2]), (A[2], B[3])):
             if abs(p1 - p2) < 0.5 and min(A[1], B[1]) - max(A[0], B[0]) > 4.0: return True
         return False
-    seen, todo = {"sbay"}, ["sbay"]
+    rep = {"connectors": conns, "halls": len(merged), "problems": problems, "overlaps": overlaps, "at": at, "shapes": shapes, "joint": joint}
+    if pre:
+        return {"rooms": rooms, "locks": lock_list, "wreck": wreck}, rep
+    seen, todo = {"sbay"}, ["sbay"]   # (multi-deck ships: checked again in main() across the lifts)
     while todo:
         k0 = todo.pop()
         for k1 in rooms:
             if k1 not in seen and joint(rooms[k0]["r"], rooms[k1]["r"]): seen.add(k1); todo.append(k1)
     cut_off = [rooms[k]["label"] for k in rooms if k not in seen and not rooms[k].get("flow") and not rooms[k].get("conn")]
-    tw = lambda pt: [W(pt[0]), 0.0, Z(pt[1])]
+    dk = lambda t: DECKS[t.get("deck", "main")]
+    tw = lambda pt, t: [W(pt[0]), dk(t)[1], Z(pt[1])]
+    rk = lambda t: "sbay" if t["room"] == entry and t.get("deck", "main") == "main" else dk(t)[0] + "r_" + slug(t["room"])
     ent = shapes["sbay"][1]
-    targets = {k: {"room": "sbay" if t["room"] == entry else "r_" + slug(t["room"]), "at": tw(t["at"]), "key": int(t["key"])} for k, t in play["targets"].items()}
-    cards = [{"room": "r_" + slug(gd["room"]), "key": int(gd["key"]), "at": tw(gd["at"])} for gd in play["guards"]]
+    targets = {k: {"room": rk(t), "at": tw(t["at"], t), "key": int(t["key"])} for k, t in play["targets"].items()}
+    cards = [{"room": rk(gd), "key": int(gd["key"]), "at": tw(gd["at"], gd)} for gd in play["guards"]]
     lay = {"scale": S_BOARD, "ax": AX, "cy": CY, "src_w": src_w, "src_h": src_h, "rooms": rooms,
            "start": [W((ent[0] + ent[2]) / 2), 0.0, Z((ent[1] + ent[3]) / 2)], "exit_x": W(ent[2]) + 6.0, "entry_x": -1.0e6,
            "core": targets.get("sabotage", {"at": [0, 0, 0]})["at"], "boss": targets.get("sabotage", {"at": [0, 0, 0]})["at"],
            "seal": ["none", "none"], "escape": ["none", "none"], "route_in": [], "route_out": [],
            "info": {"kind": "fleet", "blocked": wreck},
            "fleet": {"locks": lock_list, "cards": cards, "targets": targets, "entry": "sbay"}}
-    return lay, {"cut_off": cut_off, "connectors": conns, "halls": len(merged), "problems": problems, "overlaps": overlaps}
+    rep["cut_off"] = cut_off
+    return lay, rep
 
 def raster(g, H, W, scale):
     out = np.zeros((H, W), np.uint8)
@@ -281,6 +290,56 @@ def main():
         "patrols": [{"room": p["room"], "path": [c(*q) for q in p["path"]]} for p in play.get("patrols", [])],
     }
     lay, rep = board_layout(plan, play, SW, SH)
+    # v13.96 (owner: "compose it, do top and bottom floor"): the composed upper / lower decks (eng/deck_<name>.json),
+    # stacked over / under the main deck, joined by the lifts (gameplay "elevators": a car on each of its two decks)
+    decks_done = {"main": rep}
+    for dname in ("upper", "lower"):
+        dpath = os.path.join(eng, "deck_%s.json" % dname)
+        if not os.path.exists(dpath): continue
+        dplan = json.load(open(dpath))
+        dplay = dict(play.get("decks", {}).get(dname, {}))
+        dplay.setdefault("entry", {"room": None}); dplay.setdefault("targets", {}); dplay.setdefault("guards", [])
+        pre, dy = DECKS[dname]
+        part, drep = board_layout(dplan, dplay, SW, SH, pre, dy)
+        lay["rooms"].update(part["rooms"]); lay["fleet"]["locks"] += part["locks"]; lay["info"]["blocked"] += part["wreck"]
+        rep["problems"] += [[dname] + list(q) for q in drep["problems"]]; rep["overlaps"] += drep["overlaps"]
+        decks_done[dname] = drep
+        # the in-game map picture for this deck (same frame as the HoloDeck picture, so the map's dot lines up)
+        mp = np.zeros((SH, SW, 3), np.uint8); mp[:] = (40, 18, 6)
+        hp = shape(dplan["hull"]); cv2.polylines(mp, [np.array(hp.exterior.coords, np.int32)], True, (150, 110, 40), 2, cv2.LINE_AA)
+        mp[raster(shape(dplan["floor"]), SH, SW, 1.0) > 0] = (90, 50, 18)
+        mp[raster(shape(dplan["walls"]), SH, SW, 1.0) > 0] = (255, 245, 225)
+        for lx, ly in dplan.get("lifts", []): cv2.rectangle(mp, (int(lx - 9), int(ly - 9)), (int(lx + 9), int(ly + 9)), (60, 200, 255), 2)
+        for nm, gj in dplan["rooms"].items():
+            cpt = shape(gj).representative_point(); t = nm.upper()
+            (tw_, th_), _ = cv2.getTextSize(t, cv2.FONT_HERSHEY_SIMPLEX, 0.36, 1)
+            cv2.putText(mp, t, (int(cpt.x - tw_ / 2), int(cpt.y + th_ / 2)), cv2.FONT_HERSHEY_SIMPLEX, 0.36, (255, 230, 170), 1, cv2.LINE_AA)
+        cv2.imwrite(os.path.join("assets", "holodeck", "%s_%s.jpg" % (sid, dname)), mp, [cv2.IMWRITE_JPEG_QUALITY, 80])
+    if len(decks_done) > 1:
+        elev = []
+        for e in play.get("elevators", []):
+            ks = []
+            for dname in e["decks"]:
+                k = decks_done[dname]["at"](*e["at"]) if dname in decks_done else None
+                if k is None or lay["rooms"][k].get("flow") or lay["rooms"][k].get("conn"): rep["problems"].append(["elevator", e["at"], dname, k]); k = None
+                ks.append(k)
+            if None not in ks: elev.append({"rooms": ks, "label": e.get("label", "LIFT")})
+        lay["fleet"]["elev"] = elev
+        lay["fleet"]["decks"] = {d: DECKS[d][1] for d in decks_done}
+        R = lay["rooms"]
+        flo = lambda k: float(R[k]["y"][0])
+        jt = rep["joint"]
+        seen, todo = {"sbay"}, ["sbay"]
+        links = {}
+        for e in elev: links.setdefault(e["rooms"][0], []).append(e["rooms"][1]); links.setdefault(e["rooms"][1], []).append(e["rooms"][0])
+        while todo:
+            k0 = todo.pop()
+            for k1 in list(R.keys()):
+                if k1 not in seen and abs(flo(k0) - flo(k1)) < 1 and jt(R[k0]["r"], R[k1]["r"]): seen.add(k1); todo.append(k1)
+            for k1 in links.get(k0, []):
+                if k1 not in seen: seen.add(k1); todo.append(k1)
+        rep["cut_off"] = [R[k]["label"] + " (" + k + ")" for k in R if k not in seen and not R[k].get("flow") and not R[k].get("conn")]
+        print("decks:", list(decks_done), "elevators:", [e["rooms"] for e in elev])
     out["board"] = lay
     print("board layout: %d rooms+halls+doors, %d hall rects, %d door connectors, %d locked" % (len(lay["rooms"]), rep["halls"], rep["connectors"], len(lay["fleet"]["locks"])))
     if rep["problems"]: print("PROBLEMS:", rep["problems"])

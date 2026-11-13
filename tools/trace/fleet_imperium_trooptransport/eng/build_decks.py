@@ -16,7 +16,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, "..", "source.jpg")
 AX = 494.0
 M = mirror(AX)
-LIFTS = [(459, 490), (529, 490)]
+LIFTS = [(459, 490), (529, 490)]   # Lift A goes UP (main <-> upper), Lift B goes DOWN (main <-> lower)
 IN = decklib.hull(SRC, AX).buffer(-26, join_style=2)        # the hull, one wall-and-a-bit in: outer rooms follow it
 def clip(g):                                                 # an outer room: its outside wall follows the hull
     c = g.intersection(IN)
@@ -52,7 +52,8 @@ DL = [(482, 417, "v"), (374, 417, "v"), (478, 490, "v"), (374, 496, "v"), (407, 
       (440, 680, "h"), (374, 735, "v"), (484, 840, "v"), (374, 840, "v"), (434, 945, "v"),
       (400, 372, "h"), (352, 450, "v"), (352, 605, "v"), (352, 735, "v"), (352, 845, "v"), (300, 530, "h"), (300, 790, "h"),
       (352, 925, "v")]
-bad = decklib.run("imperium_trooptransport", HERE, SRC, AX, "upper", 1, R, HALLS, DC + mir(DL), LIFTS,
+del R["Lift B"]; R["Weapons Locker"] = box(510, 462, 614, 530)     # (Lift B doesn't stop here)
+bad = decklib.run("imperium_trooptransport", HERE, SRC, AX, "upper", 1, R, HALLS, DC + mir(DL), LIFTS[:1],
                   title="UPPER DECK - COMMAND")
 
 # ---------------- LOWER (hold deck)
@@ -73,7 +74,8 @@ DC = [(494, 580, "h"), (494, 1020, "h"), (494, 1160, "h")]
 DL = [(478, 490, "v"), (360, 505, "v"), (400, 560, "h"), (420, 640, "v"), (360, 640, "v"), (405, 720, "h"), (484, 810, "v"),
       (360, 810, "v"), (422, 900, "h"), (484, 950, "v"), (405, 1000, "h"), (405, 1020, "h"), (360, 1080, "v"), (450, 1080, "v"),
       (340, 515, "v"), (340, 650, "v"), (340, 810, "v"), (340, 960, "v"), (340, 1090, "v"), (290, 580, "h"), (290, 900, "h")]
-bad += decklib.run("imperium_trooptransport", HERE, SRC, AX, "lower", -1, R, HALLS, DC + mir(DL), LIFTS,
+del R["Lift A"]; R["Water Recycling"] = box(360, 450, 478, 560)     # (Lift A doesn't stop here)
+bad += decklib.run("imperium_trooptransport", HERE, SRC, AX, "lower", -1, R, HALLS, DC + mir(DL), LIFTS[1:],
                    title="LOWER DECK - HOLD")
 decklib.both(os.path.join(HERE, "deck_upper_on_map.jpg"), os.path.join(HERE, "deck_lower_on_map.jpg"), os.path.join(HERE, "decks_on_map.jpg"))
 sys.exit(1 if bad else 0)

@@ -1614,19 +1614,24 @@ func _board_update(dt: float) -> void:
 	var p := player.global_position
 	if not board_lifts.is_empty(): _board_lifts(dt)   # v12.51: the lifts
 	p = player.global_position
+	var riding := Boarding.STACKED and board.has("fleet") and _fleet_elev(dt)   # v13.96: a lift car between decks
+	p = player.global_position
 	var floor_y := Boarding.floor_at(p) + 6.0   # v11.71: decks at different heights, ramps between them
 	altitude = p.y - floor_y + 6.0
-	if ground_mode and grounded and vel.y <= 0.5 and p.y > floor_y and p.y - floor_y < Data.GROUND_STICK and sword_kind != "flip":
-		player.global_position.y = floor_y
-		vel.y = 0.0
-	grounded = ground_mode and player.global_position.y <= floor_y + 0.6 and vel.y <= 0.5 and sword_kind != "flip"
-	if player.global_position.y < floor_y:
-		player.global_position.y = floor_y
-		if vel.y < 0.0: vel.y = 0.0
-	var roof := Boarding.roof_at(player.global_position) - 8.0
-	if player.global_position.y > roof:
-		player.global_position.y = roof
-		if vel.y > 0.0: vel.y = 0.0
+	if riding:
+		grounded = ground_mode
+	else:
+		if ground_mode and grounded and vel.y <= 0.5 and p.y > floor_y and p.y - floor_y < Data.GROUND_STICK and sword_kind != "flip":
+			player.global_position.y = floor_y
+			vel.y = 0.0
+		grounded = ground_mode and player.global_position.y <= floor_y + 0.6 and vel.y <= 0.5 and sword_kind != "flip"
+		if player.global_position.y < floor_y:
+			player.global_position.y = floor_y
+			if vel.y < 0.0: vel.y = 0.0
+		var roof := Boarding.roof_at(player.global_position) - 8.0
+		if player.global_position.y > roof:
+			player.global_position.y = roof
+			if vel.y > 0.0: vel.y = 0.0
 	# v12.15 (owner: "in a dungeon I transformed to the ship and could fly outside the walls"): inside, a ship is held to
 	# a walking pace through the decks, and anything that ends up outside every room is put back in the nearest one
 	var hv := Vector3(vel.x, 0, vel.z)
@@ -1874,7 +1879,7 @@ func _fleet_setup(root: Node3D, info: Dictionary, fac: String) -> void:
 		for d in board_doors:
 			if Boarding.is_door(d, l["rooms"]): d["key"] = int(l["key"])
 	for c in F.get("cards", []):
-		var at := Vector3(float(c["at"][0]), 0, float(c["at"][2]))
+		var at := Vector3(float(c["at"][0]), float(c["at"][1]) + 10.0, float(c["at"][2]))   # (v13.96: [1] = its deck)
 		for k in spawn_ground_mechs(at, fac, 1, -42, 0):
 			(k["node"] as Node3D).global_position = Vector3(at.x, Boarding.floor_at(at) + Data.WALKER_STAND, at.z)
 			k["home"] = (k["node"] as Node3D).global_position
@@ -1897,7 +1902,7 @@ func _fleet_setup(root: Node3D, info: Dictionary, fac: String) -> void:
 	var kind := str(fl["kind"])
 	var T: Dictionary = F.get("targets", {})
 	if T.has(kind):
-		var tp := Vector3(float(T[kind]["at"][0]), 0, float(T[kind]["at"][2]))
+		var tp := Vector3(float(T[kind]["at"][0]), float(T[kind]["at"][1]) + 10.0, float(T[kind]["at"][2]))
 		tp.y = Boarding.floor_at(tp)
 		fl["target_at"] = tp
 		fl["need"] = int(T[kind].get("key", 0))
@@ -1955,8 +1960,104 @@ func _fleet_setup(root: Node3D, info: Dictionary, fac: String) -> void:
 		root.add_child(bc)
 		bc.global_position = tp + Vector3(0, 15.0, 0)
 		fl["beacon"] = bc
+	if Boarding.STACKED: _fleet_decks(root)
 	var need_txt := "" if int(fl.get("need", 0)) <= 0 else " (behind the %s doors: find the guards carrying the cards)" % ShipInterior.KEY_NAME[int(fl["need"])]
 	message.emit("Aboard the %s. Mission: %s%s, then back to the %s. Their guards are on patrol." % [str(info["name"]), FLEET_MISSION_TEXT.get(kind, "look round"), need_txt, str(Boarding.ROOMS["sbay"]["label"])])
+
+## v13.96 (owner: "compose it, do top and bottom floor"): a ship with an upper / lower deck. Every part of the build
+## goes into the holder of its deck (only the deck you are on is drawn: three decks of lamps would be too many for a
+## phone); every lift gets its shaft walls and a car platform.
+var _elev: Array = []
+var _deck_nodes := {}
+const ELEV_SPEED := 70.0   # u/s: a car runs a deck (80 u) in about a second
+func _fleet_decks(root: Node3D) -> void:
+	var F: Dictionary = Boarding.INFO["fleet"]
+	_deck_nodes = {}
+	for dn in ["MAIN DECK", "UPPER DECK", "LOWER DECK"]:
+		var h := Node3D.new()
+		h.name = dn
+		root.add_child(h)
+		_deck_nodes[dn] = h
+	for c in root.get_children():
+		if c in _deck_nodes.values() or not (c is Node3D) or str(c.name) in ["Waypoint", "Hostage"]: continue
+		var y := (c as Node3D).global_position.y
+		if c is MeshInstance3D: y = ((c as MeshInstance3D).global_transform * (c as MeshInstance3D).get_aabb()).get_center().y
+		elif not (c is Light3D or c is StaticBody3D or c is CSGShape3D): continue
+		c.reparent(_deck_nodes["UPPER DECK" if y > 62.0 else ("LOWER DECK" if y < -18.0 else "MAIN DECK")], true)
+	_elev = []
+	var mat := Boarding.grey(Color(0.5, 0.48, 0.42))
+	for e in F.get("elev", []):
+		var ks: Array = e["rooms"]
+		var lo: String = ks[0] if float(Boarding.ROOMS[ks[0]]["y"][0]) < float(Boarding.ROOMS[ks[1]]["y"][0]) else ks[1]
+		var hi: String = ks[1] if lo == ks[0] else ks[0]
+		var r: Array = Boarding.ROOMS[lo]["r"]
+		var ylo := float(Boarding.ROOMS[lo]["y"][0])
+		var yhi := float(Boarding.ROOMS[hi]["y"][0])
+		var x0 := float(r[0]); var x1 := float(r[1]); var z0 := float(r[2]); var z1 := float(r[3])
+		var top := ylo + float(Boarding.ROOMS[lo]["h"])
+		for wb in [[x0 - 2, x0, z0 - 2, z1 + 2], [x1, x1 + 2, z0 - 2, z1 + 2], [x0, x1, z0 - 2, z0], [x0, x1, z1, z1 + 2]]:   # the shaft between the decks
+			var wm := MeshInstance3D.new()
+			var bm := BoxMesh.new()
+			bm.size = Vector3(float(wb[1]) - float(wb[0]), yhi - top, float(wb[3]) - float(wb[2]))
+			wm.mesh = bm
+			wm.material_override = mat
+			root.add_child(wm)
+			wm.global_position = Vector3((float(wb[0]) + float(wb[1])) * 0.5, (top + yhi) * 0.5, (float(wb[2]) + float(wb[3])) * 0.5)
+		var pl := MeshInstance3D.new()   # the car's platform (it starts on the lower deck)
+		var pm := BoxMesh.new()
+		pm.size = Vector3(x1 - x0 - 1.0, 2.0, z1 - z0 - 1.0)
+		pl.mesh = pm
+		pl.material_override = _glow_mat(Color(1.0, 0.75, 0.25))
+		pl.name = "Lift car"
+		root.add_child(pl)
+		pl.global_position = Vector3((x0 + x1) * 0.5, ylo - 1.0, (z0 + z1) * 0.5)
+		_elev.append({"lo": lo, "hi": hi, "ylo": ylo, "yhi": yhi, "y": ylo, "target": ylo, "ride": false, "t_on": 0.0, "rode": false,
+			"c": Vector2((x0 + x1) * 0.5, (z0 + z1) * 0.5), "half": minf(x1 - x0, z1 - z0) * 0.5, "node": pl, "label": str(e.get("label", "LIFT"))})
+	_fleet_show_deck(true)
+
+func _fleet_show_deck(both := false) -> void:
+	var here := Boarding.deck_name(Boarding.deck_y(player.global_position))
+	for dn in _deck_nodes: (_deck_nodes[dn] as Node3D).visible = both or dn == here
+
+## The lift cars: stand in the middle of a car for half a second and it runs to its other deck (the platform comes to
+## your deck first if it is away). Returns true while you ride (the deck floor / roof don't hold you then).
+func _fleet_elev(dt: float) -> bool:
+	var here := Boarding.room_at(player.global_position)
+	var riding := false
+	for e: Dictionary in _elev:
+		var in_car: bool = here == e["lo"] or here == e["hi"] or bool(e["ride"])
+		var my_y: float = float(e["ylo"]) if here == e["lo"] else float(e["yhi"])
+		if bool(e["ride"]):
+			e["y"] = move_toward(float(e["y"]), float(e["target"]), dt * ELEV_SPEED)
+			player.global_position = Vector3(float(e["c"].x), float(e["y"]) + 6.0, float(e["c"].y))
+			vel = Vector3.ZERO
+			if is_equal_approx(float(e["y"]), float(e["target"])):
+				e["ride"] = false
+				e["rode"] = true
+				lift_rides += 1
+				_fleet_show_deck()
+			riding = true
+		elif in_car:
+			var near := Vector2(player.global_position.x, player.global_position.z).distance_to(e["c"]) < float(e["half"]) * 0.6
+			if not is_equal_approx(float(e["y"]), my_y):
+				e["target"] = my_y   # (called to your deck)
+			elif near and not bool(e["rode"]):
+				e["t_on"] = float(e["t_on"]) + dt
+				if float(e["t_on"]) > 0.5:
+					e["ride"] = true
+					e["target"] = float(e["yhi"]) if is_equal_approx(my_y, float(e["ylo"])) else float(e["ylo"])
+					_fleet_show_deck(true)
+					Sfx.play("warp_spool", -12.0, 1.6)
+					message.emit("%s: to the %s" % [str(e["label"]), Boarding.deck_name(float(e["target"])).to_lower()])
+			elif not near:
+				e["t_on"] = 0.0
+				e["rode"] = false
+		else:
+			e["t_on"] = 0.0
+			e["rode"] = false
+		if not bool(e["ride"]): e["y"] = move_toward(float(e["y"]), float(e["target"]), dt * ELEV_SPEED)
+		if is_instance_valid(e["node"]): (e["node"] as Node3D).global_position.y = float(e["y"]) - 1.0
+	return riding
 
 func _fleet_has(k: int) -> bool:
 	if not board.has("fleet"): return true

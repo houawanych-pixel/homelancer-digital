@@ -68,6 +68,10 @@ static var ESCAPE_DOOR: Array = SHIP_ESCAPE_DOOR
 static var ROUTE_IN: Array = SHIP_ROUTE_IN
 static var ROUTE_OUT: Array = SHIP_ROUTE_OUT
 static var KIND := "ship"   # "ship" | "facility"
+## v13.96 (owner: "compose it, do top and bottom floor"): a fleet ship with an upper / lower deck stacked over / under
+## its main deck. Rooms of different decks then share x/z: room_at picks the one whose floor is under you, two rooms
+## only join where their floors meet, and the lifts are cars (one room per deck, same spot) joined by a shaft.
+static var STACKED := false
 static var INFO := {}       # a facility's name, depth, difficulty
 
 static func use_ship() -> void:
@@ -87,6 +91,7 @@ static func use_ship() -> void:
 	ROUTE_OUT = SHIP_ROUTE_OUT
 	KIND = "ship"
 	INFO = {}
+	STACKED = false
 
 static var hub_blocked: Array = []   # v12.50: the breakout station's sealed passages ([room, tunnel] door pairs)
 static var classic := false   # v12.18: the route test's hand-made battleship (its walkthrough knows the coordinates)
@@ -109,6 +114,7 @@ static func use(L: Dictionary) -> void:
 	ROUTE_OUT = L["route_out"]
 	KIND = str(L.get("kind", "facility"))
 	INFO = L["info"]
+	STACKED = INFO.has("fleet") and not ((INFO["fleet"] as Dictionary).get("elev", []) as Array).is_empty()
 
 ## v13.89 (owner: "use the same gameplay from the regular board missions ... I need all my controls"): a fleet ship's
 ## deck traced from the owner's HoloDeck plan (tools/trace/to_deck_json.py writes it under "board" in
@@ -795,10 +801,28 @@ static func deck_name(y: float) -> String:
 static func rect(k: String) -> Array: return ROOMS[k]["r"]
 
 static func room_at(p: Vector3, pad := 0.0) -> String:
+	var hit := ""
+	var best := -INF
+	var low := ""
+	var lowy := INF
 	for k in ROOMS:
 		var r: Array = ROOMS[k]["r"]
-		if p.x > float(r[0]) + pad and p.x < float(r[1]) - pad and p.z > float(r[2]) + pad and p.z < float(r[3]) - pad: return k
-	return ""
+		if p.x > float(r[0]) + pad and p.x < float(r[1]) - pad and p.z > float(r[2]) + pad and p.z < float(r[3]) - pad:
+			if not STACKED: return k
+			var fy := minf(float(ROOMS[k]["y"][0]), float(ROOMS[k]["y"][1]))   # (v13.96: the deck under you)
+			if fy <= p.y + DECK_PICK and fy > best:
+				best = fy
+				hit = k
+			if fy < lowy:
+				lowy = fy
+				low = k
+	return hit if hit != "" else low
+
+const DECK_PICK := 20.0   # v13.96: a point belongs to the highest deck whose floor is at most this far above it
+## v13.96: the floor of the deck a point is on (stacked ships); 0 elsewhere.
+static func deck_y(p: Vector3) -> float:
+	var k := room_at(p)
+	return minf(float(ROOMS[k]["y"][0]), float(ROOMS[k]["y"][1])) if k != "" else 0.0
 
 static func inside(p: Vector3, pad := 0.0) -> bool:
 	return room_at(p, pad) != ""
@@ -833,6 +857,7 @@ static func keep_in(p: Vector3, pad := 10.0) -> Vector3:
 	var best := p
 	var bd := INF
 	for k in ROOMS:
+		if STACKED and absf(minf(float(ROOMS[k]["y"][0]), float(ROOMS[k]["y"][1])) - p.y) > 45.0: continue   # (v13.96: this deck only)
 		var r: Array = ROOMS[k]["r"]
 		var cx := (float(r[0]) + float(r[1])) * 0.5
 		var cz := (float(r[2]) + float(r[3])) * 0.5
@@ -847,6 +872,7 @@ static func keep_in(p: Vector3, pad := 10.0) -> Vector3:
 static func joint(a: String, b: String) -> Dictionary:
 	var A: Array = ROOMS[a]["r"]
 	var B: Array = ROOMS[b]["r"]
+	if STACKED and absf(float(ROOMS[a]["y"][0]) - float(ROOMS[b]["y"][0])) > 1.0: return {}   # (v13.96: another deck)
 	for pair in [[A[1], B[0]], [A[0], B[1]]]:
 		if absf(float(pair[0]) - float(pair[1])) < 0.5:
 			var lo := maxf(float(A[2]), float(B[2]))
@@ -908,6 +934,14 @@ static func build(root: Node3D, tint: Color) -> Dictionary:
 	var lamps: Array = []
 	var lifts := {}
 	var dl := doors()
+	var shaft_lo := {}   # v13.96: a lift car's roof / floor left open, so the shaft runs from deck to deck
+	var shaft_hi := {}
+	if STACKED:
+		for e in (INFO["fleet"] as Dictionary).get("elev", []):
+			var ks: Array = e["rooms"]
+			var a0: String = ks[0] if float(ROOMS[ks[0]]["y"][0]) < float(ROOMS[ks[1]]["y"][0]) else ks[1]
+			shaft_lo[a0] = true
+			shaft_hi[ks[1] if a0 == ks[0] else ks[0]] = true
 	for k in ROOMS:
 		var R: Dictionary = ROOMS[k]
 		var r: Array = R["r"]
@@ -920,8 +954,8 @@ static func build(root: Node3D, tint: Color) -> Dictionary:
 		var yhi: float = maxf(float(R["y"][0]), float(R["y"][1]))
 		if R.has("lift"): _lift_build(root, k, deck_m, roof_m, trim, lifts)
 		else:
-			_ramp(root, k, -WALL, deck_m)   # the deck (sloping on a ramp)
-			_ramp(root, k, h, roof_m)       # the roof, the same height over it
+			if not shaft_hi.has(k): _ramp(root, k, -WALL, deck_m)   # the deck (sloping on a ramp)
+			if not shaft_lo.has(k): _ramp(root, k, h, roof_m)       # the roof, the same height over it
 		for side in [["x", x0, z0, z1, -1.0], ["x", x1, z0, z1, 1.0], ["z", z0, x0, x1, -1.0], ["z", z1, x0, x1, 1.0]]:
 			if k == "lbay" and side[0] == "x" and is_equal_approx(float(side[1]), x0): continue   # the port bay's open side (in)
 			if k == "sbay" and side[0] == "x" and is_equal_approx(float(side[1]), x1) and not INFO.has("fleet"): continue   # the starboard bay's open side (out) (v13.92: a fleet ship's bay is closed: you leave by reaching it)

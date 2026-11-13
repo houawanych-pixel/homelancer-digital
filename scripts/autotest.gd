@@ -1818,14 +1818,38 @@ func _run() -> void:
 					var RR: Dictionary = Boarding.ROOMS[rk]
 					if bool(RR.get("flow", false)) or bool(RR.get("conn", false)): continue
 					var rr: Array = RR["r"]
-					var cpt := Vector3((float(rr[0]) + float(rr[1])) * 0.5, 0, (float(rr[2]) + float(rr[3])) * 0.5)
+					var cpt := Vector3((float(rr[0]) + float(rr[1])) * 0.5, float(RR["y"][0]) + 10.0, (float(rr[2]) + float(rr[3])) * 0.5)   # (v13.96: on its deck)
 					s.player.global_position = Vector3(cpt.x, Boarding.floor_at(cpt) + 6.0, cpt.z)
 					await _wait(0.15)
 					if Boarding.room_at(s.player.global_position) != rk: stuck.append(str(RR["label"]))
 				_check("%s: you can stand in every room (%d)" % [fid, Boarding.ROOMS.size()], stuck.is_empty(), str(stuck))
 				var sb0: Array = Boarding.ROOMS["sbay"]["r"]
-				s.player.global_position = Vector3((float(sb0[0]) + float(sb0[1])) * 0.5, s.player.global_position.y, (float(sb0[2]) + float(sb0[3])) * 0.5)
+				s.player.global_position = Vector3((float(sb0[0]) + float(sb0[1])) * 0.5, 6.0, (float(sb0[2]) + float(sb0[3])) * 0.5)
 				b["fleet"].erase("left_bay")
+				if Boarding.STACKED:   # v13.96: every lift car runs to its other deck and back
+					var rides: Array = []
+					for e: Dictionary in s._elev:
+						for leg in [["lo", "hi", "ylo"], ["hi", "lo", "yhi"]]:
+							var c2: Vector2 = e["c"]
+							s.player.global_position = Vector3(c2.x, float(e[leg[2]]) + 6.0, c2.y)
+							await _until(func(): return Boarding.room_at(s.player.global_position) == str(e[leg[1]]) and not bool(e["ride"]), 8.0)
+							rides.append("%s->%s %s" % [e[leg[0]], e[leg[1]], Boarding.room_at(s.player.global_position) == str(e[leg[1]])])
+							var c3: Vector2 = e["c"] + Vector2(float(e["half"]) * 0.9, 0)   # (step off before the next ride)
+							s.player.global_position = Vector3(c3.x, s.player.global_position.y, c3.y)
+							await _wait(0.3)
+						if e == s._elev[0]:
+							s.player.global_position = Vector3(float(e["c"].x), float(e["yhi"]) + 6.0, float(e["c"].y) + float(e["half"]) * 0.9)
+							s._fleet_show_deck()
+							await _wait(0.3)
+							await _capture("fb_%s_deck_%s" % [fid, Boarding.deck_name(float(e["yhi"])).to_lower().replace(" ", "_")])
+							main.hud.planet_map = true
+							await _wait(0.4)
+							await _capture("fb_%s_deck_map" % fid)
+							main.hud.planet_map = false
+					_check("%s: every lift runs both ways between its decks (%d)" % [fid, s._elev.size()], rides.filter(func(t): return t.ends_with("true")).size() == rides.size() and not rides.is_empty(), str(rides))
+					s.player.global_position = Vector3((float(sb0[0]) + float(sb0[1])) * 0.5, 6.0, (float(sb0[2]) + float(sb0[3])) * 0.5)
+					s._fleet_show_deck()
+					await _wait(0.3)
 			if kind == "sabotage":
 				await _capture("fb_%s_start" % fid)
 				main.hud.planet_map = true
@@ -1864,7 +1888,7 @@ func _run() -> void:
 			await _wait(0.6)
 			_check("%s %s: the job's target is done" % [fid, kind], bool(b["fleet"]["done"]), str(b["fleet"]["done"]))
 			var ex: Array = Boarding.ROOMS["sbay"]["r"]   # back to the bay you came aboard by (v13.92: the way out, wherever it is)
-			s.player.global_position = Vector3((float(ex[0]) + float(ex[1])) * 0.5, s.player.global_position.y, (float(ex[2]) + float(ex[3])) * 0.5)
+			s.player.global_position = Vector3((float(ex[0]) + float(ex[1])) * 0.5, float(Boarding.ROOMS["sbay"]["y"][0]) + 6.0, (float(ex[2]) + float(ex[3])) * 0.5)
 			await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and not main.space.boarding, 20.0)
 			await _wait(1.0)
 			_check("%s %s: back to the bay you boarded by: out, back in space" % [fid, kind], main.state == "flight" and not main.space.boarding, main.state)

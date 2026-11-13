@@ -3126,14 +3126,15 @@ func start_typing() -> void:
 var _plan_tex: Texture2D
 var _plan_tex_path := ""
 func _fleet_map(mr: Rect2) -> void:
-	var path := str(Boarding.INFO["plan_tex"])
+	var deck := Boarding.deck_name(Boarding.deck_y(space.player.global_position))   # v13.96: the deck you are on
+	var path := str((Boarding.INFO.get("plan_tex_decks", {}) as Dictionary).get(deck, Boarding.INFO["plan_tex"]))
 	if _plan_tex_path != path:
 		_plan_tex_path = path
 		_plan_tex = load(path) if ResourceLoader.exists(path) else null
 	draw_rect(mr.grow(-2), Color(0.01, 0.035, 0.09))
 	_box(mr, Color(0.01, 0.04, 0.1, 1.0), Color(CYAN, 0.8), 12, 2)
 	_text(mr.position + Vector2(18, 34), str(space.board.get("ship", "SHIP")).to_upper(), 22, WHITE)
-	_text(mr.position + Vector2(18, 54), "DECK PLAN  ·  MAIN DECK", 12, Color(CYAN_HI, 0.8))
+	_text(mr.position + Vector2(18, 54), "DECK PLAN  ·  " + deck, 12, Color(CYAN_HI, 0.8))
 	_pill("pmap_close", "CLOSE", false, CYAN)
 	var pm: Dictionary = Boarding.INFO["plan_map"]
 	var inner := Rect2(mr.position + Vector2(18, 64), mr.size - Vector2(36, 76))
@@ -3151,7 +3152,9 @@ func _fleet_map(mr: Rect2) -> void:
 	if bc != null and is_instance_valid(bc):   # the next place to go: a gold diamond
 		var bp: Vector2 = to_map.call((bc as Node3D).global_position.x, (bc as Node3D).global_position.z)
 		var pr := 9.0 + 2.0 * sin(t * 5.0)
-		draw_colored_polygon(PackedVector2Array([bp + Vector2(0, -pr), bp + Vector2(pr, 0), bp + Vector2(0, pr), bp + Vector2(-pr, 0)]), GOLD)
+		var bdeck := Boarding.deck_name(Boarding.deck_y((bc as Node3D).global_position - Vector3(0, 15.0, 0)))
+		draw_colored_polygon(PackedVector2Array([bp + Vector2(0, -pr), bp + Vector2(pr, 0), bp + Vector2(0, pr), bp + Vector2(-pr, 0)]), GOLD if bdeck == deck else Color(GOLD, 0.35))
+		if bdeck != deck: _text(bp + Vector2(12, 4), bdeck, 10, Color(GOLD, 0.8))
 	var pp: Vector3 = space.player.global_position   # you: an arrow the way you face
 	var yv: Vector2 = to_map.call(pp.x, pp.z)
 	var f3: Vector3 = -space.player.global_basis.z

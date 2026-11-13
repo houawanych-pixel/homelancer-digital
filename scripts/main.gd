@@ -2362,6 +2362,11 @@ func board_fleet_ship(id: String, kind: String, job := {}) -> void:
 	Boarding.use(L)
 	Boarding.INFO["name"] = nm
 	Boarding.INFO["plan_tex"] = str(e.get("holodeck_res", ""))
+	var dmaps := {}   # v13.96: the composed decks' map pictures (assets/holodeck/<id>_upper.jpg / _lower.jpg)
+	for dd in [["UPPER DECK", "upper"], ["LOWER DECK", "lower"]]:
+		var dp := "res://assets/holodeck/%s_%s.jpg" % [id, dd[1]]
+		if ResourceLoader.exists(dp): dmaps[dd[0]] = dp
+	Boarding.INFO["plan_tex_decks"] = dmaps
 	_new_space("Boarding")
 	space.escape_pilot = true
 	space.setup_boarding({"sys": board_from["sys"], "faction": fac, "name": nm, "escape": true, "mission": kind})
