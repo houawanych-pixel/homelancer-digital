@@ -108,22 +108,21 @@
    "key": 2
   },
   "capture": {
-   "deck": "upper",
-   "room": "Captain's Quarters",
+   "room": "Bridge",
    "at": [
     494,
-    610
+    147
    ],
    "key": 2
   },
   "rescue": {
-   "deck": "lower",
-   "room": "Holding Cells",
+   "room": "Sensor Store B",
    "at": [
-    598,
-    640
+    561,
+    269
    ],
-   "key": 2
+   "key": 2,
+   "why": "the prisoner is held in the locked sensor store"
   }
  },
  "wreck": [
@@ -228,83 +227,85 @@
   "Lockers A": 1,
   "Supply Depot": 1
  },
- "elevators": [
-  {
-   "at": [
-    459,
-    490
-   ],
-   "decks": [
-    "main",
-    "upper"
-   ],
-   "label": "LIFT A (UP)"
-  },
-  {
-   "at": [
-    529,
-    490
-   ],
-   "decks": [
-    "main",
-    "lower"
-   ],
-   "label": "LIFT B (DOWN)"
-  }
- ],
- "decks": {
-  "upper": {
-   "locks": [
-    {
-     "door": [
-      494,
-      550
-     ],
-     "key": 2,
-     "why": "the captain's quarters"
-    }
-   ],
-   "room_guards": {
-    "War Room": 1,
-    "Captain's Office": 1,
-    "Officers' Mess": 2,
-    "Captain's Quarters": 1,
-    "Galley": 1,
-    "Security Office": 1,
-    "Gunnery Control": 1,
-    "Officer Cabins B": 1
+ "retired_decks": {
+  "elevators": [
+   {
+    "at": [
+     459,
+     490
+    ],
+    "decks": [
+     "main",
+     "upper"
+    ],
+    "label": "LIFT A (UP)"
    },
-   "wreck": []
-  },
-  "lower": {
-   "locks": [
-    {
-     "door": [
-      568,
-      640
-     ],
-     "key": 2,
-     "why": "the holding cells"
+   {
+    "at": [
+     529,
+     490
+    ],
+    "decks": [
+     "main",
+     "lower"
+    ],
+    "label": "LIFT B (DOWN)"
+   }
+  ],
+  "decks": {
+   "upper": {
+    "locks": [
+     {
+      "door": [
+       494,
+       550
+      ],
+      "key": 2,
+      "why": "the captain's quarters"
+     }
+    ],
+    "room_guards": {
+     "War Room": 1,
+     "Captain's Office": 1,
+     "Officers' Mess": 2,
+     "Captain's Quarters": 1,
+     "Galley": 1,
+     "Security Office": 1,
+     "Gunnery Control": 1,
+     "Officer Cabins B": 1
     },
-    {
-     "door": [
-      628,
-      640
-     ],
-     "key": 2,
-     "why": "the holding cells"
-    }
-   ],
-   "room_guards": {
-    "Brig": 2,
-    "Detention Office": 1,
-    "Guard Post (port)": 1,
-    "Guard Post (starboard)": 1,
-    "Cargo Hold A": 1,
-    "Machine Shop": 1,
-    "Drop Pod Bay B": 1
+    "wreck": []
    },
-   "wreck": []
+   "lower": {
+    "locks": [
+     {
+      "door": [
+       568,
+       640
+      ],
+      "key": 2,
+      "why": "the holding cells"
+     },
+     {
+      "door": [
+       628,
+       640
+      ],
+      "key": 2,
+      "why": "the holding cells"
+     }
+    ],
+    "room_guards": {
+     "Brig": 2,
+     "Detention Office": 1,
+     "Guard Post (port)": 1,
+     "Guard Post (starboard)": 1,
+     "Cargo Hold A": 1,
+     "Machine Shop": 1,
+     "Drop Pod Bay B": 1
+    },
+    "wreck": []
+   }
   }
  }
 }

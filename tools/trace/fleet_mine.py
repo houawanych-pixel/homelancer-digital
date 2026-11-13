@@ -10,10 +10,11 @@ DONOR = {"capital": "imperium_capital", "cruiser": "imperium_cruiser", "destroye
          "trooptransport": "imperium_trooptransport", "frigate": "elyza_frigate", "escort": "unity_escort", "scout": "unity_scout"}
 # upper / lower deck settings by class (as on the donor); escort and scout are one deck (class rules)
 # owner (Nov 13): the ship gets bigger with the class, in the game's order: scout < escort < frigate (1 extra deck) <
-# resupply < troop transport (main deck only) < destroyer (narrow, 2 extra) < cruiser (3 extra) < capital (4 extra)
+# troop transport (main deck only) < resupply (1 short extra) < destroyer (narrow, 3 extra) < cruiser (3 extra) < capital (4 extra)
+# (owner Nov 13: resupply bigger than troop transport, as the game's ship lengths)
 DECKS = {"capital": {"decks": ("upper2", "upper", "lower", "lower2")}, "cruiser": {"max_y": 1040, "decks": ("upper", "lower", "lower2")},
-         "destroyer": {"narrow": True}, "frigate": {"narrow": True, "max_y": 900, "decks": ("upper",)},
-         "trooptransport": {"decks": ()}, "resupply": {"decks": ()}}
+         "destroyer": {"narrow": True, "decks": ("upper2", "upper", "lower")}, "frigate": {"narrow": True, "max_y": 900, "decks": ("upper",)},
+         "trooptransport": {"decks": ()}, "resupply": {"narrow": True, "max_y": 900, "decks": ("upper",)}}
 EXTRA = {"elyza_trooptransport": {"drop": ("Magazine P",)}, "orion_cruiser": {"drop": ("Magazine P",)}}   # (frame names: their twins go too)
 SHIPS = ["orion_" + c for c in DONOR] + ["liberator_" + c for c in DONOR] + \
         ["imperium_frigate", "imperium_escort", "imperium_scout", "elyza_trooptransport", "elyza_escort", "elyza_scout"]
