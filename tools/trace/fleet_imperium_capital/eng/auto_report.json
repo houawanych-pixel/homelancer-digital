@@ -1,0 +1,21 @@
+{
+ "rooms": 13,
+ "halls": 63,
+ "doors": 66,
+ "mirror_x": 506.0,
+ "mirror_err": 9.9,
+ "unreachable": [
+  "Bridge Command Deck",
+  "Sensors Suite",
+  "CIC (Combat Information Center)",
+  "Galley & Mess",
+  "Vehicle Bay",
+  "Cargo Hold B",
+  "Engineering Deck",
+  "Reactor Core",
+  "Engine Room",
+  "Briefing Room",
+  "Medbay",
+  "Cargo Hold A"
+ ]
+}
