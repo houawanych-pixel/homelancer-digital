@@ -43,7 +43,7 @@ def hull(src_path, ax, fin=14):
     c = cv2.approxPolyDP(c, 2.0, True)[:, 0, :]
     return Polygon(c).buffer(0)
 
-def _draw(S, floor, walls, hullp, main_floor, lifts, title, png, jpg):
+def _draw(S, floor, walls, hullp, main_floor, lifts, title, png, jpg, features=()):
     src = cv2.imread(S.src)
     plan = np.zeros_like(src); ov = (src * 0.35).astype(np.uint8)
     mf = raster(main_floor, src.shape[:2]) > 0
@@ -54,6 +54,10 @@ def _draw(S, floor, walls, hullp, main_floor, lifts, title, png, jpg):
     ov[fl] = (ov[fl] * 0.5).astype(np.uint8)
     wm = raster(walls, src.shape[:2]) > 0
     plan[wm] = (255, 255, 255); ov[wm] = (255, 255, 255)
+    for f in features:   # furniture / function lines (railing rings, holo-tables, cell bars, pods): not walls
+        for g in getattr(f, "geoms", [f]):
+            ring = g.exterior if g.geom_type == "Polygon" else g
+            for im in (plan, ov): cv2.polylines(im, [np.array(ring.coords, np.int32)], g.geom_type == "Polygon", (70, 170, 210), 1, cv2.LINE_AA)
     for (x, y) in lifts:
         for im in (plan, ov):
             cv2.rectangle(im, (int(x - 9), int(y - 9)), (int(x + 9), int(y + 9)), (0, 200, 255), 2)
@@ -71,7 +75,7 @@ def _draw(S, floor, walls, hullp, main_floor, lifts, title, png, jpg):
                     cv2.FONT_HERSHEY_SIMPLEX, 0.42, (180, 180, 180), 1, cv2.LINE_AA)
     cv2.imwrite(png, plan); cv2.imwrite(jpg, ov, [cv2.IMWRITE_JPEG_QUALITY, 86])
 
-def run(sid, here, src, ax, name, level, R, HALLS, DOORS, lifts, start=None, proposed=(), fin=14, title=None):
+def run(sid, here, src, ax, name, level, R, HALLS, DOORS, lifts, start=None, proposed=(), fin=14, title=None, features=()):
     """Build one composed deck; check it (every room reachable from the first lift, inside the hull, a lift at each
     main-deck shaft) and draw it. Returns the list of problems (empty = good)."""
     S = Ship(sid + "_" + name, here, src, ax, R, HALLS, DOORS, start or lifts[0], proposed)
@@ -86,9 +90,9 @@ def run(sid, here, src, ax, name, level, R, HALLS, DOORS, lifts, start=None, pro
     P = json.load(open(os.path.join(here, "plan.json")))
     main_floor = shape(P["floor"])
     _draw(S, floor, walls, hullp, main_floor, lifts, title or name.upper() + " DECK",
-          os.path.join(here, "deck_%s.png" % name), os.path.join(here, "deck_%s_on_map.jpg" % name))
+          os.path.join(here, "deck_%s.png" % name), os.path.join(here, "deck_%s_on_map.jpg" % name), features)
     json.dump({"ship": sid, "deck": name, "level": level, "proposed": True, "units": "source px", "px_per_m": PX_PER_M,
-               "thickness": T, "door": DOOR, "mirror_x": ax, "start": S.START, "lifts": [list(l) for l in lifts],
+               "thickness": T, "door": DOOR, "mirror_x": ax, "start": S.START, "lifts": [list(l) for l in lifts], "features": [mapping(f) for f in features],
                "rooms": {k: mapping(g) for k, g in R.items()}, "halls": [mapping(h) for h in HALLS],
                "center_y": S.center_y, "doors": DOORS, "proposed_doors": list(proposed), "floor": mapping(floor),
                "walls": mapping(walls), "hull": mapping(hullp)},
