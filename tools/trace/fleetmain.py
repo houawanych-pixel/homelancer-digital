@@ -48,6 +48,8 @@ RECIPES = {
 }
 CARDS = {"capital": 3, "cruiser": 3, "destroyer": 3, "resupply": 3, "trooptransport": 3, "frigate": 2, "escort": 1, "scout": 1}
 CAP = {"C": 160, "O": 120, "B": 240, "S": 130}
+WIDE = {"resupply": 1.7, "trooptransport": 1.7, "cruiser": 1.4, "capital": 1.4}   # (v13.120: floor grows with the class)
+WIDE_SHIP = {"solarion_cruiser": 2.0, "savagers_resupply": 1.1, "savagers_trooptransport": 2.4}   # (per hull, to keep resupply < troop transport)
 
 
 def compose(sid, here, cls, src=None):
@@ -78,7 +80,7 @@ def compose(sid, here, cls, src=None):
         w = hw(a, z)
         e = {"kind": kind, "a": a, "b": z, "rooms": []}
         if kind in ("C", "B"):
-            half = min(w, CAP[kind] / 2)
+            half = min(w, CAP[kind] * WIDE_SHIP.get(sid, WIDE.get(cls, 1.0)) / 2)
             half = max(half, 18)
             if i == 0:          # the bridge: a chamfered nose
                 c = min(half, hh / 2) * 0.45
@@ -102,7 +104,7 @@ def compose(sid, here, cls, src=None):
                 DOORS += [(AX - SW, (a + z) // 2, "v"), (AX + SW, (a + z) // 2, "v")]
                 e["rooms"] += ["Lift (port)", "Lift (starboard)"]
             else:
-                wide = min(w - SW, CAP["S"])
+                wide = min(w - SW, CAP["S"] * WIDE_SHIP.get(sid, WIDE.get(cls, 1.0)))
                 if wide >= 32:
                     for side, n in ((-1, nm[0]), (1, nm[1])):
                         n2 = n.rstrip("*")

@@ -4,9 +4,9 @@ traced library rooms), mirrored about x 512. Both decks stop at ONE lift shaft: 
 Lift (port), (488, 500). decklib.check() runs on both."""
 import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-import fleetfit
+import fleetfit, fleetdecks
 from shapely.geometry import box
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-bad = fleetfit.fit("savagers_frigate", HERE, ax=512.0, lift=box(474, 486, 502, 514), s=1.0, decks=("upper",))
+bad = fleetfit.fit("savagers_frigate", HERE, ax=512.0, lift=box(474, 486, 502, 514), s=1.0, decks=("upper",), **fleetdecks.SHORT_UPPER)
 sys.exit(1 if bad else 0)

@@ -53,7 +53,7 @@
    "key": 1,
    "room": "Medbay",
    "at": [
-    587,
+    641,
     776
    ]
   },
@@ -94,7 +94,7 @@
   "rescue": {
    "room": "Brig",
    "at": [
-    437,
+    382,
     776
    ],
    "key": 3
@@ -121,12 +121,12 @@
  "room_guards": {
   "Bridge": 1,
   "CIC": 1,
-  "Captain's Quarters": 1,
-  "Officers' Quarters": 1,
+  "Captain's Quarters": 2,
+  "Officers' Quarters": 2,
   "Crew Quarters": 2,
   "Galley & Mess": 2,
-  "Brig": 1,
-  "Medbay": 1,
+  "Brig": 2,
+  "Medbay": 2,
   "Cargo Hold A": 2,
   "Cargo Hold B": 2,
   "Engineering": 1,

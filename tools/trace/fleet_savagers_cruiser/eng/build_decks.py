@@ -8,5 +8,5 @@ import fleetfit
 from shapely.geometry import box
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-bad = fleetfit.fit("savagers_cruiser", HERE, ax=512.0, lift=box(474, 569, 502, 597), s=1.0)
+bad = fleetfit.fit("savagers_cruiser", HERE, ax=512.0, lift=box(474, 569, 502, 597), s=1.2)
 sys.exit(1 if bad else 0)

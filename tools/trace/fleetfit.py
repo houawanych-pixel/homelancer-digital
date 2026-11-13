@@ -53,7 +53,7 @@ def fit(sid, here, ax, lift, names=None, drop=(), move=None, size=None, rounds=1
             if cov and r < rounds - 1:
                 pct = float(cov[0].split()[2].rstrip("%"))
                 victim = next((k for k in ORDER if k not in drop and k not in KEEP), None)
-                if pct > 65 and victim: drop.append(victim); continue
+                if pct >= 65 and victim: drop.append(victim); continue
                 if pct < 55:
                     for k in ("Targeting", "Cabins A", "Captain's Quarters"):
                         if k not in drop: size[k] = round(size.get(k, 1.0) + 0.06, 2)

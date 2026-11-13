@@ -85,17 +85,21 @@ def build(sid, here, ax, lift, s=1.0, names=None, move=None, size=None, drop=(),
           ("Lounge P", "fury_06", 421, 700, 13.0, 5.0, {}, "fury_06 lounge + holoterminal", "Lounge S"),
           ("Cabins A", "kasparov_b_03", 419, 771, 10.9, 6.5, {}, "kasparov_b_03 passenger quarters", "Cabins B"),
           ("Galley", "tianjin_01", 436, 862, 6.9, 7.3, {"flip": True}, "tianjin_01 galley (quarter round)", "Wardroom")]
-    for k, rid, x, y, w, h, kw, why, tw in UP:
-        if has(k): U.room(N(k), lib(rid, *P(k, x, y), w=W(k, w), h=W(k, h), **kw), why, twin=N(tw))
     mess = P("Officers' Mess", 512, 860); rm = 37 * s * size.get("Officers' Mess", 1.0)
+    for k, rid, x, y, w, h, kw, why, tw in UP:
+        pos = P(k, x, y)
+        if k == "Galley":   # (kept 0.45 m off the mess at any scale, as drawn at 1x)
+            pos = (mess[0] - rm - 4.5 - W(k, w) * 5 + move.get(k, (0, 0))[0], pos[1])
+        if has(k): U.room(N(k), lib(rid, *pos, w=W(k, w), h=W(k, h), **kw), why, twin=N(tw))
     U.room(N("Officers' Mess"), lib("kasparov_b_06", *mess, w=W("Officers' Mess", 7.4), h=W("Officers' Mess", 7.4)), "kasparov_b_06 dining area (round)")
     if has("Gunnery Control"):
         U.room(N("Gunnery Control"), lib("tianjin_26", *P("Gunnery Control", 512, 957), w=W("Gunnery Control", 9.1), h=W("Gunnery Control", 7.6), rot=90),
                "tianjin_26 gunnery (tapered)")
     yb = mess[1] - rm - 23                                          # the spine stops 2.3 m short of the mess
-    U.H += spine(dome[1] + rd, yb) + [junction(ax, Y(380)), junction(ax, Y(560)), junction(ax, Y(740)), junction(ax, yb)]
+    U.H += spine(dome[1] + rd, yb) + [junction(ax, y) for y in (Y(380), Y(560), Y(740)) if y < yb - 30] + [junction(ax, yb)]
+    aft_rooms = has("Lounge P") or has("Cabins A")
     yl = Y(740)
-    U.hall(hall((ax, yl), (P("Cabins A", 370, 0)[0], yl), w=18))
+    if aft_rooms: U.hall(hall((ax, yl), (P("Cabins A", 370, 0)[0], yl), w=18))
     WHU = {N("Observation Dome"), "Lift", N("Officers' Mess")}
     if extra_upper: extra_upper(U, X, Y)
     U.R = decklib.settle(U.R, U.H, whole=WHU, twins=U.TW, mirror_fn=M, mode="close")
@@ -119,7 +123,7 @@ def build(sid, here, ax, lift, s=1.0, names=None, move=None, size=None, drop=(),
     for k, sd, lab in [("Captain's Quarters", "w", "locker"), ("Security Office", "w", "weapon rack"), ("Cabins A", "w", "locker"),
                        ("Lounge P", "n", "med station"), ("Galley", "w", "fuse box"), ("Targeting", "w", "console")]:
         if has(k): U.wallniche(N(k), sd, 0, lab)
-    if hatch_up: U.hatch((ax, round(Y(680), 1)), "v"); U.hatch((round(X(400), 1), round(yl, 1)), "h")
+    if hatch_up and aft_rooms: U.hatch((ax, round(Y(680), 1)), "v"); U.hatch((round(X(400), 1), round(yl, 1)), "h")
     SH = {"Observation Dome": "Observation", "Captain's Quarters": "Captain", "First Officer": "1st Officer", "Security Office": "Security",
           "Weapons Locker": "Weapons", "Officers' Mess": "Mess", "Gunnery Control": "Gunnery"}
     short = {N(k): v for k, v in SH.items() if k not in names}
@@ -238,3 +242,5 @@ RESERVE2 = {"Life Support": "Air Scrubbers", "Water Recycling": "Water Tanks", "
             "Shield Gen S": "Backup Shield S", "Machine Shop": "Repair Shop", "Fuel Store": "Reserve Fuel", "Coolant Pumps": "Backup Coolant",
             "Battery P": "Reserve Battery P", "Battery S": "Reserve Battery S"}
 DECK2 = dict(CREW2, **RESERVE2)
+# the frigate's one short upper deck (class rule v13.118): the fore half of the command deck, the mess pulled forward
+SHORT_UPPER = dict(drop=("Lounge P", "Cabins A", "Galley", "Gunnery Control"), move={"Officers' Mess": (0, -150)}, coverage=(0.40, 0.65))

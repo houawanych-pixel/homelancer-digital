@@ -7,6 +7,6 @@ import fleetdecks, fleetfit
 from shapely.geometry import box
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-bad = fleetfit.fit("savagers_capital", HERE, ax=512.0, lift=box(474, 508, 502, 536), s=1.0, lift_room="Lift (port)", names=fleetdecks.DECK2, tag="2", decks=("upper", "lower"),
+bad = fleetfit.fit("savagers_capital", HERE, ax=512.0, lift=box(474, 508, 502, 536), s=1.2, lift_room="Lift (port)", names=fleetdecks.DECK2, tag="2", decks=("upper", "lower"),
                    upper_title="UPPER DECK 2 - CREW", lower_title="LOWER DECK 2 - RESERVE")
 sys.exit(1 if bad else 0)

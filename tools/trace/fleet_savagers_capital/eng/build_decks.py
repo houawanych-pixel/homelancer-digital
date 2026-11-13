@@ -8,5 +8,5 @@ import fleetdecks
 from shapely.geometry import box
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-bad = fleetdecks.build("savagers_capital", HERE, ax=512.0, lift=box(474, 508, 502, 536), s=1.0)
+bad = fleetdecks.build("savagers_capital", HERE, ax=512.0, lift=box(474, 508, 502, 536), s=1.2)
 sys.exit(1 if bad else 0)

@@ -53,7 +53,7 @@
    "key": 1,
    "room": "Medbay",
    "at": [
-    587,
+    593,
     613
    ]
   },
@@ -94,7 +94,7 @@
   "rescue": {
    "room": "Brig",
    "at": [
-    437,
+    430,
     613
    ],
    "key": 3
@@ -120,8 +120,8 @@
  "patrols": [],
  "room_guards": {
   "Bridge": 1,
-  "Sensors": 1,
-  "Comms": 1,
+  "Sensors": 2,
+  "Comms": 2,
   "Ops Center": 1,
   "Crew Quarters": 2,
   "Galley": 2,
