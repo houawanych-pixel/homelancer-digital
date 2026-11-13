@@ -17,11 +17,12 @@ R["CIC Tactical"] = circle(497, 558, 62)
 R["Engineering Deck"] = box(293, 925, 701, 1070)
 R["Reactor Core"] = circle(497, 1128, 50)
 L = {
+    "Lift (port)": box(455, 622, 481, 648),
     "Crew Bunks": box(300, 540, 433, 712),
     "Armory": box(300, 765, 470, 915),
     "Engine Room A": box(384, 1190, 487, 1300),
 }
-TWIN = {"Crew Bunks": "Galley / Med", "Armory": "Support & Stores", "Engine Room A": "Engine Room B"}
+TWIN = {"Lift (port)": "Lift (starboard)", "Crew Bunks": "Galley / Med", "Armory": "Support & Stores", "Engine Room A": "Engine Room B"}
 for k, g in L.items():
     R[k] = g
     R[TWIN[k]] = M(g)
@@ -35,10 +36,10 @@ SMALL = [box(378, 736, 394, 765)]
 HALLS = [box(487, 343, 507, 369), box(487, 470, 507, 496), box(485, 620, 509, 925)] + SMALL + [M(b) for b in SMALL] + LH + [M(h) for h in LH]
 
 DC = [(497, 345, "h"), (497, 367, "h"), (497, 472, "h"), (497, 494, "h"), (497, 620, "h"), (497, 925, "h"), (497, 1074, "h")]
-DL = [(434, 558, "v"), (435, 667, "v"), (386, 716, "h"), (386, 738, "h"), (386, 763, "h"), (477, 800, "v"), (370, 920, "h"),
+DL = [(483, 635, "v"), (434, 558, "v"), (435, 667, "v"), (386, 716, "h"), (386, 738, "h"), (386, 763, "h"), (477, 800, "v"), (370, 920, "h"),
       (392, 1072, "h"), (392, 1188, "h")]
 DOORS = DC + DL + [(2 * AX - x, y, o) for x, y, o in DL]
 
-S = Ship("unity_escort", HERE, os.path.join(HERE, "..", "source.jpg"), AX, R, HALLS, DOORS, start=(609, 840))
+S = Ship("unity_escort", HERE, os.path.join(HERE, "..", "source.jpg"), AX, R, HALLS, DOORS, start=(609, 840), proposed=[(483, 635), (511, 635)])
 if __name__ == "__main__":
     run(S)

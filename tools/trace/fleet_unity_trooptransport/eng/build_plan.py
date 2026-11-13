@@ -17,6 +17,7 @@ R["Troop Bay"] = box(398, 490, 530, 1078)
 R["Engineering"] = box(336, 1104, 592, 1228)
 R["Reactor Core"] = circle(464, 1333, 58)
 L = {
+    "Lift": box(344, 490, 370, 516),
     "Briefing Room": box(317, 354, 426, 464),
     "Barracks": box(254, 522, 362, 751),
     "Armory": box(240, 785, 360, 902),
@@ -35,10 +36,10 @@ HALLS = [box(442, 343, 486, 488), box(454, 1078, 474, 1104), box(454, 1228, 474,
     + LH + [M(h) for h in LH] + [M(box(290, 751, 306, 785))]
 
 DC = [(464, 266, "h"), (464, 342, "h"), (464, 489, "h"), (464, 1080, "h"), (464, 1102, "h"), (464, 1230, "h"), (464, 1273, "h")]
-DL = [(434, 410, "v"), (367, 635, "v"), (392, 700, "v"), (392, 940, "v"), (298, 753, "h"), (298, 783, "h"), (367, 824, "v"),
+DL = [(372, 503, "v"), (434, 410, "v"), (367, 635, "v"), (392, 700, "v"), (392, 940, "v"), (298, 753, "h"), (298, 783, "h"), (367, 824, "v"),
       (372, 990, "v"), (381, 1100, "h")]
 DOORS = DC + DL + [(2 * AX - x, y, o) for x, y, o in DL]
 
-S = Ship("unity_trooptransport", HERE, os.path.join(HERE, "..", "source.jpg"), AX, R, HALLS, DOORS, start=(305, 1010), proposed=[(464, 1230)])
+S = Ship("unity_trooptransport", HERE, os.path.join(HERE, "..", "source.jpg"), AX, R, HALLS, DOORS, start=(305, 1010), proposed=[(464, 1230), (372, 503)])
 if __name__ == "__main__":
     run(S)

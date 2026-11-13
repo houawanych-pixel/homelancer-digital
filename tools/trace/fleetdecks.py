@@ -102,7 +102,7 @@ def build(sid, here, ax, lift, s=1.0, names=None, move=None, size=None, drop=(),
     if has("Lounge P"): U.link(N("Lounge P"), (P("Lounge P", 421, 0)[0], yl - 9))
     if has("Cabins A"): U.link(N("Cabins A"), (P("Cabins A", 421, 0)[0], yl + 9))
     U.link(N("Officers' Mess"), (ax, yb + 10), both=False)
-    if has("Galley"): U.link(N("Galley"), (mess[0] - rm, mess[1]))
+    if has("Galley"): U.link(N("Galley"), (mess[0] - rm, round(min(max(P("Galley", 0, 862)[1], mess[1] - rm * 0.6), mess[1] + rm * 0.6), 1)))
     if has("Gunnery Control"):
         g, m = U.R[N("Gunnery Control")], U.R[N("Officers' Mess")]; xg = ax - 16
         gt = g.intersection(LineString([(xg, mess[1]), (xg, 3000)])).bounds[1]; mb = m.intersection(LineString([(xg, mess[1] - 100), (xg, 3000)])).bounds[3]
@@ -147,7 +147,7 @@ def build(sid, here, ax, lift, s=1.0, names=None, move=None, size=None, drop=(),
         L.room(N("Shield Gen P"), lib("kasparov_a_14", *sg, w=W("Shield Gen P", 8.4), h=W("Shield Gen P", 8.4)), "kasparov_a_14 round machine room",
                twin=N("Shield Gen S"), feat=[ring(sg[0] + 8 * s, sg[1] - 6 * s, 18 * s), circle(sg[0] + 8 * s, sg[1] - 6 * s, 8 * s).exterior])
     cp = P("Coolant Pumps", 512, 982); rc = 38 * s
-    L.room(N("Coolant Pumps"), circle(*cp, rc), "tianjin_14 round room (pump in a ring walkway), drawn true round", feat=[ring(*cp, 22 * s), circle(*cp, 9 * s).exterior])
+    if has("Coolant Pumps"): L.room(N("Coolant Pumps"), circle(*cp, rc), "tianjin_14 round room (pump in a ring walkway), drawn true round", feat=[ring(*cp, 22 * s), circle(*cp, 9 * s).exterior])
     bt = P("Battery P", 457, 1036)
     if has("Battery P"):
         L.room(N("Battery P"), lib("kasparov_a_14", *bt, w=W("Battery P", 5.8), h=W("Battery P", 5.8)), "kasparov_a_14 round machine room", twin=N("Battery S"),
@@ -156,7 +156,8 @@ def build(sid, here, ax, lift, s=1.0, names=None, move=None, size=None, drop=(),
     if has("Escape Pods"):
         L.room(N("Escape Pods"), sector(*pc, r0, r1, 45, 135), "carrick ring corridor (arc, 3 m), pod hatches along the hull")
     y570, y740, y920 = Y(570), Y(740), Y(920)
-    L.H += spine(ls[1] - 12, y570) + [hall((ax, y740), (ax, y920), w=22), junction(ax, y570, 4.0), junction(ax, y740), junction(ax, y920)]
+    L.H += spine(ls[1] - 12, y570) + [junction(ax, y570, 4.0), junction(ax, y740)]
+    if has("Coolant Pumps") or has("Machine Shop"): L.H += [hall((ax, y740), (ax, y920), w=22), junction(ax, y920)]
     bx = bt[0] + 30 * s * size.get("Battery P", 1.0)
     by = bt[1] + 24 * s
     if has("Battery P"): L.H.append(hall((bx, by), (2 * ax - bx, by), w=16))
@@ -172,9 +173,10 @@ def build(sid, here, ax, lift, s=1.0, names=None, move=None, size=None, drop=(),
     if has("Shield Gen P"): L.link(N("Shield Gen P"), (sg[0] + 8 * s, y740 + 9))
     if has("Torpedo Store P"): L.link(N("Torpedo Store P"), (P("Torpedo Store P", 341, 0)[0], y740 + 9))
     if has("Machine Shop"): L.link(N("Machine Shop"), (SP, P("Machine Shop", 0, 880)[1]))
-    c = L.R[N("Coolant Pumps")]; ct, cb = c.bounds[1], c.bounds[3]
-    L.H.append(hall((ax, y920 + 9), (ax, ct), w=16).difference(c)); L.door(ax, round(ct, 1), "h", both=False)
-    if has("Escape Pods"):
+    if has("Coolant Pumps"):
+        c = L.R[N("Coolant Pumps")]; ct, cb = c.bounds[1], c.bounds[3]
+        L.H.append(hall((ax, y920 + 9), (ax, ct), w=16).difference(c)); L.door(ax, round(ct, 1), "h", both=False)
+    if has("Escape Pods") and has("Coolant Pumps"):
         pt = L.R[N("Escape Pods")].intersection(LineString([(ax, pc[1]), (ax, pc[1] + 300)])).bounds[1]
         L.H.append(hall((ax, cb), (ax, pt), w=16).difference(c).difference(L.R[N("Escape Pods")]))
         L.door(ax, round(cb, 1), "h", both=False); L.door(ax, round(pt, 1), "h", both=False)
@@ -192,7 +194,7 @@ def build(sid, here, ax, lift, s=1.0, names=None, move=None, size=None, drop=(),
     if has("Escape Pods"):
         for a in (70, 90, 110):
             L.NICHE.append((N("Escape Pods"), (round(pc[0] + r1 * math.cos(math.radians(a)), 1), round(pc[1] + r1 * math.sin(math.radians(a)), 1)), "s", "pod hatch"))
-    L.hatch((ax, round(Y(860), 1)), "v")
+    if has("Coolant Pumps") or has("Machine Shop"): L.hatch((ax, round(Y(860), 1)), "v")
     SH = {"Life Support": "Life Sup.", "Water Recycling": "Water", "Coolant Pumps": "Coolant", "Escape Pods": "Pods", "Machine Shop": "Machine",
           "Shield Gen P": "Shield P", "Shield Gen S": "Shield S", "Torpedo Store P": "Torpedo P", "Torpedo Store S": "Torpedo S"}
     short = {N(k): v for k, v in SH.items() if k not in names}

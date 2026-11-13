@@ -1,22 +1,135 @@
 {
- "entry": {"room": "Vehicle Bay", "at": [305, 1010]},
+ "entry": {
+  "room": "Vehicle Bay",
+  "at": [
+   305,
+   1010
+  ]
+ },
  "locks": [
-  {"door": [381, 1100], "key": 1, "why": "engineering"}, {"door": [547, 1100], "key": 1, "why": "engineering"}, {"door": [464, 1102], "key": 1, "why": "engineering"},
-  {"door": [464, 342], "key": 2, "why": "sensors & comms and the bridge"},
-  {"door": [464, 1273], "key": 2, "why": "the reactor"}
+  {
+   "door": [
+    381,
+    1100
+   ],
+   "key": 1,
+   "why": "engineering"
+  },
+  {
+   "door": [
+    547,
+    1100
+   ],
+   "key": 1,
+   "why": "engineering"
+  },
+  {
+   "door": [
+    464,
+    1102
+   ],
+   "key": 1,
+   "why": "engineering"
+  },
+  {
+   "door": [
+    464,
+    342
+   ],
+   "key": 2,
+   "why": "sensors & comms and the bridge"
+  },
+  {
+   "door": [
+    464,
+    1273
+   ],
+   "key": 2,
+   "why": "the reactor"
+  }
  ],
  "guards": [
-  {"key": 1, "room": "Armory", "at": [300, 840]},
-  {"key": 2, "room": "Engineering", "at": [464, 1160]}
+  {
+   "key": 1,
+   "room": "Armory",
+   "at": [
+    300,
+    840
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Engineering",
+   "at": [
+    464,
+    1160
+   ]
+  }
  ],
  "targets": {
-  "sabotage": {"room": "Reactor Core", "at": [464, 1333], "key": 2},
-  "capture": {"room": "Bridge", "at": [464, 215], "key": 2},
-  "rescue": {"room": "Sensors & Comms", "at": [464, 306], "key": 2}
+  "sabotage": {
+   "room": "Reactor Core",
+   "at": [
+    464,
+    1333
+   ],
+   "key": 2
+  },
+  "capture": {
+   "room": "Bridge",
+   "at": [
+    464,
+    215
+   ],
+   "key": 2
+  },
+  "rescue": {
+   "room": "Sensors & Comms",
+   "at": [
+    464,
+    306
+   ],
+   "key": 2
+  }
  },
- "wreck": [{"at": [381, 870], "across": "h", "why": "the troop bay's port run: a side way (the bay itself is the other)"}],
- "lifts": [],
+ "wreck": [
+  {
+   "at": [
+    381,
+    870
+   ],
+   "across": "h",
+   "why": "the troop bay's port run: a side way (the bay itself is the other)"
+  }
+ ],
+ "lifts": [
+  {
+   "room": "Lift (port)",
+   "at": [
+    357,
+    503
+   ]
+  },
+  {
+   "room": "Lift (starboard)",
+   "at": [
+    571,
+    503
+   ]
+  }
+ ],
  "patrols": [],
- "room_guards": {"Troop Bay": 3, "Barracks (port)": 1, "Barracks (starboard)": 2, "Lockers": 1, "Ready Room": 1, "Engineering": 2, "Bridge": 2,
-   "Sensors & Comms": 1, "Reactor Core": 1, "Briefing Room": 1, "Medbay": 1}
+ "room_guards": {
+  "Troop Bay": 3,
+  "Barracks (port)": 1,
+  "Barracks (starboard)": 2,
+  "Lockers": 1,
+  "Ready Room": 1,
+  "Engineering": 2,
+  "Bridge": 2,
+  "Sensors & Comms": 1,
+  "Reactor Core": 1,
+  "Briefing Room": 1,
+  "Medbay": 1
+ }
 }

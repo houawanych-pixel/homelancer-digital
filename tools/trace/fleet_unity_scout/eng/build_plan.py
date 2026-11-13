@@ -19,10 +19,11 @@ R["Engineering"] = box(381, 952, 643, 1064)
 R["Engine Room"] = box(431, 1075, 593, 1136)
 L = {
     "Sensor Array": Polygon([(149, 680), (160, 665), (384, 632), (384, 684), (160, 684)]),
-    "Bunk (4)": box(389, 686, 486, 814),
+    "Bunk (4)": box(389, 686, 486, 780),
+    "Lift": box(458, 786, 486, 814),
     "Engine Access": box(232, 953, 299, 1294),
 }
-TWIN = {"Sensor Array": ("Sensor Array (port)", "Sensor Array (starboard)"), "Bunk (4)": ("Bunk (4)", "Med / Galley"),
+TWIN = {"Sensor Array": ("Sensor Array (port)", "Sensor Array (starboard)"), "Bunk (4)": ("Bunk (4)", "Med / Galley"), "Lift": ("Lift (port)", "Lift (starboard)"),
         "Engine Access": ("Engine Access (L)", "Engine Access (R)")}
 for k, g in L.items():
     a, b = TWIN[k]
@@ -36,9 +37,9 @@ LH = [
 HALLS = [box(502, 457, 522, 476), box(502, 644, 522, 661), box(496, 675, 528, 825)] + LH + [M(h) for h in LH]
 
 DC = [(512, 459, "h"), (512, 474, "h"), (512, 646, "h"), (512, 659, "h"), (512, 825, "h"), (512, 948, "h"), (512, 1069, "h")]
-DL = [(386, 668, "v"), (457, 680, "h"), (491, 747, "v"), (458, 820, "h"), (301, 1001, "v"), (379, 1001, "v")]
+DL = [(386, 668, "v"), (457, 680, "h"), (491, 747, "v"), (491, 800, "v"), (301, 1001, "v"), (379, 1001, "v")]
 DOORS = DC + DL + [(2 * AX - x, y, o) for x, y, o in DL]
 
-S = Ship("unity_scout", HERE, os.path.join(HERE, "..", "source.jpg"), AX, R, HALLS, DOORS, start=(265, 1100))
+S = Ship("unity_scout", HERE, os.path.join(HERE, "..", "source.jpg"), AX, R, HALLS, DOORS, start=(265, 1100), proposed=[(491, 800), (533, 800)])
 if __name__ == "__main__":
     run(S)
