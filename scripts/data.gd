@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.125"
+const VERSION := "v13.126"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1407,6 +1407,7 @@ const CROWD3D_WALK := 1.3   # m/s: normal walking speed
 const ROOM_FRONT := 0.188       # where the front view's middle sits along the loop (you face it on arrival)
 const ROOM_ZOOM := 1.14         # the loop is this much taller than the screen: room to look up and down a little
 const ROOM_TILT_DEG := 30.0     # v13.125: phone tilted this far up or down = the most the room looks up or down (it never flips)
+const PLAN_MAP_ZOOM_MAX := 5.0  # v13.126: the fleet deck plan zooms in this far (pinch / wheel)
 const ROOM_STICK := 0.09        # share of the loop the right stick turns per second at full tilt
 const ROOM_DRIFT := 0.0025      # a slow drift once you leave it alone a while (share per second)
 const ROOM_DRIFT_AFTER := 8.0   # s untouched before it drifts

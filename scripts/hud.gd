@@ -892,6 +892,7 @@ func _objective_button() -> void:
 # ---------------------------------------------------------------- input
 func _input(e: InputEvent) -> void:
 	if not visible or space == null: return
+	if _pmap_gesture(e): return
 	if e is InputEventScreenTouch:
 		_layout()
 		_objective_button()
@@ -3125,6 +3126,79 @@ func start_typing() -> void:
 ## ship's own HoloDeck plan, with you on it, the next place to go and the cards you carry.
 var _plan_tex: Texture2D
 var _plan_tex_path := ""
+## v13.126 (owner: "the map needs pinch to zoom in, zoom out"): the fleet deck plan zooms (two-finger pinch, the
+## mouse wheel or a trackpad pinch) and pans (one finger / mouse drag) once zoomed; it opens whole each time.
+var pmap_zoom := 1.0
+var pmap_c := Vector2(0.5, 0.5)       # the part of the plan at the middle of the window (0..1 of the picture)
+var _pmap_pic := Rect2()              # where the plan was last drawn
+var _pinch := {}                      # touch index -> position (touches on the plan)
+var _pmap_mouse := false
+func _fleet_map_open() -> bool:
+	return planet_map and space != null and space.boarding and Boarding.INFO.has("plan_map") and str(Boarding.INFO.get("plan_tex", "")) != ""
+
+func _pmap_zoom_by(f: float, at: Vector2) -> void:
+	if _pmap_pic.size.x <= 0.0: return
+	var z0 := pmap_zoom
+	pmap_zoom = clampf(pmap_zoom * f, 1.0, Data.PLAN_MAP_ZOOM_MAX)
+	# keep the plan point under the fingers where it is
+	var off := (at - _pmap_pic.get_center()) / _pmap_pic.size
+	pmap_c += off / z0 - off / pmap_zoom
+	_pmap_clamp()
+
+func _pmap_clamp() -> void:
+	var h := 0.5 / pmap_zoom
+	pmap_c = Vector2(clampf(pmap_c.x, h, 1.0 - h), clampf(pmap_c.y, h, 1.0 - h))
+
+func _pmap_gesture(e: InputEvent) -> bool:
+	if not _fleet_map_open():
+		_pinch.clear()
+		_pmap_mouse = false
+		return false
+	var on_btn := func(p: Vector2) -> bool:
+		for id in buttons:
+			if (buttons[id] as Rect2).grow(3).has_point(p): return true
+		return false
+	if e is InputEventScreenTouch:
+		if e.pressed:
+			if not _pmap_pic.has_point(e.position) or on_btn.call(e.position): return false
+			_pinch[e.index] = e.position
+			get_viewport().set_input_as_handled()
+			return true
+		if _pinch.has(e.index):
+			_pinch.erase(e.index)
+			get_viewport().set_input_as_handled()
+			return true
+		return false
+	if e is InputEventScreenDrag and _pinch.has(e.index):
+		if _pinch.size() >= 2:
+			var other: Vector2 = Vector2.ZERO
+			for k in _pinch:
+				if k != e.index: other = _pinch[k]
+			var d0: float = (_pinch[e.index] as Vector2).distance_to(other)
+			var d1: float = e.position.distance_to(other)
+			if d0 > 8.0: _pmap_zoom_by(d1 / d0, (e.position + other) * 0.5)
+		elif pmap_zoom > 1.0:
+			pmap_c -= e.relative / (_pmap_pic.size * pmap_zoom)
+			_pmap_clamp()
+		_pinch[e.index] = e.position
+		get_viewport().set_input_as_handled()
+		return true
+	if e is InputEventMagnifyGesture:
+		_pmap_zoom_by(e.factor, e.position)
+		return true
+	if e is InputEventMouseButton:
+		if e.pressed and e.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+			_pmap_zoom_by(1.15 if e.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0 / 1.15, e.position)
+			return true
+		if e.button_index == MOUSE_BUTTON_LEFT:
+			_pmap_mouse = e.pressed and _pmap_pic.has_point(e.position) and not on_btn.call(e.position)
+			return false
+	if e is InputEventMouseMotion and _pmap_mouse and pmap_zoom > 1.0 and not DisplayServer.is_touchscreen_available():
+		pmap_c -= e.relative / (_pmap_pic.size * pmap_zoom)
+		_pmap_clamp()
+		return true
+	return false
+
 func _fleet_map(mr: Rect2) -> void:
 	var deck := Boarding.deck_name(Boarding.deck_y(space.player.global_position))   # v13.96: the deck you are on
 	var path := str((Boarding.INFO.get("plan_tex_decks", {}) as Dictionary).get(deck, Boarding.INFO["plan_tex"]))
@@ -3142,11 +3216,19 @@ func _fleet_map(mr: Rect2) -> void:
 	var sz := Vector2(inner.size.y * aspect, inner.size.y)
 	if sz.x > inner.size.x: sz = Vector2(inner.size.x, inner.size.x / aspect)
 	var pic := Rect2(inner.position + (inner.size - sz) * 0.5, sz)
-	if _plan_tex != null: draw_texture_rect(_plan_tex, pic, false)
-	var to_map := func(x: float, z: float) -> Vector2:
+	_pmap_pic = pic
+	_pmap_clamp()
+	var z := pmap_zoom
+	var v0 := pmap_c - Vector2(0.5, 0.5) / z     # the shown part of the plan (0..1)
+	if _plan_tex != null:
+		var ts := _plan_tex.get_size()
+		draw_texture_rect_region(_plan_tex, pic, Rect2(v0 * ts, ts / z))
+	var to_map := func(x: float, zz: float) -> Vector2:
 		var px := x / float(pm["scale"]) + float(pm["ax"])
-		var py := z / float(pm["scale"]) + float(pm["cy"])
-		return pic.position + Vector2(px / float(pm["w"]), py / float(pm["h"])) * pic.size
+		var py := zz / float(pm["scale"]) + float(pm["cy"])
+		var uv := Vector2(px / float(pm["w"]), py / float(pm["h"]))
+		var q: Vector2 = pic.position + (uv - v0) * z * pic.size
+		return q.clamp(pic.position, pic.end)   # (zoomed in: off the shown part, held at its edge)
 	var fl: Dictionary = space.board.get("fleet", {})
 	var bc = fl.get("beacon")
 	if bc != null and is_instance_valid(bc):   # the next place to go: a gold diamond

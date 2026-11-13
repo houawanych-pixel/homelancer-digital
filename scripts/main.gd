@@ -1086,6 +1086,9 @@ func _comms_line() -> String:
 func open_map() -> void:
 	if space.boarding:   # (inside a ship or a facility: the deck map)
 		hud.planet_map = not hud.planet_map
+		if hud.planet_map:   # (v13.126: the plan opens whole)
+			hud.pmap_zoom = 1.0
+			hud.pmap_c = Vector2(0.5, 0.5)
 		return
 	# v12.61 (owner: "the planet map should be like the space map"): on a planet the same map as in space shows the planet
 	hud.planet_map = false

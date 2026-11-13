@@ -19,9 +19,11 @@ from shapely.geometry import shape, Point, Polygon, box
 from shapely.geometry.polygon import orient
 
 CELL = 4.0
-S_BOARD = 1.6          # boarding units (the mech-sized decks: pilot 13 u tall) per plan px; a 2 m hall = 32 u
-H_ROOM, H_HALL = 48.0, 36.0
-DECK_DY = 80.0         # boarding units between deck floors (a room is 48 u tall: slab and service space between)
+# v13.126 (owner: "the ship was too small ... my person couldn't even enter some of the rooms ... everything needs to be
+# bigger on the inside"): 2.5x (was 1.6 u per px, rooms 48 / halls 36 u tall, decks 80 u apart)
+S_BOARD = 4.0          # boarding units (the mech-sized decks: pilot 13 u tall) per plan px; a 2 m hall = 80 u, a door 64 u
+H_ROOM, H_HALL = 100.0, 72.0
+DECK_DY = 170.0        # boarding units between deck floors (a room is 100 u tall: slab and service space between)
 DECKS = {"main": ("", 0.0), "upper": ("u_", DECK_DY), "lower": ("l_", -DECK_DY)}   # deck -> (room key prefix, floor y)
 
 def board_layout(plan, play, src_w, src_h, pre="", y0=0.0):
