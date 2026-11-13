@@ -1753,7 +1753,10 @@ func _motion_look() -> void:
 	if _motion0 < -900.0:
 		_motion0 = heading
 		_motion_yaw0 = room_yaw
-	room_yaw = fposmod(_motion_yaw0 + (_motion0 - heading) / 360.0, 1.0)
+	room_yaw = fposmod(_motion_yaw0 + (heading - _motion0) / 360.0, 1.0)   # (v13.125: a compass heading, clockwise)
+	# v13.125 (owner): up / down tilt only looks a little up or down (never flips): the tilt away from level, eased
+	var tilt = JavaScriptBridge.eval("(window.hlMotion && typeof window.hlMotion.p === 'number') ? window.hlMotion.p : 0")
+	room_pitch = clampf(-float(tilt if tilt != null else 0.0) / Data.ROOM_TILT_DEG, -1.0, 1.0)   # (back tilted up = look up)
 	room_idle = 0.0
 
 func set_panels_hidden(h: bool) -> void:
