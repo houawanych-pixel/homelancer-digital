@@ -239,11 +239,13 @@ def _prune(D, drop, keep_x=None, max_y=None):
     D.HATCH = [h for h in D.HATCH if walk.contains(Point(h[0]))]
     return gone
 
-def compose(sid, here, src, ax, shaft, cls="capital", names=None, titles=None, dy_extra=0.0, narrow=False, max_y=None, coverage=None):
+def compose(sid, here, src, ax, shaft, cls="capital", names=None, titles=None, dy_extra=0.0, narrow=False, max_y=None, coverage=None, drop=()):
     """narrow: drop the outer columns (a destroyer / frigate hull); max_y: drop everything below this FRAME y (a short hull)"""
     nm = dict(CLASS_NAMES.get(cls, {})); nm.update(names or {})
     dx = ax - FX; dy = shaft[1] - FLIFT[1] + dy_extra
     U, SU = _upper(); L, SL, WH = _lower()
+    if drop:
+        for D in (U, L): _prune(D, lambda k, c: k in drop)
     if narrow or max_y:
         kx = (395, 2 * FX - 395) if narrow else None
         dropf = lambda k, c: (narrow and (c.x < 400 or c.x > 2 * FX - 400)) or (max_y and c.y > max_y)
