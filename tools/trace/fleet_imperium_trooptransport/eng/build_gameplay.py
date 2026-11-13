@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build_plan as P
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-G = {
+G0 = {
     "entry": {"room": "Deploy Bay A", "at": [150, 840]},          # you board here and leave from here
     # door (x, y) on the plan -> key level 1 yellow, 2 orange, 3 red (every other door is green)
     "locks": [
@@ -37,6 +37,7 @@ G = {
         {"room": "Command & Control", "path": [[470, 360], [520, 400]]},
     ],
 }
+G = json.load(open(os.path.join(HERE, "gameplay.json"))) if os.path.exists(os.path.join(HERE, "gameplay.json")) else G0
 COL = {0: (80, 255, 80), 1: (40, 230, 255), 2: (20, 140, 255), 3: (60, 60, 255)}   # BGR: green, yellow, orange, red
 
 def draw():
@@ -109,4 +110,3 @@ def check():
 if __name__ == "__main__":
     print("all good" if check() else "PROBLEM")
     draw()
-    json.dump(G, open(os.path.join(HERE, "gameplay.json"), "w"), indent=1)

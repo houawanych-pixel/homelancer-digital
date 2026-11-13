@@ -373,6 +373,9 @@ var _deck_layer: CanvasLayer
 var _deck_from := ""
 func open_ship_interior(id: String) -> bool:
 	if is_instance_valid(ship_deck): return false
+	if fleet_deck_ready(id) and state == "hub" and not autotest_old_deck:   # v13.89: walk a traced deck the regular way (no job: just look round)
+		board_fleet_ship(id, "")
+		return true
 	var st := ShipInterior.create(id)
 	if st == null:
 		hud.flash_message("No deck plan for that ship yet.")
@@ -502,6 +505,9 @@ func _board_job_spawn(j: Dictionary) -> void:
 	space.target = board_ship
 	hud.flash_message("%s: target ship %s, %d fighters with it. Waypoint set: GO TO flies it. Shoot the ship down to 50%% power to break its shield, then fly to the hull to board." % [str(j["title"]), "hidden in a nebula" if bool(pt["nebula"]) else "located", board_escort.size()])
 func _board_enter(j: Dictionary) -> void:
+	if fleet_deck_ready(str(j["id"])):   # v13.89: a traced fleet deck: the regular boarding run, with all your controls
+		board_fleet_ship(str(j["id"]), str(j["kind"]), j)
+		return
 	space.controls = false
 	space.autopilot = null
 	if not open_ship_interior(str(j["id"])):
@@ -2198,6 +2204,9 @@ func leave_boarding(won: bool) -> void:
 	# v11.70 (owner): out of the launch bay you fly, the battleship blows up behind you, and 20 of its fighters are
 	# waiting. Command congratulates you; clear every one of them and you are paid.
 	if state != "flight" or board_from.is_empty(): return
+	if board_from.has("fleet_deck"):
+		_leave_fleet_ship(won)
+		return
 	state = "boarding"
 	space.controls = false
 	hud.visible = false
@@ -2307,3 +2316,109 @@ func leave_boarding(won: bool) -> void:
 	if won: hud.flash_message("COMMAND: Outstanding, pilot! The %s is gone. %d of their fighters are on you: destroy all threats." % [board_from["name"], Data.BOARD_WAVE])
 	board_from = {}
 	_interior_ship = {}
+
+# ---------------------------------------------------------------- v13.89 FLEET SHIPS, the regular boarding way
+## (owner: "where's all my controls ... use the same ones from the other missions ... put the enemies in, soldiers GLB
+## ... use the same gameplay from the regular board missions"): a fleet ship whose deck was traced from its HoloDeck
+## plan (assets/holodeck/<id>.json has a "board" layout) is played in the regular boarding engine, on foot like the
+## breakout: the HUD, your controls, the faction's soldiers, doors, the CUTTER, the deck map (the ship's own plan).
+var autotest_old_deck := false   # (tests of the old walk-through stage)
+func fleet_deck_ready(id: String) -> bool:
+	var e := FleetCatalog.get_entry(id)
+	var path := str(e.get("stage", ""))
+	if path == "" or not FileAccess.file_exists(path): return false
+	var f := FileAccess.open(path, FileAccess.READ)
+	return f != null and f.get_as_text().contains("\"board\":")
+
+func board_fleet_ship(id: String, kind: String, job := {}) -> void:
+	if not is_instance_valid(space) or state == "boarding": return
+	var e := FleetCatalog.get_entry(id)
+	var L := Boarding.fleet_layout(str(e["stage"]))
+	if L.is_empty():
+		hud.flash_message("No deck for that ship yet.")
+		return
+	var from := state
+	state = "boarding"
+	var fac := str(e.get("faction", "Unity"))
+	if not Factions.has(fac): fac = "Unity"
+	var nm := "%s %s" % [fac, str(e.get("name", id))] if not str(e.get("name", "")).begins_with(fac) else str(e["name"])
+	board_from = {"sys": space.sys_id, "pos": space.player.global_position if is_instance_valid(space.player) else Vector3.ZERO,
+		"ship_at": (board_ship.global_position if is_instance_valid(board_ship) else Vector3.ZERO), "name": nm, "faction": fac,
+		"fleet_deck": id, "job": not job.is_empty(), "kind": kind, "form": GS.form, "from": from}
+	space.controls = false
+	hud.visible = false
+	hub.visible = false
+	fx.caption = "BOARDING"
+	fx.sub = nm.to_upper()
+	Sfx.play("whoosh", -2.0, 0.8)
+	var tw := create_tween()
+	tw.tween_property(fx, "fade", 1.0, 0.5)
+	await tw.finished
+	await Packs.wait(PilotRig.PACK, 60.0)
+	var gpk := "crowd3d_orion" if fac.to_lower().begins_with("orion") else "crowd3d"
+	Packs.request(gpk)
+	await Packs.wait(gpk, 30.0)
+	GS.form = "mech"
+	Boarding.use(L)
+	Boarding.INFO["name"] = nm
+	Boarding.INFO["plan_tex"] = str(e.get("holodeck_res", ""))
+	_new_space("Boarding")
+	space.escape_pilot = true
+	space.setup_boarding({"sys": board_from["sys"], "faction": fac, "name": nm, "escape": true, "mission": kind})
+	_connect_space()
+	var tw2 := create_tween()
+	tw2.tween_property(fx, "fade", 0.0, 0.6)
+	await tw2.finished
+	fx.caption = ""
+	fx.sub = ""
+	space.controls = true
+	hud.visible = true
+	state = "flight"
+
+func _leave_fleet_ship(won: bool) -> void:
+	state = "boarding"
+	space.controls = false
+	hud.visible = false
+	fx.caption = "OUT!" if won else "OUT"
+	fx.sub = str(board_from["name"]).to_upper()
+	var tw := create_tween()
+	tw.tween_property(fx, "fade", 1.0, 0.4)
+	await tw.finished
+	GS.form = str(board_from.get("form", "ship"))
+	Boarding.use_ship()
+	var bf := board_from
+	board_from = {}
+	var done: bool = won and str(bf.get("kind", "")) != ""
+	if str(bf.get("from", "")) == "hub":   # (walked round from the dealer's DECK PLAN: back to the station)
+		_load_system(str(bf["sys"]), "station")
+		space.visible = false
+		space.process_mode = Node.PROCESS_MODE_DISABLED
+		hub.visible = true
+		state = "hub"
+		fx.caption = ""
+		fx.sub = ""
+		fx.fade = 0.0
+		return
+	_load_system(str(bf["sys"]), "station")
+	await get_tree().process_frame
+	var sat: Vector3 = bf.get("ship_at", bf["pos"])
+	space.player.global_position = sat + Vector3(0, 80.0, 1500.0)
+	space.vel = Vector3.ZERO
+	space._update_camera(1.0, true)
+	var j := board_job()
+	if done and bool(bf.get("job", false)) and not j.is_empty():
+		GS.add_credits(int(j["pay"]))
+		hub.board_job = {}
+		board_ship = null
+		GS.save_game()
+	var tw2 := create_tween()
+	tw2.tween_property(fx, "fade", 0.0, 0.6)
+	await tw2.finished
+	fx.caption = ""
+	fx.sub = ""
+	space.controls = true
+	hud.visible = true
+	state = "flight"
+	_board_cd = 6.0
+	if done and not j.is_empty(): hud.flash_message("BOARDING MISSION COMPLETE: %s. Paid %d cr." % [str(j["title"]), int(j["pay"])])
+	elif not j.is_empty(): hud.flash_message("You left the ship with the job unfinished. It is still out here: reach it again to go back aboard.")

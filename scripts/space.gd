@@ -1552,7 +1552,8 @@ func setup_boarding(info: Dictionary) -> void:
 			con.name = "LockdownConsole"
 			root.add_child(con)
 			con.global_position = cpos + Vector3(0, 6, 0)
-		message.emit("You're in %s with a price on your head. Their guards are on patrol: keep out of their sight and find your way to YOUR SHIP in the hangar (MAP: the deck plan)." % str(info["name"]))
+		if Boarding.INFO.has("fleet"): _fleet_setup(root, info, fac)
+		else: message.emit("You're in %s with a price on your head. Their guards are on patrol: keep out of their sight and find your way to YOUR SHIP in the hangar (MAP: the deck plan)." % str(info["name"]))
 	else:
 		message.emit("Inside the %s. Fight through toward the back of the ship and down into the belly: the REACTOR." % board["ship"])
 	life = StationLife.new()   # v12.48: tables / crates / consoles to break, marks on the walls, the crew
@@ -1634,7 +1635,7 @@ func _board_update(dt: float) -> void:
 	if hv.length() > hv_cap:
 		hv = hv.normalized() * hv_cap
 		vel = Vector3(hv.x, vel.y, hv.z)
-	var leaving: bool = str(board.get("phase", "")) in ["escape", "out", "sneak"] and player.global_position.x > Boarding.EXIT_X - 40.0
+	var leaving: bool = str(board.get("phase", "")) in ["escape", "out", "sneak"] and player.global_position.x > Boarding.EXIT_X - 40.0 and _fleet_may_leave()
 	if not leaving and not Boarding.inside(player.global_position):
 		var q := Boarding.keep_in(player.global_position, 6.0)
 		player.global_position = Vector3(q.x, player.global_position.y, q.z)
@@ -1650,7 +1651,7 @@ func _board_update(dt: float) -> void:
 	if player.global_position.x < Boarding.ENTRY_X:   # (the port bay's open side: in only; out is the starboard bay)
 		player.global_position.x = Boarding.ENTRY_X
 		if vel.x < 0.0: vel.x = 0.0
-	if player.global_position.x > Boarding.EXIT_X - 2.0 and not str(board.get("phase", "")) in ["escape", "out", "sneak"]:
+	if player.global_position.x > Boarding.EXIT_X - 2.0 and not (str(board.get("phase", "")) in ["escape", "out", "sneak"] and _fleet_may_leave()):
 		player.global_position.x = Boarding.EXIT_X - 2.0
 	for e in enemies:
 		if e.get("walker", false):
@@ -1701,6 +1702,7 @@ func _board_steps(dt: float) -> void:
 		if here == "bridge" and not board.get("breakout", false): _board_bridge(fac, kids)
 		if not kids.is_empty() or here == "reactor": message.emit("%s: %d of their %s!" % [str(R["label"]), kids.size() + (1 if here == "reactor" else 0), "creatures" if Data.BOARD_BEASTS.has(fac) else "mechs"])
 	if here == "bridge" or not (board.get("bridge", {}) as Dictionary).is_empty(): _bridge_tick()
+	if board.has("fleet"): _fleet_tick(dt)
 	match str(board["phase"]):
 		"fight":   # the reactor's shield is up until their boss is down
 			var core: Dictionary = board["core"]
@@ -1710,7 +1712,7 @@ func _board_steps(dt: float) -> void:
 				if is_instance_valid(board.get("shield")): (board["shield"] as Node3D).visible = false
 				message.emit("Their boss is down: the REACTOR'S SHIELD IS DOWN. Blow it!")
 		"sneak":   # v12.46: the breakout, unseen so far: walk out to your ship
-			if player.global_position.x > Boarding.EXIT_X:
+			if player.global_position.x > Boarding.EXIT_X and _fleet_may_leave():
 				board["phase"] = "out"
 				board_exit.emit(true)
 		"escape":
@@ -1722,7 +1724,7 @@ func _board_steps(dt: float) -> void:
 						if Boarding.is_door(d, Boarding.ESCAPE_DOOR): d["locked"] = false
 					Sfx.play("button", -2.0, 0.8)
 					message.emit("Lockdown override! The HANGAR is open: get to your ship!")
-				if player.global_position.x > Boarding.EXIT_X:
+				if player.global_position.x > Boarding.EXIT_X and _fleet_may_leave():
 					board["phase"] = "out"
 					board_exit.emit(true)
 				return
@@ -1857,6 +1859,160 @@ func _breakout_guards(fac: String) -> void:
 	if not board.has("alarm"): board["alarm"] = {}
 	for rk in Boarding.ROOMS: board["alarm"][rk] = true   # (no "N of their mechs!" on walking in)
 
+# ---------------------------------------------------------------- v13.89 FLEET SHIPS (owner: "use the same gameplay from
+## the regular board missions ... put the enemies in, soldiers GLB ... I need all my controls"): a fleet ship's traced deck
+## (Boarding.fleet_layout) runs as the breakout does: the pilot on foot, the faction's soldiers on patrol (they arrest you
+## on sight), the CUTTER's wreckage, the deck map. On top: key-card doors (YELLOW, ORANGE, RED; green is open), each card
+## carried by one guard (beat him and it's yours), the job's target (the GENERATOR to blow, the CAPTAIN to take, the
+## HOSTAGE to free) and the way out: back to the bay you came aboard by.
+const FLEET_MISSION_TEXT := {"sabotage": "blow the GENERATOR", "capture": "take the CAPTAIN", "rescue": "free the HOSTAGE", "": "look round"}
+func _fleet_setup(root: Node3D, info: Dictionary, fac: String) -> void:
+	var F: Dictionary = Boarding.INFO["fleet"]
+	var fl := {"cards": [true, false, false, false], "kind": str(info.get("mission", "")), "done": false}
+	board["fleet"] = fl
+	for l in F.get("locks", []):
+		for d in board_doors:
+			if Boarding.is_door(d, l["rooms"]): d["key"] = int(l["key"])
+	for c in F.get("cards", []):
+		var at := Vector3(float(c["at"][0]), 0, float(c["at"][2]))
+		for k in spawn_ground_mechs(at, fac, 1, -42, 0):
+			(k["node"] as Node3D).global_position = Vector3(at.x, Boarding.floor_at(at) + Data.WALKER_STAND, at.z)
+			k["home"] = (k["node"] as Node3D).global_position
+			k["orbit"] = _rng.randf() * TAU
+			k["aggro"] = false
+			_soldierify(k, fac)
+			k["card"] = int(c["key"])
+			var cm := MeshInstance3D.new()   # the card he carries, over his head in its colour
+			var bm := BoxMesh.new()
+			bm.size = Vector3(4.0, 2.6, 0.6)
+			cm.mesh = bm
+			cm.material_override = _glow_mat(ShipInterior.KEY_COL[int(c["key"])])
+			cm.position = Vector3(0, Data.GUARD_H - Data.WALKER_STAND + 3.0, 0)
+			cm.name = "Card"
+			(k["node"] as Node3D).add_child(cm)
+			(k["node"] as Node3D).name = "%s Guard · %s card" % [fac, ShipInterior.KEY_NAME[int(c["key"])]]
+			var rk := str(c["room"])
+			if not (board["guards"] as Dictionary).has(rk): board["guards"][rk] = []
+			board["guards"][rk].append(k)
+	var kind := str(fl["kind"])
+	var T: Dictionary = F.get("targets", {})
+	if T.has(kind):
+		var tp := Vector3(float(T[kind]["at"][0]), 0, float(T[kind]["at"][2]))
+		tp.y = Boarding.floor_at(tp)
+		fl["target_at"] = tp
+		fl["need"] = int(T[kind].get("key", 0))
+		match kind:
+			"sabotage":
+				var core := spawn_unit("ship_core", tp + Vector3(0, 30, 0), tp, "none")
+				for c2 in (core["node"] as Node3D).get_children():
+					if c2 is Node3D: (c2 as Node3D).visible = false
+				(core["node"] as Node3D).add_child(_core_look(Factions.def(fac).get("primary_color", Color(0.9, 0.7, 0.3))))
+				(core["node"] as Node3D).name = "Generator"
+				core["locked"] = false
+				core["board_core"] = true
+				board["core"] = core
+			"capture":
+				for k in spawn_ground_mechs(tp, fac, 1, -42, 0):
+					(k["node"] as Node3D).global_position = Vector3(tp.x, tp.y + Data.WALKER_STAND, tp.z)
+					k["home"] = (k["node"] as Node3D).global_position
+					k["orbit"] = 0.0
+					k["aggro"] = false
+					_soldierify(k, fac)
+					for key in ["hp", "max"]: k[key] = Data.GUARD_HP * 3.0
+					k["fleet_target"] = true
+					(k["node"] as Node3D).name = "%s Captain" % fac
+					fl["captain"] = k
+			"rescue":
+				var hn := Node3D.new()
+				hn.name = "Hostage"
+				root.add_child(hn)
+				hn.global_position = tp
+				if ResourceLoader.exists(GUARD_GLB):
+					var inst: Node3D = (load(GUARD_GLB) as PackedScene).instantiate()
+					var bb := PilotRig._aabb(inst)
+					var sk := Data.GUARD_H / maxf(0.01, bb.size.y)
+					inst.scale = Vector3.ONE * sk
+					inst.position = Vector3(-bb.get_center().x * sk, -bb.position.y * sk, -bb.get_center().z * sk)
+					hn.add_child(inst)
+				var lb := Label3D.new()
+				lb.text = "HOSTAGE"
+				lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+				lb.font_size = 64
+				lb.pixel_size = 0.06
+				lb.modulate = Color(0.5, 1.0, 0.6)
+				lb.position.y = Data.GUARD_H + 4.0
+				hn.add_child(lb)
+				fl["hostage"] = hn
+		var bc := MeshInstance3D.new()   # a column of light on the next place to go (the target, then the way out)
+		var cy := CylinderMesh.new()
+		cy.top_radius = 3.0
+		cy.bottom_radius = 3.0
+		cy.height = 30.0
+		bc.mesh = cy
+		bc.material_override = _glow_mat(Color(1.0, 0.85, 0.3))
+		bc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		bc.name = "Waypoint"
+		root.add_child(bc)
+		bc.global_position = tp + Vector3(0, 15.0, 0)
+		fl["beacon"] = bc
+	var need_txt := "" if int(fl.get("need", 0)) <= 0 else " (behind the %s doors: find the guards carrying the cards)" % ShipInterior.KEY_NAME[int(fl["need"])]
+	message.emit("Aboard the %s. Mission: %s%s, then back to the %s. Their guards are on patrol." % [str(info["name"]), FLEET_MISSION_TEXT.get(kind, "look round"), need_txt, str(Boarding.ROOMS["sbay"]["label"])])
+
+func _fleet_has(k: int) -> bool:
+	if not board.has("fleet"): return true
+	var cs: Array = board["fleet"]["cards"]
+	return k < cs.size() and bool(cs[k])
+
+func _fleet_card(k: int, at: Vector3) -> void:
+	if not board.has("fleet"): return
+	var cs: Array = board["fleet"]["cards"]
+	for i in range(1, k + 1): cs[i] = true   # (a higher card opens the lower doors too)
+	Sfx.play("button", -2.0, 1.2)
+	_popup(at + Vector3(0, 16, 0), "%s CARD" % ShipInterior.KEY_NAME[k], ShipInterior.KEY_COL[k])
+	message.emit("%s CARD TAKEN: the %s doors open for you now." % [ShipInterior.KEY_NAME[k], ShipInterior.KEY_NAME[k].to_lower()])
+
+func _fleet_done() -> void:
+	var fl: Dictionary = board.get("fleet", {})
+	if fl.is_empty() or bool(fl["done"]): return
+	fl["done"] = true
+	var ex: Array = Boarding.ROOMS["sbay"]["r"]
+	var out := Vector3((float(ex[0]) + float(ex[1])) * 0.5, 0, (float(ex[2]) + float(ex[3])) * 0.5)
+	if is_instance_valid(fl.get("beacon")): (fl["beacon"] as Node3D).global_position = out + Vector3(0, 15.0, 0)
+	if str(fl["kind"]) == "capture": message.emit("CAPTAIN TAKEN! Get him back to the %s." % str(Boarding.ROOMS["sbay"]["label"]))
+	if str(fl["kind"]) == "rescue": message.emit("HOSTAGE FREED! She's with you: back to the %s." % str(Boarding.ROOMS["sbay"]["label"]))
+
+func _fleet_may_leave() -> bool:
+	if not board.has("fleet"): return true
+	return bool(board["fleet"]["done"]) or str(board["fleet"]["kind"]) == ""
+
+func _fleet_tick(dt: float) -> void:
+	board["card_msg"] = float(board.get("card_msg", 0.0)) - dt
+	var fl: Dictionary = board["fleet"]
+	var hn = fl.get("hostage")
+	if hn != null and is_instance_valid(hn):
+		var hp := (hn as Node3D).global_position
+		if not bool(fl["done"]) and Vector2(player.global_position.x - hp.x, player.global_position.z - hp.z).length() < 40.0: _fleet_done()
+		if bool(fl["done"]):   # she follows you, a few steps behind
+			var want := player.global_position - (player.global_position - hp).normalized() * 30.0
+			var np := hp.lerp(Vector3(want.x, Boarding.floor_at(want), want.z), clampf(dt * 2.0, 0.0, 1.0))
+			if Vector2(player.global_position.x - hp.x, player.global_position.z - hp.z).length() > 30.0: (hn as Node3D).global_position = np
+	var bc = fl.get("beacon")
+	if bc != null and is_instance_valid(bc): (bc as Node3D).scale = Vector3.ONE * (1.0 + 0.15 * sin(Time.get_ticks_msec() * 0.006))
+
+func _fleet_line(where: String) -> String:
+	var fl: Dictionary = board["fleet"]
+	var cards := ""
+	for k in range(1, 4):
+		if _fleet_has(k): cards += "  ·  %s card" % ShipInterior.KEY_NAME[k]
+	var kind := str(fl["kind"])
+	var alert := "ALERT  ·  " if bool(board.get("alerted", false)) else ""
+	if str(board.get("phase", "")) == "escape" and not bool(board.get("breakout", true)):
+		return "ESCAPE: %d s  ·  %s  ·  back to the %s" % [int(ceil(maxf(0.0, float(board["escape"])))), where, str(Boarding.ROOMS["sbay"]["label"])]
+	if bool(fl["done"]) or kind == "": return "%s%s  ·  back to the %s to leave%s" % [alert, where, str(Boarding.ROOMS["sbay"]["label"]), cards]
+	var need := int(fl.get("need", 0))
+	var ntxt := "" if need <= 0 or _fleet_has(need) else "  ·  needs the %s card" % ShipInterior.KEY_NAME[need]
+	return "%s%s  ·  %s%s%s" % [alert, where, FLEET_MISSION_TEXT.get(kind, kind).to_upper(), ntxt, cards]
+
 const GUARD_GLB := "res://assets/crowd3d/future_soldier.glb"
 const GUARD_GLB_ORION := "res://assets/crowd3d_orion/HL_Orion_02_WhiteDragonSoldier_Rigged.glb"
 ## v12.46 (owner: "why am I fighting mechs, I'm a pilot ... they should be guards, the station faction's guards"): a
@@ -1918,6 +2074,9 @@ func _arrest(e: Dictionary) -> void:
 		if is_instance_valid(l): l.light_color = Color(1.0, 0.25, 0.15)
 	Sfx.play("alarm", -4.0)
 	hail.emit(str((e["node"] as Node3D).name), "FREEZE! You're under arrest!", true)
+	if board.has("fleet"):
+		message.emit("ALERT! They know you're aboard: every guard is after you.")
+		return
 	message.emit("ALERT! LOCKDOWN: the hangar is sealed. Get to the console in the SECURITY OFFICE to open it, then to your ship!" if board.has("console") else "ALERT! Get to your ship!")
 
 ## v11.71 (owner): their BOSS MECH guards the reactor.
@@ -2152,15 +2311,20 @@ func _board_doors(dt: float) -> void:
 			var wk: Dictionary = d["wreck"]
 			if not bool(wk["cut"]): _push_out_box(self, wk["box"], "ground")
 			continue
-		var shut: bool = bool(d["locked"]) or bool(d["sealed"])
+		var need := int(d.get("key", 0))   # v13.89: a key-card door (fleet decks): shut until you carry that card
+		var no_card: bool = need > 0 and not _fleet_has(need)
+		var shut: bool = bool(d["locked"]) or bool(d["sealed"]) or no_card
 		var near: bool = Vector2(pp.x - (d["center"] as Vector3).x, pp.z - (d["center"] as Vector3).z).length() < Boarding.DOOR_OPEN_AT
+		if no_card and near and Vector2(pp.x - (d["center"] as Vector3).x, pp.z - (d["center"] as Vector3).z).length() < 60.0 and float(board.get("card_msg", 0.0)) <= 0.0:
+			board["card_msg"] = 4.0
+			message.emit("%s CARD NEEDED: a guard on this ship carries it." % ShipInterior.KEY_NAME[need])
 		var want := 0.0 if shut or not near else 1.0
 		d["open"] = move_toward(float(d["open"]), want, dt * 1.6)
 		for mi: MeshInstance3D in d["panels"]:
 			mi.position = (mi.get_meta("closed_at") as Vector3) + (mi.get_meta("open_off") as Vector3) * float(d["open"])
 			var st := mi.get_node_or_null("Stripe") as MeshInstance3D
 			if st != null:
-				var want_col := Color(1.0, 0.2, 0.15) if shut else Color(0.3, 1.0, 0.45)
+				var want_col: Color = (ShipInterior.KEY_COL[need] if no_card and not bool(d["locked"]) and not bool(d["sealed"]) else Color(1.0, 0.2, 0.15)) if shut else Color(0.3, 1.0, 0.45)
 				if not st.has_meta("col") or st.get_meta("col") != want_col:
 					st.set_meta("col", want_col)
 					st.material_override = ShipFactory.mat(want_col, true)
@@ -2267,6 +2431,14 @@ func board_scream(k: String) -> void:
 func _core_down() -> void:
 	board["phase"] = "escape"
 	board["escape"] = Data.BOARD_ESCAPE
+	if board.has("fleet"):   # v13.89: the generator on a fleet ship: the clock runs, back to where you came aboard
+		board["breakout"] = false
+		_fleet_done()
+		for l: OmniLight3D in _board_alarm:
+			if is_instance_valid(l): l.light_color = Color(1.0, 0.2, 0.12)
+		Sfx.play("explosion", 0.0, 0.5)
+		message.emit("GENERATOR DOWN! The ship is going up: %d seconds to get back to the %s!" % [int(Data.BOARD_ESCAPE), str(Boarding.ROOMS["sbay"]["label"])])
+		return
 	hit_shake = 1.2
 	for d in board_doors:
 		if Boarding.is_door(d, Boarding.SEAL_DOOR): d["sealed"] = true
@@ -2280,6 +2452,7 @@ func _core_down() -> void:
 ## The objective line inside (the HUD shows it under the messages).
 func board_line() -> String:
 	var where: String = str((Boarding.ROOMS.get(str(board.get("room", "")), {}) as Dictionary).get("label", ""))
+	if board.has("fleet"): return _fleet_line(where)
 	match str(board.get("phase", "")):
 		"fight":
 			var core: Dictionary = board.get("core", {})
@@ -8463,6 +8636,8 @@ func _destroy_unit(e: Dictionary) -> void:
 	if e.has("part_role"): _part_down(e)   # v11.45: a battleship part shot off
 	for pe in e.get("parts", []): enemies.erase(pe)   # (its parts go with it)
 	if e.get("board_core", false): _core_down()
+	if e.has("card") and boarding: _fleet_card(int(e["card"]), n.global_position)   # v13.89: he dropped his key card
+	if e.get("fleet_target", false) and boarding: _fleet_done()
 	_explode(n.global_position, float(n.get_meta("radius", 7.0)))
 	_spark(n.global_position, Color(1.0, 0.95, 0.85), 40.0, 0.35)
 	enemies.erase(e)

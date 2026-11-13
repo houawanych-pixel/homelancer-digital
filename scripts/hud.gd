@@ -1440,6 +1440,9 @@ func shown_deck() -> String:
 	return Boarding.deck_name(Boarding.floor_at(space.player.global_position))
 
 func _dungeon_map(mr: Rect2) -> void:
+	if Boarding.INFO.has("plan_map") and str(Boarding.INFO.get("plan_tex", "")) != "":
+		_fleet_map(mr)
+		return
 	# v12.18 (owner, deck-plan pictures): a glowing blue blueprint of the decks on a starfield: the areas you have been in
 	# fill in, the ways on show as outlines, guards' rooms get a green marker, the core red, the way out gold.
 	draw_rect(mr.grow(-2), Color(0.01, 0.035, 0.09))
@@ -3117,3 +3120,47 @@ func start_typing() -> void:
 	roster_idle = 0.0
 	_typer.visible = true
 	_typer.grab_focus()
+
+## v13.89 (owner: "the map should be in the center ... it should pull the ship map"): on a fleet ship the MAP is the
+## ship's own HoloDeck plan, with you on it, the next place to go and the cards you carry.
+var _plan_tex: Texture2D
+var _plan_tex_path := ""
+func _fleet_map(mr: Rect2) -> void:
+	var path := str(Boarding.INFO["plan_tex"])
+	if _plan_tex_path != path:
+		_plan_tex_path = path
+		_plan_tex = load(path) if ResourceLoader.exists(path) else null
+	draw_rect(mr.grow(-2), Color(0.01, 0.035, 0.09))
+	_box(mr, Color(0.01, 0.04, 0.1, 1.0), Color(CYAN, 0.8), 12, 2)
+	_text(mr.position + Vector2(18, 34), str(space.board.get("ship", "SHIP")).to_upper(), 22, WHITE)
+	_text(mr.position + Vector2(18, 54), "DECK PLAN  ·  MAIN DECK", 12, Color(CYAN_HI, 0.8))
+	_pill("pmap_close", "CLOSE", false, CYAN)
+	var pm: Dictionary = Boarding.INFO["plan_map"]
+	var inner := Rect2(mr.position + Vector2(18, 64), mr.size - Vector2(36, 76))
+	var aspect: float = float(pm["w"]) / maxf(1.0, float(pm["h"]))
+	var sz := Vector2(inner.size.y * aspect, inner.size.y)
+	if sz.x > inner.size.x: sz = Vector2(inner.size.x, inner.size.x / aspect)
+	var pic := Rect2(inner.position + (inner.size - sz) * 0.5, sz)
+	if _plan_tex != null: draw_texture_rect(_plan_tex, pic, false)
+	var to_map := func(x: float, z: float) -> Vector2:
+		var px := x / float(pm["scale"]) + float(pm["ax"])
+		var py := z / float(pm["scale"]) + float(pm["cy"])
+		return pic.position + Vector2(px / float(pm["w"]), py / float(pm["h"])) * pic.size
+	var fl: Dictionary = space.board.get("fleet", {})
+	var bc = fl.get("beacon")
+	if bc != null and is_instance_valid(bc):   # the next place to go: a gold diamond
+		var bp: Vector2 = to_map.call((bc as Node3D).global_position.x, (bc as Node3D).global_position.z)
+		var pr := 9.0 + 2.0 * sin(t * 5.0)
+		draw_colored_polygon(PackedVector2Array([bp + Vector2(0, -pr), bp + Vector2(pr, 0), bp + Vector2(0, pr), bp + Vector2(-pr, 0)]), GOLD)
+	var pp: Vector3 = space.player.global_position   # you: an arrow the way you face
+	var yv: Vector2 = to_map.call(pp.x, pp.z)
+	var f3: Vector3 = -space.player.global_basis.z
+	var fv := Vector2(f3.x, f3.z).normalized() if Vector2(f3.x, f3.z).length() > 0.01 else Vector2(0, -1)
+	draw_colored_polygon(PackedVector2Array([yv + fv * 12.0, yv + fv.orthogonal() * 7.0 - fv * 6.0, yv - fv.orthogonal() * 7.0 - fv * 6.0]), WHITE)
+	draw_arc(yv, 14.0, 0, TAU, 20, Color(CYAN_HI, 0.9), 2.0)
+	for k in range(1, 4):   # the cards you carry (bottom left, clear of CLOSE)
+		var has: bool = (fl.get("cards", []) as Array).size() > k and bool(fl["cards"][k])
+		var cr := Rect2(Vector2(mr.position.x + 18 + (k - 1) * 68, mr.end.y - 40), Vector2(60, 22))
+		draw_rect(cr, Color(ShipInterior.KEY_COL[k], 0.9 if has else 0.15))
+		draw_rect(cr, Color(ShipInterior.KEY_COL[k], 0.9), false, 1.5)
+		_text(cr.position + Vector2(0, 16), ShipInterior.KEY_NAME[k], 10, Color(0.05, 0.05, 0.05) if has else Color(ShipInterior.KEY_COL[k], 0.8), HORIZONTAL_ALIGNMENT_CENTER, 60)

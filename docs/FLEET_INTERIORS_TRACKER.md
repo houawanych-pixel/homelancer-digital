@@ -50,7 +50,7 @@ converter: tools/trace/to_deck_json.py; test group: HL_FLEETDECK=<id>.
 | imperium_cruiser | yes | - | - | - | - | - | old deck |
 | imperium_destroyer | yes | - | - | - | - | - | old deck |
 | imperium_resupply | yes | - | - | - | - | - | old deck |
-| imperium_trooptransport | yes | done | OK (Nov 12) | shown | shown | waiting | old deck |
+| imperium_trooptransport | yes | done | OK (Nov 12) | in game for test | in game (v13.91) | waiting | regular boarding run |
 | imperium_frigate | **ask owner** | - | - | - | - | - | - |
 | imperium_escort | **ask owner** | - | - | - | - | - | - |
 | imperium_scout | **ask owner** | - | - | - | - | - | - |

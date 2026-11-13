@@ -1788,7 +1788,73 @@ func _run() -> void:
 	if not _flag("HL_LANDFILM"):   # v12.52: the landing film is cut short in the other checks (they time the descent)
 		main.landing_film_min = 0.0
 		main.landing_film_max = 0.4
+	if _flag("HL_FLEETBOARD"):   # v13.89 (owner: "use the same gameplay from the regular board missions"): a traced fleet deck in the boarding engine
+		var fid := "imperium_trooptransport"
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		for kind in ["sabotage", "capture", "rescue"]:
+			main.board_fleet_ship(fid, kind, {})
+			await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding and main.hud.visible, 90.0)
+			await _wait(1.5)
+			var s := _sp()
+			var b: Dictionary = s.board
+			var hb = main.hud
+			var soldiers := 0
+			var cards := 0
+			for e in s.enemies:
+				if bool(e.get("soldier", false)): soldiers += 1
+				if e.has("card"): cards += 1
+			var hud_ok: bool = hb.visible and hb.buttons.has("fire") and hb.buttons.has("cutter")
+			_check("%s %s: the regular boarding HUD, on foot, %d GLB soldiers, %d card carriers, %d doors (%d card doors)" % [fid, kind, soldiers, cards, s.board_doors.size(), s.board_doors.filter(func(d): return int(d.get("key", 0)) > 0).size()],
+				hud_ok and s.pilot_rig != null and soldiers >= 10 and cards == 2 and b.has("fleet") and s.board_doors.filter(func(d): return int(d.get("key", 0)) > 0).size() == 9, "hud %s (vis %s fire %s target %s) rig %s" % [hud_ok, hb.visible, hb.buttons.has("fire"), hb.buttons.has("target") or hb.buttons.has("tgt_front"), s.pilot_rig != null])
+			_check("%s %s: you start in the deploy bay" % [fid, kind], Boarding.room_at(s.player.global_position) == "sbay", Boarding.room_at(s.player.global_position))
+			if kind == "sabotage":
+				await _capture("fb_start")
+				main.hud.planet_map = true
+				await _wait(0.4)
+				await _capture("fb_map")
+				main.hud.planet_map = false
+				# you can't leave yet
+				s.player.global_position = Vector3(Boarding.EXIT_X + 3.0, s.player.global_position.y, s.player.global_position.z)
+				await _wait(0.4)
+				_check("%s: no leaving before the job is done" % fid, s.player.global_position.x < Boarding.EXIT_X and str(b["phase"]) != "out", str(s.player.global_position.x))
+				# a card door stays shut, then opens with its card
+				var kd: Dictionary = s.board_doors.filter(func(d): return int(d.get("key", 0)) == 1)[0]
+				var c0: Vector3 = kd["center"]
+				s.player.global_position = Vector3(c0.x, s.player.global_position.y, c0.z - 40.0)
+				await _wait(1.2)
+				var shut_ok: bool = float(kd["open"]) < 0.2
+				await _capture("fb_yellow_door")
+				s._fleet_card(1, c0)
+				await _wait(1.2)
+				_check("%s: the YELLOW door stays shut without the card, opens with it" % fid, shut_ok and float(kd["open"]) > 0.8, "%s %s" % [shut_ok, kd["open"]])
+				# the card carriers really carry them
+				var carrier: Dictionary = s.enemies.filter(func(e): return e.has("card"))[0]
+				s._destroy_unit(carrier)
+				await _wait(0.3)
+				_check("%s: beating a card guard gives his card" % fid, s._fleet_has(1))
+			var tgt: Vector3 = b["fleet"]["target_at"]
+			s._fleet_card(2, tgt)
+			s.player.global_position = Vector3(tgt.x + 30.0, Boarding.floor_at(tgt) + 6.0, tgt.z + 30.0)
+			await _wait(1.0)
+			await _capture("fb_target_" + kind)
+			if kind == "sabotage": s._destroy_unit(b["core"])
+			elif kind == "capture": s._destroy_unit(b["fleet"]["captain"])
+			await _wait(0.6)
+			_check("%s %s: the job's target is done" % [fid, kind], bool(b["fleet"]["done"]), str(b["fleet"]["done"]))
+			var ex: Array = Boarding.ROOMS["sbay"]["r"]
+			s.player.global_position = Vector3(float(ex[1]) - 10.0, s.player.global_position.y, (float(ex[2]) + float(ex[3])) * 0.5)
+			s.vel = Vector3(200, 0, 0)
+			await _wait(0.6)
+			if is_instance_valid(s) and s.boarding: s.player.global_position.x = Boarding.EXIT_X + 5.0
+			await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and not main.space.boarding, 20.0)
+			await _wait(1.0)
+			_check("%s %s: out through the deploy bay, back in space" % [fid, kind], main.state == "flight" and not main.space.boarding, main.state)
+		_finish_group()
+		return
 	if _flag("HL_FLEETDECK"):   # v13.78 fleet interiors programme: every ship rebuilt from an approved traced plan
+		main.autotest_old_deck = true   # (v13.89: the old walk-through stage, not the boarding run)
 		var ids := ["imperium_trooptransport"]
 		if OS.get_environment("HL_FLEETDECK") not in ["", "1"]: ids = OS.get_environment("HL_FLEETDECK").split(",")
 		for sid in ids:
@@ -3469,6 +3535,7 @@ func _run() -> void:
 			_finish_group()
 			return
 	if _flag("HL_INTERIOR"):   # v12.97 (owner brief job 2): Unity Capital main deck, on foot, from the HoloDeck plan
+		main.autotest_old_deck = true   # (v13.89: the old walk-through stage, not the boarding run)
 		_check("v12.97: only ships with a built plan open", ShipInterior.can_open("unity_capital") and not ShipInterior.can_open("elyza_scout"))
 		var ok: bool = main.open_ship_interior("unity_capital")
 		await _wait(0.6)

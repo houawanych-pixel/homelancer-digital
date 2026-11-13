@@ -110,6 +110,45 @@ static func use(L: Dictionary) -> void:
 	KIND = str(L.get("kind", "facility"))
 	INFO = L["info"]
 
+## v13.89 (owner: "use the same gameplay from the regular board missions ... I need all my controls"): a fleet ship's
+## deck traced from the owner's HoloDeck plan (tools/trace/to_deck_json.py writes it under "board" in
+## assets/holodeck/<id>.json) played by this same engine: rooms are their plan rects (shaped rooms keep their outline),
+## hallways are rects that join with NO door ("flow"), and every plan doorway is a short connector with one sliding
+## door on the room's side. "fleet" carries the key-card locks, the card carriers and the mission targets.
+static func fleet_layout(path: String) -> Dictionary:
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null: return {}
+	var d = JSON.parse_string(f.get_as_text())
+	if not (d is Dictionary) or not (d as Dictionary).has("board"): return {}
+	var B: Dictionary = d["board"]
+	var rooms := {}
+	for k in B["rooms"]:
+		var R: Dictionary = (B["rooms"][k] as Dictionary).duplicate(true)
+		R["r"] = (R["r"] as Array).map(func(v): return float(v))
+		R["y"] = (R["y"] as Array).map(func(v): return float(v))
+		R["guards"] = int(R["guards"])
+		if R.has("poly"):
+			var pv := PackedVector2Array()
+			for q in R["poly"]: pv.append(Vector2(float(q[0]), float(q[1])))
+			R["poly"] = pv
+		rooms[k] = R
+	var v3 := func(a) -> Vector3: return Vector3(float(a[0]), float(a[1]), float(a[2]))
+	var info: Dictionary = (B["info"] as Dictionary).duplicate(true)
+	info["fleet"] = B["fleet"]
+	info["plan_map"] = {"scale": float(B["scale"]), "ax": float(B["ax"]), "cy": float(B["cy"]), "w": float(B["src_w"]), "h": float(B["src_h"])}
+	return {"rooms": rooms, "start": v3.call(B["start"]), "core": v3.call(B["core"]), "boss": v3.call(B["boss"]),
+		"exit_x": float(B["exit_x"]), "entry_x": float(B["entry_x"]), "seal": B["seal"], "escape": B["escape"],
+		"route_in": B["route_in"], "route_out": B["route_out"], "kind": "hub", "info": info}
+
+## A doorway with no door: two hallway pieces, or a connector's hallway side (fleet decks).
+static func open_joint(d: Dictionary) -> bool:
+	var a: Dictionary = ROOMS[d["rooms"][0]]
+	var b: Dictionary = ROOMS[d["rooms"][1]]
+	if bool(a.get("flow", false)) or bool(b.get("flow", false)): return true
+	if bool(a.get("conn", false)) and str(a.get("door_to", "")) != str(d["rooms"][1]): return true
+	if bool(b.get("conn", false)) and str(b.get("door_to", "")) != str(d["rooms"][0]): return true
+	return false
+
 ## v11.96 (owner: "every planet has bases ... Armored Core tunnels and missions, 2 at the minimum, 3 or 4 at most; the
 ## harder they are, the deeper and bigger they are and the more enemies; basic grey-box rooms, not square hallways:
 ## hexagon and pentagon tunnels, rooms that aren't just squares; a maze that draws you deeper"). A facility on a grid
@@ -925,6 +964,7 @@ static func build(root: Node3D, tint: Color) -> Dictionary:
 	# the doors: two panels meeting in the middle that slide apart into the wall
 	var out_doors: Array = []
 	for d in dl:
+		if open_joint(d): continue   # (v13.89: a hallway running on, or a connector's hallway side: an opening, no door)
 		var w: float = float(d["hi"]) - float(d["lo"])
 		var h2: float = float(d["h"]) - 2.0
 		var mid: float = (float(d["lo"]) + float(d["hi"])) * 0.5

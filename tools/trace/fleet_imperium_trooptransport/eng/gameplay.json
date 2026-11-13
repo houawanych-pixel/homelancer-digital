@@ -1,8 +1,8 @@
 {
  "entry": {
-  "room": "Deploy Bay A",
+  "room": "Deploy Bay B",
   "at": [
-   150,
+   838,
    840
   ]
  },
@@ -83,17 +83,17 @@
  "guards": [
   {
    "key": 1,
-   "room": "Barracks B",
+   "room": "Barracks A",
    "at": [
-    690,
+    300,
     650
    ]
   },
   {
    "key": 2,
-   "room": "Supply Depot",
+   "room": "Maint. Bay",
    "at": [
-    670,
+    318,
     1170
    ]
   }
@@ -116,9 +116,9 @@
    "key": 2
   },
   "rescue": {
-   "room": "Sensor Store B",
+   "room": "Sensor Store A",
    "at": [
-    560,
+    428,
     265
    ],
    "key": 2
@@ -127,11 +127,11 @@
  "wreck": [
   {
    "at": [
-    217,
+    771,
     1010
    ],
    "across": "h",
-   "why": "outer hall A -> vehicle bay: a side way round, never the only way"
+   "why": "outer hall B -> vehicle bay: a side way round, never the only way"
   }
  ],
  "lifts": [
@@ -211,5 +211,19 @@
     ]
    ]
   }
- ]
+ ],
+ "room_guards": {
+  "Troop Bay": 3,
+  "Vehicle / Dropship Bay": 2,
+  "Engineering Deck": 2,
+  "Command & Control": 2,
+  "Bridge": 2,
+  "Reactor Core": 1,
+  "Ready Room A": 1,
+  "Armory": 1,
+  "Medbay": 1,
+  "Barracks B": 1,
+  "Lockers A": 1,
+  "Supply Depot": 1
+ }
 }

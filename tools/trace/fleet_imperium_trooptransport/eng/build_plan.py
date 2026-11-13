@@ -148,6 +148,6 @@ if __name__ == "__main__":
     print("rooms", len(R), "unreachable:", bad)
     draw(floor, walls, os.path.join(HERE, "plan.png"), os.path.join(HERE, "plan_on_map.jpg"))
     json.dump({"ship": "imperium_trooptransport", "units": "source px", "px_per_m": PX_PER_M, "thickness": T, "door": DOOR,
-               "mirror_x": AX, "start": START, "rooms": {k: mapping(g) for k, g in R.items()},
+               "mirror_x": AX, "start": START, "rooms": {k: mapping(g) for k, g in R.items()}, "halls": [mapping(h) for h in HALLS], "center_y": 790.0,
                "doors": DOORS, "proposed_doors": PROPOSED_DOORS, "floor": mapping(floor), "walls": mapping(walls)},
               open(os.path.join(HERE, "plan.json"), "w"))

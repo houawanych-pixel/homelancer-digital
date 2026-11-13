@@ -19,6 +19,127 @@ from shapely.geometry import shape, Point, Polygon, box
 from shapely.geometry.polygon import orient
 
 CELL = 4.0
+S_BOARD = 1.6          # boarding units (the mech-sized decks: pilot 13 u tall) per plan px; a 2 m hall = 32 u
+H_ROOM, H_HALL = 48.0, 36.0
+
+def board_layout(plan, play, src_w, src_h):
+    """The same deck as a Boarding layout (scripts/boarding.gd schema): axis-aligned rects (rooms keep their real
+    shape as a 'poly' outline), every hallway cut into rects that join with no door, and a short connector at every
+    plan door. Played by the regular boarding / breakout engine: HUD, controls, guards, CUTTER, doors."""
+    from shapely.geometry import box as sbox
+    from shapely.ops import unary_union
+    T, D = float(plan["thickness"]), float(plan["door"])
+    g = T / 2.0
+    AX, CY = float(plan["mirror_x"]), float(plan.get("center_y", src_h / 2.0))
+    W = lambda x: round((x - AX) * S_BOARD, 2)
+    Z = lambda y: round((y - CY) * S_BOARD, 2)
+    rooms, shapes = {}, {}          # key -> boarding room; key -> (plan polygon, rect px)
+    slug = lambda n: "".join(ch if ch.isalnum() else "_" for ch in n.lower()).strip("_")
+    entry = play["entry"]["room"]
+    guards = {k: int(v) for k, v in play.get("room_guards", {}).items()}
+    for nm, gj in plan["rooms"].items():
+        poly = shape(gj).buffer(-g, join_style=2)
+        x0, y0, x1, y1 = poly.bounds
+        key = "sbay" if nm == entry else "r_" + slug(nm)
+        shapes[key] = [poly, [x0, y0, x1, y1], nm]
+        rooms[key] = {"r": [W(x0), W(x1), Z(y0), Z(y1)], "y": [0.0, 0.0], "axis": "x" if x1 - x0 >= y1 - y0 else "z", "h": H_ROOM,
+                      "label": nm.upper(), "guards": guards.get(nm, 0), "hex": False, "shape": "rect"}
+    # hallways: one network, shrunk off the walls, cut into rects on every vertex line (and at the wreck points)
+    halls = unary_union([shape(h) for h in plan["halls"]]).buffer(-g, join_style=2)
+    xs, ys = set(), set()
+    for p in getattr(halls, "geoms", [halls]):
+        for ring in [p.exterior] + list(p.interiors):
+            for x, y in ring.coords: xs.add(round(x, 2)); ys.add(round(y, 2))
+    cut_y, cut_x = set(), set()
+    for w in play.get("wreck", []):   # (a wreck sits on a joint between two hall rects: never merged across)
+        if w["across"] == "h": ys.add(float(w["at"][1])); cut_y.add(float(w["at"][1]))
+        else: xs.add(float(w["at"][0])); cut_x.add(float(w["at"][0]))
+    xs, ys = sorted(xs), sorted(ys)
+    cells = {}
+    for j in range(len(ys) - 1):
+        for i in range(len(xs) - 1):
+            c = sbox(xs[i], ys[j], xs[i + 1], ys[j + 1])
+            if c.area > 0.5 and halls.contains(c.centroid) and halls.intersection(c).area > c.area * 0.98: cells[(i, j)] = True
+    runs = []   # horizontal runs per band, then joined downwards when the same x span repeats
+    for j in range(len(ys) - 1):
+        i = 0
+        while i < len(xs) - 1:
+            if (i, j) in cells:
+                k = i
+                while (k + 1, j) in cells and xs[k + 1] not in cut_x: k += 1
+                runs.append([xs[i], xs[k + 1], ys[j], ys[j + 1]]); i = k + 1
+            else: i += 1
+    merged = []
+    for r in runs:
+        for m in merged:
+            if m[0] == r[0] and m[1] == r[1] and abs(m[3] - r[2]) < 1e-6 and r[2] not in cut_y: m[3] = r[3]; break
+        else: merged.append(list(r))
+    for n, (x0, x1, y0, y1) in enumerate(merged, 1):
+        key = "h%d" % n
+        shapes[key] = [sbox(x0, y0, x1, y1), [x0, y0, x1, y1], "corridor"]
+        rooms[key] = {"r": [W(x0), W(x1), Z(y0), Z(y1)], "y": [0.0, 0.0], "axis": "x" if x1 - x0 >= y1 - y0 else "z", "h": H_HALL,
+                      "label": "CORRIDOR", "guards": 0, "hex": False, "shape": "rect", "flow": True}
+    def at(px, py):
+        for k, (poly, r, _) in shapes.items():
+            if r[0] - 0.01 <= px <= r[2] + 0.01 and r[1] - 0.01 <= py <= r[3] + 0.01 and poly.buffer(0.5).contains(Point(px, py)): return k
+        return None
+    # a connector at every door, from one side's rect edge to the other's; locks by key level
+    locks = {tuple(l["door"]): int(l["key"]) for l in play.get("locks", [])}
+    conns, lock_list, problems = 0, [], []
+    for x, y, o in plan["doors"]:
+        if o == "h": a, b = at(x, y - 2 * T - 2), at(x, y + 2 * T + 2)
+        else: a, b = at(x - 2 * T - 2, y), at(x + 2 * T + 2, y)
+        if a is None or b is None or a == b: problems.append([x, y, o, a, b]); continue
+        ra, rb = shapes[a][1], shapes[b][1]
+        if o == "h": c = [x - D / 2, ra[3], x + D / 2, rb[1]]
+        else: c = [ra[2], y - D / 2, rb[0], y + D / 2]
+        if c[2] - c[0] <= 0.05 or c[3] - c[1] <= 0.05: problems.append([x, y, o, a, b, "no gap"]); continue
+        conns += 1
+        key = "d%d" % conns
+        door_to = a if not rooms[a].get("flow") else b      # the sliding door is on the room's side
+        rooms[key] = {"r": [W(c[0]), W(c[2]), Z(c[1]), Z(c[3])], "y": [0.0, 0.0], "axis": "z" if o == "h" else "x", "h": H_HALL,
+                      "label": "DOOR", "guards": 0, "hex": False, "shape": "rect", "conn": True, "door_to": door_to}
+        for k2 in (a, b):   # a shaped room reaches its rect edge across the doorway, so the doorway is clear
+            poly, r, nm = shapes[k2]
+            if rooms[k2].get("flow"): continue
+            span = sbox(c[0], r[1], c[2], r[3]) if o == "h" else sbox(r[0], c[1], r[2], c[3])
+            shapes[k2][0] = unary_union([poly, span.intersection(sbox(*r)).intersection(sbox(c[0] - 1, c[1] - 40, c[2] + 1, c[3] + 40) if o == "h" else sbox(c[0] - 40, c[1] - 1, c[2] + 40, c[3] + 1))])
+        if (x, y) in locks: lock_list.append({"rooms": [key, door_to], "key": locks[(x, y)]})
+    # shaped rooms: their outline in -1..1 of their rect (scripts/boarding.gd 'poly')
+    for k, (poly, r, nm) in shapes.items():
+        if rooms[k].get("flow"): continue
+        rect = sbox(*r)
+        if poly.area > rect.area * 0.985: continue
+        poly = poly.simplify(0.6)
+        if poly.geom_type != "Polygon": poly = max(poly.geoms, key=lambda q: q.area)
+        cx, cy, hx, hy = (r[0] + r[2]) / 2, (r[1] + r[3]) / 2, (r[2] - r[0]) / 2, (r[3] - r[1]) / 2
+        pts = list(orient(poly, 1.0).exterior.coords)[:-1]
+        rooms[k]["poly"] = [[round((px - cx) / hx, 4), round((py - cy) / hy, 4)] for px, py in pts]
+        rooms[k]["shape"] = "poly"
+    # rects must not overlap (Boarding.room_at takes the first)
+    keys = list(rooms.keys()); overlaps = []
+    for i, k1 in enumerate(keys):
+        a1 = rooms[k1]["r"]
+        for k2 in keys[i + 1:]:
+            a2 = rooms[k2]["r"]
+            if min(a1[1], a2[1]) - max(a1[0], a2[0]) > 0.5 and min(a1[3], a2[3]) - max(a1[2], a2[2]) > 0.5: overlaps.append([k1, k2])
+    wreck = []
+    for w in play.get("wreck", []):
+        wx, wy = w["at"]
+        a, b = (at(wx, wy - 3), at(wx, wy + 3)) if w["across"] == "h" else (at(wx - 3, wy), at(wx + 3, wy))
+        if a and b and a != b: wreck.append([a, b])
+        else: problems.append(["wreck", wx, wy, a, b])
+    tw = lambda pt: [W(pt[0]), 0.0, Z(pt[1])]
+    ent = shapes["sbay"][1]
+    targets = {k: {"room": "sbay" if t["room"] == entry else "r_" + slug(t["room"]), "at": tw(t["at"]), "key": int(t["key"])} for k, t in play["targets"].items()}
+    cards = [{"room": "r_" + slug(gd["room"]), "key": int(gd["key"]), "at": tw(gd["at"])} for gd in play["guards"]]
+    lay = {"scale": S_BOARD, "ax": AX, "cy": CY, "src_w": src_w, "src_h": src_h, "rooms": rooms,
+           "start": [W((ent[0] + ent[2]) / 2), 0.0, Z((ent[1] + ent[3]) / 2)], "exit_x": W(ent[2]) + 6.0, "entry_x": -1.0e6,
+           "core": targets.get("sabotage", {"at": [0, 0, 0]})["at"], "boss": targets.get("sabotage", {"at": [0, 0, 0]})["at"],
+           "seal": ["none", "none"], "escape": ["none", "none"], "route_in": [], "route_out": [],
+           "info": {"kind": "fleet", "blocked": wreck},
+           "fleet": {"locks": lock_list, "cards": cards, "targets": targets, "entry": "sbay"}}
+    return lay, {"connectors": conns, "halls": len(merged), "problems": problems, "overlaps": overlaps}
 
 def raster(g, H, W, scale):
     out = np.zeros((H, W), np.uint8)
@@ -117,6 +238,11 @@ def main():
         "wrecks": [{"at": c(*w["at"]), "across": w["across"]} for w in play.get("wreck", [])],
         "patrols": [{"room": p["room"], "path": [c(*q) for q in p["path"]]} for p in play.get("patrols", [])],
     }
+    lay, rep = board_layout(plan, play, SW, SH)
+    out["board"] = lay
+    print("board layout: %d rooms+halls+doors, %d hall rects, %d door connectors, %d locked" % (len(lay["rooms"]), rep["halls"], rep["connectors"], len(lay["fleet"]["locks"])))
+    if rep["problems"]: print("PROBLEMS:", rep["problems"])
+    if rep["overlaps"]: print("OVERLAPPING RECTS:", rep["overlaps"])
     dst = a.out or os.path.join("assets", "holodeck", sid + ".json")
     json.dump(out, open(dst, "w"), separators=(",", ":"))
     print(sid, "->", dst, "%d rooms, %d wall faces, %d doors (%d locked), %.1f KB" % (
