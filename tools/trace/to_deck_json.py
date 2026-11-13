@@ -205,6 +205,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("folder")
     ap.add_argument("--out")
+    ap.add_argument("--decks", action="store_true", help="also merge the composed upper / lower decks (eng/deck_*.json) - only once the owner approved them")
     a = ap.parse_args()
     eng = os.path.join(a.folder, "eng")
     plan = json.load(open(os.path.join(eng, "plan.json")))
@@ -295,7 +296,7 @@ def main():
     decks_done = {"main": rep}
     for dname in ("upper", "lower"):
         dpath = os.path.join(eng, "deck_%s.json" % dname)
-        if not os.path.exists(dpath): continue
+        if not a.decks or not os.path.exists(dpath): continue
         dplan = json.load(open(dpath))
         dplay = dict(play.get("decks", {}).get(dname, {}))
         dplay.setdefault("entry", {"room": None}); dplay.setdefault("targets", {}); dplay.setdefault("guards", [])
