@@ -819,7 +819,7 @@ func _top_bar(tabs: Dictionary) -> void:
 	tabs["select"] = Rect2(x, y2, ws[2], TOP_BAR_H); x += ws[2] + gap
 	fs_slot = Rect2(x, y2, ws[3], TOP_BAR_H)
 	fs_exit_slot = fs_slot   # (one place, on or off)
-	if space and space.loadout_live(): tabs["swap"] = Rect2(x + ws[3] + gap, y2, 200.0, TOP_BAR_H)   # v12.67: SWAP weapon sets
+	if space and space.loadout_can_swap(): tabs["swap"] = Rect2(x + ws[3] + gap, y2, 200.0, TOP_BAR_H)   # v12.67: SWAP weapon sets
 
 ## v12.67: the SWAP button: the set on the mounts, its weapons with their ammo, a heat bar each; dim while swapping
 var swap_drawn := ""   # (tests) what it showed last

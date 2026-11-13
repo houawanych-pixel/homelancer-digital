@@ -5387,6 +5387,17 @@ func loadout_live() -> bool:
 
 ## SWAP: the next weapon set (one with weapons on it) goes on the mounts. A mech's old guns go onto its back, a ship's
 ## pull into the hull; the new ones come out and lock on. Firing waits until it's done.
+## v14.0 (owner: "not sure what that button does, it doesn't seem to do anything"): SWAP shows only when another,
+## different weapon set is fitted (SET 2 in the garage); with one set it did nothing.
+func loadout_can_swap() -> bool:
+	if not loadout_live(): return false
+	var lo := Loadout.current(GS.form)
+	var sets: Array = lo["sets"]
+	var a: Dictionary = sets[int(lo["active"])] if int(lo["active"]) < sets.size() else {}
+	for i in sets.size():
+		if i != int(lo["active"]) and not (sets[i] as Dictionary).is_empty() and sets[i] != a: return true
+	return false
+
 func loadout_swap() -> String:
 	if not loadout_live(): return "No weapon sets here."
 	if swap_t > 0.0: return "Swapping..."
