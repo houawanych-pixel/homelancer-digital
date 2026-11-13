@@ -43,6 +43,45 @@ def hull(src_path, ax, fin=14):
     c = cv2.approxPolyDP(c, 2.0, True)[:, 0, :]
     return Polygon(c).buffer(0)
 
+def settle(R, HALLS, grow=2.0, keep=()):
+    """No overlaps, no slivers (owner: "no overlap, that's no good"): every room grows by `grow` px (closing the
+    hairline gaps that would draw a double wall), then loses whatever an earlier room or any hallway already holds,
+    so neighbours share one wall exactly. Rooms in `keep` (lift cars) stay as drawn."""
+    from shapely.ops import unary_union
+    HU = unary_union(HALLS); taken = []
+    out = {}
+    for k, g in R.items():
+        if k not in keep: g = g.buffer(grow, join_style=2).simplify(0.5)
+        g = g.difference(HU)
+        if taken: g = g.difference(unary_union(taken))
+        g = max(getattr(g, "geoms", [g]), key=lambda q: q.area)
+        out[k] = g; taken.append(g)
+    return out
+
+def overlaps(R, HALLS):
+    """Pairs that still overlap (area > 1 px2) or leave a sliver gap (0 < gap < T): must be empty."""
+    from shapely.ops import unary_union
+    HU = unary_union(HALLS); bad = []
+    ks = list(R)
+    for i, a in enumerate(ks):
+        if R[a].intersection(HU).area > 1: bad.append("room / hall: " + a)
+        for b in ks[i + 1:]:
+            if R[a].intersection(R[b]).area > 1: bad.append("rooms overlap: %s / %s" % (a, b))
+            elif 0.05 < R[a].distance(R[b]) < T - 0.1: bad.append("sliver gap: %s / %s" % (a, b))
+    return bad
+
+def _label(im, g, t, col):
+    x0, y0, x1, y1 = g.bounds; c = g.representative_point(); w_av = max(30.0, (x1 - x0) - 8)
+    words = t.split(); lines = [t]
+    s = 0.34
+    if cv2.getTextSize(t, cv2.FONT_HERSHEY_SIMPLEX, s, 1)[0][0] > w_av and len(words) > 1:
+        h = (len(words) + 1) // 2; lines = [" ".join(words[:h]), " ".join(words[h:])]
+    while s > 0.24 and max(cv2.getTextSize(l, cv2.FONT_HERSHEY_SIMPLEX, s, 1)[0][0] for l in lines) > w_av: s -= 0.02
+    for i, l in enumerate(lines):
+        (w, h), _ = cv2.getTextSize(l, cv2.FONT_HERSHEY_SIMPLEX, s, 1)
+        yy = c.y + h / 2 + (i - (len(lines) - 1) / 2) * (h + 4)
+        cv2.putText(im, l, (int(c.x - w / 2), int(yy)), cv2.FONT_HERSHEY_SIMPLEX, s, col, 1, cv2.LINE_AA)
+
 def _draw(S, floor, walls, hullp, main_floor, lifts, title, png, jpg, features=()):
     src = cv2.imread(S.src)
     plan = np.zeros_like(src); ov = (src * 0.35).astype(np.uint8)
@@ -52,10 +91,14 @@ def _draw(S, floor, walls, hullp, main_floor, lifts, title, png, jpg, features=(
     for im in (plan, ov): cv2.polylines(im, [hp], True, (60, 60, 220), 2, cv2.LINE_AA)
     fl = raster(floor, src.shape[:2]) > 0
     ov[fl] = (ov[fl] * 0.5).astype(np.uint8)
+    plan[fl] = (70, 38, 12)                         # this deck's floor: dark blue (the main deck under it: grey)
     wm = raster(walls, src.shape[:2]) > 0
     plan[wm] = (255, 255, 255); ov[wm] = (255, 255, 255)
+    inner = floor.difference(walls.buffer(2.0))
     for f in features:   # furniture / function lines (railing rings, holo-tables, cell bars, pods): not walls
+        f = f.intersection(inner)                    # (never across a wall)
         for g in getattr(f, "geoms", [f]):
+            if g.is_empty or g.geom_type not in ("LineString", "LinearRing", "Polygon"): continue
             ring = g.exterior if g.geom_type == "Polygon" else g
             for im in (plan, ov): cv2.polylines(im, [np.array(ring.coords, np.int32)], g.geom_type == "Polygon", (70, 170, 210), 1, cv2.LINE_AA)
     for (x, y) in lifts:
@@ -65,10 +108,7 @@ def _draw(S, floor, walls, hullp, main_floor, lifts, title, png, jpg, features=(
     for x, y in S.PROPOSED_DOORS:
         for im in (plan, ov): cv2.circle(im, (int(x), int(y)), 14, (0, 200, 255), 2, cv2.LINE_AA)
     for k, g in S.R.items():
-        c = g.representative_point(); t = k.upper()
-        (w, h), _ = cv2.getTextSize(t, cv2.FONT_HERSHEY_SIMPLEX, 0.32, 1)
-        for im in (plan, ov):
-            cv2.putText(im, t, (int(c.x - w / 2), int(c.y + h / 2)), cv2.FONT_HERSHEY_SIMPLEX, 0.32, (255, 220, 120), 1, cv2.LINE_AA)
+        for im in (plan, ov): _label(im, g, k.upper(), (255, 220, 120))
     for im in (plan, ov):
         cv2.putText(im, title, (24, src.shape[0] - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2, cv2.LINE_AA)
         cv2.putText(im, "PROPOSED (no blueprint)  red = hull   grey = main deck   gold = lifts", (24, src.shape[0] - 10),
@@ -81,7 +121,7 @@ def run(sid, here, src, ax, name, level, R, HALLS, DOORS, lifts, start=None, pro
     S = Ship(sid + "_" + name, here, src, ax, R, HALLS, DOORS, start or lifts[0], proposed)
     floor, walls = build(S)
     rc = reach(S, floor, walls, S.START)
-    bad = ["unreachable: " + k for k, v in rc.items() if not v]
+    bad = ["unreachable: " + k for k, v in rc.items() if not v] + overlaps(R, HALLS)
     hullp = hull(src, ax, fin)
     out = floor.difference(hullp.buffer(-T))
     if out.area > 30: bad.append("outside the hull: %.0f px2 near %s" % (out.area, [round(v) for v in out.bounds]))

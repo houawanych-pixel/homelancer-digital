@@ -91,6 +91,7 @@ FEAT = [circle(494, 300, 32).exterior, circle(494, 300, 14).exterior] + mf([
     arc(440, 860, 50, 230, 310),                                            # comms consoles
 ])
 FEAT.append(circle(540, 695, 18).exterior)                                  # captain's office console ring
+R = decklib.settle(R, HALLS, keep=("Lift A",))
 bad = decklib.run("imperium_trooptransport", HERE, SRC, AX, "upper", 1, R, HALLS, DC + mir(DL), [LIFT_A],
                   title="UPPER DECK - COMMAND", features=FEAT)
 
@@ -111,7 +112,7 @@ R["Holding Cell 6"] = box(392, 760, 476, 820)
 R["Coolant Pumps"] = circle(494, 1172, 40)
 R["Escape Pods"] = sector(494, 1150, 66, 84, 30, 150)
 R["Water Recycling"] = circle(430, 510, 42)
-R["Life Support"] = circle(600, 505, 40)
+R["Life Support"] = circle(585, 498, 30)
 R["Lift B"] = box(510, 470, 548, 510)
 L = {
     "Ammo Store": core(clip(box(250, 452, 370, 640))),
@@ -121,7 +122,7 @@ L = {
     "Pod Launch Control": core(clip(Polygon([(370, 1002), (370, 1078), (290, 1078), (240, 1002)]))),
     "Cargo Hold": core(octa(392, 852, 484, 1098, 16)),
     "Machine Shop": octa(392, 1122, 452, 1180, 12),
-    "Battery Room": core(clip(circle(320, 1125, 40))),
+    "Battery Room": core(clip(circle(320, 1132, 40))),
 }
 TWIN = {"Spare Parts": ("Spare Parts", "Medical Store"), "Drop Pod Bay": ("Drop Pod Bay A", "Drop Pod Bay B"),
         "Cargo Hold": ("Cargo Hold A", "Cargo Hold B"), "Machine Shop": ("Machine Shop", "Fuel Store"),
@@ -129,19 +130,20 @@ TWIN = {"Spare Parts": ("Spare Parts", "Medical Store"), "Drop Pod Bay": ("Drop 
 for k, g in L.items():
     a, b = TWIN.get(k, (k + " (port)", k + " (starboard)"))
     R[a] = g; R[b] = M(g)
-DC = [(494, 591, "h"), (494, 1131, "h"), (494, 1214, "h"), (510, 490, "v"), (582, 540, "v"), (476, 646, "v"), (476, 730, "v"),
+DC = [(494, 591, "h"), (494, 1131, "h"), (494, 1214, "h"), (510, 490, "v"), (585, 530, "h"), (476, 646, "v"), (476, 730, "v"),
       (476, 790, "v")] + [(512, 620 + i * 57, "v") for i in range(4)]
 DL = [(470, 520, "v"), (370, 625, "v"), (370, 690, "v"), (370, 800, "v"), (370, 930, "v"), (370, 1040, "v"), (484, 970, "v"),
       (391, 970, "v"), (422, 1121, "h"), (358, 1105, "v")]
-FEAT = [circle(430, 510, 28).exterior, circle(430, 510, 12).exterior, circle(600, 505, 26).exterior, circle(600, 505, 11).exterior,
+FEAT = [circle(430, 510, 28).exterior, circle(430, 510, 12).exterior, circle(585, 498, 19).exterior, circle(585, 498, 8).exterior,
         circle(494, 1172, 26).exterior, circle(494, 1172, 12).exterior] + mf([
     box(260, 760, 360, 768).exterior, box(260, 800, 360, 808).exterior, box(260, 840, 360, 848).exterior,   # shelves
     circle(422, 1151, 12).exterior,                                                                      # the machine
     box(410, 880, 440, 910).exterior, box(410, 930, 440, 960).exterior, box(410, 1040, 440, 1070).exterior,   # crates
-    circle(320, 1125, 18).exterior,                                                                      # the battery stack
+    circle(320, 1132, 18).exterior,                                                                      # the battery stack
     arc(300, 700, 26, 0, 360),                                                                           # guard desk
 ]) + [circle(225 + 0, 900 + i * 30, 9).exterior for i in range(4)] + [M(circle(225, 900 + i * 30, 9)).exterior for i in range(4)] \
    + [LineString([(512, 592 + i * 57 + 8), (512, 592 + i * 57 + 49)]) for i in range(4)]
+R = decklib.settle(R, HALLS, keep=("Lift B",))
 bad += decklib.run("imperium_trooptransport", HERE, SRC, AX, "lower", -1, R, HALLS, DC + mir(DL), [LIFT_B],
                    title="LOWER DECK - HOLD", features=FEAT)
 decklib.both(os.path.join(HERE, "deck_upper_on_map.jpg"), os.path.join(HERE, "deck_lower_on_map.jpg"), os.path.join(HERE, "decks_on_map.jpg"))
