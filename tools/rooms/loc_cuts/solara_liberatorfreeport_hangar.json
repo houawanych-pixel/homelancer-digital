@@ -1,0 +1,42 @@
+{
+ "src": "assets/rooms/loc/solara_liberatorfreeport_hangar.jpg",
+ "strip": [
+  4096,
+  427
+ ],
+ "cuts": [
+  230,
+  1745,
+  3260
+ ],
+ "method": "crisp: 3 continuous pieces seam-to-seam, joined edge to edge, no blend",
+ "parts": [
+  {
+   "file": "LiberatorFreeport_Hangar_clip1.png",
+   "strip_x0": 230,
+   "strip_w": 1515,
+   "size": [
+    1920,
+    541
+   ]
+  },
+  {
+   "file": "LiberatorFreeport_Hangar_clip2.png",
+   "strip_x0": 1745,
+   "strip_w": 1515,
+   "size": [
+    1920,
+    541
+   ]
+  },
+  {
+   "file": "LiberatorFreeport_Hangar_clip3.png",
+   "strip_x0": 3260,
+   "strip_w": 1066,
+   "size": [
+    1920,
+    769
+   ]
+  }
+ ]
+}

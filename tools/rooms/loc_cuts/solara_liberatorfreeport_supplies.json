@@ -1,0 +1,42 @@
+{
+ "src": "assets/rooms/loc/solara_liberatorfreeport_supplies.jpg",
+ "strip": [
+  4096,
+  427
+ ],
+ "cuts": [
+  342,
+  1830,
+  3330
+ ],
+ "method": "crisp: 3 continuous pieces seam-to-seam, joined edge to edge, no blend",
+ "parts": [
+  {
+   "file": "LiberatorFreeport_Supplies_clip1.png",
+   "strip_x0": 342,
+   "strip_w": 1488,
+   "size": [
+    1920,
+    551
+   ]
+  },
+  {
+   "file": "LiberatorFreeport_Supplies_clip2.png",
+   "strip_x0": 1830,
+   "strip_w": 1500,
+   "size": [
+    1920,
+    547
+   ]
+  },
+  {
+   "file": "LiberatorFreeport_Supplies_clip3.png",
+   "strip_x0": 3330,
+   "strip_w": 1108,
+   "size": [
+    1920,
+    740
+   ]
+  }
+ ]
+}
