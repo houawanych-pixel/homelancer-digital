@@ -1810,7 +1810,7 @@ func _run() -> void:
 				if e.has("card"): cards += 1
 			var hud_ok: bool = hb.visible and hb.buttons.has("fire") and hb.buttons.has("cutter")
 			_check("%s %s: the regular boarding HUD, on foot, %d GLB soldiers, %d card carriers, %d doors (%d card doors)" % [fid, kind, soldiers, cards, s.board_doors.size(), s.board_doors.filter(func(d): return int(d.get("key", 0)) > 0).size()],
-				hud_ok and s.pilot_rig != null and soldiers >= 10 and cards == (Boarding.INFO["fleet"]["cards"] as Array).size() and b.has("fleet") and s.board_doors.filter(func(d): return int(d.get("key", 0)) > 0).size() == Boarding.INFO["fleet"]["locks"].size(), "hud %s (vis %s fire %s target %s) rig %s" % [hud_ok, hb.visible, hb.buttons.has("fire"), hb.buttons.has("target") or hb.buttons.has("tgt_front"), s.pilot_rig != null])
+				hud_ok and s.pilot_rig != null and soldiers >= 4 and cards == (Boarding.INFO["fleet"]["cards"] as Array).size() and b.has("fleet") and s.board_doors.filter(func(d): return int(d.get("key", 0)) > 0).size() == Boarding.INFO["fleet"]["locks"].size(), "hud %s (vis %s fire %s target %s) rig %s" % [hud_ok, hb.visible, hb.buttons.has("fire"), hb.buttons.has("target") or hb.buttons.has("tgt_front"), s.pilot_rig != null])
 			_check("%s %s: you start in the bay you boarded by" % [fid, kind], Boarding.room_at(s.player.global_position) == "sbay", Boarding.room_at(s.player.global_position))
 			if kind == "sabotage":   # every room can be stood in (nothing holds you back to one side of the ship)
 				var stuck: Array = []

@@ -1,0 +1,19 @@
+{
+ "entry": {"room": "Craft Bay", "at": [512, 860]},
+ "locks": [
+  {"door": [512, 521], "key": 1, "why": "the CIC"}, {"door": [446, 430], "key": 1, "why": "the CIC"}, {"door": [578, 430], "key": 1, "why": "the CIC"},
+  {"door": [512, 1074], "key": 1, "why": "the reactor"}, {"door": [464, 1128], "key": 1, "why": "the reactor"}, {"door": [560, 1128], "key": 1, "why": "the reactor"},
+  {"door": [512, 1176], "key": 1, "why": "the reactor"}
+ ],
+ "guards": [{"key": 1, "room": "Engineering Deck", "at": [620, 1015]}],
+ "targets": {
+  "sabotage": {"room": "Reactor Core", "at": [512, 1128], "key": 1},
+  "capture": {"room": "Bridge", "at": [512, 215], "key": 1},
+  "rescue": {"room": "Sensors Suite", "at": [512, 330], "key": 1}
+ },
+ "wreck": [{"at": [433, 1160], "across": "h", "why": "engineering's port side way: a side way"}],
+ "lifts": [{"room": "Lift (port)", "at": [475, 568]}, {"room": "Lift (starboard)", "at": [549, 568]}],
+ "patrols": [],
+ "room_guards": {"Galley & Mess": 1, "Medbay": 1, "Armory": 1, "Weapons Magazine": 1, "Engineering Deck": 2, "CIC (Combat Information Center)": 2,
+   "Bridge": 2, "Reactor Core": 1, "Crew Quarters A": 1, "Engine Room": 1}
+}
