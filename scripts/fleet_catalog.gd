@@ -65,7 +65,6 @@ const HOLODECK_FILES := [
 	"HL_CovenantCapital_HoloDeck_20261109_v1", "HL_CovenantCruiser_HoloDeck_20261109_v1", "HL_CovenantDestroyer_HoloDeck_20261109_v1",
 	"HL_CovenantResupply_HoloDeck_20261109_v1", "HL_CovenantTroopTransport_HoloDeck_20261109_v1",
 ]
-<<<<<<< Updated upstream
 ## v13.117: ships with no deck-plan file whose main deck was COMPOSED inside the fleet token
 ## (tools/trace/fleetmain.py, PROPOSED, waiting for the owner's OK): boardable from assets/holodeck/<id>.json, map
 ## picture assets/holodeck/<id>_plan.jpg. The official HoloDeck pointer stays empty.
@@ -74,7 +73,7 @@ const COMPOSED := [
 	"solarion_frigate", "solarion_escort", "solarion_scout",
 	"savagers_capital", "savagers_cruiser", "savagers_destroyer", "savagers_resupply", "savagers_trooptransport",
 	"savagers_frigate", "savagers_escort", "savagers_scout",
-=======
+]
 ## v13.120 (owner: "build every one of those fleet ships"): ships with no official HoloDeck file get their deck from the
 ## nearest traced ship of their class, fitted to their own token (tools/trace/fleet_derive.py). Their map picture is
 ## assets/holodeck/<id>_plan.jpg (the token on the plan frame); "holodeck" (the official file name) stays empty.
@@ -82,7 +81,6 @@ const DERIVED_DECKS := [
 	"orion_capital", "orion_cruiser", "orion_destroyer", "orion_resupply", "orion_trooptransport", "orion_frigate", "orion_escort", "orion_scout",
 	"liberator_capital", "liberator_cruiser", "liberator_destroyer", "liberator_resupply", "liberator_trooptransport", "liberator_frigate", "liberator_escort", "liberator_scout",
 	"imperium_frigate", "imperium_escort", "imperium_scout", "elyza_trooptransport", "elyza_escort", "elyza_scout",
->>>>>>> Stashed changes
 ]
 ## How a faction's own systems show its fleet (FleetCatalog.spawn_plan): where each class sits.
 ##   patrol = slow loop well out from the station; screen = tighter loop near the station;
@@ -105,13 +103,8 @@ static func all() -> Dictionary:
 			_all[id] = {
 				"id": id, "name": "%s %s" % [f, CLASS_NAME[c]], "faction": f, "class": c, "role": ROLE[c],
 				"holodeck": (hd + ".png") if has_hd else "",                     # the official file name (Drive: Homelancer Art)
-<<<<<<< Updated upstream
-				"holodeck_res": (HOLODECK_DIR + hd + ".jpg") if has_hd else ((HOLODECK_DIR + id + "_plan.jpg") if id in COMPOSED else ""),
-				"stage": stage if (has_hd or id in COMPOSED) and FileAccess.file_exists(stage) else "",
-=======
-				"holodeck_res": (HOLODECK_DIR + hd + ".jpg") if has_hd else ((HOLODECK_DIR + id + "_plan.jpg") if id in DERIVED_DECKS else ""),  # the game copy
-				"stage": stage if (has_hd or id in DERIVED_DECKS) and FileAccess.file_exists(stage) else "",
->>>>>>> Stashed changes
+				"holodeck_res": (HOLODECK_DIR + hd + ".jpg") if has_hd else ((HOLODECK_DIR + id + "_plan.jpg") if (id in COMPOSED or id in DERIVED_DECKS) else ""),
+				"stage": stage if (has_hd or id in COMPOSED or id in DERIVED_DECKS) and FileAccess.file_exists(stage) else "",
 				"sheet": "HL_%sFleet_TopDown_%s_v1.png" % [f, ART_DATE],
 				"token": TOKEN_DIR + "%s.png" % id,
 				"stats": PLACEHOLDER_STATS[c], "stats_placeholder": true,
