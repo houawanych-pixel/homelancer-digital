@@ -33,7 +33,7 @@ converter: tools/trace/to_deck_json.py; test group: HL_FLEETDECK=<id>.
 | covenant_capital | yes | done | shown | shown | tested (not pushed) | waiting | regular boarding run (local) |
 | covenant_cruiser | yes | done | shown | shown | tested (not pushed) | waiting | regular boarding run (local) |
 | covenant_destroyer | yes | done | shown | shown | tested (not pushed) | waiting | regular boarding run (local) |
-| covenant_resupply | yes | - | - | - | - | - | old deck |
+| covenant_resupply | yes | done | shown | shown | tested (not pushed) | waiting | regular boarding run (local) |
 | covenant_trooptransport | yes | - | - | - | - | - | old deck |
 | covenant_frigate | **ask owner** | - | - | - | - | - | - |
 | covenant_escort | **ask owner** | - | - | - | - | - | - |
