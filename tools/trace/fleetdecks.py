@@ -157,7 +157,9 @@ def build(sid, here, ax, lift, s=1.0, names=None, move=None, size=None, drop=(),
         L.room(N("Escape Pods"), sector(*pc, r0, r1, 45, 135), "carrick ring corridor (arc, 3 m), pod hatches along the hull")
     y570, y740, y920 = Y(570), Y(740), Y(920)
     L.H += spine(ls[1] - 12, y570) + [hall((ax, y740), (ax, y920), w=22), junction(ax, y570, 4.0), junction(ax, y740), junction(ax, y920)]
-    if has("Battery P"): L.H.append(hall((bt[0] + 30 * s, pc[1]), (2 * ax - bt[0] - 30 * s, pc[1]), w=16))
+    bx = bt[0] + 30 * s * size.get("Battery P", 1.0)
+    by = bt[1] + 24 * s
+    if has("Battery P"): L.H.append(hall((bx, by), (2 * ax - bx, by), w=16))
     xs = X(409)
     L.hall(hall((ax, y570), (xs, y570), w=18)); L.hall(hall((xs, y570), (xs, y740), w=18)); L.hall(hall((ax, y740), (X(331), y740), w=18))
     WHL = {"Lift", N("Life Support"), N("Water Recycling"), N("Shield Gen P"), N("Shield Gen S"), N("Coolant Pumps"), N("Battery P"), N("Battery S"), N("Escape Pods")}
@@ -173,10 +175,10 @@ def build(sid, here, ax, lift, s=1.0, names=None, move=None, size=None, drop=(),
     c = L.R[N("Coolant Pumps")]; ct, cb = c.bounds[1], c.bounds[3]
     L.H.append(hall((ax, y920 + 9), (ax, ct), w=16).difference(c)); L.door(ax, round(ct, 1), "h", both=False)
     if has("Escape Pods"):
-        L.H.append(hall((ax, cb), (ax, pc[1] - 8), w=16).difference(c)); L.door(ax, round(cb, 1), "h", both=False)
         pt = L.R[N("Escape Pods")].intersection(LineString([(ax, pc[1]), (ax, pc[1] + 300)])).bounds[1]
-        L.H.append(hall((ax, pc[1] + 8), (ax, pt), w=16).difference(L.R[N("Escape Pods")])); L.door(ax, round(pt, 1), "h", both=False)
-    if has("Battery P"): L.link(N("Battery P"), (bt[0] + 30 * s, pc[1]))
+        L.H.append(hall((ax, cb), (ax, pt), w=16).difference(c).difference(L.R[N("Escape Pods")]))
+        L.door(ax, round(cb, 1), "h", both=False); L.door(ax, round(pt, 1), "h", both=False)
+    if has("Battery P"): L.link(N("Battery P"), (bx, by))
     L.R = decklib.finalize(L.R, L.H, list(L.R), L.TW, L.M, keep=WHL)
     L.D = list(dict.fromkeys(L.D))
     def crates(k):
