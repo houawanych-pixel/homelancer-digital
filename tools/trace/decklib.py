@@ -483,11 +483,13 @@ class Deck:
             raise SystemExit("link %s -> %s: the connector misses the room" % (name, to))
         if horiz:
             px = round(min(pts, key=lambda p: abs(p.x - tx)).x, 1)
-            if abs(px - tx) > 1.0: s.stub(name, hall((px, ty), (tx, ty), w=w).difference(g), both)
+            ex = tx + (3 if tx > px else -3)        # (2-3 px into the corridor: the two always join)
+            if abs(px - tx) > 1.0: s.stub(name, hall((px, ty), (ex, ty), w=w).difference(g), both)
             s.door(px, ty, "v", both)
         else:
             py = round(min(pts, key=lambda p: abs(p.y - ty)).y, 1)
-            if abs(py - ty) > 1.0: s.stub(name, hall((tx, py), (tx, ty), w=w).difference(g), both)
+            ey = ty + (3 if ty > py else -3)
+            if abs(py - ty) > 1.0: s.stub(name, hall((tx, py), (tx, ey), w=w).difference(g), both)
             s.door(tx, py, "h", both)
     def stub(s, name, h, both):
         for hh in ([h, s.M(h)] if both else [h]):
