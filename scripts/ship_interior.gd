@@ -31,6 +31,7 @@ const GRAV := 18.0
 const FOV := 50.0
 
 var ship_id := ""
+var mpc := M_PER_CELL        # v13.78: metres per plan cell for this ship (traced plans carry their own "m_per_cell")
 var entry := {}
 var data := {}
 var world: Node3D
@@ -93,18 +94,19 @@ static func create(id: String) -> ShipInterior:
 	var f := FileAccess.open(str(s.entry["stage"]), FileAccess.READ)
 	if f == null: return null
 	s.data = JSON.parse_string(f.get_as_text())
+	s.mpc = float(s.data.get("m_per_cell", M_PER_CELL))
 	s.name = "ShipInterior"
 	s._build()
 	return s
 
 func cell_to_world(cx: float, cy: float) -> Vector3:
-	return Vector3((cx - float(data["w"]) * 0.5) * M_PER_CELL, 0.0, (cy - float(data["h"]) * 0.5) * M_PER_CELL)
+	return Vector3((cx - float(data["w"]) * 0.5) * mpc, 0.0, (cy - float(data["h"]) * 0.5) * mpc)
 func world_to_cell(p: Vector3) -> Vector2:
-	return Vector2(p.x / M_PER_CELL + float(data["w"]) * 0.5, p.z / M_PER_CELL + float(data["h"]) * 0.5)
+	return Vector2(p.x / mpc + float(data["w"]) * 0.5, p.z / mpc + float(data["h"]) * 0.5)
 func _rect_center(r: Array) -> Vector3:
 	return cell_to_world(float(r[0]) + float(r[2]) * 0.5, float(r[1]) + float(r[3]) * 0.5)
 func _rect_size(r: Array, h: float) -> Vector3:
-	return Vector3(float(r[2]) * M_PER_CELL, h, float(r[3]) * M_PER_CELL)
+	return Vector3(float(r[2]) * mpc, h, float(r[3]) * mpc)
 
 func _build() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -155,6 +157,7 @@ func _build() -> void:
 	_lifts()
 	_player()
 	_ui()
+	_web_safe()
 
 ## The graybox grid: a 2 m tile with a darker line round it (one texture, laid in world space on every surface).
 static func _make_grid() -> Texture2D:
@@ -195,7 +198,7 @@ func _grid() -> void:
 
 ## A grey grid floor over the whole deck and one flat collision slab (no ceiling: the camera looks down from above).
 func _floor_ceiling() -> void:
-	var sz := Vector2(float(data["w"]), float(data["h"])) * M_PER_CELL
+	var sz := Vector2(float(data["w"]), float(data["h"])) * mpc
 	var fl := MeshInstance3D.new()
 	fl.name = "Floor"
 	var pm := PlaneMesh.new()
@@ -320,14 +323,14 @@ func _doors() -> void:
 		world.add_child(dn)
 		var lt := MeshInstance3D.new()   # the green door light, just under the header
 		var lm := BoxMesh.new()
-		lm.size = Vector3(clampf(float(d[2]) * M_PER_CELL, 0.5, 1.4), 0.12, clampf(float(d[3]) * M_PER_CELL, 0.5, 1.4))
+		lm.size = Vector3(clampf(float(d[2]) * mpc, 0.5, 1.4), 0.12, clampf(float(d[3]) * mpc, 0.5, 1.4))
 		lt.mesh = lm
 		lt.material_override = gmat
 		lt.position.y = 3.4 if shell else WALL_H + 0.05
 		dn.add_child(lt)
 		var fl := MeshInstance3D.new()   # and a green mark on the floor of the doorway (the plan's square)
 		var fm := BoxMesh.new()
-		fm.size = Vector3(clampf(float(d[2]) * M_PER_CELL, 0.5, 1.4), 0.02, clampf(float(d[3]) * M_PER_CELL, 0.5, 1.4))   # (the plan's small square)
+		fm.size = Vector3(clampf(float(d[2]) * mpc, 0.5, 1.4), 0.02, clampf(float(d[3]) * mpc, 0.5, 1.4))   # (the plan's small square)
 		fl.mesh = fm
 		fl.material_override = gmat
 		fl.position.y = 0.02
@@ -625,7 +628,7 @@ func _shell_deck(sh: Dictionary, y0: float, tag: String) -> void:
 	sb.add_child(cs)
 	world.add_child(sb)
 	# the ceiling (you are inside now)
-	var sz := Vector2(float(data["w"]), float(data["h"])) * M_PER_CELL
+	var sz := Vector2(float(data["w"]), float(data["h"])) * mpc
 	var ce := MeshInstance3D.new()
 	ce.name = "Ceiling" + tag
 	var bm := BoxMesh.new()
@@ -831,6 +834,7 @@ func _deck_tick() -> void:
 	if lv != level or _top.get_meta("lv", 99) != lv:
 		level = lv
 		_top.set_meta("lv", lv)
+		_show_level(lv)
 		var dk := deck_of(lv)
 		_top.text = "%s  ·  %s  ·  graybox%s" % [str(entry["name"]).to_upper(), str(dk.get("name", "DECK")), "  ·  PROPOSED LAYOUT (no blueprint yet)" if bool(dk.get("proposed", false)) else "  ·  PROTOTYPE"]
 		var mp := str(dk.get("map", ""))
@@ -873,8 +877,8 @@ func _gates(sh: Dictionary, y0: float) -> void:
 		var turned: bool = dr.has("rot")                      # a door on a slanted wall (the wedge rooms): built square, then turned
 		if turned: along_y = true
 		var c := cell_to_world((float(r[0]) + float(r[2])) * 0.5, (float(r[1]) + float(r[3])) * 0.5) + Vector3(0, y0, 0)
-		var wide := (float(r[2]) - float(r[0]) if along_y else float(r[3]) - float(r[1])) * M_PER_CELL + DOOR_PAD * 2.0
-		if turned: wide = float(dr["w"]) * M_PER_CELL + DOOR_PAD * 2.0
+		var wide := (float(r[2]) - float(r[0]) if along_y else float(r[3]) - float(r[1])) * mpc + DOOR_PAD * 2.0
+		if turned: wide = float(dr["w"]) * mpc + DOOR_PAD * 2.0
 		var slide := Vector3(1, 0, 0) if along_y else Vector3(0, 0, 1)
 		var g := Node3D.new()
 		g.name = "Gate_%d" % gates.size()
@@ -917,8 +921,8 @@ func _gates(sh: Dictionary, y0: float) -> void:
 		var cs := CollisionShape3D.new()
 		var bs := BoxShape3D.new()
 		# shut, the whole doorway is blocked (its full footprint plus the pad), whichever way the leaves face
-		bs.size = Vector3((float(r[2]) - float(r[0])) * M_PER_CELL + DOOR_PAD * 2.0, DOOR_H, (float(r[3]) - float(r[1])) * M_PER_CELL + DOOR_PAD * 2.0)
-		if turned: bs.size = Vector3(wide, DOOR_H, float(dr["l"]) * M_PER_CELL + DOOR_PAD * 2.0)
+		bs.size = Vector3((float(r[2]) - float(r[0])) * mpc + DOOR_PAD * 2.0, DOOR_H, (float(r[3]) - float(r[1])) * mpc + DOOR_PAD * 2.0)
+		if turned: bs.size = Vector3(wide, DOOR_H, float(dr["l"]) * mpc + DOOR_PAD * 2.0)
 		cs.shape = bs
 		cs.position.y = DOOR_H * 0.5
 		sb.add_child(cs)
@@ -1297,3 +1301,108 @@ func restart_mission() -> void:
 	key_guards.clear()
 	_key_guards()
 	start_mission(kind)
+
+# ---------------------------------------------------------------------------------------------------------------------
+## v13.78 (owner: boarding is black on the phone): a deck held ~2,000 separate pieces (room patches, door frames,
+## lights, door leaves) and WebGL draws NOTHING past about 1,000 (the breakout's v12.44 bug). Every piece that never
+## moves is merged into one mesh per material per deck; each door leaf carries its key stripe in the same mesh; and
+## only the deck you stand on is drawn.
+var merged_pieces := 0
+var _by_level := {}     # level -> [nodes drawn only on that deck]
+func _xf_to_world(n: Node3D) -> Transform3D:
+	var x := n.transform
+	var p := n.get_parent()
+	while p != null and p != world and p is Node3D:
+		x = (p as Node3D).transform * x
+		p = p.get_parent()
+	return x
+
+func _mat_key(m: Material) -> String:
+	if not (m is StandardMaterial3D): return str(m.get_instance_id())
+	var sm := m as StandardMaterial3D
+	return "%s|%d|%d|%d|%s|%s" % [sm.albedo_color.to_html(), sm.shading_mode, sm.transparency, sm.cull_mode, str(sm.albedo_texture != null), str(sm.uv1_scale)]
+
+func _web_safe() -> void:
+	var keep := {}
+	var skip_roots: Array = [body]
+	for kg in key_guards: skip_roots.append(kg["node"])
+	if is_instance_valid(_beacon): skip_roots.append(_beacon)
+	if is_instance_valid(_target_node): skip_roots.append(_target_node)
+	for r in skip_roots:
+		if not is_instance_valid(r): continue
+		keep[r] = true
+		for c in (r as Node).find_children("*", "", true, false): keep[c] = true
+	for g in gates:   # the leaves slide: each leaf and its stripe become one mesh (two surfaces), kept apart
+		for side in ["a", "b"]:
+			var leaf: MeshInstance3D = g[side]
+			keep[leaf] = true
+			var am := ArrayMesh.new()
+			var lm: Mesh = leaf.mesh
+			am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, lm.surface_get_arrays(0))
+			am.surface_set_material(0, leaf.material_override)
+			for st in leaf.get_children():
+				if st is MeshInstance3D:
+					var sti := st as MeshInstance3D
+					var tool := SurfaceTool.new()
+					tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+					tool.append_from(sti.mesh, 0, sti.transform)
+					tool.commit(am)
+					am.surface_set_material(am.get_surface_count() - 1, sti.material_override)
+					leaf.remove_child(sti)
+					sti.free()
+			leaf.mesh = am
+			leaf.material_override = null
+	var groups := {}   # "level|material" -> [[MeshInstance3D, Transform3D]]
+	var mats := {}
+	for c in world.find_children("*", "MeshInstance3D", true, false):
+		var mi := c as MeshInstance3D
+		if keep.has(mi) or mi.mesh == null or mi.material_override == null or mi.get_child_count() > 0: continue
+		var xf := _xf_to_world(mi)
+		var lv := int(round(xf.origin.y / DECK_GAP))
+		var k := "%d|%s" % [lv, _mat_key(mi.material_override)]
+		if not groups.has(k): groups[k] = []; mats[k] = mi.material_override
+		groups[k].append([mi, xf])
+	for k in groups:
+		var list: Array = groups[k]
+		var lv := int(str(k).split("|")[0])
+		if list.size() < 2:
+			_level_node(lv, list[0][0])
+			continue
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		for pair in list:
+			var m: Mesh = (pair[0] as MeshInstance3D).mesh
+			for si in m.get_surface_count(): st.append_from(m, si, pair[1])
+		var one := MeshInstance3D.new()
+		one.name = "Merged_%d_%d" % [lv + 1, groups.keys().find(k)]
+		one.mesh = st.commit()
+		one.material_override = mats[k]
+		one.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		world.add_child(one)
+		_level_node(lv, one)
+		for pair in list:
+			var mi: MeshInstance3D = pair[0]
+			mi.get_parent().remove_child(mi)
+			mi.free()
+			merged_pieces += 1
+	for g in gates: _level_node(int(round((g["pos"] as Vector3).y / DECK_GAP)), g["node"])
+	for lb in world.find_children("*", "Label3D", true, false):
+		if keep.has(lb): continue
+		_level_node(int(round(_xf_to_world(lb as Node3D).origin.y / DECK_GAP)), lb)
+	_show_level(0)
+
+func _level_node(lv: int, n: Node3D) -> void:
+	if not _by_level.has(lv): _by_level[lv] = []
+	_by_level[lv].append(n)
+
+## Only the deck you stand on is drawn (the others are behind the floor and ceiling anyway).
+func _show_level(lv: int) -> void:
+	for k in _by_level:
+		for n in _by_level[k]:
+			if is_instance_valid(n): (n as Node3D).visible = int(k) == lv
+
+func pieces_drawn() -> int:
+	var n := 0
+	for g in world.find_children("*", "GeometryInstance3D", true, false):
+		if (g as GeometryInstance3D).is_visible_in_tree(): n += 1
+	return n

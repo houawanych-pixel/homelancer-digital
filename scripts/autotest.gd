@@ -1788,6 +1788,110 @@ func _run() -> void:
 	if not _flag("HL_LANDFILM"):   # v12.52: the landing film is cut short in the other checks (they time the descent)
 		main.landing_film_min = 0.0
 		main.landing_film_max = 0.4
+	if _flag("HL_FLEETDECK"):   # v13.78 fleet interiors programme: every ship rebuilt from an approved traced plan
+		var ids := ["imperium_trooptransport"]
+		if OS.get_environment("HL_FLEETDECK") not in ["", "1"]: ids = OS.get_environment("HL_FLEETDECK").split(",")
+		for sid in ids:
+			var ok0: bool = main.open_ship_interior(sid)
+			await _wait(0.8)
+			var sd: ShipInterior = main.ship_deck
+			_check("%s: the traced deck loads" % sid, ok0 and is_instance_valid(sd) and bool(sd.data.get("approved_plan", false)))
+			_check("%s: few enough pieces for phones (< 900 drawn)" % sid, sd.pieces_drawn() < 900, str(sd.pieces_drawn()))
+			await _wait(0.3)
+			var entry_room := str(sd.room_now)
+			_check("%s: you board in the entry room" % sid, entry_room.begins_with("Deploy Bay") or entry_room.contains("Hangar") or entry_room.contains("Airlock"), entry_room)
+			await _shot("fd_%s_entry" % sid, 0.3)
+			var bad := []
+			for r in sd.data["rooms"]:
+				sd.body.global_position = sd.room_point(str(r["name"])) + Vector3(0, 0.1, 0)
+				await _wait(0.25)
+				if sd.room_now != str(r["name"]): bad.append("%s->%s" % [r["name"], sd.room_now])
+				if str(r["name"]) in ["Troop Bay", "Bridge", "Command & Control", "Reactor Core", "Vehicle / Dropship Bay", "Barracks A"]:
+					await _shot("fd_%s_%s" % [sid, str(r["name"]).to_lower().replace(" ", "_").replace("/", "").left(14)], 0.2)
+			_check("%s: every room is a room you can stand in" % sid, bad.is_empty(), str(bad))
+			# a locked door stays shut without its card and opens with it
+			var lk: Array = sd.gates.filter(func(g): return int(g["level"]) > 0)
+			if not lk.is_empty():
+				var g0: Dictionary = lk[0]
+				sd.keys = [true, false, false, false]   # (the room tour may have walked past a key guard)
+				var side: Vector3 = (g0["slide"] as Vector3).cross(Vector3.UP).normalized() * 1.6
+				sd.body.global_position = (g0["pos"] as Vector3) + side + Vector3(0, 0.1, 0)
+				await _wait(0.6)
+				_check("%s: a %s door stays shut without its card" % [sid, ShipInterior.KEY_NAME[int(g0["level"])]], not bool(g0["open"]))
+				await _shot("fd_%s_locked" % sid, 0.2)
+				for kk in range(1, int(g0["level"]) + 1): sd.give_key(kk)
+				await _wait(0.8)
+				_check("%s: and opens with it" % sid, bool(g0["open"]))
+				await _shot("fd_%s_unlocked" % sid, 0.2)
+			for kind in ["sabotage", "capture", "rescue"]:
+				if not (sd.data.get("objectives", {}) as Dictionary).has(kind): continue
+				sd.start_mission(kind)
+				sd.body.global_position = sd.objective_pos(kind) + Vector3(0.5, 0.1, 0)
+				await _wait(0.4)
+				var got: bool = sd.m_stage == 1
+				sd.body.global_position = sd.hangar_pos() + Vector3(0, 0.1, 0)
+				await _wait(0.4)
+				_check("%s: %s: reach the target, back to the entry, done" % [sid, kind], got and sd.m_stage == 2, str(sd.m_stage))
+			sd.close()
+			await _wait(0.5)
+			_check("%s: LEAVE SHIP puts you back" % sid, not is_instance_valid(main.ship_deck))
+		_finish_group()
+		return
+	if _flag("HL_DECKWEB"):   # v13.78: why the boarded deck draws black on the web: one shot per renderer setting
+		main.open_ship_interior("imperium_trooptransport")
+		await _wait(1.0)
+		var sd: ShipInterior = main.ship_deck
+		await _shot("dw_0_as_is", 0.5)
+		var env0: WorldEnvironment = sd.world.find_children("*", "WorldEnvironment", true, false)[0]
+		env0.environment.background_color = Color(0.8, 0.1, 0.8)
+		print("[deckweb] vp size ", sd.vp.size, " cam current ", sd.cam.current, " cam ", sd.cam.global_transform, " body ", sd.body.global_position, " shell ", sd.shell)
+		var img := sd.vp.get_texture().get_image()
+		print("[deckweb] vp mean ", img.get_pixel(img.get_width() / 2, img.get_height() / 2), " ", img.get_pixel(10, 10))
+		await _shot("dw_0b_magenta_bg", 0.5)
+		var probe := MeshInstance3D.new()
+		var pbm := BoxMesh.new(); pbm.size = Vector3.ONE
+		probe.mesh = pbm
+		var pmat := StandardMaterial3D.new(); pmat.albedo_color = Color(1, 0.2, 0.1); pmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		probe.material_override = pmat
+		sd.world.add_child(probe)
+		probe.global_position = sd.cam.global_position - sd.cam.global_transform.basis.z * 3.0
+		await _shot("dw_0c_probe_box", 0.5)
+		var geo: Array = sd.world.find_children("*", "GeometryInstance3D", true, false)
+		var summ := {}
+		for g in geo:
+			var k: String = g.get_class() + ":" + str(g.name).rstrip("0123456789_").left(14)
+			summ[k] = int(summ.get(k, 0)) + 1
+		print("[deckweb] geometry ", geo.size(), " drawn ", sd.pieces_drawn(), " merged ", sd.merged_pieces, " ", summ)
+		for g in geo: if g != probe: (g as GeometryInstance3D).visible = false
+		await _shot("dw_0d_probe_alone", 0.5)
+		var groups := {"walls": ["ShellWalls", "Chamfers", "Cover", "WallTrim", "LightStrip", "Ceiling"], "floor": ["Floor"]}
+		for gname in groups:
+			for g in geo:
+				for pre in groups[gname]: if str(g.name).begins_with(pre): (g as GeometryInstance3D).visible = true
+			await _shot("dw_0e_plus_" + gname, 0.5)
+		for g in geo: (g as GeometryInstance3D).visible = g is MeshInstance3D and not (g as MeshInstance3D).mesh is ArrayMesh
+		await _shot("dw_0f_primitive_meshes", 0.5)
+		for g in geo: (g as GeometryInstance3D).visible = true
+		sd.vp.msaa_3d = Viewport.MSAA_DISABLED
+		await _shot("dw_1_no_msaa", 0.5)
+		var env: WorldEnvironment = sd.world.find_children("*", "WorldEnvironment", true, false)[0]
+		env.environment.fog_enabled = false
+		await _shot("dw_2_no_fog", 0.5)
+		env.environment.tonemap_mode = Environment.TONE_MAPPER_LINEAR
+		await _shot("dw_3_linear", 0.5)
+		for m in sd.world.find_children("*", "GeometryInstance3D", true, false): (m as GeometryInstance3D).visible = false
+		await _wait(0.1)
+		for m in sd.world.find_children("*", "GeometryInstance3D", true, false): (m as GeometryInstance3D).visible = true
+		await _shot("dw_4_reshown", 0.5)
+		for m in sd.world.find_children("*", "Label3D", true, false): (m as Node3D).visible = false
+		await _shot("dw_5_no_labels", 0.5)
+		for m in sd.world.find_children("*", "MeshInstance3D", true, false):
+			var mi := m as MeshInstance3D
+			if mi.mesh is ArrayMesh: mi.visible = false
+		await _shot("dw_6_no_arraymesh", 0.5)
+		_check("deck web probe done", true)
+		_finish_group()
+		return
 	if _flag("HL_LANDFILM"):   # v12.52 (owner): the landing film while the ground loads, Evee's briefing, a fresh world on a return
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
