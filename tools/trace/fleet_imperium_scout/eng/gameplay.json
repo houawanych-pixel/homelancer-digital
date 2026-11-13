@@ -38,6 +38,14 @@
    ],
    "key": 1,
    "why": "med / galley"
+  },
+  {
+   "door": [
+    566,
+    820
+   ],
+   "key": 1,
+   "why": "med / galley (aft door, from the mission room)"
   }
  ],
  "guards": [

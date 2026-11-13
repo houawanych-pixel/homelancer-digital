@@ -108,22 +108,21 @@
    "key": 2
   },
   "capture": {
-   "deck": "upper",
-   "room": "Captain's Quarters",
+   "room": "Bridge",
    "at": [
     494,
-    610
+    147
    ],
    "key": 2
   },
   "rescue": {
-   "deck": "lower",
-   "room": "Holding Cells",
+   "room": "Sensor Store B",
    "at": [
-    598,
-    640
+    561,
+    269
    ],
-   "key": 2
+   "key": 2,
+   "why": "the prisoner is held in the locked sensor store"
   }
  },
  "wreck": [
