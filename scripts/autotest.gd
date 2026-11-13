@@ -5255,6 +5255,68 @@ func _run() -> void:
 		_check("v12.39 (owner): EJECT on a world (prompt %s): on foot at human size (%.1f m), the mech parked; walk away and ENTER is gone, come back and ENTER takes you in" % [pr0, bb.size.y], pr0 == "eject" and small and far_none and near_enter and back_in, "small %s far %s near %s back %s" % [small, far_none, near_enter, back_in])
 		_finish_group()
 		return
+	if _flag("HL_ACGARAGE"):   # v13.97 (owner: "like Armored Core: camera zoom-ins on equipment slots with a preview display; same with the ship")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		var hb = main.hub
+		GS.missiles = 0
+		hb.open(Data.SYSTEMS["solara"]["station"])
+		await _frames(3)
+		var refilled: bool = GS.missiles == GS.max_missiles()
+		hb.eq_tab = "hangar"
+		hb.eq_view = "ship"
+		hb.bay_zoom_on = false
+		hb.show_screen("equipment")
+		await Packs.wait("wing_guns", 30.0)
+		await _wait(1.5)
+		var tabs: Array = []
+		for b in hb.find_children("Tab_*", "Button", true, false): tabs.append(str(b.name))
+		await _shot("acg_0_hangar", 0.3)
+		hb.holo_on = true
+		hb.eq_sel = -1
+		hb.eq_tab = "weapon"
+		hb.eq_card = ""
+		hb.bay_zoom_on = true
+		hb.show_screen("equipment")
+		await _wait(1.6)
+		var art: Control = hb.find_child("BayArt", true, false)
+		var zoomed: bool = hb.bay_zoom_k > Data.BAY_SLOT_ZOOM - 0.05 and art != null and art.scale.x > Data.BAY_SLOT_ZOOM - 0.05
+		var no_room: bool = not hb.room_view.visible
+		await _shot("acg_1_zoom_core", 0.2)
+		hb.eq_card = "plasma"
+		hb.show_screen("equipment")
+		await _wait(1.0)
+		var sm: Node = null
+		for n0 in hb.find_children("ShowMounts", "", true, false): sm = n0
+		var gun: Node = null
+		if sm != null:
+			for g0 in sm.get_children():
+				if str(g0.name) == "Show-1": gun = g0
+		var has_gun: bool = gun != null and str(gun.get_meta("src", "")) != "x"
+		var cmp: bool = hb.find_child("ShopCompare", true, false) != null
+		await _shot("acg_2_preview_plasma", 0.2)
+		hb.eq_sel = 0
+		hb.eq_card = ""
+		hb.show_screen("equipment")
+		await _wait(1.6)
+		await _shot("acg_3_zoom_wing", 0.2)
+		hb.eq_view = "mech"
+		hb.eq_sel = -1
+		hb.show_screen("equipment")
+		await Packs.wait("mechs", 40.0)
+		hb.show_screen("equipment")
+		await _wait(2.0)
+		await _shot("acg_4_mech_zoom", 0.2)
+		hb.eq_view = "ship"
+		hb.bay_zoom_on = false
+		hb.eq_tab = "hangar"
+		hb.show_screen("equipment")
+		await _wait(1.6)
+		var back_out: bool = hb.bay_zoom_k < 1.05
+		_check("v13.97 (owner: Armored Core hangar): no REPAIR & AMMO tab (docking refills %s), no dark room, a picked slot zooms in (%.2f), the picked weapon shows on it (preview %s) with NOW / PICKED stats, and it pulls back out" % [refilled, hb.bay_zoom_k, has_gun],
+			refilled and not ("Tab_ammo" in tabs) and no_room and zoomed and has_gun and cmp and back_out, "tabs %s room %s zoom %s gun %s cmp %s back %s" % [tabs, not no_room, zoomed, has_gun, cmp, back_out])
+		_finish_group()
+		return
 	if _flag("HL_RAM"):   # v13.75 (owner): the ship's swirling RAM SHIELD at warp: fighters smashed, no damage, a big ship stops you unharmed
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -17052,14 +17114,14 @@ func _job_v35() -> void:
 	await Packs.wait("room_liberator_weapons", 30.0)
 	hb.show_screen("equipment")
 	await _frames(4)
-	var wpn_ok: bool = hb.room_key == "liberator_weapons" and hb.room_view.visible and (hb.find_child("BayArt", true, false) as CanvasItem).self_modulate.a == 0.0
+	var wpn_ok: bool = not hb.room_view.visible and (hb.find_child("BayArt", true, false) as CanvasItem).self_modulate.a == 1.0   # v13.97 (owner): the bay, never the dark room
 	await _shot("v39_hangar_weapons_room", 0.3)
 	hb.eq_tab = "ammo"
 	hb.show_screen("equipment")
 	await Packs.wait("room_liberator_supplies", 30.0)
 	hb.show_screen("equipment")
 	await _frames(3)
-	var sup_ok: bool = hb.room_key == "liberator_supplies"
+	var sup_ok: bool = not hb.room_view.visible
 	hb.eq_tab = "hangar"
 	hb.show_screen("equipment")
 	await _frames(3)
@@ -17103,7 +17165,7 @@ func _job_v35() -> void:
 	hb.eq_view = ""
 	_check("v4.6 (owner): hangar tags in a clean fixed layout (no overlaps), the picked weapon in a display box, turn buttons, HIDE PANELS shows just the bay",
 		lay_ok and not overl and turn_ok and hid, "layout %s, overlap %s, turn %s, hidden %s" % [lay_ok, overl, turn_ok, hid])
-	_check("v3.9 (owner): all ten rooms have a place: REPAIR = medical bay, the hangar's WEAPON tab = weapons room, REPAIR & AMMO = supplies (the HANGAR tab keeps the bay)",
+	_check("v3.9 / v13.97 (owner): all ten rooms have a place; the hangar's tabs all keep the bay and your ship (no dark room behind them)",
 		med_ok and wpn_ok and sup_ok and bay_ok and used.size() == 10, "med %s, weapons %s, supplies %s, bay %s, rooms %d" % [med_ok, wpn_ok, sup_ok, bay_ok, used.size()])
 	hb.eq_tab = "weapon"
 	var on_comms: bool = main.hud.call_list().size() > 0 and main.hud.call_list()[0] == "assistant" and main.hud.in_range("assistant") and main.hud._face_tex("evee", "normal") != null

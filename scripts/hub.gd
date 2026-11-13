@@ -570,6 +570,13 @@ func open(station_or_planet: Dictionary) -> void:
 	typing = false
 	lockdown = lockdown_due()
 	if kind == "station" and Packs.PACKS.has("alarm_" + lockdown_faction()): Packs.request("alarm_" + lockdown_faction())   # v13.13: ready for the ALARM
+	if not lockdown:   # v13.97 (owner: "no need for ammo"): docking refills every rack and mends the hull, free
+		GS.repair_all()
+		GS.missiles = GS.max_missiles()
+		GS.heavy_missiles = GS.max_heavy()
+		GS.mines = GS.max_mines()
+		GS.nukes = GS.max_nukes()
+		GS.changed.emit()
 	show_screen("hub")
 	if lockdown:
 		_start_lockdown()
@@ -580,7 +587,7 @@ func open(station_or_planet: Dictionary) -> void:
 		open_call(side_for(str(p.get("faction", ""))), str(p["name"]), str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])) + " · " + ("leader" if folk[0]["role"] == "leader" else "coordinator"),
 			("%s. Welcome to %s." % [str(p["name"]), base["name"]]) if folk[0]["role"] == "leader" else ("%s here. Welcome to %s. I have work for you on the Mission Board." % [p["name"], base["name"]]), str(p["portrait_clean"]), Data.CALL_FOLD_AFTER,
 			{"id": str(p["id"]), "voice_id": str(p.get("voice_id", p["id"])), "voice": float(p.get("voice", 1.0)), "female": str(p.get("sex", "")) == "female"})
-	status.text = "Docked at %s. Shields and energy restored. REPAIR and RESTOCK are at SUPPLIES." % base["name"]
+	status.text = ("Docked at %s. Hull, shields and every rack restored." if not lockdown else "Docked at %s. Shields and energy restored.") % base["name"]
 	if GS.ore_worth(str(base["name"])) > 0: status.text = "Docked at %s. You carry gold / diamond worth %d cr here: sell it under YOUR SHIP." % [base["name"], GS.ore_worth(str(base["name"]))]
 
 ## v9.2 (owner): the lockdown. A station whose people are HOSTILE to you (or worse) sounds the alarm when you dock:
@@ -1550,8 +1557,8 @@ func room_for(s: String) -> String:
 	if lr != "": return lr
 	var f := _room_faction()
 	if f == "": return ""
-	if s == "equipment":   # v3.9 (owner): the hangar's WEAPON tab stands in the weapons room, REPAIR & AMMO in supplies
-		var hr: String = {"weapon": "weapons", "ammo": "supplies"}.get(eq_tab, "")
+	if s == "equipment":   # v3.9 (owner): the hangar's WEAPON tab stood in the weapons room, REPAIR & AMMO in supplies
+		var hr := ""   # v13.97 (owner: "why is the bg dark ... like Armored Core"): never: the bay and your ship / mech, always
 		return "%s_%s" % [f, hr] if hr != "" else ""
 	if not Data.ROOM_OF.has(s): return ""
 	var rn: String = Data.ROOM_OF[s]
@@ -2562,7 +2569,7 @@ func _equipment_page() -> void:
 	back.custom_minimum_size = Vector2(0, 42)
 	back.pressed.connect(func(): show_screen("hub"))
 	menu.add_child(back)
-	for tb in [["hangar", "HANGAR"], ["weapon", "WEAPON"], ["module", "EQUIPMENT"], ["ammo", "REPAIR & AMMO"]]:
+	for tb in [["hangar", "HANGAR"], ["weapon", "WEAPONS"], ["module", "EQUIPMENT"]]:   # v13.97 (owner: "no need for ammo"): racks refill and the hull mends when you dock
 		var b := Button.new()
 		b.name = "Tab_" + tb[0]
 		b.text = tb[1]
@@ -2577,6 +2584,7 @@ func _equipment_page() -> void:
 		b.pressed.connect(func():
 			eq_tab = tid
 			eq_card = ""
+			if tid == "hangar": bay_zoom_on = false
 			show_screen("equipment"))
 		menu.add_child(b)
 	var sp := Control.new()
@@ -2732,6 +2740,7 @@ func _place_bay_art(art: Control, bay: Control) -> void:
 	var hm: float = maxf(root.size.y, 2.0 * maxf(cx, root.size.x - cx) / asp)   # v5.2: covers the whole screen, side to side
 	art.size = Vector2(hm * asp, hm)
 	art.position = Vector2(bay.position.x + bay.size.x * 0.5 - art.size.x * 0.5, root.size.y - hm)
+	art.set_meta("base_pos", art.position)   # (v13.97: the zoom moves it; this is where it rests)
 	_stand_model(art, bay)
 	var mm0: Control = bay.find_child("MountMap", true, false)
 	if mm0 != null: mm0.queue_redraw()
@@ -2874,6 +2883,9 @@ func _mech_bay(bay: Control) -> bool:
 
 ## v2.6/2.7 (owner): the ship or mech stands on the bay's round pad (its base on the pad's centre), sized to the picture.
 func _stand_model(art: Control, bay: Control) -> void:
+	if art.has_meta("base_pos"):   # v13.97: measure from where the picture rests (the slot zoom moves and grows it)
+		art.position = art.get_meta("base_pos")
+		art.scale = Vector2.ONE
 	var cam: Camera3D = bay.find_child("BayCam", true, false)
 	if cam == null or not is_instance_valid(preview_pivot) or preview_pivot.get_child_count() == 0 or not is_instance_valid(preview_vp): return
 	var m := preview_pivot.get_child(0) as Node3D
@@ -2913,6 +2925,42 @@ func _stand_model(art: Control, bay: Control) -> void:
 	var tx: float = vs.x * 0.5
 	var base_pt := Vector3(0.0, min_y, 0.0)
 	cam.global_position = base_pt - B.x * ((tx - vs.x * 0.5) * cam.size / vs.y) + B.y * ((ty - vs.y * 0.5) * cam.size / vs.y) + B.z * 80.0
+	_bay_zoom(art, bay, cam, m, vs, mech, pe)
+
+## v13.97 (owner: "like Armored Core: camera zoom-ins on the equipment slots, with a preview"): the picked slot's spot
+## grows to Data.BAY_SLOT_ZOOM, the bay picture and the model together (both scale about the slot's spot on screen,
+## so they stay lined up); it eases in and out. Tap the slot again, pick HANGAR or tap BACK to pull out.
+var bay_zoom_on := false
+var bay_zoom_k := 1.0
+var bay_zoom_at := Vector2.ZERO   # the slot's spot (bay px)
+func _bay_zoom(art: Control, bay: Control, cam: Camera3D, m: Node3D, vs: Vector2, mech: bool, pe: Control) -> void:
+	var want := 1.0
+	var ov: Control = bay.find_child("MountMap", true, false)
+	if bay_zoom_on and holo_on and eq_tab != "hangar" and eq_sel > -9 and eq_sel < 100 and ov != null and ov.size.x > 1.0:
+		_no_spread = true
+		var pts: Dictionary = _mech_slot_points(cam, m, ov.size) if mech else _ship_slot_points(cam, m, ov.size)
+		_no_spread = false
+		if pts.has(eq_sel):
+			want = Data.BAY_SLOT_ZOOM
+			bay_zoom_at = pts[eq_sel]
+	bay_zoom_k = lerpf(bay_zoom_k, want, clampf(get_process_delta_time() * 6.0, 0.0, 1.0))
+	if absf(bay_zoom_k - want) < 0.003: bay_zoom_k = want
+	var k := bay_zoom_k
+	if pe != null: pe.visible = k < 1.05
+	var t: float = clampf((k - 1.0) / maxf(Data.BAY_SLOT_ZOOM - 1.0, 0.01), 0.0, 1.0)   # how far the slot has come to the middle
+	var P: Vector2 = bay_zoom_at * (vs / ov.size) if ov != null and ov.size.x > 1.0 else vs * 0.5
+	# the model: the slot slides to the bay's middle and grows (x' = C + k (x - C - t (P - C)))
+	var B: Basis = cam.global_transform.basis
+	var wpp: float = cam.size / vs.y
+	cam.global_position += (B.x * (P.x - vs.x * 0.5) - B.y * (P.y - vs.y * 0.5)) * wpp * t
+	cam.size /= k
+	# the bay picture: the very same move, so the two stay lined up
+	var p0: Vector2 = art.get_meta("base_pos", art.position)
+	var C: Vector2 = bay.position + bay.size * 0.5
+	var Pr: Vector2 = bay.position + bay_zoom_at
+	art.pivot_offset = Vector2.ZERO
+	art.scale = Vector2.ONE * k
+	art.position = k * p0 + C * (1.0 - k) - k * t * (Pr - C)
 
 func _on_mech_bay_pack(pk: String) -> void:
 	if visible and screen == "equipment" and _eq_mech() and (pk == "mechs" or pk.begins_with("mf_")): show_screen("equipment")
@@ -2985,8 +3033,14 @@ func _bay_tap(e: InputEvent, pts: Dictionary, c: Control = null) -> void:
 		bay_yaw = 0.0   # face front so its tags show
 		holo_on = true
 		bay_hold = Data.BAY_SPIN_WAIT
+		if k == eq_sel and holo_on and bay_zoom_on:   # v13.97: tap the zoomed slot again: pull back
+			bay_zoom_on = false
+			show_screen("equipment")
+			return
 		eq_sel = k
 		eq_tab = "ammo" if k in [-2, -3, -4] else "weapon"
+		eq_card = ""
+		bay_zoom_on = true
 		show_screen("equipment")
 
 ## The slot under a tap: its square (with a finger's margin) or its name tag.
@@ -3029,7 +3083,7 @@ func _ship_slot_points(cam: Camera3D, m: Node3D, sz: Vector2) -> Dictionary:
 		# v4.7 (owner's markup): the square sits ON the weapon itself (its fitted model), else where the slot is on the hull
 		var wp: Vector3 = preview_pivot.global_transform * (Vector3(c.x, c.y, c.z) + loc[k])
 		var gun: Node3D = shows.get_node_or_null("Show%d" % k) if shows != null else null
-		if gun != null: wp = gun.global_transform * ShipFactory._aabb(gun, Transform3D.IDENTITY).get_center()
+		if gun != null: wp = (gun.get_parent() as Node3D).global_transform * ShipFactory._aabb(gun, Transform3D.IDENTITY).get_center()   # (v13.97: _aabb already holds the gun's own place)
 		elif k in [-2, -3]: wp = preview_pivot.global_transform * Vector3(c.x + loc[k].x * 2.2, bb.position.y + bb.size.y * 0.25, c.z)   # bays: under the body
 		elif k == -4: wp = preview_pivot.global_transform * Vector3(c.x, bb.position.y + bb.size.y * 0.1, c.z)   # mines: under the middle
 		var sp: Vector2 = cam.unproject_position(wp)
@@ -3037,7 +3091,9 @@ func _ship_slot_points(cam: Camera3D, m: Node3D, sz: Vector2) -> Dictionary:
 	return _spread(out, 30.0) if _facing() else out
 
 ## v2.2: on a narrow hull the slots crowd together; nudge them apart (sideways first) so every square can be tapped.
+var _no_spread := false   # v13.97: the slot zoom wants the true spot, not the nudged tag
 func _spread(pts: Dictionary, gap: float) -> Dictionary:
+	if _no_spread: return pts
 	var ks: Array = pts.keys()
 	for it in 24:
 		var moved := false
@@ -3204,6 +3260,7 @@ func _draw_slots(c: Control, pts: Dictionary) -> void:
 func _draw_holo(c: Control, k: int) -> void:
 	var font := ThemeDB.fallback_font
 	var it := _slot_item(k)
+	if eq_tab == "weapon" and eq_card != "" and (Data.WEAPONS.has(eq_card) or Data.MOUNT_PODS.has(eq_card)): it = eq_card   # v13.97: the PREVIEW shows the picked part
 	var r := Rect2(c.size.x * 0.5 - 150.0, 2.0, 300.0, HOLO_H - 4.0)
 	var glow := Color(0.35, 0.9, 1.0)
 	c.draw_rect(r, Color(0.01, 0.06, 0.12, 0.88))
@@ -3548,6 +3605,28 @@ func _shop_panel(shop: VBoxContainer) -> void:
 		var c := _card(cd[0], cd[1])
 		c.visible = (cd[1] == "module") if eq_tab == "module" else (cd[1] != "module" and (eq_filter == "all" or eq_filter == cd[1]))
 		grid.add_child(c)
+	# v13.97 (owner: Armored Core): NOW vs PICKED, green where the pick is better, red where worse
+	if eq_tab == "weapon" and Data.WEAPONS.has(eq_card) and eq_sel > -9 and eq_sel < 100:
+		var cur_id: String = GS.core_item(eq_sel) if eq_sel < 0 else str(GS.mount_items()[eq_sel]) if eq_sel < (GS.mount_items() as Array).size() else ""
+		var cw: Dictionary = Data.WEAPONS.get(cur_id, {})
+		var nw: Dictionary = Data.WEAPONS[eq_card]
+		var cmp := GridContainer.new()
+		cmp.name = "ShopCompare"
+		cmp.columns = 4
+		cmp.add_theme_constant_override("h_separation", 14)
+		shop.add_child(cmp)
+		for hd in ["", "NOW", "PICKED", ""]:
+			var hl := _label(11, CYAN)
+			hl.text = hd
+			cmp.add_child(hl)
+		for sx in [["DAMAGE", "damage"], ["FIRE RATE", "rate"], ["RANGE", "range"], ["DPS", "dps"]]:
+			var a0: float = float(cw.get("damage", 0.0)) * float(cw.get("rate", 0.0)) if sx[1] == "dps" else float(cw.get(sx[1], 0.0))
+			var b0: float = float(nw.get("damage", 0.0)) * float(nw.get("rate", 0.0)) if sx[1] == "dps" else float(nw.get(sx[1], 0.0))
+			var col := Color(0.55, 1.0, 0.6) if b0 > a0 + 0.01 else (Color(1.0, 0.45, 0.4) if b0 < a0 - 0.01 else Color(0.85, 0.9, 1.0))
+			for v in [[sx[0], Color(0.75, 0.85, 1.0)], ["%.1f" % a0 if cw.size() > 0 else "-", Color(0.75, 0.8, 0.9)], ["%.1f" % b0, col], ["▲" if b0 > a0 + 0.01 else ("▼" if b0 < a0 - 0.01 else "="), col]]:
+				var cl := _label(13, v[1])
+				cl.text = v[0]
+				cmp.add_child(cl)
 	# BUY / INSTALL
 	var act := HBoxContainer.new()
 	act.name = "ShopActions"
@@ -4165,6 +4244,13 @@ func _dress_mounts(model: Node3D) -> void:
 	var slots: Array = []
 	for k in GS.core_slots(): slots.append([k, GS.core_item(k)])
 	for g in items.size(): slots.append([g, items[g]])
+	if eq_tab == "weapon" and eq_card != "" and (Data.WEAPONS.has(eq_card) or Data.MOUNT_PODS.has(eq_card)):   # v13.97: PREVIEW: the picked part on the slot
+		var hit := false
+		for pr0 in slots:
+			if int(pr0[0]) == eq_sel:
+				pr0[1] = eq_card
+				hit = true
+		if not hit and eq_sel > -9 and eq_sel < 100 and not (eq_sel in [-2, -3, -4]): slots.append([eq_sel, eq_card])
 	for pr in slots:
 		var g: int = pr[0]
 		var it: String = pr[1]
@@ -6521,7 +6607,8 @@ func _process(dt: float) -> void:
 	_poll_speech(dt)
 	if preview_pivot and is_instance_valid(preview_pivot) and screen != "equipment": preview_pivot.rotation.y = t * 0.4 + eq_yaw
 	elif preview_pivot and is_instance_valid(preview_pivot) and screen == "equipment":   # v2.6 (owner): it turns on the platform
-		if bay_hold > 0.0: bay_hold -= dt
+		if bay_zoom_on and eq_tab != "hangar": bay_yaw = lerp_angle(bay_yaw, 0.0, clampf(dt * 5.0, 0.0, 1.0))   # v13.97: zoomed: face it
+		elif bay_hold > 0.0: bay_hold -= dt
 		else: bay_yaw = fmod(bay_yaw + dt * Data.BAY_SPIN, TAU)
 		preview_pivot.rotation.y = bay_yaw
 		if is_instance_valid(_bay_art_node) and is_instance_valid(_bay_node): _stand_model(_bay_art_node, _bay_node)   # (keeps it on the pad as the page settles)
