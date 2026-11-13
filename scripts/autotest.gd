@@ -1812,16 +1812,33 @@ func _run() -> void:
 			_check("%s %s: the regular boarding HUD, on foot, %d GLB soldiers, %d card carriers, %d doors (%d card doors)" % [fid, kind, soldiers, cards, s.board_doors.size(), s.board_doors.filter(func(d): return int(d.get("key", 0)) > 0).size()],
 				hud_ok and s.pilot_rig != null and soldiers >= 10 and cards == (Boarding.INFO["fleet"]["cards"] as Array).size() and b.has("fleet") and s.board_doors.filter(func(d): return int(d.get("key", 0)) > 0).size() == Boarding.INFO["fleet"]["locks"].size(), "hud %s (vis %s fire %s target %s) rig %s" % [hud_ok, hb.visible, hb.buttons.has("fire"), hb.buttons.has("target") or hb.buttons.has("tgt_front"), s.pilot_rig != null])
 			_check("%s %s: you start in the bay you boarded by" % [fid, kind], Boarding.room_at(s.player.global_position) == "sbay", Boarding.room_at(s.player.global_position))
+			if kind == "sabotage":   # every room can be stood in (nothing holds you back to one side of the ship)
+				var stuck: Array = []
+				for rk in Boarding.ROOMS:
+					var RR: Dictionary = Boarding.ROOMS[rk]
+					if bool(RR.get("flow", false)) or bool(RR.get("conn", false)): continue
+					var rr: Array = RR["r"]
+					var cpt := Vector3((float(rr[0]) + float(rr[1])) * 0.5, 0, (float(rr[2]) + float(rr[3])) * 0.5)
+					s.player.global_position = Vector3(cpt.x, Boarding.floor_at(cpt) + 6.0, cpt.z)
+					await _wait(0.15)
+					if Boarding.room_at(s.player.global_position) != rk: stuck.append(str(RR["label"]))
+				_check("%s: you can stand in every room (%d)" % [fid, Boarding.ROOMS.size()], stuck.is_empty(), str(stuck))
+				var sb0: Array = Boarding.ROOMS["sbay"]["r"]
+				s.player.global_position = Vector3((float(sb0[0]) + float(sb0[1])) * 0.5, s.player.global_position.y, (float(sb0[2]) + float(sb0[3])) * 0.5)
+				b["fleet"].erase("left_bay")
 			if kind == "sabotage":
 				await _capture("fb_%s_start" % fid)
 				main.hud.planet_map = true
 				await _wait(0.4)
 				await _capture("fb_%s_map" % fid)
 				main.hud.planet_map = false
-				# you can't leave yet
-				s.player.global_position = Vector3(Boarding.EXIT_X + 3.0, s.player.global_position.y, s.player.global_position.z)
-				await _wait(0.4)
-				_check("%s: no leaving before the job is done" % fid, s.player.global_position.x < Boarding.EXIT_X and str(b["phase"]) != "out", str(s.player.global_position.x))
+				# you can't leave yet: back in the bay before the job is done, you're still aboard
+				var sb1: Array = Boarding.ROOMS["sbay"]["r"]
+				s.player.global_position = Vector3(float(sb1[0]) - 60.0, s.player.global_position.y, (float(sb1[2]) + float(sb1[3])) * 0.5)
+				await _wait(0.3)
+				s.player.global_position = Vector3((float(sb1[0]) + float(sb1[1])) * 0.5, s.player.global_position.y, (float(sb1[2]) + float(sb1[3])) * 0.5)
+				await _wait(0.5)
+				_check("%s: no leaving before the job is done" % fid, s.boarding and str(b["phase"]) != "out" and main.state == "flight", str(b["phase"]))
 				# a card door stays shut, then opens with its card
 				var kd: Dictionary = s.board_doors.filter(func(d): return int(d.get("key", 0)) == 1)[0]
 				var c0: Vector3 = kd["center"]

@@ -1635,7 +1635,7 @@ func _board_update(dt: float) -> void:
 	if hv.length() > hv_cap:
 		hv = hv.normalized() * hv_cap
 		vel = Vector3(hv.x, vel.y, hv.z)
-	var leaving: bool = str(board.get("phase", "")) in ["escape", "out", "sneak"] and player.global_position.x > Boarding.EXIT_X - 40.0 and _fleet_may_leave()
+	var leaving: bool = str(board.get("phase", "")) in ["escape", "out", "sneak"] and player.global_position.x > Boarding.EXIT_X - 40.0 and not board.has("fleet")   # (v13.92: a fleet ship's bay is closed: no open side to walk out of)
 	if not leaving and not Boarding.inside(player.global_position):
 		var q := Boarding.keep_in(player.global_position, 6.0)
 		player.global_position = Vector3(q.x, player.global_position.y, q.z)
@@ -1651,7 +1651,7 @@ func _board_update(dt: float) -> void:
 	if player.global_position.x < Boarding.ENTRY_X:   # (the port bay's open side: in only; out is the starboard bay)
 		player.global_position.x = Boarding.ENTRY_X
 		if vel.x < 0.0: vel.x = 0.0
-	if player.global_position.x > Boarding.EXIT_X - 2.0 and not (str(board.get("phase", "")) in ["escape", "out", "sneak"] and _fleet_may_leave()):
+	if not board.has("fleet") and player.global_position.x > Boarding.EXIT_X - 2.0 and not str(board.get("phase", "")) in ["escape", "out", "sneak"]:
 		player.global_position.x = Boarding.EXIT_X - 2.0
 	for e in enemies:
 		if e.get("walker", false):
