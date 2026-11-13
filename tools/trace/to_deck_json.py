@@ -28,6 +28,9 @@ H_ROOM, H_HALL = 100.0, 72.0
 # pilot doors narrow; the engine keeps the mech out of them (eject and go in on foot)
 H_PILOT = 14.0         # u: the pilot (6.5 u) walks in under it; the mech (13 u) is kept out (it would scrape it)
 PILOT_DOOR_K = 0.4     # a pilot door is this share of a mech door's width (26 u: 3-4 pilots side by side)
+# v13.129 (owner: "elevation in that room, slopes that move up and down even though it's on the same level, like Armored
+# Core or the new Metroid"): the big mech rooms' floors slope along their length; their doorways ramp to meet them
+SLOPE_ROOMS = {"hangar": 14.0, "cargo hold": 12.0, "vehicle": 12.0, "troop bay": 12.0, "loader": 12.0, "launch bay": 14.0, "deploy": 10.0}   # (under 15 u: the deck name reads by height)
 DECK_DY = 170.0        # boarding units between deck floors (a room is 100 u tall: slab and service space between)
 DECKS = {"main": ("", 0.0), "upper": ("u_", DECK_DY), "lower": ("l_", -DECK_DY)}   # deck -> (room key prefix, floor y)
 
@@ -58,6 +61,11 @@ def board_layout(plan, play, src_w, src_h, pre="", y0=0.0, ways=None):
             kd = ways["kinds"].get(nm, "pilot")
             rooms[key]["kind"] = kd
             if kd == "pilot": rooms[key].update({"pilot": True, "h": H_PILOT})
+            rise = next((v for w, v in SLOPE_ROOMS.items() if w in nm.lower()), 0.0) if kd == "mech" else 0.0
+            if rise:   # (up toward the ship's middle line: the two halves of a twin pair mirror each other)
+                ax_ = rooms[key]["axis"]
+                lo_end = (x0 + x1) / 2 < AX if ax_ == "x" else True
+                rooms[key]["y"] = [DY, DY + rise] if lo_end else [DY + rise, DY]
     # hallways: one network, shrunk off the walls, cut into rects on every vertex line (and at the wreck points)
     halls = unary_union([shape(h) for h in plan["halls"]]).buffer(-g, join_style=2)
     # the engine's rooms are their boxes: hallways stop short of every room's box (a round room's corners are wall)
@@ -153,6 +161,15 @@ def board_layout(plan, play, src_w, src_h, pre="", y0=0.0, ways=None):
         if ways is not None:
             rooms[key]["kind"] = "pilot" if pdoor else "mech"
             if pdoor: rooms[key].update({"pilot": True, "h": H_PILOT, "label": "PILOT DOOR"})
+            def lvl(k2, px, py):   # a room's floor at a plan point (its slope)
+                R2 = rooms[k2]; ya, yb = R2["y"]
+                if abs(ya - yb) < 1e-6: return ya
+                r2 = R2["r"]
+                t = (W(px) - r2[0]) / max(1e-6, r2[1] - r2[0]) if R2["axis"] == "x" else (Z(py) - r2[2]) / max(1e-6, r2[3] - r2[2])
+                return ya + (yb - ya) * min(1.0, max(0.0, t))
+            ya_ = lvl(a, x, c[1]) if o == "h" else lvl(a, c[0], y)
+            yb_ = lvl(b, x, c[3]) if o == "h" else lvl(b, c[2], y)
+            if abs(ya_ - DY) > 1e-6 or abs(yb_ - DY) > 1e-6: rooms[key]["y"] = [round(ya_, 2), round(yb_, 2)]   # (a ramp)
         for k2 in (a, b):   # a shaped room reaches its rect edge across the doorway, so the doorway is clear
             poly, r, nm = shapes[k2]
             if rooms[k2].get("flow"): continue

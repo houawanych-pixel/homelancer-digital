@@ -2098,6 +2098,10 @@ func _fleet_may_leave() -> bool:
 func _fleet_tick(dt: float) -> void:
 	board["card_msg"] = float(board.get("card_msg", 0.0)) - dt
 	var fl: Dictionary = board["fleet"]
+	var here_k := Boarding.room_at(player.global_position)   # v13.129: the places you've been (the 3D map's fog of war)
+	if here_k != "":
+		if not fl.has("seen"): fl["seen"] = {}
+		fl["seen"][here_k] = true
 	var hn = fl.get("hostage")
 	if hn != null and is_instance_valid(hn):
 		var hp := (hn as Node3D).global_position
@@ -2108,6 +2112,25 @@ func _fleet_tick(dt: float) -> void:
 			if Vector2(player.global_position.x - hp.x, player.global_position.z - hp.z).length() > 30.0: (hn as Node3D).global_position = np
 	var bc = fl.get("beacon")
 	if bc != null and is_instance_valid(bc): (bc as Node3D).scale = Vector3.ONE * (1.0 + 0.15 * sin(Time.get_ticks_msec() * 0.006))
+
+## v13.129 (owner: "plot the movement: get to A, then B, then C, then D ... to the objective"): the steps of this job,
+## in order: each card you still need (the guard who carries it), then the job's target, then the way out.
+func fleet_route() -> Array:
+	if not board.has("fleet"): return []
+	var fl: Dictionary = board["fleet"]
+	var out: Array = []
+	if not bool(fl["done"]):
+		for k in range(1, int(fl.get("need", 0)) + 1):
+			if _fleet_has(k): continue
+			for e in enemies:
+				if int(e.get("card", 0)) == k and is_instance_valid(e.get("node")):
+					out.append({"at": (e["node"] as Node3D).global_position, "label": "%s CARD" % ShipInterior.KEY_NAME[k], "col": ShipInterior.KEY_COL[k]})
+					break
+		if fl.has("target_at"):
+			out.append({"at": fl["target_at"], "label": str(FLEET_MISSION_TEXT.get(str(fl["kind"]), "TARGET")).to_upper(), "col": Color(1.0, 0.82, 0.25)})
+	var sb: Array = Boarding.ROOMS["sbay"]["r"]
+	out.append({"at": Vector3((float(sb[0]) + float(sb[1])) * 0.5, float(Boarding.ROOMS["sbay"]["y"][0]), (float(sb[2]) + float(sb[3])) * 0.5), "label": "WAY OUT", "col": Color(0.4, 1.0, 0.5)})
+	return out
 
 func _fleet_line(where: String) -> String:
 	var fl: Dictionary = board["fleet"]

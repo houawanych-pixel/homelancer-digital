@@ -653,6 +653,7 @@ func _layout() -> void:
 			buttons.clear()
 			buttons.merge(keep)
 			buttons["pmap_close"] = Rect2(mr.end.x - 106, mr.end.y - 50, 96, 42)   # v12.0 (owner: FULL SCREEN covered CLOSE): bottom right
+			if space.boarding and _fleet_map_open(): buttons["pmap_view"] = Rect2(mr.end.x - 176, mr.position.y + 70, 160, 42)   # v13.129: 3D / PLAN
 			if space.boarding:   # (the dungeon map: CLOSE and a tab per deck)
 				var dks := deck_list()
 				if dks.size() > 1:
@@ -975,6 +976,7 @@ func _process(dt: float) -> void:
 	if OS.has_feature("web") and Engine.get_process_frames() % 30 == 0:   # v1.9: is the browser in full screen (for the FULL / EXIT label)
 		fs_on = bool(JavaScriptBridge.eval("window.__hlFsIsOn ? window.__hlFsIsOn() : false", true))
 	if space == null: return
+	if map3d != null and not _fleet_map_open(): map3d.pause()
 	t += dt
 	if vid != null and vid.is_playing() and str(slots["r"].get("video", "")) == "" and str(slots["l"].get("video", "")) == "": vid.stop()   # v1.7r: hung up: the clip stops
 	_tick_scan(dt)
@@ -3126,6 +3128,44 @@ func start_typing() -> void:
 ## ship's own HoloDeck plan, with you on it, the next place to go and the cards you carry.
 var _plan_tex: Texture2D
 var _plan_tex_path := ""
+## v13.129: the 3D ship map (ShipMap3D) in the map window: drag turns it, pinch zooms; the cards you carry below.
+func _fleet_map3d(inner: Rect2) -> void:
+	if map3d == null or _map3d_for != space.board:
+		if map3d != null: map3d.queue_free()
+		map3d = ShipMap3D.new()
+		add_child(map3d)
+		map3d.setup(Boarding.ROOMS, space.board_doors)
+		_map3d_for = space.board
+	var fl: Dictionary = space.board.get("fleet", {})
+	var pp: Vector3 = space.player.global_position
+	var goal = null
+	var bc = fl.get("beacon")
+	if bc != null and is_instance_valid(bc): goal = (bc as Node3D).global_position - Vector3(0, 15, 0)
+	map3d.refresh(fl.get("seen", {}), Boarding.deck_y(pp), pp, -space.player.global_basis.z, goal, pmap_yaw, pmap_pitch, pmap_zoom)
+	var steps: Array = space.fleet_route()
+	map3d.set_route(pp, steps)
+	var side := minf(inner.size.x, inner.size.y)
+	var r := Rect2(inner.position + (inner.size - Vector2(side, side)) * 0.5, Vector2(side, side))
+	draw_texture_rect(map3d.get_texture(), r, false)
+	var lx := inner.position.x + 4.0
+	var ly := inner.position.y + 60.0
+	for row in [[ShipMap3D.COL["mech"], "MECH"], [ShipMap3D.COL["pilot"], "PILOT"], [ShipMap3D.COL["lift"], "LIFT"], [Color(ShipMap3D.FOG, 0.5), "NOT SEEN"]]:
+		draw_rect(Rect2(lx, ly, 16, 12), row[0])
+		_text(Vector2(lx + 22, ly + 11), row[1], 11, Color(WHITE, 0.85))
+		ly += 20.0
+	_text(Vector2(inner.position.x + 4.0, inner.end.y - 52.0), "drag: turn  ·  pinch: zoom", 11, Color(CYAN_HI, 0.7))
+	var sy := inner.position.y + 150.0   # the steps, in order (the gold line on the model joins them)
+	_text(Vector2(lx, sy), "THE WAY", 12, Color(1.0, 0.82, 0.25))
+	for i in steps.size():
+		sy += 18.0
+		_text(Vector2(lx, sy), "%s  %s" % [char(65 + i), str(steps[i]["label"])], 11, steps[i].get("col", WHITE))
+	for k in range(1, 4):   # the cards you carry
+		var has: bool = (fl.get("cards", []) as Array).size() > k and bool(fl["cards"][k])
+		var cr := Rect2(Vector2(inner.position.x + (k - 1) * 68, inner.end.y - 28), Vector2(60, 22))
+		draw_rect(cr, Color(ShipInterior.KEY_COL[k], 0.9 if has else 0.15))
+		draw_rect(cr, Color(ShipInterior.KEY_COL[k], 0.9), false, 1.5)
+		_text(cr.position + Vector2(0, 16), ShipInterior.KEY_NAME[k], 10, Color(0.05, 0.05, 0.05) if has else Color(ShipInterior.KEY_COL[k], 0.8), HORIZONTAL_ALIGNMENT_CENTER, 60)
+
 ## v13.126 (owner: "the map needs pinch to zoom in, zoom out"): the fleet deck plan zooms (two-finger pinch, the
 ## mouse wheel or a trackpad pinch) and pans (one finger / mouse drag) once zoomed; it opens whole each time.
 var pmap_zoom := 1.0
@@ -3133,11 +3173,19 @@ var pmap_c := Vector2(0.5, 0.5)       # the part of the plan at the middle of th
 var _pmap_pic := Rect2()              # where the plan was last drawn
 var _pinch := {}                      # touch index -> position (touches on the plan)
 var _pmap_mouse := false
+var pmap_3d := true                   # v13.129: the fleet map opens as the 3D model (PLAN: the deck picture)
+var pmap_yaw := 0.6
+var pmap_pitch := 0.9
+var map3d: ShipMap3D
+var _map3d_for = null                 # the board it was built for
 func _fleet_map_open() -> bool:
 	return planet_map and space != null and space.boarding and Boarding.INFO.has("plan_map") and str(Boarding.INFO.get("plan_tex", "")) != ""
 
 func _pmap_zoom_by(f: float, at: Vector2) -> void:
 	if _pmap_pic.size.x <= 0.0: return
+	if pmap_3d:
+		pmap_zoom = clampf(pmap_zoom * f, 0.6, Data.PLAN_MAP_ZOOM_MAX)
+		return
 	var z0 := pmap_zoom
 	pmap_zoom = clampf(pmap_zoom * f, 1.0, Data.PLAN_MAP_ZOOM_MAX)
 	# keep the plan point under the fingers where it is
@@ -3177,6 +3225,9 @@ func _pmap_gesture(e: InputEvent) -> bool:
 			var d0: float = (_pinch[e.index] as Vector2).distance_to(other)
 			var d1: float = e.position.distance_to(other)
 			if d0 > 8.0: _pmap_zoom_by(d1 / d0, (e.position + other) * 0.5)
+		elif pmap_3d:
+			pmap_yaw -= e.relative.x * 0.01
+			pmap_pitch = clampf(pmap_pitch + e.relative.y * 0.01, 0.15, 1.5)
 		elif pmap_zoom > 1.0:
 			pmap_c -= e.relative / (_pmap_pic.size * pmap_zoom)
 			_pmap_clamp()
@@ -3193,6 +3244,10 @@ func _pmap_gesture(e: InputEvent) -> bool:
 		if e.button_index == MOUSE_BUTTON_LEFT:
 			_pmap_mouse = e.pressed and _pmap_pic.has_point(e.position) and not on_btn.call(e.position)
 			return false
+	if e is InputEventMouseMotion and _pmap_mouse and pmap_3d and not DisplayServer.is_touchscreen_available():
+		pmap_yaw -= e.relative.x * 0.01
+		pmap_pitch = clampf(pmap_pitch + e.relative.y * 0.01, 0.15, 1.5)
+		return true
 	if e is InputEventMouseMotion and _pmap_mouse and pmap_zoom > 1.0 and not DisplayServer.is_touchscreen_available():
 		pmap_c -= e.relative / (_pmap_pic.size * pmap_zoom)
 		_pmap_clamp()
@@ -3217,6 +3272,12 @@ func _fleet_map(mr: Rect2) -> void:
 	if sz.x > inner.size.x: sz = Vector2(inner.size.x, inner.size.x / aspect)
 	var pic := Rect2(inner.position + (inner.size - sz) * 0.5, sz)
 	_pmap_pic = pic
+	_pill("pmap_view", "PLAN" if pmap_3d else "3D MAP", false, CYAN)
+	if pmap_3d:
+		_pmap_pic = inner
+		_fleet_map3d(inner)
+		return
+	if map3d != null: map3d.pause()
 	_pmap_clamp()
 	var z := pmap_zoom
 	var v0 := pmap_c - Vector2(0.5, 0.5) / z     # the shown part of the plan (0..1)
