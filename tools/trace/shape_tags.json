@@ -1,0 +1,686 @@
+{
+"fury_01": {
+"tag": "cargo",
+"name": "Cargo Hold"
+},
+"fury_02": {
+"tag": "bridge",
+"name": "Bridge (chevron nose)"
+},
+"fury_03": {
+"tag": "closet",
+"name": "Ship's Locker (45 deg)"
+},
+"fury_04": {
+"tag": "quarters",
+"name": "Captain's Quarters"
+},
+"fury_05": {
+"tag": "quarters",
+"name": "Crew Quarters"
+},
+"fury_06": {
+"tag": "lounge",
+"name": "Lounge + holoterminal"
+},
+"fury_07": {
+"tag": "vestibule",
+"name": "Passage"
+},
+"fury_08": {
+"tag": "quarters",
+"name": "Secondary Quarters"
+},
+"fury_09": {
+"tag": "hatch",
+"name": "Turret hatch"
+},
+"fury_10": {
+"tag": "corridor",
+"name": "Lateral corridor"
+},
+"fury_11": {
+"tag": "hatch",
+"name": "Turret hatch"
+},
+"fury_12": {
+"tag": "engine",
+"name": "Engine Room + Medbay"
+},
+"fury_13": {
+"tag": "hatch",
+"name": "Ventral ramp"
+},
+"fury_14": {
+"tag": "engine",
+"name": "Engine Room + Fresher"
+},
+"fury_15": {
+"tag": "hatch",
+"name": "Escape pod access"
+},
+"defender_flight_01": {
+"tag": "quarters",
+"name": "Living Accommodations + pod"
+},
+"defender_flight_02": {
+"tag": "office",
+"name": "Conference + Bunks"
+},
+"defender_flight_03": {
+"tag": "command",
+"name": "Bridge, ramp, round conference"
+},
+"defender_flight_04": {
+"tag": "hatch",
+"name": "Port hatch"
+},
+"defender_flight_05": {
+"tag": "hatch",
+"name": "Starboard hatch"
+},
+"defender_lower_01": {
+"tag": "engine",
+"name": "Engine Room"
+},
+"defender_lower_02": {
+"tag": "medbay",
+"name": "Medical Bay"
+},
+"defender_lower_03": {
+"tag": "cargo",
+"name": "Cargo Hold"
+},
+"defender_lower_04": {
+"tag": "junction",
+"name": "Central Access Chamber"
+},
+"kasparov_a_01": {
+"tag": "bridge",
+"name": "Flight Deck (round nose)"
+},
+"kasparov_a_02": {
+"tag": "corridor",
+"name": "Fore Passage"
+},
+"kasparov_a_03": {
+"tag": "office",
+"name": "Ops (round alcove)"
+},
+"kasparov_a_04": {
+"tag": "vestibule",
+"name": "Lobby"
+},
+"kasparov_a_05": {
+"tag": "medbay",
+"name": "Infirmary"
+},
+"kasparov_a_06": {
+"tag": "closet",
+"name": "Closet"
+},
+"kasparov_a_07": {
+"tag": "closet",
+"name": "Closet"
+},
+"kasparov_a_08": {
+"tag": "machine",
+"name": "Machine Shop"
+},
+"kasparov_a_09": {
+"tag": "junction",
+"name": "Central hall"
+},
+"kasparov_a_10": {
+"tag": "closet",
+"name": "Closet"
+},
+"kasparov_a_11": {
+"tag": "medbay",
+"name": "Infirmary ward"
+},
+"kasparov_a_12": {
+"tag": "cabin",
+"name": "Cabin"
+},
+"kasparov_a_13": {
+"tag": "cabin",
+"name": "Cabin"
+},
+"kasparov_a_14": {
+"tag": "machine",
+"name": "Hyperdrive (round)"
+},
+"kasparov_a_15": {
+"tag": "engine",
+"name": "Engine Room"
+},
+"kasparov_a_16": {
+"tag": "engine",
+"name": "Engine Room"
+},
+"kasparov_a_17": {
+"tag": "engine",
+"name": "Engine Room"
+},
+"kasparov_b_01": {
+"tag": "cabin",
+"name": "Fore cabin"
+},
+"kasparov_b_02": {
+"tag": "cabin",
+"name": "Cabin"
+},
+"kasparov_b_03": {
+"tag": "quarters",
+"name": "Passenger Quarters"
+},
+"kasparov_b_04": {
+"tag": "cabin",
+"name": "Cabin"
+},
+"kasparov_b_05": {
+"tag": "cabin",
+"name": "Cabin"
+},
+"kasparov_b_06": {
+"tag": "mess",
+"name": "Dining Area (round)"
+},
+"kasparov_b_07": {
+"tag": "office",
+"name": "Storage & Lockers (wedge)"
+},
+"kasparov_b_08": {
+"tag": "office",
+"name": "Storage & Lockers (wedge)"
+},
+"kasparov_b_09": {
+"tag": "corridor",
+"name": "Cross corridor"
+},
+"kasparov_b_10": {
+"tag": "cargo",
+"name": "Storage"
+},
+"kasparov_b_11": {
+"tag": "cargo",
+"name": "Cargo Bay"
+},
+"kasparov_b_12": {
+"tag": "reactor",
+"name": "Reactor"
+},
+"malgus_01": {
+"tag": "stairs",
+"name": "Stair landing"
+},
+"malgus_02": {
+"tag": "vestibule",
+"name": "Vestibule"
+},
+"malgus_03": {
+"tag": "stairs",
+"name": "Stair hall (L)"
+},
+"malgus_04": {
+"tag": "wing",
+"name": "Wing hall, raised stage"
+},
+"malgus_05": {
+"tag": "stairs",
+"name": "Stair landing"
+},
+"malgus_06": {
+"tag": "vestibule",
+"name": "Vestibule"
+},
+"malgus_07": {
+"tag": "corridor",
+"name": "Entry corridor"
+},
+"malgus_08": {
+"tag": "stairs",
+"name": "Stairs"
+},
+"malgus_09": {
+"tag": "junction",
+"name": "Junction"
+},
+"malgus_10": {
+"tag": "vestibule",
+"name": "Vestibule"
+},
+"malgus_11": {
+"tag": "command",
+"name": "Command hub, railing ring"
+},
+"malgus_12": {
+"tag": "vestibule",
+"name": "Vestibule"
+},
+"malgus_13": {
+"tag": "stairs",
+"name": "Stairs"
+},
+"malgus_14": {
+"tag": "corridor",
+"name": "Corridor"
+},
+"malgus_15": {
+"tag": "wing",
+"name": "Wing hall, raised stage"
+},
+"malgus_16": {
+"tag": "stairs",
+"name": "Stair hall (L)"
+},
+"carrick_01": {
+"tag": "cabin",
+"name": "Ring cabin"
+},
+"carrick_02": {
+"tag": "cabin",
+"name": "Ring cabin"
+},
+"carrick_03": {
+"tag": "cabin",
+"name": "Ring cabin"
+},
+"carrick_04": {
+"tag": "cabin",
+"name": "Ring cabin"
+},
+"carrick_05": {
+"tag": "cabin",
+"name": "Ring cabin"
+},
+"carrick_06": {
+"tag": "cabin",
+"name": "Ring cabin"
+},
+"carrick_07": {
+"tag": "corridor",
+"name": "Ring corridor (arc)"
+},
+"carrick_08": {
+"tag": "cabin",
+"name": "Ring cabin"
+},
+"carrick_09": {
+"tag": "cabin",
+"name": "Ring cabin"
+},
+"carrick_10": {
+"tag": "office",
+"name": "Wedge room"
+},
+"carrick_11": {
+"tag": "office",
+"name": "Wedge room"
+},
+"carrick_12": {
+"tag": "office",
+"name": "Wedge room"
+},
+"carrick_13": {
+"tag": "cabin",
+"name": "Ring cabin"
+},
+"carrick_14": {
+"tag": "cabin",
+"name": "Ring cabin"
+},
+"carrick_15": {
+"tag": "corridor",
+"name": "Ring corridor (arc)"
+},
+"carrick_16": {
+"tag": "cabin",
+"name": "Ring cabin"
+},
+"carrick_17": {
+"tag": "cabin",
+"name": "Ring cabin"
+},
+"carrick_18": {
+"tag": "cabin",
+"name": "Ring cabin"
+},
+"carrick_19": {
+"tag": "cabin",
+"name": "Ring cabin"
+},
+"carrick_20": {
+"tag": "junction",
+"name": "Gear-tooth junction"
+},
+"carrick_21": {
+"tag": "corridor",
+"name": "Ring corridor (arc)"
+},
+"carrick_22": {
+"tag": "junction",
+"name": "Gear-tooth junction"
+},
+"carrick_23": {
+"tag": "connector",
+"name": "Spoke connector + stairs"
+},
+"carrick_24": {
+"tag": "junction",
+"name": "Gear-tooth junction"
+},
+"carrick_25": {
+"tag": "corridor",
+"name": "Ring corridor (arc)"
+},
+"carrick_26": {
+"tag": "junction",
+"name": "Gear-tooth junction"
+},
+"carrick_27": {
+"tag": "cabin",
+"name": "Ring cabin"
+},
+"carrick_28": {
+"tag": "cabin",
+"name": "Ring cabin"
+},
+"carrick_29": {
+"tag": "office",
+"name": "Wedge room"
+},
+"carrick_30": {
+"tag": "office",
+"name": "Wedge room"
+},
+"carrick_31": {
+"tag": "closet",
+"name": "Spoke room"
+},
+"carrick_32": {
+"tag": "closet",
+"name": "Spoke room"
+},
+"carrick_33": {
+"tag": "corridor",
+"name": "Spoke hall"
+},
+"carrick_34": {
+"tag": "cabin",
+"name": "Ring cabin"
+},
+"carrick_35": {
+"tag": "command",
+"name": "Round hub"
+},
+"carrick_36": {
+"tag": "corridor",
+"name": "Spoke hall"
+},
+"carrick_37": {
+"tag": "closet",
+"name": "Spoke room"
+},
+"carrick_38": {
+"tag": "closet",
+"name": "Spoke room"
+},
+"carrick_39": {
+"tag": "cabin",
+"name": "Ring cabin"
+},
+"carrick_40": {
+"tag": "cabin",
+"name": "Ring cabin"
+},
+"carrick_41": {
+"tag": "office",
+"name": "Wedge room"
+},
+"carrick_42": {
+"tag": "junction",
+"name": "Gear-tooth junction"
+},
+"carrick_43": {
+"tag": "connector",
+"name": "Spoke connector + stairs"
+},
+"carrick_44": {
+"tag": "junction",
+"name": "Gear-tooth junction"
+},
+"carrick_45": {
+"tag": "office",
+"name": "Wedge room"
+},
+"carrick_46": {
+"tag": "cabin",
+"name": "Ring cabin"
+},
+"carrick_47": {
+"tag": "cabin",
+"name": "Ring cabin"
+},
+"carrick_48": {
+"tag": "cabin",
+"name": "Ring cabin"
+},
+"carrick_49": {
+"tag": "cabin",
+"name": "Ring cabin"
+},
+"carrick_50": {
+"tag": "corridor",
+"name": "Ring corridor (arc)"
+},
+"carrick_51": {
+"tag": "junction",
+"name": "Gear-tooth junction"
+},
+"carrick_52": {
+"tag": "office",
+"name": "Wedge room"
+},
+"carrick_53": {
+"tag": "office",
+"name": "Wedge room"
+},
+"carrick_54": {
+"tag": "office",
+"name": "Wedge room"
+},
+"carrick_55": {
+"tag": "junction",
+"name": "Gear-tooth junction"
+},
+"carrick_56": {
+"tag": "corridor",
+"name": "Ring corridor (arc)"
+},
+"carrick_57": {
+"tag": "cabin",
+"name": "Ring cabin"
+},
+"carrick_58": {
+"tag": "cabin",
+"name": "Ring cabin"
+},
+"carrick_59": {
+"tag": "cabin",
+"name": "Ring cabin"
+},
+"carrick_60": {
+"tag": "corridor",
+"name": "Ring corridor (arc)"
+},
+"carrick_61": {
+"tag": "cabin",
+"name": "Ring cabin"
+},
+"carrick_62": {
+"tag": "closet",
+"name": "Spoke room"
+},
+"carrick_63": {
+"tag": "cabin",
+"name": "Ring cabin"
+},
+"carrick_64": {
+"tag": "corridor",
+"name": "Ring corridor (arc)"
+},
+"carrick_65": {
+"tag": "cabin",
+"name": "Ring cabin"
+},
+"carrick_66": {
+"tag": "cabin",
+"name": "Ring cabin"
+},
+"carrick_67": {
+"tag": "cabin",
+"name": "Ring cabin"
+},
+"carrick_68": {
+"tag": "cabin",
+"name": "Ring cabin"
+},
+"carrick_69": {
+"tag": "cabin",
+"name": "Ring cabin"
+},
+"tianjin_01": {
+"tag": "mess",
+"name": "Galley (quarter round)"
+},
+"tianjin_02": {
+"tag": "closet",
+"name": "Closet"
+},
+"tianjin_03": {
+"tag": "cabin",
+"name": "Cabin"
+},
+"tianjin_04": {
+"tag": "cabin",
+"name": "Cabin"
+},
+"tianjin_05": {
+"tag": "weapons",
+"name": "Comms / gun deck (tapered)"
+},
+"tianjin_06": {
+"tag": "weapons",
+"name": "Tapered room"
+},
+"tianjin_07": {
+"tag": "weapons",
+"name": "Nose turret room"
+},
+"tianjin_08": {
+"tag": "office",
+"name": "Comms room"
+},
+"tianjin_09": {
+"tag": "office",
+"name": "Long room"
+},
+"tianjin_10": {
+"tag": "lift",
+"name": "Crew lift (octagon)"
+},
+"tianjin_11": {
+"tag": "vestibule",
+"name": "Vestibule"
+},
+"tianjin_12": {
+"tag": "medbay",
+"name": "MedLab"
+},
+"tianjin_13": {
+"tag": "corridor",
+"name": "Long spine"
+},
+"tianjin_14": {
+"tag": "command",
+"name": "Redundant CIC (round)"
+},
+"tianjin_15": {
+"tag": "junction",
+"name": "Junction"
+},
+"tianjin_16": {
+"tag": "corridor",
+"name": "Forward corridor (bulged)"
+},
+"tianjin_17": {
+"tag": "weapons",
+"name": "Forward Missile Bay"
+},
+"tianjin_18": {
+"tag": "closet",
+"name": "Closet"
+},
+"tianjin_19": {
+"tag": "machine",
+"name": "Machine shop"
+},
+"tianjin_20": {
+"tag": "office",
+"name": "Long room"
+},
+"tianjin_21": {
+"tag": "lift",
+"name": "Crew lift (octagon)"
+},
+"tianjin_22": {
+"tag": "vestibule",
+"name": "Vestibule"
+},
+"tianjin_23": {
+"tag": "weapons",
+"name": "Armory (quarter round)"
+},
+"tianjin_24": {
+"tag": "cabin",
+"name": "Cabin"
+},
+"tianjin_25": {
+"tag": "cabin",
+"name": "Cabin"
+},
+"tianjin_26": {
+"tag": "weapons",
+"name": "Gunnery (tapered)"
+},
+"tianjin_27": {
+"tag": "weapons",
+"name": "Tapered room"
+},
+"tianjin_28": {
+"tag": "weapons",
+"name": "Nose turret room"
+},
+"tianjin_29": {
+"tag": "machine",
+"name": "Machineshop"
+},
+"tianjin_30": {
+"tag": "machine",
+"name": "Workshop"
+},
+"tianjin_31": {
+"tag": "machine",
+"name": "Workshop"
+},
+"tianjin_32": {
+"tag": "corridor",
+"name": "Short corridor"
+},
+"tianjin_33": {
+"tag": "closet",
+"name": "Closet"
+}
+}
