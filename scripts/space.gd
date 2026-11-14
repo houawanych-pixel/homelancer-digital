@@ -9964,7 +9964,7 @@ var lights_on := 0
 func _reshow(root: Node3D) -> void:
 	await get_tree().process_frame
 	if not is_instance_valid(root): return
-	var ms: Array = root.find_children("*", "GeometryInstance3D", true, false)
+	var ms: Array = root.find_children("*", "GeometryInstance3D", true, false).filter(func(m): return (m as VisualInstance3D).visible)   # (v13.131: what was hidden stays hidden, e.g. Evee's waypoint)
 	for m in ms: (m as VisualInstance3D).visible = false
 	await get_tree().process_frame
 	if not is_instance_valid(root): return
