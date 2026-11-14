@@ -2703,7 +2703,7 @@ func _keypad_tick() -> void:
 	for d in board_doors:
 		if not d.has("pads") or bool(d.get("code_ok", false)) or _fleet_has(int(d.get("key", 0))): continue
 		for at: Vector3 in d["pads"]:
-			if Vector2(p.x - at.x, p.z - at.z).length() < Data.KEYPAD_R * (2.2 if GS.form == "mech" and not on_foot else 1.0) and absf(p.y - at.y) < 40.0:
+			if Vector2(p.x - at.x, p.z - at.z).length() < Data.KEYPAD_R * (Data.KEYPAD_MECH_K if GS.form == "mech" and not on_foot else 1.0) and absf(p.y - at.y) < 40.0:
 				on = {"door": d, "level": int(d["key"])}
 	if on.is_empty():
 		keypad = {}
