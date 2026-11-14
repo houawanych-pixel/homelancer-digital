@@ -669,6 +669,10 @@ func _bump_ships() -> void:
 		if vn == null or not is_instance_valid(vn) or not vn.has_meta("hit_half"): continue
 		var vh: Vector3 = vn.get_meta("hit_half")
 		if vn.global_position.distance_to(p) > vh.length() + 300.0: continue
+		if vn.has_node("FleetModel"):   # v13.143: a real model: solid by its meshes' own box
+			_solid_box(vn)
+			if vn.has_meta("ship_box") and _push_out_box(vn.get_meta("box_holder"), vn.get_meta("box_aabb"), "ship"): ship_bumps += 1
+			continue
 		if _push_out_box(vn, AABB(-vh, vh * 2.0), "ship"): ship_bumps += 1
 	_bump_lane_rings(p)
 	for n in fleet_guard:
@@ -5468,10 +5472,9 @@ func _speed_ghosts(dt: float) -> void:
 		_ghost_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		_ghost_mat.albedo_color = Color(0.35, 0.75, 1.0, 0.45)
 		_ghost_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	var g := Node3D.new()
+	var g := Node3D.new()   # v13.143 (owner: "wrap it around the character or the mech"): rides with you, a little bigger
 	g.name = "SpeedGhost"
-	g.top_level = true
-	add_child(g)
+	player.add_child(g)
 	for c in model.find_children("*", "MeshInstance3D", true, false):
 		var mi := c as MeshInstance3D
 		if mi.mesh == null or not mi.is_visible_in_tree(): continue
@@ -5483,7 +5486,11 @@ func _speed_ghosts(dt: float) -> void:
 		copy.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		g.add_child(copy)
 		copy.global_transform = mi.global_transform
-	ghosts.append({"node": g, "life": Data.GHOST_LIFE})
+	var mid := player.global_transform.affine_inverse() * model.global_transform.origin
+	for c in g.get_children(): (c as Node3D).position -= mid   # (scaled round the body's middle)
+	g.position = mid
+	g.scale = Vector3.ONE * Data.GHOST_SCALE
+	ghosts.append({"node": g, "life": Data.GHOST_LIFE, "mid": mid})
 
 func _update_ghosts(dt: float) -> void:
 	for gh in ghosts:
@@ -5491,6 +5498,7 @@ func _update_ghosts(dt: float) -> void:
 		var g: Node3D = gh["node"]
 		if not is_instance_valid(g): continue
 		var a := clampf(float(gh["life"]) / Data.GHOST_LIFE, 0.0, 1.0) * 0.45
+		g.position = (gh["mid"] as Vector3) + Vector3(0, 0, Data.GHOST_TRAIL * (1.0 - a / 0.45))   # (slips back as it fades)
 		for c in g.get_children():
 			var mat := (c as MeshInstance3D).material_override as StandardMaterial3D
 			if mat != null: mat.albedo_color.a = a
@@ -7344,22 +7352,40 @@ func _cloak_swap(glass: bool) -> void:
 
 ## v8.3 (owner): TARGET: the hostile closest to you and most in front of you, so you can lock on at once.
 func target_front() -> Node3D:
+	var l := front_targets()
+	return l[0] if not l.is_empty() else null
+
+## v13.143 (owner: "select all the ships ... the closest object in front of me; NEXT goes to the next one in front"):
+## every ship (hostile or not: fleet ships, traffic, freighters, the boarding ship) and the places you can target,
+## best first: near and straight ahead first, hostiles a little ahead of the rest, things behind you last.
+func ship_nodes() -> Array:
+	var out: Array = []
+	for e in enemies: out.append(e["node"])
+	for lst in [traffic, freighters, fleet_patrols]:
+		for f in lst: out.append(f.get("node", null) if f is Dictionary else f)
+	for v in fleet_visitors: out.append(v["node"])
+	for g in fleet_guard: out.append(g)
+	if is_instance_valid(escort_node): out.append(escort_node)
+	for c in get_children():
+		if c is Node3D and str(c.get_meta("kind", "")) == "board_target": out.append(c)
+	return out.filter(func(n): return n != null and is_instance_valid(n) and (n as Node3D).visible)
+
+func front_targets() -> Array:
 	var pp := player.global_position
 	var fwd := -player.global_basis.z
-	var best: Node3D = null
-	var bs := INF
-	for e in enemies:
-		var n: Node3D = e["node"]
-		if not is_instance_valid(n) or n.get_meta("kind", "enemy") != "enemy": continue
-		var to := n.global_position - pp
-		var d := to.length()
-		var front := fwd.dot(to / maxf(d, 0.01))
-		var on_screen := not cam.is_position_behind(n.global_position)
-		var score := d * (2.0 - front) * (1.0 if on_screen and front > 0.3 else 4.0)
-		if score < bs:
-			bs = score
-			best = n
-	return best
+	var cand: Array = ship_nodes()
+	for n in targetables(): if n != null and is_instance_valid(n) and not cand.has(n): cand.append(n)
+	var sc: Array = []
+	for n in cand:
+		var to: Vector3 = (n as Node3D).global_position - pp
+		var d := maxf(0.0, to.length() - float((n as Node3D).get_meta("radius", 0.0)) * 0.5)
+		var front := fwd.dot(to.normalized()) if to.length() > 0.01 else 1.0
+		var on_screen := not cam.is_position_behind((n as Node3D).global_position)
+		var score := (d + 50.0) * (2.0 - front) * (1.0 if on_screen and front > 0.3 else 6.0)
+		if str((n as Node3D).get_meta("kind", "")) == "enemy": score *= 0.5
+		sc.append([score, n])
+	sc.sort_custom(func(a, b): return float(a[0]) < float(b[0]))
+	return sc.map(func(x): return x[1])
 
 func _fire_guns() -> void:
 	if cloaked: return
@@ -9435,6 +9461,34 @@ func toggle_laser_shield() -> String:
 	Sfx.play("saber_on" if laser_shield else "saber_off", -6.0)
 	return "on" if laser_shield else "off"
 
+## v13.143: the shield's plates in one flat mesh (unit radius, facing -Z): a middle hexagon and a ring of plates
+## round it, each plate a trapezoid with a gap to its neighbours.
+static func _plate_shield_mesh() -> ArrayMesh:
+	var n: int = Data.LSHIELD_SIDES
+	var g: float = Data.LSHIELD_GAP
+	var v := PackedVector3Array()
+	var corner := func(i: int, r: float) -> Vector3:
+		var a := TAU * float(i) / float(n) + PI / float(n)
+		return Vector3(cos(a) * r, sin(a) * r, 0.0)
+	var inner := 0.42
+	for i in n:   # the middle plate (a fan)
+		v.append_array(PackedVector3Array([Vector3.ZERO, corner.call(i, inner - g * 0.5), corner.call(i + 1, inner - g * 0.5)]))
+	for i in n:   # the ring plates, each pulled in a little at both sides
+		var a0: Vector3 = corner.call(i, inner + g * 0.5)
+		var a1: Vector3 = corner.call(i + 1, inner + g * 0.5)
+		var b0: Vector3 = corner.call(i, 1.0)
+		var b1: Vector3 = corner.call(i + 1, 1.0)
+		var sh0 := (a1 - a0).normalized() * g * 0.5
+		var sh1 := (b1 - b0).normalized() * g * 0.5
+		a0 += sh0; a1 -= sh0; b0 += sh1; b1 -= sh1
+		v.append_array(PackedVector3Array([a0, b0, b1, a0, b1, a1]))
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = v
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	return mesh
+
 func _lshield_angle() -> float:
 	return _lshield_side * PI * 0.5   # 0 = facing forward, PI/2 = facing left
 
@@ -9463,14 +9517,9 @@ func _update_laser_shield(dt: float) -> void:
 	if _lshield == null or not is_instance_valid(_lshield):
 		_lshield = Node3D.new()
 		_lshield.name = "LaserShield"
-		var face := MeshInstance3D.new()
-		var sm := SphereMesh.new()
-		sm.radius = 1.0
-		sm.height = 2.0
-		sm.radial_segments = 24
-		sm.rings = 12
-		face.mesh = sm
-		face.scale = Vector3(Data.LSHIELD_SIZE.x * 0.5, Data.LSHIELD_SIZE.y * 0.5, 0.35)
+		var face := MeshInstance3D.new()   # v13.143 (owner): gold, low-poly, 6 plates round a middle plate with gaps between (one mesh)
+		face.mesh = _plate_shield_mesh()
+		face.scale = Vector3(Data.LSHIELD_SIZE.x * 0.5, Data.LSHIELD_SIZE.y * 0.5, 1.0)
 		var m := StandardMaterial3D.new()
 		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -9481,19 +9530,6 @@ func _update_laser_shield(dt: float) -> void:
 		face.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		face.name = "Face"
 		_lshield.add_child(face)
-		var rim := MeshInstance3D.new()   # a brighter edge ring
-		var tm := TorusMesh.new()
-		tm.inner_radius = 0.93
-		tm.outer_radius = 1.0
-		tm.rings = 32
-		rim.mesh = tm
-		rim.rotation = Vector3(PI * 0.5, 0, 0)
-		rim.scale = Vector3(Data.LSHIELD_SIZE.x * 0.5, 1.0, Data.LSHIELD_SIZE.y * 0.5)
-		var rm := m.duplicate() as StandardMaterial3D
-		rm.albedo_color = Color(Data.LSHIELD_COLOR, 0.8)
-		rim.material_override = rm
-		rim.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		_lshield.add_child(rim)
 		player.add_child(_lshield)
 	_lshield.visible = true
 	var a := _lshield_angle()
@@ -11199,7 +11235,8 @@ func pick_target(n: Node3D) -> void:
 	message.emit("Target: %s" % n.name)
 
 func cycle_target() -> void:
-	var list := targetables()
+	var list := front_targets()   # v13.143: the next one in front of you
+	if list.is_empty(): return
 	var i := list.find(target)
 	target = list[(i + 1) % list.size()]
 	message.emit("Target: %s" % target.name)
@@ -12078,6 +12115,18 @@ func scan_info(n: Node3D) -> Dictionary:
 			lines2.append(["HULL", "%d / %d   booster %d%%" % [int(fr["hp"]), int(fr["max"]), int(100.0 * maxf(0.0, float(fr["boost_hp"])) / float(fr["boost_max"]))]])
 		if n == escort_node: lines2.append(["JOB", "escort this ship (hull %d%%)" % int(100.0 * float(GS.mission.get("escort_hp", 0.0)) / Data.ESCORT_HULL)])
 		return {"title": n.name.to_upper(), "sub": "%s  ·  civilian" % str(sys.get("faction", "")), "lines": lines2, "hostile": false}
+	# v13.143 (owner): the faction fleet ships scan, and the big ones take a REQUEST BOARDING call
+	if n.has_meta("fleet_id"):
+		var fe: Dictionary = FleetCatalog.get_entry(str(n.get_meta("fleet_id")))
+		if not fe.is_empty():
+			var hostile_f: bool = str(n.get_meta("kind", "")) == "board_target"
+			var cls := str(fe["class"])
+			var lines4: Array = [["CLASS", "%s  ·  %s" % [str(FleetCatalog.CLASS_NAME.get(cls, cls)), str(fe["role"])]],
+				["HANGAR", "%d fighters aboard" % int(n.get_meta("hangar", Data.FLEET_HANGAR.get(cls, 0)))]]
+			if hostile_f: lines4.append(["POWER", "%d%%  ·  shield %s" % [int(n.get_meta("power", 100.0)), "UP" if float(n.get_meta("power", 100.0)) > 50.0 else "DOWN"]])
+			if Data.FLEET_BOARDABLE.has(cls): lines4.append(["DOCK", "REQUEST BOARDING to call them"])
+			return {"title": n.name.to_upper(), "sub": "%s  ·  %s" % [str(fe["faction"]), "HOSTILE" if hostile_f else "friendly"], "lines": lines4,
+				"hostile": hostile_f, "structure": true, "board": Data.FLEET_BOARDABLE.has(cls)}
 	# v11.28 (owner: "anything you scan: ships, stations, buildings"): stations, landmarks, gates and beacons scan too
 	if n == planet: return {}
 	var info: Dictionary = n.get_meta("info", {}) if n.get_meta("info", {}) is Dictionary else {}
@@ -12103,14 +12152,14 @@ func scan_model_key(n: Node3D) -> String:
 func ship_at_screen(p: Vector2, radius := -1.0) -> Node3D:
 	var best: Node3D = null
 	var best_d: float = Data.SHIP_TAP_RADIUS if radius < 0.0 else radius
-	var nodes: Array = []
-	for e in enemies: nodes.append(e["node"])
-	for t in traffic: nodes.append(t["node"])
-	for f in freighters: nodes.append(f["node"])   # v11.63
-	if is_instance_valid(escort_node): nodes.append(escort_node)
+	var nodes: Array = ship_nodes()   # v13.143: every ship, the fleet ships too
 	for n in nodes:
 		if not is_instance_valid(n) or cam.is_position_behind(n.global_position): continue
 		var d := cam.unproject_position(n.global_position).distance_to(p)
+		var rad := float(n.get_meta("radius", 0.0))
+		if rad > 30.0:   # a big hull: a tap anywhere on it counts (its size on screen)
+			var edge := cam.unproject_position(n.global_position + cam.global_basis.x * rad)
+			d = maxf(0.0, d - edge.distance_to(cam.unproject_position(n.global_position)) * 0.8)
 		if d < best_d:
 			best_d = d
 			best = n
@@ -14122,6 +14171,8 @@ static func _fleet_standin(e: Dictionary) -> Node3D:
 		m.name = "FleetModel"
 		m.scale = Vector3.ONE * (ln / Data.FLEET9_FIT_LEN)
 		n.add_child(m)
+		var mb := ShipFactory._aabb(m, Transform3D.IDENTITY)   # v13.143 (owner: "I could go through it"): the hull box is the model's own
+		if mb.size != Vector3.ZERO: n.set_meta("hit_half", mb.size * 0.5)
 		n.set_meta("placeholder", false)
 		var tg := Label3D.new()
 		tg.name = "Tag"

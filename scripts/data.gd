@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.142"
+const VERSION := "v13.143"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -77,7 +77,7 @@ const SYSTEM_LAYOUT := {
 			"desc": "Unity's west corner station by Haven: ice haulers, a repair dock and a quiet bar for new pilots."}],
 		"gates": {"vega": [6.2, 1.9], "veranthos": [5.6, 9.0]},
 		"clouds": [
-			{"name": "Outer Drift", "at": [10.0, 5.0], "radius": 26000.0, "weather": "rocks", "color": Color(0.62, 0.58, 0.55)},
+			{"name": "Outer Drift", "at": [8.5, 9.4], "radius": 26000.0, "weather": "rocks", "color": Color(0.62, 0.58, 0.55)},   # v13.143 (owner): moved to H9
 			{"name": "Ash Wisps", "at": [1.0, 8.4], "radius": 24000.0, "weather": "storm", "color": Color(0.5, 0.45, 0.75)},
 			{"name": "Liberty Haze", "at": [7.4, 8.6], "radius": 22000.0, "weather": "storm", "color": Color(0.35, 0.6, 0.95)},
 			{"name": "North Veil", "at": [4.9, 2.4], "radius": 30000.0, "weather": "storm", "color": Color(0.6, 0.35, 0.9)},   # v11.94: north of mid
@@ -1975,6 +1975,14 @@ const FLEET_FRIGATE_LEN := 186.0   # v11.89: 3x (was 62)
 const FLEET_STARFIGHTER_LEN := 11.0
 const FLEET_YAW := 0.0                 # the light copies already face -Z (top views checked)
 const FLEET_STARFIGHTER_YAW := 0.0
+# v13.143 (owner: "every fleet has a limited amount of ships it sends out versus a limited amount it carries"): a
+# hostile fleet ship launches its fighters in waves when you come near or call it; fly far off and they go home,
+# and the ship gets its shield, hull and hangar back.
+const FLEET_HANGAR := {"Capital": 24, "Cruiser": 12, "Destroyer": 8, "Resupply": 4, "TroopTransport": 6, "Frigate": 6, "Escort": 4, "Scout": 0, "Bomber": 0}
+const FLEET_WAVE := {"Capital": 8, "Cruiser": 6, "Destroyer": 4, "Resupply": 2, "TroopTransport": 3, "Frigate": 3, "Escort": 2}
+const FLEET_LAUNCH_DIST := 3000.0   # m from the hull: a hostile ship launches a wave
+const FLEET_RECALL_DIST := 9000.0   # m: further off, its fighters fly home and it regenerates
+const FLEET_BOARDABLE := ["Capital", "Cruiser", "Destroyer", "Resupply", "TroopTransport", "Frigate"]   # the big ships: REQUEST BOARDING
 const FLEET9_FIT_LEN := 100.0   # v13.140: the 9-class fleet models fit to this, then the stand-in scales them to the class length
 const FLEET9_LEN_K := {"Capital": 0.45, "Cruiser": 0.8}   # v13.141 (owner: "that capital ship is way too big"): the models are bulkier than the old prism, so the big classes fly shorter
 const FLEET9_YAW := 0.0        # v13.140: the light copies already face -Z (topview checked)
@@ -2200,8 +2208,10 @@ const SUPER_WAVE_R := 120.0    # how far the shock rings burst out
 const SIDESTEP_SPEED := 160.0   # v12.2: m/s added sideways by SIDESTEP
 const SIDESTEP_CD := 1.2
 # v12.15 (owner): the mech's LASER SHIELD (the spare button) and SWORD (SIDESTEP in the mech)
-const LSHIELD_COLOR := Color(0.35, 0.75, 1.0, 0.32)   # blue glow, see-through
-const LSHIELD_SIZE := Vector2(7.0, 9.5)               # m wide, tall
+const LSHIELD_COLOR := Color(1.0, 0.78, 0.25, 0.55)   # v13.143 (owner): gold plates (was a blue glow)
+const LSHIELD_SIZE := Vector2(6.4, 8.0)               # m wide, tall (v13.143: a little smaller)
+const LSHIELD_SIDES := 6       # v13.143 (owner): a low-poly 6-sided shield of plates with gaps, one mesh
+const LSHIELD_GAP := 0.07      # share of the radius left open between the plates
 const LSHIELD_DIST := 4.2                              # m out from the mech's middle
 const LSHIELD_Y := 0.5
 const LSHIELD_COVER := 0.35                            # shots coming from within ~70 deg of where it faces are stopped
@@ -2784,6 +2794,8 @@ const GUARD_PATROL := 70.0      # m: the loop a guard walks round his post
 const SPEED_CHARGE_K := 1.0     # v12.46 (owner: "charge before it runs fast"): while charging you run at the plain SPRINT_K pace
 const GHOST_EVERY := 0.07       # s between the speed run's shadow runners
 const GHOST_LIFE := 0.35        # s each one fades over
+const GHOST_SCALE := 1.12      # v13.143 (owner: "the shadow should coat your body"): the clone wraps you, a little bigger, and rides with you
+const GHOST_TRAIL := 0.6       # m it slips back behind you as it fades
 # v11.15 (owner): a faction's own lockdown art: every guard is its helmeted soldier, and ONE boss (the marshal who
 # comes to arrest you, laser blade) holds the hangar; the rooms before it end with no boss. boss_rush = how often he
 # closes in for a blade duel instead of firing.

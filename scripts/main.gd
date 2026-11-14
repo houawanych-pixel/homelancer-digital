@@ -446,6 +446,59 @@ func _board_job_step(dt: float) -> void:
 		if board_power() > 50.0:
 			_board_cd = 5.0
 			hud.flash_message("SHIELDS UP: you can't board yet. Shoot the ship down to 50%% power (now %d%%)." % int(ceil(board_power())))
+	_fleet_waves(dt)
+
+## v13.143 (owner: "requests boarding ... a calm and a picture come on: access granted, proceed to the docking hangar;
+## hostile: enemy hostile, capture / destroy target, and ships fly out and swarm you"): the call to a fleet ship.
+func request_boarding(n: Node3D) -> void:
+	if n == null or not is_instance_valid(n) or not n.has_meta("fleet_id"): return
+	var fe: Dictionary = FleetCatalog.get_entry(str(n.get_meta("fleet_id")))
+	if fe.is_empty(): return
+	hud.close_scan()
+	var who := "%s — %s" % [n.name, str(fe["faction"])]
+	if str(n.get_meta("kind", "")) == "board_target":
+		hud.open_comms(who, "ENEMY HOSTILE. You are not cleared. All wings: capture or destroy the target!", "incoming", true)
+		_fleet_launch(n)
+		return
+	n.set_meta("dock_granted", true)
+	hud.open_comms(who, "Access granted. Proceed to the docking hangar.", "incoming", false)
+
+## A hostile fleet ship's fighters: a wave out when you come near or call it (no more than its hangar holds); fly far
+## off and they go home, the ship regenerates its shield and hull and the hangar fills up again.
+var fleet_wave: Array = []   # the fighters out from the boarding target now
+func _fleet_launch(n: Node3D) -> void:
+	var cls := str(FleetCatalog.get_entry(str(n.get_meta("fleet_id"))).get("class", ""))
+	var left := int(n.get_meta("hangar", Data.FLEET_HANGAR.get(cls, 0)))
+	fleet_wave = fleet_wave.filter(func(e): return is_instance_valid(e.get("node")) and space.enemies.has(e))
+	var want := mini(left, int(Data.FLEET_WAVE.get(cls, 0)) - fleet_wave.size())
+	if want <= 0: return
+	var fac := str(FleetCatalog.get_entry(str(n.get_meta("fleet_id")))["faction"])
+	if not Factions.has_fighters(fac): return
+	var grp: Array = space.spawn_mission_group(n.global_position + Vector3(0, float(n.get_meta("radius", 100.0)) * 0.3, 0), fac, want, 2, "", 0)
+	fleet_wave += grp
+	n.set_meta("hangar", left - grp.size())
+	hud.flash_message("%s launches %d fighters (%d left aboard)." % [n.name, grp.size(), left - grp.size()])
+
+func _fleet_waves(_dt: float) -> void:
+	if not is_instance_valid(board_ship) or not is_instance_valid(space.player): return
+	var d := board_hull_dist(space.player.global_position)
+	var cls := str(board_job().get("class", ""))
+	if d < Data.FLEET_LAUNCH_DIST and board_ship.get_meta("hangar", 1) > 0 and fleet_wave.filter(func(e): return space.enemies.has(e)).is_empty():
+		_fleet_launch(board_ship)
+	elif d > Data.FLEET_RECALL_DIST and (not fleet_wave.is_empty() or int(board_ship.get_meta("hangar", Data.FLEET_HANGAR.get(cls, 0))) < int(Data.FLEET_HANGAR.get(cls, 0)) or board_power() < 100.0):
+		for e in fleet_wave:   # they fly home
+			if space.enemies.has(e) and is_instance_valid(e.get("node")):
+				(e["node"] as Node).queue_free()
+				space.enemies.erase(e)
+		fleet_wave = []
+		board_ship.set_meta("hangar", int(Data.FLEET_HANGAR.get(cls, 0)))
+		board_ship.set_meta("power", 100.0)   # the shield and hull regenerate
+		var lb := board_ship.get_node_or_null("PowerLabel") as Label3D
+		if lb != null:
+			lb.text = "POWER 100%  ·  SHIELD UP"
+			lb.modulate = Color(0.5, 0.85, 1.0)
+		hud.flash_message("%s: its fighters flew home. Shield and hull restored." % board_ship.name)
+
 ## How far a point is from the target ship's hull box (0 = on or inside it).
 func board_hull_dist(p: Vector3) -> float:
 	if not is_instance_valid(board_ship): return INF
@@ -707,6 +760,7 @@ func _on_hud(id: String) -> void:
 			hud.flash_message(hud.start_scan())   # v1.5g
 			hud.target_menu = false
 		"scan_close": hud.close_scan()
+		"req_board": request_boarding(hud.scan_node)   # v13.143
 		"scan_view": open_scan_view()   # v11.28
 		"view":
 			space.set_view("cockpit" if GS.view == "chase" else "chase")

@@ -3405,6 +3405,25 @@ func _run() -> void:
 				_check("v13.140: the capital model is its class length, longest along Z", fm != null and absf(bx.size.z - 1360.0 * float(Data.FLEET9_LEN_K["Capital"])) < 30.0 and bx.size.z >= bx.size.x, str(bx.size))
 			else: _check("v13.140: %s keeps its placeholders (no models yet)" % fac, real.is_empty())
 			if fac == "Unity":
+				# v13.143 (owner): TARGET picks the fleet ship in front of you, NEXT the next one; scan; REQUEST BOARDING
+				var dkn: Node3D = s.fleet_visitors.filter(func(v): return v["mode"] == "docked")[0]["node"]
+				_tp(dkn.global_position + Vector3(0, 80, 900), dkn.global_position)
+				await _frames(3)
+				main._on_hud("tgt_front")
+				_check("v13.143: TARGET picks the (friendly) fleet ship straight ahead", s.target == dkn, str(s.target.name) if s.target else "none")
+				var t1: Node3D = s.target
+				main._on_hud("target")
+				_check("v13.143: NEXT moves on to another target", s.target != t1 and s.target != null)
+				s.target = dkn
+				var si: Dictionary = s.scan_info(dkn)
+				_check("v13.143: a big fleet ship scans as friendly with REQUEST BOARDING", not si.is_empty() and bool(si.get("board", false)) and not bool(si.get("hostile", true)), str(si.get("sub", "")))
+				main.request_boarding(dkn)
+				_check("v13.143: REQUEST BOARDING on a friendly: access granted", bool(dkn.get_meta("dock_granted", false)) and str(main.hud.slots["r"].get("line", "")).begins_with("Access granted"))
+				var p_in := dkn.global_position
+				s.player.global_position = p_in
+				s.vel = Vector3.ZERO
+				await _frames(3)
+				_check("v13.143: the fleet ship is solid (you're pushed out of its hull)", s.player.global_position.distance_to(p_in) > 5.0, "%.0f m" % s.player.global_position.distance_to(p_in))
 				var cap: Node3D = s.fleet_visitors[0]["node"]
 				var p0 := cap.global_position
 				await _wait(1.0)
@@ -5192,6 +5211,7 @@ func _run() -> void:
 		await _wait(0.4)
 		var spd: float = Vector2(s.vel.x, s.vel.z).length()
 		s.laser_shield = true   # v13.142 (owner): only with the SHIELD up does the run smash a fighter
+		await _capture("rush_gold_shield")   # v13.143: the gold plate shield and the shadow clone on the body
 		var e := s.spawn_unit("unity_starfighter", s.player.global_position - s.player.global_basis.z * 30.0, s.player.global_position)
 		var k0: int = s.rush_kills
 		await _until(func(): return s.rush_kills > k0, 2.0)

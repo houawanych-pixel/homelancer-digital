@@ -607,6 +607,7 @@ func _layout() -> void:
 	log_rect = buttons["log"]
 	if space and space.controls and not console_open: buttons["radar"] = radar_rect()
 	if not scan.is_empty():
+		if bool(scan.get("board", false)): buttons["req_board"] = req_board_rect()   # v13.143
 		buttons["scan_view"] = scan_view_rect()   # v11.28 (before the card, so it wins the tap)
 		buttons["scan_close"] = scan_rect()
 	if space and space.controls:
@@ -2182,7 +2183,7 @@ func _draw() -> void:
 	elif space.warp_state == "on": wsub = "DROP OUT"
 	if space.on_foot or space.escape_pilot or GS.form == "mech":   # v12.45 (owner): on foot WARP is the speed run; v13.142: in the mech too (no LOCKED)
 		var rs: String = space.rush_state
-		_corner("warp", "SPEED RUN", "warp", Color(0.45, 0.85, 1.0), rs != "off", "", 0.0, false, {"charging": "CHARGING", "on": "RUNNING"}.get(rs, "RUN"))
+		_corner("warp", "RUN", "warp", Color(0.45, 0.85, 1.0), rs != "off", "", 0.0, false, {"charging": "CHARGING", "on": "RUNNING"}.get(rs, "RUN"))
 	else:
 		_corner("warp", "WARP", "warp", Color(0.62, 0.55, 1.0), space.warp_state != "off", "", 0.0, GS.form == "mech", wsub)
 	_special_button()   # v1.5o
@@ -2825,6 +2826,11 @@ func scan_view_rect() -> Rect2:
 	var rc := scan_rect()
 	return Rect2(rc.end.x - 176, rc.end.y - 50, 160, 40)
 
+## v13.143 (owner): REQUEST BOARDING on a big fleet ship's scan card, left of 3D VIEW
+func req_board_rect() -> Rect2:
+	var vb := scan_view_rect()
+	return Rect2(vb.position.x - 236, vb.position.y, 224, vb.size.y)
+
 func _tick_scan(dt: float) -> void:
 	if scan_node == null: return
 	if not is_instance_valid(scan_node) or space.target != scan_node:
@@ -2863,6 +2869,10 @@ func _draw_scan() -> void:
 	var vb := scan_view_rect()
 	_box(vb, Color(0.05, 0.25, 0.4, 0.95), CYAN_HI, 8, 2)
 	_text(vb.position + Vector2(0, 26), "3D VIEW", 15, WHITE, HORIZONTAL_ALIGNMENT_CENTER, vb.size.x)
+	if bool(scan.get("board", false)):
+		var rb := req_board_rect()
+		_box(rb, Color(0.3, 0.06, 0.06, 0.95) if scan.get("hostile", false) else Color(0.05, 0.3, 0.15, 0.95), RED if scan.get("hostile", false) else GREEN, 8, 2)
+		_text(rb.position + Vector2(0, 26), "REQUEST BOARDING", 15, WHITE, HORIZONTAL_ALIGNMENT_CENTER, rb.size.x)
 	if sp != null: draw_arc(sp, 34.0, 0, TAU, 32, Color(col, 0.8), 2.0)
 
 ## Waypoint box: autopilot destination, else the current target.
