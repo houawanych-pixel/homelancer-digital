@@ -47,23 +47,23 @@
   "CIC": 1,
   "Crew Quarters (port)": 1,
   "Crew Quarters (starboard)": 1,
-  "Coolant & Systems (starboard)": 1,
+  "Coolant & Systems (starboard)": 2,
   "Engine Room": 1
  },
  "formula": {
   "C": "Cargo Hold A",
-  "A_gate": "Reactor Core",
-  "card_yellow": "Storage & Supplies",
+  "A_gate": "Coolant & Systems (starboard)",
+  "card_yellow": "Sensors Suite",
   "card_red": "Bridge",
-  "entry": "Cargo Hold B",
+  "entry": "Crew Quarters (starboard)",
   "way_out": "Engine Room",
   "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
  },
  "entry": {
-  "room": "Cargo Hold B",
+  "room": "Crew Quarters (starboard)",
   "at": [
-   780,
-   526
+   636,
+   315
   ]
  },
  "exit": {
@@ -116,52 +116,28 @@
   },
   {
    "door": [
-    567,
-    1059
+    931.0,
+    705
    ],
    "key": 1,
-   "why": "the orange card's room (Reactor Core)"
-  },
-  {
-   "door": [
-    567,
-    1151
-   ],
-   "key": 1,
-   "why": "the orange card's room (Reactor Core)"
-  },
-  {
-   "door": [
-    522,
-    1104
-   ],
-   "key": 1,
-   "why": "the orange card's room (Reactor Core)"
-  },
-  {
-   "door": [
-    612.0,
-    1104
-   ],
-   "key": 1,
-   "why": "the orange card's room (Reactor Core)"
+   "why": "the orange card's room (Coolant & Systems (starboard))"
   }
  ],
  "guards": [
   {
    "key": 1,
-   "room": "Storage & Supplies",
+   "room": "Sensors Suite",
    "at": [
-    379,
-    888
+    505,
+    224
    ]
   },
   {
    "key": 2,
-   "room": "Reactor Core",
+   "room": "Coolant & Systems (starboard)",
    "at": [
-    567,
-    1104
+    980,
+    715
    ]
   },
   {
@@ -198,5 +174,26 @@
    ],
    "key": 3
   }
+ },
+ "room_level": {
+  "Bridge": 2,
+  "Cargo Transfer Hub": 0,
+  "Vehicle / Loader Bay": 0,
+  "Munitions Resupply": 0,
+  "Engineering Deck": 0,
+  "Reactor Core": 0,
+  "Engine Room": 2,
+  "Sensors Suite": 0,
+  "CIC": 0,
+  "Crew Quarters (port)": 0,
+  "Crew Quarters (starboard)": 0,
+  "Galley & Mess": 0,
+  "Medbay": 0,
+  "Cargo Hold A": 3,
+  "Cargo Hold B": 0,
+  "Coolant & Systems (port)": 3,
+  "Coolant & Systems (starboard)": 1,
+  "Storage & Supplies": 0,
+  "Refrigerated Stores": 0
  }
 }

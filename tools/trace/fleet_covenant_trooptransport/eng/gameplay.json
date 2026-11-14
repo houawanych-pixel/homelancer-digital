@@ -53,14 +53,15 @@
   "Barracks D": 1,
   "Ready Room (starboard)": 1,
   "Lockers & Gear (port)": 1,
-  "Deployment Bay (port)": 2,
+  "Deployment Bay (port)": 1,
   "Deployment Bay (starboard)": 1,
   "Machine Room (port)": 1,
-  "Engine Room": 1
+  "Engine Room": 1,
+  "Deployment Corridor (port)": 2
  },
  "formula": {
   "C": "Troop Bay (Deployment Deck)",
-  "A_gate": "Deployment Bay (port)",
+  "A_gate": "Deployment Corridor (port)",
   "card_yellow": "Console Room (starboard)",
   "card_red": "Bridge",
   "entry": "Reactor Core",
@@ -148,11 +149,11 @@
   },
   {
    "door": [
-    410,
-    435
+    256,
+    1000
    ],
    "key": 1,
-   "why": "the orange card's room (Deployment Bay (port))"
+   "why": "the orange card's room (Deployment Corridor (port))"
   }
  ],
  "guards": [
@@ -166,10 +167,10 @@
   },
   {
    "key": 2,
-   "room": "Deployment Bay (port)",
+   "room": "Deployment Corridor (port)",
    "at": [
-    361,
-    434
+    212,
+    1014
    ]
   },
   {
@@ -206,5 +207,34 @@
    ],
    "key": 3
   }
+ },
+ "room_level": {
+  "Bridge": 2,
+  "Sensors Suite": 0,
+  "Command & Control": 0,
+  "Briefing Room": 0,
+  "Troop Bay (Deployment Deck)": 3,
+  "Vehicle / Dropship Bay": 0,
+  "Engineering Deck": 0,
+  "Reactor Core": 0,
+  "Engine Room": 0,
+  "Console Room (port)": 0,
+  "Console Room (starboard)": 0,
+  "Deployment Bay (port)": 0,
+  "Deployment Bay (starboard)": 2,
+  "Ready Room (port)": 0,
+  "Ready Room (starboard)": 0,
+  "Barracks A": 0,
+  "Barracks C": 0,
+  "Barracks B": 0,
+  "Barracks D": 0,
+  "Lockers & Gear (port)": 0,
+  "Lockers & Gear (starboard)": 0,
+  "Armory": 0,
+  "Medbay": 0,
+  "Deployment Corridor (port)": 1,
+  "Deployment Corridor (starboard)": 0,
+  "Machine Room (port)": 0,
+  "Machine Room (starboard)": 0
  }
 }

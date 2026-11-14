@@ -191,5 +191,30 @@
    ],
    "key": 3
   }
+ },
+ "room_level": {
+  "Bridge": 2,
+  "Sensor Suite": 0,
+  "CIC (Combat Information Center)": 0,
+  "Launch Bay": 3,
+  "Engineering Deck": 0,
+  "Reactor Core": 0,
+  "Engine Control": 0,
+  "Crew Quarters (port)": 0,
+  "Crew Quarters (starboard)": 0,
+  "Galley & Mess": 0,
+  "Medbay": 0,
+  "Armory (port)": 0,
+  "Armory (starboard)": 0,
+  "Cargo Hold": 0,
+  "Missile Magazine": 0,
+  "Weapon Room (port)": 0,
+  "Weapon Room (starboard)": 0,
+  "Magazine (port)": 0,
+  "Magazine (starboard)": 0,
+  "Coolant (port)": 0,
+  "Coolant (starboard)": 0,
+  "Engine Room (L)": 2,
+  "Engine Room (R)": 1
  }
 }

@@ -106,11 +106,12 @@ def formula(sid):
                     ok = (r0(entry) and r0(c1) and not r0(gA) and r1(gA) and not r1(c3) and r2(c3) and not r2(C) and r3(C)
                           and (relax == 2 or (not r1(exit_) and r2(exit_))) and all(r3(k) for k in R))
                     if not ok: continue
-                    return write(sid, here, G0, P, R, K, pt, locks, entry, exit_, C, gA, c1, c3, src, H, W, tries)
+                    lvl = {k: next((l for l, rr in enumerate((r0, r1, r2, r3)) if rr(k)), 3) for k in R}
+                    return write(sid, here, G0, P, R, K, pt, locks, entry, exit_, C, gA, c1, c3, src, H, W, tries, lvl)
     print(sid, "NO VALID LAYOUT after", tries, "tries")
     return None
 
-def write(sid, here, G0, P, R, K, pt, locks, entry, exit_, C, gA, c1, c3, src, H, W, tries):
+def write(sid, here, G0, P, R, K, pt, locks, entry, exit_, C, gA, c1, c3, src, H, W, tries, lvl=None):
     at = lambda k: [int(pt[k].x), int(pt[k].y)]
     G = {k: v for k, v in G0.items() if k not in ("targets", "guards", "locks", "entry", "exit", "decks", "elevators", "retired_decks")}
     G["formula"] = {"C": C, "A_gate": gA, "card_yellow": c1, "card_red": c3, "entry": entry, "way_out": exit_,
@@ -126,6 +127,10 @@ def write(sid, here, G0, P, R, K, pt, locks, entry, exit_, C, gA, c1, c3, src, H
     rg = dict(G0.get("room_guards", {}))
     for k in (C, gA, c3): rg[k] = max(2, int(rg.get(k, 0)))
     G["room_guards"] = rg
+    # v13.133 (owner: "the keyholders can be in different areas each time ... never where you can't reach them"): the
+    # card each room needs to be reached (0 open .. 3); the game puts card k with a guard in a room of level k-1 at
+    # random each boarding (the ones here are the default), the cutter find too
+    if lvl: G["room_level"] = {k: int(v) for k, v in lvl.items() if K[k] != "lift"}
     json.dump(G, open(os.path.join(here, "gameplay.json"), "w"), indent=1)
     # the picture (for the owner): the deck, the letters, the locked doors
     im = cv2.imread(src) // 2

@@ -23,6 +23,7 @@ import planlib
 MECH_WORDS = ["hangar", "launch bay", "cargo hold", "cargo transfer", "vehicle", "loader", "craft bay", "troop bay",
               "deploy", "engineering", "reactor", "engine room", "maint", "weapon bay", "weapons bay", "magazine",
               "munitions", "power core", "machine room", "workshop", "supply depot", "engine access", "dropship"]
+BIG_M2 = 100.0   # a room this big (m²) or bigger is a mech room
 RED, BLUE, YELLOW = (40, 40, 235), (235, 120, 30), (0, 215, 255)          # BGR
 KEY_COL = {0: (80, 230, 80), 1: (0, 230, 255), 2: (0, 140, 255), 3: (40, 40, 235)}
 KEY_NAME = {0: "OPEN", 1: "YELLOW", 2: "ORANGE", 3: "RED"}
@@ -39,6 +40,11 @@ def ways(sid):
     im = cv2.imread(src); H, W = im.shape[:2]
     R = {k: shape(v) for k, v in P["rooms"].items()}
     K = {k: kind(k) for k in R}
+    # v13.133 (owner: "that bigger room, make it red too: the mechs can go into it ... mostly mech"): any big room
+    # (BIG_M2 and up) is red, whatever it is called; the small ones stay the pilot's
+    px_m = float(P.get("px_per_m", 10.0))
+    for k in R:
+        if K[k] == "pilot" and R[k].area / (px_m * px_m) >= BIG_M2: K[k] = "mech"
     entry = G["entry"]["room"]
     halls = unary_union([shape(h) for h in P["halls"]])
     T = float(P["thickness"])

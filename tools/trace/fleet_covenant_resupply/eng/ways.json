@@ -11,18 +11,18 @@
   "Engine Room": "mech",
   "Sensors Suite": "pilot",
   "CIC": "pilot",
-  "Crew Quarters (port)": "pilot",
-  "Crew Quarters (starboard)": "pilot",
-  "Galley & Mess": "pilot",
-  "Medbay": "pilot",
+  "Crew Quarters (port)": "mech",
+  "Crew Quarters (starboard)": "mech",
+  "Galley & Mess": "mech",
+  "Medbay": "mech",
   "Cargo Hold A": "mech",
   "Cargo Hold B": "mech",
-  "Coolant & Systems (port)": "pilot",
-  "Coolant & Systems (starboard)": "pilot",
+  "Coolant & Systems (port)": "mech",
+  "Coolant & Systems (starboard)": "mech",
   "Cargo Lift (port)": "lift",
   "Cargo Lift (starboard)": "lift",
-  "Storage & Supplies": "pilot",
-  "Refrigerated Stores": "pilot"
+  "Storage & Supplies": "mech",
+  "Refrigerated Stores": "mech"
  },
  "rooms_base": {
   "Bridge": "pilot",
@@ -35,18 +35,18 @@
   "Engine Room": "mech",
   "Sensors Suite": "pilot",
   "CIC": "pilot",
-  "Crew Quarters (port)": "pilot",
-  "Crew Quarters (starboard)": "pilot",
-  "Galley & Mess": "pilot",
-  "Medbay": "pilot",
+  "Crew Quarters (port)": "mech",
+  "Crew Quarters (starboard)": "mech",
+  "Galley & Mess": "mech",
+  "Medbay": "mech",
   "Cargo Hold A": "mech",
   "Cargo Hold B": "mech",
-  "Coolant & Systems (port)": "pilot",
-  "Coolant & Systems (starboard)": "pilot",
+  "Coolant & Systems (port)": "mech",
+  "Coolant & Systems (starboard)": "mech",
   "Cargo Lift (port)": "lift",
   "Cargo Lift (starboard)": "lift",
-  "Storage & Supplies": "pilot",
-  "Refrigerated Stores": "pilot"
+  "Storage & Supplies": "mech",
+  "Refrigerated Stores": "mech"
  },
  "cut_off_red": [],
  "doors": [
@@ -95,7 +95,7 @@
    "rooms": [
     "Cargo Transfer Hub"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -107,7 +107,7 @@
    "rooms": [
     "Vehicle / Loader Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -156,7 +156,7 @@
     "Reactor Core"
    ],
    "type": "mech",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -168,7 +168,7 @@
     "Reactor Core"
    ],
    "type": "mech",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -216,7 +216,7 @@
    "rooms": [
     "Crew Quarters (port)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -252,7 +252,7 @@
    "rooms": [
     "Galley & Mess"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -300,7 +300,7 @@
    "rooms": [
     "Cargo Hold A"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -312,7 +312,7 @@
    "rooms": [
     "Coolant & Systems (port)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -372,7 +372,7 @@
    "rooms": [
     "Storage & Supplies"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -409,7 +409,7 @@
     "Reactor Core"
    ],
    "type": "pilot",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -445,7 +445,7 @@
    "rooms": [
     "Crew Quarters (starboard)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -457,7 +457,7 @@
    "rooms": [
     "Crew Quarters (starboard)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -469,7 +469,7 @@
    "rooms": [
     "Medbay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -481,7 +481,7 @@
    "rooms": [
     "Medbay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -493,7 +493,7 @@
    "rooms": [
     "Medbay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -505,7 +505,7 @@
    "rooms": [
     "Cargo Transfer Hub"
    ],
-   "type": "mech",
+   "type": "pilot",
    "key": 0
   },
   {
@@ -529,7 +529,7 @@
    "rooms": [
     "Cargo Hold B"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -541,8 +541,8 @@
    "rooms": [
     "Coolant & Systems (starboard)"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 1
   },
   {
    "at": [
@@ -601,7 +601,7 @@
    "rooms": [
     "Refrigerated Stores"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -638,19 +638,19 @@
     "Reactor Core"
    ],
    "type": "pilot",
-   "key": 1
+   "key": 0
   }
  ],
- "entry": "Cargo Hold B",
+ "entry": "Crew Quarters (starboard)",
  "mech_rooms_unreached": [],
  "counts": {
-  "mech_rooms": 8,
-  "pilot_rooms": 11,
-  "mech_doors": 17,
-  "pilot_doors": 32,
+  "mech_rooms": 16,
+  "pilot_rooms": 3,
+  "mech_doors": 31,
+  "pilot_doors": 18,
   "locked": {
-   "OPEN": 40,
-   "YELLOW": 4,
+   "OPEN": 43,
+   "YELLOW": 1,
    "ORANGE": 2,
    "RED": 3
   }

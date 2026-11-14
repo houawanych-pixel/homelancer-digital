@@ -12,16 +12,16 @@
   "Engine Room": "mech",
   "Crew Quarters (port)": "pilot",
   "Crew Quarters (starboard)": "pilot",
-  "Galley & Mess": "pilot",
-  "Medbay": "pilot",
+  "Galley & Mess": "mech",
+  "Medbay": "mech",
   "Lift (port)": "lift",
   "Lift (starboard)": "lift",
   "Cargo Hold A": "mech",
   "Cargo Hold B": "mech",
-  "Supplies Storage": "pilot",
+  "Supplies Storage": "mech",
   "Munitions Resupply": "mech",
-  "Refrigerated Stores": "pilot",
-  "Spare Parts & Equipment": "pilot",
+  "Refrigerated Stores": "mech",
+  "Spare Parts & Equipment": "mech",
   "Workshop & Maintenance": "mech",
   "Logistics Office": "pilot"
  },
@@ -37,16 +37,16 @@
   "Engine Room": "mech",
   "Crew Quarters (port)": "pilot",
   "Crew Quarters (starboard)": "pilot",
-  "Galley & Mess": "pilot",
-  "Medbay": "pilot",
+  "Galley & Mess": "mech",
+  "Medbay": "mech",
   "Lift (port)": "lift",
   "Lift (starboard)": "lift",
   "Cargo Hold A": "mech",
   "Cargo Hold B": "mech",
-  "Supplies Storage": "pilot",
+  "Supplies Storage": "mech",
   "Munitions Resupply": "mech",
-  "Refrigerated Stores": "pilot",
-  "Spare Parts & Equipment": "pilot",
+  "Refrigerated Stores": "mech",
+  "Spare Parts & Equipment": "mech",
   "Workshop & Maintenance": "mech",
   "Logistics Office": "pilot"
  },
@@ -134,7 +134,7 @@
    "rooms": [
     "Loader & Vehicle Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -254,7 +254,7 @@
    "rooms": [
     "Galley & Mess"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -266,7 +266,7 @@
    "rooms": [
     "Lift (port)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -278,7 +278,7 @@
    "rooms": [
     "Lift (port)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -290,7 +290,7 @@
    "rooms": [
     "Galley & Mess"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -300,7 +300,7 @@
    ],
    "o": "h",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -324,8 +324,8 @@
    "rooms": [
     "Supplies Storage"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 1
   },
   {
    "at": [
@@ -348,7 +348,7 @@
    "rooms": [
     "Refrigerated Stores"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -397,7 +397,7 @@
     "Workshop & Maintenance"
    ],
    "type": "mech",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -409,7 +409,7 @@
     "Workshop & Maintenance"
    ],
    "type": "mech",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -458,7 +458,7 @@
     "Medbay"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -469,8 +469,8 @@
    "rooms": [
     "Medbay"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 2
   },
   {
    "at": [
@@ -481,7 +481,7 @@
    "rooms": [
     "Lift (starboard)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -493,7 +493,7 @@
    "rooms": [
     "Lift (starboard)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -505,8 +505,8 @@
    "rooms": [
     "Medbay"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 2
   },
   {
    "at": [
@@ -515,7 +515,7 @@
    ],
    "o": "h",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -540,7 +540,7 @@
     "Munitions Resupply"
    ],
    "type": "mech",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -563,7 +563,7 @@
    "rooms": [
     "Spare Parts & Equipment"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -640,19 +640,16 @@
   }
  ],
  "entry": "Engine Room",
- "mech_rooms_unreached": [
-  "Lift (port)",
-  "Lift (starboard)"
- ],
+ "mech_rooms_unreached": [],
  "counts": {
-  "mech_rooms": 9,
-  "pilot_rooms": 12,
-  "mech_doors": 16,
-  "pilot_doors": 33,
+  "mech_rooms": 14,
+  "pilot_rooms": 7,
+  "mech_doors": 30,
+  "pilot_doors": 19,
   "locked": {
-   "OPEN": 43,
-   "YELLOW": 2,
-   "ORANGE": 2,
+   "OPEN": 42,
+   "YELLOW": 1,
+   "ORANGE": 4,
    "RED": 2
   }
  }

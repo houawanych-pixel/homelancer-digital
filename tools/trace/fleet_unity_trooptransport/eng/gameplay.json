@@ -31,146 +31,184 @@
   "Barracks (port)": 1,
   "Barracks (starboard)": 2,
   "Lockers": 1,
-  "Ready Room": 1,
+  "Ready Room": 2,
   "Engineering": 2,
   "Bridge": 2,
   "Sensors & Comms": 1,
   "Reactor Core": 1,
   "Briefing Room": 1,
-  "Medbay": 1,
-  "Vehicle Bay": 2
+  "Medbay": 1
  },
  "formula": {
-  "C": "Vehicle Bay",
-  "A_gate": "Engineering",
-  "card_yellow": "Ready Room",
-  "card_red": "Bridge",
-  "entry": "Troop Bay",
-  "way_out": "Reactor Core",
+  "C": "Troop Bay",
+  "A_gate": "Barracks (starboard)",
+  "card_yellow": "Armory",
+  "card_red": "Ready Room",
+  "entry": "Bridge",
+  "way_out": "Vehicle Bay",
   "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
  },
  "entry": {
-  "room": "Troop Bay",
+  "room": "Bridge",
   "at": [
    464,
-   784
+   215
   ]
  },
  "exit": {
-  "room": "Reactor Core",
+  "room": "Vehicle Bay",
   "at": [
-   464,
-   1333
+   305,
+   1011
   ]
  },
  "locks": [
   {
    "door": [
+    464,
+    489
+   ],
+   "key": 3,
+   "why": "the objective (Troop Bay)"
+  },
+  {
+   "door": [
+    464,
+    1080
+   ],
+   "key": 3,
+   "why": "the objective (Troop Bay)"
+  },
+  {
+   "door": [
+    392,
+    700
+   ],
+   "key": 3,
+   "why": "the objective (Troop Bay)"
+  },
+  {
+   "door": [
+    392,
+    940
+   ],
+   "key": 3,
+   "why": "the objective (Troop Bay)"
+  },
+  {
+   "door": [
+    536.0,
+    700
+   ],
+   "key": 3,
+   "why": "the objective (Troop Bay)"
+  },
+  {
+   "door": [
+    536.0,
+    940
+   ],
+   "key": 3,
+   "why": "the objective (Troop Bay)"
+  },
+  {
+   "door": [
+    556.0,
+    990
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
     372,
     990
    ],
-   "key": 3,
-   "why": "the objective (Vehicle Bay)"
-  },
-  {
-   "door": [
-    464,
-    266
-   ],
    "key": 2,
    "why": "the red card / the way out"
   },
   {
    "door": [
-    464,
-    1273
+    561.0,
+    635
    ],
-   "key": 2,
-   "why": "the red card / the way out"
+   "key": 1,
+   "why": "the orange card's room (Barracks (starboard))"
   },
   {
    "door": [
-    464,
-    1102
+    630.0,
+    753
    ],
    "key": 1,
-   "why": "the orange card's room (Engineering)"
-  },
-  {
-   "door": [
-    464,
-    1230
-   ],
-   "key": 1,
-   "why": "the orange card's room (Engineering)"
-  },
-  {
-   "door": [
-    381,
-    1100
-   ],
-   "key": 1,
-   "why": "the orange card's room (Engineering)"
-  },
-  {
-   "door": [
-    547.0,
-    1100
-   ],
-   "key": 1,
-   "why": "the orange card's room (Engineering)"
+   "why": "the orange card's room (Barracks (starboard))"
   }
  ],
  "guards": [
   {
    "key": 1,
+   "room": "Armory",
+   "at": [
+    300,
+    843
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Barracks (starboard)",
+   "at": [
+    620,
+    636
+   ]
+  },
+  {
+   "key": 3,
    "room": "Ready Room",
    "at": [
     623,
     1011
    ]
-  },
-  {
-   "key": 2,
-   "room": "Engineering",
-   "at": [
-    464,
-    1166
-   ]
-  },
-  {
-   "key": 3,
-   "room": "Bridge",
-   "at": [
-    464,
-    215
-   ]
   }
  ],
  "targets": {
   "sabotage": {
-   "room": "Vehicle Bay",
+   "room": "Troop Bay",
    "at": [
-    305,
-    1011
+    464,
+    784
    ],
    "key": 3
   },
   "capture": {
-   "room": "Vehicle Bay",
+   "room": "Troop Bay",
    "at": [
-    305,
-    1011
+    464,
+    784
    ],
    "key": 3
   },
   "rescue": {
-   "room": "Vehicle Bay",
+   "room": "Troop Bay",
    "at": [
-    305,
-    1011
+    464,
+    784
    ],
    "key": 3
   }
+ },
+ "room_level": {
+  "Bridge": 0,
+  "Sensors & Comms": 0,
+  "Troop Bay": 3,
+  "Engineering": 3,
+  "Reactor Core": 3,
+  "Briefing Room": 0,
+  "Medbay": 0,
+  "Barracks (port)": 0,
+  "Barracks (starboard)": 1,
+  "Armory": 0,
+  "Lockers": 0,
+  "Vehicle Bay": 2,
+  "Ready Room": 2
  }
 }

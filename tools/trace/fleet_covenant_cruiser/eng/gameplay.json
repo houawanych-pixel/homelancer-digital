@@ -35,7 +35,7 @@
   "Engine Room": 1,
   "Armory (starboard)": 1,
   "Cargo Hold (port)": 1,
-  "Cargo Hold (starboard)": 2,
+  "Cargo Hold (starboard)": 1,
   "Galley & Mess": 1,
   "Medbay": 1,
   "Crew Quarters (starboard)": 1,
@@ -43,29 +43,30 @@
   "Chapel / Shrine (starboard)": 1,
   "Weapon Bay (starboard)": 1,
   "Console Room (port)": 1,
-  "Hangar Bay": 2
+  "Hangar Bay": 2,
+  "Weapon Bay (port)": 2
  },
  "formula": {
   "C": "Hangar Bay",
-  "A_gate": "Cargo Hold (starboard)",
-  "card_yellow": "Weapon Bay (port)",
+  "A_gate": "Weapon Bay (port)",
+  "card_yellow": "Coolant Systems (starboard)",
   "card_red": "Bridge",
-  "entry": "Vehicle Bay",
-  "way_out": "Engine Room",
+  "entry": "Chapel / Shrine (port)",
+  "way_out": "Weapon Bay (starboard)",
   "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
  },
  "entry": {
-  "room": "Vehicle Bay",
+  "room": "Chapel / Shrine (port)",
   "at": [
-   591,
-   832
+   294,
+   753
   ]
  },
  "exit": {
-  "room": "Engine Room",
+  "room": "Weapon Bay (starboard)",
   "at": [
-   591,
-   1122
+   1053,
+   706
   ]
  },
  "locks": [
@@ -135,68 +136,36 @@
   },
   {
    "door": [
-    591,
-    1072
+    1003.0,
+    719
    ],
    "key": 2,
    "why": "the red card / the way out"
   },
   {
    "door": [
-    553,
-    1098
-   ],
-   "key": 2,
-   "why": "the red card / the way out"
-  },
-  {
-   "door": [
-    629.0,
-    1098
-   ],
-   "key": 2,
-   "why": "the red card / the way out"
-  },
-  {
-   "door": [
-    689.0,
-    785
+    179,
+    719
    ],
    "key": 1,
-   "why": "the orange card's room (Cargo Hold (starboard))"
-  },
-  {
-   "door": [
-    654.0,
-    830
-   ],
-   "key": 1,
-   "why": "the orange card's room (Cargo Hold (starboard))"
-  },
-  {
-   "door": [
-    705.0,
-    881
-   ],
-   "key": 1,
-   "why": "the orange card's room (Cargo Hold (starboard))"
+   "why": "the orange card's room (Weapon Bay (port))"
   }
  ],
  "guards": [
   {
    "key": 1,
-   "room": "Weapon Bay (port)",
+   "room": "Coolant Systems (starboard)",
    "at": [
-    129,
-    706
+    1058,
+    830
    ]
   },
   {
    "key": 2,
-   "room": "Cargo Hold (starboard)",
+   "room": "Weapon Bay (port)",
    "at": [
-    694,
-    832
+    129,
+    706
    ]
   },
   {
@@ -233,5 +202,31 @@
    ],
    "key": 3
   }
+ },
+ "room_level": {
+  "Bridge": 2,
+  "Sensors Suite": 0,
+  "CIC (Combat Information Center)": 0,
+  "Hangar Bay": 3,
+  "Vehicle Bay": 0,
+  "Engineering Deck": 0,
+  "Reactor Core": 0,
+  "Engine Room": 0,
+  "Console Room (port)": 0,
+  "Console Room (starboard)": 0,
+  "Crew Quarters (port)": 0,
+  "Crew Quarters (starboard)": 0,
+  "Galley & Mess": 0,
+  "Medbay": 0,
+  "Armory (port)": 0,
+  "Armory (starboard)": 0,
+  "Cargo Hold (port)": 0,
+  "Cargo Hold (starboard)": 0,
+  "Weapon Bay (port)": 1,
+  "Weapon Bay (starboard)": 2,
+  "Chapel / Shrine (port)": 0,
+  "Chapel / Shrine (starboard)": 0,
+  "Coolant Systems (port)": 0,
+  "Coolant Systems (starboard)": 0
  }
 }

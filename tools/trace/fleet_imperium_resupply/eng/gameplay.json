@@ -40,10 +40,10 @@
  "formula": {
   "C": "Vehicle / Loader Bay",
   "A_gate": "Cargo Hold B1",
-  "card_yellow": "Crew Quarters (port)",
+  "card_yellow": "Sensors Suite (port)",
   "card_red": "Bridge",
   "entry": "Engine Room",
-  "way_out": "Cargo Hold A1",
+  "way_out": "Crew Quarters (port)",
   "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
  },
  "entry": {
@@ -54,10 +54,10 @@
   ]
  },
  "exit": {
-  "room": "Cargo Hold A1",
+  "room": "Crew Quarters (port)",
   "at": [
-   294,
-   610
+   360,
+   350
   ]
  },
  "locks": [
@@ -104,15 +104,23 @@
   {
    "door": [
     390,
-    606
+    293
    ],
    "key": 2,
    "why": "the red card / the way out"
   },
   {
    "door": [
-    306,
-    685
+    443,
+    344
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    363,
+    409
    ],
    "key": 2,
    "why": "the red card / the way out"
@@ -137,10 +145,10 @@
  "guards": [
   {
    "key": 1,
-   "room": "Crew Quarters (port)",
+   "room": "Sensors Suite (port)",
    "at": [
-    360,
-    350
+    436,
+    261
    ]
   },
   {
@@ -185,5 +193,31 @@
    ],
    "key": 3
   }
+ },
+ "room_level": {
+  "Bridge": 2,
+  "CIC": 0,
+  "Cargo Transfer Hub": 0,
+  "Vehicle / Loader Bay": 3,
+  "General Storage": 0,
+  "Engineering Deck": 0,
+  "Reactor Core": 0,
+  "Engine Room": 0,
+  "Sensors Suite (port)": 0,
+  "Sensors Suite (starboard)": 0,
+  "Crew Quarters (port)": 2,
+  "Crew Quarters (starboard)": 0,
+  "Galley & Mess": 0,
+  "Medbay": 0,
+  "Cargo Hold A1": 0,
+  "Cargo Hold B1": 1,
+  "Cargo Hold A2": 0,
+  "Cargo Hold B2": 0,
+  "Cargo Hold A3": 0,
+  "Cargo Hold B3": 0,
+  "Refrigerated Stores": 0,
+  "Munitions Resupply": 0,
+  "Coolant / Systems A": 0,
+  "Coolant / Systems B": 0
  }
 }

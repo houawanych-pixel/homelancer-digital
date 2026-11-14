@@ -1879,7 +1879,19 @@ func _fleet_setup(root: Node3D, info: Dictionary, fac: String) -> void:
 	for l in F.get("locks", []):
 		for d in board_doors:
 			if Boarding.is_door(d, l["rooms"]): d["key"] = int(l["key"])
-	for c in F.get("cards", []):
+	var cards_now: Array = F.get("cards", [])
+	if F.has("levels"):   # v13.133 (owner: "the keyholders can be in different areas each time, never where you can't reach them")
+		var rr := RandomNumberGenerator.new()
+		rr.randomize()
+		board["fleet_rng"] = rr
+		var picked: Array = []
+		cards_now = []
+		for c in F.get("cards", []):
+			var at0 := _fleet_room_pick(rr, int(c["key"]) - 1, picked)
+			if at0 == Vector3.INF: cards_now.append(c)
+			else: cards_now.append({"key": int(c["key"]), "room": Boarding.room_at(at0), "at": [at0.x, at0.y, at0.z]})
+		if GS.cutter_level < 3 and rr.randf() < Data.CUTTER_FIND_CHANCE: _fleet_cutter_find(root, rr, picked)
+	for c in cards_now:
 		var at := Vector3(float(c["at"][0]), float(c["at"][1]) + 10.0, float(c["at"][2]))   # (v13.96: [1] = its deck)
 		for k in spawn_ground_mechs(at, fac, 1, -42, 0):
 			(k["node"] as Node3D).global_position = Vector3(at.x, Boarding.floor_at(at) + Data.WALKER_STAND, at.z)
@@ -2145,6 +2157,18 @@ func _fleet_tick(dt: float) -> void:
 			fl["wp_on"] = false
 			if is_instance_valid(fl.get("beacon")): (fl["beacon"] as Node3D).visible = false
 			message.emit("Evee: \"Got it. Call me if you need the next one.\"")
+	var cf: Dictionary = fl.get("cutter_find", {})
+	if not cf.is_empty() and is_instance_valid(cf["node"]):
+		var cp: Vector3 = (cf["node"] as Node3D).global_position
+		(cf["node"] as Node3D).rotation.y += dt * 1.5
+		if Vector2(player.global_position.x - cp.x, player.global_position.z - cp.z).length() < 30.0:
+			GS.cutter_level = maxi(GS.cutter_level, int(cf["level"]))
+			GS.has_cutter = true
+			(cf["node"] as Node3D).queue_free()
+			fl.erase("cutter_find")
+			Sfx.play("button", -2.0, 0.7)
+			GS.save_game()
+			message.emit("CUTTER LV %d FOUND! Aim at a door up to %s and use CUTTER twice across it to cut it open (yours for good)." % [GS.cutter_level, ShipInterior.KEY_NAME[GS.cutter_level]])
 	var here_k := Boarding.room_at(player.global_position)   # v13.129: the places you've been (the 3D map's fog of war)
 	if here_k != "":
 		if not fl.has("seen"): fl["seen"] = {}
@@ -2178,6 +2202,58 @@ func fleet_route() -> Array:
 	var sb: Array = Boarding.ROOMS[fleet_exit_key()]["r"]
 	out.append({"at": Vector3((float(sb[0]) + float(sb[1])) * 0.5, float(Boarding.ROOMS[fleet_exit_key()]["y"][0]), (float(sb[2]) + float(sb[3])) * 0.5), "label": "WAY OUT", "col": Color(0.4, 1.0, 0.5)})
 	return out
+
+## A room that needs exactly `level` cards to reach (not the entry, the way out, the job's room or a lift; not one already
+## used), its middle; INF if none. The far half from the entry is preferred (so you go looking).
+func _fleet_room_pick(rr: RandomNumberGenerator, level: int, used: Array) -> Vector3:
+	var F: Dictionary = Boarding.INFO["fleet"]
+	var lv: Dictionary = F.get("levels", {})
+	var avoid := ["sbay", fleet_exit_key()]
+	for t in (F.get("targets", {}) as Dictionary).values(): avoid.append(str(t["room"]))
+	var cand: Array = []
+	for k in lv:
+		if int(lv[k]) != level or avoid.has(k) or used.has(k) or not Boarding.ROOMS.has(k) or Boarding.ROOMS[k].has("lift"): continue
+		cand.append(k)
+	if cand.is_empty(): return Vector3.INF
+	var sb: Array = Boarding.ROOMS["sbay"]["r"]
+	var s0 := Vector2((float(sb[0]) + float(sb[1])) * 0.5, (float(sb[2]) + float(sb[3])) * 0.5)
+	var cen := func(k: String) -> Vector2:
+		var r: Array = Boarding.ROOMS[k]["r"]
+		return Vector2((float(r[0]) + float(r[1])) * 0.5, (float(r[2]) + float(r[3])) * 0.5)
+	cand.sort_custom(func(a, b): return (cen.call(a) as Vector2).distance_to(s0) > (cen.call(b) as Vector2).distance_to(s0))
+	var k: String = cand[rr.randi_range(0, maxi(0, (cand.size() + 1) / 2 - 1))]
+	used.append(k)
+	var c: Vector2 = cen.call(k)
+	return Vector3(c.x, Boarding.floor_of(k, c.x, c.y), c.y)
+
+## v13.133 (owner: "the cutter: a special item you find in the game and use throughout; it cuts level one doors, unless
+## you get a level two cutter, or even a level three"): the next cutter, somewhere you need the cards below it to reach.
+func _fleet_cutter_find(root: Node3D, rr: RandomNumberGenerator, used: Array) -> void:
+	var nxt := GS.cutter_level + 1
+	var at := _fleet_room_pick(rr, nxt - 1, used)
+	if at == Vector3.INF: at = _fleet_room_pick(rr, 0, used)
+	if at == Vector3.INF: return
+	var n := Node3D.new()
+	n.name = "CutterFind"
+	root.add_child(n)
+	n.global_position = at
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(10, 3, 3)
+	mi.mesh = bm
+	mi.material_override = _glow_mat(Color(1.0, 0.6, 0.2))
+	mi.position = Vector3(0, 6, 0)
+	n.add_child(mi)
+	var lb := Label3D.new()
+	lb.text = "CUTTER  LV %d" % nxt
+	lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	lb.font_size = 64
+	lb.pixel_size = 0.05
+	lb.outline_size = 12
+	lb.modulate = Color(1.0, 0.75, 0.35)
+	lb.position = Vector3(0, 13, 0)
+	n.add_child(lb)
+	board["fleet"]["cutter_find"] = {"node": n, "level": nxt}
 
 func _fleet_line(where: String) -> String:
 	var fl: Dictionary = board["fleet"]
@@ -2390,6 +2466,15 @@ func cutter_aim() -> Dictionary:
 		if hp != null and o.distance_to(hp) < best and o.distance_to(hp) < Data.CUTTER_RANGE:
 			best = o.distance_to(hp)
 			out = {"pos": hp, "wreck": wk}
+	if board.has("fleet"):   # v13.133: a shut card door (its slab) can be cut too
+		for d in board_doors:
+			if int(d.get("key", 0)) <= 0 or float(d.get("open", 0.0)) > 0.5 or not d.has("box"): continue
+			var dh: Node3D = d["box"][0]
+			var db: AABB = (dh.global_transform if is_instance_valid(dh) and dh.is_inside_tree() else Transform3D.IDENTITY) * (d["box"][1] as AABB)
+			var hp2 = db.intersects_ray(o, dir)
+			if hp2 != null and o.distance_to(hp2) < best and o.distance_to(hp2) < Data.CUTTER_RANGE:
+				best = o.distance_to(hp2)
+				out = {"pos": hp2, "wreck": {"door_cut": d, "size": db.size, "axis": d["axis"]}}
 	return out
 ## CUTTER: the first press marks a point on the wreckage, the second one cuts along the line to where you aim now.
 func cutter_press() -> String:
@@ -2413,6 +2498,19 @@ func cutter_press() -> String:
 	if line.length() < span * Data.CUTTER_SPAN:
 		Sfx.play("shield_block", -6.0)
 		return "short"
+	if wk.has("door_cut"):   # v13.133: a card door: only as high as your cutter's level
+		var d: Dictionary = wk["door_cut"]
+		var need := int(d.get("key", 0))
+		if need > GS.cutter_level:
+			Sfx.play("shield_block", -4.0)
+			message.emit("%s door: your cutter is %s. Find a level %d cutter." % [ShipInterior.KEY_NAME[need], ("level %d" % GS.cutter_level) if GS.cutter_level > 0 else "only good for wreckage", need])
+			return "short"
+		d["key"] = 0
+		for i in 14: _spark((a["pos"] - line).lerp(a["pos"], float(i) / 13.0), Color(1.0, 0.6, 0.2), 6.0, 0.5)
+		Sfx.play("saber_hit", -2.0, 0.8)
+		hit_shake = maxf(hit_shake, 0.5)
+		message.emit("CUT THROUGH the %s door: it's open now." % ShipInterior.KEY_NAME[need])
+		return "cut"
 	_cut_through(wk, a["pos"] - line, a["pos"])
 	return "cut"
 func _cut_through(wk: Dictionary, a: Vector3, b: Vector3) -> void:

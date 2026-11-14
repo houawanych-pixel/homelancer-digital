@@ -23,8 +23,8 @@
   "Armory (starboard)": "pilot",
   "Aft Lift (port)": "lift",
   "Aft Lift (starboard)": "lift",
-  "Barracks (port)": "pilot",
-  "Barracks (starboard)": "pilot",
+  "Barracks (port)": "mech",
+  "Barracks (starboard)": "mech",
   "Weapon Systems (port)": "pilot",
   "Weapon Systems (starboard)": "pilot",
   "Coolant & Systems (port)": "pilot",
@@ -55,8 +55,8 @@
   "Armory (starboard)": "pilot",
   "Aft Lift (port)": "lift",
   "Aft Lift (starboard)": "lift",
-  "Barracks (port)": "pilot",
-  "Barracks (starboard)": "pilot",
+  "Barracks (port)": "mech",
+  "Barracks (starboard)": "mech",
   "Weapon Systems (port)": "pilot",
   "Weapon Systems (starboard)": "pilot",
   "Coolant & Systems (port)": "pilot",
@@ -112,7 +112,7 @@
     "Vehicle Bay"
    ],
    "type": "mech",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -124,7 +124,7 @@
     "Vehicle Bay"
    ],
    "type": "mech",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -146,7 +146,7 @@
     "Bridge"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -252,7 +252,7 @@
    "rooms": [
     "Hangar Bay"
    ],
-   "type": "mech",
+   "type": "pilot",
    "key": 3
   },
   {
@@ -347,7 +347,7 @@
     "Barracks (port)"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 1
   },
   {
    "at": [
@@ -360,7 +360,7 @@
     "Weapon Systems (port)"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -373,7 +373,7 @@
     "Coolant & Systems (port)"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -396,7 +396,7 @@
    "rooms": [
     "Cargo Hold (port)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -408,8 +408,8 @@
    "rooms": [
     "Barracks (port)"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 1
   },
   {
    "at": [
@@ -493,7 +493,7 @@
     "Engine Room"
    ],
    "type": "mech",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -505,7 +505,7 @@
     "Bridge"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -681,7 +681,7 @@
    "rooms": [
     "Hangar Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -755,8 +755,8 @@
    "rooms": [
     "Cargo Hold (starboard)"
    ],
-   "type": "pilot",
-   "key": 1
+   "type": "mech",
+   "key": 0
   },
   {
    "at": [
@@ -767,7 +767,7 @@
    "rooms": [
     "Barracks (starboard)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -792,7 +792,7 @@
     "Cargo Hold (starboard)"
    ],
    "type": "mech",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -804,7 +804,7 @@
     "Cargo Hold (starboard)"
    ],
    "type": "mech",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -852,19 +852,19 @@
     "Engine Room"
    ],
    "type": "mech",
-   "key": 0
+   "key": 2
   }
  ],
- "entry": "Engine Room",
+ "entry": "Barracks (starboard)",
  "mech_rooms_unreached": [],
  "counts": {
-  "mech_rooms": 7,
-  "pilot_rooms": 19,
-  "mech_doors": 23,
-  "pilot_doors": 43,
+  "mech_rooms": 9,
+  "pilot_rooms": 17,
+  "mech_doors": 27,
+  "pilot_doors": 39,
   "locked": {
-   "OPEN": 51,
-   "YELLOW": 3,
+   "OPEN": 52,
+   "YELLOW": 2,
    "ORANGE": 4,
    "RED": 8
   }

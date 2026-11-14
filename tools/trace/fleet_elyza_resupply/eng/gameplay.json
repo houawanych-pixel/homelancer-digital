@@ -216,5 +216,28 @@
    ],
    "key": 3
   }
+ },
+ "room_level": {
+  "Bridge": 2,
+  "Loading / Vehicle Bay": 3,
+  "Engineering Deck": 0,
+  "Reactor Core": 0,
+  "Engine Room": 0,
+  "Sensors Suite": 1,
+  "CIC": 1,
+  "Crew Quarters (port)": 1,
+  "Crew Quarters (starboard)": 1,
+  "Galley / Mess": 1,
+  "Medbay": 1,
+  "Cargo Hold A": 1,
+  "Cargo Hold B": 2,
+  "Cargo Hold C": 0,
+  "Cargo Hold D": 0,
+  "Cargo Hold E": 0,
+  "Cargo Hold F": 0,
+  "General Storage": 0,
+  "Refrigerated Stores": 0,
+  "Munitions Resupply": 0,
+  "Spare Parts": 0
  }
 }

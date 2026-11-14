@@ -18,136 +18,150 @@
  ],
  "patrols": [],
  "room_guards": {
-  "Sensors / Recon Suite": 1,
+  "Sensors / Recon Suite": 2,
   "Engineering": 2,
-  "Bunk (4)": 2,
-  "Med / Galley": 1,
-  "Bridge (Cockpit)": 2,
-  "Mission / Data Room": 2
+  "Bunk (4)": 1,
+  "Med / Galley": 2,
+  "Bridge (Cockpit)": 1,
+  "Mission / Data Room": 1,
+  "Engine Room": 2
  },
  "formula": {
-  "C": "Mission / Data Room",
-  "A_gate": "Bunk (4)",
-  "card_yellow": "Med / Galley",
-  "card_red": "Bridge (Cockpit)",
-  "entry": "Sensor Array (port)",
-  "way_out": "Sensor Array (starboard)",
+  "C": "Sensors / Recon Suite",
+  "A_gate": "Engine Room",
+  "card_yellow": "Sensor Array (starboard)",
+  "card_red": "Med / Galley",
+  "entry": "Engine Access (L)",
+  "way_out": "Engine Access (R)",
   "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
  },
  "entry": {
-  "room": "Sensor Array (port)",
+  "room": "Engine Access (L)",
   "at": [
-   287,
-   665
+   265,
+   1123
   ]
  },
  "exit": {
-  "room": "Sensor Array (starboard)",
+  "room": "Engine Access (R)",
   "at": [
-   736,
-   665
+   758,
+   1123
   ]
  },
  "locks": [
   {
    "door": [
     512,
-    825
+    474
    ],
    "key": 3,
-   "why": "the objective (Mission / Data Room)"
+   "why": "the objective (Sensors / Recon Suite)"
   },
   {
    "door": [
     512,
-    948
+    646
    ],
    "key": 3,
-   "why": "the objective (Mission / Data Room)"
+   "why": "the objective (Sensors / Recon Suite)"
   },
   {
    "door": [
-    512,
-    459
-   ],
-   "key": 2,
-   "why": "the red card / the way out"
-  },
-  {
-   "door": [
-    638.0,
-    668
-   ],
-   "key": 2,
-   "why": "the red card / the way out"
-  },
-  {
-   "door": [
-    457,
+    567.0,
     680
    ],
-   "key": 1,
-   "why": "the orange card's room (Bunk (4))"
+   "key": 2,
+   "why": "the red card / the way out"
   },
   {
    "door": [
-    491,
+    533.0,
     747
    ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    723.0,
+    1001
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    512,
+    1069
+   ],
    "key": 1,
-   "why": "the orange card's room (Bunk (4))"
+   "why": "the orange card's room (Engine Room)"
   }
  ],
  "guards": [
   {
    "key": 1,
+   "room": "Sensor Array (starboard)",
+   "at": [
+    736,
+    665
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Engine Room",
+   "at": [
+    512,
+    1105
+   ]
+  },
+  {
+   "key": 3,
    "room": "Med / Galley",
    "at": [
     586,
     733
    ]
-  },
-  {
-   "key": 2,
-   "room": "Bunk (4)",
-   "at": [
-    437,
-    733
-   ]
-  },
-  {
-   "key": 3,
-   "room": "Bridge (Cockpit)",
-   "at": [
-    512,
-    395
-   ]
   }
  ],
  "targets": {
   "sabotage": {
-   "room": "Mission / Data Room",
+   "room": "Sensors / Recon Suite",
    "at": [
     512,
-    885
+    559
    ],
    "key": 3
   },
   "capture": {
-   "room": "Mission / Data Room",
+   "room": "Sensors / Recon Suite",
    "at": [
     512,
-    885
+    559
    ],
    "key": 3
   },
   "rescue": {
-   "room": "Mission / Data Room",
+   "room": "Sensors / Recon Suite",
    "at": [
     512,
-    885
+    559
    ],
    "key": 3
   }
+ },
+ "room_level": {
+  "Bridge (Cockpit)": 3,
+  "Sensors / Recon Suite": 3,
+  "Mission / Data Room": 0,
+  "Engineering": 0,
+  "Engine Room": 1,
+  "Sensor Array (port)": 0,
+  "Sensor Array (starboard)": 0,
+  "Bunk (4)": 0,
+  "Med / Galley": 2,
+  "Engine Access (L)": 0,
+  "Engine Access (R)": 2
  }
 }

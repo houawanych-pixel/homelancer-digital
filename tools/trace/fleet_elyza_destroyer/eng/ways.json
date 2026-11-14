@@ -5,20 +5,20 @@
   "Bridge": "pilot",
   "CIC": "pilot",
   "Lift": "lift",
-  "Launch Bay": "pilot",
-  "Missile Magazine": "pilot",
-  "Supply": "pilot",
+  "Launch Bay": "mech",
+  "Missile Magazine": "mech",
+  "Supply": "mech",
   "Engineering": "mech",
   "Reactor Core": "mech",
   "Engine Room": "mech",
-  "Crew Quarters (port)": "pilot",
-  "Crew Quarters (starboard)": "pilot",
-  "Galley & Mess": "pilot",
-  "Medbay": "pilot",
-  "Armory (port)": "pilot",
-  "Armory (starboard)": "pilot",
-  "Cargo Hold A": "pilot",
-  "Cargo Hold B": "pilot",
+  "Crew Quarters (port)": "mech",
+  "Crew Quarters (starboard)": "mech",
+  "Galley & Mess": "mech",
+  "Medbay": "mech",
+  "Armory (port)": "mech",
+  "Armory (starboard)": "mech",
+  "Cargo Hold A": "mech",
+  "Cargo Hold B": "mech",
   "Weapon Systems (port)": "pilot",
   "Weapon Systems (starboard)": "pilot",
   "Coolant (port)": "pilot",
@@ -29,31 +29,26 @@
   "Bridge": "pilot",
   "CIC": "pilot",
   "Lift": "lift",
-  "Launch Bay": "pilot",
-  "Missile Magazine": "pilot",
-  "Supply": "pilot",
+  "Launch Bay": "mech",
+  "Missile Magazine": "mech",
+  "Supply": "mech",
   "Engineering": "mech",
   "Reactor Core": "mech",
   "Engine Room": "mech",
-  "Crew Quarters (port)": "pilot",
-  "Crew Quarters (starboard)": "pilot",
-  "Galley & Mess": "pilot",
-  "Medbay": "pilot",
-  "Armory (port)": "pilot",
-  "Armory (starboard)": "pilot",
-  "Cargo Hold A": "pilot",
-  "Cargo Hold B": "pilot",
+  "Crew Quarters (port)": "mech",
+  "Crew Quarters (starboard)": "mech",
+  "Galley & Mess": "mech",
+  "Medbay": "mech",
+  "Armory (port)": "mech",
+  "Armory (starboard)": "mech",
+  "Cargo Hold A": "mech",
+  "Cargo Hold B": "mech",
   "Weapon Systems (port)": "pilot",
   "Weapon Systems (starboard)": "pilot",
   "Coolant (port)": "pilot",
   "Coolant (starboard)": "pilot"
  },
- "cut_off_red": [
-  "Launch Bay",
-  "Missile Magazine",
-  "Cargo Hold A",
-  "Cargo Hold B"
- ],
+ "cut_off_red": [],
  "doors": [
   {
    "at": [
@@ -65,7 +60,7 @@
     "Sensors"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -77,7 +72,7 @@
     "Bridge"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -89,7 +84,7 @@
     "Bridge"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -124,7 +119,7 @@
    "rooms": [
     "Lift"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -136,7 +131,7 @@
    "rooms": [
     "Lift"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -148,7 +143,7 @@
    "rooms": [
     "Launch Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -161,7 +156,7 @@
     "Launch Bay",
     "Missile Magazine"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -173,7 +168,7 @@
    "rooms": [
     "Supply"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -185,7 +180,7 @@
    "rooms": [
     "Engineering"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -234,7 +229,7 @@
     "Engine Room"
    ],
    "type": "mech",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -255,7 +250,7 @@
    "rooms": [
     "Crew Quarters (port)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -267,7 +262,7 @@
    "rooms": [
     "Galley & Mess"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -279,7 +274,7 @@
    "rooms": [
     "Galley & Mess"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -291,7 +286,7 @@
    "rooms": [
     "Galley & Mess"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -303,7 +298,7 @@
    "rooms": [
     "Armory (port)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -315,7 +310,7 @@
    "rooms": [
     "Armory (port)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -339,7 +334,7 @@
    "rooms": [
     "Armory (port)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -351,8 +346,8 @@
    "rooms": [
     "Cargo Hold A"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 1
   },
   {
    "at": [
@@ -364,7 +359,7 @@
     "Cargo Hold A"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 1
   },
   {
    "at": [
@@ -387,7 +382,7 @@
    "rooms": [
     "Missile Magazine"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -399,7 +394,7 @@
    "rooms": [
     "Supply"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -412,7 +407,7 @@
     "Weapon Systems (port)"
    ],
    "type": "pilot",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -424,7 +419,7 @@
     "Cargo Hold A"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 1
   },
   {
    "at": [
@@ -437,7 +432,7 @@
     "Coolant (port)"
    ],
    "type": "pilot",
-   "key": 1
+   "key": 2
   },
   {
    "at": [
@@ -473,7 +468,7 @@
     "Engine Room"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -494,7 +489,7 @@
    "rooms": [
     "Crew Quarters (starboard)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -506,7 +501,7 @@
    "rooms": [
     "Medbay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -518,7 +513,7 @@
    "rooms": [
     "Medbay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -554,7 +549,7 @@
    "rooms": [
     "Armory (starboard)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -566,7 +561,7 @@
    "rooms": [
     "Launch Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -578,7 +573,7 @@
    "rooms": [
     "Armory (starboard)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -590,7 +585,7 @@
    "rooms": [
     "Cargo Hold B"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -712,22 +707,20 @@
     "Engine Room"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 2
   }
  ],
- "entry": "Engine Room",
- "mech_rooms_unreached": [
-  "Lift"
- ],
+ "entry": "Crew Quarters (port)",
+ "mech_rooms_unreached": [],
  "counts": {
-  "mech_rooms": 3,
-  "pilot_rooms": 18,
-  "mech_doors": 6,
-  "pilot_doors": 49,
+  "mech_rooms": 14,
+  "pilot_rooms": 7,
+  "mech_doors": 29,
+  "pilot_doors": 26,
   "locked": {
-   "OPEN": 46,
-   "YELLOW": 2,
-   "ORANGE": 3,
+   "OPEN": 44,
+   "YELLOW": 3,
+   "ORANGE": 4,
    "RED": 4
   }
  }

@@ -10,11 +10,11 @@
   "Engineering Deck": "mech",
   "Reactor Core": "mech",
   "Engine Room": "mech",
-  "Crew Quarters A": "pilot",
-  "Crew Quarters B": "pilot",
-  "Galley & Mess": "pilot",
-  "Medbay": "pilot",
-  "Armory": "pilot",
+  "Crew Quarters A": "mech",
+  "Crew Quarters B": "mech",
+  "Galley & Mess": "mech",
+  "Medbay": "mech",
+  "Armory": "mech",
   "Magazine (Ordnance)": "mech"
  },
  "rooms_base": {
@@ -27,11 +27,11 @@
   "Engineering Deck": "mech",
   "Reactor Core": "mech",
   "Engine Room": "mech",
-  "Crew Quarters A": "pilot",
-  "Crew Quarters B": "pilot",
-  "Galley & Mess": "pilot",
-  "Medbay": "pilot",
-  "Armory": "pilot",
+  "Crew Quarters A": "mech",
+  "Crew Quarters B": "mech",
+  "Galley & Mess": "mech",
+  "Medbay": "mech",
+  "Armory": "mech",
   "Magazine (Ordnance)": "mech"
  },
  "cut_off_red": [],
@@ -154,7 +154,7 @@
     "Craft Bay"
    ],
    "type": "mech",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -166,7 +166,7 @@
     "Craft Bay"
    ],
    "type": "mech",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -237,8 +237,8 @@
    "rooms": [
     "Crew Quarters A"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 1
   },
   {
    "at": [
@@ -261,8 +261,8 @@
    "rooms": [
     "Crew Quarters A"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 1
   },
   {
    "at": [
@@ -273,7 +273,7 @@
    "rooms": [
     "Galley & Mess"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -285,7 +285,7 @@
    "rooms": [
     "Galley & Mess"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -318,7 +318,7 @@
     "Armory"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -329,8 +329,8 @@
    "rooms": [
     "Armory"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 3
   },
   {
    "at": [
@@ -342,7 +342,7 @@
     "Armory"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -423,7 +423,7 @@
    "rooms": [
     "Crew Quarters B"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -435,7 +435,7 @@
    "rooms": [
     "Medbay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -447,7 +447,7 @@
    "rooms": [
     "Medbay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -457,7 +457,7 @@
    ],
    "o": "h",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -467,7 +467,7 @@
    ],
    "o": "h",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -479,8 +479,8 @@
    "rooms": [
     "Magazine (Ordnance)"
    ],
-   "type": "pilot",
-   "key": 3
+   "type": "mech",
+   "key": 0
   },
   {
    "at": [
@@ -492,7 +492,7 @@
     "Magazine (Ordnance)"
    ],
    "type": "pilot",
-   "key": 3
+   "key": 0
   },
   {
    "at": [
@@ -503,8 +503,8 @@
    "rooms": [
     "Magazine (Ordnance)"
    ],
-   "type": "mech",
-   "key": 3
+   "type": "pilot",
+   "key": 0
   },
   {
    "at": [
@@ -515,7 +515,7 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "mech",
+   "type": "pilot",
    "key": 0
   },
   {
@@ -553,13 +553,13 @@
    "key": 2
   }
  ],
- "entry": "Reactor Core",
+ "entry": "Crew Quarters B",
  "mech_rooms_unreached": [],
  "counts": {
-  "mech_rooms": 5,
-  "pilot_rooms": 8,
-  "mech_doors": 13,
-  "pilot_doors": 31,
+  "mech_rooms": 10,
+  "pilot_rooms": 3,
+  "mech_doors": 22,
+  "pilot_doors": 22,
   "locked": {
    "OPEN": 35,
    "YELLOW": 2,

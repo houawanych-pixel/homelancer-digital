@@ -5,6 +5,7 @@ signal changed
 
 var credits := 500
 var has_cutter := true   # v13.73 (owner: "if you have it, it can provide a short cut"): the CUTTER tool (you start with it for now)
+var cutter_level := 0    # v13.133 (owner: "a special item you find ... it can only cut level one doors, unless you get a level two cutter, or even a level three"): the card doors your cutter cuts (0: wreckage only); found aboard fleet ships, kept
 var ship_id := "cadet"
 var owned_ships := ["cadet"]
 var weapon_id := "pulse1"
@@ -130,7 +131,7 @@ var tutorial_seen: Array = []   # v1.7r: tutorial lesson ids already given (see 
 var god_mode := false # only used by the automated route test
 
 # ---------------------------------------------------------------- v1.7y saving
-const SAVE_KEYS := ["build_mats", "credits", "ship_id", "owned_ships", "weapon_id", "owned_weapons", "missiles", "heavy_missiles", "mines", "nukes", "rack",
+const SAVE_KEYS := ["cutter_level", "build_mats", "credits", "ship_id", "owned_ships", "weapon_id", "owned_weapons", "missiles", "heavy_missiles", "mines", "nukes", "rack",
 	"owned_racks", "slots", "modes", "view", "system_id", "discovered", "explored", "last_base", "kills", "met", "mood", "memory", "heat_shield",
 	"bounty", "bounties_done", "mission", "cargo", "missions_done", "rep", "cast", "mine_kind", "block_deltas", "tutorial_seen", "bounty_jail", "mounts", "core_gun", "core_gun2", "core_gun3", "modules", "owned_modules", "gun_levels", "owned_mechs", "mech_parts", "pilot_name", "found_stations", "planet_visits", "relics", "respawn", "respawn_prev", "home_pinned", "planet_seen", "atlases", "tips_on", "tips_known", "loadouts", "loadout_presets", "weapon_state", "l3_found", "pilot_body", "owned_gear", "pilot_suit", "creator_done"]   # (v1.9e: + mounts; v1.9i: + owned_mechs, mech_parts; v1.9j: + pilot_name)
 var save_path: String = Data.SAVE_PATH

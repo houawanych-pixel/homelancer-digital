@@ -40,7 +40,7 @@
  "formula": {
   "C": "Engineering Deck",
   "A_gate": "Galley / Med",
-  "card_yellow": "Armory",
+  "card_yellow": "Support & Stores",
   "card_red": "Bridge",
   "entry": "Crew Bunks",
   "way_out": "Sensors",
@@ -161,9 +161,9 @@
  "guards": [
   {
    "key": 1,
-   "room": "Armory",
+   "room": "Support & Stores",
    "at": [
-    385,
+    609,
     840
    ]
   },
@@ -209,5 +209,18 @@
    ],
    "key": 3
   }
+ },
+ "room_level": {
+  "Bridge": 2,
+  "Sensors": 2,
+  "CIC Tactical": 0,
+  "Engineering Deck": 3,
+  "Reactor Core": 3,
+  "Crew Bunks": 0,
+  "Galley / Med": 1,
+  "Armory": 0,
+  "Support & Stores": 0,
+  "Engine Room A": 3,
+  "Engine Room B": 3
  }
 }

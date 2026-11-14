@@ -38,17 +38,18 @@
   "Galley & Mess": 1,
   "Medbay": 1,
   "Munitions Resupply": 1,
-  "Workshop & Maintenance": 2,
+  "Workshop & Maintenance": 1,
   "Logistics Office": 1,
-  "Engine Room": 1
+  "Engine Room": 1,
+  "Supplies Storage": 2
  },
  "formula": {
   "C": "Cargo Hold A",
-  "A_gate": "Workshop & Maintenance",
+  "A_gate": "Supplies Storage",
   "card_yellow": "Crew Quarters (starboard)",
   "card_red": "Bridge",
   "entry": "Engine Room",
-  "way_out": "Munitions Resupply",
+  "way_out": "Medbay",
   "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
  },
  "entry": {
@@ -59,10 +60,10 @@
   ]
  },
  "exit": {
-  "room": "Munitions Resupply",
+  "room": "Medbay",
   "at": [
-   802,
-   740
+   661,
+   502
   ]
  },
  "locks": [
@@ -92,27 +93,35 @@
   },
   {
    "door": [
-    759.0,
-    791
+    667.0,
+    450
    ],
    "key": 2,
    "why": "the red card / the way out"
   },
   {
    "door": [
-    365,
-    1044
+    606.0,
+    464
    ],
-   "key": 1,
-   "why": "the orange card's room (Workshop & Maintenance)"
+   "key": 2,
+   "why": "the red card / the way out"
   },
   {
    "door": [
-    378,
-    1130
+    655.0,
+    552
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    269,
+    791
    ],
    "key": 1,
-   "why": "the orange card's room (Workshop & Maintenance)"
+   "why": "the orange card's room (Supplies Storage)"
   }
  ],
  "guards": [
@@ -126,10 +135,10 @@
   },
   {
    "key": 2,
-   "room": "Workshop & Maintenance",
+   "room": "Supplies Storage",
    "at": [
-    323,
-    1095
+    225,
+    740
    ]
   },
   {
@@ -166,5 +175,28 @@
    ],
    "key": 3
   }
+ },
+ "room_level": {
+  "Bridge": 2,
+  "Sensors Suite": 0,
+  "CIC": 0,
+  "Cargo Control": 0,
+  "Loader & Vehicle Bay": 0,
+  "Cargo Transfer Hub": 0,
+  "Engineering Deck": 0,
+  "Reactor Core": 0,
+  "Engine Room": 0,
+  "Crew Quarters (port)": 0,
+  "Crew Quarters (starboard)": 0,
+  "Galley & Mess": 0,
+  "Medbay": 2,
+  "Cargo Hold A": 3,
+  "Cargo Hold B": 0,
+  "Supplies Storage": 1,
+  "Munitions Resupply": 0,
+  "Refrigerated Stores": 0,
+  "Spare Parts & Equipment": 0,
+  "Workshop & Maintenance": 0,
+  "Logistics Office": 0
  }
 }

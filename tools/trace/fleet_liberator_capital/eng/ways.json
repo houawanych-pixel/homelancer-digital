@@ -3,7 +3,7 @@
  "rooms": {
   "Bridge Command Deck": "pilot",
   "Command Corridor": "pilot",
-  "CIC (Combat Information Center)": "pilot",
+  "CIC (Combat Information Center)": "mech",
   "Hangar Bay": "mech",
   "Vehicle Bay": "mech",
   "Engineering Deck": "mech",
@@ -13,8 +13,8 @@
   "Briefing Room": "pilot",
   "Sensor Lockers (port)": "pilot",
   "Sensor Lockers (starboard)": "pilot",
-  "Crew Quarters (port)": "pilot",
-  "Crew Quarters (starboard)": "pilot",
+  "Crew Quarters (port)": "mech",
+  "Crew Quarters (starboard)": "mech",
   "Lift (port)": "lift",
   "Lift (starboard)": "lift",
   "Galley & Mess": "pilot",
@@ -25,8 +25,8 @@
   "Armory (starboard)": "pilot",
   "Barracks Lockers (port)": "pilot",
   "Barracks Lockers (starboard)": "pilot",
-  "Barracks (port)": "pilot",
-  "Barracks (starboard)": "pilot",
+  "Barracks (port)": "mech",
+  "Barracks (starboard)": "mech",
   "Cargo Hold A": "mech",
   "Cargo Hold B": "mech",
   "Coolant Plant (port)": "pilot",
@@ -37,7 +37,7 @@
  "rooms_base": {
   "Bridge Command Deck": "pilot",
   "Command Corridor": "pilot",
-  "CIC (Combat Information Center)": "pilot",
+  "CIC (Combat Information Center)": "mech",
   "Hangar Bay": "mech",
   "Vehicle Bay": "mech",
   "Engineering Deck": "mech",
@@ -47,8 +47,8 @@
   "Briefing Room": "pilot",
   "Sensor Lockers (port)": "pilot",
   "Sensor Lockers (starboard)": "pilot",
-  "Crew Quarters (port)": "pilot",
-  "Crew Quarters (starboard)": "pilot",
+  "Crew Quarters (port)": "mech",
+  "Crew Quarters (starboard)": "mech",
   "Lift (port)": "lift",
   "Lift (starboard)": "lift",
   "Galley & Mess": "pilot",
@@ -59,8 +59,8 @@
   "Armory (starboard)": "pilot",
   "Barracks Lockers (port)": "pilot",
   "Barracks Lockers (starboard)": "pilot",
-  "Barracks (port)": "pilot",
-  "Barracks (starboard)": "pilot",
+  "Barracks (port)": "mech",
+  "Barracks (starboard)": "mech",
   "Cargo Hold A": "mech",
   "Cargo Hold B": "mech",
   "Coolant Plant (port)": "pilot",
@@ -68,7 +68,9 @@
   "Aft Lift (port)": "lift",
   "Aft Lift (starboard)": "lift"
  },
- "cut_off_red": [],
+ "cut_off_red": [
+  "Bridge Command Deck"
+ ],
  "doors": [
   {
    "at": [
@@ -81,7 +83,7 @@
     "Command Corridor"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -105,7 +107,7 @@
    "rooms": [
     "CIC (Combat Information Center)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -207,7 +209,7 @@
    "rooms": [
     "Crew Quarters (port)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -299,7 +301,7 @@
    ],
    "o": "v",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -311,8 +313,8 @@
    "rooms": [
     "Barracks (port)"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 1
   },
   {
    "at": [
@@ -323,8 +325,8 @@
    "rooms": [
     "Barracks (port)"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 1
   },
   {
    "at": [
@@ -336,7 +338,7 @@
     "Cargo Hold A"
    ],
    "type": "mech",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -384,7 +386,7 @@
     "Coolant Plant (port)"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -445,7 +447,7 @@
    "rooms": [
     "Crew Quarters (starboard)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -537,7 +539,7 @@
    ],
    "o": "v",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -549,8 +551,8 @@
    "rooms": [
     "Barracks (starboard)"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 2
   },
   {
    "at": [
@@ -561,8 +563,8 @@
    "rooms": [
     "Barracks (starboard)"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 2
   },
   {
    "at": [
@@ -574,7 +576,7 @@
     "Cargo Hold B"
    ],
    "type": "mech",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -649,17 +651,17 @@
    "key": 0
   }
  ],
- "entry": "Hangar Bay",
+ "entry": "Crew Quarters (port)",
  "mech_rooms_unreached": [],
  "counts": {
-  "mech_rooms": 7,
-  "pilot_rooms": 21,
-  "mech_doors": 17,
-  "pilot_doors": 31,
+  "mech_rooms": 12,
+  "pilot_rooms": 16,
+  "mech_doors": 26,
+  "pilot_doors": 22,
   "locked": {
-   "OPEN": 42,
-   "YELLOW": 1,
-   "ORANGE": 2,
+   "OPEN": 40,
+   "YELLOW": 2,
+   "ORANGE": 3,
    "RED": 3
   }
  }

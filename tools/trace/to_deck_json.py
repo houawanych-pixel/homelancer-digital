@@ -228,6 +228,8 @@ def board_layout(plan, play, src_w, src_h, pre="", y0=0.0, ways=None):
            "seal": ["none", "none"], "escape": ["none", "none"], "route_in": [], "route_out": [],
            "info": {"kind": "fleet", "blocked": wreck},
            "fleet": {"locks": lock_list, "cards": cards, "targets": targets, "entry": "sbay"}}
+    if play.get("room_level"):   # v13.133: the card each room needs (the game places the card guards / cutter finds by it)
+        lay["fleet"]["levels"] = {rk({"room": nm}): int(v) for nm, v in play["room_level"].items() if rk({"room": nm}) in rooms}
     if play.get("exit"):   # v13.130 (owner's formula): the other way out, once the job is done (the way in is blocked)
         lay["fleet"]["exit"] = {"room": rk(play["exit"]), "at": tw(play["exit"]["at"], play["exit"])}
     rep["cut_off"] = cut_off

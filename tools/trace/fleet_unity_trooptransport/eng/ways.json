@@ -1,38 +1,38 @@
 {
  "ship": "unity_trooptransport",
  "rooms": {
-  "Bridge": "pilot",
-  "Sensors & Comms": "pilot",
+  "Bridge": "mech",
+  "Sensors & Comms": "mech",
   "Troop Bay": "mech",
   "Engineering": "mech",
   "Reactor Core": "mech",
   "Lift (port)": "lift",
   "Lift (starboard)": "lift",
-  "Briefing Room": "pilot",
-  "Medbay": "pilot",
-  "Barracks (port)": "pilot",
-  "Barracks (starboard)": "pilot",
-  "Armory": "pilot",
-  "Lockers": "pilot",
+  "Briefing Room": "mech",
+  "Medbay": "mech",
+  "Barracks (port)": "mech",
+  "Barracks (starboard)": "mech",
+  "Armory": "mech",
+  "Lockers": "mech",
   "Vehicle Bay": "mech",
-  "Ready Room": "pilot"
+  "Ready Room": "mech"
  },
  "rooms_base": {
   "Bridge": "pilot",
-  "Sensors & Comms": "pilot",
+  "Sensors & Comms": "mech",
   "Troop Bay": "mech",
   "Engineering": "mech",
   "Reactor Core": "mech",
   "Lift (port)": "lift",
   "Lift (starboard)": "lift",
-  "Briefing Room": "pilot",
-  "Medbay": "pilot",
-  "Barracks (port)": "pilot",
-  "Barracks (starboard)": "pilot",
-  "Armory": "pilot",
-  "Lockers": "pilot",
+  "Briefing Room": "mech",
+  "Medbay": "mech",
+  "Barracks (port)": "mech",
+  "Barracks (starboard)": "mech",
+  "Armory": "mech",
+  "Lockers": "mech",
   "Vehicle Bay": "mech",
-  "Ready Room": "pilot"
+  "Ready Room": "mech"
  },
  "cut_off_red": [],
  "doors": [
@@ -46,8 +46,8 @@
     "Bridge",
     "Sensors & Comms"
    ],
-   "type": "pilot",
-   "key": 2
+   "type": "mech",
+   "key": 0
   },
   {
    "at": [
@@ -58,7 +58,7 @@
    "rooms": [
     "Sensors & Comms"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -70,8 +70,8 @@
    "rooms": [
     "Troop Bay"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 3
   },
   {
    "at": [
@@ -83,7 +83,7 @@
     "Troop Bay"
    ],
    "type": "mech",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -95,7 +95,7 @@
     "Engineering"
    ],
    "type": "mech",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -107,7 +107,7 @@
     "Engineering"
    ],
    "type": "mech",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -119,7 +119,7 @@
     "Reactor Core"
    ],
    "type": "mech",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -140,7 +140,7 @@
    ],
    "o": "v",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -152,7 +152,7 @@
    "rooms": [
     "Barracks (port)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -165,7 +165,7 @@
     "Troop Bay"
    ],
    "type": "mech",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -177,7 +177,7 @@
     "Troop Bay"
    ],
    "type": "mech",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -210,7 +210,7 @@
    ],
    "o": "v",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -223,7 +223,7 @@
     "Vehicle Bay"
    ],
    "type": "mech",
-   "key": 3
+   "key": 2
   },
   {
    "at": [
@@ -235,7 +235,7 @@
     "Engineering"
    ],
    "type": "mech",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -256,7 +256,7 @@
    ],
    "o": "v",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -268,8 +268,8 @@
    "rooms": [
     "Barracks (starboard)"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 1
   },
   {
    "at": [
@@ -281,7 +281,7 @@
     "Troop Bay"
    ],
    "type": "mech",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -292,8 +292,8 @@
    "rooms": [
     "Troop Bay"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 3
   },
   {
    "at": [
@@ -305,7 +305,7 @@
     "Barracks (starboard)"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 1
   },
   {
    "at": [
@@ -326,7 +326,7 @@
    ],
    "o": "v",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -338,8 +338,8 @@
    "rooms": [
     "Ready Room"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 2
   },
   {
    "at": [
@@ -351,21 +351,21 @@
     "Engineering"
    ],
    "type": "mech",
-   "key": 1
+   "key": 0
   }
  ],
- "entry": "Troop Bay",
+ "entry": "Bridge",
  "mech_rooms_unreached": [],
  "counts": {
-  "mech_rooms": 4,
-  "pilot_rooms": 9,
-  "mech_doors": 12,
-  "pilot_doors": 15,
+  "mech_rooms": 13,
+  "pilot_rooms": 0,
+  "mech_doors": 23,
+  "pilot_doors": 4,
   "locked": {
-   "OPEN": 20,
-   "YELLOW": 4,
+   "OPEN": 17,
+   "YELLOW": 2,
    "ORANGE": 2,
-   "RED": 1
+   "RED": 6
   }
  }
 }

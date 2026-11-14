@@ -63,31 +63,32 @@
   "Weapon Systems (starboard)": 1,
   "Engine Room": 1,
   "Hangar Bay": 2,
-  "Cargo Hold (starboard)": 2
+  "Cargo Hold (starboard)": 2,
+  "Coolant & Systems (starboard)": 2
  },
  "derived_from": "imperium_cruiser",
  "gameplay_from": "orion_cruiser",
  "formula": {
   "C": "Hangar Bay",
   "A_gate": "Cargo Hold (starboard)",
-  "card_yellow": "Sensor Console (port)",
-  "card_red": "Bridge",
-  "entry": "Engine Room",
-  "way_out": "Cargo Hold (port)",
+  "card_yellow": "Armory (starboard)",
+  "card_red": "Coolant & Systems (starboard)",
+  "entry": "Barracks (port)",
+  "way_out": "Barracks (starboard)",
   "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
  },
  "entry": {
-  "room": "Engine Room",
+  "room": "Barracks (port)",
   "at": [
-   587,
-   1155
+   320,
+   792
   ]
  },
  "exit": {
-  "room": "Cargo Hold (port)",
+  "room": "Barracks (starboard)",
   "at": [
-   446,
-   865
+   853,
+   792
   ]
  },
  "locks": [
@@ -157,23 +158,15 @@
   },
   {
    "door": [
-    572,
-    224
+    1026.0,
+    863
    ],
    "key": 2,
    "why": "the red card / the way out"
   },
   {
    "door": [
-    602.0,
-    224
-   ],
-   "key": 2,
-   "why": "the red card / the way out"
-  },
-  {
-   "door": [
-    400,
+    971.0,
     893
    ],
    "key": 2,
@@ -181,16 +174,24 @@
   },
   {
    "door": [
-    465,
-    824
+    823.0,
+    740
    ],
    "key": 2,
    "why": "the red card / the way out"
   },
   {
    "door": [
-    491,
-    884
+    945.0,
+    790
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    820.0,
+    840
    ],
    "key": 2,
    "why": "the red card / the way out"
@@ -223,10 +224,10 @@
  "guards": [
   {
    "key": 1,
-   "room": "Sensor Console (port)",
+   "room": "Armory (starboard)",
    "at": [
-    528,
-    331
+    797,
+    694
    ]
   },
   {
@@ -239,10 +240,10 @@
   },
   {
    "key": 3,
-   "room": "Bridge",
+   "room": "Coolant & Systems (starboard)",
    "at": [
-    587,
-    188
+    1020,
+    895
    ]
   }
  ],
@@ -271,5 +272,33 @@
    ],
    "key": 3
   }
+ },
+ "room_level": {
+  "Bridge": 0,
+  "Sensors Suite": 0,
+  "CIC (Combat Information Center)": 0,
+  "Hangar Bay": 3,
+  "Vehicle Bay": 0,
+  "Engineering Deck": 0,
+  "Reactor Core": 0,
+  "Engine Room": 0,
+  "Crew Quarters (port)": 0,
+  "Crew Quarters (starboard)": 0,
+  "CIC Annex (port)": 0,
+  "CIC Annex (starboard)": 0,
+  "Sensor Console (port)": 0,
+  "Sensor Console (starboard)": 0,
+  "Galley & Mess": 0,
+  "Medbay": 0,
+  "Armory (port)": 0,
+  "Armory (starboard)": 0,
+  "Barracks (port)": 0,
+  "Barracks (starboard)": 2,
+  "Weapon Systems (port)": 0,
+  "Weapon Systems (starboard)": 2,
+  "Coolant & Systems (port)": 0,
+  "Coolant & Systems (starboard)": 2,
+  "Cargo Hold (port)": 0,
+  "Cargo Hold (starboard)": 1
  }
 }

@@ -23,10 +23,10 @@
   "Cargo Lift (starboard)": "lift",
   "Cargo Hold (port)": "mech",
   "Cargo Hold (starboard)": "mech",
-  "Weapon Bay (port)": "pilot",
-  "Weapon Bay (starboard)": "pilot",
-  "Chapel / Shrine (port)": "pilot",
-  "Chapel / Shrine (starboard)": "pilot",
+  "Weapon Bay (port)": "mech",
+  "Weapon Bay (starboard)": "mech",
+  "Chapel / Shrine (port)": "mech",
+  "Chapel / Shrine (starboard)": "mech",
   "Coolant Systems (port)": "pilot",
   "Coolant Systems (starboard)": "pilot"
  },
@@ -53,17 +53,14 @@
   "Cargo Lift (starboard)": "lift",
   "Cargo Hold (port)": "mech",
   "Cargo Hold (starboard)": "mech",
-  "Weapon Bay (port)": "pilot",
-  "Weapon Bay (starboard)": "pilot",
-  "Chapel / Shrine (port)": "pilot",
-  "Chapel / Shrine (starboard)": "pilot",
+  "Weapon Bay (port)": "mech",
+  "Weapon Bay (starboard)": "mech",
+  "Chapel / Shrine (port)": "mech",
+  "Chapel / Shrine (starboard)": "mech",
   "Coolant Systems (port)": "pilot",
   "Coolant Systems (starboard)": "pilot"
  },
- "cut_off_red": [
-  "Weapon Bay (port)",
-  "Weapon Bay (starboard)"
- ],
+ "cut_off_red": [],
  "doors": [
   {
    "at": [
@@ -195,7 +192,7 @@
     "Engine Room"
    ],
    "type": "mech",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -338,7 +335,7 @@
    "rooms": [
     "Hangar Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -350,7 +347,7 @@
    "rooms": [
     "Hangar Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -374,7 +371,7 @@
    "rooms": [
     "Chapel / Shrine (port)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -386,8 +383,8 @@
    "rooms": [
     "Weapon Bay (port)"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 1
   },
   {
    "at": [
@@ -398,7 +395,7 @@
    "rooms": [
     "Chapel / Shrine (port)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -555,7 +552,7 @@
     "Engine Room"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -734,7 +731,7 @@
    "rooms": [
     "Chapel / Shrine (starboard)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -746,8 +743,8 @@
    "rooms": [
     "Weapon Bay (starboard)"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 2
   },
   {
    "at": [
@@ -758,7 +755,7 @@
    "rooms": [
     "Chapel / Shrine (starboard)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -807,7 +804,7 @@
     "Cargo Hold (starboard)"
    ],
    "type": "mech",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -843,7 +840,7 @@
     "Cargo Hold (starboard)"
    ],
    "type": "mech",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -867,7 +864,7 @@
     "Cargo Hold (starboard)"
    ],
    "type": "pilot",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -915,20 +912,20 @@
     "Engine Room"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   }
  ],
- "entry": "Vehicle Bay",
+ "entry": "Chapel / Shrine (port)",
  "mech_rooms_unreached": [],
  "counts": {
-  "mech_rooms": 7,
-  "pilot_rooms": 17,
-  "mech_doors": 21,
-  "pilot_doors": 50,
+  "mech_rooms": 11,
+  "pilot_rooms": 13,
+  "mech_doors": 29,
+  "pilot_doors": 42,
   "locked": {
-   "OPEN": 57,
-   "YELLOW": 3,
-   "ORANGE": 4,
+   "OPEN": 61,
+   "YELLOW": 1,
+   "ORANGE": 2,
    "RED": 7
   }
  }

@@ -20,7 +20,7 @@
  ],
  "patrols": [],
  "room_guards": {
-  "Cargo Hold A1": 1,
+  "Cargo Hold A1": 2,
   "Cargo Hold B2": 2,
   "Cargo Hold A3": 1,
   "Cargo Hold B3": 1,
@@ -34,31 +34,30 @@
   "Medbay": 1,
   "Munitions Resupply": 1,
   "Engine Room": 1,
-  "Vehicle / Loader Bay": 2,
-  "Cargo Hold B1": 2
+  "Vehicle / Loader Bay": 2
  },
  "derived_from": "imperium_resupply",
  "formula": {
   "C": "Vehicle / Loader Bay",
-  "A_gate": "Cargo Hold B1",
-  "card_yellow": "Crew Quarters (port)",
+  "A_gate": "Cargo Hold A1",
+  "card_yellow": "Sensors Suite (starboard)",
   "card_red": "Bridge",
-  "entry": "Engine Room",
-  "way_out": "Cargo Transfer Hub",
+  "entry": "Reactor Core",
+  "way_out": "Crew Quarters (starboard)",
   "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
  },
  "entry": {
-  "room": "Engine Room",
+  "room": "Reactor Core",
   "at": [
    512,
-   1322
+   1240
   ]
  },
  "exit": {
-  "room": "Cargo Transfer Hub",
+  "room": "Crew Quarters (starboard)",
   "at": [
-   512,
-   607
+   663,
+   350
   ]
  },
  "locks": [
@@ -104,67 +103,59 @@
   },
   {
    "door": [
-    512,
-    557
-   ],
-   "key": 2,
-   "why": "the red card / the way out"
-  },
-  {
-   "door": [
-    512,
-    659
-   ],
-   "key": 2,
-   "why": "the red card / the way out"
-  },
-  {
-   "door": [
-    461,
-    607
-   ],
-   "key": 2,
-   "why": "the red card / the way out"
-  },
-  {
-   "door": [
-    563.0,
-    607
-   ],
-   "key": 2,
-   "why": "the red card / the way out"
-  },
-  {
-   "door": [
     634.0,
+    293
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    581.0,
+    344
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    661.0,
+    409
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    390,
     606
    ],
    "key": 1,
-   "why": "the orange card's room (Cargo Hold B1)"
+   "why": "the orange card's room (Cargo Hold A1)"
   },
   {
    "door": [
-    718.0,
+    306,
     685
    ],
    "key": 1,
-   "why": "the orange card's room (Cargo Hold B1)"
+   "why": "the orange card's room (Cargo Hold A1)"
   }
  ],
  "guards": [
   {
    "key": 1,
-   "room": "Crew Quarters (port)",
+   "room": "Sensors Suite (starboard)",
    "at": [
-    360,
-    350
+    587,
+    261
    ]
   },
   {
    "key": 2,
-   "room": "Cargo Hold B1",
+   "room": "Cargo Hold A1",
    "at": [
-    730,
+    294,
     610
    ]
   },
@@ -202,5 +193,31 @@
    ],
    "key": 3
   }
+ },
+ "room_level": {
+  "Bridge": 2,
+  "CIC": 0,
+  "Cargo Transfer Hub": 0,
+  "Vehicle / Loader Bay": 3,
+  "General Storage": 0,
+  "Engineering Deck": 0,
+  "Reactor Core": 0,
+  "Engine Room": 0,
+  "Sensors Suite (port)": 0,
+  "Sensors Suite (starboard)": 0,
+  "Crew Quarters (port)": 0,
+  "Crew Quarters (starboard)": 2,
+  "Galley & Mess": 0,
+  "Medbay": 0,
+  "Cargo Hold A1": 1,
+  "Cargo Hold B1": 0,
+  "Cargo Hold A2": 0,
+  "Cargo Hold B2": 0,
+  "Cargo Hold A3": 0,
+  "Cargo Hold B3": 0,
+  "Refrigerated Stores": 0,
+  "Munitions Resupply": 0,
+  "Coolant / Systems A": 0,
+  "Coolant / Systems B": 0
  }
 }
