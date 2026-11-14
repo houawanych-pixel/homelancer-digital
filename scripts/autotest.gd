@@ -5221,8 +5221,8 @@ func _run() -> void:
 		var e2 := s.spawn_unit("unity_starfighter", s.player.global_position - s.player.global_basis.z * 30.0, s.player.global_position)
 		var k1: int = s.rush_kills
 		await _until(func(): return s.rush_state == "off", 2.0)
-		_check("v13.142: shield down, running into a fighter stops the run and doesn't smash it", s.rush_state == "off" and s.rush_kills == k1)
-		if is_instance_valid(e2.get("node")): (e2["node"] as Node).queue_free()
+		_check("v13.142: shield down, running into a fighter stops the run and doesn't smash it", s.rush_state == "off" and s.rush_kills == k1, "state %s kills +%d shield %s/%s" % [s.rush_state, s.rush_kills - k1, s.laser_shield, s.ram_shield])
+		if s.enemies.has(e2): s._destroy_unit(e2)
 		main._on_hud("warp")
 		await _wait(Data.RUSH_CHARGE + 0.4)
 		var was_on: bool = s.rush_state == "on"
