@@ -2792,7 +2792,6 @@ func _mech_standee(e: Dictionary, fac: String, lv: int) -> void:
 	sp.position = Vector3(0, h * 0.5 - Data.WALKER_STAND, 0)
 	n.add_child(sp)
 	e["standee_mech"] = lv
-	e["vis"] = {"l": [], "r": []}
 	n.name = "%s Mech L%d" % [fac, lv]
 
 func _stealth_setup(root: Node3D, visit: bool) -> void:
