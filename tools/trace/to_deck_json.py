@@ -26,8 +26,8 @@ H_ROOM, H_HALL = 100.0, 72.0
 # v13.128 (owner: "mech doors a lot bigger than pilot doors ... rooms mechs can't go into, the ceiling so low only the
 # pilot can go in"): from eng/ways.json (tools/trace/fleet_ways.py) the PILOT rooms, halls and doors are low and the
 # pilot doors narrow; the engine keeps the mech out of them (eject and go in on foot)
-H_PILOT = 10.0         # u: the pilot (3.8 u, v13.137: a mech is 3-4x a pilot) walks in under it; the mech (13 u) is kept out
-PILOT_DOOR_K = 0.25    # a pilot door is this share of a mech door's width (16 u: 3-4 pilots side by side)
+H_PILOT = 12.0         # u: the pilot (3.8 u, v13.137: a mech is 3-4x a pilot) walks in under it; the mech (13 u) is kept out
+PILOT_DOOR_K = 0.35    # a pilot door is this share of a mech door's width (16 u: 3-4 pilots side by side)
 # v13.129 (owner: "elevation in that room, slopes that move up and down even though it's on the same level, like Armored
 # Core or the new Metroid"): the big mech rooms' floors slope along their length; their doorways ramp to meet them
 SLOPE_ROOMS = {"hangar": 14.0, "cargo hold": 12.0, "vehicle": 12.0, "troop bay": 12.0, "loader": 12.0, "launch bay": 14.0, "deploy": 10.0}   # (under 15 u: the deck name reads by height)

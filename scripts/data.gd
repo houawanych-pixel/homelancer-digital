@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.155"
+const VERSION := "v13.156"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -2842,6 +2842,10 @@ const CREW_LINES := {
 		"Fine. {code}. You owe me a drink."]}
 const CREW_WALKERS := 2   # v13.150: crew from the pool (not this ship's keyholders) walking round each ship
 const STANDEE_BASE := Color(0.12, 0.13, 0.16)   # the stand under a cut-out
+const BOARD_PILOT_PAD := 1.6   # v13.156: the pilot's own room round him against walls aboard (the ship's 8 m shut him out of pilot doors)
+const ROOM_SPAWN_AREA := 9000.0   # v13.156: one guard per this much floor (u²) in a room, when its door first opens
+const ROOM_SPAWN_MAX := 4         # ... at most this many per room
+const ROOM_SPAWN_CAP := 40        # ... and no more once this many are aboard (phones)
 const STEALTH_CAUTION_TIME := 40.0   # v13.144 (owner, Metal Gear): s of searching before it goes back to NEUTRAL
 const STEALTH_SEARCH_R := 900.0      # guards this near where you were go and search there
 const STEALTH_SNEAK_DIST := 45.0     # m: hit a guard from behind this close and nobody knows

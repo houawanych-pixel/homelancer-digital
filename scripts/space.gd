@@ -727,7 +727,7 @@ func _bump_box(body: Node3D) -> void:
 func _push_out_box(hd: Node3D, bb: AABB, kind: String) -> bool:
 	var xf := hd.global_transform
 	var k := maxf(xf.basis.get_scale().x, 0.001)
-	var pad := Data.RETOPO_BOX_PAD / k
+	var pad := (Data.BOARD_PILOT_PAD if boarding and (escape_pilot or on_foot) else Data.RETOPO_BOX_PAD) / k   # v13.156 (owner: "I can't fit in the door as a pilot"): the pilot's own size, not the ship's
 	var q := xf.affine_inverse() * player.global_position
 	var lo := bb.position - Vector3.ONE * pad
 	var hi := bb.end + Vector3.ONE * pad
@@ -2846,6 +2846,38 @@ func _stealth_setup(root: Node3D, visit: bool) -> void:
 			post.look_at(post.global_position + thru * sg, Vector3.UP)
 			(d["pads"] as Array).append(at)
 
+## v13.156 (owner: "the ship is so empty, fighters everywhere ... load them when you open the doors, to save memory"):
+## a room's guards come in the first time a door into it opens (never the bay you came in by), so only the rooms you
+## reach hold anybody. Pilot rooms get soldiers; mech rooms a soldier squad and, on bigger ships, a mech.
+func _room_spawns() -> void:
+	if not board.has("fleet"): return
+	if not board.has("room_spawned"): board["room_spawned"] = {"sbay": true}
+	var done: Dictionary = board["room_spawned"]
+	var fac := str(board.get("faction", "Imperium"))
+	for d in board_doors:
+		if float(d.get("open", 0.0)) < 0.3: continue
+		for rk in d.get("rooms", []):
+			var k := str(rk)
+			if done.has(k) or not Boarding.ROOMS.has(k): continue
+			done[k] = true
+			var R: Dictionary = Boarding.ROOMS[k]
+			if bool(R.get("conn", false)) or bool(R.get("flow", false)) or "lift" in k.to_lower(): continue
+			if enemies.size() >= Data.ROOM_SPAWN_CAP: continue
+			var r: Array = R["r"]
+			var area := absf((float(r[1]) - float(r[0])) * (float(r[3]) - float(r[2])))
+			var n := clampi(int(area / Data.ROOM_SPAWN_AREA), 1, Data.ROOM_SPAWN_MAX)
+			for i in n:
+				var at := Vector3(lerpf(float(r[0]), float(r[1]), randf_range(0.25, 0.75)), 0.0, lerpf(float(r[2]), float(r[3]), randf_range(0.25, 0.75)))
+				at.y = Boarding.floor_at(at)
+				for g in spawn_ground_mechs(at, fac, 1, -42, 0):
+					(g["node"] as Node3D).global_position = Vector3(at.x, at.y + Data.WALKER_STAND, at.z)
+					g["home"] = (g["node"] as Node3D).global_position
+					g["orbit"] = randf() * TAU
+					g["aggro"] = false
+					_soldierify(g, fac)
+					if not (board["guards"] as Dictionary).has(k): board["guards"][k] = []
+					board["guards"][k].append(g)
+
 ## You stand on a door's pad: the keypad comes up (once per visit to the pad).
 func _keypad_tick() -> void:
 	if not boarding or board_doors.is_empty() or not is_instance_valid(player): return
@@ -2930,8 +2962,10 @@ func _stealth_hit(e: Dictionary) -> bool:
 	return false
 
 func _stealth_tick(dt: float) -> void:
-	if stealth == "" or not boarding: return
-	_keypad_tick()
+	if not boarding: return
+	_keypad_tick()   # v13.156 (owner: "I'm on the pad, there's no keypad"): on every fleet ship, a mission too
+	_room_spawns()
+	if stealth == "": return
 	for e in enemies:
 		if not e.has("radio_t"): continue
 		e["radio_t"] = float(e["radio_t"]) - dt
