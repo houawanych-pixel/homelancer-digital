@@ -5551,6 +5551,12 @@ func _run() -> void:
 		var on: bool = s.ram_shield
 		await _frames(3)
 		var fx_ok: bool = s._ram_fx != null and s._ram_fx.visible
+		_check("v13.147: the shield is a gold heat shield on the ship's own shape, with two swirling strands", fx_ok and s._ram_fx.get_node_or_null("Shell") != null and (s._ram_fx.get_node("Shell") as Node3D).get_child_count() > 0 and s._swirl != null and s._swirl.multimesh.instance_count == Data.SWIRL_POINTS * 2)
+		s.set_process(false)
+		s.cam.global_position = s.player.global_position + s.player.global_basis * Vector3(18, 6, -14)
+		s.cam.look_at(s.player.global_position, Vector3.UP)
+		await _capture("heat_shield")
+		s.set_process(true)
 		var hull0: float = GS.hull
 		var sh0: float = GS.shield
 		s._player_hit(50.0)

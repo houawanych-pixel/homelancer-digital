@@ -9599,46 +9599,12 @@ func _update_ram_shield(dt: float) -> void:
 	if not ram_shield:
 		if _ram_fx != null and is_instance_valid(_ram_fx): _ram_fx.visible = false
 		return
-	if _ram_fx == null or not is_instance_valid(_ram_fx):
-		# v13.77 (owner: "too big, too OP: just a cone in front of the ship, enough to cover the ship"): a cone of light
-		# over the nose, swirl rings round its mouth
-		_ram_fx = Node3D.new()
-		_ram_fx.name = "RamShield"
-		var L: float = maxf(_ship_length(), 6.0)
-		var w: float = maxf(_ship_half_width() * 1.25, L * 0.35)
-		var cone := MeshInstance3D.new()
-		var cm := CylinderMesh.new()
-		cm.top_radius = w * 0.08
-		cm.bottom_radius = w
-		cm.height = L * 0.9
-		cm.cap_top = false
-		cm.cap_bottom = false
-		cone.mesh = cm
-		cone.rotation.x = -PI * 0.5   # the tip forward (-Z)
-		cone.position = Vector3(0, 0, -L * 0.55)
-		var bm: StandardMaterial3D = _glow_mat(Color(0.35, 0.75, 1.0)).duplicate()
-		bm.albedo_color = Color(0.35, 0.75, 1.0, 0.22)
-		bm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		bm.cull_mode = BaseMaterial3D.CULL_DISABLED
-		cone.material_override = bm
-		_ram_fx.add_child(cone)
-		for k in 2:
-			var ring := MeshInstance3D.new()
-			var tm := TorusMesh.new()
-			tm.inner_radius = w * (0.62 - 0.25 * float(k))
-			tm.outer_radius = w * (0.68 - 0.25 * float(k))
-			ring.mesh = tm
-			ring.material_override = _glow_mat(Color(0.5, 0.9, 1.0))
-			ring.rotation.x = PI * 0.5
-			ring.position = Vector3(0, 0, -L * (0.35 + 0.3 * float(k)))
-			ring.name = "Ring%d" % k
-			_ram_fx.add_child(ring)
-		_ram_fx.set_meta("r", maxf(L * 0.55, w))
+	if _ram_fx == null or not is_instance_valid(_ram_fx) or _ram_fx.get_meta("ship", "") != str(GS.ship_id):
+		if _ram_fx != null and is_instance_valid(_ram_fx): _ram_fx.queue_free()
+		_ram_fx = _heat_shield()
 		player.add_child(_ram_fx)
 	_ram_fx.visible = true
-	for k in 2:
-		var ring := _ram_fx.get_node_or_null("Ring%d" % k) as Node3D
-		if ring != null: ring.rotate_object_local(Vector3.UP, dt * (7.0 + 3.0 * float(k)) * (1.0 if k == 0 else -1.0))
+	_swirl_tick(dt)
 	# smash the fighters you fly into; big ships just stop you (the solid hull push does that, see collision_damage)
 	var p := player.global_position
 	var rr: float = float(_ram_fx.get_meta("r"))
@@ -9652,6 +9618,106 @@ func _update_ram_shield(dt: float) -> void:
 		_destroy_unit(e)
 		ram_kills += 1
 		hit_shake = maxf(hit_shake, 0.3)
+
+## v13.147 (owner: "the blue shield and the rings look cheap and generic; I want a heat shield: only the front of the
+## ship, a golden-orange see-through force field ... and two lines of particles swirling round the ship, slowly, like
+## Star Fox's barrel roll"): a copy of the ship's own front half in a gold glow that fades out toward the tail, and two
+## strands of sparks curling round the ship (faster in a barrel roll).
+const HEAT_SHADER := """
+shader_type spatial;
+render_mode unshaded, blend_add, cull_disabled, depth_draw_never;
+uniform vec4 col : source_color = vec4(1.0, 0.62, 0.18, 1.0);
+uniform vec3 nose_pt;
+uniform vec3 nose_dir;
+uniform float len = 10.0;
+uniform float cover = 0.55;
+uniform float t = 0.0;
+varying vec3 wpos;
+void vertex() { wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
+void fragment() {
+	float d = dot(nose_pt - wpos, nose_dir) / len;          // 0 at the nose .. 1 at the tail
+	float front = 1.0 - smoothstep(cover * 0.6, cover, d);
+	float rim = pow(1.0 - abs(dot(NORMAL, VIEW)), 2.0);
+	float wave = 0.75 + 0.25 * sin(d * 30.0 - t * 6.0);
+	ALBEDO = col.rgb;
+	ALPHA = front * (0.12 + 0.55 * rim) * wave;
+}
+"""
+var _heat_mat: ShaderMaterial
+var _swirl: MultiMeshInstance3D
+var _swirl_phase := 0.0
+func _heat_shield() -> Node3D:
+	var fx := Node3D.new()
+	fx.name = "RamShield"
+	fx.set_meta("ship", str(GS.ship_id))
+	var L: float = maxf(_ship_length(), 6.0)
+	var w: float = maxf(_ship_half_width(), L * 0.2)
+	if _heat_mat == null:
+		var sh := Shader.new()
+		sh.code = HEAT_SHADER
+		_heat_mat = ShaderMaterial.new()
+		_heat_mat.shader = sh
+	_heat_mat.set_shader_parameter("len", L)
+	_heat_mat.set_shader_parameter("cover", Data.HEAT_COVER)
+	if is_instance_valid(model):   # the ship's own shape, a little bigger
+		var hold := Node3D.new()
+		hold.name = "Shell"
+		fx.add_child(hold)
+		for c in model.find_children("*", "MeshInstance3D", true, false):
+			var mi := c as MeshInstance3D
+			if mi.mesh == null or not mi.is_visible_in_tree() or mi.visibility_range_begin > 0.0: continue
+			var cp := MeshInstance3D.new()
+			cp.mesh = mi.mesh
+			cp.material_override = _heat_mat
+			cp.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			hold.add_child(cp)
+			cp.transform = player.global_transform.affine_inverse() * mi.global_transform
+		var mid := player.global_transform.affine_inverse() * model.global_transform.origin
+		for cp in hold.get_children(): (cp as Node3D).position -= mid
+		hold.position = mid
+		hold.scale = Vector3.ONE * Data.HEAT_SCALE
+	# the swirl: two strands of sparks round the ship (one MultiMesh, moved each frame)
+	_swirl = MultiMeshInstance3D.new()
+	_swirl.name = "Swirl"
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	var sp := SphereMesh.new()
+	sp.radius = maxf(0.12, L * 0.012)
+	sp.height = sp.radius * 2.0
+	sp.radial_segments = 6
+	sp.rings = 3
+	mm.mesh = sp
+	mm.instance_count = Data.SWIRL_POINTS * 2
+	_swirl.multimesh = mm
+	_swirl.material_override = _glow_mat(Color(1.0, 0.75, 0.3))
+	_swirl.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_swirl.set_meta("L", L)
+	_swirl.set_meta("r", w * 1.25)
+	fx.add_child(_swirl)
+	fx.set_meta("r", maxf(L * 0.55, w))
+	return fx
+
+func _swirl_tick(dt: float) -> void:
+	var rolling: bool = man_kind != "" or absf(man_roll) > 0.01
+	_swirl_phase += dt * (Data.SWIRL_SPEED * (4.0 if rolling else 1.0))
+	if _heat_mat != null and is_instance_valid(model):
+		var fwd := -player.global_basis.z
+		var L: float = float(_swirl.get_meta("L", 10.0)) if is_instance_valid(_swirl) else 10.0
+		_heat_mat.set_shader_parameter("nose_dir", fwd)
+		_heat_mat.set_shader_parameter("nose_pt", model.global_position + fwd * L * 0.5 * Data.HEAT_SCALE)
+		_heat_mat.set_shader_parameter("t", _swirl_phase)
+	if not is_instance_valid(_swirl): return
+	var L2: float = float(_swirl.get_meta("L"))
+	var r: float = float(_swirl.get_meta("r"))
+	var n: int = Data.SWIRL_POINTS
+	for strand in 2:
+		for i in n:
+			var f := float(i) / float(n - 1)   # 0 at the nose .. 1 behind the tail
+			var z := -L2 * 0.6 + f * L2 * 1.4
+			var a := _swirl_phase + f * TAU * Data.SWIRL_TURNS + PI * float(strand)
+			var rr := r * (0.55 + 0.45 * sin(f * PI))   # tight at the nose, wide round the middle, closing behind
+			var sc := 1.0 - f * 0.7
+			_swirl.multimesh.set_instance_transform(strand * n + i, Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * sc), Vector3(cos(a) * rr, sin(a) * rr, z)))
 
 func toggle_laser_shield() -> String:
 	if GS.form != "mech" or transform_t > 0.0: return "ship"
