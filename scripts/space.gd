@@ -2667,7 +2667,7 @@ func _stealth_setup(root: Node3D, visit: bool) -> void:
 		var thru := Vector3(1, 0, 0) if str(d.get("axis", "x")) == "x" else Vector3(0, 0, 1)   # (the way you walk through it)
 		var along := Vector3(0, 0, 1) if str(d.get("axis", "x")) == "x" else Vector3(1, 0, 0)
 		var half_w := (float(d.get("hi", 0.0)) - float(d.get("lo", 0.0))) * 0.5
-		for sg in [-1.0, 1.0]:   # one on each side of the wall, just beside the doorway
+		for sg: float in [-1.0, 1.0]:   # one on each side of the wall, just beside the doorway
 			var at := c + thru * sg * Data.KEYPAD_SIDE + along * (half_w + Data.KEYPAD_OFF)
 			at.y = Boarding.floor_at(at)
 			var pad := MeshInstance3D.new()
