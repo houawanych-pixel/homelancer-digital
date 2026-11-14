@@ -1,0 +1,37 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://bxswbkrgfp5a5"
+path="res://.godot/imported/unity_fleet_resupply_1.jpg-60616aac456f13923af7f22853f1f291.ctex"
+metadata={
+"vram_texture": false
+}
+generator_parameters={
+"md5": "95a75e1da8f5f25370c2c44dc0a31281"
+}
+
+[deps]
+
+source_file="res://assets/ships/fleet/unity_fleet_resupply_1.jpg"
+dest_files=["res://.godot/imported/unity_fleet_resupply_1.jpg-60616aac456f13923af7f22853f1f291.ctex"]
+
+[params]
+
+compress/mode=0
+compress/high_quality=false
+compress/lossy_quality=0.7
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=1

@@ -4623,6 +4623,13 @@ func open_station_viewer() -> StationViewer:
 	add_child(sv)
 	return sv
 
+## v13.140: the Station Viewer opened on a faction fleet ship's model (the list goes on through the other fleet ships).
+func open_fleet_viewer(id: String) -> StationViewer:
+	var sv := open_station_viewer()
+	await get_tree().process_frame
+	sv.show_key(StationViewer.FLEET_PREFIX + id)
+	return sv
+
 ## Everything about a ship, as shown in the inspector.
 static func ship_sheet(id: String) -> String:
 	var s: Dictionary = Data.SHIPS[id]
@@ -6694,6 +6701,14 @@ func _fleet_dealer_cards(list: VBoxContainer) -> void:
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		card.add_child(l)
+		if FleetCatalog.has_model(str(e["id"])):   # v13.140: the ship's 3D model in the Station Viewer (◀ ▶ through the rest)
+			var vb := Button.new()
+			vb.name = "View3D_" + str(e["id"])
+			vb.text = "VIEW 3D"
+			vb.custom_minimum_size = Vector2(110, 46)
+			var vid := str(e["id"])
+			vb.pressed.connect(func(): open_fleet_viewer(vid))
+			card.add_child(vb)
 		if ShipInterior.can_open(str(e["id"])):
 			var b := Button.new()
 			b.name = "Deck_" + str(e["id"])

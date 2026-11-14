@@ -14047,6 +14047,9 @@ func _spawn_fleet_catalog() -> void:
 	if surface_mode or not is_instance_valid(station): return
 	var fac := str(sys.get("faction", ""))
 	if not fac in FleetCatalog.FACTIONS: return
+	if FleetCatalog.has_model(FleetCatalog.id_of(fac, "Capital")) and not Packs.is_ready("faction_fleet"):   # v13.140: the models come in the fleet pack: re-spawn when it lands
+		Packs.request("faction_fleet")
+		if not Packs.pack_ready.is_connected(_on_fleet_cat_pack): Packs.pack_ready.connect(_on_fleet_cat_pack)
 	var c0: Vector3 = station.global_position
 	var a0 := float(absi(hash(sys_id + "_fleetcat")) % 628) / 100.0
 	var i := 0
@@ -14086,6 +14089,27 @@ static func _fleet_standin(e: Dictionary) -> Node3D:
 	var w := ln * aspect
 	var thick := ln * 0.1
 	n.set_meta("hit_half", Vector3(w * 0.375, maxf(thick * 0.5, 15.0), ln * 0.5))   # v13.10: the hull's box (shots, boarding)
+	if FleetCatalog.model_ready(str(e["id"])):   # v13.140 (owner: "swap out the ships for its placeholder"): the Tripo model
+		n.name = str(e["name"])
+		var m := ShipFactory.build(FleetCatalog.model_key(str(e["id"])))
+		m.name = "FleetModel"
+		m.scale = Vector3.ONE * (ln / Data.FLEET9_FIT_LEN)
+		n.add_child(m)
+		n.set_meta("placeholder", false)
+		var tg := Label3D.new()
+		tg.name = "Tag"
+		tg.text = str(e["name"])
+		tg.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		tg.fixed_size = true
+		tg.pixel_size = 0.0011
+		tg.font_size = 26
+		tg.outline_size = 8
+		tg.modulate = Color(0.75, 0.9, 1.0, 0.85)
+		tg.position.y = thick + ln * 0.08
+		tg.visibility_range_end = maxf(ln * 14.0, 1500.0)
+		n.add_child(tg)
+		return n
+	n.set_meta("placeholder", true)
 	var hull := MeshInstance3D.new()
 	hull.name = "PlaceholderPrism"
 	var pm := PrismMesh.new()
@@ -14121,6 +14145,11 @@ static func _fleet_standin(e: Dictionary) -> Node3D:
 	lb.visibility_range_end = maxf(ln * 14.0, 1500.0)
 	n.add_child(lb)
 	return n
+
+func _on_fleet_cat_pack(pk: String) -> void:
+	if pk != "faction_fleet" or not is_inside_tree(): return
+	Packs.pack_ready.disconnect(_on_fleet_cat_pack)
+	if not fleet_visitors.is_empty(): _spawn_fleet_catalog()
 
 func _update_fleet_visitors(dt: float) -> void:
 	var c0: Vector3 = station.global_position if is_instance_valid(station) else Vector3.ZERO

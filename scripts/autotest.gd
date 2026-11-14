@@ -3395,6 +3395,15 @@ func _run() -> void:
 			var s := _sp()
 			var ids: Array = s.fleet_visitors.map(func(v): return str(v["id"]))
 			_check("v12.97: %s's 9 fleet ships fly in %s" % [fac, sids[0]], ids.size() == 9 and ids.all(func(i): return str(i).begins_with(fac.to_lower())), str(ids))
+			# v13.140: Unity and Imperium fly their Tripo models (nose -Z, the class length); the rest keep the placeholder
+			var real := s.fleet_visitors.filter(func(v): return not bool((v["node"] as Node3D).get_meta("placeholder", true)))
+			if fac == "Unity":
+				_check("v13.140: all 9 Unity fleet ships are the real models", real.size() == 9, "%d real" % real.size())
+				var capn: Node3D = s.fleet_visitors[0]["node"]
+				var fm := capn.find_child("FleetModel", false, false) as Node3D
+				var bx := ShipFactory._aabb(fm, Transform3D.IDENTITY) if fm else AABB()
+				_check("v13.140: the capital model is its class length, longest along Z", fm != null and absf(bx.size.z - 1360.0) < 60.0 and bx.size.z >= bx.size.x, str(bx.size))
+			else: _check("v13.140: %s keeps its placeholders (no models yet)" % fac, real.is_empty())
 			if fac == "Unity":
 				var cap: Node3D = s.fleet_visitors[0]["node"]
 				var p0 := cap.global_position
@@ -3421,6 +3430,23 @@ func _run() -> void:
 				await _wait(0.5)
 				_check("v12.97: dealer keeps Cadet/Ranger/Lancer and adds the Unity fleet (DECK PLAN on the capital)", main.hub.find_child("Ship_cadet", true, false) != null and main.hub.find_child("Fleet_unity_scout", true, false) != null and main.hub.find_child("Deck_unity_capital", true, false) != null)
 				await _shot("dealer_fleet", 0.2)
+				var vb := main.hub.find_child("View3D_unity_capital", true, false) as Button
+				_check("v13.140: the Unity capital has VIEW 3D on the dealer card", vb != null)
+				if vb:
+					vb.pressed.emit()
+					await _wait(1.5)
+					var sv: StationViewer = main.hub.get_node_or_null("StationViewer")
+					_check("v13.140: the Station Viewer shows the Unity capital model", sv != null and sv.shown_key == "fleet:unity_capital" and sv.pivot.get_child_count() > 0, sv.shown_key if sv else "none")
+					_check("v13.140: the Station Viewer lists all 18 fleet models", sv != null and sv.keys.filter(func(k): return str(k).begins_with("fleet:")).size() == 18)
+					if sv:
+						sv.snap("TOP")
+						await _shot("viewer_unity_capital", 0.3)
+						sv.show_key("fleet:imperium_capital")
+						await _wait(1.0)
+						sv.snap("TOP")
+						await _shot("viewer_imperium_capital", 0.3)
+						sv.queue_free()
+					await _wait(0.3)
 				(main.hub.find_child("Deck_unity_capital", true, false) as Button).pressed.emit()
 				await _wait(0.5)
 				_check("v12.97: DECK PLAN opens the walkable deck", is_instance_valid(main.ship_deck))

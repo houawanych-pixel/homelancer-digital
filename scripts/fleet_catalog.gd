@@ -114,6 +114,12 @@ static func all() -> Dictionary:
 	return _all
 
 static func get_entry(id: String) -> Dictionary: return all().get(id, {})
+## v13.140: the ShipFactory key of a fleet ship's 3D model ("unity_capital" -> "unity_fleet_capital"); has_model: its file is here
+static func model_key(id: String) -> String:
+	var p := id.split("_", true, 1)
+	return "%s_fleet_%s" % [p[0], p[1]] if p.size() == 2 else id
+static func has_model(id: String) -> bool: return ShipFactory.GLB.has(model_key(id))
+static func model_ready(id: String) -> bool: return has_model(id) and ShipFactory.has_real_model(model_key(id))
 static func of_faction(faction: String) -> Array:
 	return CLASSES.map(func(c): return all()[id_of(faction, c)])
 ## The token-sheet crop box [x0, y0, x1, y1] (sheet pixels) of a ship, from tools/fleet/crop_tokens.py.

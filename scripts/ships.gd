@@ -37,6 +37,27 @@ const GLB := {
 	"liberator_cruiser": ["res://assets/ships/fleet/liberator_cruiser.glb", Data.FLEET_CRUISER_LEN, Data.FLEET_YAW],
 	"liberator_frigate": ["res://assets/ships/fleet/liberator_frigate.glb", Data.FLEET_FRIGATE_LEN, Data.FLEET_YAW],
 	"liberator_starfighter": ["res://assets/ships/fleet/liberator_starfighter.glb", Data.FLEET_STARFIGHTER_LEN, Data.FLEET_STARFIGHTER_YAW],
+	# v13.140 (owner: "use the top down ships ... swap out the ships for its placeholder"): the 9-class fleets from the Tripo sets
+	# (art/fleet_glb/HL_<Faction>_Fleet_Tripo_20261114_ORIGINAL.glb, the top-down views only). Length is a fit unit: the
+	# fleet stand-in scales each to its class length (FleetCatalog stats). Nose -Z (top views checked).
+	"unity_fleet_capital": ["res://assets/ships/fleet/unity_fleet_capital.glb", Data.FLEET9_FIT_LEN, Data.FLEET9_YAW],
+	"unity_fleet_cruiser": ["res://assets/ships/fleet/unity_fleet_cruiser.glb", Data.FLEET9_FIT_LEN, Data.FLEET9_YAW],
+	"unity_fleet_destroyer": ["res://assets/ships/fleet/unity_fleet_destroyer.glb", Data.FLEET9_FIT_LEN, Data.FLEET9_YAW],
+	"unity_fleet_resupply": ["res://assets/ships/fleet/unity_fleet_resupply.glb", Data.FLEET9_FIT_LEN, Data.FLEET9_YAW],
+	"unity_fleet_trooptransport": ["res://assets/ships/fleet/unity_fleet_trooptransport.glb", Data.FLEET9_FIT_LEN, Data.FLEET9_YAW],
+	"unity_fleet_frigate": ["res://assets/ships/fleet/unity_fleet_frigate.glb", Data.FLEET9_FIT_LEN, Data.FLEET9_YAW],
+	"unity_fleet_escort": ["res://assets/ships/fleet/unity_fleet_escort.glb", Data.FLEET9_FIT_LEN, Data.FLEET9_YAW],
+	"unity_fleet_scout": ["res://assets/ships/fleet/unity_fleet_scout.glb", Data.FLEET9_FIT_LEN, Data.FLEET9_YAW],
+	"unity_fleet_bomber": ["res://assets/ships/fleet/unity_fleet_bomber.glb", Data.FLEET9_FIT_LEN, Data.FLEET9_YAW],
+	"imperium_fleet_capital": ["res://assets/ships/fleet/imperium_fleet_capital.glb", Data.FLEET9_FIT_LEN, Data.FLEET9_YAW],
+	"imperium_fleet_cruiser": ["res://assets/ships/fleet/imperium_fleet_cruiser.glb", Data.FLEET9_FIT_LEN, Data.FLEET9_YAW],
+	"imperium_fleet_destroyer": ["res://assets/ships/fleet/imperium_fleet_destroyer.glb", Data.FLEET9_FIT_LEN, Data.FLEET9_YAW],
+	"imperium_fleet_resupply": ["res://assets/ships/fleet/imperium_fleet_resupply.glb", Data.FLEET9_FIT_LEN, Data.FLEET9_YAW],
+	"imperium_fleet_trooptransport": ["res://assets/ships/fleet/imperium_fleet_trooptransport.glb", Data.FLEET9_FIT_LEN, Data.FLEET9_YAW],
+	"imperium_fleet_frigate": ["res://assets/ships/fleet/imperium_fleet_frigate.glb", Data.FLEET9_FIT_LEN, Data.FLEET9_YAW],
+	"imperium_fleet_escort": ["res://assets/ships/fleet/imperium_fleet_escort.glb", Data.FLEET9_FIT_LEN, Data.FLEET9_YAW],
+	"imperium_fleet_scout": ["res://assets/ships/fleet/imperium_fleet_scout.glb", Data.FLEET9_FIT_LEN, Data.FLEET9_YAW],
+	"imperium_fleet_bomber": ["res://assets/ships/fleet/imperium_fleet_bomber.glb", Data.FLEET9_FIT_LEN, Data.FLEET9_YAW],
 	"cadet": ["res://assets/ships/player/cadet_v2.glb", 9.0, 0.0],   # v9.8 (owner): the remodelled Cadet (laptop Blender build, 9 m, nose -Z, level 1: 4 core + 1 per wing mounts, tilting nacelles)
 	"ranger": ["res://assets/ships/player/ranger.glb", 10.5, 0.0],
 	"lancer": ["res://assets/ships/player/lancer.glb", 12.0, 0.0],

@@ -478,3 +478,33 @@ The creature ships' back halves wave (ShipFactory._flow, Data.SHIP_FLOW). They a
 | Unity | assets/ships/fleet/unity_frigate.glb | frigate | 19498 | yes | HL_AllFactions_FlagshipSheet_v1 | IN GAME: capital patrol; invasion destroyer |
 | Unity | assets/ships/fleet/unity_starfighter.glb | starfighter | 9028 | yes | HL_AllFactions_FlagshipSheet_v1 | IN GAME: for sale in the SHIPYARD; capital patrol |
 | Imperium | (work set only) imperium_starfighter front-view twin | starfighter | | yes | HL_AllFactions_FlagshipSheet_v1 | saved, not placed |
+
+## v13.140 Unity and Imperium 9-class fleets (Tripo, Nov 14 2026)
+
+Originals (read-only, never written): `art/fleet_glb/HL_Unity_Fleet_Tripo_20261114_ORIGINAL.glb` (19 pieces) and
+`art/fleet_glb/HL_Imperium_Fleet_Tripo_20261114_ORIGINAL.glb` (18 pieces). Each set holds 9 ships twice: once as seen
+from above (the "top-down" ships, used) and once from the side (saved in the original only), plus a name sign.
+Owner: "only use the top down ships". Class names matched to the roster tokens (assets/fleet_tokens) by shape: a guess.
+All mirrored left/right (mirror_x.py); the Imperium capital was lopsided (2 boosters, one off-centre) and now has 3.
+Nose -Z, top views checked. Textures 768 (capitals 1024). In game: fleet stand-ins in space, boarding targets, Station Viewer.
+
+| Faction | File | Class | Triangles | Mirrored | Source piece | Status |
+|---|---|---|---|---|---|---|
+| Unity | assets/ships/fleet/unity_fleet_capital.glb | capital | 53764 | yes | c03 | IN GAME |
+| Unity | assets/ships/fleet/unity_fleet_cruiser.glb | cruiser | 30020 | yes | c05 | IN GAME |
+| Unity | assets/ships/fleet/unity_fleet_destroyer.glb | destroyer | 27944 | yes | c06 | IN GAME |
+| Unity | assets/ships/fleet/unity_fleet_resupply.glb | resupply | 13758 | yes | c00 | IN GAME |
+| Unity | assets/ships/fleet/unity_fleet_trooptransport.glb | trooptransport | 22828 | yes | c01 | IN GAME |
+| Unity | assets/ships/fleet/unity_fleet_frigate.glb | frigate | 5086 | yes | c04 | IN GAME |
+| Unity | assets/ships/fleet/unity_fleet_escort.glb | escort | 12722 | yes | c02 | IN GAME |
+| Unity | assets/ships/fleet/unity_fleet_scout.glb | scout | 9214 | yes | c08 | IN GAME |
+| Unity | assets/ships/fleet/unity_fleet_bomber.glb | bomber | 7548 | yes | c07 | IN GAME |
+| Imperium | assets/ships/fleet/imperium_fleet_capital.glb | capital | 42584 | yes | c00 | IN GAME |
+| Imperium | assets/ships/fleet/imperium_fleet_cruiser.glb | cruiser | 35336 | yes | c04 | IN GAME |
+| Imperium | assets/ships/fleet/imperium_fleet_destroyer.glb | destroyer | 26362 | yes | c03 | IN GAME |
+| Imperium | assets/ships/fleet/imperium_fleet_resupply.glb | resupply | 32348 | yes | c01 | IN GAME |
+| Imperium | assets/ships/fleet/imperium_fleet_trooptransport.glb | trooptransport | 25548 | yes | c02 | IN GAME |
+| Imperium | assets/ships/fleet/imperium_fleet_frigate.glb | frigate | 10624 | yes | c08 | IN GAME |
+| Imperium | assets/ships/fleet/imperium_fleet_escort.glb | escort | 9944 | yes | c05 | IN GAME |
+| Imperium | assets/ships/fleet/imperium_fleet_scout.glb | scout | 15638 | yes | c09 | IN GAME |
+| Imperium | assets/ships/fleet/imperium_fleet_bomber.glb | bomber | 8152 | yes | c07 | IN GAME |

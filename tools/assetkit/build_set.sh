@@ -1,6 +1,6 @@
 #!/bin/bash
 # build_set.sh SET : build.py (light copies of names.json), mirror_x.py, shrink_tex.py 768 -> work/SET/final/NAME.glb, then four views -> work/SET/fimg
-cd /home/claude/assetwork && export GODOT=/home/claude/godot/Godot_v4.3-stable_linux.x86_64 HL_REPO=/home/claude/homelancer-digital
+cd /home/claude/assetwork && export GODOT=/home/claude/godot/Godot_v4.3-stable_linux.x86_64 HL_REPO=/home/claude/hl
 python3 kit/build.py work/$1 work/$1/names.json > work/$1/build.log 2>&1
 mkdir -p work/$1/final work/$1/fimg work/$1/mir
 for f in $(python3 -c "import json;print(' '.join(v[0] for v in json.load(open('work/$1/names.json')).values()))"); do

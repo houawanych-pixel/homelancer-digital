@@ -58,9 +58,15 @@ static func station_keys() -> Array:
 		if str(k).begins_with("HL_Station_") or str(k).begins_with("st3d_"):
 			if not k in out: out.append(k)
 	out.sort()
+	for fac in FleetCatalog.FACTIONS:   # v13.140 (owner: "make sure it's in the station viewer as well"): the fleet models, after the stations
+		for c in FleetCatalog.CLASSES:
+			var id := FleetCatalog.id_of(fac, c)
+			if FleetCatalog.has_model(id): out.append(FLEET_PREFIX + id)
 	return out
 
+const FLEET_PREFIX := "fleet:"   # v13.140: a key in the list that is a faction fleet ship (FleetCatalog id after it)
 static func pretty(k: String) -> String:
+	if k.begins_with(FLEET_PREFIX): return str(FleetCatalog.get_entry(k.trim_prefix(FLEET_PREFIX)).get("name", k)).to_upper()
 	return k.trim_prefix("HL_Station_").trim_prefix("st3d_").trim_suffix("_retopo").replace("_", " ").to_upper()
 
 func _ready() -> void:
@@ -210,10 +216,14 @@ func show_station(i: int) -> void:
 	if is_instance_valid(walk_btn): walk_btn.visible = StationInterior.for_model(key) != "" and StationInterior.can_open(StationInterior.for_model(key))
 	for c in pivot.get_children(): c.queue_free()
 	var path := "res://assets/stations3d/%s.glb" % key
-	if not ResourceLoader.exists(path) and Packs.PACKS.has(key):
+	var pk := key
+	if key.begins_with(FLEET_PREFIX):
+		path = str(ShipFactory.GLB[FleetCatalog.model_key(key.trim_prefix(FLEET_PREFIX))][0])
+		pk = "faction_fleet"
+	if not ResourceLoader.exists(path) and Packs.PACKS.has(pk):
 		_loading = true
 		status.text = "Loading %s ..." % pretty(key)
-		await Packs.wait(key, 90.0)
+		await Packs.wait(pk, 90.0)
 		_loading = false
 		if not is_inside_tree(): return
 	if not ResourceLoader.exists(path):
