@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.141"
+const VERSION := "v13.142"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1346,6 +1346,8 @@ const ENEMY_SPACE_FLEET := ["kaijurai_fang", "kaijurai_stalker", "kaijurai_fang"
 const ENEMY_OUTPOST_MODEL := "HL_Station_Kaijurai_Military_retopo"   # v6.2: the outposts in enemy-held squares (Kaijurai stand in for all)   # enemies with no ships of their own fly Kaijurai (owner: placeholders for the rest)
 const ROOM_SND_FRONT := 0.75   # v11.9 (owner): a room part's own sound when you face its middle (was 0.5)
 const ROOM_SND_SEAM := 0.5     # v11.9 (owner): each of the two at a join (was 0.25); turned out of view = silent
+const ROOM_SND_GONE := 0.25    # v13.142 (owner): a room part is silent once it is 90 degrees (a quarter turn) off your view
+const ROOM_SND_DUCK := 1.0 / 3.0   # v13.142 (owner): while someone speaks the room plays at this share (75% facing it -> 25%); never 100%
 const HUB_MUSIC := 0.1         # v5.9 (owner): the faction's music under the hub, at 10%
 const CALL_VOICE_DB := 0.0     # v5.9 (owner): calls (Evee, the station's people) at 100%
 const ASST_TOP := 70.0         # v5.7 (owner): her head comes up to just under the menu bar
@@ -2734,6 +2736,7 @@ const CUTTER_SPAN := 0.6       # a cut must cross this share of the wreck to cut
 const RUSH_CHARGE := 0.9       # v13.72 (owner): WARP on foot / in the mech charges this long, then you RUSH
 const RUSH_SPEED := 160.0      # m/s: the rush (the jump attack's burst feel; the ship's warp is far faster)
 const RUSH_FOOT_K := 0.3       # ... on foot at human size, this share of it
+const MECH_COAST_DRAG := 0.25   # v13.142: the mech with its engine killed on the ground slides on, losing speed this slowly
 const RUSH_REACH := 8.0        # m past an enemy's own size: run into it and it is smashed
 const SPEED_BUILD := 1.6       # s of running to build it up
 const JETPACK_SPEED := 22.0    # m/s flying on foot with GROUND off

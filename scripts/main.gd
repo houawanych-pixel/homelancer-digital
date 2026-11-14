@@ -714,8 +714,9 @@ func _on_hud(id: String) -> void:
 		"zoom":   # v1.7z: the mech rifle's scope
 			hud.flash_message("Scope: ON" if space.toggle_zoom() else "Scope: OFF")
 		"stop":
+			var ran: bool = space.rush_state != "off"
 			space.full_stop()
-			hud.flash_message("Braking to a full stop.")
+			hud.flash_message("Speed run stopped. Braking." if ran else "Braking to a full stop.")
 		"swap":   # v12.67 (owner's spec): one button cycles the weapon sets
 			hud.flash_message(space.loadout_swap())
 		"cruise":   # v12.61 (owner): full speed without holding the stick forward
@@ -748,7 +749,11 @@ func _on_hud(id: String) -> void:
 				hud.flash_message("Left the trade lane.")
 			elif not space.lane_enter(): hud.flash_message("No trade-lane ring in range.")
 		"kill":
-			if GS.form == "mech": hud.flash_message("Mechs don't drift — use BOOST with the stick to dash any direction.")
+			if space.on_foot or space.escape_pilot: hud.flash_message("On foot there's no engine to kill.")
+			elif GS.form == "mech":   # v13.142 (owner): the mech kills its engine too
+				var was_run: bool = space.rush_state == "on"
+				if space.toggle_engine_kill(): hud.flash_message("Engine OFF: coasting at run speed. Turn and shoot; BOOST restarts it." if was_run else "Engine OFF: drifting. BOOST restarts it.")
+				else: hud.flash_message("Engine restarted.")
 			elif space.warp_state == "on" and space.toggle_engine_kill(): hud.flash_message("Engines OFF at warp: drifting at warp speed. Turn, shoot, use your abilities; THRUST swings the speed to your nose. KILL again restarts the engines.")
 			elif space.warp_active(): hud.flash_message("Wait for the warp drive to finish spooling.")
 			else: hud.flash_message("Engines OFF — drifting. You can still turn and shoot; THRUST restarts them." if space.toggle_engine_kill() else "Engines restarted.")

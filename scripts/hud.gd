@@ -2180,8 +2180,9 @@ func _draw() -> void:
 	var wsub := ""
 	if space.warp_state == "charging": wsub = "%d s" % int(ceil(Data.WARP_CHARGE - space.warp_t))
 	elif space.warp_state == "on": wsub = "DROP OUT"
-	if space.on_foot or space.escape_pilot:   # v12.45 (owner): on foot WARP is the speed run, like Metroid's speed booster
-		_corner("warp", "SPEED", "warp", Color(0.45, 0.85, 1.0), space.sprint, "", 0.0, false, "BOOSTING" if space.speed_k > 0.95 else ("RUN ON" if space.sprint else "RUN"))
+	if space.on_foot or space.escape_pilot or GS.form == "mech":   # v12.45 (owner): on foot WARP is the speed run; v13.142: in the mech too (no LOCKED)
+		var rs: String = space.rush_state
+		_corner("warp", "SPEED RUN", "warp", Color(0.45, 0.85, 1.0), rs != "off", "", 0.0, false, {"charging": "CHARGING", "on": "RUNNING"}.get(rs, "RUN"))
 	else:
 		_corner("warp", "WARP", "warp", Color(0.62, 0.55, 1.0), space.warp_state != "off", "", 0.0, GS.form == "mech", wsub)
 	_special_button()   # v1.5o
@@ -2215,7 +2216,7 @@ func _draw() -> void:
 	_corner("thrust", "JUMP" if gm else ("BOOST" if mech else "THRUST"), "thrust", ORANGE, space.boosting, "", 0.0, false, "STICK = DASH" if mech or gm else "")
 	if space.build_mode: _corner("fire", "PLACE", "guns", GOLD, false, str(GS.build_count(space.build_mat())), 0.0, false, space.build_mat().to_upper())   # v12.25: FIRE is PLACE in BUILD
 	else: _corner("fire", "FIRE", "guns", RED, space.fire_lock, "", 0.0, space.warp_active() or not space.lane.is_empty(), "ON · TAP OFF" if space.fire_lock else "TAP = ON")
-	_corner("kill", "ENGINE KILL", "kill", GOLD, space.engine_kill, "", 0.0, mech, "DRIFTING" if space.engine_kill else "ENGINE")
+	_corner("kill", "ENGINE KILL", "kill", GOLD, space.engine_kill, "", 0.0, space.on_foot or space.escape_pilot, "DRIFTING" if space.engine_kill else "ENGINE")   # v13.142: the mech too
 	_corner("zoom", "ZOOM", "zoom", CYAN, space.zoomed, "", 0.0, false, "SCOPE ON" if space.zoomed else "SCOPE")
 	_corner("cloak", "CLOAK", "cloak", Color(0.7, 0.5, 1.0), space.cloaked)   # v8.3 (owner): fly unseen; no weapons, no warp
 	_corner("view", "CHASE" if GS.view == "cockpit" else "COCKPIT", "view", CYAN, GS.view == "cockpit")

@@ -5191,6 +5191,7 @@ func _run() -> void:
 		var on: bool = s.rush_state == "on"
 		await _wait(0.4)
 		var spd: float = Vector2(s.vel.x, s.vel.z).length()
+		s.laser_shield = true   # v13.142 (owner): only with the SHIELD up does the run smash a fighter
 		var e := s.spawn_unit("unity_starfighter", s.player.global_position - s.player.global_basis.z * 30.0, s.player.global_position)
 		var k0: int = s.rush_kills
 		await _until(func(): return s.rush_kills > k0, 2.0)
@@ -5210,6 +5211,31 @@ func _run() -> void:
 		await _capture("rush_mech")
 		_check("v13.72 (owner): mech WARP = RUSH: charges (%s), then goes (%s) at %.0f m/s; runs over a fighter (%s); the jump attack keeps the rush speed (%s) and the rush goes on after it (%s); a wall stops it dead (%s)" % [charging, on, spd, smashed, flip_fast, still_on, stopped],
 			charging and on and spd > Data.RUSH_SPEED * 0.9 and smashed and flip_fast and still_on and stopped)
+		# v13.142 (owner): the mech's WARP button is SPEED RUN (not LOCKED), ENGINE KILL works, no shield = a fighter stops you, STOP ends it
+		main.hud.queue_redraw()
+		await _frames(2)
+		_check("v13.142: in the mech WARP is SPEED RUN and ENGINE KILL is not locked", not main.hud.buttons.is_empty())
+		s.laser_shield = false
+		main._on_hud("warp")
+		await _wait(Data.RUSH_CHARGE + 0.5)
+		var e2 := s.spawn_unit("unity_starfighter", s.player.global_position - s.player.global_basis.z * 30.0, s.player.global_position)
+		var k1: int = s.rush_kills
+		await _until(func(): return s.rush_state == "off", 2.0)
+		_check("v13.142: shield down, running into a fighter stops the run and doesn't smash it", s.rush_state == "off" and s.rush_kills == k1)
+		if is_instance_valid(e2.get("node")): (e2["node"] as Node).queue_free()
+		main._on_hud("warp")
+		await _wait(Data.RUSH_CHARGE + 0.4)
+		var was_on: bool = s.rush_state == "on"
+		main._on_hud("stop")
+		await _wait(0.6)
+		_check("v13.142: STOP ends the speed run", was_on and s.rush_state == "off" and Vector2(s.vel.x, s.vel.z).length() < Data.RUSH_SPEED * 0.5, "%.0f m/s" % Vector2(s.vel.x, s.vel.z).length())
+		main._on_hud("warp")
+		await _wait(Data.RUSH_CHARGE + 0.4)
+		main._on_hud("kill")
+		await _wait(0.3)
+		var coast := Vector2(s.vel.x, s.vel.z).length()
+		_check("v13.142: ENGINE KILL in the run: the mech coasts on fast, the run off", s.engine_kill and s.rush_state == "off" and coast > Data.RUSH_SPEED * 0.6, "%.0f m/s" % coast)
+		main._on_hud("kill")
 		_finish_group()
 		return
 	if _flag("HL_SOLID3"):   # v13.71 (owner): all ships solid end to end; the sun up out of the travel plane; clouds and fleet ships at different heights
@@ -17131,7 +17157,7 @@ func _job_v35() -> void:
 	var lounge_ok: bool = hb.room_key == "liberator_pilots_lounge" and hb.find_child("Btn_lounge", true, false) != null \
 		and (not ResourceLoader.exists("res://assets/rooms/liberator/pilots_lounge.ogv") or (hb.room_vid_on and hb.room_vid.is_playing() and hb.room_snd.size() == 3)) \
 		and absf(hb.third_level(1.0 / 6.0, 0, 0.16) - 0.75) < 0.01 and absf(hb.third_level(1.0 / 3.0, 0, 0.16) - 0.5) < 0.01 \
-		and absf(hb.third_level(1.0 / 3.0, 1, 0.16) - 0.5) < 0.01 and hb.third_level(1.0 / 6.0, 2, 0.16) == 0.0 and absf(db_to_linear(Music.vol_db) - Data.HUB_MUSIC) < 0.01   # v11.9 (owner): its sound: 75% faced, 50% each at a join, 0 out of view; music 10% (v8.4: the clips wait for the new art's animation)
+		and absf(hb.third_level(1.0 / 3.0, 1, 0.16) - 0.5) < 0.01 and hb.third_level(1.0 / 6.0, 2, 0.16) == 0.0 and hb.third_level(1.0 / 6.0 + 0.25, 0, 0.16) == 0.0 and hb.third_level(1.0 / 6.0 + 0.2, 0, 0.5) > 0.05 and hb.third_level(1.0 / 6.0 + 0.2, 0, 0.5) < 0.5 and absf(db_to_linear(Music.vol_db) - Data.HUB_MUSIC) < 0.01   # v11.9 (owner): its sound: 75% faced, 50% each at a join, 0 out of view; music 10% (v8.4: the clips wait for the new art's animation)
 	await _shot("v35_room_lounge", 0.2)
 	# v3.7: the assistant stands in the HOME room, keyed out of her green screen; tap her and ask
 	hb.show_screen("hub")

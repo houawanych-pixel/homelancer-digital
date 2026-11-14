@@ -1671,8 +1671,9 @@ static func third_level(yaw: float, third: int, vis_w: float) -> float:
 	var d: float = absf(fposmod(yaw - (third + 0.5) / 3.0 + 0.5, 1.0) - 0.5)
 	var seam := 1.0 / 6.0
 	if d <= seam: return lerpf(Data.ROOM_SND_FRONT, Data.ROOM_SND_SEAM, d / seam)
-	var off: float = maxf(vis_w * 0.5, 0.01)
-	return lerpf(Data.ROOM_SND_SEAM, 0.0, clampf((d - seam) / off, 0.0, 1.0))
+	# v13.142 (owner: "as it turns away it gets lower and lower ... once you pass that 90 degrees point it disappears"):
+	# from the join (60 degrees off its middle) down to silent at 90 degrees, whatever the screen shows
+	return lerpf(Data.ROOM_SND_SEAM, 0.0, clampf((d - seam) / (Data.ROOM_SND_GONE - seam), 0.0, 1.0))
 
 func _room_sound_levels(dt: float) -> void:
 	if room_snd.is_empty(): return
@@ -1680,7 +1681,8 @@ func _room_sound_levels(dt: float) -> void:
 	var vw: float = float(vv) if vv != null else 0.25   # (not set until the room has been drawn once)
 	for p in room_snd:
 		var pl := p as AudioStreamPlayer
-		var want: float = third_level(room_yaw, int(pl.get_meta("third")), vw) if (room_view.visible and visible and not Sfx.voice_busy()) else 0.0   # v11.97 (owner): quiet while a briefing is read
+		var want: float = third_level(room_yaw, int(pl.get_meta("third")), vw) if (room_view.visible and visible) else 0.0
+		if Sfx.voice_busy(): want *= Data.ROOM_SND_DUCK   # v13.142 (owner): Evee, the NPCs, comms and briefings speak at full; the room drops to a quarter
 		var now := db_to_linear(pl.volume_db)
 		pl.volume_db = linear_to_db(maxf(lerpf(now, want, clampf(dt * 8.0, 0.0, 1.0)), 0.0001))
 

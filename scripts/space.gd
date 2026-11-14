@@ -5438,6 +5438,9 @@ func _rush_vel(dt: float) -> void:
 		if (e["def"] as Dictionary).get("capital", false) or (e["def"] as Dictionary).has("carrier"):
 			_rush_stop("wall")
 			return
+		if GS.form == "mech" and not on_foot and not escape_pilot and not (laser_shield or ram_shield):   # v13.142 (owner): only with the SHIELD up do you smash through
+			_rush_stop("unshielded")
+			return
 		_destroy_unit(e)
 		rush_kills += 1
 		hit_shake = maxf(hit_shake, 0.35)
@@ -5447,6 +5450,7 @@ func _rush_stop(why: String) -> void:
 	hit_shake = maxf(hit_shake, 0.6)
 	Sfx.play("hull_hit", -4.0, 0.8)
 	if why == "wall": message.emit("RUSH: you hit a wall.")
+	elif why == "unshielded": message.emit("SPEED RUN: you hit it. Put the SHIELD up to smash through.")
 
 ## The shadow runners: every GHOST_EVERY s a see-through blue copy of you, frozen in that stride, left behind to fade.
 var _ghost_cd := 0.0
@@ -5968,6 +5972,11 @@ func _ground_move(dt: float, thrust: Vector2, base_speed: float) -> void:
 	_boost_was = boost_now
 	var desired := -yb.z * sp * thrust.y + yb.x * sp * 0.9 * thrust.x
 	var rate: float = Data.GROUND_GRIP if grounded else Data.GROUND_AIR_STEER
+	if engine_kill and GS.form == "mech":   # v13.142: engine off on the ground: the mech slides on, slowly losing speed; BOOST restarts it
+		if boost_now: engine_kill = false
+		else:
+			desired = Vector3.ZERO
+			rate = Data.MECH_COAST_DRAG
 	if dash_t > 0.0:
 		desired = yb * dash_dir * sp * Data.GROUND_DASH_MULT
 		rate = 9.0
@@ -6000,6 +6009,13 @@ func _mech_move(dt: float, thrust: Vector2, base_speed: float) -> void:
 	_boost_was = boost_now
 	var desired := fwd * sp * thrust.y + right * sp * 0.9 * thrust.x
 	var rate := 2.2
+	if engine_kill:   # v13.142: engine off: keep drifting on the vector you had (turn and shoot freely); BOOST restarts it
+		if boost_now:
+			engine_kill = false
+			message.emit("Engines restarted.")
+		else:
+			desired = vel
+			rate = 0.0
 	if dash_t > 0.0:
 		desired = player.global_basis * dash_dir * sp * Data.MECH_BURST_MULT
 		rate = 9.0
@@ -7022,6 +7038,9 @@ func toggle_cruise() -> bool:
 
 func full_stop() -> void:
 	cruise_max = false
+	if rush_state != "off":   # v13.142 (owner: "STOP can stop the speed run"): the run ends, you brake
+		rush_state = "off"
+		_rush_want = 0.0
 	if warp_state != "off": drop_warp("Dropping out of warp.")
 	engine_kill = false
 	braking = true
@@ -7033,6 +7052,13 @@ func warp_look() -> bool:
 	return warp_state == "on" or (engine_kill and warp_drift and speed_now > float(GS.ship()["speed"]) * Data.WARP_MULT * 0.5)
 
 func toggle_engine_kill() -> bool:
+	if GS.form == "mech" and not on_foot and not escape_pilot:   # v13.142 (owner): the mech kills its engine too: in the speed run you coast on at run speed
+		if rush_state == "on":
+			rush_state = "off"
+			engine_kill = true
+			return true
+		engine_kill = not engine_kill
+		return engine_kill
 	if GS.form == "mech": return false
 	if warp_state == "on":   # v1.9u (owner): KILL at warp = engines off, still drifting at warp speed; turn and shoot freely
 		warp_state = "off"
