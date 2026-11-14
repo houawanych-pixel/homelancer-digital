@@ -1248,6 +1248,11 @@ func _on_enemy_chatter(p: Dictionary, line: String) -> void:
 	hud.comms_timer = 3.5
 
 func _on_hail(from: String, line: String, hostile: bool) -> void:
+	var face: String = space.hail_face
+	space.hail_face = ""
+	if face != "":   # v13.148: a named crew member: his own face, whatever else is on
+		hud.open_comms(from, line, "incoming", hostile, face)
+		return
 	if hud.side_busy(hostile): return
 	var leader: String = Data.ENEMY_LEADER[space.sys["enemy"]]
 	if hostile and leader in GS.met: call_character(leader, true)

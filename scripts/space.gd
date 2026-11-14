@@ -1902,7 +1902,9 @@ func _fleet_setup(root: Node3D, info: Dictionary, fac: String) -> void:
 			k["home"] = (k["node"] as Node3D).global_position
 			k["orbit"] = _rng.randf() * TAU
 			k["aggro"] = false
-			_soldierify(k, fac)
+			var cw := crew_of(fac, int(c["key"]))   # v13.148: a named crew member carries it, where the faction has them
+			if cw.is_empty(): _soldierify(k, fac)
+			else: _standify(k, fac, cw)
 			k["card"] = int(c["key"])
 			var cm := MeshInstance3D.new()   # the card he carries, over his head in its colour
 			var bm := BoxMesh.new()
@@ -1912,7 +1914,7 @@ func _fleet_setup(root: Node3D, info: Dictionary, fac: String) -> void:
 			cm.position = Vector3(0, guard_h() - Data.WALKER_STAND + 3.0, 0)
 			cm.name = "Card"
 			(k["node"] as Node3D).add_child(cm)
-			(k["node"] as Node3D).name = "%s Guard · %s card" % [fac, ShipInterior.KEY_NAME[int(c["key"])]]
+			(k["node"] as Node3D).name = "%s · %s card" % [str(cw["name"]) if not cw.is_empty() else "%s Guard" % fac, ShipInterior.KEY_NAME[int(c["key"])]]
 			var rk := str(c["room"])
 			if not (board["guards"] as Dictionary).has(rk): board["guards"][rk] = []
 			board["guards"][rk].append(k)
@@ -1939,10 +1941,12 @@ func _fleet_setup(root: Node3D, info: Dictionary, fac: String) -> void:
 					k["home"] = (k["node"] as Node3D).global_position
 					k["orbit"] = 0.0
 					k["aggro"] = false
-					_soldierify(k, fac)
+					var cap := crew_of(fac, -1)
+					if cap.is_empty(): _soldierify(k, fac)
+					else: _standify(k, fac, cap)
 					for key in ["hp", "max"]: k[key] = Data.GUARD_HP * 3.0
 					k["fleet_target"] = true
-					(k["node"] as Node3D).name = "%s Captain" % fac
+					(k["node"] as Node3D).name = "%s Captain" % fac if cap.is_empty() else "%s (Captain)" % str(cap["name"])
 					fl["captain"] = k
 			"rescue":
 				var hn := Node3D.new()
@@ -1979,6 +1983,7 @@ func _fleet_setup(root: Node3D, info: Dictionary, fac: String) -> void:
 		fl["beacon"] = bc
 		bc.visible = false   # v13.130 (owner: "the player has to figure it out"): shown only when Evee marks it
 	if Boarding.STACKED: _fleet_decks(root)
+	_crew_walkers(fac, kind)   # v13.148
 	_stealth_setup(root, kind == "visit")
 	if kind == "visit":
 		message.emit("Aboard the %s as a guest. The crew is calm (NEUTRAL). Card doors: talk to the card carriers for the codes, or punch them in at the floor pads." % str(info["name"]))
@@ -2318,6 +2323,45 @@ func _soldierify(e: Dictionary, fac: String) -> void:
 	_soldier_clip(e, "Idle")
 	(e["node"] as Node3D).name = "%s Guard %d" % [fac, _enemy_serial]
 
+## v13.148 (owner): one of a faction's named crew as a STANDEE: his picture cut out on a board on a stand, a pilot's
+## height, turning to face you. Guard rules as any soldier; TALK / his radio calls show his face.
+static func crew_of(fac: String, card: int) -> Dictionary:
+	for c in Data.FACTION_CREW.get(fac, []):
+		if int(c["card"]) == card and ResourceLoader.exists("res://assets/crew_standees/%s_%s.png" % [fac.to_lower(), str(c["id"])]): return c
+	return {}
+func _standify(e: Dictionary, fac: String, crew: Dictionary) -> void:
+	_soldierify(e, fac)
+	var n: Node3D = e["node"]
+	var old := n.get_node_or_null("Soldier")
+	if old != null: old.queue_free()
+	var tex: Texture2D = load("res://assets/crew_standees/%s_%s.png" % [fac.to_lower(), str(crew["id"])])
+	var holder := Node3D.new()
+	holder.name = "Soldier"
+	n.add_child(holder)
+	var h := guard_h()
+	var sp := Sprite3D.new()
+	sp.name = "Standee"
+	sp.texture = tex
+	sp.pixel_size = h / float(tex.get_height())
+	sp.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
+	sp.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+	sp.shaded = false
+	sp.double_sided = true
+	sp.position = Vector3(0, h * 0.5 - Data.WALKER_STAND + h * 0.02, 0)
+	holder.add_child(sp)
+	var base := MeshInstance3D.new()   # the stand
+	var cm := CylinderMesh.new()
+	cm.top_radius = h * 0.16
+	cm.bottom_radius = h * 0.19
+	cm.height = h * 0.03
+	base.mesh = cm
+	base.material_override = ShipFactory.mat(Data.STANDEE_BASE, false)
+	base.position = Vector3(0, -Data.WALKER_STAND + h * 0.015, 0)
+	holder.add_child(base)
+	e["anim"] = null
+	e["crew"] = crew
+	n.name = str(crew["name"])
+
 func _soldier_clip(e: Dictionary, clip: String) -> void:
 	var ap: AnimationPlayer = e.get("anim")
 	if ap == null or not is_instance_valid(ap): return
@@ -2626,6 +2670,7 @@ func _board_doors(dt: float) -> void:
 ## Card doors also take a 4-digit code at a floor pad beside them: the card carriers tell you theirs if you talk to
 ## them (neutral / caution); the owner's own master codes (Data.DOOR_MASTER) always work and are written nowhere.
 var stealth := ""
+var hail_face := ""   # v13.148: the face for the next hail (a named crew member), read once by main
 var stealth_t := 0.0
 var stealth_seen := Vector3.INF
 var door_codes := {}   # level -> this run's code (the carriers know it)
@@ -2647,6 +2692,29 @@ func set_stealth(st: String, why := "") -> void:
 		for e in enemies: if e.get("soldier", false): e["alerted"] = true
 		message.emit("ALERT! %s. The ship is locked down: every guard is after you." % why if why != "" else "ALERT! Every guard is after you.")
 	elif st == "neutral": message.emit("NEUTRAL: they gave up the search.")
+
+## v13.148 (owner: "populate the ship better, multiple characters instead of just soldiers"): the faction's crew who
+## carry no card walk round the ship too (on a visit the captain as well), each in a random room you can reach.
+func _crew_walkers(fac: String, kind: String) -> void:
+	var rr: RandomNumberGenerator = board.get("fleet_rng", null)
+	if rr == null:
+		rr = RandomNumberGenerator.new()
+		rr.randomize()
+	for c in Data.FACTION_CREW.get(fac, []):
+		var cd := int(c["card"])
+		if cd > 0 or (cd < 0 and kind != "visit"): continue
+		if not ResourceLoader.exists("res://assets/crew_standees/%s_%s.png" % [fac.to_lower(), str(c["id"])]): continue
+		var at := _fleet_room_pick(rr, rr.randi_range(0, 2), [])
+		if at == Vector3.INF: continue
+		for k in spawn_ground_mechs(at, fac, 1, -42, 0):
+			(k["node"] as Node3D).global_position = Vector3(at.x, Boarding.floor_at(at) + Data.WALKER_STAND, at.z)
+			k["home"] = (k["node"] as Node3D).global_position
+			k["orbit"] = _rng.randf() * TAU
+			k["aggro"] = false
+			_standify(k, fac, c)
+			var rk := Boarding.room_at(at)
+			if not (board["guards"] as Dictionary).has(rk): board["guards"][rk] = []
+			board["guards"][rk].append(k)
 
 func _stealth_setup(root: Node3D, visit: bool) -> void:
 	stealth = "neutral" if visit else ""
@@ -2749,6 +2817,7 @@ func talk_to_guard() -> String:
 	if e.is_empty(): return ""
 	e["told"] = true
 	var lv := int(e["card"])
+	hail_face = str((e.get("crew", {}) as Dictionary).get("face", ""))   # v13.148: his own face on the comms
 	hail.emit(str((e["node"] as Node3D).name), "The %s doors? Code's %s. Don't tell anyone I told you." % [ShipInterior.KEY_NAME[lv], str(e["code"])], false)
 	return "%s door code: %s" % [ShipInterior.KEY_NAME[lv], str(e["code"])]
 
@@ -2783,6 +2852,7 @@ func _stealth_tick(dt: float) -> void:
 		if float(e["radio_t"]) <= 0.0:
 			e.erase("radio_t")
 			if float(e.get("hp", 0.0)) > 0.0 and stealth != "alert":
+				hail_face = str((e.get("crew", {}) as Dictionary).get("face", ""))
 				hail.emit(str((e["node"] as Node3D).name), "Target has become hostile! Need reinforcements, now!", true)
 				set_stealth("alert", "%s radioed it in" % (e["node"] as Node3D).name)
 	if stealth == "caution":

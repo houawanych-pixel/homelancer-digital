@@ -1801,6 +1801,15 @@ func _run() -> void:
 		await _wait(1.0)
 		_check("v13.144: a guest aboard: NEUTRAL, no guard after you", s.stealth == "neutral" and guards.all(func(e): return not bool(e.get("aggro", false))), "%s, %d guards" % [s.stealth, guards.size()])
 		await _capture("visit_neutral")
+		var crew: Array = s.enemies.filter(func(e): return e.has("crew"))
+		if Data.FACTION_CREW.has(str(s.board.get("faction", ""))):
+			_check("v13.148: the faction's named crew walk the ship as standees (card carriers too)", crew.size() >= 3 and crew.all(func(e): return (e["node"] as Node3D).find_child("Standee", true, false) != null), "%d" % crew.size())
+			if not crew.is_empty():
+				var cn: Node3D = crew[0]["node"]
+				s.player.global_position = cn.global_position - cn.global_basis.z * 70.0 + Vector3(0, 6, 0)
+				s._face(cn.global_position - s.player.global_position)
+				await _wait(0.6)
+				await _capture("visit_crew_standee")
 		# the keypad: stand on a card door's pad, punch in a wrong code, then the master code
 		var kd: Array = s.board_doors.filter(func(d): return d.has("pads"))
 		_check("v13.144: every card door has its floor pads", not kd.is_empty() and kd.size() == s.board_doors.filter(func(d): return int(d.get("key", 0)) > 0).size(), "%d" % kd.size())
