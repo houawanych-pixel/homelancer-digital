@@ -473,8 +473,11 @@ func _board_job_spawn(j: Dictionary) -> void:
 	var clouds: Array = []
 	for nb in space.nebulae:
 		if nb is Dictionary and (nb as Dictionary).has("center"): clouds.append({"center": nb["center"], "radius": float((nb as Dictionary).get("radius", 0.0))})
-	var pts: Array = BoardingJobs.points(str(j["sys"]), space.station.global_position, clouds)
-	var pt: Dictionary = pts[clampi(int(j.get("pt", 0)), 0, pts.size() - 1)]
+	if not j.has("spot"):   # v13.139 (owner): a random place for every job (most often inside a nebula cloud); kept for this job
+		var rr := RandomNumberGenerator.new()
+		rr.randomize()
+		j["spot"] = BoardingJobs.random_point(space.station.global_position, clouds, rr)
+	var pt: Dictionary = j["spot"]
 	board_ship = SpaceSystem._fleet_standin(e)
 	board_ship.name = str(e["name"]).validate_node_name()   # v13.10: its own name on the GPS (it is the mission)
 	board_ship.set_meta("kind", "board_target")

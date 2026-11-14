@@ -53,6 +53,26 @@ static func offers(sys_id: String, owner: String) -> Array:
 
 ## The three places the ship can wait, about the station at `c`: far out on three bearings; where the system has
 ## nebula clouds, the first two are inside a cloud. `clouds` = [{center: Vector3, radius: float}].
+## v13.139 (owner: "don't make all the missions in the same place: there are many nebula clouds, use different ones,
+## random places, it keeps it interesting"): each job picks its own spot: most often inside one of the system's clouds
+## (a random one, somewhere inside it), otherwise far out on a random bearing; never near the station.
+static func random_point(c: Vector3, clouds: Array, rng: RandomNumberGenerator) -> Dictionary:
+	var inside: Array = []
+	for cl in clouds:
+		if not (cl is Dictionary) or not (cl as Dictionary).has("center"): continue
+		var cc = cl["center"]
+		var cp: Vector3 = cc if cc is Vector3 else (Vector3(float(cc[0]), float(cc[1]) if (cc as Array).size() > 2 else 0.0, float(cc[(cc as Array).size() - 1])) if cc is Array else Vector3.ZERO)
+		if cp.distance_to(c) < 9000.0: continue
+		inside.append([cp, float((cl as Dictionary).get("radius", 0.0))])
+	if not inside.is_empty() and rng.randf() < 0.75:
+		var pick: Array = inside[rng.randi_range(0, inside.size() - 1)]
+		var r := float(pick[1]) * 0.45 * sqrt(rng.randf())
+		var ang := rng.randf() * TAU
+		return {"pos": (pick[0] as Vector3) + Vector3(cos(ang) * r, rng.randf_range(-400.0, 400.0), sin(ang) * r), "nebula": true}
+	var a := rng.randf() * TAU
+	var d := rng.randf_range(DIST[0], DIST[2] * 1.4)
+	return {"pos": c + Vector3(cos(a) * d, rng.randf_range(100.0, 600.0), sin(a) * d), "nebula": false}
+
 static func points(sys_id: String, c: Vector3, clouds: Array) -> Array:
 	var out: Array = []
 	var a0 := float(absi(hash(sys_id + "_boardjob")) % 628) / 100.0
