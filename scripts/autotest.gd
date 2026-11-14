@@ -1819,7 +1819,7 @@ func _run() -> void:
 				s.player.global_position = pad + Vector3(0, 6, 0)
 				await get_tree().process_frame
 			var lv := int(d0["key"])
-			for k in (str(Data.DOOR_MASTER[lv]).split("") + ["OK"]): main.hud.keypad_press(k)
+			for k in (Array(str(Data.DOOR_MASTER[lv]).split("")) + ["OK"]): main.hud.keypad_press(str(k))
 			_check("v13.144: the pad brings up the keypad; a wrong code is ACCESS DENIED, the master code ACCESS GRANTED", opened and denied and bool(d0.get("code_ok", false)))
 		# TALK: a card carrier gives his code
 		var car: Array = s.enemies.filter(func(e): return e.has("code"))
