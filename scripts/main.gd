@@ -463,6 +463,17 @@ func request_boarding(n: Node3D) -> void:
 	n.set_meta("dock_granted", true)
 	hud.open_comms(who, "Access granted. Proceed to the docking hangar.", "incoming", false)
 
+## v13.144 (owner: "if you dock a friendly vessel it should be at a calm, neutral state, like Metal Gear"): aboard a
+## friendly fleet ship as a guest (no mission): NEUTRAL, the card doors by code or card, back to the bay to leave.
+func visit_fleet_ship(n: Node3D) -> void:
+	var id := str(n.get_meta("fleet_id", ""))
+	if id == "" or not fleet_deck_ready(id):
+		hud.flash_message("That ship's decks aren't open to visitors yet.")
+		return
+	var at := n.global_position
+	board_fleet_ship(id, "visit", {})
+	if not board_from.is_empty(): board_from["ship_at"] = at
+
 ## A hostile fleet ship's fighters: a wave out when you come near or call it (no more than its hangar holds); fly far
 ## off and they go home, the ship regenerates its shield and hull and the hangar fills up again.
 var fleet_wave: Array = []   # the fighters out from the boarding target now
@@ -761,6 +772,10 @@ func _on_hud(id: String) -> void:
 			hud.target_menu = false
 		"scan_close": hud.close_scan()
 		"req_board": request_boarding(hud.scan_node)   # v13.143
+		"guard_talk":   # v13.144: a card carrier tells you his code
+			var said: String = space.talk_to_guard()
+			if said != "": hud.flash_message(said)
+		"keypad_close": space.keypad_close()
 		"scan_view": open_scan_view()   # v11.28
 		"view":
 			space.set_view("cockpit" if GS.view == "chase" else "chase")
@@ -846,6 +861,7 @@ func _on_hud(id: String) -> void:
 		"cloak": space.set_cloak(not space.cloaked)   # v8.3 (owner)
 		"board":   # v11.60 (owner): BOARD the battleship whose shield you broke
 			if space.board_ready and not board_job().is_empty(): _board_enter(board_job())   # v13.69: the boarding job's ship
+			elif space.granted_dock_near() != null: visit_fleet_ship(space.granted_dock_near())   # v13.144: a friendly ship's docking hangar
 			elif not space.board_now(): hud.flash_message("Get closer, with its shield broken.")
 		"tgt_front":   # v8.3 (owner): TARGET = the hostile in front of you, closest
 			var tf: Node3D = space.target_front()

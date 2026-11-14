@@ -545,6 +545,108 @@ func _home(which: String) -> Vector2:
 	return Vector2(x, S.y - stick_r - 28)
 
 ## The radar screen (chase: centre dash panel; cockpit: the art's centre screen). It is a button: tap = radar map.
+# ---------------------------------------------------------------- v13.144 (owner): the door keypad and the guard radar
+## The keypad (step on a card door's floor pad): 4 digits, OK / CLEAR / CLOSE. ACCESS GRANTED opens the door.
+var keypad_panel: PanelContainer
+var keypad_code := ""
+func _keypad_ui() -> void:
+	var want: bool = space != null and not space.keypad.is_empty()
+	if not want:
+		if is_instance_valid(keypad_panel): keypad_panel.queue_free()
+		keypad_panel = null
+		return
+	if is_instance_valid(keypad_panel): return
+	keypad_code = ""
+	keypad_panel = PanelContainer.new()
+	keypad_panel.name = "Keypad"
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.02, 0.06, 0.1, 0.94)
+	sb.border_color = ShipInterior.KEY_COL[int(space.keypad["level"])]
+	sb.set_border_width_all(3)
+	sb.set_corner_radius_all(10)
+	sb.set_content_margin_all(12)
+	keypad_panel.add_theme_stylebox_override("panel", sb)
+	var v := VBoxContainer.new()
+	keypad_panel.add_child(v)
+	var title := Label.new()
+	title.text = "%s DOOR · PUNCH IN THE PASSWORD" % ShipInterior.KEY_NAME[int(space.keypad["level"])]
+	title.add_theme_font_size_override("font_size", 16)
+	v.add_child(title)
+	var disp := Label.new()
+	disp.name = "Display"
+	disp.text = "_ _ _ _"
+	disp.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	disp.add_theme_font_size_override("font_size", 34)
+	v.add_child(disp)
+	var g := GridContainer.new()
+	g.columns = 3
+	v.add_child(g)
+	for k in ["1", "2", "3", "4", "5", "6", "7", "8", "9", "CLR", "0", "OK"]:
+		var b := Button.new()
+		b.name = "Key_" + k
+		b.text = k
+		b.custom_minimum_size = Vector2(76, 54)
+		b.add_theme_font_size_override("font_size", 22)
+		b.pressed.connect(keypad_press.bind(k))
+		g.add_child(b)
+	var cb := Button.new()
+	cb.name = "KeypadClose"
+	cb.text = "CLOSE"
+	cb.custom_minimum_size = Vector2(0, 44)
+	cb.pressed.connect(func(): space.keypad_close())
+	v.add_child(cb)
+	add_child(keypad_panel)
+	keypad_panel.position = Vector2(S.x * 0.5 - 130.0, S.y * 0.5 - 220.0)
+
+func keypad_press(k: String) -> void:
+	if space == null or space.keypad.is_empty(): return
+	Sfx.play("button", -10.0)
+	if k == "CLR": keypad_code = ""
+	elif k == "OK":
+		space.keypad_enter(keypad_code)
+		keypad_code = ""
+		return
+	elif keypad_code.length() < 4: keypad_code += k
+	if is_instance_valid(keypad_panel):
+		var disp := keypad_panel.find_child("Display", true, false) as Label
+		var shown := ""
+		for i in 4: shown += ("*" if i < keypad_code.length() else "_") + (" " if i < 3 else "")
+		if disp: disp.text = shown
+
+## The Metal Gear radar, top left (aboard a friendly ship): you in the middle facing up, the guards as dots with their
+## view cones, the frame in the state's colour: NEUTRAL green, CAUTION yellow, ALERT red.
+func stealth_radar_rect() -> Rect2:
+	return Rect2(12, 96, 168, 168)
+func _stealth_radar() -> void:
+	if space == null or space.stealth == "" or not space.boarding or not is_instance_valid(space.player): return
+	var rc := stealth_radar_rect()
+	var col: Color = {"neutral": GREEN, "caution": GOLD, "alert": RED}.get(space.stealth, GREEN)
+	draw_rect(rc, Color(0.0, 0.05, 0.03, 0.78))
+	draw_rect(rc, col, false, 2.0)
+	var c := rc.get_center()
+	var k := rc.size.x * 0.5 / Data.STEALTH_RADAR_RANGE
+	var fw: Vector3 = -space.player.global_basis.z
+	var yaw := atan2(fw.x, fw.z)   # (the radar turns with you: forward is up)
+	var to_r := func(w: Vector3) -> Vector2:
+		var d: Vector3 = w - space.player.global_position
+		var l := Vector2(d.x, d.z).rotated(yaw)   # (forward -> +y)
+		return c + Vector2(-l.x, -l.y) * k
+	for e in space.enemies:
+		if not e.get("soldier", false) or not is_instance_valid(e.get("node")): continue
+		var n: Node3D = e["node"]
+		var p: Vector2 = to_r.call(n.global_position)
+		if not rc.grow(-3).has_point(p): continue
+		var f: Vector3 = -n.global_basis.z
+		var fp: Vector2 = to_r.call(n.global_position + f * 10.0) - p
+		var fa := fp.angle()
+		var rr := Data.GUARD_SEE * k
+		var cone := PackedVector2Array([p])
+		for i in 7: cone.append(p + Vector2.from_angle(fa - 0.6 + 1.2 * float(i) / 6.0) * rr)
+		draw_colored_polygon(cone, Color(col, 0.18))
+		draw_circle(p, 4.0, Color(1.0, 0.3, 0.25) if e.get("aggro", false) else Color(1, 1, 1))
+	draw_colored_polygon(PackedVector2Array([c + Vector2(0, -8), c + Vector2(6, 6), c + Vector2(-6, 6)]), Color(0.6, 1.0, 0.7))
+	_text(Vector2(rc.position.x, rc.end.y + 18), space.stealth.to_upper() + ("  %d" % int(ceil(space.stealth_t)) if space.stealth == "caution" else ""), 15, col, HORIZONTAL_ALIGNMENT_CENTER, rc.size.x)
+
 func radar_rect() -> Rect2:
 	var g := dash_geo()   # v7.1: the radar globe on the dash
 	var rad: float = g["rad"]
@@ -980,6 +1082,7 @@ func _process(dt: float) -> void:
 		fs_on = bool(JavaScriptBridge.eval("window.__hlFsIsOn ? window.__hlFsIsOn() : false", true))
 	if space == null: return
 	if map3d != null and not _fleet_map_open(): map3d.pause()
+	_keypad_ui()   # v13.144
 	t += dt
 	if vid != null and vid.is_playing() and str(slots["r"].get("video", "")) == "" and str(slots["l"].get("video", "")) == "": vid.stop()   # v1.7r: hung up: the clip stops
 	_tick_scan(dt)
@@ -1997,6 +2100,7 @@ func _cockpit_old() -> void:
 
 # ---------------------------------------------------------------- main draw
 func _draw() -> void:
+	_stealth_radar()   # v13.144
 	if space == null or not is_instance_valid(space.player): return
 	_layout()
 	_objective_button()
@@ -2226,6 +2330,7 @@ func _draw() -> void:
 	if buttons.has("dock"): _prompt_btn(buttons["dock"], "DOCK", GREEN, held.has("dock"))
 	if buttons.has("board"): _prompt_btn(buttons["board"], "INFILTRATE" if space.surface_mode and not space.boarding else "BOARD", ORANGE, held.has("board"))   # v11.60 (owner)   # v11.58 (owner): the top-centre box
 	if buttons.has("eject"): _prompt_btn(buttons["eject"], "EJECT", CYAN, held.has("eject"))   # v12.39 (owner)
+	if buttons.has("guard_talk"): _prompt_btn(buttons["guard_talk"], "TALK", GREEN, held.has("guard_talk"))   # v13.144
 	if buttons.has("enter"): _prompt_btn(buttons["enter"], "ENTER", GREEN, held.has("enter"))
 	if buttons.has("lane"): _pill("lane", "LANE" if space.lane.is_empty() else "LEAVE LANE", true, CYAN)
 	if buttons.has("jump"): _pill("jump", "JUMP", true, GOLD)

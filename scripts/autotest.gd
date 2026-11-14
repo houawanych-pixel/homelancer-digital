@@ -1788,6 +1788,62 @@ func _run() -> void:
 	if not _flag("HL_LANDFILM"):   # v12.52: the landing film is cut short in the other checks (they time the descent)
 		main.landing_film_min = 0.0
 		main.landing_film_max = 0.4
+	if _flag("HL_VISIT"):   # v13.144 (owner, Metal Gear): aboard a friendly fleet ship: NEUTRAL, keypads, TALK, CAUTION, ALERT
+		var fid := "unity_resupply" if OS.get_environment("HL_VISIT") in ["", "1"] else OS.get_environment("HL_VISIT")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main.board_fleet_ship(fid, "visit", {})
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding and main.hud.visible, 90.0)
+		await _wait(1.5)
+		var s := _sp()
+		var guards: Array = s.enemies.filter(func(e): return bool(e.get("soldier", false)))
+		await _wait(1.0)
+		_check("v13.144: a guest aboard: NEUTRAL, no guard after you", s.stealth == "neutral" and guards.all(func(e): return not bool(e.get("aggro", false))), "%s, %d guards" % [s.stealth, guards.size()])
+		await _capture("visit_neutral")
+		# the keypad: stand on a card door's pad, punch in a wrong code, then the master code
+		var kd: Array = s.board_doors.filter(func(d): return d.has("pads"))
+		_check("v13.144: every card door has its floor pads", not kd.is_empty() and kd.size() == s.board_doors.filter(func(d): return int(d.get("key", 0)) > 0).size(), "%d" % kd.size())
+		if not kd.is_empty():
+			var d0: Dictionary = kd[0]
+			var pad: Vector3 = d0["pads"][0]
+			for i in 6:
+				s.player.global_position = pad + Vector3(0, 6, 0)
+				await get_tree().process_frame
+			var opened: bool = not s.keypad.is_empty() and is_instance_valid(main.hud.keypad_panel)
+			await _capture("visit_keypad")
+			for k in ["9", "9", "9", "9", "OK"]: main.hud.keypad_press(k)
+			var denied: bool = not bool(d0.get("code_ok", false))
+			s.keypad_used = {}
+			for i in 4:
+				s.player.global_position = pad + Vector3(0, 6, 0)
+				await get_tree().process_frame
+			var lv := int(d0["key"])
+			for k in (str(Data.DOOR_MASTER[lv]).split("") + ["OK"]): main.hud.keypad_press(k)
+			_check("v13.144: the pad brings up the keypad; a wrong code is ACCESS DENIED, the master code ACCESS GRANTED", opened and denied and bool(d0.get("code_ok", false)))
+		# TALK: a card carrier gives his code
+		var car: Array = s.enemies.filter(func(e): return e.has("code"))
+		if not car.is_empty():
+			var ce: Dictionary = car[0]
+			for i in 4:
+				s.player.global_position = (ce["node"] as Node3D).global_position + Vector3(10, 4, 0)
+				await get_tree().process_frame
+			var pr: String = s.prompt()
+			main._on_hud("guard_talk")
+			_check("v13.144: TALK to a card carrier gets his code", pr == "guard_talk" and bool(ce.get("told", false)), pr)
+		# hit a guard face on: CAUTION, he radios it in: ALERT
+		var g0: Dictionary = guards[0]
+		var gn: Node3D = g0["node"]
+		s.player.global_position = gn.global_position - gn.global_basis.z * 60.0 + Vector3(0, 4, 0)
+		for k in ["hp", "max"]: g0[k] = 99999.0
+		s._damage_enemy(g0, 5.0)
+		var caution: bool = s.stealth == "caution"
+		await _until(func(): return s.stealth == "alert", Data.STEALTH_RADIO_TIME + 2.0)
+		await _wait(0.5)
+		_check("v13.144: hit face on: CAUTION, he radios in: ALERT, the guards come", caution and s.stealth == "alert", s.stealth)
+		await _capture("visit_alert")
+		_finish_group()
+		return
 	if _flag("HL_FLEETBOARD"):   # v13.89 (owner: "use the same gameplay from the regular board missions"): a traced fleet deck in the boarding engine
 		var fids := ["imperium_trooptransport"]
 		if OS.get_environment("HL_FLEETBOARD") not in ["", "1"]: fids = OS.get_environment("HL_FLEETBOARD").split(",")

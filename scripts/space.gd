@@ -1979,6 +1979,10 @@ func _fleet_setup(root: Node3D, info: Dictionary, fac: String) -> void:
 		fl["beacon"] = bc
 		bc.visible = false   # v13.130 (owner: "the player has to figure it out"): shown only when Evee marks it
 	if Boarding.STACKED: _fleet_decks(root)
+	_stealth_setup(root, kind == "visit")
+	if kind == "visit":
+		message.emit("Aboard the %s as a guest. The crew is calm (NEUTRAL). Card doors: talk to the card carriers for the codes, or punch them in at the floor pads." % str(info["name"]))
+		return
 	var need_txt := "" if int(fl.get("need", 0)) <= 0 else " (behind the %s doors: find the guards carrying the cards)" % ShipInterior.KEY_NAME[int(fl["need"])]
 	message.emit("Aboard the %s. Mission: %s%s, then back to the %s. Their guards are on patrol." % [str(info["name"]), FLEET_MISSION_TEXT.get(kind, "look round"), need_txt, str(Boarding.ROOMS["sbay"]["label"])])
 
@@ -2150,10 +2154,11 @@ func _out_now() -> bool:
 
 func _fleet_may_leave() -> bool:
 	if not board.has("fleet"): return true
-	return bool(board["fleet"]["done"]) or str(board["fleet"]["kind"]) == ""
+	return bool(board["fleet"]["done"]) or str(board["fleet"]["kind"]) in ["", "visit"]
 
 func _fleet_tick(dt: float) -> void:
 	board["card_msg"] = float(board.get("card_msg", 0.0)) - dt
+	_stealth_tick(dt)   # v13.144
 	var fl: Dictionary = board["fleet"]
 	if bool(fl.get("wp_on", false)):   # v13.130: Evee's waypoint goes when you have got there (call her for the next)
 		var st := fleet_route()
@@ -2269,6 +2274,7 @@ func _fleet_line(where: String) -> String:
 	if str(board.get("phase", "")) == "escape" and not bool(board.get("breakout", true)):
 		if fleet_exit_key() != "sbay": return "ESCAPE: %d s  ·  %s  ·  the way in is blocked: find another way out" % [int(ceil(maxf(0.0, float(board["escape"])))), where]
 		return "ESCAPE: %d s  ·  %s  ·  back to the %s" % [int(ceil(maxf(0.0, float(board["escape"])))), where, str(Boarding.ROOMS["sbay"]["label"])]
+	if kind == "visit": return "%s  ·  %s  ·  a guest aboard: look round; the %s to leave%s" % [stealth.to_upper(), where, str(Boarding.ROOMS["sbay"]["label"]), cards]   # v13.144
 	if bool(fl["done"]) or kind == "": return "%s%s  ·  back to the %s to leave%s" % [alert, where, str(Boarding.ROOMS["sbay"]["label"]), cards]
 	var need := int(fl.get("need", 0))
 	var ntxt := "" if need <= 0 or _fleet_has(need) else "  ·  needs the %s card" % ShipInterior.KEY_NAME[need]
@@ -2595,12 +2601,12 @@ func _board_doors(dt: float) -> void:
 			if not bool(wk["cut"]): _push_out_box(self, wk["box"], "ground")
 			continue
 		var need := int(d.get("key", 0))   # v13.89: a key-card door (fleet decks): shut until you carry that card
-		var no_card: bool = need > 0 and not _fleet_has(need)
+		var no_card: bool = need > 0 and not _fleet_has(need) and not bool(d.get("code_ok", false))   # v13.144: or its code was punched in
 		var shut: bool = bool(d["locked"]) or bool(d["sealed"]) or no_card
 		var near: bool = Vector2(pp.x - (d["center"] as Vector3).x, pp.z - (d["center"] as Vector3).z).length() < Boarding.DOOR_OPEN_AT
 		if no_card and near and Vector2(pp.x - (d["center"] as Vector3).x, pp.z - (d["center"] as Vector3).z).length() < 60.0 and float(board.get("card_msg", 0.0)) <= 0.0:
 			board["card_msg"] = 4.0
-			message.emit("%s CARD NEEDED: a guard on this ship carries it." % ShipInterior.KEY_NAME[need])
+			message.emit("%s CARD NEEDED: a guard on this ship carries it%s." % [ShipInterior.KEY_NAME[need], " (or punch the code in at the floor pad)" if d.has("pads") else ""])
 		var want := 0.0 if shut or not near else 1.0
 		d["open"] = move_toward(float(d["open"]), want, dt * 1.6)
 		for mi: MeshInstance3D in d["panels"]:
@@ -2613,11 +2619,187 @@ func _board_doors(dt: float) -> void:
 					st.material_override = ShipFactory.mat(want_col, true)
 		if float(d["open"]) < 0.8: _push_out_box(d["box"][0], d["box"][1], "ground")
 
+# ---------------------------------------------------------------- v13.144 (owner): Metal Gear states on a fleet ship
+## NEUTRAL (a friendly ship you were let aboard: guards walk their beat, weapons down, they leave you be), CAUTION
+## (something happened: they search where you were; seen now, it goes to ALERT; CAUTION ends after a while), ALERT
+## (lockdown: every guard comes for you). "" = not in use (the hostile boarding jobs keep their old rules).
+## Card doors also take a 4-digit code at a floor pad beside them: the card carriers tell you theirs if you talk to
+## them (neutral / caution); the owner's own master codes (Data.DOOR_MASTER) always work and are written nowhere.
+var stealth := ""
+var stealth_t := 0.0
+var stealth_seen := Vector3.INF
+var door_codes := {}   # level -> this run's code (the carriers know it)
+var keypad := {}       # the pad you stand on: {door, level} (the HUD shows the keypad)
+var keypad_used := {}  # pads already answered (no popping up again while you stand there)
+func set_stealth(st: String, why := "") -> void:
+	if stealth == "" or stealth == st: return
+	if stealth == "alert" and st != "alert": return   # (an alert stays: the ship is locked down)
+	stealth = st
+	stealth_t = Data.STEALTH_CAUTION_TIME if st == "caution" else 0.0
+	if st == "caution":
+		stealth_seen = player.global_position
+		Sfx.play("alarm", -14.0, 1.4)
+		message.emit("CAUTION: %s. They're searching." % why if why != "" else "CAUTION: they're searching.")
+	elif st == "alert":
+		Sfx.play("alarm", -4.0)
+		for l: OmniLight3D in _board_alarm:
+			if is_instance_valid(l): l.light_color = Color(1.0, 0.25, 0.15)
+		for e in enemies: if e.get("soldier", false): e["alerted"] = true
+		message.emit("ALERT! %s. The ship is locked down: every guard is after you." % why if why != "" else "ALERT! Every guard is after you.")
+	elif st == "neutral": message.emit("NEUTRAL: they gave up the search.")
+
+func _stealth_setup(root: Node3D, visit: bool) -> void:
+	stealth = "neutral" if visit else ""
+	stealth_seen = Vector3.INF
+	keypad = {}
+	keypad_used = {}
+	door_codes = {}
+	var rr := RandomNumberGenerator.new()
+	rr.randomize()
+	for lv in range(1, 4): door_codes[lv] = "%04d" % rr.randi_range(0, 9999)
+	for e in enemies:   # the carriers know their own level's code
+		if e.has("card"): e["code"] = str(door_codes[int(e["card"])])
+	for d in board_doors:   # a floor pad and a little panel by every card door, on both sides
+		var lv := int(d.get("key", 0))
+		if lv <= 0 or not d.has("center"): continue
+		d["pads"] = []
+		var c: Vector3 = d["center"]
+		var thru := Vector3(1, 0, 0) if str(d.get("axis", "x")) == "x" else Vector3(0, 0, 1)   # (the way you walk through it)
+		var along := Vector3(0, 0, 1) if str(d.get("axis", "x")) == "x" else Vector3(1, 0, 0)
+		var half_w := (float(d.get("hi", 0.0)) - float(d.get("lo", 0.0))) * 0.5
+		for sg in [-1.0, 1.0]:   # one on each side of the wall, just beside the doorway
+			var at := c + thru * sg * Data.KEYPAD_SIDE + along * (half_w + Data.KEYPAD_OFF)
+			at.y = Boarding.floor_at(at)
+			var pad := MeshInstance3D.new()
+			var pm := BoxMesh.new()
+			pm.size = Vector3(Data.KEYPAD_R * 1.6, 0.6, Data.KEYPAD_R * 1.6)
+			pad.mesh = pm
+			pad.material_override = _glow_mat(ShipInterior.KEY_COL[lv])
+			pad.name = "KeypadPad"
+			root.add_child(pad)
+			pad.global_position = at + Vector3(0, 0.3, 0)
+			var post := MeshInstance3D.new()   # the little computer panel by the door
+			var qm := BoxMesh.new()
+			qm.size = Vector3(4.0, 9.0, 1.5)
+			post.mesh = qm
+			post.material_override = ShipFactory.mat(Color(0.18, 0.22, 0.28), false)
+			var scr := MeshInstance3D.new()
+			var sm := BoxMesh.new()
+			sm.size = Vector3(3.2, 3.2, 0.3)
+			scr.mesh = sm
+			scr.material_override = _glow_mat(ShipInterior.KEY_COL[lv])
+			scr.position = Vector3(0, 2.4, -0.8)
+			post.add_child(scr)
+			root.add_child(post)
+			post.global_position = c + thru * sg * 3.0 + along * (half_w + Data.KEYPAD_OFF) + Vector3(0, at.y - c.y + 4.5, 0)
+			post.look_at(post.global_position + thru * sg, Vector3.UP)
+			(d["pads"] as Array).append(at)
+
+## You stand on a door's pad: the keypad comes up (once per visit to the pad).
+func _keypad_tick() -> void:
+	if not boarding or board_doors.is_empty() or not is_instance_valid(player): return
+	var p := player.global_position
+	var on := {}
+	for d in board_doors:
+		if not d.has("pads") or bool(d.get("code_ok", false)) or _fleet_has(int(d.get("key", 0))): continue
+		for at: Vector3 in d["pads"]:
+			if Vector2(p.x - at.x, p.z - at.z).length() < Data.KEYPAD_R * (2.2 if GS.form == "mech" and not on_foot else 1.0) and absf(p.y - at.y) < 40.0:
+				on = {"door": d, "level": int(d["key"])}
+	if on.is_empty():
+		keypad = {}
+		keypad_used = {}
+		return
+	if keypad.is_empty() and not keypad_used.has(hash((on["door"] as Dictionary)["center"])):
+		keypad = on
+		message.emit("%s DOOR · PUNCH IN THE CODE" % ShipInterior.KEY_NAME[int(on["level"])])
+
+## The code typed at the pad: ACCESS GRANTED opens the door for good, ACCESS DENIED doesn't.
+func keypad_enter(code: String) -> bool:
+	if keypad.is_empty(): return false
+	var d: Dictionary = keypad["door"]
+	var lv := int(keypad["level"])
+	keypad_used[hash(d["center"])] = true
+	keypad = {}
+	if code == str(Data.DOOR_MASTER.get(lv, "")) or code == str(door_codes.get(lv, "")):
+		d["code_ok"] = true
+		Sfx.play("pickup", -6.0)
+		message.emit("ACCESS GRANTED")
+		return true
+	Sfx.play("hull_hit", -8.0, 0.6)
+	message.emit("ACCESS DENIED")
+	return false
+func keypad_close() -> void:
+	if not keypad.is_empty(): keypad_used[hash((keypad["door"] as Dictionary)["center"])] = true
+	keypad = {}
+
+## A card carrier near you, not hostile: TALK gets his code.
+func talk_candidate() -> Dictionary:
+	if stealth == "" or stealth == "alert" or not boarding: return {}
+	var best := {}
+	var bd: float = Data.TALK_REACH * (2.0 if GS.form == "mech" and not on_foot else 1.0)
+	for e in enemies:
+		if not e.has("card") or not e.has("code") or bool(e.get("told", false)): continue
+		var dd := (e["node"] as Node3D).global_position.distance_to(player.global_position)
+		if dd < bd:
+			bd = dd
+			best = e
+	return best
+func talk_to_guard() -> String:
+	var e := talk_candidate()
+	if e.is_empty(): return ""
+	e["told"] = true
+	var lv := int(e["card"])
+	hail.emit(str((e["node"] as Node3D).name), "The %s doors? Code's %s. Don't tell anyone I told you." % [ShipInterior.KEY_NAME[lv], str(e["code"])], false)
+	return "%s door code: %s" % [ShipInterior.KEY_NAME[lv], str(e["code"])]
+
+## Can this guard see you (in front of him and near enough, or right on him), and nothing in between?
+func _guard_sees(e: Dictionary, dist: float) -> bool:
+	if cloaked: return false
+	var n: Node3D = e["node"]
+	var to := player.global_position - n.global_position
+	to.y = 0.0
+	var looks: float = (-n.global_basis.z).dot(to.normalized()) if to.length() > 0.1 else 1.0
+	if not (dist < Data.GUARD_NEAR or (dist < Data.GUARD_SEE and looks > Data.GUARD_SEE_COS)): return false
+	return board_wall_t(n.global_position + Vector3(0, 10, 0), player.global_position + Vector3(0, 10, 0)) >= 1.0
+
+## A guard is hit on a NEUTRAL / CAUTION ship. From behind and close: a sneak attack, nobody knows (true). Otherwise
+## it goes to CAUTION and he gets on the radio: if he is still up when he gets through, ALERT.
+func _stealth_hit(e: Dictionary) -> bool:
+	var n: Node3D = e["node"]
+	var to := player.global_position - n.global_position
+	to.y = 0.0
+	var behind: bool = (-n.global_basis.z).dot(to.normalized()) < -0.2 if to.length() > 0.1 else false
+	if behind and to.length() < Data.STEALTH_SNEAK_DIST: return true
+	set_stealth("caution", "%s was attacked" % n.name)
+	if not e.has("radio_t"): e["radio_t"] = Data.STEALTH_RADIO_TIME
+	return false
+
+func _stealth_tick(dt: float) -> void:
+	if stealth == "" or not boarding: return
+	_keypad_tick()
+	for e in enemies:
+		if not e.has("radio_t"): continue
+		e["radio_t"] = float(e["radio_t"]) - dt
+		if float(e["radio_t"]) <= 0.0:
+			e.erase("radio_t")
+			if float(e.get("hp", 0.0)) > 0.0 and stealth != "alert":
+				hail.emit(str((e["node"] as Node3D).name), "Target has become hostile! Need reinforcements, now!", true)
+				set_stealth("alert", "%s radioed it in" % (e["node"] as Node3D).name)
+	if stealth == "caution":
+		stealth_t -= dt
+		if stealth_t <= 0.0: set_stealth("neutral")
+
 ## v12.46 (owner: "enemies are aware of me before I enter the room; they shouldn't be until they see me in the room;
 ## no targets until I'm in the same room"): inside, a guard knows you're there once you're in his room (in the
 ## breakout's quiet start, only once he SEES you: in front of him and near enough, or right on him; then he
 ## arrests you and the alert is on). Once he's seen you he stays on you.
 func _board_aware(e: Dictionary, dist: float) -> bool:
+	if stealth != "":   # v13.144 (owner, Metal Gear): on a friendly ship the guards leave you be until it goes to ALERT
+		if stealth == "alert": return true
+		if stealth == "caution" and _guard_sees(e, dist):
+			set_stealth("alert", "%s spotted you" % (e["node"] as Node3D).name)
+			return true
+		return false
 	if e.get("alerted", false): return true
 	var n: Node3D = e["node"]
 	var here := str(board.get("room", ""))
@@ -7358,6 +7540,17 @@ func target_front() -> Node3D:
 ## v13.143 (owner: "select all the ships ... the closest object in front of me; NEXT goes to the next one in front"):
 ## every ship (hostile or not: fleet ships, traffic, freighters, the boarding ship) and the places you can target,
 ## best first: near and straight ahead first, hostiles a little ahead of the rest, things behind you last.
+## v13.144: the friendly fleet ship that granted you boarding, when you are at its hull (null = none)
+func granted_dock_near() -> Node3D:
+	if boarding or surface_mode or not is_instance_valid(player): return null
+	for v in fleet_visitors:
+		var n: Node3D = v["node"]
+		if not is_instance_valid(n) or not bool(n.get_meta("dock_granted", false)): continue
+		var hh: Vector3 = n.get_meta("hit_half", Vector3.ONE * 100.0)
+		var lp: Vector3 = n.global_transform.affine_inverse() * player.global_position
+		if Vector3(maxf(absf(lp.x) - hh.x, 0.0), maxf(absf(lp.y) - hh.y, 0.0), maxf(absf(lp.z) - hh.z, 0.0)).length() < Data.FLEET_DOCK_REACH: return n
+	return null
+
 func ship_nodes() -> Array:
 	var out: Array = []
 	for e in enemies: out.append(e["node"])
@@ -8969,7 +9162,10 @@ func _damage_enemy(e: Dictionary, dmg: float, hit := Vector3.INF, sf := -1.0) ->
 	e["aggro"] = true
 	e["provoked"] = true
 	if e.get("patrol", false) and not _patrol_called: _patrol_backup(e)   # v12.54
-	if boarding and not e.get("alerted", false):   # (shot: he knows now)
+	if boarding and stealth != "" and e.get("soldier", false) and stealth != "alert":   # v13.144: a friendly ship's guard is hit
+		if _stealth_hit(e): pass   # (a sneak attack from behind: nobody knows)
+		else: e["alerted"] = true
+	elif boarding and not e.get("alerted", false):   # (shot: he knows now)
 		if str(board.get("phase", "")) == "sneak": _arrest(e)
 		e["alerted"] = true
 	e["sh_cd"] = Data.BOARD_SHIELD_DELAY if e.get("boardable", false) else 4.0   # v11.66 (owner): a battleship's shield takes a while to come back
@@ -9195,6 +9391,8 @@ func _update_enemies(dt: float) -> void:
 			e["orbit"] += dt * 0.25
 			goal = e["home"] + Vector3(cos(e["orbit"]) * 120.0, sin(e["orbit"] * 0.7) * 25.0, sin(e["orbit"]) * 120.0)
 			if e.get("soldier", false): goal = e["home"] + Vector3(cos(e["orbit"]), 0, sin(e["orbit"])) * Data.GUARD_PATROL   # v12.46: a guard walks his beat
+			if e.get("soldier", false) and stealth == "caution" and stealth_seen != Vector3.INF and (e["node"] as Node3D).global_position.distance_to(stealth_seen) < Data.STEALTH_SEARCH_R:
+				goal = stealth_seen + Vector3(cos(e["orbit"] * 1.7), 0, sin(e["orbit"] * 1.7)) * Data.GUARD_PATROL * 0.6   # v13.144: CAUTION: searching where you were
 		var walker: bool = e.get("walker", false)   # v1.8n: a mech on foot: it stays on the ground and only turns left / right
 		if walker:
 			goal = (ppos if e["aggro"] and controls and dist > Data.WALKER_HOLD else (n.global_position if e["aggro"] else goal))
@@ -11266,6 +11464,8 @@ func prompt() -> String:
 	var lc: Dictionary = lane_candidate() if lane.is_empty() else {}
 	if not lane.is_empty(): return "lane"
 	if board_ready: return "board"   # v13.69 (owner): at the boarding ship with its shield down, BOARD comes first
+	if not talk_candidate().is_empty(): return "guard_talk"   # v13.144: a card carrier on a friendly ship
+	if granted_dock_near() != null: return "board"   # v13.144: a friendly fleet ship that let you aboard
 	if dc != null:
 		if not lc.is_empty() and player.global_position.distance_to(lc["pos"]) < dock_distance(dc): return "lane"
 		return "dock"

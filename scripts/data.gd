@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.144"
+const VERSION := "v13.145"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -1982,6 +1982,7 @@ const FLEET_HANGAR := {"Capital": 24, "Cruiser": 12, "Destroyer": 8, "Resupply":
 const FLEET_WAVE := {"Capital": 8, "Cruiser": 6, "Destroyer": 4, "Resupply": 2, "TroopTransport": 3, "Frigate": 3, "Escort": 2}
 const FLEET_LAUNCH_DIST := 3000.0   # m from the hull: a hostile ship launches a wave
 const FLEET_RECALL_DIST := 9000.0   # m: further off, its fighters fly home and it regenerates
+const FLEET_DOCK_REACH := 250.0   # v13.144: m from a friendly fleet ship's hull: BOARD (once it granted access)
 const FLEET_BOARDABLE := ["Capital", "Cruiser", "Destroyer", "Resupply", "TroopTransport", "Frigate"]   # the big ships: REQUEST BOARDING
 const FLEET9_FIT_LEN := 100.0   # v13.140: the 9-class fleet models fit to this, then the stand-in scales them to the class length
 const FLEET9_LEN_K := {"Capital": 0.45, "Cruiser": 0.8}   # v13.141 (owner: "that capital ship is way too big"): the models are bulkier than the old prism, so the big classes fly shorter
@@ -2787,6 +2788,16 @@ const SHIP_PILOT_GUN := "HL_WPN_DarkGunSet_02"   # v13.134: the pilot's gun insi
 const CUTTER_FIND_CHANCE := 0.5  # v13.133: a fleet ship holds your next cutter (lv 1-3) this often
 const SHIP_EJECT_STEP := 26.0    # m: the pilot steps out this far to the mech's side
 const GUARD_HP := 70.0          # a soldier: far less than a mech
+const STEALTH_CAUTION_TIME := 40.0   # v13.144 (owner, Metal Gear): s of searching before it goes back to NEUTRAL
+const STEALTH_SEARCH_R := 900.0      # guards this near where you were go and search there
+const STEALTH_SNEAK_DIST := 45.0     # m: hit a guard from behind this close and nobody knows
+const STEALTH_RADIO_TIME := 2.5      # s a hit guard takes to radio it in (down before that: no ALERT)
+const STEALTH_RADAR_RANGE := 600.0   # m from you to the radar's edge
+const DOOR_MASTER := {1: "1234", 2: "2341", 3: "3412"}   # v13.144: the owner's master codes (yellow, orange, red doors); never shown in the game
+const KEYPAD_R := 9.0                # the floor pad by a card door (step on it: the keypad)
+const KEYPAD_OFF := 14.0             # how far past the doorway's edge it sits
+const KEYPAD_SIDE := 16.0            # how far out from the wall
+const TALK_REACH := 45.0             # m: a card carrier this near can be talked to
 const GUARD_SEE := 260.0        # m: how far a guard sees you (in front of him, in his room)
 const GUARD_SEE_COS := 0.35     # his view cone (cos of the half angle)
 const GUARD_NEAR := 70.0        # m: this close he notices you whichever way he faces
