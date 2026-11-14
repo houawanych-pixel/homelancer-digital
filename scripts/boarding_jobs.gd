@@ -12,9 +12,10 @@ const FIGHTERS := {"Capital": 15, "Cruiser": 13, "Destroyer": 12, "TroopTranspor
 const PAY := {"Capital": 9000, "Cruiser": 7000, "Destroyer": 6000, "TroopTransport": 5000, "Resupply": 4500}
 const KIND_PAY := {"sabotage": 1.0, "capture": 1.2, "rescue": 1.35}
 const KIND_TITLE := {"sabotage": "BLOW UP THE GENERATOR", "capture": "CAPTURE THE CAPTAIN", "rescue": "RESCUE THE HOSTAGE"}
-const KIND_BRIEF := {"sabotage": "Get aboard, reach the generator and set it to blow. A countdown starts: get back to the hangar and out before it goes.",
-	"capture": "Get aboard, fight up to the top-level rooms, take the captain and bring them back to the hangar.",
-	"rescue": "Get aboard, find the prison on the top access level, free the hostage and bring them back to the hangar."}
+## v13.135 (owner's boarding formula): cards in order to the big middle room, then out another way
+const KIND_BRIEF := {"sabotage": "Board in your mech. Find the key-card guards (yellow, orange, red), reach the generator in the big middle room and blow it. The clock starts and the way you came in is blocked: find another way out.",
+	"capture": "Board in your mech. Find the key-card guards (yellow, orange, red), take the captain in the big middle room. The clock starts and the way you came in is blocked: find another way out.",
+	"rescue": "Board in your mech. Find the key-card guards (yellow, orange, red), free the hostage held in the big middle room. The clock starts and the way you came in is blocked: find another way out."}
 const DIST := [16000.0, 19000.0, 22000.0]   # m from the station: the three places the ship can be waiting
 ## Owner (10 Nov): "I need to either bring the shield down or bring the ship's power down by fifty percent. When the ship
 ## reaches 50%, it cannot generate its shield anymore because its shield is damaged." Your shots take the ship's power
