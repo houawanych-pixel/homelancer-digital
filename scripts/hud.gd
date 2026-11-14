@@ -616,7 +616,7 @@ func keypad_press(k: String) -> void:
 ## The Metal Gear radar, top left (aboard a friendly ship): you in the middle facing up, the guards as dots with their
 ## view cones, the frame in the state's colour: NEUTRAL green, CAUTION yellow, ALERT red.
 func stealth_radar_rect() -> Rect2:
-	return Rect2(12, 96, 168, 168)
+	return Rect2(12, 92, 98, 98)   # (above the target card)
 func _stealth_radar() -> void:
 	if space == null or space.stealth == "" or not space.boarding or not is_instance_valid(space.player): return
 	var rc := stealth_radar_rect()
@@ -645,7 +645,7 @@ func _stealth_radar() -> void:
 		draw_colored_polygon(cone, Color(col, 0.18))
 		draw_circle(p, 4.0, Color(1.0, 0.3, 0.25) if e.get("aggro", false) else Color(1, 1, 1))
 	draw_colored_polygon(PackedVector2Array([c + Vector2(0, -8), c + Vector2(6, 6), c + Vector2(-6, 6)]), Color(0.6, 1.0, 0.7))
-	_text(Vector2(rc.position.x, rc.end.y + 18), space.stealth.to_upper() + ("  %d" % int(ceil(space.stealth_t)) if space.stealth == "caution" else ""), 15, col, HORIZONTAL_ALIGNMENT_CENTER, rc.size.x)
+	_text(Vector2(rc.end.x + 8, rc.position.y + 18), space.stealth.to_upper() + ("  %d" % int(ceil(space.stealth_t)) if space.stealth == "caution" else ""), 15, col)
 
 func radar_rect() -> Rect2:
 	var g := dash_geo()   # v7.1: the radar globe on the dash

@@ -1805,7 +1805,8 @@ func _run() -> void:
 		var kd: Array = s.board_doors.filter(func(d): return d.has("pads"))
 		_check("v13.144: every card door has its floor pads", not kd.is_empty() and kd.size() == s.board_doors.filter(func(d): return int(d.get("key", 0)) > 0).size(), "%d" % kd.size())
 		if not kd.is_empty():
-			var d0: Dictionary = kd[0]
+			var mk: Array = kd.filter(func(d): return (d.get("rooms", []) as Array).all(func(r): return not bool((Boarding.ROOMS.get(str(r), {}) as Dictionary).get("pilot", false))))   # (a mech-size door: the mech stands on its pad)
+			var d0: Dictionary = mk[0] if not mk.is_empty() else kd[0]
 			var pad: Vector3 = d0["pads"][0]
 			for i in 6:
 				s.player.global_position = pad + Vector3(0, 6, 0)
