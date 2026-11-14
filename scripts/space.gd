@@ -14082,6 +14082,7 @@ static func _fleet_standin(e: Dictionary) -> Node3D:
 	n.set_meta("kind", "fleet_visitor")
 	n.set_meta("fleet_id", e["id"])
 	var ln := float(e["stats"]["len"])
+	if FleetCatalog.model_ready(str(e["id"])): ln *= float(Data.FLEET9_LEN_K.get(str(e["class"]), 1.0))   # v13.141 (owner: "capital ship way too big")
 	n.set_meta("radius", ln * 0.4)
 	var tex: Texture2D = load(str(e["token"])) if ResourceLoader.exists(str(e["token"])) else null
 	var aspect := 0.6

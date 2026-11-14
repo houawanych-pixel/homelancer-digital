@@ -3402,7 +3402,7 @@ func _run() -> void:
 				var capn: Node3D = s.fleet_visitors[0]["node"]
 				var fm := capn.find_child("FleetModel", false, false) as Node3D
 				var bx := ShipFactory._aabb(fm, Transform3D.IDENTITY) if fm else AABB()
-				_check("v13.140: the capital model is its class length, longest along Z", fm != null and absf(bx.size.z - 1360.0) < 60.0 and bx.size.z >= bx.size.x, str(bx.size))
+				_check("v13.140: the capital model is its class length, longest along Z", fm != null and absf(bx.size.z - 1360.0 * float(Data.FLEET9_LEN_K["Capital"])) < 30.0 and bx.size.z >= bx.size.x, str(bx.size))
 			else: _check("v13.140: %s keeps its placeholders (no models yet)" % fac, real.is_empty())
 			if fac == "Unity":
 				var cap: Node3D = s.fleet_visitors[0]["node"]

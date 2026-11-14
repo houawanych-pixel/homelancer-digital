@@ -61,7 +61,7 @@ func setup(rooms: Dictionary, doors: Array, plan_tex: Texture2D = null, pm: Dict
 		var mm := StandardMaterial3D.new()
 		mm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		mm.albedo_texture = plan_tex
-		mm.albedo_color = Color(1, 1, 1, 0.9)
+		mm.albedo_color = Color(1, 1, 1, 0.55)   # v13.141: dimmer, so the room cubes read on it
 		mm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		mm.cull_mode = BaseMaterial3D.CULL_DISABLED
 		pl.material_override = mm
@@ -103,6 +103,12 @@ func setup(rooms: Dictionary, doors: Array, plan_tex: Texture2D = null, pm: Dict
 			bm.size = Vector3(bm.size.x * 0.94, wh, bm.size.z * 0.94)
 			mi.position.y += wh * 0.5
 			mi.set_meta("cube", true)
+			var ed := MeshInstance3D.new()   # v13.141: the cube's edges, so it reads as a box
+			ed.name = "Edges"
+			ed.mesh = _edges(bm.size)
+			ed.material_override = _mat(COL[kd], 0.0)
+			ed.visible = false
+			mi.add_child(ed)
 		lo = lo.min(Vector3(float(r[0]), minf(y0, y1), float(r[2])))
 		hi = hi.max(Vector3(float(r[1]), maxf(y0, y1), float(r[3])))
 	for d in doors:
@@ -141,8 +147,8 @@ func setup(rooms: Dictionary, doors: Array, plan_tex: Texture2D = null, pm: Dict
 	world_root.add_child(route_root)
 	center = (lo + hi) * 0.5
 	radius = maxf(200.0, (hi - lo).length() * 0.5)
-	you.scale = Vector3.ONE * radius / 450.0      # (markers read at any ship size)
-	goal.scale = Vector3.ONE * radius / 450.0
+	you.scale = Vector3.ONE * clampf(radius / 1500.0, 0.35, 1.2)   # v13.141 (owner: "arrow marker too big")
+	goal.scale = Vector3.ONE * clampf(radius / 1500.0, 0.35, 1.2)
 	for dn in door_nodes: (dn[0] as MeshInstance3D).scale = Vector3.ONE * clampf(radius / 900.0, 0.6, 3.0)
 	cam = Camera3D.new()
 	cam.fov = 40.0
@@ -150,6 +156,21 @@ func setup(rooms: Dictionary, doors: Array, plan_tex: Texture2D = null, pm: Dict
 	cam.far = radius * 12.0
 	world_root.add_child(cam)
 	cam.current = true
+
+func _edges(sz: Vector3) -> ArrayMesh:
+	var h := sz * 0.5
+	var v := PackedVector3Array()
+	for a in [-1.0, 1.0]:
+		for b in [-1.0, 1.0]:
+			v.append_array([Vector3(-h.x, a * h.y, b * h.z), Vector3(h.x, a * h.y, b * h.z)])
+			v.append_array([Vector3(a * h.x, -h.y, b * h.z), Vector3(a * h.x, h.y, b * h.z)])
+			v.append_array([Vector3(a * h.x, b * h.y, -h.z), Vector3(a * h.x, b * h.y, h.z)])
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = v
+	var m := ArrayMesh.new()
+	m.add_surface_from_arrays(Mesh.PRIMITIVE_LINES, arr)
+	return m
 
 func _mat(c: Color, a: float) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
@@ -172,13 +193,17 @@ func refresh(seen: Dictionary, deck_y: float, ppos: Vector3, pfwd: Vector3, goal
 			var mine: bool = (col == COL["pilot"]) == on_foot or col == COL["lift"]   # (on foot: the pilot rooms; in the mech: the mech's)
 			var a: float
 			if not mi.has_meta("cube"): a = 0.18 if seen.has(k) else 0.05   # (halls: a thin floor)
-			elif seen.has(k): a = 0.5 if mine else 0.14
-			else: a = 0.16 if mine else 0.05
+			elif seen.has(k): a = 0.62 if mine else 0.38   # v13.141 (owner: "a cube shape for the rooms that I was in"): the rooms you were in stand out
+			else: a = 0.04 if mine else 0.02
 			var c := col if mine or seen.has(k) else FOG
 			if lit.has(k):
 				c = Color(1.0, 0.85, 0.2)
 				a = 0.62
 			(mi.material_override as StandardMaterial3D).albedo_color = Color(c, a)
+			var ed := mi.get_node_or_null("Edges") as MeshInstance3D
+			if ed:
+				ed.visible = seen.has(k) or lit.has(k)
+				(ed.material_override as StandardMaterial3D).albedo_color = Color(c.lightened(0.3), 0.95)
 		for dn in door_nodes:
 			var d: Dictionary = dn[1]
 			var near := false
