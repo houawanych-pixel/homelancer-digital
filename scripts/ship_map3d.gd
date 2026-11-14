@@ -23,9 +23,14 @@ var _seen_n := -1
 var adj := {}            # room key -> [neighbour keys] (rooms whose rects touch: walkable joins)
 var route_root: Node3D
 var _route_key := ""
+var lit := {}            # v13.138: the rooms Evee lights up (yellow) on the way to her waypoint
+var _state := ""
+var plan_mi: MeshInstance3D
+var plan_decks := {}     # deck name -> its plan picture (the next deck's plan when you go up or down)
 var _route_t := 0.0
 
-func setup(rooms: Dictionary, doors: Array, plan_tex: Texture2D = null, pm: Dictionary = {}) -> void:
+func setup(rooms: Dictionary, doors: Array, plan_tex: Texture2D = null, pm: Dictionary = {}, decks: Dictionary = {}) -> void:
+	plan_decks = decks
 	own_world_3d = true
 	transparent_bg = true
 	size = Vector2i(720, 720)
@@ -63,6 +68,8 @@ func setup(rooms: Dictionary, doors: Array, plan_tex: Texture2D = null, pm: Dict
 		pl.position = Vector3((float(pm["w"]) * 0.5 - float(pm["ax"])) * sc, -SLAB * 2.0, (float(pm["h"]) * 0.5 - float(pm["cy"])) * sc)
 		pl.name = "PlanPicture"
 		world_root.add_child(pl)
+		plan_mi = pl
+		plan_decks["MAIN DECK"] = plan_tex
 	for k in rooms:
 		var R: Dictionary = rooms[k]
 		var r: Array = R["r"]
@@ -89,19 +96,13 @@ func setup(rooms: Dictionary, doors: Array, plan_tex: Texture2D = null, pm: Dict
 		var kd := str(R.get("kind", "mech"))
 		if not COL.has(kd): kd = "mech"
 		mi.set_meta("col", COL[kd])
-		# its walls, as tall as its ceiling (a quarter scale): mech rooms stand tall, pilot rooms low
+		# v13.138 (owner: "a clean look: little small cubes, a little transparent"): a room is one see-through cube as
+		# tall as its ceiling (a quarter scale: mech rooms stand tall, pilot rooms low); halls and doorways a thin floor
 		if not bool(R.get("flow", false)) and not bool(R.get("conn", false)):
-			var wh := clampf(float(R.get("h", 50.0)) * 0.35, 5.0, 40.0)
-			for side in 4:
-				var wm := MeshInstance3D.new()
-				var wb := BoxMesh.new()
-				wb.size = Vector3(sx, wh, 3.0) if side < 2 else Vector3(3.0, wh, sz)
-				wm.mesh = wb
-				var off := Vector3(0, wh * 0.5, (sz * 0.5) * (1 if side == 0 else -1)) if side < 2 else Vector3((sx * 0.5) * (1 if side == 2 else -1), wh * 0.5, 0)
-				wm.position = off
-				wm.material_override = mi.material_override
-				wm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-				mi.add_child(wm)
+			var wh := clampf(float(R.get("h", 50.0)) * 0.35, 6.0, 40.0)
+			bm.size = Vector3(bm.size.x * 0.94, wh, bm.size.z * 0.94)
+			mi.position.y += wh * 0.5
+			mi.set_meta("cube", true)
 		lo = lo.min(Vector3(float(r[0]), minf(y0, y1), float(r[2])))
 		hi = hi.max(Vector3(float(r[1]), maxf(y0, y1), float(r[3])))
 	for d in doors:
@@ -160,19 +161,33 @@ func _mat(c: Color, a: float) -> StandardMaterial3D:
 	return m
 
 ## Every frame the map is open. seen: room keys you have stood in.
-func refresh(seen: Dictionary, deck_y: float, ppos: Vector3, pfwd: Vector3, goal_at, yaw: float, pitch: float, zoom: float) -> void:
+func refresh(seen: Dictionary, deck_y: float, ppos: Vector3, pfwd: Vector3, goal_at, yaw: float, pitch: float, zoom: float, on_foot := false) -> void:
 	render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	if seen.size() != _seen_n:
-		_seen_n = seen.size()
+	var st := "%d|%s|%d" % [seen.size(), str(on_foot), lit.hash()]
+	if st != _state:
+		_state = st
 		for k in slabs:
 			var mi: MeshInstance3D = slabs[k]
-			var on := seen.has(k)
-			(mi.material_override as StandardMaterial3D).albedo_color = Color(mi.get_meta("col"), 0.45) if on else Color(FOG, 0.06)
+			var col: Color = mi.get_meta("col")
+			var mine: bool = (col == COL["pilot"]) == on_foot or col == COL["lift"]   # (on foot: the pilot rooms; in the mech: the mech's)
+			var a: float
+			if not mi.has_meta("cube"): a = 0.18 if seen.has(k) else 0.05   # (halls: a thin floor)
+			elif seen.has(k): a = 0.5 if mine else 0.14
+			else: a = 0.16 if mine else 0.05
+			var c := col if mine or seen.has(k) else FOG
+			if lit.has(k):
+				c = Color(1.0, 0.85, 0.2)
+				a = 0.62
+			(mi.material_override as StandardMaterial3D).albedo_color = Color(c, a)
 		for dn in door_nodes:
 			var d: Dictionary = dn[1]
 			var near := false
 			for rk in d.get("rooms", []): near = near or seen.has(str(rk))
 			(dn[0] as MeshInstance3D).visible = near
+	var dk := Boarding.deck_name(deck_y)   # the plan of the deck you are on
+	if plan_mi != null and plan_decks.has(dk) and (plan_mi.material_override as StandardMaterial3D).albedo_texture != plan_decks[dk]:
+		(plan_mi.material_override as StandardMaterial3D).albedo_texture = plan_decks[dk]
+	if plan_mi != null: plan_mi.position.y = deck_y - SLAB * 2.0
 	for k in slabs:   # only this deck (the others would hide it)
 		var mi: MeshInstance3D = slabs[k]
 		mi.visible = absf(mi.position.y - deck_y) < 60.0
@@ -243,24 +258,18 @@ func set_route(from: Vector3, steps: Array) -> void:
 	_route_t = 0.5
 	for c in route_root.get_children(): c.queue_free()
 	var w := clampf(radius / 140.0, 4.0, 30.0)
-	var line_m := _mat(Color(1.0, 0.82, 0.25), 0.95)
 	var at := from
+	var lit2 := {}
 	for i in steps.size():
 		var st: Dictionary = steps[i]
 		var pts := _path(at, st["at"])
-		for j in range(pts.size() - 1):
-			var p0: Vector3 = pts[j] + Vector3(0, 8, 0)
-			var p1: Vector3 = pts[j + 1] + Vector3(0, 8, 0)
-			var L := p0.distance_to(p1)
-			if L < 1.0: continue
-			var seg := MeshInstance3D.new()
-			var bm := BoxMesh.new()
-			bm.size = Vector3(w, w * 0.5, L)
-			seg.mesh = bm
-			seg.material_override = line_m
-			route_root.add_child(seg)
-			seg.position = (p0 + p1) * 0.5
-			seg.look_at_from_position(seg.position, p1, Vector3.UP if absf((p1 - p0).normalized().y) < 0.95 else Vector3.RIGHT)
+		for q in pts:   # v13.138 (owner: "ask Evee lights up the cubes in yellow"): the rooms on her way, lit yellow
+			var rk := Boarding.room_at(q, 6.0)
+			if rk != "": lit2[rk] = true
+		for j in range(pts.size() - 1):   # (and the halls between them)
+			for t in [0.25, 0.5, 0.75]:
+				var rk2 := Boarding.room_at((pts[j] as Vector3).lerp(pts[j + 1], t), 6.0)
+				if rk2 != "": lit2[rk2] = true
 		var lb := Label3D.new()
 		lb.text = "%s  %s" % [char(65 + i), str(st["label"])]
 		lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED
@@ -280,6 +289,7 @@ func set_route(from: Vector3, steps: Array) -> void:
 		route_root.add_child(dot)
 		dot.position = (st["at"] as Vector3) + Vector3(0, 10, 0)
 		at = st["at"]
+	lit = lit2
 
 func pause() -> void:
 	render_target_update_mode = SubViewport.UPDATE_DISABLED

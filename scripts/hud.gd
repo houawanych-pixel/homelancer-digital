@@ -3137,14 +3137,18 @@ func _fleet_map3d(inner: Rect2) -> void:
 		map3d = ShipMap3D.new()
 		add_child(map3d)
 		var ptex: Texture2D = load(str(Boarding.INFO.get("plan_tex", ""))) if ResourceLoader.exists(str(Boarding.INFO.get("plan_tex", ""))) else null
-		map3d.setup(Boarding.ROOMS, space.board_doors, ptex, Boarding.INFO.get("plan_map", {}))
+		var dtex := {}   # v13.138: the other decks' plans (shown when you are on that deck)
+		for dn in (Boarding.INFO.get("plan_tex_decks", {}) as Dictionary):
+			var dp := str(Boarding.INFO["plan_tex_decks"][dn])
+			if ResourceLoader.exists(dp): dtex[dn] = load(dp)
+		map3d.setup(Boarding.ROOMS, space.board_doors, ptex, Boarding.INFO.get("plan_map", {}), dtex)
 		_map3d_for = space.board
 	var fl: Dictionary = space.board.get("fleet", {})
 	var pp: Vector3 = space.player.global_position
 	var goal = null
 	var bc = fl.get("beacon")
 	if bc != null and is_instance_valid(bc): goal = (bc as Node3D).global_position - Vector3(0, 15, 0)
-	map3d.refresh(fl.get("seen", {}), Boarding.deck_y(pp), pp, -space.player.global_basis.z, goal, pmap_yaw, pmap_pitch, pmap_zoom)
+	map3d.refresh(fl.get("seen", {}), Boarding.deck_y(pp), pp, -space.player.global_basis.z, goal, pmap_yaw, pmap_pitch, pmap_zoom, space.escape_pilot)
 	var steps: Array = space.fleet_route() if bool(fl.get("wp_on", false)) else []   # v13.130: only Evee's next step
 	if not steps.is_empty(): steps = [steps[0]]
 	map3d.set_route(pp, steps)
