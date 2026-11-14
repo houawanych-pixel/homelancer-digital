@@ -1902,7 +1902,7 @@ func _fleet_setup(root: Node3D, info: Dictionary, fac: String) -> void:
 			k["home"] = (k["node"] as Node3D).global_position
 			k["orbit"] = _rng.randf() * TAU
 			k["aggro"] = false
-			var cw := crew_of(fac, int(c["key"]))   # v13.148: a named crew member carries it, where the faction has them
+			var cw := crew_of(fac, int(c["key"]), str(info.get("ship_id", "")))   # v13.148: a named crew member carries it, where the faction has them
 			if cw.is_empty(): _soldierify(k, fac)
 			else: _standify(k, fac, cw)
 			k["card"] = int(c["key"])
@@ -1941,7 +1941,7 @@ func _fleet_setup(root: Node3D, info: Dictionary, fac: String) -> void:
 					k["home"] = (k["node"] as Node3D).global_position
 					k["orbit"] = 0.0
 					k["aggro"] = false
-					var cap := crew_of(fac, -1)
+					var cap := crew_of(fac, -1, str(info.get("ship_id", "")))
 					if cap.is_empty(): _soldierify(k, fac)
 					else: _standify(k, fac, cap)
 					for key in ["hp", "max"]: k[key] = Data.GUARD_HP * 3.0
@@ -1983,7 +1983,7 @@ func _fleet_setup(root: Node3D, info: Dictionary, fac: String) -> void:
 		fl["beacon"] = bc
 		bc.visible = false   # v13.130 (owner: "the player has to figure it out"): shown only when Evee marks it
 	if Boarding.STACKED: _fleet_decks(root)
-	_crew_walkers(fac, kind)   # v13.148
+	_crew_walkers(fac, kind, str(info.get("ship_id", "")))   # v13.148
 	_stealth_setup(root, kind == "visit")
 	if kind == "visit":
 		message.emit("Aboard the %s as a guest. The crew is calm (NEUTRAL). Card doors: talk to the card carriers for the codes, or punch them in at the floor pads." % str(info["name"]))
@@ -2325,10 +2325,25 @@ func _soldierify(e: Dictionary, fac: String) -> void:
 
 ## v13.148 (owner): one of a faction's named crew as a STANDEE: his picture cut out on a board on a stand, a pilot's
 ## height, turning to face you. Guard rules as any soldier; TALK / his radio calls show his face.
-static func crew_of(fac: String, card: int) -> Dictionary:
-	for c in Data.FACTION_CREW.get(fac, []):
-		if int(c["card"]) == card and ResourceLoader.exists("res://assets/crew_standees/%s_%s.png" % [fac.to_lower(), str(c["id"])]): return c
-	return {}
+## v13.150 (owner: "3 keyholders per ship, the captain of the ship for each one"): this ship's own crew from the
+## faction's pool: [yellow card, orange card, red card, captain], the same every time you board that ship, different
+## ship to ship (the capital's captain is the High Lord). {} where the faction has no crew art.
+static func ship_crew(fac: String, ship_id: String) -> Array:
+	var pool: Array = (Data.FACTION_CREW.get(fac, []) as Array).filter(func(c): return ResourceLoader.exists("res://assets/crew_standees/%s_%s.png" % [fac.to_lower(), str(c["id"])]))
+	var cap_c: Array = pool.filter(func(c): return bool(c.get("capital", false)))
+	var rest: Array = pool.filter(func(c): return not bool(c.get("capital", false)))
+	if rest.size() < 4: return []
+	var cls := FleetCatalog.CLASSES.find(str(FleetCatalog.get_entry(ship_id).get("class", "")))
+	var i0 := maxi(0, cls) * 3   # (each class shifts the pool by 3: every ship a different set)
+	var out: Array = []
+	for k in 4: out.append(rest[(i0 + k) % rest.size()])
+	if ship_id.ends_with("_capital") and not cap_c.is_empty(): out[3] = cap_c[0]
+	return out
+static func crew_of(fac: String, card: int, ship_id := "") -> Dictionary:
+	var sc := ship_crew(fac, ship_id)
+	if sc.is_empty(): return {}
+	return sc[3] if card < 0 else (sc[card - 1] if card >= 1 and card <= 3 else {})
+
 func _standify(e: Dictionary, fac: String, crew: Dictionary) -> void:
 	_soldierify(e, fac)
 	var n: Node3D = e["node"]
@@ -2695,15 +2710,19 @@ func set_stealth(st: String, why := "") -> void:
 
 ## v13.148 (owner: "populate the ship better, multiple characters instead of just soldiers"): the faction's crew who
 ## carry no card walk round the ship too (on a visit the captain as well), each in a random room you can reach.
-func _crew_walkers(fac: String, kind: String) -> void:
+func _crew_walkers(fac: String, kind: String, ship_id: String) -> void:
 	var rr: RandomNumberGenerator = board.get("fleet_rng", null)
 	if rr == null:
 		rr = RandomNumberGenerator.new()
 		rr.randomize()
-	for c in Data.FACTION_CREW.get(fac, []):
-		var cd := int(c["card"])
-		if cd > 0 or (cd < 0 and kind != "visit"): continue
-		if not ResourceLoader.exists("res://assets/crew_standees/%s_%s.png" % [fac.to_lower(), str(c["id"])]): continue
+	var sc := ship_crew(fac, ship_id)
+	if sc.is_empty(): return
+	var walk: Array = []   # v13.150: the captain walks round on a visit (on a capture job he is the target); two more of the crew too
+	if kind == "visit": walk.append(sc[3])
+	var others: Array = (Data.FACTION_CREW.get(fac, []) as Array).filter(func(c): return not sc.has(c) and not bool(c.get("capital", false)))
+	others.shuffle()
+	walk += others.slice(0, Data.CREW_WALKERS)
+	for c in walk:
 		var at := _fleet_room_pick(rr, rr.randi_range(0, 2), [])
 		if at == Vector3.INF: continue
 		for k in spawn_ground_mechs(at, fac, 1, -42, 0):

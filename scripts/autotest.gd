@@ -1803,6 +1803,10 @@ func _run() -> void:
 		await _capture("visit_neutral")
 		var crew: Array = s.enemies.filter(func(e): return e.has("crew"))
 		if Data.FACTION_CREW.has(str(s.board.get("faction", ""))):
+			var sc1: Array = SpaceSystem.ship_crew("Imperium", "imperium_cruiser").map(func(c): return c["id"])
+			var sc2: Array = SpaceSystem.ship_crew("Imperium", "imperium_destroyer").map(func(c): return c["id"])
+			var sc0: Array = SpaceSystem.ship_crew("Imperium", "imperium_capital").map(func(c): return c["id"])
+			_check("v13.150: every ship its own 3 keyholders and captain (capital: the High Lord)", sc1.size() == 4 and sc1 != sc2 and str(sc0[3]) == "highlord", "%s / %s / %s" % [sc0, sc1, sc2])
 			_check("v13.148: the faction's named crew walk the ship as standees (card carriers too)", crew.size() >= 3 and crew.all(func(e): return (e["node"] as Node3D).find_child("Standee", true, false) != null), "%d" % crew.size())
 			if not crew.is_empty():
 				var cn: Node3D = crew[0]["node"]
