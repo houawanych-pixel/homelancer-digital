@@ -2747,7 +2747,8 @@ func _mech_guards(fac: String, ship_id: String) -> void:
 	var lvs := mech_standee_levels(fac)
 	if lvs.is_empty(): return
 	var cls := str(FleetCatalog.get_entry(ship_id).get("class", "Frigate"))
-	var n := int(Data.FLEET_MECH_GUARDS.get(cls, 2))
+	var mix: Array = (Data.FLEET_MECH_GUARDS.get(cls, [1, 1]) as Array).duplicate()
+	var n := mix.size()
 	var rr: RandomNumberGenerator = board.get("fleet_rng", null)
 	if rr == null:
 		rr = RandomNumberGenerator.new()
@@ -2762,13 +2763,16 @@ func _mech_guards(fac: String, ship_id: String) -> void:
 		var r: Array = Boarding.ROOMS[rk]["r"]
 		var at := Vector3((float(r[0]) + float(r[1])) * 0.5, 0.0, (float(r[2]) + float(r[3])) * 0.5)
 		at.y = Boarding.floor_at(at)
-		var lv: int = lvs[rr.randi_range(0, lvs.size() - 1)]
+		var want := int(mix[i])   # the class's level; the nearest the faction has art for
+		var lv: int = lvs[0]
+		for l in lvs: if absi(int(l) - want) < absi(lv - want): lv = int(l)
 		for k in spawn_ground_mechs(at, fac, 1, -42, 0):
 			(k["node"] as Node3D).global_position = Vector3(at.x, at.y + Data.WALKER_STAND, at.z)
 			k["home"] = (k["node"] as Node3D).global_position
 			k["orbit"] = rr.randf() * TAU
 			k["aggro"] = false
 			_mech_standee(k, fac, lv)
+			for key in ["hp", "max"]: k[key] = float(k[key]) * float(Data.MECH_LEVEL_HP[clampi(want, 1, 3) - 1])   # v13.154: higher level, tougher
 			if not (board["guards"] as Dictionary).has(rk): board["guards"][rk] = []
 			board["guards"][rk].append(k)
 

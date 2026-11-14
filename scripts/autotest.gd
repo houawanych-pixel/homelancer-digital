@@ -1808,6 +1808,7 @@ func _run() -> void:
 			var sc0: Array = SpaceSystem.ship_crew("Imperium", "imperium_capital").map(func(c): return c["id"])
 			_check("v13.150: every ship its own 3 keyholders and captain (capital: the High Lord)", sc1.size() == 4 and sc1 != sc2 and str(sc0[3]) == "highlord", "%s / %s / %s" % [sc0, sc1, sc2])
 			var mechs: Array = s.enemies.filter(func(e): return e.has("standee_mech"))
+			_check("v13.154: the bigger the ship the more and higher-level mechs (scout all L1, capital mostly L3)", (Data.FLEET_MECH_GUARDS["Scout"] as Array).max() == 1 and (Data.FLEET_MECH_GUARDS["Capital"] as Array).size() > (Data.FLEET_MECH_GUARDS["Frigate"] as Array).size() and mechs.size() == (Data.FLEET_MECH_GUARDS["Cruiser"] as Array).size(), "%d aboard the cruiser" % mechs.size())
 			_check("v13.151: the faction's mechs stand guard in the mech rooms (standees on their hit box)", mechs.size() >= 2 and mechs.all(func(e): return (e["node"] as Node3D).find_child("Standee", false, false) != null), "%d" % mechs.size())
 			if not mechs.is_empty():
 				var mn: Node3D = mechs[0]["node"]

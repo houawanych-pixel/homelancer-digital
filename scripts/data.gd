@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.153"
+const VERSION := "v13.154"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -2810,7 +2810,11 @@ const FACTION_CREW := {"Imperium": [   # v13.150 (owner: "3 keyholders per ship,
 # v13.151 (owner: "I have mechs for different factions, levels 1 2 3 ... a placeholder with a hit box board behind it,
 # mixed into the ships"): the faction mech pictures as mech-size standees guarding the big (mech) rooms aboard. Files
 # assets/crew_standees/mech_<faction>_l<level>.png (the levels are a guess from the pictures). How many per ship class:
-const FLEET_MECH_GUARDS := {"Capital": 4, "Cruiser": 3, "Destroyer": 3, "Resupply": 2, "TroopTransport": 3, "Frigate": 2, "Escort": 2, "Scout": 1, "Bomber": 1}
+const FLEET_MECH_GUARDS := {   # v13.154 (owner: "the higher the fleet vessel, the higher the level of mech; small ships mostly level 1
+	# with one or two stronger; it gets harder up to the capital ships"): the mech guards aboard each class, by level
+	"Scout": [1], "Bomber": [1], "Escort": [1, 1], "Frigate": [1, 1, 2], "TroopTransport": [1, 1, 2, 2], "Resupply": [1, 1, 2],
+	"Destroyer": [1, 2, 2, 3], "Cruiser": [2, 2, 2, 3, 3], "Capital": [2, 2, 3, 3, 3, 3]}
+const MECH_LEVEL_HP := [1.0, 1.6, 2.4]   # a mech guard's health by level (L1 = the regular mech)
 const MECH_STANDEE_K := [1.0, 1.15, 1.35]   # v13.153: a mech standee's height by level (L1 the regular mech)
 const CREW_WALKERS := 2   # v13.150: crew from the pool (not this ship's keyholders) walking round each ship
 const STANDEE_BASE := Color(0.12, 0.13, 0.16)   # the stand under a cut-out
