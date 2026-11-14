@@ -2780,6 +2780,7 @@ func _mech_standee(e: Dictionary, fac: String, lv: int) -> void:
 		var bb := ShipFactory._aabb(model, Transform3D.IDENTITY)
 		if bb.size.y > 0.1: h = bb.size.y * model.scale.y
 		model.visible = false
+	h *= float(Data.MECH_STANDEE_K[clampi(lv, 1, 3) - 1])   # v13.153 (owner: "level 2s a little bigger, level 3s bigger")
 	var tex: Texture2D = load("res://assets/crew_standees/mech_%s_l%d.png" % [fac.to_lower(), lv])
 	var sp := Sprite3D.new()
 	sp.name = "Standee"
