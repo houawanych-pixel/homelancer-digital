@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#f6f9fc">
-<meta name="hl-version" content="v13.136">
-<title>Homelancer Digital v13.136</title>
+<meta name="hl-version" content="v13.137">
+<title>Homelancer Digital v13.137</title>
 <style>
 *{box-sizing:border-box}
 html,body{margin:0;width:100%;height:100%;background:#f6f9fc;color:#0e2f5a;font:16px system-ui,sans-serif;overflow:hidden;touch-action:none}
@@ -50,7 +50,7 @@ window.hlMotion = { on: false, a: null, p: 0 };
 window.hlMotionStart = function () {
   const go = () => {
     if (window.hlMotion.on) return;
-    // v13.136 (owner: "tilt should only do left and right to pan the 360; up and down only a little, never flip"):
+    // v13.137 (owner: "tilt should only do left and right to pan the 360; up and down only a little, never flip"):
     // the heading is where the phone's back points, projected flat (so tilting up / down does not swing it), and
     // held when the phone points almost straight up or down; the up / down tilt is sent apart (p) for a small look.
     window.addEventListener('deviceorientation', (e) => {

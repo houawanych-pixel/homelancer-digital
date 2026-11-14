@@ -407,7 +407,7 @@
    "rooms": [
     "Chapel / Shrine (port)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -503,7 +503,7 @@
    "rooms": [
     "Cargo Hold (port)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -515,7 +515,7 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -527,7 +527,7 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -539,7 +539,7 @@
    "rooms": [
     "Reactor Core"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -551,7 +551,7 @@
    "rooms": [
     "Engine Room"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -695,7 +695,7 @@
    "rooms": [
     "Hangar Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -707,7 +707,7 @@
    "rooms": [
     "Hangar Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -767,7 +767,7 @@
    "rooms": [
     "Chapel / Shrine (starboard)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -863,7 +863,7 @@
    "rooms": [
     "Cargo Hold (starboard)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -875,7 +875,7 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -887,7 +887,7 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -899,7 +899,7 @@
    "rooms": [
     "Reactor Core"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -911,7 +911,7 @@
    "rooms": [
     "Engine Room"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   }
  ],
@@ -920,8 +920,8 @@
  "counts": {
   "mech_rooms": 11,
   "pilot_rooms": 13,
-  "mech_doors": 29,
-  "pilot_doors": 42,
+  "mech_doors": 43,
+  "pilot_doors": 28,
   "locked": {
    "OPEN": 61,
    "YELLOW": 1,

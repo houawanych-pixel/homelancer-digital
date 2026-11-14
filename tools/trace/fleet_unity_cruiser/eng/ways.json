@@ -292,7 +292,7 @@
    ],
    "o": "v",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -302,7 +302,7 @@
    ],
    "o": "v",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -312,7 +312,7 @@
    ],
    "o": "v",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -336,7 +336,7 @@
    "rooms": [
     "Cargo Hold"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 2
   },
   {
@@ -360,7 +360,7 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -372,7 +372,7 @@
    "rooms": [
     "Reactor Core"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -501,7 +501,7 @@
    ],
    "o": "v",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -511,7 +511,7 @@
    ],
    "o": "v",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -521,7 +521,7 @@
    ],
    "o": "v",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -545,7 +545,7 @@
    "rooms": [
     "Vehicle Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 1
   },
   {
@@ -569,7 +569,7 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -581,7 +581,7 @@
    "rooms": [
     "Reactor Core"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   }
  ],
@@ -590,8 +590,8 @@
  "counts": {
   "mech_rooms": 6,
   "pilot_rooms": 11,
-  "mech_doors": 13,
-  "pilot_doors": 33,
+  "mech_doors": 25,
+  "pilot_doors": 21,
   "locked": {
    "OPEN": 37,
    "YELLOW": 2,

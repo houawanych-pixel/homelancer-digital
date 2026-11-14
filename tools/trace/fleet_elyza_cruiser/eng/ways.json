@@ -109,7 +109,7 @@
    "rooms": [
     "Hangar Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -471,8 +471,8 @@
  "counts": {
   "mech_rooms": 7,
   "pilot_rooms": 13,
-  "mech_doors": 11,
-  "pilot_doors": 23,
+  "mech_doors": 12,
+  "pilot_doors": 22,
   "locked": {
    "OPEN": 26,
    "YELLOW": 2,

@@ -295,7 +295,7 @@
    ],
    "o": "h",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -305,7 +305,7 @@
    ],
    "o": "h",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -317,7 +317,7 @@
    "rooms": [
     "Armory"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -329,7 +329,7 @@
    "rooms": [
     "Armory"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -363,7 +363,7 @@
    ],
    "o": "h",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -375,7 +375,7 @@
    "rooms": [
     "Reactor Core"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -387,7 +387,7 @@
    "rooms": [
     "Engine Room"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -457,7 +457,7 @@
    ],
    "o": "h",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -467,7 +467,7 @@
    ],
    "o": "h",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -479,7 +479,7 @@
    "rooms": [
     "Magazine (Ordnance)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 1
   },
   {
@@ -491,7 +491,7 @@
    "rooms": [
     "Magazine (Ordnance)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 1
   },
   {
@@ -525,7 +525,7 @@
    ],
    "o": "h",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -537,7 +537,7 @@
    "rooms": [
     "Reactor Core"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -549,7 +549,7 @@
    "rooms": [
     "Engine Room"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   }
  ],
@@ -558,8 +558,8 @@
  "counts": {
   "mech_rooms": 10,
   "pilot_rooms": 3,
-  "mech_doors": 23,
-  "pilot_doors": 21,
+  "mech_doors": 37,
+  "pilot_doors": 7,
   "locked": {
    "OPEN": 35,
    "YELLOW": 3,

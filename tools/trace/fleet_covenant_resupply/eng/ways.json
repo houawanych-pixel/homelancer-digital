@@ -228,7 +228,7 @@
    "rooms": [
     "Crew Quarters (port)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -240,7 +240,7 @@
    "rooms": [
     "Galley & Mess"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -264,7 +264,7 @@
    "rooms": [
     "Galley & Mess"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -324,7 +324,7 @@
    "rooms": [
     "Cargo Hold A"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -336,7 +336,7 @@
    "rooms": [
     "Storage & Supplies"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -384,7 +384,7 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -396,7 +396,7 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -408,7 +408,7 @@
    "rooms": [
     "Reactor Core"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -505,7 +505,7 @@
    "rooms": [
     "Cargo Transfer Hub"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -553,7 +553,7 @@
    "rooms": [
     "Cargo Hold B"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -565,7 +565,7 @@
    "rooms": [
     "Refrigerated Stores"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -625,7 +625,7 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -637,7 +637,7 @@
    "rooms": [
     "Reactor Core"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   }
  ],
@@ -646,8 +646,8 @@
  "counts": {
   "mech_rooms": 16,
   "pilot_rooms": 3,
-  "mech_doors": 31,
-  "pilot_doors": 18,
+  "mech_doors": 44,
+  "pilot_doors": 5,
   "locked": {
    "OPEN": 43,
    "YELLOW": 1,

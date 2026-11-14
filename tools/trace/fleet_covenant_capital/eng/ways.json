@@ -190,7 +190,7 @@
    ],
    "o": "v",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -214,7 +214,7 @@
    "rooms": [
     "Lift (port)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -286,7 +286,7 @@
    "rooms": [
     "Hangar Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -442,7 +442,7 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -500,7 +500,7 @@
    ],
    "o": "v",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -524,7 +524,7 @@
    "rooms": [
     "Lift (starboard)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -596,7 +596,7 @@
    "rooms": [
     "Hangar Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -752,7 +752,7 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -785,8 +785,8 @@
  "counts": {
   "mech_rooms": 9,
   "pilot_rooms": 16,
-  "mech_doors": 23,
-  "pilot_doors": 37,
+  "mech_doors": 31,
+  "pilot_doors": 29,
   "locked": {
    "OPEN": 52,
    "YELLOW": 1,

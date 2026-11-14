@@ -360,7 +360,7 @@
    "rooms": [
     "Loader & Vehicle Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -372,7 +372,7 @@
    "rooms": [
     "Loader & Vehicle Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -575,7 +575,7 @@
    "rooms": [
     "Loader & Vehicle Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -587,7 +587,7 @@
    "rooms": [
     "Loader & Vehicle Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -635,7 +635,7 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   }
  ],
@@ -644,8 +644,8 @@
  "counts": {
   "mech_rooms": 14,
   "pilot_rooms": 7,
-  "mech_doors": 30,
-  "pilot_doors": 19,
+  "mech_doors": 35,
+  "pilot_doors": 14,
   "locked": {
    "OPEN": 42,
    "YELLOW": 1,

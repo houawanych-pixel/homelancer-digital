@@ -192,7 +192,7 @@
    ],
    "o": "h",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -252,7 +252,7 @@
    "rooms": [
     "Hangar Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -262,7 +262,7 @@
    ],
    "o": "h",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -322,7 +322,7 @@
    "rooms": [
     "Hangar Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -334,7 +334,7 @@
    "rooms": [
     "Hangar Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -346,7 +346,7 @@
    "rooms": [
     "Barracks (port)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 1
   },
   {
@@ -468,7 +468,7 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -480,7 +480,7 @@
    "rooms": [
     "Reactor Core"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -551,7 +551,7 @@
    ],
    "o": "h",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -621,7 +621,7 @@
    ],
    "o": "h",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -693,7 +693,7 @@
    "rooms": [
     "Hangar Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -705,7 +705,7 @@
    "rooms": [
     "Barracks (starboard)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -827,7 +827,7 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -839,7 +839,7 @@
    "rooms": [
     "Reactor Core"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -860,8 +860,8 @@
  "counts": {
   "mech_rooms": 9,
   "pilot_rooms": 17,
-  "mech_doors": 27,
-  "pilot_doors": 39,
+  "mech_doors": 41,
+  "pilot_doors": 25,
   "locked": {
    "OPEN": 52,
    "YELLOW": 2,

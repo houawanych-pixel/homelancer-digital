@@ -121,7 +121,7 @@
    "rooms": [
     "Launch Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -157,7 +157,7 @@
    "rooms": [
     "Missile Magazine"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -169,7 +169,7 @@
    "rooms": [
     "Engineering"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -182,7 +182,7 @@
     "Engineering",
     "Reactor Core"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -318,7 +318,7 @@
    "rooms": [
     "Missile Magazine"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -330,7 +330,7 @@
    "rooms": [
     "Cargo Hold (port)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -354,7 +354,7 @@
    "rooms": [
     "Cargo Hold (port)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -366,7 +366,7 @@
    "rooms": [
     "Engineering"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -402,7 +402,7 @@
    "rooms": [
     "Lift (port)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -622,7 +622,7 @@
    "rooms": [
     "Lift (starboard)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   }
  ],
@@ -634,8 +634,8 @@
  "counts": {
   "mech_rooms": 10,
   "pilot_rooms": 11,
-  "mech_doors": 16,
-  "pilot_doors": 31,
+  "mech_doors": 26,
+  "pilot_doors": 21,
   "locked": {
    "OPEN": 40,
    "YELLOW": 1,

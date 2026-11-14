@@ -133,7 +133,7 @@
    "rooms": [
     "Bunk (4)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 1
   },
   {
@@ -206,7 +206,7 @@
    "rooms": [
     "Med / Galley"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -264,8 +264,8 @@
  "counts": {
   "mech_rooms": 9,
   "pilot_rooms": 2,
-  "mech_doors": 15,
-  "pilot_doors": 4,
+  "mech_doors": 17,
+  "pilot_doors": 2,
   "locked": {
    "OPEN": 9,
    "YELLOW": 2,

@@ -281,7 +281,7 @@
    "rooms": [
     "Galley / Med"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 1
   },
   {
@@ -291,7 +291,7 @@
    ],
    "o": "h",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -303,7 +303,7 @@
    "rooms": [
     "Support & Stores"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -359,8 +359,8 @@
  "counts": {
   "mech_rooms": 11,
   "pilot_rooms": 0,
-  "mech_doors": 24,
-  "pilot_doors": 3,
+  "mech_doors": 27,
+  "pilot_doors": 0,
   "locked": {
    "OPEN": 15,
    "YELLOW": 3,

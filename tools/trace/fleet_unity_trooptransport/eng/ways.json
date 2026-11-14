@@ -188,7 +188,7 @@
    "rooms": [
     "Barracks (port)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -200,7 +200,7 @@
    "rooms": [
     "Armory"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -304,7 +304,7 @@
    "rooms": [
     "Barracks (starboard)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 1
   },
   {
@@ -316,7 +316,7 @@
    "rooms": [
     "Lockers"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -359,8 +359,8 @@
  "counts": {
   "mech_rooms": 13,
   "pilot_rooms": 0,
-  "mech_doors": 23,
-  "pilot_doors": 4,
+  "mech_doors": 27,
+  "pilot_doors": 0,
   "locked": {
    "OPEN": 17,
    "YELLOW": 2,

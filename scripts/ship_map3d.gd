@@ -116,9 +116,9 @@ func setup(rooms: Dictionary, doors: Array, plan_tex: Texture2D = null, pm: Dict
 		world_root.add_child(dm)
 		door_nodes.append([dm, d])
 	you = MeshInstance3D.new()
-	var pm := PrismMesh.new()
-	pm.size = Vector3(60, 90, 12)
-	you.mesh = pm
+	var prm := PrismMesh.new()
+	prm.size = Vector3(60, 90, 12)
+	you.mesh = prm
 	you.material_override = _mat(Color(1, 1, 1), 1.0)
 	world_root.add_child(you)
 	goal = MeshInstance3D.new()

@@ -74,7 +74,7 @@
    "rooms": [
     "Loading / Vehicle Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -183,7 +183,7 @@
    "rooms": [
     "Cargo Hold A"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 1
   },
   {
@@ -243,7 +243,7 @@
    "rooms": [
     "Cargo Hold A"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 1
   },
   {
@@ -410,7 +410,7 @@
    "rooms": [
     "Cargo Hold B"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 2
   },
   {
@@ -422,7 +422,7 @@
    "rooms": [
     "Cargo Hold B"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 2
   },
   {
@@ -434,7 +434,7 @@
    "rooms": [
     "Cargo Hold D"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -446,7 +446,7 @@
    "rooms": [
     "Cargo Hold D"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -458,7 +458,7 @@
    "rooms": [
     "Cargo Hold F"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -586,8 +586,8 @@
  "counts": {
   "mech_rooms": 7,
   "pilot_rooms": 14,
-  "mech_doors": 15,
-  "pilot_doors": 29,
+  "mech_doors": 23,
+  "pilot_doors": 21,
   "locked": {
    "OPEN": 30,
    "YELLOW": 3,

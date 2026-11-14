@@ -109,8 +109,10 @@ def ways(sid):
     # a mech way is the whole width of a hall the route runs down
     near = cv2.dilate(path, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (31, 31))).astype(bool)
     n, lab = cv2.connectedComponents((hallm & walk).astype(np.uint8), connectivity=4)
-    mech_hall = hallm & near
-    pilot_hall = hallm & ~mech_hall
+    # v13.137 (owner, phone shot: "pilot rooms should not cross together like that"): every corridor is a mech way (tall,
+    # one height all along); pilot space is the small rooms themselves, behind their narrow low doors
+    mech_hall = hallm.copy()
+    pilot_hall = np.zeros_like(hallm)
     # doors: what they join
     lock = {(round(l["door"][0]), round(l["door"][1])): int(l["key"]) for l in G["locks"]}
     D = []

@@ -409,7 +409,7 @@
    "rooms": [
     "Hangar Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -599,7 +599,7 @@
    "rooms": [
     "Vehicle Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -611,7 +611,7 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -647,7 +647,7 @@
    "rooms": [
     "Hangar Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   }
  ],
@@ -656,8 +656,8 @@
  "counts": {
   "mech_rooms": 12,
   "pilot_rooms": 16,
-  "mech_doors": 26,
-  "pilot_doors": 22,
+  "mech_doors": 30,
+  "pilot_doors": 18,
   "locked": {
    "OPEN": 40,
    "YELLOW": 2,

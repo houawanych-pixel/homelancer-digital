@@ -295,7 +295,7 @@
    ],
    "o": "h",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -305,7 +305,7 @@
    ],
    "o": "h",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -317,7 +317,7 @@
    "rooms": [
     "Armory"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -341,7 +341,7 @@
    "rooms": [
     "Armory"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -353,7 +353,7 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -363,7 +363,7 @@
    ],
    "o": "h",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -375,7 +375,7 @@
    "rooms": [
     "Reactor Core"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -387,7 +387,7 @@
    "rooms": [
     "Engine Room"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 2
   },
   {
@@ -399,7 +399,7 @@
    "rooms": [
     "Crew Quarters B"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -491,7 +491,7 @@
    "rooms": [
     "Magazine (Ordnance)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -503,7 +503,7 @@
    "rooms": [
     "Magazine (Ordnance)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -515,7 +515,7 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -525,7 +525,7 @@
    ],
    "o": "h",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -537,7 +537,7 @@
    "rooms": [
     "Reactor Core"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -549,7 +549,7 @@
    "rooms": [
     "Engine Room"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 2
   }
  ],
@@ -558,8 +558,8 @@
  "counts": {
   "mech_rooms": 10,
   "pilot_rooms": 3,
-  "mech_doors": 22,
-  "pilot_doors": 22,
+  "mech_doors": 37,
+  "pilot_doors": 7,
   "locked": {
    "OPEN": 35,
    "YELLOW": 2,

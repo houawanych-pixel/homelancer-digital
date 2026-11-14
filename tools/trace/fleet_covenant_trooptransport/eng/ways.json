@@ -139,7 +139,7 @@
    "rooms": [
     "Troop Bay (Deployment Deck)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -430,7 +430,7 @@
    "rooms": [
     "Troop Bay (Deployment Deck)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -454,7 +454,7 @@
    "rooms": [
     "Armory"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -541,7 +541,7 @@
     "Engineering Deck",
     "Machine Room (port)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -553,7 +553,7 @@
    "rooms": [
     "Reactor Core"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -565,7 +565,7 @@
    "rooms": [
     "Engine Room"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -760,7 +760,7 @@
    "rooms": [
     "Troop Bay (Deployment Deck)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -784,7 +784,7 @@
    "rooms": [
     "Medbay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -871,7 +871,7 @@
     "Engineering Deck",
     "Machine Room (starboard)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -883,7 +883,7 @@
    "rooms": [
     "Reactor Core"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -895,7 +895,7 @@
    "rooms": [
     "Engine Room"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   }
  ],
@@ -904,8 +904,8 @@
  "counts": {
   "mech_rooms": 13,
   "pilot_rooms": 14,
-  "mech_doors": 26,
-  "pilot_doors": 42,
+  "mech_doors": 37,
+  "pilot_doors": 31,
   "locked": {
    "OPEN": 59,
    "YELLOW": 1,

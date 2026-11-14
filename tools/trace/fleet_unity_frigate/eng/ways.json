@@ -72,7 +72,7 @@
    "rooms": [
     "CIC (Combat Information Center)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -96,7 +96,7 @@
    "rooms": [
     "Craft Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -108,7 +108,7 @@
    "rooms": [
     "Craft Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -120,7 +120,7 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -142,7 +142,7 @@
    "rooms": [
     "Reactor Core"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -154,7 +154,7 @@
    "rooms": [
     "Engine Room"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -166,7 +166,7 @@
    "rooms": [
     "Crew Quarters A"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 1
   },
   {
@@ -176,7 +176,7 @@
    ],
    "o": "v",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -201,7 +201,7 @@
    "rooms": [
     "Galley & Mess"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -247,7 +247,7 @@
    "rooms": [
     "Armory"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -343,7 +343,7 @@
    "rooms": [
     "Crew Quarters B"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -353,7 +353,7 @@
    ],
    "o": "v",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -424,7 +424,7 @@
    "rooms": [
     "Weapons Magazine"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -460,7 +460,7 @@
    "rooms": [
     "Weapons Magazine"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -472,7 +472,7 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -484,7 +484,7 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -496,7 +496,7 @@
    "rooms": [
     "Reactor Core"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -508,7 +508,7 @@
    "rooms": [
     "Engine Room"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   }
  ],
@@ -517,8 +517,8 @@
  "counts": {
   "mech_rooms": 11,
   "pilot_rooms": 2,
-  "mech_doors": 20,
-  "pilot_doors": 20,
+  "mech_doors": 38,
+  "pilot_doors": 2,
   "locked": {
    "OPEN": 31,
    "YELLOW": 2,

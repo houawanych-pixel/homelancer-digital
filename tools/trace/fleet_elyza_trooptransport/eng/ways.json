@@ -92,7 +92,7 @@
    "rooms": [
     "Command & Control"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -104,7 +104,7 @@
    "rooms": [
     "Command & Control"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -178,7 +178,7 @@
    "rooms": [
     "Troop Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -263,7 +263,7 @@
    "rooms": [
     "Lift A"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -396,7 +396,7 @@
    "rooms": [
     "Vehicle / Dropship Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -420,7 +420,7 @@
    "rooms": [
     "Maint. Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -468,7 +468,7 @@
    "rooms": [
     "Reactor Core"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -529,7 +529,7 @@
    "rooms": [
     "Command & Control"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -541,7 +541,7 @@
    "rooms": [
     "Medbay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -565,7 +565,7 @@
    "rooms": [
     "Lift B"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -662,7 +662,7 @@
    "rooms": [
     "Troop Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 3
   },
   {
@@ -698,7 +698,7 @@
    "rooms": [
     "Vehicle / Dropship Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -710,7 +710,7 @@
    "rooms": [
     "Vehicle / Dropship Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -722,7 +722,7 @@
    "rooms": [
     "Supply Depot"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -758,7 +758,7 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -770,7 +770,7 @@
    "rooms": [
     "Reactor Core"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -791,8 +791,8 @@
  "counts": {
   "mech_rooms": 18,
   "pilot_rooms": 6,
-  "mech_doors": 36,
-  "pilot_doors": 24,
+  "mech_doors": 52,
+  "pilot_doors": 8,
   "locked": {
    "OPEN": 49,
    "YELLOW": 1,
