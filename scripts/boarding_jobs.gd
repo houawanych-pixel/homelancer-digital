@@ -63,15 +63,16 @@ static func random_point(c: Vector3, clouds: Array, rng: RandomNumberGenerator) 
 		var cc = cl["center"]
 		var cp: Vector3 = cc if cc is Vector3 else (Vector3(float(cc[0]), float(cc[1]) if (cc as Array).size() > 2 else 0.0, float(cc[(cc as Array).size() - 1])) if cc is Array else Vector3.ZERO)
 		if cp.distance_to(c) < 9000.0: continue
+		if SystemBuilder.inside_cells(cp).distance_to(cp) > 1.0: continue   # v13.146 (owner): only the clouds inside the map (not the far backdrop ones, not the border squares)
 		inside.append([cp, float((cl as Dictionary).get("radius", 0.0))])
 	if not inside.is_empty() and rng.randf() < 0.75:
 		var pick: Array = inside[rng.randi_range(0, inside.size() - 1)]
 		var r := float(pick[1]) * 0.45 * sqrt(rng.randf())
 		var ang := rng.randf() * TAU
-		return {"pos": (pick[0] as Vector3) + Vector3(cos(ang) * r, rng.randf_range(-400.0, 400.0), sin(ang) * r), "nebula": true}
+		return {"pos": SystemBuilder.inside_cells((pick[0] as Vector3) + Vector3(cos(ang) * r, rng.randf_range(-400.0, 400.0), sin(ang) * r)), "nebula": true}
 	var a := rng.randf() * TAU
 	var d := rng.randf_range(DIST[0], DIST[2] * 1.4)
-	return {"pos": c + Vector3(cos(a) * d, rng.randf_range(100.0, 600.0), sin(a) * d), "nebula": false}
+	return {"pos": SystemBuilder.inside_cells(c + Vector3(cos(a) * d, rng.randf_range(100.0, 600.0), sin(a) * d)), "nebula": false}
 
 static func points(sys_id: String, c: Vector3, clouds: Array) -> Array:
 	var out: Array = []

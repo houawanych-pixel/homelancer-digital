@@ -1821,9 +1821,9 @@ func _run() -> void:
 				await get_tree().process_frame
 			var lv := int(d0["key"])
 			for k in (Array(str(Data.DOOR_MASTER[lv]).split("")) + ["OK"]): main.hud.keypad_press(str(k))
-			_check("v13.144: the pad brings up the keypad; a wrong code is ACCESS DENIED, the master code ACCESS GRANTED", opened and denied and bool(d0.get("code_ok", false)))
+			_check("v13.144: the pad brings up the keypad; a wrong code is ACCESS DENIED, the master code ACCESS GRANTED", opened and denied and bool(d0.get("code_ok", false)), "open %s denied %s ok %s · you %s pad %s" % [opened, denied, d0.get("code_ok", false), str(s.player.global_position.round()), str(pad.round())])
 		# TALK: a card carrier gives his code
-		var car: Array = s.enemies.filter(func(e): return e.has("code"))
+		var car: Array = s.enemies.filter(func(e): return e.has("code") and not bool((Boarding.ROOMS.get(Boarding.room_at((e["node"] as Node3D).global_position), {}) as Dictionary).get("pilot", false)))
 		if not car.is_empty():
 			var ce: Dictionary = car[0]
 			for i in 4:
@@ -1831,7 +1831,7 @@ func _run() -> void:
 				await get_tree().process_frame
 			var pr: String = s.prompt()
 			main._on_hud("guard_talk")
-			_check("v13.144: TALK to a card carrier gets his code", pr == "guard_talk" and bool(ce.get("told", false)), pr)
+			_check("v13.144: TALK to a card carrier gets his code", pr == "guard_talk" and bool(ce.get("told", false)), "%s · %.0f m" % [pr, s.player.global_position.distance_to((ce["node"] as Node3D).global_position)])
 		# hit a guard face on: CAUTION, he radios it in: ALERT
 		var g0: Dictionary = guards[0]
 		var gn: Node3D = g0["node"]

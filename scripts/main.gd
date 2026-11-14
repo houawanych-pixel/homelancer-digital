@@ -541,6 +541,7 @@ func _board_job_spawn(j: Dictionary) -> void:
 		var rr := RandomNumberGenerator.new()
 		rr.randomize()
 		j["spot"] = BoardingJobs.random_point(space.station.global_position, clouds, rr)
+	j["spot"]["pos"] = SystemBuilder.inside_cells(j["spot"]["pos"])   # v13.146 (owner: "no mission ever goes off the map"): never in the border squares
 	var pt: Dictionary = j["spot"]
 	board_ship = SpaceSystem._fleet_standin(e)
 	board_ship.name = str(e["name"]).validate_node_name()   # v13.10: its own name on the GPS (it is the mission)
