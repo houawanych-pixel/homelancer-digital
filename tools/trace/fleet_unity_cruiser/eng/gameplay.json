@@ -1,129 +1,4 @@
 {
- "entry": {
-  "room": "Launch Bay (Hangar)",
-  "at": [
-   627,
-   720
-  ]
- },
- "locks": [
-  {
-   "door": [
-    627,
-    918
-   ],
-   "key": 1,
-   "why": "engineering"
-  },
-  {
-   "door": [
-    627,
-    475
-   ],
-   "key": 2,
-   "why": "the CIC"
-  },
-  {
-   "door": [
-    574,
-    420
-   ],
-   "key": 2,
-   "why": "the CIC"
-  },
-  {
-   "door": [
-    680,
-    420
-   ],
-   "key": 2,
-   "why": "the CIC"
-  },
-  {
-   "door": [
-    627,
-    369
-   ],
-   "key": 2,
-   "why": "the CIC"
-  },
-  {
-   "door": [
-    627,
-    999
-   ],
-   "key": 2,
-   "why": "the reactor"
-  },
-  {
-   "door": [
-    587,
-    1049
-   ],
-   "key": 2,
-   "why": "the reactor"
-  },
-  {
-   "door": [
-    667,
-    1049
-   ],
-   "key": 2,
-   "why": "the reactor"
-  },
-  {
-   "door": [
-    627,
-    333
-   ],
-   "key": 2,
-   "why": "the sensors suite and the bridge"
-  }
- ],
- "guards": [
-  {
-   "key": 1,
-   "room": "Armory (port)",
-   "at": [
-    480,
-    660
-   ]
-  },
-  {
-   "key": 2,
-   "room": "Engineering Deck",
-   "at": [
-    700,
-    955
-   ]
-  }
- ],
- "targets": {
-  "sabotage": {
-   "room": "Reactor Core",
-   "at": [
-    627,
-    1043
-   ],
-   "key": 2
-  },
-  "capture": {
-   "room": "Bridge",
-   "at": [
-    627,
-    210
-   ],
-   "key": 2
-  },
-  "rescue": {
-   "room": "Sensors Suite",
-   "at": [
-    627,
-    300
-   ],
-   "key": 2
-  }
- },
  "wreck": [
   {
    "at": [
@@ -152,7 +27,7 @@
  ],
  "patrols": [],
  "room_guards": {
-  "Cargo Hold": 1,
+  "Cargo Hold": 2,
   "Vehicle Bay": 2,
   "Engineering Deck": 2,
   "CIC (Combat Information Center)": 2,
@@ -163,6 +38,156 @@
   "Armory (starboard)": 1,
   "Crew Quarters (port)": 1,
   "Weapon Bay (starboard)": 1,
-  "Engine Room": 1
+  "Engine Room": 1,
+  "Sensors Suite": 2
+ },
+ "formula": {
+  "C": "Engineering Deck",
+  "A_gate": "Cargo Hold",
+  "card_yellow": "Armory (starboard)",
+  "card_red": "Sensors Suite",
+  "entry": "Weapon Bay (port)",
+  "way_out": "Weapon Bay (starboard)",
+  "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
+ },
+ "entry": {
+  "room": "Weapon Bay (port)",
+  "at": [
+   406,
+   700
+  ]
+ },
+ "exit": {
+  "room": "Weapon Bay (starboard)",
+  "at": [
+   847,
+   700
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    627,
+    918
+   ],
+   "key": 3,
+   "why": "the objective (Engineering Deck)"
+  },
+  {
+   "door": [
+    627,
+    999
+   ],
+   "key": 3,
+   "why": "the objective (Engineering Deck)"
+  },
+  {
+   "door": [
+    572,
+    997
+   ],
+   "key": 3,
+   "why": "the objective (Engineering Deck)"
+  },
+  {
+   "door": [
+    682.0,
+    997
+   ],
+   "key": 3,
+   "why": "the objective (Engineering Deck)"
+  },
+  {
+   "door": [
+    627,
+    333
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    813.0,
+    675
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    889.0,
+    710
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    508,
+    801
+   ],
+   "key": 1,
+   "why": "the orange card's room (Cargo Hold)"
+  },
+  {
+   "door": [
+    609,
+    872
+   ],
+   "key": 1,
+   "why": "the orange card's room (Cargo Hold)"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Armory (starboard)",
+   "at": [
+    770,
+    661
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Cargo Hold",
+   "at": [
+    533,
+    850
+   ]
+  },
+  {
+   "key": 3,
+   "room": "Sensors Suite",
+   "at": [
+    627,
+    301
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Engineering Deck",
+   "at": [
+    627,
+    956
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Engineering Deck",
+   "at": [
+    627,
+    956
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Engineering Deck",
+   "at": [
+    627,
+    956
+   ],
+   "key": 3
+  }
  }
 }

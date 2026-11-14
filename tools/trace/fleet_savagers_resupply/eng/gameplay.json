@@ -1,153 +1,4 @@
 {
- "entry": {
-  "room": "Vehicle / Loader Bay",
-  "at": [
-   512,
-   840
-  ]
- },
- "locks": [
-  {
-   "door": [
-    512,
-    1108
-   ],
-   "key": 1,
-   "why": "engineering"
-  },
-  {
-   "door": [
-    343,
-    1162
-   ],
-   "key": 1,
-   "why": "engineering"
-  },
-  {
-   "door": [
-    681,
-    1162
-   ],
-   "key": 1,
-   "why": "engineering"
-  },
-  {
-   "door": [
-    512,
-    372
-   ],
-   "key": 2,
-   "why": "the CIC"
-  },
-  {
-   "door": [
-    462,
-    344
-   ],
-   "key": 2,
-   "why": "the CIC"
-  },
-  {
-   "door": [
-    562,
-    344
-   ],
-   "key": 2,
-   "why": "the CIC"
-  },
-  {
-   "door": [
-    512,
-    288
-   ],
-   "key": 2,
-   "why": "the CIC"
-  },
-  {
-   "door": [
-    512,
-    217
-   ],
-   "key": 2,
-   "why": "the bridge"
-  },
-  {
-   "door": [
-    512,
-    1194
-   ],
-   "key": 2,
-   "why": "the reactor"
-  },
-  {
-   "door": [
-    472,
-    1226
-   ],
-   "key": 2,
-   "why": "the reactor"
-  },
-  {
-   "door": [
-    552,
-    1226
-   ],
-   "key": 2,
-   "why": "the reactor"
-  },
-  {
-   "door": [
-    512,
-    1283
-   ],
-   "key": 2,
-   "why": "the reactor"
-  }
- ],
- "guards": [
-  {
-   "key": 1,
-   "room": "Cargo Hold A2",
-   "at": [
-    290,
-    755
-   ]
-  },
-  {
-   "key": 2,
-   "room": "Engineering Deck",
-   "at": [
-    512,
-    1150
-   ]
-  }
- ],
- "targets": {
-  "sabotage": {
-   "room": "Reactor Core",
-   "at": [
-    512,
-    1240
-   ],
-   "key": 2
-  },
-  "capture": {
-   "room": "Bridge",
-   "at": [
-    512,
-    175
-   ],
-   "key": 2
-  },
-  "rescue": {
-   "room": "CIC",
-   "at": [
-    512,
-    330
-   ],
-   "key": 2
-  }
- },
  "wreck": [
   {
    "at": [
@@ -169,7 +20,7 @@
  ],
  "patrols": [],
  "room_guards": {
-  "Cargo Hold A1": 1,
+  "Cargo Hold A1": 2,
   "Cargo Hold B2": 2,
   "Cargo Hold A3": 1,
   "Cargo Hold B3": 1,
@@ -182,8 +33,158 @@
   "Galley & Mess": 1,
   "Medbay": 1,
   "Munitions Resupply": 1,
-  "Engine Room": 1
+  "Engine Room": 1,
+  "Vehicle / Loader Bay": 2
  },
  "derived_from": "imperium_resupply",
- "gameplay_from": "orion_resupply"
+ "gameplay_from": "orion_resupply",
+ "formula": {
+  "C": "Vehicle / Loader Bay",
+  "A_gate": "Cargo Hold A1",
+  "card_yellow": "Crew Quarters (starboard)",
+  "card_red": "Bridge",
+  "entry": "Engine Room",
+  "way_out": "Cargo Hold B1",
+  "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
+ },
+ "entry": {
+  "room": "Engine Room",
+  "at": [
+   512,
+   1322
+  ]
+ },
+ "exit": {
+  "room": "Cargo Hold B1",
+  "at": [
+   730,
+   610
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    430,
+    800
+   ],
+   "key": 3,
+   "why": "the objective (Vehicle / Loader Bay)"
+  },
+  {
+   "door": [
+    490,
+    705
+   ],
+   "key": 3,
+   "why": "the objective (Vehicle / Loader Bay)"
+  },
+  {
+   "door": [
+    594.0,
+    800
+   ],
+   "key": 3,
+   "why": "the objective (Vehicle / Loader Bay)"
+  },
+  {
+   "door": [
+    534.0,
+    705
+   ],
+   "key": 3,
+   "why": "the objective (Vehicle / Loader Bay)"
+  },
+  {
+   "door": [
+    512,
+    217
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    634.0,
+    606
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    718.0,
+    685
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    390,
+    606
+   ],
+   "key": 1,
+   "why": "the orange card's room (Cargo Hold A1)"
+  },
+  {
+   "door": [
+    306,
+    685
+   ],
+   "key": 1,
+   "why": "the orange card's room (Cargo Hold A1)"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Crew Quarters (starboard)",
+   "at": [
+    663,
+    350
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Cargo Hold A1",
+   "at": [
+    294,
+    610
+   ]
+  },
+  {
+   "key": 3,
+   "room": "Bridge",
+   "at": [
+    512,
+    176
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Vehicle / Loader Bay",
+   "at": [
+    512,
+    836
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Vehicle / Loader Bay",
+   "at": [
+    512,
+    836
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Vehicle / Loader Bay",
+   "at": [
+    512,
+    836
+   ],
+   "key": 3
+  }
+ }
 }

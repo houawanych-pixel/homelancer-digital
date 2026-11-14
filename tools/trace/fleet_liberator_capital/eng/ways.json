@@ -46,7 +46,7 @@
     "Command Corridor"
    ],
    "type": "pilot",
-   "key": 3
+   "key": 2
   },
   {
    "at": [
@@ -71,7 +71,7 @@
     "CIC (Combat Information Center)"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -301,7 +301,7 @@
     "Cargo Hold A"
    ],
    "type": "mech",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -337,7 +337,7 @@
     "Engineering Deck"
    ],
    "type": "mech",
-   "key": 1
+   "key": 3
   },
   {
    "at": [
@@ -386,7 +386,7 @@
     "Briefing Room"
    ],
    "type": "pilot",
-   "key": 3
+   "key": 0
   },
   {
    "at": [
@@ -539,7 +539,7 @@
     "Cargo Hold B"
    ],
    "type": "mech",
-   "key": 0
+   "key": 1
   },
   {
    "at": [
@@ -575,7 +575,7 @@
     "Engineering Deck"
    ],
    "type": "pilot",
-   "key": 1
+   "key": 3
   },
   {
    "at": [
@@ -623,8 +623,8 @@
   "pilot_doors": 31,
   "locked": {
    "OPEN": 42,
-   "YELLOW": 2,
-   "ORANGE": 1,
+   "YELLOW": 1,
+   "ORANGE": 2,
    "RED": 3
   }
  }

@@ -1,22 +1,170 @@
 {
- "entry": {"room": "Launch Bay", "at": [512, 830]},
+ "wreck": [
+  {
+   "at": [
+    360,
+    823
+   ],
+   "across": "v",
+   "why": "the port pod corridor: a side way"
+  }
+ ],
+ "lifts": [
+  {
+   "room": "Lift",
+   "at": [
+    512,
+    597
+   ]
+  }
+ ],
+ "patrols": [],
+ "room_guards": {
+  "Cargo Hold": 1,
+  "Missile Magazine": 1,
+  "Engineering Deck": 2,
+  "CIC (Combat Information Center)": 2,
+  "Bridge": 2,
+  "Reactor Core": 1,
+  "Galley & Mess": 1,
+  "Medbay": 1,
+  "Armory (starboard)": 1,
+  "Crew Quarters (port)": 1,
+  "Coolant System (starboard)": 1,
+  "Engine Room": 1,
+  "Power Core (starboard)": 2
+ },
+ "formula": {
+  "C": "Engineering Deck",
+  "A_gate": "Power Core (starboard)",
+  "card_yellow": "Coolant System (port)",
+  "card_red": "Bridge",
+  "entry": "Engine Access (starboard)",
+  "way_out": "Engine Access (port)",
+  "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
+ },
+ "entry": {
+  "room": "Engine Access (starboard)",
+  "at": [
+   739,
+   734
+  ]
+ },
+ "exit": {
+  "room": "Engine Access (port)",
+  "at": [
+   285,
+   734
+  ]
+ },
  "locks": [
-  {"door": [512, 1016], "key": 1, "why": "engineering"},
-  {"door": [512, 461], "key": 2, "why": "the CIC, sensors and bridge"},
-  {"door": [512, 1122], "key": 2, "why": "the reactor"}, {"door": [432, 1122], "key": 2, "why": "the reactor"}, {"door": [592, 1122], "key": 2, "why": "the reactor"}
+  {
+   "door": [
+    512,
+    1016
+   ],
+   "key": 3,
+   "why": "the objective (Engineering Deck)"
+  },
+  {
+   "door": [
+    512,
+    1122
+   ],
+   "key": 3,
+   "why": "the objective (Engineering Deck)"
+  },
+  {
+   "door": [
+    432,
+    1122
+   ],
+   "key": 3,
+   "why": "the objective (Engineering Deck)"
+  },
+  {
+   "door": [
+    592.0,
+    1122
+   ],
+   "key": 3,
+   "why": "the objective (Engineering Deck)"
+  },
+  {
+   "door": [
+    512,
+    226
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    284,
+    775
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    740.0,
+    899
+   ],
+   "key": 1,
+   "why": "the orange card's room (Power Core (starboard))"
+  }
  ],
  "guards": [
-  {"key": 1, "room": "Armory (port)", "at": [406, 720]},
-  {"key": 2, "room": "Engineering Deck", "at": [512, 1070]}
+  {
+   "key": 1,
+   "room": "Coolant System (port)",
+   "at": [
+    285,
+    837
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Power Core (starboard)",
+   "at": [
+    739,
+    945
+   ]
+  },
+  {
+   "key": 3,
+   "room": "Bridge",
+   "at": [
+    512,
+    181
+   ]
+  }
  ],
  "targets": {
-  "sabotage": {"room": "Reactor Core", "at": [512, 1197], "key": 2},
-  "capture": {"room": "Bridge", "at": [512, 180], "key": 2},
-  "rescue": {"room": "Sensors Suite", "at": [512, 275], "key": 2}
- },
- "wreck": [{"at": [360, 823], "across": "v", "why": "the port pod corridor: a side way"}],
- "lifts": [{"room": "Lift", "at": [512, 597]}],
- "patrols": [],
- "room_guards": {"Cargo Hold": 1, "Missile Magazine": 1, "Engineering Deck": 2, "CIC (Combat Information Center)": 2, "Bridge": 2, "Reactor Core": 1,
-   "Galley & Mess": 1, "Medbay": 1, "Armory (starboard)": 1, "Crew Quarters (port)": 1, "Coolant System (starboard)": 1, "Engine Room": 1}
+  "sabotage": {
+   "room": "Engineering Deck",
+   "at": [
+    512,
+    1069
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Engineering Deck",
+   "at": [
+    512,
+    1069
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Engineering Deck",
+   "at": [
+    512,
+    1069
+   ],
+   "key": 3
+  }
+ }
 }

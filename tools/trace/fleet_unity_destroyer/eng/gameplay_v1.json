@@ -1,0 +1,22 @@
+{
+ "entry": {"room": "Launch Bay", "at": [512, 830]},
+ "locks": [
+  {"door": [512, 1016], "key": 1, "why": "engineering"},
+  {"door": [512, 461], "key": 2, "why": "the CIC, sensors and bridge"},
+  {"door": [512, 1122], "key": 2, "why": "the reactor"}, {"door": [432, 1122], "key": 2, "why": "the reactor"}, {"door": [592, 1122], "key": 2, "why": "the reactor"}
+ ],
+ "guards": [
+  {"key": 1, "room": "Armory (port)", "at": [406, 720]},
+  {"key": 2, "room": "Engineering Deck", "at": [512, 1070]}
+ ],
+ "targets": {
+  "sabotage": {"room": "Reactor Core", "at": [512, 1197], "key": 2},
+  "capture": {"room": "Bridge", "at": [512, 180], "key": 2},
+  "rescue": {"room": "Sensors Suite", "at": [512, 275], "key": 2}
+ },
+ "wreck": [{"at": [360, 823], "across": "v", "why": "the port pod corridor: a side way"}],
+ "lifts": [{"room": "Lift", "at": [512, 597]}],
+ "patrols": [],
+ "room_guards": {"Cargo Hold": 1, "Missile Magazine": 1, "Engineering Deck": 2, "CIC (Combat Information Center)": 2, "Bridge": 2, "Reactor Core": 1,
+   "Galley & Mess": 1, "Medbay": 1, "Armory (starboard)": 1, "Crew Quarters (port)": 1, "Coolant System (starboard)": 1, "Engine Room": 1}
+}

@@ -1,185 +1,4 @@
 {
- "entry": {
-  "room": "Vehicle / Dropship Bay",
-  "at": [
-   512,
-   980
-  ]
- },
- "locks": [
-  {
-   "door": [
-    512,
-    1071
-   ],
-   "key": 1,
-   "why": "engineering"
-  },
-  {
-   "door": [
-    388,
-    1066
-   ],
-   "key": 1,
-   "why": "the machine room"
-  },
-  {
-   "door": [
-    636,
-    1066
-   ],
-   "key": 1,
-   "why": "the machine room"
-  },
-  {
-   "door": [
-    461,
-    385
-   ],
-   "key": 2,
-   "why": "command & control"
-  },
-  {
-   "door": [
-    563,
-    385
-   ],
-   "key": 2,
-   "why": "command & control"
-  },
-  {
-   "door": [
-    512,
-    431
-   ],
-   "key": 2,
-   "why": "command & control"
-  },
-  {
-   "door": [
-    420,
-    343
-   ],
-   "key": 2,
-   "why": "the console room"
-  },
-  {
-   "door": [
-    604,
-    343
-   ],
-   "key": 2,
-   "why": "the console room"
-  },
-  {
-   "door": [
-    469,
-    296
-   ],
-   "key": 3,
-   "why": "the sensors suite (holding cell)"
-  },
-  {
-   "door": [
-    555,
-    296
-   ],
-   "key": 3,
-   "why": "the sensors suite (holding cell)"
-  },
-  {
-   "door": [
-    512,
-    325
-   ],
-   "key": 3,
-   "why": "the sensors suite and the bridge"
-  },
-  {
-   "door": [
-    512,
-    1157
-   ],
-   "key": 3,
-   "why": "the reactor"
-  },
-  {
-   "door": [
-    467,
-    1212
-   ],
-   "key": 3,
-   "why": "the reactor"
-  },
-  {
-   "door": [
-    557,
-    1212
-   ],
-   "key": 3,
-   "why": "the reactor"
-  },
-  {
-   "door": [
-    512,
-    1264
-   ],
-   "key": 3,
-   "why": "the reactor"
-  }
- ],
- "guards": [
-  {
-   "key": 1,
-   "room": "Armory",
-   "at": [
-    305,
-    950
-   ]
-  },
-  {
-   "key": 2,
-   "room": "Engineering Deck",
-   "at": [
-    512,
-    1110
-   ]
-  },
-  {
-   "key": 3,
-   "room": "Command & Control",
-   "at": [
-    512,
-    380
-   ]
-  }
- ],
- "targets": {
-  "sabotage": {
-   "room": "Reactor Core",
-   "at": [
-    512,
-    1217
-   ],
-   "key": 3
-  },
-  "capture": {
-   "room": "Bridge",
-   "at": [
-    512,
-    200
-   ],
-   "key": 3
-  },
-  "rescue": {
-   "room": "Sensors Suite",
-   "at": [
-    512,
-    275
-   ],
-   "key": 3
-  }
- },
  "wreck": [
   {
    "at": [
@@ -237,6 +56,156 @@
   "Deployment Bay (port)": 1,
   "Deployment Bay (starboard)": 1,
   "Machine Room (port)": 1,
-  "Engine Room": 1
+  "Engine Room": 1,
+  "Deployment Corridor (port)": 2
+ },
+ "formula": {
+  "C": "Troop Bay (Deployment Deck)",
+  "A_gate": "Deployment Corridor (port)",
+  "card_yellow": "Console Room (starboard)",
+  "card_red": "Bridge",
+  "entry": "Reactor Core",
+  "way_out": "Deployment Bay (starboard)",
+  "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
+ },
+ "entry": {
+  "room": "Reactor Core",
+  "at": [
+   512,
+   1217
+  ]
+ },
+ "exit": {
+  "room": "Deployment Bay (starboard)",
+  "at": [
+   662,
+   434
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    512,
+    535
+   ],
+   "key": 3,
+   "why": "the objective (Troop Bay (Deployment Deck))"
+  },
+  {
+   "door": [
+    512,
+    887
+   ],
+   "key": 3,
+   "why": "the objective (Troop Bay (Deployment Deck))"
+  },
+  {
+   "door": [
+    430,
+    607
+   ],
+   "key": 3,
+   "why": "the objective (Troop Bay (Deployment Deck))"
+  },
+  {
+   "door": [
+    430,
+    782
+   ],
+   "key": 3,
+   "why": "the objective (Troop Bay (Deployment Deck))"
+  },
+  {
+   "door": [
+    594.0,
+    607
+   ],
+   "key": 3,
+   "why": "the objective (Troop Bay (Deployment Deck))"
+  },
+  {
+   "door": [
+    594.0,
+    782
+   ],
+   "key": 3,
+   "why": "the objective (Troop Bay (Deployment Deck))"
+  },
+  {
+   "door": [
+    512,
+    240
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    614.0,
+    435
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    256,
+    1000
+   ],
+   "key": 1,
+   "why": "the orange card's room (Deployment Corridor (port))"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Console Room (starboard)",
+   "at": [
+    605,
+    312
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Deployment Corridor (port)",
+   "at": [
+    212,
+    1014
+   ]
+  },
+  {
+   "key": 3,
+   "room": "Bridge",
+   "at": [
+    512,
+    201
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Troop Bay (Deployment Deck)",
+   "at": [
+    512,
+    710
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Troop Bay (Deployment Deck)",
+   "at": [
+    512,
+    710
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Troop Bay (Deployment Deck)",
+   "at": [
+    512,
+    710
+   ],
+   "key": 3
+  }
  }
 }

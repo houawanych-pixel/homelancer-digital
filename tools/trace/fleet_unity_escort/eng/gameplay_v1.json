@@ -1,0 +1,123 @@
+{
+ "entry": {
+  "room": "Support & Stores",
+  "at": [
+   609,
+   840
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    497,
+    494
+   ],
+   "key": 1,
+   "why": "the CIC"
+  },
+  {
+   "door": [
+    434,
+    558
+   ],
+   "key": 1,
+   "why": "the CIC"
+  },
+  {
+   "door": [
+    560,
+    558
+   ],
+   "key": 1,
+   "why": "the CIC"
+  },
+  {
+   "door": [
+    497,
+    620
+   ],
+   "key": 1,
+   "why": "the CIC"
+  },
+  {
+   "door": [
+    497,
+    1074
+   ],
+   "key": 1,
+   "why": "the reactor"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Armory",
+   "at": [
+    385,
+    840
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Reactor Core",
+   "at": [
+    497,
+    1128
+   ],
+   "key": 1
+  },
+  "capture": {
+   "room": "Bridge",
+   "at": [
+    497,
+    290
+   ],
+   "key": 1
+  },
+  "rescue": {
+   "room": "Sensors",
+   "at": [
+    497,
+    420
+   ],
+   "key": 1
+  }
+ },
+ "wreck": [
+  {
+   "at": [
+    440,
+    728
+   ],
+   "across": "v",
+   "why": "the port cross passage: a side way"
+  }
+ ],
+ "lifts": [
+  {
+   "room": "Lift (port)",
+   "at": [
+    468,
+    635
+   ]
+  },
+  {
+   "room": "Lift (starboard)",
+   "at": [
+    526,
+    635
+   ]
+  }
+ ],
+ "patrols": [],
+ "room_guards": {
+  "Crew Bunks": 1,
+  "Galley / Med": 1,
+  "Engineering Deck": 2,
+  "CIC Tactical": 2,
+  "Bridge": 1,
+  "Reactor Core": 1,
+  "Engine Room A": 1
+ }
+}

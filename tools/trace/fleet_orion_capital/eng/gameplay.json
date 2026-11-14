@@ -1,113 +1,4 @@
 {
- "entry": {
-  "room": "Hangar Bay",
-  "at": [
-   506,
-   760
-  ]
- },
- "locks": [
-  {
-   "door": [
-    487,
-    1019
-   ],
-   "key": 1,
-   "why": "engineering (aft section)"
-  },
-  {
-   "door": [
-    525,
-    1019
-   ],
-   "key": 1,
-   "why": "engineering (aft section)"
-  },
-  {
-   "door": [
-    506,
-    450
-   ],
-   "key": 2,
-   "why": "CIC and the forward section"
-  },
-  {
-   "door": [
-    506,
-    248
-   ],
-   "key": 3,
-   "why": "the bridge"
-  },
-  {
-   "door": [
-    506,
-    1150
-   ],
-   "key": 3,
-   "why": "the reactor"
-  },
-  {
-   "door": [
-    526,
-    286
-   ],
-   "key": 3,
-   "why": "the briefing room (holding cell)"
-  }
- ],
- "guards": [
-  {
-   "key": 1,
-   "room": "Barracks (port)",
-   "at": [
-    130,
-    860
-   ]
-  },
-  {
-   "key": 2,
-   "room": "Engineering Deck",
-   "at": [
-    506,
-    1085
-   ]
-  },
-  {
-   "key": 3,
-   "room": "CIC (Combat Information Center)",
-   "at": [
-    506,
-    410
-   ]
-  }
- ],
- "targets": {
-  "sabotage": {
-   "room": "Reactor Core",
-   "at": [
-    506,
-    1206
-   ],
-   "key": 3
-  },
-  "capture": {
-   "room": "Bridge Command Deck",
-   "at": [
-    506,
-    180
-   ],
-   "key": 3
-  },
-  "rescue": {
-   "room": "Briefing Room",
-   "at": [
-    572,
-    285
-   ],
-   "key": 3
-  }
- },
  "wreck": [
   {
    "at": [
@@ -197,7 +88,133 @@
   "Medbay": 1,
   "Cargo Hold A": 1,
   "Crew Quarters (port)": 1,
-  "Sensors Suite": 1
+  "Sensors Suite": 1,
+  "Cargo Hold B": 2
  },
- "derived_from": "imperium_capital"
+ "derived_from": "imperium_capital",
+ "formula": {
+  "C": "Engineering Deck",
+  "A_gate": "Cargo Hold B",
+  "card_yellow": "Barracks (port)",
+  "card_red": "Bridge Command Deck",
+  "entry": "Hangar Bay",
+  "way_out": "Cargo Hold A",
+  "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
+ },
+ "entry": {
+  "room": "Hangar Bay",
+  "at": [
+   506,
+   758
+  ]
+ },
+ "exit": {
+  "room": "Cargo Hold A",
+  "at": [
+   276,
+   983
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    506,
+    1150
+   ],
+   "key": 3,
+   "why": "the objective (Engineering Deck)"
+  },
+  {
+   "door": [
+    487,
+    1019
+   ],
+   "key": 3,
+   "why": "the objective (Engineering Deck)"
+  },
+  {
+   "door": [
+    525.0,
+    1019
+   ],
+   "key": 3,
+   "why": "the objective (Engineering Deck)"
+  },
+  {
+   "door": [
+    506,
+    248
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    326,
+    939
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    686.0,
+    939
+   ],
+   "key": 1,
+   "why": "the orange card's room (Cargo Hold B)"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Barracks (port)",
+   "at": [
+    136,
+    844
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Cargo Hold B",
+   "at": [
+    736,
+    983
+   ]
+  },
+  {
+   "key": 3,
+   "room": "Bridge Command Deck",
+   "at": [
+    505,
+    190
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Engineering Deck",
+   "at": [
+    506,
+    1081
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Engineering Deck",
+   "at": [
+    506,
+    1081
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Engineering Deck",
+   "at": [
+    506,
+    1081
+   ],
+   "key": 3
+  }
+ }
 }

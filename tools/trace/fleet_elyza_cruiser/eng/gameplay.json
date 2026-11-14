@@ -1,20 +1,163 @@
 {
- "entry": {"room": "Hangar Bay", "at": [657, 660]},
- "locks": [
-  {"door": [657, 846], "key": 1, "why": "engineering"},
-  {"door": [657, 446], "key": 2, "why": "the CIC, sensors and bridge"}, {"door": [603, 394], "key": 2, "why": "the CIC"}, {"door": [711, 394], "key": 2, "why": "the CIC"},
-  {"door": [657, 921], "key": 2, "why": "the reactor"}
+ "wreck": [
+  {
+   "at": [
+    422,
+    733
+   ],
+   "across": "v",
+   "why": "the port wing passage: a side way"
+  }
  ],
- "guards": [{"key": 1, "room": "Armory (port)", "at": [470, 710]}, {"key": 2, "room": "Engineering Deck", "at": [657, 885]}],
- "targets": {
-  "sabotage": {"room": "Reactor Core", "at": [657, 963], "key": 2},
-  "capture": {"room": "Bridge", "at": [657, 195], "key": 2},
-  "rescue": {"room": "Sensor Suite", "at": [657, 272], "key": 2}
- },
- "wreck": [{"at": [422, 733], "across": "v", "why": "the port wing passage: a side way"}],
  "lifts": [],
  "patrols": [],
- "room_guards": {"Cargo Hold": 1, "Vehicle Bay": 2, "Engineering Deck": 2, "CIC (Combat Information Center)": 2, "Bridge": 2, "Reactor Core": 1,
-   "Galley & Mess": 1, "Medbay": 1, "Armory (starboard)": 1, "Crew Quarters (port)": 1, "Weapon Bay (starboard)": 1, "Engine Room (port)": 1,
-   "Coolant & Systems (starboard)": 1}
+ "room_guards": {
+  "Cargo Hold": 1,
+  "Vehicle Bay": 2,
+  "Engineering Deck": 2,
+  "CIC (Combat Information Center)": 2,
+  "Bridge": 2,
+  "Reactor Core": 1,
+  "Galley & Mess": 1,
+  "Medbay": 1,
+  "Armory (starboard)": 1,
+  "Crew Quarters (port)": 1,
+  "Weapon Bay (starboard)": 1,
+  "Engine Room (port)": 2,
+  "Coolant & Systems (starboard)": 1,
+  "Hangar Bay": 2
+ },
+ "formula": {
+  "C": "Hangar Bay",
+  "A_gate": "Engine Room (port)",
+  "card_yellow": "Coolant & Systems (starboard)",
+  "card_red": "Bridge",
+  "entry": "Weapon Bay (port)",
+  "way_out": "Weapon Bay (starboard)",
+  "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
+ },
+ "entry": {
+  "room": "Weapon Bay (port)",
+  "at": [
+   230,
+   756
+  ]
+ },
+ "exit": {
+  "room": "Weapon Bay (starboard)",
+  "at": [
+   1083,
+   756
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    657,
+    591
+   ],
+   "key": 3,
+   "why": "the objective (Hangar Bay)"
+  },
+  {
+   "door": [
+    657,
+    728
+   ],
+   "key": 3,
+   "why": "the objective (Hangar Bay)"
+  },
+  {
+   "door": [
+    550,
+    665
+   ],
+   "key": 3,
+   "why": "the objective (Hangar Bay)"
+  },
+  {
+   "door": [
+    764.0,
+    665
+   ],
+   "key": 3,
+   "why": "the objective (Hangar Bay)"
+  },
+  {
+   "door": [
+    657,
+    241
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    1025.0,
+    733
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    506,
+    940
+   ],
+   "key": 1,
+   "why": "the orange card's room (Engine Room (port))"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Coolant & Systems (starboard)",
+   "at": [
+    965,
+    733
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Engine Room (port)",
+   "at": [
+    523,
+    985
+   ]
+  },
+  {
+   "key": 3,
+   "room": "Bridge",
+   "at": [
+    657,
+    198
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Hangar Bay",
+   "at": [
+    657,
+    659
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Hangar Bay",
+   "at": [
+    657,
+    659
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Hangar Bay",
+   "at": [
+    657,
+    659
+   ],
+   "key": 3
+  }
+ }
 }

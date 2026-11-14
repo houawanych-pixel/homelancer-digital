@@ -1,19 +1,223 @@
 {
- "entry": {"room": "Craft Bay", "at": [512, 860]},
- "locks": [
-  {"door": [512, 521], "key": 1, "why": "the CIC"}, {"door": [446, 430], "key": 1, "why": "the CIC"}, {"door": [578, 430], "key": 1, "why": "the CIC"},
-  {"door": [512, 1074], "key": 1, "why": "the reactor"}, {"door": [464, 1128], "key": 1, "why": "the reactor"}, {"door": [560, 1128], "key": 1, "why": "the reactor"},
-  {"door": [512, 1176], "key": 1, "why": "the reactor"}
+ "wreck": [
+  {
+   "at": [
+    433,
+    1160
+   ],
+   "across": "h",
+   "why": "engineering's port side way: a side way"
+  }
  ],
- "guards": [{"key": 1, "room": "Engineering Deck", "at": [620, 1015]}],
- "targets": {
-  "sabotage": {"room": "Reactor Core", "at": [512, 1128], "key": 1},
-  "capture": {"room": "Bridge", "at": [512, 215], "key": 1},
-  "rescue": {"room": "Sensors Suite", "at": [512, 330], "key": 1}
- },
- "wreck": [{"at": [433, 1160], "across": "h", "why": "engineering's port side way: a side way"}],
- "lifts": [{"room": "Lift (port)", "at": [475, 568]}, {"room": "Lift (starboard)", "at": [549, 568]}],
+ "lifts": [
+  {
+   "room": "Lift (port)",
+   "at": [
+    475,
+    568
+   ]
+  },
+  {
+   "room": "Lift (starboard)",
+   "at": [
+    549,
+    568
+   ]
+  }
+ ],
  "patrols": [],
- "room_guards": {"Galley & Mess": 1, "Medbay": 1, "Armory": 1, "Weapons Magazine": 1, "Engineering Deck": 2, "CIC (Combat Information Center)": 2,
-   "Bridge": 2, "Reactor Core": 1, "Crew Quarters A": 1, "Engine Room": 1}
+ "room_guards": {
+  "Galley & Mess": 1,
+  "Medbay": 1,
+  "Armory": 1,
+  "Weapons Magazine": 1,
+  "Engineering Deck": 2,
+  "CIC (Combat Information Center)": 2,
+  "Bridge": 2,
+  "Reactor Core": 1,
+  "Crew Quarters A": 1,
+  "Engine Room": 1,
+  "Craft Bay": 2
+ },
+ "formula": {
+  "C": "Craft Bay",
+  "A_gate": "Engineering Deck",
+  "card_yellow": "Crew Quarters B",
+  "card_red": "Bridge",
+  "entry": "Weapons Magazine",
+  "way_out": "Engine Room",
+  "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
+ },
+ "entry": {
+  "room": "Weapons Magazine",
+  "at": [
+   667,
+   837
+  ]
+ },
+ "exit": {
+  "room": "Engine Room",
+  "at": [
+   512,
+   1260
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    512,
+    799
+   ],
+   "key": 3,
+   "why": "the objective (Craft Bay)"
+  },
+  {
+   "door": [
+    512,
+    929
+   ],
+   "key": 3,
+   "why": "the objective (Craft Bay)"
+  },
+  {
+   "door": [
+    460,
+    880
+   ],
+   "key": 3,
+   "why": "the objective (Craft Bay)"
+  },
+  {
+   "door": [
+    564.0,
+    880
+   ],
+   "key": 3,
+   "why": "the objective (Craft Bay)"
+  },
+  {
+   "door": [
+    512,
+    286
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    512,
+    1198
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    446,
+    1220
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    578.0,
+    1220
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    512,
+    960
+   ],
+   "key": 1,
+   "why": "the orange card's room (Engineering Deck)"
+  },
+  {
+   "door": [
+    370,
+    960
+   ],
+   "key": 1,
+   "why": "the orange card's room (Engineering Deck)"
+  },
+  {
+   "door": [
+    433,
+    1068
+   ],
+   "key": 1,
+   "why": "the orange card's room (Engineering Deck)"
+  },
+  {
+   "door": [
+    654.0,
+    960
+   ],
+   "key": 1,
+   "why": "the orange card's room (Engineering Deck)"
+  },
+  {
+   "door": [
+    591.0,
+    1068
+   ],
+   "key": 1,
+   "why": "the orange card's room (Engineering Deck)"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Crew Quarters B",
+   "at": [
+    665,
+    491
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Engineering Deck",
+   "at": [
+    512,
+    1014
+   ]
+  },
+  {
+   "key": 3,
+   "room": "Bridge",
+   "at": [
+    512,
+    221
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Craft Bay",
+   "at": [
+    512,
+    863
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Craft Bay",
+   "at": [
+    512,
+    863
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Craft Bay",
+   "at": [
+    512,
+    863
+   ],
+   "key": 3
+  }
+ }
 }

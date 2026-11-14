@@ -1876,6 +1876,20 @@ func _run() -> void:
 					s.player.global_position = Vector3((float(sb0[0]) + float(sb0[1])) * 0.5, 6.0, (float(sb0[2]) + float(sb0[3])) * 0.5)
 					s._fleet_show_deck()
 					await _wait(0.3)
+			if kind == "sabotage" and s.fleet_exit_key() != "sbay":   # v13.130: Evee's waypoint
+				var hidden0: bool = not bool(b["fleet"].get("wp_on", false)) and not (b["fleet"]["beacon"] as Node3D).visible
+				var said: String = s.fleet_waypoint()
+				var first: String = str(s.fleet_route()[0]["label"])
+				var shown: bool = bool(b["fleet"]["wp_on"]) and (b["fleet"]["beacon"] as Node3D).visible
+				main.hud.planet_map = true
+				await _wait(0.5)
+				await _capture("fb_%s_evee_waypoint" % fid)
+				main.hud.planet_map = false
+				s._fleet_card(1, s.player.global_position)
+				await _wait(0.4)
+				var off: bool = not bool(b["fleet"]["wp_on"]) and not (b["fleet"]["beacon"] as Node3D).visible
+				b["fleet"]["cards"] = [true, false, false, false]
+				_check("%s: no guide line until you ASK EVEE; she marks the next step (%s: %s); got it, it goes" % [fid, first, said], hidden0 and said != "" and shown and off, "%s %s %s" % [hidden0, shown, off])
 			if kind == "sabotage":
 				await _capture("fb_%s_start" % fid)
 				main.hud.planet_map = true
@@ -1913,8 +1927,17 @@ func _run() -> void:
 			elif kind == "capture": s._destroy_unit(b["fleet"]["captain"])
 			await _wait(0.6)
 			_check("%s %s: the job's target is done" % [fid, kind], bool(b["fleet"]["done"]), str(b["fleet"]["done"]))
-			var ex: Array = Boarding.ROOMS["sbay"]["r"]   # back to the bay you came aboard by (v13.92: the way out, wherever it is)
-			s.player.global_position = Vector3((float(ex[0]) + float(ex[1])) * 0.5, float(Boarding.ROOMS["sbay"]["y"][0]) + 6.0, (float(ex[2]) + float(ex[3])) * 0.5)
+			var exk: String = s.fleet_exit_key()   # v13.130 (owner's formula): the clock runs, the way in is blocked, another way out
+			if exk != "sbay":
+				var sealed_in: bool = s.board_doors.filter(func(d): return (d["rooms"] as Array).has("sbay")).all(func(d): return bool(d["sealed"]))
+				var sb5: Array = Boarding.ROOMS["sbay"]["r"]
+				s.player.global_position = Vector3((float(sb5[0]) + float(sb5[1])) * 0.5, float(Boarding.ROOMS["sbay"]["y"][0]) + 6.0, (float(sb5[2]) + float(sb5[3])) * 0.5)
+				await _wait(0.6)
+				_check("%s %s: the clock runs (%d s), the way in is blocked (no leaving by it), the way out is %s" % [fid, kind, int(float(b["escape"])), Boarding.ROOMS[exk]["label"]],
+					str(b["phase"]) == "escape" and float(b["escape"]) > 0.0 and sealed_in and s.boarding, "phase %s sealed %s" % [b["phase"], sealed_in])
+				s._fleet_card(3, s.player.global_position)
+			var ex: Array = Boarding.ROOMS[exk]["r"]   # out by the way out (v13.92: wherever it is)
+			s.player.global_position = Vector3((float(ex[0]) + float(ex[1])) * 0.5, float(Boarding.ROOMS[exk]["y"][0]) + 6.0, (float(ex[2]) + float(ex[3])) * 0.5)
 			await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and not main.space.boarding, 20.0)
 			await _wait(1.0)
 			_check("%s %s: back to the bay you boarded by: out, back in space" % [fid, kind], main.state == "flight" and not main.space.boarding, main.state)

@@ -29,7 +29,7 @@
     "Sensors & Comms"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -41,7 +41,7 @@
     "Sensors & Comms"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -89,7 +89,7 @@
     "Engineering"
    ],
    "type": "mech",
-   "key": 0
+   "key": 1
   },
   {
    "at": [
@@ -192,7 +192,7 @@
    ],
    "o": "v",
    "rooms": [],
-   "type": "mech",
+   "type": "pilot",
    "key": 0
   },
   {
@@ -205,7 +205,7 @@
     "Vehicle Bay"
    ],
    "type": "mech",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -336,18 +336,18 @@
    "key": 1
   }
  ],
- "entry": "Vehicle Bay",
+ "entry": "Troop Bay",
  "mech_rooms_unreached": [],
  "counts": {
   "mech_rooms": 4,
   "pilot_rooms": 9,
-  "mech_doors": 13,
-  "pilot_doors": 14,
+  "mech_doors": 12,
+  "pilot_doors": 15,
   "locked": {
-   "OPEN": 22,
-   "YELLOW": 3,
+   "OPEN": 20,
+   "YELLOW": 4,
    "ORANGE": 2,
-   "RED": 0
+   "RED": 1
   }
  }
 }

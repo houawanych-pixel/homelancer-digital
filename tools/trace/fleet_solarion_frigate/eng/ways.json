@@ -28,7 +28,7 @@
     "Bridge"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -76,7 +76,7 @@
     "CIC (Combat Information Center)"
    ],
    "type": "pilot",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -208,7 +208,7 @@
     "Engine Room"
    ],
    "type": "mech",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -232,7 +232,7 @@
     "CIC (Combat Information Center)"
    ],
    "type": "pilot",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -370,7 +370,7 @@
     "Engine Room"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -394,7 +394,7 @@
     "CIC (Combat Information Center)"
    ],
    "type": "pilot",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -462,7 +462,7 @@
     "Magazine (Ordnance)"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -474,7 +474,7 @@
     "Magazine (Ordnance)"
    ],
    "type": "mech",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -486,7 +486,7 @@
     "Magazine (Ordnance)"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -532,7 +532,7 @@
     "Engine Room"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 2
   }
  ],
  "entry": "Craft Bay",
@@ -543,10 +543,10 @@
   "mech_doors": 12,
   "pilot_doors": 32,
   "locked": {
-   "OPEN": 37,
-   "YELLOW": 7,
-   "ORANGE": 0,
-   "RED": 0
+   "OPEN": 33,
+   "YELLOW": 4,
+   "ORANGE": 4,
+   "RED": 3
   }
  }
 }

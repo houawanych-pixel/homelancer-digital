@@ -35,7 +35,7 @@
     "Sensors"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -83,7 +83,7 @@
     "CIC"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -94,7 +94,7 @@
    "rooms": [
     "Lift"
    ],
-   "type": "mech",
+   "type": "pilot",
    "key": 0
   },
   {
@@ -106,7 +106,7 @@
    "rooms": [
     "Lift"
    ],
-   "type": "mech",
+   "type": "pilot",
    "key": 0
   },
   {
@@ -118,8 +118,8 @@
    "rooms": [
     "Launch Bay"
    ],
-   "type": "mech",
-   "key": 0
+   "type": "pilot",
+   "key": 3
   },
   {
    "at": [
@@ -132,7 +132,7 @@
     "Missile Magazine"
    ],
    "type": "mech",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -156,7 +156,7 @@
     "Engineering"
    ],
    "type": "pilot",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -168,7 +168,7 @@
     "Engineering"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -192,7 +192,7 @@
     "Reactor Core"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -204,7 +204,7 @@
     "Engine Room"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -214,7 +214,7 @@
    "o": "v",
    "rooms": [],
    "type": "mech",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -298,7 +298,7 @@
     "Launch Bay"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -431,7 +431,7 @@
     "Reactor Core"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -443,7 +443,7 @@
     "Engine Room"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -453,7 +453,7 @@
    "o": "v",
    "rooms": [],
    "type": "mech",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -537,7 +537,7 @@
     "Launch Bay"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -561,7 +561,7 @@
     "Cargo Hold B"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 1
   },
   {
    "at": [
@@ -573,7 +573,7 @@
     "Cargo Hold B"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 1
   },
   {
    "at": [
@@ -633,7 +633,7 @@
     "Cargo Hold B"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 1
   },
   {
    "at": [
@@ -670,7 +670,7 @@
     "Reactor Core"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -682,27 +682,29 @@
     "Engine Room"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 2
   }
  ],
- "entry": "Launch Bay",
+ "entry": "Cargo Hold A",
  "mech_rooms_unreached": [
+  "Lift",
+  "Launch Bay",
+  "Missile Magazine",
   "Engineering",
   "Reactor Core",
   "Engine Room",
-  "Cargo Hold A",
   "Cargo Hold B"
  ],
  "counts": {
   "mech_rooms": 7,
   "pilot_rooms": 14,
-  "mech_doors": 6,
-  "pilot_doors": 49,
+  "mech_doors": 3,
+  "pilot_doors": 52,
   "locked": {
-   "OPEN": 47,
-   "YELLOW": 1,
-   "ORANGE": 7,
-   "RED": 0
+   "OPEN": 44,
+   "YELLOW": 3,
+   "ORANGE": 4,
+   "RED": 4
   }
  }
 }

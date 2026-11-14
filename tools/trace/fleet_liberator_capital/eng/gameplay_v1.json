@@ -1,0 +1,203 @@
+{
+ "entry": {
+  "room": "Hangar Bay",
+  "at": [
+   506,
+   760
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    487,
+    1019
+   ],
+   "key": 1,
+   "why": "engineering (aft section)"
+  },
+  {
+   "door": [
+    525,
+    1019
+   ],
+   "key": 1,
+   "why": "engineering (aft section)"
+  },
+  {
+   "door": [
+    506,
+    450
+   ],
+   "key": 2,
+   "why": "CIC and the forward section"
+  },
+  {
+   "door": [
+    506,
+    248
+   ],
+   "key": 3,
+   "why": "the bridge"
+  },
+  {
+   "door": [
+    506,
+    1150
+   ],
+   "key": 3,
+   "why": "the reactor"
+  },
+  {
+   "door": [
+    526,
+    286
+   ],
+   "key": 3,
+   "why": "the briefing room (holding cell)"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Barracks (port)",
+   "at": [
+    130,
+    860
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Engineering Deck",
+   "at": [
+    506,
+    1085
+   ]
+  },
+  {
+   "key": 3,
+   "room": "CIC (Combat Information Center)",
+   "at": [
+    506,
+    410
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Reactor Core",
+   "at": [
+    506,
+    1206
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Bridge Command Deck",
+   "at": [
+    506,
+    180
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Briefing Room",
+   "at": [
+    572,
+    285
+   ],
+   "key": 3
+  }
+ },
+ "wreck": [
+  {
+   "at": [
+    205,
+    960
+   ],
+   "across": "h",
+   "why": "the port outer run: a side way, never the only way"
+  }
+ ],
+ "lifts": [
+  {
+   "room": "Lift (port)",
+   "at": [
+    466,
+    478
+   ]
+  },
+  {
+   "room": "Lift (starboard)",
+   "at": [
+    546,
+    478
+   ]
+  }
+ ],
+ "patrols": [
+  {
+   "room": "Hangar Bay",
+   "path": [
+    [
+     420,
+     680
+    ],
+    [
+     420,
+     850
+    ],
+    [
+     592,
+     850
+    ],
+    [
+     592,
+     680
+    ]
+   ]
+  },
+  {
+   "room": "Vehicle Bay",
+   "path": [
+    [
+     400,
+     950
+    ],
+    [
+     612,
+     950
+    ]
+   ]
+  },
+  {
+   "room": "Engineering Deck",
+   "path": [
+    [
+     450,
+     1060
+    ],
+    [
+     562,
+     1060
+    ]
+   ]
+  }
+ ],
+ "room_guards": {
+  "Vehicle Bay": 3,
+  "Engineering Deck": 2,
+  "CIC (Combat Information Center)": 2,
+  "Bridge Command Deck": 3,
+  "Reactor Core": 2,
+  "Engine Room": 1,
+  "Weapon Control (port)": 1,
+  "Armory (starboard)": 1,
+  "Barracks (starboard)": 2,
+  "Galley & Mess": 1,
+  "Medbay": 1,
+  "Cargo Hold A": 1,
+  "Crew Quarters (port)": 1,
+  "Sensors Suite": 1
+ },
+ "derived_from": "imperium_capital"
+}

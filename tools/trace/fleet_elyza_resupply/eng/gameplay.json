@@ -1,19 +1,220 @@
 {
- "entry": {"room": "Loading / Vehicle Bay", "at": [515, 700]},
- "locks": [
-  {"door": [515, 1047], "key": 1, "why": "engineering"}, {"door": [430, 1041], "key": 1, "why": "engineering"}, {"door": [600, 1041], "key": 1, "why": "engineering"},
-  {"door": [515, 226], "key": 2, "why": "the bridge"}, {"door": [501, 265], "key": 2, "why": "the sensors suite"}, {"door": [529, 265], "key": 2, "why": "the CIC"},
-  {"door": [515, 1144], "key": 2, "why": "the reactor"}
+ "wreck": [
+  {
+   "at": [
+    440,
+    800
+   ],
+   "across": "h",
+   "why": "the port run beside the bay: a side way"
+  }
  ],
- "guards": [{"key": 1, "room": "Cargo Hold C", "at": [323, 700]}, {"key": 2, "room": "Engineering Deck", "at": [515, 1095]}],
- "targets": {
-  "sabotage": {"room": "Reactor Core", "at": [515, 1195], "key": 2},
-  "capture": {"room": "Bridge", "at": [515, 190], "key": 2},
-  "rescue": {"room": "CIC", "at": [562, 268], "key": 2}
- },
- "wreck": [{"at": [440, 800], "across": "h", "why": "the port run beside the bay: a side way"}],
  "lifts": [],
  "patrols": [],
- "room_guards": {"Cargo Hold A": 1, "Cargo Hold B": 1, "Cargo Hold D": 2, "Cargo Hold E": 1, "Cargo Hold F": 1, "General Storage": 1, "Spare Parts": 1,
-   "Engineering Deck": 2, "Bridge": 2, "Sensors Suite": 1, "Reactor Core": 1, "Galley / Mess": 1, "Medbay": 1, "Engine Room": 1}
+ "room_guards": {
+  "Cargo Hold A": 2,
+  "Cargo Hold B": 1,
+  "Cargo Hold D": 2,
+  "Cargo Hold E": 1,
+  "Cargo Hold F": 1,
+  "General Storage": 1,
+  "Spare Parts": 1,
+  "Engineering Deck": 2,
+  "Bridge": 2,
+  "Sensors Suite": 1,
+  "Reactor Core": 1,
+  "Galley / Mess": 1,
+  "Medbay": 1,
+  "Engine Room": 1,
+  "Loading / Vehicle Bay": 2
+ },
+ "formula": {
+  "C": "Loading / Vehicle Bay",
+  "A_gate": "Cargo Hold A",
+  "card_yellow": "Refrigerated Stores",
+  "card_red": "Bridge",
+  "entry": "Engine Room",
+  "way_out": "Cargo Hold B",
+  "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
+ },
+ "entry": {
+  "room": "Engine Room",
+  "at": [
+   515,
+   1324
+  ]
+ },
+ "exit": {
+  "room": "Cargo Hold B",
+  "at": [
+   706,
+   540
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    515,
+    505
+   ],
+   "key": 3,
+   "why": "the objective (Loading / Vehicle Bay)"
+  },
+  {
+   "door": [
+    470,
+    607
+   ],
+   "key": 3,
+   "why": "the objective (Loading / Vehicle Bay)"
+  },
+  {
+   "door": [
+    470,
+    736
+   ],
+   "key": 3,
+   "why": "the objective (Loading / Vehicle Bay)"
+  },
+  {
+   "door": [
+    470,
+    856
+   ],
+   "key": 3,
+   "why": "the objective (Loading / Vehicle Bay)"
+  },
+  {
+   "door": [
+    560.0,
+    607
+   ],
+   "key": 3,
+   "why": "the objective (Loading / Vehicle Bay)"
+  },
+  {
+   "door": [
+    560.0,
+    736
+   ],
+   "key": 3,
+   "why": "the objective (Loading / Vehicle Bay)"
+  },
+  {
+   "door": [
+    560.0,
+    856
+   ],
+   "key": 3,
+   "why": "the objective (Loading / Vehicle Bay)"
+  },
+  {
+   "door": [
+    515,
+    226
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    699.0,
+    478
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    708.0,
+    602
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    622.0,
+    533
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    331,
+    478
+   ],
+   "key": 1,
+   "why": "the orange card's room (Cargo Hold A)"
+  },
+  {
+   "door": [
+    322,
+    602
+   ],
+   "key": 1,
+   "why": "the orange card's room (Cargo Hold A)"
+  },
+  {
+   "door": [
+    408,
+    533
+   ],
+   "key": 1,
+   "why": "the orange card's room (Cargo Hold A)"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Refrigerated Stores",
+   "at": [
+    619,
+    959
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Cargo Hold A",
+   "at": [
+    324,
+    540
+   ]
+  },
+  {
+   "key": 3,
+   "room": "Bridge",
+   "at": [
+    515,
+    189
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Loading / Vehicle Bay",
+   "at": [
+    515,
+    717
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Loading / Vehicle Bay",
+   "at": [
+    515,
+    717
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Loading / Vehicle Bay",
+   "at": [
+    515,
+    717
+   ],
+   "key": 3
+  }
+ }
 }

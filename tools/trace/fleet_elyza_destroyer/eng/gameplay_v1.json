@@ -1,0 +1,155 @@
+{
+ "entry": {
+  "room": "Launch Bay",
+  "at": [
+   511,
+   680
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    511,
+    973
+   ],
+   "key": 1,
+   "why": "engineering"
+  },
+  {
+   "door": [
+    511,
+    466
+   ],
+   "key": 2,
+   "why": "the CIC, bridge and sensors"
+  },
+  {
+   "door": [
+    464,
+    366
+   ],
+   "key": 2,
+   "why": "the CIC"
+  },
+  {
+   "door": [
+    558,
+    366
+   ],
+   "key": 2,
+   "why": "the CIC"
+  },
+  {
+   "door": [
+    511,
+    1090
+   ],
+   "key": 2,
+   "why": "the reactor"
+  },
+  {
+   "door": [
+    466,
+    1169
+   ],
+   "key": 2,
+   "why": "the reactor"
+  },
+  {
+   "door": [
+    556,
+    1169
+   ],
+   "key": 2,
+   "why": "the reactor"
+  },
+  {
+   "door": [
+    511,
+    1217
+   ],
+   "key": 2,
+   "why": "the reactor, from the engine room"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Armory (port)",
+   "at": [
+    360,
+    660
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Engineering",
+   "at": [
+    511,
+    1030
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Reactor Core",
+   "at": [
+    511,
+    1172
+   ],
+   "key": 2
+  },
+  "capture": {
+   "room": "Bridge",
+   "at": [
+    511,
+    258
+   ],
+   "key": 2
+  },
+  "rescue": {
+   "room": "Sensors",
+   "at": [
+    511,
+    165
+   ],
+   "key": 2
+  }
+ },
+ "wreck": [
+  {
+   "at": [
+    240,
+    884
+   ],
+   "across": "v",
+   "why": "the port pod passage: a side way"
+  }
+ ],
+ "lifts": [
+  {
+   "room": "Lift",
+   "at": [
+    511,
+    567
+   ]
+  }
+ ],
+ "patrols": [],
+ "room_guards": {
+  "Missile Magazine": 2,
+  "Supply": 1,
+  "Cargo Hold A": 1,
+  "Cargo Hold B": 1,
+  "Engineering": 2,
+  "CIC": 2,
+  "Bridge": 1,
+  "Reactor Core": 1,
+  "Galley & Mess": 1,
+  "Medbay": 1,
+  "Armory (starboard)": 1,
+  "Crew Quarters (port)": 1,
+  "Weapon Systems (starboard)": 1,
+  "Engine Room": 1
+ }
+}

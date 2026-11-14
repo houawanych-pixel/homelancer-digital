@@ -1,105 +1,4 @@
 {
- "entry": {
-  "room": "Craft Bay",
-  "at": [
-   512,
-   925
-  ]
- },
- "locks": [
-  {
-   "door": [
-    512,
-    569
-   ],
-   "key": 1,
-   "why": "the CIC"
-  },
-  {
-   "door": [
-    455,
-    500
-   ],
-   "key": 1,
-   "why": "the CIC"
-  },
-  {
-   "door": [
-    569,
-    500
-   ],
-   "key": 1,
-   "why": "the CIC"
-  },
-  {
-   "door": [
-    512,
-    1112
-   ],
-   "key": 1,
-   "why": "the reactor"
-  },
-  {
-   "door": [
-    466,
-    1158
-   ],
-   "key": 1,
-   "why": "the reactor"
-  },
-  {
-   "door": [
-    558,
-    1158
-   ],
-   "key": 1,
-   "why": "the reactor"
-  },
-  {
-   "door": [
-    512,
-    1204
-   ],
-   "key": 1,
-   "why": "the reactor"
-  }
- ],
- "guards": [
-  {
-   "key": 1,
-   "room": "Engineering Deck",
-   "at": [
-    560,
-    1040
-   ]
-  }
- ],
- "targets": {
-  "sabotage": {
-   "room": "Reactor Core",
-   "at": [
-    512,
-    1158
-   ],
-   "key": 1
-  },
-  "capture": {
-   "room": "Bridge",
-   "at": [
-    512,
-    262
-   ],
-   "key": 1
-  },
-  "rescue": {
-   "room": "Sensors Suite",
-   "at": [
-    512,
-    376
-   ],
-   "key": 1
-  }
- },
  "wreck": [
   {
    "at": [
@@ -131,13 +30,178 @@
   "Galley & Mess": 1,
   "Medbay": 1,
   "Armory": 1,
-  "Magazine (Ordnance)": 1,
+  "Magazine (Ordnance)": 2,
   "Engineering Deck": 2,
   "CIC (Combat Information Center)": 2,
   "Bridge": 2,
-  "Reactor Core": 1,
+  "Reactor Core": 2,
   "Crew Quarters A": 1,
   "Engine Room": 1
  },
- "derived_from": "elyza_frigate"
+ "derived_from": "elyza_frigate",
+ "formula": {
+  "C": "Magazine (Ordnance)",
+  "A_gate": "Reactor Core",
+  "card_yellow": "Crew Quarters A",
+  "card_red": "Bridge",
+  "entry": "Engineering Deck",
+  "way_out": "Engine Room",
+  "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
+ },
+ "entry": {
+  "room": "Engineering Deck",
+  "at": [
+   512,
+   1041
+  ]
+ },
+ "exit": {
+  "room": "Engine Room",
+  "at": [
+   512,
+   1267
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    647.0,
+    809
+   ],
+   "key": 3,
+   "why": "the objective (Magazine (Ordnance))"
+  },
+  {
+   "door": [
+    597.0,
+    850
+   ],
+   "key": 3,
+   "why": "the objective (Magazine (Ordnance))"
+  },
+  {
+   "door": [
+    661.0,
+    962
+   ],
+   "key": 3,
+   "why": "the objective (Magazine (Ordnance))"
+  },
+  {
+   "door": [
+    512,
+    307
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    512,
+    1227
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    450,
+    1240
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    574.0,
+    1240
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    512,
+    1112
+   ],
+   "key": 1,
+   "why": "the orange card's room (Reactor Core)"
+  },
+  {
+   "door": [
+    512,
+    1204
+   ],
+   "key": 1,
+   "why": "the orange card's room (Reactor Core)"
+  },
+  {
+   "door": [
+    466,
+    1158
+   ],
+   "key": 1,
+   "why": "the orange card's room (Reactor Core)"
+  },
+  {
+   "door": [
+    558.0,
+    1158
+   ],
+   "key": 1,
+   "why": "the orange card's room (Reactor Core)"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Crew Quarters A",
+   "at": [
+    393,
+    515
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Reactor Core",
+   "at": [
+    511,
+    1158
+   ]
+  },
+  {
+   "key": 3,
+   "room": "Bridge",
+   "at": [
+    512,
+    259
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Magazine (Ordnance)",
+   "at": [
+    658,
+    885
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Magazine (Ordnance)",
+   "at": [
+    658,
+    885
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Magazine (Ordnance)",
+   "at": [
+    658,
+    885
+   ],
+   "key": 3
+  }
+ }
 }

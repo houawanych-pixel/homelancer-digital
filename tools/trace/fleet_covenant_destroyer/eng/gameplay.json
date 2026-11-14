@@ -1,145 +1,4 @@
 {
- "entry": {
-  "room": "Launch Bay",
-  "at": [
-   512,
-   720
-  ]
- },
- "locks": [
-  {
-   "door": [
-    512,
-    978
-   ],
-   "key": 1,
-   "why": "engineering"
-  },
-  {
-   "door": [
-    401,
-    976
-   ],
-   "key": 1,
-   "why": "the aft side way"
-  },
-  {
-   "door": [
-    623,
-    976
-   ],
-   "key": 1,
-   "why": "the aft side way"
-  },
-  {
-   "door": [
-    512,
-    427
-   ],
-   "key": 2,
-   "why": "the CIC"
-  },
-  {
-   "door": [
-    460,
-    376
-   ],
-   "key": 2,
-   "why": "the CIC"
-  },
-  {
-   "door": [
-    564,
-    376
-   ],
-   "key": 2,
-   "why": "the CIC"
-  },
-  {
-   "door": [
-    512,
-    326
-   ],
-   "key": 3,
-   "why": "the sensors and the bridge"
-  },
-  {
-   "door": [
-    512,
-    1055
-   ],
-   "key": 3,
-   "why": "the reactor"
-  },
-  {
-   "door": [
-    461,
-    1108
-   ],
-   "key": 3,
-   "why": "the reactor"
-  },
-  {
-   "door": [
-    563,
-    1108
-   ],
-   "key": 3,
-   "why": "the reactor"
-  }
- ],
- "guards": [
-  {
-   "key": 1,
-   "room": "Weapons Bay (port)",
-   "at": [
-    325,
-    716
-   ]
-  },
-  {
-   "key": 2,
-   "room": "Engineering",
-   "at": [
-    512,
-    1015
-   ]
-  },
-  {
-   "key": 3,
-   "room": "CIC",
-   "at": [
-    512,
-    377
-   ]
-  }
- ],
- "targets": {
-  "sabotage": {
-   "room": "Reactor Core",
-   "at": [
-    512,
-    1110
-   ],
-   "key": 3
-  },
-  "capture": {
-   "room": "Bridge",
-   "at": [
-    512,
-    210
-   ],
-   "key": 3
-  },
-  "rescue": {
-   "room": "Sensors (starboard)",
-   "at": [
-    560,
-    286
-   ],
-   "key": 3
-  }
- },
  "wreck": [
   {
    "at": [
@@ -182,6 +41,141 @@
   "Crew Quarters (port)": 1,
   "Engine Room (port)": 1,
   "Engine Room (starboard)": 1,
-  "Sensors (port)": 1
+  "Sensors (port)": 1,
+  "Launch Bay": 2,
+  "Weapons Bay (port)": 2
+ },
+ "formula": {
+  "C": "Launch Bay",
+  "A_gate": "Weapons Bay (port)",
+  "card_yellow": "Sensors (starboard)",
+  "card_red": "Bridge",
+  "entry": "Weapons Bay (starboard)",
+  "way_out": "Engine Room (starboard)",
+  "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
+ },
+ "entry": {
+  "room": "Weapons Bay (starboard)",
+  "at": [
+   695,
+   716
+  ]
+ },
+ "exit": {
+  "room": "Engine Room (starboard)",
+  "at": [
+   614,
+   1152
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    512,
+    655
+   ],
+   "key": 3,
+   "why": "the objective (Launch Bay)"
+  },
+  {
+   "door": [
+    512,
+    785
+   ],
+   "key": 3,
+   "why": "the objective (Launch Bay)"
+  },
+  {
+   "door": [
+    415,
+    781
+   ],
+   "key": 3,
+   "why": "the objective (Launch Bay)"
+  },
+  {
+   "door": [
+    609.0,
+    781
+   ],
+   "key": 3,
+   "why": "the objective (Launch Bay)"
+  },
+  {
+   "door": [
+    512,
+    251
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    613.0,
+    1118
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    395,
+    727
+   ],
+   "key": 1,
+   "why": "the orange card's room (Weapons Bay (port))"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Sensors (starboard)",
+   "at": [
+    559,
+    286
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Weapons Bay (port)",
+   "at": [
+    328,
+    716
+   ]
+  },
+  {
+   "key": 3,
+   "room": "Bridge",
+   "at": [
+    512,
+    211
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Launch Bay",
+   "at": [
+    512,
+    720
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Launch Bay",
+   "at": [
+    512,
+    720
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Launch Bay",
+   "at": [
+    512,
+    720
+   ],
+   "key": 3
+  }
  }
 }

@@ -1,153 +1,4 @@
 {
- "entry": {
-  "room": "Launch Bay",
-  "at": [
-   512,
-   780
-  ]
- },
- "locks": [
-  {
-   "door": [
-    473,
-    1014
-   ],
-   "key": 1,
-   "why": "engineering"
-  },
-  {
-   "door": [
-    551,
-    1014
-   ],
-   "key": 1,
-   "why": "engineering"
-  },
-  {
-   "door": [
-    512,
-    1014
-   ],
-   "key": 1,
-   "why": "engineering"
-  },
-  {
-   "door": [
-    437,
-    1055
-   ],
-   "key": 1,
-   "why": "engineering"
-  },
-  {
-   "door": [
-    587,
-    1055
-   ],
-   "key": 1,
-   "why": "engineering"
-  },
-  {
-   "door": [
-    448,
-    400
-   ],
-   "key": 2,
-   "why": "the CIC"
-  },
-  {
-   "door": [
-    576,
-    400
-   ],
-   "key": 2,
-   "why": "the CIC"
-  },
-  {
-   "door": [
-    512,
-    449
-   ],
-   "key": 2,
-   "why": "the CIC"
-  },
-  {
-   "door": [
-    494,
-    1112
-   ],
-   "key": 2,
-   "why": "the reactor"
-  },
-  {
-   "door": [
-    530,
-    1112
-   ],
-   "key": 2,
-   "why": "the reactor"
-  },
-  {
-   "door": [
-    464,
-    1162
-   ],
-   "key": 2,
-   "why": "the reactor"
-  },
-  {
-   "door": [
-    560,
-    1162
-   ],
-   "key": 2,
-   "why": "the reactor"
-  }
- ],
- "guards": [
-  {
-   "key": 1,
-   "room": "Armory (port)",
-   "at": [
-    390,
-    730
-   ]
-  },
-  {
-   "key": 2,
-   "room": "Engineering Deck",
-   "at": [
-    512,
-    1060
-   ]
-  }
- ],
- "targets": {
-  "sabotage": {
-   "room": "Reactor Core",
-   "at": [
-    512,
-    1160
-   ],
-   "key": 2
-  },
-  "capture": {
-   "room": "Bridge",
-   "at": [
-    512,
-    205
-   ],
-   "key": 2
-  },
-  "rescue": {
-   "room": "Sensor Suite",
-   "at": [
-    512,
-    290
-   ],
-   "key": 2
-  }
- },
  "wreck": [
   {
    "at": [
@@ -187,8 +38,167 @@
   "Armory (starboard)": 1,
   "Crew Quarters (port)": 1,
   "Engine Control": 1,
-  "Magazine (starboard)": 1
+  "Magazine (starboard)": 1,
+  "Launch Bay": 2,
+  "Magazine (port)": 2
  },
  "derived_from": "imperium_destroyer",
- "gameplay_from": "orion_destroyer"
+ "gameplay_from": "orion_destroyer",
+ "formula": {
+  "C": "Launch Bay",
+  "A_gate": "Magazine (port)",
+  "card_yellow": "Crew Quarters (starboard)",
+  "card_red": "Bridge",
+  "entry": "Magazine (starboard)",
+  "way_out": "Engine Room (R)",
+  "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
+ },
+ "entry": {
+  "room": "Magazine (starboard)",
+  "at": [
+   762,
+   949
+  ]
+ },
+ "exit": {
+  "room": "Engine Room (R)",
+  "at": [
+   579,
+   1348
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    512,
+    683
+   ],
+   "key": 3,
+   "why": "the objective (Launch Bay)"
+  },
+  {
+   "door": [
+    512,
+    880
+   ],
+   "key": 3,
+   "why": "the objective (Launch Bay)"
+  },
+  {
+   "door": [
+    461,
+    722
+   ],
+   "key": 3,
+   "why": "the objective (Launch Bay)"
+  },
+  {
+   "door": [
+    563.0,
+    722
+   ],
+   "key": 3,
+   "why": "the objective (Launch Bay)"
+  },
+  {
+   "door": [
+    512,
+    255
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    546.0,
+    1314
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    594.0,
+    1316
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    289,
+    944
+   ],
+   "key": 1,
+   "why": "the orange card's room (Magazine (port))"
+  },
+  {
+   "door": [
+    262,
+    902
+   ],
+   "key": 1,
+   "why": "the orange card's room (Magazine (port))"
+  },
+  {
+   "door": [
+    262,
+    998
+   ],
+   "key": 1,
+   "why": "the orange card's room (Magazine (port))"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Crew Quarters (starboard)",
+   "at": [
+    615,
+    520
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Magazine (port)",
+   "at": [
+    262,
+    949
+   ]
+  },
+  {
+   "key": 3,
+   "room": "Bridge",
+   "at": [
+    512,
+    210
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Launch Bay",
+   "at": [
+    512,
+    781
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Launch Bay",
+   "at": [
+    512,
+    781
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Launch Bay",
+   "at": [
+    512,
+    781
+   ],
+   "key": 3
+  }
+ }
 }

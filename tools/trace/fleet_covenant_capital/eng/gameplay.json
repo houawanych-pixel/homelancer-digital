@@ -1,169 +1,4 @@
 {
- "entry": {
-  "room": "Hangar Bay",
-  "at": [
-   527,
-   760
-  ]
- },
- "locks": [
-  {
-   "door": [
-    505,
-    1023
-   ],
-   "key": 1,
-   "why": "engineering"
-  },
-  {
-   "door": [
-    549,
-    1023
-   ],
-   "key": 1,
-   "why": "engineering"
-  },
-  {
-   "door": [
-    527,
-    458
-   ],
-   "key": 2,
-   "why": "the CIC"
-  },
-  {
-   "door": [
-    467,
-    400
-   ],
-   "key": 2,
-   "why": "the CIC"
-  },
-  {
-   "door": [
-    587,
-    400
-   ],
-   "key": 2,
-   "why": "the CIC"
-  },
-  {
-   "door": [
-    452,
-    337
-   ],
-   "key": 2,
-   "why": "the sensors suite"
-  },
-  {
-   "door": [
-    602,
-    337
-   ],
-   "key": 3,
-   "why": "the briefing room (holding cell)"
-  },
-  {
-   "door": [
-    527,
-    248
-   ],
-   "key": 3,
-   "why": "the bridge"
-  },
-  {
-   "door": [
-    551,
-    305
-   ],
-   "key": 3,
-   "why": "the briefing room (holding cell)"
-  },
-  {
-   "door": [
-    527,
-    1100
-   ],
-   "key": 3,
-   "why": "the reactor"
-  },
-  {
-   "door": [
-    479,
-    1161
-   ],
-   "key": 3,
-   "why": "the reactor"
-  },
-  {
-   "door": [
-    575,
-    1161
-   ],
-   "key": 3,
-   "why": "the reactor"
-  },
-  {
-   "door": [
-    527,
-    1214
-   ],
-   "key": 3,
-   "why": "the reactor"
-  }
- ],
- "guards": [
-  {
-   "key": 1,
-   "room": "Armory (port)",
-   "at": [
-    316,
-    760
-   ]
-  },
-  {
-   "key": 2,
-   "room": "Engineering Deck",
-   "at": [
-    527,
-    1060
-   ]
-  },
-  {
-   "key": 3,
-   "room": "CIC (Combat Information Center)",
-   "at": [
-    527,
-    420
-   ]
-  }
- ],
- "targets": {
-  "sabotage": {
-   "room": "Reactor Core",
-   "at": [
-    527,
-    1166
-   ],
-   "key": 3
-  },
-  "capture": {
-   "room": "Bridge (Command Deck)",
-   "at": [
-    527,
-    185
-   ],
-   "key": 3
-  },
-  "rescue": {
-   "room": "Briefing Room",
-   "at": [
-    590,
-    300
-   ],
-   "key": 3
-  }
- },
  "wreck": [
   {
    "at": [
@@ -200,13 +35,155 @@
   "Engine Room B": 1,
   "Armory (starboard)": 1,
   "Cargo Hold A": 1,
-  "Cargo Hold B": 1,
+  "Cargo Hold B": 2,
   "Galley & Mess": 1,
   "Medbay": 1,
   "Crew Quarters (port)": 1,
   "Chapel & Shrine A": 1,
   "Chapel & Shrine B": 1,
   "Weapon Bay B": 1,
-  "Sensors Suite": 1
+  "Sensors Suite": 1,
+  "Hangar Bay": 2
+ },
+ "formula": {
+  "C": "Hangar Bay",
+  "A_gate": "Cargo Hold B",
+  "card_yellow": "Coolant Plant A",
+  "card_red": "Bridge (Command Deck)",
+  "entry": "Weapon Bay B",
+  "way_out": "Engine Room A",
+  "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
+ },
+ "entry": {
+  "room": "Weapon Bay B",
+  "at": [
+   945,
+   707
+  ]
+ },
+ "exit": {
+  "room": "Engine Room A",
+  "at": [
+   418,
+   1270
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    527,
+    631
+   ],
+   "key": 3,
+   "why": "the objective (Hangar Bay)"
+  },
+  {
+   "door": [
+    417,
+    690
+   ],
+   "key": 3,
+   "why": "the objective (Hangar Bay)"
+  },
+  {
+   "door": [
+    507,
+    883
+   ],
+   "key": 3,
+   "why": "the objective (Hangar Bay)"
+  },
+  {
+   "door": [
+    637.0,
+    690
+   ],
+   "key": 3,
+   "why": "the objective (Hangar Bay)"
+  },
+  {
+   "door": [
+    547.0,
+    883
+   ],
+   "key": 3,
+   "why": "the objective (Hangar Bay)"
+  },
+  {
+   "door": [
+    527,
+    248
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    432,
+    1225
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    662.0,
+    935
+   ],
+   "key": 1,
+   "why": "the orange card's room (Cargo Hold B)"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Coolant Plant A",
+   "at": [
+    89,
+    982
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Cargo Hold B",
+   "at": [
+    715,
+    925
+   ]
+  },
+  {
+   "key": 3,
+   "room": "Bridge (Command Deck)",
+   "at": [
+    527,
+    193
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Hangar Bay",
+   "at": [
+    527,
+    757
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Hangar Bay",
+   "at": [
+    527,
+    757
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Hangar Bay",
+   "at": [
+    527,
+    757
+   ],
+   "key": 3
+  }
  }
 }

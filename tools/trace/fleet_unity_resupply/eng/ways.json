@@ -36,7 +36,7 @@
     "Bridge"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -73,7 +73,7 @@
     "CIC"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -108,7 +108,7 @@
    "rooms": [
     "Loader & Vehicle Bay"
    ],
-   "type": "mech",
+   "type": "pilot",
    "key": 0
   },
   {
@@ -146,7 +146,7 @@
     "Engineering Deck"
    ],
    "type": "mech",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -156,7 +156,7 @@
    "o": "h",
    "rooms": [],
    "type": "mech",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -287,7 +287,7 @@
     "Cargo Hold A"
    ],
    "type": "mech",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -310,8 +310,8 @@
    "rooms": [
     "Cargo Hold A"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 3
   },
   {
    "at": [
@@ -358,7 +358,7 @@
    "rooms": [
     "Cargo Transfer Hub"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -371,7 +371,7 @@
     "Workshop & Maintenance"
    ],
    "type": "mech",
-   "key": 0
+   "key": 1
   },
   {
    "at": [
@@ -383,7 +383,7 @@
     "Workshop & Maintenance"
    ],
    "type": "mech",
-   "key": 0
+   "key": 1
   },
   {
    "at": [
@@ -395,7 +395,7 @@
     "Engineering Deck"
    ],
    "type": "mech",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -514,7 +514,7 @@
     "Munitions Resupply"
    ],
    "type": "mech",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -573,7 +573,7 @@
    "rooms": [
     "Cargo Transfer Hub"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -610,10 +610,10 @@
     "Engineering Deck"
    ],
    "type": "pilot",
-   "key": 1
+   "key": 0
   }
  ],
- "entry": "Loader & Vehicle Bay",
+ "entry": "Engine Room",
  "mech_rooms_unreached": [
   "Lift (port)",
   "Lift (starboard)"
@@ -621,13 +621,13 @@
  "counts": {
   "mech_rooms": 9,
   "pilot_rooms": 12,
-  "mech_doors": 14,
-  "pilot_doors": 35,
+  "mech_doors": 16,
+  "pilot_doors": 33,
   "locked": {
-   "OPEN": 44,
-   "YELLOW": 3,
+   "OPEN": 43,
+   "YELLOW": 2,
    "ORANGE": 2,
-   "RED": 0
+   "RED": 2
   }
  }
 }

@@ -35,7 +35,7 @@
     "Bridge"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -83,7 +83,7 @@
     "CIC (Combat Information Center)"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -94,7 +94,7 @@
    "rooms": [
     "Lift"
    ],
-   "type": "mech",
+   "type": "pilot",
    "key": 0
   },
   {
@@ -106,7 +106,7 @@
    "rooms": [
     "Lift"
    ],
-   "type": "mech",
+   "type": "pilot",
    "key": 0
   },
   {
@@ -118,7 +118,7 @@
    "rooms": [
     "Launch Bay"
    ],
-   "type": "mech",
+   "type": "pilot",
    "key": 0
   },
   {
@@ -130,7 +130,7 @@
    "rooms": [
     "Launch Bay"
    ],
-   "type": "mech",
+   "type": "pilot",
    "key": 0
   },
   {
@@ -142,8 +142,8 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "mech",
-   "key": 1
+   "type": "pilot",
+   "key": 3
   },
   {
    "at": [
@@ -154,8 +154,8 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "mech",
-   "key": 2
+   "type": "pilot",
+   "key": 3
   },
   {
    "at": [
@@ -166,7 +166,7 @@
    "rooms": [
     "Reactor Core"
    ],
-   "type": "mech",
+   "type": "pilot",
    "key": 0
   },
   {
@@ -178,7 +178,7 @@
    "rooms": [
     "Reactor Core"
    ],
-   "type": "mech",
+   "type": "pilot",
    "key": 0
   },
   {
@@ -190,7 +190,7 @@
    "rooms": [
     "Engine Room"
    ],
-   "type": "mech",
+   "type": "pilot",
    "key": 0
   },
   {
@@ -299,7 +299,7 @@
     "Engine Access (port)"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -346,7 +346,7 @@
    "rooms": [
     "Cargo Hold"
    ],
-   "type": "mech",
+   "type": "pilot",
    "key": 0
   },
   {
@@ -359,7 +359,7 @@
     "Engineering Deck"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 3
   },
   {
    "at": [
@@ -515,7 +515,7 @@
     "Power Core (starboard)"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 1
   },
   {
    "at": [
@@ -526,7 +526,7 @@
    "rooms": [
     "Missile Magazine"
    ],
-   "type": "mech",
+   "type": "pilot",
    "key": 0
   },
   {
@@ -539,7 +539,7 @@
     "Engineering Deck"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 3
   },
   {
    "at": [
@@ -554,23 +554,29 @@
    "key": 0
   }
  ],
- "entry": "Launch Bay",
+ "entry": "Engine Access (starboard)",
  "mech_rooms_unreached": [
+  "Lift",
+  "Launch Bay",
+  "Engineering Deck",
+  "Reactor Core",
+  "Engine Room",
+  "Cargo Hold",
+  "Missile Magazine",
   "Engine Access (port)",
-  "Engine Access (starboard)",
   "Power Core (port)",
   "Power Core (starboard)"
  ],
  "counts": {
   "mech_rooms": 10,
   "pilot_rooms": 11,
-  "mech_doors": 11,
-  "pilot_doors": 33,
+  "mech_doors": 0,
+  "pilot_doors": 44,
   "locked": {
-   "OPEN": 39,
+   "OPEN": 37,
    "YELLOW": 1,
-   "ORANGE": 4,
-   "RED": 0
+   "ORANGE": 2,
+   "RED": 4
   }
  }
 }

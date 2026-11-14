@@ -800,7 +800,10 @@ func _on_hud(id: String) -> void:
 			hud.planet_map = false
 			hud.map_deck = ""
 		"pmap_deck0", "pmap_deck1", "pmap_deck2": hud.map_deck = str(hud.deck_list()[int(id.right(1))])   # v12.19
-		"pmap_view": hud.pmap_3d = not hud.pmap_3d   # v13.129: the fleet ship map: 3D model / the deck plan picture
+		"pmap_view": hud.pmap_3d = not hud.pmap_3d
+		"pmap_evee":   # v13.130 (owner): Evee sets the next waypoint (the gold line and the light column to it)
+			var said: String = space.fleet_waypoint()
+			hud.flash_message(said if said != "" else "Evee: \"Nothing left to mark, pilot.\"")   # v13.129: the fleet ship map: 3D model / the deck plan picture
 		"log":
 			if hud.comms_mode == "roster": hud.close_roster()
 			else: hud.open_log()

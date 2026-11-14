@@ -1,34 +1,222 @@
 {
- "entry": {"room": "Hangar Bay", "at": [591, 690]},
+ "wreck": [
+  {
+   "at": [
+    240,
+    812
+   ],
+   "across": "v",
+   "why": "the port wing: a side way to the coolant plant"
+  }
+ ],
+ "lifts": [
+  {
+   "room": "Lift (port)",
+   "at": [
+    568,
+    485
+   ]
+  },
+  {
+   "room": "Lift (starboard)",
+   "at": [
+    614,
+    485
+   ]
+  }
+ ],
+ "patrols": [],
+ "room_guards": {
+  "Vehicle Bay": 2,
+  "Engineering Deck": 2,
+  "CIC (Combat Information Center)": 2,
+  "Bridge": 3,
+  "Reactor Core": 2,
+  "Engine Room": 1,
+  "Armory (starboard)": 1,
+  "Cargo Hold (port)": 1,
+  "Cargo Hold (starboard)": 1,
+  "Galley & Mess": 1,
+  "Medbay": 1,
+  "Crew Quarters (starboard)": 1,
+  "Chapel / Shrine (port)": 1,
+  "Chapel / Shrine (starboard)": 1,
+  "Weapon Bay (starboard)": 2,
+  "Console Room (port)": 1,
+  "Hangar Bay": 2,
+  "Coolant Systems (starboard)": 2
+ },
+ "formula": {
+  "C": "Hangar Bay",
+  "A_gate": "Weapon Bay (starboard)",
+  "card_yellow": "Coolant Systems (port)",
+  "card_red": "Coolant Systems (starboard)",
+  "entry": "Weapon Bay (port)",
+  "way_out": "Engine Room",
+  "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
+ },
+ "entry": {
+  "room": "Weapon Bay (port)",
+  "at": [
+   129,
+   706
+  ]
+ },
+ "exit": {
+  "room": "Engine Room",
+  "at": [
+   591,
+   1122
+  ]
+ },
  "locks": [
-  {"door": [591, 882], "key": 1, "why": "engineering"},
-  {"door": [477, 881], "key": 1, "why": "engineering"},
-  {"door": [705, 881], "key": 1, "why": "engineering"},
-  {"door": [591, 431], "key": 2, "why": "the CIC"},
-  {"door": [544, 348], "key": 2, "why": "the CIC"},
-  {"door": [638, 348], "key": 2, "why": "the CIC"},
-  {"door": [591, 291], "key": 3, "why": "the sensors suite (holding cell)"},
-  {"door": [591, 237], "key": 3, "why": "the bridge"},
-  {"door": [591, 972], "key": 3, "why": "the reactor"},
-  {"door": [547, 1016], "key": 3, "why": "the reactor"},
-  {"door": [635, 1016], "key": 3, "why": "the reactor"},
-  {"door": [591, 1061], "key": 3, "why": "the reactor"}
+  {
+   "door": [
+    591,
+    602
+   ],
+   "key": 3,
+   "why": "the objective (Hangar Bay)"
+  },
+  {
+   "door": [
+    500,
+    673
+   ],
+   "key": 3,
+   "why": "the objective (Hangar Bay)"
+  },
+  {
+   "door": [
+    500,
+    742
+   ],
+   "key": 3,
+   "why": "the objective (Hangar Bay)"
+  },
+  {
+   "door": [
+    562,
+    767
+   ],
+   "key": 3,
+   "why": "the objective (Hangar Bay)"
+  },
+  {
+   "door": [
+    682.0,
+    673
+   ],
+   "key": 3,
+   "why": "the objective (Hangar Bay)"
+  },
+  {
+   "door": [
+    682.0,
+    742
+   ],
+   "key": 3,
+   "why": "the objective (Hangar Bay)"
+  },
+  {
+   "door": [
+    620.0,
+    767
+   ],
+   "key": 3,
+   "why": "the objective (Hangar Bay)"
+  },
+  {
+   "door": [
+    1003.0,
+    812
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    591,
+    1072
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    553,
+    1098
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    629.0,
+    1098
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    1003.0,
+    719
+   ],
+   "key": 1,
+   "why": "the orange card's room (Weapon Bay (starboard))"
+  }
  ],
  "guards": [
-  {"key": 1, "room": "Armory (port)", "at": [441, 694]},
-  {"key": 2, "room": "Engineering Deck", "at": [591, 930]},
-  {"key": 3, "room": "CIC (Combat Information Center)", "at": [591, 390]}
+  {
+   "key": 1,
+   "room": "Coolant Systems (port)",
+   "at": [
+    124,
+    830
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Weapon Bay (starboard)",
+   "at": [
+    1053,
+    706
+   ]
+  },
+  {
+   "key": 3,
+   "room": "Coolant Systems (starboard)",
+   "at": [
+    1058,
+    830
+   ]
+  }
  ],
  "targets": {
-  "sabotage": {"room": "Reactor Core", "at": [591, 1016], "key": 3},
-  "capture": {"room": "Bridge", "at": [591, 170], "key": 3},
-  "rescue": {"room": "Sensors Suite", "at": [591, 262], "key": 3}
- },
- "wreck": [{"at": [240, 812], "across": "v", "why": "the port wing: a side way to the coolant plant"}],
- "lifts": [{"room": "Lift (port)", "at": [568, 485]}, {"room": "Lift (starboard)", "at": [614, 485]}],
- "patrols": [],
- "room_guards": {"Vehicle Bay": 2, "Engineering Deck": 2, "CIC (Combat Information Center)": 2, "Bridge": 3,
-  "Reactor Core": 2, "Engine Room": 1, "Armory (starboard)": 1, "Cargo Hold (port)": 1, "Cargo Hold (starboard)": 1,
-  "Galley & Mess": 1, "Medbay": 1, "Crew Quarters (starboard)": 1, "Chapel / Shrine (port)": 1,
-  "Chapel / Shrine (starboard)": 1, "Weapon Bay (starboard)": 1, "Console Room (port)": 1}
+  "sabotage": {
+   "room": "Hangar Bay",
+   "at": [
+    591,
+    685
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Hangar Bay",
+   "at": [
+    591,
+    685
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Hangar Bay",
+   "at": [
+    591,
+    685
+   ],
+   "key": 3
+  }
+ }
 }

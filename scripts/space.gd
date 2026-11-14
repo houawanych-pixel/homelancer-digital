@@ -1961,6 +1961,7 @@ func _fleet_setup(root: Node3D, info: Dictionary, fac: String) -> void:
 		root.add_child(bc)
 		bc.global_position = tp + Vector3(0, 15.0, 0)
 		fl["beacon"] = bc
+		bc.visible = false   # v13.130 (owner: "the player has to figure it out"): shown only when Evee marks it
 	if Boarding.STACKED: _fleet_decks(root)
 	var need_txt := "" if int(fl.get("need", 0)) <= 0 else " (behind the %s doors: find the guards carrying the cards)" % ShipInterior.KEY_NAME[int(fl["need"])]
 	message.emit("Aboard the %s. Mission: %s%s, then back to the %s. Their guards are on patrol." % [str(info["name"]), FLEET_MISSION_TEXT.get(kind, "look round"), need_txt, str(Boarding.ROOMS["sbay"]["label"])])
@@ -2077,11 +2078,49 @@ func _fleet_done() -> void:
 	var fl: Dictionary = board.get("fleet", {})
 	if fl.is_empty() or bool(fl["done"]): return
 	fl["done"] = true
+	var ek := fleet_exit_key()
+	if ek != "sbay":   # v13.130 (owner's formula): the clock starts, the way you came in is blocked: find the other way out
+		board["phase"] = "escape"
+		board["escape"] = Data.BOARD_ESCAPE
+		board["breakout"] = false
+		for d in board_doors:
+			if (d["rooms"] as Array).has("sbay"): d["sealed"] = true
+		for l: OmniLight3D in _board_alarm:
+			if is_instance_valid(l): l.light_color = Color(1.0, 0.2, 0.12)
+		hit_shake = 1.0
+		fl["wp_on"] = false
+		if is_instance_valid(fl.get("beacon")): (fl["beacon"] as Node3D).visible = false
+		var what: String = {"sabotage": "GENERATOR DOWN!", "capture": "CAPTAIN TAKEN!", "rescue": "HOSTAGE FREED!"}.get(str(fl["kind"]), "DONE!")
+		message.emit("%s The way you came in is BLOCKED. %d seconds: find another way out!" % [what, int(Data.BOARD_ESCAPE)])
+		return
 	var ex: Array = Boarding.ROOMS["sbay"]["r"]
 	var out := Vector3((float(ex[0]) + float(ex[1])) * 0.5, 0, (float(ex[2]) + float(ex[3])) * 0.5)
 	if is_instance_valid(fl.get("beacon")): (fl["beacon"] as Node3D).global_position = out + Vector3(0, 15.0, 0)
 	if str(fl["kind"]) == "capture": message.emit("CAPTAIN TAKEN! Get him back to the %s." % str(Boarding.ROOMS["sbay"]["label"]))
 	if str(fl["kind"]) == "rescue": message.emit("HOSTAGE FREED! She's with you: back to the %s." % str(Boarding.ROOMS["sbay"]["label"]))
+
+## The room you leave by: the formula's other way out (once the job is done), or the bay you came in by.
+func fleet_exit_key() -> String:
+	var F: Dictionary = Boarding.INFO.get("fleet", {})
+	if F.has("exit") and Boarding.ROOMS.has(str(F["exit"]["room"])): return str(F["exit"]["room"])
+	return "sbay"
+
+## v13.130 (owner: "if you don't know where you're going, call Evee: she sets a waypoint ... once you complete that one
+## you call again and she directs you to the next"): the next step only, until you reach it.
+func fleet_waypoint() -> String:
+	if not board.has("fleet"): return ""
+	var steps := fleet_route()
+	if steps.is_empty(): return ""
+	var fl: Dictionary = board["fleet"]
+	fl["wp_on"] = true
+	fl["wp_label"] = str(steps[0]["label"])
+	var bc = fl.get("beacon")
+	if bc != null and is_instance_valid(bc):
+		(bc as Node3D).visible = true
+		(bc as Node3D).global_position = (steps[0]["at"] as Vector3) + Vector3(0, 15.0, 0)
+	var line: String = {"YELLOW CARD": "A guard's carrying the yellow card. I've marked him.", "ORANGE CARD": "The orange card's behind the yellow doors. Marked.",
+		"RED CARD": "Red card's with a guard behind the orange doors. Marked.", "WAY OUT": "That way's your way out. Move!"}.get(str(steps[0]["label"]), "There. That's your target. Marked on your map.")
+	return "Evee: \"%s\"" % line
 
 ## Out of the ship this frame? The regular decks: past the open side of the starboard bay. A fleet ship (v13.92): back
 ## in the bay you came aboard by, once you have been out of it and the job is done.
@@ -2089,6 +2128,8 @@ func _out_now() -> bool:
 	if not board.has("fleet"): return player.global_position.x > Boarding.EXIT_X
 	var here := Boarding.room_at(player.global_position)
 	if here != "sbay": board["fleet"]["left_bay"] = true
+	var ek := fleet_exit_key()
+	if ek != "sbay": return here == ek and _fleet_may_leave()
 	return here == "sbay" and bool(board["fleet"].get("left_bay", false)) and _fleet_may_leave()
 
 func _fleet_may_leave() -> bool:
@@ -2098,6 +2139,12 @@ func _fleet_may_leave() -> bool:
 func _fleet_tick(dt: float) -> void:
 	board["card_msg"] = float(board.get("card_msg", 0.0)) - dt
 	var fl: Dictionary = board["fleet"]
+	if bool(fl.get("wp_on", false)):   # v13.130: Evee's waypoint goes when you have got there (call her for the next)
+		var st := fleet_route()
+		if st.is_empty() or str(st[0]["label"]) != str(fl.get("wp_label", "")):
+			fl["wp_on"] = false
+			if is_instance_valid(fl.get("beacon")): (fl["beacon"] as Node3D).visible = false
+			message.emit("Evee: \"Got it. Call me if you need the next one.\"")
 	var here_k := Boarding.room_at(player.global_position)   # v13.129: the places you've been (the 3D map's fog of war)
 	if here_k != "":
 		if not fl.has("seen"): fl["seen"] = {}
@@ -2128,8 +2175,8 @@ func fleet_route() -> Array:
 					break
 		if fl.has("target_at"):
 			out.append({"at": fl["target_at"], "label": str(FLEET_MISSION_TEXT.get(str(fl["kind"]), "TARGET")).to_upper(), "col": Color(1.0, 0.82, 0.25)})
-	var sb: Array = Boarding.ROOMS["sbay"]["r"]
-	out.append({"at": Vector3((float(sb[0]) + float(sb[1])) * 0.5, float(Boarding.ROOMS["sbay"]["y"][0]), (float(sb[2]) + float(sb[3])) * 0.5), "label": "WAY OUT", "col": Color(0.4, 1.0, 0.5)})
+	var sb: Array = Boarding.ROOMS[fleet_exit_key()]["r"]
+	out.append({"at": Vector3((float(sb[0]) + float(sb[1])) * 0.5, float(Boarding.ROOMS[fleet_exit_key()]["y"][0]), (float(sb[2]) + float(sb[3])) * 0.5), "label": "WAY OUT", "col": Color(0.4, 1.0, 0.5)})
 	return out
 
 func _fleet_line(where: String) -> String:
@@ -2140,6 +2187,7 @@ func _fleet_line(where: String) -> String:
 	var kind := str(fl["kind"])
 	var alert := "ALERT  ·  " if bool(board.get("alerted", false)) else ""
 	if str(board.get("phase", "")) == "escape" and not bool(board.get("breakout", true)):
+		if fleet_exit_key() != "sbay": return "ESCAPE: %d s  ·  %s  ·  the way in is blocked: find another way out" % [int(ceil(maxf(0.0, float(board["escape"])))), where]
 		return "ESCAPE: %d s  ·  %s  ·  back to the %s" % [int(ceil(maxf(0.0, float(board["escape"])))), where, str(Boarding.ROOMS["sbay"]["label"])]
 	if bool(fl["done"]) or kind == "": return "%s%s  ·  back to the %s to leave%s" % [alert, where, str(Boarding.ROOMS["sbay"]["label"]), cards]
 	var need := int(fl.get("need", 0))
@@ -2570,7 +2618,7 @@ func _core_down() -> void:
 		for l: OmniLight3D in _board_alarm:
 			if is_instance_valid(l): l.light_color = Color(1.0, 0.2, 0.12)
 		Sfx.play("explosion", 0.0, 0.5)
-		message.emit("GENERATOR DOWN! The ship is going up: %d seconds to get back to the %s!" % [int(Data.BOARD_ESCAPE), str(Boarding.ROOMS["sbay"]["label"])])
+		if fleet_exit_key() == "sbay": message.emit("GENERATOR DOWN! The ship is going up: %d seconds to get back to the %s!" % [int(Data.BOARD_ESCAPE), str(Boarding.ROOMS["sbay"]["label"])])
 		return
 	hit_shake = 1.2
 	for d in board_doors:
@@ -5471,7 +5519,12 @@ func _player_mech_model() -> Node3D:
 		if loadout_on and pw != "":   # v12.70 (owner): on foot he holds the gun fitted on the PILOT bench, grip in his palm
 			var hgt: float = Data.FOOT_H if on_foot else esc_h()
 			pilot_rig.hold(Loadout.weapon_mesh(pw, hgt * 0.9, "pilot"))
-		if loadout_on: PilotGear.apply(pm, Loadout.current("pilot"))   # v12.75: his gear on his bones (it moves with him)
+		if loadout_on:
+			var plo: Dictionary = Loadout.current("pilot")
+			if fleet_mech():   # v13.130 (owner: "I don't like the backpack"): inside a fleet ship, no backpack
+				plo = plo.duplicate(true)
+				(plo["parts"] as Dictionary)["booster"] = ""
+			PilotGear.apply(pm, plo)   # v12.75: his gear on his bones (it moves with him)
 		return pm
 	var k: Dictionary = GS.mech_keys()
 	var waiting := false

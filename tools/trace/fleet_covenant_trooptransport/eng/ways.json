@@ -45,7 +45,7 @@
     "Sensors Suite"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -69,7 +69,7 @@
     "Command & Control"
    ],
    "type": "pilot",
-   "key": 3
+   "key": 0
   },
   {
    "at": [
@@ -82,7 +82,7 @@
     "Briefing Room"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -106,7 +106,7 @@
     "Troop Bay (Deployment Deck)"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -118,7 +118,7 @@
     "Troop Bay (Deployment Deck)"
    ],
    "type": "mech",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -154,7 +154,7 @@
     "Engineering Deck"
    ],
    "type": "mech",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -166,7 +166,7 @@
     "Engineering Deck"
    ],
    "type": "mech",
-   "key": 3
+   "key": 0
   },
   {
    "at": [
@@ -190,7 +190,7 @@
     "Reactor Core"
    ],
    "type": "mech",
-   "key": 3
+   "key": 0
   },
   {
    "at": [
@@ -226,7 +226,7 @@
     "Sensors Suite"
    ],
    "type": "pilot",
-   "key": 3
+   "key": 0
   },
   {
    "at": [
@@ -238,7 +238,7 @@
     "Console Room (port)"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -250,7 +250,7 @@
     "Command & Control"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -385,7 +385,7 @@
     "Troop Bay (Deployment Deck)"
    ],
    "type": "mech",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -397,7 +397,7 @@
     "Troop Bay (Deployment Deck)"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -444,7 +444,7 @@
    "rooms": [
     "Vehicle / Dropship Bay"
    ],
-   "type": "mech",
+   "type": "pilot",
    "key": 0
   },
   {
@@ -470,7 +470,7 @@
     "Deployment Corridor (port)"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 1
   },
   {
    "at": [
@@ -482,7 +482,7 @@
     "Machine Room (port)"
    ],
    "type": "mech",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -520,7 +520,7 @@
     "Reactor Core"
    ],
    "type": "pilot",
-   "key": 3
+   "key": 0
   },
   {
    "at": [
@@ -556,7 +556,7 @@
     "Sensors Suite"
    ],
    "type": "pilot",
-   "key": 3
+   "key": 0
   },
   {
    "at": [
@@ -568,7 +568,7 @@
     "Console Room (starboard)"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -580,7 +580,7 @@
     "Command & Control"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -604,7 +604,7 @@
     "Deployment Bay (starboard)"
    ],
    "type": "mech",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -715,7 +715,7 @@
     "Troop Bay (Deployment Deck)"
    ],
    "type": "mech",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -727,7 +727,7 @@
     "Troop Bay (Deployment Deck)"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -774,7 +774,7 @@
    "rooms": [
     "Vehicle / Dropship Bay"
    ],
-   "type": "mech",
+   "type": "pilot",
    "key": 0
   },
   {
@@ -811,8 +811,8 @@
    "rooms": [
     "Machine Room (starboard)"
    ],
-   "type": "pilot",
-   "key": 1
+   "type": "mech",
+   "key": 0
   },
   {
    "at": [
@@ -850,7 +850,7 @@
     "Reactor Core"
    ],
    "type": "pilot",
-   "key": 3
+   "key": 0
   },
   {
    "at": [
@@ -865,7 +865,7 @@
    "key": 0
   }
  ],
- "entry": "Vehicle / Dropship Bay",
+ "entry": "Reactor Core",
  "mech_rooms_unreached": [
   "Deployment Corridor (port)",
   "Deployment Corridor (starboard)"
@@ -873,13 +873,13 @@
  "counts": {
   "mech_rooms": 11,
   "pilot_rooms": 16,
-  "mech_doors": 21,
-  "pilot_doors": 47,
+  "mech_doors": 20,
+  "pilot_doors": 48,
   "locked": {
-   "OPEN": 53,
-   "YELLOW": 3,
-   "ORANGE": 5,
-   "RED": 7
+   "OPEN": 59,
+   "YELLOW": 1,
+   "ORANGE": 2,
+   "RED": 6
   }
  }
 }

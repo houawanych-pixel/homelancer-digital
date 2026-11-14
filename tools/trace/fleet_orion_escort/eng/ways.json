@@ -6,10 +6,10 @@
   "CIC Tactical": "pilot",
   "Engineering Deck": "mech",
   "Reactor Core": "mech",
-  "Crew Bunks": "pilot",
+  "Crew Bunks": "mech",
   "Galley / Med": "pilot",
   "Armory": "pilot",
-  "Support & Stores": "mech",
+  "Support & Stores": "pilot",
   "Engine Room A": "mech",
   "Engine Room B": "mech"
  },
@@ -24,7 +24,7 @@
     "Bridge"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -36,7 +36,7 @@
     "Sensors"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -48,7 +48,7 @@
     "Sensors"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -60,7 +60,7 @@
     "CIC Tactical"
    ],
    "type": "pilot",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -72,7 +72,7 @@
     "CIC Tactical"
    ],
    "type": "pilot",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -83,8 +83,8 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 3
   },
   {
    "at": [
@@ -97,7 +97,7 @@
     "Reactor Core"
    ],
    "type": "mech",
-   "key": 1
+   "key": 3
   },
   {
    "at": [
@@ -110,7 +110,7 @@
     "Crew Bunks"
    ],
    "type": "pilot",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -133,7 +133,7 @@
    "rooms": [
     "Crew Bunks"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -143,7 +143,7 @@
    ],
    "o": "h",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -165,7 +165,7 @@
    ],
    "o": "v",
    "rooms": [],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -179,7 +179,7 @@
     "Armory"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -191,7 +191,7 @@
     "Engineering Deck"
    ],
    "type": "mech",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -228,7 +228,7 @@
     "Galley / Med"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 1
   },
   {
    "at": [
@@ -240,7 +240,7 @@
     "Galley / Med"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 1
   },
   {
    "at": [
@@ -284,8 +284,8 @@
     "Engineering Deck",
     "Support & Stores"
    ],
-   "type": "mech",
-   "key": 0
+   "type": "pilot",
+   "key": 3
   },
   {
    "at": [
@@ -297,7 +297,7 @@
     "Engineering Deck"
    ],
    "type": "mech",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -312,18 +312,18 @@
    "key": 0
   }
  ],
- "entry": "Support & Stores",
+ "entry": "Crew Bunks",
  "mech_rooms_unreached": [],
  "counts": {
   "mech_rooms": 5,
   "pilot_rooms": 6,
-  "mech_doors": 6,
-  "pilot_doors": 19,
+  "mech_doors": 9,
+  "pilot_doors": 16,
   "locked": {
-   "OPEN": 20,
-   "YELLOW": 5,
-   "ORANGE": 0,
-   "RED": 0
+   "OPEN": 13,
+   "YELLOW": 3,
+   "ORANGE": 3,
+   "RED": 6
   }
  }
 }

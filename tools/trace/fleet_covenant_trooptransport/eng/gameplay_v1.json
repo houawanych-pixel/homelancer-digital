@@ -1,0 +1,242 @@
+{
+ "entry": {
+  "room": "Vehicle / Dropship Bay",
+  "at": [
+   512,
+   980
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    512,
+    1071
+   ],
+   "key": 1,
+   "why": "engineering"
+  },
+  {
+   "door": [
+    388,
+    1066
+   ],
+   "key": 1,
+   "why": "the machine room"
+  },
+  {
+   "door": [
+    636,
+    1066
+   ],
+   "key": 1,
+   "why": "the machine room"
+  },
+  {
+   "door": [
+    461,
+    385
+   ],
+   "key": 2,
+   "why": "command & control"
+  },
+  {
+   "door": [
+    563,
+    385
+   ],
+   "key": 2,
+   "why": "command & control"
+  },
+  {
+   "door": [
+    512,
+    431
+   ],
+   "key": 2,
+   "why": "command & control"
+  },
+  {
+   "door": [
+    420,
+    343
+   ],
+   "key": 2,
+   "why": "the console room"
+  },
+  {
+   "door": [
+    604,
+    343
+   ],
+   "key": 2,
+   "why": "the console room"
+  },
+  {
+   "door": [
+    469,
+    296
+   ],
+   "key": 3,
+   "why": "the sensors suite (holding cell)"
+  },
+  {
+   "door": [
+    555,
+    296
+   ],
+   "key": 3,
+   "why": "the sensors suite (holding cell)"
+  },
+  {
+   "door": [
+    512,
+    325
+   ],
+   "key": 3,
+   "why": "the sensors suite and the bridge"
+  },
+  {
+   "door": [
+    512,
+    1157
+   ],
+   "key": 3,
+   "why": "the reactor"
+  },
+  {
+   "door": [
+    467,
+    1212
+   ],
+   "key": 3,
+   "why": "the reactor"
+  },
+  {
+   "door": [
+    557,
+    1212
+   ],
+   "key": 3,
+   "why": "the reactor"
+  },
+  {
+   "door": [
+    512,
+    1264
+   ],
+   "key": 3,
+   "why": "the reactor"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Armory",
+   "at": [
+    305,
+    950
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Engineering Deck",
+   "at": [
+    512,
+    1110
+   ]
+  },
+  {
+   "key": 3,
+   "room": "Command & Control",
+   "at": [
+    512,
+    380
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Reactor Core",
+   "at": [
+    512,
+    1217
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Bridge",
+   "at": [
+    512,
+    200
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Sensors Suite",
+   "at": [
+    512,
+    275
+   ],
+   "key": 3
+  }
+ },
+ "wreck": [
+  {
+   "at": [
+    420,
+    700
+   ],
+   "across": "h",
+   "why": "the port side corridor along the troop bay"
+  }
+ ],
+ "lifts": [
+  {
+   "room": "Lift (port)",
+   "at": [
+    444,
+    517
+   ]
+  },
+  {
+   "room": "Lift (starboard)",
+   "at": [
+    580,
+    517
+   ]
+  },
+  {
+   "room": "Lower Lift (port)",
+   "at": [
+    364,
+    1035
+   ]
+  },
+  {
+   "room": "Lower Lift (starboard)",
+   "at": [
+    660,
+    1035
+   ]
+  }
+ ],
+ "patrols": [],
+ "room_guards": {
+  "Troop Bay (Deployment Deck)": 3,
+  "Engineering Deck": 2,
+  "Command & Control": 2,
+  "Bridge": 2,
+  "Reactor Core": 2,
+  "Briefing Room": 1,
+  "Medbay": 1,
+  "Barracks A": 1,
+  "Barracks C": 1,
+  "Barracks D": 1,
+  "Ready Room (starboard)": 1,
+  "Lockers & Gear (port)": 1,
+  "Deployment Bay (port)": 1,
+  "Deployment Bay (starboard)": 1,
+  "Machine Room (port)": 1,
+  "Engine Room": 1
+ }
+}

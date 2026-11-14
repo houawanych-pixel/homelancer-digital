@@ -1,0 +1,212 @@
+{
+ "entry": {
+  "room": "Hangar Bay",
+  "at": [
+   527,
+   760
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    505,
+    1023
+   ],
+   "key": 1,
+   "why": "engineering"
+  },
+  {
+   "door": [
+    549,
+    1023
+   ],
+   "key": 1,
+   "why": "engineering"
+  },
+  {
+   "door": [
+    527,
+    458
+   ],
+   "key": 2,
+   "why": "the CIC"
+  },
+  {
+   "door": [
+    467,
+    400
+   ],
+   "key": 2,
+   "why": "the CIC"
+  },
+  {
+   "door": [
+    587,
+    400
+   ],
+   "key": 2,
+   "why": "the CIC"
+  },
+  {
+   "door": [
+    452,
+    337
+   ],
+   "key": 2,
+   "why": "the sensors suite"
+  },
+  {
+   "door": [
+    602,
+    337
+   ],
+   "key": 3,
+   "why": "the briefing room (holding cell)"
+  },
+  {
+   "door": [
+    527,
+    248
+   ],
+   "key": 3,
+   "why": "the bridge"
+  },
+  {
+   "door": [
+    551,
+    305
+   ],
+   "key": 3,
+   "why": "the briefing room (holding cell)"
+  },
+  {
+   "door": [
+    527,
+    1100
+   ],
+   "key": 3,
+   "why": "the reactor"
+  },
+  {
+   "door": [
+    479,
+    1161
+   ],
+   "key": 3,
+   "why": "the reactor"
+  },
+  {
+   "door": [
+    575,
+    1161
+   ],
+   "key": 3,
+   "why": "the reactor"
+  },
+  {
+   "door": [
+    527,
+    1214
+   ],
+   "key": 3,
+   "why": "the reactor"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Armory (port)",
+   "at": [
+    316,
+    760
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Engineering Deck",
+   "at": [
+    527,
+    1060
+   ]
+  },
+  {
+   "key": 3,
+   "room": "CIC (Combat Information Center)",
+   "at": [
+    527,
+    420
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Reactor Core",
+   "at": [
+    527,
+    1166
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Bridge (Command Deck)",
+   "at": [
+    527,
+    185
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Briefing Room",
+   "at": [
+    590,
+    300
+   ],
+   "key": 3
+  }
+ },
+ "wreck": [
+  {
+   "at": [
+    250,
+    830
+   ],
+   "across": "v",
+   "why": "the port crescent arm: a side way"
+  }
+ ],
+ "lifts": [
+  {
+   "room": "Lift (port)",
+   "at": [
+    481,
+    490
+   ]
+  },
+  {
+   "room": "Lift (starboard)",
+   "at": [
+    573,
+    490
+   ]
+  }
+ ],
+ "patrols": [],
+ "room_guards": {
+  "Vehicle Bay": 3,
+  "Engineering Deck": 2,
+  "CIC (Combat Information Center)": 2,
+  "Bridge (Command Deck)": 3,
+  "Reactor Core": 2,
+  "Engine Room B": 1,
+  "Armory (starboard)": 1,
+  "Cargo Hold A": 1,
+  "Cargo Hold B": 1,
+  "Galley & Mess": 1,
+  "Medbay": 1,
+  "Crew Quarters (port)": 1,
+  "Chapel & Shrine A": 1,
+  "Chapel & Shrine B": 1,
+  "Weapon Bay B": 1,
+  "Sensors Suite": 1
+ }
+}

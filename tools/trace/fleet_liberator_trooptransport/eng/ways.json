@@ -40,7 +40,7 @@
     "Sensors Suite"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -76,7 +76,7 @@
     "Command & Control"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -88,7 +88,7 @@
     "Vehicle / Dropship Bay"
    ],
    "type": "mech",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -113,7 +113,7 @@
     "Reactor Core"
    ],
    "type": "mech",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -126,7 +126,7 @@
     "Engine Room"
    ],
    "type": "mech",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -138,7 +138,7 @@
     "Troop Bay"
    ],
    "type": "mech",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -150,7 +150,7 @@
     "Troop Bay"
    ],
    "type": "mech",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -175,7 +175,7 @@
     "Sensor Store A"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -199,7 +199,7 @@
     "Command & Control"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -331,8 +331,8 @@
    "rooms": [
     "Troop Bay"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 3
   },
   {
    "at": [
@@ -343,8 +343,8 @@
    "rooms": [
     "Troop Bay"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 3
   },
   {
    "at": [
@@ -355,8 +355,8 @@
    "rooms": [
     "Troop Bay"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 3
   },
   {
    "at": [
@@ -367,7 +367,7 @@
    "rooms": [
     "Vehicle / Dropship Bay"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -392,7 +392,7 @@
     "Maint. Bay"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 1
   },
   {
    "at": [
@@ -404,7 +404,7 @@
     "Maint. Bay"
    ],
    "type": "mech",
-   "key": 0
+   "key": 1
   },
   {
    "at": [
@@ -427,7 +427,7 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -440,7 +440,7 @@
     "Reactor Core"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -477,7 +477,7 @@
     "Sensor Store B"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -501,7 +501,7 @@
     "Command & Control"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -633,8 +633,8 @@
    "rooms": [
     "Troop Bay"
    ],
-   "type": "mech",
-   "key": 0
+   "type": "pilot",
+   "key": 3
   },
   {
    "at": [
@@ -645,8 +645,8 @@
    "rooms": [
     "Troop Bay"
    ],
-   "type": "mech",
-   "key": 0
+   "type": "pilot",
+   "key": 3
   },
   {
    "at": [
@@ -657,8 +657,8 @@
    "rooms": [
     "Troop Bay"
    ],
-   "type": "mech",
-   "key": 0
+   "type": "pilot",
+   "key": 3
   },
   {
    "at": [
@@ -669,7 +669,7 @@
    "rooms": [
     "Vehicle / Dropship Bay"
    ],
-   "type": "mech",
+   "type": "pilot",
    "key": 0
   },
   {
@@ -729,7 +729,7 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "mech",
+   "type": "pilot",
    "key": 0
   },
   {
@@ -742,7 +742,7 @@
     "Reactor Core"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -757,7 +757,7 @@
    "key": 0
   }
  ],
- "entry": "Deploy Bay B",
+ "entry": "Deploy Bay A",
  "mech_rooms_unreached": [],
  "counts": {
   "mech_rooms": 9,
@@ -765,10 +765,10 @@
   "mech_doors": 21,
   "pilot_doors": 39,
   "locked": {
-   "OPEN": 51,
-   "YELLOW": 1,
-   "ORANGE": 8,
-   "RED": 0
+   "OPEN": 48,
+   "YELLOW": 2,
+   "ORANGE": 2,
+   "RED": 8
   }
  }
 }

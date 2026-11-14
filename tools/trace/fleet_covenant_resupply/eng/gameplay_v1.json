@@ -1,0 +1,210 @@
+{
+ "entry": {
+  "room": "Vehicle / Loader Bay",
+  "at": [
+   567,
+   760
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    540,
+    977
+   ],
+   "key": 1,
+   "why": "engineering"
+  },
+  {
+   "door": [
+    594,
+    977
+   ],
+   "key": 1,
+   "why": "engineering"
+  },
+  {
+   "door": [
+    567,
+    534
+   ],
+   "key": 2,
+   "why": "the command spine"
+  },
+  {
+   "door": [
+    449,
+    421
+   ],
+   "key": 2,
+   "why": "the galley (to the command spine)"
+  },
+  {
+   "door": [
+    685,
+    421
+   ],
+   "key": 2,
+   "why": "the medbay (to the command spine)"
+  },
+  {
+   "door": [
+    567,
+    197
+   ],
+   "key": 3,
+   "why": "the bridge"
+  },
+  {
+   "door": [
+    547,
+    225
+   ],
+   "key": 3,
+   "why": "the sensors suite (holding cell)"
+  },
+  {
+   "door": [
+    497,
+    254
+   ],
+   "key": 3,
+   "why": "the sensors suite (holding cell)"
+  },
+  {
+   "door": [
+    587,
+    225
+   ],
+   "key": 3,
+   "why": "the CIC"
+  },
+  {
+   "door": [
+    567,
+    1049
+   ],
+   "key": 3,
+   "why": "the reactor"
+  },
+  {
+   "door": [
+    522,
+    1104
+   ],
+   "key": 3,
+   "why": "the reactor"
+  },
+  {
+   "door": [
+    612,
+    1104
+   ],
+   "key": 3,
+   "why": "the reactor"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Storage & Supplies",
+   "at": [
+    370,
+    890
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Engineering Deck",
+   "at": [
+    567,
+    1010
+   ]
+  },
+  {
+   "key": 3,
+   "room": "Galley & Mess",
+   "at": [
+    498,
+    452
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Reactor Core",
+   "at": [
+    567,
+    1104
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Bridge",
+   "at": [
+    567,
+    152
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Sensors Suite",
+   "at": [
+    505,
+    224
+   ],
+   "key": 3
+  }
+ },
+ "wreck": [
+  {
+   "at": [
+    458,
+    820
+   ],
+   "across": "h",
+   "why": "the port side way past the vehicle bay"
+  }
+ ],
+ "lifts": [
+  {
+   "room": "Lift",
+   "at": [
+    567,
+    389
+   ]
+  },
+  {
+   "room": "Cargo Lift (port)",
+   "at": [
+    434,
+    775
+   ]
+  },
+  {
+   "room": "Cargo Lift (starboard)",
+   "at": [
+    700,
+    775
+   ]
+  }
+ ],
+ "patrols": [],
+ "room_guards": {
+  "Vehicle / Loader Bay": 2,
+  "Engineering Deck": 2,
+  "Cargo Transfer Hub": 2,
+  "Bridge": 2,
+  "Reactor Core": 2,
+  "Munitions Resupply": 2,
+  "Cargo Hold A": 1,
+  "Cargo Hold B": 1,
+  "Refrigerated Stores": 1,
+  "Medbay": 1,
+  "CIC": 1,
+  "Crew Quarters (port)": 1,
+  "Crew Quarters (starboard)": 1,
+  "Coolant & Systems (starboard)": 1,
+  "Engine Room": 1
+ }
+}

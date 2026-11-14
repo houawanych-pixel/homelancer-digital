@@ -1,0 +1,168 @@
+{
+ "entry": {
+  "room": "Launch Bay (Hangar)",
+  "at": [
+   627,
+   720
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    627,
+    918
+   ],
+   "key": 1,
+   "why": "engineering"
+  },
+  {
+   "door": [
+    627,
+    475
+   ],
+   "key": 2,
+   "why": "the CIC"
+  },
+  {
+   "door": [
+    574,
+    420
+   ],
+   "key": 2,
+   "why": "the CIC"
+  },
+  {
+   "door": [
+    680,
+    420
+   ],
+   "key": 2,
+   "why": "the CIC"
+  },
+  {
+   "door": [
+    627,
+    369
+   ],
+   "key": 2,
+   "why": "the CIC"
+  },
+  {
+   "door": [
+    627,
+    999
+   ],
+   "key": 2,
+   "why": "the reactor"
+  },
+  {
+   "door": [
+    587,
+    1049
+   ],
+   "key": 2,
+   "why": "the reactor"
+  },
+  {
+   "door": [
+    667,
+    1049
+   ],
+   "key": 2,
+   "why": "the reactor"
+  },
+  {
+   "door": [
+    627,
+    333
+   ],
+   "key": 2,
+   "why": "the sensors suite and the bridge"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Armory (port)",
+   "at": [
+    480,
+    660
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Engineering Deck",
+   "at": [
+    700,
+    955
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Reactor Core",
+   "at": [
+    627,
+    1043
+   ],
+   "key": 2
+  },
+  "capture": {
+   "room": "Bridge",
+   "at": [
+    627,
+    210
+   ],
+   "key": 2
+  },
+  "rescue": {
+   "room": "Sensors Suite",
+   "at": [
+    627,
+    300
+   ],
+   "key": 2
+  }
+ },
+ "wreck": [
+  {
+   "at": [
+    547,
+    760
+   ],
+   "across": "h",
+   "why": "the port side of the launch bay: a side way"
+  }
+ ],
+ "lifts": [
+  {
+   "room": "Lift (port)",
+   "at": [
+    587,
+    503
+   ]
+  },
+  {
+   "room": "Lift (starboard)",
+   "at": [
+    667,
+    503
+   ]
+  }
+ ],
+ "patrols": [],
+ "room_guards": {
+  "Cargo Hold": 1,
+  "Vehicle Bay": 2,
+  "Engineering Deck": 2,
+  "CIC (Combat Information Center)": 2,
+  "Bridge": 2,
+  "Reactor Core": 1,
+  "Galley & Mess": 1,
+  "Medbay": 1,
+  "Armory (starboard)": 1,
+  "Crew Quarters (port)": 1,
+  "Weapon Bay (starboard)": 1,
+  "Engine Room": 1
+ }
+}

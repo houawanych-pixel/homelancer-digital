@@ -1,0 +1,219 @@
+{
+ "entry": {
+  "room": "Hangar Bay",
+  "at": [
+   512,
+   760
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    488,
+    1008
+   ],
+   "key": 1,
+   "why": "engineering"
+  },
+  {
+   "door": [
+    536,
+    1008
+   ],
+   "key": 1,
+   "why": "engineering"
+  },
+  {
+   "door": [
+    512,
+    436
+   ],
+   "key": 2,
+   "why": "the CIC"
+  },
+  {
+   "door": [
+    450,
+    370
+   ],
+   "key": 2,
+   "why": "the CIC"
+  },
+  {
+   "door": [
+    574,
+    370
+   ],
+   "key": 2,
+   "why": "the CIC"
+  },
+  {
+   "door": [
+    512,
+    219
+   ],
+   "key": 3,
+   "why": "the bridge"
+  },
+  {
+   "door": [
+    495,
+    1136
+   ],
+   "key": 3,
+   "why": "the reactor"
+  },
+  {
+   "door": [
+    529,
+    1136
+   ],
+   "key": 3,
+   "why": "the reactor"
+  },
+  {
+   "door": [
+    469,
+    1194
+   ],
+   "key": 3,
+   "why": "the reactor"
+  },
+  {
+   "door": [
+    555,
+    1194
+   ],
+   "key": 3,
+   "why": "the reactor"
+  },
+  {
+   "door": [
+    512,
+    1235
+   ],
+   "key": 3,
+   "why": "the reactor"
+  },
+  {
+   "door": [
+    528,
+    244
+   ],
+   "key": 3,
+   "why": "the briefing room"
+  },
+  {
+   "door": [
+    528,
+    281
+   ],
+   "key": 3,
+   "why": "the briefing room"
+  },
+  {
+   "door": [
+    595,
+    307
+   ],
+   "key": 3,
+   "why": "the briefing room"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Armory (port)",
+   "at": [
+    285,
+    750
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Engineering Deck",
+   "at": [
+    512,
+    1070
+   ]
+  },
+  {
+   "key": 3,
+   "room": "CIC (Combat Information Center)",
+   "at": [
+    512,
+    395
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Reactor Core",
+   "at": [
+    512,
+    1188
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Bridge",
+   "at": [
+    512,
+    160
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Briefing Room",
+   "at": [
+    574,
+    272
+   ],
+   "key": 3
+  }
+ },
+ "wreck": [
+  {
+   "at": [
+    365,
+    870
+   ],
+   "across": "h",
+   "why": "the ring's port side: a side way, never the only way"
+  }
+ ],
+ "lifts": [
+  {
+   "room": "Lift (port)",
+   "at": [
+    483,
+    475
+   ]
+  },
+  {
+   "room": "Lift (starboard)",
+   "at": [
+    541,
+    475
+   ]
+  }
+ ],
+ "patrols": [],
+ "room_guards": {
+  "Vehicle Bay": 3,
+  "Engineering Deck": 2,
+  "CIC (Combat Information Center)": 2,
+  "Bridge": 3,
+  "Reactor Core": 2,
+  "Engine Room": 1,
+  "Armory (starboard)": 1,
+  "Cargo Hold A": 1,
+  "Cargo Hold B": 1,
+  "Galley & Mess": 1,
+  "Medbay": 1,
+  "Crew Quarters (port)": 1,
+  "Sensors Suite": 1
+ },
+ "derived_from": "unity_capital",
+ "gameplay_from": "unity_capital"
+}

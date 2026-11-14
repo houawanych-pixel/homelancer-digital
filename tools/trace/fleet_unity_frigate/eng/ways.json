@@ -29,7 +29,7 @@
     "Sensors Suite"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -65,7 +65,7 @@
     "CIC (Combat Information Center)"
    ],
    "type": "pilot",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -77,7 +77,7 @@
     "Craft Bay"
    ],
    "type": "mech",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -88,8 +88,8 @@
    "rooms": [
     "Craft Bay"
    ],
-   "type": "mech",
-   "key": 0
+   "type": "pilot",
+   "key": 3
   },
   {
    "at": [
@@ -100,8 +100,8 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "mech",
-   "key": 0
+   "type": "pilot",
+   "key": 1
   },
   {
    "at": [
@@ -111,7 +111,7 @@
    "o": "h",
    "rooms": [],
    "type": "mech",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -122,8 +122,8 @@
    "rooms": [
     "Reactor Core"
    ],
-   "type": "mech",
-   "key": 1
+   "type": "pilot",
+   "key": 0
   },
   {
    "at": [
@@ -134,8 +134,8 @@
    "rooms": [
     "Engine Room"
    ],
-   "type": "mech",
-   "key": 0
+   "type": "pilot",
+   "key": 2
   },
   {
    "at": [
@@ -157,7 +157,7 @@
    "o": "v",
    "rooms": [],
    "type": "pilot",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -252,7 +252,7 @@
     "Craft Bay"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -276,7 +276,7 @@
     "Engineering Deck"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 1
   },
   {
    "at": [
@@ -288,7 +288,7 @@
     "Engineering Deck"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 1
   },
   {
    "at": [
@@ -300,7 +300,7 @@
     "Reactor Core"
    ],
    "type": "pilot",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -312,7 +312,7 @@
     "Engine Room"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -334,7 +334,7 @@
    "o": "v",
    "rooms": [],
    "type": "pilot",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -404,7 +404,7 @@
    "rooms": [
     "Weapons Magazine"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -429,7 +429,7 @@
     "Craft Bay"
    ],
    "type": "mech",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -440,7 +440,7 @@
    "rooms": [
     "Weapons Magazine"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -452,8 +452,8 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 1
   },
   {
    "at": [
@@ -464,8 +464,8 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 1
   },
   {
    "at": [
@@ -476,8 +476,8 @@
    "rooms": [
     "Reactor Core"
    ],
-   "type": "pilot",
-   "key": 1
+   "type": "mech",
+   "key": 0
   },
   {
    "at": [
@@ -488,22 +488,22 @@
    "rooms": [
     "Engine Room"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 2
   }
  ],
- "entry": "Craft Bay",
+ "entry": "Weapons Magazine",
  "mech_rooms_unreached": [],
  "counts": {
   "mech_rooms": 5,
   "pilot_rooms": 8,
-  "mech_doors": 12,
-  "pilot_doors": 28,
+  "mech_doors": 14,
+  "pilot_doors": 26,
   "locked": {
-   "OPEN": 33,
-   "YELLOW": 7,
-   "ORANGE": 0,
-   "RED": 0
+   "OPEN": 27,
+   "YELLOW": 5,
+   "ORANGE": 4,
+   "RED": 4
   }
  }
 }

@@ -1,22 +1,170 @@
 {
- "entry": {"room": "Loader & Vehicle Bay", "at": [514, 800]},
+ "wreck": [
+  {
+   "at": [
+    284,
+    870
+   ],
+   "across": "h",
+   "why": "the port run beside the stores: a side way"
+  }
+ ],
+ "lifts": [
+  {
+   "room": "Lift (port)",
+   "at": [
+    473,
+    464
+   ]
+  },
+  {
+   "room": "Lift (starboard)",
+   "at": [
+    555,
+    464
+   ]
+  }
+ ],
+ "patrols": [],
+ "room_guards": {
+  "Cargo Hold A": 2,
+  "Cargo Hold B": 2,
+  "Cargo Transfer Hub": 2,
+  "Cargo Control": 1,
+  "Engineering Deck": 2,
+  "CIC": 2,
+  "Bridge": 2,
+  "Reactor Core": 1,
+  "Galley & Mess": 1,
+  "Medbay": 1,
+  "Munitions Resupply": 1,
+  "Workshop & Maintenance": 2,
+  "Logistics Office": 1,
+  "Engine Room": 1
+ },
+ "formula": {
+  "C": "Cargo Hold A",
+  "A_gate": "Workshop & Maintenance",
+  "card_yellow": "Crew Quarters (starboard)",
+  "card_red": "Bridge",
+  "entry": "Engine Room",
+  "way_out": "Munitions Resupply",
+  "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
+ },
+ "entry": {
+  "room": "Engine Room",
+  "at": [
+   514,
+   1292
+  ]
+ },
+ "exit": {
+  "room": "Munitions Resupply",
+  "at": [
+   802,
+   740
+  ]
+ },
  "locks": [
-  {"door": [514, 1043], "key": 1, "why": "engineering"}, {"door": [465, 1130], "key": 1, "why": "engineering"}, {"door": [563, 1130], "key": 1, "why": "engineering"},
-  {"door": [514, 412], "key": 2, "why": "the CIC, sensors and bridge"},
-  {"door": [514, 1148], "key": 2, "why": "the reactor"}
+  {
+   "door": [
+    418,
+    626
+   ],
+   "key": 3,
+   "why": "the objective (Cargo Hold A)"
+  },
+  {
+   "door": [
+    293,
+    791
+   ],
+   "key": 3,
+   "why": "the objective (Cargo Hold A)"
+  },
+  {
+   "door": [
+    514,
+    209
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    759.0,
+    791
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    365,
+    1044
+   ],
+   "key": 1,
+   "why": "the orange card's room (Workshop & Maintenance)"
+  },
+  {
+   "door": [
+    378,
+    1130
+   ],
+   "key": 1,
+   "why": "the orange card's room (Workshop & Maintenance)"
+  }
  ],
  "guards": [
-  {"key": 1, "room": "Cargo Hold A", "at": [368, 800]},
-  {"key": 2, "room": "Engineering Deck", "at": [514, 1095]}
+  {
+   "key": 1,
+   "room": "Crew Quarters (starboard)",
+   "at": [
+    650,
+    385
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Workshop & Maintenance",
+   "at": [
+    323,
+    1095
+   ]
+  },
+  {
+   "key": 3,
+   "room": "Bridge",
+   "at": [
+    514,
+    179
+   ]
+  }
  ],
  "targets": {
-  "sabotage": {"room": "Reactor Core", "at": [514, 1196], "key": 2},
-  "capture": {"room": "Bridge", "at": [514, 180], "key": 2},
-  "rescue": {"room": "Sensors Suite", "at": [514, 276], "key": 2}
- },
- "wreck": [{"at": [284, 870], "across": "h", "why": "the port run beside the stores: a side way"}],
- "lifts": [{"room": "Lift (port)", "at": [473, 464]}, {"room": "Lift (starboard)", "at": [555, 464]}],
- "patrols": [],
- "room_guards": {"Cargo Hold A": 1, "Cargo Hold B": 2, "Cargo Transfer Hub": 2, "Cargo Control": 1, "Engineering Deck": 2, "CIC": 2, "Bridge": 2,
-   "Reactor Core": 1, "Galley & Mess": 1, "Medbay": 1, "Munitions Resupply": 1, "Workshop & Maintenance": 1, "Logistics Office": 1, "Engine Room": 1}
+  "sabotage": {
+   "room": "Cargo Hold A",
+   "at": [
+    368,
+    797
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Cargo Hold A",
+   "at": [
+    368,
+    797
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Cargo Hold A",
+   "at": [
+    368,
+    797
+   ],
+   "key": 3
+  }
+ }
 }

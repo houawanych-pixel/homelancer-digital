@@ -1,89 +1,4 @@
 {
- "entry": {
-  "room": "Support & Stores",
-  "at": [
-   609,
-   840
-  ]
- },
- "locks": [
-  {
-   "door": [
-    497,
-    494
-   ],
-   "key": 1,
-   "why": "the CIC"
-  },
-  {
-   "door": [
-    434,
-    558
-   ],
-   "key": 1,
-   "why": "the CIC"
-  },
-  {
-   "door": [
-    560,
-    558
-   ],
-   "key": 1,
-   "why": "the CIC"
-  },
-  {
-   "door": [
-    497,
-    620
-   ],
-   "key": 1,
-   "why": "the CIC"
-  },
-  {
-   "door": [
-    497,
-    1074
-   ],
-   "key": 1,
-   "why": "the reactor"
-  }
- ],
- "guards": [
-  {
-   "key": 1,
-   "room": "Armory",
-   "at": [
-    385,
-    840
-   ]
-  }
- ],
- "targets": {
-  "sabotage": {
-   "room": "Reactor Core",
-   "at": [
-    497,
-    1128
-   ],
-   "key": 1
-  },
-  "capture": {
-   "room": "Bridge",
-   "at": [
-    497,
-    290
-   ],
-   "key": 1
-  },
-  "rescue": {
-   "room": "Sensors",
-   "at": [
-    497,
-    420
-   ],
-   "key": 1
-  }
- },
  "wreck": [
   {
    "at": [
@@ -113,12 +28,185 @@
  "patrols": [],
  "room_guards": {
   "Crew Bunks": 1,
-  "Galley / Med": 1,
+  "Galley / Med": 2,
   "Engineering Deck": 2,
   "CIC Tactical": 2,
-  "Bridge": 1,
+  "Bridge": 2,
   "Reactor Core": 1,
   "Engine Room A": 1
  },
- "derived_from": "unity_escort"
+ "derived_from": "unity_escort",
+ "formula": {
+  "C": "Engineering Deck",
+  "A_gate": "Galley / Med",
+  "card_yellow": "Support & Stores",
+  "card_red": "Bridge",
+  "entry": "Crew Bunks",
+  "way_out": "Sensors",
+  "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
+ },
+ "entry": {
+  "room": "Crew Bunks",
+  "at": [
+   366,
+   626
+  ]
+ },
+ "exit": {
+  "room": "Sensors",
+  "at": [
+   497,
+   419
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    497,
+    925
+   ],
+   "key": 3,
+   "why": "the objective (Engineering Deck)"
+  },
+  {
+   "door": [
+    497,
+    1074
+   ],
+   "key": 3,
+   "why": "the objective (Engineering Deck)"
+  },
+  {
+   "door": [
+    370,
+    920
+   ],
+   "key": 3,
+   "why": "the objective (Engineering Deck)"
+  },
+  {
+   "door": [
+    392,
+    1072
+   ],
+   "key": 3,
+   "why": "the objective (Engineering Deck)"
+  },
+  {
+   "door": [
+    624.0,
+    920
+   ],
+   "key": 3,
+   "why": "the objective (Engineering Deck)"
+  },
+  {
+   "door": [
+    602.0,
+    1072
+   ],
+   "key": 3,
+   "why": "the objective (Engineering Deck)"
+  },
+  {
+   "door": [
+    497,
+    345
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    497,
+    367
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    497,
+    472
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    560.0,
+    558
+   ],
+   "key": 1,
+   "why": "the orange card's room (Galley / Med)"
+  },
+  {
+   "door": [
+    559.0,
+    667
+   ],
+   "key": 1,
+   "why": "the orange card's room (Galley / Med)"
+  },
+  {
+   "door": [
+    608.0,
+    716
+   ],
+   "key": 1,
+   "why": "the orange card's room (Galley / Med)"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Support & Stores",
+   "at": [
+    609,
+    840
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Galley / Med",
+   "at": [
+    627,
+    626
+   ]
+  },
+  {
+   "key": 3,
+   "room": "Bridge",
+   "at": [
+    497,
+    285
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Engineering Deck",
+   "at": [
+    497,
+    997
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Engineering Deck",
+   "at": [
+    497,
+    997
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Engineering Deck",
+   "at": [
+    497,
+    997
+   ],
+   "key": 3
+  }
+ }
 }

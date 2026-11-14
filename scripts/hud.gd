@@ -653,7 +653,9 @@ func _layout() -> void:
 			buttons.clear()
 			buttons.merge(keep)
 			buttons["pmap_close"] = Rect2(mr.end.x - 106, mr.end.y - 50, 96, 42)   # v12.0 (owner: FULL SCREEN covered CLOSE): bottom right
-			if space.boarding and _fleet_map_open(): buttons["pmap_view"] = Rect2(mr.end.x - 176, mr.position.y + 70, 160, 42)   # v13.129: 3D / PLAN
+			if space.boarding and _fleet_map_open():
+				buttons["pmap_view"] = Rect2(mr.end.x - 176, mr.position.y + 70, 160, 42)   # v13.129: 3D / PLAN
+				if pmap_3d: buttons["pmap_evee"] = Rect2(mr.end.x - 176, mr.position.y + 118, 160, 42)   # v13.130: Evee marks the next step
 			if space.boarding:   # (the dungeon map: CLOSE and a tab per deck)
 				var dks := deck_list()
 				if dks.size() > 1:
@@ -3142,7 +3144,8 @@ func _fleet_map3d(inner: Rect2) -> void:
 	var bc = fl.get("beacon")
 	if bc != null and is_instance_valid(bc): goal = (bc as Node3D).global_position - Vector3(0, 15, 0)
 	map3d.refresh(fl.get("seen", {}), Boarding.deck_y(pp), pp, -space.player.global_basis.z, goal, pmap_yaw, pmap_pitch, pmap_zoom)
-	var steps: Array = space.fleet_route()
+	var steps: Array = space.fleet_route() if bool(fl.get("wp_on", false)) else []   # v13.130: only Evee's next step
+	if not steps.is_empty(): steps = [steps[0]]
 	map3d.set_route(pp, steps)
 	var side := minf(inner.size.x, inner.size.y)
 	var r := Rect2(inner.position + (inner.size - Vector2(side, side)) * 0.5, Vector2(side, side))
@@ -3155,7 +3158,8 @@ func _fleet_map3d(inner: Rect2) -> void:
 		ly += 20.0
 	_text(Vector2(inner.position.x + 4.0, inner.end.y - 52.0), "drag: turn  ·  pinch: zoom", 11, Color(CYAN_HI, 0.7))
 	var sy := inner.position.y + 150.0   # the steps, in order (the gold line on the model joins them)
-	_text(Vector2(lx, sy), "THE WAY", 12, Color(1.0, 0.82, 0.25))
+	_pill("pmap_evee", "ASK EVEE", false, Color(1.0, 0.82, 0.25))
+	_text(Vector2(lx, sy), "EVEE'S WAYPOINT" if not steps.is_empty() else "", 12, Color(1.0, 0.82, 0.25))
 	for i in steps.size():
 		sy += 18.0
 		_text(Vector2(lx, sy), "%s  %s" % [char(65 + i), str(steps[i]["label"])], 11, steps[i].get("col", WHITE))

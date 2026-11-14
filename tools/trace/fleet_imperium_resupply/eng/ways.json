@@ -50,7 +50,7 @@
     "CIC"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -62,7 +62,7 @@
     "CIC"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -97,7 +97,7 @@
    "rooms": [
     "Cargo Transfer Hub"
    ],
-   "type": "mech",
+   "type": "pilot",
    "key": 0
   },
   {
@@ -109,7 +109,7 @@
    "rooms": [
     "Cargo Transfer Hub"
    ],
-   "type": "mech",
+   "type": "pilot",
    "key": 0
   },
   {
@@ -134,7 +134,7 @@
     "Engineering Deck"
    ],
    "type": "pilot",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -147,7 +147,7 @@
     "Reactor Core"
    ],
    "type": "mech",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -160,7 +160,7 @@
     "Engine Room"
    ],
    "type": "mech",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -219,7 +219,7 @@
     "CIC"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -290,7 +290,7 @@
     "Cargo Hold A1"
    ],
    "type": "mech",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -301,7 +301,7 @@
    "rooms": [
     "Cargo Transfer Hub"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -315,7 +315,7 @@
     "Cargo Hold A2"
    ],
    "type": "mech",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -339,7 +339,7 @@
     "Vehicle / Loader Bay"
    ],
    "type": "mech",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -398,8 +398,8 @@
    "rooms": [
     "Vehicle / Loader Bay"
    ],
-   "type": "mech",
-   "key": 0
+   "type": "pilot",
+   "key": 3
   },
   {
    "at": [
@@ -471,7 +471,7 @@
     "Engineering Deck"
    ],
    "type": "pilot",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -495,7 +495,7 @@
     "Reactor Core"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -564,7 +564,7 @@
     "CIC"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -635,7 +635,7 @@
     "Cargo Hold B1"
    ],
    "type": "mech",
-   "key": 0
+   "key": 1
   },
   {
    "at": [
@@ -646,7 +646,7 @@
    "rooms": [
     "Cargo Transfer Hub"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -660,7 +660,7 @@
     "Cargo Hold B2"
    ],
    "type": "mech",
-   "key": 0
+   "key": 1
   },
   {
    "at": [
@@ -671,7 +671,7 @@
    "rooms": [
     "Cargo Hold B2"
    ],
-   "type": "mech",
+   "type": "pilot",
    "key": 0
   },
   {
@@ -684,7 +684,7 @@
     "Vehicle / Loader Bay"
    ],
    "type": "mech",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -743,8 +743,8 @@
    "rooms": [
     "Vehicle / Loader Bay"
    ],
-   "type": "mech",
-   "key": 0
+   "type": "pilot",
+   "key": 3
   },
   {
    "at": [
@@ -816,7 +816,7 @@
     "Engineering Deck"
    ],
    "type": "mech",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -827,7 +827,7 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "mech",
+   "type": "pilot",
    "key": 0
   },
   {
@@ -839,8 +839,8 @@
    "rooms": [
     "Reactor Core"
    ],
-   "type": "mech",
-   "key": 2
+   "type": "pilot",
+   "key": 0
   },
   {
    "at": [
@@ -849,22 +849,22 @@
    ],
    "o": "v",
    "rooms": [],
-   "type": "mech",
+   "type": "pilot",
    "key": 0
   }
  ],
- "entry": "Vehicle / Loader Bay",
+ "entry": "Engine Room",
  "mech_rooms_unreached": [],
  "counts": {
   "mech_rooms": 12,
   "pilot_rooms": 12,
-  "mech_doors": 29,
-  "pilot_doors": 40,
+  "mech_doors": 23,
+  "pilot_doors": 46,
   "locked": {
-   "OPEN": 57,
-   "YELLOW": 3,
-   "ORANGE": 9,
-   "RED": 0
+   "OPEN": 60,
+   "YELLOW": 2,
+   "ORANGE": 3,
+   "RED": 4
   }
  }
 }

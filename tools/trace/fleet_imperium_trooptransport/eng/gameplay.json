@@ -1,130 +1,4 @@
 {
- "entry": {
-  "room": "Deploy Bay B",
-  "at": [
-   838,
-   840
-  ]
- },
- "locks": [
-  {
-   "door": [
-    494,
-    1095
-   ],
-   "key": 1,
-   "why": "the aft section (engineering, maint, supply, reactor)"
-  },
-  {
-   "door": [
-    494,
-    435
-   ],
-   "key": 2,
-   "why": "Command & Control from the lift lobby"
-  },
-  {
-   "door": [
-    436,
-    377
-   ],
-   "key": 2,
-   "why": "Command & Control, left"
-  },
-  {
-   "door": [
-    552,
-    377
-   ],
-   "key": 2,
-   "why": "Command & Control, right"
-  },
-  {
-   "door": [
-    424,
-    298
-   ],
-   "key": 2,
-   "why": "sensor store A from the left spine"
-  },
-  {
-   "door": [
-    564,
-    298
-   ],
-   "key": 2,
-   "why": "sensor store B"
-  },
-  {
-   "door": [
-    494,
-    1240
-   ],
-   "key": 2,
-   "why": "reactor from engineering"
-  },
-  {
-   "door": [
-    447,
-    1272
-   ],
-   "key": 2,
-   "why": "reactor, left"
-  },
-  {
-   "door": [
-    541,
-    1272
-   ],
-   "key": 2,
-   "why": "reactor, right"
-  }
- ],
- "guards": [
-  {
-   "key": 1,
-   "room": "Barracks A",
-   "at": [
-    300,
-    650
-   ]
-  },
-  {
-   "key": 2,
-   "room": "Maint. Bay",
-   "at": [
-    318,
-    1170
-   ]
-  }
- ],
- "targets": {
-  "sabotage": {
-   "room": "Reactor Core",
-   "at": [
-    494,
-    1288
-   ],
-   "key": 2
-  },
-  "capture": {
-   "room": "Bridge",
-   "at": [
-    494,
-    147
-   ],
-   "key": 2
-  },
-  "rescue": {
-   "room": "Sensor Store B",
-   "at": [
-    561,
-    269
-   ],
-   "key": 2,
-   "why": "the prisoner is held in the locked sensor store"
-  }
- },
  "wreck": [
   {
    "at": [
@@ -225,87 +99,172 @@
   "Medbay": 1,
   "Barracks B": 1,
   "Lockers A": 1,
-  "Supply Depot": 1
+  "Supply Depot": 1,
+  "Deploy Bay B": 2
  },
- "retired_decks": {
-  "elevators": [
-   {
-    "at": [
-     459,
-     490
-    ],
-    "decks": [
-     "main",
-     "upper"
-    ],
-    "label": "LIFT A (UP)"
-   },
-   {
-    "at": [
-     529,
-     490
-    ],
-    "decks": [
-     "main",
-     "lower"
-    ],
-    "label": "LIFT B (DOWN)"
-   }
-  ],
-  "decks": {
-   "upper": {
-    "locks": [
-     {
-      "door": [
-       494,
-       550
-      ],
-      "key": 2,
-      "why": "the captain's quarters"
-     }
-    ],
-    "room_guards": {
-     "War Room": 1,
-     "Captain's Office": 1,
-     "Officers' Mess": 2,
-     "Captain's Quarters": 1,
-     "Galley": 1,
-     "Security Office": 1,
-     "Gunnery Control": 1,
-     "Officer Cabins B": 1
-    },
-    "wreck": []
-   },
-   "lower": {
-    "locks": [
-     {
-      "door": [
-       568,
-       640
-      ],
-      "key": 2,
-      "why": "the holding cells"
-     },
-     {
-      "door": [
-       628,
-       640
-      ],
-      "key": 2,
-      "why": "the holding cells"
-     }
-    ],
-    "room_guards": {
-     "Brig": 2,
-     "Detention Office": 1,
-     "Guard Post (port)": 1,
-     "Guard Post (starboard)": 1,
-     "Cargo Hold A": 1,
-     "Machine Shop": 1,
-     "Drop Pod Bay B": 1
-    },
-    "wreck": []
-   }
+ "formula": {
+  "C": "Troop Bay",
+  "A_gate": "Deploy Bay B",
+  "card_yellow": "Sensor Store A",
+  "card_red": "Bridge",
+  "entry": "Engine Room",
+  "way_out": "Deploy Bay A",
+  "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
+ },
+ "entry": {
+  "room": "Engine Room",
+  "at": [
+   494,
+   1404
+  ]
+ },
+ "exit": {
+  "room": "Deploy Bay A",
+  "at": [
+   148,
+   845
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    470,
+    573
+   ],
+   "key": 3,
+   "why": "the objective (Troop Bay)"
+  },
+  {
+   "door": [
+    470,
+    937
+   ],
+   "key": 3,
+   "why": "the objective (Troop Bay)"
+  },
+  {
+   "door": [
+    380,
+    650
+   ],
+   "key": 3,
+   "why": "the objective (Troop Bay)"
+  },
+  {
+   "door": [
+    380,
+    752
+   ],
+   "key": 3,
+   "why": "the objective (Troop Bay)"
+  },
+  {
+   "door": [
+    380,
+    867
+   ],
+   "key": 3,
+   "why": "the objective (Troop Bay)"
+  },
+  {
+   "door": [
+    608.0,
+    650
+   ],
+   "key": 3,
+   "why": "the objective (Troop Bay)"
+  },
+  {
+   "door": [
+    608.0,
+    752
+   ],
+   "key": 3,
+   "why": "the objective (Troop Bay)"
+  },
+  {
+   "door": [
+    608.0,
+    867
+   ],
+   "key": 3,
+   "why": "the objective (Troop Bay)"
+  },
+  {
+   "door": [
+    494,
+    197
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    190,
+    870
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    798.0,
+    870
+   ],
+   "key": 1,
+   "why": "the orange card's room (Deploy Bay B)"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Sensor Store A",
+   "at": [
+    428,
+    259
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Deploy Bay B",
+   "at": [
+    839,
+    845
+   ]
+  },
+  {
+   "key": 3,
+   "room": "Bridge",
+   "at": [
+    494,
+    147
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Troop Bay",
+   "at": [
+    494,
+    755
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Troop Bay",
+   "at": [
+    494,
+    755
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Troop Bay",
+   "at": [
+    494,
+    755
+   ],
+   "key": 3
   }
  }
 }

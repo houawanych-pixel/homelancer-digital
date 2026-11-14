@@ -1,161 +1,4 @@
 {
- "entry": {
-  "room": "Vehicle / Loader Bay",
-  "at": [
-   567,
-   760
-  ]
- },
- "locks": [
-  {
-   "door": [
-    540,
-    977
-   ],
-   "key": 1,
-   "why": "engineering"
-  },
-  {
-   "door": [
-    594,
-    977
-   ],
-   "key": 1,
-   "why": "engineering"
-  },
-  {
-   "door": [
-    567,
-    534
-   ],
-   "key": 2,
-   "why": "the command spine"
-  },
-  {
-   "door": [
-    449,
-    421
-   ],
-   "key": 2,
-   "why": "the galley (to the command spine)"
-  },
-  {
-   "door": [
-    685,
-    421
-   ],
-   "key": 2,
-   "why": "the medbay (to the command spine)"
-  },
-  {
-   "door": [
-    567,
-    197
-   ],
-   "key": 3,
-   "why": "the bridge"
-  },
-  {
-   "door": [
-    547,
-    225
-   ],
-   "key": 3,
-   "why": "the sensors suite (holding cell)"
-  },
-  {
-   "door": [
-    497,
-    254
-   ],
-   "key": 3,
-   "why": "the sensors suite (holding cell)"
-  },
-  {
-   "door": [
-    587,
-    225
-   ],
-   "key": 3,
-   "why": "the CIC"
-  },
-  {
-   "door": [
-    567,
-    1049
-   ],
-   "key": 3,
-   "why": "the reactor"
-  },
-  {
-   "door": [
-    522,
-    1104
-   ],
-   "key": 3,
-   "why": "the reactor"
-  },
-  {
-   "door": [
-    612,
-    1104
-   ],
-   "key": 3,
-   "why": "the reactor"
-  }
- ],
- "guards": [
-  {
-   "key": 1,
-   "room": "Storage & Supplies",
-   "at": [
-    370,
-    890
-   ]
-  },
-  {
-   "key": 2,
-   "room": "Engineering Deck",
-   "at": [
-    567,
-    1010
-   ]
-  },
-  {
-   "key": 3,
-   "room": "Galley & Mess",
-   "at": [
-    498,
-    452
-   ]
-  }
- ],
- "targets": {
-  "sabotage": {
-   "room": "Reactor Core",
-   "at": [
-    567,
-    1104
-   ],
-   "key": 3
-  },
-  "capture": {
-   "room": "Bridge",
-   "at": [
-    567,
-    152
-   ],
-   "key": 3
-  },
-  "rescue": {
-   "room": "Sensors Suite",
-   "at": [
-    505,
-    224
-   ],
-   "key": 3
-  }
- },
  "wreck": [
   {
    "at": [
@@ -197,7 +40,7 @@
   "Bridge": 2,
   "Reactor Core": 2,
   "Munitions Resupply": 2,
-  "Cargo Hold A": 1,
+  "Cargo Hold A": 2,
   "Cargo Hold B": 1,
   "Refrigerated Stores": 1,
   "Medbay": 1,
@@ -206,5 +49,154 @@
   "Crew Quarters (starboard)": 1,
   "Coolant & Systems (starboard)": 1,
   "Engine Room": 1
+ },
+ "formula": {
+  "C": "Cargo Hold A",
+  "A_gate": "Reactor Core",
+  "card_yellow": "Storage & Supplies",
+  "card_red": "Bridge",
+  "entry": "Cargo Hold B",
+  "way_out": "Engine Room",
+  "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
+ },
+ "entry": {
+  "room": "Cargo Hold B",
+  "at": [
+   780,
+   526
+  ]
+ },
+ "exit": {
+  "room": "Engine Room",
+  "at": [
+   567,
+   1204
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    410,
+    589
+   ],
+   "key": 3,
+   "why": "the objective (Cargo Hold A)"
+  },
+  {
+   "door": [
+    297,
+    705
+   ],
+   "key": 3,
+   "why": "the objective (Cargo Hold A)"
+  },
+  {
+   "door": [
+    351,
+    771
+   ],
+   "key": 3,
+   "why": "the objective (Cargo Hold A)"
+  },
+  {
+   "door": [
+    567,
+    197
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    567,
+    1169
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    567,
+    1059
+   ],
+   "key": 1,
+   "why": "the orange card's room (Reactor Core)"
+  },
+  {
+   "door": [
+    567,
+    1151
+   ],
+   "key": 1,
+   "why": "the orange card's room (Reactor Core)"
+  },
+  {
+   "door": [
+    522,
+    1104
+   ],
+   "key": 1,
+   "why": "the orange card's room (Reactor Core)"
+  },
+  {
+   "door": [
+    612.0,
+    1104
+   ],
+   "key": 1,
+   "why": "the orange card's room (Reactor Core)"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Storage & Supplies",
+   "at": [
+    379,
+    888
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Reactor Core",
+   "at": [
+    567,
+    1104
+   ]
+  },
+  {
+   "key": 3,
+   "room": "Bridge",
+   "at": [
+    566,
+    157
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Cargo Hold A",
+   "at": [
+    354,
+    526
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Cargo Hold A",
+   "at": [
+    354,
+    526
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Cargo Hold A",
+   "at": [
+    354,
+    526
+   ],
+   "key": 3
+  }
  }
 }

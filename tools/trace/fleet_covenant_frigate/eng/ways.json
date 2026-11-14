@@ -28,7 +28,7 @@
     "Bridge"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -76,7 +76,7 @@
     "CIC (Combat Information Center)"
    ],
    "type": "pilot",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -136,7 +136,7 @@
     "Craft Bay"
    ],
    "type": "mech",
-   "key": 0
+   "key": 1
   },
   {
    "at": [
@@ -148,7 +148,7 @@
     "Craft Bay"
    ],
    "type": "mech",
-   "key": 0
+   "key": 1
   },
   {
    "at": [
@@ -184,7 +184,7 @@
     "Reactor Core"
    ],
    "type": "mech",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -196,7 +196,7 @@
     "Reactor Core"
    ],
    "type": "mech",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -208,7 +208,7 @@
     "Engine Room"
    ],
    "type": "mech",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -232,7 +232,7 @@
     "CIC (Combat Information Center)"
    ],
    "type": "pilot",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -358,7 +358,7 @@
     "Reactor Core"
    ],
    "type": "pilot",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -370,7 +370,7 @@
     "Engine Room"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -394,7 +394,7 @@
     "CIC (Combat Information Center)"
    ],
    "type": "pilot",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -462,7 +462,7 @@
     "Magazine (Ordnance)"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -473,8 +473,8 @@
    "rooms": [
     "Magazine (Ordnance)"
    ],
-   "type": "mech",
-   "key": 0
+   "type": "pilot",
+   "key": 3
   },
   {
    "at": [
@@ -485,8 +485,8 @@
    "rooms": [
     "Magazine (Ordnance)"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 3
   },
   {
    "at": [
@@ -497,7 +497,7 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -520,7 +520,7 @@
     "Reactor Core"
    ],
    "type": "pilot",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -532,21 +532,21 @@
     "Engine Room"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 2
   }
  ],
- "entry": "Craft Bay",
+ "entry": "Reactor Core",
  "mech_rooms_unreached": [],
  "counts": {
   "mech_rooms": 5,
   "pilot_rooms": 8,
-  "mech_doors": 12,
-  "pilot_doors": 32,
+  "mech_doors": 13,
+  "pilot_doors": 31,
   "locked": {
-   "OPEN": 37,
-   "YELLOW": 7,
-   "ORANGE": 0,
-   "RED": 0
+   "OPEN": 35,
+   "YELLOW": 2,
+   "ORANGE": 4,
+   "RED": 3
   }
  }
 }

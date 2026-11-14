@@ -67,7 +67,7 @@
     "CIC (Combat Information Center)"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -79,7 +79,7 @@
     "Vehicle Bay"
    ],
    "type": "mech",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -91,7 +91,7 @@
     "Vehicle Bay"
    ],
    "type": "mech",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -101,7 +101,7 @@
    "o": "h",
    "rooms": [],
    "type": "mech",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -113,7 +113,7 @@
     "Bridge"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -160,7 +160,7 @@
    "o": "h",
    "rooms": [],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -220,7 +220,7 @@
     "Hangar Bay"
    ],
    "type": "mech",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -277,7 +277,7 @@
    "rooms": [
     "Aft Lift (port)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -290,7 +290,7 @@
     "Hangar Bay"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -301,8 +301,8 @@
    "rooms": [
     "Hangar Bay"
    ],
-   "type": "mech",
-   "key": 0
+   "type": "pilot",
+   "key": 3
   },
   {
    "at": [
@@ -388,7 +388,7 @@
     "Hangar Bay"
    ],
    "type": "mech",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -411,7 +411,7 @@
    "rooms": [
     "Cargo Hold (port)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -424,7 +424,7 @@
     "Engineering Deck"
    ],
    "type": "mech",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -448,7 +448,7 @@
     "Reactor Core"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -472,7 +472,7 @@
     "Bridge"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
@@ -519,7 +519,7 @@
    "o": "h",
    "rooms": [],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -579,7 +579,7 @@
     "Hangar Bay"
    ],
    "type": "mech",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -636,7 +636,7 @@
    "rooms": [
     "Aft Lift (starboard)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -649,7 +649,7 @@
     "Hangar Bay"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -660,8 +660,8 @@
    "rooms": [
     "Hangar Bay"
    ],
-   "type": "mech",
-   "key": 0
+   "type": "pilot",
+   "key": 3
   },
   {
    "at": [
@@ -723,7 +723,7 @@
     "Cargo Hold (starboard)"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 1
   },
   {
    "at": [
@@ -747,7 +747,7 @@
     "Hangar Bay"
    ],
    "type": "mech",
-   "key": 0
+   "key": 3
   },
   {
    "at": [
@@ -759,7 +759,7 @@
     "Cargo Hold (starboard)"
    ],
    "type": "mech",
-   "key": 0
+   "key": 1
   },
   {
    "at": [
@@ -770,8 +770,8 @@
    "rooms": [
     "Cargo Hold (starboard)"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 1
   },
   {
    "at": [
@@ -782,8 +782,8 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "pilot",
-   "key": 1
+   "type": "mech",
+   "key": 0
   },
   {
    "at": [
@@ -807,7 +807,7 @@
     "Reactor Core"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -822,18 +822,18 @@
    "key": 0
   }
  ],
- "entry": "Hangar Bay",
+ "entry": "Engine Room",
  "mech_rooms_unreached": [],
  "counts": {
   "mech_rooms": 7,
   "pilot_rooms": 19,
-  "mech_doors": 20,
-  "pilot_doors": 46,
+  "mech_doors": 23,
+  "pilot_doors": 43,
   "locked": {
-   "OPEN": 58,
-   "YELLOW": 2,
-   "ORANGE": 6,
-   "RED": 0
+   "OPEN": 51,
+   "YELLOW": 3,
+   "ORANGE": 4,
+   "RED": 8
   }
  }
 }

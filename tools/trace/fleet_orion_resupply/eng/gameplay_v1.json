@@ -1,0 +1,188 @@
+{
+ "entry": {
+  "room": "Vehicle / Loader Bay",
+  "at": [
+   512,
+   840
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    512,
+    1108
+   ],
+   "key": 1,
+   "why": "engineering"
+  },
+  {
+   "door": [
+    343,
+    1162
+   ],
+   "key": 1,
+   "why": "engineering"
+  },
+  {
+   "door": [
+    681,
+    1162
+   ],
+   "key": 1,
+   "why": "engineering"
+  },
+  {
+   "door": [
+    512,
+    372
+   ],
+   "key": 2,
+   "why": "the CIC"
+  },
+  {
+   "door": [
+    462,
+    344
+   ],
+   "key": 2,
+   "why": "the CIC"
+  },
+  {
+   "door": [
+    562,
+    344
+   ],
+   "key": 2,
+   "why": "the CIC"
+  },
+  {
+   "door": [
+    512,
+    288
+   ],
+   "key": 2,
+   "why": "the CIC"
+  },
+  {
+   "door": [
+    512,
+    217
+   ],
+   "key": 2,
+   "why": "the bridge"
+  },
+  {
+   "door": [
+    512,
+    1194
+   ],
+   "key": 2,
+   "why": "the reactor"
+  },
+  {
+   "door": [
+    472,
+    1226
+   ],
+   "key": 2,
+   "why": "the reactor"
+  },
+  {
+   "door": [
+    552,
+    1226
+   ],
+   "key": 2,
+   "why": "the reactor"
+  },
+  {
+   "door": [
+    512,
+    1283
+   ],
+   "key": 2,
+   "why": "the reactor"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Cargo Hold A2",
+   "at": [
+    290,
+    755
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Engineering Deck",
+   "at": [
+    512,
+    1150
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Reactor Core",
+   "at": [
+    512,
+    1240
+   ],
+   "key": 2
+  },
+  "capture": {
+   "room": "Bridge",
+   "at": [
+    512,
+    175
+   ],
+   "key": 2
+  },
+  "rescue": {
+   "room": "CIC",
+   "at": [
+    512,
+    330
+   ],
+   "key": 2
+  }
+ },
+ "wreck": [
+  {
+   "at": [
+    410,
+    870
+   ],
+   "across": "h",
+   "why": "the port run beside the bay: a side way, never the only way"
+  }
+ ],
+ "lifts": [
+  {
+   "room": "Lift",
+   "at": [
+    512,
+    459
+   ]
+  }
+ ],
+ "patrols": [],
+ "room_guards": {
+  "Cargo Hold A1": 1,
+  "Cargo Hold B2": 2,
+  "Cargo Hold A3": 1,
+  "Cargo Hold B3": 1,
+  "Cargo Transfer Hub": 2,
+  "General Storage": 1,
+  "Engineering Deck": 2,
+  "CIC": 2,
+  "Bridge": 2,
+  "Reactor Core": 1,
+  "Galley & Mess": 1,
+  "Medbay": 1,
+  "Munitions Resupply": 1,
+  "Engine Room": 1
+ },
+ "derived_from": "imperium_resupply"
+}
