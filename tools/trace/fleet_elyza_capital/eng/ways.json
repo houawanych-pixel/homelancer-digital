@@ -21,6 +21,28 @@
   "Cargo Hold A": "mech",
   "Cargo Hold B": "mech"
  },
+ "rooms_base": {
+  "Bridge Command Deck": "pilot",
+  "CIC (Combat Information Center)": "pilot",
+  "Hangar Bay": "mech",
+  "Vehicle Bay": "mech",
+  "Engineering Deck": "mech",
+  "Reactor Core": "mech",
+  "Engine Room": "mech",
+  "Sensors Suite": "pilot",
+  "Briefing Room": "pilot",
+  "Crew Quarters A": "pilot",
+  "Crew Quarters B": "pilot",
+  "Galley & Mess": "pilot",
+  "Medbay": "pilot",
+  "Lift (port)": "lift",
+  "Lift (starboard)": "lift",
+  "Armory (port)": "pilot",
+  "Armory (starboard)": "pilot",
+  "Cargo Hold A": "mech",
+  "Cargo Hold B": "mech"
+ },
+ "cut_off_red": [],
  "doors": [
   {
    "at": [

@@ -23,31 +23,31 @@
   "Armory (starboard)": 1,
   "Crew Quarters (port)": 1,
   "Weapon Bay (starboard)": 1,
-  "Engine Room (port)": 2,
+  "Engine Room (port)": 1,
   "Coolant & Systems (starboard)": 1,
   "Hangar Bay": 2
  },
  "formula": {
   "C": "Hangar Bay",
-  "A_gate": "Engine Room (port)",
-  "card_yellow": "Coolant & Systems (starboard)",
+  "A_gate": "Vehicle Bay",
+  "card_yellow": "Weapon Bay (starboard)",
   "card_red": "Bridge",
-  "entry": "Weapon Bay (port)",
-  "way_out": "Weapon Bay (starboard)",
+  "entry": "Engine Room (port)",
+  "way_out": "Engine Room (starboard)",
   "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
  },
  "entry": {
-  "room": "Weapon Bay (port)",
+  "room": "Engine Room (port)",
   "at": [
-   230,
-   756
+   523,
+   985
   ]
  },
  "exit": {
-  "room": "Weapon Bay (starboard)",
+  "room": "Engine Room (starboard)",
   "at": [
-   1083,
-   756
+   790,
+   985
   ]
  },
  "locks": [
@@ -93,36 +93,44 @@
   },
   {
    "door": [
-    1025.0,
-    733
+    808.0,
+    940
    ],
    "key": 2,
    "why": "the red card / the way out"
   },
   {
    "door": [
-    506,
-    940
+    781.0,
+    762
    ],
    "key": 1,
-   "why": "the orange card's room (Engine Room (port))"
+   "why": "the orange card's room (Vehicle Bay)"
+  },
+  {
+   "door": [
+    808.0,
+    846
+   ],
+   "key": 1,
+   "why": "the orange card's room (Vehicle Bay)"
   }
  ],
  "guards": [
   {
    "key": 1,
-   "room": "Coolant & Systems (starboard)",
+   "room": "Weapon Bay (starboard)",
    "at": [
-    965,
-    733
+    1083,
+    756
    ]
   },
   {
    "key": 2,
-   "room": "Engine Room (port)",
+   "room": "Vehicle Bay",
    "at": [
-    523,
-    985
+    743,
+    803
    ]
   },
   {

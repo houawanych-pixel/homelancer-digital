@@ -24,6 +24,31 @@
   "Storage & Supplies": "pilot",
   "Refrigerated Stores": "pilot"
  },
+ "rooms_base": {
+  "Bridge": "pilot",
+  "Lift": "lift",
+  "Cargo Transfer Hub": "mech",
+  "Vehicle / Loader Bay": "mech",
+  "Munitions Resupply": "mech",
+  "Engineering Deck": "mech",
+  "Reactor Core": "mech",
+  "Engine Room": "mech",
+  "Sensors Suite": "pilot",
+  "CIC": "pilot",
+  "Crew Quarters (port)": "pilot",
+  "Crew Quarters (starboard)": "pilot",
+  "Galley & Mess": "pilot",
+  "Medbay": "pilot",
+  "Cargo Hold A": "mech",
+  "Cargo Hold B": "mech",
+  "Coolant & Systems (port)": "pilot",
+  "Coolant & Systems (starboard)": "pilot",
+  "Cargo Lift (port)": "lift",
+  "Cargo Lift (starboard)": "lift",
+  "Storage & Supplies": "pilot",
+  "Refrigerated Stores": "pilot"
+ },
+ "cut_off_red": [],
  "doors": [
   {
    "at": [

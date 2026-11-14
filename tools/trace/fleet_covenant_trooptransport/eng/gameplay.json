@@ -53,15 +53,14 @@
   "Barracks D": 1,
   "Ready Room (starboard)": 1,
   "Lockers & Gear (port)": 1,
-  "Deployment Bay (port)": 1,
+  "Deployment Bay (port)": 2,
   "Deployment Bay (starboard)": 1,
   "Machine Room (port)": 1,
-  "Engine Room": 1,
-  "Deployment Corridor (port)": 2
+  "Engine Room": 1
  },
  "formula": {
   "C": "Troop Bay (Deployment Deck)",
-  "A_gate": "Deployment Corridor (port)",
+  "A_gate": "Deployment Bay (port)",
   "card_yellow": "Console Room (starboard)",
   "card_red": "Bridge",
   "entry": "Reactor Core",
@@ -149,11 +148,11 @@
   },
   {
    "door": [
-    256,
-    1000
+    410,
+    435
    ],
    "key": 1,
-   "why": "the orange card's room (Deployment Corridor (port))"
+   "why": "the orange card's room (Deployment Bay (port))"
   }
  ],
  "guards": [
@@ -167,10 +166,10 @@
   },
   {
    "key": 2,
-   "room": "Deployment Corridor (port)",
+   "room": "Deployment Bay (port)",
    "at": [
-    212,
-    1014
+    361,
+    434
    ]
   },
   {

@@ -20,7 +20,7 @@
  ],
  "patrols": [],
  "room_guards": {
-  "Cargo Hold": 1,
+  "Cargo Hold": 2,
   "Missile Magazine": 1,
   "Engineering Deck": 2,
   "CIC (Combat Information Center)": 2,
@@ -32,63 +32,47 @@
   "Crew Quarters (port)": 1,
   "Coolant System (starboard)": 1,
   "Engine Room": 1,
-  "Power Core (starboard)": 2
+  "Launch Bay": 2
  },
  "formula": {
-  "C": "Engineering Deck",
-  "A_gate": "Power Core (starboard)",
-  "card_yellow": "Coolant System (port)",
+  "C": "Launch Bay",
+  "A_gate": "Cargo Hold",
+  "card_yellow": "Engine Access (starboard)",
   "card_red": "Bridge",
-  "entry": "Engine Access (starboard)",
-  "way_out": "Engine Access (port)",
+  "entry": "Engineering Deck",
+  "way_out": "Engine Room",
   "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
  },
  "entry": {
-  "room": "Engine Access (starboard)",
+  "room": "Engineering Deck",
   "at": [
-   739,
-   734
+   512,
+   1069
   ]
  },
  "exit": {
-  "room": "Engine Access (port)",
+  "room": "Engine Room",
   "at": [
-   285,
-   734
+   512,
+   1310
   ]
  },
  "locks": [
   {
    "door": [
     512,
-    1016
+    728
    ],
    "key": 3,
-   "why": "the objective (Engineering Deck)"
+   "why": "the objective (Launch Bay)"
   },
   {
    "door": [
     512,
-    1122
+    927
    ],
    "key": 3,
-   "why": "the objective (Engineering Deck)"
-  },
-  {
-   "door": [
-    432,
-    1122
-   ],
-   "key": 3,
-   "why": "the objective (Engineering Deck)"
-  },
-  {
-   "door": [
-    592.0,
-    1122
-   ],
-   "key": 3,
-   "why": "the objective (Engineering Deck)"
+   "why": "the objective (Launch Bay)"
   },
   {
    "door": [
@@ -100,36 +84,44 @@
   },
   {
    "door": [
-    284,
-    775
+    512,
+    1268
    ],
    "key": 2,
    "why": "the red card / the way out"
   },
   {
    "door": [
-    740.0,
-    899
+    405,
+    861
    ],
    "key": 1,
-   "why": "the orange card's room (Power Core (starboard))"
+   "why": "the orange card's room (Cargo Hold)"
+  },
+  {
+   "door": [
+    434,
+    978
+   ],
+   "key": 1,
+   "why": "the orange card's room (Cargo Hold)"
   }
  ],
  "guards": [
   {
    "key": 1,
-   "room": "Coolant System (port)",
+   "room": "Engine Access (starboard)",
    "at": [
-    285,
-    837
+    739,
+    734
    ]
   },
   {
    "key": 2,
-   "room": "Power Core (starboard)",
+   "room": "Cargo Hold",
    "at": [
-    739,
-    945
+    395,
+    930
    ]
   },
   {
@@ -143,26 +135,26 @@
  ],
  "targets": {
   "sabotage": {
-   "room": "Engineering Deck",
+   "room": "Launch Bay",
    "at": [
     512,
-    1069
+    827
    ],
    "key": 3
   },
   "capture": {
-   "room": "Engineering Deck",
+   "room": "Launch Bay",
    "at": [
     512,
-    1069
+    827
    ],
    "key": 3
   },
   "rescue": {
-   "room": "Engineering Deck",
+   "room": "Launch Bay",
    "at": [
     512,
-    1069
+    827
    ],
    "key": 3
   }

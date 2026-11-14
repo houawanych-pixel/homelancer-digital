@@ -28,6 +28,35 @@
   "Maint. Bay": "mech",
   "Supply Depot": "mech"
  },
+ "rooms_base": {
+  "Bridge": "pilot",
+  "Sensors Suite": "pilot",
+  "Command & Control": "pilot",
+  "Troop Bay": "mech",
+  "Vehicle / Dropship Bay": "mech",
+  "Engineering Deck": "mech",
+  "Reactor Core": "mech",
+  "Engine Room": "mech",
+  "Sensor Store A": "pilot",
+  "Sensor Store B": "pilot",
+  "Briefing Room": "pilot",
+  "Comms Center": "pilot",
+  "Armory": "pilot",
+  "Medbay": "pilot",
+  "Lift A": "lift",
+  "Lift B": "lift",
+  "Barracks A": "pilot",
+  "Barracks B": "pilot",
+  "Ready Room A": "pilot",
+  "Ready Room B": "pilot",
+  "Lockers A": "pilot",
+  "Lockers B": "pilot",
+  "Deploy Bay A": "mech",
+  "Deploy Bay B": "mech",
+  "Maint. Bay": "mech",
+  "Supply Depot": "mech"
+ },
+ "cut_off_red": [],
  "doors": [
   {
    "at": [

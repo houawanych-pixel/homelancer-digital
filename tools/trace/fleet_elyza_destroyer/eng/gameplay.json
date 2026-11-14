@@ -23,10 +23,10 @@
   "Missile Magazine": 2,
   "Supply": 1,
   "Cargo Hold A": 1,
-  "Cargo Hold B": 2,
+  "Cargo Hold B": 1,
   "Engineering": 2,
   "CIC": 2,
-  "Bridge": 1,
+  "Bridge": 2,
   "Reactor Core": 1,
   "Galley & Mess": 1,
   "Medbay": 1,
@@ -35,29 +35,29 @@
   "Weapon Systems (starboard)": 1,
   "Engine Room": 1,
   "Launch Bay": 2,
-  "Sensors": 2
+  "Weapon Systems (port)": 2
  },
  "formula": {
   "C": "Launch Bay",
-  "A_gate": "Cargo Hold B",
+  "A_gate": "Weapon Systems (port)",
   "card_yellow": "Crew Quarters (starboard)",
-  "card_red": "Sensors",
-  "entry": "Cargo Hold A",
-  "way_out": "Engine Room",
+  "card_red": "Bridge",
+  "entry": "Engine Room",
+  "way_out": "Sensors",
   "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
  },
  "entry": {
-  "room": "Cargo Hold A",
-  "at": [
-   337,
-   856
-  ]
- },
- "exit": {
   "room": "Engine Room",
   "at": [
    511,
    1290
+  ]
+ },
+ "exit": {
+  "room": "Sensors",
+  "at": [
+   511,
+   160
   ]
  },
  "locks": [
@@ -96,7 +96,7 @@
   {
    "door": [
     511,
-    186
+    220
    ],
    "key": 2,
    "why": "the red card / the way out"
@@ -104,50 +104,34 @@
   {
    "door": [
     511,
-    1242
+    296
    ],
    "key": 2,
    "why": "the red card / the way out"
   },
   {
    "door": [
-    435,
-    1280
+    511,
+    186
    ],
    "key": 2,
    "why": "the red card / the way out"
   },
   {
    "door": [
-    587.0,
-    1280
+    180,
+    898
    ],
-   "key": 2,
-   "why": "the red card / the way out"
+   "key": 1,
+   "why": "the orange card's room (Weapon Systems (port))"
   },
   {
    "door": [
-    658.0,
-    775
+    190,
+    1038
    ],
    "key": 1,
-   "why": "the orange card's room (Cargo Hold B)"
-  },
-  {
-   "door": [
-    634.0,
-    896
-   ],
-   "key": 1,
-   "why": "the orange card's room (Cargo Hold B)"
-  },
-  {
-   "door": [
-    734.0,
-    884
-   ],
-   "key": 1,
-   "why": "the orange card's room (Cargo Hold B)"
+   "why": "the orange card's room (Weapon Systems (port))"
   }
  ],
  "guards": [
@@ -161,18 +145,18 @@
   },
   {
    "key": 2,
-   "room": "Cargo Hold B",
+   "room": "Weapon Systems (port)",
    "at": [
-    685,
-    856
+    176,
+    968
    ]
   },
   {
    "key": 3,
-   "room": "Sensors",
+   "room": "Bridge",
    "at": [
     511,
-    160
+    258
    ]
   }
  ],

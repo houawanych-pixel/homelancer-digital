@@ -40,7 +40,6 @@ def ways(sid):
     R = {k: shape(v) for k, v in P["rooms"].items()}
     K = {k: kind(k) for k in R}
     entry = G["entry"]["room"]
-    if entry in K: K[entry] = "mech"
     halls = unary_union([shape(h) for h in P["halls"]])
     T = float(P["thickness"])
     doors = [tuple(d) for d in P["doors"]]
@@ -58,9 +57,34 @@ def ways(sid):
     for k, m in roomm.items():
         if K[k] in ("mech", "lift"): mechm |= m
     # the mech may move through halls, mech rooms and the doorways between them
-    allow = walk & (hallm | mechm | ~np.logical_or.reduce([m for m in roomm.values()]))
     s = 4   # (a 4 px grid is fine for routes)
-    A = cv2.resize(allow.astype(np.uint8), (W // s, H // s), interpolation=cv2.INTER_NEAREST).astype(bool)
+    anyroom = np.logical_or.reduce([m for m in roomm.values()])
+    def grid():
+        al = walk & (hallm | mechm | ~anyroom)
+        return cv2.resize(al.astype(np.uint8), (W // s, H // s), interpolation=cv2.INTER_NEAREST).astype(bool)
+    A = grid()
+    # v13.132 (owner: "a red room by itself with no red way to it: how does the mech get there?"): a red room the mech
+    # can't drive to from the main red network (only through pilot rooms) is a PILOT room
+    n_, lab_ = cv2.connectedComponents(A.astype(np.uint8), connectivity=4)
+    area = {}
+    for k in R:
+        if K[k] != "mech": continue
+        p_ = R[k].representative_point(); l_ = lab_[int(p_.y) // s, int(p_.x) // s]
+        area[l_] = area.get(l_, 0.0) + R[k].area
+    main = max(area, key=area.get) if area else 0
+    cut = []
+    for k in R:
+        if K[k] != "mech": continue
+        p_ = R[k].representative_point()
+        if lab_[int(p_.y) // s, int(p_.x) // s] != main or main == 0: K[k] = "pilot"; cut.append(k)
+    if cut:
+        mechm = np.zeros((H, W), bool)
+        for k, m in roomm.items():
+            if K[k] in ("mech", "lift"): mechm |= m
+        A = grid()
+    K_base = dict(K)
+    if entry in K and K[entry] != "mech":
+        K[entry] = "mech"; mechm |= roomm[entry]; A = grid()
     st = R[entry].representative_point(); start = (int(st.y) // s, int(st.x) // s)
     par = {start: None}; q = deque([start])
     while q:
@@ -91,7 +115,7 @@ def ways(sid):
         on_pilot_hall = pilot_hall[max(0, y - 8):y + 9, max(0, x - 8):x + 9].any() and not mech_hall[max(0, y - 8):y + 9, max(0, x - 8):x + 9].any()
         typ = "pilot" if any(K[k] == "pilot" for k in touch) or on_pilot_hall else "mech"
         D.append({"at": [d[0], d[1]], "o": d[2], "rooms": touch, "type": typ, "key": lock.get((round(d[0]), round(d[1])), 0)})
-    out = {"ship": sid, "rooms": K, "doors": D, "entry": entry, "mech_rooms_unreached": unreached,
+    out = {"ship": sid, "rooms": K, "rooms_base": K_base, "cut_off_red": cut, "doors": D, "entry": entry, "mech_rooms_unreached": unreached,
            "counts": {"mech_rooms": sum(v == "mech" for v in K.values()), "pilot_rooms": sum(v == "pilot" for v in K.values()),
                       "mech_doors": sum(d["type"] == "mech" for d in D), "pilot_doors": sum(d["type"] == "pilot" for d in D),
                       "locked": {KEY_NAME[k]: sum(d["key"] == k for d in D) for k in KEY_NAME}}}
@@ -122,6 +146,17 @@ def ways(sid):
                 cv2.FONT_HERSHEY_SIMPLEX, 0.45, (240, 240, 240), 1, cv2.LINE_AA)
     cv2.putText(pic, "%s  -  MECH / PILOT WAYS (PROPOSED)" % sid.replace("_", " ").upper(), (16, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2, cv2.LINE_AA)
     cv2.imwrite(os.path.join(here, "ways_on_map.jpg"), pic, [cv2.IMWRITE_JPEG_QUALITY, 88])
+    fm = G.get("formula")
+    if fm:   # v13.132: the boarding formula's places on the red / blue ways (the picture for the owner)
+        f2 = pic.copy()
+        for lab, k in (("ENTRY", fm["entry"]), ("C  OBJECTIVE (red doors)", fm["C"]), ("A  yellow doors: ORANGE card", fm["A_gate"]),
+                       ("YELLOW card", fm["card_yellow"]), ("RED card (orange doors)", fm["card_red"]), ("B  WAY OUT (orange doors)", fm["way_out"])):
+            if k not in R: continue
+            c = R[k].representative_point(); x, y = int(c.x) - 70, int(c.y)
+            cv2.putText(f2, lab, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 4, cv2.LINE_AA)
+            cv2.putText(f2, lab, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
+        cv2.putText(f2, "%s  -  BOARDING FORMULA" % sid.replace("_", " ").upper(), (16, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2, cv2.LINE_AA)
+        cv2.imwrite(os.path.join(here, "formula.jpg"), f2, [cv2.IMWRITE_JPEG_QUALITY, 85])
     print(sid, out["counts"], "mech rooms the mech cannot reach:", unreached)
     return out
 

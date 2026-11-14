@@ -25,6 +25,32 @@
   "Workshop & Maintenance": "mech",
   "Logistics Office": "pilot"
  },
+ "rooms_base": {
+  "Bridge": "pilot",
+  "Sensors Suite": "pilot",
+  "CIC": "pilot",
+  "Cargo Control": "pilot",
+  "Loader & Vehicle Bay": "mech",
+  "Cargo Transfer Hub": "mech",
+  "Engineering Deck": "mech",
+  "Reactor Core": "mech",
+  "Engine Room": "mech",
+  "Crew Quarters (port)": "pilot",
+  "Crew Quarters (starboard)": "pilot",
+  "Galley & Mess": "pilot",
+  "Medbay": "pilot",
+  "Lift (port)": "lift",
+  "Lift (starboard)": "lift",
+  "Cargo Hold A": "mech",
+  "Cargo Hold B": "mech",
+  "Supplies Storage": "pilot",
+  "Munitions Resupply": "mech",
+  "Refrigerated Stores": "pilot",
+  "Spare Parts & Equipment": "pilot",
+  "Workshop & Maintenance": "mech",
+  "Logistics Office": "pilot"
+ },
+ "cut_off_red": [],
  "doors": [
   {
    "at": [

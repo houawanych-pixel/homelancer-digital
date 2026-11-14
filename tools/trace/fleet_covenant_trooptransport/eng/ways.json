@@ -26,13 +26,50 @@
   "Lockers & Gear (starboard)": "pilot",
   "Armory": "pilot",
   "Medbay": "pilot",
-  "Deployment Corridor (port)": "mech",
-  "Deployment Corridor (starboard)": "mech",
+  "Deployment Corridor (port)": "pilot",
+  "Deployment Corridor (starboard)": "pilot",
   "Lower Lift (port)": "lift",
   "Lower Lift (starboard)": "lift",
   "Machine Room (port)": "mech",
   "Machine Room (starboard)": "mech"
  },
+ "rooms_base": {
+  "Bridge": "pilot",
+  "Sensors Suite": "pilot",
+  "Command & Control": "pilot",
+  "Briefing Room": "pilot",
+  "Troop Bay (Deployment Deck)": "mech",
+  "Vehicle / Dropship Bay": "mech",
+  "Engineering Deck": "mech",
+  "Reactor Core": "mech",
+  "Engine Room": "mech",
+  "Console Room (port)": "pilot",
+  "Console Room (starboard)": "pilot",
+  "Deployment Bay (port)": "mech",
+  "Deployment Bay (starboard)": "mech",
+  "Lift (port)": "lift",
+  "Lift (starboard)": "lift",
+  "Ready Room (port)": "pilot",
+  "Ready Room (starboard)": "pilot",
+  "Barracks A": "pilot",
+  "Barracks C": "pilot",
+  "Barracks B": "pilot",
+  "Barracks D": "pilot",
+  "Lockers & Gear (port)": "pilot",
+  "Lockers & Gear (starboard)": "pilot",
+  "Armory": "pilot",
+  "Medbay": "pilot",
+  "Deployment Corridor (port)": "pilot",
+  "Deployment Corridor (starboard)": "pilot",
+  "Lower Lift (port)": "lift",
+  "Lower Lift (starboard)": "lift",
+  "Machine Room (port)": "mech",
+  "Machine Room (starboard)": "mech"
+ },
+ "cut_off_red": [
+  "Deployment Corridor (port)",
+  "Deployment Corridor (starboard)"
+ ],
  "doors": [
   {
    "at": [
@@ -274,7 +311,7 @@
     "Deployment Bay (port)"
    ],
    "type": "mech",
-   "key": 0
+   "key": 1
   },
   {
    "at": [
@@ -470,7 +507,7 @@
     "Deployment Corridor (port)"
    ],
    "type": "pilot",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -866,13 +903,10 @@
   }
  ],
  "entry": "Reactor Core",
- "mech_rooms_unreached": [
-  "Deployment Corridor (port)",
-  "Deployment Corridor (starboard)"
- ],
+ "mech_rooms_unreached": [],
  "counts": {
-  "mech_rooms": 11,
-  "pilot_rooms": 16,
+  "mech_rooms": 9,
+  "pilot_rooms": 18,
   "mech_doors": 20,
   "pilot_doors": 48,
   "locked": {

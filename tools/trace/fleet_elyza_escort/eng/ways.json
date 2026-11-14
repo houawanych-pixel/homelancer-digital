@@ -13,6 +13,20 @@
   "Engine Room A": "mech",
   "Engine Room B": "mech"
  },
+ "rooms_base": {
+  "Bridge": "pilot",
+  "Sensors": "pilot",
+  "CIC Tactical": "pilot",
+  "Engineering Deck": "mech",
+  "Reactor Core": "mech",
+  "Crew Bunks": "pilot",
+  "Galley / Med": "pilot",
+  "Armory": "pilot",
+  "Support & Stores": "pilot",
+  "Engine Room A": "mech",
+  "Engine Room B": "mech"
+ },
+ "cut_off_red": [],
  "doors": [
   {
    "at": [

@@ -34,8 +34,8 @@
   "Reactor Core": 2,
   "Engine Room B": 1,
   "Armory (starboard)": 1,
-  "Cargo Hold A": 1,
-  "Cargo Hold B": 2,
+  "Cargo Hold A": 2,
+  "Cargo Hold B": 1,
   "Galley & Mess": 1,
   "Medbay": 1,
   "Crew Quarters (port)": 1,
@@ -47,25 +47,25 @@
  },
  "formula": {
   "C": "Hangar Bay",
-  "A_gate": "Cargo Hold B",
-  "card_yellow": "Coolant Plant A",
+  "A_gate": "Cargo Hold A",
+  "card_yellow": "Weapon Bay B",
   "card_red": "Bridge (Command Deck)",
-  "entry": "Weapon Bay B",
-  "way_out": "Engine Room A",
+  "entry": "Engine Room B",
+  "way_out": "Cargo Hold B",
   "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
  },
  "entry": {
-  "room": "Weapon Bay B",
+  "room": "Engine Room B",
   "at": [
-   945,
-   707
+   527,
+   1294
   ]
  },
  "exit": {
-  "room": "Engine Room A",
+  "room": "Cargo Hold B",
   "at": [
-   418,
-   1270
+   715,
+   925
   ]
  },
  "locks": [
@@ -119,35 +119,35 @@
   },
   {
    "door": [
-    432,
-    1225
+    662.0,
+    935
    ],
    "key": 2,
    "why": "the red card / the way out"
   },
   {
    "door": [
-    662.0,
+    392,
     935
    ],
    "key": 1,
-   "why": "the orange card's room (Cargo Hold B)"
+   "why": "the orange card's room (Cargo Hold A)"
   }
  ],
  "guards": [
   {
    "key": 1,
-   "room": "Coolant Plant A",
+   "room": "Weapon Bay B",
    "at": [
-    89,
-    982
+    945,
+    707
    ]
   },
   {
    "key": 2,
-   "room": "Cargo Hold B",
+   "room": "Cargo Hold A",
    "at": [
-    715,
+    338,
     925
    ]
   },

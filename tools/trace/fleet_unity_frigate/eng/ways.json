@@ -17,6 +17,24 @@
   "Armory": "pilot",
   "Weapons Magazine": "mech"
  },
+ "rooms_base": {
+  "Bridge": "pilot",
+  "Sensors Suite": "pilot",
+  "CIC (Combat Information Center)": "pilot",
+  "Craft Bay": "mech",
+  "Engineering Deck": "mech",
+  "Reactor Core": "mech",
+  "Engine Room": "mech",
+  "Crew Quarters A": "pilot",
+  "Crew Quarters B": "pilot",
+  "Lift (port)": "lift",
+  "Lift (starboard)": "lift",
+  "Galley & Mess": "pilot",
+  "Medbay": "pilot",
+  "Armory": "pilot",
+  "Weapons Magazine": "mech"
+ },
+ "cut_off_red": [],
  "doors": [
   {
    "at": [

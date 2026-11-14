@@ -31,17 +31,17 @@
  "formula": {
   "C": "Loading / Vehicle Bay",
   "A_gate": "Cargo Hold A",
-  "card_yellow": "Refrigerated Stores",
+  "card_yellow": "Spare Parts",
   "card_red": "Bridge",
-  "entry": "Engine Room",
+  "entry": "Cargo Hold E",
   "way_out": "Cargo Hold B",
   "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
  },
  "entry": {
-  "room": "Engine Room",
+  "room": "Cargo Hold E",
   "at": [
-   515,
-   1324
+   327,
+   860
   ]
  },
  "exit": {
@@ -168,10 +168,10 @@
  "guards": [
   {
    "key": 1,
-   "room": "Refrigerated Stores",
+   "room": "Spare Parts",
    "at": [
-    619,
-    959
+    617,
+    1012
    ]
   },
   {

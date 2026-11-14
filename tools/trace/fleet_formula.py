@@ -36,6 +36,8 @@ def formula(sid):
     H, W = cv2.imread(src).shape[:2]
     R = {k: shape(v) for k, v in P["rooms"].items()}
     K = {k: room_kind(k) for k in R}
+    wj = os.path.join(here, "ways.json")   # v13.132: a red room the mech can't drive to counts as blue (fleet_ways.py)
+    if os.path.exists(wj): K.update(json.load(open(wj)).get("rooms_base", {}))
     T = float(P["thickness"]); AX = float(P["mirror_x"])
     doors = [tuple(d) for d in P["doors"]]
     dbox = lambda d: planlib.door_box(d[0], d[1], d[2], T * 2.6)

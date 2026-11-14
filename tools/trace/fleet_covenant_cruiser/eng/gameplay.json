@@ -35,31 +35,30 @@
   "Engine Room": 1,
   "Armory (starboard)": 1,
   "Cargo Hold (port)": 1,
-  "Cargo Hold (starboard)": 1,
+  "Cargo Hold (starboard)": 2,
   "Galley & Mess": 1,
   "Medbay": 1,
   "Crew Quarters (starboard)": 1,
   "Chapel / Shrine (port)": 1,
   "Chapel / Shrine (starboard)": 1,
-  "Weapon Bay (starboard)": 2,
+  "Weapon Bay (starboard)": 1,
   "Console Room (port)": 1,
-  "Hangar Bay": 2,
-  "Coolant Systems (starboard)": 2
+  "Hangar Bay": 2
  },
  "formula": {
   "C": "Hangar Bay",
-  "A_gate": "Weapon Bay (starboard)",
-  "card_yellow": "Coolant Systems (port)",
-  "card_red": "Coolant Systems (starboard)",
-  "entry": "Weapon Bay (port)",
+  "A_gate": "Cargo Hold (starboard)",
+  "card_yellow": "Weapon Bay (port)",
+  "card_red": "Bridge",
+  "entry": "Vehicle Bay",
   "way_out": "Engine Room",
   "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
  },
  "entry": {
-  "room": "Weapon Bay (port)",
+  "room": "Vehicle Bay",
   "at": [
-   129,
-   706
+   591,
+   832
   ]
  },
  "exit": {
@@ -128,8 +127,8 @@
   },
   {
    "door": [
-    1003.0,
-    812
+    591,
+    222
    ],
    "key": 2,
    "why": "the red card / the way out"
@@ -160,36 +159,52 @@
   },
   {
    "door": [
-    1003.0,
-    719
+    689.0,
+    785
    ],
    "key": 1,
-   "why": "the orange card's room (Weapon Bay (starboard))"
+   "why": "the orange card's room (Cargo Hold (starboard))"
+  },
+  {
+   "door": [
+    654.0,
+    830
+   ],
+   "key": 1,
+   "why": "the orange card's room (Cargo Hold (starboard))"
+  },
+  {
+   "door": [
+    705.0,
+    881
+   ],
+   "key": 1,
+   "why": "the orange card's room (Cargo Hold (starboard))"
   }
  ],
  "guards": [
   {
    "key": 1,
-   "room": "Coolant Systems (port)",
+   "room": "Weapon Bay (port)",
    "at": [
-    124,
-    830
-   ]
-  },
-  {
-   "key": 2,
-   "room": "Weapon Bay (starboard)",
-   "at": [
-    1053,
+    129,
     706
    ]
   },
   {
-   "key": 3,
-   "room": "Coolant Systems (starboard)",
+   "key": 2,
+   "room": "Cargo Hold (starboard)",
    "at": [
-    1058,
-    830
+    694,
+    832
+   ]
+  },
+  {
+   "key": 3,
+   "room": "Bridge",
+   "at": [
+    590,
+    174
    ]
   }
  ],

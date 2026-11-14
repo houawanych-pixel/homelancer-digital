@@ -27,6 +27,34 @@
   "Coolant / Systems A": "pilot",
   "Coolant / Systems B": "pilot"
  },
+ "rooms_base": {
+  "Bridge": "pilot",
+  "CIC": "pilot",
+  "Lift": "lift",
+  "Cargo Transfer Hub": "mech",
+  "Vehicle / Loader Bay": "mech",
+  "General Storage": "pilot",
+  "Engineering Deck": "mech",
+  "Reactor Core": "mech",
+  "Engine Room": "mech",
+  "Sensors Suite (port)": "pilot",
+  "Sensors Suite (starboard)": "pilot",
+  "Crew Quarters (port)": "pilot",
+  "Crew Quarters (starboard)": "pilot",
+  "Galley & Mess": "pilot",
+  "Medbay": "pilot",
+  "Cargo Hold A1": "mech",
+  "Cargo Hold B1": "mech",
+  "Cargo Hold A2": "mech",
+  "Cargo Hold B2": "mech",
+  "Cargo Hold A3": "mech",
+  "Cargo Hold B3": "mech",
+  "Refrigerated Stores": "pilot",
+  "Munitions Resupply": "mech",
+  "Coolant / Systems A": "pilot",
+  "Coolant / Systems B": "pilot"
+ },
+ "cut_off_red": [],
  "doors": [
   {
    "at": [

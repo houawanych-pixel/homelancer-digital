@@ -27,7 +27,7 @@
  ],
  "patrols": [],
  "room_guards": {
-  "Cargo Hold": 2,
+  "Cargo Hold": 1,
   "Vehicle Bay": 2,
   "Engineering Deck": 2,
   "CIC (Combat Information Center)": 2,
@@ -43,25 +43,25 @@
  },
  "formula": {
   "C": "Engineering Deck",
-  "A_gate": "Cargo Hold",
-  "card_yellow": "Armory (starboard)",
+  "A_gate": "Vehicle Bay",
+  "card_yellow": "Weapon Bay (port)",
   "card_red": "Sensors Suite",
-  "entry": "Weapon Bay (port)",
-  "way_out": "Weapon Bay (starboard)",
+  "entry": "Launch Bay (Hangar)",
+  "way_out": "Cargo Hold",
   "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
  },
  "entry": {
-  "room": "Weapon Bay (port)",
+  "room": "Launch Bay (Hangar)",
   "at": [
-   406,
-   700
+   627,
+   723
   ]
  },
  "exit": {
-  "room": "Weapon Bay (starboard)",
+  "room": "Cargo Hold",
   "at": [
-   847,
-   700
+   533,
+   850
   ]
  },
  "locks": [
@@ -107,51 +107,51 @@
   },
   {
    "door": [
-    813.0,
-    675
-   ],
-   "key": 2,
-   "why": "the red card / the way out"
-  },
-  {
-   "door": [
-    889.0,
-    710
-   ],
-   "key": 2,
-   "why": "the red card / the way out"
-  },
-  {
-   "door": [
     508,
     801
    ],
-   "key": 1,
-   "why": "the orange card's room (Cargo Hold)"
+   "key": 2,
+   "why": "the red card / the way out"
   },
   {
    "door": [
     609,
     872
    ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    746.0,
+    801
+   ],
    "key": 1,
-   "why": "the orange card's room (Cargo Hold)"
+   "why": "the orange card's room (Vehicle Bay)"
+  },
+  {
+   "door": [
+    645.0,
+    872
+   ],
+   "key": 1,
+   "why": "the orange card's room (Vehicle Bay)"
   }
  ],
  "guards": [
   {
    "key": 1,
-   "room": "Armory (starboard)",
+   "room": "Weapon Bay (port)",
    "at": [
-    770,
-    661
+    406,
+    700
    ]
   },
   {
    "key": 2,
-   "room": "Cargo Hold",
+   "room": "Vehicle Bay",
    "at": [
-    533,
+    720,
     850
    ]
   },

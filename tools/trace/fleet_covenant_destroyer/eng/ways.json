@@ -25,6 +25,32 @@
   "Lift (port)": "lift",
   "Lift (starboard)": "lift"
  },
+ "rooms_base": {
+  "Bridge": "pilot",
+  "CIC": "pilot",
+  "Armory": "pilot",
+  "Launch Bay": "mech",
+  "Missile Magazine": "mech",
+  "Engineering": "mech",
+  "Reactor Core": "mech",
+  "Sensors (port)": "pilot",
+  "Sensors (starboard)": "pilot",
+  "Locker Room (port)": "pilot",
+  "Locker Room (starboard)": "pilot",
+  "Crew Quarters (port)": "pilot",
+  "Crew Quarters (starboard)": "pilot",
+  "Galley & Mess": "pilot",
+  "Medbay": "pilot",
+  "Weapons Bay (port)": "mech",
+  "Weapons Bay (starboard)": "mech",
+  "Cargo Hold (port)": "mech",
+  "Cargo Hold (starboard)": "mech",
+  "Engine Room (port)": "mech",
+  "Engine Room (starboard)": "mech",
+  "Lift (port)": "lift",
+  "Lift (starboard)": "lift"
+ },
+ "cut_off_red": [],
  "doors": [
   {
    "at": [

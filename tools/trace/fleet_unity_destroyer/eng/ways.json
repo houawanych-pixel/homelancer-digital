@@ -17,13 +17,43 @@
   "Armory (starboard)": "pilot",
   "Cargo Hold": "mech",
   "Missile Magazine": "mech",
-  "Engine Access (port)": "mech",
-  "Engine Access (starboard)": "mech",
+  "Engine Access (port)": "pilot",
+  "Engine Access (starboard)": "pilot",
   "Coolant System (port)": "pilot",
   "Coolant System (starboard)": "pilot",
-  "Power Core (port)": "mech",
-  "Power Core (starboard)": "mech"
+  "Power Core (port)": "pilot",
+  "Power Core (starboard)": "pilot"
  },
+ "rooms_base": {
+  "Bridge": "pilot",
+  "Sensors Suite": "pilot",
+  "CIC (Combat Information Center)": "pilot",
+  "Lift": "lift",
+  "Launch Bay": "mech",
+  "Engineering Deck": "mech",
+  "Reactor Core": "mech",
+  "Engine Room": "mech",
+  "Crew Quarters (port)": "pilot",
+  "Crew Quarters (starboard)": "pilot",
+  "Galley & Mess": "pilot",
+  "Medbay": "pilot",
+  "Armory (port)": "pilot",
+  "Armory (starboard)": "pilot",
+  "Cargo Hold": "mech",
+  "Missile Magazine": "mech",
+  "Engine Access (port)": "pilot",
+  "Engine Access (starboard)": "pilot",
+  "Coolant System (port)": "pilot",
+  "Coolant System (starboard)": "pilot",
+  "Power Core (port)": "pilot",
+  "Power Core (starboard)": "pilot"
+ },
+ "cut_off_red": [
+  "Engine Access (port)",
+  "Engine Access (starboard)",
+  "Power Core (port)",
+  "Power Core (starboard)"
+ ],
  "doors": [
   {
    "at": [
@@ -94,7 +124,7 @@
    "rooms": [
     "Lift"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -106,7 +136,7 @@
    "rooms": [
     "Lift"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -118,8 +148,8 @@
    "rooms": [
     "Launch Bay"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 3
   },
   {
    "at": [
@@ -130,8 +160,8 @@
    "rooms": [
     "Launch Bay"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 3
   },
   {
    "at": [
@@ -142,8 +172,8 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "pilot",
-   "key": 3
+   "type": "mech",
+   "key": 0
   },
   {
    "at": [
@@ -154,8 +184,8 @@
    "rooms": [
     "Engineering Deck"
    ],
-   "type": "pilot",
-   "key": 3
+   "type": "mech",
+   "key": 0
   },
   {
    "at": [
@@ -166,7 +196,7 @@
    "rooms": [
     "Reactor Core"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -178,7 +208,7 @@
    "rooms": [
     "Reactor Core"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -190,8 +220,8 @@
    "rooms": [
     "Engine Room"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 2
   },
   {
    "at": [
@@ -275,7 +305,7 @@
     "Cargo Hold"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 1
   },
   {
    "at": [
@@ -299,7 +329,7 @@
     "Engine Access (port)"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -346,8 +376,8 @@
    "rooms": [
     "Cargo Hold"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 1
   },
   {
    "at": [
@@ -359,7 +389,7 @@
     "Engineering Deck"
    ],
    "type": "pilot",
-   "key": 3
+   "key": 0
   },
   {
    "at": [
@@ -515,7 +545,7 @@
     "Power Core (starboard)"
    ],
    "type": "pilot",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -526,7 +556,7 @@
    "rooms": [
     "Missile Magazine"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
@@ -539,7 +569,7 @@
     "Engineering Deck"
    ],
    "type": "pilot",
-   "key": 3
+   "key": 0
   },
   {
    "at": [
@@ -554,29 +584,18 @@
    "key": 0
   }
  ],
- "entry": "Engine Access (starboard)",
- "mech_rooms_unreached": [
-  "Lift",
-  "Launch Bay",
-  "Engineering Deck",
-  "Reactor Core",
-  "Engine Room",
-  "Cargo Hold",
-  "Missile Magazine",
-  "Engine Access (port)",
-  "Power Core (port)",
-  "Power Core (starboard)"
- ],
+ "entry": "Engineering Deck",
+ "mech_rooms_unreached": [],
  "counts": {
-  "mech_rooms": 10,
-  "pilot_rooms": 11,
-  "mech_doors": 0,
-  "pilot_doors": 44,
+  "mech_rooms": 6,
+  "pilot_rooms": 15,
+  "mech_doors": 11,
+  "pilot_doors": 33,
   "locked": {
-   "OPEN": 37,
-   "YELLOW": 1,
+   "OPEN": 38,
+   "YELLOW": 2,
    "ORANGE": 2,
-   "RED": 4
+   "RED": 2
   }
  }
 }

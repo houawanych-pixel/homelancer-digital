@@ -17,6 +17,24 @@
   "Vehicle Bay": "mech",
   "Ready Room": "pilot"
  },
+ "rooms_base": {
+  "Bridge": "pilot",
+  "Sensors & Comms": "pilot",
+  "Troop Bay": "mech",
+  "Engineering": "mech",
+  "Reactor Core": "mech",
+  "Lift (port)": "lift",
+  "Lift (starboard)": "lift",
+  "Briefing Room": "pilot",
+  "Medbay": "pilot",
+  "Barracks (port)": "pilot",
+  "Barracks (starboard)": "pilot",
+  "Armory": "pilot",
+  "Lockers": "pilot",
+  "Vehicle Bay": "mech",
+  "Ready Room": "pilot"
+ },
+ "cut_off_red": [],
  "doors": [
   {
    "at": [

@@ -15,6 +15,22 @@
   "Engine Access (L)": "mech",
   "Engine Access (R)": "mech"
  },
+ "rooms_base": {
+  "Bridge (Cockpit)": "pilot",
+  "Sensors / Recon Suite": "pilot",
+  "Mission / Data Room": "pilot",
+  "Engineering": "mech",
+  "Engine Room": "mech",
+  "Sensor Array (port)": "pilot",
+  "Sensor Array (starboard)": "pilot",
+  "Bunk (4)": "pilot",
+  "Med / Galley": "pilot",
+  "Lift (port)": "lift",
+  "Lift (starboard)": "lift",
+  "Engine Access (L)": "mech",
+  "Engine Access (R)": "mech"
+ },
+ "cut_off_red": [],
  "doors": [
   {
    "at": [
