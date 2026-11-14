@@ -2901,7 +2901,10 @@ func talk_to_guard() -> String:
 	e["told"] = true
 	var lv := int(e["card"])
 	hail_face = str((e.get("crew", {}) as Dictionary).get("face", ""))   # v13.148: his own face on the comms
-	hail.emit(str((e["node"] as Node3D).name), "The %s doors? Code's %s. Don't tell anyone I told you." % [ShipInterior.KEY_NAME[lv], str(e["code"])], false)
+	var cid := str((e.get("crew", {}) as Dictionary).get("id", ""))
+	var opts: Array = Data.CREW_LINES.get(cid, Data.CREW_LINES[""])
+	var line := str(opts[_rng.randi_range(0, opts.size() - 1)]).replace("{door}", ShipInterior.KEY_NAME[lv].capitalize()).replace("{code}", str(e["code"]))
+	hail.emit(str((e["node"] as Node3D).name), line, false)
 	return "%s door code: %s" % [ShipInterior.KEY_NAME[lv], str(e["code"])]
 
 ## Can this guard see you (in front of him and near enough, or right on him), and nothing in between?

@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.154"
+const VERSION := "v13.155"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -2816,6 +2816,30 @@ const FLEET_MECH_GUARDS := {   # v13.154 (owner: "the higher the fleet vessel, t
 	"Destroyer": [1, 2, 2, 3], "Cruiser": [2, 2, 2, 3, 3], "Capital": [2, 2, 3, 3, 3, 3]}
 const MECH_LEVEL_HP := [1.0, 1.6, 2.4]   # a mech guard's health by level (L1 = the regular mech)
 const MECH_STANDEE_K := [1.0, 1.15, 1.35]   # v13.153: a mech standee's height by level (L1 the regular mech)
+# v13.155 (owner: "write them a script for when you get the passwords"): what each crew member says when you TALK to him
+# for his door code. {door} = the door colour, {code} = this run's code. One line is picked at random.
+const CREW_LINES := {
+	"officer_m": ["{door} doors? Fine. {code}. And you didn't hear it from me, guest.",
+		"Lieutenant's honour, it's {code}. Touch nothing you can't pay for."],
+	"officer_f": ["The {door} code is {code}. Command trusts our guests. I don't.",
+		"{code}. Walk straight through, and I'll know if you wander."],
+	"warlord": ["...{code}. The {door} doors. Go, before I change my mind.",
+		"You have the nerve to ask me? {code}. Remember whose ship this is."],
+	"highlord": ["My ship welcomes you. The {door} seal answers to {code}. Do not make me regret it.",
+		"Children always want the keys. {code}. Mind where you step."],
+	"sergeant": ["Code's {code}. {door} doors. Wipe your boots.",
+		"Hah. {code}. If the Lieutenant asks, you found it on the floor."],
+	"elf": ["The {door} wards open to {code}. Speak it softly.",
+		"So curious. {code}. The ship will remember you."],
+	"captain": ["{door} doors: {code}. My crew, my rules. Behave.",
+		"{code}. You get one walk-through, pilot. Make it count."],
+	"comms": ["Transmitting... {door} access, {code}. Logged under 'guest'.",
+		"Code {code}. Channel's open if you get lost. Don't get lost."],
+	"zealot": ["The {door} door yields to {code}. The Throne sees you.",
+		"{code}. Walk in the light of the Imperium, stranger."],
+	"": ["The {door} doors? Code's {code}. Don't tell anyone I told you.",
+		"{code}. Now move along before my sergeant sees us talking.",
+		"Fine. {code}. You owe me a drink."]}
 const CREW_WALKERS := 2   # v13.150: crew from the pool (not this ship's keyholders) walking round each ship
 const STANDEE_BASE := Color(0.12, 0.13, 0.16)   # the stand under a cut-out
 const STEALTH_CAUTION_TIME := 40.0   # v13.144 (owner, Metal Gear): s of searching before it goes back to NEUTRAL
