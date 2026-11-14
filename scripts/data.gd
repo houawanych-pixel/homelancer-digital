@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.143"
+const VERSION := "v13.144"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -77,7 +77,7 @@ const SYSTEM_LAYOUT := {
 			"desc": "Unity's west corner station by Haven: ice haulers, a repair dock and a quiet bar for new pilots."}],
 		"gates": {"vega": [6.2, 1.9], "veranthos": [5.6, 9.0]},
 		"clouds": [
-			{"name": "Outer Drift", "at": [8.5, 9.4], "radius": 26000.0, "weather": "rocks", "color": Color(0.62, 0.58, 0.55)},   # v13.143 (owner): moved to H9
+			{"name": "Outer Drift", "at": [8.5, 9.4], "y": -125000.0, "radius": 156000.0, "weather": "rocks", "color": Color(0.62, 0.58, 0.55)},   # v13.143 (owner): moved to H9, 6x bigger, sunk well below the travel plane
 			{"name": "Ash Wisps", "at": [1.0, 8.4], "radius": 24000.0, "weather": "storm", "color": Color(0.5, 0.45, 0.75)},
 			{"name": "Liberty Haze", "at": [7.4, 8.6], "radius": 22000.0, "weather": "storm", "color": Color(0.35, 0.6, 0.95)},
 			{"name": "North Veil", "at": [4.9, 2.4], "radius": 30000.0, "weather": "storm", "color": Color(0.6, 0.35, 0.9)},   # v11.94: north of mid

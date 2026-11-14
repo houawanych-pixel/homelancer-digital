@@ -277,7 +277,7 @@ static func apply_layouts(systems: Dictionary) -> void:
 			g["pos"] = Vector3(clampf(p.x, -lim, lim), p.y, clampf(p.z, -lim, lim))
 		var clouds: Array = []
 		for c in L.get("clouds", []):
-			clouds.append({"name": str(c["name"]), "center": cell_pos(c["at"]), "radius": float(c["radius"]), "color": c["color"], "main": false, "weather": str(c.get("weather", "storm")), "layout": true, "disturbance": bool(c.get("disturbance", false))})
+			clouds.append({"name": str(c["name"]), "center": cell_pos(c["at"], float(c.get("y", 0.0))), "radius": float(c["radius"]), "color": c["color"], "main": false, "weather": str(c.get("weather", "storm")), "layout": true, "disturbance": bool(c.get("disturbance", false))})
 		sy["layout_clouds"] = clouds
 		var j := {}
 		for jn in L.get("junctions", {}): j[jn] = cell_pos(L["junctions"][jn])
