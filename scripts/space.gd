@@ -1736,7 +1736,7 @@ func _board_steps(dt: float) -> void:
 				return
 			board["escape"] = float(board["escape"]) - dt
 			var left := int(ceil(float(board["escape"])))
-			if left != int(board["said"]) and (left % 10 == 0 or left <= 5):
+			if left != int(board["said"]) and ((left > 60 and left % 60 == 0) or (left <= 60 and left % 10 == 0) or left <= 5):   # (v13.136: every minute, then every 10 s)
 				board["said"] = left
 				message.emit("%d SECONDS!" % left)
 			if _out_now():
@@ -2093,7 +2093,7 @@ func _fleet_done() -> void:
 	var ek := fleet_exit_key()
 	if ek != "sbay":   # v13.130 (owner's formula): the clock starts, the way you came in is blocked: find the other way out
 		board["phase"] = "escape"
-		board["escape"] = Data.BOARD_ESCAPE
+		board["escape"] = Data.FLEET_ESCAPE
 		board["breakout"] = false
 		for d in board_doors:
 			if (d["rooms"] as Array).has("sbay"): d["sealed"] = true
@@ -2103,7 +2103,7 @@ func _fleet_done() -> void:
 		fl["wp_on"] = false
 		if is_instance_valid(fl.get("beacon")): (fl["beacon"] as Node3D).visible = false
 		var what: String = {"sabotage": "GENERATOR DOWN!", "capture": "CAPTAIN TAKEN!", "rescue": "HOSTAGE FREED!"}.get(str(fl["kind"]), "DONE!")
-		message.emit("%s The way you came in is BLOCKED. %d seconds: find another way out!" % [what, int(Data.BOARD_ESCAPE)])
+		message.emit("%s The way you came in is BLOCKED. %d:%02d to find another way out!" % [what, int(Data.FLEET_ESCAPE / 60.0), int(Data.FLEET_ESCAPE) % 60])
 		return
 	var ex: Array = Boarding.ROOMS["sbay"]["r"]
 	var out := Vector3((float(ex[0]) + float(ex[1])) * 0.5, 0, (float(ex[2]) + float(ex[3])) * 0.5)
@@ -2709,14 +2709,14 @@ func board_scream(k: String) -> void:
 ## The core blew: the way you came seals, the far door opens, 90 s to the aft launch bay.
 func _core_down() -> void:
 	board["phase"] = "escape"
-	board["escape"] = Data.BOARD_ESCAPE
+	board["escape"] = Data.FLEET_ESCAPE if board.has("fleet") else Data.BOARD_ESCAPE
 	if board.has("fleet"):   # v13.89: the generator on a fleet ship: the clock runs, back to where you came aboard
 		board["breakout"] = false
 		_fleet_done()
 		for l: OmniLight3D in _board_alarm:
 			if is_instance_valid(l): l.light_color = Color(1.0, 0.2, 0.12)
 		Sfx.play("explosion", 0.0, 0.5)
-		if fleet_exit_key() == "sbay": message.emit("GENERATOR DOWN! The ship is going up: %d seconds to get back to the %s!" % [int(Data.BOARD_ESCAPE), str(Boarding.ROOMS["sbay"]["label"])])
+		if fleet_exit_key() == "sbay": message.emit("GENERATOR DOWN! The ship is going up: %d seconds to get back to the %s!" % [int(Data.FLEET_ESCAPE), str(Boarding.ROOMS["sbay"]["label"])])
 		return
 	hit_shake = 1.2
 	for d in board_doors:

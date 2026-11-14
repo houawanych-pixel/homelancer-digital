@@ -25,7 +25,7 @@ var route_root: Node3D
 var _route_key := ""
 var _route_t := 0.0
 
-func setup(rooms: Dictionary, doors: Array) -> void:
+func setup(rooms: Dictionary, doors: Array, plan_tex: Texture2D = null, pm: Dictionary = {}) -> void:
 	own_world_3d = true
 	transparent_bg = true
 	size = Vector2i(720, 720)
@@ -43,6 +43,26 @@ func setup(rooms: Dictionary, doors: Array) -> void:
 	world_root.add_child(env)
 	var lo := Vector3(INF, INF, INF)
 	var hi := -lo
+	# v13.136 (owner: "use the overhead map as well, laid on the 3D"): the ship's deck plan picture under the model,
+	# the rooms' slabs standing on it (plan px -> world: (px - ax) * scale, (py - cy) * scale)
+	if plan_tex != null and not pm.is_empty():
+		var sc := float(pm["scale"])
+		var pw := float(pm["w"]) * sc
+		var ph := float(pm["h"]) * sc
+		var pl := MeshInstance3D.new()
+		var plm := PlaneMesh.new()
+		plm.size = Vector2(pw, ph)
+		pl.mesh = plm
+		var mm := StandardMaterial3D.new()
+		mm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mm.albedo_texture = plan_tex
+		mm.albedo_color = Color(1, 1, 1, 0.9)
+		mm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mm.cull_mode = BaseMaterial3D.CULL_DISABLED
+		pl.material_override = mm
+		pl.position = Vector3((float(pm["w"]) * 0.5 - float(pm["ax"])) * sc, -SLAB * 2.0, (float(pm["h"]) * 0.5 - float(pm["cy"])) * sc)
+		pl.name = "PlanPicture"
+		world_root.add_child(pl)
 	for k in rooms:
 		var R: Dictionary = rooms[k]
 		var r: Array = R["r"]
@@ -147,7 +167,7 @@ func refresh(seen: Dictionary, deck_y: float, ppos: Vector3, pfwd: Vector3, goal
 		for k in slabs:
 			var mi: MeshInstance3D = slabs[k]
 			var on := seen.has(k)
-			(mi.material_override as StandardMaterial3D).albedo_color = Color(mi.get_meta("col"), 0.62) if on else Color(FOG, 0.10)
+			(mi.material_override as StandardMaterial3D).albedo_color = Color(mi.get_meta("col"), 0.45) if on else Color(FOG, 0.06)
 		for dn in door_nodes:
 			var d: Dictionary = dn[1]
 			var near := false

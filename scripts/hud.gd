@@ -3136,7 +3136,8 @@ func _fleet_map3d(inner: Rect2) -> void:
 		if map3d != null: map3d.queue_free()
 		map3d = ShipMap3D.new()
 		add_child(map3d)
-		map3d.setup(Boarding.ROOMS, space.board_doors)
+		var ptex: Texture2D = load(str(Boarding.INFO.get("plan_tex", ""))) if ResourceLoader.exists(str(Boarding.INFO.get("plan_tex", ""))) else null
+		map3d.setup(Boarding.ROOMS, space.board_doors, ptex, Boarding.INFO.get("plan_map", {}))
 		_map3d_for = space.board
 	var fl: Dictionary = space.board.get("fleet", {})
 	var pp: Vector3 = space.player.global_position
