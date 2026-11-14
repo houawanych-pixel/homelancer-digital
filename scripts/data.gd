@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.150"
+const VERSION := "v13.151"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -2807,6 +2807,10 @@ const FACTION_CREW := {"Imperium": [   # v13.150 (owner: "3 keyholders per ship,
 	{"id": "comms", "name": "Imperium Comms Officer", "face": "imp_comms"},
 	{"id": "zealot", "name": "Imperium Zealot", "face": "imp_zealot"},
 	{"id": "highlord", "name": "Imperium High Lord", "face": "imp_highlord", "capital": true}]}   # (the capital ship's captain)
+# v13.151 (owner: "I have mechs for different factions, levels 1 2 3 ... a placeholder with a hit box board behind it,
+# mixed into the ships"): the faction mech pictures as mech-size standees guarding the big (mech) rooms aboard. Files
+# assets/crew_standees/mech_<faction>_l<level>.png (the levels are a guess from the pictures). How many per ship class:
+const FLEET_MECH_GUARDS := {"Capital": 4, "Cruiser": 3, "Destroyer": 3, "Resupply": 2, "TroopTransport": 3, "Frigate": 2, "Escort": 2, "Scout": 1, "Bomber": 1}
 const CREW_WALKERS := 2   # v13.150: crew from the pool (not this ship's keyholders) walking round each ship
 const STANDEE_BASE := Color(0.12, 0.13, 0.16)   # the stand under a cut-out
 const STEALTH_CAUTION_TIME := 40.0   # v13.144 (owner, Metal Gear): s of searching before it goes back to NEUTRAL

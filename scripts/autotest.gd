@@ -1807,6 +1807,14 @@ func _run() -> void:
 			var sc2: Array = SpaceSystem.ship_crew("Imperium", "imperium_destroyer").map(func(c): return c["id"])
 			var sc0: Array = SpaceSystem.ship_crew("Imperium", "imperium_capital").map(func(c): return c["id"])
 			_check("v13.150: every ship its own 3 keyholders and captain (capital: the High Lord)", sc1.size() == 4 and sc1 != sc2 and str(sc0[3]) == "highlord", "%s / %s / %s" % [sc0, sc1, sc2])
+			var mechs: Array = s.enemies.filter(func(e): return e.has("standee_mech"))
+			_check("v13.151: the faction's mechs stand guard in the mech rooms (standees on their hit box)", mechs.size() >= 2 and mechs.all(func(e): return (e["node"] as Node3D).find_child("Standee", false, false) != null), "%d" % mechs.size())
+			if not mechs.is_empty():
+				var mn: Node3D = mechs[0]["node"]
+				s.player.global_position = mn.global_position - mn.global_basis.z * 160.0 + Vector3(0, 6, 0)
+				s._face(mn.global_position - s.player.global_position)
+				await _wait(0.6)
+				await _capture("visit_mech_standee")
 			_check("v13.148: the faction's named crew walk the ship as standees (card carriers too)", crew.size() >= 3 and crew.all(func(e): return (e["node"] as Node3D).find_child("Standee", true, false) != null), "%d" % crew.size())
 			if not crew.is_empty():
 				var cn: Node3D = crew[0]["node"]

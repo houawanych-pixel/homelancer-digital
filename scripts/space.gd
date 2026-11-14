@@ -1984,6 +1984,7 @@ func _fleet_setup(root: Node3D, info: Dictionary, fac: String) -> void:
 		bc.visible = false   # v13.130 (owner: "the player has to figure it out"): shown only when Evee marks it
 	if Boarding.STACKED: _fleet_decks(root)
 	_crew_walkers(fac, kind, str(info.get("ship_id", "")))   # v13.148
+	_mech_guards(fac, str(info.get("ship_id", "")))   # v13.151
 	_stealth_setup(root, kind == "visit")
 	if kind == "visit":
 		message.emit("Aboard the %s as a guest. The crew is calm (NEUTRAL). Card doors: talk to the card carriers for the codes, or punch them in at the floor pads." % str(info["name"]))
@@ -2734,6 +2735,65 @@ func _crew_walkers(fac: String, kind: String, ship_id: String) -> void:
 			var rk := Boarding.room_at(at)
 			if not (board["guards"] as Dictionary).has(rk): board["guards"][rk] = []
 			board["guards"][rk].append(k)
+
+## v13.151 (owner): the faction's mechs, as standees the size of the mech (the picture on a board, the mech's own hit
+## box), guarding the big mech rooms: levels mixed, the bigger the ship the more and the higher.
+static func mech_standee_levels(fac: String) -> Array:
+	var out: Array = []
+	for lv in range(1, 4):
+		if ResourceLoader.exists("res://assets/crew_standees/mech_%s_l%d.png" % [fac.to_lower(), lv]): out.append(lv)
+	return out
+func _mech_guards(fac: String, ship_id: String) -> void:
+	var lvs := mech_standee_levels(fac)
+	if lvs.is_empty(): return
+	var cls := str(FleetCatalog.get_entry(ship_id).get("class", "Frigate"))
+	var n := int(Data.FLEET_MECH_GUARDS.get(cls, 2))
+	var rr: RandomNumberGenerator = board.get("fleet_rng", null)
+	if rr == null:
+		rr = RandomNumberGenerator.new()
+		rr.randomize()
+	var rooms: Array = []
+	for rk in Boarding.ROOMS:
+		var R: Dictionary = Boarding.ROOMS[rk]
+		if bool(R.get("pilot", false)) or bool(R.get("conn", false)) or bool(R.get("flow", false)) or str(rk) in ["sbay", fleet_exit_key()] or "lift" in str(rk).to_lower(): continue
+		rooms.append(rk)
+	for i in mini(n, rooms.size()):
+		var rk: String = rooms.pop_at(rr.randi_range(0, rooms.size() - 1))
+		var r: Array = Boarding.ROOMS[rk]["r"]
+		var at := Vector3((float(r[0]) + float(r[1])) * 0.5, 0.0, (float(r[2]) + float(r[3])) * 0.5)
+		at.y = Boarding.floor_at(at)
+		var lv: int = lvs[rr.randi_range(0, lvs.size() - 1)]
+		for k in spawn_ground_mechs(at, fac, 1, -42, 0):
+			(k["node"] as Node3D).global_position = Vector3(at.x, at.y + Data.WALKER_STAND, at.z)
+			k["home"] = (k["node"] as Node3D).global_position
+			k["orbit"] = rr.randf() * TAU
+			k["aggro"] = false
+			_mech_standee(k, fac, lv)
+			if not (board["guards"] as Dictionary).has(rk): board["guards"][rk] = []
+			board["guards"][rk].append(k)
+
+func _mech_standee(e: Dictionary, fac: String, lv: int) -> void:
+	var n: Node3D = e["node"]
+	var model: Node3D = e.get("model")
+	var h := 40.0
+	if model != null and is_instance_valid(model):
+		var bb := ShipFactory._aabb(model, Transform3D.IDENTITY)
+		if bb.size.y > 0.1: h = bb.size.y * model.scale.y
+		model.visible = false
+	var tex: Texture2D = load("res://assets/crew_standees/mech_%s_l%d.png" % [fac.to_lower(), lv])
+	var sp := Sprite3D.new()
+	sp.name = "Standee"
+	sp.texture = tex
+	sp.pixel_size = h / float(tex.get_height())
+	sp.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
+	sp.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+	sp.shaded = false
+	sp.double_sided = true
+	sp.position = Vector3(0, h * 0.5 - Data.WALKER_STAND, 0)
+	n.add_child(sp)
+	e["standee_mech"] = lv
+	e["vis"] = {"l": [], "r": []}
+	n.name = "%s Mech L%d" % [fac, lv]
 
 func _stealth_setup(root: Node3D, visit: bool) -> void:
 	stealth = "neutral" if visit else ""
@@ -9251,7 +9311,7 @@ func _damage_enemy(e: Dictionary, dmg: float, hit := Vector3.INF, sf := -1.0) ->
 	e["aggro"] = true
 	e["provoked"] = true
 	if e.get("patrol", false) and not _patrol_called: _patrol_backup(e)   # v12.54
-	if boarding and stealth != "" and e.get("soldier", false) and stealth != "alert":   # v13.144: a friendly ship's guard is hit
+	if boarding and stealth != "" and (e.get("soldier", false) or e.has("standee_mech")) and stealth != "alert":   # v13.144: a friendly ship's guard is hit
 		if _stealth_hit(e): pass   # (a sneak attack from behind: nobody knows)
 		else: e["alerted"] = true
 	elif boarding and not e.get("alerted", false):   # (shot: he knows now)
