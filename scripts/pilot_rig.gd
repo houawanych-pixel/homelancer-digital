@@ -14,6 +14,15 @@ var skel: Skeleton3D
 var lateral := Vector3.RIGHT
 var _ph := 0.0
 var _k := 0.0
+var _height := 1.8
+var _feet := 0.0
+var _drv = null           # v13.157: AnimLib.Driver (real clips) once the skeleton is known
+var _drv_ok := false
+var _loco := {}
+var _act := ""            # v13.157: a move playing on the body ("roll", "flip"), driven by its progress 0..1
+var _act_f := 0.0
+var _act_ms := 0
+var _hidden: Array = []  # the gun(s) put away while rolling
 
 static func ready() -> bool:
 	if not Packs.is_ready(PACK):
@@ -23,6 +32,8 @@ static func ready() -> bool:
 
 ## The body, `height` m tall, feet at y = -feet_below (the player's origin is its middle), looking down -Z.
 func build(height: float, feet_below: float, glb := "", head_glb := "", head_yaw := INF) -> Node3D:
+	_height = height
+	_feet = feet_below
 	root = Node3D.new()
 	root.name = "Pilot"
 	body = Node3D.new()
@@ -67,8 +78,54 @@ func build(height: float, feet_below: float, glb := "", head_glb := "", head_yaw
 		rifle.rotation.y = -PI / 2 if rb.size.x >= rb.size.z else PI
 	return root
 
+## v13.157: a move on the body (owner: "real animation ... dodging, rolling"), f = how far through it (0..1).
+## Call every frame while it lasts; it ends by itself when the calls stop.
+func act(kind: String, f: float) -> void:
+	_act = kind
+	_act_f = clampf(f, 0.0, 1.0)
+	_act_ms = Time.get_ticks_msec()
+
+## v13.157: real clips (AnimLib): walk / run / idle blended by speed, a real dive-roll and a real jump-spin, with
+## the arms back on the rifle whenever he isn't rolling. Falls back to the old code swing if the clips are missing.
+func _clip_pose(dt: float, speed: float) -> bool:
+	if _drv == null:
+		_drv = AnimLib.Driver.new()
+		_drv_ok = _drv.setup(skel) and AnimLib.has("mx_walk")
+	if not _drv_ok: return false
+	if _act != "" and Time.get_ticks_msec() - _act_ms > 150: _act = ""
+	var p: Dictionary
+	match _act:
+		"roll": p = AnimLib.sample("ual_roll", 0.1 + _act_f * 1.25)
+		"flip": p = AnimLib.sample("ual_slash_c", 0.05 + _act_f * 1.2)
+		_:
+			# the clips are made for a 1.75 m person: walk speed in "person" units
+			p = AnimLib.locomotion(_loco, dt, speed * 1.75 / maxf(0.1, _height), 0.95)
+	_drv.apply(p, dt, 30.0 if _act != "" else 16.0)
+	if _act != "" and _hidden.is_empty():
+		for nm in ["Rifle", "Held"]:
+			var g := body.get_node_or_null(nm)
+			if g != null and g.visible:
+				g.visible = false
+				_hidden.append(g)
+	elif _act == "" and not _hidden.is_empty():
+		for g in _hidden: if is_instance_valid(g): g.visible = true
+		_hidden.clear()
+	if _act == "":
+		# arms on the rifle: right hand on the grip, left under the barrel (body space: forward -Z, right +X)
+		_aim("R_Upperarm", "R_Forearm", Vector3(0.05, -0.75, -0.65))
+		_aim("R_Forearm", "R_Hand", Vector3(-0.25, 0.05, -1.0))
+		_aim("L_Upperarm", "L_Forearm", Vector3(0.3, -0.6, -0.75))
+		_aim("L_Forearm", "L_Hand", Vector3(0.45, 0.1, -1.0))
+	# feet on the floor (the clip's legs come from another body)
+	var sc := _rel(skel, body).basis.get_scale().y
+	# (mid-roll he is upside down: then the clip's own hip height, not the feet, says where the body is)
+	var y: float = float(p.get("lift", 0.0)) * _drv.hip_h * sc if _act != "" else _drv.plant_offset() * sc
+	body.position.y = lerpf(body.position.y, y, minf(1.0, dt * 20.0))
+	return true
+
 func pose(dt: float, speed: float, run_speed: float) -> void:
 	if skel == null or not is_instance_valid(skel): return
+	if dt > 0.0 and _clip_pose(dt, speed): return
 	_k = move_toward(_k, clampf(speed / maxf(run_speed, 0.01), 0.0, 1.0), dt * 4.0)
 	_ph += dt * (6.0 + speed * 0.12)
 	var sw := sin(_ph) * 0.55 * _k

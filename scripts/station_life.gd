@@ -549,6 +549,18 @@ func _add_civ(ps: PackedScene, at: Vector3, room: String) -> void:
 		break
 	var c := {"node": node, "pivot": pivot, "inst": inst, "ap": ap, "skel": skel, "state": "idle", "goal": at, "t": _rng.randf_range(0.5, 4.0),
 		"room": room, "cover": null, "calm": 0.0, "drop": 0.0}
+	# v13.157 (owner: "NPCs chattering, making expressions, talking ... real animation"): the shared clip library
+	# (AnimLib) instead of the models' own Walk / Idle: talking, arms folded, phone calls, nods and head shakes,
+	# a real walk and run, a real crouch for cover and a real fall when hit
+	var drv = AnimLib.Driver.new()
+	if skel != null and AnimLib.has("ual_talk") and drv.setup(skel):
+		if ap != null: ap.stop(); ap.active = false
+		c["ap"] = null
+		c["drv"] = drv
+		c["base_y"] = inst.position.y
+		c["loco"] = {}
+		c["at"] = _rng.randf_range(0.0, 3.0)
+		c["idle"] = IDLES[_rng.randi() % IDLES.size()]
 	civs.append(c)
 	_clip(c, "Idle")
 
@@ -560,6 +572,36 @@ func _clip(c: Dictionary, nm: String, speed := 1.0) -> void:
 			if ap.current_animation != a or not ap.is_playing(): ap.play(a, 0.2)
 			ap.speed_scale = speed
 			return
+
+const IDLES := ["ual_talk", "ual_talk", "ual_fold_arms", "ual_phone", "ual_idle", "mx_idle", "ual_nod", "ual_shake_head", "ual_sit_talk"]
+func _civ_anim(c: Dictionary, dt: float) -> void:
+	var drv = c["drv"]
+	var st := str(c["state"])
+	if str(c.get("last", "")) != st:
+		c["last"] = st
+		c["at"] = 0.0
+		if st == "idle":
+			var pick: String = IDLES[_rng.randi() % IDLES.size()]
+			c["idle"] = "ual_talk" if pick == "ual_sit_talk" else pick   # (no chairs to sit on yet)
+	c["at"] = float(c["at"]) + dt
+	var t := float(c["at"])
+	var p: Dictionary
+	match st:
+		"idle":
+			var nm: String = c["idle"]
+			if nm in ["ual_nod", "ual_shake_head"] and t > AnimLib.length(nm):   # a nod or a head shake, then back to talking
+				c["idle"] = "ual_talk"
+				nm = "ual_talk"
+			p = AnimLib.sample(nm, t)
+		"walk": p = AnimLib.locomotion(c["loco"], dt, CIV_WALK * 1.75 / CIV_H, 0.95)
+		"run": p = AnimLib.locomotion(c["loco"], dt, CIV_RUN * 1.75 / CIV_H, 0.95, "mx_walk", "ual_sprint")
+		"cower": p = AnimLib.sample("ual_crouch_idle", t)
+		"down": p = AnimLib.sample("ual_death", t)
+	drv.apply(p, dt, 12.0)
+	var inst: Node3D = c["inst"]
+	var sc := PilotRig._rel(c["skel"], inst).basis.get_scale().y * inst.scale.y
+	if st != "down": inst.position.y = lerpf(inst.position.y, float(c["base_y"]) + drv.plant_offset() * sc, minf(1.0, dt * 15.0))
+	else: inst.position.y = lerpf(inst.position.y, float(c["base_y"]), minf(1.0, dt * 6.0))
 
 ## something loud at `at`: everyone near it (or in the room) runs for cover
 func noise(at: Vector3, radius: float) -> void:
@@ -639,6 +681,7 @@ func _stand(c: Dictionary) -> void:
 func _cower(c: Dictionary) -> void:
 	c["state"] = "cower"
 	c["t"] = 0.0
+	if c.has("drv"): return   # v13.157: the real crouch clip does it
 	var ap: AnimationPlayer = c["ap"]
 	if ap != null and is_instance_valid(ap): ap.stop()
 	var skel: Skeleton3D = c["skel"]
@@ -668,8 +711,10 @@ func _update_people(dt: float) -> void:
 		n.visible = near
 		var ap: AnimationPlayer = c["ap"]
 		if ap != null and is_instance_valid(ap): ap.active = near
+		if near and c.has("drv") and n.global_position.distance_to(pp) < 600.0: _civ_anim(c, dt)
 		match str(c["state"]):
 			"down":
+				if c.has("drv"): continue   # v13.157: the real fall clip
 				var pv: Node3D = c["pivot"]
 				pv.rotation.x = move_toward(pv.rotation.x, PI * 0.5, dt * 3.5)
 				continue

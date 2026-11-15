@@ -10365,8 +10365,9 @@ func _update_sword(dt: float) -> void:
 	if sword_kind != "": _sword_step(dt, fwd)
 	if sword_kind != "flip" and sword_kind != "roll":   # v13.69 (owner: "my character is upside down ... when I did a flip it got stuck in that pose"): a flip or roll cut short (another move, a wall, a room change) never leaves the body turned
 		var up_body: Node3D = pilot_rig.body if pilot_rig != null and is_instance_valid(pilot_rig.body) else null
-		if up_body != null and (up_body.rotation.x != 0.0 or up_body.rotation.z != 0.0):
+		if up_body != null and (up_body.rotation.x != 0.0 or up_body.rotation.z != 0.0 or up_body.rotation.y != 0.0):
 			up_body.rotation.x = 0.0
+			up_body.rotation.y = 0.0
 			up_body.rotation.z = 0.0
 	_update_blade(dt)
 
@@ -10399,7 +10400,8 @@ func _sword_step(dt: float, fwd: Vector3) -> void:
 			player.global_position.y = base_y + 4.0 * Data.SWORD_FLIP_HEIGHT * f * (1.0 - f)
 			vel.y = 0.0
 			var spin: Node3D = pilot_rig.body if pilot_rig != null and is_instance_valid(pilot_rig.body) else model
-			if is_instance_valid(spin): spin.rotation.x = -TAU * f
+			if pilot_rig != null and is_instance_valid(pilot_rig.body): pilot_rig.act("flip", f)   # v13.157: a real jump-spin, not a stiff spin
+			elif is_instance_valid(spin): spin.rotation.x = -TAU * f
 			if _sword_next <= 0.0 and f > 0.45 and _sword_left > 0:   # the blade over the top
 				_sword_left -= 1
 				_sword_next = 99.0
@@ -10418,8 +10420,15 @@ func _sword_step(dt: float, fwd: Vector3) -> void:
 			var fr := clampf(1.0 - sword_t / Data.DODGE_TIME, 0.0, 1.0)
 			_sword_move(_sword_dir * (Data.DODGE_DIST / Data.DODGE_TIME) * (1.4 - fr * 0.8), dt)
 			var spin2: Node3D = pilot_rig.body if pilot_rig != null and is_instance_valid(pilot_rig.body) else model
-			if is_instance_valid(spin2): spin2.rotation.z = -TAU * fr * signf(_sword_dir.dot(player.global_basis.x))
-			if sword_t <= 0.0 and is_instance_valid(spin2): spin2.rotation.z = 0.0
+			if pilot_rig != null and is_instance_valid(pilot_rig.body):
+				# v13.157 (owner: "he's flipping around like a stiff 360 ... we need real animation"): a real dive-roll
+				# toward the side he dodges to, then he faces front again
+				var ld := player.global_basis.inverse() * _sword_dir
+				spin2.rotation.y = atan2(-ld.x, -ld.z) if sword_t > 0.0 else 0.0
+				pilot_rig.act("roll", fr)
+			else:
+				if is_instance_valid(spin2): spin2.rotation.z = -TAU * fr * signf(_sword_dir.dot(player.global_basis.x))
+				if sword_t <= 0.0 and is_instance_valid(spin2): spin2.rotation.z = 0.0
 		"burst":   # v12.55: the ship's light thrust: it bursts through what's in front
 			_sword_move(_sword_dir * Data.SHIP_BURST_SPEED, dt)
 			if _rng.randf() < 0.8: _spark(player.global_position - _sword_dir * 6.0 + Vector3(_rng.randfn(0, 2), _rng.randfn(0, 2), _rng.randfn(0, 2)), Color(0.75, 0.95, 1.0), 4.5, 0.3)

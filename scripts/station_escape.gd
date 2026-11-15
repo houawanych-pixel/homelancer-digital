@@ -661,8 +661,22 @@ func _aim_bone(name: String, child: String, dir_body: Vector3) -> void:
 	var pg: Basis = _skel.get_bone_global_pose(par).basis if par >= 0 else Basis.IDENTITY
 	_skel.set_bone_pose_rotation(b, (pg.inverse() * nb).get_rotation_quaternion())
 
+var _drv = null   # v13.157: AnimLib.Driver (real walk / run / idle clips)
+var _loco := {}
 func _pilot_pose(dt: float, speed: float) -> void:
 	if _skel == null: return
+	if _drv == null:
+		_drv = AnimLib.Driver.new()
+		if not (_drv.setup(_skel) and AnimLib.has("mx_walk")): _drv = false
+	if _drv is RefCounted:
+		_drv.apply(AnimLib.locomotion(_loco, dt, speed, 0.95), dt, 16.0)
+		_aim_bone("R_Upperarm", "R_Forearm", Vector3(0.05, -0.75, -0.65))
+		_aim_bone("R_Forearm", "R_Hand", Vector3(-0.25, 0.05, -1.0))
+		_aim_bone("L_Upperarm", "L_Forearm", Vector3(0.3, -0.6, -0.75))
+		_aim_bone("L_Forearm", "L_Hand", Vector3(0.45, 0.1, -1.0))
+		var sc: float = _skel.global_transform.basis.get_scale().y / maxf(0.001, body_mesh.global_transform.basis.get_scale().y)
+		body_mesh.position.y = lerpf(body_mesh.position.y, _drv.plant_offset() * sc, minf(1.0, dt * 20.0))
+		return
 	_walk_k = move_toward(_walk_k, clampf(speed / RUN, 0.0, 1.0), dt * 4.0)
 	_walk_ph += dt * (6.0 + speed * 1.1)
 	var sw := sin(_walk_ph) * 0.55 * _walk_k
