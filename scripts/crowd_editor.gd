@@ -9,12 +9,19 @@ extends Control
 ##   SIZE - / +, WALKS / STANDS, TURN, DELETE, PREVIEW (let them walk), COPY ALL (every room edited, one block).
 
 const PAD := 26.0   # px: how close a finger must be to a box corner
+const TOOLS_Y := 150.0   # v13.160: under the room title
+const PANEL_X := 270.0   # v13.160: the roster / copy box, right of the tools
+## v13.160 (owner: "they can move and pose"): the poses a standing person can hold (POSE cycles them), all real clips
+const POSES := [["", "WALK / IDLE"], ["ual_talk", "TALKING"], ["ual_phone", "ON A CALL"], ["ual_fold_arms", "ARMS FOLDED"], ["ual_lean_rail", "LEANING"],
+	["ual_nod", "NODDING"], ["ual_shake_head", "SHAKING HEAD"], ["mx_idle", "STANDING"], ["ual_pistol_idle", "SIDEARM READY"], ["ual_sword_idle", "BLADE READY"],
+	["ual_shield_idle", "GUARD"], ["ual_cast_hold", "HOLO / CASTING"], ["ual_interact", "WORKING A PANEL"], ["ual_lantern", "HOLDING A LIGHT"], ["ual_dance", "DANCING"]]
 var hub: Node
 var crowd: Crowd3D
-var bar: HBoxContainer
+var bar: GridContainer
 var picker: GridContainer
 var roster: PanelContainer
-var roster_tab := "faction"
+var roster_tab := "bodies"
+var _thumbs := {}   # v13.160: body -> picture (rendered once)
 var out_box: TextEdit
 var sel_src = null             # the selected person's entry in the room's list (people get re-sorted each frame)
 var layers: PanelContainer     # v12.12 (owner: "a side window like Photoshop, character order top to bottom")
@@ -23,6 +30,11 @@ var drag := ""                 # "body", "zone", "nw", "ne", "sw", "se"
 var drag_idx := -1
 var btns := {}
 var editor_log: Array = []     # (tests)
+var _panels_were := false
+
+func _pose_name(clip: String) -> String:
+	for pz in POSES: if pz[0] == clip: return str(pz[1])
+	return "WALK / IDLE"
 
 func setup(h: Node) -> void:
 	hub = h
@@ -30,16 +42,21 @@ func setup(h: Node) -> void:
 	name = "CrowdEdit"
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bar = HBoxContainer.new()
-	bar.position = Vector2(12, 74)
-	bar.add_theme_constant_override("separation", 6)
+	# v13.160 (owner: "the buttons are behind the title up there"): the tools are a two-column block on the left,
+	# under the room's title, and the station's panels fold away while you edit
+	bar = GridContainer.new()
+	bar.columns = 2
+	bar.position = Vector2(12, TOOLS_Y)
+	bar.add_theme_constant_override("h_separation", 6)
+	bar.add_theme_constant_override("v_separation", 6)
 	add_child(bar)
-	for k in [["edit", "CROWD EDIT"], ["add", "+ ADD"], ["smaller", "SIZE −"], ["bigger", "SIZE +"], ["walk", "WALKS"], ["turn", "TURN"],
+	for k in [["edit", "DONE"], ["add", "+ ADD"], ["smaller", "SIZE −"], ["bigger", "SIZE +"], ["walk", "WALKS"], ["pose", "POSE"], ["turn", "TURN"],
 			["del", "DELETE"], ["preview", "PREVIEW"], ["copy", "COPY ALL"]]:
 		var b := Button.new()
 		b.text = k[1]
+		b.custom_minimum_size = Vector2(118, 40)
 		b.focus_mode = Control.FOCUS_NONE
-		b.add_theme_font_size_override("font_size", 15)
+		b.add_theme_font_size_override("font_size", 14)
 		b.pressed.connect(_on.bind(k[0]))
 		bar.add_child(b)
 		btns[k[0]] = b
@@ -54,7 +71,7 @@ func setup(h: Node) -> void:
 	rsb.set_corner_radius_all(8)
 	rsb.set_content_margin_all(10)
 	roster.add_theme_stylebox_override("panel", rsb)
-	roster.position = Vector2(12, 116)
+	roster.position = Vector2(PANEL_X, TOOLS_Y)
 	roster.visible = false
 	add_child(roster)
 	var rv := VBoxContainer.new()
@@ -62,7 +79,7 @@ func setup(h: Node) -> void:
 	var tabs := HBoxContainer.new()
 	tabs.add_theme_constant_override("separation", 8)
 	rv.add_child(tabs)
-	for t in [["faction", "FACTION"], ["crew", "MY CREW"]]:
+	for t in [["bodies", "3D PEOPLE"], ["faction", "FACTION"], ["crew", "MY CREW"]]:
 		var tb := Button.new()
 		tb.name = "RosterTab_" + t[0]
 		tb.text = t[1]
@@ -72,7 +89,7 @@ func setup(h: Node) -> void:
 		tb.pressed.connect(func(): roster_tab = t[0]; _fill_roster())
 		tabs.add_child(tb)
 	var rsc := ScrollContainer.new()
-	rsc.custom_minimum_size = Vector2(640, 300)
+	rsc.custom_minimum_size = Vector2(640, 330)
 	rsc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	rv.add_child(rsc)
 	picker = GridContainer.new()
@@ -82,7 +99,7 @@ func setup(h: Node) -> void:
 	rsc.add_child(picker)
 	out_box = TextEdit.new()
 	out_box.visible = false
-	out_box.position = Vector2(12, 116)
+	out_box.position = Vector2(PANEL_X, TOOLS_Y)
 	out_box.size = Vector2(620, 220)
 	out_box.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
 	add_child(out_box)
@@ -99,7 +116,7 @@ func setup(h: Node) -> void:
 	layers.anchor_right = 1.0
 	layers.offset_left = -300
 	layers.offset_right = -12
-	layers.offset_top = 74
+	layers.offset_top = TOOLS_Y
 	add_child(layers)
 	var lv := VBoxContainer.new()
 	layers.add_child(lv)
@@ -122,6 +139,8 @@ func _refresh() -> void:
 	queue_redraw()   # (v13.76: the boxes go when editing stops)
 	for k in btns: (btns[k] as Button).visible = on   # v13.78: CROWD EDIT itself is on the bottom bar; up here only while editing
 	(btns["edit"] as Button).text = "DONE"
+	var p0 := _sel()
+	(btns["pose"] as Button).text = "POSE: " + _pose_name(str(p0["src"].get("pose", ""))) if not p0.is_empty() else "POSE"
 	var lb: Button = hub.look_bar.get_node_or_null("Crowd") if hub.get("look_bar") != null else null
 	if lb != null: lb.text = "EDITING..." if on else "CROWD EDIT"
 	(btns["preview"] as Button).text = "STOP" if crowd.preview else "PREVIEW"
@@ -147,6 +166,11 @@ func _on(k: String) -> void:
 	match k:
 		"edit":
 			crowd.edit_on = not crowd.edit_on
+			if hub.has_method("set_panels_hidden"):   # v13.160: the station's windows fold away while you edit
+				if crowd.edit_on:
+					_panels_were = bool(hub.get("panels_hidden"))
+					hub.set_panels_hidden(true)
+				else: hub.set_panels_hidden(_panels_were)
 			crowd.preview = false
 			if crowd.edit_on: _list()
 			sel_src = null
@@ -163,6 +187,16 @@ func _on(k: String) -> void:
 		"walk":
 			if not p.is_empty():
 				p["src"]["walk"] = not bool(p["src"].get("walk", true))
+				crowd.sync(p)
+		"pose":   # v13.160: cycle the standing pose (a posed person stands still in it)
+			if not p.is_empty():
+				var cur := str(p["src"].get("pose", ""))
+				var i := 0
+				for j in POSES.size(): if POSES[j][0] == cur: i = j
+				var nxt: String = POSES[(i + 1) % POSES.size()][0]
+				p["src"]["pose"] = nxt
+				if nxt != "": p["src"]["walk"] = false
+				editor_log.append("pose:" + nxt)
 				crowd.sync(p)
 		"turn":
 			if not p.is_empty():
@@ -193,7 +227,7 @@ func copy_text() -> String:
 		var ppl: Array = []
 		for pl in Crowd3D.edits[rk]:
 			ppl.append({"who": str(pl.get("who", "")), "who_kind": str(pl.get("who_kind", "")), "name": str(pl.get("name", "")), "model": pl["model"], "x": snappedf(float(pl["x"]), 0.0001), "feet": snappedf(float(pl["feet"]), 0.0001), "h": snappedf(float(pl["h"]), 0.0001),
-				"walk": bool(pl.get("walk", true)), "face": int(pl.get("face", 1)), "zone": (pl["zone"] as Array).map(func(v): return snappedf(float(v), 0.0001))})
+				"walk": bool(pl.get("walk", true)), "pose": str(pl.get("pose", "")), "face": int(pl.get("face", 1)), "zone": (pl["zone"] as Array).map(func(v): return snappedf(float(v), 0.0001))})
 		lines.append("HL_CROWD " + JSON.stringify({"room": rk, "people": ppl}))
 	return "\n".join(lines)
 
@@ -250,8 +284,16 @@ func _fit() -> Array:
 ## v13.76: everyone you can put in this room: the room's faction (leader and pilots, their face profiles) or your crew.
 func roster_people(tab: String) -> Array:
 	var out: Array = []
+	if tab == "bodies":   # v13.160 (owner: "a list and pictures of NPCs, pick and set them in"): every 3D crew body
+		for m in Data.CROWD3D_CREWS["orion"]["models"]:
+			var body := str(m).substr(12)
+			out.append({"who": "", "kind": "body", "name": _spaced(body), "body": body, "full": str(m), "face": ""})
+		return out
 	if tab == "faction":
 		var f := str(crowd.full.get_slice("/", 0)).capitalize()
+		if not Data.ROSTERS.has(f):   # v13.160: the station's own faction (rooms named "loc/..." didn't say whose they are)
+			var sd: Dictionary = Data.SYSTEMS.get(GS.system_id, {})
+			f = str(Factions.owner_of(hub.base, sd)).capitalize() if hub.get("base") != null else str(sd.get("faction", "")).capitalize()
 		var R: Dictionary = Data.ROSTERS.get(f, {})
 		for p in R.get("pilots", []):
 			out.append({"who": str(p["id"]), "kind": "pilot", "name": str(p["name"]), "sub": str(p.get("role", "")), "face": str(p.get("portrait_clean", "res://assets/enemy_pilots/%s_clean.jpg" % str(p["id"]))), "faction": f})
@@ -261,13 +303,64 @@ func roster_people(tab: String) -> Array:
 				out.append({"who": str(c["id"]), "kind": "crew", "name": str(c["name"]), "sub": str(c.get("role", "")), "face": "res://assets/crew/%s/%s_face.png" % [fk, str(c["file"])], "faction": fk})
 	return out
 
+static func _spaced(s: String) -> String:   # "WhiteDragonSoldier" -> "White Dragon Soldier"
+	var out := ""
+	for i in s.length():
+		if i > 0 and s[i] == s[i].to_upper() and s[i] != s[i].to_lower(): out += " "
+		out += s[i]
+	return out
+
+## v13.160: a picture of a crew body, rendered once (toon-free, front on, standing in a real idle)
+func _thumb(full_name: String) -> Texture2D:
+	if _thumbs.has(full_name): return _thumbs[full_name]
+	var path := "%s/%s%s.glb" % [Data.CROWD3D_CREWS["orion"]["folder"], full_name, Data.CROWD3D_CREWS["orion"]["suffix"]]
+	if not ResourceLoader.exists(path): return null
+	var vp := SubViewport.new()
+	vp.size = Vector2i(112, 150)
+	vp.transparent_bg = true
+	vp.own_world_3d = true
+	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS   # (a few frames to settle, then it holds the picture)
+	add_child(vp)
+	get_tree().create_timer(0.6).timeout.connect(func(): if is_instance_valid(vp): vp.render_target_update_mode = SubViewport.UPDATE_DISABLED)
+	var env := WorldEnvironment.new()
+	var e := Environment.new()
+	e.background_mode = Environment.BG_CLEAR_COLOR
+	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	e.ambient_light_color = Color(0.85, 0.88, 0.95)
+	e.ambient_light_energy = 0.9
+	env.environment = e
+	vp.add_child(env)
+	var sun := DirectionalLight3D.new()
+	sun.rotation_degrees = Vector3(-35, -25, 0)
+	vp.add_child(sun)
+	var inst: Node3D = (load(path) as PackedScene).instantiate()
+	vp.add_child(inst)
+	var bb := PilotRig._aabb(inst)
+	inst.rotation_degrees.y = 20.0   # (as the crowd stands: turned a little toward you)
+	for sk in inst.find_children("*", "Skeleton3D", true, false):
+		var drv = AnimLib.Driver.new()
+		if drv.setup(sk): drv.apply(AnimLib.sample("mx_idle", 0.5), 1.0, 1000.0)
+		break
+	var cam := Camera3D.new()
+	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
+	cam.size = bb.size.y * 1.08
+	cam.position = Vector3(0, bb.position.y + bb.size.y * 0.5, 50.0)
+	cam.far = 200.0
+	vp.add_child(cam)
+	cam.current = true
+	_thumbs[full_name] = vp.get_texture()
+	return _thumbs[full_name]
+
 func _fill_roster() -> void:
 	for c in picker.get_children(): c.queue_free()
-	for t in ["faction", "crew"]:
+	for t in ["bodies", "faction", "crew"]:
 		var tb := roster.find_child("RosterTab_" + t, true, false) as Button
 		if tb != null: tb.button_pressed = t == roster_tab
 	if roster_tab == "faction" and not Packs.is_ready("enemies"):   # (the pilots' faces come in their own pack on the web)
 		Packs.request("enemies")
+		if not Packs.pack_ready.is_connected(_on_roster_pack): Packs.pack_ready.connect(_on_roster_pack)
+	if roster_tab == "bodies" and not Packs.is_ready("crowd3d_orion"):
+		Packs.request("crowd3d_orion")
 		if not Packs.pack_ready.is_connected(_on_roster_pack): Packs.pack_ready.connect(_on_roster_pack)
 	for who in roster_people(roster_tab):
 		var b := Button.new()
@@ -280,12 +373,16 @@ func _fill_roster() -> void:
 		b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		b.expand_icon = true
 		b.add_theme_font_size_override("font_size", 12)
-		if ResourceLoader.exists(str(who["face"])): b.icon = load(str(who["face"]))
-		b.pressed.connect(_add_who.bind(who))
+		if str(who["kind"]) == "body":
+			if Packs.is_ready("crowd3d_orion"): b.icon = _thumb(str(who["full"]))
+			b.pressed.connect(_add.bind(str(who["body"])))
+		else:
+			if ResourceLoader.exists(str(who["face"])): b.icon = load(str(who["face"]))
+			b.pressed.connect(_add_who.bind(who))
 		picker.add_child(b)
 
 func _on_roster_pack(pk: String) -> void:
-	if pk == "enemies" and roster.visible: _fill_roster()
+	if pk in ["enemies", "crowd3d_orion"] and roster.visible: _fill_roster()
 
 ## Put someone from the roster in the room: their face, name and voice; a body from the 3D crowd (the same one each time).
 func _add_who(who: Dictionary) -> void:

@@ -4724,6 +4724,17 @@ func _run() -> void:
 		else: ed._on("edit")
 		bar_ok = bar_ok and hb.crowd.edit_on
 		ed._on("add")
+		await _until(func(): return Packs.is_ready("crowd3d_orion"), 30.0)
+		ed._fill_roster()   # (3D PEOPLE opens first: every crew body, with its picture)
+		await _frames(4)
+		await _wait(0.5)
+		await _capture("roster_bodies")
+		var bodies_n: int = ed.picker.get_child_count()
+		var pics_n := 0
+		for c in ed.picker.get_children(): if (c as Button).icon != null: pics_n += 1
+		var tools_ok: bool = ed.bar.get_global_rect().position.y >= ed.TOOLS_Y - 1.0 and hb.panels_hidden
+		ed.roster_tab = "faction"
+		ed._fill_roster()
 		await _frames(3)
 		await _wait(0.5)
 		await _capture("roster_open")
@@ -4737,6 +4748,15 @@ func _run() -> void:
 		await _until(func(): return Packs.is_ready("crowd3d_orion") and hb.crowd.people.size() > n0, 30.0)
 		await _wait(0.5)
 		var placed_ok: bool = hb.crowd.people.size() == n0 + 1 and str(hb.crowd.people[-1]["src"].get("who", "")) == str(pick.get("who", ""))
+		# v13.160: POSE cycles the picked person's standing pose (a real clip)
+		var pose0 := str(ed._list()[-1].get("pose", ""))
+		ed._on("pose")
+		ed._on("pose")
+		await _wait(0.6)
+		var pose1 := str(ed._list()[-1].get("pose", ""))
+		await _capture("roster_posed")
+		_check("v13.160 (owner: \"a list and pictures of NPCs, pick and set them in, they move and pose\"): 3D PEOPLE lists %d crew bodies (%d with pictures); the tools sit under the title with the station windows folded (%s); POSE: '%s' -> '%s'" % [bodies_n, pics_n, tools_ok, pose0, pose1],
+			bodies_n == (Data.CROWD3D_CREWS["orion"]["models"] as Array).size() and pics_n == bodies_n and tools_ok and pose1 != pose0 and AnimLib.has(pose1))
 		ed._on("edit")   # (edit off: they stand in the room)
 		await _wait(0.8)
 		var pp: Dictionary = {}

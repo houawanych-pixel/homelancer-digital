@@ -142,11 +142,15 @@ func _room_light() -> Color:
 			return im.get_pixel(0, 0)
 	return Color(0.8, 0.75, 0.7)
 
+var _paths := {}               # v13.160: model -> its file (pose views are made when first needed)
+var _lc := Color.WHITE
 func _build() -> void:
 	var lc := _room_light()
+	_lc = lc
 	var paths := _models()
 	for path in paths:
 		var m := str(path).get_file().get_basename()
+		_paths[m] = path
 		if not ResourceLoader.exists(path): continue
 		# (two walks at different points in the step: copies don't march in step; v13.159: two kinds of standing too)
 		for move in (["Walk", "Walk2", "Idle", "Idle2"] if AnimLib.has("ual_talk") else ["Walk", "Walk2", "Idle"]):
@@ -228,6 +232,8 @@ func _make_view(path: String, model: String, move: String, lc: Color) -> SubView
 		var t0 := 0.0
 		if mv == "Walk":
 			if move.ends_with("2"): t0 = AnimLib.length(clip) * 0.5
+		elif move.begins_with("Pose_"):
+			clip = move.substr(5)
 		else:
 			var hm := absi(hash(model))
 			var talk: Array = ["ual_talk", "ual_talk", "ual_fold_arms", "ual_idle"]
@@ -278,6 +284,13 @@ func _find_player(n: Node) -> AnimationPlayer:
 	return null
 
 func _set_tex(p: Dictionary) -> void:
+	# v13.160 (owner: Crowd Edit "they can move and pose"): a placed person standing in a chosen pose (POSE button)
+	var pose := str((p.get("src", {}) as Dictionary).get("pose", ""))
+	if pose != "" and p["state"] != "walk" and AnimLib.has(pose) and _paths.has(p["model"]):
+		var key := "%s:Pose_%s" % [p["model"], pose]
+		if not views.has(key): views[key] = _make_view(_paths[p["model"]], str(p["model"]), "Pose_" + pose, _lc)
+		(p["node"] as TextureRect).texture = (views[key] as SubViewport).get_texture()
+		return
 	var vp: SubViewport = views.get("%s:%s" % [p["model"], ("Walk" if int(p.get("v", 1)) == 1 else "Walk2") if p["state"] == "walk" else ("Idle" if int(p.get("v", 1)) == 1 else "Idle2")])
 	if vp == null: vp = views.get(str(p["model"]) + ":Idle")
 	(p["node"] as TextureRect).texture = vp.get_texture()
