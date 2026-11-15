@@ -10,7 +10,7 @@ extends Control
 
 const PAD := 26.0   # px: how close a finger must be to a box corner
 const TOOLS_Y := 150.0   # v13.160: under the room title
-const PANEL_X := 270.0   # v13.160: the roster / copy box, right of the tools
+const PANEL_X := 330.0   # v13.160: the roster / copy box, right of the tools
 ## v13.160 (owner: "they can move and pose"): the poses a standing person can hold (POSE cycles them), all real clips
 const POSES := [["", "WALK / IDLE"], ["ual_talk", "TALKING"], ["ual_phone", "ON A CALL"], ["ual_fold_arms", "ARMS FOLDED"], ["ual_lean_rail", "LEANING"],
 	["ual_nod", "NODDING"], ["ual_shake_head", "SHAKING HEAD"], ["mx_idle", "STANDING"], ["ual_pistol_idle", "SIDEARM READY"], ["ual_sword_idle", "BLADE READY"],
@@ -51,12 +51,13 @@ func setup(h: Node) -> void:
 	bar.add_theme_constant_override("v_separation", 6)
 	add_child(bar)
 	for k in [["edit", "DONE"], ["add", "+ ADD"], ["smaller", "SIZE −"], ["bigger", "SIZE +"], ["walk", "WALKS"], ["pose", "POSE"], ["turn", "TURN"],
-			["del", "DELETE"], ["preview", "PREVIEW"], ["copy", "COPY ALL"]]:
+			["del", "DELETE"], ["preview", "PREVIEW"], ["copy_room", "COPY ROOM"], ["copy", "COPY ALL"]]:
 		var b := Button.new()
 		b.text = k[1]
-		b.custom_minimum_size = Vector2(118, 40)
+		b.custom_minimum_size = Vector2(150, 46)   # v13.161 (owner): bigger words
 		b.focus_mode = Control.FOCUS_NONE
-		b.add_theme_font_size_override("font_size", 14)
+		b.clip_text = true
+		b.add_theme_font_size_override("font_size", 19)
 		b.pressed.connect(_on.bind(k[0]))
 		bar.add_child(b)
 		btns[k[0]] = b
@@ -85,22 +86,23 @@ func setup(h: Node) -> void:
 		tb.text = t[1]
 		tb.toggle_mode = true
 		tb.focus_mode = Control.FOCUS_NONE
-		tb.add_theme_font_size_override("font_size", 16)
+		tb.add_theme_font_size_override("font_size", 20)
 		tb.pressed.connect(func(): roster_tab = t[0]; _fill_roster())
 		tabs.add_child(tb)
 	var rsc := ScrollContainer.new()
-	rsc.custom_minimum_size = Vector2(640, 330)
+	rsc.custom_minimum_size = Vector2(650, 390)
 	rsc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	rv.add_child(rsc)
 	picker = GridContainer.new()
-	picker.columns = 5
+	picker.columns = 4
 	picker.add_theme_constant_override("h_separation", 8)
 	picker.add_theme_constant_override("v_separation", 8)
 	rsc.add_child(picker)
 	out_box = TextEdit.new()
 	out_box.visible = false
 	out_box.position = Vector2(PANEL_X, TOOLS_Y)
-	out_box.size = Vector2(620, 220)
+	out_box.size = Vector2(650, 260)
+	out_box.add_theme_font_size_override("font_size", 16)
 	out_box.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
 	add_child(out_box)
 	layers = PanelContainer.new()
@@ -114,7 +116,7 @@ func setup(h: Node) -> void:
 	layers.add_theme_stylebox_override("panel", sb)
 	layers.anchor_left = 1.0
 	layers.anchor_right = 1.0
-	layers.offset_left = -300
+	layers.offset_left = -400
 	layers.offset_right = -12
 	layers.offset_top = TOOLS_Y
 	add_child(layers)
@@ -122,10 +124,10 @@ func setup(h: Node) -> void:
 	layers.add_child(lv)
 	var title := Label.new()
 	title.text = "LAYERS  (top = in front)"
-	title.add_theme_font_size_override("font_size", 14)
+	title.add_theme_font_size_override("font_size", 18)
 	lv.add_child(title)
 	var sc := ScrollContainer.new()
-	sc.custom_minimum_size = Vector2(276, 0)
+	sc.custom_minimum_size = Vector2(376, 0)
 	sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	lv.add_child(sc)
@@ -140,13 +142,14 @@ func _refresh() -> void:
 	for k in btns: (btns[k] as Button).visible = on   # v13.78: CROWD EDIT itself is on the bottom bar; up here only while editing
 	(btns["edit"] as Button).text = "DONE"
 	var p0 := _sel()
-	(btns["pose"] as Button).text = "POSE: " + _pose_name(str(p0["src"].get("pose", ""))) if not p0.is_empty() else "POSE"
+	(btns["pose"] as Button).text = _pose_name(str(p0["src"].get("pose", ""))) if not p0.is_empty() else "POSE"   # (the pose it's in now)
+	(btns["pose"] as Button).add_theme_font_size_override("font_size", 19 if p0.is_empty() else 15)
 	var lb: Button = hub.look_bar.get_node_or_null("Crowd") if hub.get("look_bar") != null else null
 	if lb != null: lb.text = "EDITING..." if on else "CROWD EDIT"
 	(btns["preview"] as Button).text = "STOP" if crowd.preview else "PREVIEW"
 	var p := _sel()
 	(btns["walk"] as Button).text = "STANDS" if not p.is_empty() and not bool(p["src"].get("walk", true)) else "WALKS"
-	layers.visible = on
+	layers.visible = on and not roster.visible and not out_box.visible   # (no overlap with the roster or the copy box)
 	if on: _layer_rows()
 	if not on:
 		roster.visible = false
@@ -166,6 +169,12 @@ func _on(k: String) -> void:
 	match k:
 		"edit":
 			crowd.edit_on = not crowd.edit_on
+			# v13.161: the room stands still the whole time you edit; it turns again after DONE
+			if hub.get("edit_freeze") != null:
+				hub.edit_freeze = crowd.edit_on
+				if hub.get("look_ui") != null: hub.look_ui.queue_redraw()
+				hub.edit_view = Vector2(float(hub.room_yaw), float(hub.room_pitch))
+				if not crowd.edit_on and hub.get("_motion0") != null: hub._motion0 = -999.0   # (TILT starts again from here, no jump)
 			if hub.has_method("set_panels_hidden"):   # v13.160: the station's windows fold away while you edit
 				if crowd.edit_on:
 					_panels_were = bool(hub.get("panels_hidden"))
@@ -177,6 +186,7 @@ func _on(k: String) -> void:
 			crowd.rebuild()
 		"add":
 			roster.visible = not roster.visible
+			out_box.visible = false
 			if roster.visible: _fill_roster()
 			out_box.visible = false
 		"smaller", "bigger":
@@ -210,20 +220,57 @@ func _on(k: String) -> void:
 		"preview":
 			crowd.preview = not crowd.preview
 			crowd.rebuild()
-		"copy":
-			var txt := copy_text()
-			DisplayServer.clipboard_set(txt)
+		"copy", "copy_room":
+			var txt := copy_text(k == "copy_room")
+			_clip(txt)
 			out_box.text = txt
 			out_box.visible = true
-			picker.visible = false
+			roster.visible = false
 			editor_log.append("copied:%d" % txt.length())
-			if hub.has_method("toast"): hub.toast("Copied all crowd positions")
 	_refresh()
 
-## Every room edited this visit, one line each: HL_CROWD {"room": "<faction>/<file>", "people": [...]}
-func copy_text() -> String:
+## v13.161 (owner: "COPY should give me a copy to the clipboard so I can paste you the positions"): phone browsers only
+## let a page write the clipboard right after a tap, through the browser's own clipboard call; so on the web it goes
+## through JavaScript (with the old select-and-copy as a fallback), and a message says whether it worked. The text also
+## stays in the box below the tools, so it can be long-pressed and copied by hand if the phone refuses.
+var _copy_wait := 0.0
+func _clip(txt: String) -> void:
+	DisplayServer.clipboard_set(txt)
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval("""(function(t){window.__hlCopy='wait';
+			var fb=function(){try{var a=document.createElement('textarea');a.value=t;a.style.position='fixed';a.style.top='0';a.style.opacity='0';
+				document.body.appendChild(a);a.focus();a.select();var ok=document.execCommand('copy');a.remove();window.__hlCopy=ok?'ok':'fail';}catch(e){window.__hlCopy='fail';}};
+			if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(function(){window.__hlCopy='ok';},fb);}else{fb();}
+		})(%s)""" % JSON.stringify(txt), true)
+		_copy_wait = 1.5
+	else: _copy_done(true)
+
+func _copy_done(ok: bool) -> void:
+	_copy_wait = 0.0
+	editor_log.append("clip:" + ("ok" if ok else "fail"))
+	_say("COPIED! Paste it to Claude." if ok else "The phone blocked copying: press and hold the text below, then Copy.")
+
+var _msg: Label
+var _msg_t := 0.0
+func _say(t: String) -> void:
+	if _msg == null:
+		_msg = Label.new()
+		_msg.add_theme_font_size_override("font_size", 22)
+		_msg.add_theme_color_override("font_color", Color(1.0, 0.92, 0.45))
+		_msg.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+		_msg.add_theme_constant_override("outline_size", 8)
+		add_child(_msg)
+	_msg.text = t
+	_msg.position = Vector2(PANEL_X, TOOLS_Y - 40.0)
+	_msg.visible = true
+	_msg_t = 4.0
+
+## Every room edited this visit (or just this room), one line each: HL_CROWD {"room": "<faction>/<file>", "people": [...]}
+func copy_text(room_only := false) -> String:
 	var lines: Array = []
+	if room_only: _list()   # (this room is in the list even before anything changed)
 	for rk in Crowd3D.edits:
+		if room_only and rk != crowd.full: continue
 		var ppl: Array = []
 		for pl in Crowd3D.edits[rk]:
 			ppl.append({"who": str(pl.get("who", "")), "who_kind": str(pl.get("who_kind", "")), "name": str(pl.get("name", "")), "model": pl["model"], "x": snappedf(float(pl["x"]), 0.0001), "feet": snappedf(float(pl["feet"]), 0.0001), "h": snappedf(float(pl["h"]), 0.0001),
@@ -246,9 +293,10 @@ func _layer_rows() -> void:
 		var nb := Button.new()
 		nb.text = "%d  %s%s" % [i + 1, str(src["model"]), "" if bool(src.get("walk", true)) else "  (stands)"]
 		nb.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		nb.clip_text = true
 		nb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		nb.focus_mode = Control.FOCUS_NONE
-		nb.add_theme_font_size_override("font_size", 13)
+		nb.add_theme_font_size_override("font_size", 17)
 		nb.add_theme_color_override("font_color", _col(src) if not is_same(src, sel_src) else Color.WHITE)
 		if is_same(src, sel_src):
 			var st := StyleBoxFlat.new()
@@ -365,14 +413,15 @@ func _fill_roster() -> void:
 	for who in roster_people(roster_tab):
 		var b := Button.new()
 		b.name = "Pick_" + str(who["who"])
-		b.custom_minimum_size = Vector2(118, 150)
+		b.custom_minimum_size = Vector2(150, 190)
 		b.focus_mode = Control.FOCUS_NONE
 		b.clip_text = true
 		b.text = str(who["name"])
+		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		b.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
 		b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		b.expand_icon = true
-		b.add_theme_font_size_override("font_size", 12)
+		b.add_theme_font_size_override("font_size", 16)
 		if str(who["kind"]) == "body":
 			if Packs.is_ready("crowd3d_orion"): b.icon = _thumb(str(who["full"]))
 			b.pressed.connect(_add.bind(str(who["body"])))
@@ -422,6 +471,14 @@ func _zone_rect(p: Dictionary) -> Rect2:
 	return Rect2(a, Vector2((float(z[2]) - float(z[0])) * k.x, (float(z[3]) - float(z[1])) * k.y))
 
 func _process(_dt: float) -> void:
+	if _msg_t > 0.0:
+		_msg_t -= _dt
+		if _msg_t <= 0.0 and _msg != null: _msg.visible = false
+	if _copy_wait > 0.0:
+		_copy_wait -= _dt
+		var st = JavaScriptBridge.eval("window.__hlCopy||''", true) if OS.has_feature("web") else "ok"
+		if str(st) == "ok": _copy_done(true)
+		elif str(st) == "fail" or _copy_wait <= 0.0: _copy_done(false)
 	visible = Data.DEV_TOOLS and hub.room_view.visible
 	if visible and crowd.edit_on: queue_redraw()
 

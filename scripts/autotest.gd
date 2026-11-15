@@ -4757,6 +4757,16 @@ func _run() -> void:
 		await _capture("roster_posed")
 		_check("v13.160 (owner: \"a list and pictures of NPCs, pick and set them in, they move and pose\"): 3D PEOPLE lists %d crew bodies (%d with pictures); the tools sit under the title with the station windows folded (%s); POSE: '%s' -> '%s'" % [bodies_n, pics_n, tools_ok, pose0, pose1],
 			bodies_n == (Data.CROWD3D_CREWS["orion"]["models"] as Array).size() and pics_n == bodies_n and tools_ok and pose1 != pose0 and AnimLib.has(pose1))
+		# v13.161: the room holds still while editing; COPY ROOM gives just this room
+		var y0: float = hb.room_yaw
+		hb.look_by(Vector2(300, 0))
+		await _frames(3)
+		var held: bool = absf(hb.room_yaw - y0) < 0.0001 and hb.edit_freeze
+		ed._on("copy_room")
+		await _frames(3)
+		var one: String = ed.out_box.text
+		_check("v13.161 (owner): editing holds the room still (%s); COPY ROOM gives just this room (%d line(s)); the copy is confirmed (%s)" % [held, one.split("\n").size(), ed.editor_log.filter(func(x): return str(x).begins_with("clip:"))],
+			held and one.begins_with("HL_CROWD") and one.split("\n").size() == 1 and one.contains(hb.crowd.full) and ed.editor_log.has("clip:ok"))
 		ed._on("edit")   # (edit off: they stand in the room)
 		await _wait(0.8)
 		var pp: Dictionary = {}

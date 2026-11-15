@@ -1724,6 +1724,10 @@ func _update_room(dt: float) -> void:
 	if look_motion: _motion_look()
 	room_idle += dt
 	if room_idle > Data.ROOM_DRIFT_AFTER and not look_motion: room_yaw = fposmod(room_yaw + Data.ROOM_DRIFT * dt, 1.0)
+	if edit_freeze:   # v13.161 (owner: "once I put a character on there, the background should lock while I move and adjust them")
+		room_yaw = edit_view.x
+		room_pitch = edit_view.y
+		room_idle = 0.0
 	m.set_shader_parameter("yaw", room_yaw)
 	m.set_shader_parameter("pitch", room_pitch)
 	m.set_shader_parameter("zoom", Data.ROOM_ZOOM)
@@ -1827,6 +1831,9 @@ func _photo_words() -> void:
 	lk.text = "TILT" if look_motion else "LOCK"
 	look_ui.queue_redraw()
 
+var edit_freeze := false        # v13.161: Crowd Edit holds the room still (no drag, stick, tilt or drift)
+var edit_view := Vector2.ZERO   # (yaw, pitch) it holds
+
 ## v5.7 (owner): in look mode both sticks turn the view like the flight's look stick (no walking in a picture). Held
 ## sideways it keeps turning all the way round; up and down stop at the edges.
 var stick_vec := {"l": Vector2.ZERO, "r": Vector2.ZERO}
@@ -1839,6 +1846,7 @@ func stick_home(sd: String) -> Vector2:
 
 func _draw_look() -> void:
 	if not room_view.visible: return
+	if edit_freeze: return   # v13.161: no look sticks while Crowd Edit holds the room still
 	if look_motion: return   # v13.72 (owner: "remove the analog sticks when you have it on TILT"): the phone does the looking
 	for sd in ["l", "r"]:
 		var c := stick_home(sd)
