@@ -1784,7 +1784,7 @@ func _run() -> void:
 	main.hud.sp_open = true
 	main.hud.weapons_pinned = true   # (v7.0: every button up for the checks; the pop-up has its own check)
 	if not _flag("HL_PLANETSITES"): SpaceSystem.patrols_on = false   # v12.54: the planet patrols only where they're tested
-	if not _flag("HL_LOADOUT"): SpaceSystem.loadout_on = false   # v12.67: the older checks fly the old gun mounts
+	if not _flag("HL_LOADOUT") and OS.get_environment("HL_KEEP_LOADOUT") == "": SpaceSystem.loadout_on = false   # v12.67: the older checks fly the old gun mounts (v13.162: HL_KEEP_LOADOUT=1 keeps it, as players have it)
 	if not _flag("HL_LANDFILM"):   # v12.52: the landing film is cut short in the other checks (they time the descent)
 		main.landing_film_min = 0.0
 		main.landing_film_max = 0.4

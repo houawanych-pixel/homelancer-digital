@@ -5999,12 +5999,14 @@ func _player_mech_model() -> Node3D:
 		var pm := pilot_rig.build(Data.FOOT_H if on_foot else esc_h(), 6.0, str(gl[0]), str(gl[1]), Loadout.pilot_head_yaw() if loadout_on else INF)
 		var pw := str(Loadout.active_set(Loadout.current("pilot")).get("R_Hand", ""))
 		if fleet_mech(): pw = Data.SHIP_PILOT_GUN   # v13.134 (owner: "use the GLB mech weapon"): inside a fleet ship, the plain mech gun
+		var alarm := escape_pilot and not fleet_mech() and not on_foot   # v13.162: the station alarm (breakout)
+		if alarm: pw = ""   # v13.162 (owner: "on the station alarm I don't want that backpack and weapon"): his own pilot rifle
 		if (loadout_on or fleet_mech()) and pw != "":   # v12.70 (owner): on foot he holds the gun fitted on the PILOT bench, grip in his palm
 			var hgt: float = Data.FOOT_H if on_foot else esc_h()
 			pilot_rig.hold(Loadout.weapon_mesh(pw, hgt * 0.9, "pilot"))
 		if loadout_on:
 			var plo: Dictionary = Loadout.current("pilot")
-			if fleet_mech():   # v13.130 (owner: "I don't like the backpack"): inside a fleet ship, no backpack
+			if fleet_mech() or alarm:   # v13.130 (owner: "I don't like the backpack"): inside a fleet ship (v13.162: and the station alarm), no backpack
 				plo = plo.duplicate(true)
 				(plo["parts"] as Dictionary)["booster"] = ""
 			PilotGear.apply(pm, plo)   # v12.75: his gear on his bones (it moves with him)
@@ -7818,7 +7820,10 @@ func _fire_guns() -> void:
 		mount_next[g] = time + 1.0 / float(wg["rate"])
 		next_cd = minf(next_cd, 1.0 / float(wg["rate"]))
 		var from: Vector3
-		if g is String:   # the core: straight out of the nose (level 2+: two side by side; level 3: and one under the belly)
+		var mz: Vector3 = pilot_rig.muzzle_world() if pilot_rig != null and is_instance_valid(pilot_rig.body) else Vector3.INF
+		if mz != Vector3.INF:   # v13.162 (owner: "fix the firing to match"): on foot every shot leaves his own gun's muzzle
+			from = mz
+		elif g is String:   # the core: straight out of the nose (level 2+: two side by side; level 3: and one under the belly)
 			var off := Vector3.ZERO
 			if GS.core_slots().size() > 1 and ck in [-1, -5]: off = player.global_basis.x * _ship_half_width() * (0.3 if ck == -5 else -0.3)   # v8.6 (owner: see every gun): wider apart
 			if ck == -6: off = -player.global_basis.y * 1.2

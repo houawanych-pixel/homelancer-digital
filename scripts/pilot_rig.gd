@@ -261,3 +261,16 @@ func blade_world() -> Array:
 	var m: Basis = _drv.M
 	var dir: Vector3 = (gx.basis * (m * (_last["blade"] as Vector3))).normalized()
 	return [hand, dir]
+
+## v13.162: where his gun's muzzle is (world space): the held weapon's front, else the pilot rifle's; INF when hidden
+func muzzle_world() -> Vector3:
+	if body == null or not body.is_inside_tree(): return Vector3.INF
+	for nm in ["Held", "Rifle"]:
+		var g: Node3D = body.get_node_or_null(nm)
+		if g == null or not g.visible: continue
+		var box := _aabb(g)
+		var fwd := -body.global_basis.z.normalized()
+		var c: Vector3 = g.global_transform * box.get_center()
+		var half := maxf(box.size.x, maxf(box.size.y, box.size.z)) * 0.5 * g.global_basis.get_scale().x
+		return c + fwd * half
+	return Vector3.INF
