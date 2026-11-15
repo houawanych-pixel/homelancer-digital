@@ -460,6 +460,10 @@ func request_boarding(n: Node3D) -> void:
 		hud.open_comms(who, "ENEMY HOSTILE. You are not cleared. All wings: capture or destroy the target!", "incoming", true)
 		_fleet_launch(n)
 		return
+	if Factions.hostile(str(fe["faction"])):   # v13.164 (owner: "if you're bad, they're already gonna send enemies on you")
+		hud.open_comms(who, "[angry]Request denied. You're %s with %s. Launch fighters!" % [str(Factions.info(str(fe["faction"]))["name"]), str(fe["faction"])], "incoming", true)
+		_fleet_launch(n)
+		return
 	n.set_meta("dock_granted", true)
 	hud.open_comms(who, "Access granted. Proceed to the docking hangar.", "incoming", false)
 
@@ -773,6 +777,13 @@ func _on_hud(id: String) -> void:
 			hud.target_menu = false
 		"scan_close": hud.close_scan()
 		"req_board": request_boarding(hud.scan_node)   # v13.143
+		"formation":   # v13.164: fly on its wing (again: break off)
+			if space.formation == hud.scan_node and space.formation != null: space.break_formation()
+			else:
+				var why: String = space.set_formation(hud.scan_node)
+				if why != "": hud.flash_message(why)
+				else: hud.close_scan()
+		"form_break": space.break_formation()
 		"guard_talk":   # v13.144: a card carrier tells you his code
 			var said: String = space.talk_to_guard()
 			if said != "": hud.flash_message(said)

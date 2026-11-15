@@ -1788,6 +1788,134 @@ func _run() -> void:
 	if not _flag("HL_LANDFILM"):   # v12.52: the landing film is cut short in the other checks (they time the descent)
 		main.landing_film_min = 0.0
 		main.landing_film_max = 0.4
+	if _flag("HL_FLEETSCAN"):   # v13.164 (owner): scan a big fleet ship (faction, STANDING meter, REQUEST BOARDING / hostile fighters), FORMATION, the station's real hull shape
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		var s := _sp()
+		GS.god_mode = true
+		await _until(func(): return s.fleet_visitors.any(func(v): return is_instance_valid(v["node"]) and (v["node"] as Node3D).has_node("FleetModel")) and s.station.has_meta("hull_body"), 120.0)
+		await _wait(1.0)
+		var big: Array = s.fleet_visitors.filter(func(v): return is_instance_valid(v["node"]) and Data.FLEET_BOARDABLE.has(str(FleetCatalog.get_entry(str(v["id"]))["class"])))
+		var vn: Node3D = big[0]["node"] if not big.is_empty() else null
+		var fac := str(FleetCatalog.get_entry(str(big[0]["id"]))["faction"]) if not big.is_empty() else ""
+		# 1. scan from 8 km off
+		if vn != null:
+			var off := (s.player.global_position - vn.global_position)
+			off.y = 0.0
+			var far_at: Vector3 = vn.global_position + off.normalized() * 8000.0 + Vector3(0, 300, 0)
+			_tp(far_at, vn.global_position)
+			s.target = vn
+			await _frames(2)
+			var said: String = main.hud.start_scan()
+			await _wait(Data.SCAN_TIME + 0.6)
+			var sc: Dictionary = main.hud.scan
+			await _capture("fleet_scan_friendly")
+			_check("v13.164: a big fleet ship scans from 8 km: faction, STANDING meter, REQUEST BOARDING and FORMATION (%s)" % said, bool(sc.get("board", false)) and bool(sc.get("formation", false)) and main.hud.scan_meter() and not bool(sc.get("hostile", true)), "%s · %s" % [said, str(sc.keys())])
+			main._on_hud("req_board")
+			await _wait(0.3)
+			_check("v13.164: friendly: REQUEST BOARDING is granted", bool(vn.get_meta("dock_granted", false)), "")
+			# 2. hostile standing: denied, fighters launched
+			var rep0: Dictionary = GS.rep.duplicate()
+			Factions.adjust(fac, -150.0)
+			var e0: int = s.enemies.size()
+			s.target = vn
+			main.hud.start_scan()
+			await _wait(Data.SCAN_TIME + 0.6)
+			var sc2: Dictionary = main.hud.scan
+			await _capture("fleet_scan_hostile")
+			main._on_hud("req_board")
+			await _wait(0.5)
+			_check("v13.164: standing ORANGE / RED: the scan reads HOSTILE, no formation, and asking to board launches their fighters (%d out)" % (s.enemies.size() - e0), bool(sc2.get("hostile", false)) and not bool(sc2.get("formation", false)) and s.enemies.size() > e0, "%s hostile %s enemies %d -> %d" % [Factions.band(fac), sc2.get("hostile"), e0, s.enemies.size()])
+			for e in s.enemies.duplicate():
+				if is_instance_valid(e.get("node")): (e["node"] as Node).queue_free()
+			s.enemies.clear()
+			main.fleet_wave = []
+			GS.rep = rep0
+			main.hud.close_scan()
+			# 3. formation
+			s.target = vn
+			var why: String = s.set_formation(vn)
+			await _wait(8.0)
+			var slot: Vector3 = vn.global_transform.orthonormalized() * s.form_slot
+			var gap: float = s.player.global_position.distance_to(slot)
+			var moved: float = vn.global_position.distance_to(far_at)
+			await _capture("formation")
+			_check("v13.164: FORMATION: you fly on its wing and it carries you (%.0f m from the slot)" % gap, why == "" and s.formation_on() and gap < 40.0 and s.prompt() == "form_break", "why '%s' gap %.0f prompt %s" % [why, gap, s.prompt()])
+			main._on_hud("form_break")
+			_check("v13.164: BREAK OFF leaves formation", not s.formation_on(), "")
+		# 4. the station's real shape: a spot inside its outer box but clear of the hull doesn't hit; flying into the hull does
+		var st: Node3D = s.station
+		var hd: Node3D = st.get_meta("box_holder")
+		var bb: AABB = st.get_meta("box_aabb")
+		var ss := s.get_world_3d().direct_space_state
+		var ball := SphereShape3D.new()
+		ball.radius = Data.RETOPO_BOX_PAD + 4.0
+		var q := PhysicsShapeQueryParameters3D.new()
+		q.shape = ball
+		q.collision_mask = SpaceSystem.HULL_LAYER
+		var clear := Vector3.INF
+		var rr := RandomNumberGenerator.new()
+		rr.seed = 7
+		for i in 400:
+			var lp := bb.position + bb.size * Vector3(rr.randf_range(0.05, 0.95), rr.randf_range(0.05, 0.95), rr.randf_range(0.05, 0.95))
+			var wp: Vector3 = hd.global_transform * lp
+			q.transform = Transform3D(Basis.IDENTITY, wp)
+			if ss.intersect_shape(q, 1).is_empty():
+				var outside := true   # (not shut inside the hull: a ray straight up gets out)
+				var up := ss.intersect_ray(PhysicsRayQueryParameters3D.create(wp, wp + Vector3(0, 20000, 0), SpaceSystem.HULL_LAYER))
+				if not up.is_empty(): outside = false
+				if outside:
+					clear = wp
+					break
+		var h0: int = s.hull_hits
+		var hp0: float = GS.hull
+		GS.god_mode = false
+		if clear != Vector3.INF:
+			s.vel = Vector3.ZERO
+			for i in 20:
+				s.player.global_position = clear
+				s.vel = Vector3.ZERO
+				await get_tree().process_frame
+		var moved_clear: bool = clear != Vector3.INF and s.player.global_position.distance_to(clear) < 1.0 and s.hull_hits == h0
+		await _capture("hull_gap")
+		# fly at the hull
+		var c: Vector3 = hd.global_transform * bb.get_center()
+		var from: Vector3 = c + Vector3(0, 0, 1).rotated(Vector3.UP, 0.7) * (bb.size.length() * hd.global_transform.basis.get_scale().x)
+		var stb: StaticBody3D = st.get_meta("hull_body")
+		var others: Array[RID] = []
+		for v in s.fleet_visitors: if is_instance_valid(v["node"]) and (v["node"] as Node3D).has_meta("hull_body"): others.append(((v["node"] as Node3D).get_meta("hull_body") as StaticBody3D).get_rid())
+		var hit := {}
+		for k in 24:   # (a head-on face: the ray meets it square, not a deck you'd slide along)
+			var dk := Vector3(0, 0, 1).rotated(Vector3.RIGHT, -0.15 * float(k % 4)).rotated(Vector3.UP, 0.7 + 0.5 * float(k))
+			from = c + dk * (bb.size.length() * hd.global_transform.basis.get_scale().x)
+			var h1 := ss.intersect_ray(PhysicsRayQueryParameters3D.create(from, c, SpaceSystem.HULL_LAYER, others))
+			if not h1.is_empty() and (h1["normal"] as Vector3).dot((c - from).normalized()) < -0.75:
+				hit = h1
+				break
+		print("[hull] first hit is the station: %s at %s n %s" % [(not hit.is_empty() and hit["collider"] == stb), str(hit.get("position", Vector3.ZERO).round()), str(hit.get("normal", Vector3.ZERO))])
+		var stopped := false
+		if not hit.is_empty():
+			var hp: Vector3 = hit["position"]
+			var dir: Vector3 = (c - from).normalized()
+			_tp(hp - dir * 60.0, hp)
+			s._hull_prev = Vector3.INF
+			for i in 40:
+				s.vel = dir * 60.0
+				s.player.global_position += dir * 3.0
+				await get_tree().process_frame
+				if i % 4 == 0:
+					var pp: Vector3 = s.player.global_position
+					var t1 := ss.intersect_ray(PhysicsRayQueryParameters3D.create(pp - dir * 40.0, pp + dir * 40.0, SpaceSystem.HULL_LAYER))
+					var t2 := s.get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(pp - dir * 40.0, pp + dir * 40.0, SpaceSystem.HULL_LAYER))
+					print("[hull] f%d  along %.1f  hits %d  probe %s %s" % [i, (pp - hp).dot(dir), s.hull_hits, str(t1.get("position", "-")), str(t2.get("position", "-"))])
+			var back := ss.intersect_ray(PhysicsRayQueryParameters3D.create(from, s.player.global_position, SpaceSystem.HULL_LAYER, others))   # (still outside: nothing between where we came from and the ship)
+			stopped = s.hull_hits > h0 and (back.is_empty() or (back["position"] as Vector3).distance_to(s.player.global_position) < 2.0)
+			print("[hull] past %.1f m  back %s" % [(s.player.global_position - hp).dot(dir), str(back.get("position", "-"))])
+		await _capture("hull_bump")
+		_check("v13.164: the station collides by its real shape: a gap inside its outer box is clear (%s), flying into the hull stops you there (%s)" % [moved_clear, stopped], moved_clear and stopped, "clear %s stopped %s hits %d" % [str(clear), stopped, s.hull_hits - h0])
+		GS.god_mode = true
+		_finish_group()
+		return
 	if _flag("HL_CREWLIFE"):   # v13.163 (owner: "board allied ships ... a lot of NPCs moving around like Sims, talk until an alarm goes off, then cautious mode, move to hide")
 		var fid := "orion_capital" if OS.get_environment("HL_CREWLIFE") in ["", "1"] else OS.get_environment("HL_CREWLIFE")
 		main.start_game()

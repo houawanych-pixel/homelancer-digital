@@ -710,6 +710,7 @@ func _layout() -> void:
 	if space and space.controls and not console_open: buttons["radar"] = radar_rect()
 	if not scan.is_empty():
 		if bool(scan.get("board", false)): buttons["req_board"] = req_board_rect()   # v13.143
+		if bool(scan.get("formation", false)): buttons["formation"] = formation_rect()   # v13.164
 		buttons["scan_view"] = scan_view_rect()   # v11.28 (before the card, so it wins the tap)
 		buttons["scan_close"] = scan_rect()
 	if space and space.controls:
@@ -2332,6 +2333,7 @@ func _draw() -> void:
 	if buttons.has("eject"): _prompt_btn(buttons["eject"], "EJECT", CYAN, held.has("eject"))   # v12.39 (owner)
 	if buttons.has("guard_talk"): _prompt_btn(buttons["guard_talk"], "TALK", GREEN, held.has("guard_talk"))   # v13.144
 	if buttons.has("enter"): _prompt_btn(buttons["enter"], "ENTER", GREEN, held.has("enter"))
+	if buttons.has("form_break"): _prompt_btn(buttons["form_break"], "BREAK OFF", CYAN, held.has("form_break"))   # v13.164: out of formation
 	if buttons.has("lane"): _pill("lane", "LANE" if space.lane.is_empty() else "LEAVE LANE", true, CYAN)
 	if buttons.has("jump"): _pill("jump", "JUMP", true, GOLD)
 	if buttons.has("land"): _pill("land", "LAND", true, GREEN)
@@ -2911,6 +2913,7 @@ func start_scan() -> String:
 	var si: Dictionary = space.scan_info(n)
 	if si.is_empty(): return "%s can't be scanned." % n.name
 	var reach: float = Data.SCAN_RANGE * (3.0 if si.get("structure", false) else 1.0) + (float(n.get_meta("radius", 0.0)) if si.get("structure", false) else 0.0)   # v11.28: big things scan from further out
+	if bool(si.get("far", false)): reach = maxf(reach, Data.SCAN_FAR)   # v13.164 (owner: "I scanned those big cruisers, it didn't say anything"): the big fleet ships scan from far off
 	if space.distance_to(n) > reach: return "Too far to scan: get within %s." % _dist(reach)
 	scan_node = n
 	scan = {}
@@ -2924,7 +2927,27 @@ func close_scan() -> void:
 	scan_t = 0.0
 
 func scan_rect() -> Rect2:
-	return Rect2(S.x * 0.5 - 250, 132, 500, 64 + 30 * maxi(1, (scan.get("lines", []) as Array).size()) + 52)
+	var meter := 58 if scan_meter() else 0   # v13.164: the STANDING meter
+	return Rect2(S.x * 0.5 - 300, 132, 600, 64 + 30 * maxi(1, (scan.get("lines", []) as Array).size()) + 52 + meter)
+
+## v13.164 (owner: "a colour meter, ten and negative ten, neutral in the centre: blue very calm ... green, yellow,
+## orange, red; orange and red you're hostile"): your standing with the scanned ship's faction
+func scan_meter() -> bool:
+	var f := str(scan.get("faction", ""))
+	return f != "" and Factions.has(f) and Factions.normal(f)
+
+## FORMATION on the scan card of a ship that'll take you on its wing (left of REQUEST BOARDING / 3D VIEW)
+func formation_rect() -> Rect2:
+	var vb := scan_view_rect()
+	var x := (req_board_rect().position.x if bool(scan.get("board", false)) else vb.position.x) - 12.0 - 160.0
+	return Rect2(x, vb.position.y, 160, vb.size.y)
+
+static func meter_col(v: float) -> Color:   # -100..100
+	if v >= 40.0: return Color(0.3, 0.6, 1.0).lerp(Color(0.15, 0.4, 1.0), clampf((v - 40.0) / 60.0, 0.0, 1.0))
+	if v >= 5.0: return Color(0.4, 0.95, 0.55)
+	if v >= -20.0: return Color(1.0, 0.9, 0.35)
+	if v >= -60.0: return Color(1.0, 0.6, 0.2)
+	return Color(1.0, 0.3, 0.25)
 
 ## v11.28 (owner: "bring that view into anything you scan"): the 3D VIEW button along the bottom of the scan card.
 func scan_view_rect() -> Rect2:
@@ -2971,6 +2994,28 @@ func _draw_scan() -> void:
 		_text(Vector2(rc.position.x + 16, y), str(ln[0]), 12, GOLD)
 		_text(Vector2(rc.position.x + 110, y), str(ln[1]), 13, WHITE, HORIZONTAL_ALIGNMENT_LEFT, rc.size.x - 126)
 		y += 30
+	if scan_meter():   # v13.164: STANDING -10 .. +10
+		var fac := str(scan["faction"])
+		var v := Factions.standing(fac)
+		var lvl := clampi(int(round(v / 10.0)), -10, 10)
+		var inf: Dictionary = Factions.info(fac)
+		_text(Vector2(rc.position.x + 16, y), "STANDING", 12, GOLD)
+		_text(Vector2(rc.position.x + 128, y), "%s%d  ·  %s  ·  %s" % ["+" if lvl > 0 else "", lvl, str(inf["name"]), "HOSTILE" if Factions.hostile(fac) else "you're welcome"], 13, meter_col(v))
+		var cw := (rc.size.x - 32.0) / 21.0
+		var my := y + 10.0
+		for i in 21:
+			var cv := float(i - 10) * 10.0
+			var cr := Rect2(rc.position.x + 16 + cw * i + 1, my, cw - 2, 14)
+			var cc := meter_col(cv)
+			draw_rect(cr, Color(cc, 1.0 if i - 10 == lvl else 0.45))
+			if i == 10: draw_rect(Rect2(cr.position.x, my - 3, cr.size.x, 20), Color(1, 1, 1, 0.6), false, 1.0)
+		var mx := rc.position.x + 16 + cw * (lvl + 10) + cw * 0.5
+		draw_colored_polygon(PackedVector2Array([Vector2(mx, my + 16), Vector2(mx - 7, my + 28), Vector2(mx + 7, my + 28)]), WHITE)
+	if bool(scan.get("formation", false)):
+		var fb := formation_rect()
+		var on: bool = space.formation == scan_node
+		_box(fb, Color(0.05, 0.2, 0.35, 0.95), CYAN_HI, 8, 2)
+		_text(fb.position + Vector2(0, 26), "BREAK OFF" if on else "FORMATION", 15, WHITE, HORIZONTAL_ALIGNMENT_CENTER, fb.size.x)
 	var vb := scan_view_rect()
 	_box(vb, Color(0.05, 0.25, 0.4, 0.95), CYAN_HI, 8, 2)
 	_text(vb.position + Vector2(0, 26), "3D VIEW", 15, WHITE, HORIZONTAL_ALIGNMENT_CENTER, vb.size.x)

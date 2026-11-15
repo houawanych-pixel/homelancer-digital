@@ -624,6 +624,92 @@ func _set_box(n: Node3D, holder: Node3D) -> void:
 	n.set_meta("box_holder", holder)
 	n.set_meta("box_aabb", mi.transform * mi.mesh.get_aabb())
 	if n.has_meta("front_z"): n.remove_meta("front_z")
+	var hm: MeshInstance3D = holder.get_meta("lod1", mi)   # v13.164: the hull's real shape (the lighter LOD is close enough)
+	_hull_body(n, holder, [hm])
+
+# ---------------------------------------------------------------- v13.164 (owner: "I'm not even touching the space
+# station and I'm getting hit ... make the station's hitbox its actual shape"): stations and the big fleet ships
+# collide by their own triangles (a physics trimesh queried with a ball the size of your ship), not their outer box.
+const HULL_LAYER := 1 << 19
+func _hull_body(n: Node3D, holder: Node3D, meshes: Array) -> void:
+	if not Data.HULL_SHAPES or n.has_meta("hull_body"): return
+	var par := holder.get_parent() as Node3D
+	if par == null: return
+	# (the shape is built at full size: a tiny mesh scaled up a thousand times makes the physics rays miss)
+	var sk := Transform3D(Basis.from_scale(holder.transform.basis.get_scale()), Vector3.ZERO)
+	var t0 := Time.get_ticks_msec()
+	var faces := PackedVector3Array()
+	for m in meshes:
+		var mi := m as MeshInstance3D
+		if mi == null or mi.mesh == null: continue
+		var xf := Transform3D.IDENTITY   # (the mesh's frame relative to the holder)
+		var c: Node = mi
+		while c != null and c != holder:
+			if c is Node3D: xf = (c as Node3D).transform * xf
+			c = c.get_parent()
+		var full := sk * xf
+		for v in mi.mesh.get_faces(): faces.append(full * v)
+	if faces.is_empty(): return
+	var sh := ConcavePolygonShape3D.new()
+	sh.set_faces(faces)
+	sh.backface_collision = true
+	var sb := StaticBody3D.new()
+	sb.name = "HullShape"
+	sb.collision_layer = HULL_LAYER
+	sb.collision_mask = 0
+	var cs := CollisionShape3D.new()
+	cs.shape = sh
+	sb.add_child(cs)
+	par.add_child(sb)
+	sb.transform = Transform3D(holder.transform.basis.orthonormalized(), holder.transform.origin)
+	n.set_meta("hull_body", sb)
+	if OS.is_debug_build(): print("[hull] %s: %d triangles, %d ms" % [n.name, faces.size() / 3, Time.get_ticks_msec() - t0])
+
+var _hull_ball: SphereShape3D
+var _hull_prev := Vector3.INF
+var hull_hits := 0   # (checks)
+## Push the ship out of a hull's real shape. True when it touched.
+func _push_out_hull(n: Node3D, kind: String) -> bool:
+	var sb: StaticBody3D = n.get_meta("hull_body")
+	if not is_instance_valid(sb) or not sb.is_inside_tree(): return false
+	var ss := get_world_3d().direct_space_state
+	var r: float = Data.RETOPO_BOX_PAD
+	var p := player.global_position
+	var hit := false
+	var nrm := Vector3.ZERO
+	if _hull_prev != Vector3.INF and _hull_prev.distance_to(p) > 0.01 and _hull_prev.distance_to(p) < 400.0:   # the way you moved since last frame (+ your size): the first face on it stops you
+		var mdir := (p - _hull_prev).normalized()
+		var rq := PhysicsRayQueryParameters3D.create(_hull_prev, p + mdir * r, HULL_LAYER)
+		var rh := ss.intersect_ray(rq)
+		if not rh.is_empty() and rh["collider"] == sb:
+			nrm = rh["normal"]
+			if nrm.dot(mdir) > 0.0: nrm = -nrm
+			p = (rh["position"] as Vector3) - mdir * r + nrm * 0.5
+			hit = true
+	if _hull_ball == null:
+		_hull_ball = SphereShape3D.new()
+	_hull_ball.radius = r
+	var q := PhysicsShapeQueryParameters3D.new()
+	q.shape = _hull_ball
+	q.collision_mask = HULL_LAYER
+	for it in 3:   # (a corner can need more than one push)
+		q.transform = Transform3D(Basis.IDENTITY, p)
+		var ri := ss.get_rest_info(q)
+		if ri.is_empty() or ri["rid"] != sb.get_rid(): break
+		var cp: Vector3 = ri["point"]
+		var cn: Vector3 = ri["normal"]
+		if cn.length() < 0.5: cn = (p - cp).normalized()
+		var mv := player.global_position - _hull_prev if _hull_prev != Vector3.INF else -vel
+		if mv.length() > 0.05 and cn.dot(mv) > 0.0: cn = -cn   # (the face points back the way you came: out)
+		p = cp + cn * (r + 0.05)
+		nrm = cn
+		hit = true
+	if not hit: return false
+	player.global_position = p
+	hull_hits += 1
+	if not inside_wall_safe(): collision_damage(kind, -vel.dot(nrm))
+	if vel.dot(nrm) < 0.0: vel = vel - nrm * vel.dot(nrm) * 1.5
+	return true
 
 ## v11.37 (owner: "there was a mission with battleships and I flew through it. It needs to be solid"): the big ships
 ## (every capital: battleships, cruisers, frigates, the fleet patrols) get a box from their own mesh bounds, in the
@@ -659,8 +745,10 @@ func _bump_ships() -> void:
 	# v11.99 (owner: "I went through a cargo ship ... everything should be a solid"): freighters, traffic, patrols
 	for lst in [freighters, traffic, fleet_patrols]:
 		for f in lst:
-			var fn: Node3D = f.get("node", null) if f is Dictionary else f
-			if fn == null or not is_instance_valid(fn) or not fn.visible: continue
+			var fv = f.get("node", null) if f is Dictionary else f
+			if fv == null or not is_instance_valid(fv): continue   # (v13.164: a freed one is skipped before it's typed)
+			var fn: Node3D = fv
+			if not fn.visible: continue
 			if not fn.has_meta("ship_box"): _solid_box(fn)
 			if fn.global_position.distance_to(p) > maxf(1600.0, _box_reach(fn)): continue   # v13.71 (owner: "all ships should be solid"): big ones are longer than 1.6 km
 			if fn.has_meta("ship_box") and _push_out_box(fn.get_meta("box_holder"), fn.get_meta("box_aabb"), "ship"): ship_bumps += 1
@@ -671,10 +759,18 @@ func _bump_ships() -> void:
 		if vn.global_position.distance_to(p) > vh.length() + 300.0: continue
 		if vn.has_node("FleetModel"):   # v13.143: a real model: solid by its meshes' own box
 			_solid_box(vn)
+			if not vn.has_meta("hull_tried"):   # v13.164: its real shape
+				vn.set_meta("hull_tried", true)
+				var fm: Node3D = vn.get_node("FleetModel")
+				_hull_body(vn, fm, fm.find_children("*", "MeshInstance3D", true, false))
+			if vn.has_meta("hull_body") and (vn.get_meta("hull_body") as Node).is_inside_tree():
+				if _push_out_hull(vn, "ship"): ship_bumps += 1
+				continue
 			if vn.has_meta("ship_box") and _push_out_box(vn.get_meta("box_holder"), vn.get_meta("box_aabb"), "ship"): ship_bumps += 1
 			continue
 		if _push_out_box(vn, AABB(-vh, vh * 2.0), "ship"): ship_bumps += 1
 	_bump_lane_rings(p)
+	_hull_prev = player.global_position   # v13.164
 	for n in fleet_guard:
 		if not is_instance_valid(n) or not n.has_meta("ship_box"): continue
 		if n.global_position.distance_to(p) > float(n.get_meta("radius", 60.0)) * 4.0 + 200.0: continue
@@ -721,6 +817,9 @@ func _bump_lane_rings(p: Vector3) -> void:
 		return
 
 func _bump_box(body: Node3D) -> void:
+	if body.has_meta("hull_body") and is_instance_valid(body.get_meta("hull_body")) and (body.get_meta("hull_body") as Node).is_inside_tree():   # v13.164: its real shape
+		_push_out_hull(body, "station")
+		return
 	_push_out_box(body.get_meta("box_holder"), body.get_meta("box_aabb"), "station")
 
 ## Push the ship out of a model's box through the nearest face (box = the mesh bounds in the holder's own frame).
@@ -7280,6 +7379,9 @@ func _update_player(dt: float) -> void:
 	if not lane.is_empty():   # v1.4l: riding a trade lane: the lane flies the ship
 		_lane_update(dt)
 		return
+	if formation_on() and controls:   # v13.164: the lead ship flies you
+		_formation_update(dt)
+		return
 	_update_transform(dt)
 	if GS.form == "mech": turn *= 1.3   # mechs pivot faster
 	var steer := aim if controls else Vector2.ZERO
@@ -10791,7 +10893,7 @@ func _collisions(dt: float) -> void:
 	_update_sword(dt)
 	_update_build(dt)
 	sidestep_cd = maxf(0.0, sidestep_cd - dt)
-	if not lane.is_empty(): return   # nothing is solid while the lane carries you
+	if not lane.is_empty() or formation_on(): return   # nothing is solid while the lane carries you (v13.164: or you fly in formation)
 	collide_grace = maxf(0.0, collide_grace - dt)
 	var p := player.global_position
 	in_belt = in_belt_region(p)
@@ -11850,6 +11952,7 @@ func prompt() -> String:
 	var dc := dock_candidate()
 	var lc: Dictionary = lane_candidate() if lane.is_empty() else {}
 	if not lane.is_empty(): return "lane"
+	if formation_on(): return "form_break"   # v13.164
 	if board_ready: return "board"   # v13.69 (owner): at the boarding ship with its shield down, BOARD comes first
 	if not talk_candidate().is_empty(): return "guard_talk"   # v13.144: a card carrier on a friendly ship
 	if granted_dock_near() != null: return "board"   # v13.144: a friendly fleet ship that let you aboard
@@ -12662,6 +12765,64 @@ func _pick_senior(faction: String, max_slot: int, want: int) -> Dictionary:
 ## v1.5g SHIP SCAN: what a scan of this ship shows: {title, sub, lines: [[label, text]], hostile}. {} = not a ship.
 ## Cargo is made up from the ship's name (the same every scan) from Data.SCAN_GOODS / SCAN_ENEMY_GOODS; a bounty target
 ## shows its price, a mission ship its job.
+# ---------------------------------------------------------------- v13.164 (owner: "like Freelancer, link up with a ship,
+# escort it, fly in formation ... when they go into trade lanes you go too; not with enemies"): FORMATION. You fly in a
+# slot off the lead ship's wing; it flies you (you can still shoot). BREAK OFF (or STOP) and you have the stick again.
+var formation: Node3D = null
+var form_slot := Vector3.ZERO   # in the lead's frame (+x right, +z behind)
+var _form_prev := Vector3.INF
+func formation_on() -> bool:
+	if formation == null: return false
+	if not is_instance_valid(formation) or not formation.is_inside_tree() or not formation.visible:
+		formation = null
+		message.emit("Formation broken: the lead ship is gone.")
+		return false
+	return true
+
+## "" = flying with them now; else why not
+func set_formation(n: Node3D) -> String:
+	if n == null or not is_instance_valid(n): return "Nothing to fly with."
+	var si := scan_info(n)
+	if si.is_empty() or not bool(si.get("formation", false)): return "%s won't take you on its wing." % n.name
+	if GS.form == "mech" or surface_mode or boarding: return "Formation is for the ship in space."
+	if not lane.is_empty(): return "Leave the lane first."
+	var r := float(n.get_meta("radius", 120.0))
+	if n.has_meta("hit_half"): r = maxf(r, (n.get_meta("hit_half") as Vector3).x * 1.2)
+	elif n.has_meta("box_aabb"): r = maxf(r, _box_reach(n) - 300.0)
+	form_slot = Vector3(r + 70.0, 25.0, r * 0.35 + 90.0)
+	formation = n
+	autopilot = null
+	_form_prev = n.global_position
+	if warp_state != "off": drop_warp()
+	Sfx.play("pickup", -8.0, 0.9)
+	message.emit("FORMATION: flying on %s's wing. Where it goes, you go. BREAK OFF to fly on your own." % n.name)
+	return ""
+
+func break_formation(why := "") -> void:
+	if formation == null: return
+	formation = null
+	message.emit(why if why != "" else "You broke formation.")
+
+func _formation_update(dt: float) -> void:
+	var L := formation
+	var lp := L.global_position
+	var lv := (lp - _form_prev) / maxf(dt, 0.0001) if _form_prev != Vector3.INF else Vector3.ZERO
+	_form_prev = lp
+	var slot: Vector3 = L.global_transform.orthonormalized() * form_slot
+	var d := slot - player.global_position
+	var catch := lv.length() + 260.0
+	if d.length() < 6.0: player.global_position = slot
+	else: player.global_position += d.normalized() * minf(d.length(), catch * dt + d.length() * minf(1.0, dt * 1.5))
+	vel = lv
+	var fwd := -L.global_basis.z.normalized()
+	if d.length() > 200.0: fwd = fwd.lerp(d.normalized(), 0.6).normalized()   # (still catching up: nose toward the slot)
+	var ty := atan2(-fwd.x, -fwd.z)
+	var tp := asin(clampf(fwd.y, -1.0, 1.0))
+	yaw = lerp_angle(yaw, ty, minf(1.0, dt * 3.0))
+	pitch = lerp_angle(pitch, tp, minf(1.0, dt * 3.0))
+	player.basis = Basis.from_euler(Vector3(pitch, yaw, 0))
+	if Factions.has(str(scan_info(L).get("faction", ""))) and Factions.hostile(str(scan_info(L).get("faction", ""))): break_formation("Formation broken: they've turned on you.")
+
 func scan_info(n: Node3D) -> Dictionary:
 	if n == null or not is_instance_valid(n): return {}
 	var h := absi(hash(n.name))
@@ -12690,7 +12851,7 @@ func scan_info(n: Node3D) -> Dictionary:
 		if e.has("bounty"): lines.append(["WANTED", "%d cr bounty" % Data.bounty_reward(str(e["bounty"]))])
 		if e.has("mission"): lines.append(["JOB", "a target of your mission"])
 		var hostile: bool = n.get_meta("kind", "") == "enemy"
-		return {"title": n.name.to_upper(), "sub": "%s  ·  %s" % [fac if fac != "" else "Unaligned", "HOSTILE" if hostile else "not hostile"], "lines": lines, "hostile": hostile}
+		return {"title": n.name.to_upper(), "sub": "%s  ·  %s" % [fac if fac != "" else "Unaligned", "HOSTILE" if hostile else "not hostile"], "lines": lines, "hostile": hostile, "faction": fac}
 	var is_traffic: bool = n.get_meta("kind", "") == "traffic"
 	if is_traffic:
 		var cargo2: Array = []
@@ -12701,19 +12862,22 @@ func scan_info(n: Node3D) -> Dictionary:
 			lines2[0] = ["SHIP", "%s freighter, type %s" % [fr["faction"], "I" if int(fr["type"]) == 1 else "II"]]
 			lines2.append(["HULL", "%d / %d   booster %d%%" % [int(fr["hp"]), int(fr["max"]), int(100.0 * maxf(0.0, float(fr["boost_hp"])) / float(fr["boost_max"]))]])
 		if n == escort_node: lines2.append(["JOB", "escort this ship (hull %d%%)" % int(100.0 * float(GS.mission.get("escort_hp", 0.0)) / Data.ESCORT_HULL)])
-		return {"title": n.name.to_upper(), "sub": "%s  ·  civilian" % str(sys.get("faction", "")), "lines": lines2, "hostile": false}
+		lines2.append(["FLY WITH", "FORMATION: fly on their wing (lanes too)"])
+		return {"title": n.name.to_upper(), "sub": "%s  ·  civilian" % str(sys.get("faction", "")), "lines": lines2, "hostile": false,
+			"faction": str(fr.get("faction", sys.get("faction", ""))), "formation": true}
 	# v13.143 (owner): the faction fleet ships scan, and the big ones take a REQUEST BOARDING call
 	if n.has_meta("fleet_id"):
 		var fe: Dictionary = FleetCatalog.get_entry(str(n.get_meta("fleet_id")))
 		if not fe.is_empty():
-			var hostile_f: bool = str(n.get_meta("kind", "")) == "board_target"
+			var hostile_f: bool = str(n.get_meta("kind", "")) == "board_target" or Factions.hostile(str(fe["faction"]))   # v13.164: your standing with them decides
 			var cls := str(fe["class"])
 			var lines4: Array = [["CLASS", "%s  ·  %s" % [str(FleetCatalog.CLASS_NAME.get(cls, cls)), str(fe["role"])]],
 				["HANGAR", "%d fighters aboard" % int(n.get_meta("hangar", Data.FLEET_HANGAR.get(cls, 0)))]]
 			if hostile_f: lines4.append(["POWER", "%d%%  ·  shield %s" % [int(n.get_meta("power", 100.0)), "UP" if float(n.get_meta("power", 100.0)) > 50.0 else "DOWN"]])
-			if Data.FLEET_BOARDABLE.has(cls): lines4.append(["DOCK", "REQUEST BOARDING to call them"])
+			if Data.FLEET_BOARDABLE.has(cls): lines4.append(["DOCK", "they won't let you aboard: ask and they launch fighters" if hostile_f else "REQUEST BOARDING to come aboard as a guest"])
+			if not hostile_f: lines4.append(["FLY WITH", "FORMATION: fly on their wing"])
 			return {"title": n.name.to_upper(), "sub": "%s  ·  %s" % [str(fe["faction"]), "HOSTILE" if hostile_f else "friendly"], "lines": lines4,
-				"hostile": hostile_f, "structure": true, "board": Data.FLEET_BOARDABLE.has(cls)}
+				"hostile": hostile_f, "structure": true, "far": true, "board": Data.FLEET_BOARDABLE.has(cls), "faction": str(fe["faction"]), "formation": not hostile_f}
 	# v11.28 (owner: "anything you scan: ships, stations, buildings"): stations, landmarks, gates and beacons scan too
 	if n == planet: return {}
 	var info: Dictionary = n.get_meta("info", {}) if n.get_meta("info", {}) is Dictionary else {}
