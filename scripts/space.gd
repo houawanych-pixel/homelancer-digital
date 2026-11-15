@@ -2664,6 +2664,7 @@ func _board_doors(dt: float) -> void:
 		var no_card: bool = need > 0 and not _fleet_has(need) and not bool(d.get("code_ok", false))   # v13.144: or its code was punched in
 		var shut: bool = bool(d["locked"]) or bool(d["sealed"]) or no_card
 		var near: bool = Vector2(pp.x - (d["center"] as Vector3).x, pp.z - (d["center"] as Vector3).z).length() < Boarding.DOOR_OPEN_AT
+		if Time.get_ticks_msec() < int(d.get("civ_until", 0)): near = true   # v13.163: the crew walking through open it too
 		if no_card and near and Vector2(pp.x - (d["center"] as Vector3).x, pp.z - (d["center"] as Vector3).z).length() < 60.0 and float(board.get("card_msg", 0.0)) <= 0.0:
 			board["card_msg"] = 4.0
 			message.emit("%s CARD NEEDED: a guard on this ship carries it%s." % [ShipInterior.KEY_NAME[need], " (or punch the code in at the floor pad)" if d.has("pads") else ""])

@@ -1788,6 +1788,72 @@ func _run() -> void:
 	if not _flag("HL_LANDFILM"):   # v12.52: the landing film is cut short in the other checks (they time the descent)
 		main.landing_film_min = 0.0
 		main.landing_film_max = 0.4
+	if _flag("HL_CREWLIFE"):   # v13.163 (owner: "board allied ships ... a lot of NPCs moving around like Sims, talk until an alarm goes off, then cautious mode, move to hide")
+		var fid := "orion_capital" if OS.get_environment("HL_CREWLIFE") in ["", "1"] else OS.get_environment("HL_CREWLIFE")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main.board_fleet_ship(fid, "visit", {})
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding and main.hud.visible, 120.0)
+		await _wait(1.0)
+		var s := _sp()
+		var lf: StationLife = s.life
+		var orion: bool = lf.civs.all(func(c): return str((c["inst"] as Node3D).scene_file_path).contains("Orion"))
+		var rooms0: Array = lf.civs.map(func(c): return str(c["room"]))
+		_check("v13.163: a fleet ship is full of its faction's own rigged crew (%d aboard, Orion: %s)" % [lf.civs.size(), orion], lf.fleet and lf.civs.size() >= 18 and orion and lf.civs.all(func(c): return c.has("drv")), "%d civs orion %s" % [lf.civs.size(), orion])
+		var shown: int = lf.civs.filter(func(c): return (c["node"] as Node3D).visible).size()
+		await _wait(24.0)
+		var chats: Array = lf.groups.filter(func(G): return bool(G["on"]))
+		var working: int = lf.civs.filter(func(c): return c.has("work") and str(c["state"]) == "idle").size()
+		var moved := 0
+		for i in lf.civs.size(): if str(lf.civs[i]["room"]) != str(rooms0[i]): moved += 1
+		var talking: int = lf.civs.filter(func(c): return c.has("group") and str(c["idle"]) == "ual_talk").size()
+		_check("v13.163: the crew live like Sims: chats (%d, %d talking), work at the consoles (%d), walk to other rooms (%d); only the rooms round you drawn (%d of %d)" % [chats.size(), talking, working, moved, shown, lf.civs.size()],
+			chats.size() >= 1 and talking >= 1 and working + moved >= 1 and shown < lf.civs.size(), "chats %d talk %d work %d moved %d shown %d" % [chats.size(), talking, working, moved, shown])
+		# look at a chat
+		var G0: Dictionary = chats[0] if not chats.is_empty() else {}
+		if not G0.is_empty():
+			var cc: Vector3 = G0["centre"]
+			var R0 := Boarding.room_at(cc)
+			var off := Vector3(0, 0, 70)
+			var at := Boarding.keep_in(cc + off, 20.0) if R0 != "" else cc + off
+			for i in 4:
+				_tp(Vector3(at.x, Boarding.floor_at(at) + 6.0, at.z), cc + Vector3(0, 8, 0))
+				await get_tree().process_frame
+			await _wait(1.5)
+			_tp(Vector3(at.x, Boarding.floor_at(at) + 6.0, at.z), cc + Vector3(0, 8, 0))
+			await _wait(0.3)
+			var tc := Camera3D.new()   # (a close look from the side: the mech's own camera sits high above them)
+			s.add_child(tc)
+			var cp := Boarding.keep_in(cc + Vector3(26, 0, 30), 6.0)
+			tc.global_position = Vector3(cp.x, cc.y + 14.0, cp.z)
+			tc.look_at(cc + Vector3(0, 7, 0))
+			tc.fov = 60.0
+			tc.current = true
+			await _wait(0.3)
+			await _capture("crew_chat")
+			await _wait(1.2)
+			await _capture("crew_chat2")
+			s.set_stealth("caution", "test")
+			await _wait(5.0)
+			await _capture("crew_caution_close")
+			s.stealth = "neutral"
+			await _wait(16.0)
+			await _capture("crew_back")
+			tc.queue_free()
+		s.set_stealth("caution", "test")
+		await _wait(7.0)
+		var vis: Array = lf.civs.filter(func(c): return (c["node"] as Node3D).visible and str(c["state"]) != "down")
+		var hid: int = vis.filter(func(c): return str(c["state"]) in ["wary", "hide", "run", "cower"]).size()
+		await _capture("crew_caution")
+		_check("v13.163: CAUTION: they stop talking and creep off to hide (%d of %d near you)" % [hid, vis.size()], lf.groups.is_empty() and vis.size() > 0 and hid * 10 >= vis.size() * 7, "%d/%d groups %d" % [hid, vis.size(), lf.groups.size()])
+		s.set_stealth("alert", "test")
+		await _wait(5.0)
+		var cow: int = lf.civs.filter(func(c): return str(c["state"]) in ["run", "cower"]).size()
+		await _capture("crew_alert")
+		_check("v13.163: ALERT: everyone runs for cover and gets down (%d of %d)" % [cow, lf.civs.size()], cow * 10 >= lf.civs.size() * 8, "%d/%d" % [cow, lf.civs.size()])
+		_finish_group()
+		return
 	if _flag("HL_VISIT"):   # v13.144 (owner, Metal Gear): aboard a friendly fleet ship: NEUTRAL, keypads, TALK, CAUTION, ALERT
 		var fid := "unity_resupply" if OS.get_environment("HL_VISIT") in ["", "1"] else OS.get_environment("HL_VISIT")
 		main.start_game()

@@ -503,26 +503,72 @@ func _mark_tex(kind: String) -> ImageTexture:
 	return t
 
 # ---------------------------------------------------------------- people
+## v13.163 (owner: "when we board onto allied ships ... a lot of NPCs moving around like Sims ... talk until an alarm
+## goes off, then they turn into a cautious mode and move to hide ... rigged in their faction ... placeholders for the
+## other factions"): the crew models each faction's ships use. Orion has its own rigged crew; the others use the
+## placeholder set until their own GLBs come in (drop them in a pack and list them here under the faction).
+const CREW_SETS := {
+	"orion": {"pack": "crowd3d_orion", "dir": "res://assets/crowd3d_orion/%s_Rigged.glb", "names": ["HL_Orion_09_DragonWomanTechnician", "HL_Orion_12_FemaleMedic", "HL_Orion_13_MaleMedic",
+		"HL_Orion_11_VioletMechTechnician", "HL_Orion_16_SilverPonytailOfficer", "HL_Orion_04_LavenderElfOfficer", "HL_Orion_17_VioletMissionSpecialist", "HL_Orion_03_DarkHairedPilot",
+		"HL_Orion_05_BrunetteCommander", "HL_Orion_07_BlondFlightPilot", "HL_Orion_08_LavenderCommandOfficer", "HL_Orion_14_RedHairedPilot", "HL_Orion_18_MagmaOfficer"]},
+	"placeholder": {"pack": "crowd3d", "dir": "res://assets/crowd3d/%s.glb", "names": ["phenom_isara", "phenom_thalen", "phenom_vyrela", "phenom_xerathion"]},
+}
+const FLEET_CIV_MAX := 36       # a fleet ship's crew (only the rooms round you are drawn and animated)
+const FLEET_PER_AREA := 6500.0  # m2 of room per crew member (2..5 a room)
+
+static func crew_paths(faction: String) -> Array:
+	var out: Array = []
+	var key := faction.to_lower()
+	for k in CREW_SETS:
+		if key.begins_with(k):
+			var S: Dictionary = CREW_SETS[k]
+			if Packs.is_ready(str(S["pack"])):
+				for nm in S["names"]: out.append(str(S["dir"]) % nm)
+	if out.is_empty() and Packs.is_ready("crowd3d"):
+		var P: Dictionary = CREW_SETS["placeholder"]
+		for nm in P["names"]: out.append(str(P["dir"]) % nm)
+	return out.filter(func(p): return ResourceLoader.exists(p))
+
+var fleet := false              # a fleet ship (the Sims-style crew life, the NEUTRAL / CAUTION / ALERT states)
+var adj := {}                   # room -> the rooms a doorway joins it to
+var groups: Array = []          # chats: {id, members, centre, t, speaker, st} (a member holds only the id: no loops)
+var _gid := 0
 func _add_people(faction: String) -> void:
+	fleet = sp != null and (sp.board as Dictionary).has("fleet")
+	for d in Boarding.doors():
+		var rs: Array = d["rooms"]
+		for i in 2:
+			if not adj.has(rs[i]): adj[rs[i]] = []
+			adj[rs[i]].append(rs[1 - i])
 	var paths: Array = []
-	if faction.to_lower().begins_with("orion") and Packs.is_ready("crowd3d_orion"):
-		for nm in ["HL_Orion_09_DragonWomanTechnician", "HL_Orion_12_FemaleMedic", "HL_Orion_13_MaleMedic", "HL_Orion_11_VioletMechTechnician", "HL_Orion_16_SilverPonytailOfficer", "HL_Orion_04_LavenderElfOfficer", "HL_Orion_17_VioletMissionSpecialist"]:
-			paths.append("res://assets/crowd3d_orion/%s_Rigged.glb" % nm)
-	if Packs.is_ready("crowd3d"):
-		for nm in ["phenom_isara", "phenom_thalen", "phenom_vyrela", "phenom_xerathion"]: paths.append("res://assets/crowd3d/%s.glb" % nm)
-	paths = paths.filter(func(p): return ResourceLoader.exists(p))
+	if fleet: paths = crew_paths(faction)
+	else:
+		if faction.to_lower().begins_with("orion") and Packs.is_ready("crowd3d_orion"):
+			for nm in ["HL_Orion_09_DragonWomanTechnician", "HL_Orion_12_FemaleMedic", "HL_Orion_13_MaleMedic", "HL_Orion_11_VioletMechTechnician", "HL_Orion_16_SilverPonytailOfficer", "HL_Orion_04_LavenderElfOfficer", "HL_Orion_17_VioletMissionSpecialist"]:
+				paths.append("res://assets/crowd3d_orion/%s_Rigged.glb" % nm)
+		if Packs.is_ready("crowd3d"):
+			for nm in ["phenom_isara", "phenom_thalen", "phenom_vyrela", "phenom_xerathion"]: paths.append("res://assets/crowd3d/%s.glb" % nm)
+		paths = paths.filter(func(p): return ResourceLoader.exists(p))
 	if paths.is_empty(): return
-	var cache := {}
+	var cache := {}   # (one loaded model per character: every copy shares its mesh and textures)
+	var cap := FLEET_CIV_MAX if fleet else CIV_MAX
 	for k in Boarding.ROOMS:
 		var R: Dictionary = Boarding.ROOMS[k]
-		if str(R.get("label", "")) == "CORRIDOR" or bool(R.get("hex", false)) or str(k) in ["lbay", "sbay"]: continue
-		for i in CIV_PER_ROOM:
-			if civs.size() >= CIV_MAX: return
+		if str(R.get("label", "")) == "CORRIDOR" or bool(R.get("hex", false)): continue
+		if not fleet and str(k) in ["lbay", "sbay"]: continue
+		if fleet and (bool(R.get("conn", false)) or bool(R.get("flow", false)) or "lift" in str(k).to_lower()): continue
+		var n := CIV_PER_ROOM
+		if fleet:
+			var r: Array = R["r"]
+			n = clampi(int(absf((float(r[1]) - float(r[0])) * (float(r[3]) - float(r[2]))) / FLEET_PER_AREA), 2, 5)
+		for i in n:
+			if civs.size() >= cap: return
 			var p := _free_spot(str(k), 30.0)
 			if p == Vector3.INF: continue
 			var path: String = paths[(civs.size() * 3 + i) % paths.size()]
 			if not cache.has(path): cache[path] = load(path)
 			_add_civ(cache[path], p, str(k))
+			if fleet: (civs[-1]["node"] as Node3D).rotation.y = _rng.randf() * TAU
 
 func _add_civ(ps: PackedScene, at: Vector3, room: String) -> void:
 	var node := Node3D.new()
@@ -589,13 +635,15 @@ func _civ_anim(c: Dictionary, dt: float) -> void:
 	match st:
 		"idle":
 			var nm: String = c["idle"]
-			if nm in ["ual_nod", "ual_shake_head"] and t > AnimLib.length(nm):   # a nod or a head shake, then back to talking
+			if nm in ["ual_nod", "ual_shake_head"] and t > AnimLib.length(nm) and not c.has("group"):   # a nod or a head shake, then back to talking
 				c["idle"] = "ual_talk"
 				nm = "ual_talk"
+			if c.has("group"): t = float(c.get("gt", t))   # (a listener's nod plays from its start each time)
 			p = AnimLib.sample(nm, t)
 		"walk": p = AnimLib.locomotion(c["loco"], dt, CIV_WALK * 1.75 / CIV_H, 0.95)
 		"run": p = AnimLib.locomotion(c["loco"], dt, CIV_RUN * 1.75 / CIV_H, 0.95, "mx_walk", "ual_sprint")
-		"cower": p = AnimLib.sample("ual_crouch_idle", t)
+		"cower", "hide": p = AnimLib.sample("ual_crouch_idle", t)
+		"wary": p = AnimLib.locomotion(c["loco"], dt, CIV_WALK * 1.3 * 1.75 / CIV_H, 0.95, "ual_crouch_walk", "ual_crouch_walk", "ual_crouch_idle")
 		"down": p = AnimLib.sample("ual_death", t)
 	drv.apply(p, dt, 12.0)
 	var inst: Node3D = c["inst"]
@@ -640,6 +688,7 @@ func hit_civ(c: Dictionary) -> void:
 	if ap != null and is_instance_valid(ap): ap.stop()
 	noise((c["node"] as Node3D).global_position, PANIC_R * 1.5)
 	if sp != null: sp.board_scream(str(c["room"]))
+	if fleet and sp != null and str(sp.stealth) == "neutral": sp.set_stealth("caution", "you shot one of the crew")   # v13.163
 
 func _panic(c: Dictionary) -> void:
 	var n: Node3D = c["node"]
@@ -700,18 +749,35 @@ func _cower(c: Dictionary) -> void:
 	(c["inst"] as Node3D).position.y -= drop
 	c["drop"] = drop
 
+var _frame := 0
 func _update_people(dt: float) -> void:
 	if sp == null or not is_instance_valid(sp.player): return
+	_frame += 1
 	var pp: Vector3 = sp.player.global_position
 	var alert: bool = str(sp.board.get("phase", "")) == "escape"
 	var here := str(sp.board.get("room", ""))
+	if fleet: here = Boarding.room_at(pp, 8.0)
+	# v13.163 (owner: Metroid Dread opens the rooms round you and closes the rest): only the room you're in and the
+	# rooms its doorways join are drawn and animated; further crew keep living (walking, chatting) unseen
+	var near_rooms: Array = [here] + (adj.get(here, []) as Array)
+	var lvl := 0   # 0 calm, 1 caution, 2 alert (a fleet ship)
+	if fleet:
+		lvl = {"caution": 1, "alert": 2}.get(str(sp.stealth), 0)
+		if alert: lvl = 2
+		_groups_tick(dt, lvl)
 	for c in civs:
 		var n: Node3D = c["node"]
-		var near := n.global_position.distance_to(pp) < 900.0
+		var dist := n.global_position.distance_to(pp)
+		var near := dist < 900.0 if not fleet else (dist < 320.0 or (str(c["room"]) in near_rooms and dist < 1100.0))
 		n.visible = near
 		var ap: AnimationPlayer = c["ap"]
 		if ap != null and is_instance_valid(ap): ap.active = near
-		if near and c.has("drv") and n.global_position.distance_to(pp) < 600.0: _civ_anim(c, dt)
+		if near and c.has("drv") and dist < (1100.0 if fleet else 600.0):
+			c["adt"] = float(c.get("adt", 0.0)) + dt
+			if dist < 380.0 or (_frame + int(c["node"].get_instance_id())) % 3 == 0:   # (further off: a third of the frames)
+				_civ_anim(c, float(c["adt"]))
+				c["adt"] = 0.0
+		if fleet and str(c["state"]) != "down": _fleet_react(c, lvl, dt)
 		match str(c["state"]):
 			"down":
 				if c.has("drv"): continue   # v13.157: the real fall clip
@@ -720,37 +786,55 @@ func _update_people(dt: float) -> void:
 				continue
 			"idle":
 				c["t"] = float(c["t"]) - dt
-				if alert and here == str(c["room"]): _panic(c)
+				if c.has("face_to"): _turn_to(n, (c["face_to"] as Vector3) - n.global_position, dt)
+				if not fleet and alert and here == str(c["room"]): _panic(c)
+				elif c.has("group"): pass   # (in a chat: the chat says when it's over)
 				elif float(c["t"]) <= 0.0:
-					var q := _free_spot(str(c["room"]), 30.0)
-					if q != Vector3.INF:
-						c["goal"] = q
-						c["state"] = "walk"
-						_clip(c, "Walk", 1.0)
-					else: c["t"] = 3.0
-			"walk", "run":
+					if fleet: _plan(c)
+					else:
+						var q := _free_spot(str(c["room"]), 30.0)
+						if q != Vector3.INF:
+							c["goal"] = q
+							c["state"] = "walk"
+							_clip(c, "Walk", 1.0)
+						else: c["t"] = 3.0
+			"walk", "run", "wary":
 				var run: bool = c["state"] == "run"
-				if alert and here == str(c["room"]) and not run: _panic(c)
+				if not fleet and alert and here == str(c["room"]) and not run: _panic(c)
 				var to: Vector3 = (c["goal"] as Vector3) - n.global_position
 				to.y = 0.0
+				var dr = c.get("door", null)
+				if dr != null and to.length() < 60.0: dr["civ_until"] = Time.get_ticks_msec() + 700   # (the door opens for them)
+				if dr != null and to.length() < 26.0 and float(dr.get("open", 1.0)) < 0.7: continue   # (wait for it)
 				if to.length() < 5.0:
 					if run: _cower(c)
-					else:
-						c["state"] = "idle"
-						c["t"] = _rng.randf_range(2.0, 6.0)
-						_clip(c, "Idle")
+					elif c["state"] == "wary": _hunker(c)
+					elif not (c.get("path", []) as Array).is_empty():   # the next leg (through a doorway into the next room)
+						var nx: Array = c["path"]
+						var leg: Array = nx.pop_front()
+						c["goal"] = leg[0]
+						c["door"] = leg[1]
+						if leg[2] != "": c["room"] = leg[2]
+					else: _arrive(c)
 				else:
-					var spd := CIV_RUN if run else CIV_WALK
+					var spd := CIV_RUN if run else (CIV_WALK * 1.3 if c["state"] == "wary" else CIV_WALK)
 					if run: _clip(c, "Walk", 2.2)
 					var step := to.normalized() * minf(spd * dt, to.length())
 					var np := push_out(n.global_position + step, 3.0)
 					n.global_position = Vector3(np.x, Boarding.floor_at(np), np.z)
-					sp.face(n, to)
-			"cower":
+					if n.visible: _turn_to(n, to, dt * 2.0)
+			"cower", "hide":
 				c["calm"] = float(c["calm"]) + dt
 				var cv = c["cover"]
 				if cv != null and cv["broken"]:   # their cover went: run again
 					_panic(c)
+				elif fleet:
+					if lvl == 0 and float(c["calm"]) > float(c.get("calm_at", 8.0)): _rise(c)
+					elif n.visible:   # (crouched: they keep an eye on where you are, a peek now and then)
+						var aw2 := pp - n.global_position
+						aw2.y = 0.0
+						if c["state"] == "hide" and int(float(c["calm"]) / 3.0) % 2 == 1: _turn_to(n, aw2, dt)
+						else: _turn_to(n, -aw2, dt)
 				elif float(c["calm"]) > (25.0 if alert else 12.0) and not (alert and here == str(c["room"])):
 					_stand(c)
 					c["state"] = "idle"
@@ -760,6 +844,215 @@ func _update_people(dt: float) -> void:
 					var aw := n.global_position - pp
 					aw.y = 0.0
 					if aw.length() > 1.0: sp.face(n, -aw)
+
+## a smooth turn toward dir (yaw only)
+func _turn_to(n: Node3D, dir: Vector3, dt: float) -> void:
+	dir.y = 0.0
+	if dir.length() < 0.5: return
+	var want := atan2(-dir.x, -dir.z)
+	n.rotation.y = lerp_angle(n.rotation.y, want, minf(1.0, dt * 5.0))
+
+# ---------------------------------------------------------------- v13.163: the crew's day (Sims-style)
+## What someone does next when they finish what they were doing: join a chat, work at a console, take a call,
+## wander, or walk through a doorway into the next room.
+func _plan(c: Dictionary) -> void:
+	c.erase("face_to")
+	var n: Node3D = c["node"]
+	var r := _rng.randf()
+	if r < 0.38 and _start_chat(c): return
+	if r < 0.6:
+		var best = null
+		var bd := 400.0
+		for pr in props:
+			if pr["broken"] or str(pr["room"]) != str(c["room"]) or not (str(pr["kind"]) in ["console", "table", "crate"]): continue
+			if bool(pr.get("user", false)): continue
+			var d := ((pr["aabb"] as AABB).get_center() - n.global_position).length()
+			if d < bd:
+				bd = d
+				best = pr
+		if best != null:
+			var bb: AABB = best["aabb"]
+			var pc := bb.get_center()
+			var side := Vector3(n.global_position.x - pc.x, 0, n.global_position.z - pc.z)
+			side = side.normalized() if side.length() > 0.5 else Vector3.RIGHT
+			var g := pc + side * (maxf(bb.size.x, bb.size.z) * 0.5 + 5.0)
+			best["user"] = true
+			c["work"] = best
+			_go(c, Vector3(g.x, Boarding.floor_at(g), g.z), "work")
+			return
+	if r < 0.78 and _cross(c): return
+	var q := _free_spot(str(c["room"]), 30.0)
+	if q == Vector3.INF:
+		c["t"] = 3.0
+		return
+	_go(c, q, ["ual_phone", "ual_fold_arms", "ual_idle", "mx_idle", "ual_idle"][_rng.randi() % 5])
+
+func _go(c: Dictionary, at: Vector3, then: String) -> void:
+	c["goal"] = at
+	c["then"] = then
+	c["state"] = "walk"
+	_clip(c, "Walk", 1.0)
+
+## at the end of a walk: start what they came for
+func _arrive(c: Dictionary) -> void:
+	c["state"] = "idle"
+	var th := str(c.get("then", ""))
+	c.erase("then")
+	c.erase("door")
+	if th == "chat" and c.has("group"):
+		c["idle"] = "ual_idle"
+		c["face_to"] = _group(int(c["group"])).get("centre", (c["node"] as Node3D).global_position)
+		c["t"] = 999.0
+	elif th == "work" and c.has("work"):
+		var pr: Dictionary = c["work"]
+		c["idle"] = "ual_kneel_work" if str(pr["kind"]) == "crate" else "ual_interact"
+		c["face_to"] = (pr["aabb"] as AABB).get_center()
+		c["t"] = _rng.randf_range(8.0, 18.0)
+	else:
+		_free_work(c)
+		c["idle"] = th if th.begins_with("ual_") or th.begins_with("mx_") else IDLES[_rng.randi() % IDLES.size()]
+		if c["idle"] == "ual_sit_talk": c["idle"] = "ual_talk"
+		c["t"] = _rng.randf_range(4.0, 10.0)
+	c["last"] = "idle"
+	c["at"] = 0.0
+	_clip(c, "Idle")
+
+func _free_work(c: Dictionary) -> void:
+	if c.has("work"):
+		(c["work"] as Dictionary)["user"] = false
+		c.erase("work")
+
+## two or three people in the room meet and talk: one speaks, the others nod, fold their arms, shake their heads; the
+## one speaking changes every few seconds
+func _start_chat(c: Dictionary) -> bool:
+	var n: Node3D = c["node"]
+	var mates: Array = []
+	for o in civs:
+		if is_same(o, c) or str(o["state"]) != "idle" or o.has("group") or str(o["room"]) != str(c["room"]): continue
+		if (o["node"] as Node3D).global_position.distance_to(n.global_position) > 160.0: continue
+		mates.append(o)
+		if mates.size() >= (1 if _rng.randf() < 0.5 else 2): break
+	if mates.is_empty(): return false
+	var members: Array = [c] + mates
+	var mid := Vector3.ZERO
+	for m in members: mid += (m["node"] as Node3D).global_position
+	mid /= float(members.size())
+	mid = push_out(mid, 10.0)
+	mid.y = Boarding.floor_at(mid)
+	_gid += 1
+	var G := {"id": _gid, "members": members, "centre": mid, "t": _rng.randf_range(14.0, 26.0), "speaker": 0, "st": 0.0, "on": false}
+	groups.append(G)
+	var a0 := _rng.randf() * TAU
+	for i in members.size():
+		var m: Dictionary = members[i]
+		_free_work(m)
+		m["group"] = int(G["id"])
+		var ang := a0 + TAU * float(i) / float(members.size())
+		var spot := push_out(mid + Vector3(cos(ang), 0, sin(ang)) * 7.5, 3.0)
+		_go(m, Vector3(spot.x, Boarding.floor_at(spot), spot.z), "chat")
+	return true
+
+func _groups_tick(dt: float, lvl: int) -> void:
+	for G in groups.duplicate():
+		var mem: Array = (G["members"] as Array).filter(func(m): return m.has("group") and int(m["group"]) == int(G["id"]) and str(m["state"]) in ["idle", "walk"])
+		if lvl > 0 or mem.size() < 2:
+			_end_chat(G)
+			continue
+		if not G["on"]:
+			G["wait"] = float(G.get("wait", 0.0)) + dt
+			if mem.all(func(m): return str(m["state"]) == "idle") or float(G["wait"]) > 12.0: G["on"] = true
+			continue
+		G["t"] = float(G["t"]) - dt
+		G["st"] = float(G["st"]) - dt
+		if float(G["t"]) <= 0.0:
+			_end_chat(G)
+			continue
+		if float(G["st"]) <= 0.0:   # the next one to speak
+			G["st"] = _rng.randf_range(2.5, 5.0)
+			G["speaker"] = (int(G["speaker"]) + 1 + _rng.randi() % maxi(1, mem.size() - 1)) % mem.size()
+			for i in mem.size():
+				var m: Dictionary = mem[i]
+				if str(m["state"]) != "idle": continue
+				m["idle"] = "ual_talk" if i == int(G["speaker"]) else ["ual_nod", "ual_fold_arms", "ual_idle", "ual_nod", "ual_shake_head"][_rng.randi() % 5]
+				m["gt"] = 0.0
+				m["face_to"] = (mem[int(G["speaker"])]["node"] as Node3D).global_position if i != int(G["speaker"]) else G["centre"]
+		for m in mem: m["gt"] = float(m.get("gt", 0.0)) + dt
+
+func _group(id: int) -> Dictionary:
+	for G in groups: if int(G["id"]) == id: return G
+	return {}
+
+func _end_chat(G: Dictionary) -> void:
+	for i in groups.size():
+		if int(groups[i]["id"]) == int(G["id"]):
+			groups.remove_at(i)
+			break
+	for m in G["members"]:
+		if m.has("group") and int(m["group"]) == int(G["id"]):
+			m.erase("group")
+			m.erase("gt")
+			if str(m["state"]) == "idle": m["t"] = _rng.randf_range(0.5, 3.0)
+
+## through a doorway into the next room (not the card doors: the crew keep to their own decks too)
+func _cross(c: Dictionary) -> bool:
+	var opts: Array = []
+	for d in sp.board_doors:
+		var rs: Array = d.get("rooms", [])
+		if not (str(c["room"]) in rs) or int(d.get("key", 0)) > 0 or bool(d.get("locked", false)) or bool(d.get("sealed", false)) or d.has("wreck"): continue
+		var other := str(rs[1] if str(rs[0]) == str(c["room"]) else rs[0])
+		var R: Dictionary = Boarding.ROOMS.get(other, {})
+		if R.is_empty() or str(R.get("label", "")) == "CORRIDOR" or bool(R.get("hex", false)) or bool(R.get("conn", false)) or bool(R.get("flow", false)) or "lift" in other.to_lower(): continue
+		opts.append([d, other])
+	if opts.is_empty(): return false
+	var pick: Array = opts[_rng.randi() % opts.size()]
+	var dc: Vector3 = (pick[0] as Dictionary)["center"]
+	var dst := _free_spot(str(pick[1]), 30.0)
+	if dst == Vector3.INF: return false
+	_free_work(c)
+	c["path"] = [[dst, null, str(pick[1])]]
+	_go(c, Vector3(dc.x, Boarding.floor_at(dc), dc.z), "")
+	c["door"] = pick[0]
+	return true
+
+## the ship's state: CAUTION, they stop what they're doing and creep to somewhere to hide, crouched, watching; ALERT,
+## they run for cover and get down; back to NEUTRAL, they get up after a while and carry on
+func _fleet_react(c: Dictionary, lvl: int, dt: float) -> void:
+	var st := str(c["state"])
+	if lvl == 0:
+		return
+	if c.has("react"):
+		c["react"] = float(c["react"]) - dt
+		if float(c["react"]) > 0.0: return
+	elif st in ["idle", "walk"] or (lvl == 2 and st in ["wary", "hide"]):
+		c["react"] = _rng.randf_range(0.1, 1.4)   # (not all at the same instant)
+		return
+	if st in ["idle", "walk"] or (lvl == 2 and st in ["wary", "hide"]):
+		c.erase("react")
+		c.erase("path")
+		c.erase("door")
+		c.erase("face_to")
+		_free_work(c)
+		c["calm"] = 0.0
+		c["calm_at"] = _rng.randf_range(5.0, 12.0)
+		if lvl == 2: _panic(c)
+		else:
+			_panic(c)   # (the same hiding place a panic picks)
+			c["state"] = "wary"
+	else: c.erase("react")
+
+## at the hiding place in CAUTION: down on their heels, watching
+func _hunker(c: Dictionary) -> void:
+	c["state"] = "hide"
+	c["t"] = 0.0
+	c["calm"] = 0.0
+
+func _rise(c: Dictionary) -> void:
+	_stand(c)
+	c["cover"] = null
+	c["state"] = "idle"
+	c["t"] = _rng.randf_range(0.5, 3.0)
+	c["idle"] = "ual_idle"
+	_clip(c, "Idle")
 
 func update(dt: float) -> void:
 	if not chunks.is_empty(): _update_chunks(dt)
