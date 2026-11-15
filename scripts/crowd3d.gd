@@ -49,6 +49,7 @@ var hub: Node
 var room := ""                 # the room file the crowd is in ("" = no crowd)
 var cfg: Dictionary = {}       # Data.CROWD3D_ROOMS[room]
 var views := {}                # "<model>:<move>" -> SubViewport
+var anims := {}                # v13.159: viewport name -> {drv, clip, t, inst, y0}: the clip playing in it
 var heights := {}              # model -> body height (model units)
 var people: Array = []         # {model, x, d, dir, state, t, node}
 var holder: Control
@@ -126,6 +127,7 @@ func _clear() -> void:
 	people.clear()
 	for k in views: (views[k] as Node).queue_free()
 	views.clear()
+	anims.clear()
 
 ## The room's light: the still's average colour lights the crowd, so they take on the room's tint.
 func _room_light() -> Color:
@@ -146,7 +148,8 @@ func _build() -> void:
 	for path in paths:
 		var m := str(path).get_file().get_basename()
 		if not ResourceLoader.exists(path): continue
-		for move in ["Walk", "Walk2", "Idle"]:   # (two walks at different points in the step: copies don't march in step)
+		# (two walks at different points in the step: copies don't march in step; v13.159: two kinds of standing too)
+		for move in (["Walk", "Walk2", "Idle", "Idle2"] if AnimLib.has("ual_talk") else ["Walk", "Walk2", "Idle"]):
 			views["%s:%s" % [m, move]] = _make_view(path, m, move, lc)
 	if views.is_empty(): return
 	var have: Array = []
@@ -209,6 +212,31 @@ func _make_view(path: String, model: String, move: String, lc: Color) -> SubView
 	vp.add_child(cam)
 	cam.current = true
 	var ap := _find_player(inst)
+	# v13.159 (owner: "NPC GLB characters in the station: add them in with rigged motion"): the shared animation
+	# library (AnimLib, real animator-made clips) plays on every crowd body: a real walk, and standing people who talk
+	# with their hands, take calls, fold their arms, lean, nod. The models' own Walk / Idle stay as the fallback.
+	var drv = AnimLib.Driver.new()
+	var sk: Skeleton3D = null
+	for s2 in inst.find_children("*", "Skeleton3D", true, false):
+		sk = s2
+		break
+	if sk != null and AnimLib.has("ual_talk") and drv.setup(sk):
+		if ap != null:
+			ap.stop()
+			ap.active = false
+		var clip := "mx_walk"
+		var t0 := 0.0
+		if mv == "Walk":
+			if move.ends_with("2"): t0 = AnimLib.length(clip) * 0.5
+		else:
+			var hm := absi(hash(model))
+			var talk: Array = ["ual_talk", "ual_talk", "ual_fold_arms", "ual_idle"]
+			var other: Array = ["ual_phone", "ual_lean_rail", "ual_fold_arms", "ual_nod", "mx_idle"]
+			clip = talk[hm % talk.size()] if not move.ends_with("2") else other[(hm / 7) % other.size()]
+			t0 = float(hm % 100) / 100.0 * AnimLib.length(clip)
+		anims[vp.name] = {"drv": drv, "clip": clip, "t": t0, "inst": inst, "y0": inst.position.y}
+		drv.apply(AnimLib.sample(clip, t0), 1.0, 1000.0)
+		return vp
 	if ap != null:
 		var an := ap.get_animation_list()
 		var pick := ""
@@ -250,7 +278,7 @@ func _find_player(n: Node) -> AnimationPlayer:
 	return null
 
 func _set_tex(p: Dictionary) -> void:
-	var vp: SubViewport = views.get("%s:%s" % [p["model"], ("Walk" if int(p.get("v", 1)) == 1 else "Walk2") if p["state"] == "walk" else "Idle"])
+	var vp: SubViewport = views.get("%s:%s" % [p["model"], ("Walk" if int(p.get("v", 1)) == 1 else "Walk2") if p["state"] == "walk" else ("Idle" if int(p.get("v", 1)) == 1 else "Idle2")])
 	if vp == null: vp = views.get(str(p["model"]) + ":Idle")
 	(p["node"] as TextureRect).texture = vp.get_texture()
 
@@ -355,11 +383,27 @@ func _floor(d: float) -> Vector2:
 	var f: Array = cfg.get("front", [0.86, 0.34])
 	return Vector2(lerpf(float(b[0]), float(f[0]), d), lerpf(float(b[1]), float(f[1]), d))
 
+## v13.159: advance the clip in every crowd view (a nod plays once, then they go back to talking)
+func _tick_anims(dt: float) -> void:
+	for k in anims:
+		var a: Dictionary = anims[k]
+		a["t"] = float(a["t"]) + dt
+		var clip: String = a["clip"]
+		if clip == "ual_nod" and float(a["t"]) > AnimLib.length(clip) + 1.5:
+			a["clip"] = "ual_talk"
+			a["t"] = 0.0
+			clip = "ual_talk"
+		var drv = a["drv"]
+		drv.apply(AnimLib.sample(clip, float(a["t"])), dt, 18.0)
+		var inst: Node3D = a["inst"]
+		if is_instance_valid(inst): inst.position.y = float(a["y0"]) + drv.plant_offset() * inst.scale.y
+
 func tick(dt: float) -> void:
 	if people.is_empty(): return
 	var rv: Control = hub.room_view
 	visible = rv.visible
 	if not visible: return
+	_tick_anims(dt)
 	var mat := rv.material as ShaderMaterial
 	var tex: Texture2D = mat.get_shader_parameter("strip")
 	if tex == null: return
