@@ -76,6 +76,35 @@ static func locomotion(state: Dictionary, dt: float, speed: float, hip_h: float,
 	var moving := mix(sample(walk, ph * length(walk)), sample(run, ph * length(run)), w)
 	return mix(sample(idle, float(state["t"])), moving, clampf(speed / 1.0, 0.0, 1.0))
 
+## v13.158 (owner: "tap sword = a combo like Chronicle Clash, hold forward = a front flip attack, hold back = a back
+## flip attack; the same for the mech"): the pose for a move `kind` at f (0..1 through it), and how far the whole
+## body turns over (radians about its sideways axis: - = forward somersault, + = backflip).
+## Kinds: combo0 / combo1 / combo2 (the third is the finisher), flip, backflip, roll.
+const COMBO := ["ual_slash_a", "ual_slash_b", "ual_slash_c"]
+static func move_pose(kind: String, f: float) -> Array:
+	f = clampf(f, 0.0, 1.0)
+	if kind.begins_with("combo"):
+		var n: String = COMBO[clampi(int(kind.substr(5)), 0, 2)]
+		var c: Dictionary = clips().get(n, {})
+		var hit := float(c.get("hit", length(n) * 0.5))
+		var end := minf(length(n) - 0.01, hit + (0.6 if n == "ual_slash_c" else 0.3))
+		# wind-up to the strike in the first half, the follow-through in the second (the hit lands at f = 0.5)
+		var t := f / 0.5 * hit if f < 0.5 else hit + (f - 0.5) / 0.5 * (end - hit)
+		return [sample(n, t), 0.0]
+	match kind:
+		"flip", "backflip":
+			var p: Dictionary
+			if f < 0.18: p = sample("ual_flip_start", 0.25 + f / 0.18 * 0.25)              # crouch and spring
+			elif f < 0.78: p = mix(sample("ual_flip_start", 0.5), sample("ual_flip_air", (f - 0.18) * 2.0), clampf((f - 0.18) / 0.12, 0.0, 1.0))   # tucked in the air
+			else:   # landing with the blade coming down
+				var hit := float(clips().get("ual_slash_a", {}).get("hit", 0.27))
+				p = sample("ual_slash_a", hit * 0.6 + (f - 0.78) / 0.22 * (hit * 0.4 + 0.15))
+			var turn := smoothstep(0.12, 0.82, f) * TAU
+			return [p, -turn if kind == "flip" else turn]
+		"roll":
+			return [sample("ual_roll", 0.1 + f * 1.25), 0.0]
+	return [{}, 0.0]
+
 ## Bone names on the different humanoid rigs, ours first.
 const ALIASES := {
 	"Hip": ["Hip", "Hips", "hips", "pelvis", "Pelvis"],

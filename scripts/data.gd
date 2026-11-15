@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.157"
+const VERSION := "v13.158"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -2272,6 +2272,9 @@ const BOOMER_LIFE := 4.0      # s at most
 const SWORD_FLIP_TIME := 0.6                           # v12.51 (owner): the somersault jump attack (forward held, or in the speed run)
 const SWORD_FLIP_DIST := 40.0                          # m it carries you (more if you're already running faster)
 const SWORD_FLIP_HEIGHT := 14.0                        # m over the deck at the top
+const SWORD_BACKFLIP_DIST := 26.0                      # v13.158: m the backflip attack carries you back
+const SWORD_COMBO_TIMES := [0.38, 0.38, 0.55]          # v13.158: s per swing of the tap combo (the third, the finisher)
+const SWORD_LUNGE_MULT := 2.5                          # v13.158: a target this many reaches away is lunged at
 const SWORD_CONE := 0.2
 const SWORD_DMG_MULT := 1.0                            # x a light missile hit
 const SWORD_BLADE_LEN := 9.0

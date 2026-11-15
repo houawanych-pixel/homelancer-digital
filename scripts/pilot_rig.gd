@@ -23,6 +23,7 @@ var _act := ""            # v13.157: a move playing on the body ("roll", "flip")
 var _act_f := 0.0
 var _act_ms := 0
 var _hidden: Array = []  # the gun(s) put away while rolling
+var _last := {}          # the last clip pose (its "blade" says where the sword points)
 
 static func ready() -> bool:
 	if not Packs.is_ready(PACK):
@@ -83,7 +84,7 @@ func build(height: float, feet_below: float, glb := "", head_glb := "", head_yaw
 func act(kind: String, f: float) -> void:
 	_act = kind
 	_act_f = clampf(f, 0.0, 1.0)
-	_act_ms = Time.get_ticks_msec()
+	_act_ms = Engine.get_process_frames()
 
 ## v13.157: real clips (AnimLib): walk / run / idle blended by speed, a real dive-roll and a real jump-spin, with
 ## the arms back on the rifle whenever he isn't rolling. Falls back to the old code swing if the clips are missing.
@@ -92,14 +93,16 @@ func _clip_pose(dt: float, speed: float) -> bool:
 		_drv = AnimLib.Driver.new()
 		_drv_ok = _drv.setup(skel) and AnimLib.has("mx_walk")
 	if not _drv_ok: return false
-	if _act != "" and Time.get_ticks_msec() - _act_ms > 150: _act = ""
+	if _act != "" and Engine.get_process_frames() - _act_ms > 3: _act = ""   # (the move stopped calling)
 	var p: Dictionary
-	match _act:
-		"roll": p = AnimLib.sample("ual_roll", 0.1 + _act_f * 1.25)
-		"flip": p = AnimLib.sample("ual_slash_c", 0.05 + _act_f * 1.2)
-		_:
-			# the clips are made for a 1.75 m person: walk speed in "person" units
-			p = AnimLib.locomotion(_loco, dt, speed * 1.75 / maxf(0.1, _height), 0.95)
+	if _act != "":
+		var mp: Array = AnimLib.move_pose(_act, _act_f)   # v13.158: combo / flip / backflip / roll
+		p = mp[0]
+		body.rotation.x = float(mp[1])
+	else:
+		body.rotation.x = 0.0
+		# the clips are made for a 1.75 m person: walk speed in "person" units
+		p = AnimLib.locomotion(_loco, dt, speed * 1.75 / maxf(0.1, _height), 0.95)
 	_drv.apply(p, dt, 30.0 if _act != "" else 16.0)
 	if _act != "" and _hidden.is_empty():
 		for nm in ["Rifle", "Held"]:
@@ -119,7 +122,9 @@ func _clip_pose(dt: float, speed: float) -> bool:
 	# feet on the floor (the clip's legs come from another body)
 	var sc := _rel(skel, body).basis.get_scale().y
 	# (mid-roll he is upside down: then the clip's own hip height, not the feet, says where the body is)
-	var y: float = float(p.get("lift", 0.0)) * _drv.hip_h * sc if _act != "" else _drv.plant_offset() * sc
+	var air := _act in ["roll", "flip", "backflip"]
+	var y: float = float(p.get("lift", 0.0)) * _drv.hip_h * sc if air else _drv.plant_offset() * sc
+	_last = p
 	body.position.y = lerpf(body.position.y, y, minf(1.0, dt * 20.0))
 	return true
 
@@ -244,3 +249,15 @@ static func aim_bone(skel: Skeleton3D, body: Node3D, name: String, child: String
 	var par := skel.get_bone_parent(b)
 	var pg: Basis = skel.get_bone_global_pose(par).basis if par >= 0 else Basis.IDENTITY
 	skel.set_bone_pose_rotation(b, (pg.inverse() * nb).get_rotation_quaternion())
+
+## v13.158: where the sword is while a move plays: [hand position, blade direction] in world space, or [] when no
+## clip is driving him (the blade then stays at its old fixed place).
+func blade_world() -> Array:
+	if _act == "" or not _drv_ok or not _last.has("blade") or skel == null or not skel.is_inside_tree(): return []
+	var i: int = _drv.idx.get("R_Hand", -1)
+	if i < 0: return []
+	var gx := skel.global_transform
+	var hand := gx * skel.get_bone_global_pose(i).origin
+	var m: Basis = _drv.M
+	var dir: Vector3 = (gx.basis * (m * (_last["blade"] as Vector3))).normalized()
+	return [hand, dir]

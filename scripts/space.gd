@@ -10301,6 +10301,80 @@ func _sword_start(kind: String, dir: Vector3, slashes: int) -> void:
 	sword_t = Data.DODGE_TIME if kind == "roll" else Data.SHIP_BURST_TIME if kind == "burst" else Data.SWORD_FLIP_TIME if kind == "flip" else Data.SWORD_DASH_TIME if kind == "dash" else (Data.SWORD_SIDE_TIME if kind == "side" else (Data.SWORD_SPIN_TIME if kind == "spin" else Data.SWORD_SEEK_MAX))
 	Sfx.play("saber_on", -7.0, 1.2)
 
+## v13.158: the tap combo, one swing at a time (tap again during a swing for the next; the third is the finisher)
+var _combo_i := 0
+var _combo_len := 0.4
+var _combo_hit := false
+var _combo_queued := false
+var _combo_lunge := false
+var _move_f := 0.0
+func _combo_start(dir: Vector3, i: int) -> void:
+	_sword_start("combo", dir, 1)
+	_combo_i = i
+	_combo_len = Data.SWORD_COMBO_TIMES[clampi(i, 0, 2)]
+	sword_t = _combo_len
+	_combo_hit = false
+	_combo_queued = false
+	_move_f = 0.0
+	# a target ahead but out of the blade's reach: lunge to it in the wind-up
+	_combo_lunge = _sword_targets(dir, Data.SWORD_REACH, Data.SWORD_CONE).is_empty() and not _sword_targets(dir, Data.SWORD_REACH * Data.SWORD_LUNGE_MULT, Data.SWORD_CONE).is_empty()
+
+## v13.158: the mech's saber in its right hand while a move plays: [hand, direction] in world space, or []
+func _mech_blade() -> Array:
+	if _move_kind() == "" or not (_mech_drv is RefCounted) or not _mech_last.has("blade") or not is_instance_valid(_mech_skel): return []
+	var i: int = _mech_drv.idx.get("R_Hand", -1)
+	if i < 0 or not _mech_skel.is_inside_tree(): return []
+	var gx := _mech_skel.global_transform
+	return [gx * _mech_skel.get_bone_global_pose(i).origin, (gx.basis * (_mech_drv.M * (_mech_last["blade"] as Vector3))).normalized()]
+
+## v13.158: the moves played on the body with real clips (AnimLib): the pilot's own rig, or the mech's skeleton
+var _mech_drv = null
+var _mech_skel: Skeleton3D
+var _mech_yaw0 := INF
+var _mech_last := {}
+func _move_kind() -> String:
+	match sword_kind:
+		"combo": return "combo%d" % _combo_i
+		"flip", "backflip", "roll": return sword_kind
+	return ""
+func _animate_moves(dt: float) -> void:
+	var k := _move_kind()
+	if pilot_rig != null and is_instance_valid(pilot_rig.body):
+		if k != "":
+			if k == "roll":   # roll toward the side he dodges to
+				var ld := player.global_basis.inverse() * _sword_dir
+				pilot_rig.body.rotation.y = atan2(-ld.x, -ld.z)
+			else: pilot_rig.body.rotation.y = 0.0
+			pilot_rig.act(k, _move_f)
+		elif pilot_rig.body.rotation.y != 0.0: pilot_rig.body.rotation.y = 0.0
+		return
+	if GS.form != "mech" or player_vis.is_empty() or not player_vis.get("mech", false): return
+	var sk: Skeleton3D = player_vis.get("skel")
+	if sk == null or not is_instance_valid(sk) or not is_instance_valid(model): return
+	if k == "":
+		if player_vis.get("anim_hold", false):   # back to the flight posture
+			player_vis["anim_hold"] = false
+			sk.reset_bone_poses()
+			model.rotation.x = 0.0
+			if _mech_yaw0 != INF: model.rotation.y = _mech_yaw0
+			_mech_yaw0 = INF
+		return
+	if _mech_skel != sk or _mech_drv == null:
+		_mech_skel = sk
+		_mech_drv = AnimLib.Driver.new()
+		if not _mech_drv.setup(sk): _mech_drv = false
+	if not (_mech_drv is RefCounted): return
+	player_vis["anim_hold"] = true
+	var mp: Array = AnimLib.move_pose(k, _move_f)
+	_mech_drv.apply(mp[0], dt, 30.0)
+	_mech_last = mp[0]
+	model.rotation.x = float(mp[1])
+	if _mech_yaw0 == INF: _mech_yaw0 = model.rotation.y
+	if k == "roll":
+		var ld := player.global_basis.inverse() * _sword_dir
+		model.rotation.y = _mech_yaw0 + atan2(-ld.x, -ld.z)
+	else: model.rotation.y = _mech_yaw0
+
 func _update_sword(dt: float) -> void:
 	if not boomers.is_empty(): _update_boomers(dt)
 	dodge_t = maxf(0.0, dodge_t - dt)
@@ -10332,6 +10406,13 @@ func _update_sword(dt: float) -> void:
 						if sword_locks.count(c) < sword_locks.count(least): least = c
 					sword_locks.append(least)
 					Sfx.play("button", -6.0, 1.6 + 0.08 * sword_locks.size())
+	if not sword_held and _sword_prev and sword_kind == "combo" and _sword_hold < Data.SWORD_HOLD:
+		_combo_queued = true   # v13.158: a tap during a swing chains the next one
+		_sword_prev = sword_held
+		if sword_kind != "": _sword_step(dt, fwd)
+		_animate_moves(dt)
+		_update_blade(dt)
+		return
 	if not sword_held and _sword_prev and sword_ready():   # let go
 		var right := player.global_basis.x
 		right.y = 0.0
@@ -10356,14 +10437,18 @@ func _update_sword(dt: float) -> void:
 			_flip_speed = maxf(Data.SWORD_FLIP_DIST / Data.SWORD_FLIP_TIME, Vector2(vel.x, vel.z).length())
 			_flip_y0 = player.global_position.y
 			Sfx.play("whoosh", -6.0, 1.3)
+		elif move.y <= -0.45:
+			# v13.158 (owner: "hold back and sword: a back flip attack"): a backflip away, the blade sweeping the front
+			_sword_start("backflip", fwd, 1)
+			_flip_speed = Data.SWORD_BACKFLIP_DIST / Data.SWORD_FLIP_TIME
+			_flip_y0 = player.global_position.y
+			Sfx.play("whoosh", -6.0, 1.15)
 		else:
-			_sword_start("dash", fwd, Data.SWORD_COMBO)
-			_sword_engaged = true   # v12.46 (owner): the combo where you stand
-			_sword_next = 0.0
-			sword_t = Data.SWORD_COMBO * Data.SWORD_COMBO_GAP + 0.1
+			_combo_start(fwd, 0)   # v13.158 (owner: "a combo attack when you tap sword, like in Chronicle Clash")
 	_sword_prev = sword_held
 	if sword_kind != "": _sword_step(dt, fwd)
-	if sword_kind != "flip" and sword_kind != "roll":   # v13.69 (owner: "my character is upside down ... when I did a flip it got stuck in that pose"): a flip or roll cut short (another move, a wall, a room change) never leaves the body turned
+	_animate_moves(dt)
+	if not sword_kind in ["flip", "roll", "backflip", "combo"]:   # v13.69 (owner: "my character is upside down ... when I did a flip it got stuck in that pose"): a flip or roll cut short (another move, a wall, a room change) never leaves the body turned
 		var up_body: Node3D = pilot_rig.body if pilot_rig != null and is_instance_valid(pilot_rig.body) else null
 		if up_body != null and (up_body.rotation.x != 0.0 or up_body.rotation.z != 0.0 or up_body.rotation.y != 0.0):
 			up_body.rotation.x = 0.0
@@ -10400,8 +10485,7 @@ func _sword_step(dt: float, fwd: Vector3) -> void:
 			player.global_position.y = base_y + 4.0 * Data.SWORD_FLIP_HEIGHT * f * (1.0 - f)
 			vel.y = 0.0
 			var spin: Node3D = pilot_rig.body if pilot_rig != null and is_instance_valid(pilot_rig.body) else model
-			if pilot_rig != null and is_instance_valid(pilot_rig.body): pilot_rig.act("flip", f)   # v13.157: a real jump-spin, not a stiff spin
-			elif is_instance_valid(spin): spin.rotation.x = -TAU * f
+			_move_f = f   # v13.158: a real tucked somersault (_animate_moves), the pilot's and the mech's
 			if _sword_next <= 0.0 and f > 0.45 and _sword_left > 0:   # the blade over the top
 				_sword_left -= 1
 				_sword_next = 99.0
@@ -10416,19 +10500,45 @@ func _sword_step(dt: float, fwd: Vector3) -> void:
 					_sword_hit(e)
 					_sword_hit(e)
 				vel = Vector3(_sword_dir.x * _flip_speed * 0.3, 0, _sword_dir.z * _flip_speed * 0.3)
+		"backflip":   # v13.158: back over a short hop, the blade sweeping in front as he lands
+			var fb := clampf(1.0 - sword_t / Data.SWORD_FLIP_TIME, 0.0, 1.0)
+			_move_f = fb
+			_sword_move(-_sword_dir * _flip_speed, dt)
+			var by := _flip_y0
+			if boarding: by = Boarding.floor_at(player.global_position) + 6.0
+			player.global_position.y = by + 4.0 * Data.SWORD_FLIP_HEIGHT * 0.8 * fb * (1.0 - fb)
+			vel.y = 0.0
+			if sword_t <= 0.0:
+				player.global_position.y = by
+				_sword_slash_fx(_sword_dir, Data.SWORD_REACH * 1.2)
+				Sfx.play("saber_hit", -4.0, 1.0)
+				for e in _sword_targets(_sword_dir, Data.SWORD_REACH * 1.5, -0.2):
+					_sword_hit(e)
+					_sword_hit(e)
+				vel = Vector3(0, 0, 0)
+		"combo":   # v13.158: one swing of the tap combo (the third is the finisher); the hit lands half way through
+			var fc := clampf(1.0 - sword_t / maxf(0.01, _combo_len), 0.0, 1.0)
+			_move_f = fc
+			if _combo_lunge and fc < 0.5:   # closing in on a target just out of reach
+				if _sword_targets(_sword_dir, Data.SWORD_REACH * 0.8, Data.SWORD_CONE).is_empty(): _sword_move(_sword_dir * Data.SWORD_DASH_SPEED, dt)
+				else: _combo_lunge = false
+			else:
+				vel = Vector3(0, vel.y, 0)
+			if not _combo_hit and fc >= 0.5:
+				_combo_hit = true
+				var fin := _combo_i == 2
+				_sword_slash_fx(_sword_dir, Data.SWORD_REACH * (1.25 if fin else 1.0))
+				for e in _sword_targets(_sword_dir, Data.SWORD_REACH * (1.35 if fin else 1.0), Data.SWORD_CONE if not fin else -0.2):
+					_sword_hit(e)
+					if fin: _sword_hit(e)
+				if fin: hit_shake = maxf(hit_shake, 0.3)
+			if sword_t <= 0.0 and _combo_queued and _combo_i < 2:
+				_combo_start(_sword_dir, _combo_i + 1)
 		"roll":   # v12.55: the dodging roll (no blade: you can't be hit while it lasts)
 			var fr := clampf(1.0 - sword_t / Data.DODGE_TIME, 0.0, 1.0)
 			_sword_move(_sword_dir * (Data.DODGE_DIST / Data.DODGE_TIME) * (1.4 - fr * 0.8), dt)
 			var spin2: Node3D = pilot_rig.body if pilot_rig != null and is_instance_valid(pilot_rig.body) else model
-			if pilot_rig != null and is_instance_valid(pilot_rig.body):
-				# v13.157 (owner: "he's flipping around like a stiff 360 ... we need real animation"): a real dive-roll
-				# toward the side he dodges to, then he faces front again
-				var ld := player.global_basis.inverse() * _sword_dir
-				spin2.rotation.y = atan2(-ld.x, -ld.z) if sword_t > 0.0 else 0.0
-				pilot_rig.act("roll", fr)
-			else:
-				if is_instance_valid(spin2): spin2.rotation.z = -TAU * fr * signf(_sword_dir.dot(player.global_basis.x))
-				if sword_t <= 0.0 and is_instance_valid(spin2): spin2.rotation.z = 0.0
+			_move_f = fr   # v13.157/158: a real dive-roll toward the side (pilot and mech: _animate_moves)
 		"burst":   # v12.55: the ship's light thrust: it bursts through what's in front
 			_sword_move(_sword_dir * Data.SHIP_BURST_SPEED, dt)
 			if _rng.randf() < 0.8: _spark(player.global_position - _sword_dir * 6.0 + Vector3(_rng.randfn(0, 2), _rng.randfn(0, 2), _rng.randfn(0, 2)), Color(0.75, 0.95, 1.0), 4.5, 0.3)
@@ -10519,6 +10629,12 @@ func _update_blade(dt: float) -> void:
 		player.add_child(_blade)
 	_blade.visible = true
 	_blade.position = Vector3(Data.SWORD_HAND.x, Data.SWORD_HAND.y, Data.SWORD_HAND.z)
+	var bw: Array = pilot_rig.blade_world() if pilot_rig != null else _mech_blade()
+	if bw.size() == 2 and (bw[1] as Vector3).length() > 0.5:   # v13.158: in his hand, pointing where the swing points
+		var d: Vector3 = bw[1]
+		var up := Vector3.UP if absf(d.dot(Vector3.UP)) < 0.95 else Vector3.RIGHT
+		_blade.global_transform = Transform3D(Basis.looking_at(d, up), (bw[0] as Vector3) + d * 1.0)
+		return
 	match sword_kind:
 		"spin", "seek": _blade_spin += dt * 22.0
 		"dash": _blade_spin = sin(Time.get_ticks_msec() * 0.03) * 1.3

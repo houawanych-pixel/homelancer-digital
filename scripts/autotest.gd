@@ -2169,7 +2169,7 @@ func _run() -> void:
 		_check("v12.52 (owner): back on a world you've been to: nothing kept from last time, a new seed, and Evee knows it (visit %d)" % int(GS.planet_visits.get(pid0, 0)), again, "visits %s salt %s deltas kept %s" % [GS.planet_visits, BlockField.visit_salt, GS.block_deltas.has(pid0 + "|0|0|0")])
 		_finish_group()
 		return
-	if OS.get_environment("HL_ESCAPE") == "" and not _flag("HL_BREAKOUT") and not _flag("HL_CUTTER"): main.hub.escape_3d = false   # v12.30: the older lockdown checks test the panorama fight (HL_ESCAPE tests the 3D one)
+	if OS.get_environment("HL_ESCAPE") == "" and not _flag("HL_BREAKOUT") and not _flag("HL_CUTTER") and not _flag("HL_MOVES"): main.hub.escape_3d = false   # v12.30: the older lockdown checks test the panorama fight (HL_ESCAPE tests the 3D one)
 	if OS.get_environment("HL_SMOKE") != "":   # Nov 2 (owner): the fast pre-deploy check (< 2 min)
 		await _smoke()
 		_finish_group()
@@ -5664,6 +5664,50 @@ func _run() -> void:
 			await _capture("cutter_cut")
 		_check("v13.73 (owner): the breakout short cuts are cuttable wreckage (%d), solid until cut (%s); CUTTER on the button (%s); aiming at nothing does nothing (%s), a short line doesn't cut (%s), a line across it cuts it (%s) and you walk through (%s)" % [s.wrecks.size(), ok_block, label_ok, ok_miss, ok_short, ok_cut, ok_pass],
 			has_w and ok_block and label_ok and ok_miss and ok_short and ok_cut and ok_pass)
+		_finish_group()
+		return
+	if _flag("HL_MOVES"):   # v13.158 (owner): the pilot's tap combo, front flip and backflip, played with real clips
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s := _sp()
+		main.dock(s.station)
+		await _until(func(): return main.state == "hub", 15.0)
+		await _wait(0.5)
+		main.hub.test_alarm()
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding, 90.0)
+		await _wait(2.0)
+		s = _sp()
+		await _until(func(): return s.sword_ready(), 20.0)
+		print("[moves] ready ", s.sword_ready(), " controls ", s.controls, " form ", GS.form, " rig ", s.pilot_rig != null)
+		var kinds: Array = []
+		# a tap starts the combo; tapping again during each swing chains the next (here: a tap every frame)
+		var fwd0: Vector3 = -s.player.global_basis.z
+		fwd0.y = 0.0
+		s._combo_start(fwd0.normalized(), 0)
+		var shot_for := {}
+		for j in 120:
+			if s.sword_kind == "combo": s._combo_queued = true
+			await _frames(1)
+			var mk: String = s._move_kind()
+			if mk != "" and not kinds.has(mk): kinds.append(mk)
+			if mk.begins_with("combo") and not shot_for.has(mk) and s._move_f >= 0.45:
+				shot_for[mk] = true
+				await _capture("pilot_" + mk)
+			if s.sword_kind == "": break
+		await _until(func(): return s.sword_kind == "", 3.0)
+		await _wait(0.4)
+		var fwd: Vector3 = -s.player.global_basis.z
+		fwd.y = 0.0
+		s._sword_start("backflip", fwd.normalized(), 1)
+		s._flip_speed = Data.SWORD_BACKFLIP_DIST / Data.SWORD_FLIP_TIME
+		s._flip_y0 = s.player.global_position.y
+		for j in 4:
+			await _wait(Data.SWORD_FLIP_TIME * 0.2)
+			if not kinds.has(s._move_kind()) and s._move_kind() != "": kinds.append(s._move_kind())
+			await _capture("pilot_backflip_%d" % j)
+		await _until(func(): return s.sword_kind == "", 3.0)
+		_check("v13.158 (owner): tap sword = a three-hit combo, hold back = a backflip attack, played on the pilot with real clips (%s)" % [kinds], kinds.has("combo0") and kinds.has("combo1") and kinds.has("combo2") and kinds.has("backflip") and s.pilot_rig != null and s.pilot_rig._drv_ok, str(kinds))
 		_finish_group()
 		return
 	if _flag("HL_BREAKOUT"):   # v12.38: the breakout inside the real mech game (boarding), the whole HUD

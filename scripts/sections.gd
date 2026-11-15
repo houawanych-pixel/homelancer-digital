@@ -140,6 +140,7 @@ static func side_of_hit(v: Dictionary, unit: Node3D, hit: Vector3, radius: float
 ## tuck 0..1 folds the mech into a compact block (arms forward over the chest, knees up) for the transformation.
 static func pose_mech(v: Dictionary, back_deg: float, dt: float, tuck := 0.0) -> void:
 	if v.is_empty() or not v["mech"]: return
+	if v.get("anim_hold", false): return   # v13.158: a sword move is playing on the body (space.gd _animate_moves)
 	var sk: Skeleton3D = v["skel"]
 	if not is_instance_valid(sk): return
 	for side in ["l", "r"]:
@@ -155,6 +156,7 @@ static func pose_mech(v: Dictionary, back_deg: float, dt: float, tuck := 0.0) ->
 ## v1.8n: a walking stride: the legs swing opposite ways by `deg` (0 = standing).
 static func stride(v: Dictionary, deg: float) -> void:
 	if v.is_empty() or not v["mech"]: return
+	if v.get("anim_hold", false): return
 	var sk: Skeleton3D = v["skel"]
 	if not is_instance_valid(sk): return
 	_bend(sk, v.get("LeftUpperLeg", -1), deg)
