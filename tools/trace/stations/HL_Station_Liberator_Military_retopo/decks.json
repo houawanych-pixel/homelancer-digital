@@ -19,7 +19,7 @@
  },
  "chain": [
   "YELLOW card: Office 1 (HANGAR), OPEN doors",
-  "ORANGE card: Office 2 (MAIN HUB), YELLOW doors",
+  "ORANGE card: Storeroom 3 (MAIN HUB), YELLOW doors",
   "RED card: Storeroom 1 (ENGINEERING), ORANGE doors",
   "PURPLE card: Workroom 4 (HABITAT), RED doors",
   "OBJECTIVE: Vault (COMMAND), PURPLE doors"
@@ -6587,142 +6587,34 @@
      }
     },
     {
-     "id": "r5",
+     "id": "r13",
      "name": "Docking Concourse",
      "kind": "mech",
      "key": 0,
      "sign": "launch",
-     "src": "defender_lower_03 Cargo Hold",
-     "area_m2": 145.0,
-     "centre": [
-      7.35,
-      -19.31
-     ],
-     "poly": [
-      [
-       11.31,
-       -26.66
-      ],
-      [
-       11.24,
-       -27.21
-      ],
-      [
-       6.44,
-       -28.1
-      ],
-      [
-       5.42,
-       -25.62
-      ],
-      [
-       2.74,
-       -24.63
-      ],
-      [
-       2.2,
-       -24.6
-      ],
-      [
-       2.2,
-       -11.44
-      ],
-      [
-       13.52,
-       -13.44
-      ],
-      [
-       12.95,
-       -15.78
-      ],
-      [
-       11.31,
-       -26.66
-      ]
-     ],
-     "door": {
-      "at": [
-       2.2,
-       -19.0
-      ],
-      "width_m": 3.2
-     }
-    },
-    {
-     "id": "r5m",
-     "name": "Shipyard",
-     "kind": "mech",
-     "key": 0,
-     "sign": "ships",
-     "src": "defender_lower_03 Cargo Hold",
-     "area_m2": 145.0,
-     "centre": [
-      -7.35,
-      -19.31
-     ],
-     "poly": [
-      [
-       -11.31,
-       -26.66
-      ],
-      [
-       -11.24,
-       -27.21
-      ],
-      [
-       -6.44,
-       -28.1
-      ],
-      [
-       -5.42,
-       -25.62
-      ],
-      [
-       -2.74,
-       -24.63
-      ],
-      [
-       -2.2,
-       -24.6
-      ],
-      [
-       -2.2,
-       -11.44
-      ],
-      [
-       -13.52,
-       -13.44
-      ],
-      [
-       -12.95,
-       -15.78
-      ],
-      [
-       -11.31,
-       -26.66
-      ]
-     ],
-     "door": {
-      "at": [
-       -2.2,
-       -19.0
-      ],
-      "width_m": 3.2
-     }
-    },
-    {
-     "id": "r13",
-     "name": "Pilots' Lounge",
-     "kind": "pilot",
-     "key": 0,
-     "sign": "lounge",
      "src": "defender_flight_02 Conference + Bunks",
-     "area_m2": 94.5,
+     "area_m2": 142.4,
      "centre": [
-      11.71,
-      -8.49
+      10.59,
+      -10.54
      ],
      "poly": [
+      [
+       9.47,
+       -4.76
+      ],
+      [
+       9.98,
+       -3.56
+      ],
+      [
+       10.38,
+       -2.2
+      ],
+      [
+       12.76,
+       -2.2
+      ],
       [
        14.2,
        -2.93
@@ -6744,36 +6636,28 @@
        -11.69
       ],
       [
-       13.45,
-       -14.6
+       12.95,
+       -15.78
       ],
       [
-       13.72,
-       -13.48
+       12.45,
+       -18.97
       ],
       [
-       13.72,
-       -13.41
+       10.55,
+       -17.08
       ],
       [
-       13.7,
-       -13.34
+       2.2,
+       -15.61
       ],
       [
-       13.65,
-       -13.28
+       2.2,
+       -14.11
       ],
       [
-       13.58,
-       -13.24
-      ],
-      [
-       11.84,
-       -12.94
-      ],
-      [
-       4.77,
-       -11.54
+       4.89,
+       -11.42
       ],
       [
        3.54,
@@ -6794,22 +6678,6 @@
       [
        9.47,
        -4.76
-      ],
-      [
-       9.98,
-       -3.56
-      ],
-      [
-       10.38,
-       -2.2
-      ],
-      [
-       12.76,
-       -2.2
-      ],
-      [
-       14.2,
-       -2.93
       ]
      ],
      "door": {
@@ -6817,22 +6685,38 @@
        8.96,
        -5.65
       ],
-      "width_m": 1.4
+      "width_m": 3.2
      }
     },
     {
      "id": "r13m",
-     "name": "Mission Center",
-     "kind": "pilot",
+     "name": "Shipyard",
+     "kind": "mech",
      "key": 0,
-     "sign": "missions",
+     "sign": "ships",
      "src": "defender_flight_02 Conference + Bunks",
-     "area_m2": 94.5,
+     "area_m2": 142.4,
      "centre": [
-      -11.71,
-      -8.49
+      -10.59,
+      -10.54
      ],
      "poly": [
+      [
+       -9.47,
+       -4.76
+      ],
+      [
+       -9.98,
+       -3.56
+      ],
+      [
+       -10.38,
+       -2.2
+      ],
+      [
+       -12.76,
+       -2.2
+      ],
       [
        -14.2,
        -2.93
@@ -6854,36 +6738,28 @@
        -11.69
       ],
       [
-       -13.45,
-       -14.6
+       -12.95,
+       -15.78
       ],
       [
-       -13.72,
-       -13.48
+       -12.45,
+       -18.97
       ],
       [
-       -13.72,
-       -13.41
+       -10.55,
+       -17.08
       ],
       [
-       -13.7,
-       -13.34
+       -2.2,
+       -15.61
       ],
       [
-       -13.65,
-       -13.28
+       -2.2,
+       -14.11
       ],
       [
-       -13.58,
-       -13.24
-      ],
-      [
-       -11.84,
-       -12.94
-      ],
-      [
-       -4.77,
-       -11.54
+       -4.89,
+       -11.42
       ],
       [
        -3.54,
@@ -6904,22 +6780,6 @@
       [
        -9.47,
        -4.76
-      ],
-      [
-       -9.98,
-       -3.56
-      ],
-      [
-       -10.38,
-       -2.2
-      ],
-      [
-       -12.76,
-       -2.2
-      ],
-      [
-       -14.2,
-       -2.93
       ]
      ],
      "door": {
@@ -6927,15 +6787,15 @@
        -8.96,
        -5.65
       ],
-      "width_m": 1.4
+      "width_m": 3.2
      }
     },
     {
      "id": "r8",
-     "name": "Weapons",
+     "name": "Pilots' Lounge",
      "kind": "pilot",
      "key": 0,
-     "sign": "equipment",
+     "sign": "lounge",
      "src": "defender_flight_02 Conference + Bunks",
      "area_m2": 119.6,
      "centre": [
@@ -7002,10 +6862,10 @@
     },
     {
      "id": "r8m",
-     "name": "Supplies",
+     "name": "Mission Center",
      "kind": "pilot",
      "key": 0,
-     "sign": "supplies",
+     "sign": "missions",
      "src": "defender_flight_02 Conference + Bunks",
      "area_m2": 119.6,
      "centre": [
@@ -7071,11 +6931,119 @@
      }
     },
     {
-     "id": "r3",
+     "id": "r5",
      "name": "Medical Bay",
      "kind": "pilot",
      "key": 0,
      "sign": "repair",
+     "src": "defender_lower_03 Cargo Hold",
+     "area_m2": 81.8,
+     "centre": [
+      6.86,
+      -20.91
+     ],
+     "poly": [
+      [
+       2.74,
+       -24.63
+      ],
+      [
+       2.2,
+       -24.6
+      ],
+      [
+       2.2,
+       -15.81
+      ],
+      [
+       10.46,
+       -17.26
+      ],
+      [
+       12.31,
+       -19.11
+      ],
+      [
+       11.56,
+       -24.86
+      ],
+      [
+       5.41,
+       -25.6
+      ],
+      [
+       2.74,
+       -24.63
+      ]
+     ],
+     "door": {
+      "at": [
+       2.2,
+       -19.0
+      ],
+      "width_m": 1.4
+     }
+    },
+    {
+     "id": "r5m",
+     "name": "Security Office",
+     "kind": "pilot",
+     "key": 1,
+     "sign": "",
+     "src": "defender_lower_03 Cargo Hold",
+     "area_m2": 81.8,
+     "centre": [
+      -6.86,
+      -20.91
+     ],
+     "poly": [
+      [
+       -2.74,
+       -24.63
+      ],
+      [
+       -2.2,
+       -24.6
+      ],
+      [
+       -2.2,
+       -15.81
+      ],
+      [
+       -10.46,
+       -17.26
+      ],
+      [
+       -12.31,
+       -19.11
+      ],
+      [
+       -11.56,
+       -24.86
+      ],
+      [
+       -5.41,
+       -25.6
+      ],
+      [
+       -2.74,
+       -24.63
+      ]
+     ],
+     "door": {
+      "at": [
+       -2.2,
+       -19.0
+      ],
+      "width_m": 1.4
+     }
+    },
+    {
+     "id": "r3",
+     "name": "Weapons",
+     "kind": "pilot",
+     "key": 0,
+     "sign": "equipment",
      "src": "defender_lower_03 Cargo Hold",
      "area_m2": 82.4,
      "centre": [
@@ -7138,10 +7106,10 @@
     },
     {
      "id": "r3m",
-     "name": "Security Office",
+     "name": "Supplies",
      "kind": "pilot",
-     "key": 1,
-     "sign": "",
+     "key": 0,
+     "sign": "supplies",
      "src": "defender_lower_03 Cargo Hold",
      "area_m2": 82.4,
      "centre": [
@@ -7204,7 +7172,7 @@
     },
     {
      "id": "r12",
-     "name": "Workroom 3",
+     "name": "Crew Room 1",
      "kind": "pilot",
      "key": 0,
      "sign": "",
@@ -7278,9 +7246,9 @@
     },
     {
      "id": "r12m",
-     "name": "Storeroom 1",
+     "name": "Storeroom 2",
      "kind": "pilot",
-     "key": 0,
+     "key": 1,
      "sign": "",
      "src": "carrick_10 Wedge room",
      "area_m2": 123.4,
@@ -7352,9 +7320,9 @@
     },
     {
      "id": "r11",
-     "name": "Workroom 2",
+     "name": "Workroom 3",
      "kind": "pilot",
-     "key": 1,
+     "key": 0,
      "sign": "",
      "src": "carrick_10 Wedge room",
      "area_m2": 84.4,
@@ -7422,7 +7390,7 @@
     },
     {
      "id": "r11m",
-     "name": "Lounge 1",
+     "name": "Storeroom 1",
      "kind": "pilot",
      "key": 0,
      "sign": "",
@@ -7492,7 +7460,7 @@
     },
     {
      "id": "r10",
-     "name": "Office 1",
+     "name": "Workroom 2",
      "kind": "pilot",
      "key": 1,
      "sign": "",
@@ -7554,9 +7522,9 @@
     },
     {
      "id": "r10m",
-     "name": "Workroom 1",
+     "name": "Lounge 1",
      "kind": "pilot",
-     "key": 1,
+     "key": 0,
      "sign": "",
      "src": "carrick_10 Wedge room",
      "area_m2": 97.7,
@@ -7615,8 +7583,8 @@
      }
     },
     {
-     "id": "r14",
-     "name": "Crew Room 1",
+     "id": "r15",
+     "name": "Office 2",
      "kind": "pilot",
      "key": 0,
      "sign": "",
@@ -7701,10 +7669,10 @@
      }
     },
     {
-     "id": "r14m",
-     "name": "Storeroom 2",
+     "id": "r15m",
+     "name": "Crew Room 2",
      "kind": "pilot",
-     "key": 1,
+     "key": 0,
      "sign": "",
      "src": "tianjin_08 Comms room",
      "area_m2": 32.7,
@@ -7782,6 +7750,114 @@
       "at": [
        -41.88,
        -2.58
+      ],
+      "width_m": 1.4
+     }
+    },
+    {
+     "id": "r14",
+     "name": "Office 1",
+     "kind": "pilot",
+     "key": 1,
+     "sign": "",
+     "src": "tianjin_08 Comms room",
+     "area_m2": 62.5,
+     "centre": [
+      8.84,
+      -31.57
+     ],
+     "poly": [
+      [
+       10.63,
+       -37.95
+      ],
+      [
+       9.76,
+       -38.69
+      ],
+      [
+       7.19,
+       -38.69
+      ],
+      [
+       5.75,
+       -25.87
+      ],
+      [
+       11.53,
+       -25.07
+      ],
+      [
+       11.3,
+       -26.63
+      ],
+      [
+       11.3,
+       -35.28
+      ],
+      [
+       10.63,
+       -37.95
+      ]
+     ],
+     "door": {
+      "at": [
+       11.44,
+       -25.08
+      ],
+      "width_m": 1.4
+     }
+    },
+    {
+     "id": "r14m",
+     "name": "Workroom 1",
+     "kind": "pilot",
+     "key": 1,
+     "sign": "",
+     "src": "tianjin_08 Comms room",
+     "area_m2": 62.5,
+     "centre": [
+      -8.84,
+      -31.57
+     ],
+     "poly": [
+      [
+       -10.63,
+       -37.95
+      ],
+      [
+       -9.76,
+       -38.69
+      ],
+      [
+       -7.19,
+       -38.69
+      ],
+      [
+       -5.75,
+       -25.87
+      ],
+      [
+       -11.53,
+       -25.07
+      ],
+      [
+       -11.3,
+       -26.63
+      ],
+      [
+       -11.3,
+       -35.28
+      ],
+      [
+       -10.63,
+       -37.95
+      ]
+     ],
+     "door": {
+      "at": [
+       -11.44,
+       -25.08
       ],
       "width_m": 1.4
      }
@@ -7911,8 +7987,8 @@
      }
     },
     {
-     "id": "r15",
-     "name": "Office 2",
+     "id": "r16",
+     "name": "Storeroom 3",
      "kind": "pilot",
      "key": 1,
      "sign": "",
@@ -7966,8 +8042,8 @@
      "card": 2
     },
     {
-     "id": "r15m",
-     "name": "Crew Room 2",
+     "id": "r16m",
+     "name": "Office 3",
      "kind": "pilot",
      "key": 0,
      "sign": "",

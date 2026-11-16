@@ -19,7 +19,7 @@
  },
  "chain": [
   "YELLOW card: Cargo Hold (HANGAR), OPEN doors",
-  "ORANGE card: Workroom 3 (MAIN HUB), YELLOW doors",
+  "ORANGE card: Lounge 1 (MAIN HUB), YELLOW doors",
   "RED card: Workroom 2 (ENGINEERING), ORANGE doors",
   "PURPLE card: Storeroom 4 (HABITAT), RED doors",
   "OBJECTIVE: Vault (COMMAND), PURPLE doors"
@@ -11947,172 +11947,8 @@
      }
     },
     {
-     "id": "r11",
-     "name": "Docking Concourse",
-     "kind": "mech",
-     "key": 0,
-     "sign": "launch",
-     "src": "fury_06 Lounge + holoterminal",
-     "area_m2": 163.8,
-     "centre": [
-      6.26,
-      18.73
-     ],
-     "poly": [
-      [
-       9.95,
-       26.29
-      ],
-      [
-       9.95,
-       4.65
-      ],
-      [
-       8.2,
-       6.72
-      ],
-      [
-       6.53,
-       8.35
-      ],
-      [
-       4.53,
-       9.59
-      ],
-      [
-       2.2,
-       10.38
-      ],
-      [
-       2.2,
-       25.84
-      ],
-      [
-       0.55,
-       26.83
-      ],
-      [
-       3.3,
-       28.14
-      ],
-      [
-       4.09,
-       29.03
-      ],
-      [
-       8.28,
-       30.17
-      ],
-      [
-       9.36,
-       30.17
-      ],
-      [
-       11.26,
-       28.5
-      ],
-      [
-       7.89,
-       28.5
-      ],
-      [
-       9.95,
-       26.29
-      ]
-     ],
-     "door": {
-      "at": [
-       6.26,
-       8.52
-      ],
-      "width_m": 3.2
-     }
-    },
-    {
-     "id": "r11m",
-     "name": "Shipyard",
-     "kind": "mech",
-     "key": 0,
-     "sign": "ships",
-     "src": "fury_06 Lounge + holoterminal",
-     "area_m2": 163.8,
-     "centre": [
-      -6.26,
-      18.73
-     ],
-     "poly": [
-      [
-       -9.95,
-       26.29
-      ],
-      [
-       -9.95,
-       4.65
-      ],
-      [
-       -8.2,
-       6.72
-      ],
-      [
-       -6.53,
-       8.35
-      ],
-      [
-       -4.53,
-       9.59
-      ],
-      [
-       -2.2,
-       10.38
-      ],
-      [
-       -2.2,
-       25.84
-      ],
-      [
-       -0.55,
-       26.83
-      ],
-      [
-       -3.3,
-       28.14
-      ],
-      [
-       -4.09,
-       29.03
-      ],
-      [
-       -8.28,
-       30.17
-      ],
-      [
-       -9.36,
-       30.17
-      ],
-      [
-       -11.26,
-       28.5
-      ],
-      [
-       -7.89,
-       28.5
-      ],
-      [
-       -9.95,
-       26.29
-      ]
-     ],
-     "door": {
-      "at": [
-       -6.26,
-       8.52
-      ],
-      "width_m": 3.2
-     }
-    },
-    {
      "id": "r10",
-     "name": "Customs",
+     "name": "Storeroom 1",
      "kind": "pilot",
      "key": 0,
      "sign": "",
@@ -12198,7 +12034,7 @@
     },
     {
      "id": "r10m",
-     "name": "Market Stalls",
+     "name": "Workroom 1",
      "kind": "pilot",
      "key": 0,
      "sign": "",
@@ -12283,8 +12119,140 @@
      }
     },
     {
+     "id": "r11",
+     "name": "Docking Concourse",
+     "kind": "mech",
+     "key": 0,
+     "sign": "launch",
+     "src": "fury_06 Lounge + holoterminal",
+     "area_m2": 151.5,
+     "centre": [
+      6.21,
+      17.91
+     ],
+     "poly": [
+      [
+       6.53,
+       8.35
+      ],
+      [
+       4.53,
+       9.59
+      ],
+      [
+       2.2,
+       10.38
+      ],
+      [
+       2.2,
+       25.84
+      ],
+      [
+       0.75,
+       26.91
+      ],
+      [
+       2.73,
+       27.74
+      ],
+      [
+       8.55,
+       27.74
+      ],
+      [
+       9.95,
+       26.29
+      ],
+      [
+       9.95,
+       4.61
+      ],
+      [
+       8.2,
+       6.72
+      ],
+      [
+       6.53,
+       8.35
+      ]
+     ],
+     "door": {
+      "at": [
+       6.26,
+       8.52
+      ],
+      "width_m": 3.2
+     }
+    },
+    {
+     "id": "r11m",
+     "name": "Shipyard",
+     "kind": "mech",
+     "key": 0,
+     "sign": "ships",
+     "src": "fury_06 Lounge + holoterminal",
+     "area_m2": 151.5,
+     "centre": [
+      -6.21,
+      17.91
+     ],
+     "poly": [
+      [
+       -6.53,
+       8.35
+      ],
+      [
+       -4.53,
+       9.59
+      ],
+      [
+       -2.2,
+       10.38
+      ],
+      [
+       -2.2,
+       25.84
+      ],
+      [
+       -0.75,
+       26.91
+      ],
+      [
+       -2.73,
+       27.74
+      ],
+      [
+       -8.55,
+       27.74
+      ],
+      [
+       -9.95,
+       26.29
+      ],
+      [
+       -9.95,
+       4.61
+      ],
+      [
+       -8.2,
+       6.72
+      ],
+      [
+       -6.53,
+       8.35
+      ]
+     ],
+     "door": {
+      "at": [
+       -6.26,
+       8.52
+      ],
+      "width_m": 3.2
+     }
+    },
+    {
      "id": "r12",
-     "name": "Storeroom 1",
+     "name": "Storeroom 2",
      "kind": "pilot",
      "key": 0,
      "sign": "",
@@ -12378,7 +12346,7 @@
     },
     {
      "id": "r12m",
-     "name": "Workroom 1",
+     "name": "Office 1",
      "kind": "pilot",
      "key": 0,
      "sign": "",
@@ -12472,7 +12440,7 @@
     },
     {
      "id": "r6",
-     "name": "Crew Room 1",
+     "name": "Storeroom 4",
      "kind": "pilot",
      "key": 0,
      "sign": "",
@@ -12534,9 +12502,9 @@
     },
     {
      "id": "r6m",
-     "name": "Storeroom 3",
+     "name": "Workroom 2",
      "kind": "pilot",
-     "key": 0,
+     "key": 1,
      "sign": "",
      "src": "tianjin_08 Comms room",
      "area_m2": 178.9,
@@ -12596,7 +12564,7 @@
     },
     {
      "id": "r8",
-     "name": "Storeroom 2",
+     "name": "Crew Room 1",
      "kind": "pilot",
      "key": 0,
      "sign": "",
@@ -12642,7 +12610,7 @@
     },
     {
      "id": "r8m",
-     "name": "Office 1",
+     "name": "Storeroom 3",
      "kind": "pilot",
      "key": 0,
      "sign": "",
@@ -12687,8 +12655,148 @@
      }
     },
     {
+     "id": "r15",
+     "name": "Weapons",
+     "kind": "pilot",
+     "key": 0,
+     "sign": "equipment",
+     "src": "tianjin_09 Long room",
+     "area_m2": 29.2,
+     "centre": [
+      10.46,
+      28.37
+     ],
+     "poly": [
+      [
+       9.0,
+       27.56
+      ],
+      [
+       8.69,
+       27.88
+      ],
+      [
+       8.62,
+       27.93
+      ],
+      [
+       8.55,
+       27.94
+      ],
+      [
+       3.48,
+       27.94
+      ],
+      [
+       4.09,
+       29.03
+      ],
+      [
+       10.14,
+       30.68
+      ],
+      [
+       12.41,
+       29.17
+      ],
+      [
+       15.04,
+       29.17
+      ],
+      [
+       16.36,
+       26.56
+      ],
+      [
+       10.12,
+       26.56
+      ],
+      [
+       9.0,
+       27.56
+      ]
+     ],
+     "door": {
+      "at": [
+       16.36,
+       26.56
+      ],
+      "width_m": 1.4
+     }
+    },
+    {
+     "id": "r15m",
+     "name": "Supplies",
+     "kind": "pilot",
+     "key": 0,
+     "sign": "supplies",
+     "src": "tianjin_09 Long room",
+     "area_m2": 29.2,
+     "centre": [
+      -10.46,
+      28.37
+     ],
+     "poly": [
+      [
+       -9.0,
+       27.56
+      ],
+      [
+       -8.69,
+       27.88
+      ],
+      [
+       -8.62,
+       27.93
+      ],
+      [
+       -8.55,
+       27.94
+      ],
+      [
+       -3.48,
+       27.94
+      ],
+      [
+       -4.09,
+       29.03
+      ],
+      [
+       -10.14,
+       30.68
+      ],
+      [
+       -12.41,
+       29.17
+      ],
+      [
+       -15.04,
+       29.17
+      ],
+      [
+       -16.36,
+       26.56
+      ],
+      [
+       -10.12,
+       26.56
+      ],
+      [
+       -9.0,
+       27.56
+      ]
+     ],
+     "door": {
+      "at": [
+       -16.36,
+       26.56
+      ],
+      "width_m": 1.4
+     }
+    },
+    {
      "id": "r7",
-     "name": "Storeroom 4",
+     "name": "Crew Room 2",
      "kind": "pilot",
      "key": 0,
      "sign": "",
@@ -12770,9 +12878,9 @@
     },
     {
      "id": "r7m",
-     "name": "Workroom 2",
+     "name": "Crew Room 3",
      "kind": "pilot",
-     "key": 1,
+     "key": 0,
      "sign": "",
      "src": "defender_flight_02 Conference + Bunks",
      "area_m2": 50.1,
@@ -12935,8 +13043,8 @@
      }
     },
     {
-     "id": "r16",
-     "name": "Workroom 3",
+     "id": "r17",
+     "name": "Lounge 1",
      "kind": "pilot",
      "key": 1,
      "sign": "",
@@ -12990,8 +13098,8 @@
      "card": 2
     },
     {
-     "id": "r16m",
-     "name": "Storeroom 5",
+     "id": "r17m",
+     "name": "Workroom 4",
      "kind": "pilot",
      "key": 0,
      "sign": "",
@@ -13045,7 +13153,7 @@
     },
     {
      "id": "r9",
-     "name": "Crew Room 2",
+     "name": "Workroom 3",
      "kind": "pilot",
      "key": 0,
      "sign": "",
@@ -13131,7 +13239,7 @@
     },
     {
      "id": "r9m",
-     "name": "Crew Room 3",
+     "name": "Storeroom 5",
      "kind": "pilot",
      "key": 0,
      "sign": "",
@@ -13217,10 +13325,10 @@
     },
     {
      "id": "r13",
-     "name": "Weapons",
+     "name": "Medical Bay",
      "kind": "pilot",
      "key": 0,
-     "sign": "equipment",
+     "sign": "repair",
      "src": "carrick_11 Wedge room",
      "area_m2": 70.5,
      "centre": [
@@ -13279,10 +13387,10 @@
     },
     {
      "id": "r13m",
-     "name": "Supplies",
+     "name": "Security Office",
      "kind": "pilot",
-     "key": 0,
-     "sign": "supplies",
+     "key": 1,
+     "sign": "",
      "src": "carrick_11 Wedge room",
      "area_m2": 70.5,
      "centre": [
@@ -13512,11 +13620,11 @@
      }
     },
     {
-     "id": "r15",
-     "name": "Medical Bay",
+     "id": "r16",
+     "name": "Customs",
      "kind": "pilot",
      "key": 0,
-     "sign": "repair",
+     "sign": "",
      "src": "tianjin_08 Comms room",
      "area_m2": 88.9,
      "centre": [
@@ -13582,10 +13690,10 @@
      }
     },
     {
-     "id": "r15m",
-     "name": "Security Office",
+     "id": "r16m",
+     "name": "Market Stalls",
      "kind": "pilot",
-     "key": 1,
+     "key": 0,
      "sign": "",
      "src": "tianjin_08 Comms room",
      "area_m2": 88.9,
@@ -13652,10 +13760,10 @@
      }
     },
     {
-     "id": "r17",
-     "name": "Lounge 1",
+     "id": "r18",
+     "name": "Office 2",
      "kind": "pilot",
-     "key": 0,
+     "key": 1,
      "sign": "",
      "src": "tianjin_09 Long room",
      "area_m2": 80.3,
@@ -13734,8 +13842,8 @@
      }
     },
     {
-     "id": "r17m",
-     "name": "Workroom 4",
+     "id": "r18m",
+     "name": "Crew Room 4",
      "kind": "pilot",
      "key": 0,
      "sign": "",

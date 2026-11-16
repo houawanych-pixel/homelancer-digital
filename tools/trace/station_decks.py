@@ -33,7 +33,7 @@ from decklib import fit, lib
 PX = 10.0
 WALL = 0.4 * PX
 BIG_M2 = 100.0
-CAP_BIG, CAP_MECH, CAP_PILOT = 360.0, 240.0, 80.0   # m2: the biggest room a leftover pocket makes (bigger: cut in strips)
+CAP_BIG, CAP_MECH, CAP_PILOT, CAP_IN = 360.0, 240.0, 80.0, 150.0   # m2: the biggest room a leftover pocket makes (bigger: cut in strips)
 KEY_COL = SP.KEY_COL
 KEY_NAME = SP.KEY_NAME
 RED, BLUE, YEL = SW.RED, SW.BLUE, SW.YEL
@@ -64,6 +64,63 @@ def mirror_true(ol):
     half = R if R.area >= L.area else M(L)
     g = unary_union([half, M(half)]).buffer(0.5).buffer(-0.5)
     return max(parts(g), key=lambda q: q.area) if parts(g) else ol
+
+
+def walkways_ring(ol, role, rmax):
+    """v13.169 (owner's examples: SWTOR station plans): a round hub, a straight CROSS of mech halls to the four sides,
+    and an OUTER RING hall (an ellipse sized to the deck) the wings hang off; pilot branches off the cross beyond the
+    ring. None = this deck has no room for a ring (the old walkways are used)."""
+    W = SW.walkways(ol, (0.0, 0.0), role, rmax)
+    inner = W["inner"]
+    c = (0.0, 0.0)
+    R = {d: SW.ray(inner, c, d, rmax) for d in (0, 90, 180, 270)}
+    hub_r = W["hub_r"]
+    rx, ry = min(R[0], R[180]), min(R[90], R[270])
+    if min(rx, ry) < hub_r + 16 * PX: return None
+    ring = None
+    for k in (0.62, 0.56, 0.5, 0.45):
+        ax_, ay_ = max(hub_r + 12 * PX, rx * k), max(hub_r + 12 * PX, ry * k)
+        pts = [(ax_ * math.cos(2 * math.pi * i / 64), ay_ * math.sin(2 * math.pi * i / 64)) for i in range(65)]
+        rg = LineString(pts).buffer(SW.WM / 2, cap_style=2, join_style=2)
+        if rg.intersection(inner).area > 0.97 * rg.area: ring = (pts, rg); break
+    if ring is None: return None
+    pts, rg = ring
+    mech, pilot, lines = [Point(c).buffer(hub_r, 64), rg], [], []
+    for i in range(64): lines.append(("ring", pts[i], pts[i + 1]))
+    for d in (0, 90, 180, 270):
+        L = R[d] - 1.0 * PX
+        if L < hub_r + 4 * PX: continue
+        a = math.radians(d)
+        e = (L * math.cos(a), L * math.sin(a))
+        mech.append(SW.way(c, e, SW.WM)); lines.append(("mech", c, e))
+        mech.append(SW.octagon(e[0] * 0, e[1] * 0, 0) if False else Polygon())
+        # pilot branches off the cross, out beyond the ring
+        rr = math.hypot(*Point(pts[int(round(d / 360 * 64)) % 64]).coords[0])
+        for t in (0.55, 0.85):
+            dist = rr + (L - rr) * t
+            if dist - rr < 8 * PX or L - dist < 4 * PX: continue
+            p = (dist * math.cos(a), dist * math.sin(a))
+            for side in (-1, 1):
+                pa = d + 90 * side
+                ln = min(SW.ray(inner, p, pa, 40 * PX) - 1.0 * PX, 22 * PX)
+                if ln < 8 * PX: continue
+                q = (p[0] + ln * math.cos(math.radians(pa)), p[1] + ln * math.sin(math.radians(pa)))
+                seg = LineString([p, q])
+                if seg.intersects(rg.buffer(3 * PX)): continue
+                pilot.append(SW.way(p, q, SW.WP)); lines.append(("pilot", p, q))
+    mech_u = unary_union(mech).intersection(inner.buffer(0.5 * PX))
+    pilot_u = unary_union(pilot).intersection(inner).difference(mech_u)
+    allw = unary_union([mech_u, pilot_u])
+    allw = allw.intersection(M(allw).buffer(0.2)).buffer(0)
+    lifts = [("Main lift", lib("tianjin_10", 0, 0, w=5.7))]
+    for d in (0, 180):   # freight lifts where the cross meets the ring
+        i = int(round(d / 360 * 64)) % 64
+        lifts.append(("Freight lift", lib("tianjin_10", pts[i][0], pts[i][1], w=4.6)))
+    W2 = dict(W)
+    W2.update({"mech": mech_u.intersection(allw), "pilot": pilot_u.intersection(allw), "ways": allw, "lifts": lifts,
+               "lines": [(("mech" if k == "ring" else k), a, b) for k, a, b in lines if k != "ring"], "ring_pts": pts, "ring": True,
+               "spines": 4, "front": (0.0, R[90] - PX)})
+    return W2
 
 
 def place(g, rid_txt, ang, cx, cy, side):
@@ -113,6 +170,26 @@ def rooms_for(W, role, seed):
                 return True
         return False
     hub = Point(0, 0)
+    # v13.169 (owner's examples: SWTOR stations): along the outer ring, a row of rooms round the rim (outside, like
+    # teeth, pilot size) and the big wing rooms inside it (mech), every room turned square to the ring
+    if W.get("ring_pts"):
+        pts = np.array(W["ring_pts"], float)
+        seg = np.linalg.norm(np.diff(pts, axis=0), axis=1)
+        cum = np.concatenate([[0], np.cumsum(seg)])
+        def at(sv):
+            i = int(np.clip(np.searchsorted(cum, sv) - 1, 0, len(seg) - 1))
+            t = (sv - cum[i]) / max(seg[i], 1e-6)
+            return pts[i] + (pts[i + 1] - pts[i]) * t, (pts[i + 1] - pts[i]) / max(seg[i], 1e-6)
+        for outward, step, depth, hk in ((True, 8.5 * PX, 12 * PX, "pilot"), (False, 13 * PX, 11 * PX, "mech")):
+            sv = step / 2
+            while sv < cum[-1] - step / 2:
+                p, u = at(sv)
+                sv += step
+                if p[0] < step * 0.3: continue                              # (right half; the left is the mirror)
+                n = np.array([-u[1], u[0]])
+                if (np.dot(n, p) > 0) != outward: n = -n
+                base = p + n * (SW.WM / 2 + WALL)
+                try_slot(base, u, n, step - WALL * 2, depth, hk)
     lines = sorted(W["lines"], key=lambda L: (L[0] != "mech", Point(L[1]).distance(hub)))
     for hk, a, b in lines:
         a, b = np.array(a, float), np.array(b, float)
@@ -146,6 +223,7 @@ def rooms_for(W, role, seed):
     for P0 in parts(left.buffer(-0.5 * PX).buffer(0.5 * PX)):
         # a big pocket is cut into strips across its long side, one room each (no giant sector-shaped rooms)
         cap = (CAP_BIG if role in ("HANGAR", "ENGINEERING") else CAP_MECH) if P0.distance(W["mech"]) < 2.5 * PX else CAP_PILOT
+        if W.get("ring_pts") and Polygon(W["ring_pts"]).contains(P0.representative_point()): cap = min(cap, CAP_IN)   # (inside the ring: no quarter-disc rooms)
         n = max(1, int(math.ceil(P0.area / (cap * PX * PX))))
         if n == 1: pockets.append(P0); continue
         rr0 = P0.minimum_rotated_rectangle; xy0 = list(rr0.exterior.coords)
@@ -157,7 +235,12 @@ def rooms_for(W, role, seed):
             strip = Polygon([tuple(a0), tuple(a1), tuple(a1 + sht), tuple(a0 + sht)]).buffer(-WALL / 2, join_style=2)
             pockets += parts(P0.intersection(strip))
     for P in sorted(pockets, key=lambda q: -q.area):
-        if P.area < 40 * PX * PX or P.distance(ways) > 2.5 * PX: continue
+        via_room = None
+        if P.distance(ways) > 2.5 * PX:   # (a pocket off the halls: a back room, its door into the room next to it)
+            nb = [pp for pp in placed if pp["poly"].distance(P) < 2.5 * PX]
+            if not nb or P.area < 40 * PX * PX: continue
+            via_room = nb[0]
+        if P.area < 40 * PX * PX: continue
         rr = P.minimum_rotated_rectangle
         xy = list(rr.exterior.coords)
         e1 = (xy[1][0] - xy[0][0], xy[1][1] - xy[0][1]); e2 = (xy[2][0] - xy[1][0], xy[2][1] - xy[1][1])
@@ -174,7 +257,7 @@ def rooms_for(W, role, seed):
         q = max(parts(q), key=lambda r: r.area) if parts(q) else q
         if q.is_empty or q.area < 20 * PX * PX: continue
         from shapely.ops import nearest_points
-        dp = nearest_points(ways, q)[0]
+        dp = nearest_points(ways if via_room is None else via_room["poly"], q)[0]
         taken = unary_union([taken, q.buffer(WALL)])
         placed.append({"poly": q, "src": rid, "hall": "mech" if near_mech else "pilot", "door": (dp.x, dp.y),
                        "axis": q.centroid.x < 0.5 * PX and q.bounds[0] < -0.5 * PX})
@@ -393,14 +476,14 @@ def build(st):
             t = 0.05 * math.sqrt(hub_ol.area) * abs(k - 2)
             g2 = hub_ol.buffer(-t, join_style=2)
             ol = max(parts(g2), key=lambda q: q.area) if parts(g2) else hub_ol
-        W = SW.walkways(ol, (0.0, 0.0), role, width_m * PX)
+        W = walkways_ring(ol, role, width_m * PX) or SW.walkways(ol, (0.0, 0.0), role, width_m * PX)
         Rp, meta = rooms_for(W, role, seed + k)
         R = clean_set(grow(Rp, W), W)
         if len(R) < 5 and k != 2:   # (a spiky / thin slice holds too little: the hub deck's outline, drawn in, instead)
             t = 0.05 * math.sqrt(hub_ol.area) * abs(k - 2)
             g2 = hub_ol.buffer(-t, join_style=2)
             ol2 = max(parts(g2), key=lambda q: q.area) if parts(g2) else hub_ol
-            W2 = SW.walkways(ol2, (0.0, 0.0), role, width_m * PX)
+            W2 = walkways_ring(ol2, role, width_m * PX) or SW.walkways(ol2, (0.0, 0.0), role, width_m * PX)
             Rp2, meta2 = rooms_for(W2, role, seed + k)
             R2 = clean_set(grow(Rp2, W2), W2)
             if len(R2) > len(R): W, Rp, meta, R = W2, Rp2, meta2, R2
