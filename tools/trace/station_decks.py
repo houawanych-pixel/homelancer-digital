@@ -373,11 +373,37 @@ def build(st):
     seed = sum(map(ord, model))
     panels, decks, problems = [], [], []
     Ws = []
+    OLS = [mirror_true(to_plan(O["polys"][k])) for k in range(5)]
+    # the lift axis: on the mirror line, where the decks have the most room round it (a ring-shaped station has a
+    # hole in its middle: the lifts go where the decks are solid). All five decks share it.
+    def room_at(y):
+        pt = Point(0, y); sc = 0.0
+        for k2, g in enumerate(OLS):
+            w = 3.0 if k2 == 2 else 1.0
+            sc += w * (g.exterior.distance(pt) if g.contains(pt) and not any(Polygon(h).contains(pt) for h in g.interiors) else -50 * PX)
+        return sc
+    ys = [y * PX for y in range(-70, 71, 2)]
+    y0 = max(ys, key=lambda y: (room_at(y), -abs(y)))
+    if room_at(0.0) >= 0.85 * room_at(y0): y0 = 0.0
+    OLS = [affinity.translate(g, 0, -y0) for g in OLS]
+    hub_ol = OLS[2]
     for k, role in enumerate(SP.DECKS):
-        ol = mirror_true(to_plan(O["polys"][k]))
+        ol = OLS[k]
+        if ol.area < 0.4 * hub_ol.area:   # (a thin / broken slice: the hub deck's outline, drawn in a little per deck away)
+            t = 0.05 * math.sqrt(hub_ol.area) * abs(k - 2)
+            g2 = hub_ol.buffer(-t, join_style=2)
+            ol = max(parts(g2), key=lambda q: q.area) if parts(g2) else hub_ol
         W = SW.walkways(ol, (0.0, 0.0), role, width_m * PX)
         Rp, meta = rooms_for(W, role, seed + k)
         R = clean_set(grow(Rp, W), W)
+        if len(R) < 5 and k != 2:   # (a spiky / thin slice holds too little: the hub deck's outline, drawn in, instead)
+            t = 0.05 * math.sqrt(hub_ol.area) * abs(k - 2)
+            g2 = hub_ol.buffer(-t, join_style=2)
+            ol2 = max(parts(g2), key=lambda q: q.area) if parts(g2) else hub_ol
+            W2 = SW.walkways(ol2, (0.0, 0.0), role, width_m * PX)
+            Rp2, meta2 = rooms_for(W2, role, seed + k)
+            R2 = clean_set(grow(Rp2, W2), W2)
+            if len(R2) > len(R): W, Rp, meta, R = W2, Rp2, meta2, R2
         names = name_rooms(R, meta, role, seed + k)
         rooms = []
         for kk, g in R.items():
