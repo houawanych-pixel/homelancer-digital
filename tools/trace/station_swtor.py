@@ -76,7 +76,7 @@ def layout(ol, role):
         for d in (0, 90, 180, 270):   # the cross runs through
             sc = sc.difference(SW.way((0, 0), (h2 * 2 * math.cos(math.radians(d)), h2 * 2 * math.sin(math.radians(d))), WM + 2 * WALL))
         for p in parts(sc):
-            if p.area > 12 * PX * PX: rooms.append({"poly": p, "kind": "pilot", "zone": "hub band"})
+            if p.area > 12 * PX * PX: rooms.append({"poly": p, "kind": "mech" if role in ("HANGAR", "ENGINEERING") and p.area > 40 * PX * PX else "pilot", "zone": "hub band"})
     # the wings: a hall that runs round the deck parallel to its hull, a row of equal rim rooms between it and the hull,
     # and big rooms on its inner side; empty space between them and the hub (the example's look, any deck shape)
     wing = None
@@ -103,7 +103,7 @@ def layout(ol, role):
                 b0, b1 = a0 + (a1 - a0) * j / 2, a0 + (a1 - a0) * (j + 1) / 2
                 pp0 = sector(b0, b1, ai0, aj0, ai1 - WALL, aj1 - WALL, egg=False).difference(cross).buffer(-WALL / 2, join_style=2).intersection(inner)
                 for pp in parts(pp0):
-                    if pp.area > 25 * PX * PX: rooms.append({"poly": pp, "kind": "mech" if pp.area >= 80 * PX * PX else "pilot", "zone": "wing"})
+                    if pp.area > 25 * PX * PX: rooms.append({"poly": pp, "kind": "mech" if pp.area >= 45 * PX * PX else "pilot", "zone": "wing"})
             n = max(3, int(math.hypot(ao1, ap1) * math.radians(90) * 0.85 / (7.5 * PX)))
             for j in range(n):
                 b0, b1 = a0 + (a1 - a0) * j / n, a0 + (a1 - a0) * (j + 1) / n
@@ -147,7 +147,7 @@ def layout(ol, role):
             if p.area > 14 * PX * PX and p.area > 0.62 * p.minimum_rotated_rectangle.area: rooms.append({"poly": p.buffer(-WALL / 2, join_style=2), "kind": "pilot", "zone": "rim"})
         cb = cuts(20 * PX, 40 * PX)
         for p in parts(big_band.difference(cb)):
-            if p.area > 30 * PX * PX and p.area > 0.55 * p.minimum_rotated_rectangle.area: rooms.append({"poly": p.buffer(-WALL / 2, join_style=2), "kind": "mech" if p.area >= 80 * PX * PX else "pilot", "zone": "wing"})
+            if p.area > 30 * PX * PX and p.area > 0.55 * p.minimum_rotated_rectangle.area: rooms.append({"poly": p.buffer(-WALL / 2, join_style=2), "kind": "mech" if p.area >= 45 * PX * PX else "pilot", "zone": "wing"})
         rooms = [r for r in rooms if not r["poly"].is_empty]
     # the cross: bridges from the hub ring to the edge, a round pod at each end
     for d in (0, 90, 180, 270):
@@ -198,16 +198,21 @@ def draw(L, title, sub, rooms_named, size=640, header=True):
     img[hull > 0] = (70, 34, 14)
     cs, _ = cv2.findContours(hull, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     cv2.drawContours(img, cs, -1, (160, 110, 40), 2, cv2.LINE_AA)
+    # v13.170 (owner: "in game there are red walkways for mechs"): the ships' MECH / PILOT WAYS colours - every hall,
+    # bridge and pod is a mech way (red), mech rooms red, pilot rooms blue, white walls, as the in-game ways map
     floor = unary_union([q for _, q in L["halls"]] + L["pods"])
     fm = mask(floor)
-    img[fm > 0] = (110, 62, 20)
+    over = img.copy()
+    over[fm > 0] = (55, 45, 170)
     for r in rooms_named:
         rm = mask(r["poly"])
-        img[rm > 0] = (110, 62, 20)
-        cs, _ = cv2.findContours(rm, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
-        cv2.drawContours(img, cs, -1, (255, 230, 90), 2, cv2.LINE_AA)
+        over[rm > 0] = (60, 50, 150) if r["kind"] == "mech" else (175, 95, 30)
+    img = cv2.addWeighted(over, 0.85, img, 0.15, 0)
+    for r in rooms_named:
+        cs, _ = cv2.findContours(mask(r["poly"]), cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
+        cv2.drawContours(img, cs, -1, (245, 245, 245), 2, cv2.LINE_AA)
     cs, _ = cv2.findContours(fm, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
-    cv2.drawContours(img, cs, -1, (255, 230, 90), 2, cv2.LINE_AA)
+    cv2.drawContours(img, cs, -1, (245, 245, 245), 2, cv2.LINE_AA)
     k = size / 640.0
     for r in rooms_named:
         d = T(Point(r["door"]))
@@ -215,8 +220,9 @@ def draw(L, title, sub, rooms_named, size=640, header=True):
         cv2.rectangle(img, (int(d.x) - h, int(d.y) - h), (int(d.x) + h, int(d.y) + h), DOOR_BGR[r["key"]], -1)
     for nm, q in L["lifts"]:
         c = T(q.centroid); h = int(8 * k)
-        cv2.rectangle(img, (int(c.x) - h, int(c.y) - h), (int(c.x) + h, int(c.y) + h), (255, 255, 255), max(1, int(2 * k)))
-        cv2.putText(img, "LIFT", (int(c.x) - int(9 * k), int(c.y) + int(3 * k)), 0, 0.26 * k, (255, 255, 255), 1, cv2.LINE_AA)
+        cv2.rectangle(img, (int(c.x) - h, int(c.y) - h), (int(c.x) + h, int(c.y) + h), (0, 215, 255), -1)   # (elevators yellow)
+        cv2.rectangle(img, (int(c.x) - h, int(c.y) - h), (int(c.x) + h, int(c.y) + h), (0, 0, 0), 1)
+        cv2.putText(img, "LIFT", (int(c.x) - int(9 * k), int(c.y) + int(3 * k)), 0, 0.26 * k, (0, 0, 0), 1, cv2.LINE_AA)
     for r in rooms_named:
         q = T(r["poly"])
         t = r["name"].upper() + (" * %s CARD" % SP.KEY_NAME[r["card"]] if r.get("card") else "") + (" [OBJECTIVE]" if r.get("objective") else "")
@@ -288,7 +294,7 @@ def build(st):
                                     "v3: the SWTOR example style", "PROPOSED: X = close, O = fix"])
     cv2.rectangle(leg, (325, 60), (640, 360), (0, 0, 0), -1)
     y = 90
-    for txt, col in (("door OPEN", DOOR_BGR[0]), ("door YELLOW card", DOOR_BGR[1]), ("door ORANGE card", DOOR_BGR[2]),
+    for txt, col in (("MECH WAY / ROOM (red)", (60, 50, 150)), ("PILOT ROOM (blue)", (175, 95, 30)), ("ELEVATOR (yellow)", (0, 215, 255)), ("door OPEN", DOOR_BGR[0]), ("door YELLOW card", DOOR_BGR[1]), ("door ORANGE card", DOOR_BGR[2]),
                      ("door RED card", DOOR_BGR[3]), ("door PURPLE card", DOOR_BGR[4]), ("big square = mech door", (200, 200, 200))):
         cv2.rectangle(leg, (330, y - 13), (346, y + 3), col, -1)
         cv2.putText(leg, txt, (356, y), 0, 0.46, (230, 230, 230), 1, cv2.LINE_AA); y += 26
