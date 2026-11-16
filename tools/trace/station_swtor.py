@@ -82,7 +82,8 @@ def fill_empty(inner, halls, pods, rooms, lifts):
             if part.area < 60 * PX * PX: continue
             core = part.buffer(-WM / 2 - WALL)
             if core.is_empty: continue
-            core = max(parts(core), key=lambda q: q.area)
+            core = _sp(max(parts(core), key=lambda q: q.area))
+            if core.is_empty or core.geom_type != 'Polygon': continue
             c = polylabel(core, 1.0)
             a = nearest_points(ways, c)[0]
             dx, dy = c.x - a.x, c.y - a.y; dl = math.hypot(dx, dy)
@@ -120,6 +121,32 @@ def fill_empty(inner, halls, pods, rooms, lifts):
         if not got and not spurs: break
 
 
+def path_way(region, a, b, w=WM):
+    """a hall of width w from point a to point b that bends to stay inside region (through a hull neck, round a notch);
+    None if there is no such way"""
+    from skimage.graph import route_through_array
+    core = region.buffer(-w / 2 + 0.2 * PX, join_style=2)
+    if core.is_empty: return None
+    RES = 0.5 * PX
+    x0, y0, x1, y1 = region.bounds
+    W, H = int((x1 - x0) / RES) + 3, int((y1 - y0) / RES) + 3
+    m = np.zeros((H, W), np.uint8)
+    for g in parts(core):
+        cv2.fillPoly(m, [np.round((np.array(g.exterior.coords) - (x0, y0)) / RES).astype(np.int32)], 1)
+        for h in g.interiors: cv2.fillPoly(m, [np.round((np.array(h.coords) - (x0, y0)) / RES).astype(np.int32)], 0)
+    ys, xs = np.nonzero(m)
+    if not len(xs): return None
+    def snap(p):
+        px_, py_ = (p.x - x0) / RES, (p.y - y0) / RES
+        i = int(np.argmin((xs - px_) ** 2 + (ys - py_) ** 2)); return (int(ys[i]), int(xs[i]))
+    sa, sb = snap(a), snap(b)
+    cost = np.where(m > 0, 1.0, 1e6)
+    path, c = route_through_array(cost, sa, sb, fully_connected=True, geometric=True)
+    if c >= 1e5 or len(path) < 2: return None
+    ln = LineString([(x0 + xx * RES, y0 + yy * RES) for yy, xx in path]).simplify(0.8 * PX)
+    return unary_union([ln.buffer(w / 2, join_style=2), a.buffer(w / 2), b.buffer(w / 2)])
+
+
 def connect_ways(inner, halls, pods, rooms, lifts):
     """owner Nov 16: every red way must join the rest - a mech can't reach a walkway that joins nothing.
     Each loose piece gets a straight link hall to the main network (mirrored); a piece no link can reach is removed."""
@@ -138,11 +165,17 @@ def connect_ways(inner, halls, pods, rooms, lifts):
         lk2 = _sp(unary_union([lk, _mx(lk)]).intersection(inner_w))
         ok = lk2.buffer(0.3 * PX).intersects(main) and \
             len(parts(_sp(unary_union([main, q, lk2.buffer(0.3 * PX)])))) == 1
+        if not ok:   # no straight way: one that bends round the hull (through the neck)
+            pw = path_way(inner_w, a, b)
+            if pw is not None:
+                lk2 = _sp(unary_union([pw, _mx(pw)]).intersection(inner_w))
+                ok = lk2.buffer(0.3 * PX).intersects(main) and len(parts(_sp(unary_union([main, q, lk2.buffer(0.3 * PX)])))) == 1
         if ok:
             for r in rooms: r["poly"] = _sp(r["poly"].difference(lk2.buffer(WALL, join_style=2)))
             halls.append(("link", lk2))
         else:   # can't be reached: take it (and its mirror) out
-            cut = _sp(unary_union([q, _mx(q)]).buffer(0.2 * PX))
+            mq = _mx(q)   # (its mirror goes too only when that is loose as well - never cut the main network)
+            cut = _sp(unary_union([q] + ([mq] if not mq.buffer(0.3 * PX).intersects(main) else [])).buffer(0.2 * PX))
             halls[:] = [(n, _sp(g.difference(cut))) for n, g in halls]
             pods[:] = [_sp(g.difference(cut)) for g in pods]
             halls[:] = [(n, g) for n, g in halls if not g.is_empty]; pods[:] = [g for g in pods if not g.is_empty]
@@ -313,7 +346,18 @@ def layout(ol, role):
     tidy_rooms(rooms, halls, pods)
     prune_spurs(halls, pods, rooms)
     if left > 1: print('  loose ways left:', left, role, flush=True)
-    # keep only what is joined up, and mirror-true
+    # mirror-true at the end: the right half, mirrored (fill and links can come out a little lopsided)
+    right = box(0, -1e5, 1e5, 1e5)
+    wh = _sp(unary_union([_sp(g) for _, g in halls] + [_sp(q) for q in pods]).intersection(right))
+    halls = [("ways", _sp(unary_union([wh, _mx(wh)]).buffer(0.2 * PX, join_style=2).buffer(-0.2 * PX, join_style=2)))]; pods = []
+    sym = []
+    for r in rooms:
+        cx = r["poly"].centroid.x
+        if r["poly"].bounds[0] >= -0.2 * PX: sym += [r, dict(r, poly=_mx(r["poly"]))] if r["poly"].bounds[0] > 0.2 * PX else [dict(r, poly=_sp(unary_union([r["poly"], _mx(r["poly"])])))]
+        elif cx >= -0.3 * PX:
+            hr = r["poly"].intersection(right); sym.append(dict(r, poly=_sp(unary_union([hr, _mx(hr)]))))
+    rooms = [r for r in sym if not r["poly"].is_empty and r["poly"].geom_type == "Polygon"]
+    # keep only what is joined up
     ways = unary_union([g for _, g in halls] + pods)
     rooms = [r for r in rooms if r["poly"].buffer(WALL * 2).intersects(ways)]
     return {"outline": ol, "inner": inner, "halls": halls, "rooms": rooms, "pods": pods, "lifts": lifts, "ways": ways,
@@ -388,6 +432,18 @@ def draw(L, title, sub, rooms_named, size=640, header=True):
     return img
 
 
+def own_outline(O, k):
+    """owner Nov 16: each floor has its own silhouette at its own height. The deck's slice and the slices just above
+    and below it, closed up into a floor (not the top-down silhouette the old code fell back to)"""
+    M, i = O["masks"], O["idx"][k]
+    m = np.zeros_like(M[0])
+    for j in range(max(0, i - 1), min(len(M), i + 2)): m = np.maximum(m, M[j])
+    m = (m > 0).astype(np.uint8) * 255
+    m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (31, 31)))
+    m = SP.clean(m)
+    return SP.outline(m)
+
+
 def build(st):
     model = st["model"]
     O = SP.deck_outlines(st)
@@ -396,6 +452,11 @@ def build(st):
     f = width_m * PX / (SP.N - 40)
     c0 = O["c"]
     to_plan = lambda g: affinity.affine_transform(g, [f, 0, 0, f, -c0[0] * f, -c0[1] * f])
+    hub0 = O["polys"][2]
+    for k in range(5):
+        if O["src"][k] != "silhouette": continue
+        g = own_outline(O, k)
+        if g is not None and g.area >= 0.2 * hub0.area: O["polys"][k] = shapely.make_valid(g.buffer(0)); O["src"][k] = "own slice"
     OLS = [SD.mirror_true(to_plan(O["polys"][k])) for k in range(5)]
     def room_at(y):   # (as station_decks: the lift axis goes where the decks are solid - a ring station's hole is not)
         pt = Point(0, y); sc = 0.0
@@ -411,7 +472,7 @@ def build(st):
     decks, panels = [], []
     for k, role in enumerate(SP.DECKS):
         ol = OLS[k]
-        if ol.area < 0.5 * hub_ol.area:
+        if ol.area < 0.2 * hub_ol.area:
             t = 0.05 * math.sqrt(hub_ol.area) * abs(k - 2)
             g2 = hub_ol.buffer(-t, join_style=2); ol = max(parts(g2), key=lambda q: q.area) if parts(g2) else hub_ol
         L = layout(ol, role)
