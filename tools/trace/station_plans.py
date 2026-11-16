@@ -485,25 +485,15 @@ def legend_panel(top, side, idx, sm, info):
 
 
 # ---------------------------------------------------------------- one station
-def build(st):
+def deck_outlines(st):
+    """The five deck outlines (px, N x N) of a station model and its lift axis c (shared with station_walkways.py)."""
     model = st["model"]
     path = os.path.join(REPO, "assets", "stations3d", model + ".glb")
     masks, top, side, (lo, hi, s, dax, upright) = slices(path)
     idx, sm = pick_decks(masks)
-    style = next((k for k in STYLE_W if "_%s_" % k in model), None)
-    width_m = STYLE_W.get(style, ST3D_W.get(model, 1000.0))
-    mpp = width_m / (N - 40)
-    T = 4.0                 # px wall gap
-    W = max(18.0, 0.05 * (N - 40))   # px mech hall width
+    hubR = max(30.0, min(70.0, 0.11 * (N - 40)))
     hub_poly = outline(deck_mask(masks, idx[2]))
     c = (N / 2, N / 2)
-    if hub_poly is not None and not hub_poly.buffer(-30).contains(Point(c)):
-        dm = cv2.distanceTransform(deck_mask(masks, idx[2]), cv2.DIST_L2, 5)
-        yy, xx = np.unravel_index(int(np.argmax(dm)), dm.shape)
-        c = (float(xx), float(yy))
-    hubR = max(30.0, min(70.0, 0.11 * (N - 40)))
-    decks = []
-    panels = []
     # the station seen from above, thin spikes and antennas taken off: where a slice is too broken up to live in, the
     # deck is this silhouette, drawn in a little more for each deck away from the hub (the station tapers)
     sm_k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (25, 25))
@@ -534,6 +524,22 @@ def build(st):
         dm = cv2.distanceTransform(hm, cv2.DIST_L2, 5)
         yy, xx = np.unravel_index(int(np.argmax(dm)), dm.shape)
         c = (float(xx), float(yy))
+    return {"masks": masks, "top": top, "side": side, "lo": lo, "hi": hi, "s": s, "dax": dax, "upright": upright,
+            "idx": idx, "sm": sm, "polys": polys, "src": src, "c": c, "hubR": hubR, "hub_poly": hub_poly}
+
+
+def build(st):
+    model = st["model"]
+    O = deck_outlines(st)
+    masks, top, side, lo, hi, s, dax, upright = O["masks"], O["top"], O["side"], O["lo"], O["hi"], O["s"], O["dax"], O["upright"]
+    idx, sm, polys, src, c, hubR, hub_poly = O["idx"], O["sm"], O["polys"], O["src"], O["c"], O["hubR"], O["hub_poly"]
+    style = next((k for k in STYLE_W if "_%s_" % k in model), None)
+    width_m = STYLE_W.get(style, ST3D_W.get(model, 1000.0))
+    mpp = width_m / (N - 40)
+    T = 4.0                 # px wall gap
+    W = max(18.0, 0.05 * (N - 40))   # px mech hall width
+    decks = []
+    panels = []
     for k, role in enumerate(DECKS):
         i = idx[k]
         poly = polys[k]

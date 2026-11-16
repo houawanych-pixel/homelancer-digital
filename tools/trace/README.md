@@ -33,3 +33,9 @@ fast travel at the lift axis, ring + spokes along the station's arms, rooms in t
 (blue) rooms, doors keyed OPEN / YELLOW / ORANGE / RED / PURPLE. Output per model: `stations/<model>/plan.json`
 (metres) and `plan.jpg`. Needs `pip install trimesh shapely opencv-python-headless`. Nothing goes into the game until
 the owner approves a station; his marks get fixed by rerunning the script with per-station changes.
+
+## Station walkways (v13.167, step 1, PROPOSED)
+`station_walkways.py`: the halls only for every station's five decks (owner: "design the walkways first"), on the
+fleet-ship rules (centre line + width, 45-degree spines, octagon ring and junctions, mirrored), red mech / blue pilot /
+yellow lifts. Output `stations/<model>/walkways.json` (metres from the lift axis, +y front) and `walkways.jpg`.
+Step 2 fits the traced library rooms along them. The v13.166 room plans (`plan.*`) are superseded.

@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.166"
+const VERSION := "v13.167"
 ## v11.40/v11.41 (owner: "every version saved as a new version per station set, and a set can be attached to a station"):
 ## room SETS per faction. Set "1" is the faction's first rooms (assets/rooms/<faction>/<room>.*); a newer set lists only the
 ## rooms it changes (room -> file name in the same folder, the old files stay). STATION_ROOM_SET says which set each
@@ -945,7 +945,7 @@ const WATER_SHALLOW_DEPTH := 45.0     # shallows turn turquoise above this depth
 
 # ---------------------------------------------------------------- Job AJ (v1.5g): ship scan (tap a ship to target it, tap the target box to scan it)
 const SCAN_RANGE := 1500.0            # a ship this close can be scanned
-const SCAN_FAR := 25000.0             # v13.166: the big fleet ships scan from this far
+const SCAN_FAR := 25000.0             # v13.167: the big fleet ships scan from this far
 const SCAN_TIME := 1.2                # seconds the scan takes
 const SHIP_TAP_STICK := 34.0          # v1.8u: ...inside a stick's side of the screen the tap must be this close (and clear of the stick itself)
 const SHIP_BOX := 18.0                # v1.8u: the size of the lock box every ship on screen wears
@@ -2306,8 +2306,8 @@ const BUILDING_SEARCH_STEPS := 6      # ... this many steps each way round the w
 const BUILDING_GAP := 40.0            # m kept clear between the two buildings
 const BUILDING_PROBES := [Vector2.ZERO, Vector2(1, 1), Vector2(-1, 1), Vector2(1, -1), Vector2(-1, -1), Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]   # footprint samples (x half-width)
 const BUILDING_FLAT_OK := 45.0        # m: the test accepts this much rise under a footprint (hilly worlds)
-const STATION_WALK := true         # v13.166: WALK THE STATION on every station (its calm deck; the alarm flips the same deck)
-const HULL_SHAPES := true          # v13.166: stations and fleet ships collide by their real shape (false: the old outer box)
+const STATION_WALK := true         # v13.167: WALK THE STATION on every station (its calm deck; the alarm flips the same deck)
+const HULL_SHAPES := true          # v13.167: stations and fleet ships collide by their real shape (false: the old outer box)
 const RETOPO_BOX_PAD := 8.0           # m: the ship's own size added to a model's collision box
 static func is_st3d(model: Variant) -> bool:
 	var m := str(model)
