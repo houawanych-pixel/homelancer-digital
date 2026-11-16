@@ -4,6 +4,17 @@ This file holds the current design rules. When a rule changes, the old one stays
 older notes and chats can't be mistaken for the current rule. Build notes are in `V1.2_BUILD.md`, and loading and
 budgets are in `PERFORMANCE.md`.
 
+## 0. One world, two rules (owner, Nov 15 2026) — applies to every station area and interior
+Model: the mode switch from *The Legend of Zelda: A Link to the Past*. In the village you walk around and talk to
+people; when guards come or you're recognised, the villagers run into their houses and the same streets are now a
+combat space. Same map, flipped state, no geometry change.
+- An area (station deck, ship interior, facility) is **built once**. A **state flag** (calm, caution, alert) changes
+  behaviour and interaction; it never loads a new level.
+- On the flip: NPCs stop offering dialogue and run to cover or exits; doors lock or open; guards and enemies spawn at
+  **set points**; music and lighting shift; interaction prompts become combat actions.
+- **Never duplicate or rebuild a level for combat.** Reuse the same scene and swap the rules, the AI behaviour and the
+  active props.
+
 ## 1. Loading architecture (keep)
 - **Loading order:** BOOT/CORE, then the current star system, then local content. Planet entry loads the current planet, then the current surface sector.
 - **What's optional:** distant systems, planets, stations, cities, mechs and big model sets live in content packs (`scripts/packs.gd`). They're never part of the first download.
