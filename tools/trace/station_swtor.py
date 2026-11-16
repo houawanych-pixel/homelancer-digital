@@ -75,7 +75,7 @@ def fill_empty(inner, halls, pods, rooms, lifts):
         taken = _sp(unary_union([_sp(g) for g in [ways] + [r["poly"] for r in rooms] + [q for _, q in lifts]]).buffer(WALL, join_style=2))
         free = _sp(inner_w.difference(taken))
         return ways, _sp(free.buffer(-1.2 * PX, join_style=2).buffer(1.2 * PX, join_style=2))   # (no slivers)
-    for it in range(6):
+    for it in range(10):
         # 1. deep empty space no hall reaches: a spur hall in from the nearest way, right across it
         ways, free = free_now(); spurs = 0
         for part in parts(free.intersection(right)):
@@ -106,10 +106,13 @@ def fill_empty(inner, halls, pods, rooms, lifts):
         # 2. the empty space next to a way: a grid of rooms
         ways, free = free_now(); got = 0
         if free.is_empty: break
-        for c in parts(free.difference(_grid(free, FILL_CELL))):
+        cand = []
+        for fp in parts(free):   # a small pocket is one room as it is; a big one is cut into a grid
+            cand += [fp] if fp.area <= 70 * PX * PX else parts(_sp(fp.difference(_grid(fp, FILL_CELL))))
+        for c in cand:
             if c.centroid.x < 0: continue
-            if c.area < 14 * PX * PX or c.buffer(-1.6 * PX).is_empty: continue
-            if c.area < 0.55 * c.minimum_rotated_rectangle.area: continue
+            if c.area < 12 * PX * PX or c.buffer(-1.5 * PX).is_empty: continue
+            if c.area < 0.45 * c.minimum_rotated_rectangle.area: continue
             if c.distance(ways) > WALL * 2.5: continue
             for q in ([c] if c.centroid.x < 0.5 * PX else [c, _mx(c).intersection(free)]):
                 for q2 in parts(q):
@@ -151,8 +154,46 @@ def connect_ways(inner, halls, pods, rooms, lifts):
     return len(parts(_sp(unary_union([_sp(g) for _, g in halls] + pods).buffer(0.3 * PX))))
 
 
+BIG_ROOM = 130 * PX * PX    # owner Nov 16 (Velanthos hangar): huge wedge rooms and thin red strips read wrong
+
+
+def tidy_rooms(rooms, halls, pods):
+    """split huge rooms into a grid (keeping the pieces on a way), and a mech room must be a real bay (5 m wide);
+    a thinner one is a pilot room, a strip under 3 m goes"""
+    ways = _sp(unary_union([_sp(g) for _, g in halls] + [_sp(q) for q in pods]))
+    out = []
+    for r in rooms:
+        ps = [r["poly"]]
+        if r["poly"].area > BIG_ROOM:
+            g = _sp(r["poly"]); ps = parts(_sp(g.difference(_grid(g, 10 * PX))))
+        for q in ps:
+            if q.area < 12 * PX * PX or q.buffer(-1.5 * PX).is_empty: continue
+            if q.distance(ways) > WALL * 2.5: continue
+            kind = r["kind"]
+            if kind == "mech" and (q.buffer(-2.0 * PX).is_empty or q.area < 40 * PX * PX): kind = "pilot"
+            out.append(dict(r, poly=q, kind=kind))
+    rooms[:] = out
+
+
+def prune_spurs(halls, pods, rooms):
+    """a spur hall with fewer than 2 rooms on it is a dead walkway (owner Nov 16): take it out if nothing needs it"""
+    def net(hs): return parts(_sp(unary_union([_sp(g) for _, g in hs] + [_sp(q) for q in pods]).buffer(0.3 * PX)))
+    changed = True
+    while changed:
+        changed = False
+        for i, (n, g) in enumerate(halls):
+            if n not in ("spur", "link"): continue
+            near = [r for r in rooms if r["poly"].distance(g) <= WALL * 2.5]
+            if len(near) >= 2: continue
+            rest = halls[:i] + halls[i + 1:]
+            ways = _sp(unary_union([_sp(h) for _, h in rest] + [_sp(q) for q in pods]))
+            if len(net(rest)) > 1: continue
+            if any(r["poly"].distance(ways) > WALL * 2.5 for r in near): continue
+            halls[:] = rest; changed = True; break
+
+
 def layout(ol, role):
-    inner = ol.buffer(-1.5 * PX, join_style=2)
+    inner = ol.buffer(-0.8 * PX, join_style=2)
     inner = max(parts(inner), key=lambda g: g.area)
     R = {d: SW.ray(inner, (0, 0), d, 200 * PX) for d in (0, 90, 180, 270)}
     rx, ry = min(R[0], R[180]), max(R[90], R[270], 1.0)
@@ -266,8 +307,11 @@ def layout(ol, role):
             ln = LineString([(0, 0), (300 * PX * math.cos(math.radians(d)), 0)]).intersection(wing[1].difference(wing[2]))
             if not ln.is_empty: lifts.append(("Freight lift", ln.centroid.buffer(2.3 * PX, 8)))
     connect_ways(inner, halls, pods, rooms, lifts)
+    tidy_rooms(rooms, halls, pods)
     fill_empty(inner, halls, pods, rooms, lifts)
     left = connect_ways(inner, halls, pods, rooms, lifts)
+    tidy_rooms(rooms, halls, pods)
+    prune_spurs(halls, pods, rooms)
     if left > 1: print('  loose ways left:', left, role, flush=True)
     # keep only what is joined up, and mirror-true
     ways = unary_union([g for _, g in halls] + pods)
@@ -306,13 +350,13 @@ def draw(L, title, sub, rooms_named, size=640, header=True):
     cv2.drawContours(img, cs, -1, (160, 110, 40), 2, cv2.LINE_AA)
     # v13.170 (owner: "in game there are red walkways for mechs"): the ships' MECH / PILOT WAYS colours - every hall,
     # bridge and pod is a mech way (red), mech rooms red, pilot rooms blue, white walls, as the in-game ways map
-    floor = unary_union([q for _, q in L["halls"]] + L["pods"])
+    floor = unary_union([q for _, q in L["halls"]] + L["pods"]).buffer(0.6 * PX, join_style=2).buffer(-0.6 * PX, join_style=2)
     fm = mask(floor)
     over = img.copy()
     over[fm > 0] = (55, 45, 170)
     for r in rooms_named:
         rm = mask(r["poly"])
-        over[rm > 0] = (60, 50, 150) if r["kind"] == "mech" else (175, 95, 30)
+        over[rm > 0] = (45, 30, 120) if r["kind"] == "mech" else (175, 95, 30)
     img = cv2.addWeighted(over, 0.85, img, 0.15, 0)
     for r in rooms_named:
         cs, _ = cv2.findContours(mask(r["poly"]), cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
@@ -400,7 +444,7 @@ def build(st):
                                     "v3: the SWTOR example style", "PROPOSED: X = close, O = fix"])
     cv2.rectangle(leg, (325, 60), (640, 360), (0, 0, 0), -1)
     y = 90
-    for txt, col in (("MECH WAY / ROOM (red)", (60, 50, 150)), ("PILOT ROOM (blue)", (175, 95, 30)), ("ELEVATOR (yellow)", (0, 215, 255)), ("door OPEN", DOOR_BGR[0]), ("door YELLOW card", DOOR_BGR[1]), ("door ORANGE card", DOOR_BGR[2]),
+    for txt, col in (("MECH WAY (red)", (55, 45, 170)), ("MECH BAY (dark red)", (45, 30, 120)), ("PILOT ROOM (blue)", (175, 95, 30)), ("ELEVATOR (yellow)", (0, 215, 255)), ("door OPEN", DOOR_BGR[0]), ("door YELLOW card", DOOR_BGR[1]), ("door ORANGE card", DOOR_BGR[2]),
                      ("door RED card", DOOR_BGR[3]), ("door PURPLE card", DOOR_BGR[4]), ("big square = mech door", (200, 200, 200))):
         cv2.rectangle(leg, (330, y - 13), (346, y + 3), col, -1)
         cv2.putText(leg, txt, (356, y), 0, 0.46, (230, 230, 230), 1, cv2.LINE_AA); y += 26
