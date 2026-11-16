@@ -1,0 +1,443 @@
+[
+ {
+  "sid": "kronos",
+  "slot": "*",
+  "name": "Cryo Station",
+  "model": "HL_Station_Arctides_Capital_retopo",
+  "faction": "Enemy",
+  "system": "Kronos",
+  "role": "Arctides home"
+ },
+ {
+  "sid": "kronos",
+  "slot": "+Arctides Military Station",
+  "name": "Arctides Military Station",
+  "model": "HL_Station_Arctides_Military_retopo",
+  "faction": "Enemy",
+  "system": "Kronos",
+  "role": "Arctides home"
+ },
+ {
+  "sid": "sepheron",
+  "slot": "*",
+  "name": "Library Station",
+  "model": "HL_Station_Covenant_Capital_retopo",
+  "faction": "Covenant",
+  "system": "Sepheron",
+  "role": "capital"
+ },
+ {
+  "sid": "valdris",
+  "slot": "*",
+  "name": "Cipher Station",
+  "model": "HL_Station_Covenant_Military_retopo",
+  "faction": "Covenant",
+  "system": "Valdris",
+  "role": ""
+ },
+ {
+  "sid": "sanctum_major",
+  "slot": "*",
+  "name": "Sanctuary Station",
+  "model": "HL_Station_Covenant_Trade_retopo",
+  "faction": "Covenant",
+  "system": "Sanctum Major",
+  "role": ""
+ },
+ {
+  "sid": "cybernet",
+  "slot": "*",
+  "name": "Assimilation Factory",
+  "model": "HL_Station_Cybermorphs_Capital_retopo",
+  "faction": "Enemy",
+  "system": "Cybernet",
+  "role": "Cybermorph home"
+ },
+ {
+  "sid": "cybernet",
+  "slot": "Signal Relay",
+  "name": "Signal Relay",
+  "model": "HL_Station_Cybermorphs_Military_retopo",
+  "faction": "Enemy",
+  "system": "Cybernet",
+  "role": "Cybermorph home"
+ },
+ {
+  "sid": "velanthos",
+  "slot": "*",
+  "name": "Velanthos Research Platform",
+  "model": "HL_Station_Elyza_Military_retopo",
+  "faction": "Elyza",
+  "system": "Velanthos",
+  "role": ""
+ },
+ {
+  "sid": "crystara",
+  "slot": "*",
+  "name": "Crystal Refinery",
+  "model": "HL_Station_Elyza_Trade_retopo",
+  "faction": "Elyza",
+  "system": "Crystara",
+  "role": ""
+ },
+ {
+  "sid": "cynthara",
+  "slot": "*",
+  "name": "Spore Station",
+  "model": "HL_Station_Gadversee_Capital_retopo",
+  "faction": "Enemy",
+  "system": "Cynthara",
+  "role": "Gadversee home"
+ },
+ {
+  "sid": "cynthara",
+  "slot": "+Gadversee Military Station",
+  "name": "Gadversee Military Station",
+  "model": "HL_Station_Gadversee_Military_retopo",
+  "faction": "Enemy",
+  "system": "Cynthara",
+  "role": "Gadversee home"
+ },
+ {
+  "sid": "malachar",
+  "slot": "*",
+  "name": "Orbital Command",
+  "model": "HL_Station_Imperium_Capital_retopo",
+  "faction": "Imperium",
+  "system": "Malachar",
+  "role": "capital"
+ },
+ {
+  "sid": "obsidrath",
+  "slot": "*",
+  "name": "Obsidrath Armory",
+  "model": "HL_Station_Imperium_Military_retopo",
+  "faction": "Imperium",
+  "system": "Obsidrath",
+  "role": ""
+ },
+ {
+  "sid": "empire_major",
+  "slot": "*",
+  "name": "Imperial Customs Station",
+  "model": "HL_Station_Imperium_Trade_retopo",
+  "faction": "Imperium",
+  "system": "Empire Major",
+  "role": ""
+ },
+ {
+  "sid": "genesis",
+  "slot": "*",
+  "name": "Kaiju Lair",
+  "model": "HL_Station_Kaijurai_Capital_retopo",
+  "faction": "Enemy",
+  "system": "Genesis",
+  "role": "Kaijurai home"
+ },
+ {
+  "sid": "genesis",
+  "slot": "+Kaijurai Military Station",
+  "name": "Kaijurai Military Station",
+  "model": "HL_Station_Kaijurai_Military_retopo",
+  "faction": "Enemy",
+  "system": "Genesis",
+  "role": "Kaijurai home"
+ },
+ {
+  "sid": "vantara",
+  "slot": "*",
+  "name": "Resistance Headquarters",
+  "model": "HL_Station_Liberator_Capital_retopo",
+  "faction": "Liberator",
+  "system": "Vantara",
+  "role": "capital"
+ },
+ {
+  "sid": "exodus_point",
+  "slot": "*",
+  "name": "Refugee Transit Station",
+  "model": "HL_Station_Liberator_Military_retopo",
+  "faction": "Liberator",
+  "system": "Exodus Point",
+  "role": ""
+ },
+ {
+  "sid": "korrath",
+  "slot": "*",
+  "name": "Korrath Garrison",
+  "model": "HL_Station_Orion_Military_retopo",
+  "faction": "Orion",
+  "system": "Korrath",
+  "role": ""
+ },
+ {
+  "sid": "noctyra",
+  "slot": "*",
+  "name": "Unknown Monolith",
+  "model": "HL_Station_Phenom_Capital_retopo",
+  "faction": "Enemy",
+  "system": "Noctyra",
+  "role": "Phenom home"
+ },
+ {
+  "sid": "noctyra",
+  "slot": "+Phenom Military Station",
+  "name": "Phenom Military Station",
+  "model": "HL_Station_Phenom_Military_retopo",
+  "faction": "Enemy",
+  "system": "Noctyra",
+  "role": "Phenom home"
+ },
+ {
+  "sid": "raptian_major",
+  "slot": "*",
+  "name": "Scrap Citadel",
+  "model": "HL_Station_Savagers_Capital_retopo",
+  "faction": "Savagers",
+  "system": "Raptian Major",
+  "role": "capital"
+ },
+ {
+  "sid": "plundros",
+  "slot": "*",
+  "name": "Smuggler Den",
+  "model": "HL_Station_Savagers_Military_retopo",
+  "faction": "Savagers",
+  "system": "Plundros",
+  "role": ""
+ },
+ {
+  "sid": "synthari_capital",
+  "slot": "*",
+  "name": "Grand Exchange",
+  "model": "HL_Station_Solarion_Capital_retopo",
+  "faction": "Solarion",
+  "system": "Synthari Capital",
+  "role": "capital"
+ },
+ {
+  "sid": "techanis",
+  "slot": "*",
+  "name": "Techanis Lab Station",
+  "model": "HL_Station_Solarion_Military_retopo",
+  "faction": "Solarion",
+  "system": "Techanis",
+  "role": ""
+ },
+ {
+  "sid": "kellova",
+  "slot": "*",
+  "name": "Kellova Cargo Depot",
+  "model": "HL_Station_Solarion_Outpost_retopo",
+  "faction": "Solarion",
+  "system": "Kellova",
+  "role": ""
+ },
+ {
+  "sid": "crossma_major",
+  "slot": "*",
+  "name": "Crossma Freeport",
+  "model": "HL_Station_Solarion_Trade_retopo",
+  "faction": "Solarion",
+  "system": "Crossma Major",
+  "role": ""
+ },
+ {
+  "sid": "void_system",
+  "slot": "*",
+  "name": "Void Citadel Station",
+  "model": "HL_Station_Solrath_Capital_retopo",
+  "faction": "Enemy",
+  "system": "Void System",
+  "role": "Solrath home"
+ },
+ {
+  "sid": "void_system",
+  "slot": "Gate Anchor",
+  "name": "Gate Anchor",
+  "model": "HL_Station_Solrath_Military_retopo",
+  "faction": "Enemy",
+  "system": "Void System",
+  "role": "Solrath home"
+ },
+ {
+  "sid": "rimgate",
+  "slot": "*",
+  "name": "Rimgate Control",
+  "model": "HL_Station_Unclaimed_Capital_retopo",
+  "faction": "Neutral",
+  "system": "Rimgate",
+  "role": ""
+ },
+ {
+  "sid": "farreach_outpost",
+  "slot": "*",
+  "name": "Farreach Outpost",
+  "model": "HL_Station_Unclaimed_Military_retopo",
+  "faction": "Neutral",
+  "system": "Farreach Outpost",
+  "role": ""
+ },
+ {
+  "sid": "federis",
+  "slot": "*",
+  "name": "Embassy Station",
+  "model": "HL_Station_Unity_Military_retopo",
+  "faction": "Unity",
+  "system": "Federis",
+  "role": ""
+ },
+ {
+  "sid": "aurentum",
+  "slot": "*",
+  "name": "Reserve Vault Station",
+  "model": "HL_Station_Unity_Trade_retopo",
+  "faction": "Unity",
+  "system": "Aurentum",
+  "role": ""
+ },
+ {
+  "sid": "void_1",
+  "slot": "*",
+  "name": "Void 1 Beacon",
+  "model": "HL_Station_Unknown_Capital_retopo",
+  "faction": "Void",
+  "system": "Void 1",
+  "role": "void"
+ },
+ {
+  "sid": "void_3",
+  "slot": "*",
+  "name": "Void 3 Beacon",
+  "model": "HL_Station_Unknown_Military_retopo",
+  "faction": "Void",
+  "system": "Void 3",
+  "role": "void"
+ },
+ {
+  "sid": "aurelion",
+  "slot": "*",
+  "name": "Aurelion Citadel",
+  "model": "st3d_aurelion_citadel",
+  "faction": "Elyza",
+  "system": "Aurelion",
+  "role": "capital"
+ },
+ {
+  "sid": "aurelion",
+  "slot": "Diplomatic and Trade Hub",
+  "name": "Diplomatic and Trade Hub",
+  "model": "st3d_aurelion_tradehub",
+  "faction": "Elyza",
+  "system": "Aurelion",
+  "role": "capital"
+ },
+ {
+  "sid": "beta_7",
+  "slot": "*",
+  "name": "Survey Depot",
+  "model": "st3d_beta7_pathfinder",
+  "faction": "Neutral",
+  "system": "Beta-7",
+  "role": ""
+ },
+ {
+  "sid": "foggiest",
+  "slot": "*",
+  "name": "Fog Beacon Station",
+  "model": "st3d_foggiest_greywhistle",
+  "faction": "Neutral",
+  "system": "Foggiest",
+  "role": ""
+ },
+ {
+  "sid": "omega",
+  "slot": "*",
+  "name": "Last Stop Station",
+  "model": "st3d_omega_emporium",
+  "faction": "Neutral",
+  "system": "Omega",
+  "role": ""
+ },
+ {
+  "sid": "perimeter",
+  "slot": "*",
+  "name": "Perimeter Picket",
+  "model": "st3d_perimeter_picket",
+  "faction": "Neutral",
+  "system": "Perimeter",
+  "role": ""
+ },
+ {
+  "sid": "radiant",
+  "slot": "*",
+  "name": "Shrine Platform",
+  "model": "st3d_radiant_dawnchoir",
+  "faction": "Hidden",
+  "system": "Radiant",
+  "role": "hidden"
+ },
+ {
+  "sid": "ravage_major",
+  "slot": "*",
+  "name": "Raider Outpost",
+  "model": "st3d_savagers_asteroid",
+  "faction": "Savagers",
+  "system": "Ravage Major",
+  "role": ""
+ },
+ {
+  "sid": "sigma_19",
+  "slot": "*",
+  "name": "Sigma Mining Station",
+  "model": "st3d_sigma19_deepcut",
+  "faction": "Neutral",
+  "system": "Sigma-19",
+  "role": ""
+ },
+ {
+  "sid": "solara",
+  "slot": "*",
+  "name": "Liberty Hub",
+  "model": "st3d_veranthos_customs",
+  "faction": "Unity",
+  "system": "Solara",
+  "role": "built"
+ },
+ {
+  "sid": "veranthos",
+  "slot": "Fleet Headquarters",
+  "name": "Fleet Headquarters",
+  "model": "st3d_veranthos_fleethq",
+  "faction": "Unity",
+  "system": "Veranthos",
+  "role": "capital"
+ },
+ {
+  "sid": "veranthos",
+  "slot": "*",
+  "name": "Senate Station",
+  "model": "st3d_veranthos_senate",
+  "faction": "Unity",
+  "system": "Veranthos",
+  "role": "capital"
+ },
+ {
+  "sid": "dreadholm",
+  "slot": "*",
+  "name": "Fleet Command",
+  "model": "st3d_veranthos_summit",
+  "faction": "Orion",
+  "system": "Dreadholm",
+  "role": "capital"
+ },
+ {
+  "sid": "voidtex",
+  "slot": "*",
+  "name": "Voidtex Transit Station",
+  "model": "st3d_voidtex_crosswind",
+  "faction": "Neutral",
+  "system": "Voidtex",
+  "role": ""
+ }
+]

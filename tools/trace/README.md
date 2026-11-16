@@ -25,3 +25,11 @@ inset), which sits in the square-and-round block at the stern centre. Floor leve
 | ship_fury_07 | Fury-class Interceptor (Sith ship), one deck, rooms 1-15, real size 47.8 x 41 m |
 | station_republic_06 | Darth Malgus space station, Command Deck (flashpoint The False Emperor): two fan wings around a round hub, north/south spines; fans mirrored about the hub centre |
 | station_ring_08 | Carrick Station (Republic Fleet) main floor, round gear station: four wings (cabins, ring corridor, islands) around a hub, four spokes; one wing drawn in polar and rotated |
+
+## Station deck plans (v13.166, PROPOSED)
+`station_plans.py` builds five-deck plans for every station model in the game (`stations/stations.json`: 49):
+the model's own silhouette sliced into decks (HANGAR, ENGINEERING, MAIN HUB, HABITAT, COMMAND), a main hub with
+fast travel at the lift axis, ring + spokes along the station's arms, rooms in the sectors, mech (red) and pilot-only
+(blue) rooms, doors keyed OPEN / YELLOW / ORANGE / RED / PURPLE. Output per model: `stations/<model>/plan.json`
+(metres) and `plan.jpg`. Needs `pip install trimesh shapely opencv-python-headless`. Nothing goes into the game until
+the owner approves a station; his marks get fixed by rerunning the script with per-station changes.
