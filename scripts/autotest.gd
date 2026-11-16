@@ -3850,144 +3850,148 @@ func _run() -> void:
 		_finish_group()
 		return
 	if _flag("HL_STATION"):   # v13.01 station rebuild: Veranthos, measured from st3d_veranthos_senate
-		_check("v13.01: Veranthos' main station is the Senate model its interior is measured from", str(Data.SYSTEMS["veranthos"]["station"].get("model", "")) == "st3d_veranthos_senate" and StationInterior.old_build("st3d_veranthos_senate") == "veranthos", str(Data.SYSTEMS["veranthos"]["station"].get("model", "")))
-		_check("v13.01: only a rebuilt station opens", StationInterior.can_open("veranthos") and not StationInterior.can_open("solara") and not main.open_station_interior("solara"))
-		var st0: String = str(main.state)
-		var okv: bool = main.open_station_interior("veranthos")
-		await _wait(1.0)
-		var sn: StationInterior = main.station_deck
-		_check("v13.01: the Veranthos interior opens", okv and is_instance_valid(sn) and main.state == "station_deck")
-		var lvs: Array = sn.data["levels"]
-		_check("v13.01: five decks, L1 and L5 marked as designed additions", lvs.size() == 5 and bool(lvs[0]["proposed"]) and bool(lvs[4]["proposed"]) and not bool(lvs[1]["proposed"]) and not bool(lvs[2]["proposed"]) and not bool(lvs[3]["proposed"]))
-		var same := true
-		for lv in lvs:
-			for k in 4:
-				if Vector2(float(lv["lifts"][k][0]), float(lv["lifts"][k][1])).distance_to(Vector2(float(lvs[0]["lifts"][k][0]), float(lvs[0]["lifts"][k][1]))) > 0.01: same = false
-		_check("v13.01: four lift shafts at the same x,z on all five decks, none at the centre", same and sn.lift_pads.size() == 20 and Vector2(float(lvs[0]["lifts"][0][0]), float(lvs[0]["lifts"][0][1])).length() > 400.0)
-		_check("v13.01: you start on the main deck", str(sn.level()["id"]) == "L4" and absf(sn.body.global_position.y - sn.level_y(sn.level_i)) < 1.0, str(sn.body.global_position))
-		await _shot("station_main_lift", 0.4)
-		# walk: 2 s along the concourse, on the floor, not through a wall
-		var s0 := sn.body.global_position
-		sn.yaw = atan2(-s0.z, s0.x) + PI / 2    # (round the ring)
-		sn.move_override = Vector2(0, 1)
-		await _wait(2.0)
-		sn.move_override = Vector2.ZERO
-		_check("v13.01: you walk on the deck", sn.body.global_position.distance_to(s0) > 4.0 and absf(sn.body.global_position.y - sn.level_y(sn.level_i)) < 1.0, str(sn.body.global_position - s0))
-		# every deck by lift: down to L5, then up to L1
-		var pad: Dictionary = sn.lift_pads.filter(func(p): return int(p["level"]) == sn.level_i)[0]
-		sn.body.global_position = (pad["pos"] as Vector3) + Vector3(0, 0.1, 0)
-		await _wait(0.5)
-		_check("v13.01: on a lift pad both buttons show", sn._lift_box.visible and (sn._lift_box.get_node("Up") as Button).visible and (sn._lift_box.get_node("Down") as Button).visible)
-		var rode := []
-		for step in [1, -1, -1, -1, -1]:
-			var okr: bool = sn.ride(step)
-			await _wait(0.7)
-			rode.append("%s:%s" % [str(sn.level()["id"]), str(okr and absf(sn.body.global_position.y - sn.level_y(sn.level_i)) < 1.0)])
-		_check("v13.01: the lift goes to every deck and you stand on its floor (L5, L4, L3, L2, L1)", rode == ["L5:true", "L4:true", "L3:true", "L2:true", "L1:true"], str(rode))
-		_check("v13.01: no deck above the top one", not sn.ride(-1))
-		await _shot("station_dome_lift", 0.3)
-		# stand in a room of each deck
-		for pr in [["L1", "Observation Gallery"], ["L2", "Senate Gallery"], ["L3", "Senate Chamber"], ["L4", "Central Public Hub / Senate Rotunda"], ["L4", "North Docking Bay"], ["L5", "Reactor"]]:
-			var rp := sn.room_point(pr[0], pr[1])
-			_check("v13.01: %s has %s" % [pr[0], pr[1]], rp != Vector3.INF)
-			if rp == Vector3.INF: continue
-			sn.place(pr[0], rp)
-			await _wait(0.6)
-			_check("v13.01: standing in %s on %s" % [pr[1], pr[0]], sn.room_now == pr[1] and absf(sn.body.global_position.y - sn.level_y(sn.level_i)) < 1.0, "%s %s" % [sn.room_now, str(sn.body.global_position)])
-			await _shot("station_%s_%s" % [str(pr[0]).to_lower(), str(pr[1]).to_lower().replace(" / ", "_").replace(" ", "_").left(18)], 0.2)
-		# v13.05 (owner: two or three floors): the Senate Chamber has two balcony rings and ramps; you can walk up a ramp
-		var l3: Dictionary = lvs[2]
-		var bal: Array = (l3.get("decks_in", []) as Array).filter(func(q): return str(q["name"]).begins_with("Balcony"))
-		_check("v13.05: the Hub Atrium is six storeys with two balcony rings and four ramps inside the Senate Chamber", float(l3["h"]) == 108.0 and bal.size() == 2 and (l3["decks_in"] as Array).filter(func(q): return str(q["name"]).begins_with("Ramp")).size() == 4 and sn.world.get_node_or_null("Balconies_L3") != null)
-		sn.place("L3", Vector3(219.0 * sin(deg_to_rad(8.0)), 0, -219.0 * cos(deg_to_rad(8.0))))     # at the foot of the ramp that climbs from bearing 10 to 50
-		await _wait(0.4)
-		var by0: float = sn.body.global_position.y
-		for kk in 110:      # walk round the arc, up the ramp (keep turning to follow it)
-			var pp: Vector3 = sn.body.global_position
-			var brg: float = atan2(pp.x, -pp.z) + deg_to_rad(6.0)
-			var aim := Vector3(219.0 * sin(brg), pp.y, -219.0 * cos(brg))
-			sn.yaw = atan2(-(aim.x - pp.x), -(aim.z - pp.z))
+		var one := OS.get_environment("HL_STATION_ONE")   # one station per run (owner: "one at a time"): veranthos, aurelion, ...
+		var st0_all := str(main.state)
+		if one == "" or one == "veranthos":
+			_check("v13.01: Veranthos' main station is the Senate model its interior is measured from", str(Data.SYSTEMS["veranthos"]["station"].get("model", "")) == "st3d_veranthos_senate" and StationInterior.old_build("st3d_veranthos_senate") == "veranthos", str(Data.SYSTEMS["veranthos"]["station"].get("model", "")))
+			_check("v13.01: only a rebuilt station opens", StationInterior.can_open("veranthos") and not StationInterior.can_open("solara") and not main.open_station_interior("solara"))
+			var st0: String = str(main.state)
+			var okv: bool = main.open_station_interior("veranthos")
+			await _wait(1.0)
+			var sn: StationInterior = main.station_deck
+			_check("v13.01: the Veranthos interior opens", okv and is_instance_valid(sn) and main.state == "station_deck")
+			var lvs: Array = sn.data["levels"]
+			_check("v13.01: five decks, L1 and L5 marked as designed additions", lvs.size() == 5 and bool(lvs[0]["proposed"]) and bool(lvs[4]["proposed"]) and not bool(lvs[1]["proposed"]) and not bool(lvs[2]["proposed"]) and not bool(lvs[3]["proposed"]))
+			var same := true
+			for lv in lvs:
+				for k in 4:
+					if Vector2(float(lv["lifts"][k][0]), float(lv["lifts"][k][1])).distance_to(Vector2(float(lvs[0]["lifts"][k][0]), float(lvs[0]["lifts"][k][1]))) > 0.01: same = false
+			_check("v13.01: four lift shafts at the same x,z on all five decks, none at the centre", same and sn.lift_pads.size() == 20 and Vector2(float(lvs[0]["lifts"][0][0]), float(lvs[0]["lifts"][0][1])).length() > 400.0)
+			_check("v13.01: you start on the main deck", str(sn.level()["id"]) == "L4" and absf(sn.body.global_position.y - sn.level_y(sn.level_i)) < 1.0, str(sn.body.global_position))
+			await _shot("station_main_lift", 0.4)
+			# walk: 2 s along the concourse, on the floor, not through a wall
+			var s0 := sn.body.global_position
+			sn.yaw = atan2(-s0.z, s0.x) + PI / 2    # (round the ring)
 			sn.move_override = Vector2(0, 1)
-			await _wait(0.5)
-			if sn.body.global_position.y - by0 > 34.0: break
-		sn.move_override = Vector2.ZERO
-		await _wait(0.4)
-		_check("v13.05: you walk up the ramp onto the first balcony, 36 m above the hall floor", sn.body.global_position.y - by0 > 34.0 and sn.body.global_position.y - by0 < 38.5 and sn.body.is_on_floor(), "%.1f" % (sn.body.global_position.y - by0))
-		await _shot("station_balcony", 0.3)
-		# a door opens as you come up to it and you pass through
-		sn.place("L4", Vector3.ZERO)
-		var hubp := sn.room_point("L4", "Central Public Hub / Senate Rotunda")
-		var gate: Dictionary = {}
-		for g in sn.gates:
-			if int(g["level"]) == sn.level_i and Vector2((g["pos"] as Vector3).x, (g["pos"] as Vector3).z).length() < 420.0 and absf((g["pos"] as Vector3).x) < 5.0 and (g["pos"] as Vector3).z < 0.0: gate = g
-		_check("v13.01: the hub has a north door", not gate.is_empty())
-		if not gate.is_empty():
-			var gp: Vector3 = gate["pos"]
-			sn.place("L4", gp + Vector3(0, 0, 30.0))
-			await _wait(0.5)
-			_check("v13.01: a door is shut when you are away from it", not bool(gate["open"]))
-			sn.yaw = 0.0
-			sn.move_override = Vector2(0, 1)
-			var t0 := 0.0
-			while t0 < 9.0 and sn.body.global_position.z > gp.z - 12.0:
-				await _wait(0.25)
-				t0 += 0.25
-				if absf(sn.body.global_position.z - gp.z) < 3.0 and t0 > 0.0 and not _shots_done.has("station_door"):
-					_shots_done["station_door"] = true
-					await _shot("station_door_open", 0.05)
+			await _wait(2.0)
 			sn.move_override = Vector2.ZERO
-			_check("v13.01: it opens and you walk through, hub to concourse", sn.body.global_position.z < gp.z - 8.0, str(sn.body.global_position - gp))
-		sn.close()
-		await _wait(0.4)
-		_check("v13.01: LEAVE STATION puts you back", not is_instance_valid(main.station_deck) and main.state == st0, main.state)
-		# v13.02: docked at a rebuilt station, WALK THE STATION is on the station page; you come aboard at a docking bay; a
-		# room that holds a service opens that station page; a docking bay launches. From the viewer (not docked): no services.
-		_check("v13.02: rooms map to services (and plain rooms to none)", str(StationInterior.service_of("Briefing Room A")[1]) == "board" and str(StationInterior.service_of("North Docking Bay")[1]) == "launch"
-			and str(StationInterior.service_of("Triage")[1]) == "repair" and str(StationInterior.service_of("Cantina Bar")[1]) == "lounge" and StationInterior.service_of("Holding Cells").is_empty() and StationInterior.service_of("Wardroom").is_empty())
-		var sys_w: String = GS.system_id
-		var st_w: String = str(main.state)
-		var hub_vis: bool = main.hub.visible
-		GS.system_id = "veranthos"
-		main.hub.open(Data.SYSTEMS["veranthos"]["station"])
-		main.state = "hub"
-		await _wait(0.3)
-		if main.hub.lockdown: main.hub._end_lockdown()
-		main.hub.show_screen("hub")
-		_check("v13.02: docked at Veranthos, WALK THE STATION shows on the station page (and not on another page)", main.hub.rebuilt_id() == "deck_st3d_veranthos_senate" and main.hub.walk_btn.visible, main.hub.rebuilt_id())
-		main.hub.show_screen("supplies")
-		var off_other: bool = not main.hub.walk_btn.visible
-		main.hub.show_screen("hub")
-		main.hub.walk_btn.pressed.emit()
-		await _wait(1.0)
-		var sw: StationInterior = main.station_deck
-		_check("v13.02: it opens the interior with services on, and you come aboard in a docking bay", off_other and is_instance_valid(sw) and sw.services_on and main.state == "station_deck", str(main.state))
-		if is_instance_valid(sw):
+			_check("v13.01: you walk on the deck", sn.body.global_position.distance_to(s0) > 4.0 and absf(sn.body.global_position.y - sn.level_y(sn.level_i)) < 1.0, str(sn.body.global_position - s0))
+			# every deck by lift: down to L5, then up to L1
+			var pad: Dictionary = sn.lift_pads.filter(func(p): return int(p["level"]) == sn.level_i)[0]
+			sn.body.global_position = (pad["pos"] as Vector3) + Vector3(0, 0.1, 0)
+			await _wait(0.5)
+			_check("v13.01: on a lift pad both buttons show", sn._lift_box.visible and (sn._lift_box.get_node("Up") as Button).visible and (sn._lift_box.get_node("Down") as Button).visible)
+			var rode := []
+			for step in [1, -1, -1, -1, -1]:
+				var okr: bool = sn.ride(step)
+				await _wait(0.7)
+				rode.append("%s:%s" % [str(sn.level()["id"]), str(okr and absf(sn.body.global_position.y - sn.level_y(sn.level_i)) < 1.0)])
+			_check("v13.01: the lift goes to every deck and you stand on its floor (L5, L4, L3, L2, L1)", rode == ["L5:true", "L4:true", "L3:true", "L2:true", "L1:true"], str(rode))
+			_check("v13.01: no deck above the top one", not sn.ride(-1))
+			await _shot("station_dome_lift", 0.3)
+			# stand in a room of each deck
+			for pr in [["L1", "Observation Gallery"], ["L2", "Senate Gallery"], ["L3", "Senate Chamber"], ["L4", "Central Public Hub / Senate Rotunda"], ["L4", "North Docking Bay"], ["L5", "Reactor"]]:
+				var rp := sn.room_point(pr[0], pr[1])
+				_check("v13.01: %s has %s" % [pr[0], pr[1]], rp != Vector3.INF)
+				if rp == Vector3.INF: continue
+				sn.place(pr[0], rp)
+				await _wait(0.6)
+				_check("v13.01: standing in %s on %s" % [pr[1], pr[0]], sn.room_now == pr[1] and absf(sn.body.global_position.y - sn.level_y(sn.level_i)) < 1.0, "%s %s" % [sn.room_now, str(sn.body.global_position)])
+				await _shot("station_%s_%s" % [str(pr[0]).to_lower(), str(pr[1]).to_lower().replace(" / ", "_").replace(" ", "_").left(18)], 0.2)
+			# v13.05 (owner: two or three floors): the Senate Chamber has two balcony rings and ramps; you can walk up a ramp
+			var l3: Dictionary = lvs[2]
+			var bal: Array = (l3.get("decks_in", []) as Array).filter(func(q): return str(q["name"]).begins_with("Balcony"))
+			_check("v13.05: the Hub Atrium is six storeys with two balcony rings and four ramps inside the Senate Chamber", float(l3["h"]) == 108.0 and bal.size() == 2 and (l3["decks_in"] as Array).filter(func(q): return str(q["name"]).begins_with("Ramp")).size() == 4 and sn.world.get_node_or_null("Balconies_L3") != null)
+			sn.place("L3", Vector3(219.0 * sin(deg_to_rad(8.0)), 0, -219.0 * cos(deg_to_rad(8.0))))     # at the foot of the ramp that climbs from bearing 10 to 50
 			await _wait(0.4)
-			_check("v13.02: the docking bay offers LAUNCH", (sw.room_now.containsn("Docking") or sw.room_now.containsn("Hangar")) and not sw.service_now.is_empty() and str(sw.service_now[1]) == "launch" and sw._svc_btn.visible, "%s %s" % [sw.room_now, str(sw.service_now)])
-			await _shot("station_service_launch", 0.2)
-			sw.place("D3", sw.room_point("D3", "Mission Center"))   # (v13.168: the five-deck plan)
-			await _wait(0.5)
-			_check("v13.02: the Mission Center offers the MISSION BOARD", str(sw.service_now[1] if not sw.service_now.is_empty() else "") == "board" and sw._svc_btn.text.containsn("MISSION BOARD"), sw.room_now)
-			await _shot("station_service_board", 0.2)
-			sw.place("D3", sw.room_point("D3", "Security Office"))
-			await _wait(0.5)
-			_check("v13.02: a room with no service shows no button", sw.service_now.is_empty() and not sw._svc_btn.visible, sw.room_now)
-			sw.place("D3", sw.room_point("D3", "Mission Center"))
-			await _wait(0.5)
-			sw._svc_btn.pressed.emit()
-			await _wait(0.6)
-			_check("v13.02: the button takes you to that station page, still docked", not is_instance_valid(main.station_deck) and main.state == "hub" and main.hub.visible and main.hub.screen in ["board", "missions"], "%s %s" % [main.state, main.hub.screen])
-		main.hub.show_screen("hub")
-		main.hub.visible = hub_vis
-		main.state = st_w
-		GS.system_id = sys_w
-		var okv2: bool = main.open_station_interior("veranthos")
-		await _wait(0.8)
-		_check("v13.02: opened from the viewer (not docked) there are no services", okv2 and is_instance_valid(main.station_deck) and not main.station_deck.services_on)
-		if is_instance_valid(main.station_deck): main.station_deck.close()
-		await _wait(0.4)
-		# the other rebuilt stations: each opens, has its decks, the lift reaches every deck, every listed room can be stood in
+			var by0: float = sn.body.global_position.y
+			for kk in 110:      # walk round the arc, up the ramp (keep turning to follow it)
+				var pp: Vector3 = sn.body.global_position
+				var brg: float = atan2(pp.x, -pp.z) + deg_to_rad(6.0)
+				var aim := Vector3(219.0 * sin(brg), pp.y, -219.0 * cos(brg))
+				sn.yaw = atan2(-(aim.x - pp.x), -(aim.z - pp.z))
+				sn.move_override = Vector2(0, 1)
+				await _wait(0.5)
+				if sn.body.global_position.y - by0 > 34.0: break
+			sn.move_override = Vector2.ZERO
+			await _wait(0.4)
+			_check("v13.05: you walk up the ramp onto the first balcony, 36 m above the hall floor", sn.body.global_position.y - by0 > 34.0 and sn.body.global_position.y - by0 < 38.5 and sn.body.is_on_floor(), "%.1f" % (sn.body.global_position.y - by0))
+			await _shot("station_balcony", 0.3)
+			# a door opens as you come up to it and you pass through
+			sn.place("L4", Vector3.ZERO)
+			var hubp := sn.room_point("L4", "Central Public Hub / Senate Rotunda")
+			var gate: Dictionary = {}
+			for g in sn.gates:
+				if int(g["level"]) == sn.level_i and Vector2((g["pos"] as Vector3).x, (g["pos"] as Vector3).z).length() < 420.0 and absf((g["pos"] as Vector3).x) < 5.0 and (g["pos"] as Vector3).z < 0.0: gate = g
+			_check("v13.01: the hub has a north door", not gate.is_empty())
+			if not gate.is_empty():
+				var gp: Vector3 = gate["pos"]
+				sn.place("L4", gp + Vector3(0, 0, 30.0))
+				await _wait(0.5)
+				_check("v13.01: a door is shut when you are away from it", not bool(gate["open"]))
+				sn.yaw = 0.0
+				sn.move_override = Vector2(0, 1)
+				var t0 := 0.0
+				while t0 < 9.0 and sn.body.global_position.z > gp.z - 12.0:
+					await _wait(0.25)
+					t0 += 0.25
+					if absf(sn.body.global_position.z - gp.z) < 3.0 and t0 > 0.0 and not _shots_done.has("station_door"):
+						_shots_done["station_door"] = true
+						await _shot("station_door_open", 0.05)
+				sn.move_override = Vector2.ZERO
+				_check("v13.01: it opens and you walk through, hub to concourse", sn.body.global_position.z < gp.z - 8.0, str(sn.body.global_position - gp))
+			sn.close()
+			await _wait(0.4)
+			_check("v13.01: LEAVE STATION puts you back", not is_instance_valid(main.station_deck) and main.state == st0, main.state)
+			# v13.02: docked at a rebuilt station, WALK THE STATION is on the station page; you come aboard at a docking bay; a
+			# room that holds a service opens that station page; a docking bay launches. From the viewer (not docked): no services.
+			_check("v13.02: rooms map to services (and plain rooms to none)", str(StationInterior.service_of("Briefing Room A")[1]) == "board" and str(StationInterior.service_of("North Docking Bay")[1]) == "launch"
+				and str(StationInterior.service_of("Triage")[1]) == "repair" and str(StationInterior.service_of("Cantina Bar")[1]) == "lounge" and StationInterior.service_of("Holding Cells").is_empty() and StationInterior.service_of("Wardroom").is_empty())
+			var sys_w: String = GS.system_id
+			var st_w: String = str(main.state)
+			var hub_vis: bool = main.hub.visible
+			GS.system_id = "veranthos"
+			main.hub.open(Data.SYSTEMS["veranthos"]["station"])
+			main.state = "hub"
+			await _wait(0.3)
+			if main.hub.lockdown: main.hub._end_lockdown()
+			main.hub.show_screen("hub")
+			_check("v13.02: docked at Veranthos, WALK THE STATION shows on the station page (and not on another page)", main.hub.rebuilt_id() == "deck_st3d_veranthos_senate" and main.hub.walk_btn.visible, main.hub.rebuilt_id())
+			main.hub.show_screen("supplies")
+			var off_other: bool = not main.hub.walk_btn.visible
+			main.hub.show_screen("hub")
+			main.hub.walk_btn.pressed.emit()
+			await _wait(1.0)
+			var sw: StationInterior = main.station_deck
+			_check("v13.02: it opens the interior with services on, and you come aboard in a docking bay", off_other and is_instance_valid(sw) and sw.services_on and main.state == "station_deck", str(main.state))
+			if is_instance_valid(sw):
+				await _wait(0.4)
+				_check("v13.02: the docking bay offers LAUNCH", (sw.room_now.containsn("Docking") or sw.room_now.containsn("Hangar")) and not sw.service_now.is_empty() and str(sw.service_now[1]) == "launch" and sw._svc_btn.visible, "%s %s" % [sw.room_now, str(sw.service_now)])
+				await _shot("station_service_launch", 0.2)
+				sw.place("D3", sw.room_point("D3", "Mission Center"))   # (v13.168: the five-deck plan)
+				await _wait(0.5)
+				_check("v13.02: the Mission Center offers the MISSION BOARD", str(sw.service_now[1] if not sw.service_now.is_empty() else "") == "board" and sw._svc_btn.text.containsn("MISSION BOARD"), sw.room_now)
+				await _shot("station_service_board", 0.2)
+				sw.place("D3", sw.room_point("D3", "Security Office"))
+				await _wait(0.5)
+				_check("v13.02: a room with no service shows no button", sw.service_now.is_empty() and not sw._svc_btn.visible, sw.room_now)
+				sw.place("D3", sw.room_point("D3", "Mission Center"))
+				await _wait(0.5)
+				sw._svc_btn.pressed.emit()
+				await _wait(0.6)
+				_check("v13.02: the button takes you to that station page, still docked", not is_instance_valid(main.station_deck) and main.state == "hub" and main.hub.visible and main.hub.screen in ["board", "missions"], "%s %s" % [main.state, main.hub.screen])
+			main.hub.show_screen("hub")
+			main.hub.visible = hub_vis
+			main.state = st_w
+			GS.system_id = sys_w
+			var okv2: bool = main.open_station_interior("veranthos")
+			await _wait(0.8)
+			_check("v13.02: opened from the viewer (not docked) there are no services", okv2 and is_instance_valid(main.station_deck) and not main.station_deck.services_on)
+			if is_instance_valid(main.station_deck): main.station_deck.close()
+			await _wait(0.4)
+			# the other rebuilt stations: each opens, has its decks, the lift reaches every deck, every listed room can be stood in
 		for sid2 in ([] if _flag("HL_STATION_VER_ONLY") else ["aurelion", "synthari_capital", "sepheron", "raptian_major", "malachar", "dreadholm", "vantara"]):
+			if one != "" and sid2 != one: continue
 			var mk: String = str(Data.SYSTEMS[sid2]["station"].get("model", ""))
 			_check("v13.01: %s's station model has its rebuilt interior" % sid2, StationInterior.old_build(mk) == sid2 and StationInterior.can_open(sid2), mk)
 			var ok2: bool = main.open_station_interior(sid2)
@@ -4040,7 +4044,7 @@ func _run() -> void:
 			_check("v13.01: %s: the lifts carry you between decks and set you on the floor (%d rides)" % [sid2, rode2], rode2 >= lv2.size() - 1 and bad2.is_empty(), str(bad2))
 			s2.close()
 			await _wait(0.4)
-			_check("v13.01: %s: LEAVE STATION puts you back" % sid2, not is_instance_valid(main.station_deck) and main.state == st0, main.state)
+			_check("v13.01: %s: LEAVE STATION puts you back" % sid2, not is_instance_valid(main.station_deck) and main.state == st0_all, main.state)
 		if not _flag("HL_INTERIOR"):
 			_finish_group()
 			return
