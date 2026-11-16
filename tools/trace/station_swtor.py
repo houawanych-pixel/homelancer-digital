@@ -153,7 +153,7 @@ def connect_ways(inner, halls, pods, rooms, lifts):
     from shapely.ops import nearest_points
     inner_w = _sp(inner.buffer(-WALL, join_style=2))
     for it in range(12):
-        net = _sp(unary_union([_sp(g) for _, g in halls] + [_sp(q) for q in pods]).buffer(0.3 * PX))
+        net = _sp(unary_union([_sp(g) for _, g in halls] + [_sp(q) for q in pods]))   # (exact: pieces touching at a corner are not joined)
         ps = parts(net)
         if len(ps) <= 1: return 0
         main = min(ps, key=lambda q: q.distance(Point(0, 0)))
@@ -163,13 +163,12 @@ def connect_ways(inner, halls, pods, rooms, lifts):
         dx, dy = b.x - a.x, b.y - a.y; dl = math.hypot(dx, dy) or 1.0
         lk = SW.way((a.x - dx / dl * PX, a.y - dy / dl * PX), (b.x + dx / dl * PX, b.y + dy / dl * PX), WM)
         lk2 = _sp(unary_union([lk, _mx(lk)]).intersection(inner_w))
-        ok = lk2.buffer(0.3 * PX).intersects(main) and \
-            len(parts(_sp(unary_union([main, q, lk2.buffer(0.3 * PX)])))) == 1
+        ok = len(parts(_sp(unary_union([main, q, lk2])))) == 1
         if not ok:   # no straight way: one that bends round the hull (through the neck)
             pw = path_way(inner_w, a, b)
             if pw is not None:
                 lk2 = _sp(unary_union([pw, _mx(pw)]).intersection(inner_w))
-                ok = lk2.buffer(0.3 * PX).intersects(main) and len(parts(_sp(unary_union([main, q, lk2.buffer(0.3 * PX)])))) == 1
+                ok = len(parts(_sp(unary_union([main, q, lk2])))) == 1
         if ok:
             for r in rooms: r["poly"] = _sp(r["poly"].difference(lk2.buffer(WALL, join_style=2)))
             halls.append(("link", lk2))
@@ -349,7 +348,7 @@ def layout(ol, role):
     # mirror-true at the end: the right half, mirrored (fill and links can come out a little lopsided)
     right = box(0, -1e5, 1e5, 1e5)
     wh = _sp(unary_union([_sp(g) for _, g in halls] + [_sp(q) for q in pods]).intersection(right))
-    halls = [("ways", _sp(unary_union([wh, _mx(wh)]).buffer(0.2 * PX, join_style=2).buffer(-0.2 * PX, join_style=2)))]; pods = []
+    halls = [("ways", _sp(unary_union([wh, _mx(wh)]).buffer(0.4 * PX, join_style=2).buffer(-0.4 * PX, join_style=2)))]; pods = []
     sym = []
     for r in rooms:
         cx = r["poly"].centroid.x
@@ -357,8 +356,11 @@ def layout(ol, role):
         elif cx >= -0.3 * PX:
             hr = r["poly"].intersection(right); sym.append(dict(r, poly=_sp(unary_union([hr, _mx(hr)]))))
     rooms = [r for r in sym if not r["poly"].is_empty and r["poly"].geom_type == "Polygon"]
+    left = connect_ways(inner, halls, pods, rooms, lifts)   # (the mirror can part a joint: join it again)
+    if left > 1: print('  loose ways left after the mirror:', left, role, flush=True)
     # keep only what is joined up
-    ways = unary_union([g for _, g in halls] + pods)
+    ways = _sp(unary_union([g for _, g in halls] + pods).buffer(0.4 * PX, join_style=2).buffer(-0.4 * PX, join_style=2))   # (weld joints under 0.8 m)
+    halls = [("ways", ways)]
     rooms = [r for r in rooms if r["poly"].buffer(WALL * 2).intersects(ways)]
     return {"outline": ol, "inner": inner, "halls": halls, "rooms": rooms, "pods": pods, "lifts": lifts, "ways": ways,
             "wing": wing is not None}
@@ -444,6 +446,9 @@ def own_outline(O, k):
     return SP.outline(m)
 
 
+KEEP = None   # station_to_int.py: a dict to keep each station's decks in
+
+
 def build(st):
     model = st["model"]
     O = SP.deck_outlines(st)
@@ -516,6 +521,7 @@ def build(st):
     sheet = np.vstack([np.hstack([panels[4], panels[3], panels[5]]), np.hstack([panels[2], panels[1], panels[0]])])
     od = os.path.join(SP.OUT, model)
     cv2.imwrite(os.path.join(od, "swtor.jpg"), cv2.resize(sheet, (1920, 1280), interpolation=cv2.INTER_AREA), [cv2.IMWRITE_JPEG_QUALITY, 84])
+    if KEEP is not None: KEEP[model] = {"decks": decks, "chain": chain, "ok": ok}
     return [len(D["rooms"]) for D in decks]
 
 

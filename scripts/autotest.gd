@@ -3800,8 +3800,57 @@ func _run() -> void:
 				main.hub.visible = false
 		_finish_group()
 		return
+	if _flag("HL_STATIONDECKS"):   # v13.168 (owner: "make skill and build"): the five-deck plans in the game
+		var models := ["HL_Station_Elyza_Military_retopo", "HL_Station_Imperium_Capital_retopo", "HL_Station_Phenom_Capital_retopo", "st3d_veranthos_senate"]
+		var n_all := 0
+		var dd := DirAccess.open("res://assets/stations_int/")
+		if dd != null:
+			for fn in dd.get_files():
+				if fn.begins_with("deck_") and fn.ends_with(".json"): n_all += 1
+		_check("v13.168: all 49 stations have their five-deck interior", n_all == 49, str(n_all))
+		_check("v13.168: a station model opens its five-deck plan first", StationInterior.for_model("st3d_veranthos_senate") == "deck_st3d_veranthos_senate" and StationInterior.old_build("st3d_veranthos_senate") == "veranthos")
+		for mk in models:
+			var sid: String = "deck_" + mk
+			var ok: bool = main.open_station_interior(sid)
+			await _wait(0.8)
+			var s: StationInterior = main.station_deck
+			_check("v13.168: %s opens" % mk, ok and is_instance_valid(s) and main.state == "station_deck")
+			if not (ok and is_instance_valid(s)): continue
+			var lvs: Array = s.data["levels"]
+			await _shot("stdeck_hangar_" + mk.substr(11, 12))
+			_check("v13.168: %s has five decks, COMMAND on top, HANGAR at the bottom, you start in the hangar" % mk, lvs.size() == 5 and str(lvs[0]["id"]) == "D5" and str(lvs[4]["id"]) == "D1" and str(s.level()["id"]) == "D1", "%d %s" % [lvs.size(), str(s.level()["id"])])
+			var n_door := 0
+			var keys := {}
+			for lv in lvs:
+				n_door += (lv["doors"] as Array).size()
+				for d in lv["doors"]: keys[int(d.get("key", 0))] = true
+			_check("v13.168: %s has its doors and all five card colours" % mk, n_door > 40 and keys.size() == 5, "%d doors, keys %s" % [n_door, str(keys.keys())])
+			# the lift: from the hangar pad, up through every deck
+			var pad := {}
+			for p in s.lift_pads:
+				if int(p["level"]) == 4: pad = p
+			var reach := 0
+			while not pad.is_empty():
+				reach += 1
+				pad = s.lift_stop(pad, -1)
+			_check("v13.168: %s: the main lift reaches all five decks" % mk, reach == 5, str(reach))
+			# walk into a room on the hub deck: its name comes up
+			var lv3: Dictionary = lvs[2]
+			var r0: Dictionary = lv3["rooms"][0]
+			s.place(str(lv3["id"]), Vector3(float(r0["x"]), 0, float(r0["z"])))
+			await _wait(0.3)
+			await _shot("stdeck_room_" + mk.substr(11, 12))
+			_check("v13.168: %s: standing in %s shows its name" % [mk, str(r0["name"])], s.room_now == str(r0["name"]), s.room_now)
+			# the floor holds you (you don't fall through) and the walls stop you
+			var y_before := s.body.global_position.y
+			await _wait(0.5)
+			_check("v13.168: %s: you stand on the deck" % mk, absf(s.body.global_position.y - y_before) < 1.0, "%.2f %.2f" % [y_before, s.body.global_position.y])
+			s.close()
+			await _wait(0.4)
+		_finish_group()
+		return
 	if _flag("HL_STATION"):   # v13.01 station rebuild: Veranthos, measured from st3d_veranthos_senate
-		_check("v13.01: Veranthos' main station is the Senate model its interior is measured from", str(Data.SYSTEMS["veranthos"]["station"].get("model", "")) == "st3d_veranthos_senate" and StationInterior.for_model("st3d_veranthos_senate") == "veranthos", str(Data.SYSTEMS["veranthos"]["station"].get("model", "")))
+		_check("v13.01: Veranthos' main station is the Senate model its interior is measured from", str(Data.SYSTEMS["veranthos"]["station"].get("model", "")) == "st3d_veranthos_senate" and StationInterior.old_build("st3d_veranthos_senate") == "veranthos", str(Data.SYSTEMS["veranthos"]["station"].get("model", "")))
 		_check("v13.01: only a rebuilt station opens", StationInterior.can_open("veranthos") and not StationInterior.can_open("solara") and not main.open_station_interior("solara"))
 		var st0: String = str(main.state)
 		var okv: bool = main.open_station_interior("veranthos")
@@ -3940,7 +3989,7 @@ func _run() -> void:
 		# the other rebuilt stations: each opens, has its decks, the lift reaches every deck, every listed room can be stood in
 		for sid2 in ([] if _flag("HL_STATION_VER_ONLY") else ["aurelion", "synthari_capital", "sepheron", "raptian_major", "malachar", "dreadholm", "vantara"]):
 			var mk: String = str(Data.SYSTEMS[sid2]["station"].get("model", ""))
-			_check("v13.01: %s's station model has its rebuilt interior" % sid2, StationInterior.for_model(mk) == sid2 and StationInterior.can_open(sid2), mk)
+			_check("v13.01: %s's station model has its rebuilt interior" % sid2, StationInterior.old_build(mk) == sid2 and StationInterior.can_open(sid2), mk)
 			var ok2: bool = main.open_station_interior(sid2)
 			await _wait(1.0)
 			var s2: StationInterior = main.station_deck

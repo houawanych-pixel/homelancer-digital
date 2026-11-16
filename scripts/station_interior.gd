@@ -91,6 +91,10 @@ static func path_of(id: String) -> String: return DIR + id + ".json"
 static func can_open(id: String) -> bool: return FileAccess.file_exists(path_of(id))
 ## The rebuilt station that stands for a 3D station model key ("" = none yet).
 static func for_model(key: String) -> String:
+	if key != "" and can_open("deck_" + key): return "deck_" + key   # v13.x: the five-deck plans (tools/trace/station_to_int.py) come first
+	return old_build(key)
+## The first rebuilt stations (v13.01, tools/stations/build_*.py), kept for their tests.
+static func old_build(key: String) -> String:
 	return str({"st3d_veranthos_senate": "veranthos", "st3d_aurelion_citadel": "aurelion", "HL_Station_Solarion_Capital_retopo": "synthari_capital",
 		"HL_Station_Covenant_Capital_retopo": "sepheron", "HL_Station_Savagers_Capital_retopo": "raptian_major", "HL_Station_Imperium_Capital_retopo": "malachar",
 		"st3d_veranthos_summit": "dreadholm", "HL_Station_Liberator_Capital_retopo": "vantara"}.get(key, ""))
@@ -477,6 +481,12 @@ func _door_res_of(wide: float, hh: float) -> Array:
 	var gbs := BoxShape3D.new(); gbs.size = Vector3(wide, DOOR_H, 1.0)
 	_door_res[key] = [bm2, sm, hm, gbs]
 	return _door_res[key]
+## The door's light strip shows the card it needs (the ships' map colours): open green, yellow, orange, red, purple.
+const KEY_COLS := [Color(0.25, 1.0, 0.4), Color(1.0, 0.9, 0.2), Color(1.0, 0.55, 0.1), Color(1.0, 0.22, 0.2), Color(0.8, 0.3, 0.9)]
+func _key_glow(k: int) -> StandardMaterial3D:
+	var kk := "key_%d" % clampi(k, 0, 4)
+	if not _door_res.has(kk): _door_res[kk] = _glow(KEY_COLS[clampi(k, 0, 4)])
+	return _door_res[kk]
 func _build_doors(i: int) -> void:
 	if _doors_built == i or not _door_specs.has(i): return
 	for g0 in gates: if is_instance_valid(g0["node"]): (g0["node"] as Node).queue_free()
@@ -503,7 +513,7 @@ func _build_doors(i: int) -> void:
 			g.add_child(leaf)
 			var stripe := MeshInstance3D.new()
 			stripe.mesh = res[1]
-			stripe.material_override = mats[2]
+			stripe.material_override = _key_glow(int(d.get("key", 0)))
 			stripe.position.y = -1.0
 			leaf.add_child(stripe)
 			leaves.append(leaf)
