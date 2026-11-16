@@ -105,6 +105,7 @@ def fill_empty(inner, halls, pods, rooms, lifts):
             rooms[:] = keep
         # 2. the empty space next to a way: a grid of rooms
         ways, free = free_now(); got = 0
+        if free.is_empty: break
         for c in parts(free.difference(_grid(free, FILL_CELL))):
             if c.centroid.x < 0: continue
             if c.area < 14 * PX * PX or c.buffer(-1.6 * PX).is_empty: continue
