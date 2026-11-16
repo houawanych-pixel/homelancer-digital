@@ -1,0 +1,287 @@
+#!/usr/bin/env python3
+"""v3 station decks in the style of the owner's SWTOR examples (Nov 16 2026: "look at examples ... yours don't look
+like them"). What the examples do and the old plans didn't:
+  - SEPARATE BLOCKS with empty space between them, joined by bridge corridors (not a silhouette filled solid)
+  - a layered round HUB in the middle: atrium, a ring hall, a band of rooms, an outer wall
+  - a straight CROSS of bridges from the hub out to the edge, ending in small round pods
+  - WINGS: arc-shaped blocks round the hub (between the bridges), each with an arc hall, big rooms on the inner side
+    split by straight radial walls, and a row of equal small rooms round the outer rim
+  - drawn as a glowing blueprint (cyan lines on a dark grid)
+Everything mirror-true, sized to each deck's own outline (ellipses), clipped to the hull.
+usage: python3 -I tools/trace/station_swtor.py [model ...]  -> stations/<model>/swtor.json, swtor.jpg"""
+import json, math, os, sys
+import numpy as np, cv2
+from shapely import affinity
+from shapely.geometry import Point, LineString, Polygon, box
+from shapely.ops import unary_union
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import station_plans as SP
+import station_walkways as SW
+import station_decks as SD
+
+PX = 10.0
+WM, WP = 3.2 * PX, 2.2 * PX
+WALL = 0.5 * PX
+
+
+def parts(g): return SW.parts(g)
+
+
+def ell_ring(ax_, ay_, n=96):
+    return [(ax_ * math.cos(2 * math.pi * i / n), ay_ * math.sin(2 * math.pi * i / n)) for i in range(n + 1)]
+
+
+def ell(ax_, ay_, n=96):
+    return Polygon(ell_ring(ax_, ay_, n)[:-1])
+
+
+YK = [1.0, 1.0]   # (the egg: the +y half's / -y half's height scale of the current deck's ellipses)
+def _y(ay, a): return ay * math.sin(a) * (YK[0] if math.sin(a) >= 0 else YK[1])
+def sector(a0, a1, ax0, ay0, ax1, ay1, n=24, egg=True):
+    """the band between two ellipses from angle a0 to a1 (degrees); egg: front and back halves scaled apart (the lift
+    axis need not be the deck's middle)"""
+    A = [math.radians(a0 + (a1 - a0) * i / n) for i in range(n + 1)]
+    fy = _y if egg else (lambda ay, a: ay * math.sin(a))
+    outer = [(ax1 * math.cos(a), fy(ay1, a)) for a in A]
+    inner = [(ax0 * math.cos(a), fy(ay0, a)) for a in reversed(A)]
+    return Polygon(outer + inner).buffer(0)
+
+
+def layout(ol, role):
+    inner = ol.buffer(-1.5 * PX, join_style=2)
+    inner = max(parts(inner), key=lambda g: g.area)
+    R = {d: SW.ray(inner, (0, 0), d, 200 * PX) for d in (0, 90, 180, 270)}
+    rx, ry = min(R[0], R[180]), max(R[90], R[270])
+    YK[0], YK[1] = R[90] / ry, R[270] / ry
+    ry_min = min(R[90], R[270])
+    big = role in ("MAIN HUB",)
+    # the hub: atrium, ring hall, a band of rooms, the outer wall
+    h0 = (11 if big else 7) * PX
+    h1 = h0 + WM                              # the hub's ring hall
+    h2 = h1 + (7 if big else 6) * PX          # its band of rooms
+    k = min(1.0, 0.4 * min(rx, ry_min) / h2)     # (a flat / small deck: a smaller hub, so the wings still fit round it)
+    if k < 1.0:
+        band = max(4.5 * PX, (h2 - h1) * k)
+        h0 = max(4 * PX, h0 * k); h1 = h0 + WM; h2 = h1 + band
+    rooms, halls, pods, lifts = [], [], [], []
+    halls.append(("hub", Point(0, 0).buffer(h0, 64)))
+    halls.append(("ring", Point(0, 0).buffer(h1, 64).difference(Point(0, 0).buffer(h0, 64))))
+    gap = WM / 2 + WALL
+    nb = 8 if big else 4
+    for i in range(nb):
+        a0, a1 = 360 * i / nb, 360 * (i + 1) / nb
+        sc = sector(a0, a1, h1 + WALL, h1 + WALL, h2, h2, egg=False)
+        for d in (0, 90, 180, 270):   # the cross runs through
+            sc = sc.difference(SW.way((0, 0), (h2 * 2 * math.cos(math.radians(d)), h2 * 2 * math.sin(math.radians(d))), WM + 2 * WALL))
+        for p in parts(sc):
+            if p.area > 12 * PX * PX: rooms.append({"poly": p, "kind": "pilot", "zone": "hub band"})
+    # the wings: a hall that runs round the deck parallel to its hull, a row of equal rim rooms between it and the hull,
+    # and big rooms on its inner side; empty space between them and the hub (the example's look, any deck shape)
+    wing = None
+    ewing = None
+    for f in (0.74, 0.68, 0.62, 0.56):   # 1st choice: an elliptic wing ring (round stations: the example exactly)
+        ax_m, ay_m = rx * f, min(R[90], R[270]) * f
+        wb = min(12 * PX, min(ax_m, ay_m) - WM / 2 - h2 - 3 * PX)
+        if wb < 4.5 * PX: continue
+        ewing = (ax_m, ay_m, wb); break
+    if ewing is not None:
+        YK[0] = YK[1] = 1.0
+        ax_m, ay_m, wb = ewing
+        hw = WM / 2
+        ai0, aj0 = ax_m - hw - wb, ay_m - hw - wb
+        ai1, aj1 = ax_m - hw, ay_m - hw
+        ao0, ap0 = ax_m + hw, ay_m + hw
+        ao1, ap1 = ax_m + hw + 9 * PX, ay_m + hw + 9 * PX
+        cross = unary_union([SW.way((0, 0), (300 * PX * math.cos(math.radians(d)), 300 * PX * math.sin(math.radians(d))), WM + 8 * PX) for d in (0, 90, 180, 270)])
+        band = sector(0, 360, ai1, aj1, ao0, ap0, n=96, egg=False)
+        halls.append(("wing hall", band.difference(cross).intersection(inner)))
+        for q in range(4):
+            a0, a1 = 90 * q, 90 * (q + 1)
+            for j in range(2):
+                b0, b1 = a0 + (a1 - a0) * j / 2, a0 + (a1 - a0) * (j + 1) / 2
+                pp0 = sector(b0, b1, ai0, aj0, ai1 - WALL, aj1 - WALL, egg=False).difference(cross).buffer(-WALL / 2, join_style=2).intersection(inner)
+                for pp in parts(pp0):
+                    if pp.area > 25 * PX * PX: rooms.append({"poly": pp, "kind": "mech" if pp.area >= 80 * PX * PX else "pilot", "zone": "wing"})
+            n = max(3, int(math.hypot(ao1, ap1) * math.radians(90) * 0.85 / (7.5 * PX)))
+            for j in range(n):
+                b0, b1 = a0 + (a1 - a0) * j / n, a0 + (a1 - a0) * (j + 1) / n
+                pp0 = sector(b0, b1, ao0 + WALL, ap0 + WALL, ao1, ap1, egg=False).difference(cross).buffer(-WALL / 2, join_style=2)
+                full = pp0.area
+                for pp in parts(pp0.intersection(inner)):
+                    if pp.area > 0.6 * full and pp.area > 12 * PX * PX: rooms.append({"poly": pp, "kind": "pilot", "zone": "rim"})
+        wing = ("ellipse", ewing)
+        for sx in (1, -1): lifts.append(("Freight lift", Point(sx * ax_m, 0).buffer(2.3 * PX, 8)))
+    cross_cut = unary_union([SW.way((0, 0), (300 * PX * math.cos(math.radians(d)), 300 * PX * math.sin(math.radians(d))), WM + 8 * PX) for d in (0, 90, 180, 270)])
+    smooth = inner.buffer(-6 * PX, join_style=2).buffer(6 * PX, join_style=2).simplify(2.5 * PX)
+    smooth = max(parts(smooth), key=lambda g: g.area) if parts(smooth) else inner
+    for rim in ((9 * PX, 7 * PX, 5.5 * PX) if wing is None else ()):
+        core = smooth.buffer(-rim, join_style=2).simplify(2.0 * PX)
+        core = max(parts(core), key=lambda g: g.area) if parts(core) else Polygon()
+        if core.is_empty: continue
+        hall_in = core.buffer(-WM, join_style=2)
+        hall_in = max(parts(hall_in), key=lambda g: g.area) if parts(hall_in) else Polygon()
+        void = Point(0, 0).buffer(h2 + 4 * PX, 64)
+        if hall_in.is_empty: continue
+        wing = (rim, core, hall_in, void); break
+    if wing is not None and wing[0] != "ellipse":
+        rim, core, hall_in, void = wing
+        hall_band = core.difference(hall_in).difference(cross_cut.difference(SW.way((0, 0), (1, 0), 1)))
+        halls.append(("wing hall", core.difference(hall_in).difference(void.buffer(WALL))))
+        rim_band = smooth.difference(core.buffer(WALL, join_style=2)).difference(cross_cut).difference(void.buffer(WALL))
+        wb = 11 * PX
+        big_band = hall_in.buffer(-WALL, join_style=2).difference(hall_in.buffer(-wb, join_style=2)).difference(void).difference(cross_cut)
+        ring = core.exterior                       # cut lines across the bands, square to the hall
+        def cuts(step, reach):
+            out = []
+            Lr = ring.length; n = max(8, int(Lr / step))
+            for i in range(n):
+                p0 = ring.interpolate(Lr * i / n); p1 = ring.interpolate(Lr * i / n + 0.5 * PX)
+                tx, ty = p1.x - p0.x, p1.y - p0.y; tl = math.hypot(tx, ty) or 1
+                nx, ny = -ty / tl, tx / tl
+                out.append(LineString([(p0.x - nx * reach, p0.y - ny * reach), (p0.x + nx * reach, p0.y + ny * reach)]).buffer(WALL / 2))
+            return unary_union(out)
+        cr = cuts(7.5 * PX, 30 * PX)
+        for p in parts(rim_band.difference(cr)):
+            if p.area > 14 * PX * PX and p.area > 0.62 * p.minimum_rotated_rectangle.area: rooms.append({"poly": p.buffer(-WALL / 2, join_style=2), "kind": "pilot", "zone": "rim"})
+        cb = cuts(20 * PX, 40 * PX)
+        for p in parts(big_band.difference(cb)):
+            if p.area > 30 * PX * PX and p.area > 0.55 * p.minimum_rotated_rectangle.area: rooms.append({"poly": p.buffer(-WALL / 2, join_style=2), "kind": "mech" if p.area >= 80 * PX * PX else "pilot", "zone": "wing"})
+        rooms = [r for r in rooms if not r["poly"].is_empty]
+    # the cross: bridges from the hub ring to the edge, a round pod at each end
+    for d in (0, 90, 180, 270):
+        L = R[d] - 3 * PX
+        if L < h2 + 4 * PX: continue
+        a = math.radians(d)
+        e = (L * math.cos(a), L * math.sin(a))
+        halls.append(("bridge", SW.way((h0 * math.cos(a), h0 * math.sin(a)), e, WM).intersection(inner)))
+        pod = Point(e).buffer(4.2 * PX, 8).intersection(inner)
+        if pod.area > 20 * PX * PX: pods.append(pod)
+    lifts.append(("Main lift", Point(0, 0).buffer(3.0 * PX, 8)))
+    if wing is not None and wing[0] != "ellipse":
+        for d in (0, 180):   # freight lifts where the cross meets the wing hall
+            ln = LineString([(0, 0), (300 * PX * math.cos(math.radians(d)), 0)]).intersection(wing[1].difference(wing[2]))
+            if not ln.is_empty: lifts.append(("Freight lift", ln.centroid.buffer(2.3 * PX, 8)))
+    # keep only what is joined up, and mirror-true
+    ways = unary_union([g for _, g in halls] + pods)
+    rooms = [r for r in rooms if r["poly"].buffer(WALL * 2).intersects(ways)]
+    return {"outline": ol, "inner": inner, "halls": halls, "rooms": rooms, "pods": pods, "lifts": lifts, "ways": ways,
+            "wing": wing is not None}
+
+
+GRID = (40, 26, 8)
+LINE = (255, 230, 120)       # BGR cyan glow
+DIM = (150, 120, 40)
+
+
+def draw(L, title, sub, rooms_named):
+    g = L["outline"]; x0, y0, x1, y1 = g.bounds
+    S = 600.0 / max(x1 - x0, y1 - y0)
+    ox, oy = 320 - (x0 + x1) / 2 * S, 340 - (y0 + y1) / 2 * S
+    T = lambda q: affinity.affine_transform(q, [S, 0, 0, S, ox, oy])
+    img = np.zeros((640, 640, 3), np.uint8); img[:] = (40, 22, 6)
+    for x in range(0, 640, 16): cv2.line(img, (x, 0), (x, 640), (55, 34, 12), 1)
+    for y in range(0, 640, 16): cv2.line(img, (0, y), (640, y), (55, 34, 12), 1)
+    def poly(q, fill, edge, t=2):
+        for p in parts(T(q)):
+            pts = np.array(p.exterior.coords, np.int32)
+            if fill is not None: cv2.fillPoly(img, [pts], fill)
+            for h in p.interiors:
+                if fill is not None: cv2.fillPoly(img, [np.array(h.coords, np.int32)], (40, 22, 6))
+            cv2.polylines(img, [pts], True, edge, t, cv2.LINE_AA)
+            for h in p.interiors: cv2.polylines(img, [np.array(h.coords, np.int32)], True, edge, t, cv2.LINE_AA)
+    cv2.polylines(img, [np.array(T(g).exterior.coords, np.int32)], True, (90, 70, 30), 1, cv2.LINE_AA)   # the hull, faint
+    for kd, q in L["halls"]:
+        poly(q, (95, 70, 25) if kd != "hub" else (110, 80, 30), LINE, 2)
+    for p in L["pods"]: poly(p, (95, 70, 25), LINE, 2)
+    for r in rooms_named:
+        tint = (70, 55, 110) if r["kind"] == "mech" else (85, 60, 22)
+        poly(r["poly"], tint, LINE, 2)
+    glow = cv2.GaussianBlur(img, (0, 0), 3)
+    img = cv2.addWeighted(img, 1.0, glow, 0.6, 0)
+    for nm, q in L["lifts"]: poly(q, (0, 200, 255), (0, 0, 0), 1)
+    for r in rooms_named:
+        d = T(Point(r["door"]))
+        cv2.circle(img, (int(d.x), int(d.y)), 4, SP.KEY_COL[r["key"]], -1)
+        cv2.circle(img, (int(d.x), int(d.y)), 4, (0, 0, 0), 1)
+        q = T(r["poly"])
+        if q.area < 500: continue
+        t = r["name"] + (" *%s" % SP.KEY_NAME[r["card"]] if r.get("card") else "") + (" [OBJ]" if r.get("objective") else "")
+        c = q.representative_point()
+        sc = 0.32
+        (tw, th), _ = cv2.getTextSize(t, 0, sc, 1)
+        if tw > math.sqrt(q.area) * 1.6: continue
+        col = (0, 255, 255) if r.get("card") or r.get("objective") else (255, 255, 255)
+        cv2.putText(img, t, (int(c.x - tw / 2), int(c.y + 3)), 0, sc, (0, 0, 0), 3, cv2.LINE_AA)
+        cv2.putText(img, t, (int(c.x - tw / 2), int(c.y + 3)), 0, sc, col, 1, cv2.LINE_AA)
+    cv2.rectangle(img, (0, 0), (640, 44), (20, 10, 2), -1)
+    cv2.putText(img, title, (10, 20), 0, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
+    cv2.putText(img, sub, (10, 38), 0, 0.4, (220, 200, 160), 1, cv2.LINE_AA)
+    return img
+
+
+def build(st):
+    model = st["model"]
+    O = SP.deck_outlines(st)
+    style = next((k for k in SW.STYLE_M if "_%s_" % k in model), None)
+    width_m = SW.STYLE_M.get(style, SW.ST3D_M.get(model, 120.0))
+    f = width_m * PX / (SP.N - 40)
+    c0 = O["c"]
+    to_plan = lambda g: affinity.affine_transform(g, [f, 0, 0, f, -c0[0] * f, -c0[1] * f])
+    OLS = [SD.mirror_true(to_plan(O["polys"][k])) for k in range(5)]
+    hub_ol = OLS[2]
+    decks, panels = [], []
+    for k, role in enumerate(SP.DECKS):
+        ol = OLS[k]
+        if ol.area < 0.5 * hub_ol.area:
+            t = 0.05 * math.sqrt(hub_ol.area) * abs(k - 2)
+            g2 = hub_ol.buffer(-t, join_style=2); ol = max(parts(g2), key=lambda q: q.area) if parts(g2) else hub_ol
+        L = layout(ol, role)
+        # names: services in the hub band on the hub deck, then the deck's role list, then fillers
+        roles = SP.ROLES[role]
+        order = sorted(range(len(L["rooms"])), key=lambda i: L["rooms"][i]["poly"].centroid.distance(Point(0, 0)))
+        used, named = set(), []
+        import random; rng = random.Random(sum(map(ord, model)) + k)
+        for i in order:
+            r = L["rooms"][i]
+            pool = [x for x in roles if x[1] == r["kind"] and x[0] not in used]
+            if pool: nm = pool[0]
+            else:
+                base = rng.choice(SP.FILL[r["kind"]]); j = 1
+                while "%s %d" % (base, j) in used: j += 1
+                nm = ("%s %d" % (base, j), r["kind"], rng.choice(SD.FILL_KEY[role]), "")
+            used.add(nm[0])
+            from shapely.ops import nearest_points
+            dp = nearest_points(L["ways"], r["poly"])[1]
+            named.append({"name": nm[0], "kind": r["kind"], "key": int(nm[2]), "sign": nm[3], "zone": r["zone"], "poly": r["poly"],
+                          "door": (dp.x, dp.y), "area_m2": round(r["poly"].area / PX / PX, 1),
+                          "centre": [round(r["poly"].centroid.x / PX, 2), round(r["poly"].centroid.y / PX, 2)]})
+        decks.append({"deck": k + 1, "role": role, "rooms": named, "_L": L})
+    chain, ok = SD.keys_chain(decks, sum(map(ord, model)))
+    for D in decks:
+        L = D["_L"]
+        n = len(D["rooms"]); nm = sum(r["kind"] == "mech" for r in D["rooms"])
+        panels.append(draw(L, "%d  %s DECK" % (D["deck"], D["role"]), "%d rooms (%d mech, %d pilot) · hub, cross, %s" % (n, nm, n - nm, "wings" if L["wing"] else "no wings"), D["rooms"]))
+    leg = SW.legend(O["top"], st, ["%s  (%s)" % (st["name"], st["faction"] or "-"), "system %s" % st["system"], "model %s" % model,
+                                    "v3: the SWTOR example style", "PROPOSED: X = close, O = fix"])
+    cv2.rectangle(leg, (325, 60), (640, 360), (0, 0, 0), -1)
+    y = 90
+    for txt, col in (("hall / bridge", (95, 70, 25)), ("mech room", (70, 55, 110)), ("pilot room", (85, 60, 22)), ("lift", (0, 200, 255))):
+        cv2.rectangle(leg, (330, y - 13), (352, y + 3), col, -1); cv2.rectangle(leg, (330, y - 13), (352, y + 3), LINE, 1)
+        cv2.putText(leg, txt, (360, y), 0, 0.48, (230, 230, 230), 1, cv2.LINE_AA); y += 28
+    y = 520
+    for ln in chain[:6]:
+        cv2.putText(leg, ln[:70], (14, y), 0, 0.38, (60, 220, 255), 1, cv2.LINE_AA); y += 18
+    panels.append(leg)
+    sheet = np.vstack([np.hstack([panels[4], panels[3], panels[5]]), np.hstack([panels[2], panels[1], panels[0]])])
+    od = os.path.join(SP.OUT, model)
+    cv2.imwrite(os.path.join(od, "swtor.jpg"), cv2.resize(sheet, (1920, 1280), interpolation=cv2.INTER_AREA), [cv2.IMWRITE_JPEG_QUALITY, 84])
+    return [len(D["rooms"]) for D in decks]
+
+
+if __name__ == "__main__":
+    S = json.load(open(os.path.join(SP.OUT, "stations.json")))
+    for st in S:
+        if sys.argv[1:] and st["model"] not in sys.argv[1:]: continue
+        print(st["model"], build(st), flush=True)
