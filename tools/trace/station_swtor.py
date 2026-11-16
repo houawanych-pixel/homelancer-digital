@@ -53,7 +53,7 @@ def layout(ol, role):
     inner = ol.buffer(-1.5 * PX, join_style=2)
     inner = max(parts(inner), key=lambda g: g.area)
     R = {d: SW.ray(inner, (0, 0), d, 200 * PX) for d in (0, 90, 180, 270)}
-    rx, ry = min(R[0], R[180]), max(R[90], R[270])
+    rx, ry = min(R[0], R[180]), max(R[90], R[270], 1.0)
     YK[0], YK[1] = R[90] / ry, R[270] / ry
     ry_min = min(R[90], R[270])
     big = role in ("MAIN HUB",)
@@ -175,49 +175,60 @@ LINE = (255, 230, 120)       # BGR cyan glow
 DIM = (150, 120, 40)
 
 
-def draw(L, title, sub, rooms_named):
+DOOR_BGR = {0: (90, 255, 90), 1: (40, 230, 255), 2: (30, 140, 255), 3: (60, 60, 255), 4: (230, 80, 200)}   # the ships' map colours + purple
+
+
+def draw(L, title, sub, rooms_named, size=640, header=True):
+    """the deck in the SAME look as the fleet ships' in-game deck maps (tools/holodeck: dark blue, the hull a shade
+    lighter, the floor in blue with bright cyan walls, key-coloured door squares, white LIFT boxes, names in capitals)"""
     g = L["outline"]; x0, y0, x1, y1 = g.bounds
-    S = 600.0 / max(x1 - x0, y1 - y0)
-    ox, oy = 320 - (x0 + x1) / 2 * S, 340 - (y0 + y1) / 2 * S
+    S = size * 0.9 / max(x1 - x0, y1 - y0)
+    ox, oy = size / 2 - (x0 + x1) / 2 * S, size * 0.53 - (y0 + y1) / 2 * S
     T = lambda q: affinity.affine_transform(q, [S, 0, 0, S, ox, oy])
-    img = np.zeros((640, 640, 3), np.uint8); img[:] = (40, 22, 6)
-    for x in range(0, 640, 16): cv2.line(img, (x, 0), (x, 640), (55, 34, 12), 1)
-    for y in range(0, 640, 16): cv2.line(img, (0, y), (640, y), (55, 34, 12), 1)
-    def poly(q, fill, edge, t=2):
+    img = np.zeros((size, size, 3), np.uint8); img[:] = (40, 16, 8)
+    def mask(q):
+        m = np.zeros((size, size), np.uint8)
         for p in parts(T(q)):
-            pts = np.array(p.exterior.coords, np.int32)
-            if fill is not None: cv2.fillPoly(img, [pts], fill)
-            for h in p.interiors:
-                if fill is not None: cv2.fillPoly(img, [np.array(h.coords, np.int32)], (40, 22, 6))
-            cv2.polylines(img, [pts], True, edge, t, cv2.LINE_AA)
-            for h in p.interiors: cv2.polylines(img, [np.array(h.coords, np.int32)], True, edge, t, cv2.LINE_AA)
-    cv2.polylines(img, [np.array(T(g).exterior.coords, np.int32)], True, (90, 70, 30), 1, cv2.LINE_AA)   # the hull, faint
-    for kd, q in L["halls"]:
-        poly(q, (95, 70, 25) if kd != "hub" else (110, 80, 30), LINE, 2)
-    for p in L["pods"]: poly(p, (95, 70, 25), LINE, 2)
+            m1 = np.zeros_like(m)
+            cv2.fillPoly(m1, [np.array(p.exterior.coords, np.int32)], 1)
+            for h in p.interiors: cv2.fillPoly(m1, [np.array(h.coords, np.int32)], 0)
+            m |= m1
+        return m
+    hull = mask(g)
+    img[hull > 0] = (70, 34, 14)
+    cs, _ = cv2.findContours(hull, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    cv2.drawContours(img, cs, -1, (160, 110, 40), 2, cv2.LINE_AA)
+    floor = unary_union([q for _, q in L["halls"]] + L["pods"])
+    fm = mask(floor)
+    img[fm > 0] = (110, 62, 20)
     for r in rooms_named:
-        tint = (70, 55, 110) if r["kind"] == "mech" else (85, 60, 22)
-        poly(r["poly"], tint, LINE, 2)
-    glow = cv2.GaussianBlur(img, (0, 0), 3)
-    img = cv2.addWeighted(img, 1.0, glow, 0.6, 0)
-    for nm, q in L["lifts"]: poly(q, (0, 200, 255), (0, 0, 0), 1)
+        rm = mask(r["poly"])
+        img[rm > 0] = (110, 62, 20)
+        cs, _ = cv2.findContours(rm, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
+        cv2.drawContours(img, cs, -1, (255, 230, 90), 2, cv2.LINE_AA)
+    cs, _ = cv2.findContours(fm, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
+    cv2.drawContours(img, cs, -1, (255, 230, 90), 2, cv2.LINE_AA)
+    k = size / 640.0
     for r in rooms_named:
         d = T(Point(r["door"]))
-        cv2.circle(img, (int(d.x), int(d.y)), 4, SP.KEY_COL[r["key"]], -1)
-        cv2.circle(img, (int(d.x), int(d.y)), 4, (0, 0, 0), 1)
+        h = int((5 if r["kind"] == "mech" else 3.5) * k)
+        cv2.rectangle(img, (int(d.x) - h, int(d.y) - h), (int(d.x) + h, int(d.y) + h), DOOR_BGR[r["key"]], -1)
+    for nm, q in L["lifts"]:
+        c = T(q.centroid); h = int(8 * k)
+        cv2.rectangle(img, (int(c.x) - h, int(c.y) - h), (int(c.x) + h, int(c.y) + h), (255, 255, 255), max(1, int(2 * k)))
+        cv2.putText(img, "LIFT", (int(c.x) - int(9 * k), int(c.y) + int(3 * k)), 0, 0.26 * k, (255, 255, 255), 1, cv2.LINE_AA)
+    for r in rooms_named:
         q = T(r["poly"])
-        if q.area < 500: continue
-        t = r["name"] + (" *%s" % SP.KEY_NAME[r["card"]] if r.get("card") else "") + (" [OBJ]" if r.get("objective") else "")
-        c = q.representative_point()
-        sc = 0.32
+        t = r["name"].upper() + (" * %s CARD" % SP.KEY_NAME[r["card"]] if r.get("card") else "") + (" [OBJECTIVE]" if r.get("objective") else "")
+        sc = 0.3 * k
         (tw, th), _ = cv2.getTextSize(t, 0, sc, 1)
-        if tw > math.sqrt(q.area) * 1.6: continue
-        col = (0, 255, 255) if r.get("card") or r.get("objective") else (255, 255, 255)
-        cv2.putText(img, t, (int(c.x - tw / 2), int(c.y + 3)), 0, sc, (0, 0, 0), 3, cv2.LINE_AA)
-        cv2.putText(img, t, (int(c.x - tw / 2), int(c.y + 3)), 0, sc, col, 1, cv2.LINE_AA)
-    cv2.rectangle(img, (0, 0), (640, 44), (20, 10, 2), -1)
-    cv2.putText(img, title, (10, 20), 0, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
-    cv2.putText(img, sub, (10, 38), 0, 0.4, (220, 200, 160), 1, cv2.LINE_AA)
+        c = q.representative_point()
+        if not q.buffer(1).contains(box(c.x - tw / 2, c.y - th / 2 - 1, c.x + tw / 2, c.y + th / 2 + 1)): continue   # (only a name that fits its room)
+        col = (60, 230, 255) if r.get("card") or r.get("objective") else (255, 255, 255)
+        cv2.putText(img, t, (int(c.x - tw / 2), int(c.y + th / 2)), 0, sc, col, 1, cv2.LINE_AA)
+    if header:
+        cv2.putText(img, title, (int(14 * k), int(28 * k)), 0, 0.62 * k, (255, 240, 170), max(1, int(1.5 * k)), cv2.LINE_AA)
+        cv2.putText(img, sub, (int(14 * k), int(46 * k)), 0, 0.36 * k, (120, 200, 255), 1, cv2.LINE_AA)
     return img
 
 
@@ -230,6 +241,16 @@ def build(st):
     c0 = O["c"]
     to_plan = lambda g: affinity.affine_transform(g, [f, 0, 0, f, -c0[0] * f, -c0[1] * f])
     OLS = [SD.mirror_true(to_plan(O["polys"][k])) for k in range(5)]
+    def room_at(y):   # (as station_decks: the lift axis goes where the decks are solid - a ring station's hole is not)
+        pt = Point(0, y); sc = 0.0
+        for k2, g in enumerate(OLS):
+            w = 3.0 if k2 == 2 else 1.0
+            sc += w * (g.exterior.distance(pt) if g.contains(pt) and not any(Polygon(h).contains(pt) for h in g.interiors) else -50 * PX)
+        return sc
+    ys = [y * PX for y in range(-70, 71, 2)]
+    y0 = max(ys, key=lambda y: (room_at(y), -abs(y)))
+    if room_at(0.0) >= 0.85 * room_at(y0): y0 = 0.0
+    OLS = [affinity.translate(g, 0, -y0) for g in OLS]
     hub_ol = OLS[2]
     decks, panels = [], []
     for k, role in enumerate(SP.DECKS):
@@ -262,14 +283,15 @@ def build(st):
     for D in decks:
         L = D["_L"]
         n = len(D["rooms"]); nm = sum(r["kind"] == "mech" for r in D["rooms"])
-        panels.append(draw(L, "%d  %s DECK" % (D["deck"], D["role"]), "%d rooms (%d mech, %d pilot) · hub, cross, %s" % (n, nm, n - nm, "wings" if L["wing"] else "no wings"), D["rooms"]))
+        panels.append(draw(L, "%s  -  %s DECK" % (st["name"].upper(), D["role"]), "%d rooms (%d mech, %d pilot) · hub, cross, %s" % (n, nm, n - nm, "wings" if L["wing"] else "no wings"), D["rooms"]))
     leg = SW.legend(O["top"], st, ["%s  (%s)" % (st["name"], st["faction"] or "-"), "system %s" % st["system"], "model %s" % model,
                                     "v3: the SWTOR example style", "PROPOSED: X = close, O = fix"])
     cv2.rectangle(leg, (325, 60), (640, 360), (0, 0, 0), -1)
     y = 90
-    for txt, col in (("hall / bridge", (95, 70, 25)), ("mech room", (70, 55, 110)), ("pilot room", (85, 60, 22)), ("lift", (0, 200, 255))):
-        cv2.rectangle(leg, (330, y - 13), (352, y + 3), col, -1); cv2.rectangle(leg, (330, y - 13), (352, y + 3), LINE, 1)
-        cv2.putText(leg, txt, (360, y), 0, 0.48, (230, 230, 230), 1, cv2.LINE_AA); y += 28
+    for txt, col in (("door OPEN", DOOR_BGR[0]), ("door YELLOW card", DOOR_BGR[1]), ("door ORANGE card", DOOR_BGR[2]),
+                     ("door RED card", DOOR_BGR[3]), ("door PURPLE card", DOOR_BGR[4]), ("big square = mech door", (200, 200, 200))):
+        cv2.rectangle(leg, (330, y - 13), (346, y + 3), col, -1)
+        cv2.putText(leg, txt, (356, y), 0, 0.46, (230, 230, 230), 1, cv2.LINE_AA); y += 26
     y = 520
     for ln in chain[:6]:
         cv2.putText(leg, ln[:70], (14, y), 0, 0.38, (60, 220, 255), 1, cv2.LINE_AA); y += 18
