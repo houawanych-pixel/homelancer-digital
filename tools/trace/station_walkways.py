@@ -113,6 +113,7 @@ def walkways(outline, c, role, rmax):
     for d in full:
         (e, L) = ends[d]
         if L < 30 * PX: continue
+        if d % 90 != 0: continue        # v13.168: branches only off the straight (0 / 90 / 180 / 270) spines: no lattice
         a = math.radians(d)
         for t in (0.62, 0.9):
             dist = L * t
@@ -125,6 +126,18 @@ def walkways(outline, c, role, rmax):
                 if ln < 8 * PX: continue
                 b = math.radians(pa)
                 q = (p[0] + ln * math.cos(b), p[1] + ln * math.sin(b))
+                # v13.168: a branch stops short of any other hall it would cross (no criss-cross, no slivers)
+                seg = LineString([p, q])
+                for kd2, a2, b2 in lines:
+                    if kd2 != "mech" or (a2 == c and abs((math.degrees(math.atan2(b2[1] - a2[1], b2[0] - a2[0])) - d + 360) % 360) < 1): continue
+                    other = LineString([a2, b2]).buffer(WM / 2 + 3 * PX)
+                    if seg.intersects(other) and not Point(p).within(other):
+                        cut = seg.difference(other)
+                        cut = min(getattr(cut, "geoms", [cut]), key=lambda g: g.distance(Point(p))) if not cut.is_empty else cut
+                        if cut.is_empty: seg = LineString([p, p]); break
+                        seg = LineString([p, cut.coords[-1] if Point(cut.coords[0]).distance(Point(p)) < 1 else cut.coords[0]])
+                if seg.length < 8 * PX: continue
+                q = tuple(seg.coords[-1])
                 pilot.append(way(p, q, WP))
                 lines.append(("pilot", p, q))
                 juncs.append(octagon(p[0], p[1], WM * 1.35))
