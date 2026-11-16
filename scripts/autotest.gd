@@ -1788,6 +1788,59 @@ func _run() -> void:
 	if not _flag("HL_LANDFILM"):   # v12.52: the landing film is cut short in the other checks (they time the descent)
 		main.landing_film_min = 0.0
 		main.landing_film_max = 0.4
+	if _flag("HL_STATIONWALK"):   # v13.165 (owner: "one world, two rules"): walk the station's deck calm; a sign opens its page; hit security and the SAME deck flips to the alarm
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s := _sp()
+		main.dock(s.station)
+		await _until(func(): return main.state == "hub", 15.0)
+		await _wait(0.5)
+		var btn_ok: bool = main.hub.walk_btn.visible
+		main.hub.walk_btn.pressed.emit()
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding, 90.0)
+		await _wait(1.5)
+		s = _sp()
+		var b: Dictionary = s.board
+		var lf: StationLife = s.life
+		var guards: Array = s.enemies.filter(func(e): return bool(e.get("soldier", false)))
+		await _capture("walk_calm")
+		_check("v13.165: WALK THE STATION: its deck, CALM: %d service signs, %d crew living, %d guards on their rounds" % [s.station_spots.size(), lf.civs.size(), guards.size()], btn_ok and str(b.get("phase", "")) == "calm" and s.station_spots.size() >= 5 and lf.fleet and lf.civs.size() >= 6 and guards.size() > 0, "btn %s phase %s spots %d civs %d guards %d" % [btn_ok, b.get("phase"), s.station_spots.size(), lf.civs.size(), guards.size()])
+		# walk past a guard: he leaves you be
+		var g0: Dictionary = guards[0]
+		var gn: Node3D = g0["node"]
+		for i in 30:
+			s.player.global_position = gn.global_position - gn.global_basis.z * 40.0 + Vector3(0, 4, 0)
+			await get_tree().process_frame
+		_check("v13.165: calm: a guard looks right at you and leaves you be", str(s.board.get("phase", "")) == "calm" and not bool(g0.get("alerted", false)), str(s.board.get("phase")))
+		# a sign: stand on it, its page opens over the deck; BACK TO DECK returns
+		var sp0: Dictionary = s.station_spots[0]
+		for i in 6:
+			s.player.global_position = (sp0["pos"] as Vector3) + Vector3(0, 6, 0)
+			await get_tree().process_frame
+		var pr: String = s.prompt()
+		await _capture("walk_sign")
+		main._on_hud("spot")
+		await _wait(0.8)
+		var opened: bool = main.hub.visible and main.state == "hub" and main.deck_overlay and main.hub.launch_btn.text == "BACK TO DECK"
+		await _capture("walk_service")
+		main.hub.launch_btn.pressed.emit()
+		await _wait(0.5)
+		var back: bool = not main.hub.visible and main.state == "flight" and s.boarding and s.controls and is_instance_valid(main.space) and main.space == s
+		_check("v13.165: the %s sign: its page opens over the deck (%s), BACK TO DECK and you're on the same deck (%s)" % [sp0["label"], opened, back], pr == "spot" and opened and back, "prompt %s opened %s back %s" % [pr, opened, back])
+		# hit a guard: the same deck flips
+		var nodes0: int = s.get_child_count()
+		s.player.global_position = gn.global_position - gn.global_basis.z * 60.0 + Vector3(0, 4, 0)
+		for k in ["hp", "max"]: g0[k] = 99999.0
+		s._damage_enemy(g0, 5.0)
+		await _wait(4.0)
+		var hid: int = lf.civs.filter(func(c): return str(c["state"]) in ["run", "cower"]).size()
+		var signs_closed: bool = s.station_spots.all(func(q): return (q["sign"] as Label3D).text == "CLOSED")
+		await _capture("walk_alarm")
+		_check("v13.165: hit their security: the SAME deck flips to the alarm (no reload): hangar sealed, crew take cover (%d of %d), signs CLOSED, no service prompt" % [hid, lf.civs.size()],
+			main.space == s and s.station_alarms == 1 and str(s.board.get("phase", "")) == "escape" and s.board.has("console") and hid * 10 >= lf.civs.size() * 7 and signs_closed and s.prompt() != "spot", "phase %s console %s hid %d/%d closed %s" % [s.board.get("phase"), s.board.has("console"), hid, lf.civs.size(), signs_closed])
+		_finish_group()
+		return
 	if _flag("HL_FLEETSCAN"):   # v13.164 (owner): scan a big fleet ship (faction, STANDING meter, REQUEST BOARDING / hostile fighters), FORMATION, the station's real hull shape
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)

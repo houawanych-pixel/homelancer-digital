@@ -1655,7 +1655,12 @@ func setup_boarding(info: Dictionary) -> void:
 			con.name = "LockdownConsole"
 			root.add_child(con)
 			con.global_position = cpos + Vector3(0, 6, 0)
-		if Boarding.INFO.has("fleet"): _fleet_setup(root, info, fac)
+		if bool(info.get("calm", false)) and not Boarding.INFO.has("fleet"):   # v13.165 (owner: "one world, two rules"): the same deck, CALM
+			board["phase"] = "calm"
+			board["calm_deck"] = true
+			_station_spots(root)
+			message.emit("Welcome aboard %s. Walk up to a sign for the BAR, the shops or the MISSION BOARD. Your ship waits in the HANGAR (east)." % str(info["name"]))
+		elif Boarding.INFO.has("fleet"): _fleet_setup(root, info, fac)
 		else: message.emit("You're in %s with a price on your head. Their guards are on patrol: keep out of their sight and find your way to YOUR SHIP in the hangar (MAP: the deck plan)." % str(info["name"]))
 	else:
 		message.emit("Inside the %s. Fight through toward the back of the ship and down into the belly: the REACTOR." % board["ship"])
@@ -1743,7 +1748,7 @@ func _board_update(dt: float) -> void:
 	if hv.length() > hv_cap:
 		hv = hv.normalized() * hv_cap
 		vel = Vector3(hv.x, vel.y, hv.z)
-	var leaving: bool = str(board.get("phase", "")) in ["escape", "out", "sneak"] and player.global_position.x > Boarding.EXIT_X - 40.0 and not board.has("fleet")   # (v13.92: a fleet ship's bay is closed: no open side to walk out of)
+	var leaving: bool = str(board.get("phase", "")) in ["escape", "out", "sneak", "calm"] and player.global_position.x > Boarding.EXIT_X - 40.0 and not board.has("fleet")   # (v13.92: a fleet ship's bay is closed: no open side to walk out of)
 	if not leaving and not Boarding.inside(player.global_position):
 		var q := Boarding.keep_in(player.global_position, 6.0)
 		player.global_position = Vector3(q.x, player.global_position.y, q.z)
@@ -1820,6 +1825,10 @@ func _board_steps(dt: float) -> void:
 				core["locked"] = false
 				if is_instance_valid(board.get("shield")): (board["shield"] as Node3D).visible = false
 				message.emit("Their boss is down: the REACTOR'S SHIELD IS DOWN. Blow it!")
+		"calm":   # v13.165: walking the station as a guest: back to your ship to leave
+			if _out_now():
+				board["phase"] = "out"
+				board_exit.emit(true)
 		"sneak":   # v12.46: the breakout, unseen so far: walk out to your ship
 			if _out_now():
 				board["phase"] = "out"
@@ -3084,6 +3093,7 @@ func _stealth_tick(dt: float) -> void:
 ## breakout's quiet start, only once he SEES you: in front of him and near enough, or right on him; then he
 ## arrests you and the alert is on). Once he's seen you he stays on you.
 func _board_aware(e: Dictionary, dist: float) -> bool:
+	if str(board.get("phase", "")) == "calm" and not e.get("alerted", false): return false   # v13.165: station security on its rounds, you're a guest
 	if stealth != "":   # v13.144 (owner, Metal Gear): on a friendly ship the guards leave you be until it goes to ALERT
 		if stealth == "alert": return true
 		if stealth == "caution" and _guard_sees(e, dist):
@@ -3174,8 +3184,105 @@ func board_wall_hit(from: Vector3, to: Vector3) -> Array:
 		bn = -(to - from).normalized()
 	return [best, bn]
 
+# ---------------------------------------------------------------- v13.165 (owner: "one world, two rules", A Link to the
+# Past): a station's deck is built once. CALM: you walk it as a guest; its services are signs you walk up to (each
+# opens that page of the station: the bar, the shops, the mission board); security walks its rounds and leaves you be.
+# Hit one of them or the crew and the SAME deck flips to the alarm: the crew run for cover, the hangar seals, the guards
+# come, red lights, the services shut. Nothing new is loaded.
+const STATION_SPOTS := [["lounge", "BAR"], ["missions", "MISSION BOARD"], ["equipment", "EQUIPMENT"], ["ships", "SHIP DEALER"], ["repair", "MEDICAL BAY"], ["command", "COMMAND"], ["supplies", "SUPPLIES"], ["mechs", "MECH DEALER"]]
+const SPOT_R := 34.0
+var station_spots: Array = []   # {screen, label, pos, node}
+func _station_spots(root: Node3D) -> void:
+	station_spots = []
+	var rooms: Array = []
+	for k in Boarding.ROOMS:
+		var R: Dictionary = Boarding.ROOMS[k]
+		if str(R.get("label", "")) == "CORRIDOR" or bool(R.get("hex", false)) or bool(R.get("conn", false)) or bool(R.get("flow", false)) or R.has("lift") or "lift" in str(k).to_lower(): continue
+		var r: Array = R["r"]
+		if Boarding.room_at(Boarding.START_AT, 4.0) == str(k) or float(r[1]) > Boarding.EXIT_X - 60.0: continue   # (not where you come in, not the hangar)
+		if str(k) == "secure": continue   # (security's own office)
+		rooms.append([str(k), absf((float(r[1]) - float(r[0])) * (float(r[3]) - float(r[2])))])
+	rooms.sort_custom(func(a, b): return float(a[1]) > float(b[1]))
+	var used := {}
+	var si := 0
+	for sp in STATION_SPOTS:
+		if rooms.is_empty(): break
+		var rk: String = rooms[si % rooms.size()][0]
+		si += 1
+		var R2: Dictionary = Boarding.ROOMS[rk]
+		var r2: Array = R2["r"]
+		var n_here := int(used.get(rk, 0))
+		used[rk] = n_here + 1
+		var sx := lerpf(float(r2[0]), float(r2[1]), 0.3 + 0.4 * float(n_here % 2))
+		var fz := lerpf(float(r2[2]), float(r2[3]), 0.22 if n_here < 2 else 0.78)
+		var q := Boarding.keep_in(Vector3(sx, 0, fz), 24.0)
+		var at := Vector3(q.x, Boarding.floor_at(q), q.z)
+		var node := Node3D.new()
+		node.name = "Spot_%s" % str(sp[0])
+		root.add_child(node)
+		node.global_position = at
+		var ring := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.top_radius = SPOT_R * 0.6
+		cm.bottom_radius = SPOT_R * 0.6
+		cm.height = 0.6
+		ring.mesh = cm
+		ring.material_override = _glow_mat(Color(0.3, 1.0, 0.55))
+		ring.position = Vector3(0, 0.4, 0)
+		node.add_child(ring)
+		var lb := Label3D.new()
+		lb.text = str(sp[1])
+		lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		lb.font_size = 96
+		lb.pixel_size = 0.09
+		lb.outline_size = 18
+		lb.modulate = Color(0.55, 1.0, 0.7)
+		lb.position = Vector3(0, 26, 0)
+		node.add_child(lb)
+		station_spots.append({"screen": str(sp[0]), "label": str(sp[1]), "pos": at, "node": node, "ring": ring, "sign": lb})
+
+## the service sign you're standing at ({} = none, or the station isn't calm)
+func spot_near() -> Dictionary:
+	if not boarding or str(board.get("phase", "")) != "calm" or not is_instance_valid(player): return {}
+	for sp in station_spots:
+		var d := Vector2(player.global_position.x - (sp["pos"] as Vector3).x, player.global_position.z - (sp["pos"] as Vector3).z).length()
+		if d < SPOT_R: return sp
+	return {}
+
+## The flip (calm -> alarm), on the same deck: the nearest guard calls it (arrest: the hangar seals, red lights, every
+## guard after you), the services close.
+var station_alarms := 0   # (checks)
+func station_alarm(e: Dictionary) -> void:
+	if str(board.get("phase", "")) != "calm": return
+	board["phase"] = "sneak"
+	station_alarms += 1
+	var g := e
+	if g.is_empty() or not g.get("soldier", false):
+		var bd := INF
+		for o in enemies:
+			if not bool(o.get("soldier", false)) or not is_instance_valid(o.get("node")): continue
+			var d := (o["node"] as Node3D).global_position.distance_to(player.global_position)
+			if d < bd:
+				bd = d
+				g = o
+	for sp in station_spots:   # the services shut
+		if is_instance_valid(sp["sign"]):
+			(sp["sign"] as Label3D).text = "CLOSED"
+			(sp["sign"] as Label3D).modulate = Color(1.0, 0.35, 0.3)
+		if is_instance_valid(sp["ring"]): (sp["ring"] as MeshInstance3D).material_override = _glow_mat(Color(1.0, 0.25, 0.2))
+	if not g.is_empty(): _arrest(g)
+	else:
+		board["phase"] = "escape"
+		board["escape"] = INF
+		board["alerted"] = true
+		Sfx.play("alarm", -4.0)
+		message.emit("ALERT! Get to your ship!")
+
 ## v12.48: someone screamed in room k (a crew member shot): in the quiet start, that room's guards come for you
 func board_scream(k: String) -> void:
+	if str(board.get("phase", "")) == "calm":   # v13.165: a crew member shot on a calm deck: the alarm
+		station_alarm({})
+		return
 	if str(board.get("phase", "")) != "sneak": return
 	for e in enemies:
 		if bool(e.get("soldier", false)) and Boarding.room_at((e["node"] as Node3D).global_position, 8.0) == k:
@@ -3220,6 +3327,8 @@ func board_line() -> String:
 				if board.has("console"): return "ALERT  ·  %s  ·  HANGAR SEALED: get to the console in the SECURITY OFFICE" % where
 				return "ALERT  ·  %s  ·  the hangar is open: get to YOUR SHIP" % where
 			return "ESCAPE: %d s  ·  %s  ·  up the belly, round to the STARBOARD LAUNCH BAY" % [int(ceil(maxf(0.0, float(board["escape"])))), where]
+		"calm":
+			return "%s  ·  %s  ·  walk up to a sign (BAR, SHOPS, MISSIONS...)  ·  YOUR SHIP is in the HANGAR (east) to leave" % [str(board.get("ship", "")).to_upper(), where]
 		"sneak":
 			return "WANTED  ·  %s  ·  keep out of the guards' sight; find your way to YOUR SHIP in the HANGAR (east)" % where
 			return "ESCAPE: %d s  ·  %s  ·  up the belly, round to the STARBOARD LAUNCH BAY" % [int(ceil(maxf(0.0, float(board["escape"])))), where]
@@ -7504,7 +7613,7 @@ func _update_player(dt: float) -> void:
 	speed_now = vel.length()
 	if controls and warp_state == "off" and transform_t <= 0.0:
 		var want := (fire_held or fire_lock) and not build_mode   # (v12.25: in BUILD, FIRE is PLACE)
-		if GS.is_auto("guns") and _in_fire_cone(target) and not (boarding and str(board.get("phase", "")) == "sneak"): want = true   # v12.47: sneaking, you choose when to shoot
+		if GS.is_auto("guns") and _in_fire_cone(target) and not (boarding and str(board.get("phase", "")) in ["sneak", "calm"]): want = true   # v12.47: sneaking, you choose when to shoot (v13.165: or calm)
 		var cost := Data.ENERGY_PER_GUN * float(GS.core_slots().size() + GS.mount_items().filter(func(x): return Data.WEAPONS.has(x)).size())   # (v1.9e: only fitted guns use gun energy; v1.9u: + the core gun)
 		if want and gun_cd <= 0.0 and GS.energy >= cost:
 			GS.energy -= cost
@@ -9464,6 +9573,7 @@ func _damage_enemy(e: Dictionary, dmg: float, hit := Vector3.INF, sf := -1.0) ->
 		if _stealth_hit(e): pass   # (a sneak attack from behind: nobody knows)
 		else: e["alerted"] = true
 	elif boarding and not e.get("alerted", false):   # (shot: he knows now)
+		if str(board.get("phase", "")) == "calm": station_alarm(e)   # v13.165: you hit their security: the same deck flips to the alarm
 		if str(board.get("phase", "")) == "sneak": _arrest(e)
 		e["alerted"] = true
 	e["sh_cd"] = Data.BOARD_SHIELD_DELAY if e.get("boardable", false) else 4.0   # v11.66 (owner): a battleship's shield takes a while to come back
@@ -11414,7 +11524,7 @@ func _auto_systems(_dt: float) -> void:
 		lock_time += _dt
 	else:
 		lock_time = 0.0
-	var quiet: bool = boarding and str(board.get("phase", "")) == "sneak"   # v12.47: sneaking, nothing fires by itself
+	var quiet: bool = boarding and str(board.get("phase", "")) in ["sneak", "calm"]   # v12.47: sneaking, nothing fires by itself
 	if GS.is_auto("missile") and not quiet and lock_time > 1.5 and lock_count() >= mini(GS.max_locks("light_missile"), GS.missiles) and GS.missiles > 0 and missile_cd <= 0.0:
 		if trigger_system("missile"): missile_cd = 5.0
 	# mines: drop one when a hostile is chasing close behind
@@ -11953,6 +12063,7 @@ func prompt() -> String:
 	var lc: Dictionary = lane_candidate() if lane.is_empty() else {}
 	if not lane.is_empty(): return "lane"
 	if formation_on(): return "form_break"   # v13.164
+	if not spot_near().is_empty(): return "spot"   # v13.165: a station service you walked up to
 	if board_ready: return "board"   # v13.69 (owner): at the boarding ship with its shield down, BOARD comes first
 	if not talk_candidate().is_empty(): return "guard_talk"   # v13.144: a card carrier on a friendly ship
 	if granted_dock_near() != null: return "board"   # v13.144: a friendly fleet ship that let you aboard

@@ -53,7 +53,7 @@ func _ready() -> void:
 	hub.map_requested.connect(func(): navmap.open(null))
 	hub.galaxy_requested.connect(func(): galaxymap.open(GS.system_id))   # v3.1: the GALAXY MAP tile on HOME
 	hub.descend_requested.connect(descend_to)
-	hub.walk_requested.connect(func(id: String): open_station_interior(id, true))   # v13.02: WALK THE STATION (rebuilt stations)
+	hub.walk_requested.connect(_on_walk_requested)   # v13.02: WALK THE STATION (rebuilt stations); v13.165: every other station walks its own deck
 	hub.interior_requested.connect(open_ship_interior)   # v12.97: a fleet ship's DECK PLAN (ShipInterior)
 	navmap.closed.connect(_on_map_closed)
 	navmap.wild_toggle.connect(func(): if is_instance_valid(space) and space.surface_mode: wild_test_here(not space.wild_park))
@@ -784,6 +784,7 @@ func _on_hud(id: String) -> void:
 				if why != "": hud.flash_message(why)
 				else: hud.close_scan()
 		"form_break": space.break_formation()
+		"spot": open_deck_spot()   # v13.165
 		"guard_talk":   # v13.144: a card carrier tells you his code
 			var said: String = space.talk_to_guard()
 			if said != "": hud.flash_message(said)
@@ -1436,16 +1437,16 @@ func start_escape(faction: String) -> void:
 ## inside the real flight / mech game, like boarding: the station's deck plan, its guards, the whole HUD (TARGET, GO TO,
 ## COMMS, radar, wheels, missiles, sword, shield, sidestep, super). You're on foot (the owner's pilot, his rifle);
 ## TRANSFORM is out. Reach the launch bay where your ship waits: you launch with their fleet after you.
-func _escape_in_space(retry := false) -> void:
+func _escape_in_space(retry := false, calm := false) -> void:
 	var sid := GS.system_id
 	escape_from = str(hub.base["name"])
 	var own := str(Factions.owner_of(hub.base, Data.SYSTEMS[sid]))
 	var fac := own if Factions.has(own) else "Savagers"
 	var form: String = str(board_from.get("form", GS.form)) if retry else GS.form
 	state = "boarding"
-	board_from = {"sys": sid, "pos": Vector3.ZERO, "name": escape_from, "faction": fac, "escape": true, "form": form}
-	fx.caption = "WANTED" if not retry else "TRY AGAIN"
-	fx.sub = "GET TO YOUR SHIP IN %s'S HANGAR" % escape_from.to_upper()
+	board_from = {"sys": sid, "pos": Vector3.ZERO, "name": escape_from, "faction": fac, "escape": true, "form": form, "calm": calm}
+	fx.caption = ("WANTED" if not retry else "TRY AGAIN") if not calm else escape_from.to_upper()
+	fx.sub = "GET TO YOUR SHIP IN %s'S HANGAR" % escape_from.to_upper() if not calm else "WELCOME ABOARD"
 	Sfx.play("whoosh", -2.0, 0.7)
 	var tw := create_tween()
 	tw.tween_property(fx, "fade", 1.0, 0.5)
@@ -1473,7 +1474,7 @@ func _escape_in_space(retry := false) -> void:
 		Boarding.INFO["shell_hi"] = fp["hi"]
 	_new_space("Boarding")
 	space.escape_pilot = true
-	space.setup_boarding({"sys": sid, "faction": fac, "name": escape_from, "escape": true})
+	space.setup_boarding({"sys": sid, "faction": fac, "name": escape_from, "escape": true, "calm": calm})
 	_connect_space()
 	var tw2 := create_tween()
 	tw2.tween_property(fx, "fade", 0.0, 0.6)
@@ -1483,6 +1484,42 @@ func _escape_in_space(retry := false) -> void:
 	space.controls = true
 	hud.visible = true
 	state = "flight"
+
+func _on_walk_requested(id: String) -> void:
+	if id != "": open_station_interior(id, true)
+	else: walk_station()
+
+## v13.165 (owner: "one world, two rules"): WALK THE STATION: the station's deck (the same one its alarm runs in), calm.
+func walk_station() -> void:
+	if state != "hub" or hub.lockdown or escape != null: return
+	_escape_in_space(false, true)
+
+## A service sign on the deck: that page of the station over the paused deck; BACK TO DECK returns.
+var deck_overlay := false
+func open_deck_spot() -> void:
+	var sp: Dictionary = space.spot_near()
+	if sp.is_empty() or deck_overlay: return
+	deck_overlay = true
+	space.controls = false
+	space.process_mode = Node.PROCESS_MODE_DISABLED
+	hud.visible = false
+	hub.deck_mode = true
+	hub.visible = true
+	state = "hub"
+	hub.launch_btn.text = "BACK TO DECK"
+	hub.launch_btn.disabled = false
+	hub.show_screen(str(sp["screen"]))
+
+func back_to_deck() -> void:
+	if not deck_overlay: return
+	deck_overlay = false
+	hub.deck_mode = false
+	hub.visible = false
+	hub.launch_btn.text = "LAUNCH"
+	state = "flight"
+	space.process_mode = Node.PROCESS_MODE_INHERIT
+	space.controls = true
+	hud.visible = true
 
 ## The station model the breakout is built in: the docked station's own (one of the owner's Tripo 3D stations), else
 ## its faction's military station, else Unity's.
@@ -1530,6 +1567,9 @@ var escape_chasers := 0
 var breakout_retries := 0   # (tests)
 
 func launch() -> void:
+	if deck_overlay:   # v13.165: on the deck, the hub's button takes you back to it
+		back_to_deck()
+		return
 	if state != "hub": return
 	if hub.lockdown:   # v9.2 (owner): no launching in a lockdown until you reach the hangar
 		hub.status.text = "LOCKED DOWN. Fight your way to the hangar first."
@@ -2323,11 +2363,16 @@ func leave_boarding(won: bool) -> void:
 		Boarding.use_ship()
 		var sid: String = board_from["sys"]
 		var quiet: bool = is_instance_valid(space) and str(space.board.get("phase", "")) == "out" and not bool(space.board.get("alerted", false))
+		var guest: bool = quiet and bool(board_from.get("calm", false))   # v13.165: a calm walk round the station: a normal launch
 		board_from = {}
 		_load_system(sid, "station")
 		space.visible = false
 		space.process_mode = Node.PROCESS_MODE_DISABLED
 		state = "hub"
+		if guest:
+			hub.visible = true
+			launch()
+			return
 		_escape_finish(quiet)
 		return
 	if bool(board_from.get("facility", false)):   # v11.96: back up on the world beside the facility

@@ -534,7 +534,7 @@ var adj := {}                   # room -> the rooms a doorway joins it to
 var groups: Array = []          # chats: {id, members, centre, t, speaker, st} (a member holds only the id: no loops)
 var _gid := 0
 func _add_people(faction: String) -> void:
-	fleet = sp != null and (sp.board as Dictionary).has("fleet")
+	fleet = sp != null and ((sp.board as Dictionary).has("fleet") or bool((sp.board as Dictionary).get("breakout", false)))   # v13.165: a station deck lives the same way (one world, two rules)
 	for d in Boarding.doors():
 		var rs: Array = d["rooms"]
 		for i in 2:
@@ -764,6 +764,7 @@ func _update_people(dt: float) -> void:
 	if fleet:
 		lvl = {"caution": 1, "alert": 2}.get(str(sp.stealth), 0)
 		if alert: lvl = 2
+		if not (sp.board as Dictionary).has("fleet"): lvl = 2 if alert else 0   # (a station: calm, or the alarm)
 		_groups_tick(dt, lvl)
 	for c in civs:
 		var n: Node3D = c["node"]

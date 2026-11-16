@@ -2334,6 +2334,7 @@ func _draw() -> void:
 	if buttons.has("guard_talk"): _prompt_btn(buttons["guard_talk"], "TALK", GREEN, held.has("guard_talk"))   # v13.144
 	if buttons.has("enter"): _prompt_btn(buttons["enter"], "ENTER", GREEN, held.has("enter"))
 	if buttons.has("form_break"): _prompt_btn(buttons["form_break"], "BREAK OFF", CYAN, held.has("form_break"))   # v13.164: out of formation
+	if buttons.has("spot"): _prompt_btn(buttons["spot"], str(space.spot_near().get("label", "ENTER")), GREEN, held.has("spot"))   # v13.165: a station service
 	if buttons.has("lane"): _pill("lane", "LANE" if space.lane.is_empty() else "LEAVE LANE", true, CYAN)
 	if buttons.has("jump"): _pill("jump", "JUMP", true, GOLD)
 	if buttons.has("land"): _pill("land", "LAND", true, GREEN)

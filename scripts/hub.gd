@@ -46,6 +46,7 @@ var asst_hit: Control
 var crew: StationCrew   # v11.14
 var alarm_btn: Button   # v11.18
 var walk_btn: Button    # v13.02
+var deck_mode := false   # v13.165: opened from a sign on the station's deck (LAUNCH reads BACK TO DECK)
 var asst: VideoStreamPlayer   # v3.7 (owner): the station assistant, standing in the HOME room
 var asst_chat: Panel       # v11.4: the comms bar under the call screen
 var comms_panel: Panel     # v11.4 (owner): CONTACTS / chat LOG, on the left like the flight comms
@@ -188,7 +189,7 @@ func _ready() -> void:
 	walk_btn.offset_bottom = TOP_Y + Data.HUB_LAUNCH_SIZE.y + 10 + 46
 	walk_btn.add_theme_font_size_override("font_size", Data.ts(17))
 	walk_btn.visible = false
-	walk_btn.pressed.connect(func(): if rebuilt_id() != "": walk_requested.emit(rebuilt_id()))
+	walk_btn.pressed.connect(func(): walk_requested.emit(rebuilt_id()))   # v13.165: "" = the station's own deck (main)
 	add_child(walk_btn)
 	# v3.1 (owner's concept art): the station's services as a tab bar along the top
 	left = HBoxContainer.new()
@@ -794,7 +795,7 @@ func show_screen(s: String) -> void:
 				sb2.pressed.connect(_menu.bind(str(pg[0])))
 				subtabs.add_child(sb2)
 	subtabs.visible = subtabs.get_child_count() > 0 and not hangar and not panels_hidden
-	if walk_btn != null: walk_btn.visible = s == "hub" and not lockdown and rebuilt_id() != ""
+	if walk_btn != null: walk_btn.visible = s == "hub" and not lockdown and not deck_mode and kind == "station" and Data.STATION_WALK   # v13.165: every station
 	_layout_windows(s)
 	header.reset_size()   # v5.3: the boxes fit the words
 	subheader.reset_size()
