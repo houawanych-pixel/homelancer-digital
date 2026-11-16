@@ -10,7 +10,7 @@ like them"). What the examples do and the old plans didn't:
 Everything mirror-true, sized to each deck's own outline (ellipses), clipped to the hull.
 usage: python3 -I tools/trace/station_swtor.py [model ...]  -> stations/<model>/swtor.json, swtor.jpg"""
 import json, math, os, sys
-import numpy as np, cv2
+import numpy as np, cv2, shapely
 from shapely import affinity
 from shapely.geometry import Point, LineString, Polygon, box
 from shapely.ops import unary_union
@@ -47,6 +47,73 @@ def sector(a0, a1, ax0, ay0, ax1, ay1, n=24, egg=True):
     outer = [(ax1 * math.cos(a), fy(ay1, a)) for a in A]
     inner = [(ax0 * math.cos(a), fy(ay0, a)) for a in reversed(A)]
     return Polygon(outer + inner).buffer(0)
+
+
+FILL_CELL = 7.5 * PX     # owner Nov 16: "still some spaces that we can utilize" - empty deck gets rooms (and a spur hall to reach deep ones)
+
+
+def _grid(g, s):
+    x0, y0, x1, y1 = g.bounds
+    ls = [LineString([(k * s, y0 - s), (k * s, y1 + s)]) for k in range(int(x0 // s) - 1, int(x1 // s) + 2)]
+    ls += [LineString([(x0 - s, k * s), (x1 + s, k * s)]) for k in range(int(y0 // s) - 1, int(y1 // s) + 2)]
+    return shapely.set_precision(unary_union(ls).buffer(WALL / 2, cap_style=2), 0.05)
+
+
+def _mx(g): return affinity.scale(g, -1, 1, origin=(0, 0))
+
+
+def _sp(g): return shapely.set_precision(shapely.make_valid(g), 0.05)
+
+
+def fill_empty(inner, halls, pods, rooms, lifts):
+    """worked on the right half and mirrored, so the deck stays mirror-true"""
+    from shapely.ops import polylabel, nearest_points
+    inner_w = _sp(inner.buffer(-WALL, join_style=2))
+    right = box(0, -1e5, 1e5, 1e5)
+    def free_now():
+        ways = unary_union([g for _, g in halls] + pods)
+        taken = _sp(unary_union([_sp(g) for g in [ways] + [r["poly"] for r in rooms] + [q for _, q in lifts]]).buffer(WALL, join_style=2))
+        free = _sp(inner_w.difference(taken))
+        return ways, _sp(free.buffer(-1.2 * PX, join_style=2).buffer(1.2 * PX, join_style=2))   # (no slivers)
+    for it in range(6):
+        # 1. deep empty space no hall reaches: a spur hall in from the nearest way, right across it
+        ways, free = free_now(); spurs = 0
+        for part in parts(free.intersection(right)):
+            if part.area < 60 * PX * PX: continue
+            core = part.buffer(-WM / 2 - WALL)
+            if core.is_empty: continue
+            core = max(parts(core), key=lambda q: q.area)
+            c = polylabel(core, 1.0)
+            a = nearest_points(ways, c)[0]
+            dx, dy = c.x - a.x, c.y - a.y; dl = math.hypot(dx, dy)
+            if dl < 3 * PX: continue
+            far = c
+            seg = LineString([c, (c.x + dx / dl * 300 * PX, c.y + dy / dl * 300 * PX)]).intersection(core)
+            for q in getattr(seg, "geoms", [seg]):
+                if q.is_empty or q.distance(c) > 0.5 * PX: continue
+                cs = list(q.coords); far = Point(max(cs, key=lambda t: math.hypot(t[0] - a.x, t[1] - a.y)))
+            sp = SW.way((a.x, a.y), (far.x, far.y), WM)
+            if sp.intersects(unary_union([q2 for _, q2 in lifts]).buffer(WALL)): continue
+            sp = _sp(unary_union([sp, _mx(sp)]).intersection(inner_w))
+            for r in rooms: r["poly"] = _sp(r["poly"].difference(sp.buffer(WALL, join_style=2)))
+            halls.append(("spur", sp)); spurs += 1
+        if spurs:
+            keep = []
+            for r in rooms:
+                for q in parts(r["poly"]):
+                    if q.area > 12 * PX * PX and not q.buffer(-1.4 * PX).is_empty: keep.append(dict(r, poly=q))
+            rooms[:] = keep
+        # 2. the empty space next to a way: a grid of rooms
+        ways, free = free_now(); got = 0
+        for c in parts(free.difference(_grid(free, FILL_CELL))):
+            if c.centroid.x < 0: continue
+            if c.area < 14 * PX * PX or c.buffer(-1.6 * PX).is_empty: continue
+            if c.area < 0.55 * c.minimum_rotated_rectangle.area: continue
+            if c.distance(ways) > WALL * 2.5: continue
+            for q in ([c] if c.centroid.x < 0.5 * PX else [c, _mx(c).intersection(free)]):
+                for q2 in parts(q):
+                    if q2.area > 12 * PX * PX: rooms.append({"poly": q2, "kind": "mech" if q2.area >= 50 * PX * PX else "pilot", "zone": "fill"}); got += 1
+        if not got and not spurs: break
 
 
 def layout(ol, role):
@@ -163,6 +230,7 @@ def layout(ol, role):
         for d in (0, 180):   # freight lifts where the cross meets the wing hall
             ln = LineString([(0, 0), (300 * PX * math.cos(math.radians(d)), 0)]).intersection(wing[1].difference(wing[2]))
             if not ln.is_empty: lifts.append(("Freight lift", ln.centroid.buffer(2.3 * PX, 8)))
+    fill_empty(inner, halls, pods, rooms, lifts)
     # keep only what is joined up, and mirror-true
     ways = unary_union([g for _, g in halls] + pods)
     rooms = [r for r in rooms if r["poly"].buffer(WALL * 2).intersects(ways)]
