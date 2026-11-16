@@ -117,6 +117,40 @@ def fill_empty(inner, halls, pods, rooms, lifts):
         if not got and not spurs: break
 
 
+def connect_ways(inner, halls, pods, rooms, lifts):
+    """owner Nov 16: every red way must join the rest - a mech can't reach a walkway that joins nothing.
+    Each loose piece gets a straight link hall to the main network (mirrored); a piece no link can reach is removed."""
+    from shapely.ops import nearest_points
+    inner_w = _sp(inner.buffer(-WALL, join_style=2))
+    for it in range(12):
+        net = _sp(unary_union([_sp(g) for _, g in halls] + [_sp(q) for q in pods]).buffer(0.3 * PX))
+        ps = parts(net)
+        if len(ps) <= 1: return 0
+        main = min(ps, key=lambda q: q.distance(Point(0, 0)))
+        loose = sorted([q for q in ps if q is not main], key=lambda q: q.distance(main))
+        q = loose[0]
+        a, b = nearest_points(main, q)
+        dx, dy = b.x - a.x, b.y - a.y; dl = math.hypot(dx, dy) or 1.0
+        lk = SW.way((a.x - dx / dl * PX, a.y - dy / dl * PX), (b.x + dx / dl * PX, b.y + dy / dl * PX), WM)
+        lk2 = _sp(unary_union([lk, _mx(lk)]).intersection(inner_w))
+        ok = lk2.buffer(0.3 * PX).intersects(main) and \
+            len(parts(_sp(unary_union([main, q, lk2.buffer(0.3 * PX)])))) == 1
+        if ok:
+            for r in rooms: r["poly"] = _sp(r["poly"].difference(lk2.buffer(WALL, join_style=2)))
+            halls.append(("link", lk2))
+        else:   # can't be reached: take it (and its mirror) out
+            cut = _sp(unary_union([q, _mx(q)]).buffer(0.2 * PX))
+            halls[:] = [(n, _sp(g.difference(cut))) for n, g in halls]
+            pods[:] = [_sp(g.difference(cut)) for g in pods]
+            halls[:] = [(n, g) for n, g in halls if not g.is_empty]; pods[:] = [g for g in pods if not g.is_empty]
+    keep = []
+    for r in rooms:
+        for q in parts(r["poly"]):
+            if q.area > 12 * PX * PX and not q.buffer(-1.4 * PX).is_empty: keep.append(dict(r, poly=q))
+    rooms[:] = keep
+    return len(parts(_sp(unary_union([_sp(g) for _, g in halls] + pods).buffer(0.3 * PX))))
+
+
 def layout(ol, role):
     inner = ol.buffer(-1.5 * PX, join_style=2)
     inner = max(parts(inner), key=lambda g: g.area)
@@ -231,7 +265,10 @@ def layout(ol, role):
         for d in (0, 180):   # freight lifts where the cross meets the wing hall
             ln = LineString([(0, 0), (300 * PX * math.cos(math.radians(d)), 0)]).intersection(wing[1].difference(wing[2]))
             if not ln.is_empty: lifts.append(("Freight lift", ln.centroid.buffer(2.3 * PX, 8)))
+    connect_ways(inner, halls, pods, rooms, lifts)
     fill_empty(inner, halls, pods, rooms, lifts)
+    left = connect_ways(inner, halls, pods, rooms, lifts)
+    if left > 1: print('  loose ways left:', left, role, flush=True)
     # keep only what is joined up, and mirror-true
     ways = unary_union([g for _, g in halls] + pods)
     rooms = [r for r in rooms if r["poly"].buffer(WALL * 2).intersects(ways)]
